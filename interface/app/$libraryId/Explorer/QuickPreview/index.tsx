@@ -78,6 +78,21 @@ export const QuickPreview = () => {
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
 	const [newName, setNewName] = useState<string | null>(null);
+	const quickPreviewImagesRef = useRef<HTMLDivElement>(null);
+	const quickPreviewImagesContent = useRef<HTMLDivElement>(null);
+	const [quickPreviewImagesScroll, setQuickPreviewImagesScroll] = useState<boolean>(false);
+
+	useEffect(() => {
+		if (!quickPreviewImagesRef.current || !quickPreviewImagesContent.current) return;
+		if (
+			quickPreviewImagesRef.current.scrollWidth >
+			quickPreviewImagesContent.current.clientWidth
+		) {
+			setQuickPreviewImagesScroll(true);
+		} else {
+			setQuickPreviewImagesScroll(false);
+		}
+	}, []);
 
 	const items = useMemo(
 		() => (open ? [...explorer.selectedItems] : []),
@@ -247,6 +262,11 @@ export const QuickPreview = () => {
 
 	const background = !withoutBackgroundKinds.includes(kind);
 	const icon = iconKinds.includes(kind);
+	const activeItem = () => {
+		if ('name' in item.item) {
+			return item.item.name === Array.from(explorer.selectedItems)[0]?.item.name;
+		}
+	};
 
 	return (
 		<Dialog.Root open={open} onOpenChange={(open) => (getQuickPreviewStore().open = open)}>
@@ -522,6 +542,43 @@ export const QuickPreview = () => {
 										textKinds.includes(kind) && 'select-text'
 									)}
 								/>
+								{/* slider images */}
+								<div
+									ref={quickPreviewImagesRef}
+									className={clsx(
+										'relative mx-auto mb-2 flex w-fit max-w-[700px] items-center justify-center',
+										'rounded-md border border-app-line/10 bg-white/5',
+										quickPreviewImagesScroll
+											? 'quick-preview-images-scroll overflow-x-scroll '
+											: 'overflow-hidden'
+									)}
+								>
+									<div
+										ref={quickPreviewImagesContent}
+										className="flex w-fit gap-2 p-2"
+									>
+										{explorer.items?.map((item, idx) => {
+											return (
+												<div
+													key={idx.toString()}
+													className={clsx(
+														'h-16 w-16',
+														'bg-white/5',
+														'rounded-md',
+														'border',
+														item.item.name ===
+															Array.from(explorer.selectedItems)[0]
+																?.item.name
+															? 'border-2 border-accent'
+															: 'border-1 border-white/5'
+													)}
+												>
+													<FileThumb data={item} />
+												</div>
+											);
+										})}
+									</div>
+								</div>
 							</div>
 
 							{showMetadata && (
