@@ -42,7 +42,6 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProp
 				<FileThumb
 					data={data}
 					frame
-					blackBars
 					extension
 					className={clsx('px-2 py-1', cut && 'opacity-60')}
 				/>
