@@ -15,12 +15,10 @@ export const Component = () => {
 				mini
 				title="Share Additional Telemetry and Usage Data"
 				description="Toggle ON to provide developers with detailed usage and telemetry data to enhance the app. Toggle OFF to send only basic data: your activity status, app version, core version, and platform (e.g., mobile, web, or desktop)."
-				infoUrl="https://www.spacedrive.com/docs/product/resources/privacy"
 			>
 				<Switch
 					checked={fullTelemetry}
 					onClick={() => (telemetryStore.shareFullTelemetry = !fullTelemetry)}
-					className="m-2 ml-4"
 					size="md"
 				/>
 			</Setting>
