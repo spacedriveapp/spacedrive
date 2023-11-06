@@ -25,23 +25,38 @@ export * from './CutCopyItems';
 
 export const Delete = new ConditionalItem({
 	useCondition: () => {
-		const { selectedFilePaths } = useContextMenuContext();
-		if (!isNonEmpty(selectedFilePaths)) return null;
+		const { selectedFilePaths, selectedEphemeralPaths } = useContextMenuContext();
 
-		const locationId = selectedFilePaths[0].location_id;
-		if (locationId === null) return null;
+		if (!isNonEmpty(selectedFilePaths) && !isNonEmpty(selectedEphemeralPaths)) return null;
 
-		return { selectedFilePaths, locationId };
+		return { selectedFilePaths, selectedEphemeralPaths };
 	},
-	Component: ({ selectedFilePaths, locationId }) => {
-		const os = useOperatingSystem();
+	Component: ({ selectedFilePaths, selectedEphemeralPaths }) => {
+		const keybind = useKeybindFactory();
 
 		const rescan = useQuickRescan();
 
-		const dirCount = selectedFilePaths.filter((p) => p.is_dir).length;
-		const fileCount = selectedFilePaths.filter((p) => !p.is_dir).length;
-		const keybind =
-			os === 'macOS' ? `${modifierSymbols.Meta.macOS} ${keySymbols.Backspace?.macOS}` : 'Del';
+		const dirCount =
+			selectedFilePaths.filter((p) => p.is_dir).length +
+			selectedEphemeralPaths.filter((p) => p.is_dir).length;
+		const fileCount =
+			selectedFilePaths.filter((p) => !p.is_dir).length +
+			selectedEphemeralPaths.filter((p) => !p.is_dir).length;
+
+		const indexedArgs =
+			isNonEmpty(selectedFilePaths) && selectedFilePaths[0].location_id
+				? {
+						locationId: selectedFilePaths[0].location_id,
+						rescan,
+						pathIds: selectedFilePaths.map((p) => p.id)
+				  }
+				: undefined;
+
+		const ephemeralArgs = isNonEmpty(selectedEphemeralPaths)
+			? {
+					paths: selectedEphemeralPaths.map((p) => p.path)
+			  }
+			: undefined;
 
 		return (
 			<Menu.Item
@@ -53,9 +68,8 @@ export const Delete = new ConditionalItem({
 					dialogManager.create((dp) => (
 						<DeleteDialog
 							{...dp}
-							rescan={rescan}
-							locationId={locationId}
-							pathIds={selectedFilePaths.map((p) => p.id)}
+							indexedArgs={indexedArgs}
+							ephemeralArgs={ephemeralArgs}
 							dirCount={dirCount}
 							fileCount={fileCount}
 						/>
@@ -68,16 +82,29 @@ export const Delete = new ConditionalItem({
 
 export const CopyAsPath = new ConditionalItem({
 	useCondition: () => {
-		const { selectedFilePaths } = useContextMenuContext();
-		if (!isNonEmpty(selectedFilePaths) || selectedFilePaths.length > 1) return null;
+		const { selectedFilePaths, selectedEphemeralPaths } = useContextMenuContext();
+		if (
+			!isNonEmpty(selectedFilePaths) ||
+			selectedFilePaths.length > 1 ||
+			!isNonEmpty(selectedEphemeralPaths) ||
+			selectedEphemeralPaths.length > 1 ||
+			(selectedFilePaths.length === 1 && selectedEphemeralPaths.length === 1) // should never happen
+		)
+			return null;
 
-		return { selectedFilePaths };
+		return { selectedFilePaths, selectedEphemeralPaths };
 	},
-	Component: ({ selectedFilePaths }) => (
-		<CopyAsPathBase
-			getPath={() => libraryClient.query(['files.getPath', selectedFilePaths[0].id])}
-		/>
-	)
+	Component: ({ selectedFilePaths, selectedEphemeralPaths }) => {
+		if (selectedFilePaths.length === 1) {
+			return (
+				<CopyAsPathBase
+					getPath={() => libraryClient.query(['files.getPath', selectedFilePaths[0].id])}
+				/>
+			);
+		} else if (selectedEphemeralPaths.length === 1) {
+			return <CopyAsPathBase getPath={async () => selectedEphemeralPaths[0].path} />;
+		}
+	}
 });
 
 export const Compress = new ConditionalItem({

@@ -1,8 +1,7 @@
 import { Pencil, Trash } from '@phosphor-icons/react';
-import { Database, Database_Light } from '@sd/assets/icons';
 import { LibraryConfigWrapped } from '@sd/client';
 import { Button, ButtonLink, Card, dialogManager, Tooltip } from '@sd/ui';
-import { useIsDark } from '~/hooks';
+import { Icon } from '~/components';
 
 import DeleteDialog from './DeleteDialog';
 
@@ -12,18 +11,10 @@ interface Props {
 }
 
 export default (props: Props) => {
-	const isDark = useIsDark();
-
 	return (
 		<Card className="items-center">
 			{/* <DotsSixVertical weight="bold" className="mt-[15px] mr-3 opacity-30" /> */}
-			<img
-				className="mr-3"
-				width={30}
-				height={30}
-				src={isDark ? Database : Database_Light}
-				alt="Database icon"
-			/>
+			<Icon name="Database" alt="Database icon" size={30} className="mr-3" />
 			<div className="my-0.5 flex-1">
 				<h3 className="font-semibold">
 					{props.library.config.name}

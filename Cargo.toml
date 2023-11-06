@@ -49,14 +49,14 @@ tauri-specta = { version = "1.0.2" }
 
 swift-rs = { version = "1.0.6" }
 
-tokio = { version = "1.32.0" }
-uuid = { version = "1.4.1", features = ["v4", "serde"] }
+tokio = { version = "1.33.0" }
+uuid = { version = "1.5.0", features = ["v4", "serde"] }
 serde = { version = "1.0" }
 serde_json = { version = "1.0" }
 
 [patch.crates-io]
 # Proper IOS Support
-if-watch = { git = "https://github.com/oscartbeaumont/if-watch.git", rev = "f804ad9b2005e4e760732a708aa95b4bfb376ddf" }
+if-watch = { git = "https://github.com/oscartbeaumont/if-watch.git", rev = "f732786057e57250e863a9ea0b1874e4cc9907c2" }
 
 # Beta features
 specta = { git = "https://github.com/oscartbeaumont/specta", rev = "4bc6e46fc8747cd8d8a07597c1fe13c52aa16a41" }

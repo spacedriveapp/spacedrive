@@ -6,13 +6,12 @@ import {
 	Eraser,
 	FolderOpen,
 	Hash,
-	Icon,
 	Link,
 	Lock,
 	Path,
+	Icon as PhosphorIcon,
 	Snowflake
 } from '@phosphor-icons/react';
-import { Image, Image_Light } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import {
@@ -44,10 +43,10 @@ import {
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, toast, Tooltip, tw } from '@sd/ui';
 import { LibraryIdParamsSchema } from '~/app/route-schemas';
-import { useIsDark, useZodRouteParams } from '~/hooks';
+import { Folder, Icon } from '~/components';
+import { useZodRouteParams } from '~/hooks';
 import { isNonEmpty } from '~/util';
 
-import { Folder } from '../../../../components';
 import { useExplorerContext } from '../Context';
 import AssignTagMenuItems from '../ContextMenu/AssignTagMenuItems';
 import { FileThumb } from '../FilePath/Thumb';
@@ -91,7 +90,6 @@ export const Inspector = forwardRef<HTMLDivElement, Props>(
 	({ showThumbnail = true, style, ...props }, ref) => {
 		const explorer = useExplorerContext();
 
-		const isDark = useIsDark();
 		const pathname = useLocation().pathname;
 
 		const selectedItems = useMemo(() => [...explorer.selectedItems], [explorer.selectedItems]);
@@ -112,7 +110,7 @@ export const Inspector = forwardRef<HTMLDivElement, Props>(
 							{isNonEmpty(selectedItems) ? (
 								<Thumbnails items={selectedItems} />
 							) : (
-								<img src={isDark ? Image : Image_Light} />
+								<Icon name="Image" />
 							)}
 						</div>
 					)}
@@ -228,7 +226,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	});
 
 	const ephemeralLocationMediaData = useBridgeQuery(
-		['files.getEphemeralMediaData', ephemeralPathData != null ? ephemeralPathData.path : ''],
+		['ephemeralFiles.getMediaData', ephemeralPathData != null ? ephemeralPathData.path : ''],
 		{
 			enabled: ephemeralPathData?.kind === ObjectKindEnum.Image && readyToFetch
 		}
@@ -535,7 +533,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 };
 
 interface MetaDataProps {
-	icon?: Icon;
+	icon?: PhosphorIcon;
 	label: string;
 	value: ReactNode;
 	tooltipValue?: ReactNode;

@@ -1,19 +1,16 @@
-import { EjectSimple } from '@phosphor-icons/react';
-import { Laptop } from '@sd/assets/icons';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import {
 	arraysEqual,
 	useBridgeQuery,
-	useDebugState,
 	useFeatureFlag,
 	useLibraryQuery,
 	useOnlineLocations
 } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
-import { Folder, SubtleButton } from '~/components';
+import { Icon, SubtleButton } from '~/components';
 
 import SidebarLink from './Link';
 import LocationsContextMenu from './LocationsContextMenu';
@@ -43,14 +40,7 @@ type TriggeredContextItem =
 			tagId: number;
 	  };
 
-const EjectButton = ({ className }: { className?: string }) => (
-	<Button className={clsx('absolute right-[2px] !p-[5px]', className)} variant="subtle">
-		<EjectSimple weight="bold" size={18} className="h-3 w-3 opacity-70" />
-	</Button>
-);
-
 export const LibrarySection = () => {
-	const debugState = useDebugState();
 	const node = useBridgeQuery(['nodeState']);
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	const tags = useLibraryQuery(['tags.list'], { keepPreviousData: true });
@@ -91,7 +81,7 @@ export const LibrarySection = () => {
 						to={`node/${node.data.id}`}
 						key={node.data.id}
 					>
-						<img src={Laptop} className="mr-1 h-5 w-5" />
+						<Icon name="Laptop" size={20} className="mr-1" />
 						<span className="truncate">{node.data.name}</span>
 					</SidebarLink>
 				)}
@@ -134,7 +124,7 @@ export const LibrarySection = () => {
 								to={`location/${location.id}`}
 							>
 								<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">
-									<Folder size={18} />
+									<Icon name="Folder" size={18} />
 									<div
 										className={clsx(
 											'absolute bottom-0.5 right-0 h-1.5 w-1.5 rounded-full',

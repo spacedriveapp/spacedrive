@@ -13,6 +13,10 @@ export function getItemFilePath(data: ExplorerItem) {
 	return (data.type === 'Object' && data.item.file_paths[0]) || null;
 }
 
+export function getEphemeralPath(data: ExplorerItem) {
+	return data.type === 'NonIndexedPath' ? data.item : null;
+}
+
 export function getIndexedItemFilePath(data: ExplorerItem) {
 	return data.type === 'Path'
 		? data.item

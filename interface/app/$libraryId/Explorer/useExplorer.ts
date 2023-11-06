@@ -21,6 +21,10 @@ export type ExplorerParent =
 			subPath?: FilePath;
 	  }
 	| {
+			type: 'Ephemeral';
+			path: string;
+	  }
+	| {
 			type: 'Tag';
 			tag: Tag;
 	  }
@@ -111,7 +115,7 @@ export function useExplorerSettings<TOrder extends Ordering>({
 
 	useEffect(() => {
 		setStore(proxy(settings));
-	}, [location]);
+	}, [location, settings]);
 
 	useEffect(
 		() =>

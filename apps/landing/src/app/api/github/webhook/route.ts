@@ -25,6 +25,8 @@ export async function POST(req: Request) {
 }
 
 webhook.on('release', ({ payload }) => {
+	if (payload.release.draft) return;
+
 	revalidateTag(getRelease(payload.release.tag_name).path);
 	revalidateTag(getRecentReleases.path);
 	revalidateTag(getLatestRelease.path);

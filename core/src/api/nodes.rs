@@ -20,7 +20,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 			R.mutation(|node, args: ChangeNodeNameArgs| async move {
 				if let Some(name) = &args.name {
-					if name.is_empty() || name.len() > 32 {
+					if name.is_empty() || name.len() > 250 {
 						return Err(rspc::Error::new(
 							ErrorCode::BadRequest,
 							"invalid node name".into(),

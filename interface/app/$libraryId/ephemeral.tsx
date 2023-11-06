@@ -16,6 +16,7 @@ import {
 	getDismissibleNoticeStore,
 	useDismissibleNoticeStore,
 	useIsDark,
+	useKeyDeleteFile,
 	useOperatingSystem,
 	useZodSearchParams
 } from '~/hooks';
@@ -29,6 +30,7 @@ import {
 } from './Explorer/store';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
+import { EmptyNotice } from './Explorer/View';
 import { AddLocationButton } from './settings/library/locations/AddLocationButton';
 import { TOP_BAR_HEIGHT } from './TopBar';
 import { TopBarPortal } from './TopBar/Portal';
@@ -198,13 +200,16 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 		}
 
 		return ret;
-	}, [query.data, settingsSnapshot.layoutMode, settingsSnapshot.showHiddenFiles]);
+	}, [query.data, settingsSnapshot.layoutMode]);
 
 	const explorer = useExplorer({
 		items,
+		parent: path != null ? { type: 'Ephemeral', path } : undefined,
 		settings: explorerSettings,
 		layouts: { media: false }
 	});
+
+	useKeyDeleteFile(explorer.selectedItems, null);
 
 	return (
 		<ExplorerContextProvider explorer={explorer}>
@@ -220,7 +225,15 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 				right={<DefaultTopBarOptions />}
 				noSearch={true}
 			/>
-			<Explorer />
+			<Explorer
+				emptyNotice={
+					<EmptyNotice
+						loading={query.isFetching}
+						icon={<Icon name="FolderNoSpace" size={128} />}
+						message="No files found here"
+					/>
+				}
+			/>
 		</ExplorerContextProvider>
 	);
 });
