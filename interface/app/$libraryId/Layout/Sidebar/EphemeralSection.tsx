@@ -2,7 +2,7 @@ import { EjectSimple } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useMemo, useState } from 'react';
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
-import { Button, tw } from '@sd/ui';
+import { Button, toast, tw } from '@sd/ui';
 import { Icon, IconName } from '~/components';
 import { usePlatform } from '~/util/Platform';
 
@@ -12,8 +12,13 @@ import SeeMore from './SeeMore';
 
 const Name = tw.span`truncate`;
 
+// TODO: This eject button does nothing!
 const EjectButton = ({ className }: { className?: string }) => (
-	<Button className={clsx('absolute right-[2px] !p-[5px]', className)} variant="subtle">
+	<Button
+		className={clsx('absolute right-[2px] !p-[5px]', className)}
+		variant="subtle"
+		onClick={() => toast.info('Eject button coming soon')}
+	>
 		<EjectSimple weight="fill" size={18} className="h-3 w-3 opacity-70" />
 	</Button>
 );

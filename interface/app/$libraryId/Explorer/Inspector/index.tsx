@@ -143,7 +143,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 				<FileThumb
 					key={uniqueId(item)}
 					data={item}
-					loadOriginal={getItemFilePath(item)?.extension !== 'pdf'}
+					loadOriginal={getItemFilePath(item)?.extension !== 'pdf' && thumbs.length === 1}
 					frame
 					blackBars={thumbs.length === 1}
 					blackBarsSize={16}

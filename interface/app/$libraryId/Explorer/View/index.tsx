@@ -2,7 +2,6 @@ import { useDndMonitor } from '@dnd-kit/core';
 import clsx from 'clsx';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useKey, useKeys } from 'rooks';
 import {
 	ExplorerLayout,
 	getIndexedItemFilePath,
@@ -12,7 +11,7 @@ import {
 } from '@sd/client';
 import { dialogManager, ModifierKeys } from '@sd/ui';
 import { Loader } from '~/components';
-import { useKeyCopyCutPaste, useKeyMatcher, useOperatingSystem } from '~/hooks';
+import { useKeyCopyCutPaste, useOperatingSystem, useShortcut } from '~/hooks';
 import { isNonEmpty } from '~/util';
 
 import CreateDialog from '../../settings/library/tags/CreateDialog';
@@ -224,8 +223,6 @@ export default memo(
 
 const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 	const os = useOperatingSystem();
-	const { key: metaKey } = useKeyMatcher('Meta');
-
 	const explorer = useExplorerContext();
 
 	const { doubleClick } = useViewItemDoubleClick();
@@ -254,38 +251,21 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 		[os, explorer.selectedItems]
 	);
 
-	const handleExplorerShortcut = useCallback(
-		(event: KeyboardEvent) => {
-			if (
-				event.key.toUpperCase() !== 'I' ||
-				!event.getModifierState(os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control)
-			)
-				return;
-
-			getExplorerStore().showInspector = !getExplorerStore().showInspector;
-		},
-		[os]
-	);
-
 	useKeyCopyCutPaste();
 
-	useKey(['Enter'], (e) => {
+	useShortcut('openObject', (e) => {
 		e.stopPropagation();
-		if (os === 'windows' && !disabled) doubleClick();
-	});
-
-	useKeys([metaKey, 'KeyO'], (e) => {
-		e.stopPropagation();
-		if (os !== 'windows') doubleClick();
+		e.preventDefault();
+		if (!disabled) doubleClick();
 	});
 
 	useEffect(() => {
-		const handlers = [handleNewTag, handleExplorerShortcut];
+		const handlers = [handleNewTag];
 		const handler = (event: KeyboardEvent) => {
 			if (event.repeat || disabled) return;
 			for (const handler of handlers) handler(event);
 		};
 		document.body.addEventListener('keydown', handler);
 		return () => document.body.removeEventListener('keydown', handler);
-	}, [disabled, handleNewTag, handleExplorerShortcut]);
+	}, [disabled, handleNewTag]);
 };

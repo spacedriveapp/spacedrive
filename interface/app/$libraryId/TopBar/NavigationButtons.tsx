@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Tooltip } from '@sd/ui';
-import { useKeybind, useKeyMatcher, useOperatingSystem, useSearchStore } from '~/hooks';
+import { useKeyMatcher, useOperatingSystem, useSearchStore, useShortcut } from '~/hooks';
 
 import { useExplorerDroppable } from '../Explorer/View/useExplorerDroppable';
 import TopBarButton from './TopBarButton';
@@ -13,7 +13,7 @@ export const NavigationButtons = () => {
 	const { isFocused } = useSearchStore();
 	const idx = history.state.idx as number;
 	const os = useOperatingSystem();
-	const { icon, key } = useKeyMatcher('Meta');
+	const { icon } = useKeyMatcher('Meta');
 
 	const droppableBack = useExplorerDroppable({
 		navigateTo: -1,
@@ -25,11 +25,12 @@ export const NavigationButtons = () => {
 		disabled: isFocused || idx === history.length - 1
 	});
 
-	useKeybind([key, '['], () => {
+	useShortcut('navBackwardHistory', () => {
 		if (idx === 0 || isFocused) return;
 		navigate(-1);
 	});
-	useKeybind([key, ']'], () => {
+
+	useShortcut('navForwardHistory', () => {
 		if (idx === history.length - 1 || isFocused) return;
 		navigate(1);
 	});
