@@ -3,11 +3,11 @@
 set -euo pipefail
 
 # Ensure file exists before sourcing
-touch /root/.cache/environment
+touch /etc/environment
 # Import any environment specific variables
 set -o allexport
 # shellcheck disable=SC1091
-. /root/.cache/environment
+. /etc/environment
 set +o allexport
 
 # Configure cross compiler environment variables
@@ -35,36 +35,41 @@ case "$TARGET" in
     ;;
 esac
 
+FFLAGS="-fasynchronous-unwind-tables -fexceptions -fstack-protector-strong"
+case "$TARGET" in
+  x86_64*)
+    FFLAGS="${FFLAGS} -fcf-protection"
+    ;;
+esac
+
+CFLAGS="-I${PREFIX}/include -pipe -Wall -Werror=format-security"
+LDFLAGS="-L${PREFIX}/lib -pipe"
 case "$TARGET" in
   *linux*)
-    export CFLAGS="-I${PREFIX}/include -pipe -D_FORTIFY_SOURCE=2"
-    export LDFLAGS="-L${PREFIX}/lib -pipe -Wl,-z,relro,-z,now"
+    FFLAGS="-fno-semantic-interposition"
+    CFLAGS="${CFLAGS} -D_FORTIFY_SOURCE=2 -D_GLIBCXX_ASSERTIONS"
+    LDFLAGS="${LDFLAGS} -Wl,-z,relro,-z,now,-z,defs"
 
     case "$TARGET" in
       x86_64*)
-        export CFLAGS="${CFLAGS} -fstack-protector-strong -fstack-clash-protection"
-        export LDFLAGS="${LDFLAGS} -fstack-protector-strong -fstack-clash-protection"
+        FFLAGS="${FFLAGS} -fstack-check -fstack-clash-protection"
         ;;
       aarch64*)
         # https://github.com/ziglang/zig/issues/17430#issuecomment-1752592338
-        export CFLAGS="${CFLAGS} -fno-stack-protector -fno-stack-check"
-        export LDFLAGS="${LDFLAGS} -fno-stack-protector -fno-stack-check"
+        FFLAGS="${FFLAGS} -fno-stack-protector -fno-stack-check"
         ;;
     esac
-
-    export CXXFLAGS="$CFLAGS"
-    export SHARED_FLAGS="-fno-semantic-interposition"
     ;;
   *darwin*)
+    # Apple tools and linker fails to LTO static libraries
     # https://github.com/tpoechtrager/osxcross/issues/366
     export LTO=0
+
     # Ugly workaround for apple linker not finding the macOS SDK's Framework directory
     ln -fs "${MACOS_SDKROOT}/System" '/System'
 
     export SDKROOT="$MACOS_SDKROOT"
 
-    # https://trac.macports.org/ticket/59246
-    LDFLAGS="-fuse-ld=$(command -v "${APPLE_TARGET:?}-ld") -fno-stack-protector -fno-stack-check"
     case "$TARGET" in
       x86_64*)
         export CMAKE_OSX_ARCHITECTURES='x86_64'
@@ -80,19 +85,22 @@ case "$TARGET" in
         ;;
     esac
 
+    FFLAGS="${FFLAGS} -fstack-check"
+
     # https://github.com/tpoechtrager/osxcross/commit/3279f86
-    CFLAGS="-D__ENVIRONMENT_OS_VERSION_MIN_REQUIRED__=$(LC_ALL=C printf '%.2f' "11.0" | tr -d '.')"
-    # https://trac.macports.org/ticket/59246
-    export CFLAGS="-I${PREFIX}/include -pipe -D_FORTIFY_SOURCE=2 -fno-stack-protector -fno-stack-check -mmacos-version-min=${MACOSX_DEPLOYMENT_TARGET} -mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET} ${CFLAGS}"
-    export CXXFLAGS="$CFLAGS"
-    export LDFLAGS="${LDFLAGS} -L${SDKROOT}/usr/lib -L${SDKROOT}/usr/lib/system -F${SDKROOT}/System/Library/Frameworks -L${PREFIX}/lib -pipe"
+    CFLAGS="${CFLAGS} -D__ENVIRONMENT_OS_VERSION_MIN_REQUIRED__=$(LC_ALL=C printf '%.2f' "11.0" | tr -d '.') -mmacos-version-min=${MACOSX_DEPLOYMENT_TARGET} -mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET}"
+    LDFLAGS="-fuse-ld=$(command -v "${APPLE_TARGET:?}-ld") -L${SDKROOT}/usr/lib -L${SDKROOT}/usr/lib/system -F${SDKROOT}/System/Library/Frameworks ${LDFLAGS}"
     ;;
   *windows*)
-    export CFLAGS="-I${PREFIX}/include -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong"
-    export LDFLAGS="-L${PREFIX}/lib -pipe -fstack-protector-strong"
-    export CXXFLAGS="$CFLAGS"
+    # Zig doesn't support stack probing on Windows
+    # https://github.com/ziglang/zig/blob/b3462b7cec9931cd3747f10714954eb8efe00c04/src/target.zig#L326-L329
+    FFLAGS="${FFLAGS} -fno-stack-check"
+    CFLAGS="${CFLAGS} -D_FORTIFY_SOURCE=2 -D_GLIBCXX_ASSERTIONS"
     ;;
 esac
+export CFLAGS="${CFLAGS} ${FFLAGS}"
+export LDFLAGS="${LDFLAGS} ${FFLAGS}"
+export CXXFLAGS="${CFLAGS}"
 
 bak_src() {
   if ! { [ "$#" -eq 1 ] && [ -d "$1" ]; }; then

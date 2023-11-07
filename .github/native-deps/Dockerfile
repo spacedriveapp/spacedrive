@@ -25,7 +25,7 @@ RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selectio
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt `
 	apt-get update && apt-get upgrade && apt-get install -y ca-certificates
 
-# Add LLVM 17 repository
+# Add LLVM 16 repository
 ADD https://apt.llvm.org/llvm-snapshot.gpg.key /etc/apt/trusted.gpg.d/apt.llvm.org.asc
 
 RUN chmod 644 /etc/apt/trusted.gpg.d/apt.llvm.org.asc
@@ -68,7 +68,7 @@ ENV PATH="${CCTOOLS}/bin:${SYSROOT}/bin:$PATH"
 RUN mkdir -p "$OUT" "$CCTOOLS" "${PREFIX}/bin" "${SYSROOT}/bin" "${SYSROOT}/wrapper"
 
 # Utility to download, extract and cache archived files
-ADD --chmod=0750 ./scripts/curl_tar.sh "${SYSROOT}/bin/curl_tar"
+COPY --chmod=0750 ./scripts/curl_tar.sh "${SYSROOT}/bin/curl_tar"
 
 # Download and install zig toolchain
 ARG ZIG_VERSION
@@ -112,22 +112,14 @@ RUN cd "${SYSROOT}/lib/libc/mingw/lib-common" `
 	&& { [ -f 'synchronization.def' ] || ln -s 'api-ms-win-core-synch-l1-2-0.def' 'synchronization.def'; }
 
 # Polyfill macOS sw_vers command
-COPY ./scripts/sw_vers.sh "${SYSROOT}/bin/sw_vers"
+COPY --chmod=0750 ./scripts/sw_vers.sh "${SYSROOT}/bin/sw_vers"
 
 # Create a llvm rc wrapper script with some pre-configurations
 # Do not name this llvm-rc or rc.exe, to avoid cmake weird special behavior for those tool names
-COPY ./scripts/rc.sh "${SYSROOT}/bin/rc"
+COPY --chmod=0750 ./scripts/rc.sh "${SYSROOT}/bin/rc"
 
-# Ensure no one tries to call the native system linker
-RUN ln -s '/usr/bin/false' "${SYSROOT}/bin/ld"
-
-# Add wrapper script for zig compilers, we need to ensure that they are called with the correct arguments
-ADD ./scripts/cc.sh "${SYSROOT}/bin/cc"
-RUN ln -s 'cc' "${SYSROOT}/bin/c++"
-RUN chmod +x "${SYSROOT}/bin/cc" "${SYSROOT}/bin/c++"
-
-# Script wrappers for some common build tools, auto choosen between llvm, zig or apple specific tools
-COPY ./scripts/tool-wrapper.sh "${SYSROOT}/bin/tool-wrapper.sh"
+# Script wrapper for some common build tools, auto choose between llvm, zig or apple specific tools
+COPY --chmod=0750 ./scripts/tool-wrapper.sh "${SYSROOT}/bin/tool-wrapper.sh"
 RUN ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/ar" `
 	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/nm" `
 	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/lib" `
@@ -145,33 +137,30 @@ RUN ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/ar" `
 	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/bitcode-strip" `
 	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/install_name_tool"
 
-# Create a cmake wrapper script with some pre-configurations
-COPY ./scripts/cmake.sh "${SYSROOT}/wrapper/cmake"
+#--
 
-# Create a meson wrapper script with some pre-configurations
-COPY ./scripts/meson.sh "${SYSROOT}/wrapper/meson"
-
-# Export which target we are building for
-ARG TARGET
-ENV TARGET="${TARGET:?}"
+FROM build-base AS base-layer
 
 # Configure macOS SDK for darwin targets
 ARG MACOS_SDK_VERSION
 ENV MACOS_SDK_VERSION="${MACOS_SDK_VERSION:?}"
 ENV MACOS_SDKROOT="/opt/MacOSX${MACOS_SDK_VERSION}.sdk"
-RUN --mount=type=cache,target=/root/.cache `
-	--mount=type=bind,source=stages/00-apple/00-sdk.sh,target=/srv/00-sdk.sh `
-	/srv/00-sdk.sh
 
-# Create cmake and meson toolchain files
-RUN --mount=type=bind,rw,source=scripts/toolchain.sh,target=/srv/toolchain.sh /srv/toolchain.sh
+# Export which target we are building for
+ARG TARGET
+ENV TARGET="${TARGET:?}"
 
-# Wrapper script that defines autotools and configure flags
-COPY ./scripts/build.sh /srv/build.sh
+# Cache bust
+RUN echo "Building: ${TARGET}$(case "$TARGET" in *darwin*) echo " (macOS SDK: ${MACOS_SDK_VERSION})" ;; esac)"
 
 #--
 
-FROM build-base AS layer-00-apple
+FROM base-layer AS layer-00
+
+# Apple specific SDK and tools
+RUN --mount=type=cache,target=/root/.cache `
+	--mount=type=bind,source=stages/00-apple/00-sdk.sh,target=/srv/00-sdk.sh `
+	/srv/00-sdk.sh
 
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt --mount=type=cache,target=/root/.cache `
 	--mount=type=bind,source=stages/00-apple/01-xar.sh,target=/srv/01-xar.sh `
@@ -185,9 +174,27 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
 	--mount=type=bind,source=stages/00-apple/03-cctools.sh,target=/srv/03-cctools.sh `
 	/srv/03-cctools.sh
 
-FROM build-base AS layer-00
+# Ensure no one tries to call the native system linker
+RUN ln -s '/usr/bin/false' "${SYSROOT}/bin/ld"
 
-COPY --from=layer-00-apple "${CCTOOLS}/." $CCTOOLS
+# Add wrapper script for zig compilers, we need to ensure that they are called with the correct arguments
+COPY --chmod=0750 ./scripts/cc.sh "${SYSROOT}/bin/cc"
+RUN ln -s 'cc' "${SYSROOT}/bin/c++"
+RUN chmod +x "${SYSROOT}/bin/cc" "${SYSROOT}/bin/c++"
+
+# Create cmake and meson toolchain files
+RUN --mount=type=bind,rw,source=scripts/toolchain.sh,target=/srv/toolchain.sh /srv/toolchain.sh
+
+# Create a cmake wrapper script with some pre-configurations
+COPY --chmod=0750 ./scripts/cmake.sh "${SYSROOT}/wrapper/cmake"
+
+# Create a meson wrapper script with some pre-configurations
+COPY --chmod=0750 ./scripts/meson.sh "${SYSROOT}/wrapper/meson"
+
+# Wrapper script that configure autotools and build flags
+COPY --chmod=0750 ./scripts/build.sh /srv/build.sh
+
+#--
 
 FROM layer-00 AS layer-10-sse2neon
 
@@ -202,7 +209,7 @@ RUN --mount=type=cache,target=/root/.cache `
 
 FROM layer-00 AS layer-10
 
-COPY --from=layer-10-sse2neon "${PREFIX}/." $PREFIX
+COPY --from=layer-10-sse2neon "${PREFIX}/." "$PREFIX"
 COPY --from=layer-10-compiler-rt "/usr/lib/llvm-16/lib/clang/16/." '/usr/lib/llvm-16/lib/clang/16'
 
 #--
@@ -233,10 +240,10 @@ RUN --mount=type=cache,target=/root/.cache `
 
 FROM layer-10 AS layer-20
 
-COPY --from=layer-20-brotli "${PREFIX}/." $PREFIX
-COPY --from=layer-20-bzip2 "${PREFIX}/." $PREFIX
-COPY --from=layer-20-lzo "${PREFIX}/." $PREFIX
-COPY --from=layer-20-zlib "${PREFIX}/." $PREFIX
+COPY --from=layer-20-brotli "${PREFIX}/." "$PREFIX"
+COPY --from=layer-20-bzip2 "${PREFIX}/." "$PREFIX"
+COPY --from=layer-20-lzo "${PREFIX}/." "$PREFIX"
+COPY --from=layer-20-zlib "${PREFIX}/." "$PREFIX"
 
 #--
 
@@ -244,7 +251,7 @@ FROM layer-20 AS layer-25-lcms
 
 RUN --mount=type=cache,target=/root/.cache `
 	--mount=type=bind,source=stages/25-lcms.sh,target=/srv/stage.sh `
-	--mount=type=bind,source=patches/25-lcms,target=${PREFIX}/patches `
+	--mount=type=bind,source=patches/25-lcms,target="${PREFIX}/patches" `
 	/srv/build.sh
 
 FROM layer-20 AS layer-25-lzma
@@ -261,9 +268,9 @@ RUN --mount=type=cache,target=/root/.cache `
 
 FROM layer-20 AS layer-25
 
-COPY --from=layer-25-lcms "${PREFIX}/." $PREFIX
-COPY --from=layer-25-lzma "${PREFIX}/." $PREFIX
-COPY --from=layer-25-ogg "${PREFIX}/." $PREFIX
+COPY --from=layer-25-lcms "${PREFIX}/." "$PREFIX"
+COPY --from=layer-25-lzma "${PREFIX}/." "$PREFIX"
+COPY --from=layer-25-ogg "${PREFIX}/." "$PREFIX"
 
 #--
 
@@ -277,7 +284,7 @@ FROM layer-25 AS layer-45-de265
 
 RUN --mount=type=cache,target=/root/.cache `
 	--mount=type=bind,source=stages/45-de265.sh,target=/srv/stage.sh `
-	--mount=type=bind,source=patches/45-de265,target=${PREFIX}/patches `
+	--mount=type=bind,source=patches/45-de265,target="${PREFIX}/patches" `
 	/srv/build.sh
 
 FROM layer-25 AS layer-45-opencl
@@ -304,11 +311,11 @@ RUN --mount=type=cache,target=/root/.cache `
 
 FROM layer-25 AS layer-45
 
-COPY --from=layer-45-dav1d "${PREFIX}/." $PREFIX
-COPY --from=layer-45-de265 "${PREFIX}/." $PREFIX
-COPY --from=layer-45-opencl "${PREFIX}/." $PREFIX
-COPY --from=layer-45-sharpyuv "${PREFIX}/." $PREFIX
-COPY --from=layer-45-vorbis "${PREFIX}/." $PREFIX
+COPY --from=layer-45-dav1d "${PREFIX}/." "$PREFIX"
+COPY --from=layer-45-de265 "${PREFIX}/." "$PREFIX"
+COPY --from=layer-45-opencl "${PREFIX}/." "$PREFIX"
+COPY --from=layer-45-sharpyuv "${PREFIX}/." "$PREFIX"
+COPY --from=layer-45-vorbis "${PREFIX}/." "$PREFIX"
 
 #--
 
@@ -346,7 +353,7 @@ FROM layer-45 AS layer-50-soxr
 
 RUN --mount=type=cache,target=/root/.cache `
 	--mount=type=bind,source=stages/50-soxr.sh,target=/srv/stage.sh `
-	--mount=type=bind,source=patches/50-soxr,target=${PREFIX}/patches `
+	--mount=type=bind,source=patches/50-soxr,target="${PREFIX}/patches" `
 	/srv/build.sh
 
 FROM layer-45 AS layer-50-svt-av1
@@ -402,19 +409,19 @@ RUN --mount=type=cache,target=/root/.cache `
 
 FROM layer-45 AS layer-50
 
-COPY --from=layer-50-amf "${PREFIX}/." $PREFIX
-COPY --from=layer-50-nvenc "${PREFIX}/." $PREFIX
-COPY --from=layer-50-lame "${PREFIX}/." $PREFIX
-COPY --from=layer-50-onevpl "${PREFIX}/." $PREFIX
-COPY --from=layer-50-opus "${PREFIX}/." $PREFIX
-COPY --from=layer-50-soxr "${PREFIX}/." $PREFIX
-COPY --from=layer-50-svt-av1 "${PREFIX}/." $PREFIX
-COPY --from=layer-50-theora "${PREFIX}/." $PREFIX
-COPY --from=layer-50-vpx "${PREFIX}/." $PREFIX
-COPY --from=layer-50-vulkan "${PREFIX}/." $PREFIX
-COPY --from=layer-50-x264 "${PREFIX}/." $PREFIX
-COPY --from=layer-50-x265 "${PREFIX}/." $PREFIX
-COPY --from=layer-50-zimg "${PREFIX}/." $PREFIX
+COPY --from=layer-50-amf "${PREFIX}/." "$PREFIX"
+COPY --from=layer-50-nvenc "${PREFIX}/." "$PREFIX"
+COPY --from=layer-50-lame "${PREFIX}/." "$PREFIX"
+COPY --from=layer-50-onevpl "${PREFIX}/." "$PREFIX"
+COPY --from=layer-50-opus "${PREFIX}/." "$PREFIX"
+COPY --from=layer-50-soxr "${PREFIX}/." "$PREFIX"
+COPY --from=layer-50-svt-av1 "${PREFIX}/." "$PREFIX"
+COPY --from=layer-50-theora "${PREFIX}/." "$PREFIX"
+COPY --from=layer-50-vpx "${PREFIX}/." "$PREFIX"
+COPY --from=layer-50-vulkan "${PREFIX}/." "$PREFIX"
+COPY --from=layer-50-x264 "${PREFIX}/." "$PREFIX"
+COPY --from=layer-50-x265 "${PREFIX}/." "$PREFIX"
+COPY --from=layer-50-zimg "${PREFIX}/." "$PREFIX"
 
 #--
 
@@ -489,6 +496,8 @@ RUN find "$OUT/lib" -name '*.lib' -exec `
 RUN --mount=type=cache,target=/root/.cache `
 	--mount=type=bind,source=scripts/create-framework.sh,target=/srv/stage.sh `
 	/srv/build.sh
+
+#--
 
 FROM scratch
 

@@ -25,20 +25,24 @@ case "${TARGET:?TARGET envvar is required to be defined}" in
     ;;
 esac
 
-_is_cpp=0
+is_cpp=0
 case "$(basename "$0")" in
   cc)
     # Use clang instead of zig for macOS targets
     case "$TARGET" in
-      *darwin*) CMD='clang-16' ;;
+      *darwin*)
+        CMD='clang-16'
+        ;;
       *) CMD='zig cc' ;;
     esac
     ;;
   c++)
-    _is_cpp=1
+    is_cpp=1
     # Use clang instead of zig for macOS targets
     case "$TARGET" in
-      *darwin*) CMD='clang++-16' ;;
+      *darwin*)
+        CMD='clang++-16'
+        ;;
       *) CMD='zig c++' ;;
     esac
     ;;
@@ -51,7 +55,6 @@ esac
 args_bak=("$@")
 
 lto=''
-help=0
 argv=()
 stdin=0
 stdout=0
@@ -153,8 +156,8 @@ while [ "$#" -gt 0 ]; do
 
   if [ "$1" = '-E' ]; then
     preprocessor=1
-  elif [ "$1" = '--help' ] || [ "$1" = '-v' ] || [ "$1" = '--version' ]; then
-    help=1
+  elif [ "$1" = '--help' ] || [ "$1" = '--version' ]; then
+    exec $CMD "${c_argv[@]}" "$1"
   elif (case "$1" in *.S) exit 0 ;; *) exit 1 ;; esac) then
     assembler_file=1
   elif [ "$1" = '-undefined' ] && [ "${2:-}" == 'dynamic_lookup' ]; then
@@ -190,7 +193,7 @@ while [ "$#" -gt 0 ]; do
         exec zig lld-link -help
         ;;
       *darwin*)
-        exec clang-16 "${c_argv[@]}" -fuse-ld="$(command -v "${APPLE_TARGET:?}-ld")" -Wl,--help
+        exec $CMD "${c_argv[@]}" -Wl,--help
         ;;
     esac
   elif [ "$1" = '-v' ]; then
@@ -199,7 +202,7 @@ while [ "$#" -gt 0 ]; do
         l_args+=(-v)
         ;;
       *)
-        # Force dynamically linked (Linker doesn't support flag, but compiler does, so just redirect it)
+        # Verbose (Linker doesn't support flag, but compiler does, so just redirect it)
         argv+=(-v)
         ;;
     esac
@@ -284,68 +287,66 @@ if [ $should_add_libcharset -eq 1 ]; then
   argv+=('-lcharset')
 fi
 
-if [ "$help" -eq 0 ]; then
-  # Compiler specific flags
-  case "${TARGET:-}" in
-    x86_64*)
-      case "${TARGET:-}" in
-        *darwin*)
-          # macOS 10.15 (Catalina) only supports Macs made with Ivy Bridge or later
-          c_argv+=(-march=ivybridge)
-          ;;
-        *)
-          c_argv+=(-march=x86_64_v2)
-          ;;
-      esac
-      ;;
-    arm64* | aarch64*)
-      case "${TARGET:-}" in
-        *darwin*)
-          c_argv+=(-mcpu=apple-m1)
-          ;;
-        *)
-          # Raspberry Pi 3
-          c_argv+=(-march=cortex_a53)
-          ;;
-      esac
-      ;;
-  esac
+# Compiler specific flags
+case "${TARGET:-}" in
+  x86_64*)
+    case "${TARGET:-}" in
+      *darwin*)
+        # macOS 10.15 (Catalina) only supports Macs made with Ivy Bridge or later
+        c_argv+=(-march=ivybridge)
+        ;;
+      *)
+        c_argv+=(-march=x86_64_v2)
+        ;;
+    esac
+    ;;
+  arm64* | aarch64*)
+    case "${TARGET:-}" in
+      *darwin*)
+        c_argv+=(-mcpu=apple-m1)
+        ;;
+      *)
+        # Raspberry Pi 3
+        c_argv+=(-mcpu=cortex_a53)
+        ;;
+    esac
+    ;;
+esac
 
-  # Like -O2 with extra optimizations to reduce code size
-  c_argv+=(-Os)
+# Like -O2 with extra optimizations to reduce code size
+c_argv+=(-Os)
 
-  # If a SDK is defined resolve its absolute path
-  if [ -z "$sysroot" ] && [ -d "${SDKROOT:-}" ]; then
-    sysroot="$(CDPATH='' cd -- "$SDKROOT" && pwd -P)"
-  fi
+# Resolve sysroot arguments per target
+case "$TARGET" in
+  *darwin*)
+    # If a SDK is defined resolve its absolute path
+    if [ -z "$sysroot" ] && [ -d "${SDKROOT:-}" ]; then
+      sysroot="$(CDPATH='' cd -- "$SDKROOT" && pwd -P)"
+    fi
 
-  # Resolve sysroot arguments per target
-  case "$TARGET" in
-    *darwin*)
-      if [ "$has_iphone" -eq 0 ]; then
-        c_argv+=('-DTARGET_OS_IPHONE=0')
+    if [ "$has_iphone" -eq 0 ]; then
+      c_argv+=('-DTARGET_OS_IPHONE=0')
+    fi
+
+    if [ -n "$sysroot" ]; then
+      c_argv+=(
+        "--sysroot=${sysroot}"
+        '-isysroot' "$sysroot"
+      )
+
+      if [ $is_cpp -eq 1 ]; then
+        c_argv+=('-isystem' "${sysroot}/usr/include/c++/v1")
       fi
 
-      if [ -n "$sysroot" ]; then
-        c_argv+=(
-          "--sysroot=${sysroot}"
-          '-isysroot' "$sysroot"
-        )
-
-        if [ $_is_cpp -eq 1 ]; then
-          c_argv+=('-isystem' "${sysroot}/usr/include/c++/v1")
-        fi
-
-        c_argv+=('-isystem' "${sysroot}/usr/include")
-      fi
-      ;;
-    *)
-      if [ -n "$sysroot" ]; then
-        c_argv+=("--sysroot=${sysroot}" '-isysroot' "$sysroot")
-      fi
-      ;;
-  esac
-fi
+      c_argv+=('-isystem' "${sysroot}/usr/include")
+    fi
+    ;;
+  *)
+    if [ -n "$sysroot" ]; then
+      c_argv+=("--sysroot=${sysroot}" '-isysroot' "$sysroot")
+    fi
+    ;;
+esac
 
 # Add linker args back
 for arg in "${l_args[@]}"; do

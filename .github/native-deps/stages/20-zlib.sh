@@ -30,7 +30,7 @@ echo "Build zlib..."
 cmake \
   -DWITH_OPTIM=On \
   -DZLIB_COMPAT=On \
-  -WITH_NATIVE_INSTRUCTIONS=On \
+  -DWITH_NATIVE_INSTRUCTIONS=On \
   -DWITH_GTEST=Off \
   -DWITH_FUZZERS=Off \
   -DWITH_REDUCED_MEM=Off \

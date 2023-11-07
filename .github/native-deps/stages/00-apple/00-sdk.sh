@@ -8,4 +8,7 @@ case "$TARGET" in
       "https://github.com/joseluisq/macosx-sdks/releases/download/${MACOS_SDK_VERSION:?}/MacOSX${MACOS_SDK_VERSION:?}.sdk.tar.xz" \
       "${MACOS_SDKROOT:?}" 1
     ;;
+  *)
+    mkdir -p "$MACOS_SDKROOT"
+    ;;
 esac

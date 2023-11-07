@@ -12,9 +12,6 @@ cd ffmpeg
 
 echo "Build ffmpeg..."
 
-export CFLAGS="${CFLAGS:-} ${SHARED_FLAGS:-}"
-export CXXFLAGS="${CXXFLAGS:-} ${SHARED_FLAGS:-}"
-
 env_specific_arg=()
 
 if [ "$(uname -m)" = "${TARGET%%-*}" ] && (case "$TARGET" in *linux* | x86_64-windows*) exit 0 ;; *) exit 1 ;; esac) then

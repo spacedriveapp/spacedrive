@@ -30,11 +30,18 @@ After some time (it takes aroung 1~2 hours in Github CI) a directory named `out`
 
 ### Acknowledgments
 
-This build system is losely base on https://github.com/BtbN/FFmpeg-Builds
+This build system is losely base on:
 
-It uses Zig as a C/C++ toolchain for building the Windows and Linux target: https://github.com/ziglang/zig
+- https://github.com/BtbN/FFmpeg-Builds
 
-It uses LLVM/Clang with some modifications from osxcross for building the Darwin(macOS) targets: https://github.com/tpoechtrager/osxcross
+It uses Zig 0.11 as a C/C++ toolchain to build the Windows and Linux targets:
+
+- https://github.com/ziglang/zig
+
+It uses LLVM/Clang 16 with some tweaks from osxcross + Apple's cctools and linker to build the Darwin (macOS) targets:
+
+- https://github.com/tpoechtrager/osxcross
+- https://github.com/tpoechtrager/cctools-port
 
 The pre-packaged macOS SDK comes from: https://github.com/joseluisq/macosx-sdks
 

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 case "$TARGET" in
-  x84_64-darwin*)
+  x86_64-darwin*)
     _target='x86_64-apple-darwin19'
     ;;
   aarch64-darwin*)
@@ -14,7 +14,7 @@ case "$TARGET" in
     ;;
 esac
 
-echo "APPLE_TARGET=$_target" >>"/root/.cache/environment"
+echo "APPLE_TARGET=$_target" >>/etc/environment
 
 apt-get install uuid-dev libedit-dev
 

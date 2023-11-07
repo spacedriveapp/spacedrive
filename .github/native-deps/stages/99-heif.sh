@@ -16,9 +16,6 @@ cd heif/build
 
 echo "Build heif..."
 
-export CFLAGS="${CFLAGS:-} ${SHARED_FLAGS:-}"
-export CXXFLAGS="${CXXFLAGS:-} ${SHARED_FLAGS:-}"
-
 env SHARED=On PREFIX="$OUT" cmake \
   -DWITH_DAV1D=On \
   -DWITH_LIBDE265=On \

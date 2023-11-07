@@ -10,8 +10,10 @@ sed -i "/subdir('tools')/d" dav1d/meson.build
 sed -i "/subdir('tests')/d" dav1d/meson.build
 sed -i "/subdir('examples')/d" dav1d/meson.build
 
+mv dav1d/tools/compat "${TMP:-/tmp}/dav1d-compat"
 # Remove some superfluous files
-rm -rf dav1d/{.github,package,doc,examples,tools,tests}
+rm -rf dav1d/{.github,package,doc,examples,tools/*,tests}
+mv "${TMP:-/tmp}/dav1d-compat" dav1d/tools/compat
 
 # Backup source
 bak_src 'dav1d'
