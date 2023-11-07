@@ -215,7 +215,7 @@ export const QuickPreview = () => {
 											cover={true}
 											childClassName="scale-125"
 										/>
-										<div className="absolute inset-0 bg-black/25 backdrop-blur-3xl" />
+										<div className="absolute inset-0 bg-black/50 backdrop-blur-3xl" />
 									</div>
 								)}
 								<div
