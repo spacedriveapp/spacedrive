@@ -94,8 +94,7 @@ export async function patchTauri(root, nativeDeps, args) {
 	}
 
 	if (osType === 'Darwin') {
-		// ARM64 support was added in macOS 11, but we need at least 11.2 due to our ffmpeg build
-		const macOSArm64MinimumVersion = '11.2'
+		const macOSArm64MinimumVersion = '11.0'
 
 		let macOSMinimumVersion = tauriConfig?.tauri?.bundle?.macOS?.minimumSystemVersion
 
