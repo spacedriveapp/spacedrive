@@ -42,13 +42,14 @@ export const ImageSlider = () => {
 				'item' in item &&
 				'name' in item.item
 			) {
-				const getIndex = explorer.items?.findIndex((i) => {
+				const getIndex = explorer.items?.findIndex((i, idx) => {
 					if ('id' in i.item && 'id' in selectedItem.item) {
 						return i.item.id === selectedItem.item.id;
 					}
 					return false;
 				});
-				setActiveIndex(getIndex ?? 0);
+				if (getIndex === undefined) return false;
+				setActiveIndex(getIndex);
 				return selectedItem.item.name === item.item.name;
 			}
 			return false;
@@ -58,19 +59,43 @@ export const ImageSlider = () => {
 
 	useEffect(() => {
 		if (activeIndex === null) return;
+
+		const container = quickPreviewImagesRef.current;
 		const gridItem = grid.getItem(activeIndex);
+		if (!container || !gridItem) return;
+
+		// Calculate the scroll position required to bring the active item into view
+		const containerWidth = container.clientWidth;
+		const itemLeft = gridItem.rect.left;
+		const itemRight = gridItem.rect.right;
+		const containerScrollLeft = container.scrollLeft;
+
+		if (itemLeft < containerScrollLeft) {
+			// Active item is to the left of the visible area
+			container.scrollTo({
+				left: itemLeft,
+				behavior: 'smooth'
+			});
+		} else if (itemRight > containerScrollLeft + containerWidth) {
+			// Active item is to the right of the visible area
+			container.scrollTo({
+				left: itemRight - containerWidth,
+				behavior: 'smooth'
+			});
+		}
 	}, [activeIndex, grid]);
 
 	return (
 		<div
 			className={clsx(
-				'relative mx-auto mb-2 flex w-full max-w-[700px] flex-row items-center justify-center',
-				'rounded-md bg-white/5 '
+				'relative mx-auto mb-4 flex w-full max-w-[700px] flex-row items-center justify-center',
+				'rounded-md '
 			)}
 		>
 			<div
 				ref={quickPreviewImagesRef}
-				className="quick-preview-images-scroll w-f ull absolute bottom-0 mx-auto flex max-w-[700px] items-center justify-center overflow-y-hidden overflow-x-scroll py-3"
+				className="quick-preview-images-scroll absolute bottom-0 mx-auto flex w-full max-w-[700px] items-center justify-center
+				 overflow-y-hidden overflow-x-scroll rounded-md bg-white/20 p-3 backdrop-blur-md"
 			>
 				<Grid grid={grid}>
 					{(i) => {
