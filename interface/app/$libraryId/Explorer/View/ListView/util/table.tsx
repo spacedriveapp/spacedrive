@@ -47,11 +47,14 @@ export const useTable = () => {
 				cell: (cell) => {
 					const item = cell.row.original;
 					const cut = isCut(item, explorerStore.cutCopyState);
+					const itemData = getExplorerItemData(item);
 
 					return (
 						<div className="relative flex items-center">
 							<FileThumb
 								data={item}
+								frame={itemData.kind !== 'Video'}
+								frameClassName="!border"
 								size={35}
 								className={clsx('mr-2.5', cut && 'opacity-60')}
 							/>
