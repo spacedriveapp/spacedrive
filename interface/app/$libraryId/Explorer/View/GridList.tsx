@@ -83,7 +83,7 @@ const GridListItem = (props: {
 
 	return (
 		<div
-			className="w-full h-full"
+			className="h-full w-full"
 			data-selectable=""
 			data-selectable-index={props.index}
 			data-selectable-id={itemId}
@@ -316,8 +316,7 @@ export default ({ children }: { children: RenderItem }) => {
 					top:
 						itemTop -
 						scrollTop -
-						(newSelectedItem.row === 0 ? grid.padding.top : grid.gap.y / 2),
-					behavior: 'smooth'
+						(newSelectedItem.row === 0 ? grid.padding.top : grid.gap.y / 2)
 				});
 			} else if (itemBottom > scrollBottom - (explorerView.bottom ?? 0)) {
 				explorer.scrollRef.current.scrollBy({
@@ -327,8 +326,7 @@ export default ({ children }: { children: RenderItem }) => {
 						(explorerView.bottom ?? 0) +
 						(newSelectedItem.row === grid.rowCount - 1
 							? grid.padding.bottom
-							: grid.gap.y / 2),
-					behavior: 'smooth'
+							: grid.gap.y / 2)
 				});
 			}
 		}
