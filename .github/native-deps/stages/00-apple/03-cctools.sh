@@ -52,3 +52,5 @@ cd cctools/cctools
 make -j"$(nproc)"
 
 make install
+
+rm -r /srv/cctools

@@ -222,3 +222,12 @@ esac
 make -j"$(nproc)" V=1
 
 make install
+
+case "$TARGET" in
+  *windows*)
+    # Move dll.a to lib
+    find "$OUT/lib" -type f -name '*.dll.a' -exec sh -c \
+      'for dlla in "$@"; do lib="$(dirname "$dlla")/$(basename "$dlla" .dll.a).lib" && if ! [ -f "$lib" ]; then mv "$dlla" "$lib"; fi; done' \
+      sh {} +
+    ;;
+esac

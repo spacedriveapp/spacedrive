@@ -33,3 +33,5 @@ cd xar/xar
 make -j"$(nproc)"
 
 make install
+
+rm -r /srv/xar

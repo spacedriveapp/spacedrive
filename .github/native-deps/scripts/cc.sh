@@ -28,9 +28,9 @@ esac
 is_cpp=0
 case "$(basename "$0")" in
   cc)
-    # Use clang instead of zig for macOS targets
     case "$TARGET" in
       *darwin*)
+        # Use clang instead of zig for darwin targets
         CMD='clang-16'
         ;;
       *) CMD='zig cc' ;;
@@ -38,9 +38,9 @@ case "$(basename "$0")" in
     ;;
   c++)
     is_cpp=1
-    # Use clang instead of zig for macOS targets
     case "$TARGET" in
       *darwin*)
+        # Use clang instead of zig for darwin targets
         CMD='clang++-16'
         ;;
       *) CMD='zig c++' ;;

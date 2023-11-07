@@ -30,4 +30,13 @@ esac
 
 curl_tar "https://github.com/protocolbuffers/protobuf/releases/download/v${_tag}/protoc-${_tag}-${_suffix}.zip" "$OUT" 0
 
+case "$TARGET" in
+  *windows*)
+    chmod 0755 "${OUT}/bin/protoc.exe"
+    ;;
+  *)
+    chmod 0755 "${OUT}/bin/protoc"
+    ;;
+esac
+
 rm "${OUT}/readme.txt"

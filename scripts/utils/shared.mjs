@@ -42,58 +42,26 @@ export async function symlinkSharedLibsMacOS(root, nativeDeps) {
 	// rpath=@executable_path/../Frameworks/Spacedrive.framework
 	const targetFrameworks = path.join(root, 'target', 'Frameworks')
 
-	// External deps
-	const lib = path.join(nativeDeps, 'lib')
-	const include = path.join(nativeDeps, 'include')
-
 	// Framework
 	const framework = path.join(nativeDeps, 'Spacedrive.framework')
-	const headers = path.join(framework, 'Headers')
-	const libraries = path.join(framework, 'Libraries')
 
 	// Link Spacedrive.framework to target folder so sd-server can work ootb
 	await fs.rm(targetFrameworks, { recursive: true }).catch(() => {})
 	await fs.mkdir(targetFrameworks, { recursive: true })
 	await link(framework, path.join(targetFrameworks, 'Spacedrive.framework'))
 
-	// Link files
-	await Promise.all([
-		// Link header files
-		fs.readdir(headers, { recursive: true, withFileTypes: true }).then(files =>
+	// Sign dylibs (Required for them to work on macOS 13+)
+	await fs
+		.readdir(path.join(framework, 'Libraries'), { recursive: true, withFileTypes: true })
+		.then(files =>
 			Promise.all(
 				files
-					.filter(entry => entry.isFile() || entry.isSymbolicLink())
-					.map(entry => {
-						const file = path.join(entry.path, entry.name)
-						return link(file, path.resolve(include, path.relative(headers, file)))
-					})
-			)
-		),
-		// Link dylibs
-		fs.readdir(libraries, { recursive: true, withFileTypes: true }).then(files =>
-			Promise.all(
-				files
-					.filter(
-						entry =>
-							(entry.isFile() || entry.isSymbolicLink()) &&
-							entry.name.endsWith('.dylib')
+					.filter(entry => entry.isFile() && entry.name.endsWith('.dylib'))
+					.map(entry =>
+						exec(`codesign -s "${signId}" -f "${path.join(entry.path, entry.name)}"`)
 					)
-					.map(entry => {
-						const file = path.join(entry.path, entry.name)
-						/** @type {Promise<unknown>[]} */
-						const actions = [
-							link(file, path.resolve(lib, path.relative(libraries, file))),
-						]
-
-						// Sign dylib (Required for it to work on macOS 13+)
-						if (entry.isFile())
-							actions.push(exec(`codesign -s "${signId}" -f "${file}"`))
-
-						return actions.length > 1 ? Promise.all(actions) : actions[0]
-					})
 			)
-		),
-	])
+		)
 }
 
 /**

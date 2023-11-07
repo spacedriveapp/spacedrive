@@ -20,14 +20,16 @@ cd /srv
 # LLVM install path
 export INSTALLPREFIX="$CCTOOLS"
 
-echo "Download libtapi ..."
+echo "Download tapi ..."
 
-mkdir -p "libtapi"
+mkdir -p "tapi"
 
 curl_tar 'https://github.com/tpoechtrager/apple-libtapi/archive/43a0c04bcd1f805f55a128744f24e4eed051e681.tar.gz' \
-  'libtapi' 1
+  'tapi' 1
 
-cd libtapi
+cd tapi
 
 ./build.sh
 ./install.sh
+
+rm -r /srv/tapi

@@ -46,12 +46,8 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
 	llvm-16 `
 	autoconf `
 	clang-16 `
-	libc6-dev `
 	pkg-config `
 	ninja-build `
-	libc++-16-dev `
-	libc-devtools- `
-	libc++abi-16-dev `
 	libarchive-tools
 
 # Configure sysroot and prefix
@@ -111,32 +107,6 @@ ADD --chmod=0750 'https://github.com/FFmpeg/FFmpeg/raw/master/compat/windows/mak
 RUN cd "${SYSROOT}/lib/libc/mingw/lib-common" `
 	&& { [ -f 'synchronization.def' ] || ln -s 'api-ms-win-core-synch-l1-2-0.def' 'synchronization.def'; }
 
-# Polyfill macOS sw_vers command
-COPY --chmod=0750 ./scripts/sw_vers.sh "${SYSROOT}/bin/sw_vers"
-
-# Create a llvm rc wrapper script with some pre-configurations
-# Do not name this llvm-rc or rc.exe, to avoid cmake weird special behavior for those tool names
-COPY --chmod=0750 ./scripts/rc.sh "${SYSROOT}/bin/rc"
-
-# Script wrapper for some common build tools, auto choose between llvm, zig or apple specific tools
-COPY --chmod=0750 ./scripts/tool-wrapper.sh "${SYSROOT}/bin/tool-wrapper.sh"
-RUN ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/ar" `
-	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/nm" `
-	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/lib" `
-	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/lipo" `
-	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/size" `
-	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/otool" `
-	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/strip" `
-	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/ranlib" `
-	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/readelf" `
-	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/libtool" `
-	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/objdump" `
-	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/dlltool" `
-	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/objcopy" `
-	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/strings" `
-	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/bitcode-strip" `
-	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/install_name_tool"
-
 #--
 
 FROM build-base AS base-layer
@@ -153,11 +123,25 @@ ENV TARGET="${TARGET:?}"
 # Cache bust
 RUN echo "Building: ${TARGET}$(case "$TARGET" in *darwin*) echo " (macOS SDK: ${MACOS_SDK_VERSION})" ;; esac)"
 
+# Script wrapper for some common build tools. Auto choose between llvm, zig or apple specific versions
+COPY --chmod=0750 ./scripts/tool-wrapper.sh "${SYSROOT}/bin/tool-wrapper.sh"
+RUN for tool in `
+	ar nm lib lipo size otool strip ranlib readelf libtool objdump dlltool `
+	objcopy strings bitcode-strip install_name_tool; `
+	do ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/${tool}"; done
+
+# Custom llvm rc wrapper script with some pre-configurations
+# Do not name this llvm-rc or rc.exe, to avoid cmake weird special behavior for those tool names
+COPY --chmod=0750 ./scripts/rc.sh "${SYSROOT}/bin/rc"
+
+# Polyfill macOS sw_vers command
+COPY --chmod=0750 ./scripts/sw_vers.sh "${SYSROOT}/bin/sw_vers"
+
 #--
 
 FROM base-layer AS layer-00
 
-# Apple specific SDK and tools
+# Download, build and install Apple specific SDK and tools
 RUN --mount=type=cache,target=/root/.cache `
 	--mount=type=bind,source=stages/00-apple/00-sdk.sh,target=/srv/00-sdk.sh `
 	/srv/00-sdk.sh
@@ -167,8 +151,8 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
 	/srv/01-xar.sh
 
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt --mount=type=cache,target=/root/.cache `
-	--mount=type=bind,source=stages/00-apple/02-libtapi.sh,target=/srv/02-libtapi.sh `
-	/srv/02-libtapi.sh
+	--mount=type=bind,source=stages/00-apple/02-tapi.sh,target=/srv/02-tapi.sh `
+	/srv/02-tapi.sh
 
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt --mount=type=cache,target=/root/.cache `
 	--mount=type=bind,source=stages/00-apple/03-cctools.sh,target=/srv/03-cctools.sh `
@@ -191,7 +175,7 @@ COPY --chmod=0750 ./scripts/cmake.sh "${SYSROOT}/wrapper/cmake"
 # Create a meson wrapper script with some pre-configurations
 COPY --chmod=0750 ./scripts/meson.sh "${SYSROOT}/wrapper/meson"
 
-# Wrapper script that configure autotools and build flags
+# Wrapper script that pre-configure autotools and build flags fro each target
 COPY --chmod=0750 ./scripts/build.sh /srv/build.sh
 
 #--
@@ -467,20 +451,18 @@ COPY --from=layer-99-ffmpeg "${OUT}/." "$OUT"
 COPY --from=layer-99-ffmpeg "${PREFIX}/srv/." "${OUT}/srv"
 COPY --from=layer-99-ffmpeg "${PREFIX}/licenses/." "${OUT}/licenses"
 
+# Remove build only files from output
 RUN rm -rf "${OUT}/share" "${OUT}/lib/pkgconfig" "${OUT}/lib/cmake"
+RUN find "${OUT}"  \( -name '*.def' -o -name '*.dll.a' \) -delete
 
-RUN { cd "${OUT}/bin" || exit 0; } `
-	&& find . -name '*.lib' -exec install -Dt ../lib/ -m a-rwx,u+rw,g+r,o+r {} + `
-	&& find . -not -name '*.dll' -delete `
-	&& find ../lib -name '*.def' -delete
+# Move .lib files to the lib folder (Windows target only)
+RUN find "${OUT}/bin" -name '*.lib' -exec install -Dt ../lib/ -m a-rwx,u+rw,g+r,o+r {} +
 
-RUN find "$OUT" -type d -delete 2>/dev/null || true
+# Symlink .lib to .dll.a (Windows target only)
+RUN find "$OUT/lib" -name '*.lib' -exec `
+	sh -euxc 'for _file in "$@"; do ln -sf "$(basename "$_file")" "$(dirname "$_file")/lib$(basename "$_file" .lib).dll.a"; done' sh {} +
 
-RUN cd "${OUT}/srv" && env XZ_OPT='-T0 -7' bsdtar -cJf ../src.tar.xz *
-
-RUN rm -rf "${OUT}/srv"
-
-# Ensure all .so libs have the correct rpaths
+# Ensure all .so files have the correct rpaths (Linux target only)
 RUN find "$OUT" -type f \( -name '*.so' -o -name '*.so.*' \) -exec patchelf --set-rpath '$ORIGIN' {} \;
 
 # Strip debug symbols and ensure any .so, .dll, .dylib has the execution flag set
@@ -488,14 +470,23 @@ RUN --mount=type=cache,target=/root/.cache `
 	echo 'strip -S "$@" && chmod +x "$@"' >/srv/stage.sh `
 	&& find "$OUT" -type f \( -name '*.so' -o -name '*.so.*' -o -name '*.dll' -o -name '*.dylib' \) -exec /srv/build.sh {} +
 
-# Symlink .lib to .dll.a
-RUN find "$OUT/lib" -name '*.lib' -exec `
-	sh -euxc 'for _file in "$@"; do ln -sf "$(basename "$_file")" "$(dirname "$_file")/lib$(basename "$_file" .lib).dll.a"; done' sh {} +
+# Remove non executable files from bin folder
+RUN find "${OUT}/bin" -type f -not -executable -delete
 
-# Create macOS Frameworks from the built libs
+# Remove empty directories
+RUN find "$OUT" -type d -delete 2>/dev/null || true
+
+# Ensure correct file permissions
+RUN find "${OUT}" -type f -exec chmod u+rw,g+r,g-w,o+r,o-w {} +
+
+# Create macOS Frameworks from the built libs (Darwin target only)
 RUN --mount=type=cache,target=/root/.cache `
 	--mount=type=bind,source=scripts/create-framework.sh,target=/srv/stage.sh `
 	/srv/build.sh
+
+# Compress source code backup of the built libraries
+RUN cd "${OUT}/srv" && env XZ_OPT='-T0 -7' bsdtar -cJf ../src.tar.xz *
+RUN rm -rf "${OUT}/srv"
 
 #--
 

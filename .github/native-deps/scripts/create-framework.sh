@@ -17,7 +17,7 @@ _version=0.1
 _framework="Spacedrive.framework"
 
 # Create basic structure
-mkdir -p "${OUT:?Missing out dir}/${_framework}/Versions/A/Resources/English.lproj"
+mkdir -p "${OUT:?Missing out dir}/${_framework}/Versions/A/Resources"
 
 # Move libs to Framework
 mv "${OUT}/lib" "${OUT}/${_framework}/Versions/A/Libraries"
@@ -48,13 +48,19 @@ done < <(find "${OUT}/${_framework}/Versions/A/Libraries" -type f -name '*.dylib
 mv "${OUT}/include" "${OUT}/${_framework}/Versions/A/Headers"
 
 # Move licenses to Framework
-mv "${OUT}/licenses" "${OUT}/${_framework}/Versions/A/Resources/English.lproj/Documentation"
+mv "${OUT}/licenses" "${OUT}/${_framework}/Versions/A/Resources/Licenses"
 
 # Create required framework symlinks
 ln -s A "${OUT}/${_framework}/Versions/Current"
 ln -s Versions/Current/Headers "${OUT}/${_framework}/Headers"
 ln -s Versions/Current/Resources "${OUT}/${_framework}/Resources"
 ln -s Versions/Current/Libraries "${OUT}/${_framework}/Libraries"
+ln -s Versions/Current/Spacedrive "${OUT}/${_framework}/Spacedrive"
+
+# Symlink framework directories back to our original layout
+ln -s "${_framework}/Headers" "${OUT}/include"
+ln -s "${_framework}/Libraries" "${OUT}/lib"
+ln -s "${_framework}/Resources/Licenses" "${OUT}/licenses"
 
 # Framework Info.plist (based on macOS internal OpenGL.framework Info.plist)
 cat <<EOF >"${OUT}/${_framework}/Versions/Current/Resources/Info.plist"
@@ -63,7 +69,7 @@ cat <<EOF >"${OUT}/${_framework}/Versions/Current/Resources/Info.plist"
 <plist version="1.0">
 <dict>
     <key>CFBundleDevelopmentRegion</key>
-    <string>English</string>
+    <string>en</string>
     <key>CFBundleExecutable</key>
     <string>Spacedrive</string>
     <key>CFBundleGetInfoString</key>
@@ -82,6 +88,27 @@ cat <<EOF >"${OUT}/${_framework}/Versions/Current/Resources/Info.plist"
     <string>????</string>
     <key>CFBundleVersion</key>
     <string>${_version}</string>
+    <key>NSHumanReadableCopyright</key>
+	  <string>Copyright (c) 2021-present Spacedrive Technology Inc.</string>
+</dict>
+</plist>
+EOF
+
+cat <<EOF >"${OUT}/${_framework}/Versions/Current/Resources/version.plist"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>BuildVersion</key>
+        <string>1</string>
+        <key>CFBundleShortVersionString</key>
+        <string>${_version}</string>
+        <key>CFBundleVersion</key>
+        <string>${_version}</string>
+        <key>ProjectName</key>
+        <string>Spacedrive</string>
+        <key>SourceVersion</key>
+        <string>$(date '+%Y%m%d%H%M%S')</string>
 </dict>
 </plist>
 EOF
