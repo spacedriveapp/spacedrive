@@ -79,7 +79,7 @@ export const ImageSlider = () => {
 		} else if (itemRight > containerScrollLeft + containerWidth) {
 			// Active item is to the right of the visible area
 			container.scrollTo({
-				left: itemRight - containerWidth,
+				left: itemRight - containerWidth + 20,
 				behavior: 'smooth'
 			});
 		}
