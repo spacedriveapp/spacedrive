@@ -29,6 +29,7 @@
 		]
 	},
 	"include": [
+		"src/plugins",
 		"next-env.d.ts",
 		"**/*.ts",
 		"**/*.tsx",
