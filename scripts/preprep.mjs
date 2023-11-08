@@ -3,10 +3,11 @@ import * as path from 'node:path'
 import { env, exit, umask } from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+import { extractTo } from 'archive-wasm/src/fs.mjs'
 import * as _mustache from 'mustache'
 
-import { downloadNativeDeps } from './utils/deps.mjs'
-import { getGitBranches } from './utils/git.mjs'
+import { getConst, NATIVE_DEPS_URL, NATIVE_DEPS_ASSETS } from './utils/consts.mjs'
+import { get } from './utils/fetch.mjs'
 import { getMachineId } from './utils/machineId.mjs'
 import { symlinkSharedLibsMacOS, symlinkSharedLibsLinux } from './utils/shared.mjs'
 import { which } from './utils/which.mjs'
@@ -59,11 +60,19 @@ await Promise.all(
 	)
 )
 
-// Accepted git branches for querying for artifacts (current, main, master)
-const branches = await getGitBranches(__root)
-
 try {
-	await downloadNativeDeps(machineId, nativeDeps, branches)
+	console.log('Downloading Native dependencies...')
+
+	const assetName = getConst(NATIVE_DEPS_ASSETS, machineId)
+	if (assetName == null) throw new Error('NO_ASSET')
+
+	const archiveData = await get(`${NATIVE_DEPS_URL}/${assetName}`)
+
+	await extractTo(archiveData, nativeDeps, {
+		chmod: 0o600,
+		recursive: true,
+		overwrite: true,
+	})
 } catch (e) {
 	console.error(`Failed to download native dependencies. ${bugWarn}`)
 	if (__debug) console.error(e)

@@ -1,10 +1,12 @@
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { env, exit, umask, platform } from 'node:process'
+import { setTimeout } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 
 import * as toml from '@iarna/toml'
 
+import { waitLockUnlock } from './utils/flock.mjs'
 import { patchTauri } from './utils/patchTauri.mjs'
 import spawn from './utils/spawn.mjs'
 
@@ -58,6 +60,15 @@ try {
 	switch (args[0]) {
 		case 'dev': {
 			__cleanup.push(...(await patchTauri(__root, nativeDeps, args)))
+
+			switch (process.platform) {
+				case 'linux':
+					void waitLockUnlock(path.join(__root, 'target', 'debug', '.cargo-lock'))
+						.then(() => setTimeout(1000))
+						.then(cleanUp)
+					break
+			}
+
 			break
 		}
 		case 'build': {

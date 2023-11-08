@@ -120,6 +120,9 @@ export async function copyLinuxLibs(root, nativeDeps) {
 
 	return {
 		files,
-		toClean: files.map(file => path.join(tauriSrc, file)),
+		toClean: [
+			...files.map(file => path.join(tauriSrc, file)),
+			...files.map(file => path.join(root, 'target', 'debug', file)),
+		],
 	}
 }

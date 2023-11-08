@@ -1,24 +1,25 @@
-// Suffixes
+export const NATIVE_DEPS_URL =
+	'https://github.com/spacedriveapp/native-deps/releases/latest/download'
 
-export const NATIVE_DEPS_SUFFIX = {
+export const NATIVE_DEPS_ASSETS = {
 	Linux: {
-		x86_64: 'x86_64-linux-gnu',
-		aarch64: 'aarch64-linux-gnu',
+		x86_64: {
+			musl: 'native-deps-x86_64-linux-musl.tar.xz',
+			glibc: 'native-deps-x86_64-linux-gnu.tar.xz',
+		},
+		aarch64: {
+			musl: 'native-deps-aarch64-linux-musl.tar.xz',
+			glibc: 'native-deps-aarch64-linux-gnu.tar.xz',
+		},
 	},
 	Darwin: {
-		x86_64: 'x86_64-darwin-apple',
-		aarch64: 'aarch64-darwin-apple',
+		x86_64: 'native-deps-x86_64-darwin-apple.tar.xz',
+		aarch64: 'native-deps-aarch64-darwin-apple.tar.xz',
 	},
 	Windows_NT: {
-		x86_64: 'x86_64-windows-gnu',
-		aarch64: 'aarch64-windows-gnu',
+		x86_64: 'native-deps-x86_64-windows-gnu.tar.xz ',
+		aarch64: 'native-deps-aarch64-windows-gnu.tar.xz',
 	},
-}
-
-export const NATIVE_DEPS_WORKFLOW = {
-	Linux: 'native-deps.yml',
-	Darwin: 'native-deps.yml',
-	Windows_NT: 'native-deps.yml',
 }
 
 /**
@@ -37,14 +38,4 @@ export function getConst(constants, identifiers) {
 	}
 
 	return typeof constant === 'string' ? constant : null
-}
-
-/**
- * @param {Record<string, unknown>} suffixes
- * @param {string[]} identifiers
- * @returns {RegExp?}
- */
-export function getSuffix(suffixes, identifiers) {
-	const suffix = getConst(suffixes, identifiers)
-	return suffix ? new RegExp(`${suffix}(\\.[^\\.]+)*$`) : null
 }
