@@ -2,6 +2,8 @@ import { exec as execCb } from 'node:child_process'
 import { setTimeout } from 'node:timers/promises'
 import { promisify } from 'node:util'
 
+import { which } from './which.mjs'
+
 const exec = promisify(execCb)
 
 /**
@@ -9,6 +11,8 @@ const exec = promisify(execCb)
  * @returns {Promise<void>}
  */
 export async function waitLockUnlock(file) {
+	if (!(await which('flock'))) throw new Error('flock is not installed')
+
 	let locked = false
 	while (!locked) {
 		try {

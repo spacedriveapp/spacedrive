@@ -62,10 +62,12 @@ try {
 			__cleanup.push(...(await patchTauri(__root, nativeDeps, args)))
 
 			switch (process.platform) {
+				case 'darwin':
 				case 'linux':
-					void waitLockUnlock(path.join(__root, 'target', 'debug', '.cargo-lock'))
-						.then(() => setTimeout(1000))
-						.then(cleanUp)
+					void waitLockUnlock(path.join(__root, 'target', 'debug', '.cargo-lock')).then(
+						() => setTimeout(1000).then(cleanUp),
+						() => {}
+					)
 					break
 			}
 
