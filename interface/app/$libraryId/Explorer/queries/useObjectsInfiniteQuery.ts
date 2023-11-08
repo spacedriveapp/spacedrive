@@ -24,7 +24,7 @@ export function useObjectsInfiniteQuery({
 
 	return useInfiniteQuery({
 		queryKey: ['search.objects', { library_id: library.uuid, arg }] as const,
-		queryFn: ({ pageParam, queryKey: [_, { arg }] }) => {
+		queryFn: async ({ pageParam, queryKey: [_, { arg }] }) => {
 			const cItem: Extract<ExplorerItem, { type: 'Object' }> = pageParam;
 			const { order } = explorerSettings;
 
@@ -59,7 +59,11 @@ export function useObjectsInfiniteQuery({
 
 			arg.orderAndPagination = orderAndPagination;
 
-			return ctx.client.query(['search.objects', arg]);
+			const result = await ctx.client.query(['search.objects', arg]);
+			if (result.status === 'error') {
+				throw result.error;
+			}
+			return result.data;
 		},
 		getNextPageParam: (lastPage) => {
 			if (lastPage.items.length < arg.take) return undefined;

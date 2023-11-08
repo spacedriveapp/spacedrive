@@ -172,4 +172,5 @@ pub struct P2PState {
 
 // TODO: Get this back into `sd-p2p` but keep it private
 #[derive(Debug, Serialize, Type, Hash, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[specta(transparent)]
 pub struct PeerId(#[specta(type = String)] sd_p2p::internal::PeerId);

@@ -1,4 +1,4 @@
-import { wsBatchLink } from '@rspc/client';
+import { wsLink } from '@rspc/client';
 
 globalThis.isDev = import.meta.env.DEV;
 globalThis.rspcLinks = [
@@ -6,7 +6,7 @@ globalThis.rspcLinks = [
 	// loggerLink({
 	// 	enabled: () => getDebugState().rspcLogger
 	// }),
-	wsBatchLink({
+	wsLink({
 		url: (() => {
 			const currentURL = new URL(window.location.href);
 			currentURL.protocol = currentURL.protocol === 'https:' ? 'wss:' : 'ws:';

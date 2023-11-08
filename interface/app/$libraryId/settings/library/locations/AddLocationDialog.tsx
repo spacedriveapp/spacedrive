@@ -130,10 +130,10 @@ export const AddLocationDialog = ({
 	const handleAddError = useCallback(
 		(error: unknown) => {
 			const rspcErrorInfo = extractInfoRSPCError(error);
-			if (!rspcErrorInfo || rspcErrorInfo.code === 500) return false;
+			if (!rspcErrorInfo || rspcErrorInfo.code === 'InternalServerError') return false;
 
 			let { message } = rspcErrorInfo;
-			if (rspcErrorInfo.code == 409 && isRemoteErrorFormMessage(message)) {
+			if (rspcErrorInfo.code == 'Conflict' && isRemoteErrorFormMessage(message)) {
 				/**
 				 * TODO: On NEED_RELINK, we should query the backend for
 				 * the current location indexer_rules_ids, then update the checkboxes

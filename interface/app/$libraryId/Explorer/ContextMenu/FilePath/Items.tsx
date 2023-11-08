@@ -95,7 +95,17 @@ export const CopyAsPath = new ConditionalItem({
 		if (selectedFilePaths.length === 1) {
 			return (
 				<CopyAsPathBase
-					getPath={() => libraryClient.query(['files.getPath', selectedFilePaths[0].id])}
+					getPath={async () => {
+						const result = await libraryClient.query([
+							'files.getPath',
+							selectedFilePaths[0].id
+						]);
+						// TODO: This is bad but it will maintain the previous behavior so it's fine for now
+						if (result.status === 'error') {
+							throw result;
+						}
+						return result.data;
+					}}
 				/>
 			);
 		} else if (selectedEphemeralPaths.length === 1) {

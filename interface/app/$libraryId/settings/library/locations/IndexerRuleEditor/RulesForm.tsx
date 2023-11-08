@@ -116,7 +116,7 @@ const RulesForm = ({ onSubmitted }: Props) => {
 			await createIndexerRules.mutateAsync(formatData);
 		} catch (error) {
 			const rspcErrorInfo = extractInfoRSPCError(error);
-			if (!rspcErrorInfo || rspcErrorInfo.code === 500) return false;
+			if (!rspcErrorInfo || rspcErrorInfo.code === 'InternalServerError') return false;
 
 			const { message } = rspcErrorInfo;
 

@@ -27,7 +27,7 @@ export function usePathsInfiniteQuery({
 
 	return useInfiniteQuery({
 		queryKey: ['search.paths', { library_id: library.uuid, arg }] as const,
-		queryFn: ({ pageParam, queryKey: [_, { arg }] }) => {
+		queryFn: async ({ pageParam, queryKey: [_, { arg }] }) => {
 			const cItem: Extract<ExplorerItem, { type: 'Path' }> = pageParam;
 			const { order } = explorerSettings;
 
@@ -119,7 +119,11 @@ export function usePathsInfiniteQuery({
 
 			arg.orderAndPagination = orderAndPagination;
 
-			return ctx.client.query(['search.paths', arg]);
+			const result = await ctx.client.query(['search.paths', arg]);
+			if (result.status === 'error') {
+				throw result.error;
+			}
+			return result.data;
 		},
 		getNextPageParam: (lastPage) => {
 			if (arg.take === null || arg.take === undefined) return undefined;

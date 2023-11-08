@@ -60,6 +60,7 @@ impl Identity {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Type)]
+#[specta(transparent)]
 pub struct RemoteIdentity(#[specta(type = String)] ed25519_dalek::VerifyingKey);
 
 impl Hash for RemoteIdentity {

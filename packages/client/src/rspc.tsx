@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PropsWithChildren } from 'react';
 import { match, P } from 'ts-pattern';
 
-import { LibraryArgs, Procedures } from './core';
+import { LibraryArgs, Procedures, SdError } from './core';
 import { currentLibraryCache } from './hooks';
 
 type NonLibraryProcedure<T extends keyof Procedures> =
@@ -64,6 +64,8 @@ export const libraryClient = rspc2.dangerouslyHookIntoInternals<LibraryProcedure
 
 const libraryHooks = createReactQueryHooks<LibraryProceduresDef>();
 
+export const useRspcLibraryContext = libraryHooks.useContext;
+
 // TODO: Allow both hooks to use a unified context -> Right now they override each others local state
 export function RspcProvider({
 	queryClient,
@@ -116,10 +118,11 @@ export function useInvalidateQuery() {
 	});
 }
 
-// TODO: Remove/fix this when rspc typesafe errors are working
+// TODO: This is an anti-pattern. Replace it all with the proper typesafe error handling!
 export function extractInfoRSPCError(error: unknown) {
-	// if (!(error instanceof AlphaRSPCError)) return null;
-	// return error;
-
-	throw new Error('TODO');
+	const err = error as any as SdError;
+	if (typeof err === 'object' && 'Rspc' in err) {
+		return err.Rspc;
+	}
+	return null;
 }
