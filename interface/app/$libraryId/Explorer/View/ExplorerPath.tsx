@@ -106,7 +106,8 @@ export const ExplorerPath = memo(() => {
 	const data = useMemo(() => {
 		if (!pathInfo) return;
 		const splitPaths = pathInfo?.replaceAll('/', pathSlashOS).split(pathSlashOS); //replace all '/' with '\' for windows
-		if (!splitPaths) return;
+
+		//if the path is a full path
 		if (fullPathOnClick && queriedFullPath.data) {
 			if (!selectedItem) return;
 			const selectedItemFilePaths =
@@ -118,6 +119,7 @@ export const ExplorerPath = memo(() => {
 					extension: '',
 					name: path
 				}))
+				//remove duplicate path names upon selection + from the result of the full path query
 				.filter(
 					(path) =>
 						path.name !==
@@ -126,6 +128,8 @@ export const ExplorerPath = memo(() => {
 						path.name !== selectedItemFilePaths.name
 				);
 			return updatedData;
+
+			//handling ephemeral and location paths
 		} else {
 			const startIndex = isEphemeralLocation
 				? 1
