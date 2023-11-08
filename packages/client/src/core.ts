@@ -59,7 +59,7 @@ export type CreateFolderArgs = { location_id: number; sub_path: string | null; n
 
 export type CreateLibraryArgs = { name: LibraryName; default_locations: DefaultLocations | null }
 
-export type CursorOrderItem<T> = { order: SortOrder; data: string }
+export type CursorOrderItem<T> = { order: SortOrder; data: T }
 
 export type DefaultLocations = { desktop: boolean; documents: boolean; downloads: boolean; pictures: boolean; music: boolean; videos: boolean }
 
@@ -94,7 +94,7 @@ export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbna
 
 export type ExplorerLayout = "grid" | "list" | "media"
 
-export type ExplorerSettings<TOrder> = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; gridGap: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; mediaViewWithDescendants: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; colVisibility: { [key in string]: boolean } | null; colSizes: { [key in string]: number } | null; order?: FilePathOrder | null; showHiddenFiles?: boolean }
+export type ExplorerSettings<TOrder> = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; gridGap: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; mediaViewWithDescendants: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; colVisibility: { [key in string]: boolean } | null; colSizes: { [key in string]: number } | null; order?: TOrder | null; showHiddenFiles?: boolean }
 
 export type Feedback = { message: string; emoji: number }
 
@@ -212,7 +212,7 @@ export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Faile
 /**
  * Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
  */
-export type LibraryArgs<T> = { library_id: string; arg: EphemeralPathSearchArgs }
+export type LibraryArgs<T> = { library_id: string; arg: T }
 
 /**
  * LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
@@ -260,9 +260,9 @@ export type LocationSettings = { explorer: ExplorerSettings<FilePathOrder> }
  */
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[]; path: string | null }
 
-export type MaybeNot<T> = string | null | { not: string | null }
+export type MaybeNot<T> = T | { not: T }
 
-export type MaybeUndefined<T> = null | string
+export type MaybeUndefined<T> = null | T
 
 /**
  * This can be either naive with no TZ (`YYYY-MM-DD HH-MM-SS`) or UTC (`YYYY-MM-DD HH-MM-SS ±HHMM`),
@@ -321,9 +321,9 @@ export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number |
  */
 export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "Ios" | "Android" | { Other: string }
 
-export type OptionalRange<T> = { from: string | null; to: string | null }
+export type OptionalRange<T> = { from: T | null; to: T | null }
 
-export type OrderAndPagination<TId, TOrder, TCursor> = { orderOnly: FilePathOrder } | { offset: { offset: number; order: FilePathOrder | null } } | { cursor: { id: number; cursor: FilePathCursor } }
+export type OrderAndPagination<TId, TOrder, TCursor> = { orderOnly: TOrder } | { offset: { offset: number; order: TOrder | null } } | { cursor: { id: TId; cursor: TCursor } }
 
 export type Orientation = "Normal" | "CW90" | "CW180" | "CW270" | "MirroredVertical" | "MirroredHorizontal" | "MirroredHorizontalAnd90CW" | "MirroredHorizontalAnd270CW"
 
@@ -374,7 +374,7 @@ name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFe
 
 export type SdError = "Prisma" | { Rspc: Error } | "LocationError" | "NonIndexedLocationError" | "LibraryManagerError" | "JobManagerError" | "IndexerRuleError" | "FileIOError" | "MissingFieldError" | "SdImagesError" | { Infallible: Infallible }
 
-export type SearchData<T> = { cursor: number[] | null; items: ExplorerItem[] }
+export type SearchData<T> = { cursor: number[] | null; items: T[] }
 
 export type SetFavoriteArgs = { id: number; favorite: boolean }
 

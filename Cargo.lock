@@ -7648,8 +7648,7 @@ dependencies = [
 [[package]]
 name = "specta"
 version = "2.0.0-rc.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e14773f94824a7f698ac2457ac90e8042f8b8e6e3d340b9fe9d4c5a3a2492203"
+source = "git+https://github.com/oscartbeaumont/specta?rev=821fd628c34dd7889e14a028f5ac439c61e20d77#821fd628c34dd7889e14a028f5ac439c61e20d77"
 dependencies = [
  "bigdecimal 0.4.2",
  "chrono",
@@ -7668,8 +7667,7 @@ dependencies = [
 [[package]]
 name = "specta-macros"
 version = "2.0.0-rc.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14363e2a9ff7d07fdf6a138a8637ba980da8144b181536ed0f3b445a5f02f949"
+source = "git+https://github.com/oscartbeaumont/specta?rev=821fd628c34dd7889e14a028f5ac439c61e20d77#821fd628c34dd7889e14a028f5ac439c61e20d77"
 dependencies = [
  "Inflector",
  "proc-macro2",

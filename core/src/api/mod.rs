@@ -19,6 +19,8 @@ use uuid::Uuid;
 
 use utils::InvalidateOperationEvent;
 
+use self::utils::InvalidRequests;
+
 #[derive(Debug, Error, Serialize, Type)]
 pub enum SdError {
 	#[error("Internal database error: {0:?}")]
@@ -279,7 +281,7 @@ pub(crate) fn mount() -> Arc<Router> {
 	)
 	.unwrap();
 
-	// InvalidRequests::validate(r.clone()); // This validates all invalidation calls.
+	InvalidRequests::validate(r.clone()); // This validates all invalidation calls.
 
 	r
 }
