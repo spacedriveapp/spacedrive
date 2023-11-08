@@ -54,11 +54,7 @@ packages/scripts/${machineId[0] === 'Windows_NT' ? 'setup.ps1' : 'setup.sh'}
 // Directory where the native deps will be downloaded
 const nativeDeps = path.join(__root, 'apps', '.deps')
 await fs.rm(nativeDeps, { force: true, recursive: true })
-await Promise.all(
-	['bin', 'lib', 'include'].map(dir =>
-		fs.mkdir(path.join(nativeDeps, dir), { mode: 0o750, recursive: true })
-	)
-)
+await fs.mkdir(nativeDeps, { mode: 0o750, recursive: true })
 
 try {
 	console.log('Downloading Native dependencies...')
