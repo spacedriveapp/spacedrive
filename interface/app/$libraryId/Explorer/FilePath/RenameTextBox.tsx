@@ -1,9 +1,8 @@
 import clsx from 'clsx';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import TruncateMarkup from 'react-truncate-markup';
-import { useKey } from 'rooks';
 import { Tooltip } from '@sd/ui';
-import { useOperatingSystem } from '~/hooks';
+import { useOperatingSystem, useShortcut } from '~/hooks';
 
 import { useExplorerViewContext } from '../ViewContext';
 
@@ -76,14 +75,12 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 					blur();
 					break;
 				}
-
 				case 'Escape': {
 					e.stopPropagation();
 					reset();
 					blur();
 					break;
 				}
-
 				case 'z': {
 					if (os === 'macOS' ? e.metaKey : e.ctrlKey) {
 						reset();
@@ -108,9 +105,8 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 			return `...${name.slice(-8)}`;
 		}, [name]);
 
-		useKey(['F2', 'Enter'], (e) => {
+		useShortcut('renameObject', (e) => {
 			e.preventDefault();
-			if (os === 'windows' && e.key === 'Enter') return;
 			if (allowRename) blur();
 			else if (!disabled) setAllowRename(true);
 		});

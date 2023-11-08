@@ -14,7 +14,7 @@ sd-core = { path = "../../../../../core", features = [
 rspc = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
-futures = "0.3.28"
+futures = "0.3.29"
 tracing = { workspace = true }
-futures-channel = "0.3.28"
+futures-channel = "0.3.29"
 futures-locks = "0.7.1"

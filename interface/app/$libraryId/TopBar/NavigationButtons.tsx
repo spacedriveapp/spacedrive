@@ -2,7 +2,7 @@ import { ArrowLeft, ArrowRight } from '@phosphor-icons/react';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Tooltip } from '@sd/ui';
-import { useKeybind, useKeyMatcher, useOperatingSystem, useSearchStore } from '~/hooks';
+import { useKeyMatcher, useOperatingSystem, useSearchStore, useShortcut } from '~/hooks';
 
 import TopBarButton from './TopBarButton';
 
@@ -11,13 +11,13 @@ export const NavigationButtons = () => {
 	const { isFocused } = useSearchStore();
 	const idx = history.state.idx as number;
 	const os = useOperatingSystem();
-	const { icon, key } = useKeyMatcher('Meta');
+	const { icon } = useKeyMatcher('Meta');
 
-	useKeybind([key, '['], () => {
+	useShortcut('navBackwardHistory', () => {
 		if (idx === 0 || isFocused) return;
 		navigate(-1);
 	});
-	useKeybind([key, ']'], () => {
+	useShortcut('navForwardHistory', () => {
 		if (idx === history.length - 1 || isFocused) return;
 		navigate(1);
 	});

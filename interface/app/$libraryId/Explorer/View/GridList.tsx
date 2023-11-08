@@ -10,9 +10,8 @@ import {
 	type ReactNode
 } from 'react';
 import Selecto from 'react-selecto';
-import { useKey } from 'rooks';
 import { type ExplorerItem } from '@sd/client';
-import { useMouseNavigate, useOperatingSystem } from '~/hooks';
+import { useMouseNavigate, useOperatingSystem, useShortcut } from '~/hooks';
 
 import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore } from '../QuickPreview/store';
@@ -244,32 +243,14 @@ export default ({ children }: { children: RenderItem }) => {
 		activeItem.current = null;
 	}, [explorer.selectedItems]);
 
-	useKey(['ArrowUp', 'ArrowDown', 'ArrowRight', 'ArrowLeft', 'Escape'], (e) => {
+	useShortcut('explorerEscape', () => {
 		if (!explorerView.selectable) return;
+		explorer.resetSelectedItems([]);
+		selecto.current?.setSelectedTargets([]);
+	});
 
-		if (e.key === 'Escape') {
-			explorer.resetSelectedItems([]);
-			selecto.current?.setSelectedTargets([]);
-			return;
-		}
-
-		if (e.key === 'ArrowDown' && explorer.selectedItems.size === 0) {
-			const item = grid.getItem(0);
-			if (!item?.data) return;
-
-			const id = uniqueId(item.data);
-
-			const selectedItemDom = document.querySelector(
-				`[data-selectable-id="${realOS === 'windows' ? id.replaceAll('\\', '\\\\') : id}"]`
-			);
-
-			if (selectedItemDom) {
-				explorer.resetSelectedItems([item.data]);
-				selecto.current?.setSelectedTargets([selectedItemDom as HTMLElement]);
-				activeItem.current = item.data;
-			}
-			return;
-		}
+	const keyboardHandler = (e: KeyboardEvent, newIndex: number) => {
+		if (!explorerView.selectable) return;
 
 		if (explorer.selectedItems.size > 0) e.preventDefault();
 
@@ -283,24 +264,9 @@ export default ({ children }: { children: RenderItem }) => {
 		if (!gridItem) return;
 
 		const currentIndex = gridItem.index;
-		let newIndex = currentIndex;
-
-		switch (e.key) {
-			case 'ArrowUp':
-				newIndex -= grid.columnCount;
-				break;
-			case 'ArrowDown':
-				newIndex += grid.columnCount;
-				break;
-			case 'ArrowRight':
-				newIndex += 1;
-				break;
-			case 'ArrowLeft':
-				newIndex -= 1;
-				break;
-		}
-
-		const newSelectedItem = grid.getItem(newIndex);
+		let updatedIndex = currentIndex;
+		updatedIndex = newIndex;
+		const newSelectedItem = grid.getItem(updatedIndex);
 		if (!newSelectedItem?.data) return;
 		if (!explorer.allowMultiSelect) explorer.resetSelectedItems([newSelectedItem.data]);
 		else {
@@ -350,8 +316,7 @@ export default ({ children }: { children: RenderItem }) => {
 					top:
 						itemTop -
 						scrollTop -
-						(newSelectedItem.row === 0 ? grid.padding.top : grid.gap.y / 2),
-					behavior: 'smooth'
+						(newSelectedItem.row === 0 ? grid.padding.top : grid.gap.y / 2)
 				});
 			} else if (itemBottom > scrollBottom - (explorerView.bottom ?? 0)) {
 				explorer.scrollRef.current.scrollBy({
@@ -361,11 +326,80 @@ export default ({ children }: { children: RenderItem }) => {
 						(explorerView.bottom ?? 0) +
 						(newSelectedItem.row === grid.rowCount - 1
 							? grid.padding.bottom
-							: grid.gap.y / 2),
-					behavior: 'smooth'
+							: grid.gap.y / 2)
 				});
 			}
 		}
+	};
+	const getGridItemHandler = (key: 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight') => {
+		const lastItem = activeItem.current;
+		if (!lastItem) return;
+
+		const lastItemIndex = explorer.items?.findIndex((item) => item === lastItem);
+		if (lastItemIndex === undefined || lastItemIndex === -1) return;
+
+		const gridItem = grid.getItem(lastItemIndex);
+		if (!gridItem) return;
+
+		let newIndex = gridItem.index;
+
+		switch (key) {
+			case 'ArrowUp':
+				newIndex -= grid.columnCount;
+				break;
+			case 'ArrowDown':
+				newIndex += grid.columnCount;
+				break;
+			case 'ArrowLeft':
+				newIndex -= 1;
+				break;
+			case 'ArrowRight':
+				newIndex += 1;
+				break;
+		}
+		return newIndex;
+	};
+
+	useShortcut('explorerDown', (e) => {
+		if (!explorerView.selectable) return;
+		if (explorer.selectedItems.size === 0) {
+			const item = grid.getItem(0);
+			if (!item?.data) return;
+
+			const id = uniqueId(item.data);
+
+			const selectedItemDom = document.querySelector(
+				`[data-selectable-id="${realOS === 'windows' ? id.replaceAll('\\', '\\\\') : id}"]`
+			);
+
+			if (selectedItemDom) {
+				explorer.resetSelectedItems([item.data]);
+				selecto.current?.setSelectedTargets([selectedItemDom as HTMLElement]);
+				activeItem.current = item.data;
+			}
+		} else {
+			const newIndex = getGridItemHandler('ArrowDown');
+			if (newIndex === undefined) return;
+			keyboardHandler(e, newIndex);
+		}
+	});
+
+	useShortcut('explorerUp', (e) => {
+		const newIndex = getGridItemHandler('ArrowUp');
+		if (newIndex === undefined) return;
+		keyboardHandler(e, newIndex);
+	});
+
+	useShortcut('explorerLeft', (e) => {
+		const newIndex = getGridItemHandler('ArrowLeft');
+		if (newIndex === undefined) return;
+		keyboardHandler(e, newIndex);
+	});
+
+	useShortcut('explorerRight', (e) => {
+		const newIndex = getGridItemHandler('ArrowRight');
+		if (newIndex === undefined) return;
+		keyboardHandler(e, newIndex);
 	});
 
 	return (

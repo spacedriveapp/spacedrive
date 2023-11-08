@@ -1,5 +1,6 @@
 use std::{
 	collections::{HashMap, HashSet},
+	convert::Infallible,
 	fmt,
 	net::SocketAddr,
 	sync::{
@@ -10,8 +11,7 @@ use std::{
 
 use libp2p::{
 	core::{muxing::StreamMuxerBox, transport::ListenerId, ConnectedPoint},
-	swarm::SwarmBuilder,
-	PeerId, Transport,
+	PeerId, SwarmBuilder, Transport,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -98,15 +98,16 @@ impl Manager {
 			event_stream_tx2,
 		});
 
-		let mut swarm = SwarmBuilder::with_tokio_executor(
-			libp2p_quic::GenTransport::<libp2p_quic::tokio::Provider>::new(
-				libp2p_quic::Config::new(&keypair.inner()),
-			)
-			.map(|(p, c), _| (p, StreamMuxerBox::new(c)))
-			.boxed(),
-			SpaceTime::new(this.clone()),
-			keypair.peer_id(),
-		)
+		let mut swarm = ok(ok(SwarmBuilder::with_existing_identity(keypair.inner())
+			.with_tokio()
+			.with_other_transport(|keypair| {
+				libp2p_quic::GenTransport::<libp2p_quic::tokio::Provider>::new(
+					libp2p_quic::Config::new(keypair),
+				)
+				.map(|(p, c), _| (p, StreamMuxerBox::new(c)))
+				.boxed()
+			}))
+		.with_behaviour(|_| SpaceTime::new(this.clone())))
 		.build();
 
 		ManagerStream::refresh_listeners(
@@ -306,6 +307,8 @@ pub enum ManagerError {
 	InvalidAppName,
 	#[error("error with mdns discovery: {0}")]
 	Mdns(#[from] mdns_sd::Error),
+	// #[error("todo")]
+	// Manager(#[from] ManagerError),
 }
 
 /// The configuration for the P2P Manager
@@ -342,4 +345,11 @@ pub enum ListenerStatus {
 	Enabling,
 	Listening { port: u16 },
 	Error { error: String },
+}
+
+fn ok<T>(v: Result<T, Infallible>) -> T {
+	match v {
+		Ok(v) => v,
+		Err(_) => unreachable!(),
+	}
 }

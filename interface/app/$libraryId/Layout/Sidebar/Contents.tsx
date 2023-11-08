@@ -1,9 +1,8 @@
 import { ArrowsClockwise, Planet } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
-import { useKeys } from 'rooks';
 import { LibraryContextProvider, useClientContext, useFeatureFlag } from '@sd/client';
 import { Tooltip } from '@sd/ui';
-import { useKeysMatcher } from '~/hooks';
+import { useKeysMatcher, useShortcut } from '~/hooks';
 
 import { EphemeralSection } from './EphemeralSection';
 import Icon from './Icon';
@@ -13,9 +12,9 @@ import SidebarLink from './Link';
 export default () => {
 	const { library } = useClientContext();
 	const navigate = useNavigate();
-	const shortcuts = useKeysMatcher(['Meta', 'Shift']);
+	const symbols = useKeysMatcher(['Meta', 'Shift']);
 
-	useKeys([shortcuts.Meta.key, 'Shift', 'KeyO'], (e) => {
+	useShortcut('navToOverview', (e) => {
 		e.stopPropagation();
 		navigate('overview');
 	});
@@ -26,7 +25,7 @@ export default () => {
 				<Tooltip
 					position="right"
 					label="Overview"
-					keybinds={[shortcuts.Shift.icon, shortcuts.Meta.icon, 'O']}
+					keybinds={[symbols.Shift.icon, symbols.Meta.icon, 'O']}
 				>
 					<SidebarLink to="overview">
 						<Icon component={Planet} />
