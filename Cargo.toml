@@ -62,6 +62,6 @@ if-watch = { git = "https://github.com/oscartbeaumont/if-watch.git", rev = "f732
 
 # Await release
 specta = { git = "https://github.com/oscartbeaumont/specta", rev = "821fd628c34dd7889e14a028f5ac439c61e20d77" }
-rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "f5e0a86da44ac291403ba3bf9f8d2e8e7a89dff3" }
-rspc-tauri = { git = "https://github.com/oscartbeaumont/rspc", rev = "f5e0a86da44ac291403ba3bf9f8d2e8e7a89dff3" }
-rspc-httpz = { git = "https://github.com/oscartbeaumont/rspc", rev = "f5e0a86da44ac291403ba3bf9f8d2e8e7a89dff3" }
+rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "fb7f2697885f4ea3189b7622fbf534be020e4f4f" }
+rspc-tauri = { git = "https://github.com/oscartbeaumont/rspc", rev = "fb7f2697885f4ea3189b7622fbf534be020e4f4f" }
+rspc-httpz = { git = "https://github.com/oscartbeaumont/rspc", rev = "fb7f2697885f4ea3189b7622fbf534be020e4f4f" }
