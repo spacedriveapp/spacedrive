@@ -3,7 +3,7 @@ import NextImage, { ImageProps } from 'next/image';
 
 import Notice from './Notice';
 
-const Image = (props: ImageProps) => <NextImage {...props} />;
+const Image = (props: ImageProps) => <NextImage placeholder="blur" {...props} />;
 
 export const BlogMDXComponents = {
 	img: Image, // we remap 'img' to 'Image'
