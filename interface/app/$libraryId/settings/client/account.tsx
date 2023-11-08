@@ -74,8 +74,7 @@ const Profile = ({ email, authStore }: { email?: string; authStore: { status: st
 
 const Usage = memo(() => {
 	const stats = useLibraryQuery(['library.statistics'], {
-		refetchOnWindowFocus: false,
-		initialData: { total_bytes_capacity: '0', library_db_size: '0' }
+		refetchOnWindowFocus: false
 	});
 	const locations = useLibraryQuery(['locations.list'], {
 		refetchOnWindowFocus: false
@@ -83,8 +82,8 @@ const Usage = memo(() => {
 	const discoveredPeers = useDiscoveredPeers();
 	const info = useMemo(() => {
 		if (locations.data && discoveredPeers) {
-			const tb_capacity = byteSize(stats.data?.total_bytes_capacity);
-			const free_space = byteSize(stats.data?.total_bytes_free);
+			const tb_capacity = byteSize(stats.data?.total_bytes_capacity || '0');
+			const free_space = byteSize(stats.data?.total_bytes_free || '0');
 			const library_db_size = byteSize(stats.data?.library_db_size);
 			const preview_media = byteSize(stats.data?.preview_media_bytes);
 			const data: {

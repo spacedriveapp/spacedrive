@@ -140,16 +140,15 @@ pub(crate) fn mount() -> RouterBuilder {
 					email: String,
 				}
 
-				node.authed_api_request(
-					node.http
-						.get(&format!("{}/api/v1/user/me", &node.env.api_url)),
-				)
-				.await
-				.and_then(ensure_response)
-				.map(parse_json_body::<Response>)?
-				.await?;
-
-				Ok(())
+				Ok(node
+					.authed_api_request(
+						node.http
+							.get(&format!("{}/api/v1/user/me", &node.env.api_url)),
+					)
+					.await
+					.and_then(ensure_response)
+					.map(parse_json_body::<Response>)?
+					.await?)
 			})
 		})
 }

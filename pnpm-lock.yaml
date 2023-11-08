@@ -46,7 +46,7 @@ importers:
         version: 5.2.2
       vite:
         specifier: ^4.5.0
-        version: 4.5.0(sass@1.69.5)
+        version: 4.5.0(@types/node@18.17.19)
 
   .github/actions/publish-artifacts:
     dependencies:
@@ -155,13 +155,13 @@ importers:
         specifier: ^12.0.3
         version: 12.0.3
       '@phosphor-icons/react':
-        specifier: ^2.0.14
+        specifier: ^2.0.13
         version: 2.0.14(react-dom@18.2.0)(react@18.2.0)
       '@react-three/drei':
-        specifier: ^9.88.11
+        specifier: ^9.88.4
         version: 9.88.11(@react-three/fiber@8.15.9)(@types/three@0.157.2)(react-dom@18.2.0)(react@18.2.0)(three@0.157.0)
       '@react-three/fiber':
-        specifier: ^8.15.9
+        specifier: ^8.15.0
         version: 8.15.9(react-dom@18.2.0)(react@18.2.0)(three@0.157.0)
       '@sd/assets':
         specifier: workspace:*
@@ -197,7 +197,7 @@ importers:
         specifier: ^0.3.4
         version: 0.3.4(contentlayer@0.3.4)(esbuild@0.19.5)(next@13.5.6)(react-dom@18.2.0)(react@18.2.0)
       next-plausible:
-        specifier: ^3.11.3
+        specifier: ^3.11.2
         version: 3.11.3(next@13.5.6)(react-dom@18.2.0)(react@18.2.0)
       react:
         specifier: 18.2.0
@@ -465,25 +465,25 @@ importers:
   apps/storybook:
     dependencies:
       '@storybook/addon-essentials':
-        specifier: ^7.5.2
+        specifier: ^7.5.1
         version: 7.5.2(@types/react-dom@18.2.14)(@types/react@18.2.34)(react-dom@18.2.0)(react@18.2.0)
       '@storybook/addon-interactions':
-        specifier: ^7.5.2
+        specifier: ^7.5.1
         version: 7.5.2(@types/react-dom@18.2.14)(@types/react@18.2.34)(react-dom@18.2.0)(react@18.2.0)
       '@storybook/addon-links':
-        specifier: ^7.5.2
+        specifier: ^7.5.1
         version: 7.5.2(react-dom@18.2.0)(react@18.2.0)
       '@storybook/addon-styling':
         specifier: ^1.3.7
         version: 1.3.7(@types/react-dom@18.2.14)(@types/react@18.2.34)(less@4.2.0)(postcss@8.4.31)(react-dom@18.2.0)(react@18.2.0)(typescript@5.2.2)(webpack@5.89.0)
       '@storybook/blocks':
-        specifier: ^7.5.2
+        specifier: ^7.5.1
         version: 7.5.2(@types/react-dom@18.2.14)(@types/react@18.2.34)(react-dom@18.2.0)(react@18.2.0)
       '@storybook/react':
-        specifier: ^7.5.2
+        specifier: ^7.5.1
         version: 7.5.2(react-dom@18.2.0)(react@18.2.0)(typescript@5.2.2)
       '@storybook/react-vite':
-        specifier: ^7.5.2
+        specifier: ^7.5.1
         version: 7.5.2(react-dom@18.2.0)(react@18.2.0)(typescript@5.2.2)(vite@4.5.0)
       '@storybook/testing-library':
         specifier: ^0.2.2
@@ -600,7 +600,7 @@ importers:
         version: 5.2.2
       vite:
         specifier: ^4.5.0
-        version: 4.5.0(sass@1.69.5)
+        version: 4.5.0(@types/node@18.17.19)
       vite-plugin-html:
         specifier: ^3.2.0
         version: 3.2.0(vite@4.5.0)
@@ -620,7 +620,7 @@ importers:
         specifier: ^1.7.17
         version: 1.7.17(react-dom@18.2.0)(react@18.2.0)
       '@phosphor-icons/react':
-        specifier: ^2.0.14
+        specifier: ^2.0.13
         version: 2.0.14(react-dom@18.2.0)(react@18.2.0)
       '@radix-ui/react-dialog':
         specifier: ^1.0.5
@@ -638,7 +638,7 @@ importers:
         specifier: workspace:*
         version: link:../packages/ui
       '@sentry/browser':
-        specifier: ^7.77.0
+        specifier: ^7.74.1
         version: 7.77.0
       '@tanstack/react-query':
         specifier: ^4.36.1
@@ -740,7 +740,7 @@ importers:
         specifier: ^9.0.1
         version: 9.0.1
       valtio:
-        specifier: ^1.11.3
+        specifier: ^1.11.2
         version: 1.12.0(@types/react@18.2.34)(react@18.2.0)
     devDependencies:
       '@sd/config':
@@ -8813,7 +8813,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.22.5(@babel/core@7.23.2)
       '@types/babel__core': 7.20.3
       react-refresh: 0.14.0
-      vite: 4.5.0(less@4.2.0)
+      vite: 4.5.0(sass@1.69.5)
     transitivePeerDependencies:
       - supports-color
     dev: true

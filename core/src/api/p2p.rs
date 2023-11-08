@@ -37,10 +37,9 @@ pub(crate) fn mount() -> RouterBuilder {
 				}
 			})
 		})
-		// TODO: non-string key for map issues
-		// .procedure("state", {
-		// 	R.query(|node, _: ()| async move { Ok(node.p2p.state()) })
-		// })
+		.procedure("state", {
+			R.query(|node, _: ()| async move { Ok(node.p2p.state()) })
+		})
 		.procedure("spacedrop", {
 			#[derive(Type, Deserialize)]
 			pub struct SpacedropArgs {

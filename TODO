@@ -1,0 +1,5 @@
+ - `ExplorerItem` `type` is problematic. Can we extract it from the Serde descriminator???
+
+ - Backend invalidate items in the normalised cache
+ - Devtools working
+ - Automatically clear cache items if they are unused & old
