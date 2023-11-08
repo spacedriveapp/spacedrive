@@ -9,7 +9,6 @@ import {
 
 import 'katex/dist/katex.min.css';
 import '@docsearch/css';
-// This must be imported after the docsearch css
 import '~/styles/search.scss';
 
 import { Breadcrumbs } from './Breadcrumbs';
