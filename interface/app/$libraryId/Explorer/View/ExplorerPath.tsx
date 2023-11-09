@@ -60,7 +60,7 @@ export const ExplorerPath = memo(() => {
 
 	const indexedPath = fullPathOnClick
 		? queriedFullPath.data
-		: explorerContext.parent?.type === 'Location' && explorerContext.parent.location.path;
+		: explorerContext.parent?.type === 'Location' && explorerContext.location?.path;
 
 	//There are cases where the path ends with a '/' and cases where it doesn't
 	const pathInfo = indexedPath
@@ -86,23 +86,23 @@ export const ExplorerPath = memo(() => {
 			if (!objectData) return;
 			if ('file_paths' in objectData.item && objectData) {
 				newPath = pathBuilder(pathInfo as string, pathName);
-				navigate(`/${libraryId}/ephemeral/0`);
-				setSearchParams((params) => ({ ...params, path: newPath }), { replace: true });
+				navigate({
+					pathname: `/${libraryId}/ephemeral/0`,
+					search: `?path=${newPath}`
+				});
 			}
 		} else if (isEphemeralLocation) {
 			const currentPaths = data?.map((p) => p.name).join(pathSlashOS);
 			newPath = `${pathSlashOS}${pathBuilder(currentPaths as string, pathName)}`;
-			setSearchParams((params) => ({ ...params, path: newPath }), { replace: true });
+			setSearchParams((params) => ({ ...params, path: newPath }));
 		} else {
 			newPath = pathBuilder(path as string, pathName);
-			setSearchParams((params) => ({ ...params, path: index === 0 ? '' : newPath }), {
-				replace: true
-			});
+			setSearchParams((params) => ({ ...params, path: index === 0 ? '' : newPath }));
 		}
 	};
 
 	const pathNameLocationName =
-		explorerContext.parent?.type === 'Location' && explorerContext.parent?.location.name;
+		explorerContext.parent?.type === 'Location' && explorerContext.location?.name;
 	const data = useMemo(() => {
 		if (!pathInfo) return;
 		const splitPaths = pathInfo?.replaceAll('/', pathSlashOS).split(pathSlashOS); //replace all '/' with '\' for windows

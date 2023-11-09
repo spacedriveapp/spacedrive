@@ -58,7 +58,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 	const itemData = useExplorerItemData(props.data);
 	const filePath = getItemFilePath(props.data);
 
-	const { parent } = useExplorerContext();
+	const { parent, location } = useExplorerContext();
 	const { library } = useLibraryContext();
 
 	const [src, setSrc] = useState<string>();
@@ -116,7 +116,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 
 	useEffect(() => {
 		const locationId =
-			itemData.locationId ?? (parent?.type === 'Location' ? parent.location.id : null);
+			itemData.locationId ?? (parent?.type === 'Location' ? location?.id : null);
 
 		switch (thumbType) {
 			case ThumbType.Original:
@@ -153,7 +153,17 @@ export const FileThumb = memo((props: ThumbProps) => {
 				);
 				break;
 		}
-	}, [props.data.item, filePath, isDark, library.uuid, itemData, platform, thumbType, parent]);
+	}, [
+		props.data.item,
+		filePath,
+		isDark,
+		library.uuid,
+		itemData,
+		platform,
+		thumbType,
+		parent,
+		location
+	]);
 
 	return (
 		<div

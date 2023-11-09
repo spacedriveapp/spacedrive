@@ -215,13 +215,13 @@ export const SecureDelete = new ConditionalItem({
 
 export const ParentFolderActions = new ConditionalItem({
 	useCondition: () => {
-		const { parent } = useExplorerContext();
+		const { location } = useExplorerContext();
 
-		if (parent?.type !== 'Location') return null;
+		if (!location) return null;
 
-		return { parent };
+		return { location };
 	},
-	Component: ({ parent }) => {
+	Component: ({ location }) => {
 		const { selectedFilePaths } = useContextMenuContext();
 
 		const fullRescan = useLibraryMutation('locations.fullRescan');
@@ -233,7 +233,7 @@ export const ParentFolderActions = new ConditionalItem({
 					onClick={async () => {
 						try {
 							await fullRescan.mutateAsync({
-								location_id: parent.location.id,
+								location_id: location.id,
 								reidentify_objects: false
 							});
 						} catch (error) {
@@ -250,7 +250,7 @@ export const ParentFolderActions = new ConditionalItem({
 					onClick={async () => {
 						try {
 							await generateThumbnails.mutateAsync({
-								id: parent.location.id,
+								id: location.id,
 								path: selectedFilePaths[0]?.materialized_path ?? '/',
 								regenerate: true
 							});

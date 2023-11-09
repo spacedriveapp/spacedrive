@@ -16,6 +16,7 @@ export interface ToolOption {
 	popOverComponent?: JSX.Element;
 	showAtResolution: ShowAtResolution;
 	keybinds?: Array<String | ModifierKeys>;
+	disabled?: boolean;
 }
 
 export type ShowAtResolution = 'sm:flex' | 'md:flex' | 'lg:flex' | 'xl:flex' | '2xl:flex';
@@ -51,6 +52,7 @@ export default ({ options }: TopBarChildrenProps) => {
 							index={index}
 							group={group}
 							groupIndex={groupIndex}
+							disabled={option.disabled}
 							options={options}
 							key={`${groupIndex}_${index}`}
 						/>
@@ -72,13 +74,15 @@ function ToolGroup({
 	index,
 	groupIndex,
 	options,
-	group
+	group,
+	disabled
 }: {
 	option: ToolOption;
 	options: ToolOption[][];
 	group: ToolOption[];
 	index: number;
 	groupIndex: number;
+	disabled?: boolean;
 }) {
 	const {
 		icon,
@@ -121,6 +125,7 @@ function ToolGroup({
 								rounding={roundingCondition}
 								active={topBarActive}
 								onClick={onClick}
+								disabled={disabled}
 							>
 								<Tooltip
 									keybinds={keybinds}

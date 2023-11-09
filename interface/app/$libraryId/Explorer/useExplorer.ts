@@ -17,7 +17,6 @@ import { uniqueId } from './util';
 export type ExplorerParent =
 	| {
 			type: 'Location';
-			location: Location;
 			subPath?: FilePath;
 	  }
 	| {
@@ -37,8 +36,10 @@ export interface UseExplorerProps<TOrder extends Ordering> {
 	items: ExplorerItem[] | null;
 	count?: number;
 	parent?: ExplorerParent;
+	location?: Location | null;
 	loadMore?: () => void;
 	isFetchingNextPage?: boolean;
+	preferencesLoading?: boolean;
 	scrollRef?: RefObject<HTMLDivElement>;
 	/**
 	 * @defaultValue `true`
@@ -64,6 +65,7 @@ export interface UseExplorerProps<TOrder extends Ordering> {
 export function useExplorer<TOrder extends Ordering>({
 	settings,
 	layouts,
+	preferencesLoading,
 	...props
 }: UseExplorerProps<TOrder>) {
 	const scrollRef = useRef<HTMLDivElement>(null);
@@ -75,6 +77,7 @@ export function useExplorer<TOrder extends Ordering>({
 		scrollRef,
 		count: props.items?.length,
 		showPathBar: true,
+		preferencesLoading: preferencesLoading,
 		layouts: {
 			grid: true,
 			list: true,
@@ -95,33 +98,35 @@ export function useExplorerSettings<TOrder extends Ordering>({
 	settings,
 	onSettingsChanged,
 	orderingKeys,
-	location
+	locationId,
+	locationData,
+	preferencesLoading
 }: {
 	settings: ReturnType<typeof createDefaultExplorerSettings<TOrder>>;
 	onSettingsChanged?: (settings: ExplorerSettings<TOrder>) => any;
 	orderingKeys?: z.ZodUnion<
 		[z.ZodLiteral<OrderingKeys<TOrder>>, ...z.ZodLiteral<OrderingKeys<TOrder>>[]]
 	>;
-	location?: Location | null;
+	locationId?: number
+	locationData?: Location | null
+	preferencesLoading?: boolean
 }) {
-	const [store, setStore] = useState(() => proxy(settings));
+	const [store, _] = useState(() => proxy(settings));
 
 	useEffect(() => {
-		Object.assign(store, {
-			...settings,
-			...store
-		});
-	}, [store, settings]);
-
-	useEffect(() => {
-		setStore(proxy(settings));
-	}, [location, settings]);
+		if (!preferencesLoading) {
+			Object.assign(store, {
+				...settings
+			});
+		}
+	}, [locationId, locationData, preferencesLoading]);
 
 	useEffect(
-		() =>
+		() => {
 			subscribe(store, () => {
 				onSettingsChanged?.(snapshot(store) as ExplorerSettings<TOrder>);
-			}),
+			})
+		},
 		[onSettingsChanged, store]
 	);
 

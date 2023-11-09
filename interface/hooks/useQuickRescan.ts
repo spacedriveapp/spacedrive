@@ -12,17 +12,17 @@ export const useQuickRescan = () => {
 	// gotta clean up any rescan subscriptions if the exist
 	useEffect(() => () => quickRescanSubscription.current?.(), []);
 	const { client } = useRspcLibraryContext();
-	const { parent } = useExplorerContext();
+	const { parent, location } = useExplorerContext();
 	const [{ path }] = useExplorerSearchParams();
 
 	const rescan = () => {
-		if (parent?.type === 'Location') {
+		if (parent?.type === 'Location' && location) {
 			quickRescanSubscription.current?.();
 			quickRescanSubscription.current = client.addSubscription(
 				[
 					'locations.quickRescan',
 					{
-						location_id: parent.location.id,
+						location_id: location.id,
 						sub_path: path ?? ''
 					}
 				],

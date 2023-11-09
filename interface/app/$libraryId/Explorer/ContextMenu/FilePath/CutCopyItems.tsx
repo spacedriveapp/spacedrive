@@ -12,18 +12,19 @@ import { useContextMenuContext } from '../context';
 
 export const CutCopyItems = new ConditionalItem({
 	useCondition: () => {
-		const { parent } = useExplorerContext();
+		const { parent, location } = useExplorerContext();
 		const { selectedFilePaths, selectedEphemeralPaths } = useContextMenuContext();
 
 		if (
 			(parent?.type !== 'Location' && parent?.type !== 'Ephemeral') ||
+			!location ||
 			(!isNonEmpty(selectedFilePaths) && !isNonEmpty(selectedEphemeralPaths))
 		)
 			return null;
 
-		return { parent, selectedFilePaths, selectedEphemeralPaths };
+		return { parent, selectedFilePaths, selectedEphemeralPaths, location };
 	},
-	Component: ({ parent, selectedFilePaths, selectedEphemeralPaths }) => {
+	Component: ({ parent, selectedFilePaths, selectedEphemeralPaths, location }) => {
 		const keybind = useKeybindFactory();
 		const [{ path }] = useExplorerSearchParams();
 
@@ -33,7 +34,7 @@ export const CutCopyItems = new ConditionalItem({
 		const indexedArgs =
 			parent.type === 'Location' && isNonEmpty(selectedFilePaths)
 				? {
-						sourceLocationId: parent.location.id,
+						sourceLocationId: location.id,
 						sourcePathIds: selectedFilePaths.map((p) => p.id)
 				  }
 				: undefined;
@@ -80,9 +81,9 @@ export const CutCopyItems = new ConditionalItem({
 						try {
 							if (parent.type === 'Location' && isNonEmpty(selectedFilePaths)) {
 								await copyFiles.mutateAsync({
-									source_location_id: parent.location.id,
+									source_location_id: location.id,
 									sources_file_path_ids: selectedFilePaths.map((p) => p.id),
-									target_location_id: parent.location.id,
+									target_location_id: location.id,
 									target_location_relative_directory_path: path ?? '/'
 								});
 							}

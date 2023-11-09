@@ -131,7 +131,7 @@ const state = {
 	mediaPlayerVolume: 0.7,
 	newThumbnails: proxySet() as Set<string>,
 	cutCopyState: { type: 'Idle' } as CutCopyState,
-	isDragging: false
+	isDragging: false,
 };
 
 export function flattenThumbnailKey(thumbKey: string[]) {

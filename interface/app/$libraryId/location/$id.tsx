@@ -83,14 +83,16 @@ export const Component = () => {
 				alert('An error has occurred while updating your preferences.');
 			}
 		},
-		500
+		100
 	);
 
 	const explorerSettings = useExplorerSettings({
 		settings,
 		onSettingsChanged,
+		locationId,
+		locationData: location.data,
 		orderingKeys: filePathOrderingKeysSchema,
-		location: location.data
+		preferencesLoading: preferences.isLoading
 	});
 
 	const { items, count, loadMore, query } = useItems({ locationId, settings: explorerSettings });
@@ -101,9 +103,9 @@ export const Component = () => {
 		loadMore,
 		isFetchingNextPage: query.isFetchingNextPage,
 		settings: explorerSettings,
-		...(location.data && {
-			parent: { type: 'Location', location: location.data }
-		})
+		preferencesLoading: preferences.isLoading,
+		parent: { type: 'Location' },
+		location: location.data
 	});
 
 	useLibrarySubscription(
@@ -150,15 +152,17 @@ export const Component = () => {
 					<Loader />
 				</div>
 			) : (
-				<Explorer
-					emptyNotice={
-						<EmptyNotice
-							loading={location.isFetching}
-							icon={<Icon name="FolderNoSpace" size={128} />}
-							message="No files found here"
-						/>
-					}
-				/>
+				!preferences.isLoading && (
+					<Explorer
+						emptyNotice={
+							<EmptyNotice
+								loading={location.isFetching}
+								icon={<Icon name="FolderNoSpace" size={128} />}
+								message="No files found here"
+							/>
+						}
+					/>
+				)
 			)}
 		</ExplorerContextProvider>
 	);

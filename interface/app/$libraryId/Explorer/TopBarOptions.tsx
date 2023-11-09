@@ -49,7 +49,10 @@ export const useExplorerTopBarOptions = () => {
 						toolTipLabel: `${layout} view`,
 						icon: <Icon className={TOP_BAR_ICON_STYLE} />,
 						keybinds: [controlIcon, (i + 1).toString()],
-						topBarActive: settings.layoutMode === layout,
+						disabled: explorer.preferencesLoading,
+						topBarActive: explorer.preferencesLoading
+							? false
+							: settings.layoutMode === layout,
 						onClick: () => (explorer.settingsStore.layoutMode = layout),
 						showAtResolution: 'sm:flex'
 					} satisfies ToolOption & { layout: ExplorerLayout };
@@ -58,7 +61,13 @@ export const useExplorerTopBarOptions = () => {
 				},
 				[] as (ToolOption & { layout: ExplorerLayout })[]
 			),
-		[controlIcon, explorer.layouts, explorer.settingsStore, settings.layoutMode]
+		[
+			controlIcon,
+			explorer.layouts,
+			explorer.settingsStore,
+			settings.layoutMode,
+			explorer.preferencesLoading
+		]
 	);
 
 	const controlOptions: ToolOption[] = [
@@ -129,7 +138,7 @@ export const useExplorerTopBarOptions = () => {
 			individual: true,
 			showAtResolution: 'xl:flex'
 		},
-		parent?.type === 'Location' && {
+		explorer.parent?.type === 'Location' && {
 			toolTipLabel: 'Reload',
 			onClick: rescan,
 			icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,

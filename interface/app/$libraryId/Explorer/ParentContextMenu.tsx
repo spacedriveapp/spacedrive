@@ -26,7 +26,7 @@ export default (props: PropsWithChildren) => {
 	const [{ path: currentPath }] = useExplorerSearchParams();
 	const { cutCopyState } = useExplorerStore();
 	const rescan = useQuickRescan();
-	const { parent } = useExplorerContext();
+	const { parent, location } = useExplorerContext();
 
 	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
 	const objectValidator = useLibraryMutation('jobs.objectValidator');
@@ -71,11 +71,15 @@ export default (props: PropsWithChildren) => {
 
 							try {
 								if (type == 'Copy') {
-									if (parent?.type === 'Location' && indexedArgs != undefined) {
+									if (
+										parent?.type === 'Location' &&
+										location &&
+										indexedArgs != undefined
+									) {
 										await copyFiles.mutateAsync({
 											source_location_id: indexedArgs.sourceLocationId,
 											sources_file_path_ids: [...indexedArgs.sourcePathIds],
-											target_location_id: parent.location.id,
+											target_location_id: location.id,
 											target_location_relative_directory_path: path
 										});
 									}
@@ -90,9 +94,13 @@ export default (props: PropsWithChildren) => {
 										});
 									}
 								} else {
-									if (parent?.type === 'Location' && indexedArgs != undefined) {
+									if (
+										parent?.type === 'Location' &&
+										location &&
+										indexedArgs != undefined
+									) {
 										if (
-											indexedArgs.sourceLocationId === parent.location.id &&
+											indexedArgs.sourceLocationId === location.id &&
 											sourceParentPath === path
 										) {
 											toast.error('File already exists in this location');
@@ -100,7 +108,7 @@ export default (props: PropsWithChildren) => {
 										await cutFiles.mutateAsync({
 											source_location_id: indexedArgs.sourceLocationId,
 											sources_file_path_ids: [...indexedArgs.sourcePathIds],
-											target_location_id: parent.location.id,
+											target_location_id: location.id,
 											target_location_relative_directory_path: path
 										});
 									}
@@ -144,9 +152,9 @@ export default (props: PropsWithChildren) => {
 					label="New folder"
 					icon={FolderPlus}
 					onClick={() => {
-						if (parent?.type === 'Location') {
+						if (parent?.type === 'Location' && location) {
 							createFolder.mutate({
-								location_id: parent.location.id,
+								location_id: location.id,
 								sub_path: currentPath || null,
 								name: null
 							});
@@ -175,19 +183,17 @@ export default (props: PropsWithChildren) => {
 				disabled
 			/>
 
-			{parent?.type === 'Location' && (
+			{parent?.type === 'Location' && location && (
 				<>
-					<RevealInNativeExplorerBase
-						items={[{ Location: { id: parent.location.id } }]}
-					/>
+					<RevealInNativeExplorerBase items={[{ Location: { id: location.id } }]} />
 					<CM.SubMenu label="More actions...">
-						<CopyAsPathBase path={`${parent.location.path}${currentPath ?? ''}`} />
+						<CopyAsPathBase path={`${location.path}${currentPath ?? ''}`} />
 
 						<CM.Item
 							onClick={async () => {
 								try {
 									await rescanLocation.mutateAsync({
-										location_id: parent.location.id,
+										location_id: location.id,
 										sub_path: currentPath ?? ''
 									});
 								} catch (error) {
@@ -205,7 +211,7 @@ export default (props: PropsWithChildren) => {
 							onClick={async () => {
 								try {
 									await generateThumbsForLocation.mutateAsync({
-										id: parent.location.id,
+										id: location.id,
 										path: currentPath ?? '/',
 										regenerate: true
 									});
@@ -224,7 +230,7 @@ export default (props: PropsWithChildren) => {
 							onClick={async () => {
 								try {
 									objectValidator.mutateAsync({
-										id: parent.location.id,
+										id: location.id,
 										path: currentPath ?? '/'
 									});
 								} catch (error) {

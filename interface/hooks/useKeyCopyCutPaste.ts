@@ -17,15 +17,15 @@ export const useKeyCopyCutPaste = () => {
 	const cutEphemeralFiles = useLibraryMutation('ephemeralFiles.cutFiles');
 	const explorer = useExplorerContext();
 
-	const { parent } = explorer;
+	const { parent, location } = explorer;
 
 	const selectedFilePaths = useItemsAsFilePaths(Array.from(explorer.selectedItems));
 	const selectedEphemeralPaths = useItemsAsEphemeralPaths(Array.from(explorer.selectedItems));
 
 	const indexedArgs =
-		parent?.type === 'Location'
+		parent?.type === 'Location' && location
 			? {
-					sourceLocationId: parent.location.id,
+					sourceLocationId: location.id,
 					sourcePathIds: selectedFilePaths.map((p) => p.id)
 			  }
 			: undefined;
@@ -61,12 +61,12 @@ export const useKeyCopyCutPaste = () => {
 
 	useShortcut('duplicateObject', async (e) => {
 		e.stopPropagation();
-		if (parent?.type === 'Location') {
+		if (parent?.type === 'Location' && location) {
 			try {
 				await copyFiles.mutateAsync({
-					source_location_id: parent.location.id,
+					source_location_id: location.id,
 					sources_file_path_ids: selectedFilePaths.map((p) => p.id),
-					target_location_id: parent.location.id,
+					target_location_id: location.id,
 					target_location_relative_directory_path: path ?? '/'
 				});
 			} catch (error) {
@@ -90,11 +90,11 @@ export const useKeyCopyCutPaste = () => {
 
 			try {
 				if (type == 'Copy') {
-					if (parent?.type === 'Location' && indexedArgs != undefined) {
+					if (parent?.type === 'Location' && location && indexedArgs != undefined) {
 						await copyFiles.mutateAsync({
 							source_location_id: indexedArgs.sourceLocationId,
 							sources_file_path_ids: [...indexedArgs.sourcePathIds],
-							target_location_id: parent.location.id,
+							target_location_id: location.id,
 							target_location_relative_directory_path: path
 						});
 					}
@@ -106,9 +106,9 @@ export const useKeyCopyCutPaste = () => {
 						});
 					}
 				} else {
-					if (parent?.type === 'Location' && indexedArgs != undefined) {
+					if (parent?.type === 'Location' && location && indexedArgs != undefined) {
 						if (
-							indexedArgs.sourceLocationId === parent.location.id &&
+							indexedArgs.sourceLocationId === location.id &&
 							sourceParentPath === path
 						) {
 							toast.error('File already exists in this location');
@@ -116,7 +116,7 @@ export const useKeyCopyCutPaste = () => {
 						await cutFiles.mutateAsync({
 							source_location_id: indexedArgs.sourceLocationId,
 							sources_file_path_ids: [...indexedArgs.sourcePathIds],
-							target_location_id: parent.location.id,
+							target_location_id: location.id,
 							target_location_relative_directory_path: path
 						});
 					}
