@@ -169,6 +169,8 @@ impl Node {
 		let collector = tracing_subscriber::registry()
 			.with(
 				tracing_fmt::Subscriber::new()
+					.with_file(true)
+					.with_line_number(true)
 					.with_ansi(false)
 					.with_writer(logfile)
 					.with_filter(
@@ -179,6 +181,8 @@ impl Node {
 			)
 			.with(
 				tracing_fmt::Subscriber::new()
+					.with_file(true)
+					.with_line_number(true)
 					.with_writer(std::io::stdout)
 					.with_filter(
 						EnvFilter::builder()
