@@ -55,6 +55,7 @@ export const useTable = () => {
 								data={item}
 								frame={itemData.kind !== 'Video'}
 								frameClassName="!border"
+								blackBars
 								size={35}
 								className={clsx('mr-2.5', cut && 'opacity-60')}
 							/>
