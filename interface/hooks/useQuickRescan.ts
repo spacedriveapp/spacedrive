@@ -5,7 +5,7 @@ import { toast } from '@sd/ui';
 import { useExplorerContext } from '../app/$libraryId/Explorer/Context';
 import { useExplorerSearchParams } from '../app/$libraryId/Explorer/util';
 
-export const useQuickRescan = (props: { locationId?: number } = {}) => {
+export const useQuickRescan = () => {
 	// subscription so that we can cancel it if in progress
 	const quickRescanSubscription = useRef<() => void | undefined>();
 
@@ -15,31 +15,27 @@ export const useQuickRescan = (props: { locationId?: number } = {}) => {
 	const explorer = useExplorerContext({ suspense: false });
 	const [{ path }] = useExplorerSearchParams();
 
-	const rescan = () => {
-		if (explorer?.parent?.type === 'Location' || props.locationId) {
-			const locationId =
-				explorer?.parent?.type === 'Location'
-					? explorer.parent.location.id
-					: props.locationId;
+	const rescan = (id?: number) => {
+		const locationId =
+			id ?? (explorer?.parent?.type === 'Location' ? explorer.parent.location.id : undefined);
 
-			if (locationId === undefined) return;
+		if (locationId === undefined) return;
 
-			quickRescanSubscription.current?.();
-			quickRescanSubscription.current = client.addSubscription(
-				[
-					'locations.quickRescan',
-					{
-						location_id: locationId,
-						sub_path: path ?? ''
-					}
-				],
-				{ onData() {} }
-			);
+		quickRescanSubscription.current?.();
+		quickRescanSubscription.current = client.addSubscription(
+			[
+				'locations.quickRescan',
+				{
+					location_id: locationId,
+					sub_path: path ?? ''
+				}
+			],
+			{ onData() {} }
+		);
 
-			toast.success({
-				title: `Quick rescan started`
-			});
-		}
+		toast.success({
+			title: `Quick rescan started`
+		});
 	};
 
 	return rescan;

@@ -15,14 +15,14 @@ import {
 	useOnlineLocations,
 	useRspcLibraryContext
 } from '@sd/client';
-import { Loader, ModifierKeys, Tooltip } from '@sd/ui';
+import { Loader, Tooltip } from '@sd/ui';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder, Icon } from '~/components';
 import {
 	useIsLocationIndexing,
-	useKeybind,
 	useKeyDeleteFile,
 	useOperatingSystem,
+	useShortcut,
 	useZodRouteParams
 } from '~/hooks';
 import { useQuickRescan } from '~/hooks/useQuickRescan';
@@ -49,7 +49,7 @@ export const Component = () => {
 	const location = useLibraryQuery(['locations.get', locationId]);
 	const onlineLocations = useOnlineLocations();
 
-	const rescan = useQuickRescan({ locationId });
+	const rescan = useQuickRescan();
 
 	const locationOnline = useMemo(() => {
 		const pub_id = location.data?.pub_id;
@@ -136,7 +136,7 @@ export const Component = () => {
 
 	useKeyDeleteFile(explorer.selectedItems, location.data?.id);
 
-	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'r'], () => rescan());
+	useShortcut('rescan', () => rescan(locationId));
 
 	return (
 		<ExplorerContextProvider explorer={explorer}>
