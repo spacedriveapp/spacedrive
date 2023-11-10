@@ -862,9 +862,15 @@ export default () => {
 											{headerGroup.headers.map((header, i) => {
 												const size = header.column.getSize();
 
+												const orderKey =
+													settings.order && orderingKey(settings.order);
+
 												const orderingDirection =
+													orderKey &&
 													settings.order &&
-													orderingKey(settings.order) === header.id
+													(orderKey.startsWith('object.')
+														? orderKey.split('object.')[1] === header.id
+														: orderKey === header.id)
 														? getOrderingDirection(settings.order)
 														: null;
 
@@ -892,15 +898,40 @@ export default () => {
 														}}
 														onClick={() => {
 															if (resizing) return;
-															if (header.column.getCanSort()) {
-																explorer.settingsStore.order =
-																	createOrdering(
-																		header.id,
-																		orderingDirection === 'Asc'
-																			? 'Desc'
-																			: 'Asc'
-																	);
-															}
+
+															// Split table into smaller parts
+															// cause this looks hideous
+															const orderKey =
+																explorer.orderingKeys?.options.find(
+																	(o) => {
+																		if (
+																			typeof o.value !==
+																			'string'
+																		)
+																			return;
+
+																		const value =
+																			o.value as string;
+
+																		return value.startsWith(
+																			'object.'
+																		)
+																			? value.split(
+																					'object.'
+																			  )[1] === header.id
+																			: value === header.id;
+																	}
+																);
+
+															if (!orderKey) return;
+
+															explorer.settingsStore.order =
+																createOrdering(
+																	orderKey.value,
+																	orderingDirection === 'Asc'
+																		? 'Desc'
+																		: 'Asc'
+																);
 														}}
 													>
 														{header.isPlaceholder ? null : (
