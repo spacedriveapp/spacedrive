@@ -86,18 +86,18 @@ export const ExplorerPath = memo(() => {
 			if (!objectData) return;
 			if ('file_paths' in objectData.item && objectData) {
 				newPath = pathBuilder(pathInfo as string, pathName);
-				navigate(`/${libraryId}/ephemeral/0`);
-				setSearchParams((params) => ({ ...params, path: newPath }), { replace: true });
+				navigate({
+					pathname: `/${libraryId}/ephemeral/0`,
+					search: `?path=${newPath}`
+				});
 			}
 		} else if (isEphemeralLocation) {
 			const currentPaths = data?.map((p) => p.name).join(pathSlashOS);
 			newPath = `${pathSlashOS}${pathBuilder(currentPaths as string, pathName)}`;
-			setSearchParams((params) => ({ ...params, path: newPath }), { replace: true });
+			setSearchParams((params) => ({ ...params, path: newPath }));
 		} else {
 			newPath = pathBuilder(path as string, pathName);
-			setSearchParams((params) => ({ ...params, path: index === 0 ? '' : newPath }), {
-				replace: true
-			});
+			setSearchParams((params) => ({ ...params, path: index === 0 ? '' : newPath }));
 		}
 	};
 
@@ -172,7 +172,7 @@ export const ExplorerPath = memo(() => {
 				);
 			})}
 			{selectedItem && (
-				<div className="pointer-events-none flex items-center gap-1">
+				<div className="flex items-center gap-1 pointer-events-none">
 					{data && data.length > 0 && <CaretRight weight="bold" size={10} />}
 					<>
 						<FileThumb size={16} frame frameClassName="!border" data={selectedItem} />
