@@ -58,7 +58,6 @@ const LocationExplorer = ({ location, path }: { location: Location; path?: strin
 		const pub_id = location?.pub_id;
 		if (!pub_id) return false;
 		return onlineLocations.some((l) => arraysEqual(pub_id, l));
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [location?.pub_id, onlineLocations]);
 
 	const preferences = useLibraryQuery(['preferences.get']);
@@ -203,7 +202,9 @@ const useItems = ({
 		[location.id, explorerSettings.layoutMode]
 	);
 
-	const filters = useSearchFilters('paths', fixedFilters);
+	const baseFilters = useSearchFilters('paths', fixedFilters);
+
+	const filters = [...baseFilters];
 
 	filters.push({
 		filePath: {

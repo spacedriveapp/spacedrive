@@ -1,7 +1,6 @@
 import clsx from 'clsx';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { useLocation, useNavigate, useResolvedPath } from 'react-router';
-import { createSearchParams } from 'react-router-dom';
 import { useDebouncedCallback } from 'use-debounce';
 import { Input, ModifierKeys, Shortcut } from '@sd/ui';
 import { SearchParamsSchema } from '~/app/route-schemas';
@@ -14,7 +13,6 @@ export default () => {
 	const searchRef = useRef<HTMLInputElement>(null);
 
 	const [searchParams, setSearchParams] = useZodSearchParams(SearchParamsSchema);
-	const navigate = useNavigate();
 	const location = useLocation();
 
 	const searchStore = useSearchStore();

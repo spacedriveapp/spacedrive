@@ -221,7 +221,6 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 					</Tooltip>
 				}
 				right={<DefaultTopBarOptions />}
-				noSearch={true}
 			/>
 			<Explorer />
 		</ExplorerContextProvider>

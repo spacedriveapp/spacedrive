@@ -1,9 +1,9 @@
 import { CaretRight, FunnelSimple, Icon, Plus } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
-import { PropsWithChildren, useDeferredValue, useMemo, useState } from 'react';
-import { snapshot } from 'valtio';
+import { memo, PropsWithChildren, useDeferredValue, useState } from 'react';
 import { Button, ContextMenuDivItem, DropdownMenu, Input, RadixCheckbox, tw } from '@sd/ui';
+import { useTopBarContext } from '~/app/$libraryId/TopBar/Layout';
 import { useKeybind } from '~/hooks';
 
 import { AppliedOptions } from './AppliedFilters';
@@ -11,7 +11,6 @@ import { filterRegistry } from './Filters';
 import { useSavedSearches } from './SavedSearches';
 import {
 	getSearchStore,
-	selectFilterOption,
 	updateFilterArgs,
 	useRegisterSearchFilterOptions,
 	useSearchRegisteredFilters,
@@ -78,9 +77,9 @@ const SearchOptions = () => {
 	const searchState = useSearchStore();
 
 	const [newFilterName, setNewFilterName] = useState('');
-	const [searchValue, setSearchValue] = useState('');
+	const [_search, setSearch] = useState('');
 
-	const deferredSearchValue = useDeferredValue(searchValue);
+	const search = useDeferredValue(_search);
 
 	useKeybind(['Escape'], () => {
 		getSearchStore().isSearching = false;
@@ -88,18 +87,12 @@ const SearchOptions = () => {
 
 	const savedSearches = useSavedSearches();
 
-	const filtersWithOptions = filterRegistry.map((filter) => {
-		const options = filter
-			.useOptions({ search: deferredSearchValue })
-			.map((o) => ({ ...o, type: filter.name }));
+	for (const filter of filterRegistry) {
+		const options = filter.useOptions({ search }).map((o) => ({ ...o, type: filter.name }));
 
 		// eslint-disable-next-line react-hooks/rules-of-hooks
 		useRegisterSearchFilterOptions(filter, options);
-
-		return [filter, options] as const;
-	});
-
-	const searchResults = useSearchRegisteredFilters(deferredSearchValue);
+	}
 
 	return (
 		<div
@@ -129,8 +122,8 @@ const SearchOptions = () => {
 					}
 				>
 					<Input
-						value={searchValue}
-						onChange={(e) => setSearchValue(e.target.value)}
+						value={_search}
+						onChange={(e) => setSearch(e.target.value)}
 						autoFocus
 						autoComplete="off"
 						autoCorrect="off"
@@ -138,76 +131,24 @@ const SearchOptions = () => {
 						placeholder="Filter..."
 					/>
 					<Separator />
-					{searchValue
-						? searchResults.map((option) => {
-								const filter = filterRegistry.find((f) => f.name === option.type);
-								if (!filter) return;
-
-								return (
-									<SearchOptionItem
-										selected={searchState.filterArgsKeys.has(option.key)}
-										setSelected={(value) => {
-											const searchStore = getSearchStore();
-
-											updateFilterArgs((args) => {
-												if (searchStore.fixedFilterKeys.has(option.key))
-													return;
-
-												let rawArg = args.find((arg) => filter.find(arg));
-
-												if (!rawArg) {
-													rawArg = filter.create(option.value);
-													args.push(rawArg);
-												}
-
-												const rawArgIndex = args.findIndex((arg) =>
-													filter.find(arg)
-												)!;
-
-												const arg = filter.find(rawArg)! as any;
-
-												if (!filter.getCondition?.(arg))
-													filter.setCondition(
-														arg,
-														Object.keys(filter.conditions)[0] as any
-													);
-
-												if (value) filter.applyAdd(arg, option);
-												else {
-													if (!filter.applyRemove(arg, option))
-														args.splice(rawArgIndex);
-												}
-											});
-										}}
-										key={option.key}
-									>
-										<div className="mr-4 flex flex-row items-center gap-1.5">
-											<RenderIcon icon={option.icon} />
-											<span className="text-ink-dull">{filter.name}</span>
-											<CaretRight
-												weight="bold"
-												className="text-ink-dull/70"
-											/>
-											<RenderIcon icon={option.icon} />
-											{option.name}
-										</div>
-									</SearchOptionItem>
-								);
-						  })
-						: filtersWithOptions.map(([filter, options]) => (
-								<filter.Render
-									key={filter.name}
-									filter={filter as any}
-									options={options}
-								/>
-						  ))}
+					{_search === '' ? (
+						filterRegistry.map((filter) => (
+							<filter.Render
+								key={filter.name}
+								filter={filter as any}
+								options={searchState.filterOptions.get(filter.name)!}
+							/>
+						))
+					) : (
+						<SearchResults search={search} />
+					)}
 				</DropdownMenu.Root>
 			</OptionContainer>
 			{/* We're keeping AppliedOptions to the right of the "Add Filter" button because its not worth rebuilding the dropdown with custom logic to lock the position as the trigger will move if to the right of the applied options and that is bad UX. */}
 			<AppliedOptions />
 			<div className="grow" />
 
-			{searchState.selectedFilters.size > 0 && (
+			{searchState.filterArgs.length > 0 && (
 				<DropdownMenu.Root
 					className={clsx(MENU_STYLES)}
 					trigger={
@@ -252,3 +193,65 @@ const SearchOptions = () => {
 };
 
 export default SearchOptions;
+
+const SearchResults = memo(({ search }: { search: string }) => {
+	const { fixedArgsKeys } = useTopBarContext();
+	const searchState = useSearchStore();
+	const searchResults = useSearchRegisteredFilters(search);
+
+	return (
+		<>
+			{searchResults.map((option) => {
+				const filter = filterRegistry.find((f) => f.name === option.type);
+				if (!filter) return;
+
+				return (
+					<SearchOptionItem
+						selected={
+							searchState.filterArgsKeys.has(option.key) ||
+							fixedArgsKeys?.has(option.key)
+						}
+						setSelected={(value) => {
+							updateFilterArgs((args) => {
+								if (fixedArgsKeys?.has(option.key)) return args;
+
+								let rawArg = args.find((arg) => filter.extract(arg));
+
+								if (!rawArg) {
+									rawArg = filter.create(option.value);
+									args.push(rawArg);
+								}
+
+								const rawArgIndex = args.findIndex((arg) => filter.extract(arg))!;
+
+								const arg = filter.extract(rawArg)! as any;
+
+								if (!filter.getCondition?.(arg))
+									filter.setCondition(
+										arg,
+										Object.keys(filter.conditions)[0] as any as never
+									);
+
+								if (value) filter.applyAdd(arg, option);
+								else {
+									if (!filter.applyRemove(arg, option)) args.splice(rawArgIndex);
+								}
+
+								return args;
+							});
+						}}
+						key={option.key}
+					>
+						<div className="mr-4 flex flex-row items-center gap-1.5">
+							<RenderIcon icon={option.icon} />
+							<span className="text-ink-dull">{filter.name}</span>
+							<CaretRight weight="bold" className="text-ink-dull/70" />
+							<RenderIcon icon={option.icon} />
+							{option.name}
+						</div>
+					</SearchOptionItem>
+				);
+			})}
+		</>
+	);
+});

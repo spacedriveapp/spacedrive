@@ -1,6 +1,6 @@
 import { Filter, useLibraryMutation, useLibraryQuery } from '@sd/client';
 
-import { getKey, selectFilterOption, useSearchStore } from './store';
+import { getKey, useSearchStore } from './store';
 
 export const useSavedSearches = () => {
 	const searchStore = useSearchStore();
@@ -16,7 +16,6 @@ export const useSavedSearches = () => {
 		loadSearch: (id: number) => {
 			const search = searches?.find((search) => search.id === id);
 			if (search) {
-				searchStore.selectedFilters.clear();
 				// TODO
 				search.filters?.forEach(({ filter_type, name, value, icon }) => {
 					// const filter: Filter = {
@@ -35,7 +34,6 @@ export const useSavedSearches = () => {
 			removeSavedSearch.mutate(id);
 		},
 		saveSearch: (name: string) => {
-			const filters = Array.from(searchStore.selectedFilters.values());
 			// createSavedSearch.mutate({
 			// 	name,
 			// 	description: '',

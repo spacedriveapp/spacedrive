@@ -1,10 +1,11 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { Icon } from '@phosphor-icons/react';
 import { produce } from 'immer';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useLayoutEffect, useMemo } from 'react';
 import { proxy, ref, useSnapshot } from 'valtio';
 import { proxyMap } from 'valtio/utils';
 import { SearchFilterArgs } from '@sd/client';
+import { useTopBarContext } from '~/app/$libraryId/TopBar/Layout';
 
 import { filterRegistry, FilterType, RenderSearchFilter } from './Filters';
 import { FilterTypeCondition } from './util';
@@ -42,45 +43,26 @@ const searchStore = proxy({
 	searchQuery: null as string | null,
 	filterArgs: ref([] as SearchFilterArgs[]),
 	filterArgsKeys: ref(new Set<string>()),
-	fixedFilters: ref([] as SearchFilterArgs[]),
-	fixedFilterKeys: ref(new Set<string>()),
 	filterOptions: ref(new Map<string, FilterOption[]>()),
 	// we register filters so we can search them
-	registeredFilters: proxyMap() as Map<string, FilterOptionWithType>,
-	// selected filters are applied to the search args
-	selectedFilters: proxyMap() as Map<string, SetFilter>
+	registeredFilters: proxyMap() as Map<string, FilterOptionWithType>
 });
 
 export function useSearchFilters<T extends SearchType>(
 	_searchType: T,
 	fixedArgs: SearchFilterArgs[]
 ) {
-	const state = useSearchStore();
+	const { filterArgs } = useSearchStore();
+	const topBar = useTopBarContext();
 
-	const fixedArgsAsOptions = useMemo(() => {
-		return argsToOptions(fixedArgs);
+	// don't want the search bar to pop in after the top bar has loaded!
+	useLayoutEffect(() => {
+		topBar.setFixedArgs(fixedArgs);
 	}, [fixedArgs]);
 
-	useEffect(() => {
-		resetSearchStore();
+	return fixedArgs;
 
-		const keys = new Set(
-			fixedArgsAsOptions.map(({ arg, filter }) => {
-				return getKey({
-					type: filter.name,
-					name: arg.name,
-					value: arg.value
-				});
-			})
-		);
-
-		searchStore.fixedFilters = ref(fixedArgs);
-		searchStore.fixedFilterKeys = ref(keys);
-		searchStore.filterArgs = ref(fixedArgs);
-		searchStore.filterArgsKeys = ref(keys);
-	}, [fixedArgsAsOptions, fixedArgs]);
-
-	return [...state.filterArgs];
+	// return [...state.filterArgs];
 }
 
 // this makes the filter unique and easily searchable using .includes
@@ -98,11 +80,6 @@ export const useRegisterSearchFilterOptions = (
 			if (options) {
 				searchStore.filterOptions.set(filter.name, options);
 				searchStore.filterOptions = ref(new Map(searchStore.filterOptions));
-
-				return () => {
-					searchStore.filterOptions.delete(filter.name);
-					searchStore.filterOptions = ref(new Map(searchStore.filterOptions));
-				};
 			}
 		},
 		options?.map(getKey) ?? []
@@ -126,11 +103,13 @@ export const useRegisterSearchFilterOptions = (
 	}, options.map(getKey));
 };
 
-export function argsToOptions(args: SearchFilterArgs[]) {
+export function argsToOptions(args: SearchFilterArgs[], options: Map<string, FilterOption[]>) {
 	return args.flatMap((fixedArg) => {
-		const filter = filterRegistry.find((f) => f.find(fixedArg))!;
+		const filter = filterRegistry.find((f) => f.extract(fixedArg))!;
 
-		return filter.argsToOptions(filter.find(fixedArg) as any).map((arg) => ({ arg, filter }));
+		return filter
+			.argsToOptions(filter.extract(fixedArg) as any, options)
+			.map((arg) => ({ arg, filter }));
 	});
 }
 
@@ -138,35 +117,17 @@ export function updateFilterArgs(fn: (args: SearchFilterArgs[]) => SearchFilterA
 	searchStore.filterArgs = ref(produce(searchStore.filterArgs, fn));
 	searchStore.filterArgsKeys = ref(
 		new Set(
-			argsToOptions(searchStore.filterArgs).map(({ arg, filter }) =>
-				getKey({
-					type: filter.name,
-					name: arg.name,
-					value: arg.value
-				})
+			argsToOptions(searchStore.filterArgs, searchStore.filterOptions).map(
+				({ arg, filter }) =>
+					getKey({
+						type: filter.name,
+						name: arg.name,
+						value: arg.value
+					})
 			)
 		)
 	);
 }
-
-// this is used to render the applied filters
-export const getSelectedFiltersGrouped = (): GroupedFilters[] => {
-	const groupedFilters: GroupedFilters[] = [];
-
-	searchStore.selectedFilters.forEach((filter) => {
-		const group = groupedFilters.find((group) => group.type === filter.type);
-		if (group) {
-			group.filters.push(filter);
-		} else {
-			groupedFilters.push({
-				type: filter.type,
-				filters: [filter]
-			});
-		}
-	});
-
-	return groupedFilters;
-};
 
 export const useSearchRegisteredFilters = (query: string) => {
 	const { registeredFilters } = useSearchStore();
@@ -184,7 +145,7 @@ export const useSearchRegisteredFilters = (query: string) => {
 
 export const resetSearchStore = () => {
 	searchStore.searchQuery = null;
-	searchStore.selectedFilters.clear();
+	searchStore.filterArgs = ref([]);
 };
 
 export const useSearchStore = () => useSnapshot(searchStore);

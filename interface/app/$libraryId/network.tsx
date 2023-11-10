@@ -55,7 +55,6 @@ const Network = memo((props: { args: PathParams }) => {
 					</div>
 				}
 				right={<DefaultTopBarOptions />}
-				noSearch={true}
 			/>
 			<Explorer
 				emptyNotice={

@@ -3,6 +3,7 @@ import type { Ref } from 'react';
 import { useOperatingSystem, useShowControls } from '~/hooks';
 
 import { useExplorerStore } from '../Explorer/store';
+import { useTopBarContext } from './Layout';
 import { NavigationButtons } from './NavigationButtons';
 import SearchBar from './SearchBar';
 
@@ -11,13 +12,14 @@ export const TOP_BAR_HEIGHT = 46;
 interface Props {
 	leftRef?: Ref<HTMLDivElement>;
 	rightRef?: Ref<HTMLDivElement>;
-	noSearch?: boolean;
 }
 
 const TopBar = (props: Props) => {
 	const transparentBg = useShowControls().transparentBg;
 	const { isDragging } = useExplorerStore();
 	const os = useOperatingSystem();
+
+	const ctx = useTopBarContext();
 
 	return (
 		<div
@@ -38,9 +40,9 @@ const TopBar = (props: Props) => {
 				<div ref={props.leftRef} className="overflow-hidden" />
 			</div>
 
-			{!props.noSearch && <SearchBar />}
+			{ctx.fixedArgs && <SearchBar />}
 
-			<div ref={props.rightRef} className={clsx(!props.noSearch && 'flex-1')} />
+			<div ref={props.rightRef} className={clsx(ctx.fixedArgs && 'flex-1')} />
 		</div>
 	);
 };
