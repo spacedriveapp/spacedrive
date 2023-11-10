@@ -10,11 +10,11 @@ import {
 	type ReactNode
 } from 'react';
 import { createPortal } from 'react-dom';
-import { useKey, useKeys } from 'rooks';
+import { useKeys } from 'rooks';
 import { ExplorerLayout, getItemObject, type Object } from '@sd/client';
 import { dialogManager, ModifierKeys } from '@sd/ui';
 import { Loader } from '~/components';
-import { useKeyCopyCutPaste, useKeyMatcher, useOperatingSystem } from '~/hooks';
+import { useKeyCopyCutPaste, useOperatingSystem, useShortcut } from '~/hooks';
 import { isNonEmpty } from '~/util';
 
 import CreateDialog from '../../settings/library/tags/CreateDialog';
@@ -61,12 +61,9 @@ export default memo(
 		const explorer = useExplorerContext();
 		const quickPreview = useQuickPreviewContext();
 		const quickPreviewStore = useQuickPreviewStore();
-		const os = useOperatingSystem();
 		const { doubleClick } = useViewItemDoubleClick();
 
 		const { layoutMode } = explorer.useSettingsSnapshot();
-
-		const metaCtrlKey = useKeyMatcher('Meta').key;
 
 		const ref = useRef<HTMLDivElement>(null);
 
@@ -103,16 +100,10 @@ export default memo(
 			explorer.settingsStore.layoutMode = layout ?? 'grid';
 		}, [layoutMode, explorer.layouts, explorer.settingsStore]);
 
-		useKey(['Enter'], (e) => {
+		useShortcut('openObject', (e) => {
 			e.stopPropagation();
-			if (os === 'windows' && !isRenaming) {
-				doubleClick();
-			}
-		});
-
-		useKeys([metaCtrlKey, 'KeyO'], (e) => {
-			e.stopPropagation();
-			if (os === 'windows') return;
+			e.preventDefault();
+			if (quickPreviewStore.open || isRenaming) return;
 			doubleClick();
 		});
 
@@ -226,31 +217,20 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 			)
 				return;
 
-			dialogManager.create((dp) => <CreateDialog {...dp} objects={objects} />);
+			dialogManager.create((dp) => (
+				<CreateDialog {...dp} items={objects.map((item) => ({ type: 'Object', item }))} />
+			));
 		},
 		[os, explorer.selectedItems]
 	);
 
-	const handleExplorerShortcut = useCallback(
-		(event: KeyboardEvent) => {
-			if (
-				event.key.toUpperCase() !== 'I' ||
-				!event.getModifierState(os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control)
-			)
-				return;
-
-			getExplorerStore().showInspector = !getExplorerStore().showInspector;
-		},
-		[os]
-	);
-
 	useEffect(() => {
-		const handlers = [handleNewTag, handleExplorerShortcut];
+		const handlers = [handleNewTag];
 		const handler = (event: KeyboardEvent) => {
 			if (event.repeat || disabled) return;
 			for (const handler of handlers) handler(event);
 		};
 		document.body.addEventListener('keydown', handler);
 		return () => document.body.removeEventListener('keydown', handler);
-	}, [disabled, handleNewTag, handleExplorerShortcut]);
+	}, [disabled, handleNewTag]);
 };

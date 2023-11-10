@@ -148,7 +148,7 @@ const WormHole = () => {
 					height={626}
 					quality={100}
 					alt="wormhole"
-					src="/images/wormhole.webp"
+					src="/images/misc/wormhole.webp"
 				/>
 			</div>
 			<div

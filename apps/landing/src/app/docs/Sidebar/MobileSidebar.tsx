@@ -23,7 +23,7 @@ export function MobileSidebarProvider({ children }: PropsWithChildren) {
 	return <MenuContext.Provider value={{ open, setOpen }}>{children}</MenuContext.Provider>;
 }
 
-function useMenuContext() {
+export function useMenuContext() {
 	const ctx = useContext(MenuContext);
 
 	if (!ctx) throw new Error('useMenuContext must be used within a MenuProvider');

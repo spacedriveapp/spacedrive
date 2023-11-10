@@ -6,7 +6,7 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-thiserror = "1.0.48"
+thiserror = "1.0.50"
 normpath = "1.1.1"
 libc = "0.2"
 

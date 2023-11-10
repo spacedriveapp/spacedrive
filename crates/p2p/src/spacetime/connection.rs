@@ -1,9 +1,12 @@
-use libp2p::swarm::{
-	handler::{
-		ConnectionEvent, ConnectionHandler, ConnectionHandlerEvent, FullyNegotiatedInbound,
-		KeepAlive,
+use libp2p::{
+	swarm::{
+		handler::{
+			ConnectionEvent, ConnectionHandler, ConnectionHandlerEvent, FullyNegotiatedInbound,
+			KeepAlive,
+		},
+		StreamUpgradeError, SubstreamProtocol,
 	},
-	StreamUpgradeError, SubstreamProtocol,
+	PeerId,
 };
 use std::{
 	collections::VecDeque,
@@ -14,7 +17,7 @@ use std::{
 };
 use tracing::error;
 
-use crate::{Manager, ManagerStreamAction2, Metadata, PeerId};
+use crate::{Manager, ManagerStreamAction2};
 
 use super::{InboundProtocol, OutboundProtocol, OutboundRequest, EMPTY_QUEUE_SHRINK_THRESHOLD};
 
@@ -22,21 +25,21 @@ use super::{InboundProtocol, OutboundProtocol, OutboundRequest, EMPTY_QUEUE_SHRI
 const SUBSTREAM_TIMEOUT: Duration = Duration::from_secs(10); // TODO: Tune value
 
 #[allow(clippy::type_complexity)]
-pub struct SpaceTimeConnection<TMetadata: Metadata> {
+pub struct SpaceTimeConnection {
 	peer_id: PeerId,
-	manager: Arc<Manager<TMetadata>>,
+	manager: Arc<Manager>,
 	pending_events: VecDeque<
 		ConnectionHandlerEvent<
 			OutboundProtocol,
 			<Self as ConnectionHandler>::OutboundOpenInfo,
 			<Self as ConnectionHandler>::ToBehaviour,
-			<Self as ConnectionHandler>::Error,
+			StreamUpgradeError<io::Error>,
 		>,
 	>,
 }
 
-impl<TMetadata: Metadata> SpaceTimeConnection<TMetadata> {
-	pub(super) fn new(peer_id: PeerId, manager: Arc<Manager<TMetadata>>) -> Self {
+impl SpaceTimeConnection {
+	pub(super) fn new(peer_id: PeerId, manager: Arc<Manager>) -> Self {
 		Self {
 			peer_id,
 			manager,
@@ -45,13 +48,11 @@ impl<TMetadata: Metadata> SpaceTimeConnection<TMetadata> {
 	}
 }
 
-// pub enum Connection
-
-impl<TMetadata: Metadata> ConnectionHandler for SpaceTimeConnection<TMetadata> {
+impl ConnectionHandler for SpaceTimeConnection {
 	type FromBehaviour = OutboundRequest;
-	type ToBehaviour = ManagerStreamAction2<TMetadata>;
+	type ToBehaviour = ManagerStreamAction2;
 	type Error = StreamUpgradeError<io::Error>;
-	type InboundProtocol = InboundProtocol<TMetadata>;
+	type InboundProtocol = InboundProtocol;
 	type OutboundProtocol = OutboundProtocol;
 	type OutboundOpenInfo = ();
 	type InboundOpenInfo = ();
@@ -75,7 +76,11 @@ impl<TMetadata: Metadata> ConnectionHandler for SpaceTimeConnection<TMetadata> {
 		self.pending_events
 			.push_back(ConnectionHandlerEvent::OutboundSubstreamRequest {
 				protocol: SubstreamProtocol::new(
-					OutboundProtocol(self.manager.application_name.clone(), req),
+					OutboundProtocol {
+						application_name: self.manager.application_name.clone(),
+						req,
+						identity: self.manager.identity.clone(),
+					},
 					(),
 				) // TODO: Use `info` here maybe to pass into about the client. Idk?
 				.with_timeout(SUBSTREAM_TIMEOUT),
@@ -94,7 +99,7 @@ impl<TMetadata: Metadata> ConnectionHandler for SpaceTimeConnection<TMetadata> {
 			Self::OutboundProtocol,
 			Self::OutboundOpenInfo,
 			Self::ToBehaviour,
-			Self::Error,
+			StreamUpgradeError<io::Error>,
 		>,
 	> {
 		if let Some(event) = self.pending_events.pop_front() {

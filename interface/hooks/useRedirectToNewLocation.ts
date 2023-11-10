@@ -25,7 +25,7 @@ export const useRedirectToNewLocation = () => {
 		.some(
 			(j) =>
 				j.name === 'indexer' &&
-				j.metadata.location.id === newLocation &&
+				j.metadata?.location.id === newLocation &&
 				(j.completed_task_count > 0 || j.completed_at != null)
 		);
 

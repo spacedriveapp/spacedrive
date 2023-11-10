@@ -72,12 +72,13 @@ fn custom_menu_bar() -> Menu {
 		.add_item(CustomMenuItem::new("add_location", "Add Location").disabled()); // TODO(brxken128): add keybind handling here;
 
 	let edit_menu = Menu::new()
-		.add_item(CustomMenuItem::new("undo", "Undo").accelerator("CmdOrCtrl+Z"))
-		.add_item(CustomMenuItem::new("redo", "Redo").accelerator("CmdOrCtrl+Shift+Z"))
 		.add_native_item(MenuItem::Separator)
-		.add_item(CustomMenuItem::new("copy", "Copy").accelerator("CmdOrCtrl+C"))
-		.add_item(CustomMenuItem::new("paste", "Paste").accelerator("CmdOrCtrl+V"))
-		.add_item(CustomMenuItem::new("select_all", "Select all").accelerator("CmdOrCtrl+A"));
+		.add_native_item(MenuItem::Copy)
+		.add_native_item(MenuItem::Cut)
+		.add_native_item(MenuItem::Paste)
+		.add_native_item(MenuItem::Redo)
+		.add_native_item(MenuItem::Undo)
+		.add_native_item(MenuItem::SelectAll);
 
 	let view_menu = Menu::new()
 		.add_item(CustomMenuItem::new("open_overview", "Overview").accelerator("CmdOrCtrl+."))

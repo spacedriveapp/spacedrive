@@ -1,4 +1,5 @@
 import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
+import { ArrowLeft } from 'phosphor-react-native';
 import { tw } from '~/lib/tailwind';
 import AppearanceSettingsScreen from '~/screens/settings/client/AppearanceSettings';
 import ExtensionsSettingsScreen from '~/screens/settings/client/ExtensionsSettings';
@@ -18,6 +19,9 @@ import SettingsScreen from '~/screens/settings/Settings';
 
 const SettingsStack = createStackNavigator<SettingsStackParamList>();
 
+// NOTE: Why is this needed for Android? Sounds weird @utku
+const BackButton = () => <ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />;
+
 export default function SettingsNavigator() {
 	return (
 		<SettingsStack.Navigator
@@ -28,14 +32,17 @@ export default function SettingsNavigator() {
 				headerStyle: tw`bg-app`,
 				headerTintColor: tw.color('ink'),
 				headerTitleStyle: tw`text-base`,
-				headerBackTitleStyle: tw`text-base`
+				headerBackTitleStyle: tw`text-base`,
+				headerBackImage: BackButton
 				// headerShadowVisible: false // will disable the white line under
 			}}
 		>
 			<SettingsStack.Screen
 				name="Home"
 				component={SettingsScreen}
-				options={{ headerTitle: 'Settings' }}
+				options={{
+					headerTitle: 'Settings'
+				}}
 			/>
 			{/* Client */}
 			<SettingsStack.Screen
@@ -46,48 +53,66 @@ export default function SettingsNavigator() {
 			<SettingsStack.Screen
 				name="LibrarySettings"
 				component={LibrarySettingsScreen}
-				options={{ headerTitle: 'Libraries' }}
+				options={{
+					headerTitle: 'Libraries'
+				}}
 			/>
 			<SettingsStack.Screen
 				name="AppearanceSettings"
 				component={AppearanceSettingsScreen}
-				options={{ headerTitle: 'Appearance' }}
+				options={{
+					headerTitle: 'Appearance'
+				}}
 			/>
 			<SettingsStack.Screen
 				name="PrivacySettings"
 				component={PrivacySettingsScreen}
-				options={{ headerTitle: 'Privacy' }}
+				options={{
+					headerTitle: 'Privacy'
+				}}
 			/>
 			<SettingsStack.Screen
 				name="ExtensionsSettings"
 				component={ExtensionsSettingsScreen}
-				options={{ headerTitle: 'Extensions' }}
+				options={{
+					headerTitle: 'Extensions'
+				}}
 			/>
 			{/* Library */}
 			<SettingsStack.Screen
 				name="LibraryGeneralSettings"
 				component={LibraryGeneralSettingsScreen}
-				options={{ headerTitle: 'Library Settings' }}
+				options={{
+					headerTitle: 'Library Settings'
+				}}
 			/>
 			<SettingsStack.Screen
 				name="LocationSettings"
 				component={LocationSettingsScreen}
-				options={{ headerTitle: 'Locations' }}
+				options={{
+					headerTitle: 'Locations'
+				}}
 			/>
 			<SettingsStack.Screen
 				name="EditLocationSettings"
 				component={EditLocationSettingsScreen}
-				options={{ headerTitle: 'Edit Location' }}
+				options={{
+					headerTitle: 'Edit Location'
+				}}
 			/>
 			<SettingsStack.Screen
 				name="NodesSettings"
 				component={NodesSettingsScreen}
-				options={{ headerTitle: 'Nodes' }}
+				options={{
+					headerTitle: 'Nodes'
+				}}
 			/>
 			<SettingsStack.Screen
 				name="TagsSettings"
 				component={TagsSettingsScreen}
-				options={{ headerTitle: 'Tags' }}
+				options={{
+					headerTitle: 'Tags'
+				}}
 			/>
 			{/* <SettingsStack.Screen
 				name="KeysSettings"
@@ -98,17 +123,23 @@ export default function SettingsNavigator() {
 			<SettingsStack.Screen
 				name="About"
 				component={AboutScreen}
-				options={{ headerTitle: 'About' }}
+				options={{
+					headerTitle: 'About'
+				}}
 			/>
 			<SettingsStack.Screen
 				name="Support"
 				component={SupportScreen}
-				options={{ headerTitle: 'Support' }}
+				options={{
+					headerTitle: 'Support'
+				}}
 			/>
 			<SettingsStack.Screen
 				name="Debug"
 				component={DebugScreen}
-				options={{ headerTitle: 'Debug' }}
+				options={{
+					headerTitle: 'Debug'
+				}}
 			/>
 		</SettingsStack.Navigator>
 	);

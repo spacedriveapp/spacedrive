@@ -16,6 +16,7 @@ import {
 	getDismissibleNoticeStore,
 	useDismissibleNoticeStore,
 	useIsDark,
+	useKeyDeleteFile,
 	useOperatingSystem,
 	useZodSearchParams
 } from '~/hooks';
@@ -29,6 +30,7 @@ import {
 } from './Explorer/store';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
+import { EmptyNotice } from './Explorer/View';
 import { AddLocationButton } from './settings/library/locations/AddLocationButton';
 import { TOP_BAR_HEIGHT } from './TopBar';
 import { TopBarPortal } from './TopBar/Portal';
@@ -60,10 +62,7 @@ const EphemeralNotice = ({ path }: { path: string }) => {
 	const dismiss = () => (getDismissibleNoticeStore().ephemeral = true);
 
 	return (
-		<Dialog.Root
-			open={!dismissed}
-			onOpenChange={(open) => (getDismissibleNoticeStore().ephemeral = !open)}
-		>
+		<Dialog.Root open={!dismissed}>
 			<Dialog.Portal>
 				<Dialog.Overlay className="fixed inset-0 z-50 bg-app/80 backdrop-blur-sm radix-state-closed:animate-out radix-state-closed:fade-out-0 radix-state-open:animate-in radix-state-open:fade-in-0" />
 				<Dialog.Content className="fixed left-[50%] top-[50%] z-50 w-96 translate-x-[-50%] translate-y-[-50%] overflow-hidden rounded-md border border-app-line bg-app shadow-lg outline-none duration-200 radix-state-closed:animate-out radix-state-closed:fade-out-0 radix-state-closed:zoom-out-95 radix-state-closed:slide-out-to-left-1/2 radix-state-closed:slide-out-to-top-[48%] radix-state-open:animate-in radix-state-open:fade-in-0 radix-state-open:zoom-in-95 radix-state-open:slide-in-from-left-1/2 radix-state-open:slide-in-from-top-[48%]">
@@ -201,13 +200,16 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 		}
 
 		return ret;
-	}, [query.data, settingsSnapshot.layoutMode, settingsSnapshot.showHiddenFiles]);
+	}, [query.data, settingsSnapshot.layoutMode]);
 
 	const explorer = useExplorer({
 		items,
+		parent: path != null ? { type: 'Ephemeral', path } : undefined,
 		settings: explorerSettings,
 		layouts: { media: false }
 	});
+
+	useKeyDeleteFile(explorer.selectedItems, null);
 
 	return (
 		<ExplorerContextProvider explorer={explorer}>
@@ -222,7 +224,15 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 				}
 				right={<DefaultTopBarOptions />}
 			/>
-			<Explorer />
+			<Explorer
+				emptyNotice={
+					<EmptyNotice
+						loading={query.isFetching}
+						icon={<Icon name="FolderNoSpace" size={128} />}
+						message="No files found here"
+					/>
+				}
+			/>
 		</ExplorerContextProvider>
 	);
 });

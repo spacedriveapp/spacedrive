@@ -1,7 +1,7 @@
-import { Laptop } from '@sd/assets/icons';
 import { useMemo } from 'react';
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { NodeIdParamsSchema } from '~/app/route-schemas';
+import { Icon } from '~/components';
 import { useZodRouteParams } from '~/hooks';
 
 import Explorer from '../Explorer';
@@ -25,8 +25,7 @@ export const Component = () => {
 					order: null
 				}),
 			[]
-		),
-		onSettingsChanged: () => {}
+		)
 	});
 
 	const explorer = useExplorer({
@@ -47,7 +46,7 @@ export const Component = () => {
 			<TopBarPortal
 				left={
 					<div className="flex items-center gap-2">
-						<img src={Laptop} className="mt-[-1px] h-6 w-6" />
+						<Icon name="Laptop" size={24} className="mt-[-1px]" />
 						<span className="truncate text-sm font-medium">
 							{nodeState.data?.name || 'Node'}
 						</span>

@@ -1,7 +1,7 @@
-import { getIcon, iconNames } from '@sd/assets/util';
 import { useCallback, useMemo } from 'react';
 import { ObjectKindEnum, ObjectOrder, Tag, useLibraryContext, useLibraryQuery } from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
+import { Icon } from '~/components';
 import { useZodRouteParams } from '~/hooks';
 
 import Explorer from '../Explorer';
@@ -50,8 +50,7 @@ function Inner() {
 		settings: explorerSettings,
 		...(tag.data && {
 			parent: { type: 'Tag', tag: tag.data }
-		}),
-		showPathBar: false
+		})
 	});
 
 	return (
@@ -73,7 +72,7 @@ function Inner() {
 				emptyNotice={
 					<EmptyNotice
 						loading={query.isFetching}
-						icon={<img className="h-32 w-32" src={getIcon(iconNames.Tags)} />}
+						icon={<Icon name="Tags" size={128} />}
 						message="No items assigned to this tag."
 					/>
 				}

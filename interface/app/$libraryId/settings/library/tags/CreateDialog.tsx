@@ -1,4 +1,11 @@
-import { Object, useLibraryMutation, usePlausibleEvent, useZodForm } from '@sd/client';
+import {
+	FilePath,
+	Object,
+	Target,
+	useLibraryMutation,
+	usePlausibleEvent,
+	useZodForm
+} from '@sd/client';
 import { Dialog, InputField, useDialog, UseDialogProps, z } from '@sd/ui';
 import { ColorPicker } from '~/components';
 
@@ -7,7 +14,41 @@ const schema = z.object({
 	color: z.string()
 });
 
-export default (props: UseDialogProps & { objects?: Object[] }) => {
+export type AssignTagItems = Array<
+	{ type: 'Object'; item: Object } | { type: 'Path'; item: FilePath }
+>;
+
+export function useAssignItemsToTag() {
+	const submitPlausibleEvent = usePlausibleEvent();
+
+	const mutation = useLibraryMutation(['tags.assign'], {
+		onSuccess: () => {
+			submitPlausibleEvent({ event: { type: 'tagAssign' } });
+		}
+	});
+
+	return (tagId: number, items: AssignTagItems, unassign: boolean) => {
+		const targets = items.map<Target>((item) => {
+			if (item.type === 'Object') {
+				return { Object: item.item.id };
+			} else {
+				return { FilePath: item.item.id };
+			}
+		});
+
+		return mutation.mutateAsync({
+			tag_id: tagId,
+			targets,
+			unassign
+		});
+	};
+}
+
+export default (
+	props: UseDialogProps & {
+		items?: AssignTagItems;
+	}
+) => {
 	const submitPlausibleEvent = usePlausibleEvent();
 
 	const form = useZodForm({
@@ -17,7 +58,8 @@ export default (props: UseDialogProps & { objects?: Object[] }) => {
 	});
 
 	const createTag = useLibraryMutation('tags.create');
-	const assignTag = useLibraryMutation('tags.assign');
+
+	const assignItemsToTag = useAssignItemsToTag();
 
 	const onSubmit = form.handleSubmit(async (data) => {
 		try {
@@ -25,13 +67,7 @@ export default (props: UseDialogProps & { objects?: Object[] }) => {
 
 			submitPlausibleEvent({ event: { type: 'tagCreate' } });
 
-			if (props.objects !== undefined) {
-				await assignTag.mutateAsync({
-					tag_id: tag.id,
-					object_ids: props.objects.map((o) => o.id),
-					unassign: false
-				});
-			}
+			if (props.items !== undefined) await assignItemsToTag(tag.id, props.items, false);
 		} catch (e) {
 			console.error('error', e);
 		}

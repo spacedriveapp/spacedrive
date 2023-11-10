@@ -3,18 +3,11 @@ import { getExplorerLayoutStore, useExplorerLayoutStore } from '~/../packages/cl
 import { SortOrderSchema } from '~/app/route-schemas';
 
 import { useExplorerContext } from './Context';
-import {
-	createOrdering,
-	getExplorerStore,
-	getOrderingDirection,
-	orderingKey,
-	useExplorerStore
-} from './store';
+import { createOrdering, getOrderingDirection, orderingKey, useExplorerStore } from './store';
 
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
 
 export default () => {
-	const explorerStore = useExplorerStore();
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
 
@@ -55,9 +48,9 @@ export default () => {
 					<Subheading>Gap</Subheading>
 					<Slider
 						onValueChange={([val]) => {
-							if (val) getExplorerStore().gridGap = val;
+							if (val) explorer.settingsStore.gridGap = val;
 						}}
-						defaultValue={[explorerStore.gridGap]}
+						defaultValue={[settings.gridGap]}
 						max={16}
 						min={4}
 						step={4}
@@ -151,7 +144,6 @@ export default () => {
 						name="showHiddenFiles"
 						onCheckedChange={(value) => {
 							if (typeof value !== 'boolean') return;
-
 							explorer.settingsStore.showHiddenFiles = value;
 						}}
 					/>

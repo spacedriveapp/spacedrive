@@ -36,6 +36,7 @@ file_path::select!(file_path_for_file_identifier {
 	is_dir
 	name
 	extension
+	object_id
 });
 file_path::select!(file_path_for_object_validator {
 	pub_id
@@ -72,6 +73,7 @@ file_path::select!(file_path_to_isolate_with_id {
 file_path::select!(file_path_walker {
 	pub_id
 	location_id
+	object_id
 	materialized_path
 	is_dir
 	name

@@ -114,10 +114,12 @@ const useFormState = () => {
 					new Promise((res) => setTimeout(res, 500))
 				]);
 
-				queryClient.setQueryData(['library.list'], (libraries: any) => [
-					...(libraries ?? []),
-					library
-				]);
+				queryClient.setQueryData(['library.list'], (libraries: any) => {
+					// The invalidation system beat us to it
+					if (libraries.find((l: any) => l.uuid === library.uuid)) return libraries;
+
+					return [...(libraries || []), library];
+				});
 
 				platform.refreshMenuBar && platform.refreshMenuBar();
 

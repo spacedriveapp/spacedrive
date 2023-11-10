@@ -9,11 +9,11 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import BasicSticky from 'react-sticky-el';
-import { useKey, useMutationObserver, useWindowEventListener } from 'rooks';
+import { useMutationObserver, useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import { getItemFilePath, type ExplorerItem } from '@sd/client';
 import { ContextMenu, Tooltip } from '@sd/ui';
-import { useIsTextTruncated, useMouseNavigate } from '~/hooks';
+import { useIsTextTruncated, useMouseNavigate, useShortcut } from '~/hooks';
 import { isNonEmptyObject } from '~/util';
 
 import { useLayoutContext } from '../../../Layout/Context';
@@ -437,7 +437,7 @@ export default () => {
 	}
 
 	const scrollToRow = useCallback(
-		(row: Row<ExplorerItem>, options: { behavior?: ScrollBehavior } = {}) => {
+		(row: Row<ExplorerItem>) => {
 			if (!explorer.scrollRef.current || !tableBodyRef.current) return;
 
 			const scrollRect = explorer.scrollRef.current.getBoundingClientRect();
@@ -458,13 +458,7 @@ export default () => {
 
 			if (rowTop < tableTop) {
 				const scrollBy = rowTop - tableTop - (row.index === 0 ? padding.top : 0);
-
-				explorer.scrollRef.current.scrollBy({
-					top: scrollBy,
-					behavior:
-						options.behavior ??
-						(Math.abs(scrollBy) > ROW_HEIGHT * 10 ? 'auto' : 'smooth')
-				});
+				explorer.scrollRef.current.scrollBy({ top: scrollBy });
 			} else if (rowBottom > scrollRect.height - (explorerView.bottom ?? 0)) {
 				const scrollBy =
 					rowBottom -
@@ -472,12 +466,7 @@ export default () => {
 					(explorerView.bottom ?? 0) +
 					(row.index === rows.length - 1 ? padding.bottom : 0);
 
-				explorer.scrollRef.current.scrollBy({
-					top: scrollBy,
-					behavior:
-						options.behavior ??
-						(Math.abs(scrollBy) > ROW_HEIGHT * 10 ? 'auto' : 'smooth')
-				});
+				explorer.scrollRef.current.scrollBy({ top: scrollBy });
 			}
 		},
 		[
@@ -511,7 +500,7 @@ export default () => {
 		const lastRow = rows[rows.length - 1];
 		if (!lastRow) return;
 
-		scrollToRow(lastRow, { behavior: 'auto' });
+		scrollToRow(lastRow);
 		setRanges(rows.map((row) => [uniqueId(row.original), uniqueId(row.original)] as Range));
 		setInitialized(true);
 	}, [explorer.count, explorer.selectedItems, initialized, rowsById, scrollToRow, sized]);
@@ -607,15 +596,14 @@ export default () => {
 		};
 	}, [sized, isLeftMouseDown]);
 
-	// Handle key selection
-	useKey(['ArrowUp', 'ArrowDown', 'Escape'], (e) => {
+	const keyboardHandler = (e: KeyboardEvent, direction: 'ArrowDown' | 'ArrowUp') => {
 		if (!explorerView.selectable) return;
 
 		e.preventDefault();
 
 		const range = getRangeByIndex(ranges.length - 1);
 
-		if (e.key === 'ArrowDown' && explorer.selectedItems.size === 0) {
+		if (explorer.selectedItems.size === 0) {
 			const item = rows[0]?.original;
 			if (item) {
 				explorer.addSelectedItem(item);
@@ -626,13 +614,7 @@ export default () => {
 
 		if (!range) return;
 
-		if (e.key === 'Escape') {
-			explorer.resetSelectedItems([]);
-			setRanges([]);
-			return;
-		}
-
-		const keyDirection = e.key === 'ArrowDown' ? 'down' : 'up';
+		const keyDirection = direction === 'ArrowDown' ? 'down' : 'up';
 
 		const nextRow = rows[range.end.index + (keyDirection === 'up' ? -1 : 1)];
 
@@ -766,6 +748,20 @@ export default () => {
 		} else explorer.resetSelectedItems([item]);
 
 		scrollToRow(nextRow);
+	};
+
+	useShortcut('explorerEscape', () => {
+		explorer.resetSelectedItems([]);
+		setRanges([]);
+		return;
+	});
+
+	useShortcut('explorerUp', (e) => {
+		keyboardHandler(e, 'ArrowUp');
+	});
+
+	useShortcut('explorerDown', (e) => {
+		keyboardHandler(e, 'ArrowDown');
 	});
 
 	// Reset resizing cursor

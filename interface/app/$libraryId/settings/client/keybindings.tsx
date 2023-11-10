@@ -33,7 +33,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			action: 'Navigate to Settings page',
 			keys: {
 				macOS: {
-					value: ['Shift', modifierSymbols.Meta.macOS, 'T']
+					value: [modifierSymbols.Shift.macOS, modifierSymbols.Meta.macOS, 'T']
 				},
 				all: {
 					value: ['Shift', modifierSymbols.Control.Other, 'T']
@@ -44,7 +44,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			action: 'Navigate to Overview page',
 			keys: {
 				macOS: {
-					value: ['Shift', modifierSymbols.Meta.macOS, 'O']
+					value: [modifierSymbols.Shift.macOS, modifierSymbols.Meta.macOS, 'O']
 				},
 				all: {
 					value: ['Shift', modifierSymbols.Control.Other, 'O']
@@ -187,6 +187,50 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			}
 		},
 		{
+			action: 'Copy selected item(s)',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, 'C']
+				},
+				all: {
+					value: [modifierSymbols.Control.Other, 'C']
+				}
+			}
+		},
+		{
+			action: 'Cut selected item(s)',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, 'X']
+				},
+				all: {
+					value: [modifierSymbols.Control.Other, 'X']
+				}
+			}
+		},
+		{
+			action: 'Paste selected item(s)',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, 'V']
+				},
+				all: {
+					value: [modifierSymbols.Control.Other, 'V']
+				}
+			}
+		},
+		{
+			action: 'Duplicate selected item(s)',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, 'D']
+				},
+				all: {
+					value: [modifierSymbols.Control.Other, 'D']
+				}
+			}
+		},
+		{
 			action: 'Reveal in Explorer/Finder',
 			keys: {
 				macOS: {
@@ -194,6 +238,17 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 				},
 				all: {
 					value: [modifierSymbols.Control.Other, 'Y']
+				}
+			}
+		},
+		{
+			action: 'Rescan',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, 'R']
+				},
+				all: {
+					value: [modifierSymbols.Control.Other, 'R']
 				}
 			}
 		},
@@ -334,7 +389,7 @@ function createKeybindColumns(os: OperatingSystem) {
 				});
 				return shortcuts.map((shortcut, idx) => {
 					if (shortcut) {
-						if (shortcut.length > 2) {
+						if (shortcut.length >= 2) {
 							return (
 								<div key={idx.toString()} className="inline-flex items-center">
 									<kbd

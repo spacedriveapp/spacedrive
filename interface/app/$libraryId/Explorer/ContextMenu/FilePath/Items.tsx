@@ -1,7 +1,15 @@
 import { Image, Package, Trash, TrashSimple } from '@phosphor-icons/react';
 import { libraryClient, useLibraryMutation } from '@sd/client';
-import { ContextMenu, dialogManager, ModifierKeys, toast } from '@sd/ui';
+import {
+	ContextMenu,
+	dialogManager,
+	keySymbols,
+	ModifierKeys,
+	modifierSymbols,
+	toast
+} from '@sd/ui';
 import { Menu } from '~/components/Menu';
+import { useOperatingSystem } from '~/hooks';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { useQuickRescan } from '~/hooks/useQuickRescan';
 import { isNonEmpty } from '~/util';
@@ -17,35 +25,48 @@ export * from './CutCopyItems';
 
 export const Delete = new ConditionalItem({
 	useCondition: () => {
-		const { selectedFilePaths } = useContextMenuContext();
-		if (!isNonEmpty(selectedFilePaths)) return null;
+		const { selectedFilePaths, selectedEphemeralPaths } = useContextMenuContext();
 
-		const locationId = selectedFilePaths[0].location_id;
-		if (locationId === null) return null;
+		if (!isNonEmpty(selectedFilePaths) && !isNonEmpty(selectedEphemeralPaths)) return null;
 
-		return { selectedFilePaths, locationId };
+		return { selectedFilePaths, selectedEphemeralPaths };
 	},
-	Component: ({ selectedFilePaths, locationId }) => {
-		const keybind = useKeybindFactory();
-
+	Component: ({ selectedFilePaths, selectedEphemeralPaths }) => {
 		const rescan = useQuickRescan();
 
-		const dirCount = selectedFilePaths.filter((p) => p.is_dir).length;
-		const fileCount = selectedFilePaths.filter((p) => !p.is_dir).length;
+		const dirCount =
+			selectedFilePaths.filter((p) => p.is_dir).length +
+			selectedEphemeralPaths.filter((p) => p.is_dir).length;
+		const fileCount =
+			selectedFilePaths.filter((p) => !p.is_dir).length +
+			selectedEphemeralPaths.filter((p) => !p.is_dir).length;
+
+		const indexedArgs =
+			isNonEmpty(selectedFilePaths) && selectedFilePaths[0].location_id
+				? {
+						locationId: selectedFilePaths[0].location_id,
+						rescan,
+						pathIds: selectedFilePaths.map((p) => p.id)
+				  }
+				: undefined;
+
+		const ephemeralArgs = isNonEmpty(selectedEphemeralPaths)
+			? {
+					paths: selectedEphemeralPaths.map((p) => p.path)
+			  }
+			: undefined;
 
 		return (
 			<Menu.Item
 				icon={Trash}
 				label="Delete"
 				variant="danger"
-				keybind={keybind([ModifierKeys.Control], ['Delete'])}
 				onClick={() =>
 					dialogManager.create((dp) => (
 						<DeleteDialog
 							{...dp}
-							rescan={rescan}
-							locationId={locationId}
-							pathIds={selectedFilePaths.map((p) => p.id)}
+							indexedArgs={indexedArgs}
+							ephemeralArgs={ephemeralArgs}
 							dirCount={dirCount}
 							fileCount={fileCount}
 						/>
@@ -58,16 +79,29 @@ export const Delete = new ConditionalItem({
 
 export const CopyAsPath = new ConditionalItem({
 	useCondition: () => {
-		const { selectedFilePaths } = useContextMenuContext();
-		if (!isNonEmpty(selectedFilePaths) || selectedFilePaths.length > 1) return null;
+		const { selectedFilePaths, selectedEphemeralPaths } = useContextMenuContext();
+		if (
+			!isNonEmpty(selectedFilePaths) ||
+			selectedFilePaths.length > 1 ||
+			!isNonEmpty(selectedEphemeralPaths) ||
+			selectedEphemeralPaths.length > 1 ||
+			(selectedFilePaths.length === 1 && selectedEphemeralPaths.length === 1) // should never happen
+		)
+			return null;
 
-		return { selectedFilePaths };
+		return { selectedFilePaths, selectedEphemeralPaths };
 	},
-	Component: ({ selectedFilePaths }) => (
-		<CopyAsPathBase
-			getPath={() => libraryClient.query(['files.getPath', selectedFilePaths[0].id])}
-		/>
-	)
+	Component: ({ selectedFilePaths, selectedEphemeralPaths }) => {
+		if (selectedFilePaths.length === 1) {
+			return (
+				<CopyAsPathBase
+					getPath={() => libraryClient.query(['files.getPath', selectedFilePaths[0].id])}
+				/>
+			);
+		} else if (selectedEphemeralPaths.length === 1) {
+			return <CopyAsPathBase getPath={async () => selectedEphemeralPaths[0].path} />;
+		}
+	}
 });
 
 export const Compress = new ConditionalItem({

@@ -1,4 +1,4 @@
-import { Info } from '@phosphor-icons/react';
+import { ArrowClockwise, Info } from '@phosphor-icons/react';
 import { getIcon, iconNames } from '@sd/assets/util';
 import { Suspense, useCallback, useEffect, useMemo } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
@@ -16,10 +16,17 @@ import {
 	useOnlineLocations,
 	useRspcLibraryContext
 } from '@sd/client';
-import { Tooltip } from '@sd/ui';
+import { Loader, Tooltip } from '@sd/ui';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
-import { Folder } from '~/components';
-import { useKeyDeleteFile, useZodRouteParams } from '~/hooks';
+import { Folder, Icon } from '~/components';
+import {
+	useIsLocationIndexing,
+	useKeyDeleteFile,
+	useOperatingSystem,
+	useShortcut,
+	useZodRouteParams
+} from '~/hooks';
+import { useQuickRescan } from '~/hooks/useQuickRescan';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
@@ -32,6 +39,7 @@ import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explor
 import { useExplorerSearchParams } from '../Explorer/util';
 import { EmptyNotice } from '../Explorer/View';
 import { TopBarPortal } from '../TopBar/Portal';
+import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import LocationOptions from './LocationOptions';
 
 export const Component = () => {
@@ -52,9 +60,12 @@ export const Component = () => {
 };
 
 const LocationExplorer = ({ location, path }: { location: Location; path?: string }) => {
+	const os = useOperatingSystem();
 	const rspc = useRspcLibraryContext();
 
 	const onlineLocations = useOnlineLocations();
+
+	const rescan = useQuickRescan();
 
 	const locationOnline = useMemo(() => {
 		const pub_id = location?.pub_id;
@@ -65,7 +76,7 @@ const LocationExplorer = ({ location, path }: { location: Location; path?: strin
 	const preferences = useLibraryQuery(['preferences.get']);
 	const updatePreferences = useLibraryMutation('preferences.update');
 
-	// const isLocationIndexing = useIsLocationIndexing(location.id);
+	const isLocationIndexing = useIsLocationIndexing(location.id);
 
 	const settings = useMemo(() => {
 		const defaults = createDefaultExplorerSettings<FilePathOrder>({
@@ -89,7 +100,10 @@ const LocationExplorer = ({ location, path }: { location: Location; path?: strin
 
 	const onSettingsChanged = useDebouncedCallback(
 		async (settings: ExplorerSettings<FilePathOrder>) => {
+			if (preferences.isLoading) return;
+
 			const pubId = stringify(location.pub_id);
+
 			try {
 				await updatePreferences.mutateAsync({
 					location: { [pubId]: { explorer: settings } }
@@ -119,6 +133,7 @@ const LocationExplorer = ({ location, path }: { location: Location; path?: strin
 		count,
 		loadMore,
 		isFetchingNextPage: query.isFetchingNextPage,
+		isLoadingPreferences: preferences.isLoading,
 		settings: explorerSettings,
 		...(location && {
 			parent: { type: 'Location', location }
@@ -136,9 +151,11 @@ const LocationExplorer = ({ location, path }: { location: Location; path?: strin
 		explorer.resetSelectedItems.call(undefined);
 	}, [explorer.resetSelectedItems, path]);
 
+	useEffect(() => explorer.scrollRef.current?.scrollTo({ top: 0 }), [explorer.scrollRef, path]);
+
 	useKeyDeleteFile(explorer.selectedItems, location.id);
 
-	useEffect(() => explorer.scrollRef.current?.scrollTo({ top: 0 }), [explorer.scrollRef, path]);
+	useShortcut('rescan', () => rescan(location.id));
 
 	return (
 		<ExplorerContextProvider explorer={explorer}>
@@ -157,25 +174,35 @@ const LocationExplorer = ({ location, path }: { location: Location; path?: strin
 						<LocationOptions location={location} path={path || ''} />
 					</div>
 				}
-				right={<DefaultTopBarOptions />}
-			/>
-
-			<Explorer
-				showFilterBar
-				emptyNotice={
-					<EmptyNotice
-						// loading={location.isFetching}
-						icon={<img className="h-32 w-32" src={getIcon(iconNames.FolderNoSpace)} />}
-						message="No files found here"
+				right={
+					<DefaultTopBarOptions
+						options={[
+							{
+								toolTipLabel: 'Reload',
+								onClick: () => rescan(location.id),
+								icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
+								individual: true,
+								showAtResolution: 'xl:flex'
+							}
+						]}
 					/>
 				}
 			/>
-			{/* {isLocationIndexing ? (
+			{isLocationIndexing ? (
 				<div className="flex h-full w-full items-center justify-center">
 					<Loader />
 				</div>
-			) : (
-			)} */}
+			) : !preferences.isLoading ? (
+				<Explorer
+					showFilterBar
+					emptyNotice={
+						<EmptyNotice
+							icon={<Icon name="FolderNoSpace" size={128} />}
+							message="No files found here"
+						/>
+					}
+				/>
+			) : null}
 		</ExplorerContextProvider>
 	);
 };

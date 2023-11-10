@@ -1,8 +1,17 @@
-import { Clipboard, FileX, Image, Plus, Repeat, Share, ShieldCheck } from '@phosphor-icons/react';
+import {
+	Clipboard,
+	FileX,
+	FolderPlus,
+	Image,
+	Repeat,
+	Share,
+	ShieldCheck
+} from '@phosphor-icons/react';
 import { PropsWithChildren } from 'react';
 import { useLibraryMutation } from '@sd/client';
 import { ContextMenu as CM, ModifierKeys, toast } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks';
+import { useQuickRescan } from '~/hooks/useQuickRescan';
 import { keybindForOs } from '~/util/keybinds';
 
 import { useExplorerContext } from './Context';
@@ -16,48 +25,97 @@ export default (props: PropsWithChildren) => {
 	const keybind = keybindForOs(os);
 	const [{ path: currentPath }] = useExplorerSearchParams();
 	const { cutCopyState } = useExplorerStore();
-
+	const rescan = useQuickRescan();
 	const { parent } = useExplorerContext();
 
 	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
 	const objectValidator = useLibraryMutation('jobs.objectValidator');
 	const rescanLocation = useLibraryMutation('locations.subPathRescan');
 	const copyFiles = useLibraryMutation('files.copyFiles');
+	const copyEphemeralFiles = useLibraryMutation('ephemeralFiles.copyFiles');
 	const cutFiles = useLibraryMutation('files.cutFiles');
+	const cutEphemeralFiles = useLibraryMutation('ephemeralFiles.cutFiles');
+	const createFolder = useLibraryMutation(['files.createFolder'], {
+		onError: (e) => {
+			toast.error({ title: 'Error creating folder', body: `Error: ${e}.` });
+			console.error(e);
+		},
+		onSuccess: (folder) => {
+			toast.success({ title: `Created new folder "${folder}"` });
+			rescan();
+		}
+	});
+	const createEphemeralFolder = useLibraryMutation(['ephemeralFiles.createFolder'], {
+		onError: (e) => {
+			toast.error({ title: 'Error creating folder', body: `Error: ${e}.` });
+			console.error(e);
+		},
+		onSuccess: (folder) => {
+			toast.success({ title: `Created new folder "${folder}"` });
+			rescan();
+		}
+	});
 
 	return (
 		<CM.Root trigger={props.children}>
-			{parent?.type === 'Location' && cutCopyState.type !== 'Idle' && (
+			{(parent?.type === 'Location' || parent?.type === 'Ephemeral') &&
+			cutCopyState.type !== 'Idle' ? (
 				<>
 					<CM.Item
 						label="Paste"
 						keybind={keybind([ModifierKeys.Control], ['V'])}
 						onClick={async () => {
 							const path = currentPath ?? '/';
-							const { type, sourcePathIds, sourceParentPath, sourceLocationId } =
+							const { type, sourceParentPath, indexedArgs, ephemeralArgs } =
 								cutCopyState;
-
-							const sameLocation =
-								sourceLocationId === parent.location.id &&
-								sourceParentPath === path;
 
 							try {
 								if (type == 'Copy') {
-									await copyFiles.mutateAsync({
-										source_location_id: sourceLocationId,
-										sources_file_path_ids: [...sourcePathIds],
-										target_location_id: parent.location.id,
-										target_location_relative_directory_path: path
-									});
-								} else if (sameLocation) {
-									toast.error('File already exists in this location');
+									if (parent?.type === 'Location' && indexedArgs != undefined) {
+										await copyFiles.mutateAsync({
+											source_location_id: indexedArgs.sourceLocationId,
+											sources_file_path_ids: [...indexedArgs.sourcePathIds],
+											target_location_id: parent.location.id,
+											target_location_relative_directory_path: path
+										});
+									}
+
+									if (
+										parent?.type === 'Ephemeral' &&
+										ephemeralArgs != undefined
+									) {
+										await copyEphemeralFiles.mutateAsync({
+											sources: [...ephemeralArgs.sourcePaths],
+											target_dir: path
+										});
+									}
 								} else {
-									await cutFiles.mutateAsync({
-										source_location_id: sourceLocationId,
-										sources_file_path_ids: [...sourcePathIds],
-										target_location_id: parent.location.id,
-										target_location_relative_directory_path: path
-									});
+									if (parent?.type === 'Location' && indexedArgs != undefined) {
+										if (
+											indexedArgs.sourceLocationId === parent.location.id &&
+											sourceParentPath === path
+										) {
+											toast.error('File already exists in this location');
+										}
+										await cutFiles.mutateAsync({
+											source_location_id: indexedArgs.sourceLocationId,
+											sources_file_path_ids: [...indexedArgs.sourcePathIds],
+											target_location_id: parent.location.id,
+											target_location_relative_directory_path: path
+										});
+									}
+
+									if (
+										parent?.type === 'Ephemeral' &&
+										ephemeralArgs != undefined
+									) {
+										if (sourceParentPath !== path) {
+											await cutEphemeralFiles.mutateAsync({
+												sources: [...ephemeralArgs.sourcePaths],
+												target_dir: path
+											});
+										}
+									}
 								}
 							} catch (error) {
 								toast.error({
@@ -81,6 +139,25 @@ export default (props: PropsWithChildren) => {
 
 					<CM.Separator />
 				</>
+			) : (
+				<CM.Item
+					label="New folder"
+					icon={FolderPlus}
+					onClick={() => {
+						if (parent?.type === 'Location') {
+							createFolder.mutate({
+								location_id: parent.location.id,
+								sub_path: currentPath || null,
+								name: null
+							});
+						} else if (parent?.type === 'Ephemeral') {
+							createEphemeralFolder.mutate({
+								path: parent?.path,
+								name: null
+							});
+						}
+					}}
+				/>
 			)}
 
 			<CM.Item
@@ -103,7 +180,7 @@ export default (props: PropsWithChildren) => {
 					<RevealInNativeExplorerBase
 						items={[{ Location: { id: parent.location.id } }]}
 					/>
-					<CM.SubMenu label="More actions..." icon={Plus}>
+					<CM.SubMenu label="More actions...">
 						<CopyAsPathBase path={`${parent.location.path}${currentPath ?? ''}`} />
 
 						<CM.Item
