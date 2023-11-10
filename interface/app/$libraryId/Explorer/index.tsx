@@ -1,6 +1,5 @@
 import { FolderNotchOpen } from '@phosphor-icons/react';
 import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
-import { SlideDown } from 'react-slidedown';
 import { useKeys } from 'rooks';
 import { getExplorerLayoutStore, useExplorerLayoutStore, useLibrarySubscription } from '@sd/client';
 import { useKeysMatcher, useOperatingSystem } from '~/hooks';
@@ -11,15 +10,15 @@ import ContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
 import { Inspector, INSPECTOR_WIDTH } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
+import SearchOptions from './Search';
 import { useExplorerStore } from './store';
 import { useKeyRevealFinder } from './useKeyRevealFinder';
 import View, { EmptyNotice, ExplorerViewProps } from './View';
 import { ExplorerPath, PATH_BAR_HEIGHT } from './View/ExplorerPath';
-import SearchOptions from './View/SearchOptions';
 
 import 'react-slidedown/lib/slidedown.css';
 
-import { useSearchStore } from './View/SearchOptions/store';
+import { useSearchStore } from './Search/store';
 
 interface Props {
 	emptyNotice?: ExplorerViewProps['emptyNotice'];

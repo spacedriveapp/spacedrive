@@ -3,10 +3,10 @@ import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
 import { memo, PropsWithChildren, useDeferredValue, useState } from 'react';
 import { Button, ContextMenuDivItem, DropdownMenu, Input, RadixCheckbox, tw } from '@sd/ui';
-import { useTopBarContext } from '~/app/$libraryId/TopBar/Layout';
 import { useKeybind } from '~/hooks';
 
 import { AppliedOptions } from './AppliedFilters';
+import { useSearchContext } from './Context';
 import { filterRegistry } from './Filters';
 import { useSavedSearches } from './SavedSearches';
 import {
@@ -195,7 +195,7 @@ const SearchOptions = () => {
 export default SearchOptions;
 
 const SearchResults = memo(({ search }: { search: string }) => {
-	const { fixedArgsKeys } = useTopBarContext();
+	const { fixedArgsKeys } = useSearchContext();
 	const searchState = useSearchStore();
 	const searchResults = useSearchRegisteredFilters(search);
 
@@ -215,26 +215,23 @@ const SearchResults = memo(({ search }: { search: string }) => {
 							updateFilterArgs((args) => {
 								if (fixedArgsKeys?.has(option.key)) return args;
 
-								let rawArg = args.find((arg) => filter.extract(arg));
+								const rawArg = args.find((arg) => filter.extract(arg));
 
 								if (!rawArg) {
-									rawArg = filter.create(option.value);
-									args.push(rawArg);
-								}
+									const arg = filter.create(option.value);
+									args.push(arg);
+								} else {
+									const rawArgIndex = args.findIndex((arg) =>
+										filter.extract(arg)
+									)!;
 
-								const rawArgIndex = args.findIndex((arg) => filter.extract(arg))!;
+									const arg = filter.extract(rawArg)! as any;
 
-								const arg = filter.extract(rawArg)! as any;
-
-								if (!filter.getCondition?.(arg))
-									filter.setCondition(
-										arg,
-										Object.keys(filter.conditions)[0] as any as never
-									);
-
-								if (value) filter.applyAdd(arg, option);
-								else {
-									if (!filter.applyRemove(arg, option)) args.splice(rawArgIndex);
+									if (value) filter.applyAdd(arg, option);
+									else {
+										if (!filter.applyRemove(arg, option))
+											args.splice(rawArgIndex, 1);
+									}
 								}
 
 								return args;

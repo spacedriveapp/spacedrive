@@ -2,9 +2,9 @@ import { CircleDashed, Cube, Folder, Icon, SelectionSlash, Textbox } from '@phos
 import { useState } from 'react';
 import { InOrNotIn, ObjectKind, SearchFilterArgs, TextMatch, useLibraryQuery } from '@sd/client';
 import { Button, Input } from '@sd/ui';
-import { useTopBarContext } from '~/app/$libraryId/TopBar/Layout';
 
 import { SearchOptionItem, SearchOptionSubMenu } from '.';
+import { useSearchContext } from './Context';
 import { AllKeys, FilterOption, getKey, updateFilterArgs, useSearchStore } from './store';
 import { FilterTypeCondition, filterTypeCondition } from './util';
 
@@ -53,7 +53,7 @@ const FilterOptionList = ({
 	options: FilterOption[];
 }) => {
 	const store = useSearchStore();
-	const { fixedArgsKeys } = useTopBarContext();
+	const { fixedArgsKeys } = useSearchContext();
 
 	return (
 		<SearchOptionSubMenu name={filter.name} icon={filter.icon}>
@@ -88,7 +88,7 @@ const FilterOptionList = ({
 										if (rawArg) filter.applyAdd(arg, option);
 									} else {
 										if (!filter.applyRemove(arg, option))
-											args.splice(rawArgIndex);
+											args.splice(rawArgIndex, 1);
 									}
 								}
 
@@ -109,7 +109,7 @@ const FilterOptionList = ({
 const FilterOptionText = ({ filter }: { filter: SearchFilterCRUD }) => {
 	const [value, setValue] = useState('');
 
-	const { fixedArgsKeys } = useTopBarContext();
+	const { fixedArgsKeys } = useSearchContext();
 
 	return (
 		<SearchOptionSubMenu name={filter.name} icon={filter.icon}>
@@ -140,9 +140,9 @@ const FilterOptionText = ({ filter }: { filter: SearchFilterCRUD }) => {
 };
 
 const FilterOptionBoolean = ({ filter }: { filter: SearchFilterCRUD }) => {
-	const { filterArgs, filterArgsKeys } = useSearchStore();
+	const { filterArgsKeys } = useSearchStore();
 
-	const { fixedArgsKeys } = useTopBarContext();
+	const { fixedArgsKeys } = useSearchContext();
 
 	const key = getKey({
 		type: filter.name,
@@ -161,12 +161,10 @@ const FilterOptionBoolean = ({ filter }: { filter: SearchFilterCRUD }) => {
 					const index = args.findIndex((f) => filter.extract(f) !== undefined);
 
 					if (index !== -1) {
-						args.splice(index);
+						args.splice(index, 1);
 					} else {
 						const arg = filter.create(true);
 						args.push(arg);
-
-						filter.applyAdd(arg, { name: filter.name, value: true });
 					}
 
 					return args;
@@ -196,6 +194,7 @@ function createInOrNotInFilter<T extends string | number>(
 		| 'applyAdd'
 		| 'applyRemove'
 		| 'create'
+		| 'merge'
 	> & {
 		create(value: InOrNotIn<T>): SearchFilterArgs;
 		argsToOptions(values: T[], options: Map<string, FilterOption[]>): FilterOption[];
@@ -206,7 +205,7 @@ function createInOrNotInFilter<T extends string | number>(
 		create: (data) => {
 			if (typeof data === 'number' || typeof data === 'string')
 				return filter.create({
-					in: [data]
+					in: [data as any]
 				});
 			else if (data) return filter.create(data);
 			else return filter.create({ in: [] });
@@ -288,6 +287,7 @@ function createTextMatchFilter(
 		| 'applyAdd'
 		| 'applyRemove'
 		| 'create'
+		| 'merge'
 	> & {
 		create(value: TextMatch): SearchFilterArgs;
 	}
@@ -361,9 +361,7 @@ function createTextMatchFilter(
 			else if ('equals' in data) return { equals: value };
 		},
 		applyRemove: () => undefined,
-		merge: (left, right) => {
-			return left;
-		}
+		merge: (left) => left
 	};
 }
 
@@ -379,6 +377,7 @@ function createBooleanFilter(
 		| 'applyAdd'
 		| 'applyRemove'
 		| 'create'
+		| 'merge'
 	> & {
 		create(value: boolean): SearchFilterArgs;
 	}
@@ -416,9 +415,7 @@ function createBooleanFilter(
 			return value;
 		},
 		applyRemove: () => undefined,
-		merge: (left, right) => {
-			return left;
-		}
+		merge: (left) => left
 	};
 }
 

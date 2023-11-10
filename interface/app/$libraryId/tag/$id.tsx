@@ -1,27 +1,29 @@
 import { getIcon, iconNames } from '@sd/assets/util';
 import { useCallback, useMemo } from 'react';
-import {
-	ObjectFilterArgs,
-	ObjectKindEnum,
-	ObjectOrder,
-	Tag,
-	useLibraryContext,
-	useLibraryQuery
-} from '@sd/client';
+import { ObjectKindEnum, ObjectOrder, Tag, useLibraryContext, useLibraryQuery } from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { useZodRouteParams } from '~/hooks';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
 import { useObjectsInfiniteQuery } from '../Explorer/queries';
+import { SearchContextProvider } from '../Explorer/Search/Context';
+import { useSearchFilters } from '../Explorer/Search/store';
 import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
 import { EmptyNotice } from '../Explorer/View';
-import { useSearchFilters } from '../Explorer/View/SearchOptions/store';
 import { TopBarPortal } from '../TopBar/Portal';
 
 export const Component = () => {
+	return (
+		<SearchContextProvider>
+			<Inner />
+		</SearchContextProvider>
+	);
+};
+
+function Inner() {
 	const { id: tagId } = useZodRouteParams(LocationIdParamsSchema);
 	const tag = useLibraryQuery(['tags.get', tagId], { suspense: true });
 
@@ -78,7 +80,7 @@ export const Component = () => {
 			/>
 		</ExplorerContextProvider>
 	);
-};
+}
 
 function useItems({ tag, settings }: { tag: Tag; settings: UseExplorerSettings<ObjectOrder> }) {
 	const { library } = useLibraryContext();

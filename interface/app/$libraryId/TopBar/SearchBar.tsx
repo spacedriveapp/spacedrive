@@ -1,13 +1,13 @@
 import clsx from 'clsx';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
-import { useLocation, useNavigate, useResolvedPath } from 'react-router';
+import { useLocation, useResolvedPath } from 'react-router';
 import { useDebouncedCallback } from 'use-debounce';
 import { Input, ModifierKeys, Shortcut } from '@sd/ui';
 import { SearchParamsSchema } from '~/app/route-schemas';
 import { useOperatingSystem, useZodSearchParams } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 
-import { getSearchStore, useSearchStore } from '../Explorer/View/SearchOptions/store';
+import { getSearchStore, useSearchStore } from '../Explorer/Search/store';
 
 export default () => {
 	const searchRef = useRef<HTMLInputElement>(null);

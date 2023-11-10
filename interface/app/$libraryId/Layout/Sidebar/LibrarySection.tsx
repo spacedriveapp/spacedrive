@@ -1,4 +1,4 @@
-import { ArrowsOutSimple, EjectSimple, X } from '@phosphor-icons/react';
+import { EjectSimple, X } from '@phosphor-icons/react';
 import { Laptop } from '@sd/assets/icons';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
@@ -15,7 +15,7 @@ import { Button, Tooltip } from '@sd/ui';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
 import { Folder, SubtleButton } from '~/components';
 
-import { useSavedSearches } from '../../Explorer/View/SearchOptions/SavedSearches';
+import { useSavedSearches } from '../../Explorer/Search/SavedSearches';
 import SidebarLink from './Link';
 import LocationsContextMenu from './LocationsContextMenu';
 import Section from './Section';

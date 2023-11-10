@@ -7,6 +7,7 @@ import { proxyMap } from 'valtio/utils';
 import { SearchFilterArgs } from '@sd/client';
 import { useTopBarContext } from '~/app/$libraryId/TopBar/Layout';
 
+import { useSearchContext } from './Context';
 import { filterRegistry, FilterType, RenderSearchFilter } from './Filters';
 import { FilterTypeCondition } from './util';
 
@@ -43,7 +44,7 @@ const searchStore = proxy({
 	searchQuery: null as string | null,
 	filterArgs: ref([] as SearchFilterArgs[]),
 	filterArgsKeys: ref(new Set<string>()),
-	filterOptions: ref(new Map<string, FilterOption[]>()),
+	filterOptions: ref(new Map<string, FilterOptionWithType[]>()),
 	// we register filters so we can search them
 	registeredFilters: proxyMap() as Map<string, FilterOptionWithType>
 });
@@ -53,7 +54,7 @@ export function useSearchFilters<T extends SearchType>(
 	fixedArgs: SearchFilterArgs[]
 ) {
 	const { filterArgs } = useSearchStore();
-	const topBar = useTopBarContext();
+	const topBar = useSearchContext();
 
 	// don't want the search bar to pop in after the top bar has loaded!
 	useLayoutEffect(() => {

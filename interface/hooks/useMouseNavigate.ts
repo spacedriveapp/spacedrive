@@ -2,7 +2,7 @@ import { MouseEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { useOperatingSystem } from '~/hooks';
 
-import { useSearchStore } from '../app/$libraryId/Explorer/View/SearchOptions/store';
+import { useSearchStore } from '../app/$libraryId/Explorer/Search/store';
 
 export const useMouseNavigate = () => {
 	const idx = history.state.idx as number;

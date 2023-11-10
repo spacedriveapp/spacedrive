@@ -24,13 +24,13 @@ import { useKeyDeleteFile, useZodRouteParams } from '~/hooks';
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
 import { usePathsInfiniteQuery } from '../Explorer/queries';
+import { SearchContextProvider } from '../Explorer/Search/Context';
+import { useSearchFilters } from '../Explorer/Search/store';
 import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
 import { useExplorerSearchParams } from '../Explorer/util';
 import { EmptyNotice } from '../Explorer/View';
-import { FilterType } from '../Explorer/View/SearchOptions/Filters';
-import { useSearchFilters } from '../Explorer/View/SearchOptions/store';
 import { TopBarPortal } from '../TopBar/Portal';
 import LocationOptions from './LocationOptions';
 
@@ -43,9 +43,11 @@ export const Component = () => {
 	});
 
 	return (
-		<Suspense>
-			<LocationExplorer path={path} location={location.data!} />)
-		</Suspense>
+		<SearchContextProvider>
+			<Suspense>
+				<LocationExplorer path={path} location={location.data!} />)
+			</Suspense>
+		</SearchContextProvider>
 	);
 };
 

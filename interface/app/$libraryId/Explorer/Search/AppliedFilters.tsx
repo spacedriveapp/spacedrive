@@ -1,8 +1,9 @@
 import { MagnifyingGlass, X } from '@phosphor-icons/react';
 import { forwardRef, useMemo } from 'react';
+import { SearchFilterArgs } from '@sd/client';
 import { tw } from '@sd/ui';
-import { useTopBarContext } from '~/app/$libraryId/TopBar/Layout';
 
+import { useSearchContext } from './Context';
 import { filterRegistry } from './Filters';
 import { getSearchStore, updateFilterArgs, useSearchStore } from './store';
 import { RenderIcon } from './util';
@@ -30,13 +31,13 @@ export const CloseTab = forwardRef<HTMLDivElement, { onClick: () => void }>(({ o
 export const AppliedOptions = () => {
 	const searchState = useSearchStore();
 
-	const { fixedArgs } = useTopBarContext();
+	const { fixedArgs } = useSearchContext();
 
 	const allArgs = useMemo(() => {
 		if (!fixedArgs) return [];
 
 		const value: { arg: SearchFilterArgs; removalIndex: number | null }[] = fixedArgs.map(
-			(arg, i) => ({
+			(arg) => ({
 				arg,
 				removalIndex: null
 			})
@@ -51,8 +52,8 @@ export const AppliedOptions = () => {
 			);
 			if (fixedEquivalentIndex !== -1) {
 				const merged = filter.merge(
-					filter.extract(fixedArgs[fixedEquivalentIndex]!)!,
-					filter.extract(arg)
+					filter.extract(fixedArgs[fixedEquivalentIndex]!)! as any,
+					filter.extract(arg)! as any
 				);
 
 				value[fixedEquivalentIndex] = {
