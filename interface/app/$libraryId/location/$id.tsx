@@ -1,5 +1,4 @@
 import { ArrowClockwise, Info } from '@phosphor-icons/react';
-import { getIcon, iconNames } from '@sd/assets/util';
 import { Suspense, useCallback, useEffect, useMemo } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
@@ -19,13 +18,7 @@ import {
 import { Loader, Tooltip } from '@sd/ui';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder, Icon } from '~/components';
-import {
-	useIsLocationIndexing,
-	useKeyDeleteFile,
-	useOperatingSystem,
-	useShortcut,
-	useZodRouteParams
-} from '~/hooks';
+import { useIsLocationIndexing, useKeyDeleteFile, useShortcut, useZodRouteParams } from '~/hooks';
 import { useQuickRescan } from '~/hooks/useQuickRescan';
 
 import Explorer from '../Explorer';
@@ -60,7 +53,6 @@ export const Component = () => {
 };
 
 const LocationExplorer = ({ location, path }: { location: Location; path?: string }) => {
-	const os = useOperatingSystem();
 	const rspc = useRspcLibraryContext();
 
 	const onlineLocations = useOnlineLocations();

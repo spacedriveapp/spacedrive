@@ -31,45 +31,7 @@ export const CloseTab = forwardRef<HTMLDivElement, { onClick: () => void }>(({ o
 export const AppliedOptions = () => {
 	const searchState = useSearchStore();
 
-	const { fixedArgs } = useSearchContext();
-
-	const allArgs = useMemo(() => {
-		if (!fixedArgs) return [];
-
-		const value: { arg: SearchFilterArgs; removalIndex: number | null }[] = fixedArgs.map(
-			(arg) => ({
-				arg,
-				removalIndex: null
-			})
-		);
-
-		for (const [index, arg] of searchState.filterArgs.entries()) {
-			const filter = filterRegistry.find((f) => f.extract(arg));
-			if (!filter) continue;
-
-			const fixedEquivalentIndex = fixedArgs.findIndex(
-				(a) => filter.extract(a) !== undefined
-			);
-			if (fixedEquivalentIndex !== -1) {
-				const merged = filter.merge(
-					filter.extract(fixedArgs[fixedEquivalentIndex]!)! as any,
-					filter.extract(arg)! as any
-				);
-
-				value[fixedEquivalentIndex] = {
-					arg: filter.create(merged),
-					removalIndex: fixedEquivalentIndex
-				};
-			} else {
-				value.push({
-					arg,
-					removalIndex: index
-				});
-			}
-		}
-
-		return value;
-	}, [fixedArgs, searchState.filterArgs]);
+	const { allFilterArgs } = useSearchContext();
 
 	return (
 		<div className="flex flex-row gap-2">
@@ -82,7 +44,7 @@ export const AppliedOptions = () => {
 					<CloseTab onClick={() => (getSearchStore().searchQuery = null)} />
 				</FilterContainer>
 			)}
-			{allArgs.map(({ arg, removalIndex }, index) => {
+			{allFilterArgs.map(({ arg, removalIndex }, index) => {
 				const filter = filterRegistry.find((f) => f.extract(arg));
 				if (!filter) return;
 
@@ -149,11 +111,6 @@ export const AppliedOptions = () => {
 							<CloseTab
 								onClick={() => {
 									updateFilterArgs((args) => {
-										console.log({
-											allArgs,
-											filterArgs: searchState.filterArgs,
-											removalIndex
-										});
 										args.splice(removalIndex, 1);
 
 										return args;

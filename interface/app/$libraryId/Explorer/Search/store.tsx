@@ -5,7 +5,6 @@ import { useEffect, useLayoutEffect, useMemo } from 'react';
 import { proxy, ref, useSnapshot } from 'valtio';
 import { proxyMap } from 'valtio/utils';
 import { SearchFilterArgs } from '@sd/client';
-import { useTopBarContext } from '~/app/$libraryId/TopBar/Layout';
 
 import { useSearchContext } from './Context';
 import { filterRegistry, FilterType, RenderSearchFilter } from './Filters';
@@ -53,17 +52,15 @@ export function useSearchFilters<T extends SearchType>(
 	_searchType: T,
 	fixedArgs: SearchFilterArgs[]
 ) {
-	const { filterArgs } = useSearchStore();
-	const topBar = useSearchContext();
+	const { setFixedArgs, allFilterArgs } = useSearchContext();
 
 	// don't want the search bar to pop in after the top bar has loaded!
 	useLayoutEffect(() => {
-		topBar.setFixedArgs(fixedArgs);
+		resetSearchStore();
+		setFixedArgs(fixedArgs);
 	}, [fixedArgs]);
 
-	return fixedArgs;
-
-	// return [...state.filterArgs];
+	return useMemo(() => allFilterArgs.map(({ arg }) => arg), [allFilterArgs]);
 }
 
 // this makes the filter unique and easily searchable using .includes
