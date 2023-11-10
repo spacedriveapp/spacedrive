@@ -100,7 +100,7 @@ export function useExplorerSettings<TOrder extends Ordering>({
 	location
 }: {
 	settings: ReturnType<typeof createDefaultExplorerSettings<TOrder>>;
-	onSettingsChanged?: (settings: ExplorerSettings<TOrder>, location: Location) => any;
+	onSettingsChanged?: (settings: ExplorerSettings<TOrder>, location: Location) => void;
 	orderingKeys?: z.ZodUnion<
 		[z.ZodLiteral<OrderingKeys<TOrder>>, ...z.ZodLiteral<OrderingKeys<TOrder>>[]]
 	>;
