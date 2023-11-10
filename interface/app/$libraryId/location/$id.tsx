@@ -164,7 +164,7 @@ export const Component = () => {
 						options={[
 							{
 								toolTipLabel: 'Reload',
-								onClick: rescan,
+								onClick: () => rescan(locationId),
 								icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
 								individual: true,
 								showAtResolution: 'xl:flex'
