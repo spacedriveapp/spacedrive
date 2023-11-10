@@ -1,12 +1,12 @@
-import { Info } from '@phosphor-icons/react';
+import { ArrowClockwise, Info } from '@phosphor-icons/react';
 import { useCallback, useEffect, useMemo } from 'react';
-import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
 import {
 	arraysEqual,
 	ExplorerSettings,
 	FilePathFilterArgs,
 	FilePathOrder,
+	Location,
 	ObjectKindEnum,
 	useLibraryContext,
 	useLibraryMutation,
@@ -15,10 +15,17 @@ import {
 	useOnlineLocations,
 	useRspcLibraryContext
 } from '@sd/client';
-import { Loader, Tooltip } from '@sd/ui';
+import { Loader, ModifierKeys, Tooltip } from '@sd/ui';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder, Icon } from '~/components';
-import { useIsLocationIndexing, useKeyDeleteFile, useZodRouteParams } from '~/hooks';
+import {
+	useIsLocationIndexing,
+	useKeybind,
+	useKeyDeleteFile,
+	useOperatingSystem,
+	useZodRouteParams
+} from '~/hooks';
+import { useQuickRescan } from '~/hooks/useQuickRescan';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
@@ -29,15 +36,20 @@ import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explor
 import { useExplorerSearchParams } from '../Explorer/util';
 import { EmptyNotice } from '../Explorer/View';
 import { TopBarPortal } from '../TopBar/Portal';
+import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import LocationOptions from './LocationOptions';
 
 export const Component = () => {
-	const [{ path }] = useExplorerSearchParams();
-	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
-	const location = useLibraryQuery(['locations.get', locationId]);
+	const os = useOperatingSystem();
 	const rspc = useRspcLibraryContext();
 
+	const [{ path }] = useExplorerSearchParams();
+	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
+
+	const location = useLibraryQuery(['locations.get', locationId]);
 	const onlineLocations = useOnlineLocations();
+
+	const rescan = useQuickRescan({ locationId });
 
 	const locationOnline = useMemo(() => {
 		const pub_id = location.data?.pub_id;
@@ -70,21 +82,23 @@ export const Component = () => {
 		return defaults;
 	}, [location.data, preferences.data?.location]);
 
-	const onSettingsChanged = useDebouncedCallback(
-		async (settings: ExplorerSettings<FilePathOrder>) => {
-			if (!location.data) return;
-			const pubId = stringify(location.data.pub_id);
-			try {
-				await updatePreferences.mutateAsync({
-					location: { [pubId]: { explorer: settings } }
-				});
-				rspc.queryClient.invalidateQueries(['preferences.get']);
-			} catch (e) {
-				alert('An error has occurred while updating your preferences.');
-			}
-		},
-		500
-	);
+	const onSettingsChanged = async (
+		settings: ExplorerSettings<FilePathOrder>,
+		location: Location
+	) => {
+		if (location.id === locationId && preferences.isLoading) return;
+
+		const pubId = stringify(location.pub_id);
+
+		try {
+			await updatePreferences.mutateAsync({
+				location: { [pubId]: { explorer: settings } }
+			});
+			rspc.queryClient.invalidateQueries(['preferences.get']);
+		} catch (e) {
+			alert('An error has occurred while updating your preferences.');
+		}
+	};
 
 	const explorerSettings = useExplorerSettings({
 		settings,
@@ -100,6 +114,7 @@ export const Component = () => {
 		count,
 		loadMore,
 		isFetchingNextPage: query.isFetchingNextPage,
+		isLoadingPreferences: preferences.isLoading,
 		settings: explorerSettings,
 		...(location.data && {
 			parent: { type: 'Location', location: location.data }
@@ -117,9 +132,11 @@ export const Component = () => {
 		explorer.resetSelectedItems.call(undefined);
 	}, [explorer.resetSelectedItems, path]);
 
+	useEffect(() => explorer.scrollRef.current?.scrollTo({ top: 0 }), [explorer.scrollRef, path]);
+
 	useKeyDeleteFile(explorer.selectedItems, location.data?.id);
 
-	useEffect(() => explorer.scrollRef.current?.scrollTo({ top: 0 }), [explorer.scrollRef, path]);
+	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'r'], () => rescan());
 
 	return (
 		<ExplorerContextProvider explorer={explorer}>
@@ -142,14 +159,26 @@ export const Component = () => {
 						)}
 					</div>
 				}
-				right={<DefaultTopBarOptions />}
+				right={
+					<DefaultTopBarOptions
+						options={[
+							{
+								toolTipLabel: 'Reload',
+								onClick: rescan,
+								icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
+								individual: true,
+								showAtResolution: 'xl:flex'
+							}
+						]}
+					/>
+				}
 			/>
 
 			{isLocationIndexing ? (
 				<div className="flex h-full w-full items-center justify-center">
 					<Loader />
 				</div>
-			) : (
+			) : !preferences.isLoading ? (
 				<Explorer
 					emptyNotice={
 						<EmptyNotice
@@ -159,7 +188,7 @@ export const Component = () => {
 						/>
 					}
 				/>
-			)}
+			) : null}
 		</ExplorerContextProvider>
 	);
 };

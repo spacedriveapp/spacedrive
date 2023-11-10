@@ -5,24 +5,31 @@ import { toast } from '@sd/ui';
 import { useExplorerContext } from '../app/$libraryId/Explorer/Context';
 import { useExplorerSearchParams } from '../app/$libraryId/Explorer/util';
 
-export const useQuickRescan = () => {
+export const useQuickRescan = (props: { locationId?: number } = {}) => {
 	// subscription so that we can cancel it if in progress
 	const quickRescanSubscription = useRef<() => void | undefined>();
 
 	// gotta clean up any rescan subscriptions if the exist
 	useEffect(() => () => quickRescanSubscription.current?.(), []);
 	const { client } = useRspcLibraryContext();
-	const { parent } = useExplorerContext();
+	const explorer = useExplorerContext({ suspense: false });
 	const [{ path }] = useExplorerSearchParams();
 
 	const rescan = () => {
-		if (parent?.type === 'Location') {
+		if (explorer?.parent?.type === 'Location' || props.locationId) {
+			const locationId =
+				explorer?.parent?.type === 'Location'
+					? explorer.parent.location.id
+					: props.locationId;
+
+			if (locationId === undefined) return;
+
 			quickRescanSubscription.current?.();
 			quickRescanSubscription.current = client.addSubscription(
 				[
 					'locations.quickRescan',
 					{
-						location_id: parent.location.id,
+						location_id: locationId,
 						sub_path: path ?? ''
 					}
 				],
