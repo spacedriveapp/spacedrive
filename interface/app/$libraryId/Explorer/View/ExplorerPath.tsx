@@ -156,7 +156,7 @@ export const ExplorerPath = memo(() => {
 
 	return (
 		<div
-			className="absolute inset-x-0 bottom-0 flex items-center gap-1 border-t border-t-app-line bg-app/90 px-3.5 text-[11px] text-ink-faint backdrop-blur-lg"
+			className="absolute inset-x-0 bottom-0 flex items-center gap-1 border-t border-t-app-line bg-app/90 px-3.5 text-[11px] text-ink-dull backdrop-blur-lg"
 			style={{ height: PATH_BAR_HEIGHT }}
 		>
 			{data?.map((p, index) => {
@@ -177,7 +177,9 @@ export const ExplorerPath = memo(() => {
 					<>
 						<FileThumb size={16} frame frameClassName="!border" data={selectedItem} />
 						{'name' in selectedItem.item ? (
-							<span className="max-w-xs truncate">{selectedItem.item.name}</span>
+							<span className="max-w-xs truncate text-ink-dull">
+								{selectedItem.item.name}
+							</span>
 						) : (
 							<span className="max-w-xs truncate">
 								{selectedItem.item.file_paths[0]?.name}
@@ -203,16 +205,20 @@ const Path = ({ paths, path, fullPathOnClick, index, ...rest }: Props) => {
 	return (
 		<div
 			className={clsx(
-				'flex items-center gap-1 transition-all duration-300',
+				'flex items-center gap-1',
 				fullPathOnClick
-					? 'cursor-pointer hover:brightness-125'
-					: index !== paths.length - 1 && ' cursor-pointer hover:brightness-125'
+					? 'cursor-pointer text-ink-dull'
+					: index !== paths.length - 1 && ' cursor-pointer'
 			)}
 			{...rest}
 		>
 			<Icon name="Folder" size={16} alt="Folder" />
-			<span className="max-w-xs truncate">{path.name}</span>
-			{index !== (paths?.length as number) - 1 && <CaretRight weight="bold" size={10} />}
+			<span className="max-w-xs truncate transition-opacity duration-300 text-ink-dull hover:opacity-80">
+				{path.name}
+			</span>
+			{index !== (paths?.length as number) - 1 && (
+				<CaretRight weight="bold" className="text-ink-dull" size={10} />
+			)}
 		</div>
 	);
 };
