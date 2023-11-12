@@ -517,7 +517,7 @@ export const filterRegistry = [
 					return {
 						name: kind as string,
 						value: Number(key),
-						icon: kind
+						icon: kind + '20'
 					};
 				});
 		},

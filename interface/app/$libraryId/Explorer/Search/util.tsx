@@ -91,7 +91,7 @@ export const RenderIcon = ({
 		return (
 			<SDIcon
 				name={icon as any}
-				size={20}
+				size={18}
 				className={clsx('shrink-0 text-ink-dull', className)}
 			/>
 		);
@@ -100,7 +100,7 @@ export const RenderIcon = ({
 		return (
 			IconComponent && (
 				<IconComponent
-					size={16}
+					size={15}
 					weight="bold"
 					className={clsx('shrink-0 text-ink-dull group-hover:text-white', className)}
 				/>
