@@ -32,8 +32,7 @@ export const ExplorerPath = memo(() => {
 	}, [explorerContext.selectedItems]);
 
 	// On initial render, check if the location is nested
-	// If it is, remove the first instance of the location name from the path
-	// This is to prevent the path bar from showing the location name twice
+	// If it is, return the number of times it is nested
 	const isLocationNested = useCallback(() => {
 		if (!explorerContext.parent || explorerContext.parent.type !== 'Location') return false;
 		firstRenderCached.current = true;
@@ -44,7 +43,7 @@ export const ExplorerPath = memo(() => {
 			.split(pathSlashOS)
 			.filter((part) => part === locationName).length;
 
-		return count > 1;
+		return count > 1 ? count - 1 : false;
 	}, [explorerContext.parent, pathSlashOS]);
 
 	// On the first render of a location, check if the location is nested
@@ -161,13 +160,14 @@ export const ExplorerPath = memo(() => {
 			//handling ephemeral and location paths
 		} else {
 			let updatedPathData: string[] = [];
+			const nestedCount = isLocationNested();
 			const startIndex = isEphemeralLocation
 				? 1
 				: pathNameLocationName
 				? splitPaths.indexOf(pathNameLocationName)
 				: -1;
-			if (isLocationNested()) {
-				updatedPathData = splitPaths.slice(startIndex + 1);
+			if (nestedCount) {
+				updatedPathData = splitPaths.slice(startIndex + nestedCount);
 			} else updatedPathData = splitPaths.slice(startIndex);
 			const updatedData = updatedPathData.map((path) => ({
 				kind: 'Folder',
