@@ -240,7 +240,7 @@ const SearchResults = memo(({ search }: { search: string }) => {
 						key={option.key}
 					>
 						<div className="mr-4 flex flex-row items-center gap-1.5">
-							<RenderIcon icon={option.icon} />
+							<RenderIcon icon={filter.icon} />
 							<span className="text-ink-dull">{filter.name}</span>
 							<CaretRight weight="bold" className="text-ink-dull/70" />
 							<RenderIcon icon={option.icon} />
