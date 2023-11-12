@@ -56,8 +56,6 @@ export const ExplorerPath = memo(() => {
 		};
 	}, [explorerContext.parent, isLocationNested]);
 
-	//this is being used with object page route - when clicking on an object
-
 	const filePathData = () => {
 		if (!selectedItem) return;
 		let filePathData: FilePath | FilePathWithObject | null = null;
