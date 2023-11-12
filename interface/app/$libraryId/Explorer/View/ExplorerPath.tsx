@@ -1,6 +1,6 @@
 import { CaretRight } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { ComponentProps, memo, useMemo } from 'react';
+import { ComponentProps, memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useMatch, useNavigate } from 'react-router';
 import { ExplorerItem, FilePath, FilePathWithObject, useLibraryQuery } from '@sd/client';
 import { LibraryIdParamsSchema, SearchParamsSchema } from '~/app/route-schemas';
@@ -20,6 +20,7 @@ export const ExplorerPath = memo(() => {
 	const navigate = useNavigate();
 	const libraryId = useZodRouteParams(LibraryIdParamsSchema).libraryId;
 	const pathSlashOS = os === 'browser' ? '/' : realOs === 'windows' ? '\\' : '/';
+	const firstRenderCached = useRef<null | boolean>(null);
 
 	const explorerContext = useExplorerContext();
 	const fullPathOnClick = explorerContext.parent?.type === 'Tag';
@@ -29,6 +30,34 @@ export const ExplorerPath = memo(() => {
 		if (explorerContext.selectedItems.size !== 1) return;
 		return [...explorerContext.selectedItems][0];
 	}, [explorerContext.selectedItems]);
+
+	// On initial render, check if the location is nested
+	// If it is, remove the first instance of the location name from the path
+	// This is to prevent the path bar from showing the location name twice
+	const isLocationNested = useCallback(() => {
+		if (!explorerContext.parent || explorerContext.parent.type !== 'Location') return false;
+		firstRenderCached.current = true;
+		const { path: locationPath, name: locationName } = explorerContext.parent.location || {};
+
+		if (!locationPath || !locationName) return false;
+		const count = locationPath
+			.split(pathSlashOS)
+			.filter((part) => part === locationName).length;
+
+		return count > 1;
+	}, [explorerContext.parent, pathSlashOS]);
+
+	// On the first render of a location, check if the location is nested
+	useEffect(() => {
+		if (explorerContext.parent?.type === 'Location') {
+			isLocationNested();
+		}
+		return () => {
+			firstRenderCached.current = null;
+		};
+	}, [explorerContext.parent, isLocationNested]);
+
+	//this is being used with object page route - when clicking on an object
 
 	const filePathData = () => {
 		if (!selectedItem) return;
@@ -131,12 +160,15 @@ export const ExplorerPath = memo(() => {
 
 			//handling ephemeral and location paths
 		} else {
+			let updatedPathData: string[] = [];
 			const startIndex = isEphemeralLocation
 				? 1
 				: pathNameLocationName
 				? splitPaths.indexOf(pathNameLocationName)
 				: -1;
-			const updatedPathData = splitPaths.slice(startIndex);
+			if (isLocationNested()) {
+				updatedPathData = splitPaths.slice(startIndex + 1);
+			} else updatedPathData = splitPaths.slice(startIndex);
 			const updatedData = updatedPathData.map((path) => ({
 				kind: 'Folder',
 				extension: '',
@@ -146,6 +178,7 @@ export const ExplorerPath = memo(() => {
 		}
 	}, [
 		pathInfo,
+		isLocationNested,
 		pathSlashOS,
 		isEphemeralLocation,
 		pathNameLocationName,
@@ -172,7 +205,7 @@ export const ExplorerPath = memo(() => {
 				);
 			})}
 			{selectedItem && (
-				<div className="flex items-center gap-1 pointer-events-none">
+				<div className="pointer-events-none flex items-center gap-1">
 					{data && data.length > 0 && <CaretRight weight="bold" size={10} />}
 					<>
 						<FileThumb size={16} frame frameClassName="!border" data={selectedItem} />
@@ -213,7 +246,7 @@ const Path = ({ paths, path, fullPathOnClick, index, ...rest }: Props) => {
 			{...rest}
 		>
 			<Icon name="Folder" size={16} alt="Folder" />
-			<span className="max-w-xs truncate transition-opacity duration-300 text-ink-dull hover:opacity-80">
+			<span className="max-w-xs truncate text-ink-dull transition-opacity duration-300 hover:opacity-80">
 				{path.name}
 			</span>
 			{index !== (paths?.length as number) - 1 && (
