@@ -240,26 +240,32 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							}
 
 							// TODO: Support `Range` requests and `ETag` headers
-							#[allow(clippy::unwrap_used)] // TODO: Error handling needed
 							match state.node.p2p.get_library_service(&library.id) {
 								Some(service) => {
 									let stream = service
 										.connect(state.node.p2p.manager.clone(), &identity)
 										.await
-										.unwrap();
+										.map_err(|err| {
+											not_found(format!(
+												"Error connecting to {identity}: {err:?}"
+											))
+										})?;
 
 									let (tx, mut rx) =
 										tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
 									// TODO: We only start a thread because of stupid `ManagerStreamAction2` and libp2p's `!Send/!Sync` bounds on a stream.
 									tokio::spawn(async move {
-										operations::request_file(
+										let Ok(()) = operations::request_file(
 											stream,
 											&library,
 											file_path_pub_id,
 											Range::Full,
 											MpscToAsyncWrite::new(PollSender::new(tx)),
 										)
-										.await;
+										.await
+										else {
+											return;
+										};
 									});
 
 									// TODO: Content Type

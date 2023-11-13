@@ -1,4 +1,5 @@
 //! Rust Peer to Peer Networking Library
+#![warn(clippy::all, clippy::unwrap_used, clippy::panic)]
 
 mod discovery;
 mod event;

@@ -15,8 +15,9 @@ use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
 use tracing::warn;
 
 use crate::{
-	spacetime::UnicastStream, spacetunnel::RemoteIdentity, DiscoveredPeer, DiscoveryManagerState,
-	Manager, Metadata,
+	spacetime::{UnicastStream, UnicastStreamError},
+	spacetunnel::RemoteIdentity,
+	DiscoveredPeer, DiscoveryManagerState, Manager, Metadata,
 };
 
 /// A Service represents a thing your application exposes to the network that can be discovered and connected to.
@@ -145,11 +146,21 @@ impl<TMeta: Metadata> Service<TMeta> {
 			.get(&self.name)
 			.into_iter()
 			.flatten()
-			.map(|(i, p)| DiscoveredPeer {
-				identity: *i,
-				peer_id: p.peer_id,
-				metadata: TMeta::from_hashmap(&p.meta).unwrap(),
-				addresses: p.addresses.clone(),
+			.filter_map(|(i, p)| {
+				let metadata = match TMeta::from_hashmap(&p.meta) {
+					Ok(m) => m,
+					Err(err) => {
+						warn!("Failed to deserialize metadata for peer '{i:?}': {err}");
+						return None;
+					}
+				};
+
+				Some(DiscoveredPeer {
+					identity: *i,
+					peer_id: p.peer_id,
+					metadata,
+					addresses: p.addresses.clone(),
+				})
 			})
 			.collect::<Vec<_>>()
 	}
@@ -158,23 +169,24 @@ impl<TMeta: Metadata> Service<TMeta> {
 		&self,
 		manager: Arc<Manager>,
 		identity: &RemoteIdentity,
-	) -> Result<UnicastStream, ()> {
+	) -> Result<UnicastStream, UnicastStreamError> {
 		let candidate = {
 			let state = self.state.read().unwrap_or_else(PoisonError::into_inner);
 			let (_, candidate) = state
 				.discovered
 				.get(&self.name)
-				.ok_or(())?
+				.ok_or(UnicastStreamError::ErrPeerIdNotFound(*identity))?
 				.iter()
 				.find(|(i, _)| *i == identity)
-				.ok_or(())?;
+				.ok_or(UnicastStreamError::ErrPeerIdNotFound(*identity))?;
 			candidate.clone()
 		};
 
-		let stream = manager.stream_inner(candidate.peer_id).await.unwrap(); // TODO: handle providing incorrect peer id
+		let stream = manager.stream_inner(candidate.peer_id).await?; // TODO: handle providing incorrect peer id
 		Ok(stream)
 	}
 
+	#[allow(clippy::panic)] // This is a `.expect` (which is allowd) but with formatting
 	pub fn listen(&self) -> ServiceSubscription<TMeta> {
 		ServiceSubscription {
 			name: self.name.clone(),
@@ -184,7 +196,7 @@ impl<TMeta: Metadata> Service<TMeta> {
 					.unwrap_or_else(PoisonError::into_inner)
 					.services
 					.get(&self.name)
-					.unwrap() // TODO: Error handling
+					.unwrap_or_else(|| panic!("Service '{}' not found in service map", self.name))
 					.0
 					.subscribe(),
 			),

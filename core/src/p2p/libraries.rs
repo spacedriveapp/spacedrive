@@ -21,7 +21,14 @@ pub struct LibraryServices {
 impl fmt::Debug for LibraryServices {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.debug_struct("LibraryServices")
-			.field("services", &self.services.read().unwrap().keys())
+			.field(
+				"services",
+				&self
+					.services
+					.read()
+					.unwrap_or_else(PoisonError::into_inner)
+					.keys(),
+			)
 			.finish()
 	}
 }
@@ -83,22 +90,26 @@ impl LibraryServices {
 	}
 
 	pub(crate) async fn load_library(&self, manager: Arc<P2PManager>, library: &Library) {
-		let identities = library
-			.db
-			.instance()
-			.find_many(vec![])
-			.exec()
-			.await
-			.unwrap()
-			.into_iter()
-			.filter_map(
-				// TODO: Error handling
-				|i| match IdentityOrRemoteIdentity::from_bytes(&i.identity).unwrap() {
-					IdentityOrRemoteIdentity::Identity(_) => None,
-					IdentityOrRemoteIdentity::RemoteIdentity(identity) => Some(identity),
-				},
-			)
-			.collect();
+		let identities = match library.db.instance().find_many(vec![]).exec().await {
+			Ok(library) => library
+				.into_iter()
+				.filter_map(
+					// TODO: Error handling
+					|i| match IdentityOrRemoteIdentity::from_bytes(&i.identity) {
+						Err(err) => {
+							warn!("error parsing identity: {err:?}");
+							None
+						}
+						Ok(IdentityOrRemoteIdentity::Identity(_)) => None,
+						Ok(IdentityOrRemoteIdentity::RemoteIdentity(identity)) => Some(identity),
+					},
+				)
+				.collect(),
+			Err(err) => {
+				warn!("error loading library '{}': {err:?}", library.id);
+				return;
+			}
+		};
 
 		let mut inserted = false;
 
@@ -109,7 +120,10 @@ impl LibraryServices {
 				.unwrap_or_else(PoisonError::into_inner);
 			let service = service.entry(library.id).or_insert_with(|| {
 				inserted = true;
-				Arc::new(Service::new(library.id.to_string(), manager.manager.clone()).unwrap())
+				Arc::new(
+					Service::new(library.id.to_string(), manager.manager.clone())
+						.expect("error creating service with duplicate service name"),
+				)
 			});
 			service.add_known(identities);
 			service.clone()
