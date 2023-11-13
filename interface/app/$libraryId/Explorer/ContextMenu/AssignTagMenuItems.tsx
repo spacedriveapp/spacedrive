@@ -1,7 +1,7 @@
 import { Plus } from '@phosphor-icons/react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { ExplorerItem, useLibraryQuery } from '@sd/client';
 import { dialogManager, ModifierKeys } from '@sd/ui';
 import CreateDialog, {
@@ -19,19 +19,36 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
 
 	// Map<tag::id, Vec<object::id>>
-	const tagsWithObjects = useLibraryQuery([
-		'tags.getWithObjects',
-		props.items
-			.map((item) => {
-				if (item.type === 'Path') return item.item.object?.id;
-				else if (item.type === 'Object') return item.item.id;
-			})
-			.filter((item): item is number => item !== undefined)
-	]);
+	const tagsWithObjects = useLibraryQuery(
+		[
+			'tags.getWithObjects',
+			props.items
+				.map((item) => {
+					if (item.type === 'Path') return item.item.object?.id;
+					else if (item.type === 'Object') return item.item.id;
+				})
+				.filter((item): item is number => item !== undefined)
+		],
+		{ suspense: true }
+	);
+
+	const orderedTags = useMemo(() => {
+		if (!tags.data) return [];
+
+		const assigned = [];
+		const unassigned = [];
+
+		for (const tag of tags.data) {
+			if (tagsWithObjects.data?.[tag.id] === undefined) unassigned.push(tag);
+			else assigned.push(tag);
+		}
+
+		return [...assigned, ...unassigned];
+	}, [tags.data, tagsWithObjects.data]);
 
 	const parentRef = useRef<HTMLDivElement>(null);
 	const rowVirtualizer = useVirtualizer({
-		count: tags.data?.length || 0,
+		count: orderedTags.length,
 		getScrollElement: () => parentRef.current,
 		estimateSize: () => 30,
 		paddingStart: 2
@@ -54,7 +71,7 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 				}}
 			/>
 			<Menu.Separator className={clsx('mx-0 mb-0 transition', isScrolled && 'shadow')} />
-			{tags.data && tags.data.length > 0 ? (
+			{orderedTags.length > 0 ? (
 				<div
 					ref={parentRef}
 					className="h-full w-full overflow-auto"
@@ -65,7 +82,7 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 						style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
 					>
 						{rowVirtualizer.getVirtualItems().map((virtualRow) => {
-							const tag = tags.data[virtualRow.index];
+							const tag = orderedTags[virtualRow.index];
 							if (!tag) return null;
 
 							const objectsWithTag = new Set(tagsWithObjects.data?.[tag?.id]);
@@ -153,7 +170,7 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 				</div>
 			) : (
 				<div className="py-1 text-center text-xs text-ink-faint">
-					{tags.data ? 'No tags' : 'Failed to load tags'}
+					{orderedTags ? 'No tags' : 'Failed to load tags'}
 				</div>
 			)}
 		</>
