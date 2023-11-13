@@ -15,15 +15,13 @@ export const ImageSlider = () => {
 		scrollRef: quickPreviewImagesRef,
 		count: explorer.items?.length ?? 0,
 		totalCount: explorer.count,
-		getItemData: useCallback((i: number) => explorer.items?.[i], [explorer.items]),
+		size: 60,
+		horizontal: true,
 		onLoadMore: explorer.loadMore,
-		columns: explorer.items?.length ?? 0,
-		rowVirtualizer: { overscan: explorer.overscan ?? 5 },
-		size: {
-			width: 60,
-			height: 60
-		},
-		gap: 10
+		getItemData: useCallback((i: number) => explorer.items?.[i], [explorer.items]),
+		gap: 10,
+		padding: 12,
+		overscan: explorer.overscan ?? 5
 	});
 
 	const selectHandler = (i: number) => {
@@ -94,8 +92,7 @@ export const ImageSlider = () => {
 		>
 			<div
 				ref={quickPreviewImagesRef}
-				className="quick-preview-images-scroll absolute bottom-0 mx-auto flex w-full max-w-[700px] items-center justify-center
-				 overflow-y-hidden overflow-x-scroll rounded-md bg-white/20 p-3 backdrop-blur-md"
+				className="quick-preview-images-scroll w-full overflow-x-auto overflow-y-hidden rounded-md bg-white/20 backdrop-blur-md"
 			>
 				<Grid grid={grid}>
 					{(i) => {

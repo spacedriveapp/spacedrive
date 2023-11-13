@@ -22,7 +22,7 @@
 		"@tanstack/react-query-devtools": "^4.36.1",
 		"@tanstack/react-table": "^8.10.7",
 		"@tanstack/react-virtual": "3.0.0-beta.66",
-		"@virtual-grid/react": "^1.0.2",
+		"@virtual-grid/react": "^1.1.0",
 		"class-variance-authority": "^0.7.0",
 		"clsx": "^2.0.0",
 		"crypto-random-string": "^5.0.0",

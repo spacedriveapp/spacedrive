@@ -130,7 +130,7 @@ export default ({ children }: { children: RenderItem }) => {
 		count: explorer.items?.length ?? 0,
 		totalCount: explorer.count,
 		...(settings.layoutMode === 'grid'
-			? { size: { width: settings.gridItemSize, height: itemHeight } }
+			? { columns: 'auto', size: { width: settings.gridItemSize, height: itemHeight } }
 			: { columns: settings.mediaColumns }),
 		rowVirtualizer: { overscan: explorer.overscan ?? 5 },
 		onLoadMore: explorer.loadMore,
