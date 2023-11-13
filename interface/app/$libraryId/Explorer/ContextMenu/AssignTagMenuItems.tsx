@@ -32,7 +32,8 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 		{ suspense: true }
 	);
 
-	const orderedTags = useMemo(() => {
+	// tags are sorted by assignment, and assigned tags are sorted by most recently assigned
+	const sortedTags = useMemo(() => {
 		if (!tags.data) return [];
 
 		const assigned = [];
@@ -43,12 +44,46 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 			else assigned.push(tag);
 		}
 
+		if (tagsWithObjects.data) {
+			assigned.sort((a, b) => {
+				const aObjs = tagsWithObjects.data[a.id],
+					bObjs = tagsWithObjects.data[b.id];
+
+				function getMaxDate(data: typeof aObjs) {
+					if (!data) return null;
+					let max = null;
+
+					for (const { date_created } of data) {
+						if (!date_created) continue;
+
+						const date = new Date(date_created);
+
+						if (!max) max = date;
+						else if (date > max) max = date;
+					}
+
+					return max;
+				}
+
+				const aMaxDate = getMaxDate(aObjs),
+					bMaxDate = getMaxDate(bObjs);
+
+				if (!aMaxDate || !bMaxDate) {
+					if (aMaxDate && !bMaxDate) return 1;
+					else if (!aMaxDate && bMaxDate) return -1;
+					else return 0;
+				} else {
+					return Number(bMaxDate) - Number(aMaxDate);
+				}
+			});
+		}
+
 		return [...assigned, ...unassigned];
 	}, [tags.data, tagsWithObjects.data]);
 
 	const parentRef = useRef<HTMLDivElement>(null);
 	const rowVirtualizer = useVirtualizer({
-		count: orderedTags.length,
+		count: sortedTags.length,
 		getScrollElement: () => parentRef.current,
 		estimateSize: () => 30,
 		paddingStart: 2
@@ -71,7 +106,7 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 				}}
 			/>
 			<Menu.Separator className={clsx('mx-0 mb-0 transition', isScrolled && 'shadow')} />
-			{orderedTags.length > 0 ? (
+			{sortedTags.length > 0 ? (
 				<div
 					ref={parentRef}
 					className="h-full w-full overflow-auto"
@@ -82,10 +117,12 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 						style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
 					>
 						{rowVirtualizer.getVirtualItems().map((virtualRow) => {
-							const tag = orderedTags[virtualRow.index];
+							const tag = sortedTags[virtualRow.index];
 							if (!tag) return null;
 
-							const objectsWithTag = new Set(tagsWithObjects.data?.[tag?.id]);
+							const objectsWithTag = new Set(
+								tagsWithObjects.data?.[tag?.id]?.map((d) => d.object.id)
+							);
 
 							// only unassign if all objects have tag
 							// this is the same functionality as finder
@@ -170,7 +207,7 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 				</div>
 			) : (
 				<div className="py-1 text-center text-xs text-ink-faint">
-					{orderedTags ? 'No tags' : 'Failed to load tags'}
+					{sortedTags ? 'No tags' : 'Failed to load tags'}
 				</div>
 			)}
 		</>
