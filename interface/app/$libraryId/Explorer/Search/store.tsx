@@ -8,7 +8,6 @@ import { SearchFilterArgs } from '@sd/client';
 
 import { useSearchContext } from './Context';
 import { filterRegistry, FilterType, RenderSearchFilter } from './Filters';
-import { FilterTypeCondition } from './util';
 
 export type SearchType = 'paths' | 'objects';
 
@@ -25,16 +24,6 @@ export interface FilterOptionWithType extends FilterOption {
 }
 
 export type AllKeys<T> = T extends any ? keyof T : never;
-
-export interface SetFilter extends FilterOptionWithType {
-	condition: AllKeys<FilterTypeCondition[keyof FilterTypeCondition]>;
-	canBeRemoved: boolean;
-}
-
-export interface GroupedFilters {
-	type: FilterType;
-	filters: SetFilter[];
-}
 
 const searchStore = proxy({
 	isSearching: false,

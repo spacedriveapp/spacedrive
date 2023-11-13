@@ -7,7 +7,7 @@ import { useKeybind } from '~/hooks';
 
 import { AppliedOptions } from './AppliedFilters';
 import { useSearchContext } from './Context';
-import { filterRegistry } from './Filters';
+import { filterRegistry, useToggleOptionSelected } from './Filters';
 import { useSavedSearches } from './SavedSearches';
 import {
 	getSearchStore,
@@ -199,6 +199,8 @@ const SearchResults = memo(({ search }: { search: string }) => {
 	const searchState = useSearchStore();
 	const searchResults = useSearchRegisteredFilters(search);
 
+	const toggleOptionSelected = useToggleOptionSelected();
+
 	return (
 		<>
 			{searchResults.map((option) => {
@@ -211,32 +213,13 @@ const SearchResults = memo(({ search }: { search: string }) => {
 							searchState.filterArgsKeys.has(option.key) ||
 							fixedArgsKeys?.has(option.key)
 						}
-						setSelected={(value) => {
-							updateFilterArgs((args) => {
-								if (fixedArgsKeys?.has(option.key)) return args;
-
-								const rawArg = args.find((arg) => filter.extract(arg));
-
-								if (!rawArg) {
-									const arg = filter.create(option.value);
-									args.push(arg);
-								} else {
-									const rawArgIndex = args.findIndex((arg) =>
-										filter.extract(arg)
-									)!;
-
-									const arg = filter.extract(rawArg)! as any;
-
-									if (value) filter.applyAdd(arg, option);
-									else {
-										if (!filter.applyRemove(arg, option))
-											args.splice(rawArgIndex, 1);
-									}
-								}
-
-								return args;
-							});
-						}}
+						setSelected={(select) =>
+							toggleOptionSelected({
+								filter,
+								option,
+								select: value
+							})
+						}
 						key={option.key}
 					>
 						<div className="mr-4 flex flex-row items-center gap-1.5">

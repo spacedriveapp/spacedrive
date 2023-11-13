@@ -1,5 +1,5 @@
 import { CircleDashed, Cube, Folder, Icon, SelectionSlash, Textbox } from '@phosphor-icons/react';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { InOrNotIn, ObjectKind, SearchFilterArgs, TextMatch, useLibraryQuery } from '@sd/client';
 import { Button, Input } from '@sd/ui';
 
@@ -22,8 +22,6 @@ interface SearchFilterCRUD<
 > extends SearchFilter<TConditions> {
 	getCondition: (args: T) => AllKeys<TConditions>;
 	setCondition: (args: T, condition: keyof TConditions) => void;
-	getOptionActive: (args: T, option: FilterOption) => boolean;
-	getActiveOptions: (args: T, allOptions: FilterOption[]) => FilterOption[];
 	applyAdd: (args: T, option: FilterOption) => void;
 	applyRemove: (args: T, option: FilterOption) => T | undefined;
 	argsToOptions: (args: T, options: Map<string, FilterOption[]>) => FilterOption[];
@@ -45,15 +43,52 @@ export interface RenderSearchFilter<
 	useOptions: (props: { search: string }) => FilterOption[];
 }
 
-const FilterOptionList = ({
-	filter,
-	options
-}: {
-	filter: SearchFilterCRUD;
-	options: FilterOption[];
-}) => {
+export function useToggleOptionSelected() {
+	const { fixedArgsKeys } = useSearchContext();
+
+	return useCallback(
+		({
+			filter,
+			option,
+			select
+		}: {
+			filter: (typeof filterRegistry)[number];
+			option: FilterOption;
+			select: boolean;
+		}) =>
+			updateFilterArgs((args) => {
+				const key = getKey({ ...option, type: filter.name });
+
+				if (fixedArgsKeys?.has(key)) return args;
+
+				const rawArg = args.find((arg) => filter.extract(arg));
+
+				if (!rawArg) {
+					const arg = filter.create(option.value);
+					args.push(arg);
+				} else {
+					const rawArgIndex = args.findIndex((arg) => filter.extract(arg))!;
+
+					const arg = filter.extract(rawArg)!;
+
+					if (select) {
+						if (rawArg) filter.applyAdd(arg, option);
+					} else {
+						if (!filter.applyRemove(arg, option)) args.splice(rawArgIndex, 1);
+					}
+				}
+
+				return args;
+			}),
+		[fixedArgsKeys]
+	);
+}
+
+const FilterOptionList = ({ filter, options }: { filter: FilterType; options: FilterOption[] }) => {
 	const store = useSearchStore();
 	const { fixedArgsKeys } = useSearchContext();
+
+	const toggleOptionSelected = useToggleOptionSelected();
 
 	return (
 		<SearchOptionSubMenu name={filter.name} icon={filter.icon}>
@@ -68,33 +103,13 @@ const FilterOptionList = ({
 						selected={
 							store.filterArgsKeys.has(optionKey) || fixedArgsKeys?.has(optionKey)
 						}
-						setSelected={(value) => {
-							updateFilterArgs((args) => {
-								if (fixedArgsKeys?.has(optionKey)) return args;
-
-								const rawArg = args.find((arg) => filter.extract(arg));
-
-								if (!rawArg) {
-									const arg = filter.create(option.value);
-									args.push(arg);
-								} else {
-									const rawArgIndex = args.findIndex((arg) =>
-										filter.extract(arg)
-									)!;
-
-									const arg = filter.extract(rawArg)!;
-
-									if (value) {
-										if (rawArg) filter.applyAdd(arg, option);
-									} else {
-										if (!filter.applyRemove(arg, option))
-											args.splice(rawArgIndex, 1);
-									}
-								}
-
-								return args;
-							});
-						}}
+						setSelected={(value) =>
+							toggleOptionSelected({
+								filter,
+								option,
+								select: value
+							})
+						}
 						key={option.value}
 						icon={option.icon}
 					>
@@ -187,8 +202,6 @@ function createInOrNotInFilter<T extends string | number>(
 		ReturnType<typeof createFilter<any, InOrNotIn<T>>>,
 		| 'conditions'
 		| 'getCondition'
-		| 'getOptionActive'
-		| 'getActiveOptions'
 		| 'argsToOptions'
 		| 'setCondition'
 		| 'applyAdd'
@@ -219,18 +232,6 @@ function createInOrNotInFilter<T extends string | number>(
 			const contents = 'in' in data ? data.in : data.notIn;
 
 			return condition === 'in' ? { in: contents } : { notIn: contents };
-		},
-		getOptionActive: (data, option) => {
-			if ('in' in data) return data.in.includes(option.value);
-			else return data.notIn.includes(option.value);
-		},
-		getActiveOptions: (data, options) => {
-			let value: T[];
-
-			if ('in' in data) value = data.in;
-			else value = data.notIn;
-
-			return value.map((v) => options.find((o) => o.value === v)!).filter(Boolean);
 		},
 		argsToOptions: (data, options) => {
 			let values: T[];
@@ -280,8 +281,6 @@ function createTextMatchFilter(
 		ReturnType<typeof createFilter<any, TextMatch>>,
 		| 'conditions'
 		| 'getCondition'
-		| 'getOptionActive'
-		| 'getActiveOptions'
 		| 'argsToOptions'
 		| 'setCondition'
 		| 'applyAdd'
@@ -295,9 +294,7 @@ function createTextMatchFilter(
 	return {
 		...filter,
 		conditions: filterTypeCondition.textMatch,
-		create: (contains) => {
-			return filter.create({ contains });
-		},
+		create: (contains) => filter.create({ contains }),
 		getCondition: (data) => {
 			if ('contains' in data) return 'contains';
 			else if ('startsWith' in data) return 'startsWith';
@@ -316,22 +313,6 @@ function createTextMatchFilter(
 				[condition]: value
 			};
 		},
-		getActiveOptions: (data) => {
-			let value: string;
-
-			if ('contains' in data) value = data.contains;
-			else if ('startsWith' in data) value = data.startsWith;
-			else if ('endsWith' in data) value = data.endsWith;
-			else value = data.equals;
-
-			return [
-				{
-					type: filter.name,
-					name: value,
-					value
-				}
-			];
-		},
 		argsToOptions: (data) => {
 			let value: string;
 
@@ -347,12 +328,6 @@ function createTextMatchFilter(
 					value
 				}
 			];
-		},
-		getOptionActive: (data, option) => {
-			if ('contains' in data) return data.contains === option.value;
-			else if ('startsWith' in data) return data.startsWith === option.value;
-			else if ('endsWith' in data) return data.endsWith === option.value;
-			else return data.equals === option.value;
 		},
 		applyAdd: (data, { value }) => {
 			if ('contains' in data) return { contains: value };
@@ -370,8 +345,6 @@ function createBooleanFilter(
 		ReturnType<typeof createFilter<any, boolean>>,
 		| 'conditions'
 		| 'getCondition'
-		| 'getOptionActive'
-		| 'getActiveOptions'
 		| 'argsToOptions'
 		| 'setCondition'
 		| 'applyAdd'
@@ -385,15 +358,9 @@ function createBooleanFilter(
 	return {
 		...filter,
 		conditions: filterTypeCondition.trueOrFalse,
-		create: () => {
-			return filter.create(true);
-		},
-		getCondition: (data) => {
-			return data ? 'true' : 'false';
-		},
-		setCondition: (_, condition) => {
-			return condition === 'true';
-		},
+		create: () => filter.create(true),
+		getCondition: (data) => (data ? 'true' : 'false'),
+		setCondition: (_, condition) => condition === 'true',
 		argsToOptions: (value) => {
 			if (!value) return [];
 
@@ -405,15 +372,7 @@ function createBooleanFilter(
 				}
 			];
 		},
-		getActiveOptions: (data, options) => {
-			return options.filter((o) => o.value === data);
-		},
-		getOptionActive: (data, option) => {
-			return option.value === data;
-		},
-		applyAdd: (_, { value }) => {
-			return value;
-		},
+		applyAdd: (_, { value }) => value,
 		applyRemove: () => undefined,
 		merge: (left) => left
 	};
@@ -450,9 +409,7 @@ export const filterRegistry = [
 				icon: 'Folder' // Spacedrive folder icon
 			}));
 		},
-		Render: ({ filter, options }) => {
-			return <FilterOptionList filter={filter} options={options} />;
-		}
+		Render: ({ filter, options }) => <FilterOptionList filter={filter} options={options} />
 	}),
 	createInOrNotInFilter({
 		name: 'Tags',
@@ -484,9 +441,7 @@ export const filterRegistry = [
 				icon: tag.color || 'CircleDashed'
 			}));
 		},
-		Render: ({ filter, options }) => {
-			return <FilterOptionList filter={filter} options={options} />;
-		}
+		Render: ({ filter, options }) => <FilterOptionList filter={filter} options={options} />
 	}),
 	createInOrNotInFilter({
 		name: 'Kind',
@@ -509,8 +464,8 @@ export const filterRegistry = [
 				})
 				.filter(Boolean) as any;
 		},
-		useOptions: () => {
-			return Object.keys(ObjectKind)
+		useOptions: () =>
+			Object.keys(ObjectKind)
 				.filter((key) => !isNaN(Number(key)) && ObjectKind[Number(key)] !== undefined)
 				.map((key) => {
 					const kind = ObjectKind[Number(key)];
@@ -519,11 +474,8 @@ export const filterRegistry = [
 						value: Number(key),
 						icon: kind + '20'
 					};
-				});
-		},
-		Render: ({ filter, options }) => {
-			return <FilterOptionList filter={filter} options={options} />;
-		}
+				}),
+		Render: ({ filter, options }) => <FilterOptionList filter={filter} options={options} />
 	}),
 	createTextMatchFilter({
 		name: 'Name',
@@ -532,18 +484,8 @@ export const filterRegistry = [
 			if ('filePath' in arg && 'name' in arg.filePath) return arg.filePath.name;
 		},
 		create: (name) => ({ filePath: { name } }),
-		useOptions: ({ search }) => {
-			return [
-				{
-					name: search,
-					value: search,
-					icon: Textbox
-				}
-			];
-		},
-		Render: ({ filter }) => {
-			return <FilterOptionText filter={filter} />;
-		}
+		useOptions: ({ search }) => [{ name: search, value: search, icon: Textbox }],
+		Render: ({ filter }) => <FilterOptionText filter={filter} />
 	}),
 	createInOrNotInFilter({
 		name: 'Extension',
@@ -559,18 +501,8 @@ export const filterRegistry = [
 				value
 			}));
 		},
-		useOptions: ({ search }) => {
-			return [
-				{
-					name: search,
-					value: search,
-					icon: Textbox
-				}
-			];
-		},
-		Render: ({ filter }) => {
-			return <FilterOptionText filter={filter} />;
-		}
+		useOptions: ({ search }) => [{ name: search, value: search, icon: Textbox }],
+		Render: ({ filter }) => <FilterOptionText filter={filter} />
 	}),
 	createBooleanFilter({
 		name: 'Hidden',
@@ -588,9 +520,7 @@ export const filterRegistry = [
 				}
 			];
 		},
-		Render: ({ filter }) => {
-			return <FilterOptionBoolean filter={filter} />;
-		}
+		Render: ({ filter }) => <FilterOptionBoolean filter={filter} />
 	})
 	// idk how to handle this rn since include_descendants is part of 'path' now
 	//
