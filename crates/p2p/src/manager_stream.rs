@@ -158,6 +158,7 @@ impl ManagerStream {
 	pub async fn next(&mut self) -> Option<Event> {
 		// We loop polling internal services until an event comes in that needs to be sent to the parent application.
 		loop {
+			#[allow(clippy::panic)]
 			if self.shutdown.load(Ordering::Relaxed) {
 				panic!("`ManagerStream::next` called after shutdown event. This is a mistake in your application code!");
 			}
@@ -383,7 +384,7 @@ impl ManagerStream {
 				}
 				ManagerStreamAction2::StartStream(peer_id, tx) => {
 					if !self.swarm.connected_peers().any(|v| *v == peer_id) {
-						let addresses = self
+						let Some(addresses) = self
 							.discovery_manager
 							.state
 							.read()
@@ -395,7 +396,10 @@ impl ManagerStream {
 									(v.peer_id == peer_id).then(|| v.addresses.clone())
 								})
 							})
-							.unwrap(); // TODO: Error handling
+						else {
+							warn!("Peer '{}' is not connected and no addresses are known for it! Skipping connection creation...", peer_id);
+							return None;
+						};
 
 						match self.swarm.dial(
 							DialOpts::peer_id(peer_id)

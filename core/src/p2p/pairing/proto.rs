@@ -187,6 +187,7 @@ impl PairingResponse {
 	}
 }
 
+#[allow(unused)] // TODO: Remove this if still unused
 impl PairingConfirmation {
 	pub async fn from_stream(
 		stream: &mut (impl AsyncRead + Unpin),
