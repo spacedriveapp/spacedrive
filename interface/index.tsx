@@ -17,7 +17,7 @@ import {
 } from '@sd/client';
 import { TooltipProvider } from '@sd/ui';
 
-import { P2P } from './app/p2p';
+import { P2P, useP2PErrorToast } from './app/p2p';
 import { WithPrismTheme } from './components/TextViewer/prism';
 import ErrorFallback, { BetterErrorBoundary } from './ErrorFallback';
 
@@ -56,6 +56,7 @@ const Devtools = () => {
 
 export const SpacedriveInterface = (props: { router: RouterProviderProps['router'] }) => {
 	useLoadBackendFeatureFlags();
+	useP2PErrorToast();
 
 	return (
 		<BetterErrorBoundary FallbackComponent={ErrorFallback}>
