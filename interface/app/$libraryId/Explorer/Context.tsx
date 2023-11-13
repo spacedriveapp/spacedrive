@@ -1,4 +1,4 @@
-import { createContext, PropsWithChildren, useContext } from 'react';
+import { ContextType, createContext, PropsWithChildren, useContext } from 'react';
 
 import { Ordering } from './store';
 import { UseExplorer } from './useExplorer';
@@ -9,12 +9,16 @@ import { UseExplorer } from './useExplorer';
  */
 const ExplorerContext = createContext<UseExplorer<Ordering> | null>(null);
 
-export const useExplorerContext = () => {
+type ExplorerContext = NonNullable<ContextType<typeof ExplorerContext>>;
+
+export const useExplorerContext = <T extends boolean = true>(
+	{ suspense }: { suspense?: T } = { suspense: true as T }
+) => {
 	const ctx = useContext(ExplorerContext);
 
-	if (ctx === null) throw new Error('ExplorerContext.Provider not found!');
+	if (suspense && ctx === null) throw new Error('ExplorerContext.Provider not found!');
 
-	return ctx;
+	return ctx as T extends true ? ExplorerContext : ExplorerContext | undefined;
 };
 
 export const ExplorerContextProvider = <TExplorer extends UseExplorer<any>>({

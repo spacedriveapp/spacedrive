@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
 import { proxy, snapshot, subscribe, useSnapshot } from 'valtio';
 import { z } from 'zod';
 import type {
@@ -39,6 +40,7 @@ export interface UseExplorerProps<TOrder extends Ordering> {
 	parent?: ExplorerParent;
 	loadMore?: () => void;
 	isFetchingNextPage?: boolean;
+	isLoadingPreferences?: boolean;
 	scrollRef?: RefObject<HTMLDivElement>;
 	/**
 	 * @defaultValue `true`
@@ -98,32 +100,35 @@ export function useExplorerSettings<TOrder extends Ordering>({
 	location
 }: {
 	settings: ReturnType<typeof createDefaultExplorerSettings<TOrder>>;
-	onSettingsChanged?: (settings: ExplorerSettings<TOrder>) => any;
+	onSettingsChanged?: (settings: ExplorerSettings<TOrder>, location: Location) => void;
 	orderingKeys?: z.ZodUnion<
 		[z.ZodLiteral<OrderingKeys<TOrder>>, ...z.ZodLiteral<OrderingKeys<TOrder>>[]]
 	>;
 	location?: Location | null;
 }) {
-	const [store, setStore] = useState(() => proxy(settings));
+	const [store] = useState(() => proxy(settings));
 
-	useEffect(() => {
-		Object.assign(store, {
-			...settings,
-			...store
-		});
-	}, [store, settings]);
-
-	useEffect(() => {
-		setStore(proxy(settings));
-	}, [location, settings]);
-
-	useEffect(
-		() =>
-			subscribe(store, () => {
-				onSettingsChanged?.(snapshot(store) as ExplorerSettings<TOrder>);
-			}),
-		[onSettingsChanged, store]
+	const updateSettings = useDebouncedCallback(
+		(settings: ExplorerSettings<TOrder>, location: Location) => {
+			onSettingsChanged?.(settings, location);
+		},
+		500
 	);
+
+	useEffect(() => updateSettings.flush(), [location, updateSettings]);
+
+	useEffect(() => {
+		if (updateSettings.isPending()) return;
+		Object.assign(store, settings);
+	}, [settings, store, updateSettings]);
+
+	useEffect(() => {
+		if (!onSettingsChanged || !location) return;
+		const unsubscribe = subscribe(store, () => {
+			updateSettings(snapshot(store) as ExplorerSettings<TOrder>, location);
+		});
+		return () => unsubscribe();
+	}, [store, updateSettings, location, onSettingsChanged]);
 
 	return {
 		useSettingsSnapshot: () => useSnapshot(store),

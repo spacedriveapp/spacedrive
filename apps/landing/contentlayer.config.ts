@@ -14,6 +14,10 @@ import rehypeSlug from 'rehype-slug';
 import remarkGfm from 'remark-gfm';
 // support for math
 import remarkMath from 'remark-math';
+import remarkMdxImages from 'remark-mdx-images';
+
+// adds width and height to images
+import rehypeImageSize from './src/plugins/rehype-image-size';
 
 // Blog
 export const Post = defineDocumentType(() => ({
@@ -112,8 +116,13 @@ export default makeSource({
 	contentDirInclude: ['docs', 'apps/landing/posts'],
 	documentTypes: [Post, Document],
 	mdx: {
-		remarkPlugins: [remarkGfm, remarkMath],
+		remarkPlugins: [
+			remarkGfm,
+			remarkMath,
+			remarkMdxImages // does this even do anything??
+		],
 		rehypePlugins: [
+			[rehypeImageSize, { root: `${process.cwd()}/public` }],
 			rehypeSlug,
 			rehypeAutolinkHeadings,
 			rehypeKatex,

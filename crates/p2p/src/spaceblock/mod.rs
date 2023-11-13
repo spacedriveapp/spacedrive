@@ -4,6 +4,7 @@
 #![allow(unused)] // TODO: This module is still in heavy development!
 
 use std::{
+	io,
 	marker::PhantomData,
 	path::{Path, PathBuf},
 	string::FromUtf8Error,
@@ -43,16 +44,15 @@ impl<'a> Msg<'a> {
 	pub async fn from_stream<'b>(
 		stream: &mut (impl AsyncReadExt + Unpin),
 		data_buf: &'b mut [u8],
-	) -> Result<Msg<'a>, ()> {
-		let discriminator = stream.read_u8().await.unwrap(); // TODO: Error handling
+	) -> Result<Msg<'a>, io::Error> {
+		let discriminator = stream.read_u8().await?;
 		match discriminator {
-			0 => {
-				Ok(Msg::Block(
-					Block::from_stream(stream, data_buf).await.unwrap(),
-				)) // TODO: Error handling
-			}
+			0 => Ok(Msg::Block(Block::from_stream(stream, data_buf).await?)),
 			1 => Ok(Msg::Cancelled),
-			_ => panic!("Invalid message type"),
+			_ => Err(io::Error::new(
+				io::ErrorKind::Other,
+				"Invalid 'Msg' discriminator!",
+			)),
 		}
 	}
 
@@ -102,31 +102,32 @@ where
 		&mut self,
 		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
 		mut file: (impl AsyncBufRead + Unpin),
-	) {
+	) -> Result<(), io::Error> {
 		// We manually implement what is basically a `BufReader` so we have more control
 		let mut buf = vec![0u8; self.reqs.block_size.size() as usize];
 		let mut offset: u64 = 0;
 
 		loop {
 			if self.cancelled.load(Ordering::Relaxed) {
-				stream.write_all(&Msg::Cancelled.to_bytes()).await.unwrap(); // TODO: Error handling
-				stream.flush().await.unwrap(); // TODO: Error handling
-				return;
+				stream.write_all(&Msg::Cancelled.to_bytes()).await?;
+				stream.flush().await?;
+				return Ok(());
 			}
 
-			let read = file.read(&mut buf[..]).await.unwrap(); // TODO: Error handling
+			let read = file.read(&mut buf[..]).await?;
 			self.total_offset += read as u64;
 			(self.on_progress)(
 				((self.total_offset as f64 / self.total_bytes as f64) * 100.0) as u8,
 			); // SAFETY: Percent must be between 0 and 100
 
 			if read == 0 {
+				#[allow(clippy::panic)] // TODO: Remove panic
 				if (offset + read as u64) != self.reqs.requests[self.i].size {
 					// The file may have been modified during sender on the sender and we don't account for that.
 					panic!("File sending has stopped but it doesn't match the expected length!"); // TODO: Error handling + send error to remote
 				}
 
-				return;
+				return Ok(());
 			}
 
 			let block = Block {
@@ -140,53 +141,50 @@ where
 			);
 			offset += read as u64;
 
-			stream
-				.write_all(&Msg::Block(block).to_bytes())
-				.await
-				.unwrap(); // TODO: Error handling
-			stream.flush().await.unwrap(); // TODO: Error handling
+			stream.write_all(&Msg::Block(block).to_bytes()).await?;
+			stream.flush().await?;
 
-			match stream.read_u8().await.unwrap() {
+			match stream.read_u8().await? {
 				// Continue sending
 				0 => {}
 				// Cancelled by user
 				1 => {
 					debug!("Receiver cancelled Spacedrop transfer!");
-					return;
+					return Ok(());
 				}
 				// Transfer complete
-				2 => {
-					return;
-				}
+				2 => return Ok(()),
 				_ => todo!(),
 			}
 		}
 	}
 
+	// TODO: Timeout on receiving/sending
 	pub async fn receive(
 		&mut self,
 		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
 		mut file: (impl AsyncWrite + Unpin),
-	) {
+		// TODO: Proper error type
+	) -> Result<(), io::Error> {
 		// We manually implement what is basically a `BufReader` so we have more control
 		let mut data_buf = vec![0u8; self.reqs.block_size.size() as usize];
 		let mut offset: u64 = 0;
 
 		if self.reqs.requests[self.i].size == 0 {
 			self.i += 1;
-			return;
+			return Ok(());
 		}
 
 		// TODO: Prevent loop being a DOS vector
 		loop {
 			if self.cancelled.load(Ordering::Relaxed) {
-				stream.write_u8(1).await.unwrap(); // TODO: Error handling
-				stream.flush().await.unwrap(); // TODO: Error handling
-				return;
+				stream.write_u8(1).await?;
+				stream.flush().await?;
+				return Ok(());
 			}
 
 			// TODO: Timeout if nothing is being received
-			let msg = Msg::from_stream(stream, &mut data_buf).await.unwrap(); // TODO: Error handling
+			let msg = Msg::from_stream(stream, &mut data_buf).await?;
 			match msg {
 				Msg::Block(block) => {
 					self.total_offset += block.size;
@@ -200,9 +198,7 @@ where
 					);
 					offset += block.size;
 
-					file.write_all(&data_buf[..block.size as usize])
-						.await
-						.unwrap(); // TODO: Error handling
+					file.write_all(&data_buf[..block.size as usize]).await?;
 
 					// TODO: Should this be `read == 0`
 					// TODO: Out of range protection on indexed access
@@ -212,21 +208,22 @@ where
 
 					stream
 						.write_u8(self.cancelled.load(Ordering::Relaxed) as u8)
-						.await
-						.unwrap();
-					stream.flush().await.unwrap(); // TODO: Error handling
+						.await?;
+					stream.flush().await?;
 				}
 				Msg::Cancelled => {
 					debug!("Sender cancelled Spacedrop transfer!");
-					return;
+					return Ok(());
 				}
 			}
 		}
 
-		stream.write_u8(2).await.unwrap(); // TODO: Error handling
-		stream.flush().await.unwrap(); // TODO: Error handling
-		file.flush().await.unwrap(); // TODO: Error handling
+		stream.write_u8(2).await?;
+		stream.flush().await?;
+		file.flush().await?;
 		self.i += 1;
+
+		Ok(())
 	}
 }
 

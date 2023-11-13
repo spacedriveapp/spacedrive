@@ -51,7 +51,7 @@ const ListViewItem = memo((props: ListViewItemProps) => {
 	return (
 		<ViewItem
 			data={props.row.original}
-			className="relative flex items-center h-full"
+			className="relative flex h-full items-center"
 			style={{ paddingLeft: props.paddingLeft, paddingRight: props.paddingRight }}
 		>
 			{props.row.getVisibleCells().map((cell) => (
@@ -437,7 +437,7 @@ export default () => {
 	}
 
 	const scrollToRow = useCallback(
-		(row: Row<ExplorerItem>, options: { behavior?: ScrollBehavior } = {}) => {
+		(row: Row<ExplorerItem>) => {
 			if (!explorer.scrollRef.current || !tableBodyRef.current) return;
 
 			const scrollRect = explorer.scrollRef.current.getBoundingClientRect();
@@ -458,13 +458,7 @@ export default () => {
 
 			if (rowTop < tableTop) {
 				const scrollBy = rowTop - tableTop - (row.index === 0 ? padding.top : 0);
-
-				explorer.scrollRef.current.scrollBy({
-					top: scrollBy,
-					behavior:
-						options.behavior ??
-						(Math.abs(scrollBy) > ROW_HEIGHT * 10 ? 'auto' : 'smooth')
-				});
+				explorer.scrollRef.current.scrollBy({ top: scrollBy });
 			} else if (rowBottom > scrollRect.height - (explorerView.bottom ?? 0)) {
 				const scrollBy =
 					rowBottom -
@@ -472,12 +466,7 @@ export default () => {
 					(explorerView.bottom ?? 0) +
 					(row.index === rows.length - 1 ? padding.bottom : 0);
 
-				explorer.scrollRef.current.scrollBy({
-					top: scrollBy,
-					behavior:
-						options.behavior ??
-						(Math.abs(scrollBy) > ROW_HEIGHT * 10 ? 'auto' : 'smooth')
-				});
+				explorer.scrollRef.current.scrollBy({ top: scrollBy });
 			}
 		},
 		[
@@ -511,7 +500,7 @@ export default () => {
 		const lastRow = rows[rows.length - 1];
 		if (!lastRow) return;
 
-		scrollToRow(lastRow, { behavior: 'auto' });
+		scrollToRow(lastRow);
 		setRanges(rows.map((row) => [uniqueId(row.original), uniqueId(row.original)] as Range));
 		setInitialized(true);
 	}, [explorer.count, explorer.selectedItems, initialized, rowsById, scrollToRow, sized]);
@@ -873,9 +862,15 @@ export default () => {
 											{headerGroup.headers.map((header, i) => {
 												const size = header.column.getSize();
 
+												const orderKey =
+													settings.order && orderingKey(settings.order);
+
 												const orderingDirection =
+													orderKey &&
 													settings.order &&
-													orderingKey(settings.order) === header.id
+													(orderKey.startsWith('object.')
+														? orderKey.split('object.')[1] === header.id
+														: orderKey === header.id)
 														? getOrderingDirection(settings.order)
 														: null;
 
@@ -903,15 +898,40 @@ export default () => {
 														}}
 														onClick={() => {
 															if (resizing) return;
-															if (header.column.getCanSort()) {
-																explorer.settingsStore.order =
-																	createOrdering(
-																		header.id,
-																		orderingDirection === 'Asc'
-																			? 'Desc'
-																			: 'Asc'
-																	);
-															}
+
+															// Split table into smaller parts
+															// cause this looks hideous
+															const orderKey =
+																explorer.orderingKeys?.options.find(
+																	(o) => {
+																		if (
+																			typeof o.value !==
+																			'string'
+																		)
+																			return;
+
+																		const value =
+																			o.value as string;
+
+																		return value.startsWith(
+																			'object.'
+																		)
+																			? value.split(
+																					'object.'
+																			  )[1] === header.id
+																			: value === header.id;
+																	}
+																);
+
+															if (!orderKey) return;
+
+															explorer.settingsStore.order =
+																createOrdering(
+																	orderKey.value,
+																	orderingDirection === 'Asc'
+																		? 'Desc'
+																		: 'Asc'
+																);
 														}}
 													>
 														{header.isPlaceholder ? null : (
@@ -1009,7 +1029,7 @@ export default () => {
 								return (
 									<div
 										key={row.id}
-										className="absolute top-0 left-0 min-w-full"
+										className="absolute left-0 top-0 min-w-full"
 										style={{
 											height: virtualRow.size,
 											transform: `translateY(${
@@ -1040,7 +1060,7 @@ export default () => {
 											}}
 										>
 											{selectedPrior && (
-												<div className="absolute top-0 h-px inset-x-3 bg-accent/10" />
+												<div className="absolute inset-x-3 top-0 h-px bg-accent/10" />
 											)}
 										</div>
 

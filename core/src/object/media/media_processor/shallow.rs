@@ -196,7 +196,7 @@ async fn dispatch_thumbnails_for_processing(
 	if !current_batch.is_empty() {
 		node.thumbnailer
 			.new_indexed_thumbnails_batch(
-				BatchToProcess::new(current_batch, should_regenerate, true),
+				BatchToProcess::new(current_batch, should_regenerate, false),
 				library.id,
 			)
 			.await;

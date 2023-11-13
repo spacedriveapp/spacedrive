@@ -25,8 +25,7 @@ export const Component = () => {
 					order: null
 				}),
 			[]
-		),
-		onSettingsChanged: () => {}
+		)
 	});
 
 	const explorer = useExplorer({

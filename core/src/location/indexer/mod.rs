@@ -1,16 +1,19 @@
 use crate::{
 	library::Library,
-	prisma::{file_path, location, PrismaClient},
 	util::{db::inode_to_db, error::FileIOError},
 };
 
-use sd_prisma::prisma_sync;
+use sd_prisma::{
+	prisma::{file_path, location, object as prisma_object, PrismaClient},
+	prisma_sync,
+};
 use sd_sync::*;
 use sd_utils::from_bytes_to_uuid;
 
 use std::{collections::HashMap, path::Path};
 
 use chrono::Utc;
+use futures_concurrency::future::TryJoin;
 use itertools::Itertools;
 use prisma_client_rust::operator::or;
 use rspc::ErrorCode;
@@ -188,59 +191,75 @@ async fn execute_indexer_save_step(
 
 async fn execute_indexer_update_step(
 	update_step: &IndexerJobUpdateStep,
-	library: &Library,
+	Library { sync, db, .. }: &Library,
 ) -> Result<i64, IndexerError> {
-	let Library { sync, db, .. } = library;
-
 	let (sync_stuff, paths_to_update): (Vec<_>, Vec<_>) = update_step
 		.to_update
 		.iter()
-		.map(|entry| {
+		.map(|entry| async move {
 			let IsolatedFilePathData { is_dir, .. } = &entry.iso_file_path;
 
-			use file_path::*;
-
 			let pub_id = sd_utils::uuid_to_bytes(entry.pub_id);
+
+			let should_unlink_object = if let Some(object_id) = entry.maybe_object_id {
+				db.object()
+					.count(vec![prisma_object::id::equals(object_id)])
+					.exec()
+					.await? > 1
+			} else {
+				false
+			};
+
+			use file_path::*;
 
 			let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 				// As this file was updated while Spacedrive was offline, we mark the object_id and cas_id as null
 				// So this file_path will be updated at file identifier job
 				(
 					(object_id::NAME, serde_json::Value::Null),
-					object::disconnect(),
+					should_unlink_object.then_some(object::disconnect()),
 				),
-				((cas_id::NAME, serde_json::Value::Null), cas_id::set(None)),
-				((is_dir::NAME, json!(*is_dir)), is_dir::set(Some(*is_dir))),
+				(
+					(cas_id::NAME, serde_json::Value::Null),
+					Some(cas_id::set(None)),
+				),
+				(
+					(is_dir::NAME, json!(*is_dir)),
+					Some(is_dir::set(Some(*is_dir))),
+				),
 				(
 					(
 						size_in_bytes_bytes::NAME,
 						json!(entry.metadata.size_in_bytes.to_be_bytes().to_vec()),
 					),
-					size_in_bytes_bytes::set(Some(
+					Some(size_in_bytes_bytes::set(Some(
 						entry.metadata.size_in_bytes.to_be_bytes().to_vec(),
-					)),
+					))),
 				),
 				(
 					(inode::NAME, json!(entry.metadata.inode.to_le_bytes())),
-					inode::set(Some(inode_to_db(entry.metadata.inode))),
+					Some(inode::set(Some(inode_to_db(entry.metadata.inode)))),
 				),
 				(
 					(date_created::NAME, json!(entry.metadata.created_at)),
-					date_created::set(Some(entry.metadata.created_at.into())),
+					Some(date_created::set(Some(entry.metadata.created_at.into()))),
 				),
 				(
 					(date_modified::NAME, json!(entry.metadata.modified_at)),
-					date_modified::set(Some(entry.metadata.modified_at.into())),
+					Some(date_modified::set(Some(entry.metadata.modified_at.into()))),
 				),
 				(
 					(hidden::NAME, json!(entry.metadata.hidden)),
-					hidden::set(Some(entry.metadata.hidden)),
+					Some(hidden::set(Some(entry.metadata.hidden))),
 				),
 			]
 			.into_iter()
+			.filter_map(|(sync_param, maybe_db_param)| {
+				maybe_db_param.map(|db_param| (sync_param, db_param))
+			})
 			.unzip();
 
-			(
+			Ok::<_, IndexerError>((
 				sync_params
 					.into_iter()
 					.map(|(field, value)| {
@@ -256,8 +275,12 @@ async fn execute_indexer_update_step(
 				db.file_path()
 					.update(file_path::pub_id::equals(pub_id), db_params)
 					.select(file_path::select!({ id })),
-			)
+			))
 		})
+		.collect::<Vec<_>>()
+		.try_join()
+		.await?
+		.into_iter()
 		.unzip();
 
 	let updated = sync
