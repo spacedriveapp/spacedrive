@@ -28,8 +28,6 @@ export function useAssignItemsToTag() {
 	});
 
 	return (tagId: number, items: AssignTagItems, unassign: boolean) => {
-		console.log({ tagId, items, unassign });
-
 		const targets = items.map<Target>((item) => {
 			if (item.type === 'Object') {
 				return { Object: item.item.id };
