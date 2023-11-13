@@ -171,6 +171,16 @@ export const Component = () => {
 			<div className="flex flex-col gap-4">
 				<h1 className="mb-3 text-lg font-bold text-ink">Networking</h1>
 
+				{/* TODO: Add some UI for this stuff */}
+				{/* {node.data?.p2p.ipv4.status === 'Listening' ||
+				node.data?.p2p.ipv4.status === 'Enabling'
+					? `0.0.0.0:${node.data?.p2p.ipv4?.port || 0}`
+					: ''}
+				{node.data?.p2p.ipv6.status === 'Listening' ||
+				node.data?.p2p.ipv6.status === 'Enabling'
+					? `[::1]:${node.data?.p2p.ipv6?.port || 0}`
+					: ''} */}
+
 				<Setting
 					mini
 					title="Enable Networking"

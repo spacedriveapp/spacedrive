@@ -31,8 +31,10 @@ use crate::{
 #[derive(Debug)]
 pub(crate) struct DynamicManagerState {
 	pub(crate) config: ManagerConfig,
-	pub(crate) ipv4_listener_id: Option<ListenerId>,
-	pub(crate) ipv6_listener_id: Option<ListenerId>,
+	pub(crate) ipv4_listener_id: Option<Result<ListenerId, String>>,
+	pub(crate) ipv4_port: Option<u16>,
+	pub(crate) ipv6_listener_id: Option<Result<ListenerId, String>>,
+	pub(crate) ipv6_port: Option<u16>,
 	// A map of connected clients.
 	// This includes both inbound and outbound connections!
 	pub(crate) connected: HashMap<libp2p::PeerId, RemoteIdentity>,
@@ -84,7 +86,9 @@ impl Manager {
 			state: RwLock::new(DynamicManagerState {
 				config,
 				ipv4_listener_id: None,
+				ipv4_port: None,
 				ipv6_listener_id: None,
+				ipv6_port: None,
 				connected: Default::default(),
 				connections: Default::default(),
 			}),
@@ -260,6 +264,28 @@ impl Manager {
 		)
 	}
 
+	pub fn status(&self) -> P2PStatus {
+		let state = self.state.read().unwrap_or_else(PoisonError::into_inner);
+		P2PStatus {
+			ipv4: match state.ipv4_listener_id.clone() {
+				Some(Ok(_)) => match state.ipv4_port {
+					Some(port) => ListenerStatus::Listening { port },
+					None => ListenerStatus::Enabling,
+				},
+				Some(Err(error)) => ListenerStatus::Error { error },
+				None => ListenerStatus::Disabled,
+			},
+			ipv6: match state.ipv6_listener_id.clone() {
+				Some(Ok(_)) => match state.ipv6_port {
+					Some(port) => ListenerStatus::Listening { port },
+					None => ListenerStatus::Enabling,
+				},
+				Some(Err(error)) => ListenerStatus::Error { error },
+				None => ListenerStatus::Disabled,
+			},
+		}
+	}
+
 	pub async fn shutdown(&self) {
 		let (tx, rx) = oneshot::channel();
 		if self
@@ -308,6 +334,21 @@ impl Default for ManagerConfig {
 			port: None,
 		}
 	}
+}
+
+#[derive(Serialize, Debug, Type)]
+pub struct P2PStatus {
+	ipv4: ListenerStatus,
+	ipv6: ListenerStatus,
+}
+
+#[derive(Serialize, Debug, Type)]
+#[serde(tag = "status")]
+pub enum ListenerStatus {
+	Disabled,
+	Enabling,
+	Listening { port: u16 },
+	Error { error: String },
 }
 
 fn ok<T>(v: Result<T, Infallible>) -> T {
