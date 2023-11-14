@@ -268,20 +268,9 @@ export default ({ children }: { children: RenderItem }) => {
 
 		if (explorer.selectedItems.size > 0) e.preventDefault();
 
-		const lastItem = activeItem.current;
-		if (!lastItem) return;
-
-		const lastItemIndex = explorer.items?.findIndex((item) => item === lastItem);
-		if (lastItemIndex === undefined || lastItemIndex === -1) return;
-
-		const gridItem = grid.getItem(lastItemIndex);
-		if (!gridItem) return;
-
-		const currentIndex = gridItem.index;
-		let updatedIndex = currentIndex;
-		updatedIndex = newIndex;
-		const newSelectedItem = grid.getItem(updatedIndex);
+		const newSelectedItem = grid.getItem(newIndex);
 		if (!newSelectedItem?.data) return;
+
 		if (!explorer.allowMultiSelect) explorer.resetSelectedItems([newSelectedItem.data]);
 		else {
 			const id = uniqueId(newSelectedItem.data);
@@ -307,41 +296,38 @@ export default ({ children }: { children: RenderItem }) => {
 
 		activeItem.current = newSelectedItem.data;
 
-		if (
-			explorer.scrollRef.current &&
-			explorerView.ref.current &&
-			newSelectedItem.row !== gridItem.row
-		) {
-			const viewRect = explorerView.ref.current.getBoundingClientRect();
+		if (!explorer.scrollRef.current || !explorerView.ref.current) return;
 
-			const itemRect = newSelectedItem.rect;
-			const itemTop = itemRect.top + viewRect.top;
-			const itemBottom = itemRect.bottom + viewRect.top;
+		const { top: viewTop } = explorerView.ref.current.getBoundingClientRect();
 
-			const scrollRect = explorer.scrollRef.current.getBoundingClientRect();
-			const scrollTop =
-				(explorerView.top ??
-					parseInt(getComputedStyle(explorer.scrollRef.current).paddingTop)) + 1;
-			const scrollBottom = scrollRect.height - (os !== 'windows' && os !== 'browser' ? 2 : 1);
+		const itemTop = newSelectedItem.rect.top + viewTop;
+		const itemBottom = newSelectedItem.rect.bottom + viewTop;
 
-			if (itemTop < scrollTop) {
-				explorer.scrollRef.current.scrollBy({
-					top:
-						itemTop -
-						scrollTop -
-						(newSelectedItem.row === 0 ? grid.padding.top : grid.gap.y / 2)
-				});
-			} else if (itemBottom > scrollBottom - (explorerView.bottom ?? 0)) {
-				explorer.scrollRef.current.scrollBy({
-					top:
-						itemBottom -
-						scrollBottom +
-						(explorerView.bottom ?? 0) +
-						(newSelectedItem.row === grid.rowCount - 1
-							? grid.padding.bottom
-							: grid.gap.y / 2)
-				});
-			}
+		const { height: scrollHeight } = explorer.scrollRef.current.getBoundingClientRect();
+
+		const scrollTop =
+			(explorerView.top ??
+				parseInt(getComputedStyle(explorer.scrollRef.current).paddingTop)) + 1;
+
+		const scrollBottom = scrollHeight - (os !== 'windows' && os !== 'browser' ? 2 : 1);
+
+		if (itemTop < scrollTop) {
+			explorer.scrollRef.current.scrollBy({
+				top:
+					itemTop -
+					scrollTop -
+					(newSelectedItem.row === 0 ? grid.padding.top : grid.gap.y / 2)
+			});
+		} else if (itemBottom > scrollBottom - (explorerView.bottom ?? 0)) {
+			explorer.scrollRef.current.scrollBy({
+				top:
+					itemBottom -
+					scrollBottom +
+					(explorerView.bottom ?? 0) +
+					(newSelectedItem.row === grid.rowCount - 1
+						? grid.padding.bottom
+						: grid.gap.y / 2)
+			});
 		}
 	};
 
@@ -371,6 +357,7 @@ export default ({ children }: { children: RenderItem }) => {
 				newIndex += 1;
 				break;
 		}
+
 		return newIndex;
 	};
 
