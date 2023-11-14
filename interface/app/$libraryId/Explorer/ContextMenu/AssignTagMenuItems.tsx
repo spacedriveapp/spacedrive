@@ -1,9 +1,11 @@
 import { Plus } from '@phosphor-icons/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
-import { useMemo, useRef } from 'react';
+import { forwardRef, MutableRefObject, RefObject, useMemo, useRef } from 'react';
+import { ErrorBoundary } from 'react-error-boundary';
 import { ExplorerItem, useLibraryQuery } from '@sd/client';
-import { dialogManager, ModifierKeys } from '@sd/ui';
+import { Button, dialogManager, ModifierKeys, tw } from '@sd/ui';
 import CreateDialog, {
 	AssignTagItems,
 	useAssignItemsToTag
@@ -13,16 +15,20 @@ import { useOperatingSystem } from '~/hooks';
 import { useScrolled } from '~/hooks/useScrolled';
 import { keybindForOs } from '~/util/keybinds';
 
-export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | 'Path' }>> }) => {
-	const os = useOperatingSystem();
-	const keybind = keybindForOs(os);
+const EmptyContainer = tw.div`py-1 text-center text-xs text-ink-faint`;
+
+interface Props {
+	items: Array<Extract<ExplorerItem, { type: 'Object' | 'Path' }>>;
+}
+
+function useData({ items }: Props) {
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
 
 	// Map<tag::id, Vec<object::id>>
 	const tagsWithObjects = useLibraryQuery(
 		[
 			'tags.getWithObjects',
-			props.items
+			items
 				.map((item) => {
 					if (item.type === 'Path') return item.item.object?.id;
 					else if (item.type === 'Object') return item.item.id;
@@ -31,6 +37,49 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 		],
 		{ suspense: true }
 	);
+
+	return { tags, tagsWithObjects };
+}
+
+export default (props: Props) => {
+	const ref = useRef<HTMLDivElement>(null);
+	const { isScrolled } = useScrolled(ref, 10);
+
+	const os = useOperatingSystem();
+	const keybind = keybindForOs(os);
+
+	const queryClient = useQueryClient();
+
+	return (
+		<>
+			<Menu.Item
+				className="tag-menu"
+				label="New tag"
+				icon={Plus}
+				iconProps={{ size: 15 }}
+				keybind={keybind([ModifierKeys.Control], ['N'])}
+				onClick={() => {
+					dialogManager.create((dp) => <CreateDialog {...dp} items={props.items} />);
+				}}
+			/>
+			<Menu.Separator className={clsx('mx-0 mb-0 transition', isScrolled && 'shadow')} />
+			<ErrorBoundary
+				onReset={() => queryClient.invalidateQueries()}
+				fallbackRender={(props) => (
+					<EmptyContainer>
+						Failed to load tags
+						<Button onClick={() => props.resetErrorBoundary()}>Retry</Button>
+					</EmptyContainer>
+				)}
+			>
+				<Tags parentRef={ref} {...props} />
+			</ErrorBoundary>
+		</>
+	);
+};
+
+const Tags = ({ items, parentRef }: Props & { parentRef: RefObject<HTMLDivElement> }) => {
+	const { tags, tagsWithObjects } = useData({ items });
 
 	// tags are sorted by assignment, and assigned tags are sorted by most recently assigned
 	const sortedTags = useMemo(() => {
@@ -81,7 +130,6 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 		return [...assigned, ...unassigned];
 	}, [tags.data, tagsWithObjects.data]);
 
-	const parentRef = useRef<HTMLDivElement>(null);
 	const rowVirtualizer = useVirtualizer({
 		count: sortedTags.length,
 		getScrollElement: () => parentRef.current,
@@ -89,23 +137,10 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 		paddingStart: 2
 	});
 
-	const { isScrolled } = useScrolled(parentRef, 10);
-
 	const assignItemsToTag = useAssignItemsToTag();
 
 	return (
 		<>
-			<Menu.Item
-				className="tag-menu"
-				label="New tag"
-				icon={Plus}
-				iconProps={{ size: 15 }}
-				keybind={keybind([ModifierKeys.Control], ['N'])}
-				onClick={() => {
-					dialogManager.create((dp) => <CreateDialog {...dp} items={props.items} />);
-				}}
-			/>
-			<Menu.Separator className={clsx('mx-0 mb-0 transition', isScrolled && 'shadow')} />
 			{sortedTags.length > 0 ? (
 				<div
 					ref={parentRef}
@@ -126,7 +161,7 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 
 							// only unassign if all objects have tag
 							// this is the same functionality as finder
-							const unassign = props.items.every((item) => {
+							const unassign = items.every((item) => {
 								if (item.type === 'Object') {
 									return objectsWithTag.has(item.item.id);
 								} else {
@@ -154,7 +189,7 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 											tag.id,
 											unassign
 												? // use objects that already have tag
-												  props.items.flatMap((item) => {
+												  items.flatMap((item) => {
 														if (
 															item.type === 'Object' ||
 															item.type === 'Path'
@@ -165,22 +200,16 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 														return [];
 												  })
 												: // use objects that don't have tag
-												  props.items.flatMap<AssignTagItems[number]>(
-														(item) => {
-															if (item.type === 'Object') {
-																if (
-																	!objectsWithTag.has(
-																		item.item.id
-																	)
-																)
-																	return [item];
-															} else if (item.type === 'Path') {
+												  items.flatMap<AssignTagItems[number]>((item) => {
+														if (item.type === 'Object') {
+															if (!objectsWithTag.has(item.item.id))
 																return [item];
-															}
-
-															return [];
+														} else if (item.type === 'Path') {
+															return [item];
 														}
-												  ),
+
+														return [];
+												  }),
 											unassign
 										);
 
@@ -206,9 +235,7 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 					</div>
 				</div>
 			) : (
-				<div className="py-1 text-center text-xs text-ink-faint">
-					{sortedTags ? 'No tags' : 'Failed to load tags'}
-				</div>
+				<EmptyContainer>No tags</EmptyContainer>
 			)}
 		</>
 	);
