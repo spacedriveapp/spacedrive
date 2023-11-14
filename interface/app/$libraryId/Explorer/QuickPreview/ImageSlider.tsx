@@ -60,30 +60,27 @@ export const ImageSlider = () => {
 		setActiveIndex(i);
 	};
 
-	const activeItem = useCallback(
-		(item: ExplorerItem): boolean => {
-			const selectedItem = Array.from(explorer.selectedItems)[0];
-			if (!selectedItem) return false;
-			if (
-				'item' in selectedItem &&
-				'name' in selectedItem.item &&
-				'item' in item &&
-				'name' in item.item
-			) {
-				const getIndex = explorer.items?.findIndex((i) => {
-					if ('id' in i.item && 'id' in selectedItem.item) {
-						return i.item.id === selectedItem.item.id;
-					}
-					return false;
-				});
-				if (getIndex === undefined) return false;
-				setActiveIndex(getIndex);
-				return selectedItem.item.name === item.item.name;
-			}
-			return false;
-		},
-		[explorer.selectedItems, explorer.items]
-	);
+	const activeItem = (item: ExplorerItem): boolean => {
+		const selectedItem = Array.from(explorer.selectedItems)[0];
+		if (!selectedItem) return false;
+		if (
+			'item' in selectedItem &&
+			'name' in selectedItem.item &&
+			'item' in item &&
+			'name' in item.item
+		) {
+			const getIndex = explorer.items?.findIndex((i) => {
+				if ('id' in i.item && 'id' in selectedItem.item) {
+					return i.item.id === selectedItem.item.id;
+				}
+				return false;
+			});
+			if (getIndex === undefined) return false;
+			setActiveIndex(getIndex);
+			return selectedItem.item.name === item.item.name;
+		}
+		return false;
+	};
 
 	// Scroll to the active item on initial render
 	useEffect(() => {
