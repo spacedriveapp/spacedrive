@@ -154,6 +154,18 @@ export default ({ children }: { children: RenderItem }) => {
 		gap: explorerView.gap || (settings.layoutMode === 'grid' ? settings.gridGap : undefined)
 	});
 
+	const getElementById = useCallback(
+		(id: string) => {
+			if (!explorer.parent) return;
+			const itemId =
+				realOS === 'windows' && explorer.parent.type === 'Ephemeral'
+					? id.replaceAll('\\', '\\\\')
+					: id;
+			return document.querySelector(`[data-selectable-id="${itemId}"]`);
+		},
+		[explorer.parent, realOS]
+	);
+
 	function getElementId(element: Element) {
 		return element.getAttribute('data-selectable-id');
 	}
@@ -273,9 +285,8 @@ export default ({ children }: { children: RenderItem }) => {
 		else {
 			const id = uniqueId(newSelectedItem.data);
 
-			const selectedItemDom = document.querySelector(
-				`[data-selectable-id="${realOS === 'windows' ? id.replaceAll('\\', '\\\\') : id}"]`
-			);
+			const selectedItemDom = getElementById(id);
+
 			if (!selectedItemDom) return;
 
 			if (e.shiftKey && !getQuickPreviewStore().open) {
@@ -370,9 +381,7 @@ export default ({ children }: { children: RenderItem }) => {
 
 			const id = uniqueId(item.data);
 
-			const selectedItemDom = document.querySelector(
-				`[data-selectable-id="${realOS === 'windows' ? id.replaceAll('\\', '\\\\') : id}"]`
-			);
+			const selectedItemDom = getElementById(id);
 
 			if (selectedItemDom) {
 				explorer.resetSelectedItems([item.data]);
@@ -413,15 +422,15 @@ export default ({ children }: { children: RenderItem }) => {
 		const [item] = Array.from(explorer.selectedItems);
 		if (!item) return;
 
-		const index = explorer.items?.findIndex((i) => i === item);
-		if (index === undefined || index === -1) return;
+		const itemId = uniqueId(item);
 
-		const element = document.querySelector(`[data-selectable-index="${index}"]`);
-		if (!element) selectoUnSelected.current = new Set(uniqueId(item));
+		const element = getElementById(itemId);
+
+		if (!element) selectoUnSelected.current = new Set(itemId);
 		else selecto.current.setSelectedTargets([element as HTMLElement]);
 
 		activeItem.current = item;
-	}, [explorer.items, explorer.selectedItems, quickPreviewStore.open]);
+	}, [explorer.items, explorer.selectedItems, quickPreviewStore.open, realOS, getElementById]);
 
 	return (
 		<SelectoContext.Provider value={selecto.current ? { selecto, selectoUnSelected } : null}>

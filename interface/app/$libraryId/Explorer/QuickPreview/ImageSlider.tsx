@@ -5,6 +5,7 @@ import { ExplorerItem } from '@sd/client';
 
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
+import { uniqueId } from '../util';
 
 export const ImageSlider = () => {
 	const quickPreviewImagesRef = useRef<HTMLDivElement>(null);
@@ -28,7 +29,6 @@ export const ImageSlider = () => {
 
 	const containerScrollHandler = useCallback(() => {
 		if (activeIndex === null) return;
-
 		const container = quickPreviewImagesRef.current;
 		const gridItem = grid.getItem(activeIndex);
 		if (!container || !gridItem) return;
@@ -61,25 +61,17 @@ export const ImageSlider = () => {
 	};
 
 	const activeItem = (item: ExplorerItem): boolean => {
-		const selectedItem = Array.from(explorer.selectedItems)[0];
+		const [selectedItem] = Array.from(explorer.selectedItems);
 		if (!selectedItem) return false;
-		if (
-			'item' in selectedItem &&
-			'name' in selectedItem.item &&
-			'item' in item &&
-			'name' in item.item
-		) {
-			const getIndex = explorer.items?.findIndex((i) => {
-				if ('id' in i.item && 'id' in selectedItem.item) {
-					return i.item.id === selectedItem.item.id;
-				}
-				return false;
-			});
-			if (getIndex === undefined) return false;
-			setActiveIndex(getIndex);
-			return selectedItem.item.name === item.item.name;
-		}
-		return false;
+		const getIndex = explorer.items?.findIndex((i) => {
+			if (selectedItem.item) {
+				return uniqueId(i) === uniqueId(selectedItem);
+			}
+			return false;
+		});
+		if (getIndex === undefined) return false;
+		setActiveIndex(getIndex);
+		return uniqueId(item) === uniqueId(selectedItem);
 	};
 
 	// Scroll to the active item on initial render
