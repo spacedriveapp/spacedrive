@@ -426,15 +426,21 @@ export default ({ children }: { children: RenderItem }) => {
 	//everytime selected items change, execute onMouseDownHandler
 	//only when quick preview is open
 	useEffect(() => {
-		if (!quickPreviewStore.open) return;
-		if (explorer.selectedItems.size === 0) return;
-		const item = Array.from(explorer.selectedItems)[0];
+		if (!selecto.current || !quickPreviewStore.open) return;
+		if (explorer.selectedItems.size !== 1) return;
+
+		const [item] = Array.from(explorer.selectedItems);
+		if (!item) return;
+
 		const index = explorer.items?.findIndex((i) => i === item);
 		if (index === undefined || index === -1) return;
+
 		const element = document.querySelector(`[data-selectable-index="${index}"]`);
-		if (!element) return;
-		onMouseDownHandler(index);
-	}, [explorer.selectedItems, explorer.items, onMouseDownHandler, quickPreviewStore]);
+		if (!element) selectoUnSelected.current.add(uniqueId(item));
+		else selecto.current.setSelectedTargets([element as HTMLElement]);
+
+		activeItem.current = item;
+	}, [explorer.items, explorer.selectedItems, quickPreviewStore.open]);
 
 	return (
 		<SelectoContext.Provider value={selecto.current ? { selecto, selectoUnSelected } : null}>
