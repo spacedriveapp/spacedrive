@@ -126,7 +126,7 @@ export const ImageSlider = () => {
 	return (
 		<div
 			className={clsx(
-				'relative mx-auto mb-4 flex w-fit max-w-[700px] flex-row items-center justify-center',
+				'relative mx-auto mb-4 flex w-fit flex-row items-center justify-center md:max-w-[600px] lg:max-w-[700px]',
 				'rounded-md '
 			)}
 		>
