@@ -112,6 +112,17 @@ export const ImageSlider = () => {
 		};
 	}, [containerScrollHandler, isUsingKeyboard]);
 
+	const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+		const container = quickPreviewImagesRef.current;
+		if (!container) return;
+
+		const delta = e.deltaY || e.deltaX;
+		container.scrollLeft += delta;
+
+		// Prevent the default wheel behavior to avoid unwanted scrolling
+		e.preventDefault();
+	};
+
 	return (
 		<div
 			className={clsx(
@@ -122,6 +133,7 @@ export const ImageSlider = () => {
 			<div
 				ref={quickPreviewImagesRef}
 				onScroll={() => setIsScrolling(true)}
+				onWheel={handleWheel}
 				className="quick-preview-images-scroll w-full overflow-x-auto overflow-y-hidden rounded-md bg-app-lightBox/30 backdrop-blur-md"
 			>
 				<Grid grid={grid}>
