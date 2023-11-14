@@ -1,9 +1,11 @@
 import { Plus } from '@phosphor-icons/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
-import { useRef } from 'react';
+import { forwardRef, MutableRefObject, RefObject, useMemo, useRef } from 'react';
+import { ErrorBoundary } from 'react-error-boundary';
 import { ExplorerItem, useLibraryQuery } from '@sd/client';
-import { dialogManager, ModifierKeys } from '@sd/ui';
+import { Button, dialogManager, ModifierKeys, tw } from '@sd/ui';
 import CreateDialog, {
 	AssignTagItems,
 	useAssignItemsToTag
@@ -13,33 +15,40 @@ import { useOperatingSystem } from '~/hooks';
 import { useScrolled } from '~/hooks/useScrolled';
 import { keybindForOs } from '~/util/keybinds';
 
-export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | 'Path' }>> }) => {
-	const os = useOperatingSystem();
-	const keybind = keybindForOs(os);
+const EmptyContainer = tw.div`py-1 text-center text-xs text-ink-faint`;
+
+interface Props {
+	items: Array<Extract<ExplorerItem, { type: 'Object' | 'Path' }>>;
+}
+
+function useData({ items }: Props) {
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
 
 	// Map<tag::id, Vec<object::id>>
-	const tagsWithObjects = useLibraryQuery([
-		'tags.getWithObjects',
-		props.items
-			.map((item) => {
-				if (item.type === 'Path') return item.item.object?.id;
-				else if (item.type === 'Object') return item.item.id;
-			})
-			.filter((item): item is number => item !== undefined)
-	]);
+	const tagsWithObjects = useLibraryQuery(
+		[
+			'tags.getWithObjects',
+			items
+				.map((item) => {
+					if (item.type === 'Path') return item.item.object?.id;
+					else if (item.type === 'Object') return item.item.id;
+				})
+				.filter((item): item is number => item !== undefined)
+		],
+		{ suspense: true }
+	);
 
-	const parentRef = useRef<HTMLDivElement>(null);
-	const rowVirtualizer = useVirtualizer({
-		count: tags.data?.length || 0,
-		getScrollElement: () => parentRef.current,
-		estimateSize: () => 30,
-		paddingStart: 2
-	});
+	return { tags, tagsWithObjects };
+}
 
-	const { isScrolled } = useScrolled(parentRef, 10);
+export default (props: Props) => {
+	const ref = useRef<HTMLDivElement>(null);
+	const { isScrolled } = useScrolled(ref, 10);
 
-	const assignItemsToTag = useAssignItemsToTag();
+	const os = useOperatingSystem();
+	const keybind = keybindForOs(os);
+
+	const queryClient = useQueryClient();
 
 	return (
 		<>
@@ -54,7 +63,85 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 				}}
 			/>
 			<Menu.Separator className={clsx('mx-0 mb-0 transition', isScrolled && 'shadow')} />
-			{tags.data && tags.data.length > 0 ? (
+			<ErrorBoundary
+				onReset={() => queryClient.invalidateQueries()}
+				fallbackRender={(props) => (
+					<EmptyContainer>
+						Failed to load tags
+						<Button onClick={() => props.resetErrorBoundary()}>Retry</Button>
+					</EmptyContainer>
+				)}
+			>
+				<Tags parentRef={ref} {...props} />
+			</ErrorBoundary>
+		</>
+	);
+};
+
+const Tags = ({ items, parentRef }: Props & { parentRef: RefObject<HTMLDivElement> }) => {
+	const { tags, tagsWithObjects } = useData({ items });
+
+	// tags are sorted by assignment, and assigned tags are sorted by most recently assigned
+	const sortedTags = useMemo(() => {
+		if (!tags.data) return [];
+
+		const assigned = [];
+		const unassigned = [];
+
+		for (const tag of tags.data) {
+			if (tagsWithObjects.data?.[tag.id] === undefined) unassigned.push(tag);
+			else assigned.push(tag);
+		}
+
+		if (tagsWithObjects.data) {
+			assigned.sort((a, b) => {
+				const aObjs = tagsWithObjects.data[a.id],
+					bObjs = tagsWithObjects.data[b.id];
+
+				function getMaxDate(data: typeof aObjs) {
+					if (!data) return null;
+					let max = null;
+
+					for (const { date_created } of data) {
+						if (!date_created) continue;
+
+						const date = new Date(date_created);
+
+						if (!max) max = date;
+						else if (date > max) max = date;
+					}
+
+					return max;
+				}
+
+				const aMaxDate = getMaxDate(aObjs),
+					bMaxDate = getMaxDate(bObjs);
+
+				if (!aMaxDate || !bMaxDate) {
+					if (aMaxDate && !bMaxDate) return 1;
+					else if (!aMaxDate && bMaxDate) return -1;
+					else return 0;
+				} else {
+					return Number(bMaxDate) - Number(aMaxDate);
+				}
+			});
+		}
+
+		return [...assigned, ...unassigned];
+	}, [tags.data, tagsWithObjects.data]);
+
+	const rowVirtualizer = useVirtualizer({
+		count: sortedTags.length,
+		getScrollElement: () => parentRef.current,
+		estimateSize: () => 30,
+		paddingStart: 2
+	});
+
+	const assignItemsToTag = useAssignItemsToTag();
+
+	return (
+		<>
+			{sortedTags.length > 0 ? (
 				<div
 					ref={parentRef}
 					className="h-full w-full overflow-auto"
@@ -65,14 +152,16 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 						style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
 					>
 						{rowVirtualizer.getVirtualItems().map((virtualRow) => {
-							const tag = tags.data[virtualRow.index];
+							const tag = sortedTags[virtualRow.index];
 							if (!tag) return null;
 
-							const objectsWithTag = new Set(tagsWithObjects.data?.[tag?.id]);
+							const objectsWithTag = new Set(
+								tagsWithObjects.data?.[tag?.id]?.map((d) => d.object.id)
+							);
 
 							// only unassign if all objects have tag
 							// this is the same functionality as finder
-							const unassign = props.items.every((item) => {
+							const unassign = items.every((item) => {
 								if (item.type === 'Object') {
 									return objectsWithTag.has(item.item.id);
 								} else {
@@ -100,7 +189,7 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 											tag.id,
 											unassign
 												? // use objects that already have tag
-												  props.items.flatMap((item) => {
+												  items.flatMap((item) => {
 														if (
 															item.type === 'Object' ||
 															item.type === 'Path'
@@ -111,22 +200,16 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 														return [];
 												  })
 												: // use objects that don't have tag
-												  props.items.flatMap<AssignTagItems[number]>(
-														(item) => {
-															if (item.type === 'Object') {
-																if (
-																	!objectsWithTag.has(
-																		item.item.id
-																	)
-																)
-																	return [item];
-															} else if (item.type === 'Path') {
+												  items.flatMap<AssignTagItems[number]>((item) => {
+														if (item.type === 'Object') {
+															if (!objectsWithTag.has(item.item.id))
 																return [item];
-															}
-
-															return [];
+														} else if (item.type === 'Path') {
+															return [item];
 														}
-												  ),
+
+														return [];
+												  }),
 											unassign
 										);
 
@@ -152,9 +235,7 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 					</div>
 				</div>
 			) : (
-				<div className="py-1 text-center text-xs text-ink-faint">
-					{tags.data ? 'No tags' : 'Failed to load tags'}
-				</div>
+				<EmptyContainer>No tags</EmptyContainer>
 			)}
 		</>
 	);
