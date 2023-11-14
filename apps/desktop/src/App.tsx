@@ -1,30 +1,24 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { dialog, invoke, os, shell } from '@tauri-apps/api';
-import { confirm } from '@tauri-apps/api/dialog';
 import { listen } from '@tauri-apps/api/event';
-import { homeDir } from '@tauri-apps/api/path';
-import { open } from '@tauri-apps/api/shell';
 import { appWindow } from '@tauri-apps/api/window';
-import { useEffect } from 'react';
-import { createBrowserRouter } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createBrowserRouter, createMemoryRouter } from 'react-router-dom';
 import { RspcProvider } from '@sd/client';
 import {
 	ErrorPage,
 	KeybindEvent,
-	OperatingSystem,
-	Platform,
 	PlatformProvider,
 	routes,
-	SpacedriveInterface
+	SpacedriveInterface,
+	TabsContext
 } from '@sd/interface';
 import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 
 import '@sd/ui/style/style.scss';
 
 import * as commands from './commands';
-import { env } from './env';
+import { platform } from './platform';
 import { queryClient } from './query';
-import { createUpdater } from './updater';
 
 // TODO: Bring this back once upstream is fixed up.
 // const client = hooks.createClient({
@@ -36,63 +30,7 @@ import { createUpdater } from './updater';
 // 	]
 // });
 
-async function getOs(): Promise<OperatingSystem> {
-	switch (await os.type()) {
-		case 'Linux':
-			return 'linux';
-		case 'Windows_NT':
-			return 'windows';
-		case 'Darwin':
-			return 'macOS';
-		default:
-			return 'unknown';
-	}
-}
-
-let customUriServerUrl = (window as any).__SD_CUSTOM_URI_SERVER__ as string | undefined;
-const customUriAuthToken = (window as any).__SD_CUSTOM_SERVER_AUTH_TOKEN__ as string | undefined;
 const startupError = (window as any).__SD_ERROR__ as string | undefined;
-
-if (customUriServerUrl === undefined || customUriServerUrl === '')
-	console.warn("'window.__SD_CUSTOM_URI_SERVER__' may have not been injected correctly!");
-if (customUriServerUrl && !customUriServerUrl?.endsWith('/')) {
-	customUriServerUrl += '/';
-}
-const queryParams = customUriAuthToken ? `?token=${encodeURIComponent(customUriAuthToken)}` : '';
-
-const platform = {
-	platform: 'tauri',
-	getThumbnailUrlByThumbKey: (keyParts) =>
-		`${customUriServerUrl}thumbnail/${keyParts
-			.map((i) => encodeURIComponent(i))
-			.join('/')}.webp${queryParams}`,
-	getFileUrl: (libraryId, locationLocalId, filePathId) =>
-		`${customUriServerUrl}file/${libraryId}/${locationLocalId}/${filePathId}${queryParams}`,
-	getFileUrlByPath: (path) =>
-		`${customUriServerUrl}local-file-by-path/${encodeURIComponent(path)}${queryParams}`,
-	openLink: shell.open,
-	getOs,
-	openDirectoryPickerDialog: (opts) => {
-		const result = dialog.open({ directory: true, ...opts });
-		if (opts?.multiple) return result as any; // Tauri don't properly type narrow on `multiple` argument
-		return result;
-	},
-	openFilePickerDialog: () => dialog.open(),
-	saveFilePickerDialog: (opts) => dialog.save(opts),
-	showDevtools: () => invoke('show_devtools'),
-	confirm: (msg, cb) => confirm(msg).then(cb),
-	userHomeDir: homeDir,
-	updater: window.__SD_UPDATER__ ? createUpdater() : undefined,
-	auth: {
-		start(url) {
-			open(url);
-		}
-	},
-	...commands,
-	landingApiOrigin: env.VITE_LANDING_ORIGIN
-} satisfies Platform;
-
-export const router = createBrowserRouter(routes);
 
 export default function App() {
 	useEffect(() => {
@@ -121,23 +59,34 @@ export default function App() {
 		<RspcProvider queryClient={queryClient}>
 			<PlatformProvider platform={platform}>
 				<QueryClientProvider client={queryClient}>
-					<AppInner />
+					{startupError ? (
+						<ErrorPage
+							message={startupError}
+							submessage="Error occurred starting up the Spacedrive core"
+						/>
+					) : (
+						<AppInner />
+					)}
 				</QueryClientProvider>
 			</PlatformProvider>
 		</RspcProvider>
 	);
 }
 
-// This is required because `ErrorPage` uses the OS which comes from `PlatformProvider`
-function AppInner() {
-	if (startupError) {
-		return (
-			<ErrorPage
-				message={startupError}
-				submessage="Error occurred starting up the Spacedrive core"
-			/>
-		);
-	}
+function createRouter() {
+	return createMemoryRouter(routes);
+}
 
-	return <SpacedriveInterface router={router} />;
+function AppInner() {
+	const [routers, setRouters] = useState(() => [createRouter(), createRouter()]);
+
+	const [routerIndex, setRouterIndex] = useState(0);
+
+	const router = routers[routerIndex]!;
+
+	return (
+		<TabsContext.Provider value={{ router, setRouterIndex, routers, setRouters, createRouter }}>
+			<SpacedriveInterface router={router} routers={routers} />
+		</TabsContext.Provider>
+	);
 }

@@ -11,7 +11,7 @@ import {
 } from 'react';
 import Selecto from 'react-selecto';
 import { type ExplorerItem } from '@sd/client';
-import { useMouseNavigate, useOperatingSystem, useShortcut } from '~/hooks';
+import { useOperatingSystem, useShortcut } from '~/hooks';
 
 import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore } from '../QuickPreview/store';
@@ -118,7 +118,6 @@ export default ({ children }: { children: RenderItem }) => {
 	const selectoLastColumn = useRef<number | undefined>();
 
 	const [dragFromThumbnail, setDragFromThumbnail] = useState(false);
-	const mouseNavigate = useMouseNavigate();
 
 	const itemDetailsHeight = 44 + (settings.showBytesInGridView ? 20 : 0);
 	const itemHeight = settings.gridItemSize + itemDetailsHeight;

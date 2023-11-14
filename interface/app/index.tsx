@@ -1,5 +1,12 @@
 import { useMemo } from 'react';
-import { Navigate, Outlet, useMatches, type RouteObject } from 'react-router-dom';
+import {
+	Navigate,
+	Outlet,
+	ScrollRestoration,
+	useLocation,
+	useMatches,
+	type RouteObject
+} from 'react-router-dom';
 import { currentLibraryCache, useCachedLibraries, useInvalidateQuery } from '@sd/client';
 import { Dialogs, Toaster } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
@@ -22,7 +29,7 @@ const Index = () => {
 
 	const libraryId = currentLibrary ? currentLibrary.uuid : libraries.data[0]?.uuid;
 
-	return <Navigate to={`${libraryId}/overview`} replace />;
+	return <Navigate to={`${libraryId}/overview`} replace state={{ first: true }} />;
 };
 
 const Wrapper = () => {
@@ -35,6 +42,7 @@ const Wrapper = () => {
 		<RootContext.Provider value={{ rawPath }}>
 			<Outlet />
 			<Dialogs />
+			<ScrollRestoration />
 			<Toaster position="bottom-right" expand={true} />
 		</RootContext.Provider>
 	);

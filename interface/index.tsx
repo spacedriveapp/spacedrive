@@ -8,7 +8,8 @@ import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { RouterProvider, RouterProviderProps } from 'react-router-dom';
+import { useMemo } from 'react';
+import { RouterProvider, RouterProviderProps, ScrollRestoration } from 'react-router-dom';
 import {
 	NotificationContextProvider,
 	P2PContextProvider,
@@ -25,6 +26,7 @@ export { ErrorPage } from './ErrorFallback';
 export * from './app';
 export * from './util/Platform';
 export * from './util/keybind';
+export * from './TabsContext';
 
 dayjs.extend(advancedFormat);
 dayjs.extend(relativeTime);
@@ -54,7 +56,9 @@ const Devtools = () => {
 	) : null;
 };
 
-export const SpacedriveInterface = (props: { router: RouterProviderProps['router'] }) => {
+export type Router = RouterProviderProps['router'];
+
+export const SpacedriveInterface = (props: { router: Router; routers: Router[] }) => {
 	useLoadBackendFeatureFlags();
 	useP2PErrorToast();
 
@@ -66,7 +70,10 @@ export const SpacedriveInterface = (props: { router: RouterProviderProps['router
 						<P2P />
 						<Devtools />
 						<WithPrismTheme />
-						<RouterProvider router={props.router} />
+						<RouterProvider
+							key={props.routers.findIndex((r) => r === props.router)}
+							router={props.router}
+						/>
 					</NotificationContextProvider>
 				</P2PContextProvider>
 			</TooltipProvider>

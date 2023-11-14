@@ -13,7 +13,7 @@ import { useMutationObserver, useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import { getItemFilePath, type ExplorerItem } from '@sd/client';
 import { ContextMenu, Tooltip } from '@sd/ui';
-import { useIsTextTruncated, useMouseNavigate, useShortcut } from '~/hooks';
+import { useIsTextTruncated, useShortcut } from '~/hooks';
 import { isNonEmptyObject } from '~/util';
 
 import { useLayoutContext } from '../../../Layout/Context';
@@ -101,7 +101,6 @@ export default () => {
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
 	const settings = explorer.useSettingsSnapshot();
-	const mouseNavigate = useMouseNavigate();
 
 	const tableRef = useRef<HTMLDivElement>(null);
 	const tableHeaderRef = useRef<HTMLDivElement>(null);
@@ -827,7 +826,6 @@ export default () => {
 			ref={tableRef}
 			onMouseDown={(e) => {
 				e.stopPropagation();
-				mouseNavigate(e);
 				setIsLeftMouseDown(true);
 			}}
 			className={clsx(!initialized && 'invisible')}

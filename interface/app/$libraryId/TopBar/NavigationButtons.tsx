@@ -1,6 +1,6 @@
 import { ArrowLeft, ArrowRight } from '@phosphor-icons/react';
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { Tooltip } from '@sd/ui';
 import { useKeyMatcher, useOperatingSystem, useSearchStore, useShortcut } from '~/hooks';
 
@@ -9,14 +9,21 @@ import TopBarButton from './TopBarButton';
 export const NavigationButtons = () => {
 	const navigate = useNavigate();
 	const { isFocused } = useSearchStore();
-	const idx = history.state.idx as number;
+	const idx = history?.state?.idx as number | undefined | null;
 	const os = useOperatingSystem();
 	const { icon } = useKeyMatcher('Meta');
+	const location = useLocation();
+
+	// console.log(history, location);
+
+	const canGoBack =
+		location.key !== 'default' && !location?.state?.first && !isFocused && idx !== 0;
 
 	useShortcut('navBackwardHistory', () => {
-		if (idx === 0 || isFocused) return;
+		if (!canGoBack) return;
 		navigate(-1);
 	});
+
 	useShortcut('navForwardHistory', () => {
 		if (idx === history.length - 1 || isFocused) return;
 		navigate(1);
@@ -45,7 +52,7 @@ export const NavigationButtons = () => {
 					rounding="left"
 					// className="text-[14px] text-ink-dull"
 					onClick={() => navigate(-1)}
-					disabled={isFocused || idx === 0}
+					disabled={!canGoBack}
 				>
 					<ArrowLeft size={14} className="m-[4px]" weight="bold" />
 				</TopBarButton>
