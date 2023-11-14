@@ -14,7 +14,7 @@ import { type ExplorerItem } from '@sd/client';
 import { useMouseNavigate, useOperatingSystem, useShortcut } from '~/hooks';
 
 import { useExplorerContext } from '../Context';
-import { getQuickPreviewStore } from '../QuickPreview/store';
+import { getQuickPreviewStore, useQuickPreviewStore } from '../QuickPreview/store';
 import { getExplorerStore, isCut, useExplorerStore } from '../store';
 import { uniqueId } from '../util';
 import { useExplorerViewContext } from '../ViewContext';
@@ -111,6 +111,7 @@ export default ({ children }: { children: RenderItem }) => {
 	const explorer = useExplorerContext();
 	const settings = explorer.useSettingsSnapshot();
 	const explorerView = useExplorerViewContext();
+	const quickPreviewStore = useQuickPreviewStore();
 
 	const selecto = useRef<Selecto>(null);
 	const selectoUnSelected = useRef<Set<string>>(new Set());
@@ -402,6 +403,39 @@ export default ({ children }: { children: RenderItem }) => {
 		keyboardHandler(e, newIndex);
 	});
 
+	const onMouseDownHandler = useCallback(
+		(index: number) => {
+			if (!explorerView.selectable) return;
+
+			const item = grid.getItem(index);
+
+			if (!item?.data) return;
+
+			if (!explorer.allowMultiSelect) {
+				explorer.resetSelectedItems([item.data]);
+			} else {
+				selectoFirstColumn.current = item.column;
+				selectoLastColumn.current = item.column;
+			}
+
+			activeItem.current = item.data;
+		},
+		[explorer, explorerView.selectable, grid]
+	);
+
+	//everytime selected items change, execute onMouseDownHandler
+	//only when quick preview is open
+	useEffect(() => {
+		if (!quickPreviewStore.open) return;
+		if (explorer.selectedItems.size === 0) return;
+		const item = Array.from(explorer.selectedItems)[0];
+		const index = explorer.items?.findIndex((i) => i === item);
+		if (index === undefined || index === -1) return;
+		const element = document.querySelector(`[data-selectable-index="${index}"]`);
+		if (!element) return;
+		onMouseDownHandler(index);
+	}, [explorer.selectedItems, explorer.items, onMouseDownHandler, quickPreviewStore]);
+
 	return (
 		<SelectoContext.Provider value={selecto.current ? { selecto, selectoUnSelected } : null}>
 			{explorer.allowMultiSelect && (
@@ -660,23 +694,8 @@ export default ({ children }: { children: RenderItem }) => {
 							item={item}
 							onMouseDown={(e) => {
 								e.stopPropagation();
-
 								mouseNavigate(e);
-
-								if (!explorerView.selectable) return;
-
-								const item = grid.getItem(index);
-
-								if (!item?.data) return;
-
-								if (!explorer.allowMultiSelect) {
-									explorer.resetSelectedItems([item.data]);
-								} else {
-									selectoFirstColumn.current = item.column;
-									selectoLastColumn.current = item.column;
-								}
-
-								activeItem.current = item.data;
+								onMouseDownHandler(index);
 							}}
 						>
 							{children}

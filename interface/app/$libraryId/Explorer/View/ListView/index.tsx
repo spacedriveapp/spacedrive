@@ -596,7 +596,10 @@ export default () => {
 		};
 	}, [sized, isLeftMouseDown]);
 
-	const keyboardHandler = (e: KeyboardEvent, direction: 'ArrowDown' | 'ArrowUp') => {
+	const keyboardHandler = (
+		e: KeyboardEvent,
+		direction: 'ArrowDown' | 'ArrowUp' | 'ArrowLeft' | 'ArrowRight'
+	) => {
 		if (!explorerView.selectable) return;
 
 		e.preventDefault();
@@ -614,7 +617,8 @@ export default () => {
 
 		if (!range) return;
 
-		const keyDirection = direction === 'ArrowDown' ? 'down' : 'up';
+		const keyDirection =
+			direction === 'ArrowDown' || direction === 'ArrowRight' ? 'down' : 'up';
 
 		const nextRow = rows[range.end.index + (keyDirection === 'up' ? -1 : 1)];
 
@@ -754,6 +758,14 @@ export default () => {
 		explorer.resetSelectedItems([]);
 		setRanges([]);
 		return;
+	});
+
+	useShortcut('explorerLeft', (e) => {
+		keyboardHandler(e, 'ArrowLeft');
+	});
+
+	useShortcut('explorerRight', (e) => {
+		keyboardHandler(e, 'ArrowRight');
 	});
 
 	useShortcut('explorerUp', (e) => {
