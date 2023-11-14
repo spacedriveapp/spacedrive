@@ -31,6 +31,7 @@ const GridListItem = (props: {
 	item: ExplorerItem;
 	children: RenderItem;
 	onMouseDown: (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
+	getElementById: (id: string) => Element | null | undefined;
 }) => {
 	const explorer = useExplorerContext();
 	const explorerStore = useExplorerStore();
@@ -57,7 +58,7 @@ const GridListItem = (props: {
 			return;
 		}
 
-		const element = document.querySelector(`[data-selectable-id="${itemId}"]`);
+		const element = props.getElementById(itemId);
 
 		if (!element) return;
 
@@ -74,7 +75,7 @@ const GridListItem = (props: {
 		if (!selecto) return;
 
 		return () => {
-			const element = document.querySelector(`[data-selectable-id="${itemId}"]`);
+			const element = props.getElementById(itemId);
 			if (selected && !element) selecto.selectoUnSelected.current.add(itemId);
 		};
 
@@ -688,6 +689,7 @@ export default ({ children }: { children: RenderItem }) => {
 						<GridListItem
 							index={index}
 							item={item}
+							getElementById={getElementById}
 							onMouseDown={(e) => {
 								e.stopPropagation();
 
