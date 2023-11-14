@@ -8,8 +8,8 @@ import { uniqueId } from '../util';
 
 export const ImageSlider = () => {
 	const explorer = useExplorerContext();
-
 	const quickPreviewImagesRef = useRef<HTMLDivElement>(null);
+	const activeIndex = useRef<number | null>(null);
 
 	const grid = useGrid({
 		scrollRef: quickPreviewImagesRef,
@@ -28,12 +28,30 @@ export const ImageSlider = () => {
 		const container = quickPreviewImagesRef.current;
 		if (!container) return;
 
+		//dont scroll if at the end
+		if (
+			(e.deltaX < 0 && container.scrollLeft === 0) ||
+			(e.deltaX > 0 && container.scrollLeft === container.scrollWidth - container.clientWidth)
+		)
+			return;
+
 		const delta = e.deltaY || e.deltaX;
 		container.scrollLeft += delta;
 
 		// Prevent the default wheel behavior to avoid unwanted scrolling
 		e.preventDefault();
 	};
+
+	//scroll to active item on initial render
+	useEffect(() => {
+		if (activeIndex.current !== null) {
+			const container = quickPreviewImagesRef.current;
+			if (!container) return;
+			container.scrollTo({
+				left: grid.getItemRect(activeIndex.current).left - container.clientWidth / 2
+			});
+		}
+	}, [grid]);
 
 	useEffect(() => {
 		const container = quickPreviewImagesRef.current;
@@ -46,6 +64,10 @@ export const ImageSlider = () => {
 
 		const index = explorer.items?.findIndex((_item) => uniqueId(_item) === uniqueId(item));
 		if (index === undefined || index === -1) return;
+
+		if (activeIndex.current === index) return;
+
+		if (activeIndex.current === null) activeIndex.current = index;
 
 		const { left: rectLeft, right: rectRight } = grid.getItemRect(index);
 
