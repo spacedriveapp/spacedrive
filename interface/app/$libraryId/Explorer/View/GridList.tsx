@@ -332,6 +332,7 @@ export default ({ children }: { children: RenderItem }) => {
 			}
 		}
 	};
+
 	const getGridItemHandler = (key: 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight') => {
 		const lastItem = activeItem.current;
 		if (!lastItem) return;
