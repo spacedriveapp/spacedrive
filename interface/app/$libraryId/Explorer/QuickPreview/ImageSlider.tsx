@@ -42,17 +42,6 @@ export const ImageSlider = () => {
 		e.preventDefault();
 	};
 
-	//scroll to active item on initial render
-	useEffect(() => {
-		if (activeIndex.current !== null) {
-			const container = quickPreviewImagesRef.current;
-			if (!container) return;
-			container.scrollTo({
-				left: grid.getItemRect(activeIndex.current).left - container.clientWidth / 2
-			});
-		}
-	}, [grid]);
-
 	useEffect(() => {
 		const container = quickPreviewImagesRef.current;
 		if (!container) return;
@@ -65,7 +54,12 @@ export const ImageSlider = () => {
 		const index = explorer.items?.findIndex((_item) => uniqueId(_item) === uniqueId(item));
 		if (index === undefined || index === -1) return;
 
-		if (activeIndex.current === index) return;
+		if (activeIndex.current === index) {
+			container.scrollTo({
+				left: grid.getItemRect(activeIndex.current).left - container.clientWidth / 2
+			});
+			return;
+		}
 
 		if (activeIndex.current === null) activeIndex.current = index;
 
