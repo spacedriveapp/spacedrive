@@ -1,18 +1,15 @@
 import { Grid, useGrid } from '@virtual-grid/react';
 import clsx from 'clsx';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ExplorerItem } from '@sd/client';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
 import { uniqueId } from '../util';
 
 export const ImageSlider = () => {
-	const quickPreviewImagesRef = useRef<HTMLDivElement>(null);
 	const explorer = useExplorerContext();
-	const [activeIndex, setActiveIndex] = useState<null | number>(0);
-	const [isScrolling, setIsScrolling] = useState(false);
-	const [isUsingKeyboard, setIsUsingKeyboard] = useState(false);
+
+	const quickPreviewImagesRef = useRef<HTMLDivElement>(null);
 
 	const grid = useGrid({
 		scrollRef: quickPreviewImagesRef,
@@ -27,80 +24,6 @@ export const ImageSlider = () => {
 		overscan: explorer.overscan ?? 5
 	});
 
-	const containerScrollHandler = useCallback(() => {
-		if (activeIndex === null) return;
-		const container = quickPreviewImagesRef.current;
-		const gridItem = grid.getItem(activeIndex);
-		if (!container || !gridItem) return;
-
-		// Calculate the scroll position required to bring the active item into view
-		const containerWidth = container.clientWidth;
-		const itemLeft = gridItem.rect.left;
-		const itemRight = gridItem.rect.right;
-		const containerScrollLeft = container.scrollLeft;
-		if (itemLeft < containerScrollLeft) {
-			// Active item is to the left of the visible area
-			container.scrollTo({
-				left: itemLeft - 20
-			});
-		} else if (itemRight > containerScrollLeft + containerWidth) {
-			// Active item is to the right of the visible area
-			container.scrollTo({
-				left: itemRight - containerWidth + 20
-			});
-		}
-	}, [activeIndex, grid]);
-
-	const selectHandler = (i: number) => {
-		if (activeIndex === null) return;
-		const item = explorer.items?.[i];
-		if (!item) return;
-		explorer.resetSelectedItems([item]);
-		setIsScrolling(false);
-		setActiveIndex(i);
-	};
-
-	const activeItem = (item: ExplorerItem): boolean => {
-		const [selectedItem] = Array.from(explorer.selectedItems);
-		if (!selectedItem) return false;
-		const getIndex = explorer.items?.findIndex((i) => {
-			if (selectedItem.item) {
-				return uniqueId(i) === uniqueId(selectedItem);
-			}
-			return false;
-		});
-		if (getIndex === undefined) return false;
-		setActiveIndex(getIndex);
-		return uniqueId(item) === uniqueId(selectedItem);
-	};
-
-	// Scroll to the active item on initial render
-	useEffect(() => {
-		if (activeIndex === null || isScrolling) return;
-		containerScrollHandler();
-	}, [activeIndex, containerScrollHandler, isScrolling]);
-
-	useEffect(() => {
-		const keyboardTimer = setTimeout(() => {
-			setIsUsingKeyboard(false);
-		}, 500);
-
-		const handleKeyBoardState = (e: KeyboardEvent) => {
-			if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-				setIsUsingKeyboard(true);
-			}
-		};
-
-		if (isUsingKeyboard) containerScrollHandler();
-
-		//cleaning this up breaks the functionality - must be as it is
-		document.addEventListener('keydown', handleKeyBoardState);
-
-		return () => {
-			clearTimeout(keyboardTimer);
-		};
-	}, [containerScrollHandler, isUsingKeyboard]);
-
 	const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
 		const container = quickPreviewImagesRef.current;
 		if (!container) return;
@@ -112,6 +35,35 @@ export const ImageSlider = () => {
 		e.preventDefault();
 	};
 
+	useEffect(() => {
+		const container = quickPreviewImagesRef.current;
+		if (!container) return;
+
+		if (explorer.selectedItems.size !== 1) return;
+
+		const [item] = [...explorer.selectedItems];
+		if (!item) return;
+
+		const index = explorer.items?.findIndex((_item) => uniqueId(_item) === uniqueId(item));
+		if (index === undefined || index === -1) return;
+
+		const { left: rectLeft, right: rectRight } = grid.getItemRect(index);
+
+		const { clientWidth: containerWidth, scrollLeft: containerScrollLeft } = container;
+
+		if (rectLeft < containerScrollLeft) {
+			// Active item is to the left of the visible area
+			container.scrollTo({
+				left: rectLeft - 20
+			});
+		} else if (rectRight > containerScrollLeft + containerWidth) {
+			// Active item is to the right of the visible area
+			container.scrollTo({
+				left: rectRight - containerWidth + 20
+			});
+		}
+	}, [explorer.items, explorer.selectedItems, grid]);
+
 	return (
 		<div
 			className={clsx(
@@ -121,7 +73,6 @@ export const ImageSlider = () => {
 		>
 			<div
 				ref={quickPreviewImagesRef}
-				onScroll={() => setIsScrolling(true)}
 				onWheel={handleWheel}
 				className="quick-preview-images-scroll w-full overflow-x-auto overflow-y-hidden rounded-md bg-app-lightBox/30 backdrop-blur-md"
 			>
@@ -131,14 +82,14 @@ export const ImageSlider = () => {
 						if (!item) return null;
 						return (
 							<div
-								onClick={(e) => selectHandler(i)}
+								onClick={() => explorer.resetSelectedItems([item])}
 								key={i}
 								className={clsx(
 									'bg-app-lightBox/20',
 									'h-full w-full',
 									'rounded-md',
 									'border',
-									activeItem(item)
+									explorer.isItemSelected(item)
 										? 'border-2 border-accent'
 										: 'border-1 border-white/5'
 								)}
