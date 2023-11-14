@@ -56,6 +56,7 @@ export const ImageSlider = () => {
 		const item = explorer.items?.[i];
 		if (!item) return;
 		explorer.resetSelectedItems([item]);
+		setIsScrolling(false);
 		setActiveIndex(i);
 	};
 
@@ -84,38 +85,32 @@ export const ImageSlider = () => {
 		[explorer.selectedItems, explorer.items]
 	);
 
-	//on initial load, scroll to the active item
+	// Scroll to the active item on initial render
 	useEffect(() => {
+		if (activeIndex === null || isScrolling) return;
 		containerScrollHandler();
-	});
+	}, [activeIndex, containerScrollHandler, isScrolling]);
 
 	useEffect(() => {
-		let scrollTimer: ReturnType<typeof setTimeout>;
-		let keyboardTimer: ReturnType<typeof setTimeout>;
-		const handleScrollStart = () => {
-			setIsScrolling(true);
-			clearTimeout(scrollTimer);
-			scrollTimer = setTimeout(() => {
-				setIsScrolling(false);
-			}, 500);
-		};
+		const keyboardTimer = setTimeout(() => {
+			setIsUsingKeyboard(false);
+		}, 500);
 
 		const handleKeyBoardState = (e: KeyboardEvent) => {
 			if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
 				setIsUsingKeyboard(true);
 			}
-			clearTimeout(keyboardTimer);
-			keyboardTimer = setTimeout(() => {
-				setIsUsingKeyboard(false);
-			}, 500);
 		};
 
-		//we don't want to clean up the event listeners as they are being listened to by the grid
-		document.addEventListener('scroll', handleScrollStart);
+		if (isUsingKeyboard) containerScrollHandler();
+
+		//cleaning this up breaks the functionality - must be as it is
 		document.addEventListener('keydown', handleKeyBoardState);
 
-		if (!isScrolling || !isUsingKeyboard) containerScrollHandler();
-	}, [containerScrollHandler, isScrolling, isUsingKeyboard]);
+		return () => {
+			clearTimeout(keyboardTimer);
+		};
+	}, [containerScrollHandler, isUsingKeyboard]);
 
 	return (
 		<div
@@ -126,6 +121,7 @@ export const ImageSlider = () => {
 		>
 			<div
 				ref={quickPreviewImagesRef}
+				onScroll={() => setIsScrolling(true)}
 				className="quick-preview-images-scroll w-full overflow-x-auto overflow-y-hidden rounded-md bg-app-lightBox/30 backdrop-blur-md"
 			>
 				<Grid grid={grid}>
