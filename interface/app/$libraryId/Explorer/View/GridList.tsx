@@ -404,26 +404,6 @@ export default ({ children }: { children: RenderItem }) => {
 		keyboardHandler(e, newIndex);
 	});
 
-	const onMouseDownHandler = useCallback(
-		(index: number) => {
-			if (!explorerView.selectable) return;
-
-			const item = grid.getItem(index);
-
-			if (!item?.data) return;
-
-			if (!explorer.allowMultiSelect) {
-				explorer.resetSelectedItems([item.data]);
-			} else {
-				selectoFirstColumn.current = item.column;
-				selectoLastColumn.current = item.column;
-			}
-
-			activeItem.current = item.data;
-		},
-		[explorer, explorerView.selectable, grid]
-	);
-
 	//everytime selected items change, execute onMouseDownHandler
 	//only when quick preview is open
 	useEffect(() => {
@@ -701,8 +681,23 @@ export default ({ children }: { children: RenderItem }) => {
 							item={item}
 							onMouseDown={(e) => {
 								e.stopPropagation();
+
 								mouseNavigate(e);
-								onMouseDownHandler(index);
+
+								if (!explorerView.selectable) return;
+
+								const item = grid.getItem(index);
+
+								if (!item?.data) return;
+
+								if (!explorer.allowMultiSelect) {
+									explorer.resetSelectedItems([item.data]);
+								} else {
+									selectoFirstColumn.current = item.column;
+									selectoLastColumn.current = item.column;
+								}
+
+								activeItem.current = item.data;
 							}}
 						>
 							{children}
