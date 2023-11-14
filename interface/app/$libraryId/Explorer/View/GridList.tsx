@@ -405,8 +405,7 @@ export default ({ children }: { children: RenderItem }) => {
 		keyboardHandler(e, newIndex);
 	});
 
-	//everytime selected items change, execute onMouseDownHandler
-	//only when quick preview is open
+	//everytime selected items change within quick preview we need to update selecto
 	useEffect(() => {
 		if (!selecto.current || !quickPreviewStore.open) return;
 		if (explorer.selectedItems.size !== 1) return;
