@@ -53,8 +53,7 @@ export default (
 
 	const form = useZodForm({
 		schema: schema,
-		defaultValues: { color: '#A717D9' },
-		mode: 'onSubmit'
+		defaultValues: { color: '#A717D9' }
 	});
 
 	const createTag = useLibraryMutation('tags.create');
