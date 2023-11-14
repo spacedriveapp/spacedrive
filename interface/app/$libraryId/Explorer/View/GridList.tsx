@@ -417,7 +417,7 @@ export default ({ children }: { children: RenderItem }) => {
 		if (index === undefined || index === -1) return;
 
 		const element = document.querySelector(`[data-selectable-index="${index}"]`);
-		if (!element) selectoUnSelected.current.add(uniqueId(item));
+		if (!element) selectoUnSelected.current = new Set(uniqueId(item));
 		else selecto.current.setSelectedTargets([element as HTMLElement]);
 
 		activeItem.current = item;
