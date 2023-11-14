@@ -28,24 +28,24 @@ export function DockerDialog({
 							<code className="block w-full rounded-md bg-app-darkBox px-3 py-2 text-sm font-medium text-ink">
 								$ {DOCKER_URL}
 							</code>
-							<Tooltip label={copied ? 'Copied' : 'Copy to clipboard'}>
-								<Button
-									size="icon"
-									variant="outline"
-									className="absolute right-4"
-									onClick={() => {
-										navigator.clipboard.writeText(DOCKER_URL);
-										setCopied(true);
-										setTimeout(() => setCopied(false), 3000);
-									}}
-								>
+							<Button
+								size="icon"
+								variant="outline"
+								className="absolute right-4"
+								onClick={() => {
+									navigator.clipboard.writeText(DOCKER_URL);
+									setCopied(true);
+									setTimeout(() => setCopied(false), 3000);
+								}}
+							>
+								<Tooltip label={copied ? 'Copied' : 'Copy to clipboard'}>
 									{copied ? (
 										<Check size={18} className="text-green-400" />
 									) : (
 										<Copy size={18} className="text-white opacity-70" />
 									)}
-								</Button>
-							</Tooltip>
+								</Tooltip>
+							</Button>
 						</div>
 						{/* OK Button */}
 						<Button
