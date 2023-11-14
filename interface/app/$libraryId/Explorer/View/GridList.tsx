@@ -362,7 +362,7 @@ export default ({ children }: { children: RenderItem }) => {
 	};
 
 	useShortcut('explorerDown', (e) => {
-		if (!explorerView.selectable) return;
+		if (!explorerView.selectable || quickPreviewStore.open) return;
 		if (explorer.selectedItems.size === 0) {
 			const item = grid.getItem(0);
 			if (!item?.data) return;
@@ -386,6 +386,7 @@ export default ({ children }: { children: RenderItem }) => {
 	});
 
 	useShortcut('explorerUp', (e) => {
+		if (quickPreviewStore.open) return;
 		const newIndex = getGridItemHandler('ArrowUp');
 		if (newIndex === undefined) return;
 		keyboardHandler(e, newIndex);

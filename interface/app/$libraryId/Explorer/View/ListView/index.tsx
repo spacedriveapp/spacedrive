@@ -102,6 +102,7 @@ export default () => {
 	const explorerView = useExplorerViewContext();
 	const settings = explorer.useSettingsSnapshot();
 	const mouseNavigate = useMouseNavigate();
+	const quickPreviewStore = getQuickPreviewStore();
 
 	const tableRef = useRef<HTMLDivElement>(null);
 	const tableHeaderRef = useRef<HTMLDivElement>(null);
@@ -788,10 +789,12 @@ export default () => {
 	});
 
 	useShortcut('explorerUp', (e) => {
+		if (quickPreviewStore.open) return;
 		keyboardHandler(e, 'ArrowUp');
 	});
 
 	useShortcut('explorerDown', (e) => {
+		if (quickPreviewStore.open) return;
 		keyboardHandler(e, 'ArrowDown');
 	});
 
