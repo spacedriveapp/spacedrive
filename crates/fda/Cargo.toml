@@ -1,12 +1,12 @@
 [package]
 name = "sd-fda"
 version = "0.1.0"
+authors = ["Jake Robinson <jake@spacedrive.com>"]
 license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-thiserror = "1.0.50"
 dirs = "5.0.1"
+tokio = { workspace = true, features = ["rt-multi-thread", "fs", "macros"] }
+thiserror = "1.0.50"
