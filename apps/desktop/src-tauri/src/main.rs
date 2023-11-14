@@ -73,7 +73,8 @@ fn reload_webview_inner(webview: PlatformWebview) {
 			.controller()
 			.CoreWebView2()
 			.expect("Unable to get handle on inner webview")
-			.Reload();
+			.Reload()
+			.expect("Unable to reload webview");
 	}
 }
 
@@ -270,7 +271,7 @@ async fn main() -> tauri::Result<()> {
 		.on_menu_event(menu::handle_menu_event)
 		.on_window_event(|event| {
 			if let WindowEvent::Resized(_) = event.event() {
-				let (state, command) = if event
+				let (_state, command) = if event
 					.window()
 					.is_fullscreen()
 					.expect("Can't get fullscreen state")
@@ -288,7 +289,7 @@ async fn main() -> tauri::Result<()> {
 				#[cfg(target_os = "macos")]
 				{
 					let nswindow = event.window().ns_window().unwrap();
-					unsafe { sd_desktop_macos::set_titlebar_style(&nswindow, state) };
+					unsafe { sd_desktop_macos::set_titlebar_style(&nswindow, _state) };
 				}
 			}
 		})
