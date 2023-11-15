@@ -30,10 +30,7 @@
 			"shortDescription": "File explorer from the future.",
 			"longDescription": "Cross-platform universal file explorer, powered by an open-source virtual distributed filesystem.",
 			"deb": {
-				"depends": [
-					"libc6",
-					"gstreamer1.0-gtk3"
-				]
+				"depends": ["libc6"]
 			},
 			"macOS": {
 				"frameworks": ["../../.deps/Spacedrive.framework"],
