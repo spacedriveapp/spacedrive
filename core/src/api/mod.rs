@@ -136,14 +136,14 @@ pub(crate) fn mount() -> Arc<Router> {
 
 				let enabled = if config.features.iter().contains(&feature) {
 					node.config
-						.write(|mut cfg| {
+						.write(|cfg| {
 							cfg.features.retain(|f| *f != feature);
 						})
 						.await
 						.map(|_| false)
 				} else {
 					node.config
-						.write(|mut cfg| {
+						.write(|cfg| {
 							cfg.features.push(feature.clone());
 						})
 						.await
