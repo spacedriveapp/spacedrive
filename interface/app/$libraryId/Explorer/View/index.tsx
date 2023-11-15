@@ -11,7 +11,13 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useKeys } from 'rooks';
-import { ExplorerLayout, getItemObject, type Object } from '@sd/client';
+import {
+	ExplorerLayout,
+	getExplorerLayoutStore,
+	getItemObject,
+	useExplorerLayoutStore,
+	type Object
+} from '@sd/client';
 import { dialogManager, ModifierKeys } from '@sd/ui';
 import { Loader } from '~/components';
 import { useKeyCopyCutPaste, useOperatingSystem, useShortcut } from '~/hooks';
@@ -21,8 +27,7 @@ import CreateDialog from '../../settings/library/tags/CreateDialog';
 import { useExplorerContext } from '../Context';
 import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
-import { getQuickPreviewStore, useQuickPreviewStore } from '../QuickPreview/store';
-import { getExplorerStore } from '../store';
+import { useQuickPreviewStore } from '../QuickPreview/store';
 import { ViewContext, type ExplorerViewContext } from '../ViewContext';
 import GridView from './GridView';
 import ListView from './ListView';
@@ -61,6 +66,7 @@ export default memo(
 		const explorer = useExplorerContext();
 		const quickPreview = useQuickPreviewContext();
 		const quickPreviewStore = useQuickPreviewStore();
+		const layoutStore = useExplorerLayoutStore();
 		const { doubleClick } = useViewItemDoubleClick();
 
 		const { layoutMode } = explorer.useSettingsSnapshot();
@@ -109,7 +115,7 @@ export default memo(
 
 		useShortcut('showImageSlider', (e) => {
 			e.stopPropagation();
-			getQuickPreviewStore().imageSlider = !quickPreviewStore.imageSlider;
+			getExplorerLayoutStore().showImageSlider = !layoutStore.showImageSlider;
 		});
 
 		useKeyCopyCutPaste();

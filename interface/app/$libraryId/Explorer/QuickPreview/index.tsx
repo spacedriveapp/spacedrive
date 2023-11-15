@@ -17,6 +17,7 @@ import {
 	getExplorerItemData,
 	getIndexedItemFilePath,
 	ObjectKindKey,
+	useExplorerLayoutStore,
 	useLibraryContext,
 	useLibraryMutation,
 	useRspcLibraryContext,
@@ -58,9 +59,9 @@ export const QuickPreview = () => {
 	const isDark = useIsDark();
 	const { library } = useLibraryContext();
 	const { openFilePaths, openEphemeralFiles } = usePlatform();
-
+	const explorerLayoutStore = useExplorerLayoutStore();
 	const explorer = useExplorerContext();
-	const { open, itemIndex, imageSlider } = useQuickPreviewStore();
+	const { open, itemIndex } = useQuickPreviewStore();
 
 	const thumb = createRef<HTMLDivElement>();
 	const [thumbErrorToast, setThumbErrorToast] = useState<ToastMessage>();
@@ -448,7 +449,7 @@ export const QuickPreview = () => {
 										textKinds.includes(kind) && 'select-text'
 									)}
 								/>
-								{imageSlider && <ImageSlider />}
+								{explorerLayoutStore.showImageSlider && <ImageSlider />}
 							</div>
 
 							{showMetadata && (

@@ -11,7 +11,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 
 import BasicSticky from 'react-sticky-el';
 import { useMutationObserver, useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
-import { getItemFilePath, type ExplorerItem } from '@sd/client';
+import { getItemFilePath, useExplorerLayoutStore, type ExplorerItem } from '@sd/client';
 import { ContextMenu, Tooltip } from '@sd/ui';
 import { useIsTextTruncated, useMouseNavigate, useShortcut } from '~/hooks';
 import { isNonEmptyObject } from '~/util';
@@ -102,7 +102,7 @@ export default () => {
 	const explorerView = useExplorerViewContext();
 	const settings = explorer.useSettingsSnapshot();
 	const mouseNavigate = useMouseNavigate();
-	const quickPreviewStore = getQuickPreviewStore();
+	const layoutStore = useExplorerLayoutStore();
 
 	const tableRef = useRef<HTMLDivElement>(null);
 	const tableHeaderRef = useRef<HTMLDivElement>(null);
@@ -783,12 +783,12 @@ export default () => {
 	});
 
 	useShortcut('explorerUp', (e) => {
-		if (quickPreviewStore.imageSlider) return;
+		if (layoutStore.showImageSlider) return;
 		keyboardHandler(e, 'ArrowUp');
 	});
 
 	useShortcut('explorerDown', (e) => {
-		if (quickPreviewStore.imageSlider) return;
+		if (layoutStore.showImageSlider) return;
 		keyboardHandler(e, 'ArrowDown');
 	});
 

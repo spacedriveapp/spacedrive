@@ -10,7 +10,7 @@ import {
 	type ReactNode
 } from 'react';
 import Selecto from 'react-selecto';
-import { type ExplorerItem } from '@sd/client';
+import { useExplorerLayoutStore, type ExplorerItem } from '@sd/client';
 import { useMouseNavigate, useOperatingSystem, useShortcut } from '~/hooks';
 
 import { useExplorerContext } from '../Context';
@@ -113,6 +113,7 @@ export default ({ children }: { children: RenderItem }) => {
 	const settings = explorer.useSettingsSnapshot();
 	const explorerView = useExplorerViewContext();
 	const quickPreviewStore = useQuickPreviewStore();
+	const layoutStore = useExplorerLayoutStore();
 
 	const selecto = useRef<Selecto>(null);
 	const selectoUnSelected = useRef<Set<string>>(new Set());
@@ -362,7 +363,7 @@ export default ({ children }: { children: RenderItem }) => {
 	};
 
 	useShortcut('explorerDown', (e) => {
-		if (!explorerView.selectable || quickPreviewStore.imageSlider) return;
+		if (!explorerView.selectable || layoutStore.showImageSlider) return;
 		if (explorer.selectedItems.size === 0) {
 			const item = grid.getItem(0);
 			if (!item?.data) return;
@@ -384,7 +385,7 @@ export default ({ children }: { children: RenderItem }) => {
 	});
 
 	useShortcut('explorerUp', (e) => {
-		if (quickPreviewStore.imageSlider) return;
+		if (layoutStore.showImageSlider) return;
 		const newIndex = getGridItemHandler('ArrowUp');
 		if (newIndex === undefined) return;
 		keyboardHandler(e, newIndex);
