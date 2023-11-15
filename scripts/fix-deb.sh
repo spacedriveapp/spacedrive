@@ -8,7 +8,7 @@ fi
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "This script requires root privileges." >&2
-  exec sudo env _UID="$(id -u)" _GID="$(id -g)" "$0" "$@"
+  exec sudo -E env _UID="$(id -u)" _GID="$(id -g)" "$0" "$@"
 fi
 
 echo "Fixing deb bundle..." >&2
