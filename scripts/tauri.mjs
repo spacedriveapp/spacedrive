@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { env, exit, umask, platform } from 'node:process'
@@ -80,69 +82,38 @@ try {
 
 			__cleanup.push(...(await patchTauri(__root, nativeDeps, args)))
 
-			switch (process.platform) {
-				case 'darwin': {
-					// Configure DMG background
-					env.BACKGROUND_FILE = path.resolve(
-						desktopApp,
-						'src-tauri',
-						'dmg-background.png'
+			if (process.platform === 'darwin') {
+				// Configure DMG background
+				env.BACKGROUND_FILE = path.resolve(desktopApp, 'src-tauri', 'dmg-background.png')
+				env.BACKGROUND_FILE_NAME = path.basename(env.BACKGROUND_FILE)
+				env.BACKGROUND_CLAUSE = `set background picture of opts to file ".background:${env.BACKGROUND_FILE_NAME}"`
+
+				if (!(await exists(env.BACKGROUND_FILE)))
+					console.warn(
+						`WARNING: DMG background file not found at ${env.BACKGROUND_FILE}`
 					)
-					env.BACKGROUND_FILE_NAME = path.basename(env.BACKGROUND_FILE)
-					env.BACKGROUND_CLAUSE = `set background picture of opts to file ".background:${env.BACKGROUND_FILE_NAME}"`
 
-					if (!(await exists(env.BACKGROUND_FILE)))
-						console.warn(
-							`WARNING: DMG background file not found at ${env.BACKGROUND_FILE}`
-						)
-
-					break
-				}
-				case 'linux':
-					// Cleanup appimage bundle to avoid build_appimage.sh failing
-					await fs.rm(path.join(__root, 'target', 'release', 'bundle', 'appimage'), {
-						recursive: true,
-						force: true,
-					})
-					break
+				break
 			}
 		}
 	}
 
-	await spawn('pnpm', ['exec', 'tauri', ...args], desktopApp).catch(async error => {
-		if (args[0] === 'build' || platform === 'linux') {
-			// Work around appimage buindling not working sometimes
-			const appimageDir = path.join(__root, 'target', 'release', 'bundle', 'appimage')
-			if (
-				(await exists(path.join(appimageDir, 'build_appimage.sh'))) &&
-				(await fs.readdir(appimageDir).then(f => f.every(f => !f.endsWith('.AppImage'))))
-			) {
-				// Remove AppDir to allow build_appimage to rebuild it
-				await fs.rm(path.join(appimageDir, 'spacedrive.AppDir'), {
-					recursive: true,
-					force: true,
-				})
-				return spawn('bash', ['build_appimage.sh'], appimageDir).catch(exitCode => {
-					code = exitCode
-					console.error(`tauri ${args[0]} failed with exit code ${exitCode}`)
-				})
-			}
-		}
+	await spawn('pnpm', ['exec', 'tauri', ...args], desktopApp)
 
-		console.error(
-			`tauri ${args[0]} failed with exit code ${typeof error === 'number' ? error : 1}`
-		)
-
-		console.warn(
-			`If you got an error related to libav*/FFMpeg or Protoc/Protobuf you may need to re-run \`pnpm prep\``,
-			`If you got an error related to missing nasm you need to run ${
-				platform === 'win32' ? './scripts/setup.ps1' : './scripts/setup.sh'
-			}`
-		)
-
-		throw error
-	})
+	if (args[0] === 'build' && process.platform === 'linux')
+		await spawn(path.join(__dirname, 'fix-deb.sh'), [], __dirname)
 } catch (error) {
+	console.error(
+		`tauri ${args[0]} failed with exit code ${typeof error === 'number' ? error : 1}`
+	)
+
+	console.warn(
+		`If you got an error related to libav*/FFMpeg or Protoc/Protobuf you may need to re-run \`pnpm prep\``,
+		`If you got an error related to missing nasm you need to run ${
+			platform === 'win32' ? './scripts/setup.ps1' : './scripts/setup.sh'
+		}`
+	)
+
 	if (typeof error === 'number') {
 		code = error
 	} else {

@@ -15,7 +15,7 @@
 				"bundleMediaFramework": true
 			},
 			"active": true,
-			"targets": "all",
+			"targets": ["deb", "msi", "dmg", "updater"],
 			"identifier": "com.spacedrive.desktop",
 			"icon": [
 				"icons/32x32.png",
@@ -27,15 +27,12 @@
 			"resources": [],
 			"externalBin": [],
 			"copyright": "Spacedrive Technology Inc.",
-			"shortDescription": "Spacedrive",
-			"longDescription": "A cross-platform universal file explorer, powered by an open-source virtual distributed filesystem.",
+			"shortDescription": "File explorer from the future.",
+			"longDescription": "Cross-platform universal file explorer, powered by an open-source virtual distributed filesystem.",
 			"deb": {
 				"depends": [
-					"ffmpeg",
-					"gstreamer1.0-plugins-bad",
-					"gstreamer1.0-plugins-ugly",
-					"gstreamer1.0-gtk3",
-					"gstreamer1.0-libav"
+					"libc6",
+					"gstreamer1.0-gtk3"
 				]
 			},
 			"macOS": {

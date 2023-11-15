@@ -93,9 +93,10 @@ export async function copyWindowsDLLs(root, nativeDeps) {
  * Symlink shared libs paths for Linux
  * @param {string} root
  * @param {string} nativeDeps
+ * @param {boolean} isDev
  * @returns {Promise<{files: string[], toClean: string[]}>}
  */
-export async function copyLinuxLibs(root, nativeDeps) {
+export async function copyLinuxLibs(root, nativeDeps, isDev) {
 	// rpath=${ORIGIN}/../lib/spacedrive
 	const tauriSrc = path.join(root, 'apps', 'desktop', 'src-tauri')
 	const files = await fs
@@ -109,10 +110,17 @@ export async function copyLinuxLibs(root, nativeDeps) {
 							(entry.name.endsWith('.so') || entry.name.includes('.so.'))
 					)
 					.map(async entry => {
-						await fs.copyFile(
-							path.join(entry.path, entry.name),
-							path.join(tauriSrc, entry.name)
-						)
+						if (entry.isSymbolicLink()) {
+							await fs.symlink(
+								await fs.readlink(path.join(entry.path, entry.name)),
+								path.join(tauriSrc, entry.name)
+							)
+						} else {
+							const target = path.join(tauriSrc, entry.name)
+							await fs.copyFile(path.join(entry.path, entry.name), target)
+							// https://web.archive.org/web/20220731055320/https://lintian.debian.org/tags/shared-library-is-executable
+							await fs.chmod(target, 0o644)
+						}
 						return entry.name
 					})
 			)
@@ -122,7 +130,7 @@ export async function copyLinuxLibs(root, nativeDeps) {
 		files,
 		toClean: [
 			...files.map(file => path.join(tauriSrc, file)),
-			...files.map(file => path.join(root, 'target', 'debug', file)),
+			...files.map(file => path.join(root, 'target', isDev ? 'debug' : 'release', file)),
 		],
 	}
 }

@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { env, exit, umask } from 'node:process'
