@@ -1,8 +1,8 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { listen } from '@tauri-apps/api/event';
 import { appWindow } from '@tauri-apps/api/window';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { createBrowserRouter, createMemoryRouter } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { createMemoryRouter } from 'react-router-dom';
 import { RspcProvider } from '@sd/client';
 import {
 	ErrorPage,
@@ -85,7 +85,15 @@ function AppInner() {
 	const router = routers[routerIndex]!;
 
 	return (
-		<TabsContext.Provider value={{ router, setRouterIndex, routers, setRouters, createRouter }}>
+		<TabsContext.Provider
+			value={{
+				routerIndex,
+				setRouterIndex,
+				routers,
+				setRouters,
+				createRouter
+			}}
+		>
 			<SpacedriveInterface router={router} routers={routers} />
 		</TabsContext.Provider>
 	);

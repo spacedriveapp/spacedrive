@@ -8,8 +8,7 @@ import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { useMemo } from 'react';
-import { RouterProvider, RouterProviderProps, ScrollRestoration } from 'react-router-dom';
+import { RouterProvider, RouterProviderProps } from 'react-router-dom';
 import {
 	NotificationContextProvider,
 	P2PContextProvider,

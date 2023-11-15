@@ -3,7 +3,6 @@ import {
 	Navigate,
 	Outlet,
 	ScrollRestoration,
-	useLocation,
 	useMatches,
 	type RouteObject
 } from 'react-router-dom';

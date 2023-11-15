@@ -1,12 +1,12 @@
-import { createContext, useContext } from 'react';
+import { createContext, Dispatch, SetStateAction, useContext } from 'react';
 
 import { Router } from './';
 
 export const TabsContext = createContext<{
-	router: Router;
+	routerIndex: number;
 	setRouterIndex: (i: number) => void;
 	routers: Router[];
-	setRouters: (routers: Router[]) => void;
+	setRouters: Dispatch<SetStateAction<Router[]>>;
 	createRouter: () => Router;
 } | null>(null);
 

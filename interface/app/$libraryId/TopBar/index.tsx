@@ -68,12 +68,12 @@ function Tabs() {
 			style={{ height: TAB_SWITCHER_HEIGHT }}
 		>
 			<div className="no-scrollbar flex w-full flex-row divide-x divide-sidebar-divider overflow-x-auto">
-				{ctx.routers.map((router, index) => (
+				{ctx.routers.map((_, index) => (
 					<button
 						onClick={() => ctx.setRouterIndex(index)}
 						className={clsx(
 							'duration-[50ms] group relative flex h-full flex-1 flex-row items-center justify-center text-center text-sm',
-							ctx.router === router
+							ctx.routerIndex === index
 								? 'bg-app text-ink'
 								: 'transition-colors hover:bg-app/50'
 						)}
@@ -81,13 +81,19 @@ function Tabs() {
 					>
 						Tab {index + 1}
 						<div
-							onClick={() => {
-								ctx.routers.splice(index, 1);
-								ctx.setRouters([...ctx.routers]);
-								if (ctx.routers.length >= ctx.routerIndex)
-									ctx.setRouterIndex(ctx.routers.length - 1);
+							onClick={(e) => {
+								e.stopPropagation();
+
+								ctx.setRouters((r) => {
+									const newRouters = r.filter((_, i) => i !== index);
+
+									if (newRouters.length >= ctx.routerIndex)
+										ctx.setRouterIndex(newRouters.length - 1);
+
+									return newRouters;
+								});
 							}}
-							className="absolute right-2 rounded p-1 hover:bg-app-selected"
+							className="absolute right-2 rounded p-1 opacity-0 transition-opacity hover:bg-app-selected group-hover:opacity-100"
 						>
 							<X />
 						</div>
