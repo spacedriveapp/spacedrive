@@ -65,11 +65,19 @@ const targets = args
 	})
 	.flatMap(target => target.split(','))
 
+const bundles = args
+	.filter((_, index, args) => {
+		if (index === 0) return false
+		const previous = args[index - 1]
+		return previous === '-b' || previous === '--bundles'
+	})
+	.flatMap(target => target.split(','))
+
 let code = 0
 try {
 	switch (args[0]) {
 		case 'dev': {
-			__cleanup.push(...(await patchTauri(__root, nativeDeps, args)))
+			__cleanup.push(...(await patchTauri(__root, nativeDeps, targets, bundles, args)))
 
 			switch (process.platform) {
 				case 'darwin':
@@ -88,7 +96,7 @@ try {
 				env.NODE_OPTIONS = `--max_old_space_size=4096 ${env.NODE_OPTIONS ?? ''}`
 			}
 
-			__cleanup.push(...(await patchTauri(__root, nativeDeps, args)))
+			__cleanup.push(...(await patchTauri(__root, nativeDeps, targets, bundles, args)))
 
 			if (process.platform === 'darwin') {
 				// Configure DMG background
@@ -108,7 +116,7 @@ try {
 
 	await spawn('pnpm', ['exec', 'tauri', ...args], desktopApp)
 
-	if (args[0] === 'build') {
+	if (args[0] === 'build' && bundles.some(bundle => bundle === 'deb' || bundle === 'all')) {
 		const linuxTargets = targets.filter(target => target.includes('-linux-'))
 		if (linuxTargets.length > 0)
 			for (const target of linuxTargets) {

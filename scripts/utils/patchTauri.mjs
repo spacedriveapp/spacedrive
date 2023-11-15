@@ -52,10 +52,12 @@ export async function tauriUpdaterKey(nativeDeps) {
 /**
  * @param {string} root
  * @param {string} nativeDeps
+ * @param {string[]} targets
+ * @param {string[]} bundles
  * @param {string[]} args
  * @returns {Promise<string[]>}
  */
-export async function patchTauri(root, nativeDeps, args) {
+export async function patchTauri(root, nativeDeps, targets, bundles, args) {
 	if (args.findIndex(e => e === '-c' || e === '--config') !== -1) {
 		throw new Error('Custom tauri build config is not supported.')
 	}
@@ -86,6 +88,12 @@ export async function patchTauri(root, nativeDeps, args) {
 		.readFile(path.join(tauriRoot, 'tauri.conf.json'), 'utf-8')
 		.then(JSON.parse)
 
+	if (bundles.length === 0) {
+		const defaultBundles = tauriConfig.tauri?.bundle?.targets
+		if (Array.isArray(defaultBundles)) bundles.push(...defaultBundles)
+		if (bundles.length === 0) bundles.push('all')
+	}
+
 	if (args[0] === 'build') {
 		if (tauriConfig?.tauri?.updater?.active) {
 			const pubKey = await tauriUpdaterKey(nativeDeps)
@@ -97,14 +105,6 @@ export async function patchTauri(root, nativeDeps, args) {
 		const macOSArm64MinimumVersion = '11.0'
 
 		let macOSMinimumVersion = tauriConfig?.tauri?.bundle?.macOS?.minimumSystemVersion
-
-		const targets = args
-			.filter((_, index, args) => {
-				if (index === 0) return false
-				const previous = args[index - 1]
-				return previous === '-t' || previous === '--target'
-			})
-			.flatMap(target => target.split(','))
 
 		if (
 			(targets.includes('aarch64-apple-darwin') ||
