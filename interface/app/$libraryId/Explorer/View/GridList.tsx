@@ -663,8 +663,6 @@ export default ({ children }: { children: RenderItem }) => {
 							onMouseDown={(e) => {
 								e.stopPropagation();
 
-								mouseNavigate(e);
-
 								if (!explorerView.selectable) return;
 
 								const item = grid.getItem(index);

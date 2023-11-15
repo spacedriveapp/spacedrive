@@ -83,23 +83,57 @@ function Tabs() {
 	const ctx = useTabsContext()!;
 
 	function addTab() {
-		const newRouter = ctx.createRouter();
-		ctx.setRouters([...ctx.routers, newRouter]);
+		ctx.createRouter();
 		ctx.setRouterIndex(ctx.routers.length);
 	}
 
 	function removeTab(index: number) {
 		if (ctx.routers.length === 1) return;
 
-		ctx.setRouters((r) => {
-			const newRouters = r.filter((_, i) => i !== index);
-
-			if (newRouters.length >= ctx.routerIndex) ctx.setRouterIndex(newRouters.length - 1);
-
-			return newRouters;
-		});
+		ctx.removeRouter(index);
 	}
 
+	useTabKeybinds({ addTab, removeTab });
+
+	if (ctx.routers.length < 2) return null;
+
+	return (
+		<div className="no-scrollbar flex h-8 w-full flex-row divide-x divide-sidebar-divider overflow-x-auto bg-black/40 text-ink-dull">
+			{ctx.routers.map((_, index) => (
+				<button
+					onClick={() => ctx.setRouterIndex(index)}
+					className={clsx(
+						'duration-[50ms] group relative flex h-full flex-1 flex-row items-center justify-center text-center text-sm',
+						ctx.routerIndex === index
+							? 'bg-app text-ink'
+							: 'transition-colors hover:bg-app/50'
+					)}
+					key={index}
+				>
+					Tab {index + 1}
+					<div
+						onClick={(e) => {
+							e.stopPropagation();
+							removeTab(index);
+						}}
+						className="absolute right-2 rounded p-1 opacity-0 transition-opacity hover:bg-app-selected group-hover:opacity-100"
+					>
+						<X />
+					</div>
+				</button>
+			))}
+			<button
+				onClick={addTab}
+				className="duration-[50ms] flex flex-row items-center justify-center px-2 transition-colors hover:bg-app/50"
+			>
+				<Plus weight="bold" size={14} />
+			</button>
+		</div>
+	);
+}
+
+function useTabKeybinds(props: { addTab(): void; removeTab(index: number): void }) {
+	const ctx = useTabsContext()!;
 	const os = useOperatingSystem();
 
 	// these keybinds aren't part of the regular shortcuts system as they're desktop-only
@@ -108,7 +142,7 @@ function Tabs() {
 
 		e.stopPropagation();
 
-		addTab();
+		props.addTab();
 	});
 
 	useKey(['w'], (e) => {
@@ -116,7 +150,7 @@ function Tabs() {
 
 		e.stopPropagation();
 
-		removeTab(ctx.routerIndex);
+		props.removeTab(ctx.routerIndex);
 	});
 
 	useKey(['ArrowLeft', 'ArrowRight'], (e) => {
@@ -129,42 +163,4 @@ function Tabs() {
 
 		ctx.setRouterIndex(Math.min(Math.max(0, ctx.routerIndex + delta), ctx.routers.length - 1));
 	});
-
-	if (ctx.routers.length < 2) return null;
-
-	return (
-		<div className="no-scrollbar flex h-8 w-full flex-row divide-x divide-sidebar-divider overflow-x-auto bg-black/40 text-ink-dull">
-			<div className="no-scrollbar flex w-full flex-row divide-x divide-sidebar-divider overflow-x-auto">
-				{ctx.routers.map((_, index) => (
-					<button
-						onClick={() => ctx.setRouterIndex(index)}
-						className={clsx(
-							'duration-[50ms] group relative flex h-full flex-1 flex-row items-center justify-center text-center text-sm',
-							ctx.routerIndex === index
-								? 'bg-app text-ink'
-								: 'transition-colors hover:bg-app/50'
-						)}
-						key={index}
-					>
-						Tab {index + 1}
-						<div
-							onClick={(e) => {
-								e.stopPropagation();
-								removeTab(index);
-							}}
-							className="absolute right-2 rounded p-1 opacity-0 transition-opacity hover:bg-app-selected group-hover:opacity-100"
-						>
-							<X />
-						</div>
-					</button>
-				))}
-				<button
-					onClick={() => {}}
-					className="duration-[50ms] flex flex-row items-center justify-center px-2 transition-colors hover:bg-app/50"
-				>
-					<Plus weight="bold" size={14} />
-				</button>
-			</div>
-		</div>
-	);
 }

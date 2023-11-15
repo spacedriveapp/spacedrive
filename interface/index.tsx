@@ -20,6 +20,7 @@ import { TooltipProvider } from '@sd/ui';
 import { P2P, useP2PErrorToast } from './app/p2p';
 import { WithPrismTheme } from './components/TextViewer/prism';
 import ErrorFallback, { BetterErrorBoundary } from './ErrorFallback';
+import { RoutingContext } from './RoutingContext';
 
 export { ErrorPage } from './ErrorFallback';
 export * from './app';
@@ -57,7 +58,14 @@ const Devtools = () => {
 
 export type Router = RouterProviderProps['router'];
 
-export const SpacedriveInterface = (props: { router: Router; routers: Router[] }) => {
+export const SpacedriveInterface = (props: {
+	routing: {
+		routers: Router[];
+		router: Router;
+		currentIndex: number;
+		maxIndex: number;
+	};
+}) => {
 	useLoadBackendFeatureFlags();
 	useP2PErrorToast();
 
@@ -66,13 +74,22 @@ export const SpacedriveInterface = (props: { router: Router; routers: Router[] }
 			<TooltipProvider>
 				<P2PContextProvider>
 					<NotificationContextProvider>
-						<P2P />
-						<Devtools />
-						<WithPrismTheme />
-						<RouterProvider
-							key={props.routers.findIndex((r) => r === props.router)}
-							router={props.router}
-						/>
+						<RoutingContext.Provider
+							value={{
+								currentIndex: props.routing.currentIndex,
+								maxIndex: props.routing.maxIndex
+							}}
+						>
+							<P2P />
+							<Devtools />
+							<WithPrismTheme />
+							<RouterProvider
+								key={props.routing.routers.findIndex(
+									(r) => r === props.routing.router
+								)}
+								router={props.routing.router}
+							/>
+						</RoutingContext.Provider>
 					</NotificationContextProvider>
 				</P2PContextProvider>
 			</TooltipProvider>

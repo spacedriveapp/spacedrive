@@ -1,8 +1,8 @@
+import { createMemoryHistory } from '@remix-run/router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { listen } from '@tauri-apps/api/event';
 import { appWindow } from '@tauri-apps/api/window';
 import { useEffect, useState } from 'react';
-import { createMemoryRouter } from 'react-router-dom';
 import { RspcProvider } from '@sd/client';
 import {
 	ErrorPage,
@@ -19,6 +19,7 @@ import '@sd/ui/style/style.scss';
 import * as commands from './commands';
 import { platform } from './platform';
 import { queryClient } from './query';
+import { createMemoryRouterWithHistory } from './router';
 
 // TODO: Bring this back once upstream is fixed up.
 // const client = hooks.createClient({
@@ -73,13 +74,41 @@ export default function App() {
 	);
 }
 
-function createRouter() {
-	return createMemoryRouter(routes);
-}
-
 function AppInner() {
-	const [routers, setRouters] = useState(() => [createRouter(), createRouter()]);
+	function createRouter() {
+		const history = createMemoryHistory();
+		const router = createMemoryRouterWithHistory({ routes, history });
 
+		const dispose = router.subscribe((event) => {
+			setRouters((routers) => {
+				const index = routers.findIndex((r) => r.router === router);
+				if (index === -1) return routers;
+
+				const routerAtIndex = routers[index]!;
+
+				routers[index] = {
+					...routerAtIndex,
+					currentIndex: history.index,
+					maxIndex:
+						event.historyAction === 'PUSH'
+							? history.index
+							: Math.max(routerAtIndex.maxIndex, history.index)
+				};
+
+				return [...routers];
+			});
+		});
+
+		return {
+			router,
+			history,
+			dispose,
+			currentIndex: 0,
+			maxIndex: 0
+		};
+	}
+
+	const [routers, setRouters] = useState(() => [createRouter()]);
 	const [routerIndex, setRouterIndex] = useState(0);
 
 	const router = routers[routerIndex]!;
@@ -89,12 +118,33 @@ function AppInner() {
 			value={{
 				routerIndex,
 				setRouterIndex,
-				routers,
-				setRouters,
-				createRouter
+				routers: routers.map(({ router }) => router),
+				createRouter() {
+					setRouters((r) => [...r, createRouter()]);
+				},
+				removeRouter(index: number) {
+					setRouters((routers) => {
+						const router = routers[index];
+
+						if (!router) return routers;
+
+						router.dispose();
+
+						routers.splice(index, 1);
+
+						return [...routers];
+					});
+				}
 			}}
 		>
-			<SpacedriveInterface router={router} routers={routers} />
+			<SpacedriveInterface
+				routing={{
+					router: router.router,
+					routers: routers.map((r) => r.router),
+					currentIndex: router.currentIndex,
+					maxIndex: router.maxIndex
+				}}
+			/>
 		</TabsContext.Provider>
 	);
 }
