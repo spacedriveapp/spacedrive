@@ -26,7 +26,7 @@ impl Flash {
 	#[must_use]
 	pub fn from_reader(reader: &ExifReader) -> Option<Self> {
 		let value = reader.get_tag_int(Tag::Flash)?;
-		FlashValue::try_from(value).ok()?.into()
+		FlashValue::from(value).into()
 	}
 }
 
