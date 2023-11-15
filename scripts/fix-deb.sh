@@ -47,11 +47,11 @@ fi
 
 # Find deb file with the highest version number, name format: spacedrive_<version>_<arch>.deb
 _deb="$(find . -type f -name '*.deb' | sort -t '_' -k '2,2' -V | tail -n 1)"
-_err=0
 
+# Clean up build unused artifacts
 rm -rf "$(basename "$_deb" .deb)"
 
-# Make backup of deb
+# Make a backup of deb
 cp "$_deb" "$_deb.bak"
 
 # Temporary directory
@@ -61,10 +61,12 @@ cleanup() {
 
   rm -rf "$_tmp"
 
+  # Restore backed up deb if something goes wrong
   if [ $_err -ne 0 ]; then
     mv "${_deb:?}.bak" "$_deb"
   fi
 
+  # Ensure deb owner is the same as the user who ran the script
   chown "${_UID:-0}:${_GID:-0}" "$_deb" 2>/dev/null || true
 
   rm -f "${_deb:?}.bak"
@@ -122,18 +124,15 @@ sed -i 's/^Categories=.*/Categories=System;FileTools;FileManager;/' "${_tmp}/dat
 find "${_tmp}/data" -type d -exec chmod 755 {} +
 find "${_tmp}/data" -type f -exec chmod 644 {} +
 
-# Fix executable permissions
+# Fix main executable permission
 chmod 755 "${_tmp}/data/usr/bin/spacedrive"
-
-# Fix desktop file permission
-chmod 644 "${_tmp}/data/usr/share/applications/spacedrive.desktop"
 
 # Make generic named shared libs symlinks to the versioned ones
 find "${_tmp}/data/usr/lib" -type f -name '*.so.*' -exec sh -euc \
   'for _lib in "$@"; do _link="$_lib" && while { _link="${_link%.*}" && [ "$_link" != "${_lib%.so*}" ]; }; do if [ -f "$_link" ]; then ln -sf "$(basename "$_lib")" "$_link"; fi; done; done' \
   sh {} +
 
-# strip all executables and shared libs
+# Strip all executables and shared libs
 find "${_tmp}/data/usr/bin" "${_tmp}/data/usr/lib" -type f -exec strip --strip-unneeded {} \;
 
 # Add Section field to control file, if it doesnt exists
