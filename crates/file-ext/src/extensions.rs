@@ -390,7 +390,7 @@ mod test {
 	#[tokio::test]
 	async fn magic_bytes() {
 		async fn test_path(subpath: &str) -> Option<Extension> {
-			println!("testing {}...", subpath);
+			println!("testing {subpath}...");
 			Extension::resolve_conflicting(subpath.split('.').last().unwrap(), true).await
 		}
 		// Video extension tests

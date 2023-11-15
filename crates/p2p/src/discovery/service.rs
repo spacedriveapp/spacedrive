@@ -67,7 +67,7 @@ impl<TMeta: Metadata> Service<TMeta> {
 		})
 	}
 
-	pub fn name(&self) -> &str {
+	#[must_use] pub fn name(&self) -> &str {
 		&self.name
 	}
 
@@ -80,7 +80,7 @@ impl<TMeta: Metadata> Service<TMeta> {
 			.get_mut(&self.name)
 		{
 			let meta = meta.to_hashmap();
-			let did_change = services_meta.as_ref().map(|v| *v == meta).unwrap_or(false);
+			let did_change = services_meta.as_ref().is_some_and(|v| *v == meta);
 			*services_meta = Some(meta);
 
 			if did_change {
@@ -250,7 +250,7 @@ pub enum ServiceEvent<TMeta> {
 
 // Type-erased version of [ServiceEvent].
 #[derive(Debug, Clone)]
-pub(crate) enum ServiceEventInternal {
+pub enum ServiceEventInternal {
 	Discovered {
 		identity: RemoteIdentity,
 		metadata: HashMap<String, String>,

@@ -1,14 +1,14 @@
 use std::{ops::Deref, sync::Arc};
 
-use sd_prisma::{prisma::*, prisma_sync::ModelSyncData};
-use sd_sync::*;
+use sd_prisma::{prisma::{SortOrder, instance, relation_operation, shared_operation}, prisma_sync::ModelSyncData};
+use sd_sync::{CRDTOperation, CRDTOperationType, RelationOperation, SharedOperation};
 use sd_utils::uuid_to_bytes;
 use serde_json::to_vec;
 use tokio::sync::{mpsc, Mutex};
 use uhlc::{Timestamp, NTP64};
 use uuid::Uuid;
 
-use crate::{actor::*, wait, SharedState};
+use crate::{actor::{ActorIO, ActorTypes, create_actor_io}, wait, SharedState};
 
 #[derive(Debug)]
 #[must_use]

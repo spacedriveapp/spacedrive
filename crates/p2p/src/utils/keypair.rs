@@ -8,29 +8,29 @@ use crate::spacetunnel::{Identity, RemoteIdentity};
 pub struct Keypair(ed25519::Keypair);
 
 impl Keypair {
-	pub fn generate() -> Self {
+	#[must_use] pub fn generate() -> Self {
 		Self(ed25519::Keypair::generate())
 	}
 
-	pub fn to_identity(&self) -> Identity {
+	#[must_use] pub fn to_identity(&self) -> Identity {
 		// This depends on libp2p implementation details which isn't great
 		SigningKey::from_keypair_bytes(&self.0.to_bytes())
 			.expect("Failed to convert 'ed25519::Keypair' into 'SigningKey'. They should have an identical representation.")
 			.into()
 	}
 
-	pub fn to_remote_identity(&self) -> RemoteIdentity {
+	#[must_use] pub fn to_remote_identity(&self) -> RemoteIdentity {
 		self.to_identity().to_remote_identity()
 	}
 
 	// TODO: Make this `pub(crate)`
-	pub fn peer_id(&self) -> libp2p::PeerId {
+	#[must_use] pub fn peer_id(&self) -> libp2p::PeerId {
 		let pk: libp2p::identity::PublicKey = self.0.public().into();
 
 		libp2p::PeerId::from_public_key(&pk)
 	}
 
-	pub fn inner(&self) -> libp2p::identity::Keypair {
+	#[must_use] pub fn inner(&self) -> libp2p::identity::Keypair {
 		self.0.clone().into()
 	}
 }

@@ -1,4 +1,4 @@
-pub use crate::consts::HEIF_EXTENSIONS;
+
 pub use crate::error::{Error, Result};
 use crate::ImageHandler;
 use image::DynamicImage;

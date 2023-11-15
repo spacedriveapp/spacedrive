@@ -93,7 +93,7 @@ impl UnicastStream {
 		})
 	}
 
-	pub fn remote_identity(&self) -> RemoteIdentity {
+	#[must_use] pub fn remote_identity(&self) -> RemoteIdentity {
 		self.remote
 	}
 

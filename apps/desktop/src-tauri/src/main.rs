@@ -40,7 +40,7 @@ async fn set_menu_bar_item_state(_window: tauri::Window, _id: String, _enabled: 
 			.menu_handle()
 			.get_item(&_id)
 			.set_enabled(_enabled)
-			.expect("Unable to modify menu item")
+			.expect("Unable to modify menu item");
 	}
 }
 
@@ -58,7 +58,7 @@ fn reload_webview_inner(webview: PlatformWebview) {
 	#[cfg(target_os = "macos")]
 	{
 		unsafe {
-			sd_desktop_macos::reload_webview(&(webview.inner() as _));
+			sd_desktop_macos::reload_webview(&webview.inner().cast());
 		}
 	}
 	#[cfg(target_os = "linux")]
@@ -238,7 +238,7 @@ async fn main() -> tauri::Result<()> {
 
 				#[cfg(target_os = "macos")]
 				{
-					use sd_desktop_macos::*;
+					use sd_desktop_macos::{blur_window_background, set_titlebar_style};
 
 					let nswindow = window.ns_window().unwrap();
 
@@ -249,7 +249,7 @@ async fn main() -> tauri::Result<()> {
 
 					tokio::spawn({
 						let libraries = node.libraries.clone();
-						let menu_handle = menu_handle.clone();
+						let menu_handle = menu_handle;
 						async move {
 							if libraries.get_all().await.is_empty() {
 								menu::set_library_locked_menu_items_enabled(menu_handle, false);

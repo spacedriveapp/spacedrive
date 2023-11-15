@@ -14,10 +14,10 @@ pub fn chain_optional_iter<T>(
 		.collect()
 }
 
-pub fn uuid_to_bytes(uuid: Uuid) -> Vec<u8> {
+#[must_use] pub fn uuid_to_bytes(uuid: Uuid) -> Vec<u8> {
 	uuid.as_bytes().to_vec()
 }
 
-pub fn from_bytes_to_uuid(bytes: &[u8]) -> Uuid {
+#[must_use] pub fn from_bytes_to_uuid(bytes: &[u8]) -> Uuid {
 	Uuid::from_slice(bytes).expect("corrupted uuid in database")
 }

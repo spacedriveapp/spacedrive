@@ -16,7 +16,7 @@ impl std::fmt::Display for OperationKind<'_> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
 			OperationKind::Create => write!(f, "c"),
-			OperationKind::Update(field) => write!(f, "u:{}", field),
+			OperationKind::Update(field) => write!(f, "u:{field}"),
 			OperationKind::Delete => write!(f, "d"),
 		}
 	}
@@ -31,7 +31,7 @@ pub struct RelationOperation {
 }
 
 impl RelationOperation {
-	pub fn kind(&self) -> OperationKind {
+	#[must_use] pub fn kind(&self) -> OperationKind {
 		self.data.as_kind()
 	}
 }
@@ -64,7 +64,7 @@ pub struct SharedOperation {
 }
 
 impl SharedOperation {
-	pub fn kind(&self) -> OperationKind {
+	#[must_use] pub fn kind(&self) -> OperationKind {
 		self.data.as_kind()
 	}
 }

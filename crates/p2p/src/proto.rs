@@ -8,7 +8,7 @@ use uuid::Uuid;
 pub mod decode {
 	use crate::spacetunnel::IdentityErr;
 
-	use super::*;
+	use super::{Error, Uuid};
 	use tokio::io::{AsyncRead, AsyncReadExt};
 
 	#[derive(Error, Debug)]
@@ -52,7 +52,7 @@ pub mod decode {
 }
 
 pub mod encode {
-	use super::*;
+	use super::Uuid;
 
 	/// Serialize uuid as it's fixed size data.
 	pub fn uuid(buf: &mut Vec<u8>, uuid: &Uuid) {
@@ -62,9 +62,8 @@ pub mod encode {
 	/// Serialize string as it's u16 length and data.
 	pub fn string(buf: &mut Vec<u8>, s: &str) {
 		#[allow(clippy::panic)] // TODO: Remove this panic
-		if s.len() > u16::MAX as usize {
-			panic!("String is too long!"); // TODO: Chunk this so it will never error
-		}
+		// TODO: Chunk this so it will never error
+assert!(s.len() <= u16::MAX as usize, "String is too long!");
 		buf.extend_from_slice(&(s.len() as u16).to_le_bytes());
 		buf.extend(s.as_bytes());
 	}
@@ -72,9 +71,8 @@ pub mod encode {
 	/// Serialize buf as it's u16 length and data.
 	pub fn buf(buf: &mut Vec<u8>, b: &[u8]) {
 		#[allow(clippy::panic)] // TODO: Remove this panic
-		if b.len() > u32::MAX as usize {
-			panic!("Buf is too long!"); // TODO: Chunk this so it will never error
-		}
+		// TODO: Chunk this so it will never error
+assert!(b.len() <= u32::MAX as usize, "Buf is too long!");
 		buf.extend_from_slice(&(b.len() as u32).to_le_bytes());
 		buf.extend(b);
 	}
