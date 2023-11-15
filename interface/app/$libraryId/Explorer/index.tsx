@@ -3,7 +3,7 @@ import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
 import { getExplorerLayoutStore, useExplorerLayoutStore, useLibrarySubscription } from '@sd/client';
 import { useShortcut } from '~/hooks';
 
-import { TAB_SWITCHER_HEIGHT, TOP_BAR_HEIGHT } from '../TopBar';
+import { useTopBarContext } from '../TopBar/Layout';
 import { useExplorerContext } from './Context';
 import ContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
@@ -60,6 +60,8 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 
 	useKeyRevealFinder();
 
+	const topBar = useTopBarContext();
+
 	return (
 		<>
 			<ExplorerContextMenu>
@@ -69,13 +71,11 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 						className="custom-scroll explorer-scroll h-screen overflow-x-hidden"
 						style={
 							{
-								'--scrollbar-margin-top': `${
-									TOP_BAR_HEIGHT + TAB_SWITCHER_HEIGHT
-								}px`,
+								'--scrollbar-margin-top': `${topBar.topBarHeight}px`,
 								'--scrollbar-margin-bottom': `${
 									showPathBar ? PATH_BAR_HEIGHT + 2 : 0 // TODO: Fix for web app
 								}px`,
-								'paddingTop': TOP_BAR_HEIGHT + TAB_SWITCHER_HEIGHT,
+								'paddingTop': topBar.topBarHeight,
 								'paddingRight': explorerStore.showInspector ? INSPECTOR_WIDTH : 0
 							} as CSSProperties
 						}
@@ -105,7 +105,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 				<Inspector
 					className="no-scrollbar absolute right-1.5 top-0 pb-3 pl-3 pr-1.5"
 					style={{
-						paddingTop: TOP_BAR_HEIGHT + TAB_SWITCHER_HEIGHT + 12,
+						paddingTop: topBar.topBarHeight + 12,
 						bottom: showPathBar ? PATH_BAR_HEIGHT : 0
 					}}
 				/>

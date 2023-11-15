@@ -32,7 +32,7 @@ import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { EmptyNotice } from './Explorer/View';
 import { AddLocationButton } from './settings/library/locations/AddLocationButton';
-import { TAB_SWITCHER_HEIGHT, TOP_BAR_HEIGHT } from './TopBar';
+import { useTopBarContext } from './TopBar/Layout';
 import { TopBarPortal } from './TopBar/Portal';
 import TopBarButton from './TopBar/TopBarButton';
 
@@ -59,6 +59,8 @@ const EphemeralNotice = ({ path }: { path: string }) => {
 	const isDark = useIsDark();
 	const { ephemeral: dismissed } = useDismissibleNoticeStore();
 
+	const topbar = useTopBarContext();
+
 	const dismiss = () => (getDismissibleNoticeStore().ephemeral = true);
 
 	return (
@@ -76,7 +78,7 @@ const EphemeralNotice = ({ path }: { path: string }) => {
 							<div className="absolute inset-0 z-50 bg-app/80 backdrop-blur-[2px]" />
 
 							<div
-								style={{ height: TOP_BAR_HEIGHT + TAB_SWITCHER_HEIGHT }}
+								style={{ height: topbar.topBarHeight }}
 								className="flex items-center gap-3.5 border-b border-sidebar-divider px-3.5"
 							>
 								<div className="flex">

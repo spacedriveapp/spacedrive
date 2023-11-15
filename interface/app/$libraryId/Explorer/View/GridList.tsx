@@ -251,7 +251,10 @@ export default ({ children }: { children: RenderItem }) => {
 	const keyboardHandler = (e: KeyboardEvent, newIndex: number) => {
 		if (!explorerView.selectable) return;
 
-		if (explorer.selectedItems.size > 0) e.preventDefault();
+		if (explorer.selectedItems.size > 0) {
+			e.preventDefault();
+			e.stopPropagation();
+		}
 
 		const lastItem = activeItem.current;
 		if (!lastItem) return;
