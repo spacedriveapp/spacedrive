@@ -266,7 +266,9 @@ export type LibraryArgs<T> = { library_id: string; arg: T }
 /**
  * LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
  */
-export type LibraryConfig = { name: LibraryName; description: string | null; instance_id: number }
+export type LibraryConfig = { name: LibraryName; description: string | null; instance_id: number; version: LibraryConfigVersion }
+
+export type LibraryConfigVersion = "V0" | "V1" | "V2" | "V3" | "V4" | "V5" | "V6" | "V7" | "V8" | "V9"
 
 export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance_public_key: string; config: LibraryConfig }
 

@@ -1,4 +1,4 @@
-use crate::api::CoreEvent;
+use crate::{api::CoreEvent, node::config::Preferences};
 
 use std::{collections::HashMap, ffi::OsString, path::PathBuf, pin::pin, sync::Arc};
 
@@ -8,7 +8,7 @@ use async_channel as chan;
 use futures_concurrency::stream::Merge;
 use tokio::{
 	spawn,
-	sync::{broadcast, oneshot},
+	sync::{broadcast, oneshot, watch},
 	time::{interval, interval_at, timeout, Instant, MissedTickBehavior},
 };
 use tokio_stream::{wrappers::IntervalStream, StreamExt};
@@ -32,7 +32,8 @@ pub(super) struct WorkerChannels {
 }
 
 pub(super) async fn worker(
-	batch_size: usize,
+	available_parallelism: usize,
+	node_preferences: watch::Receiver<Preferences>,
 	reporter: broadcast::Sender<CoreEvent>,
 	thumbnails_directory: Arc<PathBuf>,
 	WorkerChannels {
@@ -144,7 +145,7 @@ pub(super) async fn worker(
 						},
 						leftovers_tx.clone(),
 						reporter.clone(),
-						batch_size,
+						(available_parallelism, node_preferences.clone()),
 					));
 				}
 			}

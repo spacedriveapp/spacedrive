@@ -1,6 +1,7 @@
 use crate::{
 	api::CoreEvent,
 	library::{Libraries, LibraryId, LibraryManagerEvent},
+	node::config::Preferences,
 	util::error::{FileIOError, NonUtf8PathError},
 };
 
@@ -16,7 +17,7 @@ use once_cell::sync::OnceCell;
 use thiserror::Error;
 use tokio::{
 	fs, spawn,
-	sync::{broadcast, oneshot, Mutex},
+	sync::{broadcast, oneshot, watch, Mutex},
 	time::{sleep, Instant},
 };
 use tracing::{debug, error};
@@ -74,6 +75,7 @@ impl Thumbnailer {
 		data_dir: PathBuf,
 		libraries_manager: Arc<Libraries>,
 		reporter: broadcast::Sender<CoreEvent>,
+		node_preferences: watch::Receiver<Preferences>,
 	) -> Self {
 		let thumbnails_directory = Arc::new(
 			init_thumbnail_dir(&data_dir, Arc::clone(&libraries_manager))
@@ -112,12 +114,14 @@ impl Thumbnailer {
 			let cancel_rx = cancel_rx.clone();
 			let thumbnails_directory = Arc::clone(&thumbnails_directory);
 			let reporter = reporter.clone();
+			let node_preferences = node_preferences.clone();
 
 			async move {
 				while let Err(e) = spawn(worker(
 					*BATCH_SIZE
 						.get()
 						.expect("BATCH_SIZE is set at thumbnailer new method"),
+					node_preferences.clone(),
 					reporter.clone(),
 					thumbnails_directory.clone(),
 					WorkerChannels {
@@ -227,7 +231,7 @@ impl Thumbnailer {
 	}
 
 	#[inline]
-	pub async fn new_indexed_thumbnails_batch_with_ticket(
+	pub async fn new_indexed_thumbnails_tracked_batch(
 		&self,
 		mut batch: BatchToProcess,
 		library_id: LibraryId,

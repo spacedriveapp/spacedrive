@@ -153,8 +153,6 @@ impl NodeConfig {
 
 						config.insert(String::from("preferences"), json!(Preferences::default()));
 
-						tracing::debug!("{config:#?}");
-
 						let a =
 							serde_json::to_vec(&config).map_err(VersionManagerError::SerdeJson)?;
 
