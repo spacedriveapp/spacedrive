@@ -39,7 +39,11 @@ fi
 CDPATH='' cd -- "$(dirname "$0")"
 _root="$(pwd -P)"
 
-cd ../target/release/bundle/deb || err 'Failed to find deb bundle'
+if [ -n "${TARGET:-}" ]; then
+  cd "../target/${TARGET}/release/bundle/deb" || err 'Failed to find deb bundle'
+else
+  cd ../target/release/bundle/deb || err 'Failed to find deb bundle'
+fi
 
 # Find deb file with the highest version number, name format: spacedrive_<version>_<arch>.deb
 _deb="$(find . -type f -name '*.deb' | sort -t '_' -k '2,2' -V | tail -n 1)"

@@ -57,6 +57,14 @@ if (cargoConfig.env && typeof cargoConfig.env === 'object')
 // Default command
 if (args.length === 0) args.push('build')
 
+const targets = args
+	.filter((_, index, args) => {
+		if (index === 0) return false
+		const previous = args[index - 1]
+		return previous === '-t' || previous === '--target'
+	})
+	.flatMap(target => target.split(','))
+
 let code = 0
 try {
 	switch (args[0]) {
@@ -100,8 +108,16 @@ try {
 
 	await spawn('pnpm', ['exec', 'tauri', ...args], desktopApp)
 
-	if (args[0] === 'build' && process.platform === 'linux')
-		await spawn(path.join(__dirname, 'fix-deb.sh'), [], __dirname)
+	if (args[0] === 'build') {
+		const linuxTargets = targets.filter(target => target.includes('-linux-'))
+		if (linuxTargets.length > 0)
+			for (const target of linuxTargets) {
+				env.TARGET = target
+				await spawn(path.join(__dirname, 'fix-deb.sh'), [], __dirname)
+			}
+		else if (process.platform === 'linux')
+			await spawn(path.join(__dirname, 'fix-deb.sh'), [], __dirname)
+	}
 } catch (error) {
 	console.error(
 		`tauri ${args[0]} failed with exit code ${typeof error === 'number' ? error : 1}`
