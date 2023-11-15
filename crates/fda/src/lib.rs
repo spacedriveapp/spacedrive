@@ -24,16 +24,17 @@
 #![forbid(unsafe_code, deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
+use std::{io::ErrorKind, path::PathBuf};
+
 use dirs::{
 	audio_dir, cache_dir, config_dir, config_local_dir, data_dir, data_local_dir, desktop_dir,
 	document_dir, download_dir, executable_dir, home_dir, picture_dir, preference_dir, public_dir,
 	runtime_dir, state_dir, template_dir, video_dir,
 };
-use error::{Error, Result};
-use std::io::ErrorKind;
-use std::{path::PathBuf, process::Command};
 
 pub mod error;
+
+use error::Result;
 
 pub struct FullDiskAccess(Vec<PathBuf>);
 
@@ -58,10 +59,15 @@ impl FullDiskAccess {
 	#[allow(clippy::missing_const_for_fn)]
 	pub fn request_fda() -> Result<()> {
 		#[cfg(target_os = "macos")]
-		Command::new("open")
-			.arg("x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")
-			.status()
-			.map_err(|_| Error::FDAPromptError)?;
+		{
+			use error::Error;
+			use std::process::Command;
+
+			Command::new("open")
+				.arg("x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")
+				.status()
+				.map_err(|_| Error::FDAPromptError)?;
+		}
 
 		Ok(())
 	}
@@ -70,7 +76,7 @@ impl FullDiskAccess {
 impl Default for FullDiskAccess {
 	fn default() -> Self {
 		Self(
-			vec![
+			[
 				audio_dir(),
 				cache_dir(),
 				config_dir(),
