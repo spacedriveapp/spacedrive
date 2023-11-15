@@ -99,7 +99,7 @@ cp "${_root}/../LICENSE" "${_tmp}/data/usr/share/doc/spacedrive/copyright"
     cat <<EOF
 $(basename "$_license"):
 
-$(eval cat "$_license")
+$(cat "$_license")
 
 ===============================================================================
 
