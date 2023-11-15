@@ -3,11 +3,12 @@ use crate::{
 	object::media::thumbnail::ONE_SEC,
 	util::{
 		error::FileIOError,
-		version_manager::{ManagedVersion, VersionManager, VersionManagerError},
+		version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 	},
 };
 
 use sd_prisma::prisma::{file_path, PrismaClient};
+use serde_repr::{Serialize_repr, Deserialize_repr};
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -28,18 +29,24 @@ use super::{
 	VERSION_FILE, WEBP_EXTENSION,
 };
 
-#[derive(IntEnum, Debug, Clone, Copy, Eq, PartialEq, strum::Display)]
-#[repr(i32)]
-enum ThumbnailVersion {
+#[derive(IntEnum, Debug, Clone, Copy, Eq, PartialEq, strum::Display, Serialize_repr, Deserialize_repr)]
+#[repr(u64)]
+pub enum ThumbnailVersion {
 	V1 = 1,
 	V2 = 2,
 	V3 = 3,
-	Unknown = 0,
 }
 
-impl ManagedVersion for ThumbnailVersion {
+impl ManagedVersion<Self> for ThumbnailVersion {
 	const LATEST_VERSION: Self = Self::V3;
+
+	const KIND: Kind = Kind::PlainText;
+
 	type MigrationError = ThumbnailerError;
+
+	fn from_latest_version() -> Option<Self> {
+		Some(Self::LATEST_VERSION)
+	}
 }
 
 pub(super) async fn init_thumbnail_dir(
@@ -96,9 +103,6 @@ async fn process_migration(
 ) -> Result<(), ThumbnailerError> {
 	let thumbnails_directory = thumbnails_directory.as_ref();
 
-	let version_manager =
-		VersionManager::<ThumbnailVersion>::new(thumbnails_directory.join(VERSION_FILE));
-
 	// create all other directories, for each library and for ephemeral thumbnails
 	databases
 		.keys()
@@ -115,52 +119,33 @@ async fn process_migration(
 		.into_iter()
 		.collect::<Result<Vec<_>, _>>()?;
 
-	let current_version = match version_manager.get_version().await {
-		Ok(version) => version,
-		Err(e) => {
-			debug!("Thumbnail version file does not exist, starting fresh: {e:#?}");
-			// Version file does not exist, start fresh
-			version_manager.set_version(ThumbnailVersion::V1).await?;
-			ThumbnailVersion::V1
-		}
-	};
+	VersionManager::<ThumbnailVersion, ThumbnailVersion>::migrate_and_load(
+		thumbnails_directory.join(VERSION_FILE),
+		|current, next| {
+			let databases = &databases;
+			async move {
+				match (current, next) {
+					(ThumbnailVersion::V1, ThumbnailVersion::V2) => {
+						move_to_shards(thumbnails_directory).await
+					}
+					(ThumbnailVersion::V2, ThumbnailVersion::V3) => {
+						segregate_thumbnails_by_library(thumbnails_directory, databases).await
+					}
 
-	if current_version != ThumbnailVersion::LATEST_VERSION {
-		info!(
-			"Migrating thumbnail directory from {:?} to V3",
-			current_version
-		);
-
-		// Taking a reference to databases so we can move it into the closure and comply with the borrowck
-		let databases = &databases;
-
-		version_manager
-			.migrate(current_version, |current, next| {
-				let thumbnail_dir = &thumbnails_directory;
-				async move {
-					match (current, next) {
-						(ThumbnailVersion::V1, ThumbnailVersion::V2) => {
-							move_to_shards(thumbnail_dir).await
+					_ => {
+						error!("Thumbnail version is not handled: {:?}", current);
+						Err(VersionManagerError::UnexpectedMigration {
+							current_version: current.int_value(),
+							next_version: next.int_value(),
 						}
-						(ThumbnailVersion::V2, ThumbnailVersion::V3) => {
-							segregate_thumbnails_by_library(thumbnail_dir, databases).await
-						}
-
-						_ => {
-							error!("Thumbnail version is not handled: {:?}", current);
-							Err(VersionManagerError::UnexpectedMigration {
-								current_version: current.int_value(),
-								next_version: next.int_value(),
-							}
-							.into())
-						}
+						.into())
 					}
 				}
-			})
-			.await?;
-	}
-
-	Ok(())
+			}
+		},
+	)
+	.await
+	.map(|_| ())
 }
 
 /// This function moves all webp files in the thumbnail directory to their respective shard folders.
