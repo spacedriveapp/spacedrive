@@ -362,7 +362,7 @@ export default ({ children }: { children: RenderItem }) => {
 	};
 
 	useShortcut('explorerDown', (e) => {
-		if (!explorerView.selectable || quickPreviewStore.open) return;
+		if (!explorerView.selectable || quickPreviewStore.imageSlider) return;
 		if (explorer.selectedItems.size === 0) {
 			const item = grid.getItem(0);
 			if (!item?.data) return;
@@ -384,7 +384,7 @@ export default ({ children }: { children: RenderItem }) => {
 	});
 
 	useShortcut('explorerUp', (e) => {
-		if (quickPreviewStore.open) return;
+		if (quickPreviewStore.imageSlider) return;
 		const newIndex = getGridItemHandler('ArrowUp');
 		if (newIndex === undefined) return;
 		keyboardHandler(e, newIndex);

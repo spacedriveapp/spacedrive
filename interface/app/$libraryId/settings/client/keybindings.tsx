@@ -176,6 +176,17 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			}
 		},
 		{
+			action: 'Show image slider',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Alt.macOS, modifierSymbols.Meta.macOS, 'm']
+				},
+				all: {
+					value: [modifierSymbols.Alt.Other, modifierSymbols.Control.Other, 'm']
+				}
+			}
+		},
+		{
 			action: 'Show hidden files',
 			keys: {
 				macOS: {

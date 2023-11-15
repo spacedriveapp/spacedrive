@@ -22,8 +22,8 @@ import {
 	useRspcLibraryContext,
 	useZodForm
 } from '@sd/client';
-import { dialogManager, DropdownMenu, Form, toast, ToastMessage, Tooltip, z } from '@sd/ui';
-import { useIsDark, useKeybind, useOperatingSystem, useShortcut } from '~/hooks';
+import { DropdownMenu, Form, toast, ToastMessage, Tooltip, z } from '@sd/ui';
+import { useIsDark, useOperatingSystem, useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
@@ -60,7 +60,7 @@ export const QuickPreview = () => {
 	const { openFilePaths, openEphemeralFiles } = usePlatform();
 
 	const explorer = useExplorerContext();
-	const { open, itemIndex } = useQuickPreviewStore();
+	const { open, itemIndex, imageSlider } = useQuickPreviewStore();
 
 	const thumb = createRef<HTMLDivElement>();
 	const [thumbErrorToast, setThumbErrorToast] = useState<ToastMessage>();
@@ -448,7 +448,7 @@ export const QuickPreview = () => {
 										textKinds.includes(kind) && 'select-text'
 									)}
 								/>
-								<ImageSlider />
+								{imageSlider && <ImageSlider />}
 							</div>
 
 							{showMetadata && (

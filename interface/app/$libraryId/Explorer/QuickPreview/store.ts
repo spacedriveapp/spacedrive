@@ -2,6 +2,7 @@ import { proxy, useSnapshot } from 'valtio';
 
 const store = proxy({
 	open: false,
+	imageSlider: false,
 	itemIndex: 0
 });
 

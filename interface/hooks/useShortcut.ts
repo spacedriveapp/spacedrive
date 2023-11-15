@@ -36,6 +36,12 @@ const state = {
 			all: ['Alt', 'Control', 'KeyP']
 		}
 	},
+	showImageSlider: {
+		keys: {
+			macOS: ['Alt', 'Meta', 'KeyM'],
+			all: ['Alt', 'Control', 'KeyM']
+		}
+	},
 	showInspector: {
 		keys: {
 			macOS: ['Meta', 'KeyI'],

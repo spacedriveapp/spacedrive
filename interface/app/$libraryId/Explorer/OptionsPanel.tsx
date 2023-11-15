@@ -3,6 +3,7 @@ import { getExplorerLayoutStore, useExplorerLayoutStore } from '~/../packages/cl
 import { SortOrderSchema } from '~/app/route-schemas';
 
 import { useExplorerContext } from './Context';
+import { getQuickPreviewStore, useQuickPreviewStore } from './QuickPreview/store';
 import { createOrdering, getOrderingDirection, orderingKey, useExplorerStore } from './store';
 
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
@@ -10,7 +11,7 @@ const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
 export default () => {
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
-
+	const quickPreviewStore = useQuickPreviewStore();
 	const settings = explorer.useSettingsSnapshot();
 
 	return (
@@ -186,6 +187,19 @@ export default () => {
 					</Select>
 				</div>
 			)}
+
+			<div>
+				<Subheading>Quick Preview</Subheading>
+				<RadixCheckbox
+					checked={quickPreviewStore.imageSlider}
+					label="Image Slider"
+					name="imageSlider"
+					onCheckedChange={(value) => {
+						if (typeof value !== 'boolean') return;
+						getQuickPreviewStore().imageSlider = value;
+					}}
+				/>
+			</div>
 
 			<div>
 				<Subheading>Double click action</Subheading>

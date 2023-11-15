@@ -83,14 +83,13 @@ export const ImageSlider = () => {
 	return (
 		<div
 			className={clsx(
-				'relative mx-auto mb-4 flex w-fit flex-row items-center justify-center md:max-w-[600px] lg:max-w-[700px]',
-				'rounded-md '
+				'relative mx-auto mt-5 flex w-full flex-row items-center justify-center'
 			)}
 		>
 			<div
 				ref={quickPreviewImagesRef}
 				onWheel={handleWheel}
-				className="quick-preview-images-scroll w-full overflow-x-auto overflow-y-hidden rounded-md bg-app-lightBox/30 backdrop-blur-md"
+				className="quick-preview-images-scroll w-full overflow-x-auto overflow-y-hidden bg-app-lightBox/30 backdrop-blur-md"
 			>
 				<Grid grid={grid}>
 					{(i) => {

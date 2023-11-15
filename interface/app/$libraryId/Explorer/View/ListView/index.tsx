@@ -783,12 +783,12 @@ export default () => {
 	});
 
 	useShortcut('explorerUp', (e) => {
-		if (quickPreviewStore.open) return;
+		if (quickPreviewStore.imageSlider) return;
 		keyboardHandler(e, 'ArrowUp');
 	});
 
 	useShortcut('explorerDown', (e) => {
-		if (quickPreviewStore.open) return;
+		if (quickPreviewStore.imageSlider) return;
 		keyboardHandler(e, 'ArrowDown');
 	});
 
