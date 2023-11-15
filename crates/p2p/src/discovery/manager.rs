@@ -131,7 +131,8 @@ pub struct DiscoveryManagerState {
 }
 
 impl DiscoveryManagerState {
-	#[must_use] pub fn new() -> (Arc<RwLock<Self>>, mpsc::Receiver<String>) {
+	#[must_use]
+	pub fn new() -> (Arc<RwLock<Self>>, mpsc::Receiver<String>) {
 		let (service_shutdown_tx, service_shutdown_rx) = mpsc::channel(10);
 
 		(

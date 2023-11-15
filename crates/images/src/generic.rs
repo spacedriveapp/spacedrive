@@ -1,4 +1,4 @@
-pub use crate::error::{Result};
+pub use crate::error::Result;
 use crate::ImageHandler;
 use image::DynamicImage;
 use std::path::Path;

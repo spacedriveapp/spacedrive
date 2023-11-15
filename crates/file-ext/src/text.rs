@@ -267,7 +267,8 @@ fn looks_ucs32(buf: &[u8]) -> Option<UCS32> {
 	})
 }
 
-#[must_use] pub fn is_text(data: &[u8], partial: bool) -> Option<&'static str> {
+#[must_use]
+pub fn is_text(data: &[u8], partial: bool) -> Option<&'static str> {
 	if data.is_empty() {
 		return None;
 	}

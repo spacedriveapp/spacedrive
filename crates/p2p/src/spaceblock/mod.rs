@@ -56,7 +56,8 @@ impl<'a> Msg<'a> {
 		}
 	}
 
-	#[must_use] pub fn to_bytes(&self) -> Vec<u8> {
+	#[must_use]
+	pub fn to_bytes(&self) -> Vec<u8> {
 		match self {
 			Msg::Block(block) => {
 				let mut bytes = Vec::new();
@@ -122,9 +123,12 @@ where
 
 			if read == 0 {
 				#[allow(clippy::panic)] // TODO: Remove panic
-				// The file may have been modified during sender on the sender and we don't account for that.
-// TODO: Error handling + send error to remote
-assert!((offset + read as u64) == self.reqs.requests[self.i].size, "File sending has stopped but it doesn't match the expected length!");
+						// The file may have been modified during sender on the sender and we don't account for that.
+						// TODO: Error handling + send error to remote
+				assert!(
+					(offset + read as u64) == self.reqs.requests[self.i].size,
+					"File sending has stopped but it doesn't match the expected length!"
+				);
 
 				return Ok(());
 			}

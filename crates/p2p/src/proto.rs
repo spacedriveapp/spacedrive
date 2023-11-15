@@ -62,8 +62,8 @@ pub mod encode {
 	/// Serialize string as it's u16 length and data.
 	pub fn string(buf: &mut Vec<u8>, s: &str) {
 		#[allow(clippy::panic)] // TODO: Remove this panic
-		// TODO: Chunk this so it will never error
-assert!(s.len() <= u16::MAX as usize, "String is too long!");
+						// TODO: Chunk this so it will never error
+		assert!(s.len() <= u16::MAX as usize, "String is too long!");
 		buf.extend_from_slice(&(s.len() as u16).to_le_bytes());
 		buf.extend(s.as_bytes());
 	}
@@ -71,8 +71,8 @@ assert!(s.len() <= u16::MAX as usize, "String is too long!");
 	/// Serialize buf as it's u16 length and data.
 	pub fn buf(buf: &mut Vec<u8>, b: &[u8]) {
 		#[allow(clippy::panic)] // TODO: Remove this panic
-		// TODO: Chunk this so it will never error
-assert!(b.len() <= u32::MAX as usize, "Buf is too long!");
+						// TODO: Chunk this so it will never error
+		assert!(b.len() <= u32::MAX as usize, "Buf is too long!");
 		buf.extend_from_slice(&(b.len() as u32).to_le_bytes());
 		buf.extend(b);
 	}

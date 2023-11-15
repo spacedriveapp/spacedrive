@@ -5,7 +5,7 @@ mod db_operation;
 pub mod ingest;
 mod manager;
 
-use sd_prisma::prisma::{PrismaClient, instance, relation_operation, shared_operation};
+use sd_prisma::prisma::{instance, relation_operation, shared_operation, PrismaClient};
 use sd_sync::{CRDTOperation, RelationOperation, SharedOperation};
 
 use std::{
@@ -33,7 +33,8 @@ pub struct SharedState {
 	pub clock: uhlc::HLC,
 }
 
-#[must_use] pub fn shared_op_db(op: &CRDTOperation, shared_op: &SharedOperation) -> shared_operation::Create {
+#[must_use]
+pub fn shared_op_db(op: &CRDTOperation, shared_op: &SharedOperation) -> shared_operation::Create {
 	shared_operation::Create {
 		id: op.id.as_bytes().to_vec(),
 		timestamp: op.timestamp.0 as i64,
@@ -46,7 +47,8 @@ pub struct SharedState {
 	}
 }
 
-#[must_use] pub fn relation_op_db(
+#[must_use]
+pub fn relation_op_db(
 	op: &CRDTOperation,
 	relation_op: &RelationOperation,
 ) -> relation_operation::Create {

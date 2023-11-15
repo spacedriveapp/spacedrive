@@ -180,10 +180,7 @@ pub fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 /// If any are explicitly marked with `.disabled()` in the `custom_menu_bar()` function, this won't have an effect.
 /// We include them in the locked menu IDs anyway for future-proofing, in-case someone forgets.
 #[cfg(target_os = "macos")]
-pub fn set_library_locked_menu_items_enabled(
-	handle: tauri::window::MenuHandle,
-	enabled: bool,
-) {
+pub fn set_library_locked_menu_items_enabled(handle: tauri::window::MenuHandle, enabled: bool) {
 	LIBRARY_LOCKED_MENU_IDS
 		.iter()
 		.try_for_each(|id| handle.get_item(id).set_enabled(enabled))

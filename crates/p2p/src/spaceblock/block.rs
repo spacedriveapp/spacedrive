@@ -13,7 +13,8 @@ pub struct Block<'a> {
 }
 
 impl<'a> Block<'a> {
-	#[must_use] pub fn to_bytes(&self) -> Vec<u8> {
+	#[must_use]
+	pub fn to_bytes(&self) -> Vec<u8> {
 		let mut buf = Vec::new();
 		buf.extend_from_slice(&self.offset.to_le_bytes());
 		debug_assert_eq!(self.data.len(), self.size as usize); // TODO: Should `self.size` be inferred instead?

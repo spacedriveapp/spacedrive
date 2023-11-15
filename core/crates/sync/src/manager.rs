@@ -1,8 +1,11 @@
-use sd_prisma::prisma::{PrismaClient, SortOrder, instance, relation_operation, shared_operation};
+use sd_prisma::prisma::{instance, relation_operation, shared_operation, PrismaClient, SortOrder};
 use sd_sync::{CRDTOperation, CRDTOperationType, OperationFactory};
 use sd_utils::uuid_to_bytes;
 
-use crate::{db_operation::{DbOperation, relation_include, shared_include}, NTP64, SharedState, SyncMessage, Timestamps, ingest, relation_op_db, shared_op_db};
+use crate::{
+	db_operation::{relation_include, shared_include, DbOperation},
+	ingest, relation_op_db, shared_op_db, SharedState, SyncMessage, Timestamps, NTP64,
+};
 use std::{
 	cmp::Ordering,
 	ops::Deref,

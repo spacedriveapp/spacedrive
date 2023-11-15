@@ -31,7 +31,8 @@ pub struct RelationOperation {
 }
 
 impl RelationOperation {
-	#[must_use] pub fn kind(&self) -> OperationKind {
+	#[must_use]
+	pub fn kind(&self) -> OperationKind {
 		self.data.as_kind()
 	}
 }
@@ -64,7 +65,8 @@ pub struct SharedOperation {
 }
 
 impl SharedOperation {
-	#[must_use] pub fn kind(&self) -> OperationKind {
+	#[must_use]
+	pub fn kind(&self) -> OperationKind {
 		self.data.as_kind()
 	}
 }

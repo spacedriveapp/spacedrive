@@ -67,7 +67,8 @@ impl<TMeta: Metadata> Service<TMeta> {
 		})
 	}
 
-	#[must_use] pub fn name(&self) -> &str {
+	#[must_use]
+	pub fn name(&self) -> &str {
 		&self.name
 	}
 

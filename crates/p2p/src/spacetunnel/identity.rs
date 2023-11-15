@@ -38,7 +38,8 @@ impl Default for Identity {
 }
 
 impl Identity {
-	#[must_use] pub fn new() -> Self {
+	#[must_use]
+	pub fn new() -> Self {
 		Self::default()
 	}
 
@@ -50,11 +51,13 @@ impl Identity {
 		)))
 	}
 
-	#[must_use] pub fn to_bytes(&self) -> Vec<u8> {
+	#[must_use]
+	pub fn to_bytes(&self) -> Vec<u8> {
 		self.0.to_bytes().to_vec()
 	}
 
-	#[must_use] pub fn to_remote_identity(&self) -> RemoteIdentity {
+	#[must_use]
+	pub fn to_remote_identity(&self) -> RemoteIdentity {
 		RemoteIdentity(self.0.verifying_key())
 	}
 }
@@ -156,11 +159,13 @@ impl RemoteIdentity {
 		)?))
 	}
 
-	#[must_use] pub fn get_bytes(&self) -> [u8; REMOTE_IDENTITY_LEN] {
+	#[must_use]
+	pub fn get_bytes(&self) -> [u8; REMOTE_IDENTITY_LEN] {
 		self.0.to_bytes()
 	}
 
-	#[must_use] pub fn verifying_key(&self) -> VerifyingKey {
+	#[must_use]
+	pub fn verifying_key(&self) -> VerifyingKey {
 		self.0
 	}
 }

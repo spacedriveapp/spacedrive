@@ -31,7 +31,8 @@ pub fn quic_multiaddr_to_socketaddr(m: Multiaddr) -> Result<SocketAddr, String> 
 	Ok(SocketAddr::new(addr, port))
 }
 
-#[must_use] pub fn socketaddr_to_quic_multiaddr(m: &SocketAddr) -> Multiaddr {
+#[must_use]
+pub fn socketaddr_to_quic_multiaddr(m: &SocketAddr) -> Multiaddr {
 	let mut addr = Multiaddr::empty();
 	match m {
 		SocketAddr::V4(ip) => addr.push(Protocol::Ip4(*ip.ip())),
