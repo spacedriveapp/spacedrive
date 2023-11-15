@@ -159,7 +159,7 @@ function useTabKeybinds(props: { addTab(): void; removeTab(index: number): void 
 
 		e.stopPropagation();
 
-		let delta = e.key === 'ArrowLeft' ? -1 : 1;
+		const delta = e.key === 'ArrowLeft' ? -1 : 1;
 
 		ctx.setRouterIndex(Math.min(Math.max(0, ctx.routerIndex + delta), ctx.routers.length - 1));
 	});
