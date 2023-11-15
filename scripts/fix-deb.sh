@@ -150,7 +150,7 @@ _suggests='gstreamer1.0-plugins-bad'
 if grep -q '^Suggests:' "${_tmp}/control/control"; then
   sed -i "s/^Suggests:.*/Suggests: ${_suggests}/" "${_tmp}/control/control"
 else
-  sed -i "/^Recommends:/a Suggests: ${_recomends}" "${_tmp}/control/control"
+  sed -i "/^Recommends:/a Suggests: ${_suggests}" "${_tmp}/control/control"
 fi
 
 # Re-calculate md5sums
