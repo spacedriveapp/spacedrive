@@ -39,8 +39,8 @@ const TopBar = (props: Props) => {
 	// resize observer doesn't run early enough to cause react to rerender before the first browser paint
 	useLayoutEffect(() => {
 		const height = ref.current!.getBoundingClientRect().height;
-		topBar.setTopBarHeight(height);
-	}, []);
+		topBar.setTopBarHeight.call(undefined, height);
+	}, [topBar.setTopBarHeight]);
 
 	const tabs = useTabsContext();
 
@@ -107,8 +107,8 @@ function Tabs() {
 					className={clsx(
 						'duration-[50ms] group relative flex h-full min-w-[9rem] flex-row items-center justify-start px-4 pr-8 text-center',
 						ctx.tabIndex === index
-							? 'bg-app text-ink'
-							: 'transition-colors hover:bg-app/50'
+							? 'text-ink'
+							: 'top-bar-blur bg-sidebar transition-colors hover:bg-app/50'
 					)}
 					key={index}
 				>
