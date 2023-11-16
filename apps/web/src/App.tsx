@@ -1,5 +1,5 @@
 import { hydrate, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { RspcProvider } from '@sd/client';
 import { Platform, PlatformProvider, routes, SpacedriveInterface } from '@sd/interface';
@@ -75,15 +75,44 @@ const queryClient = new QueryClient({
 	}
 });
 
-const router = createBrowserRouter(routes);
-
 function App() {
+	const [router, setRouter] = useState(() => {
+		const router = createBrowserRouter(routes);
+
+		router.subscribe((event) => {
+			setRouter((router) => {
+				const currentIndex: number | undefined = history.state?.idx;
+				if (currentIndex === undefined) return router;
+
+				return {
+					...router,
+					currentIndex,
+					maxIndex:
+						event.historyAction === 'PUSH'
+							? currentIndex
+							: // sometimes the max index is 0 when the current index is > 0, like when reloading the page -_-
+							  Math.max(router.maxIndex, currentIndex)
+				};
+			});
+		});
+
+		return {
+			router,
+			currentIndex: 0,
+			maxIndex: 0
+		};
+	});
+
 	const domEl = useRef<HTMLDivElement>(null);
 	const { isEnabled: showControls } = useShowControls();
 
 	useEffect(() => window.parent.postMessage('spacedrive-hello', '*'), []);
 
-	if (import.meta.env.VITE_SD_DEMO_MODE === 'true') {
+	if (
+		import.meta.env.VITE_SD_DEMO_MODE === 'true' &&
+		// quick and dirty check for if we've already rendered lol
+		domEl === null
+	) {
 		hydrate(queryClient, demoData);
 	}
 
@@ -93,7 +122,12 @@ function App() {
 				<RspcProvider queryClient={queryClient}>
 					<PlatformProvider platform={platform}>
 						<QueryClientProvider client={queryClient}>
-							<SpacedriveInterface router={router} />
+							<SpacedriveInterface
+								routing={{
+									...router,
+									routerKey: 0
+								}}
+							/>
 						</QueryClientProvider>
 					</PlatformProvider>
 				</RspcProvider>

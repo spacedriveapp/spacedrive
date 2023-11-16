@@ -23,7 +23,7 @@ export * from './useZodSearchParams';
 export * from './useIsTextTruncated';
 export * from './useKeyMatcher';
 export * from './useKeyCopyCutPaste';
-export * from './useMouseNavigate';
 export * from './useRedirectToNewLocation';
 export * from './useWindowState';
 export * from './useIsLocationIndexing';
+export * from './useRouteTitle';

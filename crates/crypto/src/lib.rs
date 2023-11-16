@@ -8,6 +8,7 @@
 #![warn(clippy::suspicious)]
 #![warn(clippy::nursery)]
 #![warn(clippy::complexity)]
+#![allow(clippy::missing_const_for_fn)]
 #![allow(clippy::missing_panics_doc)]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]

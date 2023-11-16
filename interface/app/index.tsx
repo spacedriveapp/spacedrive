@@ -1,9 +1,8 @@
 import { useMemo } from 'react';
 import { Navigate, Outlet, useMatches, type RouteObject } from 'react-router-dom';
-import { currentLibraryCache, useCachedLibraries, useInvalidateQuery } from '@sd/client';
-import { Dialogs, Toaster } from '@sd/ui';
+import { currentLibraryCache, useCachedLibraries } from '@sd/client';
+import { Toaster } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
-import { useTheme } from '~/hooks';
 
 import libraryRoutes from './$libraryId';
 import onboardingRoutes from './onboarding';
@@ -22,19 +21,15 @@ const Index = () => {
 
 	const libraryId = currentLibrary ? currentLibrary.uuid : libraries.data[0]?.uuid;
 
-	return <Navigate to={`${libraryId}/overview`} replace />;
+	return <Navigate to={`${libraryId}/overview`} replace state={{ first: true }} />;
 };
 
 const Wrapper = () => {
-	useInvalidateQuery();
-	useTheme();
-
 	const rawPath = useRawRoutePath();
 
 	return (
 		<RootContext.Provider value={{ rawPath }}>
 			<Outlet />
-			<Dialogs />
 			<Toaster position="bottom-right" expand={true} />
 		</RootContext.Provider>
 	);
