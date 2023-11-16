@@ -125,7 +125,7 @@ function App() {
 							<SpacedriveInterface
 								routing={{
 									...router,
-									routers: [router.router]
+									routerKey: 0
 								}}
 							/>
 						</QueryClientProvider>
