@@ -17,6 +17,7 @@ import {
 	ExplorerItem,
 	getEphemeralPath,
 	getExplorerItemData,
+	getExplorerLayoutStore,
 	getIndexedItemFilePath,
 	ObjectKindKey,
 	useExplorerLayoutStore,
@@ -161,6 +162,7 @@ export const QuickPreview = () => {
 		}
 
 		if (!activeItem || !explorer.items) return;
+		if (items.length > 1 && !getExplorerLayoutStore().showImageSlider) return;
 
 		const newSelectedItem =
 			items.length > 1 &&
