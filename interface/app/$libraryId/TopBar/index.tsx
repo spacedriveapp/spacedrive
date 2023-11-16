@@ -47,6 +47,7 @@ const TopBar = (props: Props) => {
 	return (
 		<div
 			ref={ref}
+			data-tauri-drag-region
 			className={clsx(
 				'top-bar-blur absolute inset-x-0 z-50 border-b border-sidebar-divider',
 				transparentBg ? 'bg-app/0' : 'bg-app/90'
@@ -125,7 +126,10 @@ function Tabs() {
 					)}
 				</button>
 			))}
-			<div className="flex h-full flex-1 items-center justify-start bg-sidebar px-2">
+			<div
+				className="flex h-full flex-1 items-center justify-start bg-sidebar px-2"
+				data-tauri-drag-region
+			>
 				<Tooltip keybinds={[keybind.icon, 'T']} label="New Tab">
 					<button
 						onClick={addTab}
