@@ -52,6 +52,20 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			}
 		}
 	],
+	General: [
+		{
+			description: 'to perform general actions',
+			action: 'Create new tab',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, 'T']
+				},
+				all: {
+					value: [modifierSymbols.Control.Other, 'T']
+				}
+			}
+		}
+	],
 	Dialogs: [
 		{
 			description: 'To perform actions and operations',

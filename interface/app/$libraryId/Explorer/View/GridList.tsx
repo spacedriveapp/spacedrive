@@ -10,8 +10,8 @@ import {
 	type ReactNode
 } from 'react';
 import Selecto from 'react-selecto';
-import { useExplorerLayoutStore, type ExplorerItem } from '@sd/client';
-import { useMouseNavigate, useOperatingSystem, useShortcut } from '~/hooks';
+import { type ExplorerItem } from '@sd/client';
+import { useOperatingSystem, useShortcut } from '~/hooks';
 
 import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore, useQuickPreviewStore } from '../QuickPreview/store';
@@ -113,7 +113,6 @@ export default ({ children }: { children: RenderItem }) => {
 	const settings = explorer.useSettingsSnapshot();
 	const explorerView = useExplorerViewContext();
 	const quickPreviewStore = useQuickPreviewStore();
-	const layoutStore = useExplorerLayoutStore();
 
 	const selecto = useRef<Selecto>(null);
 	const selectoUnSelected = useRef<Set<string>>(new Set());
@@ -121,7 +120,6 @@ export default ({ children }: { children: RenderItem }) => {
 	const selectoLastColumn = useRef<number | undefined>();
 
 	const [dragFromThumbnail, setDragFromThumbnail] = useState(false);
-	const mouseNavigate = useMouseNavigate();
 
 	const itemDetailsHeight = 44 + (settings.showBytesInGridView ? 20 : 0);
 	const itemHeight = settings.gridItemSize + itemDetailsHeight;
@@ -265,7 +263,12 @@ export default ({ children }: { children: RenderItem }) => {
 	});
 
 	const keyboardHandler = (e: KeyboardEvent, newIndex: number) => {
-		if (explorer.selectedItems.size > 0) e.preventDefault();
+		if (!explorerView.selectable) return;
+
+		if (explorer.selectedItems.size > 0) {
+			e.preventDefault();
+			e.stopPropagation();
+		}
 
 		const newSelectedItem = grid.getItem(newIndex);
 		if (!newSelectedItem?.data) return;
@@ -675,11 +678,9 @@ export default ({ children }: { children: RenderItem }) => {
 							item={item}
 							getElementById={getElementById}
 							onMouseDown={(e) => {
+								if (e.button !== 0 || !explorerView.selectable) return;
+
 								e.stopPropagation();
-
-								mouseNavigate(e);
-
-								if (!explorerView.selectable) return;
 
 								const item = grid.getItem(index);
 
