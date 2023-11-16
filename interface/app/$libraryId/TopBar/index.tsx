@@ -52,6 +52,7 @@ const TopBar = (props: Props) => {
 				transparentBg ? 'bg-app/0' : 'bg-app/90'
 			)}
 		>
+			{tabs && <Tabs />}
 			<div
 				data-tauri-drag-region={os === 'macOS'}
 				className={clsx(
@@ -72,7 +73,6 @@ const TopBar = (props: Props) => {
 
 				<div ref={props.rightRef} className={clsx(!props.noSearch && 'flex-1')} />
 			</div>
-			{tabs && <Tabs />}
 		</div>
 	);
 };
@@ -94,15 +94,13 @@ function Tabs() {
 
 	useTabKeybinds({ addTab, removeTab });
 
-	if (ctx.tabs.length < 2) return null;
-
 	return (
-		<div className="no-scrollbar flex h-8 w-full flex-row divide-x divide-sidebar-divider overflow-x-auto bg-black/40 text-ink-dull">
+		<div className="no-scrollbar flex h-9 w-full flex-row items-center divide-x divide-sidebar-divider overflow-x-auto bg-black/40 text-xs text-ink-dull">
 			{ctx.tabs.map(({ title }, index) => (
 				<button
 					onClick={() => ctx.setTabIndex(index)}
 					className={clsx(
-						'duration-[50ms] group relative flex h-full flex-1 flex-row items-center justify-center text-center text-sm',
+						'duration-[50ms] group relative flex h-full min-w-[9rem] flex-row items-center justify-start px-4 pr-8 text-center',
 						ctx.tabIndex === index
 							? 'bg-app text-ink'
 							: 'transition-colors hover:bg-app/50'
@@ -121,12 +119,14 @@ function Tabs() {
 					</div>
 				</button>
 			))}
-			<button
-				onClick={addTab}
-				className="duration-[50ms] flex flex-row items-center justify-center px-2 transition-colors hover:bg-app/50"
-			>
-				<Plus weight="bold" size={14} />
-			</button>
+			<div className="flex h-full items-center justify-center px-2">
+				<button
+					onClick={addTab}
+					className="duration-[50ms] flex flex-row items-center justify-center rounded p-1.5 transition-colors hover:bg-app/80"
+				>
+					<Plus weight="bold" size={14} />
+				</button>
+			</div>
 		</div>
 	);
 }
