@@ -662,8 +662,8 @@ importers:
         specifier: 3.0.0-beta.66
         version: 3.0.0-beta.66(react@18.2.0)
       '@virtual-grid/react':
-        specifier: ^1.0.2
-        version: 1.0.2(react-dom@18.2.0)(react@18.2.0)
+        specifier: ^1.1.0
+        version: 1.1.0(react-dom@18.2.0)(react@18.2.0)
       class-variance-authority:
         specifier: ^0.7.0
         version: 0.7.0
@@ -8749,17 +8749,17 @@ packages:
     hasBin: true
     dev: true
 
-  /@virtual-grid/core@1.0.1:
-    resolution: {integrity: sha512-yTY/65pBI8t/ZqnPmhLARIPnnkrpz4cslenX5PmkU7SNVfqgtcfUQHV3jkfCptWqljnzWzDnJUU5vAls2ZZN5A==}
+  /@virtual-grid/core@1.1.0:
+    resolution: {integrity: sha512-Ajm2KfPESKsaYmgj4LAtkWuomdbVkw5c/1Xmg2LS+L2kYDAhi98rXdpn+AErR++9KGjlEqhz/vplmPchRbFolQ==}
     dev: false
 
-  /@virtual-grid/react@1.0.2(react-dom@18.2.0)(react@18.2.0):
-    resolution: {integrity: sha512-FZFSBF5J1tN8prZUiQbtZqgM8/ApkVAwSeYK71QFaWZy+6XbA04dl+l0JVkUWcm3IbiQmRrk4hqkVIi3xStq+g==}
+  /@virtual-grid/react@1.1.0(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-s+VzaWQZLcgZynvM9c8xUIkOUifrqDY/gMY+ka8ZbkuQOiEGkTKYlqy5xUkwCfN14qk+LLmfE78UyVD49bh9yw==}
     peerDependencies:
       react: ^17.0.2 || ^18.0.0
     dependencies:
       '@tanstack/react-virtual': 3.0.0-beta.66(react@18.2.0)
-      '@virtual-grid/core': 1.0.1
+      '@virtual-grid/core': 1.1.0
       react: 18.2.0
       react-intersection-observer: 9.5.2(react@18.2.0)
       use-resize-observer: 9.1.0(react-dom@18.2.0)(react@18.2.0)
