@@ -10,7 +10,6 @@ import {
 	type ReactNode
 } from 'react';
 import { createPortal } from 'react-dom';
-import { useKeys } from 'rooks';
 import {
 	ExplorerLayout,
 	getExplorerLayoutStore,
@@ -142,7 +141,7 @@ export default memo(
 									explorer.selectable &&
 									!isContextMenuOpen &&
 									!isRenaming &&
-									(!quickPreviewStore.open || explorer.selectedItems.size === 1),
+									!quickPreviewStore.open,
 								ref,
 								isRenaming,
 								isContextMenuOpen,

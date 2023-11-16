@@ -1,4 +1,4 @@
-import { CaretDown, CaretUp, Mouse } from '@phosphor-icons/react';
+import { CaretDown, CaretUp } from '@phosphor-icons/react';
 import {
 	flexRender,
 	VisibilityState,
@@ -769,9 +769,9 @@ export default () => {
 	};
 
 	useShortcut('explorerEscape', () => {
+		if (!explorerView.selectable || explorer.selectedItems.size === 0) return;
 		explorer.resetSelectedItems([]);
 		setRanges([]);
-		return;
 	});
 
 	useShortcut('explorerLeft', (e) => {

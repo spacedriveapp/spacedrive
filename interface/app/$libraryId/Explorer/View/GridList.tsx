@@ -259,14 +259,12 @@ export default ({ children }: { children: RenderItem }) => {
 	}, [explorer.selectedItems]);
 
 	useShortcut('explorerEscape', () => {
-		if (!explorerView.selectable) return;
+		if (!explorerView.selectable || explorer.selectedItems.size === 0) return;
 		explorer.resetSelectedItems([]);
 		selecto.current?.setSelectedTargets([]);
 	});
 
 	const keyboardHandler = (e: KeyboardEvent, newIndex: number) => {
-		if (!explorerView.selectable) return;
-
 		if (explorer.selectedItems.size > 0) e.preventDefault();
 
 		const newSelectedItem = grid.getItem(newIndex);
@@ -274,23 +272,20 @@ export default ({ children }: { children: RenderItem }) => {
 
 		if (!explorer.allowMultiSelect) explorer.resetSelectedItems([newSelectedItem.data]);
 		else {
-			const id = uniqueId(newSelectedItem.data);
-
-			const selectedItemDom = getElementById(id);
-
-			if (!selectedItemDom) return;
+			const selectedItemElement = getElementById(uniqueId(newSelectedItem.data));
+			if (!selectedItemElement) return;
 
 			if (e.shiftKey && !getQuickPreviewStore().open) {
 				if (!explorer.selectedItems.has(newSelectedItem.data)) {
 					explorer.addSelectedItem(newSelectedItem.data);
 					selecto.current?.setSelectedTargets([
 						...(selecto.current?.getSelectedTargets() || []),
-						selectedItemDom as HTMLElement
+						selectedItemElement as HTMLElement
 					]);
 				}
 			} else {
 				explorer.resetSelectedItems([newSelectedItem.data]);
-				selecto.current?.setSelectedTargets([selectedItemDom as HTMLElement]);
+				selecto.current?.setSelectedTargets([selectedItemElement as HTMLElement]);
 				if (selectoUnSelected.current.size > 0) selectoUnSelected.current = new Set();
 			}
 		}
@@ -363,41 +358,42 @@ export default ({ children }: { children: RenderItem }) => {
 	};
 
 	useShortcut('explorerDown', (e) => {
-		if (!explorerView.selectable || layoutStore.showImageSlider) return;
+		if (!explorerView.selectable) return;
+
 		if (explorer.selectedItems.size === 0) {
 			const item = grid.getItem(0);
 			if (!item?.data) return;
 
-			const id = uniqueId(item.data);
+			const selectedItemElement = getElementById(uniqueId(item.data));
+			if (!selectedItemElement) return;
 
-			const selectedItemDom = getElementById(id);
-
-			if (selectedItemDom) {
-				explorer.resetSelectedItems([item.data]);
-				selecto.current?.setSelectedTargets([selectedItemDom as HTMLElement]);
-				activeItem.current = item.data;
-			}
-		} else {
-			const newIndex = getGridItemHandler('ArrowDown');
-			if (newIndex === undefined) return;
-			keyboardHandler(e, newIndex);
+			explorer.resetSelectedItems([item.data]);
+			selecto.current?.setSelectedTargets([selectedItemElement as HTMLElement]);
+			activeItem.current = item.data;
+			return;
 		}
+
+		const newIndex = getGridItemHandler('ArrowDown');
+		if (newIndex === undefined) return;
+		keyboardHandler(e, newIndex);
 	});
 
 	useShortcut('explorerUp', (e) => {
-		if (layoutStore.showImageSlider) return;
+		if (!explorerView.selectable) return;
 		const newIndex = getGridItemHandler('ArrowUp');
 		if (newIndex === undefined) return;
 		keyboardHandler(e, newIndex);
 	});
 
 	useShortcut('explorerLeft', (e) => {
+		if (!explorerView.selectable) return;
 		const newIndex = getGridItemHandler('ArrowLeft');
 		if (newIndex === undefined) return;
 		keyboardHandler(e, newIndex);
 	});
 
 	useShortcut('explorerRight', (e) => {
+		if (!explorerView.selectable) return;
 		const newIndex = getGridItemHandler('ArrowRight');
 		if (newIndex === undefined) return;
 		keyboardHandler(e, newIndex);

@@ -1,18 +1,21 @@
 import { Grid, useGrid } from '@virtual-grid/react';
 import clsx from 'clsx';
-import { useCallback, useEffect, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { ExplorerItem, getExplorerItemData } from '@sd/client';
+import { Tooltip } from '@sd/ui';
 
+import { QuickPreviewItem } from '.';
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
-import { uniqueId } from '../util';
 
-export const ImageSlider = () => {
+export const ImageSlider = ({ activeItem }: { activeItem: QuickPreviewItem }) => {
 	const explorer = useExplorerContext();
-	const quickPreviewImagesRef = useRef<HTMLDivElement>(null);
+
+	const ref = useRef<HTMLDivElement>(null);
 	const activeIndex = useRef<number | null>(null);
 
 	const grid = useGrid({
-		scrollRef: quickPreviewImagesRef,
+		scrollRef: ref,
 		count: explorer.items?.length ?? 0,
 		totalCount: explorer.count,
 		size: 60,
@@ -24,97 +27,82 @@ export const ImageSlider = () => {
 		overscan: explorer.overscan ?? 5
 	});
 
-	const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-		const container = quickPreviewImagesRef.current;
-		if (!container) return;
+	const handleWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+		const element = ref.current;
+		if (!element) return;
 
-		//dont scroll if at the end
-		if (
-			(e.deltaX < 0 && container.scrollLeft === 0) ||
-			(e.deltaX > 0 && container.scrollLeft === container.scrollWidth - container.clientWidth)
-		)
-			return;
+		event.preventDefault();
 
-		const delta = e.deltaY || e.deltaX;
-		container.scrollLeft += delta;
+		const { deltaX, deltaY } = event;
+		const scrollAmount = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
 
-		// Prevent the default wheel behavior to avoid unwanted scrolling
-		e.preventDefault();
+		element.scrollTo({ left: element.scrollLeft + scrollAmount });
 	};
 
 	useEffect(() => {
-		const container = quickPreviewImagesRef.current;
-		if (!container) return;
+		const element = ref.current;
+		if (!element) return;
 
-		if (explorer.selectedItems.size !== 1) return;
+		const { index } = activeItem;
+		if (index === activeIndex.current) return;
 
-		const [item] = [...explorer.selectedItems];
-		if (!item) return;
+		const { left: rectLeft, right: rectRight, width: rectWidth } = grid.getItemRect(index);
 
-		const index = explorer.items?.findIndex((_item) => uniqueId(_item) === uniqueId(item));
-		if (index === undefined || index === -1) return;
+		const { clientWidth: containerWidth, scrollLeft: containerScrollLeft } = element;
 
-		if (activeIndex.current === index) {
-			container.scrollTo({
-				left: grid.getItemRect(activeIndex.current).left - container.clientWidth / 2
-			});
-			return;
-		}
-
-		if (activeIndex.current === null) activeIndex.current = index;
-
-		const { left: rectLeft, right: rectRight } = grid.getItemRect(index);
-
-		const { clientWidth: containerWidth, scrollLeft: containerScrollLeft } = container;
-
-		if (rectLeft < containerScrollLeft) {
-			// Active item is to the left of the visible area
-			container.scrollTo({
-				left: rectLeft - 20
-			});
+		if (activeIndex.current === null) {
+			const scrollTo = rectLeft - containerWidth / 2 + rectWidth / 2;
+			// Initial scroll needs to be done in a timeout otherwise it won't scroll
+			setTimeout(() => element.scrollTo({ left: scrollTo }));
+		} else if (rectLeft < containerScrollLeft) {
+			element.scrollTo({ left: rectLeft - 20 });
 		} else if (rectRight > containerScrollLeft + containerWidth) {
-			// Active item is to the right of the visible area
-			container.scrollTo({
-				left: rectRight - containerWidth + 20
-			});
+			element.scrollTo({ left: rectRight - containerWidth + 20 });
 		}
-	}, [explorer.items, explorer.selectedItems, grid]);
+
+		activeIndex.current = index;
+	}, [activeItem, explorer.items, explorer.selectedItems, grid]);
 
 	return (
 		<div
-			className={clsx(
-				'relative mx-auto mt-5 flex w-full flex-row items-center justify-center'
-			)}
+			ref={ref}
+			onWheel={handleWheel}
+			className="quick-preview-images-scroll mt-5 overflow-x-auto overflow-y-hidden bg-app-lightBox/30 backdrop-blur-md"
 		>
-			<div
-				ref={quickPreviewImagesRef}
-				onWheel={handleWheel}
-				className="quick-preview-images-scroll w-full overflow-x-auto overflow-y-hidden bg-app-lightBox/30 backdrop-blur-md"
-			>
-				<Grid grid={grid}>
-					{(i) => {
-						const item = explorer.items?.[i];
-						if (!item) return null;
-						return (
-							<div
-								onClick={() => explorer.resetSelectedItems([item])}
-								key={i}
-								className={clsx(
-									'bg-app-lightBox/20',
-									'h-full w-full',
-									'rounded-md',
-									'border',
-									explorer.isItemSelected(item)
-										? 'border-2 border-accent'
-										: 'border-1 border-white/5'
-								)}
-							>
-								<FileThumb data={item} />
-							</div>
-						);
-					}}
-				</Grid>
-			</div>
+			<Grid grid={grid}>
+				{(i) => {
+					const item = explorer.items?.[i];
+					if (!item) return null;
+					return <Image key={i} item={item} active={activeItem.item === item} />;
+				}}
+			</Grid>
 		</div>
 	);
 };
+
+const Image = memo(({ item, active }: { item: ExplorerItem; active: boolean }) => {
+	const explorer = useExplorerContext();
+
+	const { fullName } = getExplorerItemData(item);
+
+	const selected = useMemo(
+		() => explorer.selectedItems.has(item),
+		[explorer.selectedItems, item]
+	);
+
+	return (
+		<Tooltip label={fullName} position="top">
+			<div
+				onClick={() => explorer.resetSelectedItems([item])}
+				className={clsx(
+					'relative h-full w-full rounded-md border bg-app-lightBox/20',
+					explorer.selectedItems.size > 1 && !selected && 'opacity-25',
+					selected ? 'border-2 border-accent' : 'border-1 border-white/5',
+					selected && !active && 'border-white/5'
+				)}
+			>
+				<FileThumb data={item} />
+			</div>
+		</Tooltip>
+	);
+});

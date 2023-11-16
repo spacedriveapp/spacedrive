@@ -65,9 +65,14 @@ const state = {
 			all: ['Control', 'KeyI']
 		}
 	},
-	quickPreviewMoveBetweenItems: {
+	quickPreviewMoveBack: {
 		keys: {
-			all: ['ArrowLeft', 'ArrowRight']
+			all: ['ArrowLeft']
+		}
+	},
+	quickPreviewMoveForward: {
+		keys: {
+			all: ['ArrowRight']
 		}
 	},
 	revealNative: {
