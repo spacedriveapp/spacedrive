@@ -39,8 +39,8 @@ const TopBar = (props: Props) => {
 	// resize observer doesn't run early enough to cause react to rerender before the first browser paint
 	useLayoutEffect(() => {
 		const height = ref.current!.getBoundingClientRect().height;
-		topBar.setTopBarHeight(height);
-	}, []);
+		topBar.setTopBarHeight.call(undefined, height);
+	}, [topBar.setTopBarHeight]);
 
 	const tabs = useTabsContext();
 

@@ -45,7 +45,7 @@ export const NavigationButtons = () => {
 		};
 		document.addEventListener('mousedown', onMouseDown);
 		return () => document.removeEventListener('mousedown', onMouseDown);
-	}, [navigate, isFocused, os]);
+	}, [navigate, isFocused, os, canGoBack, canGoForward]);
 
 	return (
 		<div data-tauri-drag-region={os === 'macOS'} className="flex">
