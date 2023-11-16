@@ -1,18 +1,16 @@
 import { CompositeScreenProps } from '@react-navigation/native';
 import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
-import Header from '~/components/header/Header';
 import { tw } from '~/lib/tailwind';
-import SpacedropScreen from '~/screens/Spacedrop';
 
 import { SharedScreens, SharedScreensParamList } from '../SharedScreens';
 import { TabScreenProps } from '../TabNavigator';
 
-const Stack = createStackNavigator<SpacedropStackParamList>();
+const Stack = createStackNavigator<BrowseStackParamList>();
 
-export default function SpacedropStack() {
+export default function BrowseStack() {
 	return (
 		<Stack.Navigator
-			initialRouteName="Spacedrop"
+			initialRouteName="Browse"
 			screenOptions={{
 				headerStyle: { backgroundColor: tw.color('app-box') },
 				headerTintColor: tw.color('ink'),
@@ -20,22 +18,22 @@ export default function SpacedropStack() {
 				headerBackTitleStyle: tw`text-base`
 			}}
 		>
-			<Stack.Screen
-				name="Spacedrop"
-				component={SpacedropScreen}
+			{/* <Stack.Screen
+				name="Browse"
+				component={BrowseScreen}
 				options={{ header: Header }}
-			/>
+			/> */}
 			{SharedScreens(Stack as any)}
 		</Stack.Navigator>
 	);
 }
 
-export type SpacedropStackParamList = {
-	Spacedrop: undefined;
+export type BrowseStackParamList = {
+	Browse: undefined;
 } & SharedScreensParamList;
 
-export type SpacedropStackScreenProps<Screen extends keyof SpacedropStackParamList> =
+export type BrowseStackScreenProps<Screen extends keyof BrowseStackParamList> =
 	CompositeScreenProps<
-		StackScreenProps<SpacedropStackParamList, Screen>,
-		TabScreenProps<'SpacedropStack'>
+		StackScreenProps<BrowseStackParamList, Screen>,
+		TabScreenProps<'BrowseStack'>
 	>;
