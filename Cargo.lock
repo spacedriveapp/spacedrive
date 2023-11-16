@@ -6938,6 +6938,7 @@ dependencies = [
  "sd-desktop-linux",
  "sd-desktop-macos",
  "sd-desktop-windows",
+ "sd-fda",
  "sd-prisma",
  "serde",
  "specta",
