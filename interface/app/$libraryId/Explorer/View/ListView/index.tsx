@@ -101,6 +101,7 @@ export default () => {
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
 	const settings = explorer.useSettingsSnapshot();
+	const layoutStore = useExplorerLayoutStore();
 
 	const tableRef = useRef<HTMLDivElement>(null);
 	const tableHeaderRef = useRef<HTMLDivElement>(null);
@@ -147,10 +148,10 @@ export default () => {
 
 	const virtualRows = rowVirtualizer.getVirtualItems();
 
-	function handleRowClick(
+	const handleRowClick = (
 		e: React.MouseEvent<HTMLDivElement, MouseEvent>,
 		row: Row<ExplorerItem>
-	) {
+	) => {
 		// Ensure mouse click is with left button
 		if (e.button !== 0) return;
 
@@ -421,7 +422,7 @@ export default () => {
 		} else {
 			explorer.resetSelectedItems([item]);
 		}
-	}
+	};
 
 	function handleRowContextMenu(row: Row<ExplorerItem>) {
 		if (explorerView.contextMenu === undefined) return;
@@ -481,6 +482,19 @@ export default () => {
 	);
 
 	useEffect(() => setRanges([]), [settings.order]);
+
+	//this is to handle selection for quickpreview slider
+	useEffect(() => {
+		if (!getQuickPreviewStore().open || explorer.selectedItems.size !== 1) return;
+
+		const [item] = [...explorer.selectedItems];
+		if (!item) return;
+
+		explorer.resetSelectedItems([item]);
+
+		const itemId = uniqueId(item);
+		setRanges([[itemId, itemId]]);
+	}, [explorer]);
 
 	useEffect(() => {
 		if (initialized || !sized || !explorer.count || explorer.selectedItems.size === 0) {
@@ -750,9 +764,9 @@ export default () => {
 	};
 
 	useShortcut('explorerEscape', () => {
+		if (!explorerView.selectable || explorer.selectedItems.size === 0) return;
 		explorer.resetSelectedItems([]);
 		setRanges([]);
-		return;
 	});
 
 	useShortcut('explorerUp', (e) => {
@@ -825,6 +839,8 @@ export default () => {
 		<div
 			ref={tableRef}
 			onMouseDown={(e) => {
+				if (e.button !== 0) return;
+
 				e.stopPropagation();
 				setIsLeftMouseDown(true);
 			}}
