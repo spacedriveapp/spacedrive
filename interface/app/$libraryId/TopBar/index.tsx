@@ -3,7 +3,8 @@ import clsx from 'clsx';
 import { useLayoutEffect, useRef, type Ref } from 'react';
 import { useKey } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
-import { useOperatingSystem, useShowControls } from '~/hooks';
+import { Tooltip } from '@sd/ui';
+import { useKeyMatcher, useOperatingSystem, useShowControls } from '~/hooks';
 import { useTabsContext } from '~/TabsContext';
 
 import { useExplorerStore } from '../Explorer/store';
@@ -21,7 +22,6 @@ const TopBar = (props: Props) => {
 	const transparentBg = useShowControls().transparentBg;
 	const { isDragging } = useExplorerStore();
 	const os = useOperatingSystem();
-
 	const ref = useRef<HTMLDivElement>(null);
 
 	const topBar = useTopBarContext();
@@ -81,6 +81,8 @@ export default TopBar;
 
 function Tabs() {
 	const ctx = useTabsContext()!;
+	const keybind = useKeyMatcher('Meta');
+	const os = useOperatingSystem();
 
 	function addTab() {
 		ctx.createTab();
@@ -95,7 +97,10 @@ function Tabs() {
 	useTabKeybinds({ addTab, removeTab });
 
 	return (
-		<div className="no-scrollbar flex h-9 w-full flex-row items-center divide-x divide-sidebar-divider overflow-x-auto bg-black/40 text-xs text-ink-dull">
+		<div
+			data-tauri-drag-region={os === 'macOS'}
+			className="no-scrollbar flex h-9 w-full flex-row items-center divide-x divide-sidebar-divider overflow-x-auto bg-black/40 text-xs text-ink-dull"
+		>
 			{ctx.tabs.map(({ title }, index) => (
 				<button
 					onClick={() => ctx.setTabIndex(index)}
@@ -122,12 +127,14 @@ function Tabs() {
 				</button>
 			))}
 			<div className="flex h-full items-center justify-center px-2">
-				<button
-					onClick={addTab}
-					className="duration-[50ms] flex flex-row items-center justify-center rounded p-1.5 transition-colors hover:bg-app/80"
-				>
-					<Plus weight="bold" size={14} />
-				</button>
+				<Tooltip keybinds={[keybind.icon, 'T']} label="New Tab">
+					<button
+						onClick={addTab}
+						className="duration-[50ms] flex flex-row items-center justify-center rounded p-1.5 transition-colors hover:bg-app/80"
+					>
+						<Plus weight="bold" size={14} />
+					</button>
+				</Tooltip>
 			</div>
 		</div>
 	);
