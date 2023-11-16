@@ -10,7 +10,7 @@ import {
 	type ReactNode
 } from 'react';
 import Selecto from 'react-selecto';
-import { useExplorerLayoutStore, type ExplorerItem } from '@sd/client';
+import { type ExplorerItem } from '@sd/client';
 import { useOperatingSystem, useShortcut } from '~/hooks';
 
 import { useExplorerContext } from '../Context';
@@ -113,7 +113,6 @@ export default ({ children }: { children: RenderItem }) => {
 	const settings = explorer.useSettingsSnapshot();
 	const explorerView = useExplorerViewContext();
 	const quickPreviewStore = useQuickPreviewStore();
-	const layoutStore = useExplorerLayoutStore();
 
 	const selecto = useRef<Selecto>(null);
 	const selectoUnSelected = useRef<Set<string>>(new Set());
@@ -679,7 +678,7 @@ export default ({ children }: { children: RenderItem }) => {
 							item={item}
 							getElementById={getElementById}
 							onMouseDown={(e) => {
-								if (e.button !== 0 || !explorerView.selectable) reutrn;
+								if (e.button !== 0 || !explorerView.selectable) return;
 
 								e.stopPropagation();
 
