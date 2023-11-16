@@ -28,6 +28,7 @@ sd-core = { path = "../../../core", features = [
 	"location-watcher",
 	"heif",
 ] }
+sd-fda = { path = "../../../crates/fda" }
 tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
 serde = "1.0.190"

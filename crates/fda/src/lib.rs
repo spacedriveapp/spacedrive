@@ -46,6 +46,8 @@ impl FullDiskAccess {
 		}
 	}
 
+	/// [`FullDiskAccess::has_fda`] needs to be checked each time we go to access a potentially protected directory, and we need to prompt for
+	/// FDA if we don't have it.
 	pub async fn has_fda() -> bool {
 		let dirs = Self::default();
 		for dir in dirs.0 {
