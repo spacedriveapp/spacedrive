@@ -20,6 +20,7 @@ import {
 	useOperatingSystem,
 	useZodSearchParams
 } from '~/hooks';
+import { useRouteTitle } from '~/hooks/useRouteTitle';
 
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
@@ -56,6 +57,8 @@ const NOTICE_ITEMS: { icon: keyof typeof iconNames; name: string }[] = [
 ];
 
 const EphemeralNotice = ({ path }: { path: string }) => {
+	useRouteTitle(path);
+
 	const isDark = useIsDark();
 	const { ephemeral: dismissed } = useDismissibleNoticeStore();
 

@@ -3,11 +3,11 @@ import { createContext, useContext } from 'react';
 import { Router } from './';
 
 export const TabsContext = createContext<{
-	routerIndex: number;
-	setRouterIndex: (i: number) => void;
-	routers: Router[];
-	createRouter(): void;
-	removeRouter(index: number): void;
+	tabIndex: number;
+	setTabIndex: (i: number) => void;
+	tabs: { router: Router; title: string }[];
+	createTab(): void;
+	removeTab(index: number): void;
 } | null>(null);
 
 export function useTabsContext() {

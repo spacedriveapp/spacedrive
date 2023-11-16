@@ -102,7 +102,6 @@ function App() {
 			maxIndex: 0
 		};
 	});
-	console.log(router);
 
 	const domEl = useRef<HTMLDivElement>(null);
 	const { isEnabled: showControls } = useShowControls();

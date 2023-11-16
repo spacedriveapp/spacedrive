@@ -2,7 +2,7 @@ import { createMemoryHistory } from '@remix-run/router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { listen } from '@tauri-apps/api/event';
 import { appWindow } from '@tauri-apps/api/window';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { RspcProvider } from '@sd/client';
 import {
 	ErrorPage,
@@ -12,6 +12,7 @@ import {
 	SpacedriveInterface,
 	TabsContext
 } from '@sd/interface';
+import { RouteTitleContext } from '@sd/interface/hooks/useRouteTitle';
 import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 
 import '@sd/ui/style/style.scss';
@@ -74,13 +75,16 @@ export default function App() {
 	);
 }
 
+// we have a minimum delay between creating new tabs as react router can't handle creating tabs super fast
+const TAB_CREATE_DELAY = 150;
+
 function AppInner() {
-	function createRouter() {
+	function createTab() {
 		const history = createMemoryHistory();
 		const router = createMemoryRouterWithHistory({ routes, history });
 
 		const dispose = router.subscribe((event) => {
-			setRouters((routers) => {
+			setTabs((routers) => {
 				const index = routers.findIndex((r) => r.router === router);
 				if (index === -1) return routers;
 
@@ -104,49 +108,83 @@ function AppInner() {
 			history,
 			dispose,
 			currentIndex: 0,
-			maxIndex: 0
+			maxIndex: 0,
+			title: 'New Tab'
 		};
 	}
 
-	const [routers, setRouters] = useState(() => [createRouter()]);
-	const [routerIndex, setRouterIndex] = useState(0);
+	const [tabs, setTabs] = useState(() => [createTab()]);
+	const [tabIndex, setTabIndex] = useState(0);
 
-	const router = routers[routerIndex]!;
+	const tab = tabs[tabIndex]!;
+
+	const createTabPromise = useRef(Promise.resolve());
 
 	return (
-		<TabsContext.Provider
-			value={{
-				routerIndex,
-				setRouterIndex,
-				routers: routers.map(({ router }) => router),
-				createRouter() {
-					setRouters((r) => [...r, createRouter()]);
-				},
-				removeRouter(index: number) {
-					setRouters((routers) => {
-						const router = routers[index];
+		<RouteTitleContext.Provider
+			value={useMemo(
+				() => ({
+					setTitle(title) {
+						setTabs((oldTabs) => {
+							const tabs = [...oldTabs];
+							const tab = tabs[tabIndex];
+							if (!tab) return tabs;
 
-						if (!router) return routers;
+							tabs[tabIndex] = { ...tab, title };
 
-						router.dispose();
-
-						routers.splice(index, 1);
-
-						setRouterIndex(routers.length - 1);
-
-						return [...routers];
-					});
-				}
-			}}
+							return tabs;
+						});
+					}
+				}),
+				[tabIndex]
+			)}
 		>
-			<SpacedriveInterface
-				routing={{
-					router: router.router,
-					routers: routers.map((r) => r.router),
-					currentIndex: router.currentIndex,
-					maxIndex: router.maxIndex
+			<TabsContext.Provider
+				value={{
+					tabIndex,
+					setTabIndex,
+					tabs: tabs.map(({ router, title }) => ({ router, title })),
+					createTab() {
+						createTabPromise.current = createTabPromise.current.then(
+							() =>
+								new Promise((res) => {
+									setTabs((tabs) => {
+										const newTabs = [...tabs, createTab()];
+
+										setTabIndex(newTabs.length - 1);
+
+										return newTabs;
+									});
+
+									setTimeout(res, TAB_CREATE_DELAY);
+								})
+						);
+					},
+					removeTab(index: number) {
+						setTabs((tabs) => {
+							const tab = tabs[index];
+							if (!tab) return tabs;
+
+							tab.dispose();
+
+							tabs.splice(index, 1);
+
+							setTabIndex(tabs.length - 1);
+
+							return [...tabs];
+						});
+					}
 				}}
-			/>
-		</TabsContext.Provider>
+			>
+				<SpacedriveInterface
+					routing={{
+						router: tab.router,
+						routerKey: tabIndex,
+						currentIndex: tab.currentIndex,
+						maxIndex: tab.maxIndex
+					}}
+				/>
+			</TabsContext.Provider>
+		</RouteTitleContext.Provider>
 	);
 }

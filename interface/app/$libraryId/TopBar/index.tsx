@@ -83,34 +83,33 @@ function Tabs() {
 	const ctx = useTabsContext()!;
 
 	function addTab() {
-		ctx.createRouter();
-		ctx.setRouterIndex(ctx.routers.length);
+		ctx.createTab();
 	}
 
 	function removeTab(index: number) {
-		if (ctx.routers.length === 1) return;
+		if (ctx.tabs.length === 1) return;
 
-		ctx.removeRouter(index);
+		ctx.removeTab(index);
 	}
 
 	useTabKeybinds({ addTab, removeTab });
 
-	if (ctx.routers.length < 2) return null;
+	if (ctx.tabs.length < 2) return null;
 
 	return (
 		<div className="no-scrollbar flex h-8 w-full flex-row divide-x divide-sidebar-divider overflow-x-auto bg-black/40 text-ink-dull">
-			{ctx.routers.map((_, index) => (
+			{ctx.tabs.map(({ title }, index) => (
 				<button
-					onClick={() => ctx.setRouterIndex(index)}
+					onClick={() => ctx.setTabIndex(index)}
 					className={clsx(
 						'duration-[50ms] group relative flex h-full flex-1 flex-row items-center justify-center text-center text-sm',
-						ctx.routerIndex === index
+						ctx.tabIndex === index
 							? 'bg-app text-ink'
 							: 'transition-colors hover:bg-app/50'
 					)}
 					key={index}
 				>
-					Tab {index + 1}
+					{title}
 					<div
 						onClick={(e) => {
 							e.stopPropagation();
@@ -150,7 +149,7 @@ function useTabKeybinds(props: { addTab(): void; removeTab(index: number): void 
 
 		e.stopPropagation();
 
-		props.removeTab(ctx.routerIndex);
+		props.removeTab(ctx.tabIndex);
 	});
 
 	useKey(['ArrowLeft', 'ArrowRight'], (e) => {
@@ -161,6 +160,6 @@ function useTabKeybinds(props: { addTab(): void; removeTab(index: number): void 
 
 		const delta = e.key === 'ArrowLeft' ? -1 : 1;
 
-		ctx.setRouterIndex(Math.min(Math.max(0, ctx.routerIndex + delta), ctx.routers.length - 1));
+		ctx.setTabIndex(Math.min(Math.max(0, ctx.tabIndex + delta), ctx.tabs.length - 1));
 	});
 }

@@ -26,3 +26,4 @@ export * from './useKeyCopyCutPaste';
 export * from './useRedirectToNewLocation';
 export * from './useWindowState';
 export * from './useIsLocationIndexing';
+export * from './useRouteTitle';

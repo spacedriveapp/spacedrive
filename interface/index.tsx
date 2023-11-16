@@ -13,6 +13,7 @@ import {
 	NotificationContextProvider,
 	P2PContextProvider,
 	useDebugState,
+	useInvalidateQuery,
 	useLoadBackendFeatureFlags
 } from '@sd/client';
 import { TooltipProvider } from '@sd/ui';
@@ -20,6 +21,7 @@ import { TooltipProvider } from '@sd/ui';
 import { P2P, useP2PErrorToast } from './app/p2p';
 import { WithPrismTheme } from './components/TextViewer/prism';
 import ErrorFallback, { BetterErrorBoundary } from './ErrorFallback';
+import { useTheme } from './hooks';
 import { RoutingContext } from './RoutingContext';
 
 export { ErrorPage } from './ErrorFallback';
@@ -60,14 +62,16 @@ export type Router = RouterProviderProps['router'];
 
 export const SpacedriveInterface = (props: {
 	routing: {
-		routers: Router[];
 		router: Router;
+		routerKey: number;
 		currentIndex: number;
 		maxIndex: number;
 	};
 }) => {
 	useLoadBackendFeatureFlags();
 	useP2PErrorToast();
+	useInvalidateQuery();
+	useTheme();
 
 	return (
 		<BetterErrorBoundary FallbackComponent={ErrorFallback}>
@@ -84,9 +88,7 @@ export const SpacedriveInterface = (props: {
 							<Devtools />
 							<WithPrismTheme />
 							<RouterProvider
-								key={props.routing.routers.findIndex(
-									(r) => r === props.routing.router
-								)}
+								key={props.routing.routerKey}
 								router={props.routing.router}
 							/>
 						</RoutingContext.Provider>
