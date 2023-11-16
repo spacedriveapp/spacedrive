@@ -1,9 +1,11 @@
 import { Navigate, RouteObject } from 'react-router';
 import { getOnboardingStore } from '@sd/client';
+import { OperatingSystem } from '~/util/Platform';
 
 import Alpha from './alpha';
 import { useOnboardingContext } from './context';
 import CreatingLibrary from './creating-library';
+import FullDisk from './full-disk';
 import Locations from './locations';
 import NewLibrary from './new-library';
 import Privacy from './privacy';
@@ -18,30 +20,16 @@ const Index = () => {
 	return <Navigate to="alpha" replace />;
 };
 
-export default [
-	{
-		index: true,
-		element: <Index />
-	},
-	{ path: 'alpha', element: <Alpha /> },
-	// {
-	// 	element: <Login />,
-	// 	path: 'login'
-	// },
-	{
-		element: <NewLibrary />,
-		path: 'new-library'
-	},
-	{
-		element: <Locations />,
-		path: 'locations'
-	},
-	{
-		element: <Privacy />,
-		path: 'privacy'
-	},
-	{
-		element: <CreatingLibrary />,
-		path: 'creating-library'
-	}
-] satisfies RouteObject[];
+const onboardingRoutes = (os: OperatingSystem) => {
+	return [
+		{ index: true, element: <Index /> },
+		{ path: 'alpha', element: <Alpha /> },
+		{ path: 'new-library', element: <NewLibrary /> },
+		...(os === 'macOS' ? [{ element: <FullDisk />, path: 'full-disk' }] : []),
+		{ path: 'locations', element: <Locations /> },
+		{ path: 'privacy', element: <Privacy /> },
+		{ path: 'creating-library', element: <CreatingLibrary /> }
+	] satisfies RouteObject[];
+};
+
+export default onboardingRoutes;

@@ -20,11 +20,11 @@ export default function OnboardingNewLibrary() {
 		<Form
 			form={form}
 			onSubmit={form.handleSubmit(() => {
-				navigate('../locations', { replace: true });
+				navigate('../full-disk', { replace: true });
 			})}
 		>
 			<OnboardingContainer>
-				<Icon name="Database" size={80} className="mb-2" />
+				<Icon name="Database" size={80} />
 				<OnboardingTitle>Create a Library</OnboardingTitle>
 				<OnboardingDescription>
 					Libraries are a secure, on-device database. Your files remain where they are,
