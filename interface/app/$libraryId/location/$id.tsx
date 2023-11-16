@@ -21,7 +21,6 @@ import { Folder, Icon } from '~/components';
 import {
 	useIsLocationIndexing,
 	useKeyDeleteFile,
-	useOperatingSystem,
 	useRouteTitle,
 	useShortcut,
 	useZodRouteParams
@@ -41,7 +40,6 @@ import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import LocationOptions from './LocationOptions';
 
 export const Component = () => {
-	const os = useOperatingSystem();
 	const rspc = useRspcLibraryContext();
 
 	const [{ path }] = useExplorerSearchParams();

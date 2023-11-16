@@ -108,15 +108,17 @@ function Tabs() {
 					key={index}
 				>
 					{title}
-					<div
-						onClick={(e) => {
-							e.stopPropagation();
-							removeTab(index);
-						}}
-						className="absolute right-2 rounded p-1 opacity-0 transition-opacity hover:bg-app-selected group-hover:opacity-100"
-					>
-						<X />
-					</div>
+					{ctx.tabs.length > 1 && (
+						<div
+							onClick={(e) => {
+								e.stopPropagation();
+								removeTab(index);
+							}}
+							className="absolute right-2 rounded p-1 opacity-0 transition-opacity hover:bg-app-selected group-hover:opacity-100"
+						>
+							<X />
+						</div>
+					)}
 				</button>
 			))}
 			<div className="flex h-full items-center justify-center px-2">
