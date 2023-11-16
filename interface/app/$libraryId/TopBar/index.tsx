@@ -54,7 +54,7 @@ const TopBar = (props: Props) => {
 		>
 			{tabs && <Tabs />}
 			<div
-				data-tauri-drag-region={os === 'macOS'}
+				data-tauri-drag-region
 				className={clsx(
 					'flex h-12 items-center gap-3.5 overflow-hidden px-3.5',
 					'duration-250 transition-[background-color,border-color] ease-out',
@@ -62,7 +62,7 @@ const TopBar = (props: Props) => {
 				)}
 			>
 				<div
-					data-tauri-drag-region={os === 'macOS'}
+					data-tauri-drag-region
 					className="flex flex-1 items-center gap-3.5 overflow-hidden"
 				>
 					<NavigationButtons />
@@ -82,7 +82,6 @@ export default TopBar;
 function Tabs() {
 	const ctx = useTabsContext()!;
 	const keybind = useKeyMatcher('Meta');
-	const os = useOperatingSystem();
 
 	function addTab() {
 		ctx.createTab();
@@ -98,8 +97,8 @@ function Tabs() {
 
 	return (
 		<div
-			data-tauri-drag-region={os === 'macOS'}
-			className="no-scrollbar flex h-9 w-full flex-row items-center divide-x divide-sidebar-divider overflow-x-auto bg-black/40 text-xs text-ink-dull"
+			data-tauri-drag-region
+			className="no-scrollbar flex h-9 w-full flex-row items-center divide-x divide-sidebar-divider overflow-x-auto text-xs text-ink-dull"
 		>
 			{ctx.tabs.map(({ title }, index) => (
 				<button
@@ -126,7 +125,7 @@ function Tabs() {
 					)}
 				</button>
 			))}
-			<div className="flex h-full items-center justify-center px-2">
+			<div className="flex h-full flex-1 items-center justify-start bg-sidebar px-2">
 				<Tooltip keybinds={[keybind.icon, 'T']} label="New Tab">
 					<button
 						onClick={addTab}
