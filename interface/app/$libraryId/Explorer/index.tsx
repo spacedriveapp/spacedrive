@@ -9,6 +9,7 @@ import ContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
 import { Inspector, INSPECTOR_WIDTH } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
+import { getQuickPreviewStore } from './QuickPreview/store';
 import { getExplorerStore, useExplorerStore } from './store';
 import { useKeyRevealFinder } from './useKeyRevealFinder';
 import View, { EmptyNotice, ExplorerViewProps } from './View';
@@ -50,6 +51,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 
 	useShortcut('showInspector', (e) => {
 		e.stopPropagation();
+		if (getQuickPreviewStore().open) return;
 		getExplorerStore().showInspector = !explorerStore.showInspector;
 	});
 
