@@ -95,15 +95,15 @@ function Tabs() {
 	useTabKeybinds({ addTab, removeTab });
 
 	return (
-		<div className="no-scrollbar flex h-9 w-full flex-row items-center divide-x divide-sidebar-divider overflow-x-auto bg-black/40 text-xs text-ink-dull">
+		<div className="no-scrollbar flex h-9 w-full flex-row items-center divide-x divide-sidebar-divider overflow-x-auto text-xs text-ink-dull">
 			{ctx.tabs.map(({ title }, index) => (
 				<button
 					onClick={() => ctx.setTabIndex(index)}
 					className={clsx(
 						'duration-[50ms] group relative flex h-full min-w-[9rem] flex-row items-center justify-start px-4 pr-8 text-center',
 						ctx.tabIndex === index
-							? 'bg-app text-ink'
-							: 'transition-colors hover:bg-app/50'
+							? 'text-ink'
+							: 'top-bar-blur bg-sidebar transition-colors hover:bg-app/50'
 					)}
 					key={index}
 				>
@@ -121,7 +121,7 @@ function Tabs() {
 					)}
 				</button>
 			))}
-			<div className="flex h-full items-center justify-center px-2">
+			<div className="flex h-full flex-1 items-center justify-start bg-sidebar px-2">
 				<button
 					onClick={addTab}
 					className="duration-[50ms] flex flex-row items-center justify-center rounded p-1.5 transition-colors hover:bg-app/80"
