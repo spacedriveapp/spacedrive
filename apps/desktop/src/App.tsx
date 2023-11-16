@@ -132,6 +132,8 @@ function AppInner() {
 
 						routers.splice(index, 1);
 
+						setRouterIndex(routers.length - 1);
+
 						return [...routers];
 					});
 				}
