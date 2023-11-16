@@ -11,9 +11,9 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 
 import BasicSticky from 'react-sticky-el';
 import { useMutationObserver, useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
-import { getItemFilePath, useExplorerLayoutStore, type ExplorerItem } from '@sd/client';
+import { getItemFilePath, type ExplorerItem } from '@sd/client';
 import { ContextMenu, Tooltip } from '@sd/ui';
-import { useIsTextTruncated, useMouseNavigate, useShortcut } from '~/hooks';
+import { useIsTextTruncated, useShortcut } from '~/hooks';
 import { isNonEmptyObject } from '~/util';
 
 import { useLayoutContext } from '../../../Layout/Context';
@@ -101,8 +101,6 @@ export default () => {
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
 	const settings = explorer.useSettingsSnapshot();
-	const mouseNavigate = useMouseNavigate();
-	const layoutStore = useExplorerLayoutStore();
 
 	const tableRef = useRef<HTMLDivElement>(null);
 	const tableHeaderRef = useRef<HTMLDivElement>(null);
@@ -840,8 +838,9 @@ export default () => {
 		<div
 			ref={tableRef}
 			onMouseDown={(e) => {
+				if (e.button !== 0) return;
+
 				e.stopPropagation();
-				mouseNavigate(e);
 				setIsLeftMouseDown(true);
 			}}
 			className={clsx(!initialized && 'invisible')}

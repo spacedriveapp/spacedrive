@@ -1,10 +1,11 @@
 import { getIcon } from '@sd/assets/util';
 import { useEffect, useState } from 'react';
+import { useSnapshot } from 'valtio';
+import { Category } from '@sd/client';
 
 import 'react-loading-skeleton/dist/skeleton.css';
 
-import { useSnapshot } from 'valtio';
-import { Category } from '@sd/client';
+import { useRouteTitle } from '~/hooks/useRouteTitle';
 
 import { useIsDark } from '../../../hooks';
 import { ExplorerContextProvider } from '../Explorer/Context';
@@ -20,6 +21,8 @@ import { IconForCategory, IconToDescription, useCategoryExplorer } from './data'
 import Inspector from './Inspector';
 
 export const Component = () => {
+	useRouteTitle('Overview');
+
 	const isDark = useIsDark();
 	const page = usePageLayoutContext();
 
