@@ -23,7 +23,6 @@ const TopBar = () => {
 	const tabs = useTabsContext();
 	const ctx = useTopBarContext();
 	const searchCtx = useSearchContext();
-	const searchStore = useSearchStore();
 
 	useResizeObserver({
 		ref,
@@ -33,8 +32,6 @@ const TopBar = () => {
 			ctx.setTopBarHeight(bounds.height);
 		}
 	});
-
-	const isSearching = searchCtx.searchQuery !== undefined;
 
 	// when the component mounts + crucial state changes, we need to update the height _before_ the browser paints
 	// in order to avoid jank. resize observer doesn't fire early enought to account for this.

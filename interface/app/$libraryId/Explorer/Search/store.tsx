@@ -40,7 +40,6 @@ export function useSearchFilters<T extends SearchType>(
 	fixedArgs: SearchFilterArgs[]
 ) {
 	const { setFixedArgs, allFilterArgs, searchQuery } = useSearchContext();
-	const searchState = useSearchStore();
 
 	// don't want the search bar to pop in after the top bar has loaded!
 	useLayoutEffect(() => {
