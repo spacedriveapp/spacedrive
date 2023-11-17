@@ -10,14 +10,20 @@ import DismissibleNotice from './DismissibleNotice';
 import { Inspector, INSPECTOR_WIDTH } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
 import { getQuickPreviewStore } from './QuickPreview/store';
+import SearchOptions from './Search';
 import { getExplorerStore, useExplorerStore } from './store';
 import { useKeyRevealFinder } from './useKeyRevealFinder';
 import View, { EmptyNotice, ExplorerViewProps } from './View';
 import { ExplorerPath, PATH_BAR_HEIGHT } from './View/ExplorerPath';
 
+import 'react-slidedown/lib/slidedown.css';
+
+import { useSearchStore } from './Search/store';
+
 interface Props {
 	emptyNotice?: ExplorerViewProps['emptyNotice'];
 	contextMenu?: () => ReactNode;
+	showFilterBar?: boolean;
 }
 
 /**
@@ -28,6 +34,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorerStore = useExplorerStore();
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
+	const searchStore = useSearchStore();
 
 	const showPathBar = explorer.showPathBar && layoutStore.showPathBar;
 
@@ -84,6 +91,10 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 					>
 						{explorer.items && explorer.items.length > 0 && <DismissibleNotice />}
 
+						<div className="search-options-slide sticky top-0 z-10 ">
+							{searchStore.isSearching && props.showFilterBar && <SearchOptions />}
+						</div>
+
 						<View
 							contextMenu={props.contextMenu ? props.contextMenu() : <ContextMenu />}
 							emptyNotice={
@@ -100,7 +111,6 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 					</div>
 				</div>
 			</ExplorerContextMenu>
-
 			{showPathBar && <ExplorerPath />}
 
 			{explorerStore.showInspector && (

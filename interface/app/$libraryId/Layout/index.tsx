@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { Suspense, useEffect, useMemo, useRef } from 'react';
-import { Navigate, Outlet, useNavigate } from 'react-router-dom';
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
 	ClientContextProvider,
 	initPlausible,
@@ -47,8 +47,8 @@ const Layout = () => {
 	if (library === null && libraries.data) {
 		const firstLibrary = libraries.data[0];
 
-		if (firstLibrary) return <Navigate to={`/${firstLibrary.uuid}/overview`} replace />;
-		else return <Navigate to="/" replace />;
+		if (firstLibrary) return <Navigate to={`/${firstLibrary.uuid}`} replace />;
+		else return <Navigate to="./network" replace />;
 	}
 
 	return (

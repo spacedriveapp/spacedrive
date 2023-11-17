@@ -12,16 +12,9 @@ import { useTopBarContext } from './Layout';
 import { NavigationButtons } from './NavigationButtons';
 import SearchBar from './SearchBar';
 
-interface Props {
-	leftRef?: Ref<HTMLDivElement>;
-	rightRef?: Ref<HTMLDivElement>;
-	noSearch?: boolean;
-}
-
-const TopBar = (props: Props) => {
+const TopBar = () => {
 	const transparentBg = useShowControls().transparentBg;
 	const { isDragging } = useExplorerStore();
-	const os = useOperatingSystem();
 	const ref = useRef<HTMLDivElement>(null);
 
 	const topBar = useTopBarContext();
@@ -43,6 +36,8 @@ const TopBar = (props: Props) => {
 	}, [topBar.setTopBarHeight]);
 
 	const tabs = useTabsContext();
+
+	const ctx = useTopBarContext();
 
 	return (
 		<div
@@ -67,12 +62,12 @@ const TopBar = (props: Props) => {
 					className="flex flex-1 items-center gap-3.5 overflow-hidden"
 				>
 					<NavigationButtons />
-					<div ref={props.leftRef} className="overflow-hidden" />
+					<div ref={ctx.setLeft} className="overflow-hidden" />
 				</div>
 
-				{!props.noSearch && <SearchBar />}
+				{ctx.fixedArgs && <SearchBar />}
 
-				<div ref={props.rightRef} className={clsx(!props.noSearch && 'flex-1')} />
+				<div ref={ctx.setRight} className={clsx(ctx.fixedArgs && 'flex-1')} />
 			</div>
 		</div>
 	);

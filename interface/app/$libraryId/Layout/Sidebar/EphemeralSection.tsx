@@ -95,7 +95,7 @@ export const EphemeralSection = () => {
 						return (
 							<SidebarLink
 								className="group relative w-full"
-								to={`network/34`}
+								to="./network"
 								key={index}
 							>
 								<SidebarIcon name="Globe" />

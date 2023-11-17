@@ -20,6 +20,9 @@ export type TagsSettingsParams = z.infer<typeof TagsSettingsParamsSchema>;
 export const PathParamsSchema = z.object({ path: z.string().optional() });
 export type PathParams = z.infer<typeof PathParamsSchema>;
 
+export const SearchIdParamsSchema = z.object({ id: z.coerce.number() });
+export type SearchIdParams = z.infer<typeof SearchIdParamsSchema>;
+
 export const SearchParamsSchema = PathParamsSchema.extend({
 	take: z.coerce.number().default(100),
 	order: z
