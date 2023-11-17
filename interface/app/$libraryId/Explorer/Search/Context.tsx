@@ -1,11 +1,18 @@
-import { createContext, PropsWithChildren, useContext, useEffect, useMemo } from 'react';
+import {
+	createContext,
+	PropsWithChildren,
+	useContext,
+	useEffect,
+	useLayoutEffect,
+	useMemo
+} from 'react';
 import { z } from 'zod';
 import { SearchFilterArgs } from '@sd/client';
 import { useZodSearchParams } from '~/hooks';
 
 import { useTopBarContext } from '../../TopBar/Layout';
 import { filterRegistry } from './Filters';
-import { argsToOptions, getKey, useSearchStore } from './store';
+import { argsToOptions, getKey, getSearchStore, updateFilterArgs, useSearchStore } from './store';
 
 const Context = createContext<ReturnType<typeof useContextValue> | null>(null);
 
@@ -80,6 +87,13 @@ function useContextValue() {
 
 		return value;
 	}, [fixedArgs, searchParams.filters]);
+
+	useLayoutEffect(() => {
+		const filters = searchParams.filters;
+		if (!filters) return;
+
+		updateFilterArgs(() => JSON.parse(filters));
+	}, [searchParams.filters]);
 
 	useEffect(() => {
 		if (!searchState.filterArgs) return;
