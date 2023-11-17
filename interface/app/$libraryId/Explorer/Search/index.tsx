@@ -74,6 +74,7 @@ export const Separator = () => <DropdownMenu.Separator className="!border-app-li
 
 const SearchOptions = () => {
 	const searchState = useSearchStore();
+	const searchCtx = useSearchContext();
 
 	const [newFilterName, setNewFilterName] = useState('');
 	const [_search, setSearch] = useState('');
@@ -81,7 +82,7 @@ const SearchOptions = () => {
 	const search = useDeferredValue(_search);
 
 	useKeybind(['Escape'], () => {
-		getSearchStore().isSearching = false;
+		// getSearchStore().isSearching = false;
 	});
 
 	// const savedSearches = useSavedSearches();
@@ -187,7 +188,7 @@ const SearchOptions = () => {
 			}
 
 			<kbd
-				onClick={() => (getSearchStore().isSearching = false)}
+				onClick={() => searchCtx.clearSearchQuery()}
 				className="ml-2 rounded-lg border border-app-line bg-app-box px-2 py-1 text-[10.5px] tracking-widest shadow"
 			>
 				ESC

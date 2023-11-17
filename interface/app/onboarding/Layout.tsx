@@ -17,8 +17,7 @@ export const Component = () => {
 	const ctx = useContextValue();
 
 	if (ctx.libraries.isLoading) return null;
-	if (ctx.library?.uuid !== undefined)
-		return <Navigate to={`/${ctx.library.uuid}/overview`} replace />;
+	if (ctx.library?.uuid !== undefined) return <Navigate to={`/${ctx.library.uuid}`} replace />;
 
 	return (
 		<OnboardingContext.Provider value={ctx}>

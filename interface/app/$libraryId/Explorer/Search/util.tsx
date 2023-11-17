@@ -4,49 +4,6 @@ import clsx from 'clsx';
 import { InOrNotIn, Range, TextMatch } from '@sd/client';
 import { Icon as SDIcon } from '~/components';
 
-function isIn<T>(kind: InOrNotIn<T>): kind is { in: T[] } {
-	return 'in' in kind;
-}
-
-export function inOrNotIn<T>(
-	kind: InOrNotIn<T> | null | undefined,
-	value: T,
-	condition: boolean
-): InOrNotIn<T> {
-	if (condition) {
-		if (kind && isIn(kind)) {
-			kind.in.push(value);
-			return kind;
-		} else {
-			return { in: [value] };
-		}
-	} else {
-		if (kind && !isIn(kind)) {
-			kind.notIn.push(value);
-			return kind;
-		} else {
-			return { notIn: [value] };
-		}
-	}
-}
-
-export function textMatch(type: 'contains' | 'startsWith' | 'endsWith' | 'equals') {
-	return (value: string): TextMatch => {
-		switch (type) {
-			case 'contains':
-				return { contains: value };
-			case 'startsWith':
-				return { startsWith: value };
-			case 'endsWith':
-				return { endsWith: value };
-			case 'equals':
-				return { equals: value };
-			default:
-				throw new Error('Invalid TextMatch type.');
-		}
-	};
-}
-
 export const filterTypeCondition = {
 	inOrNotIn: {
 		in: 'is',

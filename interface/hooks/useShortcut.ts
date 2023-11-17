@@ -178,12 +178,12 @@ const state = {
 			all: ['Shift', 'Control', 'KeyT']
 		}
 	},
-	navToOverview: {
-		keys: {
-			macOS: ['Shift', 'Meta', 'KeyO'],
-			all: ['Shift', 'Control', 'KeyO']
-		}
-	},
+	// navToOverview: {
+	// 	keys: {
+	// 		macOS: ['Shift', 'Meta', 'KeyO'],
+	// 		all: ['Shift', 'Control', 'KeyO']
+	// 	}
+	// },
 	navExpObjects: {
 		keys: {
 			all: ['Control', 'ArrowRight']

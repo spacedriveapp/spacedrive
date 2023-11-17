@@ -1,4 +1,5 @@
 import type { RouteObject } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 
 import settingsRoutes from './settings';
 
@@ -33,6 +34,12 @@ const topBarRoutes: RouteObject = {
 };
 
 export default [
+	{
+		index: true,
+		Component: () => {
+			return <Navigate to="network" />;
+		}
+	},
 	topBarRoutes,
 	{
 		path: 'settings',

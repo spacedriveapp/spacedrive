@@ -24,14 +24,14 @@ export const SearchIdParamsSchema = z.object({ id: z.coerce.number() });
 export type SearchIdParams = z.infer<typeof SearchIdParamsSchema>;
 
 export const SearchParamsSchema = PathParamsSchema.extend({
-	take: z.coerce.number().default(100),
-	order: z
-		.union([
-			z.object({ field: z.literal('name'), value: SortOrderSchema }),
-			z.object({ field: z.literal('dateCreated'), value: SortOrderSchema })
-			// z.object({ field: z.literal('sizeInBytes'), value: SortOrderSchema })
-		])
-		.optional(),
+	// take: z.coerce.number().default(100),
+	// order: z
+	// 	.union([
+	// 		z.object({ field: z.literal('name'), value: SortOrderSchema }),
+	// 		z.object({ field: z.literal('dateCreated'), value: SortOrderSchema })
+	// 		// z.object({ field: z.literal('sizeInBytes'), value: SortOrderSchema })
+	// 	])
+	// 	.optional(),
 	search: z.string().optional()
 });
 export type SearchParams = z.infer<typeof SearchParamsSchema>;
