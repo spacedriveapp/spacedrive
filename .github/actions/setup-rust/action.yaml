@@ -16,7 +16,7 @@ runs:
       uses: dtolnay/rust-toolchain@stable
       with:
         target: ${{ inputs.target }}
-        toolchain: stable
+        toolchain: '1.73'
         components: clippy, rustfmt
 
     - name: Cache Rust Dependencies
