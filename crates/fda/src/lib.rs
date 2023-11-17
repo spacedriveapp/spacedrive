@@ -38,11 +38,12 @@ use error::Result;
 
 pub struct FullDiskAccess(Vec<PathBuf>);
 
+// TODO(brxken128): add `ErrorKind::ReadOnlyFilesystem` once stable
 impl FullDiskAccess {
 	async fn can_access_path(path: PathBuf) -> bool {
 		match tokio::fs::read_dir(path).await {
 			Ok(_) => true,
-			Err(e) => !matches!(e.kind(), ErrorKind::PermissionDenied),
+			Err(e) => matches!(e.kind(), ErrorKind::NotFound | ErrorKind::PermissionDenied,),
 		}
 	}
 
@@ -97,6 +98,19 @@ impl Default for FullDiskAccess {
 				state_dir(),
 				template_dir(),
 				video_dir(),
+				Some(PathBuf::from(
+					"/System/Applications/Time Machine.app/Contents",
+				)),
+				Some(PathBuf::from("/System/Applications/Safari`.app/Contents")),
+				Some(PathBuf::from(
+					"/System/Applications/System Weather/Contents",
+				)),
+				Some(PathBuf::from("/System/Applications/Safari.app/Contents")),
+				Some(PathBuf::from("/System/Applications/iMofie.app/Contents")),
+				Some(PathBuf::from(
+					"/System/Applications/System Settings.app/Contents",
+				)),
+				Some(PathBuf::from("/System/Applications/Siri.app/Contents")),
 			]
 			.into_iter()
 			.flatten()
