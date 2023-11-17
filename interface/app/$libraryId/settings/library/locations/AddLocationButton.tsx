@@ -1,16 +1,13 @@
 import { FolderSimplePlus } from '@phosphor-icons/react';
-import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
-import { useLibraryContext, useRspcLibraryContext } from '@sd/client';
+import { useLibraryContext } from '@sd/client';
 import { Button, dialogManager, type ButtonProps } from '@sd/ui';
 import { getExplorerStore } from '~/app/$libraryId/Explorer/store';
-import { getDismissibleNoticeStore, useCallbackToWatchResize } from '~/hooks';
+import { useCallbackToWatchResize } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
-import FdaDialog from '../../../location/FdaDialog';
 import { AddLocationDialog } from './AddLocationDialog';
 import { openDirectoryPickerDialog } from './openDirectoryPickerDialog';
 
@@ -50,9 +47,8 @@ export const AddLocationButton = ({ path, className, onClick, ...props }: AddLoc
 				variant="dotted"
 				className={clsx('w-full', className)}
 				onClick={async () => {
-					const permissions = await fdaPermissions();
-					console.log(permissions);
-					if (!permissions) {
+					const permissions = await fdaPermissions(); //needs to be awaited to resolve the promise
+					if (permissions) {
 						if (!path) {
 							path = (await openDirectoryPickerDialog(platform)) ?? undefined;
 						}
