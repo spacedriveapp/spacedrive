@@ -43,7 +43,6 @@ export const AddLocationButton = ({ path, className, onClick, ...props }: AddLoc
 	}, [overflowRef, textRef]);
 
 	const locationDialogHandler = async () => {
-		console.log(path);
 		if (!path) {
 			path = (await openDirectoryPickerDialog(platform)) ?? undefined;
 		}

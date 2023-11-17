@@ -101,7 +101,7 @@ impl Default for FullDiskAccess {
 				Some(PathBuf::from(
 					"/System/Applications/Time Machine.app/Contents",
 				)),
-				Some(PathBuf::from("/System/Applications/Safari`.app/Contents")),
+				Some(PathBuf::from("/System/Applications/Safari.app/Contents")),
 				Some(PathBuf::from(
 					"/System/Applications/System Weather/Contents",
 				)),
