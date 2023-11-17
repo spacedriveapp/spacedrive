@@ -48,7 +48,6 @@ const TopBar = () => {
 				transparentBg ? 'bg-app/0' : 'bg-app/90'
 			)}
 		>
-			{tabs && <Tabs />}
 			<div
 				data-tauri-drag-region
 				className={clsx(
@@ -69,6 +68,8 @@ const TopBar = () => {
 
 				<div ref={ctx.setRight} className={clsx(ctx.fixedArgs && 'flex-1')} />
 			</div>
+
+			{tabs && <Tabs />}
 
 			{searchStore.isSearching && (
 				<>
@@ -109,7 +110,7 @@ function Tabs() {
 				<button
 					onClick={() => ctx.setTabIndex(index)}
 					className={clsx(
-						'duration-[50ms] group relative flex h-full min-w-[9rem] flex-row items-center justify-start px-4 pr-8 text-center',
+						'duration-[50ms] group relative flex h-full min-w-[10rem] shrink-0 flex-row items-center justify-center px-8 text-center',
 						ctx.tabIndex === index
 							? 'text-ink'
 							: 'top-bar-blur bg-sidebar transition-colors hover:bg-app/50'
