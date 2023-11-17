@@ -108,7 +108,7 @@ const SearchOptions = () => {
 				</FilterContainer>
 			</OptionContainer> */}
 
-			<OptionContainer>
+			<OptionContainer className="shrink-0">
 				<DropdownMenu.Root
 					onKeyDown={(e) => e.stopPropagation()}
 					className={MENU_STYLES}
@@ -142,15 +142,15 @@ const SearchOptions = () => {
 					)}
 				</DropdownMenu.Root>
 			</OptionContainer>
+
 			{/* We're keeping AppliedOptions to the right of the "Add Filter" button because its not worth rebuilding the dropdown with custom logic to lock the position as the trigger will move if to the right of the applied options and that is bad UX. */}
 			<AppliedOptions />
-			<div className="grow" />
 
 			{searchState.filterArgs.length > 0 && (
 				<DropdownMenu.Root
 					className={clsx(MENU_STYLES)}
 					trigger={
-						<Button className="flex flex-row" size="xs" variant="dotted">
+						<Button className="flex shrink-0 flex-row" size="xs" variant="dotted">
 							<Plus weight="bold" className="mr-1" />
 							Save Search
 						</Button>
