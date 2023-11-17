@@ -6984,8 +6984,8 @@ name = "sd-fda"
 version = "0.1.0"
 dependencies = [
  "dirs",
+ "tempfile",
  "thiserror",
- "tokio",
 ]
 
 [[package]]

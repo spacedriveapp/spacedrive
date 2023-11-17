@@ -43,7 +43,7 @@ async fn request_fda_macos() {
 #[specta::specta]
 // If this erorrs, we don't have FDA and we need to re-prompt for it otherwise we can't access personal directories.
 async fn has_fda() -> bool {
-	FullDiskAccess::has_fda().await
+	FullDiskAccess::has_fda()
 }
 
 #[tauri::command(async)]
