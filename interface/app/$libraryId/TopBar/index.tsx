@@ -8,6 +8,7 @@ import { useKeyMatcher, useOperatingSystem, useShowControls } from '~/hooks';
 import { useTabsContext } from '~/TabsContext';
 
 import SearchOptions from '../Explorer/Search';
+import { useSearchContext } from '../Explorer/Search/Context';
 import { useSearchStore } from '../Explorer/Search/store';
 import { useExplorerStore } from '../Explorer/store';
 import { useTopBarContext } from './Layout';
@@ -21,7 +22,7 @@ const TopBar = () => {
 
 	const tabs = useTabsContext();
 	const ctx = useTopBarContext();
-	const searchStore = useSearchStore();
+	const searchCtx = useSearchContext();
 
 	useResizeObserver({
 		ref,
@@ -37,7 +38,7 @@ const TopBar = () => {
 	useLayoutEffect(() => {
 		const height = ref.current!.getBoundingClientRect().height;
 		ctx.setTopBarHeight.call(undefined, height);
-	}, [ctx.setTopBarHeight, searchStore.isSearching]);
+	}, [ctx.setTopBarHeight, searchCtx.isSearching]);
 
 	return (
 		<div
@@ -71,7 +72,7 @@ const TopBar = () => {
 
 			{tabs && <Tabs />}
 
-			{searchStore.isSearching && (
+			{searchCtx.isSearching && (
 				<>
 					<hr className="w-full border-t border-sidebar-divider bg-sidebar-divider" />
 					<SearchOptions />

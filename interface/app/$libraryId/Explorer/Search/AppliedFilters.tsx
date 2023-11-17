@@ -31,7 +31,7 @@ const FiltersOverflowShade = tw.div`from-app-darkerBox/80 absolute w-10 bg-gradi
 
 export const AppliedOptions = () => {
 	const searchState = useSearchStore();
-	const { allFilterArgs } = useSearchContext();
+	const searchCtx = useSearchContext();
 
 	const [scroll, setScroll] = useState(0);
 
@@ -47,16 +47,16 @@ export const AppliedOptions = () => {
 				className="no-scrollbar flex h-full items-center gap-2 overflow-y-auto"
 				onScroll={handleScroll}
 			>
-				{searchState.searchQuery && (
+				{searchCtx.searchQuery && searchCtx.searchQuery !== '' && (
 					<FilterContainer>
 						<StaticSection>
 							<RenderIcon className="h-4 w-4" icon={MagnifyingGlass} />
-							<FilterText>{searchState.searchQuery}</FilterText>
+							<FilterText>{searchCtx.searchQuery}</FilterText>
 						</StaticSection>
-						<CloseTab onClick={() => (getSearchStore().searchQuery = null)} />
+						<CloseTab onClick={() => searchCtx.setSearchQuery('')} />
 					</FilterContainer>
 				)}
-				{allFilterArgs.map(({ arg, removalIndex }, index) => {
+				{searchCtx.allFilterArgs.map(({ arg, removalIndex }, index) => {
 					const filter = filterRegistry.find((f) => f.extract(arg));
 					if (!filter) return;
 
