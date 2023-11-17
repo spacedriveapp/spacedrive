@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Navigate, Outlet, useMatches, type RouteObject } from 'react-router-dom';
 import { currentLibraryCache, useCachedLibraries } from '@sd/client';
-import { Toaster } from '@sd/ui';
+import { Dialogs, Toaster } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
 
 import libraryRoutes from './$libraryId';
@@ -30,6 +30,7 @@ const Wrapper = () => {
 	return (
 		<RootContext.Provider value={{ rawPath }}>
 			<Outlet />
+			<Dialogs />
 			<Toaster position="bottom-right" expand={true} />
 		</RootContext.Provider>
 	);
