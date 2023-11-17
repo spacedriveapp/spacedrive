@@ -8,5 +8,7 @@ edition = { workspace = true }
 
 [dependencies]
 dirs = "5.0.1"
-tokio = { workspace = true, features = ["rt-multi-thread", "fs", "macros"] }
 thiserror = "1.0.50"
+
+[dev-dependencies]
+tempfile = '3.8.1'

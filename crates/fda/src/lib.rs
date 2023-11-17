@@ -24,13 +24,12 @@
 #![forbid(unsafe_code, deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-use std::{io::ErrorKind, path::PathBuf};
-
 use dirs::{
 	audio_dir, cache_dir, config_dir, config_local_dir, data_dir, data_local_dir, desktop_dir,
 	document_dir, download_dir, executable_dir, home_dir, picture_dir, preference_dir, public_dir,
 	runtime_dir, state_dir, template_dir, video_dir,
 };
+use std::{fs, path::PathBuf};
 
 pub mod error;
 
@@ -38,28 +37,34 @@ use error::Result;
 
 pub struct FullDiskAccess(Vec<PathBuf>);
 
-// TODO(brxken128): add `ErrorKind::ReadOnlyFilesystem` once stable
 impl FullDiskAccess {
-	async fn can_access_path(path: PathBuf) -> bool {
-		match tokio::fs::read_dir(path).await {
-			Ok(_) => true,
-			Err(e) => matches!(e.kind(), ErrorKind::NotFound | ErrorKind::PermissionDenied,),
+	#[cfg(target_family = "unix")]
+	fn is_path_rw(path: PathBuf) -> bool {
+		use std::os::unix::fs::MetadataExt;
+
+		(fs::metadata(path)).map_or(false, |md| {
+			let mode = md.mode();
+			mode & 0x180 == 0x180 // rw access
+		})
+	}
+
+	#[cfg(target_family = "windows")]
+	pub(crate) fn is_path_rw(path: PathBuf) -> bool {
+		if let Ok(md) = fs::metadata(path) {
+			!md.permissions().readonly()
+		} else {
+			false
 		}
 	}
 
 	/// [`FullDiskAccess::has_fda`] needs to be checked each time we go to access a potentially protected directory, and we need to prompt for
 	/// FDA if we don't have it.
-	pub async fn has_fda() -> bool {
+	#[must_use]
+	pub fn has_fda() -> bool {
 		let dirs = Self::default();
-		for dir in dirs.0 {
-			if !Self::can_access_path(dir).await {
-				return false;
-			}
-		}
-		true
+		dirs.0.into_iter().all(Self::is_path_rw)
 	}
 
-	#[allow(clippy::missing_const_for_fn)]
 	pub fn request_fda() -> Result<()> {
 		#[cfg(target_os = "macos")]
 		{
@@ -98,19 +103,6 @@ impl Default for FullDiskAccess {
 				state_dir(),
 				template_dir(),
 				video_dir(),
-				Some(PathBuf::from(
-					"/System/Applications/Time Machine.app/Contents",
-				)),
-				Some(PathBuf::from("/System/Applications/Safari`.app/Contents")),
-				Some(PathBuf::from(
-					"/System/Applications/System Weather/Contents",
-				)),
-				Some(PathBuf::from("/System/Applications/Safari.app/Contents")),
-				Some(PathBuf::from("/System/Applications/iMofie.app/Contents")),
-				Some(PathBuf::from(
-					"/System/Applications/System Settings.app/Contents",
-				)),
-				Some(PathBuf::from("/System/Applications/Siri.app/Contents")),
 			]
 			.into_iter()
 			.flatten()
@@ -121,6 +113,9 @@ impl Default for FullDiskAccess {
 
 #[cfg(test)]
 mod tests {
+	use std::fs;
+	use tempfile::tempdir;
+
 	use super::FullDiskAccess;
 
 	#[test]
@@ -130,8 +125,19 @@ mod tests {
 		FullDiskAccess::request_fda().unwrap();
 	}
 
-	#[tokio::test]
-	async fn has_fda() {
-		FullDiskAccess::has_fda().await;
+	#[test]
+	fn has_fda() {
+		assert!(FullDiskAccess::has_fda());
+	}
+
+	#[test]
+	#[should_panic(expected = "assertion failed")]
+	fn should_fail() {
+		let dir = tempdir().unwrap();
+		let path = dir.into_path();
+		let mut perms = fs::metadata(&path).unwrap().permissions();
+		perms.set_readonly(true);
+		fs::set_permissions(&path, perms).unwrap();
+		assert!(FullDiskAccess::is_path_rw(path));
 	}
 }
