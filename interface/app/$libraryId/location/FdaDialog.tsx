@@ -44,7 +44,7 @@ export default function FdaDialog() {
 								className="mt-3 w-full !rounded"
 								size="md"
 								onClick={() => {
-									requestFdaMacos();
+									requestFdaMacos?.();
 								}}
 							>
 								Enable access
