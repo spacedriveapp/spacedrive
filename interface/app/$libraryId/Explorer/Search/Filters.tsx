@@ -16,7 +16,7 @@ export interface SearchFilter<
 	conditions: TConditions;
 }
 
-interface SearchFilterCRUD<
+export interface SearchFilterCRUD<
 	TConditions extends FilterTypeCondition[keyof FilterTypeCondition] = any,
 	T = any
 > extends SearchFilter<TConditions> {
@@ -52,7 +52,7 @@ export function useToggleOptionSelected() {
 			option,
 			select
 		}: {
-			filter: (typeof filterRegistry)[number];
+			filter: SearchFilterCRUD;
 			option: FilterOption;
 			select: boolean;
 		}) =>
@@ -84,7 +84,13 @@ export function useToggleOptionSelected() {
 	);
 }
 
-const FilterOptionList = ({ filter, options }: { filter: FilterType; options: FilterOption[] }) => {
+const FilterOptionList = ({
+	filter,
+	options
+}: {
+	filter: SearchFilterCRUD;
+	options: FilterOption[];
+}) => {
 	const store = useSearchStore();
 	const { fixedArgsKeys } = useSearchContext();
 

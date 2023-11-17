@@ -35,8 +35,6 @@ export type Procedures = {
         { key: "search.objectsCount", input: LibraryArgs<{ filters?: SearchFilterArgs[] }>, result: number } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.pathsCount", input: LibraryArgs<{ filters?: SearchFilterArgs[] }>, result: number } | 
-        { key: "search.saved.get", input: LibraryArgs<number>, result: SavedSearch | null } | 
-        { key: "search.saved.list", input: LibraryArgs<null>, result: SavedSearchResponse[] } | 
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
         { key: "tags.getForObject", input: LibraryArgs<number>, result: Tag[] } | 
@@ -95,9 +93,6 @@ export type Procedures = {
         { key: "p2p.pairingResponse", input: [number, PairingDecision], result: null } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: string } | 
         { key: "preferences.update", input: LibraryArgs<LibraryPreferences>, result: null } | 
-        { key: "search.saved.create", input: LibraryArgs<SavedSearchCreateArgs>, result: null } | 
-        { key: "search.saved.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "search.saved.update", input: LibraryArgs<SavedSearchUpdateArgs>, result: null } | 
         { key: "tags.assign", input: LibraryArgs<{ targets: Target[]; tag_id: number; unassign: boolean }>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
@@ -212,8 +207,6 @@ export type FilePathOrder = { field: "name"; value: SortOrder } | { field: "size
 export type FilePathSearchArgs = { take?: number | null; orderAndPagination?: OrderAndPagination<number, FilePathOrder, FilePathCursor> | null; filters?: SearchFilterArgs[]; groupDirectories?: boolean }
 
 export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; object: Object | null }
-
-export type Filter = { value: string; name: string; icon: string | null; filter_type: number }
 
 export type Flash = { mode: FlashMode; fired: boolean | null; returned: boolean | null; red_eye_reduction: boolean | null }
 
@@ -410,14 +403,6 @@ export type Response = { Start: { user_code: string; verification_url: string; v
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
 export type SanitisedNodeConfig = { id: string; name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[] }
-
-export type SavedSearch = { id: number; pub_id: number[]; filters: number[] | null; name: string | null; icon: string | null; description: string | null; order: number | null; date_created: string | null; date_modified: string | null }
-
-export type SavedSearchCreateArgs = { name: string | null; filters: Filter[] | null; description: string | null; icon: string | null }
-
-export type SavedSearchResponse = { id: number; pub_id: number[]; name: string | null; icon: string | null; description: string | null; order: number | null; date_created: string | null; date_modified: string | null; filters: Filter[] | null }
-
-export type SavedSearchUpdateArgs = { id: number; name: string | null; filters: Filter[] | null; description: string | null; icon: string | null }
 
 export type SearchData<T> = { cursor: number[] | null; items: T[] }
 

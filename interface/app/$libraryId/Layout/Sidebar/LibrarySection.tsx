@@ -1,4 +1,4 @@
-import {  X } from '@phosphor-icons/react';
+import { X } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
@@ -53,7 +53,7 @@ export const LibrarySection = () => {
 		null
 	);
 
-	const savedSearches = useSavedSearches();
+	// const savedSearches = useSavedSearches();
 
 	useEffect(() => {
 		const outsideClick = () => {
@@ -69,7 +69,7 @@ export const LibrarySection = () => {
 
 	return (
 		<>
-			{savedSearches.searches.length > 0 && (
+			{/* {savedSearches.searches.length > 0 && (
 				<Section
 					name="Saved"
 					// actionArea={
@@ -103,7 +103,7 @@ export const LibrarySection = () => {
 						)}
 					/>
 				</Section>
-			)}
+			)} */}
 			<Section
 				name="Devices"
 				actionArea={

@@ -42,6 +42,7 @@ export function useSearchFilters<T extends SearchType>(
 	fixedArgs: SearchFilterArgs[]
 ) {
 	const { setFixedArgs, allFilterArgs } = useSearchContext();
+	const searchState = useSearchStore();
 
 	// don't want the search bar to pop in after the top bar has loaded!
 	useLayoutEffect(() => {
@@ -49,7 +50,21 @@ export function useSearchFilters<T extends SearchType>(
 		setFixedArgs(fixedArgs);
 	}, [fixedArgs]);
 
-	return useMemo(() => allFilterArgs.map(({ arg }) => arg), [allFilterArgs]);
+	const searchQueryFilters = useMemo(() => {
+		const [name, ext] = searchState.searchQuery?.split('.') ?? [];
+
+		const filters: SearchFilterArgs[] = [];
+
+		if (name) filters.push({ filePath: { name: { contains: name } } });
+		if (ext) filters.push({ filePath: { extension: { in: [ext] } } });
+
+		return filters;
+	}, [searchState.searchQuery]);
+
+	return useMemo(
+		() => [...searchQueryFilters, ...allFilterArgs.map(({ arg }) => arg)],
+		[searchQueryFilters, allFilterArgs]
+	);
 }
 
 // this makes the filter unique and easily searchable using .includes

@@ -7,11 +7,9 @@ import { useKeybind } from '~/hooks';
 
 import { AppliedOptions } from './AppliedFilters';
 import { useSearchContext } from './Context';
-import { filterRegistry, useToggleOptionSelected } from './Filters';
-import { useSavedSearches } from './SavedSearches';
+import { filterRegistry, SearchFilterCRUD, useToggleOptionSelected } from './Filters';
 import {
 	getSearchStore,
-	updateFilterArgs,
 	useRegisterSearchFilterOptions,
 	useSearchRegisteredFilters,
 	useSearchStore
@@ -85,7 +83,7 @@ const SearchOptions = () => {
 		getSearchStore().isSearching = false;
 	});
 
-	const savedSearches = useSavedSearches();
+	// const savedSearches = useSavedSearches();
 
 	for (const filter of filterRegistry) {
 		const options = filter.useOptions({ search }).map((o) => ({ ...o, type: filter.name }));
@@ -167,7 +165,7 @@ const SearchOptions = () => {
 							placeholder="Name"
 							className="w-[130px]"
 						/>
-						<Button
+						{/* <Button
 							onClick={() => {
 								if (!newFilterName) return;
 								savedSearches.saveSearch(newFilterName);
@@ -177,7 +175,7 @@ const SearchOptions = () => {
 							variant="accent"
 						>
 							Save
-						</Button>
+						</Button> */}
 					</div>
 				</DropdownMenu.Root>
 			)}
@@ -215,9 +213,9 @@ const SearchResults = memo(({ search }: { search: string }) => {
 						}
 						setSelected={(select) =>
 							toggleOptionSelected({
-								filter,
+								filter: filter as SearchFilterCRUD,
 								option,
-								select: value
+								select
 							})
 						}
 						key={option.key}

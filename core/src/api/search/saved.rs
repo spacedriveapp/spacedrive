@@ -72,7 +72,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.with2(library())
 				.mutation(|(_, library), args: SavedSearchCreateArgs| async move {
 					args.exec(&library).await?;
-					invalidate_query!(library, "search.saved.list");
+					// invalidate_query!(library, "search.saved.list");
 					Ok(())
 				})
 		})
@@ -165,7 +165,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?;
 
-					invalidate_query!(library, "search.saved.list");
+					// invalidate_query!(library, "search.saved.list");
 
 					Ok(())
 				})
@@ -179,7 +179,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.delete(saved_search::id::equals(search_id))
 						.exec()
 						.await?;
-					invalidate_query!(library, "search.saved.list");
+					// invalidate_query!(library, "search.saved.list");
 					Ok(())
 				})
 		})
