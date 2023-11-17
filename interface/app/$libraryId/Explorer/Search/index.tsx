@@ -1,4 +1,4 @@
-import { CaretRight, FunnelSimple, Icon, Plus } from '@phosphor-icons/react';
+import { CaretRight, FunnelSimple, Icon } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
 import { memo, PropsWithChildren, useDeferredValue, useState } from 'react';
@@ -146,39 +146,40 @@ const SearchOptions = () => {
 			{/* We're keeping AppliedOptions to the right of the "Add Filter" button because its not worth rebuilding the dropdown with custom logic to lock the position as the trigger will move if to the right of the applied options and that is bad UX. */}
 			<AppliedOptions />
 
-			{searchState.filterArgs.length > 0 && (
-				<DropdownMenu.Root
-					className={clsx(MENU_STYLES)}
-					trigger={
-						<Button className="flex shrink-0 flex-row" size="xs" variant="dotted">
-							<Plus weight="bold" className="mr-1" />
-							Save Search
-						</Button>
-					}
-				>
-					<div className="mx-1.5 my-1 flex flex-row items-center overflow-hidden">
-						<Input
-							value={newFilterName}
-							onChange={(e) => setNewFilterName(e.target.value)}
-							autoFocus
-							variant="default"
-							placeholder="Name"
-							className="w-[130px]"
-						/>
-						{/* <Button
-							onClick={() => {
-								if (!newFilterName) return;
-								savedSearches.saveSearch(newFilterName);
-								setNewFilterName('');
-							}}
-							className="ml-2"
-							variant="accent"
-						>
-							Save
-						</Button> */}
-					</div>
-				</DropdownMenu.Root>
-			)}
+			{
+				// searchState.filterArgs.length > 0 && (
+				// <DropdownMenu.Root
+				// 	className={clsx(MENU_STYLES)}
+				// 	trigger={
+				// 		<Button className="flex shrink-0 flex-row" size="xs" variant="dotted">
+				// 			<Plus weight="bold" className="mr-1" />
+				// 			Save Search
+				// 		</Button>
+				// 	}
+				// >
+				// 	<div className="mx-1.5 my-1 flex flex-row items-center overflow-hidden">
+				// 		<Input
+				// 			value={newFilterName}
+				// 			onChange={(e) => setNewFilterName(e.target.value)}
+				// 			autoFocus
+				// 			variant="default"
+				// 			placeholder="Name"
+				// 			className="w-[130px]"
+				// 		/>
+				// 		{/* <Button
+				// 			onClick={() => {
+				// 				if (!newFilterName) return;
+				// 				savedSearches.saveSearch(newFilterName);
+				// 				setNewFilterName('');
+				// 			}}
+				// 			className="ml-2"
+				// 			variant="accent"
+				// 		>
+				// 			Save
+				// 		</Button> */}
+				// 	</div>
+				// </DropdownMenu.Root>)
+			}
 
 			<kbd
 				onClick={() => (getSearchStore().isSearching = false)}
