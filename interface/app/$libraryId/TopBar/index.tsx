@@ -35,8 +35,6 @@ const TopBar = () => {
 	// when the component mounts + crucial state changes, we need to update the height _before_ the browser paints
 	// in order to avoid jank. resize observer doesn't fire early enought to account for this.
 	useLayoutEffect(() => {
-		searchStore.isSearching;
-
 		const height = ref.current!.getBoundingClientRect().height;
 		ctx.setTopBarHeight.call(undefined, height);
 	}, [ctx.setTopBarHeight, searchStore.isSearching]);
