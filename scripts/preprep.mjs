@@ -1,18 +1,17 @@
+#!/usr/bin/env node
+
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { env, exit, umask } from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+import { extractTo } from 'archive-wasm/src/fs.mjs'
 import * as _mustache from 'mustache'
 
-import { downloadFFMpeg, downloadLibHeif, downloadPDFium, downloadProtc } from './utils/deps.mjs'
-import { getGitBranches } from './utils/git.mjs'
+import { getConst, NATIVE_DEPS_URL, NATIVE_DEPS_ASSETS } from './utils/consts.mjs'
+import { get } from './utils/fetch.mjs'
 import { getMachineId } from './utils/machineId.mjs'
-import {
-	setupMacOsFramework,
-	symlinkSharedLibsMacOS,
-	symlinkSharedLibsLinux,
-} from './utils/shared.mjs'
+import { symlinkSharedLibsMacOS, symlinkSharedLibsLinux } from './utils/shared.mjs'
 import { which } from './utils/which.mjs'
 
 if (/^(msys|mingw|cygwin)$/i.test(env.OSTYPE ?? '')) {
@@ -57,43 +56,26 @@ packages/scripts/${machineId[0] === 'Windows_NT' ? 'setup.ps1' : 'setup.sh'}
 // Directory where the native deps will be downloaded
 const nativeDeps = path.join(__root, 'apps', '.deps')
 await fs.rm(nativeDeps, { force: true, recursive: true })
-await Promise.all(
-	['bin', 'lib', 'include'].map(dir =>
-		fs.mkdir(path.join(nativeDeps, dir), { mode: 0o750, recursive: true })
-	)
-)
+await fs.mkdir(nativeDeps, { mode: 0o750, recursive: true })
 
-// Accepted git branches for querying for artifacts (current, main, master)
-const branches = await getGitBranches(__root)
+try {
+	console.log('Downloading Native dependencies...')
 
-// Download all necessary external dependencies
-await Promise.all([
-	downloadProtc(machineId, nativeDeps).catch(e => {
-		console.error(
-			'Failed to download protobuf compiler, this is required to build Spacedrive. ' +
-				'Please install it with your system package manager'
-		)
-		throw e
-	}),
-	downloadPDFium(machineId, nativeDeps).catch(e => {
-		console.warn(
-			'Failed to download pdfium lib. ' +
-				"This is optional, but if one isn't present Spacedrive won't be able to generate thumbnails for PDF files"
-		)
-		if (__debug) console.error(e)
-	}),
-	downloadFFMpeg(machineId, nativeDeps, branches).catch(e => {
-		console.error(`Failed to download ffmpeg. ${bugWarn}`)
-		throw e
-	}),
-	downloadLibHeif(machineId, nativeDeps, branches).catch(e => {
-		console.error(`Failed to download libheif. ${bugWarn}`)
-		throw e
-	}),
-]).catch(e => {
+	const assetName = getConst(NATIVE_DEPS_ASSETS, machineId)
+	if (assetName == null) throw new Error('NO_ASSET')
+
+	const archiveData = await get(`${NATIVE_DEPS_URL}/${assetName}`)
+
+	await extractTo(archiveData, nativeDeps, {
+		chmod: 0o600,
+		recursive: true,
+		overwrite: true,
+	})
+} catch (e) {
+	console.error(`Failed to download native dependencies. ${bugWarn}`)
 	if (__debug) console.error(e)
 	exit(1)
-})
+}
 
 // Extra OS specific setup
 try {
@@ -104,14 +86,9 @@ try {
 			throw e
 		})
 	} else if (machineId[0] === 'Darwin') {
-		console.log(`Setup Framework...`)
-		await setupMacOsFramework(nativeDeps).catch(e => {
-			console.error(`Failed to setup Framework. ${bugWarn}`)
-			throw e
-		})
 		// This is still required due to how ffmpeg-sys-next builds script works
 		console.log(`Symlink shared libs...`)
-		await symlinkSharedLibsMacOS(nativeDeps).catch(e => {
+		await symlinkSharedLibsMacOS(__root, nativeDeps).catch(e => {
 			console.error(`Failed to symlink shared libs. ${bugWarn}`)
 			throw e
 		})
