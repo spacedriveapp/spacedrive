@@ -60,7 +60,7 @@ export const AddLocationButton = ({ path, className, onClick, ...props }: AddLoc
 				className={clsx('w-full', className)}
 				onClick={async () => {
 					if (os === 'macOS') {
-						const permissions = await fdaPermissions(); //needs to be awaited for promise to resolve
+						const permissions = await fdaPermissions?.(); //needs to be awaited for promise to resolve
 						if (!permissions) getExplorerStore().showFda = true;
 					} else {
 						await locationDialogHandler();
