@@ -1,8 +1,6 @@
-import { memo, Suspense, useDeferredValue, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useDiscoveredPeers } from '@sd/client';
-import { PathParamsSchema, type PathParams } from '~/app/route-schemas';
 import { Icon } from '~/components';
-import { useZodSearchParams } from '~/hooks';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 
 import Explorer from './Explorer';
@@ -12,7 +10,7 @@ import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { TopBarPortal } from './TopBar/Portal';
 
-const Network = memo((props: { args: PathParams }) => {
+export const Component = () => {
 	const title = useRouteTitle('Network');
 
 	const discoveredPeers = useDiscoveredPeers();
@@ -70,16 +68,5 @@ const Network = memo((props: { args: PathParams }) => {
 				}
 			/>
 		</ExplorerContextProvider>
-	);
-});
-
-export const Component = () => {
-	const [pathParams] = useZodSearchParams(PathParamsSchema);
-	const path = useDeferredValue(pathParams);
-
-	return (
-		<Suspense>
-			<Network args={path} />
-		</Suspense>
 	);
 };
