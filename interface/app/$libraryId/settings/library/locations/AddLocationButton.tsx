@@ -5,7 +5,7 @@ import { useRef, useState } from 'react';
 import { useLibraryContext } from '@sd/client';
 import { Button, dialogManager, type ButtonProps } from '@sd/ui';
 import { getExplorerStore } from '~/app/$libraryId/Explorer/store';
-import { useCallbackToWatchResize } from '~/hooks';
+import { useCallbackToWatchResize, useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { AddLocationDialog } from './AddLocationDialog';
@@ -20,6 +20,7 @@ export const AddLocationButton = ({ path, className, onClick, ...props }: AddLoc
 	const platform = usePlatform();
 	const libraryId = useLibraryContext().library.uuid;
 	const fdaPermissions = usePlatform().hasFda;
+	const os = useOperatingSystem();
 
 	const transition = {
 		type: 'keyframes',
@@ -41,30 +42,29 @@ export const AddLocationButton = ({ path, className, onClick, ...props }: AddLoc
 		setIsOverflowing(text.scrollWidth > overflow.clientWidth);
 	}, [overflowRef, textRef]);
 
+	const locationDialogHandler = async () => {
+		if (!path) {
+			path = (await openDirectoryPickerDialog(platform)) ?? undefined;
+		}
+		// Remember `path` will be `undefined` on web cause the user has to provide it in the modal
+		if (path !== '')
+			dialogManager.create((dp) => (
+				<AddLocationDialog path={path ?? ''} libraryId={libraryId} {...dp} />
+			));
+	};
+
 	return (
 		<>
 			<Button
 				variant="dotted"
 				className={clsx('w-full', className)}
 				onClick={async () => {
-					const permissions = await fdaPermissions(); //needs to be awaited to resolve the promise
-					if (permissions) {
-						if (!path) {
-							path = (await openDirectoryPickerDialog(platform)) ?? undefined;
-						}
-						// Remember `path` will be `undefined` on web cause the user has to provide it in the modal
-						if (path !== '')
-							dialogManager.create((dp) => (
-								<AddLocationDialog
-									path={path ?? ''}
-									libraryId={libraryId}
-									{...dp}
-								/>
-							));
+					if (os === 'macOS') {
+						const permissions = await fdaPermissions(); //needs to be awaited for promise to resolve
+						if (!permissions) getExplorerStore().showFda = true;
 					} else {
-						getExplorerStore().showFda = true;
+						await locationDialogHandler();
 					}
-
 					onClick?.();
 				}}
 				{...props}
