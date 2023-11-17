@@ -17,8 +17,6 @@ export const Component = () => {
 	const doRestore = useBridgeMutation('backups.restore');
 	const doDelete = useBridgeMutation('backups.delete');
 
-	console.log(doRestore.isLoading);
-
 	return (
 		<>
 			<Heading

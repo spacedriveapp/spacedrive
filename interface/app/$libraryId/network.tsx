@@ -3,6 +3,7 @@ import { useDiscoveredPeers } from '@sd/client';
 import { PathParamsSchema, type PathParams } from '~/app/route-schemas';
 import { Icon } from '~/components';
 import { useZodSearchParams } from '~/hooks';
+import { useRouteTitle } from '~/hooks/useRouteTitle';
 
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
@@ -12,6 +13,8 @@ import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { TopBarPortal } from './TopBar/Portal';
 
 const Network = memo((props: { args: PathParams }) => {
+	const title = useRouteTitle('Network');
+
 	const discoveredPeers = useDiscoveredPeers();
 	const peers = useMemo(() => Array.from(discoveredPeers.values()), [discoveredPeers]);
 
@@ -49,7 +52,7 @@ const Network = memo((props: { args: PathParams }) => {
 				left={
 					<div className="flex items-center gap-2">
 						<Icon name="Globe" size={22} />
-						<span className="truncate text-sm font-medium">Network</span>
+						<span className="truncate text-sm font-medium">{title}</span>
 					</div>
 				}
 				right={<DefaultTopBarOptions />}

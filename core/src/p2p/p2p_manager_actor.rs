@@ -71,12 +71,16 @@ impl P2PManagerActor {
 									let node = node.clone();
 
 									tokio::spawn(async move {
-										let header = Header::from_stream(&mut event.stream).await.unwrap();
+										let header = Header::from_stream(&mut event.stream)
+											.await
+											.map_err(|err| {
+												error!("Failed to read header from stream: {}", err);
+											})?;
 
 										match header {
 											Header::Ping => operations::ping::reciever(event).await,
 											Header::Spacedrop(req) => {
-												operations::spacedrop::reciever(&this, req, event).await
+												operations::spacedrop::reciever(&this, req, event).await?
 											}
 											Header::Pair => {
 												this.pairing
@@ -87,28 +91,38 @@ impl P2PManagerActor {
 														&node.libraries,
 														node.clone(),
 													)
-													.await;
+													.await?
 											}
 											Header::Sync(library_id) => {
 												let mut tunnel =
-													Tunnel::responder(event.stream).await.unwrap();
+													Tunnel::responder(event.stream).await.map_err(|err| {
+														error!("Failed `Tunnel::responder`: {}", err);
+													})?;
 
 												let msg =
-													SyncMessage::from_stream(&mut tunnel).await.unwrap();
+													SyncMessage::from_stream(&mut tunnel).await.map_err(|err| {
+														error!("Failed `SyncMessage::from_stream`: {}", err);
+													})?;
 
 												let library =
-													node.libraries.get_library(&library_id).await.unwrap();
+													node.libraries.get_library(&library_id).await.ok_or_else(|| {
+														error!("Failed to get library '{library_id}'");
+
+														// TODO: Respond to remote client with warning!
+													})?;
 
 												match msg {
 													SyncMessage::NewOperations => {
-														super::sync::responder(&mut tunnel, library).await;
+														super::sync::responder(&mut tunnel, library).await?;
 													}
 												};
 											}
 											Header::File(req) => {
-												operations::request_file::reciever(&node, req, event).await
+												operations::request_file::receiver(&node, req, event).await?;
 											}
 										}
+
+										Ok::<_, ()>(())
 									});
 								}
 								Event::Shutdown => break,

@@ -12,18 +12,22 @@ import {
 	useRef,
 	useState
 } from 'react';
+import { useKey } from 'rooks';
 import {
+	ExplorerItem,
 	getEphemeralPath,
 	getExplorerItemData,
+	getExplorerLayoutStore,
 	getIndexedItemFilePath,
 	ObjectKindKey,
+	useExplorerLayoutStore,
 	useLibraryContext,
 	useLibraryMutation,
 	useRspcLibraryContext,
 	useZodForm
 } from '@sd/client';
-import { dialogManager, DropdownMenu, Form, toast, ToastMessage, Tooltip, z } from '@sd/ui';
-import { useIsDark, useKeybind, useOperatingSystem, useShortcut } from '~/hooks';
+import { DropdownMenu, Form, toast, ToastMessage, Tooltip, z } from '@sd/ui';
+import { useIsDark, useOperatingSystem, useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
@@ -36,7 +40,10 @@ import ExplorerContextMenu, {
 import { Conditional } from '../ContextMenu/ConditionalItem';
 import { FileThumb } from '../FilePath/Thumb';
 import { SingleItemMetadata } from '../Inspector';
+import { ImageSlider } from './ImageSlider';
 import { getQuickPreviewStore, useQuickPreviewStore } from './store';
+
+export type QuickPreviewItem = { item: ExplorerItem; index: number };
 
 const iconKinds: ObjectKindKey[] = ['Audio', 'Folder', 'Executable', 'Unknown'];
 const textKinds: ObjectKindKey[] = ['Text', 'Config', 'Code'];
@@ -57,7 +64,7 @@ export const QuickPreview = () => {
 	const isDark = useIsDark();
 	const { library } = useLibraryContext();
 	const { openFilePaths, openEphemeralFiles } = usePlatform();
-
+	const explorerLayoutStore = useExplorerLayoutStore();
 	const explorer = useExplorerContext();
 	const { open, itemIndex } = useQuickPreviewStore();
 
@@ -67,14 +74,27 @@ export const QuickPreview = () => {
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
 	const [newName, setNewName] = useState<string | null>(null);
-	const os = useOperatingSystem();
 
-	const items = useMemo(
-		() => (open ? [...explorer.selectedItems] : []),
-		[explorer.selectedItems, open]
-	);
+	const items = useMemo(() => {
+		if (!open || !explorer.items || explorer.selectedItems.size === 0) return [];
 
-	const item = useMemo(() => items[itemIndex] ?? null, [items, itemIndex]);
+		const items: QuickPreviewItem[] = [];
+
+		// Sort selected items
+		for (let i = 0; i < explorer.items.length; i++) {
+			const item = explorer.items[i];
+			if (!item) continue;
+
+			if (explorer.selectedItems.has(item)) items.push({ item, index: i });
+			if (items.length === explorer.selectedItems.size) break;
+		}
+
+		return items;
+	}, [explorer.items, explorer.selectedItems, open]);
+
+	const item = useMemo(() => items[itemIndex]?.item ?? null, [items, itemIndex]);
+
+	const activeItem = items[itemIndex];
 
 	const renameFile = useLibraryMutation(['files.renameFile'], {
 		onError: () => setNewName(null),
@@ -134,10 +154,42 @@ export const QuickPreview = () => {
 		getQuickPreviewStore().open = !open;
 	});
 
-	// Move between items
-	useShortcut('quickPreviewMoveBetweenItems', (e) => {
+	const handleMoveBetweenItems = (step: number) => {
+		const nextPreviewItem = items[itemIndex + step];
+		if (nextPreviewItem) {
+			getQuickPreviewStore().itemIndex = itemIndex + step;
+			return;
+		}
+
+		if (!activeItem || !explorer.items) return;
+		if (items.length > 1 && !getExplorerLayoutStore().showImageSlider) return;
+
+		const newSelectedItem =
+			items.length > 1 &&
+			(activeItem.index === 0 || activeItem.index === explorer.items.length - 1)
+				? activeItem.item
+				: explorer.items[activeItem.index + step];
+
+		if (!newSelectedItem) return;
+
+		explorer.resetSelectedItems([newSelectedItem]);
+		getQuickPreviewStore().itemIndex = 0;
+	};
+
+	useShortcut('quickPreviewMoveBack', () => {
 		if (isContextMenuOpen || isRenaming) return;
-		changeCurrentItem(e.key === 'ArrowLeft' ? itemIndex - 1 : itemIndex + 1);
+		handleMoveBetweenItems(-1);
+	});
+
+	useShortcut('quickPreviewMoveForward', () => {
+		if (isContextMenuOpen || isRenaming) return;
+		handleMoveBetweenItems(1);
+	});
+
+	useKey('ArrowDown', () => {
+		if (items.length < 2 || !activeItem) return;
+		explorer.resetSelectedItems([activeItem.item]);
+		getQuickPreviewStore().itemIndex = 0;
 	});
 
 	// Toggle metadata
@@ -215,7 +267,7 @@ export const QuickPreview = () => {
 											cover={true}
 											childClassName="scale-125"
 										/>
-										<div className="absolute inset-0 bg-black/25 backdrop-blur-3xl" />
+										<div className="absolute inset-0 bg-black/50 backdrop-blur-3xl" />
 									</div>
 								)}
 								<div
@@ -448,6 +500,10 @@ export const QuickPreview = () => {
 										textKinds.includes(kind) && 'select-text'
 									)}
 								/>
+
+								{explorerLayoutStore.showImageSlider && activeItem && (
+									<ImageSlider activeItem={activeItem} />
+								)}
 							</div>
 
 							{showMetadata && (

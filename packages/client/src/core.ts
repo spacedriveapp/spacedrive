@@ -38,7 +38,7 @@ export type Procedures = {
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
         { key: "tags.getForObject", input: LibraryArgs<number>, result: Tag[] } | 
-        { key: "tags.getWithObjects", input: LibraryArgs<number[]>, result: { [key: number]: number[] } } | 
+        { key: "tags.getWithObjects", input: LibraryArgs<number[]>, result: { [key: number]: { date_created: string | null; object: { id: number } }[] } } | 
         { key: "tags.list", input: LibraryArgs<null>, result: Tag[] } | 
         { key: "volumes.list", input: never, result: Volume[] },
     mutations: 
@@ -272,6 +272,8 @@ export type LibraryPreferences = { location?: { [key: string]: LocationSettings 
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
+export type ListenerStatus = { status: "Disabled" } | { status: "Enabling" } | { status: "Listening"; port: number } | { status: "Error"; error: string }
+
 export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null }
 
 /**
@@ -316,7 +318,7 @@ export type MediaLocation = { latitude: number; longitude: number; pluscode: Plu
 
 export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata)
 
-export type NodeState = ({ id: string; name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[] }) & { data_path: string }
+export type NodeState = ({ id: string; name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[] }) & { data_path: string; p2p: P2PStatus }
 
 export type NonIndexedFileSystemEntries = { entries: ExplorerItem[]; errors: Error[] }
 
@@ -367,6 +369,8 @@ export type Orientation = "Normal" | "CW90" | "CW180" | "CW270" | "MirroredVerti
 export type P2PEvent = { type: "DiscoveredPeer"; identity: string; metadata: PeerMetadata } | { type: "ExpiredPeer"; identity: string } | { type: "ConnectedPeer"; identity: string } | { type: "DisconnectedPeer"; identity: string } | { type: "SpacedropRequest"; id: string; identity: string; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedout"; id: string } | { type: "SpacedropRejected"; id: string } | { type: "PairingRequest"; id: number; name: string; os: OperatingSystem } | { type: "PairingProgress"; id: number; status: PairingStatus }
 
 export type P2PState = { node: { [key: string]: PeerStatus }; libraries: ([string, { [key: string]: PeerStatus }])[]; self_peer_id: PeerId; self_identity: string; config: ManagerConfig; manager_connected: { [key: PeerId]: string }; manager_connections: PeerId[]; dicovery_services: { [key: string]: { [key: string]: string } | null }; discovery_discovered: { [key: string]: { [key: string]: [PeerId, { [key: string]: string }, string[]] } }; discovery_known: { [key: string]: string[] } }
+
+export type P2PStatus = { ipv4: ListenerStatus; ipv6: ListenerStatus }
 
 export type PairingDecision = { decision: "accept"; libraryId: string } | { decision: "reject" }
 

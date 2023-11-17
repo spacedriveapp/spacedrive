@@ -70,16 +70,18 @@ const Root = (props: PropsWithChildren<DropdownMenuProps>) => {
 				{trigger}
 			</RadixDM.Trigger>
 			<RadixDM.Portal>
-				<RadixDM.Content
-					className={clsx(contextMenuClassNames, width && '!min-w-0', className)}
-					align="start"
-					style={{ width }}
-					{...contentProps}
-				>
-					<DropdownMenuContext.Provider value={true}>
-						{children}
-					</DropdownMenuContext.Provider>
-				</RadixDM.Content>
+				<Suspense fallback={null}>
+					<RadixDM.Content
+						className={clsx(contextMenuClassNames, width && '!min-w-0', className)}
+						align="start"
+						style={{ width }}
+						{...contentProps}
+					>
+						<DropdownMenuContext.Provider value={true}>
+							{children}
+						</DropdownMenuContext.Provider>
+					</RadixDM.Content>
+				</Suspense>
 			</RadixDM.Portal>
 		</RadixDM.Root>
 	);

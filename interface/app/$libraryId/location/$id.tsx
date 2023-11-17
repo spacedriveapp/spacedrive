@@ -18,7 +18,13 @@ import {
 import { Loader, Tooltip } from '@sd/ui';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder, Icon } from '~/components';
-import { useIsLocationIndexing, useKeyDeleteFile, useShortcut, useZodRouteParams } from '~/hooks';
+import {
+	useIsLocationIndexing,
+	useKeyDeleteFile,
+	useRouteTitle,
+	useShortcut,
+	useZodRouteParams
+} from '~/hooks';
 import { useQuickRescan } from '~/hooks/useQuickRescan';
 
 import Explorer from '../Explorer';
@@ -36,6 +42,8 @@ import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import LocationOptions from './LocationOptions';
 
 export const Component = () => {
+	const rspc = useRspcLibraryContext();
+
 	const [{ path }] = useExplorerSearchParams();
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
 	const location = useLibraryQuery(['locations.get', locationId], {
@@ -149,15 +157,17 @@ const LocationExplorer = ({ location, path }: { location: Location; path?: strin
 
 	useShortcut('rescan', () => rescan(location.id));
 
+	const title = useRouteTitle(
+		(path && path?.length > 1 ? getLastSectionOfPath(path) : location.data?.name) ?? ''
+	);
+
 	return (
 		<ExplorerContextProvider explorer={explorer}>
 			<TopBarPortal
 				left={
 					<div className="flex items-center gap-2">
 						<Folder size={22} className="mt-[-1px]" />
-						<span className="truncate text-sm font-medium">
-							{path && path?.length > 1 ? getLastSectionOfPath(path) : location.name}
-						</span>
+						<span className="truncate text-sm font-medium">{title}</span>
 						{!locationOnline && (
 							<Tooltip label="Location is offline, you can still browse and organize.">
 								<Info className="text-ink-faint" />

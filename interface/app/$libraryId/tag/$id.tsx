@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { ObjectKindEnum, ObjectOrder, Tag, useLibraryContext, useLibraryQuery } from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
-import { useZodRouteParams } from '~/hooks';
+import { useRouteTitle, useZodRouteParams } from '~/hooks';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
@@ -26,6 +26,8 @@ export const Component = () => {
 function Inner() {
 	const { id: tagId } = useZodRouteParams(LocationIdParamsSchema);
 	const tag = useLibraryQuery(['tags.get', tagId], { suspense: true });
+
+	useRouteTitle(tag.data?.name ?? 'Tag');
 
 	const explorerSettings = useExplorerSettings({
 		settings: useMemo(

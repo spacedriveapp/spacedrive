@@ -1,0 +1,12 @@
+[package]
+name = "sd-fda"
+version = "0.1.0"
+authors = ["Jake Robinson <jake@spacedrive.com>"]
+license = { workspace = true }
+repository = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+dirs = "5.0.1"
+tokio = { workspace = true, features = ["rt-multi-thread", "fs", "macros"] }
+thiserror = "1.0.50"

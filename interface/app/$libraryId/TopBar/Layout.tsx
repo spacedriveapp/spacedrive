@@ -6,19 +6,30 @@ import TopBar from '.';
 
 const TopBarContext = createContext<ReturnType<typeof useContextValue> | null>(null);
 
-function useContextValue(props: { left: HTMLDivElement | null; right: HTMLDivElement | null }) {
+function useContextValue() {
+	const [left, setLeft] = useState<HTMLDivElement | null>(null);
+	const [right, setRight] = useState<HTMLDivElement | null>(null);
 	const [fixedArgs, setFixedArgs] = useState<SearchFilterArgs[] | null>(null);
+	const [topBarHeight, setTopBarHeight] = useState(0);
 
-	return { ...props, fixedArgs, setFixedArgs };
+	return {
+		left,
+		setLeft,
+		right,
+		setRight,
+		fixedArgs,
+		setFixedArgs,
+		topBarHeight,
+		setTopBarHeight
+	};
 }
 
 export const Component = () => {
-	const [left, setLeft] = useState<HTMLDivElement | null>(null);
-	const [right, setRight] = useState<HTMLDivElement | null>(null);
+	const value = useContextValue();
 
 	return (
-		<TopBarContext.Provider value={useContextValue({ left, right })}>
-			<TopBar leftRef={setLeft} rightRef={setRight} />
+		<TopBarContext.Provider value={value}>
+			<TopBar />
 			<Outlet />
 		</TopBarContext.Provider>
 	);
