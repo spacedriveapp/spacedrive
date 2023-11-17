@@ -1,6 +1,5 @@
 import { MagnifyingGlass, X } from '@phosphor-icons/react';
-import { forwardRef, useMemo } from 'react';
-import { SearchFilterArgs } from '@sd/client';
+import { forwardRef, useState } from 'react';
 import { tw } from '@sd/ui';
 
 import { useSearchContext } from './Context';
@@ -8,7 +7,7 @@ import { filterRegistry } from './Filters';
 import { getSearchStore, updateFilterArgs, useSearchStore } from './store';
 import { RenderIcon } from './util';
 
-export const FilterContainer = tw.div`flex flex-row items-center rounded bg-app-box overflow-hidden`;
+export const FilterContainer = tw.div`flex flex-row items-center rounded bg-app-box overflow-hidden shrink-0 h-6`;
 
 export const InteractiveSection = tw.div`flex group flex-row items-center border-app-darkerBox/70 px-2 py-0.5 text-sm text-ink-dull hover:bg-app-lightBox/20`;
 
@@ -28,99 +27,116 @@ export const CloseTab = forwardRef<HTMLDivElement, { onClick: () => void }>(({ o
 	);
 });
 
+const FiltersOverflowShade = tw.div`from-app-darkerBox/80 absolute w-10 bg-gradient-to-l to-transparent h-6`;
+
 export const AppliedOptions = () => {
 	const searchState = useSearchStore();
-
 	const { allFilterArgs } = useSearchContext();
 
+	const [scroll, setScroll] = useState(0);
+
+	const handleScroll = (e: React.UIEvent<HTMLDivElement, UIEvent>) => {
+		const element = e.currentTarget;
+		const scroll = element.scrollLeft / (element.scrollWidth - element.clientWidth);
+		setScroll(Math.round(scroll * 100) / 100);
+	};
+
 	return (
-		<div className="flex flex-row gap-2">
-			{searchState.searchQuery && (
-				<FilterContainer>
-					<StaticSection>
-						<RenderIcon className="h-4 w-4" icon={MagnifyingGlass} />
-						<FilterText>{searchState.searchQuery}</FilterText>
-					</StaticSection>
-					<CloseTab onClick={() => (getSearchStore().searchQuery = null)} />
-				</FilterContainer>
-			)}
-			{allFilterArgs.map(({ arg, removalIndex }, index) => {
-				const filter = filterRegistry.find((f) => f.extract(arg));
-				if (!filter) return;
-
-				const activeOptions = filter.argsToOptions(
-					filter.extract(arg)! as any,
-					searchState.filterOptions
-				);
-
-				return (
-					<FilterContainer key={`${filter.name}-${index}`}>
+		<div className="relative flex h-full flex-1 items-center overflow-hidden">
+			<div
+				className="no-scrollbar flex h-full items-center gap-2 overflow-y-auto"
+				onScroll={handleScroll}
+			>
+				{searchState.searchQuery && (
+					<FilterContainer>
 						<StaticSection>
-							<RenderIcon className="h-4 w-4" icon={filter.icon} />
-							<FilterText>{filter.name}</FilterText>
+							<RenderIcon className="h-4 w-4" icon={MagnifyingGlass} />
+							<FilterText>{searchState.searchQuery}</FilterText>
 						</StaticSection>
-						<InteractiveSection className="border-l">
-							{/* {Object.entries(filter.conditions).map(([value, displayName]) => (
+						<CloseTab onClick={() => (getSearchStore().searchQuery = null)} />
+					</FilterContainer>
+				)}
+				{allFilterArgs.map(({ arg, removalIndex }, index) => {
+					const filter = filterRegistry.find((f) => f.extract(arg));
+					if (!filter) return;
+
+					const activeOptions = filter.argsToOptions(
+						filter.extract(arg)! as any,
+						searchState.filterOptions
+					);
+
+					return (
+						<FilterContainer key={`${filter.name}-${index}`}>
+							<StaticSection>
+								<RenderIcon className="h-4 w-4" icon={filter.icon} />
+								<FilterText>{filter.name}</FilterText>
+							</StaticSection>
+							<InteractiveSection className="border-l">
+								{/* {Object.entries(filter.conditions).map(([value, displayName]) => (
                             <div key={value}>{displayName}</div>
                         ))} */}
-							{
-								(filter.conditions as any)[
-									filter.getCondition(filter.extract(arg) as any) as any
-								]
-							}
-						</InteractiveSection>
+								{
+									(filter.conditions as any)[
+										filter.getCondition(filter.extract(arg) as any) as any
+									]
+								}
+							</InteractiveSection>
 
-						<InteractiveSection className="gap-1 border-l border-app-darkerBox/70 py-0.5 pl-1.5 pr-2 text-sm">
-							{activeOptions && (
-								<>
-									{activeOptions.length === 1 ? (
-										<RenderIcon
-											className="h-4 w-4"
-											icon={activeOptions[0]!.icon}
-										/>
-									) : (
-										<div
-											className="relative"
-											style={{ width: `${activeOptions.length * 12}px` }}
-										>
-											{activeOptions.map((option, index) => (
-												<div
-													key={index}
-													className="absolute -top-2 left-0"
-													style={{
-														zIndex: activeOptions.length - index,
-														left: `${index * 10}px`
-													}}
-												>
-													<RenderIcon
-														className="h-4 w-4"
-														icon={option.icon}
-													/>
-												</div>
-											))}
-										</div>
-									)}
-									{activeOptions.length > 1
-										? `${activeOptions.length} ${pluralize(filter.name)}`
-										: activeOptions[0]?.name}
-								</>
+							<InteractiveSection className="gap-1 border-l border-app-darkerBox/70 py-0.5 pl-1.5 pr-2 text-sm">
+								{activeOptions && (
+									<>
+										{activeOptions.length === 1 ? (
+											<RenderIcon
+												className="h-4 w-4"
+												icon={activeOptions[0]!.icon}
+											/>
+										) : (
+											<div
+												className="relative"
+												style={{ width: `${activeOptions.length * 12}px` }}
+											>
+												{activeOptions.map((option, index) => (
+													<div
+														key={index}
+														className="absolute -top-2 left-0"
+														style={{
+															zIndex: activeOptions.length - index,
+															left: `${index * 10}px`
+														}}
+													>
+														<RenderIcon
+															className="h-4 w-4"
+															icon={option.icon}
+														/>
+													</div>
+												))}
+											</div>
+										)}
+										{activeOptions.length > 1
+											? `${activeOptions.length} ${pluralize(filter.name)}`
+											: activeOptions[0]?.name}
+									</>
+								)}
+							</InteractiveSection>
+
+							{removalIndex !== null && (
+								<CloseTab
+									onClick={() => {
+										updateFilterArgs((args) => {
+											args.splice(removalIndex, 1);
+
+											return args;
+										});
+									}}
+								/>
 							)}
-						</InteractiveSection>
+						</FilterContainer>
+					);
+				})}
+			</div>
 
-						{removalIndex !== null && (
-							<CloseTab
-								onClick={() => {
-									updateFilterArgs((args) => {
-										args.splice(removalIndex, 1);
-
-										return args;
-									});
-								}}
-							/>
-						)}
-					</FilterContainer>
-				);
-			})}
+			{scroll > 0.1 && <FiltersOverflowShade className="left-0 rotate-180" />}
+			{scroll < 0.9 && <FiltersOverflowShade className="right-0" />}
 		</div>
 	);
 };
