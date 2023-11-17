@@ -3,6 +3,7 @@ import { Outlet } from 'react-router';
 import { SearchFilterArgs } from '@sd/client';
 
 import TopBar from '.';
+import { SearchContextProvider } from '../Explorer/Search/Context';
 
 const TopBarContext = createContext<ReturnType<typeof useContextValue> | null>(null);
 
@@ -29,8 +30,10 @@ export const Component = () => {
 
 	return (
 		<TopBarContext.Provider value={value}>
-			<TopBar />
-			<Outlet />
+			<SearchContextProvider>
+				<TopBar />
+				<Outlet />
+			</SearchContextProvider>
 		</TopBarContext.Provider>
 	);
 };
