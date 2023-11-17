@@ -39,6 +39,7 @@ import { useExplorerSearchParams } from '../Explorer/util';
 import { EmptyNotice } from '../Explorer/View';
 import { TopBarPortal } from '../TopBar/Portal';
 import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
+import FdaDialog from './FdaDialog';
 import LocationOptions from './LocationOptions';
 
 export const Component = () => {

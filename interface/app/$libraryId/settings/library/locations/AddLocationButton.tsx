@@ -1,13 +1,15 @@
 import { FolderSimplePlus } from '@phosphor-icons/react';
+import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useLibraryContext } from '@sd/client';
+import { useLibraryContext, useRspcLibraryContext } from '@sd/client';
 import { Button, dialogManager, type ButtonProps } from '@sd/ui';
-import { useCallbackToWatchResize } from '~/hooks';
+import { getDismissibleNoticeStore, useCallbackToWatchResize } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
+import FdaDialog from '../../../location/FdaDialog';
 import { AddLocationDialog } from './AddLocationDialog';
 import { openDirectoryPickerDialog } from './openDirectoryPickerDialog';
 
@@ -19,7 +21,7 @@ interface AddLocationButton extends ButtonProps {
 export const AddLocationButton = ({ path, className, onClick, ...props }: AddLocationButton) => {
 	const platform = usePlatform();
 	const libraryId = useLibraryContext().library.uuid;
-	const navigate = useNavigate();
+	const fdaPermissions = usePlatform().hasFda;
 
 	const transition = {
 		type: 'keyframes',
@@ -47,15 +49,24 @@ export const AddLocationButton = ({ path, className, onClick, ...props }: AddLoc
 				variant="dotted"
 				className={clsx('w-full', className)}
 				onClick={async () => {
-					if (!path) {
-						path = (await openDirectoryPickerDialog(platform)) ?? undefined;
+					const permissions = await fdaPermissions();
+					console.log(permissions);
+					if (!permissions) {
+						if (!path) {
+							path = (await openDirectoryPickerDialog(platform)) ?? undefined;
+						}
+						// Remember `path` will be `undefined` on web cause the user has to provide it in the modal
+						if (path !== '')
+							dialogManager.create((dp) => (
+								<AddLocationDialog
+									path={path ?? ''}
+									libraryId={libraryId}
+									{...dp}
+								/>
+							));
+					} else {
+						getDismissibleNoticeStore().permissions = true;
 					}
-
-					// Remember `path` will be `undefined` on web cause the user has to provide it in the modal
-					if (path !== '')
-						dialogManager.create((dp) => (
-							<AddLocationDialog path={path ?? ''} libraryId={libraryId} {...dp} />
-						));
 
 					onClick?.();
 				}}
