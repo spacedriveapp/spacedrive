@@ -1,7 +1,7 @@
 import { CaretRight, FunnelSimple, Icon } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
-import { memo, PropsWithChildren, useDeferredValue, useState } from 'react';
+import { memo, PropsWithChildren, useDeferredValue, useEffect, useState } from 'react';
 import { Button, ContextMenuDivItem, DropdownMenu, Input, RadixCheckbox, tw } from '@sd/ui';
 import { useKeybind } from '~/hooks';
 
@@ -10,6 +10,7 @@ import { useSearchContext } from './Context';
 import { filterRegistry, SearchFilterCRUD, useToggleOptionSelected } from './Filters';
 import {
 	getSearchStore,
+	resetSearchStore,
 	useRegisterSearchFilterOptions,
 	useSearchRegisteredFilters,
 	useSearchStore
@@ -91,6 +92,10 @@ const SearchOptions = () => {
 		// eslint-disable-next-line react-hooks/rules-of-hooks
 		useRegisterSearchFilterOptions(filter, options);
 	}
+
+	useEffect(() => {
+		return () => resetSearchStore();
+	}, []);
 
 	return (
 		<div

@@ -148,6 +148,7 @@ export const useSearchRegisteredFilters = (query: string) => {
 export const resetSearchStore = () => {
 	searchStore.searchQuery = null;
 	searchStore.filterArgs = ref([]);
+	searchStore.filterArgsKeys = ref(new Set());
 };
 
 export const useSearchStore = () => useSnapshot(searchStore);
