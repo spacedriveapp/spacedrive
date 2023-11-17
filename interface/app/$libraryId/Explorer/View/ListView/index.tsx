@@ -7,9 +7,9 @@ import {
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import BasicSticky from 'react-sticky-el';
-import { useMutationObserver, useWindowEventListener } from 'rooks';
+import { useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import { getItemFilePath, type ExplorerItem } from '@sd/client';
 import { ContextMenu, Tooltip } from '@sd/ui';
@@ -820,16 +820,26 @@ export default () => {
 	});
 
 	// Set header position and list offset
-	useMutationObserver(explorer.scrollRef, () => {
-		const view = explorerView.ref.current;
-		const scroll = explorer.scrollRef.current;
-		if (!view || !scroll) return;
-		setTop(
-			explorerView.top ??
-				parseInt(getComputedStyle(scroll).paddingTop) + scroll.getBoundingClientRect().top
-		);
-		setListOffset(tableRef.current?.offsetTop ?? 0);
-	});
+	useEffect(() => {
+		const element = explorer.scrollRef.current;
+		if (!element) return;
+
+		const observer = new MutationObserver(() => {
+			setTop(
+				explorerView.top ??
+					parseInt(getComputedStyle(element).paddingTop) +
+						element.getBoundingClientRect().top
+			);
+			setListOffset(tableRef.current?.offsetTop ?? 0);
+		});
+
+		observer.observe(element, {
+			attributes: true,
+			subtree: true
+		});
+
+		return () => observer.disconnect();
+	}, [explorer.scrollRef, explorerView.top]);
 
 	// Set list offset
 	useLayoutEffect(() => setListOffset(tableRef.current?.offsetTop ?? 0), []);
