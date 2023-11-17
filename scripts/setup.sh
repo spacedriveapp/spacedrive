@@ -234,7 +234,9 @@ case "$(uname)" in
     ;;
 esac
 
-echo "Installing Rust tools..."
-cargo install cargo-watch
+if [ "${CI:-}" != "true" ]; then
+  echo "Installing Rust tools..."
+  cargo install cargo-watch
+fi
 
 echo 'Your machine has been setup for Spacedrive development!'
