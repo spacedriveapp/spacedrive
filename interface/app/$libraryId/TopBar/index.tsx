@@ -1,12 +1,14 @@
 import { Plus, X } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { useLayoutEffect, useRef, type Ref } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { useKey } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import { Tooltip } from '@sd/ui';
 import { useKeyMatcher, useOperatingSystem, useShowControls } from '~/hooks';
 import { useTabsContext } from '~/TabsContext';
 
+import SearchOptions from '../Explorer/Search';
+import { useSearchStore } from '../Explorer/Search/store';
 import { useExplorerStore } from '../Explorer/store';
 import { useTopBarContext } from './Layout';
 import { NavigationButtons } from './NavigationButtons';
@@ -17,27 +19,25 @@ const TopBar = () => {
 	const { isDragging } = useExplorerStore();
 	const ref = useRef<HTMLDivElement>(null);
 
-	const topBar = useTopBarContext();
+	const tabs = useTabsContext();
+	const ctx = useTopBarContext();
+	const searchStore = useSearchStore();
 
 	useResizeObserver({
 		ref,
 		box: 'border-box',
 		onResize(bounds) {
 			if (bounds.height === undefined) return;
-			topBar.setTopBarHeight(bounds.height);
+			ctx.setTopBarHeight(bounds.height);
 		}
 	});
 
-	// this is crucial to make sure that the first browser paint takes into account the proper top bar height.
-	// resize observer doesn't run early enough to cause react to rerender before the first browser paint
+	// when the component mounts + crucial state changes, we need to update the height _before_ the browser paints
+	// in order to avoid jank. resize observer doesn't fire early enought to account for this.
 	useLayoutEffect(() => {
 		const height = ref.current!.getBoundingClientRect().height;
-		topBar.setTopBarHeight.call(undefined, height);
-	}, [topBar.setTopBarHeight]);
-
-	const tabs = useTabsContext();
-
-	const ctx = useTopBarContext();
+		ctx.setTopBarHeight.call(undefined, height);
+	}, [ctx.setTopBarHeight, searchStore.isSearching]);
 
 	return (
 		<div
@@ -69,6 +69,13 @@ const TopBar = () => {
 
 				<div ref={ctx.setRight} className={clsx(ctx.fixedArgs && 'flex-1')} />
 			</div>
+
+			{searchStore.isSearching && (
+				<>
+					<hr className="w-full border-t border-sidebar-divider bg-sidebar-divider" />
+					<SearchOptions />
+				</>
+			)}
 		</div>
 	);
 };

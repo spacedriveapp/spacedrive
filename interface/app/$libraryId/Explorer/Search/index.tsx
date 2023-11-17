@@ -100,7 +100,7 @@ const SearchOptions = () => {
 			onMouseLeave={() => {
 				getSearchStore().interactingWithSearchOptions = false;
 			}}
-			className="flex h-[45px] w-full flex-row items-center gap-4 border-b border-app-line/50 bg-app-darkerBox/90 px-4 backdrop-blur"
+			className="flex h-[45px] w-full flex-row items-center gap-4 bg-black/10 px-4"
 		>
 			{/* <OptionContainer className="flex flex-row items-center">
 				<FilterContainer>

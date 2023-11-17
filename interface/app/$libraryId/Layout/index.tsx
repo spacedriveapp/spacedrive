@@ -67,7 +67,6 @@ const Layout = () => {
 				onContextMenu={(e) => {
 					// TODO: allow this on some UI text at least / disable default browser context menu
 					e.preventDefault();
-					return false;
 				}}
 			>
 				<Sidebar />
