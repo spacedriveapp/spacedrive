@@ -43,6 +43,7 @@ export const AddLocationButton = ({ path, className, onClick, ...props }: AddLoc
 	}, [overflowRef, textRef]);
 
 	const locationDialogHandler = async () => {
+		console.log(path);
 		if (!path) {
 			path = (await openDirectoryPickerDialog(platform)) ?? undefined;
 		}
@@ -61,7 +62,11 @@ export const AddLocationButton = ({ path, className, onClick, ...props }: AddLoc
 				onClick={async () => {
 					if (os === 'macOS') {
 						const permissions = await fdaPermissions?.(); //needs to be awaited for promise to resolve
-						if (!permissions) getExplorerStore().showFda = true;
+						if (permissions) {
+							await locationDialogHandler();
+						} else if (!permissions) {
+							getExplorerStore().showFda = true;
+						}
 					} else {
 						await locationDialogHandler();
 					}
