@@ -136,8 +136,8 @@ impl ObjectFilterArgs {
 				vec![
 					not![date_accessed::equals(None)],
 					match v {
-						Range::From(v) => date_accessed::gte(v.into()),
-						Range::To(v) => date_accessed::lte(v.into()),
+						Range::From(v) => date_accessed::gte(v),
+						Range::To(v) => date_accessed::lte(v),
 					},
 				]
 			}
