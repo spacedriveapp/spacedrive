@@ -98,6 +98,8 @@ function Tabs() {
 
 	useTabKeybinds({ addTab, removeTab });
 
+	if (ctx.tabs.length < 2) return null;
+
 	return (
 		<div
 			data-tauri-drag-region
