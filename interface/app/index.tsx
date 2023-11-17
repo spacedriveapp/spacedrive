@@ -13,6 +13,7 @@ import './style.scss';
 import { useOperatingSystem } from '~/hooks';
 
 import { OperatingSystem } from '..';
+import FdaDialog from './$libraryId/location/FdaDialog';
 
 const Index = () => {
 	const libraries = useCachedLibraries();
@@ -35,6 +36,7 @@ const Wrapper = () => {
 		<RootContext.Provider value={{ rawPath }}>
 			<Outlet />
 			<Dialogs />
+			<FdaDialog />
 			<Toaster position="bottom-right" expand={true} />
 		</RootContext.Provider>
 	);

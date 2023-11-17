@@ -15,7 +15,7 @@ export default function OnboardingFullDisk() {
 	return (
 		<OnboardingContainer>
 			<Icon name="HDD" size={80} />
-			<OnboardingTitle>Allow full disk access</OnboardingTitle>
+			<OnboardingTitle>Full disk access</OnboardingTitle>
 			<OnboardingDescription>
 				To provide the best experience, we need access to your disk in order to index your
 				files. Your files are only available to you.
@@ -33,15 +33,15 @@ export default function OnboardingFullDisk() {
 				</>
 			) : (
 				<motion.div
-					initial={{ opacity: 0, y: -10 }}
-					animate={{ opacity: 1, y: 0 }}
+					initial={{ opacity: 0 }}
+					animate={{ opacity: 1 }}
 					transition={{ duration: 0.5, ease: 'easeInOut' }}
 					className="mt-5 w-full max-w-[450px]"
 				>
 					<video className="rounded-md" autoPlay loop muted controls={false} src={Fda} />
 				</motion.div>
 			)}
-			<div className="flex gap-5">
+			<div className="flex gap-3">
 				<Button
 					onClick={() => {
 						navigate('../locations', { replace: true });

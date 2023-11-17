@@ -6,6 +6,7 @@ import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useLibraryContext, useRspcLibraryContext } from '@sd/client';
 import { Button, dialogManager, type ButtonProps } from '@sd/ui';
+import { getExplorerStore } from '~/app/$libraryId/Explorer/store';
 import { getDismissibleNoticeStore, useCallbackToWatchResize } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
@@ -65,7 +66,7 @@ export const AddLocationButton = ({ path, className, onClick, ...props }: AddLoc
 								/>
 							));
 					} else {
-						getDismissibleNoticeStore().permissions = true;
+						getExplorerStore().showFda = true;
 					}
 
 					onClick?.();

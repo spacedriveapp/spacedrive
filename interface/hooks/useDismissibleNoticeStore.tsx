@@ -5,8 +5,7 @@ export const dismissibleNoticeStore = valtioPersist('dismissible-notice', {
 	mediaView: false,
 	gridView: false,
 	listView: false,
-	ephemeral: false,
-	permissions: false
+	ephemeral: false
 });
 
 export function useDismissibleNoticeStore() {

@@ -127,6 +127,7 @@ const state = {
 	tagAssignMode: false,
 	showInspector: false,
 	showMoreInfo: false,
+	showFda: false,
 	newLocationToRedirect: null as null | number,
 	mediaPlayerVolume: 0.7,
 	newThumbnails: proxySet() as Set<string>,
