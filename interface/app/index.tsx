@@ -21,7 +21,7 @@ const Index = () => {
 
 	const libraryId = currentLibrary ? currentLibrary.uuid : libraries.data[0]?.uuid;
 
-	return <Navigate to={`${libraryId}/overview`} replace state={{ first: true }} />;
+	return <Navigate to={`${libraryId}/network`} replace />;
 };
 
 const Wrapper = () => {

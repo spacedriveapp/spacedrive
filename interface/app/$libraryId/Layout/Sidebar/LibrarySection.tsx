@@ -1,3 +1,4 @@
+import { X } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
@@ -10,8 +11,9 @@ import {
 } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
-import { Icon, SubtleButton } from '~/components';
+import { Folder, Icon, SubtleButton } from '~/components';
 
+import { useSavedSearches } from '../../Explorer/Search/SavedSearches';
 import SidebarLink from './Link';
 import LocationsContextMenu from './LocationsContextMenu';
 import Section from './Section';
@@ -51,6 +53,8 @@ export const LibrarySection = () => {
 		null
 	);
 
+	// const savedSearches = useSavedSearches();
+
 	useEffect(() => {
 		const outsideClick = () => {
 			document.addEventListener('click', () => {
@@ -65,6 +69,41 @@ export const LibrarySection = () => {
 
 	return (
 		<>
+			{/* {savedSearches.searches.length > 0 && (
+				<Section
+					name="Saved"
+					// actionArea={
+					// 	<Link to="settings/library/saved-searches">
+					// 		<SubtleButton />
+					// 	</Link>
+					// }
+				>
+					<SeeMore
+						items={savedSearches.searches}
+						renderItem={(search) => (
+							<SidebarLink
+								className="group/button relative w-full"
+								to={`search/${search.id}`}
+								key={search.id}
+							>
+								<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">
+									<Folder size={18} />
+								</div>
+
+								<span className="truncate">{search.name}</span>
+								<Button
+									className="absolute right-[2px] top-[2px] hidden rounded-full shadow group-hover/button:block"
+									size="icon"
+									variant="subtle"
+									onClick={() => savedSearches.removeSearch(search.id)}
+								>
+									<X weight="bold" className="text-ink-dull/50" />
+								</Button>
+							</SidebarLink>
+						)}
+					/>
+				</Section>
+			)} */}
 			<Section
 				name="Devices"
 				actionArea={

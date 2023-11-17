@@ -13,7 +13,7 @@ export * from './useKeybindEventHandler';
 export * from './useKeybind';
 export * from './useOperatingSystem';
 export * from './useScrolled';
-export * from './useSearchStore';
+// export * from './useSearchStore';
 export * from './useShortcut';
 export * from './useShowControls';
 export * from './useSpacedropState';
