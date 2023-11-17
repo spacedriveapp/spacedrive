@@ -48,7 +48,6 @@ const TopBar = () => {
 				transparentBg ? 'bg-app/0' : 'bg-app/90'
 			)}
 		>
-			{tabs && <Tabs />}
 			<div
 				data-tauri-drag-region
 				className={clsx(
@@ -69,6 +68,8 @@ const TopBar = () => {
 
 				<div ref={ctx.setRight} className={clsx(ctx.fixedArgs && 'flex-1')} />
 			</div>
+
+			{tabs && <Tabs />}
 
 			{searchStore.isSearching && (
 				<>
