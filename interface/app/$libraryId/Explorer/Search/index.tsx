@@ -29,7 +29,7 @@ const MENU_STYLES = `!rounded-md border !border-app-line !bg-app-box`;
 // One component so all items have the same styling, including the submenu
 const SearchOptionItemInternals = (props: SearchOptionItemProps) => {
 	return (
-		<div className="flex flex-row gap-2">
+		<div className="flex items-center gap-2">
 			{props.selected !== undefined && (
 				<RadixCheckbox checked={props.selected} onCheckedChange={props.setSelected} />
 			)}
