@@ -62,7 +62,7 @@ const TopBar = () => {
 					className="flex flex-1 items-center gap-3.5 overflow-hidden"
 				>
 					<NavigationButtons />
-					<div ref={props.leftRef} className="overflow-hidden" />
+					<div ref={ctx.setLeft} className="overflow-hidden" />
 				</div>
 
 				{ctx.fixedArgs && <SearchBar />}

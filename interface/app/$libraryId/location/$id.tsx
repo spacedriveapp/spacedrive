@@ -1,5 +1,5 @@
 import { ArrowClockwise, Info } from '@phosphor-icons/react';
-import { Suspense, useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
 import {
@@ -42,8 +42,6 @@ import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import LocationOptions from './LocationOptions';
 
 export const Component = () => {
-	const rspc = useRspcLibraryContext();
-
 	const [{ path }] = useExplorerSearchParams();
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
 	const location = useLibraryQuery(['locations.get', locationId], {
@@ -53,9 +51,7 @@ export const Component = () => {
 
 	return (
 		<SearchContextProvider>
-			<Suspense>
-				<LocationExplorer path={path} location={location.data!} />)
-			</Suspense>
+			<LocationExplorer path={path} location={location.data!} />)
 		</SearchContextProvider>
 	);
 };
@@ -158,7 +154,7 @@ const LocationExplorer = ({ location, path }: { location: Location; path?: strin
 	useShortcut('rescan', () => rescan(location.id));
 
 	const title = useRouteTitle(
-		(path && path?.length > 1 ? getLastSectionOfPath(path) : location.data?.name) ?? ''
+		(path && path?.length > 1 ? getLastSectionOfPath(path) : location.name) ?? ''
 	);
 
 	return (
