@@ -6,6 +6,7 @@ import {
 	useLayoutEffect,
 	useMemo
 } from 'react';
+import { useSearchParams as useRawSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { SearchFilterArgs } from '@sd/client';
 import { useZodSearchParams } from '~/hooks';
@@ -22,7 +23,7 @@ const SEARCH_PARAMS = z.object({
 });
 
 function useContextValue() {
-	const [searchParams, setSearchParams] = useZodSearchParams(SEARCH_PARAMS);
+	const [searchParams] = useZodSearchParams(SEARCH_PARAMS);
 	const searchState = useSearchStore();
 
 	const { fixedArgs, setFixedArgs } = useTopBarContext();
@@ -95,17 +96,31 @@ function useContextValue() {
 		updateFilterArgs(() => JSON.parse(filters));
 	}, [searchParams.filters]);
 
+	const [_, setRawSearchParams] = useRawSearchParams();
+
 	useEffect(() => {
 		if (!searchState.filterArgs) return;
 
-		setSearchParams(
-			(p) => ({
-				...p,
-				filters: JSON.stringify(searchState.filterArgs)
-			}),
-			{ replace: true }
-		);
-	}, [searchState.filterArgs, setSearchParams]);
+		if (searchState.filterArgs.length < 1) {
+			setRawSearchParams(
+				(p) => {
+					p.delete('filters');
+					return p;
+				},
+
+				{ replace: true }
+			);
+		} else {
+			setRawSearchParams(
+				(p) => {
+					p.set('filters', JSON.stringify(searchState.filterArgs));
+					return p;
+				},
+
+				{ replace: true }
+			);
+		}
+	}, [searchState.filterArgs, setRawSearchParams]);
 
 	return {
 		setFixedArgs,
@@ -114,12 +129,15 @@ function useContextValue() {
 		allFilterArgs,
 		searchQuery: searchParams.search,
 		setSearchQuery(value: string) {
-			setSearchParams((p) => ({ ...p, search: value }));
+			setRawSearchParams((p) => {
+				p.set('search', value);
+				return p;
+			});
 		},
 		clearSearchQuery() {
-			setSearchParams((p) => {
-				delete p.search;
-				return { ...p };
+			setRawSearchParams((p) => {
+				p.delete('search');
+				return p;
 			});
 		},
 		isSearching: searchParams.search !== undefined
