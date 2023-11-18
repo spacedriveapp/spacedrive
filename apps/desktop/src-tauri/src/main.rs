@@ -7,7 +7,7 @@ use std::{fs, path::PathBuf, sync::Arc, time::Duration};
 
 use sd_core::{Node, NodeError};
 
-use sd_fda::FullDiskAccess;
+use sd_fda::DiskAccess;
 use tauri::{
 	api::path, ipc::RemoteDomainAccessScope, window::PlatformWebview, AppHandle, Manager,
 	WindowEvent,
@@ -36,12 +36,12 @@ async fn app_ready(app_handle: AppHandle) {
 #[specta::specta]
 // If this erorrs, we don't have FDA and we need to re-prompt for it
 async fn request_fda_macos() {
-	FullDiskAccess::request_fda().expect("Unable to request full disk access");
+	DiskAccess::request_fda().expect("Unable to request full disk access");
 }
 
 // If this erorrs, we don't have FDA and we need to re-prompt for it otherwise we can't access personal directories.
 fn has_fda() -> bool {
-	FullDiskAccess::has_fda()
+	DiskAccess::has_fda()
 }
 
 #[tauri::command(async)]

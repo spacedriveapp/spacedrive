@@ -30,13 +30,6 @@ pub mod error;
 use dirs::home_dir;
 use error::Result;
 
-#[must_use]
-fn fda_file() -> PathBuf {
-	home_dir()
-		.unwrap_or_default()
-		.join("Library/Application Support/com.apple.TCC/TCC.db")
-}
-
 pub struct DiskAccess;
 
 impl DiskAccess {
@@ -90,6 +83,13 @@ impl DiskAccess {
 
 		Ok(())
 	}
+}
+
+#[must_use]
+fn fda_file() -> PathBuf {
+	home_dir()
+		.unwrap_or_default()
+		.join("Library/Application Support/com.apple.TCC/TCC.db")
 }
 
 #[cfg(test)]
