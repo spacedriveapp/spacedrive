@@ -21,7 +21,7 @@ export function useZodSearchParams<Z extends z.AnyZodObject>(schema: Z) {
 			) => {
 				if (typeof data === 'function') {
 					setSearchParams((params) => {
-						const typedPrevParams = getParams(params, schema);
+						const typedPrevParams = getParams(params, z.any());
 
 						if (!typedPrevParams.success) throw typedPrevParams.errors;
 
