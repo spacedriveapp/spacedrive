@@ -1,17 +1,37 @@
 import { Fda } from '@sd/assets/videos';
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '@sd/ui';
 import { Icon } from '~/components';
+import { useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './components';
 
 export default function OnboardingFullDisk() {
-	const { requestFdaMacos } = usePlatform();
+	const { requestFdaMacos, hasFda } = usePlatform();
+	const [hasFdaMacos, setHasFdaMacos] = useState(false);
+	const os = useOperatingSystem();
 	const [showVideo, setShowVideo] = useState(false);
 	const navigate = useNavigate();
+
+	useEffect(() => {
+		let interval: ReturnType<typeof setInterval>;
+		if (hasFda && os === 'macOS') {
+			interval = setInterval(async () => {
+				const fda = await hasFda();
+				setHasFdaMacos(fda);
+				if (fda) {
+					clearInterval(interval);
+				}
+			}, 2000);
+			return () => {
+				clearInterval(interval);
+			};
+		}
+	}, [os, hasFda]);
+
 	return (
 		<OnboardingContainer>
 			<Icon name="HDD" size={80} />
@@ -48,6 +68,7 @@ export default function OnboardingFullDisk() {
 					}}
 					variant="accent"
 					size="sm"
+					disabled={os === 'macOS' && !hasFdaMacos}
 					className="mt-8"
 				>
 					Continue
