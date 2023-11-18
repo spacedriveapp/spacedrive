@@ -39,10 +39,8 @@ async fn request_fda_macos() {
 	FullDiskAccess::request_fda().expect("Unable to request full disk access");
 }
 
-#[tauri::command(async)]
-#[specta::specta]
 // If this erorrs, we don't have FDA and we need to re-prompt for it otherwise we can't access personal directories.
-async fn has_fda() -> bool {
+fn has_fda() -> bool {
 	FullDiskAccess::has_fda()
 }
 
@@ -284,6 +282,7 @@ async fn main() -> tauri::Result<()> {
 			Ok(())
 		})
 		.on_menu_event(menu::handle_menu_event)
+		// .on_window_event(handler)
 		.on_window_event(|event| {
 			if let WindowEvent::Resized(_) = event.event() {
 				let (_state, command) = if event
@@ -307,6 +306,16 @@ async fn main() -> tauri::Result<()> {
 					unsafe { sd_desktop_macos::set_titlebar_style(&nswindow, _state) };
 				}
 			}
+
+			let v = if has_fda() {
+				"fda_enabled"
+			} else {
+				"fda_disabled"
+			};
+			event
+				.window()
+				.emit("keybind", v)
+				.expect("Unable to emit window event");
 		})
 		.menu(menu::get_menu())
 		.manage(updater::State::default())
@@ -318,7 +327,6 @@ async fn main() -> tauri::Result<()> {
 			reload_webview,
 			set_menu_bar_item_state,
 			request_fda_macos,
-			has_fda,
 			file::open_file_paths,
 			file::open_ephemeral_files,
 			file::get_file_path_open_with_apps,

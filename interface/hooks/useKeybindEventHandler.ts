@@ -2,11 +2,13 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 
 import { KeybindEvent } from '../util/keybind';
+import { getFdaState } from './useFdaState';
 import { getWindowState } from './useWindowState';
 
 export const useKeybindEventHandler = (libraryId?: string) => {
 	const navigate = useNavigate();
 	const windowState = getWindowState();
+	const fdaState = getFdaState();
 
 	useEffect(() => {
 		const handler = (e: KeybindEvent) => {
@@ -28,10 +30,16 @@ export const useKeybindEventHandler = (libraryId?: string) => {
 				case 'window_not_fullscreened':
 					windowState.isFullScreen = false;
 					break;
+				case 'fda_enabled':
+					fdaState.fda = true;
+					break;
+				case 'fda_disabled':
+					fdaState.fda = false;
+					break;
 			}
 		};
 
 		document.addEventListener('keybindexec', handler);
 		return () => document.removeEventListener('keybindexec', handler);
-	}, [navigate, libraryId, windowState]);
+	}, [navigate, libraryId, windowState, fdaState]);
 };
