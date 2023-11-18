@@ -1,5 +1,4 @@
 import { Fda } from '@sd/assets/videos';
-import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '@sd/ui';
@@ -18,22 +17,22 @@ export default function OnboardingFullDisk() {
 	const [showVideo, setShowVideo] = useState(false);
 	const navigate = useNavigate();
 
-	// useEffect(() => {
-	// 	let interval: ReturnType<typeof setInterval>;
-	// 	if (os === 'macOS') {
-	// 		interval = setInterval(async () => {
-	// 			// const fda = await hasFda();
-	// 			// setHasFdaMacos(fda);
-	// 			// if (fda) {
-	// 			// 	clearInterval(interval);
-	// 			// }
-	// 			console.log(f.fda);
-	// 		}, 2000);
-	// 		return () => {
-	// 			clearInterval(interval);
-	// 		};
-	// 	}
-	// }, [os,]);
+	useEffect(() => {
+		let interval: ReturnType<typeof setInterval>;
+		if (os === 'macOS') {
+			interval = setInterval(async () => {
+				const fda = await hasFda?.();
+				if (fda) {
+					setHasFdaMacos(fda);
+					clearInterval(interval);
+				}
+				console.log(f.fda);
+			}, 2000);
+			return () => {
+				clearInterval(interval);
+			};
+		}
+	}, [os, f.fda, hasFda]);
 
 	return (
 		<OnboardingContainer>
@@ -55,14 +54,9 @@ export default function OnboardingFullDisk() {
 					</div>
 				</>
 			) : (
-				<motion.div
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.5, ease: 'easeInOut' }}
-					className="mt-5 w-full max-w-[450px]"
-				>
+				<div className="mt-5 w-full max-w-[450px]">
 					<video className="rounded-md" autoPlay loop muted controls={false} src={Fda} />
-				</motion.div>
+				</div>
 			)}
 			<div className="flex gap-3">
 				<Button
@@ -86,7 +80,7 @@ export default function OnboardingFullDisk() {
 						Close
 					</Button>
 				)}
-				{hasFda && <Button>Full Disk from hasFda</Button>}
+				{hasFdaMacos && <Button>Full Disk from hasFda</Button>}
 				{f.fda && <Button>Full Disk from state</Button>}
 			</div>
 		</OnboardingContainer>
