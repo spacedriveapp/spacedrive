@@ -24,22 +24,27 @@
 #![forbid(unsafe_code, deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-use dirs::{
-	audio_dir, cache_dir, config_dir, config_local_dir, data_dir, data_local_dir, desktop_dir,
-	document_dir, download_dir, executable_dir, home_dir, picture_dir, preference_dir, public_dir,
-	runtime_dir, state_dir, template_dir, video_dir,
-};
 use std::{fs, path::PathBuf};
 
 pub mod error;
-
+use dirs::home_dir;
 use error::Result;
 
-pub struct FullDiskAccess(Vec<PathBuf>);
+#[must_use]
+fn fda_file() -> PathBuf {
+	home_dir()
+		.unwrap_or_default()
+		.join("Library/Application Support/com.apple.TCC/TCC.db")
+}
 
-impl FullDiskAccess {
-	#[cfg(target_family = "unix")]
+pub struct DiskAccess;
+
+impl DiskAccess {
+	/// This function is a no-op on non-Unix systems.
+	///
+	/// This function checks if we have read and write access to a path.
 	fn is_path_rw(path: PathBuf) -> bool {
+		#[cfg(target_family = "unix")]
 		use std::os::unix::fs::MetadataExt;
 
 		(fs::metadata(path)).map_or(false, |md| {
@@ -48,23 +53,29 @@ impl FullDiskAccess {
 		})
 	}
 
-	#[cfg(target_family = "windows")]
-	pub(crate) fn is_path_rw(path: PathBuf) -> bool {
-		if let Ok(md) = fs::metadata(path) {
-			!md.permissions().readonly()
-		} else {
-			false
-		}
+	/// This checks if a path is writeable or not. If not, it is read-only.
+	#[must_use]
+	pub fn is_path_writeable(path: PathBuf) -> bool {
+		!fs::metadata(path).map_or(false, |md| !md.permissions().readonly())
 	}
 
-	/// [`FullDiskAccess::has_fda`] needs to be checked each time we go to access a potentially protected directory, and we need to prompt for
-	/// FDA if we don't have it.
+	/// This function checks if a path is readable, or at least exists.
+	#[must_use]
+	pub fn is_path_readable(path: PathBuf) -> bool {
+		fs::metadata(path).is_ok()
+	}
+
+	/// This function is a no-op on non-MacOS systems.
+	///
+	/// This checks if we have full disk access available on `MacOS` or not.
 	#[must_use]
 	pub fn has_fda() -> bool {
-		let dirs = Self::default();
-		dirs.0.into_iter().all(Self::is_path_rw)
+		Self::is_path_rw(fda_file())
 	}
 
+	/// This function is a no-op on non-MacOS systems.
+	///
+	/// Once ran, it will open the "Full Disk Access" prompt.
 	pub fn request_fda() -> Result<()> {
 		#[cfg(target_os = "macos")]
 		{
@@ -81,53 +92,22 @@ impl FullDiskAccess {
 	}
 }
 
-impl Default for FullDiskAccess {
-	fn default() -> Self {
-		Self(
-			[
-				audio_dir(),
-				cache_dir(),
-				config_dir(),
-				config_local_dir(),
-				data_dir(),
-				data_local_dir(),
-				desktop_dir(),
-				document_dir(),
-				download_dir(),
-				executable_dir(),
-				home_dir(),
-				picture_dir(),
-				preference_dir(),
-				public_dir(),
-				runtime_dir(),
-				state_dir(),
-				template_dir(),
-				video_dir(),
-			]
-			.into_iter()
-			.flatten()
-			.collect(),
-		)
-	}
-}
-
 #[cfg(test)]
 mod tests {
+	use super::DiskAccess;
 	use std::fs;
 	use tempfile::tempdir;
-
-	use super::FullDiskAccess;
 
 	#[test]
 	#[cfg_attr(miri, ignore = "Miri can't run this test")]
 	#[ignore = "CI can't run this due to lack of a GUI"]
 	fn macos_open_full_disk_prompt() {
-		FullDiskAccess::request_fda().unwrap();
+		DiskAccess::request_fda().unwrap();
 	}
 
 	#[test]
 	fn has_fda() {
-		assert!(FullDiskAccess::has_fda());
+		assert!(DiskAccess::has_fda());
 	}
 
 	#[test]
@@ -138,6 +118,6 @@ mod tests {
 		let mut perms = fs::metadata(&path).unwrap().permissions();
 		perms.set_readonly(true);
 		fs::set_permissions(&path, perms).unwrap();
-		assert!(FullDiskAccess::is_path_rw(path));
+		assert!(DiskAccess::is_path_rw(path));
 	}
 }

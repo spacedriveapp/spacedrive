@@ -5,32 +5,35 @@ import { useNavigate } from 'react-router';
 import { Button } from '@sd/ui';
 import { Icon } from '~/components';
 import { useOperatingSystem } from '~/hooks';
+import { useFdaState } from '~/hooks/useFdaState';
 import { usePlatform } from '~/util/Platform';
 
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './components';
 
 export default function OnboardingFullDisk() {
 	const { requestFdaMacos, hasFda } = usePlatform();
+	const f = useFdaState();
 	const [hasFdaMacos, setHasFdaMacos] = useState(false);
 	const os = useOperatingSystem();
 	const [showVideo, setShowVideo] = useState(false);
 	const navigate = useNavigate();
 
-	useEffect(() => {
-		let interval: ReturnType<typeof setInterval>;
-		if (hasFda && os === 'macOS') {
-			interval = setInterval(async () => {
-				const fda = await hasFda();
-				setHasFdaMacos(fda);
-				if (fda) {
-					clearInterval(interval);
-				}
-			}, 2000);
-			return () => {
-				clearInterval(interval);
-			};
-		}
-	}, [os, hasFda]);
+	// useEffect(() => {
+	// 	let interval: ReturnType<typeof setInterval>;
+	// 	if (os === 'macOS') {
+	// 		interval = setInterval(async () => {
+	// 			// const fda = await hasFda();
+	// 			// setHasFdaMacos(fda);
+	// 			// if (fda) {
+	// 			// 	clearInterval(interval);
+	// 			// }
+	// 			console.log(f.fda);
+	// 		}, 2000);
+	// 		return () => {
+	// 			clearInterval(interval);
+	// 		};
+	// 	}
+	// }, [os,]);
 
 	return (
 		<OnboardingContainer>
@@ -83,6 +86,8 @@ export default function OnboardingFullDisk() {
 						Close
 					</Button>
 				)}
+				{hasFda && <Button>Full Disk from hasFda</Button>}
+				{f.fda && <Button>Full Disk from state</Button>}
 			</div>
 		</OnboardingContainer>
 	);
