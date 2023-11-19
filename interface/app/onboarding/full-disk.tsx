@@ -10,7 +10,7 @@ import { usePlatform } from '~/util/Platform';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './components';
 
 export default function OnboardingFullDisk() {
-	const { requestFdaMacos, hasFda } = usePlatform();
+	const { requestFdaMacos, hasFda, checkForFda } = usePlatform();
 	const f = useFdaState();
 	const [hasFdaMacos, setHasFdaMacos] = useState(false);
 	const os = useOperatingSystem();
@@ -18,21 +18,18 @@ export default function OnboardingFullDisk() {
 	const navigate = useNavigate();
 
 	useEffect(() => {
-		let interval: ReturnType<typeof setInterval>;
-		if (os === 'macOS') {
-			interval = setInterval(async () => {
-				const fda = await hasFda?.();
-				if (fda) {
-					setHasFdaMacos(fda);
-					clearInterval(interval);
-				}
-				console.log(f.fda);
-			}, 2000);
-			return () => {
-				clearInterval(interval);
-			};
-		}
-	}, [os, f.fda, hasFda]);
+		if (os !== 'macOS') return;
+		const interval = setInterval(async () => {
+			const fda = await checkForFda?.();
+			console.log(fda, 'fda');
+			if (fda) {
+				setHasFdaMacos(fda);
+			}
+		}, 500);
+		return () => {
+			clearInterval(interval);
+		};
+	}, [os, f.fda, checkForFda]);
 
 	return (
 		<OnboardingContainer>
@@ -80,8 +77,6 @@ export default function OnboardingFullDisk() {
 						Close
 					</Button>
 				)}
-				{hasFdaMacos && <Button>Full Disk from hasFda</Button>}
-				{f.fda && <Button>Full Disk from state</Button>}
 			</div>
 		</OnboardingContainer>
 	);

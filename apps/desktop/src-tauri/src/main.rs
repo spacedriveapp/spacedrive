@@ -3,7 +3,15 @@
 	windows_subsystem = "windows"
 )]
 
-use std::{fs, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+	fs,
+	path::PathBuf,
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
+	time::Duration,
+};
 
 use sd_core::{Node, NodeError};
 
@@ -28,8 +36,24 @@ mod updater;
 #[specta::specta]
 async fn app_ready(app_handle: AppHandle) {
 	let window = app_handle.get_window("main").unwrap();
-
 	window.show().unwrap();
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+async fn check_for_fda(app: tauri::window::Window) {
+	loop {
+		let fda = match DiskAccess::has_fda() {
+			true => "fda_enabled",
+			false => "fda_disabled",
+		};
+
+		// TODO(brxken128): rename "keybind" events to "system" events or something
+		app.emit_all("keybind", fda)
+			.expect("Unable to emit window event");
+
+		tokio::time::sleep(Duration::from_millis(500)).await;
+	}
 }
 
 #[tauri::command(async)]
@@ -39,8 +63,10 @@ async fn request_fda_macos() {
 	DiskAccess::request_fda().expect("Unable to request full disk access");
 }
 
+#[tauri::command(async)]
+#[specta::specta]
 // If this erorrs, we don't have FDA and we need to re-prompt for it otherwise we can't access personal directories.
-fn has_fda() -> bool {
+async fn has_fda() -> bool {
 	DiskAccess::has_fda()
 }
 
@@ -306,16 +332,6 @@ async fn main() -> tauri::Result<()> {
 					unsafe { sd_desktop_macos::set_titlebar_style(&nswindow, _state) };
 				}
 			}
-
-			let v = if has_fda() {
-				"fda_enabled"
-			} else {
-				"fda_disabled"
-			};
-			event
-				.window()
-				.emit("keybind", v)
-				.expect("Unable to emit window event");
 		})
 		.menu(menu::get_menu())
 		.manage(updater::State::default())
@@ -325,8 +341,10 @@ async fn main() -> tauri::Result<()> {
 			open_logs_dir,
 			refresh_menu_bar,
 			reload_webview,
+			check_for_fda,
 			set_menu_bar_item_state,
 			request_fda_macos,
+			has_fda,
 			file::open_file_paths,
 			file::open_ephemeral_files,
 			file::get_file_path_open_with_apps,
