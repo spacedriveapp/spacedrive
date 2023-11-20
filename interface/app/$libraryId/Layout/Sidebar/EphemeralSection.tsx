@@ -1,15 +1,14 @@
 import { EjectSimple } from '@phosphor-icons/react';
-import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { Button, toast, tw } from '@sd/ui';
 import { Icon, IconName } from '~/components';
-import { usePlatform } from '~/util/Platform';
+import { useHomeDir } from '~/hooks/useHomeDir';
 
 import SidebarLink from './Link';
 import Section from './Section';
-import SeeMore from './SeeMore';
+import { SeeMore } from './SeeMore';
 
 const Name = tw.span`truncate`;
 
@@ -29,15 +28,9 @@ const SidebarIcon = ({ name }: { name: IconName }) => {
 };
 
 export const EphemeralSection = () => {
-	const platform = usePlatform();
-
-	const homeDir = useQuery(['userDirs', 'home'], () => {
-		if (platform.userHomeDir) return platform.userHomeDir();
-		else return null;
-	});
-
 	const locations = useLibraryQuery(['locations.list']);
 
+	const homeDir = useHomeDir();
 	const volumes = useBridgeQuery(['volumes.list']);
 
 	// this will return an array of location ids that are also volumes
@@ -65,96 +58,67 @@ export const EphemeralSection = () => {
 		return locationIdsMap;
 	}, [locations.data, volumes.data]);
 
-	const items = [
-		{ type: 'network' },
-		homeDir.data ? { type: 'home', path: homeDir.data } : null,
-		...(volumes.data || []).flatMap((volume, volumeIndex) =>
-			volume.mount_points.map((mountPoint, index) =>
-				mountPoint !== homeDir.data
-					? { type: 'volume', volume, mountPoint, volumeIndex, index }
-					: null
-			)
+	const mountPoints = (volumes.data || []).flatMap((volume, volumeIndex) =>
+		volume.mount_points.map((mountPoint, index) =>
+			mountPoint !== homeDir.data
+				? { type: 'volume', volume, mountPoint, volumeIndex, index }
+				: null
 		)
-	].filter(Boolean) as Array<{
-		type: string;
-		path?: string;
-		volume?: any;
-		mountPoint?: string;
-		volumeIndex?: number;
-		index?: number;
-	}>;
+	);
 
 	return (
 		<Section name="Local">
-			<SeeMore
-				items={items}
-				renderItem={(item, index) => {
+			<SeeMore>
+				<SidebarLink className="group relative w-full" to="./network">
+					<SidebarIcon name="Globe" />
+					<Name>Network</Name>
+				</SidebarLink>
+				{homeDir.data && (
+					<SidebarLink
+						to={`ephemeral/0?path=${homeDir.data}`}
+						className="group relative w-full border border-transparent"
+					>
+						<SidebarIcon name="Home" />
+						<Name>Home</Name>
+					</SidebarLink>
+				)}
+				{mountPoints.map((item) => {
+					if (!item) return;
+
 					const locationId = locationIdsForVolumes[item.mountPoint ?? ''];
 
-					if (item?.type === 'network') {
-						return (
-							<SidebarLink
-								className="group relative w-full"
-								to="./network"
-								key={index}
-							>
-								<SidebarIcon name="Globe" />
-								<Name>Network</Name>
-							</SidebarLink>
-						);
-					}
-
-					if (item?.type === 'home') {
-						return (
-							<SidebarLink
-								to={`ephemeral/0?path=${item.path}`}
-								className="group relative w-full border border-transparent"
-								key={index}
-							>
-								<SidebarIcon name="Home" />
-								<Name>Home</Name>
-							</SidebarLink>
-						);
-					}
-
-					if (item?.type === 'volume') {
-						const key = `${item.volumeIndex}-${item.index}`;
-						const name =
-							item.mountPoint === '/'
-								? 'Root'
-								: item.index === 0
-								? item.volume.name
-								: item.mountPoint;
-
-						const toPath =
-							locationId !== undefined
-								? `location/${locationId}`
-								: `ephemeral/${key}?path=${item.mountPoint}`;
-
-						return (
-							<SidebarLink
-								to={toPath}
-								key={key}
-								className="group relative w-full border border-transparent"
-							>
-								<SidebarIcon
-									name={
-										item.volume.file_system === 'exfat'
-											? 'SD'
-											: item.volume.name === 'Macintosh HD'
-											? 'HDD'
-											: 'Drive'
-									}
-								/>
-								<Name>{name}</Name>
-								{item.volume.disk_type === 'Removable' && <EjectButton />}
-							</SidebarLink>
-						);
-					}
-
-					return null; // This should never be reached, but is here to satisfy TypeScript
-				}}
-			/>
+					const key = `${item.volumeIndex}-${item.index}`;
+					const name =
+						item.mountPoint === '/'
+							? 'Root'
+							: item.index === 0
+							? item.volume.name
+							: item.mountPoint;
+					const toPath =
+						locationId !== undefined
+							? `location/${locationId}`
+							: `ephemeral/${key}?path=${item.mountPoint}`;
+					return (
+						<SidebarLink
+							to={toPath}
+							key={key}
+							className="group relative w-full border border-transparent"
+						>
+							<SidebarIcon
+								name={
+									item.volume.file_system === 'exfat'
+										? 'SD'
+										: item.volume.name === 'Macintosh HD'
+										? 'HDD'
+										: 'Drive'
+								}
+							/>
+							<Name>{name}</Name>
+							{item.volume.disk_type === 'Removable' && <EjectButton />}
+						</SidebarLink>
+					);
+				})}
+			</SeeMore>
 		</Section>
 	);
 };
