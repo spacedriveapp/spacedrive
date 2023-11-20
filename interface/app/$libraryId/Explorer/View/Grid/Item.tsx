@@ -13,6 +13,7 @@ interface Props {
 	item: ExplorerItem;
 	children: RenderItem;
 	onMouseDown: (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
+	getElementById: (id: string) => Element | null | undefined;
 }
 
 export const GridItem = (props: Props) => {
@@ -39,7 +40,7 @@ export const GridItem = (props: Props) => {
 			return;
 		}
 
-		const element = document.querySelector(`[data-selectable-id="${itemId}"]`);
+		const element = props.getElementById(itemId);
 
 		if (!element) return;
 
@@ -56,7 +57,7 @@ export const GridItem = (props: Props) => {
 		if (!grid.selecto) return;
 
 		return () => {
-			const element = document.querySelector(`[data-selectable-id="${itemId}"]`);
+			const element = props.getElementById(itemId);
 			if (selected && !element) grid.selectoUnselected.current.add(itemId);
 		};
 
