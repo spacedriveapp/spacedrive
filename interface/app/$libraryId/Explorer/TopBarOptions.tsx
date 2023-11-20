@@ -1,5 +1,4 @@
 import {
-	ArrowClockwise,
 	Icon,
 	Key,
 	MonitorPlay,
@@ -13,10 +12,9 @@ import clsx from 'clsx';
 import { useMemo } from 'react';
 import { useDocumentEventListener } from 'rooks';
 import { ExplorerLayout } from '@sd/client';
-import { ModifierKeys, toast } from '@sd/ui';
-import { useKeybind, useKeyMatcher, useOperatingSystem } from '~/hooks';
+import { toast } from '@sd/ui';
+import { useKeyMatcher } from '~/hooks';
 
-import { useQuickRescan } from '../../../hooks/useQuickRescan';
 import { KeyManager } from '../KeyManager';
 import TopBarOptions, { ToolOption, TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import { useExplorerContext } from './Context';
@@ -34,7 +32,6 @@ export const useExplorerTopBarOptions = () => {
 	const explorer = useExplorerContext();
 	const controlIcon = useKeyMatcher('Meta').icon;
 	const settings = explorer.useSettingsSnapshot();
-	const rescan = useQuickRescan();
 
 	const viewOptions = useMemo(
 		() =>
@@ -49,7 +46,8 @@ export const useExplorerTopBarOptions = () => {
 						toolTipLabel: `${layout} view`,
 						icon: <Icon className={TOP_BAR_ICON_STYLE} />,
 						keybinds: [controlIcon, (i + 1).toString()],
-						topBarActive: settings.layoutMode === layout,
+						topBarActive:
+							!explorer.isLoadingPreferences && settings.layoutMode === layout,
 						onClick: () => (explorer.settingsStore.layoutMode = layout),
 						showAtResolution: 'sm:flex'
 					} satisfies ToolOption & { layout: ExplorerLayout };
@@ -58,7 +56,13 @@ export const useExplorerTopBarOptions = () => {
 				},
 				[] as (ToolOption & { layout: ExplorerLayout })[]
 			),
-		[controlIcon, explorer.layouts, explorer.settingsStore, settings.layoutMode]
+		[
+			controlIcon,
+			explorer.isLoadingPreferences,
+			explorer.layouts,
+			explorer.settingsStore,
+			settings.layoutMode
+		]
 	);
 
 	const controlOptions: ToolOption[] = [
@@ -86,12 +90,6 @@ export const useExplorerTopBarOptions = () => {
 			topBarActive: explorerStore.showInspector
 		}
 	];
-
-	const { parent } = useExplorerContext();
-
-	const os = useOperatingSystem();
-
-	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'r'], () => rescan());
 
 	useDocumentEventListener('keydown', (e: unknown) => {
 		if (!(e instanceof KeyboardEvent)) return;
@@ -128,13 +126,6 @@ export const useExplorerTopBarOptions = () => {
 			topBarActive: explorerStore.tagAssignMode,
 			individual: true,
 			showAtResolution: 'xl:flex'
-		},
-		parent?.type === 'Location' && {
-			toolTipLabel: 'Reload',
-			onClick: rescan,
-			icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
-			individual: true,
-			showAtResolution: 'xl:flex'
 		}
 	].filter(Boolean) as ToolOption[];
 
@@ -145,12 +136,16 @@ export const useExplorerTopBarOptions = () => {
 	};
 };
 
-export const DefaultTopBarOptions = () => {
+export const DefaultTopBarOptions = (props: { options?: ToolOption[] }) => {
 	const options = useExplorerTopBarOptions();
 
 	return (
 		<TopBarOptions
-			options={[options.viewOptions, options.toolOptions, options.controlOptions]}
+			options={[
+				options.viewOptions,
+				[...options.toolOptions, ...(props.options ?? [])],
+				options.controlOptions
+			]}
 		/>
 	);
 };

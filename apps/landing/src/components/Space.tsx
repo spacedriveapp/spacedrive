@@ -4,7 +4,7 @@ import { PointMaterial, Points, Trail } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { inSphere as randomInSphere } from 'maath/random';
 import { useRef, useState } from 'react';
-import { Color, type Mesh } from 'three';
+import { Color, WebGL1Renderer, WebGLRenderer, type Mesh } from 'three';
 
 const Stars = (props: any) => {
 	const ref = useRef<Mesh>();
@@ -56,10 +56,37 @@ function ShootingStar() {
 	);
 }
 
-export default function Space() {
+export default function Space({ onRenderFail }: { onRenderFail?: (error: unknown) => void }) {
 	return (
 		<div className="absolute left-0 top-0 z-0 h-screen w-screen bg-black opacity-50">
-			<Canvas camera={{ position: [0, 0, 0] }}>
+			<Canvas
+				gl={(canvas) => {
+					try {
+						// https://github.com/pmndrs/react-three-fiber/blob/f2b430c/packages/fiber/src/core/index.tsx#L113-L119
+						return new WebGLRenderer({
+							alpha: true,
+							canvas: canvas,
+							antialias: true,
+							powerPreference: 'high-performance'
+						});
+					} catch (error) {
+						try {
+							// Let's try WebGL1, maybe the user's browser doesn't support WebGL2
+							return new WebGL1Renderer({
+								alpha: true,
+								canvas: canvas,
+								antialias: true,
+								powerPreference: 'high-performance'
+							});
+						} catch (error) {
+							onRenderFail?.(error);
+							// Return an empty renderer, just so the app doesn't crash
+							return { render() {}, setSize() {}, setPixelRatio() {} };
+						}
+					}
+				}}
+				camera={{ position: [0, 0, 0] }}
+			>
 				<ShootingStar />
 				<ShootingStar />
 				<Stars />

@@ -1,4 +1,5 @@
 import { EjectSimple } from '@phosphor-icons/react';
+import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { useMemo, useState } from 'react';
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
@@ -28,9 +29,12 @@ const SidebarIcon = ({ name }: { name: IconName }) => {
 };
 
 export const EphemeralSection = () => {
-	const [home, setHome] = useState<string | null>(null);
 	const platform = usePlatform();
-	platform.userHomeDir?.().then(setHome);
+
+	const homeDir = useQuery(['userDirs', 'home'], () => {
+		if (platform.userHomeDir) return platform.userHomeDir();
+		else return null;
+	});
 
 	const locations = useLibraryQuery(['locations.list']);
 
@@ -63,10 +67,10 @@ export const EphemeralSection = () => {
 
 	const items = [
 		{ type: 'network' },
-		home ? { type: 'home', path: home } : null,
+		homeDir.data ? { type: 'home', path: homeDir.data } : null,
 		...(volumes.data || []).flatMap((volume, volumeIndex) =>
 			volume.mount_points.map((mountPoint, index) =>
-				mountPoint !== home
+				mountPoint !== homeDir.data
 					? { type: 'volume', volume, mountPoint, volumeIndex, index }
 					: null
 			)
@@ -81,78 +85,76 @@ export const EphemeralSection = () => {
 	}>;
 
 	return (
-		<>
-			<Section name="Local">
-				<SeeMore
-					items={items}
-					renderItem={(item, index) => {
-						const locationId = locationIdsForVolumes[item.mountPoint ?? ''];
+		<Section name="Local">
+			<SeeMore
+				items={items}
+				renderItem={(item, index) => {
+					const locationId = locationIdsForVolumes[item.mountPoint ?? ''];
 
-						if (item?.type === 'network') {
-							return (
-								<SidebarLink
-									className="group relative w-full"
-									to={`network/34`}
-									key={index}
-								>
-									<SidebarIcon name="Globe" />
-									<Name>Network</Name>
-								</SidebarLink>
-							);
-						}
+					if (item?.type === 'network') {
+						return (
+							<SidebarLink
+								className="group relative w-full"
+								to="./network"
+								key={index}
+							>
+								<SidebarIcon name="Globe" />
+								<Name>Network</Name>
+							</SidebarLink>
+						);
+					}
 
-						if (item?.type === 'home') {
-							return (
-								<SidebarLink
-									to={`ephemeral/0?path=${item.path}`}
-									className="group relative w-full border border-transparent"
-									key={index}
-								>
-									<SidebarIcon name="Home" />
-									<Name>Home</Name>
-								</SidebarLink>
-							);
-						}
+					if (item?.type === 'home') {
+						return (
+							<SidebarLink
+								to={`ephemeral/0?path=${item.path}`}
+								className="group relative w-full border border-transparent"
+								key={index}
+							>
+								<SidebarIcon name="Home" />
+								<Name>Home</Name>
+							</SidebarLink>
+						);
+					}
 
-						if (item?.type === 'volume') {
-							const key = `${item.volumeIndex}-${item.index}`;
-							const name =
-								item.mountPoint === '/'
-									? 'Root'
-									: item.index === 0
-									? item.volume.name
-									: item.mountPoint;
+					if (item?.type === 'volume') {
+						const key = `${item.volumeIndex}-${item.index}`;
+						const name =
+							item.mountPoint === '/'
+								? 'Root'
+								: item.index === 0
+								? item.volume.name
+								: item.mountPoint;
 
-							const toPath =
-								locationId !== undefined
-									? `location/${locationId}`
-									: `ephemeral/${key}?path=${item.mountPoint}`;
+						const toPath =
+							locationId !== undefined
+								? `location/${locationId}`
+								: `ephemeral/${key}?path=${item.mountPoint}`;
 
-							return (
-								<SidebarLink
-									to={toPath}
-									key={key}
-									className="group relative w-full border border-transparent"
-								>
-									<SidebarIcon
-										name={
-											item.volume.file_system === 'exfat'
-												? 'SD'
-												: item.volume.name === 'Macintosh HD'
-												? 'HDD'
-												: 'Drive'
-										}
-									/>
-									<Name>{name}</Name>
-									{item.volume.disk_type === 'Removable' && <EjectButton />}
-								</SidebarLink>
-							);
-						}
+						return (
+							<SidebarLink
+								to={toPath}
+								key={key}
+								className="group relative w-full border border-transparent"
+							>
+								<SidebarIcon
+									name={
+										item.volume.file_system === 'exfat'
+											? 'SD'
+											: item.volume.name === 'Macintosh HD'
+											? 'HDD'
+											: 'Drive'
+									}
+								/>
+								<Name>{name}</Name>
+								{item.volume.disk_type === 'Removable' && <EjectButton />}
+							</SidebarLink>
+						);
+					}
 
-						return null; // This should never be reached, but is here to satisfy TypeScript
-					}}
-				/>
-			</Section>
-		</>
+					return null; // This should never be reached, but is here to satisfy TypeScript
+				}}
+			/>
+		</Section>
 	);
 };

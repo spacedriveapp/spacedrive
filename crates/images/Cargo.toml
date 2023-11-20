@@ -30,4 +30,8 @@ tracing = { workspace = true }
 # this broke builds as we build our own liibheif, so i disabled their default features
 libheif-rs = { version = "0.22.0", default-features = false, optional = true }
 libheif-sys = { version = "2.0.0", default-features = false, optional = true }
-pdfium-render = { version = "0.8.14", features = ["image"] }
+pdfium-render = { version = "0.8.15", features = [
+	"sync",
+	"image",
+	"thread_safe",
+] }

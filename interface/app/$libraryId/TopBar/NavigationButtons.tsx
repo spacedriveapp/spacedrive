@@ -3,53 +3,58 @@ import clsx from 'clsx';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Tooltip } from '@sd/ui';
-import { useKeyMatcher, useOperatingSystem, useSearchStore, useShortcut } from '~/hooks';
+import { useKeyMatcher, useOperatingSystem, useShortcut } from '~/hooks';
+import { useRoutingContext } from '~/RoutingContext';
 
 import { useExplorerDroppable } from '../Explorer/View/useExplorerDroppable';
 import TopBarButton from './TopBarButton';
 
 export const NavigationButtons = () => {
+	const { currentIndex, maxIndex } = useRoutingContext();
+
 	const navigate = useNavigate();
-	const { isFocused } = useSearchStore();
-	const idx = history.state.idx as number;
 	const os = useOperatingSystem();
 	const { icon } = useKeyMatcher('Meta');
 
+	const canGoBack = currentIndex !== 0;
+	const canGoForward = currentIndex !== maxIndex;
+
 	const droppableBack = useExplorerDroppable({
 		navigateTo: -1,
-		disabled: isFocused || idx === 0
+		disabled: !canGoBack
 	});
 
 	const droppableForward = useExplorerDroppable({
 		navigateTo: 1,
-		disabled: isFocused || idx === history.length - 1
+		disabled: !canGoForward
 	});
 
 	useShortcut('navBackwardHistory', () => {
-		if (idx === 0 || isFocused) return;
+		if (!canGoBack) return;
 		navigate(-1);
 	});
 
 	useShortcut('navForwardHistory', () => {
-		if (idx === history.length - 1 || isFocused) return;
+		if (!canGoForward) return;
 		navigate(1);
 	});
 
 	useEffect(() => {
 		if (os === 'windows') return; //windows already navigates back and forth with mouse buttons
+
 		const onMouseDown = (e: MouseEvent) => {
 			e.stopPropagation();
 			if (e.buttons === 8) {
-				if (idx === 0 || isFocused) return;
+				if (!canGoBack) return;
 				navigate(-1);
 			} else if (e.buttons === 16) {
-				if (idx === history.length - 1 || isFocused) return;
+				if (!canGoForward) return;
 				navigate(1);
 			}
 		};
 		document.addEventListener('mousedown', onMouseDown);
 		return () => document.removeEventListener('mousedown', onMouseDown);
-	}, [navigate, idx, isFocused, os]);
+	}, [navigate, os, canGoBack, canGoForward]);
 
 	return (
 		<div data-tauri-drag-region={os === 'macOS'} className="flex">
@@ -57,7 +62,7 @@ export const NavigationButtons = () => {
 				<TopBarButton
 					rounding="left"
 					onClick={() => navigate(-1)}
-					disabled={isFocused || idx === 0}
+					disabled={!canGoBack}
 					ref={droppableBack.setDroppableRef}
 					className={clsx(
 						droppableBack.isDroppable && '!bg-app-selected',
@@ -71,7 +76,7 @@ export const NavigationButtons = () => {
 				<TopBarButton
 					rounding="right"
 					onClick={() => navigate(1)}
-					disabled={isFocused || idx === history.length - 1}
+					disabled={!canGoForward}
 					ref={droppableForward.setDroppableRef}
 					className={clsx(
 						droppableForward.isDroppable && '!bg-app-selected',

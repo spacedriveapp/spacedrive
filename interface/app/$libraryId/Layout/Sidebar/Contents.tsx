@@ -14,40 +14,30 @@ export default () => {
 	const navigate = useNavigate();
 	const symbols = useKeysMatcher(['Meta', 'Shift']);
 
-	useShortcut('navToOverview', (e) => {
-		e.stopPropagation();
-		navigate('overview');
-	});
+	// useShortcut('navToOverview', (e) => {
+	// 	e.stopPropagation();
+	// 	navigate('overview');
+	// });
 
 	return (
-		<div className="no-scrollbar mask-fade-out flex grow flex-col overflow-x-hidden overflow-y-scroll pb-10">
-			<div className="space-y-0.5">
-				<Tooltip
-					position="right"
-					label="Overview"
-					keybinds={[symbols.Shift.icon, symbols.Meta.icon, 'O']}
-				>
-					<SidebarLink to="overview">
-						<Icon component={Planet} />
-						Overview
-					</SidebarLink>
-				</Tooltip>
-				{/* <SidebarLink to="spacedrop">
+		<div className="no-scrollbar mask-fade-out flex grow flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10">
+			{/* <div className="space-y-0.5"> */}
+			{/* <SidebarLink to="spacedrop">
 					<Icon component={Broadcast} />
 					Spacedrop
 				</SidebarLink> */}
-				{/*
+			{/*
 				{/* <SidebarLink to="imports">
 					<Icon component={ArchiveBox} />
 					Imports
 				</SidebarLink> */}
-				{useFeatureFlag('syncRoute') && (
-					<SidebarLink to="sync">
-						<Icon component={ArrowsClockwise} />
-						Sync
-					</SidebarLink>
-				)}
-			</div>
+			{useFeatureFlag('syncRoute') && (
+				<SidebarLink to="sync">
+					<Icon component={ArrowsClockwise} />
+					Sync
+				</SidebarLink>
+			)}
+			{/* </div> */}
 			<EphemeralSection />
 			{library && (
 				<LibraryContextProvider library={library}>

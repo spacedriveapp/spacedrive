@@ -353,6 +353,8 @@ model TagOnObject {
     object_id Int
     object    Object @relation(fields: [object_id], references: [id], onDelete: Restrict)
 
+    date_created  DateTime?
+
     @@id([tag_id, object_id])
     @@map("tag_on_object")
 }
@@ -529,4 +531,18 @@ model Notification {
     expires_at DateTime?
 
     @@map("notification")
+}
+
+model SavedSearch {
+    id            Int       @id @default(autoincrement())
+    pub_id        Bytes     @unique
+    filters       Bytes?
+    name          String?
+    icon          String?
+    description   String?
+    order         Int? // Add this line to include ordering
+    date_created  DateTime?
+    date_modified DateTime?
+
+    @@map("saved_search")
 }

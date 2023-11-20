@@ -8,11 +8,11 @@ import {
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
-import { useMatch } from 'react-router';
 import { stringify } from 'uuid';
 import {
 	byteSize,
 	getExplorerItemData,
+	getIndexedItemFilePath,
 	getItemFilePath,
 	getItemObject,
 	type ExplorerItem
@@ -31,7 +31,6 @@ export const useTable = () => {
 
 	const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
 	const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
-	const isEphemeralLocation = useMatch('/:libraryId/ephemeral/:ephemeralId');
 
 	const columns = useMemo<ColumnDef<ExplorerItem>[]>(
 		() => [
@@ -40,18 +39,17 @@ export const useTable = () => {
 				header: 'Name',
 				minSize: 200,
 				maxSize: undefined,
-				accessorFn: (file) => getExplorerItemData(file).fullName,
-				cell: (cell) => {
-					const item = cell.row.original;
+				cell: ({ row }) => {
+					const item = row.original;
 					const cut = isCut(item);
-					const itemData = getExplorerItemData(item);
 
 					return (
 						<div className="relative flex items-center">
 							<FileThumb
 								data={item}
-								frame={itemData.kind !== 'Video'}
+								frame
 								frameClassName="!border"
+								blackBars
 								size={35}
 								className={clsx('mr-2.5', cut && 'opacity-60')}
 							/>
@@ -68,23 +66,20 @@ export const useTable = () => {
 			{
 				id: 'kind',
 				header: 'Type',
-				enableSorting: false,
-				accessorFn: (file) => getExplorerItemData(file).kind,
-				cell: (cell) => (
+				cell: ({ row }) => (
 					<InfoPill className="bg-app-button/50">
-						{getExplorerItemData(cell.row.original).kind}
+						{getExplorerItemData(row.original).kind}
 					</InfoPill>
 				)
 			},
 			{
 				id: 'sizeInBytes',
 				header: 'Size',
-				accessorFn: (file) => {
-					const filePath = getItemFilePath(file);
-
+				accessorFn: (item) => {
+					const filePath = getItemFilePath(item);
 					return !filePath ||
 						!filePath.size_in_bytes_bytes ||
-						(filePath.is_dir && isEphemeralLocation)
+						(filePath.is_dir && item.type === 'NonIndexedPath')
 						? '-'
 						: byteSize(filePath.size_in_bytes_bytes);
 				}
@@ -92,53 +87,51 @@ export const useTable = () => {
 			{
 				id: 'dateCreated',
 				header: 'Date Created',
-				accessorFn: (file) => {
-					if (file.type === 'SpacedropPeer') return null;
-
-					dayjs(file.item.date_created).format('MMM Do YYYY');
+				accessorFn: (item) => {
+					if (item.type === 'SpacedropPeer') return;
+					return dayjs(item.item.date_created).format('MMM Do YYYY');
 				}
 			},
 			{
 				id: 'dateModified',
 				header: 'Date Modified',
-				accessorFn: (file) =>
-					dayjs(getItemFilePath(file)?.date_modified).format('MMM Do YYYY')
+				accessorFn: (item) => {
+					const filePath = getItemFilePath(item);
+					if (filePath) return dayjs(filePath.date_modified).format('MMM Do YYYY');
+				}
 			},
 			{
 				id: 'dateIndexed',
 				header: 'Date Indexed',
-				accessorFn: (file) => {
-					const item = getItemFilePath(file);
-					return dayjs(
-						(item && 'date_indexed' in item && item.date_indexed) || null
-					).format('MMM Do YYYY');
+				accessorFn: (item) => {
+					const filePath = getIndexedItemFilePath(item);
+					if (filePath) return dayjs(filePath.date_indexed).format('MMM Do YYYY');
 				}
 			},
 			{
 				id: 'dateAccessed',
 				header: 'Date Accessed',
-				accessorFn: (file) =>
-					getItemObject(file)?.date_accessed &&
-					dayjs(getItemObject(file)?.date_accessed).format('MMM Do YYYY')
+				accessorFn: (item) => {
+					const object = getItemObject(item);
+					if (!object || !object.date_accessed) return;
+					return dayjs(object.date_accessed).format('MMM Do YYYY');
+				}
 			},
 			{
 				id: 'contentId',
 				header: 'Content ID',
-				enableSorting: false,
-				accessorFn: (file) => getExplorerItemData(file).casId
+				accessorFn: (item) => getExplorerItemData(item).casId
 			},
 			{
 				id: 'objectId',
 				header: 'Object ID',
-				enableSorting: false,
-				accessorFn: (file) => {
-					const value = getItemObject(file)?.pub_id;
-					if (!value) return null;
-					return stringify(value);
+				accessorFn: (item) => {
+					const object = getItemObject(item);
+					if (object) return stringify(object.pub_id);
 				}
 			}
 		],
-		[isEphemeralLocation]
+		[]
 	);
 
 	const table = useReactTable({

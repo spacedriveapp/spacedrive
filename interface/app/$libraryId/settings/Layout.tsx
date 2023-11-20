@@ -1,5 +1,6 @@
 import { PropsWithChildren, ReactNode, Suspense } from 'react';
 import { Outlet } from 'react-router';
+import { useRouteTitle } from '~/hooks';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { useWindowState } from '~/hooks/useWindowState';
 
@@ -9,6 +10,8 @@ import Sidebar from './Sidebar';
 export const Component = () => {
 	const os = useOperatingSystem();
 	const windowState = useWindowState();
+
+	useRouteTitle('Settings');
 
 	return (
 		<div className="flex w-full flex-row bg-app">

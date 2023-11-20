@@ -47,7 +47,16 @@ impl InboundUpgrade<Stream> for InboundProtocol {
 			let io = io.compat();
 			debug!("stream({}, {id}): unicast stream accepted", self.peer_id);
 
-			let stream = UnicastStream::new_inbound(self.manager.identity.clone(), io).await;
+			let stream = match UnicastStream::new_inbound(self.manager.identity.clone(), io).await {
+				Ok(v) => v,
+				Err(err) => {
+					warn!(
+						"Failed to construct 'UnicastStream' with Peer('{}'): {err:?}",
+						self.peer_id
+					);
+					return Err(());
+				}
+			};
 
 			let establisher = {
 				let mut state = self

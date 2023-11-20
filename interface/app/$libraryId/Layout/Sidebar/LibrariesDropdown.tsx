@@ -32,7 +32,7 @@ export default () => {
 		>
 			{libraries.data?.map((lib) => (
 				<DropdownMenu.Item
-					to={`/${lib.uuid}/overview`}
+					to={`/${lib.uuid}`}
 					key={lib.uuid}
 					selected={lib.uuid === currentLibraryId}
 				>

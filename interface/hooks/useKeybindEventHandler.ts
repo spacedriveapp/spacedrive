@@ -16,9 +16,9 @@ export const useKeybindEventHandler = (libraryId?: string) => {
 				case 'open_settings':
 					libraryId && navigate(`/${libraryId}/settings/client/general`);
 					break;
-				case 'open_overview':
-					libraryId && navigate(`/${libraryId}/overview`);
-					break;
+				// case 'open_overview':
+				// 	libraryId && navigate(`/${libraryId}/overview`);
+				// 	break;
 				case 'open_search':
 					// somehow emit ctrl/cmd+f
 					break;

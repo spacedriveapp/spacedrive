@@ -4,8 +4,10 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
 	ExplorerLayout,
+	getExplorerLayoutStore,
 	getIndexedItemFilePath,
 	getItemObject,
+	useExplorerLayoutStore,
 	useLibraryMutation,
 	type Object
 } from '@sd/client';
@@ -51,6 +53,8 @@ export default memo(
 	({ className, style, emptyNotice, padding, ...contextProps }: ExplorerViewProps) => {
 		const explorer = useExplorerContext();
 		const explorerStore = useExplorerStore();
+		const layoutStore = useExplorerLayoutStore();
+
 		const { layoutMode } = explorer.useSettingsSnapshot();
 
 		const quickPreview = useQuickPreviewContext();
@@ -172,6 +176,13 @@ export default memo(
 			};
 		}, []);
 
+		useShortcut('showImageSlider', (e) => {
+			e.stopPropagation();
+			getExplorerLayoutStore().showImageSlider = !layoutStore.showImageSlider;
+		});
+
+		useKeyCopyCutPaste();
+
 		if (!explorer.layouts[layoutMode]) return null;
 
 		return (
@@ -183,7 +194,7 @@ export default memo(
 						explorer.selectable &&
 						!explorerStore.isContextMenuOpen &&
 						!explorerStore.isRenaming &&
-						(!quickPreviewStore.open || explorer.selectedItems.size === 1),
+						!quickPreviewStore.open,
 					...contextProps
 				}}
 			>

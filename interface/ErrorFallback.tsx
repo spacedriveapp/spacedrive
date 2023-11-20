@@ -1,11 +1,11 @@
 import { captureException } from '@sentry/browser';
-import { useEffect, useState } from 'react';
+import { PropsWithChildren, useEffect, useState } from 'react';
 import {
 	ErrorBoundary,
 	ErrorBoundaryPropsWithComponent,
 	FallbackProps
 } from 'react-error-boundary';
-import { Navigate, useRouteError } from 'react-router';
+import { useRouteError } from 'react-router';
 import { useDebugState } from '@sd/client';
 import { Button, Dialogs } from '@sd/ui';
 
@@ -170,7 +170,7 @@ export const BetterErrorBoundary = ({
 	children,
 	FallbackComponent,
 	...props
-}: ErrorBoundaryPropsWithComponent) => {
+}: PropsWithChildren<ErrorBoundaryPropsWithComponent>) => {
 	useEffect(() => {
 		const id = setTimeout(
 			() => localStorage.removeItem(RENDERING_ERROR_LOCAL_STORAGE_KEY),

@@ -7,6 +7,7 @@ import {
 	useLibraryQuery,
 	useLibrarySubscription
 } from '@sd/client';
+import { useRouteTitle } from '~/hooks/useRouteTitle';
 
 type MessageGroup =
 	| {
@@ -24,6 +25,8 @@ type MessageGroup =
 	  };
 
 export const Component = () => {
+	useRouteTitle('Sync');
+
 	const messages = useLibraryQuery(['sync.messages']);
 
 	useLibrarySubscription(['sync.newMessage'], {

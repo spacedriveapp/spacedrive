@@ -37,6 +37,10 @@ pub enum HeaderError {
 	SpacedropRequest(#[from] SpaceblockRequestsError),
 	#[error("error reading sync request: {0}")]
 	SyncRequest(decode::Error),
+	#[error("error reading header file: {0}")]
+	HeaderFile(decode::Error),
+	#[error("error invalid header file discriminator '{0}'")]
+	HeaderFileDiscriminatorInvalid(u8),
 }
 
 impl Header {
@@ -58,17 +62,33 @@ impl Header {
 					.map_err(HeaderError::SyncRequest)?,
 			)),
 			4 => Ok(Self::File(HeaderFile {
-				id: decode::uuid(stream).await.unwrap(),
-				library_id: decode::uuid(stream).await.unwrap(),
-				file_path_id: decode::uuid(stream).await.unwrap(),
-				range: match stream.read_u8().await.unwrap() {
+				id: decode::uuid(stream)
+					.await
+					.map_err(HeaderError::HeaderFile)?,
+				library_id: decode::uuid(stream)
+					.await
+					.map_err(HeaderError::HeaderFile)?,
+				file_path_id: decode::uuid(stream)
+					.await
+					.map_err(HeaderError::HeaderFile)?,
+				range: match stream
+					.read_u8()
+					.await
+					.map_err(|err| HeaderError::HeaderFile(err.into()))?
+				{
 					0 => Range::Full,
 					1 => {
-						let start = stream.read_u64_le().await.unwrap();
-						let end = stream.read_u64_le().await.unwrap();
+						let start = stream
+							.read_u64_le()
+							.await
+							.map_err(|err| HeaderError::HeaderFile(err.into()))?;
+						let end = stream
+							.read_u64_le()
+							.await
+							.map_err(|err| HeaderError::HeaderFile(err.into()))?;
 						Range::Partial(start..end)
 					}
-					_ => todo!(),
+					i => return Err(HeaderError::HeaderFileDiscriminatorInvalid(i)),
 				},
 			})),
 			d => Err(HeaderError::DiscriminatorInvalid(d)),
