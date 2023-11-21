@@ -44,7 +44,7 @@ export default () => {
 				<div
 					data-tauri-drag-region
 					className={clsx(
-						'w-full transition-[height] ease-linear motion-reduce:transition-none',
+						'w-full shrink-0 transition-[height] ease-linear motion-reduce:transition-none',
 						windowState.isFullScreen ? 'h-0 duration-100' : 'h-5 duration-75'
 					)}
 				/>

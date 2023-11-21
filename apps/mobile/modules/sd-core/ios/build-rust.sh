@@ -7,18 +7,18 @@ if [ "${CI:-}" = "true" ]; then
 fi
 
 if [ -z "${HOME:-}" ]; then
-  HOME="$(CDPATH='' cd -- "$(osascript -e 'set output to (POSIX path of (path to home folder))')" && pwd)"
+  HOME="$(CDPATH='' cd -- "$(osascript -e 'set output to (POSIX path of (path to home folder))')" && pwd -P)"
   export HOME
 fi
 
 echo "Building 'sd-mobile-ios' library..."
 
-__dirname="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
+__dirname="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)"
 
 # Ensure target dir exists
 TARGET_DIRECTORY="${__dirname}/../../../../../target"
 mkdir -p "$TARGET_DIRECTORY"
-TARGET_DIRECTORY="$(CDPATH='' cd -- "$TARGET_DIRECTORY" && pwd)"
+TARGET_DIRECTORY="$(CDPATH='' cd -- "$TARGET_DIRECTORY" && pwd -P)"
 
 if [ "${CONFIGURATION:-}" != "Debug" ]; then
   CARGO_FLAGS=--release
