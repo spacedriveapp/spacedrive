@@ -1,10 +1,10 @@
 import { ArrowClockwise, Info } from '@phosphor-icons/react';
 import { useCallback, useEffect, useMemo } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
 import {
 	arraysEqual,
 	ExplorerSettings,
-	FilePathFilterArgs,
 	FilePathOrder,
 	Location,
 	ObjectKindEnum,
@@ -30,6 +30,7 @@ import { useQuickRescan } from '~/hooks/useQuickRescan';
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
 import { usePathsInfiniteQuery } from '../Explorer/queries';
+import { useSearchFilters } from '../Explorer/Search/store';
 import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
@@ -40,35 +41,42 @@ import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import LocationOptions from './LocationOptions';
 
 export const Component = () => {
-	const rspc = useRspcLibraryContext();
-
 	const [{ path }] = useExplorerSearchParams();
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
+	const location = useLibraryQuery(['locations.get', locationId], {
+		keepPreviousData: true,
+		suspense: true
+	});
 
-	const location = useLibraryQuery(['locations.get', locationId]);
+	return <LocationExplorer path={path} location={location.data!} />;
+};
+
+const LocationExplorer = ({ location, path }: { location: Location; path?: string }) => {
+	const rspc = useRspcLibraryContext();
+
 	const onlineLocations = useOnlineLocations();
 
 	const rescan = useQuickRescan();
 
 	const locationOnline = useMemo(() => {
-		const pub_id = location.data?.pub_id;
+		const pub_id = location?.pub_id;
 		if (!pub_id) return false;
 		return onlineLocations.some((l) => arraysEqual(pub_id, l));
-	}, [location.data?.pub_id, onlineLocations]);
+	}, [location?.pub_id, onlineLocations]);
 
 	const preferences = useLibraryQuery(['preferences.get']);
 	const updatePreferences = useLibraryMutation('preferences.update');
 
-	const isLocationIndexing = useIsLocationIndexing(locationId);
+	const isLocationIndexing = useIsLocationIndexing(location.id);
 
 	const settings = useMemo(() => {
 		const defaults = createDefaultExplorerSettings<FilePathOrder>({
 			order: { field: 'name', value: 'Asc' }
 		});
 
-		if (!location.data) return defaults;
+		if (!location) return defaults;
 
-		const pubId = stringify(location.data.pub_id);
+		const pubId = stringify(location.pub_id);
 
 		const settings = preferences.data?.location?.[pubId]?.explorer;
 
@@ -79,34 +87,37 @@ export const Component = () => {
 		}
 
 		return defaults;
-	}, [location.data, preferences.data?.location]);
+	}, [location, preferences.data?.location]);
 
-	const onSettingsChanged = async (
-		settings: ExplorerSettings<FilePathOrder>,
-		location: Location
-	) => {
-		if (location.id === locationId && preferences.isLoading) return;
+	const onSettingsChanged = useDebouncedCallback(
+		async (settings: ExplorerSettings<FilePathOrder>) => {
+			if (preferences.isLoading) return;
 
-		const pubId = stringify(location.pub_id);
+			const pubId = stringify(location.pub_id);
 
-		try {
-			await updatePreferences.mutateAsync({
-				location: { [pubId]: { explorer: settings } }
-			});
-			rspc.queryClient.invalidateQueries(['preferences.get']);
-		} catch (e) {
-			alert('An error has occurred while updating your preferences.');
-		}
-	};
+			try {
+				await updatePreferences.mutateAsync({
+					location: { [pubId]: { explorer: settings } }
+				});
+				rspc.queryClient.invalidateQueries(['preferences.get']);
+			} catch (e) {
+				alert('An error has occurred while updating your preferences.');
+			}
+		},
+		500
+	);
 
 	const explorerSettings = useExplorerSettings({
 		settings,
 		onSettingsChanged,
 		orderingKeys: filePathOrderingKeysSchema,
-		location: location.data
+		location
 	});
 
-	const { items, count, loadMore, query } = useItems({ locationId, settings: explorerSettings });
+	const { items, count, loadMore, query } = useItems({
+		location,
+		settings: explorerSettings
+	});
 
 	const explorer = useExplorer({
 		items,
@@ -115,13 +126,13 @@ export const Component = () => {
 		isFetchingNextPage: query.isFetchingNextPage,
 		isLoadingPreferences: preferences.isLoading,
 		settings: explorerSettings,
-		...(location.data && {
-			parent: { type: 'Location', location: location.data }
+		...(location && {
+			parent: { type: 'Location', location }
 		})
 	});
 
 	useLibrarySubscription(
-		['locations.quickRescan', { sub_path: path ?? '', location_id: locationId }],
+		['locations.quickRescan', { sub_path: path ?? '', location_id: location.id }],
 		{ onData() {} }
 	);
 
@@ -133,12 +144,12 @@ export const Component = () => {
 
 	useEffect(() => explorer.scrollRef.current?.scrollTo({ top: 0 }), [explorer.scrollRef, path]);
 
-	useKeyDeleteFile(explorer.selectedItems, location.data?.id);
+	useKeyDeleteFile(explorer.selectedItems, location.id);
 
-	useShortcut('rescan', () => rescan(locationId));
+	useShortcut('rescan', () => rescan(location.id));
 
 	const title = useRouteTitle(
-		(path && path?.length > 1 ? getLastSectionOfPath(path) : location.data?.name) ?? ''
+		(path && path?.length > 1 ? getLastSectionOfPath(path) : location.name) ?? ''
 	);
 
 	return (
@@ -153,9 +164,7 @@ export const Component = () => {
 								<Info className="text-ink-faint" />
 							</Tooltip>
 						)}
-						{location.data && (
-							<LocationOptions location={location.data} path={path || ''} />
-						)}
+						<LocationOptions location={location} path={path || ''} />
 					</div>
 				}
 				right={
@@ -163,7 +172,7 @@ export const Component = () => {
 						options={[
 							{
 								toolTipLabel: 'Reload',
-								onClick: () => rescan(locationId),
+								onClick: () => rescan(location.id),
 								icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
 								individual: true,
 								showAtResolution: 'xl:flex'
@@ -172,16 +181,15 @@ export const Component = () => {
 					/>
 				}
 			/>
-
 			{isLocationIndexing ? (
 				<div className="flex h-full w-full items-center justify-center">
 					<Loader />
 				</div>
 			) : !preferences.isLoading ? (
 				<Explorer
+					showFilterBar
 					emptyNotice={
 						<EmptyNotice
-							loading={location.isFetching}
 							icon={<Icon name="FolderNoSpace" size={128} />}
 							message="No files found here"
 						/>
@@ -193,10 +201,10 @@ export const Component = () => {
 };
 
 const useItems = ({
-	locationId,
+	location,
 	settings
 }: {
-	locationId: number;
+	location: Location;
 	settings: UseExplorerSettings<FilePathOrder>;
 }) => {
 	const [{ path, take }] = useExplorerSearchParams();
@@ -205,23 +213,42 @@ const useItems = ({
 
 	const explorerSettings = settings.useSettingsSnapshot();
 
-	const filter: FilePathFilterArgs = { locationId, path: path ?? '' };
+	// useMemo lets us embrace immutability and use fixedFilters in useEffects!
+	const fixedFilters = useMemo(
+		() => [
+			{ filePath: { locations: { in: [location.id] } } },
+			...(explorerSettings.layoutMode === 'media'
+				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
+				: [])
+		],
+		[location.id, explorerSettings.layoutMode]
+	);
 
-	if (explorerSettings.layoutMode === 'media') {
-		filter.object = { kind: [ObjectKindEnum.Image, ObjectKindEnum.Video] };
+	const baseFilters = useSearchFilters('paths', fixedFilters);
 
-		if (explorerSettings.mediaViewWithDescendants) filter.withDescendants = true;
-	}
+	const filters = [...baseFilters];
 
-	if (!explorerSettings.showHiddenFiles) filter.hidden = false;
+	filters.push({
+		filePath: {
+			path: {
+				location_id: location.id,
+				path: path ?? '',
+				include_descendants:
+					explorerSettings.layoutMode === 'media' &&
+					explorerSettings.mediaViewWithDescendants
+			}
+		}
+	});
 
-	const count = useLibraryQuery(['search.pathsCount', { filter }]);
+	if (!explorerSettings.showHiddenFiles) filters.push({ filePath: { hidden: false } });
 
 	const query = usePathsInfiniteQuery({
-		arg: { filter, take },
+		arg: { filters, take },
 		library,
 		settings
 	});
+
+	const count = useLibraryQuery(['search.pathsCount', { filters }], { enabled: query.isSuccess });
 
 	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items) ?? null, [query.data]);
 

@@ -3,6 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import { memo, Suspense, useDeferredValue, useMemo } from 'react';
+import { useLocation } from 'react-router';
 import {
 	ExplorerItem,
 	getExplorerItemData,
@@ -228,7 +229,6 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 					</Tooltip>
 				}
 				right={<DefaultTopBarOptions />}
-				noSearch={true}
 			/>
 			<Explorer
 				emptyNotice={

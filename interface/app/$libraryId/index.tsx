@@ -1,4 +1,6 @@
 import type { RouteObject } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
+import { useHomeDir } from '~/hooks/useHomeDir';
 
 import settingsRoutes from './settings';
 
@@ -6,10 +8,6 @@ import settingsRoutes from './settings';
 const pageRoutes: RouteObject = {
 	lazy: () => import('./PageLayout'),
 	children: [
-		{
-			path: 'overview',
-			lazy: () => import('./overview')
-		},
 		{ path: 'people', lazy: () => import('./people') },
 		{ path: 'media', lazy: () => import('./media') },
 		{ path: 'spaces', lazy: () => import('./spaces') },
@@ -21,22 +19,35 @@ const pageRoutes: RouteObject = {
 // Routes that render the explorer and don't need padding and stuff
 // provided by PageLayout
 const explorerRoutes: RouteObject[] = [
+	{ path: 'ephemeral/:id', lazy: () => import('./ephemeral') },
 	{ path: 'location/:id', lazy: () => import('./location/$id') },
 	{ path: 'node/:id', lazy: () => import('./node/$id') },
 	{ path: 'tag/:id', lazy: () => import('./tag/$id') },
-	{ path: 'ephemeral/:id', lazy: () => import('./ephemeral') },
-	{ path: 'network/:id', lazy: () => import('./network') },
-	{ path: 'search', lazy: () => import('./search') }
+	{ path: 'network', lazy: () => import('./network') }
+	// { path: 'search/:id', lazy: () => import('./search') }
 ];
 
 // Routes that should render with the top bar - pretty much everything except
 // 404 and settings
 const topBarRoutes: RouteObject = {
 	lazy: () => import('./TopBar/Layout'),
-	children: [pageRoutes, ...explorerRoutes]
+	children: [...explorerRoutes, pageRoutes]
 };
 
 export default [
+	{
+		index: true,
+		Component: () => {
+			const homeDir = useHomeDir();
+
+			if (homeDir.data)
+				return (
+					<Navigate to={`ephemeral/0?${new URLSearchParams({ path: homeDir.data })}`} />
+				);
+
+			return <Navigate to="network" />;
+		}
+	},
 	topBarRoutes,
 	{
 		path: 'settings',

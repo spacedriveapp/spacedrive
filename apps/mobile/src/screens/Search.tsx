@@ -2,7 +2,7 @@ import { MagnifyingGlass } from 'phosphor-react-native';
 import { Suspense, useDeferredValue, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getExplorerItemData, useLibraryQuery } from '@sd/client';
+import { getExplorerItemData, SearchFilterArgs, useLibraryQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import { tw, twStyle } from '~/lib/tailwind';
 import { RootStackScreenProps } from '~/navigation';
@@ -18,14 +18,23 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 	const [search, setSearch] = useState('');
 	const deferredSearch = useDeferredValue(search);
 
+	const filters = useMemo(() => {
+		const [name, ext] = deferredSearch.split('.');
+
+		const filters: SearchFilterArgs[] = [];
+
+		if (name) filters.push({ filePath: { name: { contains: name } } });
+		if (ext) filters.push({ filePath: { extension: { in: [ext] } } });
+
+		return filters;
+	}, [deferredSearch]);
+
 	const query = useLibraryQuery(
 		[
 			'search.paths',
 			{
 				// ...args,
-				filter: {
-					search: deferredSearch
-				},
+				filters,
 				take: 100
 			}
 		],

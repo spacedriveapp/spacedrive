@@ -2,7 +2,7 @@ import { ArrowLeft, ArrowRight } from '@phosphor-icons/react';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Tooltip } from '@sd/ui';
-import { useKeyMatcher, useOperatingSystem, useSearchStore, useShortcut } from '~/hooks';
+import { useKeyMatcher, useOperatingSystem, useShortcut } from '~/hooks';
 import { useRoutingContext } from '~/RoutingContext';
 
 import TopBarButton from './TopBarButton';
@@ -11,14 +11,11 @@ export const NavigationButtons = () => {
 	const { currentIndex, maxIndex } = useRoutingContext();
 
 	const navigate = useNavigate();
-	const { isFocused } = useSearchStore();
 	const os = useOperatingSystem();
 	const { icon } = useKeyMatcher('Meta');
 
-	// console.log(history, location);
-
-	const canGoBack = currentIndex !== 0 && !isFocused;
-	const canGoForward = currentIndex !== maxIndex && !isFocused;
+	const canGoBack = currentIndex !== 0;
+	const canGoForward = currentIndex !== maxIndex;
 
 	useShortcut('navBackwardHistory', () => {
 		if (!canGoBack) return;
@@ -45,7 +42,7 @@ export const NavigationButtons = () => {
 		};
 		document.addEventListener('mousedown', onMouseDown);
 		return () => document.removeEventListener('mousedown', onMouseDown);
-	}, [navigate, isFocused, os, canGoBack, canGoForward]);
+	}, [navigate, os, canGoBack, canGoForward]);
 
 	return (
 		<div data-tauri-drag-region={os === 'macOS'} className="flex">

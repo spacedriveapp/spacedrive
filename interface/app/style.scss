@@ -377,3 +377,8 @@ body {
 		left: 100%;
 	}
 }
+
+.react-slidedown.search-options-slide {
+	transition-duration: 300ms;
+	transition-timing-function: cubic-bezier(0.85, 0, 0.15, 1);
+}

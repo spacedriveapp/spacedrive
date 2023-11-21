@@ -37,18 +37,16 @@ export function useObjectsInfiniteQuery({
 
 				if (!order) cursor = 'none';
 				else if (cItem) {
-					const direction = order.value;
-
 					switch (order.field) {
 						case 'kind': {
 							const data = cItem.item.kind;
-							if (data !== null) cursor = { kind: { order: direction, data } };
+							if (data !== null) cursor = { kind: { order: order.value, data } };
 							break;
 						}
 						case 'dateAccessed': {
 							const data = cItem.item.date_accessed;
 							if (data !== null)
-								cursor = { dateAccessed: { order: direction, data } };
+								cursor = { dateAccessed: { order: order.value, data } };
 							break;
 						}
 					}

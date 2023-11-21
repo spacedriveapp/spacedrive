@@ -10,14 +10,18 @@ import DismissibleNotice from './DismissibleNotice';
 import { Inspector, INSPECTOR_WIDTH } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
 import { getQuickPreviewStore } from './QuickPreview/store';
+import SearchOptions from './Search';
 import { getExplorerStore, useExplorerStore } from './store';
 import { useKeyRevealFinder } from './useKeyRevealFinder';
 import View, { EmptyNotice, ExplorerViewProps } from './View';
 import { ExplorerPath, PATH_BAR_HEIGHT } from './View/ExplorerPath';
 
+import 'react-slidedown/lib/slidedown.css';
+
 interface Props {
 	emptyNotice?: ExplorerViewProps['emptyNotice'];
 	contextMenu?: () => ReactNode;
+	showFilterBar?: boolean;
 }
 
 /**
@@ -100,7 +104,6 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 					</div>
 				</div>
 			</ExplorerContextMenu>
-
 			{showPathBar && <ExplorerPath />}
 
 			{explorerStore.showInspector && (

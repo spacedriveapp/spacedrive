@@ -19,7 +19,7 @@ export const selectStyles = cva(
 				default: ['bg-app-input', 'border-app-line']
 			},
 			size: {
-				sm: 'h-[30px]',
+				sm: 'h-[25px] text-xs font-normal',
 				md: 'h-[34px]',
 				lg: 'h-[38px]'
 			}

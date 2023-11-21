@@ -1,29 +1,39 @@
-import { createContext, Dispatch, SetStateAction, useContext, useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 import { Outlet } from 'react-router';
+import { SearchFilterArgs } from '@sd/client';
 
 import TopBar from '.';
+import { SearchContextProvider } from '../Explorer/Search/Context';
 
-interface TopBarContext {
-	left: HTMLDivElement | null;
-	right: HTMLDivElement | null;
-	setNoSearch: (value: boolean) => void;
-	topBarHeight: number;
-	setTopBarHeight: Dispatch<SetStateAction<number>>;
-}
+const TopBarContext = createContext<ReturnType<typeof useContextValue> | null>(null);
 
-const TopBarContext = createContext<TopBarContext | null>(null);
-
-export const Component = () => {
+function useContextValue() {
 	const [left, setLeft] = useState<HTMLDivElement | null>(null);
 	const [right, setRight] = useState<HTMLDivElement | null>(null);
-	const [noSearch, setNoSearch] = useState(false);
-
+	const [fixedArgs, setFixedArgs] = useState<SearchFilterArgs[] | null>(null);
 	const [topBarHeight, setTopBarHeight] = useState(0);
 
+	return {
+		left,
+		setLeft,
+		right,
+		setRight,
+		fixedArgs,
+		setFixedArgs,
+		topBarHeight,
+		setTopBarHeight
+	};
+}
+
+export const Component = () => {
+	const value = useContextValue();
+
 	return (
-		<TopBarContext.Provider value={{ left, right, setNoSearch, topBarHeight, setTopBarHeight }}>
-			<TopBar leftRef={setLeft} rightRef={setRight} noSearch={noSearch} />
-			<Outlet />
+		<TopBarContext.Provider value={value}>
+			<SearchContextProvider>
+				<TopBar />
+				<Outlet />
+			</SearchContextProvider>
 		</TopBarContext.Provider>
 	);
 };
