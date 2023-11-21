@@ -86,6 +86,7 @@ export type Procedures = {
         { key: "locations.subPathRescan", input: LibraryArgs<RescanArgs>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
         { key: "nodes.edit", input: ChangeNodeNameArgs, result: null } | 
+        { key: "nodes.updateThumbnailerPreferences", input: UpdateThumbnailerPreferences, result: null } | 
         { key: "notifications.test", input: never, result: null } | 
         { key: "notifications.testLibrary", input: LibraryArgs<null>, result: null } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
@@ -324,7 +325,9 @@ export type MediaLocation = { latitude: number; longitude: number; pluscode: Plu
 
 export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata)
 
-export type NodeState = ({ id: string; name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[] }) & { data_path: string; p2p: P2PStatus }
+export type NodePreferences = { thumbnailer: ThumbnailerPreferences }
+
+export type NodeState = ({ id: string; name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[]; preferences: NodePreferences }) & { data_path: string; p2p: P2PStatus }
 
 export type NonIndexedFileSystemEntries = { entries: ExplorerItem[]; errors: Error[] }
 
@@ -412,7 +415,7 @@ export type Response = { Start: { user_code: string; verification_url: string; v
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
-export type SanitisedNodeConfig = { id: string; name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[] }
+export type SanitisedNodeConfig = { id: string; name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[]; preferences: NodePreferences }
 
 export type SearchData<T> = { cursor: number[] | null; items: T[] }
 
@@ -441,6 +444,10 @@ export type TagCreateArgs = { name: string; color: string }
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
 
 export type Target = { Object: number } | { FilePath: number }
+
+export type ThumbnailerPreferences = { background_processing_percentage: number }
+
+export type UpdateThumbnailerPreferences = { background_processing_percentage: number }
 
 export type VideoMetadata = { duration: number | null; video_codec: string | null; audio_codec: string | null }
 

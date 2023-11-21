@@ -8,7 +8,7 @@ use crate::{
 };
 
 use sd_prisma::prisma::{file_path, PrismaClient};
-use serde_repr::{Serialize_repr, Deserialize_repr};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -29,7 +29,9 @@ use super::{
 	VERSION_FILE, WEBP_EXTENSION,
 };
 
-#[derive(IntEnum, Debug, Clone, Copy, Eq, PartialEq, strum::Display, Serialize_repr, Deserialize_repr)]
+#[derive(
+	IntEnum, Debug, Clone, Copy, Eq, PartialEq, strum::Display, Serialize_repr, Deserialize_repr,
+)]
 #[repr(u64)]
 pub enum ThumbnailVersion {
 	V1 = 1,

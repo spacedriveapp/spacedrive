@@ -1,7 +1,7 @@
 use crate::{
 	api::{notifications::Notification, BackendFeature},
 	auth::OAuthToken,
-	object::media::thumbnail::preferences::Preferences as ThumbnailerPreferences,
+	object::media::thumbnail::preferences::ThumbnailerPreferences,
 	util::{
 		error::FileIOError,
 		version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
@@ -19,6 +19,7 @@ use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use specta::Type;
 use thiserror::Error;
 use tokio::{
 	fs,
@@ -53,13 +54,13 @@ pub struct NodeConfig {
 	pub auth_token: Option<OAuthToken>,
 
 	/// The aggreagation of many different preferences for the node
-	pub preferences: Preferences,
+	pub preferences: NodePreferences,
 
 	version: NodeConfigVersion,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
-pub struct Preferences {
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, Type)]
+pub struct NodePreferences {
 	pub thumbnailer: ThumbnailerPreferences,
 }
 
@@ -98,7 +99,7 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 			features: vec![],
 			notifications: vec![],
 			auth_token: None,
-			preferences: Preferences::default(),
+			preferences: NodePreferences::default(),
 		})
 	}
 }
@@ -151,7 +152,10 @@ impl NodeConfig {
 							})?)
 							.map_err(VersionManagerError::SerdeJson)?;
 
-						config.insert(String::from("preferences"), json!(Preferences::default()));
+						config.insert(
+							String::from("preferences"),
+							json!(NodePreferences::default()),
+						);
 
 						let a =
 							serde_json::to_vec(&config).map_err(VersionManagerError::SerdeJson)?;
@@ -191,7 +195,7 @@ pub struct Manager {
 	config: RwLock<NodeConfig>,
 	data_directory_path: PathBuf,
 	config_file_path: PathBuf,
-	preferences_watcher_tx: watch::Sender<Preferences>,
+	preferences_watcher_tx: watch::Sender<NodePreferences>,
 }
 
 impl Manager {
@@ -221,7 +225,7 @@ impl Manager {
 	}
 
 	/// get a node config preferences watcher receiver
-	pub(crate) fn preferences_watcher(&self) -> watch::Receiver<Preferences> {
+	pub(crate) fn preferences_watcher(&self) -> watch::Receiver<NodePreferences> {
 		self.preferences_watcher_tx.subscribe()
 	}
 
@@ -256,7 +260,7 @@ impl Manager {
 	/// update_preferences allows the user to update the preferences of the node
 	pub(crate) async fn update_preferences(
 		&self,
-		update_fn: impl FnOnce(&mut Preferences),
+		update_fn: impl FnOnce(&mut NodePreferences),
 	) -> Result<(), NodeConfigError> {
 		let mut config = self.config.write().await;
 

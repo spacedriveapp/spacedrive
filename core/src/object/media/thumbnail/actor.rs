@@ -1,7 +1,7 @@
 use crate::{
 	api::CoreEvent,
 	library::{Libraries, LibraryId, LibraryManagerEvent},
-	node::config::Preferences,
+	node::config::NodePreferences,
 	util::error::{FileIOError, NonUtf8PathError},
 };
 
@@ -20,7 +20,7 @@ use tokio::{
 	sync::{broadcast, oneshot, watch, Mutex},
 	time::{sleep, Instant},
 };
-use tracing::{debug, error};
+use tracing::error;
 use uuid::Uuid;
 
 use super::{
@@ -31,7 +31,7 @@ use super::{
 	BatchToProcess, ThumbnailKind, ThumbnailerError, ONE_SEC, THUMBNAIL_CACHE_DIR_NAME,
 };
 
-static BATCH_SIZE: OnceCell<usize> = OnceCell::new();
+static AVAILABLE_PARALLELISM: OnceCell<usize> = OnceCell::new();
 
 #[derive(Error, Debug)]
 pub(super) enum ActorError {
@@ -75,7 +75,7 @@ impl Thumbnailer {
 		data_dir: PathBuf,
 		libraries_manager: Arc<Libraries>,
 		reporter: broadcast::Sender<CoreEvent>,
-		node_preferences: watch::Receiver<Preferences>,
+		node_preferences_rx: watch::Receiver<NodePreferences>,
 	) -> Self {
 		let thumbnails_directory = Arc::new(
 			init_thumbnail_dir(&data_dir, Arc::clone(&libraries_manager))
@@ -95,17 +95,13 @@ impl Thumbnailer {
 		let (cas_ids_to_delete_tx, cas_ids_to_delete_rx) = chan::bounded(16);
 		let (cancel_tx, cancel_rx) = chan::bounded(1);
 
-		BATCH_SIZE
+		AVAILABLE_PARALLELISM
 			.set(std::thread::available_parallelism().map_or_else(
 				|e| {
 					error!("Failed to get available parallelism: {e:#?}");
 					4
 				},
-				|non_zero| {
-					let count = non_zero.get();
-					debug!("Thumbnailer will process batches of {count} thumbnails in parallel.");
-					count
-				},
+				|non_zero| non_zero.get(),
 			))
 			.ok();
 
@@ -114,11 +110,11 @@ impl Thumbnailer {
 			let cancel_rx = cancel_rx.clone();
 			let thumbnails_directory = Arc::clone(&thumbnails_directory);
 			let reporter = reporter.clone();
-			let node_preferences = node_preferences.clone();
+			let node_preferences = node_preferences_rx.clone();
 
 			async move {
 				while let Err(e) = spawn(worker(
-					*BATCH_SIZE
+					*AVAILABLE_PARALLELISM
 						.get()
 						.expect("BATCH_SIZE is set at thumbnailer new method"),
 					node_preferences.clone(),

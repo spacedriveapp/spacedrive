@@ -1,10 +1,9 @@
-use crate::{api::CoreEvent, node::config::Preferences, util::error::FileIOError};
+use crate::{api::CoreEvent, util::error::FileIOError};
 
 use sd_file_ext::extensions::{DocumentExtension, ImageExtension};
 use sd_images::{format_image, scale_dimensions};
 use sd_media_metadata::image::Orientation;
 use sd_prisma::prisma::location;
-use tokio_stream::StreamExt;
 
 use std::{
 	collections::VecDeque,
@@ -21,17 +20,18 @@ use image::{self, imageops, DynamicImage, GenericImageView};
 use serde::{Deserialize, Serialize};
 use tokio::{
 	fs, io,
-	sync::{broadcast, oneshot, watch, Semaphore},
+	sync::{broadcast, oneshot, Semaphore},
 	task::{spawn, spawn_blocking},
 	time::timeout,
 };
-use tracing::{error, trace, warn};
+use tokio_stream::StreamExt;
+use tracing::{debug, error, trace, warn};
 use webp::Encoder;
 
 use super::{
 	can_generate_thumbnail_for_document, can_generate_thumbnail_for_image, get_thumb_key,
-	shard::get_shard_hex, ThumbnailKind, ThumbnailerError, EPHEMERAL_DIR, TARGET_PX,
-	TARGET_QUALITY, THIRTY_SECS, WEBP_EXTENSION,
+	preferences::ThumbnailerPreferences, shard::get_shard_hex, ThumbnailKind, ThumbnailerError,
+	EPHEMERAL_DIR, TARGET_PX, TARGET_QUALITY, THIRTY_SECS, WEBP_EXTENSION,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -99,24 +99,21 @@ pub(super) async fn batch_processor(
 	}: ProcessorControlChannels,
 	leftovers_tx: chan::Sender<(BatchToProcess, ThumbnailKind)>,
 	reporter: broadcast::Sender<CoreEvent>,
-	(available_parallelism, node_preferences): (usize, watch::Receiver<Preferences>),
+	(available_parallelism, thumbnailer_preferences): (usize, ThumbnailerPreferences),
 ) {
 	let in_parallel_count = if !in_background {
 		available_parallelism
 	} else {
 		usize::max(
 			// If the user sets the background processing percentage to 0, we still want to process at least sequentially
-			node_preferences
-				.borrow()
-				.thumbnailer
-				.background_processing_percentage() as usize
+			thumbnailer_preferences.background_processing_percentage() as usize
 				* available_parallelism
 				/ 100,
 			1,
 		)
 	};
 
-	trace!(
+	debug!(
 		"Processing thumbnails batch of kind {kind:?} with size {} in {}, \
 		at most {in_parallel_count} thumbnails at a time",
 		batch.len(),
@@ -151,16 +148,17 @@ pub(super) async fn batch_processor(
 		async {
 			let mut join_handles = Vec::with_capacity(batch_size);
 
-			while let Some(GenerateThumbnailArgs {
-				extension,
-				cas_id,
-				path,
-			}) = queue.pop_front()
-			{
+			while !queue.is_empty() {
 				let permit = Arc::clone(&semaphore)
 					.acquire_owned()
 					.await
 					.expect("this semaphore never closes");
+
+				let GenerateThumbnailArgs {
+					extension,
+					cas_id,
+					path,
+				} = queue.pop_front().expect("queue is not empty");
 
 				// As we got a permit, then there is available CPU to process this thumbnail
 				join_handles.push(spawn({
