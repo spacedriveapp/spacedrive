@@ -4,8 +4,12 @@ import { usePlatform } from '~/util/Platform';
 export function useHomeDir() {
 	const platform = usePlatform();
 
-	return useQuery(['userDirs', 'home'], () => {
-		if (platform.userHomeDir) return platform.userHomeDir();
-		else return null;
-	});
+	return useQuery(
+		['userDirs', 'home'],
+		() => {
+			if (platform.userHomeDir) return platform.userHomeDir();
+			else return null;
+		},
+		{ suspense: true }
+	);
 }

@@ -35,11 +35,7 @@ export const EphemeralSection = () => {
 
 	// this will return an array of location ids that are also volumes
 	// { "/Mount/Point": 1, "/Mount/Point2": 2"}
-	type LocationIdsMap = {
-		[key: string]: number;
-	};
-
-	const locationIdsForVolumes = useMemo<LocationIdsMap>(() => {
+	const locationIdsForVolumes = useMemo(() => {
 		if (!locations.data || !volumes.data) return {};
 
 		const volumePaths = volumes.data.map((volume) => volume.mount_points[0] ?? null);
@@ -48,12 +44,17 @@ export const EphemeralSection = () => {
 			volumePaths.includes(location.path)
 		);
 
-		const locationIdsMap = matchedLocations.reduce((acc, location) => {
-			if (location.path) {
-				acc[location.path] = location.id;
+		const locationIdsMap = matchedLocations.reduce(
+			(acc, location) => {
+				if (location.path) {
+					acc[location.path] = location.id;
+				}
+				return acc;
+			},
+			{} as {
+				[key: string]: number;
 			}
-			return acc;
-		}, {} as LocationIdsMap);
+		);
 
 		return locationIdsMap;
 	}, [locations.data, volumes.data]);
@@ -69,7 +70,7 @@ export const EphemeralSection = () => {
 	return (
 		<Section name="Local">
 			<SeeMore>
-				<SidebarLink className="group relative w-full" to="./network">
+				<SidebarLink className="group relative w-full" to="network">
 					<SidebarIcon name="Globe" />
 					<Name>Network</Name>
 				</SidebarLink>
