@@ -10,23 +10,24 @@ edition = { workspace = true }
 
 [dependencies]
 tauri = { version = "1.5.2", features = [
-	"dialog-all",
-	"linux-protocol-headers",
-	"macos-private-api",
-	"os-all",
-	"path-all",
-	"protocol-all",
-	"shell-all",
-	"updater",
-	"window-all",
-	"native-tls-vendored",
+  "dialog-all",
+  "linux-protocol-headers",
+  "macos-private-api",
+  "os-all",
+  "path-all",
+  "protocol-all",
+  "shell-all",
+  "updater",
+  "window-all",
+  "native-tls-vendored",
+  "devtools",
 ] }
 
 rspc = { workspace = true, features = ["tauri"] }
 sd-core = { path = "../../../core", features = [
-	"ffmpeg",
-	"location-watcher",
-	"heif",
+  "ffmpeg",
+  "location-watcher",
+  "heif",
 ] }
 sd-fda = { path = "../../../crates/fda" }
 tokio = { workspace = true, features = ["sync"] }
