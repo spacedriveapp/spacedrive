@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router';
 import { Button } from '@sd/ui';
 import { Icon } from '~/components';
 import { useOperatingSystem } from '~/hooks';
-import { useFdaState } from '~/hooks/useFdaState';
 import { usePlatform } from '~/util/Platform';
 
 import {

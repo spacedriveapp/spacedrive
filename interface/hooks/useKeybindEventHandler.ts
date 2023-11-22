@@ -2,13 +2,11 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 
 import { KeybindEvent } from '../util/keybind';
-import { getFdaState } from './useFdaState';
 import { getWindowState } from './useWindowState';
 
 export const useKeybindEventHandler = (libraryId?: string) => {
 	const navigate = useNavigate();
 	const windowState = getWindowState();
-	const fdaState = getFdaState();
 
 	useEffect(() => {
 		const handler = (e: KeybindEvent) => {
@@ -35,5 +33,5 @@ export const useKeybindEventHandler = (libraryId?: string) => {
 
 		document.addEventListener('keybindexec', handler);
 		return () => document.removeEventListener('keybindexec', handler);
-	}, [navigate, libraryId, windowState, fdaState]);
+	}, [navigate, libraryId, windowState]);
 };
