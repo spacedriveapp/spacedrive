@@ -16,8 +16,7 @@ export const Icon = ({ name, size, theme, ...props }: IconProps) => {
 	return (
 		<Image
 			{...props}
-			width={size}
-			height={size}
+			style={{ width: size, height: size }}
 			source={getIcon(name, theme ? theme === 'dark' : isDark)}
 		/>
 	);

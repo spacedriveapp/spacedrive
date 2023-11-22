@@ -1,6 +1,8 @@
 import { CompositeScreenProps } from '@react-navigation/native';
 import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
+import Header from '~/components/header/Header';
 import { tw } from '~/lib/tailwind';
+import BrowseScreen from '~/screens/Browse';
 
 import { SharedScreens, SharedScreensParamList } from '../SharedScreens';
 import { TabScreenProps } from '../TabNavigator';
@@ -18,11 +20,7 @@ export default function BrowseStack() {
 				headerBackTitleStyle: tw`text-base`
 			}}
 		>
-			{/* <Stack.Screen
-				name="Browse"
-				component={BrowseScreen}
-				options={{ header: Header }}
-			/> */}
+			<Stack.Screen name="Browse" component={BrowseScreen} options={{ header: Header }} />
 			{SharedScreens(Stack as any)}
 		</Stack.Navigator>
 	);
