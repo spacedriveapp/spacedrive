@@ -2,7 +2,7 @@
 name = "sd-desktop"
 version = "0.1.2"
 description = "The universal file manager."
-authors = ["Spacedrive Technology Inc."]
+authors = ["Spacedrive Technology Inc <support@spacedrive.com>"]
 default-run = "sd-desktop"
 license = { workspace = true }
 repository = { workspace = true }

@@ -36,6 +36,12 @@ const state = {
 			all: ['Alt', 'Control', 'KeyP']
 		}
 	},
+	showImageSlider: {
+		keys: {
+			macOS: ['Alt', 'Meta', 'KeyM'],
+			all: ['Alt', 'Control', 'KeyM']
+		}
+	},
 	showInspector: {
 		keys: {
 			macOS: ['Meta', 'KeyI'],
@@ -59,9 +65,14 @@ const state = {
 			all: ['Control', 'KeyI']
 		}
 	},
-	quickPreviewMoveBetweenItems: {
+	quickPreviewMoveBack: {
 		keys: {
-			all: ['ArrowLeft', 'ArrowRight']
+			all: ['ArrowLeft']
+		}
+	},
+	quickPreviewMoveForward: {
+		keys: {
+			all: ['ArrowRight']
 		}
 	},
 	revealNative: {
@@ -167,12 +178,12 @@ const state = {
 			all: ['Shift', 'Control', 'KeyT']
 		}
 	},
-	navToOverview: {
-		keys: {
-			macOS: ['Shift', 'Meta', 'KeyO'],
-			all: ['Shift', 'Control', 'KeyO']
-		}
-	},
+	// navToOverview: {
+	// 	keys: {
+	// 		macOS: ['Shift', 'Meta', 'KeyO'],
+	// 		all: ['Shift', 'Control', 'KeyO']
+	// 	}
+	// },
 	navExpObjects: {
 		keys: {
 			all: ['Control', 'ArrowRight']

@@ -38,8 +38,8 @@ pub enum FlashValue {
 
 impl FlashValue {
 	#[must_use]
-	pub fn new(value: u32) -> Option<Self> {
-		value.try_into().ok()
+	pub fn new(value: u32) -> Self {
+		value.into()
 	}
 }
 

@@ -8,7 +8,7 @@ export default (
 		onDoubleClick?: () => void;
 	}>
 ) => (
-	<div onDoubleClick={props.onDoubleClick} className="group mt-5">
+	<div onDoubleClick={props.onDoubleClick} className="group">
 		<div className="mb-1 flex items-center justify-between">
 			<CategoryHeading className="ml-1">{props.name}</CategoryHeading>
 			{props.actionArea && (

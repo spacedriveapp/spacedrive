@@ -52,6 +52,20 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			}
 		}
 	],
+	General: [
+		{
+			description: 'to perform general actions',
+			action: 'Create new tab',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, 'T']
+				},
+				all: {
+					value: [modifierSymbols.Control.Other, 'T']
+				}
+			}
+		}
+	],
 	Dialogs: [
 		{
 			description: 'To perform actions and operations',
@@ -172,6 +186,17 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 				},
 				all: {
 					value: [modifierSymbols.Alt.Other, modifierSymbols.Control.Other, 'p']
+				}
+			}
+		},
+		{
+			action: 'Show image slider',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Alt.macOS, modifierSymbols.Meta.macOS, 'm']
+				},
+				all: {
+					value: [modifierSymbols.Alt.Other, modifierSymbols.Control.Other, 'm']
 				}
 			}
 		},

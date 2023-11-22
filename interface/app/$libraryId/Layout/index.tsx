@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { Suspense, useEffect, useMemo, useRef } from 'react';
-import { Navigate, Outlet, useNavigate } from 'react-router-dom';
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
 	ClientContextProvider,
 	initPlausible,
@@ -31,49 +31,24 @@ const Layout = () => {
 	const { libraries, library } = useClientContext();
 	const os = useOperatingSystem();
 	const showControls = useShowControls();
-	const { platform } = usePlatform();
 	const windowState = useWindowState();
 
 	useKeybindEventHandler(library?.uuid);
 
-	const plausibleEvent = usePlausibleEvent();
-	const buildInfo = useBridgeQuery(['buildInfo']);
-
 	const layoutRef = useRef<HTMLDivElement>(null);
-
-	initPlausible({
-		platformType: platform === 'tauri' ? 'desktop' : 'web',
-		buildInfo: buildInfo?.data
-	});
-
-	const { rawPath } = useRootContext();
-
-	usePlausiblePageViewMonitor({ currentPath: rawPath });
-	usePlausiblePingMonitor({ currentPath: rawPath });
 
 	useRedirectToNewLocation();
 
-	useEffect(() => {
-		const interval = setInterval(() => {
-			plausibleEvent({
-				event: {
-					type: 'ping'
-				}
-			});
-		}, 270 * 1000);
-
-		return () => clearInterval(interval);
-	}, [plausibleEvent]);
-
 	const ctxValue = useMemo(() => ({ ref: layoutRef }), [layoutRef]);
 
+	usePlausible();
 	useUpdater();
 
 	if (library === null && libraries.data) {
 		const firstLibrary = libraries.data[0];
 
-		if (firstLibrary) return <Navigate to={`/${firstLibrary.uuid}/overview`} replace />;
-		else return <Navigate to="/" replace />;
+		if (firstLibrary) return <Navigate to={`/${firstLibrary.uuid}`} replace />;
+		else return <Navigate to="./" replace />;
 	}
 
 	return (
@@ -92,7 +67,6 @@ const Layout = () => {
 				onContextMenu={(e) => {
 					// TODO: allow this on some UI text at least / disable default browser context menu
 					e.preventDefault();
-					return false;
 				}}
 			>
 				<Sidebar />
@@ -145,4 +119,33 @@ function useUpdater() {
 		if (import.meta.env.PROD) updater.checkForUpdate();
 		alreadyChecked.current = true;
 	}, [updater, navigate]);
+}
+
+function usePlausible() {
+	const { platform } = usePlatform();
+	const buildInfo = useBridgeQuery(['buildInfo']);
+
+	initPlausible({
+		platformType: platform === 'tauri' ? 'desktop' : 'web',
+		buildInfo: buildInfo?.data
+	});
+
+	const { rawPath } = useRootContext();
+
+	usePlausiblePageViewMonitor({ currentPath: rawPath });
+	usePlausiblePingMonitor({ currentPath: rawPath });
+
+	const plausibleEvent = usePlausibleEvent();
+
+	useEffect(() => {
+		const interval = setInterval(() => {
+			plausibleEvent({
+				event: {
+					type: 'ping'
+				}
+			});
+		}, 270 * 1000);
+
+		return () => clearInterval(interval);
+	}, [plausibleEvent]);
 }

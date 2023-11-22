@@ -1,3 +1,4 @@
+import { X } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
@@ -10,12 +11,13 @@ import {
 } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
-import { Icon, SubtleButton } from '~/components';
+import { Folder, Icon, SubtleButton } from '~/components';
 
+import { useSavedSearches } from '../../Explorer/Search/SavedSearches';
 import SidebarLink from './Link';
 import LocationsContextMenu from './LocationsContextMenu';
 import Section from './Section';
-import SeeMore from './SeeMore';
+import { SeeMore } from './SeeMore';
 import TagsContextMenu from './TagsContextMenu';
 
 type SidebarGroup = {
@@ -51,6 +53,8 @@ export const LibrarySection = () => {
 		null
 	);
 
+	// const savedSearches = useSavedSearches();
+
 	useEffect(() => {
 		const outsideClick = () => {
 			document.addEventListener('click', () => {
@@ -65,6 +69,41 @@ export const LibrarySection = () => {
 
 	return (
 		<>
+			{/* {savedSearches.searches.length > 0 && (
+				<Section
+					name="Saved"
+					// actionArea={
+					// 	<Link to="settings/library/saved-searches">
+					// 		<SubtleButton />
+					// 	</Link>
+					// }
+				>
+					<SeeMore
+						items={savedSearches.searches}
+						renderItem={(search) => (
+							<SidebarLink
+								className="group/button relative w-full"
+								to={`search/${search.id}`}
+								key={search.id}
+							>
+								<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">
+									<Folder size={18} />
+								</div>
+
+								<span className="truncate">{search.name}</span>
+								<Button
+									className="absolute right-[2px] top-[2px] hidden rounded-full shadow group-hover/button:block"
+									size="icon"
+									variant="subtle"
+									onClick={() => savedSearches.removeSearch(search.id)}
+								>
+									<X weight="bold" className="text-ink-dull/50" />
+								</Button>
+							</SidebarLink>
+						)}
+					/>
+				</Section>
+			)} */}
 			<Section
 				name="Devices"
 				actionArea={
@@ -103,9 +142,8 @@ export const LibrarySection = () => {
 					</Link>
 				}
 			>
-				<SeeMore
-					items={locationsQuery.data || []}
-					renderItem={(location, index) => (
+				<SeeMore>
+					{locationsQuery.data?.map((location) => (
 						<LocationsContextMenu key={location.id} locationId={location.id}>
 							<SidebarLink
 								onContextMenu={() =>
@@ -140,8 +178,8 @@ export const LibrarySection = () => {
 								<span className="truncate">{location.name}</span>
 							</SidebarLink>
 						</LocationsContextMenu>
-					)}
-				/>
+					))}
+				</SeeMore>
 				<AddLocationButton className="mt-1" />
 			</Section>
 			{!!tags.data?.length && (
@@ -153,9 +191,8 @@ export const LibrarySection = () => {
 						</NavLink>
 					}
 				>
-					<SeeMore
-						items={tags.data}
-						renderItem={(tag, index) => (
+					<SeeMore>
+						{tags.data?.map((tag, index) => (
 							<TagsContextMenu tagId={tag.id} key={tag.id}>
 								<SidebarLink
 									onContextMenu={() =>
@@ -180,8 +217,8 @@ export const LibrarySection = () => {
 									<span className="ml-1.5 truncate text-sm">{tag.name}</span>
 								</SidebarLink>
 							</TagsContextMenu>
-						)}
-					/>
+						))}
+					</SeeMore>
 				</Section>
 			)}
 		</>

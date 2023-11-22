@@ -9,9 +9,7 @@ export default function TagScreen({ navigation, route }: SharedScreenProps<'Tag'
 	const search = useLibraryQuery([
 		'search.objects',
 		{
-			filter: {
-				tags: [id]
-			},
+			filters: [{ object: { tags: { in: [id] } } }],
 			take: 100
 		}
 	]);

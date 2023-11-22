@@ -188,13 +188,13 @@ export const filePathOrderingKeysSchema = z.union([
 	z.literal('dateIndexed').describe('Date Indexed'),
 	z.literal('dateCreated').describe('Date Created'),
 	z.literal('object.dateAccessed').describe('Date Accessed'),
-	z.literal('object.dateImageTaken').describe('Date Taken')
+	z.literal('object.mediaData.epochTime').describe('Date Taken')
 ]);
 
 export const objectOrderingKeysSchema = z.union([
 	z.literal('dateAccessed').describe('Date Accessed'),
 	z.literal('kind').describe('Kind'),
-	z.literal('dateImageTaken').describe('Date Taken')
+	z.literal('mediaData.epochTime').describe('Date Taken')
 ]);
 
 export const nonIndexedPathOrderingSchema = z.union([

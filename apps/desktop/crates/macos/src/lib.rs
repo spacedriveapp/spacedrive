@@ -1,10 +1,7 @@
-#![cfg(target_os = "macos")]
-
 use swift_rs::{swift, Bool, Int, SRData, SRObjectArray, SRString};
 
 pub type NSObject = *mut std::ffi::c_void;
 
-#[allow(dead_code)]
 pub enum AppThemeType {
 	Light = 0 as Int,
 	Dark = 1 as Int,
