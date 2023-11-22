@@ -15,19 +15,22 @@ import { useOperatingSystem } from '~/hooks';
 
 import { OperatingSystem, Platform, usePlatform } from '..';
 
-const checkForFda = async (platform: Platform) => {
-	return await platform.hasFda?.();
-};
-
 const Index = () => {
 	const platform = usePlatform();
 	const libraries = useCachedLibraries();
 	const os = useOperatingSystem();
 	const navigate = useNavigate();
 
-	useQuery(['hasFda'], async () => {
-		if (os === 'macOS' && (await checkForFda(platform)) === false) navigate('/full-disk');
-	});
+	alert(
+		useQuery(['hasFda'], async () => {
+			console.log(await platform.hasFda?.());
+			if (os === 'macOS' && (await platform.hasFda?.()) === false) {
+				return navigate('/full-disk');
+			} else {
+				return null;
+			}
+		})
+	);
 
 	if (libraries.status !== 'success') return null;
 
