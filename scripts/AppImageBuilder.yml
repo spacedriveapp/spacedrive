@@ -5,7 +5,6 @@ version: 1
 
 script: |
   set -eu
-  command -v mksquashfs >/dev/null 2>&1 || { apt-get update && apt-get install -yq squashfs-tools; }
   # Clean up directories created by the recipe
   rm "$TARGET_APPDIR" -rf || true
   rm "$REPO_DIR" -rf || true
@@ -14,7 +13,6 @@ script: |
   mkdir -p "$REPO_DIR"
   _deb="$(find "${TARGET_APPIMAGE_DIR}/../deb" -type f -name '*.deb' | sort -t '_' -k '2,2' -V | tail -n 1)"
   cp -f "$_deb" "$REPO_DIR"
-  command -v apt-ftparchive >/dev/null 2>&1 || { apt-get update && apt-get install -yq apt-utils; }
   CWD="$PWD" && cd "$REPO_DIR" && apt-ftparchive packages . > Packages && cd "$CWD"
   # The following two commands are a workaround for the local APT package not
   # being saved to the archives directory, as expected by appimage-builder
@@ -35,13 +33,13 @@ AppDir:
   apt:
     arch: !ENV ${TARGET_APPIMAGE_APT_ARCH}
     sources:
-      - sourceline: !ENV 'deb [arch=${TARGET_APPIMAGE_APT_ARCH}] http://deb.debian.org/debian bookworm main'
-        key_url: 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x1f89983e0081fde018f3cc9673a4f27b8dd47936'
-      - sourceline: !ENV 'deb [arch=${TARGET_APPIMAGE_APT_ARCH}] http://security.debian.org/debian-security bookworm-security main'
-        key_url: 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x1f89983e0081fde018f3cc9673a4f27b8dd47936'
-      - sourceline: !ENV 'deb [arch=${TARGET_APPIMAGE_APT_ARCH}] http://deb.debian.org/debian bookworm-updates main'
-        key_url: 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xac530d520f2f3269f5e98313a48449044aad5c5d'
-      - sourceline: !ENV 'deb [trusted=yes] file:${REPO_DIR}/ ./'
+      - sourceline: !ENV "deb [arch=${TARGET_APPIMAGE_APT_ARCH}] http://deb.debian.org/debian bookworm main"
+        key_url: "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x1f89983e0081fde018f3cc9673a4f27b8dd47936"
+      - sourceline: !ENV "deb [arch=${TARGET_APPIMAGE_APT_ARCH}] http://security.debian.org/debian-security bookworm-security main"
+        key_url: "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x1f89983e0081fde018f3cc9673a4f27b8dd47936"
+      - sourceline: !ENV "deb [arch=${TARGET_APPIMAGE_APT_ARCH}] http://deb.debian.org/debian bookworm-updates main"
+        key_url: "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xac530d520f2f3269f5e98313a48449044aad5c5d"
+      - sourceline: !ENV "deb [trusted=yes] file:${REPO_DIR}/ ./"
 
     include:
       - spacedrive
@@ -50,6 +48,9 @@ AppDir:
       - gstreamer1.0-pipewire
       # This package is necessary to avoid this: https://github.com/AppImageCrafters/appimage-builder/pull/191
       - shared-mime-info
+      # Required by libwebkit2gtkinjectedbundle.so
+      - libselinux1
+      - libbz2-1.0
 
     exclude:
       - systemd
@@ -65,7 +66,6 @@ AppDir:
       - readline-common
       - libpam-modules
       - avahi-daemon
-      - bubblewrap
       - adwaita-icon-theme
       - humanity-icon-theme
       - sensible-utils
@@ -123,18 +123,18 @@ AppDir:
       - usr/bin/[!s]*
       - usr/bin/s[!p]*
       - usr/bin/sp[!a]*
+      - usr/bin/spa[!c]*
+      - usr/bin/spac[!e]*
       - sbin
       - bin
 
   # Incorporate Tauri patch to relocate hardcoded system WebKitGTK binary paths to the AppDir:
   # https://github.com/tauri-apps/linuxdeploy-plugin-gtk/blob/c017fa2962008635d201889a721373077dd299e4/linuxdeploy-plugin-gtk.sh#L325-L326
-  # /usr/lib/x86_64-linux-gnu/webkit2gtk-4.0/WebKitNetworkProcess
-  # .././lib/x86_64-linux-gnu/webkit2gtk-4.0/WebKitNetworkProcess
-  # ../../usr/lib/x86_64-linux-gnu/webkit2gtk-4.0/WebKitNetworkProcess
-  after_runtime: |
-    set -eu
-    ln -sf ../usr/lib "${TARGET_APPDIR}/runtime/lib"
-    find "$TARGET_APPDIR"/usr/lib* -name 'libwebkit*' -exec sed -i -e "s|/usr/lib|.././lib|g" '{}' \;
+  after_bundle: |
+    find "${TARGET_APPDIR}/usr/lib/x86_64-linux-gnu" -type f -name 'libwebkit2gtkinjectedbundle.so' -exec mv '{}' "${TARGET_APPDIR}/usr/lib/x86_64-linux-gnu" \;
+    find "${TARGET_APPDIR}/usr/lib/x86_64-linux-gnu" -type f -name 'libwebkit2gtk-4.0.so*' -exec sed -i -e "s|/usr/lib/x86_64-linux-gnu/webkit2gtk-4.0/injected-bundle|../.././././././././././././././usr/lib/x86_64-linux-gnu|g" '{}' \;
+    find "${TARGET_APPDIR}/usr/lib/x86_64-linux-gnu/webkit2gtk-4.0" -type f -executable -exec mv '{}' "${TARGET_APPDIR}/usr/bin" \;
+    find "${TARGET_APPDIR}/usr/lib/x86_64-linux-gnu" -type f -name 'libwebkit2gtk-4.0.so*' -exec sed -i -e "s|/usr/lib/x86_64-linux-gnu/webkit2gtk-4.0|../.././././././././././././././usr/bin/|g" '{}' \;
 
   # Tests don't work due to Tauri security checks we can't work around:
   # https://github.com/tauri-apps/tauri/blob/35264b4c1801b381e0b867c1c35540f0fbb43365/core/tauri-utils/src/lib.rs#L202

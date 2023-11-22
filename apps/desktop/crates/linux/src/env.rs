@@ -175,6 +175,24 @@ pub fn normalize_environment() {
 		],
 	)
 	.expect("PATH must be successfully normalized");
+
+	if is_appimage() {
+		// Workaround for https://github.com/AppImageCrafters/appimage-builder/issues/175
+		env::set_current_dir(
+			env::current_exe()
+				.unwrap_or_else(|_| {
+					PathBuf::from(
+						env::args()
+							.next()
+							.expect("Failed to get current executable path"),
+					)
+				})
+				.parent()
+				.expect("Failed to get current executable parent path")
+				.join("../../runtime/default"),
+		)
+		.expect("Failed to set current directory");
+	}
 }
 
 pub(crate) fn remove_prefix_from_pathlist(
