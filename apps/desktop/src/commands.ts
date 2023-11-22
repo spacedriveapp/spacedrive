@@ -30,10 +30,6 @@ export function reloadWebview() {
     return invoke()<null>("reload_webview")
 }
 
-export function checkForFda() {
-    return invoke()<null>("check_for_fda")
-}
-
 export function setMenuBarItemState(id: string, enabled: boolean) {
     return invoke()<null>("set_menu_bar_item_state", { id,enabled })
 }

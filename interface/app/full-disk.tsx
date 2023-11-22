@@ -7,29 +7,16 @@ import { useOperatingSystem } from '~/hooks';
 import { useFdaState } from '~/hooks/useFdaState';
 import { usePlatform } from '~/util/Platform';
 
-import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './components';
+import {
+	OnboardingContainer,
+	OnboardingDescription,
+	OnboardingTitle
+} from './onboarding/components';
 
-export default function OnboardingFullDisk() {
-	const { requestFdaMacos, hasFda, checkForFda } = usePlatform();
-	const f = useFdaState();
-	const [hasFdaMacos, setHasFdaMacos] = useState(false);
-	const os = useOperatingSystem();
+export const Component = () => {
+	const { requestFdaMacos } = usePlatform();
 	const [showVideo, setShowVideo] = useState(false);
 	const navigate = useNavigate();
-
-	useEffect(() => {
-		if (os !== 'macOS') return;
-		const interval = setInterval(async () => {
-			const fda = await checkForFda?.();
-			console.log(fda, 'fda');
-			if (fda) {
-				setHasFdaMacos(fda);
-			}
-		}, 500);
-		return () => {
-			clearInterval(interval);
-		};
-	}, [os, f.fda, checkForFda]);
 
 	return (
 		<OnboardingContainer>
@@ -56,7 +43,7 @@ export default function OnboardingFullDisk() {
 				</div>
 			)}
 			<div className="flex gap-3">
-				<Button
+				{/* <Button
 					onClick={() => {
 						navigate('../locations', { replace: true });
 					}}
@@ -66,7 +53,7 @@ export default function OnboardingFullDisk() {
 					className="mt-8"
 				>
 					Continue
-				</Button>
+				</Button> */}
 				{showVideo && (
 					<Button
 						onClick={() => setShowVideo((t) => !t)}
@@ -80,4 +67,4 @@ export default function OnboardingFullDisk() {
 			</div>
 		</OnboardingContainer>
 	);
-}
+};

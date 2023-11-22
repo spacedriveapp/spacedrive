@@ -20,7 +20,7 @@ export default function OnboardingNewLibrary() {
 		<Form
 			form={form}
 			onSubmit={form.handleSubmit(() => {
-				navigate('../full-disk', { replace: true });
+				navigate('../locations', { replace: true });
 			})}
 		>
 			<OnboardingContainer>

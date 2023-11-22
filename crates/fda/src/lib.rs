@@ -31,15 +31,14 @@ use error::Result;
 use std::{fs, path::PathBuf};
 
 pub struct DiskAccess;
-const RESTRICTED_PATHS: [&str; 3] = ["Library", "Library/Mail", "Library/Safari"];
+const RESTRICTED_PATHS: [&str; 4] = [
+	"Library",
+	"Library/Mail",
+	"Library/Safari",
+	"Library/Application Support",
+];
 
 impl DiskAccess {
-	/// This checks if a path is writeable or not. If not, it is read-only.
-	#[must_use]
-	pub fn is_path_writeable(path: PathBuf) -> bool {
-		!fs::metadata(path).map_or(false, |md| !md.permissions().readonly())
-	}
-
 	/// This function checks if a path is readable, or at least exists.
 	#[must_use]
 	pub fn is_path_readable(path: PathBuf) -> bool {
@@ -50,27 +49,19 @@ impl DiskAccess {
 	///
 	/// It returns `true` on all non-MacOS systems as permissions aren't something we need to worry about there just yet.
 	#[must_use]
-	fn can_read_library_dirs() -> bool {
+	pub fn has_fda() -> bool {
 		#[cfg(target_os = "macos")]
 		{
 			home_dir().map_or(false, |home| {
 				RESTRICTED_PATHS
 					.into_iter()
-					.all(|p| fs::read_dir(home.join(p)).is_ok())
+					.all(|p| Self::is_path_readable(home.join(p)))
 			})
 		}
 		#[cfg(not(target_os = "macos"))]
 		{
 			true
 		}
-	}
-
-	/// This function is a no-op on non-MacOS systems.
-	///
-	/// This checks if we have full disk access available on `MacOS` or not.
-	#[must_use]
-	pub fn has_fda() -> bool {
-		Self::can_read_library_dirs()
 	}
 
 	/// This function is a no-op on non-MacOS systems.
@@ -103,6 +94,7 @@ mod tests {
 		DiskAccess::request_fda().unwrap();
 	}
 
+	// Probably won't be too useful as FDA only really affects prod builds
 	#[test]
 	fn has_fda() {
 		assert!(DiskAccess::has_fda());

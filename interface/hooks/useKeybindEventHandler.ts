@@ -30,12 +30,6 @@ export const useKeybindEventHandler = (libraryId?: string) => {
 				case 'window_not_fullscreened':
 					windowState.isFullScreen = false;
 					break;
-				case 'fda_enabled':
-					fdaState.fda = true;
-					break;
-				case 'fda_disabled':
-					fdaState.fda = false;
-					break;
 			}
 		};
 

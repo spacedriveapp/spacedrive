@@ -5,7 +5,6 @@ import { OperatingSystem } from '~/util/Platform';
 import Alpha from './alpha';
 import { useOnboardingContext } from './context';
 import CreatingLibrary from './creating-library';
-import FullDisk from './full-disk';
 import Locations from './locations';
 import NewLibrary from './new-library';
 import Privacy from './privacy';
@@ -25,7 +24,6 @@ const onboardingRoutes = (os: OperatingSystem) => {
 		{ index: true, element: <Index /> },
 		{ path: 'alpha', element: <Alpha /> },
 		{ path: 'new-library', element: <NewLibrary /> },
-		...(os === 'macOS' ? [{ element: <FullDisk />, path: 'full-disk' }] : []),
 		{ path: 'locations', element: <Locations /> },
 		{ path: 'privacy', element: <Privacy /> },
 		{ path: 'creating-library', element: <CreatingLibrary /> }

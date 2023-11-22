@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { Navigate, Outlet, useMatches, type RouteObject } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Navigate, Outlet, useMatches, useNavigate, type RouteObject } from 'react-router-dom';
 import { currentLibraryCache, useCachedLibraries } from '@sd/client';
 import { Dialogs, Toaster } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
@@ -10,13 +10,24 @@ import { RootContext } from './RootContext';
 
 import './style.scss';
 
+import { useQuery } from '@tanstack/react-query';
 import { useOperatingSystem } from '~/hooks';
 
-import { OperatingSystem } from '..';
-import FdaDialog from './$libraryId/location/FdaDialog';
+import { OperatingSystem, Platform, usePlatform } from '..';
+
+const checkForFda = async (platform: Platform) => {
+	return await platform.hasFda?.();
+};
 
 const Index = () => {
+	const platform = usePlatform();
 	const libraries = useCachedLibraries();
+	const os = useOperatingSystem();
+	const navigate = useNavigate();
+
+	useQuery(['hasFda'], async () => {
+		if (os === 'macOS' && (await checkForFda(platform)) === false) navigate('/full-disk');
+	});
 
 	if (libraries.status !== 'success') return null;
 
@@ -36,7 +47,6 @@ const Wrapper = () => {
 		<RootContext.Provider value={{ rawPath }}>
 			<Outlet />
 			<Dialogs />
-			<FdaDialog />
 			<Toaster position="bottom-right" expand={true} />
 		</RootContext.Provider>
 	);
@@ -55,6 +65,10 @@ export const routes = (os: OperatingSystem) => {
 				{
 					index: true,
 					element: <Index />
+				},
+				{
+					path: 'full-disk',
+					lazy: () => import('./full-disk')
 				},
 				{
 					path: 'onboarding',
