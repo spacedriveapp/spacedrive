@@ -3,16 +3,16 @@ import { createStackNavigator, StackScreenProps } from '@react-navigation/stack'
 import Header from '~/components/header/Header';
 import { tw } from '~/lib/tailwind';
 
-import SpacesScreen from '../../screens/Spaces';
+import NetworkScreen from '../../screens/Network';
 import { SharedScreens, SharedScreensParamList } from '../SharedScreens';
 import { TabScreenProps } from '../TabNavigator';
 
-const Stack = createStackNavigator<SpacesStackParamList>();
+const Stack = createStackNavigator<NetworkStackParamList>();
 
-export default function SpacesStack() {
+export default function NetworkStack() {
 	return (
 		<Stack.Navigator
-			initialRouteName="Spaces"
+			initialRouteName="Network"
 			screenOptions={{
 				headerStyle: { backgroundColor: tw.color('app-box') },
 				headerTintColor: tw.color('ink'),
@@ -20,18 +20,18 @@ export default function SpacesStack() {
 				headerBackTitleStyle: tw`text-base`
 			}}
 		>
-			<Stack.Screen name="Spaces" component={SpacesScreen} options={{ header: Header }} />
+			<Stack.Screen name="Network" component={NetworkScreen} options={{ header: Header }} />
 			{SharedScreens(Stack as any)}
 		</Stack.Navigator>
 	);
 }
 
-export type SpacesStackParamList = {
-	Spaces: undefined;
+export type NetworkStackParamList = {
+	Network: undefined;
 } & SharedScreensParamList;
 
-export type SpacesStackScreenProps<Screen extends keyof SpacesStackParamList> =
+export type NetworkStackScreenProps<Screen extends keyof NetworkStackParamList> =
 	CompositeScreenProps<
-		StackScreenProps<SpacesStackParamList, Screen>,
-		TabScreenProps<'SpacesStack'>
+		StackScreenProps<NetworkStackParamList, Screen>,
+		TabScreenProps<'NetworkStack'>
 	>;
