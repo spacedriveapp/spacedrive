@@ -20,7 +20,7 @@ use tokio::{
 	sync::{broadcast, oneshot, watch, Mutex},
 	time::{sleep, Instant},
 };
-use tracing::error;
+use tracing::{error, trace};
 use uuid::Uuid;
 
 use super::{
@@ -209,10 +209,14 @@ impl Thumbnailer {
 
 	#[inline]
 	async fn new_batch(&self, batch: BatchToProcess, kind: ThumbnailKind) {
-		self.thumbnails_to_generate_tx
-			.send((batch, kind))
-			.await
-			.expect("critical thumbnailer error: failed to send new batch");
+		if !batch.batch.is_empty() {
+			self.thumbnails_to_generate_tx
+				.send((batch, kind))
+				.await
+				.expect("critical thumbnailer error: failed to send new batch");
+		} else {
+			trace!("Empty batch received, skipping...");
+		}
 	}
 
 	#[inline]
