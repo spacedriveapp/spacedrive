@@ -35,6 +35,8 @@ export type Procedures = {
         { key: "search.objectsCount", input: LibraryArgs<{ filters?: SearchFilterArgs[] }>, result: number } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.pathsCount", input: LibraryArgs<{ filters?: SearchFilterArgs[] }>, result: number } | 
+        { key: "search.saved.get", input: LibraryArgs<number>, result: SavedSearch | null } | 
+        { key: "search.saved.list", input: LibraryArgs<null>, result: SavedSearch[] } | 
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
         { key: "tags.getForObject", input: LibraryArgs<number>, result: Tag[] } | 
@@ -93,6 +95,9 @@ export type Procedures = {
         { key: "p2p.pairingResponse", input: [number, PairingDecision], result: null } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: string } | 
         { key: "preferences.update", input: LibraryArgs<LibraryPreferences>, result: null } | 
+        { key: "search.saved.create", input: LibraryArgs<{ name: string; search?: string | null; filters?: string | null; description?: string | null; icon?: string | null }>, result: null } | 
+        { key: "search.saved.delete", input: LibraryArgs<number>, result: null } | 
+        { key: "search.saved.update", input: LibraryArgs<[number, Args]>, result: null } | 
         { key: "tags.assign", input: LibraryArgs<{ targets: Target[]; tag_id: number; unassign: boolean }>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
@@ -109,6 +114,8 @@ export type Procedures = {
         { key: "p2p.events", input: never, result: P2PEvent } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
+
+export type Args = { filters?: string | null; name?: string | null; icon?: string | null; description?: string | null }
 
 export type AudioMetadata = { duration: number | null; audio_codec: string | null }
 
@@ -407,6 +414,8 @@ export type Response = { Start: { user_code: string; verification_url: string; v
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
 export type SanitisedNodeConfig = { id: string; name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[] }
+
+export type SavedSearch = { id: number; pub_id: number[]; search: string | null; filters: string | null; name: string | null; icon: string | null; description: string | null; date_created: string | null; date_modified: string | null }
 
 export type SearchData<T> = { cursor: number[] | null; items: T[] }
 

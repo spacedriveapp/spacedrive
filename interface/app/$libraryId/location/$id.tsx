@@ -1,5 +1,5 @@
 import { ArrowClockwise, Info } from '@phosphor-icons/react';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
 import {
@@ -8,7 +8,6 @@ import {
 	FilePathOrder,
 	Location,
 	ObjectKindEnum,
-	useLibraryContext,
 	useLibraryMutation,
 	useLibraryQuery,
 	useLibrarySubscription,
@@ -29,29 +28,30 @@ import { useQuickRescan } from '~/hooks/useQuickRescan';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { usePathsInfiniteQuery } from '../Explorer/queries';
-import { useSearchFilters } from '../Explorer/Search/store';
+import { usePathsExplorerQuery } from '../Explorer/queries';
 import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
-import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
+import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { useExplorerSearchParams } from '../Explorer/util';
 import { EmptyNotice } from '../Explorer/View';
+import SearchOptions, { SearchContext, useSearch } from '../Search';
+import SearchBar from '../Search/SearchBar';
 import { TopBarPortal } from '../TopBar/Portal';
 import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import LocationOptions from './LocationOptions';
 
 export const Component = () => {
-	const [{ path }] = useExplorerSearchParams();
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
 	const location = useLibraryQuery(['locations.get', locationId], {
 		keepPreviousData: true,
 		suspense: true
 	});
 
-	return <LocationExplorer path={path} location={location.data!} />;
+	return <LocationExplorer location={location.data!} />;
 };
 
-const LocationExplorer = ({ location, path }: { location: Location; path?: string }) => {
+const LocationExplorer = ({ location }: { location: Location; path?: string }) => {
+	const [{ path, take }] = useExplorerSearchParams();
 	const rspc = useRspcLibraryContext();
 
 	const onlineLocations = useOnlineLocations();
@@ -59,15 +59,13 @@ const LocationExplorer = ({ location, path }: { location: Location; path?: strin
 	const rescan = useQuickRescan();
 
 	const locationOnline = useMemo(() => {
-		const pub_id = location?.pub_id;
+		const pub_id = location.pub_id;
 		if (!pub_id) return false;
 		return onlineLocations.some((l) => arraysEqual(pub_id, l));
-	}, [location?.pub_id, onlineLocations]);
+	}, [location.pub_id, onlineLocations]);
 
 	const preferences = useLibraryQuery(['preferences.get']);
 	const updatePreferences = useLibraryMutation('preferences.update');
-
-	const isLocationIndexing = useIsLocationIndexing(location.id);
 
 	const settings = useMemo(() => {
 		const defaults = createDefaultExplorerSettings<FilePathOrder>({
@@ -114,21 +112,49 @@ const LocationExplorer = ({ location, path }: { location: Location; path?: strin
 		location
 	});
 
-	const { items, count, loadMore, query } = useItems({
-		location,
-		settings: explorerSettings
+	const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
+
+	const fixedFilters = useMemo(
+		() => [
+			{ filePath: { locations: { in: [location.id] } } },
+			...(explorerSettingsSnapshot.layoutMode === 'media'
+				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
+				: [])
+		],
+		[location.id, explorerSettingsSnapshot.layoutMode]
+	);
+
+	const search = useSearch({ fixedFilters });
+
+	const { layoutMode, mediaViewWithDescendants, showHiddenFiles } =
+		explorerSettings.useSettingsSnapshot();
+
+	const paths = usePathsExplorerQuery({
+		arg: {
+			filters: [
+				...search.allFilters,
+				{
+					filePath: {
+						path: {
+							location_id: location.id,
+							path: path ?? '',
+							include_descendants: layoutMode === 'media' && mediaViewWithDescendants
+						}
+					}
+				},
+				!showHiddenFiles && { filePath: { hidden: false } }
+			].filter(Boolean) as any,
+			take
+		},
+		explorerSettings
 	});
 
 	const explorer = useExplorer({
-		items,
-		count,
-		loadMore,
-		isFetchingNextPage: query.isFetchingNextPage,
+		...paths,
+		isFetchingNextPage: paths.query.isFetchingNextPage,
 		isLoadingPreferences: preferences.isLoading,
 		settings: explorerSettings,
-		...(location && {
-			parent: { type: 'Location', location }
-		})
+		parent: { type: 'Location', location }
 	});
 
 	useLibrarySubscription(
@@ -152,42 +178,53 @@ const LocationExplorer = ({ location, path }: { location: Location; path?: strin
 		(path && path?.length > 1 ? getLastSectionOfPath(path) : location.name) ?? ''
 	);
 
+	const isLocationIndexing = useIsLocationIndexing(location.id);
+
 	return (
 		<ExplorerContextProvider explorer={explorer}>
-			<TopBarPortal
-				left={
-					<div className="flex items-center gap-2">
-						<Folder size={22} className="mt-[-1px]" />
-						<span className="truncate text-sm font-medium">{title}</span>
-						{!locationOnline && (
-							<Tooltip label="Location is offline, you can still browse and organize.">
-								<Info className="text-ink-faint" />
-							</Tooltip>
-						)}
-						<LocationOptions location={location} path={path || ''} />
-					</div>
-				}
-				right={
-					<DefaultTopBarOptions
-						options={[
-							{
-								toolTipLabel: 'Reload',
-								onClick: () => rescan(location.id),
-								icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
-								individual: true,
-								showAtResolution: 'xl:flex'
-							}
-						]}
-					/>
-				}
-			/>
+			<SearchContext.Provider value={search}>
+				<TopBarPortal
+					center={<SearchBar />}
+					left={
+						<div className="flex items-center gap-2">
+							<Folder size={22} className="mt-[-1px]" />
+							<span className="truncate text-sm font-medium">{title}</span>
+							{!locationOnline && (
+								<Tooltip label="Location is offline, you can still browse and organize.">
+									<Info className="text-ink-faint" />
+								</Tooltip>
+							)}
+							<LocationOptions location={location} path={path || ''} />
+						</div>
+					}
+					right={
+						<DefaultTopBarOptions
+							options={[
+								{
+									toolTipLabel: 'Reload',
+									onClick: () => rescan(location.id),
+									icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
+									individual: true,
+									showAtResolution: 'xl:flex'
+								}
+							]}
+						/>
+					}
+				>
+					{search.open && (
+						<>
+							<hr className="w-full border-t border-sidebar-divider bg-sidebar-divider" />
+							<SearchOptions />
+						</>
+					)}
+				</TopBarPortal>
+			</SearchContext.Provider>
 			{isLocationIndexing ? (
 				<div className="flex h-full w-full items-center justify-center">
 					<Loader />
 				</div>
 			) : !preferences.isLoading ? (
 				<Explorer
-					showFilterBar
 					emptyNotice={
 						<EmptyNotice
 							icon={<Icon name="FolderNoSpace" size={128} />}
@@ -198,67 +235,6 @@ const LocationExplorer = ({ location, path }: { location: Location; path?: strin
 			) : null}
 		</ExplorerContextProvider>
 	);
-};
-
-const useItems = ({
-	location,
-	settings
-}: {
-	location: Location;
-	settings: UseExplorerSettings<FilePathOrder>;
-}) => {
-	const [{ path, take }] = useExplorerSearchParams();
-
-	const { library } = useLibraryContext();
-
-	const explorerSettings = settings.useSettingsSnapshot();
-
-	// useMemo lets us embrace immutability and use fixedFilters in useEffects!
-	const fixedFilters = useMemo(
-		() => [
-			{ filePath: { locations: { in: [location.id] } } },
-			...(explorerSettings.layoutMode === 'media'
-				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
-				: [])
-		],
-		[location.id, explorerSettings.layoutMode]
-	);
-
-	const baseFilters = useSearchFilters('paths', fixedFilters);
-
-	const filters = [...baseFilters];
-
-	filters.push({
-		filePath: {
-			path: {
-				location_id: location.id,
-				path: path ?? '',
-				include_descendants:
-					explorerSettings.layoutMode === 'media' &&
-					explorerSettings.mediaViewWithDescendants
-			}
-		}
-	});
-
-	if (!explorerSettings.showHiddenFiles) filters.push({ filePath: { hidden: false } });
-
-	const query = usePathsInfiniteQuery({
-		arg: { filters, take },
-		library,
-		settings
-	});
-
-	const count = useLibraryQuery(['search.pathsCount', { filters }], { enabled: query.isSuccess });
-
-	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items) ?? null, [query.data]);
-
-	const loadMore = useCallback(() => {
-		if (query.hasNextPage && !query.isFetchingNextPage) {
-			query.fetchNextPage.call(undefined);
-		}
-	}, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
-
-	return { query, items, loadMore, count: count.data };
 };
 
 function getLastSectionOfPath(path: string): string | undefined {

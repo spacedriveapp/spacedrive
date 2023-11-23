@@ -1,3 +1,4 @@
+import { UseInfiniteQueryResult } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { proxy, snapshot, subscribe, useSnapshot } from 'valtio';

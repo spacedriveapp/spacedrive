@@ -23,8 +23,11 @@ const explorerRoutes: RouteObject[] = [
 	{ path: 'location/:id', lazy: () => import('./location/$id') },
 	{ path: 'node/:id', lazy: () => import('./node/$id') },
 	{ path: 'tag/:id', lazy: () => import('./tag/$id') },
-	{ path: 'network', lazy: () => import('./network') }
-	// { path: 'search/:id', lazy: () => import('./search') }
+	{ path: 'network', lazy: () => import('./network') },
+	{
+		path: 'search/:id',
+		lazy: () => import('./saved-search/$id')
+	}
 ];
 
 // Routes that should render with the top bar - pretty much everything except

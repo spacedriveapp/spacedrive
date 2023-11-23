@@ -1,7 +1,6 @@
-import { init, Integrations } from '@sentry/browser';
-
 import '@fontsource/inter/variable.css';
 
+import { init, Integrations } from '@sentry/browser';
 import { defaultContext } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import dayjs from 'dayjs';
@@ -90,6 +89,9 @@ export const SpacedriveInterface = (props: {
 							<RouterProvider
 								key={props.routing.routerKey}
 								router={props.routing.router}
+								future={{
+									v7_startTransition: true
+								}}
 							/>
 						</RoutingContext.Provider>
 					</NotificationContextProvider>

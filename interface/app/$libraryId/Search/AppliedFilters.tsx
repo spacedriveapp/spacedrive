@@ -2,9 +2,9 @@ import { MagnifyingGlass, X } from '@phosphor-icons/react';
 import { forwardRef, useState } from 'react';
 import { tw } from '@sd/ui';
 
-import { useSearchContext } from './Context';
+import { useSearchContext } from '.';
 import { filterRegistry } from './Filters';
-import { getSearchStore, updateFilterArgs, useSearchStore } from './store';
+import { useSearchStore } from './store';
 import { RenderIcon } from './util';
 
 export const FilterContainer = tw.div`flex flex-row items-center rounded bg-app-box overflow-hidden shrink-0 h-6`;
@@ -29,9 +29,9 @@ export const CloseTab = forwardRef<HTMLDivElement, { onClick: () => void }>(({ o
 
 const FiltersOverflowShade = tw.div`from-app-darkerBox/80 absolute w-10 bg-gradient-to-l to-transparent h-6`;
 
-export const AppliedOptions = () => {
-	const searchState = useSearchStore();
-	const searchCtx = useSearchContext();
+export const AppliedFilters = () => {
+	const search = useSearchContext();
+	const searchStore = useSearchStore();
 
 	const [scroll, setScroll] = useState(0);
 
@@ -47,22 +47,22 @@ export const AppliedOptions = () => {
 				className="no-scrollbar flex h-full items-center gap-2 overflow-y-auto"
 				onScroll={handleScroll}
 			>
-				{searchCtx.searchQuery && searchCtx.searchQuery !== '' && (
+				{search.search && (
 					<FilterContainer>
 						<StaticSection>
 							<RenderIcon className="h-4 w-4" icon={MagnifyingGlass} />
-							<FilterText>{searchCtx.searchQuery}</FilterText>
+							<FilterText>{search.search}</FilterText>
 						</StaticSection>
-						<CloseTab onClick={() => searchCtx.setSearchQuery('')} />
+						<CloseTab onClick={() => search.setSearch('')} />
 					</FilterContainer>
 				)}
-				{searchCtx.allFilterArgs.map(({ arg, removalIndex }, index) => {
+				{search.mergedFilters.map(({ arg, removalIndex }, index) => {
 					const filter = filterRegistry.find((f) => f.extract(arg));
 					if (!filter) return;
 
 					const activeOptions = filter.argsToOptions(
 						filter.extract(arg)! as any,
-						searchState.filterOptions
+						searchStore.filterOptions
 					);
 
 					return (
@@ -122,10 +122,10 @@ export const AppliedOptions = () => {
 							{removalIndex !== null && (
 								<CloseTab
 									onClick={() => {
-										updateFilterArgs((args) => {
-											args.splice(removalIndex, 1);
+										search.updateDynamicFilters((dyanmicFilters) => {
+											dyanmicFilters.splice(removalIndex, 1);
 
-											return args;
+											return dyanmicFilters;
 										});
 									}}
 								/>

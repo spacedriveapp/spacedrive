@@ -688,6 +688,9 @@ importers:
       '@tanstack/react-virtual':
         specifier: 3.0.0-beta.66
         version: 3.0.0-beta.66(react@18.2.0)
+      '@total-typescript/ts-reset':
+        specifier: ^0.5.1
+        version: 0.5.1
       '@virtual-grid/react':
         specifier: ^1.1.0
         version: 1.1.0(react-dom@18.2.0)(react@18.2.0)
@@ -8364,6 +8367,10 @@ packages:
       '@testing-library/dom': '>=7.21.4'
     dependencies:
       '@testing-library/dom': 9.3.3
+    dev: false
+
+  /@total-typescript/ts-reset@0.5.1:
+    resolution: {integrity: sha512-AqlrT8YA1o7Ff5wPfMOL0pvL+1X+sw60NN6CcOCqs658emD6RfiXhF7Gu9QcfKBH7ELY2nInLhKSCWVoNL70MQ==}
     dev: false
 
   /@trysound/sax@0.2.0:

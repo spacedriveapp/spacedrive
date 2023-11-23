@@ -7,13 +7,9 @@ import { Tooltip } from '@sd/ui';
 import { useKeyMatcher, useOperatingSystem, useShowControls } from '~/hooks';
 import { useTabsContext } from '~/TabsContext';
 
-import SearchOptions from '../Explorer/Search';
-import { useSearchContext } from '../Explorer/Search/Context';
-import { useSearchStore } from '../Explorer/Search/store';
 import { useExplorerStore } from '../Explorer/store';
 import { useTopBarContext } from './Layout';
 import { NavigationButtons } from './NavigationButtons';
-import SearchBar from './SearchBar';
 
 const TopBar = () => {
 	const transparentBg = useShowControls().transparentBg;
@@ -22,7 +18,6 @@ const TopBar = () => {
 
 	const tabs = useTabsContext();
 	const ctx = useTopBarContext();
-	const searchCtx = useSearchContext();
 
 	useResizeObserver({
 		ref,
@@ -38,7 +33,7 @@ const TopBar = () => {
 	useLayoutEffect(() => {
 		const height = ref.current!.getBoundingClientRect().height;
 		ctx.setTopBarHeight.call(undefined, height);
-	}, [ctx.setTopBarHeight, searchCtx.isSearching]);
+	}, [ctx.setTopBarHeight]);
 
 	return (
 		<div
@@ -65,19 +60,14 @@ const TopBar = () => {
 					<div ref={ctx.setLeft} className="overflow-hidden" />
 				</div>
 
-				{ctx.fixedArgs && <SearchBar />}
+				<div ref={ctx.setCenter} />
 
-				<div ref={ctx.setRight} className={clsx(ctx.fixedArgs && 'flex-1')} />
+				<div ref={ctx.setRight} className="flex-1" />
 			</div>
 
 			{tabs && <Tabs />}
 
-			{searchCtx.isSearching && (
-				<>
-					<hr className="w-full border-t border-sidebar-divider bg-sidebar-divider" />
-					<SearchOptions />
-				</>
-			)}
+			<div ref={ctx.setChildren} />
 		</div>
 	);
 };

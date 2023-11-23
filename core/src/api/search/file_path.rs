@@ -51,7 +51,7 @@ impl FilePathOrder {
 	}
 }
 
-#[derive(Deserialize, Type, Debug, Clone)]
+#[derive(Serialize, Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum FilePathFilterArgs {
 	Locations(InOrNotIn<file_path::id::Type>),

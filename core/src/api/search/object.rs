@@ -84,7 +84,7 @@ impl ObjectOrder {
 	}
 }
 
-#[derive(Deserialize, Type, Debug, Default, Clone, Copy)]
+#[derive(Serialize, Deserialize, Type, Debug, Default, Clone, Copy)]
 #[serde(rename_all = "camelCase")]
 pub enum ObjectHiddenFilter {
 	#[default]
@@ -104,7 +104,7 @@ impl ObjectHiddenFilter {
 	}
 }
 
-#[derive(Deserialize, Type, Debug, Clone)]
+#[derive(Serialize, Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum ObjectFilterArgs {
 	Favorite(bool),
