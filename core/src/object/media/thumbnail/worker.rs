@@ -1,4 +1,4 @@
-use crate::api::CoreEvent;
+use crate::{api::CoreEvent, node::config::NodePreferences};
 
 use std::{collections::HashMap, ffi::OsString, path::PathBuf, pin::pin, sync::Arc};
 
@@ -8,15 +8,19 @@ use async_channel as chan;
 use futures_concurrency::stream::Merge;
 use tokio::{
 	spawn,
-	sync::{broadcast, oneshot},
+	sync::{broadcast, oneshot, watch},
 	time::{interval, interval_at, timeout, Instant, MissedTickBehavior},
 };
-use tokio_stream::{wrappers::IntervalStream, StreamExt};
+use tokio_stream::{
+	wrappers::{IntervalStream, WatchStream},
+	StreamExt,
+};
 use tracing::{debug, error, trace};
 
 use super::{
 	actor::DatabaseMessage,
 	clean_up::{process_ephemeral_clean_up, process_indexed_clean_up},
+	preferences::ThumbnailerPreferences,
 	process::{batch_processor, ProcessorControlChannels},
 	state::{remove_by_cas_ids, RegisterReporter, ThumbsProcessingSaveState},
 	BatchToProcess, ThumbnailKind, HALF_HOUR, ONE_SEC, THIRTY_SECS,
@@ -32,7 +36,8 @@ pub(super) struct WorkerChannels {
 }
 
 pub(super) async fn worker(
-	batch_size: usize,
+	available_parallelism: usize,
+	node_preferences_rx: watch::Receiver<NodePreferences>,
 	reporter: broadcast::Sender<CoreEvent>,
 	thumbnails_directory: Arc<PathBuf>,
 	WorkerChannels {
@@ -62,6 +67,7 @@ pub(super) async fn worker(
 		ProgressManagement(RegisterReporter),
 		BatchProgress((location::id::Type, u32)),
 		Shutdown(oneshot::Sender<()>),
+		UpdatedPreferences(ThumbnailerPreferences),
 		IdleTick,
 	}
 
@@ -94,8 +100,13 @@ pub(super) async fn worker(
 		batch_report_progress_rx.map(StreamMessage::BatchProgress),
 		cancel_rx.map(StreamMessage::Shutdown),
 		IntervalStream::new(idle_interval).map(|_| StreamMessage::IdleTick),
+		WatchStream::new(node_preferences_rx).map(|node_preferences| {
+			StreamMessage::UpdatedPreferences(node_preferences.thumbnailer)
+		}),
 	)
 		.merge());
+
+	let mut thumbnailer_preferences = ThumbnailerPreferences::default();
 
 	while let Some(msg) = msg_stream.next().await {
 		match msg {
@@ -144,7 +155,7 @@ pub(super) async fn worker(
 						},
 						leftovers_tx.clone(),
 						reporter.clone(),
-						batch_size,
+						(available_parallelism, thumbnailer_preferences.clone()),
 					));
 				}
 			}
@@ -204,29 +215,13 @@ pub(super) async fn worker(
 				}
 
 				// Only sends stop signal if there is a batch being processed
-				if !in_background && current_batch_processing_rx.is_some() {
-					trace!("Sending stop signal to older processing");
-					let (tx, rx) = oneshot::channel();
-
-					match stop_older_processing_tx.try_send(tx) {
-						Ok(()) => {
-							// We put a timeout here to avoid a deadlock in case the older processing already
-							// finished its batch
-							if timeout(ONE_SEC, rx).await.is_err() {
-								stop_older_processing_rx.recv().await.ok();
-							}
-						}
-						Err(e) if e.is_full() => {
-							// The last signal we sent happened after a batch was already processed
-							// So we clean the channel and we're good to go.
-							stop_older_processing_rx.recv().await.ok();
-						}
-						Err(_) => {
-							error!(
-								"Thumbnail remover actor died when trying to stop older processing"
-							);
-						}
-					}
+				if !in_background {
+					stop_batch(
+						&current_batch_processing_rx,
+						&stop_older_processing_tx,
+						&stop_older_processing_rx,
+					)
+					.await;
 				}
 			}
 
@@ -260,27 +255,12 @@ pub(super) async fn worker(
 				debug!("Thumbnail actor is shutting down...");
 				let start = Instant::now();
 
-				// First stopping the current batch processing
-				if current_batch_processing_rx.is_some() {
-					let (tx, rx) = oneshot::channel();
-					match stop_older_processing_tx.try_send(tx) {
-						Ok(()) => {
-							// We put a timeout here to avoid a deadlock in case the older processing already
-							// finished its batch
-							if timeout(ONE_SEC, rx).await.is_err() {
-								stop_older_processing_rx.recv().await.ok();
-							}
-						}
-						Err(e) if e.is_full() => {
-							// The last signal we sent happened after a batch was already processed
-							// So we clean the channel and we're good to go.
-							stop_older_processing_rx.recv().await.ok();
-						}
-						Err(_) => {
-							error!("Thumbnail actor died when trying to stop older processing");
-						}
-					}
-				}
+				stop_batch(
+					&current_batch_processing_rx,
+					&stop_older_processing_tx,
+					&stop_older_processing_rx,
+				)
+				.await;
 
 				// Closing the leftovers channel to stop the batch processor as we already sent
 				// an stop signal
@@ -322,6 +302,48 @@ pub(super) async fn worker(
 
 			StreamMessage::ProgressManagement((location_id, progress_tx)) => {
 				bookkeeper.register_reporter(location_id, progress_tx);
+			}
+
+			StreamMessage::UpdatedPreferences(preferences) => {
+				thumbnailer_preferences = preferences;
+				stop_batch(
+					&current_batch_processing_rx,
+					&stop_older_processing_tx,
+					&stop_older_processing_rx,
+				)
+				.await;
+			}
+		}
+	}
+}
+
+#[inline]
+async fn stop_batch(
+	current_batch_processing_rx: &Option<oneshot::Receiver<()>>,
+	stop_older_processing_tx: &chan::Sender<oneshot::Sender<()>>,
+	stop_older_processing_rx: &chan::Receiver<oneshot::Sender<()>>,
+) {
+	// First stopping the current batch processing
+	if current_batch_processing_rx.is_some() {
+		trace!("Sending stop signal to older processing");
+
+		let (tx, rx) = oneshot::channel();
+
+		match stop_older_processing_tx.try_send(tx) {
+			Ok(()) => {
+				// We put a timeout here to avoid a deadlock in case the older processing already
+				// finished its batch
+				if timeout(ONE_SEC, rx).await.is_err() {
+					stop_older_processing_rx.recv().await.ok();
+				}
+			}
+			Err(e) if e.is_full() => {
+				// The last signal we sent happened after a batch was already processed
+				// So we clean the channel and we're good to go.
+				stop_older_processing_rx.recv().await.ok();
+			}
+			Err(_) => {
+				error!("Thumbnail actor died when trying to stop older processing");
 			}
 		}
 	}

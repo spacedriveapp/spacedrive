@@ -1,114 +1,222 @@
 use std::{
-	any::type_name,
-	fmt::Display,
-	future::Future,
-	num::ParseIntError,
-	path::{Path, PathBuf},
-	str::FromStr,
+	any::type_name, fmt::Display, future::Future, num::ParseIntError, path::Path, str::FromStr,
 };
 
-use int_enum::IntEnum;
+use int_enum::{IntEnum, IntEnumError};
 use itertools::Itertools;
+use serde::{de::DeserializeOwned, Serialize};
+use serde_json::{json, Map, Value};
 use thiserror::Error;
 use tokio::{fs, io};
-use tracing::info;
+use tracing::{debug, info, warn};
 
 use super::error::FileIOError;
 
 #[derive(Error, Debug)]
-pub enum VersionManagerError {
-	#[error("invalid version")]
-	InvalidVersion,
+pub enum VersionManagerError<Version: IntEnum<Int = u64>> {
 	#[error("version file does not exist")]
 	VersionFileDoesNotExist,
-	#[error("error while converting integer to enum")]
-	IntConversionError,
-	#[error("malformed version file")]
-	MalformedVersionFile,
+	#[error("malformed version file, reason: {reason}")]
+	MalformedVersionFile { reason: &'static str },
 	#[error("unexpected migration: {current_version} -> {next_version}")]
 	UnexpectedMigration {
-		current_version: i32,
-		next_version: i32,
+		current_version: u64,
+		next_version: u64,
 	},
+	#[error("failed to convert version to config file")]
+	ConvertToConfig,
 
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
 	#[error(transparent)]
-	ParseIntError(#[from] ParseIntError),
+	ParseInt(#[from] ParseIntError),
+	#[error(transparent)]
+	SerdeJson(#[from] serde_json::Error),
+	#[error(transparent)]
+	IntConversion(#[from] IntEnumError<Version>),
 }
 
-pub trait ManagedVersion: IntEnum<Int = i32> + Display + 'static {
-	const LATEST_VERSION: Self;
-	type MigrationError: std::error::Error + Display + From<VersionManagerError> + 'static;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kind {
+	PlainText,
+	Json(&'static str), // Version field name!
+}
+
+pub trait ManagedVersion<Version: IntEnum<Int = u64> + Display + Eq + Serialize + DeserializeOwned>:
+	Serialize + DeserializeOwned + 'static
+{
+	const LATEST_VERSION: Version;
+
+	const KIND: Kind;
+
+	type MigrationError: std::error::Error + Display + From<VersionManagerError<Version>> + 'static;
+
+	fn from_latest_version() -> Option<Self> {
+		None
+	}
 }
 
 /// An abstract system for saving a text file containing a version number.
 /// The version number is an integer that can be converted to and from an enum.
 /// The enum must implement the IntEnum trait.
-pub struct VersionManager<T: ManagedVersion> {
-	version_file_path: PathBuf,
-	_marker: std::marker::PhantomData<T>,
+pub struct VersionManager<
+	Config: ManagedVersion<Version>,
+	Version: IntEnum<Int = u64> + Display + Eq + Serialize + DeserializeOwned,
+> {
+	_marker: std::marker::PhantomData<(Config, Version)>,
 }
 
-impl<T: ManagedVersion> VersionManager<T> {
-	pub fn new(version_file_path: impl AsRef<Path>) -> Self {
-		VersionManager {
-			version_file_path: version_file_path.as_ref().into(),
-			_marker: std::marker::PhantomData,
-		}
-	}
-
-	pub async fn get_version(&self) -> Result<T, VersionManagerError> {
-		match fs::read_to_string(&self.version_file_path).await {
-			Ok(contents) => {
-				let version = i32::from_str(contents.trim())?;
-				T::from_int(version).map_err(|_| VersionManagerError::IntConversionError)
-			}
-			Err(e) if e.kind() == io::ErrorKind::NotFound => {
-				Err(VersionManagerError::VersionFileDoesNotExist)
-			}
-			Err(e) => Err(FileIOError::from((&self.version_file_path, e)).into()),
-		}
-	}
-
-	pub async fn set_version(&self, version: T) -> Result<(), VersionManagerError> {
-		fs::write(
-			&self.version_file_path,
-			version.int_value().to_string().as_bytes(),
-		)
-		.await
-		.map_err(|e| FileIOError::from((&self.version_file_path, e)).into())
-	}
-
-	pub async fn migrate<Fut>(
+impl<
+		Config: ManagedVersion<Version>,
+		Version: IntEnum<Int = u64> + Display + Eq + Serialize + DeserializeOwned,
+	> VersionManager<Config, Version>
+{
+	async fn get_version(
 		&self,
-		current: T,
-		migrate_fn: impl Fn(T, T) -> Fut,
-	) -> Result<(), T::MigrationError>
+		version_file_path: impl AsRef<Path>,
+	) -> Result<Version, VersionManagerError<Version>> {
+		let version_file_path = version_file_path.as_ref();
+
+		match Config::KIND {
+			Kind::PlainText => match fs::read_to_string(version_file_path).await {
+				Ok(contents) => {
+					let version = u64::from_str(contents.trim())?;
+					Version::from_int(version).map_err(Into::into)
+				}
+				Err(e) if e.kind() == io::ErrorKind::NotFound => {
+					Err(VersionManagerError::VersionFileDoesNotExist)
+				}
+				Err(e) => Err(FileIOError::from((version_file_path, e)).into()),
+			},
+			Kind::Json(field) => match fs::read(version_file_path).await {
+				Ok(bytes) => {
+					let Some(version) = serde_json::from_slice::<Map<String, Value>>(&bytes)?
+						.get(field)
+						.and_then(|version| version.as_u64())
+					else {
+						return Err(VersionManagerError::MalformedVersionFile {
+							reason: "missing version field",
+						});
+					};
+
+					Version::from_int(version).map_err(Into::into)
+				}
+				Err(e) if e.kind() == io::ErrorKind::NotFound => {
+					Err(VersionManagerError::VersionFileDoesNotExist)
+				}
+				Err(e) => Err(FileIOError::from((version_file_path, e)).into()),
+			},
+		}
+	}
+
+	async fn set_version(
+		&self,
+		version_file_path: impl AsRef<Path>,
+		version: Version,
+	) -> Result<(), VersionManagerError<Version>> {
+		let version_file_path = version_file_path.as_ref();
+
+		match Config::KIND {
+			Kind::PlainText => fs::write(
+				version_file_path,
+				version.int_value().to_string().as_bytes(),
+			)
+			.await
+			.map_err(|e| FileIOError::from((version_file_path, e)).into()),
+
+			Kind::Json(field) => {
+				let mut data_value = serde_json::from_slice::<Map<String, Value>>(
+					&fs::read(version_file_path)
+						.await
+						.map_err(|e| FileIOError::from((version_file_path, e)))?,
+				)?;
+
+				data_value.insert(String::from(field), json!(version.int_value()));
+
+				fs::write(version_file_path, serde_json::to_vec(&data_value)?)
+					.await
+					.map_err(|e| FileIOError::from((version_file_path, e)).into())
+			}
+		}
+	}
+
+	pub async fn migrate_and_load<Fut>(
+		version_file_path: impl AsRef<Path>,
+		migrate_fn: impl Fn(Version, Version) -> Fut,
+	) -> Result<Config, Config::MigrationError>
 	where
-		Fut: Future<Output = Result<(), T::MigrationError>>,
+		Fut: Future<Output = Result<(), Config::MigrationError>>,
 	{
-		for (current_version, next_version) in
-			(current.int_value()..=T::LATEST_VERSION.int_value()).tuple_windows()
-		{
-			match (T::from_int(current_version), T::from_int(next_version)) {
-				(Ok(current), Ok(next)) => {
-					info!(
-						"Running {} migrator: {} -> {}",
-						type_name::<T>(),
-						current,
-						next
-					);
-					migrate_fn(current, next).await?
-				}
-				(Err(_), _) | (_, Err(_)) => {
-					return Err(VersionManagerError::IntConversionError.into())
-				}
-			};
+		let version_file_path = version_file_path.as_ref();
+
+		let this = VersionManager {
+			_marker: std::marker::PhantomData::<(Config, Version)>,
+		};
+
+		let current = match this.get_version(version_file_path).await {
+			Ok(version) => version,
+			Err(VersionManagerError::VersionFileDoesNotExist) => {
+				warn!(
+					"Config file for {} does not exist, trying to create a new one with version -> {}",
+					type_name::<Config>(),
+					Config::LATEST_VERSION
+				);
+
+				let Some(latest_config) = Config::from_latest_version() else {
+					return Err(VersionManagerError::VersionFileDoesNotExist.into());
+				};
+
+				fs::write(
+					version_file_path,
+					match Config::KIND {
+						Kind::PlainText => Config::LATEST_VERSION
+							.int_value()
+							.to_string()
+							.as_bytes()
+							.to_vec(),
+						Kind::Json(_) => serde_json::to_vec(&latest_config)
+							.map_err(|e| VersionManagerError::SerdeJson(e))?,
+					},
+				)
+				.await
+				.map_err(|e| {
+					VersionManagerError::FileIO(FileIOError::from((version_file_path, e)))
+				})?;
+
+				return Ok(latest_config);
+			}
+			Err(e) => return Err(e.into()),
+		};
+
+		if current != Config::LATEST_VERSION {
+			for (current_version, next_version) in
+				(current.int_value()..=Config::LATEST_VERSION.int_value()).tuple_windows()
+			{
+				let (current, next) = (
+					Version::from_int(current_version).map_err(VersionManagerError::from)?,
+					Version::from_int(next_version).map_err(VersionManagerError::from)?,
+				);
+
+				info!(
+					"Running {} migrator: {current} -> {next}",
+					type_name::<Config>()
+				);
+				migrate_fn(current, next).await?;
+			}
+
+			this.set_version(version_file_path, Config::LATEST_VERSION)
+				.await?;
+		} else {
+			debug!("No migration required for {}", type_name::<Config>());
 		}
 
-		self.set_version(T::LATEST_VERSION)
+		fs::read(version_file_path)
 			.await
-			.map_err(Into::into)
+			.map_err(|e| {
+				VersionManagerError::FileIO(FileIOError::from((version_file_path, e))).into()
+			})
+			.and_then(|bytes| {
+				serde_json::from_slice(&bytes).map_err(|e| VersionManagerError::SerdeJson(e).into())
+			})
 	}
 }
