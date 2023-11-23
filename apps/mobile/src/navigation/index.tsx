@@ -7,9 +7,11 @@ import SearchScreen from '~/screens/Search';
 import type { DrawerNavParamList } from './DrawerNavigator';
 import DrawerNavigator from './DrawerNavigator';
 import SettingsNavigator, { SettingsStackParamList } from './SettingsNavigator';
+import LocationOnboarding from '~/screens/LocationOnboarding';
+import { ArrowLeft } from 'phosphor-react-native';
 
 const Stack = createStackNavigator<RootStackParamList>();
-
+const BackButton = () => <ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />;
 // This is the main navigator we nest everything under.
 export default function RootNavigator() {
 	return (
@@ -25,6 +27,15 @@ export default function RootNavigator() {
 				component={SearchScreen}
 				options={{ headerShown: false, animationEnabled: false }}
 			/>
+			<Stack.Screen name="LocationOnboarding" component={LocationOnboarding} options={{
+				headerTitle: 'Add Locations',
+				headerBackTitleVisible: false,
+				headerStyle: tw`bg-app`,
+				headerTintColor: tw.color('ink'),
+				headerTitleStyle: tw`text-base`,
+				headerBackTitleStyle: tw`text-base`,
+				headerBackImage: BackButton
+			}} />
 			{/* Modals */}
 			<Stack.Group
 				screenOptions={{
@@ -47,6 +58,7 @@ export default function RootNavigator() {
 export type RootStackParamList = {
 	Root: NavigatorScreenParams<DrawerNavParamList>;
 	NotFound: undefined;
+	LocationOnboarding: undefined;
 	// Modals
 	Search: undefined;
 	Settings: NavigatorScreenParams<SettingsStackParamList>;
@@ -62,6 +74,6 @@ declare global {
 	// eslint-disable-next-line @typescript-eslint/no-namespace
 	namespace ReactNavigation {
 		// eslint-disable-next-line @typescript-eslint/no-empty-interface
-		interface RootParamList extends RootStackParamList {}
+		interface RootParamList extends RootStackParamList { }
 	}
 }

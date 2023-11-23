@@ -1,7 +1,7 @@
 import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript/src/types';
 import { useNavigation } from '@react-navigation/native';
 import { useRef } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import { useLibraryQuery } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw, twStyle } from '~/lib/tailwind';
@@ -63,14 +63,28 @@ const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
 					))}
 				</View>
 				{/* Add Location */}
-				<Pressable onPress={() => modalRef.current?.present()}>
-					<View style={tw`mt-1 rounded border border-dashed border-app-line/80`}>
-						<Text style={tw`p-2 text-center text-xs font-bold text-gray-400`}>
-							Add Location
-						</Text>
-					</View>
-				</Pressable>
-			</CollapsibleView>
+				{Platform.OS === 'android' ? (
+					<Pressable onPress={() => {
+						// Navigate to LocationOnboarding.tsx
+						console.log('Navigate to LocationOnboarding.tsx');
+						navigation.navigate('LocationOnboarding')
+					}
+					}>
+						<View style={tw`mt-1 rounded border border-dashed border-app-line/80`}>
+							<Text style={tw`p-2 text-center text-xs font-bold text-gray-400`}>
+								Add Location
+							</Text>
+						</View>
+					</Pressable>) : (
+					<Pressable onPress={() => modalRef.current?.present()}>
+						<View style={tw`mt-1 rounded border border-dashed border-app-line/80`}>
+							<Text style={tw`p-2 text-center text-xs font-bold text-gray-400`}>
+								Add Location
+							</Text>
+						</View>
+					</Pressable>
+				)}
+			</CollapsibleView >
 			<ImportModal ref={modalRef} />
 		</>
 	);
