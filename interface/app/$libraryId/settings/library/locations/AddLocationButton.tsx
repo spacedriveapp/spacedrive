@@ -4,8 +4,7 @@ import { motion } from 'framer-motion';
 import { useRef, useState } from 'react';
 import { useLibraryContext } from '@sd/client';
 import { Button, dialogManager, type ButtonProps } from '@sd/ui';
-import { getExplorerStore } from '~/app/$libraryId/Explorer/store';
-import { useCallbackToWatchResize, useOperatingSystem } from '~/hooks';
+import { useCallbackToWatchResize } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { AddLocationDialog } from './AddLocationDialog';
@@ -19,8 +18,6 @@ interface AddLocationButton extends ButtonProps {
 export const AddLocationButton = ({ path, className, onClick, ...props }: AddLocationButton) => {
 	const platform = usePlatform();
 	const libraryId = useLibraryContext().library.uuid;
-	const fdaPermissions = usePlatform().hasFda;
-	const os = useOperatingSystem();
 
 	const transition = {
 		type: 'keyframes',
@@ -59,23 +56,13 @@ export const AddLocationButton = ({ path, className, onClick, ...props }: AddLoc
 				variant="dotted"
 				className={clsx('w-full', className)}
 				onClick={async () => {
-					if (os === 'macOS') {
-						const permissions = await fdaPermissions?.(); //needs to be awaited for promise to resolve
-						console.log(permissions);
-						if (permissions) {
-							await locationDialogHandler();
-						} else if (!permissions) {
-							getExplorerStore().showFda = true;
-						}
-					} else {
-						await locationDialogHandler();
-					}
+					await locationDialogHandler();
 					onClick?.();
 				}}
 				{...props}
 			>
 				{path ? (
-					<div className="flex h-full w-full flex-row items-end whitespace-nowrap font-mono text-sm">
+					<div className="flex flex-row items-end w-full h-full font-mono text-sm whitespace-nowrap">
 						<FolderSimplePlus size={22} className="shrink-0" />
 						<div className="ml-1 overflow-hidden">
 							<motion.span
