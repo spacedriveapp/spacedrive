@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Button, Form, InputField } from '@sd/ui';
 import { Icon } from '~/components';
+import { useOperatingSystem } from '~/hooks';
 
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './components';
 import { useOnboardingContext } from './context';
 
 export default function OnboardingNewLibrary() {
 	const navigate = useNavigate();
+	const os = useOperatingSystem();
 	const form = useOnboardingContext().forms.useForm('new-library');
 
 	const [importMode, setImportMode] = useState(false);
@@ -20,7 +22,9 @@ export default function OnboardingNewLibrary() {
 		<Form
 			form={form}
 			onSubmit={form.handleSubmit(() => {
-				navigate('../full-disk', { replace: true });
+				os === 'macOS'
+					? navigate('../full-disk', { replace: true })
+					: navigate('../locations', { replace: true });
 			})}
 		>
 			<OnboardingContainer>
