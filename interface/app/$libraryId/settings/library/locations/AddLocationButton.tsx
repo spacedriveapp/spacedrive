@@ -2,7 +2,6 @@ import { FolderSimplePlus } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
 import { useLibraryContext } from '@sd/client';
 import { Button, dialogManager, type ButtonProps } from '@sd/ui';
 import { useCallbackToWatchResize } from '~/hooks';
@@ -19,7 +18,6 @@ interface AddLocationButton extends ButtonProps {
 export const AddLocationButton = ({ path, className, onClick, ...props }: AddLocationButton) => {
 	const platform = usePlatform();
 	const libraryId = useLibraryContext().library.uuid;
-	const navigate = useNavigate();
 
 	const transition = {
 		type: 'keyframes',
@@ -41,28 +39,30 @@ export const AddLocationButton = ({ path, className, onClick, ...props }: AddLoc
 		setIsOverflowing(text.scrollWidth > overflow.clientWidth);
 	}, [overflowRef, textRef]);
 
+	const locationDialogHandler = async () => {
+		if (!path) {
+			path = (await openDirectoryPickerDialog(platform)) ?? undefined;
+		}
+		// Remember `path` will be `undefined` on web cause the user has to provide it in the modal
+		if (path !== '')
+			dialogManager.create((dp) => (
+				<AddLocationDialog path={path ?? ''} libraryId={libraryId} {...dp} />
+			));
+	};
+
 	return (
 		<>
 			<Button
 				variant="dotted"
 				className={clsx('w-full', className)}
 				onClick={async () => {
-					if (!path) {
-						path = (await openDirectoryPickerDialog(platform)) ?? undefined;
-					}
-
-					// Remember `path` will be `undefined` on web cause the user has to provide it in the modal
-					if (path !== '')
-						dialogManager.create((dp) => (
-							<AddLocationDialog path={path ?? ''} libraryId={libraryId} {...dp} />
-						));
-
+					await locationDialogHandler();
 					onClick?.();
 				}}
 				{...props}
 			>
 				{path ? (
-					<div className="flex h-full w-full flex-row items-end whitespace-nowrap font-mono text-sm">
+					<div className="flex flex-row items-end w-full h-full font-mono text-sm whitespace-nowrap">
 						<FolderSimplePlus size={22} className="shrink-0" />
 						<div className="ml-1 overflow-hidden">
 							<motion.span

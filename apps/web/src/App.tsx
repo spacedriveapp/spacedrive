@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { RspcProvider } from '@sd/client';
 import { Platform, PlatformProvider, routes, SpacedriveInterface } from '@sd/interface';
-import { useShowControls } from '@sd/interface/hooks';
+import { useOperatingSystem, useShowControls } from '@sd/interface/hooks';
 
 import demoData from './demoData.json';
 import ScreenshotWrapper from './ScreenshotWrapper';
@@ -76,8 +76,9 @@ const queryClient = new QueryClient({
 });
 
 function App() {
+	const os = useOperatingSystem();
 	const [router, setRouter] = useState(() => {
-		const router = createBrowserRouter(routes);
+		const router = createBrowserRouter(routes(os));
 
 		router.subscribe((event) => {
 			setRouter((router) => {
