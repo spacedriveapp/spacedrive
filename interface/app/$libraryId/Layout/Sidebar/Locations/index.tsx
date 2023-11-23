@@ -13,7 +13,7 @@ import { Icon, SubtleButton } from '~/components';
 
 import SidebarLink from '../Link';
 import Section from '../Section';
-import SeeMore from '../SeeMore';
+import { SeeMore } from '../SeeMore';
 import { ContextMenu } from './ContextMenu';
 
 export const Locations = () => {
@@ -29,16 +29,15 @@ export const Locations = () => {
 				</Link>
 			}
 		>
-			<SeeMore
-				items={locations ?? []}
-				renderItem={(location) => (
+			<SeeMore>
+				{locations?.map((location) => (
 					<Location
 						key={location.id}
 						location={location}
 						online={onlineLocations.some((l) => arraysEqual(location.pub_id, l))}
 					/>
-				)}
-			/>
+				))}
+			</SeeMore>
 			<AddLocationButton className="mt-1" />
 		</Section>
 	);

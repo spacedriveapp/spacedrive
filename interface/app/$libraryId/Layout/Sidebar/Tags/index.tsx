@@ -4,7 +4,7 @@ import { SubtleButton } from '~/components';
 
 import SidebarLink from '../Link';
 import Section from '../Section';
-import SeeMore from '../SeeMore';
+import { SeeMore } from '../SeeMore';
 import { ContextMenu } from './ContextMenu';
 
 export const Tags = () => {
@@ -21,9 +21,8 @@ export const Tags = () => {
 				</NavLink>
 			}
 		>
-			<SeeMore
-				items={tags}
-				renderItem={(tag) => (
+			<SeeMore>
+				{tags.map((tag) => (
 					<ContextMenu key={tag.id} tagId={tag.id}>
 						<SidebarLink
 							to={`tag/${tag.id}`}
@@ -36,8 +35,8 @@ export const Tags = () => {
 							<span className="ml-1.5 truncate text-sm">{tag.name}</span>
 						</SidebarLink>
 					</ContextMenu>
-				)}
-			/>
+				))}
+			</SeeMore>
 		</Section>
 	);
 };
