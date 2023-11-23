@@ -54,9 +54,6 @@ function AppNavigation() {
 
 	initPlausible({ platformType: 'mobile', buildInfo: buildInfo?.data });
 
-	// TODO: Make sure library has actually been loaded by this point - precache with useCachedLibraries?
-	// if (library === undefined) throw new Error("Tried to render AppNavigation before libraries fetched!")
-
 	const navRef = useNavigationContainerRef();
 	const routeNameRef = useRef<string>();
 

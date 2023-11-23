@@ -42,7 +42,7 @@ export default (props: UseDialogProps) => {
 
 			platform.refreshMenuBar && platform.refreshMenuBar();
 
-			navigate(`/${library.uuid}/overview`);
+			navigate(`/${library.uuid}`);
 		} catch (e) {
 			console.error(e);
 		}

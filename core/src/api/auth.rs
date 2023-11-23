@@ -83,7 +83,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								};
 
 								if node.config
-									.write(|mut c| c.auth_token = Some(token))
+									.write(|c| c.auth_token = Some(token))
 									.await.is_err() {
 										break Response::Error;
 									};
@@ -120,7 +120,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			"logout",
 			R.mutation(|node, _: ()| async move {
 				node.config
-					.write(|mut c| c.auth_token = None)
+					.write(|c| c.auth_token = None)
 					.await
 					.map(|_| ())
 					.map_err(|_| {

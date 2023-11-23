@@ -48,7 +48,7 @@ const Layout = () => {
 		const firstLibrary = libraries.data[0];
 
 		if (firstLibrary) return <Navigate to={`/${firstLibrary.uuid}`} replace />;
-		else return <Navigate to="./network" replace />;
+		else return <Navigate to="./" replace />;
 	}
 
 	return (
@@ -67,7 +67,6 @@ const Layout = () => {
 				onContextMenu={(e) => {
 					// TODO: allow this on some UI text at least / disable default browser context menu
 					e.preventDefault();
-					return false;
 				}}
 			>
 				<Sidebar />

@@ -14,10 +14,10 @@ export default () => {
 	const navigate = useNavigate();
 	const symbols = useKeysMatcher(['Meta', 'Shift']);
 
-	useShortcut('navToOverview', (e) => {
-		e.stopPropagation();
-		navigate('overview');
-	});
+	// useShortcut('navToOverview', (e) => {
+	// 	e.stopPropagation();
+	// 	navigate('overview');
+	// });
 
 	return (
 		<div className="no-scrollbar mask-fade-out flex grow flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10">

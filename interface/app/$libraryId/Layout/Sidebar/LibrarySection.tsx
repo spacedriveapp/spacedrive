@@ -17,7 +17,7 @@ import { useSavedSearches } from '../../Explorer/Search/SavedSearches';
 import SidebarLink from './Link';
 import LocationsContextMenu from './LocationsContextMenu';
 import Section from './Section';
-import SeeMore from './SeeMore';
+import { SeeMore } from './SeeMore';
 import TagsContextMenu from './TagsContextMenu';
 
 type SidebarGroup = {
@@ -142,9 +142,8 @@ export const LibrarySection = () => {
 					</Link>
 				}
 			>
-				<SeeMore
-					items={locationsQuery.data || []}
-					renderItem={(location, index) => (
+				<SeeMore>
+					{locationsQuery.data?.map((location) => (
 						<LocationsContextMenu key={location.id} locationId={location.id}>
 							<SidebarLink
 								onContextMenu={() =>
@@ -179,8 +178,8 @@ export const LibrarySection = () => {
 								<span className="truncate">{location.name}</span>
 							</SidebarLink>
 						</LocationsContextMenu>
-					)}
-				/>
+					))}
+				</SeeMore>
 				<AddLocationButton className="mt-1" />
 			</Section>
 			{!!tags.data?.length && (
@@ -192,9 +191,8 @@ export const LibrarySection = () => {
 						</NavLink>
 					}
 				>
-					<SeeMore
-						items={tags.data}
-						renderItem={(tag, index) => (
+					<SeeMore>
+						{tags.data?.map((tag, index) => (
 							<TagsContextMenu tagId={tag.id} key={tag.id}>
 								<SidebarLink
 									onContextMenu={() =>
@@ -219,8 +217,8 @@ export const LibrarySection = () => {
 									<span className="ml-1.5 truncate text-sm">{tag.name}</span>
 								</SidebarLink>
 							</TagsContextMenu>
-						)}
-					/>
+						))}
+					</SeeMore>
 				</Section>
 			)}
 		</>

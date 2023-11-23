@@ -38,8 +38,6 @@ jobs:
           #   bundles: deb # no appimage for now unfortunetly
           # - host: ubuntu-20.04
           #   target: aarch64-unknown-linux-musl
-          # - host: ubuntu-20.04
-          #   target: armv7-unknown-linux-gnueabihf
     name: Desktop - Main ${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.host }}
     steps:

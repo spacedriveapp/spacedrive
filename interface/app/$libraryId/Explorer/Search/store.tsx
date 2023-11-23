@@ -26,10 +26,8 @@ export interface FilterOptionWithType extends FilterOption {
 export type AllKeys<T> = T extends any ? keyof T : never;
 
 const searchStore = proxy({
-	isSearching: false,
 	interactingWithSearchOptions: false,
 	searchType: 'paths' as SearchType,
-	searchQuery: null as string | null,
 	filterArgs: ref([] as SearchFilterArgs[]),
 	filterArgsKeys: ref(new Set<string>()),
 	filterOptions: ref(new Map<string, FilterOptionWithType[]>()),
@@ -41,8 +39,7 @@ export function useSearchFilters<T extends SearchType>(
 	_searchType: T,
 	fixedArgs: SearchFilterArgs[]
 ) {
-	const { setFixedArgs, allFilterArgs } = useSearchContext();
-	const searchState = useSearchStore();
+	const { setFixedArgs, allFilterArgs, searchQuery } = useSearchContext();
 
 	// don't want the search bar to pop in after the top bar has loaded!
 	useLayoutEffect(() => {
@@ -51,7 +48,7 @@ export function useSearchFilters<T extends SearchType>(
 	}, [fixedArgs]);
 
 	const searchQueryFilters = useMemo(() => {
-		const [name, ext] = searchState.searchQuery?.split('.') ?? [];
+		const [name, ext] = searchQuery?.split('.') ?? [];
 
 		const filters: SearchFilterArgs[] = [];
 
@@ -59,7 +56,7 @@ export function useSearchFilters<T extends SearchType>(
 		if (ext) filters.push({ filePath: { extension: { in: [ext] } } });
 
 		return filters;
-	}, [searchState.searchQuery]);
+	}, [searchQuery]);
 
 	return useMemo(
 		() => [...searchQueryFilters, ...allFilterArgs.map(({ arg }) => arg)],
@@ -146,8 +143,8 @@ export const useSearchRegisteredFilters = (query: string) => {
 };
 
 export const resetSearchStore = () => {
-	searchStore.searchQuery = null;
 	searchStore.filterArgs = ref([]);
+	searchStore.filterArgsKeys = ref(new Set());
 };
 
 export const useSearchStore = () => useSnapshot(searchStore);

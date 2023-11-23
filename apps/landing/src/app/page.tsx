@@ -11,9 +11,7 @@ export const metadata = {
 	title: 'Spacedrive — A file manager from the future.',
 	description:
 		'Combine your drives and clouds into one database that you can organize and explore from any device. Designed for creators, hoarders and the painfully disorganized.',
-	openGraph: {
-		images: 'https://raw.githubusercontent.com/spacedriveapp/.github/main/profile/spacedrive_icon.png'
-	},
+
 	keywords:
 		'files,file manager,spacedrive,file explorer,vdfs,distributed filesystem,cas,content addressable storage,virtual filesystem,photos app, video organizer,video encoder,tags,tag based filesystem',
 	authors: {

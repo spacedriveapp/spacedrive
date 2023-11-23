@@ -30,7 +30,6 @@ import { useQuickRescan } from '~/hooks/useQuickRescan';
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
 import { usePathsInfiniteQuery } from '../Explorer/queries';
-import { SearchContextProvider } from '../Explorer/Search/Context';
 import { useSearchFilters } from '../Explorer/Search/store';
 import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
@@ -50,11 +49,7 @@ export const Component = () => {
 		suspense: true
 	});
 
-	return (
-		<SearchContextProvider>
-			<LocationExplorer path={path} location={location.data!} />)
-		</SearchContextProvider>
-	);
+	return <LocationExplorer path={path} location={location.data!} />;
 };
 
 const LocationExplorer = ({ location, path }: { location: Location; path?: string }) => {

@@ -3,7 +3,7 @@ name = "sd-core"
 version = "0.1.2"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc."]
-rust-version = "1.70.0"
+rust-version = "1.73.0"
 license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
@@ -59,6 +59,7 @@ tokio = { workspace = true, features = [
 serde = { version = "1.0", features = ["derive"] }
 chrono = { version = "0.4.31", features = ["serde"] }
 serde_json = { workspace = true }
+serde_repr = "0.1"
 futures = "0.3"
 rmp-serde = "^1.1.2"
 rmpv = "^1.0.1"

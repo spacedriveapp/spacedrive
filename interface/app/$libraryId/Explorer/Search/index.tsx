@@ -1,7 +1,7 @@
-import { CaretRight, FunnelSimple, Icon, Plus } from '@phosphor-icons/react';
+import { CaretRight, FunnelSimple, Icon } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
-import { memo, PropsWithChildren, useDeferredValue, useState } from 'react';
+import { memo, PropsWithChildren, useDeferredValue, useEffect, useState } from 'react';
 import { Button, ContextMenuDivItem, DropdownMenu, Input, RadixCheckbox, tw } from '@sd/ui';
 import { useKeybind } from '~/hooks';
 
@@ -10,6 +10,7 @@ import { useSearchContext } from './Context';
 import { filterRegistry, SearchFilterCRUD, useToggleOptionSelected } from './Filters';
 import {
 	getSearchStore,
+	resetSearchStore,
 	useRegisterSearchFilterOptions,
 	useSearchRegisteredFilters,
 	useSearchStore
@@ -29,7 +30,7 @@ const MENU_STYLES = `!rounded-md border !border-app-line !bg-app-box`;
 // One component so all items have the same styling, including the submenu
 const SearchOptionItemInternals = (props: SearchOptionItemProps) => {
 	return (
-		<div className="flex flex-row gap-2">
+		<div className="flex items-center gap-2">
 			{props.selected !== undefined && (
 				<RadixCheckbox checked={props.selected} onCheckedChange={props.setSelected} />
 			)}
@@ -73,6 +74,7 @@ export const Separator = () => <DropdownMenu.Separator className="!border-app-li
 
 const SearchOptions = () => {
 	const searchState = useSearchStore();
+	const searchCtx = useSearchContext();
 
 	const [newFilterName, setNewFilterName] = useState('');
 	const [_search, setSearch] = useState('');
@@ -80,7 +82,7 @@ const SearchOptions = () => {
 	const search = useDeferredValue(_search);
 
 	useKeybind(['Escape'], () => {
-		getSearchStore().isSearching = false;
+		// getSearchStore().isSearching = false;
 	});
 
 	// const savedSearches = useSavedSearches();
@@ -92,6 +94,10 @@ const SearchOptions = () => {
 		useRegisterSearchFilterOptions(filter, options);
 	}
 
+	useEffect(() => {
+		return () => resetSearchStore();
+	}, []);
+
 	return (
 		<div
 			onMouseEnter={() => {
@@ -100,7 +106,7 @@ const SearchOptions = () => {
 			onMouseLeave={() => {
 				getSearchStore().interactingWithSearchOptions = false;
 			}}
-			className="flex h-[45px] w-full flex-row items-center gap-4 border-b border-app-line/50 bg-app-darkerBox/90 px-4 backdrop-blur"
+			className="flex h-[45px] w-full flex-row items-center gap-4 bg-black/10 px-4"
 		>
 			{/* <OptionContainer className="flex flex-row items-center">
 				<FilterContainer>
@@ -108,7 +114,7 @@ const SearchOptions = () => {
 				</FilterContainer>
 			</OptionContainer> */}
 
-			<OptionContainer>
+			<OptionContainer className="shrink-0">
 				<DropdownMenu.Root
 					onKeyDown={(e) => e.stopPropagation()}
 					className={MENU_STYLES}
@@ -142,46 +148,47 @@ const SearchOptions = () => {
 					)}
 				</DropdownMenu.Root>
 			</OptionContainer>
+
 			{/* We're keeping AppliedOptions to the right of the "Add Filter" button because its not worth rebuilding the dropdown with custom logic to lock the position as the trigger will move if to the right of the applied options and that is bad UX. */}
 			<AppliedOptions />
-			<div className="grow" />
 
-			{searchState.filterArgs.length > 0 && (
-				<DropdownMenu.Root
-					className={clsx(MENU_STYLES)}
-					trigger={
-						<Button className="flex flex-row" size="xs" variant="dotted">
-							<Plus weight="bold" className="mr-1" />
-							Save Search
-						</Button>
-					}
-				>
-					<div className="mx-1.5 my-1 flex flex-row items-center overflow-hidden">
-						<Input
-							value={newFilterName}
-							onChange={(e) => setNewFilterName(e.target.value)}
-							autoFocus
-							variant="default"
-							placeholder="Name"
-							className="w-[130px]"
-						/>
-						{/* <Button
-							onClick={() => {
-								if (!newFilterName) return;
-								savedSearches.saveSearch(newFilterName);
-								setNewFilterName('');
-							}}
-							className="ml-2"
-							variant="accent"
-						>
-							Save
-						</Button> */}
-					</div>
-				</DropdownMenu.Root>
-			)}
+			{
+				// searchState.filterArgs.length > 0 && (
+				// <DropdownMenu.Root
+				// 	className={clsx(MENU_STYLES)}
+				// 	trigger={
+				// 		<Button className="flex shrink-0 flex-row" size="xs" variant="dotted">
+				// 			<Plus weight="bold" className="mr-1" />
+				// 			Save Search
+				// 		</Button>
+				// 	}
+				// >
+				// 	<div className="mx-1.5 my-1 flex flex-row items-center overflow-hidden">
+				// 		<Input
+				// 			value={newFilterName}
+				// 			onChange={(e) => setNewFilterName(e.target.value)}
+				// 			autoFocus
+				// 			variant="default"
+				// 			placeholder="Name"
+				// 			className="w-[130px]"
+				// 		/>
+				// 		{/* <Button
+				// 			onClick={() => {
+				// 				if (!newFilterName) return;
+				// 				savedSearches.saveSearch(newFilterName);
+				// 				setNewFilterName('');
+				// 			}}
+				// 			className="ml-2"
+				// 			variant="accent"
+				// 		>
+				// 			Save
+				// 		</Button> */}
+				// 	</div>
+				// </DropdownMenu.Root>)
+			}
 
 			<kbd
-				onClick={() => (getSearchStore().isSearching = false)}
+				onClick={() => searchCtx.clearSearchQuery()}
 				className="ml-2 rounded-lg border border-app-line bg-app-box px-2 py-1 text-[10.5px] tracking-widest shadow"
 			>
 				ESC

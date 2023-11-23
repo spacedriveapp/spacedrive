@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
 
-use crate::{api::utils::library, invalidate_query, library::Library, prisma::saved_search};
+use crate::{api::utils::library, library::Library, prisma::saved_search};
 
 use super::{Ctx, R};
 
@@ -111,7 +111,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				let result: Result<Vec<SavedSearchResponse>, _> = searches
 					.into_iter()
 					.map(|search| {
-						let filters_bytes = search.filters.unwrap_or_else(Vec::new);
+						let filters_bytes = search.filters.unwrap_or_default();
 
 						let filters_string = String::from_utf8(filters_bytes).unwrap();
 						let filters: Vec<Filter> = serde_json::from_str(&filters_string).unwrap();

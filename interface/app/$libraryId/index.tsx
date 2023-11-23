@@ -1,4 +1,6 @@
 import type { RouteObject } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
+import { useHomeDir } from '~/hooks/useHomeDir';
 
 import settingsRoutes from './settings';
 
@@ -33,6 +35,19 @@ const topBarRoutes: RouteObject = {
 };
 
 export default [
+	{
+		index: true,
+		Component: () => {
+			const homeDir = useHomeDir();
+
+			if (homeDir.data)
+				return (
+					<Navigate to={`ephemeral/0?${new URLSearchParams({ path: homeDir.data })}`} />
+				);
+
+			return <Navigate to="network" />;
+		}
+	},
 	topBarRoutes,
 	{
 		path: 'settings',

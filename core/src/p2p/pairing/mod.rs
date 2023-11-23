@@ -289,12 +289,14 @@ impl PairingManager {
 		.unwrap();
 		library_manager.update_instances(library.clone()).await;
 
+		let library_config = library.config().await;
+
 		stream
 			.write_all(
 				&PairingResponse::Accepted {
 					library_id: library.id,
-					library_name: library.config().name.into(),
-					library_description: library.config().description,
+					library_name: library_config.name.into(),
+					library_description: library_config.description,
 					instances: library
 						.db
 						.instance()
