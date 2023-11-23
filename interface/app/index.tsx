@@ -17,15 +17,6 @@ import { OperatingSystem } from '..';
 const Index = () => {
 	const libraries = useCachedLibraries();
 
-	// useQuery(['hasFda'], async () => {
-	// 	console.log(await platform.hasFda?.());
-	// 	if (os === 'macOS' && (await platform.hasFda?.()) === false) {
-	// 		return navigate('/full-disk');
-	// 	} else {
-	// 		return null;
-	// 	}
-	// });
-
 	if (libraries.status !== 'success') return null;
 
 	if (libraries.data.length === 0) return <Navigate to="onboarding" replace />;
@@ -75,7 +66,7 @@ export const routes = (os: OperatingSystem) => {
 				}
 			]
 		}
-	] as RouteObject[];
+	] satisfies RouteObject[];
 };
 
 /**

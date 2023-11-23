@@ -37,8 +37,6 @@ export type Platform = {
 		)[]
 	): Promise<unknown>;
 	requestFdaMacos?(): void;
-	checkForFda?(): Promise<boolean>;
-	hasFda?(): Promise<boolean>;
 	getFilePathOpenWithApps?(library: string, ids: number[]): Promise<unknown>;
 	reloadWebview?(): Promise<unknown>;
 	getEphemeralFilesOpenWithApps?(paths: string[]): Promise<unknown>;
