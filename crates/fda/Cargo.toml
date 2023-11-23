@@ -7,5 +7,4 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-# dirs = "5.0.1"
 thiserror = "1.0.50"
