@@ -1,18 +1,13 @@
 import { Fda } from '@sd/assets/videos';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '@sd/ui';
 import { Icon } from '~/components';
-import { useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
-import {
-	OnboardingContainer,
-	OnboardingDescription,
-	OnboardingTitle
-} from './onboarding/components';
+import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './components';
 
-export const Component = () => {
+export const FullDisk = () => {
 	const { requestFdaMacos } = usePlatform();
 	const [showVideo, setShowVideo] = useState(false);
 	const navigate = useNavigate();
@@ -42,17 +37,16 @@ export const Component = () => {
 				</div>
 			)}
 			<div className="flex gap-3">
-				{/* <Button
+				<Button
 					onClick={() => {
 						navigate('../locations', { replace: true });
 					}}
 					variant="accent"
 					size="sm"
-					disabled={os === 'macOS' && !hasFdaMacos}
 					className="mt-8"
 				>
 					Continue
-				</Button> */}
+				</Button>
 				{showVideo && (
 					<Button
 						onClick={() => setShowVideo((t) => !t)}

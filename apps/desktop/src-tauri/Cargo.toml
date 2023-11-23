@@ -10,17 +10,16 @@ edition = { workspace = true }
 
 [dependencies]
 tauri = { version = "1.5.2", features = [
-  "dialog-all",
-  "linux-protocol-headers",
   "macos-private-api",
-  "os-all",
   "path-all",
   "protocol-all",
+  "os-all",
   "shell-all",
+  "dialog-all",
+  "linux-protocol-headers",
   "updater",
   "window-all",
   "native-tls-vendored",
-  "devtools",
 ] }
 
 rspc = { workspace = true, features = ["tauri"] }
