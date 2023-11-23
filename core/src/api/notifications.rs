@@ -107,7 +107,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					}
 					NotificationId::Node(id) => {
 						node.config
-							.write(|mut cfg| {
+							.write(|cfg| {
 								cfg.notifications
 									.retain(|n| n.id != NotificationId::Node(id));
 							})
@@ -124,7 +124,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("dismissAll", {
 			R.query(|node, _: ()| async move {
 				node.config
-					.write(|mut cfg| {
+					.write(|cfg| {
 						cfg.notifications = vec![];
 					})
 					.await

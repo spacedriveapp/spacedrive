@@ -20,17 +20,18 @@ use image::{self, imageops, DynamicImage, GenericImageView};
 use serde::{Deserialize, Serialize};
 use tokio::{
 	fs, io,
-	sync::{broadcast, oneshot},
+	sync::{broadcast, oneshot, Semaphore},
 	task::{spawn, spawn_blocking},
 	time::timeout,
 };
-use tracing::{error, trace, warn};
+use tokio_stream::StreamExt;
+use tracing::{debug, error, trace, warn};
 use webp::Encoder;
 
 use super::{
 	can_generate_thumbnail_for_document, can_generate_thumbnail_for_image, get_thumb_key,
-	shard::get_shard_hex, ThumbnailKind, ThumbnailerError, EPHEMERAL_DIR, TARGET_PX,
-	TARGET_QUALITY, THIRTY_SECS, WEBP_EXTENSION,
+	preferences::ThumbnailerPreferences, shard::get_shard_hex, ThumbnailKind, ThumbnailerError,
+	EPHEMERAL_DIR, TARGET_PX, TARGET_QUALITY, THIRTY_SECS, WEBP_EXTENSION,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -98,10 +99,23 @@ pub(super) async fn batch_processor(
 	}: ProcessorControlChannels,
 	leftovers_tx: chan::Sender<(BatchToProcess, ThumbnailKind)>,
 	reporter: broadcast::Sender<CoreEvent>,
-	batch_size: usize,
+	(available_parallelism, thumbnailer_preferences): (usize, ThumbnailerPreferences),
 ) {
-	trace!(
-		"Processing thumbnails batch of kind {kind:?} with size {} in {}",
+	let in_parallel_count = if !in_background {
+		available_parallelism
+	} else {
+		usize::max(
+			// If the user sets the background processing percentage to 0, we still want to process at least sequentially
+			thumbnailer_preferences.background_processing_percentage() as usize
+				* available_parallelism
+				/ 100,
+			1,
+		)
+	};
+
+	debug!(
+		"Processing thumbnails batch of kind {kind:?} with size {} in {}, \
+		at most {in_parallel_count} thumbnails at a time",
 		batch.len(),
 		if in_background {
 			"background"
@@ -109,6 +123,10 @@ pub(super) async fn batch_processor(
 			"foreground"
 		},
 	);
+
+	let semaphore = Arc::new(Semaphore::new(in_parallel_count));
+
+	let batch_size = batch.len();
 
 	// Tranforming to `VecDeque` so we don't need to move anything as we consume from the beginning
 	// This from is guaranteed to be O(1)
@@ -119,20 +137,38 @@ pub(super) async fn batch_processor(
 		Stop(oneshot::Sender<()>),
 	}
 
-	while !queue.is_empty() {
-		let chunk = (0..batch_size)
-			.filter_map(|_| queue.pop_front())
-			.map(
-				|GenerateThumbnailArgs {
-				     extension,
-				     cas_id,
-				     path,
-				 }| {
+	let (maybe_cas_ids_tx, maybe_cas_ids_rx) = if kind == ThumbnailKind::Ephemeral {
+		let (tx, rx) = chan::bounded(batch_size);
+		(Some(tx), Some(rx))
+	} else {
+		(None, None)
+	};
+
+	let maybe_stopped_tx = if let RaceOutputs::Stop(stopped_tx) = (
+		async {
+			let mut join_handles = Vec::with_capacity(batch_size);
+
+			while !queue.is_empty() {
+				let permit = Arc::clone(&semaphore)
+					.acquire_owned()
+					.await
+					.expect("this semaphore never closes");
+
+				let GenerateThumbnailArgs {
+					extension,
+					cas_id,
+					path,
+				} = queue.pop_front().expect("queue is not empty");
+
+				// As we got a permit, then there is available CPU to process this thumbnail
+				join_handles.push(spawn({
 					let reporter = reporter.clone();
 					let thumbnails_directory = thumbnails_directory.as_ref().clone();
-					spawn(async move {
-						timeout(
-							THIRTY_SECS,
+					let report_progress_tx = batch_report_progress_tx.clone();
+					let maybe_cas_ids_tx = maybe_cas_ids_tx.clone();
+
+					async move {
+						let res = timeout(THIRTY_SECS, async {
 							generate_thumbnail(
 								thumbnails_directory,
 								ThumbData {
@@ -144,116 +180,122 @@ pub(super) async fn batch_processor(
 									kind,
 								},
 								reporter,
-							),
-						)
-						.await
-						.unwrap_or_else(|_| Err(ThumbnailerError::TimedOut(path.into_boxed_path())))
-					})
-				},
-			)
-			.collect::<Vec<_>>();
-
-		let generated_ephemeral_thumbs_file_names_tx =
-			generated_ephemeral_thumbs_file_names_tx.clone();
-		let report_progress_tx = batch_report_progress_tx.clone();
-		let chunk_len = chunk.len() as u32;
-
-		if let RaceOutputs::Stop(stopped_tx) = (
-			async move {
-				if let Err(e) = spawn(async move {
-					let cas_ids = chunk
-						.join()
-						.await
-						.into_iter()
-						.filter_map(|join_result| {
-							join_result
-								.map_err(|e| {
-									error!("Failed to join thumbnail generation task: {e:#?}")
-								})
-								.ok()
-						})
-						.filter_map(|result| {
-							result
-								.map_err(|e| {
-									error!(
-										"Failed to generate thumbnail for {} location: {e:#?}",
-										if let ThumbnailKind::Ephemeral = kind {
-											"ephemeral"
-										} else {
-											"indexed"
-										}
-									)
-								})
-								.ok()
-						})
-						.map(|cas_id| OsString::from(format!("{}.webp", cas_id)))
-						.collect();
-
-					if kind == ThumbnailKind::Ephemeral
-						&& generated_ephemeral_thumbs_file_names_tx
-							.send(cas_ids)
+							)
 							.await
-							.is_err()
-					{
-						error!("Thumbnail actor is dead: Failed to send generated cas ids")
+							.map(|cas_id| {
+								// this send_blocking never blocks as we have a bounded channel with
+								// the same capacity as the batch size, so there is always a space
+								// in the queue
+								if let Some(cas_ids_tx) = maybe_cas_ids_tx {
+									cas_ids_tx
+										.send_blocking(OsString::from(format!("{}.webp", cas_id)))
+										.expect("channel never closes");
+								}
+							})
+						})
+						.await
+						.unwrap_or_else(|_| {
+							Err(ThumbnailerError::TimedOut(path.into_boxed_path()))
+						});
+
+						if let Some(location_id) = location_id {
+							report_progress_tx.send((location_id, 1)).await.ok();
+						}
+
+						drop(permit);
+
+						res
 					}
-
-					if let Some(location_id) = location_id {
-						report_progress_tx.send((location_id, chunk_len)).await.ok();
-					}
-				})
-				.await
-				{
-					error!("Failed to join spawned task to process thumbnails chunk on a batch: {e:#?}");
-				}
-
-				trace!("Processed chunk with {chunk_len} thumbnails");
-				RaceOutputs::Processed
-			},
-			async {
-				let tx = stop_rx
-					.recv()
-					.await
-					.expect("Critical error on thumbnails actor");
-				trace!("Received a stop signal");
-				RaceOutputs::Stop(tx)
-			},
-		)
-			.race()
-			.await
-		{
-			// Our queue is always contiguous, so this `from` is free
-			let leftovers = Vec::from(queue);
-
-			trace!(
-				"Stopped with {} thumbnails left to process",
-				leftovers.len()
-			);
-			if !leftovers.is_empty()
-				&& leftovers_tx
-					.send((
-						BatchToProcess {
-							batch: leftovers,
-							should_regenerate,
-							in_background: true, // Leftovers should always be in background
-							location_id,
-						},
-						kind,
-					))
-					.await
-					.is_err()
-			{
-				error!("Thumbnail actor is dead: Failed to send leftovers")
+				}));
 			}
 
-			done_tx.send(()).ok();
-			stopped_tx.send(()).ok();
+			for res in join_handles.join().await {
+				match res {
+					Ok(Ok(())) => { /* Everything is awesome! */ }
+					Ok(Err(e)) => {
+						error!(
+							"Failed to generate thumbnail for {} location: {e:#?}",
+							if let ThumbnailKind::Ephemeral = kind {
+								"ephemeral"
+							} else {
+								"indexed"
+							}
+						)
+					}
+					Err(e) => {
+						error!("Failed to join thumbnail generation task: {e:#?}");
+					}
+				}
+			}
 
-			return;
+			if let Some(cas_ids_tx) = &maybe_cas_ids_tx {
+				cas_ids_tx.close();
+			}
+
+			trace!("Processed batch with {batch_size} thumbnails");
+
+			RaceOutputs::Processed
+		},
+		async {
+			let tx = stop_rx
+				.recv()
+				.await
+				.expect("Critical error on thumbnails actor");
+			trace!("Received a stop signal");
+			RaceOutputs::Stop(tx)
+		},
+	)
+		.race()
+		.await
+	{
+		// Our queue is always contiguous, so this `from` is free
+		let leftovers = Vec::from(queue);
+
+		trace!(
+			"Stopped with {} thumbnails left to process",
+			leftovers.len()
+		);
+		if !leftovers.is_empty()
+			&& leftovers_tx
+				.send((
+					BatchToProcess {
+						batch: leftovers,
+						should_regenerate,
+						in_background: true, // Leftovers should always be in background
+						location_id,
+					},
+					kind,
+				))
+				.await
+				.is_err()
+		{
+			error!("Thumbnail actor is dead: Failed to send leftovers")
+		}
+
+		if let Some(cas_ids_tx) = &maybe_cas_ids_tx {
+			cas_ids_tx.close();
+		}
+
+		Some(stopped_tx)
+	} else {
+		None
+	};
+
+	if let Some(cas_ids_rx) = maybe_cas_ids_rx {
+		if generated_ephemeral_thumbs_file_names_tx
+			.send(cas_ids_rx.collect().await)
+			.await
+			.is_err()
+		{
+			error!("Thumbnail actor is dead: Failed to send generated cas ids")
 		}
 	}
 
-	trace!("Finished batch!");
+	if let Some(stopped_tx) = maybe_stopped_tx {
+		stopped_tx.send(()).ok();
+	} else {
+		trace!("Finished batch!");
+	}
 
 	done_tx.send(()).ok();
 }
