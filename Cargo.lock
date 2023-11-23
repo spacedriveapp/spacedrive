@@ -1678,15 +1678,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dirs"
-version = "5.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44c45a9d03d6676652bcb5e724c7e988de1acad23a711b5217ab9cbecbec2225"
-dependencies = [
- "dirs-sys 0.4.1",
-]
-
-[[package]]
 name = "dirs-next"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6858,6 +6849,7 @@ dependencies = [
  "serde",
  "serde-hashkey",
  "serde_json",
+ "serde_repr",
  "serde_with",
  "slotmap",
  "specta",
@@ -6938,6 +6930,7 @@ dependencies = [
  "sd-desktop-linux",
  "sd-desktop-macos",
  "sd-desktop-windows",
+ "sd-fda",
  "sd-prisma",
  "serde",
  "specta",
@@ -6982,9 +6975,7 @@ dependencies = [
 name = "sd-fda"
 version = "0.1.0"
 dependencies = [
- "dirs",
  "thiserror",
- "tokio",
 ]
 
 [[package]]

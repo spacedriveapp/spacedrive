@@ -108,7 +108,10 @@ function Tabs() {
 		>
 			{ctx.tabs.map(({ title }, index) => (
 				<button
-					onClick={() => ctx.setTabIndex(index)}
+					onClick={(e) => {
+						if (e.button === 0) ctx.setTabIndex(index);
+						else if (e.button === 1) removeTab(index);
+					}}
 					className={clsx(
 						'duration-[50ms] group relative flex h-full min-w-[10rem] shrink-0 flex-row items-center justify-center px-8 text-center',
 						ctx.tabIndex === index

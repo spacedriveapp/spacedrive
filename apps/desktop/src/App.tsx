@@ -17,6 +17,8 @@ import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 
 import '@sd/ui/style/style.scss';
 
+import { useOperatingSystem } from '@sd/interface/hooks';
+
 import * as commands from './commands';
 import { platform } from './platform';
 import { queryClient } from './query';
@@ -79,9 +81,10 @@ export default function App() {
 const TAB_CREATE_DELAY = 150;
 
 function AppInner() {
+	const os = useOperatingSystem();
 	function createTab() {
 		const history = createMemoryHistory();
-		const router = createMemoryRouterWithHistory({ routes, history });
+		const router = createMemoryRouterWithHistory({ routes: routes(os), history });
 
 		const dispose = router.subscribe((event) => {
 			setTabs((routers) => {
