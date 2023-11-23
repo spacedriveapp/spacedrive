@@ -38,7 +38,6 @@ import { useExplorerSearchParams } from '../Explorer/util';
 import { EmptyNotice } from '../Explorer/View';
 import { TopBarPortal } from '../TopBar/Portal';
 import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
-import FdaDialog from './FdaDialog';
 import LocationOptions from './LocationOptions';
 
 export const Component = () => {
@@ -159,7 +158,7 @@ const LocationExplorer = ({ location, path }: { location: Location; path?: strin
 				left={
 					<div className="flex items-center gap-2">
 						<Folder size={22} className="mt-[-1px]" />
-						<span className="truncate text-sm font-medium">{title}</span>
+						<span className="text-sm font-medium truncate">{title}</span>
 						{!locationOnline && (
 							<Tooltip label="Location is offline, you can still browse and organize.">
 								<Info className="text-ink-faint" />
@@ -183,7 +182,7 @@ const LocationExplorer = ({ location, path }: { location: Location; path?: strin
 				}
 			/>
 			{isLocationIndexing ? (
-				<div className="flex h-full w-full items-center justify-center">
+				<div className="flex items-center justify-center w-full h-full">
 					<Loader />
 				</div>
 			) : !preferences.isLoading ? (
