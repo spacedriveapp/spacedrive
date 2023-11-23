@@ -131,10 +131,14 @@ AppDir:
   # Incorporate Tauri patch to relocate hardcoded system WebKitGTK binary paths to the AppDir:
   # https://github.com/tauri-apps/linuxdeploy-plugin-gtk/blob/c017fa2962008635d201889a721373077dd299e4/linuxdeploy-plugin-gtk.sh#L325-L326
   after_bundle: |
-    find "${TARGET_APPDIR}/usr/lib/x86_64-linux-gnu" -type f -name 'libwebkit2gtkinjectedbundle.so' -exec mv '{}' "${TARGET_APPDIR}/usr/lib/x86_64-linux-gnu" \;
-    find "${TARGET_APPDIR}/usr/lib/x86_64-linux-gnu" -type f -name 'libwebkit2gtk-4.0.so*' -exec sed -i -e "s|/usr/lib/x86_64-linux-gnu/webkit2gtk-4.0/injected-bundle|../.././././././././././././././usr/lib/x86_64-linux-gnu|g" '{}' \;
-    find "${TARGET_APPDIR}/usr/lib/x86_64-linux-gnu/webkit2gtk-4.0" -type f -executable -exec mv '{}' "${TARGET_APPDIR}/usr/bin" \;
-    find "${TARGET_APPDIR}/usr/lib/x86_64-linux-gnu" -type f -name 'libwebkit2gtk-4.0.so*' -exec sed -i -e "s|/usr/lib/x86_64-linux-gnu/webkit2gtk-4.0|../.././././././././././././././usr/bin/|g" '{}' \;
+    find "${TARGET_APPDIR}/usr/lib/${TARGET_APPIMAGE_ARCH}-linux-gnu" -type f -name 'libwebkit2gtkinjectedbundle.so' -exec mv '{}' "${TARGET_APPDIR}/usr/lib/${TARGET_APPIMAGE_ARCH}-linux-gnu" \;
+    find "${TARGET_APPDIR}/usr/lib/${TARGET_APPIMAGE_ARCH}-linux-gnu" -type f -name 'libwebkit2gtk-4.0.so*' -exec sed -i -e "s|/usr/lib/${TARGET_APPIMAGE_ARCH}-linux-gnu/webkit2gtk-4.0/injected-bundle|../.././././././././././././././usr/lib/${TARGET_APPIMAGE_ARCH}-linux-gnu|g" '{}' \;
+    find "${TARGET_APPDIR}/usr/lib/${TARGET_APPIMAGE_ARCH}-linux-gnu/webkit2gtk-4.0" -type f -executable -exec mv '{}' "${TARGET_APPDIR}/usr/bin" \;
+    if [ "$TARGET_APPIMAGE_ARCH" == 'aarch64' ]; then
+      find "${TARGET_APPDIR}/usr/lib/aarch64-linux-gnu" -type f -name 'libwebkit2gtk-4.0.so*' -exec sed -i -e "s|/usr/lib/aarch64-linux-gnu/webkit2gtk-4.0|../../././././././././././././././usr/bin|g" '{}' \;
+    else
+      find "${TARGET_APPDIR}/usr/lib/x86_64-linux-gnu" -type f -name 'libwebkit2gtk-4.0.so*' -exec sed -i -e "s|/usr/lib/x86_64-linux-gnu/webkit2gtk-4.0|../.././././././././././././././usr/bin/|g" '{}' \;
+    fi
 
   # Tests don't work due to Tauri security checks we can't work around:
   # https://github.com/tauri-apps/tauri/blob/35264b4c1801b381e0b867c1c35540f0fbb43365/core/tauri-utils/src/lib.rs#L202

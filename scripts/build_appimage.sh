@@ -50,7 +50,7 @@ apt-get update && apt-get install -yq \
 ln -fs /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders /usr/local/bin/gdk-pixbuf-query-loaders
 
 if ! command -v appimage-builder >/dev/null 2>&1; then
-  apt-get install -yq python3 python3-venv
+  apt-get install -yq python3 python3-venv python3-wheel
 
   # Set up a virtual environment so that we do not pollute the global Python
   # packages list with the packages we need to install
