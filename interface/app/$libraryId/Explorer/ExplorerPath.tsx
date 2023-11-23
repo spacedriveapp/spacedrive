@@ -7,9 +7,9 @@ import { LibraryIdParamsSchema, SearchParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
 import { useOperatingSystem, useZodRouteParams, useZodSearchParams } from '~/hooks';
 
-import { useExplorerContext } from '../Context';
-import { FileThumb } from '../FilePath/Thumb';
-import { useExplorerSearchParams } from '../util';
+import { useExplorerContext } from './Context';
+import { FileThumb } from './FilePath/Thumb';
+import { useExplorerSearchParams } from './util';
 
 export const PATH_BAR_HEIGHT = 32;
 
@@ -187,7 +187,7 @@ export const ExplorerPath = memo(() => {
 
 	return (
 		<div
-			className="absolute inset-x-0 bottom-0 flex items-center gap-1 border-t border-t-app-line bg-app/90 px-3.5 text-[11px] text-ink-dull backdrop-blur-lg"
+			className="absolute inset-x-0 bottom-0 z-50 flex items-center gap-1 border-t border-t-app-line bg-app/90 px-3.5 text-[11px] text-ink-dull backdrop-blur-lg"
 			style={{ height: PATH_BAR_HEIGHT }}
 		>
 			{data?.map((p, index) => {

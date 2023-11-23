@@ -2,7 +2,7 @@ import { CaretDown, CaretUp } from '@phosphor-icons/react';
 import { flexRender, type ColumnSizingState, type Row } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import BasicSticky from 'react-sticky-el';
 import { useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
@@ -17,8 +17,7 @@ import { useExplorerContext } from '../../Context';
 import { getQuickPreviewStore } from '../../QuickPreview/store';
 import { createOrdering, getOrderingDirection, orderingKey } from '../../store';
 import { uniqueId } from '../../util';
-import { useExplorerViewContext } from '../../ViewContext';
-import { useExplorerViewPadding } from '../util';
+import { useExplorerViewContext } from '../Context';
 import { TableContext } from './context';
 import { TableRow } from './TableRow';
 import { getRangeDirection, Range, useRanges } from './useRanges';
@@ -28,11 +27,11 @@ const ROW_HEIGHT = 45;
 const PADDING_X = 16;
 const PADDING_Y = 12;
 
-export default () => {
+export const ListView = memo(() => {
 	const layout = useLayoutContext();
 	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
-	const settings = explorer.useSettingsSnapshot();
+	const explorerSettings = explorer.useSettingsSnapshot();
 
 	const tableRef = useRef<HTMLDivElement>(null);
 	const tableHeaderRef = useRef<HTMLDivElement>(null);
@@ -56,13 +55,11 @@ export default () => {
 		rows: rowsById
 	});
 
-	const viewPadding = useExplorerViewPadding(explorerView.padding);
-
 	const padding = {
-		top: viewPadding.top ?? PADDING_Y,
-		bottom: viewPadding.bottom ?? PADDING_Y,
-		left: viewPadding.left ?? PADDING_X,
-		right: viewPadding.right ?? PADDING_X
+		top: explorerView.padding?.top ?? PADDING_Y,
+		bottom: explorerView.padding?.bottom ?? PADDING_Y,
+		left: explorerView.padding?.left ?? PADDING_X,
+		right: explorerView.padding?.right ?? PADDING_X
 	};
 
 	const count = !explorer.count ? rows.length : Math.max(rows.length, explorer.count);
@@ -412,7 +409,7 @@ export default () => {
 		]
 	);
 
-	useEffect(() => setRanges([]), [settings.order]);
+	useEffect(() => setRanges([]), [explorerSettings.order]);
 
 	//this is to handle selection for quickpreview slider
 	useEffect(() => {
@@ -785,7 +782,7 @@ export default () => {
 					e.stopPropagation();
 					setIsLeftMouseDown(true);
 				}}
-				className={clsx('h-fit w-full', !initialized && 'invisible')}
+				className={clsx('', !initialized && 'invisible')}
 			>
 				{sized && (
 					<>
@@ -818,17 +815,19 @@ export default () => {
 													const size = header.column.getSize();
 
 													const orderKey =
-														settings.order &&
-														orderingKey(settings.order);
+														explorerSettings.order &&
+														orderingKey(explorerSettings.order);
 
 													const orderingDirection =
 														orderKey &&
-														settings.order &&
+														explorerSettings.order &&
 														(orderKey.startsWith('object.')
 															? orderKey.split('object.')[1] ===
 															  header.id
 															: orderKey === header.id)
-															? getOrderingDirection(settings.order)
+															? getOrderingDirection(
+																	explorerSettings.order
+															  )
 															: null;
 
 													const cellContent = flexRender(
@@ -1008,4 +1007,4 @@ export default () => {
 			</div>
 		</TableContext.Provider>
 	);
-};
+});

@@ -3,8 +3,8 @@ import clsx from 'clsx';
 import { memo } from 'react';
 import { getItemFilePath, type ExplorerItem } from '@sd/client';
 
-import { useExplorerDraggable } from '../useExplorerDraggable';
-import { useExplorerDroppable } from '../useExplorerDroppable';
+import { useExplorerDraggable } from '../../useExplorerDraggable';
+import { useExplorerDroppable } from '../../useExplorerDroppable';
 import { ViewItem } from '../ViewItem';
 import { useTableContext } from './context';
 
@@ -13,23 +13,24 @@ interface ListViewItemProps {
 	selected?: boolean;
 }
 
-export const ListViewItem = memo((props: ListViewItemProps) => {
+export const ListViewItem = memo(({ row, selected }: ListViewItemProps) => {
 	const table = useTableContext();
-	const filePathData = getItemFilePath(props.row.original);
+
+	const filePath = getItemFilePath(row.original);
 
 	const { isDroppable, navigateClassName, setDroppableRef } = useExplorerDroppable({
-		data: { type: 'explorer-item', data: props.row.original },
-		disabled: !filePathData?.is_dir || props.selected
+		data: { type: 'explorer-item', data: row.original },
+		disabled: !filePath?.is_dir || selected
 	});
 
 	const { listeners, attributes, style, setDraggableRef } = useExplorerDraggable({
-		data: props.row.original
+		data: row.original
 	});
 
 	return (
 		<ViewItem
 			ref={setDroppableRef}
-			data={props.row.original}
+			data={row.original}
 			className={clsx('relative flex h-full items-center', navigateClassName)}
 			style={{ paddingLeft: table.padding.left, paddingRight: table.padding.right }}
 		>
@@ -40,14 +41,14 @@ export const ListViewItem = memo((props: ListViewItemProps) => {
 				/>
 			)}
 
-			{props.row.getVisibleCells().map((cell) => (
+			{row.getVisibleCells().map((cell) => (
 				<div
 					key={cell.id}
 					className={clsx(
 						'relative flex h-full shrink-0 items-center px-4 text-xs text-ink-dull',
 						cell.column.id !== 'name' && 'truncate',
 						cell.column.columnDef.meta?.className,
-						filePathData?.hidden && 'opacity-50'
+						filePath?.hidden && 'opacity-50'
 					)}
 					style={{ width: cell.column.getSize(), ...style }}
 					ref={setDraggableRef}

@@ -6,8 +6,8 @@ import {
 	useLibraryQuery,
 	useOnlineLocations
 } from '@sd/client';
+import { useExplorerDroppable } from '~/app/$libraryId/Explorer/useExplorerDroppable';
 import { useExplorerSearchParams } from '~/app/$libraryId/Explorer/util';
-import { useExplorerDroppable } from '~/app/$libraryId/Explorer/View/useExplorerDroppable';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
 import { Icon, SubtleButton } from '~/components';
 
@@ -50,7 +50,7 @@ const Location = ({ location, online }: { location: LocationType; online: boolea
 
 	const { isDroppable, navigateClassName, setDroppableRef } = useExplorerDroppable({
 		id: `sidebar-location-${location.id}`,
-		allow: 'Path',
+		allow: ['Path', 'NonIndexedPath'],
 		data: { type: 'location', path: '/', data: location },
 		disabled: Number(locationId) === location.id && !path,
 		navigateTo: `location/${location.id}`

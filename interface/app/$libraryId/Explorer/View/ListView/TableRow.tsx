@@ -1,11 +1,11 @@
 import { type Row } from '@tanstack/react-table';
 import clsx from 'clsx';
-import { memo, useMemo } from 'react';
+import { useMemo } from 'react';
 import { type ExplorerItem } from '@sd/client';
 
 import { useExplorerContext } from '../../Context';
 import { useTableContext } from './context';
-import { ListViewItem } from './Item';
+import { ListViewItem } from './ListViewItem';
 
 interface RowProps {
 	row: Row<ExplorerItem>;
@@ -13,9 +13,9 @@ interface RowProps {
 	nextRow?: Row<ExplorerItem>;
 }
 
-export const TableRow = memo((props: RowProps) => {
-	const explorer = useExplorerContext();
+export const TableRow = (props: RowProps) => {
 	const table = useTableContext();
+	const explorer = useExplorerContext();
 
 	const selected = useMemo(() => {
 		return explorer.selectedItems.has(props.row.original);
@@ -49,4 +49,4 @@ export const TableRow = memo((props: RowProps) => {
 			<ListViewItem row={props.row} selected={selected} />
 		</>
 	);
-});
+};

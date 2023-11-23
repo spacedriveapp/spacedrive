@@ -1,4 +1,3 @@
-import { DndContext, PointerSensor, pointerWithin, useSensor, useSensors } from '@dnd-kit/core';
 import clsx from 'clsx';
 import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { Navigate, Outlet, useNavigate } from 'react-router-dom';
@@ -24,8 +23,10 @@ import {
 } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
+import { DragOverlay } from '../Explorer/DragOverlay';
 import { QuickPreviewContextProvider } from '../Explorer/QuickPreview/Context';
 import { LayoutContext } from './Context';
+import { DndContext } from './DndContext';
 import Sidebar from './Sidebar';
 
 const Layout = () => {
@@ -44,14 +45,6 @@ const Layout = () => {
 
 	usePlausible();
 	useUpdater();
-
-	const sensors = useSensors(
-		useSensor(PointerSensor, {
-			activationConstraint: {
-				distance: 4
-			}
-		})
-	);
 
 	if (library === null && libraries.data) {
 		const firstLibrary = libraries.data[0];
@@ -78,7 +71,7 @@ const Layout = () => {
 					e.preventDefault();
 				}}
 			>
-				<DndContext sensors={sensors} collisionDetection={pointerWithin}>
+				<DndContext>
 					<Sidebar />
 					<div
 						className={clsx(
@@ -93,6 +86,7 @@ const Layout = () => {
 										fallback={<div className="h-screen w-screen bg-app" />}
 									>
 										<Outlet />
+										<DragOverlay />
 									</Suspense>
 								</LibraryContextProvider>
 							</QuickPreviewContextProvider>

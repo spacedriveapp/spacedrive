@@ -1,6 +1,6 @@
 import { createContext, useContext, type ReactNode, type RefObject } from 'react';
 
-import { ExplorerViewPadding } from './View';
+import { ExplorerViewPadding } from '.';
 
 export interface ExplorerViewContext {
 	ref: RefObject<HTMLDivElement>;

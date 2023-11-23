@@ -4,6 +4,7 @@ import Selecto from 'react-selecto';
 interface GridContext {
 	selecto?: React.RefObject<Selecto>;
 	selectoUnselected: React.MutableRefObject<Set<string>>;
+	getElementById: (id: string) => Element | null | undefined;
 }
 
 export const GridContext = createContext<GridContext | null>(null);

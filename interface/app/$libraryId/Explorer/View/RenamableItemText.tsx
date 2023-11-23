@@ -14,6 +14,7 @@ import { useIsDark } from '~/hooks';
 import { useExplorerContext } from '../Context';
 import { RenameTextBox } from '../FilePath/RenameTextBox';
 import { useQuickPreviewStore } from '../QuickPreview/store';
+import { useExplorerStore } from '../store';
 
 interface Props {
 	item: ExplorerItem;
@@ -30,18 +31,21 @@ export const RenamableItemText = ({
 	lines,
 	highlight
 }: Props) => {
-	const rspc = useRspcLibraryContext();
-	const explorer = useExplorerContext();
-	const quickPreviewStore = useQuickPreviewStore();
 	const isDark = useIsDark();
+	const rspc = useRspcLibraryContext();
+
+	const explorer = useExplorerContext({ suspense: false });
+	const explorerStore = useExplorerStore();
+
+	const quickPreviewStore = useQuickPreviewStore();
 
 	const itemData = getExplorerItemData(item);
 
 	const ref = useRef<HTMLDivElement>(null);
 
 	const selected = useMemo(
-		() => explorer.selectedItems.has(item),
-		[explorer.selectedItems, item]
+		() => explorer?.selectedItems.has(item),
+		[explorer?.selectedItems, item]
 	);
 
 	const renameFile = useLibraryMutation(['files.renameFile'], {
@@ -138,6 +142,8 @@ export const RenamableItemText = ({
 
 	const disabled =
 		!selected ||
+		!!explorerStore.drag ||
+		!explorer ||
 		explorer.selectedItems.size > 1 ||
 		quickPreviewStore.open ||
 		item.type === 'SpacedropPeer';

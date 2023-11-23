@@ -1,46 +1,42 @@
 import clsx from 'clsx';
 import { memo } from 'react';
-import { useMatch } from 'react-router';
-import { byteSize, getItemFilePath, getItemLocation, type ExplorerItem } from '@sd/client';
+import { byteSize, getItemFilePath, type ExplorerItem } from '@sd/client';
 
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
 import { useExplorerStore } from '../store';
+import { useExplorerDraggable } from '../useExplorerDraggable';
+import { useExplorerDroppable } from '../useExplorerDroppable';
 import Grid from './Grid';
 import { RenamableItemText } from './RenamableItemText';
-import { useExplorerDraggable } from './useExplorerDraggable';
-import { useExplorerDroppable } from './useExplorerDroppable';
 import { ViewItem } from './ViewItem';
 
 interface GridViewItemProps {
 	data: ExplorerItem;
 	selected: boolean;
 	cut: boolean;
-	isRenaming: boolean;
 }
 
-const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProps) => {
-	const explorer = useExplorerContext();
-	const { showBytesInGridView } = explorer.useSettingsSnapshot();
+const GridViewItem = memo(({ data, selected, cut }: GridViewItemProps) => {
+	const explorerStore = useExplorerStore();
+	const explorerSettings = useExplorerContext().useSettingsSnapshot();
 
-	const filePathData = getItemFilePath(data);
-	const location = getItemLocation(data);
-	const isEphemeralLocation = useMatch('/:libraryId/ephemeral/:ephemeralId');
-	const isFolder = filePathData?.is_dir;
-	const hidden = filePathData?.hidden;
+	const filePath = getItemFilePath(data);
+
+	const isLocation = data.type === 'Location';
+	const isEphemeral = data.type === 'NonIndexedPath';
+	const isFolder = filePath?.is_dir;
 
 	const showSize =
-		showBytesInGridView &&
-		!location &&
+		explorerSettings.showBytesInGridView &&
+		!isLocation &&
 		!isFolder &&
-		(!isEphemeralLocation || !isFolder) &&
-		(!isRenaming || !selected);
+		(!isEphemeral || !isFolder) &&
+		(!explorerStore.isRenaming || !selected);
 
 	const { isDroppable, navigateClassName, setDroppableRef } = useExplorerDroppable({
 		data: { type: 'explorer-item', data: data },
-		disabled: !isFolder || selected,
-		allow:
-			explorer.parent?.type === 'Location' ? 'Path' : explorer.parent ? 'Object' : undefined
+		disabled: (!isFolder && !isLocation) || selected
 	});
 
 	const { attributes, listeners, style, setDraggableRef } = useExplorerDraggable({
@@ -48,7 +44,7 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProp
 	});
 
 	return (
-		<ViewItem data={data} className={clsx('h-full w-full', hidden && 'opacity-50')}>
+		<ViewItem data={data} className={clsx('h-full w-full', filePath?.hidden && 'opacity-50')}>
 			<div ref={setDroppableRef}>
 				<div
 					className={clsx(
@@ -85,9 +81,9 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProp
 						lines={2}
 						highlight={isDroppable}
 					/>
-					{showSize && filePathData?.size_in_bytes_bytes && (
+					{showSize && filePath?.size_in_bytes_bytes && (
 						<span className="truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull">
-							{`${byteSize(filePathData.size_in_bytes_bytes)}`}
+							{`${byteSize(filePath.size_in_bytes_bytes)}`}
 						</span>
 					)}
 				</div>
@@ -96,18 +92,11 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProp
 	);
 });
 
-export default () => {
-	const explorerStore = useExplorerStore();
-
+export const GridView = () => {
 	return (
 		<Grid>
 			{({ item, selected, cut }) => (
-				<GridViewItem
-					data={item}
-					selected={selected}
-					cut={cut}
-					isRenaming={explorerStore.isRenaming}
-				/>
+				<GridViewItem data={item} selected={selected} cut={cut} />
 			)}
 		</Grid>
 	);

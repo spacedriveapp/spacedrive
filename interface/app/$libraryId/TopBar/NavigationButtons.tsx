@@ -6,7 +6,7 @@ import { Tooltip } from '@sd/ui';
 import { useKeyMatcher, useOperatingSystem, useShortcut } from '~/hooks';
 import { useRoutingContext } from '~/RoutingContext';
 
-import { useExplorerDroppable } from '../Explorer/View/useExplorerDroppable';
+import { useExplorerDroppable } from '../Explorer/useExplorerDroppable';
 import TopBarButton from './TopBarButton';
 
 export const NavigationButtons = () => {

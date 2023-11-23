@@ -1,12 +1,14 @@
 import { EjectSimple } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { useMemo, useState } from 'react';
+import { PropsWithChildren, useMemo } from 'react';
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { Button, toast, tw } from '@sd/ui';
 import { Icon, IconName } from '~/components';
 import { usePlatform } from '~/util/Platform';
 
+import { useExplorerDroppable } from '../../Explorer/useExplorerDroppable';
+import { useExplorerSearchParams } from '../../Explorer/util';
 import SidebarLink from './Link';
 import Section from './Section';
 import SeeMore from './SeeMore';
@@ -28,6 +30,12 @@ const SidebarIcon = ({ name }: { name: IconName }) => {
 	return <Icon name={name} size={20} className="mr-1" />;
 };
 
+// this will return an array of location ids that are also volumes
+// { "/Mount/Point": 1, "/Mount/Point2": 2"}
+type LocationIdsMap = {
+	[key: string]: number;
+};
+
 export const EphemeralSection = () => {
 	const platform = usePlatform();
 
@@ -39,12 +47,6 @@ export const EphemeralSection = () => {
 	const locations = useLibraryQuery(['locations.list']);
 
 	const volumes = useBridgeQuery(['volumes.list']);
-
-	// this will return an array of location ids that are also volumes
-	// { "/Mount/Point": 1, "/Mount/Point2": 2"}
-	type LocationIdsMap = {
-		[key: string]: number;
-	};
 
 	const locationIdsForVolumes = useMemo<LocationIdsMap>(() => {
 		if (!locations.data || !volumes.data) return {};
@@ -106,14 +108,14 @@ export const EphemeralSection = () => {
 
 					if (item?.type === 'home') {
 						return (
-							<SidebarLink
-								to={`ephemeral/0?path=${item.path}`}
-								className="group relative w-full border border-transparent"
+							<EphemeralLocation
 								key={index}
+								navigateTo={`ephemeral/0?path=${item.path}`}
+								path={item.path ?? ''}
 							>
 								<SidebarIcon name="Home" />
 								<Name>Home</Name>
-							</SidebarLink>
+							</EphemeralLocation>
 						);
 					}
 
@@ -132,10 +134,14 @@ export const EphemeralSection = () => {
 								: `ephemeral/${key}?path=${item.mountPoint}`;
 
 						return (
-							<SidebarLink
-								to={toPath}
+							<EphemeralLocation
 								key={key}
-								className="group relative w-full border border-transparent"
+								navigateTo={toPath}
+								path={
+									locationId !== undefined
+										? locationId.toString()
+										: item.mountPoint ?? ''
+								}
 							>
 								<SidebarIcon
 									name={
@@ -148,7 +154,7 @@ export const EphemeralSection = () => {
 								/>
 								<Name>{name}</Name>
 								{item.volume.disk_type === 'Removable' && <EjectButton />}
-							</SidebarLink>
+							</EphemeralLocation>
 						);
 					}
 
@@ -156,5 +162,35 @@ export const EphemeralSection = () => {
 				}}
 			/>
 		</Section>
+	);
+};
+
+const EphemeralLocation = ({
+	children,
+	path,
+	navigateTo
+}: PropsWithChildren<{ path: string; navigateTo: string }>) => {
+	const [{ path: ephemeralPath }] = useExplorerSearchParams();
+
+	const { isDroppable, navigateClassName, setDroppableRef } = useExplorerDroppable({
+		id: `sidebar-ephemeral-location-${path}`,
+		allow: ['Path', 'NonIndexedPath'],
+		data: { type: 'location', path },
+		disabled: navigateTo.startsWith('location/') || ephemeralPath === path,
+		navigateTo: navigateTo
+	});
+
+	return (
+		<SidebarLink
+			ref={setDroppableRef}
+			to={navigateTo}
+			className={clsx(
+				'border radix-state-open:border-accent',
+				isDroppable ? ' border-accent' : 'border-transparent',
+				navigateClassName
+			)}
+		>
+			{children}
+		</SidebarLink>
 	);
 };

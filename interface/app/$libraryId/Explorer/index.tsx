@@ -7,16 +7,18 @@ import { useTopBarContext } from '../TopBar/Layout';
 import { useExplorerContext } from './Context';
 import ContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
+import { ExplorerPath, PATH_BAR_HEIGHT } from './ExplorerPath';
 import { Inspector, INSPECTOR_WIDTH } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
 import { getQuickPreviewStore } from './QuickPreview/store';
 import { getExplorerStore, useExplorerStore } from './store';
 import { useKeyRevealFinder } from './useKeyRevealFinder';
-import View, { ExplorerViewProps } from './View';
+import { ExplorerViewProps, View } from './View';
 import { EmptyNotice } from './View/EmptyNotice';
-import { ExplorerPath, PATH_BAR_HEIGHT } from './View/ExplorerPath';
 
 import 'react-slidedown/lib/slidedown.css';
+
+import { useExplorerDnd } from './useExplorerDnd';
 
 interface Props {
 	emptyNotice?: ExplorerViewProps['emptyNotice'];
@@ -66,6 +68,8 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 
 	useKeyRevealFinder();
 
+	useExplorerDnd();
+
 	const topBar = useTopBarContext();
 
 	return (
@@ -77,9 +81,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 					style={
 						{
 							'--scrollbar-margin-top': `${topBar.topBarHeight}px`,
-							'--scrollbar-margin-bottom': `${
-								showPathBar ? PATH_BAR_HEIGHT + 2 : 0 // TODO: Fix for web app
-							}px`,
+							'--scrollbar-margin-bottom': `${showPathBar ? PATH_BAR_HEIGHT : 0}px`,
 							'paddingTop': topBar.topBarHeight,
 							'paddingRight': explorerStore.showInspector ? INSPECTOR_WIDTH : 0
 						} as CSSProperties
@@ -102,6 +104,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 					/>
 				</div>
 			</ExplorerContextMenu>
+
 			{showPathBar && <ExplorerPath />}
 
 			{explorerStore.showInspector && (

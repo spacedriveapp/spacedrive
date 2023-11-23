@@ -26,7 +26,7 @@ export const EmptyNotice = (props: {
 	if (props.loading) return null;
 
 	return (
-		<div className="flex flex-1 flex-col items-center justify-center text-ink-faint">
+		<div className="flex h-full flex-col items-center justify-center text-ink-faint">
 			{props.icon
 				? isValidElement(props.icon)
 					? props.icon

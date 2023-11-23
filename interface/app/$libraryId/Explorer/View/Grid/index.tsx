@@ -6,11 +6,11 @@ import { useOperatingSystem, useShortcut } from '~/hooks';
 
 import { useExplorerContext } from '../../Context';
 import { getQuickPreviewStore, useQuickPreviewStore } from '../../QuickPreview/store';
-import { getExplorerStore, useExplorerStore } from '../../store';
+import { getExplorerStore } from '../../store';
 import { uniqueId } from '../../util';
-import { useExplorerViewContext } from '../../ViewContext';
+import { useExplorerViewContext } from '../Context';
 import { GridContext } from './context';
-import { GridItem } from './Item';
+import { GridItem } from './GridItem';
 
 export type RenderItem = (item: {
 	item: ExplorerItem;
@@ -27,9 +27,8 @@ export default memo(({ children }: { children: RenderItem }) => {
 	const isChrome = CHROME_REGEX.test(navigator.userAgent);
 
 	const explorer = useExplorerContext();
-	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
-	const settings = explorer.useSettingsSnapshot();
+	const explorerSettings = explorer.useSettingsSnapshot();
 	const quickPreviewStore = useQuickPreviewStore();
 
 	const selecto = useRef<Selecto>(null);
@@ -45,17 +44,20 @@ export default memo(({ children }: { children: RenderItem }) => {
 
 	const [dragFromThumbnail, setDragFromThumbnail] = useState(false);
 
-	const itemDetailsHeight = 44 + (settings.showBytesInGridView ? 20 : 0);
-	const itemHeight = settings.gridItemSize + itemDetailsHeight;
-	const padding = settings.layoutMode === 'grid' ? 12 : 0;
+	const itemDetailsHeight = 44 + (explorerSettings.showBytesInGridView ? 20 : 0);
+	const itemHeight = explorerSettings.gridItemSize + itemDetailsHeight;
+	const padding = explorerSettings.layoutMode === 'grid' ? 12 : 0;
 
 	const grid = useGrid({
 		scrollRef: explorer.scrollRef,
 		count: explorer.items?.length ?? 0,
 		totalCount: explorer.count,
-		...(settings.layoutMode === 'grid'
-			? { columns: 'auto', size: { width: settings.gridItemSize, height: itemHeight } }
-			: { columns: settings.mediaColumns }),
+		...(explorerSettings.layoutMode === 'grid'
+			? {
+					columns: 'auto',
+					size: { width: explorerSettings.gridItemSize, height: itemHeight }
+			  }
+			: { columns: explorerSettings.mediaColumns }),
 		rowVirtualizer: { overscan: explorer.overscan ?? 5 },
 		onLoadMore: explorer.loadMore,
 		getItemId: useCallback(
@@ -74,7 +76,9 @@ export default memo(({ children }: { children: RenderItem }) => {
 			x: padding,
 			y: padding
 		},
-		gap: explorerView.gap || (settings.layoutMode === 'grid' ? settings.gridGap : 1)
+		gap:
+			explorerView.gap ||
+			(explorerSettings.layoutMode === 'grid' ? explorerSettings.gridGap : 1)
 	});
 
 	const getElementById = useCallback(
@@ -348,7 +352,7 @@ export default memo(({ children }: { children: RenderItem }) => {
 	}, [explorer.items, explorer.selectedItems, quickPreviewStore.open, realOS, getElementById]);
 
 	return (
-		<GridContext.Provider value={{ selecto, selectoUnselected }}>
+		<GridContext.Provider value={{ selecto, selectoUnselected, getElementById }}>
 			{explorer.allowMultiSelect && (
 				<Selecto
 					ref={selecto}
@@ -365,7 +369,7 @@ export default memo(({ children }: { children: RenderItem }) => {
 					toggleContinueSelect="shift"
 					hitRate={0}
 					onDrag={(e) => {
-						if (!explorerStore.drag) return;
+						if (!getExplorerStore().drag) return;
 						e.stop();
 						handleDragEnd();
 					}}
@@ -600,7 +604,6 @@ export default memo(({ children }: { children: RenderItem }) => {
 						<GridItem
 							index={index}
 							item={item}
-							getElementById={getElementById}
 							onMouseDown={(e) => {
 								if (e.button !== 0 || !explorerView.selectable) return;
 

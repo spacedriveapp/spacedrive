@@ -1,4 +1,4 @@
-import { forwardRef, memo, useCallback, type HTMLAttributes, type PropsWithChildren } from 'react';
+import { forwardRef, useCallback, type HTMLAttributes, type PropsWithChildren } from 'react';
 import { createSearchParams, useNavigate } from 'react-router-dom';
 import {
 	isPath,
@@ -17,7 +17,7 @@ import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore } from '../QuickPreview/store';
 import { getExplorerStore } from '../store';
 import { uniqueId } from '../util';
-import { useExplorerViewContext } from '../ViewContext';
+import { useExplorerViewContext } from './Context';
 
 export const useViewItemDoubleClick = () => {
 	const navigate = useNavigate();
@@ -177,8 +177,8 @@ interface ViewItemProps extends PropsWithChildren, HTMLAttributes<HTMLDivElement
 	data: ExplorerItem;
 }
 
-export const ViewItem = memo(
-	forwardRef<HTMLDivElement, ViewItemProps>(({ data, children, ...props }, ref) => {
+export const ViewItem = forwardRef<HTMLDivElement, ViewItemProps>(
+	({ data, children, ...props }, ref) => {
 		const explorerView = useExplorerViewContext();
 
 		const { doubleClick } = useViewItemDoubleClick();
@@ -197,5 +197,5 @@ export const ViewItem = memo(
 				{explorerView.contextMenu}
 			</ContextMenu.Root>
 		);
-	})
+	}
 );

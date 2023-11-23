@@ -130,7 +130,7 @@ type DragState =
 			type: 'dragging';
 			items: ExplorerItem[];
 			sourceParentPath: string;
-			sourceLocationId: number;
+			sourceLocationId?: number;
 	  };
 
 const state = {
