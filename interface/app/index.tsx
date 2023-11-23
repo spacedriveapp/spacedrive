@@ -66,7 +66,7 @@ export const routes = (os: OperatingSystem) => {
 				}
 			]
 		}
-	] as RouteObject[];
+	] satisfies RouteObject[];
 };
 
 /**
