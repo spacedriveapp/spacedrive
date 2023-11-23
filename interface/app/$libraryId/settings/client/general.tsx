@@ -11,7 +11,7 @@ import {
 } from '@sd/client';
 import { Button, Card, Input, Select, SelectOption, Slider, Switch, tw, z } from '@sd/ui';
 import { Icon } from '~/components';
-import { useDebouncedFormWatch } from '~/hooks';
+import { useDebouncedFormWatch, useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { Heading } from '../Layout';
@@ -29,6 +29,8 @@ export const Component = () => {
 	const debugState = useDebugState();
 	const editNode = useBridgeMutation('nodes.edit');
 	const connectedPeers = useConnectedPeers();
+	const os = useOperatingSystem();
+	const { requestFdaMacos } = usePlatform();
 	const updateThumbnailerPreferences = useBridgeMutation('nodes.updateThumbnailerPreferences');
 
 	const form = useZodForm({
@@ -177,6 +179,18 @@ export const Component = () => {
 					</div> */}
 				</div>
 			</Card>
+
+			{os === 'macOS' && (
+				<Setting
+					mini
+					title="Full disk access"
+					description="Enable full disk access to allow Spacedrive to index additional files."
+				>
+					<Button onClick={requestFdaMacos} variant="gray" size="sm" className="my-5">
+						Enable
+					</Button>
+				</Setting>
+			)}
 
 			<Setting
 				mini
