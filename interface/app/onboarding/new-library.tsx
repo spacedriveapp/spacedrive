@@ -22,9 +22,7 @@ export default function OnboardingNewLibrary() {
 		<Form
 			form={form}
 			onSubmit={form.handleSubmit(() => {
-				os === 'macOS'
-					? navigate('../full-disk', { replace: true })
-					: navigate('../locations', { replace: true });
+				navigate(`../${os === 'macOS' ? 'full-disk' : 'locations'}`, { replace: true });
 			})}
 		>
 			<OnboardingContainer>
@@ -36,7 +34,7 @@ export default function OnboardingNewLibrary() {
 				</OnboardingDescription>
 
 				{importMode ? (
-					<div className="mt-7 space-x-2">
+					<div className="space-x-2 mt-7">
 						<Button onClick={handleImport} variant="accent" size="sm">
 							Import
 						</Button>
@@ -55,7 +53,7 @@ export default function OnboardingNewLibrary() {
 							placeholder={'e.g. "James\' Library"'}
 						/>
 						<div className="flex grow" />
-						<div className="mt-7 space-x-2">
+						<div className="space-x-2 mt-7">
 							<Button
 								type="submit"
 								variant="accent"
