@@ -1,12 +1,12 @@
 import { BottomTabScreenProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
-import { Broadcast, CirclesFour, Planet } from 'phosphor-react-native';
+import { CirclesFour, FolderOpen, Planet } from 'phosphor-react-native';
 import { tw } from '~/lib/tailwind';
 
 import type { HomeDrawerScreenProps } from './DrawerNavigator';
+import BrowseStack, { BrowseStackParamList } from './tabs/BrowseStack';
+import NetworkStack, { NetworkStackParamList } from './tabs/NetworkStack';
 import OverviewStack, { OverviewStackParamList } from './tabs/OverviewStack';
-import SpacedropStack, { SpacedropStackParamList } from './tabs/SpacedropStack';
-import SpacesStack, { SpacesStackParamList } from './tabs/SpacesStack';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
@@ -41,8 +41,8 @@ export default function TabNavigator() {
 				}}
 			/>
 			<Tab.Screen
-				name="SpacesStack"
-				component={SpacesStack}
+				name="NetworkStack"
+				component={NetworkStack}
 				options={{
 					tabBarIcon: ({ focused }) => (
 						<CirclesFour
@@ -51,22 +51,22 @@ export default function TabNavigator() {
 							color={focused ? tw.color('accent') : tw.color('ink')}
 						/>
 					),
-					tabBarLabel: 'Spaces',
+					tabBarLabel: 'Network',
 					tabBarLabelStyle: tw`text-[10px] font-semibold`
 				}}
 			/>
 			<Tab.Screen
-				name="SpacedropStack"
-				component={SpacedropStack}
+				name="BrowseStack"
+				component={BrowseStack}
 				options={{
 					tabBarIcon: ({ focused }) => (
-						<Broadcast
+						<FolderOpen
 							size={22}
 							weight={focused ? 'bold' : 'regular'}
 							color={focused ? tw.color('accent') : tw.color('ink')}
 						/>
 					),
-					tabBarLabel: 'Spacedrop',
+					tabBarLabel: 'Browse',
 					tabBarLabelStyle: tw`text-[10px] font-semibold`
 				}}
 			/>
@@ -76,8 +76,8 @@ export default function TabNavigator() {
 
 export type TabParamList = {
 	OverviewStack: NavigatorScreenParams<OverviewStackParamList>;
-	SpacedropStack: NavigatorScreenParams<SpacedropStackParamList>;
-	SpacesStack: NavigatorScreenParams<SpacesStackParamList>;
+	NetworkStack: NavigatorScreenParams<NetworkStackParamList>;
+	BrowseStack: NavigatorScreenParams<BrowseStackParamList>;
 };
 
 export type TabScreenProps<Screen extends keyof TabParamList> = CompositeScreenProps<

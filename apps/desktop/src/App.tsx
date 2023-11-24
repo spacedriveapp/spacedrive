@@ -3,6 +3,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { listen } from '@tauri-apps/api/event';
 import { appWindow } from '@tauri-apps/api/window';
 import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { RspcProvider } from '@sd/client';
 import {
 	createRoutes,
@@ -17,8 +18,6 @@ import { RouteTitleContext } from '@sd/interface/hooks/useRouteTitle';
 import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 
 import '@sd/ui/style/style.scss';
-
-import { createPortal } from 'react-dom';
 
 import * as commands from './commands';
 import { platform } from './platform';

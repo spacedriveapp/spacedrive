@@ -108,7 +108,7 @@ function Tabs() {
 						'duration-[50ms] group relative flex h-full min-w-[10rem] shrink-0 flex-row items-center justify-center px-8 text-center',
 						ctx.tabIndex === index
 							? 'text-ink'
-							: 'top-bar-blur bg-sidebar transition-colors hover:bg-app/50'
+							: 'top-bar-blur border-t border-sidebar-divider bg-sidebar/30 text-ink-faint/60 transition-colors hover:bg-app/50'
 					)}
 					key={index}
 				>
@@ -119,7 +119,7 @@ function Tabs() {
 								e.stopPropagation();
 								removeTab(index);
 							}}
-							className="absolute right-2 rounded p-1 opacity-0 transition-opacity hover:bg-app-selected group-hover:opacity-100"
+							className="absolute right-2 rounded p-1 text-ink opacity-0 transition-opacity hover:bg-app-selected group-hover:opacity-100"
 						>
 							<X />
 						</div>
@@ -127,7 +127,7 @@ function Tabs() {
 				</button>
 			))}
 			<div
-				className="flex h-full flex-1 items-center justify-start bg-sidebar px-2"
+				className="flex h-full flex-1 items-center justify-start border-t border-sidebar-divider bg-sidebar/30 px-2"
 				data-tauri-drag-region
 			>
 				<Tooltip keybinds={[keybind.icon, 'T']} label="New Tab">

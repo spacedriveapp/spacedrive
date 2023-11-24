@@ -118,7 +118,7 @@ export default App;
 
 function useRouter() {
 	const [router, setRouter] = useState(() => {
-		const router = createBrowserRouter(routes);
+		const router = createBrowserRouter(createRoutes(platform));
 
 		router.subscribe((event) => {
 			setRouter((router) => {

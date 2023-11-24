@@ -1,6 +1,5 @@
 import clsx from 'clsx';
-import { useEffect } from 'react';
-import { Controller } from 'react-hook-form';
+import { Controller, FormProvider } from 'react-hook-form';
 import {
 	getDebugState,
 	useBridgeMutation,
@@ -9,9 +8,9 @@ import {
 	useDebugState,
 	useZodForm
 } from '@sd/client';
-import { Button, Card, Input, Select, SelectOption, Switch, tw, z } from '@sd/ui';
+import { Button, Card, Input, Select, SelectOption, Slider, Switch, tw, z } from '@sd/ui';
 import { Icon } from '~/components';
-import { useDebouncedFormWatch } from '~/hooks';
+import { useDebouncedFormWatch, useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { Heading } from '../Layout';
@@ -29,46 +28,67 @@ export const Component = () => {
 	const debugState = useDebugState();
 	const editNode = useBridgeMutation('nodes.edit');
 	const connectedPeers = useConnectedPeers();
+	const os = useOperatingSystem();
+	const { requestFdaMacos } = usePlatform();
+	const updateThumbnailerPreferences = useBridgeMutation('nodes.updateThumbnailerPreferences');
 
 	const form = useZodForm({
-		schema: z.object({
-			name: z.string().min(1).max(250).optional(),
-			p2p_enabled: z.boolean().optional(),
-			p2p_port: u16,
-			customOrDefault: z.enum(['Custom', 'Default'])
-		}),
+		schema: z
+			.object({
+				name: z.string().min(1).max(250).optional(),
+				p2p_enabled: z.boolean().optional(),
+				p2p_port: u16,
+				customOrDefault: z.enum(['Custom', 'Default']),
+				background_processing_percentage: z.coerce
+					.number({
+						invalid_type_error: 'Must use numbers from 0 to 100'
+					})
+					.int()
+					.nonnegative()
+					.lte(100)
+			})
+			.strict(),
 		reValidateMode: 'onChange',
 		defaultValues: {
 			name: node.data?.name,
 			p2p_enabled: node.data?.p2p_enabled,
 			p2p_port: node.data?.p2p_port || 0,
-			customOrDefault: node.data?.p2p_port ? 'Custom' : 'Default'
+			customOrDefault: node.data?.p2p_port ? 'Custom' : 'Default',
+			background_processing_percentage:
+				node.data?.preferences.thumbnailer.background_processing_percentage || 50
 		}
 	});
 
 	const watchCustomOrDefault = form.watch('customOrDefault');
 	const watchP2pEnabled = form.watch('p2p_enabled');
+	const watchBackgroundProcessingPercentage = form.watch('background_processing_percentage');
 
 	useDebouncedFormWatch(form, async (value) => {
-		await editNode.mutateAsync({
-			name: value.name || null,
-			p2p_enabled: value.p2p_enabled === undefined ? null : value.p2p_enabled,
-			p2p_port: value.customOrDefault === 'Default' ? 0 : Number(value.p2p_port)
-		});
+		if (await form.trigger()) {
+			await editNode.mutateAsync({
+				name: value.name || null,
+				p2p_enabled: value.p2p_enabled === undefined ? null : value.p2p_enabled,
+				p2p_port: value.customOrDefault === 'Default' ? 0 : Number(value.p2p_port)
+			});
+
+			if (value.background_processing_percentage != undefined) {
+				await updateThumbnailerPreferences.mutateAsync({
+					background_processing_percentage: value.background_processing_percentage
+				});
+			}
+		}
 
 		node.refetch();
 	});
 
-	useEffect(() => {
-		form.watch((data) => {
-			if (Number(data.p2p_port) > 65535) {
-				form.setValue('p2p_port', 65535);
-			}
-		});
-	}, [form]);
+	form.watch((data) => {
+		if (Number(data.p2p_port) > 65535) {
+			form.setValue('p2p_port', 65535);
+		}
+	});
 
 	return (
-		<>
+		<FormProvider {...form}>
 			<Heading
 				title="General Settings"
 				description="General settings related to this client."
@@ -157,6 +177,19 @@ export const Component = () => {
 				</div>
 			</Card>
 
+			{os === 'macOS' && (
+				<Setting
+					mini
+					title="Full disk access"
+					containerClassName="items-start"
+					description="Enable full disk access to allow Spacedrive to index additional files."
+				>
+					<Button onClick={requestFdaMacos} variant="gray" size="sm">
+						Enable
+					</Button>
+				</Setting>
+			)}
+
 			<Setting
 				mini
 				title="Debug mode"
@@ -167,6 +200,38 @@ export const Component = () => {
 					checked={debugState.enabled}
 					onClick={() => (getDebugState().enabled = !debugState.enabled)}
 				/>
+			</Setting>
+			<Setting
+				mini
+				registerName="background_processing_percentage"
+				title="Thumbnailer CPU usage"
+				description="Limit how much CPU the thumbnailer can use for background processing."
+			>
+				<div className="flex h-[30px] w-80 items-center gap-2">
+					<Slider
+						onValueChange={(value) => {
+							if (value.length > 0) {
+								form.setValue('background_processing_percentage', value[0] ?? 0);
+							}
+						}}
+						max={100}
+						step={25}
+						min={0}
+						value={[watchBackgroundProcessingPercentage]}
+					/>
+					<Input
+						className="after:h-initial relative h-[30px] w-[8ch]
+						after:absolute after:right-[0.8em] after:top-1/2 after:inline-block after:-translate-y-2/4 after:content-['%']"
+						defaultValue={
+							node.data?.preferences.thumbnailer.background_processing_percentage ||
+							75
+						}
+						maxLength={3}
+						{...form.register('background_processing_percentage', {
+							valueAsNumber: true
+						})}
+					/>
+				</div>
 			</Setting>
 			<div className="flex flex-col gap-4">
 				<h1 className="mb-3 text-lg font-bold text-ink">Networking</h1>
@@ -209,14 +274,15 @@ export const Component = () => {
 					title="Networking Port"
 					description="The port for Spacedrive's Peer-to-peer networking to communicate on. You should leave this disabled unless you have a restictive firewall. Do not expose to the internet!"
 				>
-					<div className="flex gap-2">
+					<div className="flex h-[30px] gap-2">
 						<Controller
 							control={form.control}
 							name="customOrDefault"
 							render={({ field }) => (
 								<Select
+									containerClassName="h-[30px]"
 									disabled={!watchP2pEnabled}
-									className={clsx(!watchP2pEnabled && 'opacity-50')}
+									className={clsx(!watchP2pEnabled && 'opacity-50', 'h-full')}
 									{...field}
 									onChange={(e) => {
 										field.onChange(e);
@@ -247,6 +313,6 @@ export const Component = () => {
 					</div>
 				</Setting>
 			</div>
-		</>
+		</FormProvider>
 	);
 };

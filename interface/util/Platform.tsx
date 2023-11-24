@@ -36,6 +36,7 @@ export type Platform = {
 			| { Ephemeral: { path: string } }
 		)[]
 	): Promise<unknown>;
+	requestFdaMacos?(): void;
 	getFilePathOpenWithApps?(library: string, ids: number[]): Promise<unknown>;
 	reloadWebview?(): Promise<unknown>;
 	getEphemeralFilesOpenWithApps?(paths: string[]): Promise<unknown>;

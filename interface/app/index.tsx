@@ -3,41 +3,15 @@ import { Navigate, Outlet, redirect, useMatches, type RouteObject } from 'react-
 import { currentLibraryCache, getCachedLibraries, useCachedLibraries } from '@sd/client';
 import { Dialogs, Toaster } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
+import { useOperatingSystem } from '~/hooks';
 import { useRoutingContext } from '~/RoutingContext';
 
+import { Platform } from '..';
 import libraryRoutes from './$libraryId';
 import onboardingRoutes from './onboarding';
 import { RootContext } from './RootContext';
 
 import './style.scss';
-
-import { Platform } from '..';
-
-const Index = () => {
-	const libraries = useCachedLibraries();
-
-	if (libraries.status !== 'success') return null;
-
-	if (libraries.data.length === 0) return <Navigate to="onboarding" replace />;
-
-	const currentLibrary = libraries.data.find((l) => l.uuid === currentLibraryCache.id);
-
-	const libraryId = currentLibrary ? currentLibrary.uuid : libraries.data[0]?.uuid;
-
-	return <Navigate to={`${libraryId}`} replace />;
-};
-
-const Wrapper = () => {
-	const rawPath = useRawRoutePath();
-
-	return (
-		<RootContext.Provider value={{ rawPath }}>
-			<Outlet />
-			<Dialogs />
-			<Toaster position="bottom-right" expand={true} />
-		</RootContext.Provider>
-	);
-};
 
 // NOTE: all route `Layout`s below should contain
 // the `usePlausiblePageViewMonitor` hook, as early as possible (ideally within the layout itself).
@@ -46,12 +20,39 @@ const Wrapper = () => {
 export const createRoutes = (platform: Platform) =>
 	[
 		{
-			element: <Wrapper />,
+			Component: () => {
+				const rawPath = useRawRoutePath();
+
+				return (
+					<RootContext.Provider value={{ rawPath }}>
+						<Outlet />
+						<Dialogs />
+						<Toaster position="bottom-right" expand={true} />
+					</RootContext.Provider>
+				);
+			},
 			errorElement: <RouterErrorBoundary />,
 			children: [
 				{
 					index: true,
-					element: <Index />,
+					Component: () => {
+						const libraries = useCachedLibraries();
+
+						if (libraries.status !== 'success') return null;
+
+						if (libraries.data.length === 0)
+							return <Navigate to="onboarding" replace />;
+
+						const currentLibrary = libraries.data.find(
+							(l) => l.uuid === currentLibraryCache.id
+						);
+
+						const libraryId = currentLibrary
+							? currentLibrary.uuid
+							: libraries.data[0]?.uuid;
+
+						return <Navigate to={`${libraryId}`} replace />;
+					},
 					loader: async () => {
 						const libraries = await getCachedLibraries();
 

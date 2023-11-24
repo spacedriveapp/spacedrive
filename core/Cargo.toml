@@ -1,6 +1,6 @@
 [package]
 name = "sd-core"
-version = "0.1.2"
+version = "0.1.3"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc."]
 rust-version = "1.73.0"
@@ -22,16 +22,16 @@ sd-media-metadata = { path = "../crates/media-metadata" }
 sd-prisma = { path = "../crates/prisma" }
 sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
 sd-crypto = { path = "../crates/crypto", features = [
-	"rspc",
-	"specta",
-	"serde",
-	"keymanager",
+  "rspc",
+  "specta",
+  "serde",
+  "keymanager",
 ] }
 
 sd-images = { path = "../crates/images", features = [
-	"rspc",
-	"serde",
-	"specta",
+  "rspc",
+  "serde",
+  "specta",
 ] }
 sd-file-ext = { path = "../crates/file-ext" }
 sd-sync = { path = "../crates/sync" }
@@ -40,25 +40,26 @@ sd-utils = { path = "../crates/utils" }
 sd-core-sync = { path = "./crates/sync" }
 
 rspc = { workspace = true, features = [
-	"uuid",
-	"chrono",
-	"tracing",
-	"alpha",
-	"unstable",
+  "uuid",
+  "chrono",
+  "tracing",
+  "alpha",
+  "unstable",
 ] }
 prisma-client-rust = { workspace = true }
 specta = { workspace = true }
 tokio = { workspace = true, features = [
-	"sync",
-	"rt-multi-thread",
-	"io-util",
-	"macros",
-	"time",
-	"process",
+  "sync",
+  "rt-multi-thread",
+  "io-util",
+  "macros",
+  "time",
+  "process",
 ] }
 serde = { version = "1.0", features = ["derive"] }
 chrono = { version = "0.4.31", features = ["serde"] }
 serde_json = { workspace = true }
+serde_repr = "0.1"
 futures = "0.3"
 rmp-serde = "^1.1.2"
 rmpv = "^1.0.1"
@@ -81,7 +82,7 @@ http-range = "0.1.5"
 mini-moka = "0.10.2"
 serde_with = "3.4.0"
 notify = { version = "=5.2.0", default-features = false, features = [
-	"macos_fsevent",
+  "macos_fsevent",
 ], optional = true }
 static_assertions = "1.1.0"
 serde-hashkey = "0.4.5"
