@@ -86,7 +86,7 @@ function EditForm({ savedSearch, onDelete }: { savedSearch: SavedSearch; onDelet
 		return JSON.parse(savedSearch.filters) as SearchFilterArgs[];
 	}, [savedSearch.filters]);
 
-	const search = useSearch({ fixedFilters });
+	const search = useSearch({ search: savedSearch.search ?? undefined, fixedFilters });
 
 	return (
 		<Form form={form}>
@@ -111,7 +111,7 @@ function EditForm({ savedSearch, onDelete }: { savedSearch: SavedSearch; onDelet
 					<Label className="font-medium">Filters</Label>
 					<div className="flex flex-col items-start gap-2">
 						<SearchContextProvider search={search}>
-							<AppliedFilters />
+							<AppliedFilters allowRemove={false} />
 						</SearchContextProvider>
 					</div>
 				</div>

@@ -138,7 +138,10 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 						path: {
 							location_id: location.id,
 							path: path ?? '',
-							include_descendants: layoutMode === 'media' && mediaViewWithDescendants
+							include_descendants:
+								search.search !== '' ||
+								search.dynamicFilters.length > 0 ||
+								(layoutMode === 'media' && mediaViewWithDescendants)
 						}
 					}
 				},

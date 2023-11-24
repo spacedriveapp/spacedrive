@@ -28,7 +28,7 @@ export const CloseTab = forwardRef<HTMLDivElement, { onClick: () => void }>(({ o
 	);
 });
 
-export const AppliedFilters = () => {
+export const AppliedFilters = ({ allowRemove = true }: { allowRemove?: boolean }) => {
 	const search = useSearchContext();
 
 	return (
@@ -39,7 +39,7 @@ export const AppliedFilters = () => {
 						<RenderIcon className="h-4 w-4" icon={MagnifyingGlass} />
 						<FilterText>{search.search}</FilterText>
 					</StaticSection>
-					<CloseTab onClick={() => search.setRawSearch('')} />
+					{allowRemove && <CloseTab onClick={() => search.setRawSearch('')} />}
 				</FilterContainer>
 			)}
 			{search.mergedFilters.map(({ arg, removalIndex }, index) => {
@@ -51,7 +51,7 @@ export const AppliedFilters = () => {
 						key={`${filter.name}-${index}`}
 						arg={arg}
 						onDelete={
-							removalIndex !== null
+							removalIndex !== null && allowRemove
 								? () => {
 										search.updateDynamicFilters((dyanmicFilters) => {
 											dyanmicFilters.splice(removalIndex, 1);
