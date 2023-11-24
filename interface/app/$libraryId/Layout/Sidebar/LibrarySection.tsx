@@ -42,6 +42,8 @@ function SavedSearches() {
 		? savedSearches.data?.findIndex((s) => s.id === Number(currentSearchId))
 		: undefined;
 
+	const navigate = useNavigate();
+
 	const deleteSavedSearch = useLibraryMutation(['search.saved.delete'], {
 		onSuccess() {
 			if (currentIndex !== undefined && savedSearches.data) {
@@ -54,8 +56,6 @@ function SavedSearches() {
 			}
 		}
 	});
-
-	const navigate = useNavigate();
 
 	if (!savedSearches.data || savedSearches.data.length < 1) return null;
 
