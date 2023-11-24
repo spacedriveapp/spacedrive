@@ -74,7 +74,7 @@ RUN cargo build --features assets --release -p sd-server
 
 #--
 
-FROM gcr.io/distroless/static-debian12:debug
+FROM gcr.io/distroless/base-debian12:debug
 
 ENV TZ=UTC \
 	PUID=1000 \
