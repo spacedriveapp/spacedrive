@@ -423,11 +423,22 @@ async fn infer_the_mime_type(
 		"webp" => "image/webp",
 		// PDF document
 		"pdf" => "application/pdf",
-		// HEIF/HEIC images
-		"heif" | "heifs" => "image/heif,image/heif-sequence",
-		"heic" | "heics" => "image/heic,image/heic-sequence",
-		// AVIF images
-		"avif" | "avci" | "avcs" | "avifs" => "image/avif",
+		// HEIF images
+		"heif" | "hif" => "image/heif",
+		// HEIF images sequence (animated)
+		"heifs" => "image/heif-sequence",
+		// HEIC images
+		"heic" => "image/heic",
+		// HEIC images sequence (animated)
+		"heics" => "image/heic-sequence",
+		// AV1 in HEIF images
+		"avif" => "image/avif",
+		// AV1 in HEIF images sequence (DEPRECATED: https://github.com/AOMediaCodec/av1-avif/pull/86/files)
+		"avifs" => "image/avif-sequence",
+		// AVC in HEIF images
+		"avci" => "image/avci",
+		// AVC in HEIF images sequence (animated)
+		"avcs" => "image/avcs",
 		_ => "text/plain",
 	};
 
