@@ -3,10 +3,9 @@ import { tw, twStyle } from '~/lib/tailwind';
 import { Platform, Pressable, Text, ToastAndroid, View } from 'react-native';
 import FolderIcon from '~/components/icons/FolderIcon';
 import * as RNFS from 'react-native-fs';
-import { Location, libraryClient, useInvalidateQuery, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { useLibraryMutation } from '@sd/client';
 import DocumentPicker from 'react-native-document-picker';
 import { SharedScreenProps } from '~/navigation/SharedScreens';
-import { useQueryClient } from '@tanstack/react-query';
 
 // Add more default locations here?
 const defaultLocationsList: { name: string, absPath: string }[] = [{ name: 'Downloads', absPath: RNFS.DownloadDirectoryPath }, { name: 'Placeholder', absPath: 'placeholder' }]
