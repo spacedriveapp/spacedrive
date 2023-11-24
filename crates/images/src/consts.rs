@@ -18,7 +18,9 @@ pub const GENERIC_EXTENSIONS: [&str; 17] = [
 pub const SVG_EXTENSIONS: [&str; 2] = ["svg", "svgz"];
 pub const PDF_EXTENSIONS: [&str; 1] = ["pdf"];
 #[cfg(feature = "heif")]
-pub const HEIF_EXTENSIONS: [&str; 7] = ["heif", "heifs", "heic", "heics", "avif", "avci", "avcs"];
+pub const HEIF_EXTENSIONS: [&str; 8] = [
+	"hif", "heif", "heifs", "heic", "heics", "avif", "avci", "avcs",
+];
 
 // Will be needed for validating HEIF images
 // #[cfg(feature = "heif")]
@@ -58,6 +60,7 @@ pub enum ConvertableExtension {
 	Vst,
 	Tiff,
 	Tif,
+	Hif,
 	Heif,
 	Heifs,
 	Heic,
@@ -76,10 +79,11 @@ impl ConvertableExtension {
 	pub const fn should_rotate(self) -> bool {
 		!matches!(
 			self,
-			Self::Heif
-				| Self::Heifs | Self::Heic
-				| Self::Heics | Self::Avif
-				| Self::Avci | Self::Avcs
+			Self::Hif
+				| Self::Heif | Self::Heifs
+				| Self::Heic | Self::Heics
+				| Self::Avif | Self::Avci
+				| Self::Avcs
 		)
 	}
 }
@@ -112,6 +116,7 @@ impl TryFrom<String> for ConvertableExtension {
 			"vst" => Ok(Self::Vst),
 			"tiff" => Ok(Self::Tiff),
 			"tif" => Ok(Self::Tif),
+			"hif" => Ok(Self::Hif),
 			"heif" => Ok(Self::Heif),
 			"heifs" => Ok(Self::Heifs),
 			"heic" => Ok(Self::Heic),
