@@ -1,7 +1,5 @@
 import { X } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { startTransition } from 'react';
-import { flushSync } from 'react-dom';
 import { useMatch, useNavigate, useResolvedPath } from 'react-router';
 import { Link, NavLink } from 'react-router-dom';
 import {

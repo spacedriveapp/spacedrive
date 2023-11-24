@@ -105,13 +105,13 @@ const FilterOptionList = ({
 				return (
 					<SearchOptionItem
 						selected={allFiltersKeys.has(optionKey)}
-						setSelected={(value) =>
+						setSelected={(value) => {
 							toggleOptionSelected({
 								filter,
 								option,
 								select: value
-							})
-						}
+							});
+						}}
 						key={option.value}
 						icon={option.icon}
 					>

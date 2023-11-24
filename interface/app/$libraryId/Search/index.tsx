@@ -41,9 +41,7 @@ const MENU_STYLES = `!rounded-md border !border-app-line !bg-app-box`;
 const SearchOptionItemInternals = (props: SearchOptionItemProps) => {
 	return (
 		<div className="flex items-center gap-2">
-			{props.selected !== undefined && (
-				<RadixCheckbox checked={props.selected} onCheckedChange={props.setSelected} />
-			)}
+			{props.selected !== undefined && <RadixCheckbox checked={props.selected} />}
 			<RenderIcon icon={props.icon} />
 			{props.children}
 		</div>
@@ -55,6 +53,7 @@ export const SearchOptionItem = (props: SearchOptionItemProps) => {
 	return (
 		<DropdownMenu.Item
 			onSelect={(event) => {
+				console.log('onSelect');
 				event.preventDefault();
 				props.setSelected?.(!props.selected);
 			}}
