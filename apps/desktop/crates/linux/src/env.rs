@@ -2,7 +2,7 @@ use std::{
 	collections::HashSet,
 	env,
 	ffi::{CStr, OsStr, OsString},
-	mem,
+	io, mem,
 	os::unix::ffi::OsStrExt,
 	path::{Path, PathBuf},
 	ptr,
@@ -176,22 +176,13 @@ pub fn normalize_environment() {
 	)
 	.expect("PATH must be successfully normalized");
 
-	if is_appimage() {
+	if let Ok(appdir) = get_appdir() {
+		println!("RUNNING FROM APPIMAGE");
 		// Workaround for https://github.com/AppImageCrafters/appimage-builder/issues/175
-		env::set_current_dir(
-			env::current_exe()
-				.unwrap_or_else(|_| {
-					PathBuf::from(
-						env::args()
-							.next()
-							.expect("Failed to get current executable path"),
-					)
-				})
-				.parent()
-				.expect("Failed to get current executable parent path")
-				.join("../../runtime/default"),
-		)
-		.expect("Failed to set current directory");
+		env::set_current_dir(appdir).expect("Failed to set current directory to $APPDIR");
+		// Bubblewrap does not work from inside appimage
+		env::set_var("WEBKIT_FORCE_SANDBOX", "0");
+		env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
 	}
 }
 
@@ -223,13 +214,19 @@ pub fn is_snap() -> bool {
 	false
 }
 
+fn get_appdir() -> io::Result<PathBuf> {
+	if let Some(appdir) = std::env::var_os("APPDIR").map(PathBuf::from) {
+		if appdir.is_absolute() && appdir.is_dir() {
+			return Ok(appdir);
+		}
+	}
+
+	Err(io::Error::new(io::ErrorKind::NotFound, "AppDir not found"))
+}
+
 // Check if appimage by looking if APPDIR is set and is a valid directory
 pub fn is_appimage() -> bool {
-	if let Some(appdir) = std::env::var_os("APPDIR").map(PathBuf::from) {
-		appdir.is_absolute() && appdir.is_dir()
-	} else {
-		false
-	}
+	get_appdir().is_ok()
 }
 
 // Check if flatpak by looking if FLATPAK_ID is set and not empty and that the .flatpak-info file exists
