@@ -86,6 +86,7 @@ ENV TZ=UTC \
 	DATA_DIR=/data
 
 COPY --from=server /srv/spacedrive/target/release/sd-server /usr/bin/
+COPY --from=server /lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/
 COPY --from=server /srv/spacedrive/apps/.deps/lib /usr/lib/spacedrive
 
 COPY --chmod=755 entrypoint.sh /usr/bin/
