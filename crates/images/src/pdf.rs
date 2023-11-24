@@ -4,10 +4,13 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-use crate::{consts::PDF_RENDER_WIDTH, ImageHandler, Result};
+use crate::{
+	consts::{PDF_LANDSCAPE_RENDER_WIDTH, PDF_PORTRAIT_RENDER_WIDTH},
+	ImageHandler, Result,
+};
 use image::DynamicImage;
 use once_cell::sync::Lazy;
-use pdfium_render::prelude::{PdfPageRenderRotation, PdfRenderConfig, Pdfium};
+use pdfium_render::prelude::{PdfRenderConfig, Pdfium};
 use tracing::error;
 
 // This path must be relative to the running binary
@@ -49,10 +52,16 @@ static PDFIUM_LIB: Lazy<String> = Lazy::new(|| {
 		})
 });
 
-static PDFIUM_RENDER_CONFIG: Lazy<PdfRenderConfig> = Lazy::new(|| {
+static PORTRAIT_CONFIG: Lazy<PdfRenderConfig> = Lazy::new(|| {
 	PdfRenderConfig::new()
-		.set_target_width(PDF_RENDER_WIDTH)
-		.rotate_if_landscape(PdfPageRenderRotation::Degrees90, true)
+		.set_target_width(PDF_PORTRAIT_RENDER_WIDTH)
+		.render_form_data(false)
+		.render_annotations(false)
+});
+
+static LANDSCAPE_CONFIG: Lazy<PdfRenderConfig> = Lazy::new(|| {
+	PdfRenderConfig::new()
+		.set_target_width(PDF_LANDSCAPE_RENDER_WIDTH)
 		.render_form_data(false)
 		.render_annotations(false)
 });
@@ -68,8 +77,13 @@ impl ImageHandler for PdfHandler {
 
 		let pdf = pdfium.load_pdf_from_file(path, None)?;
 		let first_page = pdf.pages().first()?;
+
 		let image = first_page
-			.render_with_config(&PDFIUM_RENDER_CONFIG)?
+			.render_with_config(if first_page.is_portrait() {
+				&PORTRAIT_CONFIG
+			} else {
+				&LANDSCAPE_CONFIG
+			})?
 			.as_image();
 
 		Ok(image)
