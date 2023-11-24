@@ -1,5 +1,4 @@
 import clsx from 'clsx';
-import { useEffect } from 'react';
 import { Controller, FormProvider } from 'react-hook-form';
 import {
 	getDebugState,
@@ -82,13 +81,11 @@ export const Component = () => {
 		node.refetch();
 	});
 
-	useEffect(() => {
-		form.watch((data) => {
-			if (Number(data.p2p_port) > 65535) {
-				form.setValue('p2p_port', 65535);
-			}
-		});
-	}, [form]);
+	form.watch((data) => {
+		if (Number(data.p2p_port) > 65535) {
+			form.setValue('p2p_port', 65535);
+		}
+	});
 
 	return (
 		<FormProvider {...form}>
@@ -184,9 +181,10 @@ export const Component = () => {
 				<Setting
 					mini
 					title="Full disk access"
+					containerClassName="items-start"
 					description="Enable full disk access to allow Spacedrive to index additional files."
 				>
-					<Button onClick={requestFdaMacos} variant="gray" size="sm" className="my-5">
+					<Button onClick={requestFdaMacos} variant="gray" size="sm">
 						Enable
 					</Button>
 				</Setting>
@@ -209,7 +207,7 @@ export const Component = () => {
 				title="Thumbnailer CPU usage"
 				description="Limit how much CPU the thumbnailer can use for background processing."
 			>
-				<div className="flex w-80 gap-2">
+				<div className="flex h-[30px] w-80 items-center gap-2">
 					<Slider
 						onValueChange={(value) => {
 							if (value.length > 0) {
@@ -222,7 +220,8 @@ export const Component = () => {
 						value={[watchBackgroundProcessingPercentage]}
 					/>
 					<Input
-						className="after:h-initial relative w-[8ch] after:absolute after:right-[0.8em] after:top-1/2 after:inline-block after:-translate-y-2/4 after:content-['%']"
+						className="after:h-initial relative h-[30px] w-[8ch]
+						after:absolute after:right-[0.8em] after:top-1/2 after:inline-block after:-translate-y-2/4 after:content-['%']"
 						defaultValue={
 							node.data?.preferences.thumbnailer.background_processing_percentage ||
 							75
@@ -275,14 +274,15 @@ export const Component = () => {
 					title="Networking Port"
 					description="The port for Spacedrive's Peer-to-peer networking to communicate on. You should leave this disabled unless you have a restictive firewall. Do not expose to the internet!"
 				>
-					<div className="flex gap-2">
+					<div className="flex h-[30px] gap-2">
 						<Controller
 							control={form.control}
 							name="customOrDefault"
 							render={({ field }) => (
 								<Select
+									containerClassName="h-[30px]"
 									disabled={!watchP2pEnabled}
-									className={clsx(!watchP2pEnabled && 'opacity-50')}
+									className={clsx(!watchP2pEnabled && 'opacity-50', 'h-full')}
 									{...field}
 									onChange={(e) => {
 										field.onChange(e);
