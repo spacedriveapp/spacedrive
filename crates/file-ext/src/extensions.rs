@@ -82,6 +82,7 @@ extension_category_enum! {
 		Heifs = [],
 		Hif = [],
 		Avif = [],
+		Avifs = [],
 		Avci = [],
 		Avcs = [],
 		Raw = [],

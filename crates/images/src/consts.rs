@@ -63,6 +63,7 @@ pub enum ConvertableExtension {
 	Heic,
 	Heics,
 	Avif,
+	Avifs,
 	Avci,
 	Avcs,
 	Svg,
@@ -79,7 +80,8 @@ impl ConvertableExtension {
 			Self::Heif
 				| Self::Heifs | Self::Heic
 				| Self::Heics | Self::Avif
-				| Self::Avci | Self::Avcs
+				| Self::Avifs | Self::Avci
+				| Self::Avcs
 		)
 	}
 }
@@ -117,6 +119,7 @@ impl TryFrom<String> for ConvertableExtension {
 			"heic" => Ok(Self::Heic),
 			"heics" => Ok(Self::Heics),
 			"avif" => Ok(Self::Avif),
+			"avifs" => Ok(Self::Avifs),
 			"avci" => Ok(Self::Avci),
 			"avcs" => Ok(Self::Avcs),
 			"svg" => Ok(Self::Svg),
