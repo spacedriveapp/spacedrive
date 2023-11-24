@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router';
 import { useBridgeMutation, usePlausibleEvent, useZodForm } from '@sd/client';
 import { Dialog, useDialog, UseDialogProps } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
@@ -11,6 +12,7 @@ export default function DeleteLibraryDialog(props: Props) {
 	const submitPlausibleEvent = usePlausibleEvent();
 	const queryClient = useQueryClient();
 	const platform = usePlatform();
+	const navigate = useNavigate();
 
 	const deleteLib = useBridgeMutation('library.delete');
 
@@ -29,6 +31,8 @@ export default function DeleteLibraryDialog(props: Props) {
 					type: 'libraryDelete'
 				}
 			});
+
+			navigate('/');
 		} catch (e) {
 			alert(`Failed to delete library: ${e}`);
 		}
