@@ -427,7 +427,7 @@ async fn infer_the_mime_type(
 		"heif" | "heifs" => "image/heif,image/heif-sequence",
 		"heic" | "heics" => "image/heic,image/heic-sequence",
 		// AVIF images
-		"avif" | "avci" | "avcs" => "image/avif",
+		"avif" | "avci" | "avcs" | "avifs" => "image/avif",
 		_ => "text/plain",
 	};
 
