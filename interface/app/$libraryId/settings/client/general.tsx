@@ -85,9 +85,6 @@ export const Component = () => {
 		if (Number(data.p2p_port) > 65535) {
 			form.setValue('p2p_port', 65535);
 		}
-		if (Number(data.background_processing_percentage) > 100) {
-			form.setValue('background_processing_percentage', 100);
-		}
 	});
 
 	return (
