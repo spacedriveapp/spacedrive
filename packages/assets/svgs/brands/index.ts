@@ -6,6 +6,7 @@
 import { ReactComponent as Academia } from './Academia.svg';
 import { ReactComponent as Apple } from './Apple.svg';
 import { ReactComponent as Discord } from './Discord.svg';
+import { ReactComponent as Docker } from './Docker.svg';
 import { ReactComponent as Dribbble } from './Dribbble.svg';
 import { ReactComponent as Github } from './Github.svg';
 import { ReactComponent as Gitlab } from './Gitlab.svg';
@@ -18,6 +19,7 @@ export {
 	Academia,
 	Apple,
 	Discord,
+	Docker,
 	Dribbble,
 	Github,
 	Gitlab,
