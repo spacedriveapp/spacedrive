@@ -10,7 +10,7 @@ import { RenderIcon } from './util';
 
 export const FilterContainer = tw.div`flex flex-row items-center rounded bg-app-box overflow-hidden shrink-0 h-6`;
 
-export const InteractiveSection = tw.div`flex group flex-row items-center border-app-darkerBox/70 px-2 py-0.5 text-sm text-ink-dull hover:bg-app-lightBox/20`;
+export const InteractiveSection = tw.div`flex group flex-row items-center border-app-darkerBox/70 px-2 py-0.5 text-sm text-ink-dull`; // hover:bg-app-lightBox/20
 
 export const StaticSection = tw.div`flex flex-row items-center pl-2 pr-1 text-sm`;
 
