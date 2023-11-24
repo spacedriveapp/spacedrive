@@ -194,7 +194,7 @@ function AppInner() {
 
 								tabs.splice(index, 1);
 
-								setTabIndex(tabs.length - 1);
+								setTabIndex(Math.min(tabIndex, tabs.length - 1));
 
 								return [...tabs];
 							});
