@@ -424,11 +424,11 @@ async fn infer_the_mime_type(
 		// PDF document
 		"pdf" => "application/pdf",
 		// HEIF images
-		"heif" | "hif" => "image/heif",
+		"heif" => "image/heif",
 		// HEIF images sequence (animated)
 		"heifs" => "image/heif-sequence",
 		// HEIC images
-		"heic" => "image/heic",
+		"heic" | "hif" => "image/heic",
 		// HEIC images sequence (animated)
 		"heics" => "image/heic-sequence",
 		// AV1 in HEIF images
