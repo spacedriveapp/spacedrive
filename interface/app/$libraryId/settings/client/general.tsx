@@ -210,7 +210,7 @@ export const Component = () => {
 				title="Thumbnailer CPU usage"
 				description="Limit how much CPU the thumbnailer can use for background processing."
 			>
-				<div className="flex w-80 gap-2">
+				<div className="flex h-[30px] w-80 items-center gap-2">
 					<Slider
 						onValueChange={(value) => {
 							if (value.length > 0) {
