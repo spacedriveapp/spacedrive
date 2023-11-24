@@ -8,6 +8,24 @@ use std::{
 	ptr,
 };
 
+use libc::gnu_get_libc_version;
+
+fn version(version_str: &str) -> i32 {
+	let mut version_parts: Vec<i32> = version_str
+		.split('.')
+		.take(4) // Take up to 4 components
+		.map(|part| part.parse().unwrap_or(0))
+		.collect();
+
+	// Pad with zeros if needed
+	version_parts.resize_with(4, Default::default);
+
+	(version_parts[0] * 1_000_000_000)
+		+ (version_parts[1] * 1_000_000)
+		+ (version_parts[2] * 1_000)
+		+ version_parts[3]
+}
+
 pub fn get_current_user_home() -> Option<PathBuf> {
 	use libc::{getpwuid_r, getuid, passwd, ERANGE};
 
@@ -178,8 +196,34 @@ pub fn normalize_environment() {
 
 	if let Ok(appdir) = get_appdir() {
 		println!("RUNNING FROM APPIMAGE");
+
+		let appimage_libc_version = version(
+			std::env::var("APPDIR_LIBC_VERSION")
+				.expect("AppImage Libc version must be set")
+				.as_str(),
+		);
+		let system_lic_version = version({
+			let ptr = unsafe { gnu_get_libc_version() };
+			if ptr.is_null() {
+				panic!("Couldn't read glic version");
+			}
+
+			unsafe { CStr::from_ptr(ptr) }
+				.to_str()
+				.expect("Couldn't read glic version")
+		});
+
 		// Workaround for https://github.com/AppImageCrafters/appimage-builder/issues/175
-		env::set_current_dir(appdir).expect("Failed to set current directory to $APPDIR");
+		env::set_current_dir(appdir.join(if system_lic_version < appimage_libc_version {
+			"runtime/compat"
+		} else {
+			"runtime/default"
+		}))
+		.expect("Failed to set current directory to $APPDIR");
+
+		// Print current directory
+		println!("{}", env::current_dir().expect("msg").display());
+
 		// Bubblewrap does not work from inside appimage
 		env::set_var("WEBKIT_FORCE_SANDBOX", "0");
 		env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");

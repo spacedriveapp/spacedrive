@@ -23,7 +23,7 @@ readonly _root
 readonly RECIPE="${_root}/AppImageBuilder.yml"
 
 # The directory where the generated AppImage bundles will be stored.
-readonly TARGET_APPIMAGE_DIR="${_root}/../target/${TARGET:-.}/release/bundle/appimage"
+readonly TARGET_APPIMAGE_DIR="${_root}/../../target/${TARGET:-.}/release/bundle/appimage"
 export TARGET_APPIMAGE_DIR
 
 alias wget='wget -nc -nv --show-progress -P "$APPIMAGE_WORKDIR"'
@@ -40,6 +40,7 @@ apt-get update && apt-get install -yq \
   zsync \
   dpkg-dev \
   apt-utils \
+  libffi-dev \
   squashfs-tools \
   libglib2.0-bin \
   gstreamer1.0-tools \
@@ -49,8 +50,10 @@ apt-get update && apt-get install -yq \
 # gdk-pixbuf-query-loaders is not in PATH by default
 ln -fs /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders /usr/local/bin/gdk-pixbuf-query-loaders
 
+export TARGET_APPIMAGE_ARCH="${TARGET_APPIMAGE_ARCH:-$(uname -m)}"
+
 if ! command -v appimage-builder >/dev/null 2>&1; then
-  apt-get install -yq python3 python3-venv python3-wheel
+  apt-get install -yq python3 python3-dev python3-venv
 
   # Set up a virtual environment so that we do not pollute the global Python
   # packages list with the packages we need to install
@@ -58,13 +61,15 @@ if ! command -v appimage-builder >/dev/null 2>&1; then
   python3 -m venv "$APPIMAGE_WORKDIR/.venv"
   . "$APPIMAGE_WORKDIR/.venv/bin/activate"
 
+  export MAKEFLAGS="-j$(nproc)"
+
+  pip3 install wheel setuptools --upgrade
+
   echo 'Install appimage-build in temporary Python virtual environment...'
-  pip3 install appimage-builder
+  pip3 install git+https://github.com/AppImageCrafters/appimage-builder.git
 fi
 
 echo 'Running appimage-builder...'
-
-export TARGET_APPIMAGE_ARCH="${TARGET_APPIMAGE_ARCH:-$(uname -m)}"
 export TARGET_APPIMAGE_APT_ARCH="${TARGET_APPIMAGE_APT_ARCH:-$(dpkg-architecture -q DEB_HOST_ARCH)}"
 export TARGET_APPDIR="${APPIMAGE_WORKDIR}/AppDir"
 export REPO_DIR="$APPIMAGE_WORKDIR/pkgs"

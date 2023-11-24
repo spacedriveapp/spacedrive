@@ -8,8 +8,6 @@ script: |
   # Clean up directories created by the recipe
   rm "$TARGET_APPDIR" -rf || true
   rm "$REPO_DIR" -rf || true
-  # Add wrapper script
-  install -m 0755 -Dt "${TARGET_APPDIR}/usr/bin" ./wrapper.sh
   # Create a temporary Debian repository folder to put the generated Debian
   # packages on, so we can install it like any other packages
   mkdir -p "$REPO_DIR"
@@ -47,9 +45,7 @@ AppDir:
       - spacedrive
       - gstreamer1.0-plugins-good
       - gstreamer1.0-plugins-ugly
-      - gstreamer1.0-pipewire
       - gstreamer1.0-packagekit
-      - pipewire-pulse
       # This package is necessary to avoid this: https://github.com/AppImageCrafters/appimage-builder/pull/191
       - shared-mime-info
 
@@ -74,7 +70,9 @@ AppDir:
       - ubuntu-mono
       - fonts-*-core
       - bubblewrap
+      - libgstreamer-plugins-bad1.0-0
       - gstreamer1.0-plugins-bad
+      - gstreamer1.0-libav
 
   files:
     exclude:
@@ -136,25 +134,27 @@ AppDir:
 
   # Patch webkit2gtk so it works under appimage
   after_bundle: |
-    # Patch WebKit binaries
-    mv "${TARGET_APPDIR}/usr/lib/${TARGET_APPIMAGE_ARCH}-linux-gnu/webkit2gtk-4.0/WebKitWebProcess" "${TARGET_APPDIR}/usr/bin/WebKitWebProcess.orig"
-    mv "${TARGET_APPDIR}/usr/lib/${TARGET_APPIMAGE_ARCH}-linux-gnu/webkit2gtk-4.0/WebKitNetworkProcess" "${TARGET_APPDIR}/usr/bin/WebKitNetworkProcess.orig"
+    set -eux
+
+    # libwebkit2gtk Patch for WebKit binaries
+    mv "${TARGET_APPDIR}/usr/lib/${TARGET_APPIMAGE_ARCH}-linux-gnu/webkit2gtk-4.0/WebKitWebProcess" "${TARGET_APPDIR}/usr/bin/WebKitWebProcess"
+    mv "${TARGET_APPDIR}/usr/lib/${TARGET_APPIMAGE_ARCH}-linux-gnu/webkit2gtk-4.0/WebKitNetworkProcess" "${TARGET_APPDIR}/usr/bin/WebKitNetworkProcess"
     if [ "$TARGET_APPIMAGE_ARCH" == 'aarch64' ]; then
-      find "${TARGET_APPDIR}/usr/lib/aarch64-linux-gnu" -type f -name 'libwebkit2gtk-4.0.so*' -exec sed -i -e "s|/usr/lib/aarch64-linux-gnu/webkit2gtk-4.0|./././././././././././././././././usr/bin|g" '{}' \;
+      find "${TARGET_APPDIR}/usr/lib/aarch64-linux-gnu" -type f -name 'libwebkit2gtk-4.0.so*' -exec sed -i -e "s|/usr/lib/aarch64-linux-gnu/webkit2gtk-4.0\([^/][^i][^n]\)|../../././././././././././././././usr/bin\1|g" '{}' \;
     else
-      find "${TARGET_APPDIR}/usr/lib/x86_64-linux-gnu" -type f -name 'libwebkit2gtk-4.0.so*' -exec sed -i -e "s|/usr/lib/x86_64-linux-gnu/webkit2gtk-4.0|././././././././././././././././/usr/bin|g" '{}' \;
+      find "${TARGET_APPDIR}/usr/lib/x86_64-linux-gnu" -type f -name 'libwebkit2gtk-4.0.so*' -exec sed -i -e "s|/usr/lib/x86_64-linux-gnu/webkit2gtk-4.0\([^/][^i][^n]\)|../.././././././././././././././usr/bin/\1|g" '{}' \;
     fi
 
-    # Patch gstreamer binaries
-    mv "${TARGET_APPDIR}/usr/libexec/gst-install-plugins-helper" "${TARGET_APPDIR}/usr/bin/gst-install-plugins-helper.orig"
-    mv "${TARGET_APPDIR}/usr/lib/${TARGET_APPIMAGE_ARCH}-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper" "${TARGET_APPDIR}/usr/bin/gst-ptp-helper.orig"
-    mv "${TARGET_APPDIR}/usr/lib/${TARGET_APPIMAGE_ARCH}-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner" "${TARGET_APPDIR}/usr/bin"
-    find "${TARGET_APPDIR}/usr/lib/${TARGET_APPIMAGE_ARCH}-linux-gnu" -type f -name 'libwebkit2gtk-4.0.so*' -exec sed -i -e "s|/usr/libexec/gstreamer-1.0|./././././././././usr/bin/|g" '{}' \;
-
-    # Create wrapper symlinks
-    find "${TARGET_APPDIR}/usr/bin" -maxdepth 1 -type f -executable -name '*.orig' -exec sh -euxc 'for _bin in "$@"; do ln -sf wrapper.sh "$(dirname "$_bin")/$(basename "$_bin" .orig)" ; done' sh {} +
+    # libwebkit2gtk Patch for gstreamer binaries
+    mv "${TARGET_APPDIR}/usr/libexec/pk-gstreamer-install" "${TARGET_APPDIR}/usr/bin/pk-gstreamer-install"
+    ln -sf pk-gstreamer-install "${TARGET_APPDIR}/usr/bin/gst-install-plugins-helper"
+    mv "${TARGET_APPDIR}/usr/lib/${TARGET_APPIMAGE_ARCH}-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper" "${TARGET_APPDIR}/usr/bin/gst-ptp-helper"
+    mv "${TARGET_APPDIR}/usr/lib/${TARGET_APPIMAGE_ARCH}-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner" "${TARGET_APPDIR}/usr/bin/gst-plugin-scanner"
+    find "${TARGET_APPDIR}/usr/lib/${TARGET_APPIMAGE_ARCH}-linux-gnu" -type f -name 'libwebkit2gtk-4.0.so*' -exec sed -i -e "s|/usr/libexec/gstreamer-1.0|../../././././././usr/bin/|g" '{}' \;
 
   after_runtime: |
+    set -eux
+
     find "$TARGET_APPDIR" -type d -empty -delete
 
   # Tests don't work due to Tauri security checks we can't work around:
