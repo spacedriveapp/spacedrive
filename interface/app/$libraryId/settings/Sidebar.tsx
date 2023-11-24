@@ -98,10 +98,10 @@ export default () => {
 						<Icon component={TagSimple} />
 						Tags
 					</SidebarLink>
-					<SidebarLink to="library/saved-searches">
+					{/* <SidebarLink to="library/saved-searches">
 						<Icon component={MagnifyingGlass} />
 						Saved Searches
-					</SidebarLink>
+					</SidebarLink> */}
 					<SidebarLink disabled to="library/clouds">
 						<Icon component={Cloud} />
 						Clouds
