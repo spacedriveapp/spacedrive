@@ -1,4 +1,4 @@
-import { Navigate, RouteObject } from 'react-router';
+import { Navigate, redirect, RouteObject } from 'react-router';
 import { getOnboardingStore } from '@sd/client';
 
 import Alpha from './alpha';
@@ -21,6 +21,12 @@ const Index = () => {
 export default [
 	{
 		index: true,
+		loader: () => {
+			if (getOnboardingStore().lastActiveScreen)
+				return redirect(`/onboarding/${getOnboardingStore().lastActiveScreen}`);
+
+			return redirect(`/onboarding/alpha`);
+		},
 		element: <Index />
 	},
 	{ path: 'alpha', element: <Alpha /> },

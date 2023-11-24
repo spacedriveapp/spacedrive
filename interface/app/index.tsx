@@ -1,14 +1,17 @@
 import { useMemo } from 'react';
-import { Navigate, Outlet, useMatches, type RouteObject } from 'react-router-dom';
-import { currentLibraryCache, useCachedLibraries } from '@sd/client';
+import { Navigate, Outlet, redirect, useMatches, type RouteObject } from 'react-router-dom';
+import { currentLibraryCache, getCachedLibraries, useCachedLibraries } from '@sd/client';
 import { Dialogs, Toaster } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
+import { useRoutingContext } from '~/RoutingContext';
 
 import libraryRoutes from './$libraryId';
 import onboardingRoutes from './onboarding';
 import { RootContext } from './RootContext';
 
 import './style.scss';
+
+import { Platform } from '..';
 
 const Index = () => {
 	const libraries = useCachedLibraries();
@@ -40,28 +43,55 @@ const Wrapper = () => {
 // the `usePlausiblePageViewMonitor` hook, as early as possible (ideally within the layout itself).
 // the hook should only be included if there's a valid `ClientContext` (so not onboarding)
 
-export const routes = [
-	{
-		element: <Wrapper />,
-		errorElement: <RouterErrorBoundary />,
-		children: [
-			{
-				index: true,
-				element: <Index />
-			},
-			{
-				path: 'onboarding',
-				lazy: () => import('./onboarding/Layout'),
-				children: onboardingRoutes
-			},
-			{
-				path: ':libraryId',
-				lazy: () => import('./$libraryId/Layout'),
-				children: libraryRoutes
-			}
-		]
-	}
-] satisfies RouteObject[];
+export const createRoutes = (platform: Platform) =>
+	[
+		{
+			element: <Wrapper />,
+			errorElement: <RouterErrorBoundary />,
+			children: [
+				{
+					index: true,
+					element: <Index />,
+					loader: async () => {
+						const libraries = await getCachedLibraries();
+
+						const currentLibrary = libraries.find(
+							(l) => l.uuid === currentLibraryCache.id
+						);
+
+						const libraryId = currentLibrary ? currentLibrary.uuid : libraries[0]?.uuid;
+
+						if (libraryId === undefined) return redirect('/onboarding');
+
+						return redirect(`/${libraryId}`);
+					}
+				},
+				{
+					path: 'onboarding',
+					lazy: () => import('./onboarding/Layout'),
+					children: onboardingRoutes
+				},
+				{
+					path: ':libraryId',
+					lazy: () => import('./$libraryId/Layout'),
+					loader: async ({ params: { libraryId } }) => {
+						const libraries = await getCachedLibraries();
+						const library = libraries.find((l) => l.uuid === libraryId);
+
+						if (!library) {
+							const firstLibrary = libraries[0];
+
+							if (firstLibrary) return redirect(`/${firstLibrary.uuid}`);
+							else return redirect('/onboarding');
+						}
+
+						return null;
+					},
+					children: libraryRoutes(platform)
+				}
+			]
+		}
+	] satisfies RouteObject[];
 
 /**
  * Combines the `path` segments of the current route into a single string.
@@ -69,6 +99,7 @@ export const routes = [
  * but not the values used in the route params.
  */
 const useRawRoutePath = () => {
+	const { routes } = useRoutingContext();
 	// `useMatches` returns a list of each matched RouteObject,
 	// we grab the last one as it contains all previous route segments.
 	const lastMatchId = useMatches().slice(-1)[0]?.id;
@@ -97,7 +128,7 @@ const useRawRoutePath = () => {
 				) ?? [];
 
 		return rawPath ?? '/';
-	}, [lastMatchId]);
+	}, [lastMatchId, routes]);
 
 	return rawPath;
 };

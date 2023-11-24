@@ -1,6 +1,7 @@
 import { useKeys } from 'rooks';
 import { useSnapshot } from 'valtio';
 import { valtioPersist } from '@sd/client';
+import { useRoutingContext } from '~/RoutingContext';
 
 import { OperatingSystem } from '../util/Platform';
 import { useOperatingSystem } from './useOperatingSystem';
@@ -217,5 +218,10 @@ export const useShortcut = (shortcut: shortcutKeys, func: (e: KeyboardEvent) => 
 	const shortcutKeys =
 		shortcutsStore[shortcut].keys[os as osKeys] || shortcutsStore[shortcut].keys.all;
 
-	useKeys(shortcutKeys, func);
+	const { visible } = useRoutingContext();
+
+	useKeys(shortcutKeys, (e) => {
+		if (!visible) return;
+		return func(e);
+	});
 };

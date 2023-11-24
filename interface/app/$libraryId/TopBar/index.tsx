@@ -5,6 +5,7 @@ import { useKey } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import { Tooltip } from '@sd/ui';
 import { useKeyMatcher, useOperatingSystem, useShowControls } from '~/hooks';
+import { useRoutingContext } from '~/RoutingContext';
 import { useTabsContext } from '~/TabsContext';
 
 import { useExplorerStore } from '../Explorer/store';
@@ -145,9 +146,11 @@ function Tabs() {
 function useTabKeybinds(props: { addTab(): void; removeTab(index: number): void }) {
 	const ctx = useTabsContext()!;
 	const os = useOperatingSystem();
+	const { visible } = useRoutingContext();
 
 	// these keybinds aren't part of the regular shortcuts system as they're desktop-only
 	useKey(['t'], (e) => {
+		if (!visible) return;
 		if ((os === 'macOS' && !e.metaKey) || (os !== 'macOS' && !e.ctrlKey)) return;
 
 		e.stopPropagation();
@@ -156,6 +159,7 @@ function useTabKeybinds(props: { addTab(): void; removeTab(index: number): void 
 	});
 
 	useKey(['w'], (e) => {
+		if (!visible) return;
 		if ((os === 'macOS' && !e.metaKey) || (os !== 'macOS' && !e.ctrlKey)) return;
 
 		e.stopPropagation();
@@ -164,6 +168,7 @@ function useTabKeybinds(props: { addTab(): void; removeTab(index: number): void 
 	});
 
 	useKey(['ArrowLeft', 'ArrowRight'], (e) => {
+		if (!visible) return;
 		// TODO: figure out non-macos keybind
 		if ((os === 'macOS' && !(e.metaKey && e.altKey)) || os !== 'macOS') return;
 
