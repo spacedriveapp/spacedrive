@@ -7,13 +7,13 @@ import {
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import BasicSticky from 'react-sticky-el';
-import { useMutationObserver, useWindowEventListener } from 'rooks';
+import { useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import { getItemFilePath, type ExplorerItem } from '@sd/client';
 import { ContextMenu, Tooltip } from '@sd/ui';
-import { useIsTextTruncated, useMouseNavigate, useShortcut } from '~/hooks';
+import { useIsTextTruncated, useShortcut } from '~/hooks';
 import { isNonEmptyObject } from '~/util';
 
 import { useLayoutContext } from '../../../Layout/Context';
@@ -101,7 +101,6 @@ export default () => {
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
 	const settings = explorer.useSettingsSnapshot();
-	const mouseNavigate = useMouseNavigate();
 
 	const tableRef = useRef<HTMLDivElement>(null);
 	const tableHeaderRef = useRef<HTMLDivElement>(null);
@@ -148,10 +147,10 @@ export default () => {
 
 	const virtualRows = rowVirtualizer.getVirtualItems();
 
-	function handleRowClick(
+	const handleRowClick = (
 		e: React.MouseEvent<HTMLDivElement, MouseEvent>,
 		row: Row<ExplorerItem>
-	) {
+	) => {
 		// Ensure mouse click is with left button
 		if (e.button !== 0) return;
 
@@ -422,7 +421,7 @@ export default () => {
 		} else {
 			explorer.resetSelectedItems([item]);
 		}
-	}
+	};
 
 	function handleRowContextMenu(row: Row<ExplorerItem>) {
 		if (explorerView.contextMenu === undefined) return;
@@ -482,6 +481,19 @@ export default () => {
 	);
 
 	useEffect(() => setRanges([]), [settings.order]);
+
+	//this is to handle selection for quickpreview slider
+	useEffect(() => {
+		if (!getQuickPreviewStore().open || explorer.selectedItems.size !== 1) return;
+
+		const [item] = [...explorer.selectedItems];
+		if (!item) return;
+
+		explorer.resetSelectedItems([item]);
+
+		const itemId = uniqueId(item);
+		setRanges([[itemId, itemId]]);
+	}, [explorer]);
 
 	useEffect(() => {
 		if (initialized || !sized || !explorer.count || explorer.selectedItems.size === 0) {
@@ -751,9 +763,9 @@ export default () => {
 	};
 
 	useShortcut('explorerEscape', () => {
+		if (!explorerView.selectable || explorer.selectedItems.size === 0) return;
 		explorer.resetSelectedItems([]);
 		setRanges([]);
-		return;
 	});
 
 	useShortcut('explorerUp', (e) => {
@@ -808,16 +820,26 @@ export default () => {
 	});
 
 	// Set header position and list offset
-	useMutationObserver(explorer.scrollRef, () => {
-		const view = explorerView.ref.current;
-		const scroll = explorer.scrollRef.current;
-		if (!view || !scroll) return;
-		setTop(
-			explorerView.top ??
-				parseInt(getComputedStyle(scroll).paddingTop) + scroll.getBoundingClientRect().top
-		);
-		setListOffset(tableRef.current?.offsetTop ?? 0);
-	});
+	useEffect(() => {
+		const element = explorer.scrollRef.current;
+		if (!element) return;
+
+		const observer = new MutationObserver(() => {
+			setTop(
+				explorerView.top ??
+					parseInt(getComputedStyle(element).paddingTop) +
+						element.getBoundingClientRect().top
+			);
+			setListOffset(tableRef.current?.offsetTop ?? 0);
+		});
+
+		observer.observe(element, {
+			attributes: true,
+			subtree: true
+		});
+
+		return () => observer.disconnect();
+	}, [explorer.scrollRef, explorerView.top]);
 
 	// Set list offset
 	useLayoutEffect(() => setListOffset(tableRef.current?.offsetTop ?? 0), []);
@@ -826,8 +848,9 @@ export default () => {
 		<div
 			ref={tableRef}
 			onMouseDown={(e) => {
+				if (e.button !== 0) return;
+
 				e.stopPropagation();
-				mouseNavigate(e);
 				setIsLeftMouseDown(true);
 			}}
 			className={clsx(!initialized && 'invisible')}

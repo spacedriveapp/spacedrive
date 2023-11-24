@@ -65,6 +65,7 @@ module.exports = function (app, options) {
 						DEFAULT: alpha('--color-app'),
 						box: alpha('--color-app-box'),
 						darkBox: alpha('--color-app-dark-box'),
+						darkerBox: alpha('--color-app-darker-box'),
 						lightBox: alpha('--color-app-light-box'),
 						overlay: alpha('--color-app-overlay'),
 						input: alpha('--color-app-input'),

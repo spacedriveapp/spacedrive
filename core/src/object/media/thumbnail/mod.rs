@@ -25,6 +25,7 @@ use tracing::error;
 pub mod actor;
 mod clean_up;
 mod directory;
+pub mod preferences;
 mod process;
 mod shard;
 mod state;
@@ -32,6 +33,8 @@ mod worker;
 
 pub use process::{BatchToProcess, GenerateThumbnailArgs};
 pub use shard::get_shard_hex;
+
+use directory::ThumbnailVersion;
 
 // Files names constants
 const THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
@@ -148,7 +151,7 @@ pub enum ThumbnailerError {
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
 	#[error(transparent)]
-	VersionManager(#[from] VersionManagerError),
+	VersionManager(#[from] VersionManagerError<ThumbnailVersion>),
 	#[error("failed to encode webp")]
 	WebPEncoding { path: Box<Path>, reason: String },
 	#[error("error while converting the image")]

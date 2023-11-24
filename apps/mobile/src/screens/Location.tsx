@@ -12,10 +12,14 @@ export default function LocationScreen({ navigation, route }: SharedScreenProps<
 	const { data } = useLibraryQuery([
 		'search.paths',
 		{
-			filter: {
-				locationId: id,
-				path: path ?? ''
-			},
+			filters: [
+				{
+					filePath: {
+						locations: { in: [id] },
+						path: { path: path ?? '', location_id: id, include_descendants: false }
+					}
+				}
+			],
 			take: 100
 		}
 	]);

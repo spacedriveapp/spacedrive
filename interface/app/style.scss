@@ -162,6 +162,18 @@ body {
 		@apply rounded-[6px] bg-app-box;
 	}
 }
+.quick-preview-images-scroll {
+	&::-webkit-scrollbar {
+		height: 6px;
+		width: 8px;
+	}
+	&::-webkit-scrollbar-track {
+		@apply rounded-[6px]  bg-transparent;
+	}
+	&::-webkit-scrollbar-thumb {
+		@apply rounded-[6px] bg-white/20
+	}
+}
 .job-manager-scroll {
 	&::-webkit-scrollbar {
 		height: 6px;
@@ -364,4 +376,9 @@ body {
 	to {
 		left: 100%;
 	}
+}
+
+.react-slidedown.search-options-slide {
+	transition-duration: 300ms;
+	transition-timing-function: cubic-bezier(0.85, 0, 0.15, 1);
 }

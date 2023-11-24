@@ -13,12 +13,15 @@ use crate::{
 	util::{
 		db,
 		error::{FileIOError, NonUtf8PathError},
-		migrator::Migrate,
 		mpscrr, MaybeUndefined,
 	},
 	volume::watcher::spawn_volume_watcher,
 	Node,
 };
+
+use sd_core_sync::SyncMessage;
+use sd_p2p::spacetunnel::Identity;
+use sd_prisma::prisma::instance;
 
 use std::{
 	collections::HashMap,
@@ -29,9 +32,6 @@ use std::{
 
 use chrono::Utc;
 use futures_concurrency::future::{Join, TryJoin};
-use sd_core_sync::SyncMessage;
-use sd_p2p::spacetunnel::Identity;
-use sd_prisma::prisma::instance;
 use tokio::{fs, io, sync::RwLock};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
@@ -165,15 +165,16 @@ impl Libraries {
 			));
 		}
 
-		let config = LibraryConfig {
+		let config_path = self.libraries_dir.join(format!("{id}.sdlibrary"));
+
+		let config = LibraryConfig::new(
 			name,
 			description,
 			// First instance will be zero
-			instance_id: 0,
-		};
-
-		let config_path = self.libraries_dir.join(format!("{id}.sdlibrary"));
-		config.save(&config_path)?;
+			0,
+			&config_path,
+		)
+		.await?;
 
 		debug!(
 			"Created library '{}' config at '{}'",
@@ -238,29 +239,35 @@ impl Libraries {
 	) -> Result<(), LibraryManagerError> {
 		// check library is valid
 		let libraries = self.libraries.read().await;
-		let library = libraries
-			.get(&id)
-			.ok_or(LibraryManagerError::LibraryNotFound)?;
+		let library = Arc::clone(
+			libraries
+				.get(&id)
+				.ok_or(LibraryManagerError::LibraryNotFound)?,
+		);
 
-		{
-			let mut config = library.config_mut();
-
-			// update the library
-			if let Some(name) = name {
-				config.name = name;
-			}
-			match description {
-				MaybeUndefined::Undefined => {}
-				MaybeUndefined::Null => config.description = None,
-				MaybeUndefined::Value(description) => config.description = Some(description),
-			}
-
-			LibraryConfig::save(&config, &self.libraries_dir.join(format!("{id}.sdlibrary")))?;
-		}
+		library
+			.update_config(
+				|config| {
+					// update the library
+					if let Some(name) = name {
+						config.name = name;
+					}
+					match description {
+						MaybeUndefined::Undefined => {}
+						MaybeUndefined::Null => config.description = None,
+						MaybeUndefined::Value(description) => {
+							config.description = Some(description)
+						}
+					}
+				},
+				self.libraries_dir.join(format!("{id}.sdlibrary")),
+			)
+			.await?;
 
 		self.tx
-			.emit(LibraryManagerEvent::Edit(library.clone()))
+			.emit(LibraryManagerEvent::Edit(Arc::clone(&library)))
 			.await;
+
 		invalidate_query!(library, "library.list");
 
 		Ok(())
@@ -356,12 +363,14 @@ impl Libraries {
 		self: &Arc<Self>,
 		id: Uuid,
 		db_path: impl AsRef<Path>,
-		config_path: PathBuf,
+		config_path: impl AsRef<Path>,
 		create: Option<instance::Create>,
 		should_seed: bool,
 		node: &Arc<Node>,
 	) -> Result<Arc<Library>, LibraryManagerError> {
 		let db_path = db_path.as_ref();
+		let config_path = config_path.as_ref();
+
 		let db_url = format!(
 			"file:{}?socket_timeout=15&connection_limit=1",
 			db_path.as_os_str().to_str().ok_or_else(|| {
@@ -375,9 +384,7 @@ impl Libraries {
 		}
 
 		let node_config = node.config.get().await;
-		let config =
-			LibraryConfig::load_and_migrate(&config_path, &(node_config.clone(), db.clone()))
-				.await?;
+		let config = LibraryConfig::load(config_path, &node_config, &db).await?;
 
 		let instance = db
 			.instance()

@@ -43,13 +43,17 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.get_all()
 					.await
 					.into_iter()
-					.map(|lib| LibraryConfigWrapped {
-						uuid: lib.id,
-						instance_id: lib.instance_uuid,
-						instance_public_key: lib.identity.to_remote_identity(),
-						config: lib.config(),
+					.map(|lib| async move {
+						LibraryConfigWrapped {
+							uuid: lib.id,
+							instance_id: lib.instance_uuid,
+							instance_public_key: lib.identity.to_remote_identity(),
+							config: lib.config().await,
+						}
 					})
 					.collect::<Vec<_>>()
+					.join()
+					.await
 			})
 		})
 		.procedure("statistics", {
@@ -268,7 +272,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						uuid: library.id,
 						instance_id: library.instance_uuid,
 						instance_public_key: library.identity.to_remote_identity(),
-						config: library.config(),
+						config: library.config().await,
 					})
 				},
 			)
@@ -281,12 +285,16 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub description: MaybeUndefined<String>,
 			}
 
-			R.mutation(|node, args: EditLibraryArgs| async move {
-				Ok(node
-					.libraries
-					.edit(args.id, args.name, args.description)
-					.await?)
-			})
+			R.mutation(
+				|node,
+				 EditLibraryArgs {
+				     id,
+				     name,
+				     description,
+				 }: EditLibraryArgs| async move {
+					Ok(node.libraries.edit(id, name, description).await?)
+				},
+			)
 		})
 		.procedure(
 			"delete",

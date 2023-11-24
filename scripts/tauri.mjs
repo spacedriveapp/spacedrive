@@ -1,10 +1,14 @@
+#!/usr/bin/env node
+
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { env, exit, umask, platform } from 'node:process'
+import { setTimeout } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 
 import * as toml from '@iarna/toml'
 
+import { waitLockUnlock } from './utils/flock.mjs'
 import { patchTauri } from './utils/patchTauri.mjs'
 import spawn from './utils/spawn.mjs'
 
@@ -53,11 +57,38 @@ if (cargoConfig.env && typeof cargoConfig.env === 'object')
 // Default command
 if (args.length === 0) args.push('build')
 
+const targets = args
+	.filter((_, index, args) => {
+		if (index === 0) return false
+		const previous = args[index - 1]
+		return previous === '-t' || previous === '--target'
+	})
+	.flatMap(target => target.split(','))
+
+const bundles = args
+	.filter((_, index, args) => {
+		if (index === 0) return false
+		const previous = args[index - 1]
+		return previous === '-b' || previous === '--bundles'
+	})
+	.flatMap(target => target.split(','))
+
 let code = 0
 try {
 	switch (args[0]) {
 		case 'dev': {
-			__cleanup.push(...(await patchTauri(__root, nativeDeps, args)))
+			__cleanup.push(...(await patchTauri(__root, nativeDeps, targets, bundles, args)))
+
+			switch (process.platform) {
+				case 'darwin':
+				case 'linux':
+					void waitLockUnlock(path.join(__root, 'target', 'debug', '.cargo-lock')).then(
+						() => setTimeout(1000).then(cleanUp),
+						() => {}
+					)
+					break
+			}
+
 			break
 		}
 		case 'build': {
@@ -65,68 +96,48 @@ try {
 				env.NODE_OPTIONS = `--max_old_space_size=4096 ${env.NODE_OPTIONS ?? ''}`
 			}
 
-			__cleanup.push(...(await patchTauri(__root, nativeDeps, args)))
+			__cleanup.push(...(await patchTauri(__root, nativeDeps, targets, bundles, args)))
 
-			switch (process.platform) {
-				case 'darwin': {
-					// Configure DMG background
-					env.BACKGROUND_FILE = path.resolve(
-						desktopApp,
-						'src-tauri',
-						'dmg-background.png'
+			if (process.platform === 'darwin') {
+				// Configure DMG background
+				env.BACKGROUND_FILE = path.resolve(desktopApp, 'src-tauri', 'dmg-background.png')
+				env.BACKGROUND_FILE_NAME = path.basename(env.BACKGROUND_FILE)
+				env.BACKGROUND_CLAUSE = `set background picture of opts to file ".background:${env.BACKGROUND_FILE_NAME}"`
+
+				if (!(await exists(env.BACKGROUND_FILE)))
+					console.warn(
+						`WARNING: DMG background file not found at ${env.BACKGROUND_FILE}`
 					)
-					env.BACKGROUND_FILE_NAME = path.basename(env.BACKGROUND_FILE)
-					env.BACKGROUND_CLAUSE = `set background picture of opts to file ".background:${env.BACKGROUND_FILE_NAME}"`
 
-					if (!(await exists(env.BACKGROUND_FILE)))
-						console.warn(
-							`WARNING: DMG background file not found at ${env.BACKGROUND_FILE}`
-						)
-
-					break
-				}
-				case 'linux':
-					// Cleanup appimage bundle to avoid build_appimage.sh failing
-					await fs.rm(path.join(__root, 'target', 'release', 'bundle', 'appimage'), {
-						recursive: true,
-						force: true,
-					})
-					break
+				break
 			}
 		}
 	}
 
-	await spawn('pnpm', ['exec', 'tauri', ...args], desktopApp).catch(async error => {
-		if (args[0] === 'build' || platform === 'linux') {
-			// Work around appimage buindling not working sometimes
-			const appimageDir = path.join(__root, 'target', 'release', 'bundle', 'appimage')
-			if (
-				(await exists(path.join(appimageDir, 'build_appimage.sh'))) &&
-				(await fs.readdir(appimageDir).then(f => f.every(f => !f.endsWith('.AppImage'))))
-			) {
-				// Remove AppDir to allow build_appimage to rebuild it
-				await fs.rm(path.join(appimageDir, 'spacedrive.AppDir'), {
-					recursive: true,
-					force: true,
-				})
-				return spawn('bash', ['build_appimage.sh'], appimageDir).catch(exitCode => {
-					code = exitCode
-					console.error(`tauri ${args[0]} failed with exit code ${exitCode}`)
-				})
+	await spawn('pnpm', ['exec', 'tauri', ...args], desktopApp)
+
+	if (args[0] === 'build' && bundles.some(bundle => bundle === 'deb' || bundle === 'all')) {
+		const linuxTargets = targets.filter(target => target.includes('-linux-'))
+		if (linuxTargets.length > 0)
+			for (const target of linuxTargets) {
+				env.TARGET = target
+				await spawn(path.join(__dirname, 'fix-deb.sh'), [], __dirname)
 			}
-		}
-
-		console.error(
-			`tauri ${args[0]} failed with exit code ${typeof error === 'number' ? error : 1}`
-		)
-
-		console.warn(
-			`If you got an error related to FFMpeg or Protoc/Protobuf you may need to re-run \`pnpm prep\``
-		)
-
-		throw error
-	})
+		else if (process.platform === 'linux')
+			await spawn(path.join(__dirname, 'fix-deb.sh'), [], __dirname)
+	}
 } catch (error) {
+	console.error(
+		`tauri ${args[0]} failed with exit code ${typeof error === 'number' ? error : 1}`
+	)
+
+	console.warn(
+		`If you got an error related to libav*/FFMpeg or Protoc/Protobuf you may need to re-run \`pnpm prep\``,
+		`If you got an error related to missing nasm you need to run ${
+			platform === 'win32' ? './scripts/setup.ps1' : './scripts/setup.sh'
+		}`
+	)
+
 	if (typeof error === 'number') {
 		code = error
 	} else {

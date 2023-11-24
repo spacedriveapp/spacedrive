@@ -2,12 +2,14 @@ import clsx from 'clsx';
 import { useEffect } from 'react';
 import { useMatch, useNavigate } from 'react-router';
 import { getOnboardingStore, unlockOnboardingScreen, useOnboardingStore } from '@sd/client';
+import { useOperatingSystem } from '~/hooks';
 
 import routes from '.';
 
 export default function OnboardingProgress() {
 	const obStore = useOnboardingStore();
 	const navigate = useNavigate();
+	const os = useOperatingSystem();
 
 	const match = useMatch('/onboarding/:screen');
 
@@ -22,7 +24,7 @@ export default function OnboardingProgress() {
 	return (
 		<div className="flex w-full items-center justify-center">
 			<div className="flex items-center justify-center space-x-1">
-				{routes.map(({ path }) => {
+				{routes(os).map(({ path }) => {
 					if (!path) return null;
 
 					return (
