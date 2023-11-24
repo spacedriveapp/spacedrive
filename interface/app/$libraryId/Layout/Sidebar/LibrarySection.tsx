@@ -30,14 +30,9 @@ export const LibrarySection = () => (
 );
 
 function SavedSearches() {
-	const { library } = useLibraryContext();
-
 	const savedSearches = useLibraryQuery(['search.saved.list']);
 
-	const deleteSearch = useLibraryMutation(['search.saved.delete']);
-
-	if (!savedSearches.data) return null;
-	if (savedSearches.data.length < 1) return null;
+	if (!savedSearches.data || savedSearches.data.length < 1) return null;
 
 	return (
 		<Section
@@ -51,7 +46,7 @@ function SavedSearches() {
 			<SeeMore>
 				{savedSearches.data.map((search) => (
 					<SidebarLink
-						className="group/button relative w-full"
+						className="group/button w-full"
 						to={`search/${search.id}`}
 						key={search.id}
 					>
@@ -60,14 +55,6 @@ function SavedSearches() {
 						</div>
 
 						<span className="truncate">{search.name}</span>
-						<Button
-							className="absolute right-[2px] top-[2px] hidden rounded-full shadow group-hover/button:block"
-							size="icon"
-							variant="subtle"
-							onClick={() => deleteSearch.mutate(search.id)}
-						>
-							<X weight="bold" className="text-ink-dull/50" />
-						</Button>
 					</SidebarLink>
 				))}
 			</SeeMore>

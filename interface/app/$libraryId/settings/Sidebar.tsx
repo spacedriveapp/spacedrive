@@ -14,6 +14,7 @@ import {
 	TagSimple,
 	User
 } from '@phosphor-icons/react';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/ssr';
 import { useFeatureFlag } from '@sd/client';
 import { tw } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
@@ -89,6 +90,10 @@ export default () => {
 						<Icon component={ShareNetwork} />
 						Nodes
 					</SidebarLink> */}
+					<SidebarLink to="library/saved-searches">
+						<Icon component={MagnifyingGlass} />
+						Saved Searches
+					</SidebarLink>
 					<SidebarLink to="library/locations">
 						<Icon component={HardDrive} />
 						Locations

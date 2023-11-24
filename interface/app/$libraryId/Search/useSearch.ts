@@ -1,6 +1,7 @@
 import { produce } from 'immer';
 import { useCallback, useMemo, useState } from 'react';
 import { useDebouncedValue } from 'rooks';
+import { useDebouncedCallback } from 'use-debounce';
 import { SearchFilterArgs } from '@sd/client';
 
 import { filterRegistry } from './Filters';
@@ -122,16 +123,13 @@ export function useSearch(props?: UseSearchProps) {
 	// Filters generated from the search query
 
 	// rawSearch should only ever be read by the search input
-	const [rawSearch, setSearch] = useState(props?.search ?? '');
-	const [rawSearchFromProps, setRawSearchFromProps] = useState(props?.search);
+	const [search, setSearch] = useState(props?.search ?? '');
+	const [searchFromProps, setSearchFromProps] = useState(props?.search);
 
-	if (rawSearchFromProps !== props?.search) {
-		setRawSearchFromProps(props?.search);
+	if (searchFromProps !== props?.search) {
+		setSearchFromProps(props?.search);
 		setSearch(props?.search ?? '');
 	}
-
-	// queries and other UI should use debounced search
-	const [search] = useDebouncedValue(rawSearch, 300);
 
 	const searchFilters = useMemo(() => {
 		const [name, ext] = search.split('.') ?? [];
@@ -173,8 +171,9 @@ export function useSearch(props?: UseSearchProps) {
 		fixedFilters,
 		fixedFiltersKeys,
 		search,
-		rawSearch,
-		setSearch,
+		rawSearch: search,
+		setRawSearch: setSearch,
+		setSearch: useDebouncedCallback(setSearch, 300),
 		dynamicFilters,
 		setDynamicFilters,
 		updateDynamicFilters,

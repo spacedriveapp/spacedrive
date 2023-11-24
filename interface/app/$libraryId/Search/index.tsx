@@ -33,6 +33,8 @@ export * from './context';
 // const Label = tw.span`text-ink-dull mr-2 text-xs`;
 export const OptionContainer = tw.div`flex flex-row items-center`;
 
+const FiltersOverflowShade = tw.div`from-app-darkerBox/80 absolute w-10 bg-gradient-to-l to-transparent h-6`;
+
 interface SearchOptionItemProps extends PropsWithChildren {
 	selected?: boolean;
 	setSelected?: (selected: boolean) => void;
@@ -88,6 +90,14 @@ export const Separator = () => <DropdownMenu.Separator className="!border-app-li
 const SearchOptions = ({ allowExit, children }: { allowExit?: boolean } & PropsWithChildren) => {
 	const search = useSearchContext();
 
+	const [scroll, setScroll] = useState(0);
+
+	const handleScroll = (e: React.UIEvent<HTMLDivElement, UIEvent>) => {
+		const element = e.currentTarget;
+		const scroll = element.scrollLeft / (element.scrollWidth - element.clientWidth);
+		setScroll(Math.round(scroll * 100) / 100);
+	};
+
 	return (
 		<div
 			onMouseEnter={() => {
@@ -109,11 +119,23 @@ const SearchOptions = ({ allowExit, children }: { allowExit?: boolean } & PropsW
 			{/* We're keeping AppliedOptions to the right of the "Add Filter" button because
 				its not worth rebuilding the dropdown with custom logic to lock the position
 				as the trigger will move if to the right of the applied options and that is bad UX. */}
-			<AppliedFilters />
+			<div className="relative flex h-full flex-1 items-center overflow-hidden">
+				<div
+					className="no-scrollbar flex h-full items-center gap-2 overflow-y-auto"
+					onScroll={handleScroll}
+				>
+					<AppliedFilters />
+				</div>
+
+				{scroll > 0.1 && <FiltersOverflowShade className="left-0 rotate-180" />}
+				{scroll < 0.9 && <FiltersOverflowShade className="right-0" />}
+			</div>
 
 			{children ?? (
 				<>
-					{search.dynamicFilters.length > 0 && <SaveSearchButton />}
+					{(search.dynamicFilters.length > 0 || search.search !== '') && (
+						<SaveSearchButton />
+					)}
 
 					<EscapeButton />
 				</>
@@ -251,10 +273,11 @@ function SaveSearchButton() {
 				<Button
 					onClick={() => {
 						if (!name) return;
+
 						saveSearch.mutate({
 							name,
 							search: search.search,
-							filters: JSON.stringify(search.allFilters),
+							filters: JSON.stringify(search.mergedFilters.map((f) => f.arg)),
 							description: null,
 							icon: null
 						});

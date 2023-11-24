@@ -115,7 +115,7 @@ export type Procedures = {
         { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
 
-export type Args = { filters?: string | null; name?: string | null; icon?: string | null; description?: string | null }
+export type Args = { search?: string | null; filters?: string | null; name?: string | null; icon?: string | null; description?: string | null }
 
 export type AudioMetadata = { duration: number | null; audio_codec: string | null }
 

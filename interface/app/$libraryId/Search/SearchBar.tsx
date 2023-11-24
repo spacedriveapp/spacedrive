@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Input, ModifierKeys, Shortcut } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 
-import { UseSearch, useSearchContext } from '../Search';
+import { useSearchContext } from '../Search';
 import { useSearchStore } from '../Search/store';
 
 export default () => {
@@ -46,11 +46,15 @@ export default () => {
 		};
 	}, [blurHandler, focusHandler]);
 
+	const [value, setValue] = useState(search.search);
+
 	function updateValue(value: string) {
+		setValue(value);
 		search.setSearch(value);
 	}
 
 	function clearValue() {
+		setValue('');
 		search.setSearch('');
 	}
 
@@ -60,7 +64,7 @@ export default () => {
 			placeholder="Search"
 			className="mx-2 w-48 transition-all duration-200 focus-within:w-60"
 			size="sm"
-			value={search.rawSearch}
+			value={value}
 			onChange={(e) => updateValue(e.target.value)}
 			onBlur={() => {
 				if (search.rawSearch === '' && !searchStore.interactingWithSearchOptions) {

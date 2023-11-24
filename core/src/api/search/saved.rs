@@ -52,6 +52,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 										})
 										.map(Some)
 										.map(saved_search::filters::set),
+									args.search.map(Some).map(saved_search::search::set),
 									args.description
 										.map(Some)
 										.map(saved_search::description::set),
@@ -94,9 +95,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.with2(library()).mutation({
 				saved_search::partial_unchecked!(Args {
 					name
-					filters
 					description
 					icon
+					search
+					filters
 				});
 
 				|(_, library), (id, args): (saved_search::id::Type, Args)| async move {

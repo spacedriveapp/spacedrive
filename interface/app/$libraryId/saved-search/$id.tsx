@@ -73,7 +73,10 @@ export const Component = () => {
 				>
 					<hr className="w-full border-t border-sidebar-divider bg-sidebar-divider" />
 					<SearchOptions>
-						{search.dynamicFilters !== dynamicFilters && <SaveButton searchId={id} />}
+						{(search.dynamicFilters !== dynamicFilters ||
+							search.search !== savedSearch.data!.search) && (
+							<SaveButton searchId={id} />
+						)}
 					</SearchOptions>
 				</TopBarPortal>
 			</SearchContext.Provider>
@@ -107,7 +110,10 @@ function SaveButton({ searchId }: { searchId: number }) {
 			onClick={() => {
 				updateSavedSearch.mutate([
 					searchId,
-					{ filters: JSON.stringify(search.dynamicFilters) }
+					{
+						filters: JSON.stringify(search.dynamicFilters),
+						search: search.search
+					}
 				]);
 			}}
 		>
