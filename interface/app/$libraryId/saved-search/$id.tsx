@@ -1,4 +1,4 @@
-import { MagnifyingGlass, Plus } from '@phosphor-icons/react';
+import { MagnifyingGlass } from '@phosphor-icons/react';
 import { getIcon, iconNames } from '@sd/assets/util';
 import { useMemo } from 'react';
 import { FilePathOrder, SearchFilterArgs, useLibraryMutation, useLibraryQuery } from '@sd/client';
@@ -20,9 +20,11 @@ import { TopBarPortal } from '../TopBar/Portal';
 export const Component = () => {
 	const { id } = useZodRouteParams(SearchIdParamsSchema);
 
-	const savedSearch = useLibraryQuery(['search.saved.get', id], { suspense: true });
+	const savedSearch = useLibraryQuery(['search.saved.get', id], {
+		suspense: true
+	});
 
-	useRouteTitle(savedSearch.data!.name ?? '');
+	useRouteTitle(savedSearch.data?.name ?? '');
 
 	const explorerSettings = useExplorerSettings({
 		settings: useMemo(() => {
@@ -33,7 +35,7 @@ export const Component = () => {
 		orderingKeys: filePathOrderingKeysSchema
 	});
 
-	const rawFilters = savedSearch.data!.filters;
+	const rawFilters = savedSearch.data?.filters;
 
 	const dynamicFilters = useMemo(() => {
 		if (rawFilters) return JSON.parse(rawFilters) as SearchFilterArgs[];
@@ -41,7 +43,7 @@ export const Component = () => {
 
 	const search = useSearch({
 		open: true,
-		search: savedSearch.data!.search ?? undefined,
+		search: savedSearch.data?.search ?? undefined,
 		dynamicFilters
 	});
 
@@ -65,7 +67,7 @@ export const Component = () => {
 						<div className="flex flex-row items-center gap-2">
 							<MagnifyingGlass className="text-ink-dull" weight="bold" size={18} />
 							<span className="truncate text-sm font-medium">
-								{savedSearch.data!.name}
+								{savedSearch.data?.name}
 							</span>
 						</div>
 					}
@@ -74,7 +76,7 @@ export const Component = () => {
 					<hr className="w-full border-t border-sidebar-divider bg-sidebar-divider" />
 					<SearchOptions>
 						{(search.dynamicFilters !== dynamicFilters ||
-							search.search !== savedSearch.data!.search) && (
+							search.search !== savedSearch.data?.search) && (
 							<SaveButton searchId={id} />
 						)}
 					</SearchOptions>

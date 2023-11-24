@@ -130,7 +130,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.await?;
 
 					invalidate_query!(library, "search.saved.list");
-					invalidate_query!(library, "search.saved.get");
+					// disabled as it's messing with pre-delete navigation
+					// invalidate_query!(library, "search.saved.get");
 
 					Ok(())
 				})
