@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 export const env = createEnv({
 	server: {
+		NODE_ENV: z.enum(['development', 'production', 'test']),
 		DATABASE_URL: z.string().url(),
 		SLACK_FEEDBACK_URL: z.string().url(),
 		AUTH_SECRET: z.string(),
@@ -21,6 +22,7 @@ export const env = createEnv({
 	},
 	client: {},
 	runtimeEnv: {
+		NODE_ENV: process.env.NODE_ENV,
 		DATABASE_URL: process.env.DATABASE_URL,
 		SLACK_FEEDBACK_URL: process.env.SLACK_FEEDBACK_URL,
 		AUTH_SECRET: process.env.AUTH_SECRET,
