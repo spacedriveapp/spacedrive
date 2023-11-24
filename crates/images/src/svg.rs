@@ -31,9 +31,9 @@ impl ImageHandler for SvgHandler {
 			scale_dimensions(rtree.size.width(), rtree.size.height(), SVG_TARGET_PX);
 
 		let size = if rtree.size.width() > rtree.size.height() {
-			rtree.size.to_int_size().scale_to_width(scaled_w as u32)
+			rtree.size.to_int_size().scale_to_width(scaled_w)
 		} else {
-			rtree.size.to_int_size().scale_to_height(scaled_h as u32)
+			rtree.size.to_int_size().scale_to_height(scaled_h)
 		}
 		.ok_or(Error::InvalidLength)?;
 

@@ -1,7 +1,7 @@
 use crate::{api::CoreEvent, util::error::FileIOError};
 
 use sd_file_ext::extensions::{DocumentExtension, ImageExtension};
-use sd_images::{format_image, scale_dimensions};
+use sd_images::{format_image, scale_dimensions, ConvertableExtension};
 use sd_media_metadata::image::Orientation;
 use sd_prisma::prisma::location;
 
@@ -397,7 +397,7 @@ async fn generate_image_thumbnail(
 	let file_path = file_path.as_ref().to_path_buf();
 
 	let webp = spawn_blocking(move || -> Result<_, ThumbnailerError> {
-		let img = format_image(&file_path).map_err(|e| ThumbnailerError::SdImages {
+		let mut img = format_image(&file_path).map_err(|e| ThumbnailerError::SdImages {
 			path: file_path.clone().into_boxed_path(),
 			error: e,
 		})?;
@@ -406,17 +406,24 @@ async fn generate_image_thumbnail(
 		let (w_scaled, h_scaled) = scale_dimensions(w as f32, h as f32, TARGET_PX);
 
 		// Optionally, resize the existing photo and convert back into DynamicImage
-		let mut img = DynamicImage::ImageRgba8(imageops::resize(
-			&img,
-			w_scaled as u32,
-			h_scaled as u32,
-			imageops::FilterType::Triangle,
-		));
+		if w != w_scaled && h != h_scaled {
+			img = DynamicImage::ImageRgba8(imageops::resize(
+				&img,
+				w_scaled,
+				h_scaled,
+				imageops::FilterType::Triangle,
+			));
+		}
 
 		// this corrects the rotation/flip of the image based on the *available* exif data
-		// not all images have exif data, so we don't error
+		// not all images have exif data, so we don't error. we also don't rotate HEIF as that's against the spec
 		if let Some(orientation) = Orientation::from_path(&file_path) {
-			img = orientation.correct_thumbnail(img);
+			if ConvertableExtension::try_from(file_path.as_ref())
+				.expect("we already checked if the image was convertable")
+				.should_rotate()
+			{
+				img = orientation.correct_thumbnail(img);
+			}
 		}
 
 		// Create the WebP encoder for the above image
