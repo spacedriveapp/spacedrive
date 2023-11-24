@@ -74,6 +74,7 @@ RUN cargo build --features assets --release -p sd-server
 
 #--
 
+# Debug just means it includes busybox, and we need its tools both for the entrypoint.sh script and during runtime
 FROM gcr.io/distroless/base-debian12:debug
 
 ENV TZ=UTC \
