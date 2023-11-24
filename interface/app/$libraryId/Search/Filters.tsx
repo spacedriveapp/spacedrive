@@ -248,8 +248,8 @@ function createInOrNotInFilter<T extends string | number>(
 			return filter.argsToOptions(values, options);
 		},
 		applyAdd: (data, option) => {
-			if ('in' in data) data.in.push(option.value);
-			else data.notIn.push(option.value);
+			if ('in' in data) data.in = [...new Set([...data.in, option.value])];
+			else data.notIn = [...new Set([...data.notIn, option.value])];
 
 			return data;
 		},
