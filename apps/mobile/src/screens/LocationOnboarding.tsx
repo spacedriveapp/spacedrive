@@ -1,37 +1,19 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { tw, twStyle } from '~/lib/tailwind';
 import { Platform, Pressable, Text, ToastAndroid, View } from 'react-native';
 import FolderIcon from '~/components/icons/FolderIcon';
 import * as RNFS from 'react-native-fs';
-import { useLibraryMutation } from '@sd/client';
+import { Location, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import DocumentPicker from 'react-native-document-picker';
-
-type DrawerLocationItemProps = {
-	folderName: string;
-	onPress: () => void;
-};
-
-
-const DrawerLocationItem: React.FC<DrawerLocationItemProps> = (props) => {
-	const { folderName, onPress } = props;
-
-	return (
-		<Pressable onPress={onPress}>
-			<View style={twStyle('mb-[4px] flex flex-row items-center rounded px-1 py-2')}>
-				<FolderIcon size={50} />
-				<Text style={twStyle('ml-1.5 text-xl text-gray-300')} numberOfLines={1}>
-					{folderName}
-				</Text>
-			</View>
-		</Pressable>
-	);
-};
+import { SharedScreenProps } from '~/navigation/SharedScreens';
 
 // Add more default locations here?
-const defaultLocationsList: { name: string, absPath: string }[] = [{ name: 'Downloads', absPath: RNFS.ExternalStorageDirectoryPath + '/Download' }, { name: 'Placeholder', absPath: 'placeholder' }]
-const LocationOnboarding = () => {
+const defaultLocationsList: { name: string, absPath: string }[] = [{ name: 'Downloads', absPath: RNFS.DownloadDirectoryPath }, { name: 'Placeholder', absPath: 'placeholder' }]
+const LocationOnboarding = ({ navigation }: SharedScreenProps<'LocationOnboarding'>) => {
 	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
 	const relinkLocation = useLibraryMutation('locations.relink');
+	const { data: _locations, refetch: refetchLocations } = useLibraryQuery(['locations.list']);
+	const [locations, setLocations] = React.useState<Location[] | undefined>(_locations);
 
 	const createLocation = useLibraryMutation('locations.create', {
 		onError: (error, variables) => {
@@ -46,7 +28,12 @@ const LocationOnboarding = () => {
 					throw new Error('Unimplemented custom remote error handling');
 			}
 		},
+		onSuccess: async () => {
+			const refreshedLocations = await refetchLocations();
+			setLocations(refreshedLocations.data);
+		}
 	});
+
 
 	const handleFilesButton = useCallback(async () => {
 		try {
@@ -78,6 +65,13 @@ const LocationOnboarding = () => {
 					dry_run: false,
 					indexer_rules_ids: []
 				});
+				// Get the id of the location we just added
+				const newLocation = locations?.filter((location: Location) => location.path === dirPath)[0];
+				if (!newLocation) return;
+				// Navigate to the location
+				navigation.navigate('Location', {
+					id: newLocation?.id
+				});
 			} else {
 				// iOS
 				createLocation.mutate({
@@ -95,7 +89,7 @@ const LocationOnboarding = () => {
 		<View style={tw`flex-1 items-start justify-start p-5`}>
 			<View style={tw`mt-2`}>
 				{defaultLocationsList?.map(({ name, absPath }) => (
-					<Pressable onPress={() => {
+					<Pressable onPress={async () => {
 						if (absPath === 'placeholder') {
 							ToastAndroid.showWithGravity(
 								`This location is a placeholder`,
@@ -114,7 +108,14 @@ const LocationOnboarding = () => {
 							ToastAndroid.SHORT,
 							ToastAndroid.CENTER
 						);
-						//TODO: Navigate to Added Location Screen
+
+						// Get the id of the location we just added
+						const newLocation = locations?.filter((location: Location) => location.path === absPath)[0];
+						if (!newLocation) return;
+						// Navigate to the location
+						navigation.navigate('Location', {
+							id: newLocation?.id
+						});
 					}} key={name}>
 						<View style={twStyle('mb-[4px] flex flex-row items-center rounded px-1 py-2')}>
 							<FolderIcon size={50} />

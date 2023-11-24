@@ -46,6 +46,7 @@ export function SharedScreens(
 export type SharedScreensParamList = {
 	Location: { id: number; path?: string };
 	Tag: { id: number };
+	LocationOnboarding: undefined;
 };
 
 export type SharedScreenProps<Screen extends keyof SharedScreensParamList> = StackScreenProps<

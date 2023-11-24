@@ -32,6 +32,7 @@ function JobIcon() {
 
 const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 	const stackName = getStackNameFromState(state);
+	console.log(stackName);
 
 	const modalRef = useRef<ModalRef>(null);
 
