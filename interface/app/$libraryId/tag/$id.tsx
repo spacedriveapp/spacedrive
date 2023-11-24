@@ -58,7 +58,7 @@ export function Component() {
 
 	return (
 		<ExplorerContextProvider explorer={explorer}>
-			<SearchContextProvider value={search}>
+			<SearchContextProvider search={search}>
 				<TopBarPortal
 					center={<SearchBar />}
 					left={
