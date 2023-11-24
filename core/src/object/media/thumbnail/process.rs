@@ -187,9 +187,12 @@ pub(super) async fn batch_processor(
 								// the same capacity as the batch size, so there is always a space
 								// in the queue
 								if let Some(cas_ids_tx) = maybe_cas_ids_tx {
-									cas_ids_tx
+									if cas_ids_tx
 										.send_blocking(OsString::from(format!("{}.webp", cas_id)))
-										.expect("channel never closes");
+										.is_err()
+									{
+										warn!("No one to listen to generated ephemeral thumbnail cas id");
+									}
 								}
 							})
 						})
