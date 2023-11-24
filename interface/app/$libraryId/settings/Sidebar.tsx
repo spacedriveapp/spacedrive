@@ -90,10 +90,6 @@ export default () => {
 						<Icon component={ShareNetwork} />
 						Nodes
 					</SidebarLink> */}
-					<SidebarLink to="library/saved-searches">
-						<Icon component={MagnifyingGlass} />
-						Saved Searches
-					</SidebarLink>
 					<SidebarLink to="library/locations">
 						<Icon component={HardDrive} />
 						Locations
@@ -101,6 +97,10 @@ export default () => {
 					<SidebarLink to="library/tags">
 						<Icon component={TagSimple} />
 						Tags
+					</SidebarLink>
+					<SidebarLink to="library/saved-searches">
+						<Icon component={MagnifyingGlass} />
+						Saved Searches
 					</SidebarLink>
 					<SidebarLink disabled to="library/clouds">
 						<Icon component={Cloud} />

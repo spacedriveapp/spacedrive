@@ -194,15 +194,6 @@ function AddFilterButton() {
 
 	const deferredSearchQuery = useDeferredValue(searchQuery);
 
-	for (const filter of filterRegistry) {
-		const options = filter
-			.useOptions({ search: searchQuery })
-			.map((o) => ({ ...o, type: filter.name }));
-
-		// eslint-disable-next-line react-hooks/rules-of-hooks
-		useRegisterSearchFilterOptions(filter, options);
-	}
-
 	return (
 		<OptionContainer className="shrink-0">
 			<DropdownMenu.Root

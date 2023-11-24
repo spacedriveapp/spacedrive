@@ -79,6 +79,9 @@ export default function App() {
 const TAB_CREATE_DELAY = 150;
 
 function AppInner() {
+	const [tabs, setTabs] = useState(() => [createTab()]);
+	const [tabIndex, setTabIndex] = useState(0);
+
 	function createTab() {
 		const history = createMemoryHistory();
 		const router = createMemoryRouterWithHistory({ routes, history });
@@ -112,9 +115,6 @@ function AppInner() {
 			title: 'New Tab'
 		};
 	}
-
-	const [tabs, setTabs] = useState(() => [createTab()]);
-	const [tabIndex, setTabIndex] = useState(0);
 
 	const tab = tabs[tabIndex]!;
 

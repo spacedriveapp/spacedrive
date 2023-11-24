@@ -34,7 +34,7 @@ import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { useExplorerSearchParams } from '../Explorer/util';
 import { EmptyNotice } from '../Explorer/View';
-import SearchOptions, { SearchContext, useSearch } from '../Search';
+import SearchOptions, { SearchContextProvider, useSearch } from '../Search';
 import SearchBar from '../Search/SearchBar';
 import { TopBarPortal } from '../TopBar/Portal';
 import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
@@ -182,7 +182,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 
 	return (
 		<ExplorerContextProvider explorer={explorer}>
-			<SearchContext.Provider value={search}>
+			<SearchContextProvider search={search}>
 				<TopBarPortal
 					center={<SearchBar />}
 					left={
@@ -218,7 +218,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 						</>
 					)}
 				</TopBarPortal>
-			</SearchContext.Provider>
+			</SearchContextProvider>
 			{isLocationIndexing ? (
 				<div className="flex h-full w-full items-center justify-center">
 					<Loader />

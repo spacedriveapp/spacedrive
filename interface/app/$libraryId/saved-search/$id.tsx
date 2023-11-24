@@ -13,7 +13,7 @@ import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Ex
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { EmptyNotice } from '../Explorer/View';
-import SearchOptions, { SearchContext, useSearch, useSearchContext } from '../Search';
+import SearchOptions, { SearchContextProvider, useSearch, useSearchContext } from '../Search';
 import SearchBar from '../Search/SearchBar';
 import { TopBarPortal } from '../TopBar/Portal';
 
@@ -58,7 +58,7 @@ export const Component = () => {
 
 	return (
 		<ExplorerContextProvider explorer={explorer}>
-			<SearchContext.Provider value={search}>
+			<SearchContextProvider search={search}>
 				<TopBarPortal
 					center={<SearchBar />}
 					left={
@@ -79,7 +79,7 @@ export const Component = () => {
 						)}
 					</SearchOptions>
 				</TopBarPortal>
-			</SearchContext.Provider>
+			</SearchContextProvider>
 
 			<Explorer
 				emptyNotice={

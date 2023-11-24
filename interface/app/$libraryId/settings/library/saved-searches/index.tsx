@@ -9,7 +9,7 @@ import {
 	useZodForm
 } from '@sd/client';
 import { Button, Card, Form, InputField, Label, Tooltip, z } from '@sd/ui';
-import { SearchContext, useSearch } from '~/app/$libraryId/Search';
+import { SearchContextProvider, useSearch } from '~/app/$libraryId/Search';
 import { AppliedFilters } from '~/app/$libraryId/Search/AppliedFilters';
 import { Heading } from '~/app/$libraryId/settings/Layout';
 import { useDebouncedFormWatch } from '~/hooks';
@@ -107,12 +107,12 @@ function EditForm({ savedSearch, onDelete }: { savedSearch: SavedSearch; onDelet
 						</Tooltip>
 					</Button>
 				</div>
-				<div className="flex flex-col gap-2">
-					<Label>Filters</Label>
+				<div className="flex flex-col gap-1">
+					<Label className="font-medium">Filters</Label>
 					<div className="flex flex-col items-start gap-2">
-						<SearchContext.Provider value={search}>
+						<SearchContextProvider search={search}>
 							<AppliedFilters />
-						</SearchContext.Provider>
+						</SearchContextProvider>
 					</div>
 				</div>
 			</div>
