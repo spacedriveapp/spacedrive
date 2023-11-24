@@ -59,7 +59,7 @@ export const useViewItemDoubleClick = () => {
 									: selectedItem.item.file_paths;
 
 							for (const filePath of paths) {
-								if (isPath(selectedItem) && selectedItem.item.is_dir) {
+								if (filePath.is_dir) {
 									items.dirs.splice(sameAsClicked ? 0 : -1, 0, filePath);
 								} else {
 									items.paths.splice(sameAsClicked ? 0 : -1, 0, filePath);

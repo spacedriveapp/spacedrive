@@ -144,7 +144,7 @@ const EphemeralLocation = ({
 
 	const { isDroppable, navigateClassName, setDroppableRef } = useExplorerDroppable({
 		id: `sidebar-ephemeral-location-${path}`,
-		allow: ['Path', 'NonIndexedPath'],
+		allow: ['Path', 'NonIndexedPath', 'Object'],
 		data: { type: 'location', path },
 		disabled: navigateTo.startsWith('location/') || ephemeralPath === path,
 		navigateTo: navigateTo

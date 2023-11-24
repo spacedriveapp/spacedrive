@@ -49,7 +49,7 @@ const Location = ({ location, online }: { location: LocationType; online: boolea
 
 	const { isDroppable, navigateClassName, setDroppableRef } = useExplorerDroppable({
 		id: `sidebar-location-${location.id}`,
-		allow: ['Path', 'NonIndexedPath'],
+		allow: ['Path', 'NonIndexedPath', 'Object'],
 		data: { type: 'location', path: '/', data: location },
 		disabled: Number(locationId) === location.id && !path,
 		navigateTo: `location/${location.id}`

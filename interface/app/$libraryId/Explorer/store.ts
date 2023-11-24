@@ -129,8 +129,9 @@ type DragState =
 	| {
 			type: 'dragging';
 			items: ExplorerItem[];
-			sourceParentPath: string;
+			sourcePath?: string;
 			sourceLocationId?: number;
+			sourceTagId?: number;
 	  };
 
 const state = {

@@ -79,14 +79,21 @@ export const View = ({
 			disabled:
 				explorerStore.drag?.type === 'dragging' &&
 				explorer.parent.location.id === explorerStore.drag.sourceLocationId &&
-				(path ?? '/') === explorerStore.drag.sourceParentPath
+				(path ?? '/') === explorerStore.drag.sourcePath
 		}),
 		...(explorer.parent?.type === 'Ephemeral' && {
 			allow: ['Path', 'NonIndexedPath'],
 			data: { type: 'location', path: explorer.parent.path },
 			disabled:
 				explorerStore.drag?.type === 'dragging' &&
-				explorer.parent.path === explorerStore.drag.sourceParentPath
+				explorer.parent.path === explorerStore.drag.sourcePath
+		}),
+		...(explorer.parent?.type === 'Tag' && {
+			allow: 'Path',
+			data: { type: 'tag', data: explorer.parent.tag },
+			disabled:
+				explorerStore.drag?.type === 'dragging' &&
+				explorer.parent.tag.id === explorerStore.drag.sourceTagId
 		})
 	});
 

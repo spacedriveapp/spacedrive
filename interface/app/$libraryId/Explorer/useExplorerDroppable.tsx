@@ -3,7 +3,7 @@ import { CSSProperties, useEffect, useId, useMemo, useState } from 'react';
 import { NavigateOptions, To, useNavigate } from 'react-router';
 import { createSearchParams } from 'react-router-dom';
 import { z } from 'zod';
-import { ExplorerItem, getItemFilePath, Location } from '@sd/client';
+import { ExplorerItem, getItemFilePath, Location, Tag } from '@sd/client';
 
 import { useExplorerContext } from './Context';
 import { getExplorerStore } from './store';
@@ -23,7 +23,8 @@ interface Props extends Omit<UseDroppableArguments, 'id'> {
 	id?: string;
 	data?:
 		| { type: 'location'; data?: Location; path: string }
-		| { type: 'explorer-item'; data: ExplorerItem };
+		| { type: 'explorer-item'; data: ExplorerItem }
+		| { type: 'tag'; data: Tag };
 	allow?: ExplorerItemType | ExplorerItemType[];
 	navigateTo?: To | { to: To; options?: NavigateOptions } | number | (() => void);
 }
@@ -44,6 +45,20 @@ const explorerPathSchema = z.object({
 	})
 });
 
+const explorerObjectSchema = z.object({
+	type: z.literal('Object'),
+	item: z.object({
+		file_paths: z
+			.object({
+				id: z.number(),
+				name: z.string(),
+				location_id: z.number(),
+				materialized_path: z.string()
+			})
+			.array()
+	})
+});
+
 const explorerNonIndexedPathSchema = z.object({
 	type: z.literal('NonIndexedPath'),
 	item: z.object({
@@ -59,10 +74,20 @@ const explorerItemLocationSchema = z.object({
 
 export const explorerDroppableItemSchema = z.object({
 	type: z.literal('explorer-item'),
-	data: explorerPathSchema.or(explorerNonIndexedPathSchema).or(explorerItemLocationSchema)
+	data: explorerPathSchema
+		.or(explorerNonIndexedPathSchema)
+		.or(explorerItemLocationSchema)
+		.or(explorerObjectSchema)
 });
 
-export const explorerDroppableSchema = explorerLocationSchema.or(explorerDroppableItemSchema);
+const explorerTagSchema = z.object({
+	type: z.literal('tag'),
+	data: z.object({ id: z.number() })
+});
+
+export const explorerDroppableSchema = explorerLocationSchema
+	.or(explorerDroppableItemSchema)
+	.or(explorerTagSchema);
 
 export const useExplorerDroppable = ({ allow, navigateTo, ...props }: Props) => {
 	const id = useId();
@@ -102,17 +127,17 @@ export const useExplorerDroppable = ({ allow, navigateTo, ...props }: Props) => 
 			else {
 				switch (explorer.parent.type) {
 					case 'Location': {
-						allowedType = ['Path', 'NonIndexedPath'];
+						allowedType = ['Path', 'NonIndexedPath', 'Object'];
 						break;
 					}
 
 					case 'Ephemeral': {
-						allowedType = ['Path', 'NonIndexedPath'];
+						allowedType = ['Path', 'NonIndexedPath', 'Object'];
 						break;
 					}
 
 					case 'Tag': {
-						allowedType = 'Object';
+						allowedType = ['Path', 'Object'];
 						break;
 					}
 				}
@@ -139,7 +164,7 @@ export const useExplorerDroppable = ({ allow, navigateTo, ...props }: Props) => 
 	const isDroppable = droppable.isOver && !blocked;
 
 	const filePathData = useMemo(() => {
-		if (!isDroppable || !props.data || props.data.type === 'location') return;
+		if (!isDroppable || !props.data || props.data.type !== 'explorer-item') return;
 		return getItemFilePath(props.data.data);
 	}, [isDroppable, props.data]);
 
@@ -173,7 +198,6 @@ export const useExplorerDroppable = ({ allow, navigateTo, ...props }: Props) => 
 
 			if (props.data?.type === 'explorer-item') {
 				if (props.data.data.type === 'Location') {
-					console.log(props.data.data);
 					navigate(`../location/${props.data.data.item.id}`);
 				}
 			}
