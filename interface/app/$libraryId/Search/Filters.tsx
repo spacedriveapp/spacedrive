@@ -129,7 +129,7 @@ const FilterOptionText = ({ filter, search }: { filter: SearchFilterCRUD; search
 	const { fixedFiltersKeys } = search;
 
 	return (
-		<SearchOptionSubMenu name={filter.name} icon={filter.icon}>
+		<SearchOptionSubMenu name={filter.name} icon={filter.icon} className="flex flex-row gap-2">
 			<Input value={value} onChange={(e) => setValue(e.target.value)} />
 			<Button
 				variant="accent"

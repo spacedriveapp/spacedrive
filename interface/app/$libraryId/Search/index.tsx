@@ -18,12 +18,7 @@ import { useKeybind } from '~/hooks';
 import { AppliedFilters } from './AppliedFilters';
 import { useSearchContext } from './context';
 import { filterRegistry, SearchFilterCRUD, useToggleOptionSelected } from './Filters';
-import {
-	getSearchStore,
-	useRegisterSearchFilterOptions,
-	useSearchRegisteredFilters,
-	useSearchStore
-} from './store';
+import { getSearchStore, useSearchRegisteredFilters, useSearchStore } from './store';
 import { UseSearch } from './useSearch';
 import { RenderIcon } from './util';
 
@@ -70,7 +65,9 @@ export const SearchOptionItem = (props: SearchOptionItemProps) => {
 	);
 };
 
-export const SearchOptionSubMenu = (props: SearchOptionItemProps & { name?: string }) => {
+export const SearchOptionSubMenu = (
+	props: SearchOptionItemProps & { name?: string; className?: string }
+) => {
 	return (
 		<DropdownMenu.SubMenu
 			trigger={
@@ -78,7 +75,7 @@ export const SearchOptionSubMenu = (props: SearchOptionItemProps & { name?: stri
 					<SearchOptionItemInternals {...props}>{props.name}</SearchOptionItemInternals>
 				</ContextMenuDivItem>
 			}
-			className={clsx(MENU_STYLES, '-mt-1.5')}
+			className={clsx(MENU_STYLES, '-mt-1.5', props.className)}
 		>
 			{props.children}
 		</DropdownMenu.SubMenu>
