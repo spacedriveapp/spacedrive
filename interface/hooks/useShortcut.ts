@@ -1,7 +1,9 @@
+import { useMemo } from 'react';
 import { useKeys } from 'rooks';
 import { useSnapshot } from 'valtio';
 import { valtioPersist } from '@sd/client';
 import { modifierSymbols } from '@sd/ui';
+import { useRoutingContext } from '~/RoutingContext';
 import { OperatingSystem } from '~/util/Platform';
 
 import { useOperatingSystem } from './useOperatingSystem';
@@ -431,7 +433,8 @@ export function getShortcutsStore() {
 
 export const useShortcut = (shortcut: ShortcutKeys, func: (e: KeyboardEvent) => void) => {
 	const os = useOperatingSystem();
-	const shortcutsStore = getShortcutsStore();
+	const shortcutsStore = useShortcutsStore();
+
 	const triggeredShortcut = () => {
 		const shortcuts: Record<ShortcutKeys, string[]> = {} as any;
 		for (const category in shortcutsStore) {
@@ -445,5 +448,10 @@ export const useShortcut = (shortcut: ShortcutKeys, func: (e: KeyboardEvent) => 
 		return shortcuts[shortcut] as string[];
 	};
 
-	useKeys(triggeredShortcut(), func);
+	const { visible } = useRoutingContext();
+
+	useKeys(triggeredShortcut(), (e) => {
+		if (!visible) return;
+		return func(e);
+	});
 };

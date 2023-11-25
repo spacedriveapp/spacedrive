@@ -536,11 +536,15 @@ model Notification {
 model SavedSearch {
     id            Int       @id @default(autoincrement())
     pub_id        Bytes     @unique
-    filters       Bytes?
+
+    search        String?
+    filters       String?
+
     name          String?
     icon          String?
     description   String?
-    order         Int? // Add this line to include ordering
+    // order         Int? // Add this line to include ordering
+
     date_created  DateTime?
     date_modified DateTime?
 

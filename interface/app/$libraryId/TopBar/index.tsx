@@ -5,15 +5,12 @@ import { useKey } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import { Tooltip } from '@sd/ui';
 import { useKeyMatcher, useOperatingSystem, useShowControls } from '~/hooks';
+import { useRoutingContext } from '~/RoutingContext';
 import { useTabsContext } from '~/TabsContext';
 
-import SearchOptions from '../Explorer/Search';
-import { useSearchContext } from '../Explorer/Search/Context';
-import { useSearchStore } from '../Explorer/Search/store';
 import { useExplorerStore } from '../Explorer/store';
 import { useTopBarContext } from './Layout';
 import { NavigationButtons } from './NavigationButtons';
-import SearchBar from './SearchBar';
 
 const TopBar = () => {
 	const transparentBg = useShowControls().transparentBg;
@@ -22,7 +19,6 @@ const TopBar = () => {
 
 	const tabs = useTabsContext();
 	const ctx = useTopBarContext();
-	const searchCtx = useSearchContext();
 
 	useResizeObserver({
 		ref,
@@ -38,7 +34,7 @@ const TopBar = () => {
 	useLayoutEffect(() => {
 		const height = ref.current!.getBoundingClientRect().height;
 		ctx.setTopBarHeight.call(undefined, height);
-	}, [ctx.setTopBarHeight, searchCtx.isSearching]);
+	}, [ctx.setTopBarHeight]);
 
 	return (
 		<div
@@ -65,19 +61,14 @@ const TopBar = () => {
 					<div ref={ctx.setLeft} className="overflow-hidden" />
 				</div>
 
-				{ctx.fixedArgs && <SearchBar />}
+				<div ref={ctx.setCenter} />
 
-				<div ref={ctx.setRight} className={clsx(ctx.fixedArgs && 'flex-1')} />
+				<div ref={ctx.setRight} className="flex-1" />
 			</div>
 
 			{tabs && <Tabs />}
 
-			{searchCtx.isSearching && (
-				<>
-					<hr className="w-full border-t border-sidebar-divider bg-sidebar-divider" />
-					<SearchOptions />
-				</>
-			)}
+			<div ref={ctx.setChildren} />
 		</div>
 	);
 };
@@ -155,9 +146,11 @@ function Tabs() {
 function useTabKeybinds(props: { addTab(): void; removeTab(index: number): void }) {
 	const ctx = useTabsContext()!;
 	const os = useOperatingSystem();
+	const { visible } = useRoutingContext();
 
 	// these keybinds aren't part of the regular shortcuts system as they're desktop-only
 	useKey(['t'], (e) => {
+		if (!visible) return;
 		if ((os === 'macOS' && !e.metaKey) || (os !== 'macOS' && !e.ctrlKey)) return;
 
 		e.stopPropagation();
@@ -166,6 +159,7 @@ function useTabKeybinds(props: { addTab(): void; removeTab(index: number): void 
 	});
 
 	useKey(['w'], (e) => {
+		if (!visible) return;
 		if ((os === 'macOS' && !e.metaKey) || (os !== 'macOS' && !e.ctrlKey)) return;
 
 		e.stopPropagation();
@@ -174,6 +168,7 @@ function useTabKeybinds(props: { addTab(): void; removeTab(index: number): void 
 	});
 
 	useKey(['ArrowLeft', 'ArrowRight'], (e) => {
+		if (!visible) return;
 		// TODO: figure out non-macos keybind
 		if ((os === 'macOS' && !(e.metaKey && e.altKey)) || os !== 'macOS') return;
 

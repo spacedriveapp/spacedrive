@@ -14,6 +14,7 @@ import {
 	TagSimple,
 	User
 } from '@phosphor-icons/react';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/ssr';
 import { useFeatureFlag } from '@sd/client';
 import { tw } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
@@ -97,6 +98,10 @@ export default () => {
 						<Icon component={TagSimple} />
 						Tags
 					</SidebarLink>
+					{/* <SidebarLink to="library/saved-searches">
+						<Icon component={MagnifyingGlass} />
+						Saved Searches
+					</SidebarLink> */}
 					<SidebarLink disabled to="library/clouds">
 						<Icon component={Cloud} />
 						Clouds

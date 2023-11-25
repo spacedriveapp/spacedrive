@@ -58,8 +58,6 @@ const NOTICE_ITEMS: { icon: keyof typeof iconNames; name: string }[] = [
 ];
 
 const EphemeralNotice = ({ path }: { path: string }) => {
-	useRouteTitle(path);
-
 	const isDark = useIsDark();
 	const { ephemeral: dismissed } = useDismissibleNoticeStore();
 
@@ -156,8 +154,9 @@ const EphemeralNotice = ({ path }: { path: string }) => {
 };
 
 const EphemeralExplorer = memo((props: { args: PathParams }) => {
-	const os = useOperatingSystem();
 	const { path } = props.args;
+
+	const os = useOperatingSystem();
 
 	const explorerSettings = useExplorerSettings({
 		settings: useMemo(
@@ -247,6 +246,8 @@ export const Component = () => {
 	const [pathParams] = useZodSearchParams(PathParamsSchema);
 
 	const path = useDeferredValue(pathParams);
+
+	useRouteTitle(path.path ?? '');
 
 	return (
 		<Suspense>
