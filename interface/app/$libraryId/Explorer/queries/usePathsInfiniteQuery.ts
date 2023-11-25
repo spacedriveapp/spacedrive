@@ -5,6 +5,7 @@ import {
 	FilePathObjectCursor,
 	FilePathOrder,
 	FilePathSearchArgs,
+	useLibraryContext,
 	useRspcLibraryContext
 } from '@sd/client';
 
@@ -12,16 +13,16 @@ import { getExplorerStore } from '../store';
 import { UseExplorerInfiniteQueryArgs } from './useExplorerInfiniteQuery';
 
 export function usePathsInfiniteQuery({
-	library,
 	arg,
-	settings,
+	explorerSettings,
 	...args
 }: UseExplorerInfiniteQueryArgs<FilePathSearchArgs, FilePathOrder>) {
+	const { library } = useLibraryContext();
 	const ctx = useRspcLibraryContext();
-	const explorerSettings = settings.useSettingsSnapshot();
+	const settings = explorerSettings.useSettingsSnapshot();
 
-	if (explorerSettings.order) {
-		arg.orderAndPagination = { orderOnly: explorerSettings.order };
+	if (settings.order) {
+		arg.orderAndPagination = { orderOnly: settings.order };
 		if (arg.orderAndPagination.orderOnly.field === 'sizeInBytes') delete arg.take;
 	}
 
@@ -29,7 +30,7 @@ export function usePathsInfiniteQuery({
 		queryKey: ['search.paths', { library_id: library.uuid, arg }] as const,
 		queryFn: ({ pageParam, queryKey: [_, { arg }] }) => {
 			const cItem: Extract<ExplorerItem, { type: 'Path' }> = pageParam;
-			const { order } = explorerSettings;
+			const { order } = settings;
 
 			let orderAndPagination: (typeof arg)['orderAndPagination'];
 

@@ -1,73 +1,98 @@
 import { useMemo } from 'react';
-import { Navigate, Outlet, useMatches, type RouteObject } from 'react-router-dom';
-import { currentLibraryCache, useCachedLibraries } from '@sd/client';
+import { Navigate, Outlet, redirect, useMatches, type RouteObject } from 'react-router-dom';
+import { currentLibraryCache, getCachedLibraries, useCachedLibraries } from '@sd/client';
 import { Dialogs, Toaster } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
+import { useOperatingSystem } from '~/hooks';
+import { useRoutingContext } from '~/RoutingContext';
 
+import { Platform } from '..';
 import libraryRoutes from './$libraryId';
 import onboardingRoutes from './onboarding';
 import { RootContext } from './RootContext';
 
 import './style.scss';
 
-import { useOperatingSystem } from '~/hooks';
-
-import { OperatingSystem } from '..';
-
-const Index = () => {
-	const libraries = useCachedLibraries();
-
-	if (libraries.status !== 'success') return null;
-
-	if (libraries.data.length === 0) return <Navigate to="onboarding" replace />;
-
-	const currentLibrary = libraries.data.find((l) => l.uuid === currentLibraryCache.id);
-
-	const libraryId = currentLibrary ? currentLibrary.uuid : libraries.data[0]?.uuid;
-
-	return <Navigate to={`${libraryId}`} replace />;
-};
-
-const Wrapper = () => {
-	const rawPath = useRawRoutePath();
-
-	return (
-		<RootContext.Provider value={{ rawPath }}>
-			<Outlet />
-			<Dialogs />
-			<Toaster position="bottom-right" expand={true} />
-		</RootContext.Provider>
-	);
-};
-
 // NOTE: all route `Layout`s below should contain
 // the `usePlausiblePageViewMonitor` hook, as early as possible (ideally within the layout itself).
 // the hook should only be included if there's a valid `ClientContext` (so not onboarding)
 
-export const routes = (os: OperatingSystem) => {
-	return [
+export const createRoutes = (platform: Platform) =>
+	[
 		{
-			element: <Wrapper />,
+			Component: () => {
+				const rawPath = useRawRoutePath();
+
+				return (
+					<RootContext.Provider value={{ rawPath }}>
+						<Outlet />
+						<Dialogs />
+						<Toaster position="bottom-right" expand={true} />
+					</RootContext.Provider>
+				);
+			},
 			errorElement: <RouterErrorBoundary />,
 			children: [
 				{
 					index: true,
-					element: <Index />
+					Component: () => {
+						const libraries = useCachedLibraries();
+
+						if (libraries.status !== 'success') return null;
+
+						if (libraries.data.length === 0)
+							return <Navigate to="onboarding" replace />;
+
+						const currentLibrary = libraries.data.find(
+							(l) => l.uuid === currentLibraryCache.id
+						);
+
+						const libraryId = currentLibrary
+							? currentLibrary.uuid
+							: libraries.data[0]?.uuid;
+
+						return <Navigate to={`${libraryId}`} replace />;
+					},
+					loader: async () => {
+						const libraries = await getCachedLibraries();
+
+						const currentLibrary = libraries.find(
+							(l) => l.uuid === currentLibraryCache.id
+						);
+
+						const libraryId = currentLibrary ? currentLibrary.uuid : libraries[0]?.uuid;
+
+						if (libraryId === undefined) return redirect('/onboarding');
+
+						return redirect(`/${libraryId}`);
+					}
 				},
 				{
 					path: 'onboarding',
 					lazy: () => import('./onboarding/Layout'),
-					children: onboardingRoutes(os)
+					children: onboardingRoutes
 				},
 				{
 					path: ':libraryId',
 					lazy: () => import('./$libraryId/Layout'),
-					children: libraryRoutes
+					loader: async ({ params: { libraryId } }) => {
+						const libraries = await getCachedLibraries();
+						const library = libraries.find((l) => l.uuid === libraryId);
+
+						if (!library) {
+							const firstLibrary = libraries[0];
+
+							if (firstLibrary) return redirect(`/${firstLibrary.uuid}`);
+							else return redirect('/onboarding');
+						}
+
+						return null;
+					},
+					children: libraryRoutes(platform)
 				}
 			]
 		}
 	] satisfies RouteObject[];
-};
 
 /**
  * Combines the `path` segments of the current route into a single string.
@@ -75,10 +100,10 @@ export const routes = (os: OperatingSystem) => {
  * but not the values used in the route params.
  */
 const useRawRoutePath = () => {
+	const { routes } = useRoutingContext();
 	// `useMatches` returns a list of each matched RouteObject,
 	// we grab the last one as it contains all previous route segments.
 	const lastMatchId = useMatches().slice(-1)[0]?.id;
-	const os = useOperatingSystem();
 
 	const rawPath = useMemo(() => {
 		const [rawPath] =
@@ -100,11 +125,11 @@ const useRawRoutePath = () => {
 						// `path` found, chuck it on the end
 						return [`${rawPath}/${item.path}`, item];
 					},
-					['' as string, { children: routes(os) }] as const
+					['' as string, { children: routes }] as const
 				) ?? [];
 
 		return rawPath ?? '/';
-	}, [lastMatchId, os]);
+	}, [lastMatchId, routes]);
 
 	return rawPath;
 };
