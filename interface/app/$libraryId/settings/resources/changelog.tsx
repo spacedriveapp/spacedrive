@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
+import clsx from 'clsx';
 import Markdown from 'react-markdown';
+import { useIsDark } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { Heading } from '../Layout';
 
 export const Component = () => {
 	const platform = usePlatform();
-
+	const isDark = useIsDark();
 	const changelog = useQuery(['changelog'], () =>
 		fetch(`${platform.landingApiOrigin}/api/releases`).then((r) => r.json())
 	);
@@ -15,9 +17,11 @@ export const Component = () => {
 		<>
 			<Heading title="Changelog" description="See what cool new features we're making" />
 			{changelog.data?.map((release: any) => (
-				<article key={release.version} className={'prose prose-sm prose-invert'}>
+				<article
+					key={release.version}
+					className={clsx('prose prose-sm text-ink', isDark && 'prose-invert')}
+				>
 					<Markdown
-						className=""
 						skipHtml
 						components={{
 							a(props) {
