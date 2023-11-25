@@ -228,6 +228,7 @@ export async function handleSubmission(
 		method: 'POST',
 		body: JSON.stringify({
 			replace_original: 'true',
+			response_type: 'in_channel',
 			blocks: [
 				{
 					type: 'section',
