@@ -10,7 +10,10 @@ use crate::{
 };
 use image::DynamicImage;
 use once_cell::sync::Lazy;
-use pdfium_render::prelude::{PdfRenderConfig, Pdfium};
+use pdfium_render::{
+	color::PdfColor,
+	prelude::{PdfPageRenderRotation, PdfRenderConfig, Pdfium},
+};
 use tracing::error;
 
 // This path must be relative to the running binary
@@ -52,18 +55,26 @@ static PDFIUM_LIB: Lazy<String> = Lazy::new(|| {
 		})
 });
 
-static PORTRAIT_CONFIG: Lazy<PdfRenderConfig> = Lazy::new(|| {
-	PdfRenderConfig::new()
-		.set_target_width(PDF_PORTRAIT_RENDER_WIDTH)
-		.render_form_data(false)
+fn thumbnail_config(config: PdfRenderConfig) -> PdfRenderConfig {
+	// From: https://github.com/ajrcarey/pdfium-render/blob/82c10b2d59b04a8413acd31892eb28822e60e06a/src/render_config.rs#L159
+	config
+		.rotate(PdfPageRenderRotation::None, false)
+		.use_print_quality(false)
+		.set_image_smoothing(false)
 		.render_annotations(false)
+		.render_form_data(false)
+		// Required due to: https://github.com/ajrcarey/pdfium-render/issues/119
+		.set_reverse_byte_order(false)
+		.set_clear_color(PdfColor::new(0, 0, 0, 0))
+		.clear_before_rendering(true)
+}
+
+static PORTRAIT_CONFIG: Lazy<PdfRenderConfig> = Lazy::new(|| {
+	thumbnail_config(PdfRenderConfig::new().set_target_width(PDF_PORTRAIT_RENDER_WIDTH))
 });
 
 static LANDSCAPE_CONFIG: Lazy<PdfRenderConfig> = Lazy::new(|| {
-	PdfRenderConfig::new()
-		.set_target_width(PDF_LANDSCAPE_RENDER_WIDTH)
-		.render_form_data(false)
-		.render_annotations(false)
+	thumbnail_config(PdfRenderConfig::new().set_target_width(PDF_LANDSCAPE_RENDER_WIDTH))
 });
 
 pub struct PdfHandler {}
