@@ -2,7 +2,13 @@ import { hydrate, QueryClient, QueryClientProvider } from '@tanstack/react-query
 import { useEffect, useRef, useState } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { RspcProvider } from '@sd/client';
-import { createRoutes, Platform, PlatformProvider, SpacedriveRouterProvider } from '@sd/interface';
+import {
+	createRoutes,
+	Platform,
+	PlatformProvider,
+	SpacedriveInterfaceRoot,
+	SpacedriveRouterProvider
+} from '@sd/interface';
 import { useShowControls } from '@sd/interface/hooks';
 
 import demoData from './demoData.json';
@@ -99,13 +105,15 @@ function App() {
 				<RspcProvider queryClient={queryClient}>
 					<PlatformProvider platform={platform}>
 						<QueryClientProvider client={queryClient}>
-							<SpacedriveRouterProvider
-								routing={{
-									...router,
-									routes,
-									visible: true
-								}}
-							/>
+							<SpacedriveInterfaceRoot>
+								<SpacedriveRouterProvider
+									routing={{
+										...router,
+										routes,
+										visible: true
+									}}
+								/>
+							</SpacedriveInterfaceRoot>
 						</QueryClientProvider>
 					</PlatformProvider>
 				</RspcProvider>
