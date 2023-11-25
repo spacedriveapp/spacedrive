@@ -83,7 +83,7 @@ function SavedSearches() {
 							className="absolute right-[2px] top-[2px] hidden rounded-full shadow group-hover/button:block"
 							size="icon"
 							variant="subtle"
-							onClick={(e) => {
+							onClick={(e: React.MouseEvent) => {
 								e.preventDefault();
 								e.stopPropagation();
 
