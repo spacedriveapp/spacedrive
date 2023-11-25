@@ -42,7 +42,7 @@ export const useKeyCopyCutPaste = () => {
 				sourceParentPath: path ?? '/',
 				type: 'Copy',
 				indexedArgs,
-				ephemeralArgs,
+				ephemeralArgs
 			};
 		}
 	});
@@ -54,7 +54,7 @@ export const useKeyCopyCutPaste = () => {
 				sourceParentPath: path ?? '/',
 				type: 'Cut',
 				indexedArgs,
-				ephemeralArgs,
+				ephemeralArgs
 			};
 		}
 	});
