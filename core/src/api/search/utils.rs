@@ -2,7 +2,7 @@ use sd_prisma::prisma;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-#[derive(Deserialize, Type, Debug, Clone)]
+#[derive(Serialize, Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum Range<T> {
 	From(T),
@@ -56,7 +56,7 @@ pub enum OrderAndPagination<TId, TOrder, TCursor> {
 	Cursor { id: TId, cursor: TCursor },
 }
 
-#[derive(Deserialize, Type, Debug, Clone)]
+#[derive(Serialize, Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum InOrNotIn<T> {
 	In(Vec<T>),
@@ -85,7 +85,7 @@ impl<T> InOrNotIn<T> {
 	}
 }
 
-#[derive(Deserialize, Type, Debug, Clone)]
+#[derive(Serialize, Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum TextMatch {
 	Contains(String),

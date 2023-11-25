@@ -1,11 +1,11 @@
 import { CircleDashed, Cube, Folder, Icon, SelectionSlash, Textbox } from '@phosphor-icons/react';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { InOrNotIn, ObjectKind, SearchFilterArgs, TextMatch, useLibraryQuery } from '@sd/client';
 import { Button, Input } from '@sd/ui';
 
 import { SearchOptionItem, SearchOptionSubMenu } from '.';
-import { useSearchContext } from './Context';
-import { AllKeys, FilterOption, getKey, updateFilterArgs, useSearchStore } from './store';
+import { AllKeys, FilterOption, getKey } from './store';
+import { UseSearch } from './useSearch';
 import { FilterTypeCondition, filterTypeCondition } from './util';
 
 export interface SearchFilter<
@@ -38,63 +38,61 @@ export interface RenderSearchFilter<
 	Render: (props: {
 		filter: SearchFilterCRUD<TConditions>;
 		options: (FilterOption & { type: string })[];
+		search: UseSearch;
 	}) => JSX.Element;
 	// Apply is responsible for applying the filter to the search args
 	useOptions: (props: { search: string }) => FilterOption[];
 }
 
-export function useToggleOptionSelected() {
-	const { fixedArgsKeys } = useSearchContext();
+export function useToggleOptionSelected({ search }: { search: UseSearch }) {
+	return ({
+		filter,
+		option,
+		select
+	}: {
+		filter: SearchFilterCRUD;
+		option: FilterOption;
+		select: boolean;
+	}) => {
+		search.updateDynamicFilters((dynamicFilters) => {
+			const key = getKey({ ...option, type: filter.name });
 
-	return useCallback(
-		({
-			filter,
-			option,
-			select
-		}: {
-			filter: SearchFilterCRUD;
-			option: FilterOption;
-			select: boolean;
-		}) =>
-			updateFilterArgs((args) => {
-				const key = getKey({ ...option, type: filter.name });
+			if (search.fixedFiltersKeys?.has(key)) return dynamicFilters;
 
-				if (fixedArgsKeys?.has(key)) return args;
+			const rawArg = dynamicFilters.find((arg) => filter.extract(arg));
 
-				const rawArg = args.find((arg) => filter.extract(arg));
+			if (!rawArg) {
+				const arg = filter.create(option.value);
+				dynamicFilters.push(arg);
+			} else {
+				const rawArgIndex = dynamicFilters.findIndex((arg) => filter.extract(arg))!;
 
-				if (!rawArg) {
-					const arg = filter.create(option.value);
-					args.push(arg);
+				const arg = filter.extract(rawArg)!;
+
+				if (select) {
+					if (rawArg) filter.applyAdd(arg, option);
 				} else {
-					const rawArgIndex = args.findIndex((arg) => filter.extract(arg))!;
-
-					const arg = filter.extract(rawArg)!;
-
-					if (select) {
-						if (rawArg) filter.applyAdd(arg, option);
-					} else {
-						if (!filter.applyRemove(arg, option)) args.splice(rawArgIndex, 1);
-					}
+					if (!filter.applyRemove(arg, option)) dynamicFilters.splice(rawArgIndex, 1);
 				}
+			}
 
-				return args;
-			}),
-		[fixedArgsKeys]
-	);
+			return dynamicFilters;
+		});
+	};
 }
 
 const FilterOptionList = ({
 	filter,
-	options
+	options,
+	search
 }: {
 	filter: SearchFilterCRUD;
 	options: FilterOption[];
+	search: UseSearch;
 }) => {
-	const store = useSearchStore();
-	const { fixedArgsKeys } = useSearchContext();
+	const { allFiltersKeys } = search;
 
-	const toggleOptionSelected = useToggleOptionSelected();
+	const toggleOptionSelected = useToggleOptionSelected({ search });
 
 	return (
 		<SearchOptionSubMenu name={filter.name} icon={filter.icon}>
@@ -106,16 +104,14 @@ const FilterOptionList = ({
 
 				return (
 					<SearchOptionItem
-						selected={
-							store.filterArgsKeys.has(optionKey) || fixedArgsKeys?.has(optionKey)
-						}
-						setSelected={(value) =>
+						selected={allFiltersKeys.has(optionKey)}
+						setSelected={(value) => {
 							toggleOptionSelected({
 								filter,
 								option,
 								select: value
-							})
-						}
+							});
+						}}
 						key={option.value}
 						icon={option.icon}
 					>
@@ -127,30 +123,30 @@ const FilterOptionList = ({
 	);
 };
 
-const FilterOptionText = ({ filter }: { filter: SearchFilterCRUD }) => {
+const FilterOptionText = ({ filter, search }: { filter: SearchFilterCRUD; search: UseSearch }) => {
 	const [value, setValue] = useState('');
 
-	const { fixedArgsKeys } = useSearchContext();
+	const { fixedFiltersKeys } = search;
 
 	return (
-		<SearchOptionSubMenu name={filter.name} icon={filter.icon}>
+		<SearchOptionSubMenu name={filter.name} icon={filter.icon} className="flex flex-row gap-2">
 			<Input value={value} onChange={(e) => setValue(e.target.value)} />
 			<Button
 				variant="accent"
 				onClick={() => {
-					updateFilterArgs((args) => {
+					search.updateDynamicFilters((dynamicFilters) => {
 						const key = getKey({
 							type: filter.name,
 							name: value,
 							value
 						});
 
-						if (fixedArgsKeys?.has(key)) return args;
+						if (fixedFiltersKeys?.has(key)) return dynamicFilters;
 
 						const arg = filter.create(value);
-						args.push(arg);
+						dynamicFilters.push(arg);
 
-						return args;
+						return dynamicFilters;
 					});
 				}}
 			>
@@ -160,10 +156,14 @@ const FilterOptionText = ({ filter }: { filter: SearchFilterCRUD }) => {
 	);
 };
 
-const FilterOptionBoolean = ({ filter }: { filter: SearchFilterCRUD }) => {
-	const { filterArgsKeys } = useSearchStore();
-
-	const { fixedArgsKeys } = useSearchContext();
+const FilterOptionBoolean = ({
+	filter,
+	search
+}: {
+	filter: SearchFilterCRUD;
+	search: UseSearch;
+}) => {
+	const { fixedFiltersKeys, allFiltersKeys } = search;
 
 	const key = getKey({
 		type: filter.name,
@@ -174,21 +174,21 @@ const FilterOptionBoolean = ({ filter }: { filter: SearchFilterCRUD }) => {
 	return (
 		<SearchOptionItem
 			icon={filter.icon}
-			selected={fixedArgsKeys?.has(key) || filterArgsKeys.has(key)}
+			selected={allFiltersKeys?.has(key)}
 			setSelected={() => {
-				updateFilterArgs((args) => {
-					if (fixedArgsKeys?.has(key)) return args;
+				search.updateDynamicFilters((dynamicFilters) => {
+					if (fixedFiltersKeys?.has(key)) return dynamicFilters;
 
-					const index = args.findIndex((f) => filter.extract(f) !== undefined);
+					const index = dynamicFilters.findIndex((f) => filter.extract(f) !== undefined);
 
 					if (index !== -1) {
-						args.splice(index, 1);
+						dynamicFilters.splice(index, 1);
 					} else {
 						const arg = filter.create(true);
-						args.push(arg);
+						dynamicFilters.push(arg);
 					}
 
-					return args;
+					return dynamicFilters;
 				});
 			}}
 		>
@@ -248,8 +248,8 @@ function createInOrNotInFilter<T extends string | number>(
 			return filter.argsToOptions(values, options);
 		},
 		applyAdd: (data, option) => {
-			if ('in' in data) data.in.push(option.value);
-			else data.notIn.push(option.value);
+			if ('in' in data) data.in = [...new Set([...data.in, option.value])];
+			else data.notIn = [...new Set([...data.notIn, option.value])];
 
 			return data;
 		},
@@ -415,7 +415,9 @@ export const filterRegistry = [
 				icon: 'Folder' // Spacedrive folder icon
 			}));
 		},
-		Render: ({ filter, options }) => <FilterOptionList filter={filter} options={options} />
+		Render: ({ filter, options, search }) => (
+			<FilterOptionList filter={filter} options={options} search={search} />
+		)
 	}),
 	createInOrNotInFilter({
 		name: 'Tags',
@@ -447,7 +449,9 @@ export const filterRegistry = [
 				icon: tag.color || 'CircleDashed'
 			}));
 		},
-		Render: ({ filter, options }) => <FilterOptionList filter={filter} options={options} />
+		Render: ({ filter, options, search }) => (
+			<FilterOptionList filter={filter} options={options} search={search} />
+		)
 	}),
 	createInOrNotInFilter({
 		name: 'Kind',
@@ -481,7 +485,9 @@ export const filterRegistry = [
 						icon: kind + '20'
 					};
 				}),
-		Render: ({ filter, options }) => <FilterOptionList filter={filter} options={options} />
+		Render: ({ filter, options, search }) => (
+			<FilterOptionList filter={filter} options={options} search={search} />
+		)
 	}),
 	createTextMatchFilter({
 		name: 'Name',
@@ -491,7 +497,7 @@ export const filterRegistry = [
 		},
 		create: (name) => ({ filePath: { name } }),
 		useOptions: ({ search }) => [{ name: search, value: search, icon: Textbox }],
-		Render: ({ filter }) => <FilterOptionText filter={filter} />
+		Render: ({ filter, search }) => <FilterOptionText filter={filter} search={search} />
 	}),
 	createInOrNotInFilter({
 		name: 'Extension',
@@ -508,7 +514,7 @@ export const filterRegistry = [
 			}));
 		},
 		useOptions: ({ search }) => [{ name: search, value: search, icon: Textbox }],
-		Render: ({ filter }) => <FilterOptionText filter={filter} />
+		Render: ({ filter, search }) => <FilterOptionText filter={filter} search={search} />
 	}),
 	createBooleanFilter({
 		name: 'Hidden',
@@ -526,7 +532,7 @@ export const filterRegistry = [
 				}
 			];
 		},
-		Render: ({ filter }) => <FilterOptionBoolean filter={filter} />
+		Render: ({ filter, search }) => <FilterOptionBoolean filter={filter} search={search} />
 	})
 	// idk how to handle this rn since include_descendants is part of 'path' now
 	//

@@ -4,29 +4,30 @@ import {
 	ObjectCursor,
 	ObjectOrder,
 	ObjectSearchArgs,
+	useLibraryContext,
 	useRspcLibraryContext
 } from '@sd/client';
 
 import { UseExplorerInfiniteQueryArgs } from './useExplorerInfiniteQuery';
 
 export function useObjectsInfiniteQuery({
-	library,
 	arg,
-	settings,
+	explorerSettings,
 	...args
 }: UseExplorerInfiniteQueryArgs<ObjectSearchArgs, ObjectOrder>) {
+	const { library } = useLibraryContext();
 	const ctx = useRspcLibraryContext();
-	const explorerSettings = settings.useSettingsSnapshot();
+	const settings = explorerSettings.useSettingsSnapshot();
 
-	if (explorerSettings.order) {
-		arg.orderAndPagination = { orderOnly: explorerSettings.order };
+	if (settings.order) {
+		arg.orderAndPagination = { orderOnly: settings.order };
 	}
 
 	return useInfiniteQuery({
 		queryKey: ['search.objects', { library_id: library.uuid, arg }] as const,
 		queryFn: ({ pageParam, queryKey: [_, { arg }] }) => {
 			const cItem: Extract<ExplorerItem, { type: 'Object' }> = pageParam;
-			const { order } = explorerSettings;
+			const { order } = settings;
 
 			let orderAndPagination: (typeof arg)['orderAndPagination'];
 

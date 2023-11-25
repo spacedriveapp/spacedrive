@@ -1,6 +1,7 @@
-import type { RouteObject } from 'react-router-dom';
-import { Navigate } from 'react-router-dom';
+import { redirect } from '@remix-run/router';
+import { Navigate, type RouteObject } from 'react-router-dom';
 import { useHomeDir } from '~/hooks/useHomeDir';
+import { Platform } from '~/util/Platform';
 
 import settingsRoutes from './settings';
 
@@ -23,8 +24,11 @@ const explorerRoutes: RouteObject[] = [
 	{ path: 'location/:id', lazy: () => import('./location/$id') },
 	{ path: 'node/:id', lazy: () => import('./node/$id') },
 	{ path: 'tag/:id', lazy: () => import('./tag/$id') },
-	{ path: 'network', lazy: () => import('./network') }
-	// { path: 'search/:id', lazy: () => import('./search') }
+	{ path: 'network', lazy: () => import('./network') },
+	{
+		path: 'saved-search/:id',
+		lazy: () => import('./saved-search/$id')
+	}
 ];
 
 // Routes that should render with the top bar - pretty much everything except
@@ -34,25 +38,33 @@ const topBarRoutes: RouteObject = {
 	children: [...explorerRoutes, pageRoutes]
 };
 
-export default [
-	{
-		index: true,
-		Component: () => {
-			const homeDir = useHomeDir();
+export default (platform: Platform) =>
+	[
+		{
+			index: true,
+			Component: () => {
+				const homeDir = useHomeDir();
 
-			if (homeDir.data)
-				return (
-					<Navigate to={`ephemeral/0?${new URLSearchParams({ path: homeDir.data })}`} />
-				);
+				if (homeDir.data)
+					return (
+						<Navigate
+							to={`ephemeral/0?${new URLSearchParams({ path: homeDir.data })}`}
+						/>
+					);
 
-			return <Navigate to="network" />;
-		}
-	},
-	topBarRoutes,
-	{
-		path: 'settings',
-		lazy: () => import('./settings/Layout'),
-		children: settingsRoutes
-	},
-	{ path: '*', lazy: () => import('./404') }
-] satisfies RouteObject[];
+				return <Navigate to="network" />;
+			},
+			loader: async () => {
+				if (!platform.userHomeDir) return null;
+				const homeDir = await platform.userHomeDir();
+				return redirect(`ephemeral/0?${new URLSearchParams({ path: homeDir })}`);
+			}
+		},
+		topBarRoutes,
+		{
+			path: 'settings',
+			lazy: () => import('./settings/Layout'),
+			children: settingsRoutes
+		},
+		{ path: '*', lazy: () => import('./404') }
+	] satisfies RouteObject[];

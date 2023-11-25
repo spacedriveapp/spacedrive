@@ -33,7 +33,7 @@ struct SearchData<T> {
 	items: Vec<T>,
 }
 
-#[derive(Deserialize, Type, Debug, Clone)]
+#[derive(Serialize, Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum SearchFilterArgs {
 	FilePath(FilePathFilterArgs),
@@ -365,5 +365,5 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						.await? as u32)
 				})
 		})
-	// .merge("saved.", saved::mount())
+		.merge("saved.", saved::mount())
 }

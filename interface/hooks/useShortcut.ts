@@ -1,10 +1,12 @@
+import { useMemo } from 'react';
 import { useKeys } from 'rooks';
 import { useSnapshot } from 'valtio';
 import { valtioPersist } from '@sd/client';
-
-import { OperatingSystem } from '~/util/Platform';
-import { useOperatingSystem } from './useOperatingSystem';
 import { modifierSymbols } from '@sd/ui';
+import { useRoutingContext } from '~/RoutingContext';
+import { OperatingSystem } from '~/util/Platform';
+
+import { useOperatingSystem } from './useOperatingSystem';
 
 //This will be refactored in the near future
 //as we adopt different shortcuts for different platforms
@@ -14,18 +16,16 @@ type Shortcut = {
 	action: string;
 	keys: {
 		[K in OperatingSystem | 'all']?: string[];
-	}
+	};
 	icons: {
 		[K in OperatingSystem | 'all']?: string[];
-	}
-  }
-  type ShortcutCategory = {
+	};
+};
+type ShortcutCategory = {
 	description: string;
-  } & Record<string, any>; //todo: fix types
+} & Record<string, any>; //todo: fix types
 
-
-export const ShortcutState: Record<string, ShortcutCategory>
-= {
+export const ShortcutState: Record<string, ShortcutCategory> = {
 	Dialogs: {
 		description: 'To perform actions and operations',
 		toggleJobManager: {
@@ -38,7 +38,7 @@ export const ShortcutState: Record<string, ShortcutCategory>
 				macOS: [modifierSymbols.Meta.macOS as string, 'J'],
 				all: [modifierSymbols.Control.Other, 'J']
 			}
-		},
+		}
 	},
 	Pages: {
 		description: 'Different pages in the app',
@@ -74,12 +74,9 @@ export const ShortcutState: Record<string, ShortcutCategory>
 				macOS: [
 					modifierSymbols.Shift.macOS as string,
 					modifierSymbols.Meta.macOS as string,
-					 'T'],
-				all: [
-					modifierSymbols.Shift.Other,
-					modifierSymbols.Control.Other,
 					'T'
-				]
+				],
+				all: [modifierSymbols.Shift.Other, modifierSymbols.Control.Other, 'T']
 			}
 		}
 	},
@@ -114,8 +111,8 @@ export const ShortcutState: Record<string, ShortcutCategory>
 				all: ['Control', '3']
 			},
 			icons: {
-			macOS: [modifierSymbols.Meta.macOS as string, '3'],
-			all: [modifierSymbols.Control.Other, '3']
+				macOS: [modifierSymbols.Meta.macOS as string, '3'],
+				all: [modifierSymbols.Control.Other, '3']
 			}
 		},
 		showHiddenFiles: {
@@ -125,7 +122,11 @@ export const ShortcutState: Record<string, ShortcutCategory>
 				all: ['Control', 'Shift', '.']
 			},
 			icons: {
-				macOS: [modifierSymbols.Meta.macOS as string, modifierSymbols.Shift.macOS as string, '.'],
+				macOS: [
+					modifierSymbols.Meta.macOS as string,
+					modifierSymbols.Shift.macOS as string,
+					'.'
+				],
 				all: [modifierSymbols.Control.Other, 'h']
 			}
 		},
@@ -136,7 +137,11 @@ export const ShortcutState: Record<string, ShortcutCategory>
 				all: ['Alt', 'Control', 'KeyP']
 			},
 			icons: {
-				macOS: [modifierSymbols.Alt.macOS as string, modifierSymbols.Meta.macOS as string, 'p'],
+				macOS: [
+					modifierSymbols.Alt.macOS as string,
+					modifierSymbols.Meta.macOS as string,
+					'p'
+				],
 				all: [modifierSymbols.Alt.Other, modifierSymbols.Control.Other, 'p']
 			}
 		},
@@ -147,7 +152,11 @@ export const ShortcutState: Record<string, ShortcutCategory>
 				all: ['Alt', 'Control', 'KeyM']
 			},
 			icons: {
-				macOS: [modifierSymbols.Alt.macOS as string, modifierSymbols.Meta.macOS as string, 'm'],
+				macOS: [
+					modifierSymbols.Alt.macOS as string,
+					modifierSymbols.Meta.macOS as string,
+					'm'
+				],
 				all: [modifierSymbols.Alt.Other, modifierSymbols.Control.Other, 'm']
 			}
 		},
@@ -317,7 +326,7 @@ export const ShortcutState: Record<string, ShortcutCategory>
 			},
 			icons: {
 				all: ['Escape']
-			},
+			}
 		},
 		explorerDown: {
 			action: 'Navigate files downwards',
@@ -354,9 +363,9 @@ export const ShortcutState: Record<string, ShortcutCategory>
 			icons: {
 				all: ['ArrowRight']
 			}
-		},
-	},
-}
+		}
+	}
+};
 
 export type ShortcutKeybinds = {
 	[C in ShortcutCategories]: {
@@ -365,52 +374,52 @@ export type ShortcutKeybinds = {
 			action: string;
 			keys: {
 				[K in OperatingSystem | 'all']?: string[];
-			}
+			};
 			icons: {
 				[K in OperatingSystem | 'all']?: string[];
-			}
-		}[]
-	}
-}
+			};
+		}[];
+	};
+};
 
 //data being re-arranged for keybindings page
 export const keybindingsData = () => {
-	let shortcuts = {} as ShortcutKeybinds
+	let shortcuts = {} as ShortcutKeybinds;
 	for (const category in ShortcutState) {
 		const shortcutCategory = ShortcutState[category as ShortcutCategories] as ShortcutCategory;
 		const categoryShortcuts: Array<Shortcut> = [];
 
 		for (const shortcut in shortcutCategory) {
-		  if (shortcut === 'description') continue;
-		  const { keys, icons, action } = shortcutCategory[shortcut as ShortcutKeys] ?? {};
-		if (keys && icons && action) {
-			const categoryShortcut = {
-				icons,
-				action,
-				keys,
+			if (shortcut === 'description') continue;
+			const { keys, icons, action } = shortcutCategory[shortcut as ShortcutKeys] ?? {};
+			if (keys && icons && action) {
+				const categoryShortcut = {
+					icons,
+					action,
+					keys
+				};
+				categoryShortcuts.push(categoryShortcut);
 			}
-		  categoryShortcuts.push(categoryShortcut);
+			shortcuts = {
+				...shortcuts,
+				[category]: {
+					description: shortcutCategory.description,
+					shortcuts: categoryShortcuts
+				}
+			};
 		}
-		shortcuts = {
-		  ...shortcuts,
-		  [category]: {
-			description: shortcutCategory.description,
-			shortcuts: categoryShortcuts,
-		  }
-		};
-		}
-	  }
+	}
 	return shortcuts;
-}
+};
 
 export type ShortcutCategories = keyof typeof ShortcutState;
-type GetShortcutKeys<Category extends ShortcutCategories> = keyof typeof ShortcutState[Category]
+type GetShortcutKeys<Category extends ShortcutCategories> = keyof (typeof ShortcutState)[Category];
 //Not all shortcuts share the same keys (shortcuts) so this needs to be done like this
 //A union type of all categories would return the 'description' only
 type ShortcutKeys = Exclude<
-GetShortcutKeys<"Pages"> | GetShortcutKeys<"Dialogs"> | GetShortcutKeys<"Explorer">,
-"description"
->
+	GetShortcutKeys<'Pages'> | GetShortcutKeys<'Dialogs'> | GetShortcutKeys<'Explorer'>,
+	'description'
+>;
 
 const shortcutsStore = valtioPersist('sd-shortcuts', ShortcutState);
 
@@ -424,21 +433,25 @@ export function getShortcutsStore() {
 
 export const useShortcut = (shortcut: ShortcutKeys, func: (e: KeyboardEvent) => void) => {
 	const os = useOperatingSystem();
-	const shortcutsStore = getShortcutsStore();
+	const shortcutsStore = useShortcutsStore();
+
 	const triggeredShortcut = () => {
-  const shortcuts: Record<ShortcutKeys, string[]> = {} as any;
-  for (const category in shortcutsStore) {
-    const shortcutCategory = shortcutsStore[category as ShortcutCategories];
-    for (const shortcut in shortcutCategory) {
-      if (shortcut === 'description') continue;
-      const keys = shortcutCategory[shortcut as ShortcutKeys]?.keys;
-      shortcuts[shortcut as ShortcutKeys] = (keys?.[os] || keys?.all) as string[];
-    }
-  }
-  return shortcuts[shortcut] as string[];
-};
+		const shortcuts: Record<ShortcutKeys, string[]> = {} as any;
+		for (const category in shortcutsStore) {
+			const shortcutCategory = shortcutsStore[category as ShortcutCategories];
+			for (const shortcut in shortcutCategory) {
+				if (shortcut === 'description') continue;
+				const keys = shortcutCategory[shortcut as ShortcutKeys]?.keys;
+				shortcuts[shortcut as ShortcutKeys] = (keys?.[os] || keys?.all) as string[];
+			}
+		}
+		return shortcuts[shortcut] as string[];
+	};
 
+	const { visible } = useRoutingContext();
 
-
-	useKeys(triggeredShortcut(), func);
+	useKeys(triggeredShortcut(), (e) => {
+		if (!visible) return;
+		return func(e);
+	});
 };

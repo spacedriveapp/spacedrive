@@ -1,8 +1,12 @@
 import { createContext, useContext } from 'react';
 
+import { createRoutes } from './app';
+
 export const RoutingContext = createContext<{
+	visible: boolean;
 	currentIndex: number;
 	maxIndex: number;
+	routes: ReturnType<typeof createRoutes>;
 } | null>(null);
 
 export function useRoutingContext() {
