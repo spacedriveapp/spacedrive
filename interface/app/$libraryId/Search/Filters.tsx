@@ -129,11 +129,11 @@ const FilterOptionText = ({ filter, search }: { filter: SearchFilterCRUD; search
 	const { fixedFiltersKeys } = search;
 
 	return (
-		<SearchOptionSubMenu name={filter.name} icon={filter.icon} className="flex flex-row gap-2">
-			<Input value={value} onChange={(e) => setValue(e.target.value)} />
-			<Button
-				variant="accent"
-				onClick={() => {
+		<SearchOptionSubMenu className="!p-1.5" name={filter.name} icon={filter.icon}>
+			<form
+				className="flex gap-1.5"
+				onSubmit={(e) => {
+					e.preventDefault();
 					search.updateDynamicFilters((dynamicFilters) => {
 						const key = getKey({
 							type: filter.name,
@@ -145,13 +145,26 @@ const FilterOptionText = ({ filter, search }: { filter: SearchFilterCRUD; search
 
 						const arg = filter.create(value);
 						dynamicFilters.push(arg);
+						setValue('');
 
 						return dynamicFilters;
 					});
 				}}
 			>
-				Apply
-			</Button>
+				<Input
+					className="w-[75%]"
+					value={value}
+					onChange={(e) => setValue(e.target.value)}
+				/>
+				<Button
+					disabled={value.length === 0}
+					variant="accent"
+					className="w-full"
+					type="submit"
+				>
+					Apply
+				</Button>
+			</form>
 		</SearchOptionSubMenu>
 	);
 };
