@@ -1,4 +1,4 @@
-import { Cube, Envelope, User } from '@phosphor-icons/react';
+import { Envelope, User } from '@phosphor-icons/react';
 import { iconNames } from '@sd/assets/util';
 import { auth, useBridgeQuery } from '@sd/client';
 import { Button, Card } from '@sd/ui';
@@ -57,12 +57,6 @@ const Profile = ({ email, authStore }: { email?: string; authStore: { status: st
 					<TruncatedText>
 						{authStore.status === 'loggedIn' ? email : 'guestuser@outlook.com'}
 					</TruncatedText>
-				</Card>
-				<Card className="flex w-full items-center justify-start gap-1 bg-app-input !px-2">
-					<div className="w-[20px]">
-						<Cube width={20} weight="fill" />
-					</div>
-					<p>Free</p>
 				</Card>
 			</div>
 		</Card>
