@@ -26,7 +26,7 @@ import CreateDialog from '../../settings/library/tags/CreateDialog';
 import { useExplorerContext } from '../Context';
 import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
-import { useQuickPreviewStore } from '../QuickPreview/store';
+import { getQuickPreviewStore, useQuickPreviewStore } from '../QuickPreview/store';
 import { ViewContext, type ExplorerViewContext } from '../ViewContext';
 import GridView from './GridView';
 import ListView from './ListView';
@@ -115,6 +115,12 @@ export default memo(
 		useShortcut('showImageSlider', (e) => {
 			e.stopPropagation();
 			getExplorerLayoutStore().showImageSlider = !layoutStore.showImageSlider;
+		});
+
+		useShortcut('toggleQuickPreview', (e) => {
+			if (isRenaming) return;
+			e.preventDefault();
+			getQuickPreviewStore().open = !quickPreviewStore.open;
 		});
 
 		useKeyCopyCutPaste();
