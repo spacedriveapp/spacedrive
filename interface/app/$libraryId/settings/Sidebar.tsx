@@ -1,5 +1,6 @@
 import {
 	Books,
+	ChartBar,
 	Cloud,
 	Database,
 	FlyingSaucer,
@@ -50,6 +51,10 @@ export default () => {
 					<SidebarLink to="client/general">
 						<Icon component={GearSix} />
 						General
+					</SidebarLink>
+					<SidebarLink to="client/usage">
+						<Icon component={ChartBar} />
+						Usage
 					</SidebarLink>
 					<SidebarLink to="client/account">
 						<Icon component={User} />
