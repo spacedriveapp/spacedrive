@@ -74,7 +74,7 @@ export const Component = () => {
 
 	return (
 		<>
-			<Heading title="Usage" description="View your library usage and hardware information" />
+			<Heading title="Usage" description="Your library usage and hardware information" />
 			<Card className="flex w-full flex-col justify-center !p-5">
 				<div className="grid grid-cols-1 justify-center gap-2 lg:grid-cols-2 xl:grid-cols-3">
 					{info?.map((i, index) => (
