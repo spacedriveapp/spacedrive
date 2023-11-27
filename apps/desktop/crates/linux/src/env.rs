@@ -197,36 +197,33 @@ pub fn normalize_environment() {
 
 		// Workaround for https://github.com/AppImageCrafters/appimage-builder/issues/175
 		env::set_current_dir(appdir.join({
-			#[cfg(not(target_env = "gnu"))]
-			{
-				appdir
-			}
+			let appimage_libc_version = version(
+				std::env::var("APPDIR_LIBC_VERSION")
+					.expect("AppImage Libc version must be set")
+					.as_str(),
+			);
 
 			#[cfg(target_env = "gnu")]
-			{
-				let appimage_libc_version = version(
-					std::env::var("APPDIR_LIBC_VERSION")
-						.expect("AppImage Libc version must be set")
-						.as_str(),
-				);
-				let system_lic_version = version({
-					use libc::gnu_get_libc_version;
+			let system_lic_version = version({
+				use libc::gnu_get_libc_version;
 
-					let ptr = unsafe { gnu_get_libc_version() };
-					if ptr.is_null() {
-						panic!("Couldn't read glic version");
-					}
-
-					unsafe { CStr::from_ptr(ptr) }
-						.to_str()
-						.expect("Couldn't read glic version")
-				});
-
-				if system_lic_version < appimage_libc_version {
-					"runtime/compat"
-				} else {
-					"runtime/default"
+				let ptr = unsafe { gnu_get_libc_version() };
+				if ptr.is_null() {
+					panic!("Couldn't read glic version");
 				}
+
+				unsafe { CStr::from_ptr(ptr) }
+					.to_str()
+					.expect("Couldn't read glic version")
+			});
+
+			#[cfg(not(target_env = "gnu"))]
+			let system_lic_version = 0;
+
+			if system_lic_version < appimage_libc_version {
+				"runtime/compat"
+			} else {
+				"runtime/default"
 			}
 		}))
 		.expect("Failed to set current directory to $APPDIR");
