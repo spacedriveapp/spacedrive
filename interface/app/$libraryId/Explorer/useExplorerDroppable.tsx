@@ -123,14 +123,9 @@ export const useExplorerDroppable = ({ allow, navigateTo, ...props }: Props) => 
 		let allowedType: ExplorerItemType | ExplorerItemType[] | undefined = allow;
 
 		if (!allowedType) {
-			if (!explorer?.parent) allowedType = types;
-			else {
+			if (explorer?.parent) {
 				switch (explorer.parent.type) {
-					case 'Location': {
-						allowedType = ['Path', 'NonIndexedPath', 'Object'];
-						break;
-					}
-
+					case 'Location':
 					case 'Ephemeral': {
 						allowedType = ['Path', 'NonIndexedPath', 'Object'];
 						break;
@@ -141,7 +136,20 @@ export const useExplorerDroppable = ({ allow, navigateTo, ...props }: Props) => 
 						break;
 					}
 				}
-			}
+			} else if (props.data?.type === 'explorer-item') {
+				switch (props.data.data.type) {
+					case 'Path':
+					case 'NonIndexedPath': {
+						allowedType = ['Path', 'NonIndexedPath', 'Object'];
+						break;
+					}
+
+					case 'Object': {
+						allowedType = ['Path', 'Object'];
+						break;
+					}
+				}
+			} else allowedType = types;
 		}
 
 		if (!allowedType) return true;
@@ -159,7 +167,7 @@ export const useExplorerDroppable = ({ allow, navigateTo, ...props }: Props) => 
 		});
 
 		return !schema.safeParse(drag.items[0]).success;
-	}, [allow, droppable.isOver, explorer?.parent]);
+	}, [allow, droppable.isOver, explorer?.parent, props.data]);
 
 	const isDroppable = droppable.isOver && !blocked;
 
