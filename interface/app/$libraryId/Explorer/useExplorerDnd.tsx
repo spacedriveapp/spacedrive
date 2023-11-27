@@ -12,8 +12,6 @@ import { Dialog, RadixCheckbox, useDialog, UseDialogProps } from '@sd/ui';
 import { Icon } from '~/components';
 import { isNonEmptyObject } from '~/util';
 
-import '@total-typescript/ts-reset';
-
 import { useAssignItemsToTag } from '../settings/library/tags/CreateDialog';
 import { useExplorerContext } from './Context';
 import { getExplorerStore } from './store';
@@ -30,7 +28,7 @@ const getPaths = async (items: ExplorerItem[]) => {
 			: await libraryClient.query(['files.getPath', filePath.id]);
 	});
 
-	return (await Promise.all(paths)).filter(Boolean);
+	return (await Promise.all(paths)).filter((path): path is string => Boolean(path));
 };
 
 const getPathIdsPerLocation = (items: ExplorerItem[]) => {
