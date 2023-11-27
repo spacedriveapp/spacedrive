@@ -8,8 +8,6 @@ use std::{
 	ptr,
 };
 
-use libc::gnu_get_libc_version;
-
 fn version(version_str: &str) -> i32 {
 	let mut version_parts: Vec<i32> = version_str
 		.split('.')
@@ -195,34 +193,43 @@ pub fn normalize_environment() {
 	.expect("PATH must be successfully normalized");
 
 	if let Ok(appdir) = get_appdir() {
-		println!("RUNNING FROM APPIMAGE");
-
-		let appimage_libc_version = version(
-			std::env::var("APPDIR_LIBC_VERSION")
-				.expect("AppImage Libc version must be set")
-				.as_str(),
-		);
-		let system_lic_version = version({
-			let ptr = unsafe { gnu_get_libc_version() };
-			if ptr.is_null() {
-				panic!("Couldn't read glic version");
-			}
-
-			unsafe { CStr::from_ptr(ptr) }
-				.to_str()
-				.expect("Couldn't read glic version")
-		});
+		println!("Running from APPIMAGE");
 
 		// Workaround for https://github.com/AppImageCrafters/appimage-builder/issues/175
-		env::set_current_dir(appdir.join(if system_lic_version < appimage_libc_version {
-			"runtime/compat"
-		} else {
-			"runtime/default"
+		env::set_current_dir(appdir.join({
+			#[cfg(not(target_env = "gnu"))]
+			{
+				appdir
+			}
+
+			#[cfg(target_env = "gnu")]
+			{
+				let appimage_libc_version = version(
+					std::env::var("APPDIR_LIBC_VERSION")
+						.expect("AppImage Libc version must be set")
+						.as_str(),
+				);
+				let system_lic_version = version({
+					use libc::gnu_get_libc_version;
+
+					let ptr = unsafe { gnu_get_libc_version() };
+					if ptr.is_null() {
+						panic!("Couldn't read glic version");
+					}
+
+					unsafe { CStr::from_ptr(ptr) }
+						.to_str()
+						.expect("Couldn't read glic version")
+				});
+
+				if system_lic_version < appimage_libc_version {
+					"runtime/compat"
+				} else {
+					"runtime/default"
+				}
+			}
 		}))
 		.expect("Failed to set current directory to $APPDIR");
-
-		// Print current directory
-		println!("{}", env::current_dir().expect("msg").display());
 
 		// Bubblewrap does not work from inside appimage
 		env::set_var("WEBKIT_FORCE_SANDBOX", "0");
