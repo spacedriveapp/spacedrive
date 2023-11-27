@@ -1,7 +1,9 @@
 import { Folder, X } from '@phosphor-icons/react';
+import clsx from 'clsx';
 import { useMatch, useNavigate, useResolvedPath } from 'react-router';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery, type SavedSearch } from '@sd/client';
 import { Button } from '@sd/ui';
+import { useExplorerDroppable } from '~/app/$libraryId/Explorer/useExplorerDroppable';
 
 import SidebarLink from '../Link';
 import Section from '../Section';
@@ -46,33 +48,55 @@ export const SavedSearches = () => {
 		>
 			<SeeMore>
 				{savedSearches.data.map((search, i) => (
-					<SidebarLink
-						className="group/button relative w-full"
-						to={`saved-search/${search.id}`}
+					<SavedSearch
 						key={search.id}
-					>
-						<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">
-							<Folder size={18} />
-						</div>
-
-						<span className="truncate">{search.name}</span>
-
-						<Button
-							className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded-full shadow group-hover/button:block"
-							size="icon"
-							variant="subtle"
-							onClick={(e: React.MouseEvent) => {
-								e.preventDefault();
-								e.stopPropagation();
-
-								deleteSavedSearch.mutate(search.id);
-							}}
-						>
-							<X size={10} weight="bold" className="text-ink-dull/50" />
-						</Button>
-					</SidebarLink>
+						search={search}
+						onDelete={() => deleteSavedSearch.mutate(search.id)}
+					/>
 				))}
 			</SeeMore>
 		</Section>
+	);
+};
+
+const SavedSearch = ({ search, onDelete }: { search: SavedSearch; onDelete(): void }) => {
+	const searchId = useMatch('/:libraryId/saved-search/:searchId')?.params.searchId;
+
+	const { isDroppable, navigateClassName, setDroppableRef } = useExplorerDroppable({
+		id: `sidebar-saved-search-${search.id}`,
+		allow: ['Path', 'NonIndexedPath', 'Object'],
+		disabled: Number(searchId) === search.id,
+		navigateTo: `saved-search/${search.id}`
+	});
+
+	return (
+		<SidebarLink
+			ref={setDroppableRef}
+			to={`saved-search/${search.id}`}
+			className={clsx(
+				'group/button relative border radix-state-open:border-accent',
+				isDroppable ? ' border-accent' : 'border-transparent',
+				navigateClassName
+			)}
+		>
+			<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">
+				<Folder size={18} />
+			</div>
+
+			<span className="truncate">{search.name}</span>
+
+			<Button
+				className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded-full shadow group-hover/button:block"
+				size="icon"
+				variant="subtle"
+				onClick={(e: React.MouseEvent) => {
+					e.preventDefault();
+					e.stopPropagation();
+					onDelete();
+				}}
+			>
+				<X size={10} weight="bold" className="text-ink-dull/50" />
+			</Button>
+		</SidebarLink>
 	);
 };
