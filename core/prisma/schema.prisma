@@ -550,3 +550,36 @@ model SavedSearch {
 
     @@map("saved_search")
 }
+
+model CloudSharedOperation {
+    id        Bytes  @id
+    timestamp BigInt
+    model     String
+
+    record_id Bytes
+    // Enum: ??
+    kind      String
+    data      Bytes
+
+    instance_id Int
+
+    // attestation Bytes
+
+    @@map("cloud_shared_operation")
+}
+
+model CloudRelationOperation {
+    id        Bytes  @id
+    timestamp BigInt
+    relation  String
+
+    item_id  Bytes
+    group_id Bytes
+
+    kind String
+    data Bytes
+
+    instance_id Int
+
+    @@map("cloud_relation_operation")
+}
