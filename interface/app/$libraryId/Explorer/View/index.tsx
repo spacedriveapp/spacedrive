@@ -12,7 +12,7 @@ import CreateDialog from '../../settings/library/tags/CreateDialog';
 import { useExplorerContext } from '../Context';
 import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
-import { useQuickPreviewStore } from '../QuickPreview/store';
+import { getQuickPreviewStore, useQuickPreviewStore } from '../QuickPreview/store';
 import { getExplorerStore, useExplorerStore } from '../store';
 import { useExplorerDroppable } from '../useExplorerDroppable';
 import { useExplorerSearchParams } from '../util';
@@ -190,6 +190,12 @@ const useShortcuts = () => {
 	const { doubleClick } = useViewItemDoubleClick();
 
 	useKeyCopyCutPaste();
+
+	useShortcut('toggleQuickPreview', (e) => {
+		if (explorerStore.isRenaming) return;
+		e.preventDefault();
+		getQuickPreviewStore().open = !quickPreviewStore.open;
+	});
 
 	useShortcut('openObject', (e) => {
 		if (explorerStore.isRenaming || quickPreviewStore.open) return;

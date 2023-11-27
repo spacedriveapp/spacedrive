@@ -1,6 +1,6 @@
 import { Devices } from './Devices';
 import { Locations } from './Locations';
-import { SavedSearches } from './Saved';
+import { SavedSearches } from './SavedSearches';
 import { Tags } from './Tags';
 
 export const LibrarySection = () => {

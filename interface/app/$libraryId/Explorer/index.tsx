@@ -23,7 +23,6 @@ import { useExplorerDnd } from './useExplorerDnd';
 interface Props {
 	emptyNotice?: ExplorerViewProps['emptyNotice'];
 	contextMenu?: () => ReactNode;
-	showFilterBar?: boolean;
 }
 
 /**

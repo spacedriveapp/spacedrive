@@ -3,22 +3,27 @@ import { Outlet } from 'react-router';
 import { SearchFilterArgs } from '@sd/client';
 
 import TopBar from '.';
-import { SearchContextProvider } from '../Explorer/Search/Context';
 import { getExplorerStore } from '../Explorer/store';
 
 const TopBarContext = createContext<ReturnType<typeof useContextValue> | null>(null);
 
 function useContextValue() {
 	const [left, setLeft] = useState<HTMLDivElement | null>(null);
+	const [center, setCenter] = useState<HTMLDivElement | null>(null);
 	const [right, setRight] = useState<HTMLDivElement | null>(null);
+	const [children, setChildren] = useState<HTMLDivElement | null>(null);
 	const [fixedArgs, setFixedArgs] = useState<SearchFilterArgs[] | null>(null);
 	const [topBarHeight, setTopBarHeight] = useState(0);
 
 	return {
 		left,
 		setLeft,
+		center,
+		setCenter,
 		right,
 		setRight,
+		children,
+		setChildren,
 		fixedArgs,
 		setFixedArgs,
 		topBarHeight,
@@ -38,10 +43,8 @@ export const Component = () => {
 
 	return (
 		<TopBarContext.Provider value={value}>
-			<SearchContextProvider>
-				<TopBar />
-				<Outlet />
-			</SearchContextProvider>
+			<TopBar />
+			<Outlet />
 		</TopBarContext.Provider>
 	);
 };

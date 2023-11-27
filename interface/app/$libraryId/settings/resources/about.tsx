@@ -62,7 +62,7 @@ export const Component = () => {
 					className="flex w-fit gap-1"
 					variant="accent"
 				>
-					<Globe className="h-4 w-4 fill-ink" />
+					<Globe className="h-4 w-4" />
 					Website
 				</Button>
 			</div>
