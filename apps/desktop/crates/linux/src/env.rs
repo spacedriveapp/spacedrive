@@ -203,22 +203,27 @@ pub fn normalize_environment() {
 					.as_str(),
 			);
 
-			#[cfg(target_env = "gnu")]
 			let system_lic_version = version({
-				use libc::gnu_get_libc_version;
+				#[cfg(target_env = "gnu")]
+				{
+					use libc::gnu_get_libc_version;
 
-				let ptr = unsafe { gnu_get_libc_version() };
-				if ptr.is_null() {
-					panic!("Couldn't read glic version");
+					let ptr = unsafe { gnu_get_libc_version() };
+					if ptr.is_null() {
+						panic!("Couldn't read glic version");
+					}
+
+					unsafe { CStr::from_ptr(ptr) }
+						.to_str()
+						.expect("Couldn't read glic version")
 				}
-
-				unsafe { CStr::from_ptr(ptr) }
-					.to_str()
-					.expect("Couldn't read glic version")
+				#[cfg(not(target_env = "gnu"))]
+				{
+					// Use the same version as gcompat
+					// https://git.adelielinux.org/adelie/gcompat/-/blob/current/libgcompat/version.c
+					"2.8"
+				}
 			});
-
-			#[cfg(not(target_env = "gnu"))]
-			let system_lic_version = 0;
 
 			if system_lic_version < appimage_libc_version {
 				"runtime/compat"
