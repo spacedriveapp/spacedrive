@@ -58,7 +58,7 @@ export const SavedSearches = () => {
 						<span className="truncate">{search.name}</span>
 
 						<Button
-							className="absolute right-[2px] top-[2px] hidden rounded-full shadow group-hover/button:block"
+							className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded-full shadow group-hover/button:block"
 							size="icon"
 							variant="subtle"
 							onClick={(e: React.MouseEvent) => {
