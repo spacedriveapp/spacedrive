@@ -18,7 +18,12 @@ import { useKeybind } from '~/hooks';
 import { AppliedFilters } from './AppliedFilters';
 import { useSearchContext } from './context';
 import { filterRegistry, SearchFilterCRUD, useToggleOptionSelected } from './Filters';
-import { getSearchStore, useSearchRegisteredFilters, useSearchStore } from './store';
+import {
+	getSearchStore,
+	useRegisterSearchFilterOptions,
+	useSearchRegisteredFilters,
+	useSearchStore
+} from './store';
 import { UseSearch } from './useSearch';
 import { RenderIcon } from './util';
 
@@ -189,6 +194,15 @@ function AddFilterButton() {
 	const [searchQuery, setSearch] = useState('');
 
 	const deferredSearchQuery = useDeferredValue(searchQuery);
+
+	for (const filter of filterRegistry) {
+		const options = filter
+			.useOptions({ search: searchQuery })
+			.map((o) => ({ ...o, type: filter.name }));
+
+		// eslint-disable-next-line react-hooks/rules-of-hooks
+		useRegisterSearchFilterOptions(filter, options);
+	}
 
 	return (
 		<OptionContainer className="shrink-0">
