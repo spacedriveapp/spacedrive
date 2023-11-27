@@ -10,6 +10,9 @@ import {
 } from '@sd/client';
 import { Dialog, RadixCheckbox, useDialog, UseDialogProps } from '@sd/ui';
 import { Icon } from '~/components';
+import { isNonEmptyObject } from '~/util';
+
+import '@total-typescript/ts-reset';
 
 import { useAssignItemsToTag } from '../settings/library/tags/CreateDialog';
 import { useExplorerContext } from './Context';
@@ -27,31 +30,21 @@ const getPaths = async (items: ExplorerItem[]) => {
 			: await libraryClient.query(['files.getPath', filePath.id]);
 	});
 
-	return (await Promise.all(paths)).filter((path): path is string => Boolean(path));
+	return (await Promise.all(paths)).filter(Boolean);
 };
 
-const getPathIds = (items: ExplorerItem[]) => {
-	const ids = items
-		.map((item) => getIndexedItemFilePath(item)?.id)
-		.filter((id): id is number => Boolean(id));
-
-	return ids;
-};
-
-const getObjectsPerLocation = (items: ExplorerItem[]) => {
+const getPathIdsPerLocation = (items: ExplorerItem[]) => {
 	return items.reduce(
 		(items, item) => {
-			if (item.type !== 'Object') return items;
-
-			const locationId = getIndexedItemFilePath(item)?.location_id;
-			if (typeof locationId !== 'number') return items;
+			const path = getIndexedItemFilePath(item);
+			if (!path || path.location_id === null) return items;
 
 			return {
 				...items,
-				[locationId]: [...(items[locationId] ?? []), item]
+				[path.location_id]: [...(items[path.location_id] ?? []), path.id]
 			};
 		},
-		{} as Record<number, ExplorerItem[]>
+		{} as Record<number, number[]>
 	);
 };
 
@@ -86,7 +79,6 @@ export const useExplorerDnd = () => {
 
 			switch (drop.type) {
 				case 'location': {
-					// Drag from Ephemeral to Ephemeral
 					if (!drop.data) {
 						cutEphemeralFiles.mutate({
 							sources: await getPaths(drag.items),
@@ -96,16 +88,14 @@ export const useExplorerDnd = () => {
 						return;
 					}
 
-					// Drag from Tag to Location
-					if (drag.sourceTagId !== undefined) {
+					const paths = getPathIdsPerLocation(drag.items);
+					if (isNonEmptyObject(paths)) {
 						const locationId = drop.data.id;
 
-						const items = getObjectsPerLocation(drag.items);
-
-						Object.entries(items).map(([sourceLocationId, items]) => {
+						Object.entries(paths).map(([sourceLocationId, paths]) => {
 							cutFiles.mutate({
 								source_location_id: Number(sourceLocationId),
-								sources_file_path_ids: getPathIds(items),
+								sources_file_path_ids: paths,
 								target_location_id: locationId,
 								target_location_relative_directory_path: drop.path
 							});
@@ -114,22 +104,9 @@ export const useExplorerDnd = () => {
 						return;
 					}
 
-					// Drag from Ephemeral to Location
-					if (drag.sourceLocationId === undefined) {
-						cutEphemeralFiles.mutate({
-							sources: await getPaths(drag.items),
-							target_dir: drop.data.path + drop.path
-						});
-
-						return;
-					}
-
-					// Drag between Locations
-					cutFiles.mutate({
-						source_location_id: drag.sourceLocationId,
-						sources_file_path_ids: getPathIds(drag.items),
-						target_location_id: drop.data.id,
-						target_location_relative_directory_path: drop.path
+					cutEphemeralFiles.mutate({
+						sources: await getPaths(drag.items),
+						target_dir: drop.data.path + drop.path
 					});
 
 					break;
@@ -144,16 +121,15 @@ export const useExplorerDnd = () => {
 							const filePath = 'file_paths' in item ? item.file_paths[0] : item;
 							if (!filePath) return;
 
-							if (drag.sourceTagId !== undefined) {
+							const paths = getPathIdsPerLocation(drag.items);
+							if (isNonEmptyObject(paths)) {
 								const locationId = filePath.location_id;
 								const path = filePath.materialized_path + filePath.name + '/';
 
-								const items = getObjectsPerLocation(drag.items);
-
-								Object.entries(items).map(([sourceLocationId, items]) => {
+								Object.entries(paths).map(([sourceLocationId, paths]) => {
 									cutFiles.mutate({
 										source_location_id: Number(sourceLocationId),
-										sources_file_path_ids: getPathIds(items),
+										sources_file_path_ids: paths,
 										target_location_id: locationId,
 										target_location_relative_directory_path: path
 									});
@@ -162,33 +138,12 @@ export const useExplorerDnd = () => {
 								return;
 							}
 
-							if (drag.sourceLocationId === undefined) {
-								const path = await libraryClient.query([
-									'files.getPath',
-									filePath.id
-								]);
+							const path = await libraryClient.query(['files.getPath', filePath.id]);
+							if (!path) return;
 
-								if (!path) return;
-
-								cutEphemeralFiles.mutate({
-									sources: await getPaths(drag.items),
-									target_dir: path
-								});
-
-								return;
-							}
-
-							const locationId = filePath.location_id;
-							const path = filePath.materialized_path + filePath.name + '/';
-
-							if (drag.sourceLocationId === locationId && drag.sourcePath === path)
-								return;
-
-							cutFiles.mutate({
-								source_location_id: drag.sourceLocationId,
-								sources_file_path_ids: getPathIds(drag.items),
-								target_location_id: locationId,
-								target_location_relative_directory_path: path
+							cutEphemeralFiles.mutate({
+								sources: await getPaths(drag.items),
+								target_dir: path
 							});
 
 							break;
