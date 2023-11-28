@@ -1,4 +1,12 @@
-import { ArrowLeft, ArrowRight, DotsThree, Plus, SidebarSimple, X } from '@phosphor-icons/react';
+import {
+	ArrowLeft,
+	ArrowRight,
+	DotsThree,
+	Plus,
+	SidebarSimple,
+	Slideshow,
+	X
+} from '@phosphor-icons/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import clsx from 'clsx';
 import {
@@ -26,7 +34,7 @@ import {
 	useRspcLibraryContext,
 	useZodForm
 } from '@sd/client';
-import { Button, DropdownMenu, Form, toast, ToastMessage, Tooltip, z } from '@sd/ui';
+import { DropdownMenu, Form, toast, ToastMessage, Tooltip, z } from '@sd/ui';
 import { useIsDark, useOperatingSystem, useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
@@ -396,20 +404,6 @@ export const QuickPreview = () => {
 									</div>
 
 									<div className="flex flex-1 items-center justify-end gap-1">
-										<IconButton
-											onClick={() =>
-												(getExplorerLayoutStore().showImageSlider =
-													!explorerLayoutStore.showImageSlider)
-											}
-											className="w-fit px-2 text-[10px]"
-										>
-											{`${
-												explorerLayoutStore.showImageSlider
-													? 'Hide'
-													: 'Show'
-											} slider`}
-										</IconButton>
-
 										<DropdownMenu.Root
 											trigger={
 												<div className="flex">
@@ -465,6 +459,25 @@ export const QuickPreview = () => {
 												/>
 											</ExplorerContextMenu>
 										</DropdownMenu.Root>
+
+										<Tooltip label="Show slider">
+											<IconButton
+												onClick={() =>
+													(getExplorerLayoutStore().showImageSlider =
+														!explorerLayoutStore.showImageSlider)
+												}
+												className="w-fit px-2 text-[10px]"
+											>
+												<Slideshow
+													size={16}
+													weight={
+														explorerLayoutStore.showImageSlider
+															? 'fill'
+															: 'regular'
+													}
+												/>
+											</IconButton>
+										</Tooltip>
 
 										<Tooltip label="Show details">
 											<IconButton
