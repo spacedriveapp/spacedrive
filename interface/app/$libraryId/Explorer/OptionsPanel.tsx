@@ -187,19 +187,6 @@ export default () => {
 			)}
 
 			<div>
-				<Subheading>Quick Preview</Subheading>
-				<RadixCheckbox
-					checked={layoutStore.showImageSlider}
-					label="Image Slider"
-					name="imageSlider"
-					onCheckedChange={(value) => {
-						if (typeof value !== 'boolean') return;
-						getExplorerLayoutStore().showImageSlider = value;
-					}}
-				/>
-			</div>
-
-			<div>
 				<Subheading>Double click action</Subheading>
 				<Select
 					className="w-full"
