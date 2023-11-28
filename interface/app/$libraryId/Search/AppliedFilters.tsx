@@ -1,6 +1,6 @@
 import { MagnifyingGlass, X } from '@phosphor-icons/react';
 import { useInView } from 'framer-motion';
-import { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useRef, useState } from 'react';
 import { SearchFilterArgs } from '@sd/client';
 import { tw } from '@sd/ui';
 
@@ -45,11 +45,9 @@ export const AppliedFilters = ({ allowRemove = true }: { allowRemove?: boolean }
 		setScroll(Math.round(scroll * 100) / 100);
 	};
 
-	const maskImage = useMemo(() => {
-		return `linear-gradient(90deg, transparent 0.1%, rgba(0, 0, 0, 1) ${
-			scroll > 0 ? '10%' : '0%'
-		}, rgba(0, 0, 0, 1) ${scroll > 0.95 || !isOverflowing ? '100%' : '85%'}, transparent 99%)`;
-	}, [scroll, isOverflowing]);
+	const maskImage = `linear-gradient(90deg, transparent 0.1%, rgba(0, 0, 0, 1) ${
+		scroll > 0 ? '10%' : '0%'
+	}, rgba(0, 0, 0, 1) ${scroll > 0.95 || !isOverflowing ? '100%' : '85%'}, transparent 99%)`;
 
 	useEffect(() => {
 		if (!containerRef.current) return;
