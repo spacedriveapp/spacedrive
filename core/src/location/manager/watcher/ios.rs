@@ -132,7 +132,7 @@ impl<'lib> EventHandler<'lib> for IosEventHandler<'lib> {
 				remove(self.location_id, &path, self.library).await?; //FIXME: Find out why this freezes the watcher
 			}
 			other_event_kind => {
-				trace!("Other MacOS event that we don't handle for now: {other_event_kind:#?}");
+				trace!("Other iOS event that we don't handle for now: {other_event_kind:#?}");
 			}
 		}
 
