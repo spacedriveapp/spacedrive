@@ -1,5 +1,6 @@
 import { MagnifyingGlass, X } from '@phosphor-icons/react';
-import { forwardRef } from 'react';
+import { useInView } from 'framer-motion';
+import { forwardRef, useEffect, useRef, useState } from 'react';
 import { SearchFilterArgs } from '@sd/client';
 import { tw } from '@sd/ui';
 
@@ -30,6 +31,28 @@ export const CloseTab = forwardRef<HTMLDivElement, { onClick: () => void }>(({ o
 
 export const AppliedFilters = ({ allowRemove = true }: { allowRemove?: boolean }) => {
 	const search = useSearchContext();
+	const lastFilter = useRef<HTMLDivElement>(null);
+	const containerRef = useRef<HTMLDivElement>(null);
+	const lastFilterVisible = useInView(lastFilter, {
+		root: containerRef
+	});
+	const [scroll, setScroll] = useState(0);
+	const [isOverflowing, setIsOverflowing] = useState(false);
+
+	const handleScroll = (e: React.UIEvent<HTMLDivElement, UIEvent>) => {
+		const element = e.currentTarget;
+		const scroll = element.scrollLeft / (element.scrollWidth - element.clientWidth);
+		setScroll(Math.round(scroll * 100) / 100);
+	};
+
+	const maskImage = `linear-gradient(90deg, transparent 0.1%, rgba(0, 0, 0, 1) ${
+		scroll > 0 ? '10%' : '0%'
+	}, rgba(0, 0, 0, 1) ${scroll > 0.95 || !isOverflowing ? '100%' : '85%'}, transparent 99%)`;
+
+	useEffect(() => {
+		if (!containerRef.current) return;
+		setIsOverflowing(containerRef.current?.scrollWidth > containerRef.current?.clientWidth);
+	}, [lastFilterVisible, search.mergedFilters.length, lastFilter, scroll]);
 
 	return (
 		<>
@@ -42,28 +65,42 @@ export const AppliedFilters = ({ allowRemove = true }: { allowRemove?: boolean }
 					{allowRemove && <CloseTab onClick={() => search.setRawSearch('')} />}
 				</FilterContainer>
 			)}
-			{search.mergedFilters.map(({ arg, removalIndex }, index) => {
-				const filter = filterRegistry.find((f) => f.extract(arg));
-				if (!filter) return;
+			<div
+				onScroll={handleScroll}
+				ref={containerRef}
+				className="no-scrollbar z-10 flex h-full items-center gap-2 overflow-y-auto px-0.5"
+				style={{
+					WebkitMaskImage: maskImage,
+					maskImage
+				}}
+			>
+				{search.mergedFilters.map(({ arg, removalIndex }, index) => {
+					const filter = filterRegistry.find((f) => f.extract(arg));
+					if (!filter) return;
+					return (
+						<div
+							ref={index === search.mergedFilters.length - 1 ? lastFilter : null}
+							className="shrink-0"
+							key={`${filter.name}-${index}`}
+						>
+							<FilterArg
+								arg={arg}
+								onDelete={
+									removalIndex !== null && allowRemove
+										? () => {
+												search.updateDynamicFilters((dyanmicFilters) => {
+													dyanmicFilters.splice(removalIndex, 1);
 
-				return (
-					<FilterArg
-						key={`${filter.name}-${index}`}
-						arg={arg}
-						onDelete={
-							removalIndex !== null && allowRemove
-								? () => {
-										search.updateDynamicFilters((dyanmicFilters) => {
-											dyanmicFilters.splice(removalIndex, 1);
-
-											return dyanmicFilters;
-										});
-								  }
-								: undefined
-						}
-					/>
-				);
-			})}
+													return dyanmicFilters;
+												});
+										  }
+										: undefined
+								}
+							/>
+						</div>
+					);
+				})}
+			</div>
 		</>
 	);
 };
