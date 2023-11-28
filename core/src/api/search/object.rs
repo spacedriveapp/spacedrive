@@ -122,14 +122,14 @@ impl ObjectFilterArgs {
 			Self::Favorite(v) => vec![favorite::equals(Some(v))],
 			Self::Hidden(v) => v.to_param().map(|v| vec![v]).unwrap_or_default(),
 			Self::Tags(v) => v
-				.to_param(
+				.into_param(
 					|v| tags::some(vec![tag_on_object::tag_id::in_vec(v)]),
 					|v| tags::none(vec![tag_on_object::tag_id::in_vec(v)]),
 				)
 				.map(|v| vec![v])
 				.unwrap_or_default(),
 			Self::Kind(v) => v
-				.to_param(kind::in_vec, kind::not_in_vec)
+				.into_param(kind::in_vec, kind::not_in_vec)
 				.map(|v| vec![v])
 				.unwrap_or_default(),
 			Self::DateAccessed(v) => {

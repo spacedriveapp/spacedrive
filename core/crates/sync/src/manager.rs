@@ -1,8 +1,11 @@
-use sd_prisma::prisma::*;
-use sd_sync::*;
+use sd_prisma::prisma::{instance, relation_operation, shared_operation, PrismaClient, SortOrder};
+use sd_sync::{CRDTOperation, CRDTOperationType, OperationFactory};
 use sd_utils::uuid_to_bytes;
 
-use crate::{db_operation::*, *};
+use crate::{
+	db_operation::{relation_include, shared_include, DbOperation},
+	ingest, relation_op_db, shared_op_db, SharedState, SyncMessage, Timestamps, NTP64,
+};
 use std::{
 	cmp::Ordering,
 	ops::Deref,
@@ -54,7 +57,7 @@ impl Manager {
 		let ingest = ingest::Actor::spawn(shared.clone());
 
 		New {
-			manager: Self { shared, tx, ingest },
+			manager: Self { tx, ingest, shared },
 			rx,
 		}
 	}
@@ -169,12 +172,12 @@ impl Manager {
 			._batch((
 				db.shared_operation()
 					.find_many(db_args!(args, shared_operation))
-					.take(args.count as i64)
+					.take(i64::from(args.count))
 					.order_by(shared_operation::timestamp::order(SortOrder::Asc))
 					.include(shared_include::include()),
 				db.relation_operation()
 					.find_many(db_args!(args, relation_operation))
-					.take(args.count as i64)
+					.take(i64::from(args.count))
 					.order_by(relation_operation::timestamp::order(SortOrder::Asc))
 					.include(relation_include::include()),
 			))

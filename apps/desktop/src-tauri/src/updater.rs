@@ -11,7 +11,7 @@ impl Update {
 	fn new(update: &tauri::updater::UpdateResponse<impl tauri::Runtime>) -> Self {
 		Self {
 			version: update.latest_version().to_string(),
-			body: update.body().map(|b| b.to_string()),
+			body: update.body().map(ToString::to_string),
 		}
 	}
 }
@@ -61,8 +61,9 @@ pub async fn check_for_update(app: tauri::AppHandle) -> Result<Option<Update>, S
 		"updater",
 		update
 			.clone()
-			.map(|update| UpdateEvent::UpdateAvailable { update })
-			.unwrap_or(UpdateEvent::NoUpdateAvailable),
+			.map_or(UpdateEvent::NoUpdateAvailable, |update| {
+				UpdateEvent::UpdateAvailable { update }
+			}),
 	)
 	.ok();
 

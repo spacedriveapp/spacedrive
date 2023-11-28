@@ -168,16 +168,13 @@ impl ManagerStream {
 	pub async fn next(&mut self) -> Option<Event> {
 		// We loop polling internal services until an event comes in that needs to be sent to the parent application.
 		loop {
-			#[allow(clippy::panic)]
-			if self.shutdown.load(Ordering::Relaxed) {
-				panic!("`ManagerStream::next` called after shutdown event. This is a mistake in your application code!");
-			}
+			assert!(!self.shutdown.load(Ordering::Relaxed), "`ManagerStream::next` called after shutdown event. This is a mistake in your application code!");
 
 			if let Some(event) = self.queued_events.pop_front() {
 				return Some(event);
 			}
 			tokio::select! {
-				_ = self.discovery_manager.poll() => {
+				() = self.discovery_manager.poll() => {
 					continue;
 				},
 				event = self.event_stream_rx.recv() => {
@@ -328,7 +325,7 @@ impl ManagerStream {
 								let v = state.connected.get(v);
 
 								if v.is_none() {
-									warn!("Error converting PeerId({v:?}) into RemoteIdentity. This is likely a bug in P2P.")
+									warn!("Error converting PeerId({v:?}) into RemoteIdentity. This is likely a bug in P2P.");
 								}
 
 								v.copied()
@@ -339,7 +336,7 @@ impl ManagerStream {
 					response
 						.send(result)
 						.map_err(|_| {
-							error!("Error sending response to `GetConnectedPeers` request! Sending was dropped!")
+							error!("Error sending response to `GetConnectedPeers` request! Sending was dropped!");
 						})
 						.ok();
 				}
@@ -365,7 +362,7 @@ impl ManagerStream {
 						.unwrap_or_else(PoisonError::into_inner);
 
 					state.config = config;
-					ManagerStream::refresh_listeners(&mut self.swarm, &mut state);
+					Self::refresh_listeners(&mut self.swarm, &mut state);
 
 					if !state.config.enabled {
 						if let Some(mdns) = self.discovery_manager.mdns.take() {
@@ -380,7 +377,7 @@ impl ManagerStream {
 						) {
 							Ok(mdns) => {
 								self.discovery_manager.mdns = Some(mdns);
-								self.discovery_manager.do_advertisement()
+								self.discovery_manager.do_advertisement();
 							}
 							Err(err) => {
 								error!("error starting mDNS service: {err:?}");
@@ -397,7 +394,7 @@ impl ManagerStream {
 				ManagerStreamAction::Shutdown(tx) => {
 					info!("Shutting down P2P Manager...");
 					self.discovery_manager.shutdown();
-					tx.send(()).unwrap_or_else(|_| {
+					tx.send(()).unwrap_or_else(|()| {
 						warn!("Error sending shutdown signal to P2P Manager!");
 					});
 

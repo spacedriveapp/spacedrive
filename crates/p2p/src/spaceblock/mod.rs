@@ -1,5 +1,5 @@
 //! Spaceblock is a file transfer protocol that uses a block based system to transfer files.
-//! This protocol is modelled after SyncThing's BEP protocol. A huge thanks to it's original authors!
+//! This protocol is modelled after `SyncThing`'s BEP protocol. A huge thanks to it's original authors!
 //! You can read more about it here: <https://docs.syncthing.net/specs/bep-v1.html>
 #![allow(unused)] // TODO: This module is still in heavy development!
 
@@ -56,6 +56,7 @@ impl<'a> Msg<'a> {
 		}
 	}
 
+	#[must_use]
 	pub fn to_bytes(&self) -> Vec<u8> {
 		match self {
 			Msg::Block(block) => {
@@ -122,10 +123,12 @@ where
 
 			if read == 0 {
 				#[allow(clippy::panic)] // TODO: Remove panic
-				if (offset + read as u64) != self.reqs.requests[self.i].size {
-					// The file may have been modified during sender on the sender and we don't account for that.
-					panic!("File sending has stopped but it doesn't match the expected length!"); // TODO: Error handling + send error to remote
-				}
+						// The file may have been modified during sender on the sender and we don't account for that.
+						// TODO: Error handling + send error to remote
+				assert!(
+					(offset + read as u64) == self.reqs.requests[self.i].size,
+					"File sending has stopped but it doesn't match the expected length!"
+				);
 
 				return Ok(());
 			}
@@ -207,7 +210,7 @@ where
 					}
 
 					stream
-						.write_u8(self.cancelled.load(Ordering::Relaxed) as u8)
+						.write_u8(u8::from(self.cancelled.load(Ordering::Relaxed)))
 						.await?;
 					stream.flush().await?;
 				}
@@ -280,7 +283,7 @@ mod tests {
 		let (mut client, mut server) = tokio::io::duplex(64);
 
 		// This is sent out of band of Spaceblock
-		let block_size = 131072u32;
+		let block_size = 131_072_u32;
 		let data = vec![0u8; block_size as usize * 4]; // Let's pacman some RAM
 		let block_size = BlockSize::dangerously_new(block_size);
 

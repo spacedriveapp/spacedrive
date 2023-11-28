@@ -13,21 +13,25 @@ impl BlockSize {
 		stream.read_u32_le().await.map(Self)
 	}
 
+	#[must_use]
 	pub fn to_bytes(&self) -> [u8; 4] {
 		self.0.to_le_bytes()
 	}
 
+	#[must_use]
 	pub fn from_size(size: u64) -> Self {
 		// TODO: Something like: https://docs.syncthing.net/specs/bep-v1.html#selection-of-block-size
-		Self(131072) // 128 KiB
+		Self(131_072) // 128 KiB
 	}
 
 	/// This is super dangerous as it doesn't enforce any assumptions of the protocol and is designed just for tests.
 	#[cfg(test)]
+	#[must_use]
 	pub fn dangerously_new(size: u32) -> Self {
 		Self(size)
 	}
 
+	#[must_use]
 	pub fn size(&self) -> u32 {
 		self.0
 	}

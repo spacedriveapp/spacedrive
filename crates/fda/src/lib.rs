@@ -34,6 +34,7 @@ impl DiskAccess {
 	/// This function is a no-op on non-MacOS systems.
 	///
 	/// Once ran, it will open the "Full Disk Access" prompt.
+	#[allow(clippy::missing_const_for_fn)]
 	pub fn request_fda() -> Result<()> {
 		#[cfg(target_os = "macos")]
 		{
