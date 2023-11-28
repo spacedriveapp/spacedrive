@@ -11,7 +11,7 @@ impl Update {
 	fn new(update: &tauri::updater::UpdateResponse<impl tauri::Runtime>) -> Self {
 		Self {
 			version: update.latest_version().to_string(),
-			body: update.body().map(std::string::ToString::to_string),
+			body: update.body().map(ToString::to_string),
 		}
 	}
 }

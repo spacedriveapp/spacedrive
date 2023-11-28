@@ -168,7 +168,6 @@ impl ManagerStream {
 	pub async fn next(&mut self) -> Option<Event> {
 		// We loop polling internal services until an event comes in that needs to be sent to the parent application.
 		loop {
-			#[allow(clippy::panic)]
 			assert!(!self.shutdown.load(Ordering::Relaxed), "`ManagerStream::next` called after shutdown event. This is a mistake in your application code!");
 
 			if let Some(event) = self.queued_events.pop_front() {

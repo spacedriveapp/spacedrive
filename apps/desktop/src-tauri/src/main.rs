@@ -252,11 +252,9 @@ async fn main() -> tauri::Result<()> {
 					unsafe { set_titlebar_style(&nswindow, true) };
 					unsafe { blur_window_background(&nswindow) };
 
-					let menu_handle = window.menu_handle();
-
 					tokio::spawn({
 						let libraries = node.libraries.clone();
-						let menu_handle = menu_handle;
+						let menu_handle = window.menu_handle();
 						async move {
 							if libraries.get_all().await.is_empty() {
 								menu::set_library_locked_menu_items_enabled(menu_handle, false);

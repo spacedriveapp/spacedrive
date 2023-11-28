@@ -176,11 +176,11 @@ fn looks_ucs16(buf: &[u8]) -> Option<UCS16> {
 	};
 
 	let mut hi: u32 = 0;
-	for chunck in buf[2..].chunks_exact(2) {
+	for chunk in buf[2..].chunks_exact(2) {
 		let mut uc = (if bigend {
-			u32::from(chunck[1]) | u32::from(chunck[0]) << 8
+			u32::from(chunk[1]) | u32::from(chunk[0]) << 8
 		} else {
-			u32::from(chunck[0]) | u32::from(chunck[1]) << 8
+			u32::from(chunk[0]) | u32::from(chunk[1]) << 8
 		}) & 0xffff;
 
 		match uc {
@@ -239,17 +239,17 @@ fn looks_ucs32(buf: &[u8]) -> Option<UCS32> {
 		return None;
 	};
 
-	for chunck in buf[4..].chunks_exact(4) {
+	for chunk in buf[4..].chunks_exact(4) {
 		let uc: u32 = if bigend {
-			u32::from(chunck[3])
-				| u32::from(chunck[2]) << 8
-				| u32::from(chunck[1]) << 16
-				| u32::from(chunck[0]) << 24
+			u32::from(chunk[3])
+				| u32::from(chunk[2]) << 8
+				| u32::from(chunk[1]) << 16
+				| u32::from(chunk[0]) << 24
 		} else {
-			u32::from(chunck[0])
-				| u32::from(chunck[1]) << 8
-				| u32::from(chunck[2]) << 16
-				| u32::from(chunck[3]) << 24
+			u32::from(chunk[0])
+				| u32::from(chunk[1]) << 8
+				| u32::from(chunk[2]) << 16
+				| u32::from(chunk[3]) << 24
 		};
 
 		if uc == 0xfffe {
