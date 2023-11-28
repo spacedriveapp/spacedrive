@@ -17,7 +17,7 @@ use notify::{
 	Event, EventKind,
 };
 use tokio::{fs, time::Instant, io};
-use tracing::{error, info, trace, warn};
+use tracing::{error, debug, trace, warn};
 
 use super::{
 	utils::{
@@ -77,18 +77,6 @@ impl<'lib> EventHandler<'lib> for IosEventHandler<'lib> {
 		match kind {
 			EventKind::Create(CreateKind::Folder) => {
 				let path = &paths[0];
-				if let Some(ref latest_created_dir) = self.latest_created_dir.take() {
-					if path == latest_created_dir {
-						// NOTE: This is a MacOS specific event that happens when a folder is created
-						// trough Finder. It creates a folder but 2 events are triggered in
-						// FSEvents. So we store and check the latest created folder to avoid
-						// hiting a unique constraint in the database
-						return Ok(());
-					}
-				}
-
-				// Don't need to dispatch a recalculate directory event as `create_dir` dispatches
-				// a `scan_location_sub_path` function, which recalculates the size already
 
 				create_dir(
 					self.location_id,
@@ -102,6 +90,7 @@ impl<'lib> EventHandler<'lib> for IosEventHandler<'lib> {
 				.await?;
 				self.latest_created_dir = Some(paths.remove(0));
 			}
+
 			EventKind::Create(CreateKind::File)
 			| EventKind::Modify(ModifyKind::Data(DataChange::Content))
 			| EventKind::Modify(ModifyKind::Metadata(
@@ -111,7 +100,7 @@ impl<'lib> EventHandler<'lib> for IosEventHandler<'lib> {
 				// we just mark the file to be updated in a near future
 				// each consecutive event of these kinds that we receive for the same file
 				// we just store the path again in the map below, with a new instant
-				// that effectively resets the timer for the file to be updated
+				// that effectively resets the timer for the file to be updated <- Copied from macos.rs
 				let path = paths.remove(0);
 				if self.files_to_update.contains_key(&path) {
 					if let Some(old_instant) =
@@ -129,7 +118,10 @@ impl<'lib> EventHandler<'lib> for IosEventHandler<'lib> {
 				self.handle_single_rename_event(paths.remove(0)).await?;
 			}
 
-			EventKind::Remove(_) => {
+			// For some reason, iOS doesn't have a Delete Event, so the vent type comes up as this.
+			// Delete Event
+			EventKind::Modify(ModifyKind::Metadata(MetadataKind::Any)) => {
+				debug!("File has been deleted: {:#?}", paths);
 				let path = paths.remove(0);
 				if let Some(parent) = path.parent() {
 					if parent != Path::new("") {
@@ -137,7 +129,7 @@ impl<'lib> EventHandler<'lib> for IosEventHandler<'lib> {
 							.insert(parent.to_path_buf(), Instant::now());
 					}
 				}
-				remove(self.location_id, &path, self.library).await?;
+				remove(self.location_id, &path, self.library).await?; //FIXME: Find out why this freezes the watcher
 			}
 			other_event_kind => {
 				trace!("Other MacOS event that we don't handle for now: {other_event_kind:#?}");
