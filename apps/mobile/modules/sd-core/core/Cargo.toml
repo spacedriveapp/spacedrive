@@ -10,6 +10,7 @@ edition = { workspace = true }
 once_cell = "1.18.0"
 sd-core = { path = "../../../../../core", features = [
 	"mobile",
+	"location-watcher",
 ], default-features = false }
 rspc = { workspace = true }
 serde_json = { workspace = true }

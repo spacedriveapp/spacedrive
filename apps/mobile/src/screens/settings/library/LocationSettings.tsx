@@ -26,7 +26,7 @@ type LocationItemProps = {
 function LocationItem({ location, index, navigation }: LocationItemProps) {
 	const fullRescan = useLibraryMutation('locations.fullRescan', {
 		onMutate: () => {
-			// TODO: Show Toast
+			console.log('Full rescan started');
 		}
 	});
 
@@ -73,7 +73,7 @@ function LocationItem({ location, index, navigation }: LocationItemProps) {
 				<Pressable
 					style={tw`items-center justify-center rounded-md border border-app-line bg-app-button px-3 py-1.5 shadow-sm`}
 					onPress={() =>
-						fullRescan.mutate({ location_id: location.id, reidentify_objects: true })
+						fullRescan.mutate({ location_id: location.id, reidentify_objects: false })
 					}
 				>
 					<Repeat size={18} color="white" />

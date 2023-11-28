@@ -90,6 +90,7 @@ To run the mobile app:
 - Run the following commands:
   - `pnpm android` (runs on Android Emulator)
   - `pnpm ios` (runs on iOS Emulator)
+    - `xcrun simctl launch --console booted com.spacedrive.app` allows you to view the console output of the iOS app from `tracing`. However, the application must be built in `debug` mode for this.
   - `pnpm start` (runs the metro bundler)
 
 ### Pull Request

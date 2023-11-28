@@ -24,6 +24,7 @@ use super::LocationManagerError;
 mod linux;
 mod macos;
 mod windows;
+mod ios;
 
 mod utils;
 
@@ -37,6 +38,12 @@ type Handler<'lib> = macos::MacOsEventHandler<'lib>;
 
 #[cfg(target_os = "windows")]
 type Handler<'lib> = windows::WindowsEventHandler<'lib>;
+
+#[cfg(target_os = "android")]
+type Handler<'lib> = android::AndroidEventHandler<'lib>;
+
+#[cfg(target_os = "ios")]
+type Handler<'lib> = ios::IosEventHandler<'lib>;
 
 pub(super) type IgnorePath = (PathBuf, bool);
 

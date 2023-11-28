@@ -8,7 +8,6 @@ export default function LocationScreen({ navigation, route }: SharedScreenProps<
 	const { id, path } = route.params;
 
 	const location = useLibraryQuery(['locations.get', route.params.id]);
-
 	const { data } = useLibraryQuery([
 		'search.paths',
 		{
@@ -16,7 +15,7 @@ export default function LocationScreen({ navigation, route }: SharedScreenProps<
 				{
 					filePath: {
 						locations: { in: [id] },
-						path: { path: path ?? '', location_id: id, include_descendants: false }
+						// path: {location_id: id, path: path ?? '', include_descendants: true} // FIXME: This is the correct query, but it doesn't work and then provides a deserialization error.
 					}
 				}
 			],
