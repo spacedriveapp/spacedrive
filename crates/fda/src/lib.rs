@@ -24,43 +24,20 @@
 #![forbid(unsafe_code, deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-use std::{io::ErrorKind, path::PathBuf};
-
-use dirs::{
-	audio_dir, cache_dir, config_dir, config_local_dir, data_dir, data_local_dir, desktop_dir,
-	document_dir, download_dir, executable_dir, home_dir, picture_dir, preference_dir, public_dir,
-	runtime_dir, state_dir, template_dir, video_dir,
-};
-
 pub mod error;
 
 use error::Result;
 
-pub struct FullDiskAccess(Vec<PathBuf>);
+pub struct DiskAccess;
 
-impl FullDiskAccess {
-	async fn can_access_path(path: PathBuf) -> bool {
-		match tokio::fs::read_dir(path).await {
-			Ok(_) => true,
-			Err(e) => !matches!(e.kind(), ErrorKind::PermissionDenied),
-		}
-	}
-
-	pub async fn has_fda() -> bool {
-		let dirs = Self::default();
-		for dir in dirs.0 {
-			if !Self::can_access_path(dir).await {
-				return false;
-			}
-		}
-		true
-	}
-
-	#[allow(clippy::missing_const_for_fn)]
+impl DiskAccess {
+	/// This function is a no-op on non-MacOS systems.
+	///
+	/// Once ran, it will open the "Full Disk Access" prompt.
 	pub fn request_fda() -> Result<()> {
 		#[cfg(target_os = "macos")]
 		{
-			use error::Error;
+			use crate::error::Error;
 			use std::process::Command;
 
 			Command::new("open")
@@ -73,49 +50,14 @@ impl FullDiskAccess {
 	}
 }
 
-impl Default for FullDiskAccess {
-	fn default() -> Self {
-		Self(
-			[
-				audio_dir(),
-				cache_dir(),
-				config_dir(),
-				config_local_dir(),
-				data_dir(),
-				data_local_dir(),
-				desktop_dir(),
-				document_dir(),
-				download_dir(),
-				executable_dir(),
-				home_dir(),
-				picture_dir(),
-				preference_dir(),
-				public_dir(),
-				runtime_dir(),
-				state_dir(),
-				template_dir(),
-				video_dir(),
-			]
-			.into_iter()
-			.flatten()
-			.collect(),
-		)
-	}
-}
-
 #[cfg(test)]
 mod tests {
-	use super::FullDiskAccess;
+	use super::DiskAccess;
 
 	#[test]
 	#[cfg_attr(miri, ignore = "Miri can't run this test")]
 	#[ignore = "CI can't run this due to lack of a GUI"]
 	fn macos_open_full_disk_prompt() {
-		FullDiskAccess::request_fda().unwrap();
-	}
-
-	#[tokio::test]
-	async fn has_fda() {
-		FullDiskAccess::has_fda().await;
+		DiskAccess::request_fda().unwrap();
 	}
 }

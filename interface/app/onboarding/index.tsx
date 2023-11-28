@@ -1,9 +1,10 @@
-import { Navigate, RouteObject } from 'react-router';
+import { Navigate, redirect, RouteObject } from 'react-router';
 import { getOnboardingStore } from '@sd/client';
 
 import Alpha from './alpha';
 import { useOnboardingContext } from './context';
 import CreatingLibrary from './creating-library';
+import { FullDisk } from './full-disk';
 import Locations from './locations';
 import NewLibrary from './new-library';
 import Privacy from './privacy';
@@ -21,27 +22,22 @@ const Index = () => {
 export default [
 	{
 		index: true,
+		loader: () => {
+			if (getOnboardingStore().lastActiveScreen)
+				return redirect(`/onboarding/${getOnboardingStore().lastActiveScreen}`);
+
+			return redirect(`/onboarding/alpha`);
+		},
 		element: <Index />
 	},
-	{ path: 'alpha', element: <Alpha /> },
+	{ path: 'alpha', Component: Alpha },
 	// {
 	// 	element: <Login />,
 	// 	path: 'login'
 	// },
-	{
-		element: <NewLibrary />,
-		path: 'new-library'
-	},
-	{
-		element: <Locations />,
-		path: 'locations'
-	},
-	{
-		element: <Privacy />,
-		path: 'privacy'
-	},
-	{
-		element: <CreatingLibrary />,
-		path: 'creating-library'
-	}
+	{ Component: NewLibrary, path: 'new-library' },
+	{ Component: FullDisk, path: 'full-disk' },
+	{ Component: Locations, path: 'locations' },
+	{ Component: Privacy, path: 'privacy' },
+	{ Component: CreatingLibrary, path: 'creating-library' }
 ] satisfies RouteObject[];

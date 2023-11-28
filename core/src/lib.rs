@@ -108,13 +108,14 @@ impl Node {
 			locations,
 			notifications: notifications::Notifications::new(),
 			p2p,
-			config,
 			thumbnailer: Thumbnailer::new(
 				data_dir.to_path_buf(),
 				libraries.clone(),
 				event_bus.0.clone(),
+				config.preferences_watcher(),
 			)
 			.await,
+			config,
 			event_bus,
 			libraries,
 			files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
@@ -237,7 +238,7 @@ impl Node {
 
 		match self
 			.config
-			.write(|mut cfg| cfg.notifications.push(notification.clone()))
+			.write(|cfg| cfg.notifications.push(notification.clone()))
 			.await
 		{
 			Ok(_) => {
@@ -280,7 +281,7 @@ impl Node {
 #[derive(Error, Debug)]
 pub enum NodeError {
 	#[error("NodeError::FailedToInitializeConfig({0})")]
-	FailedToInitializeConfig(util::migrator::MigratorError),
+	FailedToInitializeConfig(config::NodeConfigError),
 	#[error("failed to initialize library manager: {0}")]
 	FailedToInitializeLibraryManager(#[from] library::LibraryManagerError),
 	#[error("failed to initialize location manager: {0}")]
@@ -290,7 +291,7 @@ pub enum NodeError {
 	#[error("invalid platform integer: {0}")]
 	InvalidPlatformInt(u8),
 	#[cfg(debug_assertions)]
-	#[error("Init config error: {0}")]
+	#[error("init config error: {0}")]
 	InitConfig(#[from] util::debug_initializer::InitConfigError),
 	#[error("logger error: {0}")]
 	Logger(#[from] FromEnvError),

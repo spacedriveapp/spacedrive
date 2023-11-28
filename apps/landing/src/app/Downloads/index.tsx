@@ -1,52 +1,14 @@
 'use client';
 
-import { AndroidLogo, Globe, LinuxLogo, WindowsLogo } from '@phosphor-icons/react';
-import { Apple, Github } from '@sd/assets/svgs/brands';
+import { Github } from '@sd/assets/svgs/brands';
+import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { usePlausible } from 'next-plausible';
-import { ComponentProps, FunctionComponent, useEffect, useState } from 'react';
-import { Tooltip } from '@sd/ui';
+import { useState } from 'react';
 
-import HomeCTA from './HomeCTA';
-
-interface Platform {
-	name: string;
-	os?: string;
-	icon: FunctionComponent<any>;
-	version?: string;
-	links?: Array<{ name: string; arch: string }>;
-}
-
-const platforms = {
-	darwin: {
-		name: 'macOS',
-		os: 'darwin',
-		icon: Apple,
-		version: '12+',
-		links: [
-			{ name: 'Intel', arch: 'x86_64' },
-			{ name: 'Apple Silicon', arch: 'aarch64' }
-		]
-	},
-	windows: {
-		name: 'Windows',
-		os: 'windows',
-		icon: WindowsLogo,
-		version: '10+',
-		links: [{ name: 'x86_64', arch: 'x86_64' }]
-	},
-	linux: {
-		name: 'Linux',
-		os: 'linux',
-		icon: LinuxLogo,
-		version: 'AppImage',
-		links: [{ name: 'x86_64', arch: 'x86_64' }]
-	},
-	android: { name: 'Android', icon: AndroidLogo, version: '10+' },
-	web: { name: 'Web', icon: Globe }
-} satisfies Record<string, Platform>;
-
-const BASE_DL_LINK = '/api/releases/desktop/stable';
+import HomeCTA from '../HomeCTA';
+import { DockerDialog } from './DockerDialog';
+import { BASE_DL_LINK, Platform, platforms, useCurrentPlatform } from './Platform';
 
 interface Props {
 	latestVersion: string;
@@ -55,6 +17,8 @@ interface Props {
 export function Downloads({ latestVersion }: Props) {
 	const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(null);
 	const currentPlatform = useCurrentPlatform();
+
+	const [dockerDialogOpen, setDockerDialogOpen] = useState(false);
 
 	const plausible = usePlausible();
 
@@ -132,8 +96,9 @@ export function Downloads({ latestVersion }: Props) {
 					</>
 				)}
 			</p>
+			{/* Platform icons */}
 			<div className="relative z-10 mt-5 flex gap-3">
-				{Object.values(platforms as Record<string, Platform>).map((platform, i) => {
+				{Object.values<Platform>(platforms).map((platform, i) => {
 					return (
 						<motion.div
 							initial={{ opacity: 0, y: 20 }}
@@ -144,14 +109,20 @@ export function Downloads({ latestVersion }: Props) {
 							<Platform
 								key={platform.name}
 								platform={platform}
+								className={clsx(platform.name === 'Docker' && 'cursor-pointer')}
 								onClick={() => {
-									if (platform.links && platform.links.length === 1) {
-										plausible('download', {
-											props: { os: platform.name }
-										});
+									if (platform.name === 'Docker') {
+										setDockerDialogOpen(true);
+										return;
 									}
-									if (platform.links && platform.links.length > 1) {
-										setSelectedPlatform(platform);
+									if (platform.links) {
+										if (platform.links.length === 1) {
+											plausible('download', {
+												props: { os: platform.name }
+											});
+										} else {
+											setSelectedPlatform(platform);
+										}
 									}
 								}}
 							/>
@@ -159,66 +130,8 @@ export function Downloads({ latestVersion }: Props) {
 					);
 				})}
 			</div>
+			{/* Docker Dialog */}
+			<DockerDialog open={dockerDialogOpen} setOpen={setDockerDialogOpen} />
 		</>
-	);
-}
-
-function useCurrentPlatform() {
-	const [currentPlatform, setCurrentPlatform] = useState<Platform | null>(null);
-
-	useEffect(() => {
-		import('react-device-detect').then(({ isWindows, isMacOs, isMobile }) => {
-			setCurrentPlatform((e) => {
-				if (e) return e;
-
-				if (isWindows) {
-					return platforms.windows;
-				} else if (isMacOs) {
-					return platforms.darwin;
-				} else if (!isMobile) {
-					return platforms.linux;
-				}
-
-				return null;
-			});
-		});
-	}, []);
-
-	return currentPlatform;
-}
-
-interface PlatformProps {
-	platform: Platform;
-}
-function Platform({ platform, ...props }: ComponentProps<'a'> & PlatformProps) {
-	const { links } = platform;
-
-	const Outer = links
-		? links.length === 1
-			? (props: any) => (
-					<a
-						aria-label={platform.name}
-						rel="noopener"
-						href={`${BASE_DL_LINK}/${platform.os}/${links[0].arch}`}
-						{...props}
-					/>
-			  )
-			: (props: any) => <button {...props} />
-		: (props: any) => <div {...props} />;
-
-	const Icon = platform.icon;
-
-	return (
-		<Tooltip label={platform.name}>
-			<Outer {...props}>
-				<Icon
-					size={25}
-					className={`h-[25px] text-white ${
-						platform.links ? 'opacity-80' : 'opacity-20'
-					}`}
-					weight="fill"
-				/>
-			</Outer>
-		</Tooltip>
 	);
 }

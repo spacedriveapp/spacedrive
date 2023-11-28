@@ -10,9 +10,11 @@ use crate::{
 		file_path_for_media_processor, IsolatedFilePathData,
 	},
 	prisma::{location, PrismaClient},
-	util::db::{maybe_missing, MissingFieldError},
+	util::db::maybe_missing,
 	Node,
 };
+
+use sd_file_ext::extensions::Extension;
 
 use std::{
 	hash::Hash,
@@ -25,7 +27,6 @@ use async_channel as chan;
 use futures::StreamExt;
 use itertools::Itertools;
 use prisma_client_rust::{raw, PrismaValue};
-use sd_file_ext::extensions::Extension;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::time::sleep;
@@ -253,7 +254,7 @@ impl StatefulJob for MediaProcessorJobInit {
 
 				if progress_rx.is_closed() && total_completed < *total_thumbs as u32 {
 					warn!(
-						"Thumbnailer progress reporter channel closed before all thumbnails were
+						"Thumbnailer progress reporter channel closed before all thumbnails were \
 						processed, job will wait a bit waiting for a shutdown signal from manager"
 					);
 					sleep(Duration::from_secs(5)).await;
@@ -299,7 +300,7 @@ async fn dispatch_thumbnails_for_processing(
 
 	let location_path = location_path.as_ref();
 
-	let file_paths = get_all_children_files_by_extensions(
+	let mut file_paths = get_all_children_files_by_extensions(
 		db,
 		parent_iso_file_path,
 		&thumbnail::ALL_THUMBNAILABLE_EXTENSIONS,
@@ -310,83 +311,57 @@ async fn dispatch_thumbnails_for_processing(
 		return Ok(0);
 	}
 
-	let mut current_batch = Vec::with_capacity(16);
+	let first_materialized_path = file_paths[0].materialized_path.clone();
 
-	// PDF thumbnails are currently way slower so we process them by last
-	let mut pdf_thumbs = Vec::with_capacity(16);
+	// Only the first materialized_path should be processed in foreground
+	let different_materialized_path_idx = file_paths
+		.iter()
+		.position(|file_path| file_path.materialized_path != first_materialized_path);
 
-	let mut current_materialized_path = None;
+	let background_thumbs_args = different_materialized_path_idx
+		.map(|idx| {
+			file_paths
+				.split_off(idx)
+				.into_iter()
+				.filter_map(|file_path| prepare_args(location_id, location_path, file_path))
+				.collect::<Vec<_>>()
+		})
+		.unwrap_or_default();
 
-	let mut in_background = false;
+	let foreground_thumbs_args = file_paths
+		.into_iter()
+		.filter_map(|file_path| prepare_args(location_id, location_path, file_path))
+		.collect::<Vec<_>>();
 
-	let mut thumbs_count = 0;
+	let thumbs_count = background_thumbs_args.len() + foreground_thumbs_args.len();
 
-	for file_path in file_paths {
-		// Initializing current_materialized_path with the first file_path materialized_path
-		if current_materialized_path.is_none() {
-			current_materialized_path = file_path.materialized_path.clone();
-		}
+	debug!(
+		"Dispatching {thumbs_count} thumbnails to be processed, {} in foreground and {} in background",
+		foreground_thumbs_args.len(),
+		background_thumbs_args.len()
+	);
 
-		if file_path.materialized_path != current_materialized_path
-			&& (!current_batch.is_empty() || !pdf_thumbs.is_empty())
-		{
-			// Now we found a different materialized_path so we dispatch the current batch and start a new one
-
-			thumbs_count += current_batch.len() as u32;
-
-			node.thumbnailer
-				.new_indexed_thumbnails_batch_with_ticket(
-					BatchToProcess::new(current_batch, should_regenerate, in_background),
-					library.id,
-					location_id,
-				)
-				.await;
-
-			// We moved our vec so we need a new
-			current_batch = Vec::with_capacity(16);
-			in_background = true; // Only the first batch should be processed in foreground
-
-			// Exchaging for the first different materialized_path
-			current_materialized_path = file_path.materialized_path.clone();
-		}
-
-		let file_path_id = file_path.id;
-		if let Err(e) = add_to_batch(
-			location_id,
-			location_path,
-			file_path,
-			&mut current_batch,
-			&mut pdf_thumbs,
-		) {
-			error!("Error adding file_path <id='{file_path_id}'> to thumbnail batch: {e:#?}");
-		}
-	}
-
-	// Dispatching the last batch
-	if !current_batch.is_empty() {
-		thumbs_count += current_batch.len() as u32;
+	if !foreground_thumbs_args.is_empty() {
 		node.thumbnailer
-			.new_indexed_thumbnails_batch_with_ticket(
-				BatchToProcess::new(current_batch, should_regenerate, in_background),
+			.new_indexed_thumbnails_tracked_batch(
+				BatchToProcess::new(foreground_thumbs_args, should_regenerate, false),
 				library.id,
 				location_id,
 			)
 			.await;
 	}
 
-	// We now put the pdf_thumbs to be processed by last
-	if !pdf_thumbs.is_empty() {
-		thumbs_count += pdf_thumbs.len() as u32;
+	if !background_thumbs_args.is_empty() {
 		node.thumbnailer
-			.new_indexed_thumbnails_batch_with_ticket(
-				BatchToProcess::new(pdf_thumbs, should_regenerate, in_background),
+			.new_indexed_thumbnails_tracked_batch(
+				BatchToProcess::new(background_thumbs_args, should_regenerate, true),
 				library.id,
 				location_id,
 			)
 			.await;
 	}
 
-	Ok(thumbs_count)
+	Ok(thumbs_count as u32)
 }
 
 async fn get_files_for_media_data_extraction(
@@ -440,26 +415,27 @@ async fn get_all_children_files_by_extensions(
 	.map_err(Into::into)
 }
 
-fn add_to_batch(
+fn prepare_args(
 	location_id: location::id::Type,
 	location_path: &Path, // This function is only used internally once, so we can pass &Path as a parameter
 	file_path: file_path_for_media_processor::Data,
-	current_batch: &mut Vec<GenerateThumbnailArgs>,
-	pdf_thumbs: &mut Vec<GenerateThumbnailArgs>,
-) -> Result<(), MissingFieldError> {
-	let cas_id = maybe_missing(&file_path.cas_id, "file_path.cas_id")?.clone();
+) -> Option<GenerateThumbnailArgs> {
+	let file_path_id = file_path.id;
 
-	let iso_file_path = IsolatedFilePathData::try_from((location_id, file_path))?;
-	let full_path = location_path.join(&iso_file_path);
+	let Ok(cas_id) = maybe_missing(&file_path.cas_id, "file_path.cas_id").cloned() else {
+		error!("Missing cas_id for file_path <id='{file_path_id}'>");
+		return None;
+	};
 
-	let extension = iso_file_path.extension();
-	let args = GenerateThumbnailArgs::new(extension.to_string(), cas_id, full_path);
+	let Ok(iso_file_path) = IsolatedFilePathData::try_from((location_id, file_path)).map_err(|e| {
+		error!("Failed to extract isolated file path data from file path <id='{file_path_id}'>: {e:#?}");
+	}) else {
+		return None;
+	};
 
-	if extension != "pdf" {
-		current_batch.push(args);
-	} else {
-		pdf_thumbs.push(args);
-	}
-
-	Ok(())
+	Some(GenerateThumbnailArgs::new(
+		iso_file_path.extension().to_string(),
+		cas_id,
+		location_path.join(&iso_file_path),
+	))
 }

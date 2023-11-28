@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Button, Form, InputField } from '@sd/ui';
 import { Icon } from '~/components';
+import { useOperatingSystem } from '~/hooks';
 
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './components';
 import { useOnboardingContext } from './context';
 
 export default function OnboardingNewLibrary() {
 	const navigate = useNavigate();
+	const os = useOperatingSystem();
 	const form = useOnboardingContext().forms.useForm('new-library');
 
 	const [importMode, setImportMode] = useState(false);
@@ -20,11 +22,11 @@ export default function OnboardingNewLibrary() {
 		<Form
 			form={form}
 			onSubmit={form.handleSubmit(() => {
-				navigate('../locations', { replace: true });
+				navigate(`../${os === 'macOS' ? 'full-disk' : 'locations'}`, { replace: true });
 			})}
 		>
 			<OnboardingContainer>
-				<Icon name="Database" size={80} className="mb-2" />
+				<Icon name="Database" size={80} />
 				<OnboardingTitle>Create a Library</OnboardingTitle>
 				<OnboardingDescription>
 					Libraries are a secure, on-device database. Your files remain where they are,

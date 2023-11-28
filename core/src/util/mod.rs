@@ -6,7 +6,6 @@ pub mod error;
 pub mod http;
 mod infallible_request;
 mod maybe_undefined;
-pub mod migrator;
 pub mod mpscrr;
 mod observable;
 pub mod version_manager;

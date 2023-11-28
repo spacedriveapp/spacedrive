@@ -145,15 +145,6 @@ export const QuickPreview = () => {
 		setShowMetadata(false);
 	}, [item, open]);
 
-	// Toggle quick preview
-	useShortcut('toggleQuickPreview', (e) => {
-		if (isRenaming) return;
-
-		e.preventDefault();
-
-		getQuickPreviewStore().open = !open;
-	});
-
 	const handleMoveBetweenItems = (step: number) => {
 		const nextPreviewItem = items[itemIndex + step];
 		if (nextPreviewItem) {

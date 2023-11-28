@@ -350,7 +350,7 @@ impl LocationUpdateArgs {
 			.await?;
 
 			// TODO(N): This will probs fall apart with removable media.
-			if location.instance_id == Some(library.config().instance_id) {
+			if location.instance_id == Some(library.config().await.instance_id) {
 				if let Some(path) = &location.path {
 					if let Some(mut metadata) =
 						SpacedriveLocationMetadataFile::try_load(path).await?
@@ -443,7 +443,7 @@ pub async fn scan_location(
 	location: location_with_indexer_rules::Data,
 ) -> Result<(), JobManagerError> {
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
-	if location.instance_id != Some(library.config().instance_id) {
+	if location.instance_id != Some(library.config().await.instance_id) {
 		return Ok(());
 	}
 
@@ -479,7 +479,7 @@ pub async fn scan_location_sub_path(
 	let sub_path = sub_path.as_ref().to_path_buf();
 
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
-	if location.instance_id != Some(library.config().instance_id) {
+	if location.instance_id != Some(library.config().await.instance_id) {
 		return Ok(());
 	}
 
@@ -518,7 +518,7 @@ pub async fn light_scan_location(
 	let sub_path = sub_path.as_ref().to_path_buf();
 
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
-	if location.instance_id != Some(library.config().instance_id) {
+	if location.instance_id != Some(library.config().await.instance_id) {
 		return Ok(());
 	}
 
@@ -691,7 +691,7 @@ async fn create_location(
 							location::name::set(Some(name.clone())),
 							location::path::set(Some(path)),
 							location::date_created::set(Some(date_created.into())),
-							location::instance_id::set(Some(library.config().instance_id)),
+							location::instance_id::set(Some(library.config().await.instance_id)),
 							// location::instance::connect(instance::id::equals(
 							// 	library.config.instance_id.as_bytes().to_vec(),
 							// )),
@@ -754,7 +754,7 @@ pub async fn delete_location(
 	// TODO: This should really be queued to the proper node so it will always run
 	// TODO: Deal with whether a location is online or not
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
-	if location.instance_id == Some(library.config().instance_id) {
+	if location.instance_id == Some(library.config().await.instance_id) {
 		if let Some(path) = &location.path {
 			if let Ok(Some(mut metadata)) = SpacedriveLocationMetadataFile::try_load(path).await {
 				metadata
