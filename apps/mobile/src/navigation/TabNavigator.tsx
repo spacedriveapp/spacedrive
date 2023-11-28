@@ -1,7 +1,9 @@
 import { BottomTabScreenProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 import { StackScreenProps } from '@react-navigation/stack';
+import { BlurView } from 'expo-blur';
 import { CirclesFour, FolderOpen, Planet } from 'phosphor-react-native';
+import { StyleSheet } from 'react-native';
 import { tw } from '~/lib/tailwind';
 
 import { RootStackParamList } from '.';
@@ -17,13 +19,17 @@ export default function TabNavigator() {
 			id="tab"
 			initialRouteName="OverviewStack"
 			screenOptions={{
+				tabBarStyle: {
+					position: 'absolute',
+					// backgroundColor: 'transparent',
+					borderTopColor: tw.color('app')
+				},
+				tabBarBackground: () => (
+					<BlurView tint="dark" intensity={100} style={StyleSheet.absoluteFill} />
+				),
 				headerShown: false,
 				tabBarActiveTintColor: tw.color('accent'),
-				tabBarInactiveTintColor: tw.color('ink'),
-				tabBarStyle: {
-					backgroundColor: tw.color('app'),
-					borderTopColor: tw.color('app-shade')
-				}
+				tabBarInactiveTintColor: tw.color('ink')
 			}}
 		>
 			<Tab.Screen

@@ -89,7 +89,7 @@ function AppNavigation() {
 				colors: {
 					...DefaultTheme.colors,
 					// Default screen background
-					background: tw.color('app')!
+					background: 'black'
 				}
 			}}
 			onStateChange={async () => {
@@ -125,7 +125,7 @@ function AppContainer() {
 	const { id } = useSnapshot(currentLibraryStore);
 
 	return (
-		<SafeAreaProvider style={tw`flex-1 bg-app`}>
+		<SafeAreaProvider style={tw`flex-1 bg-black`}>
 			<GestureHandlerRootView style={tw`flex-1`}>
 				<MenuProvider>
 					<BottomSheetModalProvider>

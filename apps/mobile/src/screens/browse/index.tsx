@@ -25,7 +25,7 @@ export default function BrowseScreen({ navigation, route }: BrowseStackScreenPro
 	const modalRef = useRef<ModalRef>(null);
 
 	return (
-		<ScrollView style={tw`flex-1 px-3 py-2`} scrollEnabled={false}>
+		<ScrollView style={tw`flex-1 px-3 py-2`}>
 			<View style={twStyle('justify-between')}>
 				<View>
 					<View style={tw`mt-6`} />

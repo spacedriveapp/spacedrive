@@ -33,6 +33,7 @@
 		"dayjs": "^1.11.10",
 		"event-target-polyfill": "^0.0.3",
 		"expo": "~49.0.8",
+		"expo-blur": "^12.6.0",
 		"expo-build-properties": "~0.8.3",
 		"expo-linking": "~5.0.2",
 		"expo-media-library": "~15.4.1",
