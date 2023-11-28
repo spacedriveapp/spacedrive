@@ -1,21 +1,21 @@
-import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript/src/types';
 import { useNavigation } from '@react-navigation/native';
 import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useLibraryQuery } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw, twStyle } from '~/lib/tailwind';
+import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 
 import FolderIcon from '../icons/FolderIcon';
 import CollapsibleView from '../layout/CollapsibleView';
 import ImportModal from '../modal/ImportModal';
 
-type DrawerLocationItemProps = {
+type BrowseLocationItemProps = {
 	folderName: string;
 	onPress: () => void;
 };
 
-const DrawerLocationItem: React.FC<DrawerLocationItemProps> = (props) => {
+const BrowseLocationItem: React.FC<BrowseLocationItemProps> = (props) => {
 	const { folderName, onPress } = props;
 
 	return (
@@ -30,12 +30,8 @@ const DrawerLocationItem: React.FC<DrawerLocationItemProps> = (props) => {
 	);
 };
 
-type DrawerLocationsProp = {
-	stackName: string;
-};
-
-const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
-	const navigation = useNavigation<DrawerNavigationHelpers>();
+const BrowseLocations = () => {
+	const navigation = useNavigation<BrowseStackScreenProps<'Browse'>['navigation']>();
 
 	const modalRef = useRef<ModalRef>(null);
 
@@ -50,15 +46,10 @@ const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
 			>
 				<View style={tw`mt-2`}>
 					{locations?.map((location) => (
-						<DrawerLocationItem
+						<BrowseLocationItem
 							key={location.id}
 							folderName={location.name ?? ''}
-							onPress={() =>
-								navigation.navigate(stackName, {
-									screen: 'Location',
-									params: { id: location.id }
-								})
-							}
+							onPress={() => navigation.navigate('Location', { id: location.id })}
 						/>
 					))}
 				</View>
@@ -76,4 +67,4 @@ const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
 	);
 };
 
-export default DrawerLocations;
+export default BrowseLocations;

@@ -1,9 +1,10 @@
 import { BottomTabScreenProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
+import { StackScreenProps } from '@react-navigation/stack';
 import { CirclesFour, FolderOpen, Planet } from 'phosphor-react-native';
 import { tw } from '~/lib/tailwind';
 
-import type { HomeDrawerScreenProps } from './DrawerNavigator';
+import { RootStackParamList } from '.';
 import BrowseStack, { BrowseStackParamList } from './tabs/BrowseStack';
 import NetworkStack, { NetworkStackParamList } from './tabs/NetworkStack';
 import OverviewStack, { OverviewStackParamList } from './tabs/OverviewStack';
@@ -82,5 +83,5 @@ export type TabParamList = {
 
 export type TabScreenProps<Screen extends keyof TabParamList> = CompositeScreenProps<
 	BottomTabScreenProps<TabParamList, Screen>,
-	HomeDrawerScreenProps<'Home'>
+	StackScreenProps<RootStackParamList, 'Root'>
 >;
