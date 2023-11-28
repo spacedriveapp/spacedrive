@@ -18,7 +18,7 @@ use tokio::sync::{
 	broadcast::{self, Receiver},
 	oneshot, RwLock,
 };
-use tracing::error;
+use tracing::{error, info};
 
 #[cfg(feature = "location-watcher")]
 use tokio::sync::mpsc;
@@ -205,11 +205,11 @@ impl Locations {
 	pub fn new() -> (Self, LocationManagerActor) {
 		let online_tx = broadcast::channel(16).0;
 
-		#[cfg(feature = "location-watcher")]
 		{
 			let (location_management_tx, location_management_rx) = mpsc::channel(128);
 			let (watcher_management_tx, watcher_management_rx) = mpsc::channel(128);
 			let (stop_tx, stop_rx) = oneshot::channel();
+			info!("Starting location manager actor");
 
 			(
 				Self {

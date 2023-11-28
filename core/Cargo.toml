@@ -81,7 +81,7 @@ itertools = "^0.11.0"
 http-range = "0.1.5"
 mini-moka = "0.10.2"
 serde_with = "3.4.0"
-notify = { version = "=5.2.0", default-features = false, features = [
+notify = { git="https://github.com/notify-rs/notify.git", branch="main", default-features = false, features = [
   "macos_fsevent",
 ], optional = true }
 static_assertions = "1.1.0"

@@ -16,15 +16,15 @@ use tokio::{
 	task::{block_in_place, JoinHandle},
 	time::{interval_at, Instant, MissedTickBehavior},
 };
-use tracing::{debug, error, warn};
+use tracing::{debug, error, warn, info};
 use uuid::Uuid;
 
 use super::LocationManagerError;
 
+mod ios;
 mod linux;
 mod macos;
 mod windows;
-mod ios;
 
 mod utils;
 
@@ -93,6 +93,7 @@ impl LocationWatcher {
 
 		let watcher = RecommendedWatcher::new(
 			move |result| {
+				info!("Received watcher event: {:#?}", result);
 				if !events_tx.is_closed() {
 					if events_tx.send(result).is_err() {
 						error!(
@@ -147,6 +148,10 @@ impl LocationWatcher {
 		// In case of doubt check: https://docs.rs/tokio/latest/tokio/time/enum.MissedTickBehavior.html
 		handler_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
+		info!(
+			"Start Location Manager event handler for location: <id='{}'>",
+			location_id
+		);
 		loop {
 			select! {
 				Some(event) = events_rx.recv() => {
@@ -201,6 +206,7 @@ impl LocationWatcher {
 		_library: &'lib Library,
 		ignore_paths: &HashSet<PathBuf>,
 	) -> Result<(), LocationManagerError> {
+		debug!("Event: {:#?}", event);
 		if !check_event(&event, ignore_paths) {
 			return Ok(());
 		}
@@ -219,6 +225,8 @@ impl LocationWatcher {
 			return Ok(());
 		}
 
+		// debug!("Handling event: {:#?}", event);
+
 		event_handler.handle_event(event).await
 	}
 
@@ -236,6 +244,7 @@ impl LocationWatcher {
 
 	pub(super) fn watch(&mut self) {
 		let path = &self.path;
+		debug!("Start watching location: (path: {path})");
 
 		if let Err(e) = self
 			.watcher
