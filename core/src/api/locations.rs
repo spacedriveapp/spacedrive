@@ -268,27 +268,24 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				     reidentify_objects,
 				 }| async move {
 					if reidentify_objects {
-						trace!("Reidentifying objects for {}", location_id);
-						trace!("Library: {:#?}", library);
-						trace!("Database: {:#?}", library.db);
-						// library
-						// 	.db
-						// 	.file_path()
-						// 	.update_many(
-						// 		vec![
-						// 			file_path::location_id::equals(Some(location_id)),
-						// 			file_path::object_id::not(None),
-						// 			file_path::cas_id::not(None),
-						// 		],
-						// 		vec![
-						// 			file_path::object::disconnect(),
-						// 			file_path::cas_id::set(None),
-						// 		],
-						// 	)
-						// 	.exec()
-						// 	.await?;
+						library
+							.db
+							.file_path()
+							.update_many(
+								vec![
+									file_path::location_id::equals(Some(location_id)),
+									file_path::object_id::not(None),
+									file_path::cas_id::not(None),
+								],
+								vec![
+									file_path::object::disconnect(),
+									file_path::cas_id::set(None),
+								],
+							)
+							.exec()
+							.await?;
 
-						// library.orphan_remover.invoke().await;
+						library.orphan_remover.invoke().await;
 					}
 
 					// rescan location

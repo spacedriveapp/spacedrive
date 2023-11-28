@@ -73,7 +73,7 @@ function LocationItem({ location, index, navigation }: LocationItemProps) {
 				<Pressable
 					style={tw`items-center justify-center rounded-md border border-app-line bg-app-button px-3 py-1.5 shadow-sm`}
 					onPress={() =>
-						fullRescan.mutate({ location_id: location.id, reidentify_objects: false })
+						fullRescan.mutate({ location_id: location.id, reidentify_objects: false }) // For some reaason, reidentify_objects being true breaks the query. But, full rescan works when it's false on mobile.
 					}
 				>
 					<Repeat size={18} color="white" />
