@@ -469,7 +469,7 @@ export const QuickPreview = () => {
 												className="w-fit px-2 text-[10px]"
 											>
 												<Slideshow
-													size={16}
+													size={16.5}
 													weight={
 														explorerLayoutStore.showImageSlider
 															? 'fill'
