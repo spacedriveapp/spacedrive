@@ -34,6 +34,7 @@ impl Range {
 		}
 	}
 
+	#[must_use]
 	pub fn to_bytes(&self) -> Vec<u8> {
 		let mut buf = Vec::new();
 
@@ -98,6 +99,7 @@ impl SpaceblockRequests {
 		})
 	}
 
+	#[must_use]
 	pub fn to_bytes(&self) -> Vec<u8> {
 		let Self {
 			id,
@@ -105,9 +107,10 @@ impl SpaceblockRequests {
 			requests,
 		} = self;
 		#[allow(clippy::panic)] // TODO: Remove this panic
-		if requests.len() > 255 {
-			panic!("Can't Spacedrop more than 255 files at once!");
-		}
+		assert!(
+			requests.len() <= 255,
+			"Can't Spacedrop more than 255 files at once!"
+		);
 
 		let mut buf = vec![];
 		encode::uuid(&mut buf, id);
@@ -162,6 +165,7 @@ impl SpaceblockRequest {
 		})
 	}
 
+	#[must_use]
 	pub fn to_bytes(&self) -> Vec<u8> {
 		let Self { name, size, range } = self;
 		let mut buf = Vec::new();

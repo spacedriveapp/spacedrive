@@ -29,7 +29,7 @@ use crate::{
 // State of the manager that may infrequently change
 // These are broken out so updates to them can be done in sync (With single RwLock lock)
 #[derive(Debug)]
-pub(crate) struct DynamicManagerState {
+pub struct DynamicManagerState {
 	pub(crate) config: ManagerConfig,
 	pub(crate) ipv4_listener_id: Option<Result<ListenerId, String>>,
 	pub(crate) ipv4_port: Option<u16>,
@@ -80,7 +80,7 @@ impl Manager {
 		let config2 = config.clone();
 		let (discovery_state, service_shutdown_rx) = DiscoveryManagerState::new();
 		let this = Arc::new(Self {
-			application_name: format!("/{}/spacetime/1.0.0", application_name),
+			application_name: format!("/{application_name}/spacetime/1.0.0"),
 			identity: keypair.to_identity(),
 			stream_id: AtomicU64::new(0),
 			state: RwLock::new(DynamicManagerState {
@@ -139,7 +139,7 @@ impl Manager {
 
 	pub(crate) async fn emit(&self, event: ManagerStreamAction) {
 		match self.event_stream_tx.send(event).await {
-			Ok(_) => {}
+			Ok(()) => {}
 			Err(err) => warn!("error emitting event: {}", err),
 		}
 	}

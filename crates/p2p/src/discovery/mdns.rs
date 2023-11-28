@@ -26,7 +26,7 @@ use crate::{
 /// TODO
 const MDNS_READVERTISEMENT_INTERVAL: Duration = Duration::from_secs(60); // Every minute re-advertise
 
-pub(crate) struct Mdns {
+pub struct Mdns {
 	identity: RemoteIdentity,
 	peer_id: PeerId,
 	service_name: String,
@@ -48,7 +48,7 @@ impl Mdns {
 		Ok(Self {
 			identity,
 			peer_id,
-			service_name: format!("_{}._udp.local.", application_name),
+			service_name: format!("_{application_name}._udp.local."),
 			advertised_services: Vec::new(),
 			mdns_daemon,
 			next_mdns_advertisement: Box::pin(sleep_until(Instant::now())), // Trigger an advertisement immediately
@@ -63,7 +63,7 @@ impl Mdns {
 		// TODO: Second stage rate-limit
 
 		let mut ports_to_service = HashMap::new();
-		for addr in listen_addrs.iter() {
+		for addr in listen_addrs {
 			ports_to_service
 				.entry(addr.port())
 				.or_insert_with(Vec::new)
@@ -74,7 +74,7 @@ impl Mdns {
 		let mut advertised_services_to_remove = self.advertised_services.clone();
 
 		let state = state.read().unwrap_or_else(PoisonError::into_inner);
-		for (port, ips) in ports_to_service.into_iter() {
+		for (port, ips) in ports_to_service {
 			for (service_name, (_, metadata)) in &state.services {
 				let Some(metadata) = metadata else {
 					continue;
@@ -126,7 +126,7 @@ impl Mdns {
 				// TODO: Do a proper diff and remove old services
 				trace!("advertising mdns service: {:?}", service);
 				match self.mdns_daemon.register(service) {
-					Ok(_) => {}
+					Ok(()) => {}
 					Err(err) => warn!("error registering mdns service: {}", err),
 				}
 			}

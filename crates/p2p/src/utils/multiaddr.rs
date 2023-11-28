@@ -4,7 +4,7 @@ use libp2p::{multiaddr::Protocol, Multiaddr};
 
 // TODO: Turn these into From/Into impls on a wrapper type
 
-pub(crate) fn quic_multiaddr_to_socketaddr(m: Multiaddr) -> Result<SocketAddr, String> {
+pub fn quic_multiaddr_to_socketaddr(m: Multiaddr) -> Result<SocketAddr, String> {
 	let mut addr_parts = m.iter();
 
 	let addr = match addr_parts.next() {
@@ -12,8 +12,7 @@ pub(crate) fn quic_multiaddr_to_socketaddr(m: Multiaddr) -> Result<SocketAddr, S
 		Some(Protocol::Ip6(addr)) => IpAddr::V6(addr),
 		Some(proto) => {
 			return Err(format!(
-				"Invalid multiaddr. Segment 1 found protocol 'Ip4' or 'Ip6' but found  '{}'",
-				proto
+				"Invalid multiaddr. Segment 1 found protocol 'Ip4' or 'Ip6' but found  '{proto}'"
 			))
 		}
 		None => return Err("Invalid multiaddr. Segment 1 missing".to_string()),
@@ -23,8 +22,7 @@ pub(crate) fn quic_multiaddr_to_socketaddr(m: Multiaddr) -> Result<SocketAddr, S
 		Some(Protocol::Udp(port)) => port,
 		Some(proto) => {
 			return Err(format!(
-				"Invalid multiaddr. Segment 2 expected protocol 'Udp' but found  '{}'",
-				proto
+				"Invalid multiaddr. Segment 2 expected protocol 'Udp' but found  '{proto}'"
 			))
 		}
 		None => return Err("Invalid multiaddr. Segment 2 missing".to_string()),
@@ -33,7 +31,8 @@ pub(crate) fn quic_multiaddr_to_socketaddr(m: Multiaddr) -> Result<SocketAddr, S
 	Ok(SocketAddr::new(addr, port))
 }
 
-pub(crate) fn socketaddr_to_quic_multiaddr(m: &SocketAddr) -> Multiaddr {
+#[must_use]
+pub fn socketaddr_to_quic_multiaddr(m: &SocketAddr) -> Multiaddr {
 	let mut addr = Multiaddr::empty();
 	match m {
 		SocketAddr::V4(ip) => addr.push(Protocol::Ip4(*ip.ip())),
