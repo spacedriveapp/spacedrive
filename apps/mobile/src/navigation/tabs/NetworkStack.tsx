@@ -2,8 +2,8 @@ import { CompositeScreenProps } from '@react-navigation/native';
 import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
 import Header from '~/components/header/Header';
 import { tw } from '~/lib/tailwind';
+import NetworkScreen from '~/screens/network';
 
-import NetworkScreen from '../../screens/Network';
 import { TabScreenProps } from '../TabNavigator';
 
 const Stack = createStackNavigator<NetworkStackParamList>();

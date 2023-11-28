@@ -1,7 +1,7 @@
-import { AppLogo } from '@sd/assets/images';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { CheckCircle, Gear } from 'phosphor-react-native';
 import React, { useRef } from 'react';
-import { Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { JobManagerContextProvider, useLibraryQuery } from '@sd/client';
 import { PulseAnimation } from '~/components/animation/lottie';
 import BrowseLocations from '~/components/browse/BrowseLocations';
@@ -24,18 +24,19 @@ function JobIcon() {
 export default function BrowseScreen({ navigation, route }: BrowseStackScreenProps<'Browse'>) {
 	const modalRef = useRef<ModalRef>(null);
 
+	const height = useBottomTabBarHeight();
+
 	return (
-		<ScrollView style={tw`flex-1 px-3 py-2`}>
+		<ScrollView style={twStyle('flex-1 px-3', { marginBottom: height })}>
 			<View style={twStyle('justify-between')}>
-				<View>
-					<View style={tw`mt-6`} />
-					{/* Library Manager */}
-					<BrowseLibraryManager />
-					{/* Locations */}
-					<BrowseLocations />
-					{/* Tags */}
-					<BrowseTags />
-				</View>
+				<View style={tw`mt-6`} />
+				{/* Library Manager */}
+				<BrowseLibraryManager />
+				{/* Locations */}
+				<BrowseLocations />
+				{/* Tags */}
+				<BrowseTags />
+
 				<View style={tw`flex w-full flex-row items-center gap-x-4`}>
 					{/* Settings */}
 					<Pressable onPress={() => navigation.navigate('Settings', { screen: 'Home' })}>
