@@ -26,7 +26,7 @@ import {
 	useRspcLibraryContext,
 	useZodForm
 } from '@sd/client';
-import { DropdownMenu, Form, toast, ToastMessage, Tooltip, z } from '@sd/ui';
+import { Button, DropdownMenu, Form, toast, ToastMessage, Tooltip, z } from '@sd/ui';
 import { useIsDark, useOperatingSystem, useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
@@ -395,7 +395,21 @@ export const QuickPreview = () => {
 										)}
 									</div>
 
-									<div className="flex flex-1 justify-end gap-1">
+									<div className="flex flex-1 items-center justify-end gap-1">
+										<IconButton
+											onClick={() =>
+												(getExplorerLayoutStore().showImageSlider =
+													!explorerLayoutStore.showImageSlider)
+											}
+											className="w-fit px-2 text-[10px]"
+										>
+											{`${
+												explorerLayoutStore.showImageSlider
+													? 'Hide'
+													: 'Show'
+											} slider`}
+										</IconButton>
+
 										<DropdownMenu.Root
 											trigger={
 												<div className="flex">
