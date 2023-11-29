@@ -44,8 +44,7 @@ async fn main() {
 		sd_core::Env {
 			// api_url: std::env::var("SD_API_URL")
 			// 	.unwrap_or_else(|_| "https://app.spacedrive.com".to_string()),
-			// api_url: "http://localhost:3000".to_string(),
-			api_url: "https://spacedrive-fc7k724my-spacedrive.vercel.app".to_string(),
+			api_url: "http://localhost:3000".to_string(),
 			client_id: std::env::var("SD_CLIENT_ID")
 				.unwrap_or_else(|_| "04701823-a498-406e-aef9-22081c1dae34".to_string()),
 		},

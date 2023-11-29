@@ -6,7 +6,7 @@ export type Procedures = {
         { key: "auth.me", input: never, result: { id: string; email: string } } | 
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
-        { key: "cloud.library.get", input: LibraryArgs<null>, result: { uuid: string; name: string; ownerId: string; instances: { id: string; uuid: string }[] } | null } | 
+        { key: "cloud.library.get", input: LibraryArgs<null>, result: { uuid: string; name: string; ownerId: string; instances: { id: string; uuid: string; identity: string }[] } | null } | 
         { key: "cloud.library.list", input: never, result: { uuid: string; name: string; ownerId: string; instances: { id: string; uuid: string }[] }[] } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: MediaMetadata | null } | 
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[] } | null } | 
@@ -51,8 +51,8 @@ export type Procedures = {
         { key: "backups.backup", input: LibraryArgs<null>, result: string } | 
         { key: "backups.delete", input: string, result: null } | 
         { key: "backups.restore", input: string, result: null } | 
-        { key: "cloud.library.connect", input: string, result: null } | 
         { key: "cloud.library.create", input: LibraryArgs<null>, result: null } | 
+        { key: "cloud.library.join", input: string, result: LibraryConfigWrapped } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
         { key: "ephemeralFiles.cutFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 

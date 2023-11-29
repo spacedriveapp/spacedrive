@@ -1,15 +1,18 @@
+use base64::prelude::*;
 use reqwest::Response;
 use rspc::alpha::AlphaRouter;
+use sd_prisma::prisma::instance;
+use sd_utils::uuid_to_bytes;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
 use specta::Type;
 use uuid::Uuid;
 
+use crate::{invalidate_query, library::LibraryName};
+
 use crate::util::http::ensure_response;
 
 use super::{utils::library, Ctx, R};
-
-const ZERO_UUID: Uuid = Uuid::from_u128(0);
 
 async fn parse_json_body<T: DeserializeOwned>(response: Response) -> Result<T, rspc::Error> {
 	response.json().await.map_err(|_| {
@@ -25,7 +28,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 }
 
 mod library {
-	use crate::{invalidate_query, library::LibraryName};
+	use chrono::{DateTime, Utc};
+
+	use crate::api::libraries::LibraryConfigWrapped;
 
 	use super::*;
 
@@ -46,6 +51,7 @@ mod library {
 	struct Instance {
 		id: String,
 		uuid: Uuid,
+		identity: String,
 	}
 
 	pub fn mount() -> AlphaRouter<Ctx> {
@@ -58,7 +64,7 @@ mod library {
 
 						node.authed_api_request(
 							node.http
-								.get(&format!("{api_url}/api/v1/libraries/{ZERO_UUID}")),
+								.get(&format!("{api_url}/api/v1/libraries/{library_id}")),
 						)
 						.await
 						.and_then(ensure_response)
@@ -105,10 +111,11 @@ mod library {
 
 						node.authed_api_request(
 							node.http
-								.post(&format!("{api_url}/api/v1/libraries/{ZERO_UUID}"))
+								.post(&format!("{api_url}/api/v1/libraries/{library_id}"))
 								.json(&json!({
 									"name": library.config().await.name,
-									"instanceUuid": library.instance_uuid
+									"instanceUuid": library.instance_uuid,
+									"instanceIdentity": library.identity.to_remote_identity()
 								})),
 						)
 						.await
@@ -119,11 +126,11 @@ mod library {
 						Ok(())
 					})
 			})
-			.procedure("connect", {
+			.procedure("join", {
 				R.mutation(|node, library_id: Uuid| async move {
 					let api_url = &node.env.api_url;
 
-					let library = node
+					let Some(cloud_library) = node
 						.authed_api_request(
 							node.http
 								.get(&format!("{api_url}/api/v1/libraries/{library_id}")),
@@ -131,13 +138,19 @@ mod library {
 						.await
 						.and_then(ensure_response)
 						.map(parse_json_body::<Option<Response>>)?
-						.await;
+						.await?
+					else {
+						return Err(rspc::Error::new(
+							rspc::ErrorCode::NotFound,
+							"Library not found".to_string(),
+						));
+					};
 
 					let library = node
 						.libraries
 						.create_with_uuid(
 							library_id,
-							LibraryName::new("Cloud Library".to_string()).unwrap(),
+							LibraryName::new(cloud_library.name).unwrap(),
 							None,
 							false,
 							None,
@@ -147,15 +160,45 @@ mod library {
 
 					let instance_uuid = library.instance_uuid;
 
-					node.authed_api_request(node.http.post(&format!(
-						"{api_url}/api/v1/libraries/{library_id}/instances/{instance_uuid}"
-					)))
+					node.authed_api_request(
+						node.http
+							.post(&format!(
+								"{api_url}/api/v1/libraries/{library_id}/instances/{instance_uuid}"
+							))
+							.json(&json!({
+								"instanceIdentity": library.identity.to_remote_identity()
+							})),
+					)
 					.await
 					.and_then(ensure_response)?;
 
+					library
+						.db
+						.instance()
+						.create_many(
+							cloud_library
+								.instances
+								.into_iter()
+								.map(|instance| {
+									instance::create_unchecked(
+										uuid_to_bytes(instance.uuid),
+										BASE64_STANDARD.decode(instance.identity).unwrap(),
+										vec![],
+										"".to_string(),
+										0,
+										Utc::now().into(),
+										Utc::now().into(),
+										vec![],
+									)
+								})
+								.collect(),
+						)
+						.exec()
+						.await?;
+
 					invalidate_query!(library, "cloud.library.get");
 
-					Ok(())
+					Ok(LibraryConfigWrapped::from_library(&library).await)
 				})
 			})
 	}

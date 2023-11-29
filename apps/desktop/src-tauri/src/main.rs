@@ -175,8 +175,7 @@ async fn main() -> tauri::Result<()> {
 				data_dir,
 				sd_core::Env {
 					// api_url: "https://app.spacedrive.com".to_string(),
-					// api_url: "http://localhost:3000".to_string(),
-					api_url: "https://spacedrive-fc7k724my-spacedrive.vercel.app".to_string(),
+					api_url: "http://localhost:3000".to_string(),
 					client_id: CLIENT_ID.to_string(),
 				},
 			)

@@ -1,8 +1,11 @@
-import { useBridgeQuery } from '@sd/client';
+import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router';
+import { resetOnboardingStore, useBridgeMutation, useBridgeQuery } from '@sd/client';
 import { Button } from '@sd/ui';
 import { Icon } from '~/components';
 import { AuthRequiredOverlay } from '~/components/AuthRequiredOverlay';
 import { useRouteTitle } from '~/hooks';
+import { usePlatform } from '~/util/Platform';
 
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './components';
 
@@ -30,22 +33,41 @@ export function JoinLibrary() {
 }
 
 function CloudLibraries() {
-	const libraries = useBridgeQuery(['cloud.library.list']);
+	const cloudLibraries = useBridgeQuery(['cloud.library.list']);
+	const joinLibrary = useBridgeMutation(['cloud.library.join']);
 
-	if (libraries.isLoading) return <span>Loading...</span>;
+	const navigate = useNavigate();
+	const queryClient = useQueryClient();
+	const platform = usePlatform();
+
+	if (cloudLibraries.isLoading) return <span>Loading...</span>;
 
 	return (
 		<>
-			{libraries.data?.map((library) => (
-				<li key={library.uuid} className="flex flex-row gap-2">
-					<span>{library.name}</span>
+			{cloudLibraries.data?.map((cloudLibrary) => (
+				<li key={cloudLibrary.uuid} className="flex flex-row gap-2">
+					<span>{cloudLibrary.name}</span>
 					<Button
 						variant="accent"
-						onClick={() => {
-							console.log('clicked ', library.name);
+						disabled={joinLibrary.isLoading}
+						onClick={async () => {
+							const library = await joinLibrary.mutateAsync(cloudLibrary.uuid);
+
+							queryClient.setQueryData(['library.list'], (libraries: any) => {
+								// The invalidation system beat us to it
+								if (libraries.find((l: any) => l.uuid === library.uuid))
+									return libraries;
+
+								return [...(libraries || []), library];
+							});
+
+							platform.refreshMenuBar && platform.refreshMenuBar();
+
+							resetOnboardingStore();
+							navigate(`/${library.uuid}`, { replace: true });
 						}}
 					>
-						Join
+						{joinLibrary.isLoading ? 'Joining...' : 'Join'}
 					</Button>
 				</li>
 			))}

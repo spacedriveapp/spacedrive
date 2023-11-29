@@ -10,38 +10,38 @@ const libraryCacheLocalStorageKey = 'sd-library-list';
 export const useCachedLibraries = () =>
 	useBridgeQuery(['library.list'], {
 		keepPreviousData: true,
-		initialData: () => {
-			const cachedData = localStorage.getItem(libraryCacheLocalStorageKey);
+		// initialData: () => {
+		// 	const cachedData = localStorage.getItem(libraryCacheLocalStorageKey);
 
-			if (cachedData) {
-				// If we fail to load cached data, it's fine
-				try {
-					return JSON.parse(cachedData);
-				} catch (e) {
-					console.error("Error loading cached 'sd-library-list' data", e);
-				}
-			}
+		// 	if (cachedData) {
+		// 		// If we fail to load cached data, it's fine
+		// 		try {
+		// 			return JSON.parse(cachedData);
+		// 		} catch (e) {
+		// 			console.error("Error loading cached 'sd-library-list' data", e);
+		// 		}
+		// 	}
 
-			return undefined;
-		},
+		// 	return undefined;
+		// },
 		onSuccess: (data) => localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(data))
 	});
 
 export async function getCachedLibraries() {
-	const cachedData = localStorage.getItem(libraryCacheLocalStorageKey);
+	// const cachedData = localStorage.getItem(libraryCacheLocalStorageKey);
 
-	if (cachedData) {
-		// If we fail to load cached data, it's fine
-		try {
-			return JSON.parse(cachedData) as LibraryConfigWrapped[];
-		} catch (e) {
-			console.error("Error loading cached 'sd-library-list' data", e);
-		}
-	}
+	// if (cachedData) {
+	// 	// If we fail to load cached data, it's fine
+	// 	try {
+	// 		return JSON.parse(cachedData) as LibraryConfigWrapped[];
+	// 	} catch (e) {
+	// 		console.error("Error loading cached 'sd-library-list' data", e);
+	// 	}
+	// }
 
 	const libraries = await nonLibraryClient.query(['library.list']);
 
-	localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(libraries));
+	// localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(libraries));
 
 	return libraries;
 }

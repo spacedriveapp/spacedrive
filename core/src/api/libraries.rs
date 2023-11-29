@@ -35,6 +35,17 @@ pub struct LibraryConfigWrapped {
 	pub config: LibraryConfig,
 }
 
+impl LibraryConfigWrapped {
+	pub async fn from_library(library: &Library) -> Self {
+		Self {
+			uuid: library.id,
+			instance_id: library.instance_uuid,
+			instance_public_key: library.identity.to_remote_identity(),
+			config: library.config().await,
+		}
+	}
+}
+
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("list", {
@@ -268,12 +279,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.await?;
 					}
 
-					Ok(LibraryConfigWrapped {
-						uuid: library.id,
-						instance_id: library.instance_uuid,
-						instance_public_key: library.identity.to_remote_identity(),
-						config: library.config().await,
-					})
+					Ok(LibraryConfigWrapped::from_library(&library).await)
 				},
 			)
 		})
