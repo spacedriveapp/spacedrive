@@ -28,7 +28,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 }
 
 mod library {
-	use chrono::{DateTime, Utc};
+	use chrono::Utc;
 
 	use crate::api::libraries::LibraryConfigWrapped;
 
@@ -107,7 +107,6 @@ mod library {
 					.mutation(|(node, library), _: ()| async move {
 						let api_url = &node.env.api_url;
 						let library_id = library.id;
-						let instance_uuid = library.instance_uuid;
 
 						node.authed_api_request(
 							node.http
@@ -150,7 +149,8 @@ mod library {
 						.libraries
 						.create_with_uuid(
 							library_id,
-							LibraryName::new(cloud_library.name).unwrap(),
+							LibraryName::new(cloud_library.name)
+								.expect("cloud library has invalid name!"),
 							None,
 							false,
 							None,
@@ -182,7 +182,9 @@ mod library {
 								.map(|instance| {
 									instance::create_unchecked(
 										uuid_to_bytes(instance.uuid),
-										BASE64_STANDARD.decode(instance.identity).unwrap(),
+										BASE64_STANDARD
+											.decode(instance.identity)
+											.expect("failed to decode identity!"),
 										vec![],
 										"".to_string(),
 										0,
