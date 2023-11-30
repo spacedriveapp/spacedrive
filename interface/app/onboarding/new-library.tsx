@@ -67,6 +67,14 @@ export default function OnboardingNewLibrary() {
 								Import library
 							</Button> */}
 						</div>
+						<span className="my-4 text-sm text-ink-faint">OR</span>
+						<Button
+							onClick={() => {
+								navigate('../join-library');
+							}}
+						>
+							Join a Library
+						</Button>
 					</>
 				)}
 			</OnboardingContainer>
