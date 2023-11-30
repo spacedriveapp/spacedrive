@@ -1,11 +1,13 @@
+use crate::{api::utils::library, invalidate_query, prisma::saved_search};
+
+use sd_utils::chain_optional_iter;
+
 use chrono::{DateTime, FixedOffset, Utc};
 use rspc::alpha::AlphaRouter;
-use sd_utils::chain_optional_iter;
-use serde::{Deserialize, Serialize};
+use serde::{de::IgnoredAny, Deserialize, Serialize};
 use specta::Type;
+use tracing::error;
 use uuid::Uuid;
-
-use crate::{api::utils::library, invalidate_query, prisma::saved_search};
 
 use super::{Ctx, R};
 
@@ -44,13 +46,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								[
 									args.filters
 										.map(|s| {
-											serde_json::to_string(
-												&serde_json::from_str::<serde_json::Value>(&s)
-													.unwrap(),
-											)
-											.unwrap()
+											// https://github.com/serde-rs/json/issues/579
+											// https://docs.rs/serde/latest/serde/de/struct.IgnoredAny.html
+											if let Err(e) = serde_json::from_str::<IgnoredAny>(&s) {
+												error!("failed to parse filters: {e:#?}");
+												None
+											} else {
+												Some(s)
+											}
 										})
-										.map(Some)
 										.map(saved_search::filters::set),
 									args.search.map(Some).map(saved_search::search::set),
 									args.description

@@ -33,6 +33,7 @@ pub enum MaybeNot<T> {
 }
 
 impl<T> MaybeNot<T> {
+	#[allow(unused)]
 	pub fn into_prisma<R: From<prisma_client_rust::Operator<R>>>(self, param: fn(T) -> R) -> R {
 		match self {
 			Self::None(v) => param(v),
@@ -71,7 +72,7 @@ impl<T> InOrNotIn<T> {
 		}
 	}
 
-	pub fn to_param<TParam>(
+	pub fn into_param<TParam>(
 		self,
 		in_fn: fn(Vec<T>) -> TParam,
 		not_in_fn: fn(Vec<T>) -> TParam,
@@ -105,7 +106,7 @@ impl TextMatch {
 	}
 
 	// 3. Update the to_param method of TextMatch
-	pub fn to_param<TParam>(
+	pub fn into_param<TParam>(
 		self,
 		contains_fn: fn(String) -> TParam,
 		starts_with_fn: fn(String) -> TParam,

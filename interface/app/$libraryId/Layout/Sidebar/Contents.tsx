@@ -1,4 +1,4 @@
-import { ArrowsClockwise, Planet } from '@phosphor-icons/react';
+import { ArrowsClockwise, Cloud, Planet } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { LibraryContextProvider, useClientContext, useFeatureFlag } from '@sd/client';
 import { Tooltip } from '@sd/ui';
@@ -21,7 +21,6 @@ export default () => {
 
 	return (
 		<div className="no-scrollbar mask-fade-out flex grow flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10">
-			{/* <div className="space-y-0.5"> */}
 			{/* <SidebarLink to="spacedrop">
 					<Icon component={Broadcast} />
 					Spacedrop
@@ -31,13 +30,20 @@ export default () => {
 					<Icon component={ArchiveBox} />
 					Imports
 				</SidebarLink> */}
-			{useFeatureFlag('syncRoute') && (
-				<SidebarLink to="sync">
-					<Icon component={ArrowsClockwise} />
-					Sync
-				</SidebarLink>
-			)}
-			{/* </div> */}
+			<div className="space-y-0.5">
+				{useFeatureFlag('syncRoute') && (
+					<SidebarLink to="sync">
+						<Icon component={ArrowsClockwise} />
+						Sync
+					</SidebarLink>
+				)}
+				{useFeatureFlag('cloud') && (
+					<SidebarLink to="cloud">
+						<Icon component={Cloud} />
+						Cloud
+					</SidebarLink>
+				)}
+			</div>
 			<EphemeralSection />
 			{library && (
 				<LibraryContextProvider library={library}>

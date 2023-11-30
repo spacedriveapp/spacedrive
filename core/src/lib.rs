@@ -275,6 +275,15 @@ impl Node {
 			)
 		})
 	}
+
+	pub async fn api_request(&self, req: RequestBuilder) -> Result<Response, rspc::Error> {
+		req.send().await.map_err(|_| {
+			rspc::Error::new(
+				rspc::ErrorCode::InternalServerError,
+				"Request failed".to_string(),
+			)
+		})
+	}
 }
 
 /// Error type for Node related errors.

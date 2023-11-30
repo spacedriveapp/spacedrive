@@ -21,6 +21,7 @@
 		"client": "pnpm --filter @sd/client -- ",
 		"storybook": "pnpm --filter @sd/storybook -- ",
 		"prisma": "cd core && cargo prisma",
+		"dev:desktop": "pnpm run --filter @sd/desktop tauri dev",
 		"dev:web": "turbo run dev --filter @sd/web --filter @sd/server",
 		"bootstrap:desktop": "cargo clean && ./scripts/setup.sh && pnpm i && pnpm prep && pnpm tauri dev",
 		"codegen": "cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",

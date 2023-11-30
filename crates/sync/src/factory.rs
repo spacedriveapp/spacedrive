@@ -2,7 +2,10 @@ use serde_json::{json, Value};
 use uhlc::HLC;
 use uuid::Uuid;
 
-use crate::*;
+use crate::{
+	CRDTOperation, CRDTOperationType, RelationOperation, RelationOperationData, RelationSyncId,
+	RelationSyncModel, SharedOperation, SharedOperationData, SharedSyncModel, SyncId,
+};
 
 pub trait OperationFactory {
 	fn get_clock(&self) -> &HLC;
