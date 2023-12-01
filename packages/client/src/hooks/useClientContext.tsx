@@ -2,7 +2,7 @@ import { createContext, PropsWithChildren, useContext, useMemo } from 'react';
 
 import { LibraryConfigWrapped } from '../core';
 import { valtioPersist } from '../lib';
-import { useBridgeQuery } from '../rspc';
+import { nonLibraryClient, useBridgeQuery } from '../rspc';
 
 // The name of the localStorage key for caching library data
 const libraryCacheLocalStorageKey = 'sd-library-list';
@@ -26,6 +26,25 @@ export const useCachedLibraries = () =>
 		},
 		onSuccess: (data) => localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(data))
 	});
+
+export async function getCachedLibraries() {
+	const cachedData = localStorage.getItem(libraryCacheLocalStorageKey);
+
+	if (cachedData) {
+		// If we fail to load cached data, it's fine
+		try {
+			return JSON.parse(cachedData) as LibraryConfigWrapped[];
+		} catch (e) {
+			console.error("Error loading cached 'sd-library-list' data", e);
+		}
+	}
+
+	const libraries = await nonLibraryClient.query(['library.list']);
+
+	localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(libraries));
+
+	return libraries;
+}
 
 export interface ClientContext {
 	currentLibraryId: string | null;

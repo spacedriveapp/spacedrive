@@ -1,5 +1,4 @@
 import {
-	isEnabled,
 	useBridgeMutation,
 	useBridgeQuery,
 	useConnectedPeers,

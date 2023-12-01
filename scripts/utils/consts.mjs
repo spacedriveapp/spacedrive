@@ -1,71 +1,25 @@
-// Suffixes
-export const PROTOC_SUFFIX = {
-	Linux: {
-		i386: 'linux-x86_32',
-		i686: 'linux-x86_32',
-		x86_64: 'linux-x86_64',
-		aarch64: 'linux-aarch_64',
-	},
-	Darwin: {
-		x86_64: 'osx-x86_64',
+export const NATIVE_DEPS_URL =
+	'https://github.com/spacedriveapp/native-deps/releases/latest/download'
 
-		aarch64: 'osx-aarch_64',
-	},
-	Windows_NT: {
-		i386: 'win32',
-		i686: 'win32',
-		x86_64: 'win64',
-	},
-}
-
-export const PDFIUM_SUFFIX = {
+export const NATIVE_DEPS_ASSETS = {
 	Linux: {
 		x86_64: {
-			musl: 'linux-musl-x64',
-			glibc: 'linux-x64',
-		},
-		aarch64: 'linux-arm64',
-	},
-	Darwin: {
-		x86_64: 'mac-x64',
-		aarch64: 'mac-arm64',
-	},
-	Windows_NT: {
-		x86_64: 'win-x64',
-		aarch64: 'win-arm64',
-	},
-}
-
-export const FFMPEG_SUFFFIX = {
-	Darwin: {
-		x86_64: 'x86_64',
-		aarch64: 'arm64',
-	},
-	Windows_NT: {
-		x86_64: 'x86_64',
-	},
-}
-
-export const FFMPEG_WORKFLOW = {
-	Darwin: 'ffmpeg-macos.yml',
-	Windows_NT: 'ffmpeg-windows.yml',
-}
-
-export const LIBHEIF_SUFFIX = {
-	Linux: {
-		x86_64: {
-			musl: 'x86_64-linux-musl',
-			glibc: 'x86_64-linux-gnu',
+			musl: 'native-deps-x86_64-linux-musl.tar.xz',
+			glibc: 'native-deps-x86_64-linux-gnu.tar.xz',
 		},
 		aarch64: {
-			musl: 'aarch64-linux-musl',
-			glibc: 'aarch64-linux-gnu',
+			musl: 'native-deps-aarch64-linux-musl.tar.xz',
+			glibc: 'native-deps-aarch64-linux-gnu.tar.xz',
 		},
 	},
-}
-
-export const LIBHEIF_WORKFLOW = {
-	Linux: 'libheif-linux.yml',
+	Darwin: {
+		x86_64: 'native-deps-x86_64-darwin-apple.tar.xz',
+		aarch64: 'native-deps-aarch64-darwin-apple.tar.xz',
+	},
+	Windows_NT: {
+		x86_64: 'native-deps-x86_64-windows-gnu.tar.xz ',
+		aarch64: 'native-deps-aarch64-windows-gnu.tar.xz',
+	},
 }
 
 /**
@@ -84,14 +38,4 @@ export function getConst(constants, identifiers) {
 	}
 
 	return typeof constant === 'string' ? constant : null
-}
-
-/**
- * @param {Record<string, unknown>} suffixes
- * @param {string[]} identifiers
- * @returns {RegExp?}
- */
-export function getSuffix(suffixes, identifiers) {
-	const suffix = getConst(suffixes, identifiers)
-	return suffix ? new RegExp(`${suffix}(\\.[^\\.]+)*$`) : null
 }

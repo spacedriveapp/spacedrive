@@ -4,9 +4,16 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-use crate::{consts::PDF_RENDER_WIDTH, Error::PdfiumBinding, ImageHandler, Result};
+use crate::{
+	consts::{PDF_LANDSCAPE_RENDER_WIDTH, PDF_PORTRAIT_RENDER_WIDTH},
+	ImageHandler, Result,
+};
 use image::DynamicImage;
-use pdfium_render::prelude::{PdfPageRenderRotation, PdfRenderConfig, Pdfium};
+use once_cell::sync::Lazy;
+use pdfium_render::{
+	color::PdfColor,
+	prelude::{PdfPageRenderRotation, PdfRenderConfig, Pdfium},
+};
 use tracing::error;
 
 // This path must be relative to the running binary
@@ -14,69 +21,82 @@ use tracing::error;
 const BINDING_LOCATION: &str = ".";
 #[cfg(unix)]
 const BINDING_LOCATION: &str = if cfg!(target_os = "macos") {
-	"../Frameworks/FFMpeg.framework/Libraries"
+	"../Frameworks/Spacedrive.framework/Libraries"
 } else {
 	"../lib/spacedrive"
 };
 
-// FIX-ME: This is slow, but using Lazy with thread_safe was causing concurrency bugs that crashed the app
-thread_local! {
-	static PDFIUM: Option<Pdfium> = {
-		let lib_name = Pdfium::pdfium_platform_library_name();
-		let lib_path = current_exe()
-			.ok()
-			.and_then(|exe_path| {
-				exe_path.parent().and_then(|parent_path| {
-					match parent_path
-						.join(BINDING_LOCATION)
-						.join(&lib_name)
-						.canonicalize()
-					{
-						Ok(lib_path) => lib_path.to_str().map(ToOwned::to_owned),
-						Err(err) => {
-							error!("{err:#?}");
-							None
-						}
-					}
-				})
-			})
-			.unwrap_or_else(|| {
-				#[allow(clippy::expect_used)]
-				PathBuf::from(BINDING_LOCATION)
+static PDFIUM_LIB: Lazy<String> = Lazy::new(|| {
+	let lib_name = Pdfium::pdfium_platform_library_name();
+	current_exe()
+		.ok()
+		.and_then(|exe_path| {
+			exe_path.parent().and_then(|parent_path| {
+				match parent_path
+					.join(BINDING_LOCATION)
 					.join(&lib_name)
-					.to_str()
-					.expect("We are converting valid strs to PathBuf then back, it should not fail")
-					.to_owned()
-			});
-
-		Pdfium::bind_to_library(lib_path)
-			.or_else(|err| {
-				error!("{err:#?}");
-				Pdfium::bind_to_system_library()
+					.canonicalize()
+				{
+					Ok(lib_path) => lib_path.to_str().map(ToOwned::to_owned),
+					Err(err) => {
+						error!("{err:#?}");
+						None
+					}
+				}
 			})
-			.map(Pdfium::new)
-			.map_err(|err| error!("{err:#?}"))
-			.ok()
-	};
+		})
+		.unwrap_or_else(|| {
+			#[allow(clippy::expect_used)]
+			PathBuf::from(BINDING_LOCATION)
+				.join(&lib_name)
+				.to_str()
+				.expect("We are converting valid strs to PathBuf then back, it should not fail")
+				.to_owned()
+		})
+});
+
+fn thumbnail_config(config: PdfRenderConfig) -> PdfRenderConfig {
+	// From: https://github.com/ajrcarey/pdfium-render/blob/82c10b2d59b04a8413acd31892eb28822e60e06a/src/render_config.rs#L159
+	config
+		.rotate(PdfPageRenderRotation::None, false)
+		.use_print_quality(false)
+		.set_image_smoothing(false)
+		.render_annotations(false)
+		.render_form_data(false)
+		// Required due to: https://github.com/ajrcarey/pdfium-render/issues/119
+		.set_reverse_byte_order(false)
+		.set_clear_color(PdfColor::new(255, 255, 255, 255))
+		.clear_before_rendering(true)
 }
+
+static PORTRAIT_CONFIG: Lazy<PdfRenderConfig> = Lazy::new(|| {
+	thumbnail_config(PdfRenderConfig::new().set_target_width(PDF_PORTRAIT_RENDER_WIDTH))
+});
+
+static LANDSCAPE_CONFIG: Lazy<PdfRenderConfig> = Lazy::new(|| {
+	thumbnail_config(PdfRenderConfig::new().set_target_width(PDF_LANDSCAPE_RENDER_WIDTH))
+});
 
 pub struct PdfHandler {}
 
 impl ImageHandler for PdfHandler {
 	fn handle_image(&self, path: &Path) -> Result<DynamicImage> {
-		PDFIUM.with(|maybe_pdfium| {
-			let pdfium = maybe_pdfium.as_ref().ok_or(PdfiumBinding)?;
+		let pdfium = Pdfium::new(Pdfium::bind_to_library(PDFIUM_LIB.as_str()).or_else(|err| {
+			error!("{err:#?}");
+			Pdfium::bind_to_system_library()
+		})?);
 
-			let render_config = PdfRenderConfig::new()
-				.set_target_width(PDF_RENDER_WIDTH)
-				.rotate_if_landscape(PdfPageRenderRotation::Degrees90, true);
+		let pdf = pdfium.load_pdf_from_file(path, None)?;
+		let first_page = pdf.pages().first()?;
 
-			Ok(pdfium
-				.load_pdf_from_file(path, None)?
-				.pages()
-				.first()?
-				.render_with_config(&render_config)?
-				.as_image())
-		})
+		let image = first_page
+			.render_with_config(if first_page.is_portrait() {
+				&PORTRAIT_CONFIG
+			} else {
+				&LANDSCAPE_CONFIG
+			})?
+			.as_image();
+
+		Ok(image)
 	}
 }

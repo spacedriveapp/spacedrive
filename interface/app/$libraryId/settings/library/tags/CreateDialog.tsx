@@ -1,6 +1,5 @@
 import {
 	FilePath,
-	libraryClient,
 	Object,
 	Target,
 	useLibraryMutation,
@@ -54,8 +53,7 @@ export default (
 
 	const form = useZodForm({
 		schema: schema,
-		defaultValues: { color: '#A717D9' },
-		mode: 'onBlur'
+		defaultValues: { color: '#A717D9' }
 	});
 
 	const createTag = useLibraryMutation('tags.create');

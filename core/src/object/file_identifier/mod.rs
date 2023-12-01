@@ -124,7 +124,22 @@ async fn identifier_job_step(
 							(metadata, file_path),
 						)
 					})
-					.map_err(|e| error!("Failed to extract file metadata: {e:#?}"))
+					.map_err(|e| {
+						#[cfg(target_os = "windows")]
+						{
+							// Handle case where file is on-demand (NTFS only)
+							if e.source.raw_os_error().map_or(false, |code| code == 362) {
+								error!("Failed to extract metadata from on-demand file: {e:#?}");
+							} else {
+								error!("Failed to extract file metadata: {e:#?}")
+							}
+						}
+
+						#[cfg(not(target_os = "windows"))]
+						{
+							error!("Failed to extract file metadata: {e:#?}");
+						}
+					})
 					.ok()
 			}),
 	)

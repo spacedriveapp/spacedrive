@@ -10,9 +10,9 @@ assets = []
 
 [dependencies]
 sd-core = { path = "../../core", features = [
-	"ffmpeg",
+	# "ffmpeg",
 	"location-watcher",
-	"heif",
+	# "heif",
 ] }
 rspc = { workspace = true, features = ["axum"] }
 axum = "0.6.20"

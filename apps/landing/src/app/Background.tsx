@@ -17,6 +17,7 @@ const Bubbles = dynamic(() => import('~/components/Bubbles').then((m) => m.Bubbl
 export function Background() {
 	const [opacity, setOpacity] = useState(0.6);
 	const [isWindowResizing, setIsWindowResizing] = useState(false);
+	const [canUseWebGL, setCanUseWebGL] = useState(hasWebGLContext());
 	const [inner, setInner] = useState<ReactNode>(null);
 
 	useEffect(() => {
@@ -58,8 +59,8 @@ export function Background() {
 	}, []);
 
 	useEffect(() => {
-		setInner(hasWebGLContext() ? <Space /> : <Bubbles />);
-	}, []);
+		setInner(canUseWebGL ? <Space onRenderFail={() => setCanUseWebGL(false)} /> : <Bubbles />);
+	}, [canUseWebGL]);
 
 	return (
 		<div style={{ opacity }}>

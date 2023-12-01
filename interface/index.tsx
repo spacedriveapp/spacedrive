@@ -1,29 +1,33 @@
-import { init, Integrations } from '@sentry/browser';
-
 import '@fontsource/inter/variable.css';
 
+import { init, Integrations } from '@sentry/browser';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import { PropsWithChildren, Suspense } from 'react';
 import { RouterProvider, RouterProviderProps } from 'react-router-dom';
 import {
 	CacheProvider,
 	NotificationContextProvider,
 	P2PContextProvider,
+	useInvalidateQuery,
 	useLoadBackendFeatureFlags
 } from '@sd/client';
 import { TooltipProvider } from '@sd/ui';
 
-import { P2P } from './app/p2p';
+import { P2P, useP2PErrorToast } from './app/p2p';
 import { Devtools } from './components/Devtools';
 import { WithPrismTheme } from './components/TextViewer/prism';
 import ErrorFallback, { BetterErrorBoundary } from './ErrorFallback';
+import { useTheme } from './hooks';
+import { RoutingContext } from './RoutingContext';
 
 export { ErrorPage } from './ErrorFallback';
 export * from './app';
 export * from './util/Platform';
 export * from './util/keybind';
+export * from './TabsContext';
 
 dayjs.extend(advancedFormat);
 dayjs.extend(relativeTime);
@@ -38,6 +42,9 @@ init({
 
 export const SpacedriveInterface = (props: { router: RouterProviderProps['router'] }) => {
 	useLoadBackendFeatureFlags();
+	useP2PErrorToast();
+	useInvalidateQuery();
+	useTheme();
 
 	return (
 		<BetterErrorBoundary FallbackComponent={ErrorFallback}>

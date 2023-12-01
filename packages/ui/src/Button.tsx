@@ -36,7 +36,8 @@ export const buttonStyles = cva(
 				icon: '!p-1',
 				lg: 'text-md px-3 py-1.5 font-medium',
 				md: 'px-2.5 py-1.5 text-sm font-medium',
-				sm: 'px-2 py-1 text-sm font-medium'
+				sm: 'px-2 py-1 text-sm font-medium',
+				xs: 'px-1.5 py-0.5 text-xs font-normal'
 			},
 			variant: {
 				default: [
@@ -62,6 +63,12 @@ export const buttonStyles = cva(
 				],
 				colored: ['text-white shadow-sm hover:bg-opacity-90 active:bg-opacity-100'],
 				bare: ''
+			},
+			rounding: {
+				none: 'rounded-none',
+				left: 'rounded-l-md rounded-r-none',
+				right: 'rounded-l-none rounded-r-md',
+				both: 'rounded-md'
 			}
 		},
 		defaultVariants: {

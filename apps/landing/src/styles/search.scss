@@ -1,0 +1,75 @@
+@tailwind utilities;
+
+// Set docsearch to dark mode and set primary color to our primary color
+:root {
+	--docsearch-primary-color: rgb(37 153 255) !important;
+	--docsearch-text-color: rgb(245, 246, 247) !important;
+	--docsearch-container-background: rgba(9, 10, 17, 0.8) !important;
+	--docsearch-modal-background: rgb(21, 23, 42) !important;
+	--docsearch-modal-shadow: inset 1px 1px 0 0 rgb(44, 46, 64), 0 3px 8px 0 rgb(0, 3, 9) !important;
+	--docsearch-searchbox-background: rgb(9, 10, 17) !important;
+	--docsearch-searchbox-focus-background: #000 !important;
+	--docsearch-hit-color: rgb(190, 195, 201) !important;
+	--docsearch-hit-shadow: none !important;
+	--docsearch-hit-background: rgb(9, 10, 17) !important;
+	--docsearch-key-gradient: linear-gradient(
+		-26.5deg,
+		rgb(86, 88, 114) 0%,
+		rgb(49, 53, 91) 100%
+	) !important;
+	--docsearch-key-shadow: inset 0 -2px 0 0 rgb(40, 45, 85), inset 0 0 1px 1px rgb(81, 87, 125),
+		0 2px 2px 0 rgba(3, 4, 9, 0.3) !important;
+	--docsearch-key-pressed-shadow: inset 0 -2px 0 0 #282d55, inset 0 0 1px 1px #51577d,
+		0 1px 1px 0 #0304094d !important;
+	--docsearch-footer-background: rgb(30, 33, 54) !important;
+	--docsearch-footer-shadow: inset 0 1px 0 0 rgba(73, 76, 106, 0.5), 0 -4px 8px 0 rgba(0, 0, 0, 0.2) !important;
+	--docsearch-logo-color: rgb(255, 255, 255) !important;
+	--docsearch-muted-color: rgb(127, 132, 151) !important;
+}
+
+.DocSearch-Button {
+	@apply m-0 flex h-[34px] w-full rounded-md border border-app-line bg-app-input text-sm leading-4 shadow-sm outline-none #{!important};
+}
+
+.DocSearch-Button:hover,
+.DocSearch-Button:focus,
+.DocSearch-Button:active {
+	background: none !important;
+	box-shadow: none !important;
+	@apply border-primary bg-app-hover text-ink-faint #{!important};
+}
+
+.DocSearch-Button-Key--pressed {
+	transform: none !important;
+}
+
+.DocSearch-Button .DocSearch-Search-Icon {
+	@apply mr-2 py-0.5 text-gray-350 #{!important};
+}
+
+.DocSearch-Button-Placeholder {
+	@apply flex-1 border-none bg-transparent px-3 pl-0 pr-0 text-sm text-ink-faint outline-none #{!important};
+}
+
+.DocSearch-Search-Icon {
+	@apply h-5 w-5 #{!important};
+}
+
+.DocSearch-Button-Keys {
+	min-width: auto !important;
+}
+
+.DocSearch-Button-Key {
+	background: none !important;
+	@apply top-0 w-5 bg-app-button p-0 text-sm text-ink shadow #{!important};
+}
+
+@media (max-width: 768px) {
+	.DocSearch-Button-Placeholder {
+		display: block !important;
+	}
+}
+
+.DocSearch-Input:focus {
+	@apply ring-0 #{!important};
+}

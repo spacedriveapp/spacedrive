@@ -12,10 +12,7 @@ use crate::{
 	Node,
 };
 
-use std::{
-	cmp::Ordering,
-	path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use itertools::Itertools;
 use prisma_client_rust::{raw, PrismaValue};
@@ -173,30 +170,15 @@ async fn dispatch_thumbnails_for_processing(
 		.map(|(cas_id, iso_file_path)| {
 			let full_path = location_path.join(&iso_file_path);
 
-			let extension = iso_file_path.extension().to_string();
-
-			(
-				GenerateThumbnailArgs::new(extension.clone(), cas_id, full_path),
-				extension,
-			)
+			GenerateThumbnailArgs::new(iso_file_path.extension().to_string(), cas_id, full_path)
 		})
-		.sorted_by(|(_, ext_a), (_, ext_b)|
-		// This will put PDF files by last as they're currently way slower to be processed
-		// FIXME(fogodev): Remove this sort when no longer needed
-			match (*ext_a == "pdf", *ext_b == "pdf") {
-				(true, true) => Ordering::Equal,
-				(false, true) => Ordering::Less,
-				(true, false) => Ordering::Greater,
-				(false, false) => Ordering::Equal,
-			})
-		.map(|(args, _)| args)
 		.collect::<Vec<_>>();
 
 	// Let's not send an empty batch lol
 	if !current_batch.is_empty() {
 		node.thumbnailer
 			.new_indexed_thumbnails_batch(
-				BatchToProcess::new(current_batch, should_regenerate, true),
+				BatchToProcess::new(current_batch, should_regenerate, false),
 				library.id,
 			)
 			.await;

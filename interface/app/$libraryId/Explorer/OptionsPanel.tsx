@@ -3,15 +3,13 @@ import { getExplorerLayoutStore, useExplorerLayoutStore } from '~/../packages/cl
 import { SortOrderSchema } from '~/app/route-schemas';
 
 import { useExplorerContext } from './Context';
-import { createOrdering, getOrderingDirection, orderingKey, useExplorerStore } from './store';
+import { createOrdering, getOrderingDirection, orderingKey } from './store';
 
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
 
 export default () => {
-	const explorerStore = useExplorerStore();
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
-
 	const settings = explorer.useSettingsSnapshot();
 
 	return (
@@ -145,7 +143,6 @@ export default () => {
 						name="showHiddenFiles"
 						onCheckedChange={(value) => {
 							if (typeof value !== 'boolean') return;
-
 							explorer.settingsStore.showHiddenFiles = value;
 						}}
 					/>

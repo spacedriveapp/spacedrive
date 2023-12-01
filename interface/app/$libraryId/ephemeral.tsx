@@ -3,6 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import { memo, Suspense, useDeferredValue, useMemo } from 'react';
+import { useLocation } from 'react-router';
 import {
 	ExplorerItem,
 	getExplorerItemData,
@@ -20,6 +21,7 @@ import {
 	useOperatingSystem,
 	useZodSearchParams
 } from '~/hooks';
+import { useRouteTitle } from '~/hooks/useRouteTitle';
 
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
@@ -32,7 +34,7 @@ import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { EmptyNotice } from './Explorer/View';
 import { AddLocationButton } from './settings/library/locations/AddLocationButton';
-import { TOP_BAR_HEIGHT } from './TopBar';
+import { useTopBarContext } from './TopBar/Layout';
 import { TopBarPortal } from './TopBar/Portal';
 import TopBarButton from './TopBar/TopBarButton';
 
@@ -59,6 +61,8 @@ const EphemeralNotice = ({ path }: { path: string }) => {
 	const isDark = useIsDark();
 	const { ephemeral: dismissed } = useDismissibleNoticeStore();
 
+	const topbar = useTopBarContext();
+
 	const dismiss = () => (getDismissibleNoticeStore().ephemeral = true);
 
 	return (
@@ -76,7 +80,7 @@ const EphemeralNotice = ({ path }: { path: string }) => {
 							<div className="absolute inset-0 z-50 bg-app/80 backdrop-blur-[2px]" />
 
 							<div
-								style={{ height: TOP_BAR_HEIGHT }}
+								style={{ height: topbar.topBarHeight }}
 								className="flex items-center gap-3.5 border-b border-sidebar-divider px-3.5"
 							>
 								<div className="flex">
@@ -150,8 +154,9 @@ const EphemeralNotice = ({ path }: { path: string }) => {
 };
 
 const EphemeralExplorer = memo((props: { args: PathParams }) => {
-	const os = useOperatingSystem();
 	const { path } = props.args;
+
+	const os = useOperatingSystem();
 
 	const explorerSettings = useExplorerSettings({
 		settings: useMemo(
@@ -223,7 +228,6 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 					</Tooltip>
 				}
 				right={<DefaultTopBarOptions />}
-				noSearch={true}
 			/>
 			<Explorer
 				emptyNotice={
@@ -242,6 +246,8 @@ export const Component = () => {
 	const [pathParams] = useZodSearchParams(PathParamsSchema);
 
 	const path = useDeferredValue(pathParams);
+
+	useRouteTitle(path.path ?? '');
 
 	return (
 		<Suspense>

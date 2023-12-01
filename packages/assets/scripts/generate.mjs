@@ -13,7 +13,14 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import prettier from 'prettier';
 
-const assetFolders = ['icons', 'images', 'svgs/brands', 'svgs/ext/Extras', 'svgs/ext/Code'];
+const assetFolders = [
+	'icons',
+	'images',
+	'svgs/brands',
+	'svgs/ext/Extras',
+	'svgs/ext/Code',
+	'videos'
+];
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

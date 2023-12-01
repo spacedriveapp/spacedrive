@@ -20,7 +20,7 @@ use crate::{
 		file_identifier::FileMetadata,
 		media::{
 			media_data_extractor::{can_extract_media_data_for_image, extract_media_data},
-			media_data_image_to_query,
+			media_data_image_to_query_params,
 			thumbnail::get_indexed_thumbnail_path,
 		},
 		validation::hash::file_checksum,
@@ -50,11 +50,12 @@ use std::{
 
 use sd_file_ext::{extensions::ImageExtension, kind::ObjectKind};
 
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, FixedOffset, Local, Utc};
 use notify::Event;
 use prisma_client_rust::{raw, PrismaValue};
-use sd_prisma::prisma_sync;
+use sd_prisma::{prisma::media_data, prisma_sync};
 use sd_sync::OperationFactory;
+use sd_utils::uuid_to_bytes;
 use serde_json::json;
 use tokio::{
 	fs,
@@ -160,7 +161,12 @@ async fn inner_create_file(
 	path: impl AsRef<Path>,
 	metadata: &Metadata,
 	node: &Arc<Node>,
-	library: &Arc<Library>,
+	library @ Library {
+		id: library_id,
+		db,
+		sync,
+		..
+	}: &Library,
 ) -> Result<(), LocationManagerError> {
 	let path = path.as_ref();
 	let location_path = location_path.as_ref();
@@ -170,8 +176,6 @@ async fn inner_create_file(
 		location_path.display(),
 		path.display()
 	);
-
-	let db = &library.db;
 
 	let iso_file_path = IsolatedFilePathData::new(location_id, location_path, path, false)?;
 	let extension = iso_file_path.extension.to_string();
@@ -223,7 +227,7 @@ async fn inner_create_file(
 
 	let parent_iso_file_path = iso_file_path.parent();
 	if !parent_iso_file_path.is_root()
-		&& !check_file_path_exists::<FilePathError>(&parent_iso_file_path, &library.db).await?
+		&& !check_file_path_exists::<FilePathError>(&parent_iso_file_path, db).await?
 	{
 		warn!("Watcher found a file without parent: {}", &iso_file_path);
 		return Ok(());
@@ -240,7 +244,7 @@ async fn inner_create_file(
 
 	let created_file = create_file_path(library, iso_file_path, cas_id.clone(), metadata).await?;
 
-	object::select!(object_just_id { id });
+	object::select!(object_ids { id pub_id });
 
 	let existing_object = db
 		.object()
@@ -248,51 +252,84 @@ async fn inner_create_file(
 			file_path::cas_id::equals(cas_id.clone()),
 			file_path::pub_id::not(created_file.pub_id.clone()),
 		])])
-		.select(object_just_id::select())
+		.select(object_ids::select())
 		.exec()
 		.await?;
 
-	let object = if let Some(object) = existing_object {
+	let object_ids::Data {
+		id: object_id,
+		pub_id: object_pub_id,
+	} = if let Some(object) = existing_object {
 		object
 	} else {
-		db.object()
-			.create(
-				Uuid::new_v4().as_bytes().to_vec(),
-				vec![
-					object::date_created::set(Some(
-						DateTime::<Local>::from(fs_metadata.created_or_now()).into(),
-					)),
-					object::kind::set(Some(kind as i32)),
-				],
-			)
-			.select(object_just_id::select())
-			.exec()
-			.await?
+		let pub_id = uuid_to_bytes(Uuid::new_v4());
+		let date_created: DateTime<FixedOffset> =
+			DateTime::<Local>::from(fs_metadata.created_or_now()).into();
+		let int_kind = kind as i32;
+		sync.write_ops(
+			db,
+			(
+				sync.shared_create(
+					prisma_sync::object::SyncId {
+						pub_id: pub_id.clone(),
+					},
+					[
+						(object::date_created::NAME, json!(date_created)),
+						(object::kind::NAME, json!(int_kind)),
+					],
+				),
+				db.object()
+					.create(
+						pub_id.to_vec(),
+						vec![
+							object::date_created::set(Some(date_created)),
+							object::kind::set(Some(int_kind)),
+						],
+					)
+					.select(object_ids::select()),
+			),
+		)
+		.await?
 	};
 
-	db.file_path()
-		.update(
-			file_path::pub_id::equals(created_file.pub_id),
-			vec![file_path::object::connect(object::id::equals(object.id))],
-		)
-		.exec()
-		.await?;
+	sync.write_op(
+		db,
+		sync.shared_update(
+			prisma_sync::location::SyncId {
+				pub_id: created_file.pub_id.clone(),
+			},
+			file_path::object::NAME,
+			json!(prisma_sync::object::SyncId {
+				pub_id: object_pub_id.clone()
+			}),
+		),
+		db.file_path().update(
+			file_path::pub_id::equals(created_file.pub_id.clone()),
+			vec![file_path::object::connect(object::pub_id::equals(
+				object_pub_id,
+			))],
+		),
+	)
+	.await?;
 
 	if !extension.is_empty() && matches!(kind, ObjectKind::Image | ObjectKind::Video) {
 		// Running in a detached task as thumbnail generation can take a while and we don't want to block the watcher
 
 		if let Some(cas_id) = cas_id {
-			let extension = extension.clone();
-			let path = path.to_path_buf();
-			let node = node.clone();
-			let library_id = library.id;
-			spawn(async move {
-				if let Err(e) = node
-					.thumbnailer
-					.generate_single_indexed_thumbnail(&extension, cas_id, path, library_id)
-					.await
-				{
-					error!("Failed to generate thumbnail in the watcher: {e:#?}");
+			spawn({
+				let extension = extension.clone();
+				let path = path.to_path_buf();
+				let node = node.clone();
+				let library_id = *library_id;
+
+				async move {
+					if let Err(e) = node
+						.thumbnailer
+						.generate_single_indexed_thumbnail(&extension, cas_id, path, library_id)
+						.await
+					{
+						error!("Failed to generate thumbnail in the watcher: {e:#?}");
+					}
 				}
 			});
 		}
@@ -305,12 +342,19 @@ async fn inner_create_file(
 						.await
 						.map_err(|e| error!("Failed to extract media data: {e:#?}"))
 					{
-						if let Ok(media_data_params) =
-							media_data_image_to_query(media_data, object.id).map_err(|e| {
+						if let Ok(media_data_params) = media_data_image_to_query_params(media_data)
+							.map_err(|e| {
 								error!("Failed to prepare media data create params: {e:#?}")
 							}) {
 							db.media_data()
-								.create_many(vec![media_data_params])
+								.upsert(
+									media_data::object_id::equals(object_id),
+									media_data::create(
+										object::id::equals(object_id),
+										media_data_params.clone(),
+									),
+									media_data_params,
+								)
 								.exec()
 								.await?;
 						}
@@ -515,16 +559,90 @@ async fn inner_update_file(
 		.await?;
 
 		if let Some(ref object) = file_path.object {
+			let int_kind = kind as i32;
+
+			if db
+				.file_path()
+				.count(vec![file_path::object_id::equals(Some(object.id))])
+				.exec()
+				.await? == 1
+			{
+				if object.kind.map(|k| k != int_kind).unwrap_or_default() {
+					sync.write_op(
+						db,
+						sync.shared_update(
+							prisma_sync::object::SyncId {
+								pub_id: object.pub_id.clone(),
+							},
+							object::kind::NAME,
+							json!(int_kind),
+						),
+						db.object().update(
+							object::id::equals(object.id),
+							vec![object::kind::set(Some(int_kind))],
+						),
+					)
+					.await?;
+				}
+			} else {
+				let pub_id = uuid_to_bytes(Uuid::new_v4());
+				let date_created: DateTime<FixedOffset> =
+					DateTime::<Local>::from(fs_metadata.created_or_now()).into();
+
+				sync.write_ops(
+					db,
+					(
+						sync.shared_create(
+							prisma_sync::object::SyncId {
+								pub_id: pub_id.clone(),
+							},
+							[
+								(object::date_created::NAME, json!(date_created)),
+								(object::kind::NAME, json!(int_kind)),
+							],
+						),
+						db.object().create(
+							pub_id.to_vec(),
+							vec![
+								object::date_created::set(Some(date_created)),
+								object::kind::set(Some(int_kind)),
+							],
+						),
+					),
+				)
+				.await?;
+
+				sync.write_op(
+					db,
+					sync.shared_update(
+						prisma_sync::location::SyncId {
+							pub_id: file_path.pub_id.clone(),
+						},
+						file_path::object::NAME,
+						json!(prisma_sync::object::SyncId {
+							pub_id: pub_id.clone()
+						}),
+					),
+					db.file_path().update(
+						file_path::pub_id::equals(file_path.pub_id.clone()),
+						vec![file_path::object::connect(object::pub_id::equals(pub_id))],
+					),
+				)
+				.await?;
+			}
+
 			if let Some(old_cas_id) = &file_path.cas_id {
 				// if this file had a thumbnail previously, we update it to match the new content
 				if library.thumbnail_exists(node, old_cas_id).await? {
 					if let Some(ext) = file_path.extension.clone() {
 						// Running in a detached task as thumbnail generation can take a while and we don't want to block the watcher
 						if let Some(cas_id) = cas_id {
-							let node = node.clone();
+							let node = Arc::clone(node);
 							let path = full_path.to_path_buf();
 							let library_id = library.id;
+							let old_cas_id = old_cas_id.clone();
 							spawn(async move {
+								let was_overwritten = old_cas_id == cas_id;
 								if let Err(e) = node
 									.thumbnailer
 									.generate_single_indexed_thumbnail(
@@ -534,36 +652,24 @@ async fn inner_update_file(
 								{
 									error!("Failed to generate thumbnail in the watcher: {e:#?}");
 								}
+
+								// If only a few bytes changed, cas_id will probably remains intact
+								// so we overwrote our previous thumbnail, so we can't remove it
+								if !was_overwritten {
+									// remove the old thumbnail as we're generating a new one
+									let thumb_path =
+										get_indexed_thumbnail_path(&node, &old_cas_id, library_id);
+									if let Err(e) = fs::remove_file(&thumb_path).await {
+										error!(
+											"Failed to remove old thumbnail: {:#?}",
+											FileIOError::from((thumb_path, e))
+										);
+									}
+								}
 							});
 						}
-
-						// remove the old thumbnail as we're generating a new one
-						let thumb_path = get_indexed_thumbnail_path(node, old_cas_id, library.id);
-						fs::remove_file(&thumb_path)
-							.await
-							.map_err(|e| FileIOError::from((thumb_path, e)))?;
 					}
 				}
-			}
-
-			let int_kind = kind as i32;
-
-			if object.kind.map(|k| k != int_kind).unwrap_or_default() {
-				sync.write_op(
-					db,
-					sync.shared_update(
-						prisma_sync::object::SyncId {
-							pub_id: object.pub_id.clone(),
-						},
-						object::kind::NAME,
-						json!(int_kind),
-					),
-					db.object().update(
-						object::id::equals(object.id),
-						vec![object::kind::set(Some(int_kind))],
-					),
-				)
-				.await?;
 			}
 
 			// TODO: Change this if to include ObjectKind::Video in the future
@@ -577,11 +683,18 @@ async fn inner_update_file(
 							.map_err(|e| error!("Failed to extract media data: {e:#?}"))
 						{
 							if let Ok(media_data_params) =
-								media_data_image_to_query(media_data, object.id).map_err(|e| {
+								media_data_image_to_query_params(media_data).map_err(|e| {
 									error!("Failed to prepare media data create params: {e:#?}")
 								}) {
 								db.media_data()
-									.create_many(vec![media_data_params])
+									.upsert(
+										media_data::object_id::equals(object.id),
+										media_data::create(
+											object::id::equals(object.id),
+											media_data_params.clone(),
+										),
+										media_data_params,
+									)
 									.exec()
 									.await?;
 							}

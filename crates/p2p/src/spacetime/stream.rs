@@ -6,13 +6,15 @@ use std::{
 };
 
 use libp2p::{futures::AsyncWriteExt, PeerId, Stream};
-use tokio::io::{
-	AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt as TokioAsyncWriteExt, ReadBuf,
+use thiserror::Error;
+use tokio::{
+	io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt as TokioAsyncWriteExt, ReadBuf},
+	sync::oneshot,
 };
 use tokio_util::compat::Compat;
 
 use crate::{
-	spacetunnel::{Identity, RemoteIdentity, REMOTE_IDENTITY_LEN},
+	spacetunnel::{Identity, IdentityErr, RemoteIdentity, REMOTE_IDENTITY_LEN},
 	Manager,
 };
 
@@ -30,7 +32,10 @@ pub struct UnicastStream {
 // TODO: Utils for sending msgpack and stuff over the stream. -> Have a max size of reading buffers so we are less susceptible to DoS attacks.
 
 impl UnicastStream {
-	pub(crate) async fn new_inbound(identity: Identity, mut io: Compat<Stream>) -> Self {
+	pub(crate) async fn new_inbound(
+		identity: Identity,
+		mut io: Compat<Stream>,
+	) -> Result<Self, UnicastStreamError> {
 		// TODO: Finish this
 		// let mut challenge = [0u8; CHALLENGE_LENGTH];
 		// io.read_exact(&mut challenge).await.unwrap(); // TODO: Timeout
@@ -41,26 +46,28 @@ impl UnicastStream {
 		// TODO: THIS IS INSECURE!!!!!
 		// We are just sending strings of the public key without any verification the other party holds the private key.
 		let mut actual = [0; REMOTE_IDENTITY_LEN];
-		io.read_exact(&mut actual).await.unwrap(); // TODO: Error handling + timeout
-		let remote = RemoteIdentity::from_bytes(&actual).unwrap(); // TODO: Error handling
+		io.read_exact(&mut actual).await?; // TODO: timeout
+		let remote = RemoteIdentity::from_bytes(&actual)?;
 
 		io.write_all(&identity.to_remote_identity().get_bytes())
-			.await
-			.unwrap(); // TODO: Error handling + timeout
+			.await?; // TODO: timeout
 
 		// TODO: Do we have something to compare against? I don't think so this is fine.
 		// if expected.get_bytes() != actual {
 		// 	panic!("Mismatch in remote identity!");
 		// }
 
-		Self {
+		Ok(Self {
 			io,
 			me: identity,
 			remote,
-		}
+		})
 	}
 
-	pub(crate) async fn new_outbound(identity: Identity, mut io: Compat<Stream>) -> Self {
+	pub(crate) async fn new_outbound(
+		identity: Identity,
+		mut io: Compat<Stream>,
+	) -> Result<Self, UnicastStreamError> {
 		// TODO: Use SPAKE not some handrolled insecure mess
 		// let challenge = rand::thread_rng().gen::<[u8; CHALLENGE_LENGTH]>();
 		// self.0.write_all(&challenge).await?;
@@ -68,25 +75,25 @@ impl UnicastStream {
 		// TODO: THIS IS INSECURE!!!!!
 		// We are just sending strings of the public key without any verification the other party holds the private key.
 		io.write_all(&identity.to_remote_identity().get_bytes())
-			.await
-			.unwrap(); // TODO: Timeout
+			.await?; // TODO: Timeout
 
 		let mut actual = [0; REMOTE_IDENTITY_LEN];
-		io.read_exact(&mut actual).await.unwrap(); // TODO: Timeout
-		let remote = RemoteIdentity::from_bytes(&actual).unwrap(); // TODO: Error handling
+		io.read_exact(&mut actual).await?; // TODO: Timeout
+		let remote = RemoteIdentity::from_bytes(&actual)?;
 
 		// TODO: Do we have something to compare against? I don't think so this is fine.
 		// if expected.get_bytes() != actual {
 		// 	panic!("Mismatch in remote identity!");
 		// }
 
-		Self {
+		Ok(Self {
 			io,
 			me: identity,
 			remote,
-		}
+		})
 	}
 
+	#[must_use]
 	pub fn remote_identity(&self) -> RemoteIdentity {
 		self.remote
 	}
@@ -124,6 +131,21 @@ impl AsyncWrite for UnicastStream {
 	}
 }
 
+#[derive(Debug, Error)]
+pub enum UnicastStreamError {
+	#[error("io error: {0}")]
+	IoError(#[from] io::Error),
+	#[error("identity error: {0}")]
+	InvalidError(#[from] IdentityErr),
+	// TODO: Technically this error is from the manager
+	#[error("peer id not found")]
+	PeerIdNotFound,
+	#[error("error manager shutdown")]
+	ErrManagerShutdown(#[from] oneshot::error::RecvError),
+	#[error("error getting peer id for '{0}'")]
+	ErrPeerIdNotFound(RemoteIdentity),
+}
+
 #[derive(Debug)]
 pub struct UnicastStreamBuilder {
 	identity: Identity,
@@ -139,8 +161,8 @@ impl UnicastStreamBuilder {
 		self,
 		manager: &Manager,
 		peer_id: PeerId,
-	) -> Result<UnicastStream, ()> {
-		let stream = UnicastStream::new_outbound(self.identity, self.io).await;
+	) -> Result<UnicastStream, UnicastStreamError> {
+		let stream = UnicastStream::new_outbound(self.identity, self.io).await?;
 
 		manager
 			.state

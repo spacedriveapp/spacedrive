@@ -2,6 +2,7 @@ import { Image, Package, Trash, TrashSimple } from '@phosphor-icons/react';
 import { libraryClient, useLibraryMutation } from '@sd/client';
 import { ContextMenu, dialogManager, ModifierKeys, toast } from '@sd/ui';
 import { Menu } from '~/components/Menu';
+import { useKeysMatcher, useOperatingSystem } from '~/hooks';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { useQuickRescan } from '~/hooks/useQuickRescan';
 import { isNonEmpty } from '~/util';
@@ -24,10 +25,8 @@ export const Delete = new ConditionalItem({
 		return { selectedFilePaths, selectedEphemeralPaths };
 	},
 	Component: ({ selectedFilePaths, selectedEphemeralPaths }) => {
-		const keybind = useKeybindFactory();
-
 		const rescan = useQuickRescan();
-
+		const os = useOperatingSystem();
 		const dirCount =
 			selectedFilePaths.filter((p) => p.is_dir).length +
 			selectedEphemeralPaths.filter((p) => p.is_dir).length;
@@ -49,13 +48,18 @@ export const Delete = new ConditionalItem({
 					paths: selectedEphemeralPaths.map((p) => p.path)
 			  }
 			: undefined;
+		const deleteKeybind = useKeysMatcher(['Meta', 'Backspace']);
 
 		return (
 			<Menu.Item
 				icon={Trash}
 				label="Delete"
 				variant="danger"
-				keybind={keybind([ModifierKeys.Control], ['Delete'])}
+				keybind={
+					os === 'windows'
+						? 'Del'
+						: `${deleteKeybind.Meta.icon}${deleteKeybind.Backspace.icon}`
+				}
 				onClick={() =>
 					dialogManager.create((dp) => (
 						<DeleteDialog

@@ -1,16 +1,40 @@
+use std::sync::{atomic::Ordering, Arc};
+
 use crate::{
 	invalidate_query,
 	job::JobProgressEvent,
-	node::config::NodeConfig,
-	util::{CacheNode, Model, Normalise, Reference},
+	node::config::{NodeConfig, NodePreferences},
+	util::Model,
 	Node,
 };
+use sd_p2p::P2PStatus;
+
 use itertools::Itertools;
 use rspc::{alpha::Rspc, Config, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::sync::{atomic::Ordering, Arc};
 use uuid::Uuid;
+
+mod auth;
+mod backups;
+mod cloud;
+// mod categories;
+mod ephemeral_files;
+mod files;
+mod jobs;
+mod keys;
+mod libraries;
+pub mod locations;
+mod nodes;
+pub mod notifications;
+mod p2p;
+mod preferences;
+pub(crate) mod search;
+mod sync;
+mod tags;
+pub mod utils;
+pub mod volumes;
+mod web_api;
 
 use utils::{InvalidRequests, InvalidateOperationEvent};
 
@@ -53,26 +77,6 @@ impl BackendFeature {
 	}
 }
 
-mod auth;
-mod backups;
-mod categories;
-mod ephemeral_files;
-mod files;
-mod jobs;
-mod keys;
-mod libraries;
-pub mod locations;
-mod nodes;
-pub mod notifications;
-mod p2p;
-mod preferences;
-pub(crate) mod search;
-mod sync;
-mod tags;
-pub mod utils;
-pub mod volumes;
-mod web_api;
-
 // A version of [NodeConfig] that is safe to share with the frontend
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
 pub struct SanitisedNodeConfig {
@@ -83,6 +87,7 @@ pub struct SanitisedNodeConfig {
 	pub p2p_enabled: bool,
 	pub p2p_port: Option<u16>,
 	pub features: Vec<BackendFeature>,
+	pub preferences: NodePreferences,
 }
 
 impl From<NodeConfig> for SanitisedNodeConfig {
@@ -93,15 +98,17 @@ impl From<NodeConfig> for SanitisedNodeConfig {
 			p2p_enabled: value.p2p.enabled,
 			p2p_port: value.p2p.port,
 			features: value.features,
+			preferences: value.preferences,
 		}
 	}
 }
 
-#[derive(Serialize, Deserialize, Debug, Type)]
+#[derive(Serialize, Debug, Type)]
 struct NodeState {
 	#[serde(flatten)]
 	config: SanitisedNodeConfig,
 	data_path: String,
+	p2p: P2PStatus,
 }
 
 pub(crate) fn mount() -> Arc<Router> {
@@ -130,6 +137,7 @@ pub(crate) fn mount() -> Arc<Router> {
 						.to_str()
 						.expect("Found non-UTF-8 path")
 						.to_string(),
+					p2p: node.p2p.manager.status(),
 				})
 			})
 		})
@@ -139,14 +147,14 @@ pub(crate) fn mount() -> Arc<Router> {
 
 				let enabled = if config.features.iter().contains(&feature) {
 					node.config
-						.write(|mut cfg| {
+						.write(|cfg| {
 							cfg.features.retain(|f| *f != feature);
 						})
 						.await
 						.map(|_| false)
 				} else {
 					node.config
-						.write(|mut cfg| {
+						.write(|cfg| {
 							cfg.features.push(feature.clone());
 						})
 						.await
@@ -170,49 +178,14 @@ pub(crate) fn mount() -> Arc<Router> {
 				Ok(())
 			})
 		})
-		.procedure("demo", {
-			#[derive(Debug, Serialize, Type)]
-			pub struct User {
-				id: i32,
-				name: String,
-			}
-
-			impl Model for User {
-				fn name() -> &'static str {
-					"user"
-				}
-			}
-
-			#[derive(Serialize, Type)]
-			pub struct DemoResult {
-				nodes: Vec<CacheNode>,
-				data: Vec<Reference<User>>,
-			}
-
-			R.query(|_, _: ()| async move {
-				let users = vec![
-					User {
-						id: 1,
-						name: "User 1".to_string(),
-					},
-					User {
-						id: 2,
-						name: "User 2".to_string(),
-					},
-				];
-
-				let (nodes, data) = users.normalise(|u| u.id.to_string());
-
-				Ok(DemoResult { nodes, data })
-			})
-		})
 		.merge("api.", web_api::mount())
 		.merge("auth.", auth::mount())
+		.merge("cloud.", cloud::mount())
 		.merge("search.", search::mount())
 		.merge("library.", libraries::mount())
 		.merge("volumes.", volumes::mount())
 		.merge("tags.", tags::mount())
-		.merge("categories.", categories::mount())
+		// .merge("categories.", categories::mount())
 		// .merge("keys.", keys::mount())
 		.merge("locations.", locations::mount())
 		.merge("ephemeralFiles.", ephemeral_files::mount())

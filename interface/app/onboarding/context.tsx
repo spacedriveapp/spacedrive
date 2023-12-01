@@ -128,7 +128,7 @@ const useFormState = () => {
 				}
 
 				resetOnboardingStore();
-				navigate(`/${library.uuid}/overview`, { replace: true });
+				navigate(`/${library.uuid}`, { replace: true });
 			} catch (e) {
 				if (e instanceof Error) {
 					alert(`Failed to create library. Error: ${e.message}`);

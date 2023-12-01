@@ -1,7 +1,13 @@
 import clsx from 'clsx';
 import { memo } from 'react';
 import { useMatch } from 'react-router';
-import { byteSize, getItemFilePath, getItemLocation, type ExplorerItem } from '@sd/client';
+import {
+	byteSize,
+	getExplorerItemData,
+	getItemFilePath,
+	getItemLocation,
+	type ExplorerItem
+} from '@sd/client';
 
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
@@ -21,6 +27,7 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProp
 	const explorer = useExplorerContext();
 	const { showBytesInGridView } = explorer.useSettingsSnapshot();
 
+	const explorerItemData = getExplorerItemData(data);
 	const filePathData = getItemFilePath(data);
 	const location = getItemLocation(data);
 	const isEphemeralLocation = useMatch('/:libraryId/ephemeral/:ephemeralId');
@@ -41,9 +48,9 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProp
 			>
 				<FileThumb
 					data={data}
-					frame
-					blackBars
+					frame={explorerItemData.kind !== 'Video'}
 					extension
+					blackBars
 					className={clsx('px-2 py-1', cut && 'opacity-60')}
 				/>
 			</div>

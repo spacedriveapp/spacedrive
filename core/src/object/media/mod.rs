@@ -28,6 +28,23 @@ pub fn media_data_image_to_query(
 	})
 }
 
+#[cfg(feature = "location-watcher")]
+pub fn media_data_image_to_query_params(
+	mdi: ImageMetadata,
+) -> Result<Vec<SetParam>, MediaDataError> {
+	Ok(vec![
+		camera_data::set(serde_json::to_vec(&mdi.camera_data).ok()),
+		media_date::set(serde_json::to_vec(&mdi.date_taken).ok()),
+		resolution::set(serde_json::to_vec(&mdi.resolution).ok()),
+		media_location::set(serde_json::to_vec(&mdi.location).ok()),
+		artist::set(mdi.artist),
+		description::set(mdi.description),
+		copyright::set(mdi.copyright),
+		exif_version::set(mdi.exif_version),
+		epoch_time::set(mdi.date_taken.map(|x| x.unix_timestamp())),
+	])
+}
+
 pub fn media_data_image_from_prisma_data(
 	data: sd_prisma::prisma::media_data::Data,
 ) -> Result<ImageMetadata, MediaDataError> {

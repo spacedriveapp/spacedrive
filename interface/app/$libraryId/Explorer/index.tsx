@@ -1,19 +1,21 @@
 import { FolderNotchOpen } from '@phosphor-icons/react';
 import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
-import { useKeys } from 'rooks';
 import { getExplorerLayoutStore, useExplorerLayoutStore, useLibrarySubscription } from '@sd/client';
-import { useKeysMatcher, useOperatingSystem } from '~/hooks';
+import { useShortcut } from '~/hooks';
 
-import { TOP_BAR_HEIGHT } from '../TopBar';
+import { useTopBarContext } from '../TopBar/Layout';
 import { useExplorerContext } from './Context';
 import ContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
 import { Inspector, INSPECTOR_WIDTH } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
-import { useExplorerStore } from './store';
+import { getQuickPreviewStore } from './QuickPreview/store';
+import { getExplorerStore, useExplorerStore } from './store';
 import { useKeyRevealFinder } from './useKeyRevealFinder';
 import View, { EmptyNotice, ExplorerViewProps } from './View';
 import { ExplorerPath, PATH_BAR_HEIGHT } from './View/ExplorerPath';
+
+import 'react-slidedown/lib/slidedown.css';
 
 interface Props {
 	emptyNotice?: ExplorerViewProps['emptyNotice'];
@@ -28,10 +30,6 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorerStore = useExplorerStore();
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
-	const shortcuts = useKeysMatcher(['Meta', 'Shift', 'Alt']);
-	const os = useOperatingSystem();
-	const hiddenFilesShortcut =
-		os === 'macOS' ? [shortcuts.Meta.key, 'Shift', '.'] : [shortcuts.Meta.key, 'KeyH'];
 
 	const showPathBar = explorer.showPathBar && layoutStore.showPathBar;
 
@@ -48,17 +46,25 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 		}
 	});
 
-	useKeys([shortcuts.Alt.key, shortcuts.Meta.key, 'KeyP'], (e) => {
+	useShortcut('showPathBar', (e) => {
 		e.stopPropagation();
 		getExplorerLayoutStore().showPathBar = !layoutStore.showPathBar;
 	});
 
-	useKeys(hiddenFilesShortcut, (e) => {
+	useShortcut('showInspector', (e) => {
+		e.stopPropagation();
+		if (getQuickPreviewStore().open) return;
+		getExplorerStore().showInspector = !explorerStore.showInspector;
+	});
+
+	useShortcut('showHiddenFiles', (e) => {
 		e.stopPropagation();
 		explorer.settingsStore.showHiddenFiles = !explorer.settingsStore.showHiddenFiles;
 	});
 
 	useKeyRevealFinder();
+
+	const topBar = useTopBarContext();
 
 	return (
 		<>
@@ -69,11 +75,11 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 						className="custom-scroll explorer-scroll h-screen overflow-x-hidden"
 						style={
 							{
-								'--scrollbar-margin-top': `${TOP_BAR_HEIGHT}px`,
+								'--scrollbar-margin-top': `${topBar.topBarHeight}px`,
 								'--scrollbar-margin-bottom': `${
 									showPathBar ? PATH_BAR_HEIGHT + 2 : 0 // TODO: Fix for web app
 								}px`,
-								'paddingTop': TOP_BAR_HEIGHT,
+								'paddingTop': topBar.topBarHeight,
 								'paddingRight': explorerStore.showInspector ? INSPECTOR_WIDTH : 0
 							} as CSSProperties
 						}
@@ -96,14 +102,13 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 					</div>
 				</div>
 			</ExplorerContextMenu>
-
 			{showPathBar && <ExplorerPath />}
 
 			{explorerStore.showInspector && (
 				<Inspector
 					className="no-scrollbar absolute right-1.5 top-0 pb-3 pl-3 pr-1.5"
 					style={{
-						paddingTop: TOP_BAR_HEIGHT + 12,
+						paddingTop: topBar.topBarHeight + 12,
 						bottom: showPathBar ? PATH_BAR_HEIGHT : 0
 					}}
 				/>

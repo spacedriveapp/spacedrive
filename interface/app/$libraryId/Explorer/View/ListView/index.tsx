@@ -7,13 +7,13 @@ import {
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import BasicSticky from 'react-sticky-el';
-import { useKey, useMutationObserver, useWindowEventListener } from 'rooks';
+import { useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import { getItemFilePath, type ExplorerItem } from '@sd/client';
 import { ContextMenu, Tooltip } from '@sd/ui';
-import { useIsTextTruncated, useMouseNavigate } from '~/hooks';
+import { useIsTextTruncated, useShortcut } from '~/hooks';
 import { isNonEmptyObject } from '~/util';
 
 import { useLayoutContext } from '../../../Layout/Context';
@@ -101,7 +101,6 @@ export default () => {
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
 	const settings = explorer.useSettingsSnapshot();
-	const mouseNavigate = useMouseNavigate();
 
 	const tableRef = useRef<HTMLDivElement>(null);
 	const tableHeaderRef = useRef<HTMLDivElement>(null);
@@ -148,10 +147,10 @@ export default () => {
 
 	const virtualRows = rowVirtualizer.getVirtualItems();
 
-	function handleRowClick(
+	const handleRowClick = (
 		e: React.MouseEvent<HTMLDivElement, MouseEvent>,
 		row: Row<ExplorerItem>
-	) {
+	) => {
 		// Ensure mouse click is with left button
 		if (e.button !== 0) return;
 
@@ -422,7 +421,7 @@ export default () => {
 		} else {
 			explorer.resetSelectedItems([item]);
 		}
-	}
+	};
 
 	function handleRowContextMenu(row: Row<ExplorerItem>) {
 		if (explorerView.contextMenu === undefined) return;
@@ -437,7 +436,7 @@ export default () => {
 	}
 
 	const scrollToRow = useCallback(
-		(row: Row<ExplorerItem>, options: { behavior?: ScrollBehavior } = {}) => {
+		(row: Row<ExplorerItem>) => {
 			if (!explorer.scrollRef.current || !tableBodyRef.current) return;
 
 			const scrollRect = explorer.scrollRef.current.getBoundingClientRect();
@@ -458,13 +457,7 @@ export default () => {
 
 			if (rowTop < tableTop) {
 				const scrollBy = rowTop - tableTop - (row.index === 0 ? padding.top : 0);
-
-				explorer.scrollRef.current.scrollBy({
-					top: scrollBy,
-					behavior:
-						options.behavior ??
-						(Math.abs(scrollBy) > ROW_HEIGHT * 10 ? 'auto' : 'smooth')
-				});
+				explorer.scrollRef.current.scrollBy({ top: scrollBy });
 			} else if (rowBottom > scrollRect.height - (explorerView.bottom ?? 0)) {
 				const scrollBy =
 					rowBottom -
@@ -472,12 +465,7 @@ export default () => {
 					(explorerView.bottom ?? 0) +
 					(row.index === rows.length - 1 ? padding.bottom : 0);
 
-				explorer.scrollRef.current.scrollBy({
-					top: scrollBy,
-					behavior:
-						options.behavior ??
-						(Math.abs(scrollBy) > ROW_HEIGHT * 10 ? 'auto' : 'smooth')
-				});
+				explorer.scrollRef.current.scrollBy({ top: scrollBy });
 			}
 		},
 		[
@@ -493,6 +481,19 @@ export default () => {
 	);
 
 	useEffect(() => setRanges([]), [settings.order]);
+
+	//this is to handle selection for quickpreview slider
+	useEffect(() => {
+		if (!getQuickPreviewStore().open || explorer.selectedItems.size !== 1) return;
+
+		const [item] = [...explorer.selectedItems];
+		if (!item) return;
+
+		explorer.resetSelectedItems([item]);
+
+		const itemId = uniqueId(item);
+		setRanges([[itemId, itemId]]);
+	}, [explorer]);
 
 	useEffect(() => {
 		if (initialized || !sized || !explorer.count || explorer.selectedItems.size === 0) {
@@ -511,7 +512,7 @@ export default () => {
 		const lastRow = rows[rows.length - 1];
 		if (!lastRow) return;
 
-		scrollToRow(lastRow, { behavior: 'auto' });
+		scrollToRow(lastRow);
 		setRanges(rows.map((row) => [uniqueId(row.original), uniqueId(row.original)] as Range));
 		setInitialized(true);
 	}, [explorer.count, explorer.selectedItems, initialized, rowsById, scrollToRow, sized]);
@@ -607,15 +608,14 @@ export default () => {
 		};
 	}, [sized, isLeftMouseDown]);
 
-	// Handle key selection
-	useKey(['ArrowUp', 'ArrowDown', 'Escape'], (e) => {
+	const keyboardHandler = (e: KeyboardEvent, direction: 'ArrowDown' | 'ArrowUp') => {
 		if (!explorerView.selectable) return;
 
 		e.preventDefault();
 
 		const range = getRangeByIndex(ranges.length - 1);
 
-		if (e.key === 'ArrowDown' && explorer.selectedItems.size === 0) {
+		if (explorer.selectedItems.size === 0) {
 			const item = rows[0]?.original;
 			if (item) {
 				explorer.addSelectedItem(item);
@@ -626,13 +626,7 @@ export default () => {
 
 		if (!range) return;
 
-		if (e.key === 'Escape') {
-			explorer.resetSelectedItems([]);
-			setRanges([]);
-			return;
-		}
-
-		const keyDirection = e.key === 'ArrowDown' ? 'down' : 'up';
+		const keyDirection = direction === 'ArrowDown' ? 'down' : 'up';
 
 		const nextRow = rows[range.end.index + (keyDirection === 'up' ? -1 : 1)];
 
@@ -766,6 +760,20 @@ export default () => {
 		} else explorer.resetSelectedItems([item]);
 
 		scrollToRow(nextRow);
+	};
+
+	useShortcut('explorerEscape', () => {
+		if (!explorerView.selectable || explorer.selectedItems.size === 0) return;
+		explorer.resetSelectedItems([]);
+		setRanges([]);
+	});
+
+	useShortcut('explorerUp', (e) => {
+		keyboardHandler(e, 'ArrowUp');
+	});
+
+	useShortcut('explorerDown', (e) => {
+		keyboardHandler(e, 'ArrowDown');
 	});
 
 	// Reset resizing cursor
@@ -812,16 +820,26 @@ export default () => {
 	});
 
 	// Set header position and list offset
-	useMutationObserver(explorer.scrollRef, () => {
-		const view = explorerView.ref.current;
-		const scroll = explorer.scrollRef.current;
-		if (!view || !scroll) return;
-		setTop(
-			explorerView.top ??
-				parseInt(getComputedStyle(scroll).paddingTop) + scroll.getBoundingClientRect().top
-		);
-		setListOffset(tableRef.current?.offsetTop ?? 0);
-	});
+	useEffect(() => {
+		const element = explorer.scrollRef.current;
+		if (!element) return;
+
+		const observer = new MutationObserver(() => {
+			setTop(
+				explorerView.top ??
+					parseInt(getComputedStyle(element).paddingTop) +
+						element.getBoundingClientRect().top
+			);
+			setListOffset(tableRef.current?.offsetTop ?? 0);
+		});
+
+		observer.observe(element, {
+			attributes: true,
+			subtree: true
+		});
+
+		return () => observer.disconnect();
+	}, [explorer.scrollRef, explorerView.top]);
 
 	// Set list offset
 	useLayoutEffect(() => setListOffset(tableRef.current?.offsetTop ?? 0), []);
@@ -830,8 +848,9 @@ export default () => {
 		<div
 			ref={tableRef}
 			onMouseDown={(e) => {
+				if (e.button !== 0) return;
+
 				e.stopPropagation();
-				mouseNavigate(e);
 				setIsLeftMouseDown(true);
 			}}
 			className={clsx(!initialized && 'invisible')}
@@ -866,9 +885,15 @@ export default () => {
 											{headerGroup.headers.map((header, i) => {
 												const size = header.column.getSize();
 
+												const orderKey =
+													settings.order && orderingKey(settings.order);
+
 												const orderingDirection =
+													orderKey &&
 													settings.order &&
-													orderingKey(settings.order) === header.id
+													(orderKey.startsWith('object.')
+														? orderKey.split('object.')[1] === header.id
+														: orderKey === header.id)
 														? getOrderingDirection(settings.order)
 														: null;
 
@@ -896,15 +921,40 @@ export default () => {
 														}}
 														onClick={() => {
 															if (resizing) return;
-															if (header.column.getCanSort()) {
-																explorer.settingsStore.order =
-																	createOrdering(
-																		header.id,
-																		orderingDirection === 'Asc'
-																			? 'Desc'
-																			: 'Asc'
-																	);
-															}
+
+															// Split table into smaller parts
+															// cause this looks hideous
+															const orderKey =
+																explorer.orderingKeys?.options.find(
+																	(o) => {
+																		if (
+																			typeof o.value !==
+																			'string'
+																		)
+																			return;
+
+																		const value =
+																			o.value as string;
+
+																		return value.startsWith(
+																			'object.'
+																		)
+																			? value.split(
+																					'object.'
+																			  )[1] === header.id
+																			: value === header.id;
+																	}
+																);
+
+															if (!orderKey) return;
+
+															explorer.settingsStore.order =
+																createOrdering(
+																	orderKey.value,
+																	orderingDirection === 'Asc'
+																		? 'Desc'
+																		: 'Asc'
+																);
 														}}
 													>
 														{header.isPlaceholder ? null : (

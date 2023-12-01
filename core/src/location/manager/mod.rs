@@ -527,7 +527,7 @@ impl Locations {
 						to_remove.remove(&key);
 					} else if let Some(location) = get_location(location_id, &library).await {
 						// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
-						if location.instance_id == Some(library.config().instance_id) {
+						if location.instance_id == Some(library.config().await.instance_id) {
 							let is_online = match check_online(&location, &node, &library).await {
 								Ok(is_online) => is_online,
 								Err(e) => {

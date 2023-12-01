@@ -1,6 +1,8 @@
 name: Server release
 
 on:
+  release:
+    types: [published]
   workflow_dispatch:
 
 jobs:
@@ -28,32 +30,33 @@ jobs:
       - name: Update buildah
         shell: bash
         run: |
-          wget -O- 'https://github.com/nicholasdille/buildah-static/releases/download/v1.30.0/buildah-amd64.tar.gz' \
-          | sudo tar -xzf- -C /usr/
+          wget -O- 'https://github.com/HeavenVolkoff/buildah-static/releases/latest/download/buildah-amd64.tar.gz' \
+          | sudo tar -xzf- -C /usr/local/bin
 
       - name: Determine image name & tag
         id: image_info
         shell: bash
         run: |
           if [ "$GITHUB_EVENT_NAME" == "release" ]; then
-            IMAGE_TAG=${GITHUB_REF##*/}
+            IMAGE_TAG="${GITHUB_REF##*/}"
           else
-            IMAGE_TAG=$(git rev-parse --short "$GITHUB_SHA")
+            IMAGE_TAG="$(git rev-parse --short "$GITHUB_SHA")"
           fi
-          GITHUB_REPOSITORY_LOWER=$(echo $GITHUB_REPOSITORY | awk '{print tolower($0)}')
-          IMAGE_NAME="$GITHUB_REPOSITORY_LOWER/server"
+          IMAGE_TAG="${IMAGE_TAG,,}"
+          IMAGE_NAME="${GITHUB_REPOSITORY,,}/server"
 
-          echo "Building $IMAGE_NAME:$IMAGE_TAG"
-          echo "tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
-          echo "name=${IMAGE_NAME}" >> $GITHUB_OUTPUT
-          echo "repo=${GITHUB_REPOSITORY}" >> $GITHUB_OUTPUT
-          echo "repo_ref=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+          echo "Building ${IMAGE_NAME}:${IMAGE_TAG}"
+
+          echo "tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "name=${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
+          echo "repo=${GITHUB_REPOSITORY}" >> "$GITHUB_OUTPUT"
+          echo "repo_ref=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> "$GITHUB_OUTPUT"
 
       - name: Build image
         id: build-image
         uses: redhat-actions/buildah-build@v2
         with:
-          tags: ${{ steps.image_info.outputs.tag }} ${{ github.event_name == 'release' && 'production' || 'staging' }}
+          tags: ${{ steps.image_info.outputs.tag }} ${{ github.event_name == 'release' && 'latest' || 'staging' }}
           archs: amd64
           image: ${{ steps.image_info.outputs.name }}
           layers: 'false'
