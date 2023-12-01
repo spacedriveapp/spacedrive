@@ -233,6 +233,7 @@ impl Node {
 		self.thumbnailer.shutdown().await;
 		self.jobs.shutdown().await;
 		self.p2p.shutdown().await;
+		#[cfg(feature = "skynet")]
 		self.image_labeller.shutdown().await;
 		info!("Spacedrive Core shutdown successful!");
 	}

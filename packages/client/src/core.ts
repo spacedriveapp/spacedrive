@@ -448,7 +448,7 @@ export type Statistics = { id: number; date_captured: string; total_object_count
 
 export type SystemLocations = { desktop: string | null; documents: string | null; downloads: string | null; pictures: string | null; music: string | null; videos: string | null }
 
-export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; redundancy_goal: number | null; date_created: string | null; date_modified: string | null }
+export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; kind: number | null; is_hidden: boolean | null; date_created: string | null; date_modified: string | null }
 
 export type TagCreateArgs = { name: string; color: string }
 

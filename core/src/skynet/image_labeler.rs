@@ -27,7 +27,7 @@ use tokio::{
 	task::{block_in_place, JoinHandle},
 };
 use tokio_stream::StreamExt;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 type BatchToken = u64;
 type ModelInput = (BatchToken, file_path::id::Type, Vec<u8>, ImageFormat);
@@ -140,7 +140,7 @@ impl Model {
 							.reduce(|accum, row| if row.1 > accum.1 { row } else { accum })
 							.expect("not empty output")
 					})
-					.filter(|(_, probability)| *probability > 0.8)
+					.filter(|(_, probability)| *probability > 0.6)
 					.map(|(class_id, _)| YOLOV8_CLASS_LABELS[class_id])
 					.collect::<HashSet<_>>()
 					.into_iter()
@@ -202,7 +202,7 @@ impl ImageLabeller {
 				) {
 					// If we sucessfully receive a cancellation signal or if the channel is closed or lagged,
 					// we break the loop
-					warn!("Model supervisor stopping: {cancel_res:#?}");
+					debug!("Model supervisor stopping");
 					break;
 				}
 			}
@@ -439,7 +439,7 @@ async fn process_batches(
 			}
 
 			StreamMessage::Shutdown => {
-				warn!("Shutting down image labeller batch processor");
+				debug!("Shutting down image labeller batch processor");
 				break;
 			}
 		}

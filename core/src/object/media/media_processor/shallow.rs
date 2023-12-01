@@ -12,16 +12,15 @@ use crate::{
 	Node,
 };
 
-use std::{
-	collections::HashMap,
-	path::{Path, PathBuf},
-};
+#[cfg(feature = "skynet")]
+use crate::object::tag::assign_labels;
+
+use sd_file_ext::extensions::Extension;
+
+use std::path::{Path, PathBuf};
 
 use itertools::Itertools;
 use prisma_client_rust::{raw, PrismaValue};
-use sd_file_ext::extensions::Extension;
-#[cfg(feature = "skynet")]
-use tokio_stream::StreamExt;
 use tracing::{debug, error};
 
 use super::{
@@ -35,11 +34,9 @@ const BATCH_SIZE: usize = 10;
 pub async fn shallow(
 	location: &location::Data,
 	sub_path: &PathBuf,
-	library: &Library,
+	library @ Library { db, .. }: &Library,
 	node: &Node,
 ) -> Result<(), JobError> {
-	let Library { db, .. } = library;
-
 	let location_id = location.id;
 	let location_path = maybe_missing(&location.path, "location.path").map(PathBuf::from)?;
 
@@ -84,13 +81,17 @@ pub async fn shallow(
 	let file_paths = get_files_for_media_data_extraction(db, &iso_file_path).await?;
 
 	#[cfg(feature = "skynet")]
-	let file_paths_for_labelling = file_paths.clone();
+	let file_paths_for_labelling = get_files_for_labeling(db, &iso_file_path, true).await?;
 
 	#[cfg(feature = "skynet")]
-	let file_names_by_id = file_paths
+	let object_id_by_file_path_id = file_paths
 		.iter()
-		.map(|file_path| (file_path.id, file_path.name.clone().expect("has name")))
-		.collect::<HashMap<_, _>>();
+		.filter_map(|file_path| {
+			file_path
+				.object_id
+				.map(|object_id| (file_path.id, object_id))
+		})
+		.collect::<std::collections::HashMap<_, _>>();
 
 	let total_files = file_paths.len();
 
@@ -134,24 +135,17 @@ pub async fn shallow(
 	}
 
 	#[cfg(feature = "skynet")]
-	labels_rx
-		.collect::<Vec<_>>()
-		.await
-		.into_iter()
-		.for_each(|(file_path_id, res)| match res {
-			Ok(labels) => {
-				debug!(
-					"Labels for '{}': {labels:#?}",
-					file_names_by_id[&file_path_id]
-				);
+	while let Ok((file_path_id, res)) = labels_rx.recv().await {
+		if let Ok(labels) = res.map_err(|e| {
+			error!("Failed to generate labels <file_path_id='{file_path_id}'>: {e:#?}",)
+		}) {
+			if let Err(e) =
+				assign_labels(object_id_by_file_path_id[&file_path_id], labels, library).await
+			{
+				error!("Failed to assign labels: {e:#?}");
 			}
-			Err(e) => {
-				error!(
-					"Failed to label file '{}': {e:#?}",
-					file_names_by_id[&file_path_id]
-				);
-			}
-		});
+		}
+	}
 
 	Ok(())
 }
@@ -167,6 +161,25 @@ async fn get_files_for_media_data_extraction(
 	)
 	.await
 	.map_err(Into::into)
+}
+
+#[cfg(feature = "skynet")]
+async fn get_files_for_labeling(
+	db: &PrismaClient,
+	parent_iso_file_path: &IsolatedFilePathData<'_>,
+	regenerate_labels: bool,
+) -> Result<Vec<file_path_for_media_processor::Data>, MediaProcessorError> {
+	if regenerate_labels {
+		get_files_by_extensions(
+			db,
+			parent_iso_file_path,
+			&media_data_extractor::FILTERED_IMAGE_EXTENSIONS,
+		)
+		.await
+		.map_err(Into::into)
+	} else {
+		todo!("get_files_for_labeling without regenerating labels")
+	}
 }
 
 async fn dispatch_thumbnails_for_processing(
