@@ -132,7 +132,9 @@ impl Node {
 			http: reqwest::Client::new(),
 			env,
 			#[cfg(feature = "skynet")]
-			image_labeller: ImageLabeller::new(data_dir.join("models/yolov8m.onnx"), Model::YoloV8),
+			image_labeller: ImageLabeller::new(data_dir.join("models/yolov8m.onnx"), Model::YoloV8)
+				.await
+				.map_err(skynet::Error::from)?,
 		});
 
 		// Restore backend feature flags
@@ -231,6 +233,7 @@ impl Node {
 		self.thumbnailer.shutdown().await;
 		self.jobs.shutdown().await;
 		self.p2p.shutdown().await;
+		self.image_labeller.shutdown().await;
 		info!("Spacedrive Core shutdown successful!");
 	}
 
@@ -317,6 +320,6 @@ pub enum NodeError {
 	#[error("logger error: {0}")]
 	Logger(#[from] FromEnvError),
 	#[cfg(feature = "skynet")]
-	#[error("Skynet error: {0}")]
-	Skynet(#[from] ort::Error),
+	#[error("skynet error: {0}")]
+	Skynet(#[from] skynet::Error),
 }

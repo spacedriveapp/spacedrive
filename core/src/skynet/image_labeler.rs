@@ -6,6 +6,7 @@ use crate::{
 use sd_prisma::prisma::{file_path, location};
 
 use std::{
+	cell::RefCell,
 	collections::{HashMap, HashSet},
 	path::{Path, PathBuf},
 	pin::pin,
@@ -14,6 +15,7 @@ use std::{
 
 use async_channel as chan;
 use crossbeam::channel;
+use futures::stream::once;
 use futures_concurrency::{future::Join, stream::Merge};
 use image::{imageops::FilterType, GenericImageView, ImageFormat};
 use ndarray::{s, Array, Axis};
@@ -24,8 +26,8 @@ use tokio::{
 	sync::broadcast,
 	task::{block_in_place, JoinHandle},
 };
-use tokio_stream::{wrappers::BroadcastStream, StreamExt};
-use tracing::{debug, error};
+use tokio_stream::StreamExt;
+use tracing::{debug, error, info, warn};
 
 type BatchToken = u64;
 type ModelInput = (BatchToken, file_path::id::Type, Vec<u8>, ImageFormat);
@@ -47,6 +49,8 @@ pub enum ImageLabellerError {
 	UnsupportedExtension(file_path::id::Type, String),
 	#[error("file_path too big: <id='{0}', size='{1}'>")]
 	FileTooBig(file_path::id::Type, usize),
+	#[error("model file not found: {}", .0.display())]
+	ModelFileNotFound(Box<Path>),
 
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
@@ -149,11 +153,12 @@ impl Model {
 
 pub struct ImageLabeller {
 	batches_tx: chan::Sender<Batch>,
-	handles: [JoinHandle<()>; 2],
+	handles: [RefCell<Option<JoinHandle<()>>>; 2],
+	cancel_tx: broadcast::Sender<()>,
 }
 
 impl ImageLabeller {
-	pub fn new(model_path: PathBuf, model: Model) -> Self {
+	pub async fn new(model_path: PathBuf, model: Model) -> Result<Self, ImageLabellerError> {
 		let (images_tx, images_rx) = channel::unbounded();
 		let (results_tx, results_rx) = chan::unbounded();
 
@@ -161,26 +166,43 @@ impl ImageLabeller {
 
 		let (cancel_tx, mut cancel_rx) = broadcast::channel(1);
 
+		if matches!(fs::metadata(&model_path).await, Err(e) if e.kind() == std::io::ErrorKind::NotFound)
+		{
+			return Err(ImageLabellerError::ModelFileNotFound(
+				model_path.into_boxed_path(),
+			));
+		}
+
 		let model_supervisor_handle = tokio::spawn(async move {
 			loop {
 				thread::scope(|s| {
 					let handle = s.spawn(|| {
-						model_executor(&model_path, model, images_rx.clone(), results_tx.clone())
+						if let Err(e) = model_executor(
+							&model_path,
+							model,
+							images_rx.clone(),
+							results_tx.clone(),
+						) {
+							error!("Model executor failed: {e:#?}; restarting...");
+						}
 					});
 
 					if let Err(e) = block_in_place(|| handle.join()) {
-						error!("Model executor failed: {e:#?}; restarting...");
+						error!("Model executor panicked {e:#?}; restarting...");
 					}
 				});
 
+				let cancel_res = cancel_rx.try_recv();
+
 				if matches!(
-					cancel_rx.try_recv(),
+					cancel_res,
 					Ok(())
 						| Err(broadcast::error::TryRecvError::Closed
 							| broadcast::error::TryRecvError::Lagged(_))
 				) {
 					// If we sucessfully receive a cancellation signal or if the channel is closed or lagged,
 					// we break the loop
+					warn!("Model supervisor stopping: {cancel_res:#?}");
 					break;
 				}
 			}
@@ -215,10 +237,14 @@ impl ImageLabeller {
 			}
 		});
 
-		Self {
+		Ok(Self {
 			batches_tx,
-			handles: [model_supervisor_handle, batch_supervisor_handle],
-		}
+			handles: [
+				RefCell::new(Some(model_supervisor_handle)),
+				RefCell::new(Some(batch_supervisor_handle)),
+			],
+			cancel_tx,
+		})
 	}
 
 	pub async fn new_batch(
@@ -245,21 +271,33 @@ impl ImageLabeller {
 
 		rx
 	}
-}
 
-impl Drop for ImageLabeller {
-	fn drop(&mut self) {
+	pub async fn shutdown(&self) {
 		debug!("Shutting down image labeller");
-		self.handles.iter().for_each(JoinHandle::abort);
 		self.batches_tx.close();
+		self.cancel_tx.send(()).ok();
+		for handle in self
+			.handles
+			.iter()
+			.filter_map(|ref_cell| ref_cell.try_borrow_mut().ok().and_then(|mut op| op.take()))
+		{
+			handle.abort();
+			if let Err(e) = handle.await {
+				error!("Failed to join image labeller supervisors: {e:#?}");
+			}
+		}
 	}
 }
+
+/// SAFETY: Due to usage of refcell we lost `Sync` impl, but we only use it to have a shutdown method
+/// receiving `&self` which is called once
+unsafe impl Sync for ImageLabeller {}
 
 async fn process_batches(
 	images_tx: channel::Sender<ModelInput>,
 	batches_rx: chan::Receiver<Batch>,
 	results_rx: chan::Receiver<ModelOutput>,
-	cancel_rx: broadcast::Receiver<()>,
+	mut cancel_rx: broadcast::Receiver<()>,
 ) {
 	let mut batch_token = 0u64;
 
@@ -274,7 +312,7 @@ async fn process_batches(
 	let mut msg_stream = pin!((
 		batches_rx.map(StreamMessage::Batch),
 		results_rx.map(StreamMessage::Results),
-		BroadcastStream::new(cancel_rx).map(|_| StreamMessage::Shutdown)
+		once(cancel_rx.recv()).map(|_| StreamMessage::Shutdown)
 	)
 		.merge());
 
@@ -401,7 +439,7 @@ async fn process_batches(
 			}
 
 			StreamMessage::Shutdown => {
-				debug!("Shutting down image labeller batch processor");
+				warn!("Shutting down image labeller batch processor");
 				break;
 			}
 		}
@@ -414,17 +452,13 @@ fn model_executor(
 	images_rx: channel::Receiver<ModelInput>,
 	results_tx: chan::Sender<ModelOutput>,
 ) -> Result<(), ImageLabellerError> {
-	debug!("Starting model executor");
-	let session_builder = SessionBuilder::new()?;
-	// .with_parallel_execution(true)?
-	// .with_memory_pattern(true)?
-	debug!(
-		"session builder creates: model path: {}",
-		model_path.display()
-	);
-	let session = session_builder.with_model_from_file(model_path)?;
-	debug!("Model executor started");
+	info!("Starting image labeler model executor");
+	let session = SessionBuilder::new()?
+		.with_parallel_execution(true)?
+		.with_memory_pattern(true)?
+		.with_model_from_file(model_path)?;
 
+	info!("Image labeler model executor started, waiting images...");
 	while let Ok((batch_token, file_path_id, image, format)) = images_rx.recv() {
 		let input = model.prepare_input(&image, format)?;
 		let output = session.run(input)?;

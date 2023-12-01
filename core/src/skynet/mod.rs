@@ -4,6 +4,7 @@ use std::{
 };
 
 use ort::{EnvironmentBuilder, LoggingLevel};
+use thiserror::Error;
 use tracing::{debug, error};
 
 pub mod image_labeler;
@@ -27,7 +28,7 @@ const LIB_NAME: &str = "libonnxruntime.dylib";
 #[cfg(any(target_os = "linux", target_os = "android"))]
 const LIB_NAME: &str = "libonnxruntime.so";
 
-pub(crate) fn init() -> Result<(), ort::Error> {
+pub(crate) fn init() -> Result<(), Error> {
 	let path = current_exe()
 		.unwrap_or_else(|e| {
 			error!("Failed to get current exe path: {e:#?}");
@@ -101,4 +102,12 @@ pub(crate) fn init() -> Result<(), ort::Error> {
 	debug!("Initialized AI environment");
 
 	Ok(())
+}
+
+#[derive(Error, Debug)]
+pub enum Error {
+	#[error("failed to initialize AI environment: {0}")]
+	Init(#[from] ort::Error),
+	#[error(transparent)]
+	ImageLabeler(#[from] image_labeler::ImageLabellerError),
 }
