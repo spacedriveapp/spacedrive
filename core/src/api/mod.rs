@@ -4,7 +4,6 @@ use crate::{
 	invalidate_query,
 	job::JobProgressEvent,
 	node::config::{NodeConfig, NodePreferences},
-	util::Model,
 	Node,
 };
 use sd_p2p::P2PStatus;

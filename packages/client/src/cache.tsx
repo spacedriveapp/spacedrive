@@ -10,6 +10,10 @@ import {
 } from 'react';
 import { proxy, snapshot, subscribe } from 'valtio';
 
+// TODO: Use Specta to export these
+export type Reference<T> = { '__type': string; '__id': string; '#type': T };
+export type CacheNode<T = any> = { '__type': string; '__id': string; '#node': T };
+
 declare global {
 	interface Window {
 		__REDUX_DEVTOOLS_EXTENSION__: any;
@@ -83,8 +87,6 @@ function restore(cache: Context, subscribed: Map<string, Set<unknown>>, item: un
 
 	return item;
 }
-
-type CacheNode = { '__type': string; '__id': string; '#node': any };
 
 export function useNodes(data: CacheNode[] | undefined) {
 	const cache = useCacheContext();

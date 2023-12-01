@@ -8,3 +8,4 @@ prisma-client-rust = { workspace = true }
 serde = "1.0"
 serde_json = "1.0"
 sd-sync = { path = "../sync" }
+sd-cache = { path = "../cache" }

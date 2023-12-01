@@ -14,12 +14,12 @@ use crate::{
 	library::Library,
 	location::{non_indexed, LocationError},
 	object::media::thumbnail::get_indexed_thumb_key,
-	util::{CacheNode, Model, Normalise, Reference},
 };
 
 use std::path::PathBuf;
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
+use sd_cache::{CacheNode, Model, Normalise, Reference};
 use sd_prisma::prisma::{self, PrismaClient};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -29,29 +29,15 @@ use super::{Ctx, R};
 const MAX_TAKE: u8 = 100;
 
 #[derive(Serialize, Type, Debug)]
-struct SearchData<T> {
-	cursor: Option<Vec<u8>>,
-	items: Vec<T>,
-}
-
-// TODO: Remove this
-#[derive(Serialize, Type, Debug)]
-struct SearchData2<T: Model> {
+struct SearchData<T: Model> {
 	cursor: Option<Vec<u8>>,
 	items: Vec<Reference<T>>,
 	nodes: Vec<CacheNode>,
 }
 
-impl<T: Model> Model for SearchData2<T> {
+impl<T: Model> Model for SearchData<T> {
 	fn name() -> &'static str {
 		T::name()
-	}
-}
-
-impl Model for ExplorerItem {
-	fn name() -> &'static str {
-		// TODO: Really this should be per-variant of `ExplorerItem`. Fix that!
-		"ExplorerItem"
 	}
 }
 
@@ -113,6 +99,13 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				order: Option<EphemeralPathOrder>,
 			}
 
+			#[derive(Serialize, Type, Debug)]
+			struct EphemeralPathsResult {
+				pub entries: Vec<Reference<ExplorerItem>>,
+				pub errors: Vec<rspc::Error>,
+				pub nodes: Vec<CacheNode>,
+			}
+
 			R.with2(library()).query(
 				|(node, library),
 				 EphemeralPathSearchArgs {
@@ -155,7 +148,13 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						)
 					}
 
-					Ok(paths)
+					let (nodes, entries) = paths.entries.normalise(|item| item.id());
+
+					Ok(EphemeralPathsResult {
+						entries,
+						errors: paths.errors,
+						nodes,
+					})
 				},
 			)
 		})
@@ -239,16 +238,9 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						})
 					}
 
-					let (nodes, items) = items.normalise(|item| {
-						match item {
-							ExplorerItem::Path { item, .. } => item.id,
-							// TODO: Avoid this unreachable
-							_ => unreachable!(),
-						}
-						.to_string()
-					});
+					let (nodes, items) = items.normalise(|item| item.id());
 
-					Ok(SearchData2 {
+					Ok(SearchData {
 						items,
 						cursor: None,
 						nodes,
@@ -365,7 +357,13 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						});
 					}
 
-					Ok(SearchData { items, cursor })
+					let (nodes, items) = items.normalise(|item| item.id());
+
+					Ok(SearchData {
+						nodes,
+						items,
+						cursor,
+					})
 				},
 			)
 		})

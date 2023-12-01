@@ -6786,6 +6786,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-cache"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "specta",
+]
+
+[[package]]
 name = "sd-cli"
 version = "0.1.0"
 dependencies = [
@@ -6837,6 +6846,7 @@ dependencies = [
  "rmp-serde",
  "rmpv",
  "rspc",
+ "sd-cache",
  "sd-core-sync",
  "sd-crypto",
  "sd-ffmpeg",
@@ -7097,6 +7107,7 @@ name = "sd-prisma"
 version = "0.1.0"
 dependencies = [
  "prisma-client-rust",
+ "sd-cache",
  "sd-sync",
  "serde",
  "serde_json",

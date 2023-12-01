@@ -3,11 +3,46 @@ use std::{marker::PhantomData, sync::Arc};
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use specta::Type;
 
+/// A type that can be used to return a group of `Reference<T>` and `CacheNode`'s
+///
+/// You don't need to use this, it's just a shortcut to avoid having to write out the full type everytime.
+#[derive(Serialize, Type, Debug)]
+pub struct NormalisedResults<T: Model + Type> {
+	pub items: Vec<Reference<T>>,
+	pub nodes: Vec<CacheNode>,
+}
+
+/// A type that can be used to return a group of `Reference<T>` and `CacheNode`'s
+///
+/// You don't need to use this, it's just a shortcut to avoid having to write out the full type everytime.
+#[derive(Serialize, Type, Debug)]
+pub struct NormalisedResult<T: Model + Type> {
+	pub item: Reference<T>,
+	pub nodes: Vec<CacheNode>,
+}
+
+impl<T: Model + Serialize + Type> NormalisedResult<T> {
+	pub fn from(item: T, id_fn: impl Fn(&T) -> String) -> Self {
+		let id = id_fn(&item);
+		Self {
+			item: Reference::new(id.clone()),
+			nodes: vec![CacheNode::new(id, item)],
+		}
+	}
+}
+
+/// A type which can be stored in the cache.
 pub trait Model {
 	/// Must return a unique identifier for this model within the cache.
 	fn name() -> &'static str;
 }
 
+/// A reference to a `CacheNode`.
+///
+/// This does not contain the actual data, but instead a reference to it.
+/// This allows the CacheNode's to be switched out and the query recomputed without any backend communication.
+///
+/// If you use a `Reference` in a query, you *must* ensure the `CacheNode` in also in the query.
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Reference<T>(String, PhantomData<T>);
 
@@ -43,7 +78,7 @@ impl<T: Model + Type> Type for Reference<T> {
 					key: "#type",
 					optional: false,
 					flatten: false,
-					ty: T::inline(opts, generics)?,
+					ty: T::reference(opts, generics)?,
 				},
 			],
 			tag: None,
@@ -63,6 +98,8 @@ impl<T: Model> Serialize for Reference<T> {
 	}
 }
 
+/// A node in the cache.
+/// This holds the data and is identified by it's type and id.
 #[derive(Debug, Clone)] // TODO: `Hash, PartialEq, Eq`
 pub struct CacheNode(
 	&'static str,
@@ -137,6 +174,7 @@ impl Serialize for CacheNode {
 	}
 }
 
+/// A helper for easily normalising data.
 pub trait Normalise {
 	type Item: Model + Type;
 

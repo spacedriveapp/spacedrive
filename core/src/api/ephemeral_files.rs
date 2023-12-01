@@ -12,6 +12,7 @@ use crate::{
 	util::error::FileIOError,
 };
 
+use sd_cache::{Model, NormalisedResult};
 use sd_file_ext::extensions::ImageExtension;
 use sd_media_metadata::MediaMetadata;
 
@@ -21,7 +22,7 @@ use async_recursion::async_recursion;
 use futures_concurrency::future::TryJoin;
 use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::{fs, io};
 use tokio_stream::{wrappers::ReadDirStream, StreamExt};
@@ -37,6 +38,18 @@ const UNTITLED_FOLDER_STR: &str = "Untitled Folder";
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("getMediaData", {
+			#[derive(Type, Serialize)]
+			pub struct MediaDataForPath {
+				pub path: PathBuf,
+				pub data: MediaMetadata,
+			}
+
+			impl Model for MediaDataForPath {
+				fn name() -> &'static str {
+					"MediaDataForPath"
+				}
+			}
+
 			R.query(|_, full_path: PathBuf| async move {
 				let Some(extension) = full_path.extension().and_then(|ext| ext.to_str()) else {
 					return Ok(None);
@@ -52,8 +65,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					return Ok(None);
 				}
 
-				match extract_media_data(full_path).await {
-					Ok(img_media_data) => Ok(Some(MediaMetadata::Image(Box::new(img_media_data)))),
+				match extract_media_data(full_path.clone()).await {
+					Ok(img_media_data) => Ok(Some(NormalisedResult::from(
+						MediaDataForPath {
+							path: full_path,
+							data: MediaMetadata::Image(Box::new(img_media_data)),
+						},
+						|i| i.path.as_os_str().to_string_lossy().to_string(),
+					))),
 					Err(MediaDataError::MediaData(sd_media_metadata::Error::NoExifDataOnPath(
 						_,
 					))) => Ok(None),

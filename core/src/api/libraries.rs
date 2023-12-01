@@ -6,6 +6,7 @@ use crate::{
 	Node,
 };
 
+use sd_cache::{Model, Normalise, NormalisedResults};
 use sd_p2p::spacetunnel::RemoteIdentity;
 use sd_prisma::prisma::{indexer_rule, statistics};
 
@@ -35,6 +36,12 @@ pub struct LibraryConfigWrapped {
 	pub config: LibraryConfig,
 }
 
+impl Model for LibraryConfigWrapped {
+	fn name() -> &'static str {
+		"LibraryConfigWrapped"
+	}
+}
+
 impl LibraryConfigWrapped {
 	pub async fn from_library(library: &Library) -> Self {
 		Self {
@@ -50,7 +57,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("list", {
 			R.query(|node, _: ()| async move {
-				node.libraries
+				let libraries = node
+					.libraries
 					.get_all()
 					.await
 					.into_iter()
@@ -64,7 +72,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					})
 					.collect::<Vec<_>>()
 					.join()
-					.await
+					.await;
+
+				let (nodes, items) = libraries.normalise(|i| i.uuid.to_string());
+
+				NormalisedResults { nodes, items }
 			})
 		})
 		.procedure("statistics", {

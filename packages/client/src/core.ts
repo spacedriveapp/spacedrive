@@ -8,22 +8,22 @@ export type Procedures = {
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "cloud.library.get", input: LibraryArgs<null>, result: { uuid: string; name: string; ownerId: string; instances: { id: string; uuid: string; identity: string }[] } | null } | 
         { key: "cloud.library.list", input: never, result: { uuid: string; name: string; ownerId: string; instances: { id: string; uuid: string }[] }[] } | 
-        { key: "ephemeralFiles.getMediaData", input: string, result: MediaMetadata | null } | 
-        { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[] } | null } | 
+        { key: "ephemeralFiles.getMediaData", input: string, result: NormalisedResult<MediaDataForPath> | null } | 
+        { key: "files.get", input: LibraryArgs<number>, result: NormalisedResult<ObjectWithFilePaths2> | null } | 
         { key: "files.getConvertableImageExtensions", input: never, result: string[] } | 
-        { key: "files.getMediaData", input: LibraryArgs<number>, result: MediaMetadata } | 
+        { key: "files.getMediaData", input: LibraryArgs<number>, result: MediaMetadataForObject } | 
         { key: "files.getPath", input: LibraryArgs<number>, result: string | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
         { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
-        { key: "library.list", input: never, result: LibraryConfigWrapped[] } | 
+        { key: "library.list", input: never, result: NormalisedResults<LibraryConfigWrapped> } | 
         { key: "library.statistics", input: LibraryArgs<null>, result: Statistics } | 
-        { key: "locations.get", input: LibraryArgs<number>, result: Location | null } | 
-        { key: "locations.getWithRules", input: LibraryArgs<number>, result: LocationWithIndexerRules | null } | 
-        { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
-        { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: IndexerRule[] } | 
-        { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: IndexerRule[] } | 
-        { key: "locations.list", input: LibraryArgs<null>, result: Location[] } | 
+        { key: "locations.get", input: LibraryArgs<number>, result: NormalisedResult<Location> | null } | 
+        { key: "locations.getWithRules", input: LibraryArgs<number>, result: NormalisedResult<LocationWithIndexerRule> | null } | 
+        { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: NormalisedResult<IndexerRule> } | 
+        { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: NormalisedResults<IndexerRule> } | 
+        { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: NormalisedResults<IndexerRule> } | 
+        { key: "locations.list", input: LibraryArgs<null>, result: NormalisedResults<Location> } | 
         { key: "locations.systemLocations", input: never, result: SystemLocations } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "nodes.listLocations", input: LibraryArgs<string | null>, result: ExplorerItem[] } | 
@@ -32,19 +32,19 @@ export type Procedures = {
         { key: "notifications.get", input: never, result: Notification[] } | 
         { key: "p2p.state", input: never, result: P2PState } | 
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
-        { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: NonIndexedFileSystemEntries } | 
+        { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: EphemeralPathsResult } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.objectsCount", input: LibraryArgs<{ filters?: SearchFilterArgs[] }>, result: number } | 
-        { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData2<ExplorerItem> } | 
+        { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.pathsCount", input: LibraryArgs<{ filters?: SearchFilterArgs[] }>, result: number } | 
         { key: "search.saved.get", input: LibraryArgs<number>, result: SavedSearch | null } | 
         { key: "search.saved.list", input: LibraryArgs<null>, result: SavedSearch[] } | 
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
-        { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
-        { key: "tags.getForObject", input: LibraryArgs<number>, result: Tag[] } | 
+        { key: "tags.get", input: LibraryArgs<number>, result: NormalisedResult<Tag> | null } | 
+        { key: "tags.getForObject", input: LibraryArgs<number>, result: NormalisedResults<Tag> } | 
         { key: "tags.getWithObjects", input: LibraryArgs<number[]>, result: { [key: number]: { date_created: string | null; object: { id: number } }[] } } | 
-        { key: "tags.list", input: LibraryArgs<null>, result: Tag[] } | 
-        { key: "volumes.list", input: never, result: Volume[] },
+        { key: "tags.list", input: LibraryArgs<null>, result: NormalisedResults<Tag> } | 
+        { key: "volumes.list", input: never, result: NormalisedResults<Volume> },
     mutations: 
         { key: "api.sendFeedback", input: Feedback, result: null } | 
         { key: "auth.logout", input: never, result: null } | 
@@ -173,6 +173,8 @@ export type EphemeralPathOrder = { field: "name"; value: SortOrder } | { field: 
 
 export type EphemeralPathSearchArgs = { path: string; withHiddenFiles: boolean; order?: EphemeralPathOrder | null }
 
+export type EphemeralPathsResult = { entries: { __type: "ExplorerItem"; __id: string; "#type": ExplorerItem }[]; errors: Error[]; nodes: { __type: string; __id: string; "#node": any }[] }
+
 export type EphemeralRenameFileArgs = { kind: EphemeralRenameKind }
 
 export type EphemeralRenameKind = { One: EphemeralRenameOne } | { Many: EphemeralRenameMany }
@@ -231,8 +233,6 @@ export type FullRescanArgs = { location_id: number; reidentify_objects: boolean 
 export type GenerateThumbsForLocationArgs = { id: number; path: string; regenerate?: boolean }
 
 export type GetAll = { backups: Backup[]; directory: string }
-
-export type GetArgs = { id: number }
 
 export type Header = { id: string; timestamp: string; library_id: string; library_name: string }
 
@@ -309,7 +309,7 @@ export type LocationSettings = { explorer: ExplorerSettings<FilePathOrder> }
  */
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[]; path: string | null }
 
-export type LocationWithIndexerRules = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: { indexer_rule: IndexerRule }[] }
+export type LocationWithIndexerRule = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: { __type: "IndexerRule"; __id: string; "#type": IndexerRule }[] }
 
 /**
  * The configuration for the P2P Manager
@@ -319,6 +319,8 @@ export type LocationWithIndexerRules = { id: number; pub_id: number[]; name: str
 export type ManagerConfig = { enabled: boolean; port?: number | null }
 
 export type MaybeUndefined<T> = null | null | T
+
+export type MediaDataForPath = { path: string; data: MediaMetadata }
 
 export type MediaDataOrder = { field: "epochTime"; value: SortOrder }
 
@@ -332,13 +334,27 @@ export type MediaLocation = { latitude: number; longitude: number; pluscode: Plu
 
 export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata)
 
+export type MediaMetadataForObject = { object_id: number; data: MediaMetadata }
+
 export type NodePreferences = { thumbnailer: ThumbnailerPreferences }
 
 export type NodeState = ({ id: string; name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[]; preferences: NodePreferences }) & { data_path: string; p2p: P2PStatus }
 
-export type NonIndexedFileSystemEntries = { entries: ExplorerItem[]; errors: Error[] }
-
 export type NonIndexedPathItem = { path: string; name: string; extension: string; kind: number; is_dir: boolean; date_created: string; date_modified: string; size_in_bytes_bytes: number[]; hidden: boolean }
+
+/**
+ * A type that can be used to return a group of `Reference<T>` and `CacheNode`'s
+ * 
+ * You don't need to use this, it's just a shortcut to avoid having to write out the full type everytime.
+ */
+export type NormalisedResult<T> = { item: { __type: "Tag"; __id: string; "#type": Tag }; nodes: { __type: string; __id: string; "#node": any }[] }
+
+/**
+ * A type that can be used to return a group of `Reference<T>` and `CacheNode`'s
+ * 
+ * You don't need to use this, it's just a shortcut to avoid having to write out the full type everytime.
+ */
+export type NormalisedResults<T> = { items: { __type: "LibraryConfigWrapped"; __id: string; "#type": LibraryConfigWrapped }[]; nodes: { __type: string; __id: string; "#node": any }[] }
 
 /**
  * Represents a single notification.
@@ -368,6 +384,8 @@ export type ObjectSearchArgs = { take: number; orderAndPagination?: OrderAndPagi
 export type ObjectValidatorArgs = { id: number; path: string }
 
 export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[] }
+
+export type ObjectWithFilePaths2 = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: { __type: "FilePath"; __id: string; "#type": FilePath }[] }
 
 /**
  * Represents the operating system which the remote peer is running.
@@ -426,9 +444,7 @@ export type SanitisedNodeConfig = { id: string; name: string; p2p_enabled: boole
 
 export type SavedSearch = { id: number; pub_id: number[]; search: string | null; filters: string | null; name: string | null; icon: string | null; description: string | null; date_created: string | null; date_modified: string | null }
 
-export type SearchData<T> = { cursor: number[] | null; items: T[] }
-
-export type SearchData2<T> = { cursor: number[] | null; items: { __type: "ExplorerItem"; __id: string; "#type": { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: Location } | { type: "NonIndexedPath"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: NonIndexedPathItem } | { type: "SpacedropPeer"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: PeerMetadata } }[]; nodes: { __type: string; __id: string; "#node": any }[] }
+export type SearchData<T> = { cursor: number[] | null; items: { __type: "ExplorerItem"; __id: string; "#type": ExplorerItem }[]; nodes: { __type: string; __id: string; "#node": any }[] }
 
 export type SearchFilterArgs = { filePath: FilePathFilterArgs } | { object: ObjectFilterArgs }
 
