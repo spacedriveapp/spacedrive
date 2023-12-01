@@ -55,7 +55,7 @@ pub async fn open_file_paths(
 							};
 
 							open_result
-								.map(|_| OpenFilePathResult::AllGood(id))
+								.map(|()| OpenFilePathResult::AllGood(id))
 								.unwrap_or_else(|err| {
 									error!("Failed to open logs dir: {err}");
 									OpenFilePathResult::OpenError(id, err.to_string())
@@ -331,7 +331,7 @@ pub async fn open_ephemeral_file_with(paths_and_urls: Vec<PathAndUrl>) -> Result
 				#[cfg(target_os = "macos")]
 				if let Some(path) = path.to_str().map(str::to_string) {
 					if let Err(e) = spawn_blocking(move || {
-						sd_desktop_macos::open_file_paths_with(&[path], &url)
+						sd_desktop_macos::open_file_paths_with(&[path], &url);
 					})
 					.await
 					{
@@ -452,7 +452,7 @@ pub async fn reveal_items(
 				.await
 				.unwrap_or_default()
 				.into_iter()
-				.flat_map(|location| location.path.map(Into::into)),
+				.filter_map(|location| location.path.map(Into::into)),
 		);
 	}
 

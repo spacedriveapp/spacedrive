@@ -1,4 +1,12 @@
-import { ArrowLeft, ArrowRight, DotsThree, Plus, SidebarSimple, X } from '@phosphor-icons/react';
+import {
+	ArrowLeft,
+	ArrowRight,
+	DotsThree,
+	Plus,
+	SidebarSimple,
+	Slideshow,
+	X
+} from '@phosphor-icons/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import clsx from 'clsx';
 import {
@@ -144,15 +152,6 @@ export const QuickPreview = () => {
 		getQuickPreviewStore().itemIndex = 0;
 		setShowMetadata(false);
 	}, [item, open]);
-
-	// Toggle quick preview
-	useShortcut('toggleQuickPreview', (e) => {
-		if (isRenaming) return;
-
-		e.preventDefault();
-
-		getQuickPreviewStore().open = !open;
-	});
 
 	const handleMoveBetweenItems = (step: number) => {
 		const nextPreviewItem = items[itemIndex + step];
@@ -404,7 +403,7 @@ export const QuickPreview = () => {
 										)}
 									</div>
 
-									<div className="flex flex-1 justify-end gap-1">
+									<div className="flex flex-1 items-center justify-end gap-1">
 										<DropdownMenu.Root
 											trigger={
 												<div className="flex">
@@ -460,6 +459,25 @@ export const QuickPreview = () => {
 												/>
 											</ExplorerContextMenu>
 										</DropdownMenu.Root>
+
+										<Tooltip label="Show slider">
+											<IconButton
+												onClick={() =>
+													(getExplorerLayoutStore().showImageSlider =
+														!explorerLayoutStore.showImageSlider)
+												}
+												className="w-fit px-2 text-[10px]"
+											>
+												<Slideshow
+													size={16.5}
+													weight={
+														explorerLayoutStore.showImageSlider
+															? 'fill'
+															: 'regular'
+													}
+												/>
+											</IconButton>
+										</Tooltip>
 
 										<Tooltip label="Show details">
 											<IconButton

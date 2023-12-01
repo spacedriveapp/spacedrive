@@ -1,12 +1,10 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { Icon } from '@phosphor-icons/react';
-import { produce } from 'immer';
-import { useEffect, useLayoutEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { proxy, ref, useSnapshot } from 'valtio';
 import { proxyMap } from 'valtio/utils';
 import { SearchFilterArgs } from '@sd/client';
 
-import { useSearchContext } from './Context';
 import { filterRegistry, FilterType, RenderSearchFilter } from './Filters';
 
 export type SearchType = 'paths' | 'objects';
@@ -28,41 +26,10 @@ export type AllKeys<T> = T extends any ? keyof T : never;
 const searchStore = proxy({
 	interactingWithSearchOptions: false,
 	searchType: 'paths' as SearchType,
-	filterArgs: ref([] as SearchFilterArgs[]),
-	filterArgsKeys: ref(new Set<string>()),
 	filterOptions: ref(new Map<string, FilterOptionWithType[]>()),
 	// we register filters so we can search them
 	registeredFilters: proxyMap() as Map<string, FilterOptionWithType>
 });
-
-export function useSearchFilters<T extends SearchType>(
-	_searchType: T,
-	fixedArgs: SearchFilterArgs[]
-) {
-	const { setFixedArgs, allFilterArgs, searchQuery } = useSearchContext();
-
-	// don't want the search bar to pop in after the top bar has loaded!
-	useLayoutEffect(() => {
-		resetSearchStore();
-		setFixedArgs(fixedArgs);
-	}, [fixedArgs]);
-
-	const searchQueryFilters = useMemo(() => {
-		const [name, ext] = searchQuery?.split('.') ?? [];
-
-		const filters: SearchFilterArgs[] = [];
-
-		if (name) filters.push({ filePath: { name: { contains: name } } });
-		if (ext) filters.push({ filePath: { extension: { in: [ext] } } });
-
-		return filters;
-	}, [searchQuery]);
-
-	return useMemo(
-		() => [...searchQueryFilters, ...allFilterArgs.map(({ arg }) => arg)],
-		[searchQueryFilters, allFilterArgs]
-	);
-}
 
 // this makes the filter unique and easily searchable using .includes
 export const getKey = (filter: FilterOptionWithType) =>
@@ -112,22 +79,6 @@ export function argsToOptions(args: SearchFilterArgs[], options: Map<string, Fil
 	});
 }
 
-export function updateFilterArgs(fn: (args: SearchFilterArgs[]) => SearchFilterArgs[]) {
-	searchStore.filterArgs = ref(produce(searchStore.filterArgs, fn));
-	searchStore.filterArgsKeys = ref(
-		new Set(
-			argsToOptions(searchStore.filterArgs, searchStore.filterOptions).map(
-				({ arg, filter }) =>
-					getKey({
-						type: filter.name,
-						name: arg.name,
-						value: arg.value
-					})
-			)
-		)
-	);
-}
-
 export const useSearchRegisteredFilters = (query: string) => {
 	const { registeredFilters } = useSearchStore();
 
@@ -142,10 +93,7 @@ export const useSearchRegisteredFilters = (query: string) => {
 	);
 };
 
-export const resetSearchStore = () => {
-	searchStore.filterArgs = ref([]);
-	searchStore.filterArgsKeys = ref(new Set());
-};
+export const resetSearchStore = () => {};
 
 export const useSearchStore = () => useSnapshot(searchStore);
 

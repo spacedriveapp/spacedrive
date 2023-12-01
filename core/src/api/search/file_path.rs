@@ -51,7 +51,7 @@ impl FilePathOrder {
 	}
 }
 
-#[derive(Deserialize, Type, Debug, Clone)]
+#[derive(Serialize, Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum FilePathFilterArgs {
 	Locations(InOrNotIn<file_path::id::Type>),
@@ -79,7 +79,7 @@ impl FilePathFilterArgs {
 
 		Ok(match self {
 			Self::Locations(v) => v
-				.to_param(
+				.into_param(
 					file_path::location_id::in_vec,
 					file_path::location_id::not_in_vec,
 				)
@@ -120,13 +120,13 @@ impl FilePathFilterArgs {
 					.unwrap_or_default()
 			}
 			Self::Name(v) => v
-				.to_param(name::contains, name::starts_with, name::ends_with, |s| {
+				.into_param(name::contains, name::starts_with, name::ends_with, |s| {
 					name::equals(Some(s))
 				})
 				.map(|v| vec![v])
 				.unwrap_or_default(),
 			Self::Extension(v) => v
-				.to_param(extension::in_vec, extension::not_in_vec)
+				.into_param(extension::in_vec, extension::not_in_vec)
 				.map(|v| vec![v])
 				.unwrap_or_default(),
 			Self::CreatedAt(v) => {

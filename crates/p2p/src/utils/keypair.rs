@@ -8,10 +8,12 @@ use crate::spacetunnel::{Identity, RemoteIdentity};
 pub struct Keypair(ed25519::Keypair);
 
 impl Keypair {
+	#[must_use]
 	pub fn generate() -> Self {
 		Self(ed25519::Keypair::generate())
 	}
 
+	#[must_use]
 	pub fn to_identity(&self) -> Identity {
 		// This depends on libp2p implementation details which isn't great
 		SigningKey::from_keypair_bytes(&self.0.to_bytes())
@@ -19,17 +21,20 @@ impl Keypair {
 			.into()
 	}
 
+	#[must_use]
 	pub fn to_remote_identity(&self) -> RemoteIdentity {
 		self.to_identity().to_remote_identity()
 	}
 
 	// TODO: Make this `pub(crate)`
+	#[must_use]
 	pub fn peer_id(&self) -> libp2p::PeerId {
 		let pk: libp2p::identity::PublicKey = self.0.public().into();
 
 		libp2p::PeerId::from_public_key(&pk)
 	}
 
+	#[must_use]
 	pub fn inner(&self) -> libp2p::identity::Keypair {
 		self.0.clone().into()
 	}

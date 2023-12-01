@@ -95,7 +95,7 @@ fn looks_utf8(buf: &[u8], partial: bool) -> bool {
 			 */
 
 			if TEXT_CHARS[(*byte) as usize] != T {
-				ctrl = true
+				ctrl = true;
 			}
 		/* 10xxxxxx never 1st byte */
 		} else if (byte & 0x40) == 0 {
@@ -176,11 +176,11 @@ fn looks_ucs16(buf: &[u8]) -> Option<UCS16> {
 	};
 
 	let mut hi: u32 = 0;
-	for chunck in buf[2..].chunks_exact(2) {
+	for chunk in buf[2..].chunks_exact(2) {
 		let mut uc = (if bigend {
-			(chunck[1] as u32) | (chunck[0] as u32) << 8
+			u32::from(chunk[1]) | u32::from(chunk[0]) << 8
 		} else {
-			(chunck[0] as u32) | (chunck[1] as u32) << 8
+			u32::from(chunk[0]) | u32::from(chunk[1]) << 8
 		}) & 0xffff;
 
 		match uc {
@@ -239,17 +239,17 @@ fn looks_ucs32(buf: &[u8]) -> Option<UCS32> {
 		return None;
 	};
 
-	for chunck in buf[4..].chunks_exact(4) {
+	for chunk in buf[4..].chunks_exact(4) {
 		let uc: u32 = if bigend {
-			(chunck[3] as u32)
-				| (chunck[2] as u32) << 8
-				| (chunck[1] as u32) << 16
-				| (chunck[0] as u32) << 24
+			u32::from(chunk[3])
+				| u32::from(chunk[2]) << 8
+				| u32::from(chunk[1]) << 16
+				| u32::from(chunk[0]) << 24
 		} else {
-			(chunck[0] as u32)
-				| (chunck[1] as u32) << 8
-				| (chunck[2] as u32) << 16
-				| (chunck[3] as u32) << 24
+			u32::from(chunk[0])
+				| u32::from(chunk[1]) << 8
+				| u32::from(chunk[2]) << 16
+				| u32::from(chunk[3]) << 24
 		};
 
 		if uc == 0xfffe {
@@ -267,6 +267,7 @@ fn looks_ucs32(buf: &[u8]) -> Option<UCS32> {
 	})
 }
 
+#[must_use]
 pub fn is_text(data: &[u8], partial: bool) -> Option<&'static str> {
 	if data.is_empty() {
 		return None;

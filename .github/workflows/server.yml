@@ -56,7 +56,7 @@ jobs:
         id: build-image
         uses: redhat-actions/buildah-build@v2
         with:
-          tags: ${{ steps.image_info.outputs.tag }} ${{ github.event_name == 'release' && 'production' || 'staging' }}
+          tags: ${{ steps.image_info.outputs.tag }} ${{ github.event_name == 'release' && 'latest' || 'staging' }}
           archs: amd64
           image: ${{ steps.image_info.outputs.name }}
           layers: 'false'

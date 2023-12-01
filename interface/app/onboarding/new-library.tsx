@@ -34,7 +34,7 @@ export default function OnboardingNewLibrary() {
 				</OnboardingDescription>
 
 				{importMode ? (
-					<div className="space-x-2 mt-7">
+					<div className="mt-7 space-x-2">
 						<Button onClick={handleImport} variant="accent" size="sm">
 							Import
 						</Button>
@@ -53,7 +53,7 @@ export default function OnboardingNewLibrary() {
 							placeholder={'e.g. "James\' Library"'}
 						/>
 						<div className="flex grow" />
-						<div className="space-x-2 mt-7">
+						<div className="mt-7 space-x-2">
 							<Button
 								type="submit"
 								variant="accent"
@@ -67,6 +67,14 @@ export default function OnboardingNewLibrary() {
 								Import library
 							</Button> */}
 						</div>
+						<span className="my-4 text-sm text-ink-faint">OR</span>
+						<Button
+							onClick={() => {
+								navigate('../join-library');
+							}}
+						>
+							Join a Library
+						</Button>
 					</>
 				)}
 			</OnboardingContainer>

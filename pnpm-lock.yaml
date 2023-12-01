@@ -155,20 +155,23 @@ importers:
   apps/landing:
     dependencies:
       '@docsearch/react':
-        specifier: '3'
-        version: 3.0.0(@algolia/client-search@4.20.0)(@types/react@18.2.34)(react-dom@18.2.0)(react@18.2.0)
+        specifier: ^3.5.2
+        version: 3.5.2(@algolia/client-search@4.20.0)(@types/react@18.2.34)(react-dom@18.2.0)(react@18.2.0)(search-insights@2.10.0)
       '@octokit/webhooks':
         specifier: ^12.0.3
         version: 12.0.3
       '@phosphor-icons/react':
-        specifier: ^2.0.13
+        specifier: ^2.0.14
         version: 2.0.14(react-dom@18.2.0)(react@18.2.0)
+      '@radix-ui/react-dialog':
+        specifier: ^1.0.5
+        version: 1.0.5(@types/react-dom@18.2.14)(@types/react@18.2.34)(react-dom@18.2.0)(react@18.2.0)
       '@react-three/drei':
         specifier: ^9.88.13
-        version: 9.88.13(@react-three/fiber@8.15.10)(@types/three@0.158.2)(react-dom@18.2.0)(react@18.2.0)(three@0.158.0)
+        version: 9.88.13(@react-three/fiber@8.15.11)(@types/three@0.158.2)(react-dom@18.2.0)(react@18.2.0)(three@0.158.0)
       '@react-three/fiber':
-        specifier: ^8.15.10
-        version: 8.15.10(react-dom@18.2.0)(react@18.2.0)(three@0.158.0)
+        specifier: ^8.15.11
+        version: 8.15.11(react-dom@18.2.0)(react@18.2.0)(three@0.158.0)
       '@sd/assets':
         specifier: workspace:*
         version: link:../../packages/assets
@@ -188,8 +191,8 @@ importers:
         specifier: ^1.11.10
         version: 1.11.10
       framer-motion:
-        specifier: ^10.16.4
-        version: 10.16.4(react-dom@18.2.0)(react@18.2.0)
+        specifier: ^10.16.5
+        version: 10.16.5(react-dom@18.2.0)(react@18.2.0)
       image-size:
         specifier: ^1.0.2
         version: 1.0.2
@@ -206,7 +209,7 @@ importers:
         specifier: ^0.3.4
         version: 0.3.4(contentlayer@0.3.4)(esbuild@0.19.5)(next@13.5.6)(react-dom@18.2.0)(react@18.2.0)
       next-plausible:
-        specifier: ^3.11.2
+        specifier: ^3.11.3
         version: 3.11.3(next@13.5.6)(react-dom@18.2.0)(react@18.2.0)
       react:
         specifier: 18.2.0
@@ -691,6 +694,9 @@ importers:
       '@tanstack/react-virtual':
         specifier: 3.0.0-beta.66
         version: 3.0.0-beta.66(react@18.2.0)
+      '@total-typescript/ts-reset':
+        specifier: ^0.5.1
+        version: 0.5.1
       '@virtual-grid/react':
         specifier: ^1.1.0
         version: 1.1.0(react-dom@18.2.0)(react@18.2.0)
@@ -1150,25 +1156,48 @@ packages:
     resolution: {integrity: sha512-wi9JjgKLYS7U/z8PPbco+PvTb/nRWjeoFlJ1Qer83k/3C5PHQi28hiVdeE2kHXmIL99mQFawx8qt/JPjZilJ8Q==}
     dev: false
 
-  /@algolia/autocomplete-core@1.5.2:
-    resolution: {integrity: sha512-DY0bhyczFSS1b/CqJlTE/nQRtnTAHl6IemIkBy0nEWnhDzRDdtdx4p5Uuk3vwAFxwEEgi1WqKwgSSMx6DpNL4A==}
+  /@algolia/autocomplete-core@1.9.3(@algolia/client-search@4.20.0)(algoliasearch@4.20.0)(search-insights@2.10.0):
+    resolution: {integrity: sha512-009HdfugtGCdC4JdXUbVJClA0q0zh24yyePn+KUGk3rP7j8FEe/m5Yo/z65gn6nP/cM39PxpzqKrL7A6fP6PPw==}
     dependencies:
-      '@algolia/autocomplete-shared': 1.5.2
+      '@algolia/autocomplete-plugin-algolia-insights': 1.9.3(@algolia/client-search@4.20.0)(algoliasearch@4.20.0)(search-insights@2.10.0)
+      '@algolia/autocomplete-shared': 1.9.3(@algolia/client-search@4.20.0)(algoliasearch@4.20.0)
+    transitivePeerDependencies:
+      - '@algolia/client-search'
+      - algoliasearch
+      - search-insights
     dev: false
 
-  /@algolia/autocomplete-preset-algolia@1.5.2(@algolia/client-search@4.20.0)(algoliasearch@4.20.0):
-    resolution: {integrity: sha512-3MRYnYQFJyovANzSX2CToS6/5cfVjbLLqFsZTKcvF3abhQzxbqwwaMBlJtt620uBUOeMzhdfasKhCc40+RHiZw==}
+  /@algolia/autocomplete-plugin-algolia-insights@1.9.3(@algolia/client-search@4.20.0)(algoliasearch@4.20.0)(search-insights@2.10.0):
+    resolution: {integrity: sha512-a/yTUkcO/Vyy+JffmAnTWbr4/90cLzw+CC3bRbhnULr/EM0fGNvM13oQQ14f2moLMcVDyAx/leczLlAOovhSZg==}
     peerDependencies:
-      '@algolia/client-search': ^4.9.1
-      algoliasearch: ^4.9.1
+      search-insights: '>= 1 < 3'
     dependencies:
-      '@algolia/autocomplete-shared': 1.5.2
+      '@algolia/autocomplete-shared': 1.9.3(@algolia/client-search@4.20.0)(algoliasearch@4.20.0)
+      search-insights: 2.10.0
+    transitivePeerDependencies:
+      - '@algolia/client-search'
+      - algoliasearch
+    dev: false
+
+  /@algolia/autocomplete-preset-algolia@1.9.3(@algolia/client-search@4.20.0)(algoliasearch@4.20.0):
+    resolution: {integrity: sha512-d4qlt6YmrLMYy95n5TB52wtNDr6EgAIPH81dvvvW8UmuWRgxEtY0NJiPwl/h95JtG2vmRM804M0DSwMCNZlzRA==}
+    peerDependencies:
+      '@algolia/client-search': '>= 4.9.1 < 6'
+      algoliasearch: '>= 4.9.1 < 6'
+    dependencies:
+      '@algolia/autocomplete-shared': 1.9.3(@algolia/client-search@4.20.0)(algoliasearch@4.20.0)
       '@algolia/client-search': 4.20.0
       algoliasearch: 4.20.0
     dev: false
 
-  /@algolia/autocomplete-shared@1.5.2:
-    resolution: {integrity: sha512-ylQAYv5H0YKMfHgVWX0j0NmL8XBcAeeeVQUmppnnMtzDbDnca6CzhKj3Q8eF9cHCgcdTDdb5K+3aKyGWA0obug==}
+  /@algolia/autocomplete-shared@1.9.3(@algolia/client-search@4.20.0)(algoliasearch@4.20.0):
+    resolution: {integrity: sha512-Wnm9E4Ye6Rl6sTTqjoymD+l8DjSTHsHboVRYrKgEt8Q7UHm9nYbqhN/i0fhUYA3OAEH7WA8x3jfpnmJm3rKvaQ==}
+    peerDependencies:
+      '@algolia/client-search': '>= 4.9.1 < 6'
+      algoliasearch: '>= 4.9.1 < 6'
+    dependencies:
+      '@algolia/client-search': 4.20.0
+      algoliasearch: 4.20.0
     dev: false
 
   /@algolia/cache-browser-local-storage@4.20.0:
@@ -3129,24 +3158,35 @@ packages:
     engines: {node: '>=10.0.0'}
     dev: true
 
-  /@docsearch/css@3.0.0:
-    resolution: {integrity: sha512-1kkV7tkAsiuEd0shunYRByKJe3xQDG2q7wYg24SOw1nV9/2lwEd4WrUYRJC/ukGTl2/kHeFxsaUvtiOy0y6fFA==}
+  /@docsearch/css@3.5.2:
+    resolution: {integrity: sha512-SPiDHaWKQZpwR2siD0KQUwlStvIAnEyK6tAE2h2Wuoq8ue9skzhlyVQ1ddzOxX6khULnAALDiR/isSF3bnuciA==}
     dev: false
 
-  /@docsearch/react@3.0.0(@algolia/client-search@4.20.0)(@types/react@18.2.34)(react-dom@18.2.0)(react@18.2.0):
-    resolution: {integrity: sha512-yhMacqS6TVQYoBh/o603zszIb5Bl8MIXuOc6Vy617I74pirisDzzcNh0NEaYQt50fVVR3khUbeEhUEWEWipESg==}
+  /@docsearch/react@3.5.2(@algolia/client-search@4.20.0)(@types/react@18.2.34)(react-dom@18.2.0)(react@18.2.0)(search-insights@2.10.0):
+    resolution: {integrity: sha512-9Ahcrs5z2jq/DcAvYtvlqEBHImbm4YJI8M9y0x6Tqg598P40HTEkX7hsMcIuThI+hTFxRGZ9hll0Wygm2yEjng==}
     peerDependencies:
-      '@types/react': '>= 16.8.0 < 18.0.0'
-      react: '>= 16.8.0 < 18.0.0'
-      react-dom: '>= 16.8.0 < 18.0.0'
+      '@types/react': '>= 16.8.0 < 19.0.0'
+      react: '>= 16.8.0 < 19.0.0'
+      react-dom: '>= 16.8.0 < 19.0.0'
+      search-insights: '>= 1 < 3'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
+      search-insights:
+        optional: true
     dependencies:
-      '@algolia/autocomplete-core': 1.5.2
-      '@algolia/autocomplete-preset-algolia': 1.5.2(@algolia/client-search@4.20.0)(algoliasearch@4.20.0)
-      '@docsearch/css': 3.0.0
+      '@algolia/autocomplete-core': 1.9.3(@algolia/client-search@4.20.0)(algoliasearch@4.20.0)(search-insights@2.10.0)
+      '@algolia/autocomplete-preset-algolia': 1.9.3(@algolia/client-search@4.20.0)(algoliasearch@4.20.0)
+      '@docsearch/css': 3.5.2
       '@types/react': 18.2.34
       algoliasearch: 4.20.0
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
+      search-insights: 2.10.0
     transitivePeerDependencies:
       - '@algolia/client-search'
     dev: false
@@ -4337,7 +4377,7 @@ packages:
       magic-string: 0.27.0
       react-docgen-typescript: 2.2.2(typescript@5.2.2)
       typescript: 5.2.2
-      vite: 4.5.0(@types/node@18.17.19)
+      vite: 4.5.0(less@4.2.0)
 
   /@jridgewell/gen-mapping@0.3.3:
     resolution: {integrity: sha512-HLhSWOLRi875zjjMG/r+Nv0oCW8umGb0BgEhyX3dDX3egwZtB8PqLnjz3yedt8R5StBrzcg4aBpnh8UA9D1BoQ==}
@@ -6584,7 +6624,7 @@ packages:
       react: 18.2.0
     dev: false
 
-  /@react-spring/three@9.6.1(@react-three/fiber@8.15.10)(react@18.2.0)(three@0.158.0):
+  /@react-spring/three@9.6.1(@react-three/fiber@8.15.11)(react@18.2.0)(three@0.158.0):
     resolution: {integrity: sha512-Tyw2YhZPKJAX3t2FcqvpLRb71CyTe1GvT3V+i+xJzfALgpk10uPGdGaQQ5Xrzmok1340DAeg2pR/MCfaW7b8AA==}
     peerDependencies:
       '@react-three/fiber': '>=6.0'
@@ -6595,7 +6635,7 @@ packages:
       '@react-spring/core': 9.6.1(react@18.2.0)
       '@react-spring/shared': 9.6.1(react@18.2.0)
       '@react-spring/types': 9.6.1
-      '@react-three/fiber': 8.15.10(react-dom@18.2.0)(react@18.2.0)(three@0.158.0)
+      '@react-three/fiber': 8.15.11(react-dom@18.2.0)(react@18.2.0)(three@0.158.0)
       react: 18.2.0
       three: 0.158.0
     dev: false
@@ -6622,7 +6662,7 @@ packages:
       react-dom: 18.2.0(react@18.2.0)
     dev: false
 
-  /@react-three/drei@9.88.13(@react-three/fiber@8.15.10)(@types/three@0.158.2)(react-dom@18.2.0)(react@18.2.0)(three@0.158.0):
+  /@react-three/drei@9.88.13(@react-three/fiber@8.15.11)(@types/three@0.158.2)(react-dom@18.2.0)(react@18.2.0)(three@0.158.0):
     resolution: {integrity: sha512-oxXqHnt3SXHm2ICh1CChBGLhwqHOooxibPYm4x0Yk+L1JopqdWVBSZIw+MjsUsQeDj0Tl5fizAXnS594NQxAYQ==}
     peerDependencies:
       '@react-three/fiber': '>=8.0'
@@ -6635,8 +6675,8 @@ packages:
     dependencies:
       '@babel/runtime': 7.23.2
       '@mediapipe/tasks-vision': 0.10.2
-      '@react-spring/three': 9.6.1(@react-three/fiber@8.15.10)(react@18.2.0)(three@0.158.0)
-      '@react-three/fiber': 8.15.10(react-dom@18.2.0)(react@18.2.0)(three@0.158.0)
+      '@react-spring/three': 9.6.1(@react-three/fiber@8.15.11)(react@18.2.0)(three@0.158.0)
+      '@react-three/fiber': 8.15.11(react-dom@18.2.0)(react@18.2.0)(three@0.158.0)
       '@use-gesture/react': 10.3.0(react@18.2.0)
       camera-controls: 2.7.3(three@0.158.0)
       cross-env: 7.0.3
@@ -6665,8 +6705,8 @@ packages:
       - '@types/three'
     dev: false
 
-  /@react-three/fiber@8.15.10(react-dom@18.2.0)(react@18.2.0)(three@0.158.0):
-    resolution: {integrity: sha512-mFTq3OvZfMh0+n6ttM9JidOF1U+e5KcBARqQHDlBdz+IadekQ6fY421wEnCyZ3vDqAE2CohWTSUdXeytSZxXwg==}
+  /@react-three/fiber@8.15.11(react-dom@18.2.0)(react@18.2.0)(three@0.158.0):
+    resolution: {integrity: sha512-jOJjrjVMBJQwIK6Uirc3bErUCTiclbS2alJG1eU8pV1jIwDZwPwcfHzSi2TautxoA4ddMt5DmlpatK4rIqM4jA==}
     peerDependencies:
       expo: '>=43.0'
       expo-asset: '>=8.4'
@@ -7488,7 +7528,7 @@ packages:
       magic-string: 0.30.5
       rollup: 3.29.4
       typescript: 5.2.2
-      vite: 4.5.0(@types/node@18.17.19)
+      vite: 4.5.0(less@4.2.0)
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -7841,7 +7881,7 @@ packages:
       react: 18.2.0
       react-docgen: 6.0.4
       react-dom: 18.2.0(react@18.2.0)
-      vite: 4.5.0(@types/node@18.17.19)
+      vite: 4.5.0(less@4.2.0)
     transitivePeerDependencies:
       - '@preact/preset-vite'
       - encoding
@@ -8367,6 +8407,10 @@ packages:
       '@testing-library/dom': '>=7.21.4'
     dependencies:
       '@testing-library/dom': 9.3.3
+    dev: false
+
+  /@total-typescript/ts-reset@0.5.1:
+    resolution: {integrity: sha512-AqlrT8YA1o7Ff5wPfMOL0pvL+1X+sw60NN6CcOCqs658emD6RfiXhF7Gu9QcfKBH7ELY2nInLhKSCWVoNL70MQ==}
     dev: false
 
   /@trysound/sax@0.2.0:
@@ -8940,7 +8984,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.22.5(@babel/core@7.23.2)
       magic-string: 0.27.0
       react-refresh: 0.14.0
-      vite: 4.5.0(@types/node@18.17.19)
+      vite: 4.5.0(less@4.2.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -12648,6 +12692,24 @@ packages:
 
   /framer-motion@10.16.4(react-dom@18.2.0)(react@18.2.0):
     resolution: {integrity: sha512-p9V9nGomS3m6/CALXqv6nFGMuFOxbWsmaOrdmhyQimMIlLl3LC7h7l86wge/Js/8cRu5ktutS/zlzgR7eBOtFA==}
+    peerDependencies:
+      react: ^18.0.0
+      react-dom: ^18.0.0
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
+    dependencies:
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+      tslib: 2.6.2
+    optionalDependencies:
+      '@emotion/is-prop-valid': 0.8.8
+    dev: false
+
+  /framer-motion@10.16.5(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-GEzVjOYP2MIpV9bT/GbhcsBNoImG3/2X3O/xVNWmktkv9MdJ7P/44zELm/7Fjb+O3v39SmKFnoDQB32giThzpg==}
     peerDependencies:
       react: ^18.0.0
       react-dom: ^18.0.0
@@ -18775,6 +18837,10 @@ packages:
       ajv-keywords: 3.5.2(ajv@6.12.6)
     dev: false
 
+  /search-insights@2.10.0:
+    resolution: {integrity: sha512-pQGrOE56QuTRmq4NzliRZe9rv914hBMBjOviuDliDHoIhmBGoyZRlFsPd4RprGGNC4PKdD2Jz54YN4Cmkb44mA==}
+    dev: false
+
   /section-matter@1.0.0:
     resolution: {integrity: sha512-vfD3pmTzGpufjScBh50YHKzEu2lxBWhVEHsNGoEXmCmn2hKGfeNLYMzCJpe8cD7gqX7TJluOVpBkAequ6dgMmA==}
     engines: {node: '>=4'}
@@ -21073,6 +21139,7 @@ packages:
       rollup: 3.29.4
     optionalDependencies:
       fsevents: 2.3.3
+    dev: true
 
   /vite@4.5.0(less@4.2.0):
     resolution: {integrity: sha512-ulr8rNLA6rkyFAlVWw2q5YJ91v098AFQ2R0PRFwPzREXOUJQPtFUG0t+/ZikhaOCDqFoDhN6/v8Sq0o4araFAw==}
@@ -21108,7 +21175,6 @@ packages:
       rollup: 3.29.4
     optionalDependencies:
       fsevents: 2.3.3
-    dev: true
 
   /vite@4.5.0(sass@1.69.5):
     resolution: {integrity: sha512-ulr8rNLA6rkyFAlVWw2q5YJ91v098AFQ2R0PRFwPzREXOUJQPtFUG0t+/ZikhaOCDqFoDhN6/v8Sq0o4araFAw==}

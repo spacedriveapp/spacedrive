@@ -45,12 +45,12 @@ pub trait ImageHandler {
 	where
 		Self: Sized,
 	{
-		self.validate_image(path)?;
+		self.validate_size(path)?;
 
 		fs::read(path).map_err(|e| Error::Io(e, path.to_path_buf().into_boxed_path()))
 	}
 
-	fn validate_image(&self, path: &Path) -> Result<()>
+	fn validate_size(&self, path: &Path) -> Result<()>
 	where
 		Self: Sized,
 	{
@@ -86,7 +86,7 @@ pub trait ImageHandler {
 	clippy::cast_sign_loss
 )]
 #[must_use]
-pub fn scale_dimensions(w: f32, h: f32, target_px: f32) -> (f32, f32) {
+pub fn scale_dimensions(w: f32, h: f32, target_px: f32) -> (u32, u32) {
 	let sf = (target_px / (w * h)).sqrt();
-	((w * sf).round(), (h * sf).round())
+	((w * sf).round() as u32, (h * sf).round() as u32)
 }

@@ -17,6 +17,7 @@ use uuid::Uuid;
 
 mod auth;
 mod backups;
+mod cloud;
 // mod categories;
 mod ephemeral_files;
 mod files;
@@ -179,6 +180,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		})
 		.merge("api.", web_api::mount())
 		.merge("auth.", auth::mount())
+		.merge("cloud.", cloud::mount())
 		.merge("search.", search::mount())
 		.merge("library.", libraries::mount())
 		.merge("volumes.", volumes::mount())

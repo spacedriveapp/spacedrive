@@ -1,7 +1,6 @@
 import { CircleDashed, Folder, Icon, Tag } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
-import { InOrNotIn, Range, TextMatch } from '@sd/client';
 import { Icon as SDIcon } from '~/components';
 
 export const filterTypeCondition = {

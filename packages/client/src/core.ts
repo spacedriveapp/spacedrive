@@ -6,6 +6,8 @@ export type Procedures = {
         { key: "auth.me", input: never, result: { id: string; email: string } } | 
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
+        { key: "cloud.library.get", input: LibraryArgs<null>, result: { uuid: string; name: string; ownerId: string; instances: { id: string; uuid: string; identity: string }[] } | null } | 
+        { key: "cloud.library.list", input: never, result: { uuid: string; name: string; ownerId: string; instances: { id: string; uuid: string }[] }[] } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: MediaMetadata | null } | 
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[] } | null } | 
         { key: "files.getConvertableImageExtensions", input: never, result: string[] } | 
@@ -35,6 +37,8 @@ export type Procedures = {
         { key: "search.objectsCount", input: LibraryArgs<{ filters?: SearchFilterArgs[] }>, result: number } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.pathsCount", input: LibraryArgs<{ filters?: SearchFilterArgs[] }>, result: number } | 
+        { key: "search.saved.get", input: LibraryArgs<number>, result: SavedSearch | null } | 
+        { key: "search.saved.list", input: LibraryArgs<null>, result: SavedSearch[] } | 
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
         { key: "tags.getForObject", input: LibraryArgs<number>, result: Tag[] } | 
@@ -47,6 +51,8 @@ export type Procedures = {
         { key: "backups.backup", input: LibraryArgs<null>, result: string } | 
         { key: "backups.delete", input: string, result: null } | 
         { key: "backups.restore", input: string, result: null } | 
+        { key: "cloud.library.create", input: LibraryArgs<null>, result: null } | 
+        { key: "cloud.library.join", input: string, result: LibraryConfigWrapped } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
         { key: "ephemeralFiles.cutFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
@@ -94,6 +100,9 @@ export type Procedures = {
         { key: "p2p.pairingResponse", input: [number, PairingDecision], result: null } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: string } | 
         { key: "preferences.update", input: LibraryArgs<LibraryPreferences>, result: null } | 
+        { key: "search.saved.create", input: LibraryArgs<{ name: string; search?: string | null; filters?: string | null; description?: string | null; icon?: string | null }>, result: null } | 
+        { key: "search.saved.delete", input: LibraryArgs<number>, result: null } | 
+        { key: "search.saved.update", input: LibraryArgs<[number, Args]>, result: null } | 
         { key: "tags.assign", input: LibraryArgs<{ targets: Target[]; tag_id: number; unassign: boolean }>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
@@ -110,6 +119,8 @@ export type Procedures = {
         { key: "p2p.events", input: never, result: P2PEvent } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
+
+export type Args = { search?: string | null; filters?: string | null; name?: string | null; icon?: string | null; description?: string | null }
 
 export type AudioMetadata = { duration: number | null; audio_codec: string | null }
 
@@ -138,7 +149,7 @@ export type Composite = "Unknown" | "False" | "General" | "Live"
 
 export type ConvertImageArgs = { location_id: number; file_path_id: number; delete_src: boolean; desired_extension: ConvertableExtension; quality_percentage: number | null }
 
-export type ConvertableExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf" | "webp"
+export type ConvertableExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "hif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf" | "webp"
 
 export type CreateEphemeralFolderArgs = { path: string; name: string | null }
 
@@ -412,6 +423,8 @@ export type Response = { Start: { user_code: string; verification_url: string; v
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
 export type SanitisedNodeConfig = { id: string; name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[]; preferences: NodePreferences }
+
+export type SavedSearch = { id: number; pub_id: number[]; search: string | null; filters: string | null; name: string | null; icon: string | null; description: string | null; date_created: string | null; date_modified: string | null }
 
 export type SearchData<T> = { cursor: number[] | null; items: T[] }
 
