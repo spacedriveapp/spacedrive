@@ -14,7 +14,19 @@ use crate::{
 	Node,
 };
 
+#[cfg(feature = "skynet")]
+use crate::object::tag::assign_labels;
+
+#[cfg(feature = "skynet")]
+use crate::skynet::image_labeler::LabelerOutput;
+
+#[cfg(feature = "skynet")]
+use std::collections::HashMap;
+
 use sd_file_ext::extensions::Extension;
+
+#[cfg(feature = "skynet")]
+use sd_prisma::prisma::{file_path, object};
 
 use std::{
 	hash::Hash,
@@ -62,12 +74,20 @@ pub struct MediaProcessorJobData {
 	to_process_path: PathBuf,
 	#[serde(skip, default)]
 	maybe_thumbnailer_progress_rx: Option<chan::Receiver<(u32, u32)>>,
+	#[cfg(feature = "skynet")]
+	#[serde(skip, default)]
+	maybe_labels_rx: Option<chan::Receiver<LabelerOutput>>,
+	#[cfg(feature = "skynet")]
+	#[serde(skip, default)]
+	object_id_by_file_path_id: HashMap<file_path::id::Type, object::id::Type>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum MediaProcessorJobStep {
 	ExtractMediaData(Vec<file_path_for_media_processor::Data>),
 	WaitThumbnails(usize),
+	#[cfg(feature = "skynet")]
+	WaitLabels(usize),
 }
 
 #[async_trait::async_trait]
@@ -153,6 +173,26 @@ impl StatefulJob for MediaProcessorJobInit {
 
 		let file_paths = get_files_for_media_data_extraction(db, &iso_file_path).await?;
 
+		#[cfg(feature = "skynet")]
+		let file_paths_for_labelling = get_files_for_labeling(db, &iso_file_path, true).await?;
+
+		#[cfg(feature = "skynet")]
+		let object_id_by_file_path_id = file_paths
+			.iter()
+			.filter_map(|file_path| {
+				file_path
+					.object_id
+					.map(|object_id| (file_path.id, object_id))
+			})
+			.collect::<HashMap<_, _>>();
+
+		#[cfg(feature = "skynet")]
+		let labels_rx = ctx
+			.node
+			.image_labeller
+			.new_batch(location_id, location_path.clone(), file_paths_for_labelling)
+			.await;
+
 		let total_files = file_paths.len();
 
 		let chunked_files =
@@ -166,6 +206,22 @@ impl StatefulJob for MediaProcessorJobInit {
 					[(thumbs_to_process_count > 0).then_some(
 						MediaProcessorJobStep::WaitThumbnails(thumbs_to_process_count as usize),
 					)]
+					.into_iter()
+					.flatten(),
+				)
+				.chain(
+					[
+						#[cfg(feature = "skynet")]
+						{
+							(!object_id_by_file_path_id.is_empty()).then_some(
+								MediaProcessorJobStep::WaitLabels(object_id_by_file_path_id.len()),
+							)
+						},
+						#[cfg(not(feature = "skynet"))]
+						{
+							None
+						},
+					]
 					.into_iter()
 					.flatten(),
 				)
@@ -184,6 +240,10 @@ impl StatefulJob for MediaProcessorJobInit {
 			location_path,
 			to_process_path,
 			maybe_thumbnailer_progress_rx,
+			#[cfg(feature = "skynet")]
+			maybe_labels_rx: Some(labels_rx),
+			#[cfg(feature = "skynet")]
+			object_id_by_file_path_id,
 		});
 
 		Ok((
@@ -218,6 +278,7 @@ impl StatefulJob for MediaProcessorJobInit {
 			.await
 			.map(Into::into)
 			.map_err(Into::into),
+
 			MediaProcessorJobStep::WaitThumbnails(total_thumbs) => {
 				ctx.progress(vec![
 					JobReportUpdate::TaskCount(*total_thumbs),
@@ -258,6 +319,54 @@ impl StatefulJob for MediaProcessorJobInit {
 						processed, job will wait a bit waiting for a shutdown signal from manager"
 					);
 					sleep(Duration::from_secs(5)).await;
+				}
+
+				Ok(None.into())
+			}
+
+			#[cfg(feature = "skynet")]
+			MediaProcessorJobStep::WaitLabels(total_labels) => {
+				ctx.progress(vec![
+					JobReportUpdate::TaskCount(*total_labels),
+					JobReportUpdate::Phase("labels".to_string()),
+					JobReportUpdate::Message(format!(
+						"Waiting for extract labels for {total_labels} files",
+					)),
+				]);
+
+				let labels_rx = if let Some(labels_rx) = data.maybe_labels_rx.clone() {
+					labels_rx
+				} else {
+					todo!("register a new receiver for labels")
+				};
+
+				let mut total_labeled = 0;
+
+				while let Ok(LabelerOutput {
+					file_path_id,
+					labels_result,
+				}) = labels_rx.recv().await
+				{
+					total_labeled += 1;
+					trace!("Received output from image labeler: {labels_result:#?}");
+					ctx.progress(vec![JobReportUpdate::CompletedTaskCount(total_labeled)]);
+
+					if let Ok(labels) = labels_result.map_err(|e| {
+						error!(
+							"Failed to generate labels <file_path_id='{}'>: {e:#?}",
+							file_path_id
+						);
+					}) {
+						if let Err(e) = assign_labels(
+							data.object_id_by_file_path_id[&file_path_id],
+							labels,
+							&ctx.library,
+						)
+						.await
+						{
+							error!("Failed to assign labels: {e:#?}");
+						}
+					}
 				}
 
 				Ok(None.into())
@@ -375,6 +484,25 @@ async fn get_files_for_media_data_extraction(
 	)
 	.await
 	.map_err(Into::into)
+}
+
+#[cfg(feature = "skynet")]
+async fn get_files_for_labeling(
+	db: &PrismaClient,
+	parent_iso_file_path: &IsolatedFilePathData<'_>,
+	regenerate_labels: bool,
+) -> Result<Vec<file_path_for_media_processor::Data>, MediaProcessorError> {
+	if regenerate_labels {
+		get_all_children_files_by_extensions(
+			db,
+			parent_iso_file_path,
+			&media_data_extractor::FILTERED_IMAGE_EXTENSIONS,
+		)
+		.await
+		.map_err(Into::into)
+	} else {
+		todo!("get_files_for_labeling without regenerating labels")
+	}
 }
 
 async fn get_all_children_files_by_extensions(

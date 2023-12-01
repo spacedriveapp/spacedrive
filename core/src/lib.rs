@@ -7,7 +7,7 @@ use crate::{
 };
 
 #[cfg(feature = "skynet")]
-use crate::skynet::image_labeler::{ImageLabeller, Model};
+use crate::skynet::image_labeler::{ImageLabeler, Model};
 
 use api::notifications::{Notification, NotificationData, NotificationId};
 use chrono::{DateTime, Utc};
@@ -74,7 +74,7 @@ pub struct Node {
 	pub env: env::Env,
 	pub http: reqwest::Client,
 	#[cfg(feature = "skynet")]
-	pub image_labeller: skynet::image_labeler::ImageLabeller,
+	pub image_labeller: skynet::image_labeler::ImageLabeler,
 }
 
 impl fmt::Debug for Node {
@@ -132,7 +132,7 @@ impl Node {
 			http: reqwest::Client::new(),
 			env,
 			#[cfg(feature = "skynet")]
-			image_labeller: ImageLabeller::new(data_dir.join("models/yolov8m.onnx"), Model::YoloV8)
+			image_labeller: ImageLabeler::new(data_dir.join("models/yolov8m.onnx"), Model::YoloV8)
 				.await
 				.map_err(skynet::Error::from)?,
 		});

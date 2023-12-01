@@ -109,5 +109,5 @@ pub enum Error {
 	#[error("failed to initialize AI environment: {0}")]
 	Init(#[from] ort::Error),
 	#[error(transparent)]
-	ImageLabeler(#[from] image_labeler::ImageLabellerError),
+	ImageLabeler(#[from] image_labeler::ImageLabelerError),
 }

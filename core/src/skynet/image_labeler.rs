@@ -19,7 +19,7 @@ use futures::stream::once;
 use futures_concurrency::{future::Join, stream::Merge};
 use image::{imageops::FilterType, GenericImageView, ImageFormat};
 use ndarray::{s, Array, Axis};
-use ort::{inputs, SessionBuilder, SessionInputs, SessionOutputs};
+use ort::{inputs, Session, SessionBuilder, SessionInputs, SessionOutputs};
 use thiserror::Error;
 use tokio::{
 	fs,
@@ -31,17 +31,22 @@ use tracing::{debug, error, info};
 
 type BatchToken = u64;
 type ModelInput = (BatchToken, file_path::id::Type, Vec<u8>, ImageFormat);
-type ModelOutput = (BatchToken, file_path::id::Type, HashSet<String>);
-
-type BatchOutput = (
+type ModelOutput = (
+	BatchToken,
 	file_path::id::Type,
-	Result<HashSet<String>, ImageLabellerError>,
+	Result<HashSet<String>, ImageLabelerError>,
 );
+
+#[derive(Debug)]
+pub struct LabelerOutput {
+	pub file_path_id: file_path::id::Type,
+	pub labels_result: Result<HashSet<String>, ImageLabelerError>,
+}
 
 const MAX_FILE_SIZE: u64 = 100 * 1024 * 1024; // 100 MB
 
 #[derive(Debug, Error)]
-pub enum ImageLabellerError {
+pub enum ImageLabelerError {
 	#[error("model executor failed: {0}")]
 	ModelExecutorFailed(#[from] ort::Error),
 	#[error("image load failed: {0}")]
@@ -63,7 +68,7 @@ struct Batch {
 	location_id: location::id::Type,
 	location_path: PathBuf,
 	file_paths: Vec<file_path_for_media_processor::Data>,
-	output: chan::Sender<BatchOutput>,
+	output: chan::Sender<LabelerOutput>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -78,7 +83,7 @@ impl Model {
 		&self,
 		image: &[u8],
 		format: ImageFormat,
-	) -> Result<impl Into<SessionInputs<'_>>, ImageLabellerError> {
+	) -> Result<impl Into<SessionInputs<'_>>, ImageLabelerError> {
 		match *self {
 			Model::RecognizeAnything => todo!(),
 			Model::YoloV8 => {
@@ -102,7 +107,7 @@ impl Model {
 	pub fn process_output(
 		&self,
 		output: SessionOutputs<'_>,
-	) -> Result<HashSet<String>, ImageLabellerError> {
+	) -> Result<HashSet<String>, ImageLabelerError> {
 		match *self {
 			Model::RecognizeAnything => todo!(),
 			Model::YoloV8 => {
@@ -154,14 +159,14 @@ impl Model {
 	}
 }
 
-pub struct ImageLabeller {
+pub struct ImageLabeler {
 	batches_tx: chan::Sender<Batch>,
 	handles: [RefCell<Option<JoinHandle<()>>>; 2],
 	cancel_tx: broadcast::Sender<()>,
 }
 
-impl ImageLabeller {
-	pub async fn new(model_path: PathBuf, model: Model) -> Result<Self, ImageLabellerError> {
+impl ImageLabeler {
+	pub async fn new(model_path: PathBuf, model: Model) -> Result<Self, ImageLabelerError> {
 		let (images_tx, images_rx) = channel::unbounded();
 		let (results_tx, results_rx) = chan::unbounded();
 
@@ -171,7 +176,7 @@ impl ImageLabeller {
 
 		if matches!(fs::metadata(&model_path).await, Err(e) if e.kind() == std::io::ErrorKind::NotFound)
 		{
-			return Err(ImageLabellerError::ModelFileNotFound(
+			return Err(ImageLabelerError::ModelFileNotFound(
 				model_path.into_boxed_path(),
 			));
 		}
@@ -255,7 +260,7 @@ impl ImageLabeller {
 		location_id: location::id::Type,
 		location_path: PathBuf,
 		file_paths: Vec<file_path_for_media_processor::Data>,
-	) -> chan::Receiver<BatchOutput> {
+	) -> chan::Receiver<LabelerOutput> {
 		let (tx, rx) = chan::bounded(file_paths.len());
 
 		if self
@@ -294,7 +299,7 @@ impl ImageLabeller {
 
 /// SAFETY: Due to usage of refcell we lost `Sync` impl, but we only use it to have a shutdown method
 /// receiving `&self` which is called once
-unsafe impl Sync for ImageLabeller {}
+unsafe impl Sync for ImageLabeler {}
 
 async fn process_batches(
 	images_tx: channel::Sender<ModelInput>,
@@ -334,7 +339,13 @@ async fn process_batches(
 						IsolatedFilePathData::try_from((location_id, file_path))
 							.map(|iso_file_path| (file_path_id, iso_file_path))
 							.map_err(|e| {
-								if output.send_blocking((file_path_id, Err(e.into()))).is_err() {
+								if output
+									.send_blocking(LabelerOutput {
+										file_path_id,
+										labels_result: Err(e.into()),
+									})
+									.is_err()
+								{
 									error!(
 										"Failed to send batch output with iso_file_path error, \
 									<file_path_id='{file_path_id}'>"
@@ -349,13 +360,13 @@ async fn process_batches(
 							Some((file_path_id, location_path.join(&iso_file_path), format))
 						} else {
 							if output
-								.send_blocking((
+								.send_blocking(LabelerOutput {
 									file_path_id,
-									Err(ImageLabellerError::UnsupportedExtension(
+									labels_result: Err(ImageLabelerError::UnsupportedExtension(
 										file_path_id,
 										iso_file_path.extension().to_owned(),
 									)),
-								))
+								})
 								.is_err()
 							{
 								error!("Failed to send batch output with unsupported extension error, \
@@ -381,7 +392,7 @@ async fn process_batches(
 						if metadata.len() > MAX_FILE_SIZE {
 							return Err((
 								file_path_id,
-								ImageLabellerError::FileTooBig(
+								ImageLabelerError::FileTooBig(
 									file_path_id,
 									metadata.len() as usize,
 								),
@@ -405,7 +416,13 @@ async fn process_batches(
 					.filter_map(|res| match res {
 						Ok(ok) => Some(ok),
 						Err((file_path_id, e)) => {
-							if output.send_blocking((file_path_id, Err(e))).is_err() {
+							if output
+								.send_blocking(LabelerOutput {
+									file_path_id,
+									labels_result: Err(e),
+								})
+								.is_err()
+							{
 								error!("Failed to send batch output with I/O errors, <file_path_id='{file_path_id}'>");
 							}
 
@@ -427,11 +444,17 @@ async fn process_batches(
 					});
 			}
 
-			StreamMessage::Results((current_batch_token, file_path_id, labels)) => {
+			StreamMessage::Results((current_batch_token, file_path_id, labels_result)) => {
 				if let Some((pending, output)) = pending_batches.get_mut(&current_batch_token) {
 					*pending -= 1;
 
-					if output.send_blocking((file_path_id, Ok(labels))).is_err() {
+					if output
+						.send_blocking(LabelerOutput {
+							file_path_id,
+							labels_result,
+						})
+						.is_err()
+					{
 						error!("Failed to send batch output with labels, <file_path_id='{file_path_id}'>");
 					}
 
@@ -454,7 +477,7 @@ fn model_executor(
 	model: Model,
 	images_rx: channel::Receiver<ModelInput>,
 	results_tx: chan::Sender<ModelOutput>,
-) -> Result<(), ImageLabellerError> {
+) -> Result<(), ImageLabelerError> {
 	info!("Starting image labeler model executor");
 	let session = SessionBuilder::new()?
 		.with_parallel_execution(true)?
@@ -463,14 +486,13 @@ fn model_executor(
 
 	info!("Image labeler model executor started, waiting images...");
 	while let Ok((batch_token, file_path_id, image, format)) = images_rx.recv() {
-		let input = model.prepare_input(&image, format)?;
-		let output = session.run(input)?;
-
-		let labels = model.process_output(output)?;
-
 		// This will never block as the channel is unbounded
 		if results_tx
-			.send_blocking((batch_token, file_path_id, labels))
+			.send_blocking((
+				batch_token,
+				file_path_id,
+				process_single_image(image, format, &session, model),
+			))
 			.is_err()
 		{
 			error!("Failed to send model output, <batch_token='{batch_token}', file_path_id='{file_path_id}'>");
@@ -479,4 +501,16 @@ fn model_executor(
 	}
 
 	Ok(())
+}
+
+fn process_single_image(
+	image: Vec<u8>,
+	format: ImageFormat,
+	session: &Session,
+	model: Model,
+) -> Result<HashSet<String>, ImageLabelerError> {
+	let input = model.prepare_input(&image, format)?;
+	let output = session.run(input)?;
+
+	model.process_output(output)
 }

@@ -42,6 +42,7 @@ pub enum MediaProcessorError {
 pub struct MediaProcessorMetadata {
 	media_data: MediaDataExtractorMetadata,
 	thumbs_processed: u32,
+	labels_extracted: u32,
 }
 
 impl From<MediaDataExtractorMetadata> for MediaProcessorMetadata {
@@ -49,6 +50,7 @@ impl From<MediaDataExtractorMetadata> for MediaProcessorMetadata {
 		Self {
 			media_data,
 			thumbs_processed: 0,
+			labels_extracted: 0,
 		}
 	}
 }
@@ -58,6 +60,7 @@ impl JobRunMetadata for MediaProcessorMetadata {
 		self.media_data.extracted += new_data.media_data.extracted;
 		self.media_data.skipped += new_data.media_data.skipped;
 		self.thumbs_processed += new_data.thumbs_processed;
+		self.labels_extracted += new_data.labels_extracted;
 	}
 }
 

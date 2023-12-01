@@ -135,12 +135,19 @@ pub async fn shallow(
 	}
 
 	#[cfg(feature = "skynet")]
-	while let Ok((file_path_id, res)) = labels_rx.recv().await {
-		if let Ok(labels) = res.map_err(|e| {
-			error!("Failed to generate labels <file_path_id='{file_path_id}'>: {e:#?}",)
+	while let Ok(labeler_out) = labels_rx.recv().await {
+		if let Ok(labels) = labeler_out.labels_result.map_err(|e| {
+			error!(
+				"Failed to generate labels <file_path_id='{}'>: {e:#?}",
+				labeler_out.file_path_id
+			);
 		}) {
-			if let Err(e) =
-				assign_labels(object_id_by_file_path_id[&file_path_id], labels, library).await
+			if let Err(e) = assign_labels(
+				object_id_by_file_path_id[&labeler_out.file_path_id],
+				labels,
+				library,
+			)
+			.await
 			{
 				error!("Failed to assign labels: {e:#?}");
 			}
