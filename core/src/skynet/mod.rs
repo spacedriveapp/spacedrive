@@ -60,27 +60,19 @@ pub(crate) fn init() -> Result<(), ort::Error> {
 		.with_execution_providers({
 			#[cfg(any(target_os = "macos", target_os = "ios"))]
 			{
+				use ort::{CoreMLExecutionProvider, XNNPACKExecutionProvider};
+
 				[
-					OpenVINOExecutionProvider::default().build(),
 					CoreMLExecutionProvider::default().build(),
+					XNNPACKExecutionProvider::default().build(),
 				]
 			}
 
 			#[cfg(target_os = "windows")]
 			{
-				use ort::{
-					CUDAExecutionProvider, DirectMLExecutionProvider, OneDNNExecutionProvider,
-					OpenVINOExecutionProvider, ROCmExecutionProvider, TensorRTExecutionProvider,
-				};
+				use ort::DirectMLExecutionProvider;
 
-				[
-					TensorRTExecutionProvider::default().build(),
-					CUDAExecutionProvider::default().build(),
-					DirectMLExecutionProvider::default().build(),
-					OpenVINOExecutionProvider::default().build(),
-					OneDNNExecutionProvider::default().build(),
-					ROCmExecutionProvider::default().build(),
-				]
+				[DirectMLExecutionProvider::default().build()]
 			}
 
 			#[cfg(target_os = "linux")]
@@ -90,20 +82,20 @@ pub(crate) fn init() -> Result<(), ort::Error> {
 				[XNNPACKExecutionProvider::default().build()]
 			}
 
-			#[cfg(target_os = "android")]
-			{
-				use ort::{
-					ACLExecutionProvider, ArmNNExecutionProvider, NNAPIExecutionProvider,
-					QNNExecutionProvider, XNNPACKExecutionProvider,
-				};
-				[
-					QNNExecutionProvider::default().build(),
-					NNAPIExecutionProvider::default().build(),
-					XNNPACKExecutionProvider::default().build(),
-					ACLExecutionProvider::default().build(),
-					ArmNNExecutionProvider::default().build(),
-				]
-			}
+			// #[cfg(target_os = "android")]
+			// {
+			// 	use ort::{
+			// 		ACLExecutionProvider, ArmNNExecutionProvider, NNAPIExecutionProvider,
+			// 		QNNExecutionProvider, XNNPACKExecutionProvider,
+			// 	};
+			// 	[
+			// 		QNNExecutionProvider::default().build(),
+			// 		NNAPIExecutionProvider::default().build(),
+			// 		XNNPACKExecutionProvider::default().build(),
+			// 		ACLExecutionProvider::default().build(),
+			// 		ArmNNExecutionProvider::default().build(),
+			// 	]
+			// }
 		})
 		.commit()?;
 	debug!("Initialized AI environment");
