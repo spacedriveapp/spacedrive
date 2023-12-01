@@ -16,6 +16,7 @@ import {
 } from '@sd/client';
 import { TooltipProvider } from '@sd/ui';
 
+import { createRoutes } from './app';
 import { P2P, useP2PErrorToast } from './app/p2p';
 import { Devtools } from './components/Devtools';
 import { WithPrismTheme } from './components/TextViewer/prism';
@@ -40,26 +41,58 @@ init({
 	integrations: [new Integrations.HttpContext(), new Integrations.Dedupe()]
 });
 
-export const SpacedriveInterface = (props: { router: RouterProviderProps['router'] }) => {
+export type Router = RouterProviderProps['router'];
+
+export function SpacedriveRouterProvider(props: {
+	routing: {
+		routes: ReturnType<typeof createRoutes>;
+		visible: boolean;
+		router: Router;
+		currentIndex: number;
+		maxIndex: number;
+	};
+}) {
+	return (
+		<RoutingContext.Provider
+			value={{
+				routes: props.routing.routes,
+				visible: props.routing.visible,
+				currentIndex: props.routing.currentIndex,
+				maxIndex: props.routing.maxIndex
+			}}
+		>
+			<RouterProvider
+				router={props.routing.router}
+				future={{
+					v7_startTransition: true
+				}}
+			/>
+		</RoutingContext.Provider>
+	);
+}
+
+export function SpacedriveInterfaceRoot({ children }: PropsWithChildren) {
 	useLoadBackendFeatureFlags();
 	useP2PErrorToast();
 	useInvalidateQuery();
 	useTheme();
 
 	return (
-		<BetterErrorBoundary FallbackComponent={ErrorFallback}>
-			<CacheProvider>
-				<TooltipProvider>
-					<P2PContextProvider>
-						<NotificationContextProvider>
-							<P2P />
-							<Devtools />
-							<WithPrismTheme />
-							<RouterProvider router={props.router} />
-						</NotificationContextProvider>
-					</P2PContextProvider>
-				</TooltipProvider>
-			</CacheProvider>
-		</BetterErrorBoundary>
+		<Suspense>
+			<BetterErrorBoundary FallbackComponent={ErrorFallback}>
+				<CacheProvider>
+					<TooltipProvider>
+						<P2PContextProvider>
+							<NotificationContextProvider>
+								<P2P />
+								<Devtools />
+								<WithPrismTheme />
+								{children}
+							</NotificationContextProvider>
+						</P2PContextProvider>
+					</TooltipProvider>
+				</CacheProvider>
+			</BetterErrorBoundary>
+		</Suspense>
 	);
-};
+}
