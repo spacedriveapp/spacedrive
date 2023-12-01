@@ -65,7 +65,7 @@ fn thumbnail_config(config: PdfRenderConfig) -> PdfRenderConfig {
 		.render_form_data(false)
 		// Required due to: https://github.com/ajrcarey/pdfium-render/issues/119
 		.set_reverse_byte_order(false)
-		.set_clear_color(PdfColor::new(0, 0, 0, 0))
+		.set_clear_color(PdfColor::new(255, 255, 255, 255))
 		.clear_before_rendering(true)
 }
 
