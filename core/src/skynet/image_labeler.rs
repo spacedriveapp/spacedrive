@@ -31,9 +31,12 @@ use tracing::{debug, error, info};
 
 type BatchToken = u64;
 type ModelInput = (BatchToken, file_path::id::Type, Vec<u8>, ImageFormat);
-type ModelOutput = (BatchToken, file_path::id::Type, Vec<String>);
+type ModelOutput = (BatchToken, file_path::id::Type, HashSet<String>);
 
-type BatchOutput = (file_path::id::Type, Result<Vec<String>, ImageLabellerError>);
+type BatchOutput = (
+	file_path::id::Type,
+	Result<HashSet<String>, ImageLabellerError>,
+);
 
 const MAX_FILE_SIZE: u64 = 100 * 1024 * 1024; // 100 MB
 
@@ -99,7 +102,7 @@ impl Model {
 	pub fn process_output(
 		&self,
 		output: SessionOutputs<'_>,
-	) -> Result<Vec<String>, ImageLabellerError> {
+	) -> Result<HashSet<String>, ImageLabellerError> {
 		match *self {
 			Model::RecognizeAnything => todo!(),
 			Model::YoloV8 => {
