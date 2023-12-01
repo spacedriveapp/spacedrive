@@ -93,38 +93,48 @@ impl ManagerStream {
 		if state.config.enabled {
 			let port = state.config.port.unwrap_or(0);
 
-			if state.ipv4_listener_id.is_none() {
-				match swarm.listen_on(socketaddr_to_quic_multiaddr(&SocketAddr::from((
-					Ipv4Addr::UNSPECIFIED,
-					port,
-				)))) {
-					Ok(listener_id) => {
-						debug!("created ipv4 listener with id '{:?}'", listener_id);
-						state.ipv4_listener_id = Some(listener_id);
-					}
-					Err(err) => error!("failed to listener on '0.0.0.0:{port}': {err}"),
-				};
+			if state.ipv4_listener_id.is_none() || matches!(state.ipv6_listener_id, Some(Err(_))) {
+				state.ipv4_listener_id = Some(
+					swarm
+						.listen_on(socketaddr_to_quic_multiaddr(&SocketAddr::from((
+							Ipv4Addr::UNSPECIFIED,
+							port,
+						))))
+						.map(|id| {
+							debug!("registered ipv4 listener: {id:?}");
+							id
+						})
+						.map_err(|err| {
+							error!("failed to register ipv4 listener on port {port}: {err}");
+							err.to_string()
+						}),
+				);
 			}
 
-			if state.ipv6_listener_id.is_none() {
-				match swarm.listen_on(socketaddr_to_quic_multiaddr(&SocketAddr::from((
-					Ipv6Addr::UNSPECIFIED,
-					port,
-				)))) {
-					Ok(listener_id) => {
-						debug!("created ipv6 listener with id '{:?}'", listener_id);
-						state.ipv6_listener_id = Some(listener_id);
-					}
-					Err(err) => error!("failed to listener on '[::]:{port}': {err}"),
-				};
+			if state.ipv4_listener_id.is_none() || matches!(state.ipv6_listener_id, Some(Err(_))) {
+				state.ipv6_listener_id = Some(
+					swarm
+						.listen_on(socketaddr_to_quic_multiaddr(&SocketAddr::from((
+							Ipv6Addr::UNSPECIFIED,
+							port,
+						))))
+						.map(|id| {
+							debug!("registered ipv6 listener: {id:?}");
+							id
+						})
+						.map_err(|err| {
+							error!("failed to register ipv6 listener on port {port}: {err}");
+							err.to_string()
+						}),
+				);
 			}
 		} else {
-			if let Some(listener) = state.ipv4_listener_id.take() {
+			if let Some(Ok(listener)) = state.ipv4_listener_id.take() {
 				debug!("removing ipv4 listener with id '{:?}'", listener);
 				swarm.remove_listener(listener);
 			}
 
-			if let Some(listener) = state.ipv6_listener_id.take() {
+			if let Some(Ok(listener)) = state.ipv6_listener_id.take() {
 				debug!("removing ipv6 listener with id '{:?}'", listener);
 				swarm.remove_listener(listener);
 			}
@@ -158,15 +168,13 @@ impl ManagerStream {
 	pub async fn next(&mut self) -> Option<Event> {
 		// We loop polling internal services until an event comes in that needs to be sent to the parent application.
 		loop {
-			if self.shutdown.load(Ordering::Relaxed) {
-				panic!("`ManagerStream::next` called after shutdown event. This is a mistake in your application code!");
-			}
+			assert!(!self.shutdown.load(Ordering::Relaxed), "`ManagerStream::next` called after shutdown event. This is a mistake in your application code!");
 
 			if let Some(event) = self.queued_events.pop_front() {
 				return Some(event);
 			}
 			tokio::select! {
-				_ = self.discovery_manager.poll() => {
+				() = self.discovery_manager.poll() => {
 					continue;
 				},
 				event = self.event_stream_rx.recv() => {
@@ -220,7 +228,30 @@ impl ManagerStream {
 						SwarmEvent::IncomingConnection { local_addr, .. } => debug!("incoming connection from '{}'", local_addr),
 						SwarmEvent::IncomingConnectionError { local_addr, error, .. } => warn!("handshake error with incoming connection from '{}': {}", local_addr, error),
 						SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => warn!("error establishing connection with '{:?}': {}", peer_id, error),
-						SwarmEvent::NewListenAddr { address, .. } => {
+						SwarmEvent::NewListenAddr { listener_id, address, .. } => {
+							let addr = match quic_multiaddr_to_socketaddr(address.clone()) {
+								Ok(addr) => addr,
+								Err(err) => {
+									warn!("error passing listen address '{address:?}': {err:?}");
+									continue;
+								}
+							};
+
+							{
+								let mut state = self.manager.state.write().unwrap_or_else(PoisonError::into_inner);
+								if let Some(Ok(lid)) = &state.ipv4_listener_id {
+									if *lid == listener_id {
+										state.ipv4_port = Some(addr.port());
+									}
+								}
+
+								if let Some(Ok(lid)) = &state.ipv6_listener_id {
+									if *lid == listener_id {
+										state.ipv6_port = Some(addr.port());
+									}
+								 }
+							}
+
 							match quic_multiaddr_to_socketaddr(address) {
 								Ok(addr) => {
 									trace!("listen address added: {}", addr);
@@ -294,7 +325,7 @@ impl ManagerStream {
 								let v = state.connected.get(v);
 
 								if v.is_none() {
-									warn!("Error converting PeerId({v:?}) into RemoteIdentity. This is likely a bug in P2P.")
+									warn!("Error converting PeerId({v:?}) into RemoteIdentity. This is likely a bug in P2P.");
 								}
 
 								v.copied()
@@ -305,7 +336,7 @@ impl ManagerStream {
 					response
 						.send(result)
 						.map_err(|_| {
-							error!("Error sending response to `GetConnectedPeers` request! Sending was dropped!")
+							error!("Error sending response to `GetConnectedPeers` request! Sending was dropped!");
 						})
 						.ok();
 				}
@@ -331,7 +362,7 @@ impl ManagerStream {
 						.unwrap_or_else(PoisonError::into_inner);
 
 					state.config = config;
-					ManagerStream::refresh_listeners(&mut self.swarm, &mut state);
+					Self::refresh_listeners(&mut self.swarm, &mut state);
 
 					if !state.config.enabled {
 						if let Some(mdns) = self.discovery_manager.mdns.take() {
@@ -346,7 +377,7 @@ impl ManagerStream {
 						) {
 							Ok(mdns) => {
 								self.discovery_manager.mdns = Some(mdns);
-								self.discovery_manager.do_advertisement()
+								self.discovery_manager.do_advertisement();
 							}
 							Err(err) => {
 								error!("error starting mDNS service: {err:?}");
@@ -363,7 +394,7 @@ impl ManagerStream {
 				ManagerStreamAction::Shutdown(tx) => {
 					info!("Shutting down P2P Manager...");
 					self.discovery_manager.shutdown();
-					tx.send(()).unwrap_or_else(|_| {
+					tx.send(()).unwrap_or_else(|()| {
 						warn!("Error sending shutdown signal to P2P Manager!");
 					});
 
@@ -383,7 +414,7 @@ impl ManagerStream {
 				}
 				ManagerStreamAction2::StartStream(peer_id, tx) => {
 					if !self.swarm.connected_peers().any(|v| *v == peer_id) {
-						let addresses = self
+						let Some(addresses) = self
 							.discovery_manager
 							.state
 							.read()
@@ -395,7 +426,10 @@ impl ManagerStream {
 									(v.peer_id == peer_id).then(|| v.addresses.clone())
 								})
 							})
-							.unwrap(); // TODO: Error handling
+						else {
+							warn!("Peer '{}' is not connected and no addresses are known for it! Skipping connection creation...", peer_id);
+							return None;
+						};
 
 						match self.swarm.dial(
 							DialOpts::peer_id(peer_id)

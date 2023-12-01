@@ -1,9 +1,8 @@
-import { ArrowsClockwise, Planet, ShareNetwork } from '@phosphor-icons/react';
+import { ArrowsClockwise, Cloud, Planet, ShareNetwork } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
-import { useKeys } from 'rooks';
 import { LibraryContextProvider, useClientContext, useFeatureFlag } from '@sd/client';
 import { Tooltip } from '@sd/ui';
-import { useKeysMatcher } from '~/hooks';
+import { useKeysMatcher, useShortcut } from '~/hooks';
 
 import { EphemeralSection } from './EphemeralSection';
 import Icon from './Icon';
@@ -13,35 +12,25 @@ import SidebarLink from './Link';
 export default () => {
 	const { library } = useClientContext();
 	const navigate = useNavigate();
-	const shortcuts = useKeysMatcher(['Meta', 'Shift']);
+	const symbols = useKeysMatcher(['Meta', 'Shift']);
 
-	useKeys([shortcuts.Meta.key, 'Shift', 'KeyO'], (e) => {
-		e.stopPropagation();
-		navigate('overview');
-	});
+	// useShortcut('navToOverview', (e) => {
+	// 	e.stopPropagation();
+	// 	navigate('overview');
+	// });
 
 	return (
-		<div className="no-scrollbar mask-fade-out flex grow flex-col overflow-x-hidden overflow-y-scroll pb-10">
-			<div className="space-y-0.5">
-				<Tooltip
-					position="right"
-					label="Overview"
-					keybinds={[shortcuts.Shift.icon, shortcuts.Meta.icon, 'O']}
-				>
-					<SidebarLink to="overview">
-						<Icon component={Planet} />
-						Overview
-					</SidebarLink>
-				</Tooltip>
-				{/* <SidebarLink to="spacedrop">
+		<div className="no-scrollbar mask-fade-out flex grow flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10">
+			{/* <SidebarLink to="spacedrop">
 					<Icon component={Broadcast} />
 					Spacedrop
 				</SidebarLink> */}
-				{/*
+			{/*
 				{/* <SidebarLink to="imports">
 					<Icon component={ArchiveBox} />
 					Imports
 				</SidebarLink> */}
+			<div className="space-y-0.5">
 				{useFeatureFlag('syncRoute') && (
 					<SidebarLink to="sync">
 						<Icon component={ArrowsClockwise} />
@@ -52,6 +41,12 @@ export default () => {
 					<SidebarLink to="p2p">
 						<Icon component={ShareNetwork} />
 						P2P
+					</SidebarLink>
+				)}
+				{useFeatureFlag('cloud') && (
+					<SidebarLink to="cloud">
+						<Icon component={Cloud} />
+						Cloud
 					</SidebarLink>
 				)}
 			</div>

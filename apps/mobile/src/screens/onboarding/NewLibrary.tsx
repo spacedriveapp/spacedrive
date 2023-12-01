@@ -1,7 +1,7 @@
-import { Database } from '@sd/assets/icons';
 import { Controller } from 'react-hook-form';
-import { Alert, Image, Text, View } from 'react-native';
+import { Alert, Text, View } from 'react-native';
 import { Input } from '~/components/form/Input';
+import { Icon } from '~/components/icons/Icon';
 import { Button } from '~/components/primitive/Button';
 import { tw } from '~/lib/tailwind';
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
@@ -20,7 +20,7 @@ const NewLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'NewLibrary
 
 	return (
 		<OnboardingContainer>
-			<Image source={Database} style={tw`h-25 w-25`} />
+			<Icon name="Database" style={tw`h-25 w-25`} />
 			<OnboardingTitle style={tw`mt-4`}>Create a Library</OnboardingTitle>
 			<View style={tw`w-full px-4`}>
 				<OnboardingDescription style={tw`mt-4`}>

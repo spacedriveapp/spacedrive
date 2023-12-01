@@ -1,18 +1,32 @@
+use crate::{
+	api::{notifications::Notification, BackendFeature},
+	auth::OAuthToken,
+	object::media::thumbnail::preferences::ThumbnailerPreferences,
+	util::{
+		error::FileIOError,
+		version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
+	},
+};
+
 use sd_p2p::{Keypair, ManagerConfig};
-use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+
 use std::{
 	path::{Path, PathBuf},
 	sync::Arc,
 };
-use tokio::sync::{RwLock, RwLockWriteGuard};
-use uuid::Uuid;
 
-use crate::{
-	api::{notifications::Notification, BackendFeature},
-	auth::OAuthToken,
-	util::migrator::{Migrate, MigratorError},
+use int_enum::IntEnum;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Map, Value};
+use serde_repr::{Deserialize_repr, Serialize_repr};
+use specta::Type;
+use thiserror::Error;
+use tokio::{
+	fs,
+	sync::{watch, RwLock},
 };
+use tracing::error;
+use uuid::Uuid;
 
 /// NODE_STATE_CONFIG_NAME is the name of the file which stores the NodeState
 pub const NODE_STATE_CONFIG_NAME: &str = "node_state.sdconfig";
@@ -38,119 +52,233 @@ pub struct NodeConfig {
 	pub features: Vec<BackendFeature>,
 	/// Authentication for Spacedrive Accounts
 	pub auth_token: Option<OAuthToken>,
+
+	/// The aggreagation of many different preferences for the node
+	pub preferences: NodePreferences,
+
+	version: NodeConfigVersion,
 }
 
-#[async_trait::async_trait]
-impl Migrate for NodeConfig {
-	const CURRENT_VERSION: u32 = 1;
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, Type)]
+pub struct NodePreferences {
+	pub thumbnailer: ThumbnailerPreferences,
+}
 
-	type Ctx = ();
+#[derive(
+	IntEnum, Debug, Clone, Copy, Eq, PartialEq, strum::Display, Serialize_repr, Deserialize_repr,
+)]
+#[repr(u64)]
+pub enum NodeConfigVersion {
+	V0 = 0,
+	V1 = 1,
+	V2 = 2,
+}
 
-	fn default(_path: PathBuf) -> Result<Self, MigratorError> {
-		Ok(Self {
+impl ManagedVersion<NodeConfigVersion> for NodeConfig {
+	const LATEST_VERSION: NodeConfigVersion = NodeConfigVersion::V2;
+	const KIND: Kind = Kind::Json("version");
+	type MigrationError = NodeConfigError;
+
+	fn from_latest_version() -> Option<Self> {
+		let mut name = match hostname::get() {
+			// SAFETY: This is just for display purposes so it doesn't matter if it's lossy
+			Ok(hostname) => hostname.to_string_lossy().into_owned(),
+			Err(e) => {
+				error!("Falling back to default node name as an error occurred getting your systems hostname: '{e:#?}'");
+				"my-spacedrive".into()
+			}
+		};
+		name.truncate(250);
+
+		Some(Self {
 			id: Uuid::new_v4(),
-			name: match hostname::get() {
-				// SAFETY: This is just for display purposes so it doesn't matter if it's lossy
-				Ok(hostname) => hostname.to_string_lossy().into_owned(),
-				Err(err) => {
-					eprintln!("Falling back to default node name as an error occurred getting your systems hostname: '{err}'");
-					"my-spacedrive".into()
-				}
-			},
+			name,
 			keypair: Keypair::generate(),
-			p2p: Default::default(),
+			version: Self::LATEST_VERSION,
+			p2p: ManagerConfig::default(),
 			features: vec![],
 			notifications: vec![],
 			auth_token: None,
+			preferences: NodePreferences::default(),
 		})
 	}
+}
 
-	async fn migrate(
-		from_version: u32,
-		config: &mut Map<String, Value>,
-		_ctx: &Self::Ctx,
-	) -> Result<(), MigratorError> {
-		match from_version {
-			0 => Ok(()),
-			1 => {
-				// All where never hooked up to the UI
-				config.remove("p2p_email");
-				config.remove("p2p_img_url");
-				config.remove("p2p_port");
+impl NodeConfig {
+	pub async fn load(path: impl AsRef<Path>) -> Result<Self, NodeConfigError> {
+		let path = path.as_ref();
+		VersionManager::<Self, NodeConfigVersion>::migrate_and_load(
+			path,
+			|current, next| async move {
+				match (current, next) {
+					(NodeConfigVersion::V0, NodeConfigVersion::V1) => {
+						let mut config: Map<String, Value> =
+							serde_json::from_slice(&fs::read(path).await.map_err(|e| {
+								FileIOError::from((
+									path,
+									e,
+									"Failed to read node config file for migration",
+								))
+							})?)
+							.map_err(VersionManagerError::SerdeJson)?;
 
-				// In a recent PR I screwed up Serde `default` so P2P was disabled by default, prior it was always enabled.
-				// Given the config for it is behind a feature flag (so no one would have changed it) this fixes the default.
-				if let Some(Value::Object(obj)) = config.get_mut("p2p") {
-					obj.insert("enabled".into(), Value::Bool(true));
+						// All were never hooked up to the UI
+						config.remove("p2p_email");
+						config.remove("p2p_img_url");
+						config.remove("p2p_port");
+
+						// In a recent PR I screwed up Serde `default` so P2P was disabled by default, prior it was always enabled.
+						// Given the config for it is behind a feature flag (so no one would have changed it) this fixes the default.
+						if let Some(Value::Object(obj)) = config.get_mut("p2p") {
+							obj.insert("enabled".into(), Value::Bool(true));
+						}
+
+						fs::write(
+							path,
+							serde_json::to_vec(&config).map_err(VersionManagerError::SerdeJson)?,
+						)
+						.await
+						.map_err(|e| FileIOError::from((path, e)))?;
+					}
+
+					(NodeConfigVersion::V1, NodeConfigVersion::V2) => {
+						let mut config: Map<String, Value> =
+							serde_json::from_slice(&fs::read(path).await.map_err(|e| {
+								FileIOError::from((
+									path,
+									e,
+									"Failed to read node config file for migration",
+								))
+							})?)
+							.map_err(VersionManagerError::SerdeJson)?;
+
+						config.insert(
+							String::from("preferences"),
+							json!(NodePreferences::default()),
+						);
+
+						let a =
+							serde_json::to_vec(&config).map_err(VersionManagerError::SerdeJson)?;
+
+						fs::write(path, a)
+							.await
+							.map_err(|e| FileIOError::from((path, e)))?;
+					}
+
+					_ => {
+						error!("Node config version is not handled: {:?}", current);
+						return Err(VersionManagerError::UnexpectedMigration {
+							current_version: current.int_value(),
+							next_version: next.int_value(),
+						}
+						.into());
+					}
 				}
 
 				Ok(())
-			}
-			v => unreachable!("Missing migration for library version {}", v),
-		}
-	}
-}
-
-impl Default for NodeConfig {
-	fn default() -> Self {
-		NodeConfig {
-			id: Uuid::new_v4(),
-			name: match hostname::get() {
-				// SAFETY: This is just for display purposes so it doesn't matter if it's lossy
-				Ok(hostname) => hostname.to_string_lossy().into_owned(),
-				Err(err) => {
-					eprintln!("Falling back to default node name as an error occurred getting your systems hostname: '{err}'");
-					"my-spacedrive".into()
-				}
 			},
-			keypair: Keypair::generate(),
-			p2p: Default::default(),
-			features: vec![],
-			notifications: vec![],
-			auth_token: None,
-		}
+		)
+		.await
+	}
+
+	async fn save(&self, path: impl AsRef<Path>) -> Result<(), NodeConfigError> {
+		let path = path.as_ref();
+		fs::write(path, serde_json::to_vec(self)?)
+			.await
+			.map_err(|e| FileIOError::from((path, e)))?;
+
+		Ok(())
 	}
 }
 
-pub struct Manager(RwLock<NodeConfig>, PathBuf);
+pub struct Manager {
+	config: RwLock<NodeConfig>,
+	data_directory_path: PathBuf,
+	config_file_path: PathBuf,
+	preferences_watcher_tx: watch::Sender<NodePreferences>,
+}
 
 impl Manager {
 	/// new will create a new NodeConfigManager with the given path to the config file.
-	pub(crate) async fn new(data_path: PathBuf) -> Result<Arc<Self>, MigratorError> {
-		Ok(Arc::new(Self(
-			RwLock::new(NodeConfig::load_and_migrate(&Self::path(&data_path), &()).await?),
-			data_path,
-		)))
-	}
+	pub(crate) async fn new(
+		data_directory_path: impl AsRef<Path>,
+	) -> Result<Arc<Self>, NodeConfigError> {
+		let data_directory_path = data_directory_path.as_ref().to_path_buf();
+		let config_file_path = data_directory_path.join(NODE_STATE_CONFIG_NAME);
 
-	fn path(base_path: &Path) -> PathBuf {
-		base_path.join(NODE_STATE_CONFIG_NAME)
+		let config = NodeConfig::load(&config_file_path).await?;
+
+		let (preferences_watcher_tx, _preferences_watcher_rx) =
+			watch::channel(config.preferences.clone());
+
+		Ok(Arc::new(Self {
+			config: RwLock::new(config),
+			data_directory_path,
+			config_file_path,
+			preferences_watcher_tx,
+		}))
 	}
 
 	/// get will return the current NodeConfig in a read only state.
 	pub(crate) async fn get(&self) -> NodeConfig {
-		self.0.read().await.clone()
+		self.config.read().await.clone()
+	}
+
+	/// get a node config preferences watcher receiver
+	pub(crate) fn preferences_watcher(&self) -> watch::Receiver<NodePreferences> {
+		self.preferences_watcher_tx.subscribe()
 	}
 
 	/// data_directory returns the path to the directory storing the configuration data.
 	pub(crate) fn data_directory(&self) -> PathBuf {
-		self.1.clone()
+		self.data_directory_path.clone()
 	}
 
 	/// write allows the user to update the configuration. This is done in a closure while a Mutex lock is held so that the user can't cause a race condition if the config were to be updated in multiple parts of the app at the same time.
-	pub(crate) async fn write<F: FnOnce(RwLockWriteGuard<NodeConfig>)>(
+	pub(crate) async fn write<F: FnOnce(&mut NodeConfig)>(
 		&self,
 		mutation_fn: F,
-	) -> Result<NodeConfig, MigratorError> {
-		mutation_fn(self.0.write().await);
-		let config = self.0.read().await;
-		Self::save(&self.1, &config)?;
-		Ok(config.clone())
+	) -> Result<NodeConfig, NodeConfigError> {
+		let mut config = self.config.write().await;
+
+		mutation_fn(&mut config);
+
+		self.preferences_watcher_tx.send_if_modified(|current| {
+			let modified = current != &config.preferences;
+			if modified {
+				*current = config.preferences.clone();
+			}
+			modified
+		});
+
+		config
+			.save(&self.config_file_path)
+			.await
+			.map(|()| config.clone())
 	}
 
-	/// save will write the configuration back to disk
-	fn save(base_path: &Path, config: &NodeConfig) -> Result<(), MigratorError> {
-		NodeConfig::save(config, &Self::path(base_path))?;
-		Ok(())
+	/// update_preferences allows the user to update the preferences of the node
+	pub(crate) async fn update_preferences(
+		&self,
+		update_fn: impl FnOnce(&mut NodePreferences),
+	) -> Result<(), NodeConfigError> {
+		let mut config = self.config.write().await;
+
+		update_fn(&mut config.preferences);
+
+		self.preferences_watcher_tx
+			.send_replace(config.preferences.clone());
+
+		config.save(&self.config_file_path).await
 	}
+}
+
+#[derive(Error, Debug)]
+pub enum NodeConfigError {
+	#[error(transparent)]
+	SerdeJson(#[from] serde_json::Error),
+	#[error(transparent)]
+	VersionManager(#[from] VersionManagerError<NodeConfigVersion>),
+	#[error(transparent)]
+	FileIO(#[from] FileIOError),
 }

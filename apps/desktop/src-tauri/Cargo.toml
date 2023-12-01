@@ -1,8 +1,8 @@
 [package]
 name = "sd-desktop"
-version = "0.1.2"
+version = "0.1.4"
 description = "The universal file manager."
-authors = ["Spacedrive Technology Inc."]
+authors = ["Spacedrive Technology Inc <support@spacedrive.com>"]
 default-run = "sd-desktop"
 license = { workspace = true }
 repository = { workspace = true }
@@ -10,32 +10,33 @@ edition = { workspace = true }
 
 [dependencies]
 tauri = { version = "1.5.2", features = [
-	"dialog-all",
-	"linux-protocol-headers",
-	"macos-private-api",
-	"os-all",
-	"path-all",
-	"protocol-all",
-	"shell-all",
-	"updater",
-	"window-all",
-	"native-tls-vendored",
+  "macos-private-api",
+  "path-all",
+  "protocol-all",
+  "os-all",
+  "shell-all",
+  "dialog-all",
+  "linux-protocol-headers",
+  "updater",
+  "window-all",
+  "native-tls-vendored",
 ] }
 
 rspc = { workspace = true, features = ["tauri"] }
 sd-core = { path = "../../../core", features = [
-	"ffmpeg",
-	"location-watcher",
-	"heif",
+  "ffmpeg",
+  "location-watcher",
+  "heif",
 ] }
+sd-fda = { path = "../../../crates/fda" }
 tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
-serde = "1.0.188"
+serde = "1.0.190"
 http = "0.2.9"
 opener = { version = "0.6.1", features = ["reveal"] }
 specta = { workspace = true }
 tauri-specta = { workspace = true, features = ["typescript"] }
-uuid = { version = "1.4.1", features = ["serde"] }
+uuid = { version = "1.5.0", features = ["serde"] }
 futures = "0.3"
 axum = { version = "0.6.20", features = ["headers", "query"] }
 rand = "0.8.5"

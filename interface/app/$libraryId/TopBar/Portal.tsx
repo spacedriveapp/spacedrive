@@ -1,24 +1,22 @@
-import { useEffect, type ReactNode } from 'react';
+import { PropsWithChildren, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useTopBarContext } from './Layout';
 
-interface Props {
+interface Props extends PropsWithChildren {
 	left?: ReactNode;
+	center?: ReactNode;
 	right?: ReactNode;
-	noSearch?: boolean;
 }
-export const TopBarPortal = ({ left, right, noSearch }: Props) => {
+export const TopBarPortal = ({ left, center, right, children }: Props) => {
 	const ctx = useTopBarContext();
-
-	useEffect(() => {
-		ctx.setNoSearch(noSearch ?? false);
-	}, [ctx, noSearch]);
 
 	return (
 		<>
 			{left && ctx.left && createPortal(left, ctx.left)}
+			{center && ctx.center && createPortal(center, ctx.center)}
 			{right && ctx.right && createPortal(right, ctx.right)}
+			{children && ctx.children && createPortal(children, ctx.children)}
 		</>
 	);
 };

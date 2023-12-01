@@ -4,29 +4,30 @@ import {
 	ObjectCursor,
 	ObjectOrder,
 	ObjectSearchArgs,
+	useLibraryContext,
 	useRspcLibraryContext
 } from '@sd/client';
 
 import { UseExplorerInfiniteQueryArgs } from './useExplorerInfiniteQuery';
 
 export function useObjectsInfiniteQuery({
-	library,
 	arg,
-	settings,
+	explorerSettings,
 	...args
 }: UseExplorerInfiniteQueryArgs<ObjectSearchArgs, ObjectOrder>) {
+	const { library } = useLibraryContext();
 	const ctx = useRspcLibraryContext();
-	const explorerSettings = settings.useSettingsSnapshot();
+	const settings = explorerSettings.useSettingsSnapshot();
 
-	if (explorerSettings.order) {
-		arg.orderAndPagination = { orderOnly: explorerSettings.order };
+	if (settings.order) {
+		arg.orderAndPagination = { orderOnly: settings.order };
 	}
 
 	return useInfiniteQuery({
 		queryKey: ['search.objects', { library_id: library.uuid, arg }] as const,
 		queryFn: ({ pageParam, queryKey: [_, { arg }] }) => {
 			const cItem: Extract<ExplorerItem, { type: 'Object' }> = pageParam;
-			const { order } = explorerSettings;
+			const { order } = settings;
 
 			let orderAndPagination: (typeof arg)['orderAndPagination'];
 
@@ -37,18 +38,16 @@ export function useObjectsInfiniteQuery({
 
 				if (!order) cursor = 'none';
 				else if (cItem) {
-					const direction = order.value;
-
 					switch (order.field) {
 						case 'kind': {
 							const data = cItem.item.kind;
-							if (data !== null) cursor = { kind: { order: direction, data } };
+							if (data !== null) cursor = { kind: { order: order.value, data } };
 							break;
 						}
 						case 'dateAccessed': {
 							const data = cItem.item.date_accessed;
 							if (data !== null)
-								cursor = { dateAccessed: { order: direction, data } };
+								cursor = { dateAccessed: { order: order.value, data } };
 							break;
 						}
 					}

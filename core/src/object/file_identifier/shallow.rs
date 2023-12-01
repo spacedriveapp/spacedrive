@@ -12,6 +12,7 @@ use crate::{
 
 use std::path::{Path, PathBuf};
 
+use prisma_client_rust::or;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, trace, warn};
 
@@ -126,7 +127,10 @@ fn orphan_path_filters(
 ) -> Vec<file_path::WhereParam> {
 	sd_utils::chain_optional_iter(
 		[
-			file_path::object_id::equals(None),
+			or!(
+				file_path::object_id::equals(None),
+				file_path::cas_id::equals(None)
+			),
 			file_path::is_dir::equals(Some(false)),
 			file_path::location_id::equals(Some(location_id)),
 			file_path::materialized_path::equals(Some(
@@ -134,6 +138,7 @@ fn orphan_path_filters(
 					.materialized_path_for_children()
 					.expect("sub path for shallow identifier must be a directory"),
 			)),
+			file_path::size_in_bytes_bytes::not(Some(0u64.to_be_bytes().to_vec())),
 		],
 		[file_path_id.map(file_path::id::gte)],
 	)

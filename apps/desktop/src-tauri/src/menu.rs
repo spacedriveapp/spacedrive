@@ -3,7 +3,7 @@ use tauri::{Manager, Menu, WindowMenuEvent, Wry};
 #[cfg(target_os = "macos")]
 use tauri::{AboutMetadata, CustomMenuItem, MenuItem, Submenu};
 
-pub(super) fn get_menu() -> Menu {
+pub fn get_menu() -> Menu {
 	#[cfg(target_os = "macos")]
 	{
 		custom_menu_bar()
@@ -74,6 +74,7 @@ fn custom_menu_bar() -> Menu {
 	let edit_menu = Menu::new()
 		.add_native_item(MenuItem::Separator)
 		.add_native_item(MenuItem::Copy)
+		.add_native_item(MenuItem::Cut)
 		.add_native_item(MenuItem::Paste)
 		.add_native_item(MenuItem::Redo)
 		.add_native_item(MenuItem::Undo)
@@ -130,7 +131,7 @@ fn custom_menu_bar() -> Menu {
 		.add_submenu(Submenu::new("Window", window_menu))
 }
 
-pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
+pub fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 	match event.menu_item_id() {
 		"quit" => {
 			let app = event.window().app_handle();
@@ -179,12 +180,9 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 /// If any are explicitly marked with `.disabled()` in the `custom_menu_bar()` function, this won't have an effect.
 /// We include them in the locked menu IDs anyway for future-proofing, in-case someone forgets.
 #[cfg(target_os = "macos")]
-pub(super) fn set_library_locked_menu_items_enabled(
-	handle: tauri::window::MenuHandle,
-	enabled: bool,
-) {
+pub fn set_library_locked_menu_items_enabled(handle: tauri::window::MenuHandle, enabled: bool) {
 	LIBRARY_LOCKED_MENU_IDS
 		.iter()
 		.try_for_each(|id| handle.get_item(id).set_enabled(enabled))
-		.expect("Unable to disable menu items (there are no libraries present, so certain options should be hidden)")
+		.expect("Unable to disable menu items (there are no libraries present, so certain options should be hidden)");
 }

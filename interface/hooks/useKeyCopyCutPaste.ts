@@ -1,4 +1,3 @@
-import { useKeys } from 'rooks';
 import { useItemsAsEphemeralPaths, useItemsAsFilePaths, useLibraryMutation } from '@sd/client';
 import { toast } from '@sd/ui';
 import { useExplorerContext } from '~/app/$libraryId/Explorer/Context';
@@ -6,13 +5,12 @@ import { getExplorerStore, useExplorerStore } from '~/app/$libraryId/Explorer/st
 import { useExplorerSearchParams } from '~/app/$libraryId/Explorer/util';
 import { isNonEmpty } from '~/util';
 
-import { useKeyMatcher } from './useKeyMatcher';
+import { useShortcut } from './useShortcut';
 
 export const useKeyCopyCutPaste = () => {
 	const { cutCopyState } = useExplorerStore();
 	const [{ path }] = useExplorerSearchParams();
 
-	const metaCtrlKey = useKeyMatcher('Meta').key;
 	const copyFiles = useLibraryMutation('files.copyFiles');
 	const copyEphemeralFiles = useLibraryMutation('ephemeralFiles.copyFiles');
 	const cutFiles = useLibraryMutation('files.cutFiles');
@@ -25,7 +23,7 @@ export const useKeyCopyCutPaste = () => {
 	const selectedEphemeralPaths = useItemsAsEphemeralPaths(Array.from(explorer.selectedItems));
 
 	const indexedArgs =
-		parent?.type === 'Location' && !isNonEmpty(selectedFilePaths)
+		parent?.type === 'Location'
 			? {
 					sourceLocationId: parent.location.id,
 					sourcePathIds: selectedFilePaths.map((p) => p.id)
@@ -33,35 +31,54 @@ export const useKeyCopyCutPaste = () => {
 			: undefined;
 
 	const ephemeralArgs =
-		parent?.type === 'Ephemeral' && !isNonEmpty(selectedEphemeralPaths)
+		parent?.type === 'Ephemeral'
 			? { sourcePaths: selectedEphemeralPaths.map((p) => p.path) }
 			: undefined;
 
-	useKeys([metaCtrlKey, 'KeyC'], (e) => {
+	useShortcut('copyObject', (e) => {
 		e.stopPropagation();
 		if (explorer.parent?.type === 'Location') {
 			getExplorerStore().cutCopyState = {
 				sourceParentPath: path ?? '/',
+				type: 'Copy',
 				indexedArgs,
-				ephemeralArgs,
-				type: 'Copy'
+				ephemeralArgs
 			};
 		}
 	});
 
-	useKeys([metaCtrlKey, 'KeyX'], (e) => {
+	useShortcut('cutObject', (e) => {
 		e.stopPropagation();
 		if (explorer.parent?.type === 'Location') {
 			getExplorerStore().cutCopyState = {
 				sourceParentPath: path ?? '/',
+				type: 'Cut',
 				indexedArgs,
-				ephemeralArgs,
-				type: 'Cut'
+				ephemeralArgs
 			};
 		}
 	});
 
-	useKeys([metaCtrlKey, 'KeyV'], async (e) => {
+	useShortcut('duplicateObject', async (e) => {
+		e.stopPropagation();
+		if (parent?.type === 'Location') {
+			try {
+				await copyFiles.mutateAsync({
+					source_location_id: parent.location.id,
+					sources_file_path_ids: selectedFilePaths.map((p) => p.id),
+					target_location_id: parent.location.id,
+					target_location_relative_directory_path: path ?? '/'
+				});
+			} catch (error) {
+				toast.error({
+					title: 'Failed to duplicate file',
+					body: `Error: ${error}.`
+				});
+			}
+		}
+	});
+
+	useShortcut('pasteObject', async (e) => {
 		e.stopPropagation();
 		const parent = explorer.parent;
 		if (

@@ -1,30 +1,28 @@
+import { createMemoryHistory } from '@remix-run/router';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { dialog, invoke, os, shell } from '@tauri-apps/api';
-import { confirm } from '@tauri-apps/api/dialog';
 import { listen } from '@tauri-apps/api/event';
-import { homeDir } from '@tauri-apps/api/path';
-import { open } from '@tauri-apps/api/shell';
 import { appWindow } from '@tauri-apps/api/window';
-import { useEffect } from 'react';
-import { createBrowserRouter } from 'react-router-dom';
+import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { RspcProvider } from '@sd/client';
 import {
+	createRoutes,
 	ErrorPage,
 	KeybindEvent,
-	OperatingSystem,
-	Platform,
 	PlatformProvider,
-	routes,
-	SpacedriveInterface
+	SpacedriveInterfaceRoot,
+	SpacedriveRouterProvider,
+	TabsContext
 } from '@sd/interface';
+import { RouteTitleContext } from '@sd/interface/hooks/useRouteTitle';
 import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 
 import '@sd/ui/style/style.scss';
 
 import * as commands from './commands';
-import { env } from './env';
+import { platform } from './platform';
 import { queryClient } from './query';
-import { createUpdater } from './updater';
+import { createMemoryRouterWithHistory } from './router';
 
 // TODO: Bring this back once upstream is fixed up.
 // const client = hooks.createClient({
@@ -36,63 +34,7 @@ import { createUpdater } from './updater';
 // 	]
 // });
 
-async function getOs(): Promise<OperatingSystem> {
-	switch (await os.type()) {
-		case 'Linux':
-			return 'linux';
-		case 'Windows_NT':
-			return 'windows';
-		case 'Darwin':
-			return 'macOS';
-		default:
-			return 'unknown';
-	}
-}
-
-let customUriServerUrl = (window as any).__SD_CUSTOM_URI_SERVER__ as string | undefined;
-const customUriAuthToken = (window as any).__SD_CUSTOM_SERVER_AUTH_TOKEN__ as string | undefined;
 const startupError = (window as any).__SD_ERROR__ as string | undefined;
-
-if (customUriServerUrl === undefined || customUriServerUrl === '')
-	console.warn("'window.__SD_CUSTOM_URI_SERVER__' may have not been injected correctly!");
-if (customUriServerUrl && !customUriServerUrl?.endsWith('/')) {
-	customUriServerUrl += '/';
-}
-const queryParams = customUriAuthToken ? `?token=${encodeURIComponent(customUriAuthToken)}` : '';
-
-const platform = {
-	platform: 'tauri',
-	getThumbnailUrlByThumbKey: (keyParts) =>
-		`${customUriServerUrl}thumbnail/${keyParts
-			.map((i) => encodeURIComponent(i))
-			.join('/')}.webp${queryParams}`,
-	getFileUrl: (libraryId, locationLocalId, filePathId) =>
-		`${customUriServerUrl}file/${libraryId}/${locationLocalId}/${filePathId}${queryParams}`,
-	getFileUrlByPath: (path) =>
-		`${customUriServerUrl}local-file-by-path/${encodeURIComponent(path)}${queryParams}`,
-	openLink: shell.open,
-	getOs,
-	openDirectoryPickerDialog: (opts) => {
-		const result = dialog.open({ directory: true, ...opts });
-		if (opts?.multiple) return result as any; // Tauri don't properly type narrow on `multiple` argument
-		return result;
-	},
-	openFilePickerDialog: () => dialog.open(),
-	saveFilePickerDialog: (opts) => dialog.save(opts),
-	showDevtools: () => invoke('show_devtools'),
-	confirm: (msg, cb) => confirm(msg).then(cb),
-	userHomeDir: homeDir,
-	updater: window.__SD_UPDATER__ ? createUpdater() : undefined,
-	auth: {
-		start(url) {
-			open(url);
-		}
-	},
-	...commands,
-	landingApiOrigin: env.VITE_LANDING_ORIGIN
-} satisfies Platform;
-
-export const router = createBrowserRouter(routes);
 
 export default function App() {
 	useEffect(() => {
@@ -121,23 +63,163 @@ export default function App() {
 		<RspcProvider queryClient={queryClient}>
 			<PlatformProvider platform={platform}>
 				<QueryClientProvider client={queryClient}>
-					<AppInner />
+					{startupError ? (
+						<ErrorPage
+							message={startupError}
+							submessage="Error occurred starting up the Spacedrive core"
+						/>
+					) : (
+						<AppInner />
+					)}
 				</QueryClientProvider>
 			</PlatformProvider>
 		</RspcProvider>
 	);
 }
 
-// This is required because `ErrorPage` uses the OS which comes from `PlatformProvider`
+// we have a minimum delay between creating new tabs as react router can't handle creating tabs super fast
+const TAB_CREATE_DELAY = 150;
+
+const routes = createRoutes(platform);
+
 function AppInner() {
-	if (startupError) {
-		return (
-			<ErrorPage
-				message={startupError}
-				submessage="Error occurred starting up the Spacedrive core"
-			/>
-		);
+	const [tabs, setTabs] = useState(() => [createTab()]);
+	const [tabIndex, setTabIndex] = useState(0);
+
+	function createTab() {
+		const history = createMemoryHistory();
+		const router = createMemoryRouterWithHistory({ routes, history });
+
+		const dispose = router.subscribe((event) => {
+			setTabs((routers) => {
+				const index = routers.findIndex((r) => r.router === router);
+				if (index === -1) return routers;
+
+				const routerAtIndex = routers[index]!;
+
+				routers[index] = {
+					...routerAtIndex,
+					currentIndex: history.index,
+					maxIndex:
+						event.historyAction === 'PUSH'
+							? history.index
+							: Math.max(routerAtIndex.maxIndex, history.index)
+				};
+
+				return [...routers];
+			});
+		});
+
+		return {
+			id: Math.random().toString(),
+			router,
+			history,
+			dispose,
+			element: document.createElement('div'),
+			currentIndex: 0,
+			maxIndex: 0,
+			title: 'New Tab'
+		};
 	}
 
-	return <SpacedriveInterface router={router} />;
+	const tab = tabs[tabIndex]!;
+
+	const createTabPromise = useRef(Promise.resolve());
+
+	const ref = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		const div = ref.current;
+		if (!div) return;
+
+		div.appendChild(tab.element);
+
+		return () => {
+			while (div.firstChild) {
+				div.removeChild(div.firstChild);
+			}
+		};
+	}, [tab.element]);
+
+	return (
+		<RouteTitleContext.Provider
+			value={useMemo(
+				() => ({
+					setTitle(title) {
+						setTabs((oldTabs) => {
+							const tabs = [...oldTabs];
+							const tab = tabs[tabIndex];
+							if (!tab) return tabs;
+
+							tabs[tabIndex] = { ...tab, title };
+
+							return tabs;
+						});
+					}
+				}),
+				[tabIndex]
+			)}
+		>
+			<TabsContext.Provider
+				value={{
+					tabIndex,
+					setTabIndex,
+					tabs: tabs.map(({ router, title }) => ({ router, title })),
+					createTab() {
+						createTabPromise.current = createTabPromise.current.then(
+							() =>
+								new Promise((res) => {
+									startTransition(() => {
+										setTabs((tabs) => {
+											const newTabs = [...tabs, createTab()];
+
+											setTabIndex(newTabs.length - 1);
+
+											return newTabs;
+										});
+									});
+
+									setTimeout(res, TAB_CREATE_DELAY);
+								})
+						);
+					},
+					removeTab(index: number) {
+						startTransition(() => {
+							setTabs((tabs) => {
+								const tab = tabs[index];
+								if (!tab) return tabs;
+
+								tab.dispose();
+
+								tabs.splice(index, 1);
+
+								setTabIndex(Math.min(tabIndex, tabs.length - 1));
+
+								return [...tabs];
+							});
+						});
+					}
+				}}
+			>
+				<SpacedriveInterfaceRoot>
+					{tabs.map((tab) =>
+						createPortal(
+							<SpacedriveRouterProvider
+								key={tab.id}
+								routing={{
+									routes,
+									visible: tabIndex === tabs.indexOf(tab),
+									router: tab.router,
+									currentIndex: tab.currentIndex,
+									maxIndex: tab.maxIndex
+								}}
+							/>,
+							tab.element
+						)
+					)}
+					<div ref={ref} />
+				</SpacedriveInterfaceRoot>
+			</TabsContext.Provider>
+		</RouteTitleContext.Provider>
+	);
 }

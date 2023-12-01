@@ -32,6 +32,7 @@ extension_enum! {
 extension_category_enum! {
 	VideoExtension ALL_VIDEO_EXTENSIONS {
 		Avi = [0x52, 0x49, 0x46, 0x46, _, _, _, _, 0x41, 0x56, 0x49, 0x20],
+		Avifs = [],
 		Qt = [0x71, 0x74, 0x20, 0x20],
 		Mov = [0x66, 0x74, 0x79, 0x70, 0x71, 0x74, 0x20, 0x20] + 4,
 		Swf = [0x5A, 0x57, 0x53] | [0x46, 0x57, 0x53],
@@ -390,7 +391,7 @@ mod test {
 	#[tokio::test]
 	async fn magic_bytes() {
 		async fn test_path(subpath: &str) -> Option<Extension> {
-			println!("testing {}...", subpath);
+			println!("testing {subpath}...");
 			Extension::resolve_conflicting(subpath.split('.').last().unwrap(), true).await
 		}
 		// Video extension tests

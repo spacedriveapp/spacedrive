@@ -1,4 +1,4 @@
-#![allow(dead_code, unused)] // TODO: Remove once sorted outs
+#![allow(clippy::panic, clippy::unwrap_used)] // TODO: Finish this
 
 use std::{
 	collections::HashMap,
@@ -12,7 +12,7 @@ use chrono::Utc;
 use futures::channel::oneshot;
 use sd_p2p::{
 	spacetunnel::{Identity, RemoteIdentity},
-	Manager, Metadata,
+	Manager,
 };
 
 use sd_prisma::prisma::instance;
@@ -22,7 +22,7 @@ use tokio::{
 	io::{AsyncRead, AsyncWrite, AsyncWriteExt},
 	sync::broadcast,
 };
-use tracing::{error, info};
+use tracing::{info, warn};
 use uuid::Uuid;
 
 mod proto;
@@ -31,12 +31,12 @@ use proto::*;
 
 use crate::{
 	library::{Libraries, LibraryName},
-	node::{self, config::NodeConfig, Platform},
-	p2p::{Header, IdentityOrRemoteIdentity, P2PManager},
+	node::Platform,
+	p2p::{Header, IdentityOrRemoteIdentity},
 	Node,
 };
 
-use super::{P2PEvent, PeerMetadata};
+use super::P2PEvent;
 
 pub struct PairingManager {
 	id: AtomicU16,
@@ -225,13 +225,23 @@ impl PairingManager {
 		mut stream: impl AsyncRead + AsyncWrite + Unpin,
 		library_manager: &Libraries,
 		node: Arc<Node>,
-	) {
+	) -> Result<(), ()> {
 		let pairing_id = self.id.fetch_add(1, Ordering::SeqCst);
 		self.emit_progress(pairing_id, PairingStatus::EstablishingConnection);
 
 		info!("Beginning pairing '{pairing_id}' as responder to remote peer '{identity}'");
 
-		let remote_instance = PairingRequest::from_stream(&mut stream).await.unwrap().0;
+		let remote_instance = match PairingRequest::from_stream(&mut stream).await {
+			Ok(v) => v,
+			Err((field_name, err)) => {
+				warn!("Error reading field '{field_name}' of pairing request from remote: {err}");
+				self.emit_progress(pairing_id, PairingStatus::PairingRejected);
+
+				// TODO: Attempt to send error to remote and reset connection
+				return Ok(());
+			}
+		}
+		.0;
 		self.emit_progress(pairing_id, PairingStatus::PairingDecisionRequest);
 		self.events_tx
 			.send(P2PEvent::PairingRequest {
@@ -255,7 +265,7 @@ impl PairingManager {
 				.write_all(&PairingResponse::Rejected.to_bytes())
 				.await
 				.unwrap();
-			return;
+			return Ok(());
 		};
 		info!("The user accepted pairing '{pairing_id}' for library '{library_id}'!");
 
@@ -279,12 +289,14 @@ impl PairingManager {
 		.unwrap();
 		library_manager.update_instances(library.clone()).await;
 
+		let library_config = library.config().await;
+
 		stream
 			.write_all(
 				&PairingResponse::Accepted {
 					library_id: library.id,
-					library_name: library.config().name.into(),
-					library_description: library.config().description,
+					library_name: library_config.name.into(),
+					library_description: library_config.description,
 					instances: library
 						.db
 						.instance()
@@ -293,17 +305,29 @@ impl PairingManager {
 						.await
 						.unwrap()
 						.into_iter()
-						.map(|i| Instance {
-							id: Uuid::from_slice(&i.pub_id).unwrap(),
-							identity: IdentityOrRemoteIdentity::from_bytes(&i.identity)
-								.unwrap()
-								.remote_identity(),
-							node_id: Uuid::from_slice(&i.node_id).unwrap(),
-							node_name: i.node_name,
-							node_platform: Platform::try_from(i.node_platform as u8)
-								.unwrap_or(Platform::Unknown),
-							last_seen: i.last_seen.into(),
-							date_created: i.date_created.into(),
+						.filter_map(|i| {
+							let Ok(id) = Uuid::from_slice(&i.pub_id) else {
+								warn!("Invalid instance pub_id in database: {:?}", i.pub_id);
+								return None;
+							};
+
+							let Ok(node_id) = Uuid::from_slice(&i.node_id) else {
+								warn!("Invalid instance node_id in database: {:?}", i.node_id);
+								return None;
+							};
+
+							Some(Instance {
+								id,
+								identity: IdentityOrRemoteIdentity::from_bytes(&i.identity)
+									.unwrap()
+									.remote_identity(),
+								node_id,
+								node_name: i.node_name,
+								node_platform: Platform::try_from(i.node_platform as u8)
+									.unwrap_or(Platform::Unknown),
+								last_seen: i.last_seen.into(),
+								date_created: i.date_created.into(),
+							})
 						})
 						.collect(),
 				}
@@ -319,6 +343,8 @@ impl PairingManager {
 
 		// Remember, originator creates a new stream internally so the handler for this doesn't have to do anything.
 		super::sync::originator(library_id, &library.sync, &node.p2p).await;
+
+		Ok(())
 	}
 }
 

@@ -1,5 +1,6 @@
 use std::{
 	collections::{HashMap, HashSet},
+	convert::Infallible,
 	fmt,
 	net::SocketAddr,
 	sync::{
@@ -10,8 +11,7 @@ use std::{
 
 use libp2p::{
 	core::{muxing::StreamMuxerBox, transport::ListenerId, ConnectedPoint},
-	swarm::SwarmBuilder,
-	PeerId, Transport,
+	PeerId, SwarmBuilder, Transport,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -20,7 +20,7 @@ use tokio::sync::{mpsc, oneshot};
 use tracing::{error, warn};
 
 use crate::{
-	spacetime::{SpaceTime, UnicastStream},
+	spacetime::{SpaceTime, UnicastStream, UnicastStreamError},
 	spacetunnel::{Identity, RemoteIdentity},
 	DiscoveryManager, DiscoveryManagerState, Keypair, ManagerStream, ManagerStreamAction,
 	ManagerStreamAction2,
@@ -29,10 +29,12 @@ use crate::{
 // State of the manager that may infrequently change
 // These are broken out so updates to them can be done in sync (With single RwLock lock)
 #[derive(Debug)]
-pub(crate) struct DynamicManagerState {
+pub struct DynamicManagerState {
 	pub(crate) config: ManagerConfig,
-	pub(crate) ipv4_listener_id: Option<ListenerId>,
-	pub(crate) ipv6_listener_id: Option<ListenerId>,
+	pub(crate) ipv4_listener_id: Option<Result<ListenerId, String>>,
+	pub(crate) ipv4_port: Option<u16>,
+	pub(crate) ipv6_listener_id: Option<Result<ListenerId, String>>,
+	pub(crate) ipv6_port: Option<u16>,
 	// A map of connected clients.
 	// This includes both inbound and outbound connections!
 	pub(crate) connected: HashMap<libp2p::PeerId, RemoteIdentity>,
@@ -78,13 +80,15 @@ impl Manager {
 		let config2 = config.clone();
 		let (discovery_state, service_shutdown_rx) = DiscoveryManagerState::new();
 		let this = Arc::new(Self {
-			application_name: format!("/{}/spacetime/1.0.0", application_name),
+			application_name: format!("/{application_name}/spacetime/1.0.0"),
 			identity: keypair.to_identity(),
 			stream_id: AtomicU64::new(0),
 			state: RwLock::new(DynamicManagerState {
 				config,
 				ipv4_listener_id: None,
+				ipv4_port: None,
 				ipv6_listener_id: None,
+				ipv6_port: None,
 				connected: Default::default(),
 				connections: Default::default(),
 			}),
@@ -94,15 +98,16 @@ impl Manager {
 			event_stream_tx2,
 		});
 
-		let mut swarm = SwarmBuilder::with_tokio_executor(
-			libp2p_quic::GenTransport::<libp2p_quic::tokio::Provider>::new(
-				libp2p_quic::Config::new(&keypair.inner()),
-			)
-			.map(|(p, c), _| (p, StreamMuxerBox::new(c)))
-			.boxed(),
-			SpaceTime::new(this.clone()),
-			keypair.peer_id(),
-		)
+		let mut swarm = ok(ok(SwarmBuilder::with_existing_identity(keypair.inner())
+			.with_tokio()
+			.with_other_transport(|keypair| {
+				libp2p_quic::GenTransport::<libp2p_quic::tokio::Provider>::new(
+					libp2p_quic::Config::new(keypair),
+				)
+				.map(|(p, c), _| (p, StreamMuxerBox::new(c)))
+				.boxed()
+			}))
+		.with_behaviour(|_| SpaceTime::new(this.clone())))
 		.build();
 
 		ManagerStream::refresh_listeners(
@@ -134,7 +139,7 @@ impl Manager {
 
 	pub(crate) async fn emit(&self, event: ManagerStreamAction) {
 		match self.event_stream_tx.send(event).await {
-			Ok(_) => {}
+			Ok(()) => {}
 			Err(err) => warn!("error emitting event: {}", err),
 		}
 	}
@@ -160,7 +165,10 @@ impl Manager {
 	}
 
 	// TODO: Maybe remove this?
-	pub async fn stream(&self, identity: RemoteIdentity) -> Result<UnicastStream, ()> {
+	pub async fn stream(
+		&self,
+		identity: RemoteIdentity,
+	) -> Result<UnicastStream, UnicastStreamError> {
 		let peer_id = {
 			let state = self
 				.discovery_state
@@ -172,7 +180,7 @@ impl Manager {
 				.discovered
 				.iter()
 				.find_map(|(_, i)| i.iter().find(|(i, _)| **i == identity))
-				.ok_or(())?
+				.ok_or(UnicastStreamError::PeerIdNotFound)?
 				.1
 				.peer_id
 		};
@@ -184,21 +192,22 @@ impl Manager {
 	// TODO: Does this need any timeouts to be added cause hanging forever is bad?
 	// be aware this method is `!Sync` so can't be used from rspc. // TODO: Can this limitation be removed?
 	#[allow(clippy::unused_unit)] // TODO: Remove this clippy override once error handling is added
-	pub(crate) async fn stream_inner(&self, peer_id: PeerId) -> Result<UnicastStream, ()> {
+	pub(crate) async fn stream_inner(
+		&self,
+		peer_id: PeerId,
+	) -> Result<UnicastStream, UnicastStreamError> {
 		// TODO: With this system you can send to any random peer id. Can I reduce that by requiring `.connect(peer_id).unwrap().send(data)` or something like that.
 		let (tx, rx) = oneshot::channel();
-		match self
+		if let Err(err) = self
 			.event_stream_tx2
 			.send(ManagerStreamAction2::StartStream(peer_id, tx))
 			.await
 		{
-			Ok(_) => {}
-			Err(err) => warn!("error emitting event: {}", err),
-		}
-		let stream = rx.await.map_err(|_| {
+			warn!("error emitting event: {err}");
+		};
+		let stream = rx.await.map_err(|err| {
 			warn!("failed to queue establishing stream to peer '{peer_id}'!");
-
-			()
+			UnicastStreamError::ErrManagerShutdown(err)
 		})?;
 
 		stream.build(self, peer_id).await
@@ -255,6 +264,28 @@ impl Manager {
 		)
 	}
 
+	pub fn status(&self) -> P2PStatus {
+		let state = self.state.read().unwrap_or_else(PoisonError::into_inner);
+		P2PStatus {
+			ipv4: match state.ipv4_listener_id.clone() {
+				Some(Ok(_)) => match state.ipv4_port {
+					Some(port) => ListenerStatus::Listening { port },
+					None => ListenerStatus::Enabling,
+				},
+				Some(Err(error)) => ListenerStatus::Error { error },
+				None => ListenerStatus::Disabled,
+			},
+			ipv6: match state.ipv6_listener_id.clone() {
+				Some(Ok(_)) => match state.ipv6_port {
+					Some(port) => ListenerStatus::Listening { port },
+					None => ListenerStatus::Enabling,
+				},
+				Some(Err(error)) => ListenerStatus::Error { error },
+				None => ListenerStatus::Disabled,
+			},
+		}
+	}
+
 	pub async fn shutdown(&self) {
 		let (tx, rx) = oneshot::channel();
 		if self
@@ -280,6 +311,8 @@ pub enum ManagerError {
 	InvalidAppName,
 	#[error("error with mdns discovery: {0}")]
 	Mdns(#[from] mdns_sd::Error),
+	// #[error("todo")]
+	// Manager(#[from] ManagerError),
 }
 
 /// The configuration for the P2P Manager
@@ -300,5 +333,27 @@ impl Default for ManagerConfig {
 			enabled: true,
 			port: None,
 		}
+	}
+}
+
+#[derive(Serialize, Debug, Type)]
+pub struct P2PStatus {
+	ipv4: ListenerStatus,
+	ipv6: ListenerStatus,
+}
+
+#[derive(Serialize, Debug, Type)]
+#[serde(tag = "status")]
+pub enum ListenerStatus {
+	Disabled,
+	Enabling,
+	Listening { port: u16 },
+	Error { error: String },
+}
+
+fn ok<T>(v: Result<T, Infallible>) -> T {
+	match v {
+		Ok(v) => v,
+		Err(_) => unreachable!(),
 	}
 }

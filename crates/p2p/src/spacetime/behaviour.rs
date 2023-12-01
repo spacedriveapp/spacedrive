@@ -14,7 +14,7 @@ use libp2p::{
 	Multiaddr,
 };
 use thiserror::Error;
-use tracing::{debug, trace};
+use tracing::{debug, trace, warn};
 
 use crate::{Event, Manager, ManagerStreamAction2};
 
@@ -30,7 +30,7 @@ pub const EMPTY_QUEUE_SHRINK_THRESHOLD: usize = 100;
 #[derive(Debug, Error)]
 pub enum OutboundFailure {}
 
-/// SpaceTime is a [`NetworkBehaviour`](libp2p_swarm::NetworkBehaviour) that implements the SpaceTime protocol.
+/// `SpaceTime` is a [`NetworkBehaviour`](libp2p_swarm::NetworkBehaviour) that implements the `SpaceTime` protocol.
 /// This protocol sits under the application to abstract many complexities of 2 way connections and deals with authentication, chucking, etc.
 pub struct SpaceTime {
 	pub(crate) manager: Arc<Manager>,
@@ -120,9 +120,13 @@ impl NetworkBehaviour for SpaceTime {
 						.unwrap_or_else(PoisonError::into_inner);
 
 					state.connections.remove(&peer_id);
-					self.pending_events.push_back(ToSwarm::GenerateEvent(
-						Event::PeerDisconnected(state.connected.remove(&peer_id).unwrap()).into(),
-					));
+					if let Some(remote_identity) = state.connected.remove(&peer_id) {
+						self.pending_events.push_back(ToSwarm::GenerateEvent(
+							Event::PeerDisconnected(remote_identity).into(),
+						));
+					} else {
+						warn!("Disconnected peer '{peer_id}' but was not connected. This likely indicates a bug!");
+					}
 				}
 			}
 			FromSwarm::AddressChange(event) => {

@@ -14,27 +14,41 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("events", {
 			R.subscription(|node, _: ()| async move {
 				let mut rx = node.p2p.subscribe();
-				async_stream::stream! {
-					// TODO: Don't block subscription start
-					for peer in node.p2p.node.get_discovered() {
-						 yield P2PEvent::DiscoveredPeer {
-							identity: peer.identity,
-							metadata: peer.metadata,
-						};
-					}
 
-					// TODO: Don't block subscription start
-					#[allow(clippy::unwrap_used)] // TODO: P2P isn't stable yet lol
-					for identity in node.p2p.manager.get_connected_peers().await.unwrap() {
-						yield P2PEvent::ConnectedPeer {
-							identity,
-						};
+				let mut queued = Vec::new();
+
+				// TODO: Don't block subscription start
+				for peer in node.p2p.node.get_discovered() {
+					queued.push(P2PEvent::DiscoveredPeer {
+						identity: peer.identity,
+						metadata: peer.metadata,
+					});
+				}
+
+				// TODO: Don't block subscription start
+				for identity in node
+					.p2p
+					.manager
+					.get_connected_peers()
+					.await
+					.map_err(|_err| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"todo: error getting connected peers".into(),
+						)
+					})? {
+					queued.push(P2PEvent::ConnectedPeer { identity });
+				}
+
+				Ok(async_stream::stream! {
+					for event in queued.drain(..queued.len()) {
+						yield event;
 					}
 
 					while let Ok(event) = rx.recv().await {
 						yield event;
 					}
-				}
+				})
 			})
 		})
 		.procedure("state", {

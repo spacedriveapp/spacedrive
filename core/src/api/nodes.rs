@@ -1,7 +1,8 @@
 use crate::{invalidate_query, prisma::location, util::MaybeUndefined};
-use rspc::{alpha::AlphaRouter, ErrorCode};
 
 use sd_prisma::prisma::instance;
+
+use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
 use tracing::error;
@@ -20,7 +21,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 			R.mutation(|node, args: ChangeNodeNameArgs| async move {
 				if let Some(name) = &args.name {
-					if name.is_empty() || name.len() > 32 {
+					if name.is_empty() || name.len() > 250 {
 						return Err(rspc::Error::new(
 							ErrorCode::BadRequest,
 							"invalid node name".into(),
@@ -32,7 +33,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					args.p2p_enabled.is_some() || args.p2p_port.is_defined();
 
 				node.config
-					.write(|mut config| {
+					.write(|config| {
 						if let Some(name) = args.name {
 							config.name = name;
 						}
@@ -76,7 +77,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.instance()
 						.find_many(vec![node_id
 							.map(|id| instance::node_id::equals(id.as_bytes().to_vec()))
-							.unwrap_or(instance::id::equals(library.config().instance_id))])
+							.unwrap_or(instance::id::equals(
+								library.config().await.instance_id,
+							))])
 						.exec()
 						.await?;
 
@@ -99,5 +102,35 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						})
 						.collect::<Vec<_>>())
 				})
+		})
+		.procedure("updateThumbnailerPreferences", {
+			#[derive(Deserialize, Type)]
+			pub struct UpdateThumbnailerPreferences {
+				pub background_processing_percentage: u8, // 0-100
+			}
+			R.mutation(
+				|node,
+				 UpdateThumbnailerPreferences {
+				     background_processing_percentage,
+				 }: UpdateThumbnailerPreferences| async move {
+					node.config
+						.update_preferences(|preferences| {
+							preferences
+								.thumbnailer
+								.set_background_processing_percentage(
+									background_processing_percentage,
+								);
+						})
+						.await
+						.map_err(|e| {
+							error!("failed to update thumbnailer preferences: {e:#?}");
+							rspc::Error::with_cause(
+								ErrorCode::InternalServerError,
+								"Failed to update thumbnailer preferences".to_string(),
+								e,
+							)
+						})
+				},
+			)
 		})
 }

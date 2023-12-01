@@ -1,8 +1,14 @@
 import { hydrate, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { RspcProvider } from '@sd/client';
-import { Platform, PlatformProvider, routes, SpacedriveInterface } from '@sd/interface';
+import {
+	createRoutes,
+	Platform,
+	PlatformProvider,
+	SpacedriveInterfaceRoot,
+	SpacedriveRouterProvider
+} from '@sd/interface';
 import { useShowControls } from '@sd/interface/hooks';
 
 import demoData from './demoData.json';
@@ -75,15 +81,21 @@ const queryClient = new QueryClient({
 	}
 });
 
-const router = createBrowserRouter(routes);
+const routes = createRoutes(platform);
 
 function App() {
+	const router = useRouter();
+
 	const domEl = useRef<HTMLDivElement>(null);
 	const { isEnabled: showControls } = useShowControls();
 
 	useEffect(() => window.parent.postMessage('spacedrive-hello', '*'), []);
 
-	if (import.meta.env.VITE_SD_DEMO_MODE === 'true') {
+	if (
+		import.meta.env.VITE_SD_DEMO_MODE === 'true' &&
+		// quick and dirty check for if we've already rendered lol
+		domEl === null
+	) {
 		hydrate(queryClient, demoData);
 	}
 
@@ -93,7 +105,15 @@ function App() {
 				<RspcProvider queryClient={queryClient}>
 					<PlatformProvider platform={platform}>
 						<QueryClientProvider client={queryClient}>
-							<SpacedriveInterface router={router} />
+							<SpacedriveInterfaceRoot>
+								<SpacedriveRouterProvider
+									routing={{
+										...router,
+										routes,
+										visible: true
+									}}
+								/>
+							</SpacedriveInterfaceRoot>
 						</QueryClientProvider>
 					</PlatformProvider>
 				</RspcProvider>
@@ -103,3 +123,34 @@ function App() {
 }
 
 export default App;
+
+function useRouter() {
+	const [router, setRouter] = useState(() => {
+		const router = createBrowserRouter(createRoutes(platform));
+
+		router.subscribe((event) => {
+			setRouter((router) => {
+				const currentIndex: number | undefined = history.state?.idx;
+				if (currentIndex === undefined) return router;
+
+				return {
+					...router,
+					currentIndex,
+					maxIndex:
+						event.historyAction === 'PUSH'
+							? currentIndex
+							: // sometimes the max index is 0 when the current index is > 0, like when reloading the page -_-
+							  Math.max(router.maxIndex, currentIndex)
+				};
+			});
+		});
+
+		return {
+			router,
+			currentIndex: 0,
+			maxIndex: 0
+		};
+	});
+
+	return router;
+}

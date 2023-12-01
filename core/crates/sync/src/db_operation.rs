@@ -1,5 +1,5 @@
-use sd_prisma::prisma::*;
-use sd_sync::*;
+use sd_prisma::prisma::{relation_operation, shared_operation};
+use sd_sync::{CRDTOperation, CRDTOperationType, RelationOperation, SharedOperation};
 use uhlc::NTP64;
 use uuid::Uuid;
 

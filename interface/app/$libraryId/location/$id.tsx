@@ -1,14 +1,13 @@
-import { Info } from '@phosphor-icons/react';
-import { useCallback, useEffect, useMemo } from 'react';
+import { ArrowClockwise, Info } from '@phosphor-icons/react';
+import { useEffect, useMemo } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
 import {
 	arraysEqual,
 	ExplorerSettings,
-	FilePathFilterArgs,
 	FilePathOrder,
+	Location,
 	ObjectKindEnum,
-	useLibraryContext,
 	useLibraryMutation,
 	useLibraryQuery,
 	useLibrarySubscription,
@@ -18,46 +17,64 @@ import {
 import { Loader, Tooltip } from '@sd/ui';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder, Icon } from '~/components';
-import { useIsLocationIndexing, useKeyDeleteFile, useZodRouteParams } from '~/hooks';
+import {
+	useIsLocationIndexing,
+	useKeyDeleteFile,
+	useRouteTitle,
+	useShortcut,
+	useZodRouteParams
+} from '~/hooks';
+import { useQuickRescan } from '~/hooks/useQuickRescan';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { usePathsInfiniteQuery } from '../Explorer/queries';
+import { usePathsExplorerQuery } from '../Explorer/queries';
 import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
-import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
+import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { useExplorerSearchParams } from '../Explorer/util';
 import { EmptyNotice } from '../Explorer/View';
+import SearchOptions, { SearchContextProvider, useSearch } from '../Search';
+import SearchBar from '../Search/SearchBar';
 import { TopBarPortal } from '../TopBar/Portal';
+import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import LocationOptions from './LocationOptions';
 
 export const Component = () => {
-	const [{ path }] = useExplorerSearchParams();
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
-	const location = useLibraryQuery(['locations.get', locationId]);
+	const location = useLibraryQuery(['locations.get', locationId], {
+		keepPreviousData: true,
+		suspense: true
+	});
+
+	return <LocationExplorer location={location.data!} />;
+};
+
+const LocationExplorer = ({ location }: { location: Location; path?: string }) => {
+	const [{ path, take }] = useExplorerSearchParams();
 	const rspc = useRspcLibraryContext();
 
 	const onlineLocations = useOnlineLocations();
 
+	const rescan = useQuickRescan();
+
 	const locationOnline = useMemo(() => {
-		const pub_id = location.data?.pub_id;
+		const pub_id = location.pub_id;
 		if (!pub_id) return false;
 		return onlineLocations.some((l) => arraysEqual(pub_id, l));
-	}, [location.data?.pub_id, onlineLocations]);
+	}, [location.pub_id, onlineLocations]);
 
 	const preferences = useLibraryQuery(['preferences.get']);
 	const updatePreferences = useLibraryMutation('preferences.update');
-
-	const isLocationIndexing = useIsLocationIndexing(locationId);
 
 	const settings = useMemo(() => {
 		const defaults = createDefaultExplorerSettings<FilePathOrder>({
 			order: { field: 'name', value: 'Asc' }
 		});
 
-		if (!location.data) return defaults;
+		if (!location) return defaults;
 
-		const pubId = stringify(location.data.pub_id);
+		const pubId = stringify(location.pub_id);
 
 		const settings = preferences.data?.location?.[pubId]?.explorer;
 
@@ -68,12 +85,14 @@ export const Component = () => {
 		}
 
 		return defaults;
-	}, [location.data, preferences.data?.location]);
+	}, [location, preferences.data?.location]);
 
 	const onSettingsChanged = useDebouncedCallback(
 		async (settings: ExplorerSettings<FilePathOrder>) => {
-			if (!location.data) return;
-			const pubId = stringify(location.data.pub_id);
+			if (preferences.isLoading) return;
+
+			const pubId = stringify(location.pub_id);
+
 			try {
 				await updatePreferences.mutateAsync({
 					location: { [pubId]: { explorer: settings } }
@@ -90,24 +109,59 @@ export const Component = () => {
 		settings,
 		onSettingsChanged,
 		orderingKeys: filePathOrderingKeysSchema,
-		location: location.data
+		location
 	});
 
-	const { items, count, loadMore, query } = useItems({ locationId, settings: explorerSettings });
+	const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
+
+	const fixedFilters = useMemo(
+		() => [
+			{ filePath: { locations: { in: [location.id] } } },
+			...(explorerSettingsSnapshot.layoutMode === 'media'
+				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
+				: [])
+		],
+		[location.id, explorerSettingsSnapshot.layoutMode]
+	);
+
+	const search = useSearch({ fixedFilters });
+
+	const { layoutMode, mediaViewWithDescendants, showHiddenFiles } =
+		explorerSettings.useSettingsSnapshot();
+
+	const paths = usePathsExplorerQuery({
+		arg: {
+			filters: [
+				...search.allFilters,
+				{
+					filePath: {
+						path: {
+							location_id: location.id,
+							path: path ?? '',
+							include_descendants:
+								search.search !== '' ||
+								search.dynamicFilters.length > 0 ||
+								(layoutMode === 'media' && mediaViewWithDescendants)
+						}
+					}
+				},
+				!showHiddenFiles && { filePath: { hidden: false } }
+			].filter(Boolean) as any,
+			take
+		},
+		explorerSettings
+	});
 
 	const explorer = useExplorer({
-		items,
-		count,
-		loadMore,
-		isFetchingNextPage: query.isFetchingNextPage,
+		...paths,
+		isFetchingNextPage: paths.query.isFetchingNextPage,
+		isLoadingPreferences: preferences.isLoading,
 		settings: explorerSettings,
-		...(location.data && {
-			parent: { type: 'Location', location: location.data }
-		})
+		parent: { type: 'Location', location }
 	});
 
 	useLibrarySubscription(
-		['locations.quickRescan', { sub_path: path ?? '', location_id: locationId }],
+		['locations.quickRescan', { sub_path: path ?? '', location_id: location.id }],
 		{ onData() {} }
 	);
 
@@ -117,93 +171,73 @@ export const Component = () => {
 		explorer.resetSelectedItems.call(undefined);
 	}, [explorer.resetSelectedItems, path]);
 
-	useKeyDeleteFile(explorer.selectedItems, location.data?.id);
-
 	useEffect(() => explorer.scrollRef.current?.scrollTo({ top: 0 }), [explorer.scrollRef, path]);
+
+	useKeyDeleteFile(explorer.selectedItems, location.id);
+
+	useShortcut('rescan', () => rescan(location.id));
+
+	const title = useRouteTitle(
+		(path && path?.length > 1 ? getLastSectionOfPath(path) : location.name) ?? ''
+	);
+
+	const isLocationIndexing = useIsLocationIndexing(location.id);
 
 	return (
 		<ExplorerContextProvider explorer={explorer}>
-			<TopBarPortal
-				left={
-					<div className="flex items-center gap-2">
-						<Folder size={22} className="mt-[-1px]" />
-						<span className="truncate text-sm font-medium">
-							{path && path?.length > 1
-								? getLastSectionOfPath(path)
-								: location.data?.name}
-						</span>
-						{!locationOnline && (
-							<Tooltip label="Location is offline, you can still browse and organize.">
-								<Info className="text-ink-faint" />
-							</Tooltip>
-						)}
-						{location.data && (
-							<LocationOptions location={location.data} path={path || ''} />
-						)}
-					</div>
-				}
-				right={<DefaultTopBarOptions />}
-			/>
-
+			<SearchContextProvider search={search}>
+				<TopBarPortal
+					center={<SearchBar />}
+					left={
+						<div className="flex items-center gap-2">
+							<Folder size={22} className="mt-[-1px]" />
+							<span className="truncate text-sm font-medium">{title}</span>
+							{!locationOnline && (
+								<Tooltip label="Location is offline, you can still browse and organize.">
+									<Info className="text-ink-faint" />
+								</Tooltip>
+							)}
+							<LocationOptions location={location} path={path || ''} />
+						</div>
+					}
+					right={
+						<DefaultTopBarOptions
+							options={[
+								{
+									toolTipLabel: 'Reload',
+									onClick: () => rescan(location.id),
+									icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
+									individual: true,
+									showAtResolution: 'xl:flex'
+								}
+							]}
+						/>
+					}
+				>
+					{search.open && (
+						<>
+							<hr className="w-full border-t border-sidebar-divider bg-sidebar-divider" />
+							<SearchOptions />
+						</>
+					)}
+				</TopBarPortal>
+			</SearchContextProvider>
 			{isLocationIndexing ? (
 				<div className="flex h-full w-full items-center justify-center">
 					<Loader />
 				</div>
-			) : (
+			) : !preferences.isLoading ? (
 				<Explorer
 					emptyNotice={
 						<EmptyNotice
-							loading={location.isFetching}
 							icon={<Icon name="FolderNoSpace" size={128} />}
 							message="No files found here"
 						/>
 					}
 				/>
-			)}
+			) : null}
 		</ExplorerContextProvider>
 	);
-};
-
-const useItems = ({
-	locationId,
-	settings
-}: {
-	locationId: number;
-	settings: UseExplorerSettings<FilePathOrder>;
-}) => {
-	const [{ path, take }] = useExplorerSearchParams();
-
-	const { library } = useLibraryContext();
-
-	const explorerSettings = settings.useSettingsSnapshot();
-
-	const filter: FilePathFilterArgs = { locationId, path: path ?? '' };
-
-	if (explorerSettings.layoutMode === 'media') {
-		filter.object = { kind: [ObjectKindEnum.Image, ObjectKindEnum.Video] };
-
-		if (explorerSettings.mediaViewWithDescendants) filter.withDescendants = true;
-	}
-
-	if (!explorerSettings.showHiddenFiles) filter.hidden = false;
-
-	const count = useLibraryQuery(['search.pathsCount', { filter }]);
-
-	const query = usePathsInfiniteQuery({
-		arg: { filter, take },
-		library,
-		settings
-	});
-
-	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items) ?? null, [query.data]);
-
-	const loadMore = useCallback(() => {
-		if (query.hasNextPage && !query.isFetchingNextPage) {
-			query.fetchNextPage.call(undefined);
-		}
-	}, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
-
-	return { query, items, loadMore, count: count.data };
 };
 
 function getLastSectionOfPath(path: string): string | undefined {

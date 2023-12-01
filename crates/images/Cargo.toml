@@ -14,7 +14,7 @@ heif = ["dep:libheif-rs", "dep:libheif-sys"]
 
 [dependencies]
 image = "0.24.7"
-thiserror = "1.0.49"
+thiserror = "1.0.50"
 resvg = "0.36.0"
 rspc = { workspace = true, optional = true } # error conversion
 specta = { workspace = true, optional = true }
@@ -30,4 +30,8 @@ tracing = { workspace = true }
 # this broke builds as we build our own liibheif, so i disabled their default features
 libheif-rs = { version = "0.22.0", default-features = false, optional = true }
 libheif-sys = { version = "2.0.0", default-features = false, optional = true }
-pdfium-render = { version = "0.8.8", features = ["image"] }
+pdfium-render = { version = "0.8.15", features = [
+	"sync",
+	"image",
+	"thread_safe",
+] }

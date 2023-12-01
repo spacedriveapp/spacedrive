@@ -1,24 +1,41 @@
 import { createContext, useContext, useState } from 'react';
 import { Outlet } from 'react-router';
+import { SearchFilterArgs } from '@sd/client';
 
 import TopBar from '.';
 
-interface TopBarContext {
-	left: HTMLDivElement | null;
-	right: HTMLDivElement | null;
-	setNoSearch: (value: boolean) => void;
+const TopBarContext = createContext<ReturnType<typeof useContextValue> | null>(null);
+
+function useContextValue() {
+	const [left, setLeft] = useState<HTMLDivElement | null>(null);
+	const [center, setCenter] = useState<HTMLDivElement | null>(null);
+	const [right, setRight] = useState<HTMLDivElement | null>(null);
+	const [children, setChildren] = useState<HTMLDivElement | null>(null);
+	const [fixedArgs, setFixedArgs] = useState<SearchFilterArgs[] | null>(null);
+	const [topBarHeight, setTopBarHeight] = useState(0);
+
+	return {
+		left,
+		setLeft,
+		center,
+		setCenter,
+		right,
+		setRight,
+		children,
+		setChildren,
+		fixedArgs,
+		setFixedArgs,
+		topBarHeight,
+		setTopBarHeight
+	};
 }
 
-const TopBarContext = createContext<TopBarContext | null>(null);
-
 export const Component = () => {
-	const [left, setLeft] = useState<HTMLDivElement | null>(null);
-	const [right, setRight] = useState<HTMLDivElement | null>(null);
-	const [noSearch, setNoSearch] = useState(false);
+	const value = useContextValue();
 
 	return (
-		<TopBarContext.Provider value={{ left, right, setNoSearch }}>
-			<TopBar leftRef={setLeft} rightRef={setRight} noSearch={noSearch} />
+		<TopBarContext.Provider value={value}>
+			<TopBar />
 			<Outlet />
 		</TopBarContext.Provider>
 	);

@@ -21,6 +21,14 @@ has() {
   done
 }
 
+sudo() {
+  if [ "$(id -u)" -eq 0 ]; then
+    "$@"
+  else
+    env sudo "$@"
+  fi
+}
+
 script_failure() {
   if [ -n "${1:-}" ]; then
     _line="on line $1"
@@ -57,9 +65,6 @@ if [ "${CI:-}" != "true" ]; then
       "Ensure the 'rustc' and 'cargo' binaries are in your \$PATH." \
       'https://rustup.rs'
   fi
-
-  echo "Installing Rust tools..."
-  cargo install cargo-watch
 
   echo
 fi
@@ -134,19 +139,14 @@ case "$(uname)" in
       set -- build-essential curl wget file patchelf openssl libssl-dev libgtk-3-dev librsvg2-dev \
         libwebkit2gtk-4.0-dev libayatana-appindicator3-dev
 
-      # FFmpeg dependencies
-      set -- "$@" ffmpeg libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev \
-        libavutil-dev libswscale-dev libswresample-dev
-
       # Webkit2gtk requires gstreamer plugins for video playback to work
-      set -- "$@" gstreamer1.0-alsa gstreamer1.0-gl gstreamer1.0-gtk3 gstreamer1.0-libav \
-        gstreamer1.0-pipewire gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
-        gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-pulseaudio \
-        gstreamer1.0-vaapi libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-        libgstreamer-plugins-bad1.0-dev
+      set -- "$@" gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
 
       # C/C++ build dependencies, required to build some *-sys crates
-      set -- "$@" llvm-dev libclang-dev clang nasm
+      set -- "$@" llvm-dev libclang-dev clang nasm perl
+
+      # React dependencies
+      set -- "$@" libvips42
 
       sudo apt-get -y update
       sudo apt-get -y install "$@"
@@ -157,15 +157,11 @@ case "$(uname)" in
       # Tauri dependencies
       set -- base-devel curl wget file patchelf openssl gtk3 librsvg webkit2gtk libayatana-appindicator
 
-      # FFmpeg dependencies
-      set -- "$@" ffmpeg
-
       # Webkit2gtk requires gstreamer plugins for video playback to work
-      set -- "$@" gst-libav gst-plugins-bad gst-plugins-base gst-plugins-good gst-plugins-ugly \
-        gst-plugin-pipewire gstreamer-vaapi
+      set -- "$@" gst-plugins-base gst-plugins-good gst-plugins-ugly
 
       # C/C++ build dependencies, required to build some *-sys crates
-      set -- "$@" clang nasm
+      set -- "$@" clang nasm perl
 
       # React dependencies
       set -- "$@" libvips
@@ -176,7 +172,7 @@ case "$(uname)" in
       echo "Installing dependencies with dnf..."
 
       # For Enterprise Linux, you also need "Development Tools" instead of "C Development Tools and Libraries"
-      if ! { sudo dnf group install "C Development Tools and Libraries" || sudo sudo dnf group install "Development Tools"; }; then
+      if ! { sudo dnf group install "C Development Tools and Libraries" || sudo dnf group install "Development Tools"; }; then
         err 'We were unable to install the "C Development Tools and Libraries"/"Development Tools" package.' \
           'Please open an issue if you feel that this is incorrect.' \
           'https://github.com/spacedriveapp/spacedrive/issues'
@@ -190,26 +186,38 @@ case "$(uname)" in
       fi
 
       # Tauri dependencies
-      set -- openssl curl wget file patchelf libappindicator-gtk3-devel librsvg2-devel
+      set -- openssl openssl-dev curl wget file patchelf libappindicator-gtk3-devel librsvg2-devel
 
       # Webkit2gtk requires gstreamer plugins for video playback to work
-      set -- "$@" gstreamer1-devel gstreamer1-plugins-base-devel \
-        gstreamer1-plugins-good gstreamer1-plugins-good-gtk \
-        gstreamer1-plugins-good-extras gstreamer1-plugins-ugly-free \
-        gstreamer1-plugins-bad-free gstreamer1-plugins-bad-free-devel \
-        gstreamer1-plugins-bad-free-extras
+      set -- "$@" gstreamer1-devel gstreamer1-plugins-base-devel gstreamer1-plugins-good \
+        gstreamer1-plugins-good-extras gstreamer1-plugins-ugly-free
 
       # C/C++ build dependencies, required to build some *-sys crates
-      set -- "$@" clang clang-devel nasm
+      set -- "$@" clang clang-devel nasm perl-core
+
+      # React dependencies
+      set -- "$@" vips
 
       sudo dnf install "$@"
+    elif has apk; then
+      echo "Detected apk!"
+      echo "Installing dependencies with apk..."
+      echo "Alpine suport is experimental" >&2
 
-      # FFmpeg dependencies
-      if ! sudo dnf install ffmpeg ffmpeg-devel; then
-        err 'We were unable to install the FFmpeg and FFmpeg-devel packages.' \
-          'This is likely because the RPM Fusion free repository is not enabled.' \
-          'https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion'
-      fi
+      # Tauri dependencies
+      set -- build-base curl wget file patchelf openssl-dev gtk+3.0-dev librsvg-dev \
+        webkit2gtk-dev libayatana-indicator-dev
+
+      # Webkit2gtk requires gstreamer plugins for video playback to work
+      set -- "$@" gst-plugins-base-dev gst-plugins-good gst-plugins-ugly
+
+      # C/C++ build dependencies, required to build some *-sys crates
+      set -- "$@" llvm16-dev clang16 nasm perl
+
+      # React dependencies
+      set -- "$@" vips
+
+      sudo apk add "$@"
     else
       if has lsb_release; then
         _distro="'$(lsb_release -s -d)' "
@@ -225,5 +233,10 @@ case "$(uname)" in
       'https://github.com/spacedriveapp/spacedrive/issues'
     ;;
 esac
+
+if [ "${CI:-}" != "true" ]; then
+  echo "Installing Rust tools..."
+  cargo install cargo-watch
+fi
 
 echo 'Your machine has been setup for Spacedrive development!'

@@ -90,6 +90,19 @@ export default function OnboardingLocations() {
 			className="flex flex-col items-center"
 		>
 			<OnboardingContainer>
+				<div className="flex items-center">
+					<Icon
+						name="Folder"
+						size={40}
+						className="relative right-[-26px] z-0 brightness-[0.5]"
+					/>
+					<Icon name="Folder" size={60} className="relative z-[5] brightness-[0.8]" />
+					<Icon
+						name="Folder"
+						size={46}
+						className="relative left-[-25px] z-[0] brightness-[0.6]"
+					/>
+				</div>
 				<OnboardingTitle>Add Locations</OnboardingTitle>
 				<OnboardingDescription>
 					Enhance your Spacedrive experience by adding your favorite locations to your

@@ -1,0 +1,10 @@
+[package]
+name = "sd-fda"
+version = "0.1.0"
+authors = ["Jake Robinson <jake@spacedrive.com>"]
+license = { workspace = true }
+repository = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+thiserror = "1.0.50"

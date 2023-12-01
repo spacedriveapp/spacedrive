@@ -55,6 +55,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.select(tag::select!({
 							id
 							tag_objects(vec![tag_on_object::object_id::in_vec(object_ids.clone())]): select {
+								date_created
 								object: select {
 									id
 								}
@@ -65,15 +66,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					Ok(tags_with_objects
 						.into_iter()
-						.map(|tag| {
-							(
-								tag.id,
-								tag.tag_objects
-									.into_iter()
-									.map(|rel| rel.object.id)
-									.collect::<Vec<_>>(),
-							)
-						})
+						.map(|tag| (tag.id, tag.tag_objects))
 						.collect::<BTreeMap<_, _>>())
 				},
 			)
@@ -249,7 +242,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									db_creates.push(tag_on_object::CreateUnchecked {
 										tag_id: args.tag_id,
 										object_id: id,
-										_params: vec![],
+										_params: vec![tag_on_object::date_created::set(Some(
+											Utc::now().into(),
+										))],
 									});
 
 									sync_ops.extend(sync.relation_create(sync_id!(pub_id), []));

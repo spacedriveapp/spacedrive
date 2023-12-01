@@ -1,4 +1,12 @@
-import { ArrowLeft, ArrowRight, DotsThree, Plus, SidebarSimple, X } from '@phosphor-icons/react';
+import {
+	ArrowLeft,
+	ArrowRight,
+	DotsThree,
+	Plus,
+	SidebarSimple,
+	Slideshow,
+	X
+} from '@phosphor-icons/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import clsx from 'clsx';
 import {
@@ -12,27 +20,22 @@ import {
 	useRef,
 	useState
 } from 'react';
+import { useKey } from 'rooks';
 import {
+	ExplorerItem,
 	getEphemeralPath,
 	getExplorerItemData,
+	getExplorerLayoutStore,
 	getIndexedItemFilePath,
 	ObjectKindKey,
+	useExplorerLayoutStore,
 	useLibraryContext,
 	useLibraryMutation,
 	useRspcLibraryContext,
 	useZodForm
 } from '@sd/client';
-import {
-	dialogManager,
-	DropdownMenu,
-	Form,
-	ModifierKeys,
-	toast,
-	ToastMessage,
-	Tooltip,
-	z
-} from '@sd/ui';
-import { useIsDark, useKeybind, useOperatingSystem } from '~/hooks';
+import { DropdownMenu, Form, toast, ToastMessage, Tooltip, z } from '@sd/ui';
+import { useIsDark, useOperatingSystem, useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
@@ -43,10 +46,12 @@ import ExplorerContextMenu, {
 	SharedItems
 } from '../ContextMenu';
 import { Conditional } from '../ContextMenu/ConditionalItem';
-import DeleteDialog from '../FilePath/DeleteDialog';
 import { FileThumb } from '../FilePath/Thumb';
 import { SingleItemMetadata } from '../Inspector';
+import { ImageSlider } from './ImageSlider';
 import { getQuickPreviewStore, useQuickPreviewStore } from './store';
+
+export type QuickPreviewItem = { item: ExplorerItem; index: number };
 
 const iconKinds: ObjectKindKey[] = ['Audio', 'Folder', 'Executable', 'Unknown'];
 const textKinds: ObjectKindKey[] = ['Text', 'Config', 'Code'];
@@ -63,12 +68,11 @@ const useQuickPreviewContext = () => {
 };
 
 export const QuickPreview = () => {
-	const os = useOperatingSystem();
 	const rspc = useRspcLibraryContext();
 	const isDark = useIsDark();
 	const { library } = useLibraryContext();
-	const { openFilePaths, revealItems, openEphemeralFiles } = usePlatform();
-
+	const { openFilePaths, openEphemeralFiles } = usePlatform();
+	const explorerLayoutStore = useExplorerLayoutStore();
 	const explorer = useExplorerContext();
 	const { open, itemIndex } = useQuickPreviewStore();
 
@@ -79,12 +83,26 @@ export const QuickPreview = () => {
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
 	const [newName, setNewName] = useState<string | null>(null);
 
-	const items = useMemo(
-		() => (open ? [...explorer.selectedItems] : []),
-		[explorer.selectedItems, open]
-	);
+	const items = useMemo(() => {
+		if (!open || !explorer.items || explorer.selectedItems.size === 0) return [];
 
-	const item = useMemo(() => items[itemIndex] ?? null, [items, itemIndex]);
+		const items: QuickPreviewItem[] = [];
+
+		// Sort selected items
+		for (let i = 0; i < explorer.items.length; i++) {
+			const item = explorer.items[i];
+			if (!item) continue;
+
+			if (explorer.selectedItems.has(item)) items.push({ item, index: i });
+			if (items.length === explorer.selectedItems.size) break;
+		}
+
+		return items;
+	}, [explorer.items, explorer.selectedItems, open]);
+
+	const item = useMemo(() => items[itemIndex]?.item ?? null, [items, itemIndex]);
+
+	const activeItem = items[itemIndex];
 
 	const renameFile = useLibraryMutation(['files.renameFile'], {
 		onError: () => setNewName(null),
@@ -135,30 +153,49 @@ export const QuickPreview = () => {
 		setShowMetadata(false);
 	}, [item, open]);
 
-	// Toggle quick preview
-	useKeybind(['space'], (e) => {
-		if (isRenaming) return;
+	const handleMoveBetweenItems = (step: number) => {
+		const nextPreviewItem = items[itemIndex + step];
+		if (nextPreviewItem) {
+			getQuickPreviewStore().itemIndex = itemIndex + step;
+			return;
+		}
 
-		e.preventDefault();
+		if (!activeItem || !explorer.items) return;
+		if (items.length > 1 && !getExplorerLayoutStore().showImageSlider) return;
 
-		getQuickPreviewStore().open = !open;
+		const newSelectedItem =
+			items.length > 1 &&
+			(activeItem.index === 0 || activeItem.index === explorer.items.length - 1)
+				? activeItem.item
+				: explorer.items[activeItem.index + step];
+
+		if (!newSelectedItem) return;
+
+		explorer.resetSelectedItems([newSelectedItem]);
+		getQuickPreviewStore().itemIndex = 0;
+	};
+
+	useShortcut('quickPreviewMoveBack', () => {
+		if (isContextMenuOpen || isRenaming) return;
+		handleMoveBetweenItems(-1);
 	});
 
-	useKeybind('Escape', (e) => open && e.stopPropagation());
-
-	// Move between items
-	useKeybind([['left'], ['right']], (e) => {
+	useShortcut('quickPreviewMoveForward', () => {
 		if (isContextMenuOpen || isRenaming) return;
-		changeCurrentItem(e.key === 'ArrowLeft' ? itemIndex - 1 : itemIndex + 1);
+		handleMoveBetweenItems(1);
+	});
+
+	useKey('ArrowDown', () => {
+		if (items.length < 2 || !activeItem) return;
+		explorer.resetSelectedItems([activeItem.item]);
+		getQuickPreviewStore().itemIndex = 0;
 	});
 
 	// Toggle metadata
-	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'i'], () =>
-		setShowMetadata(!showMetadata)
-	);
+	useShortcut('toggleMetaData', () => setShowMetadata(!showMetadata));
 
 	// Open file
-	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'o'], () => {
+	useShortcut('quickPreviewOpenNative', () => {
 		if (!item || !openFilePaths || !openEphemeralFiles) return;
 
 		try {
@@ -176,66 +213,6 @@ export const QuickPreview = () => {
 				title: 'Failed to open file',
 				body: `Couldn't open file, due to an error: ${error}`
 			});
-		}
-	});
-
-	// Reveal in native explorer
-	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'y'], () => {
-		if (!item || !revealItems) return;
-
-		try {
-			const toReveal = [];
-			if (item.type === 'Location') {
-				toReveal.push({ Location: { id: item.item.id } });
-			} else if (item.type === 'NonIndexedPath') {
-				toReveal.push({ Ephemeral: { path: item.item.path } });
-			} else {
-				const filePath = getIndexedItemFilePath(item);
-				if (!filePath) throw 'No file path found';
-				toReveal.push({ FilePath: { id: filePath.id } });
-			}
-
-			revealItems(library.uuid, toReveal);
-		} catch (error) {
-			toast.error({
-				title: 'Failed to reveal',
-				body: `Couldn't reveal file, due to an error: ${error}`
-			});
-		}
-	});
-
-	// Open delete dialog
-	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'backspace'], () => {
-		if (!item) return;
-
-		const path = getIndexedItemFilePath(item);
-
-		if (path != null && path.location_id !== null) {
-			return dialogManager.create((dp) => (
-				<DeleteDialog
-					{...dp}
-					indexedArgs={{
-						locationId: path.location_id!,
-						pathIds: [path.id]
-					}}
-					dirCount={path.is_dir ? 1 : 0}
-					fileCount={path.is_dir ? 0 : 1}
-				/>
-			));
-		}
-
-		const ephemeralFile = getEphemeralPath(item);
-		if (ephemeralFile != null) {
-			return dialogManager.create((dp) => (
-				<DeleteDialog
-					{...dp}
-					ephemeralArgs={{
-						paths: [ephemeralFile.path]
-					}}
-					dirCount={ephemeralFile.is_dir ? 1 : 0}
-					fileCount={ephemeralFile.is_dir ? 0 : 1}
-				/>
-			));
 		}
 	});
 
@@ -289,7 +266,7 @@ export const QuickPreview = () => {
 											cover={true}
 											childClassName="scale-125"
 										/>
-										<div className="absolute inset-0 bg-black/25 backdrop-blur-3xl" />
+										<div className="absolute inset-0 bg-black/50 backdrop-blur-3xl" />
 									</div>
 								)}
 								<div
@@ -426,7 +403,7 @@ export const QuickPreview = () => {
 										)}
 									</div>
 
-									<div className="flex flex-1 justify-end gap-1">
+									<div className="flex flex-1 items-center justify-end gap-1">
 										<DropdownMenu.Root
 											trigger={
 												<div className="flex">
@@ -483,6 +460,25 @@ export const QuickPreview = () => {
 											</ExplorerContextMenu>
 										</DropdownMenu.Root>
 
+										<Tooltip label="Show slider">
+											<IconButton
+												onClick={() =>
+													(getExplorerLayoutStore().showImageSlider =
+														!explorerLayoutStore.showImageSlider)
+												}
+												className="w-fit px-2 text-[10px]"
+											>
+												<Slideshow
+													size={16.5}
+													weight={
+														explorerLayoutStore.showImageSlider
+															? 'fill'
+															: 'regular'
+													}
+												/>
+											</IconButton>
+										</Tooltip>
+
 										<Tooltip label="Show details">
 											<IconButton
 												onClick={() => setShowMetadata(!showMetadata)}
@@ -522,6 +518,10 @@ export const QuickPreview = () => {
 										textKinds.includes(kind) && 'select-text'
 									)}
 								/>
+
+								{explorerLayoutStore.showImageSlider && activeItem && (
+									<ImageSlider activeItem={activeItem} />
+								)}
 							</div>
 
 							{showMetadata && (

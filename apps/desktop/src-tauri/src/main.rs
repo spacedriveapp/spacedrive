@@ -7,6 +7,7 @@ use std::{fs, path::PathBuf, sync::Arc, time::Duration};
 
 use sd_core::{Node, NodeError};
 
+use sd_fda::DiskAccess;
 use tauri::{
 	api::path, ipc::RemoteDomainAccessScope, window::PlatformWebview, AppHandle, Manager,
 	WindowEvent,
@@ -27,8 +28,14 @@ mod updater;
 #[specta::specta]
 async fn app_ready(app_handle: AppHandle) {
 	let window = app_handle.get_window("main").unwrap();
-
 	window.show().unwrap();
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+// If this erorrs, we don't have FDA and we need to re-prompt for it
+async fn request_fda_macos() {
+	DiskAccess::request_fda().expect("Unable to request full disk access");
 }
 
 #[tauri::command(async)]
@@ -40,7 +47,7 @@ async fn set_menu_bar_item_state(_window: tauri::Window, _id: String, _enabled: 
 			.menu_handle()
 			.get_item(&_id)
 			.set_enabled(_enabled)
-			.expect("Unable to modify menu item")
+			.expect("Unable to modify menu item");
 	}
 }
 
@@ -58,7 +65,7 @@ fn reload_webview_inner(webview: PlatformWebview) {
 	#[cfg(target_os = "macos")]
 	{
 		unsafe {
-			sd_desktop_macos::reload_webview(&(webview.inner() as _));
+			sd_desktop_macos::reload_webview(&webview.inner().cast());
 		}
 	}
 	#[cfg(target_os = "linux")]
@@ -73,7 +80,8 @@ fn reload_webview_inner(webview: PlatformWebview) {
 			.controller()
 			.CoreWebView2()
 			.expect("Unable to get handle on inner webview")
-			.Reload();
+			.Reload()
+			.expect("Unable to reload webview");
 	}
 }
 
@@ -237,18 +245,16 @@ async fn main() -> tauri::Result<()> {
 
 				#[cfg(target_os = "macos")]
 				{
-					use sd_desktop_macos::*;
+					use sd_desktop_macos::{blur_window_background, set_titlebar_style};
 
 					let nswindow = window.ns_window().unwrap();
 
 					unsafe { set_titlebar_style(&nswindow, true) };
 					unsafe { blur_window_background(&nswindow) };
 
-					let menu_handle = window.menu_handle();
-
 					tokio::spawn({
 						let libraries = node.libraries.clone();
-						let menu_handle = menu_handle.clone();
+						let menu_handle = window.menu_handle();
 						async move {
 							if libraries.get_all().await.is_empty() {
 								menu::set_library_locked_menu_items_enabled(menu_handle, false);
@@ -270,7 +276,7 @@ async fn main() -> tauri::Result<()> {
 		.on_menu_event(menu::handle_menu_event)
 		.on_window_event(|event| {
 			if let WindowEvent::Resized(_) = event.event() {
-				let (state, command) = if event
+				let (_state, command) = if event
 					.window()
 					.is_fullscreen()
 					.expect("Can't get fullscreen state")
@@ -288,7 +294,7 @@ async fn main() -> tauri::Result<()> {
 				#[cfg(target_os = "macos")]
 				{
 					let nswindow = event.window().ns_window().unwrap();
-					unsafe { sd_desktop_macos::set_titlebar_style(&nswindow, state) };
+					unsafe { sd_desktop_macos::set_titlebar_style(&nswindow, _state) };
 				}
 			}
 		})
@@ -301,6 +307,7 @@ async fn main() -> tauri::Result<()> {
 			refresh_menu_bar,
 			reload_webview,
 			set_menu_bar_item_state,
+			request_fda_macos,
 			file::open_file_paths,
 			file::open_ephemeral_files,
 			file::get_file_path_open_with_apps,

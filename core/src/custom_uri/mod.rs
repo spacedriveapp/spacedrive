@@ -240,26 +240,32 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							}
 
 							// TODO: Support `Range` requests and `ETag` headers
-							#[allow(clippy::unwrap_used)] // TODO: Error handling needed
 							match state.node.p2p.get_library_service(&library.id) {
 								Some(service) => {
 									let stream = service
 										.connect(state.node.p2p.manager.clone(), &identity)
 										.await
-										.unwrap();
+										.map_err(|err| {
+											not_found(format!(
+												"Error connecting to {identity}: {err:?}"
+											))
+										})?;
 
 									let (tx, mut rx) =
 										tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
 									// TODO: We only start a thread because of stupid `ManagerStreamAction2` and libp2p's `!Send/!Sync` bounds on a stream.
 									tokio::spawn(async move {
-										operations::request_file(
+										let Ok(()) = operations::request_file(
 											stream,
 											&library,
 											file_path_pub_id,
 											Range::Full,
 											MpscToAsyncWrite::new(PollSender::new(tx)),
 										)
-										.await;
+										.await
+										else {
+											return;
+										};
 									});
 
 									// TODO: Content Type
@@ -417,11 +423,22 @@ async fn infer_the_mime_type(
 		"webp" => "image/webp",
 		// PDF document
 		"pdf" => "application/pdf",
-		// HEIF/HEIC images
-		"heif" | "heifs" => "image/heif,image/heif-sequence",
-		"heic" | "heics" => "image/heic,image/heic-sequence",
-		// AVIF images
-		"avif" | "avci" | "avcs" => "image/avif",
+		// HEIF images
+		"heif" => "image/heif",
+		// HEIF images sequence (animated)
+		"heifs" => "image/heif-sequence",
+		// HEIC images
+		"heic" | "hif" => "image/heic",
+		// HEIC images sequence (animated)
+		"heics" => "image/heic-sequence",
+		// AV1 in HEIF images
+		"avif" => "image/avif",
+		// AV1 in HEIF images sequence (DEPRECATED: https://github.com/AOMediaCodec/av1-avif/pull/86/files)
+		"avifs" => "image/avif-sequence",
+		// AVC in HEIF images
+		"avci" => "image/avci",
+		// AVC in HEIF images sequence (animated)
+		"avcs" => "image/avcs",
 		_ => "text/plain",
 	};
 

@@ -19,7 +19,7 @@ export const selectStyles = cva(
 				default: ['bg-app-input', 'border-app-line']
 			},
 			size: {
-				sm: 'h-[30px]',
+				sm: 'h-[25px] text-xs font-normal',
 				md: 'h-[34px]',
 				lg: 'h-[38px]'
 			}
@@ -38,6 +38,7 @@ export interface SelectProps<TValue extends string = string>
 	placeholder?: string;
 	className?: string;
 	disabled?: boolean;
+	containerClassName?: string;
 }
 
 export const Select = forwardRef(
@@ -45,7 +46,7 @@ export const Select = forwardRef(
 		props: PropsWithChildren<SelectProps<TValue>>,
 		ref: React.ForwardedRef<HTMLDivElement>
 	) => (
-		<div ref={ref}>
+		<div className={props.containerClassName} ref={ref}>
 			<RS.Root
 				defaultValue={props.value}
 				value={props.value}
