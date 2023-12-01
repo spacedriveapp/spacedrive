@@ -6,6 +6,9 @@ use crate::{
 	object::media::thumbnail::actor::Thumbnailer,
 };
 
+#[cfg(feature = "skynet")]
+use crate::skynet::image_labeler::{ImageLabeller, Model};
+
 use api::notifications::{Notification, NotificationData, NotificationId};
 use chrono::{DateTime, Utc};
 use node::config;
@@ -45,6 +48,8 @@ pub(crate) mod notifications;
 pub(crate) mod object;
 pub(crate) mod p2p;
 pub(crate) mod preferences;
+#[cfg(feature = "skynet")]
+mod skynet;
 #[doc(hidden)] // TODO(@Oscar): Make this private when breaking out `utils` into `sd-utils`
 pub mod util;
 pub(crate) mod volume;
@@ -68,6 +73,8 @@ pub struct Node {
 	pub files_over_p2p_flag: Arc<AtomicBool>,
 	pub env: env::Env,
 	pub http: reqwest::Client,
+	#[cfg(feature = "skynet")]
+	pub image_labeller: skynet::image_labeler::ImageLabeller,
 }
 
 impl fmt::Debug for Node {
@@ -98,6 +105,9 @@ impl Node {
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
 
+		#[cfg(feature = "skynet")]
+		skynet::init()?;
+
 		let (locations, locations_actor) = location::Locations::new();
 		let (jobs, jobs_actor) = job::Jobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
@@ -121,6 +131,8 @@ impl Node {
 			files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
 			http: reqwest::Client::new(),
 			env,
+			#[cfg(feature = "skynet")]
+			image_labeller: ImageLabeller::new(data_dir.join("models/yolov8m.onnx"), Model::YoloV8),
 		});
 
 		// Restore backend feature flags
@@ -304,4 +316,7 @@ pub enum NodeError {
 	InitConfig(#[from] util::debug_initializer::InitConfigError),
 	#[error("logger error: {0}")]
 	Logger(#[from] FromEnvError),
+	#[cfg(feature = "skynet")]
+	#[error("Skynet error: {0}")]
+	Skynet(#[from] ort::Error),
 }

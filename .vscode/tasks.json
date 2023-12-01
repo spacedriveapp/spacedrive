@@ -59,7 +59,8 @@
 				"--no-default-features"
 			],
 			"env": {
-				"RUST_BACKTRACE": "short"
+				"RUST_BACKTRACE": "short",
+				"LD_PRELOAD": "./apps/.deps/lib/libonnxruntime.so"
 				// "RUST_LOG": "sd_core::invalidate-query=trace"
 			},
 			"problemMatcher": ["$rustc"],

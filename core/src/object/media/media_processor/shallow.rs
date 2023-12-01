@@ -12,11 +12,16 @@ use crate::{
 	Node,
 };
 
-use std::path::{Path, PathBuf};
+use std::{
+	collections::HashMap,
+	path::{Path, PathBuf},
+};
 
 use itertools::Itertools;
 use prisma_client_rust::{raw, PrismaValue};
 use sd_file_ext::extensions::Extension;
+#[cfg(feature = "skynet")]
+use tokio_stream::StreamExt;
 use tracing::{debug, error};
 
 use super::{
@@ -64,7 +69,7 @@ pub async fn shallow(
 			.map_err(MediaProcessorError::from)?
 	};
 
-	debug!("Searching for images in location {location_id} at path {iso_file_path}");
+	debug!("Searching for media in location {location_id} at path {iso_file_path}");
 
 	dispatch_thumbnails_for_processing(
 		location.id,
@@ -77,6 +82,15 @@ pub async fn shallow(
 	.await?;
 
 	let file_paths = get_files_for_media_data_extraction(db, &iso_file_path).await?;
+
+	#[cfg(feature = "skynet")]
+	let file_paths_for_labelling = file_paths.clone();
+
+	#[cfg(feature = "skynet")]
+	let file_names_by_id = file_paths
+		.iter()
+		.map(|file_path| (file_path.id, file_path.name.clone().expect("has name")))
+		.collect::<HashMap<_, _>>();
 
 	let total_files = file_paths.len();
 
@@ -91,6 +105,12 @@ pub async fn shallow(
 		"Preparing to process {total_files} files in {} chunks",
 		chunked_files.len()
 	);
+
+	#[cfg(feature = "skynet")]
+	let labels_rx = node
+		.image_labeller
+		.new_batch(location_id, location_path.clone(), file_paths_for_labelling)
+		.await;
 
 	let mut run_metadata = MediaProcessorMetadata::default();
 
@@ -112,6 +132,26 @@ pub async fn shallow(
 		invalidate_query!(library, "search.paths");
 		invalidate_query!(library, "search.objects");
 	}
+
+	#[cfg(feature = "skynet")]
+	labels_rx
+		.collect::<Vec<_>>()
+		.await
+		.into_iter()
+		.for_each(|(file_path_id, res)| match res {
+			Ok(labels) => {
+				debug!(
+					"Labels for '{}': {labels:#?}",
+					file_names_by_id[&file_path_id]
+				);
+			}
+			Err(e) => {
+				error!(
+					"Failed to label file '{}': {e:#?}",
+					file_names_by_id[&file_path_id]
+				);
+			}
+		});
 
 	Ok(())
 }
