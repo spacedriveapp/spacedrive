@@ -309,7 +309,11 @@ pub async fn open_file_path_with(
 						error!("{e:#?}");
 					});
 
-					#[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
+					#[cfg(not(any(
+						target_os = "windows",
+						target_os = "linux",
+						target_os = "macos"
+					)))]
 					Err(())
 				})
 				.collect::<Result<Vec<_>, _>>()
