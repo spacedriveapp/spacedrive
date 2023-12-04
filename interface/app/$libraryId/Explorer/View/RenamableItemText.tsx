@@ -22,10 +22,10 @@ interface Props {
 	style?: React.CSSProperties;
 	lines?: number;
 	highlight?: boolean;
-	selected: boolean;
+	selected?: boolean;
 }
 
-export const RenamableItemText = ({ allowHighlight = true, selected, ...props }: Props) => {
+export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) => {
 	const isDark = useIsDark();
 	const rspc = useRspcLibraryContext();
 
@@ -131,7 +131,7 @@ export const RenamableItemText = ({ allowHighlight = true, selected, ...props }:
 	};
 
 	const disabled =
-		!selected ||
+		!props.selected ||
 		explorerStore.drag?.type === 'dragging' ||
 		!explorer ||
 		explorer.selectedItems.size > 1 ||
@@ -145,7 +145,7 @@ export const RenamableItemText = ({ allowHighlight = true, selected, ...props }:
 			onRename={handleRename}
 			className={clsx(
 				'font-medium',
-				(selected || props.highlight) &&
+				(props.selected || props.highlight) &&
 					allowHighlight && ['bg-accent', !isDark && 'text-white']
 			)}
 			style={props.style}
