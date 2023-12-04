@@ -76,7 +76,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				let (nodes, items) = libraries.normalise(|i| i.uuid.to_string());
 
-				NormalisedResults { nodes, items }
+				Ok(NormalisedResults { nodes, items })
 			})
 		})
 		.procedure("statistics", {

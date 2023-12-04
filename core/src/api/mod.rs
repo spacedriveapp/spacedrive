@@ -120,9 +120,11 @@ pub(crate) fn mount() -> Arc<Router> {
 				commit: &'static str,
 			}
 
-			R.query(|_, _: ()| BuildInfo {
-				version: env!("CARGO_PKG_VERSION"),
-				commit: env!("GIT_HASH"),
+			R.query(|_, _: ()| {
+				Ok(BuildInfo {
+					version: env!("CARGO_PKG_VERSION"),
+					commit: env!("GIT_HASH"),
+				})
 			})
 		})
 		.procedure("nodeState", {

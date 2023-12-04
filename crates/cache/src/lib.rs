@@ -1,7 +1,7 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use serde::{ser::SerializeMap, Serialize, Serializer};
-use specta::Type;
+use specta::{DataType, DefOpts, Type};
 
 /// A type that can be used to return a group of `Reference<T>` and `CacheNode`'s
 ///
@@ -52,38 +52,84 @@ impl<T: Model + Type> Reference<T> {
 	}
 }
 
+// // TODO: We could cleanup this file using `DataTypeFrom` but it's `rename` is broken.
+// fn build(ty_name_type: DataType, ty_type_type: DataType) -> DataType {
+// 	DataType::Object(specta::ObjectType {
+// 		generics: vec![],
+// 		fields: vec![
+// 			specta::ObjectField {
+// 				key: "__type",
+// 				optional: false,
+// 				flatten: false,
+// 				ty: ty_name_type,
+// 			},
+// 			specta::ObjectField {
+// 				key: "__id",
+// 				optional: false,
+// 				flatten: false,
+// 				ty: DataType::Primitive(specta::PrimitiveType::String),
+// 			},
+// 			specta::ObjectField {
+// 				key: "#type",
+// 				optional: false,
+// 				flatten: false,
+// 				ty: ty_type_type,
+// 			},
+// 		],
+// 		tag: None,
+// 	})
+// }
+
+// const SID: specta::r#type::TypeSid = specta::sid!(@with_specta_path; "Reference"; specta);
+
 impl<T: Model + Type> Type for Reference<T> {
-	fn inline(
-		opts: specta::DefOpts,
-		generics: &[specta::DataType],
-	) -> Result<specta::DataType, specta::ExportError> {
-		Ok(specta::DataType::Object(specta::ObjectType {
-			generics: vec![],
-			fields: vec![
-				specta::ObjectField {
-					key: "__type",
-					optional: false,
-					flatten: false,
-					ty: specta::DataType::Literal(specta::LiteralType::String(
-						T::name().to_string(),
-					)),
-				},
-				specta::ObjectField {
-					key: "__id",
-					optional: false,
-					flatten: false,
-					ty: specta::DataType::Primitive(specta::PrimitiveType::String),
-				},
-				specta::ObjectField {
-					key: "#type",
-					optional: false,
-					flatten: false,
-					ty: T::reference(opts, generics)?,
-				},
-			],
-			tag: None,
-		}))
+	fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
+		todo!()
 	}
+
+	// fn inline(opts: DefOpts, generics: &[DataType]) -> Result<DataType, ExportError> {
+	// 	// Ok(build(
+	// 	// 	DataType::Literal(specta::LiteralType::String(T::name().to_string())),
+	// 	// 	T::inline(opts, generics)?,
+	// 	// ))
+
+	// 	Ok(DataType::Reference(DataTypeReference {
+	// 		name: "Reference",
+	// 		sid: SID,
+	// 		generics: vec![T::inline(opts, generics)?],
+	// 	}))
+	// }
+
+	// fn definition_generics() -> Vec<specta::GenericType> {
+	// 	vec![GenericType("T")]
+	// }
+
+	// fn reference(opts: DefOpts, generics: &[DataType]) -> Result<DataType, ExportError> {
+	// 	Ok(build(
+	// 		DataType::Literal(specta::LiteralType::String(T::name().to_string())),
+	// 		DataType::Any, // T::reference(opts, generics)?,
+	// 		               // DataType::Primitive(PrimitiveType::String),
+	// 		               // DataType::Generic(GenericType("T")),
+	// 	))
+	// }
+
+	// fn definition(_opts: DefOpts) -> Result<DataType, ExportError> {
+	// 	Ok(build(
+	// 		DataType::Primitive(PrimitiveType::String),
+	// 		DataType::Generic(GenericType("T")),
+	// 	))
+	// }
+
+	// fn category_impl(
+	// 	_opts: DefOpts,
+	// 	_generics: &[DataType],
+	// ) -> Result<specta::TypeCategory, ExportError> {
+	// 	Ok(TypeCategory::Reference(DataTypeReference {
+	// 		name: "Reference",
+	// 		sid: SID,
+	// 		generics: vec![DataType::Generic(GenericType("T"))],
+	// 	}))
+	// }
 }
 
 impl<T: Model> Serialize for Reference<T> {
@@ -118,36 +164,37 @@ impl CacheNode {
 }
 
 impl Type for CacheNode {
-	fn inline(
-		_opts: specta::DefOpts,
-		_generics: &[specta::DataType],
-	) -> Result<specta::DataType, specta::ExportError> {
-		Ok(specta::DataType::Object(specta::ObjectType {
-			generics: vec![],
-			fields: vec![
-				specta::ObjectField {
-					key: "__type",
-					optional: false,
-					flatten: false,
-					ty: specta::DataType::Primitive(specta::PrimitiveType::String),
-				},
-				specta::ObjectField {
-					key: "__id",
-					optional: false,
-					flatten: false,
-					ty: specta::DataType::Primitive(specta::PrimitiveType::String),
-				},
-				specta::ObjectField {
-					key: "#node",
-					optional: false,
-					flatten: false,
-					ty: specta::DataType::Any,
-				},
-				// We ignore the extra fields because they can't be properly typed.
-			],
-			tag: None,
-		}))
+	fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
+		todo!()
 	}
+
+	// fn inline(_opts: DefOpts, _generics: &[DataType]) -> Result<DataType, ExportError> {
+	// 	Ok(DataType::Object(specta::ObjectType {
+	// 		generics: vec![],
+	// 		fields: vec![
+	// 			specta::ObjectField {
+	// 				key: "__type",
+	// 				optional: false,
+	// 				flatten: false,
+	// 				ty: DataType::Primitive(specta::PrimitiveType::String),
+	// 			},
+	// 			specta::ObjectField {
+	// 				key: "__id",
+	// 				optional: false,
+	// 				flatten: false,
+	// 				ty: DataType::Primitive(specta::PrimitiveType::String),
+	// 			},
+	// 			specta::ObjectField {
+	// 				key: "#node",
+	// 				optional: false,
+	// 				flatten: false,
+	// 				ty: DataType::Any,
+	// 			},
+	// 			// We ignore the extra fields because they can't be properly typed.
+	// 		],
+	// 		tag: None,
+	// 	}))
+	// }
 }
 
 #[derive(Serialize)]

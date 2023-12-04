@@ -52,7 +52,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("state", {
-			R.query(|node, _: ()| async move { node.p2p.state() })
+			R.query(|node, _: ()| async move { Ok(node.p2p.state()) })
 		})
 		.procedure("spacedrop", {
 			#[derive(Type, Deserialize)]
@@ -81,20 +81,23 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				match path {
 					Some(path) => node.p2p.accept_spacedrop(id, path).await,
 					None => node.p2p.reject_spacedrop(id).await,
-				}
+				};
+
+				Ok(())
 			})
 		})
 		.procedure("cancelSpacedrop", {
-			R.mutation(|node, id: Uuid| async move { node.p2p.cancel_spacedrop(id).await })
+			R.mutation(|node, id: Uuid| async move { Ok(node.p2p.cancel_spacedrop(id).await) })
 		})
 		.procedure("pair", {
 			R.mutation(|node, id: RemoteIdentity| async move {
-				node.p2p.pairing.clone().originator(id, node).await
+				Ok(node.p2p.pairing.clone().originator(id, node).await)
 			})
 		})
 		.procedure("pairingResponse", {
 			R.mutation(|node, (pairing_id, decision): (u16, PairingDecision)| {
 				node.p2p.pairing.decision(pairing_id, decision);
+				Ok(())
 			})
 		})
 }

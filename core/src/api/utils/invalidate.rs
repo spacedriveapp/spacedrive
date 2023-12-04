@@ -282,7 +282,7 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 		R.router()
 			.procedure(
 				"test-invalidate",
-				R.query(move |_, _: ()| count.fetch_add(1, Ordering::SeqCst)),
+				R.query(move |_, _: ()| Ok(count.fetch_add(1, Ordering::SeqCst))),
 			)
 			.procedure(
 				"test-invalidate-mutation",
