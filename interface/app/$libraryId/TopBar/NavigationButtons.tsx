@@ -66,7 +66,7 @@ export const NavigationButtons = () => {
 					ref={droppableBack.setDroppableRef}
 					className={clsx(
 						droppableBack.isDroppable && '!bg-app-selected',
-						droppableBack.navigateClassName
+						droppableBack.className
 					)}
 				>
 					<ArrowLeft size={14} className="m-[4px]" weight="bold" />
@@ -80,7 +80,7 @@ export const NavigationButtons = () => {
 					ref={droppableForward.setDroppableRef}
 					className={clsx(
 						droppableForward.isDroppable && '!bg-app-selected',
-						droppableForward.navigateClassName
+						droppableForward.className
 					)}
 				>
 					<ArrowRight size={14} className="m-[4px]" weight="bold" />

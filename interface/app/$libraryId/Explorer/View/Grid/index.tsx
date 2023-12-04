@@ -10,7 +10,7 @@ import { getExplorerStore } from '../../store';
 import { uniqueId } from '../../util';
 import { useExplorerViewContext } from '../Context';
 import { GridContext } from './context';
-import { GridItem } from './GridItem';
+import { GridItem } from './Item';
 
 export type RenderItem = (item: {
 	item: ExplorerItem;
@@ -69,16 +69,11 @@ export default memo(({ children }: { children: RenderItem }) => {
 		),
 		getItemData: useCallback((index: number) => explorer.items?.[index], [explorer.items]),
 		padding: {
-			...explorerView.padding,
-			bottom: explorerView.bottom
-				? (explorerView.padding?.bottom ?? padding) + explorerView.bottom
-				: undefined,
+			bottom: explorerView.bottom ? padding + explorerView.bottom : undefined,
 			x: padding,
 			y: padding
 		},
-		gap:
-			explorerView.gap ||
-			(explorerSettings.layoutMode === 'grid' ? explorerSettings.gridGap : 1)
+		gap: explorerSettings.layoutMode === 'grid' ? explorerSettings.gridGap : 1
 	});
 
 	const getElementById = useCallback(

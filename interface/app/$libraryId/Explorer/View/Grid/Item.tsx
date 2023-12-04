@@ -3,7 +3,7 @@ import { type ExplorerItem } from '@sd/client';
 
 import { RenderItem } from '.';
 import { useExplorerContext } from '../../Context';
-import { isCut } from '../../store';
+import { getExplorerStore, isCut } from '../../store';
 import { uniqueId } from '../../util';
 import { useExplorerViewContext } from '../Context';
 import { useGridContext } from './context';
@@ -18,15 +18,20 @@ export const GridItem = ({ children, item, ...props }: Props) => {
 	const grid = useGridContext();
 	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
+	const explorerStore = getExplorerStore();
 
-	const cut = isCut(item);
-	const itemId = uniqueId(item);
+	const itemId = useMemo(() => uniqueId(item), [item]);
 
 	const selected = useMemo(
 		// Even though this checks object equality, it should still be safe since `selectedItems`
 		// will be re-calculated before this memo runs.
 		() => explorer.selectedItems.has(item),
 		[explorer.selectedItems, item]
+	);
+
+	const cut = useMemo(
+		() => isCut(item, explorerStore.cutCopyState),
+		[explorerStore.cutCopyState, item]
 	);
 
 	useEffect(() => {

@@ -1,5 +1,5 @@
 import { useDroppable, UseDroppableArguments } from '@dnd-kit/core';
-import { CSSProperties, useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { NavigateOptions, To, useNavigate } from 'react-router';
 import { createSearchParams } from 'react-router-dom';
 import { z } from 'zod';
@@ -11,7 +11,7 @@ import { uniqueId } from './util';
 
 type ExplorerItemType = ExplorerItem['type'];
 
-const types = [
+const droppableTypes = [
 	'Location',
 	'NonIndexedPath',
 	'Object',
@@ -19,7 +19,7 @@ const types = [
 	'SpacedropPeer'
 ] satisfies ExplorerItemType[];
 
-interface Props extends Omit<UseDroppableArguments, 'id'> {
+export interface UseExplorerDroppable extends Omit<UseDroppableArguments, 'id'> {
 	id?: string;
 	data?:
 		| { type: 'location'; data?: Location; path: string }
@@ -28,12 +28,6 @@ interface Props extends Omit<UseDroppableArguments, 'id'> {
 	allow?: ExplorerItemType | ExplorerItemType[];
 	navigateTo?: To | { to: To; options?: NavigateOptions } | number | (() => void);
 }
-
-const explorerLocationSchema = z.object({
-	type: z.literal('location'),
-	data: z.object({ id: z.number(), path: z.string() }).optional(),
-	path: z.string()
-});
 
 const explorerPathSchema = z.object({
 	type: z.literal('Path'),
@@ -72,7 +66,7 @@ const explorerItemLocationSchema = z.object({
 	item: z.object({ id: z.number(), path: z.string() })
 });
 
-export const explorerDroppableItemSchema = z.object({
+const explorerItemSchema = z.object({
 	type: z.literal('explorer-item'),
 	data: explorerPathSchema
 		.or(explorerNonIndexedPathSchema)
@@ -80,16 +74,22 @@ export const explorerDroppableItemSchema = z.object({
 		.or(explorerObjectSchema)
 });
 
+const explorerLocationSchema = z.object({
+	type: z.literal('location'),
+	data: z.object({ id: z.number(), path: z.string() }).optional(),
+	path: z.string()
+});
+
 const explorerTagSchema = z.object({
 	type: z.literal('tag'),
 	data: z.object({ id: z.number() })
 });
 
-export const explorerDroppableSchema = explorerLocationSchema
-	.or(explorerDroppableItemSchema)
+export const explorerDroppableSchema = explorerItemSchema
+	.or(explorerLocationSchema)
 	.or(explorerTagSchema);
 
-export const useExplorerDroppable = ({ allow, navigateTo, ...props }: Props) => {
+export const useExplorerDroppable = ({ allow, navigateTo, ...props }: UseExplorerDroppable) => {
 	const id = useId();
 	const navigate = useNavigate();
 
@@ -109,16 +109,11 @@ export const useExplorerDroppable = ({ allow, navigateTo, ...props }: Props) => 
 		disabled: (!props.data && !navigateTo) || props.disabled
 	});
 
-	const resetNavigate = () => {
-		setCanNavigate(false);
-		setTimeout(() => setCanNavigate(true), 1250);
-	};
-
-	const blocked = useMemo(() => {
-		if (!droppable.isOver) return true;
+	const isDroppable = useMemo(() => {
+		if (!droppable.isOver) return false;
 
 		const { drag } = getExplorerStore();
-		if (!drag || drag.type === 'touched') return true;
+		if (!drag || drag.type === 'touched') return false;
 
 		let allowedType: ExplorerItemType | ExplorerItemType[] | undefined = allow;
 
@@ -149,10 +144,10 @@ export const useExplorerDroppable = ({ allow, navigateTo, ...props }: Props) => 
 						break;
 					}
 				}
-			} else allowedType = types;
-		}
+			} else allowedType = droppableTypes;
 
-		if (!allowedType) return true;
+			if (!allowedType) return false;
+		}
 
 		const schema = z.object({
 			type: Array.isArray(allowedType)
@@ -166,68 +161,57 @@ export const useExplorerDroppable = ({ allow, navigateTo, ...props }: Props) => 
 				: z.literal(allowedType)
 		});
 
-		return !schema.safeParse(drag.items[0]).success;
+		return schema.safeParse(drag.items[0]).success;
 	}, [allow, droppable.isOver, explorer?.parent, props.data]);
 
-	const isDroppable = droppable.isOver && !blocked;
+	const filePath = props.data?.type === 'explorer-item' && getItemFilePath(props.data.data);
+	const isLocation = props.data?.type === 'explorer-item' && props.data.data.type === 'Location';
 
-	const filePathData = useMemo(() => {
-		if (!isDroppable || !props.data || props.data.type !== 'explorer-item') return;
-		return getItemFilePath(props.data.data);
-	}, [isDroppable, props.data]);
+	const isNavigable = isDroppable && canNavigate && (filePath || navigateTo || isLocation);
 
 	useEffect(() => {
-		if (!isDroppable || !canNavigate || (!props.data && !navigateTo)) return;
+		if (!isNavigable) return;
 
 		const timeout = setTimeout(() => {
 			if (navigateTo) {
-				if (typeof navigateTo === 'function') navigateTo();
-				else if (typeof navigateTo === 'object' && 'to' in navigateTo) {
+				if (typeof navigateTo === 'function') {
+					navigateTo();
+				} else if (typeof navigateTo === 'object' && 'to' in navigateTo) {
 					navigate(navigateTo.to, navigateTo.options);
 				} else if (typeof navigateTo === 'number') {
 					navigate(navigateTo);
 				} else {
 					navigate(navigateTo);
 				}
-			} else if (filePathData) {
-				if ('id' in filePathData) {
+			} else if (filePath) {
+				if ('id' in filePath) {
 					navigate({
-						pathname: `../location/${filePathData.location_id}`,
-						search: createSearchParams({
-							path: `${filePathData.materialized_path}${filePathData.name}/`
-						}).toString()
+						pathname: `../location/${filePath.location_id}`,
+						search: `${createSearchParams({
+							path: `${filePath.materialized_path}${filePath.name}/`
+						})}`
 					});
 				} else {
-					navigate({
-						search: createSearchParams({ path: filePathData.path }).toString()
-					});
+					navigate({ search: `${createSearchParams({ path: filePath.path })}` });
 				}
+			} else if (
+				props.data?.type === 'explorer-item' &&
+				props.data.data.type === 'Location'
+			) {
+				navigate(`../location/${props.data.data.item.id}`);
 			}
 
-			if (props.data?.type === 'explorer-item') {
-				if (props.data.data.type === 'Location') {
-					navigate(`../location/${props.data.data.item.id}`);
-				}
-			}
-
-			resetNavigate();
+			// Timeout navigation
+			setCanNavigate(false);
+			setTimeout(() => setCanNavigate(true), 1250);
 		}, 1250);
 
 		return () => clearTimeout(timeout);
-	}, [isDroppable, navigate, props.data, navigateTo, filePathData, canNavigate]);
+	}, [navigate, props.data, navigateTo, filePath, isNavigable]);
 
-	const navigateClassName =
-		isDroppable &&
-		canNavigate &&
-		(filePathData ||
-			navigateTo ||
-			(props.data?.type === 'explorer-item' && props.data.data.type === 'Location'))
-			? 'animate-pulse transition-opacity duration-200 [animation-delay:1000ms]'
-			: undefined;
+	const className = isNavigable
+		? 'animate-pulse transition-opacity duration-200 [animation-delay:1000ms]'
+		: undefined;
 
-	const style = {
-		cursor: droppable.isOver && blocked ? 'no-drop' : undefined
-	} satisfies CSSProperties;
-
-	return { setDroppableRef: setNodeRef, ...droppable, isDroppable, navigateClassName, style };
+	return { setDroppableRef: setNodeRef, ...droppable, isDroppable, className };
 };

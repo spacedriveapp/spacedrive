@@ -18,14 +18,15 @@ import { getQuickPreviewStore } from '../../QuickPreview/store';
 import { createOrdering, getOrderingDirection, orderingKey } from '../../store';
 import { uniqueId } from '../../util';
 import { useExplorerViewContext } from '../Context';
+import { useDragScrollable } from '../useDragScrollable';
 import { TableContext } from './context';
 import { TableRow } from './TableRow';
 import { getRangeDirection, Range, useRanges } from './useRanges';
 import { useTable } from './useTable';
 
 const ROW_HEIGHT = 45;
-const PADDING_X = 16;
-const PADDING_Y = 12;
+export const TABLE_PADDING_X = 16;
+export const TABLE_PADDING_Y = 12;
 
 export const ListView = memo(() => {
 	const layout = useLayoutContext();
@@ -34,8 +35,10 @@ export const ListView = memo(() => {
 	const explorerSettings = explorer.useSettingsSnapshot();
 
 	const tableRef = useRef<HTMLDivElement>(null);
-	const tableHeaderRef = useRef<HTMLDivElement>(null);
+	const tableHeaderRef = useRef<HTMLDivElement | null>(null);
 	const tableBodyRef = useRef<HTMLDivElement>(null);
+
+	const { ref: scrollableRef } = useDragScrollable({ direction: 'up' });
 
 	const [sized, setSized] = useState(false);
 	const [initialized, setInitialized] = useState(false);
@@ -55,21 +58,12 @@ export const ListView = memo(() => {
 		rows: rowsById
 	});
 
-	const padding = {
-		top: explorerView.padding?.top ?? PADDING_Y,
-		bottom: explorerView.padding?.bottom ?? PADDING_Y,
-		left: explorerView.padding?.left ?? PADDING_X,
-		right: explorerView.padding?.right ?? PADDING_X
-	};
-
-	const count = !explorer.count ? rows.length : Math.max(rows.length, explorer.count);
-
 	const rowVirtualizer = useVirtualizer({
-		count: count,
+		count: !explorer.count ? rows.length : Math.max(rows.length, explorer.count),
 		getScrollElement: useCallback(() => explorer.scrollRef.current, [explorer.scrollRef]),
 		estimateSize: useCallback(() => ROW_HEIGHT, []),
-		paddingStart: padding.top,
-		paddingEnd: padding.bottom + (explorerView.bottom ?? 0),
+		paddingStart: TABLE_PADDING_Y,
+		paddingEnd: TABLE_PADDING_Y + (explorerView.bottom ?? 0),
 		scrollMargin: listOffset,
 		overscan: explorer.overscan ?? 10
 	});
@@ -352,7 +346,7 @@ export const ListView = memo(() => {
 		}
 	};
 
-	function handleRowContextMenu(row: Row<ExplorerItem>) {
+	const handleRowContextMenu = (row: Row<ExplorerItem>) => {
 		if (explorerView.contextMenu === undefined) return;
 
 		const item = row.original;
@@ -362,7 +356,7 @@ export const ListView = memo(() => {
 			const hash = uniqueId(item);
 			setRanges([[hash, hash]]);
 		}
-	}
+	};
 
 	const scrollToRow = useCallback(
 		(row: Row<ExplorerItem>) => {
@@ -385,14 +379,14 @@ export const ListView = memo(() => {
 			const rowBottom = rowTop + ROW_HEIGHT;
 
 			if (rowTop < tableTop) {
-				const scrollBy = rowTop - tableTop - (row.index === 0 ? padding.top : 0);
+				const scrollBy = rowTop - tableTop - (row.index === 0 ? TABLE_PADDING_Y : 0);
 				explorer.scrollRef.current.scrollBy({ top: scrollBy });
 			} else if (rowBottom > scrollRect.height - (explorerView.bottom ?? 0)) {
 				const scrollBy =
 					rowBottom -
 					scrollRect.height +
 					(explorerView.bottom ?? 0) +
-					(row.index === rows.length - 1 ? padding.bottom : 0);
+					(row.index === rows.length - 1 ? TABLE_PADDING_Y : 0);
 
 				explorer.scrollRef.current.scrollBy({ top: scrollBy });
 			}
@@ -401,141 +395,11 @@ export const ListView = memo(() => {
 			explorer.scrollRef,
 			explorerView.bottom,
 			explorerView.top,
-			padding.bottom,
-			padding.top,
 			rowVirtualizer.options.paddingStart,
 			rows.length,
 			top
 		]
 	);
-
-	useEffect(() => setRanges([]), [explorerSettings.order]);
-
-	//this is to handle selection for quickpreview slider
-	useEffect(() => {
-		if (!getQuickPreviewStore().open || explorer.selectedItems.size !== 1) return;
-
-		const [item] = [...explorer.selectedItems];
-		if (!item) return;
-
-		explorer.resetSelectedItems([item]);
-
-		const itemId = uniqueId(item);
-		setRanges([[itemId, itemId]]);
-	}, [explorer]);
-
-	useEffect(() => {
-		if (initialized || !sized || !explorer.count || explorer.selectedItems.size === 0) {
-			if (explorer.selectedItems.size === 0 && !initialized) setInitialized(true);
-			return;
-		}
-
-		const rows = [...explorer.selectedItems]
-			.reduce((rows, item) => {
-				const row = rowsById[uniqueId(item)];
-				if (row) rows.push(row);
-				return rows;
-			}, [] as Row<ExplorerItem>[])
-			.sort((a, b) => a.index - b.index);
-
-		const lastRow = rows[rows.length - 1];
-		if (!lastRow) return;
-
-		scrollToRow(lastRow);
-		setRanges(rows.map((row) => [uniqueId(row.original), uniqueId(row.original)] as Range));
-		setInitialized(true);
-	}, [explorer.count, explorer.selectedItems, initialized, rowsById, scrollToRow, sized]);
-
-	// Measure initial column widths
-	useEffect(() => {
-		if (
-			!tableRef.current ||
-			sized ||
-			!isNonEmptyObject(columnSizing) ||
-			!isNonEmptyObject(columnVisibility)
-		) {
-			return;
-		}
-
-		const sizing = table
-			.getVisibleLeafColumns()
-			.reduce(
-				(sizing, column) => ({ ...sizing, [column.id]: column.getSize() }),
-				{} as ColumnSizingState
-			);
-
-		const tableWidth = tableRef.current.offsetWidth;
-		const columnsWidth =
-			Object.values(sizing).reduce((a, b) => a + b, 0) + (padding.left + padding.right);
-
-		if (columnsWidth < tableWidth) {
-			const nameWidth = (sizing.name ?? 0) + (tableWidth - columnsWidth);
-			table.setColumnSizing({ ...sizing, name: nameWidth });
-			setLocked(true);
-		} else if (columnsWidth > tableWidth) {
-			const nameColSize = sizing.name ?? 0;
-			const minNameColSize = table.getColumn('name')?.columnDef.minSize;
-
-			const difference = columnsWidth - tableWidth;
-
-			if (minNameColSize !== undefined && nameColSize - difference >= minNameColSize) {
-				table.setColumnSizing({ ...sizing, name: nameColSize - difference });
-				setLocked(true);
-			}
-		} else if (columnsWidth === tableWidth) {
-			setLocked(true);
-		}
-
-		setSized(true);
-	}, [columnSizing, columnVisibility, padding.left, padding.right, sized, table]);
-
-	// Load more items
-	useEffect(() => {
-		if (!explorer.loadMore) return;
-
-		const lastRow = virtualRows[virtualRows.length - 1];
-		if (!lastRow) return;
-
-		const loadMoreFromRow = Math.ceil(rows.length * 0.75);
-
-		if (lastRow.index >= loadMoreFromRow - 1) explorer.loadMore.call(undefined);
-	}, [virtualRows, rows.length, explorer.loadMore]);
-
-	// Sync scroll
-	useEffect(() => {
-		const table = tableRef.current;
-		const header = tableHeaderRef.current;
-		const body = tableBodyRef.current;
-
-		if (!table || !header || !body) return;
-
-		const handleWheel = (event: WheelEvent) => {
-			if (Math.abs(event.deltaX) < Math.abs(event.deltaY)) return;
-			event.preventDefault();
-			header.scrollLeft += event.deltaX;
-			body.scrollLeft += event.deltaX;
-		};
-
-		const handleScroll = (element: HTMLDivElement) => {
-			if (isLeftMouseDown) return;
-			// Sorting sometimes resets scrollLeft
-			// so we reset it here in case it does
-			// to keep the scroll in sync
-			// TODO: Find a better solution
-			header.scrollLeft = element.scrollLeft;
-			body.scrollLeft = element.scrollLeft;
-		};
-
-		table.addEventListener('wheel', handleWheel);
-		header.addEventListener('scroll', () => handleScroll(header));
-		body.addEventListener('scroll', () => handleScroll(body));
-
-		return () => {
-			table.removeEventListener('wheel', handleWheel);
-			header.addEventListener('scroll', () => handleScroll(header));
-			body.addEventListener('scroll', () => handleScroll(body));
-		};
-	}, [sized, isLeftMouseDown]);
 
 	const keyboardHandler = (e: KeyboardEvent, direction: 'ArrowDown' | 'ArrowUp') => {
 		if (!explorerView.selectable) return;
@@ -691,6 +555,133 @@ export const ListView = memo(() => {
 		scrollToRow(nextRow);
 	};
 
+	useEffect(() => setRanges([]), [explorerSettings.order]);
+
+	//this is to handle selection for quickpreview slider
+	useEffect(() => {
+		if (!getQuickPreviewStore().open || explorer.selectedItems.size !== 1) return;
+
+		const [item] = [...explorer.selectedItems];
+		if (!item) return;
+
+		explorer.resetSelectedItems([item]);
+
+		const itemId = uniqueId(item);
+		setRanges([[itemId, itemId]]);
+	}, [explorer]);
+
+	useEffect(() => {
+		if (initialized || !sized || !explorer.count || explorer.selectedItems.size === 0) {
+			if (explorer.selectedItems.size === 0 && !initialized) setInitialized(true);
+			return;
+		}
+
+		const rows = [...explorer.selectedItems]
+			.reduce((rows, item) => {
+				const row = rowsById[uniqueId(item)];
+				if (row) rows.push(row);
+				return rows;
+			}, [] as Row<ExplorerItem>[])
+			.sort((a, b) => a.index - b.index);
+
+		const lastRow = rows[rows.length - 1];
+		if (!lastRow) return;
+
+		scrollToRow(lastRow);
+		setRanges(rows.map((row) => [uniqueId(row.original), uniqueId(row.original)] as Range));
+		setInitialized(true);
+	}, [explorer.count, explorer.selectedItems, initialized, rowsById, scrollToRow, sized]);
+
+	// Measure initial column widths
+	useEffect(() => {
+		if (
+			!tableRef.current ||
+			sized ||
+			!isNonEmptyObject(columnSizing) ||
+			!isNonEmptyObject(columnVisibility)
+		) {
+			return;
+		}
+
+		const sizing = table
+			.getVisibleLeafColumns()
+			.reduce(
+				(sizing, column) => ({ ...sizing, [column.id]: column.getSize() }),
+				{} as ColumnSizingState
+			);
+
+		const tableWidth = tableRef.current.offsetWidth;
+		const columnsWidth = Object.values(sizing).reduce((a, b) => a + b, 0) + TABLE_PADDING_X * 2;
+
+		if (columnsWidth < tableWidth) {
+			const nameWidth = (sizing.name ?? 0) + (tableWidth - columnsWidth);
+			table.setColumnSizing({ ...sizing, name: nameWidth });
+			setLocked(true);
+		} else if (columnsWidth > tableWidth) {
+			const nameColSize = sizing.name ?? 0;
+			const minNameColSize = table.getColumn('name')?.columnDef.minSize;
+
+			const difference = columnsWidth - tableWidth;
+
+			if (minNameColSize !== undefined && nameColSize - difference >= minNameColSize) {
+				table.setColumnSizing({ ...sizing, name: nameColSize - difference });
+				setLocked(true);
+			}
+		} else if (columnsWidth === tableWidth) {
+			setLocked(true);
+		}
+
+		setSized(true);
+	}, [columnSizing, columnVisibility, sized, table]);
+
+	// Load more items
+	useEffect(() => {
+		if (!explorer.loadMore) return;
+
+		const lastRow = virtualRows[virtualRows.length - 1];
+		if (!lastRow) return;
+
+		const loadMoreFromRow = Math.ceil(rows.length * 0.75);
+
+		if (lastRow.index >= loadMoreFromRow - 1) explorer.loadMore.call(undefined);
+	}, [virtualRows, rows.length, explorer.loadMore]);
+
+	// Sync scroll
+	useEffect(() => {
+		const table = tableRef.current;
+		const header = tableHeaderRef.current;
+		const body = tableBodyRef.current;
+
+		if (!table || !header || !body) return;
+
+		const handleWheel = (event: WheelEvent) => {
+			if (Math.abs(event.deltaX) < Math.abs(event.deltaY)) return;
+			event.preventDefault();
+			header.scrollLeft += event.deltaX;
+			body.scrollLeft += event.deltaX;
+		};
+
+		const handleScroll = (element: HTMLDivElement) => {
+			if (isLeftMouseDown) return;
+			// Sorting sometimes resets scrollLeft
+			// so we reset it here in case it does
+			// to keep the scroll in sync
+			// TODO: Find a better solution
+			header.scrollLeft = element.scrollLeft;
+			body.scrollLeft = element.scrollLeft;
+		};
+
+		table.addEventListener('wheel', handleWheel);
+		header.addEventListener('scroll', () => handleScroll(header));
+		body.addEventListener('scroll', () => handleScroll(body));
+
+		return () => {
+			table.removeEventListener('wheel', handleWheel);
+			header.addEventListener('scroll', () => handleScroll(header));
+			body.addEventListener('scroll', () => handleScroll(body));
+		};
+	}, [sized, isLeftMouseDown]);
+
 	useShortcut('explorerEscape', () => {
 		if (!explorerView.selectable || explorer.selectedItems.size === 0) return;
 		explorer.resetSelectedItems([]);
@@ -730,7 +721,7 @@ export const ListView = memo(() => {
 				);
 
 			const columnsWidth =
-				Object.values(sizing).reduce((a, b) => a + b, 0) + (padding.left + padding.right);
+				Object.values(sizing).reduce((a, b) => a + b, 0) + TABLE_PADDING_X * 2;
 
 			if (locked) {
 				const newNameSize = (sizing.name ?? 0) + (width - columnsWidth);
@@ -774,7 +765,7 @@ export const ListView = memo(() => {
 	useLayoutEffect(() => setListOffset(tableRef.current?.offsetTop ?? 0), []);
 
 	return (
-		<TableContext.Provider value={{ padding, columnSizing, columnVisibility }}>
+		<TableContext.Provider value={{ columnSizing }}>
 			<div
 				ref={tableRef}
 				onMouseDown={(e) => {
@@ -782,7 +773,7 @@ export const ListView = memo(() => {
 					e.stopPropagation();
 					setIsLeftMouseDown(true);
 				}}
-				className={clsx('', !initialized && 'invisible')}
+				className={clsx(!initialized && 'invisible')}
 			>
 				{sized && (
 					<>
@@ -797,7 +788,10 @@ export const ListView = memo(() => {
 							<ContextMenu.Root
 								trigger={
 									<div
-										ref={tableHeaderRef}
+										ref={(element) => {
+											tableHeaderRef.current = element;
+											scrollableRef(element);
+										}}
 										className={clsx(
 											'top-bar-blur !border-sidebar-divider bg-app/90',
 											explorerView.listViewOptions?.hideHeaderBorder
@@ -850,10 +844,7 @@ export const ListView = memo(() => {
 																	i ===
 																		headerGroup.headers.length -
 																			1
-																		? size +
-																		  padding[
-																				i ? 'right' : 'left'
-																		  ]
+																		? size + TABLE_PADDING_X
 																		: size
 															}}
 															onClick={() => {

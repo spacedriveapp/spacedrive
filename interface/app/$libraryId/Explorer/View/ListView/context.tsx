@@ -1,11 +1,7 @@
-import { ColumnSizingState, VisibilityState } from '@tanstack/react-table';
+import { ColumnSizingState } from '@tanstack/react-table';
 import { createContext, useContext } from 'react';
 
-import { ExplorerViewPadding } from '..';
-
 interface TableContext {
-	padding: Required<Omit<ExplorerViewPadding, 'x' | 'y'>>;
-	columnVisibility: VisibilityState;
 	columnSizing: ColumnSizingState;
 }
 

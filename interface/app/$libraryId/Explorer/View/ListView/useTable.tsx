@@ -1,4 +1,5 @@
 import {
+	CellContext,
 	getCoreRowModel,
 	useReactTable,
 	type ColumnDef,
@@ -7,7 +8,7 @@ import {
 } from '@tanstack/react-table';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { stringify } from 'uuid';
 import {
 	byteSize,
@@ -22,9 +23,37 @@ import { isNonEmptyObject } from '~/util';
 import { useExplorerContext } from '../../Context';
 import { FileThumb } from '../../FilePath/Thumb';
 import { InfoPill } from '../../Inspector';
-import { isCut } from '../../store';
+import { CutCopyState, isCut, useExplorerStore } from '../../store';
 import { uniqueId } from '../../util';
 import { RenamableItemText } from '../RenamableItemText';
+
+const NameCell = memo(({ item, selected }: { item: ExplorerItem; selected: boolean }) => {
+	const { cutCopyState } = useExplorerStore();
+
+	const cut = useMemo(() => isCut(item, cutCopyState as CutCopyState), [cutCopyState, item]);
+
+	return (
+		<div className="relative flex items-center">
+			<FileThumb
+				data={item}
+				frame
+				frameClassName="!border"
+				blackBars
+				size={35}
+				className={clsx('mr-2.5', cut && 'opacity-60')}
+			/>
+
+			<RenamableItemText
+				item={item}
+				selected={selected}
+				allowHighlight={false}
+				style={{ maxHeight: 36 }}
+			/>
+		</div>
+	);
+});
+
+type Cell = CellContext<ExplorerItem, unknown> & { selected?: boolean };
 
 export const useTable = () => {
 	const explorer = useExplorerContext();
@@ -39,29 +68,9 @@ export const useTable = () => {
 				header: 'Name',
 				minSize: 200,
 				maxSize: undefined,
-				cell: ({ row }) => {
-					const item = row.original;
-					const cut = isCut(item);
-
-					return (
-						<div className="relative flex items-center">
-							<FileThumb
-								data={item}
-								frame
-								frameClassName="!border"
-								blackBars
-								size={35}
-								className={clsx('mr-2.5', cut && 'opacity-60')}
-							/>
-
-							<RenamableItemText
-								item={item}
-								allowHighlight={false}
-								style={{ maxHeight: 36 }}
-							/>
-						</div>
-					);
-				}
+				cell: ({ row, selected }: Cell) => (
+					<NameCell item={row.original} selected={!!selected} />
+				)
 			},
 			{
 				id: 'kind',

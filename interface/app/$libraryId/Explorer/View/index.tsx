@@ -1,4 +1,3 @@
-import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useKeys } from 'rooks';
@@ -21,33 +20,14 @@ import { DragScrollable } from './DragScrollable';
 import { GridView } from './GridView';
 import { ListView } from './ListView';
 import { MediaView } from './MediaView';
-import { useExplorerViewPadding } from './util';
 import { useViewItemDoubleClick } from './ViewItem';
-
-export interface ExplorerViewPadding {
-	x?: number;
-	y?: number;
-	top?: number;
-	bottom?: number;
-	left?: number;
-	right?: number;
-}
 
 export interface ExplorerViewProps
 	extends Omit<ExplorerViewContext, 'selectable' | 'ref' | 'padding'> {
-	className?: string;
-	style?: React.CSSProperties;
 	emptyNotice?: JSX.Element;
-	padding?: number | ExplorerViewPadding;
 }
 
-export const View = ({
-	className,
-	style,
-	emptyNotice,
-	padding,
-	...contextProps
-}: ExplorerViewProps) => {
+export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	const explorer = useExplorerContext();
 	const explorerStore = useExplorerStore();
 	const { layoutMode } = explorer.useSettingsSnapshot();
@@ -60,8 +40,6 @@ export const View = ({
 	const ref = useRef<HTMLDivElement | null>(null);
 
 	const [showLoading, setShowLoading] = useState(false);
-
-	const viewPadding = useExplorerViewPadding(padding);
 
 	const selectable =
 		explorer.selectable &&
@@ -147,11 +125,10 @@ export const View = ({
 	if (!explorer.layouts[layoutMode]) return null;
 
 	return (
-		<ViewContext.Provider value={{ ref, ...contextProps, padding: viewPadding, selectable }}>
+		<ViewContext.Provider value={{ ref, ...contextProps, selectable }}>
 			<div
 				ref={ref}
-				style={style}
-				className={clsx('flex flex-1', className)}
+				className="flex flex-1"
 				onMouseDown={(e) => {
 					if (e.button === 2 || (e.button === 0 && e.shiftKey)) return;
 					explorer.selectedItems.size !== 0 && explorer.resetSelectedItems();

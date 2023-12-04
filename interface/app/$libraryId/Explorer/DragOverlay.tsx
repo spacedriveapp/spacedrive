@@ -25,13 +25,17 @@ const useSnapToCursorModifier = () => {
 
 		if (!initialRect.current) initialRect.current = activeNodeRect;
 
+		// Default offset so during drag the cursor doesn't overlap the overlay
+		// which can cause issues with mouse events on other elements
+		const offset = 12;
+
 		const offsetX = activatorCoordinates.x - rect.left;
 		const offsetY = activatorCoordinates.y - rect.top;
 
 		return {
 			...transform,
-			x: transform.x + offsetX,
-			y: transform.y + offsetY
+			x: transform.x + offsetX + offset,
+			y: transform.y + offsetY + offset
 		};
 	};
 
@@ -56,9 +60,9 @@ export const DragOverlay = memo(() => {
 			className="!h-auto !w-full max-w-md"
 		>
 			{!drag || drag.type === 'touched' ? null : (
-				<div className="space-y-[2px] pl-3 pt-3 duration-300 animate-in fade-in">
+				<div className="space-y-[2px] pl-0.5 pt-0.5 duration-300 animate-in fade-in">
 					{drag.items.length > 1 && (
-						<div className="absolute right-full top-3.5 flex h-6 min-w-[24px] items-center justify-center rounded-full bg-accent px-1 text-sm text-white">
+						<div className="absolute right-full top-1.5 mr-2 flex h-6 min-w-[24px] items-center justify-center rounded-full bg-accent px-1 text-sm text-white">
 							{drag.items.length}
 						</div>
 					)}

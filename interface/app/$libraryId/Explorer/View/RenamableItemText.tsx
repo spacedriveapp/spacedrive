@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { useMemo, useRef } from 'react';
+import { useRef } from 'react';
 import {
 	getEphemeralPath,
 	getExplorerItemData,
@@ -22,15 +22,10 @@ interface Props {
 	style?: React.CSSProperties;
 	lines?: number;
 	highlight?: boolean;
+	selected: boolean;
 }
 
-export const RenamableItemText = ({
-	item,
-	allowHighlight = true,
-	style,
-	lines,
-	highlight
-}: Props) => {
+export const RenamableItemText = ({ allowHighlight = true, selected, ...props }: Props) => {
 	const isDark = useIsDark();
 	const rspc = useRspcLibraryContext();
 
@@ -39,14 +34,9 @@ export const RenamableItemText = ({
 
 	const quickPreviewStore = useQuickPreviewStore();
 
-	const itemData = getExplorerItemData(item);
+	const itemData = getExplorerItemData(props.item);
 
 	const ref = useRef<HTMLDivElement>(null);
-
-	const selected = useMemo(
-		() => explorer?.selectedItems.has(item),
-		[explorer?.selectedItems, item]
-	);
 
 	const renameFile = useLibraryMutation(['files.renameFile'], {
 		onError: () => reset(),
@@ -70,9 +60,9 @@ export const RenamableItemText = ({
 
 	const handleRename = async (newName: string) => {
 		try {
-			switch (item.type) {
+			switch (props.item.type) {
 				case 'Location': {
-					const locationId = item.item.id;
+					const locationId = props.item.item.id;
 					if (!locationId) throw new Error('Missing location id');
 
 					await renameLocation.mutateAsync({
@@ -90,7 +80,7 @@ export const RenamableItemText = ({
 
 				case 'Path':
 				case 'Object': {
-					const filePathData = getIndexedItemFilePath(item);
+					const filePathData = getIndexedItemFilePath(props.item);
 
 					if (!filePathData) throw new Error('Failed to get file path object');
 
@@ -112,7 +102,7 @@ export const RenamableItemText = ({
 				}
 
 				case 'NonIndexedPath': {
-					const ephemeralFile = getEphemeralPath(item);
+					const ephemeralFile = getEphemeralPath(props.item);
 
 					if (!ephemeralFile) throw new Error('Failed to get ephemeral file object');
 
@@ -142,11 +132,11 @@ export const RenamableItemText = ({
 
 	const disabled =
 		!selected ||
-		!!explorerStore.drag ||
+		explorerStore.drag?.type === 'dragging' ||
 		!explorer ||
 		explorer.selectedItems.size > 1 ||
 		quickPreviewStore.open ||
-		item.type === 'SpacedropPeer';
+		props.item.type === 'SpacedropPeer';
 
 	return (
 		<RenameTextBox
@@ -154,11 +144,12 @@ export const RenamableItemText = ({
 			disabled={disabled}
 			onRename={handleRename}
 			className={clsx(
-				'text-center font-medium',
-				(selected || highlight) && allowHighlight && ['bg-accent', !isDark && 'text-white']
+				'font-medium',
+				(selected || props.highlight) &&
+					allowHighlight && ['bg-accent', !isDark && 'text-white']
 			)}
-			style={style}
-			lines={lines}
+			style={props.style}
+			lines={props.lines}
 		/>
 	);
 };

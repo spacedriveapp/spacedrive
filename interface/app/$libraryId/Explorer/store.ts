@@ -106,7 +106,7 @@ export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
 		}
 	}) satisfies ExplorerSettings<TOrder>;
 
-type CutCopyState =
+export type CutCopyState =
 	| {
 			type: 'Idle';
 	  }
@@ -174,9 +174,7 @@ export function getExplorerStore() {
 	return explorerStore;
 }
 
-export function isCut(item: ExplorerItem) {
-	const { cutCopyState } = getExplorerStore();
-
+export function isCut(item: ExplorerItem, cutCopyState: CutCopyState) {
 	switch (item.type) {
 		case 'NonIndexedPath':
 			return (

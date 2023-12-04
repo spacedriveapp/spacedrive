@@ -35,7 +35,7 @@ export const Tags = () => {
 const Tag = ({ tag }: { tag: Tag }) => {
 	const tagId = useMatch('/:libraryId/tag/:tagId')?.params.tagId;
 
-	const { isDroppable, navigateClassName, setDroppableRef } = useExplorerDroppable({
+	const { isDroppable, className, setDroppableRef } = useExplorerDroppable({
 		id: `sidebar-tag-${tag.id}`,
 		allow: ['Path', 'Object'],
 		data: { type: 'tag', data: tag },
@@ -51,7 +51,7 @@ const Tag = ({ tag }: { tag: Tag }) => {
 				className={clsx(
 					'border radix-state-open:border-accent',
 					isDroppable ? ' border-accent' : 'border-transparent',
-					navigateClassName
+					className
 				)}
 			>
 				<div

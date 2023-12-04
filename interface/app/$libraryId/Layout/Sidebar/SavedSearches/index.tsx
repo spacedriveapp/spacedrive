@@ -1,9 +1,10 @@
-import { Folder, X } from '@phosphor-icons/react';
+import { X } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useMatch, useNavigate, useResolvedPath } from 'react-router';
 import { useLibraryMutation, useLibraryQuery, type SavedSearch } from '@sd/client';
 import { Button } from '@sd/ui';
 import { useExplorerDroppable } from '~/app/$libraryId/Explorer/useExplorerDroppable';
+import { Folder } from '~/components';
 
 import SidebarLink from '../Link';
 import Section from '../Section';
@@ -62,7 +63,7 @@ export const SavedSearches = () => {
 const SavedSearch = ({ search, onDelete }: { search: SavedSearch; onDelete(): void }) => {
 	const searchId = useMatch('/:libraryId/saved-search/:searchId')?.params.searchId;
 
-	const { isDroppable, navigateClassName, setDroppableRef } = useExplorerDroppable({
+	const { isDroppable, className, setDroppableRef } = useExplorerDroppable({
 		id: `sidebar-saved-search-${search.id}`,
 		allow: ['Path', 'NonIndexedPath', 'Object'],
 		disabled: Number(searchId) === search.id,
@@ -74,9 +75,9 @@ const SavedSearch = ({ search, onDelete }: { search: SavedSearch; onDelete(): vo
 			ref={setDroppableRef}
 			to={`saved-search/${search.id}`}
 			className={clsx(
-				'group/button relative border radix-state-open:border-accent',
-				isDroppable ? ' border-accent' : 'border-transparent',
-				navigateClassName
+				'group/button relative border border-transparent',
+				isDroppable && '!cursor-no-drop',
+				className
 			)}
 		>
 			<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">

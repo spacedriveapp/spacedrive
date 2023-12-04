@@ -1,17 +1,17 @@
 import { useDraggable, UseDraggableArguments } from '@dnd-kit/core';
-import { CSSProperties } from 'react';
+import { CSSProperties, HTMLAttributes } from 'react';
 import { ExplorerItem } from '@sd/client';
 
 import { getExplorerStore } from './store';
 import { uniqueId } from './util';
 
-interface Props extends Omit<UseDraggableArguments, 'id'> {
+export interface UseExplorerDraggableProps extends Omit<UseDraggableArguments, 'id'> {
 	data: ExplorerItem;
 }
 
 const draggableTypes: ExplorerItem['type'][] = ['Path', 'NonIndexedPath', 'Object'];
 
-export const useExplorerDraggable = (props: Props) => {
+export const useExplorerDraggable = (props: UseExplorerDraggableProps) => {
 	const disabled = props.disabled || !draggableTypes.includes(props.data.type);
 
 	const { setNodeRef, ...draggable } = useDraggable({
@@ -29,6 +29,8 @@ export const useExplorerDraggable = (props: Props) => {
 		if (explorerStore.drag?.type !== 'dragging') explorerStore.drag = null;
 	};
 
+	const onMouseUp = () => (getExplorerStore().drag = null);
+
 	const style = {
 		cursor: 'default',
 		outline: 'none'
@@ -37,7 +39,12 @@ export const useExplorerDraggable = (props: Props) => {
 	return {
 		...draggable,
 		setDraggableRef: setNodeRef,
-		listeners: { ...draggable.listeners, onMouseDown, onMouseLeave },
+		listeners: {
+			...draggable.listeners,
+			onMouseDown,
+			onMouseLeave,
+			onMouseUp
+		} satisfies HTMLAttributes<Element>,
 		style
 	};
 };

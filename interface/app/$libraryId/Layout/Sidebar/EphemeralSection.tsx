@@ -142,7 +142,7 @@ const EphemeralLocation = ({
 }: PropsWithChildren<{ path: string; navigateTo: string }>) => {
 	const [{ path: ephemeralPath }] = useExplorerSearchParams();
 
-	const { isDroppable, navigateClassName, setDroppableRef } = useExplorerDroppable({
+	const { isDroppable, className, setDroppableRef } = useExplorerDroppable({
 		id: `sidebar-ephemeral-location-${path}`,
 		allow: ['Path', 'NonIndexedPath', 'Object'],
 		data: { type: 'location', path },
@@ -155,9 +155,9 @@ const EphemeralLocation = ({
 			ref={setDroppableRef}
 			to={navigateTo}
 			className={clsx(
-				'border radix-state-open:border-accent',
+				'border',
 				isDroppable ? ' border-accent' : 'border-transparent',
-				navigateClassName
+				className
 			)}
 		>
 			{children}

@@ -47,7 +47,7 @@ const Location = ({ location, online }: { location: LocationType; online: boolea
 	const locationId = useMatch('/:libraryId/location/:locationId')?.params.locationId;
 	const [{ path }] = useExplorerSearchParams();
 
-	const { isDroppable, navigateClassName, setDroppableRef } = useExplorerDroppable({
+	const { isDroppable, className, setDroppableRef } = useExplorerDroppable({
 		id: `sidebar-location-${location.id}`,
 		allow: ['Path', 'NonIndexedPath', 'Object'],
 		data: { type: 'location', path: '/', data: location },
@@ -63,7 +63,7 @@ const Location = ({ location, online }: { location: LocationType; online: boolea
 				className={clsx(
 					'border radix-state-open:border-accent',
 					isDroppable ? ' border-accent' : 'border-transparent',
-					navigateClassName
+					className
 				)}
 			>
 				<div className="relative mr-1 shrink-0 grow-0">

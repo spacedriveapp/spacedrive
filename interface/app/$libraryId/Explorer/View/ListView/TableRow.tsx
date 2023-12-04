@@ -3,50 +3,55 @@ import clsx from 'clsx';
 import { useMemo } from 'react';
 import { type ExplorerItem } from '@sd/client';
 
+import { TABLE_PADDING_X } from '.';
 import { useExplorerContext } from '../../Context';
-import { useTableContext } from './context';
-import { ListViewItem } from './ListViewItem';
+import { ListViewItem } from './Item';
 
-interface RowProps {
+interface Props {
 	row: Row<ExplorerItem>;
 	previousRow?: Row<ExplorerItem>;
 	nextRow?: Row<ExplorerItem>;
 }
 
-export const TableRow = (props: RowProps) => {
-	const table = useTableContext();
+export const TableRow = ({ row, previousRow, nextRow }: Props) => {
 	const explorer = useExplorerContext();
 
 	const selected = useMemo(() => {
-		return explorer.selectedItems.has(props.row.original);
-	}, [explorer.selectedItems, props.row.original]);
+		return explorer.selectedItems.has(row.original);
+	}, [explorer.selectedItems, row.original]);
 
-	const selectedPrior = useMemo(() => {
-		if (!props.previousRow) return;
-		return explorer.selectedItems.has(props.previousRow.original);
-	}, [explorer.selectedItems, props.previousRow]);
+	const isPreviousRowSelected = useMemo(() => {
+		if (!previousRow) return;
+		return explorer.selectedItems.has(previousRow.original);
+	}, [explorer.selectedItems, previousRow]);
 
-	const selectedNext = useMemo(() => {
-		if (!props.nextRow) return;
-		return explorer.selectedItems.has(props.nextRow.original);
-	}, [explorer.selectedItems, props.nextRow]);
+	const isNextRowSelected = useMemo(() => {
+		if (!nextRow) return;
+		return explorer.selectedItems.has(nextRow.original);
+	}, [explorer.selectedItems, nextRow]);
+
+	const cells = row.getVisibleCells();
 
 	return (
 		<>
 			<div
 				className={clsx(
 					'absolute inset-0 rounded-md border',
-					props.row.index % 2 === 0 && 'bg-app-darkBox',
+					row.index % 2 === 0 && 'bg-app-darkBox',
 					selected ? 'border-accent !bg-accent/10' : 'border-transparent',
-					selected && selectedPrior && 'rounded-t-none border-t-0 border-t-transparent',
-					selected && selectedNext && 'rounded-b-none border-b-0 border-b-transparent'
+					selected && [
+						isPreviousRowSelected && 'rounded-t-none border-t-0 border-t-transparent',
+						isNextRowSelected && 'rounded-b-none border-b-0 border-b-transparent'
+					]
 				)}
-				style={{ left: table.padding.left, right: table.padding.right }}
+				style={{ left: TABLE_PADDING_X, right: TABLE_PADDING_X }}
 			>
-				{selectedPrior && <div className="absolute inset-x-3 top-0 h-px bg-accent/10" />}
+				{isPreviousRowSelected && (
+					<div className="absolute inset-x-3 top-0 h-px bg-accent/10" />
+				)}
 			</div>
 
-			<ListViewItem row={props.row} selected={selected} />
+			<ListViewItem data={row.original} selected={selected} cells={cells} />
 		</>
 	);
 };
