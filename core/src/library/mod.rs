@@ -1,4 +1,5 @@
 // pub(crate) mod cat;
+mod cloud_sync;
 mod config;
 #[allow(clippy::module_inception)]
 mod library;

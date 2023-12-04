@@ -66,7 +66,7 @@ pub struct Node {
 	pub notifications: Notifications,
 	pub thumbnailer: Thumbnailer,
 	pub files_over_p2p_flag: Arc<AtomicBool>,
-	pub env: env::Env,
+	pub env: Arc<env::Env>,
 	pub http: reqwest::Client,
 }
 
@@ -86,6 +86,8 @@ impl Node {
 		let data_dir = data_dir.as_ref();
 
 		info!("Starting core with data directory '{}'", data_dir.display());
+
+		let env = Arc::new(env);
 
 		#[cfg(debug_assertions)]
 		let init_data = util::debug_initializer::InitConfig::load(data_dir).await?;

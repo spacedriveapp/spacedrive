@@ -3,6 +3,7 @@ use crate::{
 		notifications::{Notification, NotificationData, NotificationId},
 		CoreEvent,
 	},
+	env,
 	location::file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
 	notifications,
 	object::{media::thumbnail::get_indexed_thumbnail_path, orphan_remover::OrphanRemoverActor},
@@ -55,6 +56,7 @@ pub struct Library {
 	pub instance_uuid: Uuid,
 
 	notifications: notifications::Notifications,
+	pub env: Arc<crate::env::Env>,
 
 	// Look, I think this shouldn't be here but our current invalidation system needs it.
 	// TODO(@Oscar): Get rid of this with the new invalidation system.
@@ -94,6 +96,7 @@ impl Library {
 			orphan_remover: OrphanRemoverActor::spawn(db),
 			notifications: node.notifications.clone(),
 			instance_uuid,
+			env: node.env.clone(),
 			event_bus_tx: node.event_bus.0.clone(),
 		})
 	}

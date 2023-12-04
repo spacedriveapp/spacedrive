@@ -4,22 +4,23 @@ use sd_utils::uuid_to_bytes;
 
 use crate::{
 	db_operation::{relation_include, shared_include, DbOperation},
-	ingest, relation_op_db, shared_op_db, SharedState, SyncMessage, Timestamps, NTP64,
+	ingest, relation_op_db, shared_op_db, SharedState, SyncMessage, NTP64,
 };
 use std::{
 	cmp::Ordering,
+	collections::HashMap,
 	ops::Deref,
 	sync::{
 		atomic::{self, AtomicBool},
 		Arc,
 	},
 };
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, RwLock};
 use uhlc::{HLCBuilder, HLC};
 use uuid::Uuid;
 
 pub struct Manager {
-	pub tx: broadcast::Sender<SyncMessage>,
+	tx: broadcast::Sender<SyncMessage>,
 	pub ingest: ingest::Handler,
 	shared: Arc<SharedState>,
 }
@@ -30,8 +31,8 @@ pub struct GetOpsArgs {
 	pub count: u32,
 }
 
-pub struct New<T> {
-	pub manager: T,
+pub struct New {
+	pub manager: Manager,
 	pub rx: broadcast::Receiver<SyncMessage>,
 }
 
@@ -40,17 +41,17 @@ impl Manager {
 		db: &Arc<PrismaClient>,
 		instance: Uuid,
 		emit_messages_flag: &Arc<AtomicBool>,
-	) -> New<Self> {
+		timestamps: HashMap<Uuid, NTP64>,
+	) -> New {
 		let (tx, rx) = broadcast::channel(64);
 
-		let timestamps: Timestamps = Default::default();
 		let clock = HLCBuilder::new().with_id(instance.into()).build();
 
 		let shared = Arc::new(SharedState {
 			db: db.clone(),
 			instance,
-			timestamps,
 			clock,
+			timestamps: Arc::new(RwLock::new(timestamps)),
 			emit_messages_flag: emit_messages_flag.clone(),
 		});
 
@@ -60,6 +61,10 @@ impl Manager {
 			manager: Self { tx, ingest, shared },
 			rx,
 		}
+	}
+
+	pub fn subscribe(&self) -> broadcast::Receiver<SyncMessage> {
+		self.tx.subscribe()
 	}
 
 	pub async fn write_ops<'item, I: prisma_client_rust::BatchItem<'item>>(
