@@ -6,6 +6,7 @@ use crate::{
 	node::config::{NodeConfig, NodePreferences},
 	Node,
 };
+use sd_cache::patch_typedef;
 use sd_p2p::P2PStatus;
 
 use itertools::Itertools;
@@ -199,6 +200,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("notifications.", notifications::mount())
 		.merge("backups.", backups::mount())
 		.merge("invalidation.", utils::mount_invalidate())
+		.sd_patch_types_dangerously(|type_map| patch_typedef(type_map))
 		.build(
 			#[allow(clippy::let_and_return)]
 			{

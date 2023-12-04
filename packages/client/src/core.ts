@@ -8,8 +8,8 @@ export type Procedures = {
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "cloud.library.get", input: LibraryArgs<null>, result: { uuid: string; name: string; ownerId: string; instances: { id: string; uuid: string; identity: string }[] } | null } | 
         { key: "cloud.library.list", input: never, result: { uuid: string; name: string; ownerId: string; instances: { id: string; uuid: string }[] }[] } | 
-        { key: "ephemeralFiles.getMediaData", input: string, result: NormalisedResult<MediaDataForPath> | null } | 
-        { key: "files.get", input: LibraryArgs<number>, result: NormalisedResult<ObjectWithFilePaths2> | null } | 
+        { key: "ephemeralFiles.getMediaData", input: string, result: { item: Reference<MediaDataForPath>; nodes: CacheNode[] } | null } | 
+        { key: "files.get", input: LibraryArgs<number>, result: { item: Reference<ObjectWithFilePaths2>; nodes: CacheNode[] } | null } | 
         { key: "files.getConvertableImageExtensions", input: never, result: string[] } | 
         { key: "files.getMediaData", input: LibraryArgs<number>, result: MediaMetadataForObject } | 
         { key: "files.getPath", input: LibraryArgs<number>, result: string | null } | 
@@ -18,8 +18,8 @@ export type Procedures = {
         { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
         { key: "library.list", input: never, result: NormalisedResults<LibraryConfigWrapped> } | 
         { key: "library.statistics", input: LibraryArgs<null>, result: Statistics } | 
-        { key: "locations.get", input: LibraryArgs<number>, result: NormalisedResult<Location> | null } | 
-        { key: "locations.getWithRules", input: LibraryArgs<number>, result: NormalisedResult<LocationWithIndexerRule> | null } | 
+        { key: "locations.get", input: LibraryArgs<number>, result: { item: Reference<Location>; nodes: CacheNode[] } | null } | 
+        { key: "locations.getWithRules", input: LibraryArgs<number>, result: { item: Reference<LocationWithIndexerRule>; nodes: CacheNode[] } | null } | 
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: NormalisedResult<IndexerRule> } | 
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: NormalisedResults<IndexerRule> } | 
         { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: NormalisedResults<IndexerRule> } | 
@@ -30,19 +30,18 @@ export type Procedures = {
         { key: "notifications.dismiss", input: NotificationId, result: null } | 
         { key: "notifications.dismissAll", input: never, result: null } | 
         { key: "notifications.get", input: never, result: Notification[] } | 
-        { key: "p2p.state", input: never, result: P2PState } | 
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
         { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: EphemeralPathsResult } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.objectsCount", input: LibraryArgs<{ filters?: SearchFilterArgs[] }>, result: number } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.pathsCount", input: LibraryArgs<{ filters?: SearchFilterArgs[] }>, result: number } | 
-        { key: "search.saved.get", input: LibraryArgs<number>, result: SavedSearch | null } | 
+        { key: "search.saved.get", input: LibraryArgs<number>, result: { id: number; pub_id: number[]; search: string | null; filters: string | null; name: string | null; icon: string | null; description: string | null; date_created: string | null; date_modified: string | null } | null } | 
         { key: "search.saved.list", input: LibraryArgs<null>, result: SavedSearch[] } | 
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
-        { key: "tags.get", input: LibraryArgs<number>, result: NormalisedResult<Tag> | null } | 
+        { key: "tags.get", input: LibraryArgs<number>, result: { item: Reference<Tag>; nodes: CacheNode[] } | null } | 
         { key: "tags.getForObject", input: LibraryArgs<number>, result: NormalisedResults<Tag> } | 
-        { key: "tags.getWithObjects", input: LibraryArgs<number[]>, result: { [key: number]: { date_created: string | null; object: { id: number } }[] } } | 
+        { key: "tags.getWithObjects", input: LibraryArgs<number[]>, result: { [key in number]: ({ date_created: string | null; object: { id: number } })[] } } | 
         { key: "tags.list", input: LibraryArgs<null>, result: NormalisedResults<Tag> } | 
         { key: "volumes.list", input: never, result: NormalisedResults<Volume> },
     mutations: 
@@ -96,7 +95,7 @@ export type Procedures = {
         { key: "notifications.testLibrary", input: LibraryArgs<null>, result: null } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
         { key: "p2p.cancelSpacedrop", input: string, result: null } | 
-        { key: "p2p.pair", input: string, result: number } | 
+        { key: "p2p.pair", input: RemoteIdentity, result: number } | 
         { key: "p2p.pairingResponse", input: [number, PairingDecision], result: null } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: string } | 
         { key: "preferences.update", input: LibraryArgs<LibraryPreferences>, result: null } | 
@@ -139,13 +138,31 @@ export type CRDTOperation = { instance: string; timestamp: number; id: string; t
 
 export type CRDTOperationType = SharedOperation | RelationOperation
 
+export type CacheNode = { __type: string; __id: string; "#node": any }
+
 export type CameraData = { device_make: string | null; device_model: string | null; color_space: string | null; color_profile: ColorProfile | null; focal_length: number | null; shutter_speed: number | null; flash: Flash | null; orientation: Orientation; lens_make: string | null; lens_model: string | null; bit_depth: number | null; red_eye: boolean | null; zoom: number | null; iso: number | null; software: string | null; serial_number: string | null; lens_serial_number: string | null; contrast: number | null; saturation: number | null; sharpness: number | null; composite: Composite | null }
 
 export type ChangeNodeNameArgs = { name: string | null; p2p_enabled: boolean | null; p2p_port: MaybeUndefined<number> }
 
 export type ColorProfile = "Normal" | "Custom" | "HDRNoOriginal" | "HDRWithOriginal" | "OriginalForHDR" | "Panorama" | "PortraitHDR" | "Portrait"
 
-export type Composite = "Unknown" | "False" | "General" | "Live"
+export type Composite = 
+/**
+ * The data is present, but we're unable to determine what they mean
+ */
+"Unknown" | 
+/**
+ * Not a composite image
+ */
+"False" | 
+/**
+ * A general composite image
+ */
+"General" | 
+/**
+ * The composite image was captured while shooting
+ */
+"Live"
 
 export type ConvertImageArgs = { location_id: number; file_path_id: number; delete_src: boolean; desired_extension: ConvertableExtension; quality_percentage: number | null }
 
@@ -173,7 +190,7 @@ export type EphemeralPathOrder = { field: "name"; value: SortOrder } | { field: 
 
 export type EphemeralPathSearchArgs = { path: string; withHiddenFiles: boolean; order?: EphemeralPathOrder | null }
 
-export type EphemeralPathsResult = { entries: { __type: "ExplorerItem"; __id: string; "#type": ExplorerItem }[]; errors: Error[]; nodes: { __type: string; __id: string; "#node": any }[] }
+export type EphemeralPathsResult = { entries: Reference<ExplorerItem>[]; errors: Error[]; nodes: CacheNode[] }
 
 export type EphemeralRenameFileArgs = { kind: EphemeralRenameKind }
 
@@ -194,7 +211,7 @@ export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbna
 
 export type ExplorerLayout = "grid" | "list" | "media"
 
-export type ExplorerSettings<TOrder> = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; gridGap: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; mediaViewWithDescendants: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; colVisibility: { [key: string]: boolean } | null; colSizes: { [key: string]: number } | null; order?: TOrder | null; showHiddenFiles?: boolean }
+export type ExplorerSettings<TOrder> = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; gridGap: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; mediaViewWithDescendants: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; colVisibility: { [key in string]: boolean } | null; colSizes: { [key in string]: number } | null; order?: TOrder | null; showHiddenFiles?: boolean }
 
 export type Feedback = { message: string; emoji: number }
 
@@ -220,11 +237,52 @@ export type FilePathOrder = { field: "name"; value: SortOrder } | { field: "size
 
 export type FilePathSearchArgs = { take?: number | null; orderAndPagination?: OrderAndPagination<number, FilePathOrder, FilePathCursor> | null; filters?: SearchFilterArgs[]; groupDirectories?: boolean }
 
-export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; object: Object | null }
+export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; object: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null } | null }
 
-export type Flash = { mode: FlashMode; fired: boolean | null; returned: boolean | null; red_eye_reduction: boolean | null }
+export type Flash = { 
+/**
+ * Specifies how flash was used (on, auto, off, forced, onvalid)
+ * 
+ * [`FlashMode::Unknown`] isn't a valid EXIF state, but it's included as the default,
+ * just in case we're unable to correctly match it to a known (valid) state.
+ * 
+ * This type should only ever be evaluated if flash EXIF data is present, so having this as a non-option shouldn't be an issue.
+ */
+mode: FlashMode; 
+/**
+ * Did the flash actually fire?
+ */
+fired: boolean | null; 
+/**
+ * Did flash return to the camera? (Unsure of the meaning)
+ */
+returned: boolean | null; 
+/**
+ * Was red eye reduction used?
+ */
+red_eye_reduction: boolean | null }
 
-export type FlashMode = "Unknown" | "On" | "Off" | "Auto" | "Forced"
+export type FlashMode = 
+/**
+ * The data is present, but we're unable to determine what they mean
+ */
+"Unknown" | 
+/**
+ * FLash was on
+ */
+"On" | 
+/**
+ * Flash was off
+ */
+"Off" | 
+/**
+ * Flash was set to automatically fire in certain conditions
+ */
+"Auto" | 
+/**
+ * Flash was forcefully fired
+ */
+"Forced"
 
 export type FromPattern = { pattern: string; replace_all: boolean }
 
@@ -233,8 +291,6 @@ export type FullRescanArgs = { location_id: number; reidentify_objects: boolean 
 export type GenerateThumbsForLocationArgs = { id: number; path: string; regenerate?: boolean }
 
 export type GetAll = { backups: Backup[]; directory: string }
-
-export type Header = { id: string; timestamp: string; library_id: string; library_name: string }
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
 
@@ -262,9 +318,11 @@ export type JobGroup = { id: string; action: string | null; status: JobStatus; c
 
 export type JobProgressEvent = { id: string; library_id: string; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
 
-export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: { [key: string]: any } | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
+export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: { [key in string]: JsonValue } | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused" | "CompletedWithErrors"
+
+export type JsonValue = null | boolean | number | string | JsonValue[] | { [key in string]: JsonValue }
 
 /**
  * Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
@@ -274,15 +332,27 @@ export type LibraryArgs<T> = { library_id: string; arg: T }
 /**
  * LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
  */
-export type LibraryConfig = { name: LibraryName; description: string | null; instance_id: number; version: LibraryConfigVersion }
+export type LibraryConfig = { 
+/**
+ * name is the display name of the library. This is used in the UI and is set by the user.
+ */
+name: LibraryName; 
+/**
+ * description is a user set description of the library. This is used in the UI and is set by the user.
+ */
+description: string | null; 
+/**
+ * id of the current instance so we know who this `.db` is. This can be looked up within the `Instance` table.
+ */
+instance_id: number; version: LibraryConfigVersion }
 
 export type LibraryConfigVersion = "V0" | "V1" | "V2" | "V3" | "V4" | "V5" | "V6" | "V7" | "V8" | "V9"
 
-export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance_public_key: string; config: LibraryConfig }
+export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance_public_key: RemoteIdentity; config: LibraryConfig }
 
 export type LibraryName = string
 
-export type LibraryPreferences = { location?: { [key: string]: LocationSettings } }
+export type LibraryPreferences = { location?: { [key in string]: LocationSettings } }
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
@@ -309,16 +379,9 @@ export type LocationSettings = { explorer: ExplorerSettings<FilePathOrder> }
  */
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[]; path: string | null }
 
-export type LocationWithIndexerRule = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: { __type: "IndexerRule"; __id: string; "#type": IndexerRule }[] }
+export type LocationWithIndexerRule = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: Reference<IndexerRule>[] }
 
-/**
- * The configuration for the P2P Manager
- * DO NOT MAKE BREAKING CHANGES - This is embedded in the `node_config.json`
- * For future me: `Keypair` is not on here cause hot reloading it hard.
- */
-export type ManagerConfig = { enabled: boolean; port?: number | null }
-
-export type MaybeUndefined<T> = null | null | T
+export type MaybeUndefined<T> = null | T
 
 export type MediaDataForPath = { path: string; data: MediaMetadata }
 
@@ -328,7 +391,7 @@ export type MediaDataOrder = { field: "epochTime"; value: SortOrder }
  * This can be either naive with no TZ (`YYYY-MM-DD HH-MM-SS`) or UTC (`YYYY-MM-DD HH-MM-SS ±HHMM`),
  * where `±HHMM` is the timezone data. It may be negative if West of the Prime Meridian, or positive if East.
  */
-export type MediaDate = string | string
+export type MediaDate = string
 
 export type MediaLocation = { latitude: number; longitude: number; pluscode: PlusCode; altitude: number | null; direction: number | null }
 
@@ -338,7 +401,15 @@ export type MediaMetadataForObject = { object_id: number; data: MediaMetadata }
 
 export type NodePreferences = { thumbnailer: ThumbnailerPreferences }
 
-export type NodeState = ({ id: string; name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[]; preferences: NodePreferences }) & { data_path: string; p2p: P2PStatus }
+export type NodeState = ({ 
+/**
+ * id is a unique identifier for the current node. Each node has a public identifier (this one) and is given a local id for each library (done within the library code).
+ */
+id: string; 
+/**
+ * name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
+ */
+name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[]; preferences: NodePreferences }) & { data_path: string; p2p: P2PStatus }
 
 export type NonIndexedPathItem = { path: string; name: string; extension: string; kind: number; is_dir: boolean; date_created: string; date_modified: string; size_in_bytes_bytes: number[]; hidden: boolean }
 
@@ -347,14 +418,14 @@ export type NonIndexedPathItem = { path: string; name: string; extension: string
  * 
  * You don't need to use this, it's just a shortcut to avoid having to write out the full type everytime.
  */
-export type NormalisedResult<T> = { item: { __type: "Tag"; __id: string; "#type": Tag }; nodes: { __type: string; __id: string; "#node": any }[] }
+export type NormalisedResult<T> = { item: Reference<T>; nodes: CacheNode[] }
 
 /**
  * A type that can be used to return a group of `Reference<T>` and `CacheNode`'s
  * 
  * You don't need to use this, it's just a shortcut to avoid having to write out the full type everytime.
  */
-export type NormalisedResults<T> = { items: { __type: "LibraryConfigWrapped"; __id: string; "#type": LibraryConfigWrapped }[]; nodes: { __type: string; __id: string; "#node": any }[] }
+export type NormalisedResults<T> = { items: Reference<T>[]; nodes: CacheNode[] }
 
 /**
  * Represents a single notification.
@@ -368,8 +439,6 @@ export type Notification = ({ type: "library"; id: [string, number] } | { type: 
 export type NotificationData = { PairingRequest: { id: string; pairing_id: number } } | "Test"
 
 export type NotificationId = { type: "library"; id: [string, number] } | { type: "node"; id: number }
-
-export type Object = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null }
 
 export type ObjectCursor = "none" | { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
 
@@ -385,7 +454,7 @@ export type ObjectValidatorArgs = { id: number; path: string }
 
 export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[] }
 
-export type ObjectWithFilePaths2 = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: { __type: "FilePath"; __id: string; "#type": FilePath }[] }
+export type ObjectWithFilePaths2 = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: Reference<FilePath>[] }
 
 /**
  * Represents the operating system which the remote peer is running.
@@ -400,9 +469,7 @@ export type Orientation = "Normal" | "CW90" | "CW180" | "CW270" | "MirroredVerti
 /**
  * TODO: P2P event for the frontend
  */
-export type P2PEvent = { type: "DiscoveredPeer"; identity: string; metadata: PeerMetadata } | { type: "ExpiredPeer"; identity: string } | { type: "ConnectedPeer"; identity: string } | { type: "DisconnectedPeer"; identity: string } | { type: "SpacedropRequest"; id: string; identity: string; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedout"; id: string } | { type: "SpacedropRejected"; id: string } | { type: "PairingRequest"; id: number; name: string; os: OperatingSystem } | { type: "PairingProgress"; id: number; status: PairingStatus }
-
-export type P2PState = { node: { [key: string]: PeerStatus }; libraries: ([string, { [key: string]: PeerStatus }])[]; self_peer_id: PeerId; self_identity: string; config: ManagerConfig; manager_connected: { [key: PeerId]: string }; manager_connections: PeerId[]; dicovery_services: { [key: string]: { [key: string]: string } | null }; discovery_discovered: { [key: string]: { [key: string]: [PeerId, { [key: string]: string }, string[]] } }; discovery_known: { [key: string]: string[] } }
+export type P2PEvent = { type: "DiscoveredPeer"; identity: RemoteIdentity; metadata: PeerMetadata } | { type: "ExpiredPeer"; identity: RemoteIdentity } | { type: "ConnectedPeer"; identity: RemoteIdentity } | { type: "DisconnectedPeer"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedout"; id: string } | { type: "SpacedropRejected"; id: string } | { type: "PairingRequest"; id: number; name: string; os: OperatingSystem } | { type: "PairingProgress"; id: number; status: PairingStatus }
 
 export type P2PStatus = { ipv4: ListenerStatus; ipv6: ListenerStatus }
 
@@ -410,19 +477,27 @@ export type PairingDecision = { decision: "accept"; libraryId: string } | { deci
 
 export type PairingStatus = { type: "EstablishingConnection" } | { type: "PairingRequested" } | { type: "LibraryAlreadyExists" } | { type: "PairingDecisionRequest" } | { type: "PairingInProgress"; data: { library_name: string; library_description: string | null } } | { type: "InitialSyncProgress"; data: number } | { type: "PairingComplete"; data: string } | { type: "PairingRejected" }
 
-export type PeerId = string
-
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null }
-
-export type PeerStatus = "Unavailable" | "Discovered" | "Connected"
 
 export type PlusCode = string
 
 export type Range<T> = { from: T } | { to: T }
 
-export type RelationOperation = { relation_item: any; relation_group: any; relation: string; data: RelationOperationData }
+/**
+ * A reference to a `CacheNode`.
+ * 
+ * This does not contain the actual data, but instead a reference to it.
+ * This allows the CacheNode's to be switched out and the query recomputed without any backend communication.
+ * 
+ * If you use a `Reference` in a query, you *must* ensure the corresponding `CacheNode` is also in the query.
+ */
+export type Reference<T> = { __type: string; __id: string; "#type": T }
 
-export type RelationOperationData = "c" | { u: { field: string; value: any } } | "d"
+export type RelationOperation = { relation_item: JsonValue; relation_group: JsonValue; relation: string; data: RelationOperationData }
+
+export type RelationOperationData = "c" | { u: { field: string; value: JsonValue } } | "d"
+
+export type RemoteIdentity = string
 
 export type RenameFileArgs = { location_id: number; kind: RenameKind }
 
@@ -440,11 +515,9 @@ export type Response = { Start: { user_code: string; verification_url: string; v
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
-export type SanitisedNodeConfig = { id: string; name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[]; preferences: NodePreferences }
-
 export type SavedSearch = { id: number; pub_id: number[]; search: string | null; filters: string | null; name: string | null; icon: string | null; description: string | null; date_created: string | null; date_modified: string | null }
 
-export type SearchData<T> = { cursor: number[] | null; items: { __type: "ExplorerItem"; __id: string; "#type": ExplorerItem }[]; nodes: { __type: string; __id: string; "#node": any }[] }
+export type SearchData<T> = { cursor: number[] | null; items: Reference<T>[]; nodes: CacheNode[] }
 
 export type SearchFilterArgs = { filePath: FilePathFilterArgs } | { object: ObjectFilterArgs }
 
@@ -452,15 +525,19 @@ export type SetFavoriteArgs = { id: number; favorite: boolean }
 
 export type SetNoteArgs = { id: number; note: string | null }
 
-export type SharedOperation = { record_id: any; model: string; data: SharedOperationData }
+export type SharedOperation = { record_id: JsonValue; model: string; data: SharedOperationData }
 
-export type SharedOperationData = "c" | { u: { field: string; value: any } } | "d"
+export type SharedOperationData = "c" | { u: { field: string; value: JsonValue } } | "d"
 
-export type SingleInvalidateOperationEvent = { key: string; arg: any; result: any | null }
+export type SingleInvalidateOperationEvent = { 
+/**
+ * This fields are intentionally private.
+ */
+key: string; arg: JsonValue; result: JsonValue | null }
 
 export type SortOrder = "Asc" | "Desc"
 
-export type SpacedropArgs = { identity: string; file_path: string[] }
+export type SpacedropArgs = { identity: RemoteIdentity; file_path: string[] }
 
 export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
 

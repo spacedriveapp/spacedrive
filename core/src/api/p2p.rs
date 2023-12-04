@@ -51,9 +51,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 			})
 		})
-		.procedure("state", {
-			R.query(|node, _: ()| async move { Ok(node.p2p.state()) })
-		})
+		// TODO: This has a potentially invalid map key and Specta don't like that. Can bring back in another PR.
+		// .procedure("state", {
+		// 	R.query(|node, _: ()| async move { Ok(node.p2p.state()) })
+		// })
 		.procedure("spacedrop", {
 			#[derive(Type, Deserialize)]
 			pub struct SpacedropArgs {

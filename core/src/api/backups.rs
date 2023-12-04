@@ -122,7 +122,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("restore", {
 			R
 				// TODO: Paths as strings is bad but here we want the flexibility of the frontend allowing any path
-				.mutation(|node, path: String| {
+				.mutation(|node, path: String| async move {
 					start_restore(node, path.into()).await;
 					Ok(())
 				})
