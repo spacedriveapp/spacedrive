@@ -70,7 +70,7 @@ impl Instance {
 				uuid_to_bytes(right.id),
 				vec![],
 				vec![],
-				"".to_string(),
+				String::new(),
 				0,
 				Utc::now().into(),
 				Utc::now().into(),
@@ -87,7 +87,7 @@ impl Instance {
 				uuid_to_bytes(left.id),
 				vec![],
 				vec![],
-				"".to_string(),
+				String::new(),
 				0,
 				Utc::now().into(),
 				Utc::now().into(),
@@ -112,14 +112,14 @@ async fn bruh() -> Result<(), Box<dyn std::error::Error>> {
 
 		async move {
 			while let Ok(msg) = sync_rx1.recv().await {
-				if let SyncMessage::Created = msg {
+				if matches!(msg, SyncMessage::Created) {
 					instance2
 						.sync
 						.ingest
 						.event_tx
 						.send(ingest::Event::Notification)
 						.await
-						.unwrap()
+						.unwrap();
 				}
 			}
 		}
