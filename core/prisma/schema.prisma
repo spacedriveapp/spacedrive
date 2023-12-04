@@ -230,6 +230,7 @@ model Object {
     date_accessed DateTime?
 
     tags       TagOnObject[]
+    labels     LabelOnObject[]
     albums     ObjectInAlbum[]
     spaces     ObjectInSpace[]
     file_paths FilePath[]
@@ -333,8 +334,6 @@ model Tag {
     name   String?
     color  String?
 
-    // Enum: sd_core::object::tag::TagKind
-    kind      Int?
     is_hidden Boolean? // user hidden entire tag
 
     date_created  DateTime?
@@ -342,7 +341,6 @@ model Tag {
 
     tag_objects TagOnObject[]
 
-    @@unique([name, kind])
     @@map("tag")
 }
 
@@ -358,6 +356,31 @@ model TagOnObject {
 
     @@id([tag_id, object_id])
     @@map("tag_on_object")
+}
+
+//// Label ////
+
+model Label {
+    id            Int      @id @default(autoincrement())
+    pub_id        Bytes    @unique
+    name          String   @unique
+    date_created  DateTime @default(now())
+    date_modified DateTime @default(now())
+
+    label_objects LabelOnObject[]
+
+    @@map("label")
+}
+
+model LabelOnObject {
+    date_created DateTime @default(now())
+    label_id     Int
+    label        Label    @relation(fields: [label_id], references: [id], onDelete: Restrict)
+    object_id    Int
+    object       Object   @relation(fields: [object_id], references: [id], onDelete: Restrict)
+
+    @@id([label_id, object_id])
+    @@map("label_on_object")
 }
 
 //// Space ////

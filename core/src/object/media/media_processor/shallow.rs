@@ -13,7 +13,7 @@ use crate::{
 };
 
 #[cfg(feature = "skynet")]
-use crate::object::tag::assign_labels;
+use crate::skynet::image_labeler::assign_labels;
 
 use sd_file_ext::extensions::Extension;
 
@@ -145,7 +145,7 @@ pub async fn shallow(
 			if let Err(e) = assign_labels(
 				object_id_by_file_path_id[&labeler_out.file_path_id],
 				labels,
-				library,
+				db,
 			)
 			.await
 			{

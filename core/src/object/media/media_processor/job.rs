@@ -15,10 +15,7 @@ use crate::{
 };
 
 #[cfg(feature = "skynet")]
-use crate::object::tag::assign_labels;
-
-#[cfg(feature = "skynet")]
-use crate::skynet::image_labeler::LabelerOutput;
+use crate::skynet::image_labeler::{assign_labels, LabelerOutput};
 
 #[cfg(feature = "skynet")]
 use std::collections::HashMap;
@@ -360,7 +357,7 @@ impl StatefulJob for MediaProcessorJobInit {
 						if let Err(e) = assign_labels(
 							data.object_id_by_file_path_id[&file_path_id],
 							labels,
-							&ctx.library,
+							&ctx.library.db,
 						)
 						.await
 						{
