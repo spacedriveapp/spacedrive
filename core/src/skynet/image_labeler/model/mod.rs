@@ -79,21 +79,24 @@ pub(super) fn model_executor(
 				image,
 				format,
 			} => {
-				if let (Some(session), Some(model)) = (&maybe_session, maybe_model.as_deref()) {
-					// This will never block as the channel is unbounded
-					if results_tx
-						.send_blocking((
-							batch_token,
-							file_path_id,
-							process_single_image(image, format, session, model),
-						))
-						.is_err()
-					{
-						error!("Failed to send model output, <batch_token='{batch_token}', file_path_id='{file_path_id}'>");
-						break;
-					}
-				} else {
-					error!("Tried to process image without a loaded model");
+				// This will never block as the channel is unbounded
+				if results_tx
+					.send_blocking((
+						batch_token,
+						file_path_id,
+						if let (Some(session), Some(model)) =
+							(&maybe_session, maybe_model.as_deref())
+						{
+							process_single_image(image, format, session, model)
+						} else {
+							error!("Tried to process image without a loaded model");
+							Err(ImageLabelerError::NoModelAvailable)
+						},
+					))
+					.is_err()
+				{
+					error!("Failed to send model output, <batch_token='{batch_token}', file_path_id='{file_path_id}'>");
+					break;
 				}
 			}
 			ModelExecutorInput::UpdateModel(new_model, res_tx) => {

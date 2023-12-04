@@ -35,6 +35,8 @@ pub enum ImageLabelerError {
 	FileTooBig(file_path::id::Type, usize),
 	#[error("model file not found: {}", .0.display())]
 	ModelFileNotFound(Box<Path>),
+	#[error("no model available for inference")]
+	NoModelAvailable,
 
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
