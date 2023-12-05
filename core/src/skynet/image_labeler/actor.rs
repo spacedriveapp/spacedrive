@@ -8,8 +8,8 @@ use std::{cell::RefCell, collections::HashMap, path::PathBuf, pin::pin, sync::Ar
 
 use async_channel as chan;
 use crossbeam::channel;
-use futures::stream::once;
-use futures_concurrency::{future::Join, stream::Merge};
+use futures::stream::{once, FuturesUnordered, StreamExt};
+use futures_concurrency::stream::Merge;
 use image::ImageFormat;
 use sd_prisma::prisma::location;
 use tokio::{
@@ -18,7 +18,6 @@ use tokio::{
 	sync::{broadcast, oneshot},
 	task::{block_in_place, JoinHandle},
 };
-use tokio_stream::StreamExt;
 use tracing::{debug, error};
 
 use super::model::{model_executor, Model, ModelExecutorInput, ModelOutput};
@@ -221,6 +220,11 @@ async fn process_batches(
 	results_rx: chan::Receiver<ModelOutput>,
 	mut cancel_rx: broadcast::Receiver<()>,
 ) {
+	// To appease the borrowck: This function must have a `'static` lifetime for this channel,
+	// as we run it in a `tokio::spawn` detached task. But we need to copy references to it
+	// in the `async move` block below
+	let model_executor_input_tx = &model_executor_input_tx;
+
 	let mut batch_token = 0u64;
 
 	let mut pending_batches = HashMap::with_capacity(16);
@@ -246,7 +250,10 @@ async fn process_batches(
 				file_paths,
 				output,
 			}) => {
-				let to_infere = file_paths
+				let current_batch_token = batch_token;
+				batch_token = batch_token.wrapping_add(1);
+
+				let to_infere_count = file_paths
 					.into_iter()
 					.filter_map(|file_path| {
 						let file_path_id = file_path.id;
@@ -313,45 +320,14 @@ async fn process_batches(
 							));
 						}
 
-						let bytes = fs::read(&path).await.map_err(|e| {
+						let image = fs::read(&path).await.map_err(|e| {
 							(
 								file_path_id,
-								FileIOError::from((&path, e, "Failed to read file to get labels"))
+								FileIOError::from((path, e, "Failed to read file to get labels"))
 									.into(),
 							)
 						})?;
 
-						Ok((file_path_id, bytes, format))
-					})
-					.collect::<Vec<_>>()
-					.join()
-					.await
-					.into_iter()
-					.filter_map(|res| match res {
-						Ok(ok) => Some(ok),
-						Err((file_path_id, e)) => {
-							if output
-								.send_blocking(LabelerOutput {
-									file_path_id,
-									labels_result: Err(e),
-								})
-								.is_err()
-							{
-								error!("Failed to send batch output with I/O errors, <file_path_id='{file_path_id}'>");
-							}
-
-							None
-						}
-					})
-					.collect::<Vec<_>>();
-
-				let current_batch_token = batch_token;
-				batch_token = batch_token.wrapping_add(1);
-				pending_batches.insert(current_batch_token, (to_infere.len(), output));
-
-				to_infere
-					.into_iter()
-					.for_each(|(file_path_id, image, format)| {
 						model_executor_input_tx
 							.send(ModelExecutorInput::ToProcess {
 								batch_token: current_batch_token,
@@ -360,7 +336,34 @@ async fn process_batches(
 								format,
 							})
 							.expect("images_tx unexpectedly closed");
-					});
+
+						Ok(())
+					})
+					.collect::<FuturesUnordered<_>>()
+					.fold(0u64, |to_infere_count, res| {
+						let output = &output;
+						async move {
+							if let Err((file_path_id, e)) = res {
+								if output
+									.send(LabelerOutput {
+										file_path_id,
+										labels_result: Err(e),
+									})
+									.await
+									.is_err()
+								{
+									error!("Failed to send batch output with I/O errors, <file_path_id='{file_path_id}'>");
+								}
+
+								to_infere_count
+							} else {
+								to_infere_count + 1
+							}
+						}
+					})
+					.await;
+
+				pending_batches.insert(current_batch_token, (to_infere_count, output));
 			}
 
 			StreamMessage::Results((current_batch_token, file_path_id, labels_result)) => {
