@@ -18,7 +18,7 @@ import { isNonEmptyObject } from '~/util';
 
 import { useLayoutContext } from '../../../Layout/Context';
 import { useExplorerContext } from '../../Context';
-import { getQuickPreviewStore } from '../../QuickPreview/store';
+import { getQuickPreviewStore, useQuickPreviewStore } from '../../QuickPreview/store';
 import {
 	createOrdering,
 	getOrderingDirection,
@@ -101,6 +101,7 @@ export default () => {
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
 	const settings = explorer.useSettingsSnapshot();
+	const quickPreview = useQuickPreviewStore();
 
 	const tableRef = useRef<HTMLDivElement>(null);
 	const tableHeaderRef = useRef<HTMLDivElement>(null);
@@ -482,19 +483,6 @@ export default () => {
 
 	useEffect(() => setRanges([]), [settings.order]);
 
-	//this is to handle selection for quickpreview slider
-	useEffect(() => {
-		if (!getQuickPreviewStore().open || explorer.selectedItems.size !== 1) return;
-
-		const [item] = [...explorer.selectedItems];
-		if (!item) return;
-
-		explorer.resetSelectedItems([item]);
-
-		const itemId = uniqueId(item);
-		setRanges([[itemId, itemId]]);
-	}, [explorer]);
-
 	useEffect(() => {
 		if (initialized || !sized || !explorer.count || explorer.selectedItems.size === 0) {
 			if (explorer.selectedItems.size === 0 && !initialized) setInitialized(true);
@@ -578,7 +566,7 @@ export default () => {
 		const header = tableHeaderRef.current;
 		const body = tableBodyRef.current;
 
-		if (!table || !header || !body) return;
+		if (!table || !header || !body || quickPreview.open) return;
 
 		const handleWheel = (event: WheelEvent) => {
 			if (Math.abs(event.deltaX) < Math.abs(event.deltaY)) return;
