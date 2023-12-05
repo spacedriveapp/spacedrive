@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useLibraryQuery } from '@sd/client';
+import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import { SharedScreenProps } from '~/navigation/SharedScreens';
 
@@ -13,15 +13,19 @@ export default function TagScreen({ navigation, route }: SharedScreenProps<'Tag'
 			take: 100
 		}
 	]);
+	useNodes(search.data?.nodes);
+	const searchData = useCache(search.data?.items);
 
 	const tag = useLibraryQuery(['tags.get', id]);
+	useNodes(tag.data?.nodes);
+	const tagData = useCache(tag.data?.item);
 
 	useEffect(() => {
 		// Set screen title to tag name.
 		navigation.setOptions({
-			title: tag.data?.name ?? 'Tag'
+			title: tagData?.name ?? 'Tag'
 		});
-	}, [tag.data?.name, navigation]);
+	}, [tagData?.name, navigation]);
 
-	return <Explorer items={search.data?.items} />;
+	return <Explorer items={searchData} />;
 }

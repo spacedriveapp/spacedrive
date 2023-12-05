@@ -38,8 +38,10 @@ import {
 	ObjectWithFilePaths,
 	ToastDefautlColor,
 	useBridgeQuery,
+	useCache,
 	useItemsAsObjects,
 	useLibraryQuery,
+	useNodes,
 	type ExplorerItem
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, toast, Tooltip, tw } from '@sd/ui';
@@ -173,7 +175,9 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	let filePathData: FilePath | FilePathWithObject | null = null;
 	let ephemeralPathData: NonIndexedPathItem | null = null;
 
-	const locations = useLibraryQuery(['locations.list']);
+	const result = useLibraryQuery(['locations.list']);
+	useNodes(result.data?.nodes);
+	const locations = useCache(result.data?.items);
 
 	switch (item.type) {
 		case 'NonIndexedPath': {
@@ -210,13 +214,15 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	}, [item]);
 
 	const fileLocations =
-		locations.data?.filter((location) => uniqueLocationIds.includes(location.id)) || [];
+		locations?.filter((location) => uniqueLocationIds.includes(location.id)) || [];
 
 	const readyToFetch = useIsFetchReady(item);
 
-	const tags = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
+	const tagsQuery = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
 		enabled: objectData != null && readyToFetch
 	});
+	useNodes(tagsQuery.data?.nodes);
+	const tags = useCache(tagsQuery.data?.items);
 
 	const labels = useLibraryQuery(['labels.getForObject', objectData?.id ?? -1], {
 		enabled: objectData != null && readyToFetch
@@ -345,7 +351,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					</InfoPill>
 				))}
 
-				{tags.data?.map((tag) => (
+				{tags?.map((tag) => (
 					<NavLink key={tag.id} to={`/${libraryId}/tag/${tag.id}`}>
 						<Tooltip label={tag.name || ''} className="flex overflow-hidden">
 							<InfoPill
@@ -405,10 +411,12 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 
 	const { libraryId } = useZodRouteParams(LibraryIdParamsSchema);
 
-	const tags = useLibraryQuery(['tags.list'], {
+	const tagsQuery = useLibraryQuery(['tags.list'], {
 		enabled: readyToFetch && !explorerStore.isDragging,
 		suspense: true
 	});
+	useNodes(tagsQuery.data?.nodes);
+	const tags = useCache(tagsQuery.data?.items);
 
 	const labels = useLibraryQuery(['labels.list'], {
 		enabled: readyToFetch && !explorerStore.isDragging,
@@ -511,9 +519,9 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 				))}
 
 				{labels.data?.map((label) => {
-					const objectsWithTagOrLabel = labelsWithObjects.data?.[label.id] ?? [];
+					const objectsWithLabel = labelsWithObjects.data?.[label.id] ?? [];
 
-					if (objectsWithTagOrLabel.length === 0) return null;
+					if (objectsWithLabel.length === 0) return null;
 
 					return (
 						<InfoPill
@@ -521,17 +529,15 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 							className="!text-white"
 							style={{
 								opacity:
-									objectsWithTagOrLabel.length === selectedObjects.length
-										? 1
-										: 0.5
+									objectsWithLabel.length === selectedObjects.length ? 1 : 0.5
 							}}
 						>
-							{label.name} ({objectsWithTagOrLabel.length})
+							{label.name} ({objectsWithLabel.length})
 						</InfoPill>
 					);
 				})}
 
-				{tags.data?.map((tag) => {
+				{tags?.map((tag) => {
 					const objectsWithTag = tagsWithObjects.data?.[tag.id] ?? [];
 
 					if (objectsWithTag.length === 0) return null;

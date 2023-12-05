@@ -6,7 +6,9 @@ import {
 	getItemFilePath,
 	getItemObject,
 	isPath,
-	useLibraryQuery
+	useCache,
+	useLibraryQuery,
+	useNodes
 } from '@sd/client';
 import { InfoPill, PlaceholderPill } from '~/components/primitive/InfoPill';
 import { tw, twStyle } from '~/lib/tailwind';
@@ -23,6 +25,8 @@ const InfoTagPills = ({ data, style }: Props) => {
 	const tagsQuery = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
 		enabled: objectData != null
 	});
+	useNodes(tagsQuery.data?.nodes);
+	const items = useCache(tagsQuery.data?.items);
 
 	const isDir = data && isPath(data) ? data.item.is_dir : false;
 
@@ -35,7 +39,7 @@ const InfoTagPills = ({ data, style }: Props) => {
 				<InfoPill text={filePath.extension} containerStyle={tw`mr-1`} />
 			)}
 			{/* TODO: What happens if I have too many? */}
-			{tagsQuery.data?.map((tag) => (
+			{items?.map((tag) => (
 				<InfoPill
 					key={tag.id}
 					text={tag.name ?? 'Unnamed Tag'}

@@ -20,12 +20,12 @@ export function useJobInfo(job: JobReport, realtimeUpdate: JobProgressEvent | nu
 	const isRunning = job.status === 'Running',
 		isQueued = job.status === 'Queued',
 		isPaused = job.status === 'Paused',
-		indexedPath = job.metadata?.data?.location.path,
+		indexedPath = (job.metadata?.data as any)?.location.path,
 		taskCount = realtimeUpdate?.task_count || job.task_count,
 		completedTaskCount = realtimeUpdate?.completed_task_count || job.completed_task_count,
 		phase = realtimeUpdate?.phase,
 		meta = job.metadata,
-		output = meta?.output?.run_metadata;
+		output = (meta?.output as any)?.run_metadata;
 
 	const data = {
 		isRunning,

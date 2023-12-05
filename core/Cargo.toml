@@ -28,7 +28,7 @@ sd-crypto = { path = "../crates/crypto", features = [
 	"serde",
 	"keymanager",
 ] }
-
+sd-cache = { path = "../crates/cache" }
 sd-images = { path = "../crates/images", features = [
 	"rspc",
 	"serde",

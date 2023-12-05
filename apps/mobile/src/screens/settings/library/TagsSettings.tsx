@@ -2,7 +2,7 @@ import { ArrowLeft, CaretRight, Pen, Trash } from 'phosphor-react-native';
 import { useEffect, useRef } from 'react';
 import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { Tag, useLibraryQuery } from '@sd/client';
+import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import DeleteTagModal from '~/components/modal/confirmModals/DeleteTagModal';
 import CreateTagModal from '~/components/modal/tag/CreateTagModal';
@@ -70,7 +70,9 @@ function TagItem({ tag, index }: { tag: Tag; index: number }) {
 // TODO: Add "New Tag" button
 
 const TagsSettingsScreen = ({ navigation }: SettingsStackScreenProps<'TagsSettings'>) => {
-	const { data: tags } = useLibraryQuery(['tags.list']);
+	const result = useLibraryQuery(['tags.list']);
+	useNodes(result.data?.nodes);
+	const tags = useCache(result.data?.items);
 
 	useEffect(() => {
 		navigation.setOptions({

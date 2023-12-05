@@ -114,7 +114,7 @@ function calculateGroups(messages: CRDTOperation[]) {
 		const { typ } = curr;
 
 		if ('model' in typ) {
-			const id = stringify(typ.record_id.pub_id);
+			const id = stringify((typ.record_id as any).pub_id);
 
 			const latest = (() => {
 				const latest = acc[acc.length - 1];
@@ -146,8 +146,8 @@ function calculateGroups(messages: CRDTOperation[]) {
 			});
 		} else {
 			const id = {
-				item: stringify(typ.relation_item.pub_id),
-				group: stringify(typ.relation_group.pub_id)
+				item: stringify((typ.relation_item as any).pub_id),
+				group: stringify((typ.relation_group as any).pub_id)
 			};
 
 			const latest = (() => {

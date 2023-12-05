@@ -7,6 +7,7 @@ use std::{
 	sync::OnceLock,
 };
 
+use sd_cache::Model;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
@@ -54,6 +55,12 @@ pub struct Volume {
 	pub disk_type: DiskType,
 	pub file_system: Option<String>,
 	pub is_root_filesystem: bool,
+}
+
+impl Model for Volume {
+	fn name() -> &'static str {
+		"Volume"
+	}
 }
 
 impl Hash for Volume {
