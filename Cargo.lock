@@ -779,7 +779,7 @@ dependencies = [
  "connection-string",
  "either",
  "enumflags2 0.7.8",
- "indoc 2.0.4",
+ "indoc",
  "lsp-types",
  "once_cell",
  "psl-core",
@@ -1656,7 +1656,7 @@ version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?branch=new-4.14.0-pcr#45b026c8b64ed0b60cb03deed5f478c457de645b"
 dependencies = [
  "colored",
- "indoc 2.0.4",
+ "indoc",
  "pest",
 ]
 
@@ -1771,15 +1771,6 @@ dependencies = [
  "schema",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "document-features"
-version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e493c573fce17f00dcab13b6ac057994f3ce17d1af4dc39bfd482b83c6eb6157"
-dependencies = [
- "litrs",
 ]
 
 [[package]]
@@ -2995,6 +2986,7 @@ checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 [[package]]
 name = "httpz"
 version = "0.0.6"
+source = "git+https://github.com/spacedriveapp/rspc.git?rev=f3347e2e8bfe3f37bfacc437ca329fe71cdcb048#f3347e2e8bfe3f37bfacc437ca329fe71cdcb048"
 dependencies = [
  "async-tungstenite",
  "axum",
@@ -3260,12 +3252,6 @@ dependencies = [
  "hashbrown 0.14.3",
  "serde",
 ]
-
-[[package]]
-name = "indoc"
-version = "1.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfa799dd5ed20a7e349f3b4639aa80d74549c81716d9ec4f994c9b5815598306"
 
 [[package]]
 name = "indoc"
@@ -4058,12 +4044,6 @@ name = "linux-raw-sys"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4cd1a83af159aa67994778be9070f0ae1bd732942279cabb14f86f986a21456"
-
-[[package]]
-name = "litrs"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9275e0933cf8bb20f008924c0cb07a0692fe54d8064996520bf998de9eb79aa"
 
 [[package]]
 name = "lock_api"
@@ -5649,6 +5629,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust"
 version = "0.6.8"
+source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=9f8ac122e8f2b2e4957b71f48a37e06565adba40#9f8ac122e8f2b2e4957b71f48a37e06565adba40"
 dependencies = [
  "base64 0.13.1",
  "bigdecimal 0.3.1",
@@ -5669,7 +5650,7 @@ dependencies = [
  "serde",
  "serde-value",
  "serde_json",
- "specta 2.0.0-rc.6",
+ "specta",
  "tempdir",
  "thiserror",
  "tokio",
@@ -5681,6 +5662,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-cli"
 version = "0.6.8"
+source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=9f8ac122e8f2b2e4957b71f48a37e06565adba40#9f8ac122e8f2b2e4957b71f48a37e06565adba40"
 dependencies = [
  "directories 4.0.1",
  "flate2",
@@ -5700,6 +5682,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-generator"
 version = "0.6.8"
+source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=9f8ac122e8f2b2e4957b71f48a37e06565adba40#9f8ac122e8f2b2e4957b71f48a37e06565adba40"
 dependencies = [
  "directories 4.0.1",
  "flate2",
@@ -5719,17 +5702,19 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-macros"
 version = "0.6.8"
+source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=9f8ac122e8f2b2e4957b71f48a37e06565adba40#9f8ac122e8f2b2e4957b71f48a37e06565adba40"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
  "quote",
- "specta 2.0.0-rc.6",
+ "specta",
  "syn 1.0.109",
 ]
 
 [[package]]
 name = "prisma-client-rust-sdk"
 version = "0.6.8"
+source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=9f8ac122e8f2b2e4957b71f48a37e06565adba40#9f8ac122e8f2b2e4957b71f48a37e06565adba40"
 dependencies = [
  "convert_case 0.5.0",
  "dmmf",
@@ -5876,7 +5861,7 @@ dependencies = [
  "chrono",
  "diagnostics",
  "enumflags2 0.7.8",
- "indoc 2.0.4",
+ "indoc",
  "itertools 0.10.5",
  "lsp-types",
  "once_cell",
@@ -6595,6 +6580,7 @@ dependencies = [
 [[package]]
 name = "rspc"
 version = "0.1.4"
+source = "git+https://github.com/spacedriveapp/rspc.git?rev=f3347e2e8bfe3f37bfacc437ca329fe71cdcb048#f3347e2e8bfe3f37bfacc437ca329fe71cdcb048"
 dependencies = [
  "futures",
  "futures-channel",
@@ -6604,7 +6590,7 @@ dependencies = [
  "pin-project",
  "serde",
  "serde_json",
- "specta 2.0.0-rc.6",
+ "specta",
  "tauri",
  "thiserror",
  "tokio",
@@ -6873,7 +6859,7 @@ version = "0.0.0"
 dependencies = [
  "serde",
  "serde_json",
- "specta 2.0.0-rc.6",
+ "specta",
 ]
 
 [[package]]
@@ -6883,7 +6869,7 @@ dependencies = [
  "anyhow",
  "clap",
  "hex",
- "indoc 2.0.4",
+ "indoc",
  "sd-crypto",
  "tokio",
 ]
@@ -6945,7 +6931,7 @@ dependencies = [
  "serde_repr",
  "serde_with",
  "slotmap",
- "specta 2.0.0-rc.6",
+ "specta",
  "static_assertions",
  "strum",
  "strum_macros",
@@ -7001,7 +6987,7 @@ dependencies = [
  "serde",
  "serde-big-array",
  "serde_json",
- "specta 2.0.0-rc.6",
+ "specta",
  "thiserror",
  "tokio",
  "uuid",
@@ -7026,7 +7012,7 @@ dependencies = [
  "sd-fda",
  "sd-prisma",
  "serde",
- "specta 2.0.0-rc.6",
+ "specta",
  "tauri",
  "tauri-build",
  "tauri-plugin-window-state",
@@ -7089,7 +7075,7 @@ version = "0.0.0"
 dependencies = [
  "serde",
  "serde_json",
- "specta 2.0.0-rc.6",
+ "specta",
  "strum",
  "tokio",
 ]
@@ -7107,7 +7093,7 @@ dependencies = [
  "resvg",
  "rspc",
  "serde",
- "specta 2.0.0-rc.6",
+ "specta",
  "thiserror",
  "tracing 0.2.0",
 ]
@@ -7123,7 +7109,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "serde",
  "serde_json",
- "specta 2.0.0-rc.6",
+ "specta",
  "thiserror",
 ]
 
@@ -7173,7 +7159,7 @@ dependencies = [
  "pin-project-lite",
  "rand_core 0.6.4",
  "serde",
- "specta 2.0.0-rc.6",
+ "specta",
  "streamunordered",
  "thiserror",
  "tokio",
@@ -7216,7 +7202,7 @@ dependencies = [
  "prisma-client-rust",
  "serde",
  "serde_json",
- "specta 2.0.0-rc.6",
+ "specta",
  "uhlc 0.5.2",
  "uuid",
 ]
@@ -7692,26 +7678,9 @@ dependencies = [
 
 [[package]]
 name = "specta"
-version = "1.0.5"
+version = "2.0.0-rc.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2240c3aa020aa61d2c569087d213baafbb212f4ceb9de9dd162376ea6aa0fe3"
-dependencies = [
- "document-features",
- "indoc 1.0.9",
- "once_cell",
- "paste",
- "serde",
- "serde_json",
- "specta-macros 1.0.5",
- "tauri",
- "thiserror",
-]
-
-[[package]]
-name = "specta"
-version = "2.0.0-rc.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e14773f94824a7f698ac2457ac90e8042f8b8e6e3d340b9fe9d4c5a3a2492203"
+checksum = "18938fc0c7c0e8b7c8f4702e8cb53c218d4442f5b7420dd8b3d9640ca9a46712"
 dependencies = [
  "bigdecimal 0.4.2",
  "chrono",
@@ -7720,7 +7689,8 @@ dependencies = [
  "paste",
  "serde",
  "serde_json",
- "specta-macros 2.0.0-rc.6",
+ "specta-macros",
+ "tauri",
  "thiserror",
  "tokio",
  "uhlc 0.6.3",
@@ -7729,23 +7699,9 @@ dependencies = [
 
 [[package]]
 name = "specta-macros"
-version = "1.0.5"
+version = "2.0.0-rc.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4605306321c356e03873b8ee71d7592a5e7c508add325c3ed0677c16fdf1bcfb"
-dependencies = [
- "Inflector",
- "itertools 0.10.5",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
- "termcolor",
-]
-
-[[package]]
-name = "specta-macros"
-version = "2.0.0-rc.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14363e2a9ff7d07fdf6a138a8637ba980da8144b181536ed0f3b445a5f02f949"
+checksum = "05080358d47cc706229b854d51c6477208de2b022ec0e16f1572c8cdc5263c8e"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -7824,7 +7780,7 @@ dependencies = [
  "datamodel-renderer",
  "either",
  "enumflags2 0.7.8",
- "indoc 2.0.4",
+ "indoc",
  "once_cell",
  "prisma-value",
  "psl",
@@ -7855,7 +7811,7 @@ dependencies = [
  "either",
  "enumflags2 0.7.8",
  "indexmap 1.9.3",
- "indoc 2.0.4",
+ "indoc",
  "once_cell",
  "prisma-value",
  "psl",
@@ -8384,17 +8340,30 @@ dependencies = [
 
 [[package]]
 name = "tauri-specta"
-version = "1.0.2"
+version = "2.0.0-rc.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa034c38b7bdfeccc606eca0b030a1e67a20b78e7642edef09816b7e1ff9a9de"
+checksum = "9c9c8e4e35bb01f7b53df4bd7f747626e45c67f41bf40b51a648c953ec779b5c"
 dependencies = [
  "heck 0.4.1",
- "indoc 2.0.4",
+ "indoc",
  "serde",
  "serde_json",
- "specta 1.0.5",
+ "specta",
  "tauri",
+ "tauri-specta-macros",
  "thiserror",
+]
+
+[[package]]
+name = "tauri-specta-macros"
+version = "2.0.0-rc.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2098cb9333e5ae46629ef74ce89b2fce3978bdcaf9dea6dd0fcb1aca85934ddd"
+dependencies = [
+ "heck 0.4.1",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -8469,15 +8438,6 @@ dependencies = [
  "futf",
  "mac",
  "utf-8",
-]
-
-[[package]]
-name = "termcolor"
-version = "1.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff1bc3d3f05aff0403e8ac0d92ced918ec05b666a43f83297ccef5bea8a3d449"
-dependencies = [
- "winapi-util",
 ]
 
 [[package]]
@@ -9271,7 +9231,7 @@ version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?branch=new-4.14.0-pcr#45b026c8b64ed0b60cb03deed5f478c457de645b"
 dependencies = [
  "backtrace",
- "indoc 2.0.4",
+ "indoc",
  "itertools 0.10.5",
  "quaint",
  "serde",

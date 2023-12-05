@@ -32,6 +32,8 @@ export function CacheProvider({ children }: PropsWithChildren) {
 	const state = useMemo(() => proxy(defaultStore()), []);
 
 	useEffect(() => {
+		if ('__REDUX_DEVTOOLS_EXTENSION__' in window === false) return;
+
 		const devtools = window.__REDUX_DEVTOOLS_EXTENSION__.connect({});
 
 		const unsub = devtools.subscribe((_message: any) => {
