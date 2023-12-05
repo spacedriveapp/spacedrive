@@ -104,10 +104,10 @@ function App() {
 	return (
 		<ScreenshotWrapper showControls={!!showControls}>
 			<div ref={domEl} className="App">
-				<CacheProvider cache={cache}>
-					<RspcProvider queryClient={queryClient}>
-						<PlatformProvider platform={platform}>
-							<QueryClientProvider client={queryClient}>
+				<RspcProvider queryClient={queryClient}>
+					<PlatformProvider platform={platform}>
+						<QueryClientProvider client={queryClient}>
+							<CacheProvider cache={cache}>
 								<SpacedriveInterfaceRoot>
 									<SpacedriveRouterProvider
 										routing={{
@@ -117,10 +117,10 @@ function App() {
 										}}
 									/>
 								</SpacedriveInterfaceRoot>
-							</QueryClientProvider>
-						</PlatformProvider>
-					</RspcProvider>
-				</CacheProvider>
+							</CacheProvider>
+						</QueryClientProvider>
+					</PlatformProvider>
+				</RspcProvider>
 			</div>
 		</ScreenshotWrapper>
 	);
