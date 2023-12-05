@@ -77,14 +77,13 @@ impl ExplorerItem {
 			ExplorerItem::NonIndexedPath { .. } => "NonIndexedPath",
 			ExplorerItem::SpacedropPeer { .. } => "SpacedropPeer",
 		};
-		let id = match self {
-			ExplorerItem::Path { item, .. } => item.id,
-			ExplorerItem::Object { item, .. } => item.id,
-			ExplorerItem::Location { item, .. } => item.id,
-			ExplorerItem::NonIndexedPath { .. } => todo!(),
-			ExplorerItem::SpacedropPeer { .. } => todo!(),
-		};
-		format!("{ty}:{id}")
+		match self {
+			ExplorerItem::Path { item, .. } => format!("{ty}:{}", item.id),
+			ExplorerItem::Object { item, .. } => format!("{ty}:{}", item.id),
+			ExplorerItem::Location { item, .. } => format!("{ty}:{}", item.id),
+			ExplorerItem::NonIndexedPath { item, .. } => format!("{ty}:{}", item.path),
+			ExplorerItem::SpacedropPeer { item, .. } => format!("{ty}:{}", item.name), // TODO: Use a proper primary key
+		}
 	}
 }
 

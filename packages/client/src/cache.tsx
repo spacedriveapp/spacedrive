@@ -81,7 +81,10 @@ function restore(cache: Store, subscribed: Map<string, Set<unknown>>, item: unkn
 			if (typeof item.__id !== 'string') throw new Error('Invalid `__id`');
 			const result = cache.nodes?.[item.__type]?.[item.__id];
 			if (!result)
-				throw new Error(`Missing node for id '${item.__id}' of type '${item.__type}'`);
+				throw new Error(
+					`Missing node for id '${item.__id}' of type '${item.__type}'` +
+						JSON.stringify(cache.nodes)
+				);
 
 			const v = subscribed.get(item.__type);
 			if (v) {
@@ -115,8 +118,9 @@ export function useNormalisedCache() {
 	const cache = useCacheContext();
 
 	return {
-		withNodes: cache.withNodes,
-		withCache: cache.withCache
+		'#cache': cache.cache,
+		'withNodes': cache.withNodes,
+		'withCache': cache.withCache
 	};
 }
 
@@ -133,10 +137,12 @@ function updateNodes(cache: Store, data: CacheNode[] | undefined) {
 		delete copy.__id;
 
 		if (!cache.nodes[item.__type]) cache.nodes[item.__type] = {};
-		cache.nodes[item.__type]![item.__id] = mergeDeep(
-			cache.nodes[item.__type]![item.__id],
-			copy
-		);
+		// cache.nodes[item.__type]![item.__id] = mergeDeep(
+		// 	cache.nodes[item.__type]![item.__id],
+		// 	copy
+		// );
+		cache.nodes[item.__type]![item.__id] = copy; // TODO: Fix this
+		console.log('INSERT', copy, mergeDeep(cache.nodes[item.__type]![item.__id], copy));
 	}
 }
 

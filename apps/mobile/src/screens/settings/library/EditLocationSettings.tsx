@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { Controller } from 'react-hook-form';
 import { Alert, ScrollView, Text, View } from 'react-native';
 import { z } from 'zod';
-import { useLibraryMutation, useLibraryQuery, useZodForm } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery, useNormalisedCache, useZodForm } from '@sd/client';
 import { Input } from '~/components/form/Input';
 import { Switch } from '~/components/form/Switch';
 import DeleteLocationModal from '~/components/modal/confirmModals/DeleteLocationModal';
@@ -36,6 +36,7 @@ const EditLocationSettingsScreen = ({
 	const { id } = route.params;
 
 	const queryClient = useQueryClient();
+	const cache = useNormalisedCache();
 
 	const form = useZodForm({ schema });
 
@@ -93,12 +94,15 @@ const EditLocationSettingsScreen = ({
 	}, [form, navigation, onSubmit]);
 
 	useLibraryQuery(['locations.getWithRules', id], {
-		onSuccess: (data) => {
+		onSuccess: (dataRaw) => {
+			cache.withNodes(dataRaw?.nodes);
+			const data = cache.withCache(dataRaw?.item);
+
 			if (data && !form.formState.isDirty)
 				form.reset({
 					displayName: data.name,
 					localPath: data.path,
-					indexer_rules_ids: data.indexer_rules.map((i) => i.indexer_rule.id.toString()),
+					indexer_rules_ids: data.indexer_rules.map((i) => i.id.toString()),
 					generatePreviewMedia: data.generate_preview_media,
 					syncPreviewMedia: data.sync_preview_media,
 					hidden: data.hidden
