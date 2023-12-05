@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import {
 	createContext,
 	PropsWithChildren,
@@ -61,6 +62,33 @@ export function CacheProvider({ cache, children }: PropsWithChildren<{ cache: No
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
+	const queryClient = useQueryClient();
+	useEffect(() => {
+		const interval = setInterval(() => {
+			const requiredKeys = new StableSet<[string, string]>();
+			for (const query of queryClient.getQueryCache().getAll()) {
+				if (query.state.data) scanDataForKeys(cache.cache, requiredKeys, query.state.data);
+			}
+
+			const existingKeys = new StableSet<[string, string]>();
+			Object.entries(cache.cache.nodes).map(([type, value]) => {
+				Object.keys(value).map((id) => existingKeys.add([type, id]));
+			});
+
+			for (const [type, id] of existingKeys.entries()) {
+				// If key is not required. Eg. not in any query within the React Query cache.
+				if (!requiredKeys.has([type, id])) {
+					// Yeet the imposter
+					// console.log('REMOVING KEY: ', type, id);
+					delete cache.cache.nodes?.[type]?.[id];
+				}
+			}
+
+			console.log('CLEANUP', requiredKeys.size, existingKeys.size);
+		}, 5000); // 60 * 1000
+		return () => clearInterval(interval);
+	}, [cache.cache, queryClient]);
+
 	return <Context.Provider value={cache}>{children}</Context.Provider>;
 }
 
@@ -68,6 +96,27 @@ export function useCacheContext() {
 	const context = useContext(Context);
 	if (!context) throw new Error('Missing `CacheContext` provider!');
 	return context;
+}
+
+function scanDataForKeys(cache: Store, keys: StableSet<[string, string]>, item: unknown) {
+	if (item === undefined || item === null) return;
+	if (Array.isArray(item)) {
+		for (const v of item) {
+			scanDataForKeys(cache, keys, v);
+		}
+	} else if (typeof item === 'object') {
+		if ('__type' in item && '__id' in item) {
+			if (typeof item.__type !== 'string') throw new Error('Invalid `__type`');
+			if (typeof item.__id !== 'string') throw new Error('Invalid `__id`');
+			keys.add([item.__type, item.__id]);
+			const result = cache.nodes?.[item.__type]?.[item.__id];
+			if (result) scanDataForKeys(cache, keys, result);
+		}
+
+		for (const [_k, value] of Object.entries(item)) {
+			scanDataForKeys(cache, keys, value);
+		}
+	}
 }
 
 function restore(cache: Store, subscribed: Map<string, Set<unknown>>, item: unknown): unknown {
@@ -180,4 +229,26 @@ export function useCache<T>(data: T | undefined) {
 		},
 		() => state
 	);
+}
+
+class StableSet<T> {
+	set = new Set<string>();
+
+	get size() {
+		return this.set.size;
+	}
+
+	add(value: T) {
+		this.set.add(JSON.stringify(value));
+	}
+
+	has(value: T) {
+		return this.set.has(JSON.stringify(value));
+	}
+
+	*entries() {
+		for (const v of this.set) {
+			yield JSON.parse(v);
+		}
+	}
 }
