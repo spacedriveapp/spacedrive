@@ -160,7 +160,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 
 	const explorer = useExplorer({
 		...paths,
-		items: [],
+		items: useCache(paths.items),
 		isFetchingNextPage: paths.query.isFetchingNextPage,
 		isLoadingPreferences: preferences.isLoading,
 		settings: explorerSettings,
