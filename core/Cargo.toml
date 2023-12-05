@@ -16,7 +16,7 @@ mobile = []
 ffmpeg = ["dep:sd-ffmpeg"]
 location-watcher = ["dep:notify"]
 heif = ["sd-images/heif"]
-skynet = ["dep:ndarray", "dep:ort"]
+skynet = ["dep:half", "dep:ndarray", "dep:ort"]
 
 [dependencies]
 sd-media-metadata = { path = "../crates/media-metadata" }
@@ -108,16 +108,19 @@ bytes = "1.5.0"
 reqwest = { version = "0.11.22", features = ["json", "native-tls-vendored"] }
 directories = "5.0.1"
 async-recursion = "1.0.5"
-ndarray = { version = "0.15.6", optional = true }
 crossbeam = "0.8.2"
 base64 = "0.21.5"
 
+# Note: Keep same version as used by ort
+ndarray = { version = "0.15.6", optional = true }
+half = { version = "2.1", features = ['num-traits'], optional = true }
+
 # Override features of transitive dependencies
 [dependencies.openssl]
-version = "=0.10.57"
+version = "=0.10.61"
 features = ["vendored"]
 [dependencies.openssl-sys]
-version = "=0.9.93"
+version = "=0.9.97"
 features = ["vendored"]
 
 [target.'cfg(target_os = "macos")'.dependencies]

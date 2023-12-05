@@ -16,6 +16,10 @@ export type Procedures = {
         { key: "invalidation.test-invalidate", input: never, result: number } | 
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
         { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
+        { key: "labels.get", input: LibraryArgs<number>, result: Label | null } | 
+        { key: "labels.getForObject", input: LibraryArgs<number>, result: Label[] } | 
+        { key: "labels.getWithObjects", input: LibraryArgs<number[]>, result: { [key: number]: { date_created: string; object: { id: number } }[] } } | 
+        { key: "labels.list", input: LibraryArgs<null>, result: Label[] } | 
         { key: "library.list", input: never, result: LibraryConfigWrapped[] } | 
         { key: "library.statistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "locations.get", input: LibraryArgs<number>, result: Location | null } | 
@@ -78,6 +82,7 @@ export type Procedures = {
         { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
         { key: "jobs.pause", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.resume", input: LibraryArgs<string>, result: null } | 
+        { key: "labels.delete", input: LibraryArgs<number>, result: null } | 
         { key: "library.create", input: CreateLibraryArgs, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
@@ -266,6 +271,8 @@ export type JobReport = { id: string; name: string; action: string | null; data:
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused" | "CompletedWithErrors"
 
+export type Label = { id: number; pub_id: number[]; name: string; date_created: string; date_modified: string }
+
 /**
  * Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
  */
@@ -448,7 +455,7 @@ export type Statistics = { id: number; date_captured: string; total_object_count
 
 export type SystemLocations = { desktop: string | null; documents: string | null; downloads: string | null; pictures: string | null; music: string | null; videos: string | null }
 
-export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; kind: number | null; is_hidden: boolean | null; date_created: string | null; date_modified: string | null }
+export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; is_hidden: boolean | null; date_created: string | null; date_modified: string | null }
 
 export type TagCreateArgs = { name: string; color: string }
 

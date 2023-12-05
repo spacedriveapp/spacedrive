@@ -394,7 +394,7 @@ async fn check_model_file(
 		Ok(_) => Ok(Some(model)),
 		Err(e) if e.kind() == ErrorKind::NotFound => {
 			error!(
-				"Model file not found: '{}'; Running image labeler without model!",
+				"Model file not found: '{}'. Image labeler will be disabled!",
 				model_path.display()
 			);
 			Ok(None)

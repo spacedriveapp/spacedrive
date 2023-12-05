@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::{collections::HashSet, path::Path};
 
+use half::f16;
 use image::{imageops::FilterType, GenericImageView};
 use ndarray::{s, Array, Axis};
 use ort::{inputs, SessionInputs};
@@ -16,14 +17,13 @@ impl YoloV8 {
 		Arc::new(Self {
 			model_path: data_directory
 				.as_ref()
-				.join("models/yolov8m.onnx")
+				.join("models/yolov8s.onnx")
 				.into_boxed_path(),
 		})
 	}
 }
 
 impl Model for YoloV8 {
-
 	fn path(&self) -> &Path {
 		&self.model_path
 	}
@@ -35,14 +35,14 @@ impl Model for YoloV8 {
 	) -> Result<SessionInputs<'image>, ImageLabelerError> {
 		let original_img = image::load_from_memory_with_format(image, format)?;
 		let img = original_img.resize_exact(640, 640, FilterType::CatmullRom);
-		let mut input = Array::zeros((1, 3, 640, 640));
+		let mut input = Array::<f16, _>::zeros((1, 3, 640, 640));
 		for pixel in img.pixels() {
 			let x = pixel.0 as _;
 			let y = pixel.1 as _;
 			let [r, g, b, _] = pixel.2 .0;
-			input[[0, 0, y, x]] = (r as f32) / 255.;
-			input[[0, 1, y, x]] = (g as f32) / 255.;
-			input[[0, 2, y, x]] = (b as f32) / 255.;
+			input[[0, 0, y, x]] = f16::from_f32((r as f32) / 255.);
+			input[[0, 1, y, x]] = f16::from_f32((g as f32) / 255.);
+			input[[0, 2, y, x]] = f16::from_f32((b as f32) / 255.);
 		}
 
 		inputs!["images" => input.view()]
@@ -73,7 +73,7 @@ impl Model for YoloV8 {
 
 		let output0 = &output["output0"];
 
-		let output_tensor = output0.extract_tensor::<f32>()?;
+		let output_tensor = output0.extract_tensor::<f16>()?;
 
 		let output_view = output_tensor.view();
 
@@ -92,7 +92,7 @@ impl Model for YoloV8 {
 					.reduce(|accum, row| if row.1 > accum.1 { row } else { accum })
 					.expect("not empty output")
 			})
-			.filter(|(_, probability)| *probability > 0.6)
+			.filter(|(_, probability)| probability.to_f32() > 0.6)
 			.map(|(class_id, _)| YOLOV8_CLASS_LABELS[class_id])
 			.collect::<HashSet<_>>()
 			.into_iter()
