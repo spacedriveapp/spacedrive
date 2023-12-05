@@ -63,14 +63,16 @@ export default function App() {
 		<RspcProvider queryClient={queryClient}>
 			<PlatformProvider platform={platform}>
 				<QueryClientProvider client={queryClient}>
-					{startupError ? (
-						<ErrorPage
-							message={startupError}
-							submessage="Error occurred starting up the Spacedrive core"
-						/>
-					) : (
-						<AppInner />
-					)}
+					<CacheProvider cache={cache}>
+						{startupError ? (
+							<ErrorPage
+								message={startupError}
+								submessage="Error occurred starting up the Spacedrive core"
+							/>
+						) : (
+							<AppInner />
+						)}
+					</CacheProvider>
 				</QueryClientProvider>
 			</PlatformProvider>
 		</RspcProvider>
@@ -144,86 +146,84 @@ function AppInner() {
 	}, [tab.element]);
 
 	return (
-		<CacheProvider cache={cache}>
-			<RouteTitleContext.Provider
-				value={useMemo(
-					() => ({
-						setTitle(title) {
-							setTabs((oldTabs) => {
-								const tabs = [...oldTabs];
-								const tab = tabs[tabIndex];
+		<RouteTitleContext.Provider
+			value={useMemo(
+				() => ({
+					setTitle(title) {
+						setTabs((oldTabs) => {
+							const tabs = [...oldTabs];
+							const tab = tabs[tabIndex];
+							if (!tab) return tabs;
+
+							tabs[tabIndex] = { ...tab, title };
+
+							return tabs;
+						});
+					}
+				}),
+				[tabIndex]
+			)}
+		>
+			<TabsContext.Provider
+				value={{
+					tabIndex,
+					setTabIndex,
+					tabs: tabs.map(({ router, title }) => ({ router, title })),
+					createTab() {
+						createTabPromise.current = createTabPromise.current.then(
+							() =>
+								new Promise((res) => {
+									startTransition(() => {
+										setTabs((tabs) => {
+											const newTabs = [...tabs, createTab()];
+
+											setTabIndex(newTabs.length - 1);
+
+											return newTabs;
+										});
+									});
+
+									setTimeout(res, TAB_CREATE_DELAY);
+								})
+						);
+					},
+					removeTab(index: number) {
+						startTransition(() => {
+							setTabs((tabs) => {
+								const tab = tabs[index];
 								if (!tab) return tabs;
 
-								tabs[tabIndex] = { ...tab, title };
+								tab.dispose();
 
-								return tabs;
+								tabs.splice(index, 1);
+
+								setTabIndex(Math.min(tabIndex, tabs.length - 1));
+
+								return [...tabs];
 							});
-						}
-					}),
-					[tabIndex]
-				)}
+						});
+					}
+				}}
 			>
-				<TabsContext.Provider
-					value={{
-						tabIndex,
-						setTabIndex,
-						tabs: tabs.map(({ router, title }) => ({ router, title })),
-						createTab() {
-							createTabPromise.current = createTabPromise.current.then(
-								() =>
-									new Promise((res) => {
-										startTransition(() => {
-											setTabs((tabs) => {
-												const newTabs = [...tabs, createTab()];
-
-												setTabIndex(newTabs.length - 1);
-
-												return newTabs;
-											});
-										});
-
-										setTimeout(res, TAB_CREATE_DELAY);
-									})
-							);
-						},
-						removeTab(index: number) {
-							startTransition(() => {
-								setTabs((tabs) => {
-									const tab = tabs[index];
-									if (!tab) return tabs;
-
-									tab.dispose();
-
-									tabs.splice(index, 1);
-
-									setTabIndex(Math.min(tabIndex, tabs.length - 1));
-
-									return [...tabs];
-								});
-							});
-						}
-					}}
-				>
-					<SpacedriveInterfaceRoot>
-						{tabs.map((tab) =>
-							createPortal(
-								<SpacedriveRouterProvider
-									key={tab.id}
-									routing={{
-										routes,
-										visible: tabIndex === tabs.indexOf(tab),
-										router: tab.router,
-										currentIndex: tab.currentIndex,
-										maxIndex: tab.maxIndex
-									}}
-								/>,
-								tab.element
-							)
-						)}
-						<div ref={ref} />
-					</SpacedriveInterfaceRoot>
-				</TabsContext.Provider>
-			</RouteTitleContext.Provider>
-		</CacheProvider>
+				<SpacedriveInterfaceRoot>
+					{tabs.map((tab) =>
+						createPortal(
+							<SpacedriveRouterProvider
+								key={tab.id}
+								routing={{
+									routes,
+									visible: tabIndex === tabs.indexOf(tab),
+									router: tab.router,
+									currentIndex: tab.currentIndex,
+									maxIndex: tab.maxIndex
+								}}
+							/>,
+							tab.element
+						)
+					)}
+					<div ref={ref} />
+				</SpacedriveInterfaceRoot>
+			</TabsContext.Provider>
+		</RouteTitleContext.Provider>
 	);
 }
