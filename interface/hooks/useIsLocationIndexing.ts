@@ -16,7 +16,7 @@ export const useIsLocationIndexing = (locationId: number): boolean => {
 			group.jobs.some((job) => {
 				if (
 					job.name === 'indexer' &&
-					job.metadata?.location.id === locationId &&
+					(job.metadata as any)?.location.id === locationId &&
 					(job.status === 'Running' || job.status === 'Queued')
 				) {
 					return job.completed_task_count === 0;

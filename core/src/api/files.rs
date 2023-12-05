@@ -121,18 +121,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("getMediaData", {
-			#[derive(Type, Serialize)]
-			pub struct MediaMetadataForObject {
-				object_id: u32,
-				data: MediaMetadata,
-			}
-
-			impl Model for MediaMetadataForObject {
-				fn name() -> &'static str {
-					"MediaMetadataForObject"
-				}
-			}
-
 			R.with2(library())
 				.query(|(_, library), args: object::id::Type| async move {
 					library
@@ -145,13 +133,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.and_then(|obj| {
 							Some(match obj.kind {
 								Some(v) if v == ObjectKind::Image as i32 => {
-									MediaMetadataForObject {
-										object_id: obj.id as u32,
-										data: MediaMetadata::Image(Box::new(
-											media_data_image_from_prisma_data(obj.media_data?)
-												.ok()?,
-										)),
-									}
+									MediaMetadata::Image(Box::new(
+										media_data_image_from_prisma_data(obj.media_data?).ok()?,
+									))
 								}
 								_ => return None, // TODO(brxken128): audio and video
 							})

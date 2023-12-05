@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { useCache, useLibraryQuery } from '@sd/client';
+import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import { SharedScreenProps } from '~/navigation/SharedScreens';
 import { getExplorerStore } from '~/stores/explorerStore';
@@ -8,6 +8,8 @@ export default function LocationScreen({ navigation, route }: SharedScreenProps<
 	const { id, path } = route.params;
 
 	const location = useLibraryQuery(['locations.get', route.params.id]);
+	useNodes(location.data?.nodes);
+	const locationData = useCache(location.data?.item);
 
 	const { data } = useLibraryQuery([
 		'search.paths',
@@ -38,10 +40,10 @@ export default function LocationScreen({ navigation, route }: SharedScreenProps<
 			});
 		} else {
 			navigation.setOptions({
-				title: location.data?.name ?? 'Location'
+				title: locationData?.name ?? 'Location'
 			});
 		}
-	}, [location.data?.name, navigation, path]);
+	}, [locationData?.name, navigation, path]);
 
 	useEffect(() => {
 		getExplorerStore().locationId = id;

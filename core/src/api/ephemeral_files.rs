@@ -38,18 +38,6 @@ const UNTITLED_FOLDER_STR: &str = "Untitled Folder";
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("getMediaData", {
-			#[derive(Type, Serialize)]
-			pub struct MediaDataForPath {
-				pub path: PathBuf,
-				pub data: MediaMetadata,
-			}
-
-			impl Model for MediaDataForPath {
-				fn name() -> &'static str {
-					"MediaDataForPath"
-				}
-			}
-
 			R.query(|_, full_path: PathBuf| async move {
 				let Some(extension) = full_path.extension().and_then(|ext| ext.to_str()) else {
 					return Ok(None);
@@ -66,13 +54,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 
 				match extract_media_data(full_path.clone()).await {
-					Ok(img_media_data) => Ok(Some(NormalisedResult::from(
-						MediaDataForPath {
-							path: full_path,
-							data: MediaMetadata::Image(Box::new(img_media_data)),
-						},
-						|i| i.path.as_os_str().to_string_lossy().to_string(),
-					))),
+					Ok(img_media_data) => Ok(Some(MediaMetadata::Image(Box::new(img_media_data)))),
 					Err(MediaDataError::MediaData(sd_media_metadata::Error::NoExifDataOnPath(
 						_,
 					))) => Ok(None),

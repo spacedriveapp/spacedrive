@@ -80,18 +80,16 @@ export function SpacedriveInterfaceRoot({ children }: PropsWithChildren) {
 	return (
 		<Suspense>
 			<BetterErrorBoundary FallbackComponent={ErrorFallback}>
-				<CacheProvider>
-					<TooltipProvider>
-						<P2PContextProvider>
-							<NotificationContextProvider>
-								<P2P />
-								<Devtools />
-								<WithPrismTheme />
-								{children}
-							</NotificationContextProvider>
-						</P2PContextProvider>
-					</TooltipProvider>
-				</CacheProvider>
+				<TooltipProvider>
+					<P2PContextProvider>
+						<NotificationContextProvider>
+							<P2P />
+							<Devtools />
+							<WithPrismTheme />
+							{children}
+						</NotificationContextProvider>
+					</P2PContextProvider>
+				</TooltipProvider>
 			</BetterErrorBoundary>
 		</Suspense>
 	);

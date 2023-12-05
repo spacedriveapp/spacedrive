@@ -8,9 +8,11 @@ import {
 	FilePathOrder,
 	Location,
 	ObjectKindEnum,
+	useCache,
 	useLibraryMutation,
 	useLibraryQuery,
 	useLibrarySubscription,
+	useNodes,
 	useOnlineLocations,
 	useRspcLibraryContext
 } from '@sd/client';
@@ -42,12 +44,14 @@ import LocationOptions from './LocationOptions';
 
 export const Component = () => {
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
-	const location = useLibraryQuery(['locations.get', locationId], {
+	const result = useLibraryQuery(['locations.get', locationId], {
 		keepPreviousData: true,
 		suspense: true
 	});
+	useNodes(result.data?.nodes);
+	const location = useCache(result.data?.item);
 
-	return <LocationExplorer location={location.data!} />;
+	return <LocationExplorer location={location!} />;
 };
 
 const LocationExplorer = ({ location }: { location: Location; path?: string }) => {

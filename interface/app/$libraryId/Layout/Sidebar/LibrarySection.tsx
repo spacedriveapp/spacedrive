@@ -5,9 +5,11 @@ import { Link, NavLink } from 'react-router-dom';
 import {
 	arraysEqual,
 	useBridgeQuery,
+	useCache,
 	useFeatureFlag,
 	useLibraryMutation,
 	useLibraryQuery,
+	useNodes,
 	useOnlineLocations
 } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
@@ -138,6 +140,8 @@ function Devices() {
 
 function Locations() {
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	useNodes(locationsQuery.data?.nodes);
+	const locations = useCache(locationsQuery.data?.items);
 	const onlineLocations = useOnlineLocations();
 
 	return (
@@ -150,7 +154,7 @@ function Locations() {
 			}
 		>
 			<SeeMore>
-				{locationsQuery.data?.map((location) => (
+				{locations?.map((location) => (
 					<LocationsContextMenu key={location.id} locationId={location.id}>
 						<SidebarLink
 							className="borderradix-state-closed:border-transparent group relative w-full radix-state-open:border-accent"
@@ -179,9 +183,11 @@ function Locations() {
 }
 
 function Tags() {
-	const tags = useLibraryQuery(['tags.list'], { keepPreviousData: true });
+	const result = useLibraryQuery(['tags.list'], { keepPreviousData: true });
+	useNodes(result.data?.nodes);
+	const tags = useCache(result.data?.items);
 
-	if (!tags.data?.length) return;
+	if (!tags?.length) return;
 
 	return (
 		<Section
@@ -193,7 +199,7 @@ function Tags() {
 			}
 		>
 			<SeeMore>
-				{tags.data?.map((tag) => (
+				{tags?.map((tag) => (
 					<TagsContextMenu tagId={tag.id} key={tag.id}>
 						<SidebarLink
 							className="border radix-state-closed:border-transparent radix-state-open:border-accent"

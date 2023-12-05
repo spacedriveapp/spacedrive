@@ -10,9 +10,7 @@ import {
 } from 'react';
 import { proxy, snapshot, subscribe } from 'valtio';
 
-// TODO: Use Specta to export these
-export type Reference<T> = { '__type': string; '__id': string; '#type': T };
-export type CacheNode<T = any> = { '__type': string; '__id': string; '#node': T };
+import { type CacheNode } from './core';
 
 declare global {
 	interface Window {
@@ -20,17 +18,30 @@ declare global {
 	}
 }
 
+type Store = ReturnType<typeof defaultStore>;
+type Context = ReturnType<typeof createCache>;
+export type NormalisedCache = ReturnType<typeof createCache>;
+
 const defaultStore = () => ({
 	nodes: {} as Record<string, Record<string, unknown>>
 });
 
-type Context = ReturnType<typeof defaultStore>;
-
 const Context = createContext<Context>(undefined!);
 
-export function CacheProvider({ children }: PropsWithChildren) {
-	const state = useMemo(() => proxy(defaultStore()), []);
+export function createCache() {
+	const cache = proxy(defaultStore());
+	return {
+		cache,
+		withNodes(data: CacheNode[] | undefined) {
+			updateNodes(cache, data);
+		},
+		withCache<T>(data: T | undefined): UseCacheResult<T> {
+			return restore(cache, new Map(), data) as any;
+		}
+	};
+}
 
+export function CacheProvider({ cache, children }: PropsWithChildren<{ cache: NormalisedCache }>) {
 	useEffect(() => {
 		if ('__REDUX_DEVTOOLS_EXTENSION__' in window === false) return;
 
@@ -41,7 +52,7 @@ export function CacheProvider({ children }: PropsWithChildren) {
 		});
 
 		devtools.init();
-		subscribe(state, () => devtools.send('change', snapshot(state)));
+		subscribe(cache.cache, () => devtools.send('change', snapshot(cache.cache)));
 
 		return () => {
 			unsub();
@@ -50,7 +61,7 @@ export function CacheProvider({ children }: PropsWithChildren) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	return <Context.Provider value={state}>{children}</Context.Provider>;
+	return <Context.Provider value={cache}>{children}</Context.Provider>;
 }
 
 export function useCacheContext() {
@@ -59,7 +70,7 @@ export function useCacheContext() {
 	return context;
 }
 
-function restore(cache: Context, subscribed: Map<string, Set<unknown>>, item: unknown): unknown {
+function restore(cache: Store, subscribed: Map<string, Set<unknown>>, item: unknown): unknown {
 	if (item === undefined || item === null) {
 		return item;
 	} else if (Array.isArray(item)) {
@@ -95,17 +106,21 @@ export function useNodes(data: CacheNode[] | undefined) {
 
 	// `useMemo` instead of `useEffect` here is cursed but it needs to run before the `useMemo` in the `useCache` hook.
 	useMemo(() => {
-		updateNodes(cache, data);
+		updateNodes(cache.cache, data);
 	}, [cache, data]);
 }
 
-export function useNodesCallback(): (data: CacheNode[] | undefined) => void {
+// Methods to interact with the cache outside of the React lifecycle.
+export function useNormalisedCache() {
 	const cache = useCacheContext();
 
-	return (data) => updateNodes(cache, data);
+	return {
+		withNodes: cache.withNodes,
+		withCache: cache.withCache
+	};
 }
 
-function updateNodes(cache: Context, data: CacheNode[] | undefined) {
+function updateNodes(cache: Store, data: CacheNode[] | undefined) {
 	if (!data) return;
 
 	for (const item of data) {
@@ -118,17 +133,20 @@ function updateNodes(cache: Context, data: CacheNode[] | undefined) {
 		delete copy.__id;
 
 		if (!cache.nodes[item.__type]) cache.nodes[item.__type] = {};
-		cache.nodes[item.__type]![item.__id] = copy;
+		cache.nodes[item.__type]![item.__id] = mergeDeep(
+			cache.nodes[item.__type]![item.__id],
+			copy
+		);
 	}
 }
 
-type UseCacheResult<T> = T extends (infer A)[]
+export type UseCacheResult<T> = T extends (infer A)[]
 	? UseCacheResult<A>[]
 	: T extends object
 	? T extends { '__type': any; '__id': string; '#type': infer U }
-		? U
+		? UseCacheResult<U>
 		: { [K in keyof T]: UseCacheResult<T[K]> }
-	: T;
+	: { [K in keyof T]: UseCacheResult<T[K]> };
 
 export function useCache<T>(data: T | undefined) {
 	const cache = useCacheContext();
@@ -136,14 +154,14 @@ export function useCache<T>(data: T | undefined) {
 	const [i, setI] = useState(0); // TODO: Remove this
 
 	const state = useMemo(
-		() => restore(cache, subscribed, data) as UseCacheResult<T>,
+		() => restore(cache.cache, subscribed, data) as UseCacheResult<T>,
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 		[cache, data, i]
 	);
 
 	return useSyncExternalStore(
 		(onStoreChange) => {
-			return subscribe(cache, (ops) => {
+			return subscribe(cache.cache, (ops) => {
 				for (const [_, key] of ops) {
 					const key_type = key[1] as string;
 					const key_id = key[2] as string;
@@ -160,4 +178,38 @@ export function useCache<T>(data: T | undefined) {
 		},
 		() => state
 	);
+}
+
+// Following code from: https://stackoverflow.com/a/34749873
+
+/**
+ * Simple object check.
+ * @param item
+ * @returns {boolean}
+ */
+export function isObject(item: any) {
+	return item && typeof item === 'object' && !Array.isArray(item);
+}
+
+/**
+ * Deep merge two objects.
+ * @param target
+ * @param ...sources
+ */
+export function mergeDeep(target: any, ...sources: any[]) {
+	if (!sources.length) return target;
+	const source = sources.shift();
+
+	if (isObject(target) && isObject(source)) {
+		for (const key in source) {
+			if (isObject(source[key])) {
+				if (!target[key]) Object.assign(target, { [key]: {} });
+				mergeDeep(target[key], source[key]);
+			} else {
+				Object.assign(target, { [key]: source[key] });
+			}
+		}
+	}
+
+	return mergeDeep(target, ...sources);
 }

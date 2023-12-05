@@ -8,10 +8,10 @@ export type Procedures = {
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "cloud.library.get", input: LibraryArgs<null>, result: { uuid: string; name: string; ownerId: string; instances: { id: string; uuid: string; identity: string }[] } | null } | 
         { key: "cloud.library.list", input: never, result: { uuid: string; name: string; ownerId: string; instances: { id: string; uuid: string }[] }[] } | 
-        { key: "ephemeralFiles.getMediaData", input: string, result: { item: Reference<MediaDataForPath>; nodes: CacheNode[] } | null } | 
+        { key: "ephemeralFiles.getMediaData", input: string, result: ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata) | null } | 
         { key: "files.get", input: LibraryArgs<number>, result: { item: Reference<ObjectWithFilePaths2>; nodes: CacheNode[] } | null } | 
         { key: "files.getConvertableImageExtensions", input: never, result: string[] } | 
-        { key: "files.getMediaData", input: LibraryArgs<number>, result: MediaMetadataForObject } | 
+        { key: "files.getMediaData", input: LibraryArgs<number>, result: MediaMetadata } | 
         { key: "files.getPath", input: LibraryArgs<number>, result: string | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
@@ -383,8 +383,6 @@ export type LocationWithIndexerRule = { id: number; pub_id: number[]; name: stri
 
 export type MaybeUndefined<T> = null | T
 
-export type MediaDataForPath = { path: string; data: MediaMetadata }
-
 export type MediaDataOrder = { field: "epochTime"; value: SortOrder }
 
 /**
@@ -396,8 +394,6 @@ export type MediaDate = string
 export type MediaLocation = { latitude: number; longitude: number; pluscode: PlusCode; altitude: number | null; direction: number | null }
 
 export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata)
-
-export type MediaMetadataForObject = { object_id: number; data: MediaMetadata }
 
 export type NodePreferences = { thumbnailer: ThumbnailerPreferences }
 
@@ -439,6 +435,8 @@ export type Notification = ({ type: "library"; id: [string, number] } | { type: 
 export type NotificationData = { PairingRequest: { id: string; pairing_id: number } } | "Test"
 
 export type NotificationId = { type: "library"; id: [string, number] } | { type: "node"; id: number }
+
+export type Object = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null }
 
 export type ObjectCursor = "none" | { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
 

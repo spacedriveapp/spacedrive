@@ -1,7 +1,13 @@
 import { MagnifyingGlass } from '@phosphor-icons/react';
 import { getIcon, iconNames } from '@sd/assets/util';
 import { useMemo } from 'react';
-import { FilePathOrder, SearchFilterArgs, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import {
+	FilePathOrder,
+	SearchFilterArgs,
+	useCache,
+	useLibraryMutation,
+	useLibraryQuery
+} from '@sd/client';
 import { Button } from '@sd/ui';
 import { SearchIdParamsSchema } from '~/app/route-schemas';
 import { useRouteTitle, useZodRouteParams } from '~/hooks';
@@ -54,6 +60,7 @@ export const Component = () => {
 
 	const explorer = useExplorer({
 		...paths,
+		items: useCache(paths.items),
 		isFetchingNextPage: paths.query.isFetchingNextPage,
 		settings: explorerSettings
 	});
