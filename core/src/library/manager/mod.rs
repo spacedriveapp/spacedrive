@@ -22,7 +22,7 @@ use crate::{
 use sd_core_sync::SyncMessage;
 use sd_p2p::spacetunnel::Identity;
 use sd_prisma::prisma::{instance, shared_operation};
-use sd_utils::{from_bytes_to_uuid, uuid_to_bytes};
+use sd_utils::from_bytes_to_uuid;
 
 use std::{
 	collections::HashMap,
@@ -40,7 +40,7 @@ use tokio::{
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use super::{cloud_sync, Library, LibraryConfig, LibraryName};
+use super::{Library, LibraryConfig, LibraryName};
 
 mod error;
 
@@ -478,7 +478,7 @@ impl Libraries {
 		// This is an exception. Generally subscribe to this by `self.tx.subscribe`.
 		tokio::spawn(sync_rx_actor(library.clone(), node.clone(), sync.rx));
 
-		cloud_sync::spawn_actors(&library, &node);
+		crate::cloud::sync::spawn_actors(&library, &node);
 
 		self.tx
 			.emit(LibraryManagerEvent::Load(library.clone()))

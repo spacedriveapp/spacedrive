@@ -35,6 +35,7 @@ use tracing_subscriber::{
 
 pub mod api;
 mod auth;
+mod cloud;
 pub mod custom_uri;
 mod env;
 pub(crate) mod job;
