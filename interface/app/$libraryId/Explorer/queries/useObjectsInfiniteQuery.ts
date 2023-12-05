@@ -1,10 +1,12 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import {
 	ExplorerItem,
 	ObjectCursor,
 	ObjectOrder,
 	ObjectSearchArgs,
 	useLibraryContext,
+	useNodes,
 	useRspcLibraryContext
 } from '@sd/client';
 
@@ -23,7 +25,7 @@ export function useObjectsInfiniteQuery({
 		arg.orderAndPagination = { orderOnly: settings.order };
 	}
 
-	return useInfiniteQuery({
+	const query = useInfiniteQuery({
 		queryKey: ['search.objects', { library_id: library.uuid, arg }] as const,
 		queryFn: ({ pageParam, queryKey: [_, { arg }] }) => {
 			const cItem: Extract<ExplorerItem, { type: 'Object' }> = pageParam;
@@ -66,4 +68,13 @@ export function useObjectsInfiniteQuery({
 		},
 		...args
 	});
+
+	const nodes = useMemo(
+		() => query.data?.pages.flatMap((page) => page.nodes) ?? [],
+		[query.data?.pages]
+	);
+
+	useNodes(nodes);
+
+	return query;
 }

@@ -100,7 +100,7 @@ export function useInvalidateQuery() {
 			for (const op of ops) {
 				match(op)
 					.with({ type: 'single', data: P.select() }, (op) => {
-						let key = [op.key];
+						let key: any[] = [op.key];
 						if (op.arg !== null) {
 							key = key.concat(op.arg);
 						}

@@ -1,5 +1,5 @@
 use crate::{
-	api::utils::library,
+	api::{locations::object_with_file_paths, utils::library},
 	invalidate_query,
 	job::Job,
 	library::Library,
@@ -21,6 +21,7 @@ use crate::{
 	util::{db::maybe_missing, error::FileIOError},
 };
 
+use sd_cache::{CacheNode, Model, NormalisedResult, Reference};
 use sd_file_ext::kind::ObjectKind;
 use sd_images::ConvertableExtension;
 use sd_media_metadata::MediaMetadata;
@@ -31,11 +32,11 @@ use std::{
 	sync::Arc,
 };
 
-use chrono::Utc;
+use chrono::{DateTime, FixedOffset, Utc};
 use futures::future::join_all;
 use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::{fs, io, task::spawn_blocking};
 use tracing::{error, warn};
@@ -47,19 +48,76 @@ const UNTITLED_FOLDER_STR: &str = "Untitled Folder";
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("get", {
-			#[derive(Type, Deserialize)]
-			pub struct GetArgs {
+			#[derive(Type, Serialize)]
+			pub struct ObjectWithFilePaths2 {
 				pub id: i32,
+				pub pub_id: Vec<u8>,
+				pub kind: Option<i32>,
+				pub key_id: Option<i32>,
+				pub hidden: Option<bool>,
+				pub favorite: Option<bool>,
+				pub important: Option<bool>,
+				pub note: Option<String>,
+				pub date_created: Option<DateTime<FixedOffset>>,
+				pub date_accessed: Option<DateTime<FixedOffset>>,
+				pub file_paths: Vec<Reference<file_path::Data>>,
 			}
+
+			impl Model for ObjectWithFilePaths2 {
+				fn name() -> &'static str {
+					"Object" // is a duplicate because it's the same entity but with a relation
+				}
+			}
+
+			impl ObjectWithFilePaths2 {
+				pub fn from_db(
+					nodes: &mut Vec<CacheNode>,
+					item: object_with_file_paths::Data,
+				) -> Reference<Self> {
+					let this = Self {
+						id: item.id,
+						pub_id: item.pub_id,
+						kind: item.kind,
+						key_id: item.key_id,
+						hidden: item.hidden,
+						favorite: item.favorite,
+						important: item.important,
+						note: item.note,
+						date_created: item.date_created,
+						date_accessed: item.date_accessed,
+						file_paths: item
+							.file_paths
+							.into_iter()
+							.map(|i| {
+								let id = i.id.to_string();
+								nodes.push(CacheNode::new(id.clone(), i));
+								Reference::new(id)
+							})
+							.collect(),
+					};
+
+					let id = this.id.to_string();
+					nodes.push(CacheNode::new(id.clone(), this));
+					Reference::new(id)
+				}
+			}
+
 			R.with2(library())
-				.query(|(_, library), args: GetArgs| async move {
+				.query(|(_, library), object_id: i32| async move {
 					Ok(library
 						.db
 						.object()
-						.find_unique(object::id::equals(args.id))
-						.include(object::include!({ file_paths }))
+						.find_unique(object::id::equals(object_id))
+						.include(object_with_file_paths::include())
 						.exec()
-						.await?)
+						.await?
+						.map(|item| {
+							let mut nodes = Vec::new();
+							NormalisedResult {
+								item: ObjectWithFilePaths2::from_db(&mut nodes, item),
+								nodes,
+							}
+						}))
 				})
 		})
 		.procedure("getMediaData", {

@@ -3,7 +3,7 @@ import { proxy, useSnapshot } from 'valtio';
 import { UpdateStore } from '@sd/interface';
 import { toast, ToastId } from '@sd/ui';
 
-import * as commands from './commands';
+import { commands } from './commands';
 
 declare global {
 	interface Window {
@@ -27,9 +27,15 @@ export function createUpdater() {
 	const onInstallCallbacks = new Set<() => void>();
 
 	async function checkForUpdate() {
-		const update = await commands.checkForUpdate();
+		const result = await commands.checkForUpdate();
 
-		if (!update) return null;
+		if (result.status === 'error') {
+			console.error('UPDATER ERROR', result.error);
+			// TODO: Show some UI?
+			return null;
+		}
+		if (!result.data) return null;
+		const update = result.data;
 
 		let id: ToastId | null = null;
 
