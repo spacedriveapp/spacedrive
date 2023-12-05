@@ -130,10 +130,7 @@ function restore(cache: Store, subscribed: Map<string, Set<unknown>>, item: unkn
 			if (typeof item.__id !== 'string') throw new Error('Invalid `__id`');
 			const result = cache.nodes?.[item.__type]?.[item.__id];
 			if (!result)
-				throw new Error(
-					`Missing node for id '${item.__id}' of type '${item.__type}'` +
-						JSON.stringify(cache.nodes)
-				);
+				throw new Error(`Missing node for id '${item.__id}' of type '${item.__type}'`);
 
 			const v = subscribed.get(item.__type);
 			if (v) {
