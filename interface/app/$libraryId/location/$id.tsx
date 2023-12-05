@@ -155,12 +155,9 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 		},
 		explorerSettings
 	});
-	// useCache(paths.items.)
-	// const items
 
 	const explorer = useExplorer({
 		...paths,
-		items: useCache(paths.items),
 		isFetchingNextPage: paths.query.isFetchingNextPage,
 		isLoadingPreferences: preferences.isLoading,
 		settings: explorerSettings,

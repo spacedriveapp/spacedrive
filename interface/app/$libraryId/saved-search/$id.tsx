@@ -60,7 +60,6 @@ export const Component = () => {
 
 	const explorer = useExplorer({
 		...paths,
-		items: useCache(paths.items),
 		isFetchingNextPage: paths.query.isFetchingNextPage,
 		settings: explorerSettings
 	});

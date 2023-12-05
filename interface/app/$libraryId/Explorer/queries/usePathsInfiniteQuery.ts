@@ -1,4 +1,5 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import {
 	ExplorerItem,
 	FilePathCursorVariant,
@@ -6,6 +7,7 @@ import {
 	FilePathOrder,
 	FilePathSearchArgs,
 	useLibraryContext,
+	useNodes,
 	useNormalisedCache,
 	useRspcLibraryContext
 } from '@sd/client';
@@ -28,7 +30,7 @@ export function usePathsInfiniteQuery({
 		if (arg.orderAndPagination.orderOnly.field === 'sizeInBytes') delete arg.take;
 	}
 
-	return useInfiniteQuery({
+	const query = useInfiniteQuery({
 		queryKey: ['search.paths', { library_id: library.uuid, arg }] as const,
 		queryFn: async ({ pageParam, queryKey: [_, { arg }] }) => {
 			const cItem: Extract<ExplorerItem, { type: 'Path' }> = pageParam;
@@ -134,4 +136,13 @@ export function usePathsInfiniteQuery({
 		onSuccess: () => getExplorerStore().resetNewThumbnails(),
 		...args
 	});
+
+	const nodes = useMemo(
+		() => query.data?.pages.flatMap((page) => page.nodes) ?? [],
+		[query.data?.pages]
+	);
+
+	useNodes(nodes);
+
+	return query;
 }

@@ -53,7 +53,6 @@ export function Component() {
 
 	const explorer = useExplorer({
 		...objects,
-		items: useCache(objects.items),
 		isFetchingNextPage: objects.query.isFetchingNextPage,
 		settings: explorerSettings,
 		parent: { type: 'Tag', tag: tag! }
