@@ -1,9 +1,11 @@
 import {
 	useBridgeMutation,
 	useBridgeQuery,
+	useCache,
 	useConnectedPeers,
 	useDiscoveredPeers,
-	useFeatureFlag
+	useFeatureFlag,
+	useNodes
 } from '@sd/client';
 import { Button } from '@sd/ui';
 import { startPairing } from '~/app/p2p/pairing';
@@ -41,10 +43,17 @@ function IncorrectP2PPairingPane() {
 			console.log(data);
 		}
 	});
-	const nlmState = useBridgeQuery(['p2p.state'], {
-		refetchInterval: 1000
-	});
-	const libraries = useBridgeQuery(['library.list']);
+
+	const nlmState = {
+		data: JSON.stringify('lol no')
+	};
+	// TODO: Bring this back
+	// useBridgeQuery(['p2p.state'], {
+	// 	refetchInterval: 1000
+	// });
+	const result = useBridgeQuery(['library.list']);
+	useNodes(result.data?.nodes);
+	const libraries = useCache(result.data?.items);
 
 	return (
 		<>
@@ -86,7 +95,7 @@ function IncorrectP2PPairingPane() {
 			</div>
 			<div>
 				<p>Libraries:</p>
-				{libraries.data?.map((v) => (
+				{libraries?.map((v) => (
 					<div key={v.uuid} className="pb-2">
 						<p>
 							{v.config.name} - {v.uuid}
