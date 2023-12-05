@@ -67,6 +67,7 @@ pub struct Node {
 	pub notifications: Notifications,
 	pub thumbnailer: Thumbnailer,
 	pub files_over_p2p_flag: Arc<AtomicBool>,
+	pub cloud_sync_flag: Arc<AtomicBool>,
 	pub env: Arc<env::Env>,
 	pub http: reqwest::Client,
 }
@@ -85,8 +86,6 @@ impl Node {
 		env: env::Env,
 	) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
 		let data_dir = data_dir.as_ref();
-
-		console_subscriber::init();
 
 		info!("Starting core with data directory '{}'", data_dir.display());
 
@@ -124,6 +123,7 @@ impl Node {
 			event_bus,
 			libraries,
 			files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
+			cloud_sync_flag: Arc::new(AtomicBool::new(false)),
 			http: reqwest::Client::new(),
 			env,
 		});

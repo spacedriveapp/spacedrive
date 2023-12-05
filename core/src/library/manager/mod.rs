@@ -28,7 +28,10 @@ use std::{
 	collections::HashMap,
 	path::{Path, PathBuf},
 	str::FromStr,
-	sync::{atomic::AtomicBool, Arc},
+	sync::{
+		atomic::{self, AtomicBool},
+		Arc,
+	},
 };
 
 use chrono::Utc;
@@ -478,7 +481,9 @@ impl Libraries {
 		// This is an exception. Generally subscribe to this by `self.tx.subscribe`.
 		tokio::spawn(sync_rx_actor(library.clone(), node.clone(), sync.rx));
 
-		crate::cloud::sync::spawn_actors(&library, &node);
+		if node.cloud_sync_flag.load(atomic::Ordering::Relaxed) {
+			crate::cloud::sync::spawn_actors(&library, &node);
+		}
 
 		self.tx
 			.emit(LibraryManagerEvent::Load(library.clone()))

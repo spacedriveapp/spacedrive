@@ -2,6 +2,7 @@ use super::Library;
 use crate::{cloud::sync::err_break, Node};
 use sd_core_sync::{GetOpsArgs, SyncMessage, NTP64};
 use sd_prisma::prisma::instance;
+use sd_utils::from_bytes_to_uuid;
 use serde::Deserialize;
 use serde_json::json;
 use std::{sync::Arc, time::Duration};
@@ -16,22 +17,6 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>) {
 	loop {
 		println!("send_actor run");
 
-		{
-			// recreate subscription each time so that existing messages are dropped
-			let mut rx = library.sync.subscribe();
-
-			// wait until Created message comes in
-			loop {
-				if let Ok(SyncMessage::Created) = rx.recv().await {
-					break;
-				};
-			}
-		}
-
-		println!("send_actor sleeping");
-
-		sleep(Duration::from_millis(1000)).await;
-
 		println!("send_actor sending");
 
 		loop {
@@ -43,7 +28,7 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>) {
 					.await
 			)
 			.into_iter()
-			.map(|i| json!({ "instanceUuid": library.instance_uuid.to_string() }))
+			.map(|i| json!({ "instanceUuid": from_bytes_to_uuid(&i.pub_id).to_string() }))
 			.collect::<Vec<_>>();
 
 			#[derive(Deserialize, Debug)]
@@ -79,7 +64,7 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>) {
 					library
 						.sync
 						.get_ops(GetOpsArgs {
-							count: 50,
+							count: 1000,
 							clocks: vec![(
 								req_add.instance_uuid,
 								NTP64(
@@ -147,5 +132,21 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>) {
 
 			println!("DoAdd Responses: {responses:#?}");
 		}
+
+		{
+			// recreate subscription each time so that existing messages are dropped
+			let mut rx = library.sync.subscribe();
+
+			// wait until Created message comes in
+			loop {
+				if let Ok(SyncMessage::Created) = rx.recv().await {
+					break;
+				};
+			}
+		}
+
+		println!("send_actor sleeping");
+
+		sleep(Duration::from_millis(1000)).await;
 	}
 }

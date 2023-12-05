@@ -1,4 +1,3 @@
-import { startTransition } from 'react';
 import { auth, useLibraryContext, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button } from '@sd/ui';
 import { AuthRequiredOverlay } from '~/components/AuthRequiredOverlay';
@@ -11,7 +10,7 @@ export const Component = () => {
 	const authState = auth.useStateSnapshot();
 
 	if (authState.status === 'loggedIn') return <Authenticated />;
-	if (authState.status === 'notLoggedIn')
+	if (authState.status === 'notLoggedIn' || authState.status === 'loggingIn')
 		return (
 			<div className="flex flex-row p-4">
 				<LoginButton />

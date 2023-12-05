@@ -60,6 +60,7 @@ pub enum CoreEvent {
 pub enum BackendFeature {
 	SyncEmitMessages,
 	FilesOverP2P,
+	CloudSync,
 }
 
 impl BackendFeature {
@@ -72,6 +73,9 @@ impl BackendFeature {
 			}
 			BackendFeature::FilesOverP2P => {
 				node.files_over_p2p_flag.store(true, Ordering::Relaxed);
+			}
+			BackendFeature::CloudSync => {
+				node.cloud_sync_flag.store(true, Ordering::Relaxed);
 			}
 		}
 	}
@@ -170,6 +174,9 @@ pub(crate) fn mount() -> Arc<Router> {
 					}
 					BackendFeature::FilesOverP2P => {
 						node.files_over_p2p_flag.store(enabled, Ordering::Relaxed);
+					}
+					BackendFeature::CloudSync => {
+						node.cloud_sync_flag.store(enabled, Ordering::Relaxed);
 					}
 				}
 
