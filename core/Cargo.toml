@@ -113,10 +113,10 @@ base64 = "0.21.5"
 # Override features of transitive dependencies
 [dependencies.openssl]
 version = "=0.10.57"
-# features = ["vendored"]
+features = ["vendored"]
 [dependencies.openssl-sys]
 version = "=0.9.93"
-# features = ["vendored"]
+features = ["vendored"]
 
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"
