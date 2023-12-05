@@ -12,15 +12,14 @@ import { toast } from '@sd/ui';
 import { useIsDark } from '~/hooks';
 
 import { useExplorerContext } from '../Context';
-import { RenameTextBox } from '../FilePath/RenameTextBox';
+import { RenameTextBox, RenameTextBoxProps } from '../FilePath/RenameTextBox';
 import { useQuickPreviewStore } from '../QuickPreview/store';
 import { useExplorerStore } from '../store';
 
-interface Props {
+interface Props extends Pick<RenameTextBoxProps, 'idleClassName' | 'lines'> {
 	item: ExplorerItem;
 	allowHighlight?: boolean;
 	style?: React.CSSProperties;
-	lines?: number;
 	highlight?: boolean;
 	selected?: boolean;
 }
@@ -150,6 +149,7 @@ export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) =>
 			)}
 			style={props.style}
 			lines={props.lines}
+			idleClassName={props.idleClassName}
 		/>
 	);
 };

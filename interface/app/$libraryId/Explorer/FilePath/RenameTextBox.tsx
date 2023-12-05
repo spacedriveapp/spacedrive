@@ -14,15 +14,17 @@ import { useOperatingSystem, useShortcut } from '~/hooks';
 
 import { getExplorerStore, useExplorerStore } from '../store';
 
-interface Props extends React.HTMLAttributes<HTMLDivElement> {
+export interface RenameTextBoxProps extends React.HTMLAttributes<HTMLDivElement> {
 	name: string;
 	onRename: (newName: string) => void;
 	disabled?: boolean;
 	lines?: number;
+	// Temporary solution for TruncatedText in list view
+	idleClassName?: string;
 }
 
-export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
-	({ name, onRename, disabled, className, lines, ...props }, _ref) => {
+export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
+	({ name, onRename, disabled, className, idleClassName, lines, ...props }, _ref) => {
 		const os = useOperatingSystem();
 		const explorerStore = useExplorerStore();
 
@@ -164,6 +166,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 					className={clsx(
 						'cursor-default overflow-hidden rounded-md px-1.5 py-px text-xs text-ink outline-none',
 						allowRename && 'whitespace-normal bg-app !text-ink ring-2 ring-accent-deep',
+						!allowRename && idleClassName,
 						className
 					)}
 					onDoubleClick={(e) => {

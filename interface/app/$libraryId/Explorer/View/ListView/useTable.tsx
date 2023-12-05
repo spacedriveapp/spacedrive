@@ -48,6 +48,7 @@ const NameCell = memo(({ item, selected }: { item: ExplorerItem; selected: boole
 				selected={selected}
 				allowHighlight={false}
 				style={{ maxHeight: 36 }}
+				idleClassName="w-full !max-h-5"
 			/>
 		</div>
 	);
