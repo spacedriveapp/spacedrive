@@ -85,6 +85,8 @@ impl Node {
 	) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
 		let data_dir = data_dir.as_ref();
 
+		console_subscriber::init();
+
 		info!("Starting core with data directory '{}'", data_dir.display());
 
 		let env = Arc::new(env);

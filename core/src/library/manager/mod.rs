@@ -476,11 +476,7 @@ impl Libraries {
 		.await;
 
 		// This is an exception. Generally subscribe to this by `self.tx.subscribe`.
-		// tokio::spawn(sync_rx_actor(
-		// library.clone(),
-		// node.clone(),
-		// sync.rx
-		// ));
+		tokio::spawn(sync_rx_actor(library.clone(), node.clone(), sync.rx));
 
 		cloud_sync::spawn_actors(&library, &node);
 
@@ -527,23 +523,24 @@ impl Libraries {
 	}
 }
 
-async fn sync_rx_actor(// library: Arc<Library>,
-	// node: Arc<Node>,
-	// mut sync_rx: broadcast::Receiver<SyncMessage>,
+async fn sync_rx_actor(
+	library: Arc<Library>,
+	node: Arc<Node>,
+	mut sync_rx: broadcast::Receiver<SyncMessage>,
 ) {
-	// loop {
-	// 	let Ok(msg) = sync_rx.recv().await else {
-	// 		continue;
-	// 	};
+	loop {
+		let Ok(msg) = sync_rx.recv().await else {
+			continue;
+		};
 
-	// 	match msg {
-	// 		// TODO: Any sync event invalidates the entire React Query cache this is a hacky workaround until the new invalidation system.
-	// 		SyncMessage::Ingested => node.emit(CoreEvent::InvalidateOperation(
-	// 			InvalidateOperationEvent::all(),
-	// 		)),
-	// 		SyncMessage::Created => {
-	// 			p2p::sync::originator(library.id, &library.sync, &node.p2p).await
-	// 		}
-	// 	}
-	// }
+		match msg {
+			// TODO: Any sync event invalidates the entire React Query cache this is a hacky workaround until the new invalidation system.
+			SyncMessage::Ingested => node.emit(CoreEvent::InvalidateOperation(
+				InvalidateOperationEvent::all(),
+			)),
+			SyncMessage::Created => {
+				p2p::sync::originator(library.id, &library.sync, &node.p2p).await
+			}
+		}
+	}
 }

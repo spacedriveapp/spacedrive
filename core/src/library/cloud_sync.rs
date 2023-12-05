@@ -13,7 +13,7 @@ use sd_utils::{from_bytes_to_uuid, uuid_to_bytes};
 use serde::Deserialize;
 use serde_json::{json, to_vec};
 use std::{collections::HashMap, sync::Arc, time::Duration};
-use tokio::time::sleep;
+use tokio::{sync::Notify, time::sleep};
 use uuid::Uuid;
 
 macro_rules! err_break {
@@ -40,8 +40,15 @@ macro_rules! return_break {
 }
 
 pub fn spawn_actors(library: &Arc<Library>, node: &Arc<Node>) {
+	let ingest_notify = Arc::new(Notify::new());
+
 	tokio::spawn(send_actor(library.clone(), node.clone()));
-	tokio::spawn(receive_actor(library.clone(), node.clone()));
+	tokio::spawn(receive_actor(
+		library.clone(),
+		node.clone(),
+		ingest_notify.clone(),
+	));
+	tokio::spawn(ingest_actor(library.clone(), ingest_notify));
 }
 
 async fn send_actor(library: Arc<Library>, node: Arc<Node>) {
@@ -216,7 +223,7 @@ async fn get_latest_timestamp(db: &PrismaClient, instance: Uuid) -> i64 {
 	shared.max(relation)
 }
 
-async fn receive_actor(library: Arc<Library>, node: Arc<Node>) {
+async fn receive_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Arc<Notify>) {
 	let db = &library.db;
 	let api_url = &library.env.api_url;
 	let library_id = library.id;
@@ -333,9 +340,11 @@ async fn receive_actor(library: Arc<Library>, node: Arc<Node>) {
 					*timestamp = collection_timestamp;
 				}
 			}
+
+			ingest_notify.notify_waiters();
 		}
 
-		sleep(Duration::from_secs(30)).await;
+		sleep(Duration::from_secs(60)).await;
 	}
 }
 
@@ -407,4 +416,50 @@ async fn create_instance(db: &PrismaClient, uuid: Uuid) -> prisma_client_rust::R
 		.await?;
 
 	Ok(())
+}
+
+async fn ingest_actor(library: Arc<Library>, notify: Arc<Notify>) {
+	let Library { sync, .. } = library.as_ref();
+
+	loop {
+		let mut rx = sync.ingest.req_rx.lock().await;
+
+		sync.ingest
+			.event_tx
+			.send(sd_core_sync::Event::Notification)
+			.await
+			.unwrap();
+
+		use crate::sync::ingest::*;
+
+		while let Some(req) = rx.recv().await {
+			const OPS_PER_REQUEST: u32 = 1000;
+
+			let timestamps = match req {
+				Request::FinishedIngesting => break,
+				Request::Messages { timestamps } => timestamps,
+				_ => continue,
+			};
+
+			let ops = sync
+				.get_cloud_ops(crate::sync::GetOpsArgs {
+					clocks: timestamps,
+					count: 1000,
+				})
+				.await
+				.unwrap();
+
+			sync.ingest
+				.event_tx
+				.send(sd_core_sync::Event::Messages(MessagesEvent {
+					instance_id: library.sync.instance,
+					has_more: ops.len() == 1000,
+					messages: ops,
+				}))
+				.await
+				.unwrap();
+		}
+
+		notify.notified().await;
+	}
 }
