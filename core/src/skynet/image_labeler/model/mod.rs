@@ -8,7 +8,7 @@ use image::ImageFormat;
 use ort::{Session, SessionBuilder, SessionInputs, SessionOutputs};
 use sd_prisma::prisma::file_path;
 use tokio::sync::oneshot;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use super::{actor::BatchToken, ImageLabelerError};
 
@@ -124,7 +124,7 @@ pub(super) fn model_executor(
 				info!("Image labeler model updated");
 			}
 			ModelExecutorInput::Stop => {
-				info!("Stopping image labeler model executor");
+				debug!("Stopping image labeler model executor");
 				break;
 			}
 		}

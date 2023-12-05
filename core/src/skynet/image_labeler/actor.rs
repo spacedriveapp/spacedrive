@@ -53,8 +53,6 @@ impl ImageLabeler {
 		let maybe_model = check_model_file(model).await?;
 
 		let model_supervisor_handle = tokio::spawn({
-			let model_executor_input_tx = model_executor_input_tx.clone();
-
 			async move {
 				loop {
 					thread::scope(|s| {
@@ -82,8 +80,6 @@ impl ImageLabeler {
 						// If we sucessfully receive a cancellation signal or if the channel is closed or lagged,
 						// we break the loop
 						debug!("Model supervisor stopping");
-						model_executor_input_tx.send(ModelExecutorInput::Stop).ok();
-
 						break;
 					}
 				}
@@ -190,13 +186,24 @@ impl ImageLabeler {
 	pub async fn shutdown(&self) {
 		debug!("Shutting down image labeller");
 		self.batches_tx.close();
-		self.cancel_tx.send(()).ok();
+
+		if self
+			.model_executor_input_tx
+			.send(ModelExecutorInput::Stop)
+			.is_err()
+		{
+			error!("Failed to send stop signal to image labeller model executor");
+		}
+
+		if self.cancel_tx.send(()).is_err() {
+			error!("Failed to send cancellation signal to image labeller");
+		}
+
 		for handle in self
 			.handles
 			.iter()
 			.filter_map(|ref_cell| ref_cell.try_borrow_mut().ok().and_then(|mut op| op.take()))
 		{
-			handle.abort();
 			if let Err(e) = handle.await {
 				error!("Failed to join image labeller supervisors: {e:#?}");
 			}
