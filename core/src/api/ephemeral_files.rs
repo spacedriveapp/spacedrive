@@ -12,7 +12,6 @@ use crate::{
 	util::error::FileIOError,
 };
 
-use sd_cache::{Model, NormalisedResult};
 use sd_file_ext::extensions::ImageExtension;
 use sd_media_metadata::MediaMetadata;
 
@@ -22,7 +21,7 @@ use async_recursion::async_recursion;
 use futures_concurrency::future::TryJoin;
 use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use specta::Type;
 use tokio::{fs, io};
 use tokio_stream::{wrappers::ReadDirStream, StreamExt};

@@ -137,12 +137,8 @@ function updateNodes(cache: Store, data: CacheNode[] | undefined) {
 		delete copy.__id;
 
 		if (!cache.nodes[item.__type]) cache.nodes[item.__type] = {};
-		// cache.nodes[item.__type]![item.__id] = mergeDeep(
-		// 	cache.nodes[item.__type]![item.__id],
-		// 	copy
-		// );
-		cache.nodes[item.__type]![item.__id] = copy; // TODO: Fix this
-		console.log('INSERT', copy, mergeDeep(cache.nodes[item.__type]![item.__id], copy));
+		// TODO: This should be a deepmerge but that would break stuff like `size_in_bytes` or `inode` as the arrays are joined.
+		cache.nodes[item.__type]![item.__id] = copy;
 	}
 }
 
@@ -184,38 +180,4 @@ export function useCache<T>(data: T | undefined) {
 		},
 		() => state
 	);
-}
-
-// Following code from: https://stackoverflow.com/a/34749873
-
-/**
- * Simple object check.
- * @param item
- * @returns {boolean}
- */
-export function isObject(item: any) {
-	return item && typeof item === 'object' && !Array.isArray(item);
-}
-
-/**
- * Deep merge two objects.
- * @param target
- * @param ...sources
- */
-export function mergeDeep(target: any, ...sources: any[]) {
-	if (!sources.length) return target;
-	const source = sources.shift();
-
-	if (isObject(target) && isObject(source)) {
-		for (const key in source) {
-			if (isObject(source[key])) {
-				if (!target[key]) Object.assign(target, { [key]: {} });
-				mergeDeep(target[key], source[key]);
-			} else {
-				Object.assign(target, { [key]: source[key] });
-			}
-		}
-	}
-
-	return mergeDeep(target, ...sources);
 }

@@ -6,7 +6,7 @@ use crate::{
 	Node,
 };
 
-use sd_cache::{Model, Normalise, NormalisedResults};
+use sd_cache::{Model, Normalise, NormalisedResult, NormalisedResults};
 use sd_p2p::spacetunnel::RemoteIdentity;
 use sd_prisma::prisma::{indexer_rule, statistics};
 
@@ -291,7 +291,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.await?;
 					}
 
-					Ok(LibraryConfigWrapped::from_library(&library).await)
+					Ok(NormalisedResult::from(
+						LibraryConfigWrapped::from_library(&library).await,
+						|l| l.uuid.to_string(),
+					))
 				},
 			)
 		})

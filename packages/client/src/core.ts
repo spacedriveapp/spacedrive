@@ -77,7 +77,7 @@ export type Procedures = {
         { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
         { key: "jobs.pause", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.resume", input: LibraryArgs<string>, result: null } | 
-        { key: "library.create", input: CreateLibraryArgs, result: LibraryConfigWrapped } | 
+        { key: "library.create", input: CreateLibraryArgs, result: NormalisedResult<LibraryConfigWrapped> } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
         { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
