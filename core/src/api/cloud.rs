@@ -24,7 +24,9 @@ async fn parse_json_body<T: DeserializeOwned>(response: Response) -> Result<T, r
 }
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
-	R.router().merge("library.", library::mount())
+	R.router()
+		.merge("library.", library::mount())
+		.merge("locations.", locations::mount())
 }
 
 mod library {
@@ -199,6 +201,65 @@ mod library {
 					invalidate_query!(library, "cloud.library.get");
 
 					Ok(LibraryConfigWrapped::from_library(&library).await)
+				})
+			})
+	}
+}
+
+mod locations {
+	use super::*;
+
+	#[derive(Type, Serialize, Deserialize)]
+	pub struct CloudLocation {
+		id: String,
+		name: String,
+	}
+
+	pub fn mount() -> AlphaRouter<Ctx> {
+		R.router()
+			.procedure("list", {
+				R.query(|node, _: ()| async move {
+					let api_url = &node.env.api_url;
+
+					node.authed_api_request(node.http.get(&format!("{api_url}/api/v1/locations")))
+						.await
+						.and_then(ensure_response)
+						.map(parse_json_body::<Vec<CloudLocation>>)?
+						.await
+				})
+			})
+			.procedure("create", {
+				R.mutation(|node, name: String| async move {
+					let api_url = &node.env.api_url;
+
+					node.authed_api_request(
+						node.http
+							.post(&format!("{api_url}/api/v1/locations"))
+							.json(&json!({
+								"name": name
+							})),
+					)
+					.await
+					.and_then(ensure_response)
+					.map(parse_json_body::<CloudLocation>)?
+					.await
+				})
+			})
+			.procedure("remove", {
+				R.mutation(|node, id: String| async move {
+					let api_url = &node.env.api_url;
+
+					node.authed_api_request(
+						node.http
+							.post(&format!("{api_url}/api/v1/locations/delete"))
+							.json(&json!({
+								"id": id
+							})),
+					)
+					.await
+					.and_then(ensure_response)?;
+
+					Ok(())
 				})
 			})
 	}

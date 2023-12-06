@@ -1,7 +1,8 @@
 import { Envelope, User } from '@phosphor-icons/react';
 import { iconNames } from '@sd/assets/util';
-import { auth, useBridgeQuery } from '@sd/client';
-import { Button, Card } from '@sd/ui';
+import { useState } from 'react';
+import { auth, useBridgeMutation, useBridgeQuery, useFeatureFlag } from '@sd/client';
+import { Button, Card, Input } from '@sd/ui';
 import { Icon, TruncatedText } from '~/components';
 import { AuthRequiredOverlay } from '~/components/AuthRequiredOverlay';
 
@@ -31,6 +32,7 @@ export const Component = () => {
 				<Profile authStore={authStore} email={me.data?.email} />
 				<Cloud />
 			</div>
+			{useFeatureFlag('hostedLocations') && <HostedLocationsPlayground />}
 		</>
 	);
 };
@@ -97,3 +99,82 @@ const Cloud = () => {
 		</Card>
 	);
 };
+
+function HostedLocationsPlayground() {
+	const locations = useBridgeQuery(['cloud.locations.list'], { retry: false });
+
+	const [locationName, setLocationName] = useState('');
+	const createLocation = useBridgeMutation('cloud.locations.create', {
+		onSuccess(data) {
+			// console.log('DATA', data); // TODO: Optimistic UI
+
+			locations.refetch();
+			setLocationName('');
+		}
+	});
+	const removeLocation = useBridgeMutation('cloud.locations.remove', {
+		onSuccess() {
+			// TODO: Optimistic UI
+
+			locations.refetch();
+		}
+	});
+
+	const isLoading = createLocation.isLoading || removeLocation.isLoading;
+
+	return (
+		<>
+			<Heading
+				rightArea={
+					<div className="flex-row space-x-2">
+						{/* TODO: We need UI for this. I wish I could use `prompt` for now but Tauri doesn't have it :( */}
+						<div className="flex flex-row space-x-4">
+							<Input
+								className="grow"
+								value={locationName}
+								onInput={(e) => setLocationName(e.currentTarget.value)}
+								placeholder="My sick location"
+								disabled={isLoading}
+							/>
+
+							<Button
+								variant="accent"
+								size="sm"
+								onClick={() => {
+									if (locationName === '') return;
+									createLocation.mutate(locationName);
+								}}
+								disabled={isLoading}
+							>
+								Create Location
+							</Button>
+						</div>
+					</div>
+				}
+				title="Hosted Locations"
+				description="Augment your local storage with our cloud!"
+			/>
+			{/* TODO: Cleanup this mess + styles */}
+			{locations.status === 'loading' ? <div>Loading!</div> : null}
+			{locations.status !== 'loading' && locations.data?.length === 0 ? (
+				<div>Looks like you don't have any!</div>
+			) : (
+				<div>
+					{locations.data?.map((location) => (
+						<div key={location.id} className="flex flex-row space-x-5">
+							<h1>{location.name}</h1>
+							<Button
+								variant="accent"
+								size="sm"
+								onClick={() => removeLocation.mutate(location.id)}
+								disabled={isLoading}
+							>
+								Delete
+							</Button>
+						</div>
+					))}
+				</div>
+			)}
+		</>
+	);
+}
