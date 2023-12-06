@@ -64,7 +64,7 @@ export function useObjectsInfiniteQuery({
 		},
 		getNextPageParam: (lastPage) => {
 			if (lastPage.items.length < arg.take) return undefined;
-			else return lastPage.items[arg.take - 1];
+			else return lastPage.nodes[arg.take - 1];
 		},
 		...args
 	});
