@@ -71,13 +71,13 @@ export const FileThumb = memo((props: ThumbProps) => {
 	const thumbType = useMemo<ThumbType>(() => {
 		const expectedThumbType: ThumbType = (() => {
 			if (props.loadOriginal) {
+				if (loadState === 'error' && !itemData.hasLocalThumbnail)
+					return { variant: 'icon' };
+
 				const kind = originalRendererKind(itemData);
 				const renderer = ORIGINAL_RENDERERS[kind];
 
 				if (renderer) return { variant: 'original', renderer };
-
-				if (loadState === 'error' && !itemData.hasLocalThumbnail)
-					return { variant: 'icon' };
 
 				return { variant: 'thumbnail' };
 			} else if (itemData.hasLocalThumbnail) return { variant: 'thumbnail' };
