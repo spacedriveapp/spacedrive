@@ -1,25 +1,27 @@
-use sd_prisma::prisma::{instance, relation_operation, shared_operation, PrismaClient, SortOrder};
+use crate::{
+	db_operation::*, ingest, relation_op_db, shared_op_db, SharedState, SyncMessage, NTP64,
+};
+use sd_prisma::prisma::{
+	cloud_relation_operation, cloud_shared_operation, instance, relation_operation,
+	shared_operation, PrismaClient, SortOrder,
+};
 use sd_sync::{CRDTOperation, CRDTOperationType, OperationFactory};
 use sd_utils::uuid_to_bytes;
-
-use crate::{
-	db_operation::{relation_include, shared_include, DbOperation},
-	ingest, relation_op_db, shared_op_db, SharedState, SyncMessage, Timestamps, NTP64,
-};
 use std::{
 	cmp::Ordering,
+	collections::HashMap,
 	ops::Deref,
 	sync::{
 		atomic::{self, AtomicBool},
 		Arc,
 	},
 };
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, RwLock};
 use uhlc::{HLCBuilder, HLC};
 use uuid::Uuid;
 
 pub struct Manager {
-	pub tx: broadcast::Sender<SyncMessage>,
+	tx: broadcast::Sender<SyncMessage>,
 	pub ingest: ingest::Handler,
 	shared: Arc<SharedState>,
 }
@@ -30,8 +32,8 @@ pub struct GetOpsArgs {
 	pub count: u32,
 }
 
-pub struct New<T> {
-	pub manager: T,
+pub struct New {
+	pub manager: Manager,
 	pub rx: broadcast::Receiver<SyncMessage>,
 }
 
@@ -40,17 +42,17 @@ impl Manager {
 		db: &Arc<PrismaClient>,
 		instance: Uuid,
 		emit_messages_flag: &Arc<AtomicBool>,
-	) -> New<Self> {
+		timestamps: HashMap<Uuid, NTP64>,
+	) -> New {
 		let (tx, rx) = broadcast::channel(64);
 
-		let timestamps: Timestamps = Default::default();
 		let clock = HLCBuilder::new().with_id(instance.into()).build();
 
 		let shared = Arc::new(SharedState {
 			db: db.clone(),
 			instance,
-			timestamps,
 			clock,
+			timestamps: Arc::new(RwLock::new(timestamps)),
 			emit_messages_flag: emit_messages_flag.clone(),
 		});
 
@@ -60,6 +62,10 @@ impl Manager {
 			manager: Self { tx, ingest, shared },
 			rx,
 		}
+	}
+
+	pub fn subscribe(&self) -> broadcast::Receiver<SyncMessage> {
+		self.tx.subscribe()
 	}
 
 	pub async fn write_ops<'item, I: prisma_client_rust::BatchItem<'item>>(
@@ -198,6 +204,77 @@ impl Manager {
 			.into_iter()
 			.take(args.count as usize)
 			.map(DbOperation::into_operation)
+			.collect())
+	}
+
+	pub async fn get_cloud_ops(
+		&self,
+		args: GetOpsArgs,
+	) -> prisma_client_rust::Result<Vec<CRDTOperation>> {
+		let db = &self.db;
+
+		macro_rules! db_args {
+			($args:ident, $op:ident) => {
+				vec![prisma_client_rust::operator::or(
+					$args
+						.clocks
+						.iter()
+						.map(|(instance_id, timestamp)| {
+							prisma_client_rust::and![
+								$op::instance::is(vec![instance::pub_id::equals(uuid_to_bytes(
+									*instance_id
+								))]),
+								$op::timestamp::gt(timestamp.as_u64() as i64)
+							]
+						})
+						.chain([
+							$op::instance::is_not(vec![
+								instance::pub_id::in_vec(
+									$args
+										.clocks
+										.iter()
+										.map(|(instance_id, _)| {
+											uuid_to_bytes(*instance_id)
+										})
+										.collect()
+								)
+							])
+						])
+						.collect(),
+				)]
+			};
+		}
+
+		let (shared, relation) = db
+			._batch((
+				db.cloud_shared_operation()
+					.find_many(db_args!(args, cloud_shared_operation))
+					.take(i64::from(args.count))
+					.order_by(cloud_shared_operation::timestamp::order(SortOrder::Asc))
+					.include(cloud_shared_include::include()),
+				db.cloud_relation_operation()
+					.find_many(db_args!(args, cloud_relation_operation))
+					.take(i64::from(args.count))
+					.order_by(cloud_relation_operation::timestamp::order(SortOrder::Asc))
+					.include(cloud_relation_include::include()),
+			))
+			.await?;
+
+		let mut ops: Vec<_> = []
+			.into_iter()
+			.chain(shared.into_iter().map(CloudDbOperation::Shared))
+			.chain(relation.into_iter().map(CloudDbOperation::Relation))
+			.collect();
+
+		ops.sort_by(|a, b| match a.timestamp().cmp(&b.timestamp()) {
+			Ordering::Equal => a.instance().cmp(&b.instance()),
+			o => o,
+		});
+
+		Ok(ops
+			.into_iter()
+			.take(args.count as usize)
+			.map(|o| o.into_operation())
 			.collect())
 	}
 }
