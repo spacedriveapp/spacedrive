@@ -139,7 +139,6 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 								{activeOptions.map((option, index) => (
 									<div
 										key={index}
-										className="self-center"
 										style={{
 											zIndex: activeOptions.length - index
 										}}
