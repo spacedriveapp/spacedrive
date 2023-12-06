@@ -1,8 +1,6 @@
 import '@fontsource/inter/variable.css';
 
 import { init, Integrations } from '@sentry/browser';
-import { defaultContext } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import duration from 'dayjs/plugin/duration';
@@ -10,9 +8,9 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import { PropsWithChildren, Suspense } from 'react';
 import { RouterProvider, RouterProviderProps } from 'react-router-dom';
 import {
+	CacheProvider,
 	NotificationContextProvider,
 	P2PContextProvider,
-	useDebugState,
 	useInvalidateQuery,
 	useLoadBackendFeatureFlags
 } from '@sd/client';
@@ -20,6 +18,7 @@ import { TooltipProvider } from '@sd/ui';
 
 import { createRoutes } from './app';
 import { P2P, useP2PErrorToast } from './app/p2p';
+import { Devtools } from './components/Devtools';
 import { WithPrismTheme } from './components/TextViewer/prism';
 import ErrorFallback, { BetterErrorBoundary } from './ErrorFallback';
 import { useTheme } from './hooks';
@@ -41,23 +40,6 @@ init({
 	defaultIntegrations: false,
 	integrations: [new Integrations.HttpContext(), new Integrations.Dedupe()]
 });
-
-const Devtools = () => {
-	const debugState = useDebugState();
-
-	// The `context={defaultContext}` part is required for this to work on Windows.
-	// Why, idk, don't question it
-	return debugState.reactQueryDevtools !== 'disabled' ? (
-		<ReactQueryDevtools
-			position="bottom-right"
-			context={defaultContext}
-			toggleButtonProps={{
-				tabIndex: -1,
-				className: debugState.reactQueryDevtools === 'invisible' ? 'opacity-0' : ''
-			}}
-		/>
-	) : null;
-};
 
 export type Router = RouterProviderProps['router'];
 

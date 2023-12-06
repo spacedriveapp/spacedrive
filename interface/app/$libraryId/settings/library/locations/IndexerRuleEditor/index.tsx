@@ -2,7 +2,7 @@ import { Trash } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { MouseEventHandler, useState } from 'react';
 import { ControllerRenderProps } from 'react-hook-form';
-import { IndexerRule, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { IndexerRule, useCache, useLibraryMutation, useLibraryQuery, useNodes } from '@sd/client';
 import { Button, Divider, Label, toast } from '@sd/ui';
 import { InfoText } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components';
@@ -33,7 +33,8 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 	...props
 }: IndexerRuleEditorProps<T>) {
 	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
-	const indexRules = listIndexerRules.data;
+	useNodes(listIndexerRules.data?.nodes);
+	const indexRules = useCache(listIndexerRules.data?.items);
 	const [isDeleting, setIsDeleting] = useState(false);
 	const [selectedRule, setSelectedRule] = useState<IndexerRule | undefined>(undefined);
 	const [toggleNewRule, setToggleNewRule] = useState(false);

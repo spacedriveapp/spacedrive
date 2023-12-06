@@ -62,8 +62,9 @@ impl Identity {
 	}
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub struct RemoteIdentity(ed25519_dalek::VerifyingKey);
+#[derive(Copy, Clone, PartialEq, Eq, Type)]
+#[specta(transparent)]
+pub struct RemoteIdentity(#[specta(type = String)] ed25519_dalek::VerifyingKey);
 
 impl Hash for RemoteIdentity {
 	fn hash<H: Hasher>(&self, state: &mut H) {
@@ -138,15 +139,6 @@ impl FromStr for RemoteIdentity {
 				.try_into()
 				.map_err(|_| IdentityErr::InvalidKeyLength)?,
 		)?))
-	}
-}
-
-impl Type for RemoteIdentity {
-	fn inline(
-		_: specta::DefOpts,
-		_: &[specta::DataType],
-	) -> Result<specta::DataType, specta::ExportError> {
-		Ok(specta::DataType::Primitive(specta::PrimitiveType::String))
 	}
 }
 

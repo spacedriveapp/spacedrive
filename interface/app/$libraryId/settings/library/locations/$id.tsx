@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Suspense } from 'react';
 import { Controller } from 'react-hook-form';
 import { useNavigate } from 'react-router';
-import { useLibraryMutation, useLibraryQuery, useZodForm } from '@sd/client';
+import { useCache, useLibraryMutation, useLibraryQuery, useNodes, useZodForm } from '@sd/client';
 import {
 	Button,
 	dialogManager,
@@ -54,21 +54,22 @@ const EditLocationForm = () => {
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 	const queryClient = useQueryClient();
 
-	const locationData = useLibraryQuery(['locations.getWithRules', locationId], {
+	const locationDataQuery = useLibraryQuery(['locations.getWithRules', locationId], {
 		suspense: true
 	});
+	useNodes(locationDataQuery.data?.nodes);
+	const locationData = useCache(locationDataQuery.data?.item);
 
 	const form = useZodForm({
 		schema,
 		defaultValues: {
-			indexerRulesIds:
-				locationData.data?.indexer_rules.map((rule) => rule.indexer_rule.id) ?? [],
+			indexerRulesIds: locationData?.indexer_rules.map((rule) => rule.id) ?? [],
 			locationType: 'normal',
-			name: locationData.data?.name ?? '',
-			path: locationData.data?.path ?? '',
-			hidden: locationData.data?.hidden ?? false,
-			syncPreviewMedia: locationData.data?.sync_preview_media ?? false,
-			generatePreviewMedia: locationData.data?.generate_preview_media ?? false
+			name: locationData?.name ?? '',
+			path: locationData?.path ?? '',
+			hidden: locationData?.hidden ?? false,
+			syncPreviewMedia: locationData?.sync_preview_media ?? false,
+			generatePreviewMedia: locationData?.generate_preview_media ?? false
 		}
 	});
 

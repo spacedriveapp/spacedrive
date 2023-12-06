@@ -2,7 +2,7 @@ import { CaretRight, Pen, Trash } from 'phosphor-react-native';
 import React, { useEffect, useRef } from 'react';
 import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { LibraryConfigWrapped, useBridgeQuery } from '@sd/client';
+import { LibraryConfigWrapped, useBridgeQuery, useCache, useNodes } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import DeleteLibraryModal from '~/components/modal/confirmModals/DeleteLibraryModal';
 import { AnimatedButton, FakeButton } from '~/components/primitive/Button';
@@ -68,7 +68,9 @@ function LibraryItem({
 }
 
 const LibrarySettingsScreen = ({ navigation }: SettingsStackScreenProps<'LibrarySettings'>) => {
-	const { data: libraries } = useBridgeQuery(['library.list']);
+	const libraryList = useBridgeQuery(['library.list']);
+	useNodes(libraryList.data?.nodes);
+	const libraries = useCache(libraryList.data?.items);
 
 	useEffect(() => {
 		navigation.setOptions({

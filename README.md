@@ -87,7 +87,7 @@ This project is using what I'm calling the **"PRRTT"** stack (Prisma, Rust, Reac
 
 ### Apps:
 
-- `desktop`: A [Tauri](https://tauri.studio) app.
+- `desktop`: A [Tauri](https://tauri.app) app.
 - `mobile`: A [React Native](https://reactnative.dev/) app.
 - `web`: A [React](https://reactjs.org) webapp.
 - `landing`: A [React](https://reactjs.org) app using Vite SSR & Vite pages.

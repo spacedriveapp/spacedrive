@@ -312,7 +312,7 @@ checksum = "5fd55a5ba1179988837d24ab4c7cc8ed6efdeff578ede0416b4225a5fca35bd0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -334,7 +334,7 @@ checksum = "16e62a023e7c117e27523144c5d2459f4397fcc3cab0085af8e2224f643a0193"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -345,14 +345,14 @@ checksum = "a66537f1bb974b254c98ed142ff995236e81b9d0fe4db0575f46612cb15eb0f9"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
 name = "async-tungstenite"
-version = "0.19.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e6acf7e4a267eecbb127ed696bb2d50572c22ba7f586a646321e1798d8336a1"
+checksum = "a1e9efbe14612da0a19fb983059a0b621e9cf6225d7018ecab4f9988215540dc"
 dependencies = [
  "futures-io",
  "futures-util",
@@ -531,12 +531,6 @@ checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
 name = "base64"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ea22880d78093b0cbe17c89f64a7d457941e65759157ec6cb31a31d652b05e5"
-
-[[package]]
-name = "base64"
 version = "0.21.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "35636a1494ede3b646cc98f74f8e62c773a38a659ebc777a2cf26b9b74171df9"
@@ -557,6 +551,19 @@ dependencies = [
  "num-integer",
  "num-traits",
  "serde",
+]
+
+[[package]]
+name = "bigdecimal"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c06619be423ea5bb86c95f087d5707942791a08a85530df0db2209a3ecfb8bc9"
+dependencies = [
+ "autocfg",
+ "libm",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
 ]
 
 [[package]]
@@ -751,7 +758,7 @@ dependencies = [
  "connection-string",
  "either",
  "enumflags2 0.7.7",
- "indoc 2.0.4",
+ "indoc",
  "lsp-types",
  "once_cell",
  "psl-core",
@@ -1032,7 +1039,7 @@ dependencies = [
  "heck 0.4.1",
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -1188,9 +1195,9 @@ dependencies = [
 
 [[package]]
 name = "cookie"
-version = "0.16.2"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e859cd57d0710d9e06c381b550c06e76992472a8c6d527aecd2fc673dcc231fb"
+checksum = "7efb37c3e1ccb1ff97164ad95ac1606e8ccd35b3fa0a7d99a304c7f4a428cc24"
 dependencies = [
  "percent-encoding",
  "time",
@@ -1368,7 +1375,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13b588ba4ac1a99f7f2964d24b3d896ddc6bf847ee3855dbd4366f058cfcd331"
 dependencies = [
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -1388,7 +1395,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37e366bff8cd32dd8754b0991fb66b279dc48f598c3a18914852a6673deef583"
 dependencies = [
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -1464,7 +1471,7 @@ checksum = "83fdaf97f4804dcebfa5862639bc9ce4121e82140bec2a987ac5140294865b5b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -1488,7 +1495,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "strsim",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -1499,7 +1506,7 @@ checksum = "836a9bbc7ad63342d6d6e7b815ccab164bc77a2d95d84bc3117a8c0d5c98e2d5"
 dependencies = [
  "darling_core",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -1635,7 +1642,7 @@ version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?branch=new-4.14.0-pcr#45b026c8b64ed0b60cb03deed5f478c457de645b"
 dependencies = [
  "colored",
- "indoc 2.0.4",
+ "indoc",
  "pest",
 ]
 
@@ -1735,7 +1742,7 @@ checksum = "487585f4d0c6655fe74905e2504d8ad6908e4db67f744eb140876906c2f3175d"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -1743,22 +1750,13 @@ name = "dmmf"
 version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?branch=new-4.14.0-pcr#45b026c8b64ed0b60cb03deed5f478c457de645b"
 dependencies = [
- "bigdecimal",
+ "bigdecimal 0.3.1",
  "indexmap 1.9.3",
  "prisma-models",
  "psl",
  "schema",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "document-features"
-version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e493c573fce17f00dcab13b6ac057994f3ce17d1af4dc39bfd482b83c6eb6157"
-dependencies = [
- "litrs",
 ]
 
 [[package]]
@@ -1873,7 +1871,7 @@ dependencies = [
  "heck 0.4.1",
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -1915,7 +1913,7 @@ checksum = "5e9a1f9f7d83e59740248a6e14ecf93929ade55027844dfcea78beafccc15745"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -1926,7 +1924,7 @@ checksum = "c2ad8cef1d801a4686bfd8919f0b30eac4c8e48968c437a6405ded4fb5272d2b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -2329,7 +2327,7 @@ checksum = "53b153fd91e4b0147f4aced87be237c98248656bb01050b96bf3ee89220a8ddb"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -2965,13 +2963,12 @@ checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
 name = "httpz"
-version = "0.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6769d2cb10425c442c41a787d1a3719744770a188cfa7885cd4d8126fa13f37a"
+version = "0.0.6"
+source = "git+https://github.com/spacedriveapp/rspc.git?rev=f3347e2e8bfe3f37bfacc437ca329fe71cdcb048#f3347e2e8bfe3f37bfacc437ca329fe71cdcb048"
 dependencies = [
  "async-tungstenite",
  "axum",
- "base64 0.20.0",
+ "base64 0.21.5",
  "cookie",
  "form_urlencoded",
  "futures",
@@ -3225,12 +3222,6 @@ dependencies = [
  "hashbrown 0.14.0",
  "serde",
 ]
-
-[[package]]
-name = "indoc"
-version = "1.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfa799dd5ed20a7e349f3b4639aa80d74549c81716d9ec4f994c9b5815598306"
 
 [[package]]
 name = "indoc"
@@ -3660,6 +3651,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "libm"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ec2a862134d2a7d32d7983ddcdd1c4923530833c9f2ea1a44fc5fa473989058"
+
+[[package]]
 name = "libp2p"
 version = "0.52.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4006,12 +4003,6 @@ name = "linux-raw-sys"
 version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "969488b55f8ac402214f3f5fd243ebb7206cf82de60d3172994707a4bcc2b829"
-
-[[package]]
-name = "litrs"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9275e0933cf8bb20f008924c0cb07a0692fe54d8064996520bf998de9eb79aa"
 
 [[package]]
 name = "lock_api"
@@ -4952,7 +4943,7 @@ checksum = "a948666b637a0f465e8564c73e89d4dde00d72d4d473cc972f390fc3dcee7d9c"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -5277,7 +5268,7 @@ dependencies = [
  "pest_meta",
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -5432,7 +5423,7 @@ checksum = "4359fd9c9171ec6e8c62926d6faaf553a8dc3f64e1507e76da7911b4f6a04405"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -5564,10 +5555,10 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust"
 version = "0.6.8"
-source = "git+https://github.com/spacedriveapp/prisma-client-rust?branch=main#b93c4597daa40ca87e7b63c9b6b5d1b517d9df0b"
+source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=9f8ac122e8f2b2e4957b71f48a37e06565adba40#9f8ac122e8f2b2e4957b71f48a37e06565adba40"
 dependencies = [
  "base64 0.13.1",
- "bigdecimal",
+ "bigdecimal 0.3.1",
  "chrono",
  "diagnostics",
  "dotenv",
@@ -5597,7 +5588,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-cli"
 version = "0.6.8"
-source = "git+https://github.com/spacedriveapp/prisma-client-rust?branch=main#b93c4597daa40ca87e7b63c9b6b5d1b517d9df0b"
+source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=9f8ac122e8f2b2e4957b71f48a37e06565adba40#9f8ac122e8f2b2e4957b71f48a37e06565adba40"
 dependencies = [
  "directories 4.0.1",
  "flate2",
@@ -5617,7 +5608,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-generator"
 version = "0.6.8"
-source = "git+https://github.com/spacedriveapp/prisma-client-rust?branch=main#b93c4597daa40ca87e7b63c9b6b5d1b517d9df0b"
+source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=9f8ac122e8f2b2e4957b71f48a37e06565adba40#9f8ac122e8f2b2e4957b71f48a37e06565adba40"
 dependencies = [
  "directories 4.0.1",
  "flate2",
@@ -5637,7 +5628,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-macros"
 version = "0.6.8"
-source = "git+https://github.com/spacedriveapp/prisma-client-rust?branch=main#b93c4597daa40ca87e7b63c9b6b5d1b517d9df0b"
+source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=9f8ac122e8f2b2e4957b71f48a37e06565adba40#9f8ac122e8f2b2e4957b71f48a37e06565adba40"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
@@ -5649,7 +5640,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-sdk"
 version = "0.6.8"
-source = "git+https://github.com/spacedriveapp/prisma-client-rust?branch=main#b93c4597daa40ca87e7b63c9b6b5d1b517d9df0b"
+source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=9f8ac122e8f2b2e4957b71f48a37e06565adba40#9f8ac122e8f2b2e4957b71f48a37e06565adba40"
 dependencies = [
  "convert_case 0.5.0",
  "dmmf",
@@ -5671,7 +5662,7 @@ name = "prisma-models"
 version = "0.0.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?branch=new-4.14.0-pcr#45b026c8b64ed0b60cb03deed5f478c457de645b"
 dependencies = [
- "bigdecimal",
+ "bigdecimal 0.3.1",
  "chrono",
  "cuid",
  "itertools 0.10.5",
@@ -5688,7 +5679,7 @@ version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?branch=new-4.14.0-pcr#45b026c8b64ed0b60cb03deed5f478c457de645b"
 dependencies = [
  "base64 0.13.1",
- "bigdecimal",
+ "bigdecimal 0.3.1",
  "chrono",
  "once_cell",
  "regex",
@@ -5748,9 +5739,9 @@ checksum = "dc375e1527247fe1a97d8b7156678dfe7c1af2fc075c9a4db3690ecd2a148068"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.66"
+version = "1.0.70"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18fb31db3f9bddb2ea821cde30a9f70117e3f119938b5ee630b7403aa6e2ead9"
+checksum = "39278fbbf5fb4f646ce651690877f89d1c5811a3d4acb27700c1cb3cdb78fd3b"
 dependencies = [
  "unicode-ident",
 ]
@@ -5775,7 +5766,7 @@ checksum = "440f724eba9f6996b75d63681b0a92b06947f1457076d503a4d2e2c8f56442b8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -5792,11 +5783,11 @@ name = "psl-core"
 version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?branch=new-4.14.0-pcr#45b026c8b64ed0b60cb03deed5f478c457de645b"
 dependencies = [
- "bigdecimal",
+ "bigdecimal 0.3.1",
  "chrono",
  "diagnostics",
  "enumflags2 0.7.7",
- "indoc 2.0.4",
+ "indoc",
  "itertools 0.10.5",
  "lsp-types",
  "once_cell",
@@ -5836,7 +5827,7 @@ source = "git+https://github.com/Brendonovich/prisma-engines?branch=new-4.14.0-p
 dependencies = [
  "async-trait",
  "base64 0.12.3",
- "bigdecimal",
+ "bigdecimal 0.3.1",
  "chrono",
  "connection-string",
  "futures",
@@ -5899,7 +5890,7 @@ version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?branch=new-4.14.0-pcr#45b026c8b64ed0b60cb03deed5f478c457de645b"
 dependencies = [
  "async-trait",
- "bigdecimal",
+ "bigdecimal 0.3.1",
  "chrono",
  "connection-string",
  "crossbeam-channel",
@@ -6334,7 +6325,7 @@ name = "request-handlers"
 version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?branch=new-4.14.0-pcr#45b026c8b64ed0b60cb03deed5f478c457de645b"
 dependencies = [
- "bigdecimal",
+ "bigdecimal 0.3.1",
  "connection-string",
  "dmmf",
  "futures",
@@ -6512,7 +6503,7 @@ dependencies = [
 [[package]]
 name = "rspc"
 version = "0.1.4"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=adebce542049b982dd251466d4144f4d57e92177#adebce542049b982dd251466d4144f4d57e92177"
+source = "git+https://github.com/spacedriveapp/rspc.git?rev=f3347e2e8bfe3f37bfacc437ca329fe71cdcb048#f3347e2e8bfe3f37bfacc437ca329fe71cdcb048"
 dependencies = [
  "futures",
  "futures-channel",
@@ -6786,13 +6777,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-cache"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "specta",
+]
+
+[[package]]
 name = "sd-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
  "hex",
- "indoc 2.0.4",
+ "indoc",
  "sd-crypto",
  "tokio",
 ]
@@ -6837,6 +6837,7 @@ dependencies = [
  "rmp-serde",
  "rmpv",
  "rspc",
+ "sd-cache",
  "sd-core-sync",
  "sd-crypto",
  "sd-ffmpeg",
@@ -6885,7 +6886,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing 0.2.0",
- "uhlc",
+ "uhlc 0.5.2",
  "uuid",
 ]
 
@@ -7097,6 +7098,7 @@ name = "sd-prisma"
 version = "0.1.0"
 dependencies = [
  "prisma-client-rust",
+ "sd-cache",
  "sd-sync",
  "serde",
  "serde_json",
@@ -7124,7 +7126,7 @@ dependencies = [
  "serde",
  "serde_json",
  "specta",
- "uhlc",
+ "uhlc 0.5.2",
  "uuid",
 ]
 
@@ -7262,14 +7264,14 @@ checksum = "d6c7207fbec9faa48073f3e3074cbe553af6ea512d7c21ba46e434e70ea9fbc1"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
 name = "serde_json"
-version = "1.0.106"
+version = "1.0.108"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2cc66a619ed80bf7a0f6b17dd063a84b88f6dea1813737cf469aef1d081142c2"
+checksum = "3d1c7e3eac408d115102c4c24ad393e0821bb3a5df4d506a80f85f7a742a526b"
 dependencies = [
  "indexmap 2.0.0",
  "itoa 1.0.9",
@@ -7295,7 +7297,7 @@ checksum = "8725e1dfadb3a50f7e5ce0b1a540466f6ed3fe7a0fca2ac2b8b831d31316bd00"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -7345,7 +7347,7 @@ dependencies = [
  "darling",
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -7596,14 +7598,13 @@ dependencies = [
 
 [[package]]
 name = "specta"
-version = "1.0.5"
-source = "git+https://github.com/oscartbeaumont/specta?rev=4bc6e46fc8747cd8d8a07597c1fe13c52aa16a41#4bc6e46fc8747cd8d8a07597c1fe13c52aa16a41"
+version = "2.0.0-rc.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18938fc0c7c0e8b7c8f4702e8cb53c218d4442f5b7420dd8b3d9640ca9a46712"
 dependencies = [
- "bigdecimal",
+ "bigdecimal 0.4.2",
  "chrono",
- "document-features",
- "indexmap 1.9.3",
- "indoc 1.0.9",
+ "indexmap 2.0.0",
  "once_cell",
  "paste",
  "serde",
@@ -7612,21 +7613,20 @@ dependencies = [
  "tauri",
  "thiserror",
  "tokio",
- "uhlc",
+ "uhlc 0.6.3",
  "uuid",
 ]
 
 [[package]]
 name = "specta-macros"
-version = "1.0.5"
-source = "git+https://github.com/oscartbeaumont/specta?rev=4bc6e46fc8747cd8d8a07597c1fe13c52aa16a41#4bc6e46fc8747cd8d8a07597c1fe13c52aa16a41"
+version = "2.0.0-rc.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05080358d47cc706229b854d51c6477208de2b022ec0e16f1572c8cdc5263c8e"
 dependencies = [
  "Inflector",
- "itertools 0.10.5",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
- "termcolor",
 ]
 
 [[package]]
@@ -7666,7 +7666,7 @@ source = "git+https://github.com/Brendonovich/prisma-engines?branch=new-4.14.0-p
 dependencies = [
  "anyhow",
  "async-trait",
- "bigdecimal",
+ "bigdecimal 0.3.1",
  "chrono",
  "cuid",
  "futures",
@@ -7700,7 +7700,7 @@ dependencies = [
  "datamodel-renderer",
  "either",
  "enumflags2 0.7.7",
- "indoc 2.0.4",
+ "indoc",
  "once_cell",
  "prisma-value",
  "psl",
@@ -7727,11 +7727,11 @@ version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?branch=new-4.14.0-pcr#45b026c8b64ed0b60cb03deed5f478c457de645b"
 dependencies = [
  "async-trait",
- "bigdecimal",
+ "bigdecimal 0.3.1",
  "either",
  "enumflags2 0.7.7",
  "indexmap 1.9.3",
- "indoc 2.0.4",
+ "indoc",
  "once_cell",
  "prisma-value",
  "psl",
@@ -7856,7 +7856,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustversion",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -7899,9 +7899,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.32"
+version = "2.0.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "239814284fd6f1a4ffe4ca893952cdd93c224b6a1571c9a9eadd670295c0c9e2"
+checksum = "23e78b90f2fcf45d3e842032ce32e3f2d1545ba6636271dcbf24fa306d87be7a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -8260,16 +8260,30 @@ dependencies = [
 
 [[package]]
 name = "tauri-specta"
-version = "1.0.2"
-source = "git+https://github.com/oscartbeaumont/tauri-specta?rev=c964bef228a90a66effc18cefcba6859c45a8e08#c964bef228a90a66effc18cefcba6859c45a8e08"
+version = "2.0.0-rc.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c9c8e4e35bb01f7b53df4bd7f747626e45c67f41bf40b51a648c953ec779b5c"
 dependencies = [
  "heck 0.4.1",
- "indoc 2.0.4",
+ "indoc",
  "serde",
  "serde_json",
  "specta",
  "tauri",
+ "tauri-specta-macros",
  "thiserror",
+]
+
+[[package]]
+name = "tauri-specta-macros"
+version = "2.0.0-rc.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2098cb9333e5ae46629ef74ce89b2fce3978bdcaf9dea6dd0fcb1aca85934ddd"
+dependencies = [
+ "heck 0.4.1",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -8347,15 +8361,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "termcolor"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be55cf8942feac5c765c2c993422806843c9a9a45d4d5c407ad6dd2ea95eb9b6"
-dependencies = [
- "winapi-util",
-]
-
-[[package]]
 name = "thin-slice"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8378,7 +8383,7 @@ checksum = "266b2e40bc00e5a6c09c3584011e08b06f123c00362c92b975ba9843aaaa14b8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -8489,7 +8494,7 @@ checksum = "5b8a1e28f2deaa14e508979454cb3a223b10b938b45af148bc0986de36f1923b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -8642,7 +8647,7 @@ checksum = "5f4f31f56159e98206da9efd823404b79b6ef3143b4a7ab76e67b1751b25a4ab"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -8652,7 +8657,7 @@ source = "git+https://github.com/tokio-rs/tracing?rev=29146260fb4615d271d2e899ad
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -8887,13 +8892,13 @@ checksum = "a464a4b34948a5f67fddd2b823c62d9d92e44be75058b99939eae6c5b6960b33"
 
 [[package]]
 name = "tungstenite"
-version = "0.18.0"
+version = "0.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30ee6ab729cd4cf0fd55218530c4522ed30b7b6081752839b68fcec8d0960788"
+checksum = "9e3dac10fd62eaf6617d3a904ae222845979aec67c615d1c842b4002c7666fb9"
 dependencies = [
- "base64 0.13.1",
  "byteorder",
  "bytes",
+ "data-encoding",
  "http",
  "httparse",
  "log",
@@ -8929,6 +8934,17 @@ dependencies = [
  "serde",
  "spin 0.9.8",
  "uuid",
+]
+
+[[package]]
+name = "uhlc"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1eadef1fa26cbbae1276c46781e8f4d888bdda434779c18ae6c2a0e69991885"
+dependencies = [
+ "rand 0.8.5",
+ "serde",
+ "spin 0.9.8",
 ]
 
 [[package]]
@@ -9084,7 +9100,7 @@ version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?branch=new-4.14.0-pcr#45b026c8b64ed0b60cb03deed5f478c457de645b"
 dependencies = [
  "backtrace",
- "indoc 2.0.4",
+ "indoc",
  "itertools 0.10.5",
  "quaint",
  "serde",
@@ -9320,7 +9336,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
  "wasm-bindgen-shared",
 ]
 
@@ -9354,7 +9370,7 @@ checksum = "54681b18a46765f095758388f2d0cf16eb8d4169b639ab575a8f5693af210c7b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.32",
+ "syn 2.0.39",
  "wasm-bindgen-backend",
  "wasm-bindgen-shared",
 ]
