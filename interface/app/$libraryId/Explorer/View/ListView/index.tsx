@@ -14,7 +14,7 @@ import { isNonEmptyObject } from '~/util';
 
 import { useLayoutContext } from '../../../Layout/Context';
 import { useExplorerContext } from '../../Context';
-import { getQuickPreviewStore } from '../../QuickPreview/store';
+import { getQuickPreviewStore, useQuickPreviewStore } from '../../QuickPreview/store';
 import { createOrdering, getOrderingDirection, orderingKey } from '../../store';
 import { uniqueId } from '../../util';
 import { useExplorerViewContext } from '../Context';
@@ -33,6 +33,7 @@ export const ListView = memo(() => {
 	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
 	const explorerSettings = explorer.useSettingsSnapshot();
+	const quickPreview = useQuickPreviewStore();
 
 	const tableRef = useRef<HTMLDivElement>(null);
 	const tableHeaderRef = useRef<HTMLDivElement | null>(null);
@@ -557,18 +558,15 @@ export const ListView = memo(() => {
 
 	useEffect(() => setRanges([]), [explorerSettings.order]);
 
-	//this is to handle selection for quickpreview slider
 	useEffect(() => {
 		if (!getQuickPreviewStore().open || explorer.selectedItems.size !== 1) return;
 
 		const [item] = [...explorer.selectedItems];
 		if (!item) return;
 
-		explorer.resetSelectedItems([item]);
-
 		const itemId = uniqueId(item);
 		setRanges([[itemId, itemId]]);
-	}, [explorer]);
+	}, [explorer.selectedItems]);
 
 	useEffect(() => {
 		if (initialized || !sized || !explorer.count || explorer.selectedItems.size === 0) {
@@ -652,7 +650,7 @@ export const ListView = memo(() => {
 		const header = tableHeaderRef.current;
 		const body = tableBodyRef.current;
 
-		if (!table || !header || !body) return;
+		if (!table || !header || !body || quickPreview.open) return;
 
 		const handleWheel = (event: WheelEvent) => {
 			if (Math.abs(event.deltaX) < Math.abs(event.deltaY)) return;
@@ -680,7 +678,7 @@ export const ListView = memo(() => {
 			header.addEventListener('scroll', () => handleScroll(header));
 			body.addEventListener('scroll', () => handleScroll(body));
 		};
-	}, [sized, isLeftMouseDown]);
+	}, [sized, isLeftMouseDown, quickPreview.open]);
 
 	useShortcut('explorerEscape', () => {
 		if (!explorerView.selectable || explorer.selectedItems.size === 0) return;

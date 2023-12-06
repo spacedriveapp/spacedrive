@@ -13,6 +13,7 @@ use tauri::{
 	WindowEvent,
 };
 use tauri_plugins::{sd_error_plugin, sd_server_plugin};
+use tauri_specta::ts;
 use tokio::time::sleep;
 use tracing::error;
 
@@ -143,16 +144,6 @@ async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
 	})
 }
 
-// TODO(@Oscar): A helper like this should probs exist in tauri-specta
-macro_rules! tauri_handlers {
-	($($name:path),+) => {{
-		#[cfg(debug_assertions)]
-		tauri_specta::ts::export(specta::collect_types![$($name),+], "../src/commands.ts").unwrap();
-
-		tauri::generate_handler![$($name),+]
-	}};
-}
-
 const CLIENT_ID: &str = "2abb241e-40b8-4517-a3e3-5594375c8fbb";
 
 #[tokio::main]
@@ -219,9 +210,41 @@ async fn main() -> tauri::Result<()> {
 		}
 	});
 
+	let specta_builder = {
+		let specta_builder = ts::builder()
+			.commands(tauri_specta::collect_commands![
+				app_ready,
+				reset_spacedrive,
+				open_logs_dir,
+				refresh_menu_bar,
+				reload_webview,
+				set_menu_bar_item_state,
+				request_fda_macos,
+				file::open_file_paths,
+				file::open_ephemeral_files,
+				file::get_file_path_open_with_apps,
+				file::get_ephemeral_files_open_with_apps,
+				file::open_file_path_with,
+				file::open_ephemeral_file_with,
+				file::reveal_items,
+				theme::lock_app_theme,
+				// TODO: move to plugin w/tauri-specta
+				updater::check_for_update,
+				updater::install_update
+			])
+			// .events(tauri_specta::collect_events![])
+			.config(specta::ts::ExportConfig::default().formatter(specta::ts::formatter::prettier));
+
+		#[cfg(debug_assertions)]
+		let specta_builder = specta_builder.path("../src/commands.ts");
+
+		specta_builder.into_plugin()
+	};
+
 	let app = app
 		.plugin(updater::plugin())
 		.plugin(tauri_plugin_window_state::Builder::default().build())
+		.plugin(specta_builder)
 		.setup(move |app| {
 			let app = app.handle();
 
@@ -300,26 +323,6 @@ async fn main() -> tauri::Result<()> {
 		})
 		.menu(menu::get_menu())
 		.manage(updater::State::default())
-		.invoke_handler(tauri_handlers![
-			app_ready,
-			reset_spacedrive,
-			open_logs_dir,
-			refresh_menu_bar,
-			reload_webview,
-			set_menu_bar_item_state,
-			request_fda_macos,
-			file::open_file_paths,
-			file::open_ephemeral_files,
-			file::get_file_path_open_with_apps,
-			file::get_ephemeral_files_open_with_apps,
-			file::open_file_path_with,
-			file::open_ephemeral_file_with,
-			file::reveal_items,
-			theme::lock_app_theme,
-			// TODO: move to plugin w/tauri-specta
-			updater::check_for_update,
-			updater::install_update
-		])
 		.build(tauri::generate_context!())?;
 
 	app.run(|_, _| {});

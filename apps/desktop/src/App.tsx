@@ -4,7 +4,7 @@ import { listen } from '@tauri-apps/api/event';
 import { appWindow } from '@tauri-apps/api/window';
 import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { RspcProvider } from '@sd/client';
+import { CacheProvider, createCache, RspcProvider } from '@sd/client';
 import {
 	createRoutes,
 	ErrorPage,
@@ -19,7 +19,7 @@ import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 
 import '@sd/ui/style/style.scss';
 
-import * as commands from './commands';
+import { commands } from './commands';
 import { platform } from './platform';
 import { queryClient } from './query';
 import { createMemoryRouterWithHistory } from './router';
@@ -63,14 +63,16 @@ export default function App() {
 		<RspcProvider queryClient={queryClient}>
 			<PlatformProvider platform={platform}>
 				<QueryClientProvider client={queryClient}>
-					{startupError ? (
-						<ErrorPage
-							message={startupError}
-							submessage="Error occurred starting up the Spacedrive core"
-						/>
-					) : (
-						<AppInner />
-					)}
+					<CacheProvider cache={cache}>
+						{startupError ? (
+							<ErrorPage
+								message={startupError}
+								submessage="Error occurred starting up the Spacedrive core"
+							/>
+						) : (
+							<AppInner />
+						)}
+					</CacheProvider>
 				</QueryClientProvider>
 			</PlatformProvider>
 		</RspcProvider>
@@ -80,7 +82,9 @@ export default function App() {
 // we have a minimum delay between creating new tabs as react router can't handle creating tabs super fast
 const TAB_CREATE_DELAY = 150;
 
-const routes = createRoutes(platform);
+const cache = createCache();
+
+const routes = createRoutes(platform, cache);
 
 function AppInner() {
 	const [tabs, setTabs] = useState(() => [createTab()]);

@@ -1,6 +1,14 @@
 import { CircleDashed, Cube, Folder, Icon, SelectionSlash, Textbox } from '@phosphor-icons/react';
 import { useState } from 'react';
-import { InOrNotIn, ObjectKind, SearchFilterArgs, TextMatch, useLibraryQuery } from '@sd/client';
+import {
+	InOrNotIn,
+	ObjectKind,
+	SearchFilterArgs,
+	TextMatch,
+	useCache,
+	useLibraryQuery,
+	useNodes
+} from '@sd/client';
 import { Button, Input } from '@sd/ui';
 
 import { SearchOptionItem, SearchOptionSubMenu } from '.';
@@ -421,8 +429,10 @@ export const filterRegistry = [
 		},
 		useOptions: () => {
 			const query = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+			useNodes(query.data?.nodes);
+			const locations = useCache(query.data?.items);
 
-			return (query.data ?? []).map((location) => ({
+			return (locations ?? []).map((location) => ({
 				name: location.name!,
 				value: location.id,
 				icon: 'Folder' // Spacedrive folder icon
@@ -455,8 +465,10 @@ export const filterRegistry = [
 		},
 		useOptions: () => {
 			const query = useLibraryQuery(['tags.list'], { keepPreviousData: true });
+			useNodes(query.data?.nodes);
+			const tags = useCache(query.data?.items);
 
-			return (query.data ?? []).map((tag) => ({
+			return (tags ?? []).map((tag) => ({
 				name: tag.name!,
 				value: tag.id,
 				icon: tag.color || 'CircleDashed'

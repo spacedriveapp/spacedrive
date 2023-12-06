@@ -1,7 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { forwardRef, useState } from 'react';
 import { Text, View } from 'react-native';
-import { useBridgeMutation, usePlausibleEvent } from '@sd/client';
+import {
+	insertLibrary,
+	useBridgeMutation,
+	useNormalisedCache,
+	usePlausibleEvent
+} from '@sd/client';
 import { ModalInput } from '~/components/form/Input';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
@@ -13,6 +18,7 @@ const CreateLibraryModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	const modalRef = useForwardedRef(ref);
 
 	const queryClient = useQueryClient();
+	const cache = useNormalisedCache();
 	const [libName, setLibName] = useState('');
 
 	const submitPlausibleEvent = usePlausibleEvent();
@@ -20,17 +26,15 @@ const CreateLibraryModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
 		'library.create',
 		{
-			onSuccess: (lib) => {
+			onSuccess: (libRaw) => {
+				cache.withNodes(libRaw.nodes);
+				const lib = cache.withCache(libRaw.item);
+
 				// Reset form
 				setLibName('');
 
 				// We do this instead of invalidating the query because it triggers a full app re-render??
-				queryClient.setQueryData(['library.list'], (libraries: any) => {
-					// The invalidation system beat us to it
-					if (libraries.find((l: any) => l.uuid === lib.uuid)) return libraries;
-
-					return [...(libraries || []), lib];
-				});
+				insertLibrary(queryClient, lib);
 
 				// Switch to the new library
 				currentLibraryStore.id = lib.uuid;

@@ -1,4 +1,5 @@
 import { CheckSquare } from '@phosphor-icons/react';
+import { useNavigate } from 'react-router';
 import {
 	backendFeatures,
 	features,
@@ -31,6 +32,7 @@ export default () => {
 
 	const debugState = useDebugState();
 	const platform = usePlatform();
+	const navigate = useNavigate();
 
 	return (
 		<Popover
@@ -144,6 +146,9 @@ export default () => {
 				<FeatureFlagSelector />
 				<InvalidateDebugPanel />
 				<TestNotifications />
+				<Button size="sm" variant="gray" onClick={() => navigate('./debug/cache')}>
+					Cache Debug
+				</Button>
 
 				{/* {platform.showDevtools && (
 					<SettingContainer

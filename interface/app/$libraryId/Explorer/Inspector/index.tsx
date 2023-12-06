@@ -37,8 +37,10 @@ import {
 	ObjectKindEnum,
 	ObjectWithFilePaths,
 	useBridgeQuery,
+	useCache,
 	useItemsAsObjects,
 	useLibraryQuery,
+	useNodes,
 	type ExplorerItem
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, toast, Tooltip, tw } from '@sd/ui';
@@ -172,7 +174,9 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	let filePathData: FilePath | FilePathWithObject | null = null;
 	let ephemeralPathData: NonIndexedPathItem | null = null;
 
-	const locations = useLibraryQuery(['locations.list']);
+	const result = useLibraryQuery(['locations.list']);
+	useNodes(result.data?.nodes);
+	const locations = useCache(result.data?.items);
 
 	switch (item.type) {
 		case 'NonIndexedPath': {
@@ -209,12 +213,15 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	}, [item]);
 
 	const fileLocations =
-		locations.data?.filter((location) => uniqueLocationIds.includes(location.id)) || [];
+		locations?.filter((location) => uniqueLocationIds.includes(location.id)) || [];
 
 	const readyToFetch = useIsFetchReady(item);
-	const tags = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
+	const tagsQuery = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
 		enabled: objectData != null && readyToFetch
 	});
+	useNodes(tagsQuery.data?.nodes);
+	const tags = useCache(tagsQuery.data?.items);
+
 	const { libraryId } = useZodRouteParams(LibraryIdParamsSchema);
 
 	const queriedFullPath = useLibraryQuery(['files.getPath', filePathData?.id ?? -1], {
@@ -332,7 +339,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 				{extension && <InfoPill>{extension}</InfoPill>}
 
-				{tags.data?.map((tag) => (
+				{tags?.map((tag) => (
 					<NavLink key={tag.id} to={`/${libraryId}/tag/${tag.id}`}>
 						<Tooltip label={tag.name || ''} className="flex overflow-hidden">
 							<InfoPill
@@ -392,10 +399,12 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 
 	const { libraryId } = useZodRouteParams(LibraryIdParamsSchema);
 
-	const tags = useLibraryQuery(['tags.list'], {
+	const tagsQuery = useLibraryQuery(['tags.list'], {
 		enabled: readyToFetch && !explorerStore.isDragSelecting,
 		suspense: true
 	});
+	useNodes(tagsQuery.data?.nodes);
+	const tags = useCache(tagsQuery.data?.items);
 
 	const tagsWithObjects = useLibraryQuery(
 		['tags.getWithObjects', selectedObjects.map(({ id }) => id)],
@@ -487,7 +496,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 					<InfoPill key={kind}>{`${kind} (${items.length})`}</InfoPill>
 				))}
 
-				{tags.data?.map((tag) => {
+				{tags?.map((tag) => {
 					const objectsWithTag = tagsWithObjects.data?.[tag.id] || [];
 
 					if (objectsWithTag.length === 0) return null;
