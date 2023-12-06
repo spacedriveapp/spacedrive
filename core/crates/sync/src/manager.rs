@@ -21,7 +21,7 @@ use uhlc::{HLCBuilder, HLC};
 use uuid::Uuid;
 
 pub struct Manager {
-	tx: broadcast::Sender<SyncMessage>,
+	pub tx: broadcast::Sender<SyncMessage>,
 	pub ingest: ingest::Handler,
 	shared: Arc<SharedState>,
 }
