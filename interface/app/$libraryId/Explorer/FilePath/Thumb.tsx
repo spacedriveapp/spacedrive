@@ -3,7 +3,6 @@ import clsx from 'clsx';
 import {
 	memo,
 	SyntheticEvent,
-	useCallback,
 	useEffect,
 	useLayoutEffect,
 	useMemo,
@@ -22,15 +21,9 @@ import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
 import { getExplorerStore } from '../store';
-import { useExplorerItemData } from '../util';
+import { ExplorerItemData, useExplorerItemData } from '../util';
 import LayeredFileIcon from './LayeredFileIcon';
 import classes from './Thumb.module.scss';
-
-export const enum ThumbType {
-	Icon = 'ICON',
-	Original = 'ORIGINAL',
-	Thumbnail = 'THUMBNAIL'
-}
 
 export interface ThumbProps {
 	data: ExplorerItem;
@@ -47,9 +40,14 @@ export interface ThumbProps {
 	pauseVideo?: boolean;
 	className?: string;
 	frameClassName?: string;
-	childClassName?: string | ((type: ThumbType | `${ThumbType}`) => string | undefined);
+	childClassName?: string | ((type: ThumbType) => string | undefined);
 	isSidebarPreview?: boolean;
 }
+
+type ThumbType =
+	| { variant: 'original'; renderer: OriginalRenderer }
+	| { variant: 'thumbnail' }
+	| { variant: 'icon' };
 
 export const FileThumb = memo((props: ThumbProps) => {
 	const isDark = useIsDark();
@@ -61,9 +59,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 	const { parent } = useExplorerContext();
 	const { library } = useLibraryContext();
 
-	const [src, setSrc] = useState<string>();
-	const [loaded, setLoaded] = useState<boolean>(false);
-	const [thumbType, setThumbType] = useState(ThumbType.Icon);
+	const [loadState, setLoadState] = useState<'notLoaded' | 'loaded' | 'error'>('notLoaded');
 
 	const childClassName = 'max-h-full max-w-full object-contain';
 	const frameClassName = clsx(
@@ -72,88 +68,85 @@ export const FileThumb = memo((props: ThumbProps) => {
 		isDark ? classes.checkers : classes.checkersLight
 	);
 
-	const _onLoad = props.onLoad;
-	const onLoad = useCallback(() => {
-		setLoaded(true);
-		_onLoad?.(thumbType);
-	}, [_onLoad, thumbType]);
+	const thumbType = useMemo<ThumbType>(() => {
+		const expectedThumbType: ThumbType = (() => {
+			if (props.loadOriginal) {
+				if (loadState === 'error' && !itemData.hasLocalThumbnail)
+					return { variant: 'icon' };
 
-	const _onError = props.onError;
-	const onError = useCallback(
-		(event: ErrorEvent | SyntheticEvent<Element, Event>) => {
-			setLoaded(false);
-			setThumbType((prevThumbType) =>
-				prevThumbType === ThumbType.Original && itemData.hasLocalThumbnail
-					? ThumbType.Thumbnail
-					: ThumbType.Icon
-			);
+				const kind = originalRendererKind(itemData);
+				const renderer = ORIGINAL_RENDERERS[kind];
 
-			const rawError =
-				('error' in event && event.error) ||
-				('message' in event && event.message) ||
-				'Filetype is not supported yet';
+				if (renderer) return { variant: 'original', renderer };
 
-			_onError?.(thumbType, rawError instanceof Error ? rawError : new Error(rawError));
-		},
-		[_onError, thumbType, itemData.hasLocalThumbnail]
-	);
+				return { variant: 'thumbnail' };
+			} else if (itemData.hasLocalThumbnail) return { variant: 'thumbnail' };
+			else return { variant: 'icon' };
+		})();
+
+		if (expectedThumbType.variant === 'thumbnail' && itemData.thumbnailKey.length === 0)
+			return { variant: 'icon' };
+
+		return expectedThumbType;
+	}, [props.loadOriginal, itemData, loadState]);
+
+	const src = useMemo(() => {
+		const locationId =
+			itemData.locationId ?? (parent?.type === 'Location' ? parent.location.id : null);
+
+		switch (thumbType.variant) {
+			case 'original':
+				if (filePath && (itemData.extension !== 'pdf' || pdfViewerEnabled())) {
+					if ('id' in filePath && locationId)
+						return platform.getFileUrl(library.uuid, locationId, filePath.id);
+					else if ('path' in filePath) return platform.getFileUrlByPath(filePath.path);
+				}
+				break;
+
+			case 'thumbnail':
+				if (itemData.thumbnailKey.length > 0)
+					return platform.getThumbnailUrlByThumbKey(itemData.thumbnailKey);
+
+				break;
+			case 'icon':
+				if (itemData.customIcon) return getIconByName(itemData.customIcon as any);
+
+				return getIcon(
+					// itemData.isDir || parent?.type === 'Node' ? 'Folder' :
+					itemData.kind,
+					isDark,
+					itemData.extension,
+					itemData.isDir
+				);
+		}
+	}, [filePath, isDark, library.uuid, itemData, platform, thumbType, parent]);
+
+	const onLoad = () => {
+		setLoadState('loaded');
+		props.onLoad?.call(null, thumbType);
+	};
+
+	const onError = (event: ErrorEvent | SyntheticEvent<Element, Event>) => {
+		setLoadState('error');
+
+		const rawError =
+			('error' in event && event.error) ||
+			('message' in event && event.message) ||
+			'Filetype is not supported yet';
+
+		props.onError?.call(
+			null,
+			thumbType,
+			rawError instanceof Error ? rawError : new Error(rawError)
+		);
+	};
 
 	// useLayoutEffect is required to ensure the thumbType is always updated before the onError listener can execute,
 	// thus avoiding improper thumb types changes
 	useLayoutEffect(() => {
 		// Reset src when item changes, to allow detection of yet not updated src
-		setSrc(undefined);
-		setLoaded(false);
-
-		if (props.loadOriginal) {
-			setThumbType(ThumbType.Original);
-		} else if (itemData.hasLocalThumbnail) {
-			setThumbType(ThumbType.Thumbnail);
-		} else {
-			setThumbType(ThumbType.Icon);
-		}
-	}, [props.loadOriginal, itemData]);
-
-	useEffect(() => {
-		const locationId =
-			itemData.locationId ?? (parent?.type === 'Location' ? parent.location.id : null);
-
-		switch (thumbType) {
-			case ThumbType.Original:
-				if (filePath && (itemData.extension !== 'pdf' || pdfViewerEnabled())) {
-					if ('id' in filePath && locationId)
-						setSrc(platform.getFileUrl(library.uuid, locationId, filePath.id));
-					else if ('path' in filePath) setSrc(platform.getFileUrlByPath(filePath.path));
-				} else {
-					setThumbType(ThumbType.Thumbnail);
-				}
-				break;
-
-			case ThumbType.Thumbnail:
-				if (itemData.thumbnailKey.length > 0) {
-					setSrc(platform.getThumbnailUrlByThumbKey(itemData.thumbnailKey));
-				} else {
-					setThumbType(ThumbType.Icon);
-				}
-				break;
-
-			default:
-				if (itemData.customIcon) {
-					setSrc(getIconByName(itemData.customIcon as any));
-					break;
-				}
-				setSrc(
-					getIcon(
-						// itemData.isDir || parent?.type === 'Node' ? 'Folder' :
-						itemData.kind,
-						isDark,
-						itemData.extension,
-						itemData.isDir
-					)
-				);
-				break;
-		}
-	}, [props.data.item, filePath, isDark, library.uuid, itemData, platform, thumbType, parent]);
+		setLoadState('notLoaded');
+	}, [src, thumbType]);
 
 	return (
 		<div
@@ -180,105 +173,28 @@ export const FileThumb = memo((props: ThumbProps) => {
 
 				const className = clsx(childClassName, _childClassName);
 
-				switch (thumbType) {
-					case ThumbType.Original: {
-						switch (itemData.extension === 'pdf' ? 'PDF' : itemData.kind) {
-							case 'PDF':
-								return (
-									<PDFViewer
-										src={src}
-										onLoad={onLoad}
-										onError={onError}
-										className={clsx(
-											'h-full w-full',
-											className,
-											props.frame && frameClassName
-										)}
-										crossOrigin="anonymous" // Here it is ok, because it is not a react attr
-									/>
-								);
-							case 'Text':
-							case 'Code':
-							case 'Config':
-								return (
-									<TextViewer
-										src={src}
-										onLoad={onLoad}
-										onError={onError}
-										className={clsx(
-											'textviewer-scroll h-full w-full overflow-y-auto whitespace-pre-wrap break-words px-4 font-mono',
-											!props.mediaControls
-												? 'overflow-hidden'
-												: 'overflow-auto',
-											className,
-											props.frame && [frameClassName, '!bg-none p-2']
-										)}
-										codeExtension={
-											((itemData.kind === 'Code' ||
-												itemData.kind === 'Config') &&
-												itemData.extension) ||
-											''
-										}
-										isSidebarPreview={props.isSidebarPreview}
-									/>
-								);
-
-							case 'Video':
-								return (
-									<Video
-										src={src}
-										onLoadedData={onLoad}
-										onError={onError}
-										paused={props.pauseVideo}
-										controls={props.mediaControls}
-										blackBars={props.blackBars}
-										blackBarsSize={props.blackBarsSize}
-										className={clsx(
-											className,
-											props.frame && !props.blackBars && frameClassName
-										)}
-									/>
-								);
-
-							case 'Audio':
-								return (
-									<>
-										<img
-											src={getIcon(
-												iconNames.Audio,
-												isDark,
-												itemData.extension
-											)}
-											onLoad={onLoad}
-											decoding={props.size ? 'async' : 'sync'}
-											className={childClassName}
-											draggable={false}
-										/>
-										{props.mediaControls && (
-											<audio
-												// Order matter for crossOrigin attr
-												crossOrigin="anonymous"
-												src={src}
-												onError={onError}
-												controls
-												autoPlay
-												className="absolute left-2/4 top-full w-full -translate-x-1/2 translate-y-[-150%]"
-											>
-												<p>Audio preview is not supported.</p>
-											</audio>
-										)}
-									</>
-								);
-							default:
-								setThumbType(ThumbType.Thumbnail);
-								return null;
-							case 'Image':
-							// Fallthrough as image and thumbnail use the same component
-						}
-					}
+				switch (thumbType.variant) {
+					case 'original':
+						return thumbType.renderer({
+							src,
+							className,
+							frameClassName,
+							itemData,
+							isDark,
+							childClassName,
+							onLoad,
+							onError,
+							size: props.size,
+							mediaControls: props.mediaControls,
+							frame: props.frame,
+							isSidebarPreview: props.isSidebarPreview,
+							pauseVideo: props.pauseVideo,
+							blackBars: props.blackBars,
+							blackBarsSize: props.blackBarsSize
+						});
 
 					// eslint-disable-next-line no-fallthrough
-					case ThumbType.Thumbnail:
+					case 'thumbnail':
 						return (
 							<Thumbnail
 								src={src}
@@ -297,9 +213,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 										? frameClassName
 										: null
 								)}
-								crossOrigin={
-									thumbType !== ThumbType.Original ? 'anonymous' : undefined
-								} // Here it is ok, because it is not a react attr
+								crossOrigin="anonymous" // Here it is ok, because it is not a react attr
 								blackBars={
 									props.blackBars && itemData.kind === 'Video' && !props.cover
 								}
@@ -314,14 +228,14 @@ export const FileThumb = memo((props: ThumbProps) => {
 							/>
 						);
 
-					default:
+					case 'icon':
 						return (
 							<LayeredFileIcon
 								src={src}
 								kind={itemData.kind}
 								extension={itemData.extension}
 								onLoad={onLoad}
-								onError={() => setLoaded(false)}
+								onError={() => setLoadState('notLoaded')}
 								decoding={props.size ? 'async' : 'sync'}
 								className={className}
 								draggable={false}
@@ -392,6 +306,108 @@ const Thumbnail = memo(
 		);
 	}
 );
+
+interface OriginalRendererProps {
+	src: string;
+	className: string;
+	frameClassName: string;
+	itemData: ExplorerItemData;
+	isDark: boolean;
+	childClassName?: string;
+	size?: number;
+	mediaControls?: boolean;
+	frame?: boolean;
+	isSidebarPreview?: boolean;
+	pauseVideo?: boolean;
+	blackBars?: boolean;
+	blackBarsSize?: number;
+	onLoad?(): void;
+	onError?(e: ErrorEvent | SyntheticEvent<Element, Event>): void;
+}
+
+const TEXT_RENDERER: OriginalRenderer = (props) => (
+	<TextViewer
+		src={props.src}
+		onLoad={props.onLoad}
+		onError={props.onError}
+		className={clsx(
+			'textviewer-scroll h-full w-full overflow-y-auto whitespace-pre-wrap break-words px-4 font-mono',
+			!props.mediaControls ? 'overflow-hidden' : 'overflow-auto',
+			props.className,
+			props.frame && [props.frameClassName, '!bg-none p-2']
+		)}
+		codeExtension={
+			((props.itemData.kind === 'Code' || props.itemData.kind === 'Config') &&
+				props.itemData.extension) ||
+			''
+		}
+		isSidebarPreview={props.isSidebarPreview}
+	/>
+);
+
+type OriginalRenderer = (props: OriginalRendererProps) => JSX.Element;
+
+function originalRendererKind(itemData: ExplorerItemData) {
+	return itemData.extension === 'pdf' ? 'PDF' : itemData.kind;
+}
+
+type OriginalRendererKind = ReturnType<typeof originalRendererKind>;
+
+const ORIGINAL_RENDERERS: {
+	[K in OriginalRendererKind]?: OriginalRenderer;
+} = {
+	PDF: (props) => (
+		<PDFViewer
+			src={props.src}
+			onLoad={props.onLoad}
+			onError={props.onError}
+			className={clsx('h-full w-full', props.className, props.frame && props.frameClassName)}
+			crossOrigin="anonymous" // Here it is ok, because it is not a react attr
+		/>
+	),
+	Text: TEXT_RENDERER,
+	Code: TEXT_RENDERER,
+	Config: TEXT_RENDERER,
+	Video: (props) => (
+		<Video
+			src={props.src}
+			onLoadedData={props.onLoad}
+			onError={props.onError}
+			paused={props.pauseVideo}
+			controls={props.mediaControls}
+			blackBars={props.blackBars}
+			blackBarsSize={props.blackBarsSize}
+			className={clsx(
+				props.className,
+				props.frame && !props.blackBars && props.frameClassName
+			)}
+		/>
+	),
+	Audio: (props) => (
+		<>
+			<img
+				src={getIcon(iconNames.Audio, props.isDark, props.itemData.extension)}
+				onLoad={props.onLoad}
+				decoding={props.size ? 'async' : 'sync'}
+				className={props.childClassName}
+				draggable={false}
+			/>
+			{props.mediaControls && (
+				<audio
+					// Order matter for crossOrigin attr
+					crossOrigin="anonymous"
+					src={props.src}
+					onError={props.onError}
+					controls
+					autoPlay
+					className="absolute left-2/4 top-full w-full -translate-x-1/2 translate-y-[-150%]"
+				>
+					<p>Audio preview is not supported.</p>
+				</audio>
+			)}
+		</>
+	)
+};
 
 interface VideoProps extends VideoHTMLAttributes<HTMLVideoElement> {
 	paused?: boolean;
