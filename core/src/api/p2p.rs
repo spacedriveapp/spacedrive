@@ -88,7 +88,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("cancelSpacedrop", {
-			R.mutation(|node, id: Uuid| async move { Ok(node.p2p.cancel_spacedrop(id).await) })
+			R.mutation(|node, id: Uuid| async move {
+				node.p2p.cancel_spacedrop(id).await;
+				Ok(())
+			})
 		})
 		.procedure("pair", {
 			R.mutation(|node, id: RemoteIdentity| async move {

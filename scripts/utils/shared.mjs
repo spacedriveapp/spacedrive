@@ -27,10 +27,15 @@ async function link(origin, target, rename) {
 export async function symlinkSharedLibsLinux(root, nativeDeps) {
 	// rpath=${ORIGIN}/../lib/spacedrive
 	const targetLib = path.join(root, 'target', 'lib')
+	const targetShare = path.join(root, 'target', 'share', 'spacedrive')
 	const targetRPath = path.join(targetLib, 'spacedrive')
-	await fs.unlink(targetRPath).catch(() => {})
-	await fs.mkdir(targetLib, { recursive: true })
+	const targetModelShare = path.join(targetShare, 'models')
+	await Promise.all([
+		...[targetRPath, targetModelShare].map(path => fs.unlink(path).catch(() => {})),
+		...[targetLib, targetShare].map(path => fs.mkdir(path, { recursive: true })),
+	])
 	await link(path.join(nativeDeps, 'lib'), targetRPath)
+	await link(path.join(nativeDeps, 'models'), targetModelShare)
 }
 
 /**
@@ -66,71 +71,40 @@ export async function symlinkSharedLibsMacOS(root, nativeDeps) {
 
 /**
  * Copy Windows DLLs for tauri build
- * @param {string} root
  * @param {string} nativeDeps
- * @returns {Promise<{files: string[], toClean: string[]}>}
+ * @returns {Promise<Record<string, string>>}
  */
-export async function copyWindowsDLLs(root, nativeDeps) {
-	const tauriSrc = path.join(root, 'apps', 'desktop', 'src-tauri')
-	const files = await Promise.all(
-		await fs.readdir(path.join(nativeDeps, 'bin'), { withFileTypes: true }).then(files =>
-			files
-				.filter(entry => entry.isFile() && entry.name.endsWith(`.dll`))
-				.map(async entry => {
-					await fs.copyFile(
-						path.join(entry.path, entry.name),
-						path.join(tauriSrc, entry.name)
-					)
-					return entry.name
-				})
-		)
+export async function windowsDLLs(nativeDeps) {
+	return Object.fromEntries(
+		await fs
+			.readdir(path.join(nativeDeps, 'bin'), { withFileTypes: true })
+			.then(files =>
+				files
+					.filter(entry => entry.isFile() && entry.name.endsWith(`.dll`))
+					.map(entry => [path.join(entry.path, entry.name), '.'])
+			)
 	)
-
-	return { files, toClean: files.map(file => path.join(tauriSrc, file)) }
 }
 
 /**
  * Symlink shared libs paths for Linux
- * @param {string} root
  * @param {string} nativeDeps
- * @param {boolean} isDev
- * @returns {Promise<{files: string[], toClean: string[]}>}
+ * @returns {Promise<Record<string, string>>}
  */
-export async function copyLinuxLibs(root, nativeDeps, isDev) {
-	// rpath=${ORIGIN}/../lib/spacedrive
-	const tauriSrc = path.join(root, 'apps', 'desktop', 'src-tauri')
-	const files = await fs
-		.readdir(path.join(nativeDeps, 'lib'), { withFileTypes: true })
-		.then(files =>
-			Promise.all(
-				files
-					.filter(
-						entry =>
-							(entry.isFile() || entry.isSymbolicLink()) &&
-							(entry.name.endsWith('.so') || entry.name.includes('.so.'))
-					)
-					.map(async entry => {
-						if (entry.isSymbolicLink()) {
-							await fs.symlink(
-								await fs.readlink(path.join(entry.path, entry.name)),
-								path.join(tauriSrc, entry.name)
-							)
-						} else {
-							const target = path.join(tauriSrc, entry.name)
-							await fs.copyFile(path.join(entry.path, entry.name), target)
-							// https://web.archive.org/web/20220731055320/https://lintian.debian.org/tags/shared-library-is-executable
-							await fs.chmod(target, 0o644)
-						}
-						return entry.name
-					})
+export async function linuxLibs(nativeDeps) {
+	return Object.fromEntries(
+		await fs
+			.readdir(path.join(nativeDeps, 'lib'), { withFileTypes: true })
+			.then(files =>
+				Promise.all(
+					files
+						.filter(
+							entry =>
+								(entry.isFile() || entry.isSymbolicLink()) &&
+								(entry.name.endsWith('.so') || entry.name.includes('.so.'))
+						)
+						.map(entry => [path.join(entry.path, entry.name), '.'])
+				)
 			)
-		)
-
-	return {
-		files,
-		toClean: [
-			...files.map(file => path.join(tauriSrc, file)),
-			...files.map(file => path.join(root, 'target', isDev ? 'debug' : 'release', file)),
-		],
-	}
+	)
 }

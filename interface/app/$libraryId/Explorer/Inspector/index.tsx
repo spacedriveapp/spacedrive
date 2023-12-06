@@ -36,7 +36,6 @@ import {
 	Object,
 	ObjectKindEnum,
 	ObjectWithFilePaths,
-	ToastDefautlColor,
 	useBridgeQuery,
 	useCache,
 	useItemsAsObjects,

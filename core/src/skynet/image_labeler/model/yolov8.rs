@@ -6,18 +6,30 @@ use image::{imageops::FilterType, GenericImageView};
 use ndarray::{s, Array, Axis};
 use ort::{inputs, SessionInputs};
 
+use crate::skynet::utils::get_path_relative_to_exe;
+
 use super::{ImageLabelerError, Model};
 
 pub struct YoloV8 {
 	model_path: Box<Path>,
 }
 
+// This path must be relative to the running binary
+#[cfg(windows)]
+const MODEL_LOCATION: &str = "./models";
+#[cfg(unix)]
+const MODEL_LOCATION: &str = if cfg!(target_os = "macos") {
+	"../Frameworks/Spacedrive.framework/Resources/Models"
+} else {
+	"../share/spacedrive/models"
+};
+
+const MODEL_NAME: &str = "yolov8s.onnx";
+
 impl YoloV8 {
-	pub fn model(data_directory: impl AsRef<Path>) -> Arc<dyn Model> {
+	pub fn model(_: impl AsRef<Path>) -> Arc<dyn Model> {
 		Arc::new(Self {
-			model_path: data_directory
-				.as_ref()
-				.join("models/yolov8s.onnx")
+			model_path: get_path_relative_to_exe(Path::new(MODEL_LOCATION).join(MODEL_NAME))
 				.into_boxed_path(),
 		})
 	}

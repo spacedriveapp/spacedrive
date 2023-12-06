@@ -1,13 +1,11 @@
-use std::{
-	env::{args_os, current_exe},
-	path::Path,
-};
+use std::path::Path;
 
 use ort::{EnvironmentBuilder, LoggingLevel};
 use thiserror::Error;
 use tracing::{debug, error};
 
 pub mod image_labeler;
+mod utils;
 
 // This path must be relative to the running binary
 #[cfg(windows)]
@@ -29,24 +27,7 @@ const LIB_NAME: &str = "libonnxruntime.dylib";
 const LIB_NAME: &str = "libonnxruntime.so";
 
 pub(crate) fn init() -> Result<(), Error> {
-	let path = current_exe()
-		.unwrap_or_else(|e| {
-			error!("Failed to get current exe path: {e:#?}");
-			args_os()
-				.next()
-				.expect("there is always the first arg")
-				.into()
-		})
-		.parent()
-		.and_then(|parent_path| {
-			parent_path
-				.join(BINDING_LOCATION)
-				.join(LIB_NAME)
-				.canonicalize()
-				.map_err(|e| error!("{e:#?}"))
-				.ok()
-		})
-		.unwrap_or_else(|| Path::new(BINDING_LOCATION).join(LIB_NAME));
+	let path = utils::get_path_relative_to_exe(Path::new(BINDING_LOCATION).join(LIB_NAME));
 
 	std::env::set_var("ORT_DYLIB_PATH", path);
 
