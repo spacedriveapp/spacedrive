@@ -119,8 +119,9 @@ function HostedLocationsPlayground() {
 			locations.refetch();
 		}
 	});
+	const doTheThing = useBridgeMutation('cloud.locations.testing');
 
-	const isLoading = createLocation.isLoading || removeLocation.isLoading;
+	const isLoading = createLocation.isLoading || removeLocation.isLoading || doTheThing.isLoading;
 
 	return (
 		<>
@@ -170,6 +171,14 @@ function HostedLocationsPlayground() {
 								disabled={isLoading}
 							>
 								Delete
+							</Button>
+							<Button
+								variant="accent"
+								size="sm"
+								onClick={() => doTheThing.mutate(location.id)}
+								disabled={isLoading}
+							>
+								Do the thing
 							</Button>
 						</div>
 					))}

@@ -55,6 +55,7 @@ export type Procedures = {
         { key: "cloud.library.join", input: string, result: LibraryConfigWrapped } | 
         { key: "cloud.locations.create", input: string, result: CloudLocation } | 
         { key: "cloud.locations.remove", input: string, result: null } | 
+        { key: "cloud.locations.testing", input: string, result: null } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
         { key: "ephemeralFiles.cutFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 

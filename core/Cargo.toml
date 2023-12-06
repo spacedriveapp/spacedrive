@@ -108,6 +108,9 @@ reqwest = { version = "0.11.22", features = ["json", "native-tls-vendored"] }
 directories = "5.0.1"
 async-recursion = "1.0.5"
 base64 = "0.21.5"
+aws-sdk-s3 = { version = "1.5.0", features = ["behavior-version-latest"] }
+aws-config = "1.0.3"
+aws-credential-types = "1.0.3"
 
 # Override features of transitive dependencies
 [dependencies.openssl]
