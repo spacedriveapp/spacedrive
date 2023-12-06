@@ -1,8 +1,8 @@
 import { Envelope, User } from '@phosphor-icons/react';
 import { iconNames } from '@sd/assets/util';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { auth, useBridgeMutation, useBridgeQuery, useFeatureFlag } from '@sd/client';
-import { Button, Card, Input } from '@sd/ui';
+import { Button, Card, Input, toast } from '@sd/ui';
 import { Icon, TruncatedText } from '~/components';
 import { AuthRequiredOverlay } from '~/components/AuthRequiredOverlay';
 
@@ -104,6 +104,7 @@ function HostedLocationsPlayground() {
 	const locations = useBridgeQuery(['cloud.locations.list'], { retry: false });
 
 	const [locationName, setLocationName] = useState('');
+	const [path, setPath] = useState('');
 	const createLocation = useBridgeMutation('cloud.locations.create', {
 		onSuccess(data) {
 			// console.log('DATA', data); // TODO: Optimistic UI
@@ -119,7 +120,20 @@ function HostedLocationsPlayground() {
 			locations.refetch();
 		}
 	});
-	const doTheThing = useBridgeMutation('cloud.locations.testing');
+	const doTheThing = useBridgeMutation('cloud.locations.testing', {
+		onSuccess() {
+			toast.success('Uploaded file!');
+		},
+		onError(err) {
+			toast.error(err.message);
+		}
+	});
+
+	useEffect(() => {
+		if (path === '' && locations.data?.[0]) {
+			setPath(`location/${locations.data[0].id}/hello.txt`);
+		}
+	}, [path, locations.data]);
 
 	const isLoading = createLocation.isLoading || removeLocation.isLoading || doTheThing.isLoading;
 
@@ -155,6 +169,7 @@ function HostedLocationsPlayground() {
 				title="Hosted Locations"
 				description="Augment your local storage with our cloud!"
 			/>
+
 			{/* TODO: Cleanup this mess + styles */}
 			{locations.status === 'loading' ? <div>Loading!</div> : null}
 			{locations.status !== 'loading' && locations.data?.length === 0 ? (
@@ -175,7 +190,12 @@ function HostedLocationsPlayground() {
 							<Button
 								variant="accent"
 								size="sm"
-								onClick={() => doTheThing.mutate(location.id)}
+								onClick={() =>
+									doTheThing.mutate({
+										id: location.id,
+										path
+									})
+								}
 								disabled={isLoading}
 							>
 								Do the thing
@@ -184,6 +204,16 @@ function HostedLocationsPlayground() {
 					))}
 				</div>
 			)}
+
+			<div>
+				<p>Path to save when clicking 'Do the thing':</p>
+				<Input
+					className="grow"
+					value={path}
+					onInput={(e) => setPath(e.currentTarget.value)}
+					disabled={isLoading}
+				/>
+			</div>
 		</>
 	);
 }

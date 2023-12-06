@@ -281,9 +281,9 @@ mod locations {
 			})
 			// TODO: Remove this
 			.procedure("testing", {
-				// TODO: Move this off a static. This is just for debugging.
-				static AUTH_TOKEN: Lazy<Mutex<Option<AuthoriseResponse>>> =
-					Lazy::new(|| Mutex::new(None));
+				// // TODO: Move this off a static. This is just for debugging.
+				// static AUTH_TOKEN: Lazy<Mutex<Option<AuthoriseResponse>>> =
+				// 	Lazy::new(|| Mutex::new(None));
 
 				#[derive(Debug)]
 				pub struct CredentialsProvider(AuthoriseResponse);
@@ -307,9 +307,15 @@ mod locations {
 					}
 				}
 
-				R.mutation(|node, id: String| async move {
+				#[derive(Type, Deserialize)]
+				pub struct TestingParams {
+					id: String,
+					path: String,
+				}
+
+				R.mutation(|node, params: TestingParams| async move {
 					let token = {
-						let mut token = AUTH_TOKEN.lock().await;
+						let token = &mut None; // AUTH_TOKEN.lock().await; // TODO: Caching of the token. For now it's annoying when debugging.
 						if token.is_none() {
 							let api_url = &node.env.api_url;
 
@@ -318,7 +324,7 @@ mod locations {
 									node.http
 										.post(&format!("{api_url}/api/v1/locations/authorise"))
 										.json(&json!({
-											"id": id
+											"id": params.id
 										})),
 								)
 								.await
@@ -346,7 +352,7 @@ mod locations {
 					client
 						.put_object()
 						.bucket("spacedrive-cloud") // TODO: From cloud config
-						.key("test") // TODO: Proper access control to only the current locations files
+						.key(params.path) // TODO: Proper access control to only the current locations files
 						.body(ByteStream::from_body_0_4(Full::from("Hello, world!")))
 						.send()
 						.await
