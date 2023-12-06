@@ -3,7 +3,9 @@ import { Link, useMatch } from 'react-router-dom';
 import {
 	arraysEqual,
 	Location as LocationType,
+	useCache,
 	useLibraryQuery,
+	useNodes,
 	useOnlineLocations
 } from '@sd/client';
 import { useExplorerDroppable } from '~/app/$libraryId/Explorer/useExplorerDroppable';
@@ -17,7 +19,9 @@ import { SeeMore } from '../SeeMore';
 import { ContextMenu } from './ContextMenu';
 
 export const Locations = () => {
-	const { data: locations } = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	useNodes(locationsQuery.data?.nodes);
+	const locations = useCache(locationsQuery.data?.items);
 	const onlineLocations = useOnlineLocations();
 
 	return (

@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { NavLink, useMatch } from 'react-router-dom';
-import { useLibraryQuery, type Tag } from '@sd/client';
+import { useCache, useLibraryQuery, useNodes, type Tag } from '@sd/client';
 import { useExplorerDroppable } from '~/app/$libraryId/Explorer/useExplorerDroppable';
 import { SubtleButton } from '~/components';
 
@@ -10,7 +10,9 @@ import { SeeMore } from '../SeeMore';
 import { ContextMenu } from './ContextMenu';
 
 export const Tags = () => {
-	const { data: tags } = useLibraryQuery(['tags.list'], { keepPreviousData: true });
+	const result = useLibraryQuery(['tags.list'], { keepPreviousData: true });
+	useNodes(result.data?.nodes);
+	const tags = useCache(result.data?.items);
 
 	if (!tags?.length) return null;
 
