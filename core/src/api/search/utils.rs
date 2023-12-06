@@ -25,22 +25,21 @@ impl From<SortOrder> for prisma::SortOrder {
 	}
 }
 
-#[derive(Deserialize, Type, Debug, Clone)]
-#[serde(untagged)]
-pub enum MaybeNot<T> {
-	None(T),
-	Not { not: T },
-}
+// #[derive(Deserialize, Type, Debug, Clone)]
+// #[serde(untagged)]
+// pub enum MaybeNot<T> {
+// 	None(T),
+// 	Not { not: T },
+// }
 
-impl<T> MaybeNot<T> {
-	#[allow(unused)]
-	pub fn into_prisma<R: From<prisma_client_rust::Operator<R>>>(self, param: fn(T) -> R) -> R {
-		match self {
-			Self::None(v) => param(v),
-			Self::Not { not } => prisma_client_rust::not![param(not)],
-		}
-	}
-}
+// impl<T> MaybeNot<T> {
+// 	pub fn into_prisma<R: From<prisma_client_rust::Operator<R>>>(self, param: fn(T) -> R) -> R {
+// 		match self {
+// 			Self::None(v) => param(v),
+// 			Self::Not { not } => prisma_client_rust::not![param(not)],
+// 		}
+// 	}
+// }
 
 #[derive(Deserialize, Type, Debug)]
 #[serde(rename_all = "camelCase")]

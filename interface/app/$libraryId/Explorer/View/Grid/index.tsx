@@ -597,6 +597,7 @@ export default memo(({ children }: { children: RenderItem }) => {
 
 					return (
 						<GridItem
+							key={uniqueId(item)}
 							index={index}
 							item={item}
 							onMouseDown={(e) => {

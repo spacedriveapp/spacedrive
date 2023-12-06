@@ -1,3 +1,5 @@
+use super::{utils::library, Ctx, R};
+use crate::{invalidate_query, library::LibraryName, util::http::ensure_response};
 use base64::prelude::*;
 use reqwest::Response;
 use rspc::alpha::AlphaRouter;
@@ -7,12 +9,6 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
 use specta::Type;
 use uuid::Uuid;
-
-use crate::{invalidate_query, library::LibraryName};
-
-use crate::util::http::ensure_response;
-
-use super::{utils::library, Ctx, R};
 
 async fn parse_json_body<T: DeserializeOwned>(response: Response) -> Result<T, rspc::Error> {
 	response.json().await.map_err(|_| {
@@ -107,7 +103,6 @@ mod library {
 					.mutation(|(node, library), _: ()| async move {
 						let api_url = &node.env.api_url;
 						let library_id = library.id;
-						let instance_uuid = library.instance_uuid;
 
 						node.authed_api_request(
 							node.http
@@ -127,79 +122,70 @@ mod library {
 					})
 			})
 			.procedure("join", {
-				R.mutation(|node, library_id: Uuid| async move {
-					let api_url = &node.env.api_url;
+				R.with2(library())
+					.mutation(|(node, library), _: ()| async move {
+						let api_url = &node.env.api_url;
+						let library_id = library.id;
+						let instance_id = &library.instance_uuid;
+						let db = &library.db;
 
-					let Some(cloud_library) = node
-						.authed_api_request(
+						node.authed_api_request(
 							node.http
-								.get(&format!("{api_url}/api/v1/libraries/{library_id}")),
+								.post(&format!("{api_url}/api/v1/libraries/{library_id}/instances/{instance_id}"))
+								.json(&json!({
+									"instanceIdentity": library.identity.to_remote_identity()
+								})),
 						)
 						.await
-						.and_then(ensure_response)
-						.map(parse_json_body::<Option<Response>>)?
-						.await?
-					else {
-						return Err(rspc::Error::new(
-							rspc::ErrorCode::NotFound,
-							"Library not found".to_string(),
-						));
-					};
+						.and_then(ensure_response)?;
 
-					let library = node
-						.libraries
-						.create_with_uuid(
-							library_id,
-							LibraryName::new(cloud_library.name).unwrap(),
-							None,
-							false,
-							None,
-							&node,
-						)
-						.await?;
+						let Some(cloud_library) = node
+							.authed_api_request(
+								node.http
+									.get(&format!("{api_url}/api/v1/libraries/{library_id}")),
+							)
+							.await
+							.and_then(ensure_response)
+							.map(parse_json_body::<Option<Response>>)?
+							.await?
+						else {
+							return Err(rspc::Error::new(
+								rspc::ErrorCode::NotFound,
+								"Library not found".to_string(),
+							));
+						};
 
-					let instance_uuid = library.instance_uuid;
-
-					node.authed_api_request(
-						node.http
-							.post(&format!(
-								"{api_url}/api/v1/libraries/{library_id}/instances/{instance_uuid}"
-							))
-							.json(&json!({
-								"instanceIdentity": library.identity.to_remote_identity()
-							})),
-					)
-					.await
-					.and_then(ensure_response)?;
-
-					library
-						.db
-						.instance()
-						.create_many(
+						db._batch(
 							cloud_library
 								.instances
 								.into_iter()
 								.map(|instance| {
-									instance::create_unchecked(
-										uuid_to_bytes(instance.uuid),
-										BASE64_STANDARD.decode(instance.identity).unwrap(),
-										vec![],
-										"".to_string(),
-										0,
-										Utc::now().into(),
-										Utc::now().into(),
+									db.instance().upsert(
+										instance::pub_id::equals(uuid_to_bytes(instance.uuid)),
+										instance::create(
+											uuid_to_bytes(instance.uuid),
+											BASE64_STANDARD
+												.decode(instance.identity)
+												.expect("failed to decode identity!"),
+											vec![],
+											"".to_string(),
+											0,
+											Utc::now().into(),
+											Utc::now().into(),
+											vec![],
+										),
 										vec![],
 									)
 								})
-								.collect(),
+								.collect::<Vec<_>>(),
 						)
-						.exec()
 						.await?;
 
-					invalidate_query!(library, "cloud.library.get");
+						invalidate_query!(library, "cloud.library.get");
+						invalidate_query!(library, "cloud.library.list");
 
-					Ok(LibraryConfigWrapped::from_library(&library).await)
-				})
+						Ok(LibraryConfigWrapped::from_library(&library).await)
+					})
 			})
 	}
 }

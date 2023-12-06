@@ -35,6 +35,7 @@ use tracing_subscriber::{
 
 pub mod api;
 mod auth;
+mod cloud;
 pub mod custom_uri;
 mod env;
 pub(crate) mod job;
@@ -66,7 +67,8 @@ pub struct Node {
 	pub notifications: Notifications,
 	pub thumbnailer: Thumbnailer,
 	pub files_over_p2p_flag: Arc<AtomicBool>,
-	pub env: env::Env,
+	pub cloud_sync_flag: Arc<AtomicBool>,
+	pub env: Arc<env::Env>,
 	pub http: reqwest::Client,
 }
 
@@ -86,6 +88,8 @@ impl Node {
 		let data_dir = data_dir.as_ref();
 
 		info!("Starting core with data directory '{}'", data_dir.display());
+
+		let env = Arc::new(env);
 
 		#[cfg(debug_assertions)]
 		let init_data = util::debug_initializer::InitConfig::load(data_dir).await?;
@@ -119,6 +123,7 @@ impl Node {
 			event_bus,
 			libraries,
 			files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
+			cloud_sync_flag: Arc::new(AtomicBool::new(false)),
 			http: reqwest::Client::new(),
 			env,
 		});
