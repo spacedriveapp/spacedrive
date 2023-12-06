@@ -79,12 +79,9 @@ export function CacheProvider({ cache, children }: PropsWithChildren<{ cache: No
 				// If key is not required. Eg. not in any query within the React Query cache.
 				if (!requiredKeys.has([type, id])) {
 					// Yeet the imposter
-					console.debug('Removing Cache Key: ', type, id);
 					delete cache.cache.nodes?.[type]?.[id];
 				}
 			}
-
-			console.debug('Normalised Cache Cleanup', requiredKeys.size, existingKeys.size);
 		}, 60 * 1000);
 		return () => clearInterval(interval);
 	}, [cache.cache, queryClient]);
