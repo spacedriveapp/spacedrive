@@ -27,7 +27,7 @@ const MODEL_LOCATION: &str = if cfg!(target_os = "macos") {
 const MODEL_NAME: &str = "yolov8s.onnx";
 
 impl YoloV8 {
-	pub fn model(_: impl AsRef<Path>) -> Arc<dyn Model> {
+	pub fn model() -> Arc<dyn Model> {
 		Arc::new(Self {
 			model_path: get_path_relative_to_exe(Path::new(MODEL_LOCATION).join(MODEL_NAME))
 				.into_boxed_path(),

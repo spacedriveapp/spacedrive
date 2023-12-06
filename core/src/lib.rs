@@ -132,7 +132,7 @@ impl Node {
 			http: reqwest::Client::new(),
 			env,
 			#[cfg(feature = "skynet")]
-			image_labeller: ImageLabeler::new(YoloV8::model(data_dir))
+			image_labeller: ImageLabeler::new(YoloV8::model())
 				.await
 				.map_err(skynet::Error::from)?,
 		});

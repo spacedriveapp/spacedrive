@@ -318,11 +318,13 @@ pub async fn get_volumes() -> Vec<Volume> {
 		}
 
 		#[cfg(windows)]
+		#[allow(clippy::needless_late_init)]
 		let mut total_capacity;
 		#[cfg(not(windows))]
+		#[allow(clippy::needless_late_init)]
 		let total_capacity;
-
 		total_capacity = disk.total_space();
+
 		let available_capacity = disk.available_space();
 		let is_root_filesystem = mount_point.is_absolute() && mount_point.parent().is_none();
 
