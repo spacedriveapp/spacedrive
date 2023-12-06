@@ -132,7 +132,8 @@ impl Libraries {
 
 				// This is compleaty breaking on linux now, no ideia why, but it will be irrelevant in a short while
 				// So let's leave it disable for now
-				#[cfg(not(target_os = "linux"))]{
+				#[cfg(not(target_os = "linux"))]
+				{
 					use crate::volume::watcher::spawn_volume_watcher;
 					spawn_volume_watcher(_library_arc.clone());
 				}
