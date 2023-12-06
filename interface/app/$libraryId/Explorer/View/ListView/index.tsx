@@ -484,6 +484,16 @@ export default () => {
 	useEffect(() => setRanges([]), [settings.order]);
 
 	useEffect(() => {
+		if (!getQuickPreviewStore().open || explorer.selectedItems.size !== 1) return;
+
+		const [item] = [...explorer.selectedItems];
+		if (!item) return;
+
+		const itemId = uniqueId(item);
+		setRanges([[itemId, itemId]]);
+	}, [explorer.selectedItems]);
+
+	useEffect(() => {
 		if (initialized || !sized || !explorer.count || explorer.selectedItems.size === 0) {
 			if (explorer.selectedItems.size === 0 && !initialized) setInitialized(true);
 			return;
