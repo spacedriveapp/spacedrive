@@ -10,6 +10,7 @@
 	},
 	"dependencies": {
 		"@dnd-kit/core": "^6.1.0",
+		"@dnd-kit/utilities": "^3.2.2",
 		"@fontsource/inter": "^4.5.15",
 		"@headlessui/react": "^1.7.17",
 		"@icons-pack/react-simple-icons": "^9.1.0",

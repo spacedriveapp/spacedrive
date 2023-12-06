@@ -46,7 +46,7 @@ importers:
         version: 5.3.2
       vite:
         specifier: ^4.5.0
-        version: 4.5.0(@types/node@18.17.19)
+        version: 4.5.0(less@4.2.0)
 
   .github/actions/publish-artifacts:
     dependencies:
@@ -618,7 +618,7 @@ importers:
         version: 5.3.2
       vite:
         specifier: ^4.5.0
-        version: 4.5.0(@types/node@18.17.19)
+        version: 4.5.0(less@4.2.0)
       vite-plugin-html:
         specifier: ^3.2.0
         version: 3.2.0(vite@4.5.0)
@@ -634,6 +634,9 @@ importers:
       '@dnd-kit/core':
         specifier: ^6.1.0
         version: 6.1.0(react-dom@18.2.0)(react@18.2.0)
+      '@dnd-kit/utilities':
+        specifier: ^3.2.2
+        version: 3.2.2(react@18.2.0)
       '@fontsource/inter':
         specifier: ^4.5.15
         version: 4.5.15
@@ -8152,7 +8155,7 @@ packages:
     dependencies:
       '@babel/core': 7.23.2
       '@svgr/babel-preset': 8.1.0(@babel/core@7.23.2)
-      '@svgr/core': 8.1.0(typescript@5.2.2)
+      '@svgr/core': 8.1.0(typescript@5.3.2)
       '@svgr/hast-util-to-babel-ast': 8.0.0
       svg-parser: 2.0.4
     transitivePeerDependencies:
@@ -9167,7 +9170,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.22.5(@babel/core@7.23.2)
       '@types/babel__core': 7.20.3
       react-refresh: 0.14.0
-      vite: 4.5.0(sass@1.69.5)
+      vite: 4.5.0(@types/node@18.17.19)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -21300,7 +21303,7 @@ packages:
       '@rollup/pluginutils': 5.0.5
       '@svgr/core': 8.1.0(typescript@5.3.2)
       '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0)
-      vite: 4.5.0(sass@1.69.5)
+      vite: 4.5.0(@types/node@18.17.19)
     transitivePeerDependencies:
       - rollup
       - supports-color
