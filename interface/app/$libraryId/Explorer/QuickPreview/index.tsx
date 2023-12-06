@@ -496,10 +496,10 @@ export const QuickPreview = () => {
 								<FileThumb
 									data={item}
 									onLoad={(type) =>
-										type === 'ORIGINAL' && setThumbErrorToast(undefined)
+										type.variant === 'original' && setThumbErrorToast(undefined)
 									}
 									onError={(type, error) =>
-										type === 'ORIGINAL' &&
+										type.variant === 'original' &&
 										setThumbErrorToast({
 											title: 'Error loading original file',
 											body: error.message

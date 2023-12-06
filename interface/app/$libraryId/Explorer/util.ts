@@ -28,6 +28,8 @@ export function useExplorerItemData(explorerItem: ExplorerItem) {
 	}, [explorerItem, newThumbnail]);
 }
 
+export type ExplorerItemData = ReturnType<typeof useExplorerItemData>;
+
 export const pubIdToString = (pub_id: number[]) =>
 	pub_id.map((b) => b.toString(16).padStart(2, '0')).join('');
 
