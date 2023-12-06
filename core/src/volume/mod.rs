@@ -317,8 +317,12 @@ pub async fn get_volumes() -> Vec<Volume> {
 			}
 		}
 
-		#[allow(unused_mut)] // mut is used in windows
-		let mut total_capacity = disk.total_space();
+		#[cfg(windows)]
+		let mut total_capacity;
+		#[cfg(not(windows))]
+		let total_capacity;
+
+		total_capacity = disk.total_space();
 		let available_capacity = disk.available_space();
 		let is_root_filesystem = mount_point.is_absolute() && mount_point.parent().is_none();
 
