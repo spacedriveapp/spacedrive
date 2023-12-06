@@ -1,6 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
-import { resetOnboardingStore, useBridgeMutation, useBridgeQuery } from '@sd/client';
+import {
+	resetOnboardingStore,
+	useBridgeMutation,
+	useBridgeQuery,
+	useLibraryMutation
+} from '@sd/client';
 import { Button } from '@sd/ui';
 import { Icon } from '~/components';
 import { AuthRequiredOverlay } from '~/components/AuthRequiredOverlay';
@@ -34,7 +39,7 @@ export function JoinLibrary() {
 
 function CloudLibraries() {
 	const cloudLibraries = useBridgeQuery(['cloud.library.list']);
-	const joinLibrary = useBridgeMutation(['cloud.library.join']);
+	const joinLibrary = useLibraryMutation(['cloud.library.join']);
 
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
@@ -51,7 +56,7 @@ function CloudLibraries() {
 						variant="accent"
 						disabled={joinLibrary.isLoading}
 						onClick={async () => {
-							const library = await joinLibrary.mutateAsync(cloudLibrary.uuid);
+							const library = await joinLibrary.mutateAsync(null);
 
 							queryClient.setQueryData(['library.list'], (libraries: any) => {
 								// The invalidation system beat us to it
