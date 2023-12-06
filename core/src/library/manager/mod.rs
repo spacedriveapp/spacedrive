@@ -15,7 +15,6 @@ use crate::{
 		error::{FileIOError, NonUtf8PathError},
 		mpscrr, MaybeUndefined,
 	},
-	volume::watcher::spawn_volume_watcher,
 	Node,
 };
 
@@ -127,11 +126,16 @@ impl Libraries {
 					Err(e) => return Err(FileIOError::from((db_path, e)).into()),
 				}
 
-				let library_arc = self
+				let _library_arc = self
 					.load(library_id, &db_path, config_path, None, true, node)
 					.await?;
 
-				spawn_volume_watcher(library_arc.clone());
+				// This is compleaty breaking on linux now, no ideia why, but it will be irrelevant in a short while
+				// So let's leave it disable for now
+				#[cfg(not(target_os = "linux"))]{
+					use crate::volume::watcher::spawn_volume_watcher;
+					spawn_volume_watcher(_library_arc.clone());
+				}
 			}
 		}
 

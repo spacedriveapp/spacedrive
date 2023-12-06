@@ -145,7 +145,7 @@ pub async fn shallow(
 			if let Err(e) = assign_labels(
 				object_id_by_file_path_id[&labeler_out.file_path_id],
 				labels,
-				db,
+				library,
 			)
 			.await
 			{

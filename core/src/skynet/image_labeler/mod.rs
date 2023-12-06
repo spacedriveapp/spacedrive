@@ -1,6 +1,10 @@
-use crate::util::{db::MissingFieldError, error::FileIOError};
+use crate::{
+	invalidate_query,
+	library::Library,
+	util::{db::MissingFieldError, error::FileIOError},
+};
 
-use sd_prisma::prisma::{file_path, label, label_on_object, object, PrismaClient};
+use sd_prisma::prisma::{file_path, label, label_on_object, object};
 
 use std::{collections::HashSet, path::Path};
 
@@ -45,7 +49,7 @@ pub enum ImageLabelerError {
 pub async fn assign_labels(
 	object_id: object::id::Type,
 	mut labels: HashSet<String>,
-	db: &PrismaClient,
+	library @ Library { db, .. }: &Library,
 ) -> Result<(), prisma_client_rust::QueryError> {
 	let mut labels_ids = db
 		.label()
@@ -101,6 +105,10 @@ pub async fn assign_labels(
 		.skip_duplicates()
 		.exec()
 		.await?;
+
+	invalidate_query!(library, "labels.list");
+	invalidate_query!(library, "labels.getForObject");
+	invalidate_query!(library, "labels.getWithObjects");
 
 	Ok(())
 }

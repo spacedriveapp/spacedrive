@@ -357,7 +357,7 @@ impl StatefulJob for MediaProcessorJobInit {
 						if let Err(e) = assign_labels(
 							data.object_id_by_file_path_id[&file_path_id],
 							labels,
-							&ctx.library.db,
+							&ctx.library,
 						)
 						.await
 						{
