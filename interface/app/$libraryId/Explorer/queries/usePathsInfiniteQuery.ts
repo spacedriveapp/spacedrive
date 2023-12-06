@@ -131,7 +131,7 @@ export function usePathsInfiniteQuery({
 		getNextPageParam: (lastPage) => {
 			if (arg.take === null || arg.take === undefined) return undefined;
 			if (lastPage.items.length < arg.take) return undefined;
-			else return lastPage.items[arg.take - 1];
+			else return lastPage.nodes[arg.take - 1];
 		},
 		onSuccess: () => getExplorerStore().resetNewThumbnails(),
 		...args
