@@ -9,7 +9,7 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-tauri = { version = "1.5.2", features = [
+tauri = { version = "1.5.3", features = [
 	"macos-private-api",
 	"path-all",
 	"protocol-all",
@@ -20,6 +20,7 @@ tauri = { version = "1.5.2", features = [
 	"updater",
 	"window-all",
 	"native-tls-vendored",
+	"tracing",
 ] }
 
 rspc = { workspace = true, features = ["tauri"] }
