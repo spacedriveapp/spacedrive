@@ -9,24 +9,25 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-tauri = { version = "1.5.2", features = [
-  "macos-private-api",
-  "path-all",
-  "protocol-all",
-  "os-all",
-  "shell-all",
-  "dialog-all",
-  "linux-protocol-headers",
-  "updater",
-  "window-all",
-  "native-tls-vendored",
+tauri = { version = "1.5.3", features = [
+	"macos-private-api",
+	"path-all",
+	"protocol-all",
+	"os-all",
+	"shell-all",
+	"dialog-all",
+	"linux-protocol-headers",
+	"updater",
+	"window-all",
+	"native-tls-vendored",
+	"tracing",
 ] }
 
 rspc = { workspace = true, features = ["tauri"] }
 sd-core = { path = "../../../core", features = [
-  "ffmpeg",
-  "location-watcher",
-  "heif",
+	"ffmpeg",
+	"location-watcher",
+	"heif",
 ] }
 sd-fda = { path = "../../../crates/fda" }
 tokio = { workspace = true, features = ["sync"] }

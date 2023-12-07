@@ -59,7 +59,9 @@ export default (platform: Platform) =>
 			loader: async () => {
 				if (!platform.userHomeDir) return null;
 				const homeDir = await platform.userHomeDir();
-				return redirect(`ephemeral/0?${new URLSearchParams({ path: homeDir })}`);
+				return redirect(`ephemeral/0?${new URLSearchParams({ path: homeDir })}`, {
+					replace: true
+				});
 			}
 		},
 		topBarRoutes,
