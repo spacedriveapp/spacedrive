@@ -162,14 +162,16 @@ impl Node {
 
 		// Set a default if the user hasn't set an override
 		if std::env::var("RUST_LOG") == Err(std::env::VarError::NotPresent) {
-			let directives =
-				"prisma=info,mdns_sd=info,globset=info,sd_core::location::manager=info";
 			let level = if cfg!(debug_assertions) {
 				"debug"
 			} else {
 				"info"
 			};
-			std::env::set_var("RUST_LOG", format!("{},{}", level, directives));
+
+			std::env::set_var(
+				"RUST_LOG",
+				format!("info,sd_core={level},sd_core::location::manager=info"),
+			);
 		}
 
 		tracing_subscriber::registry()
@@ -178,13 +180,15 @@ impl Node {
 					.with_file(true)
 					.with_line_number(true)
 					.with_ansi(false)
-					.with_writer(logfile),
+					.with_writer(logfile)
+					.with_filter(EnvFilter::from_default_env()),
 			)
 			.with(
 				tracing_subscriber::fmt::layer()
 					.with_file(true)
 					.with_line_number(true)
-					.with_writer(std::io::stdout),
+					.with_writer(std::io::stdout)
+					.with_filter(EnvFilter::from_default_env()),
 			)
 			.init();
 
