@@ -133,6 +133,9 @@ function useRouter() {
 		const router = createBrowserRouter(routes);
 
 		router.subscribe((event) => {
+			// we don't care about non-idle events as those are artifacts of form mutations + suspense
+			if (event.navigation.state !== 'idle') return;
+
 			setRouter((router) => {
 				const currentIndex: number | undefined = history.state?.idx;
 				if (currentIndex === undefined) return router;
