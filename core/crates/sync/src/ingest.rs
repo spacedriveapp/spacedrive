@@ -1,11 +1,10 @@
 use std::{ops::Deref, sync::Arc};
 
 use sd_prisma::{
-	prisma::{instance, relation_operation, shared_operation, SortOrder},
+	prisma::{instance, relation_operation, shared_operation, PrismaClient, SortOrder},
 	prisma_sync::ModelSyncData,
 };
 use sd_sync::{CRDTOperation, CRDTOperationType, RelationOperation, SharedOperation};
-use sd_utils::uuid_to_bytes;
 use serde_json::to_vec;
 use tokio::sync::{mpsc, Mutex};
 use uhlc::{Timestamp, NTP64};
@@ -139,30 +138,30 @@ impl Actor {
 			self.apply_op(op).await.ok();
 		}
 
-		self.db
-			._transaction()
-			.run({
-				let timestamps = self.timestamps.clone();
-				|db| async move {
-					match db
-						.instance()
-						.update(
-							instance::pub_id::equals(uuid_to_bytes(op_instance)),
-							vec![instance::timestamp::set(Some(timestamp.as_u64() as i64))],
-						)
-						.exec()
-						.await
-					{
-						Ok(_) => {
-							timestamps.write().await.insert(op_instance, timestamp);
-							Ok(())
-						}
-						Err(e) => Err(e),
-					}
-				}
-			})
-			.await
-			.unwrap();
+		// self.db
+		// 	._transaction()
+		// 	.run({
+		// 		let timestamps = self.timestamps.clone();
+		// 		|db| async move {
+		// 			match db
+		// 				.instance()
+		// 				.update(
+		// 					instance::pub_id::equals(uuid_to_bytes(op_instance)),
+		// 					vec![instance::timestamp::set(Some(timestamp.as_u64() as i64))],
+		// 				)
+		// 				.exec()
+		// 				.await
+		// 			{
+		// 				Ok(_) => {
+		self.timestamps.write().await.insert(op_instance, timestamp);
+		// 				Ok(())
+		// 			}
+		// 			Err(e) => Err(e),
+		// 		}
+		// 	}
+		// })
+		// .await
+		// .unwrap();
 	}
 
 	async fn apply_op(&mut self, op: CRDTOperation) -> prisma_client_rust::Result<()> {
@@ -171,20 +170,7 @@ impl Actor {
 			.exec(&self.db)
 			.await?;
 
-		match &op.typ {
-			CRDTOperationType::Shared(shared_op) => {
-				shared_op_db(&op, shared_op)
-					.to_query(&self.db)
-					.exec()
-					.await?;
-			}
-			CRDTOperationType::Relation(relation_op) => {
-				relation_op_db(&op, relation_op)
-					.to_query(&self.db)
-					.exec()
-					.await?;
-			}
-		}
+		write_crdt_op_to_db(&op, &self.db).await?;
 
 		self.io.req_tx.send(Request::Ingested).await.ok();
 
@@ -263,6 +249,22 @@ impl ActorTypes for Actor {
 	type Event = Event;
 	type Request = Request;
 	type Handler = Handler;
+}
+
+async fn write_crdt_op_to_db(
+	op: &CRDTOperation,
+	db: &PrismaClient,
+) -> Result<(), prisma_client_rust::QueryError> {
+	match &op.typ {
+		CRDTOperationType::Shared(shared_op) => {
+			shared_op_db(op, shared_op).to_query(db).exec().await?;
+		}
+		CRDTOperationType::Relation(relation_op) => {
+			relation_op_db(op, relation_op).to_query(db).exec().await?;
+		}
+	}
+
+	Ok(())
 }
 
 fn shared_op_db(op: &CRDTOperation, shared_op: &SharedOperation) -> shared_operation::Create {

@@ -38,6 +38,8 @@ sd-file-ext = { path = "../crates/file-ext" }
 sd-sync = { path = "../crates/sync" }
 sd-p2p = { path = "../crates/p2p", features = ["specta", "serde"] }
 sd-utils = { path = "../crates/utils" }
+# sd-cloud-api = { path = "../crates/cloud-api" }
+
 sd-core-sync = { path = "./crates/sync" }
 
 rspc = { workspace = true, features = [

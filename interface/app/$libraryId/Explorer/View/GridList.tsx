@@ -674,6 +674,7 @@ export default ({ children }: { children: RenderItem }) => {
 
 					return (
 						<GridListItem
+							key={uniqueId(item)}
 							index={index}
 							item={item}
 							getElementById={getElementById}

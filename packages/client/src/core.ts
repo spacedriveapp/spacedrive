@@ -55,7 +55,7 @@ export type Procedures = {
         { key: "backups.delete", input: string, result: null } | 
         { key: "backups.restore", input: string, result: null } | 
         { key: "cloud.library.create", input: LibraryArgs<null>, result: null } | 
-        { key: "cloud.library.join", input: string, result: LibraryConfigWrapped } | 
+        { key: "cloud.library.join", input: LibraryArgs<null>, result: LibraryConfigWrapped } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
         { key: "ephemeralFiles.cutFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
@@ -133,7 +133,7 @@ export type AudioMetadata = { duration: number | null; audio_codec: string | nul
  * 
  * If you want a variant of this to show up on the frontend it must be added to `backendFeatures` in `useFeatureFlag.tsx`
  */
-export type BackendFeature = "syncEmitMessages" | "filesOverP2P"
+export type BackendFeature = "syncEmitMessages" | "filesOverP2P" | "cloudSync"
 
 export type Backup = ({ id: string; timestamp: string; library_id: string; library_name: string }) & { path: string }
 
