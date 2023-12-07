@@ -66,9 +66,10 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 
 						const libraryId = currentLibrary ? currentLibrary.uuid : libraries[0]?.uuid;
 
-						if (libraryId === undefined) return redirect('/onboarding');
+						if (libraryId === undefined)
+							return redirect('/onboarding', { replace: true });
 
-						return redirect(`/${libraryId}`);
+						return redirect(`/${libraryId}`, { replace: true });
 					}
 				},
 				{
@@ -86,8 +87,9 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 						if (!library) {
 							const firstLibrary = libraries[0];
 
-							if (firstLibrary) return redirect(`/${firstLibrary.uuid}`);
-							else return redirect('/onboarding');
+							if (firstLibrary)
+								return redirect(`/${firstLibrary.uuid}`, { replace: true });
+							else return redirect('/onboarding', { replace: true });
 						}
 
 						return null;

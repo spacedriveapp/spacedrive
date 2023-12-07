@@ -25,9 +25,11 @@ export default [
 		index: true,
 		loader: () => {
 			if (getOnboardingStore().lastActiveScreen)
-				return redirect(`/onboarding/${getOnboardingStore().lastActiveScreen}`);
+				return redirect(`/onboarding/${getOnboardingStore().lastActiveScreen}`, {
+					replace: true
+				});
 
-			return redirect(`/onboarding/alpha`);
+			return redirect(`/onboarding/alpha`, { replace: true });
 		},
 		element: <Index />
 	},
