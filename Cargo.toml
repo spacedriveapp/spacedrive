@@ -37,11 +37,9 @@ prisma-client-rust-sdk = { git = "https://github.com/spacedriveapp/prisma-client
 	"sqlite",
 ], default-features = false }
 
-tracing = { git = "https://github.com/tokio-rs/tracing", rev = "29146260fb4615d271d2e899ad95a753bb42915e" } # To work with tracing-appender
-tracing-subscriber = { git = "https://github.com/tokio-rs/tracing", rev = "29146260fb4615d271d2e899ad95a753bb42915e", features = [
-	"env-filter",
-] } # To work with tracing-appender
-tracing-appender = { git = "https://github.com/tokio-rs/tracing", rev = "29146260fb4615d271d2e899ad95a753bb42915e" } # Unreleased changes for rolling log deletion
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+tracing-appender = "0.2.3"
 
 rspc = { version = "0.1.4" }
 specta = { version = "=2.0.0-rc.7" }

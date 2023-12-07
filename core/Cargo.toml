@@ -75,6 +75,7 @@ image = "0.24.7"
 webp = "0.2.6"
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tracing-appender = { workspace = true }
 async-stream = "0.3.5"
 once_cell = "1.18.0"
 ctor = "0.2.5"
@@ -89,7 +90,6 @@ notify = { version = "=5.2.0", default-features = false, features = [
 static_assertions = "1.1.0"
 serde-hashkey = "0.4.5"
 normpath = { version = "1.1.1", features = ["localization"] }
-tracing-appender = { workspace = true }
 strum = { version = "0.25", features = ["derive"] }
 strum_macros = "0.25"
 regex = "1.10.2"
