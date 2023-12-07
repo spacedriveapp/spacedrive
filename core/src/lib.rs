@@ -28,7 +28,6 @@ use tracing_appender::{
 };
 use tracing_subscriber::{
 	filter::{Directive, FromEnvError, LevelFilter},
-	fmt as tracing_fmt,
 	prelude::*,
 	EnvFilter,
 };
@@ -172,9 +171,9 @@ impl Node {
 			std::env::set_var("RUST_LOG", directive.to_string());
 		}
 
-		let collector = tracing_subscriber::registry()
+		tracing_subscriber::registry()
 			.with(
-				tracing_fmt::Subscriber::new()
+				tracing_subscriber::fmt::layer()
 					.with_file(true)
 					.with_line_number(true)
 					.with_ansi(false)
@@ -186,7 +185,7 @@ impl Node {
 					),
 			)
 			.with(
-				tracing_fmt::Subscriber::new()
+				tracing_subscriber::fmt::layer()
 					.with_file(true)
 					.with_line_number(true)
 					.with_writer(std::io::stdout)
@@ -196,13 +195,8 @@ impl Node {
 							// We don't wanna blow up the logs
 							.add_directive("sd_core::location::manager=info".parse()?),
 					),
-			);
-
-		tracing::collect::set_global_default(collector)
-			.map_err(|err| {
-				eprintln!("Error initializing global logger: {:?}", err);
-			})
-			.ok();
+			)
+			.init();
 
 		std::panic::set_hook(Box::new(move |panic| {
 			if let Some(location) = panic.location() {
