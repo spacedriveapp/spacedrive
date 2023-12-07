@@ -27,7 +27,6 @@ sd-core = { path = "../../../core", features = [
 	"ffmpeg",
 	"location-watcher",
 	"heif",
-	"skynet",
 ] }
 sd-fda = { path = "../../../crates/fda" }
 tokio = { workspace = true, features = ["sync"] }
@@ -61,5 +60,6 @@ webview2-com = "0.19.1"
 tauri-build = "1.5.0"
 
 [features]
-default = ["custom-protocol"]
+default = ["ai-models", "custom-protocol"]
+ai-models = ["sd-core/skynet"]
 custom-protocol = ["tauri/custom-protocol"]

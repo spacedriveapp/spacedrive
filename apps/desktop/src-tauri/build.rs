@@ -1,5 +1,5 @@
 fn main() {
-	#[cfg(not(target_os = "windows"))]
+	#[cfg(all(not(target_os = "windows"), feature = "ai-models"))]
 	// This is required because libonnxruntime.so is incorrectly built with the Initial Executable (IE) thread-Local storage access model by zig
 	// https://docs.oracle.com/cd/E23824_01/html/819-0690/chapter8-20.html
 	// https://github.com/ziglang/zig/issues/16152
