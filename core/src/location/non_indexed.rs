@@ -12,6 +12,7 @@ use crate::{
 
 use std::{
 	collections::HashMap,
+	io::ErrorKind,
 	path::{Path, PathBuf},
 	sync::Arc,
 };
@@ -25,9 +26,14 @@ use sd_utils::chain_optional_iter;
 use serde::Serialize;
 use specta::Type;
 use thiserror::Error;
-use tokio::{fs, io, sync::mpsc};
+use tokio::{
+	fs::{self, DirEntry},
+	io,
+	sync::mpsc,
+	task::JoinError,
+};
 use tokio_stream::wrappers::ReceiverStream;
-use tracing::{error, warn};
+use tracing::{error, instrument, span, warn, Level};
 
 use super::{
 	file_path_helper::{path_is_hidden, MetadataExt},
@@ -48,6 +54,9 @@ pub enum NonIndexedLocationError {
 
 	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
+
+	#[error("error joining tokio task: {0}")]
+	TaskJoinError(#[from] JoinError),
 
 	#[error("receiver shutdown error: {0}")]
 	SendError(#[from] mpsc::error::SendError<Result<ExplorerItem, rspc::Error>>),
@@ -87,18 +96,30 @@ pub struct NonIndexedPathItem {
 	pub hidden: bool,
 }
 
+// #[instrument(name = "non_indexed::walk", skip(sort_fn))]
 pub async fn walk(
-	full_path: impl AsRef<Path>,
+	path: PathBuf,
 	with_hidden_files: bool,
 	node: Arc<Node>,
 	library: Arc<Library>,
-) -> Result<impl Stream<Item = Result<ExplorerItem, rspc::Error>>, NonIndexedLocationError> {
-	let (tx, rx) = mpsc::channel(128);
+	sort_fn: impl FnOnce(&mut Vec<Entry>) + Send,
+) -> Result<impl Stream<Item = Result<ExplorerItem, rspc::Error>> + Send, NonIndexedLocationError> {
+	let start = std::time::Instant::now();
 
-	let path = full_path.as_ref();
-	let mut read_dir = fs::read_dir(path).await.map_err(|e| (path, e))?;
+	let mut entries = get_all_entries(path.clone()).await?;
+	let path = &path;
 
-	let mut directories = vec![];
+	println!("get_all_entries took: {:?}", start.elapsed());
+	let start = std::time::Instant::now();
+
+	{
+		let span = span!(Level::INFO, "sort_fn");
+		let _enter = span.enter();
+
+		sort_fn(&mut entries);
+	}
+
+	println!("sort_fn took: {:?}", start.elapsed());
 
 	let rules = chain_optional_iter(
 		[IndexerRule::from(no_os_protected())],
@@ -108,9 +129,11 @@ pub async fn walk(
 	let mut thumbnails_to_generate = vec![];
 	// Generating thumbnails for PDFs is kinda slow, so we're leaving them for last in the batch
 	let mut document_thumbnails_to_generate = vec![];
+	let mut directories = vec![];
 
-	while let Some(entry) = read_dir.next_entry().await.map_err(|e| (path, e))? {
-		let (entry_path, name) = match normalize_path(entry.path()) {
+	let (tx, rx) = mpsc::channel(128);
+	for entry in entries.into_iter() {
+		let (entry_path, name) = match normalize_path(entry.path) {
 			Ok(v) => v,
 			Err(e) => {
 				tx.send(Err(NonIndexedLocationError::from((path, e)).into()))
@@ -135,17 +158,8 @@ pub async fn walk(
 			}
 		};
 
-		let metadata = match entry.metadata().await {
-			Ok(v) => v,
-			Err(e) => {
-				tx.send(Err(NonIndexedLocationError::from((path, e)).into()))
-					.await?;
-				continue;
-			}
-		};
-
-		if metadata.is_dir() {
-			directories.push((entry_path, name, metadata));
+		if entry.metadata.is_dir() {
+			directories.push((entry_path, name, entry.metadata));
 		} else {
 			let path = Path::new(&entry_path);
 
@@ -183,7 +197,7 @@ pub async fn walk(
 			};
 
 			let thumbnail_key = if should_generate_thumbnail {
-				if let Ok(cas_id) = generate_cas_id(&path, metadata.len())
+				if let Ok(cas_id) = generate_cas_id(&path, entry.metadata.len())
 					.await
 					.map_err(|e| tx.send(Err(NonIndexedLocationError::from((path, e)).into())))
 				{
@@ -213,15 +227,15 @@ pub async fn walk(
 				has_local_thumbnail: thumbnail_key.is_some(),
 				thumbnail_key,
 				item: NonIndexedPathItem {
-					hidden: path_is_hidden(Path::new(&entry_path), &metadata),
+					hidden: path_is_hidden(Path::new(&entry_path), &entry.metadata),
 					path: entry_path,
 					name,
 					extension,
 					kind: kind as i32,
 					is_dir: false,
-					date_created: metadata.created_or_now().into(),
-					date_modified: metadata.modified_or_now().into(),
-					size_in_bytes_bytes: metadata.len().to_be_bytes().to_vec(),
+					date_created: entry.metadata.created_or_now().into(),
+					date_modified: entry.metadata.modified_or_now().into(),
+					size_in_bytes_bytes: entry.metadata.len().to_be_bytes().to_vec(),
 				},
 			}))
 			.await?;
@@ -283,4 +297,70 @@ pub async fn walk(
 	}
 
 	Ok(ReceiverStream::new(rx))
+}
+
+#[derive(Debug)]
+pub struct Entry {
+	path: PathBuf,
+	name: String,
+	// size_in_bytes: u64,
+	// date_created:
+	metadata: std::fs::Metadata,
+}
+
+impl Entry {
+	pub fn name(&self) -> &str {
+		&self.name
+	}
+
+	pub fn size_in_bytes(&self) -> u64 {
+		self.metadata.len()
+	}
+
+	pub fn date_created(&self) -> DateTime<Utc> {
+		self.metadata.created_or_now().into()
+	}
+
+	pub fn date_modified(&self) -> DateTime<Utc> {
+		self.metadata.modified_or_now().into()
+	}
+}
+
+/// We get all of the FS entries first before we start processing on each of them.
+///
+/// From my M1 Macbook Pro this:
+///  - takes 11ms per 10 000 files
+///  and
+///  - consumes 0.16MB of RAM per 10 000 entries.
+///
+/// The reason we collect these all up is so we can apply ordering, and then begin streaming the data as it's processed to the frontend.
+// #[instrument(name = "get_all_entries")]
+pub async fn get_all_entries(path: PathBuf) -> Result<Vec<Entry>, NonIndexedLocationError> {
+	tokio::task::spawn_blocking(move || {
+		let path = &path;
+		let mut dir = std::fs::read_dir(&path).map_err(|e| (path, e))?;
+		let mut entries = Vec::new();
+		while let Some(entry) = dir.next() {
+			let entry = entry.map_err(|e| (path, e))?;
+
+			// We must not keep `entry` around as we will quickly hit the OS limit on open file descriptors
+			entries.push(Entry {
+				path: entry.path(),
+				name: entry
+					.file_name()
+					.to_str()
+					.ok_or_else(|| {
+						(
+							path,
+							io::Error::new(ErrorKind::Other, "error non UTF-8 path"),
+						)
+					})?
+					.to_string(),
+				metadata: entry.metadata().map_err(|e| (path, e))?,
+			});
+		}
+
+		Ok(entries)
+	})
+	.await?
 }

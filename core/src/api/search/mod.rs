@@ -115,7 +115,42 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				     order,
 				 }| async move {
 					let mut paths =
-						non_indexed::walk(path, with_hidden_files, node, library).await?;
+						non_indexed::walk(path, with_hidden_files, node, library, |entries| {
+							macro_rules! order_match {
+								($order:ident, [$(($variant:ident, |$i:ident| $func:expr)),+]) => {{
+									match $order {
+										$(EphemeralPathOrder::$variant(order) => {
+											entries.sort_unstable_by(|path1, path2| {
+												let func = |$i: &non_indexed::Entry| $func;
+
+												let one = func(path1);
+												let two = func(path2);
+
+												match order {
+													SortOrder::Desc => two.cmp(&one),
+													SortOrder::Asc => one.cmp(&two),
+												}
+											});
+										})+
+									}
+								}};
+							}
+
+							if let Some(order) = order {
+								order_match!(
+									order,
+									[
+										(Name, |p| p.name().to_lowercase()),
+										(SizeInBytes, |p| p.size_in_bytes()),
+										(DateCreated, |p| p.date_created()),
+										(DateModified, |p| p.date_modified())
+									]
+								)
+							}
+						})
+						.await?;
+
+					// TODO: Convert all the following to streaming
 
 					let mut entries = vec![];
 					let mut errors = vec![];
@@ -124,38 +159,6 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							Ok(item) => entries.push(item),
 							Err(e) => errors.push(e),
 						}
-					}
-
-					macro_rules! order_match {
-						($order:ident, [$(($variant:ident, |$i:ident| $func:expr)),+]) => {{
-							match $order {
-								$(EphemeralPathOrder::$variant(order) => {
-									entries.sort_unstable_by(|path1, path2| {
-										let func = |$i: &ExplorerItem| $func;
-
-										let one = func(path1);
-										let two = func(path2);
-
-										match order {
-											SortOrder::Desc => two.cmp(&one),
-											SortOrder::Asc => one.cmp(&two),
-										}
-									});
-								})+
-							}
-						}};
-					}
-
-					if let Some(order) = order {
-						order_match!(
-							order,
-							[
-								(Name, |p| p.name().to_lowercase()),
-								(SizeInBytes, |p| p.size_in_bytes()),
-								(DateCreated, |p| p.date_created()),
-								(DateModified, |p| p.date_modified())
-							]
-						)
 					}
 
 					let (nodes, entries) = entries.normalise(|item| item.id());
