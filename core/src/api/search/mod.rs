@@ -114,6 +114,9 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				     with_hidden_files,
 				     order,
 				 }| async move {
+					let start = std::time::Instant::now();
+					println!("STARTED {:?}", path);
+
 					let mut paths =
 						non_indexed::walk(path, with_hidden_files, node, library, |entries| {
 							macro_rules! order_match {
@@ -154,12 +157,19 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 					let mut entries = vec![];
 					let mut errors = vec![];
+					let mut first = true;
 					while let Some(result) = paths.next().await {
+						if first {
+							first = false;
+							println!("First item: {:?}", start.elapsed());
+						}
 						match result {
 							Ok(item) => entries.push(item),
 							Err(e) => errors.push(e),
 						}
 					}
+
+					println!("Finished: {:?}", start.elapsed());
 
 					let (nodes, entries) = entries.normalise(|item| item.id());
 

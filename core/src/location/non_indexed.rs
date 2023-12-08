@@ -107,7 +107,6 @@ pub async fn walk(
 	let start = std::time::Instant::now();
 
 	let mut entries = get_all_entries(path.clone()).await?;
-	let path = &path;
 
 	println!("get_all_entries took: {:?}", start.elapsed());
 	let start = std::time::Instant::now();
@@ -121,180 +120,191 @@ pub async fn walk(
 
 	println!("sort_fn took: {:?}", start.elapsed());
 
-	let rules = chain_optional_iter(
-		[IndexerRule::from(no_os_protected())],
-		[(!with_hidden_files).then(|| IndexerRule::from(no_hidden()))],
-	);
-
-	let mut thumbnails_to_generate = vec![];
-	// Generating thumbnails for PDFs is kinda slow, so we're leaving them for last in the batch
-	let mut document_thumbnails_to_generate = vec![];
-	let mut directories = vec![];
-
 	let (tx, rx) = mpsc::channel(128);
-	for entry in entries.into_iter() {
-		let (entry_path, name) = match normalize_path(entry.path) {
-			Ok(v) => v,
-			Err(e) => {
-				tx.send(Err(NonIndexedLocationError::from((path, e)).into()))
-					.await?;
-				continue;
-			}
-		};
 
-		match IndexerRule::apply_all(&rules, &entry_path).await {
-			Ok(rule_results) => {
-				// No OS Protected and No Hidden rules, must always be from this kind, should panic otherwise
-				if rule_results[&RuleKind::RejectFilesByGlob]
-					.iter()
-					.any(|reject| !reject)
-				{
+	// We wanna process and let the caller use the stream.
+	tokio::spawn(async move {
+		let path = &path;
+		let rules = chain_optional_iter(
+			[IndexerRule::from(no_os_protected())],
+			[(!with_hidden_files).then(|| IndexerRule::from(no_hidden()))],
+		);
+
+		let mut thumbnails_to_generate = vec![];
+		// Generating thumbnails for PDFs is kinda slow, so we're leaving them for last in the batch
+		let mut document_thumbnails_to_generate = vec![];
+		let mut directories = vec![];
+
+		for entry in entries.into_iter() {
+			let (entry_path, name) = match normalize_path(entry.path) {
+				Ok(v) => v,
+				Err(e) => {
+					tx.send(Err(NonIndexedLocationError::from((path, e)).into()))
+						.await?;
 					continue;
 				}
-			}
-			Err(e) => {
-				tx.send(Err(e.into())).await?;
-				continue;
-			}
-		};
-
-		if entry.metadata.is_dir() {
-			directories.push((entry_path, name, entry.metadata));
-		} else {
-			let path = Path::new(&entry_path);
-
-			let Some(name) = path
-				.file_stem()
-				.and_then(|s| s.to_str().map(str::to_string))
-			else {
-				warn!("Failed to extract name from path: {}", &entry_path);
-				continue;
 			};
 
-			let extension = path
-				.extension()
-				.and_then(|s| s.to_str().map(str::to_string))
-				.unwrap_or_default();
-
-			let kind = Extension::resolve_conflicting(&path, false)
-				.await
-				.map(Into::into)
-				.unwrap_or(ObjectKind::Unknown);
-
-			let should_generate_thumbnail = {
-				#[cfg(feature = "ffmpeg")]
-				{
-					matches!(
-						kind,
-						ObjectKind::Image | ObjectKind::Video | ObjectKind::Document
-					)
+			match IndexerRule::apply_all(&rules, &entry_path).await {
+				Ok(rule_results) => {
+					// No OS Protected and No Hidden rules, must always be from this kind, should panic otherwise
+					if rule_results[&RuleKind::RejectFilesByGlob]
+						.iter()
+						.any(|reject| !reject)
+					{
+						continue;
+					}
 				}
-
-				#[cfg(not(feature = "ffmpeg"))]
-				{
-					matches!(kind, ObjectKind::Image | ObjectKind::Document)
+				Err(e) => {
+					tx.send(Err(e.into())).await?;
+					continue;
 				}
 			};
 
-			let thumbnail_key = if should_generate_thumbnail {
-				if let Ok(cas_id) = generate_cas_id(&path, entry.metadata.len())
+			if entry.metadata.is_dir() {
+				directories.push((entry_path, name, entry.metadata));
+			} else {
+				let path = Path::new(&entry_path);
+
+				let Some(name) = path
+					.file_stem()
+					.and_then(|s| s.to_str().map(str::to_string))
+				else {
+					warn!("Failed to extract name from path: {}", &entry_path);
+					continue;
+				};
+
+				let extension = path
+					.extension()
+					.and_then(|s| s.to_str().map(str::to_string))
+					.unwrap_or_default();
+
+				let kind = Extension::resolve_conflicting(&path, false)
 					.await
-					.map_err(|e| tx.send(Err(NonIndexedLocationError::from((path, e)).into())))
-				{
-					if kind == ObjectKind::Document {
-						document_thumbnails_to_generate.push(GenerateThumbnailArgs::new(
-							extension.clone(),
-							cas_id.clone(),
-							path.to_path_buf(),
-						));
-					} else {
-						thumbnails_to_generate.push(GenerateThumbnailArgs::new(
-							extension.clone(),
-							cas_id.clone(),
-							path.to_path_buf(),
-						));
+					.map(Into::into)
+					.unwrap_or(ObjectKind::Unknown);
+
+				let should_generate_thumbnail = {
+					#[cfg(feature = "ffmpeg")]
+					{
+						matches!(
+							kind,
+							ObjectKind::Image | ObjectKind::Video | ObjectKind::Document
+						)
 					}
 
-					Some(get_ephemeral_thumb_key(&cas_id))
+					#[cfg(not(feature = "ffmpeg"))]
+					{
+						matches!(kind, ObjectKind::Image | ObjectKind::Document)
+					}
+				};
+
+				let thumbnail_key = if should_generate_thumbnail {
+					if let Ok(cas_id) = generate_cas_id(&path, entry.metadata.len())
+						.await
+						.map_err(|e| tx.send(Err(NonIndexedLocationError::from((path, e)).into())))
+					{
+						if kind == ObjectKind::Document {
+							document_thumbnails_to_generate.push(GenerateThumbnailArgs::new(
+								extension.clone(),
+								cas_id.clone(),
+								path.to_path_buf(),
+							));
+						} else {
+							thumbnails_to_generate.push(GenerateThumbnailArgs::new(
+								extension.clone(),
+								cas_id.clone(),
+								path.to_path_buf(),
+							));
+						}
+
+						Some(get_ephemeral_thumb_key(&cas_id))
+					} else {
+						None
+					}
 				} else {
 					None
-				}
+				};
+
+				tx.send(Ok(ExplorerItem::NonIndexedPath {
+					has_local_thumbnail: thumbnail_key.is_some(),
+					thumbnail_key,
+					item: NonIndexedPathItem {
+						hidden: path_is_hidden(Path::new(&entry_path), &entry.metadata),
+						path: entry_path,
+						name,
+						extension,
+						kind: kind as i32,
+						is_dir: false,
+						date_created: entry.metadata.created_or_now().into(),
+						date_modified: entry.metadata.modified_or_now().into(),
+						size_in_bytes_bytes: entry.metadata.len().to_be_bytes().to_vec(),
+					},
+				}))
+				.await?;
+			}
+		}
+
+		thumbnails_to_generate.extend(document_thumbnails_to_generate);
+
+		node.thumbnailer
+			.new_ephemeral_thumbnails_batch(BatchToProcess::new(
+				thumbnails_to_generate,
+				false,
+				false,
+			))
+			.await;
+
+		let mut locations = library
+			.db
+			.location()
+			.find_many(vec![location::path::in_vec(
+				directories
+					.iter()
+					.map(|(path, _, _)| path.clone())
+					.collect(),
+			)])
+			.exec()
+			.await?
+			.into_iter()
+			.flat_map(|location| {
+				location
+					.path
+					.clone()
+					.map(|location_path| (location_path, location))
+			})
+			.collect::<HashMap<_, _>>();
+
+		for (directory, name, metadata) in directories {
+			if let Some(location) = locations.remove(&directory) {
+				tx.send(Ok(ExplorerItem::Location {
+					has_local_thumbnail: false,
+					thumbnail_key: None,
+					item: location,
+				}))
+				.await?;
 			} else {
-				None
-			};
-
-			tx.send(Ok(ExplorerItem::NonIndexedPath {
-				has_local_thumbnail: thumbnail_key.is_some(),
-				thumbnail_key,
-				item: NonIndexedPathItem {
-					hidden: path_is_hidden(Path::new(&entry_path), &entry.metadata),
-					path: entry_path,
-					name,
-					extension,
-					kind: kind as i32,
-					is_dir: false,
-					date_created: entry.metadata.created_or_now().into(),
-					date_modified: entry.metadata.modified_or_now().into(),
-					size_in_bytes_bytes: entry.metadata.len().to_be_bytes().to_vec(),
-				},
-			}))
-			.await?;
+				tx.send(Ok(ExplorerItem::NonIndexedPath {
+					has_local_thumbnail: false,
+					thumbnail_key: None,
+					item: NonIndexedPathItem {
+						hidden: path_is_hidden(Path::new(&directory), &metadata),
+						path: directory,
+						name,
+						extension: String::new(),
+						kind: ObjectKind::Folder as i32,
+						is_dir: true,
+						date_created: metadata.created_or_now().into(),
+						date_modified: metadata.modified_or_now().into(),
+						size_in_bytes_bytes: metadata.len().to_be_bytes().to_vec(),
+					},
+				}))
+				.await?;
+			}
 		}
-	}
 
-	thumbnails_to_generate.extend(document_thumbnails_to_generate);
-
-	node.thumbnailer
-		.new_ephemeral_thumbnails_batch(BatchToProcess::new(thumbnails_to_generate, false, false))
-		.await;
-
-	let mut locations = library
-		.db
-		.location()
-		.find_many(vec![location::path::in_vec(
-			directories
-				.iter()
-				.map(|(path, _, _)| path.clone())
-				.collect(),
-		)])
-		.exec()
-		.await?
-		.into_iter()
-		.flat_map(|location| {
-			location
-				.path
-				.clone()
-				.map(|location_path| (location_path, location))
-		})
-		.collect::<HashMap<_, _>>();
-
-	for (directory, name, metadata) in directories {
-		if let Some(location) = locations.remove(&directory) {
-			tx.send(Ok(ExplorerItem::Location {
-				has_local_thumbnail: false,
-				thumbnail_key: None,
-				item: location,
-			}))
-			.await?;
-		} else {
-			tx.send(Ok(ExplorerItem::NonIndexedPath {
-				has_local_thumbnail: false,
-				thumbnail_key: None,
-				item: NonIndexedPathItem {
-					hidden: path_is_hidden(Path::new(&directory), &metadata),
-					path: directory,
-					name,
-					extension: String::new(),
-					kind: ObjectKind::Folder as i32,
-					is_dir: true,
-					date_created: metadata.created_or_now().into(),
-					date_modified: metadata.modified_or_now().into(),
-					size_in_bytes_bytes: metadata.len().to_be_bytes().to_vec(),
-				},
-			}))
-			.await?;
-		}
-	}
+		Ok::<(), NonIndexedLocationError>(()) // TODO: Actually handle this error and not just send it to the ether
+	});
 
 	Ok(ReceiverStream::new(rx))
 }
