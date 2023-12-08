@@ -16,6 +16,7 @@ use std::{
 	sync::Arc,
 };
 
+use futures::Stream;
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 
 use chrono::{DateTime, Utc};
@@ -24,7 +25,8 @@ use sd_utils::chain_optional_iter;
 use serde::Serialize;
 use specta::Type;
 use thiserror::Error;
-use tokio::{fs, io};
+use tokio::{fs, io, sync::mpsc};
+use tokio_stream::wrappers::ReceiverStream;
 use tracing::{error, warn};
 
 use super::{
@@ -46,6 +48,9 @@ pub enum NonIndexedLocationError {
 
 	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
+
+	#[error("receiver shutdown error: {0}")]
+	SendError(#[from] mpsc::error::SendError<Result<ExplorerItem, rspc::Error>>),
 }
 
 impl From<NonIndexedLocationError> for rspc::Error {
@@ -70,12 +75,6 @@ impl<P: AsRef<Path>> From<(P, io::Error)> for NonIndexedLocationError {
 }
 
 #[derive(Serialize, Type, Debug)]
-pub struct NonIndexedFileSystemEntries {
-	pub entries: Vec<ExplorerItem>,
-	pub errors: Vec<rspc::Error>,
-}
-
-#[derive(Serialize, Type, Debug)]
 pub struct NonIndexedPathItem {
 	pub path: String,
 	pub name: String,
@@ -93,13 +92,13 @@ pub async fn walk(
 	with_hidden_files: bool,
 	node: Arc<Node>,
 	library: Arc<Library>,
-) -> Result<NonIndexedFileSystemEntries, NonIndexedLocationError> {
+) -> Result<impl Stream<Item = Result<ExplorerItem, rspc::Error>>, NonIndexedLocationError> {
+	let (tx, rx) = mpsc::channel(128);
+
 	let path = full_path.as_ref();
 	let mut read_dir = fs::read_dir(path).await.map_err(|e| (path, e))?;
 
 	let mut directories = vec![];
-	let mut errors = vec![];
-	let mut entries = vec![];
 
 	let rules = chain_optional_iter(
 		[IndexerRule::from(no_os_protected())],
@@ -111,33 +110,38 @@ pub async fn walk(
 	let mut document_thumbnails_to_generate = vec![];
 
 	while let Some(entry) = read_dir.next_entry().await.map_err(|e| (path, e))? {
-		let Ok((entry_path, name)) = normalize_path(entry.path())
-			.map_err(|e| errors.push(NonIndexedLocationError::from((path, e)).into()))
-		else {
-			continue;
-		};
-
-		if let Ok(rule_results) = IndexerRule::apply_all(&rules, &entry_path)
-			.await
-			.map_err(|e| errors.push(e.into()))
-		{
-			// No OS Protected and No Hidden rules, must always be from this kind, should panic otherwise
-			if rule_results[&RuleKind::RejectFilesByGlob]
-				.iter()
-				.any(|reject| !reject)
-			{
+		let (entry_path, name) = match normalize_path(entry.path()) {
+			Ok(v) => v,
+			Err(e) => {
+				tx.send(Err(NonIndexedLocationError::from((path, e)).into()))
+					.await?;
 				continue;
 			}
-		} else {
-			continue;
-		}
+		};
 
-		let Ok(metadata) = entry
-			.metadata()
-			.await
-			.map_err(|e| errors.push(NonIndexedLocationError::from((path, e)).into()))
-		else {
-			continue;
+		match IndexerRule::apply_all(&rules, &entry_path).await {
+			Ok(rule_results) => {
+				// No OS Protected and No Hidden rules, must always be from this kind, should panic otherwise
+				if rule_results[&RuleKind::RejectFilesByGlob]
+					.iter()
+					.any(|reject| !reject)
+				{
+					continue;
+				}
+			}
+			Err(e) => {
+				tx.send(Err(e.into())).await?;
+				continue;
+			}
+		};
+
+		let metadata = match entry.metadata().await {
+			Ok(v) => v,
+			Err(e) => {
+				tx.send(Err(NonIndexedLocationError::from((path, e)).into()))
+					.await?;
+				continue;
+			}
 		};
 
 		if metadata.is_dir() {
@@ -181,7 +185,7 @@ pub async fn walk(
 			let thumbnail_key = if should_generate_thumbnail {
 				if let Ok(cas_id) = generate_cas_id(&path, metadata.len())
 					.await
-					.map_err(|e| errors.push(NonIndexedLocationError::from((path, e)).into()))
+					.map_err(|e| tx.send(Err(NonIndexedLocationError::from((path, e)).into())))
 				{
 					if kind == ObjectKind::Document {
 						document_thumbnails_to_generate.push(GenerateThumbnailArgs::new(
@@ -205,7 +209,7 @@ pub async fn walk(
 				None
 			};
 
-			entries.push(ExplorerItem::NonIndexedPath {
+			tx.send(Ok(ExplorerItem::NonIndexedPath {
 				has_local_thumbnail: thumbnail_key.is_some(),
 				thumbnail_key,
 				item: NonIndexedPathItem {
@@ -219,7 +223,8 @@ pub async fn walk(
 					date_modified: metadata.modified_or_now().into(),
 					size_in_bytes_bytes: metadata.len().to_be_bytes().to_vec(),
 				},
-			});
+			}))
+			.await?;
 		}
 	}
 
@@ -251,13 +256,14 @@ pub async fn walk(
 
 	for (directory, name, metadata) in directories {
 		if let Some(location) = locations.remove(&directory) {
-			entries.push(ExplorerItem::Location {
+			tx.send(Ok(ExplorerItem::Location {
 				has_local_thumbnail: false,
 				thumbnail_key: None,
 				item: location,
-			});
+			}))
+			.await?;
 		} else {
-			entries.push(ExplorerItem::NonIndexedPath {
+			tx.send(Ok(ExplorerItem::NonIndexedPath {
 				has_local_thumbnail: false,
 				thumbnail_key: None,
 				item: NonIndexedPathItem {
@@ -271,9 +277,10 @@ pub async fn walk(
 					date_modified: metadata.modified_or_now().into(),
 					size_in_bytes_bytes: metadata.len().to_be_bytes().to_vec(),
 				},
-			});
+			}))
+			.await?;
 		}
 	}
 
-	Ok(NonIndexedFileSystemEntries { entries, errors })
+	Ok(ReceiverStream::new(rx))
 }

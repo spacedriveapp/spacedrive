@@ -18,6 +18,7 @@ use crate::{
 
 use std::path::PathBuf;
 
+use futures::StreamExt;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use sd_cache::{CacheNode, Model, Normalise, Reference};
 use sd_prisma::prisma::{self, PrismaClient};
@@ -116,11 +117,20 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					let mut paths =
 						non_indexed::walk(path, with_hidden_files, node, library).await?;
 
+					let mut entries = vec![];
+					let mut errors = vec![];
+					while let Some(result) = paths.next().await {
+						match result {
+							Ok(item) => entries.push(item),
+							Err(e) => errors.push(e),
+						}
+					}
+
 					macro_rules! order_match {
 						($order:ident, [$(($variant:ident, |$i:ident| $func:expr)),+]) => {{
 							match $order {
 								$(EphemeralPathOrder::$variant(order) => {
-									paths.entries.sort_unstable_by(|path1, path2| {
+									entries.sort_unstable_by(|path1, path2| {
 										let func = |$i: &ExplorerItem| $func;
 
 										let one = func(path1);
@@ -148,11 +158,11 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						)
 					}
 
-					let (nodes, entries) = paths.entries.normalise(|item| item.id());
+					let (nodes, entries) = entries.normalise(|item| item.id());
 
 					Ok(EphemeralPathsResult {
 						entries,
-						errors: paths.errors,
+						errors,
 						nodes,
 					})
 				},
