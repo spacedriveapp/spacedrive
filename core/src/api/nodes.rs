@@ -1,6 +1,6 @@
-use crate::{invalidate_query, prisma::location, util::MaybeUndefined};
+use crate::{invalidate_query, util::MaybeUndefined};
 
-use sd_prisma::prisma::instance;
+use sd_prisma::prisma::{instance, location};
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;

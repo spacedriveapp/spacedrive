@@ -7,14 +7,13 @@ use crate::{
 };
 
 #[cfg(feature = "skynet")]
-use crate::skynet::image_labeler::{ImageLabeler, YoloV8};
+use sd_skynet::image_labeler::{ImageLabeler, YoloV8};
 
 use api::notifications::{Notification, NotificationData, NotificationId};
 use chrono::{DateTime, Utc};
 use node::config;
 use notifications::Notifications;
 use reqwest::{RequestBuilder, Response};
-pub use sd_prisma::*;
 
 use std::{
 	fmt,
@@ -49,8 +48,6 @@ pub(crate) mod notifications;
 pub(crate) mod object;
 pub(crate) mod p2p;
 pub(crate) mod preferences;
-#[cfg(feature = "skynet")]
-mod skynet;
 #[doc(hidden)] // TODO(@Oscar): Make this private when breaking out `utils` into `sd-utils`
 pub mod util;
 pub(crate) mod volume;
@@ -76,7 +73,7 @@ pub struct Node {
 	pub env: Arc<env::Env>,
 	pub http: reqwest::Client,
 	#[cfg(feature = "skynet")]
-	pub image_labeller: skynet::image_labeler::ImageLabeler,
+	pub image_labeller: ImageLabeler,
 }
 
 impl fmt::Debug for Node {
@@ -110,7 +107,7 @@ impl Node {
 			.map_err(NodeError::FailedToInitializeConfig)?;
 
 		#[cfg(feature = "skynet")]
-		skynet::init()?;
+		sd_skynet::init()?;
 
 		let (locations, locations_actor) = location::Locations::new();
 		let (jobs, jobs_actor) = job::Jobs::new();
@@ -139,7 +136,7 @@ impl Node {
 			#[cfg(feature = "skynet")]
 			image_labeller: ImageLabeler::new(YoloV8::model())
 				.await
-				.map_err(skynet::Error::from)?,
+				.map_err(sd_skynet::Error::from)?,
 		});
 
 		// Restore backend feature flags
@@ -327,5 +324,5 @@ pub enum NodeError {
 	Logger(#[from] FromEnvError),
 	#[cfg(feature = "skynet")]
 	#[error("skynet error: {0}")]
-	Skynet(#[from] skynet::Error),
+	Skynet(#[from] sd_skynet::Error),
 }

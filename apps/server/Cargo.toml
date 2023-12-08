@@ -15,10 +15,12 @@ sd-core = { path = "../../core", features = [
 	"location-watcher",
 	"heif",
 ] }
+
+axum = { workspace = true }
+http = { workspace = true }
 rspc = { workspace = true, features = ["axum"] }
-axum = "0.6.20"
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "signal"] }
 tracing = { workspace = true }
-http = "0.2.9"
+
 include_dir = "0.7.3"
 mime_guess = "2.0.4"

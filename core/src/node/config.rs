@@ -2,13 +2,11 @@ use crate::{
 	api::{notifications::Notification, BackendFeature},
 	auth::OAuthToken,
 	object::media::thumbnail::preferences::ThumbnailerPreferences,
-	util::{
-		error::FileIOError,
-		version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
-	},
+	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 
 use sd_p2p::{Keypair, ManagerConfig};
+use sd_utils::error::FileIOError;
 
 use std::{
 	path::{Path, PathBuf},

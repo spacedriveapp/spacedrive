@@ -1,7 +1,8 @@
-use super::Library;
-
 use std::sync::Arc;
+
 use tokio::sync::Notify;
+
+use super::Library;
 
 pub async fn run_actor(library: Arc<Library>, notify: Arc<Notify>) {
 	let Library { sync, .. } = library.as_ref();

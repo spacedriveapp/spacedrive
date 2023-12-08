@@ -3,17 +3,15 @@ use crate::{
 		notifications::{Notification, NotificationData, NotificationId},
 		CoreEvent,
 	},
-	location::file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
 	notifications,
 	object::{media::thumbnail::get_indexed_thumbnail_path, orphan_remover::OrphanRemoverActor},
-	prisma::{file_path, location, PrismaClient},
-	sync,
-	util::{db::maybe_missing, error::FileIOError},
-	Node,
+	sync, Node,
 };
 
+use sd_file_path_helper::{file_path_to_full_path, IsolatedFilePathData};
 use sd_p2p::spacetunnel::Identity;
-use sd_prisma::prisma::notification;
+use sd_prisma::prisma::{file_path, location, notification, PrismaClient};
+use sd_utils::{db::maybe_missing, error::FileIOError};
 
 use std::{
 	collections::HashMap,

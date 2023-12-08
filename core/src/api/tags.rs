@@ -1,25 +1,23 @@
+use crate::{invalidate_query, library::Library, object::tag::TagCreateArgs};
+
+use sd_cache::{CacheNode, Normalise, NormalisedResult, NormalisedResults, Reference};
+use sd_file_ext::kind::ObjectKind;
+use sd_prisma::{
+	prisma::{file_path, object, tag, tag_on_object},
+	prisma_sync,
+};
+use sd_sync::OperationFactory;
+use sd_utils::uuid_to_bytes;
+
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
 use itertools::{Either, Itertools};
 use rspc::{alpha::AlphaRouter, ErrorCode};
-use sd_cache::{CacheNode, Normalise, NormalisedResult, NormalisedResults, Reference};
-use sd_file_ext::kind::ObjectKind;
-use sd_prisma::{prisma, prisma_sync};
-use sd_sync::OperationFactory;
-use sd_utils::uuid_to_bytes;
 use serde::{Deserialize, Serialize};
-use specta::Type;
-
 use serde_json::json;
+use specta::Type;
 use uuid::Uuid;
-
-use crate::{
-	invalidate_query,
-	library::Library,
-	object::tag::TagCreateArgs,
-	prisma::{file_path, object, tag, tag_on_object},
-};
 
 use super::{utils::library, Ctx, R};
 
@@ -119,8 +117,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Debug, Type, Deserialize)]
 			#[specta(inline)]
 			enum Target {
-				Object(prisma::object::id::Type),
-				FilePath(prisma::file_path::id::Type),
+				Object(object::id::Type),
+				FilePath(file_path::id::Type),
 			}
 
 			#[derive(Debug, Type, Deserialize)]

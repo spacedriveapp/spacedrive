@@ -1,6 +1,6 @@
-use crate::{library::Library, prisma::tag};
+use crate::library::Library;
 
-use sd_prisma::prisma_sync;
+use sd_prisma::{prisma::tag, prisma_sync};
 use sd_sync::*;
 
 use chrono::{DateTime, FixedOffset, Utc};

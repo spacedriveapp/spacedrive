@@ -1,13 +1,14 @@
-use std::sync::{atomic::Ordering, Arc};
-
 use crate::{
 	invalidate_query,
 	job::JobProgressEvent,
 	node::config::{NodeConfig, NodePreferences},
 	Node,
 };
+
 use sd_cache::patch_typedef;
 use sd_p2p::P2PStatus;
+
+use std::sync::{atomic::Ordering, Arc};
 
 use itertools::Itertools;
 use rspc::{alpha::Rspc, Config, ErrorCode};

@@ -264,12 +264,12 @@ dependencies = [
 
 [[package]]
 name = "async-channel"
-version = "2.1.0"
+version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d37875bd9915b7d67c2f117ea2c30a0989874d0b2cb694fe25403c85763c0c9e"
+checksum = "1ca33f4bc4ed1babef42cad36cc1f51fa88be00420404e5b1e80ab1b18f7678c"
 dependencies = [
  "concurrent-queue",
- "event-listener 3.1.0",
+ "event-listener 4.0.0",
  "event-listener-strategy",
  "futures-core",
  "pin-project-lite",
@@ -1995,9 +1995,9 @@ checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
 name = "event-listener"
-version = "3.1.0"
+version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d93877bcde0eb80ca09131a08d23f0a5c18a620b01db137dba666d18cd9b30c2"
+checksum = "770d968249b5d99410d61f5bf89057f3199a077a04d087092f58e7d10692baae"
 dependencies = [
  "concurrent-queue",
  "parking",
@@ -2006,11 +2006,11 @@ dependencies = [
 
 [[package]]
 name = "event-listener-strategy"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d96b852f1345da36d551b9473fa1e2b1eb5c5195585c6c018118bc92a8d91160"
+checksum = "958e4d70b6d5e81971bebec42271ec641e7ff4e170a6fa605f2b8a8b65cb97d3"
 dependencies = [
- "event-listener 3.1.0",
+ "event-listener 4.0.0",
  "pin-project-lite",
 ]
 
@@ -3385,6 +3385,15 @@ name = "itertools"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25db6b064527c5d482d0423354fcd07a89a2dfe07b67892e62411946db7f07b0"
 dependencies = [
  "either",
 ]
@@ -6893,28 +6902,24 @@ dependencies = [
  "blake3",
  "bytes",
  "chrono",
- "crossbeam",
  "ctor 0.2.5",
  "directories 5.0.1",
  "flate2",
  "futures",
  "futures-concurrency",
  "globset",
- "half",
  "hostname",
  "http-body",
  "http-range",
  "image",
  "int-enum",
- "itertools 0.11.0",
+ "itertools 0.12.0",
  "mini-moka",
- "ndarray",
  "normpath",
  "notify",
  "once_cell",
  "openssl",
  "openssl-sys",
- "ort",
  "pin-project-lite",
  "plist",
  "prisma-client-rust",
@@ -6928,10 +6933,12 @@ dependencies = [
  "sd-crypto",
  "sd-ffmpeg",
  "sd-file-ext",
+ "sd-file-path-helper",
  "sd-images",
  "sd-media-metadata",
  "sd-p2p",
  "sd-prisma",
+ "sd-skynet",
  "sd-sync",
  "sd-utils",
  "serde",
@@ -7086,7 +7093,23 @@ dependencies = [
  "serde_json",
  "specta",
  "strum",
+ "strum_macros",
  "tokio",
+]
+
+[[package]]
+name = "sd-file-path-helper"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "prisma-client-rust",
+ "regex",
+ "sd-prisma",
+ "sd-utils",
+ "serde",
+ "thiserror",
+ "tokio",
+ "tracing 0.2.0",
 ]
 
 [[package]]
@@ -7205,6 +7228,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-skynet"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "crossbeam",
+ "futures",
+ "futures-concurrency",
+ "half",
+ "image",
+ "ndarray",
+ "ort",
+ "sd-file-path-helper",
+ "sd-prisma",
+ "sd-utils",
+ "thiserror",
+ "tokio",
+ "tracing 0.2.0",
+]
+
+[[package]]
 name = "sd-sync"
 version = "0.1.0"
 dependencies = [
@@ -7230,6 +7273,10 @@ dependencies = [
 name = "sd-utils"
 version = "0.1.0"
 dependencies = [
+ "prisma-client-rust",
+ "rspc",
+ "sd-prisma",
+ "thiserror",
  "uuid",
 ]
 

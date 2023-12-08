@@ -1,6 +1,6 @@
-use std::sync::Arc;
-
 use crate::{library::Library, Node};
+
+use std::sync::Arc;
 
 mod ingest;
 mod receive;

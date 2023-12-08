@@ -5,22 +5,22 @@ use crate::{
 		StatefulJob, WorkerContext,
 	},
 	library::Library,
-	location::file_path_helper::{
-		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-		file_path_for_media_processor, IsolatedFilePathData,
-	},
-	prisma::{location, PrismaClient},
-	util::db::maybe_missing,
 	Node,
 };
 
+use sd_file_ext::extensions::Extension;
+use sd_file_path_helper::{
+	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+	file_path_for_media_processor, IsolatedFilePathData,
+};
+use sd_prisma::prisma::{location, PrismaClient};
+use sd_utils::db::maybe_missing;
+
 #[cfg(feature = "skynet")]
-use crate::skynet::image_labeler::{assign_labels, LabelerOutput};
+use sd_skynet::image_labeler::LabelerOutput;
 
 #[cfg(feature = "skynet")]
 use std::collections::HashMap;
-
-use sd_file_ext::extensions::Extension;
 
 #[cfg(feature = "skynet")]
 use sd_prisma::prisma::{file_path, object};
@@ -46,6 +46,9 @@ use super::{
 	thumbnail::{self, GenerateThumbnailArgs},
 	BatchToProcess, MediaProcessorError, MediaProcessorMetadata,
 };
+
+#[cfg(feature = "skynet")]
+use super::assign_labels;
 
 const BATCH_SIZE: usize = 10;
 

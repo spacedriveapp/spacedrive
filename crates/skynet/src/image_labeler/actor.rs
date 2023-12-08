@@ -1,17 +1,14 @@
-use crate::{
-	location::file_path_helper::{file_path_for_media_processor, IsolatedFilePathData},
-	skynet::image_labeler::{ImageLabelerError, LabelerOutput},
-	util::error::FileIOError,
-};
+use sd_file_path_helper::{file_path_for_media_processor, IsolatedFilePathData};
+use sd_prisma::prisma::location;
+use sd_utils::error::FileIOError;
 
 use std::{cell::RefCell, collections::HashMap, path::PathBuf, pin::pin, sync::Arc, thread};
 
 use async_channel as chan;
 use crossbeam::channel;
-use futures::stream::{once, FuturesUnordered, StreamExt};
+use futures::stream::{self, FuturesUnordered, StreamExt};
 use futures_concurrency::stream::Merge;
 use image::ImageFormat;
-use sd_prisma::prisma::location;
 use tokio::{
 	fs,
 	io::ErrorKind,
@@ -20,7 +17,10 @@ use tokio::{
 };
 use tracing::{debug, error};
 
-use super::model::{model_executor, Model, ModelExecutorInput, ModelOutput};
+use super::{
+	model::{model_executor, Model, ModelExecutorInput, ModelOutput},
+	ImageLabelerError, LabelerOutput,
+};
 
 const MAX_FILE_SIZE: u64 = 100 * 1024 * 1024; // 100 MB
 
@@ -238,7 +238,7 @@ async fn process_batches(
 	let mut msg_stream = pin!((
 		batches_rx.map(StreamMessage::Batch),
 		results_rx.map(StreamMessage::Results),
-		once(cancel_rx.recv()).map(|_| StreamMessage::Shutdown)
+		stream::once(cancel_rx.recv()).map(|_| StreamMessage::Shutdown)
 	)
 		.merge());
 

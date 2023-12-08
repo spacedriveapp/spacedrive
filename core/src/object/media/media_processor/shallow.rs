@@ -2,20 +2,17 @@ use crate::{
 	invalidate_query,
 	job::{JobError, JobRunMetadata},
 	library::Library,
-	location::file_path_helper::{
-		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-		file_path_for_media_processor, IsolatedFilePathData,
-	},
 	object::media::thumbnail::GenerateThumbnailArgs,
-	prisma::{location, PrismaClient},
-	util::db::maybe_missing,
 	Node,
 };
 
-#[cfg(feature = "skynet")]
-use crate::skynet::image_labeler::assign_labels;
-
 use sd_file_ext::extensions::Extension;
+use sd_file_path_helper::{
+	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+	file_path_for_media_processor, IsolatedFilePathData,
+};
+use sd_prisma::prisma::{location, PrismaClient};
+use sd_utils::db::maybe_missing;
 
 use std::path::{Path, PathBuf};
 
@@ -28,6 +25,9 @@ use super::{
 	thumbnail::{self, BatchToProcess},
 	MediaProcessorError, MediaProcessorMetadata,
 };
+
+#[cfg(feature = "skynet")]
+use super::assign_labels;
 
 const BATCH_SIZE: usize = 10;
 

@@ -1,5 +1,5 @@
-use crate::prisma::{self, PrismaClient};
 use prisma_client_rust::{migrations::*, NewClientError};
+use sd_prisma::prisma::{self, PrismaClient};
 use thiserror::Error;
 
 /// MigrationError represents an error that occurring while opening a initialising and running migrations on the database.

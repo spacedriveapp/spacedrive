@@ -2,17 +2,25 @@ use crate::{
 	invalidate_query,
 	job::{JobBuilder, JobError, JobManagerError},
 	library::Library,
-	location::file_path_helper::filter_existing_file_path_params,
 	object::{
 		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
 		media::{media_processor, MediaProcessorJobInit},
 	},
-	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
-	util::{
-		db::{maybe_missing, MissingFieldError},
-		error::{FileIOError, NonUtf8PathError},
-	},
 	Node,
+};
+
+use sd_file_path_helper::{
+	filter_existing_file_path_params, IsolatedFilePathData, IsolatedFilePathDataParts,
+};
+use sd_prisma::{
+	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
+	prisma_sync,
+};
+use sd_sync::*;
+use sd_utils::{
+	db::{maybe_missing, MissingFieldError},
+	error::{FileIOError, NonUtf8PathError},
+	uuid_to_bytes,
 };
 
 use std::{
@@ -25,9 +33,6 @@ use chrono::Utc;
 use futures::future::TryFutureExt;
 use normpath::PathExt;
 use prisma_client_rust::{operator::and, or, QueryError};
-use sd_prisma::prisma_sync;
-use sd_sync::*;
-use sd_utils::uuid_to_bytes;
 use serde::Deserialize;
 use serde_json::json;
 use specta::Type;
@@ -36,7 +41,6 @@ use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 mod error;
-pub mod file_path_helper;
 pub mod indexer;
 mod manager;
 pub mod metadata;
@@ -46,8 +50,6 @@ pub use error::LocationError;
 use indexer::IndexerJobInit;
 pub use manager::{LocationManagerError, Locations};
 use metadata::SpacedriveLocationMetadataFile;
-
-use file_path_helper::IsolatedFilePathData;
 
 pub type LocationPubId = Uuid;
 
@@ -1016,4 +1018,98 @@ pub async fn get_location_path_from_location_id(
 						.ok_or(LocationError::MissingPath(location_id))
 				})
 		})
+}
+
+#[cfg(feature = "location-watcher")]
+pub async fn create_file_path(
+	crate::location::Library { db, sync, .. }: &crate::location::Library,
+	IsolatedFilePathDataParts {
+		materialized_path,
+		is_dir,
+		location_id,
+		name,
+		extension,
+		..
+	}: IsolatedFilePathDataParts<'_>,
+	cas_id: Option<String>,
+	metadata: sd_file_path_helper::FilePathMetadata,
+) -> Result<file_path::Data, sd_file_path_helper::FilePathError> {
+	use sd_utils::db::inode_to_db;
+
+	use sd_prisma::prisma;
+
+	let indexed_at = Utc::now();
+
+	let location = db
+		.location()
+		.find_unique(location::id::equals(location_id))
+		.select(location::select!({ id pub_id }))
+		.exec()
+		.await?
+		.ok_or(sd_file_path_helper::FilePathError::LocationNotFound(
+			location_id,
+		))?;
+
+	let params = {
+		use file_path::*;
+
+		vec![
+			(
+				location::NAME,
+				json!(prisma_sync::location::SyncId {
+					pub_id: location.pub_id
+				}),
+			),
+			(cas_id::NAME, json!(cas_id)),
+			(materialized_path::NAME, json!(materialized_path)),
+			(name::NAME, json!(name)),
+			(extension::NAME, json!(extension)),
+			(
+				size_in_bytes_bytes::NAME,
+				json!(metadata.size_in_bytes.to_be_bytes().to_vec()),
+			),
+			(inode::NAME, json!(metadata.inode.to_le_bytes())),
+			(is_dir::NAME, json!(is_dir)),
+			(date_created::NAME, json!(metadata.created_at)),
+			(date_modified::NAME, json!(metadata.modified_at)),
+			(date_indexed::NAME, json!(indexed_at)),
+		]
+	};
+
+	let pub_id = sd_utils::uuid_to_bytes(Uuid::new_v4());
+
+	let created_path = sync
+		.write_ops(
+			db,
+			(
+				sync.shared_create(
+					prisma_sync::file_path::SyncId {
+						pub_id: pub_id.clone(),
+					},
+					params,
+				),
+				db.file_path().create(pub_id, {
+					use file_path::*;
+					vec![
+						location::connect(prisma::location::id::equals(location.id)),
+						materialized_path::set(Some(materialized_path.into())),
+						name::set(Some(name.into())),
+						extension::set(Some(extension.into())),
+						inode::set(Some(inode_to_db(metadata.inode))),
+						cas_id::set(cas_id),
+						is_dir::set(Some(is_dir)),
+						size_in_bytes_bytes::set(Some(
+							metadata.size_in_bytes.to_be_bytes().to_vec(),
+						)),
+						date_created::set(Some(metadata.created_at.into())),
+						date_modified::set(Some(metadata.modified_at.into())),
+						date_indexed::set(Some(indexed_at.into())),
+						hidden::set(Some(metadata.hidden)),
+					]
+				}),
+			),
+		)
+		.await?;
+
+	Ok(created_path)
 }

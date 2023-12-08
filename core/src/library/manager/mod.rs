@@ -8,20 +8,19 @@ use crate::{
 	node::Platform,
 	object::tag,
 	p2p::{self, IdentityOrRemoteIdentity},
-	prisma::location,
 	sync,
-	util::{
-		db,
-		error::{FileIOError, NonUtf8PathError},
-		mpscrr, MaybeUndefined,
-	},
+	util::{mpscrr, MaybeUndefined},
 	Node,
 };
 
 use sd_core_sync::SyncMessage;
 use sd_p2p::spacetunnel::Identity;
-use sd_prisma::prisma::{instance, shared_operation};
-use sd_utils::from_bytes_to_uuid;
+use sd_prisma::prisma::{instance, location, shared_operation};
+use sd_utils::{
+	db,
+	error::{FileIOError, NonUtf8PathError},
+	from_bytes_to_uuid,
+};
 
 use std::{
 	collections::HashMap,

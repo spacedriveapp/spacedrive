@@ -6,8 +6,9 @@ use crate::{
 		file_identifier::file_identifier_job::FileIdentifierJobInit, media::MediaProcessorJobInit,
 		validation::validator_job::ObjectValidatorJobInit,
 	},
-	prisma::{job, location, SortOrder},
 };
+
+use sd_prisma::prisma::{job, location, SortOrder};
 
 use std::{
 	collections::{hash_map::Entry, BTreeMap, HashMap, VecDeque},

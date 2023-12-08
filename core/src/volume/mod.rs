@@ -1,5 +1,7 @@
 // Adapted from: https://github.com/kimlimjustin/xplorer/blob/f4f3590d06783d64949766cc2975205a3b689a56/src-tauri/src/drives.rs
 
+use sd_cache::Model;
+
 use std::{
 	fmt::Display,
 	hash::{Hash, Hasher},
@@ -7,7 +9,6 @@ use std::{
 	sync::OnceLock,
 };
 
-use sd_cache::Model;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;

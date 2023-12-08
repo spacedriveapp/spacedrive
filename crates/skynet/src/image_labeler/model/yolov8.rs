@@ -1,12 +1,11 @@
-use std::sync::Arc;
-use std::{collections::HashSet, path::Path};
+use crate::utils::get_path_relative_to_exe;
+
+use std::{collections::HashSet, path::Path, sync::Arc};
 
 use half::f16;
-use image::{imageops::FilterType, GenericImageView};
+use image::{imageops::FilterType, load_from_memory_with_format, GenericImageView, ImageFormat};
 use ndarray::{s, Array, Axis};
-use ort::{inputs, SessionInputs};
-
-use crate::skynet::utils::get_path_relative_to_exe;
+use ort::{inputs, SessionInputs, SessionOutputs};
 
 use super::{ImageLabelerError, Model};
 
@@ -43,9 +42,9 @@ impl Model for YoloV8 {
 	fn prepare_input<'image>(
 		&self,
 		image: &'image [u8],
-		format: image::ImageFormat,
+		format: ImageFormat,
 	) -> Result<SessionInputs<'image>, ImageLabelerError> {
-		let original_img = image::load_from_memory_with_format(image, format)?;
+		let original_img = load_from_memory_with_format(image, format)?;
 		let img = original_img.resize_exact(640, 640, FilterType::CatmullRom);
 		let mut input = Array::<f16, _>::zeros((1, 3, 640, 640));
 		for pixel in img.pixels() {
@@ -64,24 +63,23 @@ impl Model for YoloV8 {
 
 	fn process_output(
 		&self,
-		output: ort::SessionOutputs<'_>,
-	) -> Result<std::collections::HashSet<String>, crate::skynet::image_labeler::ImageLabelerError>
-	{
+		output: SessionOutputs<'_>,
+	) -> Result<HashSet<String>, ImageLabelerError> {
 		#[rustfmt::skip]
-				const YOLOV8_CLASS_LABELS: [&str; 80] = [
-					"person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck",
-					"boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench",
-					"bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra",
-					"giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
-					"skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove",
-					"skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup",
-					"fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange",
-					"broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch",
-					"potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse",
-					"remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink",
-					"refrigerator", "book", "clock", "vase", "scissors", "teddy bear",
-					"hair drier", "toothbrush"
-				];
+		const YOLOV8_CLASS_LABELS: [&str; 80] = [
+			"person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck",
+			"boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench",
+			"bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra",
+			"giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
+			"skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove",
+			"skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup",
+			"fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange",
+			"broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch",
+			"potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse",
+			"remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink",
+			"refrigerator", "book", "clock", "vase", "scissors", "teddy bear",
+			"hair drier", "toothbrush"
+		];
 
 		let output0 = &output["output0"];
 
@@ -106,9 +104,12 @@ impl Model for YoloV8 {
 			})
 			.filter(|(_, probability)| probability.to_f32() > 0.6)
 			.map(|(class_id, _)| YOLOV8_CLASS_LABELS[class_id])
-			.collect::<HashSet<_>>()
-			.into_iter()
-			.map(ToString::to_string)
-			.collect())
+			.fold(HashSet::default(), |mut set, label| {
+				if !set.contains(label) {
+					set.insert(label.to_string());
+				}
+
+				set
+			}))
 	}
 }

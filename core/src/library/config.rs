@@ -1,16 +1,12 @@
 use crate::{
 	node::{config::NodeConfig, Platform},
 	p2p::IdentityOrRemoteIdentity,
-	prisma::{file_path, indexer_rule, PrismaClient},
-	util::{
-		db::maybe_missing,
-		error::FileIOError,
-		version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
-	},
+	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 
 use sd_p2p::spacetunnel::Identity;
-use sd_prisma::prisma::{instance, location, node};
+use sd_prisma::prisma::{file_path, indexer_rule, instance, location, node, PrismaClient};
+use sd_utils::{db::maybe_missing, error::FileIOError};
 
 use std::path::Path;
 

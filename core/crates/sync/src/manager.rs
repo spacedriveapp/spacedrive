@@ -1,12 +1,14 @@
 use crate::{
 	db_operation::*, ingest, relation_op_db, shared_op_db, SharedState, SyncMessage, NTP64,
 };
+
 use sd_prisma::prisma::{
 	cloud_relation_operation, cloud_shared_operation, instance, relation_operation,
 	shared_operation, PrismaClient, SortOrder,
 };
 use sd_sync::{CRDTOperation, CRDTOperationType, OperationFactory};
 use sd_utils::uuid_to_bytes;
+
 use std::{
 	cmp::Ordering,
 	collections::HashMap,
@@ -16,6 +18,7 @@ use std::{
 		Arc,
 	},
 };
+
 use tokio::sync::{broadcast, RwLock};
 use uhlc::{HLCBuilder, HLC};
 use uuid::Uuid;
@@ -38,6 +41,7 @@ pub struct New {
 }
 
 impl Manager {
+	#[allow(clippy::new_ret_no_self)]
 	pub fn new(
 		db: &Arc<PrismaClient>,
 		instance: Uuid,

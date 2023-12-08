@@ -2,10 +2,10 @@ use crate::{
 	api::CoreEvent,
 	library::{Libraries, LibraryId, LibraryManagerEvent},
 	node::config::NodePreferences,
-	util::error::{FileIOError, NonUtf8PathError},
 };
 
 use sd_prisma::prisma::{location, PrismaClient};
+use sd_utils::error::{FileIOError, NonUtf8PathError};
 
 use std::{
 	path::{Path, PathBuf},

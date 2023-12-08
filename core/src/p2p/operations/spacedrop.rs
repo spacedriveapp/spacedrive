@@ -1,3 +1,11 @@
+use crate::p2p::{Header, P2PEvent, P2PManager};
+
+use sd_p2p::{
+	spaceblock::{BlockSize, Range, SpaceblockRequest, SpaceblockRequests, Transfer},
+	spacetunnel::RemoteIdentity,
+	PeerMessageEvent,
+};
+
 use std::{
 	borrow::Cow,
 	path::PathBuf,
@@ -9,11 +17,6 @@ use std::{
 };
 
 use futures::future::join_all;
-use sd_p2p::{
-	spaceblock::{BlockSize, Range, SpaceblockRequest, SpaceblockRequests, Transfer},
-	spacetunnel::RemoteIdentity,
-	PeerMessageEvent,
-};
 use tokio::{
 	fs::{create_dir_all, File},
 	io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
@@ -22,8 +25,6 @@ use tokio::{
 };
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
-
-use crate::p2p::{Header, P2PEvent, P2PManager};
 
 /// The amount of time to wait for a Spacedrop request to be accepted or rejected before it's automatically rejected
 pub(crate) const SPACEDROP_TIMEOUT: Duration = Duration::from_secs(60);

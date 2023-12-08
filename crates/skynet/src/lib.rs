@@ -26,7 +26,7 @@ const LIB_NAME: &str = "libonnxruntime.dylib";
 #[cfg(any(target_os = "linux", target_os = "android"))]
 const LIB_NAME: &str = "libonnxruntime.so";
 
-pub(crate) fn init() -> Result<(), Error> {
+pub fn init() -> Result<(), Error> {
 	let path = utils::get_path_relative_to_exe(Path::new(BINDING_LOCATION).join(LIB_NAME));
 
 	std::env::set_var("ORT_DYLIB_PATH", path);

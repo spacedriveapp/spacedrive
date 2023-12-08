@@ -5,10 +5,13 @@ use crate::{
 		cas::generate_cas_id,
 		media::thumbnail::{get_ephemeral_thumb_key, BatchToProcess, GenerateThumbnailArgs},
 	},
-	prisma::location,
-	util::error::FileIOError,
 	Node,
 };
+
+use sd_file_ext::{extensions::Extension, kind::ObjectKind};
+use sd_file_path_helper::{path_is_hidden, MetadataExt};
+use sd_prisma::prisma::location;
+use sd_utils::{chain_optional_iter, error::FileIOError};
 
 use std::{
 	collections::HashMap,
@@ -16,11 +19,8 @@ use std::{
 	sync::Arc,
 };
 
-use sd_file_ext::{extensions::Extension, kind::ObjectKind};
-
 use chrono::{DateTime, Utc};
 use rspc::ErrorCode;
-use sd_utils::chain_optional_iter;
 use serde::Serialize;
 use specta::Type;
 use thiserror::Error;
@@ -28,7 +28,6 @@ use tokio::{fs, io};
 use tracing::{error, warn};
 
 use super::{
-	file_path_helper::{path_is_hidden, MetadataExt},
 	indexer::rules::{
 		seed::{no_hidden, no_os_protected},
 		IndexerRule, RuleKind,
