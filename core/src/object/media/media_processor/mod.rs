@@ -92,8 +92,8 @@ pub async fn assign_labels(
 	mut labels: HashSet<String>,
 	library @ Library { db, .. }: &Library,
 ) -> Result<(), prisma_client_rust::QueryError> {
-    use chrono::{DateTime, FixedOffset, Utc};
-    use uuid::Uuid;
+	use chrono::{DateTime, FixedOffset, Utc};
+	use uuid::Uuid;
 
 	let mut labels_ids = db
 		.label()
