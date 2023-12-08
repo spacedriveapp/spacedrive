@@ -95,6 +95,9 @@ function AppInner() {
 		const router = createMemoryRouterWithHistory({ routes, history });
 
 		const dispose = router.subscribe((event) => {
+			// we don't care about non-idle events as those are artifacts of form mutations + suspense
+			if (event.navigation.state !== 'idle') return;
+
 			setTabs((routers) => {
 				const index = routers.findIndex((r) => r.router === router);
 				if (index === -1) return routers;

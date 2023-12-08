@@ -7,6 +7,7 @@ import { Tooltip } from '@sd/ui';
 import { useKeyMatcher, useOperatingSystem, useShowControls } from '~/hooks';
 import { useRoutingContext } from '~/RoutingContext';
 import { useTabsContext } from '~/TabsContext';
+import { usePlatform } from '~/util/Platform';
 
 import { useExplorerStore } from '../Explorer/store';
 import { useTopBarContext } from './Layout';
@@ -36,6 +37,8 @@ const TopBar = () => {
 		ctx.setTopBarHeight.call(undefined, height);
 	}, [ctx.setTopBarHeight]);
 
+	const platform = usePlatform();
+
 	return (
 		<div
 			ref={ref}
@@ -57,7 +60,7 @@ const TopBar = () => {
 					data-tauri-drag-region
 					className="flex flex-1 items-center gap-3.5 overflow-hidden"
 				>
-					<NavigationButtons />
+					{platform.platform === 'tauri' && <NavigationButtons />}
 					<div ref={ctx.setLeft} className="overflow-hidden" />
 				</div>
 

@@ -28,12 +28,7 @@ use tracing_appender::{
 	non_blocking::{NonBlocking, WorkerGuard},
 	rolling::{RollingFileAppender, Rotation},
 };
-use tracing_subscriber::{
-	filter::{Directive, FromEnvError, LevelFilter},
-	fmt as tracing_fmt,
-	prelude::*,
-	EnvFilter,
-};
+use tracing_subscriber::{filter::FromEnvError, prelude::*, EnvFilter};
 
 pub mod api;
 mod auth;
@@ -174,46 +169,35 @@ impl Node {
 
 		// Set a default if the user hasn't set an override
 		if std::env::var("RUST_LOG") == Err(std::env::VarError::NotPresent) {
-			let directive: Directive = if cfg!(debug_assertions) {
-				LevelFilter::DEBUG
+			let level = if cfg!(debug_assertions) {
+				"debug"
 			} else {
-				LevelFilter::INFO
-			}
-			.into();
-			std::env::set_var("RUST_LOG", directive.to_string());
+				"info"
+			};
+
+			std::env::set_var(
+				"RUST_LOG",
+				format!("info,sd_core={level},sd_core::location::manager=info"),
+			);
 		}
 
-		let collector = tracing_subscriber::registry()
+		tracing_subscriber::registry()
 			.with(
-				tracing_fmt::Subscriber::new()
+				tracing_subscriber::fmt::layer()
 					.with_file(true)
 					.with_line_number(true)
 					.with_ansi(false)
 					.with_writer(logfile)
-					.with_filter(
-						EnvFilter::builder()
-							.from_env()?
-							.add_directive("info".parse()?),
-					),
+					.with_filter(EnvFilter::from_default_env()),
 			)
 			.with(
-				tracing_fmt::Subscriber::new()
+				tracing_subscriber::fmt::layer()
 					.with_file(true)
 					.with_line_number(true)
 					.with_writer(std::io::stdout)
-					.with_filter(
-						EnvFilter::builder()
-							.from_env()?
-							// We don't wanna blow up the logs
-							.add_directive("sd_core::location::manager=info".parse()?),
-					),
-			);
-
-		tracing::collect::set_global_default(collector)
-			.map_err(|err| {
-				eprintln!("Error initializing global logger: {:?}", err);
-			})
-			.ok();
+					.with_filter(EnvFilter::from_default_env()),
+			)
+			.init();
 
 		std::panic::set_hook(Box::new(move |panic| {
 			if let Some(location) = panic.location() {

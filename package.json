@@ -33,6 +33,9 @@
 	"pnpm": {
 		"overrides": {
 			"@radix-ui/react-dismissable-layer": "1.0.2"
+		},
+		"patchedDependencies": {
+			"@remix-run/router@1.13.1": "patches/@remix-run__router@1.13.1.patch"
 		}
 	},
 	"devDependencies": {

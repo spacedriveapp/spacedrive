@@ -11,7 +11,17 @@ import {
 	usePlausibleEvent,
 	useZodForm
 } from '@sd/client';
-import { CheckBox, Dialog, ErrorMessage, Label, toast, useDialog, UseDialogProps, z } from '@sd/ui';
+import {
+	CheckBox,
+	Dialog,
+	ErrorMessage,
+	Label,
+	RadixCheckbox,
+	toast,
+	useDialog,
+	UseDialogProps,
+	z
+} from '@sd/ui';
 import { getExplorerStore } from '~/app/$libraryId/Explorer/store';
 import { Accordion, Icon } from '~/components';
 import { useCallbackToWatchForm } from '~/hooks';
@@ -222,16 +232,26 @@ export const AddLocationDialog = ({
 				<ErrorMessage
 					name={REMOTE_ERROR_FORM_FIELD}
 					variant="large"
-					className="mb-4 mt-2"
+					className="mt-2 mb-4"
 				/>
 
 				<LocationPathInputField {...form.register('path')} />
 
 				<input type="hidden" {...form.register('method')} />
 
-				<div className="mb-4 flex">
-					<CheckBox {...form.register('shouldRedirect')} />
-					<Label className="mt-[3px] font-semibold">Open new location once added</Label>
+				<div className="flex items-center gap-2 mb-6">
+					<Controller
+						name="shouldRedirect"
+						render={({ field }) => (
+							<RadixCheckbox
+								checked={field.value}
+								onCheckedChange={field.onChange}
+								className="text-xs font-semibold"
+							/>
+						)}
+						control={form.control}
+					/>
+					<Label className="text-xs font-semibold">Open new location once added</Label>
 				</div>
 
 				<Accordion title="Advanced settings">
