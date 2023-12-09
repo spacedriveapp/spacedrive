@@ -227,18 +227,18 @@ impl Locations {
 			)
 		}
 
-		#[cfg(not(feature = "location-watcher"))]
-		{
-			tracing::warn!("Location watcher is disabled, locations will not be checked");
-			(
-				Self {
-					online_tx,
-					online_locations: Default::default(),
-					stop_tx: None,
-				},
-				LocationManagerActor {},
-			)
-		}
+		// #[cfg(not(feature = "location-watcher"))]
+		// {
+		// 	tracing::warn!("Location watcher is disabled, locations will not be checked");
+		// 	(
+		// 		Self {
+		// 			online_tx,
+		// 			online_locations: Default::default(),
+		// 			stop_tx: None,
+		// 		},
+		// 		LocationManagerActor {},
+		// 	)
+		// }
 	}
 
 	#[inline]

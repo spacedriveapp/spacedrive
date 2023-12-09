@@ -112,7 +112,7 @@ cargo {
     module  = "./crate"
     libname = "sd_mobile_android"
     pythonCommand = 'python3'
-    profile = 'debug' //'release' // 'debug'
+    profile = 'release' // 'debug'
     targets = cargoTargets
     targetDirectory = "../../../../../target" // Monorepo moment
 		exec { spec, toolchain ->
