@@ -89,6 +89,8 @@ To run the mobile app:
 - Make sure you have [NDK 23.1.7779620 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) installed in Android Studio.
 - Run the following commands:
   - `pnpm android` (runs on Android Emulator)
+    - In order to have locations working on Android, you must run the following command once the application has been installed for the first time. Otherwise, locations will not work.
+			- `adb shell appops set --uid com.spacedrive.app MANAGE_EXTERNAL_STORAGE allow`
     - Run the following commands to access the logs from `sd-core`.
       - `adb shell`
       - Then `run-as com.spacedrive.app` to access the app's directory on device.
