@@ -51,7 +51,7 @@ importers:
         version: 5.2.2
       vite:
         specifier: ^4.5.0
-        version: 4.5.0(@types/node@18.17.19)
+        version: 4.5.0(less@4.2.0)
 
   .github/actions/publish-artifacts:
     dependencies:
@@ -623,7 +623,7 @@ importers:
         version: 5.2.2
       vite:
         specifier: ^4.5.0
-        version: 4.5.0(@types/node@18.17.19)
+        version: 4.5.0(less@4.2.0)
       vite-plugin-html:
         specifier: ^3.2.0
         version: 3.2.0(vite@4.5.0)
@@ -720,9 +720,6 @@ importers:
       dayjs:
         specifier: ^1.11.10
         version: 1.11.10
-      dragselect:
-        specifier: ^2.7.4
-        version: 2.7.4
       framer-motion:
         specifier: ^10.16.4
         version: 10.16.4(react-dom@18.2.0)(react@18.2.0)
@@ -10888,7 +10885,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.22.5(@babel/core@7.23.2)
       '@types/babel__core': 7.20.3
       react-refresh: 0.14.0
-      vite: 4.5.0(sass@1.69.5)
+      vite: 4.5.0(@types/node@18.17.19)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -13158,10 +13155,6 @@ packages:
 
   /draco3d@1.5.6:
     resolution: {integrity: sha512-+3NaRjWktb5r61ZFoDejlykPEFKT5N/LkbXsaddlw6xNSXBanUYpFc2AXXpbJDilPHazcSreU/DpQIaxfX0NfQ==}
-    dev: false
-
-  /dragselect@2.7.4:
-    resolution: {integrity: sha512-j0qFl4xvsyImlSTn9erDCCT4SSPUMssgKAYuKqhsPr8WPphLghHfjDd4WR2jLjL91fTQQlbbIJ/7T2qwD2hghQ==}
     dev: false
 
   /duplexer@0.1.2:
@@ -23333,7 +23326,7 @@ packages:
       '@rollup/pluginutils': 5.0.5
       '@svgr/core': 8.1.0(typescript@5.2.2)
       '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0)
-      vite: 4.5.0(sass@1.69.5)
+      vite: 4.5.0(@types/node@18.17.19)
     transitivePeerDependencies:
       - rollup
       - supports-color

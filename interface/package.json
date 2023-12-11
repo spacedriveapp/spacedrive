@@ -37,7 +37,6 @@
 		"clsx": "^2.0.0",
 		"crypto-random-string": "^5.0.0",
 		"dayjs": "^1.11.10",
-		"dragselect": "^2.7.4",
 		"framer-motion": "^10.16.4",
 		"immer": "^10.0.3",
 		"prismjs": "^1.29.0",
