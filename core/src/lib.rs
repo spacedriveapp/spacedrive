@@ -165,7 +165,7 @@ impl Node {
 
 			std::env::set_var(
 				"RUST_LOG",
-				format!("none,sd_core={level},sd_core::location::manager=info"),
+				format!("info,sd_core={level},sd_core::location::manager=info"),
 			);
 		}
 
