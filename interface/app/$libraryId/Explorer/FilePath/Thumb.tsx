@@ -135,7 +135,6 @@ export const FileThumb = memo((props: ThumbProps) => {
 		s: 'original' | 'thumbnail' | 'icon',
 		event: ErrorEvent | SyntheticEvent<Element, Event>
 	) => {
-		console.trace(s);
 		setLoadState((state) => ({ ...state, [s]: 'error' }));
 
 		const rawError =
