@@ -42,8 +42,10 @@ export type LibraryProceduresDef = {
 	subscriptions: StripLibraryArgsFromInput<LibraryProcedures<'subscriptions'>, true>;
 };
 
-const context = createContext<Context<LibraryProceduresDef>>(undefined!);
+const context = createContext<Context<Procedures>>(undefined!);
+const context2 = createContext<Context<LibraryProceduresDef>>(undefined!);
 
+export const useRspcContext = () => useContext(context2);
 export const useRspcLibraryContext = () => useContext(context);
 
 export const rspc = initRspc<Procedures>({
@@ -56,7 +58,7 @@ export const rspc2 = initRspc<Procedures>({
 export const nonLibraryClient = rspc.dangerouslyHookIntoInternals<NonLibraryProceduresDef>();
 // @ts-expect-error // TODO: Fix
 const nonLibraryHooks = createReactQueryHooks<NonLibraryProceduresDef>(nonLibraryClient, {
-	// context // TODO: Shared context
+	context: context2 // TODO: Shared context
 });
 
 export const libraryClient = rspc2.dangerouslyHookIntoInternals<LibraryProceduresDef>({

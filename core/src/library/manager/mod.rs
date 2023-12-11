@@ -146,7 +146,7 @@ impl Libraries {
 	}
 
 	/// create creates a new library with the given config and mounts it into the running [LibraryManager].
-	pub(crate) async fn create(
+	pub async fn create(
 		self: &Arc<Self>,
 		name: LibraryName,
 		description: Option<String>,

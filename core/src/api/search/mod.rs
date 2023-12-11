@@ -14,10 +14,12 @@ use crate::{
 	library::Library,
 	location::{non_indexed, LocationError},
 	object::media::thumbnail::get_indexed_thumb_key,
+	util::{unsafe_streamed_query, BatchedStream},
 };
 
 use std::path::PathBuf;
 
+use async_stream::stream;
 use futures::StreamExt;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use sd_cache::{CacheNode, Model, Normalise, Reference};
@@ -99,25 +101,21 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				#[specta(optional)]
 				order: Option<EphemeralPathOrder>,
 			}
-
 			#[derive(Serialize, Type, Debug)]
-			struct EphemeralPathsResult {
+			struct EphemeralPathsResultItem {
 				pub entries: Vec<Reference<ExplorerItem>>,
 				pub errors: Vec<rspc::Error>,
 				pub nodes: Vec<CacheNode>,
 			}
 
-			R.with2(library()).query(
+			R.with2(library()).subscription(
 				|(node, library),
 				 EphemeralPathSearchArgs {
 				     path,
 				     with_hidden_files,
 				     order,
 				 }| async move {
-					let start = std::time::Instant::now();
-					println!("STARTED {:?}", path);
-
-					let mut paths =
+					let paths =
 						non_indexed::walk(path, with_hidden_files, node, library, |entries| {
 							macro_rules! order_match {
 								($order:ident, [$(($variant:ident, |$i:ident| $func:expr)),+]) => {{
@@ -153,31 +151,29 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						})
 						.await?;
 
-					// TODO: Convert all the following to streaming
+					let mut stream = BatchedStream::new(paths);
+					Ok(unsafe_streamed_query(stream! {
+						while let Some(result) = stream.next().await {
+							// We optimise for the case of no errors because it should be way more common.
+							let mut entries = Vec::with_capacity(result.len());
+							let mut errors = Vec::with_capacity(0);
 
-					let mut entries = vec![];
-					let mut errors = vec![];
-					let mut first = true;
-					while let Some(result) = paths.next().await {
-						if first {
-							first = false;
-							println!("First item: {:?}", start.elapsed());
+							for item in result {
+								match item {
+									Ok(item) => entries.push(item),
+									Err(e) => errors.push(e),
+								}
+							}
+
+							let (nodes, entries) = entries.normalise(|item: &ExplorerItem| item.id());
+
+							yield EphemeralPathsResultItem {
+								entries,
+								errors,
+								nodes,
+							};
 						}
-						match result {
-							Ok(item) => entries.push(item),
-							Err(e) => errors.push(e),
-						}
-					}
-
-					println!("Finished: {:?}", start.elapsed());
-
-					let (nodes, entries) = entries.normalise(|item| item.id());
-
-					Ok(EphemeralPathsResult {
-						entries,
-						errors,
-						nodes,
-					})
+					}))
 				},
 			)
 		})

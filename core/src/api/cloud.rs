@@ -1,5 +1,5 @@
 use super::{utils::library, Ctx, R};
-use crate::{invalidate_query, library::LibraryName, util::http::ensure_response};
+use crate::{invalidate_query, util::http::ensure_response};
 use base64::prelude::*;
 use reqwest::Response;
 use rspc::alpha::AlphaRouter;

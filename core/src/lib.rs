@@ -26,11 +26,7 @@ use tracing_appender::{
 	non_blocking::{NonBlocking, WorkerGuard},
 	rolling::{RollingFileAppender, Rotation},
 };
-use tracing_subscriber::{
-	filter::{Directive, FromEnvError, LevelFilter},
-	prelude::*,
-	EnvFilter,
-};
+use tracing_subscriber::{filter::FromEnvError, prelude::*, EnvFilter};
 
 pub mod api;
 mod auth;

@@ -58,7 +58,6 @@ impl<S: Stream + Unpin> Stream for BatchedStream<S> {
 					Poll::Pending
 				} else {
 					let batch = std::mem::take(batch);
-					self.as_mut().set(BatchedStream::Complete);
 					return Poll::Ready(Some(batch));
 				}
 			}

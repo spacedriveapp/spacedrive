@@ -26,14 +26,9 @@ use sd_utils::chain_optional_iter;
 use serde::Serialize;
 use specta::Type;
 use thiserror::Error;
-use tokio::{
-	fs::{self, DirEntry},
-	io,
-	sync::mpsc,
-	task::JoinError,
-};
+use tokio::{io, sync::mpsc, task::JoinError};
 use tokio_stream::wrappers::ReceiverStream;
-use tracing::{error, instrument, span, warn, Level};
+use tracing::{error, span, warn, Level};
 
 use super::{
 	file_path_helper::{path_is_hidden, MetadataExt},

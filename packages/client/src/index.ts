@@ -23,6 +23,7 @@ declare global {
 export * from './hooks';
 export * from './stores';
 export * from './rspc';
+export * from './rspc-cursed';
 export * from './core';
 export * from './utils';
 export * from './lib';
