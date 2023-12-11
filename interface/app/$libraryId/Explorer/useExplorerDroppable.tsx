@@ -7,7 +7,6 @@ import { ExplorerItem, getItemFilePath, Location, Tag } from '@sd/client';
 
 import { useExplorerContext } from './Context';
 import { getExplorerStore } from './store';
-import { uniqueId } from './util';
 
 type ExplorerItemType = ExplorerItem['type'];
 
@@ -19,10 +18,14 @@ const droppableTypes = [
 	'SpacedropPeer'
 ] satisfies ExplorerItemType[];
 
-export interface UseExplorerDroppable extends Omit<UseDroppableArguments, 'id'> {
+export interface UseExplorerDroppableProps extends Omit<UseDroppableArguments, 'id'> {
 	id?: string;
 	data?:
-		| { type: 'location'; data?: Location; path: string }
+		| {
+				type: 'location';
+				data?: Location | z.infer<typeof explorerLocationSchema>['data'];
+				path: string;
+		  }
 		| { type: 'explorer-item'; data: ExplorerItem }
 		| { type: 'tag'; data: Tag };
 	allow?: ExplorerItemType | ExplorerItemType[];
@@ -42,14 +45,7 @@ const explorerPathSchema = z.object({
 const explorerObjectSchema = z.object({
 	type: z.literal('Object'),
 	item: z.object({
-		file_paths: z
-			.object({
-				id: z.number(),
-				name: z.string(),
-				location_id: z.number(),
-				materialized_path: z.string()
-			})
-			.array()
+		file_paths: explorerPathSchema.shape.item.array()
 	})
 });
 
@@ -89,7 +85,11 @@ export const explorerDroppableSchema = explorerItemSchema
 	.or(explorerLocationSchema)
 	.or(explorerTagSchema);
 
-export const useExplorerDroppable = ({ allow, navigateTo, ...props }: UseExplorerDroppable) => {
+export const useExplorerDroppable = ({
+	allow,
+	navigateTo,
+	...props
+}: UseExplorerDroppableProps) => {
 	const id = useId();
 	const navigate = useNavigate();
 
@@ -99,13 +99,7 @@ export const useExplorerDroppable = ({ allow, navigateTo, ...props }: UseExplore
 
 	const { setNodeRef, ...droppable } = useDroppable({
 		...props,
-		id:
-			props.id ??
-			(props.data
-				? props.data.type !== 'location'
-					? uniqueId(props.data.data)
-					: props.data.data?.id ?? props.data.path
-				: id),
+		id: props.id ?? id,
 		disabled: (!props.data && !navigateTo) || props.disabled
 	});
 

@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { createContext, HTMLAttributes, useContext, useMemo } from 'react';
 
-import { UseExplorerDroppable, useExplorerDroppable } from './useExplorerDroppable';
+import { useExplorerDroppable, UseExplorerDroppableProps } from './useExplorerDroppable';
 
 const ExplorerDroppableContext = createContext<{ isDroppable: boolean } | null>(null);
 
@@ -21,7 +21,7 @@ export const ExplorerDroppable = ({
 	droppable,
 	children,
 	...props
-}: HTMLAttributes<HTMLDivElement> & { droppable: UseExplorerDroppable }) => {
+}: HTMLAttributes<HTMLDivElement> & { droppable: UseExplorerDroppableProps }) => {
 	const { isDroppable, className, setDroppableRef } = useExplorerDroppable(droppable);
 
 	const context = useMemo(() => ({ isDroppable }), [isDroppable]);
