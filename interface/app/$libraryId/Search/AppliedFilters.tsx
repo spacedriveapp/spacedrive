@@ -148,9 +148,11 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 								))}
 							</div>
 						)}
-						{activeOptions.length > 1
-							? `${activeOptions.length} ${pluralize(filter.name)}`
-							: activeOptions[0]?.name}
+						<span className="max-w-[150px] truncate">
+							{activeOptions.length > 1
+								? `${activeOptions.length} ${pluralize(filter.name)}`
+								: activeOptions[0]?.name}
+						</span>
 					</>
 				)}
 			</InteractiveSection>
