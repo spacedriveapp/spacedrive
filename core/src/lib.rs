@@ -26,14 +26,9 @@ use tracing_appender::{
 	non_blocking::{NonBlocking, WorkerGuard},
 	rolling::{RollingFileAppender, Rotation},
 };
-use tracing_subscriber::{
-	filter::{Directive, FromEnvError, LevelFilter},
-	prelude::*,
-	EnvFilter,
-};
+use tracing_subscriber::{filter::FromEnvError, prelude::*, EnvFilter};
 
 pub mod api;
-mod auth;
 mod cloud;
 pub mod custom_uri;
 mod env;
@@ -170,7 +165,7 @@ impl Node {
 
 			std::env::set_var(
 				"RUST_LOG",
-				format!("info,sd_core={level},sd_core::location::manager=info"),
+				format!("none,sd_core={level},sd_core::location::manager=info"),
 			);
 		}
 
@@ -276,6 +271,14 @@ impl Node {
 				"Request failed".to_string(),
 			)
 		})
+	}
+
+	pub async fn cloud_api_config(&self) -> sd_cloud_api::RequestConfig {
+		sd_cloud_api::RequestConfig {
+			client: self.http.clone(),
+			api_url: self.env.api_url.clone(),
+			auth_token: self.config.get().await.auth_token,
+		}
 	}
 }
 

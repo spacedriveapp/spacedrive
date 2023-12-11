@@ -1,8 +1,6 @@
 use super::Library;
-use sd_core_sync::GetOpsArgs;
 use std::sync::Arc;
 use tokio::sync::Notify;
-use uuid::Uuid;
 
 pub async fn run_actor(library: Arc<Library>, notify: Arc<Notify>) {
 	let Library { sync, .. } = library.as_ref();

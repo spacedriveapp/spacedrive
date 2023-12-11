@@ -1,5 +1,5 @@
 use crate::{
-	cloud::sync::{err_break, return_break},
+	cloud::sync::{err_break, err_return},
 	library::Library,
 	Node,
 };
@@ -16,14 +16,15 @@ use serde::Deserialize;
 use serde_json::{json, to_vec};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::{sync::Notify, time::sleep};
+use tracing::debug;
 use uuid::Uuid;
 
 pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Arc<Notify>) {
+	debug!("receive actor running");
+
 	let db = &library.db;
 	let api_url = &library.env.api_url;
 	let library_id = library.id;
-
-	println!("receive_actor");
 
 	let mut cloud_timestamps = {
 		let timestamps = library.sync.timestamps.read().await;
@@ -39,7 +40,7 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Ar
 			})
 			.collect::<Vec<_>>();
 
-		return_break!(db._batch(batch).await)
+		err_return!(db._batch(batch).await)
 			.into_iter()
 			.zip(timestamps.keys())
 			.map(|(d, id)| {
@@ -52,8 +53,6 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Ar
 			})
 			.collect::<HashMap<_, _>>()
 	};
-
-	dbg!(&cloud_timestamps);
 
 	loop {
 		let instances = {
@@ -86,8 +85,6 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Ar
 		}
 
 		{
-			dbg!(&instances);
-
 			let collections = err_break!(
 				err_break!(
 					node.authed_api_request(
@@ -108,9 +105,51 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Ar
 
 			dbg!(&collections);
 
+			let mut cloud_library_data: Option<Option<sd_cloud_api::Library>> = None;
+
 			for collection in collections {
 				if !cloud_timestamps.contains_key(&collection.instance_uuid) {
-					err_break!(create_instance(&db, collection.instance_uuid).await);
+					let fetched_library = match &cloud_library_data {
+						None => {
+							let Some(fetched_library) = err_break!(
+								sd_cloud_api::library_get(
+									node.cloud_api_config().await,
+									library.id
+								)
+								.await
+							) else {
+								break;
+							};
+
+							dbg!(&fetched_library);
+
+							cloud_library_data
+								.insert(Some(fetched_library))
+								.as_ref()
+								.unwrap()
+						}
+						Some(None) => {
+							break;
+						}
+						Some(Some(fetched_library)) => fetched_library,
+					};
+
+					let Some(instance) = fetched_library
+						.instances
+						.iter()
+						.find(|i| i.uuid == collection.instance_uuid)
+					else {
+						break;
+					};
+
+					err_break!(
+						create_instance(
+							&db,
+							collection.instance_uuid,
+							err_break!(BASE64_STANDARD.decode(instance.identity.clone()))
+						)
+						.await
+					);
 
 					cloud_timestamps.insert(collection.instance_uuid, NTP64(0));
 				}
@@ -191,13 +230,17 @@ fn relation_op_db(
 	}
 }
 
-async fn create_instance(db: &PrismaClient, uuid: Uuid) -> prisma_client_rust::Result<()> {
+async fn create_instance(
+	db: &PrismaClient,
+	uuid: Uuid,
+	identity: Vec<u8>,
+) -> prisma_client_rust::Result<()> {
 	db.instance()
 		.upsert(
 			instance::pub_id::equals(uuid_to_bytes(uuid)),
 			instance::create(
 				uuid_to_bytes(uuid),
-				vec![],
+				identity,
 				vec![],
 				"".to_string(),
 				0,
