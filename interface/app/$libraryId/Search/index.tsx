@@ -32,7 +32,6 @@ export * from './context';
 
 // const Label = tw.span`text-ink-dull mr-2 text-xs`;
 export const OptionContainer = tw.div`flex flex-row items-center`;
-const FiltersOverflowShade = tw.div`from-app-darkerBox/80 absolute w-10 bg-gradient-to-l to-transparent h-6`;
 
 interface SearchOptionItemProps extends PropsWithChildren {
 	selected?: boolean;
@@ -47,7 +46,7 @@ const SearchOptionItemInternals = (props: SearchOptionItemProps) => {
 		<div className="flex w-full items-center justify-between gap-1.5">
 			<div className="flex items-center gap-1.5">
 				<RenderIcon icon={props.icon} />
-				{props.children}
+				<span className="w-fit max-w-[150px] truncate">{props.children}</span>
 			</div>
 			{props.selected !== undefined && <RadixCheckbox checked={props.selected} />}
 		</div>
@@ -250,7 +249,23 @@ function SaveSearchButton() {
 				</Button>
 			}
 		>
-			<div className="mx-1.5 my-1 flex flex-row items-center overflow-hidden">
+			<form
+				className="mx-1.5 my-1 flex flex-row items-center overflow-hidden"
+				onSubmit={(e) => {
+					e.preventDefault();
+					if (!name) return;
+
+					saveSearch.mutate({
+						name,
+						search: search.search,
+						filters: JSON.stringify(search.mergedFilters.map((f) => f.arg)),
+						description: null,
+						icon: null
+					});
+					setName('');
+					popover.setOpen(false);
+				}}
+			>
 				<Input
 					value={name}
 					onChange={(e) => setName(e.target.value)}
@@ -260,25 +275,14 @@ function SaveSearchButton() {
 					className="w-[130px]"
 				/>
 				<Button
-					onClick={() => {
-						if (!name) return;
-
-						saveSearch.mutate({
-							name,
-							search: search.search,
-							filters: JSON.stringify(search.mergedFilters.map((f) => f.arg)),
-							description: null,
-							icon: null
-						});
-
-						setName('');
-					}}
+					disabled={name.length === 0}
+					type="submit"
 					className="ml-2"
 					variant="accent"
 				>
 					Save
 				</Button>
-			</div>
+			</form>
 		</Popover>
 	);
 }
