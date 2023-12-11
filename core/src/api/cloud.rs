@@ -16,20 +16,20 @@ mod library {
 				R.with2(library())
 					.query(|(node, library), _: ()| async move {
 						Ok(
-							sd_cloud_api::library_get(node.cloud_api_config().await, library.id)
+							sd_cloud_api::library::get(node.cloud_api_config().await, library.id)
 								.await?,
 						)
 					})
 			})
 			.procedure("list", {
 				R.query(|node, _: ()| async move {
-					Ok(sd_cloud_api::library_list(node.cloud_api_config().await).await?)
+					Ok(sd_cloud_api::library::list(node.cloud_api_config().await).await?)
 				})
 			})
 			.procedure("create", {
 				R.with2(library())
 					.mutation(|(node, library), _: ()| async move {
-						sd_cloud_api::library_create(
+						sd_cloud_api::library::create(
 							node.cloud_api_config().await,
 							library.id,
 							&library.config().await.name,
@@ -46,7 +46,7 @@ mod library {
 			.procedure("join", {
 				R.mutation(|node, library_id: Uuid| async move {
 					let Some(cloud_library) =
-						sd_cloud_api::library_get(node.cloud_api_config().await, library_id)
+						sd_cloud_api::library::get(node.cloud_api_config().await, library_id)
 							.await?
 					else {
 						return Err(rspc::Error::new(
@@ -67,7 +67,7 @@ mod library {
 						)
 						.await?;
 
-					sd_cloud_api::library_join(
+					sd_cloud_api::library::join(
 						node.cloud_api_config().await,
 						library_id,
 						library.instance_uuid,

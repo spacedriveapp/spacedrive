@@ -79,7 +79,7 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Ar
 		#[serde(rename_all = "camelCase")]
 		struct MessageCollection {
 			instance_uuid: Uuid,
-			start_time: String,
+			// start_time: String,
 			end_time: String,
 			contents: String,
 		}
@@ -103,8 +103,6 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Ar
 				.await
 			);
 
-			dbg!(&collections);
-
 			let mut cloud_library_data: Option<Option<sd_cloud_api::Library>> = None;
 
 			for collection in collections {
@@ -112,7 +110,7 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Ar
 					let fetched_library = match &cloud_library_data {
 						None => {
 							let Some(fetched_library) = err_break!(
-								sd_cloud_api::library_get(
+								sd_cloud_api::library::get(
 									node.cloud_api_config().await,
 									library.id
 								)
@@ -120,8 +118,6 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Ar
 							) else {
 								break;
 							};
-
-							dbg!(&fetched_library);
 
 							cloud_library_data
 								.insert(Some(fetched_library))
