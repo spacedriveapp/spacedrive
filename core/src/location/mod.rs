@@ -9,9 +9,7 @@ use crate::{
 	Node,
 };
 
-use sd_file_path_helper::{
-	filter_existing_file_path_params, IsolatedFilePathData, IsolatedFilePathDataParts,
-};
+use sd_file_path_helper::{filter_existing_file_path_params, IsolatedFilePathData};
 use sd_prisma::{
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
 	prisma_sync,
@@ -22,6 +20,9 @@ use sd_utils::{
 	error::{FileIOError, NonUtf8PathError},
 	uuid_to_bytes,
 };
+
+#[cfg(feature = "location-watcher")]
+use sd_file_path_helper::IsolatedFilePathDataParts;
 
 use std::{
 	collections::HashSet,
@@ -466,6 +467,7 @@ pub async fn scan_location(
 		location: location_base_data,
 		sub_path: None,
 		regenerate_thumbnails: false,
+		regenerate_labels: false,
 	})
 	.spawn(node, library)
 	.await
@@ -505,6 +507,7 @@ pub async fn scan_location_sub_path(
 		location: location_base_data,
 		sub_path: Some(sub_path),
 		regenerate_thumbnails: false,
+		regenerate_labels: false,
 	})
 	.spawn(node, library)
 	.await
@@ -528,7 +531,7 @@ pub async fn light_scan_location(
 
 	indexer::shallow(&location, &sub_path, &node, &library).await?;
 	file_identifier::shallow(&location_base_data, &sub_path, &library).await?;
-	media_processor::shallow(&location_base_data, &sub_path, &library, &node).await?;
+	media_processor::shallow(&location_base_data, &sub_path, &library, false, &node).await?;
 
 	Ok(())
 }

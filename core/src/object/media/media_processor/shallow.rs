@@ -35,6 +35,7 @@ pub async fn shallow(
 	location: &location::Data,
 	sub_path: &PathBuf,
 	library @ Library { db, .. }: &Library,
+	regenerate_labels: bool,
 	node: &Node,
 ) -> Result<(), JobError> {
 	let location_id = location.id;
@@ -81,7 +82,8 @@ pub async fn shallow(
 	let file_paths = get_files_for_media_data_extraction(db, &iso_file_path).await?;
 
 	#[cfg(feature = "skynet")]
-	let file_paths_for_labelling = get_files_for_labeling(db, &iso_file_path, true).await?;
+	let file_paths_for_labelling =
+		get_files_for_labeling(db, &iso_file_path, regenerate_labels).await?;
 
 	#[cfg(feature = "skynet")]
 	let object_id_by_file_path_id = file_paths
@@ -176,17 +178,39 @@ async fn get_files_for_labeling(
 	parent_iso_file_path: &IsolatedFilePathData<'_>,
 	regenerate_labels: bool,
 ) -> Result<Vec<file_path_for_media_processor::Data>, MediaProcessorError> {
-	if regenerate_labels {
-		get_files_by_extensions(
-			db,
-			parent_iso_file_path,
-			&media_data_extractor::FILTERED_IMAGE_EXTENSIONS,
+	// FIXME: Had to use format! macro because PCR doesn't support IN with Vec for SQLite
+	// We have no data coming from the user, so this is sql injection safe
+	db._query_raw(raw!(
+		&format!(
+			"SELECT id, materialized_path, is_dir, name, extension, cas_id, object_id
+			FROM file_path f
+			WHERE
+				location_id={{}}
+				AND cas_id IS NOT NULL
+				AND LOWER(extension) IN ({})
+				AND materialized_path = {{}}
+				{}",
+			&media_data_extractor::FILTERED_IMAGE_EXTENSIONS
+				.iter()
+				.map(|ext| format!("LOWER('{ext}')"))
+				.collect::<Vec<_>>()
+				.join(","),
+			if !regenerate_labels {
+				"AND NOT EXISTS (SELECT 1 FROM label_on_object WHERE object_id = f.object_id)"
+			} else {
+				""
+			}
+		),
+		PrismaValue::Int(parent_iso_file_path.location_id() as i64),
+		PrismaValue::String(
+			parent_iso_file_path
+				.materialized_path_for_children()
+				.expect("sub path iso_file_path must be a directory")
 		)
-		.await
-		.map_err(Into::into)
-	} else {
-		todo!("get_files_for_labeling without regenerating labels")
-	}
+	))
+	.exec()
+	.await
+	.map_err(Into::into)
 }
 
 async fn dispatch_thumbnails_for_processing(

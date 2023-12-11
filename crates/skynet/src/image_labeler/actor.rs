@@ -132,20 +132,25 @@ impl ImageLabeler {
 		location_path: PathBuf,
 		file_paths: Vec<file_path_for_media_processor::Data>,
 	) -> chan::Receiver<LabelerOutput> {
-		let (tx, rx) = chan::bounded(file_paths.len());
-
-		if self
-			.batches_tx
-			.send(Batch {
-				location_id,
-				location_path,
-				file_paths,
-				output: tx,
-			})
-			.await
-			.is_err()
-		{
-			error!("Failed to send batch to image labeller");
+		let (tx, rx) = chan::bounded(usize::max(file_paths.len(), 1));
+		if !file_paths.is_empty() {
+			if self
+				.batches_tx
+				.send(Batch {
+					location_id,
+					location_path,
+					file_paths,
+					output: tx,
+				})
+				.await
+				.is_err()
+			{
+				error!("Failed to send batch to image labeller");
+			}
+		} else {
+			// If there are no files to process, we close the channel immediately so the receiver
+			// side will never wait for a message
+			tx.close();
 		}
 
 		rx
