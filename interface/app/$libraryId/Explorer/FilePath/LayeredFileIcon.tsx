@@ -34,7 +34,9 @@ const LayeredFileIcon = forwardRef<HTMLImageElement, LayeredFileIconProps>(
 		) : (
 			<div className="relative">
 				{iconImg}
-				<div className={clsx('absolute bottom-0 right-0', positionClass)}>
+				<div
+					className={clsx('pointer-events-none absolute bottom-0 right-0', positionClass)}
+				>
 					<IconComponent viewBox="0 0 16 16" height="40%" width="40%" />
 				</div>
 			</div>
