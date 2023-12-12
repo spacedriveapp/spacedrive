@@ -21,6 +21,7 @@ use std::path::PathBuf;
 
 use async_stream::stream;
 use futures::StreamExt;
+use itertools::Either;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use sd_cache::{CacheNode, Model, Normalise, Reference};
 use sd_prisma::prisma::{self, PrismaClient};
@@ -161,7 +162,10 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							for item in result {
 								match item {
 									Ok(item) => entries.push(item),
-									Err(e) => errors.push(e),
+									Err(e) => match e {
+										Either::Left(e) => errors.push(e),
+										Either::Right(e) => errors.push(e.into()),
+									},
 								}
 							}
 

@@ -18,6 +18,7 @@ use std::{
 };
 
 use futures::Stream;
+use itertools::Either;
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 
 use chrono::{DateTime, Utc};
@@ -53,8 +54,14 @@ pub enum NonIndexedLocationError {
 	#[error("error joining tokio task: {0}")]
 	TaskJoinError(#[from] JoinError),
 
-	#[error("receiver shutdown error: {0}")]
-	SendError(#[from] mpsc::error::SendError<Result<ExplorerItem, rspc::Error>>),
+	#[error("receiver shutdown error")]
+	SendError,
+}
+
+impl<T> From<mpsc::error::SendError<T>> for NonIndexedLocationError {
+	fn from(_: mpsc::error::SendError<T>) -> Self {
+		Self::SendError
+	}
 }
 
 impl From<NonIndexedLocationError> for rspc::Error {
@@ -98,7 +105,10 @@ pub async fn walk(
 	node: Arc<Node>,
 	library: Arc<Library>,
 	sort_fn: impl FnOnce(&mut Vec<Entry>) + Send,
-) -> Result<impl Stream<Item = Result<ExplorerItem, rspc::Error>> + Send, NonIndexedLocationError> {
+) -> Result<
+	impl Stream<Item = Result<ExplorerItem, Either<rspc::Error, NonIndexedLocationError>>> + Send,
+	NonIndexedLocationError,
+> {
 	let mut entries = get_all_entries(path.clone()).await?;
 
 	{
@@ -109,9 +119,10 @@ pub async fn walk(
 	}
 
 	let (tx, rx) = mpsc::channel(128);
+	let tx2 = tx.clone();
 
 	// We wanna process and let the caller use the stream.
-	tokio::spawn(async move {
+	let task = tokio::spawn(async move {
 		let path = &path;
 		let rules = chain_optional_iter(
 			[IndexerRule::from(no_os_protected())],
@@ -127,8 +138,10 @@ pub async fn walk(
 			let (entry_path, name) = match normalize_path(entry.path) {
 				Ok(v) => v,
 				Err(e) => {
-					tx.send(Err(NonIndexedLocationError::from((path, e)).into()))
-						.await?;
+					tx.send(Err(Either::Left(
+						NonIndexedLocationError::from((path, e)).into(),
+					)))
+					.await?;
 					continue;
 				}
 			};
@@ -144,7 +157,7 @@ pub async fn walk(
 					}
 				}
 				Err(e) => {
-					tx.send(Err(e.into())).await?;
+					tx.send(Err(Either::Left(e.into()))).await?;
 					continue;
 				}
 			};
@@ -188,10 +201,14 @@ pub async fn walk(
 				};
 
 				let thumbnail_key = if should_generate_thumbnail {
-					if let Ok(cas_id) = generate_cas_id(&path, entry.metadata.len())
-						.await
-						.map_err(|e| tx.send(Err(NonIndexedLocationError::from((path, e)).into())))
-					{
+					if let Ok(cas_id) =
+						generate_cas_id(&path, entry.metadata.len())
+							.await
+							.map_err(|e| {
+								tx.send(Err(Either::Left(
+									NonIndexedLocationError::from((path, e)).into(),
+								)))
+							}) {
 						if kind == ObjectKind::Document {
 							document_thumbnails_to_generate.push(GenerateThumbnailArgs::new(
 								extension.clone(),
@@ -291,7 +308,17 @@ pub async fn walk(
 			}
 		}
 
-		Ok::<(), NonIndexedLocationError>(()) // TODO: Actually handle this error and not just send it to the ether
+		Ok::<_, NonIndexedLocationError>(())
+	});
+
+	tokio::spawn(async move {
+		match task.await {
+			Ok(Ok(())) => {}
+			Ok(Err(e)) => {
+				let _ = tx2.send(Err(Either::Left(e.into()))).await;
+			}
+			Err(e) => error!("error joining tokio task: {}", e),
+		}
 	});
 
 	Ok(ReceiverStream::new(rx))
