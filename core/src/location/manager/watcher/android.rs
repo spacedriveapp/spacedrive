@@ -23,14 +23,14 @@ use notify::{
 	Event, EventKind,
 };
 use tokio::{fs, time::Instant};
-use tracing::{error, trace};
+use tracing::{error, trace, info};
 
 use super::{
 	utils::{create_dir, recalculate_directories_size, remove, rename, update_file},
 	EventHandler, HUNDRED_MILLIS, ONE_SECOND,
 };
 
-#[derive(Debug)]
+// #[derive(Debug)]
 pub(super) struct AndroidEventHandler<'lib> {
 	location_id: location::id::Type,
 	library: &'lib Arc<Library>,
@@ -66,7 +66,7 @@ impl<'lib> EventHandler<'lib> for AndroidEventHandler<'lib> {
 	}
 
 	async fn handle_event(&mut self, event: Event) -> Result<(), LocationManagerError> {
-		trace!("Received Android event: {:#?}", event);
+		info!("Received Android event: {:#?}", event);
 
 		// let Event {
 		// 	kind, mut paths, ..

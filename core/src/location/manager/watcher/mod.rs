@@ -72,7 +72,7 @@ trait EventHandler<'lib> {
 	async fn tick(&mut self);
 }
 
-#[derive(Debug)]
+// #[derive(Debug)]
 pub(super) struct LocationWatcher {
 	id: i32,
 	path: String,
@@ -91,6 +91,9 @@ impl LocationWatcher {
 		let (events_tx, events_rx) = mpsc::unbounded_channel();
 		let (ignore_path_tx, ignore_path_rx) = mpsc::unbounded_channel();
 		let (stop_tx, stop_rx) = oneshot::channel();
+
+
+
 
 		let watcher = RecommendedWatcher::new(
 			move |result| {
@@ -111,6 +114,9 @@ impl LocationWatcher {
 			},
 			Config::default(),
 		)?;
+
+		#[cfg(target_os = "android")]
+		let watcher = INotifyWatcher::new(watcher, events_tx, ignore_path_tx, stop_rx);
 
 		let handle = tokio::spawn(Self::handle_watch_events(
 			location.id,

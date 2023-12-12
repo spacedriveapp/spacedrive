@@ -448,6 +448,7 @@ pub async fn scan_location(
 	}
 
 	let location_base_data = location::Data::from(&location);
+	info!("Scanning location: {:?}", location_base_data);
 
 	JobBuilder::new(IndexerJobInit {
 		location,
