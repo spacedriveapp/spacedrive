@@ -3,7 +3,6 @@ use crate::{
 		notifications::{Notification, NotificationData, NotificationId},
 		CoreEvent,
 	},
-	env,
 	location::file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
 	notifications,
 	object::{media::thumbnail::get_indexed_thumbnail_path, orphan_remover::OrphanRemoverActor},

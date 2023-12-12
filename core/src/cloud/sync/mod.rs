@@ -31,7 +31,7 @@ macro_rules! err_break {
 }
 pub(crate) use err_break;
 
-macro_rules! return_break {
+macro_rules! err_return {
 	($e:expr) => {
 		match $e {
 			Ok(d) => d,
@@ -43,5 +43,5 @@ macro_rules! return_break {
 	};
 }
 
-pub(crate) use return_break;
+pub(crate) use err_return;
 use tokio::sync::Notify;

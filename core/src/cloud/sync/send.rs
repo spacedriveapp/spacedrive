@@ -111,8 +111,8 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>) {
 			#[derive(Deserialize, Debug)]
 			#[serde(rename_all = "camelCase")]
 			struct DoAdd {
-				instance_uuid: Uuid,
-				from_time: String,
+				// instance_uuid: Uuid,
+				// from_time: String,
 			}
 
 			let responses = err_break!(

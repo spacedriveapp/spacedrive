@@ -5,7 +5,7 @@ use rspc::alpha::AlphaRouter;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use specta::Type;
 
-use crate::{auth::DEVICE_CODE_URN, util::http::ensure_response};
+use crate::util::http::ensure_response;
 
 use super::{Ctx, R};
 
@@ -67,7 +67,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						let Ok(token_resp) = node.http
 							.post(&format!("{}/login/oauth/access_token", &node.env.api_url))
 							.form(&[
-								("grant_type", DEVICE_CODE_URN),
+								("grant_type", sd_cloud_api::auth::DEVICE_CODE_URN),
 								("device_code", &auth_response.device_code),
 								("client_id", &node.env.client_id)
 							])

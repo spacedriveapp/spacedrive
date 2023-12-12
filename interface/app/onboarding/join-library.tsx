@@ -39,7 +39,7 @@ export function JoinLibrary() {
 
 function CloudLibraries() {
 	const cloudLibraries = useBridgeQuery(['cloud.library.list']);
-	const joinLibrary = useLibraryMutation(['cloud.library.join']);
+	const joinLibrary = useBridgeMutation(['cloud.library.join']);
 
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
@@ -56,7 +56,7 @@ function CloudLibraries() {
 						variant="accent"
 						disabled={joinLibrary.isLoading}
 						onClick={async () => {
-							const library = await joinLibrary.mutateAsync(null);
+							const library = await joinLibrary.mutateAsync(cloudLibrary.uuid);
 
 							queryClient.setQueryData(['library.list'], (libraries: any) => {
 								// The invalidation system beat us to it
@@ -72,7 +72,9 @@ function CloudLibraries() {
 							navigate(`/${library.uuid}`, { replace: true });
 						}}
 					>
-						{joinLibrary.isLoading ? 'Joining...' : 'Join'}
+						{joinLibrary.isLoading && joinLibrary.variables === cloudLibrary.uuid
+							? 'Joining...'
+							: 'Join'}
 					</Button>
 				</li>
 			))}
