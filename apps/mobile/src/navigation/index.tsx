@@ -4,9 +4,8 @@ import { tw } from '~/lib/tailwind';
 import NotFoundScreen from '~/screens/NotFound';
 import SearchScreen from '~/screens/Search';
 
-import type { DrawerNavParamList } from './DrawerNavigator';
-import DrawerNavigator from './DrawerNavigator';
 import SettingsNavigator, { SettingsStackParamList } from './SettingsNavigator';
+import TabNavigator, { TabParamList } from './TabNavigator';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -14,11 +13,7 @@ const Stack = createStackNavigator<RootStackParamList>();
 export default function RootNavigator() {
 	return (
 		<Stack.Navigator initialRouteName="Root">
-			<Stack.Screen
-				name="Root"
-				component={DrawerNavigator}
-				options={{ headerShown: false }}
-			/>
+			<Stack.Screen name="Root" component={TabNavigator} options={{ headerShown: false }} />
 			<Stack.Screen name="NotFound" component={NotFoundScreen} options={{ title: 'Oops!' }} />
 			<Stack.Screen
 				name="Search"
@@ -45,7 +40,7 @@ export default function RootNavigator() {
 }
 
 export type RootStackParamList = {
-	Root: NavigatorScreenParams<DrawerNavParamList>;
+	Root: NavigatorScreenParams<TabParamList>;
 	NotFound: undefined;
 	// Modals
 	Search: undefined;

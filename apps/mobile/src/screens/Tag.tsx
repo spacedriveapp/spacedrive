@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
 import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
-import { SharedScreenProps } from '~/navigation/SharedScreens';
+import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 
-export default function TagScreen({ navigation, route }: SharedScreenProps<'Tag'>) {
+export default function TagScreen({ navigation, route }: BrowseStackScreenProps<'Tag'>) {
 	const { id } = route.params;
 
 	const search = useLibraryQuery([
