@@ -73,6 +73,7 @@ export default function TabNavigator() {
 							color={focused ? tw.color('accent') : tw.color('ink')}
 						/>
 					),
+					tabBarTestID: 'browse-tab',
 					tabBarLabel: 'Browse',
 					tabBarLabelStyle: tw`text-[10px] font-semibold`
 				}}

@@ -12,12 +12,15 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
+import { LogBox } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MenuProvider } from 'react-native-popup-menu';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useSnapshot } from 'valtio';
 import {
+	CacheProvider,
 	ClientContextProvider,
+	createCache,
 	initPlausible,
 	LibraryContextProvider,
 	NotificationContextProvider,
@@ -38,6 +41,8 @@ import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
 import { P2P } from './screens/p2p';
 import { currentLibraryStore } from './utils/nav';
+
+LogBox.ignoreLogs(['Sending `onAnimatedValueUpdate` with no listeners registered.']);
 
 dayjs.extend(advancedFormat);
 dayjs.extend(relativeTime);
@@ -146,6 +151,7 @@ function AppContainer() {
 }
 
 const queryClient = new QueryClient();
+const cache = createCache();
 
 export default function App() {
 	useEffect(() => {
@@ -154,7 +160,9 @@ export default function App() {
 
 	return (
 		<RspcProvider queryClient={queryClient}>
-			<AppContainer />
+			<CacheProvider cache={cache}>
+				<AppContainer />
+			</CacheProvider>
 		</RspcProvider>
 	);
 }
