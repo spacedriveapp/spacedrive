@@ -2,15 +2,15 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OAuthToken {
-	access_token: String,
-	refresh_token: String,
-	token_type: String,
-	expires_in: i32,
+	pub access_token: String,
+	pub refresh_token: String,
+	pub token_type: String,
+	pub expires_in: i32,
 }
 
 impl OAuthToken {
 	pub fn to_header(&self) -> String {
-		format!("{} {}", &self.token_type, self.access_token)
+		format!("{} {}", self.token_type, self.access_token)
 	}
 }
 

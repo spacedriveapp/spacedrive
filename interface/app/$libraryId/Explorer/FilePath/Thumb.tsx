@@ -59,7 +59,9 @@ export const FileThumb = memo((props: ThumbProps) => {
 	const { parent } = useExplorerContext();
 	const { library } = useLibraryContext();
 
-	const [loadState, setLoadState] = useState<'notLoaded' | 'loaded' | 'error'>('notLoaded');
+	const [loadState, setLoadState] = useState<{
+		[K in 'original' | 'thumbnail' | 'icon']: 'notLoaded' | 'loaded' | 'error';
+	}>({ original: 'notLoaded', thumbnail: 'notLoaded', icon: 'notLoaded' });
 
 	const childClassName = 'max-h-full max-w-full object-contain';
 	const frameClassName = clsx(
@@ -69,25 +71,28 @@ export const FileThumb = memo((props: ThumbProps) => {
 	);
 
 	const thumbType = useMemo<ThumbType>(() => {
-		const expectedThumbType: ThumbType = (() => {
-			if (props.loadOriginal) {
-				if (loadState === 'error' && !itemData.hasLocalThumbnail)
-					return { variant: 'icon' };
+		let thumbType = props.loadOriginal ? 'original' : 'thumbnail';
 
+		if (thumbType === 'original') {
+			if (loadState.original !== 'error') {
 				const kind = originalRendererKind(itemData);
 				const renderer = ORIGINAL_RENDERERS[kind];
 
 				if (renderer) return { variant: 'original', renderer };
+			}
 
+			thumbType = 'thumbnail';
+		}
+
+		if (thumbType === 'thumbnail')
+			if (
+				loadState.thumbnail !== 'error' &&
+				itemData.hasLocalThumbnail &&
+				itemData.thumbnailKey.length > 0
+			)
 				return { variant: 'thumbnail' };
-			} else if (itemData.hasLocalThumbnail) return { variant: 'thumbnail' };
-			else return { variant: 'icon' };
-		})();
 
-		if (expectedThumbType.variant === 'thumbnail' && itemData.thumbnailKey.length === 0)
-			return { variant: 'icon' };
-
-		return expectedThumbType;
+		return { variant: 'icon' };
 	}, [props.loadOriginal, itemData, loadState]);
 
 	const src = useMemo(() => {
@@ -121,13 +126,16 @@ export const FileThumb = memo((props: ThumbProps) => {
 		}
 	}, [filePath, isDark, library.uuid, itemData, platform, thumbType, parent]);
 
-	const onLoad = () => {
-		setLoadState('loaded');
+	const onLoad = (s: 'original' | 'thumbnail' | 'icon') => {
+		setLoadState((state) => ({ ...state, [s]: 'loaded' }));
 		props.onLoad?.call(null, thumbType);
 	};
 
-	const onError = (event: ErrorEvent | SyntheticEvent<Element, Event>) => {
-		setLoadState('error');
+	const onError = (
+		s: 'original' | 'thumbnail' | 'icon',
+		event: ErrorEvent | SyntheticEvent<Element, Event>
+	) => {
+		setLoadState((state) => ({ ...state, [s]: 'error' }));
 
 		const rawError =
 			('error' in event && event.error) ||
@@ -140,13 +148,6 @@ export const FileThumb = memo((props: ThumbProps) => {
 			rawError instanceof Error ? rawError : new Error(rawError)
 		);
 	};
-
-	// useLayoutEffect is required to ensure the thumbType is always updated before the onError listener can execute,
-	// thus avoiding improper thumb types changes
-	useLayoutEffect(() => {
-		// Reset src when item changes, to allow detection of yet not updated src
-		setLoadState('notLoaded');
-	}, [src, thumbType]);
 
 	return (
 		<div
@@ -182,8 +183,8 @@ export const FileThumb = memo((props: ThumbProps) => {
 							itemData,
 							isDark,
 							childClassName,
-							onLoad,
-							onError,
+							onLoad: () => onLoad('original'),
+							onError: (e) => onError('original', e),
 							size: props.size,
 							mediaControls: props.mediaControls,
 							frame: props.frame,
@@ -199,8 +200,8 @@ export const FileThumb = memo((props: ThumbProps) => {
 							<Thumbnail
 								src={src}
 								cover={props.cover}
-								onLoad={onLoad}
-								onError={onError}
+								onLoad={() => onLoad('thumbnail')}
+								onError={(e) => onError('thumbnail', e)}
 								decoding={props.size ? 'async' : 'sync'}
 								className={clsx(
 									props.cover
@@ -234,8 +235,8 @@ export const FileThumb = memo((props: ThumbProps) => {
 								src={src}
 								kind={itemData.kind}
 								extension={itemData.extension}
-								onLoad={onLoad}
-								onError={() => setLoadState('notLoaded')}
+								onLoad={() => onLoad('icon')}
+								onError={(e) => onError('icon', e)}
 								decoding={props.size ? 'async' : 'sync'}
 								className={className}
 								draggable={false}

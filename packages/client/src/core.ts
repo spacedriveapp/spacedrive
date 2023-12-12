@@ -6,8 +6,8 @@ export type Procedures = {
         { key: "auth.me", input: never, result: { id: string; email: string } } | 
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
-        { key: "cloud.library.get", input: LibraryArgs<null>, result: { uuid: string; name: string; ownerId: string; instances: { id: string; uuid: string; identity: string }[] } | null } | 
-        { key: "cloud.library.list", input: never, result: { uuid: string; name: string; ownerId: string; instances: { id: string; uuid: string }[] }[] } | 
+        { key: "cloud.library.get", input: LibraryArgs<null>, result: { uuid: string; name: string; instances: CloudInstance[]; ownerId: string } | null } | 
+        { key: "cloud.library.list", input: never, result: CloudLibrary[] } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata) | null } | 
         { key: "files.get", input: LibraryArgs<number>, result: { item: Reference<ObjectWithFilePaths2>; nodes: CacheNode[] } | null } | 
         { key: "files.getConvertableImageExtensions", input: never, result: string[] } | 
@@ -50,7 +50,7 @@ export type Procedures = {
         { key: "backups.delete", input: string, result: null } | 
         { key: "backups.restore", input: string, result: null } | 
         { key: "cloud.library.create", input: LibraryArgs<null>, result: null } | 
-        { key: "cloud.library.join", input: LibraryArgs<null>, result: LibraryConfigWrapped } | 
+        { key: "cloud.library.join", input: string, result: LibraryConfigWrapped } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
         { key: "ephemeralFiles.cutFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
@@ -143,6 +143,10 @@ export type CacheNode = { __type: string; __id: string; "#node": any }
 export type CameraData = { device_make: string | null; device_model: string | null; color_space: string | null; color_profile: ColorProfile | null; focal_length: number | null; shutter_speed: number | null; flash: Flash | null; orientation: Orientation; lens_make: string | null; lens_model: string | null; bit_depth: number | null; red_eye: boolean | null; zoom: number | null; iso: number | null; software: string | null; serial_number: string | null; lens_serial_number: string | null; contrast: number | null; saturation: number | null; sharpness: number | null; composite: Composite | null }
 
 export type ChangeNodeNameArgs = { name: string | null; p2p_enabled: boolean | null; p2p_port: MaybeUndefined<number> }
+
+export type CloudInstance = { id: string; uuid: string; identity: string }
+
+export type CloudLibrary = { uuid: string; name: string; instances: CloudInstance[]; ownerId: string }
 
 export type ColorProfile = "Normal" | "Custom" | "HDRNoOriginal" | "HDRWithOriginal" | "OriginalForHDR" | "Panorama" | "PortraitHDR" | "Portrait"
 
