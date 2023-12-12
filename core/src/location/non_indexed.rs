@@ -99,12 +99,7 @@ pub async fn walk(
 	library: Arc<Library>,
 	sort_fn: impl FnOnce(&mut Vec<Entry>) + Send,
 ) -> Result<impl Stream<Item = Result<ExplorerItem, rspc::Error>> + Send, NonIndexedLocationError> {
-	let start = std::time::Instant::now();
-
 	let mut entries = get_all_entries(path.clone()).await?;
-
-	println!("get_all_entries took: {:?}", start.elapsed());
-	let start = std::time::Instant::now();
 
 	{
 		let span = span!(Level::INFO, "sort_fn");
@@ -112,8 +107,6 @@ pub async fn walk(
 
 		sort_fn(&mut entries);
 	}
-
-	println!("sort_fn took: {:?}", start.elapsed());
 
 	let (tx, rx) = mpsc::channel(128);
 

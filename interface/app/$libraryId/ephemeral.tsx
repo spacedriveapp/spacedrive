@@ -2,12 +2,11 @@ import { ArrowLeft, ArrowRight, Info } from '@phosphor-icons/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
-import { memo, Suspense, useDeferredValue, useMemo, useRef } from 'react';
+import { memo, Suspense, useDeferredValue, useMemo } from 'react';
 import {
 	ExplorerItem,
 	getExplorerItemData,
 	useLibraryContext,
-	useLibrarySubscription,
 	useNormalisedCache,
 	useUnsafeStreamedQuery,
 	type EphemeralPathOrder
