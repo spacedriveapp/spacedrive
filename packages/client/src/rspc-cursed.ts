@@ -5,6 +5,16 @@ import { useRef } from 'react';
 import { Procedures } from './core';
 import { useRspcContext } from './rspc';
 
+// If permits is > 0 then we're currently streaming data.
+// This means it would be unsafe to cleanup the normalised cache.
+let permits = 0; // A Mutex in JS, lmao
+
+export const getPermits = () => permits;
+
+if (import.meta.hot) {
+	import.meta.hot.dispose(() => (permits = 0)); // Reset the mutex on HMR
+}
+
 // A query where the data is streamed in.
 // Also basically a subscription with support for React Suspense and proper loading states, invalidation, etc.
 // Be aware this lacks proper type safety and is an absolutely cursed abomination of code.
@@ -31,21 +41,27 @@ export function useUnsafeStreamedQuery<
 		queryKey: keyAndInput,
 		queryFn: ({ signal }) =>
 			new Promise((resolve) => {
-				data.current = [];
-				const shutdown = rspc.client.addSubscription(keyAndInput as any, {
-					onData: (item) => {
-						if (item === null || item === undefined) return;
+				permits += 1;
 
-						if ('__stream_complete' in item) {
-							resolve(data.current as any);
-							return;
+				try {
+					data.current = [];
+					const shutdown = rspc.client.addSubscription(keyAndInput as any, {
+						onData: (item) => {
+							if (item === null || item === undefined) return;
+
+							if ('__stream_complete' in item) {
+								resolve(data.current as any);
+								return;
+							}
+
+							opts.onBatch(item as any);
+							data.current.push(item as any);
 						}
-
-						opts.onBatch(item as any);
-						data.current.push(item as any);
-					}
-				});
-				signal?.addEventListener('abort', () => shutdown());
+					});
+					signal?.addEventListener('abort', () => shutdown());
+				} finally {
+					permits -= 1;
+				}
 			}),
 		...opts
 	});
