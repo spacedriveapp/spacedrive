@@ -5,11 +5,13 @@ import { z } from 'zod';
 import {
 	currentLibraryCache,
 	getOnboardingStore,
+	insertLibrary,
 	resetOnboardingStore,
 	telemetryStore,
 	useBridgeMutation,
 	useCachedLibraries,
 	useMultiZodForm,
+	useNormalisedCache,
 	useOnboardingStore,
 	usePlausibleEvent
 } from '@sd/client';
@@ -66,13 +68,14 @@ const useFormState = () => {
 	const submitPlausibleEvent = usePlausibleEvent();
 
 	const queryClient = useQueryClient();
+	const cache = useNormalisedCache();
 	const createLibrary = useBridgeMutation('library.create', {
-		onSuccess: (lib) => {
+		onSuccess: (libRaw) => {
+			cache.withNodes(libRaw.nodes);
+			const lib = cache.withCache(libRaw.item);
+
 			// We do this instead of invalidating the query because it triggers a full app re-render??
-			queryClient.setQueryData(['library.list'], (libraries: any) => [
-				...(libraries || []),
-				lib
-			]);
+			insertLibrary(queryClient, lib);
 		}
 	});
 
@@ -86,13 +89,15 @@ const useFormState = () => {
 
 			try {
 				// show creation screen for a bit for smoothness
-				const [library] = await Promise.all([
+				const [libraryRaw] = await Promise.all([
 					createLibrary.mutateAsync({
 						name: data.NewLibrary.name,
 						default_locations: null
 					}),
 					new Promise((res) => setTimeout(res, 500))
 				]);
+				cache.withNodes(libraryRaw.nodes);
+				const library = cache.withCache(libraryRaw.item);
 
 				if (telemetryStore.shareFullTelemetry) {
 					submitPlausibleEvent({ event: { type: 'libraryCreate' } });

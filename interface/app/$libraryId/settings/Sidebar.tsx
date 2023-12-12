@@ -15,10 +15,10 @@ import {
 	TagSimple,
 	User
 } from '@phosphor-icons/react';
-import { MagnifyingGlass } from '@phosphor-icons/react/dist/ssr';
 import { useFeatureFlag } from '@sd/client';
 import { tw } from '@sd/ui';
-import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { useOperatingSystem } from '~/hooks';
+import { usePlatform } from '~/util/Platform';
 
 import Icon from '../Layout/Sidebar/Icon';
 import SidebarLink from '../Layout/Sidebar/Link';
@@ -28,13 +28,15 @@ const Heading = tw.div`mb-1 ml-1 text-xs font-semibold text-gray-400`;
 const Section = tw.div`space-y-0.5`;
 
 export default () => {
+	const { platform } = usePlatform();
 	const os = useOperatingSystem();
+
 	// const isPairingEnabled = useFeatureFlag('p2pPairing');
 	const isBackupsEnabled = useFeatureFlag('backups');
 
 	return (
 		<div className="custom-scroll no-scrollbar h-full w-60 max-w-[180px] shrink-0 border-r border-app-line/50 pb-5">
-			{os !== 'browser' ? (
+			{platform === 'tauri' ? (
 				<div
 					data-tauri-drag-region={os === 'macOS'}
 					className="mb-3 h-3 w-full p-3 pl-[14px] pt-[10px]"

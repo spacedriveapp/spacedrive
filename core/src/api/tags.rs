@@ -1,13 +1,14 @@
 use std::collections::BTreeMap;
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use itertools::{Either, Itertools};
 use rspc::{alpha::AlphaRouter, ErrorCode};
+use sd_cache::{CacheNode, Normalise, NormalisedResult, NormalisedResults, Reference};
 use sd_file_ext::kind::ObjectKind;
 use sd_prisma::{prisma, prisma_sync};
 use sd_sync::OperationFactory;
 use sd_utils::uuid_to_bytes;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use serde_json::json;
@@ -26,23 +27,43 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("list", {
 			R.with2(library()).query(|(_, library), _: ()| async move {
-				Ok(library.db.tag().find_many(vec![]).exec().await?)
+				let tags = library.db.tag().find_many(vec![]).exec().await?;
+
+				let (nodes, items) = tags.normalise(|i| i.id.to_string());
+
+				Ok(NormalisedResults { nodes, items })
 			})
 		})
 		.procedure("getForObject", {
 			R.with2(library())
 				.query(|(_, library), object_id: i32| async move {
-					Ok(library
+					let tags = library
 						.db
 						.tag()
 						.find_many(vec![tag::tag_objects::some(vec![
 							tag_on_object::object_id::equals(object_id),
 						])])
 						.exec()
-						.await?)
+						.await?;
+
+					let (nodes, items) = tags.normalise(|i| i.id.to_string());
+
+					Ok(NormalisedResults { nodes, items })
 				})
 		})
 		.procedure("getWithObjects", {
+			#[derive(Serialize, Type)]
+			pub struct GetWithObjectsResult {
+				pub data: BTreeMap<u32, Vec<Reference<tag::Data>>>,
+				pub nodes: Vec<CacheNode>,
+			}
+
+			#[derive(Serialize, Type)]
+			pub struct ObjectWithDateCreated {
+				object: Reference<object::Data>,
+				date_created: DateTime<Utc>,
+			}
+
 			R.with2(library()).query(
 				|(_, library), object_ids: Vec<object::id::Type>| async move {
 					let Library { db, .. } = library.as_ref();
@@ -64,6 +85,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?;
 
+					// This doesn't need normalised caching because it doesn't return whole models.
 					Ok(tags_with_objects
 						.into_iter()
 						.map(|tag| (tag.id, tag.tag_objects))
@@ -79,7 +101,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.tag()
 						.find_unique(tag::id::equals(tag_id))
 						.exec()
-						.await?)
+						.await?
+						.map(|tag| NormalisedResult::from(tag, |i| i.id.to_string())))
 				})
 		})
 		.procedure("create", {

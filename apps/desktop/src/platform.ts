@@ -4,7 +4,7 @@ import { homeDir } from '@tauri-apps/api/path';
 import { open } from '@tauri-apps/api/shell';
 import { OperatingSystem, Platform } from '@sd/interface';
 
-import * as commands from './commands';
+import { commands } from './commands';
 import { env } from './env';
 import { createUpdater } from './updater';
 

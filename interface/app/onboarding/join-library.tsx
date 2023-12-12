@@ -1,6 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
-import { resetOnboardingStore, useBridgeMutation, useBridgeQuery } from '@sd/client';
+import {
+	resetOnboardingStore,
+	useBridgeMutation,
+	useBridgeQuery,
+	useLibraryMutation
+} from '@sd/client';
 import { Button } from '@sd/ui';
 import { Icon } from '~/components';
 import { AuthRequiredOverlay } from '~/components/AuthRequiredOverlay';
@@ -67,7 +72,9 @@ function CloudLibraries() {
 							navigate(`/${library.uuid}`, { replace: true });
 						}}
 					>
-						{joinLibrary.isLoading ? 'Joining...' : 'Join'}
+						{joinLibrary.isLoading && joinLibrary.variables === cloudLibrary.uuid
+							? 'Joining...'
+							: 'Join'}
 					</Button>
 				</li>
 			))}

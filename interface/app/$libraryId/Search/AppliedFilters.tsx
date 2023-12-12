@@ -135,17 +135,12 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 						{activeOptions.length === 1 ? (
 							<RenderIcon className="h-4 w-4" icon={activeOptions[0]!.icon} />
 						) : (
-							<div
-								className="relative"
-								style={{ width: `${activeOptions.length * 12}px` }}
-							>
+							<div className="relative flex gap-0.5 self-center">
 								{activeOptions.map((option, index) => (
 									<div
 										key={index}
-										className="absolute -top-2 left-0"
 										style={{
-											zIndex: activeOptions.length - index,
-											left: `${index * 10}px`
+											zIndex: activeOptions.length - index
 										}}
 									>
 										<RenderIcon className="h-4 w-4" icon={option.icon} />
@@ -153,9 +148,11 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 								))}
 							</div>
 						)}
-						{activeOptions.length > 1
-							? `${activeOptions.length} ${pluralize(filter.name)}`
-							: activeOptions[0]?.name}
+						<span className="max-w-[150px] truncate">
+							{activeOptions.length > 1
+								? `${activeOptions.length} ${pluralize(filter.name)}`
+								: activeOptions[0]?.name}
+						</span>
 					</>
 				)}
 			</InteractiveSection>

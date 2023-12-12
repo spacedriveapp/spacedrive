@@ -7,7 +7,9 @@ import { useLocation } from 'react-router';
 import {
 	ExplorerItem,
 	getExplorerItemData,
+	useCache,
 	useLibraryQuery,
+	useNodes,
 	type EphemeralPathOrder
 } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
@@ -189,13 +191,15 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 			onSuccess: () => getExplorerStore().resetNewThumbnails()
 		}
 	);
+	useNodes(query.data?.nodes);
+	const entries = useCache(query.data?.entries);
 
 	const items = useMemo(() => {
-		if (!query.data) return [];
+		if (!entries) return [];
 
 		const ret: ExplorerItem[] = [];
 
-		for (const item of query.data.entries) {
+		for (const item of entries) {
 			if (settingsSnapshot.layoutMode !== 'media') ret.push(item);
 			else {
 				const { kind } = getExplorerItemData(item);
@@ -205,7 +209,7 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 		}
 
 		return ret;
-	}, [query.data, settingsSnapshot.layoutMode]);
+	}, [entries, settingsSnapshot.layoutMode]);
 
 	const explorer = useExplorer({
 		items,

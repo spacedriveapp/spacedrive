@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { useLibraryQuery } from '@sd/client';
+import React, { useEffect, useMemo } from 'react';
+import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { getExplorerStore } from '~/stores/explorerStore';
@@ -7,7 +7,9 @@ import { getExplorerStore } from '~/stores/explorerStore';
 export default function LocationScreen({ navigation, route }: BrowseStackScreenProps<'Location'>) {
 	const { id, path } = route.params;
 
-	const location = useLibraryQuery(['locations.get', id]);
+	const location = useLibraryQuery(['locations.get', route.params.id]);
+	useNodes(location.data?.nodes);
+	const locationData = useCache(location.data?.item);
 
 	const { data } = useLibraryQuery([
 		'search.paths',
@@ -23,6 +25,8 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 			take: 100
 		}
 	]);
+	const pathsItemsReferences = useMemo(() => data?.items ?? [], [data]);
+	const pathsItems = useCache(pathsItemsReferences);
 
 	useEffect(() => {
 		// Set screen title to location.
@@ -36,15 +40,15 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 			});
 		} else {
 			navigation.setOptions({
-				title: location.data?.name ?? 'Location'
+				title: locationData?.name ?? 'Location'
 			});
 		}
-	}, [location.data?.name, navigation, path]);
+	}, [locationData?.name, navigation, path]);
 
 	useEffect(() => {
 		getExplorerStore().locationId = id;
 		getExplorerStore().path = path ?? '';
 	}, [id, path]);
 
-	return <Explorer items={data?.items} />;
+	return <Explorer items={pathsItems} />;
 }

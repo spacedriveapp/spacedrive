@@ -162,6 +162,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("test", {
 			R.mutation(|node, _: ()| async move {
 				node.emit_notification(NotificationData::Test, None).await;
+
+				Ok(())
 			})
 		})
 		.procedure("testLibrary", {
@@ -170,6 +172,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					library
 						.emit_notification(NotificationData::Test, None)
 						.await;
+
+					Ok(())
 				})
 		})
 }

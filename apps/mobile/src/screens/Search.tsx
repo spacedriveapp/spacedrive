@@ -2,7 +2,7 @@ import { MagnifyingGlass } from 'phosphor-react-native';
 import { Suspense, useDeferredValue, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getExplorerItemData, SearchFilterArgs, useLibraryQuery } from '@sd/client';
+import { getExplorerItemData, SearchFilterArgs, useCache, useLibraryQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import { tw, twStyle } from '~/lib/tailwind';
 import { RootStackScreenProps } from '~/navigation';
@@ -45,19 +45,20 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 		}
 	);
 
-	const items = useMemo(() => {
-		const items = query.data?.items;
+	const pathsItemsReferences = useMemo(() => query.data?.items ?? [], [query.data]);
+	const pathsItems = useCache(pathsItemsReferences);
 
+	const items = useMemo(() => {
 		// Mobile does not thave media layout
-		// if (explorerStore.layoutMode !== 'media') return items;
+		// if (explorerStore.layoutMode !== 'media') return pathsItems;
 
 		return (
-			items?.filter((item) => {
+			pathsItems?.filter((item) => {
 				const { kind } = getExplorerItemData(item);
 				return kind === 'Video' || kind === 'Image';
 			}) ?? []
 		);
-	}, [query.data]);
+	}, [pathsItems]);
 
 	return (
 		<View style={twStyle('flex-1', { marginTop: top + 10 })}>

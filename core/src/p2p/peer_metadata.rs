@@ -8,9 +8,9 @@ use crate::node::Platform;
 
 #[derive(Debug, Clone, Type, Serialize, Deserialize)]
 pub struct PeerMetadata {
-	pub(super) name: String,
-	pub(super) operating_system: Option<OperatingSystem>,
-	pub(super) version: Option<String>,
+	pub name: String,
+	pub operating_system: Option<OperatingSystem>,
+	pub version: Option<String>,
 }
 
 impl Metadata for PeerMetadata {

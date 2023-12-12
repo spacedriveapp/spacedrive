@@ -13,7 +13,7 @@ import {
 	tw,
 	usePopover
 } from '@sd/ui';
-import { useKeybind } from '~/hooks';
+import { useIsDark, useKeybind } from '~/hooks';
 
 import { AppliedFilters } from './AppliedFilters';
 import { useSearchContext } from './context';
@@ -32,7 +32,6 @@ export * from './context';
 
 // const Label = tw.span`text-ink-dull mr-2 text-xs`;
 export const OptionContainer = tw.div`flex flex-row items-center`;
-const FiltersOverflowShade = tw.div`from-app-darkerBox/80 absolute w-10 bg-gradient-to-l to-transparent h-6`;
 
 interface SearchOptionItemProps extends PropsWithChildren {
 	selected?: boolean;
@@ -44,10 +43,12 @@ const MENU_STYLES = `!rounded-md border !border-app-line !bg-app-box`;
 // One component so all items have the same styling, including the submenu
 const SearchOptionItemInternals = (props: SearchOptionItemProps) => {
 	return (
-		<div className="flex items-center gap-2">
+		<div className="flex w-full items-center justify-between gap-1.5">
+			<div className="flex items-center gap-1.5">
+				<RenderIcon icon={props.icon} />
+				<span className="w-fit max-w-[150px] truncate">{props.children}</span>
+			</div>
 			{props.selected !== undefined && <RadixCheckbox checked={props.selected} />}
-			<RenderIcon icon={props.icon} />
-			{props.children}
 		</div>
 	);
 };
@@ -57,7 +58,6 @@ export const SearchOptionItem = (props: SearchOptionItemProps) => {
 	return (
 		<DropdownMenu.Item
 			onSelect={(event) => {
-				console.log('onSelect');
 				event.preventDefault();
 				props.setSelected?.(!props.selected);
 			}}
@@ -78,7 +78,7 @@ export const SearchOptionSubMenu = (
 					<SearchOptionItemInternals {...props}>{props.name}</SearchOptionItemInternals>
 				</ContextMenuDivItem>
 			}
-			className={clsx(MENU_STYLES, '-mt-1.5', props.className)}
+			className={clsx(MENU_STYLES, 'explorer-scroll -mt-1.5', props.className)}
 		>
 			{props.children}
 		</DropdownMenu.SubMenu>
@@ -89,7 +89,7 @@ export const Separator = () => <DropdownMenu.Separator className="!border-app-li
 
 const SearchOptions = ({ allowExit, children }: { allowExit?: boolean } & PropsWithChildren) => {
 	const search = useSearchContext();
-
+	const isDark = useIsDark();
 	return (
 		<div
 			onMouseEnter={() => {
@@ -98,7 +98,11 @@ const SearchOptions = ({ allowExit, children }: { allowExit?: boolean } & PropsW
 			onMouseLeave={() => {
 				getSearchStore().interactingWithSearchOptions = false;
 			}}
-			className="flex h-[45px] w-full flex-row items-center gap-4 bg-black/10 px-4"
+			className={clsx(
+				'flex h-[45px] w-full flex-row items-center',
+				'gap-4 px-4',
+				isDark ? 'bg-black/10' : 'bg-black/5'
+			)}
 		>
 			{/* <OptionContainer className="flex flex-row items-center">
 				<FilterContainer>
@@ -114,17 +118,6 @@ const SearchOptions = ({ allowExit, children }: { allowExit?: boolean } & PropsW
 			<div className="relative flex h-full flex-1 items-center overflow-hidden">
 				<AppliedFilters />
 			</div>
-
-			{/* {scroll < 0.9 && (
-					<div
-						className="right-0 w-full h-6"
-						style={{
-							WebkitMaskImage: maskImage,
-							maskImage
-						}}
-					/>
-				)} */}
-			{/* {scroll < 0.9 && <FiltersOverflowShade className="right-0" />} */}
 
 			{children ?? (
 				<>
@@ -256,7 +249,23 @@ function SaveSearchButton() {
 				</Button>
 			}
 		>
-			<div className="mx-1.5 my-1 flex flex-row items-center overflow-hidden">
+			<form
+				className="mx-1.5 my-1 flex flex-row items-center overflow-hidden"
+				onSubmit={(e) => {
+					e.preventDefault();
+					if (!name) return;
+
+					saveSearch.mutate({
+						name,
+						search: search.search,
+						filters: JSON.stringify(search.mergedFilters.map((f) => f.arg)),
+						description: null,
+						icon: null
+					});
+					setName('');
+					popover.setOpen(false);
+				}}
+			>
 				<Input
 					value={name}
 					onChange={(e) => setName(e.target.value)}
@@ -266,25 +275,14 @@ function SaveSearchButton() {
 					className="w-[130px]"
 				/>
 				<Button
-					onClick={() => {
-						if (!name) return;
-
-						saveSearch.mutate({
-							name,
-							search: search.search,
-							filters: JSON.stringify(search.mergedFilters.map((f) => f.arg)),
-							description: null,
-							icon: null
-						});
-
-						setName('');
-					}}
+					disabled={name.length === 0}
+					type="submit"
 					className="ml-2"
 					variant="accent"
 				>
 					Save
 				</Button>
-			</div>
+			</form>
 		</Popover>
 	);
 }

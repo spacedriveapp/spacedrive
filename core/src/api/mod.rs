@@ -1,13 +1,13 @@
+use std::sync::{atomic::Ordering, Arc};
+
 use crate::{
 	invalidate_query,
 	job::JobProgressEvent,
 	node::config::{NodeConfig, NodePreferences},
 	Node,
 };
-
+use sd_cache::patch_typedef;
 use sd_p2p::P2PStatus;
-
-use std::sync::{atomic::Ordering, Arc};
 
 use itertools::Itertools;
 use rspc::{alpha::Rspc, Config, ErrorCode};
@@ -60,6 +60,7 @@ pub enum CoreEvent {
 pub enum BackendFeature {
 	SyncEmitMessages,
 	FilesOverP2P,
+	CloudSync,
 }
 
 impl BackendFeature {
@@ -72,6 +73,9 @@ impl BackendFeature {
 			}
 			BackendFeature::FilesOverP2P => {
 				node.files_over_p2p_flag.store(true, Ordering::Relaxed);
+			}
+			BackendFeature::CloudSync => {
+				node.cloud_sync_flag.store(true, Ordering::Relaxed);
 			}
 		}
 	}
@@ -121,9 +125,11 @@ pub(crate) fn mount() -> Arc<Router> {
 				commit: &'static str,
 			}
 
-			R.query(|_, _: ()| BuildInfo {
-				version: env!("CARGO_PKG_VERSION"),
-				commit: env!("GIT_HASH"),
+			R.query(|_, _: ()| {
+				Ok(BuildInfo {
+					version: env!("CARGO_PKG_VERSION"),
+					commit: env!("GIT_HASH"),
+				})
 			})
 		})
 		.procedure("nodeState", {
@@ -171,6 +177,9 @@ pub(crate) fn mount() -> Arc<Router> {
 					BackendFeature::FilesOverP2P => {
 						node.files_over_p2p_flag.store(enabled, Ordering::Relaxed);
 					}
+					BackendFeature::CloudSync => {
+						node.cloud_sync_flag.store(enabled, Ordering::Relaxed);
+					}
 				}
 
 				invalidate_query!(node; node, "nodeState");
@@ -198,6 +207,18 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("notifications.", notifications::mount())
 		.merge("backups.", backups::mount())
 		.merge("invalidation.", utils::mount_invalidate())
+		.sd_patch_types_dangerously(|type_map| {
+			patch_typedef(type_map);
+
+			let def =
+				<sd_prisma::prisma::object::Data as specta::NamedType>::definition_named_data_type(
+					type_map,
+				);
+			type_map.insert(
+				<sd_prisma::prisma::object::Data as specta::NamedType>::SID,
+				def,
+			);
+		})
 		.build(
 			#[allow(clippy::let_and_return)]
 			{

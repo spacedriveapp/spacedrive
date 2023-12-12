@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
-import { Tag, useLibraryQuery } from '@sd/client';
+import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { Button, Card, dialogManager } from '@sd/ui';
 import { Heading } from '~/app/$libraryId/settings/Layout';
 import { TagsSettingsParamsSchema } from '~/app/route-schemas';
@@ -10,11 +10,14 @@ import CreateDialog from './CreateDialog';
 import EditForm from './EditForm';
 
 export const Component = () => {
-	const tags = useLibraryQuery(['tags.list']);
+	const result = useLibraryQuery(['tags.list']);
+	useNodes(result.data?.nodes);
+	const tags = useCache(result.data?.items);
+
 	const { id: locationId } = useZodRouteParams(TagsSettingsParamsSchema);
-	const tagSelectedParam = tags.data?.find((tag) => tag.id === locationId);
+	const tagSelectedParam = tags?.find((tag) => tag.id === locationId);
 	const [selectedTag, setSelectedTag] = useState<null | Tag>(
-		tagSelectedParam ?? tags.data?.[0] ?? null
+		tagSelectedParam ?? tags?.[0] ?? null
 	);
 
 	// Update selected tag when the route param changes
@@ -24,7 +27,7 @@ export const Component = () => {
 
 	// Set the first tag as selected when the tags list data is first loaded
 	useEffect(() => {
-		if (tags?.data?.length || (0 > 1 && !selectedTag)) setSelectedTag(tags.data?.[0] ?? null);
+		if (tags?.length || (0 > 1 && !selectedTag)) setSelectedTag(tags?.[0] ?? null);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
@@ -49,7 +52,7 @@ export const Component = () => {
 			/>
 			<Card className="!px-2">
 				<div className="m-1 flex flex-wrap gap-2">
-					{tags.data?.map((tag) => (
+					{tags?.map((tag) => (
 						<div
 							onClick={() => setSelectedTag(tag.id === selectedTag?.id ? null : tag)}
 							key={tag.id}

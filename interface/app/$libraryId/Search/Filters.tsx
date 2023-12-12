@@ -1,6 +1,14 @@
 import { CircleDashed, Cube, Folder, Icon, SelectionSlash, Textbox } from '@phosphor-icons/react';
 import { useState } from 'react';
-import { InOrNotIn, ObjectKind, SearchFilterArgs, TextMatch, useLibraryQuery } from '@sd/client';
+import {
+	InOrNotIn,
+	ObjectKind,
+	SearchFilterArgs,
+	TextMatch,
+	useCache,
+	useLibraryQuery,
+	useNodes
+} from '@sd/client';
 import { Button, Input } from '@sd/ui';
 
 import { SearchOptionItem, SearchOptionSubMenu } from '.';
@@ -56,7 +64,6 @@ export function useToggleOptionSelected({ search }: { search: UseSearch }) {
 	}) => {
 		search.updateDynamicFilters((dynamicFilters) => {
 			const key = getKey({ ...option, type: filter.name });
-
 			if (search.fixedFiltersKeys?.has(key)) return dynamicFilters;
 
 			const rawArg = dynamicFilters.find((arg) => filter.extract(arg));
@@ -126,7 +133,12 @@ const FilterOptionList = ({
 const FilterOptionText = ({ filter, search }: { filter: SearchFilterCRUD; search: UseSearch }) => {
 	const [value, setValue] = useState('');
 
-	const { fixedFiltersKeys } = search;
+	const { allFiltersKeys } = search;
+	const key = getKey({
+		type: filter.name,
+		name: value,
+		value
+	});
 
 	return (
 		<SearchOptionSubMenu className="!p-1.5" name={filter.name} icon={filter.icon}>
@@ -135,13 +147,7 @@ const FilterOptionText = ({ filter, search }: { filter: SearchFilterCRUD; search
 				onSubmit={(e) => {
 					e.preventDefault();
 					search.updateDynamicFilters((dynamicFilters) => {
-						const key = getKey({
-							type: filter.name,
-							name: value,
-							value
-						});
-
-						if (fixedFiltersKeys?.has(key)) return dynamicFilters;
+						if (allFiltersKeys.has(key)) return dynamicFilters;
 
 						const arg = filter.create(value);
 						dynamicFilters.push(arg);
@@ -157,7 +163,7 @@ const FilterOptionText = ({ filter, search }: { filter: SearchFilterCRUD; search
 					onChange={(e) => setValue(e.target.value)}
 				/>
 				<Button
-					disabled={value.length === 0}
+					disabled={value.length === 0 || allFiltersKeys.has(key)}
 					variant="accent"
 					className="w-full"
 					type="submit"
@@ -421,8 +427,10 @@ export const filterRegistry = [
 		},
 		useOptions: () => {
 			const query = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+			useNodes(query.data?.nodes);
+			const locations = useCache(query.data?.items);
 
-			return (query.data ?? []).map((location) => ({
+			return (locations ?? []).map((location) => ({
 				name: location.name!,
 				value: location.id,
 				icon: 'Folder' // Spacedrive folder icon
@@ -455,8 +463,10 @@ export const filterRegistry = [
 		},
 		useOptions: () => {
 			const query = useLibraryQuery(['tags.list'], { keepPreviousData: true });
+			useNodes(query.data?.nodes);
+			const tags = useCache(query.data?.items);
 
-			return (query.data ?? []).map((tag) => ({
+			return (tags ?? []).map((tag) => ({
 				name: tag.name!,
 				value: tag.id,
 				icon: tag.color || 'CircleDashed'

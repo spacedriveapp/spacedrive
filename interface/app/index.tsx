@@ -1,9 +1,13 @@
 import { useMemo } from 'react';
 import { Navigate, Outlet, redirect, useMatches, type RouteObject } from 'react-router-dom';
-import { currentLibraryCache, getCachedLibraries, useCachedLibraries } from '@sd/client';
+import {
+	currentLibraryCache,
+	getCachedLibraries,
+	NormalisedCache,
+	useCachedLibraries
+} from '@sd/client';
 import { Dialogs, Toaster } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
-import { useOperatingSystem } from '~/hooks';
 import { useRoutingContext } from '~/RoutingContext';
 
 import { Platform } from '..';
@@ -17,7 +21,7 @@ import './style.scss';
 // the `usePlausiblePageViewMonitor` hook, as early as possible (ideally within the layout itself).
 // the hook should only be included if there's a valid `ClientContext` (so not onboarding)
 
-export const createRoutes = (platform: Platform) =>
+export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 	[
 		{
 			Component: () => {
@@ -54,7 +58,7 @@ export const createRoutes = (platform: Platform) =>
 						return <Navigate to={`${libraryId}`} replace />;
 					},
 					loader: async () => {
-						const libraries = await getCachedLibraries();
+						const libraries = await getCachedLibraries(cache);
 
 						const currentLibrary = libraries.find(
 							(l) => l.uuid === currentLibraryCache.id
@@ -62,9 +66,10 @@ export const createRoutes = (platform: Platform) =>
 
 						const libraryId = currentLibrary ? currentLibrary.uuid : libraries[0]?.uuid;
 
-						if (libraryId === undefined) return redirect('/onboarding');
+						if (libraryId === undefined)
+							return redirect('/onboarding', { replace: true });
 
-						return redirect(`/${libraryId}`);
+						return redirect(`/${libraryId}`, { replace: true });
 					}
 				},
 				{
@@ -76,14 +81,15 @@ export const createRoutes = (platform: Platform) =>
 					path: ':libraryId',
 					lazy: () => import('./$libraryId/Layout'),
 					loader: async ({ params: { libraryId } }) => {
-						const libraries = await getCachedLibraries();
+						const libraries = await getCachedLibraries(cache);
 						const library = libraries.find((l) => l.uuid === libraryId);
 
 						if (!library) {
 							const firstLibrary = libraries[0];
 
-							if (firstLibrary) return redirect(`/${firstLibrary.uuid}`);
-							else return redirect('/onboarding');
+							if (firstLibrary)
+								return redirect(`/${firstLibrary.uuid}`, { replace: true });
+							else return redirect('/onboarding', { replace: true });
 						}
 
 						return null;

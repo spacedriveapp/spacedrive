@@ -1,6 +1,5 @@
 import { ArrowClockwise, Info } from '@phosphor-icons/react';
 import { useEffect, useMemo } from 'react';
-import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
 import {
 	arraysEqual,
@@ -8,9 +7,11 @@ import {
 	FilePathOrder,
 	Location,
 	ObjectKindEnum,
+	useCache,
 	useLibraryMutation,
 	useLibraryQuery,
 	useLibrarySubscription,
+	useNodes,
 	useOnlineLocations,
 	useRspcLibraryContext
 } from '@sd/client';
@@ -42,12 +43,14 @@ import LocationOptions from './LocationOptions';
 
 export const Component = () => {
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
-	const location = useLibraryQuery(['locations.get', locationId], {
+	const result = useLibraryQuery(['locations.get', locationId], {
 		keepPreviousData: true,
 		suspense: true
 	});
+	useNodes(result.data?.nodes);
+	const location = useCache(result.data?.item);
 
-	return <LocationExplorer location={location.data!} />;
+	return <LocationExplorer location={location!} />;
 };
 
 const LocationExplorer = ({ location }: { location: Location; path?: string }) => {
@@ -87,23 +90,23 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 		return defaults;
 	}, [location, preferences.data?.location]);
 
-	const onSettingsChanged = useDebouncedCallback(
-		async (settings: ExplorerSettings<FilePathOrder>) => {
-			if (preferences.isLoading) return;
+	const onSettingsChanged = async (
+		settings: ExplorerSettings<FilePathOrder>,
+		changedLocation: Location
+	) => {
+		if (changedLocation.id === location.id && preferences.isLoading) return;
 
-			const pubId = stringify(location.pub_id);
+		const pubId = stringify(changedLocation.pub_id);
 
-			try {
-				await updatePreferences.mutateAsync({
-					location: { [pubId]: { explorer: settings } }
-				});
-				rspc.queryClient.invalidateQueries(['preferences.get']);
-			} catch (e) {
-				alert('An error has occurred while updating your preferences.');
-			}
-		},
-		500
-	);
+		try {
+			await updatePreferences.mutateAsync({
+				location: { [pubId]: { explorer: settings } }
+			});
+			rspc.queryClient.invalidateQueries(['preferences.get']);
+		} catch (e) {
+			alert('An error has occurred while updating your preferences.');
+		}
+	};
 
 	const explorerSettings = useExplorerSettings({
 		settings,

@@ -1,7 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
-import { useRef } from 'react';
+import React, { useRef } from 'react';
 import { ColorValue, Pressable, Text, View } from 'react-native';
-import { useLibraryQuery } from '@sd/client';
+import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw, twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
@@ -34,6 +34,9 @@ const BrowseTags = () => {
 
 	const tags = useLibraryQuery(['tags.list']);
 
+	useNodes(tags.data?.nodes);
+	const tagData = useCache(tags.data?.items);
+
 	const modalRef = useRef<ModalRef>(null);
 
 	return (
@@ -43,7 +46,7 @@ const BrowseTags = () => {
 			containerStyle={tw`mb-3 ml-1 mt-6`}
 		>
 			<View style={tw`mt-2`}>
-				{tags.data?.map((tag) => (
+				{tagData?.map((tag) => (
 					<BrowseTagItem
 						key={tag.id}
 						tagName={tag.name!}

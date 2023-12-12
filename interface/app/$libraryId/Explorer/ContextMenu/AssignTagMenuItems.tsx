@@ -2,9 +2,9 @@ import { Plus } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
-import { forwardRef, MutableRefObject, RefObject, useMemo, useRef } from 'react';
+import { RefObject, useMemo, useRef } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
-import { ExplorerItem, useLibraryQuery } from '@sd/client';
+import { ExplorerItem, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { Button, dialogManager, ModifierKeys, tw } from '@sd/ui';
 import CreateDialog, {
 	AssignTagItems,
@@ -23,6 +23,7 @@ interface Props {
 
 function useData({ items }: Props) {
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
+	useNodes(tags.data?.nodes);
 
 	// Map<tag::id, Vec<object::id>>
 	const tagsWithObjects = useLibraryQuery(
@@ -38,7 +39,13 @@ function useData({ items }: Props) {
 		{ suspense: true }
 	);
 
-	return { tags, tagsWithObjects };
+	return {
+		tags: {
+			...tags,
+			data: useCache(tags.data?.items)
+		},
+		tagsWithObjects
+	};
 }
 
 export default (props: Props) => {

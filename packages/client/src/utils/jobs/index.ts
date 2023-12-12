@@ -34,7 +34,7 @@ export function getTotalTasks(jobs: JobReport[]) {
 }
 
 export function getJobNiceActionName(action: string, completed: boolean, job?: JobReport) {
-	const name = job?.metadata?.location?.name || 'Unknown';
+	const name = (job?.metadata?.location as any)?.name || 'Unknown';
 	switch (action) {
 		case 'scan_location':
 			return completed ? `Added location "${name}"` : `Adding location "${name}"`;

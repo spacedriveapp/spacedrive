@@ -1,8 +1,5 @@
-import { ArrowsClockwise, Cloud, Planet } from '@phosphor-icons/react';
-import { useNavigate } from 'react-router';
+import { ArrowsClockwise, Cloud } from '@phosphor-icons/react';
 import { LibraryContextProvider, useClientContext, useFeatureFlag } from '@sd/client';
-import { Tooltip } from '@sd/ui';
-import { useKeysMatcher, useShortcut } from '~/hooks';
 
 import { EphemeralSection } from './EphemeralSection';
 import Icon from './Icon';
@@ -11,13 +8,9 @@ import SidebarLink from './Link';
 
 export default () => {
 	const { library } = useClientContext();
-	const navigate = useNavigate();
-	const symbols = useKeysMatcher(['Meta', 'Shift']);
 
-	// useShortcut('navToOverview', (e) => {
-	// 	e.stopPropagation();
-	// 	navigate('overview');
-	// });
+	const showSyncRoute = useFeatureFlag('syncRoute');
+	const showCloud = useFeatureFlag('cloud');
 
 	return (
 		<div className="no-scrollbar mask-fade-out flex grow flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10">
@@ -30,20 +23,22 @@ export default () => {
 					<Icon component={ArchiveBox} />
 					Imports
 				</SidebarLink> */}
-			<div className="space-y-0.5">
-				{useFeatureFlag('syncRoute') && (
-					<SidebarLink to="sync">
-						<Icon component={ArrowsClockwise} />
-						Sync
-					</SidebarLink>
-				)}
-				{useFeatureFlag('cloud') && (
-					<SidebarLink to="cloud">
-						<Icon component={Cloud} />
-						Cloud
-					</SidebarLink>
-				)}
-			</div>
+			{(showSyncRoute || showCloud) && (
+				<div className="space-y-0.5">
+					{showSyncRoute && (
+						<SidebarLink to="sync">
+							<Icon component={ArrowsClockwise} />
+							Sync
+						</SidebarLink>
+					)}
+					{showCloud && (
+						<SidebarLink to="cloud">
+							<Icon component={Cloud} />
+							Cloud
+						</SidebarLink>
+					)}
+				</div>
+			)}
 			<EphemeralSection />
 			{library && (
 				<LibraryContextProvider library={library}>

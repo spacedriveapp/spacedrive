@@ -5,11 +5,13 @@ import {
 	currentLibraryCache,
 	getOnboardingStore,
 	getUnitFormatStore,
+	insertLibrary,
 	resetOnboardingStore,
 	telemetryStore,
 	useBridgeMutation,
 	useCachedLibraries,
 	useMultiZodForm,
+	useNormalisedCache,
 	useOnboardingStore,
 	usePlausibleEvent
 } from '@sd/client';
@@ -95,6 +97,7 @@ const useFormState = () => {
 	}
 
 	const createLibrary = useBridgeMutation('library.create');
+	const cache = useNormalisedCache();
 
 	const submit = handleSubmit(
 		async (data) => {
@@ -106,20 +109,16 @@ const useFormState = () => {
 
 			try {
 				// show creation screen for a bit for smoothness
-				const [library] = await Promise.all([
+				const [libraryRaw] = await Promise.all([
 					createLibrary.mutateAsync({
 						name: data['new-library'].name,
 						default_locations: data.locations.locations
 					}),
 					new Promise((res) => setTimeout(res, 500))
 				]);
-
-				queryClient.setQueryData(['library.list'], (libraries: any) => {
-					// The invalidation system beat us to it
-					if (libraries.find((l: any) => l.uuid === library.uuid)) return libraries;
-
-					return [...(libraries || []), library];
-				});
+				cache.withNodes(libraryRaw.nodes);
+				const library = cache.withCache(libraryRaw.item);
+				insertLibrary(queryClient, library);
 
 				platform.refreshMenuBar && platform.refreshMenuBar();
 

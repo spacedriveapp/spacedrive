@@ -1,7 +1,7 @@
 import { EjectSimple } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useMemo } from 'react';
-import { useBridgeQuery, useLibraryQuery } from '@sd/client';
+import { useBridgeQuery, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { Button, toast, tw } from '@sd/ui';
 import { Icon, IconName } from '~/components';
 import { useHomeDir } from '~/hooks/useHomeDir';
@@ -28,19 +28,23 @@ const SidebarIcon = ({ name }: { name: IconName }) => {
 };
 
 export const EphemeralSection = () => {
-	const locations = useLibraryQuery(['locations.list']);
+	const locationsQuery = useLibraryQuery(['locations.list']);
+	useNodes(locationsQuery.data?.nodes);
+	const locations = useCache(locationsQuery.data?.items);
 
 	const homeDir = useHomeDir();
-	const volumes = useBridgeQuery(['volumes.list']);
+	const result = useBridgeQuery(['volumes.list']);
+	useNodes(result.data?.nodes);
+	const volumes = useCache(result.data?.items);
 
 	// this will return an array of location ids that are also volumes
 	// { "/Mount/Point": 1, "/Mount/Point2": 2"}
 	const locationIdsForVolumes = useMemo(() => {
-		if (!locations.data || !volumes.data) return {};
+		if (!locations || !volumes) return {};
 
-		const volumePaths = volumes.data.map((volume) => volume.mount_points[0] ?? null);
+		const volumePaths = volumes.map((volume) => volume.mount_points[0] ?? null);
 
-		const matchedLocations = locations.data.filter((location) =>
+		const matchedLocations = locations.filter((location) =>
 			volumePaths.includes(location.path)
 		);
 
@@ -57,9 +61,9 @@ export const EphemeralSection = () => {
 		);
 
 		return locationIdsMap;
-	}, [locations.data, volumes.data]);
+	}, [locations, volumes]);
 
-	const mountPoints = (volumes.data || []).flatMap((volume, volumeIndex) =>
+	const mountPoints = (volumes || []).flatMap((volume, volumeIndex) =>
 		volume.mount_points.map((mountPoint, index) =>
 			mountPoint !== homeDir.data
 				? { type: 'volume', volume, mountPoint, volumeIndex, index }

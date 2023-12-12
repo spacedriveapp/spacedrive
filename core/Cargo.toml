@@ -22,39 +22,41 @@ sd-media-metadata = { path = "../crates/media-metadata" }
 sd-prisma = { path = "../crates/prisma" }
 sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
 sd-crypto = { path = "../crates/crypto", features = [
-  "rspc",
-  "specta",
-  "serde",
-  "keymanager",
+	"rspc",
+	"specta",
+	"serde",
+	"keymanager",
 ] }
-
+sd-cache = { path = "../crates/cache" }
 sd-images = { path = "../crates/images", features = [
-  "rspc",
-  "serde",
-  "specta",
+	"rspc",
+	"serde",
+	"specta",
 ] }
 sd-file-ext = { path = "../crates/file-ext" }
 sd-sync = { path = "../crates/sync" }
 sd-p2p = { path = "../crates/p2p", features = ["specta", "serde"] }
 sd-utils = { path = "../crates/utils" }
+# sd-cloud-api = { path = "../crates/cloud-api" }
+
 sd-core-sync = { path = "./crates/sync" }
 
 rspc = { workspace = true, features = [
-  "uuid",
-  "chrono",
-  "tracing",
-  "alpha",
-  "unstable",
+	"uuid",
+	"chrono",
+	"tracing",
+	"alpha",
+	"unstable",
 ] }
 prisma-client-rust = { workspace = true }
 specta = { workspace = true }
 tokio = { workspace = true, features = [
-  "sync",
-  "rt-multi-thread",
-  "io-util",
-  "macros",
-  "time",
-  "process",
+	"sync",
+	"rt-multi-thread",
+	"io-util",
+	"macros",
+	"time",
+	"process",
 ] }
 serde = { version = "1.0", features = ["derive"] }
 chrono = { version = "0.4.31", features = ["serde"] }
@@ -73,6 +75,7 @@ image = "0.24.7"
 webp = "0.2.6"
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tracing-appender = { workspace = true }
 async-stream = "0.3.5"
 once_cell = "1.18.0"
 ctor = "0.2.5"
@@ -82,12 +85,11 @@ http-range = "0.1.5"
 mini-moka = "0.10.2"
 serde_with = "3.4.0"
 notify = { version = "=5.2.0", default-features = false, features = [
-  "macos_fsevent",
+	"macos_fsevent",
 ], optional = true }
 static_assertions = "1.1.0"
 serde-hashkey = "0.4.5"
 normpath = { version = "1.1.1", features = ["localization"] }
-tracing-appender = { workspace = true }
 strum = { version = "0.25", features = ["derive"] }
 strum_macros = "0.25"
 regex = "1.10.2"
@@ -108,6 +110,7 @@ reqwest = { version = "0.11.22", features = ["json", "native-tls-vendored"] }
 directories = "5.0.1"
 async-recursion = "1.0.5"
 base64 = "0.21.5"
+sd-cloud-api = { version = "0.1.0", path = "../crates/cloud-api" }
 
 # Override features of transitive dependencies
 [dependencies.openssl]

@@ -1,7 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { useLibraryQuery } from '@sd/client';
+import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw, twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
@@ -35,7 +35,9 @@ const BrowseLocations = () => {
 
 	const modalRef = useRef<ModalRef>(null);
 
-	const { data: locations } = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	const result = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	useNodes(result.data?.nodes);
+	const locations = useCache(result.data?.items);
 
 	return (
 		<>
