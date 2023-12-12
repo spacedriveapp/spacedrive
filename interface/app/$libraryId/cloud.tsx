@@ -39,15 +39,13 @@ function Authenticated() {
 						<p>Library</p>
 						<p>Name: {cloudLibrary.data.name}</p>
 					</div>
-					{thisInstance ? (
+					{thisInstance && (
 						<div>
 							<p>This Instance</p>
 							<p>Id: {thisInstance.id}</p>
 							<p>UUID: {thisInstance.uuid}</p>
 							<p>Public Key: {thisInstance.identity}</p>
 						</div>
-					) : (
-						<AddThisInstanceButton />
 					)}
 					<div>
 						<p>Instances</p>
@@ -80,19 +78,5 @@ function Authenticated() {
 				</div>
 			)}
 		</div>
-	);
-}
-
-function AddThisInstanceButton() {
-	const joinCloudLibrary = useLibraryMutation(['cloud.library.join']);
-
-	return (
-		<Button
-			variant="accent"
-			disabled={joinCloudLibrary.isLoading || joinCloudLibrary.isSuccess}
-			onClick={() => joinCloudLibrary.mutate(null)}
-		>
-			Add This Instance To Cloud
-		</Button>
 	);
 }
