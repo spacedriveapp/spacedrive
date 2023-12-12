@@ -61,9 +61,9 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 	const objectData = data && getItemObject(data);
 	const filePathData = data && getItemFilePath(data);
 
-	const fullObjectData = useLibraryQuery(['files.get', { id: objectData?.id || -1 }], {
-		enabled: objectData?.id !== undefined
-	});
+	// const fullObjectData = useLibraryQuery(['files.get', objectData?.id || -1], {
+	// 	enabled: objectData?.id !== undefined
+	// });
 
 	return (
 		<Modal

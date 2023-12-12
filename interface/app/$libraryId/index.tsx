@@ -3,6 +3,7 @@ import { Navigate, type RouteObject } from 'react-router-dom';
 import { useHomeDir } from '~/hooks/useHomeDir';
 import { Platform } from '~/util/Platform';
 
+import { debugRoutes } from './debug';
 import settingsRoutes from './settings';
 
 // Routes that should be contained within the standard Page layout
@@ -12,9 +13,9 @@ const pageRoutes: RouteObject = {
 		{ path: 'people', lazy: () => import('./people') },
 		{ path: 'media', lazy: () => import('./media') },
 		{ path: 'spaces', lazy: () => import('./spaces') },
-		{ path: 'debug', lazy: () => import('./debug') },
 		{ path: 'sync', lazy: () => import('./sync') },
-		{ path: 'cloud', lazy: () => import('./cloud') }
+		{ path: 'cloud', lazy: () => import('./cloud') },
+		{ path: 'debug', children: [debugRoutes] }
 	]
 };
 
@@ -58,7 +59,9 @@ export default (platform: Platform) =>
 			loader: async () => {
 				if (!platform.userHomeDir) return null;
 				const homeDir = await platform.userHomeDir();
-				return redirect(`ephemeral/0?${new URLSearchParams({ path: homeDir })}`);
+				return redirect(`ephemeral/0?${new URLSearchParams({ path: homeDir })}`, {
+					replace: true
+				});
 			}
 		},
 		topBarRoutes,

@@ -6,6 +6,8 @@ pub use crdt::*;
 pub use factory::*;
 pub use model_traits::*;
 
+pub use uhlc::NTP64;
+
 // fn compare_messages(&self, operations: Vec<CRDTOperation>) -> Vec<(CRDTOperation, bool)> {
 // 	operations
 // 		.into_iter()

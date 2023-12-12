@@ -9,7 +9,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.with2(library())
 				.subscription(|(_, library), _: ()| async move {
 					async_stream::stream! {
-						let mut rx = library.sync.tx.subscribe();
+						let mut rx = library.sync.subscribe();
 						while let Ok(_msg) = rx.recv().await {
 							// let op = match msg {
 							// 	SyncMessage::Ingested => (),

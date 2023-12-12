@@ -7,6 +7,7 @@ use std::{
 	sync::OnceLock,
 };
 
+use sd_cache::Model;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
@@ -54,6 +55,12 @@ pub struct Volume {
 	pub disk_type: DiskType,
 	pub file_system: Option<String>,
 	pub is_root_filesystem: bool,
+}
+
+impl Model for Volume {
+	fn name() -> &'static str {
+		"Volume"
+	}
 }
 
 impl Hash for Volume {
@@ -310,8 +317,12 @@ pub async fn get_volumes() -> Vec<Volume> {
 			}
 		}
 
-		#[allow(unused_mut)] // mut is used in windows
-		let mut total_capacity = disk.total_space();
+		#[cfg(windows)]
+		let mut total_capacity;
+		#[cfg(not(windows))]
+		let total_capacity;
+
+		total_capacity = disk.total_space();
 		let available_capacity = disk.available_space();
 		let is_root_filesystem = mount_point.is_absolute() && mount_point.parent().is_none();
 

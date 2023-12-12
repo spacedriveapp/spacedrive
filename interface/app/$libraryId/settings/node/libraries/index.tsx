@@ -1,4 +1,4 @@
-import { useBridgeQuery, useLibraryContext } from '@sd/client';
+import { useBridgeQuery, useCache, useLibraryContext, useNodes } from '@sd/client';
 import { Button, dialogManager } from '@sd/ui';
 
 import { Heading } from '../../Layout';
@@ -6,7 +6,9 @@ import CreateDialog from './CreateDialog';
 import ListItem from './ListItem';
 
 export const Component = () => {
-	const libraries = useBridgeQuery(['library.list']);
+	const librariesQuery = useBridgeQuery(['library.list']);
+	useNodes(librariesQuery.data?.nodes);
+	const libraries = useCache(librariesQuery.data?.items);
 
 	const { library } = useLibraryContext();
 
@@ -31,7 +33,7 @@ export const Component = () => {
 			/>
 
 			<div className="space-y-2">
-				{libraries.data
+				{libraries
 					?.sort((a, b) => {
 						if (a.uuid === library.uuid) return -1;
 						if (b.uuid === library.uuid) return 1;

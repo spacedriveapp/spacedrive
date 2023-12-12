@@ -52,7 +52,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					return Ok(None);
 				}
 
-				match extract_media_data(full_path).await {
+				match extract_media_data(full_path.clone()).await {
 					Ok(img_media_data) => Ok(Some(MediaMetadata::Image(Box::new(img_media_data)))),
 					Err(MediaDataError::MediaData(sd_media_metadata::Error::NoExifDataOnPath(
 						_,
