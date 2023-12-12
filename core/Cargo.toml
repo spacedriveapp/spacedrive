@@ -110,6 +110,7 @@ reqwest = { version = "0.11.22", features = ["json", "native-tls-vendored"] }
 directories = "5.0.1"
 async-recursion = "1.0.5"
 base64 = "0.21.5"
+sd-cloud-api = { version = "0.1.0", path = "../crates/cloud-api" }
 
 # Override features of transitive dependencies
 [dependencies.openssl]
