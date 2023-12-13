@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { ObjectKindEnum, ObjectOrder, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
@@ -82,14 +82,18 @@ export function Component() {
 					)}
 				</TopBarPortal>
 			</SearchContextProvider>
-			<Explorer
-				emptyNotice={
-					<EmptyNotice
-						icon={<Icon name="Tags" size={128} />}
-						message="No items assigned to this tag."
-					/>
-				}
-			/>
+			<MemoisedExplorer />
 		</ExplorerContextProvider>
 	);
 }
+
+const MemoisedExplorer = memo(() => (
+	<Explorer
+		emptyNotice={
+			<EmptyNotice
+				icon={<Icon name="Tags" size={128} />}
+				message="No items assigned to this tag."
+			/>
+		}
+	/>
+));
