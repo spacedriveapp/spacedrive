@@ -30,7 +30,14 @@
 			}
 		},
 		"android": {
-			"permissions": ["android.permission.MANAGE_EXTERNAL_STORAGE"],
+			"permissions": [
+				"android.permission.MANAGE_EXTERNAL_STORAGE",
+				"android.permission.READ_MEDIA_AUDIO",
+				"android.permission.READ_MEDIA_IMAGES",
+				"android.permission.READ_MEDIA_VIDEO",
+				"android.permission.ACCESS_MEDIA_LOCATION",
+				"android.permission.WRITE_EXTERNAL_STORAGE"
+			],
 			"package": "com.spacedrive.app"
 		},
 		"splash": {
@@ -42,6 +49,9 @@
 			[
 				"expo-build-properties",
 				{
+					"android": {
+						"minSdkVersion": 28
+					},
 					"ios": {
 						"useFrameworks": "static",
 						"deploymentTarget": "13.0"
