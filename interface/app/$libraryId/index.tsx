@@ -1,6 +1,5 @@
 import { redirect } from '@remix-run/router';
-import { Navigate, useRouteError, type RouteObject } from 'react-router-dom';
-import { useHomeDir } from '~/hooks/useHomeDir';
+import { type RouteObject } from 'react-router-dom';
 import { Platform } from '~/util/Platform';
 
 import { debugRoutes } from './debug';
@@ -13,9 +12,7 @@ const pageRoutes: RouteObject = {
 		{ path: 'people', lazy: () => import('./people') },
 		{ path: 'media', lazy: () => import('./media') },
 		{ path: 'spaces', lazy: () => import('./spaces') },
-		{ path: 'sync', lazy: () => import('./sync') },
-		{ path: 'cloud', lazy: () => import('./cloud') },
-		{ path: 'debug', children: [debugRoutes] }
+		{ path: 'debug', children: debugRoutes }
 	]
 };
 
@@ -27,10 +24,7 @@ const explorerRoutes: RouteObject[] = [
 	{ path: 'node/:id', lazy: () => import('./node/$id') },
 	{ path: 'tag/:id', lazy: () => import('./tag/$id') },
 	{ path: 'network', lazy: () => import('./network') },
-	{
-		path: 'saved-search/:id',
-		lazy: () => import('./saved-search/$id')
-	}
+	{ path: 'saved-search/:id', lazy: () => import('./saved-search/$id') }
 ];
 
 // Routes that should render with the top bar - pretty much everything except
