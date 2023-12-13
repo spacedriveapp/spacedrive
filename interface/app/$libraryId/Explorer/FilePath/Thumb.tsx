@@ -4,7 +4,6 @@ import {
 	memo,
 	SyntheticEvent,
 	useEffect,
-	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -407,6 +406,16 @@ const ORIGINAL_RENDERERS: {
 				</audio>
 			)}
 		</>
+	),
+	Image: (props) => (
+		<Thumbnail
+			src={props.src}
+			onLoad={props.onLoad}
+			onError={props.onError}
+			decoding={props.size ? 'async' : 'sync'}
+			className={clsx(props.className, props.frameClassName)}
+			crossOrigin="anonymous" // Here it is ok, because it is not a react attr
+		/>
 	)
 };
 
