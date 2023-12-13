@@ -15,13 +15,11 @@ import { useExplorerSearchParams } from './util';
 export const PATH_BAR_HEIGHT = 32;
 
 export const ExplorerPath = memo(() => {
-	const os = useOperatingSystem();
+	const os = useOperatingSystem(true);
 	const navigate = useNavigate();
 
 	const [{ path: searchPath }] = useExplorerSearchParams();
 	const { parent: explorerParent, selectedItems } = useExplorerContext();
-
-	const pathSlash = os === 'windows' ? '\\' : '/';
 
 	const location = explorerParent?.type === 'Location' ? explorerParent.location : undefined;
 
@@ -39,23 +37,32 @@ export const ExplorerPath = memo(() => {
 	});
 
 	const paths = useMemo(() => {
+		const pathSlash = os === 'windows' ? '\\' : '/';
+
+		// Replace all slashes with native slashes
+		// TODO: Fix returned path from query on windows as the location part of the path
+		// uses "/" instead of "\" -> C:\Users\sd-user\Documents\spacedrive\packages/assets/deps
+		let _filePathname = filePathname?.replaceAll(/[\\/]/g, pathSlash);
+
 		// Remove file name from the path
-		const _filePathname = filePathname?.slice(0, filePathname.lastIndexOf(pathSlash));
+		_filePathname = _filePathname?.slice(0, _filePathname.lastIndexOf(pathSlash) + 1);
 
 		const pathname = _filePathname ?? [location?.path, searchPath].filter(Boolean).join('');
 
-		const paths = [...(pathname.match(new RegExp(`[^${pathSlash}]+`, 'g')) ?? [])];
+		const paths = [...(pathname.match(/[^\\/]+/g) ?? [])];
 
 		let locationPath = location?.path;
 
 		if (!locationPath && indexedFilePath?.materialized_path) {
 			if (indexedFilePath.materialized_path === '/') locationPath = pathname;
 			else {
-				// Remove last slash from materialized_path
-				const materializedPath = indexedFilePath.materialized_path.slice(0, -1);
+				let materializedPath = indexedFilePath.materialized_path;
+
+				// Replace all slashes with native slashes
+				if (os === 'windows') materializedPath = materializedPath.replaceAll('/', '\\');
 
 				// Extract location path from pathname
-				locationPath = pathname.slice(0, pathname.indexOf(materializedPath));
+				locationPath = pathname.slice(0, pathname.lastIndexOf(materializedPath));
 			}
 		}
 
@@ -69,10 +76,14 @@ export const ExplorerPath = memo(() => {
 				i === locationIndex ? '' : path
 			];
 
-			let pathname = `${pathSlash}${_paths.join(pathSlash)}`;
+			let pathname = _paths.join(isLocation ? '/' : pathSlash);
 
-			// Add slash to the end of the pathname if it's a location
-			if (isLocation && i > locationIndex) pathname += pathSlash;
+			// Wrap pathname in slashes if it's a location
+			if (isLocation) pathname = pathname ? `/${pathname}/` : '/';
+			// Add slash to the end of the pathname if it's the root of a drive on windows (C: -> C:\)
+			else if (os === 'windows' && _paths.length === 1) pathname += pathSlash;
+			// Add slash to the beginning of the ephemeral pathname (Users -> /Users)
+			else if (os !== 'windows') pathname = `/${pathname}`;
 
 			return {
 				name: path,
@@ -80,7 +91,7 @@ export const ExplorerPath = memo(() => {
 				locationId: isLocation ? indexedFilePath?.location_id ?? location?.id : undefined
 			};
 		});
-	}, [location, indexedFilePath, filePathname, pathSlash, searchPath]);
+	}, [location, indexedFilePath, filePathname, searchPath, os]);
 
 	const handleOnClick = ({ pathname, locationId }: (typeof paths)[number]) => {
 		if (locationId === undefined) {
