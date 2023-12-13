@@ -66,14 +66,14 @@ pub async fn run_actor((library, node): (Arc<Library>, Arc<Node>)) {
 										.from_time
 										.unwrap_or_else(|| "0".to_string())
 										.parse()
-										.unwrap(),
+										.expect("couldn't parse ntp64 value"),
 								),
 							)],
 						})
 						.await
 				);
 
-				if ops.len() == 0 {
+				if ops.is_empty() {
 					continue;
 				}
 
@@ -94,11 +94,11 @@ pub async fn run_actor((library, node): (Arc<Library>, Arc<Node>)) {
 				"Number of messages: {}",
 				instances
 					.iter()
-					.map(|i| i["contents"].as_array().unwrap().len())
+					.map(|i| i["contents"].as_array().expect("no contents found").len())
 					.sum::<usize>()
 			);
 
-			if instances.len() == 0 {
+			if instances.is_empty() {
 				break;
 			}
 
@@ -109,7 +109,7 @@ pub async fn run_actor((library, node): (Arc<Library>, Arc<Node>)) {
 				// from_time: String,
 			}
 
-			let responses = err_break!(
+			let _responses = err_break!(
 				err_break!(
 					node.authed_api_request(
 						node.http

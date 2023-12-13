@@ -12,15 +12,12 @@ use crate::{
 	Node,
 };
 
-use futures::SinkExt;
 use sd_p2p::spacetunnel::Identity;
 use sd_prisma::prisma::notification;
-use tracing_subscriber::Layer;
 
 use std::{
 	collections::HashMap,
 	fmt::{Debug, Formatter},
-	io::Write,
 	path::{Path, PathBuf},
 	sync::Arc,
 };

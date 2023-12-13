@@ -69,6 +69,7 @@ impl Actors {
 		tokio::spawn({
 			let actor = actor.clone();
 			async move {
+				#[allow(clippy::match_single_binding)]
 				match rx.await {
 					_ => {}
 				};

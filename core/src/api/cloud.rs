@@ -59,7 +59,12 @@ mod library {
 						.libraries
 						.create_with_uuid(
 							library_id,
-							LibraryName::new(cloud_library.name).unwrap(),
+							LibraryName::new(cloud_library.name).map_err(|e| {
+								rspc::Error::new(
+									rspc::ErrorCode::InternalServerError,
+									e.to_string(),
+								)
+							})?,
 							None,
 							false,
 							None,
