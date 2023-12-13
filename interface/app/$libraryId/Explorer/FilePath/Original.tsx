@@ -42,7 +42,7 @@ export function Original({
 	itemData,
 	filePath,
 	...props
-}: Omit<OriginalRendererProps, 'src' | 'onLoad' | 'onError'> & {
+}: Omit<OriginalRendererProps, 'src'> & {
 	filePath: ReturnType<typeof getItemFilePath>;
 }) {
 	const [error, setError] = useState(false);

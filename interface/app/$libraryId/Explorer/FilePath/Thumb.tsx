@@ -34,7 +34,7 @@ export interface ThumbProps {
 	isSidebarPreview?: boolean;
 }
 
-type ThumbType = { variant: 'thumbnail' } | { variant: 'icon' };
+type ThumbType = { variant: 'original' } | { variant: 'thumbnail' } | { variant: 'icon' };
 
 export const FileThumb = memo((props: ThumbProps) => {
 	const isDark = useIsDark();
@@ -47,8 +47,8 @@ export const FileThumb = memo((props: ThumbProps) => {
 	const { library } = useLibraryContext();
 
 	const [loadState, setLoadState] = useState<{
-		[K in 'thumbnail' | 'icon']: 'notLoaded' | 'loaded' | 'error';
-	}>({ thumbnail: 'notLoaded', icon: 'notLoaded' });
+		[K in 'original' | 'thumbnail' | 'icon']: 'notLoaded' | 'loaded' | 'error';
+	}>({ original: 'notLoaded', thumbnail: 'notLoaded', icon: 'notLoaded' });
 
 	const childClassName = 'max-h-full max-w-full object-contain';
 	const frameClassName = clsx(
@@ -136,7 +136,6 @@ export const FileThumb = memo((props: ThumbProps) => {
 		if (!src) return null;
 
 		switch (thumbType.variant) {
-			// eslint-disable-next-line no-fallthrough
 			case 'thumbnail':
 				return (
 					<Thumbnail
@@ -180,6 +179,8 @@ export const FileThumb = memo((props: ThumbProps) => {
 						draggable={false}
 					/>
 				);
+			default:
+				return null;
 		}
 	})();
 
@@ -201,6 +202,8 @@ export const FileThumb = memo((props: ThumbProps) => {
 			{props.loadOriginal ? (
 				<ErrorBoundary fallback={thumbnail}>
 					<Original
+						onLoad={() => onLoad('original')}
+						onError={(e) => onError('original', e)}
 						filePath={filePath}
 						className={className}
 						frameClassName={frameClassName}
