@@ -7,7 +7,7 @@ import { isPath, type ExplorerItem } from '@sd/client';
 import SortByMenu from '~/components/menu/SortByMenu';
 import Layout from '~/constants/Layout';
 import { tw } from '~/lib/tailwind';
-import { type SharedScreenProps } from '~/navigation/SharedScreens';
+import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { getExplorerStore } from '~/stores/explorerStore';
 import { useActionsModalStore } from '~/stores/modalStore';
 
@@ -19,7 +19,7 @@ type ExplorerProps = {
 };
 
 const Explorer = ({ items }: ExplorerProps) => {
-	const navigation = useNavigation<SharedScreenProps<'Location'>['navigation']>();
+	const navigation = useNavigation<BrowseStackScreenProps<'Location'>['navigation']>();
 
 	const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>(getExplorerStore().layoutMode);
 

@@ -1,8 +1,7 @@
-import { useDrawerStatus } from '@react-navigation/drawer';
 import { useNavigation } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { CaretRight, Gear, Lock, Plus } from 'phosphor-react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { useClientContext } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
@@ -13,14 +12,14 @@ import { ModalRef } from '../layout/Modal';
 import CreateLibraryModal from '../modal/CreateLibraryModal';
 import { Divider } from '../primitive/Divider';
 
-const DrawerLibraryManager = () => {
+const BrowseLibraryManager = () => {
 	const [dropdownClosed, setDropdownClosed] = useState(true);
 
 	// Closes the dropdown when the drawer is closed
-	const isDrawerOpen = useDrawerStatus() === 'open';
-	useEffect(() => {
-		if (!isDrawerOpen) setDropdownClosed(true);
-	}, [isDrawerOpen]);
+	// const isDrawerOpen = useDrawerStatus() === 'open';
+	// useEffect(() => {
+	// 	if (!isDrawerOpen) setDropdownClosed(true);
+	// }, [isDrawerOpen]);
 
 	const { library: currentLibrary, libraries } = useClientContext();
 
@@ -113,4 +112,4 @@ const DrawerLibraryManager = () => {
 	);
 };
 
-export default DrawerLibraryManager;
+export default BrowseLibraryManager;

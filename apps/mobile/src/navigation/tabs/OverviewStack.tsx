@@ -4,7 +4,6 @@ import Header from '~/components/header/Header';
 import { tw } from '~/lib/tailwind';
 
 import OverviewScreen from '../../screens/Overview';
-import { SharedScreens, SharedScreensParamList } from '../SharedScreens';
 import { TabScreenProps } from '../TabNavigator';
 
 const Stack = createStackNavigator<OverviewStackParamList>();
@@ -21,14 +20,13 @@ export default function OverviewStack() {
 			}}
 		>
 			<Stack.Screen name="Overview" component={OverviewScreen} options={{ header: Header }} />
-			{SharedScreens(Stack as any)}
 		</Stack.Navigator>
 	);
 }
 
 export type OverviewStackParamList = {
 	Overview: undefined;
-} & SharedScreensParamList;
+};
 
 export type OverviewStackScreenProps<Screen extends keyof OverviewStackParamList> =
 	CompositeScreenProps<
