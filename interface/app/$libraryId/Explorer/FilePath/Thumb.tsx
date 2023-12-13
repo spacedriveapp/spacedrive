@@ -137,7 +137,7 @@ export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) =
 	const className = clsx(childClassName, _childClassName);
 
 	const thumbnail = (() => {
-		if (!src) return null;
+		if (!src) return <></>;
 
 		switch (thumbType.variant) {
 			case 'thumbnail':
@@ -188,7 +188,7 @@ export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) =
 					/>
 				);
 			default:
-				return null;
+				return <></>;
 		}
 	})();
 
