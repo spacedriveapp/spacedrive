@@ -136,7 +136,7 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 
 					err_break!(
 						create_instance(
-							&db,
+							db,
 							collection.instance_uuid,
 							err_break!(BASE64_STANDARD.decode(instance.identity.clone()))
 						)
@@ -180,10 +180,10 @@ async fn write_cloud_ops_to_db(
 ) -> Result<(), prisma_client_rust::QueryError> {
 	let (shared, relation): (Vec<_>, Vec<_>) = ops.into_iter().partition_map(|op| match &op.typ {
 		CRDTOperationType::Shared(shared_op) => {
-			Either::Left(shared_op_db(&op, &shared_op).to_query(&db))
+			Either::Left(shared_op_db(&op, &shared_op).to_query(db))
 		}
 		CRDTOperationType::Relation(relation_op) => {
-			Either::Right(relation_op_db(&op, &relation_op).to_query(&db))
+			Either::Right(relation_op_db(&op, &relation_op).to_query(db))
 		}
 	});
 

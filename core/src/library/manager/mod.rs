@@ -478,7 +478,7 @@ impl Libraries {
 		// This is an exception. Generally subscribe to this by `self.tx.subscribe`.
 		tokio::spawn(sync_rx_actor(library.clone(), node.clone(), sync.rx));
 
-		crate::cloud::sync::declare_actors(&library, &node).await;
+		crate::cloud::sync::declare_actors(&library, node).await;
 
 		self.tx
 			.emit(LibraryManagerEvent::Load(library.clone()))
