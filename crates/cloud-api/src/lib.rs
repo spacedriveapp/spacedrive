@@ -66,7 +66,7 @@ pub mod library {
 				return Err(Error("Authentication required".to_string()));
 			};
 
-			Ok(config
+			config
 				.client
 				.get(&format!(
 					"{}/api/v1/libraries/{}",
@@ -78,7 +78,7 @@ pub mod library {
 				.map_err(|e| Error(e.to_string()))?
 				.json()
 				.await
-				.map_err(|e| Error(e.to_string()))?)
+				.map_err(|e| Error(e.to_string()))
 		}
 
 		pub type Response = Option<Library>;
@@ -93,7 +93,7 @@ pub mod library {
 				return Err(Error("Authentication required".to_string()));
 			};
 
-			Ok(config
+			config
 				.client
 				.get(&format!("{}/api/v1/libraries", config.api_url))
 				.with_auth(auth_token)
@@ -102,7 +102,7 @@ pub mod library {
 				.map_err(|e| Error(e.to_string()))?
 				.json()
 				.await
-				.map_err(|e| Error(e.to_string()))?)
+				.map_err(|e| Error(e.to_string()))
 		}
 
 		pub type Response = Vec<Library>;

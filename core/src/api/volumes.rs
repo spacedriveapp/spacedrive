@@ -15,8 +15,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				blake3::hash(
 					&i.mount_points
 						.iter()
-						.map(|mp| mp.as_os_str().to_string_lossy().as_bytes().to_vec())
-						.flatten()
+						.flat_map(|mp| mp.as_os_str().to_string_lossy().as_bytes().to_vec())
 						.collect::<Vec<u8>>(),
 				)
 				.to_hex()

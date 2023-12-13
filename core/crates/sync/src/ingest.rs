@@ -257,13 +257,10 @@ async fn write_crdt_op_to_db(
 ) -> Result<(), prisma_client_rust::QueryError> {
 	match &op.typ {
 		CRDTOperationType::Shared(shared_op) => {
-			shared_op_db(&op, shared_op).to_query(&db).exec().await?;
+			shared_op_db(op, shared_op).to_query(db).exec().await?;
 		}
 		CRDTOperationType::Relation(relation_op) => {
-			relation_op_db(&op, relation_op)
-				.to_query(&db)
-				.exec()
-				.await?;
+			relation_op_db(op, relation_op).to_query(db).exec().await?;
 		}
 	}
 
