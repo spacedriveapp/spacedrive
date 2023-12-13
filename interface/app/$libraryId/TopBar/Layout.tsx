@@ -1,8 +1,9 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { Outlet } from 'react-router';
 import { SearchFilterArgs } from '@sd/client';
 
 import TopBar from '.';
+import { getExplorerStore } from '../Explorer/store';
 
 const TopBarContext = createContext<ReturnType<typeof useContextValue> | null>(null);
 
@@ -32,6 +33,13 @@ function useContextValue() {
 
 export const Component = () => {
 	const value = useContextValue();
+
+	// Reset drag state
+	useEffect(() => {
+		return () => {
+			getExplorerStore().drag = null;
+		};
+	}, []);
 
 	return (
 		<TopBarContext.Provider value={value}>

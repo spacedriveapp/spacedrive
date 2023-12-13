@@ -3,7 +3,6 @@ use crate::{
 		notifications::{Notification, NotificationData, NotificationId},
 		CoreEvent,
 	},
-	env,
 	location::file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
 	notifications,
 	object::{media::thumbnail::get_indexed_thumbnail_path, orphan_remover::OrphanRemoverActor},
@@ -28,7 +27,7 @@ use tokio::{fs, io, sync::broadcast, sync::RwLock};
 use tracing::warn;
 use uuid::Uuid;
 
-use super::{LibraryConfig, LibraryManagerError};
+use super::{Actors, LibraryConfig, LibraryManagerError};
 
 // TODO: Finish this
 // pub enum LibraryNew {
@@ -61,6 +60,8 @@ pub struct Library {
 	// Look, I think this shouldn't be here but our current invalidation system needs it.
 	// TODO(@Oscar): Get rid of this with the new invalidation system.
 	event_bus_tx: broadcast::Sender<CoreEvent>,
+
+	pub actors: Arc<Actors>,
 }
 
 impl Debug for Library {
@@ -98,6 +99,7 @@ impl Library {
 			instance_uuid,
 			env: node.env.clone(),
 			event_bus_tx: node.event_bus.0.clone(),
+			actors: Default::default(),
 		})
 	}
 

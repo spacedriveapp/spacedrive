@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo } from 'react';
 import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
-import { SharedScreenProps } from '~/navigation/SharedScreens';
+import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { getExplorerStore } from '~/stores/explorerStore';
 
-export default function LocationScreen({ navigation, route }: SharedScreenProps<'Location'>) {
+export default function LocationScreen({ navigation, route }: BrowseStackScreenProps<'Location'>) {
 	const { id, path } = route.params;
 
 	const location = useLibraryQuery(['locations.get', route.params.id]);

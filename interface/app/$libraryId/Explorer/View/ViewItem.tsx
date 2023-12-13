@@ -1,4 +1,4 @@
-import { memo, useCallback, type HTMLAttributes, type PropsWithChildren } from 'react';
+import { useCallback, type HTMLAttributes, type PropsWithChildren } from 'react';
 import { createSearchParams, useNavigate } from 'react-router-dom';
 import {
 	isPath,
@@ -15,8 +15,9 @@ import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore } from '../QuickPreview/store';
+import { getExplorerStore } from '../store';
 import { uniqueId } from '../util';
-import { useExplorerViewContext } from '../ViewContext';
+import { useExplorerViewContext } from './Context';
 
 export const useViewItemDoubleClick = () => {
 	const navigate = useNavigate();
@@ -58,7 +59,7 @@ export const useViewItemDoubleClick = () => {
 									: selectedItem.item.file_paths;
 
 							for (const filePath of paths) {
-								if (isPath(selectedItem) && selectedItem.item.is_dir) {
+								if (filePath.is_dir) {
 									items.dirs.splice(sameAsClicked ? 0 : -1, 0, filePath);
 								} else {
 									items.paths.splice(sameAsClicked ? 0 : -1, 0, filePath);
@@ -176,7 +177,7 @@ interface ViewItemProps extends PropsWithChildren, HTMLAttributes<HTMLDivElement
 	data: ExplorerItem;
 }
 
-export const ViewItem = memo(({ data, children, ...props }: ViewItemProps) => {
+export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 	const explorerView = useExplorerViewContext();
 
 	const { doubleClick } = useViewItemDoubleClick();
@@ -184,15 +185,15 @@ export const ViewItem = memo(({ data, children, ...props }: ViewItemProps) => {
 	return (
 		<ContextMenu.Root
 			trigger={
-				<div onDoubleClick={() => doubleClick(data)} {...props}>
+				<div {...props} onDoubleClick={() => doubleClick(data)}>
 					{children}
 				</div>
 			}
-			onOpenChange={explorerView.setIsContextMenuOpen}
+			onOpenChange={(open) => (getExplorerStore().isContextMenuOpen = open)}
 			disabled={explorerView.contextMenu === undefined}
 			onMouseDown={(e) => e.stopPropagation()}
 		>
 			{explorerView.contextMenu}
 		</ContextMenu.Root>
 	);
-});
+};
