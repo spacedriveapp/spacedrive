@@ -16,12 +16,9 @@ use serde::Deserialize;
 use serde_json::{json, to_vec};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::{sync::Notify, time::sleep};
-use tracing::debug;
 use uuid::Uuid;
 
-pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Arc<Notify>) {
-	debug!("receive actor running");
-
+pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>, Arc<Notify>)) {
 	let db = &library.db;
 	let api_url = &library.env.api_url;
 	let library_id = library.id;
@@ -85,23 +82,22 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Ar
 		}
 
 		{
-			let collections = err_break!(
-				err_break!(
-					node.authed_api_request(
-						node.http
-							.post(&format!(
-								"{api_url}/api/v1/libraries/{library_id}/messageCollections/get"
-							))
-							.json(&json!({
-								"instanceUuid": library.instance_uuid,
-								"timestamps": instances
-							})),
-					)
-					.await
+			let collections = node
+				.authed_api_request(
+					node.http
+						.post(&format!(
+							"{api_url}/api/v1/libraries/{library_id}/messageCollections/get"
+						))
+						.json(&json!({
+							"instanceUuid": library.instance_uuid,
+							"timestamps": instances
+						})),
 				)
+				.await
+				.unwrap()
 				.json::<Vec<MessageCollection>>()
 				.await
-			);
+				.unwrap();
 
 			let mut cloud_library_data: Option<Option<sd_cloud_api::Library>> = None;
 

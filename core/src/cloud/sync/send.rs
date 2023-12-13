@@ -9,16 +9,12 @@ use std::{sync::Arc, time::Duration};
 use tokio::time::sleep;
 use uuid::Uuid;
 
-pub async fn run_actor(library: Arc<Library>, node: Arc<Node>) {
+pub async fn run_actor((library, node): (Arc<Library>, Arc<Node>)) {
 	let db = &library.db;
 	let api_url = &library.env.api_url;
 	let library_id = library.id;
 
 	loop {
-		println!("send_actor run");
-
-		println!("send_actor sending");
-
 		loop {
 			let instances = err_break!(
 				db.instance()
@@ -54,8 +50,6 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>) {
 				.json::<Vec<RequestAdd>>()
 				.await
 			);
-
-			println!("Add Requests: {req_adds:#?}");
 
 			let mut instances = vec![];
 
@@ -129,8 +123,6 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>) {
 				.json::<Vec<DoAdd>>()
 				.await
 			);
-
-			println!("DoAdd Responses: {responses:#?}");
 		}
 
 		{
@@ -144,8 +136,6 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>) {
 				};
 			}
 		}
-
-		println!("send_actor sleeping");
 
 		sleep(Duration::from_millis(1000)).await;
 	}

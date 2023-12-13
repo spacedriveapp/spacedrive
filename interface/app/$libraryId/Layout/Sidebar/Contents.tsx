@@ -1,16 +1,16 @@
-import { ArrowsClockwise, Cloud } from '@phosphor-icons/react';
+import { ArrowsClockwise, Cloud, Database, Factory } from '@phosphor-icons/react';
 import { LibraryContextProvider, useClientContext, useFeatureFlag } from '@sd/client';
 
 import { EphemeralSection } from './EphemeralSection';
 import Icon from './Icon';
 import { LibrarySection } from './LibrarySection';
 import SidebarLink from './Link';
+import Section from './Section';
 
 export default () => {
 	const { library } = useClientContext();
 
-	const showSyncRoute = useFeatureFlag('syncRoute');
-	const showCloud = useFeatureFlag('cloud');
+	const debugRoutes = useFeatureFlag('debugRoutes');
 
 	return (
 		<div className="no-scrollbar mask-fade-out flex grow flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10">
@@ -23,21 +23,27 @@ export default () => {
 					<Icon component={ArchiveBox} />
 					Imports
 				</SidebarLink> */}
-			{(showSyncRoute || showCloud) && (
-				<div className="space-y-0.5">
-					{showSyncRoute && (
-						<SidebarLink to="sync">
+			{debugRoutes && (
+				<Section name="Debug">
+					<div className="space-y-0.5">
+						<SidebarLink to="debug/sync">
 							<Icon component={ArrowsClockwise} />
 							Sync
 						</SidebarLink>
-					)}
-					{showCloud && (
-						<SidebarLink to="cloud">
+						<SidebarLink to="debug/cloud">
 							<Icon component={Cloud} />
 							Cloud
 						</SidebarLink>
-					)}
-				</div>
+						<SidebarLink to="debug/cache">
+							<Icon component={Database} />
+							Cache
+						</SidebarLink>
+						<SidebarLink to="debug/actors">
+							<Icon component={Factory} />
+							Actors
+						</SidebarLink>
+					</div>
+				</Section>
 			)}
 			<EphemeralSection />
 			{library && (
