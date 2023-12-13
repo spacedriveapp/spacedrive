@@ -1,13 +1,20 @@
 import { getIcon, getIconByName } from '@sd/assets/util';
 import clsx from 'clsx';
-import { memo, SyntheticEvent, useMemo, useRef, useState, type ImgHTMLAttributes } from 'react';
+import {
+	forwardRef,
+	HTMLAttributes,
+	SyntheticEvent,
+	useImperativeHandle,
+	useMemo,
+	useRef,
+	useState
+} from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { getItemFilePath, useLibraryContext, type ExplorerItem } from '@sd/client';
 import { useIsDark } from '~/hooks';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { usePlatform } from '~/util/Platform';
 
-import { useExplorerContext } from '../Context';
 import { useExplorerItemData } from '../util';
 import { Image, ImageProps } from './Image';
 import LayeredFileIcon from './LayeredFileIcon';
@@ -32,18 +39,18 @@ export interface ThumbProps {
 	frameClassName?: string;
 	childClassName?: string | ((type: ThumbType) => string | undefined);
 	isSidebarPreview?: boolean;
+	childProps?: HTMLAttributes<HTMLElement>;
 }
 
 type ThumbType = { variant: 'original' } | { variant: 'thumbnail' } | { variant: 'icon' };
 
-export const FileThumb = memo((props: ThumbProps) => {
+export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) => {
 	const isDark = useIsDark();
 	const platform = usePlatform();
 
 	const itemData = useExplorerItemData(props.data);
 	const filePath = getItemFilePath(props.data);
 
-	const { parent } = useExplorerContext();
 	const { library } = useLibraryContext();
 
 	const [loadState, setLoadState] = useState<{
@@ -72,14 +79,11 @@ export const FileThumb = memo((props: ThumbProps) => {
 	}, [itemData, loadState]);
 
 	const src = useMemo(() => {
-		const locationId =
-			itemData.locationId ?? (parent?.type === 'Location' ? parent.location.id : null);
-
 		switch (thumbType.variant) {
 			case 'original':
 				if (filePath && (itemData.extension !== 'pdf' || pdfViewerEnabled())) {
-					if ('id' in filePath && locationId)
-						return platform.getFileUrl(library.uuid, locationId, filePath.id);
+					if ('id' in filePath && itemData.locationId)
+						return platform.getFileUrl(library.uuid, itemData.locationId, filePath.id);
 					else if ('path' in filePath) return platform.getFileUrlByPath(filePath.path);
 				}
 				break;
@@ -100,7 +104,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 					itemData.isDir
 				);
 		}
-	}, [filePath, isDark, library.uuid, itemData, platform, thumbType, parent]);
+	}, [filePath, isDark, library.uuid, itemData, platform, thumbType]);
 
 	const onLoad = (s: 'original' | 'thumbnail' | 'icon') => {
 		setLoadState((state) => ({ ...state, [s]: 'loaded' }));
@@ -133,12 +137,14 @@ export const FileThumb = memo((props: ThumbProps) => {
 	const className = clsx(childClassName, _childClassName);
 
 	const thumbnail = (() => {
-		if (!src) return null;
+		if (!src) return <></>;
 
 		switch (thumbType.variant) {
 			case 'thumbnail':
 				return (
 					<Thumbnail
+						{...props.childProps}
+						ref={ref}
 						src={src}
 						cover={props.cover}
 						onLoad={() => onLoad('thumbnail')}
@@ -169,6 +175,8 @@ export const FileThumb = memo((props: ThumbProps) => {
 			case 'icon':
 				return (
 					<LayeredFileIcon
+						{...props.childProps}
+						ref={ref}
 						src={src}
 						kind={itemData.kind}
 						extension={itemData.extension}
@@ -180,7 +188,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 					/>
 				);
 			default:
-				return null;
+				return <></>;
 		}
 	})();
 
@@ -233,17 +241,16 @@ interface ThumbnailProps extends Omit<ImageProps, 'blackBarsStyle' | 'size'> {
 	extension?: string;
 }
 
-const Thumbnail = memo(
-	({
-		crossOrigin,
-		blackBars,
-		blackBarsSize,
-		extension,
-		cover,
-		className,
-		...props
-	}: ThumbnailProps) => {
+const Thumbnail = forwardRef<HTMLImageElement, ThumbnailProps>(
+	(
+		{ crossOrigin, blackBars, blackBarsSize, extension, cover, className, style, ...props },
+		_ref
+	) => {
 		const ref = useRef<HTMLImageElement>(null);
+		useImperativeHandle<HTMLImageElement | null, HTMLImageElement | null>(
+			_ref,
+			() => ref.current
+		);
 
 		const size = useSize(ref);
 
@@ -259,7 +266,7 @@ const Thumbnail = memo(
 							blackBarsStyle && size.width === 0 && 'invisible'
 						),
 						cover,
-						style: blackBars ? blackBarsStyle : undefined,
+						style: { ...style, ...(blackBars ? blackBarsStyle : undefined) },
 						size,
 						ref
 					}}
@@ -274,7 +281,7 @@ const Thumbnail = memo(
 								})
 						}}
 						className={clsx(
-							'absolute rounded bg-black/60 px-1 py-0.5 text-[9px] font-semibold uppercase text-white opacity-70',
+							'pointer-events-none absolute rounded bg-black/60 px-1 py-0.5 text-[9px] font-semibold uppercase text-white opacity-70',
 							cover
 								? 'bottom-1 right-1'
 								: 'left-1/2 top-1/2 -translate-x-full -translate-y-full'

@@ -1,17 +1,14 @@
 import { Pencil, Plus, Trash } from '@phosphor-icons/react';
+import { PropsWithChildren } from 'react';
 import { useNavigate } from 'react-router';
 import { Link } from 'react-router-dom';
 import { ContextMenu as CM, dialogManager } from '@sd/ui';
 import CreateDialog from '~/app/$libraryId/settings/library/tags/CreateDialog';
 import DeleteDialog from '~/app/$libraryId/settings/library/tags/DeleteDialog';
 
-interface Props {
-	children: React.ReactNode;
-	tagId: number;
-}
-
-export default ({ children, tagId }: Props) => {
+export const ContextMenu = ({ children, tagId }: PropsWithChildren<{ tagId: number }>) => {
 	const navigate = useNavigate();
+
 	return (
 		<CM.Root trigger={children}>
 			<CM.Item

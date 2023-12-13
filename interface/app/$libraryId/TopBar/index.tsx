@@ -15,7 +15,7 @@ import { NavigationButtons } from './NavigationButtons';
 
 const TopBar = () => {
 	const transparentBg = useShowControls().transparentBg;
-	const { isDragging } = useExplorerStore();
+	const { isDragSelecting } = useExplorerStore();
 	const ref = useRef<HTMLDivElement>(null);
 
 	const tabs = useTabsContext();
@@ -53,7 +53,7 @@ const TopBar = () => {
 				className={clsx(
 					'flex h-12 items-center gap-3.5 overflow-hidden px-3.5',
 					'duration-250 transition-[background-color,border-color] ease-out',
-					isDragging && 'pointer-events-none'
+					isDragSelecting && 'pointer-events-none'
 				)}
 			>
 				<div

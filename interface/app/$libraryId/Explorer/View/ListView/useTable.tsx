@@ -1,4 +1,5 @@
 import {
+	CellContext,
 	getCoreRowModel,
 	useReactTable,
 	type ColumnDef,
@@ -7,7 +8,7 @@ import {
 } from '@tanstack/react-table';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { stringify } from 'uuid';
 import {
 	byteSize,
@@ -19,16 +20,44 @@ import {
 } from '@sd/client';
 import { isNonEmptyObject } from '~/util';
 
-import { useExplorerContext } from '../../../Context';
-import { FileThumb } from '../../../FilePath/Thumb';
-import { InfoPill } from '../../../Inspector';
-import { isCut, useExplorerStore } from '../../../store';
-import { uniqueId } from '../../../util';
-import { RenamableItemText } from '../../RenamableItemText';
+import { useExplorerContext } from '../../Context';
+import { FileThumb } from '../../FilePath/Thumb';
+import { InfoPill } from '../../Inspector';
+import { CutCopyState, isCut, useExplorerStore } from '../../store';
+import { uniqueId } from '../../util';
+import { RenamableItemText } from '../RenamableItemText';
+
+const NameCell = memo(({ item, selected }: { item: ExplorerItem; selected: boolean }) => {
+	const { cutCopyState } = useExplorerStore();
+
+	const cut = useMemo(() => isCut(item, cutCopyState as CutCopyState), [cutCopyState, item]);
+
+	return (
+		<div className="relative flex items-center">
+			<FileThumb
+				data={item}
+				frame
+				frameClassName="!border"
+				blackBars
+				size={35}
+				className={clsx('mr-2.5', cut && 'opacity-60')}
+			/>
+
+			<RenamableItemText
+				item={item}
+				selected={selected}
+				allowHighlight={false}
+				style={{ maxHeight: 36 }}
+				idleClassName="w-full !max-h-5"
+			/>
+		</div>
+	);
+});
+
+type Cell = CellContext<ExplorerItem, unknown> & { selected?: boolean };
 
 export const useTable = () => {
 	const explorer = useExplorerContext();
-	const explorerStore = useExplorerStore();
 
 	const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
 	const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -40,29 +69,9 @@ export const useTable = () => {
 				header: 'Name',
 				minSize: 200,
 				maxSize: undefined,
-				cell: ({ row }) => {
-					const item = row.original;
-					const cut = isCut(item, explorerStore.cutCopyState);
-
-					return (
-						<div className="relative flex items-center">
-							<FileThumb
-								data={item}
-								frame
-								frameClassName="!border"
-								blackBars
-								size={35}
-								className={clsx('mr-2.5', cut && 'opacity-60')}
-							/>
-
-							<RenamableItemText
-								item={item}
-								allowHighlight={false}
-								style={{ maxHeight: 36 }}
-							/>
-						</div>
-					);
-				}
+				cell: ({ row, selected }: Cell) => (
+					<NameCell item={row.original} selected={!!selected} />
+				)
 			},
 			{
 				id: 'kind',
@@ -132,7 +141,7 @@ export const useTable = () => {
 				}
 			}
 		],
-		[explorerStore.cutCopyState]
+		[]
 	);
 
 	const table = useReactTable({

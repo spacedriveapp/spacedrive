@@ -121,6 +121,8 @@ import Mesh20 from './Mesh-20.png';
 import Mesh from './Mesh.png';
 import Mobile_Light from './Mobile_Light.png';
 import Mobile from './Mobile.png';
+import MoveLocation_Light from './MoveLocation_Light.png';
+import MoveLocation from './MoveLocation.png';
 import Movie_Light from './Movie_Light.png';
 import Movie from './Movie.png';
 import NewLocation from './NewLocation.png';
@@ -290,6 +292,8 @@ export {
 	Mesh_Light,
 	Mobile,
 	Mobile_Light,
+	MoveLocation,
+	MoveLocation_Light,
 	Movie,
 	Movie_Light,
 	NewLocation,
