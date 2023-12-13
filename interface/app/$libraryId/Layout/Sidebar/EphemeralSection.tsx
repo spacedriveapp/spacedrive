@@ -1,11 +1,13 @@
 import { EjectSimple } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { useMemo } from 'react';
+import { PropsWithChildren, useMemo } from 'react';
 import { useBridgeQuery, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { Button, toast, tw } from '@sd/ui';
 import { Icon, IconName } from '~/components';
 import { useHomeDir } from '~/hooks/useHomeDir';
 
+import { useExplorerDroppable } from '../../Explorer/useExplorerDroppable';
+import { useExplorerSearchParams } from '../../Explorer/util';
 import SidebarLink from './Link';
 import Section from './Section';
 import { SeeMore } from './SeeMore';
@@ -78,36 +80,45 @@ export const EphemeralSection = () => {
 					<SidebarIcon name="Globe" />
 					<Name>Network</Name>
 				</SidebarLink>
+
 				{homeDir.data && (
-					<SidebarLink
-						to={`ephemeral/0?path=${homeDir.data}`}
-						className="group relative w-full border border-transparent"
+					<EphemeralLocation
+						navigateTo={`ephemeral/0?path=${homeDir.data}`}
+						path={homeDir.data ?? ''}
 					>
 						<SidebarIcon name="Home" />
 						<Name>Home</Name>
-					</SidebarLink>
+					</EphemeralLocation>
 				)}
+
 				{mountPoints.map((item) => {
 					if (!item) return;
 
 					const locationId = locationIdsForVolumes[item.mountPoint ?? ''];
 
 					const key = `${item.volumeIndex}-${item.index}`;
+
 					const name =
 						item.mountPoint === '/'
 							? 'Root'
 							: item.index === 0
 							? item.volume.name
 							: item.mountPoint;
+
 					const toPath =
 						locationId !== undefined
 							? `location/${locationId}`
 							: `ephemeral/${key}?path=${item.mountPoint}`;
+
 					return (
-						<SidebarLink
-							to={toPath}
+						<EphemeralLocation
 							key={key}
-							className="group relative w-full border border-transparent"
+							navigateTo={toPath}
+							path={
+								locationId !== undefined
+									? locationId.toString()
+									: item.mountPoint ?? ''
+							}
 						>
 							<SidebarIcon
 								name={
@@ -120,10 +131,40 @@ export const EphemeralSection = () => {
 							/>
 							<Name>{name}</Name>
 							{item.volume.disk_type === 'Removable' && <EjectButton />}
-						</SidebarLink>
+						</EphemeralLocation>
 					);
 				})}
 			</SeeMore>
 		</Section>
+	);
+};
+
+const EphemeralLocation = ({
+	children,
+	path,
+	navigateTo
+}: PropsWithChildren<{ path: string; navigateTo: string }>) => {
+	const [{ path: ephemeralPath }] = useExplorerSearchParams();
+
+	const { isDroppable, className, setDroppableRef } = useExplorerDroppable({
+		id: `sidebar-ephemeral-location-${path}`,
+		allow: ['Path', 'NonIndexedPath', 'Object'],
+		data: { type: 'location', path },
+		disabled: navigateTo.startsWith('location/') || ephemeralPath === path,
+		navigateTo: navigateTo
+	});
+
+	return (
+		<SidebarLink
+			ref={setDroppableRef}
+			to={navigateTo}
+			className={clsx(
+				'border',
+				isDroppable ? ' border-accent' : 'border-transparent',
+				className
+			)}
+		>
+			{children}
+		</SidebarLink>
 	);
 };

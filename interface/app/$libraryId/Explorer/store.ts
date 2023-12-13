@@ -1,4 +1,3 @@
-import type { ReadonlyDeep } from 'type-fest';
 import { proxy, useSnapshot } from 'valtio';
 import { proxySet } from 'valtio/utils';
 import { z } from 'zod';
@@ -107,7 +106,7 @@ export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
 		}
 	}) satisfies ExplorerSettings<TOrder>;
 
-type CutCopyState =
+export type CutCopyState =
 	| {
 			type: 'Idle';
 	  }
@@ -123,6 +122,18 @@ type CutCopyState =
 			};
 	  };
 
+type DragState =
+	| {
+			type: 'touched';
+	  }
+	| {
+			type: 'dragging';
+			items: ExplorerItem[];
+			sourcePath?: string;
+			sourceLocationId?: number;
+			sourceTagId?: number;
+	  };
+
 const state = {
 	tagAssignMode: false,
 	showInspector: false,
@@ -131,7 +142,10 @@ const state = {
 	mediaPlayerVolume: 0.7,
 	newThumbnails: proxySet() as Set<string>,
 	cutCopyState: { type: 'Idle' } as CutCopyState,
-	isDragging: false
+	drag: null as null | DragState,
+	isDragSelecting: false,
+	isRenaming: false,
+	isContextMenuOpen: false
 };
 
 export function flattenThumbnailKey(thumbKey: string[]) {
@@ -160,7 +174,7 @@ export function getExplorerStore() {
 	return explorerStore;
 }
 
-export function isCut(item: ExplorerItem, cutCopyState: ReadonlyDeep<CutCopyState>) {
+export function isCut(item: ExplorerItem, cutCopyState: CutCopyState) {
 	switch (item.type) {
 		case 'NonIndexedPath':
 			return (

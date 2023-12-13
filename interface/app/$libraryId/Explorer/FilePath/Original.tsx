@@ -182,7 +182,7 @@ interface VideoProps extends VideoHTMLAttributes<HTMLVideoElement> {
 	blackBarsSize?: number;
 }
 
-const Video = memo(({ paused, blackBars, blackBarsSize, className, ...props }: VideoProps) => {
+const Video = ({ paused, blackBars, blackBarsSize, className, ...props }: VideoProps) => {
 	const ref = useRef<HTMLVideoElement>(null);
 
 	const size = useSize(ref);
@@ -220,4 +220,4 @@ const Video = memo(({ paused, blackBars, blackBarsSize, className, ...props }: V
 			<p>Video preview is not supported.</p>
 		</video>
 	);
-});
+};
