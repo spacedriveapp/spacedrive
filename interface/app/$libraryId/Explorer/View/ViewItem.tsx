@@ -122,8 +122,6 @@ export const useViewItemDoubleClick = () => {
 						const take = p.get('take');
 						if (take !== null) newParams.set('take', take);
 
-						console.log([...newParams]);
-
 						return newParams;
 					});
 					return;
