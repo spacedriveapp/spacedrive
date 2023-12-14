@@ -1,5 +1,9 @@
 import { useCallback, type HTMLAttributes, type PropsWithChildren } from 'react';
-import { createSearchParams, useNavigate } from 'react-router-dom';
+import {
+	createSearchParams,
+	useNavigate,
+	useSearchParams as useRawSearchParams
+} from 'react-router-dom';
 import {
 	isPath,
 	useLibraryContext,
@@ -24,6 +28,7 @@ export const useViewItemDoubleClick = () => {
 	const explorer = useExplorerContext();
 	const { library } = useLibraryContext();
 	const { openFilePaths, openEphemeralFiles } = usePlatform();
+	const [_, setSearchParams] = useRawSearchParams();
 
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 
@@ -110,11 +115,14 @@ export const useViewItemDoubleClick = () => {
 			if (items.dirs.length > 0) {
 				const [item] = items.dirs;
 				if (item) {
-					navigate({
-						pathname: `../location/${item.location_id}`,
-						search: createSearchParams({
-							path: `${item.materialized_path}${item.name}/`
-						}).toString()
+					setSearchParams((p) => {
+						const newParams = new URLSearchParams();
+
+						newParams.set('path', `${item.materialized_path}${item.name}/`);
+						const take = p.get('take');
+						if (take !== null) newParams.set('take', take);
+
+						return newParams;
 					});
 					return;
 				}
