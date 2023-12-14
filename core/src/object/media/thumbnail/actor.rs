@@ -72,19 +72,18 @@ pub struct Thumbnailer {
 
 impl Thumbnailer {
 	pub async fn new(
-		data_dir: PathBuf,
+		data_dir: impl AsRef<Path>,
 		libraries_manager: Arc<Libraries>,
 		reporter: broadcast::Sender<CoreEvent>,
 		node_preferences_rx: watch::Receiver<NodePreferences>,
 	) -> Self {
+		let data_dir = data_dir.as_ref();
 		let thumbnails_directory = Arc::new(
-			init_thumbnail_dir(&data_dir, Arc::clone(&libraries_manager))
+			init_thumbnail_dir(data_dir, Arc::clone(&libraries_manager))
 				.await
 				.unwrap_or_else(|e| {
 					error!("Failed to initialize thumbnail directory: {e:#?}");
-					let mut thumbnails_directory = data_dir;
-					thumbnails_directory.push(THUMBNAIL_CACHE_DIR_NAME);
-					thumbnails_directory
+					data_dir.join(THUMBNAIL_CACHE_DIR_NAME)
 				}),
 		);
 

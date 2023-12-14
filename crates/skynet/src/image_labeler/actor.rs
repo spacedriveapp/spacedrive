@@ -1,114 +1,147 @@
-use sd_file_path_helper::{file_path_for_media_processor, IsolatedFilePathData};
-use sd_prisma::prisma::location;
+use sd_file_path_helper::file_path_for_media_processor;
+use sd_prisma::prisma::{location, PrismaClient};
 use sd_utils::error::FileIOError;
 
-use std::{cell::RefCell, collections::HashMap, path::PathBuf, pin::pin, sync::Arc, thread};
+use std::{
+	cell::RefCell,
+	collections::{HashMap, VecDeque},
+	ops::Deref,
+	path::{Path, PathBuf},
+	pin::pin,
+	sync::Arc,
+	time::Duration,
+};
 
 use async_channel as chan;
-use crossbeam::channel;
-use futures::stream::{self, FuturesUnordered, StreamExt};
+use futures::stream::StreamExt;
 use futures_concurrency::stream::Merge;
-use image::ImageFormat;
+use serde::{Deserialize, Serialize};
 use tokio::{
 	fs,
-	io::ErrorKind,
-	sync::{broadcast, oneshot},
-	task::{block_in_place, JoinHandle},
+	io::{self, ErrorKind},
+	spawn,
+	sync::{oneshot, RwLock},
+	task::JoinHandle,
+	time::timeout,
 };
-use tracing::{debug, error};
+use tracing::{debug, error, info};
+use uuid::Uuid;
 
 use super::{
-	model::{model_executor, Model, ModelExecutorInput, ModelOutput},
-	ImageLabelerError, LabelerOutput,
+	model::{Model, ModelAndSession},
+	process::{spawned_processing, FinishStatus},
+	BatchToken, ImageLabelerError, LabelerOutput,
 };
 
-const MAX_FILE_SIZE: u64 = 100 * 1024 * 1024; // 100 MB
+const ONE_SEC: Duration = Duration::from_secs(1);
+const PENDING_BATCHES_FILE: &str = "pending_image_labeler_batches.bin";
 
-pub(super) type BatchToken = u64;
+type ResumeBatchRequest = (
+	BatchToken,
+	Arc<PrismaClient>,
+	oneshot::Sender<Result<chan::Receiver<LabelerOutput>, ImageLabelerError>>,
+);
 
-struct Batch {
+type UpdateModelRequest = (
+	Box<dyn Model>,
+	oneshot::Sender<Result<(), ImageLabelerError>>,
+);
+
+pub(super) struct Batch {
+	pub(super) token: BatchToken,
+	pub(super) location_id: location::id::Type,
+	pub(super) location_path: PathBuf,
+	pub(super) file_paths: Vec<file_path_for_media_processor::Data>,
+	pub(super) output_tx: chan::Sender<LabelerOutput>,
+	pub(super) is_resumable: bool,
+	pub(super) db: Arc<PrismaClient>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct ResumableBatch {
 	location_id: location::id::Type,
 	location_path: PathBuf,
 	file_paths: Vec<file_path_for_media_processor::Data>,
-	output: chan::Sender<LabelerOutput>,
 }
 
 pub struct ImageLabeler {
-	model_executor_input_tx: channel::Sender<ModelExecutorInput>,
-	batches_tx: chan::Sender<Batch>,
-	handles: [RefCell<Option<JoinHandle<()>>>; 2],
-	cancel_tx: broadcast::Sender<()>,
+	to_resume_batches_file_path: PathBuf,
+	new_batches_tx: chan::Sender<Batch>,
+	resume_batch_tx: chan::Sender<ResumeBatchRequest>,
+	update_model_tx: chan::Sender<UpdateModelRequest>,
+	shutdown_tx: chan::Sender<oneshot::Sender<()>>,
+	to_resume_batches: Arc<RwLock<HashMap<BatchToken, ResumableBatch>>>,
+	handle: RefCell<Option<JoinHandle<()>>>,
 }
 
 impl ImageLabeler {
-	pub async fn new(model: Arc<dyn Model>) -> Result<Self, ImageLabelerError> {
-		let (model_executor_input_tx, model_executor_input_rx) = channel::unbounded();
-		let (results_tx, results_rx) = chan::unbounded();
+	pub async fn new(
+		model: Box<dyn Model>,
+		data_directory: impl AsRef<Path>,
+	) -> Result<Self, ImageLabelerError> {
+		let to_resume_batches_file_path = data_directory.as_ref().join(PENDING_BATCHES_FILE);
 
-		let (batches_tx, batches_rx) = chan::unbounded();
+		let model_and_session = Arc::new(RwLock::new(ModelAndSession::new(model).await));
 
-		let (cancel_tx, mut cancel_rx) = broadcast::channel(1);
+		let to_resume_batches = Arc::new(RwLock::new(
+			match fs::read(&to_resume_batches_file_path).await {
+				Ok(bytes) => {
+					let pending_batches =
+						rmp_serde::from_slice::<HashMap<BatchToken, ResumableBatch>>(&bytes)?;
+					info!(
+						"Image labeler had {} pending batches to be resumed",
+						pending_batches.len()
+					);
 
-		let maybe_model = check_model_file(model).await?;
-
-		let model_supervisor_handle = tokio::spawn({
-			async move {
-				loop {
-					thread::scope(|s| {
-						let handle = s.spawn(|| {
-							model_executor(
-								maybe_model.clone(),
-								model_executor_input_rx.clone(),
-								results_tx.clone(),
-							);
-						});
-
-						if let Err(e) = block_in_place(|| handle.join()) {
-							error!("Model executor panicked {e:#?}; restarting...");
-						}
-					});
-
-					let cancel_res = cancel_rx.try_recv();
-
-					if matches!(
-						cancel_res,
-						Ok(())
-							| Err(broadcast::error::TryRecvError::Closed
-								| broadcast::error::TryRecvError::Lagged(_))
-					) {
-						// If we sucessfully receive a cancellation signal or if the channel is closed or lagged,
-						// we break the loop
-						debug!("Model supervisor stopping");
-						break;
+					if let Err(e) = fs::remove_file(&to_resume_batches_file_path).await {
+						error!(
+							"{:#?}",
+							ImageLabelerError::from(FileIOError::from((
+								&to_resume_batches_file_path,
+								e,
+								"Failed to remove to resume batches file",
+							)))
+						);
 					}
+
+					pending_batches
 				}
-			}
-		});
+				Err(e) if e.kind() == io::ErrorKind::NotFound => {
+					// If the file doesn't exist, we just start with an empty list
+					HashMap::new()
+				}
+				Err(e) => {
+					return Err(ImageLabelerError::FileIO(FileIOError::from((
+						&to_resume_batches_file_path,
+						e,
+						"Failed to read to resume batches file",
+					))))
+				}
+			},
+		));
+
+		let (new_batches_tx, new_batches_rx) = chan::unbounded();
+		let (resume_batch_tx, resume_batch_rx) = chan::bounded(4);
+		let (update_model_tx, update_model_rx) = chan::bounded(1);
+		let (shutdown_tx, shutdown_rx) = chan::bounded(1);
 
 		let batch_supervisor_handle = tokio::spawn({
-			let mut cancel_rx = cancel_tx.subscribe();
-			let model_executor_input_tx = model_executor_input_tx.clone();
+			let to_resume_batches = Arc::clone(&to_resume_batches);
 			async move {
 				loop {
-					let handle = tokio::spawn(process_batches(
-						model_executor_input_tx.clone(),
-						batches_rx.clone(),
-						results_rx.clone(),
-						cancel_rx.resubscribe(),
+					let handle = tokio::spawn(actor_loop(
+						Arc::clone(&model_and_session),
+						new_batches_rx.clone(),
+						resume_batch_rx.clone(),
+						update_model_rx.clone(),
+						shutdown_rx.clone(),
+						Arc::clone(&to_resume_batches),
 					));
 
 					if let Err(e) = handle.await {
-						error!("Batch supervisor failed: {e:#?}; restarting...");
-					}
-
-					if matches!(
-						cancel_rx.try_recv(),
-						Ok(())
-							| Err(broadcast::error::TryRecvError::Closed
-								| broadcast::error::TryRecvError::Lagged(_))
-					) {
-						// If we sucessfully receive a cancellation signal or if the channel is closed or lagged,
-						// we break the loop
+						error!("Batch processor panicked: {e:#?}; restarting...");
+					} else {
+						// process_batches exited normally, so we can exit as well
 						break;
 					}
 				}
@@ -116,31 +149,37 @@ impl ImageLabeler {
 		});
 
 		Ok(Self {
-			model_executor_input_tx,
-			batches_tx,
-			handles: [
-				RefCell::new(Some(model_supervisor_handle)),
-				RefCell::new(Some(batch_supervisor_handle)),
-			],
-			cancel_tx,
+			to_resume_batches_file_path,
+			new_batches_tx,
+			resume_batch_tx,
+			update_model_tx,
+			shutdown_tx,
+			to_resume_batches,
+			handle: RefCell::new(Some(batch_supervisor_handle)),
 		})
 	}
 
-	pub async fn new_batch(
+	async fn new_batch_inner(
 		&self,
 		location_id: location::id::Type,
 		location_path: PathBuf,
 		file_paths: Vec<file_path_for_media_processor::Data>,
-	) -> chan::Receiver<LabelerOutput> {
+		db: Arc<PrismaClient>,
+		is_resumable: bool,
+	) -> (BatchToken, chan::Receiver<LabelerOutput>) {
 		let (tx, rx) = chan::bounded(usize::max(file_paths.len(), 1));
+		let token = Uuid::new_v4();
 		if !file_paths.is_empty() {
 			if self
-				.batches_tx
+				.new_batches_tx
 				.send(Batch {
+					token,
 					location_id,
 					location_path,
 					file_paths,
-					output: tx,
+					output_tx: tx,
+					is_resumable,
+					db,
 				})
 				.await
 				.is_err()
@@ -153,10 +192,34 @@ impl ImageLabeler {
 			tx.close();
 		}
 
-		rx
+		(token, rx)
 	}
 
-	pub async fn change_model(&self, model: Arc<dyn Model>) -> Result<(), ImageLabelerError> {
+	pub async fn new_batch(
+		&self,
+		location_id: location::id::Type,
+		location_path: PathBuf,
+		file_paths: Vec<file_path_for_media_processor::Data>,
+		db: Arc<PrismaClient>,
+	) -> chan::Receiver<LabelerOutput> {
+		self.new_batch_inner(location_id, location_path, file_paths, db, false)
+			.await
+			.1
+	}
+
+	/// Resumable batches have lower priority than normal batches
+	pub async fn new_resumable_batch(
+		&self,
+		location_id: location::id::Type,
+		location_path: PathBuf,
+		file_paths: Vec<file_path_for_media_processor::Data>,
+		db: Arc<PrismaClient>,
+	) -> (BatchToken, chan::Receiver<LabelerOutput>) {
+		self.new_batch_inner(location_id, location_path, file_paths, db, true)
+			.await
+	}
+
+	pub async fn change_model(&self, model: Box<dyn Model>) -> Result<(), ImageLabelerError> {
 		let model_path = model.path();
 
 		match fs::metadata(model_path).await {
@@ -175,11 +238,7 @@ impl ImageLabeler {
 
 		let (tx, rx) = oneshot::channel();
 
-		if self
-			.model_executor_input_tx
-			.send(ModelExecutorInput::UpdateModel(model, tx))
-			.is_err()
-		{
+		if self.update_model_tx.send((model, tx)).await.is_err() {
 			error!("Failed to send model update to image labeller");
 		}
 
@@ -189,29 +248,68 @@ impl ImageLabeler {
 
 	pub async fn shutdown(&self) {
 		debug!("Shutting down image labeller");
-		self.batches_tx.close();
 
-		if self
-			.model_executor_input_tx
-			.send(ModelExecutorInput::Stop)
-			.is_err()
-		{
+		let (tx, rx) = oneshot::channel();
+
+		self.new_batches_tx.close();
+		self.resume_batch_tx.close();
+		self.update_model_tx.close();
+
+		if self.shutdown_tx.send(tx).await.is_err() {
 			error!("Failed to send stop signal to image labeller model executor");
 		}
 
-		if self.cancel_tx.send(()).is_err() {
-			error!("Failed to send cancellation signal to image labeller");
-		}
+		self.shutdown_tx.close();
 
-		for handle in self
-			.handles
-			.iter()
-			.filter_map(|ref_cell| ref_cell.try_borrow_mut().ok().and_then(|mut op| op.take()))
+		rx.await
+			.expect("critical error: image labeller shutdown result channel unexpectedly closed");
+
+		if let Some(handle) = self
+			.handle
+			.try_borrow_mut()
+			.ok()
+			.and_then(|mut maybe_handle| maybe_handle.take())
 		{
 			if let Err(e) = handle.await {
 				error!("Failed to join image labeller supervisors: {e:#?}");
 			}
 		}
+
+		let to_resume_batches = self.to_resume_batches.read().await;
+
+		if !to_resume_batches.is_empty() {
+			if let Ok(pending_batches) = rmp_serde::to_vec_named(to_resume_batches.deref())
+				.map_err(|e| error!("{:#?}", ImageLabelerError::from(e)))
+			{
+				if let Err(e) = fs::write(&self.to_resume_batches_file_path, &pending_batches).await
+				{
+					error!(
+						"{:#?}",
+						ImageLabelerError::from(FileIOError::from((
+							&self.to_resume_batches_file_path,
+							e,
+							"Failed to write to resume batches file",
+						)))
+					);
+				}
+			}
+		}
+	}
+
+	pub async fn resume_batch(
+		&self,
+		token: BatchToken,
+		db: Arc<PrismaClient>,
+	) -> Result<chan::Receiver<LabelerOutput>, ImageLabelerError> {
+		let (tx, rx) = oneshot::channel();
+
+		self.resume_batch_tx
+			.send((token, db, tx))
+			.await
+			.expect("critical error: image labeler communication channel unexpectedly closed");
+
+		rx.await
+			.expect("critical error: image labeler resume batch result channel unexpectedly closed")
 	}
 }
 
@@ -219,205 +317,269 @@ impl ImageLabeler {
 /// receiving `&self` which is called once, and we also use `try_borrow_mut` so we never panic
 unsafe impl Sync for ImageLabeler {}
 
-async fn process_batches(
-	model_executor_input_tx: channel::Sender<ModelExecutorInput>,
-	batches_rx: chan::Receiver<Batch>,
-	results_rx: chan::Receiver<ModelOutput>,
-	mut cancel_rx: broadcast::Receiver<()>,
+async fn actor_loop(
+	model_and_session: Arc<RwLock<ModelAndSession>>,
+	new_batches_rx: chan::Receiver<Batch>,
+	resume_batch_rx: chan::Receiver<ResumeBatchRequest>,
+	update_model_rx: chan::Receiver<UpdateModelRequest>,
+	shutdown_rx: chan::Receiver<oneshot::Sender<()>>,
+	to_resume_batches: Arc<RwLock<HashMap<BatchToken, ResumableBatch>>>,
 ) {
-	// To appease the borrowck: This function must have a `'static` lifetime for this channel,
-	// as we run it in a `tokio::spawn` detached task. But we need to copy references to it
-	// in the `async move` block below
-	let model_executor_input_tx = &model_executor_input_tx;
+	let (done_tx, done_rx) = chan::bounded(1);
+	let (stop_tx, stop_rx) = chan::bounded(1);
 
-	let mut batch_token = 0u64;
+	let new_batches_rx_for_shutdown = new_batches_rx.clone();
 
-	let mut pending_batches = HashMap::with_capacity(16);
+	// TODO: Make this configurable!
+	let available_parallelism = std::thread::available_parallelism().map_or_else(
+		|e| {
+			error!("Failed to get available parallelism: {e:#?}");
+			1
+		},
+		// Using 25% of available parallelism
+		|non_zero| usize::max(non_zero.get() / 4, 1),
+	);
+
+	info!(
+		"Image labeler available parallelism: {} cores",
+		available_parallelism
+	);
 
 	enum StreamMessage {
-		Batch(Batch),
-		Results(ModelOutput),
-		Shutdown,
+		NewBatch(Batch),
+		ResumeBatch(
+			BatchToken,
+			Arc<PrismaClient>,
+			oneshot::Sender<Result<chan::Receiver<LabelerOutput>, ImageLabelerError>>,
+		),
+		UpdateModel(
+			Box<dyn Model>,
+			oneshot::Sender<Result<(), ImageLabelerError>>,
+		),
+		BatchDone(FinishStatus),
+		Shutdown(oneshot::Sender<()>),
 	}
 
+	let mut queue = VecDeque::with_capacity(16);
+
+	let mut currently_processing = None;
+
 	let mut msg_stream = pin!((
-		batches_rx.map(StreamMessage::Batch),
-		results_rx.map(StreamMessage::Results),
-		stream::once(cancel_rx.recv()).map(|_| StreamMessage::Shutdown)
+		new_batches_rx.map(StreamMessage::NewBatch),
+		resume_batch_rx.map(|(token, db, done_tx)| StreamMessage::ResumeBatch(token, db, done_tx)),
+		update_model_rx.map(|(model, done_tx)| StreamMessage::UpdateModel(model, done_tx)),
+		done_rx.clone().map(StreamMessage::BatchDone),
+		shutdown_rx.map(StreamMessage::Shutdown)
 	)
 		.merge());
 
 	while let Some(msg) = msg_stream.next().await {
 		match msg {
-			StreamMessage::Batch(Batch {
-				location_id,
-				location_path,
-				file_paths,
-				output,
-			}) => {
-				let current_batch_token = batch_token;
-				batch_token = batch_token.wrapping_add(1);
-
-				let to_infere_count = file_paths
-					.into_iter()
-					.filter_map(|file_path| {
-						let file_path_id = file_path.id;
-						IsolatedFilePathData::try_from((location_id, file_path))
-							.map(|iso_file_path| (file_path_id, iso_file_path))
-							.map_err(|e| {
-								if output
-									.send_blocking(LabelerOutput {
-										file_path_id,
-										labels_result: Err(e.into()),
-									})
-									.is_err()
-								{
-									error!(
-										"Failed to send batch output with iso_file_path error, \
-									<file_path_id='{file_path_id}'>"
-									);
-								}
-							})
-							.ok()
-					})
-					.filter_map(|(file_path_id, iso_file_path)| {
-						if let Some(format) = ImageFormat::from_extension(iso_file_path.extension())
-						{
-							Some((file_path_id, location_path.join(&iso_file_path), format))
-						} else {
-							if output
-								.send_blocking(LabelerOutput {
-									file_path_id,
-									labels_result: Err(ImageLabelerError::UnsupportedExtension(
-										file_path_id,
-										iso_file_path.extension().to_owned(),
-									)),
-								})
-								.is_err()
-							{
-								error!("Failed to send batch output with unsupported extension error, \
-								<file_path_id='{file_path_id}'>");
-							}
-
-							None
-						}
-					})
-					.map(|(file_path_id, path, format)| async move {
-						let metadata = fs::metadata(&path).await.map_err(|e| {
-							(
-								file_path_id,
-								FileIOError::from((
-									&path,
-									e,
-									"Failed to get metadata for file to get labels",
-								))
-								.into(),
-							)
-						})?;
-
-						if metadata.len() > MAX_FILE_SIZE {
-							return Err((
-								file_path_id,
-								ImageLabelerError::FileTooBig(
-									file_path_id,
-									metadata.len() as usize,
-								),
-							));
-						}
-
-						let image = fs::read(&path).await.map_err(|e| {
-							(
-								file_path_id,
-								FileIOError::from((path, e, "Failed to read file to get labels"))
-									.into(),
-							)
-						})?;
-
-						model_executor_input_tx
-							.send(ModelExecutorInput::ToProcess {
-								batch_token: current_batch_token,
-								file_path_id,
-								image,
-								format,
-							})
-							.expect("images_tx unexpectedly closed");
-
-						Ok(())
-					})
-					.collect::<FuturesUnordered<_>>()
-					.fold(0u64, |to_infere_count, res| {
-						let output = &output;
-						async move {
-							if let Err((file_path_id, e)) = res {
-								if output
-									.send(LabelerOutput {
-										file_path_id,
-										labels_result: Err(e),
-									})
-									.await
-									.is_err()
-								{
-									error!("Failed to send batch output with I/O errors, <file_path_id='{file_path_id}'>");
-								}
-
-								to_infere_count
-							} else {
-								to_infere_count + 1
-							}
-						}
-					})
-					.await;
-
-				pending_batches.insert(current_batch_token, (to_infere_count, output));
-			}
-
-			StreamMessage::Results((current_batch_token, file_path_id, labels_result)) => {
-				if let Some((pending, output)) = pending_batches.get_mut(&current_batch_token) {
-					*pending -= 1;
-
-					if output
-						.send(LabelerOutput {
-							file_path_id,
-							labels_result,
-						})
-						.await
-						.is_err()
-					{
-						error!("Failed to send batch output with labels, <file_path_id='{file_path_id}'>");
-					}
-
-					if *pending == 0 {
-						pending_batches.remove(&current_batch_token);
-					}
+			StreamMessage::NewBatch(batch @ Batch { is_resumable, .. }) => {
+				if currently_processing.is_none() {
+					currently_processing = Some(spawn(spawned_processing(
+						Arc::clone(&model_and_session),
+						batch,
+						available_parallelism,
+						stop_rx.clone(),
+						done_tx.clone(),
+					)));
+				} else if !is_resumable {
+					// TODO: Maybe we should cancel the current batch and start this one instead?
+					queue.push_front(batch)
+				} else {
+					queue.push_back(batch)
 				}
 			}
 
-			StreamMessage::Shutdown => {
+			StreamMessage::ResumeBatch(token, db, resume_done_tx) => {
+				let resume_result = if let Some((batch, output_rx)) =
+					to_resume_batches.write().await.remove(&token).map(
+						|ResumableBatch {
+						     location_id,
+						     location_path,
+						     file_paths,
+						 }| {
+							let (output_tx, output_rx) =
+								chan::bounded(usize::max(file_paths.len(), 1));
+							(
+								Batch {
+									token,
+									db,
+									output_tx,
+									location_id,
+									location_path,
+									file_paths,
+									is_resumable: true,
+								},
+								output_rx,
+							)
+						},
+					) {
+					if currently_processing.is_none() {
+						currently_processing = Some(spawn(spawned_processing(
+							Arc::clone(&model_and_session),
+							batch,
+							available_parallelism,
+							stop_rx.clone(),
+							done_tx.clone(),
+						)));
+					} else {
+						queue.push_back(batch)
+					}
+
+					Ok(output_rx)
+				} else {
+					Err(ImageLabelerError::TokenNotFound(token))
+				};
+
+				if resume_done_tx.send(resume_result).is_err() {
+					error!("Failed to send batch resume result from image labeller");
+				}
+			}
+
+			StreamMessage::UpdateModel(new_model, update_done_tx) => {
+				if currently_processing.is_some() {
+					let (tx, rx) = oneshot::channel();
+
+					stop_tx.send(tx).await.expect("stop_tx unexpectedly closed");
+
+					if timeout(ONE_SEC, rx).await.is_err() {
+						error!("Failed to stop image labeller batch processor");
+						if stop_rx.is_full() {
+							stop_rx.recv().await.ok();
+						}
+					}
+				}
+
+				if update_done_tx
+					.send(
+						model_and_session
+							.write()
+							.await
+							.update_model(new_model)
+							.await,
+					)
+					.is_err()
+				{
+					error!("Failed to send model update result from image labeller");
+				}
+			}
+
+			StreamMessage::BatchDone(FinishStatus::Interrupted(batch)) => {
+				if currently_processing.is_none() {
+					currently_processing = Some(spawn(spawned_processing(
+						Arc::clone(&model_and_session),
+						batch,
+						1,
+						stop_rx.clone(),
+						done_tx.clone(),
+					)));
+				} else {
+					queue.push_front(batch);
+				}
+			}
+
+			StreamMessage::BatchDone(FinishStatus::Done(token, output_tx)) => {
+				debug!("Batch <token='{token}'> done");
+
+				if let Some(handle) = currently_processing.take() {
+					if let Err(e) = handle.await {
+						error!("Failed to join image labeller batch processor: {e:#?}");
+					}
+				}
+
+				output_tx.close(); // So our listener can exit
+
+				if let Some(next_batch) = queue.pop_front() {
+					currently_processing = Some(spawn(spawned_processing(
+						Arc::clone(&model_and_session),
+						next_batch,
+						4,
+						stop_rx.clone(),
+						done_tx.clone(),
+					)));
+				}
+			}
+
+			StreamMessage::Shutdown(shutdown_done_tx) => {
 				debug!("Shutting down image labeller batch processor");
+
+				if let Some(handle) = currently_processing.take() {
+					let (tx, rx) = oneshot::channel();
+
+					stop_tx.send(tx).await.expect("stop_tx unexpectedly closed");
+
+					if timeout(ONE_SEC * 5, rx).await.is_err() {
+						error!("Failed to stop image labeller batch processor");
+						if stop_rx.is_full() {
+							stop_rx.recv().await.ok();
+						}
+					}
+
+					if let Err(e) = handle.await {
+						error!("Failed to join image labeller batch processor: {e:#?}");
+					}
+
+					if let Ok(FinishStatus::Interrupted(batch)) = done_rx.recv().await {
+						queue.push_front(batch);
+					}
+				}
+
+				let pending_batches = new_batches_rx_for_shutdown
+					.filter_map(
+						|Batch {
+						     token,
+						     location_id,
+						     location_path,
+						     file_paths,
+						     is_resumable,
+						     ..
+						 }| async move {
+							is_resumable.then_some((
+								token,
+								ResumableBatch {
+									location_id,
+									location_path,
+									file_paths,
+								},
+							))
+						},
+					)
+					.collect::<Vec<_>>()
+					.await;
+
+				to_resume_batches.write().await.extend(
+					queue
+						.into_iter()
+						.filter_map(
+							|Batch {
+							     token,
+							     location_id,
+							     location_path,
+							     file_paths,
+							     is_resumable,
+							     ..
+							 }| {
+								is_resumable.then_some((
+									token,
+									ResumableBatch {
+										location_id,
+										location_path,
+										file_paths,
+									},
+								))
+							},
+						)
+						.chain(pending_batches.into_iter()),
+				);
+
+				shutdown_done_tx
+					.send(())
+					.expect("shutdown_done_tx unexpectedly closed");
+
 				break;
 			}
 		}
-	}
-}
-
-async fn check_model_file(
-	model: Arc<dyn Model>,
-) -> Result<Option<Arc<dyn Model>>, ImageLabelerError> {
-	let model_path = model.path();
-
-	match fs::metadata(model_path).await {
-		Ok(_) => Ok(Some(model)),
-		Err(e) if e.kind() == ErrorKind::NotFound => {
-			error!(
-				"Model file not found: '{}'. Image labeler will be disabled!",
-				model_path.display()
-			);
-			Ok(None)
-		}
-		Err(e) => Err(ImageLabelerError::FileIO(FileIOError::from((
-			model_path,
-			e,
-			"Failed to get metadata for model file",
-		)))),
 	}
 }

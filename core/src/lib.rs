@@ -115,7 +115,7 @@ impl Node {
 			notifications: notifications::Notifications::new(),
 			p2p,
 			thumbnailer: Thumbnailer::new(
-				data_dir.to_path_buf(),
+				data_dir,
 				libraries.clone(),
 				event_bus.0.clone(),
 				config.preferences_watcher(),
@@ -129,7 +129,7 @@ impl Node {
 			http: reqwest::Client::new(),
 			env,
 			#[cfg(feature = "skynet")]
-			image_labeller: ImageLabeler::new(YoloV8::model())
+			image_labeller: ImageLabeler::new(YoloV8::model(), data_dir)
 				.await
 				.map_err(sd_skynet::Error::from)?,
 		});
@@ -177,7 +177,7 @@ impl Node {
 
 			std::env::set_var(
 				"RUST_LOG",
-				format!("info,sd_core={level},sd_core::location::manager=info"),
+				format!("info,sd_core={level},sd_core::location::manager=info,sd_skynet={level}"),
 			);
 		}
 

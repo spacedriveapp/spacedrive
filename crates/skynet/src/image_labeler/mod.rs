@@ -1,29 +1,33 @@
 use sd_prisma::prisma::file_path;
 use sd_utils::{db::MissingFieldError, error::FileIOError};
 
-use std::{collections::HashSet, path::Path};
+use std::path::Path;
 
 use thiserror::Error;
 use tracing::error;
+use uuid::Uuid;
 
 mod actor;
 mod model;
+mod process;
 
 pub use actor::ImageLabeler;
 pub use model::{Model, YoloV8};
 
+pub type BatchToken = Uuid;
+
 #[derive(Debug)]
 pub struct LabelerOutput {
 	pub file_path_id: file_path::id::Type,
-	pub labels_result: Result<HashSet<String>, ImageLabelerError>,
+	pub result: Result<(), ImageLabelerError>,
 }
 
 #[derive(Debug, Error)]
 pub enum ImageLabelerError {
 	#[error("model executor failed: {0}")]
 	ModelExecutorFailed(#[from] ort::Error),
-	#[error("image load failed: {0}")]
-	ImageLoadFailed(#[from] image::ImageError),
+	#[error("image load failed <path='{}'>: {0}", .1.display())]
+	ImageLoadFailed(image::ImageError, Box<Path>),
 	#[error("failed to get isolated file path data: {0}")]
 	IsolateFilePathData(#[from] MissingFieldError),
 	#[error("file_path with unsupported extension: <id='{0}', extension='{1}'>")]
@@ -34,6 +38,14 @@ pub enum ImageLabelerError {
 	ModelFileNotFound(Box<Path>),
 	#[error("no model available for inference")]
 	NoModelAvailable,
+	#[error("failed to decode pending batches: {0}")]
+	Decode(#[from] rmp_serde::decode::Error),
+	#[error("failed to encode pending batches: {0}")]
+	Encode(#[from] rmp_serde::encode::Error),
+	#[error("database error: {0}")]
+	Database(#[from] prisma_client_rust::QueryError),
+	#[error("resume token not found: {0}")]
+	TokenNotFound(BatchToken),
 
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),

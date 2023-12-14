@@ -531,7 +531,15 @@ pub async fn light_scan_location(
 
 	indexer::shallow(&location, &sub_path, &node, &library).await?;
 	file_identifier::shallow(&location_base_data, &sub_path, &library).await?;
-	media_processor::shallow(&location_base_data, &sub_path, &library, false, &node).await?;
+	media_processor::shallow(
+		&location_base_data,
+		&sub_path,
+		&library,
+		#[cfg(feature = "skynet")]
+		false,
+		&node,
+	)
+	.await?;
 
 	Ok(())
 }

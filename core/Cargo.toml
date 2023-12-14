@@ -60,6 +60,7 @@ pin-project-lite = { workspace = true }
 prisma-client-rust = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true, features = ["json", "native-tls-vendored"] }
+rmp-serde = { workspace = true }
 rspc = { workspace = true, features = [
 	"uuid",
 	"chrono",
@@ -109,7 +110,6 @@ mini-moka = "0.10.2"
 notify = { version = "=5.2.0", default-features = false, features = [
 	"macos_fsevent",
 ], optional = true }
-rmp-serde = "^1.1.2"
 rmpv = "^1.0.1"
 serde-hashkey = "0.4.5"
 serde_repr = "0.1"

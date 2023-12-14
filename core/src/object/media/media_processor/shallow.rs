@@ -14,11 +14,20 @@ use sd_file_path_helper::{
 use sd_prisma::prisma::{location, PrismaClient};
 use sd_utils::db::maybe_missing;
 
+#[cfg(feature = "skynet")]
+use sd_skynet::image_labeler::LabelerOutput;
+
 use std::path::{Path, PathBuf};
+
+#[cfg(feature = "skynet")]
+use std::sync::Arc;
 
 use itertools::Itertools;
 use prisma_client_rust::{raw, PrismaValue};
 use tracing::{debug, error};
+
+#[cfg(feature = "skynet")]
+use futures::StreamExt;
 
 use super::{
 	media_data_extractor::{self, process},
@@ -26,16 +35,13 @@ use super::{
 	MediaProcessorError, MediaProcessorMetadata,
 };
 
-#[cfg(feature = "skynet")]
-use super::assign_labels;
-
 const BATCH_SIZE: usize = 10;
 
 pub async fn shallow(
 	location: &location::Data,
 	sub_path: &PathBuf,
 	library @ Library { db, .. }: &Library,
-	regenerate_labels: bool,
+	#[cfg(feature = "skynet")] regenerate_labels: bool,
 	node: &Node,
 ) -> Result<(), JobError> {
 	let location_id = location.id;
@@ -86,14 +92,7 @@ pub async fn shallow(
 		get_files_for_labeling(db, &iso_file_path, regenerate_labels).await?;
 
 	#[cfg(feature = "skynet")]
-	let object_id_by_file_path_id = file_paths
-		.iter()
-		.filter_map(|file_path| {
-			file_path
-				.object_id
-				.map(|object_id| (file_path.id, object_id))
-		})
-		.collect::<std::collections::HashMap<_, _>>();
+	let has_labels = !file_paths_for_labelling.is_empty();
 
 	let total_files = file_paths.len();
 
@@ -112,7 +111,12 @@ pub async fn shallow(
 	#[cfg(feature = "skynet")]
 	let labels_rx = node
 		.image_labeller
-		.new_batch(location_id, location_path.clone(), file_paths_for_labelling)
+		.new_batch(
+			location_id,
+			location_path.clone(),
+			file_paths_for_labelling,
+			Arc::clone(db),
+		)
 		.await;
 
 	let mut run_metadata = MediaProcessorMetadata::default();
@@ -137,22 +141,26 @@ pub async fn shallow(
 	}
 
 	#[cfg(feature = "skynet")]
-	while let Ok(labeler_out) = labels_rx.recv().await {
-		if let Ok(labels) = labeler_out.labels_result.map_err(|e| {
-			error!(
-				"Failed to generate labels <file_path_id='{}'>: {e:#?}",
-				labeler_out.file_path_id
-			);
-		}) {
-			if let Err(e) = assign_labels(
-				object_id_by_file_path_id[&labeler_out.file_path_id],
-				labels,
-				library,
-			)
-			.await
-			{
-				error!("Failed to assign labels: {e:#?}");
-			}
+	{
+		if has_labels {
+			labels_rx
+				.for_each(
+					|LabelerOutput {
+					     file_path_id,
+					     result,
+					 }| async move {
+						if let Err(e) = result {
+							error!(
+								"Failed to generate labels <file_path_id='{file_path_id}'>: {e:#?}"
+							);
+						}
+					},
+				)
+				.await;
+
+			invalidate_query!(library, "labels.list");
+			invalidate_query!(library, "labels.getForObject");
+			invalidate_query!(library, "labels.getWithObjects");
 		}
 	}
 

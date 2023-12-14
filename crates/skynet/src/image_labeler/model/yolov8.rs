@@ -1,6 +1,6 @@
 use crate::utils::get_path_relative_to_exe;
 
-use std::{collections::HashSet, path::Path, sync::Arc};
+use std::{collections::HashSet, path::Path};
 
 use half::f16;
 use image::{imageops::FilterType, load_from_memory_with_format, GenericImageView, ImageFormat};
@@ -26,8 +26,8 @@ const MODEL_LOCATION: &str = if cfg!(target_os = "macos") {
 const MODEL_NAME: &str = "yolov8s.onnx";
 
 impl YoloV8 {
-	pub fn model() -> Arc<dyn Model> {
-		Arc::new(Self {
+	pub fn model() -> Box<dyn Model> {
+		Box::new(Self {
 			model_path: get_path_relative_to_exe(Path::new(MODEL_LOCATION).join(MODEL_NAME))
 				.into_boxed_path(),
 		})
@@ -41,10 +41,13 @@ impl Model for YoloV8 {
 
 	fn prepare_input<'image>(
 		&self,
+		path: &Path,
 		image: &'image [u8],
 		format: ImageFormat,
 	) -> Result<SessionInputs<'image>, ImageLabelerError> {
-		let original_img = load_from_memory_with_format(image, format)?;
+		let original_img = load_from_memory_with_format(image, format)
+			.map_err(|e| ImageLabelerError::ImageLoadFailed(e, path.into()))?;
+
 		let img = original_img.resize_exact(640, 640, FilterType::CatmullRom);
 		let mut input = Array::<f16, _>::zeros((1, 3, 640, 640));
 		for pixel in img.pixels() {

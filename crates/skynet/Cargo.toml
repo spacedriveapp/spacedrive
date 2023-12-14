@@ -15,14 +15,19 @@ sd-utils = { path = "../utils" }
 sd-file-path-helper = { path = "../file-path-helper" }
 
 async-channel = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
 futures = { workspace = true }
 futures-concurrency = { workspace = true }
 image = { workspace = true }
+prisma-client-rust = { workspace = true }
+rmp-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }
+tokio-stream = { workspace = true }
 tracing = { workspace = true }
+uuid = { workspace = true, features = ["v4", "serde"] }
 
-crossbeam = "0.8.2"
 
 # Note: Keep same version as used by ort
 ndarray = { version = "0.15.6" }
