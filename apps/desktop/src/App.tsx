@@ -15,9 +15,10 @@ import {
 	TabsContext
 } from '@sd/interface';
 import { RouteTitleContext } from '@sd/interface/hooks/useRouteTitle';
-import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 
 import '@sd/ui/style/style.scss';
+
+import { getDropAndDropState } from '@sd/interface/hooks';
 
 import { commands } from './commands';
 import { platform } from './platform';
@@ -49,7 +50,7 @@ export default function App() {
 
 		const dropEventListener = appWindow.onFileDropEvent((event) => {
 			if (event.payload.type === 'drop') {
-				getSpacedropState().droppedFiles = event.payload.paths;
+				getDropAndDropState().droppedFiles = event.payload.paths;
 			}
 		});
 
