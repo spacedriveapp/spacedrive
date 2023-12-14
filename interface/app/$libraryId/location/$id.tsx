@@ -174,7 +174,14 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 					<Loader />
 				</div>
 			) : !preferences.isLoading ? (
-				<MemoisedExplorer />
+				<Explorer
+					emptyNotice={
+						<EmptyNotice
+							icon={<Icon name="FolderNoSpace" size={128} />}
+							message="No files found here"
+						/>
+					}
+				/>
 			) : null}
 		</ExplorerContextProvider>
 	);
@@ -188,17 +195,6 @@ function getLastSectionOfPath(path: string): string | undefined {
 	const lastSection = sections[sections.length - 1];
 	return lastSection;
 }
-
-const MemoisedExplorer = memo(() => (
-	<Explorer
-		emptyNotice={
-			<EmptyNotice
-				icon={<Icon name="FolderNoSpace" size={128} />}
-				message="No files found here"
-			/>
-		}
-	/>
-));
 
 function useLocationExplorerSettings(location: Location) {
 	const rspc = useRspcLibraryContext();

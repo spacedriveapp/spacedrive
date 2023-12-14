@@ -82,18 +82,15 @@ export function Component() {
 					)}
 				</TopBarPortal>
 			</SearchContextProvider>
-			<MemoisedExplorer />
+
+			<Explorer
+				emptyNotice={
+					<EmptyNotice
+						icon={<Icon name="Tags" size={128} />}
+						message="No items assigned to this tag."
+					/>
+				}
+			/>
 		</ExplorerContextProvider>
 	);
 }
-
-const MemoisedExplorer = memo(() => (
-	<Explorer
-		emptyNotice={
-			<EmptyNotice
-				icon={<Icon name="Tags" size={128} />}
-				message="No items assigned to this tag."
-			/>
-		}
-	/>
-));
