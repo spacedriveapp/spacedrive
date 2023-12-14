@@ -242,7 +242,7 @@ pub enum FilePathError {
 	InvalidFilenameAndExtension(String),
 }
 
-#[cfg(feature = "location-watcher")]
+// #[cfg(feature = "location-watcher")]
 pub async fn create_file_path(
 	crate::location::Library { db, sync, .. }: &crate::location::Library,
 	IsolatedFilePathData {

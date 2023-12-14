@@ -11,7 +11,7 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 	useNodes(location.data?.nodes);
 	const locationData = useCache(location.data?.item);
 
-	const { data } = useLibraryQuery([
+	const paths = useLibraryQuery([
 		'search.paths',
 		{
 			filters: [
@@ -25,7 +25,8 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 			take: 100
 		}
 	]);
-	const pathsItemsReferences = useMemo(() => data?.items ?? [], [data]);
+	const pathsItemsReferences = useMemo(() => paths.data?.items ?? [], [paths.data]);
+	useNodes(paths.data?.nodes);
 	const pathsItems = useCache(pathsItemsReferences);
 
 	useEffect(() => {
@@ -50,5 +51,5 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 		getExplorerStore().path = path ?? '';
 	}, [id, path]);
 
-	return <Explorer items={pathsItems} />;
+	return <Explorer items={pathsItems} />
 }

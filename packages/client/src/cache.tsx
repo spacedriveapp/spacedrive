@@ -189,8 +189,8 @@ export type UseCacheResult<T> = T extends (infer A)[]
 	? UseCacheResult<A>[]
 	: T extends object
 	? T extends { '__type': any; '__id': string; '#type': infer U }
-		? UseCacheResult<U>
-		: { [K in keyof T]: UseCacheResult<T[K]> }
+	? UseCacheResult<U>
+	: { [K in keyof T]: UseCacheResult<T[K]> }
 	: { [K in keyof T]: UseCacheResult<T[K]> };
 
 export function useCache<T>(data: T | undefined) {

@@ -5,11 +5,10 @@ import FolderIcon from '~/components/icons/FolderIcon';
 import * as RNFS from 'react-native-fs';
 import { useLibraryMutation } from '@sd/client';
 import DocumentPicker from 'react-native-document-picker';
-import { SharedScreenProps } from '~/navigation/SharedScreens';
 
 // Add more default locations here?
 const defaultLocationsList: { name: string, absPath: string }[] = [{ name: 'Downloads', absPath: RNFS.DownloadDirectoryPath }, { name: 'Placeholder', absPath: 'placeholder' }]
-const LocationOnboarding = ({ navigation }: SharedScreenProps<'LocationOnboarding'>) => {
+const LocationOnboarding = ({ navigation }: any) => { //FIXME: Get proper type def.
 	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
 	const relinkLocation = useLibraryMutation('locations.relink');
 

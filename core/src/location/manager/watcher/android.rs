@@ -1,10 +1,4 @@
-//! Linux has the best behaving file system events, with just some small caveats:
-//! When we move files or directories, we receive 3 events: Rename From, Rename To and Rename Both.
-//! But when we move a file or directory to the outside from the watched location, we just receive
-//! the Rename From event, so we have to keep track of all rename events to match them against each
-//! other. If we have dangling Rename From events, we have to remove them after some time.
-//! Aside from that, when a directory is moved to our watched location from the outside, we receive
-//! a Create Dir event, this one is actually ok at least.
+//! Android Event Handler
 
 use crate::{
 	invalidate_query, library::Library, location::manager::LocationManagerError, prisma::location,
@@ -30,7 +24,7 @@ use super::{
 	EventHandler, HUNDRED_MILLIS, ONE_SECOND,
 };
 
-// #[derive(Debug)]
+#[derive(Debug)]
 pub(super) struct AndroidEventHandler<'lib> {
 	location_id: location::id::Type,
 	library: &'lib Arc<Library>,
@@ -158,29 +152,29 @@ impl<'lib> EventHandler<'lib> for AndroidEventHandler<'lib> {
 
 	async fn tick(&mut self) {
 		if self.last_events_eviction_check.elapsed() > HUNDRED_MILLIS {
-			// if let Err(e) = self.handle_to_update_eviction().await {
-			// 	error!("Error while handling recently created or update files eviction: {e:#?}");
-			// }
+			if let Err(e) = self.handle_to_update_eviction().await {
+				info!("Error while handling recently created or update files eviction: {e:#?}");
+			}
 
-			// if let Err(e) = self.handle_rename_from_eviction().await {
-			// 	error!("Failed to remove file_path: {e:#?}");
-			// }
+			if let Err(e) = self.handle_rename_from_eviction().await {
+				info!("Failed to remove file_path: {e:#?}");
+			}
 
-			// self.recently_renamed_from
-			// 	.retain(|_, instant| instant.elapsed() < HUNDRED_MILLIS);
+			self.recently_renamed_from
+				.retain(|_, instant| instant.elapsed() < HUNDRED_MILLIS);
 
-			// if !self.to_recalculate_size.is_empty() {
-			// 	if let Err(e) = recalculate_directories_size(
-			// 		&mut self.to_recalculate_size,
-			// 		&mut self.path_and_instant_buffer,
-			// 		self.location_id,
-			// 		self.library,
-			// 	)
-			// 	.await
-			// 	{
-			// 		error!("Failed to recalculate directories size: {e:#?}");
-			// 	}
-			// }
+			if !self.to_recalculate_size.is_empty() {
+				if let Err(e) = recalculate_directories_size(
+					&mut self.to_recalculate_size,
+					&mut self.path_and_instant_buffer,
+					self.location_id,
+					self.library,
+				)
+				.await
+				{
+					info!("Failed to recalculate directories size: {e:#?}");
+				}
+			}
 
 			self.last_events_eviction_check = Instant::now();
 		}

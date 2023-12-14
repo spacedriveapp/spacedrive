@@ -1,3 +1,4 @@
+// TODO: Ping Eric for Notify testing
 use crate::{library::Library, prisma::location, util::db::maybe_missing, Node};
 
 use std::{
@@ -16,16 +17,16 @@ use tokio::{
 	task::{block_in_place, JoinHandle},
 	time::{interval_at, Instant, MissedTickBehavior},
 };
-use tracing::{debug, error, warn, info};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use super::LocationManagerError;
 
+mod android;
 mod ios;
 mod linux;
 mod macos;
 mod windows;
-mod android;
 
 mod utils;
 
@@ -72,7 +73,7 @@ trait EventHandler<'lib> {
 	async fn tick(&mut self);
 }
 
-// #[derive(Debug)]
+#[derive(Debug)]
 pub(super) struct LocationWatcher {
 	id: i32,
 	path: String,
@@ -92,8 +93,8 @@ impl LocationWatcher {
 		let (ignore_path_tx, ignore_path_rx) = mpsc::unbounded_channel();
 		let (stop_tx, stop_rx) = oneshot::channel();
 
-
-
+		info!("Events channel (tx): {:#?}", events_tx);
+		info!("Events channel (rx): {:#?}", events_rx);
 
 		let watcher = RecommendedWatcher::new(
 			move |result| {
@@ -115,9 +116,6 @@ impl LocationWatcher {
 			Config::default(),
 		)?;
 
-		#[cfg(target_os = "android")]
-		let watcher = INotifyWatcher::new(watcher, events_tx, ignore_path_tx, stop_rx);
-
 		let handle = tokio::spawn(Self::handle_watch_events(
 			location.id,
 			Uuid::from_slice(&location.pub_id)?,
@@ -127,6 +125,8 @@ impl LocationWatcher {
 			ignore_path_rx,
 			stop_rx,
 		));
+
+		info!("Handle: {:#?}", handle);
 
 		Ok(Self {
 			id: location.id,
@@ -155,13 +155,10 @@ impl LocationWatcher {
 		// In case of doubt check: https://docs.rs/tokio/latest/tokio/time/enum.MissedTickBehavior.html
 		handler_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
-		info!(
-			"Start Location Manager event handler for location: <id='{}'>",
-			location_id
-		);
 		loop {
 			select! {
 				Some(event) = events_rx.recv() => {
+					info!("Received location file system event: {:#?}", event);
 					match event {
 						Ok(event) => {
 							if let Err(e) = Self::handle_single_event(
@@ -173,13 +170,13 @@ impl LocationWatcher {
 								&library,
 								&paths_to_ignore,
 							).await {
-								error!("Failed to handle location file system event: \
+								info!("Failed to handle location file system event: \
 									<id='{location_id}', error='{e:#?}'>",
 								);
 							}
 						}
 						Err(e) => {
-							error!("watch error: {:#?}", e);
+							info!("watch error: {:#?}", e);
 						}
 					}
 				}
@@ -197,7 +194,7 @@ impl LocationWatcher {
 				}
 
 				_ = &mut stop_rx => {
-					debug!("Stop Location Manager event handler for location: <id='{}'>", location_id);
+					info!("Stop Location Manager event handler for location: <id='{}'>", location_id);
 					break
 				}
 			}
@@ -213,7 +210,7 @@ impl LocationWatcher {
 		_library: &'lib Library,
 		ignore_paths: &HashSet<PathBuf>,
 	) -> Result<(), LocationManagerError> {
-		debug!("Event: {:#?}", event);
+		info!("Event: {:#?}", event);
 		if !check_event(&event, ignore_paths) {
 			return Ok(());
 		}
@@ -251,15 +248,15 @@ impl LocationWatcher {
 
 	pub(super) fn watch(&mut self) {
 		let path = &self.path;
-		debug!("Start watching location: (path: {path})");
+		info!("Start watching location: (path: {path})");
 
 		if let Err(e) = self
 			.watcher
 			.watch(Path::new(path), RecursiveMode::Recursive)
 		{
-			error!("Unable to watch location: (path: {path}, error: {e:#?})");
+			info!("Unable to watch location: (path: {path}, error: {e:#?})");
 		} else {
-			debug!("Now watching location: (path: {path})");
+			info!("Now watching location: (path: {path})");
 		}
 	}
 
@@ -271,9 +268,9 @@ impl LocationWatcher {
 			 * and we try to unwatch the parent directory then we have to check the implications   *
 			 * of unwatch error for this case.   												   *
 			 **************************************************************************************/
-			error!("Unable to unwatch location: (path: {path}, error: {e:#?})",);
+			info!("Unable to unwatch location: (path: {path}, error: {e:#?})",);
 		} else {
-			debug!("Stop watching location: (path: {path})");
+			info!("Stop watching location: (path: {path})");
 		}
 	}
 }
@@ -372,7 +369,7 @@ impl Drop for LocationWatcher {
 ***************************************************************************************************/
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::panic)]
-mod tests {
+mod tests { // TODO: Write Tests for Android & iOS
 	use std::{
 		io::ErrorKind,
 		path::{Path, PathBuf},
