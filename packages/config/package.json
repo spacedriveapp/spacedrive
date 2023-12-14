@@ -24,6 +24,7 @@
 		"eslint-utils": "^3.0.0",
 		"regexpp": "^3.2.0",
 		"vite-plugin-html": "^3.2.0",
+		"vite-plugin-i18next-loader": "^2.0.4",
 		"vite-plugin-svgr": "^3.3.0"
 	}
 }
