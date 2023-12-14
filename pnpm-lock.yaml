@@ -51,7 +51,7 @@ importers:
         version: 5.2.2
       vite:
         specifier: ^4.5.0
-        version: 4.5.0(@types/node@18.17.19)
+        version: 4.5.0(less@4.2.0)
 
   .github/actions/publish-artifacts:
     dependencies:
@@ -629,7 +629,7 @@ importers:
         version: 5.2.2
       vite:
         specifier: ^4.5.0
-        version: 4.5.0(@types/node@18.17.19)
+        version: 4.5.0(less@4.2.0)
       vite-plugin-html:
         specifier: ^3.2.0
         version: 3.2.0(vite@4.5.0)
@@ -735,6 +735,9 @@ importers:
       i18next:
         specifier: ^23.7.10
         version: 23.7.10
+      i18next-fs-backend:
+        specifier: ^2.3.1
+        version: 2.3.1
       i18next-http-backend:
         specifier: ^2.4.2
         version: 2.4.2
@@ -10906,7 +10909,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.22.5(@babel/core@7.23.2)
       '@types/babel__core': 7.20.3
       react-refresh: 0.14.0
-      vite: 4.5.0(sass@1.69.5)
+      vite: 4.5.0(@types/node@18.17.19)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -15651,6 +15654,10 @@ packages:
     resolution: {integrity: sha512-nZXjEF2nbo7lIw3mgYjItAfgQXog3OjJogSbKa2CQIIvSGWcKgeJnQlNXip6NglNzYH45nSRiEVimMvYL8DDqQ==}
     engines: {node: '>=14.18.0'}
     dev: true
+
+  /i18next-fs-backend@2.3.1:
+    resolution: {integrity: sha512-tvfXskmG/9o+TJ5Fxu54sSO5OkY6d+uMn+K6JiUGLJrwxAVfer+8V3nU8jq3ts9Pe5lXJv4b1N7foIjJ8Iy2Gg==}
+    dev: false
 
   /i18next-http-backend@2.4.2:
     resolution: {integrity: sha512-wKrgGcaFQ4EPjfzBTjzMU0rbFTYpa0S5gv9N/d8WBmWS64+IgJb7cHddMvV+tUkse7vUfco3eVs2lB+nJhPo3w==}
@@ -23501,7 +23508,7 @@ packages:
       '@rollup/pluginutils': 5.0.5
       '@svgr/core': 8.1.0(typescript@5.2.2)
       '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0)
-      vite: 4.5.0(sass@1.69.5)
+      vite: 4.5.0(@types/node@18.17.19)
     transitivePeerDependencies:
       - rollup
       - supports-color
