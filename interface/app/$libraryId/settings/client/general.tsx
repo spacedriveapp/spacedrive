@@ -10,7 +10,7 @@ import {
 } from '@sd/client';
 import { Button, Card, Input, Select, SelectOption, Slider, Switch, tw, z } from '@sd/ui';
 import { Icon } from '~/components';
-import { useDebouncedFormWatch } from '~/hooks';
+import { useDebouncedFormWatch, useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { Heading } from '../Layout';
@@ -85,6 +85,8 @@ export const Component = () => {
 		}
 	});
 
+	const { t } = useLocale();
+
 	return (
 		<FormProvider {...form}>
 			<Heading
@@ -94,13 +96,17 @@ export const Component = () => {
 			<Card className="px-5">
 				<div className="my-2 flex w-full flex-col">
 					<div className="flex flex-row items-center justify-between">
-						<span className="font-semibold">Local Node</span>
+						<span className="font-semibold">{t('local_node')}</span>
 						<div className="flex flex-row space-x-1">
-							<NodePill>{connectedPeers.size} Peers</NodePill>
+							<NodePill>
+								{connectedPeers.size} {t('peers')}
+							</NodePill>
 							{node.data?.p2p_enabled === true ? (
-								<NodePill className="!bg-accent text-white">Running</NodePill>
+								<NodePill className="!bg-accent text-white">
+									{t('running')}
+								</NodePill>
 							) : (
-								<NodePill className="text-white">Disabled</NodePill>
+								<NodePill className="text-white">{t('disabled')}</NodePill>
 							)}
 						</div>
 					</div>
@@ -109,7 +115,7 @@ export const Component = () => {
 					<div className="flex w-full items-center gap-5">
 						<Icon name="Laptop" className="mt-2 h-14 w-14" />
 						<div className="flex flex-col">
-							<NodeSettingLabel>Node Name</NodeSettingLabel>
+							<NodeSettingLabel>{t('node_name')}</NodeSettingLabel>
 							<Input
 								{...form.register('name', { required: true })}
 								defaultValue={node.data?.name}
@@ -133,7 +139,7 @@ export const Component = () => {
 						</div> */}
 
 						<div>
-							<NodeSettingLabel>Data Folder</NodeSettingLabel>
+							<NodeSettingLabel>{t('data_folder')}</NodeSettingLabel>
 							<div className="mt-2 flex w-full flex-row gap-2">
 								<Input className="grow" value={node.data?.data_path} disabled />
 								<Button
@@ -175,11 +181,7 @@ export const Component = () => {
 				</div>
 			</Card>
 
-			<Setting
-				mini
-				title="Debug mode"
-				description="Enable extra debugging features within the app."
-			>
+			<Setting mini title={t('debug_mode')} description={t('debug_mode_description')}>
 				<Switch
 					size="md"
 					checked={debugState.enabled}
@@ -189,8 +191,8 @@ export const Component = () => {
 			<Setting
 				mini
 				registerName="background_processing_percentage"
-				title="Thumbnailer CPU usage"
-				description="Limit how much CPU the thumbnailer can use for background processing."
+				title={t('thumbnailer_cpu_usage')}
+				description={t('thumbnailer_cpu_usage_description')}
 			>
 				<div className="flex h-[30px] w-80 items-center gap-2">
 					<Slider
@@ -219,7 +221,7 @@ export const Component = () => {
 				</div>
 			</Setting>
 			<div className="flex flex-col gap-4">
-				<h1 className="mb-3 text-lg font-bold text-ink">Networking</h1>
+				<h1 className="mb-3 text-lg font-bold text-ink">{t('networking')}</h1>
 
 				{/* TODO: Add some UI for this stuff */}
 				{/* {node.data?.p2p.ipv4.status === 'Listening' ||
@@ -233,7 +235,7 @@ export const Component = () => {
 
 				<Setting
 					mini
-					title="Enable Networking"
+					title={t('enable_networking')}
 					description={
 						<>
 							<p className="text-sm text-gray-400">
@@ -256,8 +258,8 @@ export const Component = () => {
 				</Setting>
 				<Setting
 					mini
-					title="Networking Port"
-					description="The port for Spacedrive's Peer-to-peer networking to communicate on. You should leave this disabled unless you have a restictive firewall. Do not expose to the internet!"
+					title={t('networking_port')}
+					description={t('networking_port_description')}
 				>
 					<div className="flex h-[30px] gap-2">
 						<Controller
@@ -274,8 +276,8 @@ export const Component = () => {
 										form.setValue('p2p_port', 0);
 									}}
 								>
-									<SelectOption value="Default">Default</SelectOption>
-									<SelectOption value="Custom">Custom</SelectOption>
+									<SelectOption value="Default">{t('default')}</SelectOption>
+									<SelectOption value="Custom">{t('custom')}</SelectOption>
 								</Select>
 							)}
 						/>

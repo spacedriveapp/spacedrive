@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router';
 import { auth, useBridgeQuery } from '@sd/client';
 import { Button, ButtonLink, Loader } from '@sd/ui';
 import { LoginButton } from '~/components/LoginButton';
+import { useLocale } from '~/hooks';
 
 import { OnboardingContainer } from './components';
 
 export default function OnboardingLogin() {
+	const { t } = useLocale();
+
 	const authState = auth.useStateSnapshot();
 	const navigate = useNavigate();
 
@@ -40,7 +43,7 @@ export default function OnboardingLogin() {
 							size="md"
 							className="text-center"
 						>
-							Continue
+							{t('continue')}
 						</ButtonLink>
 
 						<div className="space-x-2 text-center text-sm">

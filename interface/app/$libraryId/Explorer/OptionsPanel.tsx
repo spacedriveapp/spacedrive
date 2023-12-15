@@ -1,6 +1,7 @@
 import { RadixCheckbox, Select, SelectOption, Slider, tw, z } from '@sd/ui';
 import { getExplorerLayoutStore, useExplorerLayoutStore } from '~/../packages/client/src';
 import { SortOrderSchema } from '~/app/route-schemas';
+import { useLocale } from '~/hooks';
 
 import { useExplorerContext } from './Context';
 import { createOrdering, getOrderingDirection, orderingKey } from './store';
@@ -8,6 +9,8 @@ import { createOrdering, getOrderingDirection, orderingKey } from './store';
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
 
 export default () => {
+	const { t } = useLocale();
+
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
 	const settings = explorer.useSettingsSnapshot();
@@ -44,7 +47,7 @@ export default () => {
 
 			{settings.layoutMode === 'grid' && (
 				<div>
-					<Subheading>Gap</Subheading>
+					<Subheading>{t('grid_gap')}</Subheading>
 					<Slider
 						onValueChange={([val]) => {
 							if (val) explorer.settingsStore.gridGap = val;
@@ -60,7 +63,7 @@ export default () => {
 			{(settings.layoutMode === 'grid' || settings.layoutMode === 'media') && (
 				<div className="grid grid-cols-2 gap-2">
 					<div className="flex flex-col">
-						<Subheading>Sort by</Subheading>
+						<Subheading>{t('sort_by')}</Subheading>
 						<Select
 							value={settings.order ? orderingKey(settings.order) : 'none'}
 							size="sm"
@@ -76,7 +79,7 @@ export default () => {
 									);
 							}}
 						>
-							<SelectOption value="none">None</SelectOption>
+							<SelectOption value="none">{t('none')}</SelectOption>
 							{explorer.orderingKeys?.options.map((option) => (
 								<SelectOption key={option.value} value={option.value}>
 									{option.description}
@@ -86,7 +89,7 @@ export default () => {
 					</div>
 
 					<div className="flex flex-col">
-						<Subheading>Direction</Subheading>
+						<Subheading>{t('direction')}</Subheading>
 						<Select
 							value={settings.order ? getOrderingDirection(settings.order) : 'Asc'}
 							size="sm"
@@ -112,7 +115,7 @@ export default () => {
 			)}
 
 			<div>
-				<Subheading>Explorer</Subheading>
+				<Subheading>{t('explorer')}</Subheading>
 				<div className="grid grid-cols-2 gap-y-1">
 					<RadixCheckbox
 						checked={layoutStore.showPathBar}
@@ -164,7 +167,7 @@ export default () => {
 
 			{settings.layoutMode === 'media' && (
 				<div>
-					<Subheading>Media View Context</Subheading>
+					<Subheading>{t('media_view_context')}</Subheading>
 					<Select
 						className="w-full"
 						value={
@@ -187,7 +190,7 @@ export default () => {
 			)}
 
 			<div>
-				<Subheading>Double click action</Subheading>
+				<Subheading>{t('double_click_action')}</Subheading>
 				<Select
 					className="w-full"
 					value={settings.openOnDoubleClick}

@@ -11,9 +11,11 @@ import {
 } from 'react';
 import { getItemFilePath, useLibraryContext } from '@sd/client';
 import { PDFViewer, TextViewer } from '~/components';
+import { useLocale } from '~/hooks';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { usePlatform } from '~/util/Platform';
 
+import { i18n } from '../../../I18n';
 import { useExplorerContext } from '../Context';
 import { getExplorerStore } from '../store';
 import { ExplorerItemData } from '../util';
@@ -152,7 +154,7 @@ const ORIGINAL_RENDERERS: {
 					autoPlay
 					className="absolute left-2/4 top-full w-full -translate-x-1/2 translate-y-[-150%]"
 				>
-					<p>Audio preview is not supported.</p>
+					<p>{i18n.t('audio_preview_not_supported')}</p>
 				</audio>
 			)}
 		</>
@@ -188,6 +190,8 @@ const Video = ({ paused, blackBars, blackBarsSize, className, ...props }: VideoP
 	const size = useSize(ref);
 	const { style: blackBarsStyle } = useBlackBars(size, blackBarsSize);
 
+	const { t } = useLocale();
+
 	useEffect(() => {
 		if (!ref.current) return;
 		paused ? ref.current.pause() : ref.current.play();
@@ -217,7 +221,7 @@ const Video = ({ paused, blackBars, blackBarsSize, className, ...props }: VideoP
 			className={clsx(blackBars && size.width === 0 && 'invisible', className)}
 			{...props}
 		>
-			<p>Video preview is not supported.</p>
+			<p>{t('video_preview_not_supported')}</p>
 		</video>
 	);
 };

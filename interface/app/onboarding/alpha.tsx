@@ -25,9 +25,9 @@ export default function OnboardingAlpha() {
 						<img src={AppLogo} alt="Spacedrive" className="h-8 w-8" />
 						<h1 className="text-[25px] font-semibold">Spacedrive</h1>
 					</div>
-					<h1 className="text-[40px] font-bold">{t('alpha_release.title')}</h1>
+					<h1 className="text-[40px] font-bold">{t('alpha_release_title')}</h1>
 					<p className="mx-auto w-full max-w-[450px] text-sm text-ink-faint">
-						{t('alpha_release.subtitle')}
+						{t('alpha_release_description')}
 					</p>
 					<div className="mt-0 flex w-full items-center justify-center gap-2">
 						<Button
@@ -36,7 +36,7 @@ export default function OnboardingAlpha() {
 							variant="gray"
 						>
 							<Discord className="h-4 w-4 fill-ink" />
-							Join Discord
+							{t('join')} Discord
 						</Button>
 						<ButtonLink to="../new-library" replace variant="accent">
 							{t('continue')}
