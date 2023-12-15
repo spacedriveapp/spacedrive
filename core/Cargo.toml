@@ -43,6 +43,7 @@ sd-prisma = { path = "../crates/prisma" }
 sd-skynet = { path = "../crates/skynet", optional = true }
 sd-sync = { path = "../crates/sync" }
 sd-utils = { path = "../crates/utils" }
+sd-cloud-api = { version = "0.1.0", path = "../crates/cloud-api" }
 
 
 # Workspace dependencies
@@ -118,7 +119,6 @@ slotmap = "1.0.6"
 static_assertions = "1.1.0"
 sysinfo = "0.29.10"
 tar = "0.4.40"
-
 
 # Override features of transitive dependencies
 [dependencies.openssl]

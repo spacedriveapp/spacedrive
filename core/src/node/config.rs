@@ -1,6 +1,5 @@
 use crate::{
 	api::{notifications::Notification, BackendFeature},
-	auth::OAuthToken,
 	object::media::thumbnail::preferences::ThumbnailerPreferences,
 	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
@@ -49,7 +48,7 @@ pub struct NodeConfig {
 	#[serde(default)]
 	pub features: Vec<BackendFeature>,
 	/// Authentication for Spacedrive Accounts
-	pub auth_token: Option<OAuthToken>,
+	pub auth_token: Option<sd_cloud_api::auth::OAuthToken>,
 
 	/// The aggreagation of many different preferences for the node
 	pub preferences: NodePreferences,

@@ -67,7 +67,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						let Ok(token_resp) = node.http
 							.post(&format!("{}/login/oauth/access_token", &node.env.api_url))
 							.form(&[
-								("grant_type", DEVICE_CODE_URN),
+								("grant_type", sd_cloud_api::auth::DEVICE_CODE_URN),
 								("device_code", &auth_response.device_code),
 								("client_id", &node.env.client_id)
 							])

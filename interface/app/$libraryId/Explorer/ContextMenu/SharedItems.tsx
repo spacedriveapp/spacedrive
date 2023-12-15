@@ -15,7 +15,6 @@ import { getQuickPreviewStore } from '../QuickPreview/store';
 import { RevealInNativeExplorerBase } from '../RevealInNativeExplorer';
 import { getExplorerStore, useExplorerStore } from '../store';
 import { useViewItemDoubleClick } from '../View/ViewItem';
-import { useExplorerViewContext } from '../ViewContext';
 import { Conditional, ConditionalItem } from './ConditionalItem';
 import { useContextMenuContext } from './context';
 import OpenWith from './OpenWith';
@@ -101,7 +100,6 @@ export const Rename = new ConditionalItem({
 		return {};
 	},
 	Component: () => {
-		const explorerView = useExplorerViewContext();
 		const keybind = useKeybindFactory();
 		const os = useOperatingSystem(true);
 
@@ -109,7 +107,7 @@ export const Rename = new ConditionalItem({
 			<ContextMenu.Item
 				label="Rename"
 				keybind={keybind([], [os === 'windows' ? 'F2' : 'Enter'])}
-				onClick={() => explorerView.setIsRenaming(true)}
+				onClick={() => (getExplorerStore().isRenaming = true)}
 			/>
 		);
 	}

@@ -6916,6 +6916,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-cloud-api"
+version = "0.1.0"
+dependencies = [
+ "reqwest",
+ "rspc",
+ "serde",
+ "serde_json",
+ "specta",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
 name = "sd-core"
 version = "0.1.4"
 dependencies = [
@@ -6956,6 +6969,7 @@ dependencies = [
  "rmpv",
  "rspc",
  "sd-cache",
+ "sd-cloud-api",
  "sd-core-sync",
  "sd-crypto",
  "sd-ffmpeg",

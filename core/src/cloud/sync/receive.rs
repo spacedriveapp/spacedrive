@@ -1,5 +1,5 @@
 use crate::{
-	cloud::sync::{err_break, return_break},
+	cloud::sync::{err_break, err_return},
 	library::Library,
 	Node,
 };
@@ -11,7 +11,11 @@ use sd_prisma::prisma::{
 use sd_sync::*;
 use sd_utils::{from_bytes_to_uuid, uuid_to_bytes};
 
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+	collections::{hash_map::Entry, HashMap},
+	sync::Arc,
+	time::Duration,
+};
 
 use base64::prelude::*;
 use chrono::Utc;
@@ -21,12 +25,10 @@ use serde_json::{json, to_vec};
 use tokio::{sync::Notify, time::sleep};
 use uuid::Uuid;
 
-pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Arc<Notify>) {
+pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>, Arc<Notify>)) {
 	let db = &library.db;
 	let api_url = &library.env.api_url;
 	let library_id = library.id;
-
-	println!("receive_actor");
 
 	let mut cloud_timestamps = {
 		let timestamps = library.sync.timestamps.read().await;
@@ -42,12 +44,14 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Ar
 			})
 			.collect::<Vec<_>>();
 
-		return_break!(db._batch(batch).await)
+		err_return!(db._batch(batch).await)
 			.into_iter()
 			.zip(timestamps.keys())
 			.map(|(d, id)| {
 				let cloud_timestamp = NTP64(d.map(|d| d.timestamp).unwrap_or_default() as u64);
-				let sync_timestamp = *timestamps.get(id).unwrap();
+				let sync_timestamp = *timestamps
+					.get(id)
+					.expect("unable to find matching timestamp");
 
 				let max_timestamp = Ord::max(cloud_timestamp, sync_timestamp);
 
@@ -55,8 +59,6 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Ar
 			})
 			.collect::<HashMap<_, _>>()
 	};
-
-	dbg!(&cloud_timestamps);
 
 	loop {
 		let instances = {
@@ -83,41 +85,74 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Ar
 		#[serde(rename_all = "camelCase")]
 		struct MessageCollection {
 			instance_uuid: Uuid,
-			start_time: String,
+			// start_time: String,
 			end_time: String,
 			contents: String,
 		}
 
 		{
-			dbg!(&instances);
-
-			let collections = err_break!(
-				err_break!(
-					node.authed_api_request(
-						node.http
-							.post(&format!(
-								"{api_url}/api/v1/libraries/{library_id}/messageCollections/get"
-							))
-							.json(&json!({
-								"instanceUuid": library.instance_uuid,
-								"timestamps": instances
-							})),
-					)
-					.await
+			let collections = node
+				.authed_api_request(
+					node.http
+						.post(&format!(
+							"{api_url}/api/v1/libraries/{library_id}/messageCollections/get"
+						))
+						.json(&json!({
+							"instanceUuid": library.instance_uuid,
+							"timestamps": instances
+						})),
 				)
+				.await
+				.expect("couldn't get response")
 				.json::<Vec<MessageCollection>>()
 				.await
-			);
+				.expect("couldn't deserialize response");
 
-			dbg!(&collections);
+			let mut cloud_library_data: Option<Option<sd_cloud_api::Library>> = None;
 
 			for collection in collections {
-				if let std::collections::hash_map::Entry::Vacant(entry) =
-					cloud_timestamps.entry(collection.instance_uuid)
-				{
-					err_break!(create_instance(db, collection.instance_uuid).await);
+				if let Entry::Vacant(e) = cloud_timestamps.entry(collection.instance_uuid) {
+					let fetched_library = match &cloud_library_data {
+						None => {
+							let Some(fetched_library) = err_break!(
+								sd_cloud_api::library::get(
+									node.cloud_api_config().await,
+									library.id
+								)
+								.await
+							) else {
+								break;
+							};
 
-					entry.insert(NTP64(0));
+							cloud_library_data
+								.insert(Some(fetched_library))
+								.as_ref()
+								.expect("error inserting fetched library")
+						}
+						Some(None) => {
+							break;
+						}
+						Some(Some(fetched_library)) => fetched_library,
+					};
+
+					let Some(instance) = fetched_library
+						.instances
+						.iter()
+						.find(|i| i.uuid == collection.instance_uuid)
+					else {
+						break;
+					};
+
+					err_break!(
+						create_instance(
+							db,
+							collection.instance_uuid,
+							err_break!(BASE64_STANDARD.decode(instance.identity.clone()))
+						)
+						.await
+					);
+
+					e.insert(NTP64(0));
 				}
 
 				err_break!(
@@ -130,7 +165,8 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Ar
 					.await
 				);
 
-				let collection_timestamp = NTP64(collection.end_time.parse().unwrap());
+				let collection_timestamp =
+					NTP64(collection.end_time.parse().expect("unable to parse time"));
 
 				let timestamp = cloud_timestamps
 					.entry(collection.instance_uuid)
@@ -172,9 +208,9 @@ fn shared_op_db(op: &CRDTOperation, shared_op: &SharedOperation) -> cloud_shared
 		timestamp: op.timestamp.0 as i64,
 		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
 		kind: shared_op.kind().to_string(),
-		data: to_vec(&shared_op.data).unwrap(),
+		data: to_vec(&shared_op.data).expect("unable to serialize data"),
 		model: shared_op.model.to_string(),
-		record_id: to_vec(&shared_op.record_id).unwrap(),
+		record_id: to_vec(&shared_op.record_id).expect("unable to serialize record id"),
 		_params: vec![],
 	}
 }
@@ -188,21 +224,25 @@ fn relation_op_db(
 		timestamp: op.timestamp.0 as i64,
 		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
 		kind: relation_op.kind().to_string(),
-		data: to_vec(&relation_op.data).unwrap(),
+		data: to_vec(&relation_op.data).expect("unable to serialize data"),
 		relation: relation_op.relation.to_string(),
-		item_id: to_vec(&relation_op.relation_item).unwrap(),
-		group_id: to_vec(&relation_op.relation_group).unwrap(),
+		item_id: to_vec(&relation_op.relation_item).expect("unable to serialize item id"),
+		group_id: to_vec(&relation_op.relation_group).expect("unable to serialize group id"),
 		_params: vec![],
 	}
 }
 
-async fn create_instance(db: &PrismaClient, uuid: Uuid) -> prisma_client_rust::Result<()> {
+async fn create_instance(
+	db: &PrismaClient,
+	uuid: Uuid,
+	identity: Vec<u8>,
+) -> prisma_client_rust::Result<()> {
 	db.instance()
 		.upsert(
 			instance::pub_id::equals(uuid_to_bytes(uuid)),
 			instance::create(
 				uuid_to_bytes(uuid),
-				vec![],
+				identity,
 				vec![],
 				"".to_string(),
 				0,

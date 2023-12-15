@@ -1,10 +1,12 @@
 import { ArrowLeft, ArrowRight } from '@phosphor-icons/react';
+import clsx from 'clsx';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Tooltip } from '@sd/ui';
 import { useKeyMatcher, useOperatingSystem, useShortcut } from '~/hooks';
 import { useRoutingContext } from '~/RoutingContext';
 
+import { useExplorerDroppable } from '../Explorer/useExplorerDroppable';
 import TopBarButton from './TopBarButton';
 
 export const NavigationButtons = () => {
@@ -16,6 +18,16 @@ export const NavigationButtons = () => {
 
 	const canGoBack = currentIndex !== 0;
 	const canGoForward = currentIndex !== maxIndex;
+
+	const droppableBack = useExplorerDroppable({
+		navigateTo: -1,
+		disabled: !canGoBack
+	});
+
+	const droppableForward = useExplorerDroppable({
+		navigateTo: 1,
+		disabled: !canGoForward
+	});
 
 	useShortcut('navBackwardHistory', () => {
 		if (!canGoBack) return;
@@ -49,9 +61,13 @@ export const NavigationButtons = () => {
 			<Tooltip keybinds={[icon, '[']} label="Navigate back">
 				<TopBarButton
 					rounding="left"
-					// className="text-[14px] text-ink-dull"
 					onClick={() => navigate(-1)}
 					disabled={!canGoBack}
+					ref={droppableBack.setDroppableRef}
+					className={clsx(
+						droppableBack.isDroppable && '!bg-app-selected',
+						droppableBack.className
+					)}
 				>
 					<ArrowLeft size={14} className="m-[4px]" weight="bold" />
 				</TopBarButton>
@@ -59,9 +75,13 @@ export const NavigationButtons = () => {
 			<Tooltip keybinds={[icon, ']']} label="Navigate forward">
 				<TopBarButton
 					rounding="right"
-					// className="text-[14px] text-ink-dull"
 					onClick={() => navigate(1)}
 					disabled={!canGoForward}
+					ref={droppableForward.setDroppableRef}
+					className={clsx(
+						droppableForward.isDroppable && '!bg-app-selected',
+						droppableForward.className
+					)}
 				>
 					<ArrowRight size={14} className="m-[4px]" weight="bold" />
 				</TopBarButton>

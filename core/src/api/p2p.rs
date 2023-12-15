@@ -27,17 +27,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 
 				// TODO: Don't block subscription start
-				for identity in node
-					.p2p
-					.manager
-					.get_connected_peers()
-					.await
-					.map_err(|_err| {
-						rspc::Error::new(
-							ErrorCode::InternalServerError,
-							"todo: error getting connected peers".into(),
-						)
-					})? {
+				for identity in node.p2p.manager.get_connected_peers().await.map_err(|_| {
+					rspc::Error::new(
+						ErrorCode::InternalServerError,
+						"todo: error getting connected peers".into(),
+					)
+				})? {
 					queued.push(P2PEvent::ConnectedPeer { identity });
 				}
 
@@ -91,6 +86,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("cancelSpacedrop", {
 			R.mutation(|node, id: Uuid| async move {
 				node.p2p.cancel_spacedrop(id).await;
+
 				Ok(())
 			})
 		})
@@ -102,6 +98,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("pairingResponse", {
 			R.mutation(|node, (pairing_id, decision): (u16, PairingDecision)| {
 				node.p2p.pairing.decision(pairing_id, decision);
+
 				Ok(())
 			})
 		})

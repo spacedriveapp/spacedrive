@@ -11,5 +11,5 @@ appId: com.spacedrive.app
     id: 'share-minimal'
 - tapOn: 'Continue'
 - tapOn:
-    id: 'drawer-toggle'
+    id: 'browse-tab'
 - assertVisible: 'TestLib'
