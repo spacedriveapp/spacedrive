@@ -43,7 +43,7 @@ export default function Page({ params }: Props) {
 	const MDXContent = useMDXComponent(post.body.code);
 
 	return (
-		<div className="lg:prose-xs container prose m-auto mb-20 max-w-4xl p-4 pt-14 dark:prose-invert">
+		<div className="lg:prose-xs container prose m-auto mb-20 max-w-4xl p-5 pt-14 dark:prose-invert">
 			<>
 				<figure>
 					<Image
@@ -54,7 +54,7 @@ export default function Page({ params }: Props) {
 						width={900}
 					/>
 				</figure>
-				<section className="-mx-8 flex flex-wrap gap-4 rounded-xl px-8">
+				<section className="flex flex-wrap gap-4 rounded-xl px-4 ">
 					<div className="w-full grow">
 						<h1 className="m-0 text-2xl leading-snug sm:text-4xl sm:leading-normal">
 							{post.title}
@@ -69,7 +69,7 @@ export default function Page({ params }: Props) {
 						))}
 					</div>
 				</section>
-				<article id="content" className="text-lg">
+				<article id="content" className="px-4 text-lg">
 					<MDXContent components={BlogMDXComponents} />
 				</article>
 			</>
