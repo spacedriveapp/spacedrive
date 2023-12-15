@@ -33,7 +33,7 @@ export const items = [
 		completed: true,
 		title: 'Self hosting',
 		description:
-			'Spacedrive can be deployed as a service, behaving as just another device powering your personal cloud.'
+			'Spacedrive can be deployed as a service via Docker, behaving as just another device powering your personal cloud.'
 	},
 	{
 		completed: true,
@@ -44,7 +44,14 @@ export const items = [
 	{
 		completed: true,
 		title: 'Search',
-		description: 'Deep search into your filesystem with a keybind, including offline locations.'
+		description:
+			'Instantly search your library, including offline locations. Use advanced filters to refine and save searches for later.'
+	},
+	{
+		completed: true,
+		title: 'Quick View',
+		description:
+			'View images, videos and documents in a full screen modal with nested inspector and context switcher.'
 	},
 	{
 		completed: true,
@@ -52,32 +59,55 @@ export const items = [
 		description: 'Turn any directory into a camera roll including media from subdirectories'
 	},
 	{
-		when: '0.1.0 Alpha',
-		subtext: 'Oct 2023',
+		completed: true,
+		title: 'Spacedrop',
+		description: 'Drop files between devices and contacts on a keybind like AirDrop.'
+	},
+	{
+		completed: true,
+		title: 'AI labeling for images',
+		description:
+			'Automatically label images with objects, with a model loader to support future models and upgrading to more powerful models for various jobs.'
+	},
+	{
+		completed: true,
+
+		title: 'Drag & drop',
+		description: 'Drag and drop files between devices and drives.'
+	},
+	{
+		when: '0.2 Alpha',
+		title: 'File converter',
+		description: 'Convert image and video between common formats from the context menu.'
+	},
+	{
+		title: 'Command Palette',
+		description:
+			'Quickly navigate to any file or folder from anywhere in the app, along with AI search!'
+	},
+	{
+		title: 'Spacedrive in every language, i18n',
+		description:
+			'Quickly navigate to any file or folder from anywhere in the app, along with AI search!'
+	},
+	{
+		when: '0.3.0 Alpha',
 		title: 'Key manager',
 		description:
 			'View, mount, unmount and hide keys. Mounted keys can be used to instantly encrypt and decrypt any files on your node.'
 	},
 	{
-		when: '0.2.0',
-		title: 'Spacedrop',
-		description: 'Drop files between devices and contacts on a keybind like AirDrop.'
+		when: '0.4.0 Alpha',
+		title: 'Connect devices & sync',
+		description: 'Automatically synchronized libraries across all your devices.'
 	},
 	{
-		title: 'Realtime library synchronization',
-		description: 'Automatically synchronized libraries across devices via P2P connections.'
-	},
-	{
-		when: '0.3.0',
-		title: 'Cloud integration',
+		when: '0.5.0',
+		title: 'Cloud integrations',
 		description:
-			'Index & backup to Apple Photos, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.'
+			'Filesystem integrations with iCloud, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.'
 	},
-	{
-		title: 'Media encoder',
-		description:
-			'Encode video and audio into various formats, use Tags to automate. Built with FFmpeg.'
-	},
+
 	{
 		title: 'Hosted Spaces',
 		description: 'Host select Spaces on our cloud to share with friends or publish on the web.'
