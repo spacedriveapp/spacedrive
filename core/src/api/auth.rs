@@ -1,4 +1,4 @@
-use crate::{auth::DEVICE_CODE_URN, util::http::ensure_response};
+use crate::util::http::ensure_response;
 
 use std::time::Duration;
 

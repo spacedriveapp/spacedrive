@@ -1,7 +1,5 @@
 use crate::cloud::sync::err_return;
 
-use sd_core_sync::GetOpsArgs;
-
 use std::sync::Arc;
 
 use tokio::sync::Notify;

@@ -15,9 +15,8 @@ use image::ImageFormat;
 use tokio::{
 	fs, spawn,
 	sync::{oneshot, OwnedRwLockReadGuard, OwnedSemaphorePermit, RwLock, Semaphore},
-	time::Instant,
 };
-use tracing::{debug, error, warn};
+use tracing::{error, warn};
 use uuid::Uuid;
 
 use super::{actor::Batch, model::ModelAndSession, BatchToken, ImageLabelerError, LabelerOutput};
@@ -215,7 +214,6 @@ pub(super) async fn spawned_processing(
 		.race()
 		.await
 	{
-		let start = Instant::now();
 		for handle in &handles {
 			handle.abort();
 		}
