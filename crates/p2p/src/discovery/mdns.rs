@@ -45,10 +45,16 @@ impl Mdns {
 	) -> Result<Self, mdns_sd::Error> {
 		let mdns_daemon = ServiceDaemon::new()?;
 
+		println!(
+			"{:?} {}",
+			format!("_{application_name}._udp.local."),
+			format!("_{application_name}._udp.local.").len()
+		);
+
 		Ok(Self {
 			identity,
 			peer_id,
-			service_name: format!("_{application_name}._udp.local."),
+			service_name: format!("_sd._udp.local."),
 			advertised_services: Vec::new(),
 			mdns_daemon,
 			next_mdns_advertisement: Box::pin(sleep_until(Instant::now())), // Trigger an advertisement immediately

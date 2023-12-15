@@ -17,7 +17,7 @@ import { toast } from '@sd/ui';
 import { useKeyMatcher } from '~/hooks';
 
 import { KeyManager } from '../KeyManager';
-import { Spacedrop } from '../Spacedrop';
+import { Spacedrop, SpacedropButton } from '../Spacedrop';
 import TopBarOptions, { ToolOption, TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import { useExplorerContext } from './Context';
 import OptionsPanel from './OptionsPanel';
@@ -109,7 +109,7 @@ export const useExplorerTopBarOptions = () => {
 	const toolOptions = [
 		{
 			toolTipLabel: 'Key Manager',
-			icon: <Planet className={TOP_BAR_ICON_STYLE} />,
+			icon: <SpacedropButton />,
 			popOverComponent: <Spacedrop />,
 			individual: true,
 			showAtResolution: 'xl:flex'

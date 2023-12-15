@@ -29,7 +29,7 @@
 	"devDependencies": {
 		"@sd/config": "workspace:*",
 		"@sentry/vite-plugin": "^2.9.0",
-		"@tauri-apps/cli": "^1.5.6",
+		"@tauri-apps/cli": "^2.0.0-alpha.18",
 		"@types/react": "^18.2.34",
 		"@types/react-dom": "^18.2.14",
 		"@vitejs/plugin-react": "^4.1.1",

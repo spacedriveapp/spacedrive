@@ -18,7 +18,7 @@ import { RouteTitleContext } from '@sd/interface/hooks/useRouteTitle';
 
 import '@sd/ui/style/style.scss';
 
-import { getDropAndDropState } from '@sd/interface/hooks';
+import { getDragAndDropState } from '@sd/interface/hooks';
 
 import { commands } from './commands';
 import { platform } from './platform';
@@ -50,7 +50,7 @@ export default function App() {
 
 		const dropEventListener = appWindow.onFileDropEvent((event) => {
 			if (event.payload.type === 'drop') {
-				getDropAndDropState().droppedFiles = event.payload.paths;
+				getDragAndDropState().droppedFiles = event.payload.paths;
 			}
 		});
 

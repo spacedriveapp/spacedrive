@@ -7,7 +7,7 @@ import TopBarButton from './TopBarButton';
 import TopBarMobile from './TopBarMobile';
 
 export interface ToolOption {
-	icon: JSX.Element;
+	icon: JSX.Element | (() => JSX.Element);
 	onClick?: () => void;
 	individual?: boolean;
 	toolTipLabel: string;
@@ -127,7 +127,7 @@ function ToolGroup({
 									tooltipClassName={clsx('capitalize', toolTipClassName)}
 									label={toolTipLabel}
 								>
-									{icon}
+									{typeof icon === 'function' ? icon() : icon}
 								</Tooltip>
 							</TopBarButton>
 						}
@@ -145,7 +145,7 @@ function ToolGroup({
 							tooltipClassName={clsx('capitalize', toolTipClassName)}
 							label={toolTipLabel}
 						>
-							{icon}
+							{typeof icon === 'function' ? icon() : icon}
 						</Tooltip>
 					</TopBarButton>
 				)}

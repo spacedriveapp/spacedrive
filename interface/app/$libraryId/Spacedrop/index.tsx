@@ -1,14 +1,29 @@
-import { CloudArrowUp } from '@phosphor-icons/react';
-import { useState } from 'react';
+import { CloudArrowUp, Planet } from '@phosphor-icons/react';
+import { useRef, useState } from 'react';
 import { useP2PEvents } from '@sd/client';
 import { dialogManager, toast } from '@sd/ui';
 import { Icon } from '~/components';
+import { useDroppedOn } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
+import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import { SpacedropDialog } from './dialog';
 import { useIncomingSpacedropToast, useSpacedropProgressToast } from './toast';
 
 // TODO: This doesn't support web
+
+export function SpacedropButton() {
+	const ref = useRef<HTMLDivElement>(null);
+	useDroppedOn(ref);
+
+	console.log('BUTTON');
+
+	return (
+		<div ref={ref}>
+			<Planet className={TOP_BAR_ICON_STYLE} />
+		</div>
+	);
+}
 
 export function Spacedrop() {
 	const incomingRequestToast = useIncomingSpacedropToast();
@@ -27,6 +42,18 @@ export function Spacedrop() {
 		}
 	});
 
+	// useEffect(() => {
+	// 	const handler = (e: MouseEvent) => {
+	// 		console.log(e);
+	// 	};
+
+	// 	document.addEventListener('mousemove', handler, false);
+	// 	return document.removeEventListener('mousemove', handler);
+	// }, []);
+
+	const ref = useRef<HTMLDivElement>(null);
+	useDroppedOn(ref);
+
 	// TODO: Drag and drop working onto icon
 	// TODO: Drag and drop onto the UI
 
@@ -36,7 +63,7 @@ export function Spacedrop() {
 				<Icon name="Spacedrop" size={56} />
 				<span className="text-lg font-bold">Spacedrop</span>
 
-				<div className="mt-3 flex w-full items-center justify-center">
+				<div ref={ref} className="mt-3 flex w-full items-center justify-center">
 					<label
 						className="dark:hover:bg-bray-800 flex h-64 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:hover:border-gray-500 dark:hover:bg-gray-600"
 						onClick={() =>

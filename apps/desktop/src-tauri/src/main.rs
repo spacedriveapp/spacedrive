@@ -8,9 +8,10 @@ use std::{fs, path::PathBuf, sync::Arc, time::Duration};
 use sd_core::{Node, NodeError};
 
 use sd_fda::DiskAccess;
+use serde::{Deserialize, Serialize};
 use tauri::{
-	api::path, ipc::RemoteDomainAccessScope, window::PlatformWebview, AppHandle, Manager,
-	WindowEvent,
+	api::path, ipc::RemoteDomainAccessScope, window::PlatformWebview, AppHandle, FileDropEvent,
+	Manager, WindowEvent,
 };
 use tauri_plugins::{sd_error_plugin, sd_server_plugin};
 use tauri_specta::ts;
@@ -144,6 +145,13 @@ async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
 	})
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
+pub struct OnFileDrop {
+	path: String,
+	x: f64,
+	y: f64,
+}
+
 const CLIENT_ID: &str = "2abb241e-40b8-4517-a3e3-5594375c8fbb";
 
 #[tokio::main]
@@ -232,7 +240,7 @@ async fn main() -> tauri::Result<()> {
 				updater::check_for_update,
 				updater::install_update
 			])
-			// .events(tauri_specta::collect_events![])
+			.events(tauri_specta::collect_events![OnFileDrop])
 			.config(specta::ts::ExportConfig::default().formatter(specta::ts::formatter::prettier));
 
 		#[cfg(debug_assertions)]
@@ -297,8 +305,8 @@ async fn main() -> tauri::Result<()> {
 			Ok(())
 		})
 		.on_menu_event(menu::handle_menu_event)
-		.on_window_event(|event| {
-			if let WindowEvent::Resized(_) = event.event() {
+		.on_window_event(|event| match event.event() {
+			WindowEvent::Resized(_) => {
 				let (_state, command) = if event
 					.window()
 					.is_fullscreen()
@@ -320,6 +328,21 @@ async fn main() -> tauri::Result<()> {
 					unsafe { sd_desktop_macos::set_titlebar_style(&nswindow, _state) };
 				}
 			}
+			WindowEvent::FileDrop(event) => match event {
+				FileDropEvent::Dropped(event) => {
+					// if let Err(err) = OnFileDrop {
+					// 	path: event.path().to_string_lossy().to_string(),
+					// 	x: event.x(),
+					// 	y: event.y(),
+					// }
+					// .emit_all(&handle)
+					// {
+					// 	error!("Error while emitting file drop event: {err:#?}");
+					// }
+				}
+				_ => {}
+			},
+			_ => {}
 		})
 		.menu(menu::get_menu())
 		.manage(updater::State::default())

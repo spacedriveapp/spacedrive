@@ -21,7 +21,7 @@ export * from './useRedirectToNewLocation';
 export * from './useRouteTitle';
 export * from './useShortcut';
 export * from './useShowControls';
-export * from './useDropAndDropState';
+export * from './useDragAndDropState';
 export * from './useTheme';
 export * from './useWindowState';
 export * from './useZodRouteParams';
