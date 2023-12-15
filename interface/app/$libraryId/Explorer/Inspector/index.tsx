@@ -418,7 +418,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 	const tags = useCache(tagsQuery.data?.items);
 
 	const labels = useLibraryQuery(['labels.list'], {
-		enabled: readyToFetch && !explorerStore.isDragging,
+		enabled: readyToFetch && !explorerStore.isDragSelecting,
 		suspense: true
 	});
 
@@ -429,7 +429,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 
 	const labelsWithObjects = useLibraryQuery(
 		['labels.getWithObjects', selectedObjects.map(({ id }) => id)],
-		{ enabled: readyToFetch && !explorerStore.isDragging }
+		{ enabled: readyToFetch && !explorerStore.isDragSelecting }
 	);
 
 	const getDate = useCallback((metadataDate: MetadataDate, date: Date) => {

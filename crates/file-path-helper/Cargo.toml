@@ -19,3 +19,6 @@ serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }
 tracing = { workspace = true }
+
+[target.'cfg(windows)'.dependencies.winapi-util]
+version = "0.1.6"

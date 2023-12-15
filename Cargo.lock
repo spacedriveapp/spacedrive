@@ -7005,7 +7005,6 @@ dependencies = [
  "tracing-test",
  "uuid",
  "webp",
- "winapi-util",
 ]
 
 [[package]]
@@ -7151,6 +7150,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "winapi-util",
 ]
 
 [[package]]

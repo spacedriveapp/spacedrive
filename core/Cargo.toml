@@ -132,9 +132,6 @@ features = ["vendored"]
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"
 
-[target.'cfg(windows)'.dependencies.winapi-util]
-version = "0.1.6"
-
 [dev-dependencies]
 tracing-test = "^0.2.4"
 aovec = "1.1.0"
