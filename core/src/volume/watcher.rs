@@ -1,9 +1,11 @@
 #[cfg(not(target_os = "linux"))]
+use crate::{invalidate_query, library::Library};
+
+#[cfg(not(target_os = "linux"))]
+use std::{collections::HashSet, sync::Arc};
+
+#[cfg(not(target_os = "linux"))]
 pub fn spawn_volume_watcher(library: Arc<Library>) {
-	use crate::{invalidate_query, library::Library};
-
-	use std::{collections::HashSet, sync::Arc};
-
 	use tokio::{
 		spawn,
 		time::{interval, Duration},
