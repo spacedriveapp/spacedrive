@@ -7279,8 +7279,10 @@ dependencies = [
  "half",
  "image",
  "ndarray",
+ "once_cell",
  "ort",
  "prisma-client-rust",
+ "reqwest",
  "rmp-serde",
  "sd-file-path-helper",
  "sd-prisma",
@@ -7290,6 +7292,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
+ "url",
  "uuid",
 ]
 

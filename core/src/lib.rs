@@ -7,7 +7,7 @@ use crate::{
 };
 
 #[cfg(feature = "skynet")]
-use sd_skynet::image_labeler::{ImageLabeler, YoloV8};
+use sd_skynet::image_labeler::{DownloadModelError, ImageLabeler, YoloV8};
 
 use api::notifications::{Notification, NotificationData, NotificationId};
 use chrono::{DateTime, Utc};
@@ -128,9 +128,12 @@ impl Node {
 			http: reqwest::Client::new(),
 			env,
 			#[cfg(feature = "skynet")]
-			image_labeller: ImageLabeler::new(YoloV8::model(), data_dir)
-				.await
-				.map_err(sd_skynet::Error::from)?,
+			image_labeller: ImageLabeler::new(
+				YoloV8::model(None, data_dir.join("models")).await?,
+				data_dir,
+			)
+			.await
+			.map_err(sd_skynet::Error::from)?,
 		});
 
 		// Restore backend feature flags
@@ -316,4 +319,7 @@ pub enum NodeError {
 	#[cfg(feature = "skynet")]
 	#[error("skynet error: {0}")]
 	Skynet(#[from] sd_skynet::Error),
+	#[cfg(feature = "skynet")]
+	#[error("Failed to download model: {0}")]
+	DownloadModel(#[from] DownloadModelError),
 }

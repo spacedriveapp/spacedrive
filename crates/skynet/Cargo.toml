@@ -19,15 +19,17 @@ chrono = { workspace = true, features = ["serde"] }
 futures = { workspace = true }
 futures-concurrency = { workspace = true }
 image = { workspace = true }
+once_cell = { workspace = true }
 prisma-client-rust = { workspace = true }
+reqwest = { workspace = true, features = ["stream", "native-tls-vendored"] }
 rmp-serde = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }
 tokio-stream = { workspace = true }
 tracing = { workspace = true }
+url = '2.5.0'
 uuid = { workspace = true, features = ["v4", "serde"] }
-
 
 # Note: Keep same version as used by ort
 ndarray = { version = "0.15.6" }

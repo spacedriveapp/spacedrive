@@ -1,13 +1,18 @@
 use crate::utils::get_path_relative_to_exe;
 
-use std::{collections::HashSet, path::Path};
+use std::{
+	collections::{HashMap, HashSet},
+	path::Path,
+};
 
 use half::f16;
 use image::{imageops::FilterType, load_from_memory_with_format, GenericImageView, ImageFormat};
 use ndarray::{s, Array, Axis};
+use once_cell::sync::Lazy;
 use ort::{inputs, SessionInputs, SessionOutputs};
+use url::Url;
 
-use super::{ImageLabelerError, Model};
+use super::{download_model, DownloadModelError, ImageLabelerError, Model, ModelOrigin};
 
 pub struct YoloV8 {
 	model_path: Box<Path>,
@@ -23,20 +28,52 @@ const MODEL_LOCATION: &str = if cfg!(target_os = "macos") {
 	"../share/spacedrive/models"
 };
 
-const MODEL_NAME: &str = "yolov8s.onnx";
+static MODEL_VERSIONS: Lazy<HashMap<&'static str, ModelOrigin>> = Lazy::new(|| {
+	HashMap::from([
+	("Yolo Nano", ModelOrigin::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8n.onnx").expect("Must be a valid URL"))),
+	("Yolo Small", ModelOrigin::Path(get_path_relative_to_exe(Path::new(MODEL_LOCATION).join("yolov8s.onnx")))),
+	("Yolo Medium", ModelOrigin::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8m.onnx").expect("Must be a valid URL"))),
+	("Yolo Large", ModelOrigin::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8l.onnx").expect("Must be a valid URL"))),
+	("Yolo Extra", ModelOrigin::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8x.onnx").expect("Must be a valid URL"))),
+])
+});
 
 impl YoloV8 {
-	pub fn model() -> Box<dyn Model> {
-		Box::new(Self {
-			model_path: get_path_relative_to_exe(Path::new(MODEL_LOCATION).join(MODEL_NAME))
-				.into_boxed_path(),
-		})
+	pub async fn model(
+		version: Option<&str>,
+		data_dir: impl AsRef<Path>,
+	) -> Result<Box<dyn Model>, DownloadModelError> {
+		let model_path = if let Some(version) = version {
+			download_model(
+				MODEL_VERSIONS
+					.get(version)
+					.ok_or_else(|| DownloadModelError::UnknownModelVersion(version.to_string()))?,
+				data_dir,
+			)
+			.await?
+		} else {
+			match MODEL_VERSIONS
+				.get("Yolo Small")
+				.expect("Default model version must be valid")
+			{
+				ModelOrigin::Path(path) => path.to_owned(),
+				ModelOrigin::Url(_) => panic!("Defautl model must be an already existing path"),
+			}
+		};
+
+		Ok(Box::new(Self {
+			model_path: model_path.into_boxed_path(),
+		}))
 	}
 }
 
 impl Model for YoloV8 {
 	fn path(&self) -> &Path {
 		&self.model_path
+	}
+
+	fn versions(&self) -> Vec<&str> {
+		MODEL_VERSIONS.keys().copied().collect()
 	}
 
 	fn prepare_input<'image>(

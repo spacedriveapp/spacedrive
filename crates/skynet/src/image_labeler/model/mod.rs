@@ -1,11 +1,20 @@
 use sd_utils::error::FileIOError;
 
-use std::{collections::HashSet, path::Path};
+use std::{
+	collections::HashSet,
+	path::{Path, PathBuf},
+};
 
+use futures::prelude::stream::StreamExt;
 use image::ImageFormat;
 use ort::{Session, SessionBuilder, SessionInputs, SessionOutputs};
-use tokio::{fs, io};
+use thiserror::Error;
+use tokio::{
+	fs,
+	io::{self, AsyncWriteExt},
+};
 use tracing::{error, info, trace};
+use url::Url;
 
 use super::ImageLabelerError;
 
@@ -13,12 +22,19 @@ mod yolov8;
 
 pub use yolov8::YoloV8;
 
+enum ModelOrigin {
+	Url(Url),
+	Path(PathBuf),
+}
+
 pub trait Model: Send + Sync + 'static {
 	fn name(&self) -> &'static str {
 		std::any::type_name::<Self>()
 	}
 
 	fn path(&self) -> &Path;
+
+	fn versions(&self) -> Vec<&str>;
 
 	fn prepare_input<'image>(
 		&self,
@@ -112,12 +128,59 @@ impl ModelAndSession {
 	}
 }
 
+#[derive(Error, Debug)]
+pub enum DownloadModelError {
+	#[error("Failed to download due to io error: {0}")]
+	IOError(#[from] std::io::Error),
+	#[error("Failed to download due to request error: {0}")]
+	RequestError(#[from] reqwest::Error),
+	#[error("Failed to download due to status code: {0}")]
+	HttpStatusError(reqwest::StatusCode),
+	#[error("Invalid file name for url: {0}")]
+	InvalidUrlFileName(Url),
+	#[error("Unknown model version to download: {0}")]
+	UnknownModelVersion(String),
+}
+
 fn load_model(model: &dyn Model) -> Result<Session, ImageLabelerError> {
 	SessionBuilder::new()?
 		.with_parallel_execution(true)?
 		.with_memory_pattern(true)?
 		.with_model_from_file(model.path())
 		.map_err(Into::into)
+}
+
+async fn download_model(
+	model_origin: &ModelOrigin,
+	data_dir: impl AsRef<Path>,
+) -> Result<PathBuf, DownloadModelError> {
+	match model_origin {
+		ModelOrigin::Url(url) => {
+			let Some(file_name) = url.path_segments().and_then(|segments| segments.last()) else {
+				return Err(DownloadModelError::InvalidUrlFileName(url.to_owned()));
+			};
+			let file_path = data_dir.as_ref().join(file_name);
+			if !file_path.exists() {
+				let response = reqwest::get(url.as_str()).await?;
+				// Ensure the request was successful (status code 2xx)
+				if !response.status().is_success() {
+					return Err(DownloadModelError::HttpStatusError(response.status()));
+				}
+
+				// Create or open a file at the specified path
+				let mut file = fs::File::create(&file_path).await?;
+				// Stream the response body to the file
+				let mut body = response.bytes_stream();
+				while let Some(chunk) = body.next().await {
+					let chunk = chunk?;
+					file.write_all(&chunk).await?;
+				}
+			}
+
+			Ok(file_path)
+		}
+		ModelOrigin::Path(file_path) => Ok(file_path.to_owned()),
+	}
 }
 
 async fn check_model_file(model_path: impl AsRef<Path>) -> Result<(), ImageLabelerError> {

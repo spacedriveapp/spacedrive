@@ -12,7 +12,7 @@ mod model;
 mod process;
 
 pub use actor::ImageLabeler;
-pub use model::{Model, YoloV8};
+pub use model::{DownloadModelError, Model, YoloV8};
 
 pub type BatchToken = Uuid;
 
