@@ -23,7 +23,7 @@ export const FullDisk = () => {
 			</div>
 			<div className="flex items-center gap-3">
 				<Button onClick={requestFdaMacos} variant="gray" size="sm" className="my-5">
-					Open Settings
+					{t('open_settings')}
 				</Button>
 			</div>
 			<div className="flex gap-3">

@@ -10,12 +10,12 @@ import {
 	type VideoHTMLAttributes
 } from 'react';
 import { getItemFilePath, useLibraryContext } from '@sd/client';
+import i18n from '~/app/I18n';
 import { PDFViewer, TextViewer } from '~/components';
 import { useLocale } from '~/hooks';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { usePlatform } from '~/util/Platform';
 
-import { i18n } from '../../../I18n';
 import { useExplorerContext } from '../Context';
 import { getExplorerStore } from '../store';
 import { ExplorerItemData } from '../util';

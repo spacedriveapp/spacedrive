@@ -47,14 +47,14 @@ export default function OnboardingLogin() {
 						</ButtonLink>
 
 						<div className="space-x-2 text-center text-sm">
-							<span>Not you?</span>
+							<span>{t('not_you')}</span>
 							<Button
 								onClick={auth.logout}
 								variant="bare"
 								size="md"
 								className="border-none !p-0 font-normal text-accent-deep hover:underline"
 							>
-								Log out
+								{t('log_out')}
 							</Button>
 						</div>
 					</div>
@@ -80,11 +80,11 @@ export default function OnboardingLogin() {
 							onLogin={() => navigate('../new-library', { replace: true })}
 							size="md"
 						>
-							Log in with browser
+							{t('log_in_with_browser')}
 						</LoginButton>
 
 						<div className="space-x-2 text-center text-sm">
-							<span>Want to do this later?</span>
+							<span>{t('want_to_do_this_later')}</span>
 							<ButtonLink
 								to="../new-library"
 								variant="bare"
@@ -92,7 +92,7 @@ export default function OnboardingLogin() {
 								className="border-none !p-0 font-normal text-accent-deep hover:underline"
 								replace
 							>
-								Skip login
+								{t('skip_login')}
 							</ButtonLink>
 						</div>
 					</div>
