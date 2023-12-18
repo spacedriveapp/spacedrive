@@ -129,7 +129,7 @@ impl Node {
 			env,
 			#[cfg(feature = "skynet")]
 			image_labeller: ImageLabeler::new(
-				YoloV8::model(None, data_dir.join("models")).await?,
+				YoloV8::model::<String>(None, data_dir.join("models")).await?,
 				data_dir,
 			)
 			.await

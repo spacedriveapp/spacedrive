@@ -27,6 +27,7 @@ mod keys;
 mod labels;
 mod libraries;
 pub mod locations;
+mod models;
 mod nodes;
 pub mod notifications;
 mod p2p;
@@ -204,6 +205,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("files.", files::mount())
 		.merge("jobs.", jobs::mount())
 		.merge("p2p.", p2p::mount())
+		.merge("models.", models::mount())
 		.merge("nodes.", nodes::mount())
 		.merge("sync.", sync::mount())
 		.merge("preferences.", preferences::mount())

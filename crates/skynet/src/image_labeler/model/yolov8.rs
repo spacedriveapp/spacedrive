@@ -2,6 +2,7 @@ use crate::utils::get_path_relative_to_exe;
 
 use std::{
 	collections::{HashMap, HashSet},
+	fmt::Display,
 	path::Path,
 };
 
@@ -39,14 +40,17 @@ static MODEL_VERSIONS: Lazy<HashMap<&'static str, ModelOrigin>> = Lazy::new(|| {
 });
 
 impl YoloV8 {
-	pub async fn model(
-		version: Option<&str>,
+	pub async fn model<T>(
+		version: Option<T>,
 		data_dir: impl AsRef<Path>,
-	) -> Result<Box<dyn Model>, DownloadModelError> {
+	) -> Result<Box<dyn Model>, DownloadModelError>
+	where
+		T: AsRef<str> + Display,
+	{
 		let model_path = if let Some(version) = version {
 			download_model(
 				MODEL_VERSIONS
-					.get(version)
+					.get(version.as_ref())
 					.ok_or_else(|| DownloadModelError::UnknownModelVersion(version.to_string()))?,
 				data_dir,
 			)
@@ -57,7 +61,7 @@ impl YoloV8 {
 				.expect("Default model version must be valid")
 			{
 				ModelOrigin::Path(path) => path.to_owned(),
-				ModelOrigin::Url(_) => panic!("Defautl model must be an already existing path"),
+				ModelOrigin::Url(_) => panic!("Default model must be an already existing path"),
 			}
 		};
 
@@ -72,7 +76,7 @@ impl Model for YoloV8 {
 		&self.model_path
 	}
 
-	fn versions(&self) -> Vec<&str> {
+	fn versions() -> Vec<&'static str> {
 		MODEL_VERSIONS.keys().copied().collect()
 	}
 

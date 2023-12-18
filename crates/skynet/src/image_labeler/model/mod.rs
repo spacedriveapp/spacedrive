@@ -34,7 +34,9 @@ pub trait Model: Send + Sync + 'static {
 
 	fn path(&self) -> &Path;
 
-	fn versions(&self) -> Vec<&str>;
+	fn versions() -> Vec<&'static str>
+	where
+		Self: Sized;
 
 	fn prepare_input<'image>(
 		&self,
