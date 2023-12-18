@@ -28,6 +28,7 @@ export const Component = () => {
 	const debugState = useDebugState();
 	const editNode = useBridgeMutation('nodes.edit');
 	const connectedPeers = useConnectedPeers();
+	const image_labeler_versions = useBridgeQuery(['models.image_detection.list']);
 	const updateThumbnailerPreferences = useBridgeMutation('nodes.updateThumbnailerPreferences');
 
 	const form = useZodForm({
@@ -37,6 +38,7 @@ export const Component = () => {
 				p2p_enabled: z.boolean().optional(),
 				p2p_port: u16,
 				customOrDefault: z.enum(['Custom', 'Default']),
+				image_labeler_version: z.string().optional(),
 				background_processing_percentage: z.coerce
 					.number({
 						invalid_type_error: 'Must use numbers from 0 to 100'
@@ -49,9 +51,10 @@ export const Component = () => {
 		reValidateMode: 'onChange',
 		defaultValues: {
 			name: node.data?.name,
-			p2p_enabled: node.data?.p2p_enabled,
 			p2p_port: node.data?.p2p_port || 0,
+			p2p_enabled: node.data?.p2p_enabled,
 			customOrDefault: node.data?.p2p_port ? 'Custom' : 'Default',
+			image_labeler_version: node.data?.image_labeler_version ?? undefined,
 			background_processing_percentage:
 				node.data?.preferences.thumbnailer.background_processing_percentage || 50
 		}
@@ -65,8 +68,9 @@ export const Component = () => {
 		if (await form.trigger()) {
 			await editNode.mutateAsync({
 				name: value.name || null,
-				p2p_enabled: value.p2p_enabled === undefined ? null : value.p2p_enabled,
-				p2p_port: value.customOrDefault === 'Default' ? 0 : Number(value.p2p_port)
+				p2p_port: value.customOrDefault === 'Default' ? 0 : Number(value.p2p_port),
+				p2p_enabled: value.p2p_enabled ?? null,
+				image_labeler_version: value.image_labeler_version ?? null
 			});
 
 			if (value.background_processing_percentage != undefined) {
@@ -215,6 +219,29 @@ export const Component = () => {
 						{...form.register('background_processing_percentage', {
 							valueAsNumber: true
 						})}
+					/>
+				</div>
+			</Setting>
+			<Setting
+				mini
+				title="Image label recognition AI model"
+				description="The model used to recognize objects in images. Larger models are more accurate but slower."
+				registerName="image_labeler_version"
+			>
+				<div className="flex h-[30px] gap-2">
+					<Controller
+						name="image_labeler_version"
+						disabled={node.data?.image_labeler_version == null}
+						control={form.control}
+						render={({ field }) => (
+							<Select {...field} containerClassName="h-[30px]">
+								{image_labeler_versions.data?.map((model, key) => (
+									<SelectOption key={key} value={model}>
+										{model}
+									</SelectOption>
+								))}
+							</Select>
+						)}
 					/>
 				</div>
 			</Setting>

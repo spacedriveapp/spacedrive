@@ -13,10 +13,11 @@ use once_cell::sync::Lazy;
 use ort::{inputs, SessionInputs, SessionOutputs};
 use url::Url;
 
-use super::{download_model, DownloadModelError, ImageLabelerError, Model, ModelOrigin};
+use super::{DownloadModelError, ImageLabelerError, Model, ModelOrigin};
 
 pub struct YoloV8 {
-	model_path: Box<Path>,
+	model_origin: &'static ModelOrigin,
+	model_version: String,
 }
 
 // This path must be relative to the running binary
@@ -29,51 +30,55 @@ const MODEL_LOCATION: &str = if cfg!(target_os = "macos") {
 	"../share/spacedrive/models"
 };
 
+pub static DEFAULT_MODEL_VERSION: &str = "Yolo Small";
+
 static MODEL_VERSIONS: Lazy<HashMap<&'static str, ModelOrigin>> = Lazy::new(|| {
 	HashMap::from([
-	("Yolo Nano", ModelOrigin::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8n.onnx").expect("Must be a valid URL"))),
-	("Yolo Small", ModelOrigin::Path(get_path_relative_to_exe(Path::new(MODEL_LOCATION).join("yolov8s.onnx")))),
-	("Yolo Medium", ModelOrigin::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8m.onnx").expect("Must be a valid URL"))),
-	("Yolo Large", ModelOrigin::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8l.onnx").expect("Must be a valid URL"))),
-	("Yolo Extra", ModelOrigin::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8x.onnx").expect("Must be a valid URL"))),
-])
+		("Yolo Nano", ModelOrigin::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8n.onnx").expect("Must be a valid URL"))),
+		(DEFAULT_MODEL_VERSION, ModelOrigin::Path(get_path_relative_to_exe(Path::new(MODEL_LOCATION).join("yolov8s.onnx")))),
+		("Yolo Medium", ModelOrigin::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8m.onnx").expect("Must be a valid URL"))),
+		("Yolo Large", ModelOrigin::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8l.onnx").expect("Must be a valid URL"))),
+		("Yolo Extra", ModelOrigin::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8x.onnx").expect("Must be a valid URL"))),
+	])
 });
 
 impl YoloV8 {
-	pub async fn model<T>(
-		version: Option<T>,
-		data_dir: impl AsRef<Path>,
-	) -> Result<Box<dyn Model>, DownloadModelError>
+	pub fn model<T>(version: Option<T>) -> Result<Box<dyn Model>, DownloadModelError>
 	where
 		T: AsRef<str> + Display,
 	{
-		let model_path = if let Some(version) = version {
-			download_model(
+		let (model_version, model_origin) = match version {
+			Some(version) => (
+				version.to_string(),
 				MODEL_VERSIONS
 					.get(version.as_ref())
 					.ok_or_else(|| DownloadModelError::UnknownModelVersion(version.to_string()))?,
-				data_dir,
-			)
-			.await?
-		} else {
-			match MODEL_VERSIONS
-				.get("Yolo Small")
-				.expect("Default model version must be valid")
-			{
-				ModelOrigin::Path(path) => path.to_owned(),
-				ModelOrigin::Url(_) => panic!("Default model must be an already existing path"),
+			),
+			None => {
+				let version = DEFAULT_MODEL_VERSION;
+				(
+					version.to_string(),
+					MODEL_VERSIONS
+						.get(version)
+						.expect("Default model version must be valid"),
+				)
 			}
 		};
 
 		Ok(Box::new(Self {
-			model_path: model_path.into_boxed_path(),
+			model_origin,
+			model_version,
 		}))
 	}
 }
 
 impl Model for YoloV8 {
-	fn path(&self) -> &Path {
-		&self.model_path
+	fn origin(&self) -> &'static ModelOrigin {
+		self.model_origin
+	}
+
+	fn version(&self) -> &str {
+		self.model_version.as_str()
 	}
 
 	fn versions() -> Vec<&'static str> {

@@ -21,8 +21,9 @@ use super::ImageLabelerError;
 mod yolov8;
 
 pub use yolov8::YoloV8;
+pub use yolov8::DEFAULT_MODEL_VERSION;
 
-enum ModelOrigin {
+pub enum ModelOrigin {
 	Url(Url),
 	Path(PathBuf),
 }
@@ -32,7 +33,9 @@ pub trait Model: Send + Sync + 'static {
 		std::any::type_name::<Self>()
 	}
 
-	fn path(&self) -> &Path;
+	fn origin(&self) -> &ModelOrigin;
+
+	fn version(&self) -> &str;
 
 	fn versions() -> Vec<&'static str>
 	where
@@ -54,16 +57,22 @@ pub trait Model: Send + Sync + 'static {
 pub(super) struct ModelAndSession {
 	maybe_model: Option<Box<dyn Model>>,
 	maybe_session: Option<Session>,
+	model_data_dir: PathBuf,
 }
 
 impl ModelAndSession {
-	pub async fn new(model: Box<dyn Model>) -> Self {
-		let maybe_session = check_model_file(model.path())
+	pub async fn new(
+		model: Box<dyn Model>,
+		data_dir: impl AsRef<Path>,
+	) -> Result<Self, DownloadModelError> {
+		let data_dir = data_dir.as_ref().join(model.name());
+		let model_path = download_model(model.origin(), &data_dir).await?;
+		let maybe_session = check_model_file(&model_path)
 			.await
 			.map_err(|e| error!("Failed to check model file before passing to Ort: {e:#?}"))
 			.ok()
 			.and_then(|()| {
-				load_model(model.as_ref())
+				load_model(&model_path)
 					.map(|session| {
 						info!("Loaded model: {}", model.name());
 						trace!("{session:#?}");
@@ -73,10 +82,11 @@ impl ModelAndSession {
 					.ok()
 			});
 
-		Self {
+		Ok(Self {
 			maybe_model: maybe_session.is_some().then_some(model),
 			maybe_session,
-		}
+			model_data_dir: data_dir,
+		})
 	}
 
 	pub fn can_process(&self) -> bool {
@@ -89,8 +99,10 @@ impl ModelAndSession {
 	) -> Result<(), ImageLabelerError> {
 		info!("Attempting to change image labeler models...");
 
-		check_model_file(new_model.path()).await.and_then(|()| {
-			load_model(new_model.as_ref())
+		let model_path = download_model(new_model.origin(), &self.model_data_dir).await?;
+
+		check_model_file(&model_path).await.and_then(|()| {
+			load_model(&model_path)
 				.map(|session| {
 					info!(
 						"Changing models: {} -> {}",
@@ -144,11 +156,11 @@ pub enum DownloadModelError {
 	UnknownModelVersion(String),
 }
 
-fn load_model(model: &dyn Model) -> Result<Session, ImageLabelerError> {
+fn load_model(model_path: impl AsRef<Path>) -> Result<Session, ImageLabelerError> {
 	SessionBuilder::new()?
 		.with_parallel_execution(true)?
 		.with_memory_pattern(true)?
-		.with_model_from_file(model.path())
+		.with_model_from_file(model_path)
 		.map_err(Into::into)
 }
 

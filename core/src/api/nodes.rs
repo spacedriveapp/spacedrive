@@ -16,8 +16,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Deserialize, Type)]
 			pub struct ChangeNodeNameArgs {
 				pub name: Option<String>,
-				pub p2p_enabled: Option<bool>,
 				pub p2p_port: MaybeUndefined<u16>,
+				pub p2p_enabled: Option<bool>,
+				pub image_labeler_version: Option<String>,
 			}
 			R.mutation(|node, args: ChangeNodeNameArgs| async move {
 				if let Some(name) = &args.name {
@@ -32,6 +33,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				let does_p2p_need_refresh =
 					args.p2p_enabled.is_some() || args.p2p_port.is_defined();
 
+				#[cfg(feature = "skynet")]
+				let mut new_model = None;
+
 				node.config
 					.write(|config| {
 						if let Some(name) = args.name {
@@ -43,6 +47,28 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						if let Some(v) = args.p2p_port.into() {
 							config.p2p.port = v;
 						}
+
+						#[cfg(feature = "skynet")]
+						if let Some(version) = args.image_labeler_version {
+							if config
+								.image_labeler_version
+								.as_ref()
+								.map(|node_version| version == *node_version)
+								.unwrap_or(true)
+							{
+								new_model = sd_skynet::image_labeler::YoloV8::model(Some(&version))
+									.map_err(|e| {
+										error!(
+										"Failed to download image_detection model: '{}'; Error: {e:#?}",
+										&version,
+									);
+									})
+									.ok();
+								if new_model.is_some() {
+									config.image_labeler_version = Some(version);
+								}
+							}
+						}
 					})
 					.await
 					.map_err(|err| {
@@ -52,6 +78,23 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							"error updating config".into(),
 						)
 					})?;
+
+				#[cfg(feature = "skynet")]
+				{
+					if let Some(model) = new_model {
+						let version = model.version().to_string();
+						node.image_labeller.change_model(model).await.map_err(|e| {
+							error!(
+								"Failed to change image_detection model: '{}'; Error: {e:#?}",
+								version,
+							);
+							rspc::Error::new(
+								rspc::ErrorCode::BadRequest,
+								"Failed to change image detection model".to_string(),
+							)
+						})?;
+					}
+				}
 
 				// If a P2P config was modified reload it
 				if does_p2p_need_refresh {

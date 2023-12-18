@@ -95,6 +95,7 @@ pub struct SanitisedNodeConfig {
 	pub p2p_port: Option<u16>,
 	pub features: Vec<BackendFeature>,
 	pub preferences: NodePreferences,
+	pub image_labeler_version: Option<String>,
 }
 
 impl From<NodeConfig> for SanitisedNodeConfig {
@@ -106,6 +107,7 @@ impl From<NodeConfig> for SanitisedNodeConfig {
 			p2p_port: value.p2p.port,
 			features: value.features,
 			preferences: value.preferences,
+			image_labeler_version: value.image_labeler_version,
 		}
 	}
 }

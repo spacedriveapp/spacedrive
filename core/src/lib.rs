@@ -102,6 +102,8 @@ impl Node {
 
 		#[cfg(feature = "skynet")]
 		sd_skynet::init()?;
+		#[cfg(feature = "skynet")]
+		let image_labeler_version = config.get().await.image_labeler_version;
 
 		let (locations, locations_actor) = location::Locations::new();
 		let (jobs, jobs_actor) = job::Jobs::new();
@@ -128,12 +130,9 @@ impl Node {
 			http: reqwest::Client::new(),
 			env,
 			#[cfg(feature = "skynet")]
-			image_labeller: ImageLabeler::new(
-				YoloV8::model::<String>(None, data_dir.join("models")).await?,
-				data_dir,
-			)
-			.await
-			.map_err(sd_skynet::Error::from)?,
+			image_labeller: ImageLabeler::new(YoloV8::model(image_labeler_version)?, data_dir)
+				.await
+				.map_err(sd_skynet::Error::from)?,
 		});
 
 		// Restore backend feature flags

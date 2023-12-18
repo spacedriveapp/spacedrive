@@ -17,9 +17,7 @@ use futures::stream::StreamExt;
 use futures_concurrency::stream::Merge;
 use serde::{Deserialize, Serialize};
 use tokio::{
-	fs,
-	io::{self, ErrorKind},
-	spawn,
+	fs, io, spawn,
 	sync::{oneshot, RwLock},
 	task::JoinHandle,
 	time::timeout,
@@ -81,7 +79,9 @@ impl ImageLabeler {
 	) -> Result<Self, ImageLabelerError> {
 		let to_resume_batches_file_path = data_directory.as_ref().join(PENDING_BATCHES_FILE);
 
-		let model_and_session = Arc::new(RwLock::new(ModelAndSession::new(model).await));
+		let model_and_session = Arc::new(RwLock::new(
+			ModelAndSession::new(model, data_directory).await?,
+		));
 
 		let to_resume_batches = Arc::new(RwLock::new(
 			match fs::read(&to_resume_batches_file_path).await {
@@ -220,22 +220,6 @@ impl ImageLabeler {
 	}
 
 	pub async fn change_model(&self, model: Box<dyn Model>) -> Result<(), ImageLabelerError> {
-		let model_path = model.path();
-
-		match fs::metadata(model_path).await {
-			Err(e) if e.kind() == ErrorKind::NotFound => {
-				return Err(ImageLabelerError::ModelFileNotFound(model_path.into()));
-			}
-			Err(e) => {
-				return Err(ImageLabelerError::FileIO(FileIOError::from((
-					model_path,
-					e,
-					"Failed to get metadata for model file",
-				))))
-			}
-			_ => {}
-		}
-
 		let (tx, rx) = oneshot::channel();
 
 		if self.update_model_tx.send((model, tx)).await.is_err() {

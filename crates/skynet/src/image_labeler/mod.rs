@@ -12,7 +12,7 @@ mod model;
 mod process;
 
 pub use actor::ImageLabeler;
-pub use model::{DownloadModelError, Model, YoloV8};
+pub use model::{DownloadModelError, Model, YoloV8, DEFAULT_MODEL_VERSION};
 
 pub type BatchToken = Uuid;
 
@@ -46,7 +46,8 @@ pub enum ImageLabelerError {
 	Database(#[from] prisma_client_rust::QueryError),
 	#[error("resume token not found: {0}")]
 	TokenNotFound(BatchToken),
-
+	#[error(transparent)]
+	DownloadModel(#[from] DownloadModelError),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
 }
