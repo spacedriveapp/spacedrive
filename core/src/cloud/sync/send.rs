@@ -9,16 +9,12 @@ use std::{sync::Arc, time::Duration};
 use tokio::time::sleep;
 use uuid::Uuid;
 
-pub async fn run_actor(library: Arc<Library>, node: Arc<Node>) {
+pub async fn run_actor((library, node): (Arc<Library>, Arc<Node>)) {
 	let db = &library.db;
 	let api_url = &library.env.api_url;
 	let library_id = library.id;
 
 	loop {
-		println!("send_actor run");
-
-		println!("send_actor sending");
-
 		loop {
 			let instances = err_break!(
 				db.instance()
@@ -55,8 +51,6 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>) {
 				.await
 			);
 
-			println!("Add Requests: {req_adds:#?}");
-
 			let mut instances = vec![];
 
 			for req_add in req_adds {
@@ -72,14 +66,14 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>) {
 										.from_time
 										.unwrap_or_else(|| "0".to_string())
 										.parse()
-										.unwrap(),
+										.expect("couldn't parse ntp64 value"),
 								),
 							)],
 						})
 						.await
 				);
 
-				if ops.len() == 0 {
+				if ops.is_empty() {
 					continue;
 				}
 
@@ -100,11 +94,11 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>) {
 				"Number of messages: {}",
 				instances
 					.iter()
-					.map(|i| i["contents"].as_array().unwrap().len())
+					.map(|i| i["contents"].as_array().expect("no contents found").len())
 					.sum::<usize>()
 			);
 
-			if instances.len() == 0 {
+			if instances.is_empty() {
 				break;
 			}
 
@@ -115,7 +109,7 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>) {
 				// from_time: String,
 			}
 
-			let responses = err_break!(
+			let _responses = err_break!(
 				err_break!(
 					node.authed_api_request(
 						node.http
@@ -129,8 +123,6 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>) {
 				.json::<Vec<DoAdd>>()
 				.await
 			);
-
-			println!("DoAdd Responses: {responses:#?}");
 		}
 
 		{
@@ -144,8 +136,6 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>) {
 				};
 			}
 		}
-
-		println!("send_actor sleeping");
 
 		sleep(Duration::from_millis(1000)).await;
 	}

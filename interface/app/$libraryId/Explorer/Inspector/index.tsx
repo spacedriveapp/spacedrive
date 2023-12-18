@@ -400,7 +400,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 	const { libraryId } = useZodRouteParams(LibraryIdParamsSchema);
 
 	const tagsQuery = useLibraryQuery(['tags.list'], {
-		enabled: readyToFetch && !explorerStore.isDragging,
+		enabled: readyToFetch && !explorerStore.isDragSelecting,
 		suspense: true
 	});
 	useNodes(tagsQuery.data?.nodes);
@@ -408,7 +408,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 
 	const tagsWithObjects = useLibraryQuery(
 		['tags.getWithObjects', selectedObjects.map(({ id }) => id)],
-		{ enabled: readyToFetch && !explorerStore.isDragging }
+		{ enabled: readyToFetch && !explorerStore.isDragSelecting }
 	);
 
 	const getDate = useCallback((metadataDate: MetadataDate, date: Date) => {

@@ -19,7 +19,7 @@ export default function OnboardingNewLibrary() {
 		// TODO
 	};
 
-	const cloudFeatureFlag = useFeatureFlag('cloud');
+	const cloudFeatureFlag = useFeatureFlag('cloudSync');
 
 	return (
 		<Form

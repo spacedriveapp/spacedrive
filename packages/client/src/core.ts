@@ -79,6 +79,8 @@ export type Procedures = {
         { key: "library.create", input: CreateLibraryArgs, result: NormalisedResult<LibraryConfigWrapped> } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
+        { key: "library.startActor", input: LibraryArgs<string>, result: null } | 
+        { key: "library.stopActor", input: LibraryArgs<string>, result: null } | 
         { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
         { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
         { key: "locations.delete", input: LibraryArgs<number>, result: null } | 
@@ -111,6 +113,7 @@ export type Procedures = {
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string[] } | 
         { key: "jobs.progress", input: LibraryArgs<null>, result: JobProgressEvent } | 
+        { key: "library.actors", input: LibraryArgs<null>, result: { [key in string]: boolean } } | 
         { key: "locations.online", input: never, result: number[][] } | 
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "notifications.listen", input: never, result: Notification } | 

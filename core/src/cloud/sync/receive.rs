@@ -14,14 +14,15 @@ use sd_sync::*;
 use sd_utils::{from_bytes_to_uuid, uuid_to_bytes};
 use serde::Deserialize;
 use serde_json::{json, to_vec};
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+	collections::{hash_map::Entry, HashMap},
+	sync::Arc,
+	time::Duration,
+};
 use tokio::{sync::Notify, time::sleep};
-use tracing::debug;
 use uuid::Uuid;
 
-pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Arc<Notify>) {
-	debug!("receive actor running");
-
+pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>, Arc<Notify>)) {
 	let db = &library.db;
 	let api_url = &library.env.api_url;
 	let library_id = library.id;
@@ -45,7 +46,9 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Ar
 			.zip(timestamps.keys())
 			.map(|(d, id)| {
 				let cloud_timestamp = NTP64(d.map(|d| d.timestamp).unwrap_or_default() as u64);
-				let sync_timestamp = *timestamps.get(id).unwrap();
+				let sync_timestamp = *timestamps
+					.get(id)
+					.expect("unable to find matching timestamp");
 
 				let max_timestamp = Ord::max(cloud_timestamp, sync_timestamp);
 
@@ -85,28 +88,27 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Ar
 		}
 
 		{
-			let collections = err_break!(
-				err_break!(
-					node.authed_api_request(
-						node.http
-							.post(&format!(
-								"{api_url}/api/v1/libraries/{library_id}/messageCollections/get"
-							))
-							.json(&json!({
-								"instanceUuid": library.instance_uuid,
-								"timestamps": instances
-							})),
-					)
-					.await
+			let collections = node
+				.authed_api_request(
+					node.http
+						.post(&format!(
+							"{api_url}/api/v1/libraries/{library_id}/messageCollections/get"
+						))
+						.json(&json!({
+							"instanceUuid": library.instance_uuid,
+							"timestamps": instances
+						})),
 				)
+				.await
+				.expect("couldn't get response")
 				.json::<Vec<MessageCollection>>()
 				.await
-			);
+				.expect("couldn't deserialize response");
 
 			let mut cloud_library_data: Option<Option<sd_cloud_api::Library>> = None;
 
 			for collection in collections {
-				if !cloud_timestamps.contains_key(&collection.instance_uuid) {
+				if let Entry::Vacant(e) = cloud_timestamps.entry(collection.instance_uuid) {
 					let fetched_library = match &cloud_library_data {
 						None => {
 							let Some(fetched_library) = err_break!(
@@ -122,7 +124,7 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Ar
 							cloud_library_data
 								.insert(Some(fetched_library))
 								.as_ref()
-								.unwrap()
+								.expect("error inserting fetched library")
 						}
 						Some(None) => {
 							break;
@@ -140,14 +142,14 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Ar
 
 					err_break!(
 						create_instance(
-							&db,
+							db,
 							collection.instance_uuid,
 							err_break!(BASE64_STANDARD.decode(instance.identity.clone()))
 						)
 						.await
 					);
 
-					cloud_timestamps.insert(collection.instance_uuid, NTP64(0));
+					e.insert(NTP64(0));
 				}
 
 				err_break!(
@@ -160,7 +162,8 @@ pub async fn run_actor(library: Arc<Library>, node: Arc<Node>, ingest_notify: Ar
 					.await
 				);
 
-				let collection_timestamp = NTP64(collection.end_time.parse().unwrap());
+				let collection_timestamp =
+					NTP64(collection.end_time.parse().expect("unable to parse time"));
 
 				let timestamp = cloud_timestamps
 					.entry(collection.instance_uuid)
@@ -184,10 +187,10 @@ async fn write_cloud_ops_to_db(
 ) -> Result<(), prisma_client_rust::QueryError> {
 	let (shared, relation): (Vec<_>, Vec<_>) = ops.into_iter().partition_map(|op| match &op.typ {
 		CRDTOperationType::Shared(shared_op) => {
-			Either::Left(shared_op_db(&op, &shared_op).to_query(&db))
+			Either::Left(shared_op_db(&op, shared_op).to_query(db))
 		}
 		CRDTOperationType::Relation(relation_op) => {
-			Either::Right(relation_op_db(&op, &relation_op).to_query(&db))
+			Either::Right(relation_op_db(&op, relation_op).to_query(db))
 		}
 	});
 
@@ -202,9 +205,9 @@ fn shared_op_db(op: &CRDTOperation, shared_op: &SharedOperation) -> cloud_shared
 		timestamp: op.timestamp.0 as i64,
 		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
 		kind: shared_op.kind().to_string(),
-		data: to_vec(&shared_op.data).unwrap(),
+		data: to_vec(&shared_op.data).expect("unable to serialize data"),
 		model: shared_op.model.to_string(),
-		record_id: to_vec(&shared_op.record_id).unwrap(),
+		record_id: to_vec(&shared_op.record_id).expect("unable to serialize record id"),
 		_params: vec![],
 	}
 }
@@ -218,10 +221,10 @@ fn relation_op_db(
 		timestamp: op.timestamp.0 as i64,
 		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
 		kind: relation_op.kind().to_string(),
-		data: to_vec(&relation_op.data).unwrap(),
+		data: to_vec(&relation_op.data).expect("unable to serialize data"),
 		relation: relation_op.relation.to_string(),
-		item_id: to_vec(&relation_op.relation_item).unwrap(),
-		group_id: to_vec(&relation_op.relation_group).unwrap(),
+		item_id: to_vec(&relation_op.relation_item).expect("unable to serialize item id"),
+		group_id: to_vec(&relation_op.relation_group).expect("unable to serialize group id"),
 		_params: vec![],
 	}
 }

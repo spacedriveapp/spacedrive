@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { useMemo, useRef } from 'react';
+import { useRef } from 'react';
 import {
 	getEphemeralPath,
 	getExplorerItemData,
@@ -12,30 +12,30 @@ import { toast } from '@sd/ui';
 import { useIsDark } from '~/hooks';
 
 import { useExplorerContext } from '../Context';
-import { RenameTextBox } from '../FilePath/RenameTextBox';
+import { RenameTextBox, RenameTextBoxProps } from '../FilePath/RenameTextBox';
 import { useQuickPreviewStore } from '../QuickPreview/store';
+import { useExplorerStore } from '../store';
 
-interface Props {
+interface Props extends Pick<RenameTextBoxProps, 'idleClassName' | 'lines'> {
 	item: ExplorerItem;
 	allowHighlight?: boolean;
 	style?: React.CSSProperties;
-	lines?: number;
+	highlight?: boolean;
+	selected?: boolean;
 }
 
-export const RenamableItemText = ({ item, allowHighlight = true, style, lines }: Props) => {
-	const rspc = useRspcLibraryContext();
-	const explorer = useExplorerContext();
-	const quickPreviewStore = useQuickPreviewStore();
+export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) => {
 	const isDark = useIsDark();
+	const rspc = useRspcLibraryContext();
 
-	const itemData = getExplorerItemData(item);
+	const explorer = useExplorerContext({ suspense: false });
+	const explorerStore = useExplorerStore();
+
+	const quickPreviewStore = useQuickPreviewStore();
+
+	const itemData = getExplorerItemData(props.item);
 
 	const ref = useRef<HTMLDivElement>(null);
-
-	const selected = useMemo(
-		() => explorer.selectedItems.has(item),
-		[explorer.selectedItems, item]
-	);
 
 	const renameFile = useLibraryMutation(['files.renameFile'], {
 		onError: () => reset(),
@@ -59,9 +59,9 @@ export const RenamableItemText = ({ item, allowHighlight = true, style, lines }:
 
 	const handleRename = async (newName: string) => {
 		try {
-			switch (item.type) {
+			switch (props.item.type) {
 				case 'Location': {
-					const locationId = item.item.id;
+					const locationId = props.item.item.id;
 					if (!locationId) throw new Error('Missing location id');
 
 					await renameLocation.mutateAsync({
@@ -79,7 +79,7 @@ export const RenamableItemText = ({ item, allowHighlight = true, style, lines }:
 
 				case 'Path':
 				case 'Object': {
-					const filePathData = getIndexedItemFilePath(item);
+					const filePathData = getIndexedItemFilePath(props.item);
 
 					if (!filePathData) throw new Error('Failed to get file path object');
 
@@ -101,7 +101,7 @@ export const RenamableItemText = ({ item, allowHighlight = true, style, lines }:
 				}
 
 				case 'NonIndexedPath': {
-					const ephemeralFile = getEphemeralPath(item);
+					const ephemeralFile = getEphemeralPath(props.item);
 
 					if (!ephemeralFile) throw new Error('Failed to get ephemeral file object');
 
@@ -130,10 +130,12 @@ export const RenamableItemText = ({ item, allowHighlight = true, style, lines }:
 	};
 
 	const disabled =
-		!selected ||
+		!props.selected ||
+		explorerStore.drag?.type === 'dragging' ||
+		!explorer ||
 		explorer.selectedItems.size > 1 ||
 		quickPreviewStore.open ||
-		item.type === 'SpacedropPeer';
+		props.item.type === 'SpacedropPeer';
 
 	return (
 		<RenameTextBox
@@ -141,11 +143,13 @@ export const RenamableItemText = ({ item, allowHighlight = true, style, lines }:
 			disabled={disabled}
 			onRename={handleRename}
 			className={clsx(
-				'text-center font-medium',
-				selected && allowHighlight && ['bg-accent', !isDark && 'text-white']
+				'font-medium',
+				(props.selected || props.highlight) &&
+					allowHighlight && ['bg-accent', !isDark && 'text-white']
 			)}
-			style={style}
-			lines={lines}
+			style={props.style}
+			lines={props.lines}
+			idleClassName={props.idleClassName}
 		/>
 	);
 };
