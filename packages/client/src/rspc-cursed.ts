@@ -49,7 +49,7 @@ export function useUnsafeStreamedQuery<
 						onData: (item) => {
 							if (item === null || item === undefined) return;
 
-							if ('__stream_complete' in item) {
+							if (typeof item === 'object' && '__stream_complete' in item) {
 								resolve(data.current as any);
 								return;
 							}

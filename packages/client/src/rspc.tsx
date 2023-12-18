@@ -45,8 +45,8 @@ export type LibraryProceduresDef = {
 const context = createContext<Context<Procedures>>(undefined!);
 const context2 = createContext<Context<LibraryProceduresDef>>(undefined!);
 
-export const useRspcContext = () => useContext(context2);
-export const useRspcLibraryContext = () => useContext(context);
+export const useRspcContext = () => useContext(context);
+export const useRspcLibraryContext = () => useContext(context2);
 
 export const rspc = initRspc<Procedures>({
 	links: globalThis.rspcLinks
