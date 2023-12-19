@@ -5,16 +5,25 @@ use crate::{
 		StatefulJob, WorkerContext,
 	},
 	library::Library,
-	location::file_path_helper::{
-		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-		file_path_for_media_processor, IsolatedFilePathData,
-	},
-	prisma::{location, PrismaClient},
-	util::db::maybe_missing,
 	Node,
 };
 
+#[cfg(feature = "ai")]
+use crate::job::JobRunErrors;
+
 use sd_file_ext::extensions::Extension;
+use sd_file_path_helper::{
+	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+	file_path_for_media_processor, IsolatedFilePathData,
+};
+use sd_prisma::prisma::{location, PrismaClient};
+use sd_utils::db::maybe_missing;
+
+#[cfg(feature = "ai")]
+use sd_ai::image_labeler::{BatchToken as ImageLabelerBatchToken, LabelerOutput};
+
+#[cfg(feature = "ai")]
+use std::sync::Arc;
 
 use std::{
 	hash::Hash,
@@ -45,6 +54,7 @@ pub struct MediaProcessorJobInit {
 	pub location: location::Data,
 	pub sub_path: Option<PathBuf>,
 	pub regenerate_thumbnails: bool,
+	pub regenerate_labels: bool,
 }
 
 impl Hash for MediaProcessorJobInit {
@@ -62,12 +72,19 @@ pub struct MediaProcessorJobData {
 	to_process_path: PathBuf,
 	#[serde(skip, default)]
 	maybe_thumbnailer_progress_rx: Option<chan::Receiver<(u32, u32)>>,
+	#[cfg(feature = "ai")]
+	labeler_batch_token: ImageLabelerBatchToken,
+	#[cfg(feature = "ai")]
+	#[serde(skip, default)]
+	maybe_labels_rx: Option<chan::Receiver<LabelerOutput>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum MediaProcessorJobStep {
 	ExtractMediaData(Vec<file_path_for_media_processor::Data>),
 	WaitThumbnails(usize),
+	#[cfg(feature = "ai")]
+	WaitLabels(usize),
 }
 
 #[async_trait::async_trait]
@@ -134,7 +151,7 @@ impl StatefulJob for MediaProcessorJobInit {
 			&iso_file_path,
 			&ctx.library,
 			&ctx.node,
-			false,
+			self.regenerate_thumbnails,
 		)
 		.await?;
 
@@ -153,23 +170,58 @@ impl StatefulJob for MediaProcessorJobInit {
 
 		let file_paths = get_files_for_media_data_extraction(db, &iso_file_path).await?;
 
+		#[cfg(feature = "ai")]
+		let file_paths_for_labeling =
+			get_files_for_labeling(db, &iso_file_path, self.regenerate_labels).await?;
+
+		#[cfg(feature = "ai")]
+		let total_files_for_labeling = file_paths_for_labeling.len();
+
+		#[cfg(feature = "ai")]
+		let (labeler_batch_token, labels_rx) = ctx
+			.node
+			.image_labeller
+			.new_resumable_batch(
+				location_id,
+				location_path.clone(),
+				file_paths_for_labeling,
+				Arc::clone(db),
+			)
+			.await;
+
 		let total_files = file_paths.len();
 
-		let chunked_files =
-			file_paths
+		let chunked_files = file_paths
+			.into_iter()
+			.chunks(BATCH_SIZE)
+			.into_iter()
+			.map(|chunk| chunk.collect::<Vec<_>>())
+			.map(MediaProcessorJobStep::ExtractMediaData)
+			.chain(
+				[
+					(thumbs_to_process_count > 0).then_some(MediaProcessorJobStep::WaitThumbnails(
+						thumbs_to_process_count as usize,
+					)),
+				]
 				.into_iter()
-				.chunks(BATCH_SIZE)
+				.flatten(),
+			)
+			.chain(
+				[
+					#[cfg(feature = "ai")]
+					{
+						(total_files_for_labeling > 0)
+							.then_some(MediaProcessorJobStep::WaitLabels(total_files_for_labeling))
+					},
+					#[cfg(not(feature = "ai"))]
+					{
+						None
+					},
+				]
 				.into_iter()
-				.map(|chunk| chunk.collect::<Vec<_>>())
-				.map(MediaProcessorJobStep::ExtractMediaData)
-				.chain(
-					[(thumbs_to_process_count > 0).then_some(
-						MediaProcessorJobStep::WaitThumbnails(thumbs_to_process_count as usize),
-					)]
-					.into_iter()
-					.flatten(),
-				)
-				.collect::<Vec<_>>();
+				.flatten(),
+			)
+			.collect::<Vec<_>>();
 
 		ctx.progress(vec![
 			JobReportUpdate::TaskCount(total_files),
@@ -184,6 +236,10 @@ impl StatefulJob for MediaProcessorJobInit {
 			location_path,
 			to_process_path,
 			maybe_thumbnailer_progress_rx,
+			#[cfg(feature = "ai")]
+			labeler_batch_token,
+			#[cfg(feature = "ai")]
+			maybe_labels_rx: Some(labels_rx),
 		});
 
 		Ok((
@@ -218,6 +274,7 @@ impl StatefulJob for MediaProcessorJobInit {
 			.await
 			.map(Into::into)
 			.map_err(Into::into),
+
 			MediaProcessorJobStep::WaitThumbnails(total_thumbs) => {
 				ctx.progress(vec![
 					JobReportUpdate::TaskCount(*total_thumbs),
@@ -261,6 +318,66 @@ impl StatefulJob for MediaProcessorJobInit {
 				}
 
 				Ok(None.into())
+			}
+
+			#[cfg(feature = "ai")]
+			MediaProcessorJobStep::WaitLabels(total_labels) => {
+				ctx.progress(vec![
+					JobReportUpdate::TaskCount(*total_labels),
+					JobReportUpdate::Phase("labels".to_string()),
+					JobReportUpdate::Message(
+						format!("Extracting labels for {total_labels} files",),
+					),
+				]);
+
+				let mut labels_rx = pin!(if let Some(labels_rx) = data.maybe_labels_rx.clone() {
+					labels_rx
+				} else {
+					match ctx
+						.node
+						.image_labeller
+						.resume_batch(data.labeler_batch_token, Arc::clone(&ctx.library.db))
+						.await
+					{
+						Ok(labels_rx) => labels_rx,
+						Err(e) => return Ok(JobRunErrors(vec![e.to_string()]).into()),
+					}
+				});
+
+				let mut total_labeled = 0;
+
+				let mut errors = Vec::new();
+
+				while let Some(LabelerOutput {
+					file_path_id,
+					has_new_labels,
+					result,
+				}) = labels_rx.next().await
+				{
+					total_labeled += 1;
+					ctx.progress(vec![JobReportUpdate::CompletedTaskCount(total_labeled)]);
+
+					if let Err(e) = result {
+						error!(
+							"Failed to generate labels <file_path_id='{}'>: {e:#?}",
+							file_path_id
+						);
+
+						errors.push(e.to_string());
+					} else if has_new_labels {
+						invalidate_query!(&ctx.library, "labels.count");
+					}
+				}
+
+				invalidate_query!(&ctx.library, "labels.list");
+				invalidate_query!(&ctx.library, "labels.getForObject");
+				invalidate_query!(&ctx.library, "labels.getWithObjects");
+
+				if !errors.is_empty() {
+					Ok(JobRunErrors(errors).into())
+				} else {
+					Ok(None.into())
+				}
 			}
 		}
 	}
@@ -373,6 +490,51 @@ async fn get_files_for_media_data_extraction(
 		parent_iso_file_path,
 		&media_data_extractor::FILTERED_IMAGE_EXTENSIONS,
 	)
+	.await
+	.map_err(Into::into)
+}
+
+#[cfg(feature = "ai")]
+async fn get_files_for_labeling(
+	db: &PrismaClient,
+	parent_iso_file_path: &IsolatedFilePathData<'_>,
+	regenerate_labels: bool,
+) -> Result<Vec<file_path_for_media_processor::Data>, MediaProcessorError> {
+	// FIXME: Had to use format! macro because PCR doesn't support IN with Vec for SQLite
+	// We have no data coming from the user, so this is sql injection safe
+	db._query_raw(raw!(
+		&format!(
+			"SELECT id, materialized_path, is_dir, name, extension, cas_id, object_id
+			FROM file_path f
+			WHERE
+				location_id={{}}
+				AND cas_id IS NOT NULL
+				AND LOWER(extension) IN ({})
+				AND materialized_path LIKE {{}}
+				{}
+			ORDER BY materialized_path ASC",
+			// Orderind by materialized_path so we can prioritize processing the first files
+			// in the above part of the directories tree
+			&media_data_extractor::FILTERED_IMAGE_EXTENSIONS
+				.iter()
+				.map(|ext| format!("LOWER('{ext}')"))
+				.collect::<Vec<_>>()
+				.join(","),
+			if !regenerate_labels {
+				"AND NOT EXISTS (SELECT 1 FROM label_on_object WHERE object_id = f.object_id)"
+			} else {
+				""
+			}
+		),
+		PrismaValue::Int(parent_iso_file_path.location_id() as i64),
+		PrismaValue::String(format!(
+			"{}%",
+			parent_iso_file_path
+				.materialized_path_for_children()
+				.expect("sub path iso_file_path must be a directory")
+		))
+	))
+	.exec()
 	.await
 	.map_err(Into::into)
 }

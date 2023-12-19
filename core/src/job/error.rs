@@ -4,10 +4,10 @@ use crate::{
 		file_identifier::FileIdentifierJobError, fs::error::FileSystemJobsError,
 		media::media_processor::MediaProcessorError, validation::ValidatorError,
 	},
-	util::{db::MissingFieldError, error::FileIOError},
 };
 
 use sd_crypto::Error as CryptoError;
+use sd_utils::{db::MissingFieldError, error::FileIOError};
 
 use std::time::Duration;
 

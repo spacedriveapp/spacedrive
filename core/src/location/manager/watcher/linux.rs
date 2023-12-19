@@ -6,10 +6,10 @@
 //! Aside from that, when a directory is moved to our watched location from the outside, we receive
 //! a Create Dir event, this one is actually ok at least.
 
-use crate::{
-	invalidate_query, library::Library, location::manager::LocationManagerError, prisma::location,
-	util::error::FileIOError, Node,
-};
+use crate::{invalidate_query, library::Library, location::manager::LocationManagerError, Node};
+
+use sd_prisma::prisma::location;
+use sd_utils::error::FileIOError;
 
 use std::{
 	collections::{BTreeMap, HashMap},

@@ -1,6 +1,7 @@
+use sd_prisma::prisma::{preference, PrismaClient};
+
 use std::collections::BTreeMap;
 
-use crate::prisma::{preference, PrismaClient};
 use itertools::Itertools;
 use rmpv::Value;
 use serde::{de::DeserializeOwned, Serialize};

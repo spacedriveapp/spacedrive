@@ -1,10 +1,11 @@
-use std::{collections::HashMap, env, str::FromStr};
+use crate::node::Platform;
 
 use sd_p2p::Metadata;
+
+use std::{collections::HashMap, env, str::FromStr};
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
-
-use crate::node::Platform;
 
 #[derive(Debug, Clone, Type, Serialize, Deserialize)]
 pub struct PeerMetadata {

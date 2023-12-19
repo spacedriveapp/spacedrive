@@ -1,11 +1,11 @@
-use thiserror::Error;
-use tokio::io::{AsyncRead, AsyncReadExt};
-use uuid::Uuid;
-
 use sd_p2p::{
 	proto::{decode, encode},
 	spaceblock::{Range, SpaceblockRequests, SpaceblockRequestsError},
 };
+
+use thiserror::Error;
+use tokio::io::{AsyncRead, AsyncReadExt};
+use uuid::Uuid;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct HeaderFile {

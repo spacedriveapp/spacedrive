@@ -7,7 +7,7 @@ import { promisify } from 'node:util'
 
 import * as semver from 'semver'
 
-import { copyLinuxLibs, copyWindowsDLLs } from './shared.mjs'
+import { linuxLibs, windowsDLLs } from './shared.mjs'
 
 const exec = promisify(_exec)
 const __debug = env.NODE_ENV === 'debug'
@@ -62,28 +62,28 @@ export async function patchTauri(root, nativeDeps, targets, bundles, args) {
 		throw new Error('Custom tauri build config is not supported.')
 	}
 
-	// Location for desktop app tauri code
-	const tauriRoot = path.join(root, 'apps', 'desktop', 'src-tauri')
-
 	const osType = os.type()
-	const resources =
-		osType === 'Linux'
-			? await copyLinuxLibs(root, nativeDeps, args[0] === 'dev')
-			: osType === 'Windows_NT'
-			? await copyWindowsDLLs(root, nativeDeps)
-			: { files: [], toClean: [] }
 	const tauriPatch = {
 		tauri: {
 			bundle: {
-				macOS: {
-					minimumSystemVersion: '',
-				},
-				resources: resources.files,
+				macOS: { minimumSystemVersion: '' },
+				resources: {},
 			},
 			updater: /** @type {{ pubkey?: string }} */ ({}),
 		},
 	}
 
+	if (osType === 'Linux') {
+		tauriPatch.tauri.bundle.resources = await linuxLibs(nativeDeps)
+	} else if (osType === 'Windows_NT') {
+		tauriPatch.tauri.bundle.resources = {
+			...(await windowsDLLs(nativeDeps)),
+			[path.join(nativeDeps, 'models', 'yolov8s.onnx')]: './models/yolov8s.onnx',
+		}
+	}
+
+	// Location for desktop app tauri code
+	const tauriRoot = path.join(root, 'apps', 'desktop', 'src-tauri')
 	const tauriConfig = await fs
 		.readFile(path.join(tauriRoot, 'tauri.conf.json'), 'utf-8')
 		.then(JSON.parse)
@@ -138,5 +138,5 @@ export async function patchTauri(root, nativeDeps, targets, bundles, args) {
 	args.splice(1, 0, '-c', tauriPatchConf)
 
 	// Files to be removed
-	return [tauriPatchConf, ...resources.toClean]
+	return [tauriPatchConf]
 }

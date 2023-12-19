@@ -56,7 +56,8 @@
 			"command": "run",
 			"args": [
 				"--manifest-path=./apps/desktop/src-tauri/Cargo.toml",
-				"--no-default-features"
+				"--no-default-features",
+				"--features=ai-models"
 			],
 			"env": {
 				"RUST_BACKTRACE": "short"

@@ -1,6 +1,7 @@
-use crate::{library::LibraryId, util::error::FileIOError};
+use crate::library::LibraryId;
 
 use sd_prisma::prisma::{file_path, PrismaClient};
+use sd_utils::error::FileIOError;
 
 use std::{collections::HashSet, ffi::OsString, path::PathBuf, sync::Arc};
 

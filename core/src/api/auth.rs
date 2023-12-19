@@ -1,11 +1,11 @@
+use crate::util::http::ensure_response;
+
 use std::time::Duration;
 
 use reqwest::{Response, StatusCode};
 use rspc::alpha::AlphaRouter;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use specta::Type;
-
-use crate::util::http::ensure_response;
 
 use super::{Ctx, R};
 
