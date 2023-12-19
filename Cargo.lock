@@ -10262,3 +10262,8 @@ dependencies = [
  "quote",
  "syn 1.0.109",
 ]
+
+[[patch.unused]]
+name = "tauri"
+version = "1.0.5"
+source = "git+https://github.com/spacedriveapp/tauri.git?rev=8dff25bdc6fc8a22c0b5862be14e77dcaf161e89#8dff25bdc6fc8a22c0b5862be14e77dcaf161e89"
