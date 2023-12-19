@@ -8,21 +8,19 @@ use crate::{
 	node::Platform,
 	object::tag,
 	p2p::{self, IdentityOrRemoteIdentity},
-	prisma::location,
 	sync,
-	util::{
-		db,
-		error::{FileIOError, NonUtf8PathError},
-		mpscrr, MaybeUndefined,
-	},
-	volume::watcher::spawn_volume_watcher,
+	util::{mpscrr, MaybeUndefined},
 	Node,
 };
 
 use sd_core_sync::SyncMessage;
 use sd_p2p::spacetunnel::Identity;
-use sd_prisma::prisma::{instance, shared_operation};
-use sd_utils::from_bytes_to_uuid;
+use sd_prisma::prisma::{instance, location, shared_operation};
+use sd_utils::{
+	db,
+	error::{FileIOError, NonUtf8PathError},
+	from_bytes_to_uuid,
+};
 
 use std::{
 	collections::HashMap,
@@ -131,11 +129,17 @@ impl Libraries {
 					Err(e) => return Err(FileIOError::from((db_path, e)).into()),
 				}
 
-				let library_arc = self
+				let _library_arc = self
 					.load(library_id, &db_path, config_path, None, true, node)
 					.await?;
 
-				spawn_volume_watcher(library_arc.clone());
+				// This is compleaty breaking on linux now, no ideia why, but it will be irrelevant in a short while
+				// So let's leave it disable for now
+				#[cfg(not(target_os = "linux"))]
+				{
+					use crate::volume::watcher::spawn_volume_watcher;
+					spawn_volume_watcher(_library_arc.clone());
+				}
 			}
 		}
 

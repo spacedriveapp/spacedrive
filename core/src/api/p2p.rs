@@ -1,11 +1,12 @@
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use crate::p2p::{operations, P2PEvent, PairingDecision};
+
 use sd_p2p::spacetunnel::RemoteIdentity;
+
+use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
 use std::path::PathBuf;
 use uuid::Uuid;
-
-use crate::p2p::{operations, P2PEvent, PairingDecision};
 
 use super::{Ctx, R};
 

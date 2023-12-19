@@ -1,12 +1,9 @@
-use crate::{
-	library::LibraryId,
-	util::{error::FileIOError, version_manager::VersionManagerError},
-	Node,
-};
+use crate::{library::LibraryId, util::version_manager::VersionManagerError, Node};
 
 use sd_file_ext::extensions::{
 	DocumentExtension, Extension, ImageExtension, ALL_DOCUMENT_EXTENSIONS, ALL_IMAGE_EXTENSIONS,
 };
+use sd_utils::error::FileIOError;
 
 #[cfg(feature = "ffmpeg")]
 use sd_file_ext::extensions::{VideoExtension, ALL_VIDEO_EXTENSIONS};

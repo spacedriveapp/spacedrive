@@ -1,13 +1,14 @@
-use std::sync::{atomic::Ordering, Arc};
-
 use crate::{
 	invalidate_query,
 	job::JobProgressEvent,
 	node::config::{NodeConfig, NodePreferences},
 	Node,
 };
+
 use sd_cache::patch_typedef;
 use sd_p2p::P2PStatus;
+
+use std::sync::{atomic::Ordering, Arc};
 
 use itertools::Itertools;
 use rspc::{alpha::Rspc, Config, ErrorCode};
@@ -23,8 +24,10 @@ mod ephemeral_files;
 mod files;
 mod jobs;
 mod keys;
+mod labels;
 mod libraries;
 pub mod locations;
+mod models;
 mod nodes;
 pub mod notifications;
 mod p2p;
@@ -92,6 +95,7 @@ pub struct SanitisedNodeConfig {
 	pub p2p_port: Option<u16>,
 	pub features: Vec<BackendFeature>,
 	pub preferences: NodePreferences,
+	pub image_labeler_version: Option<String>,
 }
 
 impl From<NodeConfig> for SanitisedNodeConfig {
@@ -103,6 +107,7 @@ impl From<NodeConfig> for SanitisedNodeConfig {
 			p2p_port: value.p2p.port,
 			features: value.features,
 			preferences: value.preferences,
+			image_labeler_version: value.image_labeler_version,
 		}
 	}
 }
@@ -194,6 +199,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("library.", libraries::mount())
 		.merge("volumes.", volumes::mount())
 		.merge("tags.", tags::mount())
+		.merge("labels.", labels::mount())
 		// .merge("categories.", categories::mount())
 		// .merge("keys.", keys::mount())
 		.merge("locations.", locations::mount())
@@ -201,6 +207,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("files.", files::mount())
 		.merge("jobs.", jobs::mount())
 		.merge("p2p.", p2p::mount())
+		.merge("models.", models::mount())
 		.merge("nodes.", nodes::mount())
 		.merge("sync.", sync::mount())
 		.merge("preferences.", preferences::mount())

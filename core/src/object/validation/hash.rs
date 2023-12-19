@@ -1,5 +1,6 @@
-use blake3::Hasher;
 use std::path::Path;
+
+use blake3::Hasher;
 use tokio::{
 	fs::File,
 	io::{self, AsyncReadExt},

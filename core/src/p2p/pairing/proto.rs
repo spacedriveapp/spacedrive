@@ -1,14 +1,15 @@
-use std::str::FromStr;
+use crate::node::Platform;
 
-use chrono::{DateTime, Utc};
 use sd_p2p::{
 	proto::{decode, encode},
 	spacetunnel::RemoteIdentity,
 };
+
+use std::str::FromStr;
+
+use chrono::{DateTime, Utc};
 use tokio::io::{AsyncRead, AsyncReadExt};
 use uuid::Uuid;
-
-use crate::node::Platform;
 
 /// Terminology:
 /// Instance - DB model which represents a single `.db` file.

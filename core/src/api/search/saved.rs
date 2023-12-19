@@ -1,5 +1,6 @@
-use crate::{api::utils::library, invalidate_query, prisma::saved_search};
+use crate::{api::utils::library, invalidate_query};
 
+use sd_prisma::prisma::saved_search;
 use sd_utils::chain_optional_iter;
 
 use chrono::{DateTime, FixedOffset, Utc};

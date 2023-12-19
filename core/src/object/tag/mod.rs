@@ -1,15 +1,16 @@
-pub mod seed;
+use crate::library::Library;
+
+use sd_prisma::{prisma::tag, prisma_sync};
+use sd_sync::*;
 
 use chrono::{DateTime, FixedOffset, Utc};
-use sd_prisma::prisma_sync;
-use sd_sync::*;
+
 use serde::Deserialize;
 use serde_json::json;
 use specta::Type;
-
 use uuid::Uuid;
 
-use crate::{library::Library, prisma::tag};
+pub mod seed;
 
 #[derive(Type, Deserialize, Clone)]
 pub struct TagCreateArgs {
@@ -35,6 +36,7 @@ impl TagCreateArgs {
 					[
 						(tag::name::NAME, json!(&self.name)),
 						(tag::color::NAME, json!(&self.color)),
+						(tag::is_hidden::NAME, json!(false)),
 						(tag::date_created::NAME, json!(&date_created.to_rfc3339())),
 					],
 				),
@@ -43,6 +45,7 @@ impl TagCreateArgs {
 					vec![
 						tag::name::set(Some(self.name)),
 						tag::color::set(Some(self.color)),
+						tag::is_hidden::set(Some(false)),
 						tag::date_created::set(Some(date_created)),
 					],
 				),

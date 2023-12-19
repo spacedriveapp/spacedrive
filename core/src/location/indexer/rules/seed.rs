@@ -2,8 +2,10 @@ use crate::{
 	library::Library,
 	location::indexer::rules::{IndexerRule, IndexerRuleError, RulePerKind},
 };
-use chrono::Utc;
+
 use sd_prisma::prisma::indexer_rule;
+
+use chrono::Utc;
 use thiserror::Error;
 use uuid::Uuid;
 
