@@ -136,7 +136,7 @@ case "$(uname)" in
       echo "Installing dependencies with apt..."
 
       # Tauri dependencies
-      set -- build-essential curl wget file patchelf openssl libssl-dev libgtk-3-dev librsvg2-dev \
+      set -- build-essential curl wget file patchelf openssl libssl-dev libgtk-3-dev libglib2.0-dev librsvg2-dev \
         libwebkit2gtk-4.0-dev libayatana-appindicator3-dev
 
       # Webkit2gtk requires gstreamer plugins for video playback to work
