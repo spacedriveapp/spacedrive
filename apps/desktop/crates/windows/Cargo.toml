@@ -6,8 +6,9 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-thiserror = "1.0.50"
-normpath = "1.1.1"
+normpath = { workspace = true }
+thiserror = { workspace = true }
+
 libc = "0.2"
 
 [target.'cfg(target_os = "windows")'.dependencies.windows]

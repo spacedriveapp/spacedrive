@@ -2,10 +2,11 @@ use crate::{
 	library::LibraryConfigError,
 	location::{indexer, LocationManagerError},
 	p2p::IdentityOrRemoteIdentityErr,
-	util::{
-		db::{self, MissingFieldError},
-		error::{FileIOError, NonUtf8PathError},
-	},
+};
+
+use sd_utils::{
+	db::{self, MissingFieldError},
+	error::{FileIOError, NonUtf8PathError},
 };
 
 use thiserror::Error;

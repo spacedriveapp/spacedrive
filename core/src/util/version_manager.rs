@@ -1,3 +1,5 @@
+use sd_utils::error::FileIOError;
+
 use std::{
 	any::type_name, fmt::Display, future::Future, num::ParseIntError, path::Path, str::FromStr,
 };
@@ -9,8 +11,6 @@ use serde_json::{json, Map, Value};
 use thiserror::Error;
 use tokio::{fs, io};
 use tracing::{debug, info, warn};
-
-use super::error::FileIOError;
 
 #[derive(Error, Debug)]
 pub enum VersionManagerError<Version: IntEnum<Int = u64>> {

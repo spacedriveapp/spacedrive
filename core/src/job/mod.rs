@@ -1,5 +1,7 @@
 use crate::{library::Library, Node};
 
+use sd_prisma::prisma::location;
+
 use std::{
 	collections::{hash_map::DefaultHasher, VecDeque},
 	fmt,
@@ -9,8 +11,6 @@ use std::{
 	sync::Arc,
 	time::Instant,
 };
-
-use sd_prisma::prisma::location;
 
 use async_channel as chan;
 use futures::stream::{self, StreamExt};

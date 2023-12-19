@@ -1,4 +1,5 @@
 use sd_prisma::prisma;
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
 

@@ -1,11 +1,10 @@
 use std::{
-	io,
 	pin::Pin,
 	task::{Context, Poll},
 };
 
 use bytes::Bytes;
-use tokio::io::AsyncWrite;
+use tokio::io::{self, AsyncWrite};
 use tokio_util::sync::PollSender;
 
 /// Allowing wrapping an `mpsc::Sender` into an `AsyncWrite`
