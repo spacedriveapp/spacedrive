@@ -36,11 +36,6 @@ import { createMemoryRouterWithHistory } from './router';
 
 const startupError = (window as any).__SD_ERROR__ as string | undefined;
 
-// TODO: Put into `PlatformProvider`
-events.dragAndDropEvent.listen((event) => {
-	console.log('EVENT', event);
-});
-
 export default function App() {
 	useEffect(() => {
 		// This tells Tauri to show the current window because it's finished loading

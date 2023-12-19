@@ -188,9 +188,9 @@ export const events = __makeEvents__<{
 
 export type AppThemeType = 'Auto' | 'Light' | 'Dark';
 export type DragAndDropEvent =
-	| { Hovered: { paths: string[]; x: number; y: number } }
-	| { Dropped: { paths: string[]; x: number; y: number } }
-	| 'Cancelled';
+	| { type: 'Hovered'; paths: string[]; x: number; y: number }
+	| { type: 'Dropped'; paths: string[]; x: number; y: number }
+	| { type: 'Cancelled' };
 export type RevealItem =
 	| { Location: { id: number } }
 	| { FilePath: { id: number } }

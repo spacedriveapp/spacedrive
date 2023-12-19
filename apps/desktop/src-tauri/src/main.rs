@@ -152,6 +152,7 @@ async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
+#[serde(tag = "type")]
 pub enum DragAndDropEvent {
 	Hovered { paths: Vec<String>, x: f64, y: f64 },
 	Dropped { paths: Vec<String>, x: f64, y: f64 },
@@ -264,7 +265,7 @@ async fn main() -> tauri::Result<()> {
 	let file_drop_status = Arc::new(Mutex::new(DragAndDropState::default()));
 	let app = app
 		.plugin(updater::plugin())
-		// .plugin(tauri_plugin_window_state::Builder::default().build()) // TODO: Fix this
+		.plugin(tauri_plugin_window_state::Builder::default().build())
 		.plugin(specta_builder)
 		.setup(move |app| {
 			let app = app.handle();

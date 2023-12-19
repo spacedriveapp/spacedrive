@@ -44,7 +44,7 @@ tauri = { version = "1.5.3", features = [
 	"native-tls-vendored",
 	"tracing",
 ] }
-tauri-plugin-window-state = "0.1.0"
+tauri-plugin-window-state = { path = "../crates/tauri-plugin-window-state" }
 
 
 [target.'cfg(target_os = "linux")'.dependencies]
