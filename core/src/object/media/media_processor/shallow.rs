@@ -153,6 +153,8 @@ pub async fn shallow(
 							error!(
 								"Failed to generate labels <file_path_id='{file_path_id}'>: {e:#?}"
 							);
+						} else {
+							invalidate_query!(library, "labels.count");
 						}
 					},
 				)

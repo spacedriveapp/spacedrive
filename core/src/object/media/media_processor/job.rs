@@ -363,6 +363,8 @@ impl StatefulJob for MediaProcessorJobInit {
 						);
 
 						errors.push(e.to_string());
+					} else {
+						invalidate_query!(&ctx.library, "labels.count");
 					}
 				}
 
