@@ -53,13 +53,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							if config
 								.image_labeler_version
 								.as_ref()
-								.map(|node_version| version == *node_version)
+								.map(|node_version| version != *node_version)
 								.unwrap_or(true)
 							{
 								new_model = sd_skynet::image_labeler::YoloV8::model(Some(&version))
 									.map_err(|e| {
 										error!(
-										"Failed to download image_detection model: '{}'; Error: {e:#?}",
+										"Failed to crate image_detection model: '{}'; Error: {e:#?}",
 										&version,
 									);
 									})

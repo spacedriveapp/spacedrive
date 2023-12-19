@@ -67,6 +67,13 @@ impl ModelAndSession {
 	) -> Result<Self, DownloadModelError> {
 		let data_dir = data_dir.as_ref().join(model.name());
 		let model_path = download_model(model.origin(), &data_dir).await?;
+
+		info!(
+			"Loading mode: {} from {}",
+			model.name(),
+			model_path.display()
+		);
+
 		let maybe_session = check_model_file(&model_path)
 			.await
 			.map_err(|e| error!("Failed to check model file before passing to Ort: {e:#?}"))
@@ -100,6 +107,12 @@ impl ModelAndSession {
 		info!("Attempting to change image labeler models...");
 
 		let model_path = download_model(new_model.origin(), &self.model_data_dir).await?;
+
+		info!(
+			"Change mode: {} to {}",
+			new_model.name(),
+			model_path.display()
+		);
 
 		check_model_file(&model_path).await.and_then(|()| {
 			load_model(&model_path)
@@ -173,21 +186,31 @@ async fn download_model(
 			let Some(file_name) = url.path_segments().and_then(|segments| segments.last()) else {
 				return Err(DownloadModelError::InvalidUrlFileName(url.to_owned()));
 			};
-			let file_path = data_dir.as_ref().join(file_name);
-			if !file_path.exists() {
-				let response = reqwest::get(url.as_str()).await?;
-				// Ensure the request was successful (status code 2xx)
-				if !response.status().is_success() {
-					return Err(DownloadModelError::HttpStatusError(response.status()));
-				}
 
-				// Create or open a file at the specified path
-				let mut file = fs::File::create(&file_path).await?;
-				// Stream the response body to the file
-				let mut body = response.bytes_stream();
-				while let Some(chunk) = body.next().await {
-					let chunk = chunk?;
-					file.write_all(&chunk).await?;
+			fs::create_dir_all(data_dir.as_ref()).await?;
+
+			let file_path = data_dir.as_ref().join(file_name);
+			match fs::metadata(&file_path).await {
+				Ok(_) => return Ok(file_path),
+				Err(e) if e.kind() != io::ErrorKind::NotFound => {
+					return Err(DownloadModelError::IOError(e))
+				}
+				_ => {
+					info!("Dowloading model from: {} to {}", url, file_path.display());
+					let response = reqwest::get(url.as_str()).await?;
+					// Ensure the request was successful (status code 2xx)
+					if !response.status().is_success() {
+						return Err(DownloadModelError::HttpStatusError(response.status()));
+					}
+
+					// Create or open a file at the specified path
+					let mut file = fs::File::create(&file_path).await?;
+					// Stream the response body to the file
+					let mut body = response.bytes_stream();
+					while let Some(chunk) = body.next().await {
+						let chunk = chunk?;
+						file.write_all(&chunk).await?;
+					}
 				}
 			}
 

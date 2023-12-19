@@ -80,7 +80,7 @@ impl ImageLabeler {
 		let to_resume_batches_file_path = data_directory.as_ref().join(PENDING_BATCHES_FILE);
 
 		let model_and_session = Arc::new(RwLock::new(
-			ModelAndSession::new(model, data_directory).await?,
+			ModelAndSession::new(model, data_directory.as_ref().join("models")).await?,
 		));
 
 		let to_resume_batches = Arc::new(RwLock::new(
