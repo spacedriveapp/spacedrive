@@ -1,9 +1,10 @@
-use crate::{api::CoreEvent, util::error::FileIOError};
+use crate::api::CoreEvent;
 
 use sd_file_ext::extensions::{DocumentExtension, ImageExtension};
 use sd_images::{format_image, scale_dimensions, ConvertableExtension};
 use sd_media_metadata::image::Orientation;
 use sd_prisma::prisma::location;
+use sd_utils::error::FileIOError;
 
 use std::{
 	collections::VecDeque,

@@ -6,5 +6,6 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-prisma-client-rust-cli = { workspace = true }
 sd-sync-generator = { path = "../sync-generator" }
+
+prisma-client-rust-cli = { workspace = true }

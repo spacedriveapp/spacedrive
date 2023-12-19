@@ -337,8 +337,7 @@ model Tag {
   name   String?
   color  String?
 
-  // Enum: ??
-  redundancy_goal Int?
+  is_hidden Boolean? // user hidden entire tag
 
   date_created  DateTime?
   date_modified DateTime?
@@ -367,7 +366,7 @@ model TagOnObject {
 model Label {
   id            Int      @id @default(autoincrement())
   pub_id        Bytes    @unique
-  name          String?
+  name          String   @unique
   date_created  DateTime @default(now())
   date_modified DateTime @default(now())
 
@@ -379,11 +378,11 @@ model Label {
 model LabelOnObject {
   date_created DateTime @default(now())
 
-  label_id Int
-  label    Label @relation(fields: [label_id], references: [id], onDelete: Restrict)
+  label_id     Int
+  label        Label    @relation(fields: [label_id], references: [id], onDelete: Restrict)
 
-  object_id Int
-  object    Object @relation(fields: [object_id], references: [id], onDelete: Restrict)
+  object_id    Int
+  object       Object   @relation(fields: [object_id], references: [id], onDelete: Restrict)
 
   @@id([label_id, object_id])
   @@map("label_on_object")

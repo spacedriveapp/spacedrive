@@ -216,11 +216,16 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 		locations?.filter((location) => uniqueLocationIds.includes(location.id)) || [];
 
 	const readyToFetch = useIsFetchReady(item);
+
 	const tagsQuery = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
 		enabled: objectData != null && readyToFetch
 	});
 	useNodes(tagsQuery.data?.nodes);
 	const tags = useCache(tagsQuery.data?.items);
+
+	const labels = useLibraryQuery(['labels.getForObject', objectData?.id ?? -1], {
+		enabled: objectData != null && readyToFetch
+	});
 
 	const { libraryId } = useZodRouteParams(LibraryIdParamsSchema);
 
@@ -339,6 +344,12 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 				{extension && <InfoPill>{extension}</InfoPill>}
 
+				{labels.data?.map((label) => (
+					<InfoPill key={label.id} className="truncate !text-white">
+						{label.name}
+					</InfoPill>
+				))}
+
 				{tags?.map((tag) => (
 					<NavLink key={tag.id} to={`/${libraryId}/tag/${tag.id}`}>
 						<Tooltip label={tag.name || ''} className="flex overflow-hidden">
@@ -406,8 +417,18 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 	useNodes(tagsQuery.data?.nodes);
 	const tags = useCache(tagsQuery.data?.items);
 
+	const labels = useLibraryQuery(['labels.list'], {
+		enabled: readyToFetch && !explorerStore.isDragSelecting,
+		suspense: true
+	});
+
 	const tagsWithObjects = useLibraryQuery(
 		['tags.getWithObjects', selectedObjects.map(({ id }) => id)],
+		{ enabled: readyToFetch && !explorerStore.isDragSelecting }
+	);
+
+	const labelsWithObjects = useLibraryQuery(
+		['labels.getWithObjects', selectedObjects.map(({ id }) => id)],
 		{ enabled: readyToFetch && !explorerStore.isDragSelecting }
 	);
 
@@ -496,14 +517,33 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 					<InfoPill key={kind}>{`${kind} (${items.length})`}</InfoPill>
 				))}
 
+				{labels.data?.map((label) => {
+					const objectsWithLabel = labelsWithObjects.data?.[label.id] ?? [];
+
+					if (objectsWithLabel.length === 0) return null;
+
+					return (
+						<InfoPill
+							key={label.id}
+							className="!text-white"
+							style={{
+								opacity:
+									objectsWithLabel.length === selectedObjects.length ? 1 : 0.5
+							}}
+						>
+							{label.name} ({objectsWithLabel.length})
+						</InfoPill>
+					);
+				})}
+
 				{tags?.map((tag) => {
-					const objectsWithTag = tagsWithObjects.data?.[tag.id] || [];
+					const objectsWithTag = tagsWithObjects.data?.[tag.id] ?? [];
 
 					if (objectsWithTag.length === 0) return null;
 
 					return (
 						<NavLink key={tag.id} to={`/${libraryId}/tag/${tag.id}`}>
-							<Tooltip key={tag.id} label={tag.name} className="flex overflow-hidden">
+							<Tooltip label={tag.name} className="flex overflow-hidden">
 								<InfoPill
 									className="cursor-pointer truncate !text-white"
 									style={{

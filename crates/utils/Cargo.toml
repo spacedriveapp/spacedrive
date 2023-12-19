@@ -6,4 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+sd-prisma = { path = "../prisma" }
+
+prisma-client-rust = { workspace = true }
+rspc = { workspace = true }
+thiserror = { workspace = true }
 uuid = { workspace = true }

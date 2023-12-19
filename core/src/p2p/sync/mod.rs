@@ -1,19 +1,21 @@
 #![allow(clippy::panic, clippy::unwrap_used)] // TODO: Finish this
 
-use std::sync::Arc;
+use crate::{
+	library::Library,
+	sync::{self, GetOpsArgs},
+};
 
 use sd_p2p::{
 	proto::{decode, encode},
 	spacetunnel::Tunnel,
 };
 use sd_sync::CRDTOperation;
-use sync::GetOpsArgs;
+
+use std::sync::Arc;
 
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tracing::*;
 use uuid::Uuid;
-
-use crate::{library::Library, sync};
 
 use super::{Header, P2PManager};
 

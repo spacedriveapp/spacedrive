@@ -1,7 +1,6 @@
 import { produce } from 'immer';
 import { useCallback, useMemo, useState } from 'react';
 import { useDebouncedValue } from 'rooks';
-import { useDebouncedCallback } from 'use-debounce';
 import { SearchFilterArgs } from '@sd/client';
 
 import { filterRegistry } from './Filters';
@@ -22,8 +21,7 @@ export interface UseSearchProps {
 }
 
 export function useSearch(props?: UseSearchProps) {
-	const [open, setOpen] = useState(false);
-	if (props?.open !== undefined && open !== props.open) setOpen(props.open);
+	const [searchBarFocused, setSearchBarFocused] = useState(false);
 
 	const searchState = useSearchStore();
 
@@ -123,13 +121,15 @@ export function useSearch(props?: UseSearchProps) {
 	// Filters generated from the search query
 
 	// rawSearch should only ever be read by the search input
-	const [search, setSearch] = useState(props?.search ?? '');
+	const [rawSearch, setRawSearch] = useState(props?.search ?? '');
 	const [searchFromProps, setSearchFromProps] = useState(props?.search);
 
 	if (searchFromProps !== props?.search) {
 		setSearchFromProps(props?.search);
-		setSearch(props?.search ?? '');
+		setRawSearch(props?.search ?? '');
 	}
+
+	const [search] = useDebouncedValue(rawSearch, 300);
 
 	const searchFilters = useMemo(() => {
 		const [name, ext] = search.split('.') ?? [];
@@ -166,14 +166,14 @@ export function useSearch(props?: UseSearchProps) {
 	}, [allFiltersAsOptions]);
 
 	return {
-		open,
-		setOpen,
+		open: props?.open || searchBarFocused,
 		fixedFilters,
 		fixedFiltersKeys,
 		search,
-		rawSearch: search,
-		setRawSearch: setSearch,
-		setSearch: useDebouncedCallback(setSearch, 300),
+		rawSearch,
+		setSearch: setRawSearch,
+		searchBarFocused,
+		setSearchBarFocused,
 		dynamicFilters,
 		setDynamicFilters,
 		updateDynamicFilters,

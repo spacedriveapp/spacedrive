@@ -62,7 +62,7 @@ export const AppliedFilters = ({ allowRemove = true }: { allowRemove?: boolean }
 						<RenderIcon className="h-4 w-4" icon={MagnifyingGlass} />
 						<FilterText>{search.search}</FilterText>
 					</StaticSection>
-					{allowRemove && <CloseTab onClick={() => search.setRawSearch('')} />}
+					{allowRemove && <CloseTab onClick={() => search.setSearch('')} />}
 				</FilterContainer>
 			)}
 			<div

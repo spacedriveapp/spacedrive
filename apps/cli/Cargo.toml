@@ -6,9 +6,11 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-indoc = "2.0.4"
-clap = { version = "4.4.7", features = ["derive"] }
-anyhow = "1.0.75"
-hex = "0.4.3"
 sd-crypto = { path = "../../crates/crypto" }
+
+anyhow = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+hex = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "rt-multi-thread"] }
+
+indoc = "2.0.4"

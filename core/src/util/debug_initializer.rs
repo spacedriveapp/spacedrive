@@ -7,10 +7,12 @@ use crate::{
 	location::{
 		delete_location, scan_location, LocationCreateArgs, LocationError, LocationManagerError,
 	},
-	prisma::location,
 	util::AbortOnDrop,
 	Node,
 };
+
+use sd_prisma::prisma::location;
+use sd_utils::error::FileIOError;
 
 use std::{
 	io,
@@ -28,8 +30,6 @@ use tokio::{
 };
 use tracing::{info, warn};
 use uuid::Uuid;
-
-use super::error::FileIOError;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]

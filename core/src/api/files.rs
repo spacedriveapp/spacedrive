@@ -3,12 +3,7 @@ use crate::{
 	invalidate_query,
 	job::Job,
 	library::Library,
-	location::{
-		file_path_helper::{
-			file_path_to_isolate, file_path_to_isolate_with_id, FilePathError, IsolatedFilePathData,
-		},
-		get_location_path_from_location_id, LocationError,
-	},
+	location::{get_location_path_from_location_id, LocationError},
 	object::{
 		fs::{
 			copy::FileCopierJobInit, cut::FileCutterJobInit, delete::FileDeleterJobInit,
@@ -17,14 +12,17 @@ use crate::{
 		},
 		media::media_data_image_from_prisma_data,
 	},
-	prisma::{file_path, location, object},
-	util::{db::maybe_missing, error::FileIOError},
 };
 
 use sd_cache::{CacheNode, Model, NormalisedResult, Reference};
 use sd_file_ext::kind::ObjectKind;
+use sd_file_path_helper::{
+	file_path_to_isolate, file_path_to_isolate_with_id, FilePathError, IsolatedFilePathData,
+};
 use sd_images::ConvertableExtension;
 use sd_media_metadata::MediaMetadata;
+use sd_prisma::prisma::{file_path, location, object};
+use sd_utils::{db::maybe_missing, error::FileIOError};
 
 use std::{
 	ffi::OsString,
