@@ -19,7 +19,7 @@ import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 
 import '@sd/ui/style/style.scss';
 
-import { commands } from './commands';
+import { commands, events } from './commands';
 import { platform } from './platform';
 import { queryClient } from './query';
 import { createMemoryRouterWithHistory } from './router';
@@ -35,6 +35,11 @@ import { createMemoryRouterWithHistory } from './router';
 // });
 
 const startupError = (window as any).__SD_ERROR__ as string | undefined;
+
+// TODO: Put into `PlatformProvider`
+events.dragAndDropEvent.listen((event) => {
+	console.log('EVENT', event);
+});
 
 export default function App() {
 	useEffect(() => {

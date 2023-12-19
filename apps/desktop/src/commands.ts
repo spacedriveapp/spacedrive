@@ -178,9 +178,19 @@ export const commands = {
 	}
 };
 
+export const events = __makeEvents__<{
+	dragAndDropEvent: DragAndDropEvent;
+}>({
+	dragAndDropEvent: 'plugin:tauri-specta:drag-and-drop-event'
+});
+
 /** user-defined types **/
 
 export type AppThemeType = 'Auto' | 'Light' | 'Dark';
+export type DragAndDropEvent =
+	| { Hovered: { paths: string[]; x: number; y: number } }
+	| { Dropped: { paths: string[]; x: number; y: number } }
+	| 'Cancelled';
 export type RevealItem =
 	| { Location: { id: number } }
 	| { FilePath: { id: number } }

@@ -59,5 +59,5 @@ if-watch = { git = "https://github.com/oscartbeaumont/if-watch.git", rev = "f732
 # Beta features
 rspc = { git = "https://github.com/spacedriveapp/rspc.git", rev = "f3347e2e8bfe3f37bfacc437ca329fe71cdcb048" }
 
-# File drop position (due to updated Wry)
-tauri = { git = "https://github.com/spacedriveapp/tauri.git", rev = "9bd261e79c01af7b5cb2d281fc4531c127158850" }
+# File drop position (due to updated Wry) + `cursor_position` method
+tauri = { git = "https://github.com/spacedriveapp/tauri.git", rev = "5288d25edfcc1804a06e07347b88fd677fa13e44" }

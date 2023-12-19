@@ -8227,7 +8227,7 @@ checksum = "14c39fd04924ca3a864207c66fc2cd7d22d7c016007f9ce846cbb9326331930a"
 [[package]]
 name = "tauri"
 version = "1.5.3"
-source = "git+https://github.com/spacedriveapp/tauri.git?rev=9bd261e79c01af7b5cb2d281fc4531c127158850#9bd261e79c01af7b5cb2d281fc4531c127158850"
+source = "git+https://github.com/spacedriveapp/tauri.git?rev=5288d25edfcc1804a06e07347b88fd677fa13e44#5288d25edfcc1804a06e07347b88fd677fa13e44"
 dependencies = [
  "anyhow",
  "base64 0.21.5",
@@ -8268,7 +8268,7 @@ dependencies = [
  "tauri-macros",
  "tauri-runtime",
  "tauri-runtime-wry",
- "tauri-utils 1.5.1 (git+https://github.com/spacedriveapp/tauri.git?rev=9bd261e79c01af7b5cb2d281fc4531c127158850)",
+ "tauri-utils 1.5.1 (git+https://github.com/spacedriveapp/tauri.git?rev=5288d25edfcc1804a06e07347b88fd677fa13e44)",
  "tempfile",
  "thiserror",
  "time",
@@ -8304,7 +8304,7 @@ dependencies = [
 [[package]]
 name = "tauri-codegen"
 version = "1.4.1"
-source = "git+https://github.com/spacedriveapp/tauri.git?rev=9bd261e79c01af7b5cb2d281fc4531c127158850#9bd261e79c01af7b5cb2d281fc4531c127158850"
+source = "git+https://github.com/spacedriveapp/tauri.git?rev=5288d25edfcc1804a06e07347b88fd677fa13e44#5288d25edfcc1804a06e07347b88fd677fa13e44"
 dependencies = [
  "base64 0.21.5",
  "brotli",
@@ -8319,7 +8319,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.8",
- "tauri-utils 1.5.1 (git+https://github.com/spacedriveapp/tauri.git?rev=9bd261e79c01af7b5cb2d281fc4531c127158850)",
+ "tauri-utils 1.5.1 (git+https://github.com/spacedriveapp/tauri.git?rev=5288d25edfcc1804a06e07347b88fd677fa13e44)",
  "thiserror",
  "time",
  "uuid",
@@ -8329,14 +8329,14 @@ dependencies = [
 [[package]]
 name = "tauri-macros"
 version = "1.4.2"
-source = "git+https://github.com/spacedriveapp/tauri.git?rev=9bd261e79c01af7b5cb2d281fc4531c127158850#9bd261e79c01af7b5cb2d281fc4531c127158850"
+source = "git+https://github.com/spacedriveapp/tauri.git?rev=5288d25edfcc1804a06e07347b88fd677fa13e44#5288d25edfcc1804a06e07347b88fd677fa13e44"
 dependencies = [
  "heck 0.4.1",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
  "tauri-codegen",
- "tauri-utils 1.5.1 (git+https://github.com/spacedriveapp/tauri.git?rev=9bd261e79c01af7b5cb2d281fc4531c127158850)",
+ "tauri-utils 1.5.1 (git+https://github.com/spacedriveapp/tauri.git?rev=5288d25edfcc1804a06e07347b88fd677fa13e44)",
 ]
 
 [[package]]
@@ -8354,7 +8354,7 @@ dependencies = [
 [[package]]
 name = "tauri-runtime"
 version = "0.14.1"
-source = "git+https://github.com/spacedriveapp/tauri.git?rev=9bd261e79c01af7b5cb2d281fc4531c127158850#9bd261e79c01af7b5cb2d281fc4531c127158850"
+source = "git+https://github.com/spacedriveapp/tauri.git?rev=5288d25edfcc1804a06e07347b88fd677fa13e44#5288d25edfcc1804a06e07347b88fd677fa13e44"
 dependencies = [
  "gtk",
  "http",
@@ -8363,7 +8363,7 @@ dependencies = [
  "raw-window-handle",
  "serde",
  "serde_json",
- "tauri-utils 1.5.1 (git+https://github.com/spacedriveapp/tauri.git?rev=9bd261e79c01af7b5cb2d281fc4531c127158850)",
+ "tauri-utils 1.5.1 (git+https://github.com/spacedriveapp/tauri.git?rev=5288d25edfcc1804a06e07347b88fd677fa13e44)",
  "thiserror",
  "url",
  "uuid",
@@ -8374,7 +8374,7 @@ dependencies = [
 [[package]]
 name = "tauri-runtime-wry"
 version = "0.14.2"
-source = "git+https://github.com/spacedriveapp/tauri.git?rev=9bd261e79c01af7b5cb2d281fc4531c127158850#9bd261e79c01af7b5cb2d281fc4531c127158850"
+source = "git+https://github.com/spacedriveapp/tauri.git?rev=5288d25edfcc1804a06e07347b88fd677fa13e44#5288d25edfcc1804a06e07347b88fd677fa13e44"
 dependencies = [
  "cocoa",
  "gtk",
@@ -8382,7 +8382,7 @@ dependencies = [
  "rand 0.8.5",
  "raw-window-handle",
  "tauri-runtime",
- "tauri-utils 1.5.1 (git+https://github.com/spacedriveapp/tauri.git?rev=9bd261e79c01af7b5cb2d281fc4531c127158850)",
+ "tauri-utils 1.5.1 (git+https://github.com/spacedriveapp/tauri.git?rev=5288d25edfcc1804a06e07347b88fd677fa13e44)",
  "tracing",
  "uuid",
  "webkit2gtk",
@@ -8451,7 +8451,7 @@ dependencies = [
 [[package]]
 name = "tauri-utils"
 version = "1.5.1"
-source = "git+https://github.com/spacedriveapp/tauri.git?rev=9bd261e79c01af7b5cb2d281fc4531c127158850#9bd261e79c01af7b5cb2d281fc4531c127158850"
+source = "git+https://github.com/spacedriveapp/tauri.git?rev=5288d25edfcc1804a06e07347b88fd677fa13e44#5288d25edfcc1804a06e07347b88fd677fa13e44"
 dependencies = [
  "brotli",
  "ctor",
