@@ -1,6 +1,6 @@
-import { ProcedureDef } from '@rspc/client';
-import { AlphaRSPCError, initRspc } from '@rspc/client/v2';
-import { Context, createReactQueryHooks } from '@rspc/react/v2';
+import { ProcedureDef } from '@oscartbeaumont-sd/rspc-client';
+import { AlphaRSPCError, initRspc } from '@oscartbeaumont-sd/rspc-client/v2';
+import { Context, createReactQueryHooks } from '@oscartbeaumont-sd/rspc-react/v2';
 import { QueryClient } from '@tanstack/react-query';
 import { createContext, PropsWithChildren, useContext } from 'react';
 import { match, P } from 'ts-pattern';

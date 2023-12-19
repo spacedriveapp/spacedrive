@@ -1,4 +1,4 @@
-import { _inferProcedureHandlerInput, inferProcedureResult } from '@rspc/client';
+import { _inferProcedureHandlerInput, inferProcedureResult } from '@oscartbeaumont-sd/rspc-client';
 import { useQuery, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
 import { useRef } from 'react';
 
