@@ -9,18 +9,20 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-# "path-all",
-# "protocol-all",
-# "shell-all",
-# "window-all",
-tauri = { version = "2.0.0-alpha.18", features = [
+tauri = { version = "1.5.3", features = [
 	"macos-private-api",
-	"linux-ipc-protocol",
-	"linux-libxdo",
+	"path-all",
+	"protocol-all",
+	"os-all",
+	"shell-all",
+	"dialog-all",
+	"linux-protocol-headers",
+	"updater",
+	"window-all",
 	"native-tls-vendored",
-	# TODO: Tauri v2 is missing "tracing" feature for `devtools`
+	"tracing",
 ] }
-tauri-plugin-updater = { version = "2.0.0-alpha.5" }
+tauri-plugin-window-state = "0.1.0"
 
 rspc = { workspace = true, features = ["tauri"] }
 sd-core = { path = "../../../core", features = [
@@ -43,11 +45,10 @@ rand = "0.8.5"
 
 prisma-client-rust = { workspace = true }
 sd-prisma = { path = "../../../crates/prisma" }
-tauri-plugin-window-state = "0.1.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 sd-desktop-linux = { path = "../crates/linux" }
-webkit2gtk = { version = "=2.0.1", features = [] } # "v2_2"
+webkit2gtk = { version = "0.18.2", features = ["v2_2"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 sd-desktop-macos = { path = "../crates/macos" }
@@ -57,7 +58,7 @@ sd-desktop-windows = { path = "../crates/windows" }
 webview2-com = "0.19.1"
 
 [build-dependencies]
-tauri-build = "2.0.0-alpha.12"
+tauri-build = "1.5.0"
 
 [features]
 default = ["custom-protocol"]

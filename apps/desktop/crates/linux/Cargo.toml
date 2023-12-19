@@ -11,4 +11,4 @@ tokio = { workspace = true, features = ["fs"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # WARNING: gtk should follow the same version used by tauri
-gtk = "=0.18"
+gtk = "=0.15"

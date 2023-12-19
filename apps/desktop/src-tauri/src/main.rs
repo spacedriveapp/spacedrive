@@ -145,13 +145,6 @@ async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
 	})
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
-pub struct OnFileDrop {
-	path: String,
-	x: f64,
-	y: f64,
-}
-
 const CLIENT_ID: &str = "2abb241e-40b8-4517-a3e3-5594375c8fbb";
 
 #[tokio::main]
@@ -240,7 +233,6 @@ async fn main() -> tauri::Result<()> {
 				updater::check_for_update,
 				updater::install_update
 			])
-			.events(tauri_specta::collect_events![OnFileDrop])
 			.config(specta::ts::ExportConfig::default().formatter(specta::ts::formatter::prettier));
 
 		#[cfg(debug_assertions)]
@@ -328,20 +320,6 @@ async fn main() -> tauri::Result<()> {
 					unsafe { sd_desktop_macos::set_titlebar_style(&nswindow, _state) };
 				}
 			}
-			WindowEvent::FileDrop(event) => match event {
-				FileDropEvent::Dropped(event) => {
-					// if let Err(err) = OnFileDrop {
-					// 	path: event.path().to_string_lossy().to_string(),
-					// 	x: event.x(),
-					// 	y: event.y(),
-					// }
-					// .emit_all(&handle)
-					// {
-					// 	error!("Error while emitting file drop event: {err:#?}");
-					// }
-				}
-				_ => {}
-			},
 			_ => {}
 		})
 		.menu(menu::get_menu())
