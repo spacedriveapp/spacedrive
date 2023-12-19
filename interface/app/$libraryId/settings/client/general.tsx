@@ -234,7 +234,7 @@ export const Component = () => {
 						disabled={node.data?.image_labeler_version == null}
 						control={form.control}
 						render={({ field }) => (
-							<Select {...field} containerClassName="h-[30px]">
+							<Select {...field} containerClassName="h-[30px] whitespace-nowrap">
 								{image_labeler_versions.data?.map((model, key) => (
 									<SelectOption key={key} value={model}>
 										{model}
