@@ -364,7 +364,7 @@ async fn main() -> tauri::Result<()> {
 						});
 					}
 					FileDropEvent::Dropped { paths, position } => {
-						if let Some(handle) = file_drop_status.windows.remove(&window) {
+						if let Some(handle) = file_drop_status.windows.remove(window) {
 							handle.abort();
 						}
 
@@ -376,15 +376,15 @@ async fn main() -> tauri::Result<()> {
 							x: position.x,
 							y: position.y,
 						}
-						.emit(&window)
+						.emit(window)
 						.ok();
 					}
 					FileDropEvent::Cancelled => {
-						if let Some(handle) = file_drop_status.windows.remove(&window) {
+						if let Some(handle) = file_drop_status.windows.remove(window) {
 							handle.abort();
 						}
 
-						DragAndDropEvent::Cancelled.emit(&window).ok();
+						DragAndDropEvent::Cancelled.emit(window).ok();
 					}
 					_ => unreachable!(),
 				}
