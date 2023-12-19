@@ -15,6 +15,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				Ok(library.db.label().find_many(vec![]).exec().await?)
 			})
 		})
+		.procedure("count", {
+			R.with2(library()).query(|(_, library), _: ()| async move {
+				Ok(library.db.label().count(vec![]).exec().await? as i32)
+			})
+		})
 		.procedure("getForObject", {
 			R.with2(library())
 				.query(|(_, library), object_id: i32| async move {

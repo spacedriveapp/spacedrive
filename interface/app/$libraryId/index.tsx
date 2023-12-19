@@ -9,9 +9,11 @@ import settingsRoutes from './settings';
 const pageRoutes: RouteObject = {
 	lazy: () => import('./PageLayout'),
 	children: [
-		{ path: 'people', lazy: () => import('./people') },
-		{ path: 'media', lazy: () => import('./media') },
-		{ path: 'spaces', lazy: () => import('./spaces') },
+		{ path: 'overview', lazy: () => import('./overview') },
+		// { path: 'labels', lazy: () => import('./labels') },
+		// { path: 'favorites', lazy: () => import('./favorites') },
+		// { path: 'recents', lazy: () => import('./recents') },
+		// { path: 'spaces', lazy: () => import('./spaces') },
 		{ path: 'debug', children: debugRoutes }
 	]
 };

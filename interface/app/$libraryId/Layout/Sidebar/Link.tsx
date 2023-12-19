@@ -46,7 +46,7 @@ const Link = forwardRef<
 			}}
 			className={({ isActive }) =>
 				clsx(
-					'ring-0', // Remove ugly outline ring on Chrome Windows & Linux
+					'relative ring-0', // ring-0 to remove ugly outline ring on Chrome Windows & Linux
 					styles({ active: isActive, transparent: os === 'macOS' }),
 					disabled && 'pointer-events-none opacity-50',
 					className

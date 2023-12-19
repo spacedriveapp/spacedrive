@@ -7,10 +7,11 @@ use crate::{
 };
 
 use sd_cache::{Model, Normalise, NormalisedResult, NormalisedResults};
+use sd_file_ext::kind::ObjectKind;
 use sd_p2p::spacetunnel::RemoteIdentity;
-use sd_prisma::prisma::{indexer_rule, statistics};
-
+use sd_prisma::prisma::{indexer_rule, object, statistics};
 use std::{convert::identity, sync::Arc};
+use strum::IntoEnumIterator;
 
 use chrono::Utc;
 use directories::UserDirs;
@@ -100,6 +101,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						available_capacity += volume.available_capacity;
 					}
 
+					let total_bytes_used = total_capacity - available_capacity;
+
 					let library_db_size = get_size(
 						node.config
 							.data_directory()
@@ -120,7 +123,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						date_captured::set(Utc::now().into()),
 						total_object_count::set(0),
 						library_db_size::set(library_db_size.to_string()),
-						total_bytes_used::set(0.to_string()),
+						total_bytes_used::set(total_bytes_used.to_string()),
 						total_bytes_capacity::set(total_capacity.to_string()),
 						total_unique_bytes::set(0.to_string()),
 						total_bytes_free::set(available_capacity.to_string()),
@@ -138,6 +141,39 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?)
 				})
+		})
+		.procedure("kindStatistics", {
+			#[derive(Serialize, Deserialize, Type, Default)]
+			pub struct KindStatistic {
+				kind: i32,
+				name: String,
+				count: i32,
+				total_bytes: String,
+			}
+			#[derive(Serialize, Deserialize, Type, Default)]
+			pub struct KindStatistics {
+				statistics: Vec<KindStatistic>,
+			}
+			R.with2(library()).query(|(_, library), _: ()| async move {
+				let mut statistics: Vec<KindStatistic> = vec![];
+				for kind in ObjectKind::iter() {
+					let count = library
+						.db
+						.object()
+						.count(vec![object::kind::equals(Some(kind as i32))])
+						.exec()
+						.await?;
+
+					statistics.push(KindStatistic {
+						kind: kind as i32,
+						name: kind.to_string(),
+						count: count as i32,
+						total_bytes: "0".to_string(),
+					});
+				}
+
+				Ok(KindStatistics { statistics })
+			})
 		})
 		.procedure("create", {
 			#[derive(Deserialize, Type, Default)]

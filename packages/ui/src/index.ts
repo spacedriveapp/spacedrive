@@ -19,6 +19,7 @@ export * from './utils';
 export * from './Tooltip';
 export * from './Slider';
 export * from './Divider';
+export * from './CircularProgress';
 export * from './Shortcut';
 export * from './ProgressBar';
 export * from './keys';

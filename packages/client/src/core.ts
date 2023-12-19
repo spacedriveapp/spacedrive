@@ -16,10 +16,12 @@ export type Procedures = {
         { key: "invalidation.test-invalidate", input: never, result: number } | 
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
         { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
+        { key: "labels.count", input: LibraryArgs<null>, result: number } | 
         { key: "labels.get", input: LibraryArgs<number>, result: { id: number; pub_id: number[]; name: string; date_created: string; date_modified: string } | null } | 
         { key: "labels.getForObject", input: LibraryArgs<number>, result: Label[] } | 
         { key: "labels.getWithObjects", input: LibraryArgs<number[]>, result: { [key in number]: { date_created: string; object: { id: number } }[] } } | 
         { key: "labels.list", input: LibraryArgs<null>, result: Label[] } | 
+        { key: "library.kindStatistics", input: LibraryArgs<null>, result: KindStatistics } | 
         { key: "library.list", input: never, result: NormalisedResults<LibraryConfigWrapped> } | 
         { key: "library.statistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "locations.get", input: LibraryArgs<number>, result: { item: Reference<Location>; nodes: CacheNode[] } | null } | 
@@ -337,6 +339,10 @@ export type JobReport = { id: string; name: string; action: string | null; data:
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused" | "CompletedWithErrors"
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key in string]: JsonValue }
+
+export type KindStatistic = { kind: number; name: string; count: number; total_bytes: string }
+
+export type KindStatistics = { statistics: KindStatistic[] }
 
 export type Label = { id: number; pub_id: number[]; name: string; date_created: string; date_modified: string }
 
