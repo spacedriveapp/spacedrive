@@ -100,8 +100,6 @@ export type Procedures = {
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
         { key: "nodes.edit", input: ChangeNodeNameArgs, result: null } | 
         { key: "nodes.updateThumbnailerPreferences", input: UpdateThumbnailerPreferences, result: null } | 
-        { key: "notifications.test", input: never, result: null } | 
-        { key: "notifications.testLibrary", input: LibraryArgs<null>, result: null } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
         { key: "p2p.cancelSpacedrop", input: string, result: null } | 
         { key: "p2p.pair", input: RemoteIdentity, result: number } | 
@@ -450,9 +448,11 @@ export type Notification = ({ type: "library"; id: [string, number] } | { type: 
  * Represents the data of a single notification.
  * This data is used by the frontend to properly display the notification.
  */
-export type NotificationData = { PairingRequest: { id: string; pairing_id: number } } | "Test"
+export type NotificationData = { title: string; content: string; kind: NotificationKind }
 
 export type NotificationId = { type: "library"; id: [string, number] } | { type: "node"; id: number }
+
+export type NotificationKind = "info" | "success" | "error" | "warning"
 
 export type Object = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null }
 

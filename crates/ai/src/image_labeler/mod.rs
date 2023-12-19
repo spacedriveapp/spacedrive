@@ -19,6 +19,7 @@ pub type BatchToken = Uuid;
 #[derive(Debug)]
 pub struct LabelerOutput {
 	pub file_path_id: file_path::id::Type,
+	pub has_new_labels: bool,
 	pub result: Result<(), ImageLabelerError>,
 }
 

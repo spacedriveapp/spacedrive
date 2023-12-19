@@ -16,7 +16,7 @@ mobile = []
 ffmpeg = ["dep:sd-ffmpeg"]
 location-watcher = ["dep:notify"]
 heif = ["sd-images/heif"]
-skynet = ["dep:sd-skynet"]
+ai = ["dep:sd-ai"]
 
 [dependencies]
 # Sub-crates
@@ -40,7 +40,7 @@ sd-images = { path = "../crates/images", features = [
 sd-media-metadata = { path = "../crates/media-metadata" }
 sd-p2p = { path = "../crates/p2p", features = ["specta", "serde"] }
 sd-prisma = { path = "../crates/prisma" }
-sd-skynet = { path = "../crates/skynet", optional = true }
+sd-ai = { path = "../crates/ai", optional = true }
 sd-sync = { path = "../crates/sync" }
 sd-utils = { path = "../crates/utils" }
 sd-cloud-api = { version = "0.1.0", path = "../crates/cloud-api" }

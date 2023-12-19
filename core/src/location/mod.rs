@@ -535,7 +535,7 @@ pub async fn light_scan_location(
 		&location_base_data,
 		&sub_path,
 		&library,
-		#[cfg(feature = "skynet")]
+		#[cfg(feature = "ai")]
 		false,
 		&node,
 	)

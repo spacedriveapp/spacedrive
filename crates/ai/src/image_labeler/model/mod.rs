@@ -23,7 +23,7 @@ mod yolov8;
 pub use yolov8::YoloV8;
 pub use yolov8::DEFAULT_MODEL_VERSION;
 
-pub enum ModelOrigin {
+pub enum ModelSource {
 	Url(Url),
 	Path(PathBuf),
 }
@@ -33,7 +33,7 @@ pub trait Model: Send + Sync + 'static {
 		std::any::type_name::<Self>()
 	}
 
-	fn origin(&self) -> &ModelOrigin;
+	fn origin(&self) -> &ModelSource;
 
 	fn version(&self) -> &str;
 
@@ -157,8 +157,6 @@ impl ModelAndSession {
 
 #[derive(Error, Debug)]
 pub enum DownloadModelError {
-	#[error("Failed to download due to io error: {0}")]
-	IOError(#[from] std::io::Error),
 	#[error("Failed to download due to request error: {0}")]
 	RequestError(#[from] reqwest::Error),
 	#[error("Failed to download due to status code: {0}")]
@@ -167,6 +165,9 @@ pub enum DownloadModelError {
 	InvalidUrlFileName(Url),
 	#[error("Unknown model version to download: {0}")]
 	UnknownModelVersion(String),
+
+	#[error(transparent)]
+	FileIO(#[from] FileIOError),
 }
 
 fn load_model(model_path: impl AsRef<Path>) -> Result<Session, ImageLabelerError> {
@@ -178,22 +179,30 @@ fn load_model(model_path: impl AsRef<Path>) -> Result<Session, ImageLabelerError
 }
 
 async fn download_model(
-	model_origin: &ModelOrigin,
+	model_origin: &ModelSource,
 	data_dir: impl AsRef<Path>,
 ) -> Result<PathBuf, DownloadModelError> {
+	let data_dir = data_dir.as_ref();
+
 	match model_origin {
-		ModelOrigin::Url(url) => {
+		ModelSource::Url(url) => {
 			let Some(file_name) = url.path_segments().and_then(|segments| segments.last()) else {
 				return Err(DownloadModelError::InvalidUrlFileName(url.to_owned()));
 			};
 
-			fs::create_dir_all(data_dir.as_ref()).await?;
+			fs::create_dir_all(data_dir)
+				.await
+				.map_err(|e| FileIOError::from((data_dir, e, "Failed to create data directory")))?;
 
-			let file_path = data_dir.as_ref().join(file_name);
+			let file_path = data_dir.join(file_name);
 			match fs::metadata(&file_path).await {
 				Ok(_) => return Ok(file_path),
 				Err(e) if e.kind() != io::ErrorKind::NotFound => {
-					return Err(DownloadModelError::IOError(e))
+					return Err(DownloadModelError::FileIO(FileIOError::from((
+						file_path,
+						e,
+						"Failed to get metadata for model file",
+					))))
 				}
 				_ => {
 					info!("Dowloading model from: {} to {}", url, file_path.display());
@@ -204,19 +213,31 @@ async fn download_model(
 					}
 
 					// Create or open a file at the specified path
-					let mut file = fs::File::create(&file_path).await?;
+					let mut file = fs::File::create(&file_path).await.map_err(|e| {
+						FileIOError::from((
+							&file_path,
+							e,
+							"Failed to create the model file on disk",
+						))
+					})?;
 					// Stream the response body to the file
 					let mut body = response.bytes_stream();
 					while let Some(chunk) = body.next().await {
 						let chunk = chunk?;
-						file.write_all(&chunk).await?;
+						file.write_all(&chunk).await.map_err(|e| {
+							FileIOError::from((
+								&file_path,
+								e,
+								"Failed to write chunk of data to the model file on disk",
+							))
+						})?;
 					}
 				}
 			}
 
 			Ok(file_path)
 		}
-		ModelOrigin::Path(file_path) => Ok(file_path.to_owned()),
+		ModelSource::Path(file_path) => Ok(file_path.to_owned()),
 	}
 }
 

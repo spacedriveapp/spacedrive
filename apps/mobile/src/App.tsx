@@ -23,7 +23,6 @@ import {
 	createCache,
 	initPlausible,
 	LibraryContextProvider,
-	NotificationContextProvider,
 	P2PContextProvider,
 	RspcProvider,
 	useBridgeQuery,
@@ -138,9 +137,7 @@ function AppContainer() {
 						<ClientContextProvider currentLibraryId={id}>
 							<P2PContextProvider>
 								<P2P />
-								<NotificationContextProvider>
-									<AppNavigation />
-								</NotificationContextProvider>
+								<AppNavigation />
 							</P2PContextProvider>
 						</ClientContextProvider>
 					</BottomSheetModalProvider>

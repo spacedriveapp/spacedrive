@@ -6895,6 +6895,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-ai"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "chrono",
+ "futures",
+ "futures-concurrency",
+ "half",
+ "image",
+ "ndarray",
+ "once_cell",
+ "ort",
+ "prisma-client-rust",
+ "reqwest",
+ "rmp-serde",
+ "sd-file-path-helper",
+ "sd-prisma",
+ "sd-utils",
+ "serde",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "url",
+ "uuid",
+]
+
+[[package]]
 name = "sd-cache"
 version = "0.0.0"
 dependencies = [
@@ -6968,6 +6996,7 @@ dependencies = [
  "rmp-serde",
  "rmpv",
  "rspc",
+ "sd-ai",
  "sd-cache",
  "sd-cloud-api",
  "sd-core-sync",
@@ -6979,7 +7008,6 @@ dependencies = [
  "sd-media-metadata",
  "sd-p2p",
  "sd-prisma",
- "sd-skynet",
  "sd-sync",
  "sd-utils",
  "serde",
@@ -7266,34 +7294,6 @@ dependencies = [
  "sd-core",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "sd-skynet"
-version = "0.1.0"
-dependencies = [
- "async-channel",
- "chrono",
- "futures",
- "futures-concurrency",
- "half",
- "image",
- "ndarray",
- "once_cell",
- "ort",
- "prisma-client-rust",
- "reqwest",
- "rmp-serde",
- "sd-file-path-helper",
- "sd-prisma",
- "sd-utils",
- "serde",
- "thiserror",
- "tokio",
- "tokio-stream",
- "tracing",
- "url",
- "uuid",
 ]
 
 [[package]]

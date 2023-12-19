@@ -13,10 +13,10 @@ use once_cell::sync::Lazy;
 use ort::{inputs, SessionInputs, SessionOutputs};
 use url::Url;
 
-use super::{DownloadModelError, ImageLabelerError, Model, ModelOrigin};
+use super::{DownloadModelError, ImageLabelerError, Model, ModelSource};
 
 pub struct YoloV8 {
-	model_origin: &'static ModelOrigin,
+	model_origin: &'static ModelSource,
 	model_version: String,
 }
 
@@ -32,13 +32,13 @@ const MODEL_LOCATION: &str = if cfg!(target_os = "macos") {
 
 pub static DEFAULT_MODEL_VERSION: &str = "Yolo Small";
 
-static MODEL_VERSIONS: Lazy<HashMap<&'static str, ModelOrigin>> = Lazy::new(|| {
+static MODEL_VERSIONS: Lazy<HashMap<&'static str, ModelSource>> = Lazy::new(|| {
 	HashMap::from([
-		("Yolo Nano", ModelOrigin::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8n.onnx").expect("Must be a valid URL"))),
-		(DEFAULT_MODEL_VERSION, ModelOrigin::Path(get_path_relative_to_exe(Path::new(MODEL_LOCATION).join("yolov8s.onnx")))),
-		("Yolo Medium", ModelOrigin::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8m.onnx").expect("Must be a valid URL"))),
-		("Yolo Large", ModelOrigin::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8l.onnx").expect("Must be a valid URL"))),
-		("Yolo Extra", ModelOrigin::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8x.onnx").expect("Must be a valid URL"))),
+		("Yolo Nano", ModelSource::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8n.onnx").expect("Must be a valid URL"))),
+		(DEFAULT_MODEL_VERSION, ModelSource::Path(get_path_relative_to_exe(Path::new(MODEL_LOCATION).join("yolov8s.onnx")))),
+		("Yolo Medium", ModelSource::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8m.onnx").expect("Must be a valid URL"))),
+		("Yolo Large", ModelSource::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8l.onnx").expect("Must be a valid URL"))),
+		("Yolo Extra", ModelSource::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8x.onnx").expect("Must be a valid URL"))),
 	])
 });
 
@@ -73,7 +73,7 @@ impl YoloV8 {
 }
 
 impl Model for YoloV8 {
-	fn origin(&self) -> &'static ModelOrigin {
+	fn origin(&self) -> &'static ModelSource {
 		self.model_origin
 	}
 

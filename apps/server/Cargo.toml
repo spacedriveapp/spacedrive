@@ -7,7 +7,7 @@ edition = { workspace = true }
 
 [features]
 assets = []
-ai-models = ["sd-core/skynet"]
+ai-models = ["sd-core/ai"]
 
 [dependencies]
 sd-core = { path = "../../core", features = [

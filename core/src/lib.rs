@@ -6,8 +6,8 @@ use crate::{
 	object::media::thumbnail::actor::Thumbnailer,
 };
 
-#[cfg(feature = "skynet")]
-use sd_skynet::image_labeler::{DownloadModelError, ImageLabeler, YoloV8};
+#[cfg(feature = "ai")]
+use sd_ai::image_labeler::{DownloadModelError, ImageLabeler, YoloV8};
 
 use api::notifications::{Notification, NotificationData, NotificationId};
 use chrono::{DateTime, Utc};
@@ -66,7 +66,7 @@ pub struct Node {
 	pub cloud_sync_flag: Arc<AtomicBool>,
 	pub env: Arc<env::Env>,
 	pub http: reqwest::Client,
-	#[cfg(feature = "skynet")]
+	#[cfg(feature = "ai")]
 	pub image_labeller: ImageLabeler,
 }
 
@@ -100,9 +100,9 @@ impl Node {
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
 
-		#[cfg(feature = "skynet")]
-		sd_skynet::init()?;
-		#[cfg(feature = "skynet")]
+		#[cfg(feature = "ai")]
+		sd_ai::init()?;
+		#[cfg(feature = "ai")]
 		let image_labeler_version = config.get().await.image_labeler_version;
 
 		let (locations, locations_actor) = location::Locations::new();
@@ -129,10 +129,10 @@ impl Node {
 			cloud_sync_flag: Arc::new(AtomicBool::new(false)),
 			http: reqwest::Client::new(),
 			env,
-			#[cfg(feature = "skynet")]
+			#[cfg(feature = "ai")]
 			image_labeller: ImageLabeler::new(YoloV8::model(image_labeler_version)?, data_dir)
 				.await
-				.map_err(sd_skynet::Error::from)?,
+				.map_err(sd_ai::Error::from)?,
 		});
 
 		// Restore backend feature flags
@@ -178,7 +178,7 @@ impl Node {
 
 			std::env::set_var(
 				"RUST_LOG",
-				format!("info,sd_core={level},sd_core::location::manager=info,sd_skynet={level}"),
+				format!("info,sd_core={level},sd_core::location::manager=info,sd_ai={level}"),
 			);
 		}
 
@@ -220,7 +220,7 @@ impl Node {
 		self.thumbnailer.shutdown().await;
 		self.jobs.shutdown().await;
 		self.p2p.shutdown().await;
-		#[cfg(feature = "skynet")]
+		#[cfg(feature = "ai")]
 		self.image_labeller.shutdown().await;
 		info!("Spacedrive Core shutdown successful!");
 	}
@@ -315,10 +315,10 @@ pub enum NodeError {
 	InitConfig(#[from] util::debug_initializer::InitConfigError),
 	#[error("logger error: {0}")]
 	Logger(#[from] FromEnvError),
-	#[cfg(feature = "skynet")]
-	#[error("skynet error: {0}")]
-	Skynet(#[from] sd_skynet::Error),
-	#[cfg(feature = "skynet")]
+	#[cfg(feature = "ai")]
+	#[error("ai error: {0}")]
+	AI(#[from] sd_ai::Error),
+	#[cfg(feature = "ai")]
 	#[error("Failed to download model: {0}")]
 	DownloadModel(#[from] DownloadModelError),
 }

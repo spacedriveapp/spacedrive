@@ -1,16 +1,12 @@
 use crate::{
-	api::{
-		notifications::{Notification, NotificationData, NotificationId},
-		CoreEvent,
-	},
-	notifications,
+	api::CoreEvent,
 	object::{media::thumbnail::get_indexed_thumbnail_path, orphan_remover::OrphanRemoverActor},
 	sync, Node,
 };
 
 use sd_file_path_helper::{file_path_to_full_path, IsolatedFilePathData};
 use sd_p2p::spacetunnel::Identity;
-use sd_prisma::prisma::{file_path, location, notification, PrismaClient};
+use sd_prisma::prisma::{file_path, location, PrismaClient};
 use sd_utils::{db::maybe_missing, error::FileIOError};
 
 use std::{
@@ -20,7 +16,6 @@ use std::{
 	sync::Arc,
 };
 
-use chrono::{DateTime, Utc};
 use tokio::{fs, io, sync::broadcast, sync::RwLock};
 use tracing::warn;
 use uuid::Uuid;
@@ -52,7 +47,6 @@ pub struct Library {
 	// The UUID which matches `config.instance_id`'s primary key.
 	pub instance_uuid: Uuid,
 
-	notifications: notifications::Notifications,
 	pub env: Arc<crate::env::Env>,
 
 	// Look, I think this shouldn't be here but our current invalidation system needs it.
@@ -93,7 +87,6 @@ impl Library {
 			// key_manager,
 			identity,
 			orphan_remover: OrphanRemoverActor::spawn(db),
-			notifications: node.notifications.clone(),
 			instance_uuid,
 			env: node.env.clone(),
 			event_bus_tx: node.event_bus.0.clone(),
@@ -177,46 +170,5 @@ impl Library {
 		);
 
 		Ok(out)
-	}
-
-	/// Create a new notification which will be stored into the DB and emitted to the UI.
-	pub async fn emit_notification(&self, data: NotificationData, expires: Option<DateTime<Utc>>) {
-		let result = match self
-			.db
-			.notification()
-			.create(
-				match rmp_serde::to_vec(&data).map_err(|err| err.to_string()) {
-					Ok(data) => data,
-					Err(err) => {
-						warn!(
-							"Failed to serialize notification data for library '{}': {}",
-							self.id, err
-						);
-						return;
-					}
-				},
-				expires
-					.map(|e| vec![notification::expires_at::set(Some(e.fixed_offset()))])
-					.unwrap_or_default(),
-			)
-			.exec()
-			.await
-		{
-			Ok(result) => result,
-			Err(err) => {
-				warn!(
-					"Failed to create notification in library '{}': {}",
-					self.id, err
-				);
-				return;
-			}
-		};
-
-		self.notifications._internal_send(Notification {
-			id: NotificationId::Library(self.id, result.id as u32),
-			data,
-			read: false,
-			expires,
-		});
 	}
 }

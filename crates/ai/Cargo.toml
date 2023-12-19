@@ -1,5 +1,5 @@
 [package]
-name = "sd-skynet"
+name = "sd-ai"
 version = "0.1.0"
 authors = ["Ericson Soares <ericson@spacedrive.com>"]
 readme = "README.md"

@@ -14,19 +14,19 @@ use sd_file_path_helper::{
 use sd_prisma::prisma::{location, PrismaClient};
 use sd_utils::db::maybe_missing;
 
-#[cfg(feature = "skynet")]
-use sd_skynet::image_labeler::LabelerOutput;
+#[cfg(feature = "ai")]
+use sd_ai::image_labeler::LabelerOutput;
 
 use std::path::{Path, PathBuf};
 
-#[cfg(feature = "skynet")]
+#[cfg(feature = "ai")]
 use std::sync::Arc;
 
 use itertools::Itertools;
 use prisma_client_rust::{raw, PrismaValue};
 use tracing::{debug, error};
 
-#[cfg(feature = "skynet")]
+#[cfg(feature = "ai")]
 use futures::StreamExt;
 
 use super::{
@@ -41,7 +41,7 @@ pub async fn shallow(
 	location: &location::Data,
 	sub_path: &PathBuf,
 	library @ Library { db, .. }: &Library,
-	#[cfg(feature = "skynet")] regenerate_labels: bool,
+	#[cfg(feature = "ai")] regenerate_labels: bool,
 	node: &Node,
 ) -> Result<(), JobError> {
 	let location_id = location.id;
@@ -87,11 +87,11 @@ pub async fn shallow(
 
 	let file_paths = get_files_for_media_data_extraction(db, &iso_file_path).await?;
 
-	#[cfg(feature = "skynet")]
+	#[cfg(feature = "ai")]
 	let file_paths_for_labelling =
 		get_files_for_labeling(db, &iso_file_path, regenerate_labels).await?;
 
-	#[cfg(feature = "skynet")]
+	#[cfg(feature = "ai")]
 	let has_labels = !file_paths_for_labelling.is_empty();
 
 	let total_files = file_paths.len();
@@ -108,7 +108,7 @@ pub async fn shallow(
 		chunked_files.len()
 	);
 
-	#[cfg(feature = "skynet")]
+	#[cfg(feature = "ai")]
 	let labels_rx = node
 		.image_labeller
 		.new_batch(
@@ -140,20 +140,21 @@ pub async fn shallow(
 		invalidate_query!(library, "search.objects");
 	}
 
-	#[cfg(feature = "skynet")]
+	#[cfg(feature = "ai")]
 	{
 		if has_labels {
 			labels_rx
 				.for_each(
 					|LabelerOutput {
 					     file_path_id,
+					     has_new_labels,
 					     result,
 					 }| async move {
 						if let Err(e) = result {
 							error!(
 								"Failed to generate labels <file_path_id='{file_path_id}'>: {e:#?}"
 							);
-						} else {
+						} else if has_new_labels {
 							invalidate_query!(library, "labels.count");
 						}
 					},
@@ -182,7 +183,7 @@ async fn get_files_for_media_data_extraction(
 	.map_err(Into::into)
 }
 
-#[cfg(feature = "skynet")]
+#[cfg(feature = "ai")]
 async fn get_files_for_labeling(
 	db: &PrismaClient,
 	parent_iso_file_path: &IsolatedFilePathData<'_>,

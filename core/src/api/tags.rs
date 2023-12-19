@@ -274,8 +274,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								},
 							);
 
-						sync.write_ops(db, (sync_ops, db.tag_on_object().create_many(db_creates)))
-							.await?;
+						sync.write_ops(
+							db,
+							(
+								sync_ops,
+								db.tag_on_object().create_many(db_creates).skip_duplicates(),
+							),
+						)
+						.await?;
 					}
 
 					invalidate_query!(library, "tags.getForObject");

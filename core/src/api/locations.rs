@@ -26,7 +26,7 @@ use directories::UserDirs;
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tracing::error;
+use tracing::{debug, error};
 
 use super::{utils::library, Ctx, R};
 
@@ -374,7 +374,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				     reidentify_objects,
 				 }| async move {
 					if reidentify_objects {
-						library
+						let count = library
 							.db
 							.file_path()
 							.update_many(
@@ -390,6 +390,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							)
 							.exec()
 							.await?;
+
+						debug!("Disconnected {count} file paths from objects");
 
 						library.orphan_remover.invoke().await;
 					}

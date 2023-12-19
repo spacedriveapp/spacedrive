@@ -88,9 +88,9 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 		};
 		name.truncate(250);
 
-		#[cfg(feature = "skynet")]
-		let image_labeler_version = Some(sd_skynet::image_labeler::DEFAULT_MODEL_VERSION.to_string());
-		#[cfg(not(feature = "skynet"))]
+		#[cfg(feature = "ai")]
+		let image_labeler_version = Some(sd_ai::image_labeler::DEFAULT_MODEL_VERSION.to_string());
+		#[cfg(not(feature = "ai"))]
 		let image_labeler_version = None;
 
 		Some(Self {
@@ -212,13 +212,13 @@ impl Manager {
 
 		let mut config = NodeConfig::load(&config_file_path).await?;
 
-		#[cfg(feature = "skynet")]
+		#[cfg(feature = "ai")]
 		if config.image_labeler_version.is_none() {
 			config.image_labeler_version =
-				Some(sd_skynet::image_labeler::DEFAULT_MODEL_VERSION.to_string());
+				Some(sd_ai::image_labeler::DEFAULT_MODEL_VERSION.to_string());
 		}
 
-		#[cfg(not(feature = "skynet"))]
+		#[cfg(not(feature = "ai"))]
 		{
 			config.image_labeler_version = None;
 		}

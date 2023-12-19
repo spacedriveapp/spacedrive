@@ -63,5 +63,5 @@ tauri-build = "1.5.0"
 
 [features]
 default = ["ai-models", "custom-protocol"]
-ai-models = ["sd-core/skynet"]
+ai-models = ["sd-core/ai"]
 custom-protocol = ["tauri/custom-protocol"]

@@ -6,15 +6,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router().procedure("image_detection.list", {
 		R.query(
 			|_, _: ()| -> std::result::Result<Vec<&'static str>, rspc::Error> {
-				#[cfg(not(feature = "skynet"))]
+				#[cfg(not(feature = "ai"))]
 				return Err(rspc::Error::new(
 					rspc::ErrorCode::MethodNotSupported,
 					"AI feature is not aviailable".to_string(),
 				));
 
-				#[cfg(feature = "skynet")]
+				#[cfg(feature = "ai")]
 				{
-					use sd_skynet::image_labeler::{Model, YoloV8};
+					use sd_ai::image_labeler::{Model, YoloV8};
 					Ok(YoloV8::versions())
 				}
 			},

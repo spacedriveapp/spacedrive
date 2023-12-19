@@ -8,7 +8,7 @@ use crate::{
 	Node,
 };
 
-#[cfg(feature = "skynet")]
+#[cfg(feature = "ai")]
 use crate::job::JobRunErrors;
 
 use sd_file_ext::extensions::Extension;
@@ -19,10 +19,10 @@ use sd_file_path_helper::{
 use sd_prisma::prisma::{location, PrismaClient};
 use sd_utils::db::maybe_missing;
 
-#[cfg(feature = "skynet")]
-use sd_skynet::image_labeler::{BatchToken as ImageLabelerBatchToken, LabelerOutput};
+#[cfg(feature = "ai")]
+use sd_ai::image_labeler::{BatchToken as ImageLabelerBatchToken, LabelerOutput};
 
-#[cfg(feature = "skynet")]
+#[cfg(feature = "ai")]
 use std::sync::Arc;
 
 use std::{
@@ -72,9 +72,9 @@ pub struct MediaProcessorJobData {
 	to_process_path: PathBuf,
 	#[serde(skip, default)]
 	maybe_thumbnailer_progress_rx: Option<chan::Receiver<(u32, u32)>>,
-	#[cfg(feature = "skynet")]
+	#[cfg(feature = "ai")]
 	labeler_batch_token: ImageLabelerBatchToken,
-	#[cfg(feature = "skynet")]
+	#[cfg(feature = "ai")]
 	#[serde(skip, default)]
 	maybe_labels_rx: Option<chan::Receiver<LabelerOutput>>,
 }
@@ -83,7 +83,7 @@ pub struct MediaProcessorJobData {
 pub enum MediaProcessorJobStep {
 	ExtractMediaData(Vec<file_path_for_media_processor::Data>),
 	WaitThumbnails(usize),
-	#[cfg(feature = "skynet")]
+	#[cfg(feature = "ai")]
 	WaitLabels(usize),
 }
 
@@ -170,14 +170,14 @@ impl StatefulJob for MediaProcessorJobInit {
 
 		let file_paths = get_files_for_media_data_extraction(db, &iso_file_path).await?;
 
-		#[cfg(feature = "skynet")]
+		#[cfg(feature = "ai")]
 		let file_paths_for_labeling =
 			get_files_for_labeling(db, &iso_file_path, self.regenerate_labels).await?;
 
-		#[cfg(feature = "skynet")]
+		#[cfg(feature = "ai")]
 		let total_files_for_labeling = file_paths_for_labeling.len();
 
-		#[cfg(feature = "skynet")]
+		#[cfg(feature = "ai")]
 		let (labeler_batch_token, labels_rx) = ctx
 			.node
 			.image_labeller
@@ -208,12 +208,12 @@ impl StatefulJob for MediaProcessorJobInit {
 			)
 			.chain(
 				[
-					#[cfg(feature = "skynet")]
+					#[cfg(feature = "ai")]
 					{
 						(total_files_for_labeling > 0)
 							.then_some(MediaProcessorJobStep::WaitLabels(total_files_for_labeling))
 					},
-					#[cfg(not(feature = "skynet"))]
+					#[cfg(not(feature = "ai"))]
 					{
 						None
 					},
@@ -236,9 +236,9 @@ impl StatefulJob for MediaProcessorJobInit {
 			location_path,
 			to_process_path,
 			maybe_thumbnailer_progress_rx,
-			#[cfg(feature = "skynet")]
+			#[cfg(feature = "ai")]
 			labeler_batch_token,
-			#[cfg(feature = "skynet")]
+			#[cfg(feature = "ai")]
 			maybe_labels_rx: Some(labels_rx),
 		});
 
@@ -320,7 +320,7 @@ impl StatefulJob for MediaProcessorJobInit {
 				Ok(None.into())
 			}
 
-			#[cfg(feature = "skynet")]
+			#[cfg(feature = "ai")]
 			MediaProcessorJobStep::WaitLabels(total_labels) => {
 				ctx.progress(vec![
 					JobReportUpdate::TaskCount(*total_labels),
@@ -350,6 +350,7 @@ impl StatefulJob for MediaProcessorJobInit {
 
 				while let Some(LabelerOutput {
 					file_path_id,
+					has_new_labels,
 					result,
 				}) = labels_rx.next().await
 				{
@@ -363,7 +364,7 @@ impl StatefulJob for MediaProcessorJobInit {
 						);
 
 						errors.push(e.to_string());
-					} else {
+					} else if has_new_labels {
 						invalidate_query!(&ctx.library, "labels.count");
 					}
 				}
@@ -493,7 +494,7 @@ async fn get_files_for_media_data_extraction(
 	.map_err(Into::into)
 }
 
-#[cfg(feature = "skynet")]
+#[cfg(feature = "ai")]
 async fn get_files_for_labeling(
 	db: &PrismaClient,
 	parent_iso_file_path: &IsolatedFilePathData<'_>,

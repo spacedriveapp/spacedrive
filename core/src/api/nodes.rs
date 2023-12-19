@@ -33,7 +33,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				let does_p2p_need_refresh =
 					args.p2p_enabled.is_some() || args.p2p_port.is_defined();
 
-				#[cfg(feature = "skynet")]
+				#[cfg(feature = "ai")]
 				let mut new_model = None;
 
 				node.config
@@ -48,7 +48,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							config.p2p.port = v;
 						}
 
-						#[cfg(feature = "skynet")]
+						#[cfg(feature = "ai")]
 						if let Some(version) = args.image_labeler_version {
 							if config
 								.image_labeler_version
@@ -56,7 +56,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								.map(|node_version| version != *node_version)
 								.unwrap_or(true)
 							{
-								new_model = sd_skynet::image_labeler::YoloV8::model(Some(&version))
+								new_model = sd_ai::image_labeler::YoloV8::model(Some(&version))
 									.map_err(|e| {
 										error!(
 										"Failed to crate image_detection model: '{}'; Error: {e:#?}",
@@ -79,23 +79,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						)
 					})?;
 
-				#[cfg(feature = "skynet")]
-				{
-					if let Some(model) = new_model {
-						let version = model.version().to_string();
-						node.image_labeller.change_model(model).await.map_err(|e| {
-							error!(
-								"Failed to change image_detection model: '{}'; Error: {e:#?}",
-								version,
-							);
-							rspc::Error::new(
-								rspc::ErrorCode::BadRequest,
-								"Failed to change image detection model".to_string(),
-							)
-						})?;
-					}
-				}
-
 				// If a P2P config was modified reload it
 				if does_p2p_need_refresh {
 					node.p2p
@@ -105,6 +88,34 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 
 				invalidate_query!(node; node, "nodeState");
+
+				#[cfg(feature = "ai")]
+				{
+					use super::notifications::{NotificationData, NotificationKind};
+
+					if let Some(model) = new_model {
+						let version = model.version().to_string();
+						tokio::spawn(async move {
+							let notification = if let Err(e) =
+								node.image_labeller.change_model(model).await
+							{
+								NotificationData {
+									title: String::from("Failed to change image detection model"),
+									content: format!("Error: {e}"),
+									kind: NotificationKind::Error,
+								}
+							} else {
+								NotificationData {
+									title: String::from("Model download completed"),
+									content: format!("Sucessfuly loaded model: {version}"),
+									kind: NotificationKind::Success,
+								}
+							};
+
+							node.emit_notification(notification, None).await;
+						});
+					}
+				}
 
 				Ok(())
 			})

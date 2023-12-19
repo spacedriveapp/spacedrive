@@ -34,6 +34,7 @@ async fn reject_all_no_model(
 				if output_tx
 					.send(LabelerOutput {
 						file_path_id: id,
+						has_new_labels: false,
 						result: Err(ImageLabelerError::NoModelAvailable),
 					})
 					.await
@@ -124,6 +125,7 @@ pub(super) async fn spawned_processing(
 				if output_tx
 					.send(LabelerOutput {
 						file_path_id,
+						has_new_labels: false,
 						result: Err(error),
 					})
 					.await
@@ -177,7 +179,7 @@ pub(super) async fn spawned_processing(
 
 	let mut on_flight = HashMap::with_capacity(queue.len());
 
-	let (completed_tx, completex_rx) = chan::bounded(queue.len());
+	let (completed_tx, completed_rx) = chan::bounded(queue.len());
 
 	let (finish_status, maybe_interrupted_tx) = if let RaceOutput::Stop(tx) = (
 		async {
@@ -193,6 +195,14 @@ pub(super) async fn spawned_processing(
 					file_path.id,
 					file_path.object_id.expect("alredy checked above"),
 				);
+
+				if output_tx.is_closed() {
+					warn!("Image labeler output channel was closed, dropping current batch...");
+					queue.clear();
+					on_flight.clear();
+
+					break;
+				}
 
 				on_flight.insert(file_path.id, file_path);
 
@@ -220,7 +230,7 @@ pub(super) async fn spawned_processing(
 
 		completed_tx.close();
 
-		while let Ok(file_path_id) = completex_rx.recv().await {
+		while let Ok(file_path_id) = completed_rx.recv().await {
 			on_flight.remove(&file_path_id);
 		}
 
@@ -288,6 +298,7 @@ async fn spawned_process_single_file(
 				if output_tx
 					.send(LabelerOutput {
 						file_path_id,
+						has_new_labels: false,
 						result: Err(e),
 					})
 					.await
@@ -310,6 +321,7 @@ async fn spawned_process_single_file(
 			if output_tx
 				.send(LabelerOutput {
 					file_path_id,
+					has_new_labels: false,
 					result: Err(e),
 				})
 				.await
@@ -326,10 +338,16 @@ async fn spawned_process_single_file(
 		}
 	};
 
+	let (has_new_labels, result) = match assign_labels(object_id, labels, &db).await {
+		Ok(has_new_labels) => (has_new_labels, Ok(())),
+		Err(e) => (false, Err(e)),
+	};
+
 	if output_tx
 		.send(LabelerOutput {
 			file_path_id,
-			result: assign_labels(object_id, labels, &db).await,
+			has_new_labels,
+			result,
 		})
 		.await
 		.is_err()
@@ -368,7 +386,9 @@ pub async fn assign_labels(
 	object_id: object::id::Type,
 	mut labels: HashSet<String>,
 	db: &PrismaClient,
-) -> Result<(), ImageLabelerError> {
+) -> Result<bool, ImageLabelerError> {
+	let mut has_new_labels = false;
+
 	let mut labels_ids = db
 		.label()
 		.find_many(vec![label::name::in_vec(labels.iter().cloned().collect())])
@@ -407,6 +427,7 @@ pub async fn assign_labels(
 			.into_iter()
 			.map(|label| label.id),
 		);
+		has_new_labels = true;
 	}
 
 	db.label_on_object()
@@ -426,5 +447,5 @@ pub async fn assign_labels(
 		.exec()
 		.await?;
 
-	Ok(())
+	Ok(has_new_labels)
 }
