@@ -9,8 +9,8 @@ use sd_core::{Node, NodeError};
 
 use sd_fda::DiskAccess;
 use tauri::{
-	api::path, ipc::RemoteDomainAccessScope, window::PlatformWebview, AppHandle, Manager,
-	WindowEvent,
+	api::path, ipc::RemoteDomainAccessScope, window::PlatformWebview, AppHandle, FileDropEvent,
+	Manager, WindowEvent,
 };
 use tauri_plugins::{sd_error_plugin, sd_server_plugin};
 use tauri_specta::ts;
@@ -297,8 +297,20 @@ async fn main() -> tauri::Result<()> {
 			Ok(())
 		})
 		.on_menu_event(menu::handle_menu_event)
-		.on_window_event(|event| {
-			if let WindowEvent::Resized(_) = event.event() {
+		.on_window_event(|event| match event.event() {
+			WindowEvent::FileDrop(drop) => match drop {
+				FileDropEvent::Hovered { paths, position } => {
+					println!("HOVERED {:?} {:?}", paths, position);
+				}
+				FileDropEvent::Dropped { paths, position } => {
+					println!("DROPPED {:?} {:?}", paths, position);
+				}
+				FileDropEvent::Cancelled => {
+					println!("CANCELLED");
+				}
+				_ => {}
+			},
+			WindowEvent::Resized(_) => {
 				let (_state, command) = if event
 					.window()
 					.is_fullscreen()
@@ -320,6 +332,7 @@ async fn main() -> tauri::Result<()> {
 					unsafe { sd_desktop_macos::set_titlebar_style(&nswindow, _state) };
 				}
 			}
+			_ => {}
 		})
 		.menu(menu::get_menu())
 		.manage(updater::State::default())
