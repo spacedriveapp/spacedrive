@@ -8,10 +8,9 @@ use std::{fs, path::PathBuf, sync::Arc, time::Duration};
 use sd_core::{Node, NodeError};
 
 use sd_fda::DiskAccess;
-use serde::{Deserialize, Serialize};
 use tauri::{
-	api::path, ipc::RemoteDomainAccessScope, window::PlatformWebview, AppHandle, FileDropEvent,
-	Manager, WindowEvent,
+	api::path, ipc::RemoteDomainAccessScope, window::PlatformWebview, AppHandle, Manager,
+	WindowEvent,
 };
 use tauri_plugins::{sd_error_plugin, sd_server_plugin};
 use tauri_specta::ts;
