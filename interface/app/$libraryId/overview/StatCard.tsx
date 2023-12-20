@@ -5,7 +5,7 @@ import { Button, Card, CircularProgress, tw } from '@sd/ui';
 import { Icon } from '~/components';
 import { useIsDark } from '~/hooks';
 
-type StatisticItemProps = {
+type StatCardProps = {
 	name: string;
 	icon: string;
 	total_space: string;
@@ -16,7 +16,7 @@ type StatisticItemProps = {
 
 const Pill = tw.div`px-1.5 py-[1px] rounded text-tiny font-medium text-ink-dull bg-app-box border border-app-line`;
 
-const StatisticItem = ({ icon, name, connection_type, ...stats }: StatisticItemProps) => {
+const StatCard = ({ icon, name, connection_type, ...stats }: StatCardProps) => {
 	const [mounted, setMounted] = useState(false);
 
 	const isDark = useIsDark();
@@ -43,7 +43,7 @@ const StatisticItem = ({ icon, name, connection_type, ...stats }: StatisticItemP
 	}, [total_space, free_space, mounted]);
 
 	return (
-		<Card className="flex w-[280px] shrink-0 flex-col bg-app-box/50 !p-0 ">
+		<Card className="flex w-[280px] shrink-0 flex-col  bg-app-box/50 !p-0 ">
 			<div className="flex flex-row items-center justify-center gap-5 p-4 px-8 ">
 				<CircularProgress
 					radius={40}
@@ -83,4 +83,4 @@ const StatisticItem = ({ icon, name, connection_type, ...stats }: StatisticItemP
 	);
 };
 
-export default StatisticItem;
+export default StatCard;

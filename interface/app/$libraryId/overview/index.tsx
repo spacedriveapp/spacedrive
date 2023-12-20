@@ -1,4 +1,4 @@
-import { ArrowClockwise, Laptop } from '@phosphor-icons/react';
+import { ArrowClockwise, Broadcast, Key, Laptop, SlidersHorizontal } from '@phosphor-icons/react';
 import { DriveAmazonS3, DriveDropbox, Mobile, Server, Tablet } from '@sd/assets/icons';
 import { useBridgeQuery, useLibraryQuery, useNodes } from '@sd/client';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
@@ -8,11 +8,11 @@ import { SearchContextProvider, useSearch } from '../Search';
 import SearchBar from '../Search/SearchBar';
 import { TopBarPortal } from '../TopBar/Portal';
 import TopBarOptions, { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
-import FileKindStatistics from './FileKindStatistics';
+import FileKindStatistics from './FileKindStats';
+import OverviewSection from './Layout/Section';
+import LibraryStatistics from './LibraryStats';
 import NewCard from './NewCard';
-import OverviewSection from './OverviewSection';
-import StatisticItem from './StatisticItem';
-import LibraryStatistics from './Statistics';
+import StatisticItem from './StatCard';
 
 export const Component = () => {
 	useRouteTitle('Overview');
@@ -40,35 +40,35 @@ export const Component = () => {
 						</div>
 					}
 					center={<SearchBar />}
-					// right={
-					// 	<TopBarOptions
-					// 		options={[
-					// 			[
-					// 				{
-					// 					toolTipLabel: 'Reload',
-					// 					onClick: () => {},
-					// 					icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
-					// 					individual: true,
-					// 					showAtResolution: 'xl:flex'
-					// 				},
-					// 				{
-					// 					toolTipLabel: 'Reload',
-					// 					onClick: () => {},
-					// 					icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
-					// 					individual: true,
-					// 					showAtResolution: 'xl:flex'
-					// 				},
-					// 				{
-					// 					toolTipLabel: 'Reload',
-					// 					onClick: () => {},
-					// 					icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
-					// 					individual: true,
-					// 					showAtResolution: 'xl:flex'
-					// 				}
-					// 			]
-					// 		]}
-					// 	/>
-					// }
+					right={
+						<TopBarOptions
+							options={[
+								[
+									{
+										toolTipLabel: 'Spacedrop',
+										onClick: () => {},
+										icon: <Broadcast className={TOP_BAR_ICON_STYLE} />,
+										individual: true,
+										showAtResolution: 'sm:flex'
+									},
+									{
+										toolTipLabel: 'Key Manager',
+										onClick: () => {},
+										icon: <Key className={TOP_BAR_ICON_STYLE} />,
+										individual: true,
+										showAtResolution: 'sm:flex'
+									},
+									{
+										toolTipLabel: 'Overview Display Settings',
+										onClick: () => {},
+										icon: <SlidersHorizontal className={TOP_BAR_ICON_STYLE} />,
+										individual: true,
+										showAtResolution: 'sm:flex'
+									}
+								]
+							]}
+						/>
+					}
 				/>
 				<div className="mt-4 flex flex-col gap-3 pt-3">
 					<OverviewSection>

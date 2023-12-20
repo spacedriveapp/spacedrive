@@ -19,6 +19,7 @@ const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 	total_bytes_free: 'Free space',
 	total_bytes_used: 'Total used space'
 };
+
 const StatDescriptions: Partial<Record<keyof Statistics, string>> = {
 	total_bytes_capacity:
 		'The total capacity of all nodes connected to the library. May show incorrect values during alpha.',
@@ -82,7 +83,7 @@ const StatItem = (props: StatItemProps) => {
 	);
 };
 
-const LibraryStatistics = () => {
+const LibraryStats = () => {
 	const { library } = useLibraryContext();
 
 	const stats = useLibraryQuery(['library.statistics']);
@@ -111,4 +112,4 @@ const LibraryStatistics = () => {
 	);
 };
 
-export default LibraryStatistics;
+export default LibraryStats;
