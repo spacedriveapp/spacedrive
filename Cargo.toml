@@ -92,3 +92,12 @@ rspc = { git = "https://github.com/spacedriveapp/rspc.git", rev = "f3347e2e8bfe3
 
 # File drop position (due to updated Wry) + `cursor_position` method
 tauri = { git = "https://github.com/spacedriveapp/tauri.git", rev = "5288d25edfcc1804a06e07347b88fd677fa13e44" }
+
+# Set the settings for build scripts and proc-macros.
+[profile.dev.build-override]
+opt-level = 3
+
+# Set the default for dependencies, except workspace members.
+[profile.dev.package."*"]
+opt-level = 3
+incremental = false
