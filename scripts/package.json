@@ -19,10 +19,10 @@
 	},
 	"dependencies": {
 		"@iarna/toml": "^2.2.5",
-		"archive-wasm": "^1.5.3",
+		"archive-wasm": "^1.6.0",
 		"mustache": "^4.2.0",
 		"semver": "^7.5.4",
-		"undici": "^5.26.4"
+		"undici": "^6.0.1"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.23.2",
