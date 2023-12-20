@@ -1062,8 +1062,8 @@ importers:
         specifier: ^2.2.5
         version: 2.2.5
       archive-wasm:
-        specifier: ^1.6.0
-        version: 1.6.0
+        specifier: ^1.6.1
+        version: 1.6.1
       mustache:
         specifier: ^4.2.0
         version: 4.2.0
@@ -11273,8 +11273,8 @@ packages:
     resolution: {integrity: sha512-zy9cHePtMP0YhwG+CfHm0bgwdnga2X3gZexpdCwEj//dpb+TKajtiC8REEUJUSq6Ab4f9cgNy2l8ObXzCXFkEw==}
     dev: false
 
-  /archive-wasm@1.6.0:
-    resolution: {integrity: sha512-XbOkELLYKsZITMZm65W3F1bCrqmEMvyxVCayr51nQty0D0MCu+hZULGxrHfnVv8wfSFLM+DOI9jYPyaasMpoEA==}
+  /archive-wasm@1.6.1:
+    resolution: {integrity: sha512-ammiryE7a2DrTY0K6ZRSBu5EFZIChccOzLO5Qmf0OXnwuzJ8lkoUcocJYos/WmGCgJfLf7HaDobg7Cwxs1nIsw==}
     engines: {node: '>=18'}
     dev: false
 

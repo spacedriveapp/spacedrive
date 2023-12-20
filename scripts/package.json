@@ -19,7 +19,7 @@
 	},
 	"dependencies": {
 		"@iarna/toml": "^2.2.5",
-		"archive-wasm": "^1.6.0",
+		"archive-wasm": "^1.6.1",
 		"mustache": "^4.2.0",
 		"semver": "^7.5.4",
 		"undici": "^6.0.1"
