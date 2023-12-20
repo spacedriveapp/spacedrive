@@ -1,8 +1,8 @@
 use crate::{
+	invalidate_query,
 	library::{update_library_statistics, Library, LibraryConfig, LibraryName},
 	location::{scan_location, LocationCreateArgs},
 	util::MaybeUndefined,
-	volume::get_volumes,
 	Node,
 };
 
@@ -10,23 +10,25 @@ use sd_cache::{Model, Normalise, NormalisedResult, NormalisedResults};
 use sd_file_ext::kind::ObjectKind;
 use sd_p2p::spacetunnel::RemoteIdentity;
 use sd_prisma::prisma::{indexer_rule, object, statistics};
-use std::{convert::identity, sync::Arc};
+use std::{
+	convert::identity,
+	sync::{Arc, Once},
+	time::Duration,
+};
 use strum::IntoEnumIterator;
 
-use chrono::Utc;
 use directories::UserDirs;
 use futures_concurrency::future::Join;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tokio::{spawn, sync::Mutex, task::JoinHandle};
+use tokio::{spawn, time::sleep};
 use tracing::{debug, error};
 use uuid::Uuid;
 
-use super::{
-	utils::{get_size, library},
-	Ctx, R,
-};
+use super::{utils::library, Ctx, R};
+
+static STATISTICS_UPDATER: Once = Once::new();
 
 // TODO(@Oscar): Replace with `specta::json`
 #[derive(Serialize, Type)]
@@ -90,8 +92,23 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?;
 
-					tokio::spawn(async move {
-						let _ = update_library_statistics(node, library).await;
+					STATISTICS_UPDATER.call_once(move || {
+						spawn(async move {
+							loop {
+								if let Err(e) = update_library_statistics(
+									Arc::clone(&node),
+									Arc::clone(&library),
+								)
+								.await
+								{
+									error!("Failed to update library statistics: {e:#?}");
+								} else {
+									invalidate_query!(&library, "library.statistics");
+								}
+
+								sleep(Duration::from_secs(60)).await;
+							}
+						});
 					});
 
 					Ok(statistics)
