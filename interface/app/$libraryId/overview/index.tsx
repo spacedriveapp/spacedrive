@@ -1,23 +1,19 @@
-import { ArrowClockwise, X } from '@phosphor-icons/react';
-import {
-	DriveAmazonS3,
-	DriveDropbox,
-	DriveGoogleDrive,
-	Laptop,
-	Mobile,
-	Server,
-	SilverBox,
-	Tablet
-} from '@sd/assets/icons';
+import { ArrowClockwise } from '@phosphor-icons/react';
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
 import { useEffect, useMemo, useState } from 'react';
-import { byteSize, useCache, useDiscoveredPeers, useLibraryQuery, useNodes } from '@sd/client';
+import {
+	byteSize,
+	useBridgeQuery,
+	useCache,
+	useDiscoveredPeers,
+	useLibraryQuery,
+	useNodes
+} from '@sd/client';
 import { Button, Card, CircularProgress, tw } from '@sd/ui';
-import { Icon, IconName } from '~/components';
 import { useIsDark } from '~/hooks';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
+import { hardwareModelToIcon } from '~/util/hardware';
 
-import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { SearchContextProvider, useSearch } from '../Search';
 import SearchBar from '../Search/SearchBar';
 import { TopBarPortal } from '../TopBar/Portal';
@@ -119,6 +115,8 @@ export const Component = () => {
 
 	const discoveredPeers = useDiscoveredPeers();
 
+	const { data: node } = useBridgeQuery(['nodeState']);
+
 	const libraryTotals = useMemo(() => {
 		if (locations && discoveredPeers) {
 			const capacity = byteSize(stats.data?.total_bytes_capacity);
@@ -185,15 +183,18 @@ export const Component = () => {
 						<FileKindStatistics />
 					</OverviewSection>
 					<OverviewSection count={8} title="Devices">
-						<StatisticItem
-							name="Jam Macbook Pro"
-							icon={Laptop}
-							total_space="1074077906944"
-							free_space="121006553275"
-							color="#0362FF"
-							connection_type="lan"
-						/>
-						<StatisticItem
+						{node && (
+							<StatisticItem
+								name={node.name}
+								// this is a hack, we should map the device model to the icon in a util and actually have more than two mac models lol
+								icon={hardwareModelToIcon(node.device_model as any)}
+								total_space="1074077906944"
+								free_space="121006553275"
+								color="#0362FF"
+								connection_type="lan"
+							/>
+						)}
+						{/* <StatisticItem
 							name="Spacestudio"
 							icon={SilverBox}
 							total_space="4098046511104"
@@ -232,7 +233,7 @@ export const Component = () => {
 							free_space="969004651119"
 							color="#0362FF"
 							connection_type="p2p"
-						/>
+						/> */}
 						<NewCard
 							icons={['Laptop', 'Server', 'SilverBox', 'Tablet', 'Mobile']}
 							text="Spacedrive works best on all your devices."

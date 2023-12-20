@@ -39,12 +39,12 @@ export default () => {
 				<SidebarLink to="recents">
 					<Icon component={Clock} />
 					Recents
-					<div className={COUNT_STYLE}>34</div>
+					{/* <div className={COUNT_STYLE}>34</div> */}
 				</SidebarLink>
 				<SidebarLink to="favorites">
 					<Icon component={Heart} />
 					Favorites
-					<div className={COUNT_STYLE}>2</div>
+					{/* <div className={COUNT_STYLE}>2</div> */}
 				</SidebarLink>
 				<SidebarLink to="labels">
 					<Icon component={Tag} />
