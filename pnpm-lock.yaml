@@ -51,7 +51,7 @@ importers:
         version: 5.2.2
       vite:
         specifier: ^4.5.0
-        version: 4.5.0(less@4.2.0)
+        version: 4.5.0(@types/node@18.17.19)
 
   .github/actions/publish-artifacts:
     dependencies:
@@ -626,7 +626,7 @@ importers:
         version: 5.2.2
       vite:
         specifier: ^4.5.0
-        version: 4.5.0(less@4.2.0)
+        version: 4.5.0(@types/node@18.17.19)
       vite-plugin-html:
         specifier: ^3.2.0
         version: 3.2.0(vite@4.5.0)
@@ -1062,8 +1062,8 @@ importers:
         specifier: ^2.2.5
         version: 2.2.5
       archive-wasm:
-        specifier: ^1.5.3
-        version: 1.5.3
+        specifier: ^1.6.1
+        version: 1.6.1
       mustache:
         specifier: ^4.2.0
         version: 4.2.0
@@ -1071,8 +1071,8 @@ importers:
         specifier: ^7.5.4
         version: 7.5.4
       undici:
-        specifier: ^5.26.4
-        version: 5.27.2
+        specifier: ^6.0.1
+        version: 6.0.1
     devDependencies:
       '@babel/core':
         specifier: ^7.23.2
@@ -6137,7 +6137,7 @@ packages:
       magic-string: 0.27.0
       react-docgen-typescript: 2.2.2(typescript@5.2.2)
       typescript: 5.2.2
-      vite: 4.5.0(@types/node@18.17.19)
+      vite: 4.5.0(less@4.2.0)
 
   /@jridgewell/gen-mapping@0.3.3:
     resolution: {integrity: sha512-HLhSWOLRi875zjjMG/r+Nv0oCW8umGb0BgEhyX3dDX3egwZtB8PqLnjz3yedt8R5StBrzcg4aBpnh8UA9D1BoQ==}
@@ -9284,7 +9284,7 @@ packages:
       magic-string: 0.30.5
       rollup: 3.29.4
       typescript: 5.2.2
-      vite: 4.5.0(@types/node@18.17.19)
+      vite: 4.5.0(less@4.2.0)
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -9637,7 +9637,7 @@ packages:
       react: 18.2.0
       react-docgen: 6.0.4
       react-dom: 18.2.0(react@18.2.0)
-      vite: 4.5.0(@types/node@18.17.19)
+      vite: 4.5.0(less@4.2.0)
     transitivePeerDependencies:
       - '@preact/preset-vite'
       - encoding
@@ -10873,7 +10873,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.22.5(@babel/core@7.23.2)
       magic-string: 0.27.0
       react-refresh: 0.14.0
-      vite: 4.5.0(@types/node@18.17.19)
+      vite: 4.5.0(less@4.2.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -10888,7 +10888,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.22.5(@babel/core@7.23.2)
       '@types/babel__core': 7.20.3
       react-refresh: 0.14.0
-      vite: 4.5.0(@types/node@18.17.19)
+      vite: 4.5.0(sass@1.69.5)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -11273,8 +11273,8 @@ packages:
     resolution: {integrity: sha512-zy9cHePtMP0YhwG+CfHm0bgwdnga2X3gZexpdCwEj//dpb+TKajtiC8REEUJUSq6Ab4f9cgNy2l8ObXzCXFkEw==}
     dev: false
 
-  /archive-wasm@1.5.3:
-    resolution: {integrity: sha512-dxAKM63Y+1dXYIH7t3rgIj1/w/q0CdujmW3WIoIJVFdgAMhAdTcmbkPdw/Gj9xZ2J0DcdW5fZOukYEIrN6DYQg==}
+  /archive-wasm@1.6.1:
+    resolution: {integrity: sha512-ammiryE7a2DrTY0K6ZRSBu5EFZIChccOzLO5Qmf0OXnwuzJ8lkoUcocJYos/WmGCgJfLf7HaDobg7Cwxs1nIsw==}
     engines: {node: '>=18'}
     dev: false
 
@@ -22759,6 +22759,13 @@ packages:
       '@fastify/busboy': 2.0.0
     dev: false
 
+  /undici@6.0.1:
+    resolution: {integrity: sha512-eZFYQLeS9BiXpsU0cuFhCwfeda2MnC48EVmmOz/eCjsTgmyTdaHdVsPSC/kwC2GtW2e0uH0HIPbadf3/bRWSxw==}
+    engines: {node: '>=18.0'}
+    dependencies:
+      '@fastify/busboy': 2.0.0
+    dev: false
+
   /unicode-canonical-property-names-ecmascript@2.0.0:
     resolution: {integrity: sha512-yY5PpDlfVIU5+y/BSCxAJRBIS1Zc2dDG3Ujq+sR0U+JjUevW2JhocOF+soROYDSaAezOzOKuyyixhD6mBknSmQ==}
     engines: {node: '>=4'}
@@ -23337,7 +23344,7 @@ packages:
       '@rollup/pluginutils': 5.0.5
       '@svgr/core': 8.1.0(typescript@5.2.2)
       '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0)
-      vite: 4.5.0(@types/node@18.17.19)
+      vite: 4.5.0(sass@1.69.5)
     transitivePeerDependencies:
       - rollup
       - supports-color
@@ -23410,6 +23417,7 @@ packages:
       rollup: 3.29.4
     optionalDependencies:
       fsevents: 2.3.3
+    dev: true
 
   /vite@4.5.0(less@4.2.0):
     resolution: {integrity: sha512-ulr8rNLA6rkyFAlVWw2q5YJ91v098AFQ2R0PRFwPzREXOUJQPtFUG0t+/ZikhaOCDqFoDhN6/v8Sq0o4araFAw==}
@@ -23445,7 +23453,6 @@ packages:
       rollup: 3.29.4
     optionalDependencies:
       fsevents: 2.3.3
-    dev: true
 
   /vite@4.5.0(sass@1.69.5):
     resolution: {integrity: sha512-ulr8rNLA6rkyFAlVWw2q5YJ91v098AFQ2R0PRFwPzREXOUJQPtFUG0t+/ZikhaOCDqFoDhN6/v8Sq0o4araFAw==}
