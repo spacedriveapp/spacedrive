@@ -6,29 +6,44 @@ use crate::{
 	Node,
 };
 
+use futures::StreamExt;
 use sd_cache::{Model, Normalise, NormalisedResult, NormalisedResults};
 use sd_file_ext::kind::ObjectKind;
 use sd_p2p::spacetunnel::RemoteIdentity;
 use sd_prisma::prisma::{indexer_rule, object, statistics};
+use tokio_stream::wrappers::IntervalStream;
+
 use std::{
+	collections::{hash_map::Entry, HashMap},
 	convert::identity,
-	sync::{Arc, Once},
+	pin::pin,
+	sync::Arc,
 	time::Duration,
 };
-use strum::IntoEnumIterator;
 
+use async_channel as chan;
 use directories::UserDirs;
-use futures_concurrency::future::Join;
+use futures_concurrency::{future::Join, stream::Merge};
+use once_cell::sync::Lazy;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tokio::{spawn, time::sleep};
+use strum::IntoEnumIterator;
+use tokio::{
+	spawn,
+	sync::Mutex,
+	time::{interval, Instant},
+};
 use tracing::{debug, error};
 use uuid::Uuid;
 
 use super::{utils::library, Ctx, R};
 
-static STATISTICS_UPDATER: Once = Once::new();
+const ONE_MINUTE: Duration = Duration::from_secs(60);
+const FIVE_MINUTES: Duration = Duration::from_secs(60 * 5);
+
+static STATISTICS_UPDATERS: Lazy<Mutex<HashMap<Uuid, chan::Sender<Instant>>>> =
+	Lazy::new(|| Mutex::new(HashMap::new()));
 
 // TODO(@Oscar): Replace with `specta::json`
 #[derive(Serialize, Type)]
@@ -92,24 +107,19 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?;
 
-					STATISTICS_UPDATER.call_once(move || {
-						spawn(async move {
-							loop {
-								if let Err(e) = update_library_statistics(
-									Arc::clone(&node),
-									Arc::clone(&library),
-								)
-								.await
-								{
-									error!("Failed to update library statistics: {e:#?}");
-								} else {
-									invalidate_query!(&library, "library.statistics");
-								}
-
-								sleep(Duration::from_secs(60)).await;
+					match STATISTICS_UPDATERS.lock().await.entry(library.id) {
+						Entry::Occupied(entry) => {
+							if entry.get().send(Instant::now()).await.is_err() {
+								error!("Failed to send statistics update request");
 							}
-						});
-					});
+						}
+						Entry::Vacant(entry) => {
+							let (tx, rx) = chan::bounded(1);
+							entry.insert(tx);
+
+							spawn(update_statistics_loop(node, library, rx));
+						}
+					}
 
 					Ok(statistics)
 				})
@@ -365,4 +375,45 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					Ok(())
 				}),
 		)
+}
+
+async fn update_statistics_loop(
+	node: Arc<Node>,
+	library: Arc<Library>,
+	last_requested_rx: chan::Receiver<Instant>,
+) {
+	let mut last_received_at = Instant::now();
+
+	let tick = interval(ONE_MINUTE);
+
+	enum Message {
+		Tick,
+		Requested(Instant),
+	}
+
+	let mut msg_stream = pin!((
+		IntervalStream::new(tick).map(|_| Message::Tick),
+		last_requested_rx.map(Message::Requested)
+	)
+		.merge());
+
+	while let Some(msg) = msg_stream.next().await {
+		match msg {
+			Message::Tick => {
+				if last_received_at.elapsed() < FIVE_MINUTES {
+					if let Err(e) = update_library_statistics(&node, &library).await {
+						error!("Failed to update library statistics: {e:#?}");
+					} else {
+						invalidate_query!(&library, "library.statistics");
+					}
+				}
+			}
+			Message::Requested(instant) => {
+				if instant - last_received_at > ONE_MINUTE {
+					debug!("Updating last received at");
+					last_received_at = instant;
+				}
+			}
+		}
+	}
 }

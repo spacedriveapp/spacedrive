@@ -1,15 +1,15 @@
 use crate::{api::utils::get_size, library::Library, volume::get_volumes, Node};
 
-use chrono::Utc;
 use sd_prisma::prisma::statistics;
-use std::sync::Arc;
+
+use chrono::Utc;
 use tracing::info;
 
 use super::LibraryManagerError;
 
 pub async fn update_library_statistics(
-	node: Arc<Node>,
-	library: Arc<Library>,
+	node: &Node,
+	library: &Library,
 ) -> Result<statistics::Data, LibraryManagerError> {
 	let volumes = get_volumes().await;
 
