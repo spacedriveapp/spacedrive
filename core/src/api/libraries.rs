@@ -99,6 +99,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("statistics", {
+			#[derive(Serialize, Deserialize, Type)]
+			pub struct StatisticsResponse {
+				statistics: Option<statistics::Data>,
+			}
 			R.with2(library())
 				.query(|(node, library), _: ()| async move {
 					let statistics = library
@@ -122,7 +126,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						}
 					}
 
-					Ok(statistics)
+					Ok(StatisticsResponse { statistics })
 				})
 		})
 		.procedure("kindStatistics", {

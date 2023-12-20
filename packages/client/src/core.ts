@@ -23,7 +23,7 @@ export type Procedures = {
         { key: "labels.list", input: LibraryArgs<null>, result: Label[] } | 
         { key: "library.kindStatistics", input: LibraryArgs<null>, result: KindStatistics } | 
         { key: "library.list", input: never, result: NormalisedResults<LibraryConfigWrapped> } | 
-        { key: "library.statistics", input: LibraryArgs<null>, result: { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string } | null } | 
+        { key: "library.statistics", input: LibraryArgs<null>, result: StatisticsResponse } | 
         { key: "locations.get", input: LibraryArgs<number>, result: { item: Reference<Location>; nodes: CacheNode[] } | null } | 
         { key: "locations.getWithRules", input: LibraryArgs<number>, result: { item: Reference<LocationWithIndexerRule>; nodes: CacheNode[] } | null } | 
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: NormalisedResult<IndexerRule> } | 
@@ -562,6 +562,10 @@ key: string; arg: JsonValue; result: JsonValue | null }
 export type SortOrder = "Asc" | "Desc"
 
 export type SpacedropArgs = { identity: RemoteIdentity; file_path: string[] }
+
+export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
+
+export type StatisticsResponse = { statistics: Statistics | null }
 
 export type SystemLocations = { desktop: string | null; documents: string | null; downloads: string | null; pictures: string | null; music: string | null; videos: string | null }
 

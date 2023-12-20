@@ -2,7 +2,7 @@ import { Info } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { byteSize, Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
-import { Card, Tooltip } from '@sd/ui';
+import { Tooltip } from '@sd/ui';
 import { useCounter } from '~/hooks';
 
 interface StatItemProps {
@@ -28,18 +28,6 @@ const StatDescriptions: Partial<Record<keyof Statistics, string>> = {
 	total_bytes_used: 'Total space used on all nodes connected to the library.'
 };
 
-const EMPTY_STATISTICS = {
-	id: 0,
-	date_captured: '',
-	total_bytes_capacity: '0',
-	preview_media_bytes: '0',
-	library_db_size: '0',
-	total_object_count: 0,
-	total_bytes_free: '0',
-	total_bytes_used: '0',
-	total_unique_bytes: '0'
-};
-
 const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof typeof StatItemNames;
 
 let mounted = false;
@@ -62,14 +50,19 @@ const StatItem = (props: StatItemProps) => {
 	});
 
 	return (
-		<div className={clsx('group flex w-32 shrink-0 flex-col duration-75', !bytes && 'hidden')}>
+		<div
+			className={clsx(
+				'group/stat flex w-32 shrink-0 flex-col duration-75',
+				!bytes && 'hidden'
+			)}
+		>
 			<span className="whitespace-nowrap text-sm font-medium text-ink-faint">
 				{title}
 				{props.info && (
 					<Tooltip label={props.info}>
 						<Info
 							weight="fill"
-							className="-mt-0.5 ml-1 inline h-3 w-3 text-ink-faint opacity-0 transition-opacity group-hover:opacity-70"
+							className="-mt-0.5 ml-1 inline h-3 w-3 text-ink-faint opacity-0 transition-opacity group-hover/stat:opacity-70"
 						/>
 					</Tooltip>
 				)}
@@ -92,9 +85,7 @@ const StatItem = (props: StatItemProps) => {
 const LibraryStatistics = () => {
 	const { library } = useLibraryContext();
 
-	const stats = useLibraryQuery(['library.statistics'], {
-		initialData: { ...EMPTY_STATISTICS }
-	});
+	const stats = useLibraryQuery(['library.statistics']);
 
 	useEffect(() => {
 		if (!stats.isLoading) mounted = true;
@@ -103,7 +94,7 @@ const LibraryStatistics = () => {
 	return (
 		<div className="flex w-full">
 			<div className="flex gap-3 overflow-hidden">
-				{Object.entries(stats?.data || []).map(([key, value]) => {
+				{Object.entries(stats?.data?.statistics || []).map(([key, value]) => {
 					if (!displayableStatItems.includes(key)) return null;
 					return (
 						<StatItem

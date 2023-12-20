@@ -5,10 +5,10 @@ import { HardwareModel } from '@sd/client';
 export function hardwareModelToIcon(hardwareModel: HardwareModel) {
 	switch (hardwareModel) {
 		case 'MacBookPro':
-			return getIcon('Laptop');
+			return 'Laptop';
 		case 'MacStudio':
-			return getIcon('SilverBox');
+			return 'SilverBox';
 		default:
-			return getIcon('Laptop');
+			return 'Laptop';
 	}
 }
