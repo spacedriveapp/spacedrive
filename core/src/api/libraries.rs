@@ -40,6 +40,7 @@ use uuid::Uuid;
 use super::{utils::library, Ctx, R};
 
 const ONE_MINUTE: Duration = Duration::from_secs(60);
+const TWO_MINUTES: Duration = Duration::from_secs(60 * 2);
 const FIVE_MINUTES: Duration = Duration::from_secs(60 * 5);
 
 static STATISTICS_UPDATERS: Lazy<Mutex<HashMap<Uuid, chan::Sender<Instant>>>> =
@@ -409,7 +410,7 @@ async fn update_statistics_loop(
 				}
 			}
 			Message::Requested(instant) => {
-				if instant - last_received_at > ONE_MINUTE {
+				if instant - last_received_at > TWO_MINUTES {
 					debug!("Updating last received at");
 					last_received_at = instant;
 				}
