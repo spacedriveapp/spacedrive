@@ -89,3 +89,12 @@ if-watch = { git = "https://github.com/oscartbeaumont/if-watch.git", rev = "f732
 
 # Beta features
 rspc = { git = "https://github.com/spacedriveapp/rspc.git", rev = "f3347e2e8bfe3f37bfacc437ca329fe71cdcb048" }
+
+# Set the settings for build scripts and proc-macros.
+[profile.dev.build-override]
+opt-level = 3
+
+# Set the default for dependencies, except workspace members.
+[profile.dev.package."*"]
+opt-level = 3
+incremental = false
