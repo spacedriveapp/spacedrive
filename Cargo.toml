@@ -91,7 +91,7 @@ if-watch = { git = "https://github.com/oscartbeaumont/if-watch.git", rev = "f732
 rspc = { git = "https://github.com/spacedriveapp/rspc.git", rev = "f3347e2e8bfe3f37bfacc437ca329fe71cdcb048" }
 
 # File drop position (due to updated Wry) + `cursor_position` method
-tauri = { git = "https://github.com/spacedriveapp/tauri.git", rev = "5288d25edfcc1804a06e07347b88fd677fa13e44" }
+tauri = { git = "https://github.com/spacedriveapp/tauri.git", rev = "2db95a6916800c5950122981e7d6f0fbdee8e5d6" }
 
 # Set the settings for build scripts and proc-macros.
 [profile.dev.build-override]
