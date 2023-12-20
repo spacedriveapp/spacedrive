@@ -7,7 +7,7 @@ import { useLibraryMutation } from '@sd/client';
 import DocumentPicker from 'react-native-document-picker';
 
 // Add more default locations here?
-const defaultLocationsList: { name: string, absPath: string }[] = [{ name: 'Downloads', absPath: RNFS.DownloadDirectoryPath }, { name: 'Placeholder', absPath: 'placeholder' }]
+const defaultLocationsList: { name: string, absPath: string }[] = [{ name: 'Downloads', absPath: RNFS.DownloadDirectoryPath }, { name: 'Placeholder', absPath: 'placeholder' }, { name: "Documents", absPath: RNFS.ExternalStorageDirectoryPath + '/Documents' }]
 const LocationOnboarding = ({ navigation }: any) => { //FIXME: Get proper type def.
 	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
 	const relinkLocation = useLibraryMutation('locations.relink');
@@ -77,6 +77,7 @@ const LocationOnboarding = ({ navigation }: any) => { //FIXME: Get proper type d
 		}
 	}, [createLocation]);
 
+	console.log('Locations', defaultLocationsList);
 	return (
 		<View style={tw`flex-1 items-start justify-start p-5`}>
 			<View style={tw`mt-2`}>

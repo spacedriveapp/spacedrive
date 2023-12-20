@@ -26,7 +26,6 @@ tauri = { version = "1.5.3", features = [
 rspc = { workspace = true, features = ["tauri"] }
 sd-core = { path = "../../../core", features = [
 	"ffmpeg",
-	"location-watcher",
 	"heif",
 ] }
 sd-fda = { path = "../../../crates/fda" }

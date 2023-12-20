@@ -1,5 +1,8 @@
 // TODO: Ping Eric for Notify testing
-use crate::{library::Library, prisma::location, util::db::maybe_missing, Node};
+use crate::{
+	library::Library,
+	prisma::location, util::db::maybe_missing, Node,
+};
 
 use std::{
 	collections::HashSet,
@@ -93,12 +96,8 @@ impl LocationWatcher {
 		let (ignore_path_tx, ignore_path_rx) = mpsc::unbounded_channel();
 		let (stop_tx, stop_rx) = oneshot::channel();
 
-		info!("Events channel (tx): {:#?}", events_tx);
-		info!("Events channel (rx): {:#?}", events_rx);
-
 		let watcher = RecommendedWatcher::new(
 			move |result| {
-				info!("Received watcher event: {:#?}", result);
 				if !events_tx.is_closed() {
 					if events_tx.send(result).is_err() {
 						error!(
@@ -126,7 +125,10 @@ impl LocationWatcher {
 			stop_rx,
 		));
 
-		info!("Handle: {:#?}", handle);
+		//Add new android_inotify watcher for testing
+		// tokio::task::block_in_place(|| {
+		// Android default documents path
+		// });
 
 		Ok(Self {
 			id: location.id,
@@ -158,7 +160,7 @@ impl LocationWatcher {
 		loop {
 			select! {
 				Some(event) = events_rx.recv() => {
-					info!("Received location file system event: {:#?}", event);
+					debug!("Received location file system event: {:#?}", event);
 					match event {
 						Ok(event) => {
 							if let Err(e) = Self::handle_single_event(
@@ -170,13 +172,13 @@ impl LocationWatcher {
 								&library,
 								&paths_to_ignore,
 							).await {
-								info!("Failed to handle location file system event: \
+								error!("Failed to handle location file system event: \
 									<id='{location_id}', error='{e:#?}'>",
 								);
 							}
 						}
 						Err(e) => {
-							info!("watch error: {:#?}", e);
+							error!("watch error: {:#?}", e);
 						}
 					}
 				}
@@ -194,7 +196,7 @@ impl LocationWatcher {
 				}
 
 				_ = &mut stop_rx => {
-					info!("Stop Location Manager event handler for location: <id='{}'>", location_id);
+					debug!("Stop Location Manager event handler for location: <id='{}'>", location_id);
 					break
 				}
 			}
@@ -210,7 +212,10 @@ impl LocationWatcher {
 		_library: &'lib Library,
 		ignore_paths: &HashSet<PathBuf>,
 	) -> Result<(), LocationManagerError> {
-		info!("Event: {:#?}", event);
+		info!(
+			"Checking Ignore Paths: {:#?}",
+			check_event(&event, ignore_paths)
+		);
 		if !check_event(&event, ignore_paths) {
 			return Ok(());
 		}
@@ -229,7 +234,7 @@ impl LocationWatcher {
 			return Ok(());
 		}
 
-		// debug!("Handling event: {:#?}", event);
+		info!("Handling event: {:#?}", event);
 
 		event_handler.handle_event(event).await
 	}
@@ -248,15 +253,15 @@ impl LocationWatcher {
 
 	pub(super) fn watch(&mut self) {
 		let path = &self.path;
-		info!("Start watching location: (path: {path})");
+		debug!("Start watching location: (path: {path})");
 
 		if let Err(e) = self
 			.watcher
 			.watch(Path::new(path), RecursiveMode::Recursive)
 		{
-			info!("Unable to watch location: (path: {path}, error: {e:#?})");
+			error!("Unable to watch location: (path: {path}, error: {e:#?})");
 		} else {
-			info!("Now watching location: (path: {path})");
+			debug!("Now watching location: (path: {path})");
 		}
 	}
 
@@ -268,9 +273,9 @@ impl LocationWatcher {
 			 * and we try to unwatch the parent directory then we have to check the implications   *
 			 * of unwatch error for this case.   												   *
 			 **************************************************************************************/
-			info!("Unable to unwatch location: (path: {path}, error: {e:#?})",);
+			error!("Unable to unwatch location: (path: {path}, error: {e:#?})",);
 		} else {
-			info!("Stop watching location: (path: {path})");
+			debug!("Stop watching location: (path: {path})");
 		}
 	}
 }
@@ -369,7 +374,8 @@ impl Drop for LocationWatcher {
 ***************************************************************************************************/
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::panic)]
-mod tests { // TODO: Write Tests for Android & iOS
+mod tests {
+	// TODO: Write Tests for Android & iOS
 	use std::{
 		io::ErrorKind,
 		path::{Path, PathBuf},

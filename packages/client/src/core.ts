@@ -19,7 +19,6 @@ export type Procedures = {
         { key: "library.list", input: never, result: NormalisedResults<LibraryConfigWrapped> } | 
         { key: "library.statistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "locations.get", input: LibraryArgs<number>, result: { item: Reference<Location>; nodes: CacheNode[] } | null } | 
-        { key: "locations.getNoCache", input: LibraryArgs<number>, result: { item: Reference<Location>; nodes: CacheNode[] } | null } | 
         { key: "locations.getWithRules", input: LibraryArgs<number>, result: { item: Reference<LocationWithIndexerRule>; nodes: CacheNode[] } | null } | 
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: NormalisedResult<IndexerRule> } | 
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: NormalisedResults<IndexerRule> } | 

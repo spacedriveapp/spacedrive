@@ -17,7 +17,9 @@ use notify::{
 	Event, EventKind,
 };
 use tokio::{fs, time::Instant};
-use tracing::{error, trace, info};
+use tracing::{error, info, trace, debug};
+
+use inotify::{Inotify, WatchDescriptor, WatchMask};
 
 use super::{
 	utils::{create_dir, recalculate_directories_size, remove, rename, update_file},

@@ -1,6 +1,7 @@
 use crate::{
 	job::JobManagerError,
 	library::{Library, LibraryManagerEvent},
+	location::manager::android_inotify::watch_directory,
 	prisma::location,
 	util::{db::MissingFieldError, error::FileIOError},
 	Node,
@@ -18,7 +19,7 @@ use tokio::sync::{
 	broadcast::{self, Receiver},
 	oneshot, RwLock,
 };
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 // #[cfg(feature = "location-watcher")]
 use tokio::sync::mpsc;
@@ -31,6 +32,8 @@ mod watcher;
 
 // #[cfg(feature = "location-watcher")]
 mod helpers;
+
+mod android_inotify;
 
 #[derive(Clone, Copy, Debug)]
 #[allow(dead_code)]
@@ -187,7 +190,7 @@ impl LocationManagerActor {
 		));
 
 		// #[cfg(not(feature = "location-watcher"))]
-		tracing::warn!("Location watcher is disabled, locations will not be checked");
+		// tracing::warn!("Location watcher is disabled, locations will not be checked");
 	}
 }
 
@@ -203,29 +206,30 @@ pub struct Locations {
 
 impl Locations {
 	pub fn new() -> (Self, LocationManagerActor) {
+		// Have this run in it's own thread:
+		// tokio::spawn(async {
+		watch_directory("/storage/emulated/0/Documents");
+		// });
+
 		let online_tx = broadcast::channel(16).0;
+		let (location_management_tx, location_management_rx) = mpsc::channel(128);
+		let (watcher_management_tx, watcher_management_rx) = mpsc::channel(128);
+		let (stop_tx, stop_rx) = oneshot::channel();
 
-		{
-			let (location_management_tx, location_management_rx) = mpsc::channel(128);
-			let (watcher_management_tx, watcher_management_rx) = mpsc::channel(128);
-			let (stop_tx, stop_rx) = oneshot::channel();
-			info!("Starting location manager actor");
-
-			(
-				Self {
-					online_locations: Default::default(),
-					online_tx,
-					location_management_tx,
-					watcher_management_tx,
-					stop_tx: Some(stop_tx),
-				},
-				LocationManagerActor {
-					location_management_rx,
-					watcher_management_rx,
-					stop_rx,
-				},
-			)
-		}
+		(
+			Self {
+				online_locations: Default::default(),
+				online_tx,
+				location_management_tx,
+				watcher_management_tx,
+				stop_tx: Some(stop_tx),
+			},
+			LocationManagerActor {
+				location_management_rx,
+				watcher_management_rx,
+				stop_rx,
+			},
+		)
 
 		// #[cfg(not(feature = "location-watcher"))]
 		// {
@@ -250,20 +254,18 @@ impl Locations {
 		action: ManagementMessageAction,
 	) -> Result<(), LocationManagerError> {
 		// #[cfg(feature = "location-watcher")]
-		{
-			let (tx, rx) = oneshot::channel();
+		let (tx, rx) = oneshot::channel();
 
-			self.location_management_tx
-				.send(LocationManagementMessage {
-					location_id,
-					library,
-					action,
-					response_tx: tx,
-				})
-				.await?;
+		self.location_management_tx
+			.send(LocationManagementMessage {
+				location_id,
+				library,
+				action,
+				response_tx: tx,
+			})
+			.await?;
 
-			rx.await?
-		}
+		rx.await?
 
 		// #[cfg(not(feature = "location-watcher"))]
 		// Ok(())
@@ -278,20 +280,18 @@ impl Locations {
 		action: WatcherManagementMessageAction,
 	) -> Result<(), LocationManagerError> {
 		// #[cfg(feature = "location-watcher")]
-		{
-			let (tx, rx) = oneshot::channel();
+		let (tx, rx) = oneshot::channel();
 
-			self.watcher_management_tx
-				.send(WatcherManagementMessage {
-					location_id,
-					library,
-					action,
-					response_tx: tx,
-				})
-				.await?;
+		self.watcher_management_tx
+			.send(WatcherManagementMessage {
+				location_id,
+				library,
+				action,
+				response_tx: tx,
+			})
+			.await?;
 
-			rx.await?
-		}
+		rx.await?
 
 		// #[cfg(not(feature = "location-watcher"))]
 		// Ok(())
@@ -521,6 +521,7 @@ impl Locations {
 
 				// Periodically checking locations
 				Some((location_id, library)) = to_check_futures.next() => {
+					debug!("Checking location {location_id} for changes");
 					let key = (location_id, library.id);
 
 					if to_remove.contains(&key) {

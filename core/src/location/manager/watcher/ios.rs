@@ -6,7 +6,7 @@ use crate::{
 };
 
 use std::{
-	collections::{BTreeMap, HashMap},
+	collections::HashMap,
 	path::{Path, PathBuf},
 	sync::Arc,
 };

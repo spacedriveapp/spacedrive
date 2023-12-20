@@ -13,7 +13,7 @@ use std::{
 };
 
 use tokio::{fs, io::ErrorKind, sync::oneshot, time::sleep};
-use tracing::{error, warn};
+use tracing::{error, warn, info};
 use uuid::Uuid;
 
 use super::{watcher::LocationWatcher, LocationManagerError};
@@ -111,7 +111,7 @@ pub(super) fn drop_location(
 	locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 ) {
-	warn!("{message}: <id='{location_id}', library_id='{library_id}'>",);
+	info!("{message}: <id='{location_id}', library_id='{library_id}'>",);
 	if let Some(mut watcher) = locations_watched.remove(&(location_id, library_id)) {
 		watcher.unwatch();
 	} else {

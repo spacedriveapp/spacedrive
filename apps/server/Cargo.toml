@@ -11,7 +11,6 @@ assets = []
 [dependencies]
 sd-core = { path = "../../core", features = [
 	"ffmpeg",
-	"location-watcher",
 	"heif",
 ] }
 rspc = { workspace = true, features = ["axum"] }

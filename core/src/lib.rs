@@ -157,11 +157,12 @@ impl Node {
 
 		// Set a default if the user hasn't set an override
 		if std::env::var("RUST_LOG") == Err(std::env::VarError::NotPresent) {
-			let level = if cfg!(debug_assertions) {
-				"debug"
-			} else {
-				"info"
-			};
+			// let level = if cfg!(debug_assertions) {
+			// 	"debug"
+			// } else {
+			// 	"info"
+			// };
+			let level = "debug";
 
 			std::env::set_var(
 				"RUST_LOG",
@@ -187,17 +188,17 @@ impl Node {
 			)
 			.init();
 
-		std::panic::set_hook(Box::new(move |panic| {
-			if let Some(location) = panic.location() {
-				tracing::error!(
-					message = %panic,
-					panic.file = format!("{}:{}", location.file(), location.line()),
-					panic.column = location.column(),
-				);
-			} else {
-				tracing::error!(message = %panic);
-			}
-		}));
+		// std::panic::set_hook(Box::new(move |panic| {
+		// 	if let Some(location) = panic.location() {
+		// 		tracing::error!(
+		// 			message = %panic,
+		// 			panic.file = format!("{}:{}", location.file(), location.line()),
+		// 			panic.column = location.column(),
+		// 		);
+		// 	} else {
+		// 		tracing::error!(message = %panic);
+		// 	}
+		// }));
 
 		Ok(guard)
 	}

@@ -113,7 +113,7 @@ cargo {
     libname = "sd_mobile_android"
     pythonCommand = 'python3'
     profile = 'release' // 'debug'
-    targets = cargoTargets
+    targets = ["arm", "arm64"] // Just so I don't have to wait for x86 builds
     targetDirectory = "../../../../../target" // Monorepo moment
 		exec { spec, toolchain ->
 
