@@ -39,7 +39,7 @@ export default () => {
 			{platform === 'tauri' ? (
 				<div
 					data-tauri-drag-region={os === 'macOS'}
-					className="mb-3 h-3 w-full p-3 pl-[14px] pt-[10px]"
+					className="mb-3 h-3 w-full p-3 pl-[14px] pt-[11px]"
 				>
 					<NavigationButtons />
 				</div>
