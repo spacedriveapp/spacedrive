@@ -206,11 +206,6 @@ pub struct Locations {
 
 impl Locations {
 	pub fn new() -> (Self, LocationManagerActor) {
-		// Have this run in it's own thread:
-		// tokio::spawn(async {
-		watch_directory("/storage/emulated/0/Documents");
-		// });
-
 		let online_tx = broadcast::channel(16).0;
 		let (location_management_tx, location_management_rx) = mpsc::channel(128);
 		let (watcher_management_tx, watcher_management_rx) = mpsc::channel(128);
@@ -413,14 +408,46 @@ impl Locations {
 					response_tx
 				}) = location_management_rx.recv() => {
 					match action {
-
 						// To add a new location
 						ManagementMessageAction::Add => {
+							#[cfg(target_os = "android")]
+							if let Some(location) = get_location(location_id, &library).await {
+								match check_online(&location, &node, &library).await {
+									Ok(is_online) => {
+										if is_online {
+											if let Some(ref path) = location.path {
+												let path_str: &str = &path;
+												watch_directory(path_str);
+												info!("iNotify -> Location {location_id} is online, watching it");
+											} else {
+												warn!("iNotify -> Location {location_id} has no path, so it can't be watched");
+											}
+										} else {
+											warn!("iNotify -> Location {location_id} is offline, so it can't be watched");
+										}
+
+										to_check_futures.push(
+											location_check_sleep(location_id, library)
+										);
+									}
+									Err(e) => {
+										warn!("Error while checking online status of location {location_id}: {e}");
+										//  Ok(()) // TODO: Probs should be error but that will break startup when location is offline
+									}
+								}
+							} else {
+								info!(
+									"Location not found in database to be watched: {}",
+									location_id
+								);
+								// Ok(()) // TODO: Probs should be error but that will break startup when location is offline
+							}
+
+							#[cfg(not(target_os = "android"))]
 							response_tx.send(
 							if let Some(location) = get_location(location_id, &library).await {
 								match check_online(&location, &node, &library).await {
 									Ok(is_online) => {
-
 										LocationWatcher::new(location, library.clone(), node.clone())
 										.await
 										.map(|mut watcher| {
@@ -445,7 +472,7 @@ impl Locations {
 									)
 									},
 									Err(e) => {
-										info!("Error while checking online status of location {location_id}: {e}");
+										warn!("Error while checking online status of location {location_id}: {e}");
 										Ok(()) // TODO: Probs should be error but that will break startup when location is offline
 									}
 								}

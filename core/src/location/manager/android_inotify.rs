@@ -1,8 +1,11 @@
+use crate::{prisma::location, library::Library, Node};
 use inotify::{Event, EventMask, Inotify, WatchMask};
-use std::ffi::OsStr;
+use std::{ffi::OsStr, sync::Arc};
 use std::time::Duration;
 
 use tracing::{debug, info};
+
+use super::LocationManagerError;
 
 fn handle_event(event: &Event<&OsStr>) {
     info!("Received event: {:?}", event);
@@ -31,7 +34,6 @@ fn handle_event(event: &Event<&OsStr>) {
 pub fn watch_directory(directory_path: &str) {
     // Create an inotify instance
     let mut inotify = Inotify::init().expect("Failed to initialize inotify");
-
 
     // Add a watch to the specified directory
     inotify
