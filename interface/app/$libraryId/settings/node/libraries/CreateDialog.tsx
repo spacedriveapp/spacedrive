@@ -46,7 +46,7 @@ export default (props: UseDialogProps) => {
 				event: { type: 'libraryCreate' }
 			});
 
-			platform.refreshMenuBar && platform.refreshMenuBar();
+			platform.refreshMenuBar?.();
 
 			navigate(`/${library.uuid}`);
 		} catch (e) {
