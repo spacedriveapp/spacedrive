@@ -6,9 +6,9 @@ import { Button } from '@sd/ui';
 import { useExplorerDroppable } from '~/app/$libraryId/Explorer/useExplorerDroppable';
 import { Folder } from '~/components';
 
-import SidebarLink from '../../Layout/Link';
-import Section from '../../Layout/Section';
-import { SeeMore } from '../../Layout/SeeMore';
+import SidebarLink from '../../SidebarLayout/Link';
+import Section from '../../SidebarLayout/Section';
+import { SeeMore } from '../../SidebarLayout/SeeMore';
 
 export default function SavedSearches() {
 	const savedSearches = useLibraryQuery(['search.saved.list']);

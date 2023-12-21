@@ -8,9 +8,9 @@ import { useHomeDir } from '~/hooks/useHomeDir';
 
 import { useExplorerDroppable } from '../../../../Explorer/useExplorerDroppable';
 import { useExplorerSearchParams } from '../../../../Explorer/util';
-import SidebarLink from '../../Layout/Link';
-import Section from '../../Layout/Section';
-import { SeeMore } from '../../Layout/SeeMore';
+import SidebarLink from '../../SidebarLayout/Link';
+import Section from '../../SidebarLayout/Section';
+import { SeeMore } from '../../SidebarLayout/SeeMore';
 
 const Name = tw.span`truncate`;
 

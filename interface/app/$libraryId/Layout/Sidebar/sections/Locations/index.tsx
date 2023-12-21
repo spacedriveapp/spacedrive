@@ -13,9 +13,9 @@ import { useExplorerSearchParams } from '~/app/$libraryId/Explorer/util';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
 import { Icon, SubtleButton } from '~/components';
 
-import SidebarLink from '../../Layout/Link';
-import Section from '../../Layout/Section';
-import { SeeMore } from '../../Layout/SeeMore';
+import SidebarLink from '../../SidebarLayout/Link';
+import Section from '../../SidebarLayout/Section';
+import { SeeMore } from '../../SidebarLayout/SeeMore';
 import { ContextMenu } from './ContextMenu';
 
 export default function Locations() {

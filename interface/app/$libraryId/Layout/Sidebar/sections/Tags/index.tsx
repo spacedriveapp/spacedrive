@@ -4,9 +4,9 @@ import { useCache, useLibraryQuery, useNodes, type Tag } from '@sd/client';
 import { useExplorerDroppable } from '~/app/$libraryId/Explorer/useExplorerDroppable';
 import { SubtleButton } from '~/components';
 
-import SidebarLink from '../../Layout/Link';
-import Section from '../../Layout/Section';
-import { SeeMore } from '../../Layout/SeeMore';
+import SidebarLink from '../../SidebarLayout/Link';
+import Section from '../../SidebarLayout/Section';
+import { SeeMore } from '../../SidebarLayout/SeeMore';
 import { ContextMenu } from './ContextMenu';
 
 export default function TagsSection() {
