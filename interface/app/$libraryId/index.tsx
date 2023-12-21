@@ -11,8 +11,6 @@ const pageRoutes: RouteObject = {
 	children: [
 		{ path: 'overview', lazy: () => import('./overview') },
 		// { path: 'labels', lazy: () => import('./labels') },
-		// { path: 'favorites', lazy: () => import('./favorites') },
-		// { path: 'recents', lazy: () => import('./recents') },
 		// { path: 'spaces', lazy: () => import('./spaces') },
 		{ path: 'debug', children: debugRoutes }
 	]
@@ -21,6 +19,9 @@ const pageRoutes: RouteObject = {
 // Routes that render the explorer and don't need padding and stuff
 // provided by PageLayout
 const explorerRoutes: RouteObject[] = [
+	{ path: 'recents', lazy: () => import('./recents') },
+	{ path: 'favorites', lazy: () => import('./favorites') },
+	{ path: 'labels', lazy: () => import('./labels') },
 	{ path: 'ephemeral/:id', lazy: () => import('./ephemeral') },
 	{ path: 'location/:id', lazy: () => import('./location/$id') },
 	{ path: 'node/:id', lazy: () => import('./node/$id') },

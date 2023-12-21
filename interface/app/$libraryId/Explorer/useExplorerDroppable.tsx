@@ -119,7 +119,6 @@ export const useExplorerDroppable = ({
 						allowedType = ['Path', 'NonIndexedPath', 'Object'];
 						break;
 					}
-
 					case 'Tag': {
 						allowedType = ['Path', 'Object'];
 						break;

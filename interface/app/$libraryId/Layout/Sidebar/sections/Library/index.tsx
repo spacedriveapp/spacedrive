@@ -8,6 +8,7 @@ export const COUNT_STYLE = `absolute right-1 min-w-[20px] top-1 flex h-[19px] px
 
 export default function LibrarySection() {
 	const labelCount = useLibraryQuery(['labels.count']);
+
 	return (
 		<div className="space-y-0.5">
 			<SidebarLink to="overview">

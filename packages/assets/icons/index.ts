@@ -29,6 +29,7 @@ import Code20 from './Code-20.png';
 import Collection_Light from './Collection_Light.png';
 import Collection20 from './Collection-20.png';
 import Collection from './Collection.png';
+import CollectionSparkle from './CollectionSparkle.png';
 import Config20 from './Config-20.png';
 import Database_Light from './Database_Light.png';
 import Database20 from './Database-20.png';
@@ -207,6 +208,7 @@ export {
 	Code20,
 	Collection20,
 	Collection,
+	CollectionSparkle,
 	Collection_Light,
 	Config20,
 	DAV,
