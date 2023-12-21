@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { useClientContext } from '@sd/client';
 import { dialogManager, Dropdown, DropdownMenu } from '@sd/ui';
 
-import CreateDialog from '../../settings/node/libraries/CreateDialog';
+import CreateDialog from '../../../settings/node/libraries/CreateDialog';
 
 export default () => {
 	const { library, libraries, currentLibraryId } = useClientContext();

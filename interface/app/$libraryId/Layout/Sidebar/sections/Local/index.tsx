@@ -6,11 +6,11 @@ import { Button, toast, tw } from '@sd/ui';
 import { Icon, IconName } from '~/components';
 import { useHomeDir } from '~/hooks/useHomeDir';
 
-import { useExplorerDroppable } from '../../Explorer/useExplorerDroppable';
-import { useExplorerSearchParams } from '../../Explorer/util';
-import SidebarLink from './Link';
-import Section from './Section';
-import { SeeMore } from './SeeMore';
+import { useExplorerDroppable } from '../../../../Explorer/useExplorerDroppable';
+import { useExplorerSearchParams } from '../../../../Explorer/util';
+import SidebarLink from '../../Layout/Link';
+import Section from '../../Layout/Section';
+import { SeeMore } from '../../Layout/SeeMore';
 
 const Name = tw.span`truncate`;
 
@@ -29,7 +29,7 @@ const SidebarIcon = ({ name }: { name: IconName }) => {
 	return <Icon name={name} size={20} className="mr-1" />;
 };
 
-export const EphemeralSection = () => {
+export default function LocalSection() {
 	const locationsQuery = useLibraryQuery(['locations.list']);
 	useNodes(locationsQuery.data?.nodes);
 	const locations = useCache(locationsQuery.data?.items);
@@ -137,7 +137,7 @@ export const EphemeralSection = () => {
 			</SeeMore>
 		</Section>
 	);
-};
+}
 
 const EphemeralLocation = ({
 	children,

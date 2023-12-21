@@ -20,8 +20,8 @@ import { tw } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
-import Icon from '../Layout/Sidebar/Icon';
-import SidebarLink from '../Layout/Sidebar/Link';
+import Icon from '../Layout/Sidebar/Layout/Icon';
+import SidebarLink from '../Layout/Sidebar/Layout/Link';
 import { NavigationButtons } from '../TopBar/NavigationButtons';
 
 const Heading = tw.div`mb-1 ml-1 text-xs font-semibold text-gray-400`;

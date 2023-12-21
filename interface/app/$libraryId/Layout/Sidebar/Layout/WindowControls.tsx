@@ -3,7 +3,7 @@ import { MacTrafficLights } from '~/components/TrafficLights';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
 
-import { macOnly } from './helpers';
+import { macOnly } from '../helpers';
 
 export default () => {
 	const { platform } = usePlatform();

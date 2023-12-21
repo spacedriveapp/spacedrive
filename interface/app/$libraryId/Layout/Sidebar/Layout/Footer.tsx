@@ -5,9 +5,9 @@ import { Button, ButtonLink, Popover, Tooltip, usePopover } from '@sd/ui';
 import { useKeysMatcher, useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
-import DebugPopover from './DebugPopover';
+import DebugPopover from '../DebugPopover';
+import { IsRunningJob, JobManager } from '../JobManager';
 import FeedbackButton from './FeedbackButton';
-import { IsRunningJob, JobManager } from './JobManager';
 
 export default () => {
 	const { library } = useClientContext();

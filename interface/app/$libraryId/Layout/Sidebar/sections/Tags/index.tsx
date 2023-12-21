@@ -4,12 +4,12 @@ import { useCache, useLibraryQuery, useNodes, type Tag } from '@sd/client';
 import { useExplorerDroppable } from '~/app/$libraryId/Explorer/useExplorerDroppable';
 import { SubtleButton } from '~/components';
 
-import SidebarLink from '../Link';
-import Section from '../Section';
-import { SeeMore } from '../SeeMore';
+import SidebarLink from '../../Layout/Link';
+import Section from '../../Layout/Section';
+import { SeeMore } from '../../Layout/SeeMore';
 import { ContextMenu } from './ContextMenu';
 
-export const Tags = () => {
+export default function TagsSection() {
 	const result = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 	useNodes(result.data?.nodes);
 	const tags = useCache(result.data?.items);
@@ -32,7 +32,7 @@ export const Tags = () => {
 			</SeeMore>
 		</Section>
 	);
-};
+}
 
 const Tag = ({ tag }: { tag: Tag }) => {
 	const tagId = useMatch('/:libraryId/tag/:tagId')?.params.tagId;

@@ -13,12 +13,12 @@ import { useExplorerSearchParams } from '~/app/$libraryId/Explorer/util';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
 import { Icon, SubtleButton } from '~/components';
 
-import SidebarLink from '../Link';
-import Section from '../Section';
-import { SeeMore } from '../SeeMore';
+import SidebarLink from '../../Layout/Link';
+import Section from '../../Layout/Section';
+import { SeeMore } from '../../Layout/SeeMore';
 import { ContextMenu } from './ContextMenu';
 
-export const Locations = () => {
+export default function Locations() {
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	useNodes(locationsQuery.data?.nodes);
 	const locations = useCache(locationsQuery.data?.items);
@@ -45,7 +45,7 @@ export const Locations = () => {
 			<AddLocationButton className="mt-1" />
 		</Section>
 	);
-};
+}
 
 const Location = ({ location, online }: { location: LocationType; online: boolean }) => {
 	const locationId = useMatch('/:libraryId/location/:locationId')?.params.locationId;

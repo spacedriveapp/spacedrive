@@ -6,11 +6,11 @@ import { Button } from '@sd/ui';
 import { useExplorerDroppable } from '~/app/$libraryId/Explorer/useExplorerDroppable';
 import { Folder } from '~/components';
 
-import SidebarLink from '../Link';
-import Section from '../Section';
-import { SeeMore } from '../SeeMore';
+import SidebarLink from '../../Layout/Link';
+import Section from '../../Layout/Section';
+import { SeeMore } from '../../Layout/SeeMore';
 
-export const SavedSearches = () => {
+export default function SavedSearches() {
 	const savedSearches = useLibraryQuery(['search.saved.list']);
 
 	const path = useResolvedPath('saved-search/:id');
@@ -58,7 +58,7 @@ export const SavedSearches = () => {
 			</SeeMore>
 		</Section>
 	);
-};
+}
 
 const SavedSearch = ({ search, onDelete }: { search: SavedSearch; onDelete(): void }) => {
 	const searchId = useMatch('/:libraryId/saved-search/:searchId')?.params.searchId;

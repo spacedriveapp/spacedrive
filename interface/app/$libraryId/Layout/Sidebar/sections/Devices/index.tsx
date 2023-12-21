@@ -3,10 +3,10 @@ import { useBridgeQuery, useFeatureFlag } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
 import { Icon, SubtleButton } from '~/components';
 
-import SidebarLink from '../Link';
-import Section from '../Section';
+import SidebarLink from '../../Layout/Link';
+import Section from '../../Layout/Section';
 
-export const Devices = () => {
+export default function DevicesSection() {
 	const { data: node } = useBridgeQuery(['nodeState']);
 	const isPairingEnabled = useFeatureFlag('p2pPairing');
 
@@ -38,4 +38,4 @@ export const Devices = () => {
 			</Tooltip>
 		</Section>
 	);
-};
+}
