@@ -9,8 +9,6 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
 
-use super::utils::library;
-
 /// Represents a single notification.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Notification {

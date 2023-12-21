@@ -1,10 +1,10 @@
 use std::{ops::Deref, sync::Arc};
 
 use sd_prisma::{
-	prisma::{instance, relation_operation, shared_operation, PrismaClient, SortOrder},
+	prisma::{crdt_operation, instance, PrismaClient, SortOrder},
 	prisma_sync::ModelSyncData,
 };
-use sd_sync::{CRDTOperation, CRDTOperationType, RelationOperation, SharedOperation};
+use sd_sync::CRDTOperation;
 use serde_json::to_vec;
 use tokio::sync::{mpsc, Mutex};
 use uhlc::{Timestamp, NTP64};
@@ -165,7 +165,7 @@ impl Actor {
 	}
 
 	async fn apply_op(&mut self, op: CRDTOperation) -> prisma_client_rust::Result<()> {
-		ModelSyncData::from_op(op.typ.clone())
+		ModelSyncData::from_op(op.clone())
 			.unwrap()
 			.exec(&self.db)
 			.await?;
@@ -178,45 +178,23 @@ impl Actor {
 	}
 
 	async fn compare_message(&mut self, op: &CRDTOperation) -> bool {
-		let old_timestamp = match &op.typ {
-			CRDTOperationType::Shared(shared_op) => {
-				let newer_op = self
-					.db
-					.shared_operation()
-					.find_first(vec![
-						shared_operation::timestamp::gte(op.timestamp.as_u64() as i64),
-						shared_operation::model::equals(shared_op.model.to_string()),
-						shared_operation::record_id::equals(
-							serde_json::to_vec(&shared_op.record_id).unwrap(),
-						),
-						shared_operation::kind::equals(shared_op.kind().to_string()),
-					])
-					.order_by(shared_operation::timestamp::order(SortOrder::Desc))
-					.exec()
-					.await
-					.unwrap();
+		let db = &self.db;
 
-				newer_op.map(|newer_op| newer_op.timestamp)
-			}
-			CRDTOperationType::Relation(relation_op) => {
-				let newer_op = self
-					.db
-					.relation_operation()
-					.find_first(vec![
-						relation_operation::timestamp::gte(op.timestamp.as_u64() as i64),
-						relation_operation::relation::equals(relation_op.relation.to_string()),
-						relation_operation::item_id::equals(
-							serde_json::to_vec(&relation_op.relation_item).unwrap(),
-						),
-						relation_operation::kind::equals(relation_op.kind().to_string()),
-					])
-					.order_by(relation_operation::timestamp::order(SortOrder::Desc))
-					.exec()
-					.await
-					.unwrap();
+		let old_timestamp = {
+			let newer_op = db
+				.crdt_operation()
+				.find_first(vec![
+					crdt_operation::timestamp::gte(op.timestamp.as_u64() as i64),
+					crdt_operation::model::equals(op.model.to_string()),
+					crdt_operation::record_id::equals(serde_json::to_vec(&op.record_id).unwrap()),
+					crdt_operation::kind::equals(op.kind().to_string()),
+				])
+				.order_by(crdt_operation::timestamp::order(SortOrder::Desc))
+				.exec()
+				.await
+				.unwrap();
 
-				newer_op.map(|newer_op| newer_op.timestamp)
-			}
+			newer_op.map(|newer_op| newer_op.timestamp)
 		};
 
 		old_timestamp
@@ -255,44 +233,20 @@ async fn write_crdt_op_to_db(
 	op: &CRDTOperation,
 	db: &PrismaClient,
 ) -> Result<(), prisma_client_rust::QueryError> {
-	match &op.typ {
-		CRDTOperationType::Shared(shared_op) => {
-			shared_op_db(op, shared_op).to_query(db).exec().await?;
-		}
-		CRDTOperationType::Relation(relation_op) => {
-			relation_op_db(op, relation_op).to_query(db).exec().await?;
-		}
-	}
+	crdt_op_db(op).to_query(db).exec().await?;
 
 	Ok(())
 }
 
-fn shared_op_db(op: &CRDTOperation, shared_op: &SharedOperation) -> shared_operation::Create {
-	shared_operation::Create {
+fn crdt_op_db(op: &CRDTOperation) -> crdt_operation::Create {
+	crdt_operation::Create {
 		id: op.id.as_bytes().to_vec(),
 		timestamp: op.timestamp.0 as i64,
 		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
-		kind: shared_op.kind().to_string(),
-		data: to_vec(&shared_op.data).unwrap(),
-		model: shared_op.model.to_string(),
-		record_id: to_vec(&shared_op.record_id).unwrap(),
-		_params: vec![],
-	}
-}
-
-fn relation_op_db(
-	op: &CRDTOperation,
-	relation_op: &RelationOperation,
-) -> relation_operation::Create {
-	relation_operation::Create {
-		id: op.id.as_bytes().to_vec(),
-		timestamp: op.timestamp.0 as i64,
-		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
-		kind: relation_op.kind().to_string(),
-		data: to_vec(&relation_op.data).unwrap(),
-		relation: relation_op.relation.to_string(),
-		item_id: to_vec(&relation_op.relation_item).unwrap(),
-		group_id: to_vec(&relation_op.relation_group).unwrap(),
+		kind: op.kind().to_string(),
+		data: to_vec(&op.data).unwrap(),
+		model: op.model.to_string(),
+		record_id: to_vec(&op.record_id).unwrap(),
 		_params: vec![],
 	}
 }
