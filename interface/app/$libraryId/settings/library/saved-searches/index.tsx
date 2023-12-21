@@ -9,8 +9,8 @@ import {
 	useZodForm
 } from '@sd/client';
 import { Button, Card, Form, InputField, Label, Tooltip, z } from '@sd/ui';
-import { SearchContextProvider, useSearch } from '~/app/$libraryId/Search';
-import { AppliedFilters } from '~/app/$libraryId/Search/AppliedFilters';
+import { SearchContextProvider, useSearch } from '~/app/$libraryId/search';
+import { AppliedFilters } from '~/app/$libraryId/search/AppliedFilters';
 import { Heading } from '~/app/$libraryId/settings/Layout';
 import { useDebouncedFormWatch } from '~/hooks';
 

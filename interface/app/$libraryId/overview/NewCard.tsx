@@ -5,17 +5,25 @@ import { Icon, IconName } from '~/components';
 interface NewCardProps {
 	icons: IconName[];
 	text: string;
-	buttonText: string;
+	buttonText?: string;
 }
+
+const maskImage = `linear-gradient(90deg, transparent 0.1%, rgba(0, 0, 0, 1), rgba(0, 0, 0, 1) 35%, transparent 99%)`;
 
 const NewCard = ({ icons, text, buttonText }: NewCardProps) => {
 	return (
-		<div className="flex h-[175px] w-[280px] shrink-0 flex-col justify-between rounded border border-dashed border-app-line p-4">
+		<div className="flex h-[170px] w-[280px] shrink-0 flex-col justify-between rounded border border-dashed border-app-line p-4">
 			<div className="flex flex-row items-start justify-between">
-				<div className="flex flex-row">
+				<div
+					className="flex flex-row"
+					style={{
+						WebkitMaskImage: maskImage,
+						maskImage
+					}}
+				>
 					{icons.map((iconName, index) => (
 						<div key={index}>
-							<Icon size={40} name={iconName} />
+							<Icon size={60} name={iconName} />
 						</div>
 					))}
 				</div>
@@ -24,7 +32,9 @@ const NewCard = ({ icons, text, buttonText }: NewCardProps) => {
 				</Button>
 			</div>
 			<span className="text-sm text-ink-dull">{text}</span>
-			<Button variant="outline">{buttonText}</Button>
+			<Button disabled={!buttonText} variant="outline">
+				{buttonText ? buttonText : 'Coming Soon'}
+			</Button>
 		</div>
 	);
 };

@@ -10,8 +10,8 @@ import { createDefaultExplorerSettings, objectOrderingKeysSchema } from './Explo
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { EmptyNotice } from './Explorer/View/EmptyNotice';
-import SearchOptions, { SearchContextProvider, useSearch } from './Search';
-import SearchBar from './Search/SearchBar';
+import { SearchContextProvider, SearchOptions, useSearch } from './search';
+import SearchBar from './search/SearchBar';
 import { TopBarPortal } from './TopBar/Portal';
 
 export function Component() {

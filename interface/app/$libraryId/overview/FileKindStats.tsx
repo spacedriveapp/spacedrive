@@ -1,7 +1,8 @@
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { useRef } from 'react';
-import { formatNumber, useLibraryQuery } from '@sd/client';
+import { Link, useLocation } from 'react-router-dom';
+import { formatNumber, SearchFilterArgs, useLibraryQuery } from '@sd/client';
 import { Icon } from '~/components';
 
 export default () => {
@@ -35,7 +36,13 @@ export default () => {
 							className={clsx('min-w-fit')}
 							key={kind}
 						>
-							<KindItem name={name} icon={icon} items={count} onClick={() => {}} />
+							<KindItem
+								kind={kind}
+								name={name}
+								icon={icon}
+								items={count}
+								onClick={() => {}}
+							/>
 						</motion.div>
 					);
 				})}
@@ -44,6 +51,7 @@ export default () => {
 };
 
 interface KindItemProps {
+	kind: number;
 	name: string;
 	items: number;
 	icon: string;
@@ -52,25 +60,36 @@ interface KindItemProps {
 	disabled?: boolean;
 }
 
-const KindItem = ({ name, icon, items, selected, onClick, disabled }: KindItemProps) => {
+const KindItem = ({ kind, name, icon, items, selected, onClick, disabled }: KindItemProps) => {
 	return (
-		<div
-			onClick={onClick}
-			className={clsx(
-				'flex shrink-0 items-center rounded-lg py-1 text-sm outline-none focus:bg-app-selectedItem/50',
-				selected && 'bg-app-selectedItem',
-				disabled && 'cursor-not-allowed opacity-30'
-			)}
+		<Link
+			to={{
+				pathname: '../search',
+				search: new URLSearchParams({
+					filters: JSON.stringify([
+						{ object: { kind: { in: [kind] } } }
+					] as SearchFilterArgs[])
+				}).toString()
+			}}
 		>
-			<Icon name={icon as any} className="mr-3 h-12 w-12" />
-			<div className="pr-5">
-				<h2 className="text-sm font-medium">{name}</h2>
-				{items !== undefined && (
-					<p className="text-xs text-ink-faint">
-						{formatNumber(items)} Item{(items > 1 || items === 0) && 's'}
-					</p>
+			<div
+				onClick={onClick}
+				className={clsx(
+					'flex shrink-0 items-center rounded-lg py-1 text-sm outline-none focus:bg-app-selectedItem/50',
+					selected && 'bg-app-selectedItem',
+					disabled && 'cursor-not-allowed opacity-30'
 				)}
+			>
+				<Icon name={icon as any} className="mr-3 h-12 w-12" />
+				<div className="pr-5">
+					<h2 className="text-sm font-medium">{name}</h2>
+					{items !== undefined && (
+						<p className="text-xs text-ink-faint">
+							{formatNumber(items)} Item{(items > 1 || items === 0) && 's'}
+						</p>
+					)}
+				</div>
 			</div>
-		</div>
+		</Link>
 	);
 };

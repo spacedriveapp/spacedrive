@@ -1,11 +1,17 @@
 import { ArrowClockwise, Broadcast, Key, Laptop, SlidersHorizontal } from '@phosphor-icons/react';
 import { DriveAmazonS3, DriveDropbox, Mobile, Server, Tablet } from '@sd/assets/icons';
-import { useBridgeQuery, useLibraryQuery, useNodes } from '@sd/client';
+import {
+	useBridgeQuery,
+	useCache,
+	useLibraryQuery,
+	useNodes,
+	useOnlineLocations
+} from '@sd/client';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 import { hardwareModelToIcon } from '~/util/hardware';
 
-import { SearchContextProvider, useSearch } from '../Search';
-import SearchBar from '../Search/SearchBar';
+import { SearchContextProvider, useSearch } from '../search';
+import SearchBar from '../search/SearchBar';
 import { TopBarPortal } from '../TopBar/Portal';
 import TopBarOptions, { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import FileKindStatistics from './FileKindStats';
@@ -17,10 +23,10 @@ import StatisticItem from './StatCard';
 export const Component = () => {
 	useRouteTitle('Overview');
 
-	const locationsQuery = useLibraryQuery(['locations.list'], {
-		refetchOnWindowFocus: false
-	});
+	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	useNodes(locationsQuery.data?.nodes);
+	const locations = useCache(locationsQuery.data?.items);
+	const onlineLocations = useOnlineLocations();
 
 	const { data: node } = useBridgeQuery(['nodeState']);
 
@@ -40,35 +46,35 @@ export const Component = () => {
 						</div>
 					}
 					center={<SearchBar />}
-					right={
-						<TopBarOptions
-							options={[
-								[
-									{
-										toolTipLabel: 'Spacedrop',
-										onClick: () => {},
-										icon: <Broadcast className={TOP_BAR_ICON_STYLE} />,
-										individual: true,
-										showAtResolution: 'sm:flex'
-									},
-									{
-										toolTipLabel: 'Key Manager',
-										onClick: () => {},
-										icon: <Key className={TOP_BAR_ICON_STYLE} />,
-										individual: true,
-										showAtResolution: 'sm:flex'
-									},
-									{
-										toolTipLabel: 'Overview Display Settings',
-										onClick: () => {},
-										icon: <SlidersHorizontal className={TOP_BAR_ICON_STYLE} />,
-										individual: true,
-										showAtResolution: 'sm:flex'
-									}
-								]
-							]}
-						/>
-					}
+					// right={
+					// 	<TopBarOptions
+					// 		options={[
+					// 			[
+					// 				{
+					// 					toolTipLabel: 'Spacedrop',
+					// 					onClick: () => {},
+					// 					icon: <Broadcast className={TOP_BAR_ICON_STYLE} />,
+					// 					individual: true,
+					// 					showAtResolution: 'sm:flex'
+					// 				},
+					// 				{
+					// 					toolTipLabel: 'Key Manager',
+					// 					onClick: () => {},
+					// 					icon: <Key className={TOP_BAR_ICON_STYLE} />,
+					// 					individual: true,
+					// 					showAtResolution: 'sm:flex'
+					// 				},
+					// 				{
+					// 					toolTipLabel: 'Overview Display Settings',
+					// 					onClick: () => {},
+					// 					icon: <SlidersHorizontal className={TOP_BAR_ICON_STYLE} />,
+					// 					individual: true,
+					// 					showAtResolution: 'sm:flex'
+					// 				}
+					// 			]
+					// 		]}
+					// 	/>
+					// }
 				/>
 				<div className="mt-4 flex flex-col gap-3 pt-3">
 					<OverviewSection>
@@ -81,16 +87,15 @@ export const Component = () => {
 						{node && (
 							<StatisticItem
 								name={node.name}
-								// this is a hack, we should map the device model to the icon in a util and actually have more than two mac models lol
 								icon={hardwareModelToIcon(node.device_model as any)}
-								total_space={stats.data?.statistics?.total_bytes_capacity || '0'}
-								free_space={stats.data?.statistics?.total_bytes_free || '0'}
+								totalSpace={stats.data?.statistics?.total_bytes_capacity || '0'}
+								freeSpace={stats.data?.statistics?.total_bytes_free || '0'}
 								color="#0362FF"
-								connection_type="lan"
+								connectionType={null}
 							/>
 						)}
 						{/* <StatisticItem
-							name="Jamie's Macbook"
+							name="Jamie's MacBook"
 							icon="Laptop"
 							total_space="4098046511104"
 							free_space="969004651119"
@@ -130,11 +135,29 @@ export const Component = () => {
 							connection_type="p2p"
 						/> */}
 						<NewCard
-							icons={['Laptop', 'Server', 'SilverBox', 'Tablet', 'Mobile']}
+							icons={['Laptop', 'Server', 'SilverBox', 'Tablet']}
 							text="Spacedrive works best on all your devices."
-							buttonText="Connect a device"
+							// buttonText="Connect a device"
 						/>
 						{/**/}
+					</OverviewSection>
+
+					<OverviewSection count={3} title="Locations">
+						{locations.map((item, index) => (
+							<StatisticItem
+								key={item.id}
+								name={item.name || 'Unnamed Location'}
+								icon="Folder"
+								totalSpace={item.size_in_bytes || [0]}
+								color="#0362FF"
+								connectionType={null}
+							/>
+						))}
+						<NewCard
+							icons={['HDD', 'Folder', 'Globe', 'SD']}
+							text="Connect a local path, volume or network location to Spacedrive."
+							buttonText="Add a Location"
+						/>
 					</OverviewSection>
 
 					<OverviewSection count={3} title="Cloud Drives">
@@ -160,11 +183,11 @@ export const Component = () => {
 								'DriveAmazonS3',
 								'DriveDropbox',
 								'DriveGoogleDrive',
-								'DriveOneDrive',
-								'DriveBox'
+								'DriveOneDrive'
+								// 'DriveBox'
 							]}
 							text="Connect your cloud accounts to Spacedrive."
-							buttonText="Connect a cloud"
+							// buttonText="Connect a cloud"
 						/>
 					</OverviewSection>
 

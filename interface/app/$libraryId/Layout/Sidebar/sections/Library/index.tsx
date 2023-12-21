@@ -25,7 +25,7 @@ export default function LibrarySection() {
 				Favorites
 				{/* <div className={COUNT_STYLE}>2</div> */}
 			</SidebarLink>
-			<SidebarLink to="labels">
+			<SidebarLink disabled to="labels">
 				<Icon component={Tag} />
 				Labels
 				<div className={COUNT_STYLE}>{labelCount.data || 0}</div>

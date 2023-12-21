@@ -22,6 +22,7 @@ const explorerRoutes: RouteObject[] = [
 	{ path: 'recents', lazy: () => import('./recents') },
 	{ path: 'favorites', lazy: () => import('./favorites') },
 	{ path: 'labels', lazy: () => import('./labels') },
+	{ path: 'search', lazy: () => import('./search') },
 	{ path: 'ephemeral/:id', lazy: () => import('./ephemeral') },
 	{ path: 'location/:id', lazy: () => import('./location/$id') },
 	{ path: 'node/:id', lazy: () => import('./node/$id') },
