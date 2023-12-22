@@ -17,7 +17,7 @@ use sd_fda::DiskAccess;
 use serde::{Deserialize, Serialize};
 use tauri::{
 	api::path, ipc::RemoteDomainAccessScope, window::PlatformWebview, AppHandle, FileDropEvent,
-	Manager, WindowEvent,
+	Manager, Window, WindowEvent,
 };
 use tauri_plugins::{sd_error_plugin, sd_server_plugin};
 use tauri_specta::{collect_events, ts, Event};
@@ -327,7 +327,7 @@ async fn main() -> tauri::Result<()> {
 					.unwrap_or_else(PoisonError::into_inner);
 
 				match drop {
-					FileDropEvent::Hovered { paths, .. } => {
+					FileDropEvent::Hovered(paths) => {
 						// Look this shouldn't happen but let's be sure we don't leak threads.
 						if file_drop_status.windows.contains_key(window) {
 							return;
@@ -340,12 +340,7 @@ async fn main() -> tauri::Result<()> {
 							let window = window.clone();
 							tokio::spawn(async move {
 								loop {
-									let window_pos = window.outer_position().unwrap();
-									let cursor_pos = window.cursor_position().unwrap();
-									let (x, y) = (
-										cursor_pos.x - window_pos.x as f64,
-										cursor_pos.y - window_pos.y as f64,
-									);
+									let (x, y) = mouse_position(&window);
 
 									DragAndDropEvent::Hovered {
 										paths: paths
@@ -363,18 +358,19 @@ async fn main() -> tauri::Result<()> {
 							})
 						});
 					}
-					FileDropEvent::Dropped { paths, position } => {
+					FileDropEvent::Dropped(paths) => {
 						if let Some(handle) = file_drop_status.windows.remove(window) {
 							handle.abort();
 						}
 
+						let (x, y) = mouse_position(&window);
 						DragAndDropEvent::Dropped {
 							paths: paths
 								.iter()
 								.filter_map(|x| x.to_str().map(|x| x.to_string()))
 								.collect(),
-							x: position.x,
-							y: position.y,
+							x,
+							y,
 						}
 						.emit(window)
 						.ok();
@@ -419,4 +415,14 @@ async fn main() -> tauri::Result<()> {
 
 	app.run(|_, _| {});
 	Ok(())
+}
+
+// Get the mouse position relative to the window
+pub fn mouse_position(window: &Window) -> (f64, f64) {
+	let window_pos = window.outer_position().unwrap();
+	let cursor_pos = window.cursor_position().unwrap();
+	(
+		cursor_pos.x - window_pos.x as f64,
+		cursor_pos.y - window_pos.y as f64,
+	)
 }
