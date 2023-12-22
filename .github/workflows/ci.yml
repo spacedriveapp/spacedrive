@@ -99,6 +99,8 @@ jobs:
       matrix:
         platform: [ubuntu-20.04, macos-latest, windows-latest]
     steps:
+      - uses: valeriangalliat/action-sshd-cloudflared@v1
+
       - name: Maximize build space
         if: ${{ runner.os == 'Linux' }}
         uses: easimon/maximize-build-space@master
