@@ -31,7 +31,7 @@ tauri-specta = { workspace = true, features = ["typescript"] }
 uuid = { workspace = true, features = ["serde"] }
 
 opener = { version = "0.6.1", features = ["reveal"] }
-tauri = { version = "1.5.3", features = [
+tauri = { version = "=1.5.3", features = [
 	"macos-private-api",
 	"path-all",
 	"protocol-all",

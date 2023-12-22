@@ -338,21 +338,34 @@ async fn main() -> tauri::Result<()> {
 						file_drop_status.windows.insert(window.clone(), {
 							let window = window.clone();
 							tokio::spawn(async move {
+								let (mut last_x, mut last_y) = (0.0, 0.0);
 								loop {
 									let (x, y) = mouse_position(&window);
 
-									DragAndDropEvent::Hovered {
-										paths: paths
-											.iter()
-											.filter_map(|x| x.to_str().map(|x| x.to_string()))
-											.collect(),
-										x,
-										y,
-									}
-									.emit(&window)
-									.ok();
+									let x_diff = difference(x, last_x);
+									let y_diff = difference(y, last_y);
 
-									sleep(Duration::from_millis(250)).await;
+									// If the mouse hasn't moved much we will "debounce" the event
+									if x_diff > 28.0 || y_diff > 28.0 {
+										println!("SENT {:?} {:?} {:?} {:?}", x, y, x_diff, y_diff); // TODO: Remove
+										last_x = x;
+										last_y = y;
+
+										DragAndDropEvent::Hovered {
+											paths: paths
+												.iter()
+												.filter_map(|x| x.to_str().map(|x| x.to_string()))
+												.collect(),
+											x,
+											y,
+										}
+										.emit(&window)
+										.ok();
+									} else {
+										println!("SKIP {:?} {:?} {:?} {:?}", x, y, x_diff, y_diff); // TODO: Remove
+									}
+
+									sleep(Duration::from_millis(125)).await;
 								}
 							})
 						});
@@ -417,11 +430,20 @@ async fn main() -> tauri::Result<()> {
 }
 
 // Get the mouse position relative to the window
-pub fn mouse_position(window: &Window) -> (f64, f64) {
+fn mouse_position(window: &Window) -> (f64, f64) {
 	let window_pos = window.outer_position().unwrap();
 	let cursor_pos = window.cursor_position().unwrap();
 	(
 		cursor_pos.x - window_pos.x as f64,
 		cursor_pos.y - window_pos.y as f64,
 	)
+}
+
+// The distance between two numbers as a positive integer.
+fn difference(a: f64, b: f64) -> f64 {
+	let x = a - b;
+	if x < 0.0 {
+		return x * -1.0;
+	}
+	return x;
 }

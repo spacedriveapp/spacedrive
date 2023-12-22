@@ -32,7 +32,7 @@ function DragAndDropDebug() {
 		const unsub = platform.subscribeToDragAndDropEvents((event) => {
 			if (finished) return;
 
-			console.log(event);
+			console.log(JSON.stringify(event));
 			if (!ref.current) return;
 
 			if (event.type === 'Hovered') {

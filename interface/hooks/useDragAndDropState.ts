@@ -12,16 +12,7 @@ export const getDragAndDropState = () => state;
 export const subscribeDragAndDropState = (callback: () => void) => subscribe(state, callback);
 
 export function useDroppedOn(ref: RefObject<HTMLDivElement>) {
-	useEffect(() => {
-		console.log('LISTEN');
-
-		const handler = (e: MouseEvent) => {
-			console.log(e);
-		};
-
-		document.addEventListener('mousemove', handler, false);
-		return () => document.removeEventListener('mousemove', handler);
-	}, []);
+	// TODO: Finish this hook
 
 	useEffect(() => {
 		if (ref.current) return;

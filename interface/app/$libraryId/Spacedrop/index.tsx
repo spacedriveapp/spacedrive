@@ -16,8 +16,6 @@ export function SpacedropButton() {
 	const ref = useRef<HTMLDivElement>(null);
 	useDroppedOn(ref);
 
-	console.log('BUTTON');
-
 	return (
 		<div ref={ref}>
 			<Planet className={TOP_BAR_ICON_STYLE} />

@@ -92,7 +92,7 @@ rspc = { git = "https://github.com/spacedriveapp/rspc.git", rev = "f3347e2e8bfe3
 
 # `cursor_position` method
 tauri = { git = "https://github.com/spacedriveapp/tauri.git", rev = "8409af71a83d631ff9d1cd876c441a57511a1cbd" }
-tao = { git = "https://github.com/spacedriveapp/tao", rev = "9d3f75f9038b44c9c324db231fa8efc8c4a2bdb6" }
+tao = { git = "https://github.com/spacedriveapp/tao", rev = "7880adbc090402c44fbcf006669458fa82623403" }
 
 # Set the settings for build scripts and proc-macros.
 [profile.dev.build-override]
