@@ -14,7 +14,6 @@ import {
 	SpacedriveRouterProvider,
 	TabsContext
 } from '@sd/interface';
-import { getDragAndDropState } from '@sd/interface/hooks';
 import { RouteTitleContext } from '@sd/interface/hooks/useRouteTitle';
 
 import '@sd/ui/style/style.scss';
@@ -47,16 +46,7 @@ export default function App() {
 			document.dispatchEvent(new KeybindEvent(input.payload as string));
 		});
 
-		const dropEventListener = appWindow.onFileDropEvent((event) => {
-			if (event.payload.type === 'drop') {
-				getDragAndDropState().droppedFiles = event.payload.paths;
-			}
-		});
-
-		return () => {
-			keybindListener.then((unlisten) => unlisten());
-			dropEventListener.then((unlisten) => unlisten());
-		};
+		return () => keybindListener.then((unlisten) => unlisten());
 	}, []);
 
 	return (

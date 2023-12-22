@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import { Navigate, Outlet, redirect, useMatches, type RouteObject } from 'react-router-dom';
 import {
 	currentLibraryCache,
 	getCachedLibraries,
 	NormalisedCache,
-	useCachedLibraries
+	useCachedLibraries,
+	useFeatureFlag
 } from '@sd/client';
 import { Dialogs, Toaster } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
@@ -12,6 +13,7 @@ import { useRoutingContext } from '~/RoutingContext';
 
 import { Platform, usePlatform } from '..';
 import libraryRoutes from './$libraryId';
+import { DragAndDropDebug } from './$libraryId/debug/dnd';
 import onboardingRoutes from './onboarding';
 import { RootContext } from './RootContext';
 
@@ -21,38 +23,6 @@ import './style.scss';
 // the `usePlausiblePageViewMonitor` hook, as early as possible (ideally within the layout itself).
 // the hook should only be included if there's a valid `ClientContext` (so not onboarding)
 
-function DragAndDropDebug() {
-	const ref = useRef<HTMLDivElement>(null);
-
-	const platform = usePlatform();
-	useEffect(() => {
-		if (!platform.subscribeToDragAndDropEvents) return;
-
-		let finished = false;
-		const unsub = platform.subscribeToDragAndDropEvents((event) => {
-			if (finished) return;
-
-			console.log(JSON.stringify(event));
-			if (!ref.current) return;
-
-			if (event.type === 'Hovered') {
-				ref.current.classList.remove('hidden');
-				ref.current.style.left = `${event.x}px`;
-				ref.current.style.top = `${event.y}px`;
-			} else if (event.type === 'Dropped' || event.type === 'Cancelled') {
-				ref.current.classList.add('hidden');
-			}
-		});
-
-		return () => {
-			finished = true;
-			void unsub.then((unsub) => unsub());
-		};
-	}, [platform, ref]);
-
-	return <div ref={ref} className="absolute z-[500] hidden h-10 w-10 bg-red-500"></div>;
-}
-
 export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 	[
 		{
@@ -61,7 +31,8 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 
 				return (
 					<RootContext.Provider value={{ rawPath }}>
-						<DragAndDropDebug />
+						{useFeatureFlag('debugDragAndDrop') ? <DragAndDropDebug /> : null}
+
 						<Outlet />
 						<Dialogs />
 						<Toaster position="bottom-right" expand={true} />

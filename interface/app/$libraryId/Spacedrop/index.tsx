@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { useP2PEvents } from '@sd/client';
 import { dialogManager, toast } from '@sd/ui';
 import { Icon } from '~/components';
-import { useDroppedOn } from '~/hooks';
+import { useDragAndDrop } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
@@ -14,10 +14,21 @@ import { useIncomingSpacedropToast, useSpacedropProgressToast } from './toast';
 
 export function SpacedropButton() {
 	const ref = useRef<HTMLDivElement>(null);
-	useDroppedOn(ref);
+	const dndState = useDragAndDrop({
+		ref,
+		onDrop: (files) => {
+			console.log('DROPPED', files);
+		},
+		extendBoundsBy: 7
+	});
 
 	return (
-		<div ref={ref}>
+		<div
+			ref={ref}
+			className={
+				dndState === 'hovered' ? 'bg-red-500' : dndState === 'active' ? 'bg-blue-500' : ''
+			}
+		>
 			<Planet className={TOP_BAR_ICON_STYLE} />
 		</div>
 	);
@@ -50,7 +61,7 @@ export function Spacedrop() {
 	// }, []);
 
 	const ref = useRef<HTMLDivElement>(null);
-	useDroppedOn(ref);
+	// useDragAndDrop(ref); // TODO
 
 	// TODO: Drag and drop working onto icon
 	// TODO: Drag and drop onto the UI
