@@ -347,7 +347,6 @@ async fn main() -> tauri::Result<()> {
 
 									// If the mouse hasn't moved much we will "debounce" the event
 									if x_diff > 28.0 || y_diff > 28.0 {
-										println!("SENT {:?} {:?} {:?} {:?}", x, y, x_diff, y_diff); // TODO: Remove
 										last_x = x;
 										last_y = y;
 
@@ -361,8 +360,6 @@ async fn main() -> tauri::Result<()> {
 										}
 										.emit(&window)
 										.ok();
-									} else {
-										println!("SKIP {:?} {:?} {:?} {:?}", x, y, x_diff, y_diff); // TODO: Remove
 									}
 
 									sleep(Duration::from_millis(125)).await;
@@ -431,11 +428,17 @@ async fn main() -> tauri::Result<()> {
 
 // Get the mouse position relative to the window
 fn mouse_position(window: &Window) -> (f64, f64) {
+	// We apply the OS scaling factor.
+	// Tauri/Webkit *should* be responsible for this but it would seem it is bugged on the current webkit/tauri/wry/tao version.
+	// Using newer Webkit did fix this automatically but I can't for the life of me work out how to get the right glibc versions in CI so we can't ship it.
+	let scale_factor = window.scale_factor().unwrap();
+
 	let window_pos = window.outer_position().unwrap();
 	let cursor_pos = window.cursor_position().unwrap();
+
 	(
-		cursor_pos.x - window_pos.x as f64,
-		cursor_pos.y - window_pos.y as f64,
+		(cursor_pos.x - window_pos.x as f64) / scale_factor,
+		(cursor_pos.y - window_pos.y as f64) / scale_factor,
 	)
 }
 
