@@ -2458,20 +2458,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gdkwayland-sys"
-version = "0.15.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cca49a59ad8cfdf36ef7330fe7bdfbe1d34323220cc16a0de2679ee773aee2c2"
-dependencies = [
- "gdk-sys",
- "glib-sys",
- "gobject-sys",
- "libc",
- "pkg-config",
- "system-deps 6.2.0",
-]
-
-[[package]]
 name = "gdkx11-sys"
 version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8141,8 +8127,7 @@ checksum = "7b2093cf4c8eb1e67749a6762251bc9cd836b6fc171623bd0a9d324d37af2417"
 [[package]]
 name = "tao"
 version = "0.16.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75f5aefd6be4cd3ad3f047442242fd9f57cbfb3e565379f66b5e14749364fa4f"
+source = "git+https://github.com/spacedriveapp/tao?rev=9d3f75f9038b44c9c324db231fa8efc8c4a2bdb6#9d3f75f9038b44c9c324db231fa8efc8c4a2bdb6"
 dependencies = [
  "bitflags 1.3.2",
  "cairo-rs",
@@ -8155,7 +8140,6 @@ dependencies = [
  "gdk",
  "gdk-pixbuf",
  "gdk-sys",
- "gdkwayland-sys",
  "gdkx11-sys",
  "gio",
  "glib",
@@ -8187,9 +8171,8 @@ dependencies = [
 
 [[package]]
 name = "tao-macros"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec114582505d158b669b136e6851f85840c109819d77c42bb7c0709f727d18c2"
+version = "0.1.0"
+source = "git+https://github.com/spacedriveapp/tao?rev=9d3f75f9038b44c9c324db231fa8efc8c4a2bdb6#9d3f75f9038b44c9c324db231fa8efc8c4a2bdb6"
 dependencies = [
  "proc-macro2",
  "quote",
