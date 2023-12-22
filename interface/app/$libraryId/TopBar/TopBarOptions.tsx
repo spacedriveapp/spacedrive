@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { useLayoutEffect, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { ModifierKeys, Popover, Tooltip, usePopover } from '@sd/ui';
 import { useIsDark, useOperatingSystem } from '~/hooks';
 
@@ -7,7 +7,7 @@ import TopBarButton from './TopBarButton';
 import TopBarMobile from './TopBarMobile';
 
 export interface ToolOption {
-	icon: JSX.Element | (() => JSX.Element);
+	icon: JSX.Element | ((props: { triggerOpen: () => void }) => JSX.Element);
 	onClick?: () => void;
 	individual?: boolean;
 	toolTipLabel: string;
@@ -127,7 +127,11 @@ function ToolGroup({
 									tooltipClassName={clsx('capitalize', toolTipClassName)}
 									label={toolTipLabel}
 								>
-									{typeof icon === 'function' ? icon() : icon}
+									{typeof icon === 'function'
+										? icon({
+												triggerOpen: () => popover.setOpen(true)
+										  })
+										: icon}
 								</Tooltip>
 							</TopBarButton>
 						}
@@ -145,7 +149,7 @@ function ToolGroup({
 							tooltipClassName={clsx('capitalize', toolTipClassName)}
 							label={toolTipLabel}
 						>
-							{typeof icon === 'function' ? icon() : icon}
+							{typeof icon === 'function' ? icon({ triggerOpen: () => {} }) : icon}
 						</Tooltip>
 					</TopBarButton>
 				)}

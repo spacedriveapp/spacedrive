@@ -9,7 +9,7 @@ const dndState = proxy({
 
 export const toggleRenderRects = () => (dndState.renderRects = !dndState.renderRects);
 
-type UseDroppedOnProps = {
+type UseDropzoneProps = {
 	// A ref to used to detect when the element is being hovered.
 	// If the file drop's mouse position is above this ref it will return a 'hovered' state.
 	// If none is set the 'hovered' state will never be returned.
@@ -18,20 +18,24 @@ type UseDroppedOnProps = {
 	// If `ref === undefined` this will be called for every drop event.
 	// If `ref !== undefined` this will only be called if the drop event is within the bounds of the ref.
 	onDrop?: (paths: string[]) => void;
+	// Called only once per each hover event.
+	onHover?: () => void;
+	// On each position of the move
+	onMove?: (x: number, y: number) => void;
 	// Added to the bounds of the shape and if the mouse is within it's counted as hovered.
 	// This allows for the dropzone to be bigger than the actual element to make it easier to drop on.
 	extendBoundsBy?: number;
 };
 
-function isWithinRect(x: number, y: number, rect: DOMRect) {
+export function isWithinRect(x: number, y: number, rect: DOMRect) {
 	return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 }
 
-function expandRect(rect: DOMRect, by: number) {
+export function expandRect(rect: DOMRect, by: number) {
 	return new DOMRect(rect.left - by, rect.top - by, rect.width + by * 2, rect.height + by * 2);
 }
 
-export function useDragAndDrop(opts?: UseDroppedOnProps) {
+export function useDropzone(opts?: UseDropzoneProps) {
 	const id = useId();
 	const platform = usePlatform();
 	const [state, setState] = useState('idle' as 'idle' | 'active' | 'hovered');
@@ -67,7 +71,21 @@ export function useDragAndDrop(opts?: UseDroppedOnProps) {
 
 			if (event.type === 'Hovered') {
 				const isHovered = elemBounds ? isWithinRect(event.x, event.y, elemBounds) : false;
-				setState(isHovered ? 'hovered' : 'active');
+				setState((state) => {
+					// Only call it during the state transition from 'idle' -> 'active' when no `elemBounds`
+					if (opts?.onHover) {
+						if (elemBounds) {
+							if ((state === 'idle' || state === 'active') && isHovered)
+								opts.onHover();
+						} else {
+							if (state === 'idle') opts.onHover();
+						}
+					}
+
+					return isHovered ? 'hovered' : 'active';
+				});
+
+				if (opts?.onMove) opts.onMove(event.x, event.y);
 			} else if (event.type === 'Dropped') {
 				setState('idle');
 
@@ -86,3 +104,35 @@ export function useDragAndDrop(opts?: UseDroppedOnProps) {
 
 	return state;
 }
+
+// type UseDndState = { state: 'idle' } | { state: 'active'; x: number; y: number };
+
+// export function useDndState() {
+// 	const [state, setState] = useState<UseDndState>({ state: 'idle' });
+// 	const platform = usePlatform();
+
+// 	useEffect(() => {
+// 		if (!platform.subscribeToDragAndDropEvents) return;
+
+// 		let finished = false;
+
+// 		const unsub = platform.subscribeToDragAndDropEvents((event) => {
+// 			if (finished) return;
+
+// 			if (event.type === 'Hovered') {
+// 				setState({ state: 'active', x: event.x, y: event.y });
+// 			} else if (event.type === 'Dropped') {
+// 				setState({ state: 'idle' });
+// 			} else if (event.type === 'Cancelled') {
+// 				setState({ state: 'idle' });
+// 			}
+// 		});
+
+// 		return () => {
+// 			finished = true;
+// 			void unsub.then((unsub) => unsub());
+// 		};
+// 	}, [platform]);
+
+// 	return state;
+// }

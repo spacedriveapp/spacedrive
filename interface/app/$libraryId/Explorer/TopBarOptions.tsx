@@ -109,7 +109,7 @@ export const useExplorerTopBarOptions = () => {
 	const toolOptions = [
 		{
 			toolTipLabel: 'Key Manager',
-			icon: <SpacedropButton />,
+			icon: ({ triggerOpen }) => <SpacedropButton triggerOpen={triggerOpen} />,
 			popOverComponent: <Spacedrop />,
 			individual: true,
 			showAtResolution: 'xl:flex'
@@ -137,7 +137,7 @@ export const useExplorerTopBarOptions = () => {
 			individual: true,
 			showAtResolution: 'xl:flex'
 		}
-	].filter(Boolean) as ToolOption[];
+	] satisfies ToolOption[];
 
 	return {
 		viewOptions,
