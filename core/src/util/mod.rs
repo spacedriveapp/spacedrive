@@ -1,6 +1,5 @@
 mod abort_on_drop;
 mod batched_stream;
-pub mod db;
 #[cfg(debug_assertions)]
 pub mod debug_initializer;
 pub mod http;

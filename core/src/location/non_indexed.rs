@@ -8,6 +8,8 @@ use crate::{
 	Node,
 };
 
+use futures::Stream;
+use itertools::Either;
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_file_path_helper::{path_is_hidden, MetadataExt};
 use sd_prisma::prisma::location;
