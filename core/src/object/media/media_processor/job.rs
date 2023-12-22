@@ -365,7 +365,7 @@ impl StatefulJob for MediaProcessorJobInit {
 
 						errors.push(e.to_string());
 					} else if has_new_labels {
-						// invalidate_query!(&ctx.library, "labels.count"); // TODO: This query doesn't exist
+						// invalidate_query!(&ctx.library, "labels.count"); // TODO: This query doesn't exist on main yet
 					}
 				}
 

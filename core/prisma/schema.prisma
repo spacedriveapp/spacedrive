@@ -16,9 +16,7 @@ generator sync {
   client_format = "folder"
 }
 
-//// Sync ////
-
-model SharedOperation {
+model CRDTOperation {
   id        Bytes  @id
   timestamp BigInt
   model     String
@@ -33,24 +31,7 @@ model SharedOperation {
 
   // attestation Bytes
 
-  @@map("shared_operation")
-}
-
-model RelationOperation {
-  id        Bytes  @id
-  timestamp BigInt
-  relation  String
-
-  item_id  Bytes
-  group_id Bytes
-
-  kind String
-  data Bytes
-
-  instance_id Int
-  instance    Instance @relation(fields: [instance_id], references: [id])
-
-  @@map("relation_operation")
+  @@map("crdt_operation")
 }
 
 /// @deprecated: This model has to exist solely for backwards compatibility.
@@ -91,10 +72,8 @@ model Instance {
 
   locations Location[]
 
-  SharedOperation        SharedOperation[]
-  RelationOperation      RelationOperation[]
-  CloudSharedOperation   CloudSharedOperation[]
-  CloudRelationOperation CloudRelationOperation[]
+  CRDTOperation        CRDTOperation[]
+  CloudCRDTOperation   CloudCRDTOperation[]
 
   @@map("instance")
 }
@@ -553,7 +532,7 @@ model SavedSearch {
   @@map("saved_search")
 }
 
-model CloudSharedOperation {
+model CloudCRDTOperation {
   id        Bytes  @id
   timestamp BigInt
   model     String
@@ -566,22 +545,5 @@ model CloudSharedOperation {
   instance_id Int
   instance    Instance @relation(fields: [instance_id], references: [id])
 
-  @@map("cloud_shared_operation")
-}
-
-model CloudRelationOperation {
-  id        Bytes  @id
-  timestamp BigInt
-  relation  String
-
-  item_id  Bytes
-  group_id Bytes
-
-  kind String
-  data Bytes
-
-  instance_id Int
-  instance    Instance @relation(fields: [instance_id], references: [id])
-
-  @@map("cloud_relation_operation")
+  @@map("cloud_crdt_operation")
 }

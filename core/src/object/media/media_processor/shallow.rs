@@ -155,7 +155,7 @@ pub async fn shallow(
 								"Failed to generate labels <file_path_id='{file_path_id}'>: {e:#?}"
 							);
 						} else if has_new_labels {
-							// invalidate_query!(library, "labels.count"); // TODO: This query doesn't exist
+							// invalidate_query!(library, "labels.count"); // TODO: This query doesn't exist on main yet
 						}
 					},
 				)
