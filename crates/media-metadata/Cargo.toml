@@ -5,14 +5,15 @@ authors = ["Jake Robinson <jake@spacedrive.com>"]
 edition = "2021"
 
 [dependencies]
-kamadak-exif = "0.5.5"
-thiserror = "1.0.50"
-image-rs = { package = "image", version = "0.24.7" }
-serde = { version = "1.0.190", features = ["derive"] }
+chrono = { workspace = true, features = ["serde"] }
+image = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 specta = { workspace = true, features = ["chrono"] }
-chrono = { version = "0.4.31", features = ["serde"] }
-rand = "0.8.5"
-rand_chacha = "0.3.1"
+thiserror = { workspace = true }
+
+kamadak-exif = "0.5.5"
 
 # symphonia crate looks great for audio metadata

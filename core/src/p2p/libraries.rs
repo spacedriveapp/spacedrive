@@ -1,15 +1,16 @@
+use crate::library::{Libraries, Library, LibraryManagerEvent};
+
+use sd_p2p::Service;
+
 use std::{
 	collections::HashMap,
 	fmt,
 	sync::{Arc, PoisonError, RwLock},
 };
 
-use sd_p2p::Service;
 use tokio::sync::mpsc;
 use tracing::{error, warn};
 use uuid::Uuid;
-
-use crate::library::{Libraries, Library, LibraryManagerEvent};
 
 use super::{IdentityOrRemoteIdentity, LibraryMetadata, P2PManager};
 

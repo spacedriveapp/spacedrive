@@ -16,6 +16,10 @@ export type Procedures = {
         { key: "invalidation.test-invalidate", input: never, result: number } | 
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
         { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
+        { key: "labels.get", input: LibraryArgs<number>, result: { id: number; pub_id: number[]; name: string; date_created: string; date_modified: string } | null } | 
+        { key: "labels.getForObject", input: LibraryArgs<number>, result: Label[] } | 
+        { key: "labels.getWithObjects", input: LibraryArgs<number[]>, result: { [key in number]: { date_created: string; object: { id: number } }[] } } | 
+        { key: "labels.list", input: LibraryArgs<null>, result: Label[] } | 
         { key: "library.list", input: never, result: NormalisedResults<LibraryConfigWrapped> } | 
         { key: "library.statistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "locations.get", input: LibraryArgs<number>, result: { item: Reference<Location>; nodes: CacheNode[] } | null } | 
@@ -25,6 +29,7 @@ export type Procedures = {
         { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: NormalisedResults<IndexerRule> } | 
         { key: "locations.list", input: LibraryArgs<null>, result: NormalisedResults<Location> } | 
         { key: "locations.systemLocations", input: never, result: SystemLocations } | 
+        { key: "models.image_detection.list", input: never, result: string[] } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "nodes.listLocations", input: LibraryArgs<string | null>, result: ExplorerItem[] } | 
         { key: "notifications.dismiss", input: NotificationId, result: null } | 
@@ -71,11 +76,13 @@ export type Procedures = {
         { key: "jobs.cancel", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.clear", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.clearAll", input: LibraryArgs<null>, result: null } | 
+        { key: "jobs.generateLabelsForLocation", input: LibraryArgs<GenerateLabelsForLocationArgs>, result: null } | 
         { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } | 
         { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
         { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
         { key: "jobs.pause", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.resume", input: LibraryArgs<string>, result: null } | 
+        { key: "labels.delete", input: LibraryArgs<number>, result: null } | 
         { key: "library.create", input: CreateLibraryArgs, result: NormalisedResult<LibraryConfigWrapped> } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
@@ -92,8 +99,6 @@ export type Procedures = {
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
         { key: "nodes.edit", input: ChangeNodeNameArgs, result: null } | 
         { key: "nodes.updateThumbnailerPreferences", input: UpdateThumbnailerPreferences, result: null } | 
-        { key: "notifications.test", input: never, result: null } | 
-        { key: "notifications.testLibrary", input: LibraryArgs<null>, result: null } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
         { key: "p2p.cancelSpacedrop", input: string, result: null } | 
         { key: "p2p.pair", input: RemoteIdentity, result: number } | 
@@ -137,15 +142,15 @@ export type Backup = ({ id: string; timestamp: string; library_id: string; libra
 
 export type BuildInfo = { version: string; commit: string }
 
-export type CRDTOperation = { instance: string; timestamp: number; id: string; typ: CRDTOperationType }
+export type CRDTOperation = { instance: string; timestamp: number; id: string; model: string; record_id: JsonValue; data: CRDTOperationData }
 
-export type CRDTOperationType = SharedOperation | RelationOperation
+export type CRDTOperationData = "c" | { u: { field: string; value: JsonValue } } | "d"
 
 export type CacheNode = { __type: string; __id: string; "#node": any }
 
 export type CameraData = { device_make: string | null; device_model: string | null; color_space: string | null; color_profile: ColorProfile | null; focal_length: number | null; shutter_speed: number | null; flash: Flash | null; orientation: Orientation; lens_make: string | null; lens_model: string | null; bit_depth: number | null; red_eye: boolean | null; zoom: number | null; iso: number | null; software: string | null; serial_number: string | null; lens_serial_number: string | null; contrast: number | null; saturation: number | null; sharpness: number | null; composite: Composite | null }
 
-export type ChangeNodeNameArgs = { name: string | null; p2p_enabled: boolean | null; p2p_port: MaybeUndefined<number> }
+export type ChangeNodeNameArgs = { name: string | null; p2p_port: MaybeUndefined<number>; p2p_enabled: boolean | null; image_labeler_version: string | null }
 
 export type CloudInstance = { id: string; uuid: string; identity: string }
 
@@ -295,6 +300,8 @@ export type FromPattern = { pattern: string; replace_all: boolean }
 
 export type FullRescanArgs = { location_id: number; reidentify_objects: boolean }
 
+export type GenerateLabelsForLocationArgs = { id: number; path: string; regenerate?: boolean }
+
 export type GenerateThumbsForLocationArgs = { id: number; path: string; regenerate?: boolean }
 
 export type GetAll = { backups: Backup[]; directory: string }
@@ -330,6 +337,8 @@ export type JobReport = { id: string; name: string; action: string | null; data:
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused" | "CompletedWithErrors"
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key in string]: JsonValue }
+
+export type Label = { id: number; pub_id: number[]; name: string; date_created: string; date_modified: string }
 
 /**
  * Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
@@ -412,7 +421,7 @@ id: string;
 /**
  * name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
  */
-name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[]; preferences: NodePreferences }) & { data_path: string; p2p: P2PStatus }
+name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[]; preferences: NodePreferences; image_labeler_version: string | null }) & { data_path: string; p2p: P2PStatus }
 
 export type NonIndexedPathItem = { path: string; name: string; extension: string; kind: number; is_dir: boolean; date_created: string; date_modified: string; size_in_bytes_bytes: number[]; hidden: boolean }
 
@@ -439,9 +448,11 @@ export type Notification = ({ type: "library"; id: [string, number] } | { type: 
  * Represents the data of a single notification.
  * This data is used by the frontend to properly display the notification.
  */
-export type NotificationData = { PairingRequest: { id: string; pairing_id: number } } | "Test"
+export type NotificationData = { title: string; content: string; kind: NotificationKind }
 
 export type NotificationId = { type: "library"; id: [string, number] } | { type: "node"; id: number }
+
+export type NotificationKind = "info" | "success" | "error" | "warning"
 
 export type Object = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null }
 
@@ -498,10 +509,6 @@ export type Range<T> = { from: T } | { to: T }
  */
 export type Reference<T> = { __type: string; __id: string; "#type": T }
 
-export type RelationOperation = { relation_item: JsonValue; relation_group: JsonValue; relation: string; data: RelationOperationData }
-
-export type RelationOperationData = "c" | { u: { field: string; value: JsonValue } } | "d"
-
 export type RemoteIdentity = string
 
 export type RenameFileArgs = { location_id: number; kind: RenameKind }
@@ -530,10 +537,6 @@ export type SetFavoriteArgs = { id: number; favorite: boolean }
 
 export type SetNoteArgs = { id: number; note: string | null }
 
-export type SharedOperation = { record_id: JsonValue; model: string; data: SharedOperationData }
-
-export type SharedOperationData = "c" | { u: { field: string; value: JsonValue } } | "d"
-
 export type SingleInvalidateOperationEvent = { 
 /**
  * This fields are intentionally private.
@@ -548,7 +551,7 @@ export type Statistics = { id: number; date_captured: string; total_object_count
 
 export type SystemLocations = { desktop: string | null; documents: string | null; downloads: string | null; pictures: string | null; music: string | null; videos: string | null }
 
-export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; redundancy_goal: number | null; date_created: string | null; date_modified: string | null }
+export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; is_hidden: boolean | null; date_created: string | null; date_modified: string | null }
 
 export type TagCreateArgs = { name: string; color: string }
 

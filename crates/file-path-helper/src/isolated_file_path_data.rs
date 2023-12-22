@@ -1,7 +1,5 @@
-use crate::{
-	prisma::{file_path, location},
-	util::error::NonUtf8PathError,
-};
+use sd_prisma::prisma::{file_path, location};
+use sd_utils::error::NonUtf8PathError;
 
 use std::{
 	borrow::Cow,
@@ -22,6 +20,16 @@ use super::{
 
 static FORBIDDEN_FILE_NAMES: OnceLock<RegexSet> = OnceLock::new();
 
+#[derive(Debug)]
+pub struct IsolatedFilePathDataParts<'a> {
+	pub location_id: location::id::Type,
+	pub materialized_path: &'a str,
+	pub is_dir: bool,
+	pub name: &'a str,
+	pub extension: &'a str,
+	relative_path: &'a str,
+}
+
 #[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct IsolatedFilePathData<'a> {
@@ -29,11 +37,11 @@ pub struct IsolatedFilePathData<'a> {
 	// and are not public. They have some specific logic on them and should not be writen to directly.
 	// If you wanna access one of them outside from location module, write yourself an accessor method
 	// to have read only access to them.
-	pub(in crate::location) location_id: location::id::Type,
-	pub(in crate::location) materialized_path: Cow<'a, str>,
-	pub(in crate::location) is_dir: bool,
-	pub(in crate::location) name: Cow<'a, str>,
-	pub(in crate::location) extension: Cow<'a, str>,
+	pub(super) location_id: location::id::Type,
+	pub(super) materialized_path: Cow<'a, str>,
+	pub(super) is_dir: bool,
+	pub(super) name: Cow<'a, str>,
+	pub(super) extension: Cow<'a, str>,
 	relative_path: Cow<'a, str>,
 }
 
@@ -93,6 +101,17 @@ impl<'a> IsolatedFilePathData<'a> {
 			&& self.materialized_path == "/"
 			&& self.name.is_empty()
 			&& self.relative_path.is_empty()
+	}
+
+	pub fn to_parts(&self) -> IsolatedFilePathDataParts<'_> {
+		IsolatedFilePathDataParts {
+			location_id: self.location_id,
+			materialized_path: &self.materialized_path,
+			is_dir: self.is_dir,
+			name: &self.name,
+			extension: &self.extension,
+			relative_path: &self.relative_path,
+		}
 	}
 
 	pub fn parent(&'a self) -> Self {
@@ -342,21 +361,25 @@ impl fmt::Display for IsolatedFilePathData<'_> {
 	}
 }
 
+impl fmt::Display for IsolatedFilePathDataParts<'_> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{}", self.relative_path)
+	}
+}
+
 #[macro_use]
 mod macros {
 	macro_rules! impl_from_db {
 		($($file_path_kind:ident),+ $(,)?) => {
 			$(
 				impl ::std::convert::TryFrom<$file_path_kind::Data> for $crate::
-					location::
-					file_path_helper::
 					isolated_file_path_data::
 					IsolatedFilePathData<'static>
 				{
-                    type Error = $crate::util::db::MissingFieldError;
+                    type Error = ::sd_utils::db::MissingFieldError;
 
 					fn try_from(path: $file_path_kind::Data) -> Result<Self, Self::Error> {
-                        use $crate::util::db::maybe_missing;
+                        use ::sd_utils::db::maybe_missing;
                         use ::std::borrow::Cow;
 
                         Ok(Self::from_db_data(
@@ -370,15 +393,13 @@ mod macros {
 				}
 
 				impl<'a> ::std::convert::TryFrom<&'a $file_path_kind::Data> for $crate::
-					location::
-					file_path_helper::
 					isolated_file_path_data::
 					IsolatedFilePathData<'a>
 				{
-                    type Error = $crate::util::db::MissingFieldError;
+                    type Error =::sd_utils::db::MissingFieldError;
 
 					fn try_from(path: &'a $file_path_kind::Data) -> Result<Self, Self::Error> {
-                        use $crate::util::db::maybe_missing;
+                        use ::sd_utils::db::maybe_missing;
                         use ::std::borrow::Cow;
 
 						Ok(Self::from_db_data(
@@ -397,16 +418,14 @@ mod macros {
 	macro_rules! impl_from_db_without_location_id {
 		($($file_path_kind:ident),+ $(,)?) => {
 			$(
-				impl ::std::convert::TryFrom<($crate::prisma::location::id::Type, $file_path_kind::Data)> for $crate::
-					location::
-					file_path_helper::
+				impl ::std::convert::TryFrom<(::sd_prisma::prisma::location::id::Type, $file_path_kind::Data)> for $crate::
 					isolated_file_path_data::
 					IsolatedFilePathData<'static>
 				{
-                    type Error = $crate::util::db::MissingFieldError;
+                    type Error = ::sd_utils::db::MissingFieldError;
 
-					fn try_from((location_id, path): ($crate::prisma::location::id::Type, $file_path_kind::Data)) -> Result<Self, Self::Error> {
-                        use $crate::util::db::maybe_missing;
+					fn try_from((location_id, path): (::sd_prisma::prisma::location::id::Type, $file_path_kind::Data)) -> Result<Self, Self::Error> {
+                        use ::sd_utils::db::maybe_missing;
                         use ::std::borrow::Cow;
 
                         Ok(Self::from_db_data(
@@ -419,16 +438,14 @@ mod macros {
 					}
 				}
 
-				impl<'a> ::std::convert::TryFrom<($crate::prisma::location::id::Type, &'a $file_path_kind::Data)> for $crate::
-					location::
-					file_path_helper::
+				impl<'a> ::std::convert::TryFrom<(::sd_prisma::prisma::location::id::Type, &'a $file_path_kind::Data)> for $crate::
 					isolated_file_path_data::
 					IsolatedFilePathData<'a>
 				{
-                    type Error = $crate::util::db::MissingFieldError;
+                    type Error = ::sd_utils::db::MissingFieldError;
 
-					fn try_from((location_id, path): ($crate::prisma::location::id::Type, &'a $file_path_kind::Data)) -> Result<Self, Self::Error> {
-                        use $crate::util::db::maybe_missing;
+					fn try_from((location_id, path): (::sd_prisma::prisma::location::id::Type, &'a $file_path_kind::Data)) -> Result<Self, Self::Error> {
+                        use ::sd_utils::db::maybe_missing;
                         use ::std::borrow::Cow;
 
 						Ok(Self::from_db_data(
@@ -562,7 +579,6 @@ pub fn push_location_relative_path(
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
 mod tests {
 	use super::*;
 

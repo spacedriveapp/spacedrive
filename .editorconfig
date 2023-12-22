@@ -64,7 +64,7 @@ indent_style = space
 # Prisma
 # https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-schema/data-model#formatting
 [*.prisma]
-indent_size = 4
+indent_size = 2
 indent_style = space
 
 # YAML

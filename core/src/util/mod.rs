@@ -3,7 +3,6 @@ mod batched_stream;
 pub mod db;
 #[cfg(debug_assertions)]
 pub mod debug_initializer;
-pub mod error;
 pub mod http;
 mod infallible_request;
 mod maybe_undefined;

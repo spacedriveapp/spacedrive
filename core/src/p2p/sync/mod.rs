@@ -1,19 +1,21 @@
 #![allow(clippy::panic, clippy::unwrap_used)] // TODO: Finish this
 
-use std::sync::Arc;
+use crate::{
+	library::Library,
+	sync::{self, GetOpsArgs},
+};
 
 use sd_p2p::{
 	proto::{decode, encode},
 	spacetunnel::Tunnel,
 };
 use sd_sync::CRDTOperation;
-use sync::GetOpsArgs;
+
+use std::sync::Arc;
 
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tracing::*;
 use uuid::Uuid;
-
-use crate::{library::Library, sync};
 
 use super::{Header, P2PManager};
 
@@ -68,11 +70,9 @@ mod originator {
 					instance: Uuid::new_v4(),
 					timestamp: sync::NTP64(0),
 					id: Uuid::new_v4(),
-					typ: sd_sync::CRDTOperationType::Shared(sd_sync::SharedOperation {
-						record_id: serde_json::Value::Null,
-						model: "name".to_string(),
-						data: sd_sync::SharedOperationData::Create,
-					}),
+					record_id: serde_json::Value::Null,
+					model: "name".to_string(),
+					data: sd_sync::CRDTOperationData::Create,
 				}]);
 
 				let mut cursor = std::io::Cursor::new(original.to_bytes());

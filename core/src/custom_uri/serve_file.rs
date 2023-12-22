@@ -1,17 +1,16 @@
 use crate::util::InfallibleResponse;
 
-use std::{
-	fs::Metadata,
-	io::{self, SeekFrom},
-	time::UNIX_EPOCH,
-};
+use std::{fs::Metadata, time::UNIX_EPOCH};
 
 use axum::{
 	body::{self, BoxBody, Full, StreamBody},
 	http::{header, request, HeaderValue, Method, Response, StatusCode},
 };
 use http_range::HttpRange;
-use tokio::{fs::File, io::AsyncSeekExt};
+use tokio::{
+	fs::File,
+	io::{self, AsyncSeekExt, SeekFrom},
+};
 use tokio_util::io::ReaderStream;
 use tracing::error;
 

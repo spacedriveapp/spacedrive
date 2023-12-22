@@ -5,9 +5,10 @@ use crate::{
 	},
 	library::Library,
 	location::get_location_path_from_location_id,
-	prisma::{file_path, location},
-	util::{db::maybe_missing, error::FileIOError},
 };
+
+use sd_prisma::prisma::{file_path, location};
+use sd_utils::{db::maybe_missing, error::FileIOError};
 
 use std::hash::Hash;
 

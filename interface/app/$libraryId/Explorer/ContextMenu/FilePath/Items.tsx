@@ -1,4 +1,4 @@
-import { Image, Package, Trash, TrashSimple } from '@phosphor-icons/react';
+import { Hash, Image, Package, Trash, TrashSimple } from '@phosphor-icons/react';
 import { libraryClient, useLibraryMutation } from '@sd/client';
 import { ContextMenu, dialogManager, ModifierKeys, toast } from '@sd/ui';
 import { Menu } from '~/components/Menu';
@@ -225,6 +225,7 @@ export const ParentFolderActions = new ConditionalItem({
 
 		const fullRescan = useLibraryMutation('locations.fullRescan');
 		const generateThumbnails = useLibraryMutation('jobs.generateThumbsForLocation');
+		const generateLabels = useLibraryMutation('jobs.generateLabelsForLocation');
 
 		return (
 			<>
@@ -262,6 +263,24 @@ export const ParentFolderActions = new ConditionalItem({
 					}}
 					label="Regen Thumbnails"
 					icon={Image}
+				/>
+				<ContextMenu.Item
+					onClick={async () => {
+						try {
+							await generateLabels.mutateAsync({
+								id: parent.location.id,
+								path: selectedFilePaths[0]?.materialized_path ?? '/',
+								regenerate: true
+							});
+						} catch (error) {
+							toast.error({
+								title: `Failed to generate labels`,
+								body: `Error: ${error}.`
+							});
+						}
+					}}
+					label="Regen Labels"
+					icon={Hash}
 				/>
 			</>
 		);

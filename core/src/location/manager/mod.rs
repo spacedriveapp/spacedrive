@@ -1,10 +1,12 @@
 use crate::{
 	job::JobManagerError,
 	library::{Library, LibraryManagerEvent},
-	prisma::location,
-	util::{db::MissingFieldError, error::FileIOError},
 	Node,
 };
+
+use sd_file_path_helper::FilePathError;
+use sd_prisma::prisma::location;
+use sd_utils::{db::MissingFieldError, error::FileIOError};
 
 use std::{
 	collections::BTreeSet,
@@ -23,8 +25,6 @@ use tracing::error;
 #[cfg(feature = "location-watcher")]
 use tokio::sync::mpsc;
 use uuid::Uuid;
-
-use super::file_path_helper::FilePathError;
 
 #[cfg(feature = "location-watcher")]
 mod watcher;

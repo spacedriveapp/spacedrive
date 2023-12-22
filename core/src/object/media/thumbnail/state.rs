@@ -1,4 +1,7 @@
-use crate::{library::LibraryId, util::error::FileIOError};
+use crate::library::LibraryId;
+
+use sd_prisma::prisma::location;
+use sd_utils::error::FileIOError;
 
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
@@ -8,7 +11,6 @@ use std::{
 
 use async_channel as chan;
 use futures_concurrency::future::TryJoin;
-use sd_prisma::prisma::location;
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io};
 use tracing::{error, info, trace};

@@ -6,12 +6,14 @@ use crate::{
 	object::media::thumbnail::actor::Thumbnailer,
 };
 
+#[cfg(feature = "ai")]
+use sd_ai::image_labeler::{DownloadModelError, ImageLabeler, YoloV8};
+
 use api::notifications::{Notification, NotificationData, NotificationId};
 use chrono::{DateTime, Utc};
 use node::config;
 use notifications::Notifications;
 use reqwest::{RequestBuilder, Response};
-pub use sd_prisma::*;
 
 use std::{
 	fmt,
@@ -64,6 +66,8 @@ pub struct Node {
 	pub cloud_sync_flag: Arc<AtomicBool>,
 	pub env: Arc<env::Env>,
 	pub http: reqwest::Client,
+	#[cfg(feature = "ai")]
+	pub image_labeller: ImageLabeler,
 }
 
 impl fmt::Debug for Node {
@@ -96,6 +100,11 @@ impl Node {
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
 
+		#[cfg(feature = "ai")]
+		sd_ai::init()?;
+		#[cfg(feature = "ai")]
+		let image_labeler_version = config.get().await.image_labeler_version;
+
 		let (locations, locations_actor) = location::Locations::new();
 		let (jobs, jobs_actor) = job::Jobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
@@ -107,7 +116,7 @@ impl Node {
 			notifications: notifications::Notifications::new(),
 			p2p,
 			thumbnailer: Thumbnailer::new(
-				data_dir.to_path_buf(),
+				data_dir,
 				libraries.clone(),
 				event_bus.0.clone(),
 				config.preferences_watcher(),
@@ -120,6 +129,10 @@ impl Node {
 			cloud_sync_flag: Arc::new(AtomicBool::new(false)),
 			http: reqwest::Client::new(),
 			env,
+			#[cfg(feature = "ai")]
+			image_labeller: ImageLabeler::new(YoloV8::model(image_labeler_version)?, data_dir)
+				.await
+				.map_err(sd_ai::Error::from)?,
 		});
 
 		// Restore backend feature flags
@@ -165,7 +178,7 @@ impl Node {
 
 			std::env::set_var(
 				"RUST_LOG",
-				format!("info,sd_core={level},sd_core::location::manager=info"),
+				format!("info,sd_core={level},sd_core::location::manager=info,sd_ai={level}"),
 			);
 		}
 
@@ -207,6 +220,8 @@ impl Node {
 		self.thumbnailer.shutdown().await;
 		self.jobs.shutdown().await;
 		self.p2p.shutdown().await;
+		#[cfg(feature = "ai")]
+		self.image_labeller.shutdown().await;
 		info!("Spacedrive Core shutdown successful!");
 	}
 
@@ -300,4 +315,10 @@ pub enum NodeError {
 	InitConfig(#[from] util::debug_initializer::InitConfigError),
 	#[error("logger error: {0}")]
 	Logger(#[from] FromEnvError),
+	#[cfg(feature = "ai")]
+	#[error("ai error: {0}")]
+	AI(#[from] sd_ai::Error),
+	#[cfg(feature = "ai")]
+	#[error("Failed to download model: {0}")]
+	DownloadModel(#[from] DownloadModelError),
 }

@@ -11,8 +11,12 @@ use crate::{
 	},
 	object::file_identifier::file_identifier_job::FileIdentifierJobInit,
 	p2p::PeerMetadata,
-	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, SortOrder},
 	util::AbortOnDrop,
+};
+
+use sd_cache::{CacheNode, Model, Normalise, NormalisedResult, NormalisedResults, Reference};
+use sd_prisma::prisma::{
+	file_path, indexer_rule, indexer_rules_in_location, location, object, SortOrder,
 };
 
 use std::path::{Path, PathBuf};
@@ -20,10 +24,9 @@ use std::path::{Path, PathBuf};
 use chrono::{DateTime, FixedOffset, Utc};
 use directories::UserDirs;
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
-use sd_cache::{CacheNode, Model, Normalise, NormalisedResult, NormalisedResults, Reference};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tracing::error;
+use tracing::{debug, error};
 
 use super::{utils::library, Ctx, R};
 
@@ -371,7 +374,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				     reidentify_objects,
 				 }| async move {
 					if reidentify_objects {
-						library
+						let count = library
 							.db
 							.file_path()
 							.update_many(
@@ -387,6 +390,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							)
 							.exec()
 							.await?;
+
+						debug!("Disconnected {count} file paths from objects");
 
 						library.orphan_remover.invoke().await;
 					}

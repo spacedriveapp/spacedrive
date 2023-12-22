@@ -1,8 +1,8 @@
 use crate::{api::CoreEvent, node::config::NodePreferences};
 
-use std::{collections::HashMap, ffi::OsString, path::PathBuf, pin::pin, sync::Arc};
-
 use sd_prisma::prisma::location;
+
+use std::{collections::HashMap, ffi::OsString, path::PathBuf, pin::pin, sync::Arc};
 
 use async_channel as chan;
 use futures_concurrency::stream::Merge;

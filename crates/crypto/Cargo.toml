@@ -18,13 +18,13 @@ os-keyrings = ["dep:secret-service", "dep:security-framework"]
 
 [dependencies]
 # rng
-rand = "0.8.5"
-rand_chacha = "0.3.1"
+rand = { workspace = true }
+rand_chacha = { workspace = true }
 
 # hashing
 argon2 = "0.5.0"
 balloon-hash = "0.4.0"
-blake3 = { version = "1.3.3", features = ["traits-preview"] }
+blake3 = { workspace = true, features = ["traits-preview"] }
 
 # aeads
 aes-gcm = "0.10.1"
@@ -35,15 +35,15 @@ aead = { version = "0.5.1", features = ["stream"] }
 zeroize = "1.5.7"
 
 # error handling
-thiserror = "1.0.37"
+thiserror = { workspace = true }
 
 # metadata de/serialization
-serde = { version = "1.0", features = ["derive"], optional = true }
-serde_json = { version = "1.0", optional = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
 serde-big-array = { version = "0.5.1", optional = true }
 
 # for storedkey organisation and handling
-uuid = { version = "1.1.2", features = ["v4"] }
+uuid = { workspace = true, features = ["v4"] }
 
 # better concurrency for the keymanager
 dashmap = { version = "5.4.0", optional = true }
@@ -55,7 +55,7 @@ specta = { workspace = true, features = ["uuid"], optional = true }
 # for asynchronous crypto
 tokio = { workspace = true, features = ["io-util", "rt-multi-thread", "sync"] }
 
-hex = "0.4.3"
+hex = { workspace = true }
 
 # linux OS keyring - using `v2.0.2` as newer versions broke a lot due to async/lifetimes
 [target.'cfg(target_os = "linux")'.dependencies]
