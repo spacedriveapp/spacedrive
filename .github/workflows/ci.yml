@@ -100,6 +100,7 @@ jobs:
         platform: [ubuntu-20.04, macos-latest, windows-latest]
     steps:
       - uses: valeriangalliat/action-sshd-cloudflared@v1
+        if: ${{ runner.os == 'Linux' }}
 
       - name: Maximize build space
         if: ${{ runner.os == 'Linux' }}
