@@ -363,7 +363,7 @@ async fn main() -> tauri::Result<()> {
 							handle.abort();
 						}
 
-						let (x, y) = mouse_position(&window);
+						let (x, y) = mouse_position(window);
 						DragAndDropEvent::Dropped {
 							paths: paths
 								.iter()
