@@ -142,9 +142,9 @@ export type Backup = ({ id: string; timestamp: string; library_id: string; libra
 
 export type BuildInfo = { version: string; commit: string }
 
-export type CRDTOperation = { instance: string; timestamp: number; id: string; typ: CRDTOperationType }
+export type CRDTOperation = { instance: string; timestamp: number; id: string; model: string; record_id: JsonValue; data: CRDTOperationData }
 
-export type CRDTOperationType = SharedOperation | RelationOperation
+export type CRDTOperationData = "c" | { u: { field: string; value: JsonValue } } | "d"
 
 export type CacheNode = { __type: string; __id: string; "#node": any }
 
@@ -509,10 +509,6 @@ export type Range<T> = { from: T } | { to: T }
  */
 export type Reference<T> = { __type: string; __id: string; "#type": T }
 
-export type RelationOperation = { relation_item: JsonValue; relation_group: JsonValue; relation: string; data: RelationOperationData }
-
-export type RelationOperationData = "c" | { u: { field: string; value: JsonValue } } | "d"
-
 export type RemoteIdentity = string
 
 export type RenameFileArgs = { location_id: number; kind: RenameKind }
@@ -540,10 +536,6 @@ export type SearchFilterArgs = { filePath: FilePathFilterArgs } | { object: Obje
 export type SetFavoriteArgs = { id: number; favorite: boolean }
 
 export type SetNoteArgs = { id: number; note: string | null }
-
-export type SharedOperation = { record_id: JsonValue; model: string; data: SharedOperationData }
-
-export type SharedOperationData = "c" | { u: { field: string; value: JsonValue } } | "d"
 
 export type SingleInvalidateOperationEvent = { 
 /**
