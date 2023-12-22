@@ -58,7 +58,7 @@ export const rspc2 = initRspc<Procedures>({
 export const nonLibraryClient = rspc.dangerouslyHookIntoInternals<NonLibraryProceduresDef>();
 // @ts-expect-error // TODO: Fix
 const nonLibraryHooks = createReactQueryHooks<NonLibraryProceduresDef>(nonLibraryClient, {
-	context: context2 // TODO: Shared context
+	context // TODO: Shared context
 });
 
 export const libraryClient = rspc2.dangerouslyHookIntoInternals<LibraryProceduresDef>({
@@ -71,7 +71,7 @@ export const libraryClient = rspc2.dangerouslyHookIntoInternals<LibraryProcedure
 });
 // @ts-expect-error // TODO: idk
 const libraryHooks = createReactQueryHooks<LibraryProceduresDef>(libraryClient, {
-	context
+	context: context2
 });
 
 // TODO: Allow both hooks to use a unified context -> Right now they override each others local state
