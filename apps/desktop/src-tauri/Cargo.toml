@@ -18,6 +18,7 @@ sd-fda = { path = "../../../crates/fda" }
 sd-prisma = { path = "../../../crates/prisma" }
 
 axum = { workspace = true, features = ["headers", "query"] }
+hyper = "0.14.28"
 futures = { workspace = true }
 http = { workspace = true }
 prisma-client-rust = { workspace = true }
