@@ -3,17 +3,24 @@
 	windows_subsystem = "windows"
 )]
 
-use std::{fs, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+	collections::HashMap,
+	fs,
+	path::PathBuf,
+	sync::{Arc, Mutex, PoisonError},
+	time::Duration,
+};
 
 use sd_core::{Node, NodeError};
 
 use sd_fda::DiskAccess;
+use serde::{Deserialize, Serialize};
 use tauri::{
-	api::path, ipc::RemoteDomainAccessScope, window::PlatformWebview, AppHandle, Manager,
-	WindowEvent,
+	api::path, ipc::RemoteDomainAccessScope, window::PlatformWebview, AppHandle, FileDropEvent,
+	Manager, Window, WindowEvent,
 };
 use tauri_plugins::{sd_error_plugin, sd_server_plugin};
-use tauri_specta::ts;
+use tauri_specta::{collect_events, ts, Event};
 use tokio::time::sleep;
 use tracing::error;
 
@@ -144,6 +151,19 @@ async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
 	})
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
+#[serde(tag = "type")]
+pub enum DragAndDropEvent {
+	Hovered { paths: Vec<String>, x: f64, y: f64 },
+	Dropped { paths: Vec<String>, x: f64, y: f64 },
+	Cancelled,
+}
+
+#[derive(Default)]
+pub struct DragAndDropState {
+	windows: HashMap<tauri::Window, tokio::task::JoinHandle<()>>,
+}
+
 const CLIENT_ID: &str = "2abb241e-40b8-4517-a3e3-5594375c8fbb";
 
 #[tokio::main]
@@ -212,6 +232,7 @@ async fn main() -> tauri::Result<()> {
 
 	let specta_builder = {
 		let specta_builder = ts::builder()
+			.events(collect_events![DragAndDropEvent])
 			.commands(tauri_specta::collect_commands![
 				app_ready,
 				reset_spacedrive,
@@ -240,6 +261,7 @@ async fn main() -> tauri::Result<()> {
 		specta_builder.into_plugin()
 	};
 
+	let file_drop_status = Arc::new(Mutex::new(DragAndDropState::default()));
 	let app = app
 		.plugin(updater::plugin())
 		.plugin(tauri_plugin_window_state::Builder::default().build())
@@ -255,8 +277,8 @@ async fn main() -> tauri::Result<()> {
 						if !window.is_visible().unwrap_or(true) {
 							// This happens if the JS bundle crashes and hence doesn't send ready event.
 							println!(
-							"Window did not emit `app_ready` event fast enough. Showing window..."
-						);
+								"Window did not emit `app_ready` event fast enough. Showing window..."
+							);
 							window.show().expect("Main window should show");
 						}
 					}
@@ -296,7 +318,72 @@ async fn main() -> tauri::Result<()> {
 			Ok(())
 		})
 		.on_menu_event(menu::handle_menu_event)
-		.on_window_event(|event| match event.event() {
+		.on_window_event(move |event| match event.event() {
+			WindowEvent::FileDrop(drop) => {
+				let window = event.window();
+				let mut file_drop_status = file_drop_status
+					.lock()
+					.unwrap_or_else(PoisonError::into_inner);
+
+				match drop {
+					FileDropEvent::Hovered(paths) => {
+						// Look this shouldn't happen but let's be sure we don't leak threads.
+						if file_drop_status.windows.contains_key(window) {
+							return;
+						}
+
+						// We setup a thread to keep emitting the updated position of the cursor
+						// It will be killed when the `FileDropEvent` is finished or cancelled.
+						let paths = paths.clone();
+						file_drop_status.windows.insert(window.clone(), {
+							let window = window.clone();
+							tokio::spawn(async move {
+								loop {
+									let (x, y) = mouse_position(&window);
+
+									DragAndDropEvent::Hovered {
+										paths: paths
+											.iter()
+											.filter_map(|x| x.to_str().map(|x| x.to_string()))
+											.collect(),
+										x,
+										y,
+									}
+									.emit(&window)
+									.ok();
+
+									sleep(Duration::from_millis(250)).await;
+								}
+							})
+						});
+					}
+					FileDropEvent::Dropped(paths) => {
+						if let Some(handle) = file_drop_status.windows.remove(window) {
+							handle.abort();
+						}
+
+						let (x, y) = mouse_position(window);
+						DragAndDropEvent::Dropped {
+							paths: paths
+								.iter()
+								.filter_map(|x| x.to_str().map(|x| x.to_string()))
+								.collect(),
+							x,
+							y,
+						}
+						.emit(window)
+						.ok();
+					}
+					FileDropEvent::Cancelled => {
+						if let Some(handle) = file_drop_status.windows.remove(window) {
+							handle.abort();
+						}
+
+						DragAndDropEvent::Cancelled.emit(window).ok();
+					}
+					_ => unreachable!(),
+				}
+			}
 			WindowEvent::Resized(_) => {
 				let (_state, command) = if event
 					.window()
@@ -327,4 +414,14 @@ async fn main() -> tauri::Result<()> {
 
 	app.run(|_, _| {});
 	Ok(())
+}
+
+// Get the mouse position relative to the window
+pub fn mouse_position(window: &Window) -> (f64, f64) {
+	let window_pos = window.outer_position().unwrap();
+	let cursor_pos = window.cursor_position().unwrap();
+	(
+		cursor_pos.x - window_pos.x as f64,
+		cursor_pos.y - window_pos.y as f64,
+	)
 }

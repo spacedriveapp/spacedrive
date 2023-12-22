@@ -14,13 +14,12 @@ import {
 	SpacedriveRouterProvider,
 	TabsContext
 } from '@sd/interface';
+import { getDragAndDropState } from '@sd/interface/hooks';
 import { RouteTitleContext } from '@sd/interface/hooks/useRouteTitle';
 
 import '@sd/ui/style/style.scss';
 
-import { getDragAndDropState } from '@sd/interface/hooks';
-
-import { commands } from './commands';
+import { commands, events } from './commands';
 import { platform } from './platform';
 import { queryClient } from './query';
 import { createMemoryRouterWithHistory } from './router';
