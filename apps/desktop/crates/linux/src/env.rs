@@ -236,6 +236,10 @@ pub fn normalize_environment() {
 		// Bubblewrap does not work from inside appimage
 		env::set_var("WEBKIT_FORCE_SANDBOX", "0");
 		env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
+
+		// FIX-ME: This is required because appimage-builder generates a broken GstRegistry, which breaks video playback
+		env::remove_var("GST_REGISTRY");
+		env::remove_var("GST_REGISTRY_UPDATE");
 	}
 }
 
