@@ -25,8 +25,6 @@ export function Component() {
 
 	const labels = useLibraryQuery(['labels.listWithThumbnails', '']);
 
-	console.log({ labels: labels.data });
-
 	const explorerSettings = useExplorerSettings({
 		settings: useMemo(() => {
 			return createDefaultExplorerSettings<ObjectOrder>({ order: null });
@@ -34,33 +32,32 @@ export function Component() {
 		orderingKeys: objectOrderingKeysSchema
 	});
 
-	const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
+	// const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
 
-	const fixedFilters = useMemo<SearchFilterArgs[]>(
-		() => [
-			...(explorerSettingsSnapshot.layoutMode === 'media'
-				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
-				: [])
-		],
-		[explorerSettingsSnapshot.layoutMode]
-	);
+	// const fixedFilters = useMemo<SearchFilterArgs[]>(
+	// 	() => [
+	// 		...(explorerSettingsSnapshot.layoutMode === 'media'
+	// 			? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
+	// 			: [])
+	// 	],
+	// 	[explorerSettingsSnapshot.layoutMode]
+	// );
 
-	const search = useSearch({
-		fixedFilters
-	});
+	const search = useSearch({});
 
-	const objects = useObjectsExplorerQuery({
-		arg: {
-			take: 100,
-			filters: [...search.allFilters, { object: { tags: { in: [3] } } }]
-		},
-		explorerSettings
-	});
+	// const objects = useObjectsExplorerQuery({
+	// 	arg: {
+	// 		take: 100,
+	// 		filters: [...search.allFilters, { object: { tags: { in: [3] } } }]
+	// 	},
+	// 	explorerSettings
+	// });
 
 	const explorer = useExplorer({
-		...objects,
-		isFetchingNextPage: objects.query.isFetchingNextPage,
-		settings: explorerSettings
+		items: labels.data || null,
+		settings: explorerSettings,
+		showPathBar: false,
+		layouts: { media: false }
 	});
 
 	return (

@@ -1,154 +1,113 @@
-import { useMemo } from 'react';
-
-import type { Object } from '..';
-import type { ExplorerItem, FilePath, NonIndexedPathItem } from '../core';
+import { getItemFilePath, getItemLocation, getItemObject, type ObjectKindKey } from '..';
+import type { ExplorerItem } from '../core';
 import { byteSize } from '../lib';
 import { ObjectKind } from './objectKind';
 
-export function getItemObject(data: ExplorerItem) {
-	return data.type === 'Object' ? data.item : data.type === 'Path' ? data.item.object : null;
+// ItemData is a single data structure understood by the Explorer, we map all ExplorerItems to this structure in this file
+// we use `null` instead of `?` optional values intentionally
+export interface ItemData {
+	name: string | null;
+	fullName: string | null;
+	size: ReturnType<typeof byteSize>;
+	kind: ObjectKindKey;
+	isDir: boolean;
+	casId: string | null;
+	extension: string | null;
+	locationId: number | null;
+	dateIndexed: string | null;
+	dateCreated: string | null;
+	dateModified: string | null;
+	dateAccessed: string | null;
+	thumbnailKey: string[];
+	// this is overwritten when new thumbnails are generated
+	hasLocalThumbnail: boolean;
+	customIcon: string | null;
 }
 
-export function getItemFilePath(data: ExplorerItem) {
-	if (data.type === 'Path' || data.type === 'NonIndexedPath') return data.item;
-	return (data.type === 'Object' && data.item.file_paths[0]) || null;
-}
-
-export function getEphemeralPath(data: ExplorerItem) {
-	return data.type === 'NonIndexedPath' ? data.item : null;
-}
-
-export function getIndexedItemFilePath(data: ExplorerItem) {
-	return data.type === 'Path'
-		? data.item
-		: data.type === 'Object'
-		? data.item.file_paths[0] ?? null
-		: null;
-}
-
-export function getItemLocation(data: ExplorerItem) {
-	return data.type === 'Location' ? data.item : null;
-}
-export function getItemSpacedropPeer(data: ExplorerItem) {
-	return data.type === 'SpacedropPeer' ? data.item : null;
-}
-
-export function getExplorerItemData(data?: null | ExplorerItem) {
-	const itemObj = data ? getItemObject(data) : null;
-
-	const kind = (itemObj?.kind ? ObjectKind[itemObj.kind] : null) ?? 'Unknown';
-
-	const itemData = {
-		name: null as string | null,
-		fullName: null as string | null,
-		size: byteSize(0),
-		kind,
-		isDir: false,
-		casId: null as string | null,
-		extension: null as string | null,
-		locationId: null as number | null,
-		dateIndexed: null as string | null,
-		dateCreated:
-			data?.item && 'date_created' in data.item
-				? data.item.date_created
-				: itemObj?.date_created ?? null,
-		dateModified: null as string | null,
-		dateAccessed: itemObj?.date_accessed ?? null,
-		thumbnailKey: data?.thumbnail_key ?? [],
-		hasLocalThumbnail: data?.has_local_thumbnail ?? false, // this will be overwritten if new thumbnail is generated
-		customIcon: null as string | null
-	};
-
+// this function maps an ExplorerItem to an ItemData
+export function getExplorerItemData(data?: ExplorerItem | null): ItemData {
+	const itemData = getDefaultItemData();
 	if (!data) return itemData;
 
-	const filePath = getItemFilePath(data);
-	const location = getItemLocation(data);
-	if (filePath) {
-		itemData.name = filePath.name;
-		itemData.fullName = `${filePath.name}${filePath.extension ? `.${filePath.extension}` : ''}`;
-		itemData.size = byteSize(filePath.size_in_bytes_bytes);
-		itemData.isDir = filePath.is_dir ?? false;
-		itemData.extension = filePath.extension?.toLocaleLowerCase() ?? null;
-		if ('kind' in filePath) itemData.kind = ObjectKind[filePath.kind] ?? 'Unknown';
-		if ('cas_id' in filePath) itemData.casId = filePath.cas_id;
-		if ('location_id' in filePath) itemData.locationId = filePath.location_id;
-		if ('date_indexed' in filePath) itemData.dateIndexed = filePath.date_indexed;
-		if ('date_modified' in filePath) itemData.dateModified = filePath.date_modified;
-	} else if (location) {
-		if (location.total_capacity != null && location.available_capacity != null)
-			itemData.size = byteSize(location.total_capacity - location.available_capacity);
+	// a typesafe switch statement for all the different types of ExplorerItems
+	switch (data.type) {
+		// the getItemObject and getItemFilePath type-guards mean we can handle the following types in one case
+		case 'Object':
+		case 'NonIndexedPath':
+		case 'Path': {
+			// handle object
+			const object = getItemObject(data);
 
-		itemData.name = location.name;
-		itemData.fullName = location.name;
-		itemData.kind = ObjectKind[ObjectKind.Folder] ?? 'Unknown';
-		itemData.isDir = true;
-		itemData.locationId = location.id;
-		itemData.dateIndexed = location.date_created;
-	} else if (data.type === 'SpacedropPeer') {
-		itemData.name = data.item.name;
-		itemData.customIcon = 'Laptop';
+			if (object?.kind) itemData.kind = ObjectKind[object?.kind] ?? 'Unknown';
+			// Objects only have dateCreated and dateAccessed
+			itemData.dateCreated = object?.date_created ?? null;
+			itemData.dateAccessed = object?.date_accessed ?? null;
+			// handle thumbnail based on provided key
+			itemData.thumbnailKey = data.thumbnail_key ?? [];
+			itemData.hasLocalThumbnail = data.has_local_thumbnail ?? false;
+			// handle file path
+			const filePath = getItemFilePath(data);
+			if (filePath) {
+				itemData.name = filePath.name;
+				itemData.fullName = `${filePath.name}${
+					filePath.extension ? `.${filePath.extension}` : ''
+				}`;
+				itemData.size = byteSize(filePath.size_in_bytes_bytes);
+				itemData.isDir = filePath.is_dir ?? false;
+				itemData.extension = filePath.extension?.toLocaleLowerCase() ?? null;
+				//
+				if ('cas_id' in filePath) itemData.casId = filePath.cas_id;
+				if ('location_id' in filePath) itemData.locationId = filePath.location_id;
+				if ('date_indexed' in filePath) itemData.dateIndexed = filePath.date_indexed;
+				if ('date_modified' in filePath) itemData.dateModified = filePath.date_modified;
+			}
+			break;
+		}
+		// the following types do not have a file_path or an object associated, and must be handled from scratch
+		case 'Location': {
+			const location = getItemLocation(data);
+			if (location) {
+				if (location.total_capacity != null && location.available_capacity != null)
+					itemData.size = byteSize(location.total_capacity - location.available_capacity);
+
+				itemData.name = location.name;
+				itemData.fullName = location.name;
+				itemData.kind = ObjectKind[ObjectKind.Folder] ?? 'Unknown';
+				itemData.isDir = true;
+				itemData.locationId = location.id;
+			}
+			break;
+		}
+		case 'SpacedropPeer': {
+			itemData.name = data.item.name;
+			itemData.customIcon = 'Laptop';
+			break;
+		}
+		case 'Label': {
+			itemData.name = data.item.name;
+			break;
+		}
 	}
-
-	if (data.type == 'Path' && itemData.isDir) itemData.kind = 'Folder';
 
 	return itemData;
 }
 
-export const useItemsAsObjects = (items: ExplorerItem[]) => {
-	return useMemo(() => {
-		const array: Object[] = [];
-
-		for (const item of items) {
-			switch (item.type) {
-				case 'Path': {
-					if (!item.item.object) return [];
-					array.push(item.item.object);
-					break;
-				}
-				case 'Object': {
-					array.push(item.item);
-					break;
-				}
-				default:
-					return [];
-			}
-		}
-
-		return array;
-	}, [items]);
-};
-
-export const useItemsAsFilePaths = (items: ExplorerItem[]) => {
-	return useMemo(() => {
-		const array: FilePath[] = [];
-
-		for (const item of items) {
-			switch (item.type) {
-				case 'Path': {
-					array.push(item.item);
-					break;
-				}
-				case 'Object': {
-					// this isn't good but it's the current behaviour
-					const filePath = item.item.file_paths[0];
-					if (filePath) array.push(filePath);
-					else return [];
-
-					break;
-				}
-				default:
-					return [];
-			}
-		}
-
-		return array;
-	}, [items]);
-};
-
-export const useItemsAsEphemeralPaths = (items: ExplorerItem[]) => {
-	return useMemo(() => {
-		return items
-			.filter((item) => item.type === 'NonIndexedPath')
-			.map((item) => item.item as NonIndexedPathItem);
-	}, [items]);
-};
+function getDefaultItemData(kind: ObjectKindKey = 'Unknown'): ItemData {
+	return {
+		name: null,
+		fullName: null,
+		size: byteSize(0),
+		kind: 'Unknown',
+		isDir: false,
+		casId: null,
+		extension: null,
+		locationId: null,
+		dateIndexed: null,
+		dateCreated: null,
+		dateModified: null,
+		dateAccessed: null,
+		thumbnailKey: [],
+		hasLocalThumbnail: false,
+		customIcon: null
+	};
+}
