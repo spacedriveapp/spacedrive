@@ -1,6 +1,6 @@
+import { byteSize } from '.';
 import { getItemFilePath, getItemLocation, getItemObject, type ObjectKindKey } from '..';
 import type { ExplorerItem } from '../core';
-import { byteSize } from '../lib';
 import { ObjectKind } from './objectKind';
 
 // ItemData is a single data structure understood by the Explorer, we map all ExplorerItems to this structure in this file

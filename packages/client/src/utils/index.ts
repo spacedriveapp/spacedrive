@@ -5,9 +5,6 @@ import type { Object } from '..';
 import type { ExplorerItem, FilePath, NonIndexedPathItem } from '../core';
 import { LibraryConfigWrapped } from '../core';
 
-export * from './objectKind';
-export * from './explorerItem';
-
 export * from './jobs';
 
 export const useItemsAsObjects = (items: ExplorerItem[]) => {
