@@ -1,5 +1,11 @@
 import { useMemo } from 'react';
-import { ObjectFilterArgs, ObjectKindEnum, ObjectOrder, SearchFilterArgs } from '@sd/client';
+import {
+	ObjectFilterArgs,
+	ObjectKindEnum,
+	ObjectOrder,
+	SearchFilterArgs,
+	useLibraryQuery
+} from '@sd/client';
 import { Icon } from '~/components';
 import { useRouteTitle } from '~/hooks';
 
@@ -16,6 +22,10 @@ import { TopBarPortal } from './TopBar/Portal';
 
 export function Component() {
 	useRouteTitle('Labels');
+
+	const labels = useLibraryQuery(['labels.listWithThumbnails', '']);
+
+	console.log({ labels: labels.data });
 
 	const explorerSettings = useExplorerSettings({
 		settings: useMemo(() => {

@@ -1,6 +1,6 @@
 use crate::{invalidate_query, library::Library};
 
-use sd_prisma::prisma::{label, label_on_object, object};
+use sd_prisma::prisma::{label, label_on_object, object, SortOrder};
 
 use std::collections::BTreeMap;
 
@@ -14,6 +14,28 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.with2(library()).query(|(_, library), _: ()| async move {
 				Ok(library.db.label().find_many(vec![]).exec().await?)
 			})
+		})
+		//
+		.procedure("listWithThumbnails", {
+			R.with2(library())
+				.query(|(_, library), cursor: label::name::Type| async move {
+					Ok(library
+						.db
+						.label()
+						.find_many(vec![label::name::gt(cursor)])
+						.order_by(label::name::order(SortOrder::Asc))
+						.include(label::include!({
+							label_objects: select {
+								object(vec![]).take(4): select {
+									id
+									// this should do it :) i'll test
+									file_paths(vec![]).take(1)
+								}
+							}
+						}))
+						.exec()
+						.await?)
+				})
 		})
 		.procedure("count", {
 			R.with2(library()).query(|(_, library), _: ()| async move {

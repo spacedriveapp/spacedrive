@@ -19,7 +19,7 @@ const OverviewSection = ({
 		<div className={clsx('group w-full', className)}>
 			{title && (
 				<div className="mb-3 flex w-full items-center gap-3 px-7 ">
-					<div className=" font-bold">{title}</div>
+					<div className="truncate font-bold">{title}</div>
 					{count && <div className={COUNT_STYLE}>{count}</div>}
 					<div className="grow" />
 					<div className="flex flex-row gap-1 text-sidebar-inkFaint opacity-0 transition-all duration-300 hover:!opacity-100 group-hover:opacity-30">

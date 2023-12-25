@@ -70,7 +70,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 						</div>
 					</CircularProgress>
 				)}
-				<div className="flex flex-col">
+				<div className="flex flex-col overflow-hidden">
 					<Icon className="-ml-1" name={icon as any} size={60} />
 					<span className="truncate font-medium">{name}</span>
 					<span className="mt-1 truncate text-tiny text-ink-faint">
