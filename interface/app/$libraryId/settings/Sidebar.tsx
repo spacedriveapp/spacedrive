@@ -54,10 +54,10 @@ export default () => {
 						<Icon component={GearSix} />
 						General
 					</SidebarLink>
-					<SidebarLink to="client/usage">
+					{/* <SidebarLink to="client/usage">
 						<Icon component={ChartBar} />
 						Usage
-					</SidebarLink>
+					</SidebarLink> */}
 					<SidebarLink to="client/account">
 						<Icon component={User} />
 						Account

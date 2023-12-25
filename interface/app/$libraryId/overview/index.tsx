@@ -143,7 +143,7 @@ export const Component = () => {
 					</OverviewSection>
 
 					<OverviewSection count={3} title="Locations">
-						{locations.map((item, index) => (
+						{locations?.map((item, index) => (
 							<StatisticItem
 								key={item.id}
 								name={item.name || 'Unnamed Location'}

@@ -6,7 +6,16 @@ use std::collections::BTreeMap;
 
 use rspc::alpha::AlphaRouter;
 
-use super::{utils::library, Ctx, R};
+use super::{locations::ExplorerItem, utils::library, Ctx, R};
+
+label::include!((take: i64) => label_with_objects {
+	label_objects(vec![]).take(take): select {
+		object: select {
+			id
+			file_paths(vec![]).take(1)
+		}
+	}
+});
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -24,17 +33,16 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.label()
 						.find_many(vec![label::name::gt(cursor)])
 						.order_by(label::name::order(SortOrder::Asc))
-						.include(label::include!({
-							label_objects: select {
-								object(vec![]).take(4): select {
-									id
-									// this should do it :) i'll test
-									file_paths(vec![]).take(1)
-								}
-							}
-						}))
+						.include(label_with_objects::include(4))
 						.exec()
-						.await?)
+						.await?
+						.into_iter()
+						.map(|label| ExplorerItem::Label {
+							has_local_thumbnail: false,
+							thumbnail_key: None,
+							item: label,
+						})
+						.collect::<Vec<_>>())
 				})
 		})
 		.procedure("count", {

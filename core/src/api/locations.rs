@@ -16,7 +16,7 @@ use crate::{
 
 use sd_cache::{CacheNode, Model, Normalise, NormalisedResult, NormalisedResults, Reference};
 use sd_prisma::prisma::{
-	file_path, indexer_rule, indexer_rules_in_location, location, object, SortOrder,
+	file_path, indexer_rule, indexer_rules_in_location, label, location, object, SortOrder,
 };
 
 use std::path::{Path, PathBuf};
@@ -28,7 +28,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tracing::{debug, error};
 
-use super::{utils::library, Ctx, R};
+use super::{labels::label_with_objects, utils::library, Ctx, R};
 
 #[derive(Serialize, Type, Debug)]
 #[serde(tag = "type")]
@@ -61,6 +61,11 @@ pub enum ExplorerItem {
 		thumbnail_key: Option<Vec<String>>,
 		item: PeerMetadata,
 	},
+	Label {
+		has_local_thumbnail: bool,
+		thumbnail_key: Option<Vec<String>>,
+		item: label_with_objects::Data,
+	},
 }
 
 // TODO: Really this shouldn't be a `Model` but it's easy for now.
@@ -79,6 +84,7 @@ impl ExplorerItem {
 			ExplorerItem::Location { .. } => "Location",
 			ExplorerItem::NonIndexedPath { .. } => "NonIndexedPath",
 			ExplorerItem::SpacedropPeer { .. } => "SpacedropPeer",
+			ExplorerItem::Label { .. } => "Label",
 		};
 		match self {
 			ExplorerItem::Path { item, .. } => format!("{ty}:{}", item.id),
@@ -86,6 +92,7 @@ impl ExplorerItem {
 			ExplorerItem::Location { item, .. } => format!("{ty}:{}", item.id),
 			ExplorerItem::NonIndexedPath { item, .. } => format!("{ty}:{}", item.path),
 			ExplorerItem::SpacedropPeer { item, .. } => format!("{ty}:{}", item.name), // TODO: Use a proper primary key
+			ExplorerItem::Label { item, .. } => format!("{ty}:{}", item.name),
 		}
 	}
 }

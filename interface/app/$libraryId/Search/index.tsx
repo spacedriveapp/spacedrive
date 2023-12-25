@@ -4,6 +4,7 @@ import { ObjectKindEnum, ObjectOrder } from '@sd/client';
 import { Icon } from '~/components';
 import { useRouteTitle } from '~/hooks';
 
+import { SearchContextProvider, SearchOptions, useSearch } from '.';
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
 import { useObjectsExplorerQuery } from '../Explorer/queries/useObjectsExplorerQuery';
@@ -11,9 +12,8 @@ import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Expl
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
 import { EmptyNotice } from '../Explorer/View/EmptyNotice';
-import { SearchContextProvider, SearchOptions, useSearch } from '../search';
-import SearchBar from '../search/SearchBar';
 import { TopBarPortal } from '../TopBar/Portal';
+import SearchBar from './SearchBar';
 
 export * from './context';
 export * from './SearchOptions';
