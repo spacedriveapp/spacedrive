@@ -21,7 +21,7 @@ export type Procedures = {
         { key: "labels.getForObject", input: LibraryArgs<number>, result: Label[] } | 
         { key: "labels.getWithObjects", input: LibraryArgs<number[]>, result: { [key in number]: { date_created: string; object: { id: number } }[] } } | 
         { key: "labels.list", input: LibraryArgs<null>, result: Label[] } | 
-        { key: "labels.listWithThumbnails", input: LibraryArgs<string>, result: { id: number; pub_id: number[]; name: string; date_created: string; date_modified: string; label_objects: { object: { id: number; file_paths: FilePath[] } }[] }[] } | 
+        { key: "labels.listWithThumbnails", input: LibraryArgs<string>, result: ExplorerItem[] } | 
         { key: "library.kindStatistics", input: LibraryArgs<null>, result: KindStatistics } | 
         { key: "library.list", input: never, result: NormalisedResults<LibraryConfigWrapped> } | 
         { key: "library.statistics", input: LibraryArgs<null>, result: StatisticsResponse } | 
@@ -222,7 +222,7 @@ export type Error = { code: ErrorCode; message: string }
  */
 export type ErrorCode = "BadRequest" | "Unauthorized" | "Forbidden" | "NotFound" | "Timeout" | "Conflict" | "PreconditionFailed" | "PayloadTooLarge" | "MethodNotSupported" | "ClientClosedRequest" | "InternalServerError"
 
-export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: Location } | { type: "NonIndexedPath"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: NonIndexedPathItem } | { type: "SpacedropPeer"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: PeerMetadata }
+export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: Location } | { type: "NonIndexedPath"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: NonIndexedPathItem } | { type: "SpacedropPeer"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: PeerMetadata } | { type: "Label"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: LabelWithObjects }
 
 export type ExplorerLayout = "grid" | "list" | "media"
 
@@ -348,6 +348,8 @@ export type KindStatistic = { kind: number; name: string; count: number; total_b
 export type KindStatistics = { statistics: KindStatistic[] }
 
 export type Label = { id: number; pub_id: number[]; name: string; date_created: string; date_modified: string }
+
+export type LabelWithObjects = { id: number; pub_id: number[]; name: string; date_created: string; date_modified: string; label_objects: { object: { id: number; file_paths: FilePath[] } }[] }
 
 /**
  * Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
