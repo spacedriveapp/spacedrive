@@ -30,40 +30,35 @@ use tracing::{debug, error};
 
 use super::{labels::label_with_objects, utils::library, Ctx, R};
 
+// it includes the shard hex formatted as ([["f02", "cab34a76fbf3469f"]])
+// Will be None if no thumbnail exists
+pub type ThumbnailKey = Option<Vec<Vec<String>>>;
+
 #[derive(Serialize, Type, Debug)]
 #[serde(tag = "type")]
 pub enum ExplorerItem {
 	Path {
-		// has_local_thumbnail is true only if there is local existence of a thumbnail
-		has_local_thumbnail: bool,
-		// thumbnail_key is present if there is a cas_id
-		// it includes the shard hex formatted as (["f0", "cab34a76fbf3469f"])
-		thumbnail_key: Option<Vec<String>>,
+		thumbnail: ThumbnailKey,
 		item: file_path_with_object::Data,
 	},
 	Object {
-		has_local_thumbnail: bool,
-		thumbnail_key: Option<Vec<String>>,
+		thumbnail: ThumbnailKey,
 		item: object_with_file_paths::Data,
 	},
 	Location {
-		has_local_thumbnail: bool,
-		thumbnail_key: Option<Vec<String>>,
+		thumbnail: ThumbnailKey,
 		item: location::Data,
 	},
 	NonIndexedPath {
-		has_local_thumbnail: bool,
-		thumbnail_key: Option<Vec<String>>,
+		thumbnail: ThumbnailKey,
 		item: NonIndexedPathItem,
 	},
 	SpacedropPeer {
-		has_local_thumbnail: bool,
-		thumbnail_key: Option<Vec<String>>,
+		thumbnail: ThumbnailKey,
 		item: PeerMetadata,
 	},
 	Label {
-		has_local_thumbnail: bool,
-		thumbnail_key: Option<Vec<String>>,
+		thumbnail: ThumbnailKey,
 		item: label_with_objects::Data,
 	},
 }

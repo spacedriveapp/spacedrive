@@ -18,9 +18,9 @@ export interface ItemData {
 	dateCreated: string | null;
 	dateModified: string | null;
 	dateAccessed: string | null;
-	thumbnailKey: string[];
-	// this is overwritten when new thumbnails are generated
-	hasLocalThumbnail: boolean;
+	thumbnailKey: string[]; // default behavior is to render a single thumbnail
+	thumbnailKeys?: string[][]; // if set, we can render multiple thumbnails
+	hasLocalThumbnail: boolean; // this is overwritten when new thumbnails are generated
 	customIcon: string | null;
 }
 
@@ -43,15 +43,20 @@ export function getExplorerItemData(data?: ExplorerItem | null): ItemData {
 			itemData.dateCreated = object?.date_created ?? null;
 			itemData.dateAccessed = object?.date_accessed ?? null;
 			// handle thumbnail based on provided key
-			itemData.thumbnailKey = data.thumbnail_key ?? [];
-			itemData.hasLocalThumbnail = data.has_local_thumbnail ?? false;
+			// This could be better, but for now we're mapping the backend property to two different local properties (thumbnailKey, thumbnailKeys) for backward compatibility
+			if (data.thumbnail && data.thumbnail.length > 1) {
+				itemData.thumbnailKeys = data.thumbnail;
+			} else if (data.thumbnail && data.thumbnail.length === 1) {
+				itemData.thumbnailKey = data.thumbnail[0] ?? [];
+			} else {
+				itemData.thumbnailKey = [];
+			}
+			itemData.hasLocalThumbnail = !!data.thumbnail;
 			// handle file path
 			const filePath = getItemFilePath(data);
 			if (filePath) {
 				itemData.name = filePath.name;
-				itemData.fullName = `${filePath.name}${
-					filePath.extension ? `.${filePath.extension}` : ''
-				}`;
+				itemData.fullName = getFullName(filePath.name, filePath.extension);
 				itemData.size = byteSize(filePath.size_in_bytes_bytes);
 				itemData.isDir = filePath.is_dir ?? false;
 				itemData.extension = filePath.extension?.toLocaleLowerCase() ?? null;
@@ -85,11 +90,25 @@ export function getExplorerItemData(data?: ExplorerItem | null): ItemData {
 		}
 		case 'Label': {
 			itemData.name = data.item.name;
+			itemData.customIcon = 'Tag';
+			itemData.thumbnailKey = data.thumbnail?.[0] ?? [];
+			itemData.thumbnailKeys = data.thumbnail ?? [];
+			itemData.hasLocalThumbnail = !!data.thumbnail;
+			itemData.kind = 'Label';
+
+			console.log({ itemData });
 			break;
 		}
 	}
 
 	return itemData;
+}
+
+export function getFullName(
+	filePathName: string | null,
+	filePathExtension?: string | null
+): string {
+	return `${filePathName}${filePathExtension ? `.${filePathExtension}` : ''}`;
 }
 
 function getDefaultItemData(kind: ObjectKindKey = 'Unknown'): ItemData {

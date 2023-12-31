@@ -222,7 +222,7 @@ export type Error = { code: ErrorCode; message: string }
  */
 export type ErrorCode = "BadRequest" | "Unauthorized" | "Forbidden" | "NotFound" | "Timeout" | "Conflict" | "PreconditionFailed" | "PayloadTooLarge" | "MethodNotSupported" | "ClientClosedRequest" | "InternalServerError"
 
-export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: Location } | { type: "NonIndexedPath"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: NonIndexedPathItem } | { type: "SpacedropPeer"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: PeerMetadata } | { type: "Label"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: LabelWithObjects }
+export type ExplorerItem = { type: "Path"; thumbnail: string[][] | null; item: FilePathWithObject } | { type: "Object"; thumbnail: string[][] | null; item: ObjectWithFilePaths } | { type: "Location"; thumbnail: string[][] | null; item: Location } | { type: "NonIndexedPath"; thumbnail: string[][] | null; item: NonIndexedPathItem } | { type: "SpacedropPeer"; thumbnail: string[][] | null; item: PeerMetadata } | { type: "Label"; thumbnail: string[][] | null; item: LabelWithObjects }
 
 export type ExplorerLayout = "grid" | "list" | "media"
 

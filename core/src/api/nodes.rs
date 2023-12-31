@@ -150,8 +150,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.await?
 						.into_iter()
 						.map(|location| ExplorerItem::Location {
-							has_local_thumbnail: false,
-							thumbnail_key: None,
+							thumbnail: None,
 							item: location,
 						})
 						.collect::<Vec<_>>())

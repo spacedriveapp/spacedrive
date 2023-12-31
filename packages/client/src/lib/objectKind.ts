@@ -26,7 +26,8 @@ export enum ObjectKindEnum {
 	Book,
 	Config,
 	Dotfile,
-	Screenshot
+	Screenshot,
+	Label
 }
 
 export type ObjectKindKey = keyof typeof ObjectKindEnum;

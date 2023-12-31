@@ -57,4 +57,6 @@ pub enum ObjectKind {
 	Dotfile = 24,
 	/// Screenshot
 	Screenshot = 25,
+	/// Label
+	Label = 26,
 }

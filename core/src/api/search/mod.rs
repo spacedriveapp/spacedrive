@@ -230,11 +230,13 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						};
 
 						items.push(ExplorerItem::Path {
-							has_local_thumbnail: thumbnail_exists_locally,
-							thumbnail_key: file_path
-								.cas_id
-								.as_ref()
-								.map(|i| get_indexed_thumb_key(i, library.id)),
+							thumbnail: if thumbnail_exists_locally {
+								Some(vec![file_path.cas_id.as_ref().map_or_else(Vec::new, |i| {
+									get_indexed_thumb_key(i, library.id)
+								})])
+							} else {
+								None
+							},
 							item: file_path,
 						})
 					}
@@ -352,8 +354,13 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						};
 
 						items.push(ExplorerItem::Object {
-							has_local_thumbnail: thumbnail_exists_locally,
-							thumbnail_key: cas_id.map(|i| get_indexed_thumb_key(i, library.id)),
+							thumbnail: if thumbnail_exists_locally {
+								Some(vec![cas_id.map_or_else(Vec::new, |i| {
+									get_indexed_thumb_key(i, library.id)
+								})])
+							} else {
+								None
+							},
 							item: object,
 						});
 					}
