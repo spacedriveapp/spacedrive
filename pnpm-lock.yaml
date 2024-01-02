@@ -77,15 +77,15 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@oscartbeaumont-sd/rspc-client':
+        specifier: '=0.0.0-main-dc31e5b2'
+        version: 0.0.0-main-dc31e5b2
+      '@oscartbeaumont-sd/rspc-tauri':
+        specifier: '=0.0.0-main-dc31e5b2'
+        version: 0.0.0-main-dc31e5b2(@tauri-apps/api@1.5.1)
       '@remix-run/router':
         specifier: ^1.13.1
         version: 1.13.1(patch_hash=wdk5klbkacqsve2yzdckjvtjz4)
-      '@rspc/client':
-        specifier: '=0.0.0-main-799eec5d'
-        version: 0.0.0-main-799eec5d
-      '@rspc/tauri':
-        specifier: '=0.0.0-main-799eec5d'
-        version: 0.0.0-main-799eec5d(@tauri-apps/api@1.5.1)
       '@sd/client':
         specifier: workspace:*
         version: link:../../packages/client
@@ -331,6 +331,12 @@ importers:
       '@hookform/resolvers':
         specifier: ^3.1.0
         version: 3.3.2(react-hook-form@7.47.0)
+      '@oscartbeaumont-sd/rspc-client':
+        specifier: '=0.0.0-main-dc31e5b2'
+        version: 0.0.0-main-dc31e5b2
+      '@oscartbeaumont-sd/rspc-react':
+        specifier: '=0.0.0-main-dc31e5b2'
+        version: 0.0.0-main-dc31e5b2(@oscartbeaumont-sd/rspc-client@0.0.0-main-dc31e5b2)(@tanstack/react-query@4.36.1)(react@18.2.0)
       '@react-native-async-storage/async-storage':
         specifier: ~1.18.2
         version: 1.18.2(react-native@0.72.6)
@@ -349,12 +355,6 @@ importers:
       '@react-navigation/stack':
         specifier: ^6.3.17
         version: 6.3.20(@react-navigation/native@6.1.9)(react-native-gesture-handler@2.12.1)(react-native-safe-area-context@4.6.3)(react-native-screens@3.22.1)(react-native@0.72.6)(react@18.2.0)
-      '@rspc/client':
-        specifier: '=0.0.0-main-799eec5d'
-        version: 0.0.0-main-799eec5d
-      '@rspc/react':
-        specifier: '=0.0.0-main-799eec5d'
-        version: 0.0.0-main-799eec5d(@rspc/client@0.0.0-main-799eec5d)(@tanstack/react-query@4.36.1)(react@18.2.0)
       '@sd/assets':
         specifier: workspace:*
         version: link:../../packages/assets
@@ -566,9 +566,9 @@ importers:
       '@fontsource/inter':
         specifier: ^4.5.15
         version: 4.5.15
-      '@rspc/client':
-        specifier: '=0.0.0-main-799eec5d'
-        version: 0.0.0-main-799eec5d
+      '@oscartbeaumont-sd/rspc-client':
+        specifier: '=0.0.0-main-dc31e5b2'
+        version: 0.0.0-main-dc31e5b2
       '@sd/client':
         specifier: workspace:*
         version: link:../../packages/client
@@ -840,12 +840,12 @@ importers:
 
   packages/client:
     dependencies:
-      '@rspc/client':
-        specifier: '=0.0.0-main-799eec5d'
-        version: 0.0.0-main-799eec5d
-      '@rspc/react':
-        specifier: '=0.0.0-main-799eec5d'
-        version: 0.0.0-main-799eec5d(@rspc/client@0.0.0-main-799eec5d)(@tanstack/react-query@4.36.1)(react@18.2.0)
+      '@oscartbeaumont-sd/rspc-client':
+        specifier: '=0.0.0-main-dc31e5b2'
+        version: 0.0.0-main-dc31e5b2
+      '@oscartbeaumont-sd/rspc-react':
+        specifier: '=0.0.0-main-dc31e5b2'
+        version: 0.0.0-main-dc31e5b2(@oscartbeaumont-sd/rspc-client@0.0.0-main-dc31e5b2)(@tanstack/react-query@4.36.1)(react@18.2.0)
       '@tanstack/react-query':
         specifier: ^4.36.1
         version: 4.36.1(react-dom@18.2.0)(react-native@0.72.6)(react@18.2.0)
@@ -6742,6 +6742,31 @@ packages:
     engines: {node: '>=14'}
     dev: false
 
+  /@oscartbeaumont-sd/rspc-client@0.0.0-main-dc31e5b2:
+    resolution: {integrity: sha512-/XxwfgXOOKrbhhLKBzRNIAAfhhasvzbVo5xr/Md3MnnPT9O0+rBy4/ducZPznLusFyz4qT3q3m41DPHxB0JxCw==}
+    dev: false
+
+  /@oscartbeaumont-sd/rspc-react@0.0.0-main-dc31e5b2(@oscartbeaumont-sd/rspc-client@0.0.0-main-dc31e5b2)(@tanstack/react-query@4.36.1)(react@18.2.0):
+    resolution: {integrity: sha512-686tAMJjbfGJ+72sGHrj3+g8q021113IO7MQDBYviTsjgZt7Pcl1p5Ckbhl4L/zvp1qsJafbEig3Nr6mRS1GjA==}
+    peerDependencies:
+      '@oscartbeaumont-sd/rspc-client': 0.0.0-main-dc31e5b2
+      '@tanstack/react-query': ^4.26.0
+      react: ^18.2.0
+    dependencies:
+      '@oscartbeaumont-sd/rspc-client': 0.0.0-main-dc31e5b2
+      '@tanstack/react-query': 4.36.1(react-dom@18.2.0)(react-native@0.72.6)(react@18.2.0)
+      react: 18.2.0
+    dev: false
+
+  /@oscartbeaumont-sd/rspc-tauri@0.0.0-main-dc31e5b2(@tauri-apps/api@1.5.1):
+    resolution: {integrity: sha512-YbOwVRwptEfo/6k5z7SnaiMU0TkL5/fwCdxNzgY/eWr6c/+0mdZ9FTeWgSnqkcloA6StkUikA+gmzImHssdT+Q==}
+    peerDependencies:
+      '@tauri-apps/api': ^1.2.0
+    dependencies:
+      '@oscartbeaumont-sd/rspc-client': 0.0.0-main-dc31e5b2
+      '@tauri-apps/api': 1.5.1
+    dev: false
+
   /@phosphor-icons/react@2.0.14(react-dom@18.2.0)(react@18.2.0):
     resolution: {integrity: sha512-VaZ7/JEQ7dW+Up23l7t6lqJ3dPJupM03916Pat+ZOLX1vex9OeX9t8RZLJWt0oVrdc/GcrAyRD5FESDeP+M4tQ==}
     engines: {node: '>=10'}
@@ -8595,31 +8620,6 @@ packages:
       '@types/estree': 1.0.4
       estree-walker: 2.0.2
       picomatch: 2.3.1
-
-  /@rspc/client@0.0.0-main-799eec5d:
-    resolution: {integrity: sha512-vLE2bpRh2GblwPhzORi4Iv3EP86aS3oDegY/Km0kQrdc60jWzcy39YBS/ftlcjOFqXc1Hu0z4uLwj0UmJ/payA==}
-    dev: false
-
-  /@rspc/react@0.0.0-main-799eec5d(@rspc/client@0.0.0-main-799eec5d)(@tanstack/react-query@4.36.1)(react@18.2.0):
-    resolution: {integrity: sha512-O3kHvBLuB2FG1Mq86aV3J5z7MEk+CnvgxjqnAw13IwGJyuERm+YdS42XLOT8gRZ06lXAmwJYwqSXarj4hosILw==}
-    peerDependencies:
-      '@rspc/client': 0.0.0-main-799eec5d
-      '@tanstack/react-query': ^4.26.0
-      react: ^18.2.0
-    dependencies:
-      '@rspc/client': 0.0.0-main-799eec5d
-      '@tanstack/react-query': 4.36.1(react-dom@18.2.0)(react-native@0.72.6)(react@18.2.0)
-      react: 18.2.0
-    dev: false
-
-  /@rspc/tauri@0.0.0-main-799eec5d(@tauri-apps/api@1.5.1):
-    resolution: {integrity: sha512-1EQiAfDqDe0iV/CoSadw58EasA/finfoXx0h4odZx+mUVlkV6CUd9QC03EtTrXPoA6MrjA+oWKbBP/2wj/CrHg==}
-    peerDependencies:
-      '@tauri-apps/api': ^1.2.0
-    dependencies:
-      '@rspc/client': 0.0.0-main-799eec5d
-      '@tauri-apps/api': 1.5.1
-    dev: false
 
   /@rushstack/eslint-patch@1.5.1:
     resolution: {integrity: sha512-6i/8UoL0P5y4leBIGzvkZdS85RDMG9y1ihZzmTZQ5LdHUYmZ7pKFoj8X0236s3lusPs1Fa5HTQUpwI+UfTcmeA==}
