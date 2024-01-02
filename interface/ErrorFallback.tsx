@@ -131,7 +131,13 @@ export function ErrorPage({
 				<Button
 					variant="gray"
 					className="mt-2"
-					onClick={() => (sendReportBtn ? sendReportBtn() : captureException(message))}
+					onClick={() =>
+						sendReportBtn
+							? sendReportBtn()
+							: sentryBrowserLazy.then(({ captureException }) =>
+									captureException(message)
+							  )
+					}
 				>
 					Send report
 				</Button>
