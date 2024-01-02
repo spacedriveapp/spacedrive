@@ -1,4 +1,5 @@
 {
+	"name": "@sd/monorepo",
 	"private": true,
 	"scripts": {
 		"preprep": "pnpm --filter @sd/scripts -- prep",
@@ -47,10 +48,10 @@
 		"cspell": "^7.3.8",
 		"prettier": "^3.0.3",
 		"prettier-plugin-tailwindcss": "^0.5.6",
-		"turbo": "^1.10.16",
+		"turbo": "^1.11.2",
 		"turbo-ignore": "^1.10.16",
 		"typescript": "^5.3.3",
-		"vite": "^4.5.0"
+		"vite": "^5.0.10"
 	},
 	"overrides": {
 		"vite-plugin-svgr": "https://github.com/spacedriveapp/vite-plugin-svgr#cb4195b69849429cdb18d1f12381676bf9196a84",
