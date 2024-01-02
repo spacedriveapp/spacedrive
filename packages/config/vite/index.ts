@@ -4,10 +4,15 @@ import { createHtmlPlugin } from 'vite-plugin-html';
 import svg from 'vite-plugin-svgr';
 import tsconfigPaths from 'vite-tsconfig-paths';
 
+import { narrowSolidPlugin } from './narrowSolidPlugin';
+
 export default defineConfig({
 	plugins: [
 		tsconfigPaths(),
-		react(),
+		react({
+			exclude: ['**/*.solid.tsx']
+		}),
+		narrowSolidPlugin({ include: '**/*.solid.tsx' }),
 		svg({ svgrOptions: { icon: true } }),
 		createHtmlPlugin({
 			minify: true

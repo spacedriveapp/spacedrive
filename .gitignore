@@ -81,3 +81,4 @@ spacedrive
 .cargo/config
 .cargo/config.toml
 .github/scripts/deps
+.vite-inspect

@@ -20,10 +20,13 @@
 		"eslint-plugin-prettier": "^5.0.1",
 		"eslint-plugin-react": "^7.33.2",
 		"eslint-plugin-react-hooks": "^4.6.0",
+		"eslint-plugin-solid": "^0.13.1",
 		"eslint-plugin-tailwindcss": "^3.13.0",
 		"eslint-utils": "^3.0.0",
 		"regexpp": "^3.2.0",
 		"vite-plugin-html": "^3.2.0",
+		"vite-plugin-inspect": "^0.8.1",
+		"vite-plugin-solid": "^2.8.0",
 		"vite-plugin-svgr": "^3.3.0"
 	}
 }

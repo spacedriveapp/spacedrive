@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Navigate, Outlet, redirect, useMatches, type RouteObject } from 'react-router-dom';
 import {
 	currentLibraryCache,
@@ -12,10 +12,29 @@ import { useRoutingContext } from '~/RoutingContext';
 
 import { Platform } from '..';
 import libraryRoutes from './$libraryId';
+import { renderDemo } from './demo.solid';
 import onboardingRoutes from './onboarding';
 import { RootContext } from './RootContext';
 
 import './style.scss';
+
+// TODO: Fix this
+function TestEslint() {
+	const a = 1;
+	useEffect(() => {
+		console.log(a);
+	}, []);
+}
+
+function RenderSolid() {
+	const ref = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		if (ref.current) renderDemo(ref.current);
+	}, []);
+
+	return <div ref={ref} />;
+}
 
 // NOTE: all route `Layout`s below should contain
 // the `usePlausiblePageViewMonitor` hook, as early as possible (ideally within the layout itself).
@@ -29,6 +48,7 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 
 				return (
 					<RootContext.Provider value={{ rawPath }}>
+						<RenderSolid />
 						<Outlet />
 						<Dialogs />
 						<Toaster position="bottom-right" expand={true} />
