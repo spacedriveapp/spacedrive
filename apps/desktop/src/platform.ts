@@ -9,14 +9,7 @@ import { env } from './env';
 import { createUpdater } from './updater';
 
 const customUriAuthToken = (window as any).__SD_CUSTOM_SERVER_AUTH_TOKEN__ as string | undefined;
-let customUriServerUrl = (window as any).__SD_CUSTOM_URI_SERVER__ as string | undefined;
-const startPort = (window as any).__SD_START_PORT__ as number | undefined;
-
-if (customUriServerUrl === undefined || customUriServerUrl === '')
-	console.warn("'window.__SD_CUSTOM_URI_SERVER__' may have not been injected correctly!");
-if (customUriServerUrl && !customUriServerUrl?.endsWith('/')) {
-	customUriServerUrl += '/';
-}
+const customUriServerUrl = (window as any).__SD_CUSTOM_URI_SERVER__ as string[] | undefined;
 
 const queryParams = customUriAuthToken ? `?token=${encodeURIComponent(customUriAuthToken)}` : '';
 
@@ -38,29 +31,25 @@ function randomIntFromInterval(min: number, max: number) {
 	return Math.floor(Math.random() * (max - min + 1) + min);
 }
 
-function randomPort() {
-	if (!startPort) throw new Error(`'startPort' not defined`);
-	return randomIntFromInterval(startPort, startPort + 3); // Randomly switch between 4 servers
+function randomServer() {
+	if (!customUriServerUrl)
+		throw new Error("'window.__SD_CUSTOM_URI_SERVER__' was not injected correctly!");
+	const index = randomIntFromInterval(0, customUriServerUrl.length - 1); // Randomly switch between servers
+	return customUriServerUrl[index] + '/';
 }
 
 export const platform = {
 	platform: 'tauri',
 	getThumbnailUrlByThumbKey: (keyParts) => {
-		const url = `http://localhost:${randomPort()}/`;
-		// console.log('A', customUriServerUrl, url);
-		return `${url}thumbnail/${keyParts
+		return `${randomServer()}thumbnail/${keyParts
 			.map((i) => encodeURIComponent(i))
 			.join('/')}.webp${queryParams}`;
 	},
 	getFileUrl: (libraryId, locationLocalId, filePathId) => {
-		const url = `http://localhost:${randomPort()}/`;
-		// console.log('B', customUriServerUrl, url);
-		return `${url}file/${libraryId}/${locationLocalId}/${filePathId}${queryParams}`;
+		return `${randomServer()}file/${libraryId}/${locationLocalId}/${filePathId}${queryParams}`;
 	},
 	getFileUrlByPath: (path) => {
-		const url = `http://localhost:${randomPort()}/`;
-		// console.log('C', customUriServerUrl, url);
-		return `${url}local-file-by-path/${encodeURIComponent(path)}${queryParams}`;
+		return `${randomServer()}local-file-by-path/${encodeURIComponent(path)}${queryParams}`;
 	},
 	openLink: shell.open,
 	getOs,

@@ -19,6 +19,7 @@ use rand::{distributions::Alphanumeric, Rng};
 use sd_core::{custom_uri, Node, NodeError};
 use serde::Deserialize;
 use tauri::{async_runtime::block_on, plugin::TauriPlugin, RunEvent, Runtime};
+use thiserror::Error;
 use tokio::{net::TcpListener, task::block_in_place};
 use tracing::info;
 
@@ -33,12 +34,24 @@ pub fn sd_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {
 		.build()
 }
 
+#[derive(Error, Debug)]
+pub enum SdServerPluginError {
+	#[error("hyper error")]
+	HyperError(#[from] hyper::Error),
+	#[error("io error")]
+	IoError(#[from] std::io::Error),
+}
+
 /// Right now Tauri doesn't support async custom URI protocols so we ship an Axum server.
 /// I began the upstream work on this: https://github.com/tauri-apps/wry/pull/872
 /// Related to https://github.com/tauri-apps/tauri/issues/3725 & https://bugs.webkit.org/show_bug.cgi?id=146351#c5
 ///
 /// The server is on a random port w/ a localhost bind address and requires a random on startup auth token which is injected into the webview so this *should* be secure enough.
-pub async fn sd_server_plugin<R: Runtime>(node: Arc<Node>) -> io::Result<TauriPlugin<R>> {
+///
+/// We also spin up multiple servers so we can load balance image requests between them to avoid any issue with browser connection limits.
+pub async fn sd_server_plugin<R: Runtime>(
+	node: Arc<Node>,
+) -> Result<TauriPlugin<R>, SdServerPluginError> {
 	let auth_token: String = rand::thread_rng()
 		.sample_iter(&Alphanumeric)
 		.take(15)
@@ -52,40 +65,44 @@ pub async fn sd_server_plugin<R: Runtime>(node: Arc<Node>) -> io::Result<TauriPl
 		))
 		.fallback(|| async { "404 Not Found: We're past the event horizon..." });
 
-	let port = std::env::var("SD_PORT")
-		.ok()
-		.and_then(|port| port.parse().ok())
-		.unwrap_or(0); // randomise port
-
 	// Only allow current device to access it
-	let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, port))
-		.await
-		.unwrap(); // TODO: Error handling
-	let listen_addr = listener.local_addr()?; // We get it from a listener so `0` is turned into a random port
+	let listenera = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await?;
+	let listen_addra = listenera.local_addr()?;
+	let listenerb = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await?;
+	let listen_addrb = listenerb.local_addr()?;
+	let listenerc = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await?;
+	let listen_addrc = listenerc.local_addr()?;
+	let listenerd = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await?;
+	let listen_addrd = listenerd.local_addr()?;
+
+	// let listen_addr = listener.local_addr()?; // We get it from a listener so `0` is turned into a random port
 	let (tx, mut rx) = tokio::sync::mpsc::channel(1);
 
-	info!("Internal server listening on: http://{:?}", listen_addr);
+	info!("Internal server listening on: http://{listen_addra:?} http://{listen_addrb:?} http://{listen_addrc:?} http://{listen_addrd:?}");
+	let server = axum::Server::builder(CombinedIncoming {
+		a: AddrIncoming::from_listener(listenera)?,
+		b: AddrIncoming::from_listener(listenerb)?,
+		c: AddrIncoming::from_listener(listenerc)?,
+		d: AddrIncoming::from_listener(listenerd)?,
+	});
 	tokio::spawn(async move {
-		axum::Server::builder(CombinedIncoming {
-			// TODO: Error handling
-			a: AddrIncoming::from_listener(listener).unwrap(),
-			// TODO: Ensure these ports aren't taken
-			b: AddrIncoming::bind(&(Ipv4Addr::LOCALHOST, listen_addr.port() + 1).into()).unwrap(),
-			c: AddrIncoming::bind(&(Ipv4Addr::LOCALHOST, listen_addr.port() + 2).into()).unwrap(),
-			d: AddrIncoming::bind(&(Ipv4Addr::LOCALHOST, listen_addr.port() + 3).into()).unwrap(),
-		})
-		.serve(app.into_make_service())
-		.with_graceful_shutdown(async {
-			rx.recv().await;
-		})
-		.await
-		.expect("Error with HTTP server!"); // TODO: Panic handling
+		server
+			.serve(app.into_make_service())
+			.with_graceful_shutdown(async {
+				rx.recv().await;
+			})
+			.await
+			.expect("Error with HTTP server!"); // TODO: Panic handling
 	});
 
 	Ok(tauri::plugin::Builder::new("sd-server")
 		.js_init_script(format!(
-		        r#"window.__SD_CUSTOM_SERVER_AUTH_TOKEN__ = "{auth_token}"; window.__SD_CUSTOM_URI_SERVER__ = "http://{listen_addr}"; window.__SD_START_PORT__ = {};"#,
-				listen_addr.port(),
+		        r#"window.__SD_CUSTOM_SERVER_AUTH_TOKEN__ = "{auth_token}"; window.__SD_CUSTOM_URI_SERVER__ = [{}];"#,
+				[listen_addra, listen_addrb, listen_addrc, listen_addrd]
+					.iter()
+					.map(|addr| format!("'http://{addr}'"))
+					.collect::<Vec<_>>()
+					.join(","),
 		))
 		.on_event(move |_app, e| {
 			if let RunEvent::Exit { .. } = e {

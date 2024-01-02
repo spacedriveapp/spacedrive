@@ -30,6 +30,7 @@ tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
 tauri-specta = { workspace = true, features = ["typescript"] }
 uuid = { workspace = true, features = ["serde"] }
+thiserror.workspace = true
 
 opener = { version = "0.6.1", features = ["reveal"] }
 tauri = { version = "1.5.3", features = [

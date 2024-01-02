@@ -7102,6 +7102,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-window-state",
  "tauri-specta",
+ "thiserror",
  "tokio",
  "tracing",
  "uuid",
