@@ -30,7 +30,7 @@
 		"autoprefixer": "^10.4.16",
 		"postcss": "^8.4.31",
 		"rollup-plugin-visualizer": "^5.9.2",
-		"typescript": "^5.2.2",
+		"typescript": "^5.3.3",
 		"vite": "^5.0.10",
 		"vite-tsconfig-paths": "^4.2.1"
 	}

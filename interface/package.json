@@ -72,7 +72,7 @@
 		"@types/uuid": "^9.0.6",
 		"tailwindcss": "^3.3.5",
 		"type-fest": "^4.6.0",
-		"typescript": "^5.2.2",
+		"typescript": "^5.3.3",
 		"vite": "^5.0.10",
 		"vite-plugin-svgr": "^3.3.0"
 	}
