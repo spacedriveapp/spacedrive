@@ -11,9 +11,8 @@ let permits = 0; // A Mutex in JS, lmao
 
 export const getPermits = () => permits;
 
-if (import.meta.hot) {
-	import.meta.hot.dispose(() => (permits = 0)); // Reset the mutex on HMR
-}
+if ("onHotReload" in globalThis)
+	globalThis?.onHotReload(() => (permits = 0));
 
 // A query where the data is streamed in.
 // Also basically a subscription with support for React Suspense and proper loading states, invalidation, etc.
