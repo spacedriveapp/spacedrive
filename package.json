@@ -49,7 +49,7 @@
 		"prettier-plugin-tailwindcss": "^0.5.6",
 		"turbo": "^1.10.16",
 		"turbo-ignore": "^1.10.16",
-		"typescript": "^5.2.2",
+		"typescript": "^5.3.3",
 		"vite": "^4.5.0"
 	},
 	"overrides": {

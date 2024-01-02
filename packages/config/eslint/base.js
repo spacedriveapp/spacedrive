@@ -13,8 +13,8 @@ module.exports = {
 		'plugin:@typescript-eslint/recommended',
 		'turbo',
 		'prettier',
-		require.resolve('./react.js'),
-		require.resolve('./solid.js')
+		require.resolve('./react.js')
+		// require.resolve('./solid.js')
 	],
 	rules: {
 		'@typescript-eslint/no-unused-vars': 'off',

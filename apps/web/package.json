@@ -31,7 +31,7 @@
 		"autoprefixer": "^10.4.16",
 		"postcss": "^8.4.31",
 		"rollup-plugin-visualizer": "^5.9.2",
-		"typescript": "^5.2.2",
+		"typescript": "^5.3.3",
 		"vite": "^4.5.0",
 		"vite-plugin-html": "^3.2.0",
 		"vite-plugin-svgr": "^3.3.0",

@@ -30,7 +30,9 @@ function RenderSolid() {
 	const ref = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
-		if (ref.current) renderDemo(ref.current);
+		let cleanup = () => {};
+		if (ref.current) cleanup = renderDemo(ref.current);
+		return cleanup;
 	}, []);
 
 	return <div ref={ref} />;
