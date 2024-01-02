@@ -9,13 +9,7 @@ import { env } from './env';
 import { createUpdater } from './updater';
 
 const customUriAuthToken = (window as any).__SD_CUSTOM_SERVER_AUTH_TOKEN__ as string | undefined;
-let customUriServerUrl = (window as any).__SD_CUSTOM_URI_SERVER__ as string | undefined;
-
-if (customUriServerUrl === undefined || customUriServerUrl === '')
-	console.warn("'window.__SD_CUSTOM_URI_SERVER__' may have not been injected correctly!");
-if (customUriServerUrl && !customUriServerUrl?.endsWith('/')) {
-	customUriServerUrl += '/';
-}
+const customUriServerUrl = (window as any).__SD_CUSTOM_URI_SERVER__ as string[] | undefined;
 
 const queryParams = customUriAuthToken ? `?token=${encodeURIComponent(customUriAuthToken)}` : '';
 
@@ -32,16 +26,31 @@ async function getOs(): Promise<OperatingSystem> {
 	}
 }
 
+function randomIntFromInterval(min: number, max: number) {
+	// min and max included
+	return Math.floor(Math.random() * (max - min + 1) + min);
+}
+
+function randomServer() {
+	if (!customUriServerUrl)
+		throw new Error("'window.__SD_CUSTOM_URI_SERVER__' was not injected correctly!");
+	const index = randomIntFromInterval(0, customUriServerUrl.length - 1); // Randomly switch between servers
+	return customUriServerUrl[index] + '/';
+}
+
 export const platform = {
 	platform: 'tauri',
-	getThumbnailUrlByThumbKey: (keyParts) =>
-		`${customUriServerUrl}thumbnail/${keyParts
+	getThumbnailUrlByThumbKey: (keyParts) => {
+		return `${randomServer()}thumbnail/${keyParts
 			.map((i) => encodeURIComponent(i))
-			.join('/')}.webp${queryParams}`,
-	getFileUrl: (libraryId, locationLocalId, filePathId) =>
-		`${customUriServerUrl}file/${libraryId}/${locationLocalId}/${filePathId}${queryParams}`,
-	getFileUrlByPath: (path) =>
-		`${customUriServerUrl}local-file-by-path/${encodeURIComponent(path)}${queryParams}`,
+			.join('/')}.webp${queryParams}`;
+	},
+	getFileUrl: (libraryId, locationLocalId, filePathId) => {
+		return `${randomServer()}file/${libraryId}/${locationLocalId}/${filePathId}${queryParams}`;
+	},
+	getFileUrlByPath: (path) => {
+		return `${randomServer()}local-file-by-path/${encodeURIComponent(path)}${queryParams}`;
+	},
 	openLink: shell.open,
 	getOs,
 	openDirectoryPickerDialog: (opts) => {
