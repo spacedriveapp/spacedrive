@@ -9,9 +9,7 @@ import { narrowSolidPlugin } from './narrowSolidPlugin';
 export default defineConfig({
 	plugins: [
 		tsconfigPaths(),
-		react({
-			exclude: ['**/*.solid.tsx']
-		}),
+		react(),
 		narrowSolidPlugin({ include: '**/*.solid.tsx' }),
 		svg({ svgrOptions: { icon: true } }),
 		createHtmlPlugin({
