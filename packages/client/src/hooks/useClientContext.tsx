@@ -1,37 +1,62 @@
-import { createContext, PropsWithChildren, useContext, useEffect, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
 
-import { NormalisedCache, useCache, useNodes } from '../cache';
-import { LibraryConfigWrapped } from '../core';
+import { NormalisedCache, useCache, useCacheContext } from '../cache';
+import { LibraryConfigWrapped, NormalisedResults } from '../core';
 import { valtioPersist } from '../lib';
-import { nonLibraryClient, useBridgeQuery } from '../rspc';
+import { nonLibraryClient } from '../rspc';
 
 // The name of the localStorage key for caching library data
 const libraryCacheLocalStorageKey = 'sd-library-list2'; // `2` is because the format of this underwent a breaking change when introducing normalised caching
 
 export const useCachedLibraries = () => {
-	const result = useBridgeQuery(['library.list'], {
-		keepPreviousData: true,
-		initialData: () => {
-			const cachedData = localStorage.getItem(libraryCacheLocalStorageKey);
-
-			if (cachedData) {
-				// If we fail to load cached data, it's fine
-				try {
-					return JSON.parse(cachedData);
-				} catch (e) {
-					console.error("Error loading cached 'sd-library-list' data", e);
-				}
+	const queryClient = useQueryClient();
+	const cache = useCacheContext();
+	const [state, setState] = useState(() => {
+		const cachedData = localStorage.getItem(libraryCacheLocalStorageKey);
+		let initialItems: NormalisedResults<LibraryConfigWrapped> | null = null;
+		if (cachedData) {
+			// If we fail to load cached data, it's fine
+			try {
+				initialItems = JSON.parse(cachedData);
+			} catch (e) {
+				console.error("Error loading cached 'sd-library-list' data", e);
 			}
+		}
 
-			return undefined;
-		},
-		onSuccess: (data) => localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(data))
+		return {
+			items: initialItems?.items,
+			isLoading: false
+		};
 	});
-	useNodes(result.data?.nodes);
+
+	// We use `useCacheLibrary` high up in the React tree and React Query triggers a re-render for changes in loading state, updatedTime, etc. These are all properties we don't use.
+	// This is a custom implementation of `useQuery` that only triggers a single re-render once the async data is loaded in.
+	useEffect(
+		() =>
+			queryClient.getQueryCache().subscribe((event) => {
+				if (
+					event.type === 'observerResultsUpdated' &&
+					// JS doesn't let us compare by reference so we have to do it like this
+					event.query.queryKey.length === 1 &&
+					event.query.queryKey[0] === 'library.list'
+				) {
+					const data: NormalisedResults<LibraryConfigWrapped> = event.query.state.data;
+
+					cache.withNodes(data.nodes);
+					setState({
+						items: data.items,
+						isLoading: event.query.state.status === 'loading'
+					});
+					localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(data));
+				}
+			}),
+		[queryClient, cache]
+	);
 
 	return {
-		...result,
-		data: useCache(result.data?.items)
+		isLoading: state.isLoading,
+		data: useCache(state.items)
 	};
 };
 
@@ -60,7 +85,6 @@ export async function getCachedLibraries(cache: NormalisedCache) {
 
 export interface ClientContext {
 	currentLibraryId: string | null;
-	libraries: ReturnType<typeof useCachedLibraries>;
 	library: LibraryConfigWrapped | null | undefined;
 }
 
@@ -75,7 +99,6 @@ export const ClientContextProvider = ({
 	currentLibraryId
 }: ClientContextProviderProps) => {
 	const libraries = useCachedLibraries();
-
 	const library = useMemo(
 		() => (libraries.data && libraries.data.find((l) => l.uuid === currentLibraryId)) || null,
 		[currentLibraryId, libraries.data]
@@ -88,7 +111,6 @@ export const ClientContextProvider = ({
 		<ClientContext.Provider
 			value={{
 				currentLibraryId,
-				libraries,
 				library
 			}}
 		>

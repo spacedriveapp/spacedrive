@@ -2,12 +2,12 @@ import { createContext, PropsWithChildren, useContext } from 'react';
 
 import { LibraryConfigWrapped } from '../core';
 import { useBridgeSubscription } from '../rspc';
-import { ClientContext, useClientContext } from './useClientContext';
+import { useCachedLibraries } from './useClientContext';
 import { getLibraryStore, useLibraryStore } from './useLibraryStore';
 
 export interface LibraryContext {
 	library: LibraryConfigWrapped;
-	libraries: ClientContext['libraries'];
+	libraries: ReturnType<typeof useCachedLibraries>;
 }
 
 const LibraryContext = createContext<LibraryContext>(null!);
@@ -17,7 +17,7 @@ interface LibraryContextProviderProps extends PropsWithChildren {
 }
 
 export const LibraryContextProvider = ({ children, library }: LibraryContextProviderProps) => {
-	const { libraries } = useClientContext();
+	const libraries = useCachedLibraries();
 
 	// We put this into context because each hook creates a new subscription which means we get duplicate events from the backend if we don't do this
 	// TODO: This should probs be a library subscription - https://linear.app/spacedriveapp/issue/ENG-724/locationsonline-should-be-a-library-not-a-bridge-subscription

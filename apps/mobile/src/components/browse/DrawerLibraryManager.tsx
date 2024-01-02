@@ -3,7 +3,7 @@ import { MotiView } from 'moti';
 import { CaretRight, Gear, Lock, Plus } from 'phosphor-react-native';
 import { useRef, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
-import { useClientContext } from '@sd/client';
+import { useCachedLibraries, useClientContext } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 import { currentLibraryStore } from '~/utils/nav';
 
@@ -21,7 +21,8 @@ const BrowseLibraryManager = () => {
 	// 	if (!isDrawerOpen) setDropdownClosed(true);
 	// }, [isDrawerOpen]);
 
-	const { library: currentLibrary, libraries } = useClientContext();
+	const { library: currentLibrary } = useClientContext();
+	const libraries = useCachedLibraries();
 
 	const navigation = useNavigation();
 

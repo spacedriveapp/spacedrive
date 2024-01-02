@@ -42,7 +42,7 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 					Component: () => {
 						const libraries = useCachedLibraries();
 
-						if (libraries.status !== 'success') return null;
+						if (libraries.isLoading) return null;
 
 						if (libraries.data.length === 0)
 							return <Navigate to="onboarding" replace />;

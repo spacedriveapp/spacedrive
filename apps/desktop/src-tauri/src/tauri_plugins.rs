@@ -1,5 +1,4 @@
 use std::{
-	io,
 	net::Ipv4Addr,
 	pin::Pin,
 	sync::Arc,

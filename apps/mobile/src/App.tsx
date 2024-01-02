@@ -26,6 +26,7 @@ import {
 	P2PContextProvider,
 	RspcProvider,
 	useBridgeQuery,
+	useCachedLibraries,
 	useClientContext,
 	useInvalidateQuery,
 	usePlausibleEvent,
@@ -52,7 +53,8 @@ dayjs.extend(duration);
 changeTwTheme('dark');
 
 function AppNavigation() {
-	const { libraries, library } = useClientContext();
+	const { library } = useClientContext();
+	const libraries = useCachedLibraries();
 	const plausibleEvent = usePlausibleEvent();
 	const buildInfo = useBridgeQuery(['buildInfo']);
 

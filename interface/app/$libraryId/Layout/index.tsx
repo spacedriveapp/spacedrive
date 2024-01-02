@@ -6,6 +6,7 @@ import {
 	initPlausible,
 	LibraryContextProvider,
 	useBridgeQuery,
+	useCachedLibraries,
 	useClientContext,
 	usePlausibleEvent,
 	usePlausiblePageViewMonitor,
@@ -30,7 +31,8 @@ import { DndContext } from './DndContext';
 import Sidebar from './Sidebar';
 
 const Layout = () => {
-	const { libraries, library } = useClientContext();
+	const { library } = useClientContext();
+	const libraries = useCachedLibraries();
 	const os = useOperatingSystem();
 	const showControls = useShowControls();
 	const windowState = useWindowState();
