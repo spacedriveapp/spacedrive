@@ -258,6 +258,8 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 	);
 });
 
+EphemeralExplorer.displayName = 'EphemeralExplorer';
+
 export const Component = () => {
 	const [pathParams] = useZodSearchParams(PathParamsSchema);
 

@@ -83,6 +83,8 @@ export function CacheProvider({ cache, children }: PropsWithChildren<{ cache: No
 			});
 
 			for (const [type, id] of existingKeys.entries()) {
+				if (type === 'LibraryConfigWrapped') return; // `useCacheLibraries` don't show up as a proper listener.
+
 				// If key is not required. Eg. not in any query within the React Query cache.
 				if (!requiredKeys.has([type, id])) {
 					// Yeet the imposter
