@@ -24,6 +24,7 @@ export const useCachedLibraries = () => {
 			}
 		}
 
+		cache.withNodes(initialItems?.nodes);
 		return {
 			items: initialItems?.items,
 			isLoading: false
