@@ -1,7 +1,7 @@
 {
 	"name": "@sd/web",
 	"private": true,
-	"version": "0.0.0",
+	"type": "module",
 	"scripts": {
 		"dev": "vite",
 		"build": "vite build",
@@ -32,8 +32,6 @@
 		"rollup-plugin-visualizer": "^5.9.2",
 		"typescript": "^5.2.2",
 		"vite": "^5.0.10",
-		"vite-plugin-html": "^3.2.0",
-		"vite-plugin-svgr": "^3.3.0",
 		"vite-tsconfig-paths": "^4.2.1"
 	}
 }
