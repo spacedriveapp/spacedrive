@@ -1,4 +1,5 @@
 {
+	"name": "@sd/monorepo",
 	"private": true,
 	"scripts": {
 		"preprep": "pnpm --filter @sd/scripts -- prep",
