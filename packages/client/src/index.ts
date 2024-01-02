@@ -5,6 +5,8 @@ declare global {
 	var isDev: boolean;
 	// eslint-disable-next-line
 	var rspcLinks: Link[];
+	// eslint-disable-next-line
+	var onHotReload: (cb: () => void) => void | undefined;
 }
 
 if (
