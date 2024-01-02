@@ -1,5 +1,5 @@
-// import { createClient, httpLink } from '@rspc/client';
-// import { createReactHooks } from '@rspc/react';
+// import { createClient, httpLink } from '@oscartbeaumont-sd/rspc-client';
+// import { createReactHooks } from '@oscartbeaumont-sd/rspc-react';
 // import { QueryClient } from '@tanstack/react-query';
 // import type { Procedures } from './bindings';
 

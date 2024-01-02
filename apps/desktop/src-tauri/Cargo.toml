@@ -18,17 +18,19 @@ sd-fda = { path = "../../../crates/fda" }
 sd-prisma = { path = "../../../crates/prisma" }
 
 axum = { workspace = true, features = ["headers", "query"] }
+hyper = "0.14.28"
 futures = { workspace = true }
 http = { workspace = true }
 prisma-client-rust = { workspace = true }
 rand = { workspace = true }
-rspc = { workspace = true, features = ["tauri"] }
+rspc = { workspace = true, features = ["tauri", "tracing"] }
 serde = { workspace = true }
 specta = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
 tauri-specta = { workspace = true, features = ["typescript"] }
 uuid = { workspace = true, features = ["serde"] }
+thiserror.workspace = true
 
 opener = { version = "0.6.1", features = ["reveal"] }
 tauri = { version = "1.5.3", features = [
