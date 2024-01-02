@@ -47,7 +47,7 @@
 		"cspell": "^7.3.8",
 		"prettier": "^3.0.3",
 		"prettier-plugin-tailwindcss": "^0.5.6",
-		"turbo": "^1.10.16",
+		"turbo": "^1.11.2",
 		"turbo-ignore": "^1.10.16",
 		"typescript": "^5.2.2",
 		"vite": "^5.0.10"
