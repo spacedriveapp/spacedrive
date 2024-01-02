@@ -11,8 +11,8 @@
 		"typecheck": "tsc -b"
 	},
 	"dependencies": {
-		"@rspc/client": "=0.0.0-main-799eec5d",
-		"@rspc/react": "=0.0.0-main-799eec5d",
+		"@oscartbeaumont-sd/rspc-client": "=0.0.0-main-dc31e5b2",
+		"@oscartbeaumont-sd/rspc-react": "=0.0.0-main-dc31e5b2",
 		"@tanstack/react-query": "^4.36.1",
 		"@zxcvbn-ts/core": "^3.0.4",
 		"@zxcvbn-ts/language-common": "^3.0.4",
