@@ -1,9 +1,10 @@
 import { useVirtualizer, VirtualItem } from '@tanstack/react-virtual';
 import clsx from 'clsx';
-import Prism from 'prismjs';
 import { memo, useEffect, useRef, useState } from 'react';
 
-import * as prism from './prism';
+import { languageMapping } from './prism';
+
+const prismaLazy = import('./prism-lazy');
 
 export interface TextViewerProps {
 	src: string;
@@ -71,7 +72,7 @@ export const TextViewer = memo(
 					className={clsx(
 						'relative w-full whitespace-pre text-sm text-ink',
 						codeExtension &&
-							`language-${prism.languageMapping.get(codeExtension) ?? codeExtension}`
+							`language-${languageMapping.get(codeExtension) ?? codeExtension}`
 					)}
 					style={{
 						height: `${rowVirtualizer.getTotalSize()}px`
@@ -104,7 +105,7 @@ function TextRow({
 
 	useEffect(() => {
 		if (contentRef.current) {
-			const cb: IntersectionObserverCallback = (events) => {
+			const cb: IntersectionObserverCallback = async (events) => {
 				for (const event of events) {
 					if (
 						!event.isIntersecting ||
@@ -112,7 +113,7 @@ function TextRow({
 					)
 						continue;
 					contentRef.current?.setAttribute('data-highlighted', 'true');
-					Prism.highlightElement(event.target, false); // Prism's async seems to be broken
+					(await prismaLazy).highlightElement(event.target, false); // Prism's async seems to be broken
 
 					// With this class present TOML headers are broken Eg. `[dependencies]` will format over multiple lines
 					const children = contentRef.current?.children;

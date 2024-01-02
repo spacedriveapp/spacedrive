@@ -3,290 +3,502 @@
  * To regenerate this file, run: pnpm assets gen
  */
 
-import { ReactComponent as ace } from './ace.svg';
-import { ReactComponent as acemanifest } from './acemanifest.svg';
-import { ReactComponent as adoc } from './adoc.svg';
-import { ReactComponent as adonis } from './adonis.svg';
-import { ReactComponent as adonisconfig } from './adonisconfig.svg';
-import { ReactComponent as afdesign } from './afdesign.svg';
-import { ReactComponent as afphoto } from './afphoto.svg';
-import { ReactComponent as afpub } from './afpub.svg';
-import { ReactComponent as ai } from './ai.svg';
-import { ReactComponent as air } from './air.svg';
-import { ReactComponent as anim } from './anim.svg';
-import { ReactComponent as astro } from './astro.svg';
-import { ReactComponent as astroconfig } from './astroconfig.svg';
-import { ReactComponent as atomizer } from './atomizer.svg';
-import { ReactComponent as azure } from './azure.svg';
-import { ReactComponent as babel } from './babel.svg';
-import { ReactComponent as bat } from './bat.svg';
-import { ReactComponent as bicep } from './bicep.svg';
-import { ReactComponent as bicepparam } from './bicepparam.svg';
-import { ReactComponent as binary } from './binary.svg';
-import { ReactComponent as blade } from './blade.svg';
-import { ReactComponent as brotli } from './brotli.svg';
-import { ReactComponent as browserslist } from './browserslist.svg';
-import { ReactComponent as bsconfig } from './bsconfig.svg';
-import { ReactComponent as bundler } from './bundler.svg';
-import { ReactComponent as cargo } from './cargo.svg';
-import { ReactComponent as cargolock } from './cargolock.svg';
-import { ReactComponent as cert } from './cert.svg';
-import { ReactComponent as cheader } from './cheader.svg';
-import { ReactComponent as civet } from './civet.svg';
-import { ReactComponent as cli } from './cli.svg';
-import { ReactComponent as clojure } from './clojure.svg';
-import { ReactComponent as codeworkspace } from './codeworkspace.svg';
-import { ReactComponent as commitlint } from './commitlint.svg';
-import { ReactComponent as compodoc } from './compodoc.svg';
-import { ReactComponent as composer } from './composer.svg';
-import { ReactComponent as composerlock } from './composerlock.svg';
-import { ReactComponent as conan } from './conan.svg';
-import { ReactComponent as conf } from './conf.svg';
-import { ReactComponent as crystal } from './crystal.svg';
-import { ReactComponent as cshtml } from './cshtml.svg';
-import { ReactComponent as csproj } from './csproj.svg';
-import { ReactComponent as cssmap } from './cssmap.svg';
-import { ReactComponent as csv } from './csv.svg';
-import { ReactComponent as cucumber } from './cucumber.svg';
-import { ReactComponent as cypress } from './cypress.svg';
-import { ReactComponent as cypressjs } from './cypressjs.svg';
-import { ReactComponent as cypressts } from './cypressts.svg';
-import { ReactComponent as d } from './d.svg';
-import { ReactComponent as diff } from './diff.svg';
-import { ReactComponent as docker } from './docker.svg';
-import { ReactComponent as dockerdebug } from './dockerdebug.svg';
-import { ReactComponent as dockerignore } from './dockerignore.svg';
-import { ReactComponent as drawio } from './drawio.svg';
-import { ReactComponent as drizzle } from './drizzle.svg';
-import { ReactComponent as dsstore } from './dsstore.svg';
-import { ReactComponent as dune } from './dune.svg';
-import { ReactComponent as duneproject } from './duneproject.svg';
-import { ReactComponent as edge } from './edge.svg';
-import { ReactComponent as editorconfig } from './editorconfig.svg';
-import { ReactComponent as eex } from './eex.svg';
-import { ReactComponent as elixir } from './elixir.svg';
-import { ReactComponent as elm } from './elm.svg';
-import { ReactComponent as env } from './env.svg';
-import { ReactComponent as erb } from './erb.svg';
-import { ReactComponent as erlang } from './erlang.svg';
-import { ReactComponent as esbuild } from './esbuild.svg';
-import { ReactComponent as eslint } from './eslint.svg';
-import { ReactComponent as exs } from './exs.svg';
-import { ReactComponent as exx } from './exx.svg';
-import { ReactComponent as farm } from './farm.svg';
-import { ReactComponent as figma } from './figma.svg';
-import { ReactComponent as flakelock } from './flakelock.svg';
-import { ReactComponent as flutter } from './flutter.svg';
-import { ReactComponent as flutterlock } from './flutterlock.svg';
-import { ReactComponent as flutterpackage } from './flutterpackage.svg';
-import { ReactComponent as fonteot } from './fonteot.svg';
-import { ReactComponent as fontotf } from './fontotf.svg';
-import { ReactComponent as fontttf } from './fontttf.svg';
-import { ReactComponent as fontwoff } from './fontwoff.svg';
-import { ReactComponent as fontwoff2 } from './fontwoff2.svg';
-import { ReactComponent as freemarker } from './freemarker.svg';
-import { ReactComponent as fsharp } from './fsharp.svg';
-import { ReactComponent as gbl } from './gbl.svg';
-import { ReactComponent as git } from './git.svg';
-import { ReactComponent as go_package } from './go_package.svg';
-import { ReactComponent as godot } from './godot.svg';
-import { ReactComponent as gradle } from './gradle.svg';
-import { ReactComponent as gradlebat } from './gradlebat.svg';
-import { ReactComponent as gradlekotlin } from './gradlekotlin.svg';
-import { ReactComponent as grain } from './grain.svg';
-import { ReactComponent as graphql } from './graphql.svg';
-import { ReactComponent as groovy } from './groovy.svg';
-import { ReactComponent as grunt } from './grunt.svg';
-import { ReactComponent as gulp } from './gulp.svg';
-import { ReactComponent as h } from './h.svg';
-import { ReactComponent as haml } from './haml.svg';
-import { ReactComponent as handlebars } from './handlebars.svg';
-import { ReactComponent as hardhat } from './hardhat.svg';
-import { ReactComponent as hashicorp } from './hashicorp.svg';
-import { ReactComponent as haskell } from './haskell.svg';
-import { ReactComponent as haxe } from './haxe.svg';
-import { ReactComponent as haxeml } from './haxeml.svg';
-import { ReactComponent as hpp } from './hpp.svg';
-import { ReactComponent as htaccess } from './htaccess.svg';
-import { ReactComponent as imba } from './imba.svg';
-import { ReactComponent as info } from './info.svg';
-import { ReactComponent as ipynb } from './ipynb.svg';
-import { ReactComponent as jar } from './jar.svg';
-import { ReactComponent as jenkins } from './jenkins.svg';
-import { ReactComponent as jest } from './jest.svg';
-import { ReactComponent as jinja } from './jinja.svg';
-import { ReactComponent as jsmap } from './jsmap.svg';
-import { ReactComponent as json } from './json.svg';
-import { ReactComponent as jsp } from './jsp.svg';
-import { ReactComponent as julia } from './julia.svg';
-import { ReactComponent as karma } from './karma.svg';
-import { ReactComponent as key } from './key.svg';
-import { ReactComponent as knex } from './knex.svg';
-import { ReactComponent as kotlins } from './kotlins.svg';
-import { ReactComponent as krita } from './krita.svg';
-import { ReactComponent as latex } from './latex.svg';
-import { ReactComponent as launch } from './launch.svg';
-import { ReactComponent as less } from './less.svg';
-import { ReactComponent as license } from './license.svg';
-import { ReactComponent as light_editorconfig } from './light_editorconfig.svg';
-import { ReactComponent as liquid } from './liquid.svg';
-import { ReactComponent as llvm } from './llvm.svg';
-import { ReactComponent as log } from './log.svg';
-import { ReactComponent as lua } from './lua.svg';
-import { ReactComponent as m } from './m.svg';
-import { ReactComponent as makefile } from './makefile.svg';
-import { ReactComponent as manifest } from './manifest.svg';
-import { ReactComponent as markdown } from './markdown.svg';
-import { ReactComponent as markdownx } from './markdownx.svg';
-import { ReactComponent as maven } from './maven.svg';
-import { ReactComponent as mesh } from './mesh.svg';
-import { ReactComponent as mgcb } from './mgcb.svg';
-import { ReactComponent as mint } from './mint.svg';
-import { ReactComponent as mix } from './mix.svg';
-import { ReactComponent as mixlock } from './mixlock.svg';
-import { ReactComponent as mjml } from './mjml.svg';
-import { ReactComponent as motoko } from './motoko.svg';
-import { ReactComponent as mov } from './mov.svg';
-import { ReactComponent as mp4 } from './mp4.svg';
-import { ReactComponent as mtl } from './mtl.svg';
-import { ReactComponent as mustache } from './mustache.svg';
-import { ReactComponent as neon } from './neon.svg';
-import { ReactComponent as nestjs } from './nestjs.svg';
-import { ReactComponent as nestjscontroller } from './nestjscontroller.svg';
-import { ReactComponent as nestjsdecorator } from './nestjsdecorator.svg';
-import { ReactComponent as nestjsfilter } from './nestjsfilter.svg';
-import { ReactComponent as nestjsguard } from './nestjsguard.svg';
-import { ReactComponent as nestjsmodule } from './nestjsmodule.svg';
-import { ReactComponent as nestjsservice } from './nestjsservice.svg';
-import { ReactComponent as netlify } from './netlify.svg';
-import { ReactComponent as nextconfig } from './nextconfig.svg';
-import { ReactComponent as nextron } from './nextron.svg';
-import { ReactComponent as nginx } from './nginx.svg';
-import { ReactComponent as nim } from './nim.svg';
-import { ReactComponent as nix } from './nix.svg';
-import { ReactComponent as njk } from './njk.svg';
-import { ReactComponent as nodemon } from './nodemon.svg';
-import { ReactComponent as npm } from './npm.svg';
-import { ReactComponent as npmlock } from './npmlock.svg';
-import { ReactComponent as nuxt } from './nuxt.svg';
-import { ReactComponent as nvim } from './nvim.svg';
-import { ReactComponent as nvm } from './nvm.svg';
-import { ReactComponent as nx } from './nx.svg';
-import { ReactComponent as obj } from './obj.svg';
-import { ReactComponent as ocaml } from './ocaml.svg';
-import { ReactComponent as ocamli } from './ocamli.svg';
-import { ReactComponent as ocamll } from './ocamll.svg';
-import { ReactComponent as ocamly } from './ocamly.svg';
-import { ReactComponent as opengl } from './opengl.svg';
-import { ReactComponent as parcel } from './parcel.svg';
-import { ReactComponent as perl } from './perl.svg';
-import { ReactComponent as perlm } from './perlm.svg';
-import { ReactComponent as pfx } from './pfx.svg';
-import { ReactComponent as photoshop } from './photoshop.svg';
-import { ReactComponent as playright } from './playright.svg';
-import { ReactComponent as pnpm } from './pnpm.svg';
-import { ReactComponent as pnpmlock } from './pnpmlock.svg';
-import { ReactComponent as poetry } from './poetry.svg';
-import { ReactComponent as poetrylock } from './poetrylock.svg';
-import { ReactComponent as postcssconfig } from './postcssconfig.svg';
-import { ReactComponent as powershell } from './powershell.svg';
-import { ReactComponent as powershelldata } from './powershelldata.svg';
-import { ReactComponent as powershellmodule } from './powershellmodule.svg';
-import { ReactComponent as prettier } from './prettier.svg';
-import { ReactComponent as prettierignore } from './prettierignore.svg';
-import { ReactComponent as prisma } from './prisma.svg';
-import { ReactComponent as prolog } from './prolog.svg';
-import { ReactComponent as properties } from './properties.svg';
-import { ReactComponent as pug } from './pug.svg';
-import { ReactComponent as pvk } from './pvk.svg';
-import { ReactComponent as pyproject } from './pyproject.svg';
-import { ReactComponent as qt } from './qt.svg';
-import { ReactComponent as quarkus } from './quarkus.svg';
-import { ReactComponent as quasar } from './quasar.svg';
-import { ReactComponent as razor } from './razor.svg';
-import { ReactComponent as rb } from './rb.svg';
-import { ReactComponent as reactjs } from './reactjs.svg';
-import { ReactComponent as reactts } from './reactts.svg';
-import { ReactComponent as readme } from './readme.svg';
-import { ReactComponent as redis } from './redis.svg';
-import { ReactComponent as rego } from './rego.svg';
-import { ReactComponent as remix } from './remix.svg';
-import { ReactComponent as rescript } from './rescript.svg';
-import { ReactComponent as rjson } from './rjson.svg';
-import { ReactComponent as robots } from './robots.svg';
-import { ReactComponent as rollup } from './rollup.svg';
-import { ReactComponent as rome } from './rome.svg';
-import { ReactComponent as rs } from './rs.svg';
-import { ReactComponent as rustfmt } from './rustfmt.svg';
-import { ReactComponent as sails } from './sails.svg';
-import { ReactComponent as sass } from './sass.svg';
-import { ReactComponent as scala } from './scala.svg';
-import { ReactComponent as scss } from './scss.svg';
-import { ReactComponent as sentinel } from './sentinel.svg';
-import { ReactComponent as sequelize } from './sequelize.svg';
-import { ReactComponent as sh } from './sh.svg';
-import { ReactComponent as slim } from './slim.svg';
-import { ReactComponent as sln } from './sln.svg';
-import { ReactComponent as smarty } from './smarty.svg';
-import { ReactComponent as sol } from './sol.svg';
-import { ReactComponent as spc } from './spc.svg';
-import { ReactComponent as sql } from './sql.svg';
-import { ReactComponent as sqlite } from './sqlite.svg';
-import { ReactComponent as storybook } from './storybook.svg';
-import { ReactComponent as stylelint } from './stylelint.svg';
-import { ReactComponent as stylus } from './stylus.svg';
-import { ReactComponent as suo } from './suo.svg';
-import { ReactComponent as svelte } from './svelte.svg';
-import { ReactComponent as svelteconfig } from './svelteconfig.svg';
-import { ReactComponent as svg } from './svg.svg';
-import { ReactComponent as swift } from './swift.svg';
-import { ReactComponent as symfony } from './symfony.svg';
-import { ReactComponent as tailwind } from './tailwind.svg';
-import { ReactComponent as tauri } from './tauri.svg';
-import { ReactComponent as taze } from './taze.svg';
-import { ReactComponent as terrafile } from './terrafile.svg';
-import { ReactComponent as terraform } from './terraform.svg';
-import { ReactComponent as terraformvars } from './terraformvars.svg';
-import { ReactComponent as terraformversion } from './terraformversion.svg';
-import { ReactComponent as testjs } from './testjs.svg';
-import { ReactComponent as testts } from './testts.svg';
-import { ReactComponent as tmpl } from './tmpl.svg';
-import { ReactComponent as todo } from './todo.svg';
-import { ReactComponent as toml } from './toml.svg';
-import { ReactComponent as toolversions } from './toolversions.svg';
-import { ReactComponent as tox } from './tox.svg';
-import { ReactComponent as travis } from './travis.svg';
-import { ReactComponent as tres } from './tres.svg';
-import { ReactComponent as tscn } from './tscn.svg';
-import { ReactComponent as tsconfig } from './tsconfig.svg';
-import { ReactComponent as tsx } from './tsx.svg';
-import { ReactComponent as turbo } from './turbo.svg';
-import { ReactComponent as twig } from './twig.svg';
-import { ReactComponent as typescriptdef } from './typescriptdef.svg';
-import { ReactComponent as ui } from './ui.svg';
-import { ReactComponent as unocss } from './unocss.svg';
-import { ReactComponent as user } from './user.svg';
-import { ReactComponent as v } from './v.svg';
-import { ReactComponent as vercel } from './vercel.svg';
-import { ReactComponent as version } from './version.svg';
-import { ReactComponent as vhd } from './vhd.svg';
-import { ReactComponent as vhdl } from './vhdl.svg';
-import { ReactComponent as video } from './video.svg';
-import { ReactComponent as vite } from './vite.svg';
-import { ReactComponent as viteenv } from './viteenv.svg';
-import { ReactComponent as vitest } from './vitest.svg';
-import { ReactComponent as vmod } from './vmod.svg';
-import { ReactComponent as vscode } from './vscode.svg';
-import { ReactComponent as wasm } from './wasm.svg';
-import { ReactComponent as webpack } from './webpack.svg';
-import { ReactComponent as windi } from './windi.svg';
-import { ReactComponent as xmake } from './xmake.svg';
-import { ReactComponent as xml } from './xml.svg';
-import { ReactComponent as yaml } from './yaml.svg';
-import { ReactComponent as yarn } from './yarn.svg';
-import { ReactComponent as yarnerror } from './yarnerror.svg';
-import { ReactComponent as zig } from './zig.svg';
-import { ReactComponent as zip } from './zip.svg';
+import React from 'react';
+
+const ace = React.lazy(async () => ({ default: (await import('./ace.svg')).ReactComponent }));
+const acemanifest = React.lazy(async () => ({
+	default: (await import('./acemanifest.svg')).ReactComponent
+}));
+const adoc = React.lazy(async () => ({ default: (await import('./adoc.svg')).ReactComponent }));
+const adonis = React.lazy(async () => ({ default: (await import('./adonis.svg')).ReactComponent }));
+const adonisconfig = React.lazy(async () => ({
+	default: (await import('./adonisconfig.svg')).ReactComponent
+}));
+const afdesign = React.lazy(async () => ({
+	default: (await import('./afdesign.svg')).ReactComponent
+}));
+const afphoto = React.lazy(async () => ({
+	default: (await import('./afphoto.svg')).ReactComponent
+}));
+const afpub = React.lazy(async () => ({ default: (await import('./afpub.svg')).ReactComponent }));
+const ai = React.lazy(async () => ({ default: (await import('./ai.svg')).ReactComponent }));
+const air = React.lazy(async () => ({ default: (await import('./air.svg')).ReactComponent }));
+const anim = React.lazy(async () => ({ default: (await import('./anim.svg')).ReactComponent }));
+const astro = React.lazy(async () => ({ default: (await import('./astro.svg')).ReactComponent }));
+const astroconfig = React.lazy(async () => ({
+	default: (await import('./astroconfig.svg')).ReactComponent
+}));
+const atomizer = React.lazy(async () => ({
+	default: (await import('./atomizer.svg')).ReactComponent
+}));
+const azure = React.lazy(async () => ({ default: (await import('./azure.svg')).ReactComponent }));
+const babel = React.lazy(async () => ({ default: (await import('./babel.svg')).ReactComponent }));
+const bat = React.lazy(async () => ({ default: (await import('./bat.svg')).ReactComponent }));
+const bicep = React.lazy(async () => ({ default: (await import('./bicep.svg')).ReactComponent }));
+const bicepparam = React.lazy(async () => ({
+	default: (await import('./bicepparam.svg')).ReactComponent
+}));
+const binary = React.lazy(async () => ({ default: (await import('./binary.svg')).ReactComponent }));
+const blade = React.lazy(async () => ({ default: (await import('./blade.svg')).ReactComponent }));
+const brotli = React.lazy(async () => ({ default: (await import('./brotli.svg')).ReactComponent }));
+const browserslist = React.lazy(async () => ({
+	default: (await import('./browserslist.svg')).ReactComponent
+}));
+const bsconfig = React.lazy(async () => ({
+	default: (await import('./bsconfig.svg')).ReactComponent
+}));
+const bundler = React.lazy(async () => ({
+	default: (await import('./bundler.svg')).ReactComponent
+}));
+const cargo = React.lazy(async () => ({ default: (await import('./cargo.svg')).ReactComponent }));
+const cargolock = React.lazy(async () => ({
+	default: (await import('./cargolock.svg')).ReactComponent
+}));
+const cert = React.lazy(async () => ({ default: (await import('./cert.svg')).ReactComponent }));
+const cheader = React.lazy(async () => ({
+	default: (await import('./cheader.svg')).ReactComponent
+}));
+const civet = React.lazy(async () => ({ default: (await import('./civet.svg')).ReactComponent }));
+const cli = React.lazy(async () => ({ default: (await import('./cli.svg')).ReactComponent }));
+const clojure = React.lazy(async () => ({
+	default: (await import('./clojure.svg')).ReactComponent
+}));
+const codeworkspace = React.lazy(async () => ({
+	default: (await import('./codeworkspace.svg')).ReactComponent
+}));
+const commitlint = React.lazy(async () => ({
+	default: (await import('./commitlint.svg')).ReactComponent
+}));
+const compodoc = React.lazy(async () => ({
+	default: (await import('./compodoc.svg')).ReactComponent
+}));
+const composer = React.lazy(async () => ({
+	default: (await import('./composer.svg')).ReactComponent
+}));
+const composerlock = React.lazy(async () => ({
+	default: (await import('./composerlock.svg')).ReactComponent
+}));
+const conan = React.lazy(async () => ({ default: (await import('./conan.svg')).ReactComponent }));
+const conf = React.lazy(async () => ({ default: (await import('./conf.svg')).ReactComponent }));
+const crystal = React.lazy(async () => ({
+	default: (await import('./crystal.svg')).ReactComponent
+}));
+const cshtml = React.lazy(async () => ({ default: (await import('./cshtml.svg')).ReactComponent }));
+const csproj = React.lazy(async () => ({ default: (await import('./csproj.svg')).ReactComponent }));
+const cssmap = React.lazy(async () => ({ default: (await import('./cssmap.svg')).ReactComponent }));
+const csv = React.lazy(async () => ({ default: (await import('./csv.svg')).ReactComponent }));
+const cucumber = React.lazy(async () => ({
+	default: (await import('./cucumber.svg')).ReactComponent
+}));
+const cypress = React.lazy(async () => ({
+	default: (await import('./cypress.svg')).ReactComponent
+}));
+const cypressjs = React.lazy(async () => ({
+	default: (await import('./cypressjs.svg')).ReactComponent
+}));
+const cypressts = React.lazy(async () => ({
+	default: (await import('./cypressts.svg')).ReactComponent
+}));
+const d = React.lazy(async () => ({ default: (await import('./d.svg')).ReactComponent }));
+const diff = React.lazy(async () => ({ default: (await import('./diff.svg')).ReactComponent }));
+const docker = React.lazy(async () => ({ default: (await import('./docker.svg')).ReactComponent }));
+const dockerdebug = React.lazy(async () => ({
+	default: (await import('./dockerdebug.svg')).ReactComponent
+}));
+const dockerignore = React.lazy(async () => ({
+	default: (await import('./dockerignore.svg')).ReactComponent
+}));
+const drawio = React.lazy(async () => ({ default: (await import('./drawio.svg')).ReactComponent }));
+const drizzle = React.lazy(async () => ({
+	default: (await import('./drizzle.svg')).ReactComponent
+}));
+const dsstore = React.lazy(async () => ({
+	default: (await import('./dsstore.svg')).ReactComponent
+}));
+const dune = React.lazy(async () => ({ default: (await import('./dune.svg')).ReactComponent }));
+const duneproject = React.lazy(async () => ({
+	default: (await import('./duneproject.svg')).ReactComponent
+}));
+const edge = React.lazy(async () => ({ default: (await import('./edge.svg')).ReactComponent }));
+const editorconfig = React.lazy(async () => ({
+	default: (await import('./editorconfig.svg')).ReactComponent
+}));
+const eex = React.lazy(async () => ({ default: (await import('./eex.svg')).ReactComponent }));
+const elixir = React.lazy(async () => ({ default: (await import('./elixir.svg')).ReactComponent }));
+const elm = React.lazy(async () => ({ default: (await import('./elm.svg')).ReactComponent }));
+const env = React.lazy(async () => ({ default: (await import('./env.svg')).ReactComponent }));
+const erb = React.lazy(async () => ({ default: (await import('./erb.svg')).ReactComponent }));
+const erlang = React.lazy(async () => ({ default: (await import('./erlang.svg')).ReactComponent }));
+const esbuild = React.lazy(async () => ({
+	default: (await import('./esbuild.svg')).ReactComponent
+}));
+const eslint = React.lazy(async () => ({ default: (await import('./eslint.svg')).ReactComponent }));
+const exs = React.lazy(async () => ({ default: (await import('./exs.svg')).ReactComponent }));
+const exx = React.lazy(async () => ({ default: (await import('./exx.svg')).ReactComponent }));
+const farm = React.lazy(async () => ({ default: (await import('./farm.svg')).ReactComponent }));
+const figma = React.lazy(async () => ({ default: (await import('./figma.svg')).ReactComponent }));
+const flakelock = React.lazy(async () => ({
+	default: (await import('./flakelock.svg')).ReactComponent
+}));
+const flutter = React.lazy(async () => ({
+	default: (await import('./flutter.svg')).ReactComponent
+}));
+const flutterlock = React.lazy(async () => ({
+	default: (await import('./flutterlock.svg')).ReactComponent
+}));
+const flutterpackage = React.lazy(async () => ({
+	default: (await import('./flutterpackage.svg')).ReactComponent
+}));
+const fonteot = React.lazy(async () => ({
+	default: (await import('./fonteot.svg')).ReactComponent
+}));
+const fontotf = React.lazy(async () => ({
+	default: (await import('./fontotf.svg')).ReactComponent
+}));
+const fontttf = React.lazy(async () => ({
+	default: (await import('./fontttf.svg')).ReactComponent
+}));
+const fontwoff = React.lazy(async () => ({
+	default: (await import('./fontwoff.svg')).ReactComponent
+}));
+const fontwoff2 = React.lazy(async () => ({
+	default: (await import('./fontwoff2.svg')).ReactComponent
+}));
+const freemarker = React.lazy(async () => ({
+	default: (await import('./freemarker.svg')).ReactComponent
+}));
+const fsharp = React.lazy(async () => ({ default: (await import('./fsharp.svg')).ReactComponent }));
+const gbl = React.lazy(async () => ({ default: (await import('./gbl.svg')).ReactComponent }));
+const git = React.lazy(async () => ({ default: (await import('./git.svg')).ReactComponent }));
+const go_package = React.lazy(async () => ({
+	default: (await import('./go_package.svg')).ReactComponent
+}));
+const godot = React.lazy(async () => ({ default: (await import('./godot.svg')).ReactComponent }));
+const gradle = React.lazy(async () => ({ default: (await import('./gradle.svg')).ReactComponent }));
+const gradlebat = React.lazy(async () => ({
+	default: (await import('./gradlebat.svg')).ReactComponent
+}));
+const gradlekotlin = React.lazy(async () => ({
+	default: (await import('./gradlekotlin.svg')).ReactComponent
+}));
+const grain = React.lazy(async () => ({ default: (await import('./grain.svg')).ReactComponent }));
+const graphql = React.lazy(async () => ({
+	default: (await import('./graphql.svg')).ReactComponent
+}));
+const groovy = React.lazy(async () => ({ default: (await import('./groovy.svg')).ReactComponent }));
+const grunt = React.lazy(async () => ({ default: (await import('./grunt.svg')).ReactComponent }));
+const gulp = React.lazy(async () => ({ default: (await import('./gulp.svg')).ReactComponent }));
+const h = React.lazy(async () => ({ default: (await import('./h.svg')).ReactComponent }));
+const haml = React.lazy(async () => ({ default: (await import('./haml.svg')).ReactComponent }));
+const handlebars = React.lazy(async () => ({
+	default: (await import('./handlebars.svg')).ReactComponent
+}));
+const hardhat = React.lazy(async () => ({
+	default: (await import('./hardhat.svg')).ReactComponent
+}));
+const hashicorp = React.lazy(async () => ({
+	default: (await import('./hashicorp.svg')).ReactComponent
+}));
+const haskell = React.lazy(async () => ({
+	default: (await import('./haskell.svg')).ReactComponent
+}));
+const haxe = React.lazy(async () => ({ default: (await import('./haxe.svg')).ReactComponent }));
+const haxeml = React.lazy(async () => ({ default: (await import('./haxeml.svg')).ReactComponent }));
+const hpp = React.lazy(async () => ({ default: (await import('./hpp.svg')).ReactComponent }));
+const htaccess = React.lazy(async () => ({
+	default: (await import('./htaccess.svg')).ReactComponent
+}));
+const imba = React.lazy(async () => ({ default: (await import('./imba.svg')).ReactComponent }));
+const info = React.lazy(async () => ({ default: (await import('./info.svg')).ReactComponent }));
+const ipynb = React.lazy(async () => ({ default: (await import('./ipynb.svg')).ReactComponent }));
+const jar = React.lazy(async () => ({ default: (await import('./jar.svg')).ReactComponent }));
+const jenkins = React.lazy(async () => ({
+	default: (await import('./jenkins.svg')).ReactComponent
+}));
+const jest = React.lazy(async () => ({ default: (await import('./jest.svg')).ReactComponent }));
+const jinja = React.lazy(async () => ({ default: (await import('./jinja.svg')).ReactComponent }));
+const jsmap = React.lazy(async () => ({ default: (await import('./jsmap.svg')).ReactComponent }));
+const json = React.lazy(async () => ({ default: (await import('./json.svg')).ReactComponent }));
+const jsp = React.lazy(async () => ({ default: (await import('./jsp.svg')).ReactComponent }));
+const julia = React.lazy(async () => ({ default: (await import('./julia.svg')).ReactComponent }));
+const karma = React.lazy(async () => ({ default: (await import('./karma.svg')).ReactComponent }));
+const key = React.lazy(async () => ({ default: (await import('./key.svg')).ReactComponent }));
+const knex = React.lazy(async () => ({ default: (await import('./knex.svg')).ReactComponent }));
+const kotlins = React.lazy(async () => ({
+	default: (await import('./kotlins.svg')).ReactComponent
+}));
+const krita = React.lazy(async () => ({ default: (await import('./krita.svg')).ReactComponent }));
+const latex = React.lazy(async () => ({ default: (await import('./latex.svg')).ReactComponent }));
+const launch = React.lazy(async () => ({ default: (await import('./launch.svg')).ReactComponent }));
+const less = React.lazy(async () => ({ default: (await import('./less.svg')).ReactComponent }));
+const license = React.lazy(async () => ({
+	default: (await import('./license.svg')).ReactComponent
+}));
+const light_editorconfig = React.lazy(async () => ({
+	default: (await import('./light_editorconfig.svg')).ReactComponent
+}));
+const liquid = React.lazy(async () => ({ default: (await import('./liquid.svg')).ReactComponent }));
+const llvm = React.lazy(async () => ({ default: (await import('./llvm.svg')).ReactComponent }));
+const log = React.lazy(async () => ({ default: (await import('./log.svg')).ReactComponent }));
+const lua = React.lazy(async () => ({ default: (await import('./lua.svg')).ReactComponent }));
+const m = React.lazy(async () => ({ default: (await import('./m.svg')).ReactComponent }));
+const makefile = React.lazy(async () => ({
+	default: (await import('./makefile.svg')).ReactComponent
+}));
+const manifest = React.lazy(async () => ({
+	default: (await import('./manifest.svg')).ReactComponent
+}));
+const markdown = React.lazy(async () => ({
+	default: (await import('./markdown.svg')).ReactComponent
+}));
+const markdownx = React.lazy(async () => ({
+	default: (await import('./markdownx.svg')).ReactComponent
+}));
+const maven = React.lazy(async () => ({ default: (await import('./maven.svg')).ReactComponent }));
+const mesh = React.lazy(async () => ({ default: (await import('./mesh.svg')).ReactComponent }));
+const mgcb = React.lazy(async () => ({ default: (await import('./mgcb.svg')).ReactComponent }));
+const mint = React.lazy(async () => ({ default: (await import('./mint.svg')).ReactComponent }));
+const mix = React.lazy(async () => ({ default: (await import('./mix.svg')).ReactComponent }));
+const mixlock = React.lazy(async () => ({
+	default: (await import('./mixlock.svg')).ReactComponent
+}));
+const mjml = React.lazy(async () => ({ default: (await import('./mjml.svg')).ReactComponent }));
+const motoko = React.lazy(async () => ({ default: (await import('./motoko.svg')).ReactComponent }));
+const mov = React.lazy(async () => ({ default: (await import('./mov.svg')).ReactComponent }));
+const mp4 = React.lazy(async () => ({ default: (await import('./mp4.svg')).ReactComponent }));
+const mtl = React.lazy(async () => ({ default: (await import('./mtl.svg')).ReactComponent }));
+const mustache = React.lazy(async () => ({
+	default: (await import('./mustache.svg')).ReactComponent
+}));
+const neon = React.lazy(async () => ({ default: (await import('./neon.svg')).ReactComponent }));
+const nestjs = React.lazy(async () => ({ default: (await import('./nestjs.svg')).ReactComponent }));
+const nestjscontroller = React.lazy(async () => ({
+	default: (await import('./nestjscontroller.svg')).ReactComponent
+}));
+const nestjsdecorator = React.lazy(async () => ({
+	default: (await import('./nestjsdecorator.svg')).ReactComponent
+}));
+const nestjsfilter = React.lazy(async () => ({
+	default: (await import('./nestjsfilter.svg')).ReactComponent
+}));
+const nestjsguard = React.lazy(async () => ({
+	default: (await import('./nestjsguard.svg')).ReactComponent
+}));
+const nestjsmodule = React.lazy(async () => ({
+	default: (await import('./nestjsmodule.svg')).ReactComponent
+}));
+const nestjsservice = React.lazy(async () => ({
+	default: (await import('./nestjsservice.svg')).ReactComponent
+}));
+const netlify = React.lazy(async () => ({
+	default: (await import('./netlify.svg')).ReactComponent
+}));
+const nextconfig = React.lazy(async () => ({
+	default: (await import('./nextconfig.svg')).ReactComponent
+}));
+const nextron = React.lazy(async () => ({
+	default: (await import('./nextron.svg')).ReactComponent
+}));
+const nginx = React.lazy(async () => ({ default: (await import('./nginx.svg')).ReactComponent }));
+const nim = React.lazy(async () => ({ default: (await import('./nim.svg')).ReactComponent }));
+const nix = React.lazy(async () => ({ default: (await import('./nix.svg')).ReactComponent }));
+const njk = React.lazy(async () => ({ default: (await import('./njk.svg')).ReactComponent }));
+const nodemon = React.lazy(async () => ({
+	default: (await import('./nodemon.svg')).ReactComponent
+}));
+const npm = React.lazy(async () => ({ default: (await import('./npm.svg')).ReactComponent }));
+const npmlock = React.lazy(async () => ({
+	default: (await import('./npmlock.svg')).ReactComponent
+}));
+const nuxt = React.lazy(async () => ({ default: (await import('./nuxt.svg')).ReactComponent }));
+const nvim = React.lazy(async () => ({ default: (await import('./nvim.svg')).ReactComponent }));
+const nvm = React.lazy(async () => ({ default: (await import('./nvm.svg')).ReactComponent }));
+const nx = React.lazy(async () => ({ default: (await import('./nx.svg')).ReactComponent }));
+const obj = React.lazy(async () => ({ default: (await import('./obj.svg')).ReactComponent }));
+const ocaml = React.lazy(async () => ({ default: (await import('./ocaml.svg')).ReactComponent }));
+const ocamli = React.lazy(async () => ({ default: (await import('./ocamli.svg')).ReactComponent }));
+const ocamll = React.lazy(async () => ({ default: (await import('./ocamll.svg')).ReactComponent }));
+const ocamly = React.lazy(async () => ({ default: (await import('./ocamly.svg')).ReactComponent }));
+const opengl = React.lazy(async () => ({ default: (await import('./opengl.svg')).ReactComponent }));
+const parcel = React.lazy(async () => ({ default: (await import('./parcel.svg')).ReactComponent }));
+const perl = React.lazy(async () => ({ default: (await import('./perl.svg')).ReactComponent }));
+const perlm = React.lazy(async () => ({ default: (await import('./perlm.svg')).ReactComponent }));
+const pfx = React.lazy(async () => ({ default: (await import('./pfx.svg')).ReactComponent }));
+const photoshop = React.lazy(async () => ({
+	default: (await import('./photoshop.svg')).ReactComponent
+}));
+const playright = React.lazy(async () => ({
+	default: (await import('./playright.svg')).ReactComponent
+}));
+const pnpm = React.lazy(async () => ({ default: (await import('./pnpm.svg')).ReactComponent }));
+const pnpmlock = React.lazy(async () => ({
+	default: (await import('./pnpmlock.svg')).ReactComponent
+}));
+const poetry = React.lazy(async () => ({ default: (await import('./poetry.svg')).ReactComponent }));
+const poetrylock = React.lazy(async () => ({
+	default: (await import('./poetrylock.svg')).ReactComponent
+}));
+const postcssconfig = React.lazy(async () => ({
+	default: (await import('./postcssconfig.svg')).ReactComponent
+}));
+const powershell = React.lazy(async () => ({
+	default: (await import('./powershell.svg')).ReactComponent
+}));
+const powershelldata = React.lazy(async () => ({
+	default: (await import('./powershelldata.svg')).ReactComponent
+}));
+const powershellmodule = React.lazy(async () => ({
+	default: (await import('./powershellmodule.svg')).ReactComponent
+}));
+const prettier = React.lazy(async () => ({
+	default: (await import('./prettier.svg')).ReactComponent
+}));
+const prettierignore = React.lazy(async () => ({
+	default: (await import('./prettierignore.svg')).ReactComponent
+}));
+const prisma = React.lazy(async () => ({ default: (await import('./prisma.svg')).ReactComponent }));
+const prolog = React.lazy(async () => ({ default: (await import('./prolog.svg')).ReactComponent }));
+const properties = React.lazy(async () => ({
+	default: (await import('./properties.svg')).ReactComponent
+}));
+const pug = React.lazy(async () => ({ default: (await import('./pug.svg')).ReactComponent }));
+const pvk = React.lazy(async () => ({ default: (await import('./pvk.svg')).ReactComponent }));
+const pyproject = React.lazy(async () => ({
+	default: (await import('./pyproject.svg')).ReactComponent
+}));
+const qt = React.lazy(async () => ({ default: (await import('./qt.svg')).ReactComponent }));
+const quarkus = React.lazy(async () => ({
+	default: (await import('./quarkus.svg')).ReactComponent
+}));
+const quasar = React.lazy(async () => ({ default: (await import('./quasar.svg')).ReactComponent }));
+const razor = React.lazy(async () => ({ default: (await import('./razor.svg')).ReactComponent }));
+const rb = React.lazy(async () => ({ default: (await import('./rb.svg')).ReactComponent }));
+const reactjs = React.lazy(async () => ({
+	default: (await import('./reactjs.svg')).ReactComponent
+}));
+const reactts = React.lazy(async () => ({
+	default: (await import('./reactts.svg')).ReactComponent
+}));
+const readme = React.lazy(async () => ({ default: (await import('./readme.svg')).ReactComponent }));
+const redis = React.lazy(async () => ({ default: (await import('./redis.svg')).ReactComponent }));
+const rego = React.lazy(async () => ({ default: (await import('./rego.svg')).ReactComponent }));
+const remix = React.lazy(async () => ({ default: (await import('./remix.svg')).ReactComponent }));
+const rescript = React.lazy(async () => ({
+	default: (await import('./rescript.svg')).ReactComponent
+}));
+const rjson = React.lazy(async () => ({ default: (await import('./rjson.svg')).ReactComponent }));
+const robots = React.lazy(async () => ({ default: (await import('./robots.svg')).ReactComponent }));
+const rollup = React.lazy(async () => ({ default: (await import('./rollup.svg')).ReactComponent }));
+const rome = React.lazy(async () => ({ default: (await import('./rome.svg')).ReactComponent }));
+const rs = React.lazy(async () => ({ default: (await import('./rs.svg')).ReactComponent }));
+const rustfmt = React.lazy(async () => ({
+	default: (await import('./rustfmt.svg')).ReactComponent
+}));
+const sails = React.lazy(async () => ({ default: (await import('./sails.svg')).ReactComponent }));
+const sass = React.lazy(async () => ({ default: (await import('./sass.svg')).ReactComponent }));
+const scala = React.lazy(async () => ({ default: (await import('./scala.svg')).ReactComponent }));
+const scss = React.lazy(async () => ({ default: (await import('./scss.svg')).ReactComponent }));
+const sentinel = React.lazy(async () => ({
+	default: (await import('./sentinel.svg')).ReactComponent
+}));
+const sequelize = React.lazy(async () => ({
+	default: (await import('./sequelize.svg')).ReactComponent
+}));
+const sh = React.lazy(async () => ({ default: (await import('./sh.svg')).ReactComponent }));
+const slim = React.lazy(async () => ({ default: (await import('./slim.svg')).ReactComponent }));
+const sln = React.lazy(async () => ({ default: (await import('./sln.svg')).ReactComponent }));
+const smarty = React.lazy(async () => ({ default: (await import('./smarty.svg')).ReactComponent }));
+const sol = React.lazy(async () => ({ default: (await import('./sol.svg')).ReactComponent }));
+const spc = React.lazy(async () => ({ default: (await import('./spc.svg')).ReactComponent }));
+const sql = React.lazy(async () => ({ default: (await import('./sql.svg')).ReactComponent }));
+const sqlite = React.lazy(async () => ({ default: (await import('./sqlite.svg')).ReactComponent }));
+const storybook = React.lazy(async () => ({
+	default: (await import('./storybook.svg')).ReactComponent
+}));
+const stylelint = React.lazy(async () => ({
+	default: (await import('./stylelint.svg')).ReactComponent
+}));
+const stylus = React.lazy(async () => ({ default: (await import('./stylus.svg')).ReactComponent }));
+const suo = React.lazy(async () => ({ default: (await import('./suo.svg')).ReactComponent }));
+const svelte = React.lazy(async () => ({ default: (await import('./svelte.svg')).ReactComponent }));
+const svelteconfig = React.lazy(async () => ({
+	default: (await import('./svelteconfig.svg')).ReactComponent
+}));
+const svg = React.lazy(async () => ({ default: (await import('./svg.svg')).ReactComponent }));
+const swift = React.lazy(async () => ({ default: (await import('./swift.svg')).ReactComponent }));
+const symfony = React.lazy(async () => ({
+	default: (await import('./symfony.svg')).ReactComponent
+}));
+const tailwind = React.lazy(async () => ({
+	default: (await import('./tailwind.svg')).ReactComponent
+}));
+const tauri = React.lazy(async () => ({ default: (await import('./tauri.svg')).ReactComponent }));
+const taze = React.lazy(async () => ({ default: (await import('./taze.svg')).ReactComponent }));
+const terrafile = React.lazy(async () => ({
+	default: (await import('./terrafile.svg')).ReactComponent
+}));
+const terraform = React.lazy(async () => ({
+	default: (await import('./terraform.svg')).ReactComponent
+}));
+const terraformvars = React.lazy(async () => ({
+	default: (await import('./terraformvars.svg')).ReactComponent
+}));
+const terraformversion = React.lazy(async () => ({
+	default: (await import('./terraformversion.svg')).ReactComponent
+}));
+const testjs = React.lazy(async () => ({ default: (await import('./testjs.svg')).ReactComponent }));
+const testts = React.lazy(async () => ({ default: (await import('./testts.svg')).ReactComponent }));
+const tmpl = React.lazy(async () => ({ default: (await import('./tmpl.svg')).ReactComponent }));
+const todo = React.lazy(async () => ({ default: (await import('./todo.svg')).ReactComponent }));
+const toml = React.lazy(async () => ({ default: (await import('./toml.svg')).ReactComponent }));
+const toolversions = React.lazy(async () => ({
+	default: (await import('./toolversions.svg')).ReactComponent
+}));
+const tox = React.lazy(async () => ({ default: (await import('./tox.svg')).ReactComponent }));
+const travis = React.lazy(async () => ({ default: (await import('./travis.svg')).ReactComponent }));
+const tres = React.lazy(async () => ({ default: (await import('./tres.svg')).ReactComponent }));
+const tscn = React.lazy(async () => ({ default: (await import('./tscn.svg')).ReactComponent }));
+const tsconfig = React.lazy(async () => ({
+	default: (await import('./tsconfig.svg')).ReactComponent
+}));
+const tsx = React.lazy(async () => ({ default: (await import('./tsx.svg')).ReactComponent }));
+const turbo = React.lazy(async () => ({ default: (await import('./turbo.svg')).ReactComponent }));
+const twig = React.lazy(async () => ({ default: (await import('./twig.svg')).ReactComponent }));
+const typescriptdef = React.lazy(async () => ({
+	default: (await import('./typescriptdef.svg')).ReactComponent
+}));
+const ui = React.lazy(async () => ({ default: (await import('./ui.svg')).ReactComponent }));
+const unocss = React.lazy(async () => ({ default: (await import('./unocss.svg')).ReactComponent }));
+const user = React.lazy(async () => ({ default: (await import('./user.svg')).ReactComponent }));
+const v = React.lazy(async () => ({ default: (await import('./v.svg')).ReactComponent }));
+const vercel = React.lazy(async () => ({ default: (await import('./vercel.svg')).ReactComponent }));
+const version = React.lazy(async () => ({
+	default: (await import('./version.svg')).ReactComponent
+}));
+const vhd = React.lazy(async () => ({ default: (await import('./vhd.svg')).ReactComponent }));
+const vhdl = React.lazy(async () => ({ default: (await import('./vhdl.svg')).ReactComponent }));
+const video = React.lazy(async () => ({ default: (await import('./video.svg')).ReactComponent }));
+const vite = React.lazy(async () => ({ default: (await import('./vite.svg')).ReactComponent }));
+const viteenv = React.lazy(async () => ({
+	default: (await import('./viteenv.svg')).ReactComponent
+}));
+const vitest = React.lazy(async () => ({ default: (await import('./vitest.svg')).ReactComponent }));
+const vmod = React.lazy(async () => ({ default: (await import('./vmod.svg')).ReactComponent }));
+const vscode = React.lazy(async () => ({ default: (await import('./vscode.svg')).ReactComponent }));
+const wasm = React.lazy(async () => ({ default: (await import('./wasm.svg')).ReactComponent }));
+const webpack = React.lazy(async () => ({
+	default: (await import('./webpack.svg')).ReactComponent
+}));
+const windi = React.lazy(async () => ({ default: (await import('./windi.svg')).ReactComponent }));
+const xmake = React.lazy(async () => ({ default: (await import('./xmake.svg')).ReactComponent }));
+const xml = React.lazy(async () => ({ default: (await import('./xml.svg')).ReactComponent }));
+const yaml = React.lazy(async () => ({ default: (await import('./yaml.svg')).ReactComponent }));
+const yarn = React.lazy(async () => ({ default: (await import('./yarn.svg')).ReactComponent }));
+const yarnerror = React.lazy(async () => ({
+	default: (await import('./yarnerror.svg')).ReactComponent
+}));
+const zig = React.lazy(async () => ({ default: (await import('./zig.svg')).ReactComponent }));
+const zip = React.lazy(async () => ({ default: (await import('./zip.svg')).ReactComponent }));
 
 export {
 	ace,
