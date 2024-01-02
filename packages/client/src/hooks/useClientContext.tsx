@@ -78,7 +78,7 @@ export const ClientContextProvider = ({
 
 	const library = useMemo(
 		() => (libraries.data && libraries.data.find((l) => l.uuid === currentLibraryId)) || null,
-		[currentLibraryId, libraries]
+		[currentLibraryId, libraries.data]
 	);
 
 	// Doesn't need to be in a useEffect

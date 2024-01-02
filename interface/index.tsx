@@ -21,7 +21,7 @@ import { Devtools } from './components/Devtools';
 import { WithPrismTheme } from './components/TextViewer/prism';
 import ErrorFallback, { BetterErrorBoundary } from './ErrorFallback';
 import { useTheme } from './hooks';
-import { RoutingContext } from './RoutingContext';
+import { RouterContext, RoutingContext } from './RoutingContext';
 
 export * from './app';
 export { ErrorPage } from './ErrorFallback';
@@ -52,21 +52,23 @@ export function SpacedriveRouterProvider(props: {
 	};
 }) {
 	return (
-		<RoutingContext.Provider
-			value={{
-				routes: props.routing.routes,
-				visible: props.routing.visible,
-				currentIndex: props.routing.currentIndex,
-				maxIndex: props.routing.maxIndex
-			}}
-		>
-			<RouterProvider
-				router={props.routing.router}
-				future={{
-					v7_startTransition: true
+		<RouterContext.Provider value={props.routing.router}>
+			<RoutingContext.Provider
+				value={{
+					routes: props.routing.routes,
+					visible: props.routing.visible,
+					currentIndex: props.routing.currentIndex,
+					maxIndex: props.routing.maxIndex
 				}}
-			/>
-		</RoutingContext.Provider>
+			>
+				<RouterProvider
+					router={props.routing.router}
+					future={{
+						v7_startTransition: true
+					}}
+				/>
+			</RoutingContext.Provider>
+		</RouterContext.Provider>
 	);
 }
 
