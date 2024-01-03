@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import Markdown from 'react-markdown';
-import { useIsDark } from '~/hooks';
+import { useIsDark, useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { Heading } from '../Layout';
@@ -13,9 +13,14 @@ export const Component = () => {
 		fetch(`${platform.landingApiOrigin}/api/releases`).then((r) => r.json())
 	);
 
+	const { t } = useLocale();
+
 	return (
 		<>
-			<Heading title="Changelog" description="See what cool new features we're making" />
+			<Heading
+				title={t('changelog_page_title')}
+				description={t('changelog_page_description')}
+			/>
 			{changelog.data?.map((release: any) => (
 				<article
 					key={release.version}

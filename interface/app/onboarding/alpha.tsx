@@ -36,7 +36,7 @@ export default function OnboardingAlpha() {
 							variant="gray"
 						>
 							<Discord className="h-4 w-4 fill-ink" />
-							{t('join')} Discord
+							{t('join_discord')}
 						</Button>
 						<ButtonLink to="../new-library" replace variant="accent">
 							{t('continue')}

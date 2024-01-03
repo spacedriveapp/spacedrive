@@ -10,7 +10,7 @@ import {
 import { PropsWithChildren } from 'react';
 import { useLibraryMutation } from '@sd/client';
 import { ContextMenu as CM, ModifierKeys, toast } from '@sd/ui';
-import { useOperatingSystem } from '~/hooks';
+import { useLocale, useOperatingSystem } from '~/hooks';
 import { useQuickRescan } from '~/hooks/useQuickRescan';
 import { keybindForOs } from '~/util/keybinds';
 
@@ -56,13 +56,15 @@ export default (props: PropsWithChildren) => {
 		}
 	});
 
+	const { t } = useLocale();
+
 	return (
 		<CM.Root trigger={props.children}>
 			{(parent?.type === 'Location' || parent?.type === 'Ephemeral') &&
 			cutCopyState.type !== 'Idle' ? (
 				<>
 					<CM.Item
-						label="Paste"
+						label={t('paste')}
 						keybind={keybind([ModifierKeys.Control], ['V'])}
 						onClick={async () => {
 							const path = currentPath ?? '/';
@@ -128,7 +130,7 @@ export default (props: PropsWithChildren) => {
 					/>
 
 					<CM.Item
-						label="Deselect"
+						label={t('deselect')}
 						onClick={() => {
 							getExplorerStore().cutCopyState = {
 								type: 'Idle'
@@ -141,7 +143,7 @@ export default (props: PropsWithChildren) => {
 				</>
 			) : (
 				<CM.Item
-					label="New folder"
+					label={t("new_folder")}
 					icon={FolderPlus}
 					onClick={() => {
 						if (parent?.type === 'Location') {
@@ -161,7 +163,7 @@ export default (props: PropsWithChildren) => {
 			)}
 
 			<CM.Item
-				label="Share"
+				label={t("share")}
 				icon={Share}
 				onClick={(e) => {
 					e.preventDefault();
@@ -180,7 +182,7 @@ export default (props: PropsWithChildren) => {
 					<RevealInNativeExplorerBase
 						items={[{ Location: { id: parent.location.id } }]}
 					/>
-					<CM.SubMenu label="More actions...">
+					<CM.SubMenu label={t("more_actions")}>
 						<CopyAsPathBase path={`${parent.location.path}${currentPath ?? ''}`} />
 
 						<CM.Item
@@ -216,7 +218,7 @@ export default (props: PropsWithChildren) => {
 									});
 								}
 							}}
-							label="Regen Thumbnails"
+							label={t('regen_thumbnails')}
 							icon={Image}
 						/>
 
@@ -234,7 +236,7 @@ export default (props: PropsWithChildren) => {
 									});
 								}
 							}}
-							label="Generate Checksums"
+							label={t('generate_checksums')}
 							icon={ShieldCheck}
 						/>
 					</CM.SubMenu>

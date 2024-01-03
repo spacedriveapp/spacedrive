@@ -1,5 +1,6 @@
 import { RadixCheckbox, Select, SelectOption, Slider, tw, z } from '@sd/ui';
 import { getExplorerLayoutStore, useExplorerLayoutStore } from '~/../packages/client/src';
+import i18n from '~/app/I18n';
 import { SortOrderSchema } from '~/app/route-schemas';
 import { useLocale } from '~/hooks';
 
@@ -19,7 +20,7 @@ export default () => {
 		<div className="flex w-80 flex-col gap-4 p-4">
 			{(settings.layoutMode === 'grid' || settings.layoutMode === 'media') && (
 				<div>
-					<Subheading>Item size</Subheading>
+					<Subheading>{t('item_size')}</Subheading>
 					{settings.layoutMode === 'grid' ? (
 						<Slider
 							onValueChange={(value) => {
@@ -210,11 +211,11 @@ export default () => {
 };
 
 const doubleClickActions = z.union([
-	z.literal('openFile').describe('Open File'),
-	z.literal('quickPreview').describe('Quick Preview')
+	z.literal('openFile').describe(i18n.t('open_file')),
+	z.literal('quickPreview').describe(i18n.t('quick_preview'))
 ]);
 
 const mediaViewContextActions = z.union([
-	z.literal('withDescendants').describe('Current Directory With Descendants'),
-	z.literal('withoutDescendants').describe('Current Directory')
+	z.literal('withDescendants').describe(i18n.t('current_directory_with_descendants')),
+	z.literal('withoutDescendants').describe(i18n.t('current_directory'))
 ]);

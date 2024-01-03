@@ -17,7 +17,7 @@ import {
 } from '@phosphor-icons/react';
 import { useFeatureFlag } from '@sd/client';
 import { tw } from '@sd/ui';
-import { useOperatingSystem } from '~/hooks';
+import { useLocale, useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import Icon from '../Layout/Sidebar/Icon';
@@ -34,6 +34,8 @@ export default () => {
 	// const isPairingEnabled = useFeatureFlag('p2pPairing');
 	const isBackupsEnabled = useFeatureFlag('backups');
 
+	const { t } = useLocale();
+
 	return (
 		<div className="custom-scroll no-scrollbar h-full w-60 max-w-[180px] shrink-0 border-r border-app-line/50 pb-5">
 			{platform === 'tauri' ? (
@@ -49,49 +51,49 @@ export default () => {
 
 			<div className="space-y-6 px-4 py-3">
 				<Section>
-					<Heading>Client</Heading>
+					<Heading>{t('client')}</Heading>
 					<SidebarLink to="client/general">
 						<Icon component={GearSix} />
-						General
+						{t('general')}
 					</SidebarLink>
 					<SidebarLink to="client/usage">
 						<Icon component={ChartBar} />
-						Usage
+						{t('usage')}
 					</SidebarLink>
 					<SidebarLink to="client/account">
 						<Icon component={User} />
-						Account
+						{t('account')}
 					</SidebarLink>
 					<SidebarLink to="node/libraries">
 						<Icon component={Books} />
-						Libraries
+						{t('libraries')}
 					</SidebarLink>
 					<SidebarLink to="client/privacy">
 						<Icon component={ShieldCheck} />
-						Privacy
+						{t('privacy')}
 					</SidebarLink>
 					<SidebarLink to="client/appearance">
 						<Icon component={PaintBrush} />
-						Appearance
+						{t('appearance')}
 					</SidebarLink>
 					<SidebarLink to="client/backups" disabled={!isBackupsEnabled}>
 						<Icon component={Database} />
-						Backups
+						{t('backups')}
 					</SidebarLink>
 					<SidebarLink to="client/keybindings">
 						<Icon component={KeyReturn} />
-						Keybinds
+						{t('keybinds')}
 					</SidebarLink>
 					<SidebarLink to="client/extensions" disabled>
 						<Icon component={PuzzlePiece} />
-						Extensions
+						{t('extensions')}
 					</SidebarLink>
 				</Section>
 				<Section>
-					<Heading>Library</Heading>
+					<Heading>{t('library')}</Heading>
 					<SidebarLink to="library/general">
 						<Icon component={GearSix} />
-						General
+						{t('general')}
 					</SidebarLink>
 					{/* <SidebarLink to="library/nodes" disabled={!isPairingEnabled}>
 						<Icon component={ShareNetwork} />
@@ -99,11 +101,11 @@ export default () => {
 					</SidebarLink> */}
 					<SidebarLink to="library/locations">
 						<Icon component={HardDrive} />
-						Locations
+						{t('locations')}
 					</SidebarLink>
 					<SidebarLink to="library/tags">
 						<Icon component={TagSimple} />
-						Tags
+						{t('tags')}
 					</SidebarLink>
 					{/* <SidebarLink to="library/saved-searches">
 						<Icon component={MagnifyingGlass} />
@@ -111,22 +113,22 @@ export default () => {
 					</SidebarLink> */}
 					<SidebarLink disabled to="library/clouds">
 						<Icon component={Cloud} />
-						Clouds
+						{t('clouds')}
 					</SidebarLink>
 					<SidebarLink to="library/keys" disabled>
 						<Icon component={Key} />
-						Keys
+						{t('keys')}
 					</SidebarLink>
 				</Section>
 				<Section>
-					<Heading>Resources</Heading>
+					<Heading>{t('resources')}</Heading>
 					<SidebarLink to="resources/about">
 						<Icon component={FlyingSaucer} />
-						About
+						{t('about')}
 					</SidebarLink>
 					<SidebarLink to="resources/changelog">
 						<Icon component={Receipt} />
-						Changelog
+						{t('changelog')}
 					</SidebarLink>
 					{/* <SidebarLink to="resources/dependencies">
 						<Icon component={Graph} />

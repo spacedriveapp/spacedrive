@@ -13,7 +13,7 @@ import { useMemo } from 'react';
 import { useDocumentEventListener } from 'rooks';
 import { ExplorerLayout } from '@sd/client';
 import { toast } from '@sd/ui';
-import { useKeyMatcher } from '~/hooks';
+import { useKeyMatcher, useLocale } from '~/hooks';
 
 import { KeyManager } from '../KeyManager';
 import TopBarOptions, { ToolOption, TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
@@ -33,6 +33,8 @@ export const useExplorerTopBarOptions = () => {
 	const controlIcon = useKeyMatcher('Meta').icon;
 	const settings = explorer.useSettingsSnapshot();
 
+	const { t } = useLocale();
+
 	const viewOptions = useMemo(
 		() =>
 			(Object.keys(explorer.layouts) as ExplorerLayout[]).reduce(
@@ -43,7 +45,7 @@ export const useExplorerTopBarOptions = () => {
 
 					const option = {
 						layout,
-						toolTipLabel: `${layout} view`,
+						toolTipLabel: t(`${layout}_view`),
 						icon: <Icon className={TOP_BAR_ICON_STYLE} />,
 						keybinds: [controlIcon, (i + 1).toString()],
 						topBarActive:
@@ -61,7 +63,8 @@ export const useExplorerTopBarOptions = () => {
 			explorer.isLoadingPreferences,
 			explorer.layouts,
 			explorer.settingsStore,
-			settings.layoutMode
+			settings.layoutMode,
+			t
 		]
 	);
 
