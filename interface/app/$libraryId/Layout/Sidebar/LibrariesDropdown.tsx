@@ -2,11 +2,15 @@ import { Gear, Lock, Plus } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useClientContext } from '@sd/client';
 import { dialogManager, Dropdown, DropdownMenu } from '@sd/ui';
+import { useLocale } from '~/hooks';
 
 import CreateDialog from '../../settings/node/libraries/CreateDialog';
 
 export default () => {
 	const { library, libraries, currentLibraryId } = useClientContext();
+
+	const { t } = useLocale();
+
 	return (
 		<DropdownMenu.Root
 			trigger={
@@ -41,21 +45,21 @@ export default () => {
 			))}
 			<DropdownMenu.Separator className="mx-0" />
 			<DropdownMenu.Item
-				label="New Library"
+				label={t('new_library')}
 				icon={Plus}
 				iconProps={{ weight: 'bold', size: 16 }}
 				onClick={() => dialogManager.create((dp) => <CreateDialog {...dp} />)}
 				className="font-medium"
 			/>
 			<DropdownMenu.Item
-				label="Manage Library"
+				label={t('manage_library')}
 				icon={Gear}
 				iconProps={{ weight: 'bold', size: 16 }}
 				to="settings/library/general"
 				className="font-medium"
 			/>
 			<DropdownMenu.Item
-				label="Lock"
+				label={t('lock')}
 				icon={Lock}
 				iconProps={{ weight: 'bold', size: 16 }}
 				onClick={() => alert('TODO: Not implemented yet!')}

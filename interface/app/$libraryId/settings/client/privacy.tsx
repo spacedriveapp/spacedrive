@@ -1,5 +1,6 @@
 import { telemetryStore, useTelemetryState } from '@sd/client';
 import { Switch } from '@sd/ui';
+import { useLocale } from '~/hooks';
 
 import { Heading } from '../Layout';
 import Setting from '../Setting';
@@ -7,12 +8,14 @@ import Setting from '../Setting';
 export const Component = () => {
 	const fullTelemetry = useTelemetryState().shareFullTelemetry;
 
+	const { t } = useLocale();
+
 	return (
 		<>
 			<Heading title="Privacy" description="" />
 			<Setting
 				mini
-				toolTipLabel="Learn more about telemetry"
+				toolTipLabel={t('learn_more_about_telemetry')}
 				infoUrl="https://www.spacedrive.com/docs/product/resources/privacy"
 				title="Share Additional Telemetry and Usage Data"
 				description="Toggle ON to provide developers with detailed usage and telemetry data to enhance the app. Toggle OFF to send only basic data: your activity status, app version, core version, and platform (e.g., mobile, web, or desktop)."

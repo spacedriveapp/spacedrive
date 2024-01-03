@@ -98,7 +98,7 @@ const EphemeralNotice = ({ path }: { path: string }) => {
 								</div>
 
 								<Tooltip
-									label="Add path as an indexed location"
+									label={t('add_location_tooltip')}
 									className="z-50 w-max min-w-0 shrink animate-pulse [animation-duration:_3000ms] hover:animate-none"
 								>
 									<AddLocationButton
@@ -236,14 +236,13 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 
 	useKeyDeleteFile(explorer.selectedItems, null);
 
+	const { t } = useLocale();
+
 	return (
 		<ExplorerContextProvider explorer={explorer}>
 			<TopBarPortal
 				left={
-					<Tooltip
-						label="Add path as an indexed location"
-						className="w-max min-w-0 shrink"
-					>
+					<Tooltip label={t('add_location_tooltip')} className="w-max min-w-0 shrink">
 						<AddLocationButton path={path} />
 					</Tooltip>
 				}
@@ -254,7 +253,7 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 					<EmptyNotice
 						loading={query.isFetching}
 						icon={<Icon name="FolderNoSpace" size={128} />}
-						message="No files found here"
+						message={t('no_files_found_here')}
 					/>
 				}
 			/>

@@ -181,7 +181,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 					emptyNotice={
 						<EmptyNotice
 							icon={<Icon name="FolderNoSpace" size={128} />}
-							message="No files found here"
+							message={t('no_files_found_here')}
 						/>
 					}
 				/>

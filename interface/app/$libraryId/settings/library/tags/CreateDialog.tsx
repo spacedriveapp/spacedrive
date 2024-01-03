@@ -9,6 +9,7 @@ import {
 } from '@sd/client';
 import { Dialog, InputField, useDialog, UseDialogProps, z } from '@sd/ui';
 import { ColorPicker } from '~/components';
+import { useLocale } from '~/hooks';
 
 const schema = z.object({
 	name: z.string().trim().min(1).max(24),
@@ -73,20 +74,22 @@ export default (
 		}
 	});
 
+	const { t } = useLocale();
+
 	return (
 		<Dialog
 			invertButtonFocus
 			form={form}
 			onSubmit={onSubmit}
 			dialog={useDialog(props)}
-			title="Create New Tag"
-			description="Choose a name and color."
-			ctaLabel="Create"
+			title={t('create_new_tag')}
+			description={t('create_new_tag_description')}
+			ctaLabel={t('create')}
 		>
 			<div className="relative mt-3 ">
 				<InputField
 					{...form.register('name', { required: true })}
-					placeholder="Name"
+					placeholder={t('name')}
 					maxLength={24}
 					icon={<ColorPicker control={form.control} name="color" />}
 				/>

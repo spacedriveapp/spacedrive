@@ -21,6 +21,7 @@ import {
 	UseDialogProps,
 	z
 } from '@sd/ui';
+import { useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { getSpacedropState, subscribeSpacedropState } from '../../hooks/useSpacedropState';
@@ -203,6 +204,8 @@ function SpacedropDialog(props: UseDialogProps) {
 
 	const doSpacedrop = useBridgeMutation('p2p.spacedrop');
 
+	const { t } = useLocale();
+
 	return (
 		<Dialog
 			// This `key` is a hack to workaround https://linear.app/spacedriveapp/issue/ENG-1208/improve-dialogs
@@ -211,8 +214,8 @@ function SpacedropDialog(props: UseDialogProps) {
 			dialog={useDialog(props)}
 			title="Spacedrop a File"
 			loading={doSpacedrop.isLoading}
-			ctaLabel="Send"
-			closeLabel="Cancel"
+			ctaLabel={t('send')}
+			closeLabel={t('cancel')}
 			onSubmit={form.handleSubmit((data) =>
 				doSpacedrop.mutateAsync({
 					file_path: getSpacedropState().droppedFiles,
