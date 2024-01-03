@@ -292,14 +292,14 @@ function EscapeButton() {
 
 	useKeybind(['Escape'], () => {
 		search.setSearch('');
-		search.setOpen(false);
+		search.setSearchBarFocused(false);
 	});
 
 	return (
 		<kbd
 			onClick={() => {
 				search.setSearch('');
-				search.setOpen(false);
+				search.setSearchBarFocused(false);
 			}}
 			className="ml-2 rounded-lg border border-app-line bg-app-box px-2 py-1 text-[10.5px] tracking-widest shadow"
 		>

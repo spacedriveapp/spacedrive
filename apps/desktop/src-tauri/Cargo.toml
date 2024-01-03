@@ -9,6 +9,30 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
+sd-core = { path = "../../../core", features = [
+	"ffmpeg",
+	"location-watcher",
+	"heif",
+] }
+sd-fda = { path = "../../../crates/fda" }
+sd-prisma = { path = "../../../crates/prisma" }
+
+axum = { workspace = true, features = ["headers", "query"] }
+hyper = "0.14.28"
+futures = { workspace = true }
+http = { workspace = true }
+prisma-client-rust = { workspace = true }
+rand = { workspace = true }
+rspc = { workspace = true, features = ["tauri", "tracing"] }
+serde = { workspace = true }
+specta = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+tracing = { workspace = true }
+tauri-specta = { workspace = true, features = ["typescript"] }
+uuid = { workspace = true, features = ["serde"] }
+thiserror.workspace = true
+
+opener = { version = "0.6.1", features = ["reveal"] }
 tauri = { version = "1.5.3", features = [
 	"macos-private-api",
 	"path-all",
@@ -22,29 +46,8 @@ tauri = { version = "1.5.3", features = [
 	"native-tls-vendored",
 	"tracing",
 ] }
-
-rspc = { workspace = true, features = ["tauri"] }
-sd-core = { path = "../../../core", features = [
-	"ffmpeg",
-	"location-watcher",
-	"heif",
-] }
-sd-fda = { path = "../../../crates/fda" }
-tokio = { workspace = true, features = ["sync"] }
-tracing = { workspace = true }
-serde = "1.0.190"
-http = "0.2.9"
-opener = { version = "0.6.1", features = ["reveal"] }
-specta = { workspace = true }
-tauri-specta = { workspace = true, features = ["typescript"] }
-uuid = { version = "1.5.0", features = ["serde"] }
-futures = "0.3"
-axum = { version = "0.6.20", features = ["headers", "query"] }
-rand = "0.8.5"
-
-prisma-client-rust = { workspace = true }
-sd-prisma = { path = "../../../crates/prisma" }
 tauri-plugin-window-state = "0.1.0"
+
 
 [target.'cfg(target_os = "linux")'.dependencies]
 sd-desktop-linux = { path = "../crates/linux" }
@@ -61,5 +64,6 @@ webview2-com = "0.19.1"
 tauri-build = "1.5.0"
 
 [features]
-default = ["custom-protocol"]
+default = ["ai-models", "custom-protocol"]
+ai-models = ["sd-core/ai"]
 custom-protocol = ["tauri/custom-protocol"]

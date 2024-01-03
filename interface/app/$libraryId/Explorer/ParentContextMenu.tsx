@@ -2,6 +2,7 @@ import {
 	Clipboard,
 	FileX,
 	FolderPlus,
+	Hash,
 	Image,
 	Repeat,
 	Share,
@@ -29,6 +30,7 @@ export default (props: PropsWithChildren) => {
 	const { parent } = useExplorerContext();
 
 	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
+	const generateLabelsForLocation = useLibraryMutation('jobs.generateLabelsForLocation');
 	const objectValidator = useLibraryMutation('jobs.objectValidator');
 	const rescanLocation = useLibraryMutation('locations.subPathRescan');
 	const copyFiles = useLibraryMutation('files.copyFiles');
@@ -220,6 +222,25 @@ export default (props: PropsWithChildren) => {
 							}}
 							label={t('regen_thumbnails')}
 							icon={Image}
+						/>
+
+						<CM.Item
+							onClick={async () => {
+								try {
+									await generateLabelsForLocation.mutateAsync({
+										id: parent.location.id,
+										path: currentPath ?? '/',
+										regenerate: true
+									});
+								} catch (error) {
+									toast.error({
+										title: `Failed to generate labels`,
+										body: `Error: ${error}.`
+									});
+								}
+							}}
+							label="Regen Labels"
+							icon={Hash}
 						/>
 
 						<CM.Item

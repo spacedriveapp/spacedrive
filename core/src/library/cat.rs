@@ -1,6 +1,7 @@
-use crate::prisma::object;
-use prisma_client_rust::not;
 use sd_file_ext::kind::ObjectKind;
+use sd_prisma::prisma::object;
+
+use prisma_client_rust::not;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::vec;

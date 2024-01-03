@@ -1,5 +1,4 @@
-import path from 'path';
-import react from '@vitejs/plugin-react';
+import react from '@vitejs/plugin-react-swc';
 import { defineConfig } from 'vite';
 import { createHtmlPlugin } from 'vite-plugin-html';
 import i18nextLoader from 'vite-plugin-i18next-loader';
@@ -9,6 +8,7 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 export default defineConfig({
 	plugins: [
 		tsconfigPaths(),
+		// @ts-expect-error
 		react(),
 		svg({ svgrOptions: { icon: true } }),
 		createHtmlPlugin({

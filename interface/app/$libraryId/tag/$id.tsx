@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { ObjectKindEnum, ObjectOrder, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
@@ -82,6 +82,7 @@ export function Component() {
 					)}
 				</TopBarPortal>
 			</SearchContextProvider>
+
 			<Explorer
 				emptyNotice={
 					<EmptyNotice

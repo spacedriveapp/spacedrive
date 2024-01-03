@@ -1,9 +1,8 @@
 use std::ops::Deref;
 
+use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
-
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Clone, Type)]
 pub struct LibraryName(String);

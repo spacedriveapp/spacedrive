@@ -3,17 +3,31 @@
  * To regenerate this file, run: pnpm assets gen
  */
 
-import { ReactComponent as Academia } from './Academia.svg';
-import { ReactComponent as Apple } from './Apple.svg';
-import { ReactComponent as Discord } from './Discord.svg';
-import { ReactComponent as Docker } from './Docker.svg';
-import { ReactComponent as Dribbble } from './Dribbble.svg';
-import { ReactComponent as Github } from './Github.svg';
-import { ReactComponent as Gitlab } from './Gitlab.svg';
-import { ReactComponent as Instagram } from './Instagram.svg';
-import { ReactComponent as Opencollective } from './Opencollective.svg';
-import { ReactComponent as Twitch } from './Twitch.svg';
-import { ReactComponent as Twitter } from './Twitter.svg';
+import React from 'react';
+
+const Academia = React.lazy(async () => ({
+	default: (await import('./Academia.svg')).ReactComponent
+}));
+const Apple = React.lazy(async () => ({ default: (await import('./Apple.svg')).ReactComponent }));
+const Discord = React.lazy(async () => ({
+	default: (await import('./Discord.svg')).ReactComponent
+}));
+const Docker = React.lazy(async () => ({ default: (await import('./Docker.svg')).ReactComponent }));
+const Dribbble = React.lazy(async () => ({
+	default: (await import('./Dribbble.svg')).ReactComponent
+}));
+const Github = React.lazy(async () => ({ default: (await import('./Github.svg')).ReactComponent }));
+const Gitlab = React.lazy(async () => ({ default: (await import('./Gitlab.svg')).ReactComponent }));
+const Instagram = React.lazy(async () => ({
+	default: (await import('./Instagram.svg')).ReactComponent
+}));
+const Opencollective = React.lazy(async () => ({
+	default: (await import('./Opencollective.svg')).ReactComponent
+}));
+const Twitch = React.lazy(async () => ({ default: (await import('./Twitch.svg')).ReactComponent }));
+const Twitter = React.lazy(async () => ({
+	default: (await import('./Twitter.svg')).ReactComponent
+}));
 
 export {
 	Academia,

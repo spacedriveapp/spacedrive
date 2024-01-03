@@ -195,7 +195,7 @@ async fn main() -> tauri::Result<()> {
 			let node = node.clone();
 			move || node.clone()
 		}))
-		.plugin(sd_server_plugin(node.clone()).unwrap()) // TODO: Handle `unwrap`
+		.plugin(sd_server_plugin(node.clone()).await.unwrap()) // TODO: Handle `unwrap`
 		.manage(node.clone());
 
 	// macOS expected behavior is for the app to not exit when the main window is closed.

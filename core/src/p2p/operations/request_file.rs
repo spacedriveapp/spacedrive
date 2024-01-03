@@ -1,3 +1,17 @@
+use crate::{
+	library::Library,
+	p2p::{Header, HeaderFile},
+	Node,
+};
+
+use sd_file_path_helper::{file_path_to_handle_p2p_serve_file, IsolatedFilePathData};
+use sd_p2p::{
+	spaceblock::{BlockSize, Range, SpaceblockRequest, SpaceblockRequests, Transfer},
+	spacetime::UnicastStream,
+	PeerMessageEvent,
+};
+use sd_prisma::prisma::file_path;
+
 use std::{
 	path::Path,
 	sync::{
@@ -6,25 +20,12 @@ use std::{
 	},
 };
 
-use sd_p2p::{
-	spaceblock::{BlockSize, Range, SpaceblockRequest, SpaceblockRequests, Transfer},
-	spacetime::UnicastStream,
-	PeerMessageEvent,
-};
-use sd_prisma::prisma::file_path;
 use tokio::{
 	fs::File,
 	io::{AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
 };
 use tracing::{debug, warn};
 use uuid::Uuid;
-
-use crate::{
-	library::Library,
-	location::file_path_helper::{file_path_to_handle_p2p_serve_file, IsolatedFilePathData},
-	p2p::{Header, HeaderFile},
-	Node,
-};
 
 /// Request a file from the remote machine over P2P. This is used for preview media and quick preview.
 ///

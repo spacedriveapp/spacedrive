@@ -9,55 +9,23 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 			let model_name_snake = snake_ident(model.name());
 			let model_name_pascal = pascal_ident(model.name());
 
-			sync_type.as_ref().and_then(|a| {
-				let data_type = match a {
-					// ModelSyncType::Owned { .. } => quote!(OwnedOperationData),
-					ModelSyncType::Shared { .. } => quote!(SharedOperationData),
-					ModelSyncType::Relation { .. } => {
-						quote!(RelationOperationData)
-					}
-					_ => return None,
-				};
-
-				let variant = quote! {
-					#model_name_pascal(#model_name_snake::SyncId, sd_sync::#data_type)
-				};
-
-				let op_type_enum = quote!(sd_sync::CRDTOperationType);
-
-				let match_case = match a {
-					// ModelSyncType::Owned { .. } => {
-					// 	quote! {
-					// 		#op_type_enum::Owned(op) #cond =>
-					// 			Self::#model_name_pascal(serde_json::from_value(op.record_id).ok()?, op.data)
-					// 	}
-					// }
-					ModelSyncType::Shared { .. } => {
+			sync_type
+				.as_ref()
+				.filter(|s| {
+					matches!(
+						s,
+						ModelSyncType::Shared { .. } | ModelSyncType::Relation { .. }
+					)
+				})
+				.map(|_| {
+					(
+						quote!(#model_name_pascal(#model_name_snake::SyncId, sd_sync::CRDTOperationData)),
 						quote! {
-							#op_type_enum::Shared(op) if op.model == prisma::#model_name_snake::NAME =>
+							prisma::#model_name_snake::NAME =>
 								Self::#model_name_pascal(serde_json::from_value(op.record_id).ok()?, op.data)
-						}
-					}
-					ModelSyncType::Relation { item, group } => {
-						let item_name_snake = snake_ident(item.name());
-						let group_name_snake = snake_ident(group.name());
-
-						quote! {
-							#op_type_enum::Relation(op) if op.relation == prisma::#model_name_snake::NAME =>
-								Self::#model_name_pascal(
-									#model_name_snake::SyncId {
-										#item_name_snake: serde_json::from_value(op.relation_item).ok()?,
-										#group_name_snake: serde_json::from_value(op.relation_group).ok()?,
-									},
-									op.data
-								)
-						}
-					}
-					_ => return None,
-				};
-
-				Some((variant, match_case))
-			})
+						},
+					)
+				})
 		})
 		.unzip();
 
@@ -71,7 +39,7 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 
 				quote! {
 					match data {
-						sd_sync::SharedOperationData::Create => {
+						sd_sync::CRDTOperationData::Create => {
 							db.#model_name_snake()
 								.upsert(
 									prisma::#model_name_snake::#id_name_snake::equals(id.#id_name_snake.clone()),
@@ -81,7 +49,7 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 								.exec()
 								.await?;
 						},
-						sd_sync::SharedOperationData::Update { field, value } => {
+						sd_sync::CRDTOperationData::Update { field, value } => {
 							let data = vec![
 								prisma::#model_name_snake::SetParam::deserialize(&field, value).unwrap()
 							];
@@ -95,7 +63,7 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 								.exec()
 								.await?;
 						},
-						sd_sync::SharedOperationData::Delete => {
+						sd_sync::CRDTOperationData::Delete => {
 							db.#model_name_snake()
 									.delete(prisma::#model_name_snake::#id_name_snake::equals(id.#id_name_snake))
 									.exec()
@@ -152,7 +120,7 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 					let id = prisma::tag_on_object::#compound_id(item.id, group.id);
 
 					match data {
-						sd_sync::RelationOperationData::Create => {
+						sd_sync::CRDTOperationData::Create => {
 							db.#model_name_snake()
 								.create(
 									#(#create_items),*,
@@ -162,7 +130,7 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 								.await
 								.ok();
 						},
-						sd_sync::RelationOperationData::Update { field, value } => {
+						sd_sync::CRDTOperationData::Update { field, value } => {
 							let data = vec![prisma::#model_name_snake::SetParam::deserialize(&field, value).unwrap()];
 
 							db.#model_name_snake()
@@ -178,7 +146,7 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 								.await
 								.ok();
 						},
-						sd_sync::RelationOperationData::Delete => {
+						sd_sync::CRDTOperationData::Delete => {
 							db.#model_name_snake()
 								.delete(id)
 								.exec()
@@ -204,8 +172,8 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 		}
 
 		impl ModelSyncData {
-			pub fn from_op(op: sd_sync::CRDTOperationType) -> Option<Self> {
-				Some(match op {
+			pub fn from_op(op: sd_sync::CRDTOperation) -> Option<Self> {
+				Some(match op.model.as_str() {
 					#(#matches),*,
 					_ => return None
 				})

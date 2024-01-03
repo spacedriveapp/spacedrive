@@ -3,19 +3,19 @@ use crate::{
 	job::JobError,
 	library::Library,
 	location::{
-		file_path_helper::{
-			check_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-			IsolatedFilePathData,
-		},
 		indexer::{
 			execute_indexer_update_step, reverse_update_directories_sizes, IndexerJobUpdateStep,
 		},
 		scan_location_sub_path, update_location_size,
 	},
-	to_remove_db_fetcher_fn,
-	util::db::maybe_missing,
-	Node,
+	to_remove_db_fetcher_fn, Node,
 };
+
+use sd_file_path_helper::{
+	check_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+	IsolatedFilePathData,
+};
+use sd_utils::db::maybe_missing;
 
 use std::{
 	collections::HashSet,

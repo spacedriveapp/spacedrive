@@ -1,4 +1,4 @@
-use crate::prisma::{file_path, object};
+use sd_prisma::prisma::{file_path, object};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;

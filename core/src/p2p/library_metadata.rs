@@ -1,6 +1,7 @@
+use sd_p2p::Metadata;
+
 use std::collections::HashMap;
 
-use sd_p2p::Metadata;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 

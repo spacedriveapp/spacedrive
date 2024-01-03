@@ -1,6 +1,6 @@
 use super::ExifReader;
 use exif::Tag;
-use image_rs::DynamicImage;
+use image::DynamicImage;
 use std::path::Path;
 
 #[derive(

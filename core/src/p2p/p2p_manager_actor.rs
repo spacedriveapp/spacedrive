@@ -1,11 +1,12 @@
+use crate::Node;
+
+use sd_p2p::{spacetunnel::Tunnel, Event, ManagerStream, Service, ServiceEvent};
+
 use std::sync::Arc;
 
 use futures::StreamExt;
-use sd_p2p::{spacetunnel::Tunnel, Event, ManagerStream, Service, ServiceEvent};
 use tokio::sync::mpsc;
 use tracing::error;
-
-use crate::Node;
 
 use super::{operations, sync::SyncMessage, Header, LibraryMetadata, P2PEvent, P2PManager};
 

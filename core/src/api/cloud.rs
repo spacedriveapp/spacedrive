@@ -1,13 +1,29 @@
-use super::{utils::library, Ctx, R};
 use crate::{api::libraries::LibraryConfigWrapped, invalidate_query, library::LibraryName};
+
+use reqwest::Response;
 use rspc::alpha::AlphaRouter;
+use serde::de::DeserializeOwned;
+
 use uuid::Uuid;
+
+use super::{utils::library, Ctx, R};
+
+#[allow(unused)]
+async fn parse_json_body<T: DeserializeOwned>(response: Response) -> Result<T, rspc::Error> {
+	response.json().await.map_err(|_| {
+		rspc::Error::new(
+			rspc::ErrorCode::InternalServerError,
+			"JSON conversion failed".to_string(),
+		)
+	})
+}
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router().merge("library.", library::mount())
 }
 
 mod library {
+
 	use super::*;
 
 	pub fn mount() -> AlphaRouter<Ctx> {
