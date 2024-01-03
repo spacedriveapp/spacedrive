@@ -114,7 +114,7 @@ export default function OnboardingLocations() {
 							name="toggle-all"
 							className="mb-1.5 justify-end"
 							labelClassName="!ml-1.5"
-							label="Toggle All"
+							label={t('toggle_all')}
 							checked={toggled}
 							onCheckedChange={(value) => {
 								if (typeof value !== 'boolean') return;
