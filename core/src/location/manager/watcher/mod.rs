@@ -125,11 +125,6 @@ impl LocationWatcher {
 			stop_rx,
 		));
 
-		//Add new android_inotify watcher for testing
-		// tokio::task::block_in_place(|| {
-		// Android default documents path
-		// });
-
 		Ok(Self {
 			id: location.id,
 			path: maybe_missing(location.path, "location.path")?,
