@@ -13,7 +13,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use super::{
-	file_path_helper::FilePathError, manager::LocationManagerError, metadata::LocationMetadataError,
+	file_path_helper::FilePathError, manager::LocationManagerError, metadata::LocationMetadataError, manager_android::AndroidLocationManagerError,
 };
 
 /// Error type for location related errors
@@ -70,6 +70,8 @@ pub enum LocationError {
 	Database(#[from] prisma_client_rust::QueryError),
 	#[error(transparent)]
 	LocationManager(#[from] LocationManagerError),
+	#[error(transparent)]
+	AndroidLocationManager(#[from] AndroidLocationManagerError),
 	#[error(transparent)]
 	FilePath(#[from] FilePathError),
 	#[error(transparent)]

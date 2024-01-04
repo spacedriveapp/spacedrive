@@ -504,6 +504,12 @@ impl Libraries {
 			.exec()
 			.await?
 		{
+			#[cfg(target_os = "android")]
+			if let Err(e) = node.android_locations.add(location.id, library.clone()).await {
+				error!("Failed to watch location on startup: {e}");
+			};
+
+			#[cfg(not(target_os = "android"))]
 			if let Err(e) = node.locations.add(location.id, library.clone()).await {
 				error!("Failed to watch location on startup: {e}");
 			};

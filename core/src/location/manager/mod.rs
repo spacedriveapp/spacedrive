@@ -1,7 +1,6 @@
 use crate::{
 	job::JobManagerError,
 	library::{Library, LibraryManagerEvent},
-	location::manager::android_inotify::watch_directory,
 	prisma::location,
 	util::{db::MissingFieldError, error::FileIOError},
 	Node,
@@ -32,8 +31,6 @@ mod watcher;
 
 // #[cfg(feature = "location-watcher")]
 mod helpers;
-
-mod android_inotify;
 
 #[derive(Clone, Copy, Debug)]
 #[allow(dead_code)]
@@ -189,6 +186,10 @@ impl LocationManagerActor {
 			node,
 		));
 
+		// let android_watcher = android_inotify::init();
+
+		// tokio::spawn(android_inotify::run_event_watcher(android_watcher));
+
 		// #[cfg(not(feature = "location-watcher"))]
 		// tracing::warn!("Location watcher is disabled, locations will not be checked");
 	}
@@ -206,11 +207,6 @@ pub struct Locations {
 
 impl Locations {
 	pub fn new() -> (Self, LocationManagerActor) {
-		// Have this run in it's own thread:
-		// tokio::spawn(async {
-		watch_directory("/storage/emulated/0/Documents");
-		// });
-
 		let online_tx = broadcast::channel(16).0;
 		let (location_management_tx, location_management_rx) = mpsc::channel(128);
 		let (watcher_management_tx, watcher_management_rx) = mpsc::channel(128);
@@ -420,7 +416,6 @@ impl Locations {
 							if let Some(location) = get_location(location_id, &library).await {
 								match check_online(&location, &node, &library).await {
 									Ok(is_online) => {
-
 										LocationWatcher::new(location, library.clone(), node.clone())
 										.await
 										.map(|mut watcher| {

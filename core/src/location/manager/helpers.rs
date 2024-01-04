@@ -13,7 +13,7 @@ use std::{
 };
 
 use tokio::{fs, io::ErrorKind, sync::oneshot, time::sleep};
-use tracing::{error, warn, info};
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use super::{watcher::LocationWatcher, LocationManagerError};
@@ -22,6 +22,7 @@ type LocationAndLibraryKey = (location::id::Type, LibraryId);
 
 const LOCATION_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 
+#[cfg(not(target_os = "android"))]
 pub(super) async fn check_online(
 	location: &location::Data,
 	node: &Node,

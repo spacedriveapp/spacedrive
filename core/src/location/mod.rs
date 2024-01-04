@@ -2,7 +2,10 @@ use crate::{
 	invalidate_query,
 	job::{JobBuilder, JobError, JobManagerError},
 	library::Library,
-	location::file_path_helper::filter_existing_file_path_params,
+	location::{
+		file_path_helper::filter_existing_file_path_params,
+		manager_android::AndroidLocationManagerError,
+	},
 	object::{
 		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
 		media::{media_processor, MediaProcessorJobInit},
@@ -39,12 +42,14 @@ mod error;
 pub mod file_path_helper;
 pub mod indexer;
 mod manager;
+mod manager_android;
 pub mod metadata;
 pub mod non_indexed;
 
 pub use error::LocationError;
 use indexer::IndexerJobInit;
 pub use manager::{LocationManagerError, Locations};
+pub use manager_android::Locations as AndroidLocations;
 use metadata::SpacedriveLocationMetadataFile;
 
 use file_path_helper::IsolatedFilePathData;
@@ -167,6 +172,17 @@ impl LocationCreateArgs {
 			)
 			.err_into::<LocationError>()
 			.and_then(|()| async move {
+				#[cfg(target_os = "android")]
+				{
+					node.android_locations
+						.add(location.data.id, library.clone())
+						.await
+						.map_err(Into::<AndroidLocationManagerError>::into)?;
+
+					Ok(())
+				}
+
+				#[cfg(not(target_os = "android"))]
 				node.locations
 					.add(location.data.id, library.clone())
 					.await
@@ -244,6 +260,7 @@ impl LocationCreateArgs {
 				.add_library(library.id, uuid, &self.path, location.name)
 				.await?;
 
+			#[cfg(not(target_os = "android"))]
 			node.locations
 				.add(location.data.id, library.clone())
 				.await?;
@@ -363,8 +380,20 @@ impl LocationUpdateArgs {
 			}
 
 			if self.path.is_some() {
-				node.locations.remove(self.id, library.clone()).await?;
-				node.locations.add(self.id, library.clone()).await?;
+				#[cfg(target_os = "android")]
+				{
+					node.android_locations
+						.remove(self.id, library.clone())
+						.await?;
+					node.android_locations
+						.add(self.id, library.clone())
+						.await?;
+				}
+				#[cfg(not(target_os = "android"))]
+				{
+					node.locations.remove(self.id, library.clone()).await?;
+					node.locations.add(self.id, library.clone()).await?;
+				}
 			}
 		}
 
@@ -730,6 +759,13 @@ pub async fn delete_location(
 	location_id: location::id::Type,
 ) -> Result<(), LocationError> {
 	let start = Instant::now();
+
+	#[cfg(target_os = "android")]
+	node.android_locations
+		.remove(location_id, library.clone())
+		.await?;
+
+	#[cfg(not(target_os = "android"))]
 	node.locations.remove(location_id, library.clone()).await?;
 	debug!(
 		"Elapsed time to remove location from node: {:?}",

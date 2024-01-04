@@ -55,7 +55,10 @@ pub struct Node {
 	pub config: Arc<config::Manager>,
 	pub libraries: Arc<library::Libraries>,
 	pub jobs: Arc<job::Jobs>,
+	#[cfg(not(target_os = "android"))]
 	pub locations: location::Locations,
+	#[cfg(target_os = "android")]
+	pub android_locations: location::AndroidLocations,
 	pub p2p: Arc<p2p::P2PManager>,
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	pub notifications: Notifications,
@@ -96,14 +99,22 @@ impl Node {
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
 
+		#[cfg(not(target_os = "android"))]
 		let (locations, locations_actor) = location::Locations::new();
+
+		#[cfg(target_os = "android")]
+		let (locations, locations_actor) = location::AndroidLocations::new();
+
 		let (jobs, jobs_actor) = job::Jobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
 		let (p2p, p2p_actor) = p2p::P2PManager::new(config.clone(), libraries.clone()).await?;
 		let node = Arc::new(Node {
 			data_dir: data_dir.to_path_buf(),
 			jobs,
+			#[cfg(not(target_os = "android"))]
 			locations,
+			#[cfg(target_os = "android")]
+			android_locations: locations,
 			notifications: notifications::Notifications::new(),
 			p2p,
 			thumbnailer: Thumbnailer::new(
@@ -134,6 +145,7 @@ impl Node {
 		}
 
 		// Be REALLY careful about ordering here or you'll get unreliable deadlock's!
+
 		locations_actor.start(node.clone());
 		node.libraries.init(&node).await?;
 		jobs_actor.start(node.clone());
