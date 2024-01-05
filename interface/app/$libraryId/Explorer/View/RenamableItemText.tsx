@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { useRef } from 'react';
+import { memo, useMemo, useRef } from 'react';
 import {
 	getEphemeralPath,
 	getExplorerItemData,
@@ -24,16 +24,75 @@ interface Props extends Pick<RenameTextBoxProps, 'idleClassName' | 'lines'> {
 	selected?: boolean;
 }
 
-export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) => {
+type InnerProps = Omit<Props, 'item'> & {
+	data: ReturnType<typeof useDerivedData>;
+	defaultDisabled: boolean;
+};
+
+// We derive the exact data required by `RenamableItemTextInner` here.
+// We do this outside so we can use `useMemo` and avoid unnecessary re-renders.
+//
+// This function acts as a selector so the component only rerenders when properties we care about change.
+function deriveItemData(item: ExplorerItem) {
+	if (item.type === 'Location') {
+		return {
+			type: item.type,
+			locationId: item.item.id
+		};
+	} else if (item.type === 'Path' || item.type === 'Object') {
+		const filePathData = getIndexedItemFilePath(item);
+		return {
+			type: item.type,
+			id: filePathData?.id,
+			locationId: filePathData?.location_id
+		};
+	} else if (item.type === 'NonIndexedPath') {
+		const ephemeralFile = getEphemeralPath(item);
+		return {
+			type: item.type,
+			path: ephemeralFile?.path
+		};
+	} else {
+		return {
+			type: item.type
+		};
+	}
+}
+
+function useDerivedData(item: ExplorerItem) {
+	// We use `JSON.stringify` to ensure referential integrity. // TODO: I'm sure a better way to do this exists.
+	return useMemo(() => {
+		const itemData = getExplorerItemData(item);
+		return {
+			fullName: itemData.fullName,
+			name: itemData.name,
+			data: deriveItemData(item)
+		};
+	}, [JSON.stringify(item)]);
+}
+
+// We break this out so that the component only rerenders when properties we care about change.
+//
+// Eg. the Dnd context changes a lot but most changes to it don't affect the specific condition this component cares about.
+export function RenamableItemText({ item, ...props }: Props) {
+	const explorerStore = useExplorerStore();
+
+	return (
+		<RenamableItemTextInner
+			{...props}
+			data={useDerivedData(item)}
+			defaultDisabled={explorerStore.drag?.type === 'dragging'}
+		/>
+	);
+}
+
+const RenamableItemTextInner = memo(({ allowHighlight = true, data, ...props }: InnerProps) => {
 	const isDark = useIsDark();
 	const rspc = useRspcLibraryContext();
 
 	const explorer = useExplorerContext({ suspense: false });
-	const explorerStore = useExplorerStore();
 
 	const quickPreviewStore = useQuickPreviewStore();
-
-	const itemData = getExplorerItemData(props.item);
 
 	const ref = useRef<HTMLDivElement>(null);
 
@@ -53,17 +112,16 @@ export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) =>
 	});
 
 	const reset = () => {
-		if (!ref.current || !itemData.fullName) return;
-		ref.current.innerText = itemData.fullName;
+		if (!ref.current || !data.fullName) return;
+		ref.current.innerText = data.fullName;
 	};
 
 	const handleRename = async (newName: string) => {
 		try {
-			switch (props.item.type) {
+			switch (data.data.type) {
 				case 'Location': {
-					const locationId = props.item.item.id;
+					const { locationId } = data.data;
 					if (!locationId) throw new Error('Missing location id');
-
 					await renameLocation.mutateAsync({
 						id: locationId,
 						path: null,
@@ -73,22 +131,14 @@ export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) =>
 						hidden: null,
 						indexer_rules_ids: []
 					});
-
 					break;
 				}
-
 				case 'Path':
 				case 'Object': {
-					const filePathData = getIndexedItemFilePath(props.item);
-
-					if (!filePathData) throw new Error('Failed to get file path object');
-
-					const { id, location_id } = filePathData;
-
-					if (!location_id) throw new Error('Missing location id');
-
+					const { id, locationId } = data.data;
+					if (!id || !locationId) throw new Error('Failed to get file path object');
 					await renameFile.mutateAsync({
-						location_id: location_id,
+						location_id: locationId,
 						kind: {
 							One: {
 								from_file_path_id: id,
@@ -96,34 +146,28 @@ export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) =>
 							}
 						}
 					});
-
 					break;
 				}
-
 				case 'NonIndexedPath': {
-					const ephemeralFile = getEphemeralPath(props.item);
-
-					if (!ephemeralFile) throw new Error('Failed to get ephemeral file object');
-
+					const { path } = data.data;
+					if (!path) throw new Error('Failed to get ephemeral file object');
 					renameEphemeralFile.mutate({
 						kind: {
 							One: {
-								from_path: ephemeralFile.path,
+								from_path: path,
 								to: newName
 							}
 						}
 					});
-
 					break;
 				}
-
 				default:
 					throw new Error('Invalid explorer item type');
 			}
 		} catch (e) {
 			reset();
 			toast.error({
-				title: `Could not rename ${itemData.fullName} to ${newName}`,
+				title: `Could not rename ${data.fullName} to ${newName}`,
 				body: `Error: ${e}.`
 			});
 		}
@@ -131,15 +175,15 @@ export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) =>
 
 	const disabled =
 		!props.selected ||
-		explorerStore.drag?.type === 'dragging' ||
+		props.defaultDisabled ||
 		!explorer ||
 		explorer.selectedItems.size > 1 ||
 		quickPreviewStore.open ||
-		props.item.type === 'SpacedropPeer';
+		data.data.type === 'SpacedropPeer';
 
 	return (
 		<RenameTextBox
-			name={itemData.fullName ?? itemData.name ?? ''}
+			name={data.fullName ?? data.name ?? ''}
 			disabled={disabled}
 			onRename={handleRename}
 			className={clsx(
@@ -152,4 +196,4 @@ export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) =>
 			idleClassName={props.idleClassName}
 		/>
 	);
-};
+});
