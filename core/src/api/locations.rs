@@ -482,13 +482,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure(
 			"online",
 			R.subscription(|node, _: ()| async move {
-				#[cfg(not(target_os = "android"))]
-				let mut rx = node.locations.online_rx();
 				#[cfg(target_os = "android")]
 				let mut rx = node.android_locations.online_rx();
 
+				#[cfg(not(target_os = "android"))]
+				let mut rx = node.locations.online_rx();
+
 
 				async_stream::stream! {
+					#[cfg(target_os = "android")]
+					let online = node.android_locations.get_online().await;
+
+					#[cfg(not(target_os = "android"))]
 					let online = node.locations.get_online().await;
 
 					yield online;

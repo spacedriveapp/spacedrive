@@ -4,7 +4,6 @@ use crate::{
 	library::Library,
 	location::{
 		file_path_helper::filter_existing_file_path_params,
-		manager_android::AndroidLocationManagerError,
 	},
 	object::{
 		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
@@ -49,7 +48,7 @@ pub mod non_indexed;
 pub use error::LocationError;
 use indexer::IndexerJobInit;
 pub use manager::{LocationManagerError, Locations};
-pub use manager_android::AndroidLocations;
+pub use manager_android::{AndroidLocations, AndroidLocationManagerError};
 use metadata::SpacedriveLocationMetadataFile;
 
 use file_path_helper::IsolatedFilePathData;

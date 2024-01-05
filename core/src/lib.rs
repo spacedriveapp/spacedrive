@@ -8,6 +8,7 @@ use crate::{
 
 use api::notifications::{Notification, NotificationData, NotificationId};
 use chrono::{DateTime, Utc};
+use location::AndroidLocationManagerError;
 use node::config;
 use notifications::Notifications;
 use reqwest::{RequestBuilder, Response};
@@ -57,7 +58,7 @@ pub struct Node {
 	pub jobs: Arc<job::Jobs>,
 	#[cfg(not(target_os = "android"))]
 	pub locations: location::Locations,
-	// #[cfg(target_os = "android")]
+	#[cfg(target_os = "android")]
 	pub android_locations: location::AndroidLocations,
 	pub p2p: Arc<p2p::P2PManager>,
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
@@ -99,11 +100,11 @@ impl Node {
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
 
+		#[cfg(target_os = "android")]
+		let (android_locations, android_locations_actor) = location::AndroidLocations::new();
+
 		#[cfg(not(target_os = "android"))]
 		let (locations, locations_actor) = location::Locations::new();
-
-		// #[cfg(target_os = "android")]
-		let (android_locations, android_locations_actor) = location::AndroidLocations::new();
 
 		let (jobs, jobs_actor) = job::Jobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
@@ -113,7 +114,7 @@ impl Node {
 			jobs,
 			#[cfg(not(target_os = "android"))]
 			locations,
-			// #[cfg(target_os = "android")]
+			#[cfg(target_os = "android")]
 			android_locations,
 			notifications: notifications::Notifications::new(),
 			p2p,
@@ -149,9 +150,10 @@ impl Node {
 		// if cfg!(target_os = "android") {
 		#[cfg(target_os = "android")]
 		android_locations_actor.start(node.clone());
-		// } else {
-		// 	locations_actor.start(node.clone());
-		// }
+
+		#[cfg(not(target_os = "android"))]
+		locations_actor.start(node.clone());
+
 		node.libraries.init(&node).await?;
 		jobs_actor.start(node.clone());
 		p2p_actor.start(node.clone());

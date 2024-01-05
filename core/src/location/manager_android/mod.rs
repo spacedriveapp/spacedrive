@@ -52,6 +52,7 @@ pub struct WatcherManagementMessage {
 	response_tx: oneshot::Sender<Result<(), AndroidLocationManagerError>>,
 }
 
+#[must_use = "'AndroidLocationManagerActor::start' must be used to start the actor"]
 pub struct AndroidLocationManagerActor {
 	location_management_rx: mpsc::Receiver<LocationManagementMessage>,
 	watcher_management_rx: mpsc::Receiver<WatcherManagementMessage>,
@@ -85,7 +86,7 @@ impl AndroidLocationManagerActor {
 										}) {
 										node.android_locations
 											.add(location.id, library.clone())
-											.await;
+											.await.expect("Failed to add location");
 									}
 								}
 								LibraryManagerEvent::Edit(_) => {}

@@ -25,7 +25,6 @@ use uuid::Uuid;
 
 use super::LocationManagerError;
 
-mod android;
 mod ios;
 mod linux;
 mod macos;
@@ -43,9 +42,6 @@ type Handler<'lib> = macos::MacOsEventHandler<'lib>;
 
 #[cfg(target_os = "windows")]
 type Handler<'lib> = windows::WindowsEventHandler<'lib>;
-
-#[cfg(target_os = "android")]
-type Handler<'lib> = android::AndroidEventHandler<'lib>;
 
 #[cfg(target_os = "ios")]
 type Handler<'lib> = ios::IosEventHandler<'lib>;
@@ -223,7 +219,6 @@ impl LocationWatcher {
 		// 	warn!("Tried to handle event for unknown location: <id='{location_id}'>");
 		//     return Ok(());
 		// };
-
 		if !node.locations.is_online(&location_pub_id).await {
 			warn!("Tried to handle event for offline location: <id='{location_id}'>");
 			return Ok(());

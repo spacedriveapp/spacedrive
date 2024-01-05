@@ -22,7 +22,6 @@ type LocationAndLibraryKey = (location::id::Type, LibraryId);
 
 const LOCATION_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 
-#[cfg(not(target_os = "android"))]
 pub(super) async fn check_online(
 	location: &location::Data,
 	node: &Node,
@@ -36,10 +35,19 @@ pub(super) async fn check_online(
 	if location.instance_id == Some(library.config().await.instance_id) {
 		match fs::metadata(&location_path).await {
 			Ok(_) => {
+				#[cfg(target_os = "android")]
+				node.android_locations.add_online(pub_id).await;
+
+				#[cfg(not(target_os = "android"))]
 				node.locations.add_online(pub_id).await;
+
 				Ok(true)
 			}
 			Err(e) if e.kind() == ErrorKind::NotFound => {
+				#[cfg(target_os = "android")]
+				node.android_locations.remove_online(&pub_id).await;
+
+				#[cfg(not(target_os = "android"))]
 				node.locations.remove_online(&pub_id).await;
 				Ok(false)
 			}
@@ -50,7 +58,12 @@ pub(super) async fn check_online(
 		}
 	} else {
 		// In this case, we don't have a `local_path`, but this location was marked as online
+		#[cfg(target_os = "android")]
+		node.android_locations.remove_online(&pub_id).await;
+
+		#[cfg(not(target_os = "android"))]
 		node.locations.remove_online(&pub_id).await;
+
 		Err(LocationManagerError::NonLocalLocation(location.id))
 	}
 }

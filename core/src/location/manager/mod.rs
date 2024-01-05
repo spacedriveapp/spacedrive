@@ -176,6 +176,7 @@ impl LocationManagerActor {
 		});
 
 		// #[cfg(feature = "location-watcher")]
+		#[cfg(target_os = "android")]
 		tokio::spawn(Locations::run_locations_checker(
 			self.location_management_rx,
 			self.watcher_management_rx,
