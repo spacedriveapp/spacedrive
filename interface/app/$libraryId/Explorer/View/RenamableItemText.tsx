@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { memo, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 import {
 	getEphemeralPath,
 	getExplorerItemData,
@@ -111,67 +111,70 @@ const RenamableItemTextInner = memo(({ allowHighlight = true, data, ...props }: 
 		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
 	});
 
-	const reset = () => {
+	const reset = useCallback(() => {
 		if (!ref.current || !data.fullName) return;
 		ref.current.innerText = data.fullName;
-	};
+	}, [data.fullName]);
 
-	const handleRename = async (newName: string) => {
-		try {
-			switch (data.data.type) {
-				case 'Location': {
-					const { locationId } = data.data;
-					if (!locationId) throw new Error('Missing location id');
-					await renameLocation.mutateAsync({
-						id: locationId,
-						path: null,
-						name: newName,
-						generate_preview_media: null,
-						sync_preview_media: null,
-						hidden: null,
-						indexer_rules_ids: []
-					});
-					break;
-				}
-				case 'Path':
-				case 'Object': {
-					const { id, locationId } = data.data;
-					if (!id || !locationId) throw new Error('Failed to get file path object');
-					await renameFile.mutateAsync({
-						location_id: locationId,
-						kind: {
-							One: {
-								from_file_path_id: id,
-								to: newName
+	const handleRename = useCallback(
+		async (newName: string) => {
+			try {
+				switch (data.data.type) {
+					case 'Location': {
+						const { locationId } = data.data;
+						if (!locationId) throw new Error('Missing location id');
+						await renameLocation.mutateAsync({
+							id: locationId,
+							path: null,
+							name: newName,
+							generate_preview_media: null,
+							sync_preview_media: null,
+							hidden: null,
+							indexer_rules_ids: []
+						});
+						break;
+					}
+					case 'Path':
+					case 'Object': {
+						const { id, locationId } = data.data;
+						if (!id || !locationId) throw new Error('Failed to get file path object');
+						await renameFile.mutateAsync({
+							location_id: locationId,
+							kind: {
+								One: {
+									from_file_path_id: id,
+									to: newName
+								}
 							}
-						}
-					});
-					break;
-				}
-				case 'NonIndexedPath': {
-					const { path } = data.data;
-					if (!path) throw new Error('Failed to get ephemeral file object');
-					renameEphemeralFile.mutate({
-						kind: {
-							One: {
-								from_path: path,
-								to: newName
+						});
+						break;
+					}
+					case 'NonIndexedPath': {
+						const { path } = data.data;
+						if (!path) throw new Error('Failed to get ephemeral file object');
+						renameEphemeralFile.mutate({
+							kind: {
+								One: {
+									from_path: path,
+									to: newName
+								}
 							}
-						}
-					});
-					break;
+						});
+						break;
+					}
+					default:
+						throw new Error('Invalid explorer item type');
 				}
-				default:
-					throw new Error('Invalid explorer item type');
+			} catch (e) {
+				reset();
+				toast.error({
+					title: `Could not rename ${data.fullName} to ${newName}`,
+					body: `Error: ${e}.`
+				});
 			}
-		} catch (e) {
-			reset();
-			toast.error({
-				title: `Could not rename ${data.fullName} to ${newName}`,
-				body: `Error: ${e}.`
-			});
-		}
-	};
+		},
+		[data, renameEphemeralFile, renameFile, renameLocation, reset]
+	);
 
 	const disabled =
 		!props.selected ||
