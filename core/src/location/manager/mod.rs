@@ -119,11 +119,8 @@ type OnlineLocations = BTreeSet<Vec<u8>>;
 
 #[must_use = "'LocationManagerActor::start' must be used to start the actor"]
 pub struct LocationManagerActor {
-	// #[cfg(feature = "location-watcher")]
 	location_management_rx: mpsc::Receiver<LocationManagementMessage>,
-	// #[cfg(feature = "location-watcher")]
 	watcher_management_rx: mpsc::Receiver<WatcherManagementMessage>,
-	// #[cfg(feature = "location-watcher")]
 	stop_rx: oneshot::Receiver<()>,
 }
 
@@ -411,40 +408,6 @@ impl Locations {
 					match action {
 						// To add a new location
 						ManagementMessageAction::Add => {
-							#[cfg(target_os = "android")]
-							if let Some(location) = get_location(location_id, &library).await {
-								match check_online(&location, &node, &library).await {
-									Ok(is_online) => {
-										if is_online {
-											if let Some(ref path) = location.path {
-												let path_str: &str = &path;
-												watch_directory(path_str);
-												info!("iNotify -> Location {location_id} is online, watching it");
-											} else {
-												warn!("iNotify -> Location {location_id} has no path, so it can't be watched");
-											}
-										} else {
-											warn!("iNotify -> Location {location_id} is offline, so it can't be watched");
-										}
-
-										to_check_futures.push(
-											location_check_sleep(location_id, library)
-										);
-									}
-									Err(e) => {
-										warn!("Error while checking online status of location {location_id}: {e}");
-										//  Ok(()) // TODO: Probs should be error but that will break startup when location is offline
-									}
-								}
-							} else {
-								info!(
-									"Location not found in database to be watched: {}",
-									location_id
-								);
-								// Ok(()) // TODO: Probs should be error but that will break startup when location is offline
-							}
-
-							#[cfg(not(target_os = "android"))]
 							response_tx.send(
 							if let Some(location) = get_location(location_id, &library).await {
 								match check_online(&location, &node, &library).await {

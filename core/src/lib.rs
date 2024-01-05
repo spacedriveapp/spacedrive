@@ -57,7 +57,7 @@ pub struct Node {
 	pub jobs: Arc<job::Jobs>,
 	#[cfg(not(target_os = "android"))]
 	pub locations: location::Locations,
-	#[cfg(target_os = "android")]
+	// #[cfg(target_os = "android")]
 	pub android_locations: location::AndroidLocations,
 	pub p2p: Arc<p2p::P2PManager>,
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
@@ -102,8 +102,8 @@ impl Node {
 		#[cfg(not(target_os = "android"))]
 		let (locations, locations_actor) = location::Locations::new();
 
-		#[cfg(target_os = "android")]
-		let (locations, locations_actor) = location::AndroidLocations::new();
+		// #[cfg(target_os = "android")]
+		let (android_locations, android_locations_actor) = location::AndroidLocations::new();
 
 		let (jobs, jobs_actor) = job::Jobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
@@ -113,8 +113,8 @@ impl Node {
 			jobs,
 			#[cfg(not(target_os = "android"))]
 			locations,
-			#[cfg(target_os = "android")]
-			android_locations: locations,
+			// #[cfg(target_os = "android")]
+			android_locations,
 			notifications: notifications::Notifications::new(),
 			p2p,
 			thumbnailer: Thumbnailer::new(
@@ -146,7 +146,12 @@ impl Node {
 
 		// Be REALLY careful about ordering here or you'll get unreliable deadlock's!
 
-		locations_actor.start(node.clone());
+		// if cfg!(target_os = "android") {
+		#[cfg(target_os = "android")]
+		android_locations_actor.start(node.clone());
+		// } else {
+		// 	locations_actor.start(node.clone());
+		// }
 		node.libraries.init(&node).await?;
 		jobs_actor.start(node.clone());
 		p2p_actor.start(node.clone());

@@ -8,11 +8,18 @@ use std::{collections::HashMap, ffi::OsStr};
 
 use thiserror::Error;
 use tracing::{debug, info};
-use once_cell::sync::Lazy;
 
-pub static RUNNING_WATCH_DESCRIPTORS: Lazy<Arc<Mutex<HashMap<&'static str, WatchDescriptor>>>> = Lazy::new(|| {
-	Arc::new(Mutex::new(HashMap::new()))
-});
+static mut RUNNING_WATCH_DESCRIPTORS: Option<
+	Arc<Mutex<HashMap<String, WatchDescriptor>>>,
+> = None;
+
+fn init_running_watch_descriptors() {
+	// Initialize the HashMap within the Arc<Mutex<>>
+	let map = HashMap::new();
+	unsafe {
+		RUNNING_WATCH_DESCRIPTORS = Some(Arc::new(Mutex::new(map)));
+	}
+}
 
 fn handle_event(event: &Event<&OsStr>) {
 	info!("Received event: {:?}", event);
@@ -73,6 +80,8 @@ pub fn init() -> Inotify {
 
 	run_event_watcher(&mut inotify);
 
+	init_running_watch_descriptors();
+
 	return inotify;
 }
 
@@ -92,11 +101,10 @@ fn run_event_watcher(inotify: &mut Inotify) {
 	}
 }
 
-pub fn add_watcher(inotify: &Inotify, directory_path: &str) -> Result<(), AndroidWatcherError> {
-	lazy_static! {
-		static ref RUNNING_WATCH_DESCRIPTORS: Mutex<HashMap<String, u32>> = Mutex::new(HashMap::new());
-	}
-
+pub async fn add_watcher(
+	inotify: &Inotify,
+	directory_path: &str,
+) -> Result<(), AndroidWatcherError> {
 	let wd = inotify
 		.watches()
 		.add(
@@ -107,32 +115,24 @@ pub fn add_watcher(inotify: &Inotify, directory_path: &str) -> Result<(), Androi
 
 	info!("iNotify -> Watching directory: {}", directory_path);
 
-	let running_watch_descriptors = Arc::clone(&RUNNING_WATCH_DESCRIPTORS);
-
-	let mut watch_descriptors = running_watch_descriptors.lock().unwrap();
-	watch_descriptors.insert(directory_path.to_string(), wd);
-
-	info!("iNotify -> Watcher has been added to RUNNING_WATCH_DESCRIPTORS");
+	add_to_watcher_dict(directory_path.to_string().clone(), wd).await;
 
 	Ok(())
 }
 
-pub fn remove_watcher(inotify: &Inotify, directory_path: &str) -> Result<(), AndroidWatcherError> {
-	// Fetch Watch Descriptor from RUNNING_WATCH_DESCRIPTORS
-	let running_watch_descriptors = Arc::clone(unsafe { &RUNNING_WATCH_DESCRIPTORS });
+pub async fn remove_watcher(
+	inotify: &Inotify,
+	directory_path: &str,
+) -> Result<(), AndroidWatcherError> {
+	let watcher = get_from_watcher_dict(directory_path.to_string().clone())
+		.await
+		.expect(AndroidWatcherError::FailedFindWatcher(directory_path.to_string().clone()).to_string().as_str());
 
-	unsafe {
-		let mut watch_descriptors = running_watch_descriptors.lock().unwrap();
-		let wd = watch_descriptors.get(directory_path).expect(
-			AndroidWatcherError::FailedFindWatcher(directory_path.to_string()).to_string().as_str()
-		);
+	inotify.watches().remove(watcher).expect(AndroidWatcherError::RemoveWatch(directory_path.to_string()).to_string().as_str());
 
-		inotify.watches().remove(wd.clone());
+	remove_from_watcher_dict(directory_path.to_string().clone()).await;
 
-		watch_descriptors.remove(directory_path);
-
-		Ok(())
-	}
+	Ok(())
 }
 
 #[derive(Error, Debug)]
@@ -151,4 +151,33 @@ pub enum AndroidWatcherError {
 	RemoveWatch(String),
 	#[error("Failed to find Path in RUNNING_WATCH_DESCRIPTORS: (error: {0})")]
 	FailedFindWatcher(String),
+}
+
+async fn add_to_watcher_dict(directory_path: String, watch_descriptor: WatchDescriptor) {
+	unsafe {
+		if let Some(ref map) = RUNNING_WATCH_DESCRIPTORS {
+			let mut guard = map.lock().expect("Mutex lock poisoned");
+			guard.insert(directory_path, watch_descriptor);
+		}
+	}
+}
+
+async fn remove_from_watcher_dict(directory_path: String) {
+	unsafe {
+		if let Some(ref map) = RUNNING_WATCH_DESCRIPTORS {
+			let mut guard = map.lock().expect("Mutex lock poisoned");
+			guard.remove(&directory_path);
+		}
+	}
+}
+
+async fn get_from_watcher_dict(directory_path: String) -> Option<WatchDescriptor> {
+	unsafe {
+		if let Some(ref map) = RUNNING_WATCH_DESCRIPTORS {
+			let guard = map.lock().expect("Mutex lock poisoned");
+			guard.get(&directory_path).cloned()
+		} else {
+			None
+		}
+	}
 }

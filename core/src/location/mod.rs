@@ -49,7 +49,7 @@ pub mod non_indexed;
 pub use error::LocationError;
 use indexer::IndexerJobInit;
 pub use manager::{LocationManagerError, Locations};
-pub use manager_android::Locations as AndroidLocations;
+pub use manager_android::AndroidLocations;
 use metadata::SpacedriveLocationMetadataFile;
 
 use file_path_helper::IsolatedFilePathData;
@@ -265,6 +265,11 @@ impl LocationCreateArgs {
 				.add(location.data.id, library.clone())
 				.await?;
 
+			#[cfg(target_os = "android")]
+			node.android_locations
+				.add(location.data.id, library.clone())
+				.await?;
+
 			info!(
 				"Added library (library_id = {}) to location: {:?}",
 				library.id, &location.data
@@ -385,9 +390,7 @@ impl LocationUpdateArgs {
 					node.android_locations
 						.remove(self.id, library.clone())
 						.await?;
-					node.android_locations
-						.add(self.id, library.clone())
-						.await?;
+					node.android_locations.add(self.id, library.clone()).await?;
 				}
 				#[cfg(not(target_os = "android"))]
 				{
