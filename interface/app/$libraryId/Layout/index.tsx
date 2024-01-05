@@ -32,7 +32,6 @@ import Sidebar from './Sidebar';
 
 const Layout = () => {
 	const { library } = useClientContext();
-	const libraries = useCachedLibraries();
 	const os = useOperatingSystem();
 	const showControls = useShowControls();
 	const windowState = useWindowState();
@@ -47,13 +46,6 @@ const Layout = () => {
 
 	usePlausible();
 	useUpdater();
-
-	if (library === null && libraries.data) {
-		const firstLibrary = libraries.data[0];
-
-		if (firstLibrary) return <Navigate to={`/${firstLibrary.uuid}`} replace />;
-		else return <Navigate to="./" replace />;
-	}
 
 	return (
 		<LayoutContext.Provider value={ctxValue}>
