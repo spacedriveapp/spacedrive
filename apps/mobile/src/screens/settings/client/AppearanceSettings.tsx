@@ -5,7 +5,7 @@ import { Themes, useThemeStore } from '@sd/client';
 import { SettingsTitle } from '~/components/settings/SettingsContainer';
 import Colors from '~/constants/style/Colors';
 import { tw, twStyle } from '~/lib/tailwind';
-import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
+import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
 type Theme = {
 	insideColor: ColorValue;

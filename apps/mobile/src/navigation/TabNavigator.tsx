@@ -7,11 +7,10 @@ import { StyleSheet } from 'react-native';
 import { tw } from '~/lib/tailwind';
 
 import { RootStackParamList } from '.';
-import { SettingsStackParamList } from './SettingsNavigator';
 import BrowseStack, { BrowseStackParamList } from './tabs/BrowseStack';
 import NetworkStack, { NetworkStackParamList } from './tabs/NetworkStack';
 import OverviewStack, { OverviewStackParamList } from './tabs/OverviewStack';
-import SettingsStack from './tabs/SettingsStack';
+import SettingsStack, { SettingsStackParamList } from './tabs/SettingsStack';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
