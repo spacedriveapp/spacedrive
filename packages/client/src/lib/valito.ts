@@ -55,9 +55,5 @@ export function useSelector<T extends object, U>(proxyObject: T, selector: (prox
 		[proxyObject, selector]
 	);
 
-	useMemo(() => {
-		console.log('useSelector changed', slice);
-	}, [slice]);
-
 	return slice;
 }
