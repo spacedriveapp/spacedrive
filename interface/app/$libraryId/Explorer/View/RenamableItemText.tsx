@@ -6,6 +6,7 @@ import {
 	getIndexedItemFilePath,
 	useLibraryMutation,
 	useRspcLibraryContext,
+	useSelector,
 	type ExplorerItem
 } from '@sd/client';
 import { toast } from '@sd/ui';
@@ -14,7 +15,7 @@ import { useIsDark } from '~/hooks';
 import { useExplorerContext } from '../Context';
 import { RenameTextBox, RenameTextBoxProps } from '../FilePath/RenameTextBox';
 import { useQuickPreviewStore } from '../QuickPreview/store';
-import { useExplorerStore } from '../store';
+import { explorerStore } from '../store';
 
 interface Props extends Pick<RenameTextBoxProps, 'idleClassName' | 'lines'> {
 	item: ExplorerItem;
@@ -75,8 +76,6 @@ function useDerivedData(item: ExplorerItem) {
 //
 // Eg. the Dnd context changes a lot but most changes to it don't affect the specific condition this component cares about.
 export function RenamableItemText({ item, ...props }: Props) {
-	const explorerStore = useExplorerStore();
-
 	return (
 		<RenamableItemTextInner
 			{...props}

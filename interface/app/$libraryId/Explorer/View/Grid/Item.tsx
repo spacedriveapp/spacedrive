@@ -3,7 +3,7 @@ import { type ExplorerItem } from '@sd/client';
 
 import { RenderItem } from '.';
 import { useExplorerContext } from '../../Context';
-import { getExplorerStore, isCut } from '../../store';
+import { explorerStore, isCut } from '../../store';
 import { uniqueId } from '../../util';
 import { useExplorerViewContext } from '../Context';
 import { useGridContext } from './context';
@@ -18,7 +18,6 @@ export const GridItem = ({ children, item, ...props }: Props) => {
 	const grid = useGridContext();
 	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
-	const explorerStore = getExplorerStore();
 
 	const itemId = useMemo(() => uniqueId(item), [item]);
 
