@@ -5,7 +5,10 @@ module.exports = function (theme) {
 		content: ['./src/screens/**/*.{ts,tsx}', './src/components/**/*.{ts,tsx}', 'App.tsx'],
 		theme: {
 			extend: {
-				colors: theme ? COLORS[theme] : COLORS.dark
+				colors: theme ? COLORS[theme] : COLORS.dark,
+				fontSize: {
+					md: '16px',
+				},
 			}
 		},
 		variants: {

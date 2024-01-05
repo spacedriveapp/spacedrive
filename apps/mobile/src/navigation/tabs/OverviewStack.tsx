@@ -19,7 +19,11 @@ export default function OverviewStack() {
 				headerBackTitleStyle: tw`text-base`
 			}}
 		>
-			<Stack.Screen name="Overview" component={OverviewScreen} options={{ header: Header }} />
+			<Stack.Screen
+				name="Overview"
+				component={OverviewScreen}
+				options={{ header: () => <Header title="Overview" /> }}
+			/>
 		</Stack.Navigator>
 	);
 }

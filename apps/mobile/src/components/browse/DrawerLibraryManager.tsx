@@ -12,14 +12,12 @@ import { ModalRef } from '../layout/Modal';
 import CreateLibraryModal from '../modal/CreateLibraryModal';
 import { Divider } from '../primitive/Divider';
 
-const BrowseLibraryManager = () => {
-	const [dropdownClosed, setDropdownClosed] = useState(true);
+interface Props {
+	style?: string;
+}
 
-	// Closes the dropdown when the drawer is closed
-	// const isDrawerOpen = useDrawerStatus() === 'open';
-	// useEffect(() => {
-	// 	if (!isDrawerOpen) setDropdownClosed(true);
-	// }, [isDrawerOpen]);
+const BrowseLibraryManager = ({ style }: Props) => {
+	const [dropdownClosed, setDropdownClosed] = useState(true);
 
 	const { library: currentLibrary, libraries } = useClientContext();
 
@@ -28,17 +26,17 @@ const BrowseLibraryManager = () => {
 	const modalRef = useRef<ModalRef>(null);
 
 	return (
-		<View>
+		<View style={twStyle(`w-full`, style)}>
 			<Pressable onPress={() => setDropdownClosed((v) => !v)}>
 				<View
 					style={twStyle(
-						'flex h-10 w-full flex-row items-center justify-between border bg-sidebar-box px-3 shadow-sm',
+						'flex h-11 w-full flex-row items-center justify-between border bg-sidebar-box px-3 shadow-sm',
 						dropdownClosed
 							? 'rounded-md border-sidebar-line/50'
 							: 'rounded-t-md border-sidebar-line border-b-app-box bg-sidebar-button'
 					)}
 				>
-					<Text style={tw`text-sm font-semibold text-ink`}>
+					<Text style={tw`text-md font-semibold text-ink`}>
 						{currentLibrary?.config.name}
 					</Text>
 					<MotiView
@@ -49,11 +47,12 @@ const BrowseLibraryManager = () => {
 					</MotiView>
 				</View>
 			</Pressable>
-			<AnimatedHeight hide={dropdownClosed}>
-				<View style={tw`rounded-b-md border-sidebar-line bg-sidebar-button p-2`}>
+			<AnimatedHeight style={tw`absolute top-10 z-[10] w-full`} hide={dropdownClosed}>
+				<View
+					style={tw`w-full rounded-b-md border border-sidebar-line bg-sidebar-button p-2`}
+				>
 					{/* Libraries */}
 					{libraries.data?.map((library) => {
-						// console.log('library', library);
 						return (
 							<Pressable
 								key={library.uuid}
