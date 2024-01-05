@@ -1,4 +1,4 @@
-import { proxy, useSnapshot } from 'valtio';
+import { proxy } from 'valtio';
 import { proxySet } from 'valtio/utils';
 import { z } from 'zod';
 import {
@@ -152,8 +152,7 @@ export function flattenThumbnailKey(thumbKey: string[]) {
 	return thumbKey.join('/');
 }
 
-// Keep the private and use `useExplorerState` or `getExplorerStore` or you will get production build issues.
-const explorerStore = proxy({
+export const explorerStore = proxy({
 	...state,
 	reset: (_state?: typeof state) => resetStore(explorerStore, _state || state),
 	addNewThumbnail: (thumbKey: string[]) => {
@@ -166,10 +165,11 @@ const explorerStore = proxy({
 	}
 });
 
-export function useExplorerStore() {
-	return useSnapshot(explorerStore);
-}
+// export function useExplorerStore() {
+// 	return useSnapshot(explorerStore);
+// }
 
+// TODO: Remove this too
 export function getExplorerStore() {
 	return explorerStore;
 }

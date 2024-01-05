@@ -6,6 +6,7 @@ import {
 	getIndexedItemFilePath,
 	useLibraryMutation,
 	useRspcLibraryContext,
+	useSelector,
 	type ExplorerItem
 } from '@sd/client';
 import { toast } from '@sd/ui';
@@ -14,7 +15,7 @@ import { useIsDark } from '~/hooks';
 import { useExplorerContext } from '../Context';
 import { RenameTextBox, RenameTextBoxProps } from '../FilePath/RenameTextBox';
 import { useQuickPreviewStore } from '../QuickPreview/store';
-import { useExplorerStore } from '../store';
+import { explorerStore } from '../store';
 
 interface Props extends Pick<RenameTextBoxProps, 'idleClassName' | 'lines'> {
 	item: ExplorerItem;
@@ -29,7 +30,7 @@ export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) =>
 	const rspc = useRspcLibraryContext();
 
 	const explorer = useExplorerContext({ suspense: false });
-	const explorerStore = useExplorerStore();
+	const drag = useSelector(explorerStore, (s) => s.drag);
 
 	const quickPreviewStore = useQuickPreviewStore();
 
@@ -131,7 +132,7 @@ export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) =>
 
 	const disabled =
 		!props.selected ||
-		explorerStore.drag?.type === 'dragging' ||
+		drag?.type === 'dragging' ||
 		!explorer ||
 		explorer.selectedItems.size > 1 ||
 		quickPreviewStore.open ||

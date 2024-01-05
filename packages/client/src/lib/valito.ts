@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { proxy, subscribe } from 'valtio';
 
 export function resetStore<T extends Record<string, any>, E extends Record<string, any>>(
@@ -31,4 +32,14 @@ export function valtioPersist<T extends object>(
 		localStorage.setItem(localStorageKey, JSON.stringify(opts?.saveFn ? opts.saveFn(p) : p))
 	);
 	return p;
+}
+
+// Subscribe to a Valtio store in React with a selector function.
+export function useSelector<T extends object, U>(proxyObject: T, selector: (proxyObject: T) => U) {
+	const [slice, setSlice] = useState(() => selector(proxyObject));
+	useEffect(
+		() => subscribe(proxyObject, () => setSlice(selector(proxyObject))),
+		[proxyObject, selector]
+	);
+	return slice;
 }

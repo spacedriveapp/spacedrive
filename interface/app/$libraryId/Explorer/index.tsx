@@ -1,6 +1,11 @@
 import { FolderNotchOpen } from '@phosphor-icons/react';
 import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
-import { getExplorerLayoutStore, useExplorerLayoutStore, useLibrarySubscription } from '@sd/client';
+import {
+	getExplorerLayoutStore,
+	useExplorerLayoutStore,
+	useLibrarySubscription,
+	useSelector
+} from '@sd/client';
 import { useShortcut } from '~/hooks';
 
 import { useTopBarContext } from '../TopBar/Layout';
@@ -11,7 +16,7 @@ import { ExplorerPath, PATH_BAR_HEIGHT } from './ExplorerPath';
 import { Inspector, INSPECTOR_WIDTH } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
 import { getQuickPreviewStore } from './QuickPreview/store';
-import { getExplorerStore, useExplorerStore } from './store';
+import { explorerStore, getExplorerStore } from './store';
 import { useKeyRevealFinder } from './useKeyRevealFinder';
 import { ExplorerViewProps, View } from './View';
 import { EmptyNotice } from './View/EmptyNotice';
@@ -30,7 +35,7 @@ interface Props {
  * all the elements of the explorer except for the context, which must be used in the parent component.
  */
 export default function Explorer(props: PropsWithChildren<Props>) {
-	const explorerStore = useExplorerStore();
+	const addNewThumbnail = useSelector(explorerStore, (s) => s.addNewThumbnail);
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
 
@@ -45,7 +50,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 			console.error('Error in RSPC subscription new thumbnail', err);
 		},
 		onData: (thumbKey) => {
-			explorerStore.addNewThumbnail(thumbKey);
+			addNewThumbnail(thumbKey);
 		}
 	});
 
@@ -57,7 +62,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 	useShortcut('showInspector', (e) => {
 		e.stopPropagation();
 		if (getQuickPreviewStore().open) return;
-		getExplorerStore().showInspector = !explorerStore.showInspector;
+		getExplorerStore().showInspector = !getExplorerStore().showInspector;
 	});
 
 	useShortcut('showHiddenFiles', (e) => {

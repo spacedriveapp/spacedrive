@@ -1,14 +1,19 @@
-import { useItemsAsEphemeralPaths, useItemsAsFilePaths, useLibraryMutation } from '@sd/client';
+import {
+	useItemsAsEphemeralPaths,
+	useItemsAsFilePaths,
+	useLibraryMutation,
+	useSelector
+} from '@sd/client';
 import { toast } from '@sd/ui';
 import { useExplorerContext } from '~/app/$libraryId/Explorer/Context';
-import { getExplorerStore, useExplorerStore } from '~/app/$libraryId/Explorer/store';
+import { explorerStore, getExplorerStore } from '~/app/$libraryId/Explorer/store';
 import { useExplorerSearchParams } from '~/app/$libraryId/Explorer/util';
 import { isNonEmpty } from '~/util';
 
 import { useShortcut } from './useShortcut';
 
 export const useKeyCopyCutPaste = () => {
-	const { cutCopyState } = useExplorerStore();
+	const cutCopyState = useSelector(explorerStore, (s) => s.cutCopyState);
 	const [{ path }] = useExplorerSearchParams();
 
 	const copyFiles = useLibraryMutation('files.copyFiles');

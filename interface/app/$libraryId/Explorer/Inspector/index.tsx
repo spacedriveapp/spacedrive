@@ -41,6 +41,7 @@ import {
 	useItemsAsObjects,
 	useLibraryQuery,
 	useNodes,
+	useSelector,
 	type ExplorerItem
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, toast, Tooltip, tw } from '@sd/ui';
@@ -53,7 +54,7 @@ import { useExplorerContext } from '../Context';
 import AssignTagMenuItems from '../ContextMenu/AssignTagMenuItems';
 import { FileThumb } from '../FilePath/Thumb';
 import { useQuickPreviewStore } from '../QuickPreview/store';
-import { getExplorerStore, useExplorerStore } from '../store';
+import { explorerStore, getExplorerStore } from '../store';
 import { uniqueId, useExplorerItemData } from '../util';
 import FavoriteButton from './FavoriteButton';
 import MediaData from './MediaData';
@@ -402,7 +403,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 };
 
 const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
-	const explorerStore = useExplorerStore();
+	const isDragSelecting = useSelector(explorerStore, (s) => s.isDragSelecting);
 
 	const selectedObjects = useItemsAsObjects(items);
 
@@ -411,25 +412,25 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 	const { libraryId } = useZodRouteParams(LibraryIdParamsSchema);
 
 	const tagsQuery = useLibraryQuery(['tags.list'], {
-		enabled: readyToFetch && !explorerStore.isDragSelecting,
+		enabled: readyToFetch && !isDragSelecting,
 		suspense: true
 	});
 	useNodes(tagsQuery.data?.nodes);
 	const tags = useCache(tagsQuery.data?.items);
 
 	const labels = useLibraryQuery(['labels.list'], {
-		enabled: readyToFetch && !explorerStore.isDragSelecting,
+		enabled: readyToFetch && !isDragSelecting,
 		suspense: true
 	});
 
 	const tagsWithObjects = useLibraryQuery(
 		['tags.getWithObjects', selectedObjects.map(({ id }) => id)],
-		{ enabled: readyToFetch && !explorerStore.isDragSelecting }
+		{ enabled: readyToFetch && !isDragSelecting }
 	);
 
 	const labelsWithObjects = useLibraryQuery(
 		['labels.getWithObjects', selectedObjects.map(({ id }) => id)],
-		{ enabled: readyToFetch && !explorerStore.isDragSelecting }
+		{ enabled: readyToFetch && !isDragSelecting }
 	);
 
 	const getDate = useCallback((metadataDate: MetadataDate, date: Date) => {
