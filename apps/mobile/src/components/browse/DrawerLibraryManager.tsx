@@ -1,10 +1,11 @@
 import { useNavigation } from '@react-navigation/native';
+import { useClientContext } from '@sd/client';
 import { MotiView } from 'moti';
 import { CaretRight, Gear, Lock, Plus } from 'phosphor-react-native';
 import { useRef, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
-import { useClientContext } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
+import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 import { currentLibraryStore } from '~/utils/nav';
 
 import { AnimatedHeight } from '../animation/layout';
@@ -21,7 +22,7 @@ const BrowseLibraryManager = ({ style }: Props) => {
 
 	const { library: currentLibrary, libraries } = useClientContext();
 
-	const navigation = useNavigation();
+	const navigation = useNavigation<SettingsStackScreenProps<'Settings'>['navigation']>();
 
 	const modalRef = useRef<ModalRef>(null);
 
@@ -81,7 +82,10 @@ const BrowseLibraryManager = ({ style }: Props) => {
 					{/* Create Library */}
 					<Pressable
 						style={tw`flex flex-row items-center px-1.5 py-[8px]`}
-						onPress={() => modalRef.current?.present()}
+						onPress={() => {
+							modalRef.current?.present()
+							setDropdownClosed(true);
+						}}
 					>
 						<Plus size={18} weight="bold" color="white" style={tw`mr-2`} />
 						<Text style={tw`text-sm font-semibold text-white`}>New Library</Text>
@@ -89,9 +93,10 @@ const BrowseLibraryManager = ({ style }: Props) => {
 					<CreateLibraryModal ref={modalRef} />
 					{/* Manage Library */}
 					<Pressable
-						onPress={() =>
-							navigation.navigate('Settings', { screen: 'LibraryGeneralSettings' })
-						}
+						onPress={() => {
+							navigation.navigate('LibraryGeneralSettings');
+							setDropdownClosed(true);
+						}}
 					>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
 							<Gear size={18} weight="bold" color="white" style={tw`mr-2`} />
