@@ -39,7 +39,7 @@ const BrowseTagItem: React.FC<BrowseTagItemProps> = ({ tag, onPress }) => {
 					</Pressable>
 				</View>
 				<Text
-					style={tw`w-full max-w-[75px] text-[12px] font-bold text-white`}
+					style={tw`w-full max-w-[75px] text-xs font-bold text-white`}
 					numberOfLines={1}
 				>
 					{tag.name}
@@ -62,17 +62,17 @@ const BrowseTags = () => {
 
 	return (
 		<View style={tw`gap-5`}>
-			<View style={tw`w-full flex-row items-center justify-between px-7`}>
+			<View style={tw`flex-row items-center justify-between w-full px-7`}>
 				<Text style={tw`text-xl font-bold text-white`}>Tags</Text>
 				<View style={tw`flex-row gap-3`}>
 					<Pressable>
-						<View style={tw`h-8 w-8 items-center justify-center rounded-md bg-accent`}>
+						<View style={tw`items-center justify-center w-8 h-8 rounded-md bg-accent`}>
 							<Eye weight="bold" size={18} style={tw`text-white`} />
 						</View>
 					</Pressable>
 					<Pressable onPress={() => modalRef.current?.present()}>
 						<View
-							style={tw`h-8 w-8 items-center justify-center rounded-md border border-dashed border-ink-faint bg-transparent`}
+							style={tw`items-center justify-center w-8 h-8 bg-transparent border border-dashed rounded-md border-ink-faint`}
 						>
 							<Plus weight="bold" size={18} style={tw`text-ink-faint`} />
 						</View>
