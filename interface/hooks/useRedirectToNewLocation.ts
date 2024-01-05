@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router';
 import { useLibraryQuery, useSelector } from '@sd/client';
-import { explorerStore, getExplorerStore } from '~/app/$libraryId/Explorer/store';
+import { explorerStore } from '~/app/$libraryId/Explorer/store';
 
 import { LibraryIdParamsSchema } from '../app/route-schemas';
 import { useZodRouteParams } from './useZodRouteParams';
@@ -31,6 +31,6 @@ export const useRedirectToNewLocation = () => {
 
 	if (hasIndexerJob) {
 		navigate(`/${libraryId}/location/${newLocation}`);
-		getExplorerStore().newLocationToRedirect = null;
+		explorerStore.newLocationToRedirect = null;
 	}
 };

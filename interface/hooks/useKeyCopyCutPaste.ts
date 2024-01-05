@@ -6,7 +6,7 @@ import {
 } from '@sd/client';
 import { toast } from '@sd/ui';
 import { useExplorerContext } from '~/app/$libraryId/Explorer/Context';
-import { explorerStore, getExplorerStore } from '~/app/$libraryId/Explorer/store';
+import { explorerStore } from '~/app/$libraryId/Explorer/store';
 import { useExplorerSearchParams } from '~/app/$libraryId/Explorer/util';
 import { isNonEmpty } from '~/util';
 
@@ -43,7 +43,7 @@ export const useKeyCopyCutPaste = () => {
 	useShortcut('copyObject', (e) => {
 		e.stopPropagation();
 		if (explorer.parent?.type === 'Location') {
-			getExplorerStore().cutCopyState = {
+			explorerStore.cutCopyState = {
 				sourceParentPath: path ?? '/',
 				type: 'Copy',
 				indexedArgs,
@@ -55,7 +55,7 @@ export const useKeyCopyCutPaste = () => {
 	useShortcut('cutObject', (e) => {
 		e.stopPropagation();
 		if (explorer.parent?.type === 'Location') {
-			getExplorerStore().cutCopyState = {
+			explorerStore.cutCopyState = {
 				sourceParentPath: path ?? '/',
 				type: 'Cut',
 				indexedArgs,

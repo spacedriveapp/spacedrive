@@ -41,7 +41,7 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 		{
 			suspense: true,
 			enabled: !!deferredSearch,
-			onSuccess: () => getExplorerStore().resetNewThumbnails()
+			onSuccess: () => explorerStore.resetNewThumbnails()
 		}
 	);
 

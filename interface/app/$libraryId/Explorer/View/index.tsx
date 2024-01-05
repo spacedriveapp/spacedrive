@@ -18,7 +18,7 @@ import { useExplorerContext } from '../Context';
 import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
 import { getQuickPreviewStore, useQuickPreviewStore } from '../QuickPreview/store';
-import { explorerStore, getExplorerStore } from '../store';
+import { explorerStore } from '../store';
 import { useExplorerDroppable } from '../useExplorerDroppable';
 import { useExplorerSearchParams } from '../util';
 import { ViewContext, type ExplorerViewContext } from './Context';
@@ -84,7 +84,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 		if (!explorerStore.isContextMenuOpen || explorer.selectedItems.size !== 0) return;
 		// Close context menu when no items are selected
 		document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-		getExplorerStore().isContextMenuOpen = false;
+		explorerStore.isContextMenuOpen = false;
 	}, [explorer.selectedItems, explorerStore.isContextMenuOpen]);
 
 	useEffect(() => {
@@ -105,10 +105,9 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 
 	useEffect(() => {
 		return () => {
-			const store = getExplorerStore();
-			store.isRenaming = false;
-			store.isContextMenuOpen = false;
-			store.isDragSelecting = false;
+			explorerStore.isRenaming = false;
+			explorerStore.isContextMenuOpen = false;
+			explorerStore.isDragSelecting = false;
 		};
 	}, [layoutMode]);
 

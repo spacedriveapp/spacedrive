@@ -19,7 +19,7 @@ import { KeyManager } from '../KeyManager';
 import TopBarOptions, { ToolOption, TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import { useExplorerContext } from './Context';
 import OptionsPanel from './OptionsPanel';
-import { explorerStore, getExplorerStore } from './store';
+import { explorerStore } from './store';
 
 const layoutIcons: Record<ExplorerLayout, Icon> = {
 	grid: SquaresFour,
@@ -80,7 +80,7 @@ export const useExplorerTopBarOptions = () => {
 			toolTipLabel: 'Show Inspector',
 			keybinds: [controlIcon, 'I'],
 			onClick: () => {
-				getExplorerStore().showInspector = !showInspector;
+				explorerStore.showInspector = !showInspector;
 			},
 			icon: (
 				<SidebarSimple
@@ -121,7 +121,7 @@ export const useExplorerTopBarOptions = () => {
 				<Tag weight={tagAssignMode ? 'fill' : 'regular'} className={TOP_BAR_ICON_STYLE} />
 			),
 			// TODO: Assign tag mode is not yet implemented!
-			// onClick: () => (getExplorerStore().tagAssignMode = !explorerStore.tagAssignMode),
+			// onClick: () => (explorerStore.tagAssignMode = !explorerStore.tagAssignMode),
 			onClick: () => toast.info('Coming soon!'),
 			topBarActive: tagAssignMode,
 			individual: true,

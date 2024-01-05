@@ -165,15 +165,6 @@ export const explorerStore = proxy({
 	}
 });
 
-// export function useExplorerStore() {
-// 	return useSnapshot(explorerStore);
-// }
-
-// TODO: Remove this too
-export function getExplorerStore() {
-	return explorerStore;
-}
-
 export function isCut(item: ExplorerItem, cutCopyState: CutCopyState) {
 	switch (item.type) {
 		case 'NonIndexedPath':

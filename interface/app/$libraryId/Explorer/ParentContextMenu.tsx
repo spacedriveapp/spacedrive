@@ -18,7 +18,7 @@ import { keybindForOs } from '~/util/keybinds';
 import { useExplorerContext } from './Context';
 import { CopyAsPathBase } from './CopyAsPath';
 import { RevealInNativeExplorerBase } from './RevealInNativeExplorer';
-import { explorerStore, getExplorerStore } from './store';
+import { explorerStore } from './store';
 import { useExplorerSearchParams } from './util';
 
 export default (props: PropsWithChildren) => {
@@ -132,7 +132,7 @@ export default (props: PropsWithChildren) => {
 					<CM.Item
 						label="Deselect"
 						onClick={() => {
-							getExplorerStore().cutCopyState = {
+							explorerStore.cutCopyState = {
 								type: 'Idle'
 							};
 						}}

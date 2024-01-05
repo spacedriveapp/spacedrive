@@ -12,7 +12,7 @@ import { usePlatform, type Platform } from '~/util/Platform';
 import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore } from '../QuickPreview/store';
 import { RevealInNativeExplorerBase } from '../RevealInNativeExplorer';
-import { explorerStore, getExplorerStore } from '../store';
+import { explorerStore } from '../store';
 import { useViewItemDoubleClick } from '../View/ViewItem';
 import { Conditional, ConditionalItem } from './ConditionalItem';
 import { useContextMenuContext } from './context';
@@ -82,7 +82,7 @@ export const Details = new ConditionalItem({
 				label="Details"
 				keybind={keybind([ModifierKeys.Control], ['I'])}
 				// icon={Sidebar}
-				onClick={() => (getExplorerStore().showInspector = true)}
+				onClick={() => (explorerStore.showInspector = true)}
 			/>
 		);
 	}
@@ -106,7 +106,7 @@ export const Rename = new ConditionalItem({
 			<ContextMenu.Item
 				label="Rename"
 				keybind={keybind([], [os === 'windows' ? 'F2' : 'Enter'])}
-				onClick={() => (getExplorerStore().isRenaming = true)}
+				onClick={() => (explorerStore.isRenaming = true)}
 			/>
 		);
 	}
@@ -181,7 +181,7 @@ export const Deselect = new ConditionalItem({
 			label="Deselect"
 			icon={FileX}
 			onClick={() => {
-				getExplorerStore().cutCopyState = {
+				explorerStore.cutCopyState = {
 					type: 'Idle'
 				};
 			}}

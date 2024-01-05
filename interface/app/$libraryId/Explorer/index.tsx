@@ -16,7 +16,7 @@ import { ExplorerPath, PATH_BAR_HEIGHT } from './ExplorerPath';
 import { Inspector, INSPECTOR_WIDTH } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
 import { getQuickPreviewStore } from './QuickPreview/store';
-import { explorerStore, getExplorerStore } from './store';
+import { explorerStore } from './store';
 import { useKeyRevealFinder } from './useKeyRevealFinder';
 import { ExplorerViewProps, View } from './View';
 import { EmptyNotice } from './View/EmptyNotice';
@@ -62,7 +62,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 	useShortcut('showInspector', (e) => {
 		e.stopPropagation();
 		if (getQuickPreviewStore().open) return;
-		getExplorerStore().showInspector = !getExplorerStore().showInspector;
+		explorerStore.showInspector = !explorerStore.showInspector;
 	});
 
 	useShortcut('showHiddenFiles', (e) => {

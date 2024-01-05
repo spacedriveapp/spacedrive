@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { ExplorerItem, getItemFilePath, Location, Tag } from '@sd/client';
 
 import { useExplorerContext } from './Context';
-import { getExplorerStore } from './store';
+import { explorerStore } from './store';
 
 type ExplorerItemType = ExplorerItem['type'];
 
@@ -106,7 +106,7 @@ export const useExplorerDroppable = ({
 	const isDroppable = useMemo(() => {
 		if (!droppable.isOver) return false;
 
-		const { drag } = getExplorerStore();
+		const drag = explorerStore.drag;
 		if (!drag || drag.type === 'touched') return false;
 
 		let allowedType: ExplorerItemType | ExplorerItemType[] | undefined = allow;

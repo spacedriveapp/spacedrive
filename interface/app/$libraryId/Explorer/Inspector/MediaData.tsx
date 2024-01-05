@@ -14,7 +14,7 @@ import {
 import { Accordion } from '~/components';
 import { Platform, usePlatform } from '~/util/Platform';
 
-import { explorerStore, getExplorerStore } from '../store';
+import { explorerStore } from '../store';
 import { MetaData } from './index';
 
 interface Props {
@@ -118,7 +118,7 @@ const MediaData = ({ data }: Props) => {
 		<div className="flex flex-col gap-0 py-2">
 			<Accordion
 				isOpen={showMoreInfo}
-				onToggle={(isOpen) => (getExplorerStore().showMoreInfo = isOpen)}
+				onToggle={(isOpen) => (explorerStore.showMoreInfo = isOpen)}
 				variant="apple"
 				title="More info"
 			>

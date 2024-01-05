@@ -13,7 +13,7 @@ import { useSelector } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { useOperatingSystem, useShortcut } from '~/hooks';
 
-import { explorerStore, getExplorerStore } from '../store';
+import { explorerStore } from '../store';
 
 export interface RenameTextBoxProps extends React.HTMLAttributes<HTMLDivElement> {
 	name: string;
@@ -134,7 +134,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 		useEffect(() => {
 			if (!disabled) {
 				if (isRenaming && !allowRename) setAllowRename(true);
-				else getExplorerStore().isRenaming = allowRename;
+				else explorerStore.isRenaming = allowRename;
 			} else resetState();
 		}, [isRenaming, disabled, allowRename]);
 
@@ -182,7 +182,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 					onBlur={() => {
 						handleRename();
 						resetState();
-						getExplorerStore().isRenaming = false;
+						explorerStore.isRenaming = false;
 					}}
 					onKeyDown={handleKeyDown}
 					{...props}

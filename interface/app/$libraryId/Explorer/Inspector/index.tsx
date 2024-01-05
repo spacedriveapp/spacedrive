@@ -54,7 +54,7 @@ import { useExplorerContext } from '../Context';
 import AssignTagMenuItems from '../ContextMenu/AssignTagMenuItems';
 import { FileThumb } from '../FilePath/Thumb';
 import { useQuickPreviewStore } from '../QuickPreview/store';
-import { explorerStore, getExplorerStore } from '../store';
+import { explorerStore } from '../store';
 import { uniqueId, useExplorerItemData } from '../util';
 import FavoriteButton from './FavoriteButton';
 import MediaData from './MediaData';
@@ -98,7 +98,7 @@ export const Inspector = forwardRef<HTMLDivElement, Props>(
 		const selectedItems = useMemo(() => [...explorer.selectedItems], [explorer.selectedItems]);
 
 		useEffect(() => {
-			getExplorerStore().showMoreInfo = false;
+			explorerStore.showMoreInfo = false;
 		}, [pathname]);
 
 		return (
