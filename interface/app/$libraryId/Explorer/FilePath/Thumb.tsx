@@ -234,6 +234,8 @@ export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) =
 	);
 });
 
+FileThumb.displayName = 'FileThumb';
+
 interface ThumbnailProps extends Omit<ImageProps, 'blackBarsStyle' | 'size'> {
 	cover?: boolean;
 	blackBars?: boolean;
