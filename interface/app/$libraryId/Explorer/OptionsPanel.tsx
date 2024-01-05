@@ -120,7 +120,7 @@ export default () => {
 				<div className="grid grid-cols-2 gap-y-1">
 					<RadixCheckbox
 						checked={layoutStore.showPathBar}
-						label="Show Path Bar"
+						label={t('show_path_bar')}
 						name="showPathBar"
 						onCheckedChange={(value) => {
 							if (typeof value !== 'boolean') return;
@@ -131,7 +131,7 @@ export default () => {
 					{settings.layoutMode === 'grid' && (
 						<RadixCheckbox
 							checked={settings.showBytesInGridView}
-							label="Show Object size"
+							label={t('show_object_size')}
 							name="showBytesInGridView"
 							onCheckedChange={(value) => {
 								if (typeof value !== 'boolean') return;
@@ -143,7 +143,7 @@ export default () => {
 
 					<RadixCheckbox
 						checked={settings.showHiddenFiles}
-						label="Show Hidden Files"
+						label={t('show_hidden_files')}
 						name="showHiddenFiles"
 						onCheckedChange={(value) => {
 							if (typeof value !== 'boolean') return;
@@ -154,7 +154,7 @@ export default () => {
 					{settings.layoutMode === 'media' && (
 						<RadixCheckbox
 							checked={settings.mediaAspectSquare}
-							label="Square Thumbnails"
+							label={t('square_thumbnails')}
 							name="mediaAspectSquare"
 							onCheckedChange={(value) => {
 								if (typeof value !== 'boolean') return;

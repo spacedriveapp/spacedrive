@@ -79,11 +79,11 @@ export function JobManager() {
 	return (
 		<div className="h-full overflow-hidden pb-10">
 			<div className="z-20 flex h-9 w-full items-center rounded-t-md border-b border-app-line/50 bg-app-button/30 px-2">
-				<span className=" ml-1.5 font-medium">{t("recent_jobs")}</span>
+				<span className=" ml-1.5 font-medium">{t('recent_jobs')}</span>
 				<div className="grow" />
 				{toggleConfirmation ? (
 					<div className="flex h-[85%] w-fit items-center justify-center gap-2 rounded-md border border-app-line bg-app/40 px-2">
-						<p className="text-[10px]">{t("are_you_sure")}</p>
+						<p className="text-[10px]">{t('are_you_sure')}</p>
 						<PopoverClose asChild>
 							<Check
 								onClick={clearAllJobsHandler}
@@ -102,7 +102,7 @@ export function JobManager() {
 						onClick={() => setToggleConfirmation((t) => !t)}
 						size="icon"
 					>
-						<Tooltip label="Clear out finished jobs">
+						<Tooltip label={t('clear_finished_jobs')}>
 							<Trash className="h-4 w-4" />
 						</Tooltip>
 					</Button>
@@ -120,7 +120,7 @@ export function JobManager() {
 					{jobGroups.data &&
 						(jobGroups.data.length === 0 ? (
 							<div className="flex h-32 items-center justify-center text-sidebar-inkDull">
-								{t("no_jobs")}
+								{t('no_jobs')}
 							</div>
 						) : (
 							sortJobData(jobGroups.data).map((group) => (

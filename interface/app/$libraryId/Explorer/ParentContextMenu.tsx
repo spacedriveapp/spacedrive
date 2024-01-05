@@ -145,7 +145,7 @@ export default (props: PropsWithChildren) => {
 				</>
 			) : (
 				<CM.Item
-					label={t("new_folder")}
+					label={t('new_folder')}
 					icon={FolderPlus}
 					onClick={() => {
 						if (parent?.type === 'Location') {
@@ -165,7 +165,7 @@ export default (props: PropsWithChildren) => {
 			)}
 
 			<CM.Item
-				label={t("share")}
+				label={t('share')}
 				icon={Share}
 				onClick={(e) => {
 					e.preventDefault();
@@ -184,7 +184,7 @@ export default (props: PropsWithChildren) => {
 					<RevealInNativeExplorerBase
 						items={[{ Location: { id: parent.location.id } }]}
 					/>
-					<CM.SubMenu label={t("more_actions")}>
+					<CM.SubMenu label={t('more_actions')}>
 						<CopyAsPathBase path={`${parent.location.path}${currentPath ?? ''}`} />
 
 						<CM.Item
@@ -196,12 +196,12 @@ export default (props: PropsWithChildren) => {
 									});
 								} catch (error) {
 									toast.error({
-										title: `Failed to re-index location`,
+										title: t('failed_to_reindex_location'),
 										body: `Error: ${error}.`
 									});
 								}
 							}}
-							label="Re-index"
+							label={t('reindex')}
 							icon={Repeat}
 						/>
 
@@ -215,7 +215,7 @@ export default (props: PropsWithChildren) => {
 									});
 								} catch (error) {
 									toast.error({
-										title: `Failed to generate thumbnails`,
+										title: t('failed_to_generate_thumbnails'),
 										body: `Error: ${error}.`
 									});
 								}
@@ -234,12 +234,12 @@ export default (props: PropsWithChildren) => {
 									});
 								} catch (error) {
 									toast.error({
-										title: `Failed to generate labels`,
+										title: t('failed_to_generate_labels'),
 										body: `Error: ${error}.`
 									});
 								}
 							}}
-							label="Regen Labels"
+							label={t('regen_labels')}
 							icon={Hash}
 						/>
 
@@ -252,7 +252,7 @@ export default (props: PropsWithChildren) => {
 									});
 								} catch (error) {
 									toast.error({
-										title: `Failed to generate checksum`,
+										title: t('failed_to_generate_checksum'),
 										body: `Error: ${error}.`
 									});
 								}

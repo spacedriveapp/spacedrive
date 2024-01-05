@@ -24,7 +24,7 @@ import {
 } from '@sd/ui';
 import { getExplorerStore } from '~/app/$libraryId/Explorer/store';
 import { Accordion, Icon } from '~/components';
-import { useCallbackToWatchForm } from '~/hooks';
+import { useCallbackToWatchForm, useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import IndexerRuleEditor from './IndexerRuleEditor';
@@ -211,6 +211,8 @@ export const AddLocationDialog = ({
 		await listLocations.refetch();
 	});
 
+	const { t } = useLocale();
+
 	return (
 		<Dialog
 			form={form}
@@ -218,9 +220,9 @@ export const AddLocationDialog = ({
 			dialog={useDialog(dialogProps)}
 			icon={<Icon name="NewLocation" size={28} />}
 			onSubmit={onSubmit}
-			ctaLabel="Add"
+			ctaLabel={t('add')}
 			formClassName="min-w-[375px]"
-			errorMessageException="Location is already linked"
+			errorMessageException={t('location_is_already_linked')}
 			description={
 				platform.platform === 'web'
 					? 'As you are using the browser version of Spacedrive you will (for now) ' +
@@ -251,16 +253,18 @@ export const AddLocationDialog = ({
 						)}
 						control={form.control}
 					/>
-					<Label className="text-xs font-semibold">Open new location once added</Label>
+					<Label className="text-xs font-semibold">
+						{t('open_new_location_once_added')}
+					</Label>
 				</div>
 
-				<Accordion title="Advanced settings">
+				<Accordion title={t('advanced_settings')}>
 					<Controller
 						name="indexerRulesIds"
 						render={({ field }) => (
 							<IndexerRuleEditor
 								field={field}
-								label="File indexing rules"
+								label={t('file_indexing_rules')}
 								className="relative flex flex-col"
 								rulesContainerClass="grid grid-cols-2 gap-2"
 								ruleButtonClass="w-full"
