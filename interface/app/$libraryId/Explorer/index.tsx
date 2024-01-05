@@ -49,7 +49,6 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 			console.error('Error in RSPC subscription new thumbnail', err);
 		},
 		onData: (thumbKey) => {
-			console.log('HERE', thumbKey);
 			explorerStore.addNewThumbnail(thumbKey);
 		}
 	});
