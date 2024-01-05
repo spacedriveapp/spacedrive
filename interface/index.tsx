@@ -1,6 +1,5 @@
 import '@fontsource/inter/variable.css';
 
-import { init, Integrations } from '@sentry/browser';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import duration from 'dayjs/plugin/duration';
@@ -33,11 +32,13 @@ dayjs.extend(advancedFormat);
 dayjs.extend(relativeTime);
 dayjs.extend(duration);
 
-init({
-	dsn: 'https://2fb2450aabb9401b92f379b111402dbc@o1261130.ingest.sentry.io/4504053670412288',
-	environment: import.meta.env.MODE,
-	defaultIntegrations: false,
-	integrations: [new Integrations.HttpContext(), new Integrations.Dedupe()]
+import('@sentry/browser').then(({ init, Integrations }) => {
+	init({
+		dsn: 'https://2fb2450aabb9401b92f379b111402dbc@o1261130.ingest.sentry.io/4504053670412288',
+		environment: import.meta.env.MODE,
+		defaultIntegrations: false,
+		integrations: [new Integrations.HttpContext(), new Integrations.Dedupe()]
+	});
 });
 
 export type Router = RouterProviderProps['router'];
@@ -80,7 +81,6 @@ export function SpacedriveInterfaceRoot({ children }: PropsWithChildren) {
 
 	useBridgeSubscription(['notifications.listen'], {
 		onData({ data: { title, content, kind }, expires }) {
-			console.log(expires);
 			toast({ title, body: content }, { type: kind });
 		}
 	});

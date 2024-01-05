@@ -42,7 +42,7 @@ module.exports = {
 			}
 		]
 	},
-	ignorePatterns: ['dist', '**/*.js', '**/*.json', 'node_modules'],
+	ignorePatterns: ['dist', '**/*.js', '**/*.cjs', '**/*.json', 'node_modules'],
 	settings: {
 		react: {
 			version: 'detect'

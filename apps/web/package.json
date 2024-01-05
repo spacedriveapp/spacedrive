@@ -1,7 +1,7 @@
 {
 	"name": "@sd/web",
 	"private": true,
-	"version": "0.0.0",
+	"type": "module",
 	"scripts": {
 		"dev": "vite",
 		"build": "vite build",
@@ -27,14 +27,11 @@
 		"@sd/ui": "workspace:*",
 		"@types/react": "^18.2.34",
 		"@types/react-dom": "^18.2.14",
-		"@vitejs/plugin-react": "^4.1.1",
 		"autoprefixer": "^10.4.16",
 		"postcss": "^8.4.31",
 		"rollup-plugin-visualizer": "^5.9.2",
-		"typescript": "^5.2.2",
-		"vite": "^4.5.0",
-		"vite-plugin-html": "^3.2.0",
-		"vite-plugin-svgr": "^3.3.0",
+		"typescript": "^5.3.3",
+		"vite": "^5.0.10",
 		"vite-tsconfig-paths": "^4.2.1"
 	}
 }

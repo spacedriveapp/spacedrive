@@ -98,7 +98,7 @@ const contextMenuItemStyles = cva(
 		variants: {
 			variant: {
 				default: 'group-radix-highlighted:bg-accent',
-				dull: 'group-radix-state-open:!text-ink group-radix-highlighted:bg-app-selected/50 group-radix-highlighted:!text-menu-ink group-radix-state-open:bg-app-selected/50',
+				dull: 'group-radix-highlighted:bg-app-selected/50 group-radix-highlighted:!text-menu-ink group-radix-state-open:bg-app-selected/50 group-radix-state-open:!text-ink',
 				danger: [
 					'text-red-600 dark:text-red-400',
 					'group-radix-highlighted:text-white',
