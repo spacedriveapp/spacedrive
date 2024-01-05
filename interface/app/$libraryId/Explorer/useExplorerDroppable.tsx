@@ -106,7 +106,7 @@ export const useExplorerDroppable = ({
 	const isDroppable = useMemo(() => {
 		if (!droppable.isOver) return false;
 
-		const drag = explorerStore.drag;
+		const drag = explorerStore.drag; // TODO: This should probs be a snapshot but it was like this prior to this PR.
 		if (!drag || drag.type === 'touched') return false;
 
 		let allowedType: ExplorerItemType | ExplorerItemType[] | undefined = allow;

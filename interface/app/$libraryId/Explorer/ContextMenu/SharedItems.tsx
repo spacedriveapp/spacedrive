@@ -1,4 +1,3 @@
-// tsc requires this import due to global types defined on it
 import { FileX, Share as ShareIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
 import { useSelector } from '@sd/client';

@@ -81,11 +81,11 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	useShortcuts();
 
 	useEffect(() => {
-		if (!explorerStore.isContextMenuOpen || explorer.selectedItems.size !== 0) return;
+		if (!isContextMenuOpen || explorer.selectedItems.size !== 0) return;
 		// Close context menu when no items are selected
 		document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 		explorerStore.isContextMenuOpen = false;
-	}, [explorer.selectedItems, explorerStore.isContextMenuOpen]);
+	}, [explorer.selectedItems, isContextMenuOpen]);
 
 	useEffect(() => {
 		if (explorer.isFetchingNextPage) {
@@ -114,7 +114,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	// Handle wheel scroll while dragging items
 	useEffect(() => {
 		const element = explorer.scrollRef.current;
-		if (!element || explorerStore.drag?.type !== 'dragging') return;
+		if (!element || drag?.type !== 'dragging') return;
 
 		const handleWheel = (e: WheelEvent) => {
 			element.scrollBy({ top: e.deltaY });
@@ -122,7 +122,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 
 		element.addEventListener('wheel', handleWheel);
 		return () => element.removeEventListener('wheel', handleWheel);
-	}, [explorer.scrollRef, explorerStore.drag?.type]);
+	}, [explorer.scrollRef, drag?.type]);
 
 	if (!explorer.layouts[layoutMode]) return null;
 

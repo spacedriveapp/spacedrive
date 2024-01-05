@@ -1,5 +1,5 @@
 import { HTMLAttributes, useEffect, useMemo } from 'react';
-import { type ExplorerItem } from '@sd/client';
+import { useSelector, type ExplorerItem } from '@sd/client';
 
 import { RenderItem } from '.';
 import { useExplorerContext } from '../../Context';
@@ -18,6 +18,7 @@ export const GridItem = ({ children, item, ...props }: Props) => {
 	const grid = useGridContext();
 	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
+	const cutCopyState = useSelector(explorerStore, (s) => s.cutCopyState);
 
 	const itemId = useMemo(() => uniqueId(item), [item]);
 
@@ -28,10 +29,7 @@ export const GridItem = ({ children, item, ...props }: Props) => {
 		[explorer.selectedItems, item]
 	);
 
-	const cut = useMemo(
-		() => isCut(item, explorerStore.cutCopyState),
-		[explorerStore.cutCopyState, item]
-	);
+	const cut = useMemo(() => isCut(item, cutCopyState), [cutCopyState, item]);
 
 	useEffect(() => {
 		if (!grid.selecto?.current || !grid.selectoUnselected.current.has(itemId)) return;
