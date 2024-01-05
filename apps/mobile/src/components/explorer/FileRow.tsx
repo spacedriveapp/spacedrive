@@ -16,7 +16,7 @@ const FileRow = ({ data }: FileRowProps) => {
 	return (
 		<View
 			style={twStyle('flex flex-row items-center px-3', {
-				height: explorerStore.listItemSize
+				height: getExplorerStore().listItemSize
 			})}
 		>
 			<FileThumb data={data} size={0.6} />

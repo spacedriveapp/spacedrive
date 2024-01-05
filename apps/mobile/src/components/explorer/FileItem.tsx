@@ -11,7 +11,7 @@ type FileItemProps = {
 };
 
 const FileItem = ({ data }: FileItemProps) => {
-	const gridItemSize = Layout.window.width / explorerStore.gridNumColumns;
+	const gridItemSize = Layout.window.width / getExplorerStore().gridNumColumns;
 
 	const filePath = getItemFilePath(data);
 

@@ -21,12 +21,12 @@ type ExplorerProps = {
 const Explorer = ({ items }: ExplorerProps) => {
 	const navigation = useNavigation<BrowseStackScreenProps<'Location'>['navigation']>();
 
-	const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>(explorerStore.layoutMode);
+	const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>(getExplorerStore().layoutMode);
 
 	function changeLayoutMode(kind: 'grid' | 'list') {
 		// We need to keep layoutMode as a state to make sure flash-list re-renders.
 		setLayoutMode(kind);
-		explorerStore.layoutMode = kind;
+		getExplorerStore().layoutMode = kind;
 	}
 
 	const { modalRef, setData } = useActionsModalStore();
@@ -64,7 +64,7 @@ const Explorer = ({ items }: ExplorerProps) => {
 			{items && (
 				<FlashList
 					key={layoutMode}
-					numColumns={layoutMode === 'grid' ? explorerStore.gridNumColumns : 1}
+					numColumns={layoutMode === 'grid' ? getExplorerStore().gridNumColumns : 1}
 					data={items}
 					keyExtractor={(item) =>
 						item.type === 'NonIndexedPath'
@@ -85,8 +85,8 @@ const Explorer = ({ items }: ExplorerProps) => {
 					extraData={layoutMode}
 					estimatedItemSize={
 						layoutMode === 'grid'
-							? Layout.window.width / explorerStore.gridNumColumns
-							: explorerStore.listItemSize
+							? Layout.window.width / getExplorerStore().gridNumColumns
+							: getExplorerStore().listItemSize
 					}
 				/>
 			)}

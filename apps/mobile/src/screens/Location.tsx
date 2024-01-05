@@ -46,8 +46,8 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 	}, [locationData?.name, navigation, path]);
 
 	useEffect(() => {
-		explorerStore.locationId = id;
-		explorerStore.path = path ?? '';
+		getExplorerStore().locationId = id;
+		getExplorerStore().path = path ?? '';
 	}, [id, path]);
 
 	return <Explorer items={pathsItems} />;
