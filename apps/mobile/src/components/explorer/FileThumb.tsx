@@ -141,3 +141,5 @@ export default function FileThumb({ size = 1, ...props }: FileThumbProps) {
 		</FileThumbWrapper>
 	);
 }
+
+FileThumb.displayName = 'FileThumb';

@@ -35,7 +35,6 @@ interface Props {
  * all the elements of the explorer except for the context, which must be used in the parent component.
  */
 export default function Explorer(props: PropsWithChildren<Props>) {
-	const addNewThumbnail = useSelector(explorerStore, (s) => s.addNewThumbnail);
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
 
@@ -50,7 +49,8 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 			console.error('Error in RSPC subscription new thumbnail', err);
 		},
 		onData: (thumbKey) => {
-			addNewThumbnail(thumbKey);
+			console.log('HERE', thumbKey);
+			explorerStore.addNewThumbnail(thumbKey);
 		}
 	});
 

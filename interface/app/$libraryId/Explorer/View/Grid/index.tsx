@@ -20,7 +20,7 @@ export type RenderItem = (item: {
 
 const CHROME_REGEX = /Chrome/;
 
-export default memo(({ children }: { children: RenderItem }) => {
+const Component = memo(({ children }: { children: RenderItem }) => {
 	const os = useOperatingSystem();
 	const realOS = useOperatingSystem(true);
 
@@ -627,3 +627,7 @@ export default memo(({ children }: { children: RenderItem }) => {
 		</GridContext.Provider>
 	);
 });
+
+Component.displayName = 'Grid';
+
+export default Component;

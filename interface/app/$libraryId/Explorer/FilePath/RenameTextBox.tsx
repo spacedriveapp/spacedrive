@@ -198,6 +198,8 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 	}
 );
 
+RenameTextBox.displayName = 'RenameTextBox';
+
 interface TruncatedTextProps {
 	text: string;
 	lines?: number;
@@ -217,3 +219,5 @@ const TruncatedText = memo(({ text, lines, onTruncate }: TruncatedTextProps) => 
 		</TruncateMarkup>
 	);
 });
+
+TruncatedText.displayName = 'TruncatedText';
