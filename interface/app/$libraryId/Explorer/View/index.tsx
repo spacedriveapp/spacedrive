@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useKeys } from 'rooks';
-import { ExplorerLayout, getExplorerLayoutStore, getItemObject, type Object } from '@sd/client';
+import {
+	ExplorerLayout,
+	getExplorerLayoutStore,
+	getItemObject,
+	useSelector,
+	type Object
+} from '@sd/client';
 import { dialogManager } from '@sd/ui';
 import { Loader } from '~/components';
 import { useKeyCopyCutPaste, useKeyMatcher, useShortcut } from '~/hooks';
@@ -12,7 +18,7 @@ import { useExplorerContext } from '../Context';
 import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
 import { getQuickPreviewStore, useQuickPreviewStore } from '../QuickPreview/store';
-import { getExplorerStore, useExplorerStore } from '../store';
+import { explorerStore } from '../store';
 import { useExplorerDroppable } from '../useExplorerDroppable';
 import { useExplorerSearchParams } from '../util';
 import { ViewContext, type ExplorerViewContext } from './Context';
@@ -29,7 +35,11 @@ export interface ExplorerViewProps
 
 export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	const explorer = useExplorerContext();
-	const explorerStore = useExplorerStore();
+	const [isContextMenuOpen, isRenaming, drag] = useSelector(explorerStore, (s) => [
+		s.isContextMenuOpen,
+		s.isRenaming,
+		s.drag
+	]);
 	const { layoutMode } = explorer.useSettingsSnapshot();
 
 	const quickPreview = useQuickPreviewContext();
@@ -42,10 +52,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	const [showLoading, setShowLoading] = useState(false);
 
 	const selectable =
-		explorer.selectable &&
-		!explorerStore.isContextMenuOpen &&
-		!explorerStore.isRenaming &&
-		!quickPreviewStore.open;
+		explorer.selectable && !isContextMenuOpen && !isRenaming && !quickPreviewStore.open;
 
 	// Can stay here until we add columns view
 	// Once added, the provided parent related logic should move to useExplorerDroppable
@@ -55,34 +62,30 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 			allow: ['Path', 'NonIndexedPath'],
 			data: { type: 'location', path: path ?? '/', data: explorer.parent.location },
 			disabled:
-				explorerStore.drag?.type === 'dragging' &&
-				explorer.parent.location.id === explorerStore.drag.sourceLocationId &&
-				(path ?? '/') === explorerStore.drag.sourcePath
+				drag?.type === 'dragging' &&
+				explorer.parent.location.id === drag.sourceLocationId &&
+				(path ?? '/') === drag.sourcePath
 		}),
 		...(explorer.parent?.type === 'Ephemeral' && {
 			allow: ['Path', 'NonIndexedPath'],
 			data: { type: 'location', path: explorer.parent.path },
-			disabled:
-				explorerStore.drag?.type === 'dragging' &&
-				explorer.parent.path === explorerStore.drag.sourcePath
+			disabled: drag?.type === 'dragging' && explorer.parent.path === drag.sourcePath
 		}),
 		...(explorer.parent?.type === 'Tag' && {
 			allow: 'Path',
 			data: { type: 'tag', data: explorer.parent.tag },
-			disabled:
-				explorerStore.drag?.type === 'dragging' &&
-				explorer.parent.tag.id === explorerStore.drag.sourceTagId
+			disabled: drag?.type === 'dragging' && explorer.parent.tag.id === drag.sourceTagId
 		})
 	});
 
 	useShortcuts();
 
 	useEffect(() => {
-		if (!explorerStore.isContextMenuOpen || explorer.selectedItems.size !== 0) return;
+		if (!isContextMenuOpen || explorer.selectedItems.size !== 0) return;
 		// Close context menu when no items are selected
 		document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-		getExplorerStore().isContextMenuOpen = false;
-	}, [explorer.selectedItems, explorerStore.isContextMenuOpen]);
+		explorerStore.isContextMenuOpen = false;
+	}, [explorer.selectedItems, isContextMenuOpen]);
 
 	useEffect(() => {
 		if (explorer.isFetchingNextPage) {
@@ -102,17 +105,16 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 
 	useEffect(() => {
 		return () => {
-			const store = getExplorerStore();
-			store.isRenaming = false;
-			store.isContextMenuOpen = false;
-			store.isDragSelecting = false;
+			explorerStore.isRenaming = false;
+			explorerStore.isContextMenuOpen = false;
+			explorerStore.isDragSelecting = false;
 		};
 	}, [layoutMode]);
 
 	// Handle wheel scroll while dragging items
 	useEffect(() => {
 		const element = explorer.scrollRef.current;
-		if (!element || explorerStore.drag?.type !== 'dragging') return;
+		if (!element || drag?.type !== 'dragging') return;
 
 		const handleWheel = (e: WheelEvent) => {
 			element.scrollBy({ top: e.deltaY });
@@ -120,7 +122,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 
 		element.addEventListener('wheel', handleWheel);
 		return () => element.removeEventListener('wheel', handleWheel);
-	}, [explorer.scrollRef, explorerStore.drag?.type]);
+	}, [explorer.scrollRef, drag?.type]);
 
 	if (!explorer.layouts[layoutMode]) return null;
 
@@ -160,7 +162,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 
 const useShortcuts = () => {
 	const explorer = useExplorerContext();
-	const explorerStore = useExplorerStore();
+	const isRenaming = useSelector(explorerStore, (s) => s.isRenaming);
 	const quickPreviewStore = useQuickPreviewStore();
 
 	const meta = useKeyMatcher('Meta');
@@ -169,26 +171,26 @@ const useShortcuts = () => {
 	useKeyCopyCutPaste();
 
 	useShortcut('toggleQuickPreview', (e) => {
-		if (explorerStore.isRenaming) return;
+		if (isRenaming) return;
 		e.preventDefault();
 		getQuickPreviewStore().open = !quickPreviewStore.open;
 	});
 
 	useShortcut('openObject', (e) => {
-		if (explorerStore.isRenaming || quickPreviewStore.open) return;
+		if (isRenaming || quickPreviewStore.open) return;
 		e.stopPropagation();
 		e.preventDefault();
 		doubleClick();
 	});
 
 	useShortcut('showImageSlider', (e) => {
-		if (explorerStore.isRenaming) return;
+		if (isRenaming) return;
 		e.stopPropagation();
 		getExplorerLayoutStore().showImageSlider = !getExplorerLayoutStore().showImageSlider;
 	});
 
 	useKeys([meta.key, 'KeyN'], () => {
-		if (explorerStore.isRenaming || quickPreviewStore.open) return;
+		if (isRenaming || quickPreviewStore.open) return;
 
 		const objects: Object[] = [];
 

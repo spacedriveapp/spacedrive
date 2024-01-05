@@ -9,10 +9,11 @@ import {
 	useState
 } from 'react';
 import TruncateMarkup from 'react-truncate-markup';
+import { useSelector } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { useOperatingSystem, useShortcut } from '~/hooks';
 
-import { getExplorerStore, useExplorerStore } from '../store';
+import { explorerStore } from '../store';
 
 export interface RenameTextBoxProps extends React.HTMLAttributes<HTMLDivElement> {
 	name: string;
@@ -26,7 +27,7 @@ export interface RenameTextBoxProps extends React.HTMLAttributes<HTMLDivElement>
 export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 	({ name, onRename, disabled, className, idleClassName, lines, ...props }, _ref) => {
 		const os = useOperatingSystem();
-		const explorerStore = useExplorerStore();
+		const [isRenaming, drag] = useSelector(explorerStore, (s) => [s.isRenaming, s.drag]);
 
 		const ref = useRef<HTMLDivElement>(null);
 		useImperativeHandle<HTMLDivElement | null, HTMLDivElement | null>(_ref, () => ref.current);
@@ -132,10 +133,10 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 
 		useEffect(() => {
 			if (!disabled) {
-				if (explorerStore.isRenaming && !allowRename) setAllowRename(true);
-				else getExplorerStore().isRenaming = allowRename;
+				if (isRenaming && !allowRename) setAllowRename(true);
+				else explorerStore.isRenaming = allowRename;
 			} else resetState();
-		}, [explorerStore.isRenaming, disabled, allowRename]);
+		}, [isRenaming, disabled, allowRename]);
 
 		useEffect(() => {
 			const onMouseDown = (event: MouseEvent) => {
@@ -150,11 +151,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 			<Tooltip
 				labelClassName="break-all"
 				tooltipClassName="!max-w-[250px]"
-				label={
-					!isTruncated || allowRename || explorerStore.drag?.type === 'dragging'
-						? null
-						: name
-				}
+				label={!isTruncated || allowRename || drag?.type === 'dragging' ? null : name}
 				asChild
 			>
 				<div
@@ -185,7 +182,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 					onBlur={() => {
 						handleRename();
 						resetState();
-						getExplorerStore().isRenaming = false;
+						explorerStore.isRenaming = false;
 					}}
 					onKeyDown={handleKeyDown}
 					{...props}
@@ -200,6 +197,8 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 		);
 	}
 );
+
+RenameTextBox.displayName = 'RenameTextBox';
 
 interface TruncatedTextProps {
 	text: string;
@@ -220,3 +219,5 @@ const TruncatedText = memo(({ text, lines, onTruncate }: TruncatedTextProps) => 
 		</TruncateMarkup>
 	);
 });
+
+TruncatedText.displayName = 'TruncatedText';

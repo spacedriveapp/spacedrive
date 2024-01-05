@@ -1,8 +1,6 @@
-// tsc requires this import due to global types defined on it
-import type {} from '@sd/client';
-
 import { FileX, Share as ShareIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
+import { useSelector } from '@sd/client';
 import { ContextMenu, ModifierKeys } from '@sd/ui';
 import { Menu } from '~/components/Menu';
 import { useOperatingSystem } from '~/hooks';
@@ -13,7 +11,7 @@ import { usePlatform, type Platform } from '~/util/Platform';
 import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore } from '../QuickPreview/store';
 import { RevealInNativeExplorerBase } from '../RevealInNativeExplorer';
-import { getExplorerStore, useExplorerStore } from '../store';
+import { explorerStore } from '../store';
 import { useViewItemDoubleClick } from '../View/ViewItem';
 import { Conditional, ConditionalItem } from './ConditionalItem';
 import { useContextMenuContext } from './context';
@@ -70,7 +68,7 @@ export const OpenQuickView = () => {
 
 export const Details = new ConditionalItem({
 	useCondition: () => {
-		const { showInspector } = useExplorerStore();
+		const showInspector = useSelector(explorerStore, (s) => s.showInspector);
 		if (showInspector) return null;
 
 		return {};
@@ -83,7 +81,7 @@ export const Details = new ConditionalItem({
 				label="Details"
 				keybind={keybind([ModifierKeys.Control], ['I'])}
 				// icon={Sidebar}
-				onClick={() => (getExplorerStore().showInspector = true)}
+				onClick={() => (explorerStore.showInspector = true)}
 			/>
 		);
 	}
@@ -107,7 +105,7 @@ export const Rename = new ConditionalItem({
 			<ContextMenu.Item
 				label="Rename"
 				keybind={keybind([], [os === 'windows' ? 'F2' : 'Enter'])}
-				onClick={() => (getExplorerStore().isRenaming = true)}
+				onClick={() => (explorerStore.isRenaming = true)}
 			/>
 		);
 	}
@@ -171,7 +169,7 @@ export const RevealInNativeExplorer = new ConditionalItem({
 
 export const Deselect = new ConditionalItem({
 	useCondition: () => {
-		const { cutCopyState } = useExplorerStore();
+		const cutCopyState = useSelector(explorerStore, (s) => s.cutCopyState);
 
 		if (cutCopyState.type === 'Idle') return null;
 
@@ -182,7 +180,7 @@ export const Deselect = new ConditionalItem({
 			label="Deselect"
 			icon={FileX}
 			onClick={() => {
-				getExplorerStore().cutCopyState = {
+				explorerStore.cutCopyState = {
 					type: 'Idle'
 				};
 			}}
