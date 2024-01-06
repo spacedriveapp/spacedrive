@@ -70,7 +70,7 @@ const BrowseTags = () => {
 							<Eye weight="bold" size={18} style={tw`text-white`} />
 						</View>
 					</Pressable>
-					<Pressable onPress={() => modalRef.current?.present()}>
+					<Pressable testID="add-tag" onPress={() => modalRef.current?.present()}>
 						<View
 							style={tw`items-center justify-center w-8 h-8 bg-transparent border border-dashed rounded-md border-ink-faint`}
 						>
