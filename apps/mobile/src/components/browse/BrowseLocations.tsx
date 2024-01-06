@@ -2,7 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import { DotsThreeOutlineVertical, Eye, Plus } from 'phosphor-react-native';
 import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
+import { FlatList } from 'react-native-gesture-handler';
 import {
 	arraysEqual,
 	byteSize,
@@ -115,20 +115,26 @@ const BrowseLocations = () => {
 				</View>
 			</View>
 			<Fade color="mobile-screen" width={30} height="100%">
-				<ScrollView showsHorizontalScrollIndicator={false} horizontal>
-					<View style={tw`flex-row gap-2 px-7`}>
-						{locations?.map((location) => (
-							<BrowseLocationItem
-								key={location.id}
-								location={location}
-								editLocation={() =>
-									navigation.navigate('EditLocationSettings', { id: location.id })
-								}
-								onPress={() => navigation.navigate('Location', { id: location.id })}
-							/>
-						))}
-					</View>
-				</ScrollView>
+				<FlatList
+					data={locations}
+					contentContainerStyle={tw`px-7`}
+					showsHorizontalScrollIndicator={false}
+					ItemSeparatorComponent={() => <View style={tw`w-2`} />}
+					renderItem={({ item }) => (
+						<BrowseLocationItem
+							location={item}
+							editLocation={() =>
+								navigation.navigate('SettingsStack', {
+									screen: 'EditLocationSettings',
+									params: { id: item.id }
+								})
+							}
+							onPress={() => navigation.navigate('Location', { id: item.id })}
+						/>
+					)}
+					keyExtractor={(location) => location.id.toString()}
+					horizontal
+				/>
 			</Fade>
 			<ImportModal ref={modalRef} />
 		</View>

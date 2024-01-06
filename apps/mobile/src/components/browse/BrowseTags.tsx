@@ -2,7 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import { DotsThreeOutlineVertical, Eye, Plus } from 'phosphor-react-native';
 import React, { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
+import { FlatList } from 'react-native-gesture-handler';
 import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw, twStyle } from '~/lib/tailwind';
@@ -80,17 +80,20 @@ const BrowseTags = () => {
 				</View>
 			</View>
 			<Fade color="mobile-screen" width={30} height="100%">
-				<ScrollView showsHorizontalScrollIndicator={false} horizontal>
-					<View style={tw`flex-row gap-2 px-7`}>
-						{tagData?.map((tag) => (
-							<BrowseTagItem
-								key={tag.id}
-								tag={tag}
-								onPress={() => navigation.navigate('Tag', { id: tag.id })}
-							/>
-						))}
-					</View>
-				</ScrollView>
+				<FlatList
+					data={tagData}
+					renderItem={({ item }) => (
+						<BrowseTagItem
+							tag={item}
+							onPress={() => navigation.navigate('Tag', { id: item.id })}
+						/>
+					)}
+					keyExtractor={(item) => item.id.toString()}
+					horizontal
+					showsHorizontalScrollIndicator={false}
+					contentContainerStyle={tw`px-7`}
+					ItemSeparatorComponent={() => <View style={tw`w-2`} />}
+				/>
 			</Fade>
 			<CreateTagModal ref={modalRef} />
 		</View>
