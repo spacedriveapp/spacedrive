@@ -7,7 +7,13 @@ import {
 import clsx from 'clsx';
 import { useState } from 'react';
 import { Divider, ModifierKeys, Switch } from '@sd/ui';
-import { keybindingsData, ShortcutCategories, ShortcutKeybinds, useOperatingSystem } from '~/hooks';
+import {
+	keybindingsData,
+	ShortcutCategories,
+	ShortcutKeybinds,
+	useLocale,
+	useOperatingSystem
+} from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 import { OperatingSystem } from '~/util/Platform';
 
@@ -16,13 +22,14 @@ import Setting from '../Setting';
 
 export const Component = () => {
 	const [syncWithLibrary, setSyncWithLibrary] = useState(true);
+	const { t } = useLocale();
 	return (
 		<>
-			<Heading title="Keybinds" description="View and manage client keybinds" />{' '}
+			<Heading title={t('keybinds')} description={t('keybinds_description')} />{' '}
 			<Setting
 				mini
-				title="Sync with Library"
-				description="If enabled, your keybinds will be synced with library, otherwise they will apply only to this client."
+				title={t('sync_with_library')}
+				description={t('sync_with_library_description')}
 			>
 				<Switch
 					checked={syncWithLibrary}

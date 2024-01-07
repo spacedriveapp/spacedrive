@@ -124,7 +124,7 @@ export const Component = () => {
 			<Form form={form} onSubmit={onSubmit}>
 				<Heading
 					title={t('appearance')}
-					description="Change the look of your client."
+					description={t('appearance_description')}
 					rightArea={
 						<div>
 							<Button

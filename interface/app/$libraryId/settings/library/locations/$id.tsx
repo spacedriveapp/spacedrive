@@ -100,7 +100,7 @@ const EditLocationForm = () => {
 	return (
 		<Form form={form} onSubmit={onSubmit} className="h-full w-full">
 			<ModalLayout
-				title="Edit Location"
+				title={t('edit_location')}
 				topRight={
 					<div className="flex flex-row space-x-3">
 						{form.formState.isDirty && (

@@ -44,7 +44,7 @@ function OriginatorDialog({
 		<Dialog
 			form={useZodForm({ schema: z.object({}) })}
 			dialog={useDialog(props)}
-			title={`Pairing with ${node.name}`}
+			title={t('pairing_with_node', { node: node.name })}
 			loading={true}
 			submitDisabled={pairingStatus?.type !== 'PairingComplete'}
 			ctaLabel={t('done')}

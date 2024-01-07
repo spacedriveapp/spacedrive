@@ -26,8 +26,8 @@ export default (props: Props) => {
 			form={form}
 			dialog={useDialog(props)}
 			onSubmit={form.handleSubmit(() => deleteTag.mutateAsync(props.tagId))}
-			title="Delete Tag"
-			description="Are you sure you want to delete this tag? This cannot be undone and tagged files will be unlinked."
+			title={t('delete_tag')}
+			description={t('delete_tag_description')}
 			ctaDanger
 			ctaLabel={t('delete')}
 		/>

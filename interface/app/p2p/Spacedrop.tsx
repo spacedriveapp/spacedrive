@@ -212,7 +212,7 @@ function SpacedropDialog(props: UseDialogProps) {
 			key={props.id}
 			form={form}
 			dialog={useDialog(props)}
-			title="Spacedrop a File"
+			title={t('spacedrop_a_file')}
 			loading={doSpacedrop.isLoading}
 			ctaLabel={t('send')}
 			closeLabel={t('cancel')}

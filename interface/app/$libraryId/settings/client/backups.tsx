@@ -23,7 +23,7 @@ export const Component = () => {
 		<>
 			<Heading
 				title={t('backups')}
-				description="Manage your Spacedrive database backups."
+				description={t("backups_description")}
 				rightArea={
 					<div className="flex flex-row items-center space-x-5">
 						<Button

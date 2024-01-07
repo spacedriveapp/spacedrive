@@ -216,19 +216,14 @@ export const AddLocationDialog = ({
 	return (
 		<Dialog
 			form={form}
-			title="New Location"
+			title={t('new_location')}
 			dialog={useDialog(dialogProps)}
 			icon={<Icon name="NewLocation" size={28} />}
 			onSubmit={onSubmit}
 			ctaLabel={t('add')}
 			formClassName="min-w-[375px]"
 			errorMessageException={t('location_is_already_linked')}
-			description={
-				platform.platform === 'web'
-					? 'As you are using the browser version of Spacedrive you will (for now) ' +
-					  'need to specify an absolute URL of a directory local to the remote node.'
-					: ''
-			}
+			description={platform.platform === 'web' ? t('new_location_web_description') : ''}
 		>
 			<div className="flex flex-col">
 				<ErrorMessage

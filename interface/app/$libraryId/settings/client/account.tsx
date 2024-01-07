@@ -27,7 +27,7 @@ export const Component = () => {
 					</>
 				}
 				title={t('your_account')}
-				description="Spacedrive account and information."
+				description={t('your_account_description')}
 			/>
 			<div className="flex flex-col justify-between gap-5 lg:flex-row">
 				<Profile authStore={authStore} email={me.data?.email} />

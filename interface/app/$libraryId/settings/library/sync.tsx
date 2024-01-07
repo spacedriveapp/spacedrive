@@ -1,9 +1,12 @@
+import { useLocale } from '~/hooks';
+
 import { Heading } from '../Layout';
 
 export const Component = () => {
+	const { t } = useLocale();
 	return (
 		<>
-			<Heading title="Sync" description="Manage how Spacedrive syncs." />
+			<Heading title={t('sync')} description={t('sync_description')} />
 		</>
 	);
 };

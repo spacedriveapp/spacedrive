@@ -12,13 +12,13 @@ export const Component = () => {
 
 	return (
 		<>
-			<Heading title="Privacy" description="" />
+			<Heading title={t('privacy')} description="" />
 			<Setting
 				mini
 				toolTipLabel={t('learn_more_about_telemetry')}
 				infoUrl="https://www.spacedrive.com/docs/product/resources/privacy"
-				title="Share Additional Telemetry and Usage Data"
-				description="Toggle ON to provide developers with detailed usage and telemetry data to enhance the app. Toggle OFF to send only basic data: your activity status, app version, core version, and platform (e.g., mobile, web, or desktop)."
+				title={t('telemetry_title')}
+				description={t('telemetry_description')}
 			>
 				<Switch
 					checked={fullTelemetry}

@@ -94,8 +94,8 @@ export const Component = () => {
 	return (
 		<FormProvider {...form}>
 			<Heading
-				title="General Settings"
-				description="General settings related to this client."
+				title={t('general_settings')}
+				description={t('general_settings_description')}
 			/>
 			<Card className="px-5">
 				<div className="my-2 flex w-full flex-col">
@@ -226,8 +226,8 @@ export const Component = () => {
 			</Setting>
 			<Setting
 				mini
-				title="Image label recognition AI model"
-				description="The model used to recognize objects in images. Larger models are more accurate but slower."
+				title={t('image_labeler_ai_model')}
+				description={t('image_labeler_ai_model_description')}
 				registerName="image_labeler_version"
 			>
 				<div className="flex h-[30px] gap-2">
@@ -263,6 +263,7 @@ export const Component = () => {
 				<Setting
 					mini
 					title={t('enable_networking')}
+					// TODO: i18n
 					description={
 						<>
 							<p className="text-sm text-gray-400">
