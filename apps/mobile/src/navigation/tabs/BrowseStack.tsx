@@ -22,7 +22,11 @@ export default function BrowseStack() {
 				headerBackTitleStyle: tw`text-base`
 			}}
 		>
-			<Stack.Screen name="Browse" component={BrowseScreen} options={{ header: Header }} />
+			<Stack.Screen
+				name="Browse"
+				component={BrowseScreen}
+				options={{ header: () => <Header showLibrary title="Browse" /> }}
+			/>
 			<Stack.Screen
 				name="Location"
 				component={LocationScreen}
