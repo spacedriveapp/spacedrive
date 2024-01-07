@@ -71,11 +71,7 @@ export default () => {
 
 	return (
 		<DismissibleNotice
-			title={
-				<>
-					<span className="font-normal">{t('Meet')}</span> {notice.title}
-				</>
-			}
+			title={<span className="font-normal">{t('meet_title', { title: notice.title })}</span>}
 			icon={notice.icon}
 			description={notice.description}
 			className="m-5"

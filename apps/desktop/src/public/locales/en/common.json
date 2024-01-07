@@ -1,5 +1,5 @@
 {
-	"Meet": "Meet",
+	"meet_title": "Meet {{title}}",
 	"about": "About",
 	"about_vision_text": "Many of us have multiple cloud accounts, drives that aren’t backed up and data at risk of loss. We depend on cloud services like Google Photos and iCloud, but are locked in with limited capacity and almost zero interoperability between services and operating systems. Photo albums shouldn’t be stuck in a device ecosystem, or harvested for advertising data. They should be OS agnostic, permanent and personally owned. Data we create is our legacy, that will long outlive us—open source technology is the only way to ensure we retain absolute control over the data that defines our lives, at unlimited scale.",
 	"about_vision_title": "Vision",
@@ -185,7 +185,7 @@
 	"join_library": "Join a Library",
 	"join_library_description": "Libraries are a secure, on-device database. Your files remain where they are, the Library catalogs them and stores all Spacedrive related data.",
 	"key_manager": "Key Manager",
-	"key_manager_description": "Create encryption keys, mount and unmount your keys to see files decrypted on\n\t\t\t\t\tthe fly.",
+	"key_manager_description": "Create encryption keys, mount and unmount your keys to see files decrypted on the fly.",
 	"keybinds": "Keybinds",
 	"keybinds_description": "View and manage client keybinds",
 	"keys": "Keys",
