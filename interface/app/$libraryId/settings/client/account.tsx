@@ -4,10 +4,12 @@ import { auth, useBridgeQuery } from '@sd/client';
 import { Button, Card } from '@sd/ui';
 import { Icon, TruncatedText } from '~/components';
 import { AuthRequiredOverlay } from '~/components/AuthRequiredOverlay';
+import { useLocale } from '~/hooks';
 
 import { Heading } from '../Layout';
 
 export const Component = () => {
+	const { t } = useLocale();
 	const me = useBridgeQuery(['auth.me'], { retry: false });
 	const authStore = auth.useStateSnapshot();
 	return (
@@ -24,7 +26,7 @@ export const Component = () => {
 						)}
 					</>
 				}
-				title="Your account"
+				title={t('your_account')}
 				description="Spacedrive account and information."
 			/>
 			<div className="flex flex-col justify-between gap-5 lg:flex-row">

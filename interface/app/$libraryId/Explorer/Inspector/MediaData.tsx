@@ -11,6 +11,7 @@ import {
 	useUnitFormatStore
 } from '@sd/client';
 import { Accordion } from '~/components';
+import { useLocale } from '~/hooks';
 import { Platform, usePlatform } from '~/util/Platform';
 
 import { getExplorerStore, useExplorerStore } from '../store';
@@ -97,19 +98,20 @@ const UrlMetadataValue = (props: { text: string; url: string; platform: Platform
 	</a>
 );
 
-const orientations = {
-	Normal: 'Normal',
-	MirroredHorizontal: 'Horizontally mirrored',
-	MirroredHorizontalAnd90CW: 'Mirrored horizontally and rotated 90° clockwise',
-	MirroredHorizontalAnd270CW: 'Mirrored horizontally and rotated 270° clockwise',
-	MirroredVertical: 'Vertically mirrored',
-	CW90: 'Rotated 90° clockwise',
-	CW180: 'Rotated 180° clockwise',
-	CW270: 'Rotated 270° clockwise'
-};
+// const orientations = {
+// 	Normal: 'Normal',
+// 	MirroredHorizontal: 'Horizontally mirrored',
+// 	MirroredHorizontalAnd90CW: 'Mirrored horizontally and rotated 90° clockwise',
+// 	MirroredHorizontalAnd270CW: 'Mirrored horizontally and rotated 270° clockwise',
+// 	MirroredVertical: 'Vertically mirrored',
+// 	CW90: 'Rotated 90° clockwise',
+// 	CW180: 'Rotated 180° clockwise',
+// 	CW270: 'Rotated 270° clockwise'
+// };
 
 const MediaData = ({ data }: Props) => {
 	const platform = usePlatform();
+	const { t } = useLocale();
 	const coordinatesFormat = useUnitFormatStore().coordinatesFormat;
 
 	const explorerStore = useExplorerStore();
@@ -120,7 +122,7 @@ const MediaData = ({ data }: Props) => {
 				isOpen={explorerStore.showMoreInfo}
 				onToggle={(isOpen) => (getExplorerStore().showMoreInfo = isOpen)}
 				variant="apple"
-				title="More info"
+				title={t('more_info')}
 			>
 				<MetaData
 					label="Date"
