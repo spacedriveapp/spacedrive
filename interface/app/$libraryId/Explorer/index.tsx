@@ -1,6 +1,11 @@
 import { FolderNotchOpen } from '@phosphor-icons/react';
 import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
-import { getExplorerLayoutStore, useExplorerLayoutStore, useLibrarySubscription } from '@sd/client';
+import {
+	getExplorerLayoutStore,
+	useExplorerLayoutStore,
+	useLibrarySubscription,
+	useSelector
+} from '@sd/client';
 import { useShortcut } from '~/hooks';
 
 import { useTopBarContext } from '../TopBar/Layout';
@@ -11,7 +16,7 @@ import { ExplorerPath, PATH_BAR_HEIGHT } from './ExplorerPath';
 import { Inspector, INSPECTOR_WIDTH } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
 import { getQuickPreviewStore } from './QuickPreview/store';
-import { getExplorerStore, useExplorerStore } from './store';
+import { explorerStore } from './store';
 import { useKeyRevealFinder } from './useKeyRevealFinder';
 import { ExplorerViewProps, View } from './View';
 import { EmptyNotice } from './View/EmptyNotice';
@@ -30,9 +35,9 @@ interface Props {
  * all the elements of the explorer except for the context, which must be used in the parent component.
  */
 export default function Explorer(props: PropsWithChildren<Props>) {
-	const explorerStore = useExplorerStore();
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
+	const showInspector = useSelector(explorerStore, (s) => s.showInspector);
 
 	const showPathBar = explorer.showPathBar && layoutStore.showPathBar;
 
@@ -57,7 +62,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 	useShortcut('showInspector', (e) => {
 		e.stopPropagation();
 		if (getQuickPreviewStore().open) return;
-		getExplorerStore().showInspector = !explorerStore.showInspector;
+		explorerStore.showInspector = !explorerStore.showInspector;
 	});
 
 	useShortcut('showHiddenFiles', (e) => {
@@ -82,7 +87,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 							'--scrollbar-margin-top': `${topBar.topBarHeight}px`,
 							'--scrollbar-margin-bottom': `${showPathBar ? PATH_BAR_HEIGHT : 0}px`,
 							'paddingTop': topBar.topBarHeight,
-							'paddingRight': explorerStore.showInspector ? INSPECTOR_WIDTH : 0
+							'paddingRight': showInspector ? INSPECTOR_WIDTH : 0
 						} as CSSProperties
 					}
 				>
@@ -106,7 +111,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 
 			{showPathBar && <ExplorerPath />}
 
-			{explorerStore.showInspector && (
+			{showInspector && (
 				<Inspector
 					className="no-scrollbar absolute right-1.5 top-0 pb-3 pl-3 pr-1.5"
 					style={{

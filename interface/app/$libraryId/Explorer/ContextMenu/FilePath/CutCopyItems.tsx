@@ -6,7 +6,7 @@ import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
 
 import { useExplorerContext } from '../../Context';
-import { getExplorerStore } from '../../store';
+import { explorerStore } from '../../store';
 import { useExplorerSearchParams } from '../../util';
 import { ConditionalItem } from '../ConditionalItem';
 import { useContextMenuContext } from '../context';
@@ -52,7 +52,7 @@ export const CutCopyItems = new ConditionalItem({
 					label={t('cut')}
 					keybind={keybind([ModifierKeys.Control], ['X'])}
 					onClick={() => {
-						getExplorerStore().cutCopyState = {
+						explorerStore.cutCopyState = {
 							sourceParentPath: path ?? '/',
 							indexedArgs,
 							ephemeralArgs,
@@ -66,7 +66,7 @@ export const CutCopyItems = new ConditionalItem({
 					label={t('copy')}
 					keybind={keybind([ModifierKeys.Control], ['C'])}
 					onClick={() => {
-						getExplorerStore().cutCopyState = {
+						explorerStore.cutCopyState = {
 							sourceParentPath: path ?? '/',
 							indexedArgs,
 							ephemeralArgs,

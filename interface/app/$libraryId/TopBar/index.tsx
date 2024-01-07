@@ -3,19 +3,20 @@ import clsx from 'clsx';
 import { useLayoutEffect, useRef } from 'react';
 import { useKey } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
+import { useSelector } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { useKeyMatcher, useLocale, useOperatingSystem, useShowControls } from '~/hooks';
 import { useRoutingContext } from '~/RoutingContext';
 import { useTabsContext } from '~/TabsContext';
 import { usePlatform } from '~/util/Platform';
 
-import { useExplorerStore } from '../Explorer/store';
+import { explorerStore } from '../Explorer/store';
 import { useTopBarContext } from './Layout';
 import { NavigationButtons } from './NavigationButtons';
 
 const TopBar = () => {
 	const transparentBg = useShowControls().transparentBg;
-	const { isDragSelecting } = useExplorerStore();
+	const isDragSelecting = useSelector(explorerStore, (s) => s.isDragSelecting);
 	const ref = useRef<HTMLDivElement>(null);
 
 	const tabs = useTabsContext();

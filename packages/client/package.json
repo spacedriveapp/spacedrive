@@ -17,6 +17,7 @@
 		"@zxcvbn-ts/core": "^3.0.4",
 		"@zxcvbn-ts/language-common": "^3.0.4",
 		"@zxcvbn-ts/language-en": "^3.0.2",
+		"fast-equals": "^5.0.1",
 		"plausible-tracker": "^0.3.8",
 		"react-hook-form": "^7.47.0",
 		"valtio": "^1.11.2",

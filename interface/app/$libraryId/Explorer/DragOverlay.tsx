@@ -3,15 +3,15 @@ import { DragOverlay as DragOverlayPrimitive } from '@dnd-kit/core';
 import { getEventCoordinates } from '@dnd-kit/utilities';
 import clsx from 'clsx';
 import { memo, useEffect, useRef } from 'react';
-import { ExplorerItem } from '@sd/client';
+import { ExplorerItem, useSelector } from '@sd/client';
 import { useIsDark } from '~/hooks';
 
 import { FileThumb } from './FilePath/Thumb';
-import { useExplorerStore } from './store';
+import { explorerStore } from './store';
 import { RenamableItemText } from './View/RenamableItemText';
 
 const useSnapToCursorModifier = () => {
-	const explorerStore = useExplorerStore();
+	const drag = useSelector(explorerStore, (s) => s.drag);
 
 	const initialRect = useRef<ClientRect | null>(null);
 
@@ -40,8 +40,8 @@ const useSnapToCursorModifier = () => {
 	};
 
 	useEffect(() => {
-		if (!explorerStore.drag) initialRect.current = null;
-	}, [explorerStore.drag]);
+		if (!drag) initialRect.current = null;
+	}, [drag]);
 
 	return modifier;
 };
@@ -50,8 +50,7 @@ export const DragOverlay = memo(() => {
 	const isDark = useIsDark();
 
 	const modifier = useSnapToCursorModifier();
-
-	const { drag } = useExplorerStore();
+	const drag = useSelector(explorerStore, (s) => s.drag);
 
 	return (
 		<DragOverlayPrimitive

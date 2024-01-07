@@ -13,7 +13,7 @@ import { SettingsContainer, SettingsTitle } from '~/components/settings/Settings
 import { SettingsItem } from '~/components/settings/SettingsItem';
 import { useAutoForm } from '~/hooks/useAutoForm';
 import { tw } from '~/lib/tailwind';
-import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
+import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
 const schema = z.object({ name: z.string(), description: z.string() });
 

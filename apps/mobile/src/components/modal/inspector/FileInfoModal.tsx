@@ -1,22 +1,8 @@
 import dayjs from 'dayjs';
-import {
-	Barcode,
-	CaretLeft,
-	CircleWavyCheck,
-	Clock,
-	Cube,
-	Icon,
-	Snowflake
-} from 'phosphor-react-native';
+import { Barcode, CaretLeft, Clock, Cube, Icon, SealCheck, Snowflake } from 'phosphor-react-native';
 import { forwardRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import {
-	byteSize,
-	getItemFilePath,
-	getItemObject,
-	useLibraryQuery,
-	type ExplorerItem
-} from '@sd/client';
+import { byteSize, getItemFilePath, getItemObject, type ExplorerItem } from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
 import { Modal, ModalScrollView, type ModalRef } from '~/components/layout/Modal';
@@ -134,7 +120,7 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 								{/* Checksum */}
 								{filePathData?.integrity_checksum && (
 									<MetaItem
-										icon={CircleWavyCheck}
+										icon={SealCheck}
 										title="Checksum"
 										value={filePathData?.integrity_checksum}
 									/>

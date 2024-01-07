@@ -29,7 +29,7 @@ import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
 import {
 	createDefaultExplorerSettings,
-	getExplorerStore,
+	explorerStore,
 	nonIndexedPathOrderingSchema
 } from './Explorer/store';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
@@ -196,7 +196,7 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 		{
 			enabled: path != null,
 			suspense: true,
-			onSuccess: () => getExplorerStore().resetNewThumbnails(),
+			onSuccess: () => explorerStore.resetNewThumbnails(),
 			onBatch: (item) => {
 				cache.withNodes(item.nodes);
 			}

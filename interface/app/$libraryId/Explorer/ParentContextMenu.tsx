@@ -9,7 +9,7 @@ import {
 	ShieldCheck
 } from '@phosphor-icons/react';
 import { PropsWithChildren } from 'react';
-import { useLibraryMutation } from '@sd/client';
+import { useLibraryMutation, useSelector } from '@sd/client';
 import { ContextMenu as CM, ModifierKeys, toast } from '@sd/ui';
 import { useLocale, useOperatingSystem } from '~/hooks';
 import { useQuickRescan } from '~/hooks/useQuickRescan';
@@ -18,14 +18,14 @@ import { keybindForOs } from '~/util/keybinds';
 import { useExplorerContext } from './Context';
 import { CopyAsPathBase } from './CopyAsPath';
 import { RevealInNativeExplorerBase } from './RevealInNativeExplorer';
-import { getExplorerStore, useExplorerStore } from './store';
+import { explorerStore } from './store';
 import { useExplorerSearchParams } from './util';
 
 export default (props: PropsWithChildren) => {
 	const os = useOperatingSystem();
 	const keybind = keybindForOs(os);
 	const [{ path: currentPath }] = useExplorerSearchParams();
-	const { cutCopyState } = useExplorerStore();
+	const cutCopyState = useSelector(explorerStore, (s) => s.cutCopyState);
 	const rescan = useQuickRescan();
 	const { parent } = useExplorerContext();
 
@@ -134,7 +134,7 @@ export default (props: PropsWithChildren) => {
 					<CM.Item
 						label={t('deselect')}
 						onClick={() => {
-							getExplorerStore().cutCopyState = {
+							explorerStore.cutCopyState = {
 								type: 'Idle'
 							};
 						}}
