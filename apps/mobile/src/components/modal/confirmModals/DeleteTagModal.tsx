@@ -6,9 +6,10 @@ type Props = {
 	tagId: number;
 	onSubmit?: () => void;
 	trigger: React.ReactNode;
+	triggerStyle?: string;
 };
 
-const DeleteTagModal = ({ trigger, onSubmit, tagId }: Props) => {
+const DeleteTagModal = ({ trigger, onSubmit, tagId, triggerStyle }: Props) => {
 	const modalRef = useRef<ModalRef>(null);
 
 	const submitPlausibleEvent = usePlausibleEvent();
@@ -32,6 +33,7 @@ const DeleteTagModal = ({ trigger, onSubmit, tagId }: Props) => {
 			ctaAction={() => deleteTag(tagId)}
 			loading={deleteTagLoading}
 			trigger={trigger}
+			triggerStyle={triggerStyle}
 			ctaDanger
 		/>
 	);

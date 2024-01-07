@@ -3,7 +3,8 @@ appId: com.spacedrive.app
 - launchApp
 - tapOn:
     id: 'browse-tab'
-- tapOn: 'Add Tag'
+- tapOn:
+    id: 'add-tag'
 - tapOn:
     id: 'create-tag-name'
 - inputText: 'MyTag'
