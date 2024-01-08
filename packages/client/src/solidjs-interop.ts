@@ -1,18 +1,17 @@
-import { useRef } from 'react';
 import { useObserver } from 'react-solid-state';
 import { type Store, type StoreNode } from 'solid-js/store';
-import { proxy, useSnapshot } from 'valtio';
 
 export function useSolidStore<T extends object = {}>(store: Store<T>) {
-	// TODO: Explain Valtio
-	const data = useRef(proxy({ ...store }));
-	useObserver(() => Object.assign(data.current, { ...store }));
-	return useSnapshot(data.current);
+	const state = useObserver(() => ({ ...store }));
+	return new Proxy(state, {
+		get: (target, prop) => Reflect.get(target, prop),
+		set: (_, prop, value) => {
+			// @ts-expect-error
+			store[prop] = value;
+			return true;
+		}
+	});
 }
-
-// export function useSolidStore<T extends object = {}>(store: Store<T>) {
-// 	return useObserver(() => ({ ...store }));
-// }
 
 type CreatePersistedMutableOpts<T> = {
 	onSave?: (value: T) => void;
