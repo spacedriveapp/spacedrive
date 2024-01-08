@@ -1,23 +1,38 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Navigate, Outlet, redirect, useMatches, type RouteObject } from 'react-router-dom';
 import {
 	currentLibraryCache,
 	getCachedLibraries,
 	NormalisedCache,
-	useCachedLibraries
+	useCachedLibraries,
+	useFeatureFlag
 } from '@sd/client';
 import { Dialogs, Toaster } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
 import { useRoutingContext } from '~/RoutingContext';
 
-import { Platform } from '..';
+import { Platform, usePlatform } from '..';
 import libraryRoutes from './$libraryId';
+import { DragAndDropDebug } from './$libraryId/debug/dnd';
+import { renderDemo } from './demo.solid';
 import onboardingRoutes from './onboarding';
 import { RootContext } from './RootContext';
 
 import './style.scss';
 // I18n needs to be bundled here.
 import './I18n';
+
+function RenderSolid() {
+	const ref = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		let cleanup = () => {};
+		if (ref.current) cleanup = renderDemo(ref.current);
+		return cleanup;
+	}, []);
+
+	return <div ref={ref} />;
+}
 
 // NOTE: all route `Layout`s below should contain
 // the `usePlausiblePageViewMonitor` hook, as early as possible (ideally within the layout itself).
@@ -31,6 +46,8 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 
 				return (
 					<RootContext.Provider value={{ rawPath }}>
+						{useFeatureFlag('debugDragAndDrop') ? <DragAndDropDebug /> : null}
+						{useFeatureFlag('solidJsDemo') ? <RenderSolid /> : null}
 						<Outlet />
 						<Dialogs />
 						<Toaster position="bottom-right" expand={true} />

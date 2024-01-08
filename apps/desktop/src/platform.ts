@@ -4,7 +4,7 @@ import { homeDir } from '@tauri-apps/api/path';
 import { open } from '@tauri-apps/api/shell';
 import { OperatingSystem, Platform } from '@sd/interface';
 
-import { commands } from './commands';
+import { commands, events } from './commands';
 import { env } from './env';
 import { createUpdater } from './updater';
 
@@ -62,6 +62,10 @@ export const platform = {
 	saveFilePickerDialog: (opts) => dialog.save(opts),
 	showDevtools: () => invoke('show_devtools'),
 	confirm: (msg, cb) => confirm(msg).then(cb),
+	subscribeToDragAndDropEvents: (cb) =>
+		events.dragAndDropEvent.listen((e) => {
+			cb(e.payload);
+		}),
 	userHomeDir: homeDir,
 	updater: window.__SD_UPDATER__ ? createUpdater() : undefined,
 	auth: {

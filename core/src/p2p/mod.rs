@@ -23,4 +23,4 @@ pub use pairing::*;
 pub use peer_metadata::*;
 pub use protocol::*;
 
-pub(super) const SPACEDRIVE_APP_ID: &str = "spacedrive";
+pub(super) const SPACEDRIVE_APP_ID: &str = "sd";
