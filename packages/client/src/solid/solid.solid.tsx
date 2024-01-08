@@ -5,6 +5,8 @@ import { createElement, StrictMode, type FunctionComponent } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createEffect, onCleanup, splitProps } from 'solid-js';
 
+import { useWithContextSolid } from './context';
+
 type Props<T> =
 	| {
 			root: FunctionComponent<{}>;
@@ -18,6 +20,7 @@ export function WithReact<T extends object>(props: Props<T>) {
 	let root: ReactDOM.Root | undefined;
 	let cleanup: (() => void) | undefined = undefined;
 
+	const applyCtx = useWithContextSolid();
 	const [_, childProps] = splitProps(props, ['root']);
 
 	// TODO: Inject all context's
@@ -34,7 +37,11 @@ export function WithReact<T extends object>(props: Props<T>) {
 		}
 
 		root.render(
-			createElement(StrictMode, null, createElement(props.root as any, childProps, null))
+			createElement(
+				StrictMode,
+				null,
+				applyCtx(createElement(props.root as any, childProps, null))
+			)
 		);
 	};
 
