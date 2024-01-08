@@ -1,15 +1,14 @@
-import { CloudArrowUp, Planet } from '@phosphor-icons/react';
+import { Planet } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import { proxy } from 'valtio';
-import { useP2PEvents } from '@sd/client';
-import { dialogManager, toast } from '@sd/ui';
+import { useBridgeMutation, useDiscoveredPeers, useP2PEvents } from '@sd/client';
+import { toast } from '@sd/ui';
 import { Icon } from '~/components';
 import { expandRect, isWithinRect, useDropzone } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
-import { SpacedropDialog } from './dialog';
 import { useIncomingSpacedropToast, useSpacedropProgressToast } from './toast';
 
 // TODO: Do this using React context/state
@@ -109,6 +108,23 @@ export function Spacedrop() {
 		}
 	});
 
+	const discoveredPeers = useDiscoveredPeers();
+	const doSpacedrop = useBridgeMutation('p2p.spacedrop');
+
+	const onDropped = (id: string, files: string[]) => {
+		if (doSpacedrop.isLoading) {
+			toast.warning('Spacedrop already in progress');
+			return;
+		}
+
+		doSpacedrop
+			.mutateAsync({
+				identity: id,
+				file_path: files
+			})
+			.then(() => setIsOpen(false));
+	};
+
 	return (
 		<div ref={ref} className="flex h-full max-w-[300px] flex-col">
 			<div className="flex w-full flex-col items-center p-4">
@@ -116,64 +132,40 @@ export function Spacedrop() {
 				<span className="text-lg font-bold">Spacedrop</span>
 
 				<div className="flex flex-col space-y-4 pt-2">
-					<Node name="Oscar's Generic Android Handset" />
-					<Node name="Another Phone" />
+					{Array.from(discoveredPeers).map(([id, meta]) => (
+						<Node key={id} id={id} name={meta.name} onDropped={onDropped} />
+					))}
 				</div>
-
-				{/* <div ref={dropzoneRef} className="mt-3 flex w-full items-center justify-center">
-					<label
-						className="dark:hover:bg-bray-800 flex h-64 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:hover:border-gray-500 dark:hover:bg-gray-600"
-						onClick={() =>
-							platform.openFilePickerDialog?.().then((path) => {
-								if (path === null) return;
-								if (isOpen) return;
-
-								setIsOpen(true);
-								dialogManager
-									.create((dp) => (
-										<SpacedropDialog {...dp} path={castToArray(path)} />
-									))
-									.then(() => setIsOpen(false));
-							})
-						}
-					>
-						<div className="flex flex-col items-center justify-center pb-6 pt-5">
-							<CloudArrowUp size={32} className="text-black" />
-							<p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
-								<span className="font-semibold">Click to upload</span> or drag and
-								drop
-							</p>
-						</div>
-					</label>
-				</div> */}
 			</div>
 		</div>
 	);
 }
 
-function Node({ name }: { name: string }) {
+function Node({
+	id,
+	name,
+	onDropped
+}: {
+	id: string;
+	name: string;
+	onDropped: (id: string, files: string[]) => void;
+}) {
 	const ref = useRef<HTMLDivElement>(null);
 
 	const state = useDropzone({
 		ref,
-		onDrop: (files) => {
-			alert('Spacedroping to ' + name + ' ' + files);
-
-			// TODO: Hook up the backend
-		}
+		onDrop: (files) => onDropped(id, files)
 	});
 
 	return (
 		<div
 			ref={ref}
-			className={clsx('border border-dashed px-4 py-2', state === 'hovered' && 'wiggle')}
+			className={clsx(
+				'border px-4 py-2',
+				state === 'hovered' ? 'border-solid' : 'border-dashed'
+			)}
 		>
 			<h1>{name}</h1>
 		</div>
 	);
-}
-
-function castToArray<T>(t: T | T[]) {
-	if (Array.isArray(t)) return t;
-	return [t];
 }
