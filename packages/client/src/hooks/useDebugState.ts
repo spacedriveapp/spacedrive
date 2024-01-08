@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { createMutable } from 'solid-js/store';
 import { useSnapshot } from 'valtio';
 
 import { valtioPersist } from '../lib/valito';
+import { createPersistedMutable, useSolidStore } from '../solidjs-interop';
 
 export interface DebugState {
 	enabled: boolean;
@@ -11,20 +13,28 @@ export interface DebugState {
 	telemetryLogging: boolean;
 }
 
-const debugState: DebugState = valtioPersist('sd-debugState', {
-	enabled: globalThis.isDev,
-	rspcLogger: false,
-	reactQueryDevtools: globalThis.isDev ? 'invisible' : 'enabled',
-	shareFullTelemetry: false,
-	telemetryLogging: false
-});
+export const debugState = createPersistedMutable(
+	'sd-debugState',
+	createMutable<DebugState>({
+		enabled: globalThis.isDev,
+		rspcLogger: false,
+		reactQueryDevtools: globalThis.isDev ? 'invisible' : 'enabled',
+		shareFullTelemetry: false,
+		telemetryLogging: false
+	})
+);
+
+export function useDebugState2() {
+	// TODO: Valtio would smartly track
+	return useSolidStore(debugState);
+}
 
 export function useDebugState() {
-	return useSnapshot(debugState);
+	return useSnapshot(debugState2);
 }
 
 export function getDebugState() {
-	return debugState;
+	return debugState2;
 }
 
 export function useDebugStateEnabler(): () => void {
@@ -42,3 +52,18 @@ export function useDebugStateEnabler(): () => void {
 
 	return () => setClicked((c) => c + 1);
 }
+
+// TODO: Remove
+window.demo = () => {
+	console.log('Updated');
+	debugState.enabled = !debugState.enabled;
+};
+
+// TODO: Remove
+const debugState2: DebugState = valtioPersist('sd-debugState', {
+	enabled: globalThis.isDev,
+	rspcLogger: false,
+	reactQueryDevtools: globalThis.isDev ? 'invisible' : 'enabled',
+	shareFullTelemetry: false,
+	telemetryLogging: false
+});

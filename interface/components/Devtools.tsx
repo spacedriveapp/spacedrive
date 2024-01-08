@@ -1,9 +1,9 @@
 import { defaultContext } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { useDebugState } from '@sd/client';
+import { useDebugState, useDebugState2 } from '@sd/client';
 
 export const Devtools = () => {
-	const debugState = useDebugState();
+	const debugState = useDebugState2();
 
 	return (
 		<>
