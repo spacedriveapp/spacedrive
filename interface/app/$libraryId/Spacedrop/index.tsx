@@ -105,6 +105,14 @@ export function Spacedrop({ triggerClose }: { triggerClose: () => void }) {
 				<span className="text-lg font-bold">Spacedrop</span>
 
 				<div className="flex flex-col space-y-4 pt-2">
+					{discoveredPeers.size === 0 && (
+						<div className="flex flex-col text-center">
+							<span className="text-sm text-gray-400">
+								No Spacedrive nodes were
+								<br /> found on your network
+							</span>
+						</div>
+					)}
 					{Array.from(discoveredPeers).map(([id, meta]) => (
 						<Node key={id} id={id} name={meta.name} onDropped={onDropped} />
 					))}
