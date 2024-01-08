@@ -389,3 +389,121 @@ pub mod library {
 		}
 	}
 }
+
+#[derive(Type, Serialize, Deserialize)]
+pub struct CloudLocation {
+	id: String,
+	name: String,
+}
+
+pub mod locations {
+	use super::*;
+
+	pub use list::exec as list;
+	pub mod list {
+		use super::*;
+
+		pub async fn exec(config: RequestConfig) -> Result<Response, Error> {
+			let Some(auth_token) = config.auth_token else {
+				return Err(Error("Authentication required".to_string()));
+			};
+
+			config
+				.client
+				.get(&format!("{}/api/v1/locations", config.api_url))
+				.with_auth(auth_token)
+				.send()
+				.await
+				.map_err(|e| Error(e.to_string()))?
+				.json()
+				.await
+				.map_err(|e| Error(e.to_string()))
+		}
+
+		pub type Response = Vec<CloudLocation>;
+	}
+
+	pub use create::exec as create;
+	pub mod create {
+		use super::*;
+
+		pub async fn exec(config: RequestConfig, name: String) -> Result<Response, Error> {
+			let Some(auth_token) = config.auth_token else {
+				return Err(Error("Authentication required".to_string()));
+			};
+
+			config
+				.client
+				.post(&format!("{}/api/v1/locations", config.api_url))
+				.json(&json!({
+					"name": name,
+				}))
+				.with_auth(auth_token)
+				.send()
+				.await
+				.map_err(|e| Error(e.to_string()))?
+				.json()
+				.await
+				.map_err(|e| Error(e.to_string()))
+		}
+
+		pub type Response = CloudLocation;
+	}
+
+	pub use remove::exec as remove;
+	pub mod remove {
+		use super::*;
+
+		pub async fn exec(config: RequestConfig, id: String) -> Result<Response, Error> {
+			let Some(auth_token) = config.auth_token else {
+				return Err(Error("Authentication required".to_string()));
+			};
+
+			config
+				.client
+				.post(&format!("{}/api/v1/locations/delete", config.api_url))
+				.json(&json!({
+					"id": id,
+				}))
+				.with_auth(auth_token)
+				.send()
+				.await
+				.map_err(|e| Error(e.to_string()))?
+				.json()
+				.await
+				.map_err(|e| Error(e.to_string()))
+		}
+
+		pub type Response = CloudLocation;
+	}
+
+	pub use authorise::exec as authorise;
+	pub mod authorise {
+		use super::*;
+
+		pub async fn exec(config: RequestConfig, id: String) -> Result<Response, Error> {
+			let Some(auth_token) = config.auth_token else {
+				return Err(Error("Authentication required".to_string()));
+			};
+
+			config
+				.client
+				.post(&format!("{}/api/v1/locations/authorise", config.api_url))
+				.json(&json!({ "id": id }))
+				.with_auth(auth_token)
+				.send()
+				.await
+				.map_err(|e| Error(e.to_string()))?
+				.json()
+				.await
+				.map_err(|e| Error(e.to_string()))
+		}
+
+		#[derive(Debug, Clone, Type, Deserialize)]
+		pub struct Response {
+			pub access_key_id: String,
+			pub secret_access_key: String,
+			pub session_token: String,
+		}
+	}
+}

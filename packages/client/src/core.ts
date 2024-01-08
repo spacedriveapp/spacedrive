@@ -9,6 +9,7 @@ export type Procedures = {
         { key: "cloud.getApiOrigin", input: never, result: string } | 
         { key: "cloud.library.get", input: LibraryArgs<null>, result: { uuid: string; name: string; instances: CloudInstance[]; ownerId: string } | null } | 
         { key: "cloud.library.list", input: never, result: CloudLibrary[] } | 
+        { key: "cloud.locations.list", input: never, result: CloudLocation[] } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata) | null } | 
         { key: "files.get", input: LibraryArgs<number>, result: { item: Reference<ObjectWithFilePaths2>; nodes: CacheNode[] } | null } | 
         { key: "files.getConvertableImageExtensions", input: never, result: string[] } | 
@@ -37,7 +38,6 @@ export type Procedures = {
         { key: "notifications.dismissAll", input: never, result: null } | 
         { key: "notifications.get", input: never, result: Notification[] } | 
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
-        { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: EphemeralPathsResult } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.objectsCount", input: LibraryArgs<{ filters?: SearchFilterArgs[] }>, result: number } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
@@ -58,6 +58,9 @@ export type Procedures = {
         { key: "backups.restore", input: string, result: null } | 
         { key: "cloud.library.create", input: LibraryArgs<null>, result: null } | 
         { key: "cloud.library.join", input: string, result: LibraryConfigWrapped } | 
+        { key: "cloud.locations.create", input: string, result: CloudLocation } | 
+        { key: "cloud.locations.remove", input: string, result: CloudLocation } | 
+        { key: "cloud.locations.testing", input: TestingParams, result: null } | 
         { key: "cloud.setApiOrigin", input: string, result: null } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
@@ -126,6 +129,7 @@ export type Procedures = {
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "notifications.listen", input: never, result: Notification } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
+        { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: EphemeralPathsResultItem } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
 
@@ -157,6 +161,8 @@ export type ChangeNodeNameArgs = { name: string | null; p2p_port: MaybeUndefined
 export type CloudInstance = { id: string; uuid: string; identity: string }
 
 export type CloudLibrary = { uuid: string; name: string; instances: CloudInstance[]; ownerId: string }
+
+export type CloudLocation = { id: string; name: string }
 
 export type ColorProfile = "Normal" | "Custom" | "HDRNoOriginal" | "HDRWithOriginal" | "OriginalForHDR" | "Panorama" | "PortraitHDR" | "Portrait"
 
@@ -204,7 +210,7 @@ export type EphemeralPathOrder = { field: "name"; value: SortOrder } | { field: 
 
 export type EphemeralPathSearchArgs = { path: string; withHiddenFiles: boolean; order?: EphemeralPathOrder | null }
 
-export type EphemeralPathsResult = { entries: Reference<ExplorerItem>[]; errors: Error[]; nodes: CacheNode[] }
+export type EphemeralPathsResultItem = { entries: Reference<ExplorerItem>[]; errors: Error[]; nodes: CacheNode[] }
 
 export type EphemeralRenameFileArgs = { kind: EphemeralRenameKind }
 
@@ -560,6 +566,8 @@ export type TagCreateArgs = { name: string; color: string }
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
 
 export type Target = { Object: number } | { FilePath: number }
+
+export type TestingParams = { id: string; path: string }
 
 export type TextMatch = { contains: string } | { startsWith: string } | { endsWith: string } | { equals: string }
 
