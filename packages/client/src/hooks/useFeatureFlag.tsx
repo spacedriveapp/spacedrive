@@ -10,7 +10,8 @@ export const features = [
 	'backups',
 	'debugRoutes',
 	'solidJsDemo',
-	'hostedLocations'
+	'hostedLocations',
+	'debugDragAndDrop'
 ] as const;
 
 // This defines which backend feature flags show up in the UI.

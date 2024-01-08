@@ -768,7 +768,7 @@ dependencies = [
  "futures-core",
  "http",
  "http-body",
- "itoa 1.0.9",
+ "itoa 1.0.10",
  "num-integer",
  "pin-project-lite",
  "pin-utils",
