@@ -10,6 +10,7 @@ export const features = [
 	'p2pPairing',
 	'backups',
 	'debugRoutes',
+	'solidJsDemo',
 	'hostedLocations'
 ] as const;
 
