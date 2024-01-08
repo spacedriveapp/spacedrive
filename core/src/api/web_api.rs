@@ -1,5 +1,3 @@
-use crate::util::http::ensure_response;
-
 use rspc::alpha::AlphaRouter;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -17,21 +15,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			|node, args: Feedback| async move {
-				node.add_auth_header(node.http.post(&format!(
-					"{}/api/v1/feedback",
-					&node.env.api_url.lock().await
-				)))
-				.await
-				.json(&args)
-				.send()
-				.await
-				.map_err(|_| {
-					rspc::Error::new(
-						rspc::ErrorCode::InternalServerError,
-						"Request failed".to_string(),
-					)
-				})
-				.and_then(ensure_response)?;
+				sd_cloud_api::feedback::send(
+					node.cloud_api_config().await,
+					args.message,
+					args.emoji,
+				)
+				.await?;
 
 				Ok(())
 			}

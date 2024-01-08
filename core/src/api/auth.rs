@@ -1,5 +1,3 @@
-use crate::util::http::ensure_response;
-
 use std::time::Duration;
 
 use reqwest::{Response, StatusCode};
@@ -148,21 +146,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		)
 		.procedure("me", {
 			R.query(|node, _: ()| async move {
-				#[derive(Serialize, Deserialize, Type)]
-				#[specta(inline)]
-				struct Response {
-					id: String,
-					email: String,
-				}
+				let resp = sd_cloud_api::user::me(node.cloud_api_config().await).await?;
 
-				node.authed_api_request(node.http.get(&format!(
-					"{}/api/v1/user/me",
-					&node.env.api_url.lock().await
-				)))
-				.await
-				.and_then(ensure_response)
-				.map(parse_json_body::<Response>)?
-				.await
+				Ok(resp)
 			})
 		})
 }
