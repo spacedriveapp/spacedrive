@@ -1,4 +1,4 @@
-import { telemetryStore, useTelemetryState } from '@sd/client';
+import { telemetryState, useTelemetryState } from '@sd/client';
 import { Switch } from '@sd/ui';
 
 import { Heading } from '../Layout';
@@ -19,7 +19,7 @@ export const Component = () => {
 			>
 				<Switch
 					checked={fullTelemetry}
-					onClick={() => (telemetryStore.shareFullTelemetry = !fullTelemetry)}
+					onClick={() => (telemetryState.shareFullTelemetry = !fullTelemetry)}
 					size="md"
 				/>
 			</Setting>

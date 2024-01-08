@@ -6,7 +6,7 @@ import {
 	insertLibrary,
 	onboardingStore,
 	resetOnboardingStore,
-	telemetryStore,
+	telemetryState,
 	unitFormatStore,
 	useBridgeMutation,
 	useCachedLibraries,
@@ -105,7 +105,7 @@ const useFormState = () => {
 
 			// opted to place this here as users could change their mind before library creation/onboarding finalization
 			// it feels more fitting to configure it here (once)
-			telemetryStore.shareFullTelemetry = data.privacy.shareTelemetry === 'share-telemetry';
+			telemetryState.shareFullTelemetry = data.privacy.shareTelemetry === 'share-telemetry';
 
 			try {
 				// show creation screen for a bit for smoothness
@@ -122,7 +122,7 @@ const useFormState = () => {
 
 				platform.refreshMenuBar && platform.refreshMenuBar();
 
-				if (telemetryStore.shareFullTelemetry) {
+				if (telemetryState.shareFullTelemetry) {
 					submitPlausibleEvent({ event: { type: 'libraryCreate' } });
 				}
 

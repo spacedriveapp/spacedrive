@@ -1,5 +1,5 @@
 import { RadixCheckbox, Select, SelectOption, Slider, tw, z } from '@sd/ui';
-import { explorerLayoutStore, useExplorerLayoutStore } from '~/../packages/client/src';
+import { explorerLayout, useExplorerLayoutStore } from '~/../packages/client/src';
 import { SortOrderSchema } from '~/app/route-schemas';
 
 import { useExplorerContext } from './Context';
@@ -120,7 +120,7 @@ export default () => {
 						name="showPathBar"
 						onCheckedChange={(value) => {
 							if (typeof value !== 'boolean') return;
-							explorerLayoutStore.showPathBar = value;
+							explorerLayout.showPathBar = value;
 						}}
 					/>
 

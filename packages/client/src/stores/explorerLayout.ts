@@ -2,7 +2,7 @@ import { createMutable } from 'solid-js/store';
 
 import { createPersistedMutable, useSolidStore } from '../solidjs-interop';
 
-export const explorerLayoutStore = createPersistedMutable(
+export const explorerLayout = createPersistedMutable(
 	'sd-explorer-layout',
 	createMutable({
 		showPathBar: true,
@@ -11,5 +11,5 @@ export const explorerLayoutStore = createPersistedMutable(
 );
 
 export function useExplorerLayoutStore() {
-	return useSolidStore(explorerLayoutStore);
+	return useSolidStore(explorerLayout);
 }

@@ -17,7 +17,7 @@ type TelemetryState = {
 	buildInfo: BuildInfo | undefined;
 };
 
-export const telemetryStore = createPersistedMutable(
+export const telemetryState = createPersistedMutable(
 	'sd-explorer-layout',
 	createMutable<TelemetryState>({
 		shareFullTelemetry: false, // false by default
@@ -27,5 +27,5 @@ export const telemetryStore = createPersistedMutable(
 );
 
 export function useTelemetryState() {
-	return useSolidStore(telemetryStore);
+	return useSolidStore(telemetryState);
 }

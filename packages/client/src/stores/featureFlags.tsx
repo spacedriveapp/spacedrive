@@ -20,7 +20,7 @@ export const backendFeatures: BackendFeature[] = ['syncEmitMessages', 'filesOver
 
 export type FeatureFlag = (typeof features)[number] | BackendFeature;
 
-export const featureFlagState = createPersistedMutable(
+export const featureFlagsStore = createPersistedMutable(
 	'sd-featureFlags',
 	createMutable({
 		enabled: [] as FeatureFlag[]
@@ -40,9 +40,9 @@ export function useLoadBackendFeatureFlags() {
 	const nodeConfig = useBridgeQuery(['nodeState']);
 
 	useEffect(() => {
-		featureFlagState.enabled = [
+		featureFlagsStore.enabled = [
 			// Remove all backend features.
-			...featureFlagState.enabled.filter((f) => features.includes(f as any)),
+			...featureFlagsStore.enabled.filter((f) => features.includes(f as any)),
 			// Add back in current state of backend features
 
 			...(nodeConfig.data?.features ?? [])
@@ -51,16 +51,16 @@ export function useLoadBackendFeatureFlags() {
 }
 
 export function useFeatureFlags() {
-	return useSolidStore(featureFlagState);
+	return useSolidStore(featureFlagsStore);
 }
 
 export function useFeatureFlag(flag: FeatureFlag | FeatureFlag[]) {
-	useSolidStore(featureFlagState); // Rerender on change
+	useSolidStore(featureFlagsStore); // Rerender on change
 	return Array.isArray(flag) ? flag.every((f) => isEnabled(f)) : isEnabled(flag);
 }
 
 export const isEnabled = (flag: FeatureFlag) =>
-	featureFlagState.enabled.find((ff) => flag === ff) !== undefined;
+	featureFlagsStore.enabled.find((ff) => flag === ff) !== undefined;
 
 export function toggleFeatureFlag(flags: FeatureFlag | FeatureFlag[]) {
 	if (!Array.isArray(flags)) {
@@ -72,7 +72,7 @@ export function toggleFeatureFlag(flags: FeatureFlag | FeatureFlag[]) {
 			void (async () => {
 				// Tauri's `confirm` returns a Promise
 				// Only prompt when enabling the feature
-				const result = featureFlagState.enabled.find((ff) => f === ff)
+				const result = featureFlagsStore.enabled.find((ff) => f === ff)
 					? true
 					: await confirm(
 							'This feature will render your database broken and it WILL need to be reset! Use at your own risk!'
@@ -86,7 +86,7 @@ export function toggleFeatureFlag(flags: FeatureFlag | FeatureFlag[]) {
 			return;
 		}
 
-		if (!featureFlagState.enabled.find((ff) => f === ff)) {
+		if (!featureFlagsStore.enabled.find((ff) => f === ff)) {
 			let message: string | undefined;
 			if (f === 'p2pPairing') {
 				message =
@@ -102,14 +102,14 @@ export function toggleFeatureFlag(flags: FeatureFlag | FeatureFlag[]) {
 					const result = await confirm(message);
 
 					if (result) {
-						featureFlagState.enabled.push(f);
+						featureFlagsStore.enabled.push(f);
 					}
 				})();
 			} else {
-				featureFlagState.enabled.push(f);
+				featureFlagsStore.enabled.push(f);
 			}
 		} else {
-			featureFlagState.enabled = featureFlagState.enabled.filter((ff) => f !== ff);
+			featureFlagsStore.enabled = featureFlagsStore.enabled.filter((ff) => f !== ff);
 		}
 	});
 }

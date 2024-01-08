@@ -2,8 +2,8 @@ import { createContext, PropsWithChildren, useContext } from 'react';
 
 import { LibraryConfigWrapped } from '../core';
 import { useBridgeSubscription } from '../rspc';
+import { libraryStore, useLibraryStore } from '../stores/libraryStore';
 import { ClientContext, useClientContext } from './useClientContext';
-import { libraryStore, useLibraryStore } from './useLibraryStore';
 
 export interface LibraryContext {
 	library: LibraryConfigWrapped;
