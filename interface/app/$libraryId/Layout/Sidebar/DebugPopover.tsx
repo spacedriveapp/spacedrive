@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router';
 import {
 	backendFeatures,
 	features,
-	isEnabled,
 	toggleFeatureFlag,
 	useBridgeQuery,
 	useDebugState,
@@ -190,29 +189,35 @@ function InvalidateDebugPanel() {
 }
 
 function FeatureFlagSelector() {
-	useFeatureFlags(); // Subscribe to changes
+	const featureFlags = useFeatureFlags();
 
 	return (
-		<DropdownMenu.Root
-			trigger={
-				<Dropdown.Button variant="gray" className="w-full">
-					<span className="truncate">Feature Flags</span>
-				</Dropdown.Button>
-			}
-			className="mt-1 shadow-none data-[side=bottom]:slide-in-from-top-2 dark:divide-menu-selected/30 dark:border-sidebar-line dark:bg-sidebar-box"
-			alignToTrigger
-		>
-			{[...features, ...backendFeatures].map((feat) => (
-				<DropdownMenu.Item
-					key={feat}
-					label={feat}
-					iconProps={{ weight: 'bold', size: 16 }}
-					onClick={() => toggleFeatureFlag(feat)}
-					className="font-medium text-white"
-					icon={isEnabled(feat) ? CheckSquare : undefined}
-				/>
-			))}
-		</DropdownMenu.Root>
+		<>
+			<DropdownMenu.Root
+				trigger={
+					<Dropdown.Button variant="gray" className="w-full">
+						<span className="truncate">Feature Flags</span>
+					</Dropdown.Button>
+				}
+				className="mt-1 shadow-none data-[side=bottom]:slide-in-from-top-2 dark:divide-menu-selected/30 dark:border-sidebar-line dark:bg-sidebar-box"
+				alignToTrigger
+			>
+				{[...features, ...backendFeatures].map((feat) => (
+					<DropdownMenu.Item
+						key={feat}
+						label={feat}
+						iconProps={{ weight: 'bold', size: 16 }}
+						onClick={() => toggleFeatureFlag(feat)}
+						className="font-medium text-white"
+						icon={
+							featureFlags.find((f) => feat === f) !== undefined
+								? CheckSquare
+								: undefined
+						}
+					/>
+				))}
+			</DropdownMenu.Root>
+		</>
 	);
 }
 

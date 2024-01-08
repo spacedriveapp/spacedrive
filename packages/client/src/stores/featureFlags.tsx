@@ -3,7 +3,7 @@ import { createMutable } from 'solid-js/store';
 
 import type { BackendFeature } from '../core';
 import { nonLibraryClient, useBridgeQuery } from '../rspc';
-import { createPersistedMutable, useSolidStore } from '../solidjs-interop';
+import { createPersistedMutable, useObserver, useSolidStore } from '../solid';
 
 export const features = [
 	'p2pPairing',
@@ -51,7 +51,9 @@ export function useLoadBackendFeatureFlags() {
 }
 
 export function useFeatureFlags() {
-	return useSolidStore(featureFlagsStore);
+	// We have to be special here.
+	// `useSolidStore` would not work as it "subscribes" to the array, not the items in the array.
+	return useObserver(() => [...featureFlagsStore.enabled]);
 }
 
 export function useFeatureFlag(flag: FeatureFlag | FeatureFlag[]) {

@@ -2,7 +2,7 @@ import { RSPCError } from '@oscartbeaumont-sd/rspc-client';
 import { createMutable } from 'solid-js/store';
 
 import { nonLibraryClient } from '../rspc';
-import { useSolidStore } from '../solidjs-interop';
+import { useSolidStore } from '../solid';
 
 interface Store {
 	state: { status: 'loading' | 'notLoggedIn' | 'loggingIn' | 'loggedIn' | 'loggingOut' };

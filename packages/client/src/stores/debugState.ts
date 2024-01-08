@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createMutable } from 'solid-js/store';
 
-import { createPersistedMutable, useSolidStore } from '../solidjs-interop';
+import { createPersistedMutable, useSolidStore } from '../solid';
 
 export interface DebugState {
 	enabled: boolean;

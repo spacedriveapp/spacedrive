@@ -1,7 +1,7 @@
 import { createMutable } from 'solid-js/store';
 
 import { BuildInfo } from '../core';
-import { createPersistedMutable, useSolidStore } from '../solidjs-interop';
+import { createPersistedMutable, useSolidStore } from '../solid';
 
 /**
  * Possible Platform types that can be sourced from `usePlatform().platform` or even hardcoded.

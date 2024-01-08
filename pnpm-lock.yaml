@@ -855,9 +855,6 @@ importers:
       react-hook-form:
         specifier: ^7.47.0
         version: 7.47.0(react@18.2.0)
-      react-solid-state:
-        specifier: ^0.27.3
-        version: 0.27.3(react-dom@18.2.0)(react@18.2.0)
       solid-js:
         specifier: ^1.8.8
         version: 1.8.8
@@ -21290,17 +21287,6 @@ packages:
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
       tslib: 2.6.2
-    dev: false
-
-  /react-solid-state@0.27.3(react-dom@18.2.0)(react@18.2.0):
-    resolution: {integrity: sha512-L+aF+MUqjeiaX+hFGXGtPHsV2TFWof/QTmPrMQ7CwdpoDQ1BHc3iluWgCncgg1H+zeq7TeIKRhH6ukBygUbrOQ==}
-    peerDependencies:
-      react: '*'
-      react-dom: '*'
-    dependencies:
-      react: 18.2.0
-      react-dom: 18.2.0(react@18.2.0)
-      solid-js: 1.8.8
     dev: false
 
   /react-sticky-el@2.1.0(react-dom@18.2.0)(react@18.2.0):

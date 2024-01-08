@@ -1,6 +1,6 @@
 import { createMutable } from 'solid-js/store';
 
-import { createPersistedMutable, useSolidStore } from '../solidjs-interop';
+import { createPersistedMutable, useSolidStore } from '../solid';
 
 export type CoordinatesFormat = 'dms' | 'dd';
 export type DistanceFormat = 'km' | 'miles';

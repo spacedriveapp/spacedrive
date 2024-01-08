@@ -21,7 +21,6 @@ export function createUpdater() {
 
 	listen<UpdateStore>('updater', (e) => {
 		Object.assign(updateStore, e.payload);
-		console.log(updateStore);
 	});
 
 	const onInstallCallbacks = new Set<() => void>();

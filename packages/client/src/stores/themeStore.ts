@@ -1,7 +1,6 @@
-import { useObserver } from 'react-solid-state';
 import { createMutable } from 'solid-js/store';
 
-import { createPersistedMutable, useSolidStore } from '../solidjs-interop';
+import { createPersistedMutable, useObserver, useSolidStore } from '../solid';
 
 export type Themes = 'vanilla' | 'dark';
 

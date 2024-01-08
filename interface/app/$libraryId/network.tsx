@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useDiscoveredPeers } from '@sd/client';
+import { useDebugState, useDiscoveredPeers, useFeatureFlag, useFeatureFlags } from '@sd/client';
 import { Icon } from '~/components';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 
@@ -64,9 +64,31 @@ export const Component = () => {
 							Other Spacedrive nodes on your LAN will appear here, along with your
 							default OS network mounts.
 						</p>
+						<Debug />
 					</div>
 				}
 			/>
 		</ExplorerContextProvider>
 	);
 };
+
+function Debug() {
+	const debugState = useDebugState();
+	const featureFlags = useFeatureFlags();
+	const demo = useFeatureFlag('solidJsDemo');
+
+	return (
+		<>
+			<p className="text-red">{debugState.enabled ? 'Enabled' : 'Disabled'}</p>
+			<button
+				onClick={() => {
+					debugState.enabled = !debugState.enabled;
+				}}
+			>
+				Toggle
+			</button>
+			<p className="text-red">{JSON.stringify(featureFlags)}</p>
+			<p className="text-red">{demo ? 'Enabled' : 'Disabled'}</p>
+		</>
+	);
+}

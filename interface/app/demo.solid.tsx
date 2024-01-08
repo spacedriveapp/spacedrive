@@ -1,9 +1,8 @@
 /** @jsxImportSource solid-js */
 
 import { createSignal } from 'solid-js';
-import { render } from 'solid-js/web';
 
-function Demo() {
+export function Demo() {
 	const [count, setCount] = createSignal(0);
 
 	return (
@@ -12,8 +11,4 @@ function Demo() {
 			<div>Hello from Solid: {count()}</div>
 		</div>
 	);
-}
-
-export function renderDemo(element: HTMLDivElement): () => void {
-	return render(Demo, element);
 }
