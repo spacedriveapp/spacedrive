@@ -855,6 +855,9 @@ importers:
       react-hook-form:
         specifier: ^7.47.0
         version: 7.47.0(react@18.2.0)
+      react-solid-state:
+        specifier: ^0.27.3
+        version: 0.27.3(react-dom@18.2.0)(react@18.2.0)
       solid-js:
         specifier: ^1.8.8
         version: 1.8.8
@@ -6646,7 +6649,7 @@ packages:
       magic-string: 0.27.0
       react-docgen-typescript: 2.2.2(typescript@5.3.3)
       typescript: 5.3.3
-      vite: 5.0.10(less@4.2.0)
+      vite: 5.0.10(@types/node@18.17.19)
 
   /@jridgewell/gen-mapping@0.3.3:
     resolution: {integrity: sha512-HLhSWOLRi875zjjMG/r+Nv0oCW8umGb0BgEhyX3dDX3egwZtB8PqLnjz3yedt8R5StBrzcg4aBpnh8UA9D1BoQ==}
@@ -9892,7 +9895,7 @@ packages:
       magic-string: 0.30.5
       rollup: 3.29.4
       typescript: 5.3.3
-      vite: 5.0.10(less@4.2.0)
+      vite: 5.0.10(@types/node@18.17.19)
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -10245,7 +10248,7 @@ packages:
       react: 18.2.0
       react-docgen: 6.0.4
       react-dom: 18.2.0(react@18.2.0)
-      vite: 5.0.10(less@4.2.0)
+      vite: 5.0.10(@types/node@18.17.19)
     transitivePeerDependencies:
       - '@preact/preset-vite'
       - encoding
@@ -11634,7 +11637,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.22.5(@babel/core@7.23.2)
       magic-string: 0.27.0
       react-refresh: 0.14.0
-      vite: 5.0.10(less@4.2.0)
+      vite: 5.0.10(@types/node@18.17.19)
     transitivePeerDependencies:
       - supports-color
 
@@ -21292,6 +21295,17 @@ packages:
       tslib: 2.6.2
     dev: false
 
+  /react-solid-state@0.27.3(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-L+aF+MUqjeiaX+hFGXGtPHsV2TFWof/QTmPrMQ7CwdpoDQ1BHc3iluWgCncgg1H+zeq7TeIKRhH6ukBygUbrOQ==}
+    peerDependencies:
+      react: '*'
+      react-dom: '*'
+    dependencies:
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+      solid-js: 1.8.8
+    dev: false
+
   /react-sticky-el@2.1.0(react-dom@18.2.0)(react@18.2.0):
     resolution: {integrity: sha512-oo+a2GedF4QMfCfm20e9gD+RuuQp/ngvwGMUXAXpST+h4WnmKhuv7x6MQ4X/e3AHiLYgE0zDyJo1Pzo8m51KpA==}
     peerDependencies:
@@ -24616,7 +24630,6 @@ packages:
       rollup: 4.9.2
     optionalDependencies:
       fsevents: 2.3.3
-    dev: true
 
   /vite@5.0.10(less@4.2.0):
     resolution: {integrity: sha512-2P8J7WWgmc355HUMlFrwofacvr98DAjoE52BfdbwQtyLH06XKwaL/FMnmKM2crF0iX4MpmMKoDlNCB1ok7zHCw==}
@@ -24652,6 +24665,7 @@ packages:
       rollup: 4.9.2
     optionalDependencies:
       fsevents: 2.3.3
+    dev: true
 
   /vite@5.0.10(sass@1.69.5):
     resolution: {integrity: sha512-2P8J7WWgmc355HUMlFrwofacvr98DAjoE52BfdbwQtyLH06XKwaL/FMnmKM2crF0iX4MpmMKoDlNCB1ok7zHCw==}

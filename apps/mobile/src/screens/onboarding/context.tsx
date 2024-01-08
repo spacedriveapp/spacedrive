@@ -4,8 +4,8 @@ import { createContext, useContext } from 'react';
 import { z } from 'zod';
 import {
 	currentLibraryCache,
-	getOnboardingStore,
 	insertLibrary,
+	onboardingStore,
 	resetOnboardingStore,
 	telemetryStore,
 	useBridgeMutation,
@@ -61,7 +61,7 @@ const useFormState = () => {
 				shareTelemetry: 'share-telemetry'
 			}
 		},
-		onData: (data) => (getOnboardingStore().data = data)
+		onData: (data) => (onboardingStore.data = data)
 	});
 
 	const navigation = useNavigation<OnboardingStackScreenProps<any>['navigation']>();

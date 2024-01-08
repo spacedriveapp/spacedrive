@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
-import { subscribe, useSnapshot } from 'valtio';
+import { createMutable } from 'solid-js/store';
 
 import type { BackendFeature } from '../core';
-import { valtioPersist } from '../lib/valito';
 import { nonLibraryClient, useBridgeQuery } from '../rspc';
+import { createPersistedMutable, useSolidStore } from '../solidjs-interop';
 
 export const features = [
 	'spacedrop',
@@ -20,11 +20,13 @@ export const backendFeatures: BackendFeature[] = ['syncEmitMessages', 'filesOver
 
 export type FeatureFlag = (typeof features)[number] | BackendFeature;
 
-const featureFlagState = valtioPersist(
+export const featureFlagState = createPersistedMutable(
 	'sd-featureFlags',
-	{ enabled: [] as FeatureFlag[] },
+	createMutable({
+		enabled: [] as FeatureFlag[]
+	}),
 	{
-		saveFn(data) {
+		onSave: (data) => {
 			// Clone so we don't mess with the original data
 			const data2: typeof data = JSON.parse(JSON.stringify(data));
 			// Only save frontend flags (backend flags are saved in the backend)
@@ -49,16 +51,12 @@ export function useLoadBackendFeatureFlags() {
 }
 
 export function useFeatureFlags() {
-	return useSnapshot(featureFlagState);
+	return useSolidStore(featureFlagState);
 }
 
 export function useFeatureFlag(flag: FeatureFlag | FeatureFlag[]) {
-	useSnapshot(featureFlagState); // Rerender on change
+	useSolidStore(featureFlagState); // Rerender on change
 	return Array.isArray(flag) ? flag.every((f) => isEnabled(f)) : isEnabled(flag);
-}
-
-export function useOnFeatureFlagsChange(callback: (flags: FeatureFlag[]) => void) {
-	useEffect(() => subscribe(featureFlagState, () => callback(featureFlagState.enabled)));
 }
 
 export const isEnabled = (flag: FeatureFlag) =>

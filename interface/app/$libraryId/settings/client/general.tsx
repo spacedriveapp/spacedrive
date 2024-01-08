@@ -1,7 +1,6 @@
 import clsx from 'clsx';
 import { Controller, FormProvider } from 'react-hook-form';
 import {
-	getDebugState,
 	useBridgeMutation,
 	useBridgeQuery,
 	useConnectedPeers,
@@ -187,7 +186,7 @@ export const Component = () => {
 				<Switch
 					size="md"
 					checked={debugState.enabled}
-					onClick={() => (getDebugState().enabled = !debugState.enabled)}
+					onClick={() => (debugState.enabled = !debugState.enabled)}
 				/>
 			</Setting>
 			<Setting

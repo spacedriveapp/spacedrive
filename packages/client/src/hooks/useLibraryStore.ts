@@ -1,15 +1,11 @@
-import { proxy, useSnapshot } from 'valtio';
+import { createMutable } from 'solid-js/store';
 
-const state = {
+import { useSolidStore } from '../solidjs-interop';
+
+export const libraryStore = createMutable({
 	onlineLocations: [] as number[][]
-};
-
-const libraryStore = proxy(state);
+});
 
 export function useLibraryStore() {
-	return useSnapshot(libraryStore);
-}
-
-export function getLibraryStore() {
-	return libraryStore;
+	return useSolidStore(libraryStore);
 }

@@ -1,21 +1,30 @@
-import { useSnapshot } from 'valtio';
+import { useObserver } from 'react-solid-state';
+import { createMutable } from 'solid-js/store';
 
-import { valtioPersist } from '../lib';
+import { createPersistedMutable, useSolidStore } from '../solidjs-interop';
 
 export type Themes = 'vanilla' | 'dark';
 
-const themeStore = valtioPersist('sd-theme', {
-	theme: 'dark' as Themes,
-	syncThemeWithSystem: false,
-	hueValue: 235
-});
+export const themeStore = createPersistedMutable(
+	'sd-theme',
+	createMutable({
+		theme: 'dark' as Themes,
+		syncThemeWithSystem: false,
+		hueValue: 235
+	})
+);
 
 export function useThemeStore() {
-	return useSnapshot(themeStore);
+	return useSolidStore(themeStore);
 }
 
-export function getThemeStore() {
-	return themeStore;
+export function useSubscribeToThemeStore(callback: () => void) {
+	useObserver(() => {
+		// Subscribe to store
+		const _ = { ...themeStore };
+
+		callback();
+	});
 }
 
 export function isDarkTheme() {

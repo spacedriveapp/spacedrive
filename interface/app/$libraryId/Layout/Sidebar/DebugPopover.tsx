@@ -3,10 +3,8 @@ import { useNavigate } from 'react-router';
 import {
 	backendFeatures,
 	features,
-	getDebugState,
 	isEnabled,
 	toggleFeatureFlag,
-	useBridgeMutation,
 	useBridgeQuery,
 	useDebugState,
 	useFeatureFlags,
@@ -52,7 +50,7 @@ export default () => {
 				>
 					<Switch
 						checked={debugState.rspcLogger}
-						onClick={() => (getDebugState().rspcLogger = !debugState.rspcLogger)}
+						onClick={() => (debugState.rspcLogger = !debugState.rspcLogger)}
 					/>
 				</Setting>
 				<Setting
@@ -69,8 +67,8 @@ export default () => {
 								!debugState.shareFullTelemetry === false &&
 								debugState.telemetryLogging
 							)
-								getDebugState().telemetryLogging = false;
-							getDebugState().shareFullTelemetry = !debugState.shareFullTelemetry;
+								debugState.telemetryLogging = false;
+							debugState.shareFullTelemetry = !debugState.shareFullTelemetry;
 						}}
 					/>
 				</Setting>
@@ -88,8 +86,8 @@ export default () => {
 								!debugState.telemetryLogging &&
 								debugState.shareFullTelemetry === false
 							)
-								getDebugState().shareFullTelemetry = true;
-							getDebugState().telemetryLogging = !debugState.telemetryLogging;
+								debugState.shareFullTelemetry = true;
+							debugState.telemetryLogging = !debugState.telemetryLogging;
 						}}
 					/>
 				</Setting>
@@ -136,7 +134,7 @@ export default () => {
 					<Select
 						value={debugState.reactQueryDevtools}
 						size="sm"
-						onChange={(value) => (getDebugState().reactQueryDevtools = value as any)}
+						onChange={(value) => (debugState.reactQueryDevtools = value as any)}
 					>
 						<SelectOption value="disabled">Disabled</SelectOption>
 						<SelectOption value="invisible">Invisible</SelectOption>

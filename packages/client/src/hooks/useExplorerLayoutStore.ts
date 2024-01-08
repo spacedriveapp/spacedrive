@@ -1,16 +1,15 @@
-import { useSnapshot } from 'valtio';
+import { createMutable } from 'solid-js/store';
 
-import { valtioPersist } from '../lib';
+import { createPersistedMutable, useSolidStore } from '../solidjs-interop';
 
-const explorerLayoutStore = valtioPersist('sd-explorer-layout', {
-	showPathBar: true,
-	showImageSlider: true
-});
+export const explorerLayoutStore = createPersistedMutable(
+	'sd-explorer-layout',
+	createMutable({
+		showPathBar: true,
+		showImageSlider: true
+	})
+);
 
 export function useExplorerLayoutStore() {
-	return useSnapshot(explorerLayoutStore);
-}
-
-export function getExplorerLayoutStore() {
-	return explorerLayoutStore;
+	return useSolidStore(explorerLayoutStore);
 }

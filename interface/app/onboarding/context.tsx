@@ -3,11 +3,11 @@ import { createContext, useContext } from 'react';
 import { useNavigate } from 'react-router';
 import {
 	currentLibraryCache,
-	getOnboardingStore,
-	getUnitFormatStore,
 	insertLibrary,
+	onboardingStore,
 	resetOnboardingStore,
 	telemetryStore,
+	unitFormatStore,
 	useBridgeMutation,
 	useCachedLibraries,
 	useMultiZodForm,
@@ -83,7 +83,7 @@ const useFormState = () => {
 				shareTelemetry: 'share-telemetry'
 			}
 		},
-		onData: (data) => (getOnboardingStore().data = { ...obStore.data, ...data })
+		onData: (data) => (onboardingStore.data = { ...obStore.data, ...data })
 	});
 
 	const navigate = useNavigate();
@@ -92,8 +92,8 @@ const useFormState = () => {
 
 	if (window.navigator.language === 'en-US') {
 		// not perfect as some linux users use en-US by default, same w/ windows
-		getUnitFormatStore().distanceFormat = 'miles';
-		getUnitFormatStore().temperatureFormat = 'fahrenheit';
+		unitFormatStore.distanceFormat = 'miles';
+		unitFormatStore.temperatureFormat = 'fahrenheit';
 	}
 
 	const createLibrary = useBridgeMutation('library.create');

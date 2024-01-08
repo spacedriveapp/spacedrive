@@ -1,7 +1,7 @@
 import { FolderNotchOpen } from '@phosphor-icons/react';
 import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
 import {
-	getExplorerLayoutStore,
+	explorerLayoutStore,
 	useExplorerLayoutStore,
 	useLibrarySubscription,
 	useSelector
@@ -56,7 +56,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 
 	useShortcut('showPathBar', (e) => {
 		e.stopPropagation();
-		getExplorerLayoutStore().showPathBar = !layoutStore.showPathBar;
+		explorerLayoutStore.showPathBar = !layoutStore.showPathBar;
 	});
 
 	useShortcut('showInspector', (e) => {
