@@ -1,7 +1,8 @@
 import { RSPCError } from '@oscartbeaumont-sd/rspc-client';
-import { proxy, useSnapshot } from 'valtio';
+import { createMutable } from 'solid-js/store';
 
 import { nonLibraryClient } from '../rspc';
+import { useSolidStore } from '../solidjs-interop';
 
 interface Store {
 	state: { status: 'loading' | 'notLoggedIn' | 'loggingIn' | 'loggedIn' | 'loggingOut' };
@@ -13,14 +14,14 @@ export interface ProviderConfig {
 }
 
 // inner object so we can overwrite it in one assignment
-const store = proxy<Store>({
+const store = createMutable<Store>({
 	state: {
 		status: 'loading'
 	}
 });
 
 export function useStateSnapshot() {
-	return useSnapshot(store).state;
+	return useSolidStore(store).state;
 }
 
 nonLibraryClient
