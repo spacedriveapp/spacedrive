@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react-swc';
 import { defineConfig } from 'vite';
 import { createHtmlPlugin } from 'vite-plugin-html';
@@ -7,9 +8,15 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 
 import { narrowSolidPlugin } from './narrowSolidPlugin';
 
+const url = new URL('../../../interface/locales', import.meta.url);
+
 export default defineConfig({
 	plugins: [
 		tsconfigPaths(),
+		i18nextLoader({
+			paths: [fileURLToPath(url.href)],
+			namespaceResolution: 'relativePath'
+		}),
 		react(),
 		narrowSolidPlugin({ include: '**/*.solid.tsx' }),
 		svg({ svgrOptions: { icon: true } }),

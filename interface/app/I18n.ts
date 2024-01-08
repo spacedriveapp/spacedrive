@@ -1,10 +1,9 @@
-import { join } from 'path';
 import i18n from 'i18next';
 // import LanguageDetector from 'i18next-browser-languagedetector';
-import Backend, { HttpBackendOptions } from 'i18next-http-backend';
 import { initReactI18next } from 'react-i18next';
+import * as resources from 'virtual:i18next-loader';
 
-i18n.use(Backend)
+i18n
 	// // detect user language
 	// // learn more: https://github.com/i18next/i18next-browser-languageDetector
 	// .use(LanguageDetector)
@@ -12,21 +11,14 @@ i18n.use(Backend)
 	.use(initReactI18next)
 	// init i18next
 	// for all options read: https://www.i18next.com/overview/configuration-options
-	.init<HttpBackendOptions>({
+	.init({
+		resources,
 		load: 'languageOnly',
 		// resources,
 		fallbackLng: 'en',
-		debug: true,
 		ns: ['common'],
 		fallbackNS: 'common',
-		defaultNS: 'common',
-		interpolation: {
-			escapeValue: false // not needed for react as it escapes by default,
-		},
-		backend: {
-			loadPath: '/locales/{{lng}}/{{ns}}.json',
-			addPath: '/locales/{{lng}}/{{ns}}.missing.json'
-		}
+		defaultNS: 'common'
 	});
 
 export default i18n;
