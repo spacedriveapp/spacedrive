@@ -17,7 +17,7 @@ import { SectionList, Text, TouchableWithoutFeedback, View } from 'react-native'
 import { DebugState, useDebugState, useDebugStateEnabler } from '@sd/client';
 import { SettingsItem, SettingsItemDivider } from '~/components/settings/SettingsItem';
 import { tw, twStyle } from '~/lib/tailwind';
-import { SettingsStackParamList, SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
+import { SettingsStackParamList, SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
 type SectionType = {
 	title: string;
@@ -128,7 +128,7 @@ function renderSectionHeader({ section }: { section: { title: string } }) {
 	);
 }
 
-export default function SettingsScreen({ navigation }: SettingsStackScreenProps<'Home'>) {
+export default function SettingsScreen({ navigation }: SettingsStackScreenProps<'Settings'>) {
 	const debugState = useDebugState();
 
 	return (

@@ -1,4 +1,3 @@
-import { captureException } from '@sentry/browser';
 import { PropsWithChildren, useEffect, useState } from 'react';
 import {
 	ErrorBoundary,
@@ -12,6 +11,8 @@ import { Button, Dialogs } from '@sd/ui';
 import { showAlertDialog } from './components';
 import { useOperatingSystem, useTheme } from './hooks';
 import { usePlatform } from './util/Platform';
+
+const sentryBrowserLazy = import('@sentry/browser');
 
 const RENDERING_ERROR_LOCAL_STORAGE_KEY = 'was-rendering-error';
 
@@ -27,7 +28,7 @@ export function RouterErrorBoundary() {
 		<ErrorPage
 			message={(error as any).toString()}
 			sendReportBtn={() => {
-				captureException(error);
+				sentryBrowserLazy.then(({ captureException }) => captureException(error));
 				reloadBtn();
 			}}
 			reloadBtn={reloadBtn}
@@ -39,7 +40,7 @@ export default ({ error, resetErrorBoundary }: FallbackProps) => (
 	<ErrorPage
 		message={`Error: ${error.message}`}
 		sendReportBtn={() => {
-			captureException(error);
+			sentryBrowserLazy.then(({ captureException }) => captureException(error));
 			resetErrorBoundary();
 		}}
 		reloadBtn={resetErrorBoundary}
@@ -130,7 +131,13 @@ export function ErrorPage({
 				<Button
 					variant="gray"
 					className="mt-2"
-					onClick={() => (sendReportBtn ? sendReportBtn() : captureException(message))}
+					onClick={() =>
+						sendReportBtn
+							? sendReportBtn()
+							: sentryBrowserLazy.then(({ captureException }) =>
+									captureException(message)
+							  )
+					}
 				>
 					Send report
 				</Button>

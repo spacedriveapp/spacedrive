@@ -15,7 +15,7 @@ import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
-import { getExplorerStore } from '../store';
+import { explorerStore } from '../store';
 import { ExplorerItemData } from '../util';
 import { Image } from './Image';
 import { useBlackBars, useSize } from './utils';
@@ -201,7 +201,7 @@ const Video = ({ paused, blackBars, blackBarsSize, className, ...props }: VideoP
 			autoPlay={!paused}
 			onVolumeChange={(e) => {
 				const video = e.target as HTMLVideoElement;
-				getExplorerStore().mediaPlayerVolume = video.volume;
+				explorerStore.mediaPlayerVolume = video.volume;
 			}}
 			onCanPlay={(e) => {
 				const video = e.target as HTMLVideoElement;
@@ -209,7 +209,7 @@ const Video = ({ paused, blackBars, blackBarsSize, className, ...props }: VideoP
 				// https://github.com/facebook/react/issues/10389
 				video.loop = !props.controls;
 				video.muted = !props.controls;
-				video.volume = getExplorerStore().mediaPlayerVolume;
+				video.volume = explorerStore.mediaPlayerVolume;
 			}}
 			playsInline
 			draggable={false}

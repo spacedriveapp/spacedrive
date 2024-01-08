@@ -4,7 +4,7 @@ import { getDebugState, toggleFeatureFlag, useDebugState, useFeatureFlags } from
 import Card from '~/components/layout/Card';
 import { Button } from '~/components/primitive/Button';
 import { tw } from '~/lib/tailwind';
-import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
+import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
 const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 	const debugState = useDebugState();
@@ -25,7 +25,7 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 				<Button
 					onPress={() => {
 						navigation.popToTop();
-						navigation.replace('Home');
+						navigation.replace('Settings');
 						getDebugState().enabled = false;
 					}}
 				>

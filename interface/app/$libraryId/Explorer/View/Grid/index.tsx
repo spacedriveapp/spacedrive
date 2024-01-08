@@ -6,7 +6,7 @@ import { useOperatingSystem, useShortcut } from '~/hooks';
 
 import { useExplorerContext } from '../../Context';
 import { getQuickPreviewStore, useQuickPreviewStore } from '../../QuickPreview/store';
-import { getExplorerStore } from '../../store';
+import { explorerStore } from '../../store';
 import { uniqueId } from '../../util';
 import { useExplorerViewContext } from '../Context';
 import { GridContext } from './context';
@@ -20,7 +20,7 @@ export type RenderItem = (item: {
 
 const CHROME_REGEX = /Chrome/;
 
-export default memo(({ children }: { children: RenderItem }) => {
+const Component = memo(({ children }: { children: RenderItem }) => {
 	const os = useOperatingSystem();
 	const realOS = useOperatingSystem(true);
 
@@ -124,7 +124,7 @@ export default memo(({ children }: { children: RenderItem }) => {
 	}
 
 	function handleDragEnd() {
-		getExplorerStore().isDragSelecting = false;
+		explorerStore.isDragSelecting = false;
 		selectoFirstColumn.current = undefined;
 		selectoLastColumn.current = undefined;
 		setDragFromThumbnail(false);
@@ -364,12 +364,12 @@ export default memo(({ children }: { children: RenderItem }) => {
 					toggleContinueSelect="shift"
 					hitRate={0}
 					onDrag={(e) => {
-						if (!getExplorerStore().drag) return;
+						if (!explorerStore.drag) return;
 						e.stop();
 						handleDragEnd();
 					}}
 					onDragStart={({ inputEvent }) => {
-						getExplorerStore().isDragSelecting = true;
+						explorerStore.isDragSelecting = true;
 
 						if ((inputEvent as MouseEvent).target instanceof HTMLImageElement) {
 							setDragFromThumbnail(true);
@@ -627,3 +627,7 @@ export default memo(({ children }: { children: RenderItem }) => {
 		</GridContext.Provider>
 	);
 });
+
+Component.displayName = 'Grid';
+
+export default Component;

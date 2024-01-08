@@ -3,13 +3,12 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import { memo, Suspense, useDeferredValue, useMemo } from 'react';
-import { useLocation } from 'react-router';
 import {
 	ExplorerItem,
 	getExplorerItemData,
-	useCache,
-	useLibraryQuery,
-	useNodes,
+	useLibraryContext,
+	useNormalisedCache,
+	useUnsafeStreamedQuery,
 	type EphemeralPathOrder
 } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
@@ -29,7 +28,7 @@ import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
 import {
 	createDefaultExplorerSettings,
-	getExplorerStore,
+	explorerStore,
 	nonIndexedPathOrderingSchema
 } from './Explorer/store';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
@@ -176,23 +175,36 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 
 	const settingsSnapshot = explorerSettings.useSettingsSnapshot();
 
-	const query = useLibraryQuery(
+	const libraryCtx = useLibraryContext();
+	const cache = useNormalisedCache();
+	const query = useUnsafeStreamedQuery(
 		[
 			'search.ephemeralPaths',
 			{
-				path: path ?? (os === 'windows' ? 'C:\\' : '/'),
-				withHiddenFiles: settingsSnapshot.showHiddenFiles,
-				order: settingsSnapshot.order
+				library_id: libraryCtx.library.uuid,
+				arg: {
+					path: path ?? (os === 'windows' ? 'C:\\' : '/'),
+					withHiddenFiles: settingsSnapshot.showHiddenFiles,
+					order: settingsSnapshot.order
+				}
 			}
 		],
 		{
 			enabled: path != null,
 			suspense: true,
-			onSuccess: () => getExplorerStore().resetNewThumbnails()
+			onSuccess: () => explorerStore.resetNewThumbnails(),
+			onBatch: (item) => {
+				cache.withNodes(item.nodes);
+			}
 		}
 	);
-	useNodes(query.data?.nodes);
-	const entries = useCache(query.data?.entries);
+
+	const entries = useMemo(() => {
+		return cache.withCache(
+			query.data?.flatMap((item) => item.entries) ||
+				query.streaming.flatMap((item) => item.entries)
+		);
+	}, [cache, query.streaming, query.data]);
 
 	const items = useMemo(() => {
 		if (!entries) return [];
