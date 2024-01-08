@@ -8,6 +8,7 @@ export type Procedures = {
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "cloud.library.get", input: LibraryArgs<null>, result: { uuid: string; name: string; instances: CloudInstance[]; ownerId: string } | null } | 
         { key: "cloud.library.list", input: never, result: CloudLibrary[] } | 
+        { key: "cloud.locations.list", input: never, result: CloudLocation[] } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata) | null } | 
         { key: "files.get", input: LibraryArgs<number>, result: { item: Reference<ObjectWithFilePaths2>; nodes: CacheNode[] } | null } | 
         { key: "files.getConvertableImageExtensions", input: never, result: string[] } | 
@@ -56,6 +57,9 @@ export type Procedures = {
         { key: "backups.restore", input: string, result: null } | 
         { key: "cloud.library.create", input: LibraryArgs<null>, result: null } | 
         { key: "cloud.library.join", input: string, result: LibraryConfigWrapped } | 
+        { key: "cloud.locations.create", input: string, result: CloudLocation } | 
+        { key: "cloud.locations.remove", input: string, result: null } | 
+        { key: "cloud.locations.testing", input: TestingParams, result: null } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
         { key: "ephemeralFiles.cutFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
@@ -155,6 +159,8 @@ export type ChangeNodeNameArgs = { name: string | null; p2p_port: MaybeUndefined
 export type CloudInstance = { id: string; uuid: string; identity: string }
 
 export type CloudLibrary = { uuid: string; name: string; instances: CloudInstance[]; ownerId: string }
+
+export type CloudLocation = { id: string; name: string }
 
 export type ColorProfile = "Normal" | "Custom" | "HDRNoOriginal" | "HDRWithOriginal" | "OriginalForHDR" | "Panorama" | "PortraitHDR" | "Portrait"
 
@@ -558,6 +564,8 @@ export type TagCreateArgs = { name: string; color: string }
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
 
 export type Target = { Object: number } | { FilePath: number }
+
+export type TestingParams = { id: string; path: string }
 
 export type TextMatch = { contains: string } | { startsWith: string } | { endsWith: string } | { equals: string }
 
