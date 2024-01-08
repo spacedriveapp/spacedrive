@@ -1,4 +1,4 @@
-import { RefObject, useEffect, useId, useState } from 'react';
+import { RefObject, useEffect, useId, useLayoutEffect, useState } from 'react';
 import { proxy, useSnapshot } from 'valtio';
 
 import { usePlatform } from '..';
@@ -105,34 +105,51 @@ export function useDropzone(opts?: UseDropzoneProps) {
 	return state;
 }
 
-// type UseDndState = { state: 'idle' } | { state: 'active'; x: number; y: number };
+/// is responsible for running an action when the file being actively drag and dropped leaves the bounds of the ref.
+export function useOnDndLeave({
+	ref,
+	onLeave
+}: {
+	ref: React.RefObject<HTMLDivElement>;
+	onLeave: () => void;
+}) {
+	const platform = usePlatform();
 
-// export function useDndState() {
-// 	const [state, setState] = useState<UseDndState>({ state: 'idle' });
-// 	const platform = usePlatform();
+	useLayoutEffect(() => {
+		if (!platform.subscribeToDragAndDropEvents) return;
 
-// 	useEffect(() => {
-// 		if (!platform.subscribeToDragAndDropEvents) return;
+		let finished = false;
+		let mouseEnteredZone = false;
+		let rect: DOMRect | null = null;
 
-// 		let finished = false;
+		// This timeout is super important. It ensures we get the ref after it's properly rendered.
+		// This is important if we render this component within a portal.
+		setTimeout(() => {
+			if (!ref.current) return;
+			rect = expandRect(ref.current.getBoundingClientRect(), 10);
+		});
 
-// 		const unsub = platform.subscribeToDragAndDropEvents((event) => {
-// 			if (finished) return;
+		const unsub = platform.subscribeToDragAndDropEvents((event) => {
+			if (finished) return;
 
-// 			if (event.type === 'Hovered') {
-// 				setState({ state: 'active', x: event.x, y: event.y });
-// 			} else if (event.type === 'Dropped') {
-// 				setState({ state: 'idle' });
-// 			} else if (event.type === 'Cancelled') {
-// 				setState({ state: 'idle' });
-// 			}
-// 		});
+			if (event.type === 'Hovered') {
+				if (!rect) return;
+				const isWithinRectNow = isWithinRect(event.x, event.y, rect);
+				if (mouseEnteredZone) {
+					if (!isWithinRectNow) onLeave();
+				} else {
+					mouseEnteredZone = isWithinRectNow;
+				}
+			} else if (event.type === 'Dropped') {
+				mouseEnteredZone = false;
+			} else if (event.type === 'Cancelled') {
+				mouseEnteredZone = false;
+			}
+		});
 
-// 		return () => {
-// 			finished = true;
-// 			void unsub.then((unsub) => unsub());
-// 		};
-// 	}, [platform]);
-
-// 	return state;
-// }
+		return () => {
+			finished = true;
+			void unsub.then((unsub) => unsub());
+		};
+	}, [platform, ref, onLeave]);
+}

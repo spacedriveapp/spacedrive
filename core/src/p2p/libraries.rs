@@ -1,3 +1,5 @@
+#![allow(unused)] // TODO: Remove this
+
 use crate::library::{Libraries, Library, LibraryManagerEvent};
 
 use sd_p2p::Service;
