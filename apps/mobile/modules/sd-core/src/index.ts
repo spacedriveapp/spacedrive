@@ -1,4 +1,4 @@
-import { AlphaRSPCError, Link, RspcRequest } from '@rspc/client/v2';
+import { AlphaRSPCError, Link, RspcRequest } from '@oscartbeaumont-sd/rspc-client/v2';
 import { EventEmitter, requireNativeModule } from 'expo-modules-core';
 
 // It loads the native module object from the JSI or falls back to

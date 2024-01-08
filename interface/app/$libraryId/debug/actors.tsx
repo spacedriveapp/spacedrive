@@ -1,4 +1,4 @@
-import { inferSubscriptionResult } from '@rspc/client';
+import { inferSubscriptionResult } from '@oscartbeaumont-sd/rspc-client';
 import { useMemo, useState } from 'react';
 import { Procedures, useLibraryMutation, useLibrarySubscription } from '@sd/client';
 import { Button } from '@sd/ui';

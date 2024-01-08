@@ -1,5 +1,6 @@
+import { CompositeScreenProps } from '@react-navigation/native';
 import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
-import { ArrowLeft } from 'phosphor-react-native';
+import Header from '~/components/header/Header';
 import { tw } from '~/lib/tailwind';
 import AppearanceSettingsScreen from '~/screens/settings/client/AppearanceSettings';
 import ExtensionsSettingsScreen from '~/screens/settings/client/ExtensionsSettings';
@@ -10,120 +11,108 @@ import AboutScreen from '~/screens/settings/info/About';
 import DebugScreen from '~/screens/settings/info/Debug';
 import SupportScreen from '~/screens/settings/info/Support';
 import EditLocationSettingsScreen from '~/screens/settings/library/EditLocationSettings';
-// import KeysSettingsScreen from '~/screens/settings/library/KeysSettings';
 import LibraryGeneralSettingsScreen from '~/screens/settings/library/LibraryGeneralSettings';
 import LocationSettingsScreen from '~/screens/settings/library/LocationSettings';
 import NodesSettingsScreen from '~/screens/settings/library/NodesSettings';
 import TagsSettingsScreen from '~/screens/settings/library/TagsSettings';
 import SettingsScreen from '~/screens/settings/Settings';
 
-const SettingsStack = createStackNavigator<SettingsStackParamList>();
+// import KeysSettingsScreen from '~/screens/settings/library/KeysSettings';
 
-// NOTE: Why is this needed for Android? Sounds weird @utku
-const BackButton = () => <ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />;
+import { TabScreenProps } from '../TabNavigator';
 
-export default function SettingsNavigator() {
+const Stack = createStackNavigator<SettingsStackParamList>();
+
+export default function SettingsStack() {
 	return (
-		<SettingsStack.Navigator
-			id="settings"
-			initialRouteName="Home"
+		<Stack.Navigator
+			initialRouteName="Settings"
 			screenOptions={{
-				headerBackTitleVisible: false,
-				headerStyle: tw`bg-app`,
+				headerStyle: { backgroundColor: tw.color('app-box') },
 				headerTintColor: tw.color('ink'),
 				headerTitleStyle: tw`text-base`,
-				headerBackTitleStyle: tw`text-base`,
-				headerBackImage: BackButton
-				// headerShadowVisible: false // will disable the white line under
+				headerBackTitleStyle: tw`text-base`
 			}}
 		>
-			<SettingsStack.Screen
-				name="Home"
+			<Stack.Screen
+				name="Settings"
 				component={SettingsScreen}
-				options={{ headerTitle: 'Settings' }}
+				options={{ header: () => <Header title="Settings" /> }}
 			/>
 			{/* Client */}
-			<SettingsStack.Screen
+			<Stack.Screen
 				name="GeneralSettings"
 				component={GeneralSettingsScreen}
 				options={{ headerTitle: 'General Settings' }}
 			/>
-			<SettingsStack.Screen
+			<Stack.Screen
 				name="LibrarySettings"
 				component={LibrarySettingsScreen}
 				options={{ headerTitle: 'Libraries' }}
 			/>
-			<SettingsStack.Screen
+			<Stack.Screen
 				name="AppearanceSettings"
 				component={AppearanceSettingsScreen}
 				options={{ headerTitle: 'Appearance' }}
 			/>
-			<SettingsStack.Screen
+			<Stack.Screen
 				name="PrivacySettings"
 				component={PrivacySettingsScreen}
 				options={{ headerTitle: 'Privacy' }}
 			/>
-			<SettingsStack.Screen
+			<Stack.Screen
 				name="ExtensionsSettings"
 				component={ExtensionsSettingsScreen}
 				options={{ headerTitle: 'Extensions' }}
 			/>
 			{/* Library */}
-			<SettingsStack.Screen
+			<Stack.Screen
 				name="LibraryGeneralSettings"
 				component={LibraryGeneralSettingsScreen}
 				options={{ headerTitle: 'Library Settings' }}
 			/>
-			<SettingsStack.Screen
+			<Stack.Screen
 				name="LocationSettings"
 				component={LocationSettingsScreen}
 				options={{ headerTitle: 'Locations' }}
 			/>
-			<SettingsStack.Screen
+			<Stack.Screen
 				name="EditLocationSettings"
 				component={EditLocationSettingsScreen}
 				options={{ headerTitle: 'Edit Location' }}
 			/>
-			<SettingsStack.Screen
+			<Stack.Screen
 				name="NodesSettings"
 				component={NodesSettingsScreen}
 				options={{
 					headerTitle: 'Nodes'
 				}}
 			/>
-			<SettingsStack.Screen
+			<Stack.Screen
 				name="TagsSettings"
 				component={TagsSettingsScreen}
 				options={{ headerTitle: 'Tags' }}
 			/>
-			{/* <SettingsStack.Screen
+			{/* <Stack.Screen
 				name="KeysSettings"
 				component={KeysSettingsScreen}
 				options={{ headerTitle: 'Keys' }}
 			/> */}
 			{/* Info */}
-			<SettingsStack.Screen
-				name="About"
-				component={AboutScreen}
-				options={{ headerTitle: 'About' }}
-			/>
-			<SettingsStack.Screen
+			<Stack.Screen name="About" component={AboutScreen} options={{ headerTitle: 'About' }} />
+			<Stack.Screen
 				name="Support"
 				component={SupportScreen}
 				options={{ headerTitle: 'Support' }}
 			/>
-			<SettingsStack.Screen
-				name="Debug"
-				component={DebugScreen}
-				options={{ headerTitle: 'Debug' }}
-			/>
-		</SettingsStack.Navigator>
+			<Stack.Screen name="Debug" component={DebugScreen} options={{ headerTitle: 'Debug' }} />
+		</Stack.Navigator>
 	);
 }
 
 export type SettingsStackParamList = {
 	// Home screen for the Settings stack.
-	Home: undefined;
+	Settings: undefined;
 	// Client
 	GeneralSettings: undefined;
 	LibrarySettings: undefined;
@@ -147,4 +136,7 @@ export type SettingsStackParamList = {
 };
 
 export type SettingsStackScreenProps<Screen extends keyof SettingsStackParamList> =
-	StackScreenProps<SettingsStackParamList, Screen>;
+	CompositeScreenProps<
+		StackScreenProps<SettingsStackParamList, Screen>,
+		TabScreenProps<'SettingsStack'>
+	>;

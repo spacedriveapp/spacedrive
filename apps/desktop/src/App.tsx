@@ -15,11 +15,10 @@ import {
 	TabsContext
 } from '@sd/interface';
 import { RouteTitleContext } from '@sd/interface/hooks/useRouteTitle';
-import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 
 import '@sd/ui/style/style.scss';
 
-import { commands } from './commands';
+import { commands, events } from './commands';
 import { platform } from './platform';
 import { queryClient } from './query';
 import { createMemoryRouterWithHistory } from './router';
@@ -47,15 +46,8 @@ export default function App() {
 			document.dispatchEvent(new KeybindEvent(input.payload as string));
 		});
 
-		const dropEventListener = appWindow.onFileDropEvent((event) => {
-			if (event.payload.type === 'drop') {
-				getSpacedropState().droppedFiles = event.payload.paths;
-			}
-		});
-
 		return () => {
 			keybindListener.then((unlisten) => unlisten());
-			dropEventListener.then((unlisten) => unlisten());
 		};
 	}, []);
 

@@ -90,6 +90,10 @@ if-watch = { git = "https://github.com/oscartbeaumont/if-watch.git", rev = "f732
 # Beta features
 rspc = { git = "https://github.com/spacedriveapp/rspc.git", rev = "f3347e2e8bfe3f37bfacc437ca329fe71cdcb048" }
 
+# `cursor_position` method
+tauri = { git = "https://github.com/spacedriveapp/tauri.git", rev = "8409af71a83d631ff9d1cd876c441a57511a1cbd" }
+tao = { git = "https://github.com/spacedriveapp/tao", rev = "7880adbc090402c44fbcf006669458fa82623403" }
+
 # Set the settings for build scripts and proc-macros.
 [profile.dev.build-override]
 opt-level = 3

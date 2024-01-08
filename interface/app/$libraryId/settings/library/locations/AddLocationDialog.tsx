@@ -22,7 +22,7 @@ import {
 	UseDialogProps,
 	z
 } from '@sd/ui';
-import { getExplorerStore } from '~/app/$libraryId/Explorer/store';
+import { explorerStore } from '~/app/$libraryId/Explorer/store';
 import { Accordion, Icon } from '~/components';
 import { useCallbackToWatchForm } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -136,7 +136,7 @@ export const AddLocationDialog = ({
 					throw new Error('Unimplemented custom remote error handling');
 			}
 
-			if (shouldRedirect) getExplorerStore().newLocationToRedirect = id;
+			if (shouldRedirect) explorerStore.newLocationToRedirect = id;
 		},
 		[createLocation, relinkLocation, addLocationToLibrary, submitPlausibleEvent]
 	);
@@ -232,14 +232,14 @@ export const AddLocationDialog = ({
 				<ErrorMessage
 					name={REMOTE_ERROR_FORM_FIELD}
 					variant="large"
-					className="mt-2 mb-4"
+					className="mb-4 mt-2"
 				/>
 
 				<LocationPathInputField {...form.register('path')} />
 
 				<input type="hidden" {...form.register('method')} />
 
-				<div className="flex items-center gap-2 mb-6">
+				<div className="mb-6 flex items-center gap-2">
 					<Controller
 						name="shouldRedirect"
 						render={({ field }) => (

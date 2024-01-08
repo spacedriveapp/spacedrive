@@ -14,7 +14,7 @@ import { isNonEmptyObject } from '~/util';
 
 import { useAssignItemsToTag } from '../settings/library/tags/CreateDialog';
 import { useExplorerContext } from './Context';
-import { getExplorerStore } from './store';
+import { explorerStore } from './store';
 import { explorerDroppableSchema } from './useExplorerDroppable';
 import { useExplorerSearchParams } from './util';
 
@@ -58,7 +58,7 @@ export const useExplorerDnd = () => {
 	useDndMonitor({
 		onDragStart: () => {
 			if (explorer.selectedItems.size === 0) return;
-			getExplorerStore().drag = {
+			explorerStore.drag = {
 				type: 'dragging',
 				items: [...explorer.selectedItems],
 				sourcePath: path ?? '/',
@@ -68,8 +68,8 @@ export const useExplorerDnd = () => {
 			};
 		},
 		onDragEnd: async ({ over }) => {
-			const { drag } = getExplorerStore();
-			getExplorerStore().drag = null;
+			const drag = explorerStore.drag;
+			explorerStore.drag = null;
 
 			if (!over || !drag || drag.type === 'touched') return;
 
@@ -168,7 +168,7 @@ export const useExplorerDnd = () => {
 				}
 			}
 		},
-		onDragCancel: () => (getExplorerStore().drag = null)
+		onDragCancel: () => (explorerStore.drag = null)
 	});
 };
 

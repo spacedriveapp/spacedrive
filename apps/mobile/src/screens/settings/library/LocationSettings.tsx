@@ -17,7 +17,7 @@ import DeleteLocationModal from '~/components/modal/confirmModals/DeleteLocation
 import ImportModal from '~/components/modal/ImportModal';
 import { AnimatedButton } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
-import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
+import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
 type LocationItemProps = {
 	location: Location;

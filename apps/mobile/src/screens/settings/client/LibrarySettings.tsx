@@ -7,7 +7,7 @@ import { ModalRef } from '~/components/layout/Modal';
 import DeleteLibraryModal from '~/components/modal/confirmModals/DeleteLibraryModal';
 import { AnimatedButton, FakeButton } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
-import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
+import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
 function LibraryItem({
 	library,

@@ -5,7 +5,7 @@ import Card from '~/components/layout/Card';
 import { Divider } from '~/components/primitive/Divider';
 import { SettingsTitle } from '~/components/settings/SettingsContainer';
 import { tw } from '~/lib/tailwind';
-import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
+import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
 const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'GeneralSettings'>) => {
 	const { data: node } = useBridgeQuery(['nodeState']);

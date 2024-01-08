@@ -1,12 +1,12 @@
 import clsx from 'clsx';
 import { memo, useMemo } from 'react';
-import { byteSize, getItemFilePath, type ExplorerItem } from '@sd/client';
+import { byteSize, getItemFilePath, useSelector, type ExplorerItem } from '@sd/client';
 
 import { useExplorerContext } from '../../../Context';
 import { ExplorerDraggable } from '../../../ExplorerDraggable';
 import { ExplorerDroppable, useExplorerDroppableContext } from '../../../ExplorerDroppable';
 import { FileThumb } from '../../../FilePath/Thumb';
-import { useExplorerStore } from '../../../store';
+import { explorerStore } from '../../../store';
 import { useExplorerDraggable } from '../../../useExplorerDraggable';
 import { RenamableItemText } from '../../RenamableItemText';
 import { ViewItem } from '../../ViewItem';
@@ -97,7 +97,7 @@ const ItemFileThumb = () => {
 const ItemSize = () => {
 	const item = useGridViewItemContext();
 	const { showBytesInGridView } = useExplorerContext().useSettingsSnapshot();
-	const { isRenaming } = useExplorerStore();
+	const isRenaming = useSelector(explorerStore, (s) => s.isRenaming);
 
 	const filePath = getItemFilePath(item.data);
 
