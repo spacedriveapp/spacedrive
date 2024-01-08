@@ -1,4 +1,4 @@
-use crate::Node;
+use crate::{cloud::sync::CompressedCRDTOperations, Node};
 
 use sd_core_sync::{GetOpsArgs, SyncMessage, NTP64};
 use sd_prisma::prisma::instance;
@@ -11,7 +11,7 @@ use serde_json::json;
 use tokio::time::sleep;
 use uuid::Uuid;
 
-use super::{err_break, CRDTOperationWithoutInstance, Library};
+use super::{err_break, Library};
 
 pub async fn run_actor((library, node): (Arc<Library>, Arc<Node>)) {
 	let db = &library.db;
@@ -89,7 +89,7 @@ pub async fn run_actor((library, node): (Arc<Library>, Arc<Node>)) {
 					"key": req_add.key,
 					"startTime": start_time,
 					"endTime": end_time,
-					"contents": ops.into_iter().map(Into::<CRDTOperationWithoutInstance>::into).collect::<Vec<_>>()
+					"contents": CompressedCRDTOperations::new(ops)
 				}))
 			}
 

@@ -1,11 +1,12 @@
 use crate::{
-	cloud::sync::{err_break, err_return},
+	cloud::sync::{err_break, err_return, CompressedCRDTOperations},
 	library::Library,
 	Node,
 };
 
 use sd_core_sync::NTP64;
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
+use sd_sync::CRDTOperation;
 use sd_utils::{from_bytes_to_uuid, uuid_to_bytes};
 use tracing::info;
 
@@ -20,8 +21,6 @@ use chrono::Utc;
 use serde_json::to_vec;
 use tokio::{sync::Notify, time::sleep};
 use uuid::Uuid;
-
-use super::CRDTOperationWithoutInstance;
 
 pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>, Arc<Notify>)) {
 	let db = &library.db;
@@ -148,16 +147,12 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 					e.insert(NTP64(0));
 				}
 
-				err_break!(
-					write_cloud_ops_to_db(
-						err_break!(serde_json::from_slice(err_break!(
-							&BASE64_STANDARD.decode(collection.contents)
-						))),
-						collection.instance_uuid,
-						db
-					)
-					.await
-				);
+				let compressed_operations: CompressedCRDTOperations =
+					err_break!(serde_json::from_slice(err_break!(
+						&BASE64_STANDARD.decode(collection.contents)
+					)));
+
+				err_break!(write_cloud_ops_to_db(compressed_operations.to_ops(), db).await);
 
 				let collection_timestamp =
 					NTP64(collection.end_time.parse().expect("unable to parse time"));
@@ -179,27 +174,20 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 }
 
 async fn write_cloud_ops_to_db(
-	ops: Vec<CRDTOperationWithoutInstance>,
-	instance_uuid: Uuid,
+	ops: Vec<CRDTOperation>,
 	db: &PrismaClient,
 ) -> Result<(), prisma_client_rust::QueryError> {
-	db._batch(
-		ops.into_iter()
-			.map(|op| crdt_op_db(&op, instance_uuid).to_query(db)),
-	)
-	.await?;
+	db._batch(ops.into_iter().map(|op| crdt_op_db(&op).to_query(db)))
+		.await?;
 
 	Ok(())
 }
 
-fn crdt_op_db(
-	op: &CRDTOperationWithoutInstance,
-	instance_uuid: Uuid,
-) -> cloud_crdt_operation::Create {
+fn crdt_op_db(op: &CRDTOperation) -> cloud_crdt_operation::Create {
 	cloud_crdt_operation::Create {
 		id: op.id.as_bytes().to_vec(),
 		timestamp: op.timestamp.0 as i64,
-		instance: instance::pub_id::equals(instance_uuid.as_bytes().to_vec()),
+		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
 		kind: op.data.as_kind().to_string(),
 		data: to_vec(&op.data).expect("unable to serialize data"),
 		model: op.model.to_string(),
