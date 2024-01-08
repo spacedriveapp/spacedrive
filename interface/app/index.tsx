@@ -11,8 +11,9 @@ import { Dialogs, Toaster } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
 import { useRoutingContext } from '~/RoutingContext';
 
-import { Platform } from '..';
+import { Platform, usePlatform } from '..';
 import libraryRoutes from './$libraryId';
+import { DragAndDropDebug } from './$libraryId/debug/dnd';
 import { renderDemo } from './demo.solid';
 import onboardingRoutes from './onboarding';
 import { RootContext } from './RootContext';
@@ -43,6 +44,7 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 
 				return (
 					<RootContext.Provider value={{ rawPath }}>
+						{useFeatureFlag('debugDragAndDrop') ? <DragAndDropDebug /> : null}
 						{useFeatureFlag('solidJsDemo') ? <RenderSolid /> : null}
 						<Outlet />
 						<Dialogs />

@@ -20,6 +20,7 @@ import {
 	Switch,
 	usePopover
 } from '@sd/ui';
+import { toggleRenderRects } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import Setting from '../../settings/Setting';
@@ -146,6 +147,9 @@ export default () => {
 				{/* <TestNotifications /> */}
 				<Button size="sm" variant="gray" onClick={() => navigate('./debug/cache')}>
 					Cache Debug
+				</Button>
+				<Button size="sm" variant="gray" onClick={() => toggleRenderRects()}>
+					Toggle DND Rects
 				</Button>
 
 				{/* {platform.showDevtools && (

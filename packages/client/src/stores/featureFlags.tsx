@@ -6,12 +6,12 @@ import { nonLibraryClient, useBridgeQuery } from '../rspc';
 import { createPersistedMutable, useSolidStore } from '../solidjs-interop';
 
 export const features = [
-	'spacedrop',
 	'p2pPairing',
 	'backups',
 	'debugRoutes',
 	'solidJsDemo',
-	'hostedLocations'
+	'hostedLocations',
+	'debugDragAndDrop'
 ] as const;
 
 // This defines which backend feature flags show up in the UI.

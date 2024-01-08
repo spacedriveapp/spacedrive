@@ -3,9 +3,6 @@ import { useBridgeQuery, useFeatureFlag, useP2PEvents, withFeatureFlag } from '@
 import { toast } from '@sd/ui';
 
 import { startPairing } from './pairing';
-import { SpacedropUI } from './Spacedrop';
-
-export const SpacedropUI2 = withFeatureFlag('spacedrop', SpacedropUI);
 
 // Entrypoint of P2P UI
 export function P2P() {
@@ -19,11 +16,7 @@ export function P2P() {
 		}
 	});
 
-	return (
-		<>
-			<SpacedropUI2 />
-		</>
-	);
+	return null;
 }
 
 export function useP2PErrorToast() {

@@ -1,3 +1,5 @@
+#![allow(unused)] // TODO: Remove this
+
 use crate::library::{Libraries, Library, LibraryManagerEvent};
 
 use sd_p2p::Service;
@@ -42,35 +44,36 @@ impl LibraryServices {
 		}
 	}
 
-	pub(crate) async fn start(manager: Arc<P2PManager>, libraries: Arc<Libraries>) {
-		if let Err(err) = libraries
-			.rx
-			.clone()
-			.subscribe(|msg| {
-				let manager = manager.clone();
-				async move {
-					match msg {
-						LibraryManagerEvent::InstancesModified(library)
-						| LibraryManagerEvent::Load(library) => {
-							manager
-								.clone()
-								.libraries
-								.load_library(manager, &library)
-								.await
-						}
-						LibraryManagerEvent::Edit(library) => {
-							manager.libraries.edit_library(&library).await
-						}
-						LibraryManagerEvent::Delete(library) => {
-							manager.libraries.delete_library(&library).await
-						}
-					}
-				}
-			})
-			.await
-		{
-			error!("Core may become unstable! `LibraryServices::start` manager aborted with error: {err:?}");
-		}
+	pub(crate) async fn start(_manager: Arc<P2PManager>, _libraries: Arc<Libraries>) {
+		warn!("P2PManager has library communication disabled.");
+		// if let Err(err) = libraries
+		// 	.rx
+		// 	.clone()
+		// 	.subscribe(|msg| {
+		// 		let manager = manager.clone();
+		// 		async move {
+		// 			match msg {
+		// 				LibraryManagerEvent::InstancesModified(library)
+		// 				| LibraryManagerEvent::Load(library) => {
+		// 					manager
+		// 						.clone()
+		// 						.libraries
+		// 						.load_library(manager, &library)
+		// 						.await
+		// 				}
+		// 				LibraryManagerEvent::Edit(library) => {
+		// 					manager.libraries.edit_library(&library).await
+		// 				}
+		// 				LibraryManagerEvent::Delete(library) => {
+		// 					manager.libraries.delete_library(&library).await
+		// 				}
+		// 			}
+		// 		}
+		// 	})
+		// 	.await
+		// {
+		// 	error!("Core may become unstable! `LibraryServices::start` manager aborted with error: {err:?}");
+		// }
 	}
 
 	pub fn get(&self, id: &Uuid) -> Option<Arc<Service<LibraryMetadata>>> {
