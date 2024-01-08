@@ -6,15 +6,34 @@ import { useBridgeMutation, useDiscoveredPeers, useP2PEvents, useSelector } from
 import { toast } from '@sd/ui';
 import { Icon } from '~/components';
 import { useDropzone, useOnDndLeave } from '~/hooks';
+import { usePlatform } from '~/util/Platform';
 
 import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import { useIncomingSpacedropToast, useSpacedropProgressToast } from './toast';
 
-// TODO: Do this using React context/state
+// TODO: This is super hacky so should probs be rewritten but for now it works.
 const hackyState = proxy({
 	triggeredByDnd: false,
 	openPanels: 0
 });
+
+export function SpacedropProvider() {
+	const incomingRequestToast = useIncomingSpacedropToast();
+	const progressToast = useSpacedropProgressToast();
+
+	useP2PEvents((data) => {
+		if (data.type === 'SpacedropRequest') {
+			incomingRequestToast(data);
+		} else if (data.type === 'SpacedropProgress') {
+			progressToast(data);
+		} else if (data.type === 'SpacedropRejected') {
+			// TODO: Add more information to this like peer name, etc in future
+			toast.warning('Spacedrop Rejected');
+		}
+	});
+
+	return null;
+}
 
 export function SpacedropButton({ triggerOpen }: { triggerOpen: () => void }) {
 	const ref = useRef<HTMLDivElement>(null);
@@ -37,8 +56,6 @@ export function SpacedropButton({ triggerOpen }: { triggerOpen: () => void }) {
 
 export function Spacedrop({ triggerClose }: { triggerClose: () => void }) {
 	const ref = useRef<HTMLDivElement>(null);
-	const incomingRequestToast = useIncomingSpacedropToast();
-	const progressToast = useSpacedropProgressToast();
 	const discoveredPeers = useDiscoveredPeers();
 	const doSpacedrop = useBridgeMutation('p2p.spacedrop');
 
@@ -65,18 +82,6 @@ export function Spacedrop({ triggerClose }: { triggerClose: () => void }) {
 			if (wasTriggeredByDnd) triggerClose();
 		},
 		extendBoundsBy: 30
-	});
-
-	// TODO: Should these be here???
-	useP2PEvents((data) => {
-		if (data.type === 'SpacedropRequest') {
-			incomingRequestToast(data);
-		} else if (data.type === 'SpacedropProgress') {
-			progressToast(data);
-		} else if (data.type === 'SpacedropRejected') {
-			// TODO: Add more information to this like peer name, etc in future
-			toast.warning('Spacedrop Rejected');
-		}
 	});
 
 	const onDropped = (id: string, files: string[]) => {
@@ -119,6 +124,7 @@ function Node({
 	onDropped: (id: string, files: string[]) => void;
 }) {
 	const ref = useRef<HTMLDivElement>(null);
+	const platform = usePlatform();
 
 	const state = useDropzone({
 		ref,
@@ -134,6 +140,18 @@ function Node({
 				'border px-4 py-2',
 				state === 'hovered' ? 'border-solid' : 'border-dashed'
 			)}
+			onClick={() => {
+				if (!platform.openFilePickerDialog) {
+					toast.warning('File picker not supported on this platform');
+					return;
+				}
+
+				platform.openFilePickerDialog?.().then((file) => {
+					const files = Array.isArray(file) || file === null ? file : [file];
+					if (files === null || files.length === 0) return;
+					onDropped(id, files);
+				});
+			}}
 		>
 			<h1>{name}</h1>
 		</div>

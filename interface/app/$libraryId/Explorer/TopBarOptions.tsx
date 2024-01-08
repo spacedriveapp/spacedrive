@@ -111,12 +111,11 @@ export const useExplorerTopBarOptions = () => {
 
 	const toolOptions = [
 		{
-			toolTipLabel: 'Key Manager',
+			toolTipLabel: 'Spacedrop',
 			icon: ({ triggerOpen }) => <SpacedropButton triggerOpen={triggerOpen} />,
 			popOverComponent: ({ triggerClose }) => <Spacedrop triggerClose={triggerClose} />,
 			individual: true,
 			showAtResolution: 'xl:flex'
-			// TODO: Allow drag and drop on this
 		},
 		{
 			toolTipLabel: 'Key Manager',
