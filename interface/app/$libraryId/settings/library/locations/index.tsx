@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useDebounce } from 'use-debounce';
-import { useLibraryQuery } from '@sd/client';
+import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { SearchInput } from '@sd/ui';
 
 import { Heading } from '../../Layout';
@@ -8,17 +8,19 @@ import { AddLocationButton } from './AddLocationButton';
 import ListItem from './ListItem';
 
 export const Component = () => {
-	const locations = useLibraryQuery(['locations.list']);
+	const locationsQuery = useLibraryQuery(['locations.list']);
+	useNodes(locationsQuery.data?.nodes);
+	const locations = useCache(locationsQuery.data?.items);
 
 	const [search, setSearch] = useState('');
 	const [debouncedSearch] = useDebounce(search, 200);
 
 	const filteredLocations = useMemo(
 		() =>
-			locations.data?.filter(
+			locations?.filter(
 				(location) => location.name?.toLowerCase().includes(debouncedSearch.toLowerCase())
 			) ?? [],
-		[debouncedSearch, locations.data]
+		[debouncedSearch, locations]
 	);
 
 	return (

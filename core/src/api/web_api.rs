@@ -1,8 +1,8 @@
+use crate::util::http::ensure_response;
+
 use rspc::alpha::AlphaRouter;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-
-use crate::util::http::ensure_response;
 
 use super::{Ctx, R};
 

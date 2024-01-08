@@ -1,22 +1,23 @@
+use crate::{
+	node::config,
+	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
+};
+
+use sd_p2p::{
+	spacetunnel::RemoteIdentity, Manager, ManagerConfig, ManagerError, PeerStatus, Service,
+};
+
 use std::{
 	collections::{HashMap, HashSet},
 	net::SocketAddr,
 	sync::{atomic::AtomicBool, Arc},
 };
 
-use sd_p2p::{
-	spacetunnel::RemoteIdentity, Manager, ManagerConfig, ManagerError, PeerStatus, Service,
-};
 use serde::Serialize;
 use specta::Type;
 use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
 use tracing::info;
 use uuid::Uuid;
-
-use crate::{
-	node::config,
-	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
-};
 
 use super::{
 	LibraryMetadata, LibraryServices, P2PEvent, P2PManagerActor, PairingManager, PeerMetadata,

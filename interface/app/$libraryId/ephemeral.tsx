@@ -3,11 +3,12 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import { memo, Suspense, useDeferredValue, useMemo } from 'react';
-import { useLocation } from 'react-router';
 import {
 	ExplorerItem,
 	getExplorerItemData,
-	useLibraryQuery,
+	useLibraryContext,
+	useNormalisedCache,
+	useUnsafeStreamedQuery,
 	type EphemeralPathOrder
 } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
@@ -27,12 +28,12 @@ import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
 import {
 	createDefaultExplorerSettings,
-	getExplorerStore,
+	explorerStore,
 	nonIndexedPathOrderingSchema
 } from './Explorer/store';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
-import { EmptyNotice } from './Explorer/View';
+import { EmptyNotice } from './Explorer/View/EmptyNotice';
 import { AddLocationButton } from './settings/library/locations/AddLocationButton';
 import { useTopBarContext } from './TopBar/Layout';
 import { TopBarPortal } from './TopBar/Portal';
@@ -174,28 +175,43 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 
 	const settingsSnapshot = explorerSettings.useSettingsSnapshot();
 
-	const query = useLibraryQuery(
+	const libraryCtx = useLibraryContext();
+	const cache = useNormalisedCache();
+	const query = useUnsafeStreamedQuery(
 		[
 			'search.ephemeralPaths',
 			{
-				path: path ?? (os === 'windows' ? 'C:\\' : '/'),
-				withHiddenFiles: settingsSnapshot.showHiddenFiles,
-				order: settingsSnapshot.order
+				library_id: libraryCtx.library.uuid,
+				arg: {
+					path: path ?? (os === 'windows' ? 'C:\\' : '/'),
+					withHiddenFiles: settingsSnapshot.showHiddenFiles,
+					order: settingsSnapshot.order
+				}
 			}
 		],
 		{
 			enabled: path != null,
 			suspense: true,
-			onSuccess: () => getExplorerStore().resetNewThumbnails()
+			onSuccess: () => explorerStore.resetNewThumbnails(),
+			onBatch: (item) => {
+				cache.withNodes(item.nodes);
+			}
 		}
 	);
 
+	const entries = useMemo(() => {
+		return cache.withCache(
+			query.data?.flatMap((item) => item.entries) ||
+				query.streaming.flatMap((item) => item.entries)
+		);
+	}, [cache, query.streaming, query.data]);
+
 	const items = useMemo(() => {
-		if (!query.data) return [];
+		if (!entries) return [];
 
 		const ret: ExplorerItem[] = [];
 
-		for (const item of query.data.entries) {
+		for (const item of entries) {
 			if (settingsSnapshot.layoutMode !== 'media') ret.push(item);
 			else {
 				const { kind } = getExplorerItemData(item);
@@ -205,7 +221,7 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 		}
 
 		return ret;
-	}, [query.data, settingsSnapshot.layoutMode]);
+	}, [entries, settingsSnapshot.layoutMode]);
 
 	const explorer = useExplorer({
 		items,

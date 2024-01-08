@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
 import { Input, ModifierKeys, Shortcut } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
@@ -46,15 +47,22 @@ export default () => {
 		};
 	}, [blurHandler, focusHandler]);
 
-	const [value, setValue] = useState(search.search);
+	const [value, setValue] = useState('');
+
+	useEffect(() => {
+		setValue(search.rawSearch);
+	}, [search.rawSearch]);
+
+	const updateDebounce = useDebouncedCallback((value: string) => {
+		search.setSearch(value);
+	}, 300);
 
 	function updateValue(value: string) {
 		setValue(value);
-		search.setSearch(value);
+		updateDebounce(value);
 	}
 
 	function clearValue() {
-		setValue('');
 		search.setSearch('');
 	}
 
@@ -69,10 +77,10 @@ export default () => {
 			onBlur={() => {
 				if (search.rawSearch === '' && !searchStore.interactingWithSearchOptions) {
 					clearValue();
-					search.setOpen(false);
+					search.setSearchBarFocused(false);
 				}
 			}}
-			onFocus={() => search.setOpen(true)}
+			onFocus={() => search.setSearchBarFocused(true)}
 			right={
 				<div className="pointer-events-none flex h-7 items-center space-x-1 opacity-70 group-focus-within:hidden">
 					{

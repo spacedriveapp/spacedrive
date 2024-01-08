@@ -1,3 +1,5 @@
+import { deepEqual } from 'fast-equals';
+import { useEffect, useMemo, useState } from 'react';
 import { proxy, subscribe } from 'valtio';
 
 export function resetStore<T extends Record<string, any>, E extends Record<string, any>>(
@@ -31,4 +33,27 @@ export function valtioPersist<T extends object>(
 		localStorage.setItem(localStorageKey, JSON.stringify(opts?.saveFn ? opts.saveFn(p) : p))
 	);
 	return p;
+}
+
+// Subscribe to a Valtio store in React with a selector function.
+export function useSelector<T extends object, U>(proxyObject: T, selector: (proxyObject: T) => U) {
+	const [slice, setSlice] = useState(() => selector(proxyObject));
+	useEffect(
+		() =>
+			subscribe(proxyObject, () => {
+				const newResult = selector(proxyObject);
+
+				setSlice((prev) => {
+					// We do this to ensure referential equality.
+					if (deepEqual(prev, newResult)) {
+						return prev;
+					}
+
+					return newResult;
+				});
+			}),
+		[proxyObject, selector]
+	);
+
+	return slice;
 }

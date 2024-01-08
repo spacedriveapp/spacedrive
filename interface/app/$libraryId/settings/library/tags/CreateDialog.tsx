@@ -2,6 +2,7 @@ import {
 	FilePath,
 	Object,
 	Target,
+	ToastDefautlColor,
 	useLibraryMutation,
 	usePlausibleEvent,
 	useZodForm
@@ -27,7 +28,7 @@ export function useAssignItemsToTag() {
 		}
 	});
 
-	return (tagId: number, items: AssignTagItems, unassign: boolean) => {
+	return (tagId: number, items: AssignTagItems, unassign: boolean = false) => {
 		const targets = items.map<Target>((item) => {
 			if (item.type === 'Object') {
 				return { Object: item.item.id };
@@ -53,7 +54,7 @@ export default (
 
 	const form = useZodForm({
 		schema: schema,
-		defaultValues: { color: '#A717D9' }
+		defaultValues: { color: ToastDefautlColor }
 	});
 
 	const createTag = useLibraryMutation('tags.create');

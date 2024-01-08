@@ -1,5 +1,18 @@
 #![allow(clippy::panic, clippy::unwrap_used)] // TODO: Finish this
 
+use crate::{
+	library::{Libraries, LibraryName},
+	node::Platform,
+	p2p::{Header, IdentityOrRemoteIdentity},
+	Node,
+};
+
+use sd_p2p::{
+	spacetunnel::{Identity, RemoteIdentity},
+	Manager,
+};
+use sd_prisma::prisma::instance;
+
 use std::{
 	collections::HashMap,
 	sync::{
@@ -10,12 +23,6 @@ use std::{
 
 use chrono::Utc;
 use futures::channel::oneshot;
-use sd_p2p::{
-	spacetunnel::{Identity, RemoteIdentity},
-	Manager,
-};
-
-use sd_prisma::prisma::instance;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::{
@@ -28,13 +35,6 @@ use uuid::Uuid;
 mod proto;
 
 use proto::*;
-
-use crate::{
-	library::{Libraries, LibraryName},
-	node::Platform,
-	p2p::{Header, IdentityOrRemoteIdentity},
-	Node,
-};
 
 use super::P2PEvent;
 

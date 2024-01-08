@@ -21,9 +21,7 @@ async fn main() {
 			}
 			#[cfg(debug_assertions)]
 			{
-				std::env::current_dir()
-					.expect("Unable to get your current directory. Maybe try setting $DATA_DIR?")
-					.join("sdserver_data")
+				Path::new(env!("CARGO_MANIFEST_DIR")).join("sdserver_data")
 			}
 		}
 	};

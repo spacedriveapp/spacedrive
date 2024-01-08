@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { Suspense, useEffect, useMemo, useRef } from 'react';
-import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, Outlet, useNavigate } from 'react-router-dom';
 import {
 	ClientContextProvider,
 	initPlausible,
@@ -23,8 +23,10 @@ import {
 } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
+import { DragOverlay } from '../Explorer/DragOverlay';
 import { QuickPreviewContextProvider } from '../Explorer/QuickPreview/Context';
 import { LayoutContext } from './Context';
+import { DndContext } from './DndContext';
 import Sidebar from './Sidebar';
 
 const Layout = () => {
@@ -69,27 +71,32 @@ const Layout = () => {
 					e.preventDefault();
 				}}
 			>
-				<Sidebar />
-				<div
-					className={clsx(
-						'relative flex w-full overflow-hidden',
-						showControls.transparentBg ? 'bg-app/80' : 'bg-app'
-					)}
-				>
-					{library ? (
-						<QuickPreviewContextProvider>
-							<LibraryContextProvider library={library}>
-								<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
-									<Outlet />
-								</Suspense>
-							</LibraryContextProvider>
-						</QuickPreviewContextProvider>
-					) : (
-						<h1 className="p-4 text-white">
-							Please select or create a library in the sidebar.
-						</h1>
-					)}
-				</div>
+				<DndContext>
+					<Sidebar />
+					<div
+						className={clsx(
+							'relative flex w-full overflow-hidden',
+							showControls.transparentBg ? 'bg-app/80' : 'bg-app'
+						)}
+					>
+						{library ? (
+							<QuickPreviewContextProvider>
+								<LibraryContextProvider library={library}>
+									<Suspense
+										fallback={<div className="h-screen w-screen bg-app" />}
+									>
+										<Outlet />
+										<DragOverlay />
+									</Suspense>
+								</LibraryContextProvider>
+							</QuickPreviewContextProvider>
+						) : (
+							<h1 className="p-4 text-white">
+								Please select or create a library in the sidebar.
+							</h1>
+						)}
+					</div>
+				</DndContext>
 			</div>
 		</LayoutContext.Provider>
 	);

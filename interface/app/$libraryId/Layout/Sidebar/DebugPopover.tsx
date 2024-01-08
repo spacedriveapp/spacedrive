@@ -1,4 +1,5 @@
 import { CheckSquare } from '@phosphor-icons/react';
+import { useNavigate } from 'react-router';
 import {
 	backendFeatures,
 	features,
@@ -31,6 +32,7 @@ export default () => {
 
 	const debugState = useDebugState();
 	const platform = usePlatform();
+	const navigate = useNavigate();
 
 	return (
 		<Popover
@@ -143,7 +145,10 @@ export default () => {
 				</Setting>
 				<FeatureFlagSelector />
 				<InvalidateDebugPanel />
-				<TestNotifications />
+				{/* <TestNotifications /> */}
+				<Button size="sm" variant="gray" onClick={() => navigate('./debug/cache')}>
+					Cache Debug
+				</Button>
 
 				{/* {platform.showDevtools && (
 					<SettingContainer
@@ -209,14 +214,14 @@ function FeatureFlagSelector() {
 	);
 }
 
-function TestNotifications() {
-	const coreNotif = useBridgeMutation(['notifications.test']);
-	const libraryNotif = useLibraryMutation(['notifications.testLibrary']);
+// function TestNotifications() {
+// 	const coreNotif = useBridgeMutation(['notifications.test']);
+// 	const libraryNotif = useLibraryMutation(['notifications.testLibrary']);
 
-	return (
-		<Setting mini title="Notifications" description="Test the notification system">
-			<Button onClick={() => coreNotif.mutate(undefined)}>Core</Button>
-			<Button onClick={() => libraryNotif.mutate(null)}>Library</Button>
-		</Setting>
-	);
-}
+// 	return (
+// 		<Setting mini title="Notifications" description="Test the notification system">
+// 			<Button onClick={() => coreNotif.mutate(undefined)}>Core</Button>
+// 			<Button onClick={() => libraryNotif.mutate(null)}>Library</Button>
+// 		</Setting>
+// 	);
+// }

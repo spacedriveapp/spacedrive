@@ -1,14 +1,14 @@
-use crate::{
-	library::Library,
-	util::{db::inode_to_db, error::FileIOError},
-};
+use crate::library::Library;
 
+use sd_file_path_helper::{
+	file_path_pub_and_cas_ids, FilePathError, IsolatedFilePathData, IsolatedFilePathDataParts,
+};
 use sd_prisma::{
 	prisma::{file_path, location, object as prisma_object, PrismaClient},
 	prisma_sync,
 };
 use sd_sync::*;
-use sd_utils::from_bytes_to_uuid;
+use sd_utils::{db::inode_to_db, error::FileIOError, from_bytes_to_uuid};
 
 use std::{collections::HashMap, path::Path};
 
@@ -22,10 +22,7 @@ use serde_json::json;
 use thiserror::Error;
 use tracing::{trace, warn};
 
-use super::{
-	file_path_helper::{file_path_pub_and_cas_ids, FilePathError, IsolatedFilePathData},
-	location_with_indexer_rules,
-};
+use super::location_with_indexer_rules;
 
 pub mod indexer_job;
 pub mod rules;
@@ -97,13 +94,13 @@ async fn execute_indexer_save_step(
 		.walked
 		.iter()
 		.map(|entry| {
-			let IsolatedFilePathData {
+			let IsolatedFilePathDataParts {
 				materialized_path,
 				is_dir,
 				name,
 				extension,
 				..
-			} = &entry.iso_file_path;
+			} = &entry.iso_file_path.to_parts();
 
 			use file_path::*;
 
@@ -197,7 +194,7 @@ async fn execute_indexer_update_step(
 		.to_update
 		.iter()
 		.map(|entry| async move {
-			let IsolatedFilePathData { is_dir, .. } = &entry.iso_file_path;
+			let IsolatedFilePathDataParts { is_dir, .. } = &entry.iso_file_path.to_parts();
 
 			let pub_id = sd_utils::uuid_to_bytes(entry.pub_id);
 
@@ -338,7 +335,7 @@ macro_rules! file_paths_db_fetcher_fn {
 						.find_many(vec![::prisma_client_rust::operator::or(
 							founds.collect::<Vec<_>>(),
 						)])
-						.select($crate::location::file_path_helper::file_path_walker::select())
+						.select(::sd_file_path_helper::file_path_walker::select())
 				})
 				.collect::<Vec<_>>();
 
@@ -358,13 +355,13 @@ macro_rules! file_paths_db_fetcher_fn {
 macro_rules! to_remove_db_fetcher_fn {
 	($location_id:expr, $db:expr) => {{
 		|parent_iso_file_path, unique_location_id_materialized_path_name_extension_params| async {
-			let location_id: $crate::prisma::location::id::Type = $location_id;
-			let db: &$crate::prisma::PrismaClient = $db;
-			let parent_iso_file_path: $crate::location::file_path_helper::IsolatedFilePathData<
+			let location_id: ::sd_prisma::prisma::location::id::Type = $location_id;
+			let db: &::sd_prisma::prisma::PrismaClient = $db;
+			let parent_iso_file_path: ::sd_file_path_helper::IsolatedFilePathData<
 				'static,
 			> = parent_iso_file_path;
 			let unique_location_id_materialized_path_name_extension_params: ::std::vec::Vec<
-				$crate::prisma::file_path::WhereParam,
+				::sd_prisma::prisma::file_path::WhereParam,
 			> = unique_location_id_materialized_path_name_extension_params;
 
 			// FIXME: Can't pass this chunks variable direct to _batch because of lifetime issues
@@ -377,7 +374,7 @@ macro_rules! to_remove_db_fetcher_fn {
 						.find_many(vec![::prisma_client_rust::operator::or(
 							unique_params.collect(),
 						)])
-						.select($crate::prisma::file_path::select!({ id }))
+						.select(::sd_prisma::prisma::file_path::select!({ id }))
 				})
 				.collect::<::std::vec::Vec<_>>();
 
@@ -398,17 +395,17 @@ macro_rules! to_remove_db_fetcher_fn {
 			loop {
 				let found = $db.file_path()
 					.find_many(vec![
-						$crate::prisma::file_path::location_id::equals(Some(location_id)),
-						$crate::prisma::file_path::materialized_path::equals(Some(
+						::sd_prisma::prisma::file_path::location_id::equals(Some(location_id)),
+						::sd_prisma::prisma::file_path::materialized_path::equals(Some(
 							parent_iso_file_path
 								.materialized_path_for_children()
 								.expect("the received isolated file path must be from a directory"),
 						)),
 					])
-					.order_by($crate::prisma::file_path::id::order($crate::prisma::SortOrder::Asc))
+					.order_by(::sd_prisma::prisma::file_path::id::order(::sd_prisma::prisma::SortOrder::Asc))
 					.take(BATCH_SIZE)
-					.cursor($crate::prisma::file_path::id::equals(cursor))
-					.select($crate::prisma::file_path::select!({ id pub_id cas_id }))
+					.cursor(::sd_prisma::prisma::file_path::id::equals(cursor))
+					.select(::sd_prisma::prisma::file_path::select!({ id pub_id cas_id }))
 					.exec()
 					.await?;
 
@@ -424,7 +421,7 @@ macro_rules! to_remove_db_fetcher_fn {
 					found
 						.into_iter()
 						.filter(|file_path| !founds_ids.contains(&file_path.id))
-						.map(|file_path| $crate::location::file_path_helper::file_path_pub_and_cas_ids::Data {
+						.map(|file_path| ::sd_file_path_helper::file_path_pub_and_cas_ids::Data {
 							pub_id: file_path.pub_id,
 							cas_id: file_path.cas_id,
 						}),

@@ -12,7 +12,7 @@ import { X } from 'phosphor-react-native';
 import { forwardRef, ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import useForwardedRef from '~/hooks/useForwardedRef';
-import { tw } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 
 import { Button } from '../primitive/Button';
 
@@ -98,6 +98,7 @@ type ConfirmModalProps = {
 	 * You can also use ref to open the modal
 	 */
 	trigger?: ReactNode;
+	triggerStyle?: string;
 };
 
 // TODO: Add loading state
@@ -108,7 +109,12 @@ export const ConfirmModal = forwardRef<ModalRef, ConfirmModalProps>((props, ref)
 	return (
 		<>
 			{props.trigger && (
-				<Pressable onPress={() => modalRef.current?.present()}>{props.trigger}</Pressable>
+				<Pressable
+					style={twStyle(props.triggerStyle)}
+					onPress={() => modalRef.current?.present()}
+				>
+					{props.trigger}
+				</Pressable>
 			)}
 			<BottomSheetModal
 				ref={modalRef}

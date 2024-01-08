@@ -1,9 +1,11 @@
 import {
 	useBridgeMutation,
 	useBridgeQuery,
+	useCache,
 	useConnectedPeers,
 	useDiscoveredPeers,
-	useFeatureFlag
+	useFeatureFlag,
+	useNodes
 } from '@sd/client';
 import { Button } from '@sd/ui';
 import { startPairing } from '~/app/p2p/pairing';
@@ -42,6 +44,17 @@ function IncorrectP2PPairingPane() {
 		}
 	});
 
+	const nlmState = {
+		data: JSON.stringify('lol no')
+	};
+	// TODO: Bring this back
+	// useBridgeQuery(['p2p.state'], {
+	// 	refetchInterval: 1000
+	// });
+	const result = useBridgeQuery(['library.list']);
+	useNodes(result.data?.nodes);
+	const libraries = useCache(result.data?.items);
+
 	return (
 		<>
 			<div className="flex-space-4 flex w-full">
@@ -75,6 +88,25 @@ function IncorrectP2PPairingPane() {
 						</div>
 					))}
 				</div>
+			</div>
+
+			<div>
+				<p>NLM State:</p>
+				<pre className="pl-5">{JSON.stringify(nlmState.data || {}, undefined, 2)}</pre>
+			</div>
+			<div>
+				<p>Libraries:</p>
+				{libraries?.map((v) => (
+					<div key={v.uuid} className="pb-2">
+						<p>
+							{v.config.name} - {v.uuid}
+						</p>
+						<div className="pl-5">
+							<p>Instance: {`${v.config.instance_id}/${v.instance_id}`}</p>
+							<p>Instance PK: {`${v.instance_public_key}`}</p>
+						</div>
+					</div>
+				))}
 			</div>
 		</>
 	);

@@ -5,8 +5,10 @@ import { Swipeable } from 'react-native-gesture-handler';
 import {
 	arraysEqual,
 	Location,
+	useCache,
 	useLibraryMutation,
 	useLibraryQuery,
+	useNodes,
 	useOnlineLocations
 } from '@sd/client';
 import FolderIcon from '~/components/icons/FolderIcon';
@@ -15,7 +17,7 @@ import DeleteLocationModal from '~/components/modal/confirmModals/DeleteLocation
 import ImportModal from '~/components/modal/ImportModal';
 import { AnimatedButton } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
-import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
+import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
 type LocationItemProps = {
 	location: Location;
@@ -130,7 +132,9 @@ function LocationItem({ location, index, navigation }: LocationItemProps) {
 }
 
 const LocationSettingsScreen = ({ navigation }: SettingsStackScreenProps<'LocationSettings'>) => {
-	const { data: locations } = useLibraryQuery(['locations.list']);
+	const result = useLibraryQuery(['locations.list']);
+	useNodes(result.data?.nodes);
+	const locations = useCache(result.data?.items);
 
 	useEffect(() => {
 		navigation.setOptions({

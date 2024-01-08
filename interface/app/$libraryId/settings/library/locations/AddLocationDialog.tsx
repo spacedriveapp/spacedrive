@@ -4,13 +4,25 @@ import { useDebouncedCallback } from 'use-debounce';
 import {
 	extractInfoRSPCError,
 	UnionToTuple,
+	useCache,
 	useLibraryMutation,
 	useLibraryQuery,
+	useNodes,
 	usePlausibleEvent,
 	useZodForm
 } from '@sd/client';
-import { CheckBox, Dialog, ErrorMessage, Label, toast, useDialog, UseDialogProps, z } from '@sd/ui';
-import { getExplorerStore } from '~/app/$libraryId/Explorer/store';
+import {
+	CheckBox,
+	Dialog,
+	ErrorMessage,
+	Label,
+	RadixCheckbox,
+	toast,
+	useDialog,
+	UseDialogProps,
+	z
+} from '@sd/ui';
+import { explorerStore } from '~/app/$libraryId/Explorer/store';
 import { Accordion, Icon } from '~/components';
 import { useCallbackToWatchForm } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -57,13 +69,15 @@ export const AddLocationDialog = ({
 	const listLocations = useLibraryQuery(['locations.list']);
 	const createLocation = useLibraryMutation('locations.create');
 	const relinkLocation = useLibraryMutation('locations.relink');
-	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
+	const listIndexerRulesQuery = useLibraryQuery(['locations.indexer_rules.list']);
+	useNodes(listIndexerRulesQuery.data?.nodes);
+	const listIndexerRules = useCache(listIndexerRulesQuery.data?.items);
 	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
 
 	// This is required because indexRules is undefined on first render
 	const indexerRulesIds = useMemo(
-		() => listIndexerRules.data?.filter((rule) => rule.default).map((rule) => rule.id) ?? [],
-		[listIndexerRules.data]
+		() => listIndexerRules?.filter((rule) => rule.default).map((rule) => rule.id) ?? [],
+		[listIndexerRules]
 	);
 
 	const form = useZodForm({
@@ -122,7 +136,7 @@ export const AddLocationDialog = ({
 					throw new Error('Unimplemented custom remote error handling');
 			}
 
-			if (shouldRedirect) getExplorerStore().newLocationToRedirect = id;
+			if (shouldRedirect) explorerStore.newLocationToRedirect = id;
 		},
 		[createLocation, relinkLocation, addLocationToLibrary, submitPlausibleEvent]
 	);
@@ -225,9 +239,19 @@ export const AddLocationDialog = ({
 
 				<input type="hidden" {...form.register('method')} />
 
-				<div className="mb-4 flex">
-					<CheckBox {...form.register('shouldRedirect')} />
-					<Label className="mt-[3px] font-semibold">Open new location once added</Label>
+				<div className="mb-6 flex items-center gap-2">
+					<Controller
+						name="shouldRedirect"
+						render={({ field }) => (
+							<RadixCheckbox
+								checked={field.value}
+								onCheckedChange={field.onChange}
+								className="text-xs font-semibold"
+							/>
+						)}
+						control={form.control}
+					/>
+					<Label className="text-xs font-semibold">Open new location once added</Label>
 				</div>
 
 				<Accordion title="Advanced settings">

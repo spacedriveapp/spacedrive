@@ -1,4 +1,6 @@
-import { ExplorerItem } from '../core';
+import { QueryClient } from '@tanstack/react-query';
+
+import { ExplorerItem, LibraryConfigWrapped } from '../core';
 
 export * from './objectKind';
 export * from './explorerItem';
@@ -38,4 +40,29 @@ export type UnionToTuple<T> = UnionToIntersection<T extends never ? never : (t: 
 export function formatNumber(n: number) {
 	if (!n) return '0';
 	return Intl.NumberFormat().format(n);
+}
+
+export function insertLibrary(queryClient: QueryClient, library: LibraryConfigWrapped) {
+	queryClient.setQueryData(['library.list'], (libraries: any) => {
+		// The invalidation system beat us to it
+		if (libraries.items.find((l: any) => l.__id === library.uuid)) return libraries;
+
+		return {
+			items: [
+				...(libraries.items || []),
+				{
+					__type: 'LibraryConfigWrapped',
+					__id: library.uuid
+				}
+			],
+			nodes: [
+				...(libraries.nodes || []),
+				{
+					__type: 'LibraryConfigWrapped',
+					__id: library.uuid,
+					...library
+				}
+			]
+		};
+	});
 }

@@ -1,11 +1,3 @@
-pub mod file_path;
-pub mod media_data;
-pub mod object;
-pub mod saved;
-mod utils;
-
-pub use self::{file_path::*, object::*, utils::*};
-
 use crate::{
 	api::{
 		locations::{file_path_with_object, object_with_file_paths, ExplorerItem},
@@ -14,23 +6,44 @@ use crate::{
 	library::Library,
 	location::{non_indexed, LocationError},
 	object::media::thumbnail::get_indexed_thumb_key,
+	util::{unsafe_streamed_query, BatchedStream},
 };
+
+use sd_cache::{CacheNode, Model, Normalise, Reference};
+use sd_prisma::prisma::{self, PrismaClient};
 
 use std::path::PathBuf;
 
+use async_stream::stream;
+use futures::StreamExt;
+use itertools::Either;
 use rspc::{alpha::AlphaRouter, ErrorCode};
-use sd_prisma::prisma::{self, PrismaClient};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+
+pub mod file_path;
+pub mod media_data;
+pub mod object;
+pub mod saved;
+mod utils;
+
+pub use self::{file_path::*, object::*, utils::*};
 
 use super::{Ctx, R};
 
 const MAX_TAKE: u8 = 100;
 
 #[derive(Serialize, Type, Debug)]
-struct SearchData<T> {
+struct SearchData<T: Model> {
 	cursor: Option<Vec<u8>>,
-	items: Vec<T>,
+	items: Vec<Reference<T>>,
+	nodes: Vec<CacheNode>,
+}
+
+impl<T: Model> Model for SearchData<T> {
+	fn name() -> &'static str {
+		T::name()
+	}
 }
 
 #[derive(Serialize, Deserialize, Type, Debug, Clone)]
@@ -90,50 +103,82 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				#[specta(optional)]
 				order: Option<EphemeralPathOrder>,
 			}
+			#[derive(Serialize, Type, Debug)]
+			struct EphemeralPathsResultItem {
+				pub entries: Vec<Reference<ExplorerItem>>,
+				pub errors: Vec<rspc::Error>,
+				pub nodes: Vec<CacheNode>,
+			}
 
-			R.with2(library()).query(
+			R.with2(library()).subscription(
 				|(node, library),
 				 EphemeralPathSearchArgs {
 				     path,
 				     with_hidden_files,
 				     order,
 				 }| async move {
-					let mut paths =
-						non_indexed::walk(path, with_hidden_files, node, library).await?;
+					let paths =
+						non_indexed::walk(path, with_hidden_files, node, library, |entries| {
+							macro_rules! order_match {
+								($order:ident, [$(($variant:ident, |$i:ident| $func:expr)),+]) => {{
+									match $order {
+										$(EphemeralPathOrder::$variant(order) => {
+											entries.sort_unstable_by(|path1, path2| {
+												let func = |$i: &non_indexed::Entry| $func;
 
-					macro_rules! order_match {
-						($order:ident, [$(($variant:ident, |$i:ident| $func:expr)),+]) => {{
-							match $order {
-								$(EphemeralPathOrder::$variant(order) => {
-									paths.entries.sort_unstable_by(|path1, path2| {
-										let func = |$i: &ExplorerItem| $func;
+												let one = func(path1);
+												let two = func(path2);
 
-										let one = func(path1);
-										let two = func(path2);
-
-										match order {
-											SortOrder::Desc => two.cmp(&one),
-											SortOrder::Asc => one.cmp(&two),
-										}
-									});
-								})+
+												match order {
+													SortOrder::Desc => two.cmp(&one),
+													SortOrder::Asc => one.cmp(&two),
+												}
+											});
+										})+
+									}
+								}};
 							}
-						}};
-					}
 
-					if let Some(order) = order {
-						order_match!(
-							order,
-							[
-								(Name, |p| p.name().to_lowercase()),
-								(SizeInBytes, |p| p.size_in_bytes()),
-								(DateCreated, |p| p.date_created()),
-								(DateModified, |p| p.date_modified())
-							]
-						)
-					}
+							if let Some(order) = order {
+								order_match!(
+									order,
+									[
+										(Name, |p| p.name().to_lowercase()),
+										(SizeInBytes, |p| p.size_in_bytes()),
+										(DateCreated, |p| p.date_created()),
+										(DateModified, |p| p.date_modified())
+									]
+								)
+							}
+						})
+						.await?;
 
-					Ok(paths)
+					let mut stream = BatchedStream::new(paths);
+					Ok(unsafe_streamed_query(stream! {
+						while let Some(result) = stream.next().await {
+							// We optimise for the case of no errors because it should be way more common.
+							let mut entries = Vec::with_capacity(result.len());
+							let mut errors = Vec::with_capacity(0);
+
+							for item in result {
+								match item {
+									Ok(item) => entries.push(item),
+									Err(e) => match e {
+										Either::Left(e) => errors.push(e),
+										Either::Right(e) => errors.push(e.into()),
+									},
+								}
+							}
+
+							let (nodes, entries) = entries.normalise(|item: &ExplorerItem| item.id());
+
+							yield EphemeralPathsResultItem {
+								entries,
+								errors,
+								nodes,
+							};
+						}
+					}))
 				},
 			)
 		})
@@ -217,9 +262,12 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						})
 					}
 
+					let (nodes, items) = items.normalise(|item| item.id());
+
 					Ok(SearchData {
 						items,
 						cursor: None,
+						nodes,
 					})
 				},
 			)
@@ -333,7 +381,13 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						});
 					}
 
-					Ok(SearchData { items, cursor })
+					let (nodes, items) = items.normalise(|item| item.id());
+
+					Ok(SearchData {
+						nodes,
+						items,
+						cursor,
+					})
 				},
 			)
 		})

@@ -1,5 +1,4 @@
-import type { ReadonlyDeep } from 'type-fest';
-import { proxy, useSnapshot } from 'valtio';
+import { proxy } from 'valtio';
 import { proxySet } from 'valtio/utils';
 import { z } from 'zod';
 import {
@@ -107,7 +106,7 @@ export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
 		}
 	}) satisfies ExplorerSettings<TOrder>;
 
-type CutCopyState =
+export type CutCopyState =
 	| {
 			type: 'Idle';
 	  }
@@ -123,6 +122,18 @@ type CutCopyState =
 			};
 	  };
 
+type DragState =
+	| {
+			type: 'touched';
+	  }
+	| {
+			type: 'dragging';
+			items: ExplorerItem[];
+			sourcePath?: string;
+			sourceLocationId?: number;
+			sourceTagId?: number;
+	  };
+
 const state = {
 	tagAssignMode: false,
 	showInspector: false,
@@ -131,15 +142,17 @@ const state = {
 	mediaPlayerVolume: 0.7,
 	newThumbnails: proxySet() as Set<string>,
 	cutCopyState: { type: 'Idle' } as CutCopyState,
-	isDragging: false
+	drag: null as null | DragState,
+	isDragSelecting: false,
+	isRenaming: false,
+	isContextMenuOpen: false
 };
 
 export function flattenThumbnailKey(thumbKey: string[]) {
 	return thumbKey.join('/');
 }
 
-// Keep the private and use `useExplorerState` or `getExplorerStore` or you will get production build issues.
-const explorerStore = proxy({
+export const explorerStore = proxy({
 	...state,
 	reset: (_state?: typeof state) => resetStore(explorerStore, _state || state),
 	addNewThumbnail: (thumbKey: string[]) => {
@@ -152,15 +165,7 @@ const explorerStore = proxy({
 	}
 });
 
-export function useExplorerStore() {
-	return useSnapshot(explorerStore);
-}
-
-export function getExplorerStore() {
-	return explorerStore;
-}
-
-export function isCut(item: ExplorerItem, cutCopyState: ReadonlyDeep<CutCopyState>) {
+export function isCut(item: ExplorerItem, cutCopyState: CutCopyState) {
 	switch (item.type) {
 		case 'NonIndexedPath':
 			return (

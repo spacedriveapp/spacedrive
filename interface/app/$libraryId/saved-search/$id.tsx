@@ -1,7 +1,13 @@
 import { MagnifyingGlass } from '@phosphor-icons/react';
 import { getIcon, iconNames } from '@sd/assets/util';
 import { useMemo } from 'react';
-import { FilePathOrder, SearchFilterArgs, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import {
+	FilePathOrder,
+	SearchFilterArgs,
+	useCache,
+	useLibraryMutation,
+	useLibraryQuery
+} from '@sd/client';
 import { Button } from '@sd/ui';
 import { SearchIdParamsSchema } from '~/app/route-schemas';
 import { useRouteTitle, useZodRouteParams } from '~/hooks';
@@ -12,7 +18,7 @@ import { usePathsExplorerQuery } from '../Explorer/queries';
 import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
-import { EmptyNotice } from '../Explorer/View';
+import { EmptyNotice } from '../Explorer/View/EmptyNotice';
 import SearchOptions, { SearchContextProvider, useSearch, useSearchContext } from '../Search';
 import SearchBar from '../Search/SearchBar';
 import { TopBarPortal } from '../TopBar/Portal';

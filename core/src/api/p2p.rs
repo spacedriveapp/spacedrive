@@ -1,11 +1,12 @@
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use crate::p2p::{operations, P2PEvent, PairingDecision};
+
 use sd_p2p::spacetunnel::RemoteIdentity;
+
+use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
 use std::path::PathBuf;
 use uuid::Uuid;
-
-use crate::p2p::{operations, P2PEvent, PairingDecision};
 
 use super::{Ctx, R};
 
@@ -26,17 +27,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 
 				// TODO: Don't block subscription start
-				for identity in node
-					.p2p
-					.manager
-					.get_connected_peers()
-					.await
-					.map_err(|_err| {
-						rspc::Error::new(
-							ErrorCode::InternalServerError,
-							"todo: error getting connected peers".into(),
-						)
-					})? {
+				for identity in node.p2p.manager.get_connected_peers().await.map_err(|_| {
+					rspc::Error::new(
+						ErrorCode::InternalServerError,
+						"todo: error getting connected peers".into(),
+					)
+				})? {
 					queued.push(P2PEvent::ConnectedPeer { identity });
 				}
 
@@ -51,9 +47,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 			})
 		})
-		.procedure("state", {
-			R.query(|node, _: ()| async move { node.p2p.state() })
-		})
+		// TODO: This has a potentially invalid map key and Specta don't like that. Can bring back in another PR.
+		// .procedure("state", {
+		// 	R.query(|node, _: ()| async move { Ok(node.p2p.state()) })
+		// })
 		.procedure("spacedrop", {
 			#[derive(Type, Deserialize)]
 			pub struct SpacedropArgs {
@@ -81,20 +78,28 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				match path {
 					Some(path) => node.p2p.accept_spacedrop(id, path).await,
 					None => node.p2p.reject_spacedrop(id).await,
-				}
+				};
+
+				Ok(())
 			})
 		})
 		.procedure("cancelSpacedrop", {
-			R.mutation(|node, id: Uuid| async move { node.p2p.cancel_spacedrop(id).await })
+			R.mutation(|node, id: Uuid| async move {
+				node.p2p.cancel_spacedrop(id).await;
+
+				Ok(())
+			})
 		})
 		.procedure("pair", {
 			R.mutation(|node, id: RemoteIdentity| async move {
-				node.p2p.pairing.clone().originator(id, node).await
+				Ok(node.p2p.pairing.clone().originator(id, node).await)
 			})
 		})
 		.procedure("pairingResponse", {
 			R.mutation(|node, (pairing_id, decision): (u16, PairingDecision)| {
 				node.p2p.pairing.decision(pairing_id, decision);
+
+				Ok(())
 			})
 		})
 }

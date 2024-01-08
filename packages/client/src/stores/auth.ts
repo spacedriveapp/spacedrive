@@ -1,4 +1,4 @@
-import { RSPCError } from '@rspc/client';
+import { RSPCError } from '@oscartbeaumont-sd/rspc-client';
 import { proxy, useSnapshot } from 'valtio';
 
 import { nonLibraryClient } from '../rspc';

@@ -1,6 +1,6 @@
 import { ArrowClockwise, Info } from '@phosphor-icons/react';
-import { useEffect, useMemo } from 'react';
-import { useDebouncedCallback } from 'use-debounce';
+import { memo, useEffect, useMemo } from 'react';
+import { useSearchParams as useRawSearchParams } from 'react-router-dom';
 import { stringify } from 'uuid';
 import {
 	arraysEqual,
@@ -8,9 +8,11 @@ import {
 	FilePathOrder,
 	Location,
 	ObjectKindEnum,
+	useCache,
 	useLibraryMutation,
 	useLibraryQuery,
 	useLibrarySubscription,
+	useNodes,
 	useOnlineLocations,
 	useRspcLibraryContext
 } from '@sd/client';
@@ -31,9 +33,9 @@ import { ExplorerContextProvider } from '../Explorer/Context';
 import { usePathsExplorerQuery } from '../Explorer/queries';
 import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
-import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
+import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
 import { useExplorerSearchParams } from '../Explorer/util';
-import { EmptyNotice } from '../Explorer/View';
+import { EmptyNotice } from '../Explorer/View/EmptyNotice';
 import SearchOptions, { SearchContextProvider, useSearch } from '../Search';
 import SearchBar from '../Search/SearchBar';
 import { TopBarPortal } from '../TopBar/Portal';
@@ -42,17 +44,20 @@ import LocationOptions from './LocationOptions';
 
 export const Component = () => {
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
-	const location = useLibraryQuery(['locations.get', locationId], {
+	const [{ path }] = useExplorerSearchParams();
+	const result = useLibraryQuery(['locations.get', locationId], {
 		keepPreviousData: true,
 		suspense: true
 	});
+	useNodes(result.data?.nodes);
+	const location = useCache(result.data?.item);
 
-	return <LocationExplorer location={location.data!} />;
+	// 'key' allows search state to be thrown out when entering a folder
+	return <LocationExplorer key={path} location={location!} />;
 };
 
 const LocationExplorer = ({ location }: { location: Location; path?: string }) => {
 	const [{ path, take }] = useExplorerSearchParams();
-	const rspc = useRspcLibraryContext();
 
 	const onlineLocations = useOnlineLocations();
 
@@ -64,70 +69,12 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 		return onlineLocations.some((l) => arraysEqual(pub_id, l));
 	}, [location.pub_id, onlineLocations]);
 
-	const preferences = useLibraryQuery(['preferences.get']);
-	const updatePreferences = useLibraryMutation('preferences.update');
-
-	const settings = useMemo(() => {
-		const defaults = createDefaultExplorerSettings<FilePathOrder>({
-			order: { field: 'name', value: 'Asc' }
-		});
-
-		if (!location) return defaults;
-
-		const pubId = stringify(location.pub_id);
-
-		const settings = preferences.data?.location?.[pubId]?.explorer;
-
-		if (!settings) return defaults;
-
-		for (const [key, value] of Object.entries(settings)) {
-			if (value !== null) Object.assign(defaults, { [key]: value });
-		}
-
-		return defaults;
-	}, [location, preferences.data?.location]);
-
-	const onSettingsChanged = useDebouncedCallback(
-		async (settings: ExplorerSettings<FilePathOrder>) => {
-			if (preferences.isLoading) return;
-
-			const pubId = stringify(location.pub_id);
-
-			try {
-				await updatePreferences.mutateAsync({
-					location: { [pubId]: { explorer: settings } }
-				});
-				rspc.queryClient.invalidateQueries(['preferences.get']);
-			} catch (e) {
-				alert('An error has occurred while updating your preferences.');
-			}
-		},
-		500
-	);
-
-	const explorerSettings = useExplorerSettings({
-		settings,
-		onSettingsChanged,
-		orderingKeys: filePathOrderingKeysSchema,
-		location
-	});
-
-	const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
-
-	const fixedFilters = useMemo(
-		() => [
-			{ filePath: { locations: { in: [location.id] } } },
-			...(explorerSettingsSnapshot.layoutMode === 'media'
-				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
-				: [])
-		],
-		[location.id, explorerSettingsSnapshot.layoutMode]
-	);
-
-	const search = useSearch({ fixedFilters });
+	const { explorerSettings, preferences } = useLocationExplorerSettings(location);
 
 	const { layoutMode, mediaViewWithDescendants, showHiddenFiles } =
 		explorerSettings.useSettingsSnapshot();
+
+	const search = useLocationSearch(explorerSettings, location);
 
 	const paths = usePathsExplorerQuery({
 		arg: {
@@ -247,4 +194,118 @@ function getLastSectionOfPath(path: string): string | undefined {
 	const sections = path.split('/');
 	const lastSection = sections[sections.length - 1];
 	return lastSection;
+}
+
+function useLocationExplorerSettings(location: Location) {
+	const rspc = useRspcLibraryContext();
+
+	const preferences = useLibraryQuery(['preferences.get']);
+	const updatePreferences = useLibraryMutation('preferences.update');
+
+	const settings = useMemo(() => {
+		const defaults = createDefaultExplorerSettings<FilePathOrder>({
+			order: { field: 'name', value: 'Asc' }
+		});
+
+		if (!location) return defaults;
+
+		const pubId = stringify(location.pub_id);
+
+		const settings = preferences.data?.location?.[pubId]?.explorer;
+
+		if (!settings) return defaults;
+
+		for (const [key, value] of Object.entries(settings)) {
+			if (value !== null) Object.assign(defaults, { [key]: value });
+		}
+
+		return defaults;
+	}, [location, preferences.data?.location]);
+
+	const onSettingsChanged = async (
+		settings: ExplorerSettings<FilePathOrder>,
+		changedLocation: Location
+	) => {
+		if (changedLocation.id === location.id && preferences.isLoading) return;
+
+		const pubId = stringify(changedLocation.pub_id);
+
+		try {
+			await updatePreferences.mutateAsync({
+				location: { [pubId]: { explorer: settings } }
+			});
+			rspc.queryClient.invalidateQueries(['preferences.get']);
+		} catch (e) {
+			alert('An error has occurred while updating your preferences.');
+		}
+	};
+
+	return {
+		explorerSettings: useExplorerSettings({
+			settings,
+			onSettingsChanged,
+			orderingKeys: filePathOrderingKeysSchema,
+			location
+		}),
+		preferences
+	};
+}
+
+function useLocationSearch(
+	explorerSettings: UseExplorerSettings<FilePathOrder>,
+	location: Location
+) {
+	const [searchParams, setSearchParams] = useRawSearchParams();
+	const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
+
+	const fixedFilters = useMemo(
+		() => [
+			{ filePath: { locations: { in: [location.id] } } },
+			...(explorerSettingsSnapshot.layoutMode === 'media'
+				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
+				: [])
+		],
+		[location.id, explorerSettingsSnapshot.layoutMode]
+	);
+
+	const filtersParam = searchParams.get('filters');
+	const dynamicFilters = useMemo(() => JSON.parse(filtersParam ?? '[]'), [filtersParam]);
+
+	const searchQueryParam = searchParams.get('search');
+
+	const search = useSearch({
+		open: !!searchQueryParam || dynamicFilters.length > 0 || undefined,
+		search: searchParams.get('search') ?? undefined,
+		fixedFilters,
+		dynamicFilters
+	});
+
+	useEffect(() => {
+		setSearchParams(
+			(p) => {
+				if (search.dynamicFilters.length > 0)
+					p.set('filters', JSON.stringify(search.dynamicFilters));
+				else p.delete('filters');
+
+				return p;
+			},
+			{ replace: true }
+		);
+	}, [search.dynamicFilters, setSearchParams]);
+
+	const searchQuery = search.search;
+
+	useEffect(() => {
+		setSearchParams(
+			(p) => {
+				if (searchQuery !== '') p.set('search', searchQuery);
+				else p.delete('search');
+
+				return p;
+			},
+			{ replace: true }
+		);
+	}, [searchQuery, setSearchParams]);
+
+	return search;
 }

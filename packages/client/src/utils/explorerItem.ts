@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
-import type { ExplorerItem, FilePath, NonIndexedPathItem, Object } from '../core';
+import type { Object } from '..';
+import type { ExplorerItem, FilePath, NonIndexedPathItem } from '../core';
 import { byteSize } from '../lib';
 import { ObjectKind } from './objectKind';
 

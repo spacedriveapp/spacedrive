@@ -8,12 +8,13 @@ import {
 	MediaDate,
 	MediaLocation,
 	MediaMetadata,
+	useSelector,
 	useUnitFormatStore
 } from '@sd/client';
 import { Accordion } from '~/components';
 import { Platform, usePlatform } from '~/util/Platform';
 
-import { getExplorerStore, useExplorerStore } from '../store';
+import { explorerStore } from '../store';
 import { MetaData } from './index';
 
 interface Props {
@@ -111,14 +112,13 @@ const orientations = {
 const MediaData = ({ data }: Props) => {
 	const platform = usePlatform();
 	const coordinatesFormat = useUnitFormatStore().coordinatesFormat;
-
-	const explorerStore = useExplorerStore();
+	const showMoreInfo = useSelector(explorerStore, (s) => s.showMoreInfo);
 
 	return data.type === 'Image' ? (
 		<div className="flex flex-col gap-0 py-2">
 			<Accordion
-				isOpen={explorerStore.showMoreInfo}
-				onToggle={(isOpen) => (getExplorerStore().showMoreInfo = isOpen)}
+				isOpen={showMoreInfo}
+				onToggle={(isOpen) => (explorerStore.showMoreInfo = isOpen)}
 				variant="apple"
 				title="More info"
 			>

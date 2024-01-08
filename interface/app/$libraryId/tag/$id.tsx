@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { ObjectKindEnum, ObjectOrder, useLibraryQuery } from '@sd/client';
+import { memo, useMemo } from 'react';
+import { ObjectKindEnum, ObjectOrder, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
 import { useRouteTitle, useZodRouteParams } from '~/hooks';
@@ -10,16 +10,18 @@ import { useObjectsExplorerQuery } from '../Explorer/queries/useObjectsExplorerQ
 import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
-import { EmptyNotice } from '../Explorer/View';
+import { EmptyNotice } from '../Explorer/View/EmptyNotice';
 import SearchOptions, { SearchContextProvider, useSearch } from '../Search';
 import SearchBar from '../Search/SearchBar';
 import { TopBarPortal } from '../TopBar/Portal';
 
 export function Component() {
 	const { id: tagId } = useZodRouteParams(LocationIdParamsSchema);
-	const tag = useLibraryQuery(['tags.get', tagId], { suspense: true });
+	const result = useLibraryQuery(['tags.get', tagId], { suspense: true });
+	useNodes(result.data?.nodes);
+	const tag = useCache(result.data?.item);
 
-	useRouteTitle(tag.data!.name ?? 'Tag');
+	useRouteTitle(tag!.name ?? 'Tag');
 
 	const explorerSettings = useExplorerSettings({
 		settings: useMemo(() => {
@@ -32,12 +34,12 @@ export function Component() {
 
 	const fixedFilters = useMemo(
 		() => [
-			{ object: { tags: { in: [tag.data!.id] } } },
+			{ object: { tags: { in: [tag!.id] } } },
 			...(explorerSettingsSnapshot.layoutMode === 'media'
 				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
 				: [])
 		],
-		[tag.data, explorerSettingsSnapshot.layoutMode]
+		[tag, explorerSettingsSnapshot.layoutMode]
 	);
 
 	const search = useSearch({
@@ -53,7 +55,7 @@ export function Component() {
 		...objects,
 		isFetchingNextPage: objects.query.isFetchingNextPage,
 		settings: explorerSettings,
-		parent: { type: 'Tag', tag: tag.data! }
+		parent: { type: 'Tag', tag: tag! }
 	});
 
 	return (
@@ -65,9 +67,9 @@ export function Component() {
 						<div className="flex flex-row items-center gap-2">
 							<div
 								className="h-[14px] w-[14px] shrink-0 rounded-full"
-								style={{ backgroundColor: tag.data!.color || '#efefef' }}
+								style={{ backgroundColor: tag!.color || '#efefef' }}
 							/>
-							<span className="truncate text-sm font-medium">{tag?.data?.name}</span>
+							<span className="truncate text-sm font-medium">{tag?.name}</span>
 						</div>
 					}
 					right={<DefaultTopBarOptions />}
@@ -80,6 +82,7 @@ export function Component() {
 					)}
 				</TopBarPortal>
 			</SearchContextProvider>
+
 			<Explorer
 				emptyNotice={
 					<EmptyNotice

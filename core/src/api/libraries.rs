@@ -6,6 +6,7 @@ use crate::{
 	Node,
 };
 
+use sd_cache::{Model, Normalise, NormalisedResult, NormalisedResults};
 use sd_p2p::spacetunnel::RemoteIdentity;
 use sd_prisma::prisma::{indexer_rule, statistics};
 
@@ -35,6 +36,12 @@ pub struct LibraryConfigWrapped {
 	pub config: LibraryConfig,
 }
 
+impl Model for LibraryConfigWrapped {
+	fn name() -> &'static str {
+		"LibraryConfigWrapped"
+	}
+}
+
 impl LibraryConfigWrapped {
 	pub async fn from_library(library: &Library) -> Self {
 		Self {
@@ -50,7 +57,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("list", {
 			R.query(|node, _: ()| async move {
-				node.libraries
+				let libraries = node
+					.libraries
 					.get_all()
 					.await
 					.into_iter()
@@ -64,7 +72,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					})
 					.collect::<Vec<_>>()
 					.join()
-					.await
+					.await;
+
+				let (nodes, items) = libraries.normalise(|i| i.uuid.to_string());
+
+				Ok(NormalisedResults { nodes, items })
 			})
 		})
 		.procedure("statistics", {
@@ -279,7 +291,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.await?;
 					}
 
-					Ok(LibraryConfigWrapped::from_library(&library).await)
+					Ok(NormalisedResult::from(
+						LibraryConfigWrapped::from_library(&library).await,
+						|l| l.uuid.to_string(),
+					))
 				},
 			)
 		})
@@ -307,5 +322,39 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.mutation(|node, id: Uuid| async move {
 				node.libraries.delete(&id).await.map_err(Into::into)
 			}),
+		)
+		.procedure(
+			"actors",
+			R.with2(library()).subscription(|(_, library), _: ()| {
+				let mut rx = library.actors.invalidate_rx.resubscribe();
+
+				async_stream::stream! {
+					let actors = library.actors.get_state().await;
+					yield actors;
+
+					while let Ok(()) = rx.recv().await {
+						let actors = library.actors.get_state().await;
+						yield actors;
+					}
+				}
+			}),
+		)
+		.procedure(
+			"startActor",
+			R.with2(library())
+				.mutation(|(_, library), name: String| async move {
+					library.actors.start(&name).await;
+
+					Ok(())
+				}),
+		)
+		.procedure(
+			"stopActor",
+			R.with2(library())
+				.mutation(|(_, library), name: String| async move {
+					library.actors.stop(&name).await;
+
+					Ok(())
+				}),
 		)
 }
