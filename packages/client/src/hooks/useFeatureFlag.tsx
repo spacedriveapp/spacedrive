@@ -5,7 +5,13 @@ import type { BackendFeature } from '../core';
 import { valtioPersist } from '../lib/valito';
 import { nonLibraryClient, useBridgeQuery } from '../rspc';
 
-export const features = ['spacedrop', 'p2pPairing', 'backups', 'debugRoutes'] as const;
+export const features = [
+	'spacedrop',
+	'p2pPairing',
+	'backups',
+	'debugRoutes',
+	'solidJsDemo'
+] as const;
 
 // This defines which backend feature flags show up in the UI.
 // This is kinda a hack to not having the runtime array of possible features as Specta only exports the types.
