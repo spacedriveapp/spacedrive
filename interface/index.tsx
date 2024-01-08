@@ -15,6 +15,7 @@ import {
 import { toast, TooltipProvider } from '@sd/ui';
 
 import { createRoutes } from './app';
+import { SpacedropProvider } from './app/$libraryId/Spacedrop';
 import { P2P, useP2PErrorToast } from './app/p2p';
 import { Devtools } from './components/Devtools';
 import { WithPrismTheme } from './components/TextViewer/prism';
@@ -93,6 +94,7 @@ export function SpacedriveInterfaceRoot({ children }: PropsWithChildren) {
 						<P2P />
 						<Devtools />
 						<WithPrismTheme />
+						<SpacedropProvider />
 						{children}
 					</P2PContextProvider>
 				</TooltipProvider>

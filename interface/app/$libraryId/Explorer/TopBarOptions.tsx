@@ -2,6 +2,7 @@ import {
 	Icon,
 	Key,
 	MonitorPlay,
+	Planet,
 	Rows,
 	SidebarSimple,
 	SlidersHorizontal,
@@ -16,6 +17,7 @@ import { toast } from '@sd/ui';
 import { useKeyMatcher } from '~/hooks';
 
 import { KeyManager } from '../KeyManager';
+import { Spacedrop, SpacedropButton } from '../Spacedrop';
 import TopBarOptions, { ToolOption, TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import { useExplorerContext } from './Context';
 import OptionsPanel from './OptionsPanel';
@@ -109,6 +111,13 @@ export const useExplorerTopBarOptions = () => {
 
 	const toolOptions = [
 		{
+			toolTipLabel: 'Spacedrop',
+			icon: ({ triggerOpen }) => <SpacedropButton triggerOpen={triggerOpen} />,
+			popOverComponent: ({ triggerClose }) => <Spacedrop triggerClose={triggerClose} />,
+			individual: true,
+			showAtResolution: 'xl:flex'
+		},
+		{
 			toolTipLabel: 'Key Manager',
 			icon: <Key className={TOP_BAR_ICON_STYLE} />,
 			popOverComponent: <KeyManager />,
@@ -127,7 +136,7 @@ export const useExplorerTopBarOptions = () => {
 			individual: true,
 			showAtResolution: 'xl:flex'
 		}
-	].filter(Boolean) as ToolOption[];
+	] satisfies ToolOption[];
 
 	return {
 		viewOptions,

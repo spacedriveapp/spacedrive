@@ -14,7 +14,7 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 		<View style={tw`flex-1 p-4`}>
 			<Card style={tw`gap-y-4 bg-app-box`}>
 				<Text style={tw`font-semibold text-ink`}>Debug</Text>
-				<Button onPress={() => toggleFeatureFlag(['p2pPairing', 'spacedrop'])}>
+				<Button onPress={() => toggleFeatureFlag(['p2pPairing'])}>
 					<Text style={tw`text-ink`}>Toggle P2P</Text>
 				</Button>
 				<Button onPress={() => (getDebugState().rspcLogger = !getDebugState().rspcLogger)}>
