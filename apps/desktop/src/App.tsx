@@ -46,7 +46,9 @@ export default function App() {
 			document.dispatchEvent(new KeybindEvent(input.payload as string));
 		});
 
-		return () => keybindListener.then((unlisten) => unlisten());
+		return () => {
+			keybindListener.then((unlisten) => unlisten());
+		};
 	}, []);
 
 	return (

@@ -18,7 +18,7 @@ const GroupTool = forwardRef<
 			checkIcon
 			{...props}
 		>
-			{tool.icon}
+			{typeof tool.icon === 'function' ? tool.icon({ triggerOpen: () => {} }) : tool.icon}
 			{tool.toolTipLabel}
 		</TopBarButton>
 	);
