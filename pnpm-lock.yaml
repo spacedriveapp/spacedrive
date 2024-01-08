@@ -714,12 +714,6 @@ importers:
       i18next:
         specifier: ^23.7.10
         version: 23.7.10
-      i18next-fs-backend:
-        specifier: ^2.3.1
-        version: 2.3.1
-      i18next-http-backend:
-        specifier: ^2.4.2
-        version: 2.4.2
       immer:
         specifier: ^10.0.3
         version: 10.0.3
@@ -2862,7 +2856,7 @@ packages:
     dependencies:
       '@babel/core': 7.23.7
       '@babel/helper-annotate-as-pure': 7.22.5
-      '@babel/helper-compilation-targets': 7.23.6
+      '@babel/helper-compilation-targets': 7.22.15
       '@babel/helper-environment-visitor': 7.22.20
       '@babel/helper-function-name': 7.23.0
       '@babel/helper-optimise-call-expression': 7.22.5
@@ -4408,11 +4402,11 @@ packages:
     peerDependencies:
       '@babel/core': ^7.0.0-0
     dependencies:
-      '@babel/compat-data': 7.23.5
+      '@babel/compat-data': 7.23.2
       '@babel/core': 7.23.7
-      '@babel/helper-compilation-targets': 7.23.6
+      '@babel/helper-compilation-targets': 7.22.15
       '@babel/helper-plugin-utils': 7.22.5
-      '@babel/helper-validator-option': 7.23.5
+      '@babel/helper-validator-option': 7.22.15
       '@babel/plugin-bugfix-safari-id-destructuring-collision-in-function-expression': 7.22.15(@babel/core@7.23.7)
       '@babel/plugin-bugfix-v8-spread-parameters-in-optional-chaining': 7.22.15(@babel/core@7.23.7)
       '@babel/plugin-proposal-private-property-in-object': 7.21.0-placeholder-for-preset-env.2(@babel/core@7.23.7)
@@ -4456,7 +4450,7 @@ packages:
       '@babel/plugin-transform-logical-assignment-operators': 7.22.11(@babel/core@7.23.7)
       '@babel/plugin-transform-member-expression-literals': 7.22.5(@babel/core@7.23.7)
       '@babel/plugin-transform-modules-amd': 7.23.0(@babel/core@7.23.7)
-      '@babel/plugin-transform-modules-commonjs': 7.23.3(@babel/core@7.23.7)
+      '@babel/plugin-transform-modules-commonjs': 7.23.0(@babel/core@7.23.7)
       '@babel/plugin-transform-modules-systemjs': 7.23.0(@babel/core@7.23.7)
       '@babel/plugin-transform-modules-umd': 7.22.5(@babel/core@7.23.7)
       '@babel/plugin-transform-named-capturing-groups-regex': 7.22.5(@babel/core@7.23.7)
@@ -4483,7 +4477,7 @@ packages:
       '@babel/plugin-transform-unicode-regex': 7.22.5(@babel/core@7.23.7)
       '@babel/plugin-transform-unicode-sets-regex': 7.22.5(@babel/core@7.23.7)
       '@babel/preset-modules': 0.1.6-no-external-plugins(@babel/core@7.23.7)
-      '@babel/types': 7.23.6
+      '@babel/types': 7.23.0
       babel-plugin-polyfill-corejs2: 0.4.6(@babel/core@7.23.7)
       babel-plugin-polyfill-corejs3: 0.8.6(@babel/core@7.23.7)
       babel-plugin-polyfill-regenerator: 0.5.3(@babel/core@7.23.7)
@@ -6658,7 +6652,7 @@ packages:
       magic-string: 0.27.0
       react-docgen-typescript: 2.2.2(typescript@5.3.3)
       typescript: 5.3.3
-      vite: 5.0.10(@types/node@18.17.19)
+      vite: 5.0.10(less@4.2.0)
 
   /@jridgewell/gen-mapping@0.3.3:
     resolution: {integrity: sha512-HLhSWOLRi875zjjMG/r+Nv0oCW8umGb0BgEhyX3dDX3egwZtB8PqLnjz3yedt8R5StBrzcg4aBpnh8UA9D1BoQ==}
@@ -9904,7 +9898,7 @@ packages:
       magic-string: 0.30.5
       rollup: 3.29.4
       typescript: 5.3.3
-      vite: 5.0.10(@types/node@18.17.19)
+      vite: 5.0.10(less@4.2.0)
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -10257,7 +10251,7 @@ packages:
       react: 18.2.0
       react-docgen: 6.0.4
       react-dom: 18.2.0(react@18.2.0)
-      vite: 5.0.10(@types/node@18.17.19)
+      vite: 5.0.10(less@4.2.0)
     transitivePeerDependencies:
       - '@preact/preset-vite'
       - encoding
@@ -10497,7 +10491,7 @@ packages:
     dependencies:
       '@babel/core': 7.23.2
       '@svgr/babel-preset': 8.1.0(@babel/core@7.23.2)
-      '@svgr/core': 8.1.0(typescript@5.3.3)
+      '@svgr/core': 8.1.0(typescript@5.2.2)
       '@svgr/hast-util-to-babel-ast': 8.0.0
       svg-parser: 2.0.4
     transitivePeerDependencies:
@@ -11646,7 +11640,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.22.5(@babel/core@7.23.2)
       magic-string: 0.27.0
       react-refresh: 0.14.0
-      vite: 5.0.10(@types/node@18.17.19)
+      vite: 5.0.10(less@4.2.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -13399,14 +13393,6 @@ packages:
 
   /cross-fetch@3.1.8:
     resolution: {integrity: sha512-cvA+JwZoU0Xq+h6WkMvAUqPEYy92Obet6UdKLfW60qn99ftItKjB5T+BkyWOFWe2pUyfQ+IJHmpOTznqk1M6Kg==}
-    dependencies:
-      node-fetch: 2.7.0
-    transitivePeerDependencies:
-      - encoding
-    dev: false
-
-  /cross-fetch@4.0.0:
-    resolution: {integrity: sha512-e4a5N8lVvuLgAWgnCrLr2PP0YyDOTHa9H/Rj54dirp61qXnNq46m82bRhNqIA5VccJtWBvPTFRV3TtvHUKPB1g==}
     dependencies:
       node-fetch: 2.7.0
     transitivePeerDependencies:
@@ -16597,18 +16583,6 @@ packages:
     resolution: {integrity: sha512-nZXjEF2nbo7lIw3mgYjItAfgQXog3OjJogSbKa2CQIIvSGWcKgeJnQlNXip6NglNzYH45nSRiEVimMvYL8DDqQ==}
     engines: {node: '>=14.18.0'}
     dev: true
-
-  /i18next-fs-backend@2.3.1:
-    resolution: {integrity: sha512-tvfXskmG/9o+TJ5Fxu54sSO5OkY6d+uMn+K6JiUGLJrwxAVfer+8V3nU8jq3ts9Pe5lXJv4b1N7foIjJ8Iy2Gg==}
-    dev: false
-
-  /i18next-http-backend@2.4.2:
-    resolution: {integrity: sha512-wKrgGcaFQ4EPjfzBTjzMU0rbFTYpa0S5gv9N/d8WBmWS64+IgJb7cHddMvV+tUkse7vUfco3eVs2lB+nJhPo3w==}
-    dependencies:
-      cross-fetch: 4.0.0
-    transitivePeerDependencies:
-      - encoding
-    dev: false
 
   /i18next@23.7.10:
     resolution: {integrity: sha512-PRFP5uJz7swMKDW+ErbKb/YRawGQdS3J1iaO/d4Mhh7oBnCUqNF04FwVxJAvCLHKNoAOBSwD8wFe8aVNCFPmfA==}
@@ -24760,6 +24734,7 @@ packages:
       rollup: 4.9.2
     optionalDependencies:
       fsevents: 2.3.3
+    dev: true
 
   /vite@5.0.10(less@4.2.0):
     resolution: {integrity: sha512-2P8J7WWgmc355HUMlFrwofacvr98DAjoE52BfdbwQtyLH06XKwaL/FMnmKM2crF0iX4MpmMKoDlNCB1ok7zHCw==}
@@ -24795,7 +24770,6 @@ packages:
       rollup: 4.9.2
     optionalDependencies:
       fsevents: 2.3.3
-    dev: true
 
   /vite@5.0.10(sass@1.69.5):
     resolution: {integrity: sha512-2P8J7WWgmc355HUMlFrwofacvr98DAjoE52BfdbwQtyLH06XKwaL/FMnmKM2crF0iX4MpmMKoDlNCB1ok7zHCw==}
