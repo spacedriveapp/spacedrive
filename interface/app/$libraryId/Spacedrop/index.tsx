@@ -131,8 +131,6 @@ function Node({
 		onDrop: (files) => onDropped(id, files)
 	});
 
-	// TODO: onClick open a file selector (this should allow us to support web)
-
 	return (
 		<div
 			ref={ref}
