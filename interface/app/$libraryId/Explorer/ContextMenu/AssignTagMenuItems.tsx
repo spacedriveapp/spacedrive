@@ -11,7 +11,7 @@ import CreateDialog, {
 	useAssignItemsToTag
 } from '~/app/$libraryId/settings/library/tags/CreateDialog';
 import { Menu } from '~/components/Menu';
-import { useOperatingSystem } from '~/hooks';
+import { useLocale, useOperatingSystem } from '~/hooks';
 import { useScrolled } from '~/hooks/useScrolled';
 import { keybindForOs } from '~/util/keybinds';
 
@@ -52,6 +52,8 @@ export default (props: Props) => {
 	const ref = useRef<HTMLDivElement>(null);
 	const { isScrolled } = useScrolled(ref, 10);
 
+	const { t } = useLocale();
+
 	const os = useOperatingSystem();
 	const keybind = keybindForOs(os);
 
@@ -61,7 +63,7 @@ export default (props: Props) => {
 		<>
 			<Menu.Item
 				className="tag-menu"
-				label="New tag"
+				label={t('new_tag')}
 				icon={Plus}
 				iconProps={{ size: 15 }}
 				keybind={keybind([ModifierKeys.Control], ['N'])}
@@ -74,8 +76,8 @@ export default (props: Props) => {
 				onReset={() => queryClient.invalidateQueries()}
 				fallbackRender={(props) => (
 					<EmptyContainer>
-						Failed to load tags
-						<Button onClick={() => props.resetErrorBoundary()}>Retry</Button>
+						{t('failed_to_load_tags')}
+						<Button onClick={() => props.resetErrorBoundary()}>{t('retry')}</Button>
 					</EmptyContainer>
 				)}
 			>
@@ -87,6 +89,8 @@ export default (props: Props) => {
 
 const Tags = ({ items, parentRef }: Props & { parentRef: RefObject<HTMLDivElement> }) => {
 	const { tags, tagsWithObjects } = useData({ items });
+
+	const { t } = useLocale();
 
 	// tags are sorted by assignment, and assigned tags are sorted by most recently assigned
 	const sortedTags = useMemo(() => {
@@ -242,7 +246,7 @@ const Tags = ({ items, parentRef }: Props & { parentRef: RefObject<HTMLDivElemen
 					</div>
 				</div>
 			) : (
-				<EmptyContainer>No tags</EmptyContainer>
+				<EmptyContainer>{t('no_tags')}</EmptyContainer>
 			)}
 		</>
 	);

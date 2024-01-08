@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Tooltip } from '@sd/ui';
-import { useKeyMatcher, useOperatingSystem, useShortcut } from '~/hooks';
+import { useKeyMatcher, useLocale, useOperatingSystem, useShortcut } from '~/hooks';
 import { useRoutingContext } from '~/RoutingContext';
 
 import { useExplorerDroppable } from '../Explorer/useExplorerDroppable';
@@ -11,6 +11,8 @@ import TopBarButton from './TopBarButton';
 
 export const NavigationButtons = () => {
 	const { currentIndex, maxIndex } = useRoutingContext();
+
+	const { t } = useLocale();
 
 	const navigate = useNavigate();
 	const os = useOperatingSystem();
@@ -58,7 +60,7 @@ export const NavigationButtons = () => {
 
 	return (
 		<div data-tauri-drag-region={os === 'macOS'} className="flex">
-			<Tooltip keybinds={[icon, '[']} label="Navigate back">
+			<Tooltip keybinds={[icon, '[']} label={t('navigate_back')}>
 				<TopBarButton
 					rounding="left"
 					onClick={() => navigate(-1)}
@@ -72,7 +74,7 @@ export const NavigationButtons = () => {
 					<ArrowLeft size={14} className="m-[4px]" weight="bold" />
 				</TopBarButton>
 			</Tooltip>
-			<Tooltip keybinds={[icon, ']']} label="Navigate forward">
+			<Tooltip keybinds={[icon, ']']} label={t('navigate_forward')}>
 				<TopBarButton
 					rounding="right"
 					onClick={() => navigate(1)}

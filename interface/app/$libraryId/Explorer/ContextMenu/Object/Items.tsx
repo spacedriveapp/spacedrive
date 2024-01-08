@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { ExplorerItem, ObjectKind, useLibraryMutation, type ObjectKindEnum } from '@sd/client';
 import { ContextMenu, toast } from '@sd/ui';
 import { Menu } from '~/components/Menu';
+import { useLocale } from '~/hooks';
 import { isNonEmpty } from '~/util';
 
 import AssignTagMenuItems from '../AssignTagMenuItems';
@@ -21,9 +22,11 @@ export const RemoveFromRecents = new ConditionalItem({
 	Component: ({ selectedObjects }) => {
 		const removeFromRecents = useLibraryMutation('files.removeAccessTime');
 
+		const { t } = useLocale();
+
 		return (
 			<ContextMenu.Item
-				label="Remove From Recents"
+				label={t('remove_from_recents')}
 				onClick={async () => {
 					try {
 						await removeFromRecents.mutateAsync(
@@ -31,7 +34,7 @@ export const RemoveFromRecents = new ConditionalItem({
 						);
 					} catch (error) {
 						toast.error({
-							title: `Failed to remove file from recents`,
+							title: t('failed_to_remove_file_from_recents'),
 							body: `Error: ${error}.`
 						});
 					}
@@ -58,11 +61,14 @@ export const AssignTag = new ConditionalItem({
 
 		return { items };
 	},
-	Component: ({ items }) => (
-		<Menu.SubMenu label="Assign tag" icon={TagSimple}>
-			<AssignTagMenuItems items={items} />
-		</Menu.SubMenu>
-	)
+	Component: ({ items }) => {
+		const { t } = useLocale();
+		return (
+			<Menu.SubMenu label={t('assign_tag')} icon={TagSimple}>
+				<AssignTagMenuItems items={items} />
+			</Menu.SubMenu>
+		);
+	}
 });
 
 const ObjectConversions: Record<number, string[]> = {
@@ -93,9 +99,14 @@ export const ConvertObject = new ConditionalItem({
 
 		return { kind };
 	},
-	Component: ({ kind }) => (
-		<Menu.SubMenu label="Convert to" icon={ArrowBendUpRight}>
-			{ObjectConversions[kind]?.map((ext) => <Menu.Item key={ext} label={ext} disabled />)}
-		</Menu.SubMenu>
-	)
+	Component: ({ kind }) => {
+		const { t } = useLocale();
+		return (
+			<Menu.SubMenu label={t('convert_to')} icon={ArrowBendUpRight}>
+				{ObjectConversions[kind]?.map((ext) => (
+					<Menu.Item key={ext} label={ext} disabled />
+				))}
+			</Menu.SubMenu>
+		);
+	}
 });

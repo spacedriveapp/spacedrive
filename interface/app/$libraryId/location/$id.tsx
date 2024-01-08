@@ -22,6 +22,7 @@ import { Folder, Icon } from '~/components';
 import {
 	useIsLocationIndexing,
 	useKeyDeleteFile,
+	useLocale,
 	useRouteTitle,
 	useShortcut,
 	useZodRouteParams
@@ -130,6 +131,8 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 
 	const isLocationIndexing = useIsLocationIndexing(location.id);
 
+	const { t } = useLocale();
+
 	return (
 		<ExplorerContextProvider explorer={explorer}>
 			<SearchContextProvider search={search}>
@@ -140,7 +143,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 							<Folder size={22} className="mt-[-1px]" />
 							<span className="truncate text-sm font-medium">{title}</span>
 							{!locationOnline && (
-								<Tooltip label="Location is offline, you can still browse and organize.">
+								<Tooltip label={t('location_offline_tooltip')}>
 									<Info className="text-ink-faint" />
 								</Tooltip>
 							)}
@@ -151,7 +154,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 						<DefaultTopBarOptions
 							options={[
 								{
-									toolTipLabel: 'Reload',
+									toolTipLabel: t('reload'),
 									onClick: () => rescan(location.id),
 									icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
 									individual: true,
@@ -178,7 +181,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 					emptyNotice={
 						<EmptyNotice
 							icon={<Icon name="FolderNoSpace" size={128} />}
-							message="No files found here"
+							message={t('no_files_found_here')}
 						/>
 					}
 				/>

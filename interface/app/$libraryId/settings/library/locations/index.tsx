@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useDebounce } from 'use-debounce';
 import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { SearchInput } from '@sd/ui';
+import { useLocale } from '~/hooks';
 
 import { Heading } from '../../Layout';
 import { AddLocationButton } from './AddLocationButton';
@@ -23,11 +24,13 @@ export const Component = () => {
 		[debouncedSearch, locations]
 	);
 
+	const { t } = useLocale();
+
 	return (
 		<>
 			<Heading
-				title="Locations"
-				description="Manage your storage locations."
+				title={t('locations')}
+				description={t('locations_description')}
 				rightArea={
 					<div className="flex flex-row items-center space-x-5">
 						<SearchInput

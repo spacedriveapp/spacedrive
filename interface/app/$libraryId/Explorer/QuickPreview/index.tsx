@@ -35,7 +35,7 @@ import {
 	useZodForm
 } from '@sd/client';
 import { DropdownMenu, Form, toast, ToastMessage, Tooltip, z } from '@sd/ui';
-import { useIsDark, useOperatingSystem, useShortcut } from '~/hooks';
+import { useIsDark, useLocale, useOperatingSystem, useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
@@ -82,6 +82,8 @@ export const QuickPreview = () => {
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
 	const [newName, setNewName] = useState<string | null>(null);
+
+	const { t } = useLocale();
 
 	const items = useMemo(() => {
 		if (!open || !explorer.items || explorer.selectedItems.size === 0) return [];
@@ -276,7 +278,7 @@ export const QuickPreview = () => {
 									)}
 								>
 									<div className="flex flex-1">
-										<Tooltip label="Close">
+										<Tooltip label={t('close')}>
 											<Dialog.Close asChild>
 												<IconButton>
 													<X weight="bold" />
@@ -286,7 +288,7 @@ export const QuickPreview = () => {
 
 										{items.length > 1 && (
 											<div className="ml-2 flex">
-												<Tooltip label="Back">
+												<Tooltip label={t('back')}>
 													<IconButton
 														disabled={!items[itemIndex - 1]}
 														onClick={() =>
@@ -298,7 +300,7 @@ export const QuickPreview = () => {
 													</IconButton>
 												</Tooltip>
 
-												<Tooltip label="Forward">
+												<Tooltip label={t('forward')}>
 													<IconButton
 														disabled={!items[itemIndex + 1]}
 														onClick={() =>
@@ -407,7 +409,7 @@ export const QuickPreview = () => {
 										<DropdownMenu.Root
 											trigger={
 												<div className="flex">
-													<Tooltip label="More">
+													<Tooltip label={t('more')}>
 														<IconButton>
 															<DotsThree size={20} weight="bold" />
 														</IconButton>
@@ -427,7 +429,7 @@ export const QuickPreview = () => {
 												/>
 
 												<DropdownMenu.Item
-													label="Rename"
+													label={t('rename')}
 													onClick={() => name && setIsRenaming(true)}
 												/>
 
@@ -446,7 +448,7 @@ export const QuickPreview = () => {
 												>
 													{(items) => (
 														<DropdownMenu.SubMenu
-															label="More actions..."
+															label={t('more_actions')}
 															icon={Plus}
 														>
 															{items}
@@ -460,7 +462,7 @@ export const QuickPreview = () => {
 											</ExplorerContextMenu>
 										</DropdownMenu.Root>
 
-										<Tooltip label="Show slider">
+										<Tooltip label={t('show_slider')}>
 											<IconButton
 												onClick={() =>
 													(getExplorerLayoutStore().showImageSlider =
@@ -479,7 +481,7 @@ export const QuickPreview = () => {
 											</IconButton>
 										</Tooltip>
 
-										<Tooltip label="Show details">
+										<Tooltip label={t('show_details')}>
 											<IconButton
 												onClick={() => setShowMetadata(!showMetadata)}
 												active={showMetadata}
@@ -501,7 +503,7 @@ export const QuickPreview = () => {
 									onError={(type, error) =>
 										type.variant === 'original' &&
 										setThumbErrorToast({
-											title: 'Error loading original file',
+											title: t('error_loading_original_file'),
 											body: error.message
 										})
 									}

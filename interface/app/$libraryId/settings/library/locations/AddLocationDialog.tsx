@@ -24,7 +24,7 @@ import {
 } from '@sd/ui';
 import { explorerStore } from '~/app/$libraryId/Explorer/store';
 import { Accordion, Icon } from '~/components';
-import { useCallbackToWatchForm } from '~/hooks';
+import { useCallbackToWatchForm, useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import IndexerRuleEditor from './IndexerRuleEditor';
@@ -211,22 +211,19 @@ export const AddLocationDialog = ({
 		await listLocations.refetch();
 	});
 
+	const { t } = useLocale();
+
 	return (
 		<Dialog
 			form={form}
-			title="New Location"
+			title={t('new_location')}
 			dialog={useDialog(dialogProps)}
 			icon={<Icon name="NewLocation" size={28} />}
 			onSubmit={onSubmit}
-			ctaLabel="Add"
+			ctaLabel={t('add')}
 			formClassName="min-w-[375px]"
-			errorMessageException="Location is already linked"
-			description={
-				platform.platform === 'web'
-					? 'As you are using the browser version of Spacedrive you will (for now) ' +
-					  'need to specify an absolute URL of a directory local to the remote node.'
-					: ''
-			}
+			errorMessageException={t('location_is_already_linked')}
+			description={platform.platform === 'web' ? t('new_location_web_description') : ''}
 		>
 			<div className="flex flex-col">
 				<ErrorMessage
@@ -251,16 +248,18 @@ export const AddLocationDialog = ({
 						)}
 						control={form.control}
 					/>
-					<Label className="text-xs font-semibold">Open new location once added</Label>
+					<Label className="text-xs font-semibold">
+						{t('open_new_location_once_added')}
+					</Label>
 				</div>
 
-				<Accordion title="Advanced settings">
+				<Accordion title={t('advanced_settings')}>
 					<Controller
 						name="indexerRulesIds"
 						render={({ field }) => (
 							<IndexerRuleEditor
 								field={field}
-								label="File indexing rules"
+								label={t('file_indexing_rules')}
 								className="relative flex flex-col"
 								rulesContainerClass="grid grid-cols-2 gap-2"
 								ruleButtonClass="w-full"
