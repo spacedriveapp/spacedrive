@@ -10,7 +10,8 @@ export const features = [
 	'p2pPairing',
 	'backups',
 	'debugRoutes',
-	'solidJsDemo'
+	'solidJsDemo',
+	'hostedLocations'
 ] as const;
 
 // This defines which backend feature flags show up in the UI.
