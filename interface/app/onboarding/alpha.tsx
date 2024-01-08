@@ -1,7 +1,7 @@
 import { AlphaBg, AlphaBg_Light, AppLogo } from '@sd/assets/images';
 import { Discord } from '@sd/assets/svgs/brands';
 import { Button, ButtonLink } from '@sd/ui';
-import { useIsDark } from '~/hooks';
+import { useIsDark, useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { OnboardingContainer } from './components';
@@ -9,6 +9,8 @@ import { OnboardingContainer } from './components';
 export default function OnboardingAlpha() {
 	const platform = usePlatform();
 	const isDark = useIsDark();
+
+	const { t } = useLocale();
 
 	return (
 		<OnboardingContainer>
@@ -23,13 +25,9 @@ export default function OnboardingAlpha() {
 						<img src={AppLogo} alt="Spacedrive" className="h-8 w-8" />
 						<h1 className="text-[25px] font-semibold">Spacedrive</h1>
 					</div>
-					<h1 className="text-[40px] font-bold">Alpha Release</h1>
+					<h1 className="text-[40px] font-bold">{t('alpha_release_title')}</h1>
 					<p className="mx-auto w-full max-w-[450px] text-sm text-ink-faint">
-						We are delighted for you to try Spacedrive, now in Alpha release, showcasing
-						exciting new features. As with any initial release, this version may contain
-						some bugs. We kindly request your assistance in reporting any issues you
-						encounter on our Discord channel. Your valuable feedback will greatly
-						contribute to enhancing the user experience.
+						{t('alpha_release_description')}
 					</p>
 					<div className="mt-0 flex w-full items-center justify-center gap-2">
 						<Button
@@ -38,10 +36,10 @@ export default function OnboardingAlpha() {
 							variant="gray"
 						>
 							<Discord className="h-4 w-4 fill-ink" />
-							Join Discord
+							{t('join_discord')}
 						</Button>
 						<ButtonLink to="../new-library" replace variant="accent">
-							Continue
+							{t('continue')}
 						</ButtonLink>
 					</div>
 				</div>

@@ -4,7 +4,7 @@ import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { Button, Card, dialogManager } from '@sd/ui';
 import { Heading } from '~/app/$libraryId/settings/Layout';
 import { TagsSettingsParamsSchema } from '~/app/route-schemas';
-import { useZodRouteParams } from '~/hooks';
+import { useLocale, useZodRouteParams } from '~/hooks';
 
 import CreateDialog from './CreateDialog';
 import EditForm from './EditForm';
@@ -31,11 +31,13 @@ export const Component = () => {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
+	const { t } = useLocale();
+
 	return (
 		<>
 			<Heading
-				title="Tags"
-				description="Manage your tags."
+				title={t('tags')}
+				description={t('tags_description')}
 				rightArea={
 					<div className="flex-row space-x-2">
 						<Button
@@ -45,7 +47,7 @@ export const Component = () => {
 								dialogManager.create((dp) => <CreateDialog {...dp} />);
 							}}
 						>
-							Create Tag
+							{t('create_tag')}
 						</Button>
 					</div>
 				}
@@ -74,7 +76,7 @@ export const Component = () => {
 					onDelete={() => setSelectedTag(null)}
 				/>
 			) : (
-				<div className="text-sm font-medium text-gray-400">No Tag Selected</div>
+				<div className="text-sm font-medium text-gray-400">{t('no_tag_selected')}</div>
 			)}
 		</>
 	);

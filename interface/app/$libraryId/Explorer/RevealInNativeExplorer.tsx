@@ -1,7 +1,7 @@
 import { useLibraryContext } from '@sd/client';
 import { ModifierKeys } from '@sd/ui';
 import { Menu } from '~/components/Menu';
-import { useOperatingSystem } from '~/hooks';
+import { useLocale, useOperatingSystem } from '~/hooks';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { NonEmptyArray } from '~/util';
 import { Platform, usePlatform } from '~/util/Platform';
@@ -18,6 +18,7 @@ export type RevealItems = NonEmptyArray<
 export const RevealInNativeExplorerBase = (props: { items: RevealItems }) => {
 	const os = useOperatingSystem();
 	const keybind = useKeybindFactory();
+	const { t } = useLocale();
 	const { library } = useLibraryContext();
 	const { revealItems } = usePlatform();
 	if (!revealItems) return null;
@@ -26,7 +27,7 @@ export const RevealInNativeExplorerBase = (props: { items: RevealItems }) => {
 
 	return (
 		<Menu.Item
-			label={`Reveal in ${osFileBrowserName}`}
+			label={t('revel_in_browser', { browser: osFileBrowserName })}
 			keybind={keybind([ModifierKeys.Control], ['Y'])}
 			onClick={() => revealItems(library.uuid, props.items)}
 		/>

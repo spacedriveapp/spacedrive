@@ -1,9 +1,11 @@
 import { Input, Switch } from '@sd/ui';
+import { useLocale } from '~/hooks';
 
 import { Heading } from '../Layout';
 import Setting from '../Setting';
 
 export const Component = () => {
+	const { t } = useLocale();
 	return (
 		<>
 			<Heading
@@ -27,7 +29,7 @@ export const Component = () => {
 					<Input className="grow" disabled defaultValue="https://p2p.spacedrive.com" />
 					<div className="mt-1 flex justify-end">
 						<a className="p-1 text-sm font-bold text-accent hover:text-accent">
-							Change
+							{t('change')}
 						</a>
 					</div>
 				</div>

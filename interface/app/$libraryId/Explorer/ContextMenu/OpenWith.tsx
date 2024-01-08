@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { useLibraryContext } from '@sd/client';
 import { toast } from '@sd/ui';
 import { Menu } from '~/components/Menu';
+import { useLocale } from '~/hooks';
 import { Platform, usePlatform } from '~/util/Platform';
 
 import { ConditionalItem } from './ConditionalItem';
@@ -40,20 +41,23 @@ export default new ConditionalItem({
 		openFilePathWith,
 		getEphemeralFilesOpenWithApps,
 		openEphemeralFileWith
-	}) => (
-		<Menu.SubMenu label="Open with">
-			<Suspense>
-				<Items
-					actions={{
-						getFilePathOpenWithApps,
-						openFilePathWith,
-						getEphemeralFilesOpenWithApps,
-						openEphemeralFileWith
-					}}
-				/>
-			</Suspense>
-		</Menu.SubMenu>
-	)
+	}) => {
+		const { t } = useLocale();
+		return (
+			<Menu.SubMenu label={t('open_with')}>
+				<Suspense>
+					<Items
+						actions={{
+							getFilePathOpenWithApps,
+							openFilePathWith,
+							getEphemeralFilesOpenWithApps,
+							openEphemeralFileWith
+						}}
+					/>
+				</Suspense>
+			</Menu.SubMenu>
+		);
+	}
 });
 
 const Items = ({
