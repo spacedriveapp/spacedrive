@@ -35,8 +35,13 @@ export function SpacedropButton({ triggerOpen }: { triggerOpen: () => void }) {
 	);
 }
 
-// This parent component takes care of the hacky stuff. All the proper logic in within `SpacedropChild`
-export function Spacedrop() {
+export function Spacedrop({ triggerClose }: { triggerClose: () => void }) {
+	const ref = useRef<HTMLDivElement>(null);
+	const incomingRequestToast = useIncomingSpacedropToast();
+	const progressToast = useSpacedropProgressToast();
+	const discoveredPeers = useDiscoveredPeers();
+	const doSpacedrop = useBridgeMutation('p2p.spacedrop');
+
 	// We keep track of how many instances of this component is rendering.
 	// This is used by `SpacedropButton` to determine if the animation should stop.
 	useEffect(() => {
@@ -54,21 +59,12 @@ export function Spacedrop() {
 		hackyState.triggeredByDnd = false;
 	}, []);
 
-	return <SpacedropChild wasTriggeredByDnd={wasTriggeredByDnd} />;
-}
-
-function SpacedropChild({ wasTriggeredByDnd }: { wasTriggeredByDnd: boolean }) {
-	const ref = useRef<HTMLDivElement>(null);
-	const incomingRequestToast = useIncomingSpacedropToast();
-	const progressToast = useSpacedropProgressToast();
-	const discoveredPeers = useDiscoveredPeers();
-	const doSpacedrop = useBridgeMutation('p2p.spacedrop');
-
 	useOnDndLeave({
 		ref,
 		onLeave: () => {
-			console.log('TODO: Close');
-		}
+			if (wasTriggeredByDnd) triggerClose();
+		},
+		extendBoundsBy: 30
 	});
 
 	// TODO: Should these be here???
@@ -94,14 +90,11 @@ function SpacedropChild({ wasTriggeredByDnd }: { wasTriggeredByDnd: boolean }) {
 				identity: id,
 				file_path: files
 			})
-			.then(() => {
-				// TODO: Close the window
-				// setIsOpen(false);
-			});
+			.then(() => triggerClose());
 	};
 
 	return (
-		<div ref={ref} className="flex h-full max-w-[300px] flex-col bg-red-500">
+		<div ref={ref} className="flex h-full max-w-[300px] flex-col">
 			<div className="flex w-full flex-col items-center p-4">
 				<Icon name="Spacedrop" size={56} />
 				<span className="text-lg font-bold">Spacedrop</span>

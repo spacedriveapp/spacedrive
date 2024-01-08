@@ -105,15 +105,21 @@ export function useDropzone(opts?: UseDropzoneProps) {
 	return state;
 }
 
-/// is responsible for running an action when the file being actively drag and dropped leaves the bounds of the ref.
-export function useOnDndLeave({
-	ref,
-	onLeave
-}: {
+type UseOnDndEnterProps = {
+	// Ref to the element that is being dragged over.
 	ref: React.RefObject<HTMLDivElement>;
+	// Called when the file being actively drag and dropped leaves the bounds of the ref (+ `extendBoundsBy`).
 	onLeave: () => void;
-}) {
+	// Added to the bounds of the shape and if the mouse is within it's counted as hovered.
+	// This allows for the dropzone to be bigger than the actual element to make it easier to drop on.
+	extendBoundsBy?: number;
+};
+
+/// is responsible for running an action when the file being actively drag and dropped leaves the bounds of the ref.
+export function useOnDndLeave({ ref, onLeave, extendBoundsBy }: UseOnDndEnterProps) {
+	const id = useId();
 	const platform = usePlatform();
+	const debugRect = useSnapshot(dndState).renderRects;
 
 	useLayoutEffect(() => {
 		if (!platform.subscribeToDragAndDropEvents) return;
@@ -125,8 +131,27 @@ export function useOnDndLeave({
 		// This timeout is super important. It ensures we get the ref after it's properly rendered.
 		// This is important if we render this component within a portal.
 		setTimeout(() => {
+			// We do this before the early return so when the element is removed the debug rect is removed.
+			const existingDebugRectElem = document.getElementById(id);
+			if (existingDebugRectElem) existingDebugRectElem.remove();
+
 			if (!ref.current) return;
-			rect = expandRect(ref.current.getBoundingClientRect(), 10);
+			rect = ref.current.getBoundingClientRect();
+			if (extendBoundsBy) rect = expandRect(rect, extendBoundsBy);
+
+			if (debugRect) {
+				const div = document.createElement('div');
+				div.id = id;
+				div.style.position = 'absolute';
+				div.style.left = `${rect.left}px`;
+				div.style.top = `${rect.top}px`;
+				div.style.width = `${rect.width}px`;
+				div.style.height = `${rect.height}px`;
+				div.style.backgroundColor = 'rgba(0, 255, 0, 0.5)';
+				div.style.pointerEvents = 'none';
+				div.style.zIndex = '999';
+				document.body.appendChild(div);
+			}
 		});
 
 		const unsub = platform.subscribeToDragAndDropEvents((event) => {
@@ -151,5 +176,5 @@ export function useOnDndLeave({
 			finished = true;
 			void unsub.then((unsub) => unsub());
 		};
-	}, [platform, ref, onLeave]);
+	}, [platform, ref, onLeave, extendBoundsBy, debugRect, id]);
 }

@@ -29,6 +29,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 }
 
 export default ({ toolOptions, className }: Props) => {
+	const popover = usePopover();
 	const toolsNotSmFlex = toolOptions?.map((group) =>
 		group.filter((tool) => tool.showAtResolution !== 'sm:flex')
 	);
@@ -36,7 +37,7 @@ export default ({ toolOptions, className }: Props) => {
 	return (
 		<div className={className}>
 			<Popover
-				popover={usePopover()}
+				popover={popover}
 				trigger={
 					<TopBarButton>
 						<DotsThreeCircle className={TOP_BAR_ICON_STYLE} />
@@ -50,7 +51,10 @@ export default ({ toolOptions, className }: Props) => {
 								{group.map((tool) => (
 									<React.Fragment key={tool.toolTipLabel}>
 										{tool.popOverComponent ? (
-											<ToolPopover tool={tool} />
+											<ToolPopover
+												tool={tool}
+												triggerClose={() => popover.setOpen(false)}
+											/>
 										) : (
 											<GroupTool tool={tool} />
 										)}
@@ -69,10 +73,14 @@ export default ({ toolOptions, className }: Props) => {
 	);
 };
 
-function ToolPopover({ tool }: { tool: ToolOption }) {
+function ToolPopover({ tool, triggerClose }: { tool: ToolOption; triggerClose: () => void }) {
 	return (
 		<Popover popover={usePopover()} trigger={<GroupTool tool={tool} />}>
-			<div className="min-w-[250px]">{tool.popOverComponent}</div>
+			<div className="min-w-[250px]">
+				{typeof tool.popOverComponent === 'function'
+					? tool.popOverComponent({ triggerClose })
+					: tool.popOverComponent}
+			</div>
 		</Popover>
 	);
 }

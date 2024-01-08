@@ -13,7 +13,7 @@ export interface ToolOption {
 	toolTipLabel: string;
 	toolTipClassName?: string;
 	topBarActive?: boolean;
-	popOverComponent?: JSX.Element;
+	popOverComponent?: JSX.Element | ((props: { triggerClose: () => void }) => JSX.Element);
 	showAtResolution: ShowAtResolution;
 	keybinds?: Array<String | ModifierKeys>;
 }
@@ -136,7 +136,11 @@ function ToolGroup({
 							</TopBarButton>
 						}
 					>
-						<div className="block min-w-[250px] max-w-[500px]">{popOverComponent}</div>
+						<div className="block min-w-[250px] max-w-[500px]">
+							{typeof popOverComponent === 'function'
+								? popOverComponent({ triggerClose: () => popover.setOpen(false) })
+								: popOverComponent}
+						</div>
 					</Popover>
 				) : (
 					<TopBarButton
