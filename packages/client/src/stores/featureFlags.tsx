@@ -57,7 +57,7 @@ export function useFeatureFlags() {
 }
 
 export function useFeatureFlag(flag: FeatureFlag | FeatureFlag[]) {
-	useSolidStore(featureFlagsStore); // Rerender on change
+	useFeatureFlags(); // Rerender on change
 	return Array.isArray(flag) ? flag.every((f) => isEnabled(f)) : isEnabled(flag);
 }
 

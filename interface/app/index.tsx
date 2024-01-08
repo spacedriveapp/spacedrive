@@ -15,7 +15,7 @@ import { useRoutingContext } from '~/RoutingContext';
 import { Platform } from '..';
 import libraryRoutes from './$libraryId';
 import { DragAndDropDebug } from './$libraryId/debug/dnd';
-import { Demo } from './demo.solid';
+import { Demo, Demo2 } from './demo.solid';
 import onboardingRoutes from './onboarding';
 import { RootContext } from './RootContext';
 
@@ -34,7 +34,10 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 				return (
 					<RootContext.Provider value={{ rawPath }}>
 						{useFeatureFlag('debugDragAndDrop') ? <DragAndDropDebug /> : null}
-						{useFeatureFlag('solidJsDemo') ? <WithSolid root={Demo} /> : null}
+						{useFeatureFlag('solidJsDemo') ? (
+							<WithSolid root={Demo} demo="123" />
+						) : null}
+						{useFeatureFlag('solidJsDemo') ? <WithSolid root={Demo2} /> : null}
 						<Outlet />
 						<Dialogs />
 						<Toaster position="bottom-right" expand={true} />

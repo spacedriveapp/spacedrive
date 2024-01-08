@@ -1,3 +1,5 @@
+import { trackDeep } from '@solid-primitives/deep';
+import { createEffect, createRoot } from 'solid-js';
 import { type Store, type StoreNode } from 'solid-js/store';
 
 import { useObserver } from './useObserver';
@@ -11,7 +13,7 @@ export function useSolidStore<T extends object = {}>(store: Store<T>) {
 }
 
 type CreatePersistedMutableOpts<T> = {
-	onSave?: (value: T) => void;
+	onSave?: (value: T) => T;
 };
 
 // `@solid-primitives/storage`'s `makePersisted` doesn't support `solid-js/store`'s `createMutable` so we roll our own.
@@ -30,12 +32,24 @@ export function createPersistedMutable<T extends StoreNode>(
 		console.error(`Error loading persisted state from localStorage key '${key}': ${err}`);
 	}
 
-	return new Proxy(mutable, {
-		get: (target, prop) => Reflect.get(target, prop),
-		set: (target, prop, value) => {
-			const result = Reflect.set(target, prop, value);
-			localStorage.setItem(key, JSON.stringify(target));
-			return result;
-		}
+	// I tried using a `Proxy` here but I couldn't get it working with arrays.
+	// https://codepen.io/oscartbeaumont/pen/BabzazE
+	const dispose = createRoot((dispose) => {
+		createEffect(() => {
+			// Subscribe to store
+			trackDeep(mutable);
+
+			let item: string;
+			if (opts?.onSave) {
+				item = JSON.stringify(opts.onSave(mutable));
+			} else {
+				item = JSON.stringify(mutable);
+			}
+			localStorage.setItem(key, item);
+		});
+		return dispose;
 	});
+	if ('onHotReload' in globalThis) globalThis?.onHotReload(dispose);
+
+	return mutable;
 }
