@@ -19,7 +19,21 @@ async fn parse_json_body<T: DeserializeOwned>(response: Response) -> Result<T, r
 }
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
-	R.router().merge("library.", library::mount())
+	R.router()
+		.merge("library.", library::mount())
+		.procedure("getApiOrigin", {
+			R.query(|node, _: ()| async move { Ok(node.env.api_url.lock().await.to_string()) })
+		})
+		.procedure("setApiOrigin", {
+			R.mutation(|node, origin: String| async move {
+				let mut origin_env = node.env.api_url.lock().await;
+				*origin_env = origin;
+
+				node.config.write(|c| c.auth_token = None).await.ok();
+
+				Ok(())
+			})
+		})
 }
 
 mod library {

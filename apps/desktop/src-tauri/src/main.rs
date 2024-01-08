@@ -162,14 +162,7 @@ async fn main() -> tauri::Result<()> {
 	let (_guard, result) = match Node::init_logger(&data_dir) {
 		Ok(guard) => (
 			Some(guard),
-			Node::new(
-				data_dir,
-				sd_core::Env {
-					api_url: "https://app.spacedrive.com".to_string(),
-					client_id: CLIENT_ID.to_string(),
-				},
-			)
-			.await,
+			Node::new(data_dir, sd_core::Env::new(CLIENT_ID)).await,
 		),
 		Err(err) => (None, Err(NodeError::Logger(err))),
 	};

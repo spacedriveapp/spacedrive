@@ -187,7 +187,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				 }| async move {
 					let Library { db, .. } = library.as_ref();
 
-					let mut query = db.file_path().find_many({
+					let params = {
 						let mut params = Vec::new();
 
 						for filter in filters {
@@ -195,7 +195,9 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						}
 
 						params
-					});
+					};
+
+					let mut query = db.file_path().find_many(params);
 
 					if let Some(take) = take {
 						query = query.take(take as i64);

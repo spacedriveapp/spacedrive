@@ -7,6 +7,7 @@ use crate::{
 use sd_core_sync::NTP64;
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
 use sd_utils::{from_bytes_to_uuid, uuid_to_bytes};
+use tracing::info;
 
 use std::{
 	collections::{hash_map::Entry, HashMap},
@@ -16,8 +17,7 @@ use std::{
 
 use base64::prelude::*;
 use chrono::Utc;
-use serde::Deserialize;
-use serde_json::{json, to_vec};
+use serde_json::to_vec;
 use tokio::{sync::Notify, time::sleep};
 use uuid::Uuid;
 
@@ -25,7 +25,6 @@ use super::CRDTOperationWithoutInstance;
 
 pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>, Arc<Notify>)) {
 	let db = &library.db;
-	let api_url = &library.env.api_url;
 	let library_id = library.id;
 
 	let mut cloud_timestamps = {
@@ -58,70 +57,49 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 			.collect::<HashMap<_, _>>()
 	};
 
+	info!(
+		"Fetched timestamps for {} local instances",
+		cloud_timestamps.len()
+	);
+
 	loop {
-		let instances = {
-			err_break!(
-				db.instance()
-					.find_many(vec![])
-					.select(instance::select!({ pub_id }))
-					.exec()
-					.await
-			)
-			.into_iter()
-			.map(|i| {
-				let uuid = from_bytes_to_uuid(&i.pub_id);
-
-				json!({
-					"instanceUuid": uuid,
-					"fromTime": cloud_timestamps.get(&uuid).cloned().unwrap_or_default().as_u64().to_string()
-				})
-			})
-			.collect::<Vec<_>>()
-		};
-
-		#[derive(Deserialize, Debug)]
-		#[serde(rename_all = "camelCase")]
-		struct MessageCollection {
-			instance_uuid: Uuid,
-			// start_time: String,
-			end_time: String,
-			contents: String,
-		}
+		let instances = err_break!(
+			db.instance()
+				.find_many(vec![])
+				.select(instance::select!({ pub_id }))
+				.exec()
+				.await
+		);
 
 		{
-			dbg!(node
-				.authed_api_request(
-					node.http
-						.post(&format!(
-							"{api_url}/api/v1/libraries/{library_id}/messageCollections/get"
-						))
-						.json(&json!({
-							"instanceUuid": library.instance_uuid,
-							"timestamps": instances
-						})),
-				)
-				.await
-				.expect("couldn't get response")
-				.text()
-				.await
-				.expect("couldn't deserialize response"));
+			let collections = {
+				use sd_cloud_api::library::message_collections;
+				message_collections::get(
+					node.cloud_api_config().await,
+					library_id,
+					library.instance_uuid,
+					instances
+						.into_iter()
+						.map(|i| {
+							let uuid = from_bytes_to_uuid(&i.pub_id);
 
-			let collections = node
-				.authed_api_request(
-					node.http
-						.post(&format!(
-							"{api_url}/api/v1/libraries/{library_id}/messageCollections/get"
-						))
-						.json(&json!({
-							"instanceUuid": library.instance_uuid,
-							"timestamps": instances
-						})),
+							message_collections::get::InstanceTimestamp {
+								instance_uuid: uuid,
+								from_time: cloud_timestamps
+									.get(&uuid)
+									.cloned()
+									.unwrap_or_default()
+									.as_u64()
+									.to_string(),
+							}
+						})
+						.collect::<Vec<_>>(),
 				)
 				.await
-				.expect("couldn't get response")
-				.json::<Vec<MessageCollection>>()
-				.await
-				.expect("couldn't deserialize response");
+			};
+			let collections = err_break!(collections);
+
+			info!("Received {} collections", collections.len());
 
 			let mut cloud_library_data: Option<Option<sd_cloud_api::Library>> = None;
 

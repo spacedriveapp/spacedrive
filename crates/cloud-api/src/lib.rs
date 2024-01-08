@@ -41,6 +41,16 @@ pub struct Instance {
 	pub identity: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Type)]
+#[serde(rename_all = "camelCase")]
+#[specta(rename = "CloudMessageCollection")]
+pub struct MessageCollection {
+	pub instance_uuid: Uuid,
+	pub start_time: String,
+	pub end_time: String,
+	pub contents: String,
+}
+
 trait WithAuth {
 	fn with_auth(self, token: OAuthToken) -> Self;
 }
@@ -180,6 +190,53 @@ pub mod library {
 			println!("{resp}");
 
 			Ok(())
+		}
+	}
+
+	pub mod message_collections {
+		use super::*;
+
+		pub use get::exec as get;
+		pub mod get {
+			use super::*;
+
+			#[derive(Serialize)]
+			#[serde(rename_all = "camelCase")]
+			pub struct InstanceTimestamp {
+				pub instance_uuid: Uuid,
+				pub from_time: String,
+			}
+
+			pub async fn exec(
+				config: RequestConfig,
+				library_id: Uuid,
+				this_instance_uuid: Uuid,
+				timestamps: Vec<InstanceTimestamp>,
+			) -> Result<Response, Error> {
+				let Some(auth_token) = config.auth_token else {
+					return Err(Error("Authentication required".to_string()));
+				};
+
+				config
+					.client
+					.post(&format!(
+						"{}/api/v1/libraries/{}/messageCollections/get",
+						config.api_url, library_id
+					))
+					.json(&json!({
+						"instanceUuid": this_instance_uuid,
+						"timestamps": timestamps
+					}))
+					.with_auth(auth_token)
+					.send()
+					.await
+					.map_err(|e| Error(e.to_string()))?
+					.json()
+					.await
+					.map_err(|e| Error(e.to_string()))
+			}
+
+			pub type Response = Vec<MessageCollection>;
 		}
 	}
 }

@@ -15,7 +15,7 @@ use super::{err_break, CRDTOperationWithoutInstance, Library};
 
 pub async fn run_actor((library, node): (Arc<Library>, Arc<Node>)) {
 	let db = &library.db;
-	let api_url = &library.env.api_url;
+	let api_url = &library.env.api_url.lock().await;
 	let library_id = library.id;
 
 	loop {

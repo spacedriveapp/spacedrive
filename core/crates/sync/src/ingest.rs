@@ -136,35 +136,13 @@ impl Actor {
 
 		if !is_old {
 			self.apply_op(op).await.ok();
-		}
 
-		// self.db
-		// 	._transaction()
-		// 	.run({
-		// 		let timestamps = self.timestamps.clone();
-		// 		|db| async move {
-		// 			match db
-		// 				.instance()
-		// 				.update(
-		// 					instance::pub_id::equals(uuid_to_bytes(op_instance)),
-		// 					vec![instance::timestamp::set(Some(timestamp.as_u64() as i64))],
-		// 				)
-		// 				.exec()
-		// 				.await
-		// 			{
-		// 				Ok(_) => {
-		self.timestamps.write().await.insert(op_instance, timestamp);
-		// 				Ok(())
-		// 			}
-		// 			Err(e) => Err(e),
-		// 		}
-		// 	}
-		// })
-		// .await
-		// .unwrap();
+			self.timestamps.write().await.insert(op_instance, timestamp);
+		}
 	}
 
 	async fn apply_op(&mut self, op: CRDTOperation) -> prisma_client_rust::Result<()> {
+		// TODO: Needs to be transaction-ified
 		ModelSyncData::from_op(op.clone())
 			.unwrap()
 			.exec(&self.db)

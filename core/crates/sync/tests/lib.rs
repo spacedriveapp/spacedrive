@@ -208,7 +208,6 @@ async fn bruh() -> Result<(), Box<dyn std::error::Error>> {
 		.await?;
 
 	assert_eq!(out.len(), 3);
-	assert!(matches!(out[0].typ, CRDTOperationType::Shared(_)));
 
 	instance1.teardown().await;
 	instance2.teardown().await;

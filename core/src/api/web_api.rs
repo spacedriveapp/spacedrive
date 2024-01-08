@@ -17,10 +17,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			|node, args: Feedback| async move {
-				node.add_auth_header(
-					node.http
-						.post(&format!("{}/api/v1/feedback", &node.env.api_url)),
-				)
+				node.add_auth_header(node.http.post(&format!(
+					"{}/api/v1/feedback",
+					&node.env.api_url.lock().await
+				)))
 				.await
 				.json(&args)
 				.send()

@@ -3,6 +3,7 @@ use crate::cloud::sync::err_return;
 use std::sync::Arc;
 
 use tokio::sync::Notify;
+use tracing::info;
 
 use super::Library;
 
@@ -38,6 +39,8 @@ pub async fn run_actor((library, notify): (Arc<Library>, Arc<Notify>)) {
 						})
 						.await
 					);
+
+					info!("Got {} cloud ops to ingest", ops.len());
 
 					err_return!(
 						sync.ingest
