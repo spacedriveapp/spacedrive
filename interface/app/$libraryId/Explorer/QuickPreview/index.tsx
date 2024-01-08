@@ -20,7 +20,6 @@ import {
 	useRef,
 	useState
 } from 'react';
-import { ErrorBoundary } from 'react-error-boundary';
 import { useKey } from 'rooks';
 import {
 	ExplorerItem,
@@ -47,7 +46,6 @@ import ExplorerContextMenu, {
 	SharedItems
 } from '../ContextMenu';
 import { Conditional } from '../ContextMenu/ConditionalItem';
-import { Original } from '../FilePath/Original';
 import { FileThumb } from '../FilePath/Thumb';
 import { SingleItemMetadata } from '../Inspector';
 import { ImageSlider } from './ImageSlider';
@@ -508,6 +506,7 @@ export const QuickPreview = () => {
 										})
 									}
 									loadOriginal
+									frameClassName="!border-0"
 									mediaControls
 									className={clsx(
 										'm-3 !w-auto flex-1 !overflow-hidden rounded',
