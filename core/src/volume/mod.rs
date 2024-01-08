@@ -1,5 +1,7 @@
 // Adapted from: https://github.com/kimlimjustin/xplorer/blob/f4f3590d06783d64949766cc2975205a3b689a56/src-tauri/src/drives.rs
 
+use sd_cache::Model;
+
 use std::{
 	fmt::Display,
 	hash::{Hash, Hasher},
@@ -7,7 +9,6 @@ use std::{
 	sync::OnceLock,
 };
 
-use sd_cache::Model;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
@@ -317,8 +318,14 @@ pub async fn get_volumes() -> Vec<Volume> {
 			}
 		}
 
-		#[allow(unused_mut)] // mut is used in windows
-		let mut total_capacity = disk.total_space();
+		#[cfg(windows)]
+		#[allow(clippy::needless_late_init)]
+		let mut total_capacity;
+		#[cfg(not(windows))]
+		#[allow(clippy::needless_late_init)]
+		let total_capacity;
+		total_capacity = disk.total_space();
+
 		let available_capacity = disk.available_space();
 		let is_root_filesystem = mount_point.is_absolute() && mount_point.parent().is_none();
 

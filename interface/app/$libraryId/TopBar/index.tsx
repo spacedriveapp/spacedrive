@@ -3,18 +3,20 @@ import clsx from 'clsx';
 import { useLayoutEffect, useRef } from 'react';
 import { useKey } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
+import { useSelector } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { useKeyMatcher, useOperatingSystem, useShowControls } from '~/hooks';
 import { useRoutingContext } from '~/RoutingContext';
 import { useTabsContext } from '~/TabsContext';
+import { usePlatform } from '~/util/Platform';
 
-import { useExplorerStore } from '../Explorer/store';
+import { explorerStore } from '../Explorer/store';
 import { useTopBarContext } from './Layout';
 import { NavigationButtons } from './NavigationButtons';
 
 const TopBar = () => {
 	const transparentBg = useShowControls().transparentBg;
-	const { isDragging } = useExplorerStore();
+	const isDragSelecting = useSelector(explorerStore, (s) => s.isDragSelecting);
 	const ref = useRef<HTMLDivElement>(null);
 
 	const tabs = useTabsContext();
@@ -36,6 +38,8 @@ const TopBar = () => {
 		ctx.setTopBarHeight.call(undefined, height);
 	}, [ctx.setTopBarHeight]);
 
+	const platform = usePlatform();
+
 	return (
 		<div
 			ref={ref}
@@ -50,14 +54,14 @@ const TopBar = () => {
 				className={clsx(
 					'flex h-12 items-center gap-3.5 overflow-hidden px-3.5',
 					'duration-250 transition-[background-color,border-color] ease-out',
-					isDragging && 'pointer-events-none'
+					isDragSelecting && 'pointer-events-none'
 				)}
 			>
 				<div
 					data-tauri-drag-region
 					className="flex flex-1 items-center gap-3.5 overflow-hidden"
 				>
-					<NavigationButtons />
+					{platform.platform === 'tauri' && <NavigationButtons />}
 					<div ref={ctx.setLeft} className="overflow-hidden" />
 				</div>
 

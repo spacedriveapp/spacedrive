@@ -1,3 +1,6 @@
+use sd_core::Node;
+use sd_prisma::prisma::{file_path, location};
+
 use std::{
 	collections::{BTreeSet, HashMap, HashSet},
 	hash::{Hash, Hasher},
@@ -6,10 +9,6 @@ use std::{
 };
 
 use futures::future::join_all;
-use sd_core::{
-	prisma::{file_path, location},
-	Node,
-};
 use serde::Serialize;
 use specta::Type;
 use tauri::async_runtime::spawn_blocking;
@@ -309,7 +308,11 @@ pub async fn open_file_path_with(
 						error!("{e:#?}");
 					});
 
-					#[allow(unreachable_code)]
+					#[cfg(not(any(
+						target_os = "windows",
+						target_os = "linux",
+						target_os = "macos"
+					)))]
 					Err(())
 				})
 				.collect::<Result<Vec<_>, _>>()

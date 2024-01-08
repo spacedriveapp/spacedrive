@@ -323,4 +323,38 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				node.libraries.delete(&id).await.map_err(Into::into)
 			}),
 		)
+		.procedure(
+			"actors",
+			R.with2(library()).subscription(|(_, library), _: ()| {
+				let mut rx = library.actors.invalidate_rx.resubscribe();
+
+				async_stream::stream! {
+					let actors = library.actors.get_state().await;
+					yield actors;
+
+					while let Ok(()) = rx.recv().await {
+						let actors = library.actors.get_state().await;
+						yield actors;
+					}
+				}
+			}),
+		)
+		.procedure(
+			"startActor",
+			R.with2(library())
+				.mutation(|(_, library), name: String| async move {
+					library.actors.start(&name).await;
+
+					Ok(())
+				}),
+		)
+		.procedure(
+			"stopActor",
+			R.with2(library())
+				.mutation(|(_, library), name: String| async move {
+					library.actors.stop(&name).await;
+
+					Ok(())
+				}),
+		)
 }

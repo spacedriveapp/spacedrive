@@ -1,15 +1,13 @@
+use sd_prisma::prisma::notification;
+
+use crate::api::{Ctx, R};
 use async_stream::stream;
 use chrono::{DateTime, Utc};
 use futures::future::join_all;
 use rspc::{alpha::AlphaRouter, ErrorCode};
-use sd_prisma::prisma::notification;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
-
-use crate::api::{Ctx, R};
-
-use super::utils::library;
 
 /// Represents a single notification.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -27,13 +25,22 @@ pub enum NotificationId {
 	Library(Uuid, u32),
 	Node(u32),
 }
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum NotificationKind {
+	Info,
+	Success,
+	Error,
+	Warning,
+}
 
 /// Represents the data of a single notification.
 /// This data is used by the frontend to properly display the notification.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub enum NotificationData {
-	PairingRequest { id: Uuid, pairing_id: u16 },
-	Test,
+pub struct NotificationData {
+	pub title: String,
+	pub content: String,
+	pub kind: NotificationKind,
 }
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
@@ -158,22 +165,5 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					}
 				}
 			})
-		})
-		.procedure("test", {
-			R.mutation(|node, _: ()| async move {
-				node.emit_notification(NotificationData::Test, None).await;
-
-				Ok(())
-			})
-		})
-		.procedure("testLibrary", {
-			R.with2(library())
-				.mutation(|(_, library), _: ()| async move {
-					library
-						.emit_notification(NotificationData::Test, None)
-						.await;
-
-					Ok(())
-				})
 		})
 }

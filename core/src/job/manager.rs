@@ -11,9 +11,10 @@ use crate::{
 		media::media_processor::MediaProcessorJobInit,
 		validation::validator_job::ObjectValidatorJobInit,
 	},
-	prisma::job,
 	Node,
 };
+
+use sd_prisma::prisma::job;
 
 use std::{
 	collections::{HashMap, HashSet, VecDeque},

@@ -12,6 +12,7 @@ import {
 import { proxy, snapshot, subscribe } from 'valtio';
 
 import { type CacheNode } from './core';
+import { getPermits } from './rspc-cursed';
 
 declare global {
 	interface Window {
@@ -65,6 +66,12 @@ export function CacheProvider({ cache, children }: PropsWithChildren<{ cache: No
 	const queryClient = useQueryClient();
 	useEffect(() => {
 		const interval = setInterval(() => {
+			const permits = getPermits();
+			if (permits !== 0) {
+				console.warn('Not safe to cleanup cache. ${permits} permits currently held.');
+				return;
+			}
+
 			const requiredKeys = new StableSet<[string, string]>();
 			for (const query of queryClient.getQueryCache().getAll()) {
 				if (query.state.data) scanDataForKeys(cache.cache, requiredKeys, query.state.data);
@@ -79,12 +86,9 @@ export function CacheProvider({ cache, children }: PropsWithChildren<{ cache: No
 				// If key is not required. Eg. not in any query within the React Query cache.
 				if (!requiredKeys.has([type, id])) {
 					// Yeet the imposter
-					console.debug('Removing Cache Key: ', type, id);
 					delete cache.cache.nodes?.[type]?.[id];
 				}
 			}
-
-			console.debug('Normalised Cache Cleanup', requiredKeys.size, existingKeys.size);
 		}, 60 * 1000);
 		return () => clearInterval(interval);
 	}, [cache.cache, queryClient]);

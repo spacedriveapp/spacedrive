@@ -1,5 +1,8 @@
 use uuid::Uuid;
 
+pub mod db;
+pub mod error;
+
 /// Combines an iterator of `T` and an iterator of `Option<T>`,
 /// removing any `None` values in the process
 pub fn chain_optional_iter<T>(

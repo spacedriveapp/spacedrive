@@ -41,6 +41,7 @@ import {
 	useItemsAsObjects,
 	useLibraryQuery,
 	useNodes,
+	useSelector,
 	type ExplorerItem
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, toast, Tooltip, tw } from '@sd/ui';
@@ -53,7 +54,7 @@ import { useExplorerContext } from '../Context';
 import AssignTagMenuItems from '../ContextMenu/AssignTagMenuItems';
 import { FileThumb } from '../FilePath/Thumb';
 import { useQuickPreviewStore } from '../QuickPreview/store';
-import { getExplorerStore, useExplorerStore } from '../store';
+import { explorerStore } from '../store';
 import { uniqueId, useExplorerItemData } from '../util';
 import FavoriteButton from './FavoriteButton';
 import MediaData from './MediaData';
@@ -97,7 +98,7 @@ export const Inspector = forwardRef<HTMLDivElement, Props>(
 		const selectedItems = useMemo(() => [...explorer.selectedItems], [explorer.selectedItems]);
 
 		useEffect(() => {
-			getExplorerStore().showMoreInfo = false;
+			explorerStore.showMoreInfo = false;
 		}, [pathname]);
 
 		return (
@@ -158,7 +159,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 						i === 2 && 'z-10 !h-[84%] !w-[84%] rotate-[7deg]'
 					)}
 					childClassName={(type) =>
-						type !== 'ICON' && thumbs.length > 1
+						type.variant !== 'icon' && thumbs.length > 1
 							? 'shadow-md shadow-app-shade'
 							: undefined
 					}
@@ -216,11 +217,16 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 		locations?.filter((location) => uniqueLocationIds.includes(location.id)) || [];
 
 	const readyToFetch = useIsFetchReady(item);
+
 	const tagsQuery = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
 		enabled: objectData != null && readyToFetch
 	});
 	useNodes(tagsQuery.data?.nodes);
 	const tags = useCache(tagsQuery.data?.items);
+
+	const labels = useLibraryQuery(['labels.getForObject', objectData?.id ?? -1], {
+		enabled: objectData != null && readyToFetch
+	});
 
 	const { libraryId } = useZodRouteParams(LibraryIdParamsSchema);
 
@@ -339,6 +345,12 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 				{extension && <InfoPill>{extension}</InfoPill>}
 
+				{labels.data?.map((label) => (
+					<InfoPill key={label.id} className="truncate !text-white">
+						{label.name}
+					</InfoPill>
+				))}
+
 				{tags?.map((tag) => (
 					<NavLink key={tag.id} to={`/${libraryId}/tag/${tag.id}`}>
 						<Tooltip label={tag.name || ''} className="flex overflow-hidden">
@@ -391,7 +403,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 };
 
 const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
-	const explorerStore = useExplorerStore();
+	const isDragSelecting = useSelector(explorerStore, (s) => s.isDragSelecting);
 
 	const selectedObjects = useItemsAsObjects(items);
 
@@ -400,15 +412,25 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 	const { libraryId } = useZodRouteParams(LibraryIdParamsSchema);
 
 	const tagsQuery = useLibraryQuery(['tags.list'], {
-		enabled: readyToFetch && !explorerStore.isDragging,
+		enabled: readyToFetch && !isDragSelecting,
 		suspense: true
 	});
 	useNodes(tagsQuery.data?.nodes);
 	const tags = useCache(tagsQuery.data?.items);
 
+	const labels = useLibraryQuery(['labels.list'], {
+		enabled: readyToFetch && !isDragSelecting,
+		suspense: true
+	});
+
 	const tagsWithObjects = useLibraryQuery(
 		['tags.getWithObjects', selectedObjects.map(({ id }) => id)],
-		{ enabled: readyToFetch && !explorerStore.isDragging }
+		{ enabled: readyToFetch && !isDragSelecting }
+	);
+
+	const labelsWithObjects = useLibraryQuery(
+		['labels.getWithObjects', selectedObjects.map(({ id }) => id)],
+		{ enabled: readyToFetch && !isDragSelecting }
 	);
 
 	const getDate = useCallback((metadataDate: MetadataDate, date: Date) => {
@@ -496,14 +518,33 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 					<InfoPill key={kind}>{`${kind} (${items.length})`}</InfoPill>
 				))}
 
+				{labels.data?.map((label) => {
+					const objectsWithLabel = labelsWithObjects.data?.[label.id] ?? [];
+
+					if (objectsWithLabel.length === 0) return null;
+
+					return (
+						<InfoPill
+							key={label.id}
+							className="!text-white"
+							style={{
+								opacity:
+									objectsWithLabel.length === selectedObjects.length ? 1 : 0.5
+							}}
+						>
+							{label.name} ({objectsWithLabel.length})
+						</InfoPill>
+					);
+				})}
+
 				{tags?.map((tag) => {
-					const objectsWithTag = tagsWithObjects.data?.[tag.id] || [];
+					const objectsWithTag = tagsWithObjects.data?.[tag.id] ?? [];
 
 					if (objectsWithTag.length === 0) return null;
 
 					return (
 						<NavLink key={tag.id} to={`/${libraryId}/tag/${tag.id}`}>
-							<Tooltip key={tag.id} label={tag.name} className="flex overflow-hidden">
+							<Tooltip label={tag.name} className="flex overflow-hidden">
 								<InfoPill
 									className="cursor-pointer truncate !text-white"
 									style={{

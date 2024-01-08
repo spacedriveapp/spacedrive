@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { forwardRef, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import ColorPicker from 'react-native-wheel-color-picker';
-import { useLibraryMutation, usePlausibleEvent } from '@sd/client';
+import { ToastDefautlColor, useLibraryMutation, usePlausibleEvent } from '@sd/client';
 import { FadeInAnimation } from '~/components/animation/layout';
 import { ModalInput } from '~/components/form/Input';
 import { Modal, ModalRef } from '~/components/layout/Modal';
@@ -16,7 +16,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	const modalRef = useForwardedRef(ref);
 
 	const [tagName, setTagName] = useState('');
-	const [tagColor, setTagColor] = useState('#A717D9');
+	const [tagColor, setTagColor] = useState(ToastDefautlColor);
 	const [showPicker, setShowPicker] = useState(false);
 
 	// TODO: Use react-hook-form?
@@ -30,7 +30,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 		onSuccess: () => {
 			// Reset form
 			setTagName('');
-			setTagColor('#A717D9');
+			setTagColor(ToastDefautlColor);
 			setShowPicker(false);
 
 			queryClient.invalidateQueries(['tags.list']);
@@ -61,13 +61,9 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 			onDismiss={() => {
 				// Resets form onDismiss
 				setTagName('');
-				setTagColor('#A717D9');
+				setTagColor(ToastDefautlColor);
 				setShowPicker(false);
 			}}
-			showCloseButton
-			// Disable panning gestures
-			enableHandlePanningGesture={false}
-			enableContentPanningGesture={false}
 		>
 			<View style={tw`p-4`}>
 				<View style={tw`mt-2 flex flex-row items-center`}>

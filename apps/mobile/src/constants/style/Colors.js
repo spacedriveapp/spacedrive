@@ -46,6 +46,11 @@ module.exports = {
 			dull: `hsla(${DARK_HUE}, 10%, 70%, ${ALPHA})`,
 			faint: `hsla(${DARK_HUE}, 10%, 55%, ${ALPHA})`
 		},
+		mobile: {
+			header: `hsla(${DARK_HUE}, 15%, 10%, ${ALPHA})`,
+			screen: `hsla(${DARK_HUE}, 15%, 12%, ${ALPHA})`,
+			navtab: `hsla(${DARK_HUE}, 15%, 8%, ${ALPHA})`,
+		},
 		app: {
 			DEFAULT: `hsla(${DARK_HUE}, 15%, 13%, ${ALPHA})`,
 			// background (dark)
@@ -65,7 +70,7 @@ module.exports = {
 			// menu
 			menu: `hsla(${DARK_HUE}, 25%, 5%, ${ALPHA})`,
 			// input
-			input: `hsla(${DARK_HUE}, 15%, 20%, ${ALPHA})`
+			input: `hsla(${DARK_HUE}, 15%, 20%, ${ALPHA})`,
 		},
 		sidebar: {
 			box: `hsla(${DARK_HUE}, 15%, 16%, ${ALPHA})`,

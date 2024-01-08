@@ -1,23 +1,16 @@
-import { ArrowsClockwise, Cloud, Planet } from '@phosphor-icons/react';
-import { useNavigate } from 'react-router';
+import { ArrowsClockwise, Cloud, Database, Factory } from '@phosphor-icons/react';
 import { LibraryContextProvider, useClientContext, useFeatureFlag } from '@sd/client';
-import { Tooltip } from '@sd/ui';
-import { useKeysMatcher, useShortcut } from '~/hooks';
 
 import { EphemeralSection } from './EphemeralSection';
 import Icon from './Icon';
 import { LibrarySection } from './LibrarySection';
 import SidebarLink from './Link';
+import Section from './Section';
 
 export default () => {
 	const { library } = useClientContext();
-	const navigate = useNavigate();
-	const symbols = useKeysMatcher(['Meta', 'Shift']);
 
-	// useShortcut('navToOverview', (e) => {
-	// 	e.stopPropagation();
-	// 	navigate('overview');
-	// });
+	const debugRoutes = useFeatureFlag('debugRoutes');
 
 	return (
 		<div className="no-scrollbar mask-fade-out flex grow flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10">
@@ -30,20 +23,28 @@ export default () => {
 					<Icon component={ArchiveBox} />
 					Imports
 				</SidebarLink> */}
-			<div className="space-y-0.5">
-				{useFeatureFlag('syncRoute') && (
-					<SidebarLink to="sync">
-						<Icon component={ArrowsClockwise} />
-						Sync
-					</SidebarLink>
-				)}
-				{useFeatureFlag('cloud') && (
-					<SidebarLink to="cloud">
-						<Icon component={Cloud} />
-						Cloud
-					</SidebarLink>
-				)}
-			</div>
+			{debugRoutes && (
+				<Section name="Debug">
+					<div className="space-y-0.5">
+						<SidebarLink to="debug/sync">
+							<Icon component={ArrowsClockwise} />
+							Sync
+						</SidebarLink>
+						<SidebarLink to="debug/cloud">
+							<Icon component={Cloud} />
+							Cloud
+						</SidebarLink>
+						<SidebarLink to="debug/cache">
+							<Icon component={Database} />
+							Cache
+						</SidebarLink>
+						<SidebarLink to="debug/actors">
+							<Icon component={Factory} />
+							Actors
+						</SidebarLink>
+					</div>
+				</Section>
+			)}
 			<EphemeralSection />
 			{library && (
 				<LibraryContextProvider library={library}>

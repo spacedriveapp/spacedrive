@@ -1,8 +1,8 @@
+use crate::api::notifications::Notification;
+
 use std::sync::{atomic::AtomicU32, Arc};
 
 use tokio::sync::broadcast;
-
-use crate::api::notifications::Notification;
 
 #[derive(Clone)]
 pub struct Notifications(

@@ -145,7 +145,7 @@ export default () => {
 				</Setting>
 				<FeatureFlagSelector />
 				<InvalidateDebugPanel />
-				<TestNotifications />
+				{/* <TestNotifications /> */}
 				<Button size="sm" variant="gray" onClick={() => navigate('./debug/cache')}>
 					Cache Debug
 				</Button>
@@ -214,14 +214,14 @@ function FeatureFlagSelector() {
 	);
 }
 
-function TestNotifications() {
-	const coreNotif = useBridgeMutation(['notifications.test']);
-	const libraryNotif = useLibraryMutation(['notifications.testLibrary']);
+// function TestNotifications() {
+// 	const coreNotif = useBridgeMutation(['notifications.test']);
+// 	const libraryNotif = useLibraryMutation(['notifications.testLibrary']);
 
-	return (
-		<Setting mini title="Notifications" description="Test the notification system">
-			<Button onClick={() => coreNotif.mutate(undefined)}>Core</Button>
-			<Button onClick={() => libraryNotif.mutate(null)}>Library</Button>
-		</Setting>
-	);
-}
+// 	return (
+// 		<Setting mini title="Notifications" description="Test the notification system">
+// 			<Button onClick={() => coreNotif.mutate(undefined)}>Core</Button>
+// 			<Button onClick={() => libraryNotif.mutate(null)}>Library</Button>
+// 		</Setting>
+// 	);
+// }

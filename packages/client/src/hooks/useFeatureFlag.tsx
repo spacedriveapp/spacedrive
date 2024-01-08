@@ -8,23 +8,20 @@ import { nonLibraryClient, useBridgeQuery } from '../rspc';
 export const features = [
 	'spacedrop',
 	'p2pPairing',
-	'syncRoute',
 	'backups',
-	'cloud',
+	'debugRoutes',
 	'hostedLocations'
 ] as const;
 
 // This defines which backend feature flags show up in the UI.
 // This is kinda a hack to not having the runtime array of possible features as Specta only exports the types.
-export const backendFeatures: BackendFeature[] = ['syncEmitMessages', 'filesOverP2P'];
+export const backendFeatures: BackendFeature[] = ['syncEmitMessages', 'filesOverP2P', 'cloudSync'];
 
 export type FeatureFlag = (typeof features)[number] | BackendFeature;
 
 const featureFlagState = valtioPersist(
 	'sd-featureFlags',
-	{
-		enabled: [] as FeatureFlag[]
-	},
+	{ enabled: [] as FeatureFlag[] },
 	{
 		saveFn(data) {
 			// Clone so we don't mess with the original data

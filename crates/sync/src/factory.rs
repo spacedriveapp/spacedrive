@@ -1,37 +1,31 @@
+use prisma_client_rust::ModelTypes;
 use serde_json::{json, Value};
 use uhlc::HLC;
 use uuid::Uuid;
 
 use crate::{
-	CRDTOperation, CRDTOperationType, RelationOperation, RelationOperationData, RelationSyncId,
-	RelationSyncModel, SharedOperation, SharedOperationData, SharedSyncModel, SyncId,
+	CRDTOperation, CRDTOperationData, RelationSyncId, RelationSyncModel, SharedSyncModel, SyncId,
 };
 
 pub trait OperationFactory {
 	fn get_clock(&self) -> &HLC;
 	fn get_instance(&self) -> Uuid;
 
-	fn new_op(&self, typ: CRDTOperationType) -> CRDTOperation {
+	fn new_op<TSyncId: SyncId<Model = TModel>, TModel: ModelTypes>(
+		&self,
+		id: &TSyncId,
+		data: CRDTOperationData,
+	) -> CRDTOperation {
 		let timestamp = self.get_clock().new_timestamp();
 
 		CRDTOperation {
 			instance: self.get_instance(),
 			timestamp: *timestamp.get_time(),
 			id: Uuid::new_v4(),
-			typ,
-		}
-	}
-
-	fn shared_op<TSyncId: SyncId<Model = TModel>, TModel: SharedSyncModel>(
-		&self,
-		id: &TSyncId,
-		data: SharedOperationData,
-	) -> CRDTOperation {
-		self.new_op(CRDTOperationType::Shared(SharedOperation {
 			model: TModel::MODEL.to_string(),
 			record_id: json!(id),
 			data,
-		}))
+		}
 	}
 
 	fn shared_create<TSyncId: SyncId<Model = TModel>, TModel: SharedSyncModel>(
@@ -39,12 +33,12 @@ pub trait OperationFactory {
 		id: TSyncId,
 		values: impl IntoIterator<Item = (&'static str, Value)> + 'static,
 	) -> Vec<CRDTOperation> {
-		[self.shared_op(&id, SharedOperationData::Create)]
+		[self.new_op(&id, CRDTOperationData::Create)]
 			.into_iter()
 			.chain(values.into_iter().map(|(name, value)| {
-				self.shared_op(
+				self.new_op(
 					&id,
-					SharedOperationData::Update {
+					CRDTOperationData::Update {
 						field: name.to_string(),
 						value,
 					},
@@ -58,9 +52,9 @@ pub trait OperationFactory {
 		field: impl Into<String>,
 		value: Value,
 	) -> CRDTOperation {
-		self.shared_op(
+		self.new_op(
 			&id,
-			SharedOperationData::Update {
+			CRDTOperationData::Update {
 				field: field.into(),
 				value,
 			},
@@ -70,22 +64,7 @@ pub trait OperationFactory {
 		&self,
 		id: TSyncId,
 	) -> CRDTOperation {
-		self.shared_op(&id, SharedOperationData::Delete)
-	}
-
-	fn relation_op<TSyncId: RelationSyncId<Model = TModel>, TModel: RelationSyncModel>(
-		&self,
-		id: &TSyncId,
-		data: RelationOperationData,
-	) -> CRDTOperation {
-		let (item_id, group_id) = id.split();
-
-		self.new_op(CRDTOperationType::Relation(RelationOperation {
-			relation_item: json!(item_id),
-			relation_group: json!(group_id),
-			relation: TModel::MODEL.to_string(),
-			data,
-		}))
+		self.new_op(&id, CRDTOperationData::Delete)
 	}
 
 	fn relation_create<TSyncId: RelationSyncId<Model = TModel>, TModel: RelationSyncModel>(
@@ -93,12 +72,12 @@ pub trait OperationFactory {
 		id: TSyncId,
 		values: impl IntoIterator<Item = (&'static str, Value)> + 'static,
 	) -> Vec<CRDTOperation> {
-		[self.relation_op(&id, RelationOperationData::Create)]
+		[self.new_op(&id, CRDTOperationData::Create)]
 			.into_iter()
 			.chain(values.into_iter().map(|(name, value)| {
-				self.relation_op(
+				self.new_op(
 					&id,
-					RelationOperationData::Update {
+					CRDTOperationData::Update {
 						field: name.to_string(),
 						value,
 					},
@@ -112,9 +91,9 @@ pub trait OperationFactory {
 		field: impl Into<String>,
 		value: Value,
 	) -> CRDTOperation {
-		self.relation_op(
+		self.new_op(
 			&id,
-			RelationOperationData::Update {
+			CRDTOperationData::Update {
 				field: field.into(),
 				value,
 			},
@@ -124,6 +103,6 @@ pub trait OperationFactory {
 		&self,
 		id: TSyncId,
 	) -> CRDTOperation {
-		self.relation_op(&id, RelationOperationData::Delete)
+		self.new_op(&id, CRDTOperationData::Delete)
 	}
 }

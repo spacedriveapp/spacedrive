@@ -58,7 +58,7 @@ export const RenderIcon = ({
 				<IconComponent
 					size={15}
 					weight="bold"
-					className={clsx('shrink-0 text-ink-dull group-hover:text-white', className)}
+					className={clsx('shrink-0 text-ink-dull', className)}
 				/>
 			)
 		);
