@@ -58,6 +58,7 @@
 		"react-use-draggable-scroll": "^0.4.7",
 		"remix-params-helper": "^0.4.10",
 		"rooks": "^7.14.1",
+		"solid-js": "^1.8.8",
 		"use-count-up": "^3.0.1",
 		"use-debounce": "^9.0.4",
 		"use-resize-observer": "^9.1.0",

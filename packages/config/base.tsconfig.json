@@ -3,7 +3,7 @@
 	"display": "Default",
 	"compilerOptions": {
 		"strict": true,
-		"jsx": "react-jsx",
+		"jsx": "preserve",
 		"esModuleInterop": true,
 		"skipLibCheck": true,
 		"preserveWatchOutput": true,

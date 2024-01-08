@@ -43,7 +43,7 @@ export function Footer() {
 				style={{ width: '100%', height: '400px' }}
 				sizes="100vw"
 			/>
-			<div className="min-h-64 m-auto grid max-w-[100rem] grid-cols-2 gap-6 p-8 pb-20 pt-10 text-white sm:grid-cols-2 lg:grid-cols-6">
+			<div className="m-auto grid min-h-64 max-w-[100rem] grid-cols-2 gap-6 p-8 pb-20 pt-10 text-white sm:grid-cols-2 lg:grid-cols-6">
 				<div className="col-span-2">
 					<Image alt="Spacedrive logo" src={Logo} className="mb-5 h-10 w-10" />
 
