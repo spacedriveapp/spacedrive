@@ -19,14 +19,6 @@ import { RootContext } from './RootContext';
 
 import './style.scss';
 
-// TODO: Fix this
-function TestEslint() {
-	const a = 1;
-	useEffect(() => {
-		console.log(a);
-	}, []);
-}
-
 function RenderSolid() {
 	const ref = useRef<HTMLDivElement>(null);
 

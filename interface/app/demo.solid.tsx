@@ -14,10 +14,6 @@ function Demo() {
 	);
 }
 
-// TODO: Get eslint error working for destructuring
-function TestEslint({ demo }: { demo: string }) {}
-
 export function renderDemo(element: HTMLDivElement): () => void {
-	// TODO: Save state for HMR
 	return render(Demo, element);
 }
