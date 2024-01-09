@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 use prisma_client_rust::or;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, trace, warn};
+use tracing::{trace, warn};
 
 use super::{process_identifier_file_paths, FileIdentifierJobError, CHUNK_SIZE};
 

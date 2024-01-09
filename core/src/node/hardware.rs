@@ -27,8 +27,8 @@ impl HardwareModel {
 		use strum::IntoEnumIterator;
 		HardwareModel::iter()
 			.find(|&model| {
-				model.to_string().to_lowercase().replace(" ", "")
-					== name.to_lowercase().replace(" ", "")
+				model.to_string().to_lowercase().replace(' ', "")
+					== name.to_lowercase().replace(' ', "")
 			})
 			.unwrap_or(HardwareModel::Other)
 	}

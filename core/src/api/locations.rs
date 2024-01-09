@@ -16,7 +16,7 @@ use crate::{
 
 use sd_cache::{CacheNode, Model, Normalise, NormalisedResult, NormalisedResults, Reference};
 use sd_prisma::prisma::{
-	file_path, indexer_rule, indexer_rules_in_location, label, location, object, SortOrder,
+	file_path, indexer_rule, indexer_rules_in_location, location, object, SortOrder,
 };
 
 use std::path::{Path, PathBuf};
