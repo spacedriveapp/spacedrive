@@ -6,8 +6,10 @@ export type Procedures = {
         { key: "auth.me", input: never, result: { id: string; email: string } } | 
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
+        { key: "cloud.getApiOrigin", input: never, result: string } | 
         { key: "cloud.library.get", input: LibraryArgs<null>, result: { uuid: string; name: string; instances: CloudInstance[]; ownerId: string } | null } | 
         { key: "cloud.library.list", input: never, result: CloudLibrary[] } | 
+        { key: "cloud.locations.list", input: never, result: CloudLocation[] } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata) | null } | 
         { key: "files.get", input: LibraryArgs<number>, result: { item: Reference<ObjectWithFilePaths2>; nodes: CacheNode[] } | null } | 
         { key: "files.getConvertableImageExtensions", input: never, result: string[] } | 
@@ -39,7 +41,6 @@ export type Procedures = {
         { key: "notifications.dismissAll", input: never, result: null } | 
         { key: "notifications.get", input: never, result: Notification[] } | 
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
-        { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: EphemeralPathsResult } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.objectsCount", input: LibraryArgs<{ filters?: SearchFilterArgs[] }>, result: number } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
@@ -60,6 +61,10 @@ export type Procedures = {
         { key: "backups.restore", input: string, result: null } | 
         { key: "cloud.library.create", input: LibraryArgs<null>, result: null } | 
         { key: "cloud.library.join", input: string, result: LibraryConfigWrapped } | 
+        { key: "cloud.locations.create", input: string, result: CloudLocation } | 
+        { key: "cloud.locations.remove", input: string, result: CloudLocation } | 
+        { key: "cloud.locations.testing", input: TestingParams, result: null } | 
+        { key: "cloud.setApiOrigin", input: string, result: null } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
         { key: "ephemeralFiles.cutFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
@@ -127,6 +132,7 @@ export type Procedures = {
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "notifications.listen", input: never, result: Notification } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
+        { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: EphemeralPathsResultItem } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
 
@@ -145,9 +151,9 @@ export type Backup = ({ id: string; timestamp: string; library_id: string; libra
 
 export type BuildInfo = { version: string; commit: string }
 
-export type CRDTOperation = { instance: string; timestamp: number; id: string; typ: CRDTOperationType }
+export type CRDTOperation = { instance: string; timestamp: number; id: string; model: string; record_id: JsonValue; data: CRDTOperationData }
 
-export type CRDTOperationType = SharedOperation | RelationOperation
+export type CRDTOperationData = "c" | { u: { field: string; value: JsonValue } } | "d"
 
 export type CacheNode = { __type: string; __id: string; "#node": any }
 
@@ -158,6 +164,8 @@ export type ChangeNodeNameArgs = { name: string | null; p2p_port: MaybeUndefined
 export type CloudInstance = { id: string; uuid: string; identity: string }
 
 export type CloudLibrary = { uuid: string; name: string; instances: CloudInstance[]; ownerId: string }
+
+export type CloudLocation = { id: string; name: string }
 
 export type ColorProfile = "Normal" | "Custom" | "HDRNoOriginal" | "HDRWithOriginal" | "OriginalForHDR" | "Panorama" | "PortraitHDR" | "Portrait"
 
@@ -205,7 +213,7 @@ export type EphemeralPathOrder = { field: "name"; value: SortOrder } | { field: 
 
 export type EphemeralPathSearchArgs = { path: string; withHiddenFiles: boolean; order?: EphemeralPathOrder | null }
 
-export type EphemeralPathsResult = { entries: Reference<ExplorerItem>[]; errors: Error[]; nodes: CacheNode[] }
+export type EphemeralPathsResultItem = { entries: Reference<ExplorerItem>[]; errors: Error[]; nodes: CacheNode[] }
 
 export type EphemeralRenameFileArgs = { kind: EphemeralRenameKind }
 
@@ -520,10 +528,6 @@ export type Range<T> = { from: T } | { to: T }
  */
 export type Reference<T> = { __type: string; __id: string; "#type": T }
 
-export type RelationOperation = { relation_item: JsonValue; relation_group: JsonValue; relation: string; data: RelationOperationData }
-
-export type RelationOperationData = "c" | { u: { field: string; value: JsonValue } } | "d"
-
 export type RemoteIdentity = string
 
 export type RenameFileArgs = { location_id: number; kind: RenameKind }
@@ -538,7 +542,7 @@ export type RescanArgs = { location_id: number; sub_path: string }
 
 export type Resolution = { width: number; height: number }
 
-export type Response = { Start: { user_code: string; verification_url: string; verification_url_complete: string } } | "Complete" | "Error"
+export type Response = { Start: { user_code: string; verification_url: string; verification_url_complete: string } } | "Complete" | { Error: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
@@ -551,10 +555,6 @@ export type SearchFilterArgs = { filePath: FilePathFilterArgs } | { object: Obje
 export type SetFavoriteArgs = { id: number; favorite: boolean }
 
 export type SetNoteArgs = { id: number; note: string | null }
-
-export type SharedOperation = { record_id: JsonValue; model: string; data: SharedOperationData }
-
-export type SharedOperationData = "c" | { u: { field: string; value: JsonValue } } | "d"
 
 export type SingleInvalidateOperationEvent = { 
 /**
@@ -579,6 +579,8 @@ export type TagCreateArgs = { name: string; color: string }
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
 
 export type Target = { Object: number } | { FilePath: number }
+
+export type TestingParams = { id: string; path: string }
 
 export type TextMatch = { contains: string } | { startsWith: string } | { endsWith: string } | { equals: string }
 

@@ -6,6 +6,7 @@ import { ContextMenu as CM, dialogManager, toast } from '@sd/ui';
 import { AddLocationDialog } from '~/app/$libraryId/settings/library/locations/AddLocationDialog';
 import DeleteDialog from '~/app/$libraryId/settings/library/locations/DeleteDialog';
 import { openDirectoryPickerDialog } from '~/app/$libraryId/settings/library/locations/openDirectoryPickerDialog';
+import { useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 export const ContextMenu = ({
@@ -15,6 +16,8 @@ export const ContextMenu = ({
 	const navigate = useNavigate();
 	const platform = usePlatform();
 	const libraryId = useLibraryContext().library.uuid;
+
+	const { t } = useLocale();
 
 	return (
 		<CM.Root trigger={children}>
@@ -36,19 +39,19 @@ export const ContextMenu = ({
 					}
 				}}
 				icon={Plus}
-				label="New location"
+				label={t('new_location')}
 			/>
 			<CM.Item
 				onClick={() => {
 					navigate(`settings/library/locations/${locationId}`);
 				}}
 				icon={Pencil}
-				label="Edit"
+				label={t('edit')}
 			/>
 			<CM.Separator />
 			<CM.Item
 				icon={Trash}
-				label="Delete"
+				label={t('delete')}
 				variant="danger"
 				onClick={(e: { stopPropagation: () => void }) => {
 					e.stopPropagation();

@@ -19,7 +19,7 @@ import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore } from '../QuickPreview/store';
-import { getExplorerStore } from '../store';
+import { explorerStore } from '../store';
 import { uniqueId } from '../util';
 import { useExplorerViewContext } from './Context';
 
@@ -197,7 +197,7 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 					{children}
 				</div>
 			}
-			onOpenChange={(open) => (getExplorerStore().isContextMenuOpen = open)}
+			onOpenChange={(open) => (explorerStore.isContextMenuOpen = open)}
 			disabled={explorerView.contextMenu === undefined}
 			onMouseDown={(e) => e.stopPropagation()}
 		>

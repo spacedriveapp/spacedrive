@@ -2,8 +2,8 @@ import { createContext, PropsWithChildren, useContext } from 'react';
 
 import { LibraryConfigWrapped } from '../core';
 import { useBridgeSubscription } from '../rspc';
+import { libraryStore, useLibraryStore } from '../stores/libraryStore';
 import { ClientContext, useClientContext } from './useClientContext';
-import { getLibraryStore, useLibraryStore } from './useLibraryStore';
 
 export interface LibraryContext {
 	library: LibraryConfigWrapped;
@@ -23,7 +23,7 @@ export const LibraryContextProvider = ({ children, library }: LibraryContextProv
 	// TODO: This should probs be a library subscription - https://linear.app/spacedriveapp/issue/ENG-724/locationsonline-should-be-a-library-not-a-bridge-subscription
 	useBridgeSubscription(['locations.online'], {
 		onData: (d) => {
-			getLibraryStore().onlineLocations = d;
+			libraryStore.onlineLocations = d;
 		}
 	});
 

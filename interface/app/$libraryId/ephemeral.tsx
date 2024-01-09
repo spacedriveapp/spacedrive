@@ -3,13 +3,12 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import { memo, Suspense, useDeferredValue, useMemo } from 'react';
-import { useLocation } from 'react-router';
 import {
 	ExplorerItem,
 	getExplorerItemData,
-	useCache,
-	useLibraryQuery,
-	useNodes,
+	useLibraryContext,
+	useNormalisedCache,
+	useUnsafeStreamedQuery,
 	type EphemeralPathOrder
 } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
@@ -20,6 +19,7 @@ import {
 	useDismissibleNoticeStore,
 	useIsDark,
 	useKeyDeleteFile,
+	useLocale,
 	useOperatingSystem,
 	useZodSearchParams
 } from '~/hooks';
@@ -29,7 +29,7 @@ import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
 import {
 	createDefaultExplorerSettings,
-	getExplorerStore,
+	explorerStore,
 	nonIndexedPathOrderingSchema
 } from './Explorer/store';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
@@ -60,6 +60,8 @@ const NOTICE_ITEMS: { icon: keyof typeof iconNames; name: string }[] = [
 ];
 
 const EphemeralNotice = ({ path }: { path: string }) => {
+	const { t } = useLocale();
+
 	const isDark = useIsDark();
 	const { ephemeral: dismissed } = useDismissibleNoticeStore();
 
@@ -96,7 +98,7 @@ const EphemeralNotice = ({ path }: { path: string }) => {
 								</div>
 
 								<Tooltip
-									label="Add path as an indexed location"
+									label={t('add_location_tooltip')}
 									className="z-50 w-max min-w-0 shrink animate-pulse [animation-duration:_3000ms] hover:animate-none"
 								>
 									<AddLocationButton
@@ -126,17 +128,18 @@ const EphemeralNotice = ({ path }: { path: string }) => {
 
 					<div className="p-3 pt-0">
 						<div className="py-4 text-center">
-							<h2 className="text-lg font-semibold text-ink">Local Locations</h2>
+							<h2 className="text-lg font-semibold text-ink">
+								{t('local_locations')}
+							</h2>
 							<p className="mt-px text-sm text-ink-dull">
-								Browse your files and folders directly from your device.
+								{t('ephemeral_notice_browse')}
 							</p>
 						</div>
 
 						<div className="flex items-center rounded-md border border-app-line bg-app-box px-3 py-2 text-ink-faint">
 							<Info size={20} weight="light" className="mr-2.5 shrink-0" />
 							<p className="text-sm font-light">
-								Consider indexing your local locations for a faster and more
-								efficient exploration.
+								{t('ephemeral_notice_consider_indexing')}
 							</p>
 						</div>
 
@@ -146,7 +149,7 @@ const EphemeralNotice = ({ path }: { path: string }) => {
 							size="md"
 							onClick={dismiss}
 						>
-							Got it
+							{t('got_it')}
 						</Button>
 					</div>
 				</Dialog.Content>
@@ -176,23 +179,36 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 
 	const settingsSnapshot = explorerSettings.useSettingsSnapshot();
 
-	const query = useLibraryQuery(
+	const libraryCtx = useLibraryContext();
+	const cache = useNormalisedCache();
+	const query = useUnsafeStreamedQuery(
 		[
 			'search.ephemeralPaths',
 			{
-				path: path ?? (os === 'windows' ? 'C:\\' : '/'),
-				withHiddenFiles: settingsSnapshot.showHiddenFiles,
-				order: settingsSnapshot.order
+				library_id: libraryCtx.library.uuid,
+				arg: {
+					path: path ?? (os === 'windows' ? 'C:\\' : '/'),
+					withHiddenFiles: settingsSnapshot.showHiddenFiles,
+					order: settingsSnapshot.order
+				}
 			}
 		],
 		{
 			enabled: path != null,
 			suspense: true,
-			onSuccess: () => getExplorerStore().resetNewThumbnails()
+			onSuccess: () => explorerStore.resetNewThumbnails(),
+			onBatch: (item) => {
+				cache.withNodes(item.nodes);
+			}
 		}
 	);
-	useNodes(query.data?.nodes);
-	const entries = useCache(query.data?.entries);
+
+	const entries = useMemo(() => {
+		return cache.withCache(
+			query.data?.flatMap((item) => item.entries) ||
+				query.streaming.flatMap((item) => item.entries)
+		);
+	}, [cache, query.streaming, query.data]);
 
 	const items = useMemo(() => {
 		if (!entries) return [];
@@ -220,14 +236,13 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 
 	useKeyDeleteFile(explorer.selectedItems, null);
 
+	const { t } = useLocale();
+
 	return (
 		<ExplorerContextProvider explorer={explorer}>
 			<TopBarPortal
 				left={
-					<Tooltip
-						label="Add path as an indexed location"
-						className="w-max min-w-0 shrink"
-					>
+					<Tooltip label={t('add_location_tooltip')} className="w-max min-w-0 shrink">
 						<AddLocationButton path={path} />
 					</Tooltip>
 				}
@@ -238,7 +253,7 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 					<EmptyNotice
 						loading={query.isFetching}
 						icon={<Icon name="FolderNoSpace" size={128} />}
-						message="No files found here"
+						message={t('no_files_found_here')}
 					/>
 				}
 			/>

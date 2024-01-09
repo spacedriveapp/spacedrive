@@ -17,7 +17,7 @@ import {
 } from '~/components/settings/SettingsContainer';
 import { SettingsItem } from '~/components/settings/SettingsItem';
 import { tw, twStyle } from '~/lib/tailwind';
-import { type SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
+import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
 const schema = z.object({
 	displayName: z.string().nullable(),

@@ -4,7 +4,9 @@ import {
 	currentLibraryCache,
 	getCachedLibraries,
 	NormalisedCache,
-	useCachedLibraries
+	useCachedLibraries,
+	useFeatureFlag,
+	WithSolid
 } from '@sd/client';
 import { Dialogs, Toaster } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
@@ -12,10 +14,14 @@ import { useRoutingContext } from '~/RoutingContext';
 
 import { Platform } from '..';
 import libraryRoutes from './$libraryId';
+import { DragAndDropDebug } from './$libraryId/debug/dnd';
+import { Demo, Demo2 } from './demo.solid';
 import onboardingRoutes from './onboarding';
 import { RootContext } from './RootContext';
 
 import './style.scss';
+// I18n needs to be bundled here.
+import './I18n';
 
 // NOTE: all route `Layout`s below should contain
 // the `usePlausiblePageViewMonitor` hook, as early as possible (ideally within the layout itself).
@@ -29,6 +35,11 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 
 				return (
 					<RootContext.Provider value={{ rawPath }}>
+						{useFeatureFlag('debugDragAndDrop') ? <DragAndDropDebug /> : null}
+						{useFeatureFlag('solidJsDemo') ? (
+							<WithSolid root={Demo} demo="123" />
+						) : null}
+						{useFeatureFlag('solidJsDemo') ? <WithSolid root={Demo2} /> : null}
 						<Outlet />
 						<Dialogs />
 						<Toaster position="bottom-right" expand={true} />

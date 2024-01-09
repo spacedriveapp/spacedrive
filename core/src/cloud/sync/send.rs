@@ -1,4 +1,4 @@
-use crate::{cloud::sync::err_break, Node};
+use crate::{cloud::sync::CompressedCRDTOperations, Node};
 
 use sd_core_sync::{GetOpsArgs, SyncMessage, NTP64};
 use sd_prisma::prisma::instance;
@@ -6,16 +6,12 @@ use sd_utils::from_bytes_to_uuid;
 
 use std::{sync::Arc, time::Duration};
 
-use serde::Deserialize;
-use serde_json::json;
 use tokio::time::sleep;
-use uuid::Uuid;
 
-use super::Library;
+use super::{err_break, Library};
 
 pub async fn run_actor((library, node): (Arc<Library>, Arc<Node>)) {
 	let db = &library.db;
-	let api_url = &library.env.api_url;
 	let library_id = library.id;
 
 	loop {
@@ -28,34 +24,21 @@ pub async fn run_actor((library, node): (Arc<Library>, Arc<Node>)) {
 					.await
 			)
 			.into_iter()
-			.map(|i| json!({ "instanceUuid": from_bytes_to_uuid(&i.pub_id).to_string() }))
+			.map(|i| from_bytes_to_uuid(&i.pub_id))
 			.collect::<Vec<_>>();
 
-			#[derive(Deserialize, Debug)]
-			#[serde(rename_all = "camelCase")]
-			struct RequestAdd {
-				instance_uuid: Uuid,
-				from_time: Option<String>,
-				// mutex key on the instance
-				key: String,
-			}
-
 			let req_adds = err_break!(
-				err_break!(
-					node.authed_api_request(
-						node.http
-							.post(&format!(
-							"{api_url}/api/v1/libraries/{library_id}/messageCollections/requestAdd"
-						))
-							.json(&json!({ "instances": instances })),
-					)
-					.await
+				sd_cloud_api::library::message_collections::request_add(
+					node.cloud_api_config().await,
+					library_id,
+					instances,
 				)
-				.json::<Vec<RequestAdd>>()
 				.await
 			);
 
 			let mut instances = vec![];
+
+			use sd_cloud_api::library::message_collections::do_add;
 
 			for req_add in req_adds {
 				let ops = err_break!(
@@ -84,49 +67,21 @@ pub async fn run_actor((library, node): (Arc<Library>, Arc<Node>)) {
 				let start_time = ops[0].timestamp.0.to_string();
 				let end_time = ops[ops.len() - 1].timestamp.0.to_string();
 
-				instances.push(json!({
-					"uuid": req_add.instance_uuid,
-					"key": req_add.key,
-					"startTime": start_time,
-					"endTime": end_time,
-					"contents": ops,
-				}))
+				instances.push(do_add::Input {
+					uuid: req_add.instance_uuid,
+					key: req_add.key,
+					start_time,
+					end_time,
+					contents: serde_json::to_value(CompressedCRDTOperations::new(ops))
+						.expect("CompressedCRDTOperation should serialize!"),
+				})
 			}
-
-			tracing::debug!("Number of instances: {}", instances.len());
-			tracing::debug!(
-				"Number of messages: {}",
-				instances
-					.iter()
-					.map(|i| i["contents"].as_array().expect("no contents found").len())
-					.sum::<usize>()
-			);
 
 			if instances.is_empty() {
 				break;
 			}
 
-			#[derive(Deserialize, Debug)]
-			#[serde(rename_all = "camelCase")]
-			struct DoAdd {
-				// instance_uuid: Uuid,
-				// from_time: String,
-			}
-
-			let _responses = err_break!(
-				err_break!(
-					node.authed_api_request(
-						node.http
-							.post(&format!(
-								"{api_url}/api/v1/libraries/{library_id}/messageCollections/doAdd",
-							))
-							.json(&json!({ "instances": instances })),
-					)
-					.await
-				)
-				.json::<Vec<DoAdd>>()
-				.await
-			);
+			err_break!(do_add(node.cloud_api_config().await, library_id, instances,).await);
 		}
 
 		{

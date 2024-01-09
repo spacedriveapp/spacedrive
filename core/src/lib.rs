@@ -291,7 +291,7 @@ impl Node {
 	pub async fn cloud_api_config(&self) -> sd_cloud_api::RequestConfig {
 		sd_cloud_api::RequestConfig {
 			client: self.http.clone(),
-			api_url: self.env.api_url.clone(),
+			api_url: self.env.api_url.lock().await.clone(),
 			auth_token: self.config.get().await.auth_token,
 		}
 	}

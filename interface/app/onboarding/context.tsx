@@ -3,11 +3,11 @@ import { createContext, useContext } from 'react';
 import { useNavigate } from 'react-router';
 import {
 	currentLibraryCache,
-	getOnboardingStore,
-	getUnitFormatStore,
 	insertLibrary,
+	onboardingStore,
 	resetOnboardingStore,
-	telemetryStore,
+	telemetryState,
+	unitFormatStore,
 	useBridgeMutation,
 	useCachedLibraries,
 	useMultiZodForm,
@@ -83,7 +83,7 @@ const useFormState = () => {
 				shareTelemetry: 'share-telemetry'
 			}
 		},
-		onData: (data) => (getOnboardingStore().data = { ...obStore.data, ...data })
+		onData: (data) => (onboardingStore.data = { ...obStore.data, ...data })
 	});
 
 	const navigate = useNavigate();
@@ -92,8 +92,8 @@ const useFormState = () => {
 
 	if (window.navigator.language === 'en-US') {
 		// not perfect as some linux users use en-US by default, same w/ windows
-		getUnitFormatStore().distanceFormat = 'miles';
-		getUnitFormatStore().temperatureFormat = 'fahrenheit';
+		unitFormatStore.distanceFormat = 'miles';
+		unitFormatStore.temperatureFormat = 'fahrenheit';
 	}
 
 	const createLibrary = useBridgeMutation('library.create');
@@ -105,7 +105,7 @@ const useFormState = () => {
 
 			// opted to place this here as users could change their mind before library creation/onboarding finalization
 			// it feels more fitting to configure it here (once)
-			telemetryStore.shareFullTelemetry = data.privacy.shareTelemetry === 'share-telemetry';
+			telemetryState.shareFullTelemetry = data.privacy.shareTelemetry === 'share-telemetry';
 
 			try {
 				// show creation screen for a bit for smoothness
@@ -122,7 +122,7 @@ const useFormState = () => {
 
 				platform.refreshMenuBar && platform.refreshMenuBar();
 
-				if (telemetryStore.shareFullTelemetry) {
+				if (telemetryState.shareFullTelemetry) {
 					submitPlausibleEvent({ event: { type: 'libraryCreate' } });
 				}
 

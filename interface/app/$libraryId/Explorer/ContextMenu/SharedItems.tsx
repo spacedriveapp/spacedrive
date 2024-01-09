@@ -1,11 +1,9 @@
-// tsc requires this import due to global types defined on it
-import type {} from '@sd/client';
-
 import { FileX, Share as ShareIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
+import { useSelector } from '@sd/client';
 import { ContextMenu, ModifierKeys } from '@sd/ui';
 import { Menu } from '~/components/Menu';
-import { useOperatingSystem } from '~/hooks';
+import { useLocale, useOperatingSystem } from '~/hooks';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
 import { usePlatform, type Platform } from '~/util/Platform';
@@ -13,7 +11,7 @@ import { usePlatform, type Platform } from '~/util/Platform';
 import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore } from '../QuickPreview/store';
 import { RevealInNativeExplorerBase } from '../RevealInNativeExplorer';
-import { getExplorerStore, useExplorerStore } from '../store';
+import { explorerStore } from '../store';
 import { useViewItemDoubleClick } from '../View/ViewItem';
 import { Conditional, ConditionalItem } from './ConditionalItem';
 import { useContextMenuContext } from './context';
@@ -39,12 +37,14 @@ export const OpenOrDownload = new ConditionalItem({
 		const { doubleClick } = useViewItemDoubleClick();
 		const os = useOperatingSystem(true);
 
-		if (platform === 'web') return <Menu.Item label="Download" />;
+		const { t } = useLocale();
+
+		if (platform === 'web') return <Menu.Item label={t('download')} />;
 		else
 			return (
 				<>
 					<Menu.Item
-						label="Open"
+						label={t('open')}
 						keybind={keybind(os === 'windows' ? [] : [ModifierKeys.Control], [
 							os === 'windows' ? 'Enter' : 'O'
 						])}
@@ -58,10 +58,11 @@ export const OpenOrDownload = new ConditionalItem({
 
 export const OpenQuickView = () => {
 	const keybind = useKeybindFactory();
+	const { t } = useLocale();
 
 	return (
 		<ContextMenu.Item
-			label="Quick view"
+			label={t('quick_view')}
 			keybind={keybind([], [' '])}
 			onClick={() => (getQuickPreviewStore().open = true)}
 		/>
@@ -70,20 +71,21 @@ export const OpenQuickView = () => {
 
 export const Details = new ConditionalItem({
 	useCondition: () => {
-		const { showInspector } = useExplorerStore();
+		const showInspector = useSelector(explorerStore, (s) => s.showInspector);
 		if (showInspector) return null;
 
 		return {};
 	},
 	Component: () => {
 		const keybind = useKeybindFactory();
+		const { t } = useLocale();
 
 		return (
 			<ContextMenu.Item
-				label="Details"
+				label={t('details')}
 				keybind={keybind([ModifierKeys.Control], ['I'])}
 				// icon={Sidebar}
-				onClick={() => (getExplorerStore().showInspector = true)}
+				onClick={() => (explorerStore.showInspector = true)}
 			/>
 		);
 	}
@@ -102,12 +104,13 @@ export const Rename = new ConditionalItem({
 	Component: () => {
 		const keybind = useKeybindFactory();
 		const os = useOperatingSystem(true);
+		const { t } = useLocale();
 
 		return (
 			<ContextMenu.Item
-				label="Rename"
+				label={t('rename')}
 				keybind={keybind([], [os === 'windows' ? 'F2' : 'Enter'])}
-				onClick={() => (getExplorerStore().isRenaming = true)}
+				onClick={() => (explorerStore.isRenaming = true)}
 			/>
 		);
 	}
@@ -171,32 +174,37 @@ export const RevealInNativeExplorer = new ConditionalItem({
 
 export const Deselect = new ConditionalItem({
 	useCondition: () => {
-		const { cutCopyState } = useExplorerStore();
+		const cutCopyState = useSelector(explorerStore, (s) => s.cutCopyState);
 
 		if (cutCopyState.type === 'Idle') return null;
 
 		return {};
 	},
-	Component: () => (
-		<ContextMenu.Item
-			label="Deselect"
-			icon={FileX}
-			onClick={() => {
-				getExplorerStore().cutCopyState = {
-					type: 'Idle'
-				};
-			}}
-		/>
-	)
+	Component: () => {
+		const { t } = useLocale();
+		return (
+			<ContextMenu.Item
+				label={t('deselect')}
+				icon={FileX}
+				onClick={() => {
+					explorerStore.cutCopyState = {
+						type: 'Idle'
+					};
+				}}
+			/>
+		);
+	}
 });
 
 export const Share = () => {
+	const { t } = useLocale();
+
 	return (
 		<>
 			<Menu.Item
-				label="Share"
+				label={t('share')}
 				icon={ShareIcon}
-				onClick={(e) => {
+				onClick={(e: { preventDefault: () => void }) => {
 					e.preventDefault();
 
 					navigator.share?.({

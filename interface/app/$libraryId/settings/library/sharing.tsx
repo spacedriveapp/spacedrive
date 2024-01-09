@@ -1,9 +1,12 @@
+import { useLocale } from '~/hooks';
+
 import { Heading } from '../Layout';
 
 export const Component = () => {
+	const { t } = useLocale();
 	return (
 		<>
-			<Heading title="Sharing" description="Manage who has access to your libraries." />
+			<Heading title={t('sharing')} description={t('sharing_description')} />
 		</>
 	);
 };

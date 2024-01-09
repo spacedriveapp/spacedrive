@@ -15,7 +15,7 @@ use crate::{
 
 use sd_core_sync::SyncMessage;
 use sd_p2p::spacetunnel::Identity;
-use sd_prisma::prisma::{instance, location, shared_operation};
+use sd_prisma::prisma::{crdt_operation, instance, location};
 use sd_utils::{
 	db,
 	error::{FileIOError, NonUtf8PathError},
@@ -147,7 +147,7 @@ impl Libraries {
 	}
 
 	/// create creates a new library with the given config and mounts it into the running [LibraryManager].
-	pub(crate) async fn create(
+	pub async fn create(
 		self: &Arc<Self>,
 		name: LibraryName,
 		description: Option<String>,
@@ -447,8 +447,8 @@ impl Libraries {
 				instances
 					.iter()
 					.map(|i| {
-						db.shared_operation()
-							.find_first(vec![shared_operation::instance::is(vec![
+						db.crdt_operation()
+							.find_first(vec![crdt_operation::instance::is(vec![
 								instance::id::equals(i.id),
 							])])
 					})

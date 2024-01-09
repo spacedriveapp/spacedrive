@@ -8,6 +8,8 @@ use crate::{
 	Node,
 };
 
+use futures::Stream;
+use itertools::Either;
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_file_path_helper::{path_is_hidden, MetadataExt};
 use sd_prisma::prisma::location;
@@ -15,6 +17,7 @@ use sd_utils::{chain_optional_iter, error::FileIOError};
 
 use std::{
 	collections::HashMap,
+	io::ErrorKind,
 	path::{Path, PathBuf},
 	sync::Arc,
 };
@@ -24,8 +27,9 @@ use rspc::ErrorCode;
 use serde::Serialize;
 use specta::Type;
 use thiserror::Error;
-use tokio::{fs, io};
-use tracing::{error, warn};
+use tokio::{io, sync::mpsc, task::JoinError};
+use tokio_stream::wrappers::ReceiverStream;
+use tracing::{error, span, warn, Level};
 
 use super::{
 	indexer::rules::{
@@ -45,6 +49,18 @@ pub enum NonIndexedLocationError {
 
 	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
+
+	#[error("error joining tokio task: {0}")]
+	TaskJoinError(#[from] JoinError),
+
+	#[error("receiver shutdown error")]
+	SendError,
+}
+
+impl<T> From<mpsc::error::SendError<T>> for NonIndexedLocationError {
+	fn from(_: mpsc::error::SendError<T>) -> Self {
+		Self::SendError
+	}
 }
 
 impl From<NonIndexedLocationError> for rspc::Error {
@@ -69,12 +85,6 @@ impl<P: AsRef<Path>> From<(P, io::Error)> for NonIndexedLocationError {
 }
 
 #[derive(Serialize, Type, Debug)]
-pub struct NonIndexedFileSystemEntries {
-	pub entries: Vec<ExplorerItem>,
-	pub errors: Vec<rspc::Error>,
-}
-
-#[derive(Serialize, Type, Debug)]
 pub struct NonIndexedPathItem {
 	pub path: String,
 	pub name: String,
@@ -87,189 +97,291 @@ pub struct NonIndexedPathItem {
 	pub hidden: bool,
 }
 
+// #[instrument(name = "non_indexed::walk", skip(sort_fn))]
 pub async fn walk(
-	full_path: impl AsRef<Path>,
+	path: PathBuf,
 	with_hidden_files: bool,
 	node: Arc<Node>,
 	library: Arc<Library>,
-) -> Result<NonIndexedFileSystemEntries, NonIndexedLocationError> {
-	let path = full_path.as_ref();
-	let mut read_dir = fs::read_dir(path).await.map_err(|e| (path, e))?;
+	sort_fn: impl FnOnce(&mut Vec<Entry>) + Send,
+) -> Result<
+	impl Stream<Item = Result<ExplorerItem, Either<rspc::Error, NonIndexedLocationError>>> + Send,
+	NonIndexedLocationError,
+> {
+	let mut entries = get_all_entries(path.clone()).await?;
 
-	let mut directories = vec![];
-	let mut errors = vec![];
-	let mut entries = vec![];
+	{
+		let span = span!(Level::INFO, "sort_fn");
+		let _enter = span.enter();
 
-	let rules = chain_optional_iter(
-		[IndexerRule::from(no_os_protected())],
-		[(!with_hidden_files).then(|| IndexerRule::from(no_hidden()))],
-	);
+		sort_fn(&mut entries);
+	}
 
-	let mut thumbnails_to_generate = vec![];
-	// Generating thumbnails for PDFs is kinda slow, so we're leaving them for last in the batch
-	let mut document_thumbnails_to_generate = vec![];
+	let (tx, rx) = mpsc::channel(128);
+	let tx2 = tx.clone();
 
-	while let Some(entry) = read_dir.next_entry().await.map_err(|e| (path, e))? {
-		let Ok((entry_path, name)) = normalize_path(entry.path())
-			.map_err(|e| errors.push(NonIndexedLocationError::from((path, e)).into()))
-		else {
-			continue;
-		};
+	// We wanna process and let the caller use the stream.
+	let task = tokio::spawn(async move {
+		let path = &path;
+		let rules = chain_optional_iter(
+			[IndexerRule::from(no_os_protected())],
+			[(!with_hidden_files).then(|| IndexerRule::from(no_hidden()))],
+		);
 
-		if let Ok(rule_results) = IndexerRule::apply_all(&rules, &entry_path)
-			.await
-			.map_err(|e| errors.push(e.into()))
-		{
-			// No OS Protected and No Hidden rules, must always be from this kind, should panic otherwise
-			if rule_results[&RuleKind::RejectFilesByGlob]
-				.iter()
-				.any(|reject| !reject)
-			{
-				continue;
-			}
-		} else {
-			continue;
-		}
+		let mut thumbnails_to_generate = vec![];
+		// Generating thumbnails for PDFs is kinda slow, so we're leaving them for last in the batch
+		let mut document_thumbnails_to_generate = vec![];
+		let mut directories = vec![];
 
-		let Ok(metadata) = entry
-			.metadata()
-			.await
-			.map_err(|e| errors.push(NonIndexedLocationError::from((path, e)).into()))
-		else {
-			continue;
-		};
-
-		if metadata.is_dir() {
-			directories.push((entry_path, name, metadata));
-		} else {
-			let path = Path::new(&entry_path);
-
-			let Some(name) = path
-				.file_stem()
-				.and_then(|s| s.to_str().map(str::to_string))
-			else {
-				warn!("Failed to extract name from path: {}", &entry_path);
-				continue;
-			};
-
-			let extension = path
-				.extension()
-				.and_then(|s| s.to_str().map(str::to_string))
-				.unwrap_or_default();
-
-			let kind = Extension::resolve_conflicting(&path, false)
-				.await
-				.map(Into::into)
-				.unwrap_or(ObjectKind::Unknown);
-
-			let should_generate_thumbnail = {
-				#[cfg(feature = "ffmpeg")]
-				{
-					matches!(
-						kind,
-						ObjectKind::Image | ObjectKind::Video | ObjectKind::Document
-					)
-				}
-
-				#[cfg(not(feature = "ffmpeg"))]
-				{
-					matches!(kind, ObjectKind::Image | ObjectKind::Document)
+		for entry in entries.into_iter() {
+			let (entry_path, name) = match normalize_path(entry.path) {
+				Ok(v) => v,
+				Err(e) => {
+					tx.send(Err(Either::Left(
+						NonIndexedLocationError::from((path, e)).into(),
+					)))
+					.await?;
+					continue;
 				}
 			};
 
-			let thumbnail_key = if should_generate_thumbnail {
-				if let Ok(cas_id) = generate_cas_id(&path, metadata.len())
+			match IndexerRule::apply_all(&rules, &entry_path).await {
+				Ok(rule_results) => {
+					// No OS Protected and No Hidden rules, must always be from this kind, should panic otherwise
+					if rule_results[&RuleKind::RejectFilesByGlob]
+						.iter()
+						.any(|reject| !reject)
+					{
+						continue;
+					}
+				}
+				Err(e) => {
+					tx.send(Err(Either::Left(e.into()))).await?;
+					continue;
+				}
+			};
+
+			if entry.metadata.is_dir() {
+				directories.push((entry_path, name, entry.metadata));
+			} else {
+				let path = Path::new(&entry_path);
+
+				let Some(name) = path
+					.file_stem()
+					.and_then(|s| s.to_str().map(str::to_string))
+				else {
+					warn!("Failed to extract name from path: {}", &entry_path);
+					continue;
+				};
+
+				let extension = path
+					.extension()
+					.and_then(|s| s.to_str().map(str::to_string))
+					.unwrap_or_default();
+
+				let kind = Extension::resolve_conflicting(&path, false)
 					.await
-					.map_err(|e| errors.push(NonIndexedLocationError::from((path, e)).into()))
-				{
-					if kind == ObjectKind::Document {
-						document_thumbnails_to_generate.push(GenerateThumbnailArgs::new(
-							extension.clone(),
-							cas_id.clone(),
-							path.to_path_buf(),
-						));
-					} else {
-						thumbnails_to_generate.push(GenerateThumbnailArgs::new(
-							extension.clone(),
-							cas_id.clone(),
-							path.to_path_buf(),
-						));
+					.map(Into::into)
+					.unwrap_or(ObjectKind::Unknown);
+
+				let should_generate_thumbnail = {
+					#[cfg(feature = "ffmpeg")]
+					{
+						matches!(
+							kind,
+							ObjectKind::Image | ObjectKind::Video | ObjectKind::Document
+						)
 					}
 
-					Some(get_ephemeral_thumb_key(&cas_id))
+					#[cfg(not(feature = "ffmpeg"))]
+					{
+						matches!(kind, ObjectKind::Image | ObjectKind::Document)
+					}
+				};
+
+				let thumbnail_key = if should_generate_thumbnail {
+					if let Ok(cas_id) =
+						generate_cas_id(&path, entry.metadata.len())
+							.await
+							.map_err(|e| {
+								tx.send(Err(Either::Left(
+									NonIndexedLocationError::from((path, e)).into(),
+								)))
+							}) {
+						if kind == ObjectKind::Document {
+							document_thumbnails_to_generate.push(GenerateThumbnailArgs::new(
+								extension.clone(),
+								cas_id.clone(),
+								path.to_path_buf(),
+							));
+						} else {
+							thumbnails_to_generate.push(GenerateThumbnailArgs::new(
+								extension.clone(),
+								cas_id.clone(),
+								path.to_path_buf(),
+							));
+						}
+
+						Some(get_ephemeral_thumb_key(&cas_id))
+					} else {
+						None
+					}
 				} else {
 					None
-				}
+				};
+
+				tx.send(Ok(ExplorerItem::NonIndexedPath {
+					thumbnail: thumbnail_key.map(|key| vec![key]),
+					item: NonIndexedPathItem {
+						hidden: path_is_hidden(Path::new(&entry_path), &entry.metadata),
+						path: entry_path,
+						name,
+						extension,
+						kind: kind as i32,
+						is_dir: false,
+						date_created: entry.metadata.created_or_now().into(),
+						date_modified: entry.metadata.modified_or_now().into(),
+						size_in_bytes_bytes: entry.metadata.len().to_be_bytes().to_vec(),
+					},
+				}))
+				.await?;
+			}
+		}
+
+		thumbnails_to_generate.extend(document_thumbnails_to_generate);
+
+		node.thumbnailer
+			.new_ephemeral_thumbnails_batch(BatchToProcess::new(
+				thumbnails_to_generate,
+				false,
+				false,
+			))
+			.await;
+
+		let mut locations = library
+			.db
+			.location()
+			.find_many(vec![location::path::in_vec(
+				directories
+					.iter()
+					.map(|(path, _, _)| path.clone())
+					.collect(),
+			)])
+			.exec()
+			.await?
+			.into_iter()
+			.flat_map(|location| {
+				location
+					.path
+					.clone()
+					.map(|location_path| (location_path, location))
+			})
+			.collect::<HashMap<_, _>>();
+
+		for (directory, name, metadata) in directories {
+			if let Some(location) = locations.remove(&directory) {
+				tx.send(Ok(ExplorerItem::Location {
+					thumbnail: None,
+					item: location,
+				}))
+				.await?;
 			} else {
-				None
-			};
-
-			entries.push(ExplorerItem::NonIndexedPath {
-				thumbnail: thumbnail_key.map(|key| vec![key]),
-				item: NonIndexedPathItem {
-					hidden: path_is_hidden(Path::new(&entry_path), &metadata),
-					path: entry_path,
-					name,
-					extension,
-					kind: kind as i32,
-					is_dir: false,
-					date_created: metadata.created_or_now().into(),
-					date_modified: metadata.modified_or_now().into(),
-					size_in_bytes_bytes: metadata.len().to_be_bytes().to_vec(),
-				},
-			});
+				tx.send(Ok(ExplorerItem::NonIndexedPath {
+					thumbnail: None,
+					item: NonIndexedPathItem {
+						hidden: path_is_hidden(Path::new(&directory), &metadata),
+						path: directory,
+						name,
+						extension: String::new(),
+						kind: ObjectKind::Folder as i32,
+						is_dir: true,
+						date_created: metadata.created_or_now().into(),
+						date_modified: metadata.modified_or_now().into(),
+						size_in_bytes_bytes: metadata.len().to_be_bytes().to_vec(),
+					},
+				}))
+				.await?;
+			}
 		}
+
+		Ok::<_, NonIndexedLocationError>(())
+	});
+
+	tokio::spawn(async move {
+		match task.await {
+			Ok(Ok(())) => {}
+			Ok(Err(e)) => {
+				let _ = tx2.send(Err(Either::Left(e.into()))).await;
+			}
+			Err(e) => error!("error joining tokio task: {}", e),
+		}
+	});
+
+	Ok(ReceiverStream::new(rx))
+}
+
+#[derive(Debug)]
+pub struct Entry {
+	path: PathBuf,
+	name: String,
+	// size_in_bytes: u64,
+	// date_created:
+	metadata: std::fs::Metadata,
+}
+
+impl Entry {
+	pub fn name(&self) -> &str {
+		&self.name
 	}
 
-	thumbnails_to_generate.extend(document_thumbnails_to_generate);
-
-	node.thumbnailer
-		.new_ephemeral_thumbnails_batch(BatchToProcess::new(thumbnails_to_generate, false, false))
-		.await;
-
-	let mut locations = library
-		.db
-		.location()
-		.find_many(vec![location::path::in_vec(
-			directories
-				.iter()
-				.map(|(path, _, _)| path.clone())
-				.collect(),
-		)])
-		.exec()
-		.await?
-		.into_iter()
-		.flat_map(|location| {
-			location
-				.path
-				.clone()
-				.map(|location_path| (location_path, location))
-		})
-		.collect::<HashMap<_, _>>();
-
-	for (directory, name, metadata) in directories {
-		if let Some(location) = locations.remove(&directory) {
-			entries.push(ExplorerItem::Location {
-				thumbnail: None,
-				item: location,
-			});
-		} else {
-			entries.push(ExplorerItem::NonIndexedPath {
-				thumbnail: None,
-				item: NonIndexedPathItem {
-					hidden: path_is_hidden(Path::new(&directory), &metadata),
-					path: directory,
-					name,
-					extension: String::new(),
-					kind: ObjectKind::Folder as i32,
-					is_dir: true,
-					date_created: metadata.created_or_now().into(),
-					date_modified: metadata.modified_or_now().into(),
-					size_in_bytes_bytes: metadata.len().to_be_bytes().to_vec(),
-				},
-			});
-		}
+	pub fn size_in_bytes(&self) -> u64 {
+		self.metadata.len()
 	}
 
-	Ok(NonIndexedFileSystemEntries { entries, errors })
+	pub fn date_created(&self) -> DateTime<Utc> {
+		self.metadata.created_or_now().into()
+	}
+
+	pub fn date_modified(&self) -> DateTime<Utc> {
+		self.metadata.modified_or_now().into()
+	}
+}
+
+/// We get all of the FS entries first before we start processing on each of them.
+///
+/// From my M1 Macbook Pro this:
+///  - takes 11ms per 10 000 files
+///  and
+///  - consumes 0.16MB of RAM per 10 000 entries.
+///
+/// The reason we collect these all up is so we can apply ordering, and then begin streaming the data as it's processed to the frontend.
+// #[instrument(name = "get_all_entries")]
+pub async fn get_all_entries(path: PathBuf) -> Result<Vec<Entry>, NonIndexedLocationError> {
+	tokio::task::spawn_blocking(move || {
+		let path = &path;
+		let dir = std::fs::read_dir(path).map_err(|e| (path, e))?;
+		let mut entries = Vec::new();
+		for entry in dir {
+			let entry = entry.map_err(|e| (path, e))?;
+
+			// We must not keep `entry` around as we will quickly hit the OS limit on open file descriptors
+			entries.push(Entry {
+				path: entry.path(),
+				name: entry
+					.file_name()
+					.to_str()
+					.ok_or_else(|| {
+						(
+							path,
+							io::Error::new(ErrorKind::Other, "error non UTF-8 path"),
+						)
+					})?
+					.to_string(),
+				metadata: entry.metadata().map_err(|e| (path, e))?,
+			});
+		}
+
+		Ok(entries)
+	})
+	.await?
 }

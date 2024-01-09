@@ -38,6 +38,7 @@
 		"crypto-random-string": "^5.0.0",
 		"dayjs": "^1.11.10",
 		"framer-motion": "^10.16.4",
+		"i18next": "^23.7.10",
 		"immer": "^10.0.3",
 		"prismjs": "^1.29.0",
 		"react": "^18.2.0",
@@ -46,6 +47,7 @@
 		"react-error-boundary": "^4.0.11",
 		"react-hook-form": "^7.47.0",
 		"react-hotkeys-hook": "^4.4.1",
+		"react-i18next": "^13.5.0",
 		"react-json-view": "^1.21.3",
 		"react-loading-skeleton": "^3.3.1",
 		"react-markdown": "^9.0.0",
@@ -58,6 +60,7 @@
 		"react-use-draggable-scroll": "^0.4.7",
 		"remix-params-helper": "^0.4.10",
 		"rooks": "^7.14.1",
+		"solid-js": "^1.8.8",
 		"use-count-up": "^3.0.1",
 		"use-debounce": "^9.0.4",
 		"use-resize-observer": "^9.1.0",
@@ -70,11 +73,10 @@
 		"@types/react": "^18.2.34",
 		"@types/react-dom": "^18.2.14",
 		"@types/uuid": "^9.0.6",
-		"@vitejs/plugin-react": "^4.1.1",
 		"tailwindcss": "^3.3.5",
 		"type-fest": "^4.6.0",
-		"typescript": "^5.2.2",
-		"vite": "^4.5.0",
+		"typescript": "^5.3.3",
+		"vite": "^5.0.10",
 		"vite-plugin-svgr": "^3.3.0"
 	}
 }

@@ -19,7 +19,11 @@ export default function NetworkStack() {
 				headerBackTitleStyle: tw`text-base`
 			}}
 		>
-			<Stack.Screen name="Network" component={NetworkScreen} options={{ header: Header }} />
+			<Stack.Screen
+				name="Network"
+				component={NetworkScreen}
+				options={{ header: () => <Header title="Network" /> }}
+			/>
 		</Stack.Navigator>
 	);
 }

@@ -64,10 +64,6 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 				setTagColor(ToastDefautlColor);
 				setShowPicker(false);
 			}}
-			showCloseButton
-			// Disable panning gestures
-			enableHandlePanningGesture={false}
-			enableContentPanningGesture={false}
 		>
 			<View style={tw`p-4`}>
 				<View style={tw`mt-2 flex flex-row items-center`}>

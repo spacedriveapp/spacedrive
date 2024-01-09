@@ -1,6 +1,5 @@
 import '@fontsource/inter/variable.css';
 
-import { init, Integrations } from '@sentry/browser';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import duration from 'dayjs/plugin/duration';
@@ -16,12 +15,13 @@ import {
 import { toast, TooltipProvider } from '@sd/ui';
 
 import { createRoutes } from './app';
+import { SpacedropProvider } from './app/$libraryId/Spacedrop';
 import { P2P, useP2PErrorToast } from './app/p2p';
 import { Devtools } from './components/Devtools';
 import { WithPrismTheme } from './components/TextViewer/prism';
 import ErrorFallback, { BetterErrorBoundary } from './ErrorFallback';
 import { useTheme } from './hooks';
-import { RoutingContext } from './RoutingContext';
+import { RouterContext, RoutingContext } from './RoutingContext';
 
 export * from './app';
 export { ErrorPage } from './ErrorFallback';
@@ -33,11 +33,13 @@ dayjs.extend(advancedFormat);
 dayjs.extend(relativeTime);
 dayjs.extend(duration);
 
-init({
-	dsn: 'https://2fb2450aabb9401b92f379b111402dbc@o1261130.ingest.sentry.io/4504053670412288',
-	environment: import.meta.env.MODE,
-	defaultIntegrations: false,
-	integrations: [new Integrations.HttpContext(), new Integrations.Dedupe()]
+import('@sentry/browser').then(({ init, Integrations }) => {
+	init({
+		dsn: 'https://2fb2450aabb9401b92f379b111402dbc@o1261130.ingest.sentry.io/4504053670412288',
+		environment: import.meta.env.MODE,
+		defaultIntegrations: false,
+		integrations: [new Integrations.HttpContext(), new Integrations.Dedupe()]
+	});
 });
 
 export type Router = RouterProviderProps['router'];
@@ -52,21 +54,23 @@ export function SpacedriveRouterProvider(props: {
 	};
 }) {
 	return (
-		<RoutingContext.Provider
-			value={{
-				routes: props.routing.routes,
-				visible: props.routing.visible,
-				currentIndex: props.routing.currentIndex,
-				maxIndex: props.routing.maxIndex
-			}}
-		>
-			<RouterProvider
-				router={props.routing.router}
-				future={{
-					v7_startTransition: true
+		<RouterContext.Provider value={props.routing.router}>
+			<RoutingContext.Provider
+				value={{
+					routes: props.routing.routes,
+					visible: props.routing.visible,
+					currentIndex: props.routing.currentIndex,
+					maxIndex: props.routing.maxIndex
 				}}
-			/>
-		</RoutingContext.Provider>
+			>
+				<RouterProvider
+					router={props.routing.router}
+					future={{
+						v7_startTransition: true
+					}}
+				/>
+			</RoutingContext.Provider>
+		</RouterContext.Provider>
 	);
 }
 
@@ -78,7 +82,6 @@ export function SpacedriveInterfaceRoot({ children }: PropsWithChildren) {
 
 	useBridgeSubscription(['notifications.listen'], {
 		onData({ data: { title, content, kind }, expires }) {
-			console.log(expires);
 			toast({ title, body: content }, { type: kind });
 		}
 	});
@@ -91,6 +94,7 @@ export function SpacedriveInterfaceRoot({ children }: PropsWithChildren) {
 						<P2P />
 						<Devtools />
 						<WithPrismTheme />
+						<SpacedropProvider />
 						{children}
 					</P2PContextProvider>
 				</TooltipProvider>

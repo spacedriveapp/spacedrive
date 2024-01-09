@@ -1,11 +1,12 @@
 import { Copy, Scissors } from '@phosphor-icons/react';
 import { useLibraryMutation } from '@sd/client';
 import { ContextMenu, ModifierKeys, toast } from '@sd/ui';
+import { useLocale } from '~/hooks';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
 
 import { useExplorerContext } from '../../Context';
-import { getExplorerStore } from '../../store';
+import { explorerStore } from '../../store';
 import { useExplorerSearchParams } from '../../util';
 import { ConditionalItem } from '../ConditionalItem';
 import { useContextMenuContext } from '../context';
@@ -27,6 +28,8 @@ export const CutCopyItems = new ConditionalItem({
 		const keybind = useKeybindFactory();
 		const [{ path }] = useExplorerSearchParams();
 
+		const { t } = useLocale();
+
 		const copyFiles = useLibraryMutation('files.copyFiles');
 		const copyEphemeralFiles = useLibraryMutation('ephemeralFiles.copyFiles');
 
@@ -46,10 +49,10 @@ export const CutCopyItems = new ConditionalItem({
 		return (
 			<>
 				<ContextMenu.Item
-					label="Cut"
+					label={t('cut')}
 					keybind={keybind([ModifierKeys.Control], ['X'])}
 					onClick={() => {
-						getExplorerStore().cutCopyState = {
+						explorerStore.cutCopyState = {
 							sourceParentPath: path ?? '/',
 							indexedArgs,
 							ephemeralArgs,
@@ -60,10 +63,10 @@ export const CutCopyItems = new ConditionalItem({
 				/>
 
 				<ContextMenu.Item
-					label="Copy"
+					label={t('copy')}
 					keybind={keybind([ModifierKeys.Control], ['C'])}
 					onClick={() => {
-						getExplorerStore().cutCopyState = {
+						explorerStore.cutCopyState = {
 							sourceParentPath: path ?? '/',
 							indexedArgs,
 							ephemeralArgs,
@@ -74,7 +77,7 @@ export const CutCopyItems = new ConditionalItem({
 				/>
 
 				<ContextMenu.Item
-					label="Duplicate"
+					label={t('duplicate')}
 					keybind={keybind([ModifierKeys.Control], ['D'])}
 					onClick={async () => {
 						try {
@@ -95,7 +98,7 @@ export const CutCopyItems = new ConditionalItem({
 							}
 						} catch (error) {
 							toast.error({
-								title: 'Failed to duplicate file',
+								title: t('failed_to_duplicate_file'),
 								body: `Error: ${error}.`
 							});
 						}

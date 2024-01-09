@@ -3,7 +3,7 @@ import { Outlet } from 'react-router';
 import { SearchFilterArgs } from '@sd/client';
 
 import TopBar from '.';
-import { getExplorerStore } from '../Explorer/store';
+import { explorerStore } from '../Explorer/store';
 
 const TopBarContext = createContext<ReturnType<typeof useContextValue> | null>(null);
 
@@ -37,7 +37,7 @@ export const Component = () => {
 	// Reset drag state
 	useEffect(() => {
 		return () => {
-			getExplorerStore().drag = null;
+			explorerStore.drag = null;
 		};
 	}, []);
 

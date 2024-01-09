@@ -41,19 +41,20 @@ import {
 	useItemsAsObjects,
 	useLibraryQuery,
 	useNodes,
+	useSelector,
 	type ExplorerItem
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, toast, Tooltip, tw } from '@sd/ui';
 import { LibraryIdParamsSchema } from '~/app/route-schemas';
 import { Folder, Icon } from '~/components';
-import { useZodRouteParams } from '~/hooks';
+import { useLocale, useZodRouteParams } from '~/hooks';
 import { isNonEmpty } from '~/util';
 
 import { useExplorerContext } from '../Context';
 import AssignTagMenuItems from '../ContextMenu/AssignTagMenuItems';
 import { FileThumb } from '../FilePath/Thumb';
 import { useQuickPreviewStore } from '../QuickPreview/store';
-import { getExplorerStore, useExplorerStore } from '../store';
+import { explorerStore } from '../store';
 import { uniqueId, useExplorerItemData } from '../util';
 import FavoriteButton from './FavoriteButton';
 import MediaData from './MediaData';
@@ -97,7 +98,7 @@ export const Inspector = forwardRef<HTMLDivElement, Props>(
 		const selectedItems = useMemo(() => [...explorer.selectedItems], [explorer.selectedItems]);
 
 		useEffect(() => {
-			getExplorerStore().showMoreInfo = false;
+			explorerStore.showMoreInfo = false;
 		}, [pathname]);
 
 		return (
@@ -173,6 +174,8 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	let objectData: Object | ObjectWithFilePaths | null = null;
 	let filePathData: FilePath | FilePathWithObject | null = null;
 	let ephemeralPathData: NonIndexedPathItem | null = null;
+
+	const { t } = useLocale();
 
 	const result = useLibraryQuery(['locations.list']);
 	useNodes(result.data?.nodes);
@@ -274,16 +277,16 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 			{objectData && (
 				<div className="mx-3 mb-0.5 mt-1 flex flex-row space-x-0.5 text-ink">
-					<Tooltip label="Favorite">
+					<Tooltip label={t('favorite')}>
 						<FavoriteButton data={objectData} />
 					</Tooltip>
 
-					<Tooltip label="Encrypt">
+					<Tooltip label={t('encrypt')}>
 						<Button size="icon">
 							<Lock className="h-[18px] w-[18px]" />
 						</Button>
 					</Tooltip>
-					<Tooltip label="Share">
+					<Tooltip label={t('share')}>
 						<Button size="icon">
 							<Link className="h-[18px] w-[18px]" />
 						</Button>
@@ -294,23 +297,27 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 			<Divider />
 
 			<MetaContainer>
-				<MetaData icon={Cube} label="Size" value={`${size}`} />
+				<MetaData icon={Cube} label={t('size')} value={`${size}`} />
 
-				<MetaData icon={Clock} label="Created" value={formatDate(dateCreated)} />
+				<MetaData icon={Clock} label={t('created')} value={formatDate(dateCreated)} />
 
-				<MetaData icon={Eraser} label="Modified" value={formatDate(dateModified)} />
+				<MetaData icon={Eraser} label={t('modified')} value={formatDate(dateModified)} />
 
 				{ephemeralPathData != null || (
-					<MetaData icon={Barcode} label="Indexed" value={formatDate(dateIndexed)} />
+					<MetaData icon={Barcode} label={t('indexed')} value={formatDate(dateIndexed)} />
 				)}
 
 				{ephemeralPathData != null || (
-					<MetaData icon={FolderOpen} label="Accessed" value={formatDate(dateAccessed)} />
+					<MetaData
+						icon={FolderOpen}
+						label={t('accessed')}
+						value={formatDate(dateAccessed)}
+					/>
 				)}
 
 				<MetaData
 					icon={Path}
-					label="Path"
+					label={t('path')}
 					value={fullPath}
 					onClick={() => {
 						if (fullPath) {
@@ -323,7 +330,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 			{fileLocations.length > 0 && (
 				<MetaContainer>
-					<MetaTitle>Locations</MetaTitle>
+					<MetaTitle>{t('locations')}</MetaTitle>
 					<div className="flex flex-wrap gap-2">
 						{fileLocations.map((location) => (
 							<NavLink to={`/${libraryId}/location/${location.id}`} key={location.id}>
@@ -366,7 +373,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 				{item.type === 'Object' ||
 					(item.type === 'Path' && (
 						<DropdownMenu.Root
-							trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
+							trigger={<PlaceholderPill>{t('add_tag')}</PlaceholderPill>}
 							side="left"
 							sideOffset={5}
 							alignOffset={-10}
@@ -383,17 +390,17 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					<Divider />
 
 					<MetaContainer>
-						<MetaData icon={Snowflake} label="Content ID" value={casId} />
+						<MetaData icon={Snowflake} label={t('content_id')} value={casId} />
 
 						{integrityChecksum && (
 							<MetaData
 								icon={CircleWavyCheck}
-								label="Checksum"
+								label={t('checksum')}
 								value={integrityChecksum}
 							/>
 						)}
 
-						<MetaData icon={Hash} label="Object ID" value={pubId} />
+						<MetaData icon={Hash} label={t('object_id')} value={pubId} />
 					</MetaContainer>
 				</>
 			)}
@@ -402,7 +409,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 };
 
 const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
-	const explorerStore = useExplorerStore();
+	const isDragSelecting = useSelector(explorerStore, (s) => s.isDragSelecting);
 
 	const selectedObjects = useItemsAsObjects(items);
 
@@ -411,25 +418,25 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 	const { libraryId } = useZodRouteParams(LibraryIdParamsSchema);
 
 	const tagsQuery = useLibraryQuery(['tags.list'], {
-		enabled: readyToFetch && !explorerStore.isDragSelecting,
+		enabled: readyToFetch && !isDragSelecting,
 		suspense: true
 	});
 	useNodes(tagsQuery.data?.nodes);
 	const tags = useCache(tagsQuery.data?.items);
 
 	const labels = useLibraryQuery(['labels.list'], {
-		enabled: readyToFetch && !explorerStore.isDragSelecting,
+		enabled: readyToFetch && !isDragSelecting,
 		suspense: true
 	});
 
 	const tagsWithObjects = useLibraryQuery(
 		['tags.getWithObjects', selectedObjects.map(({ id }) => id)],
-		{ enabled: readyToFetch && !explorerStore.isDragSelecting }
+		{ enabled: readyToFetch && !isDragSelecting }
 	);
 
 	const labelsWithObjects = useLibraryQuery(
 		['labels.getWithObjects', selectedObjects.map(({ id }) => id)],
-		{ enabled: readyToFetch && !explorerStore.isDragSelecting }
+		{ enabled: readyToFetch && !isDragSelecting }
 	);
 
 	const getDate = useCallback((metadataDate: MetadataDate, date: Date) => {
@@ -490,21 +497,31 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 		[items, getDate]
 	);
 
+	const { t } = useLocale();
+
 	const onlyNonIndexed = metadata.types.has('NonIndexedPath') && metadata.types.size === 1;
 
 	return (
 		<>
 			<MetaContainer>
-				<MetaData icon={Cube} label="Size" value={`${byteSize(metadata.size)}`} />
-				<MetaData icon={Clock} label="Created" value={formatDate(metadata.created)} />
-				<MetaData icon={Eraser} label="Modified" value={formatDate(metadata.modified)} />
+				<MetaData icon={Cube} label={t('size')} value={`${byteSize(metadata.size)}`} />
+				<MetaData icon={Clock} label={t('created')} value={formatDate(metadata.created)} />
+				<MetaData
+					icon={Eraser}
+					label={t('modified')}
+					value={formatDate(metadata.modified)}
+				/>
 				{onlyNonIndexed || (
-					<MetaData icon={Barcode} label="Indexed" value={formatDate(metadata.indexed)} />
+					<MetaData
+						icon={Barcode}
+						label={t('indexed')}
+						value={formatDate(metadata.indexed)}
+					/>
 				)}
 				{onlyNonIndexed || (
 					<MetaData
 						icon={FolderOpen}
-						label="Accessed"
+						label={t('accessed')}
 						value={formatDate(metadata.accessed)}
 					/>
 				)}
@@ -563,7 +580,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 
 				{isNonEmpty(selectedObjects) && (
 					<DropdownMenu.Root
-						trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
+						trigger={<PlaceholderPill>{t('add_tag')}</PlaceholderPill>}
 						side="left"
 						sideOffset={5}
 						alignOffset={-10}

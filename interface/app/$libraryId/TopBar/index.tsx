@@ -3,19 +3,20 @@ import clsx from 'clsx';
 import { useLayoutEffect, useRef } from 'react';
 import { useKey } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
+import { useSelector } from '@sd/client';
 import { Tooltip } from '@sd/ui';
-import { useKeyMatcher, useOperatingSystem, useShowControls } from '~/hooks';
+import { useKeyMatcher, useLocale, useOperatingSystem, useShowControls } from '~/hooks';
 import { useRoutingContext } from '~/RoutingContext';
 import { useTabsContext } from '~/TabsContext';
 import { usePlatform } from '~/util/Platform';
 
-import { useExplorerStore } from '../Explorer/store';
+import { explorerStore } from '../Explorer/store';
 import { useTopBarContext } from './Layout';
 import { NavigationButtons } from './NavigationButtons';
 
 const TopBar = () => {
 	const transparentBg = useShowControls().transparentBg;
-	const { isDragSelecting } = useExplorerStore();
+	const isDragSelecting = useSelector(explorerStore, (s) => s.isDragSelecting);
 	const ref = useRef<HTMLDivElement>(null);
 
 	const tabs = useTabsContext();
@@ -82,6 +83,8 @@ function Tabs() {
 	const ctx = useTabsContext()!;
 	const keybind = useKeyMatcher('Meta');
 
+	const { t } = useLocale();
+
 	function addTab() {
 		ctx.createTab();
 	}
@@ -133,7 +136,7 @@ function Tabs() {
 				className="flex h-full flex-1 items-center justify-start border-t border-sidebar-divider bg-sidebar/30 px-2"
 				data-tauri-drag-region
 			>
-				<Tooltip keybinds={[keybind.icon, 'T']} label="New Tab">
+				<Tooltip keybinds={[keybind.icon, 'T']} label={t('new_tab')}>
 					<button
 						onClick={addTab}
 						className="duration-[50ms] flex flex-row items-center justify-center rounded p-1.5 transition-colors hover:bg-app/80"

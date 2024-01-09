@@ -9,23 +9,23 @@ import {
 	ShieldCheck
 } from '@phosphor-icons/react';
 import { PropsWithChildren } from 'react';
-import { useLibraryMutation } from '@sd/client';
+import { useLibraryMutation, useSelector } from '@sd/client';
 import { ContextMenu as CM, ModifierKeys, toast } from '@sd/ui';
-import { useOperatingSystem } from '~/hooks';
+import { useLocale, useOperatingSystem } from '~/hooks';
 import { useQuickRescan } from '~/hooks/useQuickRescan';
 import { keybindForOs } from '~/util/keybinds';
 
 import { useExplorerContext } from './Context';
 import { CopyAsPathBase } from './CopyAsPath';
 import { RevealInNativeExplorerBase } from './RevealInNativeExplorer';
-import { getExplorerStore, useExplorerStore } from './store';
+import { explorerStore } from './store';
 import { useExplorerSearchParams } from './util';
 
 export default (props: PropsWithChildren) => {
 	const os = useOperatingSystem();
 	const keybind = keybindForOs(os);
 	const [{ path: currentPath }] = useExplorerSearchParams();
-	const { cutCopyState } = useExplorerStore();
+	const cutCopyState = useSelector(explorerStore, (s) => s.cutCopyState);
 	const rescan = useQuickRescan();
 	const { parent } = useExplorerContext();
 
@@ -58,13 +58,15 @@ export default (props: PropsWithChildren) => {
 		}
 	});
 
+	const { t } = useLocale();
+
 	return (
 		<CM.Root trigger={props.children}>
 			{(parent?.type === 'Location' || parent?.type === 'Ephemeral') &&
 			cutCopyState.type !== 'Idle' ? (
 				<>
 					<CM.Item
-						label="Paste"
+						label={t('paste')}
 						keybind={keybind([ModifierKeys.Control], ['V'])}
 						onClick={async () => {
 							const path = currentPath ?? '/';
@@ -130,9 +132,9 @@ export default (props: PropsWithChildren) => {
 					/>
 
 					<CM.Item
-						label="Deselect"
+						label={t('deselect')}
 						onClick={() => {
-							getExplorerStore().cutCopyState = {
+							explorerStore.cutCopyState = {
 								type: 'Idle'
 							};
 						}}
@@ -143,7 +145,7 @@ export default (props: PropsWithChildren) => {
 				</>
 			) : (
 				<CM.Item
-					label="New folder"
+					label={t('new_folder')}
 					icon={FolderPlus}
 					onClick={() => {
 						if (parent?.type === 'Location') {
@@ -163,7 +165,7 @@ export default (props: PropsWithChildren) => {
 			)}
 
 			<CM.Item
-				label="Share"
+				label={t('share')}
 				icon={Share}
 				onClick={(e) => {
 					e.preventDefault();
@@ -182,7 +184,7 @@ export default (props: PropsWithChildren) => {
 					<RevealInNativeExplorerBase
 						items={[{ Location: { id: parent.location.id } }]}
 					/>
-					<CM.SubMenu label="More actions...">
+					<CM.SubMenu label={t('more_actions')}>
 						<CopyAsPathBase path={`${parent.location.path}${currentPath ?? ''}`} />
 
 						<CM.Item
@@ -194,12 +196,12 @@ export default (props: PropsWithChildren) => {
 									});
 								} catch (error) {
 									toast.error({
-										title: `Failed to re-index location`,
+										title: t('failed_to_reindex_location'),
 										body: `Error: ${error}.`
 									});
 								}
 							}}
-							label="Re-index"
+							label={t('reindex')}
 							icon={Repeat}
 						/>
 
@@ -213,12 +215,12 @@ export default (props: PropsWithChildren) => {
 									});
 								} catch (error) {
 									toast.error({
-										title: `Failed to generate thumbnails`,
+										title: t('failed_to_generate_thumbnails'),
 										body: `Error: ${error}.`
 									});
 								}
 							}}
-							label="Regen Thumbnails"
+							label={t('regen_thumbnails')}
 							icon={Image}
 						/>
 
@@ -232,12 +234,12 @@ export default (props: PropsWithChildren) => {
 									});
 								} catch (error) {
 									toast.error({
-										title: `Failed to generate labels`,
+										title: t('failed_to_generate_labels'),
 										body: `Error: ${error}.`
 									});
 								}
 							}}
-							label="Regen Labels"
+							label={t('regen_labels')}
 							icon={Hash}
 						/>
 
@@ -250,12 +252,12 @@ export default (props: PropsWithChildren) => {
 									});
 								} catch (error) {
 									toast.error({
-										title: `Failed to generate checksum`,
+										title: t('failed_to_generate_checksum'),
 										body: `Error: ${error}.`
 									});
 								}
 							}}
-							label="Generate Checksums"
+							label={t('generate_checksums')}
 							icon={ShieldCheck}
 						/>
 					</CM.SubMenu>

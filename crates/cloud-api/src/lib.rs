@@ -41,6 +41,16 @@ pub struct Instance {
 	pub identity: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Type)]
+#[serde(rename_all = "camelCase")]
+#[specta(rename = "CloudMessageCollection")]
+pub struct MessageCollection {
+	pub instance_uuid: Uuid,
+	pub start_time: String,
+	pub end_time: String,
+	pub contents: String,
+}
+
 trait WithAuth {
 	fn with_auth(self, token: OAuthToken) -> Self;
 }
@@ -51,6 +61,69 @@ impl WithAuth for reqwest::RequestBuilder {
 			"authorization",
 			format!("{} {}", token.token_type, token.access_token),
 		)
+	}
+}
+
+pub mod feedback {
+	use super::*;
+
+	pub use send::exec as send;
+	pub mod send {
+		use super::*;
+
+		pub async fn exec(config: RequestConfig, message: String, emoji: u8) -> Result<(), Error> {
+			let mut req = config
+				.client
+				.post(format!("{}/api/v1/feedback", config.api_url))
+				.json(&json!({
+					"message": message,
+					"emoji": emoji,
+				}));
+
+			if let Some(auth_token) = config.auth_token {
+				req = req.with_auth(auth_token);
+			}
+
+			req.send()
+				.await
+				.and_then(|r| r.error_for_status())
+				.map_err(|e| Error(e.to_string()))?;
+
+			Ok(())
+		}
+	}
+}
+
+pub mod user {
+	use super::*;
+
+	pub use me::exec as me;
+	pub mod me {
+		use super::*;
+
+		#[derive(Serialize, Deserialize, Type)]
+		#[specta(inline)]
+		pub struct Response {
+			id: String,
+			email: String,
+		}
+
+		pub async fn exec(config: RequestConfig) -> Result<Response, Error> {
+			let Some(auth_token) = config.auth_token else {
+				return Err(Error("Authentication required".to_string()));
+			};
+
+			config
+				.client
+				.get(&format!("{}/api/v1/user/me", config.api_url))
+				.with_auth(auth_token)
+				.send()
+				.await
+				.map_err(|e| Error(e.to_string()))?
+				.json()
+				.await
+				.map_err(|e| Error(e.to_string()))
+		}
 	}
 }
 
@@ -180,6 +253,257 @@ pub mod library {
 			println!("{resp}");
 
 			Ok(())
+		}
+	}
+
+	pub mod message_collections {
+		use super::*;
+
+		pub use get::exec as get;
+		pub mod get {
+			use super::*;
+
+			#[derive(Serialize)]
+			#[serde(rename_all = "camelCase")]
+			pub struct InstanceTimestamp {
+				pub instance_uuid: Uuid,
+				pub from_time: String,
+			}
+
+			pub async fn exec(
+				config: RequestConfig,
+				library_id: Uuid,
+				this_instance_uuid: Uuid,
+				timestamps: Vec<InstanceTimestamp>,
+			) -> Result<Response, Error> {
+				let Some(auth_token) = config.auth_token else {
+					return Err(Error("Authentication required".to_string()));
+				};
+
+				config
+					.client
+					.post(&format!(
+						"{}/api/v1/libraries/{}/messageCollections/get",
+						config.api_url, library_id
+					))
+					.json(&json!({
+						"instanceUuid": this_instance_uuid,
+						"timestamps": timestamps
+					}))
+					.with_auth(auth_token)
+					.send()
+					.await
+					.map_err(|e| Error(e.to_string()))?
+					.json()
+					.await
+					.map_err(|e| Error(e.to_string()))
+			}
+
+			pub type Response = Vec<MessageCollection>;
+		}
+
+		pub use request_add::exec as request_add;
+		pub mod request_add {
+			use super::*;
+
+			#[derive(Deserialize, Debug)]
+			#[serde(rename_all = "camelCase")]
+			pub struct RequestAdd {
+				pub instance_uuid: Uuid,
+				pub from_time: Option<String>,
+				// mutex key on the instance
+				pub key: String,
+			}
+
+			pub async fn exec(
+				config: RequestConfig,
+				library_id: Uuid,
+				instances: Vec<Uuid>,
+			) -> Result<Response, Error> {
+				let Some(auth_token) = config.auth_token else {
+					return Err(Error("Authentication required".to_string()));
+				};
+
+				let instances = instances
+					.into_iter()
+					.map(|i| json!({"instanceUuid": i }))
+					.collect::<Vec<_>>();
+
+				config
+					.client
+					.post(&format!(
+						"{}/api/v1/libraries/{}/messageCollections/requestAdd",
+						config.api_url, library_id
+					))
+					.json(&json!({ "instances": instances }))
+					.with_auth(auth_token)
+					.send()
+					.await
+					.map_err(|e| Error(e.to_string()))?
+					.json()
+					.await
+					.map_err(|e| Error(e.to_string()))
+			}
+
+			pub type Response = Vec<RequestAdd>;
+		}
+
+		pub use do_add::exec as do_add;
+		pub mod do_add {
+			use super::*;
+
+			#[derive(Serialize, Debug)]
+			#[serde(rename_all = "camelCase")]
+			pub struct Input {
+				pub uuid: Uuid,
+				pub key: String,
+				pub start_time: String,
+				pub end_time: String,
+				pub contents: serde_json::Value,
+			}
+
+			pub async fn exec(
+				config: RequestConfig,
+				library_id: Uuid,
+				instances: Vec<Input>,
+			) -> Result<(), Error> {
+				let Some(auth_token) = config.auth_token else {
+					return Err(Error("Authentication required".to_string()));
+				};
+
+				config
+					.client
+					.post(&format!(
+						"{}/api/v1/libraries/{}/messageCollections/requestAdd",
+						config.api_url, library_id
+					))
+					.json(&json!({ "instances": instances }))
+					.with_auth(auth_token)
+					.send()
+					.await
+					.and_then(|r| r.error_for_status())
+					.map_err(|e| Error(e.to_string()))?;
+
+				Ok(())
+			}
+		}
+	}
+}
+
+#[derive(Type, Serialize, Deserialize)]
+pub struct CloudLocation {
+	id: String,
+	name: String,
+}
+
+pub mod locations {
+	use super::*;
+
+	pub use list::exec as list;
+	pub mod list {
+		use super::*;
+
+		pub async fn exec(config: RequestConfig) -> Result<Response, Error> {
+			let Some(auth_token) = config.auth_token else {
+				return Err(Error("Authentication required".to_string()));
+			};
+
+			config
+				.client
+				.get(&format!("{}/api/v1/locations", config.api_url))
+				.with_auth(auth_token)
+				.send()
+				.await
+				.map_err(|e| Error(e.to_string()))?
+				.json()
+				.await
+				.map_err(|e| Error(e.to_string()))
+		}
+
+		pub type Response = Vec<CloudLocation>;
+	}
+
+	pub use create::exec as create;
+	pub mod create {
+		use super::*;
+
+		pub async fn exec(config: RequestConfig, name: String) -> Result<Response, Error> {
+			let Some(auth_token) = config.auth_token else {
+				return Err(Error("Authentication required".to_string()));
+			};
+
+			config
+				.client
+				.post(&format!("{}/api/v1/locations", config.api_url))
+				.json(&json!({
+					"name": name,
+				}))
+				.with_auth(auth_token)
+				.send()
+				.await
+				.map_err(|e| Error(e.to_string()))?
+				.json()
+				.await
+				.map_err(|e| Error(e.to_string()))
+		}
+
+		pub type Response = CloudLocation;
+	}
+
+	pub use remove::exec as remove;
+	pub mod remove {
+		use super::*;
+
+		pub async fn exec(config: RequestConfig, id: String) -> Result<Response, Error> {
+			let Some(auth_token) = config.auth_token else {
+				return Err(Error("Authentication required".to_string()));
+			};
+
+			config
+				.client
+				.post(&format!("{}/api/v1/locations/delete", config.api_url))
+				.json(&json!({
+					"id": id,
+				}))
+				.with_auth(auth_token)
+				.send()
+				.await
+				.map_err(|e| Error(e.to_string()))?
+				.json()
+				.await
+				.map_err(|e| Error(e.to_string()))
+		}
+
+		pub type Response = CloudLocation;
+	}
+
+	pub use authorise::exec as authorise;
+	pub mod authorise {
+		use super::*;
+
+		pub async fn exec(config: RequestConfig, id: String) -> Result<Response, Error> {
+			let Some(auth_token) = config.auth_token else {
+				return Err(Error("Authentication required".to_string()));
+			};
+
+			config
+				.client
+				.post(&format!("{}/api/v1/locations/authorise", config.api_url))
+				.json(&json!({ "id": id }))
+				.with_auth(auth_token)
+				.send()
+				.await
+				.map_err(|e| Error(e.to_string()))?
+				.json()
+				.await
+				.map_err(|e| Error(e.to_string()))
+		}
+
+		#[derive(Debug, Clone, Type, Deserialize)]
+		pub struct Response {
+			pub access_key_id: String,
+			pub secret_access_key: String,
+			pub session_token: String,
 		}
 	}
 }

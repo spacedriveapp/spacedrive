@@ -10,12 +10,14 @@ import {
 	type VideoHTMLAttributes
 } from 'react';
 import { getItemFilePath, useLibraryContext } from '@sd/client';
+import i18n from '~/app/I18n';
 import { PDFViewer, TextViewer } from '~/components';
+import { useLocale } from '~/hooks';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
-import { getExplorerStore } from '../store';
+import { explorerStore } from '../store';
 import { ExplorerItemData } from '../util';
 import { Image } from './Image';
 import { useBlackBars, useSize } from './utils';
@@ -152,7 +154,7 @@ const ORIGINAL_RENDERERS: {
 					autoPlay
 					className="absolute left-2/4 top-full w-full -translate-x-1/2 translate-y-[-150%]"
 				>
-					<p>Audio preview is not supported.</p>
+					<p>{i18n.t('audio_preview_not_supported')}</p>
 				</audio>
 			)}
 		</>
@@ -188,6 +190,8 @@ const Video = ({ paused, blackBars, blackBarsSize, className, ...props }: VideoP
 	const size = useSize(ref);
 	const { style: blackBarsStyle } = useBlackBars(size, blackBarsSize);
 
+	const { t } = useLocale();
+
 	useEffect(() => {
 		if (!ref.current) return;
 		paused ? ref.current.pause() : ref.current.play();
@@ -201,7 +205,7 @@ const Video = ({ paused, blackBars, blackBarsSize, className, ...props }: VideoP
 			autoPlay={!paused}
 			onVolumeChange={(e) => {
 				const video = e.target as HTMLVideoElement;
-				getExplorerStore().mediaPlayerVolume = video.volume;
+				explorerStore.mediaPlayerVolume = video.volume;
 			}}
 			onCanPlay={(e) => {
 				const video = e.target as HTMLVideoElement;
@@ -209,7 +213,7 @@ const Video = ({ paused, blackBars, blackBarsSize, className, ...props }: VideoP
 				// https://github.com/facebook/react/issues/10389
 				video.loop = !props.controls;
 				video.muted = !props.controls;
-				video.volume = getExplorerStore().mediaPlayerVolume;
+				video.volume = explorerStore.mediaPlayerVolume;
 			}}
 			playsInline
 			draggable={false}
@@ -217,7 +221,7 @@ const Video = ({ paused, blackBars, blackBarsSize, className, ...props }: VideoP
 			className={clsx(blackBars && size.width === 0 && 'invisible', className)}
 			{...props}
 		>
-			<p>Video preview is not supported.</p>
+			<p>{t('video_preview_not_supported')}</p>
 		</video>
 	);
 };

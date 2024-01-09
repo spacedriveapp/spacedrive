@@ -1,20 +1,16 @@
 import { useDndMonitor } from '@dnd-kit/core';
-import { useState } from 'react';
 import {
 	ExplorerItem,
 	getIndexedItemFilePath,
 	getItemFilePath,
 	libraryClient,
-	useLibraryMutation,
-	useZodForm
+	useLibraryMutation
 } from '@sd/client';
-import { Dialog, RadixCheckbox, useDialog, UseDialogProps } from '@sd/ui';
-import { Icon } from '~/components';
 import { isNonEmptyObject } from '~/util';
 
 import { useAssignItemsToTag } from '../settings/library/tags/CreateDialog';
 import { useExplorerContext } from './Context';
-import { getExplorerStore } from './store';
+import { explorerStore } from './store';
 import { explorerDroppableSchema } from './useExplorerDroppable';
 import { useExplorerSearchParams } from './util';
 
@@ -58,7 +54,7 @@ export const useExplorerDnd = () => {
 	useDndMonitor({
 		onDragStart: () => {
 			if (explorer.selectedItems.size === 0) return;
-			getExplorerStore().drag = {
+			explorerStore.drag = {
 				type: 'dragging',
 				items: [...explorer.selectedItems],
 				sourcePath: path ?? '/',
@@ -68,8 +64,8 @@ export const useExplorerDnd = () => {
 			};
 		},
 		onDragEnd: async ({ over }) => {
-			const { drag } = getExplorerStore();
-			getExplorerStore().drag = null;
+			const drag = explorerStore.drag;
+			explorerStore.drag = null;
 
 			if (!over || !drag || drag.type === 'touched') return;
 
@@ -168,44 +164,46 @@ export const useExplorerDnd = () => {
 				}
 			}
 		},
-		onDragCancel: () => (getExplorerStore().drag = null)
+		onDragCancel: () => (explorerStore.drag = null)
 	});
 };
 
-interface DndNoticeProps extends UseDialogProps {
-	count: number;
-	path: string;
-	onConfirm: (val: { dismissNotice: boolean }) => void;
-}
+// interface DndNoticeProps extends UseDialogProps {
+// 	count: number;
+// 	path: string;
+// 	onConfirm: (val: { dismissNotice: boolean }) => void;
+// }
 
-const DndNotice = (props: DndNoticeProps) => {
-	const form = useZodForm();
-	const [dismissNotice, setDismissNotice] = useState(false);
+// const DndNotice = (props: DndNoticeProps) => {
+// 	const form = useZodForm();
+// 	const [dismissNotice, setDismissNotice] = useState(false);
 
-	return (
-		<Dialog
-			form={form}
-			onSubmit={form.handleSubmit(() => props.onConfirm({ dismissNotice: dismissNotice }))}
-			dialog={useDialog(props)}
-			title="Move Files"
-			icon={<Icon name="MoveLocation" size={28} />}
-			description={
-				<span className="break-all">
-					Are you sure you want to move {props.count} file{props.count > 1 ? 's' : ''} to{' '}
-					{props.path}?
-				</span>
-			}
-			ctaDanger
-			ctaLabel="Continue"
-			closeLabel="Cancel"
-			buttonsSideContent={
-				<RadixCheckbox
-					label="Don't show again"
-					name="ephemeral-alert-notice"
-					checked={dismissNotice}
-					onCheckedChange={(val) => typeof val === 'boolean' && setDismissNotice(val)}
-				/>
-			}
-		/>
-	);
-};
+// 	const { t } = useLocale();
+
+// 	return (
+// 		<Dialog
+// 			form={form}
+// 			onSubmit={form.handleSubmit(() => props.onConfirm({ dismissNotice: dismissNotice }))}
+// 			dialog={useDialog(props)}
+// 			title={t('move_files')}
+// 			icon={<Icon name="MoveLocation" size={28} />}
+// 			description={
+// 				<span className="break-all">
+// 					Are you sure you want to move {props.count} file{props.count > 1 ? 's' : ''} to{' '}
+// 					{props.path}?
+// 				</span>
+// 			}
+// 			ctaDanger
+// 			ctaLabel={t('continue')}
+// 			closeLabel={t('cancel')}
+// 			buttonsSideContent={
+// 				<RadixCheckbox
+// 					label={t('dont_show_again')}
+// 					name="ephemeral-alert-notice"
+// 					checked={dismissNotice}
+// 					onCheckedChange={(val) => typeof val === 'boolean' && setDismissNotice(val)}
+// 				/>
+// 			}
+// 		/>
+// 	);
+// };

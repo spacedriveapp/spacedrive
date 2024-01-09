@@ -56,7 +56,10 @@ export default async function Page() {
 					</span>
 				</p>
 				<Downloads
-					latestVersion={[toTitleCase(frontmatter.category), `v${release.tag_name}`]
+					latestVersion={[
+						frontmatter.category && toTitleCase(frontmatter.category),
+						`v${release.tag_name}`
+					]
 						.filter(Boolean)
 						.join(' ')}
 				/>

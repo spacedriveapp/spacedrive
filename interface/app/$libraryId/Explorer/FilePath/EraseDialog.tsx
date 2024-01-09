@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FilePath, useLibraryMutation, useZodForm } from '@sd/client';
 import { Dialog, Slider, useDialog, UseDialogProps, z } from '@sd/ui';
+import { useLocale } from '~/hooks';
 
 interface Props extends UseDialogProps {
 	locationId: number;
@@ -12,6 +13,7 @@ const schema = z.object({
 });
 
 export default (props: Props) => {
+	const { t } = useLocale();
 	const eraseFile = useLibraryMutation('files.eraseFiles');
 
 	const form = useZodForm({
@@ -34,13 +36,13 @@ export default (props: Props) => {
 				})
 			)}
 			dialog={useDialog(props)}
-			title="Erase a file"
-			description="Configure your erasure settings."
+			title={t('erase_a_file')}
+			description={t('erase_a_file_description')}
 			loading={eraseFile.isLoading}
-			ctaLabel="Erase"
+			ctaLabel={t('erase')}
 		>
 			<div className="mt-2 flex flex-col">
-				<span className="text-xs font-bold"># of passes</span>
+				<span className="text-xs font-bold">{t('number_of_passes')}</span>
 
 				<div className="flex flex-row space-x-2">
 					<div className="relative mt-2 flex grow">
@@ -60,7 +62,7 @@ export default (props: Props) => {
 				</div>
 			</div>
 
-			<p>TODO: checkbox for "erase all matching files" (only if a file is selected)</p>
+			{/* <p>TODO: checkbox for "erase all matching files" (only if a file is selected)</p> */}
 		</Dialog>
 	);
 };

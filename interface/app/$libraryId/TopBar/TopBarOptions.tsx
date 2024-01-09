@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { useLayoutEffect, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { ModifierKeys, Popover, Tooltip, usePopover } from '@sd/ui';
 import { useIsDark, useOperatingSystem } from '~/hooks';
 
@@ -7,13 +7,13 @@ import TopBarButton from './TopBarButton';
 import TopBarMobile from './TopBarMobile';
 
 export interface ToolOption {
-	icon: JSX.Element;
+	icon: JSX.Element | ((props: { triggerOpen: () => void }) => JSX.Element);
 	onClick?: () => void;
 	individual?: boolean;
 	toolTipLabel: string;
 	toolTipClassName?: string;
 	topBarActive?: boolean;
-	popOverComponent?: JSX.Element;
+	popOverComponent?: JSX.Element | ((props: { triggerClose: () => void }) => JSX.Element);
 	showAtResolution: ShowAtResolution;
 	keybinds?: Array<String | ModifierKeys>;
 }
@@ -127,12 +127,20 @@ function ToolGroup({
 									tooltipClassName={clsx('capitalize', toolTipClassName)}
 									label={toolTipLabel}
 								>
-									{icon}
+									{typeof icon === 'function'
+										? icon({
+												triggerOpen: () => popover.setOpen(true)
+										  })
+										: icon}
 								</Tooltip>
 							</TopBarButton>
 						}
 					>
-						<div className="block min-w-[250px] max-w-[500px]">{popOverComponent}</div>
+						<div className="block min-w-[250px] max-w-[500px]">
+							{typeof popOverComponent === 'function'
+								? popOverComponent({ triggerClose: () => popover.setOpen(false) })
+								: popOverComponent}
+						</div>
 					</Popover>
 				) : (
 					<TopBarButton
@@ -145,7 +153,7 @@ function ToolGroup({
 							tooltipClassName={clsx('capitalize', toolTipClassName)}
 							label={toolTipLabel}
 						>
-							{icon}
+							{typeof icon === 'function' ? icon({ triggerOpen: () => {} }) : icon}
 						</Tooltip>
 					</TopBarButton>
 				)}
