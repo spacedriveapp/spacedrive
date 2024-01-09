@@ -843,6 +843,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^4.36.1
         version: 4.36.1(react-dom@18.2.0)(react-native@0.72.6)(react@18.2.0)
+      '@tanstack/solid-query':
+        specifier: ^5.17.9
+        version: 5.17.9(solid-js@1.8.8)
       '@zxcvbn-ts/core':
         specifier: ^3.0.4
         version: 3.0.4
@@ -10768,6 +10771,10 @@ packages:
     resolution: {integrity: sha512-DJSilV5+ytBP1FbFcEJovv4rnnm/CokuVvrBEtW/Va9DvuJ3HksbXUJEpI0aV1KtuL4ZoO9AVE6PyNLzF7tLeA==}
     dev: false
 
+  /@tanstack/query-core@5.17.9:
+    resolution: {integrity: sha512-8xcvpWIPaRMDNLMvG9ugcUJMgFK316ZsqkPPbsI+TMZsb10N9jk0B6XgPk4/kgWC2ziHyWR7n7wUhxmD0pChQw==}
+    dev: false
+
   /@tanstack/react-query-devtools@4.36.1(@tanstack/react-query@4.36.1)(react-dom@18.2.0)(react@18.2.0):
     resolution: {integrity: sha512-WYku83CKP3OevnYSG8Y/QO9g0rT75v1om5IvcWUwiUZJ4LanYGLVCZ8TdFG5jfsq4Ej/lu2wwDAULEUnRIMBSw==}
     peerDependencies:
@@ -10821,6 +10828,15 @@ packages:
     dependencies:
       '@tanstack/virtual-core': 3.0.0-beta.66
       react: 18.2.0
+    dev: false
+
+  /@tanstack/solid-query@5.17.9(solid-js@1.8.8):
+    resolution: {integrity: sha512-ebcoTLajGoy4HRm9yAVH4N28CQZU5OPj5Gu2PwjWIePuCkWLFBYJcvYxgRxyf4GCh2GmelKNUu72HAvJbmKUOQ==}
+    peerDependencies:
+      solid-js: ^1.6.0
+    dependencies:
+      '@tanstack/query-core': 5.17.9
+      solid-js: 1.8.8
     dev: false
 
   /@tanstack/table-core@8.10.7:

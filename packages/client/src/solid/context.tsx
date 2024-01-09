@@ -6,8 +6,7 @@ import {
 	JSX as ReactJSX,
 	useEffect,
 	useContext as useReactContext,
-	useRef,
-	useState
+	useRef
 } from 'react';
 import {
 	children,
@@ -19,6 +18,7 @@ import {
 } from 'solid-js';
 import { createStore, type Store } from 'solid-js/store';
 
+import { insideReactRender } from './internal';
 import { useObserver, useObserverWithOwner } from './useObserver';
 
 type RegisteredContext = {
@@ -94,16 +94,6 @@ export function createSharedContext<T>(initialValue: T) {
 			};
 		}
 	};
-}
-
-function insideReactRender() {
-	try {
-		// eslint-disable-next-line react-hooks/rules-of-hooks
-		useState();
-		return true;
-	} catch (err) {
-		return false;
-	}
 }
 
 export function useWithContextReact(): (elem: () => SolidJSX.Element) => SolidJSX.Element {
