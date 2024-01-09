@@ -12,17 +12,21 @@ export function Demo(props: { demo: string }) {
 	const [ctxValue, setCtxValue] = createSignal('set in solid');
 
 	return (
-		<demoCtx.Provider value={ctxValue()}>
-			<div class="absolute top-0 z-[99999] bg-red-500">
-				<button onClick={() => setCount((count) => count + 1)}>Click me</button>
-				<button onClick={() => setCtxValue((s) => `${s}1`)}>Update ctx</button>
+		<div class="absolute top-0 z-[99999] bg-red-500 p-2">
+			<demoCtx.Provider value={ctxValue()}>
+				<button onClick={() => setCount((count) => count + 1)} class="border p-1">
+					Click me
+				</button>
+				<button onClick={() => setCtxValue((s) => `${s}1`)} class="ml-4 border p-1">
+					Update ctx
+				</button>
 				<div>Hello from Solid: {count()}</div>
 				<div>CTX: {props.demo}</div>
 				<Inner />
 				<WithReact root={ReactDemo} demo={count().toString()} />
 				<WithReact root={ReactDemo2} />
-			</div>
-		</demoCtx.Provider>
+			</demoCtx.Provider>
+		</div>
 	);
 }
 
@@ -40,7 +44,7 @@ export function Demo3(props: { demo: string }) {
 	const ctx = demoCtx.useContext();
 
 	return (
-		<div class="bg-blue-500">
+		<div class="m-2 bg-blue-500 p-2">
 			<div>Hello from Solid again: {props.demo}</div>
 			<div>CTX: {ctx()}</div>
 		</div>
