@@ -11,6 +11,7 @@ import {
 } from '@sd/client';
 import { Button, Card, dialogManager, Tooltip } from '@sd/ui';
 import { Folder } from '~/components';
+import { useLocale } from '~/hooks';
 
 import DeleteDialog from './DeleteDialog';
 
@@ -21,6 +22,8 @@ interface Props {
 export default ({ location }: Props) => {
 	const navigate = useNavigate();
 	const [hide, setHide] = useState(false);
+
+	const { t } = useLocale();
 
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 	const onlineLocations = useOnlineLocations();
@@ -67,7 +70,7 @@ export default ({ location }: Props) => {
 						)}
 					/>
 					<span className="ml-1.5 text-xs text-ink-dull">
-						{online ? 'Online' : 'Offline'}
+						{online ? t('online') : t('offline')}
 					</span>
 				</Button>
 				<Button
@@ -77,7 +80,7 @@ export default ({ location }: Props) => {
 					variant="gray"
 					className="pointer-events-none flex !px-2 !py-1.5"
 				>
-					<p className="text-ink-dull">Size:</p>
+					<p className="text-ink-dull">{t('size')}:</p>
 					<span className="ml-1.5 text-xs text-ink-dull">{`${byteSize(
 						location.size_in_bytes
 					)}`}</span>
@@ -96,7 +99,7 @@ export default ({ location }: Props) => {
 						));
 					}}
 				>
-					<Tooltip label="Delete Location">
+					<Tooltip label={t('delete_location')}>
 						<Trash className="h-4 w-4" />
 					</Tooltip>
 				</Button>
@@ -109,7 +112,7 @@ export default ({ location }: Props) => {
 						fullRescan.mutate({ location_id: location.id, reidentify_objects: false });
 					}}
 				>
-					<Tooltip label="Rescan Location">
+					<Tooltip label={t('rescan_location')}>
 						<Repeat className="h-4 w-4" />
 					</Tooltip>
 				</Button>

@@ -26,3 +26,4 @@ export * from './useTheme';
 export * from './useWindowState';
 export * from './useZodRouteParams';
 export * from './useZodSearchParams';
+export * from './useLocale';

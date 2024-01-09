@@ -9,22 +9,21 @@ import {
 import { Button } from '@sd/ui';
 import { Icon } from '~/components';
 import { AuthRequiredOverlay } from '~/components/AuthRequiredOverlay';
-import { useRouteTitle } from '~/hooks';
+import { useLocale, useRouteTitle } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './components';
 
 export function JoinLibrary() {
+	const { t } = useLocale();
+
 	useRouteTitle('Join Library');
 
 	return (
 		<OnboardingContainer>
 			<Icon name="Database" size={80} />
-			<OnboardingTitle>Join a Library</OnboardingTitle>
-			<OnboardingDescription>
-				Libraries are a secure, on-device database. Your files remain where they are, the
-				Library catalogs them and stores all Spacedrive related data.
-			</OnboardingDescription>
+			<OnboardingTitle>{t('join_library')}</OnboardingTitle>
+			<OnboardingDescription>{t('join_library_description')}</OnboardingDescription>
 
 			<div className="mt-2">
 				<span>Cloud Libraries</span>
@@ -38,6 +37,8 @@ export function JoinLibrary() {
 }
 
 function CloudLibraries() {
+	const { t } = useLocale();
+
 	const cloudLibraries = useBridgeQuery(['cloud.library.list']);
 	const joinLibrary = useBridgeMutation(['cloud.library.join']);
 
@@ -45,7 +46,7 @@ function CloudLibraries() {
 	const queryClient = useQueryClient();
 	const platform = usePlatform();
 
-	if (cloudLibraries.isLoading) return <span>Loading...</span>;
+	if (cloudLibraries.isLoading) return <span>{t('loading')}...</span>;
 
 	return (
 		<>

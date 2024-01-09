@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { useSelector } from '@sd/client';
 import { ContextMenu, ModifierKeys } from '@sd/ui';
 import { Menu } from '~/components/Menu';
-import { useOperatingSystem } from '~/hooks';
+import { useLocale, useOperatingSystem } from '~/hooks';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
 import { usePlatform, type Platform } from '~/util/Platform';
@@ -37,12 +37,14 @@ export const OpenOrDownload = new ConditionalItem({
 		const { doubleClick } = useViewItemDoubleClick();
 		const os = useOperatingSystem(true);
 
-		if (platform === 'web') return <Menu.Item label="Download" />;
+		const { t } = useLocale();
+
+		if (platform === 'web') return <Menu.Item label={t('download')} />;
 		else
 			return (
 				<>
 					<Menu.Item
-						label="Open"
+						label={t('open')}
 						keybind={keybind(os === 'windows' ? [] : [ModifierKeys.Control], [
 							os === 'windows' ? 'Enter' : 'O'
 						])}
@@ -56,10 +58,11 @@ export const OpenOrDownload = new ConditionalItem({
 
 export const OpenQuickView = () => {
 	const keybind = useKeybindFactory();
+	const { t } = useLocale();
 
 	return (
 		<ContextMenu.Item
-			label="Quick view"
+			label={t('quick_view')}
 			keybind={keybind([], [' '])}
 			onClick={() => (getQuickPreviewStore().open = true)}
 		/>
@@ -75,10 +78,11 @@ export const Details = new ConditionalItem({
 	},
 	Component: () => {
 		const keybind = useKeybindFactory();
+		const { t } = useLocale();
 
 		return (
 			<ContextMenu.Item
-				label="Details"
+				label={t('details')}
 				keybind={keybind([ModifierKeys.Control], ['I'])}
 				// icon={Sidebar}
 				onClick={() => (explorerStore.showInspector = true)}
@@ -100,10 +104,11 @@ export const Rename = new ConditionalItem({
 	Component: () => {
 		const keybind = useKeybindFactory();
 		const os = useOperatingSystem(true);
+		const { t } = useLocale();
 
 		return (
 			<ContextMenu.Item
-				label="Rename"
+				label={t('rename')}
 				keybind={keybind([], [os === 'windows' ? 'F2' : 'Enter'])}
 				onClick={() => (explorerStore.isRenaming = true)}
 			/>
@@ -175,26 +180,31 @@ export const Deselect = new ConditionalItem({
 
 		return {};
 	},
-	Component: () => (
-		<ContextMenu.Item
-			label="Deselect"
-			icon={FileX}
-			onClick={() => {
-				explorerStore.cutCopyState = {
-					type: 'Idle'
-				};
-			}}
-		/>
-	)
+	Component: () => {
+		const { t } = useLocale();
+		return (
+			<ContextMenu.Item
+				label={t('deselect')}
+				icon={FileX}
+				onClick={() => {
+					explorerStore.cutCopyState = {
+						type: 'Idle'
+					};
+				}}
+			/>
+		);
+	}
 });
 
 export const Share = () => {
+	const { t } = useLocale();
+
 	return (
 		<>
 			<Menu.Item
-				label="Share"
+				label={t('share')}
 				icon={ShareIcon}
-				onClick={(e) => {
+				onClick={(e: { preventDefault: () => void }) => {
 					e.preventDefault();
 
 					navigator.share?.({

@@ -2,7 +2,7 @@ import { Trash } from '@phosphor-icons/react';
 import { Tag, useLibraryMutation, useZodForm } from '@sd/client';
 import { Button, dialogManager, Form, InputField, Switch, Tooltip, z } from '@sd/ui';
 import { ColorPicker } from '~/components';
-import { useDebouncedFormWatch } from '~/hooks';
+import { useDebouncedFormWatch, useLocale } from '~/hooks';
 
 import Setting from '../../Setting';
 import DeleteDialog from './DeleteDialog';
@@ -26,6 +26,8 @@ interface Props {
 export default ({ tag, onDelete }: Props) => {
 	const updateTag = useLibraryMutation('tags.update');
 
+	const { t } = useLocale();
+
 	const form = useZodForm({
 		schema,
 		mode: 'onChange',
@@ -46,14 +48,14 @@ export default ({ tag, onDelete }: Props) => {
 			<div className="flex justify-between">
 				<div className="mb-10 flex flex-row space-x-3">
 					<InputField
-						label="Color"
+						label={t('color')}
 						maxLength={7}
 						value={form.watch('color')?.trim() ?? '#ffffff'}
 						icon={<ColorPicker control={form.control} name="color" />}
 						{...form.register('color')}
 					/>
 
-					<InputField maxLength={24} label="Name" {...form.register('name')} />
+					<InputField maxLength={24} label={t('name')} {...form.register('name')} />
 				</div>
 				<Button
 					variant="gray"
@@ -64,7 +66,7 @@ export default ({ tag, onDelete }: Props) => {
 						))
 					}
 				>
-					<Tooltip label="Delete Tag">
+					<Tooltip label={t('delete_tag')}>
 						<Trash className="h-4 w-4" />
 					</Tooltip>
 				</Button>
@@ -72,15 +74,15 @@ export default ({ tag, onDelete }: Props) => {
 			<div className="flex flex-col gap-2">
 				<Setting
 					mini
-					title="Hide in Library search"
-					description="Hide files with this tag from results when searching entire library."
+					title={t('hide_in_library_search')}
+					description={t('hide_in_library_search_description')}
 				>
 					<Switch />
 				</Setting>
 				<Setting
 					mini
-					title="Hide in sidebar"
-					description="Prevent this tag from showing in the sidebar of the app."
+					title={t('hide_in_sidebar')}
+					description={t('hide_in_sidebar_description')}
 				>
 					<Switch />
 				</Setting>

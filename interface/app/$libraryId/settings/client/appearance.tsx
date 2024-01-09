@@ -4,6 +4,7 @@ import { useMotionValueEvent, useScroll } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { Themes, unitFormatStore, useThemeStore, useUnitFormatStore, useZodForm } from '@sd/client';
 import { Button, Divider, Form, Select, SelectOption, SwitchField, z } from '@sd/ui';
+import { useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { Heading } from '../Layout';
@@ -57,6 +58,7 @@ export const Component = () => {
 	const { lockAppTheme } = usePlatform();
 	const themeStore = useThemeStore();
 	const formatStore = useUnitFormatStore();
+	const { t } = useLocale();
 
 	const [selectedTheme, setSelectedTheme] = useState<Theme['themeValue']>(
 		themeStore.syncThemeWithSystem === true ? 'system' : themeStore.theme
@@ -114,8 +116,8 @@ export const Component = () => {
 		<>
 			<Form form={form} onSubmit={onSubmit}>
 				<Heading
-					title="Appearance"
-					description="Change the look of your client."
+					title={t('appearance')}
+					description={t('appearance_description')}
 					rightArea={
 						<div>
 							<Button
@@ -127,7 +129,7 @@ export const Component = () => {
 									hueSliderHandler(235);
 								}}
 							>
-								Reset
+								{t('reset')}
 							</Button>
 						</div>
 					}
@@ -190,9 +192,9 @@ export const Component = () => {
 				<div className="flex flex-col gap-4">
 					<Setting
 						mini
-						title="UI Animations"
+						title={t('ui_animations')}
 						className="opacity-30"
-						description="Dialogs and other UI elements will animate when opening and closing."
+						description={t('ui_animations_description')}
 					>
 						<SwitchField
 							disabled
@@ -203,9 +205,9 @@ export const Component = () => {
 
 					<Setting
 						mini
-						title="Blur Effects"
+						title={t('blur_effects')}
 						className="opacity-30"
-						description="Some components will have a blur effect applied to them."
+						description={t('blur_effects_description')}
 					>
 						<SwitchField
 							disabled
@@ -217,9 +219,9 @@ export const Component = () => {
 			</Form>
 			<Divider />
 			<div className="flex flex-col gap-4">
-				<h1 className="mb-3 text-lg font-bold text-ink">Display Formats</h1>
+				<h1 className="mb-3 text-lg font-bold text-ink">{t('display_formats')}</h1>
 
-				<Setting mini title="Coordinates">
+				<Setting mini title={t('coordinates')}>
 					<Select
 						onChange={(e) => (unitFormatStore.coordinatesFormat = e)}
 						value={formatStore.coordinatesFormat}
@@ -229,23 +231,23 @@ export const Component = () => {
 					</Select>
 				</Setting>
 
-				<Setting mini title="Distance">
+				<Setting mini title={t('distance')}>
 					<Select
 						onChange={(e) => (unitFormatStore.distanceFormat = e)}
 						value={formatStore.distanceFormat}
 					>
-						<SelectOption value="km">Kilometers</SelectOption>
-						<SelectOption value="miles">Miles</SelectOption>
+						<SelectOption value="km">{t('kilometers')}</SelectOption>
+						<SelectOption value="miles">{t('miles')}</SelectOption>
 					</Select>
 				</Setting>
 
-				<Setting mini title="Temperature">
+				<Setting mini title={t('temperature')}>
 					<Select
 						onChange={(e) => (unitFormatStore.temperatureFormat = e)}
 						value={formatStore.temperatureFormat}
 					>
-						<SelectOption value="celsius">Celsius</SelectOption>
-						<SelectOption value="fahrenheit">Fahrenheit</SelectOption>
+						<SelectOption value="celsius">{t('celcius')}</SelectOption>
+						<SelectOption value="fahrenheit">{t('fahrenheit')}</SelectOption>
 					</Select>
 				</Setting>
 			</div>

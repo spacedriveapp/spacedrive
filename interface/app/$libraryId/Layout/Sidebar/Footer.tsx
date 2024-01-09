@@ -2,7 +2,7 @@ import { Gear } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { JobManagerContextProvider, useClientContext, useDebugState } from '@sd/client';
 import { Button, ButtonLink, Popover, Tooltip, usePopover } from '@sd/ui';
-import { useKeysMatcher, useShortcut } from '~/hooks';
+import { useKeysMatcher, useLocale, useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import DebugPopover from './DebugPopover';
@@ -14,6 +14,8 @@ export default () => {
 	const debugState = useDebugState();
 	const navigate = useNavigate();
 	const symbols = useKeysMatcher(['Meta', 'Shift']);
+
+	const { t } = useLocale();
 
 	useShortcut('navToSettings', (e) => {
 		e.stopPropagation();
@@ -33,7 +35,7 @@ export default () => {
 							className="w-full"
 							onClick={updater.installUpdate}
 						>
-							Install Update
+							{t('install_update')}
 						</Button>
 					)}
 				</>
@@ -48,7 +50,7 @@ export default () => {
 					>
 						<Tooltip
 							position="top"
-							label="Settings"
+							label={t('settings')}
 							keybinds={[symbols.Shift.icon, symbols.Meta.icon, 'T']}
 						>
 							<Gear className="h-5 w-5" />
@@ -67,7 +69,7 @@ export default () => {
 								>
 									{library && (
 										<Tooltip
-											label="Recent Jobs"
+											label={t('recent_jobs')}
 											position="top"
 											keybinds={[symbols.Meta.icon, 'J']}
 										>

@@ -1,6 +1,8 @@
 import { RadixCheckbox, Select, SelectOption, Slider, tw, z } from '@sd/ui';
 import { explorerLayout, useExplorerLayoutStore } from '~/../packages/client/src';
+import i18n from '~/app/I18n';
 import { SortOrderSchema } from '~/app/route-schemas';
+import { useLocale } from '~/hooks';
 
 import { useExplorerContext } from './Context';
 import { createOrdering, getOrderingDirection, orderingKey } from './store';
@@ -8,6 +10,8 @@ import { createOrdering, getOrderingDirection, orderingKey } from './store';
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
 
 export default () => {
+	const { t } = useLocale();
+
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
 	const settings = explorer.useSettingsSnapshot();
@@ -16,7 +20,7 @@ export default () => {
 		<div className="flex w-80 flex-col gap-4 p-4">
 			{(settings.layoutMode === 'grid' || settings.layoutMode === 'media') && (
 				<div>
-					<Subheading>Item size</Subheading>
+					<Subheading>{t('item_size')}</Subheading>
 					{settings.layoutMode === 'grid' ? (
 						<Slider
 							onValueChange={(value) => {
@@ -44,7 +48,7 @@ export default () => {
 
 			{settings.layoutMode === 'grid' && (
 				<div>
-					<Subheading>Gap</Subheading>
+					<Subheading>{t('grid_gap')}</Subheading>
 					<Slider
 						onValueChange={([val]) => {
 							if (val) explorer.settingsStore.gridGap = val;
@@ -60,7 +64,7 @@ export default () => {
 			{(settings.layoutMode === 'grid' || settings.layoutMode === 'media') && (
 				<div className="grid grid-cols-2 gap-2">
 					<div className="flex flex-col">
-						<Subheading>Sort by</Subheading>
+						<Subheading>{t('sort_by')}</Subheading>
 						<Select
 							value={settings.order ? orderingKey(settings.order) : 'none'}
 							size="sm"
@@ -76,7 +80,7 @@ export default () => {
 									);
 							}}
 						>
-							<SelectOption value="none">None</SelectOption>
+							<SelectOption value="none">{t('none')}</SelectOption>
 							{explorer.orderingKeys?.options.map((option) => (
 								<SelectOption key={option.value} value={option.value}>
 									{option.description}
@@ -86,7 +90,7 @@ export default () => {
 					</div>
 
 					<div className="flex flex-col">
-						<Subheading>Direction</Subheading>
+						<Subheading>{t('direction')}</Subheading>
 						<Select
 							value={settings.order ? getOrderingDirection(settings.order) : 'Asc'}
 							size="sm"
@@ -112,11 +116,11 @@ export default () => {
 			)}
 
 			<div>
-				<Subheading>Explorer</Subheading>
+				<Subheading>{t('explorer')}</Subheading>
 				<div className="grid grid-cols-2 gap-y-1">
 					<RadixCheckbox
 						checked={layoutStore.showPathBar}
-						label="Show Path Bar"
+						label={t('show_path_bar')}
 						name="showPathBar"
 						onCheckedChange={(value) => {
 							if (typeof value !== 'boolean') return;
@@ -127,7 +131,7 @@ export default () => {
 					{settings.layoutMode === 'grid' && (
 						<RadixCheckbox
 							checked={settings.showBytesInGridView}
-							label="Show Object size"
+							label={t('show_object_size')}
 							name="showBytesInGridView"
 							onCheckedChange={(value) => {
 								if (typeof value !== 'boolean') return;
@@ -139,7 +143,7 @@ export default () => {
 
 					<RadixCheckbox
 						checked={settings.showHiddenFiles}
-						label="Show Hidden Files"
+						label={t('show_hidden_files')}
 						name="showHiddenFiles"
 						onCheckedChange={(value) => {
 							if (typeof value !== 'boolean') return;
@@ -150,7 +154,7 @@ export default () => {
 					{settings.layoutMode === 'media' && (
 						<RadixCheckbox
 							checked={settings.mediaAspectSquare}
-							label="Square Thumbnails"
+							label={t('square_thumbnails')}
 							name="mediaAspectSquare"
 							onCheckedChange={(value) => {
 								if (typeof value !== 'boolean') return;
@@ -164,7 +168,7 @@ export default () => {
 
 			{settings.layoutMode === 'media' && (
 				<div>
-					<Subheading>Media View Context</Subheading>
+					<Subheading>{t('media_view_context')}</Subheading>
 					<Select
 						className="w-full"
 						value={
@@ -187,7 +191,7 @@ export default () => {
 			)}
 
 			<div>
-				<Subheading>Double click action</Subheading>
+				<Subheading>{t('double_click_action')}</Subheading>
 				<Select
 					className="w-full"
 					value={settings.openOnDoubleClick}
@@ -207,11 +211,11 @@ export default () => {
 };
 
 const doubleClickActions = z.union([
-	z.literal('openFile').describe('Open File'),
-	z.literal('quickPreview').describe('Quick Preview')
+	z.literal('openFile').describe(i18n.t('open_file')),
+	z.literal('quickPreview').describe(i18n.t('quick_preview'))
 ]);
 
 const mediaViewContextActions = z.union([
-	z.literal('withDescendants').describe('Current Directory With Descendants'),
-	z.literal('withoutDescendants').describe('Current Directory')
+	z.literal('withDescendants').describe(i18n.t('current_directory_with_descendants')),
+	z.literal('withoutDescendants').describe(i18n.t('current_directory'))
 ]);
