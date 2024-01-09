@@ -68,13 +68,10 @@ macro_rules! err_return {
 pub(crate) use err_return;
 use tokio::sync::Notify;
 
+pub type CompressedCRDTOperationsForModel = Vec<(Value, Vec<CompressedCRDTOperation>)>;
+
 #[derive(Serialize, Deserialize)]
-pub struct CompressedCRDTOperations(
-	Vec<(
-		Uuid,
-		Vec<(String, Vec<(Value, Vec<CompressedCRDTOperation>)>)>,
-	)>,
-);
+pub struct CompressedCRDTOperations(Vec<(Uuid, Vec<(String, CompressedCRDTOperationsForModel)>)>);
 
 impl CompressedCRDTOperations {
 	pub fn new(ops: Vec<CRDTOperation>) -> Self {
@@ -135,7 +132,7 @@ impl CompressedCRDTOperations {
 		Self(compressed)
 	}
 
-	pub fn to_ops(self) -> Vec<CRDTOperation> {
+	pub fn into_ops(self) -> Vec<CRDTOperation> {
 		let mut ops = vec![];
 
 		for (instance_id, instance) in self.0 {

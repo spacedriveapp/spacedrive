@@ -152,7 +152,7 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 						&BASE64_STANDARD.decode(collection.contents)
 					)));
 
-				err_break!(write_cloud_ops_to_db(compressed_operations.to_ops(), db).await);
+				err_break!(write_cloud_ops_to_db(compressed_operations.into_ops(), db).await);
 
 				let collection_timestamp =
 					NTP64(collection.end_time.parse().expect("unable to parse time"));

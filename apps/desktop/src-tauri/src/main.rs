@@ -439,7 +439,8 @@ fn mouse_position(window: &Window) -> (f64, f64) {
 fn difference(a: f64, b: f64) -> f64 {
 	let x = a - b;
 	if x < 0.0 {
-		return x * -1.0;
+		x * -1.0
+	} else {
+		x
 	}
-	return x;
 }

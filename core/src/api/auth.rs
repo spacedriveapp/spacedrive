@@ -1,20 +1,11 @@
 use std::time::Duration;
 
-use reqwest::{Response, StatusCode};
+use reqwest::StatusCode;
 use rspc::alpha::AlphaRouter;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use super::{Ctx, R};
-
-async fn parse_json_body<T: DeserializeOwned>(response: Response) -> Result<T, rspc::Error> {
-	response.json().await.map_err(|_| {
-		rspc::Error::new(
-			rspc::ErrorCode::InternalServerError,
-			"JSON conversion failed".to_string(),
-		)
-	})
-}
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()

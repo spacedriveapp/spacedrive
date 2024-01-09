@@ -199,8 +199,6 @@ mod locations {
 					let token = {
 						let token = &mut None; // AUTH_TOKEN.lock().await; // TODO: Caching of the token. For now it's annoying when debugging.
 						if token.is_none() {
-							let api_url = &node.env.api_url;
-
 							*token = Some(
 								sd_cloud_api::locations::authorise(
 									node.cloud_api_config().await,

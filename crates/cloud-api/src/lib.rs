@@ -74,7 +74,7 @@ pub mod feedback {
 		pub async fn exec(config: RequestConfig, message: String, emoji: u8) -> Result<(), Error> {
 			let mut req = config
 				.client
-				.post(&format!("{}/api/v1/feedback", config.api_url))
+				.post(format!("{}/api/v1/feedback", config.api_url))
 				.json(&json!({
 					"message": message,
 					"emoji": emoji,

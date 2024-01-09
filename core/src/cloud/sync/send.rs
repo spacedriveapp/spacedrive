@@ -72,7 +72,8 @@ pub async fn run_actor((library, node): (Arc<Library>, Arc<Node>)) {
 					key: req_add.key,
 					start_time,
 					end_time,
-					contents: serde_json::to_value(CompressedCRDTOperations::new(ops)).unwrap(),
+					contents: serde_json::to_value(CompressedCRDTOperations::new(ops))
+						.expect("CompressedCRDTOperation should serialize!"),
 				})
 			}
 
