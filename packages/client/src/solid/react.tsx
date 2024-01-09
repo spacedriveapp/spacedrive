@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import { JSX as SolidJSX } from 'solid-js';
 import { render } from 'solid-js/web';
 
+import { useWithContextReact } from './context';
+
 type Props<T> =
 	| ({
 			root: (props: T) => SolidJSX.Element;
@@ -10,19 +12,19 @@ type Props<T> =
 			root: () => SolidJSX.Element;
 	  };
 
-export function WithSolid<T>(props: Props<T>) {
+export function WithSolid<T>(props: Props<T> & { name: string }) {
 	const ref = useRef<HTMLDivElement>(null);
+	const applyCtx = useWithContextReact();
 
-	// TODO: Inject all context's
 	useEffect(() => {
 		let cleanup = () => {};
 		if (ref.current)
 			cleanup = render(() => {
 				const { root, ...childProps } = props;
-				return root(childProps as any);
+				return applyCtx(() => root(childProps as any));
 			}, ref.current);
 		return cleanup;
-	}, [props]);
+	}, [props, applyCtx]);
 
 	return <div ref={ref} />;
 }

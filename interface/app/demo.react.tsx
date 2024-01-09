@@ -7,7 +7,7 @@ export function Demo(props: { demo: string }) {
 	const [count, setCount] = useState(0);
 
 	const ctx = demoCtx.useContext();
-	console.log('FROM REACT 1', ctx);
+	console.log('FROM REACT 1', ctx());
 
 	return (
 		<>
@@ -16,19 +16,19 @@ export function Demo(props: { demo: string }) {
 					<button onClick={() => setCount((count) => count + 1)}>Click me</button>
 					<div>Hello from React: {count}</div>
 					<div>{props.demo}</div>
-					<div>CTX: {ctx}</div>
+					<div>CTX: {ctx()}</div>
 					<Inner />
-					<WithSolid root={Demo3} demo={count.toString()} />
+					<WithSolid root={Demo3} demo={count.toString()} name="A" />
 				</div>
 			</demoCtx.Provider>
-			<WithSolid root={Demo3} demo={count.toString()} />
+			<WithSolid root={Demo3} demo={count.toString()} name="B" />
 		</>
 	);
 }
 
 function Inner() {
 	const ctx = demoCtx.useContext();
-	console.log('FROM REACT 2', ctx);
+	console.log('FROM REACT 2', ctx());
 	return null;
 }
 

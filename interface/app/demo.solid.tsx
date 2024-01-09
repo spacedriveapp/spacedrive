@@ -5,7 +5,7 @@ import { createSharedContext, WithReact } from '@sd/client';
 
 import { Demo as ReactDemo, Demo2 as ReactDemo2 } from './demo.react';
 
-export const demoCtx = createSharedContext('Hello From Solid');
+export const demoCtx = createSharedContext('the ctx was not set');
 
 export function Demo(props: { demo: string }) {
 	const [count, setCount] = createSignal(0);
@@ -28,8 +28,8 @@ export function Demo(props: { demo: string }) {
 
 function Inner() {
 	const ctx = demoCtx.useContext();
-	console.log('FROM SOLID', ctx);
-	return <div>CTX: {ctx}</div>;
+	console.log('FROM SOLID', ctx());
+	return <div>CTX: {ctx()}</div>;
 }
 
 export function Demo2() {
@@ -38,10 +38,11 @@ export function Demo2() {
 
 export function Demo3(props: { demo: string }) {
 	const ctx = demoCtx.useContext();
+
 	return (
 		<div class="bg-blue-500">
 			<div>Hello from Solid again: {props.demo}</div>
-			<div>CTX: {ctx}</div>
+			<div>CTX: {ctx()}</div>
 		</div>
 	);
 }

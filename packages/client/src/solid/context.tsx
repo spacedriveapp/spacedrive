@@ -3,73 +3,65 @@ import {
 	createContext as createReactContext,
 	isValidElement,
 	PropsWithChildren,
-	Context as ReactContext,
 	JSX as ReactJSX,
+	useEffect,
 	useContext as useReactContext,
+	useRef,
 	useState
 } from 'react';
 import {
+	children,
 	createContext as createSolidContext,
 	getOwner,
 	Owner,
-	Context as SolidContext,
 	JSX as SolidJSX,
 	useContext as useSolidContext
 } from 'solid-js';
+import { createStore, type Store } from 'solid-js/store';
 
-import { useObserverWithOwner } from './useObserver';
+import { useObserver, useObserverWithOwner } from './useObserver';
 
 type RegisteredContext = {
 	id: symbol;
-	reactContext: ReactContext<any>;
-	solidContext: SolidContext<any>;
+	store: Store<any>;
 };
 
 const reactGlobalContext = createReactContext([] as RegisteredContext[]);
-const solidGlobalContext = createSolidContext([] as RegisteredContext[]);
+const solidGlobalContext = createSolidContext(() => [] as RegisteredContext[]);
 
 // TODO: Use context for props to avoid complete rerenders
 
 export function createSharedContext<T>(initialValue: T) {
-	const solidContext = createSolidContext(initialValue);
-	const reactContext = createReactContext(initialValue);
-
-	const ctxEntry: RegisteredContext = {
-		id: solidContext.id,
-		reactContext,
-		solidContext
-	};
+	const id = Symbol('shared-context');
 
 	function Provider<C>(props: { value: T; children: C }): C {
 		const isSolid =
 			'get' in Object.getOwnPropertyDescriptor(props, 'children')! ||
 			!isValidElement(props.children);
 
+		const ctxEntry: RegisteredContext = {
+			id,
+			store: () => props.value
+		};
+
 		if (isSolid) {
 			const globalCtx = useSolidContext(solidGlobalContext);
+
 			return solidGlobalContext.Provider({
-				value: [...globalCtx, ctxEntry], // TODO: Ensure multiple of the same provider override correctly
+				value: () => [...globalCtx(), ctxEntry], // TODO: Ensure multiple of the same provider override correctly
 				get children() {
-					return solidContext.Provider({
-						value: props.value,
-						get children() {
-							return props.children as SolidJSX.Element;
-						}
-					});
+					return props.children as SolidJSX.Element;
 				}
 			}) as any;
 		} else {
 			const globalCtx = useReactContext(reactGlobalContext);
+
 			return createElement(
 				reactGlobalContext.Provider as any,
-				{ value: [...globalCtx, ctxEntry] }, // TODO: Ensure multiple of the same provider override correctly
-				createElement(
-					reactContext.Provider as any,
-					{
-						value: props.value
-					},
-					props.children as any
-				)
+				{
+					value: [...globalCtx, ctxEntry] // TODO: Ensure multiple of the same provider override correctly
+				},
+				props.children as any
 			) as any;
 		}
 	}
@@ -78,16 +70,30 @@ export function createSharedContext<T>(initialValue: T) {
 		Provider,
 		useContext: () => {
 			const isInsideReact = insideReactRender();
-			let ctx;
+			let globalCtx: any;
 			if (isInsideReact) {
 				// eslint-disable-next-line react-hooks/rules-of-hooks
-				ctx = useReactContext(reactContext);
+				globalCtx = useReactContext(reactGlobalContext);
 			} else {
 				// eslint-disable-next-line react-hooks/rules-of-hooks
-				ctx = useSolidContext(solidContext);
+				globalCtx = useSolidContext(solidGlobalContext);
 			}
-			// if (!ctx) throw new Error("TODO"); // TODO: Get context name for error
-			return ctx as T;
+
+			let reactObserver: T | undefined = undefined;
+
+			return () => {
+				const ctx = ((isInsideReact ? globalCtx : globalCtx()) as RegisteredContext[]).find(
+					(ctx) => ctx.id === id
+				);
+				if (!ctx) return initialValue;
+
+				if (isInsideReact) {
+					if (!reactObserver) reactObserver = useObserver(() => ctx.store() as T);
+					return reactObserver as T; // This function doesn't do anything other than make the API consistent
+				} else {
+					return ctx.store() as T;
+				}
+			};
 		}
 	};
 }
@@ -102,31 +108,29 @@ function insideReactRender() {
 	}
 }
 
-export function useWithContextReact(): (elem: SolidJSX.Element) => SolidJSX.Element {
+export function useWithContextReact(): (elem: () => SolidJSX.Element) => SolidJSX.Element {
 	const globalCtx = useReactContext(reactGlobalContext);
+	const ref = useRef(createStore<RegisteredContext[]>([]));
 
-	return (elem) => {
-		// TODO
+	useEffect(() => ref.current[1](globalCtx), [globalCtx, ref]);
 
-		return elem;
-	};
+	return (elem) =>
+		solidGlobalContext.Provider({
+			value: () => ref.current[0],
+			children: elem as any
+		});
 }
 
-// TODO: Get rid of this
 export function useWithContextSolid(): (elem: ReactJSX.Element) => ReactJSX.Element {
 	const owner = getOwner()!;
 	return (elem) => createElement(WithContext, { owner }, elem);
 }
 
 function WithContext(props: PropsWithChildren<{ owner: Owner }>) {
-	const contexts = useObserverWithOwner(props.owner, () => {
-		const globalCtx = useSolidContext(solidGlobalContext);
-		return globalCtx.map((ctx) => [ctx, useSolidContext(ctx.solidContext)] as const);
+	const globalCtx = useObserverWithOwner(props.owner, () => {
+		// eslint-disable-next-line react-hooks/rules-of-hooks
+		return useSolidContext(solidGlobalContext)();
 	});
 
-	let children = props.children;
-	contexts?.map(([ctx, value]) => {
-		children = createElement(ctx.reactContext.Provider, { value }, children);
-	});
-	return children;
+	return createElement(reactGlobalContext.Provider, { value: globalCtx }, props.children);
 }
