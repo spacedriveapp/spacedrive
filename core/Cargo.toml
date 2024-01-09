@@ -126,10 +126,10 @@ aws-credential-types = "1.0.3"
 # Override features of transitive dependencies
 [dependencies.openssl]
 version = "=0.10.61"
-# features = ["vendored"]
+features = ["vendored"]
 [dependencies.openssl-sys]
 version = "=0.9.97"
-# features = ["vendored"]
+features = ["vendored"]
 
 # Platform-specific dependencies
 [target.'cfg(target_os = "macos")'.dependencies]
