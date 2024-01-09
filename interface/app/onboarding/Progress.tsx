@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { useEffect } from 'react';
 import { useMatch, useNavigate } from 'react-router';
-import { getOnboardingStore, unlockOnboardingScreen, useOnboardingStore } from '@sd/client';
+import { onboardingStore, unlockOnboardingScreen, useOnboardingStore } from '@sd/client';
 import { useOperatingSystem } from '~/hooks';
 
 export default function OnboardingProgress() {
@@ -16,7 +16,7 @@ export default function OnboardingProgress() {
 	useEffect(() => {
 		if (!currentScreen) return;
 
-		unlockOnboardingScreen(currentScreen, getOnboardingStore().unlockedScreens);
+		unlockOnboardingScreen(currentScreen, onboardingStore.unlockedScreens);
 	}, [currentScreen]);
 
 	const routes = [

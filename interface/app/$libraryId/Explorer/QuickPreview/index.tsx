@@ -25,7 +25,6 @@ import {
 	ExplorerItem,
 	getEphemeralPath,
 	getExplorerItemData,
-	getExplorerLayoutStore,
 	getIndexedItemFilePath,
 	ObjectKindKey,
 	useExplorerLayoutStore,
@@ -163,7 +162,7 @@ export const QuickPreview = () => {
 		}
 
 		if (!activeItem || !explorer.items) return;
-		if (items.length > 1 && !getExplorerLayoutStore().showImageSlider) return;
+		if (items.length > 1 && !explorerLayoutStore.showImageSlider) return;
 
 		const newSelectedItem =
 			items.length > 1 &&
@@ -465,7 +464,7 @@ export const QuickPreview = () => {
 										<Tooltip label={t('show_slider')}>
 											<IconButton
 												onClick={() =>
-													(getExplorerLayoutStore().showImageSlider =
+													(explorerLayoutStore.showImageSlider =
 														!explorerLayoutStore.showImageSlider)
 												}
 												className="w-fit px-2 text-[10px]"

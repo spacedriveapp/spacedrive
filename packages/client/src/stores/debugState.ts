@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useSnapshot } from 'valtio';
+import { createMutable } from 'solid-js/store';
 
-import { valtioPersist } from '../lib/valito';
+import { createPersistedMutable, useSolidStore } from '../solid';
 
 export interface DebugState {
 	enabled: boolean;
@@ -11,20 +11,19 @@ export interface DebugState {
 	telemetryLogging: boolean;
 }
 
-const debugState: DebugState = valtioPersist('sd-debugState', {
-	enabled: globalThis.isDev,
-	rspcLogger: false,
-	reactQueryDevtools: globalThis.isDev ? 'invisible' : 'enabled',
-	shareFullTelemetry: false,
-	telemetryLogging: false
-});
+export const debugState = createPersistedMutable(
+	'sd-debugState',
+	createMutable<DebugState>({
+		enabled: globalThis.isDev,
+		rspcLogger: false,
+		reactQueryDevtools: globalThis.isDev ? 'invisible' : 'enabled',
+		shareFullTelemetry: false,
+		telemetryLogging: false
+	})
+);
 
 export function useDebugState() {
-	return useSnapshot(debugState);
-}
-
-export function getDebugState() {
-	return debugState;
+	return useSolidStore(debugState);
 }
 
 export function useDebugStateEnabler(): () => void {
@@ -32,7 +31,7 @@ export function useDebugStateEnabler(): () => void {
 
 	useEffect(() => {
 		if (clicked >= 5) {
-			getDebugState().enabled = true;
+			debugState.enabled = true;
 		}
 
 		const timeout = setTimeout(() => setClicked(0), 1000);

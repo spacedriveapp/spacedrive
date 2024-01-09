@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useDiscoveredPeers } from '@sd/client';
+import { useDebugState, useDiscoveredPeers, useFeatureFlag, useFeatureFlags } from '@sd/client';
 import { Icon } from '~/components';
 import { useLocale } from '~/hooks';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
@@ -64,7 +64,7 @@ export const Component = () => {
 						<Icon name="Globe" size={128} />
 						<h1 className="mt-4 text-lg font-bold">{t('your_local_network')}</h1>
 						<p className="mt-1 max-w-sm text-center text-sm text-ink-dull">
-							{t("network_page_description")}
+							{t('network_page_description')}
 						</p>
 					</div>
 				}

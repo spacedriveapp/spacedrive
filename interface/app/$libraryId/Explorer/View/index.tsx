@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useKeys } from 'rooks';
 import {
 	ExplorerLayout,
-	getExplorerLayoutStore,
+	explorerLayout,
 	getItemObject,
 	useSelector,
 	type Object
@@ -186,7 +186,7 @@ const useShortcuts = () => {
 	useShortcut('showImageSlider', (e) => {
 		if (isRenaming) return;
 		e.stopPropagation();
-		getExplorerLayoutStore().showImageSlider = !getExplorerLayoutStore().showImageSlider;
+		explorerLayout.showImageSlider = !explorerLayout.showImageSlider;
 	});
 
 	useKeys([meta.key, 'KeyN'], () => {
