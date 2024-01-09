@@ -18,10 +18,10 @@ export function Demo(props: { demo: string }) {
 					<div>{props.demo}</div>
 					<div>CTX: {ctx()}</div>
 					<Inner />
-					<WithSolid root={Demo3} demo={count.toString()} name="A" />
+					<WithSolid root={Demo3} demo={count.toString()} />
 				</div>
 			</demoCtx.Provider>
-			<WithSolid root={Demo3} demo={count.toString()} name="B" />
+			<WithSolid root={Demo3} demo={count.toString()} />
 		</>
 	);
 }

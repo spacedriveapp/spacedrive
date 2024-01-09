@@ -29,8 +29,6 @@ type RegisteredContext = {
 const reactGlobalContext = createReactContext([] as RegisteredContext[]);
 const solidGlobalContext = createSolidContext(() => [] as RegisteredContext[]);
 
-// TODO: Use context for props to avoid complete rerenders
-
 export function createSharedContext<T>(initialValue: T) {
 	const id = Symbol('shared-context');
 
@@ -48,7 +46,7 @@ export function createSharedContext<T>(initialValue: T) {
 			const globalCtx = useSolidContext(solidGlobalContext);
 
 			return solidGlobalContext.Provider({
-				value: () => [...globalCtx(), ctxEntry], // TODO: Ensure multiple of the same provider override correctly
+				value: () => [...globalCtx().filter((c) => c.id !== id), ctxEntry],
 				get children() {
 					return props.children as SolidJSX.Element;
 				}
@@ -59,7 +57,7 @@ export function createSharedContext<T>(initialValue: T) {
 			return createElement(
 				reactGlobalContext.Provider as any,
 				{
-					value: [...globalCtx, ctxEntry] // TODO: Ensure multiple of the same provider override correctly
+					value: [...globalCtx.filter((c) => c.id !== id), ctxEntry]
 				},
 				props.children as any
 			) as any;

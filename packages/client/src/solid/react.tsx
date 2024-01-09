@@ -12,7 +12,7 @@ type Props<T> =
 			root: () => SolidJSX.Element;
 	  };
 
-export function WithSolid<T>(props: Props<T> & { name: string }) {
+export function WithSolid<T>(props: Props<T>) {
 	const ref = useRef<HTMLDivElement>(null);
 	const applyCtx = useWithContextReact();
 
