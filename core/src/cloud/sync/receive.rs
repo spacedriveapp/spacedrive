@@ -1,13 +1,14 @@
 use crate::{
-	cloud::sync::{err_break, err_return},
+	cloud::sync::{err_break, err_return, CompressedCRDTOperations},
 	library::Library,
 	Node,
 };
 
 use sd_core_sync::NTP64;
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
-use sd_sync::*;
+use sd_sync::CRDTOperation;
 use sd_utils::{from_bytes_to_uuid, uuid_to_bytes};
+use tracing::info;
 
 use std::{
 	collections::{hash_map::Entry, HashMap},
@@ -17,14 +18,12 @@ use std::{
 
 use base64::prelude::*;
 use chrono::Utc;
-use serde::Deserialize;
-use serde_json::{json, to_vec};
+use serde_json::to_vec;
 use tokio::{sync::Notify, time::sleep};
 use uuid::Uuid;
 
 pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>, Arc<Notify>)) {
 	let db = &library.db;
-	let api_url = &library.env.api_url;
 	let library_id = library.id;
 
 	let mut cloud_timestamps = {
@@ -57,53 +56,49 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 			.collect::<HashMap<_, _>>()
 	};
 
+	info!(
+		"Fetched timestamps for {} local instances",
+		cloud_timestamps.len()
+	);
+
 	loop {
-		let instances = {
-			err_break!(
-				db.instance()
-					.find_many(vec![])
-					.select(instance::select!({ pub_id }))
-					.exec()
-					.await
-			)
-			.into_iter()
-			.map(|i| {
-				let uuid = from_bytes_to_uuid(&i.pub_id);
-
-				json!({
-					"instanceUuid": uuid,
-					"fromTime": cloud_timestamps.get(&uuid).cloned().unwrap_or_default().as_u64().to_string()
-				})
-			})
-			.collect::<Vec<_>>()
-		};
-
-		#[derive(Deserialize, Debug)]
-		#[serde(rename_all = "camelCase")]
-		struct MessageCollection {
-			instance_uuid: Uuid,
-			// start_time: String,
-			end_time: String,
-			contents: String,
-		}
+		let instances = err_break!(
+			db.instance()
+				.find_many(vec![])
+				.select(instance::select!({ pub_id }))
+				.exec()
+				.await
+		);
 
 		{
-			let collections = node
-				.authed_api_request(
-					node.http
-						.post(&format!(
-							"{api_url}/api/v1/libraries/{library_id}/messageCollections/get"
-						))
-						.json(&json!({
-							"instanceUuid": library.instance_uuid,
-							"timestamps": instances
-						})),
+			let collections = {
+				use sd_cloud_api::library::message_collections;
+				message_collections::get(
+					node.cloud_api_config().await,
+					library_id,
+					library.instance_uuid,
+					instances
+						.into_iter()
+						.map(|i| {
+							let uuid = from_bytes_to_uuid(&i.pub_id);
+
+							message_collections::get::InstanceTimestamp {
+								instance_uuid: uuid,
+								from_time: cloud_timestamps
+									.get(&uuid)
+									.cloned()
+									.unwrap_or_default()
+									.as_u64()
+									.to_string(),
+							}
+						})
+						.collect::<Vec<_>>(),
 				)
 				.await
-				.expect("couldn't get response")
-				.json::<Vec<MessageCollection>>()
-				.await
-				.expect("couldn't deserialize response");
+			};
+			let collections = err_break!(collections);
+
+			info!("Received {} collections", collections.len());
 
 			let mut cloud_library_data: Option<Option<sd_cloud_api::Library>> = None;
 
@@ -152,15 +147,12 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 					e.insert(NTP64(0));
 				}
 
-				err_break!(
-					write_cloud_ops_to_db(
-						err_break!(serde_json::from_slice(err_break!(
-							&BASE64_STANDARD.decode(collection.contents)
-						))),
-						db
-					)
-					.await
-				);
+				let compressed_operations: CompressedCRDTOperations =
+					err_break!(serde_json::from_slice(err_break!(
+						&BASE64_STANDARD.decode(collection.contents)
+					)));
+
+				err_break!(write_cloud_ops_to_db(compressed_operations.into_ops(), db).await);
 
 				let collection_timestamp =
 					NTP64(collection.end_time.parse().expect("unable to parse time"));
@@ -196,7 +188,7 @@ fn crdt_op_db(op: &CRDTOperation) -> cloud_crdt_operation::Create {
 		id: op.id.as_bytes().to_vec(),
 		timestamp: op.timestamp.0 as i64,
 		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
-		kind: op.kind().to_string(),
+		kind: op.data.as_kind().to_string(),
 		data: to_vec(&op.data).expect("unable to serialize data"),
 		model: op.model.to_string(),
 		record_id: to_vec(&op.record_id).expect("unable to serialize record id"),

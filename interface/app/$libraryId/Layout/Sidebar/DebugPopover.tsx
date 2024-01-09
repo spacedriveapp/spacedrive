@@ -1,9 +1,12 @@
 import { CheckSquare } from '@phosphor-icons/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import {
+	auth,
 	backendFeatures,
 	features,
 	toggleFeatureFlag,
+	useBridgeMutation,
 	useBridgeQuery,
 	useDebugState,
 	useFeatureFlags,
@@ -43,6 +46,10 @@ export default () => {
 			}
 		>
 			<div className="no-scrollbar block h-96 w-[430px] overflow-y-scroll pb-4">
+				<Setting mini title="Cloud Origin" description="Change the cloud origin to use">
+					<CloudOriginSelect />
+				</Setting>
+
 				<Setting
 					mini
 					title="rspc Logger"
@@ -232,3 +239,31 @@ function FeatureFlagSelector() {
 // 		</Setting>
 // 	);
 // }
+
+function CloudOriginSelect() {
+	const origin = useBridgeQuery(['cloud.getApiOrigin']);
+	const setOrigin = useBridgeMutation(['cloud.setApiOrigin']);
+
+	const queryClient = useQueryClient();
+
+	return (
+		<>
+			{origin.data && (
+				<Select
+					onChange={(v) =>
+						setOrigin.mutateAsync(v).then(() => {
+							auth.logout();
+							queryClient.invalidateQueries();
+						})
+					}
+					value={origin.data}
+				>
+					<SelectOption value="https://app.spacedrive.com">
+						https://app.spacedrive.com
+					</SelectOption>
+					<SelectOption value="http://localhost:3000">http://localhost:3000</SelectOption>
+				</Select>
+			)}
+		</>
+	);
+}

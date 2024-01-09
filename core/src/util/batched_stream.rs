@@ -58,10 +58,10 @@ impl<S: Stream + Unpin> Stream for BatchedStream<S> {
 					Poll::Pending
 				} else {
 					let batch = std::mem::take(batch);
-					return Poll::Ready(Some(batch));
+					Poll::Ready(Some(batch))
 				}
 			}
-			BatchedStreamProj::Complete => return Poll::Ready(None),
+			BatchedStreamProj::Complete => Poll::Ready(None),
 		}
 	}
 }

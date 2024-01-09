@@ -34,11 +34,11 @@ nonLibraryClient
 		store.state = { status: 'notLoggedIn' };
 	});
 
-type CallbackStatus = 'success' | 'error' | 'cancel';
+type CallbackStatus = 'success' | { error: string } | 'cancel';
 const loginCallbacks = new Set<(status: CallbackStatus) => void>();
 
-function onError() {
-	loginCallbacks.forEach((cb) => cb('error'));
+function onError(error: string) {
+	loginCallbacks.forEach((cb) => cb({ error }));
 }
 
 export function login(config: ProviderConfig) {
@@ -51,12 +51,14 @@ export function login(config: ProviderConfig) {
 			if (data === 'Complete') {
 				config.finish?.(authCleanup);
 				loginCallbacks.forEach((cb) => cb('success'));
-			} else if (data === 'Error') onError();
+			} else if ('Error' in data) onError(data.Error);
 			else {
 				authCleanup = config.start(data.Start.verification_url_complete);
 			}
 		},
-		onError
+		onError(e) {
+			onError(e.message);
+		}
 	});
 
 	return new Promise<void>((res, rej) => {
@@ -69,7 +71,7 @@ export function login(config: ProviderConfig) {
 				res();
 			} else {
 				store.state = { status: 'notLoggedIn' };
-				rej();
+				rej(JSON.stringify(status));
 			}
 		};
 		loginCallbacks.add(cb);

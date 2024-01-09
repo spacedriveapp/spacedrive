@@ -9,15 +9,17 @@ export const Component = () => {
 
 	const authState = auth.useStateSnapshot();
 
-	if (authState.status === 'loggedIn') return <Authenticated />;
-	if (authState.status === 'notLoggedIn' || authState.status === 'loggingIn')
-		return (
-			<div className="flex flex-row p-4">
-				<LoginButton />
-			</div>
-		);
+	const authSensitiveChild = () => {
+		if (authState.status === 'loggedIn') return <Authenticated />;
+		if (authState.status === 'notLoggedIn' || authState.status === 'loggingIn')
+			return <LoginButton />;
 
-	return null;
+		return null;
+	};
+
+	return (
+		<div className="flex h-full w-full flex-col items-start p-4">{authSensitiveChild()}</div>
+	);
 };
 
 function Authenticated() {
@@ -32,7 +34,7 @@ function Authenticated() {
 	);
 
 	return (
-		<div className="flex flex-row p-4">
+		<>
 			{cloudLibrary.data ? (
 				<div className="flex flex-col items-start space-y-2">
 					<div>
@@ -77,6 +79,6 @@ function Authenticated() {
 					</Button>
 				</div>
 			)}
-		</div>
+		</>
 	);
 }

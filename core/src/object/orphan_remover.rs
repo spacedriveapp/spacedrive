@@ -90,6 +90,7 @@ impl OrphanRemoverActor {
 				.await
 			{
 				error!("Failed to remove orphaned objects: {e:#?}");
+				break;
 			}
 		}
 	}

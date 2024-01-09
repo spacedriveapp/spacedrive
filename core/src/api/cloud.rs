@@ -22,10 +22,22 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.merge("library.", library::mount())
 		.merge("locations.", locations::mount())
+		.procedure("getApiOrigin", {
+			R.query(|node, _: ()| async move { Ok(node.env.api_url.lock().await.to_string()) })
+		})
+		.procedure("setApiOrigin", {
+			R.mutation(|node, origin: String| async move {
+				let mut origin_env = node.env.api_url.lock().await;
+				*origin_env = origin;
+
+				node.config.write(|c| c.auth_token = None).await.ok();
+
+				Ok(())
+			})
+		})
 }
 
 mod library {
-
 	use super::*;
 
 	pub fn mount() -> AlphaRouter<Ctx> {
@@ -116,10 +128,7 @@ mod locations {
 	};
 	use http_body::Full;
 	use serde::{Deserialize, Serialize};
-	use serde_json::json;
 	use specta::Type;
-
-	use crate::util::http::ensure_response;
 
 	use super::*;
 
@@ -129,58 +138,27 @@ mod locations {
 		name: String,
 	}
 
-	#[derive(Debug, Clone, Type, Deserialize)]
-	pub struct AuthoriseResponse {
-		access_key_id: String,
-		secret_access_key: String,
-		session_token: String,
-	}
-
 	pub fn mount() -> AlphaRouter<Ctx> {
 		R.router()
 			.procedure("list", {
 				R.query(|node, _: ()| async move {
-					let api_url = &node.env.api_url;
-
-					node.authed_api_request(node.http.get(&format!("{api_url}/api/v1/locations")))
+					sd_cloud_api::locations::list(node.cloud_api_config().await)
 						.await
-						.and_then(ensure_response)
-						.map(parse_json_body::<Vec<CloudLocation>>)?
-						.await
+						.map_err(Into::into)
 				})
 			})
 			.procedure("create", {
 				R.mutation(|node, name: String| async move {
-					let api_url = &node.env.api_url;
-
-					node.authed_api_request(
-						node.http
-							.post(&format!("{api_url}/api/v1/locations"))
-							.json(&json!({
-								"name": name
-							})),
-					)
-					.await
-					.and_then(ensure_response)
-					.map(parse_json_body::<CloudLocation>)?
-					.await
+					sd_cloud_api::locations::create(node.cloud_api_config().await, name)
+						.await
+						.map_err(Into::into)
 				})
 			})
 			.procedure("remove", {
 				R.mutation(|node, id: String| async move {
-					let api_url = &node.env.api_url;
-
-					node.authed_api_request(
-						node.http
-							.post(&format!("{api_url}/api/v1/locations/delete"))
-							.json(&json!({
-								"id": id
-							})),
-					)
-					.await
-					.and_then(ensure_response)?;
-
-					Ok(())
+					sd_cloud_api::locations::create(node.cloud_api_config().await, id)
+						.await
+						.map_err(Into::into)
 				})
 			})
 			// TODO: Remove this
@@ -190,7 +168,7 @@ mod locations {
 				// 	Lazy::new(|| Mutex::new(None));
 
 				#[derive(Debug)]
-				pub struct CredentialsProvider(AuthoriseResponse);
+				pub struct CredentialsProvider(sd_cloud_api::locations::authorise::Response);
 
 				impl ProvideCredentials for CredentialsProvider {
 					fn provide_credentials<'a>(&'a self) -> future::ProvideCredentials<'a>
@@ -221,19 +199,11 @@ mod locations {
 					let token = {
 						let token = &mut None; // AUTH_TOKEN.lock().await; // TODO: Caching of the token. For now it's annoying when debugging.
 						if token.is_none() {
-							let api_url = &node.env.api_url;
-
 							*token = Some(
-								node.authed_api_request(
-									node.http
-										.post(&format!("{api_url}/api/v1/locations/authorise"))
-										.json(&json!({
-											"id": params.id
-										})),
+								sd_cloud_api::locations::authorise(
+									node.cloud_api_config().await,
+									params.id,
 								)
-								.await
-								.and_then(ensure_response)
-								.map(parse_json_body::<AuthoriseResponse>)?
 								.await?,
 							);
 						}

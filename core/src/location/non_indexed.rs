@@ -362,9 +362,9 @@ impl Entry {
 pub async fn get_all_entries(path: PathBuf) -> Result<Vec<Entry>, NonIndexedLocationError> {
 	tokio::task::spawn_blocking(move || {
 		let path = &path;
-		let mut dir = std::fs::read_dir(&path).map_err(|e| (path, e))?;
+		let dir = std::fs::read_dir(path).map_err(|e| (path, e))?;
 		let mut entries = Vec::new();
-		while let Some(entry) = dir.next() {
+		for entry in dir {
 			let entry = entry.map_err(|e| (path, e))?;
 
 			// We must not keep `entry` around as we will quickly hit the OS limit on open file descriptors
