@@ -19,8 +19,8 @@ export default function Sidebar() {
 					<Library />
 				</LibraryContextProvider>
 			)}
-			<Local />
 			<Debug />
+			<Local />
 			{library && (
 				<LibraryContextProvider library={library}>
 					<SavedSearches />
