@@ -2,7 +2,6 @@ mod abort_on_drop;
 mod batched_stream;
 #[cfg(debug_assertions)]
 pub mod debug_initializer;
-pub mod http;
 mod infallible_request;
 mod maybe_undefined;
 pub mod mpscrr;

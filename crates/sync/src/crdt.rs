@@ -33,7 +33,7 @@ pub enum CRDTOperationData {
 }
 
 impl CRDTOperationData {
-	fn as_kind(&self) -> OperationKind {
+	pub fn as_kind(&self) -> OperationKind {
 		match self {
 			Self::Create => OperationKind::Create,
 			Self::Update { field, .. } => OperationKind::Update(field),

@@ -23,9 +23,7 @@ impl Actors {
 		actor_fn: impl FnOnce() -> F + Send + Sync + Clone + 'static,
 		autostart: bool,
 	) {
-		let mut actors = self.actors.lock().await;
-
-		actors.insert(
+		self.actors.lock().await.insert(
 			name.to_string(),
 			Arc::new(Actor {
 				abort_handle: Default::default(),

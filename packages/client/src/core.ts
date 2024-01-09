@@ -6,6 +6,7 @@ export type Procedures = {
         { key: "auth.me", input: never, result: { id: string; email: string } } | 
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
+        { key: "cloud.getApiOrigin", input: never, result: string } | 
         { key: "cloud.library.get", input: LibraryArgs<null>, result: { uuid: string; name: string; instances: CloudInstance[]; ownerId: string } | null } | 
         { key: "cloud.library.list", input: never, result: CloudLibrary[] } | 
         { key: "cloud.locations.list", input: never, result: CloudLocation[] } | 
@@ -58,8 +59,9 @@ export type Procedures = {
         { key: "cloud.library.create", input: LibraryArgs<null>, result: null } | 
         { key: "cloud.library.join", input: string, result: LibraryConfigWrapped } | 
         { key: "cloud.locations.create", input: string, result: CloudLocation } | 
-        { key: "cloud.locations.remove", input: string, result: null } | 
+        { key: "cloud.locations.remove", input: string, result: CloudLocation } | 
         { key: "cloud.locations.testing", input: TestingParams, result: null } | 
+        { key: "cloud.setApiOrigin", input: string, result: null } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
         { key: "ephemeralFiles.cutFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
@@ -529,7 +531,7 @@ export type RescanArgs = { location_id: number; sub_path: string }
 
 export type Resolution = { width: number; height: number }
 
-export type Response = { Start: { user_code: string; verification_url: string; verification_url_complete: string } } | "Complete" | "Error"
+export type Response = { Start: { user_code: string; verification_url: string; verification_url_complete: string } } | "Complete" | { Error: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
