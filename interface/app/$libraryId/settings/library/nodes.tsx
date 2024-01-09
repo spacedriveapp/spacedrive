@@ -9,19 +9,18 @@ import {
 } from '@sd/client';
 import { Button } from '@sd/ui';
 import { startPairing } from '~/app/p2p/pairing';
+import { useLocale } from '~/hooks';
 
 import { Heading } from '../Layout';
 
 export const Component = () => {
 	const isPairingEnabled = useFeatureFlag('p2pPairing');
 	const node = useBridgeQuery(['nodeState']);
+	const { t } = useLocale();
 
 	return (
 		<>
-			<Heading
-				title="Nodes"
-				description="Manage the nodes connected to this library. A node is an instance of Spacedrive's backend, running on a device or server. Each node carries a copy of the database and synchronizes via peer-to-peer connections in realtime."
-			/>
+			<Heading title={t('nodes')} description={t('nodes_description')} />
 			{/* TODO: Show paired nodes + unpair button */}
 
 			{/* TODO: Replace with modal */}
@@ -36,6 +35,7 @@ export const Component = () => {
 
 // TODO: This entire component shows a UI which is pairing by node but that is just not how it works.
 function IncorrectP2PPairingPane() {
+	const { t } = useLocale();
 	const onlineNodes = useDiscoveredPeers();
 	const connectedNodes = useConnectedPeers();
 	const p2pPair = useBridgeMutation('p2p.pair', {
@@ -75,13 +75,13 @@ function IncorrectP2PPairingPane() {
 									);
 								}}
 							>
-								Pair
+								{t('pair')}
 							</Button>
 						</div>
 					))}
 				</div>
 				<div className="flex-[50%]">
-					<h1 className="mt-4">Connected</h1>
+					<h1 className="mt-4">{t('connected')}</h1>
 					{[...connectedNodes.entries()].map(([id, node]) => (
 						<div key={id} className="flex space-x-2">
 							<p>{id}</p>

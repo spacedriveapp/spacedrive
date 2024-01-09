@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
-import { subscribe, useSnapshot } from 'valtio';
+import { createMutable } from 'solid-js/store';
 
 import type { BackendFeature } from '../core';
-import { valtioPersist } from '../lib/valito';
 import { nonLibraryClient, useBridgeQuery } from '../rspc';
+import { createPersistedMutable, useObserver, useSolidStore } from '../solid';
 
 export const features = [
 	'p2pPairing',
@@ -20,11 +20,13 @@ export const backendFeatures: BackendFeature[] = ['syncEmitMessages', 'filesOver
 
 export type FeatureFlag = (typeof features)[number] | BackendFeature;
 
-const featureFlagState = valtioPersist(
+export const featureFlagsStore = createPersistedMutable(
 	'sd-featureFlags',
-	{ enabled: [] as FeatureFlag[] },
+	createMutable({
+		enabled: [] as FeatureFlag[]
+	}),
 	{
-		saveFn(data) {
+		onSave: (data) => {
 			// Clone so we don't mess with the original data
 			const data2: typeof data = JSON.parse(JSON.stringify(data));
 			// Only save frontend flags (backend flags are saved in the backend)
@@ -38,9 +40,9 @@ export function useLoadBackendFeatureFlags() {
 	const nodeConfig = useBridgeQuery(['nodeState']);
 
 	useEffect(() => {
-		featureFlagState.enabled = [
+		featureFlagsStore.enabled = [
 			// Remove all backend features.
-			...featureFlagState.enabled.filter((f) => features.includes(f as any)),
+			...featureFlagsStore.enabled.filter((f) => features.includes(f as any)),
 			// Add back in current state of backend features
 
 			...(nodeConfig.data?.features ?? [])
@@ -49,20 +51,18 @@ export function useLoadBackendFeatureFlags() {
 }
 
 export function useFeatureFlags() {
-	return useSnapshot(featureFlagState);
+	// We have to be special here.
+	// `useSolidStore` would not work as it "subscribes" to the array, not the items in the array.
+	return useObserver(() => [...featureFlagsStore.enabled]);
 }
 
 export function useFeatureFlag(flag: FeatureFlag | FeatureFlag[]) {
-	useSnapshot(featureFlagState); // Rerender on change
+	useFeatureFlags(); // Rerender on change
 	return Array.isArray(flag) ? flag.every((f) => isEnabled(f)) : isEnabled(flag);
 }
 
-export function useOnFeatureFlagsChange(callback: (flags: FeatureFlag[]) => void) {
-	useEffect(() => subscribe(featureFlagState, () => callback(featureFlagState.enabled)));
-}
-
 export const isEnabled = (flag: FeatureFlag) =>
-	featureFlagState.enabled.find((ff) => flag === ff) !== undefined;
+	featureFlagsStore.enabled.find((ff) => flag === ff) !== undefined;
 
 export function toggleFeatureFlag(flags: FeatureFlag | FeatureFlag[]) {
 	if (!Array.isArray(flags)) {
@@ -74,7 +74,7 @@ export function toggleFeatureFlag(flags: FeatureFlag | FeatureFlag[]) {
 			void (async () => {
 				// Tauri's `confirm` returns a Promise
 				// Only prompt when enabling the feature
-				const result = featureFlagState.enabled.find((ff) => f === ff)
+				const result = featureFlagsStore.enabled.find((ff) => f === ff)
 					? true
 					: await confirm(
 							'This feature will render your database broken and it WILL need to be reset! Use at your own risk!'
@@ -88,7 +88,7 @@ export function toggleFeatureFlag(flags: FeatureFlag | FeatureFlag[]) {
 			return;
 		}
 
-		if (!featureFlagState.enabled.find((ff) => f === ff)) {
+		if (!featureFlagsStore.enabled.find((ff) => f === ff)) {
 			let message: string | undefined;
 			if (f === 'p2pPairing') {
 				message =
@@ -104,14 +104,14 @@ export function toggleFeatureFlag(flags: FeatureFlag | FeatureFlag[]) {
 					const result = await confirm(message);
 
 					if (result) {
-						featureFlagState.enabled.push(f);
+						featureFlagsStore.enabled.push(f);
 					}
 				})();
 			} else {
-				featureFlagState.enabled.push(f);
+				featureFlagsStore.enabled.push(f);
 			}
 		} else {
-			featureFlagState.enabled = featureFlagState.enabled.filter((ff) => f !== ff);
+			featureFlagsStore.enabled = featureFlagsStore.enabled.filter((ff) => f !== ff);
 		}
 	});
 }

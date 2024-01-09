@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useBridgeQuery, useFeatureFlag } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
 import { Icon, SubtleButton } from '~/components';
+import { useLocale } from '~/hooks';
 
 import SidebarLink from '../Link';
 import Section from '../Section';
@@ -9,6 +10,8 @@ import Section from '../Section';
 export const Devices = () => {
 	const { data: node } = useBridgeQuery(['nodeState']);
 	const isPairingEnabled = useFeatureFlag('p2pPairing');
+
+	const { t } = useLocale();
 
 	return (
 		<Section
@@ -28,12 +31,9 @@ export const Devices = () => {
 				</SidebarLink>
 			)}
 
-			<Tooltip
-				label="Coming soon! This alpha release doesn't include library sync, it will be ready very soon."
-				position="right"
-			>
+			<Tooltip label={t('devices_coming_soon_tooltip')} position="right">
 				<Button disabled variant="dotted" className="mt-1 w-full">
-					Add Device
+					{t('add_device')}
 				</Button>
 			</Tooltip>
 		</Section>

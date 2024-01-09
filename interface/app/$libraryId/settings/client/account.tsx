@@ -5,10 +5,12 @@ import { auth, useBridgeMutation, useBridgeQuery, useFeatureFlag } from '@sd/cli
 import { Button, Card, Input, toast } from '@sd/ui';
 import { Icon, TruncatedText } from '~/components';
 import { AuthRequiredOverlay } from '~/components/AuthRequiredOverlay';
+import { useLocale } from '~/hooks';
 
 import { Heading } from '../Layout';
 
 export const Component = () => {
+	const { t } = useLocale();
 	const me = useBridgeQuery(['auth.me'], { retry: false });
 	const authStore = auth.useStateSnapshot();
 	return (
@@ -25,8 +27,8 @@ export const Component = () => {
 						)}
 					</>
 				}
-				title="Your account"
-				description="Spacedrive account and information."
+				title={t('your_account')}
+				description={t('your_account_description')}
 			/>
 			<div className="flex flex-col justify-between gap-5 lg:flex-row">
 				<Profile authStore={authStore} email={me.data?.email} />

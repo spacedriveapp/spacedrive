@@ -1,9 +1,13 @@
+import { useLocale } from '~/hooks';
+
 import { Heading } from '../Layout';
 
 export const Component = () => {
+	const { t } = useLocale();
+
 	return (
 		<>
-			<Heading title="Contacts" description="Manage your contacts in Spacedrive." />
+			<Heading title={t('contacts')} description={t('contacts_description')} />
 		</>
 	);
 };

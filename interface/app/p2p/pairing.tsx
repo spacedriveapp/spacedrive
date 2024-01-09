@@ -18,6 +18,7 @@ import {
 	UseDialogProps,
 	z
 } from '@sd/ui';
+import { useLocale } from '~/hooks';
 
 type Node = {
 	name: string;
@@ -35,16 +36,18 @@ function OriginatorDialog({
 }: { pairingId: number; node: Node } & UseDialogProps) {
 	const pairingStatus = usePairingStatus(pairingId);
 
+	const { t } = useLocale();
+
 	// TODO: If dialog closes before finished, cancel pairing
 
 	return (
 		<Dialog
 			form={useZodForm({ schema: z.object({}) })}
 			dialog={useDialog(props)}
-			title={`Pairing with ${node.name}`}
+			title={t('pairing_with_node', { node: node.name })}
 			loading={true}
 			submitDisabled={pairingStatus?.type !== 'PairingComplete'}
-			ctaLabel="Done"
+			ctaLabel={t('done')}
 			// closeLabel="Cancel"
 			onSubmit={async () => {
 				// TODO: Change into the new library
@@ -87,6 +90,8 @@ function PairingResponder({ pairingId }: { pairingId: number }) {
 	);
 	const pairingResponse = useBridgeMutation('p2p.pairingResponse');
 
+	const { t } = useLocale();
+
 	return (
 		<>
 			{selectedLibrary ? (
@@ -111,10 +116,10 @@ function PairingResponder({ pairingId }: { pairingId: number }) {
 							]);
 					}}
 				>
-					Accept
+					{t('accept')}
 				</Button>
 				<Button onClick={() => pairingResponse.mutate([pairingId, { decision: 'reject' }])}>
-					Reject
+					{t('reject')}
 				</Button>
 			</div>
 		</>
