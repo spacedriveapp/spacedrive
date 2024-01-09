@@ -64,33 +64,11 @@ export const Component = () => {
 						<Icon name="Globe" size={128} />
 						<h1 className="mt-4 text-lg font-bold">{t('your_local_network')}</h1>
 						<p className="mt-1 max-w-sm text-center text-sm text-ink-dull">
-							{t("network_page_description")}
+							{t('network_page_description')}
 						</p>
-						<Debug />
 					</div>
 				}
 			/>
 		</ExplorerContextProvider>
 	);
 };
-
-function Debug() {
-	const debugState = useDebugState();
-	const featureFlags = useFeatureFlags();
-	const demo = useFeatureFlag('solidJsDemo');
-
-	return (
-		<>
-			<p className="text-red">{debugState.enabled ? 'Enabled' : 'Disabled'}</p>
-			<button
-				onClick={() => {
-					debugState.enabled = !debugState.enabled;
-				}}
-			>
-				Toggle
-			</button>
-			<p className="text-red">{JSON.stringify(featureFlags)}</p>
-			<p className="text-red">{demo ? 'Enabled' : 'Disabled'}</p>
-		</>
-	);
-}
