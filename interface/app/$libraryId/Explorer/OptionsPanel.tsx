@@ -1,5 +1,5 @@
 import { RadixCheckbox, Select, SelectOption, Slider, tw, z } from '@sd/ui';
-import { getExplorerLayoutStore, useExplorerLayoutStore } from '~/../packages/client/src';
+import { explorerLayout, useExplorerLayoutStore } from '~/../packages/client/src';
 import i18n from '~/app/I18n';
 import { SortOrderSchema } from '~/app/route-schemas';
 import { useLocale } from '~/hooks';
@@ -124,7 +124,7 @@ export default () => {
 						name="showPathBar"
 						onCheckedChange={(value) => {
 							if (typeof value !== 'boolean') return;
-							getExplorerLayoutStore().showPathBar = value;
+							explorerLayout.showPathBar = value;
 						}}
 					/>
 

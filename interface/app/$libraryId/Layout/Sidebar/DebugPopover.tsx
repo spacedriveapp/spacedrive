@@ -3,10 +3,7 @@ import { useNavigate } from 'react-router';
 import {
 	backendFeatures,
 	features,
-	getDebugState,
-	isEnabled,
 	toggleFeatureFlag,
-	useBridgeMutation,
 	useBridgeQuery,
 	useDebugState,
 	useFeatureFlags,
@@ -53,7 +50,7 @@ export default () => {
 				>
 					<Switch
 						checked={debugState.rspcLogger}
-						onClick={() => (getDebugState().rspcLogger = !debugState.rspcLogger)}
+						onClick={() => (debugState.rspcLogger = !debugState.rspcLogger)}
 					/>
 				</Setting>
 				<Setting
@@ -70,8 +67,8 @@ export default () => {
 								!debugState.shareFullTelemetry === false &&
 								debugState.telemetryLogging
 							)
-								getDebugState().telemetryLogging = false;
-							getDebugState().shareFullTelemetry = !debugState.shareFullTelemetry;
+								debugState.telemetryLogging = false;
+							debugState.shareFullTelemetry = !debugState.shareFullTelemetry;
 						}}
 					/>
 				</Setting>
@@ -89,8 +86,8 @@ export default () => {
 								!debugState.telemetryLogging &&
 								debugState.shareFullTelemetry === false
 							)
-								getDebugState().shareFullTelemetry = true;
-							getDebugState().telemetryLogging = !debugState.telemetryLogging;
+								debugState.shareFullTelemetry = true;
+							debugState.telemetryLogging = !debugState.telemetryLogging;
 						}}
 					/>
 				</Setting>
@@ -137,7 +134,7 @@ export default () => {
 					<Select
 						value={debugState.reactQueryDevtools}
 						size="sm"
-						onChange={(value) => (getDebugState().reactQueryDevtools = value as any)}
+						onChange={(value) => (debugState.reactQueryDevtools = value as any)}
 					>
 						<SelectOption value="disabled">Disabled</SelectOption>
 						<SelectOption value="invisible">Invisible</SelectOption>
@@ -192,29 +189,35 @@ function InvalidateDebugPanel() {
 }
 
 function FeatureFlagSelector() {
-	useFeatureFlags(); // Subscribe to changes
+	const featureFlags = useFeatureFlags();
 
 	return (
-		<DropdownMenu.Root
-			trigger={
-				<Dropdown.Button variant="gray" className="w-full">
-					<span className="truncate">Feature Flags</span>
-				</Dropdown.Button>
-			}
-			className="mt-1 shadow-none data-[side=bottom]:slide-in-from-top-2 dark:divide-menu-selected/30 dark:border-sidebar-line dark:bg-sidebar-box"
-			alignToTrigger
-		>
-			{[...features, ...backendFeatures].map((feat) => (
-				<DropdownMenu.Item
-					key={feat}
-					label={feat}
-					iconProps={{ weight: 'bold', size: 16 }}
-					onClick={() => toggleFeatureFlag(feat)}
-					className="font-medium text-white"
-					icon={isEnabled(feat) ? CheckSquare : undefined}
-				/>
-			))}
-		</DropdownMenu.Root>
+		<>
+			<DropdownMenu.Root
+				trigger={
+					<Dropdown.Button variant="gray" className="w-full">
+						<span className="truncate">Feature Flags</span>
+					</Dropdown.Button>
+				}
+				className="mt-1 shadow-none data-[side=bottom]:slide-in-from-top-2 dark:divide-menu-selected/30 dark:border-sidebar-line dark:bg-sidebar-box"
+				alignToTrigger
+			>
+				{[...features, ...backendFeatures].map((feat) => (
+					<DropdownMenu.Item
+						key={feat}
+						label={feat}
+						iconProps={{ weight: 'bold', size: 16 }}
+						onClick={() => toggleFeatureFlag(feat)}
+						className="font-medium text-white"
+						icon={
+							featureFlags.find((f) => feat === f) !== undefined
+								? CheckSquare
+								: undefined
+						}
+					/>
+				))}
+			</DropdownMenu.Root>
+		</>
 	);
 }
 

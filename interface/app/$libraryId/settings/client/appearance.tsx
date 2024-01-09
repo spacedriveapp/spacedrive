@@ -2,14 +2,7 @@ import { CheckCircle } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useMotionValueEvent, useScroll } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
-import {
-	getThemeStore,
-	getUnitFormatStore,
-	Themes,
-	useThemeStore,
-	useUnitFormatStore,
-	useZodForm
-} from '@sd/client';
+import { Themes, unitFormatStore, useThemeStore, useUnitFormatStore, useZodForm } from '@sd/client';
 import { Button, Divider, Form, Select, SelectOption, SwitchField, z } from '@sd/ui';
 import { useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -98,20 +91,20 @@ export const Component = () => {
 		setSelectedTheme(theme);
 		if (theme === 'system') {
 			lockAppTheme?.('Auto');
-			getThemeStore().syncThemeWithSystem = true;
+			themeStore.syncThemeWithSystem = true;
 		} else if (theme === 'vanilla') {
-			getThemeStore().syncThemeWithSystem = false;
-			getThemeStore().theme = theme;
+			themeStore.syncThemeWithSystem = false;
+			themeStore.theme = theme;
 			document.documentElement.classList.add('vanilla-theme');
 		} else if (theme === 'dark') {
-			getThemeStore().syncThemeWithSystem = false;
-			getThemeStore().theme = theme;
+			themeStore.syncThemeWithSystem = false;
+			themeStore.theme = theme;
 			document.documentElement.classList.remove('vanilla-theme');
 		}
 	};
 
 	const hueSliderHandler = (hue: number) => {
-		getThemeStore().hueValue = hue;
+		themeStore.hueValue = hue;
 		if (themeStore.theme === 'vanilla') {
 			document.documentElement.style.setProperty('--light-hue', hue.toString());
 		} else if (themeStore.theme === 'dark') {
@@ -230,7 +223,7 @@ export const Component = () => {
 
 				<Setting mini title={t('coordinates')}>
 					<Select
-						onChange={(e) => (getUnitFormatStore().coordinatesFormat = e)}
+						onChange={(e) => (unitFormatStore.coordinatesFormat = e)}
 						value={formatStore.coordinatesFormat}
 					>
 						<SelectOption value="dms">DMS</SelectOption>
@@ -240,7 +233,7 @@ export const Component = () => {
 
 				<Setting mini title={t('distance')}>
 					<Select
-						onChange={(e) => (getUnitFormatStore().distanceFormat = e)}
+						onChange={(e) => (unitFormatStore.distanceFormat = e)}
 						value={formatStore.distanceFormat}
 					>
 						<SelectOption value="km">{t('kilometers')}</SelectOption>
@@ -250,7 +243,7 @@ export const Component = () => {
 
 				<Setting mini title={t('temperature')}>
 					<Select
-						onChange={(e) => (getUnitFormatStore().temperatureFormat = e)}
+						onChange={(e) => (unitFormatStore.temperatureFormat = e)}
 						value={formatStore.temperatureFormat}
 					>
 						<SelectOption value="celsius">{t('celcius')}</SelectOption>

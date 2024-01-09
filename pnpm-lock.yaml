@@ -837,9 +837,15 @@ importers:
       '@oscartbeaumont-sd/rspc-react':
         specifier: '=0.0.0-main-dc31e5b2'
         version: 0.0.0-main-dc31e5b2(@oscartbeaumont-sd/rspc-client@0.0.0-main-dc31e5b2)(@tanstack/react-query@4.36.1)(react@18.2.0)
+      '@solid-primitives/deep':
+        specifier: ^0.2.4
+        version: 0.2.4(solid-js@1.8.8)
       '@tanstack/react-query':
         specifier: ^4.36.1
         version: 4.36.1(react-dom@18.2.0)(react-native@0.72.6)(react@18.2.0)
+      '@tanstack/solid-query':
+        specifier: ^5.17.9
+        version: 5.17.9(solid-js@1.8.8)
       '@zxcvbn-ts/core':
         specifier: ^3.0.4
         version: 3.0.4
@@ -861,9 +867,9 @@ importers:
       react-hook-form:
         specifier: ^7.47.0
         version: 7.47.0(react@18.2.0)
-      valtio:
-        specifier: ^1.11.2
-        version: 1.12.0(@types/react@18.2.34)(react@18.2.0)
+      solid-js:
+        specifier: ^1.8.8
+        version: 1.8.8
       zod:
         specifier: ~3.22.4
         version: 3.22.4
@@ -6652,7 +6658,7 @@ packages:
       magic-string: 0.27.0
       react-docgen-typescript: 2.2.2(typescript@5.3.3)
       typescript: 5.3.3
-      vite: 5.0.10(less@4.2.0)
+      vite: 5.0.10(@types/node@18.17.19)
 
   /@jridgewell/gen-mapping@0.3.3:
     resolution: {integrity: sha512-HLhSWOLRi875zjjMG/r+Nv0oCW8umGb0BgEhyX3dDX3egwZtB8PqLnjz3yedt8R5StBrzcg4aBpnh8UA9D1BoQ==}
@@ -9406,6 +9412,41 @@ packages:
     dependencies:
       '@sinonjs/commons': 3.0.0
 
+  /@solid-primitives/deep@0.2.4(solid-js@1.8.8):
+    resolution: {integrity: sha512-4+1CL0zTj/MacwzMSEqSKlPlChsGFJsVk2tU6NUKeDt3GrX4Mpkys2JHuw3UZLUgCNlDZDbqMv+5MYMwl+dvww==}
+    peerDependencies:
+      solid-js: ^1.6.12
+    dependencies:
+      '@solid-primitives/memo': 1.3.5(solid-js@1.8.8)
+      solid-js: 1.8.8
+    dev: false
+
+  /@solid-primitives/memo@1.3.5(solid-js@1.8.8):
+    resolution: {integrity: sha512-fTtyM3rBDrgFbz4xoQnMNzbBR4GzoaYeZHj5RRxceBU9QDz7u6HE8+5mbxd6pJ+SuntjI5aYiAtwuyI8gG3rhA==}
+    peerDependencies:
+      solid-js: ^1.6.12
+    dependencies:
+      '@solid-primitives/scheduled': 1.4.1(solid-js@1.8.8)
+      '@solid-primitives/utils': 6.2.1(solid-js@1.8.8)
+      solid-js: 1.8.8
+    dev: false
+
+  /@solid-primitives/scheduled@1.4.1(solid-js@1.8.8):
+    resolution: {integrity: sha512-OLcNXwYpX7HUOEqNPcmR31dkyI1E2imkMDBRlqsGT0ZhJV1L2g0TEREpo4nm/kUhh8LVQzkfnxS+GONx9kh90A==}
+    peerDependencies:
+      solid-js: ^1.6.12
+    dependencies:
+      solid-js: 1.8.8
+    dev: false
+
+  /@solid-primitives/utils@6.2.1(solid-js@1.8.8):
+    resolution: {integrity: sha512-TsecNzxiO5bLfzqb4OOuzfUmdOROcssuGqgh5rXMMaasoFZ3GoveUgdY1wcf17frMJM7kCNGNuK34EjErneZkg==}
+    peerDependencies:
+      solid-js: ^1.6.12
+    dependencies:
+      solid-js: 1.8.8
+    dev: false
+
   /@storybook/addon-actions@7.5.2(@types/react-dom@18.2.14)(@types/react@18.2.34)(react-dom@18.2.0)(react@18.2.0):
     resolution: {integrity: sha512-jKF3rrMEu42TgZ5AEszADpVdASDu1S4Ozp1Ymf4akHLkaMOv+yzzD7LV6YGjJz8S2IryndZqE47e6stF0T99uA==}
     peerDependencies:
@@ -9898,7 +9939,7 @@ packages:
       magic-string: 0.30.5
       rollup: 3.29.4
       typescript: 5.3.3
-      vite: 5.0.10(less@4.2.0)
+      vite: 5.0.10(@types/node@18.17.19)
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -10251,7 +10292,7 @@ packages:
       react: 18.2.0
       react-docgen: 6.0.4
       react-dom: 18.2.0(react@18.2.0)
-      vite: 5.0.10(less@4.2.0)
+      vite: 5.0.10(@types/node@18.17.19)
     transitivePeerDependencies:
       - '@preact/preset-vite'
       - encoding
@@ -10730,6 +10771,10 @@ packages:
     resolution: {integrity: sha512-DJSilV5+ytBP1FbFcEJovv4rnnm/CokuVvrBEtW/Va9DvuJ3HksbXUJEpI0aV1KtuL4ZoO9AVE6PyNLzF7tLeA==}
     dev: false
 
+  /@tanstack/query-core@5.17.9:
+    resolution: {integrity: sha512-8xcvpWIPaRMDNLMvG9ugcUJMgFK316ZsqkPPbsI+TMZsb10N9jk0B6XgPk4/kgWC2ziHyWR7n7wUhxmD0pChQw==}
+    dev: false
+
   /@tanstack/react-query-devtools@4.36.1(@tanstack/react-query@4.36.1)(react-dom@18.2.0)(react@18.2.0):
     resolution: {integrity: sha512-WYku83CKP3OevnYSG8Y/QO9g0rT75v1om5IvcWUwiUZJ4LanYGLVCZ8TdFG5jfsq4Ej/lu2wwDAULEUnRIMBSw==}
     peerDependencies:
@@ -10783,6 +10828,15 @@ packages:
     dependencies:
       '@tanstack/virtual-core': 3.0.0-beta.66
       react: 18.2.0
+    dev: false
+
+  /@tanstack/solid-query@5.17.9(solid-js@1.8.8):
+    resolution: {integrity: sha512-ebcoTLajGoy4HRm9yAVH4N28CQZU5OPj5Gu2PwjWIePuCkWLFBYJcvYxgRxyf4GCh2GmelKNUu72HAvJbmKUOQ==}
+    peerDependencies:
+      solid-js: ^1.6.0
+    dependencies:
+      '@tanstack/query-core': 5.17.9
+      solid-js: 1.8.8
     dev: false
 
   /@tanstack/table-core@8.10.7:
@@ -11640,7 +11694,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.22.5(@babel/core@7.23.2)
       magic-string: 0.27.0
       react-refresh: 0.14.0
-      vite: 5.0.10(less@4.2.0)
+      vite: 5.0.10(@types/node@18.17.19)
     transitivePeerDependencies:
       - supports-color
 
@@ -24734,7 +24788,6 @@ packages:
       rollup: 4.9.2
     optionalDependencies:
       fsevents: 2.3.3
-    dev: true
 
   /vite@5.0.10(less@4.2.0):
     resolution: {integrity: sha512-2P8J7WWgmc355HUMlFrwofacvr98DAjoE52BfdbwQtyLH06XKwaL/FMnmKM2crF0iX4MpmMKoDlNCB1ok7zHCw==}
@@ -24770,6 +24823,7 @@ packages:
       rollup: 4.9.2
     optionalDependencies:
       fsevents: 2.3.3
+    dev: true
 
   /vite@5.0.10(sass@1.69.5):
     resolution: {integrity: sha512-2P8J7WWgmc355HUMlFrwofacvr98DAjoE52BfdbwQtyLH06XKwaL/FMnmKM2crF0iX4MpmMKoDlNCB1ok7zHCw==}
