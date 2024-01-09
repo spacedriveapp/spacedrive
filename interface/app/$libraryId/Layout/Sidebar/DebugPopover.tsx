@@ -224,6 +224,18 @@ function FeatureFlagSelector() {
 	);
 }
 
+// function TestNotifications() {
+// 	const coreNotif = useBridgeMutation(['notifications.test']);
+// 	const libraryNotif = useLibraryMutation(['notifications.testLibrary']);
+
+// 	return (
+// 		<Setting mini title="Notifications" description="Test the notification system">
+// 			<Button onClick={() => coreNotif.mutate(undefined)}>Core</Button>
+// 			<Button onClick={() => libraryNotif.mutate(null)}>Library</Button>
+// 		</Setting>
+// 	);
+// }
+
 function CloudOriginSelect() {
 	const origin = useBridgeQuery(['cloud.getApiOrigin']);
 	const setOrigin = useBridgeMutation(['cloud.setApiOrigin']);
