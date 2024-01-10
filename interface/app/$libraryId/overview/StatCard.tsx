@@ -83,9 +83,9 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 			<div className="flex h-10 flex-row items-center gap-1.5  border-t border-app-line px-2">
 				<Pill className="uppercase">{connectionType || 'Local'}</Pill>
 				<div className="grow" />
-				<Button size="icon" variant="outline">
+				{/* <Button size="icon" variant="outline">
 					<Ellipsis className="h-3 w-3 opacity-50" />
-				</Button>
+				</Button> */}
 			</div>
 		</Card>
 	);

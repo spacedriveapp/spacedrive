@@ -29,9 +29,9 @@ const OverviewSection = ({
 							<Button className={BUTTON_STYLE} size="icon" variant="subtle">
 							<CaretDown weight="fill" className="h-3 w-3 text-ink-faint " />
 						</Button> */}
-						<Button className={BUTTON_STYLE} size="icon" variant="subtle">
+						{/* <Button className={BUTTON_STYLE} size="icon" variant="subtle">
 							<Ellipsis className="h-3 w-3 text-ink-faint " />
-						</Button>
+						</Button> */}
 					</div>
 				</div>
 			)}

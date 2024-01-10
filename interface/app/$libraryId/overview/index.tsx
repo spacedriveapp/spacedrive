@@ -153,11 +153,13 @@ export const Component = () => {
 								connectionType={null}
 							/>
 						))}
-						<NewCard
-							icons={['HDD', 'Folder', 'Globe', 'SD']}
-							text="Connect a local path, volume or network location to Spacedrive."
-							buttonText="Add a Location"
-						/>
+						{!locations?.length && (
+							<NewCard
+								icons={['HDD', 'Folder', 'Globe', 'SD']}
+								text="Connect a local path, volume or network location to Spacedrive."
+								buttonText="Add a Location"
+							/>
+						)}
 					</OverviewSection>
 
 					<OverviewSection count={3} title="Cloud Drives">

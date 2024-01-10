@@ -1,4 +1,4 @@
-import { X } from '@phosphor-icons/react';
+// import { X } from '@phosphor-icons/react';
 import { Button } from '@sd/ui';
 import { Icon, IconName } from '~/components';
 
@@ -27,9 +27,9 @@ const NewCard = ({ icons, text, buttonText }: NewCardProps) => {
 						</div>
 					))}
 				</div>
-				<Button size="icon" variant="outline">
+				{/* <Button size="icon" variant="outline">
 					<X weight="bold" className="h-3 w-3 opacity-50" />
-				</Button>
+				</Button> */}
 			</div>
 			<span className="text-sm text-ink-dull">{text}</span>
 			<Button disabled={!buttonText} variant="outline">
