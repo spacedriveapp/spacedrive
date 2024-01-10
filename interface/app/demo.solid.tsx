@@ -1,9 +1,9 @@
 /** @jsxImportSource solid-js */
 
-import { createSignal } from 'solid-js';
+import { createEffect, createSignal } from 'solid-js';
 import { createSharedContext, WithReact } from '@sd/client';
 
-import { Demo as ReactDemo, Demo2 as ReactDemo2 } from './demo.react';
+import { Demo as ReactDemo, Demo2 as ReactDemo2, ReactSquare } from './demo.react';
 
 export const demoCtx = createSharedContext('the ctx was not set');
 
@@ -26,6 +26,7 @@ export function Demo(props: { demo: string }) {
 				<WithReact root={ReactDemo} demo={count().toString()} />
 				<WithReact root={ReactDemo2} />
 			</demoCtx.Provider>
+			<ReactSquareManager />
 		</div>
 	);
 }
@@ -48,5 +49,36 @@ export function Demo3(props: { demo: string }) {
 			<div>Hello from Solid again: {props.demo}</div>
 			<div>CTX: {ctx()}</div>
 		</div>
+	);
+}
+
+export function SolidSquare(props: { x: number; y: number }) {
+	return (
+		<div
+			class="absolute z-[999999999] border bg-blue-500"
+			style={{ width: '30px', height: '30px', left: props.x + 'px', top: props.y + 'px' }}
+		/>
+	);
+}
+
+export function ReactSquareManager() {
+	const [pos, setPos] = createSignal({ x: 100, y: 0, enabled: true });
+
+	setInterval(() => {
+		setPos((p) => {
+			if (!p.enabled) return p;
+			if (p.x > window.innerWidth) return { x: 100, y: 0, enabled: true };
+			if (p.y > window.innerHeight) return { x: 0, y: 0, enabled: true };
+			return { x: p.x + 1, y: p.y + 1, enabled: true };
+		});
+	}, 10);
+
+	return (
+		<>
+			<button onClick={() => setPos((p) => ({ ...p, enabled: !p.enabled }))}>
+				Toggle React (red)
+			</button>
+			<WithReact root={ReactSquare} x={pos().x} y={pos().y} />
+		</>
 	);
 }

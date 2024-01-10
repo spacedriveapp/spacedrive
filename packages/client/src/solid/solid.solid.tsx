@@ -1,11 +1,33 @@
 /** @jsxImportSource solid-js */
 
 import { trackDeep } from '@solid-primitives/deep';
-import { createElement, StrictMode, type FunctionComponent } from 'react';
-import ReactDOM from 'react-dom/client';
-import { createEffect, onCleanup, splitProps } from 'solid-js';
+import {
+	createElement,
+	createContext as createReactContext,
+	StrictMode,
+	type FunctionComponent
+} from 'react';
+import { createPortal } from 'react-dom';
+import {
+	createEffect,
+	createSignal,
+	getOwner,
+	onCleanup,
+	Owner,
+	splitProps,
+	useContext as useSolidContext,
+	type Setter
+} from 'solid-js';
 
-import { useWithContextSolid } from './context';
+import { withReactCtx as withReactContextProvider } from './context';
+import { reactPortalProvider } from './react';
+import { useObserverWithOwner } from './useObserver';
+
+type AllowReactiveScope<T> = T extends object
+	? {
+			[P in keyof T]: AllowReactiveScope<T[P]>;
+	  }
+	: T | (() => T);
 
 type Props<T> =
 	| {
@@ -13,47 +35,62 @@ type Props<T> =
 	  }
 	| ({
 			root: FunctionComponent<T>;
-	  } & T);
+	  } & AllowReactiveScope<T>);
+
+export const solidPortalProvider = createReactContext<Setter<JSX.Element[]>>(undefined!);
 
 export function WithReact<T extends object>(props: Props<T>) {
+	const reactPortalCtx = useSolidContext(reactPortalProvider);
+	if (!reactPortalCtx) throw new Error('No react portal provider context');
+
+	const [portals, setPortals] = createSignal([] as JSX.Element[]);
+
 	let ref: HTMLDivElement | undefined;
-	let root: ReactDOM.Root | undefined;
-	let cleanup: (() => void) | undefined = undefined;
-
-	const applyCtx = useWithContextSolid();
-	const [_, childProps] = splitProps(props, ['root']);
-
-	// TODO: Inject all context's
-	const render = (childProps: any) => {
-		if (!ref) return;
-		if (!root) {
-			root = ReactDOM.createRoot(ref);
-			// The `setTimeout` is to ensure React has time to do the intial render.
-			// React doesn't like when you unmount it while it's rendering.
-			cleanup = () => {
-				setTimeout(() => root?.unmount());
-				root = undefined;
-			};
-		}
-
-		root.render(
-			createElement(
-				StrictMode,
-				null,
-				applyCtx(createElement(props.root as any, childProps, null))
-			)
-		);
-	};
 
 	createEffect(() => {
-		const trackedProps = trackDeep(childProps);
-		render({ ...trackedProps });
+		if (!ref) return;
+
+		const elem = createElement(
+			StrictMode,
+			null,
+			createElement(
+				solidPortalProvider.Provider,
+				{
+					value: setPortals
+				},
+				createElement(
+					Wrapper,
+					{
+						root: props.root as any,
+						owner: getOwner()!,
+						childProps: () => splitProps(props, ['root'])[1]
+					},
+					null
+				)
+			)
+		);
+
+		const portal = createPortal(elem, ref);
+		reactPortalCtx((portals) => [...portals, portal]);
 	});
 
 	onCleanup(() => {
-		cleanup?.();
-		cleanup = undefined;
+		// TODO: Properly cleanup portal
 	});
 
-	return <div ref={ref} />;
+	return (
+		<>
+			<div ref={ref} />
+			{portals()}
+		</>
+	);
+}
+
+function Wrapper<T extends object>(props: {
+	root: FunctionComponent;
+	owner: Owner;
+	childProps: () => T;
+}) {
+	const childProps = useObserverWithOwner(props.owner, () => trackDeep(props.childProps()));
+	return withReactContextProvider(props.owner, createElement(props.root, childProps, null));
 }

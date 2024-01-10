@@ -8,6 +8,7 @@ import { PropsWithChildren, Suspense } from 'react';
 import { RouterProvider, RouterProviderProps } from 'react-router-dom';
 import {
 	P2PContextProvider,
+	ReactSolidInteropRoot,
 	useBridgeSubscription,
 	useInvalidateQuery,
 	useLoadBackendFeatureFlags
