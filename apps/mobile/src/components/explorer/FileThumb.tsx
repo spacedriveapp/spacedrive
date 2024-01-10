@@ -28,7 +28,9 @@ function useExplorerItemData(explorerItem: ExplorerItem) {
 	const explorerStore = useExplorerStore();
 
 	const firstThumbnail =
-		explorerItem.type === 'Label' ? explorerItem.thumbnails?.[0] : explorerItem.thumbnail;
+		explorerItem.type === 'Label'
+			? explorerItem.thumbnails?.[0]
+			: 'thumbnail' in explorerItem && explorerItem.thumbnail;
 
 	const newThumbnail = !!(
 		firstThumbnail && explorerStore.newThumbnails.has(flattenThumbnailKey(firstThumbnail))
