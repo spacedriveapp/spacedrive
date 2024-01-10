@@ -1,35 +1,30 @@
 import clsx from 'clsx';
 import {
 	forwardRef,
-	FunctionComponent,
 	memo,
 	useCallback,
 	useEffect,
 	useImperativeHandle,
-	useMemo,
 	useRef,
 	useState
 } from 'react';
 import TruncateMarkup from 'react-truncate-markup';
-import { createEffect } from 'solid-js';
-import { useSelector, WithSolid } from '@sd/client';
+import { useSelector } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { useOperatingSystem, useShortcut } from '~/hooks';
 
 import { explorerStore } from '../store';
-import { RenameTextBox2, TruncatedTextWrapperSolid } from './RenameTextBox.solid';
-import { TruncateMarkupSolid } from './TruncateMarkup.solid';
 
 export interface RenameTextBoxProps extends React.HTMLAttributes<HTMLDivElement> {
 	name: string;
 	onRename: (newName: string) => void;
 	disabled?: boolean;
-	lines: number;
+	lines?: number;
 	// Temporary solution for TruncatedText in list view
 	idleClassName?: string;
 }
 
-const RenameTextBoxReact = forwardRef<HTMLDivElement, RenameTextBoxProps>(
+export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 	({ name, onRename, disabled, className, idleClassName, lines, ...props }, _ref) => {
 		const os = useOperatingSystem();
 		const [isRenaming, drag] = useSelector(explorerStore, (s) => [s.isRenaming, s.drag]);
@@ -202,30 +197,16 @@ const RenameTextBoxReact = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 		);
 	}
 );
-RenameTextBoxReact.displayName = 'RenameTextBox';
 
-function RenameTextBoxSolid(props: RenameTextBoxProps) {
-	const os = useOperatingSystem();
-
-	return <WithSolid root={RenameTextBox2} _temporary_os={os} {...props} />;
-}
-
-// TODO
-// export const RenameTextBox = RenameTextBoxReact;
-export const RenameTextBox = RenameTextBoxSolid;
+RenameTextBox.displayName = 'RenameTextBox';
 
 interface TruncatedTextProps {
 	text: string;
-	lines: number;
+	lines?: number;
 	onTruncate: (wasTruncated: boolean) => void;
 }
 
-const TruncatedTextSolid = memo(({ text, lines, onTruncate }: TruncatedTextProps) => (
-	<WithSolid root={TruncatedTextWrapperSolid} text={text} lines={lines} onTruncate={onTruncate} />
-));
-
-// TODO: Remove the React variant
-const TruncatedTextReact = memo(({ text, lines, onTruncate }: TruncatedTextProps) => {
+const TruncatedText = memo(({ text, lines, onTruncate }: TruncatedTextProps) => {
 	const ellipsis = useCallback(() => {
 		const extension = text.lastIndexOf('.');
 		if (extension !== -1) return `...${text.slice(-(text.length - extension + 2))}`;
@@ -238,8 +219,5 @@ const TruncatedTextReact = memo(({ text, lines, onTruncate }: TruncatedTextProps
 		</TruncateMarkup>
 	);
 });
-TruncatedTextReact.displayName = 'TruncatedText';
 
-// TODO
-// const TruncatedText = TruncatedTextReact;
-const TruncatedText = TruncatedTextSolid;
+TruncatedText.displayName = 'TruncatedText';
