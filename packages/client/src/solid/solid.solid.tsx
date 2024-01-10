@@ -11,6 +11,8 @@ import { createPortal } from 'react-dom';
 import {
 	createEffect,
 	createSignal,
+	createUniqueId,
+	For,
 	getOwner,
 	onCleanup,
 	Owner,
@@ -37,13 +39,19 @@ type Props<T> =
 			root: FunctionComponent<T>;
 	  } & AllowReactiveScope<T>);
 
-export const solidPortalProvider = createReactContext<Setter<JSX.Element[]>>(undefined!);
+type SolidPortal = {
+	id: string;
+	portal: JSX.Element;
+};
+
+export const solidPortalProvider = createReactContext<Setter<SolidPortal[]>>(undefined!);
 
 export function WithReact<T extends object>(props: Props<T>) {
-	const reactPortalCtx = useSolidContext(reactPortalProvider);
-	if (!reactPortalCtx) throw new Error('No react portal provider context');
+	const setReactPortals = useSolidContext(reactPortalProvider);
+	if (!setReactPortals) throw new Error('No react portal provider context');
 
-	const [portals, setPortals] = createSignal([] as JSX.Element[]);
+	const id = createUniqueId();
+	const [portals, setPortals] = createSignal([] as SolidPortal[]);
 
 	let ref: HTMLDivElement | undefined;
 
@@ -71,17 +79,23 @@ export function WithReact<T extends object>(props: Props<T>) {
 		);
 
 		const portal = createPortal(elem, ref);
-		reactPortalCtx((portals) => [...portals, portal]);
+		setReactPortals((portals) => [
+			...portals,
+			{
+				id,
+				portal
+			}
+		]);
 	});
 
 	onCleanup(() => {
-		// TODO: Properly cleanup portal
+		setReactPortals((portals) => portals.filter((p) => p.id !== id));
 	});
 
 	return (
 		<>
 			<div ref={ref} />
-			{portals()}
+			<For each={portals()}>{(p) => <>{p.portal}</>}</For>
 		</>
 	);
 }
@@ -91,6 +105,10 @@ function Wrapper<T extends object>(props: {
 	owner: Owner;
 	childProps: () => T;
 }) {
+	// This is a React component SolidJS reactivity don't matter.
+
+	// eslint-disable-next-line solid/reactivity
 	const childProps = useObserverWithOwner(props.owner, () => trackDeep(props.childProps()));
+	// eslint-disable-next-line solid/reactivity
 	return withReactContextProvider(props.owner, createElement(props.root, childProps, null));
 }

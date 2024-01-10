@@ -1,6 +1,13 @@
-import { ReactPortal, useEffect, useContext as useReactContext, useRef, useState } from 'react';
+import {
+	ReactPortal,
+	useEffect,
+	useId,
+	useContext as useReactContext,
+	useRef,
+	useState
+} from 'react';
 import { createContext as createSolidContext, JSX as SolidJSX } from 'solid-js';
-import { createMutable, createStore } from 'solid-js/store';
+import { createStore } from 'solid-js/store';
 import { Portal, render } from 'solid-js/web';
 
 import { useWithContextReact } from './context';
@@ -14,48 +21,55 @@ type Props<T> =
 			root: () => SolidJSX.Element;
 	  };
 
+type Portal = {
+	id: string;
+	portal: ReactPortal;
+};
+
 export const reactPortalProvider = createSolidContext<
-	(cb: (portals: ReactPortal[]) => ReactPortal[]) => void
+	(cb: (portals: Portal[]) => Portal[]) => void
 >(undefined!);
 
 export function WithSolid<T>(props: Props<T>) {
-	const reactPortalCtx = useReactContext(solidPortalProvider);
-	// if (!reactPortalCtx) throw new Error('No solid portal provider context'); // TODO: Enable this
-
+	const id = useId();
+	const setReactPortals = useReactContext(solidPortalProvider);
 	const ref = useRef<HTMLDivElement>(null);
 	const state = useRef({
 		hasFirstRender: false
 	});
-	const [portals, setPortals] = useState<ReactPortal[]>([]);
+	const [portals, setPortals] = useState([] as Portal[]);
 
 	const applyCtx = useWithContextReact();
 	const trackedProps = useRef(createStore(props));
 
 	useEffect(() => {
-		console.log('PROPS CHANGED', JSON.stringify(props));
 		trackedProps.current[1](props);
 	}, [props]);
 
 	useEffect(() => {
 		if (!ref.current) return;
 
-		if (!state.current.hasFirstRender) {
+		const hasFirstRender = state.current.hasFirstRender;
+		if (!hasFirstRender) {
 			state.current.hasFirstRender = true;
 			return;
 		}
 
-		if (reactPortalCtx) {
+		if (setReactPortals) {
 			// We are within a `UseSolid` so we should use it's React root.
 
-			reactPortalCtx((portals) => {
+			setReactPortals((portals) => {
 				return [
 					...portals,
-					Portal({
-						mount: ref.current!,
-						get children() {
-							return props.root(trackedProps.current[0] as T);
-						}
-					})
+					{
+						id,
+						portal: Portal({
+							mount: ref.current!,
+							get children() {
+								return props.root(trackedProps.current[0] as T);
+							}
+						}) as any
+					}
 				];
 			});
 		} else {
@@ -66,12 +80,11 @@ export function WithSolid<T>(props: Props<T>) {
 			let cleanup = () => {};
 			if (ref.current)
 				cleanup = render(() => {
-					const { root, ...childProps } = props;
 					return applyCtx(() =>
 						reactPortalProvider.Provider({
 							value: setPortals,
 							get children() {
-								return root(trackedProps.current[0] as T);
+								return props.root(trackedProps.current[0] as T);
 							}
 						})
 					);
@@ -80,60 +93,17 @@ export function WithSolid<T>(props: Props<T>) {
 		}
 
 		return () => {
-			if (!state.current.hasFirstRender) return;
-
-			// TODO: Cleanup `Portal`.
+			if (!hasFirstRender) return;
+			setReactPortals((portals) => portals.filter((p) => p.id !== id));
 		};
-
-		// console.log('GOT', reactPortalCtx);
-
-		// if (reactPortalCtx) {
-		// 	reactPortalCtx((portals) => {
-		// 		return [
-		// 			...portals,
-		// 			Portal({
-		// 				mount: ref.current!,
-		// 				get children() {
-		// 					return props.root(props as any);
-		// 					// return 'CHILD';
-		// 				}
-		// 			})
-		// 		];
-		// 	});
-
-		// 	// TODO: Cleanup portal
-		// } else {
-		// 	// TODO: Remove this condition in the future.
-
-		// 	let cleanup = () => {};
-		// 	if (ref.current)
-		// 		cleanup = render(() => {
-		// 			const { root, ...childProps } = props;
-		// 			return applyCtx(() =>
-		// 				reactPortalProvider.Provider({
-		// 					value: setPortals,
-		// 					get children() {
-		// 						return root(childProps as any);
-		// 					}
-		// 				})
-		// 			);
-		// 		}, ref.current);
-		// 	return cleanup;
-
-		// 	// TODO: We are at the top and need to setup the context.
-		// 	// createElement(
-		// 	// 	solidPortalProvider.Provider,
-		// 	// 	{
-		// 	// 		value: setPortals
-		// 	// 	},
-		// 	// }
-		// }
-	}, []);
+		// This rerunning is super expensive so we wanna avoid it at all costs
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [props.root]);
 
 	return (
 		<>
 			<div ref={ref} />
-			{portals}
+			{portals.map((p) => p.portal)}
 		</>
 	);
 }
