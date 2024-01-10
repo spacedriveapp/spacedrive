@@ -54,8 +54,8 @@ export function WithSolid<T>(props: Props<T>) {
 			...portals,
 			{
 				id,
-				portal: (() =>
-					SolidPortal({
+				portal: (() => {
+					return SolidPortal({
 						mount: ref.current!,
 						get children() {
 							return solidPortalCtx.Provider({
@@ -70,7 +70,8 @@ export function WithSolid<T>(props: Props<T>) {
 								}
 							});
 						}
-					})) as any
+					});
+				}) as any
 			}
 		]);
 

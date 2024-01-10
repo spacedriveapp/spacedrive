@@ -4,6 +4,7 @@ import { trackDeep } from '@solid-primitives/deep';
 import { createElement, StrictMode, type FunctionComponent } from 'react';
 import { createPortal } from 'react-dom';
 import {
+	children,
 	createSignal,
 	createUniqueId,
 	For,
@@ -83,7 +84,7 @@ export function WithReact<T extends object>(props: Props<T>) {
 	return (
 		<>
 			<div ref={ref} />
-			<For each={solidPortals()}>{(p) => p.portal}</For>
+			<For each={solidPortals()}>{(p) => children(() => p.portal) as any}</For>
 		</>
 	);
 }

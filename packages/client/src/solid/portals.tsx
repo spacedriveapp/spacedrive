@@ -8,8 +8,10 @@ import {
 	useRef
 } from 'react';
 import {
+	children,
 	createSignal,
 	createContext as createSolidContext,
+	For,
 	Setter,
 	JSX as SolidJSX,
 	type Accessor
@@ -49,9 +51,16 @@ export function InteropProviderReact(props: PropsWithChildren) {
 		}
 
 		let cleanup = () => {};
-		cleanup = render(() => {
-			return (() => state.current.solidPortals[0]().map((p) => p.portal)) as any;
-		}, state.current.solidRoot);
+		cleanup = render(
+			() =>
+				For({
+					get each() {
+						return state.current.solidPortals[0]();
+					},
+					children: (p) => children(() => p.portal) as any
+				}),
+			state.current.solidRoot
+		);
 		return cleanup;
 	}, []);
 
