@@ -13,6 +13,7 @@
     "android-studio": "open -a '/Applications/Android Studio.app' ./android",
     "lint": "eslint src --cache",
     "test": "cd ../.. && ./apps/mobile/scripts/run-maestro-tests ios",
+	"export": "expo export",
     "typecheck": "tsc -b"
   },
   "dependencies": {
@@ -30,6 +31,7 @@
     "@sd/client": "workspace:*",
     "@shopify/flash-list": "1.4.3",
     "@tanstack/react-query": "^4.36.1",
+    "babel-preset-solid": "^1.8.9",
     "class-variance-authority": "^0.7.0",
     "dayjs": "^1.11.10",
     "event-target-polyfill": "^0.0.3",
@@ -58,6 +60,7 @@
     "react-native-screens": "~3.22.1",
     "react-native-svg": "14.1.0",
     "react-native-wheel-color-picker": "^1.2.0",
+    "solid-js": "^1.8.8",
     "twrnc": "^3.6.4",
     "use-count-up": "^3.0.1",
     "use-debounce": "^9.0.4",

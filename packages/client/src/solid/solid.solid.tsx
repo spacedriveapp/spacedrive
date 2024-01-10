@@ -2,10 +2,30 @@
 
 import { trackDeep } from '@solid-primitives/deep';
 import { createElement, StrictMode, type FunctionComponent } from 'react';
-import ReactDOM from 'react-dom/client';
-import { createEffect, onCleanup, splitProps } from 'solid-js';
+import { createPortal } from 'react-dom';
+import {
+	children,
+	createSignal,
+	createUniqueId,
+	For,
+	getOwner,
+	onCleanup,
+	onMount,
+	Owner,
+	splitProps,
+	useContext as useSolidContext,
+	type JSX as SolidJSX
+} from 'solid-js';
 
-import { useWithContextSolid } from './context';
+import { withReactCtx as withReactContextProvider } from './context';
+import { Portal, reactPortalCtx, solidPortalCtx } from './portals';
+import { useObserverWithOwner } from './useObserver';
+
+type AllowReactiveScope<T> = T extends object
+	? {
+			[P in keyof T]: AllowReactiveScope<T[P]>;
+	  }
+	: T | (() => T);
 
 type Props<T> =
 	| {
@@ -13,47 +33,71 @@ type Props<T> =
 	  }
 	| ({
 			root: FunctionComponent<T>;
-	  } & T);
+	  } & AllowReactiveScope<T>);
 
 export function WithReact<T extends object>(props: Props<T>) {
+	const portalCtx = useSolidContext(solidPortalCtx);
+	if (!portalCtx) throw new Error('Missing portalCtx in WithReact');
+
+	const [solidPortals, setSolidPortals] = createSignal([] as Portal<SolidJSX.Element>[]);
+	const id = createUniqueId();
 	let ref: HTMLDivElement | undefined;
-	let root: ReactDOM.Root | undefined;
-	let cleanup: (() => void) | undefined = undefined;
 
-	const applyCtx = useWithContextSolid();
-	const [_, childProps] = splitProps(props, ['root']);
-
-	// TODO: Inject all context's
-	const render = (childProps: any) => {
+	onMount(() => {
 		if (!ref) return;
-		if (!root) {
-			root = ReactDOM.createRoot(ref);
-			// The `setTimeout` is to ensure React has time to do the intial render.
-			// React doesn't like when you unmount it while it's rendering.
-			cleanup = () => {
-				setTimeout(() => root?.unmount());
-				root = undefined;
-			};
-		}
 
-		root.render(
+		const elem = createElement(
+			StrictMode,
+			null,
 			createElement(
-				StrictMode,
-				null,
-				applyCtx(createElement(props.root as any, childProps, null))
+				reactPortalCtx.Provider,
+				{
+					value: {
+						setReactPortals: portalCtx.setReactPortals,
+						setSolidPortals: setSolidPortals
+					}
+				},
+				createElement(
+					Wrapper,
+					{
+						root: props.root as any,
+						owner: getOwner()!,
+						childProps: () => splitProps(props, ['root'])[1]
+					},
+					null
+				)
 			)
 		);
-	};
 
-	createEffect(() => {
-		const trackedProps = trackDeep(childProps);
-		render({ ...trackedProps });
+		const portal = createPortal(elem, ref);
+		portalCtx.setReactPortals((portals) => [
+			...portals,
+			{
+				id,
+				portal
+			}
+		]);
 	});
 
-	onCleanup(() => {
-		cleanup?.();
-		cleanup = undefined;
-	});
+	onCleanup(() => portalCtx.setReactPortals((portals) => portals.filter((p) => p.id !== id)));
 
-	return <div ref={ref} />;
+	return (
+		<>
+			<div ref={ref} />
+			<For each={solidPortals()}>{(p) => children(() => p.portal) as any}</For>
+		</>
+	);
+}
+
+function Wrapper<T extends object>(props: {
+	root: FunctionComponent;
+	owner: Owner;
+	childProps: () => T;
+}) {
+	// This is a React component SolidJS reactivity don't matter.
+
+	// eslint-disable-next-line solid/reactivity
+	const childProps = useObserverWithOwner(props.owner, () => trackDeep(props.childProps()));
+	// eslint-disable-next-line solid/reactivity
+	return withReactContextProvider(props.owner, createElement(props.root, childProps, null));
 }

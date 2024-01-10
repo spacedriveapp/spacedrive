@@ -1,3 +1,5 @@
+import { deepEqual } from 'fast-equals';
+import { useRef } from 'react';
 import { createMutable } from 'solid-js/store';
 
 import { createPersistedMutable, useObserver, useSolidStore } from '../solid';
@@ -18,11 +20,16 @@ export function useThemeStore() {
 }
 
 export function useSubscribeToThemeStore(callback: () => void) {
+	const ref = useRef<typeof themeStore>(themeStore);
 	useObserver(() => {
 		// Subscribe to store
-		const _ = { ...themeStore };
+		const store = { ...themeStore };
 
-		callback();
+		// Only trigger React if it did in fact change.
+		if (!deepEqual(store, ref.current)) {
+			ref.current = store;
+			callback();
+		}
 	});
 }
 
