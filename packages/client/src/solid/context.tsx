@@ -2,7 +2,6 @@ import {
 	createElement,
 	createContext as createReactContext,
 	isValidElement,
-	PropsWithChildren,
 	JSX as ReactJSX,
 	useEffect,
 	useContext as useReactContext,
@@ -11,7 +10,6 @@ import {
 import {
 	children,
 	createContext as createSolidContext,
-	getOwner,
 	Owner,
 	JSX as SolidJSX,
 	useContext as useSolidContext
@@ -109,16 +107,12 @@ export function useWithContextReact(): (elem: () => SolidJSX.Element) => SolidJS
 		});
 }
 
-export function useWithContextSolid(): (elem: ReactJSX.Element) => ReactJSX.Element {
-	const owner = getOwner()!;
-	return (elem) => createElement(WithContext, { owner }, elem);
-}
-
-function WithContext(props: PropsWithChildren<{ owner: Owner }>) {
-	const globalCtx = useObserverWithOwner(props.owner, () => {
+export function withReactCtx(owner: Owner, elem: ReactJSX.Element) {
+	// eslint-disable-next-line react-hooks/rules-of-hooks
+	const globalCtx = useObserverWithOwner(owner, () => {
 		// eslint-disable-next-line react-hooks/rules-of-hooks
 		return useSolidContext(solidGlobalContext)();
 	});
 
-	return createElement(reactGlobalContext.Provider, { value: globalCtx }, props.children);
+	return createElement(reactGlobalContext.Provider, { value: globalCtx }, elem);
 }
