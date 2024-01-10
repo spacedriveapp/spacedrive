@@ -12,7 +12,7 @@ import {
 } from 'react';
 import TruncateMarkup from 'react-truncate-markup';
 import { createEffect } from 'solid-js';
-import { useSelector, WithSolid } from '@sd/client';
+import { useEventPair, useSelector, WithSolid, withToggleable } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { useOperatingSystem, useShortcut } from '~/hooks';
 
@@ -116,6 +116,8 @@ const RenameTextBoxReact = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 		};
 
 		useShortcut('renameObject', (e) => {
+			console.log('REACT RENAME SHORTCUT'); // TODO
+
 			e.preventDefault();
 			if (allowRename) blur();
 			else if (!disabled) setAllowRename(true);
@@ -206,13 +208,28 @@ RenameTextBoxReact.displayName = 'RenameTextBox';
 
 function RenameTextBoxSolid(props: RenameTextBoxProps) {
 	const os = useOperatingSystem();
+	const [trigger, registerListener] = useEventPair<KeyboardEvent>();
 
-	return <WithSolid root={RenameTextBox2} _temporary_os={os} {...props} />;
+	useShortcut('renameObject', (e) => {
+		console.log('ON RENAME REACT', e);
+		trigger(e);
+	});
+
+	return (
+		<WithSolid
+			root={RenameTextBox2}
+			_temporary_os={os}
+			_temporary_renameObject={registerListener}
+			{...props}
+		/>
+	);
 }
 
-// TODO
-// export const RenameTextBox = RenameTextBoxReact;
-export const RenameTextBox = RenameTextBoxSolid;
+export const RenameTextBox = withToggleable(
+	'renameTextBox',
+	RenameTextBoxReact,
+	RenameTextBoxSolid
+);
 
 interface TruncatedTextProps {
 	text: string;
@@ -240,6 +257,4 @@ const TruncatedTextReact = memo(({ text, lines, onTruncate }: TruncatedTextProps
 });
 TruncatedTextReact.displayName = 'TruncatedText';
 
-// TODO
-// const TruncatedText = TruncatedTextReact;
-const TruncatedText = TruncatedTextSolid;
+const TruncatedText = withToggleable('truncatedText', TruncatedTextReact, TruncatedTextSolid);

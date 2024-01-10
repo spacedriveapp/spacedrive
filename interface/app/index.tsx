@@ -4,6 +4,7 @@ import {
 	currentLibraryCache,
 	getCachedLibraries,
 	NormalisedCache,
+	ToggleablePanelProvider,
 	useCachedLibraries,
 	useFeatureFlag,
 	WithSolid
@@ -40,6 +41,7 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 							<WithSolid root={Demo} demo="123" />
 						) : null}
 						{useFeatureFlag('solidJsDemo') ? <WithSolid root={Demo2} /> : null}
+						{useFeatureFlag('useToggleable') ? <ToggleablePanelProvider /> : null}
 						<Outlet />
 						<Dialogs />
 						<Toaster position="bottom-right" expand={true} />

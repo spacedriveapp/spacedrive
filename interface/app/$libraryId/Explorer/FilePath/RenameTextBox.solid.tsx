@@ -1,9 +1,8 @@
 /** @jsxImportSource solid-js */
-// @ts-nocheck // TODO: Bring this back
 
 import clsx from 'clsx';
-import { createSignal } from 'solid-js';
-import { OperatingSystem } from '@sd/client';
+import { createSignal, onMount } from 'solid-js';
+import { EventPairRegister, OperatingSystem } from '@sd/client';
 
 import { TruncateMarkupSolid } from './TruncateMarkup.solid';
 
@@ -11,12 +10,13 @@ export interface RenameTextBoxProps extends React.HTMLAttributes<HTMLDivElement>
 	name: string;
 	onRename: (newName: string) => void;
 	disabled?: boolean;
-	lines?: number;
+	lines: number;
 	// Temporary solution for TruncatedText in list view
 	idleClassName?: string;
 
 	// TODO: Remove all this in future.
 	_temporary_os: OperatingSystem;
+	_temporary_renameObject: EventPairRegister<KeyboardEvent>;
 }
 
 export function RenameTextBox2(props: RenameTextBoxProps) {
@@ -98,12 +98,13 @@ export function RenameTextBox2(props: RenameTextBoxProps) {
 		}
 	};
 
-	// TODO
-	// useShortcut('renameObject', (e) => {
-	// 	e.preventDefault();
-	// 	if (allowRename) blur();
-	// 	else if (!disabled) setAllowRename(true);
-	// });
+	props._temporary_renameObject((e) => {
+		console.log('ON RENAME');
+
+		e.preventDefault();
+		if (allowRename()) ref?.blur();
+		else if (!props.disabled) setAllowRename(true);
+	});
 
 	// TODO
 	// useEffect(() => {
@@ -138,6 +139,16 @@ export function RenameTextBox2(props: RenameTextBoxProps) {
 	// 	document.addEventListener('mousedown', onMouseDown, true);
 	// 	return () => document.removeEventListener('mousedown', onMouseDown, true);
 	// }, [blur]);
+
+	// onMount(() => {
+	// 	ref?.addEventListener('mouseover', () => {
+	// 		console.log('MOUSE OVER');
+	// 	});
+
+	// 	ref?.addEventListener('keydown', () => {
+	// 		console.log('KEY DOWN');
+	// 	});
+	// });
 
 	return (
 		<div

@@ -1,7 +1,7 @@
-import { valtioPersist } from '@sd/client';
-import { modifierSymbols } from '@sd/ui';
 import { useKeys } from 'rooks';
 import { useSnapshot } from 'valtio';
+import { valtioPersist } from '@sd/client';
+import { modifierSymbols } from '@sd/ui';
 import { useRoutingContext } from '~/RoutingContext';
 import { OperatingSystem } from '~/util/Platform';
 
@@ -23,11 +23,11 @@ type Shortcut = {
 
 type ShortcutCategory = {
 	description: string;
-  } & Record<string, any> //TODO: fix types
+} & Record<string, any>; //TODO: fix types
 
 export type TShortcutState = {
 	shortcuts: Record<'Dialogs' | 'Pages' | 'Explorer', ShortcutCategory>;
-  };
+};
 
 export const ShortcutState: TShortcutState = {
 	shortcuts: {
@@ -392,7 +392,9 @@ export type ShortcutKeybinds = {
 export const keybindingsData = () => {
 	let shortcuts = {} as ShortcutKeybinds;
 	for (const category in ShortcutState['shortcuts']) {
-		const shortcutCategory = ShortcutState['shortcuts'][category as ShortcutCategories] as ShortcutCategory;
+		const shortcutCategory = ShortcutState['shortcuts'][
+			category as ShortcutCategories
+		] as ShortcutCategory;
 		const categoryShortcuts: Array<Shortcut> = [];
 
 		for (const shortcut in shortcutCategory) {
@@ -418,9 +420,9 @@ export const keybindingsData = () => {
 	return shortcuts;
 };
 
-export type ShortcutCategories = keyof typeof ShortcutState['shortcuts'];
+export type ShortcutCategories = keyof (typeof ShortcutState)['shortcuts'];
 type GetShortcutKeys<Category extends ShortcutCategories> =
-keyof (typeof ShortcutState)['shortcuts'][Category];
+	keyof (typeof ShortcutState)['shortcuts'][Category];
 //Not all shortcuts share the same keys (shortcuts) so this needs to be done like this
 //A union type of all categories would return the 'description' only
 type ShortcutKeys = Exclude<
