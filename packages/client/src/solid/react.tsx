@@ -32,7 +32,7 @@ export const reactPortalProvider = createSolidContext<
 
 export function WithSolid<T>(props: Props<T>) {
 	const id = useId();
-	const setReactPortals = useReactContext(solidPortalProvider);
+	const setSolidPortals = useReactContext(solidPortalProvider);
 	const ref = useRef<HTMLDivElement>(null);
 	const state = useRef({
 		hasFirstRender: false
@@ -55,14 +55,17 @@ export function WithSolid<T>(props: Props<T>) {
 			return;
 		}
 
-		if (setReactPortals) {
+		if (setSolidPortals) {
 			// We are within a `UseSolid` so we should use it's React root.
 
-			setReactPortals((portals) => {
+			console.log('FIRE 2', id);
+
+			setSolidPortals((portals) => {
 				return [
 					...portals,
 					{
 						id,
+						// TODO: Run this with a SolidJS owner
 						portal: Portal({
 							mount: ref.current!,
 							get children() {
@@ -76,6 +79,8 @@ export function WithSolid<T>(props: Props<T>) {
 			// We are not within a `UseSolid` so we need to setup the root.
 
 			// TODO: Do we need to setup a nested context
+
+			console.log('FIRE', id);
 
 			let cleanup = () => {};
 			if (ref.current)
@@ -94,7 +99,7 @@ export function WithSolid<T>(props: Props<T>) {
 
 		return () => {
 			if (!hasFirstRender) return;
-			setReactPortals((portals) => portals.filter((p) => p.id !== id));
+			setSolidPortals((portals) => portals.filter((p) => p.id !== id));
 		};
 		// This rerunning is super expensive so we wanna avoid it at all costs
 		// eslint-disable-next-line react-hooks/exhaustive-deps

@@ -2,6 +2,7 @@ export * from './createPersistedMutable';
 export * from './react';
 export * from './solid.solid';
 export * from './useObserver';
-export * from './rq';
+export * from './useUniversalQuery';
 export * from './useSolidStore';
+export * from './portals';
 export { createSharedContext } from './context';

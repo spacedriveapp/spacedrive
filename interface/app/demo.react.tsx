@@ -5,9 +5,7 @@ import { Demo3, demoCtx, SolidSquare } from './demo.solid';
 
 export function Demo(props: { demo: string }) {
 	const [count, setCount] = useState(0);
-
 	const ctx = demoCtx.useContext();
-	console.log('FROM REACT 1', ctx());
 
 	return (
 		<div className="bg-green-500 p-2">
@@ -31,7 +29,6 @@ export function Demo(props: { demo: string }) {
 
 function Inner() {
 	const ctx = demoCtx.useContext();
-	console.log('FROM REACT 2', ctx());
 	return null;
 }
 

@@ -7,8 +7,8 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import { PropsWithChildren, Suspense } from 'react';
 import { RouterProvider, RouterProviderProps } from 'react-router-dom';
 import {
+	InteropProviderReact,
 	P2PContextProvider,
-	ReactSolidInteropRoot,
 	useBridgeSubscription,
 	useInvalidateQuery,
 	useLoadBackendFeatureFlags
@@ -90,15 +90,17 @@ export function SpacedriveInterfaceRoot({ children }: PropsWithChildren) {
 	return (
 		<Suspense>
 			<BetterErrorBoundary FallbackComponent={ErrorFallback}>
-				<TooltipProvider>
-					<P2PContextProvider>
-						<P2P />
-						<Devtools />
-						<WithPrismTheme />
-						<SpacedropProvider />
-						{children}
-					</P2PContextProvider>
-				</TooltipProvider>
+				<InteropProviderReact>
+					<TooltipProvider>
+						<P2PContextProvider>
+							<P2P />
+							<Devtools />
+							<WithPrismTheme />
+							<SpacedropProvider />
+							{children}
+						</P2PContextProvider>
+					</TooltipProvider>
+				</InteropProviderReact>
 			</BetterErrorBoundary>
 		</Suspense>
 	);

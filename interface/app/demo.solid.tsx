@@ -1,6 +1,6 @@
 /** @jsxImportSource solid-js */
 
-import { createEffect, createSignal } from 'solid-js';
+import { createSignal } from 'solid-js';
 import { createSharedContext, WithReact } from '@sd/client';
 
 import { Demo as ReactDemo, Demo2 as ReactDemo2, ReactSquare } from './demo.react';
@@ -33,7 +33,6 @@ export function Demo(props: { demo: string }) {
 
 function Inner() {
 	const ctx = demoCtx.useContext();
-	console.log('FROM SOLID', ctx());
 	return <div>CTX: {ctx()}</div>;
 }
 
