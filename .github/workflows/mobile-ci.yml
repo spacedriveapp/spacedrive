@@ -25,6 +25,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  js:
+    name: JS
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: latest
+
+      - uses: pnpm/action-setup@v2
+        name: Install pnpm
+        with:
+          version: latest
+
+      - name: Build mobile JS
+        run: pnpm mobile export
+
   # Disabled until I can figure out why our app on x86_64 crashes on startup.
   # android:
   #   name: Android
