@@ -10,14 +10,12 @@ export function useExplorerSearchParams() {
 }
 
 export function useExplorerItemData(explorerItem: ExplorerItem) {
-	const newThumbnail = useSelector(
-		explorerStore,
-		(s) =>
-			!!(
-				explorerItem.thumbnail_key &&
-				s.newThumbnails.has(flattenThumbnailKey(explorerItem.thumbnail_key))
-			)
-	);
+	const newThumbnail = useSelector(explorerStore, (s) => {
+		const firstThumbnail =
+			explorerItem.type === 'Label' ? explorerItem.thumbnails?.[0] : explorerItem.thumbnail;
+
+		return !!(firstThumbnail && s.newThumbnails.has(flattenThumbnailKey(firstThumbnail)));
+	});
 
 	return useMemo(() => {
 		const itemData = getExplorerItemData(explorerItem);

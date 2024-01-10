@@ -40,22 +40,20 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.map(|label| ExplorerItem::Label {
 							item: label.clone(),
 							// map the first 4 objects to thumbnails
-							thumbnail: Some(
-								label
-									.label_objects
-									.into_iter()
-									.take(10)
-									.filter_map(|label_object| {
-										label_object.object.file_paths.into_iter().next()
-									})
-									.filter_map(|file_path_data| {
-										file_path_data
-											.cas_id
-											.as_ref()
-											.map(|cas_id| get_indexed_thumb_key(cas_id, library.id))
-									}) // Filter out None values and transform each element to Vec<Vec<String>>
-									.collect::<Vec<_>>(), // Collect into Vec<Vec<Vec<String>>>
-							),
+							thumbnails: label
+								.label_objects
+								.into_iter()
+								.take(10)
+								.filter_map(|label_object| {
+									label_object.object.file_paths.into_iter().next()
+								})
+								.filter_map(|file_path_data| {
+									file_path_data
+										.cas_id
+										.as_ref()
+										.map(|cas_id| get_indexed_thumb_key(cas_id, library.id))
+								}) // Filter out None values and transform each element to Vec<Vec<String>>
+								.collect::<Vec<_>>(), // Collect into Vec<Vec<Vec<String>>>
 						})
 						.collect::<Vec<_>>())
 				})

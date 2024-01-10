@@ -44,13 +44,11 @@ export function getExplorerItemData(data?: ExplorerItem | null): ItemData {
 			itemData.dateAccessed = object?.date_accessed ?? null;
 			// handle thumbnail based on provided key
 			// This could be better, but for now we're mapping the backend property to two different local properties (thumbnailKey, thumbnailKeys) for backward compatibility
-			if (data.thumbnail && data.thumbnail.length > 1) {
-				itemData.thumbnailKeys = data.thumbnail;
-			} else if (data.thumbnail && data.thumbnail.length === 1) {
-				itemData.thumbnailKey = data.thumbnail[0] ?? [];
-			} else {
-				itemData.thumbnailKey = [];
+			if (data.thumbnail) {
+				itemData.thumbnailKey = data.thumbnail;
+				itemData.thumbnailKeys = [data.thumbnail];
 			}
+
 			itemData.hasLocalThumbnail = !!data.thumbnail;
 			// handle file path
 			const filePath = getItemFilePath(data);
@@ -91,9 +89,9 @@ export function getExplorerItemData(data?: ExplorerItem | null): ItemData {
 		case 'Label': {
 			itemData.name = data.item.name;
 			itemData.customIcon = 'Tag';
-			itemData.thumbnailKey = data.thumbnail?.[0] ?? [];
-			itemData.thumbnailKeys = data.thumbnail ?? [];
-			itemData.hasLocalThumbnail = !!data.thumbnail;
+			itemData.thumbnailKey = data.thumbnails[0] ?? [];
+			itemData.thumbnailKeys = data.thumbnails;
+			itemData.hasLocalThumbnail = !!data.thumbnails;
 			itemData.kind = 'Label';
 
 			console.log({ itemData });

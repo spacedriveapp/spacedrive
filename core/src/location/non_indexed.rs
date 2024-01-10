@@ -231,7 +231,7 @@ pub async fn walk(
 				};
 
 				tx.send(Ok(ExplorerItem::NonIndexedPath {
-					thumbnail: thumbnail_key.map(|key| vec![key]),
+					thumbnail: thumbnail_key,
 					item: NonIndexedPathItem {
 						hidden: path_is_hidden(Path::new(&entry_path), &entry.metadata),
 						path: entry_path,
@@ -280,11 +280,8 @@ pub async fn walk(
 
 		for (directory, name, metadata) in directories {
 			if let Some(location) = locations.remove(&directory) {
-				tx.send(Ok(ExplorerItem::Location {
-					thumbnail: None,
-					item: location,
-				}))
-				.await?;
+				tx.send(Ok(ExplorerItem::Location { item: location }))
+					.await?;
 			} else {
 				tx.send(Ok(ExplorerItem::NonIndexedPath {
 					thumbnail: None,

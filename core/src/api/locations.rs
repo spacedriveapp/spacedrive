@@ -32,33 +32,31 @@ use super::{labels::label_with_objects, utils::library, Ctx, R};
 
 // it includes the shard hex formatted as ([["f02", "cab34a76fbf3469f"]])
 // Will be None if no thumbnail exists
-pub type ThumbnailKey = Option<Vec<Vec<String>>>;
+pub type ThumbnailKey = Vec<String>;
 
 #[derive(Serialize, Type, Debug)]
 #[serde(tag = "type")]
 pub enum ExplorerItem {
 	Path {
-		thumbnail: ThumbnailKey,
+		thumbnail: Option<ThumbnailKey>,
 		item: file_path_with_object::Data,
 	},
 	Object {
-		thumbnail: ThumbnailKey,
+		thumbnail: Option<ThumbnailKey>,
 		item: object_with_file_paths::Data,
 	},
 	Location {
-		thumbnail: ThumbnailKey,
 		item: location::Data,
 	},
 	NonIndexedPath {
-		thumbnail: ThumbnailKey,
+		thumbnail: Option<ThumbnailKey>,
 		item: NonIndexedPathItem,
 	},
 	SpacedropPeer {
-		thumbnail: ThumbnailKey,
 		item: PeerMetadata,
 	},
 	Label {
-		thumbnail: ThumbnailKey,
+		thumbnails: Vec<ThumbnailKey>,
 		item: label_with_objects::Data,
 	},
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { useLocation, useSearchParams as useRawSearchParams } from 'react-router-dom';
+import { useSearchParams as useRawSearchParams } from 'react-router-dom';
 import { ObjectKindEnum, ObjectOrder } from '@sd/client';
 import { Icon } from '~/components';
 import { useRouteTitle } from '~/hooks';
