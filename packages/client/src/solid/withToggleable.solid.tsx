@@ -10,16 +10,12 @@ import { useObserver } from './useObserver';
 const [toggleableFeatures, setToggleableFeatures] = createStore({} as Record<string, boolean>);
 
 export function ToggleablePanel() {
-	createEffect(() => {
-		console.log({ ...toggleableFeatures });
-	});
-
 	return (
 		<div class="w-100 absolute right-0 top-0 z-[99999] bg-red-500 p-2">
 			<p>Toggles:</p>
 			<For each={Object.entries(toggleableFeatures)}>
 				{([name, obj]) => (
-					<div class="flex items-center">
+					<div class="flex flex items-center space-x-2">
 						<input
 							type="checkbox"
 							checked={toggleableFeatures[name]}
