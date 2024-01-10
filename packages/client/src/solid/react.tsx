@@ -1,9 +1,19 @@
-import { useEffect, useId, useContext as useReactContext, useRef } from 'react';
-import { JSX as SolidJSX } from 'solid-js';
+import {
+	createElement,
+	Fragment,
+	ReactPortal,
+	useEffect,
+	useId,
+	useContext as useReactContext,
+	useRef
+} from 'react';
+import { Accessor, createSignal, JSX as SolidJSX } from 'solid-js';
 import { createStore } from 'solid-js/store';
-import { Portal } from 'solid-js/web';
+import { Portal as SolidPortal } from 'solid-js/web';
 
-import { reactPortalCtx, solidPortalCtx } from './portals';
+import { useWithContextReact } from './context';
+import { reactPortalCtx, solidPortalCtx, type Portal } from './portals';
+import { useObserver } from './useObserver';
 
 type Props<T> =
 	| ({
@@ -20,17 +30,16 @@ export function WithSolid<T>(props: Props<T>) {
 	const id = useId();
 	const ref = useRef<HTMLDivElement>(null);
 	const state = useRef({
-		hasFirstRender: false
+		hasFirstRender: false,
+		trackedProps: createStore(props),
+		reactPortals: createSignal([] as Portal<ReactPortal>[])
 	});
 
-	// const applyCtx = useWithContextReact(); // TODO: Make this work
-	const trackedProps = useRef(createStore(props));
+	const applyCtx = useWithContextReact();
 
-	// TODO
-	// useEffect(() => {
-	// 	console.log('PROPS CHANGE');
-	// 	trackedProps.current[1](props);
-	// }, [props]);
+	useEffect(() => {
+		state.current.trackedProps[1](props);
+	}, [props]);
 
 	useEffect(() => {
 		if (!ref.current) return;
@@ -41,24 +50,25 @@ export function WithSolid<T>(props: Props<T>) {
 			return;
 		}
 
-		console.log('RENDER SOLID FIRED', id);
-
 		portalCtx.setSolidPortals((portals) => [
 			...portals,
 			{
 				id,
 				portal: (() =>
-					Portal({
+					SolidPortal({
 						mount: ref.current!,
 						get children() {
-							return props.root(trackedProps.current[0] as T);
-							// return solidPortalCtx.Provider({
-							// 	value: portalCtx,
-							// 	get children() {
-							// 		// TODO: Shared context providers???
-							// 		return props.root(trackedProps.current[0] as T);
-							// 	}
-							// });
+							return solidPortalCtx.Provider({
+								value: {
+									setSolidPortals: portalCtx.setSolidPortals,
+									setReactPortals: state.current.reactPortals[1]
+								},
+								get children() {
+									return applyCtx(() =>
+										props.root(state.current.trackedProps[0] as T)
+									);
+								}
+							});
 						}
 					})) as any
 			}
@@ -71,5 +81,15 @@ export function WithSolid<T>(props: Props<T>) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []); // TODO: props.root
 
-	return <div ref={ref} />;
+	return (
+		<>
+			<div ref={ref} />
+			<RenderPortals portals={state.current.reactPortals[0]} />
+		</>
+	);
+}
+
+function RenderPortals(props: { portals: Accessor<Portal<ReactPortal>[]> }) {
+	const portals = useObserver(() => props.portals());
+	return portals.map((p) => createElement(Fragment, { key: p.id }, p.portal));
 }

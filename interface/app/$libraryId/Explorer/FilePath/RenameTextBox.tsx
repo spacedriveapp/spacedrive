@@ -24,23 +24,7 @@ export interface RenameTextBoxProps extends React.HTMLAttributes<HTMLDivElement>
 	idleClassName?: string;
 }
 
-// TODO: We ignore the `forwardRef` cause it's unused from what I can tell.
-export function RenameTextBox(props: RenameTextBoxProps) {
-	// return (
-	// 	<WithSolid
-	// 		root={() =>
-	// 			WithReact({
-	// 				root: RenameTextBoxInner,
-	// 				...props
-	// 			})
-	// 		}
-	// 	/>
-	// );
-
-	return <RenameTextBoxInner {...props} />;
-}
-
-const RenameTextBoxInner = forwardRef<HTMLDivElement, RenameTextBoxProps>(
+export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 	({ name, onRename, disabled, className, idleClassName, lines, ...props }, _ref) => {
 		const os = useOperatingSystem();
 		const [isRenaming, drag] = useSelector(explorerStore, (s) => [s.isRenaming, s.drag]);

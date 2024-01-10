@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { WithSolid } from '@sd/client';
 
 import { Demo3, demoCtx, SolidSquare } from './demo.solid';
@@ -6,9 +6,6 @@ import { Demo3, demoCtx, SolidSquare } from './demo.solid';
 export function Demo(props: { demo: string }) {
 	const [count, setCount] = useState(0);
 	const ctx = demoCtx.useContext();
-
-	const id = useId();
-	console.log('RENDER demo.react.tsx', id);
 
 	return (
 		<div className="bg-green-500 p-2">
@@ -24,8 +21,8 @@ export function Demo(props: { demo: string }) {
 					<WithSolid root={Demo3} demo={count.toString()} />
 				</>
 			</demoCtx.Provider>
-			{/* <WithSolid root={Demo3} demo={count.toString()} inner={true} /> */}
-			{/* <SolidSquareManager /> */}
+			<WithSolid root={Demo3} demo={count.toString()} />
+			<SolidSquareManager />
 		</div>
 	);
 }

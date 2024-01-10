@@ -5,7 +5,7 @@ import { createReaction, createRoot, Owner, runWithOwner } from 'solid-js';
 
 // A version of `react-solid-state`'s method that works with newer React versions.
 // https://github.com/solidjs/react-solid-state/issues/4
-export function useObserver<T>(fn: () => T, caller?: string) {
+export function useObserver<T>(fn: () => T) {
 	const [_, setTick] = useState(0);
 	const state = useRef({
 		onUpdate: () => {
@@ -24,15 +24,11 @@ export function useObserver<T>(fn: () => T, caller?: string) {
 	}
 
 	useEffect(() => {
-		if (state.current.firedDuringRender) {
-			console.log('FIRE OBSERVER');
-			setTick((t) => t + 1);
-		}
+		if (state.current.firedDuringRender) setTick((t) => t + 1);
 
 		// We set this after a `useEffect` to ensure we don't trigger an update prior to mount
 		// cause that makes React madge.
 		state.current.onUpdate = () => {
-			console.log('FIRE OBSERVER', caller);
 			setTick((t) => t + 1);
 		};
 		state.current.doneFirstFire = true;

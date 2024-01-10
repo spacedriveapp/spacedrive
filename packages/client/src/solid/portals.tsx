@@ -5,7 +5,6 @@ import {
 	PropsWithChildren,
 	ReactPortal,
 	useEffect,
-	useMemo,
 	useRef
 } from 'react';
 import {
@@ -19,12 +18,12 @@ import { render } from 'solid-js/web';
 
 import { useObserver } from './useObserver';
 
-type PortalCtx = {
+export type PortalCtx = {
 	setSolidPortals: Setter<Portal<SolidJSX.Element>[]>;
 	setReactPortals: Setter<Portal<ReactPortal>[]>;
 };
 
-type Portal<T> = {
+export type Portal<T> = {
 	id: string;
 	portal: T;
 };
@@ -42,8 +41,6 @@ export function InteropProviderReact(props: PropsWithChildren) {
 		solidRoot: document.createElement('div'),
 		didFireFirstRender: false
 	});
-
-	console.log('RENDER INTEROP PROVIDER');
 
 	useEffect(() => {
 		// This is to avoid double-rendering SolidJS when used in `React.StrictMode`.
@@ -75,21 +72,8 @@ export function InteropProviderReact(props: PropsWithChildren) {
 }
 
 function RenderPortals(props: { portals: Accessor<Portal<ReactPortal>[]> }) {
-	const portals = useObserver(() => props.portals(), 'portals');
-
-	const array = portals.map((p) => p.id);
-	console.log(
-		'RENDER PORTAL PROVIDER',
-		portals.map((p) => p.id).join(','),
-		array.length === new Set(array).size
-	);
-
-	return useMemo(
-		() => portals.map((p) => createElement(Fragment, { key: p.id }, p.portal)),
-		[portals.map((p) => p.id).join(',')]
-	);
-
-	// return portals.map((p) => createElement(Fragment, { key: p.id }, p.portal));
+	const portals = useObserver(() => props.portals());
+	return portals.map((p) => createElement(Fragment, { key: p.id }, p.portal));
 }
 
 // TODO: Right now we have React as our app's root so we don't need this but it would be the opposite of `InteropProviderReact`
