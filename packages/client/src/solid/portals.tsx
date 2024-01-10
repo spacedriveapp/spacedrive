@@ -31,8 +31,7 @@ export type Portal<T> = {
 export const solidPortalCtx = createSolidContext(undefined! as PortalCtx);
 export const reactPortalCtx = createReactContext(undefined! as PortalCtx);
 
-// This component must exist above all `WithSolid` calls at the root of your React application.
-// This component setups up the SolidJS root and portal providers so that all `WithSolid` and `WithReact` can render into the same React/Solid root.
+// TODO: It would be pog to remove this
 export function InteropProviderReact(props: PropsWithChildren) {
 	const state = useRef({
 		solidPortals: createSignal([] as Portal<SolidJSX.Element>[]),

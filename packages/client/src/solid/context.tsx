@@ -19,8 +19,6 @@ import { createStore, type Store } from 'solid-js/store';
 import { insideReactRender } from './internal';
 import { useObserver, useObserverWithOwner } from './useObserver';
 
-// TODO: Can we just yeet all contexts up to the interop provider????
-
 type RegisteredContext = {
 	id: symbol;
 	store: Store<any>;

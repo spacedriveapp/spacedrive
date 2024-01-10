@@ -9,7 +9,7 @@ import {
 	useState
 } from 'react';
 import TruncateMarkup from 'react-truncate-markup';
-import { useSelector, WithReact, WithSolid } from '@sd/client';
+import { useSelector } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { useOperatingSystem, useShortcut } from '~/hooks';
 

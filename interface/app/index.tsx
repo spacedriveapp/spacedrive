@@ -39,7 +39,7 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 						{useFeatureFlag('solidJsDemo') ? (
 							<WithSolid root={Demo} demo="123" />
 						) : null}
-						{/* {useFeatureFlag('solidJsDemo') ? <WithSolid root={Demo2} /> : null} */}
+						{useFeatureFlag('solidJsDemo') ? <WithSolid root={Demo2} /> : null}
 						<Outlet />
 						<Dialogs />
 						<Toaster position="bottom-right" expand={true} />
