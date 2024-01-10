@@ -9,7 +9,7 @@ import {
 	useState
 } from 'react';
 import TruncateMarkup from 'react-truncate-markup';
-import { useSelector } from '@sd/client';
+import { useSelector, WithReact, WithSolid } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { useOperatingSystem, useShortcut } from '~/hooks';
 
@@ -24,7 +24,23 @@ export interface RenameTextBoxProps extends React.HTMLAttributes<HTMLDivElement>
 	idleClassName?: string;
 }
 
-export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
+// TODO: We ignore the `forwardRef` cause it's unused from what I can tell.
+export function RenameTextBox(props: RenameTextBoxProps) {
+	// return (
+	// 	<WithSolid
+	// 		root={() =>
+	// 			WithReact({
+	// 				root: RenameTextBoxInner,
+	// 				...props
+	// 			})
+	// 		}
+	// 	/>
+	// );
+
+	return <RenameTextBoxInner {...props} />;
+}
+
+const RenameTextBoxInner = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 	({ name, onRename, disabled, className, idleClassName, lines, ...props }, _ref) => {
 		const os = useOperatingSystem();
 		const [isRenaming, drag] = useSelector(explorerStore, (s) => [s.isRenaming, s.drag]);

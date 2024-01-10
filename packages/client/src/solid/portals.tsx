@@ -1,26 +1,27 @@
 import {
 	createElement,
 	createContext as createReactContext,
+	Fragment,
 	PropsWithChildren,
 	ReactPortal,
-	useRef,
-	useState
+	useEffect,
+	useMemo,
+	useRef
 } from 'react';
 import {
 	createSignal,
 	createContext as createSolidContext,
-	getOwner,
-	Owner,
-	ParentProps,
 	Setter,
-	type Context as SolidContext
+	JSX as SolidJSX,
+	type Accessor
 } from 'solid-js';
+import { render } from 'solid-js/web';
 
 import { useObserver } from './useObserver';
 
 type PortalCtx = {
-	reactPortals: Setter<ReactPortal>[];
-	solidPortals: Setter<ReactPortal[]>;
+	setSolidPortals: Setter<Portal<SolidJSX.Element>[]>;
+	setReactPortals: Setter<Portal<ReactPortal>[]>;
 };
 
 type Portal<T> = {
@@ -28,33 +29,68 @@ type Portal<T> = {
 	portal: T;
 };
 
-// The Solid provider is the source of truth.
-// The React provider is just used to hook into the Solid provider.
-export const solidProvider = createSolidContext(undefined! as PortalCtx);
-export const reactProvider = createReactContext(undefined! as Owner);
+export const solidPortalCtx = createSolidContext(undefined! as PortalCtx);
+export const reactPortalCtx = createReactContext(undefined! as PortalCtx);
 
-// TODO: Right now we have React as our app's root so we don't need this
-// export function InteropProviderSolid(props: ParentProps) {}
-
+// This component must exist above all `WithSolid` calls at the root of your React application.
+// This component setups up the SolidJS root and portal providers so that all `WithSolid` and `WithReact` can render into the same React/Solid root.
 export function InteropProviderReact(props: PropsWithChildren) {
-	const solidPortals = useRef(createSignal([] as Portal<ReactPortal>[]));
-	const reactPortals = useRef(createSignal([] as Portal<ReactPortal>[]));
-	const solidRoot = useObserver(() => {
-		return {
-			solidOwner: getOwner()!
-			// reactPortals: reactPortals.current[0](),
-			// solidPortals: solidPortals.current[0]()
-		};
+	const state = useRef({
+		solidPortals: createSignal([] as Portal<SolidJSX.Element>[]),
+		reactPortals: createSignal([] as Portal<ReactPortal>[]),
+		// We only render portals in this so it's never rendered to the DOM
+		solidRoot: document.createElement('div'),
+		didFireFirstRender: false
 	});
 
-	// return portalProvider.Provider({
+	console.log('RENDER INTEROP PROVIDER');
 
-	// TODO: Wrap with solid context provider
+	useEffect(() => {
+		// This is to avoid double-rendering SolidJS when used in `React.StrictMode`.
+		if (!state.current.didFireFirstRender) {
+			state.current.didFireFirstRender = true;
+			return;
+		}
+
+		let cleanup = () => {};
+		cleanup = render(() => {
+			return (() => state.current.solidPortals[0]().map((p) => p.portal)) as any;
+		}, state.current.solidRoot);
+		return cleanup;
+	}, []);
+
+	const value: PortalCtx = {
+		setSolidPortals: state.current.solidPortals[1],
+		setReactPortals: state.current.reactPortals[1]
+	};
+	const portals = createElement(RenderPortals, { portals: state.current.reactPortals[0] });
 	return createElement(
-		reactProvider.Provider,
+		reactPortalCtx.Provider,
 		{
-			value: solidRoot.solidOwner
+			value
 		},
-		props.children
+		props.children,
+		portals
 	);
 }
+
+function RenderPortals(props: { portals: Accessor<Portal<ReactPortal>[]> }) {
+	const portals = useObserver(() => props.portals(), 'portals');
+
+	const array = portals.map((p) => p.id);
+	console.log(
+		'RENDER PORTAL PROVIDER',
+		portals.map((p) => p.id).join(','),
+		array.length === new Set(array).size
+	);
+
+	return useMemo(
+		() => portals.map((p) => createElement(Fragment, { key: p.id }, p.portal)),
+		[portals.map((p) => p.id).join(',')]
+	);
+
+	// return portals.map((p) => createElement(Fragment, { key: p.id }, p.portal));
+}
+
+// TODO: Right now we have React as our app's root so we don't need this but it would be the opposite of `InteropProviderReact`
+// export function InteropProviderSolid(props: ParentProps) {}

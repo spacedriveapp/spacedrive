@@ -4,5 +4,5 @@ export * from './solid.solid';
 export * from './useObserver';
 export * from './useUniversalQuery';
 export * from './useSolidStore';
-export * from './portals';
+export { InteropProviderReact } from './portals';
 export { createSharedContext } from './context';

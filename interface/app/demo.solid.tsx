@@ -1,6 +1,6 @@
 /** @jsxImportSource solid-js */
 
-import { createSignal } from 'solid-js';
+import { createSignal, createUniqueId } from 'solid-js';
 import { createSharedContext, WithReact } from '@sd/client';
 
 import { Demo as ReactDemo, Demo2 as ReactDemo2, ReactSquare } from './demo.react';
@@ -10,6 +10,9 @@ export const demoCtx = createSharedContext('the ctx was not set');
 export function Demo(props: { demo: string }) {
 	const [count, setCount] = createSignal(0);
 	const [ctxValue, setCtxValue] = createSignal('set in solid');
+
+	const id = createUniqueId();
+	console.log('RENDER demo.solid.tsx', id);
 
 	return (
 		<div class="absolute top-0 z-[99999] bg-red-500 p-2">
@@ -23,10 +26,10 @@ export function Demo(props: { demo: string }) {
 				<div>Hello from Solid: {count()}</div>
 				<div>CTX: {props.demo}</div>
 				<Inner />
-				<WithReact root={ReactDemo} demo={count().toString()} />
-				<WithReact root={ReactDemo2} />
+				<WithReact root={ReactDemo} demo={count().toString()} inner={true} />
+				{/* <WithReact root={ReactDemo2} /> */}
 			</demoCtx.Provider>
-			<ReactSquareManager />
+			{/* <ReactSquareManager /> */}
 		</div>
 	);
 }
@@ -41,12 +44,16 @@ export function Demo2() {
 }
 
 export function Demo3(props: { demo: string }) {
-	const ctx = demoCtx.useContext();
+	// const ctx = demoCtx.useContext();
+
+	const id = createUniqueId();
+	console.log('RENDER Demo3 demo.react.tsx', id);
 
 	return (
 		<div class="m-2 bg-blue-500 p-2">
-			<div>Hello from Solid again: {props.demo}</div>
-			<div>CTX: {ctx()}</div>
+			<h1>Testing</h1>
+			{/* <div>Hello from Solid again: {props.demo}</div> */}
+			{/* <div>CTX: {ctx()}</div> */}
 		</div>
 	);
 }

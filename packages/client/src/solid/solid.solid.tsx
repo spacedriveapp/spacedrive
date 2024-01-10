@@ -5,6 +5,7 @@ import {
 	createElement,
 	createContext as createReactContext,
 	StrictMode,
+	useContext as useReactContext,
 	type FunctionComponent
 } from 'react';
 import { createPortal } from 'react-dom';
@@ -15,6 +16,7 @@ import {
 	For,
 	getOwner,
 	onCleanup,
+	onMount,
 	Owner,
 	splitProps,
 	useContext as useSolidContext,
@@ -22,7 +24,7 @@ import {
 } from 'solid-js';
 
 import { withReactCtx as withReactContextProvider } from './context';
-import { reactPortalProvider } from './react';
+import { reactPortalCtx, solidPortalCtx } from './portals';
 import { useObserverWithOwner } from './useObserver';
 
 type AllowReactiveScope<T> = T extends object
@@ -39,65 +41,55 @@ type Props<T> =
 			root: FunctionComponent<T>;
 	  } & AllowReactiveScope<T>);
 
-type SolidPortal = {
-	id: string;
-	portal: JSX.Element;
-};
-
-export const solidPortalProvider = createReactContext<Setter<SolidPortal[]>>(undefined!);
-
 export function WithReact<T extends object>(props: Props<T>) {
-	const setReactPortals = useSolidContext(reactPortalProvider);
-	if (!setReactPortals) throw new Error('No react portal provider context');
+	const portalCtx = useSolidContext(solidPortalCtx);
+	if (!portalCtx) throw new Error('Missing portalCtx in WithReact');
 
 	const id = createUniqueId();
-	const [portals, setPortals] = createSignal([] as SolidPortal[]);
-
 	let ref: HTMLDivElement | undefined;
 
-	createEffect(() => {
+	onMount(() => {
 		if (!ref) return;
 
-		const elem = createElement(
-			StrictMode,
-			null,
-			createElement(
-				solidPortalProvider.Provider,
-				{
-					value: setPortals
-				},
+		console.log('RENDER REACT FIRED', id);
+
+		// TODO: Finish this
+		// if (!('inner' in props)) {
+		if (true) {
+			const elem = createElement(
+				StrictMode,
+				null,
 				createElement(
-					Wrapper,
+					reactPortalCtx.Provider,
 					{
-						root: props.root as any,
-						owner: getOwner()!,
-						childProps: () => splitProps(props, ['root'])[1]
+						value: portalCtx
 					},
-					null
+					createElement(
+						Wrapper,
+						{
+							root: props.root as any,
+							owner: getOwner()!,
+							childProps: () => splitProps(props, ['root'])[1]
+						},
+						null
+					)
 				)
-			)
-		);
+			);
 
-		const portal = createPortal(elem, ref);
-		setReactPortals((portals) => [
-			...portals,
-			{
-				id,
-				portal
-			}
-		]);
+			const portal = createPortal(elem, ref);
+			portalCtx.setReactPortals((portals) => [
+				...portals,
+				{
+					id,
+					portal
+				}
+			]);
+		}
 	});
 
-	onCleanup(() => {
-		setReactPortals((portals) => portals.filter((p) => p.id !== id));
-	});
+	// onCleanup(() => portalCtx.setReactPortals((portals) => portals.filter((p) => p.id !== id)));
 
-	return (
-		<>
-			<div ref={ref} />
-			<For each={portals()}>{(p) => <>{p.portal}</>}</For>
-		</>
-	);
+	return <div ref={ref} />;
 }
 
 function Wrapper<T extends object>(props: {
@@ -108,7 +100,10 @@ function Wrapper<T extends object>(props: {
 	// This is a React component SolidJS reactivity don't matter.
 
 	// eslint-disable-next-line solid/reactivity
-	const childProps = useObserverWithOwner(props.owner, () => trackDeep(props.childProps()));
+	// const childProps = useObserverWithOwner(props.owner, () => trackDeep(props.childProps()));
 	// eslint-disable-next-line solid/reactivity
-	return withReactContextProvider(props.owner, createElement(props.root, childProps, null));
+	// return withReactContextProvider(props.owner, createElement(props.root, childProps, null));
+
+	// TODO: Fix this
+	return createElement(props.root, {}, null);
 }
