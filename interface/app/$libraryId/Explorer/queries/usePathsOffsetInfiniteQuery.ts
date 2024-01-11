@@ -38,18 +38,17 @@ export function usePathsOffsetInfiniteQuery({
 			}
 		] satisfies [any, any],
 		queryFn: async ({ pageParam, queryKey: [_, { arg }] }) => {
-			const offset: number | undefined = pageParam;
 			const { order } = settings;
 
 			let orderAndPagination: (typeof arg)['orderAndPagination'];
 
-			if (!offset) {
+			if (!pageParam) {
 				if (order) orderAndPagination = { orderOnly: order };
 			} else {
 				orderAndPagination = {
 					offset: {
 						order,
-						offset: pageParam
+						offset: pageParam * arg.take
 					}
 				};
 			}
@@ -62,7 +61,7 @@ export function usePathsOffsetInfiniteQuery({
 			return { ...result, offset: pageParam, arg };
 		},
 		getNextPageParam: ({ nodes, offset, arg }) => {
-			if (nodes.length >= arg.take) return (offset ?? 0) + nodes.length;
+			if (nodes.length >= arg.take) return (offset ?? 0) + 1;
 		},
 		onSuccess: () => explorerStore.resetNewThumbnails(),
 		...args

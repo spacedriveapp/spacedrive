@@ -29,18 +29,17 @@ export function useObjectsOffsetInfiniteQuery({
 	const query = useInfiniteQuery({
 		queryKey: ['search.objects', { library_id: library.uuid, arg }] as const,
 		queryFn: async ({ pageParam, queryKey: [_, { arg }] }) => {
-			const cItem: Extract<ExplorerItem, { type: 'Object' }> = pageParam;
 			const { order } = settings;
 
 			let orderAndPagination: (typeof arg)['orderAndPagination'];
 
-			if (!cItem) {
+			if (!pageParam) {
 				if (order) orderAndPagination = { orderOnly: order };
 			} else {
 				orderAndPagination = {
 					offset: {
 						order,
-						offset: pageParam
+						offset: pageParam * arg.take
 					}
 				};
 			}
@@ -53,7 +52,7 @@ export function useObjectsOffsetInfiniteQuery({
 			return { ...result, offset: pageParam, arg };
 		},
 		getNextPageParam: ({ nodes, offset, arg }) => {
-			if (nodes.length >= arg.take) return (offset ?? 0) + nodes.length;
+			if (nodes.length >= arg.take) return (offset ?? 0) + 1;
 		},
 		...args
 	});
