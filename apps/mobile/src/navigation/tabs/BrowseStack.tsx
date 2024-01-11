@@ -5,6 +5,7 @@ import Header from '~/components/header/Header';
 import { tw } from '~/lib/tailwind';
 import BrowseScreen from '~/screens/browse';
 import LocationScreen from '~/screens/Location';
+import { Locations } from '~/screens/Locations';
 import TagScreen from '~/screens/Tag';
 
 import { TabScreenProps } from '../TabNavigator';
@@ -37,6 +38,13 @@ export default function BrowseStack() {
 				}}
 			/>
 			<Stack.Screen
+				name="Locations"
+				component={Locations}
+				options={{
+					header: () => <Header navBack searchType="location" title="Locations" />
+				}}
+			/>
+			<Stack.Screen
 				name="Tag"
 				component={TagScreen}
 				options={{
@@ -52,6 +60,7 @@ export default function BrowseStack() {
 export type BrowseStackParamList = {
 	Browse: undefined;
 	Location: { id: number; path?: string };
+	Locations: undefined;
 	Tag: { id: number };
 };
 

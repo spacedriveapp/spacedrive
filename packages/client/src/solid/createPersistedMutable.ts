@@ -1,16 +1,6 @@
 import { trackDeep } from '@solid-primitives/deep';
 import { createEffect, createRoot } from 'solid-js';
-import { type Store, type StoreNode } from 'solid-js/store';
-
-import { useObserver } from './useObserver';
-
-export function useSolidStore<T extends object = {}>(store: Store<T>) {
-	const state = useObserver(() => ({ ...store }));
-	return new Proxy(state, {
-		get: (target, prop) => Reflect.get(target, prop),
-		set: (_, prop, value) => Reflect.set(store, prop, value)
-	});
-}
+import { type StoreNode } from 'solid-js/store';
 
 type CreatePersistedMutableOpts<T> = {
 	onSave?: (value: T) => T;
