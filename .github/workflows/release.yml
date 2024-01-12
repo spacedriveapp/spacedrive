@@ -69,10 +69,6 @@ jobs:
           sudo apt-get purge --allow-remove-essential libc6-i386 ".*:i386"
           sudo dpkg --remove-architecture i386
 
-      - name: Set up Docker Buildx
-        if: ${{ runner.os == 'Linux' }}
-        uses: docker/setup-buildx-action@v3
-
       - name: Install Apple API key
         if: ${{ runner.os == 'macOS' }}
         run: |
