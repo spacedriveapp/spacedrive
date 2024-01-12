@@ -1,7 +1,6 @@
 import { getIcon, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import {
-	memo,
 	SyntheticEvent,
 	useEffect,
 	useMemo,
@@ -186,10 +185,8 @@ interface VideoProps extends VideoHTMLAttributes<HTMLVideoElement> {
 
 const Video = ({ paused, blackBars, blackBarsSize, className, ...props }: VideoProps) => {
 	const ref = useRef<HTMLVideoElement>(null);
-
 	const size = useSize(ref);
 	const { style: blackBarsStyle } = useBlackBars(size, blackBarsSize);
-
 	const { t } = useLocale();
 
 	useEffect(() => {
@@ -220,6 +217,14 @@ const Video = ({ paused, blackBars, blackBarsSize, className, ...props }: VideoP
 			style={{ ...(blackBars ? blackBarsStyle : {}) }}
 			className={clsx(blackBars && size.width === 0 && 'invisible', className)}
 			{...props}
+			key={props.src}
+			controls={false}
+			onTimeUpdate={(e) => {
+				const video = e.target as HTMLVideoElement;
+				if (video.currentTime > 0) {
+					video.controls = true;
+				}
+			}}
 		>
 			<p>{t('video_preview_not_supported')}</p>
 		</video>

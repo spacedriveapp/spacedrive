@@ -56,6 +56,7 @@ export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) =
 	const [loadState, setLoadState] = useState<{
 		[K in 'original' | 'thumbnail' | 'icon']: 'notLoaded' | 'loaded' | 'error';
 	}>({ original: 'notLoaded', thumbnail: 'notLoaded', icon: 'notLoaded' });
+	const [videoLoaded, setVideoLoaded] = useState(false);
 
 	const childClassName = 'max-h-full max-w-full object-contain';
 	const frameClassName = clsx(
@@ -194,6 +195,7 @@ export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) =
 
 	return (
 		<div
+			key={thumbType.variant}
 			style={{
 				...(props.size
 					? { maxWidth: props.size, width: props.size, height: props.size }
