@@ -28,14 +28,14 @@ jobs:
           #   target: aarch64-pc-windows-msvc
           - host: ubuntu-20.04
             target: x86_64-unknown-linux-gnu
-            bundles: deb,appimage
+            bundles: deb
             os: linux
             arch: x86_64
           # - host: ubuntu-20.04
           #   target: x86_64-unknown-linux-musl
           # - host: ubuntu-20.04
           #   target: aarch64-unknown-linux-gnu
-          #   bundles: deb # no appimage for now unfortunetly
+          #   bundles: deb
           # - host: ubuntu-20.04
           #   target: aarch64-unknown-linux-musl
     name: Desktop - Main ${{ matrix.settings.target }}
