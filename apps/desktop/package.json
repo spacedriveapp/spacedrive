@@ -12,15 +12,16 @@
 		"lint": "eslint src --cache"
 	},
 	"dependencies": {
-		"@remix-run/router": "^1.13.1",
 		"@oscartbeaumont-sd/rspc-client": "=0.0.0-main-dc31e5b2",
 		"@oscartbeaumont-sd/rspc-tauri": "=0.0.0-main-dc31e5b2",
+		"@remix-run/router": "^1.13.1",
 		"@sd/client": "workspace:*",
 		"@sd/interface": "workspace:*",
 		"@sd/ui": "workspace:*",
 		"@t3-oss/env-core": "^0.7.1",
 		"@tanstack/react-query": "^4.36.1",
 		"@tauri-apps/api": "1.5.1",
+		"consistent-hash": "^1.2.2",
 		"immer": "^10.0.3",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
