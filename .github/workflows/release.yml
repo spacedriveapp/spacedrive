@@ -69,6 +69,10 @@ jobs:
           sudo apt-get purge --allow-remove-essential libc6-i386 ".*:i386"
           sudo dpkg --remove-architecture i386
 
+      - name: Set up Docker Buildx
+        if: ${{ runner.os == 'Linux' }}
+        uses: docker/setup-buildx-action@v3
+
       - name: Install Apple API key
         if: ${{ runner.os == 'macOS' }}
         run: |
@@ -112,6 +116,14 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
+      - name: Build AppImage in Docker
+        if: ${{ runner.os == 'Linux' && ( matrix.settings.target == 'x86_64-unknown-linux-gnu' || matrix.settings.target == 'aarch64-unknown-linux-gnu' ) }}
+        run: |
+          docker run --rm -v $(pwd):/srv -w /srv debian:bookworm scripts/appimage/build_appimage.sh
+          cd 'target/${{ matrix.settings.target }}/release/bundle/appimage'
+          tar -czf Updater.AppImage.tar.gz *.AppImage
+          pnpm tauri signer sign -k "$TAURI_PRIVATE_KEY" -p "$TAURI_KEY_PASSWORD" "$(pwd)/Updater.AppImage.tar.gz"
 
       - name: Publish Artifacts
         uses: ./.github/actions/publish-artifacts

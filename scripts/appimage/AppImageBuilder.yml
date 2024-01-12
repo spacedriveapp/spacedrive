@@ -70,7 +70,6 @@ AppDir:
       - ubuntu-mono
       - fonts-*-core
       - bubblewrap
-      - libgstreamer-plugins-bad1.0-0
       - gstreamer1.0-plugins-bad
       - gstreamer1.0-libav
 

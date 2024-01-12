@@ -28,7 +28,7 @@
 			"longDescription": "Cross-platform universal file explorer, powered by an open-source virtual distributed filesystem.",
 			"deb": {
 				"files": {
-					"/usr/share/models/yolov8s.onnx": "../../.deps/models/yolov8s.onnx"
+					"/usr/share/spacedrive/models/yolov8s.onnx": "../../.deps/models/yolov8s.onnx"
 				},
 				"depends": ["libc6"]
 			},
