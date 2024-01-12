@@ -286,7 +286,7 @@ async fn main() -> tauri::Result<()> {
 
 					let nswindow = window.ns_window().unwrap();
 
-					unsafe { set_titlebar_style(&nswindow, true) };
+					unsafe { set_titlebar_style(&nswindow, false) };
 					unsafe { blur_window_background(&nswindow) };
 
 					tokio::spawn({
