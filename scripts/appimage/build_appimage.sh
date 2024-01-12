@@ -77,7 +77,7 @@ export REPO_DIR="$APPIMAGE_WORKDIR/pkgs"
 XDG_DATA_DIRS="$(pwd)/AppDir/usr/share:/usr/share:/usr/local/share:/var/lib/flatpak/exports/share"
 export XDG_DATA_DIRS
 
-VERSION="$(git describe --tags --dirty=-custom --always)"
+VERSION="$(CDPATH='' cd "${_root}/../.." && git describe --tags --dirty=-custom --always)"
 export VERSION
 
 mkdir -p "$TARGET_APPIMAGE_DIR"
