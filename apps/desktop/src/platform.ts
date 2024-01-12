@@ -35,7 +35,6 @@ function constructServerUrl(urlSuffix: string) {
 		if (!customUriServerUrl)
 			throw new Error("'window.__SD_CUSTOM_URI_SERVER__' was not injected correctly!");
 
-		console.log(ConsistentHash);
 		hr = new ConsistentHash();
 		customUriServerUrl.forEach((url) => hr.add(url));
 	}
