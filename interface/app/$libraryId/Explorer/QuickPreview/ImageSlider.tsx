@@ -91,7 +91,7 @@ const Image = memo(({ item, active }: { item: ExplorerItem; active: boolean }) =
 	);
 
 	return (
-		<Tooltip label={fullName} position="top">
+		<Tooltip tooltipClassName="!break-all" label={fullName} position="top">
 			<div
 				onClick={() => explorer.resetSelectedItems([item])}
 				className={clsx(
