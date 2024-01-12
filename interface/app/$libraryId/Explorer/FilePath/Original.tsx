@@ -222,7 +222,7 @@ const Video = ({ paused, blackBars, blackBarsSize, className, ...props }: VideoP
 			onTimeUpdate={(e) => {
 				const video = e.target as HTMLVideoElement;
 				if (video.currentTime > 0) {
-					video.controls = true;
+					video.controls = props.controls ?? true;
 				}
 			}}
 		>
