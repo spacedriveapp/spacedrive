@@ -124,7 +124,7 @@ export const ShortcutState: TShortcutState = {
 				action: 'Toggle hidden files',
 				keys: {
 					macOS: ['Meta', 'Shift', '.'],
-					all: ['Control', 'Shift', '.']
+					all: ['Control', 'KeyH']
 				},
 				icons: {
 					macOS: [
