@@ -104,6 +104,9 @@ importers:
       '@tauri-apps/api':
         specifier: 1.5.1
         version: 1.5.1
+      consistent-hash:
+        specifier: ^1.2.2
+        version: 1.2.2
       immer:
         specifier: ^10.0.3
         version: 10.0.3
@@ -6673,7 +6676,7 @@ packages:
       magic-string: 0.27.0
       react-docgen-typescript: 2.2.2(typescript@5.3.3)
       typescript: 5.3.3
-      vite: 5.0.10(less@4.2.0)
+      vite: 5.0.10(@types/node@18.17.19)
 
   /@jridgewell/gen-mapping@0.3.3:
     resolution: {integrity: sha512-HLhSWOLRi875zjjMG/r+Nv0oCW8umGb0BgEhyX3dDX3egwZtB8PqLnjz3yedt8R5StBrzcg4aBpnh8UA9D1BoQ==}
@@ -9954,7 +9957,7 @@ packages:
       magic-string: 0.30.5
       rollup: 3.29.4
       typescript: 5.3.3
-      vite: 5.0.10(less@4.2.0)
+      vite: 5.0.10(@types/node@18.17.19)
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -10307,7 +10310,7 @@ packages:
       react: 18.2.0
       react-docgen: 6.0.4
       react-dom: 18.2.0(react@18.2.0)
-      vite: 5.0.10(less@4.2.0)
+      vite: 5.0.10(@types/node@18.17.19)
     transitivePeerDependencies:
       - '@preact/preset-vite'
       - encoding
@@ -11709,7 +11712,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.22.5(@babel/core@7.23.2)
       magic-string: 0.27.0
       react-refresh: 0.14.0
-      vite: 5.0.10(less@4.2.0)
+      vite: 5.0.10(@types/node@18.17.19)
     transitivePeerDependencies:
       - supports-color
 
@@ -13351,6 +13354,10 @@ packages:
       utils-merge: 1.0.1
     transitivePeerDependencies:
       - supports-color
+
+  /consistent-hash@1.2.2:
+    resolution: {integrity: sha512-xKAVji9aC80uN/h5u4XXwJ8otOh/D/cm8aryKa7+I0qwoBwxYOYkTiyvgwjUBRn+7CRVEvn/DvJtX1YsEugr0w==}
+    dev: false
 
   /consola@2.15.3:
     resolution: {integrity: sha512-9vAdYbHj6x2fLKC4+oPH0kFzY/orMZyG2Aj+kNylHxKGJ/Ed4dpNyAQYwJOdqO4zdM7XpVHmyejQDcQHrnuXbw==}
@@ -24823,7 +24830,6 @@ packages:
       rollup: 4.9.2
     optionalDependencies:
       fsevents: 2.3.3
-    dev: true
 
   /vite@5.0.10(less@4.2.0):
     resolution: {integrity: sha512-2P8J7WWgmc355HUMlFrwofacvr98DAjoE52BfdbwQtyLH06XKwaL/FMnmKM2crF0iX4MpmMKoDlNCB1ok7zHCw==}
@@ -24859,6 +24865,7 @@ packages:
       rollup: 4.9.2
     optionalDependencies:
       fsevents: 2.3.3
+    dev: true
 
   /vite@5.0.10(sass@1.69.5):
     resolution: {integrity: sha512-2P8J7WWgmc355HUMlFrwofacvr98DAjoE52BfdbwQtyLH06XKwaL/FMnmKM2crF0iX4MpmMKoDlNCB1ok7zHCw==}
