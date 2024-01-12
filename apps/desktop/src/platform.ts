@@ -41,19 +41,19 @@ function constructServerUrl(urlSuffix: string) {
 	}
 
 	// Randomly switch between servers to avoid HTTP connection limits
-	return hr.get(urlSuffix) + urlSuffix;
+	return hr.get(urlSuffix) + urlSuffix + queryParams;
 }
 
 export const platform = {
 	platform: 'tauri',
 	getThumbnailUrlByThumbKey: (keyParts) =>
 		constructServerUrl(
-			`/thumbnail/${keyParts.map((i) => encodeURIComponent(i)).join('/')}.webp${queryParams}`
+			`/thumbnail/${keyParts.map((i) => encodeURIComponent(i)).join('/')}.webp`
 		),
 	getFileUrl: (libraryId, locationLocalId, filePathId) =>
-		constructServerUrl(`/file/${libraryId}/${locationLocalId}/${filePathId}${queryParams}`),
+		constructServerUrl(`/file/${libraryId}/${locationLocalId}/${filePathId}`),
 	getFileUrlByPath: (path) =>
-		constructServerUrl(`/local-file-by-path/${encodeURIComponent(path)}${queryParams}`),
+		constructServerUrl(`/local-file-by-path/${encodeURIComponent(path)}`),
 	openLink: shell.open,
 	getOs,
 	openDirectoryPickerDialog: (opts) => {
