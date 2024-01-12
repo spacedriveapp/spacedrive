@@ -2,6 +2,8 @@ import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { confirm } from '@tauri-apps/api/dialog';
 import { homeDir } from '@tauri-apps/api/path';
 import { open } from '@tauri-apps/api/shell';
+// @ts-expect-error: Doesn't have a types package.
+import ConsistentHash from 'consistent-hash';
 import { OperatingSystem, Platform } from '@sd/interface';
 
 import { commands, events } from './commands';
@@ -26,31 +28,32 @@ async function getOs(): Promise<OperatingSystem> {
 	}
 }
 
-function randomIntFromInterval(min: number, max: number) {
-	// min and max included
-	return Math.floor(Math.random() * (max - min + 1) + min);
-}
+let hr: typeof ConsistentHash | undefined;
 
-function randomServer() {
-	if (!customUriServerUrl)
-		throw new Error("'window.__SD_CUSTOM_URI_SERVER__' was not injected correctly!");
-	const index = randomIntFromInterval(0, customUriServerUrl.length - 1); // Randomly switch between servers
-	return customUriServerUrl[index] + '/';
+function constructServerUrl(urlSuffix: string) {
+	if (!hr) {
+		if (!customUriServerUrl)
+			throw new Error("'window.__SD_CUSTOM_URI_SERVER__' was not injected correctly!");
+
+		console.log(ConsistentHash);
+		hr = new ConsistentHash();
+		customUriServerUrl.forEach((url) => hr.add(url));
+	}
+
+	// Randomly switch between servers to avoid HTTP connection limits
+	return hr.get(urlSuffix) + urlSuffix + queryParams;
 }
 
 export const platform = {
 	platform: 'tauri',
-	getThumbnailUrlByThumbKey: (keyParts) => {
-		return `${randomServer()}thumbnail/${keyParts
-			.map((i) => encodeURIComponent(i))
-			.join('/')}.webp${queryParams}`;
-	},
-	getFileUrl: (libraryId, locationLocalId, filePathId) => {
-		return `${randomServer()}file/${libraryId}/${locationLocalId}/${filePathId}${queryParams}`;
-	},
-	getFileUrlByPath: (path) => {
-		return `${randomServer()}local-file-by-path/${encodeURIComponent(path)}${queryParams}`;
-	},
+	getThumbnailUrlByThumbKey: (keyParts) =>
+		constructServerUrl(
+			`/thumbnail/${keyParts.map((i) => encodeURIComponent(i)).join('/')}.webp`
+		),
+	getFileUrl: (libraryId, locationLocalId, filePathId) =>
+		constructServerUrl(`/file/${libraryId}/${locationLocalId}/${filePathId}`),
+	getFileUrlByPath: (path) =>
+		constructServerUrl(`/local-file-by-path/${encodeURIComponent(path)}`),
 	openLink: shell.open,
 	getOs,
 	openDirectoryPickerDialog: (opts) => {
