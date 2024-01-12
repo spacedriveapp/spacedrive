@@ -221,7 +221,7 @@ pub fn normalize_environment() {
 				{
 					// Use the same version as gcompat
 					// https://git.adelielinux.org/adelie/gcompat/-/blob/current/libgcompat/version.c
-					"2.8"
+					std::env::var("GLIBC_FAKE_VERSION").unwrap_or_else(|_| "2.8".to_string())
 				}
 			});
 

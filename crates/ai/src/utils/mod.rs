@@ -14,15 +14,15 @@ pub(crate) fn get_path_relative_to_exe(path: impl AsRef<Path>) -> PathBuf {
 				.into()
 		})
 		.parent()
-		.and_then(|parent_path| {
+		.map(|parent_path| {
 			let path = parent_path.join(path.as_ref());
 
 			match path.canonicalize().map_err(|e| error!("{e:#?}")) {
-				Ok(path) => return Some(path),
+				Ok(path) => path,
 				Err(e) => {
 					error!("Failed to canonilize relative path to exe, return raw path and hope: {e:#?}");
-					return Some(path)
-				},
+					path
+				}
 			}
 		})
 		.unwrap_or_else(|| path.as_ref().to_path_buf())
