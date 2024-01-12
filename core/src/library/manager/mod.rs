@@ -134,7 +134,7 @@ impl Libraries {
 					.await?;
 
 				// FIX-ME: Linux releases crashes with *** stack smashing detected *** if spawn_volume_watcher is enabled
-				// No ideia why, but this will be irrelevant after the UDisk API is implemented, so let's leave it disable for now
+				// No ideia why, but this will be irrelevant after the UDisk API is implemented, so let's leave it disabled for now
 				#[cfg(not(target_os = "linux"))]
 				{
 					use crate::volume::watcher::spawn_volume_watcher;
