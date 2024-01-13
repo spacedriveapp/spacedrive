@@ -14,7 +14,6 @@ set -eEuo pipefail
 
 if [ "${CI:-}" = "true" ]; then
   set -x
-  git config --global --add safe.directory '*'
 fi
 
 _root="$(CDPATH='' cd "$(dirname -- "$0")" && pwd -P)"
@@ -47,6 +46,10 @@ apt-get update && apt-get install -yq \
   gstreamer1.0-tools \
   libgdk-pixbuf2.0-bin \
   gtk-update-icon-cache
+
+if [ "${CI:-}" = "true" ]; then
+  git config --global --add safe.directory '*'
+fi
 
 # gdk-pixbuf-query-loaders is not in PATH by default
 ln -fs /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders /usr/local/bin/gdk-pixbuf-query-loaders
