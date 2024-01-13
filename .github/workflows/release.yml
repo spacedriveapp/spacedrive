@@ -116,8 +116,10 @@ jobs:
       - name: Build AppImage in Docker
         if: ${{ runner.os == 'Linux' && ( matrix.settings.target == 'x86_64-unknown-linux-gnu' || matrix.settings.target == 'aarch64-unknown-linux-gnu' ) }}
         run: |
+          set -euxo pipefail
           docker run --rm -v $(pwd):/srv -e 'CI=true' -e 'TARGET=${{ matrix.settings.target }}' -w /srv debian:bookworm scripts/appimage/build_appimage.sh
           cd 'target/${{ matrix.settings.target }}/release/bundle/appimage'
+          sudo chown "$(id -u):(id -g)" -R .
           tar -czf Updater.AppImage.tar.gz *.AppImage
           pnpm tauri signer sign -k "$TAURI_PRIVATE_KEY" -p "$TAURI_KEY_PASSWORD" "$(pwd)/Updater.AppImage.tar.gz"
 
