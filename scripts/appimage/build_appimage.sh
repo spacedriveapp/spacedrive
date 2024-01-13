@@ -10,7 +10,7 @@
 # https://docs.appimage.org/packaging-guide/index.html
 # https://appimage-builder.readthedocs.io/en/latest/index.html
 
-set -xeEuo pipefail
+set -eEuo pipefail
 
 if [ "${CI:-}" = "true" ]; then
   set -x
