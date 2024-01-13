@@ -14,6 +14,7 @@ set -xeEuo pipefail
 
 if [ "${CI:-}" = "true" ]; then
   set -x
+  git config --global --add safe.directory '*'
 fi
 
 _root="$(CDPATH='' cd "$(dirname -- "$0")" && pwd -P)"
