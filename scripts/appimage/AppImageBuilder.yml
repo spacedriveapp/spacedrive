@@ -20,26 +20,26 @@ script: |
   cp -f "$_deb" appimage-build/apt/archives
 
 AppDir:
-  path: !ENV "${TARGET_APPDIR}"
+  path: !ENV '${TARGET_APPDIR}'
 
   app_info:
     id: com.spacedrive
     name: Spacedrive
     icon: spacedrive
-    version: !ENV "${VERSION}"
+    version: !ENV '${VERSION}'
     exec: usr/bin/spacedrive
     exec_args: $@
 
   apt:
     arch: !ENV ${TARGET_APPIMAGE_APT_ARCH}
     sources:
-      - sourceline: !ENV "deb [arch=${TARGET_APPIMAGE_APT_ARCH}] http://deb.debian.org/debian bookworm main"
-        key_url: "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x1f89983e0081fde018f3cc9673a4f27b8dd47936"
-      - sourceline: !ENV "deb [arch=${TARGET_APPIMAGE_APT_ARCH}] http://security.debian.org/debian-security bookworm-security main"
-        key_url: "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x1f89983e0081fde018f3cc9673a4f27b8dd47936"
-      - sourceline: !ENV "deb [arch=${TARGET_APPIMAGE_APT_ARCH}] http://deb.debian.org/debian bookworm-updates main"
-        key_url: "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xac530d520f2f3269f5e98313a48449044aad5c5d"
-      - sourceline: !ENV "deb [trusted=yes] file:${REPO_DIR}/ ./"
+      - sourceline: !ENV 'deb [arch=${TARGET_APPIMAGE_APT_ARCH}] http://deb.debian.org/debian bookworm main'
+        key_url: 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x1f89983e0081fde018f3cc9673a4f27b8dd47936'
+      - sourceline: !ENV 'deb [arch=${TARGET_APPIMAGE_APT_ARCH}] http://security.debian.org/debian-security bookworm-security main'
+        key_url: 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x1f89983e0081fde018f3cc9673a4f27b8dd47936'
+      - sourceline: !ENV 'deb [arch=${TARGET_APPIMAGE_APT_ARCH}] http://deb.debian.org/debian bookworm-updates main'
+        key_url: 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xac530d520f2f3269f5e98313a48449044aad5c5d'
+      - sourceline: !ENV 'deb [trusted=yes] file:${REPO_DIR}/ ./'
 
     include:
       - spacedrive
@@ -129,7 +129,7 @@ AppDir:
 
   runtime:
     path_mappings:
-      - !ENV "/usr/lib/${TARGET_APPIMAGE_ARCH}-linux-gnu/webkit2gtk-4.0/injected-bundle/libwebkit2gtkinjectedbundle.so:$APPDIR/usr/lib/${TARGET_APPIMAGE_ARCH}-linux-gnu/webkit2gtk-4.0/injected-bundle/libwebkit2gtkinjectedbundle.so"
+      - !ENV '/usr/lib/${TARGET_APPIMAGE_ARCH}-linux-gnu/webkit2gtk-4.0/injected-bundle/libwebkit2gtkinjectedbundle.so:$APPDIR/usr/lib/${TARGET_APPIMAGE_ARCH}-linux-gnu/webkit2gtk-4.0/injected-bundle/libwebkit2gtkinjectedbundle.so'
 
   # Patch webkit2gtk so it works under appimage
   after_bundle: |
@@ -160,6 +160,6 @@ AppDir:
   # https://github.com/tauri-apps/tauri/blob/35264b4c1801b381e0b867c1c35540f0fbb43365/core/tauri-utils/src/lib.rs#L202
 
 AppImage:
-  arch: !ENV "${TARGET_APPIMAGE_ARCH}"
+  arch: !ENV '${TARGET_APPIMAGE_ARCH}'
   sign-key: None
   update-information: None
