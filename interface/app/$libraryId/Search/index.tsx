@@ -1,4 +1,4 @@
-import { CaretRight, FunnelSimple, Icon, Plus } from '@phosphor-icons/react';
+import { FunnelSimple, Icon, Plus } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
 import { memo, PropsWithChildren, useDeferredValue, useState } from 'react';
@@ -27,8 +27,8 @@ import {
 import { UseSearch } from './useSearch';
 import { RenderIcon } from './util';
 
-export * from './useSearch';
 export * from './context';
+export * from './useSearch';
 
 // const Label = tw.span`text-ink-dull mr-2 text-xs`;
 export const OptionContainer = tw.div`flex flex-row items-center`;
@@ -46,7 +46,7 @@ const SearchOptionItemInternals = (props: SearchOptionItemProps) => {
 		<div className="flex w-full items-center justify-between gap-1.5">
 			<div className="flex items-center gap-1.5">
 				<RenderIcon icon={props.icon} />
-				<span className="w-fit max-w-[150px] truncate">{props.children}</span>
+				<span className="w-[165px] truncate">{props.children}</span>
 			</div>
 			{props.selected !== undefined && <RadixCheckbox checked={props.selected} />}
 		</div>
@@ -160,11 +160,15 @@ const SearchResults = memo(
 							key={option.key}
 						>
 							<div className="mr-4 flex flex-row items-center gap-1.5">
-								<RenderIcon icon={filter.icon} />
-								<span className="text-ink-dull">{filter.name}</span>
-								<CaretRight weight="bold" className="text-ink-dull/70" />
+								<RenderIcon
+									className="h-[13px] w-[13px] opacity-80"
+									icon={filter.icon}
+								/>
+								<span className="text-xs text-ink-dull opacity-80">
+									{filter.name}
+								</span>
 								<RenderIcon icon={option.icon} />
-								{option.name}
+								<span className="truncate">{option.name}</span>
 							</div>
 						</SearchOptionItem>
 					);
@@ -195,7 +199,10 @@ function AddFilterButton() {
 		<OptionContainer className="shrink-0">
 			<DropdownMenu.Root
 				onKeyDown={(e) => e.stopPropagation()}
-				className={MENU_STYLES}
+				className={clsx(
+					MENU_STYLES,
+					'explorer-scroll h-fit max-h-[80vh] w-full max-w-[250px]'
+				)}
 				trigger={
 					<Button className="flex flex-row gap-1" size="xs" variant="dotted">
 						<FunnelSimple />
