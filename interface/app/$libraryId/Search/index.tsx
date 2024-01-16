@@ -1,7 +1,5 @@
 import { FunnelSimple, Icon, Plus } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
-import clsx from 'clsx';
-import { memo, PropsWithChildren, useDeferredValue, useState } from 'react';
 import { useLibraryMutation } from '@sd/client';
 import {
 	Button,
@@ -13,6 +11,8 @@ import {
 	tw,
 	usePopover
 } from '@sd/ui';
+import clsx from 'clsx';
+import { memo, PropsWithChildren, useDeferredValue, useState } from 'react';
 import { useIsDark, useKeybind } from '~/hooks';
 
 import { AppliedFilters } from './AppliedFilters';
@@ -159,16 +159,20 @@ const SearchResults = memo(
 							}
 							key={option.key}
 						>
-							<div className="mr-4 flex flex-row items-center gap-1.5">
-								<RenderIcon
-									className="h-[13px] w-[13px] opacity-80"
-									icon={filter.icon}
-								/>
-								<span className="text-xs text-ink-dull opacity-80">
-									{filter.name}
-								</span>
-								<RenderIcon icon={option.icon} />
-								<span className="truncate">{option.name}</span>
+							<div className="mr-4 flex flex-row items-center gap-2.5">
+								<div className="flex items-center gap-1">
+									<RenderIcon
+										className="h-[13px] w-[13px] opacity-80"
+										icon={filter.icon}
+									/>
+									<span className="text-xs text-ink-dull opacity-80">
+										{filter.name}
+									</span>
+								</div>
+								<div className="flex items-center gap-1 overflow-hidden">
+									<RenderIcon icon={option.icon} />
+									<span className="truncate">{option.name}</span>
+								</div>
 							</div>
 						</SearchOptionItem>
 					);
@@ -201,7 +205,7 @@ function AddFilterButton() {
 				onKeyDown={(e) => e.stopPropagation()}
 				className={clsx(
 					MENU_STYLES,
-					'explorer-scroll h-fit max-h-[80vh] w-full max-w-[250px]'
+					'explorer-scroll max-h-[80vh] min-h-[100px] min-w-[200px] max-w-fit'
 				)}
 				trigger={
 					<Button className="flex flex-row gap-1" size="xs" variant="dotted">
