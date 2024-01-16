@@ -153,6 +153,7 @@ import SearchAlt from './SearchAlt.png';
 import Server_Light from './Server_Light.png';
 import Server from './Server.png';
 import SilverBox from './SilverBox.png';
+import Spacedrop_Light from './Spacedrop_Light.png';
 import Spacedrop1 from './Spacedrop-1.png';
 import Spacedrop from './Spacedrop.png';
 import Tablet_Light from './Tablet_Light.png';
@@ -335,6 +336,7 @@ export {
 	SilverBox,
 	Spacedrop1,
 	Spacedrop,
+	Spacedrop_Light,
 	Tablet,
 	Tablet_Light,
 	Tags,
