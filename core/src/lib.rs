@@ -83,6 +83,7 @@ impl Node {
 	pub async fn new(
 		data_dir: impl AsRef<Path>,
 		env: env::Env,
+		desktop: bool,
 	) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
 		let data_dir = data_dir.as_ref();
 
@@ -110,7 +111,7 @@ impl Node {
 		let (jobs, jobs_actor) = job::Jobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
 
-		if libraries.get_all().await.is_empty() {
+		if desktop && libraries.get_all().await.is_empty() {
 			clear_localstorage().await;
 		}
 
