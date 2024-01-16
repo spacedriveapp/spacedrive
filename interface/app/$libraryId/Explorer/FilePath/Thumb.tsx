@@ -266,7 +266,6 @@ const Thumbnail = forwardRef<HTMLImageElement, ThumbnailProps>(
 							className,
 							blackBarsStyle && size.width === 0 && 'invisible'
 						),
-						cover,
 						style: { ...style, ...(blackBars ? blackBarsStyle : undefined) },
 						size,
 						ref
