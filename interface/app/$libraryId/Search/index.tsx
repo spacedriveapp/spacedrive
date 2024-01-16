@@ -1,5 +1,7 @@
 import { FunnelSimple, Icon, Plus } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
+import clsx from 'clsx';
+import { memo, PropsWithChildren, useDeferredValue, useState } from 'react';
 import { useLibraryMutation } from '@sd/client';
 import {
 	Button,
@@ -11,8 +13,6 @@ import {
 	tw,
 	usePopover
 } from '@sd/ui';
-import clsx from 'clsx';
-import { memo, PropsWithChildren, useDeferredValue, useState } from 'react';
 import { useIsDark, useKeybind } from '~/hooks';
 
 import { AppliedFilters } from './AppliedFilters';
@@ -44,9 +44,9 @@ const MENU_STYLES = `!rounded-md border !border-app-line !bg-app-box`;
 const SearchOptionItemInternals = (props: SearchOptionItemProps) => {
 	return (
 		<div className="flex w-full items-center justify-between gap-1.5">
-			<div className="flex items-center gap-1.5">
+			<div className="flex w-[165px] items-center gap-1.5 overflow-hidden">
 				<RenderIcon icon={props.icon} />
-				<span className="w-[165px] truncate">{props.children}</span>
+				<span className="truncate">{props.children}</span>
 			</div>
 			{props.selected !== undefined && <RadixCheckbox checked={props.selected} />}
 		</div>
