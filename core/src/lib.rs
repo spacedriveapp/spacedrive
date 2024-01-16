@@ -4,6 +4,7 @@ use crate::{
 	api::{CoreEvent, Router},
 	location::LocationManagerError,
 	object::media::thumbnail::actor::Thumbnailer,
+	util::clear_localstorage::clear_localstorage,
 };
 
 #[cfg(feature = "ai")]
@@ -108,6 +109,11 @@ impl Node {
 		let (locations, locations_actor) = location::Locations::new();
 		let (jobs, jobs_actor) = job::Jobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
+
+		if libraries.get_all().await.is_empty() {
+			clear_localstorage().await;
+		}
+
 		let (p2p, p2p_actor) = p2p::P2PManager::new(config.clone(), libraries.clone()).await?;
 		let node = Arc::new(Node {
 			data_dir: data_dir.to_path_buf(),
