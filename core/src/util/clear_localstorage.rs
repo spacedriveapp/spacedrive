@@ -4,11 +4,20 @@ use tracing::{info, warn};
 
 pub async fn clear_localstorage() {
 	if let Some(base_dirs) = BaseDirs::new() {
-		let data_dir = BaseDirs::data_dir(&base_dirs);
+		let data_dir = BaseDirs::data_dir(&base_dirs).join("com.spacedrive.desktop"); // app identifier, maybe tie this into something?
 
-		fs::remove_dir_all(data_dir.join("com.spacedrive.desktop")) // app identifier, maybe tie this into something?
+		fs::remove_dir_all(data_dir)
 			.await
 			.map_err(|_| warn!("Unable to delete the localstorage directory"))
+			.ok();
+
+		#[cfg(target_os = "macos")]
+		let webkit_dir = BaseDirs::home_dir(&base_dirs).join("Library/WebKit/Spacedrive"); // macos stores some localstorage stuff here
+
+		#[cfg(target_os = "macos")]
+		fs::remove_dir_all(webkit_dir)
+			.await
+			.map_err(|_| warn!("Unable to delete the WebKit localstorage directory"))
 			.ok();
 
 		info!("Cleared localstorage successfully")
