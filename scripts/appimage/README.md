@@ -1,6 +1,6 @@
 # AppImage build script and files
 
-This directory contain the script and recipe to build an AppImage from a freshly build Spacedrive `.deb` using [appimage-builder](https://appimage-builder.readthedocs.io/en/latest/index.html).
+This directory contains the script and recipe to build an AppImage from a Spacedrive `.deb` using [appimage-builder](https://appimage-builder.readthedocs.io/en/latest/index.html).
 
 ## Instructions (Requires a Linux environment)
 
@@ -10,11 +10,11 @@ This directory contain the script and recipe to build an AppImage from a freshly
 
   - [Docker](https://docs.docker.com/engine/install/#supported-platforms)
 
-- Setup you development environment following the steps in the [CONTRIBUTING](../../CONTRIBUTING.md) guide
+- Set up your development environment following the steps in the [CONTRIBUTING](../../CONTRIBUTING.md) guide
 
 - Build a production release of Spacedrive by invoking `pnpm tauri` in a terminal window inside the Spacedrive repository root
 
-  > After the build process end you should end up with a `.deb` archive in `target/release/bundle/deb`
+  > After the build finishes you should end up with a `.deb` archive in `target/release/bundle/deb`
 
 - Change your current work directory to `scripts/appimage`
 

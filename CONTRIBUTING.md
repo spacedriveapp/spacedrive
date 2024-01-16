@@ -138,7 +138,7 @@ error: terminated(1): /us/bin/xcrun --sdk macos --show-sdk-platform-path output 
 xcrun: error: unable to lookup item 'PlatformPath' from command line tools installation xcrun: error: unable to lookup item 'PlatformPath' in SDK '/Library/Developer /CommandLineTools/SDKs/MacOSX.sdk'
 ```
 
-Ensure that macOS is fully updated, and that you have XCode installed (via the app store).
+Ensure that macOS is fully updated, and that you have Xcode installed (via the app store).
 
 Once that has completed, run `xcode-select --install` in the terminal to install the command line tools. If they are already installed, ensure that you update macOS to the latest version available.
 
