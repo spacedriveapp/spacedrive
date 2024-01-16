@@ -144,6 +144,7 @@ import SD_Light from './SD_Light.png';
 import SD from './SD.png';
 import Server_Light from './Server_Light.png';
 import Server from './Server.png';
+import Spacedrop_Light from './Spacedrop_Light.png';
 import Spacedrop1 from './Spacedrop-1.png';
 import Spacedrop from './Spacedrop.png';
 import Tablet_Light from './Tablet_Light.png';
@@ -317,6 +318,7 @@ export {
 	Server_Light,
 	Spacedrop1,
 	Spacedrop,
+	Spacedrop_Light,
 	Tablet,
 	Tablet_Light,
 	Tags,
