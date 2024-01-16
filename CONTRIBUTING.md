@@ -95,6 +95,10 @@ To run the mobile app:
   - `pnpm ios` (runs on iOS Emulator)
   - `pnpm start` (runs the metro bundler)
 
+##### AppImage
+
+Specific instructions on how to build a AppImage release are located [here](scripts/appimage)
+
 ### Pull Request
 
 Once you have finished making your changes, create a pull request (PR) to submit them.
