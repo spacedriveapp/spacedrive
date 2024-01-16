@@ -2005,18 +2005,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "deps-generator"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "cargo_metadata 0.18.1",
- "clap",
- "reqwest",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "der"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7586,6 +7574,18 @@ dependencies = [
  "tokio",
  "uuid",
  "zeroize",
+]
+
+[[package]]
+name = "sd-deps-generator"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "cargo_metadata 0.18.1",
+ "clap",
+ "reqwest",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -22,10 +22,11 @@ export const Component = () => {
 	const discoveredPeers = useDiscoveredPeers();
 	const info = useMemo(() => {
 		if (locations.data && discoveredPeers) {
-			const tb_capacity = byteSize(stats.data?.total_bytes_capacity);
-			const free_space = byteSize(stats.data?.total_bytes_free);
-			const library_db_size = byteSize(stats.data?.library_db_size);
-			const preview_media = byteSize(stats.data?.preview_media_bytes);
+			const statistics = stats.data?.statistics;
+			const tb_capacity = byteSize(statistics?.total_bytes_capacity);
+			const free_space = byteSize(statistics?.total_bytes_free);
+			const library_db_size = byteSize(statistics?.library_db_size);
+			const preview_media = byteSize(statistics?.preview_media_bytes);
 			const data: {
 				icon: keyof typeof iconNames;
 				title?: string;

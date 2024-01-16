@@ -1,6 +1,6 @@
 // use crate::library::Category;
 
-use sd_prisma::prisma::{self, object, tag_on_object};
+use sd_prisma::prisma::{self, label_on_object, object, tag_on_object};
 
 use chrono::{DateTime, FixedOffset};
 use prisma_client_rust::{not, or, OrderByQuery, PaginatedQuery, WhereQuery};
@@ -113,6 +113,7 @@ pub enum ObjectFilterArgs {
 	Hidden(ObjectHiddenFilter),
 	Kind(InOrNotIn<i32>),
 	Tags(InOrNotIn<i32>),
+	Labels(InOrNotIn<i32>),
 	DateAccessed(Range<chrono::DateTime<FixedOffset>>),
 }
 
@@ -127,6 +128,13 @@ impl ObjectFilterArgs {
 				.into_param(
 					|v| tags::some(vec![tag_on_object::tag_id::in_vec(v)]),
 					|v| tags::none(vec![tag_on_object::tag_id::in_vec(v)]),
+				)
+				.map(|v| vec![v])
+				.unwrap_or_default(),
+			Self::Labels(v) => v
+				.into_param(
+					|v| labels::some(vec![label_on_object::label_id::in_vec(v)]),
+					|v| labels::none(vec![label_on_object::label_id::in_vec(v)]),
 				)
 				.map(|v| vec![v])
 				.unwrap_or_default(),

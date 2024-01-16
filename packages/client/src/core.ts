@@ -18,12 +18,15 @@ export type Procedures = {
         { key: "invalidation.test-invalidate", input: never, result: number } | 
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
         { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
+        { key: "labels.count", input: LibraryArgs<null>, result: number } | 
         { key: "labels.get", input: LibraryArgs<number>, result: { id: number; pub_id: number[]; name: string; date_created: string; date_modified: string } | null } | 
         { key: "labels.getForObject", input: LibraryArgs<number>, result: Label[] } | 
         { key: "labels.getWithObjects", input: LibraryArgs<number[]>, result: { [key in number]: { date_created: string; object: { id: number } }[] } } | 
         { key: "labels.list", input: LibraryArgs<null>, result: Label[] } | 
+        { key: "labels.listWithThumbnails", input: LibraryArgs<string>, result: ExplorerItem[] } | 
+        { key: "library.kindStatistics", input: LibraryArgs<null>, result: KindStatistics } | 
         { key: "library.list", input: never, result: NormalisedResults<LibraryConfigWrapped> } | 
-        { key: "library.statistics", input: LibraryArgs<null>, result: Statistics } | 
+        { key: "library.statistics", input: LibraryArgs<null>, result: StatisticsResponse } | 
         { key: "locations.get", input: LibraryArgs<number>, result: { item: Reference<Location>; nodes: CacheNode[] } | null } | 
         { key: "locations.getWithRules", input: LibraryArgs<number>, result: { item: Reference<LocationWithIndexerRule>; nodes: CacheNode[] } | null } | 
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: NormalisedResult<IndexerRule> } | 
@@ -227,7 +230,7 @@ export type Error = { code: ErrorCode; message: string }
  */
 export type ErrorCode = "BadRequest" | "Unauthorized" | "Forbidden" | "NotFound" | "Timeout" | "Conflict" | "PreconditionFailed" | "PayloadTooLarge" | "MethodNotSupported" | "ClientClosedRequest" | "InternalServerError"
 
-export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: Location } | { type: "NonIndexedPath"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: NonIndexedPathItem } | { type: "SpacedropPeer"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: PeerMetadata }
+export type ExplorerItem = { type: "Path"; thumbnail: string[] | null; item: FilePathWithObject } | { type: "Object"; thumbnail: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; item: Location } | { type: "NonIndexedPath"; thumbnail: string[] | null; item: NonIndexedPathItem } | { type: "SpacedropPeer"; item: PeerMetadata } | { type: "Label"; thumbnails: string[][]; item: LabelWithObjects }
 
 export type ExplorerLayout = "grid" | "list" | "media"
 
@@ -314,6 +317,8 @@ export type GenerateThumbsForLocationArgs = { id: number; path: string; regenera
 
 export type GetAll = { backups: Backup[]; directory: string }
 
+export type HardwareModel = "Other" | "MacStudio" | "MacBookAir" | "MacBookPro" | "MacBook" | "MacMini" | "MacPro" | "IMac" | "IMacPro" | "IPad" | "IPhone"
+
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
 
 export type ImageMetadata = { resolution: Resolution; date_taken: MediaDate | null; location: MediaLocation | null; camera_data: CameraData; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null }
@@ -340,13 +345,19 @@ export type JobGroup = { id: string; action: string | null; status: JobStatus; c
 
 export type JobProgressEvent = { id: string; library_id: string; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
 
-export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: { [key in string]: JsonValue } | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
+export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: { [key in string]: JsonValue } | null; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused" | "CompletedWithErrors"
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key in string]: JsonValue }
 
+export type KindStatistic = { kind: number; name: string; count: number; total_bytes: string }
+
+export type KindStatistics = { statistics: KindStatistic[] }
+
 export type Label = { id: number; pub_id: number[]; name: string; date_created: string; date_modified: string }
+
+export type LabelWithObjects = { id: number; pub_id: number[]; name: string; date_created: string; date_modified: string; label_objects: { object: { id: number; file_paths: FilePath[] } }[] }
 
 /**
  * Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
@@ -429,7 +440,7 @@ id: string;
 /**
  * name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
  */
-name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[]; preferences: NodePreferences; image_labeler_version: string | null }) & { data_path: string; p2p: P2PStatus }
+name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[]; preferences: NodePreferences; image_labeler_version: string | null }) & { data_path: string; p2p: P2PStatus; device_model: string | null }
 
 export type NonIndexedPathItem = { path: string; name: string; extension: string; kind: number; is_dir: boolean; date_created: string; date_modified: string; size_in_bytes_bytes: number[]; hidden: boolean }
 
@@ -466,7 +477,7 @@ export type Object = { id: number; pub_id: number[]; kind: number | null; key_id
 
 export type ObjectCursor = "none" | { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
 
-export type ObjectFilterArgs = { favorite: boolean } | { hidden: ObjectHiddenFilter } | { kind: InOrNotIn<number> } | { tags: InOrNotIn<number> } | { dateAccessed: Range<string> }
+export type ObjectFilterArgs = { favorite: boolean } | { hidden: ObjectHiddenFilter } | { kind: InOrNotIn<number> } | { tags: InOrNotIn<number> } | { labels: InOrNotIn<number> } | { dateAccessed: Range<string> }
 
 export type ObjectHiddenFilter = "exclude" | "include"
 
@@ -501,7 +512,7 @@ export type PairingDecision = { decision: "accept"; libraryId: string } | { deci
 
 export type PairingStatus = { type: "EstablishingConnection" } | { type: "PairingRequested" } | { type: "LibraryAlreadyExists" } | { type: "PairingDecisionRequest" } | { type: "PairingInProgress"; data: { library_name: string; library_description: string | null } } | { type: "InitialSyncProgress"; data: number } | { type: "PairingComplete"; data: string } | { type: "PairingRejected" }
 
-export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null }
+export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; device_model: HardwareModel | null; version: string | null }
 
 export type PlusCode = string
 
@@ -556,6 +567,8 @@ export type SortOrder = "Asc" | "Desc"
 export type SpacedropArgs = { identity: RemoteIdentity; file_path: string[] }
 
 export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
+
+export type StatisticsResponse = { statistics: Statistics | null }
 
 export type SystemLocations = { desktop: string | null; documents: string | null; downloads: string | null; pictures: string | null; music: string | null; videos: string | null }
 

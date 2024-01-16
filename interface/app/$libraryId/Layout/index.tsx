@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { Suspense, useEffect, useMemo, useRef } from 'react';
-import { Navigate, Outlet, useNavigate } from 'react-router-dom';
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
 	ClientContextProvider,
 	initPlausible,
@@ -31,6 +31,7 @@ import { DndContext } from './DndContext';
 import Sidebar from './Sidebar';
 
 const Layout = () => {
+	console.log(useLocation());
 	const { libraries, library } = useClientContext();
 	const os = useOperatingSystem();
 	const showControls = useShowControls();

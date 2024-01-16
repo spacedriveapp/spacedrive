@@ -27,9 +27,13 @@ const FileThumbWrapper = ({ children, size = 1 }: PropsWithChildren<{ size: numb
 function useExplorerItemData(explorerItem: ExplorerItem) {
 	const explorerStore = useExplorerStore();
 
+	const firstThumbnail =
+		explorerItem.type === 'Label'
+			? explorerItem.thumbnails?.[0]
+			: 'thumbnail' in explorerItem && explorerItem.thumbnail;
+
 	const newThumbnail = !!(
-		explorerItem.thumbnail_key &&
-		explorerStore.newThumbnails.has(flattenThumbnailKey(explorerItem.thumbnail_key))
+		firstThumbnail && explorerStore.newThumbnails.has(flattenThumbnailKey(firstThumbnail))
 	);
 
 	return useMemo(() => {

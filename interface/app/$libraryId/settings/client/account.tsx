@@ -27,12 +27,11 @@ export const Component = () => {
 						)}
 					</>
 				}
-				title={t('your_account')}
-				description={t('your_account_description')}
+				title="Spacedrive Cloud"
+				description="Spacedrive is always local first, but we will offer our own optional cloud services in the future. For now, authentication is only used for the Feedback feature, otherwise it is not required."
 			/>
 			<div className="flex flex-col justify-between gap-5 lg:flex-row">
 				<Profile authStore={authStore} email={me.data?.email} />
-				<Cloud />
 			</div>
 			{useFeatureFlag('hostedLocations') && <HostedLocationsPlayground />}
 		</>
@@ -62,41 +61,6 @@ const Profile = ({ email, authStore }: { email?: string; authStore: { status: st
 						{authStore.status === 'loggedIn' ? email : 'guestuser@outlook.com'}
 					</TruncatedText>
 				</Card>
-			</div>
-		</Card>
-	);
-};
-
-const services: { service: string; icon: keyof typeof iconNames }[] = [
-	{ service: 'S3', icon: 'AmazonS3' },
-	{ service: 'Dropbox', icon: 'Dropbox' },
-	{ service: 'DAV', icon: 'DAV' },
-	{ service: 'Mega', icon: 'Mega' },
-	{ service: 'Onedrive', icon: 'OneDrive' },
-	{ service: 'Google Drive', icon: 'GoogleDrive' }
-];
-const Cloud = () => {
-	return (
-		<Card className="flex w-full flex-col !p-6">
-			<h1 className="text-lg font-bold">Cloud services</h1>
-			<div className="mt-5 grid grid-cols-1 gap-2 lg:grid-cols-3">
-				{services.map((s, index) => (
-					<Card
-						key={index}
-						className="relative flex flex-col items-center justify-center gap-2 bg-app-input !p-4"
-					>
-						<div
-							className="z-5 absolute flex h-full w-full items-center justify-center rounded-md bg-app/50 backdrop-blur-[8px]"
-							key={index}
-						>
-							<p className="text-center text-[13px] font-medium text-ink-faint">
-								Coming soon
-							</p>
-						</div>
-						<Icon name={s.icon} size={50} />
-						<p className="text-[14px] font-medium text-ink">{s.service}</p>
-					</Card>
-				))}
 			</div>
 		</Card>
 	);
