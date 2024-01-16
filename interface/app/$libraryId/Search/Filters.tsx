@@ -479,16 +479,14 @@ export const filterRegistry = [
 		Render: ({ filter, options, search }) => {
 			return (
 				<FilterOptionList
-					empty={() => {
-						return (
-							<div className="flex flex-col items-center justify-center gap-2 p-2">
-								<SDIcon name="Tags" size={32} />
-								<p className="w-[82%] text-center text-xs text-ink-dull">
-									You have no tags
-								</p>
-							</div>
-						);
-					}}
+					empty={() => (
+						<div className="flex flex-col items-center justify-center gap-2 p-2">
+							<SDIcon name="Tags" size={32} />
+							<p className="w-[80%] text-center text-xs text-ink-dull">
+								You have not created any tags
+							</p>
+						</div>
+					)}
 					filter={filter}
 					options={options}
 					search={search}
