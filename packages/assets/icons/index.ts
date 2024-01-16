@@ -29,6 +29,7 @@ import Code20 from './Code-20.png';
 import Collection_Light from './Collection_Light.png';
 import Collection20 from './Collection-20.png';
 import Collection from './Collection.png';
+import CollectionSparkle from './CollectionSparkle.png';
 import Config20 from './Config-20.png';
 import Database_Light from './Database_Light.png';
 import Database20 from './Database-20.png';
@@ -42,6 +43,7 @@ import Document_pdf_Light from './Document_pdf_Light.png';
 import Document_pdf from './Document_pdf.png';
 import Document_xls_Light from './Document_xls_Light.png';
 import Document_xls from './Document_xls.png';
+import Document_xmp from './Document_xmp.png';
 import Document20 from './Document-20.png';
 import Document from './Document.png';
 import Dotfile20 from './Dotfile-20.png';
@@ -82,6 +84,7 @@ import Executable from './Executable.png';
 import Face_Light from './Face_Light.png';
 import Folder_Light from './Folder_Light.png';
 import Folder20 from './Folder-20.png';
+import Foldertagxmp from './Folder-tag-xmp.png';
 import Folder from './Folder.png';
 import FolderGrey_Light from './FolderGrey_Light.png';
 import FolderGrey from './FolderGrey.png';
@@ -113,6 +116,9 @@ import Laptop from './Laptop.png';
 import Link_Light from './Link_Light.png';
 import Link20 from './Link-20.png';
 import Link from './Link.png';
+import Location from './Location.png';
+import LocationManaged from './LocationManaged.png';
+import LocationReplica from './LocationReplica.png';
 import Lock_Light from './Lock_Light.png';
 import Lock from './Lock.png';
 import Mega from './Mega.png';
@@ -142,8 +148,11 @@ import Screenshot from './Screenshot.png';
 import ScreenshotAlt from './ScreenshotAlt.png';
 import SD_Light from './SD_Light.png';
 import SD from './SD.png';
+import Search from './Search.png';
+import SearchAlt from './SearchAlt.png';
 import Server_Light from './Server_Light.png';
 import Server from './Server.png';
+import SilverBox from './SilverBox.png';
 import Spacedrop_Light from './Spacedrop_Light.png';
 import Spacedrop1 from './Spacedrop-1.png';
 import Spacedrop from './Spacedrop.png';
@@ -200,6 +209,7 @@ export {
 	Code20,
 	Collection20,
 	Collection,
+	CollectionSparkle,
 	Collection_Light,
 	Config20,
 	DAV,
@@ -216,6 +226,7 @@ export {
 	Document_pdf_Light,
 	Document_xls,
 	Document_xls_Light,
+	Document_xmp,
 	Dotfile20,
 	DriveAmazonS3,
 	DriveAmazonS3_Light,
@@ -253,6 +264,7 @@ export {
 	Executable_old,
 	Face_Light,
 	Folder20,
+	Foldertagxmp,
 	Folder,
 	FolderGrey,
 	FolderGrey_Light,
@@ -285,6 +297,9 @@ export {
 	Link20,
 	Link,
 	Link_Light,
+	Location,
+	LocationManaged,
+	LocationReplica,
 	Lock,
 	Lock_Light,
 	Mega,
@@ -314,8 +329,11 @@ export {
 	Screenshot,
 	ScreenshotAlt,
 	Screenshot_Light,
+	Search,
+	SearchAlt,
 	Server,
 	Server_Light,
+	SilverBox,
 	Spacedrop1,
 	Spacedrop,
 	Spacedrop_Light,

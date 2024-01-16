@@ -255,10 +255,10 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						};
 
 						items.push(ExplorerItem::Path {
-							has_local_thumbnail: thumbnail_exists_locally,
-							thumbnail_key: file_path
+							thumbnail: file_path
 								.cas_id
 								.as_ref()
+								.filter(|_| thumbnail_exists_locally)
 								.map(|i| get_indexed_thumb_key(i, library.id)),
 							item: file_path,
 						})
@@ -377,8 +377,9 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						};
 
 						items.push(ExplorerItem::Object {
-							has_local_thumbnail: thumbnail_exists_locally,
-							thumbnail_key: cas_id.map(|i| get_indexed_thumb_key(i, library.id)),
+							thumbnail: cas_id
+								.filter(|_| thumbnail_exists_locally)
+								.map(|cas_id| get_indexed_thumb_key(cas_id, library.id)),
 							item: object,
 						});
 					}

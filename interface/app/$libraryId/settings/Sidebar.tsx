@@ -20,8 +20,8 @@ import { tw } from '@sd/ui';
 import { useLocale, useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
-import Icon from '../Layout/Sidebar/Icon';
-import SidebarLink from '../Layout/Sidebar/Link';
+import Icon from '../Layout/Sidebar/SidebarLayout/Icon';
+import SidebarLink from '../Layout/Sidebar/SidebarLayout/Link';
 import { NavigationButtons } from '../TopBar/NavigationButtons';
 
 const Heading = tw.div`mb-1 ml-1 text-xs font-semibold text-gray-400`;
@@ -41,7 +41,7 @@ export default () => {
 			{platform === 'tauri' ? (
 				<div
 					data-tauri-drag-region={os === 'macOS'}
-					className="mb-3 h-3 w-full p-3 pl-[14px] pt-[10px]"
+					className="mb-3 h-3 w-full p-3 pl-[14px] pt-[11px]"
 				>
 					<NavigationButtons />
 				</div>
@@ -56,10 +56,10 @@ export default () => {
 						<Icon component={GearSix} />
 						{t('general')}
 					</SidebarLink>
-					<SidebarLink to="client/usage">
+					{/* <SidebarLink to="client/usage">
 						<Icon component={ChartBar} />
 						{t('usage')}
-					</SidebarLink>
+					</SidebarLink> */}
 					<SidebarLink to="client/account">
 						<Icon component={User} />
 						{t('account')}

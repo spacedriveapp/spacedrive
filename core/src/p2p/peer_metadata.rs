@@ -1,4 +1,4 @@
-use crate::node::Platform;
+use crate::node::{HardwareModel, Platform};
 
 use sd_p2p::Metadata;
 
@@ -11,6 +11,7 @@ use specta::Type;
 pub struct PeerMetadata {
 	pub name: String,
 	pub operating_system: Option<OperatingSystem>,
+	pub device_model: Option<HardwareModel>,
 	pub version: Option<String>,
 }
 
@@ -23,6 +24,9 @@ impl Metadata for PeerMetadata {
 		}
 		if let Some(version) = self.version {
 			map.insert("version".to_owned(), version);
+		}
+		if let Some(device_model) = self.device_model {
+			map.insert("device_model".to_owned(), device_model.to_string());
 		}
 		map
 	}
@@ -43,6 +47,11 @@ impl Metadata for PeerMetadata {
 				.get("os")
 				.map(|os| os.parse().map_err(|_| "Unable to parse 'OperationSystem'!"))
 				.transpose()?,
+			device_model: Some(HardwareModel::from_display_name(
+				data.get("device_model")
+					.map(|s| s.as_str())
+					.unwrap_or("Other"),
+			)),
 			version: data.get("version").map(|v| v.to_owned()),
 		})
 	}

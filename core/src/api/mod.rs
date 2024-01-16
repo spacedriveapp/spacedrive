@@ -1,13 +1,15 @@
 use crate::{
 	invalidate_query,
 	job::JobProgressEvent,
-	node::config::{NodeConfig, NodePreferences},
+	node::{
+		config::{NodeConfig, NodePreferences},
+		get_hardware_model_name, HardwareModel,
+	},
 	Node,
 };
 
 use sd_cache::patch_typedef;
 use sd_p2p::P2PStatus;
-
 use std::sync::{atomic::Ordering, Arc};
 
 use itertools::Itertools;
@@ -118,6 +120,7 @@ struct NodeState {
 	config: SanitisedNodeConfig,
 	data_path: String,
 	p2p: P2PStatus,
+	device_model: Option<String>,
 }
 
 pub(crate) fn mount() -> Arc<Router> {
@@ -139,6 +142,10 @@ pub(crate) fn mount() -> Arc<Router> {
 		})
 		.procedure("nodeState", {
 			R.query(|node, _: ()| async move {
+				let device_model = get_hardware_model_name()
+					.unwrap_or(HardwareModel::Other)
+					.to_string();
+
 				Ok(NodeState {
 					config: node.config.get().await.into(),
 					// We are taking the assumption here that this value is only used on the frontend for display purposes
@@ -149,6 +156,7 @@ pub(crate) fn mount() -> Arc<Router> {
 						.expect("Found non-UTF-8 path")
 						.to_string(),
 					p2p: node.p2p.manager.status(),
+					device_model: Some(device_model),
 				})
 			})
 		})

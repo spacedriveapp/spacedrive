@@ -1,5 +1,5 @@
 [package]
-name = "deps-generator"
+name = "sd-deps-generator"
 version = "0.0.0"
 authors = ["Jake Robinson <jake@spacedrive.com>"]
 description = "A tool to compile all Spacedrive dependencies and their respective licenses"
