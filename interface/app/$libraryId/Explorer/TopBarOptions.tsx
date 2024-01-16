@@ -2,7 +2,6 @@ import {
 	Icon,
 	Key,
 	MonitorPlay,
-	Planet,
 	Rows,
 	SidebarSimple,
 	SlidersHorizontal,
@@ -50,7 +49,7 @@ export const useExplorerTopBarOptions = () => {
 
 					const option = {
 						layout,
-						toolTipLabel: t(`${layout}_view`),
+						toolTipLabel: t(`${layout} View`),
 						icon: <Icon className={TOP_BAR_ICON_STYLE} />,
 						keybinds: [controlIcon, (i + 1).toString()],
 						topBarActive:

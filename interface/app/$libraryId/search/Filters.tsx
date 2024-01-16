@@ -18,6 +18,7 @@ import {
 	useNodes
 } from '@sd/client';
 import { Button, Input } from '@sd/ui';
+import { Icon as SDIcon } from '~/components';
 
 import { SearchOptionItem, SearchOptionSubMenu } from '.';
 import { AllKeys, FilterOption, getKey } from './store';
@@ -99,11 +100,13 @@ export function useToggleOptionSelected({ search }: { search: UseSearch }) {
 const FilterOptionList = ({
 	filter,
 	options,
-	search
+	search,
+	empty
 }: {
 	filter: SearchFilterCRUD;
 	options: FilterOption[];
 	search: UseSearch;
+	empty?: () => JSX.Element;
 }) => {
 	const { allFiltersKeys } = search;
 
@@ -111,29 +114,31 @@ const FilterOptionList = ({
 
 	return (
 		<SearchOptionSubMenu name={filter.name} icon={filter.icon}>
-			{options?.map((option) => {
-				const optionKey = getKey({
-					...option,
-					type: filter.name
-				});
+			{empty?.() && options.length === 0
+				? empty()
+				: options?.map((option) => {
+						const optionKey = getKey({
+							...option,
+							type: filter.name
+						});
 
-				return (
-					<SearchOptionItem
-						selected={allFiltersKeys.has(optionKey)}
-						setSelected={(value) => {
-							toggleOptionSelected({
-								filter,
-								option,
-								select: value
-							});
-						}}
-						key={option.value}
-						icon={option.icon}
-					>
-						{option.name}
-					</SearchOptionItem>
-				);
-			})}
+						return (
+							<SearchOptionItem
+								selected={allFiltersKeys.has(optionKey)}
+								setSelected={(value) => {
+									toggleOptionSelected({
+										filter,
+										option,
+										select: value
+									});
+								}}
+								key={option.value}
+								icon={option.icon}
+							>
+								{option.name}
+							</SearchOptionItem>
+						);
+				  })}
 		</SearchOptionSubMenu>
 	);
 };
@@ -470,19 +475,32 @@ export const filterRegistry = [
 				.filter(Boolean) as any;
 		},
 		useOptions: () => {
-			const query = useLibraryQuery(['tags.list'], { keepPreviousData: true });
+			const query = useLibraryQuery(['tags.list']);
 			useNodes(query.data?.nodes);
 			const tags = useCache(query.data?.items);
-
 			return (tags ?? []).map((tag) => ({
 				name: tag.name!,
 				value: tag.id,
 				icon: tag.color || 'CircleDashed'
 			}));
 		},
-		Render: ({ filter, options, search }) => (
-			<FilterOptionList filter={filter} options={options} search={search} />
-		)
+		Render: ({ filter, options, search }) => {
+			return (
+				<FilterOptionList
+					empty={() => (
+						<div className="flex flex-col items-center justify-center gap-2 p-2">
+							<SDIcon name="Tags" size={32} />
+							<p className="w-[80%] text-center text-xs text-ink-dull">
+								You have not created any tags
+							</p>
+						</div>
+					)}
+					filter={filter}
+					options={options}
+					search={search}
+				/>
+			);
+		}
 	}),
 	createInOrNotInFilter({
 		name: 'Kind',

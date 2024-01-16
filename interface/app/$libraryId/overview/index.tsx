@@ -10,6 +10,7 @@ import {
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 import { hardwareModelToIcon } from '~/util/hardware';
 
+import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { SearchContextProvider, useSearch } from '../search';
 import SearchBar from '../search/SearchBar';
 import { TopBarPortal } from '../TopBar/Portal';
@@ -25,7 +26,7 @@ export const Component = () => {
 
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	useNodes(locationsQuery.data?.nodes);
-	const locations = useCache(locationsQuery.data?.items);
+	const locations = useCache(locationsQuery.data?.items) ?? [];
 	const onlineLocations = useOnlineLocations();
 
 	const { data: node } = useBridgeQuery(['nodeState']);
@@ -83,7 +84,7 @@ export const Component = () => {
 					<OverviewSection>
 						<FileKindStatistics />
 					</OverviewSection>
-					<OverviewSection count={8} title="Devices">
+					<OverviewSection count={1} title="Devices">
 						{node && (
 							<StatisticItem
 								name={node.name}
@@ -142,8 +143,8 @@ export const Component = () => {
 						{/**/}
 					</OverviewSection>
 
-					<OverviewSection count={3} title="Locations">
-						{locations?.map((item, index) => (
+					<OverviewSection count={locations.length} title="Locations">
+						{locations?.map((item) => (
 							<StatisticItem
 								key={item.id}
 								name={item.name || 'Unnamed Location'}
@@ -162,7 +163,7 @@ export const Component = () => {
 						)}
 					</OverviewSection>
 
-					<OverviewSection count={3} title="Cloud Drives">
+					<OverviewSection count={0} title="Cloud Drives">
 						{/* <StatisticItem
 							name="James Pine"
 							icon="DriveDropbox"

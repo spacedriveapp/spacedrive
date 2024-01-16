@@ -194,6 +194,7 @@ export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) =
 
 	return (
 		<div
+			key={thumbType.variant}
 			style={{
 				...(props.size
 					? { maxWidth: props.size, width: props.size, height: props.size }

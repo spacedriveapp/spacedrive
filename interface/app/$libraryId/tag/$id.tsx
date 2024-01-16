@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { useMemo } from 'react';
 import { ObjectKindEnum, ObjectOrder, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
@@ -6,7 +6,7 @@ import { useRouteTitle, useZodRouteParams } from '~/hooks';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { useObjectsExplorerQuery } from '../Explorer/queries/useObjectsExplorerQuery';
+import { useObjectsExplorerQuery } from '../Explorer/queries';
 import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
