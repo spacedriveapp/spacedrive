@@ -25,9 +25,9 @@
 		"noUncheckedIndexedAccess": true,
 		"exactOptionalPropertyTypes": true,
 		"forceConsistentCasingInFileNames": true,
-		"noPropertyAccessFromIndexSignature": false
+		"noPropertyAccessFromIndexSignature": false,
 	},
 	"include": ["./**/*.mjs"],
 	"exclude": ["node_modules"],
-	"$schema": "https://json.schemastore.org/tsconfig"
+	"$schema": "https://json.schemastore.org/tsconfig",
 }

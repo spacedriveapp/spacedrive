@@ -7,7 +7,6 @@
 	"dependencies": {
 		"@actions/artifact": "^1.1.2",
 		"@actions/core": "^1.10.1",
-		"@actions/github": "^6.0.0",
 		"@actions/glob": "^0.4.0",
 		"@actions/io": "^1.1.3"
 	},

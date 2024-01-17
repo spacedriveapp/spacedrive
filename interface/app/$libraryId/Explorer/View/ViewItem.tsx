@@ -178,7 +178,8 @@ export const useViewItemDoubleClick = () => {
 			navigate,
 			openFilePaths,
 			openEphemeralFiles,
-			updateAccessTime
+			updateAccessTime,
+			setSearchParams
 		]
 	);
 

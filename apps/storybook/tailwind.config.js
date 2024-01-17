@@ -1,1 +1,3 @@
-module.exports = require('@sd/ui/tailwind')('web');
+import tailwind from '@sd/ui/tailwind'
+
+export default tailwind('web');

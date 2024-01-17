@@ -32,21 +32,17 @@
 		"clean": "git clean -qfX ."
 	},
 	"pnpm": {
-		"overrides": {
-			"@radix-ui/react-dismissable-layer": "1.0.2"
-		},
 		"patchedDependencies": {
-			"@remix-run/router@1.13.1": "patches/@remix-run__router@1.13.1.patch"
+			"@remix-run/router@1.13.1": "patches/@remix-run__router@1.13.1.patch",
+			"@contentlayer/cli@0.3.4": "patches/@contentlayer__cli@0.3.4.patch"
 		}
 	},
 	"devDependencies": {
-		"@babel/plugin-syntax-import-assertions": "^7.23.3",
 		"@cspell/dict-rust": "^4.0.2",
 		"@cspell/dict-typescript": "^3.1.2",
 		"@ianvs/prettier-plugin-sort-imports": "^4.1.1",
-		"@storybook/react-vite": "^7.6.8",
 		"cspell": "^8.3.2",
-		"prettier": "^3.2.2",
+		"prettier": "^3.2.4",
 		"prettier-plugin-tailwindcss": "^0.5.11",
 		"turbo": "^1.11.3",
 		"turbo-ignore": "^1.11.3",
@@ -55,7 +51,7 @@
 	},
 	"overrides": {
 		"vite-plugin-svgr": "https://github.com/spacedriveapp/vite-plugin-svgr#cb4195b69849429cdb18d1f12381676bf9196a84",
-		"@types/node": "~18.19.7"
+		"@types/node": "~18.19.8"
 	},
 	"engines": {
 		"pnpm": ">=8.0.0",

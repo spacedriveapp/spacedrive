@@ -11,6 +11,7 @@
 		"typecheck": "tsc -b"
 	},
 	"dependencies": {
+		"@hookform/resolvers": "^3.3.4",
 		"@oscartbeaumont-sd/rspc-client": "=0.0.0-main-dc31e5b2",
 		"@oscartbeaumont-sd/rspc-react": "=0.0.0-main-dc31e5b2",
 		"@solid-primitives/deep": "^0.2.5",

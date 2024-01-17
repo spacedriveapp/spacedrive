@@ -36,7 +36,7 @@ const options: NonNullable<React.ComponentProps<typeof Particles>['options']> = 
 			density: {
 				enable: true
 			},
-			value: 120
+			value: 400
 		},
 		opacity: {
 			value: 0.1
