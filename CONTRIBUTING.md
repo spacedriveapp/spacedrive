@@ -39,12 +39,14 @@ To make changes locally, follow these steps:
 
 1. Clone the repository: `git clone https://github.com/spacedriveapp/spacedrive`
 2. Navigate to the project directory: `cd spacedrive`
-3. For Linux or MacOS users, run: `./scripts/setup.sh`
-   - This will install FFmpeg and any other required dependencies for Spacedrive to build.
-4. For Windows users, run the following command in PowerShell: `.\scripts\setup.ps1`
-   - This will install pnpm, LLVM, FFmpeg, and any other required dependencies for Spacedrive to build.
-5. Install dependencies: `pnpm i`
-6. Prepare the build: `pnpm prep` (This will run all necessary codegen and build required dependencies)
+3. For Linux users, run: `./scripts/setup.sh`
+   - This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh#L133) will check if Rust, pnpm are installed then proceed to install Clang, NASM, LLVM, libvips, Gstreamer's Plugins, FFmpeg, Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-linux) and any other required dependencies for Spacedrive to build.
+4. For MacOS users, run: `./scripts/setup.sh`
+   - This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh#L108) will check if Rust, pnpm, Xcode are installed and proceed to use Homebrew to install NASM, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-macos) and install any other required dependencies for Spacedrive to build.
+5. For Windows users, run the following command in PowerShell: `.\scripts\setup.ps1`
+   - This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.ps1#L81) will install pnpm, LLVM, FFmpeg, C++ build tools, NASM, Rust + Cargo, Rust tools, Edge Webview 2, Strawberry Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-windows) and any other required dependencies for Spacedrive to build.
+6. Install dependencies: `pnpm i`
+7. Prepare the build: `pnpm prep` (This will run all necessary codegen and build required dependencies)
 
 To quickly run only the desktop app after `prep`, you can use:
 
