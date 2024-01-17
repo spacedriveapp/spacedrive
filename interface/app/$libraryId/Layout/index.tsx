@@ -31,7 +31,6 @@ import { DndContext } from './DndContext';
 import Sidebar from './Sidebar';
 
 const Layout = () => {
-	console.log(useLocation());
 	const { libraries, library } = useClientContext();
 	const os = useOperatingSystem();
 	const showControls = useShowControls();
