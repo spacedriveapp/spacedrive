@@ -118,7 +118,7 @@ export const SearchOptions = ({
 			{/* We're keeping AppliedOptions to the right of the "Add Filter" button because
 				its not worth rebuilding the dropdown with custom logic to lock the position
 				as the trigger will move if to the right of the applied options and that is bad UX. */}
-			<div className="relative flex h-full flex-1 items-center overflow-hidden">
+			<div className="relative flex h-full flex-1 cursor-default items-center overflow-hidden">
 				<AppliedFilters />
 			</div>
 

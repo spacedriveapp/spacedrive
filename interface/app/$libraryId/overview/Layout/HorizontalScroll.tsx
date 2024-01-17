@@ -69,7 +69,10 @@ const HorizontalScroll = ({ children, className }: { children: ReactNode; classN
 			<div
 				ref={ref}
 				{...events}
-				className="no-scrollbar flex gap-2 space-x-px overflow-x-scroll pl-1 pr-[60px]"
+				className={clsx(
+					'no-scrollbar flex gap-2 space-x-px overflow-x-scroll pl-1 pr-[60px]',
+					isContentOverflow ? 'cursor-grab' : 'cursor-default'
+				)}
 				style={{
 					WebkitMaskImage: maskImage,
 					maskImage
