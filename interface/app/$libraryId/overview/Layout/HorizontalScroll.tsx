@@ -37,7 +37,7 @@ const HorizontalScroll = ({ children, className }: { children: ReactNode; classN
 
 	useLayoutEffect(() => {
 		updateScrollState();
-	}, []);
+	}, [ref.current?.clientWidth]);
 
 	const handleArrowOnClick = (direction: 'right' | 'left') => {
 		const element = ref.current;
