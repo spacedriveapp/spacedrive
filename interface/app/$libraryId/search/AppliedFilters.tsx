@@ -1,5 +1,5 @@
 import { MagnifyingGlass, X } from '@phosphor-icons/react';
-import { forwardRef, useRef } from 'react';
+import { forwardRef } from 'react';
 import { SearchFilterArgs } from '@sd/client';
 import { tw } from '@sd/ui';
 
@@ -31,7 +31,6 @@ export const CloseTab = forwardRef<HTMLDivElement, { onClick: () => void }>(({ o
 
 export const AppliedFilters = ({ allowRemove = true }: { allowRemove?: boolean }) => {
 	const search = useSearchContext();
-	const lastFilter = useRef<HTMLDivElement>(null);
 	return (
 		<>
 			{search.search && (
@@ -49,11 +48,7 @@ export const AppliedFilters = ({ allowRemove = true }: { allowRemove?: boolean }
 						const filter = filterRegistry.find((f) => f.extract(arg));
 						if (!filter) return;
 						return (
-							<div
-								ref={index === search.mergedFilters.length - 1 ? lastFilter : null}
-								className="shrink-0"
-								key={`${filter.name}-${index}`}
-							>
+							<div className="shrink-0" key={`${filter.name}-${index}`}>
 								<FilterArg
 									arg={arg}
 									onDelete={
