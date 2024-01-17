@@ -28,7 +28,7 @@ export const inputSizes = {
 export const inputStyles = cva(
 	[
 		'rounded-md border text-sm leading-4',
-		'shadow-sm outline-none transition-all focus-within:ring-2',
+		'outline-none transition-all focus-within:ring-2',
 		'text-ink'
 	],
 	{
@@ -87,7 +87,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 
 				<input
 					className={clsx(
-						'flex-1 truncate border-none bg-transparent px-3 text-sm outline-none placeholder:text-ink-faint',
+						'flex-1 truncate border-none bg-transparent px-3 text-sm outline-none placeholder:text-ink-faint focus:!ring-0',
 						(right || (icon && iconPosition === 'right')) && 'pr-0',
 						icon && iconPosition === 'left' && 'pl-0',
 						size === 'xs' && '!py-0',

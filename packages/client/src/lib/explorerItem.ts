@@ -93,8 +93,6 @@ export function getExplorerItemData(data?: ExplorerItem | null): ItemData {
 			itemData.thumbnailKeys = data.thumbnails;
 			itemData.hasLocalThumbnail = !!data.thumbnails;
 			itemData.kind = 'Label';
-
-			console.log({ itemData });
 			break;
 		}
 	}
