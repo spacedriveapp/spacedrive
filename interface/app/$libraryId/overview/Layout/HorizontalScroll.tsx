@@ -6,7 +6,7 @@ import { tw } from '@sd/ui';
 
 const ArrowButton = tw.div`absolute top-1/2 z-40 flex h-8 w-8 shrink-0 -translate-y-1/2 items-center p-2 cursor-pointer justify-center rounded-full border border-app-line bg-app/50 hover:opacity-95 backdrop-blur-md transition-all duration-200`;
 
-const HorizontalScroll = ({ children }: { children: ReactNode }) => {
+const HorizontalScroll = ({ children, className }: { children: ReactNode; className?: string }) => {
 	const ref = useRef<HTMLDivElement>(null);
 	const { events } = useDraggable(ref as React.MutableRefObject<HTMLDivElement>);
 	const [lastItemVisible, setLastItemVisible] = useState(false);
@@ -59,7 +59,7 @@ const HorizontalScroll = ({ children }: { children: ReactNode }) => {
 	}, rgba(0, 0, 0, 1) ${lastItemVisible ? '95%' : '85%'}, transparent 99%)`;
 
 	return (
-		<div className="relative mb-4 flex pl-6">
+		<div className={clsx(className, 'relative mb-4 flex pl-6')}>
 			<ArrowButton
 				onClick={() => handleArrowOnClick('right')}
 				className={clsx('left-3', scroll === 0 && 'pointer-events-none opacity-0')}

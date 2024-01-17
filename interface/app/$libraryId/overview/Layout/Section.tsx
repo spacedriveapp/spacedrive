@@ -1,13 +1,8 @@
-import { CaretDown, CaretUp } from '@phosphor-icons/react';
-import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
 import clsx from 'clsx';
-import { Button } from '@sd/ui';
 
 import HorizontalScroll from './HorizontalScroll';
 
 const COUNT_STYLE = `min-w-[20px] flex h-[20px] px-1 items-center justify-center rounded-full border border-app-button/40 text-[9px]`;
-
-const BUTTON_STYLE = `!p-[5px] opacity-0 transition-opacity group-hover:opacity-100`;
 
 const OverviewSection = ({
 	children,
@@ -24,13 +19,13 @@ const OverviewSection = ({
 					<div className="grow" />
 					<div className="flex flex-row gap-1 text-sidebar-inkFaint opacity-0 transition-all duration-300 hover:!opacity-100 group-hover:opacity-30">
 						{/* <Button className={BUTTON_STYLE} size="icon" variant="subtle">
-							<CaretUp weight="fill" className="h-3 w-3 text-ink-faint " />
+							<CaretUp weight="fill" className="w-3 h-3 text-ink-faint " />
 							</Button>
 							<Button className={BUTTON_STYLE} size="icon" variant="subtle">
-							<CaretDown weight="fill" className="h-3 w-3 text-ink-faint " />
+							<CaretDown weight="fill" className="w-3 h-3 text-ink-faint " />
 						</Button> */}
 						{/* <Button className={BUTTON_STYLE} size="icon" variant="subtle">
-							<Ellipsis className="h-3 w-3 text-ink-faint " />
+							<Ellipsis className="w-3 h-3 text-ink-faint " />
 						</Button> */}
 					</div>
 				</div>

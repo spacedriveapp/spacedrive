@@ -5,6 +5,7 @@ import { SearchFilterArgs } from '@sd/client';
 import { tw } from '@sd/ui';
 
 import { useSearchContext } from '.';
+import HorizontalScroll from '../overview/Layout/HorizontalScroll';
 import { filterRegistry } from './Filters';
 import { useSearchStore } from './store';
 import { RenderIcon } from './util';
@@ -65,41 +66,37 @@ export const AppliedFilters = ({ allowRemove = true }: { allowRemove?: boolean }
 					{allowRemove && <CloseTab onClick={() => search.setSearch('')} />}
 				</FilterContainer>
 			)}
-			<div
-				onScroll={handleScroll}
-				ref={containerRef}
-				className="no-scrollbar z-10 flex h-full items-center gap-2 overflow-y-auto px-0.5"
-				style={{
-					WebkitMaskImage: maskImage,
-					maskImage
-				}}
-			>
-				{search.mergedFilters.map(({ arg, removalIndex }, index) => {
-					const filter = filterRegistry.find((f) => f.extract(arg));
-					if (!filter) return;
-					return (
-						<div
-							ref={index === search.mergedFilters.length - 1 ? lastFilter : null}
-							className="shrink-0"
-							key={`${filter.name}-${index}`}
-						>
-							<FilterArg
-								arg={arg}
-								onDelete={
-									removalIndex !== null && allowRemove
-										? () => {
-												search.updateDynamicFilters((dyanmicFilters) => {
-													dyanmicFilters.splice(removalIndex, 1);
+			<div className="group w-full">
+				<HorizontalScroll className="!mb-0 !pl-0">
+					{search.mergedFilters.map(({ arg, removalIndex }, index) => {
+						const filter = filterRegistry.find((f) => f.extract(arg));
+						if (!filter) return;
+						return (
+							<div
+								ref={index === search.mergedFilters.length - 1 ? lastFilter : null}
+								className="shrink-0"
+								key={`${filter.name}-${index}`}
+							>
+								<FilterArg
+									arg={arg}
+									onDelete={
+										removalIndex !== null && allowRemove
+											? () => {
+													search.updateDynamicFilters(
+														(dyanmicFilters) => {
+															dyanmicFilters.splice(removalIndex, 1);
 
-													return dyanmicFilters;
-												});
-										  }
-										: undefined
-								}
-							/>
-						</div>
-					);
-				})}
+															return dyanmicFilters;
+														}
+													);
+											  }
+											: undefined
+									}
+								/>
+							</div>
+						);
+					})}
+				</HorizontalScroll>
 			</div>
 		</>
 	);
