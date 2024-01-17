@@ -39,21 +39,24 @@ To make changes locally, follow these steps:
 
 1. Clone the repository: `git clone https://github.com/spacedriveapp/spacedrive`
 2. Navigate to the project directory: `cd spacedrive`
-3. For Linux or MacOS users, run: `./scripts/setup.sh`
-   - This will install FFmpeg and any other required dependencies for Spacedrive to build.
-4. For Windows users, run the following command in PowerShell: `.\scripts\setup.ps1`
-   - This will install pnpm, LLVM, FFmpeg, and any other required dependencies for Spacedrive to build.
-5. Install dependencies: `pnpm i`
-6. Prepare the build: `pnpm prep` (This will run all necessary codegen and build required dependencies)
+3. Configure your system environment for Spacedrive development
+	1. For Linux users, run: `./scripts/setup.sh`
+		> This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh#L133) will check if Rust and pnpm are installed then proceed to install Clang, NASM, LLVM, libvips, Gstreamer's Plugins, FFmpeg, Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-linux) and any other required dependencies for Spacedrive to build.
+	2. For macOS users, run: `./scripts/setup.sh`
+		> This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh#L108) will check if Rust, pnpm and Xcode are installed and proceed to use Homebrew to install NASM, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-macos) and install any other required dependencies for Spacedrive to build.
+	3. For Windows users, run in PowerShell: `.\scripts\setup.ps1`
+		> This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.ps1#L81) will install pnpm, LLVM, FFmpeg, C++ build tools, NASM, Rust + Cargo, Rust tools, Edge Webview 2, Strawberry Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-windows) and any other required dependencies for Spacedrive to build.
+4. Install dependencies: `pnpm i`
+5. Prepare the build: `pnpm prep` (This will run all necessary codegen and build required dependencies)
 
 To quickly run only the desktop app after `prep`, you can use:
 
 - `pnpm tauri dev`
 
-  If necessary, the [webview devtools](https://tauri.app/v1/guides/debugging/application/#webview-console) can be opened by pressing `Ctrl + Shift + I` (Linux and Windows) and `Command + Option + I` (Mac) in the desktop app.
+  If necessary, the [webview devtools](https://tauri.app/v1/guides/debugging/application/#webview-console) can be opened by pressing `Ctrl + Shift + I` (Linux and Windows) or `Command + Option + I` (macOS) in the desktop app.
 
   Also, the react-devtools can be launched using `pnpm dlx react-devtools`.
-  However, it must be executed before starting the desktop app for it qto connect.
+  However, it must be executed before starting the desktop app for it to connect.
 
 To run the web app:
 
@@ -118,7 +121,7 @@ This error occurs when Xcode is not installed or when the Xcode command line too
 
 To resolve this issue:
 
-- Install Xcode from the Mac App Store.
+- Install Xcode from the macOS App Store or directly from [here](https://xcodereleases.com/) (requires Apple Account).
 - Run `xcode-select -s /Applications/Xcode.app/Contents/Developer`.
   This command will use Xcode's developer tools instead of macOS's default tools.
 
@@ -131,9 +134,9 @@ error: terminated(1): /us/bin/xcrun --sdk macos --show-sdk-platform-path output 
 xcrun: error: unable to lookup item 'PlatformPath' from command line tools installation xcrun: error: unable to lookup item 'PlatformPath' in SDK '/Library/Developer /CommandLineTools/SDKs/MacOSX.sdk'
 ```
 
-Ensure that MacOS is fully updated, and that you have XCode installed (via the app store).
+Ensure that macOS is fully updated, and that you have XCode installed (via the app store).
 
-Once that has completed, run `xcode-select --install` in the terminal to install the command line tools. If they are already installed, ensure that you update MacOS to the latest version available.
+Once that has completed, run `xcode-select --install` in the terminal to install the command line tools. If they are already installed, ensure that you update macOS to the latest version available.
 
 Also ensure that Rosetta is installed, as a few of our dependencies require it. You can install Rosetta with `softwareupdate --install-rosetta --agree-to-license`.
 
