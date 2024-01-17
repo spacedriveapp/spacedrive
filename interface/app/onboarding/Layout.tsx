@@ -41,7 +41,7 @@ export const Component = () => {
 				</div>
 				<div className="absolute -z-10">
 					<div className="relative h-screen w-screen">
-						<img src={BloomOne} className="absolute h-[2000px] w-[2000px]" />
+						<img src={BloomOne} className="absolute size-[2000px]" />
 						{/* <img src={BloomThree} className="absolute w-[2000px] h-[2000px] -right-[200px]" /> */}
 					</div>
 				</div>

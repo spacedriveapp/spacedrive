@@ -34,7 +34,7 @@ const ModalHandle = (props: ModalHandle) => (
 		{props.showCloseButton && (
 			<Pressable
 				onPress={() => props.modalRef.current?.close()}
-				style={tw`absolute right-4 top-5 h-7 w-7 items-center justify-center rounded-full bg-app-button`}
+				style={tw`absolute right-4 top-5 size-7 items-center justify-center rounded-full bg-app-button`}
 			>
 				<X size={16} color="white" weight="bold" />
 			</Pressable>

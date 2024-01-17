@@ -109,7 +109,7 @@ const sections: (debugState: DebugState) => SectionType[] = (debugState) => [
 							navigateTo: 'Debug',
 							title: 'Debug'
 						}
-				  ] as const)
+					] as const)
 				: [])
 		]
 	}

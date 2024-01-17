@@ -105,7 +105,7 @@ function PairingResponder({ pairingId }: { pairingId: number }) {
 			) : (
 				<p>No libraries. Uh oh!</p>
 			)}
-			<div className="align-center flex h-full w-full items-center justify-center space-x-2">
+			<div className="align-center flex size-full items-center justify-center space-x-2">
 				<Button
 					variant="accent"
 					onClick={() => {
@@ -128,7 +128,7 @@ function PairingResponder({ pairingId }: { pairingId: number }) {
 
 function PairingLoading({ msg }: { msg?: string }) {
 	return (
-		<div className="align-center flex h-full w-full flex-col items-center justify-center">
+		<div className="align-center flex size-full flex-col items-center justify-center">
 			<Loader />
 			{msg && <p>{msg}</p>}
 		</div>
@@ -137,7 +137,7 @@ function PairingLoading({ msg }: { msg?: string }) {
 
 function CompletePairing() {
 	return (
-		<div className="flex h-full w-full justify-center">
+		<div className="flex size-full justify-center">
 			<p>Pairing Complete!</p>
 		</div>
 	);
@@ -145,7 +145,7 @@ function CompletePairing() {
 
 function PairingRejected() {
 	return (
-		<div className="flex h-full w-full justify-center">
+		<div className="flex size-full justify-center">
 			<p>Pairing Rejected By Remote!</p>
 		</div>
 	);

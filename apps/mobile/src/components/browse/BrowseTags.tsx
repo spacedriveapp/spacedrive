@@ -26,7 +26,7 @@ const BrowseTagItem: React.FC<BrowseTagItemProps> = ({ tag, onPress }) => {
 			>
 				<View style={tw`flex-row items-center justify-between`}>
 					<View
-						style={twStyle('h-[28px] w-[28px] rounded-full', {
+						style={twStyle('size-[28px] rounded-full', {
 							backgroundColor: tag.color!
 						})}
 					/>
@@ -66,13 +66,13 @@ const BrowseTags = () => {
 				<Text style={tw`text-xl font-bold text-white`}>Tags</Text>
 				<View style={tw`flex-row gap-3`}>
 					<Pressable>
-						<View style={tw`h-8 w-8 items-center justify-center rounded-md bg-accent`}>
+						<View style={tw`size-8 items-center justify-center rounded-md bg-accent`}>
 							<Eye weight="bold" size={18} style={tw`text-white`} />
 						</View>
 					</Pressable>
 					<Pressable testID="add-tag" onPress={() => modalRef.current?.present()}>
 						<View
-							style={tw`h-8 w-8 items-center justify-center rounded-md border border-dashed border-ink-faint bg-transparent`}
+							style={tw`size-8 items-center justify-center rounded-md border border-dashed border-ink-faint bg-transparent`}
 						>
 							<Plus weight="bold" size={18} style={tw`text-ink-faint`} />
 						</View>

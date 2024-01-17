@@ -128,7 +128,7 @@ const PackageCard = ({ features, name, price, toggle, subTitle }: Props) => {
 						)}
 						{features.map((feature, index) => (
 							<div key={index} className="flex items-center justify-center gap-2.5">
-								<div className="flex h-5 w-5 items-center justify-center rounded-full border border-[#353252] bg-[#2A2741]">
+								<div className="flex size-5 items-center justify-center rounded-full border border-[#353252] bg-[#2A2741]">
 									<Check weight="bold" size={12} color="white" />
 								</div>
 								<p className="text-sm text-white">{feature}</p>

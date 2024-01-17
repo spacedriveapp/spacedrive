@@ -31,9 +31,9 @@ export default function Header({ title, showLibrary, searchType, navBack }: Prop
 	};
 
 	return (
-		<View style={tw`relative w-full pt-10 border-b h-fit border-app-line/50 bg-mobile-header`}>
-			<View style={tw`justify-center w-full pb-5 mx-auto mt-5 h-fit px-7`}>
-				<View style={tw`flex-row items-center justify-between w-full`}>
+		<View style={tw`relative h-fit w-full border-b border-app-line/50 bg-mobile-header pt-10`}>
+			<View style={tw`mx-auto mt-5 h-fit w-full justify-center px-7 pb-5`}>
+				<View style={tw`w-full flex-row items-center justify-between`}>
 					<View style={tw`flex-row items-center gap-5`}>
 						{navBack && (
 							<Pressable

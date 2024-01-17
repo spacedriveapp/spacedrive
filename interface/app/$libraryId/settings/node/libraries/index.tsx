@@ -17,7 +17,7 @@ export const Component = () => {
 		<>
 			<Heading
 				title={t('libraries')}
-				description={t("libraries_description")}
+				description={t('libraries_description')}
 				rightArea={
 					<div className="flex-row space-x-2">
 						<Button
@@ -27,7 +27,7 @@ export const Component = () => {
 								dialogManager.create((dp) => <CreateDialog {...dp} />);
 							}}
 						>
-							{t("add_library")}
+							{t('add_library')}
 						</Button>
 					</div>
 				}

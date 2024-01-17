@@ -39,7 +39,7 @@ export default ({ location }: Props) => {
 				navigate(`${location.id}`);
 			}}
 		>
-			<Folder className="mr-3 h-10 w-10 self-center" />
+			<Folder className="mr-3 size-10 self-center" />
 			<div className="grid min-w-[110px] grid-cols-1">
 				<h1 className="truncate pt-0.5 text-sm font-semibold">{location.name}</h1>
 
@@ -65,7 +65,7 @@ export default ({ location }: Props) => {
 				>
 					<div
 						className={clsx(
-							'h-2 w-2  rounded-full',
+							'size-2 rounded-full',
 							online ? 'bg-green-500' : 'bg-red-500'
 						)}
 					/>
@@ -100,7 +100,7 @@ export default ({ location }: Props) => {
 					}}
 				>
 					<Tooltip label={t('delete_location')}>
-						<Trash className="h-4 w-4" />
+						<Trash className="size-4" />
 					</Tooltip>
 				</Button>
 				<Button
@@ -113,7 +113,7 @@ export default ({ location }: Props) => {
 					}}
 				>
 					<Tooltip label={t('rescan_location')}>
-						<Repeat className="h-4 w-4" />
+						<Repeat className="size-4" />
 					</Tooltip>
 				</Button>
 				{/* <Button variant="gray" className="!p-1.5">

@@ -65,7 +65,7 @@ const UpdateTagModal = forwardRef<ModalRef, Props>((props, ref) => {
 				<View style={tw`ml-2 flex flex-row items-center`}>
 					<Pressable
 						onPress={() => setShowPicker((v) => !v)}
-						style={twStyle({ backgroundColor: tagColor }, 'h-5 w-5 rounded-full')}
+						style={twStyle({ backgroundColor: tagColor }, 'size-5 rounded-full')}
 					/>
 					{/* TODO: Make this editable. Need to make sure color is a valid hexcode and update the color on picker etc. etc. */}
 					<Input editable={false} value={tagColor as string} style={tw`ml-2 flex-1`} />

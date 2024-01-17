@@ -438,7 +438,7 @@ export const ListView = memo(() => {
 					range.direction
 						? keyDirection !== range.direction
 						: backRange?.direction &&
-						  (backRange.sorted.start.index === frontRange?.sorted.start.index ||
+							(backRange.sorted.start.index === frontRange?.sorted.start.index ||
 								backRange.sorted.end.index === frontRange?.sorted.end.index)
 				) {
 					explorer.removeSelectedItem(range.end.original);
@@ -471,7 +471,7 @@ export const ListView = memo(() => {
 									: [
 											uniqueId(frontRange.start.original),
 											uniqueId(nextRow.original)
-									  ];
+										];
 						}
 
 						setRanges(_ranges);
@@ -815,11 +815,11 @@ export const ListView = memo(() => {
 														explorerSettings.order &&
 														(orderKey.startsWith('object.')
 															? orderKey.split('object.')[1] ===
-															  header.id
+																header.id
 															: orderKey === header.id)
 															? getOrderingDirection(
 																	explorerSettings.order
-															  )
+																)
 															: null;
 
 													const cellContent = flexRender(
@@ -867,7 +867,8 @@ export const ListView = memo(() => {
 																			)
 																				? value.split(
 																						'object.'
-																				  )[1] === header.id
+																					)[1] ===
+																						header.id
 																				: value ===
 																						header.id;
 																		}

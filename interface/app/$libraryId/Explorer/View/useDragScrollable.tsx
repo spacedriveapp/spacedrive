@@ -11,8 +11,8 @@ export const useDragScrollable = ({ direction }: { direction: 'up' | 'down' }) =
 
 	const [node, setNode] = useState<HTMLElement | null>(null);
 
-	const timeout = useRef<NodeJS.Timeout | null>(null);
-	const interval = useRef<NodeJS.Timer | null>(null);
+	const timeout = useRef<number | null>(null);
+	const interval = useRef<number | null>(null);
 
 	useEffect(() => {
 		const element = node;
@@ -53,8 +53,8 @@ export const useDragScrollable = ({ direction }: { direction: 'up' | 'down' }) =
 			}, 1000);
 		};
 
-		window.addEventListener('mousemove', handleMouseMove);
-		return () => window.removeEventListener('mouseover', handleMouseMove);
+		addEventListener('mousemove', handleMouseMove);
+		return () => removeEventListener('mouseover', handleMouseMove);
 	}, [direction, explorer.scrollRef, node]);
 
 	const ref = useCallback((nodeElement: HTMLElement | null) => setNode(nodeElement), []);

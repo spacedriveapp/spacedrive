@@ -30,11 +30,11 @@ export default function JobContainer(props: JobContainerProps) {
 			)}
 		>
 			{typeof Icon === 'number' ? (
-				<Image source={Icon} style={tw`ml-4 mr-1 h-8 w-8`} />
+				<Image source={Icon} style={tw`ml-4 mr-1 size-8`} />
 			) : (
 				Icon && (
 					<View
-						style={tw`mr-1 h-7 w-7 items-center justify-center rounded-full bg-app-button`}
+						style={tw`mr-1 size-7 items-center justify-center rounded-full bg-app-button`}
 					>
 						<Icon weight="fill" color="white" size={18} />
 					</View>

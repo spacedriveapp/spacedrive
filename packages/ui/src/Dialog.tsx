@@ -182,9 +182,9 @@ export function Dialog<S extends FieldValues>({
 	);
 	const disableCheck = props.errorMessageException
 		? !form.formState.isValid &&
-		  !form.formState.errors.root?.serverError?.message?.startsWith(
+			!form.formState.errors.root?.serverError?.message?.startsWith(
 				props.errorMessageException as string
-		  )
+			)
 		: !form.formState.isValid;
 
 	const submitButton = (

@@ -252,7 +252,7 @@ const RulesForm = ({ onSubmitted }: Props) => {
 								/>
 								{index !== 0 && (
 									<Button
-										className="flex h-[32px] w-[32px] items-center justify-self-end"
+										className="flex size-[32px] items-center justify-self-end"
 										variant="gray"
 										onClick={() => remove(index)}
 									>

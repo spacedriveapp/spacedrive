@@ -42,8 +42,8 @@ export const validateInput = (
 			const regex = isWeb
 				? null // Non web plataforms use the native file picker, so there is no need to validate
 				: os === 'windows'
-				? /^[^<>:"/|?*\u0000-\u0031]+$/
-				: /^[^\0]+$/;
+					? /^[^<>:"/|?*\u0000-\u0031]+$/
+					: /^[^\0]+$/;
 			return {
 				value: regex?.test(value) || false,
 				message: value ? 'Invalid path' : 'Value required'
@@ -116,8 +116,8 @@ export const RuleInput = memo(
 							(os === 'windows'
 								? 'C:\\Users\\john\\Downloads'
 								: os === 'macOS'
-								? '/Users/clara/Pictures'
-								: '/home/emily/Documents') +
+									? '/Users/clara/Pictures'
+									: '/home/emily/Documents') +
 							')'
 						}
 						onClick={async () => {

@@ -209,10 +209,10 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					...new Set(
 						(item.item?.file_paths || []).map((fp) => fp.location_id).filter(Boolean)
 					)
-			  ]
+				]
 			: item.type === 'Path'
-			? [item.item.location_id]
-			: [];
+				? [item.item.location_id]
+				: [];
 	}, [item]);
 
 	const fileLocations =
@@ -283,12 +283,12 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 					<Tooltip label={t('encrypt')}>
 						<Button size="icon">
-							<Lock className="h-[18px] w-[18px]" />
+							<Lock className="size-[18px]" />
 						</Button>
 					</Tooltip>
 					<Tooltip label={t('share')}>
 						<Button size="icon">
-							<Link className="h-[18px] w-[18px]" />
+							<Link className="size-[18px]" />
 						</Button>
 					</Tooltip>
 				</div>

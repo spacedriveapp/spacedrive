@@ -80,7 +80,7 @@ const KindItem = ({ kind, name, icon, items, selected, onClick, disabled }: Kind
 					disabled && 'cursor-not-allowed opacity-30'
 				)}
 			>
-				<Icon name={icon as any} className="mr-3 h-12 w-12" />
+				<Icon name={icon as any} className="mr-3 size-12" />
 				<div className="pr-5">
 					<h2 className="text-sm font-medium">{name}</h2>
 					{items !== undefined && (

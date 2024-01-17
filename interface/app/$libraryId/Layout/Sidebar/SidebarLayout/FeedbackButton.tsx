@@ -78,7 +78,7 @@ export default function () {
 											key={i}
 											className={clsx(
 												field.value === i ? 'bg-accent' : 'bg-app-input',
-												'flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-app-line transition-all duration-200 hover:scale-125'
+												'flex size-7 cursor-pointer items-center justify-center rounded-full border border-app-line transition-all duration-200 hover:scale-125'
 											)}
 										>
 											{emoji}

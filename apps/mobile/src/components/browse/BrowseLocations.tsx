@@ -41,13 +41,13 @@ const BrowseLocationItem: React.FC<BrowseLocationItemProps> = ({
 			<View
 				style={tw`h-fit w-[100px] flex-col justify-center gap-3 rounded-md border border-sidebar-line/50 bg-sidebar-box p-2`}
 			>
-				<View style={tw`flex-col justify-between w-full gap-1`}>
+				<View style={tw`w-full flex-col justify-between gap-1`}>
 					<View style={tw`flex-row items-center justify-between`}>
 						<View style={tw`relative`}>
 							<FolderIcon size={42} />
 							<View
 								style={twStyle(
-									'z-5 absolute bottom-[6px] right-[2px] h-2 w-2 rounded-full',
+									'z-5 absolute bottom-[6px] right-[2px] size-2 rounded-full',
 									online ? 'bg-green-500' : 'bg-red-500'
 								)}
 							/>
@@ -97,7 +97,7 @@ const BrowseLocations = () => {
 
 	return (
 		<View style={tw`gap-5`}>
-			<View style={tw`flex-row items-center justify-between w-full px-7`}>
+			<View style={tw`w-full flex-row items-center justify-between px-7`}>
 				<Text style={tw`text-xl font-bold text-white`}>Locations</Text>
 				<View style={tw`flex-row gap-3`}>
 					<Pressable
@@ -105,13 +105,13 @@ const BrowseLocations = () => {
 							navigation.navigate('Locations');
 						}}
 					>
-						<View style={tw`items-center justify-center w-8 h-8 rounded-md bg-accent`}>
+						<View style={tw`size-8 items-center justify-center rounded-md bg-accent`}>
 							<Eye weight="bold" size={18} style={tw`text-white`} />
 						</View>
 					</Pressable>
 					<Pressable onPress={() => modalRef.current?.present()}>
 						<View
-							style={tw`items-center justify-center w-8 h-8 bg-transparent border border-dashed rounded-md border-ink-faint`}
+							style={tw`size-8 items-center justify-center rounded-md border border-dashed border-ink-faint bg-transparent`}
 						>
 							<Plus weight="bold" size={18} style={tw`text-ink-faint`} />
 						</View>

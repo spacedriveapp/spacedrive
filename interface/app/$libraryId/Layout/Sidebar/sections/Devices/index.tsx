@@ -26,7 +26,7 @@ export default function DevicesSection() {
 		>
 			{node && (
 				<SidebarLink className="group relative w-full" to={`node/${node.id}`} key={node.id}>
-					<Icon name="Laptop" className="mr-1 h-5 w-5" />
+					<Icon name="Laptop" className="mr-1 size-5" />
 					<span className="truncate">{node.name}</span>
 				</SidebarLink>
 			)}

@@ -51,7 +51,7 @@ interface CategoryProps {
 const Category = ({ name, icon }: CategoryProps) => {
 	return (
 		<View
-			style={tw`h-[70px] w-[70px] flex-col items-center justify-center rounded-md border border-sidebar-line/50 bg-sidebar-box`}
+			style={tw`size-[70px] flex-col items-center justify-center rounded-md border border-sidebar-line/50 bg-sidebar-box`}
 		>
 			{icon}
 			<Text style={tw`mt-2 text-xs text-white`}>{name}</Text>

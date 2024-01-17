@@ -136,7 +136,7 @@ export function ErrorPage({
 							? sendReportBtn()
 							: sentryBrowserLazy.then(({ captureException }) =>
 									captureException(message)
-							  )
+								)
 					}
 				>
 					Send report

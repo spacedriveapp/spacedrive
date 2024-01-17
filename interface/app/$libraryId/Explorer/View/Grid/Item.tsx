@@ -66,7 +66,7 @@ export const GridItem = ({ children, item, ...props }: Props) => {
 	return (
 		<div
 			{...props}
-			className="h-full w-full"
+			className="size-full"
 			data-selectable=""
 			data-selectable-index={props.index}
 			data-selectable-id={itemId}

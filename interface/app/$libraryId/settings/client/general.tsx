@@ -116,7 +116,7 @@ export const Component = () => {
 
 					<hr className="mb-4 mt-2 flex w-full border-app-line" />
 					<div className="flex w-full items-center gap-5">
-						<Icon name="Laptop" className="mt-2 h-14 w-14" />
+						<Icon name="Laptop" className="mt-2 size-14" />
 						<div className="flex flex-col">
 							<NodeSettingLabel>{t('node_name')}</NodeSettingLabel>
 							<Input

@@ -136,7 +136,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 					explorer.selectedItems.size !== 0 && explorer.resetSelectedItems();
 				}}
 			>
-				<div ref={setDroppableRef} className="h-full w-full">
+				<div ref={setDroppableRef} className="size-full">
 					{explorer.items === null || (explorer.items && explorer.items.length > 0) ? (
 						<>
 							{layoutMode === 'grid' && <GridView />}

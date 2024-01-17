@@ -1,5 +1,3 @@
-import '@fontsource/inter/variable.css';
-
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import duration from 'dayjs/plugin/duration';

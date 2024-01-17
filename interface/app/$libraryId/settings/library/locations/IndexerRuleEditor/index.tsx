@@ -83,7 +83,7 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 								disableDelete || 'border-red-500 bg-red-500'
 							)}
 						>
-							<Trash className="-mt-0.5 mr-1.5 inline h-4 w-4" />
+							<Trash className="-mt-0.5 mr-1.5 inline size-4" />
 							Delete
 						</Button>
 						<Button
@@ -113,7 +113,7 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 												setSelectedRule(
 													selectedRule === rule ? undefined : rule
 												);
-									  }
+										}
 									: undefined
 							}
 							className={clsx(

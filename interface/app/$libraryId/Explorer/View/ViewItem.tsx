@@ -62,10 +62,10 @@ export const useViewItemDoubleClick = () => {
 								selectedItem.type === 'Path'
 									? [selectedItem.item]
 									: selectedItem.type === 'Label'
-									? selectedItem.item.label_objects.flatMap(
-											(o) => o.object.file_paths
-									  )
-									: selectedItem.item.file_paths;
+										? selectedItem.item.label_objects.flatMap(
+												(o) => o.object.file_paths
+											)
+										: selectedItem.item.file_paths;
 
 							for (const filePath of paths) {
 								if (filePath.is_dir) {

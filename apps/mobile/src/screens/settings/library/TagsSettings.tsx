@@ -1,8 +1,8 @@
-import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { CaretRight, Pen, Trash } from 'phosphor-react-native';
 import { useEffect, useRef } from 'react';
 import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
+import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import DeleteTagModal from '~/components/modal/confirmModals/DeleteTagModal';
 import CreateTagModal from '~/components/modal/tag/CreateTagModal';
@@ -56,9 +56,7 @@ function TagItem({ tag, index }: { tag: Tag; index: number }) {
 		>
 			<View style={tw`flex flex-row items-center justify-between`}>
 				<View style={tw`flex flex-row`}>
-					<View
-						style={twStyle({ backgroundColor: tag.color! }, 'h-4 w-4 rounded-full')}
-					/>
+					<View style={twStyle({ backgroundColor: tag.color! }, 'size-4 rounded-full')} />
 					<Text style={tw`ml-3 text-ink`}>{tag.name}</Text>
 				</View>
 				<CaretRight color={tw.color('ink-dull')} size={18} />

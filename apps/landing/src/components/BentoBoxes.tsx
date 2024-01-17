@@ -56,7 +56,7 @@ const BentoBoxes = () => {
 		 lg:grid lg:grid-cols-6"
 		>
 			<BentoBox colSpan={4} className="p-6" bgUrl="images/bento/encrypt-bg.webp">
-				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
+				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 size-full" />
 				<div className="relative z-20">
 					<Heading>Encryption</Heading>
 					<Text className="mx-auto max-w-[417px]">
@@ -88,7 +88,7 @@ const BentoBoxes = () => {
 						src="/images/bento/tags.webp"
 					/>
 				</div>
-				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
+				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 size-full" />
 
 				<div className="relative z-[40] mt-2 md:mt-7">
 					<Heading>Powerful tags</Heading>
@@ -105,7 +105,7 @@ const BentoBoxes = () => {
 						Easily find your files and folders through our search
 					</Text>
 				</div>
-				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
+				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 size-full" />
 				<div className="flex h-[80%] w-auto items-start justify-center">
 					<Image
 						className="mx-auto brightness-110"
@@ -119,7 +119,7 @@ const BentoBoxes = () => {
 				</div>
 			</BentoBox>
 			<BentoBox colSpan={2} className="p-6">
-				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
+				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 size-full" />
 				<div className="flex h-[80%] w-auto items-center justify-center">
 					<Image
 						className="mx-auto brightness-125"
@@ -143,7 +143,7 @@ const BentoBoxes = () => {
 						Send files to other devices quickly and easily
 					</Text>
 				</div>
-				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
+				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 size-full" />
 				<div className="flex h-[80%] w-auto items-center justify-center">
 					<div
 						style={
@@ -211,7 +211,7 @@ const BentoBoxes = () => {
 						Windows, macOS, Linux, iOS, Android, and the web. Spacedrive is everywhere.
 					</Text>
 				</div>
-				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
+				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 size-full" />
 			</BentoBox>
 		</MagicContainer>
 	);

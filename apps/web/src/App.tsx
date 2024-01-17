@@ -147,7 +147,7 @@ function useRouter() {
 						event.historyAction === 'PUSH'
 							? currentIndex
 							: // sometimes the max index is 0 when the current index is > 0, like when reloading the page -_-
-							  Math.max(router.maxIndex, currentIndex)
+								Math.max(router.maxIndex, currentIndex)
 				};
 			});
 		});

@@ -56,7 +56,7 @@ const Component = memo(({ children }: { children: RenderItem }) => {
 			? {
 					columns: 'auto',
 					size: { width: explorerSettings.gridItemSize, height: itemHeight }
-			  }
+				}
 			: { columns: explorerSettings.mediaColumns }),
 		rowVirtualizer: { overscan: explorer.overscan ?? 5 },
 		onLoadMore: explorer.loadMore,
@@ -357,7 +357,7 @@ const Component = memo(({ children }: { children: RenderItem }) => {
 									element: explorerView.ref.current,
 									top: false,
 									bottom: false
-							  }
+								}
 							: undefined
 					}
 					selectableTargets={['[data-selectable]']}

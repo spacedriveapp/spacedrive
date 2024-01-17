@@ -41,8 +41,8 @@ const Job = ({ progress, message, error }: JobProps) => {
 	const progressColor = error
 		? tw.color('red-500')
 		: progress === 100
-		? tw.color('green-500')
-		: tw.color('accent');
+			? tw.color('green-500')
+			: tw.color('accent');
 	return (
 		<View
 			style={tw`h-fit w-[310px] flex-col rounded-md border border-sidebar-line/50 bg-sidebar-box`}

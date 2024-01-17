@@ -33,7 +33,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 		useImperativeHandle<HTMLDivElement | null, HTMLDivElement | null>(_ref, () => ref.current);
 
 		const renamable = useRef<boolean>(false);
-		const timeout = useRef<NodeJS.Timeout | null>(null);
+		const timeout = useRef<number | null>(null);
 
 		const [allowRename, setAllowRename] = useState(false);
 		const [isTruncated, setIsTruncated] = useState(false);

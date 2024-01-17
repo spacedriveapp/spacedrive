@@ -41,13 +41,13 @@ export const Delete = new ConditionalItem({
 						locationId: selectedFilePaths[0].location_id,
 						rescan,
 						pathIds: selectedFilePaths.map((p) => p.id)
-				  }
+					}
 				: undefined;
 
 		const ephemeralArgs = isNonEmpty(selectedEphemeralPaths)
 			? {
 					paths: selectedEphemeralPaths.map((p) => p.path)
-			  }
+				}
 			: undefined;
 		const deleteKeybind = useKeysMatcher(['Meta', 'Backspace']);
 

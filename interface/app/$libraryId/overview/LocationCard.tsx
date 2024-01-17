@@ -38,7 +38,7 @@ const LocationCard = ({ icon, name, connectionType, ...stats }: LocationCardProp
 				<Pill className="uppercase">{connectionType || 'Local'}</Pill>
 				<div className="grow" />
 				<Button size="icon" variant="outline">
-					<Ellipsis className="h-3 w-3 opacity-50" />
+					<Ellipsis className="size-3 opacity-50" />
 				</Button>
 			</div>
 		</Card>

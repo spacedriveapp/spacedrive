@@ -26,7 +26,7 @@ type StripLibraryArgsFromInput<
 				key: T['key'];
 				input: NeverOverNull extends true ? (E extends null ? never : E) : E;
 				result: T['result'];
-		  }
+			}
 		: never
 	: never;
 

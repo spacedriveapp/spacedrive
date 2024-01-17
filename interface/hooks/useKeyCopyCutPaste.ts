@@ -32,7 +32,7 @@ export const useKeyCopyCutPaste = () => {
 			? {
 					sourceLocationId: parent.location.id,
 					sourcePathIds: selectedFilePaths.map((p) => p.id)
-			  }
+				}
 			: undefined;
 
 	const ephemeralArgs =

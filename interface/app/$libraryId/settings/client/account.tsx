@@ -44,8 +44,8 @@ const Profile = ({ email, authStore }: { email?: string; authStore: { status: st
 		<Card className="relative flex w-full flex-col items-center justify-center !p-6 lg:max-w-[320px]">
 			<AuthRequiredOverlay />
 			<div
-				className="flex h-[90px] w-[90px] items-center justify-center
-	 rounded-full border border-app-line bg-app-input"
+				className="flex size-[90px] items-center justify-center rounded-full
+	 border border-app-line bg-app-input"
 			>
 				<User weight="fill" className="mx-auto text-4xl text-ink-faint" />
 			</div>

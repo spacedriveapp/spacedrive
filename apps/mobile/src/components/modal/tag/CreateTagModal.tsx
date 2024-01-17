@@ -69,7 +69,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 				<View style={tw`mt-2 flex flex-row items-center`}>
 					<Pressable
 						onPress={() => setShowPicker(true)}
-						style={twStyle({ backgroundColor: tagColor }, 'h-6 w-6 rounded-full')}
+						style={twStyle({ backgroundColor: tagColor }, 'size-6 rounded-full')}
 					/>
 					<ModalInput
 						testID="create-tag-name"

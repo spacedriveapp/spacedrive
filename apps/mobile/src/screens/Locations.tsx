@@ -30,8 +30,8 @@ export const Locations = () => {
 	const [debouncedSearch] = useDebounce(search, 200);
 	const filteredLocations = useMemo(
 		() =>
-			locations?.filter(
-				(location) => location.name?.toLowerCase().includes(debouncedSearch.toLowerCase())
+			locations?.filter((location) =>
+				location.name?.toLowerCase().includes(debouncedSearch.toLowerCase())
 			) ?? [],
 		[debouncedSearch, locations]
 	);
@@ -92,14 +92,14 @@ const LocationItem: React.FC<LocationItemProps> = ({
 	return (
 		<Pressable onPress={onPress}>
 			<View
-				style={tw`flex-row justify-between w-full gap-3 p-2 border rounded-md h-fit border-sidebar-line/50 bg-sidebar-box`}
+				style={tw`h-fit w-full flex-row justify-between gap-3 rounded-md border border-sidebar-line/50 bg-sidebar-box p-2`}
 			>
 				<View style={tw`flex-row items-center gap-2`}>
 					<View style={tw`relative`}>
 						<FolderIcon size={42} />
 						<View
 							style={twStyle(
-								'z-5 absolute bottom-[6px] right-[2px] h-2 w-2 rounded-full',
+								'z-5 absolute bottom-[6px] right-[2px] size-2 rounded-full',
 								online ? 'bg-green-500' : 'bg-red-500'
 							)}
 						/>
@@ -114,7 +114,7 @@ const LocationItem: React.FC<LocationItemProps> = ({
 				<View style={tw`flex-row items-center gap-3`}>
 					<View style={tw`rounded-md bg-app-input p-1.5`}>
 						<Text
-							style={tw`text-xs font-bold text-left truncate text-ink-dull`}
+							style={tw`truncate text-left text-xs font-bold text-ink-dull`}
 							numberOfLines={1}
 						>
 							{`${byteSize(location.size_in_bytes)}`}

@@ -10,7 +10,6 @@
 		"typecheck": "tsc -b"
 	},
 	"dependencies": {
-		"@fontsource/inter": "^4.5.15",
 		"@oscartbeaumont-sd/rspc-client": "=0.0.0-main-dc31e5b2",
 		"@sd/client": "workspace:*",
 		"@sd/interface": "workspace:*",
@@ -22,16 +21,16 @@
 		"react-router-dom": "6.20.1"
 	},
 	"devDependencies": {
-		"@playwright/test": "^1.39.0",
+		"@playwright/test": "^1.41.0",
 		"@sd/config": "workspace:*",
 		"@sd/ui": "workspace:*",
-		"@types/react": "^18.2.34",
-		"@types/react-dom": "^18.2.14",
+		"@types/react": "^18.2.48",
+		"@types/react-dom": "^18.2.18",
 		"autoprefixer": "^10.4.16",
-		"postcss": "^8.4.31",
-		"rollup-plugin-visualizer": "^5.9.2",
+		"postcss": "^8.4.33",
+		"rollup-plugin-visualizer": "^5.12.0",
 		"typescript": "^5.3.3",
-		"vite": "^5.0.10",
-		"vite-tsconfig-paths": "^4.2.1"
+		"vite": "^5.0.11",
+		"vite-tsconfig-paths": "^4.3.0"
 	}
 }

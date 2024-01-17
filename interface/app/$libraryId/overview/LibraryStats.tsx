@@ -63,7 +63,7 @@ const StatItem = (props: StatItemProps) => {
 					<Tooltip label={props.info}>
 						<Info
 							weight="fill"
-							className="-mt-0.5 ml-1 inline h-3 w-3 text-ink-faint opacity-0 transition-opacity group-hover/stat:opacity-70"
+							className="-mt-0.5 ml-1 inline size-3 text-ink-faint opacity-0 transition-opacity group-hover/stat:opacity-70"
 						/>
 					</Tooltip>
 				)}
