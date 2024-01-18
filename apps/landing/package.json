@@ -61,7 +61,7 @@
 		"@types/three": "^0.160.0",
 		"autoprefixer": "^10.4.17",
 		"postcss": "^8.4.33",
-		"sharp": "^0.33.2",
+		"sharp": "0.33.1",
 		"tailwindcss": "^3.4.1",
 		"typescript": "^5.3.3"
 	}
