@@ -57,14 +57,11 @@ function ShootingStar() {
 }
 
 export default function Space({ onRenderFail }: { onRenderFail?: (error: unknown) => void }) {
-	console.log('SPPPPPAAAACCCEEEE');
 	return (
 		<div className="absolute left-0 top-0 z-0 h-screen w-screen bg-black opacity-50">
 			<Canvas
 				gl={(canvas) => {
-					console.log('GL');
 					try {
-						console.log('WebGL2');
 						// https://github.com/pmndrs/react-three-fiber/blob/f2b430c/packages/fiber/src/core/index.tsx#L113-L119
 						return new WebGLRenderer({
 							alpha: true,
@@ -73,7 +70,6 @@ export default function Space({ onRenderFail }: { onRenderFail?: (error: unknown
 							powerPreference: 'high-performance'
 						});
 					} catch (error) {
-						console.log('WebGL1');
 						try {
 							// Let's try WebGL1, maybe the user's browser doesn't support WebGL2
 							return new WebGL1Renderer({
@@ -83,7 +79,6 @@ export default function Space({ onRenderFail }: { onRenderFail?: (error: unknown
 								powerPreference: 'high-performance'
 							});
 						} catch (error) {
-							console.error(error);
 							onRenderFail?.(error);
 							// Return an empty renderer, just so the app doesn't crash
 							return { render() {}, setSize() {}, setPixelRatio() {} };
