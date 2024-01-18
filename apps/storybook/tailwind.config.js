@@ -1,3 +1,3 @@
-import tailwind from '@sd/ui/tailwind'
+import tailwind from '@sd/ui/tailwind';
 
 export default tailwind('web');

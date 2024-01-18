@@ -7,7 +7,8 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"test": "VITE_SD_DEMO_MODE=true playwright test",
-		"typecheck": "tsc -b"
+		"typecheck": "tsc -b",
+		"lint": "eslint src --cache"
 	},
 	"dependencies": {
 		"@oscartbeaumont-sd/rspc-client": "=0.0.0-main-dc31e5b2",

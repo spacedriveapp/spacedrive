@@ -22,6 +22,8 @@ apps/desktop/src/commands.ts
 # Import only file, which order is relevant
 interface/components/TextViewer/prism-lazy.ts
 
+.github/actions/publish-artifacts/dist/index.js
+
 .next/
 .contentlayer/
 
