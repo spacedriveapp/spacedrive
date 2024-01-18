@@ -1,12 +1,11 @@
 use crate::{
-	node::config,
+	node::{config, get_hardware_model_name, HardwareModel},
 	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
 };
 
 use sd_p2p::{
 	spacetunnel::RemoteIdentity, Manager, ManagerConfig, ManagerError, PeerStatus, Service,
 };
-
 use std::{
 	collections::{HashMap, HashSet},
 	net::SocketAddr,
@@ -95,6 +94,7 @@ impl P2PManager {
 			PeerMetadata {
 				name: config.name.clone(),
 				operating_system: Some(OperatingSystem::get_os()),
+				device_model: Some(get_hardware_model_name().unwrap_or(HardwareModel::Other)),
 				version: Some(env!("CARGO_PKG_VERSION").to_string()),
 			}
 		});

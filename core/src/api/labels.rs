@@ -1,18 +1,66 @@
-use crate::{invalidate_query, library::Library};
+use crate::{invalidate_query, library::Library, object::media::thumbnail::get_indexed_thumb_key};
 
-use sd_prisma::prisma::{label, label_on_object, object};
+use sd_prisma::prisma::{label, label_on_object, object, SortOrder};
 
 use std::collections::BTreeMap;
 
 use rspc::alpha::AlphaRouter;
 
-use super::{utils::library, Ctx, R};
+use super::{locations::ExplorerItem, utils::library, Ctx, R};
+
+label::include!((take: i64) => label_with_objects {
+	label_objects(vec![]).take(take): select {
+		object: select {
+			id
+			file_paths(vec![]).take(1)
+		}
+	}
+});
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("list", {
 			R.with2(library()).query(|(_, library), _: ()| async move {
 				Ok(library.db.label().find_many(vec![]).exec().await?)
+			})
+		})
+		//
+		.procedure("listWithThumbnails", {
+			R.with2(library())
+				.query(|(_, library), cursor: label::name::Type| async move {
+					Ok(library
+						.db
+						.label()
+						.find_many(vec![label::name::gt(cursor)])
+						.order_by(label::name::order(SortOrder::Asc))
+						.include(label_with_objects::include(4))
+						.exec()
+						.await?
+						.into_iter()
+						.map(|label| ExplorerItem::Label {
+							item: label.clone(),
+							// map the first 4 objects to thumbnails
+							thumbnails: label
+								.label_objects
+								.into_iter()
+								.take(10)
+								.filter_map(|label_object| {
+									label_object.object.file_paths.into_iter().next()
+								})
+								.filter_map(|file_path_data| {
+									file_path_data
+										.cas_id
+										.as_ref()
+										.map(|cas_id| get_indexed_thumb_key(cas_id, library.id))
+								}) // Filter out None values and transform each element to Vec<Vec<String>>
+								.collect::<Vec<_>>(), // Collect into Vec<Vec<Vec<String>>>
+						})
+						.collect::<Vec<_>>())
+				})
+		})
+		.procedure("count", {
+			R.with2(library()).query(|(_, library), _: ()| async move {
+				Ok(library.db.label().count(vec![]).exec().await? as i32)
 			})
 		})
 		.procedure("getForObject", {
