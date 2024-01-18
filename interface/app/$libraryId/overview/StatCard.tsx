@@ -21,15 +21,13 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 
 	const isDark = useIsDark();
 
-	const { totalSpace, freeSpace, remainingSpace } = useMemo(() => {
+	const { totalSpace, freeSpace, usedSpaceSpace } = useMemo(() => {
+		const totalSpace = byteSize(stats.totalSpace)
+		const freeSpace = stats.freeSpace == null ? totalSpace : byteSize(stats.freeSpace)
 		return {
-			totalSpace: byteSize(stats.totalSpace),
-			freeSpace: byteSize(stats.freeSpace),
-			remainingSpace: byteSize(
-				stats.freeSpace
-					? Number(stats.totalSpace) - Number(stats.freeSpace)
-					: stats.totalSpace
-			)
+			totalSpace,
+			freeSpace,
+			usedSpaceSpace: byteSize(totalSpace.original - freeSpace.original)
 		};
 	}, [stats]);
 
@@ -38,18 +36,14 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 	}, []);
 
 	const progress = useMemo(() => {
-		if (!mounted) return 0;
-		return Math.floor(
-			((Number(totalSpace.original) - Number(freeSpace.original)) /
-				Number(totalSpace.original)) *
-				100
-		);
-	}, [totalSpace, freeSpace, mounted]);
+		if (!mounted || totalSpace.original === 0n) return 0;
+		return Math.floor((usedSpaceSpace.value / totalSpace.value) * 100);
+	}, [mounted, totalSpace, usedSpaceSpace]);
 
 	return (
 		<Card className="flex w-[280px] shrink-0 flex-col  bg-app-box/50 !p-0 ">
 			<div className="flex flex-row items-center gap-5 p-4 px-6 ">
-				{!!stats.freeSpace && (
+				{stats.freeSpace && (
 					<CircularProgress
 						radius={40}
 						progress={progress}
@@ -63,9 +57,9 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 						transition="stroke-dashoffset 1s ease 0s, stroke 1s ease"
 					>
 						<div className="absolute text-lg font-semibold">
-							{remainingSpace.value}
+							{usedSpaceSpace.value}
 							<span className="ml-0.5 text-tiny opacity-60">
-								{remainingSpace.unit}
+								{usedSpaceSpace.unit}
 							</span>
 						</div>
 					</CircularProgress>

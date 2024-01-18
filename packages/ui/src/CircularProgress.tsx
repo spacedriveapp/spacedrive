@@ -64,6 +64,8 @@ export const CircularProgress: FunctionComponent<CircularProgressProps> = ({
 		}
 	}, [initialAnimation, initialAnimationDelay]);
 
+	if (Number.isNaN(progress)) progress = 0;
+
 	const getProgress = () => (initialAnimation && !animationInitialized ? 0 : progress);
 
 	const circumference = radius * 2 * Math.PI;
