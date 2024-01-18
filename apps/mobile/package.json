@@ -57,7 +57,7 @@
     "react-native-wheel-color-picker": "^1.2.0",
     "twrnc": "^3.6.7",
     "use-count-up": "^3.0.1",
-    "use-debounce": "^9.0.4",
+    "use-debounce": "^10.0.0",
     "valtio": "^1.13.0",
     "zod": "~3.22.4"
   },
