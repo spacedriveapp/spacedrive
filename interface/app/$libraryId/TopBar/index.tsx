@@ -61,7 +61,7 @@ const TopBar = () => {
 					data-tauri-drag-region
 					className="flex flex-1 items-center gap-3.5 overflow-hidden"
 				>
-					{platform.platform === 'tauri' && <NavigationButtons />}
+					<NavigationButtons />
 					<div ref={ctx.setLeft} className="overflow-hidden" />
 				</div>
 
