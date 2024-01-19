@@ -3,7 +3,6 @@ import { ComponentProps, forwardRef } from 'react';
 import { useSize } from './utils';
 
 export interface ImageProps extends ComponentProps<'img'> {
-	cover?: boolean;
 	extension?: string;
 	size: ReturnType<typeof useSize>;
 }

@@ -28,38 +28,36 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tracing::{debug, error};
 
-use super::{utils::library, Ctx, R};
+use super::{labels::label_with_objects, utils::library, Ctx, R};
+
+// it includes the shard hex formatted as ([["f02", "cab34a76fbf3469f"]])
+// Will be None if no thumbnail exists
+pub type ThumbnailKey = Vec<String>;
 
 #[derive(Serialize, Type, Debug)]
 #[serde(tag = "type")]
 pub enum ExplorerItem {
 	Path {
-		// has_local_thumbnail is true only if there is local existence of a thumbnail
-		has_local_thumbnail: bool,
-		// thumbnail_key is present if there is a cas_id
-		// it includes the shard hex formatted as (["f0", "cab34a76fbf3469f"])
-		thumbnail_key: Option<Vec<String>>,
+		thumbnail: Option<ThumbnailKey>,
 		item: file_path_with_object::Data,
 	},
 	Object {
-		has_local_thumbnail: bool,
-		thumbnail_key: Option<Vec<String>>,
+		thumbnail: Option<ThumbnailKey>,
 		item: object_with_file_paths::Data,
 	},
 	Location {
-		has_local_thumbnail: bool,
-		thumbnail_key: Option<Vec<String>>,
 		item: location::Data,
 	},
 	NonIndexedPath {
-		has_local_thumbnail: bool,
-		thumbnail_key: Option<Vec<String>>,
+		thumbnail: Option<ThumbnailKey>,
 		item: NonIndexedPathItem,
 	},
 	SpacedropPeer {
-		has_local_thumbnail: bool,
-		thumbnail_key: Option<Vec<String>>,
 		item: PeerMetadata,
+	},
+	Label {
+		thumbnails: Vec<ThumbnailKey>,
+		item: label_with_objects::Data,
 	},
 }
 
@@ -79,6 +77,7 @@ impl ExplorerItem {
 			ExplorerItem::Location { .. } => "Location",
 			ExplorerItem::NonIndexedPath { .. } => "NonIndexedPath",
 			ExplorerItem::SpacedropPeer { .. } => "SpacedropPeer",
+			ExplorerItem::Label { .. } => "Label",
 		};
 		match self {
 			ExplorerItem::Path { item, .. } => format!("{ty}:{}", item.id),
@@ -86,6 +85,7 @@ impl ExplorerItem {
 			ExplorerItem::Location { item, .. } => format!("{ty}:{}", item.id),
 			ExplorerItem::NonIndexedPath { item, .. } => format!("{ty}:{}", item.path),
 			ExplorerItem::SpacedropPeer { item, .. } => format!("{ty}:{}", item.name), // TODO: Use a proper primary key
+			ExplorerItem::Label { item, .. } => format!("{ty}:{}", item.name),
 		}
 	}
 }

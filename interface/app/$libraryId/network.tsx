@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useDebugState, useDiscoveredPeers, useFeatureFlag, useFeatureFlags } from '@sd/client';
+import { useDiscoveredPeers } from '@sd/client';
 import { Icon } from '~/components';
 import { useLocale } from '~/hooks';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
@@ -35,9 +35,9 @@ export const Component = () => {
 
 	const explorer = useExplorer({
 		items: peers.map((peer) => ({
-			type: 'SpacedropPeer',
+			type: 'SpacedropPeer' as const,
 			has_local_thumbnail: false,
-			thumbnail_key: null,
+			thumbnail: null,
 			item: {
 				...peer,
 				pub_id: []

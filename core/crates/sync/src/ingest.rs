@@ -142,13 +142,19 @@ impl Actor {
 	}
 
 	async fn apply_op(&mut self, op: CRDTOperation) -> prisma_client_rust::Result<()> {
-		// TODO: Needs to be transaction-ified
-		ModelSyncData::from_op(op.clone())
-			.unwrap()
-			.exec(&self.db)
-			.await?;
+		self.db
+			._transaction()
+			.run(|db| async move {
+				ModelSyncData::from_op(op.clone())
+					.unwrap()
+					.exec(&db)
+					.await?;
 
-		write_crdt_op_to_db(&op, &self.db).await?;
+				write_crdt_op_to_db(&op, &db).await?;
+
+				Ok(())
+			})
+			.await?;
 
 		self.io.req_tx.send(Request::Ingested).await.ok();
 

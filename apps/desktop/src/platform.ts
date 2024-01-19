@@ -1,10 +1,11 @@
+import { OperatingSystem, Platform } from '@sd/interface';
 import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { confirm } from '@tauri-apps/api/dialog';
 import { homeDir } from '@tauri-apps/api/path';
 import { open } from '@tauri-apps/api/shell';
+
 // @ts-expect-error: Doesn't have a types package.
 import ConsistentHash from 'consistent-hash';
-import { OperatingSystem, Platform } from '@sd/interface';
 
 import { commands, events } from './commands';
 import { env } from './env';
@@ -35,7 +36,7 @@ function constructServerUrl(urlSuffix: string) {
 		if (!customUriServerUrl)
 			throw new Error("'window.__SD_CUSTOM_URI_SERVER__' was not injected correctly!");
 
-		console.log(ConsistentHash);
+
 		hr = new ConsistentHash();
 		customUriServerUrl.forEach((url) => hr.add(url));
 	}
