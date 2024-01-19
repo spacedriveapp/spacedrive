@@ -132,20 +132,21 @@ function useUpdater() {
 }
 
 function usePlausible() {
-	const { platform } = usePlatform();
-	const buildInfo = useBridgeQuery(['buildInfo']);
-
-	initPlausible({
-		platformType: platform === 'tauri' ? 'desktop' : 'web',
-		buildInfo: buildInfo?.data
-	});
-
 	const { rawPath } = useRootContext();
+	const { platform } = usePlatform();
+	const { data: buildInfo } = useBridgeQuery(['buildInfo']) ?? {};
 
 	usePlausiblePageViewMonitor({ currentPath: rawPath });
 	usePlausiblePingMonitor({ currentPath: rawPath });
 
 	const plausibleEvent = usePlausibleEvent();
+
+	useEffect(() => {
+		initPlausible({
+			buildInfo,
+			platformType: platform === 'tauri' ? 'desktop' : 'web'
+		});
+	}, [platform, buildInfo]);
 
 	useEffect(() => {
 		const interval = setInterval(() => {
