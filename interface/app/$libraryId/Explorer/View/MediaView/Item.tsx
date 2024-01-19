@@ -57,6 +57,7 @@ const ItemFileThumb = (props: Pick<Props, 'data' | 'cut' | 'cover'>) => {
 				filePath?.hidden && 'opacity-50'
 			)}
 			ref={setDraggableRef}
+			childClassName={({ variant }) => clsx(variant === 'icon' && 'size-2/4')}
 			childProps={{
 				style,
 				...attributes,
