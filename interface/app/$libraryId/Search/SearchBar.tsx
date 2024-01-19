@@ -7,7 +7,6 @@ import { keybindForOs } from '~/util/keybinds';
 import { useSearchContext } from '../Search';
 import { useSearchStore } from '../Search/store';
 
-// million-ignore
 export default () => {
 	const search = useSearchContext();
 	const searchRef = useRef<HTMLInputElement>(null);
