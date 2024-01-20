@@ -14,6 +14,7 @@ import { explorerStore } from '../Explorer/store';
 import { useTopBarContext } from './Layout';
 import { NavigationButtons } from './NavigationButtons';
 
+// million-ignore
 const TopBar = () => {
 	const transparentBg = useShowControls().transparentBg;
 	const isDragSelecting = useSelector(explorerStore, (s) => s.isDragSelecting);
