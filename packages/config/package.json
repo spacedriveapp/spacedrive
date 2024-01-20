@@ -30,5 +30,8 @@
 		"vite-plugin-inspect": "^0.8.1",
 		"vite-plugin-solid": "^2.8.0",
 		"vite-plugin-svgr": "^3.3.0"
+	},
+	"dependencies": {
+		"million": "^2.6.4"
 	}
 }
