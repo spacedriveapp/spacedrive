@@ -44,7 +44,7 @@ libp2p-quic = { version = "0.9.3", features = ["tokio"] }
 mdns-sd = "0.9.3"
 rand_core = { version = "0.6.4" }
 streamunordered = "0.5.3"
-
+zeroize = { version = "1.7.0", features = ["derive"]}
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread"] }
