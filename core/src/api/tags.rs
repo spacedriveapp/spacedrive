@@ -360,6 +360,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				.mutation(|(_, library), tag_id: i32| async move {
 					library
 						.db
+						.tag_on_object()
+						.delete_many(vec![tag_on_object::tag_id::equals(tag_id)])
+						.exec()
+						.await?;
+
+					library
+						.db
 						.tag()
 						.delete(tag::id::equals(tag_id))
 						.exec()

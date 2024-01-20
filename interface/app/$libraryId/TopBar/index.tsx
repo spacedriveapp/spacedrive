@@ -14,6 +14,7 @@ import { explorerStore } from '../Explorer/store';
 import { useTopBarContext } from './Layout';
 import { NavigationButtons } from './NavigationButtons';
 
+// million-ignore
 const TopBar = () => {
 	const transparentBg = useShowControls().transparentBg;
 	const isDragSelecting = useSelector(explorerStore, (s) => s.isDragSelecting);
@@ -61,7 +62,7 @@ const TopBar = () => {
 					data-tauri-drag-region
 					className="flex flex-1 items-center gap-3.5 overflow-hidden"
 				>
-					{platform.platform === 'tauri' && <NavigationButtons />}
+					<NavigationButtons />
 					<div ref={ctx.setLeft} className="overflow-hidden" />
 				</div>
 

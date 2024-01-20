@@ -1,5 +1,3 @@
-import { ArrowClockwise, Broadcast, Key, Laptop, SlidersHorizontal } from '@phosphor-icons/react';
-import { DriveAmazonS3, DriveDropbox, Mobile, Server, Tablet } from '@sd/assets/icons';
 import {
 	useBridgeQuery,
 	useCache,
@@ -10,11 +8,9 @@ import {
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 import { hardwareModelToIcon } from '~/util/hardware';
 
-import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { SearchContextProvider, useSearch } from '../search';
 import SearchBar from '../search/SearchBar';
 import { TopBarPortal } from '../TopBar/Portal';
-import TopBarOptions, { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import FileKindStatistics from './FileKindStats';
 import OverviewSection from './Layout/Section';
 import LibraryStatistics from './LibraryStats';
@@ -202,7 +198,7 @@ export const Component = () => {
 									className="flex w-[100px] flex-col items-center gap-2"
 								>
 									<Icon size={80} name="Folder" />
-									<span className="truncate text-xs  font-medium">
+									<span className="text-xs font-medium truncate">
 										{location.name}
 									</span>
 								</div>

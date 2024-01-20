@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react-swc';
+import million from 'million/compiler';
 import { defineConfig } from 'vite';
 import { createHtmlPlugin } from 'vite-plugin-html';
 import i18nextLoader from 'vite-plugin-i18next-loader';
@@ -12,6 +13,7 @@ const url = new URL('../../../interface/locales', import.meta.url);
 
 export default defineConfig({
 	plugins: [
+		million.vite({ auto: true }),
 		tsconfigPaths(),
 		i18nextLoader({
 			paths: [fileURLToPath(url.href)],
