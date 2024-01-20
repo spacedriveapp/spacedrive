@@ -9,6 +9,7 @@ use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
+use zeroize::ZeroizeOnDrop;
 
 pub const REMOTE_IDENTITY_LEN: usize = 32;
 
@@ -22,8 +23,8 @@ pub enum IdentityErr {
 }
 
 /// TODO
-#[derive(Debug, Clone)]
-pub struct Identity(ed25519_dalek::SigningKey); // TODO: Zeroize on this type
+#[derive(Debug, Clone, ZeroizeOnDrop)]
+pub struct Identity(ed25519_dalek::SigningKey);
 
 impl PartialEq for Identity {
 	fn eq(&self, other: &Self) -> bool {
