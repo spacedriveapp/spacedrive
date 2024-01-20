@@ -22,8 +22,8 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 	const isDark = useIsDark();
 
 	const { totalSpace, freeSpace, usedSpaceSpace } = useMemo(() => {
-		const totalSpace = byteSize(stats.totalSpace)
-		const freeSpace = stats.freeSpace == null ? totalSpace : byteSize(stats.freeSpace)
+		const totalSpace = byteSize(stats.totalSpace);
+		const freeSpace = stats.freeSpace == null ? totalSpace : byteSize(stats.freeSpace);
 		return {
 			totalSpace,
 			freeSpace,
