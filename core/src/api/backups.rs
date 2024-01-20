@@ -122,7 +122,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("restore", {
 			R.mutation(|node, path: PathBuf| async move {
-				start_restore(node, path.into()).await;
+				start_restore(node, path).await;
 				Ok(())
 			})
 		})
