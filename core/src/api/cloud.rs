@@ -4,11 +4,6 @@ use reqwest::Response;
 use rspc::alpha::AlphaRouter;
 use serde::de::DeserializeOwned;
 
-use aws_config::{Region, SdkConfig};
-use aws_credential_types::provider::future;
-use aws_sdk_s3::config::{Credentials, ProvideCredentials, SharedCredentialsProvider};
-use once_cell::sync::OnceCell;
-
 use uuid::Uuid;
 
 use super::{utils::library, Ctx, R};
@@ -19,44 +14,6 @@ async fn parse_json_body<T: DeserializeOwned>(response: Response) -> Result<T, r
 		rspc::Error::new(
 			rspc::ErrorCode::InternalServerError,
 			"JSON conversion failed".to_string(),
-		)
-	})
-}
-
-#[derive(Debug)]
-pub struct CredentialsProvider(sd_cloud_api::locations::authorise::Response);
-
-impl ProvideCredentials for CredentialsProvider {
-	fn provide_credentials<'a>(&'a self) -> future::ProvideCredentials<'a>
-	where
-		Self: 'a,
-	{
-		future::ProvideCredentials::ready(Ok(Credentials::new(
-			self.0.access_key_id.clone(),
-			self.0.secret_access_key.clone(),
-			Some(self.0.session_token.clone()),
-			None, // TODO: Get this from the SD Cloud backend
-			"sd-cloud",
-		)))
-	}
-
-	fn fallback_on_interrupt(&self) -> Option<Credentials> {
-		None
-	}
-}
-
-static AWS_S3_CLIENT: OnceCell<aws_sdk_s3::Client> = OnceCell::new();
-
-// Reuse the client between procedure calls
-fn get_aws_s3_client(
-	token: sd_cloud_api::locations::authorise::Response,
-) -> &'static aws_sdk_s3::Client {
-	AWS_S3_CLIENT.get_or_init(|| {
-		aws_sdk_s3::Client::new(
-			&SdkConfig::builder()
-				.region(Region::new("us-west-1")) // TODO: From cloud config
-				.credentials_provider(SharedCredentialsProvider::new(CredentialsProvider(token)))
-				.build(),
 		)
 	})
 }
@@ -163,8 +120,14 @@ mod library {
 }
 
 mod locations {
-	use aws_sdk_s3::primitives::ByteStream;
+	use aws_config::{Region, SdkConfig};
+	use aws_credential_types::provider::future;
+	use aws_sdk_s3::{
+		config::{Credentials, ProvideCredentials, SharedCredentialsProvider},
+		primitives::ByteStream,
+	};
 	use http_body::Full;
+	use once_cell::sync::OnceCell;
 	use serde::{Deserialize, Serialize};
 	use specta::Type;
 
@@ -174,6 +137,46 @@ mod locations {
 	pub struct CloudLocation {
 		id: String,
 		name: String,
+	}
+
+	#[derive(Debug)]
+	pub struct CredentialsProvider(sd_cloud_api::locations::authorise::Response);
+
+	impl ProvideCredentials for CredentialsProvider {
+		fn provide_credentials<'a>(&'a self) -> future::ProvideCredentials<'a>
+		where
+			Self: 'a,
+		{
+			future::ProvideCredentials::ready(Ok(Credentials::new(
+				self.0.access_key_id.clone(),
+				self.0.secret_access_key.clone(),
+				Some(self.0.session_token.clone()),
+				None, // TODO: Get this from the SD Cloud backend
+				"sd-cloud",
+			)))
+		}
+
+		fn fallback_on_interrupt(&self) -> Option<Credentials> {
+			None
+		}
+	}
+
+	static AWS_S3_CLIENT: OnceCell<aws_sdk_s3::Client> = OnceCell::new();
+
+	// Reuse the client between procedure calls
+	fn get_aws_s3_client(
+		token: sd_cloud_api::locations::authorise::Response,
+	) -> &'static aws_sdk_s3::Client {
+		AWS_S3_CLIENT.get_or_init(|| {
+			aws_sdk_s3::Client::new(
+				&SdkConfig::builder()
+					.region(Region::new("us-west-1")) // TODO: From cloud config
+					.credentials_provider(SharedCredentialsProvider::new(CredentialsProvider(
+						token,
+					)))
+					.build(),
+			)
+		})
 	}
 
 	pub fn mount() -> AlphaRouter<Ctx> {
