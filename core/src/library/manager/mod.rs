@@ -133,8 +133,8 @@ impl Libraries {
 					.load(library_id, &db_path, config_path, None, true, node)
 					.await?;
 
-				// This is compleaty breaking on linux now, no ideia why, but it will be irrelevant in a short while
-				// So let's leave it disable for now
+				// FIX-ME: Linux releases crashes with *** stack smashing detected *** if spawn_volume_watcher is enabled
+				// No ideia why, but this will be irrelevant after the UDisk API is implemented, so let's leave it disabled for now
 				#[cfg(not(target_os = "linux"))]
 				{
 					use crate::volume::watcher::spawn_volume_watcher;

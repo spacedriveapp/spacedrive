@@ -6,5 +6,7 @@ export const env = createEnv({
 	client: {
 		VITE_LANDING_ORIGIN: z.string().default('https://www.spacedrive.com')
 	},
-	runtimeEnv: import.meta.env
+	runtimeEnv: import.meta.env,
+	skipValidation: false,
+	emptyStringAsUndefined: true
 });

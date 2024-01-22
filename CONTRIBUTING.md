@@ -95,6 +95,10 @@ To run the mobile app:
   - `pnpm ios` (runs on iOS Emulator)
   - `pnpm start` (runs the metro bundler)
 
+##### AppImage
+
+Specific instructions on how to build an AppImage release are located [here](scripts/appimage/README.md)
+
 ### Pull Request
 
 Once you have finished making your changes, create a pull request (PR) to submit them.
@@ -134,7 +138,7 @@ error: terminated(1): /us/bin/xcrun --sdk macos --show-sdk-platform-path output 
 xcrun: error: unable to lookup item 'PlatformPath' from command line tools installation xcrun: error: unable to lookup item 'PlatformPath' in SDK '/Library/Developer /CommandLineTools/SDKs/MacOSX.sdk'
 ```
 
-Ensure that macOS is fully updated, and that you have XCode installed (via the app store).
+Ensure that macOS is fully updated, and that you have Xcode installed (via the app store).
 
 Once that has completed, run `xcode-select --install` in the terminal to install the command line tools. If they are already installed, ensure that you update macOS to the latest version available.
 
