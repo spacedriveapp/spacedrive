@@ -1,7 +1,7 @@
 import { FunnelSimple, Icon, Plus } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
-import { memo, PropsWithChildren, useDeferredValue, useState } from 'react';
+import { memo, PropsWithChildren, useDeferredValue, useMemo, useState } from 'react';
 import { useLibraryMutation } from '@sd/client';
 import {
 	Button,
@@ -191,54 +191,60 @@ function AddFilterButton() {
 
 	const deferredSearchQuery = useDeferredValue(searchQuery);
 
-	for (const filter of filterRegistry) {
-		const options = filter
-			.useOptions({ search: searchQuery })
-			.map((o) => ({ ...o, type: filter.name }));
-
-		// eslint-disable-next-line react-hooks/rules-of-hooks
-		useRegisterSearchFilterOptions(filter, options);
-	}
+	const registerFilters = useMemo(
+		() =>
+			filterRegistry.map((filter) => (
+				<RegisterSearchFilterOptions
+					key={filter.name}
+					filter={filter}
+					searchQuery={searchQuery}
+				/>
+			)),
+		[searchQuery]
+	);
 
 	return (
-		<OptionContainer className="shrink-0">
-			<DropdownMenu.Root
-				onKeyDown={(e) => e.stopPropagation()}
-				className={clsx(
-					MENU_STYLES,
-					'explorer-scroll max-h-[80vh] min-h-[100px] min-w-[200px] max-w-fit'
-				)}
-				trigger={
-					<Button className="flex flex-row gap-1" size="xs" variant="dotted">
-						<FunnelSimple />
-						Add Filter
-					</Button>
-				}
-			>
-				<Input
-					value={searchQuery}
-					onChange={(e) => setSearch(e.target.value)}
-					autoFocus
-					autoComplete="off"
-					autoCorrect="off"
-					variant="transparent"
-					placeholder="Filter..."
-				/>
-				<Separator />
-				{searchQuery === '' ? (
-					filterRegistry.map((filter) => (
-						<filter.Render
-							key={filter.name}
-							filter={filter as any}
-							options={searchState.filterOptions.get(filter.name)!}
-							search={search}
-						/>
-					))
-				) : (
-					<SearchResults searchQuery={deferredSearchQuery} search={search} />
-				)}
-			</DropdownMenu.Root>
-		</OptionContainer>
+		<>
+			{registerFilters}
+			<OptionContainer className="shrink-0">
+				<DropdownMenu.Root
+					onKeyDown={(e) => e.stopPropagation()}
+					className={clsx(
+						MENU_STYLES,
+						'explorer-scroll max-h-[80vh] min-h-[100px] min-w-[200px] max-w-fit'
+					)}
+					trigger={
+						<Button className="flex flex-row gap-1" size="xs" variant="dotted">
+							<FunnelSimple />
+							Add Filter
+						</Button>
+					}
+				>
+					<Input
+						value={searchQuery}
+						onChange={(e) => setSearch(e.target.value)}
+						autoFocus
+						autoComplete="off"
+						autoCorrect="off"
+						variant="transparent"
+						placeholder="Filter..."
+					/>
+					<Separator />
+					{searchQuery === '' ? (
+						filterRegistry.map((filter) => (
+							<filter.Render
+								key={filter.name}
+								filter={filter as any}
+								options={searchState.filterOptions.get(filter.name)!}
+								search={search}
+							/>
+						))
+					) : (
+						<SearchResults searchQuery={deferredSearchQuery} search={search} />
+					)}
+				</DropdownMenu.Root>
+			</OptionContainer>
+		</>
 	);
 }
 
@@ -318,4 +324,21 @@ function EscapeButton() {
 			ESC
 		</kbd>
 	);
+}
+
+function RegisterSearchFilterOptions(props: {
+	filter: (typeof filterRegistry)[number];
+	searchQuery: string;
+}) {
+	const options = props.filter.useOptions({ search: props.searchQuery });
+
+	useRegisterSearchFilterOptions(
+		props.filter,
+		useMemo(
+			() => options.map((o) => ({ ...o, type: props.filter.name })),
+			[options, props.filter]
+		)
+	);
+
+	return null;
 }
