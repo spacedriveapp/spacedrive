@@ -2,11 +2,27 @@ use std::{
 	collections::HashSet,
 	env,
 	ffi::{CStr, OsStr, OsString},
-	mem,
+	io, mem,
 	os::unix::ffi::OsStrExt,
 	path::{Path, PathBuf},
 	ptr,
 };
+
+fn version(version_str: &str) -> i32 {
+	let mut version_parts: Vec<i32> = version_str
+		.split('.')
+		.take(4) // Take up to 4 components
+		.map(|part| part.parse().unwrap_or(0))
+		.collect();
+
+	// Pad with zeros if needed
+	version_parts.resize_with(4, Default::default);
+
+	(version_parts[0] * 1_000_000_000)
+		+ (version_parts[1] * 1_000_000)
+		+ (version_parts[2] * 1_000)
+		+ version_parts[3]
+}
 
 pub fn get_current_user_home() -> Option<PathBuf> {
 	use libc::{getpwuid_r, getuid, passwd, ERANGE};
@@ -175,6 +191,56 @@ pub fn normalize_environment() {
 		],
 	)
 	.expect("PATH must be successfully normalized");
+
+	if let Ok(appdir) = get_appdir() {
+		println!("Running from APPIMAGE");
+
+		// Workaround for https://github.com/AppImageCrafters/appimage-builder/issues/175
+		env::set_current_dir(appdir.join({
+			let appimage_libc_version = version(
+				std::env::var("APPDIR_LIBC_VERSION")
+					.expect("AppImage Libc version must be set")
+					.as_str(),
+			);
+
+			let system_lic_version = version({
+				#[cfg(target_env = "gnu")]
+				{
+					use libc::gnu_get_libc_version;
+
+					let ptr = unsafe { gnu_get_libc_version() };
+					if ptr.is_null() {
+						panic!("Couldn't read glic version");
+					}
+
+					unsafe { CStr::from_ptr(ptr) }
+						.to_str()
+						.expect("Couldn't read glic version")
+				}
+				#[cfg(not(target_env = "gnu"))]
+				{
+					// Use the same version as gcompat
+					// https://git.adelielinux.org/adelie/gcompat/-/blob/current/libgcompat/version.c
+					std::env::var("GLIBC_FAKE_VERSION").unwrap_or_else(|_| "2.8".to_string())
+				}
+			});
+
+			if system_lic_version < appimage_libc_version {
+				"runtime/compat"
+			} else {
+				"runtime/default"
+			}
+		}))
+		.expect("Failed to set current directory to $APPDIR");
+
+		// Bubblewrap does not work from inside appimage
+		env::set_var("WEBKIT_FORCE_SANDBOX", "0");
+		env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
+
+		// FIX-ME: This is required because appimage-builder generates a broken GstRegistry, which breaks video playback
+		env::remove_var("GST_REGISTRY");
+		env::remove_var("GST_REGISTRY_UPDATE");
+	}
 }
 
 pub(crate) fn remove_prefix_from_pathlist(
@@ -205,13 +271,19 @@ pub fn is_snap() -> bool {
 	false
 }
 
+fn get_appdir() -> io::Result<PathBuf> {
+	if let Some(appdir) = std::env::var_os("APPDIR").map(PathBuf::from) {
+		if appdir.is_absolute() && appdir.is_dir() {
+			return Ok(appdir);
+		}
+	}
+
+	Err(io::Error::new(io::ErrorKind::NotFound, "AppDir not found"))
+}
+
 // Check if appimage by looking if APPDIR is set and is a valid directory
 pub fn is_appimage() -> bool {
-	if let Some(appdir) = std::env::var_os("APPDIR").map(PathBuf::from) {
-		appdir.is_absolute() && appdir.is_dir()
-	} else {
-		false
-	}
+	get_appdir().is_ok()
 }
 
 // Check if flatpak by looking if FLATPAK_ID is set and not empty and that the .flatpak-info file exists

@@ -136,7 +136,7 @@ case "$(uname)" in
       echo "Installing dependencies with apt..."
 
       # Tauri dependencies
-      set -- build-essential curl wget file patchelf openssl libssl-dev libgtk-3-dev librsvg2-dev \
+      set -- build-essential curl wget file openssl libssl-dev libgtk-3-dev librsvg2-dev \
         libwebkit2gtk-4.0-dev libayatana-appindicator3-dev
 
       # Webkit2gtk requires gstreamer plugins for video playback to work
@@ -155,7 +155,7 @@ case "$(uname)" in
       echo "Installing dependencies with pacman..."
 
       # Tauri dependencies
-      set -- base-devel curl wget file patchelf openssl gtk3 librsvg webkit2gtk libayatana-appindicator
+      set -- base-devel curl wget file openssl gtk3 librsvg webkit2gtk libayatana-appindicator
 
       # Webkit2gtk requires gstreamer plugins for video playback to work
       set -- "$@" gst-plugins-base gst-plugins-good gst-plugins-ugly
@@ -186,7 +186,7 @@ case "$(uname)" in
       fi
 
       # Tauri dependencies
-      set -- openssl openssl-dev curl wget file patchelf libappindicator-gtk3-devel librsvg2-devel
+      set -- openssl openssl-dev curl wget file libappindicator-gtk3-devel librsvg2-devel
 
       # Webkit2gtk requires gstreamer plugins for video playback to work
       set -- "$@" gstreamer1-devel gstreamer1-plugins-base-devel gstreamer1-plugins-good \
@@ -205,7 +205,7 @@ case "$(uname)" in
       echo "Alpine suport is experimental" >&2
 
       # Tauri dependencies
-      set -- build-base curl wget file patchelf openssl-dev gtk+3.0-dev librsvg-dev \
+      set -- build-base curl wget file openssl-dev gtk+3.0-dev librsvg-dev \
         webkit2gtk-dev libayatana-indicator-dev
 
       # Webkit2gtk requires gstreamer plugins for video playback to work
