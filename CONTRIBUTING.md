@@ -97,7 +97,7 @@ To run the mobile app:
 
 ##### AppImage
 
-Specific instructions on how to build a AppImage release are located [here](scripts/appimage)
+Specific instructions on how to build an AppImage release are located [here](scripts/appimage/README.md)
 
 ### Pull Request
 
