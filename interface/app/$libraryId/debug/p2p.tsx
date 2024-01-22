@@ -1,17 +1,39 @@
-import { useBridgeQuery, useCache, useNodes } from '@sd/client';
+import { useBridgeQuery, useCache, useConnectedPeers, useNodes } from '@sd/client';
 
 export const Component = () => {
+	const node = useBridgeQuery(['nodeState']);
+
+	return (
+		<div className="p-4">
+			{node.data?.p2p_enabled === false ? (
+				<h1 className="text-red-500">P2P is disabled. Please enable it in settings!</h1>
+			) : (
+				<Page />
+			)}
+		</div>
+	);
+};
+
+function Page() {
 	const p2pState = useBridgeQuery(['p2p.state'], {
 		refetchInterval: 1000
 	});
 	const result = useBridgeQuery(['library.list']);
+	const connectedPeers = useConnectedPeers();
 	useNodes(result.data?.nodes);
 	const libraries = useCache(result.data?.items);
 
 	return (
-		<div className="p-4">
-			<p>NLM State:</p>
-			<pre>{JSON.stringify(p2pState.data || {}, undefined, 2)}</pre>
+		<div className="flex flex-col space-y-8">
+			<div>
+				<h1 className="mt-4">Connected to:</h1>
+				{connectedPeers.size === 0 && <p className="pl-2">None</p>}
+				{[...connectedPeers.entries()].map(([id, node]) => (
+					<div key={id} className="flex space-x-2">
+						<p>{id}</p>
+					</div>
+				))}
+			</div>
 
 			<div>
 				<p>Libraries:</p>
@@ -27,6 +49,11 @@ export const Component = () => {
 					</div>
 				))}
 			</div>
+
+			<div>
+				<p>NLM State:</p>
+				<pre>{JSON.stringify(p2pState.data || {}, undefined, 2)}</pre>
+			</div>
 		</div>
 	);
-};
+}

@@ -9,21 +9,11 @@ import Section from '../../SidebarLayout/Section';
 
 export default function DevicesSection() {
 	const { data: node } = useBridgeQuery(['nodeState']);
-	const isPairingEnabled = useFeatureFlag('p2pPairing');
 
 	const { t } = useLocale();
 
 	return (
-		<Section
-			name="Devices"
-			actionArea={
-				isPairingEnabled && (
-					<Link to="settings/library/nodes">
-						<SubtleButton />
-					</Link>
-				)
-			}
-		>
+		<Section name="Devices">
 			{node && (
 				<SidebarLink className="group relative w-full" to={`node/${node.id}`} key={node.id}>
 					<Icon name="Laptop" className="mr-1 h-5 w-5" />

@@ -1,4 +1,4 @@
-use crate::p2p::{operations, P2PEvent, PairingDecision};
+use crate::p2p::{operations, P2PEvent};
 
 use sd_p2p::spacetunnel::RemoteIdentity;
 
@@ -89,18 +89,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("cancelSpacedrop", {
 			R.mutation(|node, id: Uuid| async move {
 				node.p2p.cancel_spacedrop(id).await;
-
-				Ok(())
-			})
-		})
-		.procedure("pair", {
-			R.mutation(|node, id: RemoteIdentity| async move {
-				Ok(node.p2p.pairing.clone().originator(id, node).await)
-			})
-		})
-		.procedure("pairingResponse", {
-			R.mutation(|node, (pairing_id, decision): (u16, PairingDecision)| {
-				node.p2p.pairing.decision(pairing_id, decision);
 
 				Ok(())
 			})

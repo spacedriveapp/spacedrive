@@ -111,8 +111,6 @@ export type Procedures = {
         { key: "nodes.updateThumbnailerPreferences", input: UpdateThumbnailerPreferences, result: null } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
         { key: "p2p.cancelSpacedrop", input: string, result: null } | 
-        { key: "p2p.pair", input: RemoteIdentity, result: number } | 
-        { key: "p2p.pairingResponse", input: [number, PairingDecision], result: null } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: string } | 
         { key: "preferences.update", input: LibraryArgs<LibraryPreferences>, result: null } | 
         { key: "search.saved.create", input: LibraryArgs<{ name: string; search?: string | null; filters?: string | null; description?: string | null; icon?: string | null }>, result: null } | 
@@ -505,13 +503,9 @@ export type Orientation = "Normal" | "CW90" | "CW180" | "CW270" | "MirroredVerti
 /**
  * TODO: P2P event for the frontend
  */
-export type P2PEvent = { type: "DiscoveredPeer"; identity: RemoteIdentity; metadata: PeerMetadata } | { type: "ExpiredPeer"; identity: RemoteIdentity } | { type: "ConnectedPeer"; identity: RemoteIdentity } | { type: "DisconnectedPeer"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedout"; id: string } | { type: "SpacedropRejected"; id: string } | { type: "PairingRequest"; id: number; name: string; os: OperatingSystem } | { type: "PairingProgress"; id: number; status: PairingStatus }
+export type P2PEvent = { type: "DiscoveredPeer"; identity: RemoteIdentity; metadata: PeerMetadata } | { type: "ExpiredPeer"; identity: RemoteIdentity } | { type: "ConnectedPeer"; identity: RemoteIdentity } | { type: "DisconnectedPeer"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedout"; id: string } | { type: "SpacedropRejected"; id: string }
 
 export type P2PStatus = { ipv4: ListenerStatus; ipv6: ListenerStatus }
-
-export type PairingDecision = { decision: "accept"; libraryId: string } | { decision: "reject" }
-
-export type PairingStatus = { type: "EstablishingConnection" } | { type: "PairingRequested" } | { type: "LibraryAlreadyExists" } | { type: "PairingDecisionRequest" } | { type: "PairingInProgress"; data: { library_name: string; library_description: string | null } } | { type: "InitialSyncProgress"; data: number } | { type: "PairingComplete"; data: string } | { type: "PairingRejected" }
 
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; device_model: HardwareModel | null; version: string | null }
 
