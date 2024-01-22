@@ -7,7 +7,7 @@ use uuid::Uuid;
 use std::sync::{atomic, Arc};
 
 mod ingest;
-mod receive;
+pub mod receive;
 mod send;
 
 pub async fn declare_actors(library: &Arc<Library>, node: &Arc<Node>) {

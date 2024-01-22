@@ -1,6 +1,6 @@
 use crate::{
 	api::{utils::InvalidateOperationEvent, CoreEvent},
-	invalidate_query,
+	cloud, invalidate_query,
 	location::{
 		indexer,
 		metadata::{LocationMetadataError, SpacedriveLocationMetadataFile},
@@ -516,6 +516,30 @@ impl Libraries {
 		if let Err(e) = node.jobs.clone().cold_resume(node, &library).await {
 			error!("Failed to resume jobs for library. {:#?}", e);
 		}
+
+		tokio::spawn({
+			let node = node.clone();
+			let library = library.clone();
+			async move {
+				// TODO: We should probs check if the library is configured for sync before doing this as this will cause non-synced library to reach out to the SD API.
+				if let Ok(Some(lib)) =
+					sd_cloud_api::library::get(node.cloud_api_config().await, library.id).await
+				{
+					for instance in lib.instances {
+						if let Err(err) = cloud::sync::receive::create_instance(
+							library.clone(),
+							&node.libraries,
+							instance.uuid,
+							instance.identity,
+						)
+						.await
+						{
+							error!("Failed to create instance from cloud: {:#?}", err);
+						}
+					}
+				}
+			}
+		});
 
 		Ok(library)
 	}

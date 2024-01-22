@@ -7442,8 +7442,10 @@ dependencies = [
 name = "sd-cloud-api"
 version = "0.1.0"
 dependencies = [
+ "base64 0.21.5",
  "reqwest",
  "rspc",
+ "sd-p2p",
  "serde",
  "serde_json",
  "specta",

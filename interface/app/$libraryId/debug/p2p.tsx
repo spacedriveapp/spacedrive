@@ -36,13 +36,13 @@ function Page() {
 			</div>
 
 			<div>
-				<p>Libraries:</p>
+				<p>Current nodes libraries:</p>
 				{libraries.map((v) => (
-					<div key={v.uuid} className="pb-2">
+					<div key={v.uuid} className="pb-2 pl-3">
 						<p>
 							{v.config.name} - {v.uuid}
 						</p>
-						<div className="pl-5">
+						<div className="pl-8">
 							<p>Instance: {`${v.config.instance_id}/${v.instance_id}`}</p>
 							<p>Instance PK: {`${v.instance_public_key}`}</p>
 						</div>

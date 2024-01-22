@@ -28,9 +28,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("setApiOrigin", {
 			R.mutation(|node, origin: String| async move {
 				let mut origin_env = node.env.api_url.lock().await;
-				*origin_env = origin;
+				*origin_env = origin.clone();
 
-				node.config.write(|c| c.auth_token = None).await.ok();
+				node.config
+					.write(|c| {
+						c.auth_token = None;
+						c.sd_api_origin = Some(origin);
+					})
+					.await
+					.ok();
 
 				Ok(())
 			})
@@ -38,6 +44,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 }
 
 mod library {
+	use crate::cloud;
+
 	use super::*;
 
 	pub fn mount() -> AlphaRouter<Ctx> {
@@ -64,7 +72,7 @@ mod library {
 							library.id,
 							&library.config().await.name,
 							library.instance_uuid,
-							&library.identity.to_remote_identity(),
+							library.identity.to_remote_identity(),
 						)
 						.await?;
 
@@ -102,13 +110,23 @@ mod library {
 						)
 						.await?;
 
-					sd_cloud_api::library::join(
+					let instances = sd_cloud_api::library::join(
 						node.cloud_api_config().await,
 						library_id,
 						library.instance_uuid,
-						&library.identity.to_remote_identity(),
+						library.identity.to_remote_identity(),
 					)
 					.await?;
+
+					for instance in instances {
+						cloud::sync::receive::create_instance(
+							library.clone(),
+							&node.libraries,
+							instance.uuid,
+							instance.identity,
+						)
+						.await?;
+					}
 
 					invalidate_query!(library, "cloud.library.get");
 					invalidate_query!(library, "cloud.library.list");

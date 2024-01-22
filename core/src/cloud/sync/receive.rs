@@ -1,10 +1,12 @@
 use crate::{
 	cloud::sync::{err_break, err_return, CompressedCRDTOperations},
-	library::Library,
+	library::{Libraries, Library},
+	p2p::IdentityOrRemoteIdentity,
 	Node,
 };
 
 use sd_core_sync::NTP64;
+use sd_p2p::spacetunnel::RemoteIdentity;
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
 use sd_sync::CRDTOperation;
 use sd_utils::{from_bytes_to_uuid, uuid_to_bytes};
@@ -137,9 +139,10 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 
 					err_break!(
 						create_instance(
-							db,
+							library.clone(),
+							&node.libraries,
 							collection.instance_uuid,
-							err_break!(BASE64_STANDARD.decode(instance.identity.clone()))
+							instance.identity,
 						)
 						.await
 					);
@@ -196,17 +199,21 @@ fn crdt_op_db(op: &CRDTOperation) -> cloud_crdt_operation::Create {
 	}
 }
 
-async fn create_instance(
-	db: &PrismaClient,
+pub async fn create_instance(
+	library: Arc<Library>,
+	libraries: &Libraries,
 	uuid: Uuid,
-	identity: Vec<u8>,
+	identity: RemoteIdentity,
 ) -> prisma_client_rust::Result<()> {
-	db.instance()
+	library
+		.db
+		.instance()
 		.upsert(
 			instance::pub_id::equals(uuid_to_bytes(uuid)),
 			instance::create(
 				uuid_to_bytes(uuid),
-				identity,
+				IdentityOrRemoteIdentity::RemoteIdentity(identity).to_bytes(),
+				// TODO: Finish all this info
 				vec![],
 				"".to_string(),
 				0,
@@ -218,6 +225,9 @@ async fn create_instance(
 		)
 		.exec()
 		.await?;
+
+	// Called again so the new instances are picked up
+	libraries.update_instances(library).await;
 
 	Ok(())
 }

@@ -100,6 +100,10 @@ impl Node {
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
 
+		if let Some(url) = config.get().await.sd_api_origin {
+			*env.api_url.lock().await = url;
+		}
+
 		#[cfg(feature = "ai")]
 		sd_ai::init()?;
 		#[cfg(feature = "ai")]

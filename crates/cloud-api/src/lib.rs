@@ -1,6 +1,7 @@
 pub mod auth;
 
 use auth::OAuthToken;
+use sd_p2p::spacetunnel::RemoteIdentity;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use specta::Type;
@@ -38,7 +39,7 @@ pub struct Library {
 pub struct Instance {
 	pub id: String,
 	pub uuid: Uuid,
-	pub identity: String,
+	pub identity: RemoteIdentity,
 }
 
 #[derive(Serialize, Deserialize, Debug, Type)]
@@ -190,7 +191,7 @@ pub mod library {
 			library_id: Uuid,
 			name: &str,
 			instance_uuid: Uuid,
-			instance_identity: &impl Serialize,
+			instance_identity: RemoteIdentity,
 		) -> Result<(), Error> {
 			let Some(auth_token) = config.auth_token else {
 				return Err(Error("Authentication required".to_string()));
@@ -229,13 +230,13 @@ pub mod library {
 			config: RequestConfig,
 			library_id: Uuid,
 			instance_uuid: Uuid,
-			instance_identity: &impl Serialize,
-		) -> Result<(), Error> {
+			instance_identity: RemoteIdentity,
+		) -> Result<Vec<Instance>, Error> {
 			let Some(auth_token) = config.auth_token else {
 				return Err(Error("Authentication required".to_string()));
 			};
 
-			let resp = config
+			config
 				.client
 				.post(&format!(
 					"{}/api/v1/libraries/{library_id}/instances/{instance_uuid}",
@@ -246,13 +247,9 @@ pub mod library {
 				.send()
 				.await
 				.map_err(|e| Error(e.to_string()))?
-				.text()
+				.json()
 				.await
-				.map_err(|e| Error(e.to_string()))?;
-
-			println!("{resp}");
-
-			Ok(())
+				.map_err(|e| Error(e.to_string()))
 		}
 	}
 
