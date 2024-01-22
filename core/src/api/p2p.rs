@@ -47,10 +47,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 			})
 		})
-		// TODO: This has a potentially invalid map key and Specta don't like that. Can bring back in another PR.
-		// .procedure("state", {
-		// 	R.query(|node, _: ()| async move { Ok(node.p2p.state()) })
-		// })
+		.procedure("state", {
+			R.query(|node, _: ()| async move {
+				// TODO: This has a potentially invalid map key and Specta don't like that.
+				// TODO: This will bypass that check and for an debug route that's fine.
+				Ok(serde_json::to_value(node.p2p.state()).unwrap())
+			})
+		})
 		.procedure("spacedrop", {
 			#[derive(Type, Deserialize)]
 			pub struct SpacedropArgs {
