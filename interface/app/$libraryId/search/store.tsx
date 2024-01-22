@@ -41,22 +41,19 @@ export const useRegisterSearchFilterOptions = (
 	filter: RenderSearchFilter,
 	options: (FilterOption & { type: FilterType })[]
 ) => {
-	useEffect(
-		() => {
-			if (options) {
-				searchStore.filterOptions.set(filter.name, options);
-				searchStore.filterOptions = ref(new Map(searchStore.filterOptions));
-			}
-		},
-		options?.map(getKey) ?? []
-	);
+	const optionsAsKeys = useMemo(() => options.map(getKey), [options]);
 
 	useEffect(() => {
-		const keys = options.map((filter) => {
-			const key = getKey(filter);
+		searchStore.filterOptions.set(filter.name, options);
+		searchStore.filterOptions = ref(new Map(searchStore.filterOptions));
+	}, [optionsAsKeys]);
+
+	useEffect(() => {
+		const keys = options.map((option) => {
+			const key = getKey(option);
 
 			if (!searchStore.registeredFilters.has(key)) {
-				searchStore.registeredFilters.set(key, filter);
+				searchStore.registeredFilters.set(key, option);
 
 				return key;
 			}
@@ -66,7 +63,7 @@ export const useRegisterSearchFilterOptions = (
 			keys.forEach((key) => {
 				if (key) searchStore.registeredFilters.delete(key);
 			});
-	}, options.map(getKey));
+	}, [optionsAsKeys]);
 };
 
 export function argsToOptions(args: SearchFilterArgs[], options: Map<string, FilterOption[]>) {

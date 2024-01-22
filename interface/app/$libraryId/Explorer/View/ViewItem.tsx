@@ -5,7 +5,9 @@ import {
 	useSearchParams as useRawSearchParams
 } from 'react-router-dom';
 import {
+	FilePathFilterArgs,
 	isPath,
+	SearchFilterArgs,
 	useLibraryContext,
 	useLibraryMutation,
 	type ExplorerItem,
@@ -169,6 +171,20 @@ export const useViewItemDoubleClick = () => {
 						return;
 					}
 				}
+			}
+
+			if (!item) return;
+
+			if (item.type === 'Label') {
+				navigate({
+					pathname: '../search',
+					search: createSearchParams({
+						filters: JSON.stringify([
+							{ object: { labels: { in: [item.item.id] } } }
+						] as Array<SearchFilterArgs>)
+					}).toString()
+				});
+				return;
 			}
 		},
 		[
