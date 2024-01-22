@@ -31,6 +31,7 @@ export const CloseTab = forwardRef<HTMLDivElement, { onClick: () => void }>(({ o
 
 export const AppliedFilters = ({ allowRemove = true }: { allowRemove?: boolean }) => {
 	const search = useSearchContext();
+
 	return (
 		<>
 			{search.search && (
