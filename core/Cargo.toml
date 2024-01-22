@@ -3,7 +3,7 @@ name = "sd-core"
 version = "0.1.4"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc."]
-rust-version = "1.73.0"
+rust-version = "1.75.0"
 license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
@@ -48,6 +48,7 @@ sd-cloud-api = { version = "0.1.0", path = "../crates/cloud-api" }
 
 # Workspace dependencies
 async-channel = { workspace = true }
+async-trait = { workspace = true }
 axum = { workspace = true }
 base64 = { workspace = true }
 blake3 = { workspace = true }
@@ -96,7 +97,6 @@ webp = { workspace = true }
 # Specific Core dependencies
 async-recursion = "1.0.5"
 async-stream = "0.3.5"
-async-trait = "^0.1.74"
 bytes = "1.5.0"
 ctor = "0.2.5"
 directories = "5.0.1"
