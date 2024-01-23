@@ -330,9 +330,14 @@ impl Mdns {
 		// TODO: Without this mDNS is not sending it goodbye packets without a timeout. Try and remove this cause it makes shutdown slow.
 		sleep(Duration::from_millis(100));
 
-		self.mdns_daemon.shutdown().unwrap_or_else(|err| {
-			error!("error shutting down mdns daemon: {err}");
-		});
+		match self.mdns_daemon.shutdown() {
+			Ok(chan) => {
+				let _ = chan.recv();
+			}
+			Err(err) => {
+				error!("error shutting down mdns daemon: {err}");
+			}
+		}
 	}
 }
 

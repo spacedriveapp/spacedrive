@@ -33,18 +33,18 @@ tokio-util = { workspace = true, features = ["compat"] }
 tracing = { workspace = true }
 uuid = { workspace = true }
 
-ed25519-dalek = { version = "2.0.0", features = [] }
-flume = "0.10.0" # Must match version used by `mdns-sd`
-futures-core = "0.3.29"
-if-watch = { version = "=3.1.0", features = [
+ed25519-dalek = { version = "2.1.0", features = [] }
+flume = "=0.11.0" # Must match version used by `mdns-sd`
+futures-core = "0.3.30"
+if-watch = { version = "=3.2.0", features = [
 	"tokio",
 ] } # Override the features of if-watch which is used by libp2p-quic
-libp2p = { version = "0.52.4", features = ["tokio", "serde"] }
-libp2p-quic = { version = "0.9.3", features = ["tokio"] }
-mdns-sd = "0.9.3"
+libp2p = { version = "0.53.2", features = ["tokio", "serde"] }
+libp2p-quic = { version = "0.10.2", features = ["tokio"] }
+mdns-sd = "0.10.3"
 rand_core = { version = "0.6.4" }
 streamunordered = "0.5.3"
-zeroize = { version = "1.7.0", features = ["derive"]}
+zeroize = { version = "1.7.0", features = ["derive"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread"] }

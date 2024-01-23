@@ -192,6 +192,9 @@ pub mod library {
 			name: &str,
 			instance_uuid: Uuid,
 			instance_identity: RemoteIdentity,
+			node_id: Uuid,
+			node_name: &str,
+			node_platform: u8,
 		) -> Result<(), Error> {
 			let Some(auth_token) = config.auth_token else {
 				return Err(Error("Authentication required".to_string()));
@@ -206,7 +209,10 @@ pub mod library {
 				.json(&json!({
 					"name":name,
 					"instanceUuid": instance_uuid,
-					"instanceIdentity": instance_identity
+					"instanceIdentity": instance_identity,
+					"nodeId": node_id,
+					"nodeName": node_name,
+					"nodePlatform": node_platform
 				}))
 				.with_auth(auth_token)
 				.send()
@@ -231,6 +237,9 @@ pub mod library {
 			library_id: Uuid,
 			instance_uuid: Uuid,
 			instance_identity: RemoteIdentity,
+			node_id: Uuid,
+			node_name: &str,
+			node_platform: u8,
 		) -> Result<Vec<Instance>, Error> {
 			let Some(auth_token) = config.auth_token else {
 				return Err(Error("Authentication required".to_string()));
@@ -242,7 +251,12 @@ pub mod library {
 					"{}/api/v1/libraries/{library_id}/instances/{instance_uuid}",
 					config.api_url
 				))
-				.json(&json!({ "instanceIdentity": instance_identity }))
+				.json(&json!({
+					"instanceIdentity": instance_identity,
+					"nodeId": node_id,
+					"nodeName": node_name,
+					"nodePlatform": node_platform
+				}))
 				.with_auth(auth_token)
 				.send()
 				.await
