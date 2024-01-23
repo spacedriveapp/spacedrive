@@ -44,7 +44,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 }
 
 mod library {
-	use crate::{cloud, node::Platform};
+	use crate::{cloud, node::Platform, util::MaybeUndefined};
 
 	use super::*;
 
@@ -68,7 +68,7 @@ mod library {
 				R.with2(library())
 					.mutation(|(node, library), _: ()| async move {
 						let node_config = node.config.get().await;
-						sd_cloud_api::library::create(
+						let cloud_library = sd_cloud_api::library::create(
 							node.cloud_api_config().await,
 							library.id,
 							&library.config().await.name,
@@ -79,6 +79,12 @@ mod library {
 							Platform::current().into(),
 						)
 						.await?;
+						node.libraries.edit(
+							library.id,
+							None,
+							MaybeUndefined::Undefined,
+							MaybeUndefined::Value(cloud_library.id),
+						);
 
 						invalidate_query!(library, "cloud.library.get");
 
@@ -113,6 +119,12 @@ mod library {
 							&node,
 						)
 						.await?;
+					node.libraries.edit(
+						library.id,
+						None,
+						MaybeUndefined::Undefined,
+						MaybeUndefined::Value(cloud_library.id),
+					);
 
 					let node_config = node.config.get().await;
 					let instances = sd_cloud_api::library::join(

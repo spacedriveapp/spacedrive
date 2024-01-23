@@ -27,6 +27,7 @@ impl From<Error> for rspc::Error {
 #[serde(rename_all = "camelCase")]
 #[specta(rename = "CloudLibrary")]
 pub struct Library {
+	pub id: String,
 	pub uuid: Uuid,
 	pub name: String,
 	pub instances: Vec<Instance>,
@@ -192,6 +193,11 @@ pub mod library {
 	pub mod create {
 		use super::*;
 
+		#[derive(Debug, Deserialize)]
+		pub struct CreateResult {
+			pub id: String,
+		}
+
 		pub async fn exec(
 			config: RequestConfig,
 			library_id: Uuid,
@@ -201,12 +207,12 @@ pub mod library {
 			node_id: Uuid,
 			node_name: &str,
 			node_platform: u8,
-		) -> Result<(), Error> {
+		) -> Result<CreateResult, Error> {
 			let Some(auth_token) = config.auth_token else {
 				return Err(Error("Authentication required".to_string()));
 			};
 
-			let resp = config
+			config
 				.client
 				.post(&format!(
 					"{}/api/v1/libraries/{}",
@@ -224,13 +230,9 @@ pub mod library {
 				.send()
 				.await
 				.map_err(|e| Error(e.to_string()))?
-				.text()
+				.json()
 				.await
-				.map_err(|e| Error(e.to_string()))?;
-
-			println!("{resp}");
-
-			Ok(())
+				.map_err(|e| Error(e.to_string()))
 		}
 	}
 

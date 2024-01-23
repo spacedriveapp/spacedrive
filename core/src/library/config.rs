@@ -33,7 +33,10 @@ pub struct LibraryConfig {
 	pub description: Option<String>,
 	/// id of the current instance so we know who this `.db` is. This can be looked up within the `Instance` table.
 	pub instance_id: i32,
-
+	/// cloud_id is the ID of the cloud library this library is linked to.
+	/// If this is set we can assume the library is synced with the Cloud.
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub cloud_id: Option<String>,
 	version: LibraryConfigVersion,
 }
 
@@ -83,6 +86,7 @@ impl LibraryConfig {
 			description,
 			instance_id,
 			version: Self::LATEST_VERSION,
+			cloud_id: None,
 		};
 
 		this.save(path).await.map(|()| this)

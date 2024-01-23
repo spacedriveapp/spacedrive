@@ -27,6 +27,7 @@ use std::{
 	path::{Path, PathBuf},
 	str::FromStr,
 	sync::{atomic::AtomicBool, Arc},
+	time::Duration,
 };
 
 use chrono::Utc;
@@ -34,6 +35,7 @@ use futures_concurrency::future::{Join, TryJoin};
 use tokio::{
 	fs, io,
 	sync::{broadcast, RwLock},
+	time::sleep,
 };
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
@@ -244,6 +246,7 @@ impl Libraries {
 		id: Uuid,
 		name: Option<LibraryName>,
 		description: MaybeUndefined<String>,
+		cloud_id: MaybeUndefined<String>,
 	) -> Result<(), LibraryManagerError> {
 		// check library is valid
 		let libraries = self.libraries.read().await;
@@ -266,6 +269,11 @@ impl Libraries {
 						MaybeUndefined::Value(description) => {
 							config.description = Some(description)
 						}
+					}
+					match cloud_id {
+						MaybeUndefined::Undefined => {}
+						MaybeUndefined::Null => config.cloud_id = None,
+						MaybeUndefined::Value(cloud_id) => config.cloud_id = Some(cloud_id),
 					}
 				},
 				self.libraries_dir.join(format!("{id}.sdlibrary")),
@@ -521,26 +529,30 @@ impl Libraries {
 			let node = node.clone();
 			let library = library.clone();
 			async move {
-				// TODO: We should probs check if the library is configured for sync before doing this as this will cause non-synced library to reach out to the SD API.
-				if let Ok(Some(lib)) =
-					sd_cloud_api::library::get(node.cloud_api_config().await, library.id).await
-				{
-					for instance in lib.instances {
-						if let Err(err) = cloud::sync::receive::create_instance(
-							library.clone(),
-							&node.libraries,
-							instance.uuid,
-							instance.identity,
-							instance.node_id,
-							instance.node_name,
-							instance.node_platform,
-						)
-						.await
-						{
-							error!("Failed to create instance from cloud: {:#?}", err);
+				if let Some(_) = library.config().await.cloud_id {
+					if let Ok(Some(lib)) =
+						sd_cloud_api::library::get(node.cloud_api_config().await, library.id).await
+					{
+						for instance in lib.instances {
+							if let Err(err) = cloud::sync::receive::create_instance(
+								library.clone(),
+								&node.libraries,
+								instance.uuid,
+								instance.identity,
+								instance.node_id,
+								instance.node_name,
+								instance.node_platform,
+							)
+							.await
+							{
+								error!("Failed to create instance from cloud: {:#?}", err);
+							}
 						}
 					}
 				}
+
+				// Update instances every 2 minutes
+				sleep(Duration::from_secs(120)).await;
 			}
 		});
 
