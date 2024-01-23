@@ -14,7 +14,6 @@ i18n
 	.init({
 		resources,
 		load: 'languageOnly',
-		// resources,
 		fallbackLng: 'en',
 		ns: ['common'],
 		fallbackNS: 'common',
