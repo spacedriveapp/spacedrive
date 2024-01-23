@@ -25,6 +25,13 @@ interface Props extends Pick<RenameTextBoxProps, 'idleClassName' | 'lines'> {
 	selected?: boolean;
 }
 
+const RENAMABLE_ITEM_TYPES: ExplorerItem['type'][] = [
+	'Path',
+	'NonIndexedPath',
+	'Object',
+	'Location'
+];
+
 export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) => {
 	const isDark = useIsDark();
 	const rspc = useRspcLibraryContext();
@@ -139,7 +146,7 @@ export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) =>
 		!explorer ||
 		explorer.selectedItems.size > 1 ||
 		quickPreviewStore.open ||
-		props.item.type === 'SpacedropPeer';
+		!RENAMABLE_ITEM_TYPES.includes(props.item.type);
 
 	return (
 		<RenameTextBox
