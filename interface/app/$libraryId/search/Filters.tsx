@@ -605,11 +605,11 @@ export const filterRegistry = [
 				.filter(Boolean) as any;
 		},
 		useOptions: () => {
-			const query = useLibraryQuery(['labels.list'], { keepPreviousData: true });
+			const query = useLibraryQuery(['labels.list']);
 
-			return (query.data ?? []).map((tag) => ({
-				name: tag.name!,
-				value: tag.id
+			return (query.data ?? []).map((label) => ({
+				name: label.name!,
+				value: label.id
 			}));
 		},
 		Render: ({ filter, options, search }) => (

@@ -6136,7 +6136,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust"
 version = "0.6.8"
-source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=9f8ac122e8f2b2e4957b71f48a37e06565adba40#9f8ac122e8f2b2e4957b71f48a37e06565adba40"
+source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=f99d6f5566570f3ab1edecb7a172ad25b03d95af#f99d6f5566570f3ab1edecb7a172ad25b03d95af"
 dependencies = [
  "base64 0.13.1",
  "bigdecimal 0.3.1",
@@ -6169,7 +6169,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-cli"
 version = "0.6.8"
-source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=9f8ac122e8f2b2e4957b71f48a37e06565adba40#9f8ac122e8f2b2e4957b71f48a37e06565adba40"
+source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=f99d6f5566570f3ab1edecb7a172ad25b03d95af#f99d6f5566570f3ab1edecb7a172ad25b03d95af"
 dependencies = [
  "directories 4.0.1",
  "flate2",
@@ -6189,7 +6189,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-generator"
 version = "0.6.8"
-source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=9f8ac122e8f2b2e4957b71f48a37e06565adba40#9f8ac122e8f2b2e4957b71f48a37e06565adba40"
+source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=f99d6f5566570f3ab1edecb7a172ad25b03d95af#f99d6f5566570f3ab1edecb7a172ad25b03d95af"
 dependencies = [
  "directories 4.0.1",
  "flate2",
@@ -6209,7 +6209,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-macros"
 version = "0.6.8"
-source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=9f8ac122e8f2b2e4957b71f48a37e06565adba40#9f8ac122e8f2b2e4957b71f48a37e06565adba40"
+source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=f99d6f5566570f3ab1edecb7a172ad25b03d95af#f99d6f5566570f3ab1edecb7a172ad25b03d95af"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
@@ -6221,7 +6221,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-sdk"
 version = "0.6.8"
-source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=9f8ac122e8f2b2e4957b71f48a37e06565adba40#9f8ac122e8f2b2e4957b71f48a37e06565adba40"
+source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=f99d6f5566570f3ab1edecb7a172ad25b03d95af#f99d6f5566570f3ab1edecb7a172ad25b03d95af"
 dependencies = [
  "convert_case 0.5.0",
  "dmmf",
@@ -7453,7 +7453,7 @@ dependencies = [
 
 [[package]]
 name = "sd-core"
-version = "0.1.4"
+version = "0.2.0"
 dependencies = [
  "aovec",
  "async-channel",
@@ -7590,7 +7590,7 @@ dependencies = [
 
 [[package]]
 name = "sd-desktop"
-version = "0.1.4"
+version = "0.2.0"
 dependencies = [
  "axum",
  "futures",
@@ -7781,6 +7781,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+ "zeroize",
 ]
 
 [[package]]
@@ -10919,6 +10920,20 @@ name = "zeroize"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "525b4ec142c6b68a2d10f01f7bbf6755599ca3f81ea53b8431b7dd348f5fdb2d"
+dependencies = [
+ "zeroize_derive",
+]
+
+[[package]]
+name = "zeroize_derive"
+version = "1.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce36e65b0d2999d2aafac989fb249189a141aee1f53c612c1f37d72631959f69"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.42",
+]
 
 [[package]]
 name = "zip"

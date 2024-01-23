@@ -42,8 +42,6 @@ export const NavigationButtons = () => {
 	});
 
 	useEffect(() => {
-		if (os === 'windows') return; //windows already navigates back and forth with mouse buttons
-
 		const onMouseDown = (e: MouseEvent) => {
 			e.stopPropagation();
 			if (e.buttons === 8) {

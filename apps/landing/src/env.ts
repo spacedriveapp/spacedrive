@@ -41,5 +41,6 @@ export const env = createEnv({
 	},
 	// In dev or in eslint disable checking.
 	// Kinda sucks for in dev but you don't need the whole setup to change the docs.
-	skipValidation: process.env.VERCEL !== '1'
+	skipValidation: process.env.VERCEL !== '1',
+	emptyStringAsUndefined: true
 });
