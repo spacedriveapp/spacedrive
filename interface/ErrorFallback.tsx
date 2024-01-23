@@ -104,7 +104,7 @@ export function ErrorPage({
 	};
 
 	if (!submessage && debug.enabled)
-		submessage = 'Check the console (CMD/CTRL + OPTION + i) for stack trace.';
+		submessage = 'Check the console (CMD/CTRL + OPTION/SHIFT + i) for stack trace.';
 
 	return (
 		<div
