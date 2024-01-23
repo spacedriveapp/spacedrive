@@ -132,6 +132,9 @@ mod library {
 							&node.libraries,
 							instance.uuid,
 							instance.identity,
+							instance.node_id,
+							instance.node_name,
+							instance.node_platform,
 						)
 						.await?;
 					}

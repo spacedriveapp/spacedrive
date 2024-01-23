@@ -143,6 +143,9 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 							&node.libraries,
 							collection.instance_uuid,
 							instance.identity,
+							instance.node_id,
+							instance.node_name.clone(),
+							instance.node_platform,
 						)
 						.await
 					);
@@ -204,6 +207,9 @@ pub async fn create_instance(
 	libraries: &Libraries,
 	uuid: Uuid,
 	identity: RemoteIdentity,
+	node_id: Uuid,
+	node_name: String,
+	node_platform: u8,
 ) -> prisma_client_rust::Result<()> {
 	library
 		.db
@@ -213,10 +219,9 @@ pub async fn create_instance(
 			instance::create(
 				uuid_to_bytes(uuid),
 				IdentityOrRemoteIdentity::RemoteIdentity(identity).to_bytes(),
-				// TODO: Finish all this info
-				vec![],
-				"".to_string(),
-				0,
+				node_id.as_bytes().to_vec(),
+				node_name,
+				node_platform as i32,
 				Utc::now().into(),
 				Utc::now().into(),
 				vec![],

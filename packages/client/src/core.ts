@@ -160,7 +160,7 @@ export type CameraData = { device_make: string | null; device_model: string | nu
 
 export type ChangeNodeNameArgs = { name: string | null; p2p_port: MaybeUndefined<number>; p2p_enabled: boolean | null; image_labeler_version: string | null }
 
-export type CloudInstance = { id: string; uuid: string; identity: RemoteIdentity }
+export type CloudInstance = { id: string; uuid: string; identity: RemoteIdentity; nodeId: string; nodeName: string; nodePlatform: number }
 
 export type CloudLibrary = { uuid: string; name: string; instances: CloudInstance[]; ownerId: string }
 
