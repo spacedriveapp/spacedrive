@@ -446,7 +446,7 @@ impl StatefulJob for IndexerJobInit {
 					vec![
 						ScanProgress::ChunkCount(more_steps.len() - to_walk_count),
 						ScanProgress::Message(format!(
-							"Scanned more {} files or directories; \
+							"Scanned {} more files or directories; \
 							{} more directories to scan and more {} entries to update",
 							new_metadata.total_paths,
 							to_walk_count,
