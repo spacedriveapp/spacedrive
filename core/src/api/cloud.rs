@@ -86,7 +86,7 @@ mod library {
 								MaybeUndefined::Undefined,
 								MaybeUndefined::Value(cloud_library.id),
 							)
-							.await;
+							.await?;
 
 						invalidate_query!(library, "cloud.library.get");
 
@@ -128,7 +128,7 @@ mod library {
 							MaybeUndefined::Undefined,
 							MaybeUndefined::Value(cloud_library.id),
 						)
-						.await;
+						.await?;
 
 					let node_config = node.config.get().await;
 					let instances = sd_cloud_api::library::join(
