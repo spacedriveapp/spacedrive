@@ -79,12 +79,14 @@ mod library {
 							Platform::current().into(),
 						)
 						.await?;
-						node.libraries.edit(
-							library.id,
-							None,
-							MaybeUndefined::Undefined,
-							MaybeUndefined::Value(cloud_library.id),
-						);
+						node.libraries
+							.edit(
+								library.id,
+								None,
+								MaybeUndefined::Undefined,
+								MaybeUndefined::Value(cloud_library.id),
+							)
+							.await;
 
 						invalidate_query!(library, "cloud.library.get");
 
@@ -119,12 +121,14 @@ mod library {
 							&node,
 						)
 						.await?;
-					node.libraries.edit(
-						library.id,
-						None,
-						MaybeUndefined::Undefined,
-						MaybeUndefined::Value(cloud_library.id),
-					);
+					node.libraries
+						.edit(
+							library.id,
+							None,
+							MaybeUndefined::Undefined,
+							MaybeUndefined::Value(cloud_library.id),
+						)
+						.await;
 
 					let node_config = node.config.get().await;
 					let instances = sd_cloud_api::library::join(
