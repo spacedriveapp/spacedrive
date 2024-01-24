@@ -1,12 +1,12 @@
 import { CheckCircle } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { useMotionValueEvent, useScroll } from 'framer-motion';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Themes, unitFormatStore, useThemeStore, useUnitFormatStore, useZodForm } from '@sd/client';
 import { Button, Divider, Form, Select, SelectOption, SwitchField, z } from '@sd/ui';
 import { useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
+import HorizontalScroll from '../../overview/Layout/HorizontalScroll';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
 
@@ -63,14 +63,6 @@ export const Component = () => {
 	const [selectedTheme, setSelectedTheme] = useState<Theme['themeValue']>(
 		themeStore.syncThemeWithSystem === true ? 'system' : themeStore.theme
 	);
-	const themesRef = useRef<HTMLDivElement>(null);
-	const [themeScroll, setThemeScroll] = useState(0);
-	const { scrollX } = useScroll({
-		container: themesRef
-	});
-	useMotionValueEvent(scrollX, 'change', (latest) => {
-		setThemeScroll(latest);
-	});
 
 	const form = useZodForm({
 		schema
@@ -114,7 +106,7 @@ export const Component = () => {
 
 	return (
 		<>
-			<Form form={form} onSubmit={onSubmit}>
+			<Form className="relative" form={form} onSubmit={onSubmit}>
 				<Heading
 					title={t('appearance')}
 					description={t('appearance_description')}
@@ -134,40 +126,35 @@ export const Component = () => {
 						</div>
 					}
 				/>
-				<div
-					style={{
-						maskImage: `linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, ${
-							themeScroll > 0 ? '2%' : '200' //Only show fade if scrolled
-						}) 0%, rgba(0, 0, 0, 1) 85%, transparent 100%)`
-					}}
-					ref={themesRef}
-					className="explorer-scroll relative mb-5 mt-8 flex h-[150px] gap-5 overflow-x-scroll pr-[20px] md:w-[300px] lg:w-full"
-				>
-					{themes.map((theme, i) => {
-						return (
-							<div
-								onClick={() => themeSelectHandler(theme.themeValue)}
-								className={clsx(
-									selectedTheme !== theme.themeValue && 'opacity-70',
-									'h-[100px] transition-all duration-200  hover:translate-y-[3.5px] lg:first:ml-0 '
-								)}
-								key={i}
-							>
-								{theme.themeValue === 'system' ? (
-									<SystemTheme
-										{...theme}
-										isSelected={selectedTheme === 'system'}
-									/>
-								) : (
-									<Theme
-										{...theme}
-										isSelected={selectedTheme === theme.themeValue}
-									/>
-								)}
-							</div>
-						);
-					})}
-				</div>
+				<HorizontalScroll className="!mb-5 mt-4 !pl-0">
+					<div className="flex gap-3 md:w-[300px] lg:w-full">
+						{themes.map((theme, i) => {
+							return (
+								<div
+									onClick={() => themeSelectHandler(theme.themeValue)}
+									className={clsx(
+										'shrink-0',
+										selectedTheme !== theme.themeValue &&
+											'opacity-70 transition-all duration-300 hover:opacity-100'
+									)}
+									key={i}
+								>
+									{theme.themeValue === 'system' ? (
+										<SystemTheme
+											{...theme}
+											isSelected={selectedTheme === 'system'}
+										/>
+									) : (
+										<Theme
+											{...theme}
+											isSelected={selectedTheme === theme.themeValue}
+										/>
+									)}
+								</div>
+							);
+						})}
+					</div>
+				</HorizontalScroll>
 
 				{/* {themeStore.theme === 'dark' && (
 					<Setting mini title="Theme hue value" description="Change the hue of the theme">
@@ -181,7 +168,7 @@ export const Component = () => {
 									step={1}
 									defaultValue={[235]}
 								/>
-								<p className="text-center text-xs text-ink-faint">
+								<p className="text-xs text-center text-ink-faint">
 									{themeStore.hueValue}
 								</p>
 							</div>
@@ -257,14 +244,14 @@ export const Component = () => {
 
 function Theme(props: ThemeProps) {
 	return (
-		<div className="h-full">
+		<div className="w-[150px]">
 			<div
 				className={clsx(
 					props.outsideColor,
 					props.border,
 					props.textColor,
 					props.className,
-					'relative h-[90px] w-[150px] overflow-hidden rounded-lg'
+					'relative h-[90px] overflow-hidden rounded-lg'
 				)}
 			>
 				<div
@@ -291,7 +278,7 @@ function Theme(props: ThemeProps) {
 
 function SystemTheme(props: ThemeProps) {
 	return (
-		<div className="h-full w-[150px]">
+		<div className="w-[150px]">
 			<div className="relative flex h-[90px]">
 				<div className="relative h-full w-[50%] grow overflow-hidden rounded-l-lg bg-black">
 					<Theme className="rounded-r-none" {...themes[1]!} />

@@ -27,10 +27,12 @@ const HorizontalScroll = ({ children, className }: { children: ReactNode; classN
 		const element = ref.current;
 		if (element) {
 			element.addEventListener('scroll', updateScrollState);
+			window.addEventListener('resize', updateScrollState);
 		}
 		return () => {
 			if (element) {
 				element.removeEventListener('scroll', updateScrollState);
+				window.removeEventListener('resize', updateScrollState);
 			}
 		};
 	}, [ref]);
