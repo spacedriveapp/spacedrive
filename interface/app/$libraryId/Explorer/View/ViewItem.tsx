@@ -57,7 +57,7 @@ export const useViewItemDoubleClick = () => {
 							break;
 						}
 						case 'SpacedropPeer':
-                        case 'Label':
+						case 'Label':
 							break;
 						default: {
 							const paths =
