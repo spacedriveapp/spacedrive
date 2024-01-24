@@ -6,6 +6,7 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [features]
+default = ["ai-models"]
 assets = []
 ai-models = ["sd-core/ai"]
 
