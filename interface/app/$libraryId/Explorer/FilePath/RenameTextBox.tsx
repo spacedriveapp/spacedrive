@@ -27,6 +27,7 @@ export interface RenameTextBoxProps extends React.HTMLAttributes<HTMLDivElement>
 export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 	({ name, onRename, disabled, className, idleClassName, lines, ...props }, _ref) => {
 		const os = useOperatingSystem();
+
 		const [isRenaming, drag] = useSelector(explorerStore, (s) => [s.isRenaming, s.drag]);
 
 		const ref = useRef<HTMLDivElement>(null);
@@ -64,7 +65,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 		const blur = useCallback(() => ref.current?.blur(), []);
 
 		// Reset to original file name
-		const reset = () => ref.current && (ref.current.innerText = name ?? '');
+		const reset = () => ref.current && (ref.current.innerText = name);
 
 		const handleRename = async () => {
 			let newName = ref.current?.innerText;
@@ -80,14 +81,16 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 		};
 
 		const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+			e.stopPropagation();
+
 			switch (e.key) {
-				case 'Tab': {
+				case 'Tab':
+				case 'Enter': {
 					e.preventDefault();
 					blur();
 					break;
 				}
 				case 'Escape': {
-					e.stopPropagation();
 					reset();
 					blur();
 					break;
@@ -171,7 +174,10 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 						if (allowRename) e.stopPropagation();
 						renamable.current = false;
 					}}
-					onMouseDownCapture={(e) => e.button === 0 && (renamable.current = !disabled)}
+					onMouseDownCapture={(e) => {
+						if (allowRename) e.stopPropagation();
+						e.button === 0 && (renamable.current = !disabled);
+					}}
 					onMouseUp={(e) => {
 						if (e.button === 0 || renamable.current || !allowRename) {
 							timeout.current = setTimeout(
@@ -181,9 +187,9 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 						}
 					}}
 					onBlur={() => {
+						explorerStore.isRenaming = false;
 						handleRename();
 						resetState();
-						explorerStore.isRenaming = false;
 					}}
 					onKeyDown={handleKeyDown}
 					{...props}
