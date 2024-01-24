@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Ericson Soares <ericson.ds999@gmail.com>"]
 readme = "README.md"
 description = "A simple library to generate video thumbnails using ffmpeg with the webp format"
-rust-version = "1.75.0"
+rust-version = "1.64.0"
 license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }

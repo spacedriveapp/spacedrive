@@ -4,7 +4,7 @@ version = "0.0.0"
 authors = ["Jake Robinson <jake@spacedrive.com>"]
 readme = "README.md"
 description = "A library to handle cryptographic functions within Spacedrive"
-rust-version = "1.75.0"
+rust-version = "1.67.0"
 license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
