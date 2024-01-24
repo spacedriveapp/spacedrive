@@ -1,38 +1,28 @@
-import { valtioPersist } from '@sd/client';
-import { modifierSymbols } from '@sd/ui';
+import { useMemo } from 'react';
 import { useKeys } from 'rooks';
 import { useSnapshot } from 'valtio';
+import { valtioPersist } from '@sd/client';
+import { modifierSymbols } from '@sd/ui';
 import { useRoutingContext } from '~/RoutingContext';
 import { OperatingSystem } from '~/util/Platform';
 
 import { useOperatingSystem } from './useOperatingSystem';
 
-//This will be refactored in the near future
-//as we adopt different shortcuts for different platforms
-//aswell. i.e Mobile.
-
-type Shortcut = {
+export type Shortcut = {
 	action: string;
-	keys: {
-		[K in OperatingSystem | 'all']?: string[];
-	};
-	icons: {
-		[K in OperatingSystem | 'all']?: string[];
-	};
+	keys: Partial<Record<OperatingSystem | 'all', string[]>>;
+	icons: Partial<Record<OperatingSystem | 'all', string[]>>;
 };
 
-type ShortcutCategory = {
+export type ShortcutCategory = {
 	description: string;
-  } & Record<string, any> //TODO: fix types
+	shortcuts: Record<string, Shortcut>;
+};
 
-export type TShortcutState = {
-	shortcuts: Record<'Dialogs' | 'Pages' | 'Explorer', ShortcutCategory>;
-  };
-
-export const ShortcutState: TShortcutState = {
-	shortcuts: {
-		Dialogs: {
-			description: 'To perform actions and operations',
+export const shortcutCategories = {
+	Dialogs: {
+		description: 'To perform actions and operations',
+		shortcuts: {
 			toggleJobManager: {
 				action: 'Toggle job manager',
 				keys: {
@@ -44,9 +34,11 @@ export const ShortcutState: TShortcutState = {
 					all: [modifierSymbols.Control.Other, 'J']
 				}
 			}
-		},
-		Pages: {
-			description: 'Different pages in the app',
+		}
+	},
+	Pages: {
+		description: 'Different pages in the app',
+		shortcuts: {
 			navBackwardHistory: {
 				action: 'Navigate backwards',
 				keys: {
@@ -84,9 +76,11 @@ export const ShortcutState: TShortcutState = {
 					all: [modifierSymbols.Shift.Other, modifierSymbols.Control.Other, 'T']
 				}
 			}
-		},
-		Explorer: {
-			description: 'To navigate and interact with the file system',
+		}
+	},
+	Explorer: {
+		description: 'To navigate and interact with the file system',
+		shortcuts: {
 			gridView: {
 				action: 'Switch to grid view',
 				keys: {
@@ -371,92 +365,32 @@ export const ShortcutState: TShortcutState = {
 			}
 		}
 	}
-};
+} satisfies Record<string, ShortcutCategory>;
 
-export type ShortcutKeybinds = {
-	[C in ShortcutCategories]: {
-		description: string;
-		shortcuts: {
-			action: string;
-			keys: {
-				[K in OperatingSystem | 'all']?: string[];
-			};
-			icons: {
-				[K in OperatingSystem | 'all']?: string[];
-			};
-		}[];
-	};
-};
+export type ShortcutName = {
+	[K in keyof typeof shortcutCategories]: keyof (typeof shortcutCategories)[K]['shortcuts'];
+}[keyof typeof shortcutCategories];
 
-//data being re-arranged for keybindings page
-export const keybindingsData = () => {
-	let shortcuts = {} as ShortcutKeybinds;
-	for (const category in ShortcutState['shortcuts']) {
-		const shortcutCategory = ShortcutState['shortcuts'][category as ShortcutCategories] as ShortcutCategory;
-		const categoryShortcuts: Array<Shortcut> = [];
+export const shortcutsStore = valtioPersist('sd-shortcuts', shortcutCategories);
 
-		for (const shortcut in shortcutCategory) {
-			if (shortcut === 'description') continue;
-			const { keys, icons, action } = shortcutCategory[shortcut as ShortcutKeys] ?? {};
-			if (keys && icons && action) {
-				const categoryShortcut = {
-					icons,
-					action,
-					keys
-				};
-				categoryShortcuts.push(categoryShortcut);
-			}
-			shortcuts = {
-				...shortcuts,
-				[category]: {
-					description: shortcutCategory.description,
-					shortcuts: categoryShortcuts
-				}
-			};
-		}
-	}
-	return shortcuts;
-};
-
-export type ShortcutCategories = keyof typeof ShortcutState['shortcuts'];
-type GetShortcutKeys<Category extends ShortcutCategories> =
-keyof (typeof ShortcutState)['shortcuts'][Category];
-//Not all shortcuts share the same keys (shortcuts) so this needs to be done like this
-//A union type of all categories would return the 'description' only
-type ShortcutKeys = Exclude<
-	GetShortcutKeys<'Pages'> | GetShortcutKeys<'Dialogs'> | GetShortcutKeys<'Explorer'>,
-	'description'
->;
-
-const shortcutsStore = valtioPersist('sd-shortcuts', ShortcutState);
-
-export function useShortcutsStore() {
-	return useSnapshot(shortcutsStore);
-}
-
-export function getShortcutsStore() {
-	return shortcutsStore;
-}
-
-export const useShortcut = (shortcut: ShortcutKeys, func: (e: KeyboardEvent) => void) => {
-	const os = useOperatingSystem();
-	const shortcutsStore = useShortcutsStore();
+export const useShortcut = (shortcut: ShortcutName, func: (e: KeyboardEvent) => void) => {
+	const os = useOperatingSystem(true);
+	const categories = useSnapshot(shortcutsStore);
 	const { visible } = useRoutingContext();
 
-	const triggeredShortcut = () => {
-		const shortcuts = {} as Record<ShortcutKeys, string[]>;
-		for (const category in shortcutsStore['shortcuts']) {
-			const shortcutCategory = shortcutsStore['shortcuts'][category as ShortcutCategories];
-			for (const shortcut in shortcutCategory) {
-				if (shortcut === 'description') continue;
-				const keys = shortcutCategory[shortcut as ShortcutKeys]?.keys;
-				shortcuts[shortcut as ShortcutKeys] = (keys?.[os] || keys?.all) as string[];
-			}
-		}
-		return shortcuts[shortcut] as string[];
-	};
+	const keys = useMemo(() => {
+		if (!visible) return [];
 
-	useKeys(triggeredShortcut(), (e) => {
+		const category = Object.values(categories).find((category) =>
+			Object.hasOwn(category.shortcuts, shortcut)
+		) as ShortcutCategory | undefined;
+
+		const categoryShortcut = category?.shortcuts[shortcut];
+
+		return categoryShortcut?.keys[os] ?? categoryShortcut?.keys.all ?? [];
+	}, [categories, os, shortcut, visible]);
+
+	useKeys(keys, (e) => {
 		if (!visible) return;
 		return func(e);
 	});
