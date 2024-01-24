@@ -171,7 +171,7 @@ const useShortcuts = () => {
 	useKeyCopyCutPaste();
 
 	useShortcut('toggleQuickPreview', (e) => {
-		if (isRenaming) return;
+		if (isRenaming || dialogManager.isAnyDialogOpen()) return;
 		e.preventDefault();
 		getQuickPreviewStore().open = !quickPreviewStore.open;
 	});
