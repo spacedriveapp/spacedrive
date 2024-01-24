@@ -1,10 +1,4 @@
-import {
-	useBridgeQuery,
-	useCache,
-	useLibraryQuery,
-	useNodes,
-	useOnlineLocations
-} from '@sd/client';
+import { useBridgeQuery, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 import { hardwareModelToIcon } from '~/util/hardware';
 
@@ -23,7 +17,6 @@ export const Component = () => {
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	useNodes(locationsQuery.data?.nodes);
 	const locations = useCache(locationsQuery.data?.items) ?? [];
-	const onlineLocations = useOnlineLocations();
 
 	const { data: node } = useBridgeQuery(['nodeState']);
 
