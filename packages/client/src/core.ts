@@ -7,7 +7,7 @@ export type Procedures = {
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "cloud.getApiOrigin", input: never, result: string } | 
-        { key: "cloud.library.get", input: LibraryArgs<null>, result: { uuid: string; name: string; instances: CloudInstance[]; ownerId: string } | null } | 
+        { key: "cloud.library.get", input: LibraryArgs<null>, result: { id: string; uuid: string; name: string; instances: CloudInstance[]; ownerId: string } | null } | 
         { key: "cloud.library.list", input: never, result: CloudLibrary[] } | 
         { key: "cloud.locations.list", input: never, result: CloudLocation[] } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata) | null } | 
@@ -162,7 +162,7 @@ export type ChangeNodeNameArgs = { name: string | null; p2p_port: MaybeUndefined
 
 export type CloudInstance = { id: string; uuid: string; identity: RemoteIdentity; nodeId: string; nodeName: string; nodePlatform: number }
 
-export type CloudLibrary = { uuid: string; name: string; instances: CloudInstance[]; ownerId: string }
+export type CloudLibrary = { id: string; uuid: string; name: string; instances: CloudInstance[]; ownerId: string }
 
 export type CloudLocation = { id: string; name: string }
 
@@ -378,7 +378,12 @@ description: string | null;
 /**
  * id of the current instance so we know who this `.db` is. This can be looked up within the `Instance` table.
  */
-instance_id: number; version: LibraryConfigVersion }
+instance_id: number; 
+/**
+ * cloud_id is the ID of the cloud library this library is linked to.
+ * If this is set we can assume the library is synced with the Cloud.
+ */
+cloud_id?: string | null; version: LibraryConfigVersion }
 
 export type LibraryConfigVersion = "V0" | "V1" | "V2" | "V3" | "V4" | "V5" | "V6" | "V7" | "V8" | "V9"
 
