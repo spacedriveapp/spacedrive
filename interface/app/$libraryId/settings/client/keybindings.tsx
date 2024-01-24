@@ -7,13 +7,7 @@ import {
 import clsx from 'clsx';
 import { useState } from 'react';
 import { Divider, ModifierKeys, Switch } from '@sd/ui';
-import {
-	keybindingsData,
-	ShortcutCategories,
-	ShortcutKeybinds,
-	useLocale,
-	useOperatingSystem
-} from '~/hooks';
+import { Shortcut, shortcutCategories, useLocale, useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 import { OperatingSystem } from '~/util/Platform';
 
@@ -38,16 +32,14 @@ export const Component = () => {
 				/>
 			</Setting>
 			<Divider />
-			{Object.entries(keybindingsData()).map(([category, info]) => {
+			{Object.entries(shortcutCategories).map(([name, category]) => {
 				return (
-					<div key={category} className="mb-4 space-y-0.5">
-						<h1 className="inline-block text-lg font-bold text-ink">{category}</h1>
+					<div key={name} className="mb-4 space-y-0.5">
+						<h1 className="inline-block text-lg font-bold text-ink">{name}</h1>
 						<div className="pb-3">
-							<p className="text-sm text-ink-faint">
-								{keybindingsData()[category as ShortcutCategories]?.description}
-							</p>
+							<p className="text-sm text-ink-faint">{category.description}</p>
 						</div>
-						<KeybindTable data={info.shortcuts} />
+						<KeybindTable data={Object.values(category.shortcuts)} />
 					</div>
 				);
 			})}
@@ -55,7 +47,7 @@ export const Component = () => {
 	);
 };
 
-function KeybindTable({ data }: { data: ShortcutKeybinds[ShortcutCategories]['shortcuts'] }) {
+function KeybindTable({ data }: { data: Shortcut[] }) {
 	const os = useOperatingSystem();
 	const table = useReactTable({
 		data,
