@@ -48,7 +48,7 @@ export const Component = () => {
 };
 
 function KeybindTable({ data }: { data: Shortcut[] }) {
-	const os = useOperatingSystem();
+	const os = useOperatingSystem(true);
 	const table = useReactTable({
 		data,
 		columns: createKeybindColumns(os),
