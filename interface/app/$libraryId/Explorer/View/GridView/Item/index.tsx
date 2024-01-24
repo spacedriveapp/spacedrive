@@ -85,6 +85,7 @@ const ItemFileThumb = () => {
 			extension
 			className={clsx('px-2 py-1', item.cut && 'opacity-60')}
 			ref={setDraggableRef}
+			frameClassName={clsx(item.data.type === "Label" && "!rounded-2xl")}
 			childProps={{
 				style,
 				...attributes,
