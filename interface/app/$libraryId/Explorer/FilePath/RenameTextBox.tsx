@@ -10,7 +10,7 @@ import {
 } from 'react';
 import TruncateMarkup from 'react-truncate-markup';
 import { useSelector } from '@sd/client';
-import { Tooltip } from '@sd/ui';
+import { dialogManager, Tooltip } from '@sd/ui';
 import { useOperatingSystem, useShortcut } from '~/hooks';
 
 import { explorerStore } from '../store';
@@ -111,6 +111,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 		};
 
 		useShortcut('renameObject', (e) => {
+			if (dialogManager.isAnyDialogOpen()) return;
 			e.preventDefault();
 			if (allowRename) blur();
 			else if (!disabled) setAllowRename(true);
