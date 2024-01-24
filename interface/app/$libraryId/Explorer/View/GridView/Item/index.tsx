@@ -56,16 +56,7 @@ const InnerDroppable = () => {
 				<ItemFileThumb />
 			</div>
 
-			<ExplorerDraggable draggable={{ data: item.data }}>
-				<RenamableItemText
-					item={item.data}
-					style={{ maxHeight: 40, textAlign: 'center' }}
-					lines={2}
-					highlight={isDroppable}
-					selected={item.selected}
-				/>
-				<ItemSize />
-			</ExplorerDraggable>
+			<ItemMetadata />
 		</>
 	);
 };
@@ -92,6 +83,26 @@ const ItemFileThumb = () => {
 				...listeners
 			}}
 		/>
+	);
+};
+
+const ItemMetadata = () => {
+	const item = useGridViewItemContext();
+	const { isDroppable } = useExplorerDroppableContext();
+
+	const isRenaming = useSelector(explorerStore, (s) => s.isRenaming && item.selected);
+
+	return (
+		<ExplorerDraggable draggable={{ data: item.data, disabled: isRenaming }}>
+			<RenamableItemText
+				item={item.data}
+				style={{ maxHeight: 40, textAlign: 'center' }}
+				lines={2}
+				highlight={isDroppable}
+				selected={item.selected}
+			/>
+			<ItemSize />
+		</ExplorerDraggable>
 	);
 };
 
