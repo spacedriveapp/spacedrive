@@ -2,6 +2,7 @@ import { Grid, useGrid } from '@virtual-grid/react';
 import { memo, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import Selecto from 'react-selecto';
 import { type ExplorerItem } from '@sd/client';
+import { dialogManager } from '@sd/ui';
 import { useOperatingSystem, useShortcut } from '~/hooks';
 
 import { useExplorerContext } from '../../Context';
@@ -287,7 +288,7 @@ const Component = memo(({ children }: { children: RenderItem }) => {
 	};
 
 	useShortcut('explorerDown', (e) => {
-		if (!explorerView.selectable) return;
+		if (!explorerView.selectable || dialogManager.isAnyDialogOpen()) return;
 
 		if (explorer.selectedItems.size === 0) {
 			const item = grid.getItem(0);
@@ -308,21 +309,21 @@ const Component = memo(({ children }: { children: RenderItem }) => {
 	});
 
 	useShortcut('explorerUp', (e) => {
-		if (!explorerView.selectable) return;
+		if (!explorerView.selectable || dialogManager.isAnyDialogOpen()) return;
 		const newIndex = getGridItemHandler('ArrowUp');
 		if (newIndex === undefined) return;
 		keyboardHandler(e, newIndex);
 	});
 
 	useShortcut('explorerLeft', (e) => {
-		if (!explorerView.selectable) return;
+		if (!explorerView.selectable || dialogManager.isAnyDialogOpen()) return;
 		const newIndex = getGridItemHandler('ArrowLeft');
 		if (newIndex === undefined) return;
 		keyboardHandler(e, newIndex);
 	});
 
 	useShortcut('explorerRight', (e) => {
-		if (!explorerView.selectable) return;
+		if (!explorerView.selectable || dialogManager.isAnyDialogOpen()) return;
 		const newIndex = getGridItemHandler('ArrowRight');
 		if (newIndex === undefined) return;
 		keyboardHandler(e, newIndex);
