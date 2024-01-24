@@ -56,17 +56,13 @@ export const useViewItemDoubleClick = () => {
 							items.non_indexed.splice(sameAsClicked ? 0 : -1, 0, selectedItem.item);
 							break;
 						}
-						case 'SpacedropPeer': {
+						case 'SpacedropPeer':
+						case 'Label':
 							break;
-						}
 						default: {
 							const paths =
 								selectedItem.type === 'Path'
 									? [selectedItem.item]
-									: selectedItem.type === 'Label'
-									? selectedItem.item.label_objects.flatMap(
-											(o) => o.object.file_paths
-									  )
 									: selectedItem.item.file_paths;
 
 							for (const filePath of paths) {
@@ -188,6 +184,7 @@ export const useViewItemDoubleClick = () => {
 			}
 		},
 		[
+		setSearchParams,
 			explorer.selectedItems,
 			explorer.settingsStore.openOnDoubleClick,
 			library.uuid,
