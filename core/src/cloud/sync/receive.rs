@@ -91,7 +91,7 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 
 			info!("Received {} collections", collections.len());
 
-			if collections.len() < 1 {
+			if collections.is_empty() {
 				break;
 			}
 
