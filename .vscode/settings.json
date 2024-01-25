@@ -71,10 +71,6 @@
 		"packages/ui"
 	],
 	"eslint.lintTask.enable": true,
-	"editor.codeActionsOnSave": {
-		"source.fixAll.eslint": "explicit",
-		"source.organizeImports": "always"
-	},
 	"explorer.fileNesting.enabled": true,
 	"explorer.fileNesting.patterns": {
 		"*.ts": "${capture}.js",
