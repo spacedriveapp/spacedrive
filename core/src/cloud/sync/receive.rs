@@ -9,7 +9,7 @@ use sd_core_sync::NTP64;
 use sd_p2p::spacetunnel::RemoteIdentity;
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
 use sd_sync::CRDTOperation;
-use sd_utils::{from_bytes_to_uuid, uuid_to_bytes};
+use sd_utils::uuid_to_bytes;
 use tracing::info;
 
 use std::{
@@ -33,152 +33,139 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 			let mut cloud_timestamps = {
 				let timestamps = library.sync.timestamps.read().await;
 
-				let batch = timestamps
-					.keys()
-					.map(|id| {
+				err_return!(
+					db._batch(timestamps.keys().map(|id| {
 						db.cloud_crdt_operation()
 							.find_first(vec![cloud_crdt_operation::instance::is(vec![
 								instance::pub_id::equals(uuid_to_bytes(*id)),
 							])])
 							.order_by(cloud_crdt_operation::timestamp::order(SortOrder::Desc))
-					})
-					.collect::<Vec<_>>();
+					}))
+					.await
+				)
+				.into_iter()
+				.zip(timestamps.iter())
+				.map(|(d, (id, sync_timestamp))| {
+					let cloud_timestamp = NTP64(d.map(|d| d.timestamp).unwrap_or_default() as u64);
 
-				err_return!(db._batch(batch).await)
-					.into_iter()
-					.zip(timestamps.keys())
-					.map(|(d, id)| {
-						let cloud_timestamp =
-							NTP64(d.map(|d| d.timestamp).unwrap_or_default() as u64);
-						let sync_timestamp = *timestamps
-							.get(id)
-							.expect("unable to find matching timestamp");
+					let max_timestamp = Ord::max(cloud_timestamp, *sync_timestamp);
 
-						let max_timestamp = Ord::max(cloud_timestamp, sync_timestamp);
-
-						(*id, max_timestamp)
-					})
-					.collect::<HashMap<_, _>>()
+					(*id, max_timestamp)
+				})
+				.collect::<HashMap<_, _>>()
 			};
 
 			info!(
 				"Fetched timestamps for {} local instances",
 				cloud_timestamps.len()
 			);
-			let instances = err_break!(
-				db.instance()
-					.find_many(vec![])
-					.select(instance::select!({ pub_id }))
-					.exec()
-					.await
+
+			let instance_timestamps = library
+				.sync
+				.timestamps
+				.read()
+				.await
+				.keys()
+				.map(
+					|uuid| sd_cloud_api::library::message_collections::get::InstanceTimestamp {
+						instance_uuid: *uuid,
+						from_time: cloud_timestamps
+							.get(&uuid)
+							.cloned()
+							.unwrap_or_default()
+							.as_u64()
+							.to_string(),
+					},
+				)
+				.collect();
+
+			let collections = err_break!(
+				sd_cloud_api::library::message_collections::get(
+					node.cloud_api_config().await,
+					library_id,
+					library.instance_uuid,
+					instance_timestamps,
+				)
+				.await
 			);
 
-			{
-				let collections = {
-					use sd_cloud_api::library::message_collections;
-					message_collections::get(
-						node.cloud_api_config().await,
-						library_id,
-						library.instance_uuid,
-						instances
-							.into_iter()
-							.map(|i| {
-								let uuid = from_bytes_to_uuid(&i.pub_id);
+			info!("Received {} collections", collections.len());
 
-								message_collections::get::InstanceTimestamp {
-									instance_uuid: uuid,
-									from_time: cloud_timestamps
-										.get(&uuid)
-										.cloned()
-										.unwrap_or_default()
-										.as_u64()
-										.to_string(),
-								}
-							})
-							.collect::<Vec<_>>(),
-					)
-					.await
-				};
-				let collections = err_break!(collections);
-
-				info!("Received {} collections", collections.len());
-
-				if collections.len() < 1 {
-					break;
-				}
-
-				let mut cloud_library_data: Option<Option<sd_cloud_api::Library>> = None;
-
-				for collection in collections {
-					if let Entry::Vacant(e) = cloud_timestamps.entry(collection.instance_uuid) {
-						let fetched_library = match &cloud_library_data {
-							None => {
-								let Some(fetched_library) = err_break!(
-									sd_cloud_api::library::get(
-										node.cloud_api_config().await,
-										library.id
-									)
-									.await
-								) else {
-									break;
-								};
-
-								cloud_library_data
-									.insert(Some(fetched_library))
-									.as_ref()
-									.expect("error inserting fetched library")
-							}
-							Some(None) => {
-								break;
-							}
-							Some(Some(fetched_library)) => fetched_library,
-						};
-
-						let Some(instance) = fetched_library
-							.instances
-							.iter()
-							.find(|i| i.uuid == collection.instance_uuid)
-						else {
-							break;
-						};
-
-						err_break!(
-							create_instance(
-								library.clone(),
-								&node.libraries,
-								collection.instance_uuid,
-								instance.identity,
-								instance.node_id,
-								instance.node_name.clone(),
-								instance.node_platform,
-							)
-							.await
-						);
-
-						e.insert(NTP64(0));
-					}
-
-					let compressed_operations: CompressedCRDTOperations =
-						err_break!(serde_json::from_slice(err_break!(
-							&BASE64_STANDARD.decode(collection.contents)
-						)));
-
-					err_break!(write_cloud_ops_to_db(compressed_operations.into_ops(), db).await);
-
-					let collection_timestamp =
-						NTP64(collection.end_time.parse().expect("unable to parse time"));
-
-					let timestamp = cloud_timestamps
-						.entry(collection.instance_uuid)
-						.or_insert(collection_timestamp);
-
-					if *timestamp < collection_timestamp {
-						*timestamp = collection_timestamp;
-					}
-				}
-
-				ingest_notify.notify_waiters();
+			if collections.is_empty() {
+				break;
 			}
+
+			let mut cloud_library_data: Option<Option<sd_cloud_api::Library>> = None;
+
+			for collection in collections {
+				if let Entry::Vacant(e) = cloud_timestamps.entry(collection.instance_uuid) {
+					let fetched_library = match &cloud_library_data {
+						None => {
+							let Some(fetched_library) = err_break!(
+								sd_cloud_api::library::get(
+									node.cloud_api_config().await,
+									library.id
+								)
+								.await
+							) else {
+								break;
+							};
+
+							cloud_library_data
+								.insert(Some(fetched_library))
+								.as_ref()
+								.expect("error inserting fetched library")
+						}
+						Some(None) => {
+							break;
+						}
+						Some(Some(fetched_library)) => fetched_library,
+					};
+
+					let Some(instance) = fetched_library
+						.instances
+						.iter()
+						.find(|i| i.uuid == collection.instance_uuid)
+					else {
+						break;
+					};
+
+					err_break!(
+						create_instance(
+							library.clone(),
+							&node.libraries,
+							collection.instance_uuid,
+							instance.identity,
+							instance.node_id,
+							instance.node_name.clone(),
+							instance.node_platform,
+						)
+						.await
+					);
+
+					e.insert(NTP64(0));
+				}
+
+				let compressed_operations: CompressedCRDTOperations =
+					err_break!(serde_json::from_slice(err_break!(
+						&BASE64_STANDARD.decode(collection.contents)
+					)));
+
+				err_break!(write_cloud_ops_to_db(compressed_operations.into_ops(), db).await);
+
+				let collection_timestamp =
+					NTP64(collection.end_time.parse().expect("unable to parse time"));
+
+				let timestamp = cloud_timestamps
+					.entry(collection.instance_uuid)
+					.or_insert(collection_timestamp);
+
+				if *timestamp < collection_timestamp {
+					*timestamp = collection_timestamp;
+				}
+			}
+
+			ingest_notify.notify_waiters();
 		}
 
 		sleep(Duration::from_secs(60)).await;
@@ -237,6 +224,7 @@ pub async fn create_instance(
 		.exec()
 		.await?;
 
+	library.sync.timestamps.write().await.insert(uuid, NTP64(0));
 	// Called again so the new instances are picked up
 	libraries.update_instances(library).await;
 
