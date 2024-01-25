@@ -19,7 +19,7 @@ type NewCardProps =
 
 const maskImage = `linear-gradient(90deg, transparent 0.1%, rgba(0, 0, 0, 1), rgba(0, 0, 0, 1) 35%, transparent 99%)`;
 
-const NewCard = ({ icons, text, buttonText, buttonHandler, button }: NewCardProps) => {
+export default function NewCard({ icons, text, buttonText, buttonHandler, button }: NewCardProps) {
 	return (
 		<div className="flex h-[170px] w-[280px] shrink-0 flex-col justify-between rounded border border-dashed border-app-line p-4">
 			<div className="flex flex-row items-start justify-between">
@@ -51,6 +51,4 @@ const NewCard = ({ icons, text, buttonText, buttonHandler, button }: NewCardProp
 			)}
 		</div>
 	);
-};
-
-export default NewCard;
+}
