@@ -1,4 +1,4 @@
-import { useBridgeQuery, useCache, useLibraryContext, useLibraryQuery, useNodes } from '@sd/client';
+import { useBridgeQuery, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 import { hardwareModelToIcon } from '~/util/hardware';
 
@@ -14,7 +14,6 @@ import StatisticItem from './StatCard';
 
 export const Component = () => {
 	useRouteTitle('Overview');
-	const libraryId = useLibraryContext().library.uuid;
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	useNodes(locationsQuery.data?.nodes);
 	const locations = useCache(locationsQuery.data?.items) ?? [];
