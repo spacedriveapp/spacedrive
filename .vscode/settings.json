@@ -84,6 +84,5 @@
 		".eslintrc.js": ".eslintcache",
 		"package.json": "package-lock.json, yarn.lock, pnpm-lock.yaml, pnpm-workspace.yaml, .pnp.cjs, .pnp.loader.mjs",
 		"tsconfig.json": "tsconfig.*.json"
-	},
-	"typescript.tsdk": "node_modules/typescript/lib"
+	}
 }
