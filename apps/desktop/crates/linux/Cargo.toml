@@ -12,4 +12,4 @@ libc = "0.2"
 [target.'cfg(target_os = "linux")'.dependencies]
 # WARNING: gtk should follow the same version used by tauri
 # https://github.com/tauri-apps/tauri/blob/441eb4f4a5f9af206752c2e287975eb8d5ccfd01/core/tauri/Cargo.toml#L95
-gtk = { version = "0.15", features = [ "v3_20" ] }
+gtk = { version = "0.16.0", features = ["v3_24"] }

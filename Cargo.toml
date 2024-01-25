@@ -91,7 +91,7 @@ if-watch = { git = "https://github.com/oscartbeaumont/if-watch.git", rev = "f732
 rspc = { git = "https://github.com/spacedriveapp/rspc.git", rev = "f3347e2e8bfe3f37bfacc437ca329fe71cdcb048" }
 
 # `cursor_position` method
-tauri = { git = "https://github.com/brxken128/tauri.git", branch = "v1.5.4-cursor-pos" }
+tauri = { git = "https://github.com/spacedriveapp/tauri", rev = "1c4fa31bccfc355b42c73e048fb79b689efda0d4" }
 tao = { git = "https://github.com/spacedriveapp/tao", rev = "7880adbc090402c44fbcf006669458fa82623403" }
 
 # Set the settings for build scripts and proc-macros.
