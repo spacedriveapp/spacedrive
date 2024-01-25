@@ -45,7 +45,14 @@ impl Manager {
 	) -> New {
 		let (tx, rx) = broadcast::channel(64);
 
-		let clock = HLCBuilder::new().with_id(instance.into()).build();
+		let clock = HLCBuilder::new()
+			.with_id(
+				instance
+					.as_bytes()
+					.try_into()
+					.expect("Unable to convert UUID into UHLC ID"),
+			)
+			.build();
 
 		let shared = Arc::new(SharedState {
 			db: db.clone(),

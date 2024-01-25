@@ -118,7 +118,13 @@ impl Actor {
 
 	async fn receive_crdt_operation(&mut self, op: CRDTOperation) {
 		self.clock
-			.update_with_timestamp(&Timestamp::new(op.timestamp, op.instance.into()))
+			.update_with_timestamp(&Timestamp::new(
+				op.timestamp,
+				op.instance
+					.as_bytes()
+					.try_into()
+					.expect("Unable to convert UUID into UHLC ID"),
+			))
 			.ok();
 
 		let mut timestamp = {

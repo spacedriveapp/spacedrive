@@ -79,7 +79,7 @@ thiserror = "1.0.50"
 tokio = "1.34.0"
 tokio-stream = "0.1.14"
 tokio-util = "0.7.10"
-uhlc = "0.5.2"
+uhlc = "0.6.3"
 uuid = "1.5.0"
 webp = "0.2.6"
 

@@ -448,7 +448,7 @@ dependencies = [
  "fastrand 2.0.1",
  "hex",
  "http 0.2.11",
- "hyper 0.14.28",
+ "hyper",
  "ring 0.17.7",
  "time",
  "tokio",
@@ -479,7 +479,7 @@ dependencies = [
  "aws-types",
  "bytes",
  "http 0.2.11",
- "http-body 0.4.6",
+ "http-body",
  "pin-project-lite",
  "tracing",
 ]
@@ -528,7 +528,7 @@ dependencies = [
  "aws-types",
  "bytes",
  "http 0.2.11",
- "http-body 0.4.6",
+ "http-body",
  "once_cell",
  "percent-encoding",
  "regex-lite",
@@ -659,7 +659,7 @@ dependencies = [
  "crc32fast",
  "hex",
  "http 0.2.11",
- "http-body 0.4.6",
+ "http-body",
  "md-5",
  "pin-project-lite",
  "sha1",
@@ -691,7 +691,7 @@ dependencies = [
  "bytes-utils",
  "futures-core",
  "http 0.2.11",
- "http-body 0.4.6",
+ "http-body",
  "once_cell",
  "percent-encoding",
  "pin-project-lite",
@@ -730,10 +730,10 @@ dependencies = [
  "aws-smithy-types",
  "bytes",
  "fastrand 2.0.1",
- "h2 0.3.24",
+ "h2",
  "http 0.2.11",
- "http-body 0.4.6",
- "hyper 0.14.28",
+ "http-body",
+ "hyper",
  "hyper-rustls",
  "once_cell",
  "pin-project-lite",
@@ -770,7 +770,7 @@ dependencies = [
  "bytes-utils",
  "futures-core",
  "http 0.2.11",
- "http-body 0.4.6",
+ "http-body",
  "itoa 1.0.10",
  "num-integer",
  "pin-project-lite",
@@ -819,8 +819,8 @@ dependencies = [
  "futures-util",
  "headers",
  "http 0.2.11",
- "http-body 0.4.6",
- "hyper 0.14.28",
+ "http-body",
+ "hyper",
  "itoa 1.0.10",
  "matchit",
  "memchr",
@@ -849,7 +849,7 @@ dependencies = [
  "bytes",
  "futures-util",
  "http 0.2.11",
- "http-body 0.4.6",
+ "http-body",
  "mime",
  "rustversion",
  "tower-layer",
@@ -3274,25 +3274,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "h2"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31d030e59af851932b72ceebadf4a2b5986dba4c3b99dd2493f8273a0f151943"
-dependencies = [
- "bytes",
- "fnv",
- "futures-core",
- "futures-sink",
- "futures-util",
- "http 1.0.0",
- "indexmap 2.1.0",
- "slab",
- "tokio",
- "tokio-util",
- "tracing",
-]
-
-[[package]]
 name = "half"
 version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3513,16 +3494,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "http-body"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1cac85db508abc24a2e48553ba12a996e87244a0395ce011e62b37158745d643"
-dependencies = [
- "bytes",
- "http 1.0.0",
-]
-
-[[package]]
 name = "http-range"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3552,7 +3523,7 @@ dependencies = [
  "form_urlencoded",
  "futures",
  "http 0.2.11",
- "hyper 0.14.28",
+ "hyper",
  "sha1",
  "thiserror",
  "tokio",
@@ -3574,9 +3545,9 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "futures-util",
- "h2 0.3.24",
+ "h2",
  "http 0.2.11",
- "http-body 0.4.6",
+ "http-body",
  "httparse",
  "httpdate",
  "itoa 1.0.10",
@@ -3589,23 +3560,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hyper"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb5aa53871fc917b1a9ed87b683a5d86db645e23acb32c2e0785a353e522fb75"
-dependencies = [
- "bytes",
- "futures-channel",
- "futures-util",
- "h2 0.4.2",
- "http 1.0.0",
- "http-body 1.0.0",
- "httpdate",
- "pin-project-lite",
- "tokio",
-]
-
-[[package]]
 name = "hyper-rustls"
 version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3613,7 +3567,7 @@ checksum = "ec3efd23720e2049821a693cbc7e65ea87c72f1c58ff2f9522ff332b1491e590"
 dependencies = [
  "futures-util",
  "http 0.2.11",
- "hyper 0.14.28",
+ "hyper",
  "log",
  "rustls",
  "rustls-native-certs",
@@ -3628,7 +3582,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6183ddfa99b85da61a140bea0efc93fdf56ceaa041b37d553518030827f9905"
 dependencies = [
  "bytes",
- "hyper 0.14.28",
+ "hyper",
  "native-tls",
  "tokio",
  "tokio-native-tls",
@@ -3753,7 +3707,7 @@ dependencies = [
  "bytes",
  "futures",
  "http 0.2.11",
- "hyper 0.14.28",
+ "hyper",
  "log",
  "rand 0.8.5",
  "tokio",
@@ -4883,7 +4837,7 @@ version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "953cbbb6f9ba4b9304f4df79b98cdc9d14071ed93065a9fca11c00c5d9181b66"
 dependencies = [
- "hyper 0.14.28",
+ "hyper",
  "indexmap 1.9.3",
  "ipnet",
  "metrics 0.19.0",
@@ -7081,10 +7035,10 @@ dependencies = [
  "encoding_rs",
  "futures-core",
  "futures-util",
- "h2 0.3.24",
+ "h2",
  "http 0.2.11",
- "http-body 0.4.6",
- "hyper 0.14.28",
+ "http-body",
+ "hyper",
  "hyper-tls",
  "ipnet",
  "js-sys",
@@ -7641,7 +7595,7 @@ dependencies = [
  "futures-concurrency",
  "globset",
  "hostname",
- "http-body 0.4.6",
+ "http-body",
  "http-range",
  "image",
  "int-enum",
@@ -7711,7 +7665,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
- "uhlc 0.5.2",
+ "uhlc",
  "uuid",
 ]
 
@@ -7761,7 +7715,7 @@ dependencies = [
  "axum",
  "futures",
  "http 1.0.0",
- "hyper 1.1.0",
+ "hyper",
  "opener",
  "prisma-client-rust",
  "rand 0.8.5",
@@ -7983,7 +7937,7 @@ dependencies = [
  "serde",
  "serde_json",
  "specta",
- "uhlc 0.5.2",
+ "uhlc",
  "uuid",
 ]
 
@@ -8501,7 +8455,7 @@ dependencies = [
  "tauri",
  "thiserror",
  "tokio",
- "uhlc 0.6.3",
+ "uhlc",
  "uuid",
 ]
 
@@ -9835,25 +9789,13 @@ checksum = "ed646292ffc8188ef8ea4d1e0e0150fb15a5c2e12ad9b8fc191ae7a8a7f3c4b9"
 
 [[package]]
 name = "uhlc"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d291a7454d390b753ef68df8145da18367e32883ec2fa863959f0aefb915cdb"
-dependencies = [
- "hex",
- "humantime",
- "lazy_static",
- "log",
- "serde",
- "spin 0.9.8",
- "uuid",
-]
-
-[[package]]
-name = "uhlc"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d1eadef1fa26cbbae1276c46781e8f4d888bdda434779c18ae6c2a0e69991885"
 dependencies = [
+ "humantime",
+ "lazy_static",
+ "log",
  "rand 0.8.5",
  "serde",
  "spin 0.9.8",
