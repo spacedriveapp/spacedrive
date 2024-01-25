@@ -98,7 +98,7 @@ async-recursion = "1.0.5"
 async-stream = "0.3.5"
 async-trait = "^0.1.74"
 bytes = "1.5.0"
-ctor = "0.2.5"
+ctor = "0.2.6"
 directories = "5.0.1"
 flate2 = "1.0.28"
 globset = { version = "^0.4.13", features = ["serde1"] }
@@ -107,20 +107,21 @@ http-body = "0.4.5"
 http-range = "0.1.5"
 int-enum = "0.5.0"
 itertools = "0.12.0"
-mini-moka = "0.10.2"
+mini-moka = "0.10.3"
+# had issues with newer versions
 notify = { version = "=5.2.0", default-features = false, features = [
 	"macos_fsevent",
 ], optional = true }
 rmpv = "^1.0.1"
 serde-hashkey = "0.4.5"
 serde_repr = "0.1"
-serde_with = "3.4.0"
-slotmap = "1.0.6"
+serde_with = "3.5.1"
+slotmap = "1.0.7"
 static_assertions = "1.1.0"
-sysinfo = "0.29.10"
+sysinfo = "0.30.5"
 tar = "0.4.40"
-aws-sdk-s3 = { version = "1.5.0", features = ["behavior-version-latest"] }
-aws-config = "1.0.3"
+aws-sdk-s3 = { version = "1.13.0", features = ["behavior-version-latest"] }
+aws-config = "1.1.3"
 aws-credential-types = "1.0.3"
 
 # Override features of transitive dependencies

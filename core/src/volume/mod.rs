@@ -12,16 +12,17 @@ use std::{
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
-use sysinfo::{DiskExt, System, SystemExt};
+use sysinfo::Disks;
 use thiserror::Error;
 use tokio::sync::Mutex;
 use tracing::error;
 
 pub mod watcher;
 
-fn sys_guard() -> &'static Mutex<System> {
-	static SYS: OnceLock<Mutex<System>> = OnceLock::new();
-	SYS.get_or_init(|| Mutex::new(System::new_all()))
+fn disk_guard() -> &'static Mutex<Disks> {
+	static DISKS: OnceLock<Mutex<Disks>> = OnceLock::new();
+	// `new_with_refreshed_list` creates `Disks` and also populates it, essentially calling `refresh` on creation
+	DISKS.get_or_init(|| Mutex::new(Disks::new_with_refreshed_list()))
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Type, Hash, PartialEq, Eq)]
@@ -109,12 +110,11 @@ impl From<VolumeError> for rspc::Error {
 pub async fn get_volumes() -> Vec<Volume> {
 	use std::{collections::HashMap, path::Path};
 
-	let mut sys = sys_guard().lock().await;
-	sys.refresh_disks_list();
+	let disks = disk_guard().lock().await;
 
 	let mut volumes: Vec<Volume> = Vec::new();
 	let mut path_to_volume_index = HashMap::new();
-	for disk in sys.disks() {
+	for disk in disks.iter() {
 		let disk_name = disk.name();
 		let mount_point = disk.mount_point().to_path_buf();
 		let file_system = String::from_utf8(disk.file_system().to_vec())
@@ -250,8 +250,7 @@ pub async fn get_volumes() -> Vec<Volume> {
 	use futures::future;
 	use tokio::process::Command;
 
-	let mut sys = sys_guard().lock().await;
-	sys.refresh_disks_list();
+	let disks = disk_guard().lock().await;
 
 	// Ignore mounted DMGs
 	#[cfg(target_os = "macos")]
@@ -286,7 +285,7 @@ pub async fn get_volumes() -> Vec<Volume> {
 			}
 		});
 
-	future::join_all(sys.disks().iter().map(|disk| async {
+	future::join_all(disks.iter().map(|disk| async {
 		#[cfg(not(windows))]
 		let disk_name = disk.name();
 		let mount_point = disk.mount_point().to_path_buf();
@@ -390,7 +389,7 @@ pub async fn get_volumes() -> Vec<Volume> {
 				}
 			},
 			mount_points: vec![mount_point],
-			file_system: String::from_utf8(disk.file_system().to_vec()).ok(),
+			file_system: disk.file_system().to_str().map(String::from),
 			total_capacity,
 			available_capacity,
 			is_root_filesystem,

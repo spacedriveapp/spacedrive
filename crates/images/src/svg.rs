@@ -4,9 +4,9 @@ use crate::{consts::SVG_TARGET_PX, scale_dimensions, Error, ImageHandler, Result
 use image::DynamicImage;
 use resvg::{
 	tiny_skia::{self},
-	usvg,
+	usvg::{self, PostProcessingSteps, TreePostProc},
 };
-use usvg::{fontdb, TreeParsing, TreeTextToPath};
+use usvg::{fontdb, TreeParsing};
 
 #[derive(PartialEq, Eq)]
 pub struct SvgHandler {}
@@ -23,8 +23,8 @@ impl ImageHandler for SvgHandler {
 		let rtree = usvg::Tree::from_data(&data, &usvg::Options::default()).map(|mut tree| {
 			let mut fontdb = fontdb::Database::new();
 			fontdb.load_system_fonts();
-			tree.convert_text(&fontdb);
-			resvg::Tree::from_usvg(&tree)
+			tree.postprocess(PostProcessingSteps::default(), &fontdb);
+			tree
 		})?;
 
 		let (scaled_w, scaled_h) =
@@ -46,7 +46,7 @@ impl ImageHandler for SvgHandler {
 			return Err(Error::Pixbuf);
 		};
 
-		rtree.render(transform, &mut pixmap.as_mut());
+		resvg::render(&rtree, transform, &mut pixmap.as_mut());
 
 		image::RgbaImage::from_raw(pixmap.width(), pixmap.height(), pixmap.data().into())
 			.map_or_else(
