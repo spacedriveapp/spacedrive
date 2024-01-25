@@ -1,10 +1,12 @@
 // import { X } from '@phosphor-icons/react';
+import clsx from 'clsx';
 import { Icon, IconName } from '~/components';
 
 type NewCardProps =
 	| {
 			icons: IconName[];
 			text: string;
+			className?: string;
 			button?: () => JSX.Element;
 			buttonText?: never;
 			buttonHandler?: never;
@@ -12,6 +14,7 @@ type NewCardProps =
 	| {
 			icons: IconName[];
 			text: string;
+			className?: string;
 			buttonText: string;
 			buttonHandler: () => void;
 			button?: never;
@@ -19,9 +22,21 @@ type NewCardProps =
 
 const maskImage = `linear-gradient(90deg, transparent 0.1%, rgba(0, 0, 0, 1), rgba(0, 0, 0, 1) 35%, transparent 99%)`;
 
-export default function NewCard({ icons, text, buttonText, buttonHandler, button }: NewCardProps) {
+export default function NewCard({
+	icons,
+	text,
+	buttonText,
+	buttonHandler,
+	button,
+	className
+}: NewCardProps) {
 	return (
-		<div className="flex h-[170px] w-[280px] shrink-0 flex-col justify-between rounded border border-dashed border-app-line p-4">
+		<div
+			className={clsx(
+				'flex h-[170px] w-[280px] shrink-0 flex-col justify-between rounded border border-dashed border-app-line p-4',
+				className
+			)}
+		>
 			<div className="flex flex-row items-start justify-between">
 				<div
 					className="flex flex-row"
