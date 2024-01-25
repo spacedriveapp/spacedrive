@@ -21,7 +21,7 @@ use sd_utils::{
 	uuid_to_bytes,
 };
 
-#[cfg(feature = "location-watcher")]
+//#[cfg(feature = "location-watcher")]
 use sd_file_path_helper::IsolatedFilePathDataParts;
 
 use std::{
@@ -1031,7 +1031,7 @@ pub async fn get_location_path_from_location_id(
 		})
 }
 
-#[cfg(feature = "location-watcher")]
+//#[cfg(feature = "location-watcher")]
 pub async fn create_file_path(
 	crate::location::Library { db, sync, .. }: &crate::location::Library,
 	IsolatedFilePathDataParts {

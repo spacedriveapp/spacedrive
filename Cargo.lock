@@ -5151,9 +5151,9 @@ dependencies = [
 [[package]]
 name = "notify"
 version = "6.1.1"
-source = "git+https://github.com/notify-rs/notify.git?branch=main#c4d047078549c2fec0bbfada29653097776b8b2d"
+source = "git+https://github.com/notify-rs/notify.git?rev=2437896199e58283b4858e40f39d299f3d405e26#2437896199e58283b4858e40f39d299f3d405e26"
 dependencies = [
- "bitflags 2.4.0",
+ "bitflags 2.4.1",
  "filetime",
  "fsevent-sys",
  "inotify",

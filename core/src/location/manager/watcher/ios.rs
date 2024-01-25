@@ -1,9 +1,14 @@
 //! iOS file system watcher implementation.
 
 use crate::{
-	invalidate_query, library::Library, location::{manager::LocationManagerError, file_path_helper::{check_file_path_exists, get_inode, FilePathError, IsolatedFilePathData}}, prisma::location,
-	util::error::FileIOError, Node,
+	invalidate_query,
+	library::Library,
+	location::manager::LocationManagerError, Node,
 };
+
+use sd_file_path_helper::{check_file_path_exists, get_inode, FilePathError, IsolatedFilePathData};
+use sd_prisma::prisma::location;
+use sd_utils::error::FileIOError;
 
 use std::{
 	collections::{BTreeMap, HashMap},
@@ -13,11 +18,11 @@ use std::{
 
 use async_trait::async_trait;
 use notify::{
-	event::{CreateKind, DataChange, ModifyKind, RenameMode, MetadataKind},
+	event::{CreateKind, DataChange, MetadataKind, ModifyKind, RenameMode},
 	Event, EventKind,
 };
-use tokio::{fs, time::Instant, io};
-use tracing::{error, debug, trace, warn};
+use tokio::{fs, io, time::Instant};
+use tracing::{debug, error, trace, warn};
 
 use super::{
 	utils::{

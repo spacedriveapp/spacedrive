@@ -13,7 +13,7 @@
     "android-studio": "open -a '/Applications/Android Studio.app' ./android",
     "lint": "eslint src --cache",
     "test": "cd ../.. && ./apps/mobile/scripts/run-maestro-tests ios",
-	"export": "expo export",
+    "export": "expo export",
     "typecheck": "tsc -b"
   },
   "dependencies": {

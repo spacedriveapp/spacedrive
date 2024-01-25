@@ -28,6 +28,7 @@ mod ios;
 mod linux;
 mod macos;
 mod windows;
+mod android;
 
 mod utils;
 

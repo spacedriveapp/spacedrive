@@ -9,7 +9,6 @@ edition = { workspace = true }
 [dependencies]
 sd-core = { path = "../../../../../core", features = [
 	"mobile",
-	"location-watcher",
 ], default-features = false }
 
 futures = { workspace = true }

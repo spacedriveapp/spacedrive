@@ -14,7 +14,6 @@ default = []
 mobile = []
 # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
 ffmpeg = ["dep:sd-ffmpeg"]
-location-watcher = ["dep:notify"]
 heif = ["sd-images/heif"]
 ai = ["dep:sd-ai"]
 
@@ -108,9 +107,9 @@ http-range = "0.1.5"
 int-enum = "0.5.0"
 itertools = "0.12.0"
 mini-moka = "0.10.2"
-notify = { version = "=5.2.0", default-features = false, features = [
-	"macos_fsevent",
-], optional = true }
+notify = { git="https://github.com/notify-rs/notify.git", rev="2437896199e58283b4858e40f39d299f3d405e26", default-features = false, features = [
+  "macos_fsevent",
+] }
 rmpv = "^1.0.1"
 serde-hashkey = "0.4.5"
 serde_repr = "0.1"
