@@ -319,7 +319,7 @@ async fn main() -> tauri::Result<()> {
 					.unwrap_or_else(PoisonError::into_inner);
 
 				match drop {
-					FileDropEvent::Hovered(paths) => {
+					FileDropEvent::Hovered { paths, position: _ } => {
 						// Look this shouldn't happen but let's be sure we don't leak threads.
 						if file_drop_status.windows.contains_key(window) {
 							return;
@@ -360,7 +360,7 @@ async fn main() -> tauri::Result<()> {
 							})
 						});
 					}
-					FileDropEvent::Dropped(paths) => {
+					FileDropEvent::Dropped { paths, position: _ } => {
 						if let Some(handle) = file_drop_status.windows.remove(window) {
 							handle.abort();
 						}

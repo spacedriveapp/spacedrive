@@ -85,10 +85,10 @@ webp = "0.2.6"
 
 [patch.crates-io]
 # Proper IOS Support
-if-watch = { git = "https://github.com/oscartbeaumont/if-watch.git", rev = "f732786057e57250e863a9ea0b1874e4cc9907c2" }
+if-watch = { git = "https://github.com/oscartbeaumont/if-watch", rev = "f732786057e57250e863a9ea0b1874e4cc9907c2" }
 
 # Beta features
-rspc = { git = "https://github.com/spacedriveapp/rspc.git", rev = "f3347e2e8bfe3f37bfacc437ca329fe71cdcb048" }
+rspc = { git = "https://github.com/spacedriveapp/rspc", rev = "f3347e2e8bfe3f37bfacc437ca329fe71cdcb048" }
 
 # `cursor_position` method
 tauri = { git = "https://github.com/spacedriveapp/tauri", rev = "1c4fa31bccfc355b42c73e048fb79b689efda0d4" }
