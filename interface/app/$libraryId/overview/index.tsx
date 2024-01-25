@@ -127,6 +127,7 @@ export const Component = () => {
 						<NewCard
 							icons={['Laptop', 'Server', 'SilverBox', 'Tablet']}
 							text="Spacedrive works best on all your devices."
+							className="h-auto"
 							// buttonText="Connect a device"
 						/>
 						{/**/}
