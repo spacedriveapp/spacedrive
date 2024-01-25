@@ -1,6 +1,6 @@
-import { Component, ComponentType, createElement, ElementType, forwardRef } from 'react';
-import { create } from 'twrnc';
 import { Themes } from '@sd/client';
+import { ComponentType, createElement, forwardRef } from 'react';
+import { create } from 'twrnc';
 
 let tw = create(require('../constants/style/tailwind.js')());
 

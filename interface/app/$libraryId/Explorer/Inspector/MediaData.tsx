@@ -8,12 +8,14 @@ import {
 	MediaDate,
 	MediaLocation,
 	MediaMetadata,
+	useSelector,
 	useUnitFormatStore
 } from '@sd/client';
 import { Accordion } from '~/components';
+import { useLocale } from '~/hooks';
 import { Platform, usePlatform } from '~/util/Platform';
 
-import { getExplorerStore, useExplorerStore } from '../store';
+import { explorerStore } from '../store';
 import { MetaData } from './index';
 
 interface Props {
@@ -97,30 +99,30 @@ const UrlMetadataValue = (props: { text: string; url: string; platform: Platform
 	</a>
 );
 
-const orientations = {
-	Normal: 'Normal',
-	MirroredHorizontal: 'Horizontally mirrored',
-	MirroredHorizontalAnd90CW: 'Mirrored horizontally and rotated 90° clockwise',
-	MirroredHorizontalAnd270CW: 'Mirrored horizontally and rotated 270° clockwise',
-	MirroredVertical: 'Vertically mirrored',
-	CW90: 'Rotated 90° clockwise',
-	CW180: 'Rotated 180° clockwise',
-	CW270: 'Rotated 270° clockwise'
-};
+// const orientations = {
+// 	Normal: 'Normal',
+// 	MirroredHorizontal: 'Horizontally mirrored',
+// 	MirroredHorizontalAnd90CW: 'Mirrored horizontally and rotated 90° clockwise',
+// 	MirroredHorizontalAnd270CW: 'Mirrored horizontally and rotated 270° clockwise',
+// 	MirroredVertical: 'Vertically mirrored',
+// 	CW90: 'Rotated 90° clockwise',
+// 	CW180: 'Rotated 180° clockwise',
+// 	CW270: 'Rotated 270° clockwise'
+// };
 
 const MediaData = ({ data }: Props) => {
 	const platform = usePlatform();
+	const { t } = useLocale();
 	const coordinatesFormat = useUnitFormatStore().coordinatesFormat;
-
-	const explorerStore = useExplorerStore();
+	const showMoreInfo = useSelector(explorerStore, (s) => s.showMoreInfo);
 
 	return data.type === 'Image' ? (
 		<div className="flex flex-col gap-0 py-2">
 			<Accordion
-				isOpen={explorerStore.showMoreInfo}
-				onToggle={(isOpen) => (getExplorerStore().showMoreInfo = isOpen)}
+				isOpen={showMoreInfo}
+				onToggle={(isOpen) => (explorerStore.showMoreInfo = isOpen)}
 				variant="apple"
-				title="More info"
+				title={t('more_info')}
 			>
 				<MetaData
 					label="Date"

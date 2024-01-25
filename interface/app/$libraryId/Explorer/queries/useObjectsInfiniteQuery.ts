@@ -1,32 +1,35 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import {
 	ExplorerItem,
 	ObjectCursor,
 	ObjectOrder,
 	ObjectSearchArgs,
+	useLibraryContext,
+	useNodes,
 	useRspcLibraryContext
 } from '@sd/client';
 
 import { UseExplorerInfiniteQueryArgs } from './useExplorerInfiniteQuery';
 
 export function useObjectsInfiniteQuery({
-	library,
 	arg,
-	settings,
+	explorerSettings,
 	...args
 }: UseExplorerInfiniteQueryArgs<ObjectSearchArgs, ObjectOrder>) {
+	const { library } = useLibraryContext();
 	const ctx = useRspcLibraryContext();
-	const explorerSettings = settings.useSettingsSnapshot();
+	const settings = explorerSettings.useSettingsSnapshot();
 
-	if (explorerSettings.order) {
-		arg.orderAndPagination = { orderOnly: explorerSettings.order };
+	if (settings.order) {
+		arg.orderAndPagination = { orderOnly: settings.order };
 	}
 
-	return useInfiniteQuery({
+	const query = useInfiniteQuery({
 		queryKey: ['search.objects', { library_id: library.uuid, arg }] as const,
 		queryFn: ({ pageParam, queryKey: [_, { arg }] }) => {
 			const cItem: Extract<ExplorerItem, { type: 'Object' }> = pageParam;
-			const { order } = explorerSettings;
+			const { order } = settings;
 
 			let orderAndPagination: (typeof arg)['orderAndPagination'];
 
@@ -61,8 +64,17 @@ export function useObjectsInfiniteQuery({
 		},
 		getNextPageParam: (lastPage) => {
 			if (lastPage.items.length < arg.take) return undefined;
-			else return lastPage.items[arg.take - 1];
+			else return lastPage.nodes[arg.take - 1];
 		},
 		...args
 	});
+
+	const nodes = useMemo(
+		() => query.data?.pages.flatMap((page) => page.nodes) ?? [],
+		[query.data?.pages]
+	);
+
+	useNodes(nodes);
+
+	return query;
 }

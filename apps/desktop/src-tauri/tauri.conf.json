@@ -11,9 +11,6 @@
 	"tauri": {
 		"macOSPrivateApi": true,
 		"bundle": {
-			"appimage": {
-				"bundleMediaFramework": true
-			},
 			"active": true,
 			"targets": ["deb", "msi", "dmg", "updater"],
 			"identifier": "com.spacedrive.desktop",
@@ -24,27 +21,32 @@
 				"icons/icon.icns",
 				"icons/icon.ico"
 			],
-			"resources": [],
+			"resources": {},
 			"externalBin": [],
 			"copyright": "Spacedrive Technology Inc.",
 			"shortDescription": "File explorer from the future.",
 			"longDescription": "Cross-platform universal file explorer, powered by an open-source virtual distributed filesystem.",
 			"deb": {
+				"files": {
+					"/usr/share/spacedrive/models/yolov8s.onnx": "../../.deps/models/yolov8s.onnx"
+				},
 				"depends": ["libc6"]
 			},
 			"macOS": {
-				"frameworks": ["../../.deps/Spacedrive.framework"],
 				"minimumSystemVersion": "10.15",
-				"exceptionDomain": "",
-				"entitlements": null
+				"exceptionDomain": null,
+				"entitlements": null,
+				"frameworks": ["../../.deps/Spacedrive.framework"]
 			},
 			"windows": {
 				"certificateThumbprint": null,
+				"webviewInstallMode": { "type": "embedBootstrapper", "silent": true },
 				"digestAlgorithm": "sha256",
 				"timestampUrl": "",
 				"wix": {
-					"bannerPath": "icons/WindowsBanner.bmp",
-					"dialogImagePath": "icons/WindowsDialogImage.bmp"
+					"enableElevatedUpdateTask": true,
+					"dialogImagePath": "icons/WindowsDialogImage.bmp",
+					"bannerPath": "icons/WindowsBanner.bmp"
 				}
 			}
 		},
@@ -83,6 +85,7 @@
 		"windows": [
 			{
 				"title": "Spacedrive",
+				"hiddenTitle": true,
 				"width": 1400,
 				"height": 725,
 				"minWidth": 768,

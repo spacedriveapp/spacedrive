@@ -1,30 +1,34 @@
-import type { RouteObject } from 'react-router-dom';
-import { Navigate } from 'react-router-dom';
-import { useHomeDir } from '~/hooks/useHomeDir';
+import { redirect } from '@remix-run/router';
+import { type RouteObject } from 'react-router-dom';
+import { Platform } from '~/util/Platform';
 
+import { debugRoutes } from './debug';
 import settingsRoutes from './settings';
 
 // Routes that should be contained within the standard Page layout
 const pageRoutes: RouteObject = {
 	lazy: () => import('./PageLayout'),
 	children: [
-		{ path: 'people', lazy: () => import('./people') },
-		{ path: 'media', lazy: () => import('./media') },
-		{ path: 'spaces', lazy: () => import('./spaces') },
-		{ path: 'debug', lazy: () => import('./debug') },
-		{ path: 'sync', lazy: () => import('./sync') }
+		{ path: 'overview', lazy: () => import('./overview') },
+		// { path: 'labels', lazy: () => import('./labels') },
+		// { path: 'spaces', lazy: () => import('./spaces') },
+		{ path: 'debug', children: debugRoutes }
 	]
 };
 
 // Routes that render the explorer and don't need padding and stuff
 // provided by PageLayout
 const explorerRoutes: RouteObject[] = [
+	{ path: 'recents', lazy: () => import('./recents') },
+	{ path: 'favorites', lazy: () => import('./favorites') },
+	{ path: 'labels', lazy: () => import('./labels') },
+	{ path: 'search', lazy: () => import('./search') },
 	{ path: 'ephemeral/:id', lazy: () => import('./ephemeral') },
 	{ path: 'location/:id', lazy: () => import('./location/$id') },
 	{ path: 'node/:id', lazy: () => import('./node/$id') },
 	{ path: 'tag/:id', lazy: () => import('./tag/$id') },
-	{ path: 'network', lazy: () => import('./network') }
-	// { path: 'search/:id', lazy: () => import('./search') }
+	{ path: 'network', lazy: () => import('./network') },
+	{ path: 'saved-search/:id', lazy: () => import('./saved-search/$id') }
 ];
 
 // Routes that should render with the top bar - pretty much everything except
@@ -34,25 +38,23 @@ const topBarRoutes: RouteObject = {
 	children: [...explorerRoutes, pageRoutes]
 };
 
-export default [
-	{
-		index: true,
-		Component: () => {
-			const homeDir = useHomeDir();
-
-			if (homeDir.data)
-				return (
-					<Navigate to={`ephemeral/0?${new URLSearchParams({ path: homeDir.data })}`} />
-				);
-
-			return <Navigate to="network" />;
-		}
-	},
-	topBarRoutes,
-	{
-		path: 'settings',
-		lazy: () => import('./settings/Layout'),
-		children: settingsRoutes
-	},
-	{ path: '*', lazy: () => import('./404') }
-] satisfies RouteObject[];
+export default (platform: Platform) =>
+	[
+		{
+			index: true,
+			loader: async () => {
+				if (!platform.userHomeDir) return redirect(`network`);
+				const homeDir = await platform.userHomeDir();
+				return redirect(`ephemeral/0?${new URLSearchParams({ path: homeDir })}`, {
+					replace: true
+				});
+			}
+		},
+		topBarRoutes,
+		{
+			path: 'settings',
+			lazy: () => import('./settings/Layout'),
+			children: settingsRoutes
+		},
+		{ path: '*', lazy: () => import('./404') }
+	] satisfies RouteObject[];

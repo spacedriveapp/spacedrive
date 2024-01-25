@@ -6,9 +6,8 @@ import { DiscordIcon, GitHubIcon } from '~/components/icons/Brands';
 import { Button } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
 import { tw } from '~/lib/tailwind';
-import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
-const AboutScreen = ({ navigation }: SettingsStackScreenProps<'About'>) => {
+const AboutScreen = () => {
 	const buildInfo = useBridgeQuery(['buildInfo']);
 
 	return (

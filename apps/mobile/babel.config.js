@@ -23,6 +23,7 @@ module.exports = function (api) {
 					}
 				}
 			]
-		]
+		],
+		overrides: [{ test: /\.solid.tsx$/, presets: ['solid'] }]
 	};
 };

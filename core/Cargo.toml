@@ -1,6 +1,6 @@
 [package]
 name = "sd-core"
-version = "0.1.3"
+version = "0.2.0"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc."]
 rust-version = "1.73.0"
@@ -16,111 +16,124 @@ mobile = []
 ffmpeg = ["dep:sd-ffmpeg"]
 location-watcher = ["dep:notify"]
 heif = ["sd-images/heif"]
+ai = ["dep:sd-ai"]
 
 [dependencies]
-sd-media-metadata = { path = "../crates/media-metadata" }
-sd-prisma = { path = "../crates/prisma" }
-sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
-sd-crypto = { path = "../crates/crypto", features = [
-  "rspc",
-  "specta",
-  "serde",
-  "keymanager",
-] }
-
-sd-images = { path = "../crates/images", features = [
-  "rspc",
-  "serde",
-  "specta",
-] }
-sd-file-ext = { path = "../crates/file-ext" }
-sd-sync = { path = "../crates/sync" }
-sd-p2p = { path = "../crates/p2p", features = ["specta", "serde"] }
-sd-utils = { path = "../crates/utils" }
+# Sub-crates
+sd-cache = { path = "../crates/cache" }
 sd-core-sync = { path = "./crates/sync" }
+# sd-cloud-api = { path = "../crates/cloud-api" }
+sd-crypto = { path = "../crates/crypto", features = [
+	"rspc",
+	"specta",
+	"serde",
+	"keymanager",
+] }
+sd-file-path-helper = { path = "../crates/file-path-helper" }
+sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
+sd-file-ext = { path = "../crates/file-ext" }
+sd-images = { path = "../crates/images", features = [
+	"rspc",
+	"serde",
+	"specta",
+] }
+sd-media-metadata = { path = "../crates/media-metadata" }
+sd-p2p = { path = "../crates/p2p", features = ["specta", "serde"] }
+sd-prisma = { path = "../crates/prisma" }
+sd-ai = { path = "../crates/ai", optional = true }
+sd-sync = { path = "../crates/sync" }
+sd-utils = { path = "../crates/utils" }
+sd-cloud-api = { version = "0.1.0", path = "../crates/cloud-api" }
 
-rspc = { workspace = true, features = [
-  "uuid",
-  "chrono",
-  "tracing",
-  "alpha",
-  "unstable",
-] }
+
+# Workspace dependencies
+async-channel = { workspace = true }
+axum = { workspace = true }
+base64 = { workspace = true }
+blake3 = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+futures = { workspace = true }
+futures-concurrency = { workspace = true }
+image = { workspace = true }
+normpath = { workspace = true, features = ["localization"] }
+once_cell = { workspace = true }
+pin-project-lite = { workspace = true }
 prisma-client-rust = { workspace = true }
-specta = { workspace = true }
-tokio = { workspace = true, features = [
-  "sync",
-  "rt-multi-thread",
-  "io-util",
-  "macros",
-  "time",
-  "process",
+regex = { workspace = true }
+reqwest = { workspace = true, features = ["json", "native-tls-vendored"] }
+rmp-serde = { workspace = true }
+rspc = { workspace = true, features = [
+	"uuid",
+	"chrono",
+	"tracing",
+	"alpha",
+	"unstable",
 ] }
-serde = { version = "1.0", features = ["derive"] }
-chrono = { version = "0.4.31", features = ["serde"] }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-serde_repr = "0.1"
-futures = "0.3"
-rmp-serde = "^1.1.2"
-rmpv = "^1.0.1"
-blake3 = "1.5.0"
-hostname = "0.3.1"
-uuid = { workspace = true }
-sysinfo = "0.29.10"
-thiserror = "1.0.50"
-async-trait = "^0.1.74"
-image = "0.24.7"
-webp = "0.2.6"
+specta = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
+strum_macros = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = [
+	"sync",
+	"rt-multi-thread",
+	"io-util",
+	"macros",
+	"time",
+	"process",
+] }
+tokio-stream = { workspace = true, features = ["fs"] }
+tokio-util = { workspace = true, features = ["io"] }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
-async-stream = "0.3.5"
-once_cell = "1.18.0"
-ctor = "0.2.5"
-globset = { version = "^0.4.13", features = ["serde1"] }
-itertools = "^0.11.0"
-http-range = "0.1.5"
-mini-moka = "0.10.2"
-serde_with = "3.4.0"
-notify = { git="https://github.com/notify-rs/notify.git", branch="main", default-features = false, features = [
-  "macos_fsevent",
-], optional = true }
-static_assertions = "1.1.0"
-serde-hashkey = "0.4.5"
-normpath = { version = "1.1.1", features = ["localization"] }
 tracing-appender = { workspace = true }
-strum = { version = "0.25", features = ["derive"] }
-strum_macros = "0.25"
-regex = "1.10.2"
-int-enum = "0.5.0"
-tokio-stream = { version = "0.1.14", features = ["fs"] }
-futures-concurrency = "7.4.3"
-async-channel = "2.0.0"
-tokio-util = { version = "0.7.10", features = ["io"] }
-slotmap = "1.0.6"
-flate2 = "1.0.28"
-tar = "0.4.40"
-tempfile = "^3.8.1"
-axum = "0.6.20"
-http-body = "0.4.5"
-pin-project-lite = "0.2.13"
-bytes = "1.5.0"
-reqwest = { version = "0.11.22", features = ["json", "native-tls-vendored"] }
-directories = "5.0.1"
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+uuid = { workspace = true, features = ["v4", "serde"] }
+webp = { workspace = true }
+
+
+# Specific Core dependencies
 async-recursion = "1.0.5"
+async-stream = "0.3.5"
+async-trait = "^0.1.74"
+bytes = "1.5.0"
+ctor = "0.2.5"
+directories = "5.0.1"
+flate2 = "1.0.28"
+globset = { version = "^0.4.13", features = ["serde1"] }
+hostname = "0.3.1"
+http-body = "0.4.5"
+http-range = "0.1.5"
+int-enum = "0.5.0"
+itertools = "0.12.0"
+mini-moka = "0.10.2"
+notify = { version = "=5.2.0", default-features = false, features = [
+	"macos_fsevent",
+], optional = true }
+rmpv = "^1.0.1"
+serde-hashkey = "0.4.5"
+serde_repr = "0.1"
+serde_with = "3.4.0"
+slotmap = "1.0.6"
+static_assertions = "1.1.0"
+sysinfo = "0.29.10"
+tar = "0.4.40"
+aws-sdk-s3 = { version = "1.5.0", features = ["behavior-version-latest"] }
+aws-config = "1.0.3"
+aws-credential-types = "1.0.3"
 
 # Override features of transitive dependencies
 [dependencies.openssl]
-version = "=0.10.57"
+version = "=0.10.61"
 features = ["vendored"]
 [dependencies.openssl-sys]
-version = "=0.9.93"
+version = "=0.9.97"
 features = ["vendored"]
 
+# Platform-specific dependencies
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"
-
-[target.'cfg(windows)'.dependencies.winapi-util]
-version = "0.1.6"
 
 [dev-dependencies]
 tracing-test = "^0.2.4"

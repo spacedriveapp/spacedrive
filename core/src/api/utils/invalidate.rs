@@ -88,6 +88,12 @@ impl InvalidRequests {
 
 			let queries = r.queries();
 			for req in &invalidate_requests.queries {
+				// This is a subscription in Rust but is query in React where it needs revalidation.
+				// We also don't check it's arguments are valid because we can't, lol.
+				if req.key == "search.ephemeralPaths" {
+					continue;
+				}
+
 				if let Some(query_ty) = queries.get(req.key) {
 					if let Some(arg) = &req.arg_ty {
 						if &query_ty.ty.input != arg {
@@ -282,7 +288,7 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 		R.router()
 			.procedure(
 				"test-invalidate",
-				R.query(move |_, _: ()| count.fetch_add(1, Ordering::SeqCst)),
+				R.query(move |_, _: ()| Ok(count.fetch_add(1, Ordering::SeqCst))),
 			)
 			.procedure(
 				"test-invalidate-mutation",
@@ -304,59 +310,85 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 				let mut event_bus_rx = ctx.event_bus.0.subscribe();
 				let tx = tx.clone();
 				let manager_thread_active = manager_thread_active.clone();
-				tokio::spawn(async move {
-					let mut buf = HashMap::with_capacity(100);
-					let mut invalidate_all = false;
 
+				tokio::spawn(async move {
 					loop {
-						tokio::select! {
-							event = event_bus_rx.recv() => {
-								if let Ok(event) = event {
-									if let CoreEvent::InvalidateOperation(op) = event {
-										if invalidate_all {
+						let Ok(CoreEvent::InvalidateOperation(first_event)) =
+							event_bus_rx.recv().await
+						else {
+							continue;
+						};
+
+						let mut buf =
+							match &first_event {
+								InvalidateOperationEvent::All => None,
+								InvalidateOperationEvent::Single(
+									SingleInvalidateOperationEvent { key, arg, .. },
+								) => {
+									let key = match to_key(&(key, arg)) {
+										Ok(key) => key,
+										Err(err) => {
+											warn!("Error deriving key for invalidate operation '{:?}': {:?}", first_event, err);
 											continue;
 										}
+									};
 
-										match &op {
-											InvalidateOperationEvent::Single(SingleInvalidateOperationEvent { key, arg, .. }) => {
-												// Newer data replaces older data in the buffer
-												match to_key(&(key, &arg)) {
-													Ok(key) => {
-														buf.insert(key, op);
-													},
-													Err(err) => {
-														warn!("Error deriving key for invalidate operation '{:?}': {:?}", op, err);
-													},
-												}
-											},
-											InvalidateOperationEvent::All => {
-												invalidate_all = true;
-												buf.clear();
-											}
-										}
-									}
-								} else {
-									warn!("Shutting down invalidation manager thread due to the core event bus being dropped!");
+									let mut map = HashMap::with_capacity(20);
+									map.insert(key, first_event);
+
+									Some(map)
+								}
+							};
+						let batch_time = tokio::time::Instant::now() + Duration::from_millis(10);
+
+						loop {
+							tokio::select! {
+								_ = tokio::time::sleep_until(batch_time) => {
 									break;
 								}
-							},
-							_ = tokio::time::sleep(Duration::from_millis(10)) => {
-								let events = match invalidate_all {
-									true => vec![InvalidateOperationEvent::all()],
-									false => buf.drain().map(|(_k, v)| v).collect::<Vec<_>>(),
-								};
+								event = event_bus_rx.recv() => {
+									let Ok(event) = event else {
+										warn!("Shutting down invalidation manager thread due to the core event bus being dropped!");
+										break;
+									};
 
-								if !events.is_empty() {
-									match tx.send(events) {
-										Ok(_) => {},
-										// All receivers are shutdown means that all clients are disconnected.
-										Err(_) => {
-											debug!("Shutting down invalidation manager! This is normal if all clients disconnects.");
-											manager_thread_active.swap(false, Ordering::Relaxed);
-											break;
-										}
+									let CoreEvent::InvalidateOperation(op) = event else { continue; };
+
+									match (&op, &mut buf) {
+										(InvalidateOperationEvent::All, Some(_)) => buf = None,
+										(InvalidateOperationEvent::Single(SingleInvalidateOperationEvent { key, arg, .. }), Some(buf)) => {
+											// Newer data replaces older data in the buffer
+											match to_key(&(key, &arg)) {
+												Ok(key) => {
+													buf.insert(key, op);
+												},
+												Err(err) => {
+													warn!("Error deriving key for invalidate operation '{:?}': {:?}", op, err);
+												},
+											}
+										},
+										_ => {}
 									}
-								}
+								},
+							}
+						}
+
+						let events = match buf {
+							None => vec![InvalidateOperationEvent::all()],
+							Some(buf) => buf.into_values().collect::<Vec<_>>(),
+						};
+
+						if events.is_empty() {
+							break;
+						}
+
+						match tx.send(events) {
+							Ok(_) => {}
+							// All receivers are shutdown means that all clients are disconnected.
+							Err(_) => {
+								debug!("Shutting down invalidation manager! This is normal if all clients disconnects.");
+								manager_thread_active.swap(false, Ordering::Relaxed);
+								break;
 							}
 						}
 					}

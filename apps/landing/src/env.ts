@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 export const env = createEnv({
 	server: {
+		NODE_ENV: z.enum(['development', 'production', 'test']),
 		DATABASE_URL: z.string().url(),
 		SLACK_FEEDBACK_URL: z.string().url(),
 		AUTH_SECRET: z.string(),
@@ -21,6 +22,7 @@ export const env = createEnv({
 	},
 	client: {},
 	runtimeEnv: {
+		NODE_ENV: process.env.NODE_ENV,
 		DATABASE_URL: process.env.DATABASE_URL,
 		SLACK_FEEDBACK_URL: process.env.SLACK_FEEDBACK_URL,
 		AUTH_SECRET: process.env.AUTH_SECRET,
@@ -39,5 +41,6 @@ export const env = createEnv({
 	},
 	// In dev or in eslint disable checking.
 	// Kinda sucks for in dev but you don't need the whole setup to change the docs.
-	skipValidation: process.env.VERCEL !== '1'
+	skipValidation: process.env.VERCEL !== '1',
+	emptyStringAsUndefined: true
 });

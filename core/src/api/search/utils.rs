@@ -1,8 +1,9 @@
 use sd_prisma::prisma;
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-#[derive(Deserialize, Type, Debug, Clone)]
+#[derive(Serialize, Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum Range<T> {
 	From(T),
@@ -25,21 +26,21 @@ impl From<SortOrder> for prisma::SortOrder {
 	}
 }
 
-#[derive(Deserialize, Type, Debug, Clone)]
-#[serde(untagged)]
-pub enum MaybeNot<T> {
-	None(T),
-	Not { not: T },
-}
+// #[derive(Deserialize, Type, Debug, Clone)]
+// #[serde(untagged)]
+// pub enum MaybeNot<T> {
+// 	None(T),
+// 	Not { not: T },
+// }
 
-impl<T> MaybeNot<T> {
-	pub fn into_prisma<R: From<prisma_client_rust::Operator<R>>>(self, param: fn(T) -> R) -> R {
-		match self {
-			Self::None(v) => param(v),
-			Self::Not { not } => prisma_client_rust::not![param(not)],
-		}
-	}
-}
+// impl<T> MaybeNot<T> {
+// 	pub fn into_prisma<R: From<prisma_client_rust::Operator<R>>>(self, param: fn(T) -> R) -> R {
+// 		match self {
+// 			Self::None(v) => param(v),
+// 			Self::Not { not } => prisma_client_rust::not![param(not)],
+// 		}
+// 	}
+// }
 
 #[derive(Deserialize, Type, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -56,7 +57,7 @@ pub enum OrderAndPagination<TId, TOrder, TCursor> {
 	Cursor { id: TId, cursor: TCursor },
 }
 
-#[derive(Deserialize, Type, Debug, Clone)]
+#[derive(Serialize, Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum InOrNotIn<T> {
 	In(Vec<T>),
@@ -71,7 +72,7 @@ impl<T> InOrNotIn<T> {
 		}
 	}
 
-	pub fn to_param<TParam>(
+	pub fn into_param<TParam>(
 		self,
 		in_fn: fn(Vec<T>) -> TParam,
 		not_in_fn: fn(Vec<T>) -> TParam,
@@ -85,7 +86,7 @@ impl<T> InOrNotIn<T> {
 	}
 }
 
-#[derive(Deserialize, Type, Debug, Clone)]
+#[derive(Serialize, Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum TextMatch {
 	Contains(String),
@@ -105,7 +106,7 @@ impl TextMatch {
 	}
 
 	// 3. Update the to_param method of TextMatch
-	pub fn to_param<TParam>(
+	pub fn into_param<TParam>(
 		self,
 		contains_fn: fn(String) -> TParam,
 		starts_with_fn: fn(String) -> TParam,

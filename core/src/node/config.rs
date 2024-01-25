@@ -1,14 +1,11 @@
 use crate::{
 	api::{notifications::Notification, BackendFeature},
-	auth::OAuthToken,
 	object::media::thumbnail::preferences::ThumbnailerPreferences,
-	util::{
-		error::FileIOError,
-		version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
-	},
+	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 
 use sd_p2p::{Keypair, ManagerConfig};
+use sd_utils::error::FileIOError;
 
 use std::{
 	path::{Path, PathBuf},
@@ -51,10 +48,11 @@ pub struct NodeConfig {
 	#[serde(default)]
 	pub features: Vec<BackendFeature>,
 	/// Authentication for Spacedrive Accounts
-	pub auth_token: Option<OAuthToken>,
-
+	pub auth_token: Option<sd_cloud_api::auth::OAuthToken>,
 	/// The aggreagation of many different preferences for the node
 	pub preferences: NodePreferences,
+	// Model version for the image labeler
+	pub image_labeler_version: Option<String>,
 
 	version: NodeConfigVersion,
 }
@@ -90,6 +88,11 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 		};
 		name.truncate(250);
 
+		#[cfg(feature = "ai")]
+		let image_labeler_version = Some(sd_ai::image_labeler::DEFAULT_MODEL_VERSION.to_string());
+		#[cfg(not(feature = "ai"))]
+		let image_labeler_version = None;
+
 		Some(Self {
 			id: Uuid::new_v4(),
 			name,
@@ -100,6 +103,7 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 			notifications: vec![],
 			auth_token: None,
 			preferences: NodePreferences::default(),
+			image_labeler_version,
 		})
 	}
 }
@@ -206,7 +210,18 @@ impl Manager {
 		let data_directory_path = data_directory_path.as_ref().to_path_buf();
 		let config_file_path = data_directory_path.join(NODE_STATE_CONFIG_NAME);
 
-		let config = NodeConfig::load(&config_file_path).await?;
+		let mut config = NodeConfig::load(&config_file_path).await?;
+
+		#[cfg(feature = "ai")]
+		if config.image_labeler_version.is_none() {
+			config.image_labeler_version =
+				Some(sd_ai::image_labeler::DEFAULT_MODEL_VERSION.to_string());
+		}
+
+		#[cfg(not(feature = "ai"))]
+		{
+			config.image_labeler_version = None;
+		}
 
 		let (preferences_watcher_tx, _preferences_watcher_rx) =
 			watch::channel(config.preferences.clone());

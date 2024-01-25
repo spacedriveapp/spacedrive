@@ -1,9 +1,10 @@
-use std::sync::Arc;
+use crate::p2p::P2PManager;
 
 use sd_p2p::PeerMessageEvent;
-use tracing::debug;
 
-use crate::p2p::P2PManager;
+use std::sync::Arc;
+
+use tracing::debug;
 
 /// Send a ping to all peers we are connected to
 #[allow(unused)]

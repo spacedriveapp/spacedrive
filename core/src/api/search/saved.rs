@@ -1,80 +1,78 @@
+use crate::{api::utils::library, invalidate_query};
+
+use sd_prisma::prisma::saved_search;
+use sd_utils::chain_optional_iter;
+
 use chrono::{DateTime, FixedOffset, Utc};
 use rspc::alpha::AlphaRouter;
-use sd_utils::chain_optional_iter;
-use serde::{Deserialize, Serialize};
+use serde::{de::IgnoredAny, Deserialize, Serialize};
 use specta::Type;
+use tracing::error;
 use uuid::Uuid;
 
-use crate::{api::utils::library, library::Library, prisma::saved_search};
-
 use super::{Ctx, R};
-
-#[derive(Serialize, Type, Deserialize, Clone, Debug)]
-pub struct Filter {
-	pub value: String,
-	pub name: String,
-	pub icon: Option<String>,
-	pub filter_type: i32,
-}
-
-#[derive(Serialize, Type, Deserialize, Clone, Debug)]
-pub struct SavedSearchCreateArgs {
-	pub name: Option<String>,
-	pub filters: Option<Vec<Filter>>,
-	pub description: Option<String>,
-	pub icon: Option<String>,
-}
-
-#[derive(Serialize, Type, Deserialize, Clone, Debug)]
-pub struct SavedSearchUpdateArgs {
-	pub id: i32,
-	pub name: Option<String>,
-	pub filters: Option<Vec<Filter>>,
-	pub description: Option<String>,
-	pub icon: Option<String>,
-}
-
-impl SavedSearchCreateArgs {
-	pub async fn exec(
-		self,
-		Library { db, .. }: &Library,
-	) -> prisma_client_rust::Result<saved_search::Data> {
-		print!("SavedSearchCreateArgs {:?}", self);
-		let pub_id = Uuid::new_v4().as_bytes().to_vec();
-		let date_created: DateTime<FixedOffset> = Utc::now().into();
-
-		db.saved_search()
-			.create(
-				pub_id,
-				chain_optional_iter(
-					[saved_search::date_created::set(Some(date_created))],
-					[
-						self.name.map(Some).map(saved_search::name::set),
-						self.filters
-							.map(|f| serde_json::to_string(&f).unwrap().into_bytes())
-							.map(Some)
-							.map(saved_search::filters::set),
-						self.description
-							.map(Some)
-							.map(saved_search::description::set),
-						self.icon.map(Some).map(saved_search::icon::set),
-					],
-				),
-			)
-			.exec()
-			.await
-	}
-}
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("create", {
-			R.with2(library())
-				.mutation(|(_, library), args: SavedSearchCreateArgs| async move {
-					args.exec(&library).await?;
-					// invalidate_query!(library, "search.saved.list");
+			R.with2(library()).mutation({
+				#[derive(Serialize, Type, Deserialize, Clone, Debug)]
+				#[specta(inline)]
+				pub struct Args {
+					pub name: String,
+					#[specta(optional)]
+					pub search: Option<String>,
+					#[specta(optional)]
+					pub filters: Option<String>,
+					#[specta(optional)]
+					pub description: Option<String>,
+					#[specta(optional)]
+					pub icon: Option<String>,
+				}
+
+				|(_, library), args: Args| async move {
+					let pub_id = Uuid::new_v4().as_bytes().to_vec();
+					let date_created: DateTime<FixedOffset> = Utc::now().into();
+
+					library
+						.db
+						.saved_search()
+						.create(
+							pub_id,
+							chain_optional_iter(
+								[
+									saved_search::date_created::set(Some(date_created)),
+									saved_search::name::set(Some(args.name)),
+								],
+								[
+									args.filters
+										.map(|s| {
+											// https://github.com/serde-rs/json/issues/579
+											// https://docs.rs/serde/latest/serde/de/struct.IgnoredAny.html
+											if let Err(e) = serde_json::from_str::<IgnoredAny>(&s) {
+												error!("failed to parse filters: {e:#?}");
+												None
+											} else {
+												Some(s)
+											}
+										})
+										.map(saved_search::filters::set),
+									args.search.map(Some).map(saved_search::search::set),
+									args.description
+										.map(Some)
+										.map(saved_search::description::set),
+									args.icon.map(Some).map(saved_search::icon::set),
+								],
+							),
+						)
+						.exec()
+						.await?;
+
+					invalidate_query!(library, "search.saved.list");
+
 					Ok(())
-				})
+				}
+			})
 		})
 		.procedure("get", {
 			R.with2(library())
@@ -88,87 +86,43 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("list", {
-			#[derive(Serialize, Type, Deserialize, Clone)]
-			pub struct SavedSearchResponse {
-				pub id: i32,
-				pub pub_id: Vec<u8>,
-				pub name: Option<String>,
-				pub icon: Option<String>,
-				pub description: Option<String>,
-				pub order: Option<i32>,
-				pub date_created: Option<DateTime<FixedOffset>>,
-				pub date_modified: Option<DateTime<FixedOffset>>,
-				pub filters: Option<Vec<Filter>>,
-			}
 			R.with2(library()).query(|(_, library), _: ()| async move {
-				let searches: Vec<saved_search::Data> = library
+				Ok(library
 					.db
 					.saved_search()
 					.find_many(vec![])
 					// .order_by(saved_search::order::order(prisma::SortOrder::Desc))
 					.exec()
-					.await?;
-				let result: Result<Vec<SavedSearchResponse>, _> = searches
-					.into_iter()
-					.map(|search| {
-						let filters_bytes = search.filters.unwrap_or_default();
-
-						let filters_string = String::from_utf8(filters_bytes).unwrap();
-						let filters: Vec<Filter> = serde_json::from_str(&filters_string).unwrap();
-
-						Ok(SavedSearchResponse {
-							id: search.id,
-							pub_id: search.pub_id,
-							name: search.name,
-							icon: search.icon,
-							description: search.description,
-							order: search.order,
-							date_created: search.date_created,
-							date_modified: search.date_modified,
-							filters: Some(filters),
-						})
-					})
-					.collect(); // Collects the Result, if there is any Err it will be propagated.
-
-				result
+					.await?)
 			})
 		})
 		.procedure("update", {
-			R.with2(library())
-				.mutation(|(_, library), args: SavedSearchUpdateArgs| async move {
-					let mut params = vec![];
+			R.with2(library()).mutation({
+				saved_search::partial_unchecked!(Args {
+					name
+					description
+					icon
+					search
+					filters
+				});
 
-					if let Some(name) = args.name {
-						params.push(saved_search::name::set(Some(name)));
-					}
-
-					if let Some(filters) = &args.filters {
-						let filters_as_string = serde_json::to_string(filters).unwrap();
-						let filters_as_bytes = filters_as_string.into_bytes();
-						params.push(saved_search::filters::set(Some(filters_as_bytes)));
-					}
-
-					if let Some(description) = args.description {
-						params.push(saved_search::description::set(Some(description)));
-					}
-
-					if let Some(icon) = args.icon {
-						params.push(saved_search::icon::set(Some(icon)));
-					}
-
+				|(_, library), (id, args): (saved_search::id::Type, Args)| async move {
+					let mut params = args.to_params();
 					params.push(saved_search::date_modified::set(Some(Utc::now().into())));
 
 					library
 						.db
 						.saved_search()
-						.update(saved_search::id::equals(args.id), params)
+						.update_unchecked(saved_search::id::equals(id), params)
 						.exec()
 						.await?;
 
-					// invalidate_query!(library, "search.saved.list");
+					invalidate_query!(library, "search.saved.list");
+					invalidate_query!(library, "search.saved.get");
 
 					Ok(())
-				})
+				}
+			})
 		})
 		.procedure("delete", {
 			R.with2(library())
@@ -179,7 +133,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.delete(saved_search::id::equals(search_id))
 						.exec()
 						.await?;
-					// invalidate_query!(library, "search.saved.list");
+
+					invalidate_query!(library, "search.saved.list");
+					// disabled as it's messing with pre-delete navigation
+					// invalidate_query!(library, "search.saved.get");
+
 					Ok(())
 				})
 		})

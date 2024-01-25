@@ -10,6 +10,7 @@ interface Props {
 	description?: string | JSX.Element;
 	mini?: boolean;
 	className?: string;
+	containerClassName?: string;
 	toolTipLabel?: string | boolean;
 	infoUrl?: string;
 }
@@ -22,7 +23,7 @@ export default ({ mini, registerName, ...props }: PropsWithChildren<Props>) => {
 
 	return (
 		<>
-			<div className="relative flex flex-row">
+			<div className={clsx('relative flex flex-row', props.containerClassName)}>
 				<div className={clsx('flex w-full flex-col', !mini && 'pb-6', props.className)}>
 					<div className="mb-1 flex items-center gap-1">
 						<h3 className="text-sm font-medium text-ink">{props.title}</h3>

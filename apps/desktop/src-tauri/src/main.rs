@@ -3,16 +3,24 @@
 	windows_subsystem = "windows"
 )]
 
-use std::{fs, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+	collections::HashMap,
+	fs,
+	path::PathBuf,
+	sync::{Arc, Mutex, PoisonError},
+	time::Duration,
+};
 
 use sd_core::{Node, NodeError};
 
 use sd_fda::DiskAccess;
+use serde::{Deserialize, Serialize};
 use tauri::{
-	api::path, ipc::RemoteDomainAccessScope, window::PlatformWebview, AppHandle, Manager,
-	WindowEvent,
+	api::path, ipc::RemoteDomainAccessScope, window::PlatformWebview, AppHandle, FileDropEvent,
+	Manager, Window, WindowEvent,
 };
 use tauri_plugins::{sd_error_plugin, sd_server_plugin};
+use tauri_specta::{collect_events, ts, Event};
 use tokio::time::sleep;
 use tracing::error;
 
@@ -47,7 +55,7 @@ async fn set_menu_bar_item_state(_window: tauri::Window, _id: String, _enabled: 
 			.menu_handle()
 			.get_item(&_id)
 			.set_enabled(_enabled)
-			.expect("Unable to modify menu item")
+			.expect("Unable to modify menu item");
 	}
 }
 
@@ -65,7 +73,7 @@ fn reload_webview_inner(webview: PlatformWebview) {
 	#[cfg(target_os = "macos")]
 	{
 		unsafe {
-			sd_desktop_macos::reload_webview(&(webview.inner() as _));
+			sd_desktop_macos::reload_webview(&webview.inner().cast());
 		}
 	}
 	#[cfg(target_os = "linux")]
@@ -143,14 +151,17 @@ async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
 	})
 }
 
-// TODO(@Oscar): A helper like this should probs exist in tauri-specta
-macro_rules! tauri_handlers {
-	($($name:path),+) => {{
-		#[cfg(debug_assertions)]
-		tauri_specta::ts::export(specta::collect_types![$($name),+], "../src/commands.ts").unwrap();
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
+#[serde(tag = "type")]
+pub enum DragAndDropEvent {
+	Hovered { paths: Vec<String>, x: f64, y: f64 },
+	Dropped { paths: Vec<String>, x: f64, y: f64 },
+	Cancelled,
+}
 
-		tauri::generate_handler![$($name),+]
-	}};
+#[derive(Default)]
+pub struct DragAndDropState {
+	windows: HashMap<tauri::Window, tokio::task::JoinHandle<()>>,
 }
 
 const CLIENT_ID: &str = "2abb241e-40b8-4517-a3e3-5594375c8fbb";
@@ -171,14 +182,7 @@ async fn main() -> tauri::Result<()> {
 	let (_guard, result) = match Node::init_logger(&data_dir) {
 		Ok(guard) => (
 			Some(guard),
-			Node::new(
-				data_dir,
-				sd_core::Env {
-					api_url: "https://app.spacedrive.com".to_string(),
-					client_id: CLIENT_ID.to_string(),
-				},
-			)
-			.await,
+			Node::new(data_dir, sd_core::Env::new(CLIENT_ID)).await,
 		),
 		Err(err) => (None, Err(NodeError::Logger(err))),
 	};
@@ -204,7 +208,7 @@ async fn main() -> tauri::Result<()> {
 			let node = node.clone();
 			move || node.clone()
 		}))
-		.plugin(sd_server_plugin(node.clone()).unwrap()) // TODO: Handle `unwrap`
+		.plugin(sd_server_plugin(node.clone()).await.unwrap()) // TODO: Handle `unwrap`
 		.manage(node.clone());
 
 	// macOS expected behavior is for the app to not exit when the main window is closed.
@@ -219,9 +223,42 @@ async fn main() -> tauri::Result<()> {
 		}
 	});
 
+	let specta_builder = {
+		let specta_builder = ts::builder()
+			.events(collect_events![DragAndDropEvent])
+			.commands(tauri_specta::collect_commands![
+				app_ready,
+				reset_spacedrive,
+				open_logs_dir,
+				refresh_menu_bar,
+				reload_webview,
+				set_menu_bar_item_state,
+				request_fda_macos,
+				file::open_file_paths,
+				file::open_ephemeral_files,
+				file::get_file_path_open_with_apps,
+				file::get_ephemeral_files_open_with_apps,
+				file::open_file_path_with,
+				file::open_ephemeral_file_with,
+				file::reveal_items,
+				theme::lock_app_theme,
+				// TODO: move to plugin w/tauri-specta
+				updater::check_for_update,
+				updater::install_update
+			])
+			.config(specta::ts::ExportConfig::default().formatter(specta::ts::formatter::prettier));
+
+		#[cfg(debug_assertions)]
+		let specta_builder = specta_builder.path("../src/commands.ts");
+
+		specta_builder.into_plugin()
+	};
+
+	let file_drop_status = Arc::new(Mutex::new(DragAndDropState::default()));
 	let app = app
 		.plugin(updater::plugin())
 		.plugin(tauri_plugin_window_state::Builder::default().build())
+		.plugin(specta_builder)
 		.setup(move |app| {
 			let app = app.handle();
 
@@ -233,8 +270,8 @@ async fn main() -> tauri::Result<()> {
 						if !window.is_visible().unwrap_or(true) {
 							// This happens if the JS bundle crashes and hence doesn't send ready event.
 							println!(
-							"Window did not emit `app_ready` event fast enough. Showing window..."
-						);
+								"Window did not emit `app_ready` event fast enough. Showing window..."
+							);
 							window.show().expect("Main window should show");
 						}
 					}
@@ -245,18 +282,16 @@ async fn main() -> tauri::Result<()> {
 
 				#[cfg(target_os = "macos")]
 				{
-					use sd_desktop_macos::*;
+					use sd_desktop_macos::{blur_window_background, set_titlebar_style};
 
 					let nswindow = window.ns_window().unwrap();
 
-					unsafe { set_titlebar_style(&nswindow, true) };
+					unsafe { set_titlebar_style(&nswindow, false) };
 					unsafe { blur_window_background(&nswindow) };
-
-					let menu_handle = window.menu_handle();
 
 					tokio::spawn({
 						let libraries = node.libraries.clone();
-						let menu_handle = menu_handle.clone();
+						let menu_handle = window.menu_handle();
 						async move {
 							if libraries.get_all().await.is_empty() {
 								menu::set_library_locked_menu_items_enabled(menu_handle, false);
@@ -276,8 +311,83 @@ async fn main() -> tauri::Result<()> {
 			Ok(())
 		})
 		.on_menu_event(menu::handle_menu_event)
-		.on_window_event(|event| {
-			if let WindowEvent::Resized(_) = event.event() {
+		.on_window_event(move |event| match event.event() {
+			WindowEvent::FileDrop(drop) => {
+				let window = event.window();
+				let mut file_drop_status = file_drop_status
+					.lock()
+					.unwrap_or_else(PoisonError::into_inner);
+
+				match drop {
+					FileDropEvent::Hovered(paths) => {
+						// Look this shouldn't happen but let's be sure we don't leak threads.
+						if file_drop_status.windows.contains_key(window) {
+							return;
+						}
+
+						// We setup a thread to keep emitting the updated position of the cursor
+						// It will be killed when the `FileDropEvent` is finished or cancelled.
+						let paths = paths.clone();
+						file_drop_status.windows.insert(window.clone(), {
+							let window = window.clone();
+							tokio::spawn(async move {
+								let (mut last_x, mut last_y) = (0.0, 0.0);
+								loop {
+									let (x, y) = mouse_position(&window);
+
+									let x_diff = difference(x, last_x);
+									let y_diff = difference(y, last_y);
+
+									// If the mouse hasn't moved much we will "debounce" the event
+									if x_diff > 28.0 || y_diff > 28.0 {
+										last_x = x;
+										last_y = y;
+
+										DragAndDropEvent::Hovered {
+											paths: paths
+												.iter()
+												.filter_map(|x| x.to_str().map(|x| x.to_string()))
+												.collect(),
+											x,
+											y,
+										}
+										.emit(&window)
+										.ok();
+									}
+
+									sleep(Duration::from_millis(125)).await;
+								}
+							})
+						});
+					}
+					FileDropEvent::Dropped(paths) => {
+						if let Some(handle) = file_drop_status.windows.remove(window) {
+							handle.abort();
+						}
+
+						let (x, y) = mouse_position(window);
+						DragAndDropEvent::Dropped {
+							paths: paths
+								.iter()
+								.filter_map(|x| x.to_str().map(|x| x.to_string()))
+								.collect(),
+							x,
+							y,
+						}
+						.emit(window)
+						.ok();
+					}
+					FileDropEvent::Cancelled => {
+						if let Some(handle) = file_drop_status.windows.remove(window) {
+							handle.abort();
+						}
+
+						DragAndDropEvent::Cancelled.emit(window).ok();
+					}
+					_ => unreachable!(),
+				}
+			}
+			WindowEvent::Resized(_) => {
 				let (_state, command) = if event
 					.window()
 					.is_fullscreen()
@@ -299,31 +409,38 @@ async fn main() -> tauri::Result<()> {
 					unsafe { sd_desktop_macos::set_titlebar_style(&nswindow, _state) };
 				}
 			}
+			_ => {}
 		})
 		.menu(menu::get_menu())
 		.manage(updater::State::default())
-		.invoke_handler(tauri_handlers![
-			app_ready,
-			reset_spacedrive,
-			open_logs_dir,
-			refresh_menu_bar,
-			reload_webview,
-			set_menu_bar_item_state,
-			request_fda_macos,
-			file::open_file_paths,
-			file::open_ephemeral_files,
-			file::get_file_path_open_with_apps,
-			file::get_ephemeral_files_open_with_apps,
-			file::open_file_path_with,
-			file::open_ephemeral_file_with,
-			file::reveal_items,
-			theme::lock_app_theme,
-			// TODO: move to plugin w/tauri-specta
-			updater::check_for_update,
-			updater::install_update
-		])
 		.build(tauri::generate_context!())?;
 
 	app.run(|_, _| {});
 	Ok(())
+}
+
+// Get the mouse position relative to the window
+fn mouse_position(window: &Window) -> (f64, f64) {
+	// We apply the OS scaling factor.
+	// Tauri/Webkit *should* be responsible for this but it would seem it is bugged on the current webkit/tauri/wry/tao version.
+	// Using newer Webkit did fix this automatically but I can't for the life of me work out how to get the right glibc versions in CI so we can't ship it.
+	let scale_factor = window.scale_factor().unwrap();
+
+	let window_pos = window.outer_position().unwrap();
+	let cursor_pos = window.cursor_position().unwrap();
+
+	(
+		(cursor_pos.x - window_pos.x as f64) / scale_factor,
+		(cursor_pos.y - window_pos.y as f64) / scale_factor,
+	)
+}
+
+// The distance between two numbers as a positive integer.
+fn difference(a: f64, b: f64) -> f64 {
+	let x = a - b;
+	if x < 0.0 {
+		x * -1.0
+	} else {
+		x
+	}
 }

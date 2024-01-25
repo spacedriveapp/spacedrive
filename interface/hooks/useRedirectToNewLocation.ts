@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router';
-import { useLibraryQuery } from '@sd/client';
-import { getExplorerStore, useExplorerStore } from '~/app/$libraryId/Explorer/store';
+import { useLibraryQuery, useSelector } from '@sd/client';
+import { explorerStore } from '~/app/$libraryId/Explorer/store';
 
 import { LibraryIdParamsSchema } from '../app/route-schemas';
 import { useZodRouteParams } from './useZodRouteParams';
@@ -14,7 +14,7 @@ import { useZodRouteParams } from './useZodRouteParams';
 export const useRedirectToNewLocation = () => {
 	const navigate = useNavigate();
 	const { libraryId } = useZodRouteParams(LibraryIdParamsSchema);
-	const { newLocationToRedirect: newLocation } = useExplorerStore();
+	const newLocation = useSelector(explorerStore, (s) => s.newLocationToRedirect);
 	const { data: jobGroups } = useLibraryQuery(['jobs.reports'], {
 		enabled: newLocation != null,
 		refetchOnWindowFocus: false
@@ -25,12 +25,12 @@ export const useRedirectToNewLocation = () => {
 		.some(
 			(j) =>
 				j.name === 'indexer' &&
-				j.metadata?.location.id === newLocation &&
+				(j.metadata as any)?.location.id === newLocation &&
 				(j.completed_task_count > 0 || j.completed_at != null)
 		);
 
 	if (hasIndexerJob) {
 		navigate(`/${libraryId}/location/${newLocation}`);
-		getExplorerStore().newLocationToRedirect = null;
+		explorerStore.newLocationToRedirect = null;
 	}
 };

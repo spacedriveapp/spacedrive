@@ -1,4 +1,5 @@
-import { useBridgeQuery, useLibraryContext } from '@sd/client';
+import { t } from 'i18next';
+import { useBridgeQuery, useCache, useLibraryContext, useNodes } from '@sd/client';
 import { Button, dialogManager } from '@sd/ui';
 
 import { Heading } from '../../Layout';
@@ -6,15 +7,17 @@ import CreateDialog from './CreateDialog';
 import ListItem from './ListItem';
 
 export const Component = () => {
-	const libraries = useBridgeQuery(['library.list']);
+	const librariesQuery = useBridgeQuery(['library.list']);
+	useNodes(librariesQuery.data?.nodes);
+	const libraries = useCache(librariesQuery.data?.items);
 
 	const { library } = useLibraryContext();
 
 	return (
 		<>
 			<Heading
-				title="Libraries"
-				description="The database contains all library data and file metadata."
+				title={t('libraries')}
+				description={t("libraries_description")}
 				rightArea={
 					<div className="flex-row space-x-2">
 						<Button
@@ -24,14 +27,14 @@ export const Component = () => {
 								dialogManager.create((dp) => <CreateDialog {...dp} />);
 							}}
 						>
-							Add Library
+							{t("add_library")}
 						</Button>
 					</div>
 				}
 			/>
 
 			<div className="space-y-2">
-				{libraries.data
+				{libraries
 					?.sort((a, b) => {
 						if (a.uuid === library.uuid) return -1;
 						if (b.uuid === library.uuid) return 1;

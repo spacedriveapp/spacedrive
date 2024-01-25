@@ -1,22 +1,22 @@
+use crate::{
+	node::{config, get_hardware_model_name, HardwareModel},
+	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
+};
+
+use sd_p2p::{
+	spacetunnel::RemoteIdentity, Manager, ManagerConfig, ManagerError, PeerStatus, Service,
+};
 use std::{
 	collections::{HashMap, HashSet},
 	net::SocketAddr,
 	sync::{atomic::AtomicBool, Arc},
 };
 
-use sd_p2p::{
-	spacetunnel::RemoteIdentity, Manager, ManagerConfig, ManagerError, PeerStatus, Service,
-};
 use serde::Serialize;
 use specta::Type;
 use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
 use tracing::info;
 use uuid::Uuid;
-
-use crate::{
-	node::config,
-	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
-};
 
 use super::{
 	LibraryMetadata, LibraryServices, P2PEvent, P2PManagerActor, PairingManager, PeerMetadata,
@@ -94,6 +94,7 @@ impl P2PManager {
 			PeerMetadata {
 				name: config.name.clone(),
 				operating_system: Some(OperatingSystem::get_os()),
+				device_model: Some(get_hardware_model_name().unwrap_or(HardwareModel::Other)),
 				version: Some(env!("CARGO_PKG_VERSION").to_string()),
 			}
 		});

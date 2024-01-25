@@ -14,6 +14,13 @@ serde = []
 specta = []
 
 [dependencies]
+base64 = { workspace = true }
+pin-project-lite = { workspace = true }
+serde = { workspace = true, features = [
+	"derive",
+] } # TODO: Optional or remove feature
+specta = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true, features = [
 	"macros",
 	"sync",
@@ -21,30 +28,25 @@ tokio = { workspace = true, features = [
 	"io-util",
 	"fs",
 ] }
-libp2p = { version = "0.52.4", features = ["tokio", "serde"] }
-libp2p-quic = { version = "0.9.3", features = ["tokio"] }
+tokio-stream = { workspace = true, features = ["sync"] }
+tokio-util = { workspace = true, features = ["compat"] }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+ed25519-dalek = { version = "2.0.0", features = [] }
+flume = "0.10.0" # Must match version used by `mdns-sd`
+futures-core = "0.3.29"
 if-watch = { version = "=3.1.0", features = [
 	"tokio",
 ] } # Override the features of if-watch which is used by libp2p-quic
+libp2p = { version = "0.52.4", features = ["tokio", "serde"] }
+libp2p-quic = { version = "0.9.3", features = ["tokio"] }
 mdns-sd = "0.9.3"
-thiserror = "1.0.50"
-tracing = { workspace = true }
-serde = { version = "1.0.190", features = [
-	"derive",
-] } # TODO: Optional or remove feature
-specta = { workspace = true }
-flume = "0.10.0" # Must match version used by `mdns-sd`
-tokio-util = { version = "0.7.10", features = ["compat"] }
-ed25519-dalek = { version = "2.0.0", features = [] }
 rand_core = { version = "0.6.4" }
-uuid = "1.5.0"
 streamunordered = "0.5.3"
-futures-core = "0.3.29"
-tokio-stream = { version = "0.1.14", features = ["sync"] }
-pin-project-lite = "0.2.13"
-base64 = "0.21.5"
+zeroize = { version = "1.7.0", features = ["derive"]}
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
-uuid = { version = "1.5.0", features = ["v4"] }
+uuid = { workspace = true, features = ["v4"] }

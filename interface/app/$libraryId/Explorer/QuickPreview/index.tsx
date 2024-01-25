@@ -1,4 +1,12 @@
-import { ArrowLeft, ArrowRight, DotsThree, Plus, SidebarSimple, X } from '@phosphor-icons/react';
+import {
+	ArrowLeft,
+	ArrowRight,
+	DotsThree,
+	Plus,
+	SidebarSimple,
+	Slideshow,
+	X
+} from '@phosphor-icons/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import clsx from 'clsx';
 import {
@@ -17,7 +25,6 @@ import {
 	ExplorerItem,
 	getEphemeralPath,
 	getExplorerItemData,
-	getExplorerLayoutStore,
 	getIndexedItemFilePath,
 	ObjectKindKey,
 	useExplorerLayoutStore,
@@ -27,7 +34,7 @@ import {
 	useZodForm
 } from '@sd/client';
 import { DropdownMenu, Form, toast, ToastMessage, Tooltip, z } from '@sd/ui';
-import { useIsDark, useOperatingSystem, useShortcut } from '~/hooks';
+import { useIsDark, useLocale, useOperatingSystem, useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
@@ -74,6 +81,8 @@ export const QuickPreview = () => {
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
 	const [newName, setNewName] = useState<string | null>(null);
+
+	const { t } = useLocale();
 
 	const items = useMemo(() => {
 		if (!open || !explorer.items || explorer.selectedItems.size === 0) return [];
@@ -145,15 +154,6 @@ export const QuickPreview = () => {
 		setShowMetadata(false);
 	}, [item, open]);
 
-	// Toggle quick preview
-	useShortcut('toggleQuickPreview', (e) => {
-		if (isRenaming) return;
-
-		e.preventDefault();
-
-		getQuickPreviewStore().open = !open;
-	});
-
 	const handleMoveBetweenItems = (step: number) => {
 		const nextPreviewItem = items[itemIndex + step];
 		if (nextPreviewItem) {
@@ -162,7 +162,7 @@ export const QuickPreview = () => {
 		}
 
 		if (!activeItem || !explorer.items) return;
-		if (items.length > 1 && !getExplorerLayoutStore().showImageSlider) return;
+		if (items.length > 1 && !explorerLayoutStore.showImageSlider) return;
 
 		const newSelectedItem =
 			items.length > 1 &&
@@ -277,7 +277,7 @@ export const QuickPreview = () => {
 									)}
 								>
 									<div className="flex flex-1">
-										<Tooltip label="Close">
+										<Tooltip label={t('close')}>
 											<Dialog.Close asChild>
 												<IconButton>
 													<X weight="bold" />
@@ -287,7 +287,7 @@ export const QuickPreview = () => {
 
 										{items.length > 1 && (
 											<div className="ml-2 flex">
-												<Tooltip label="Back">
+												<Tooltip label={t('back')}>
 													<IconButton
 														disabled={!items[itemIndex - 1]}
 														onClick={() =>
@@ -299,7 +299,7 @@ export const QuickPreview = () => {
 													</IconButton>
 												</Tooltip>
 
-												<Tooltip label="Forward">
+												<Tooltip label={t('forward')}>
 													<IconButton
 														disabled={!items[itemIndex + 1]}
 														onClick={() =>
@@ -404,11 +404,11 @@ export const QuickPreview = () => {
 										)}
 									</div>
 
-									<div className="flex flex-1 justify-end gap-1">
+									<div className="flex flex-1 items-center justify-end gap-1">
 										<DropdownMenu.Root
 											trigger={
 												<div className="flex">
-													<Tooltip label="More">
+													<Tooltip label={t('more')}>
 														<IconButton>
 															<DotsThree size={20} weight="bold" />
 														</IconButton>
@@ -428,7 +428,7 @@ export const QuickPreview = () => {
 												/>
 
 												<DropdownMenu.Item
-													label="Rename"
+													label={t('rename')}
 													onClick={() => name && setIsRenaming(true)}
 												/>
 
@@ -447,7 +447,7 @@ export const QuickPreview = () => {
 												>
 													{(items) => (
 														<DropdownMenu.SubMenu
-															label="More actions..."
+															label={t('more_actions')}
 															icon={Plus}
 														>
 															{items}
@@ -461,7 +461,26 @@ export const QuickPreview = () => {
 											</ExplorerContextMenu>
 										</DropdownMenu.Root>
 
-										<Tooltip label="Show details">
+										<Tooltip label={t('show_slider')}>
+											<IconButton
+												onClick={() =>
+													(explorerLayoutStore.showImageSlider =
+														!explorerLayoutStore.showImageSlider)
+												}
+												className="w-fit px-2 text-[10px]"
+											>
+												<Slideshow
+													size={16.5}
+													weight={
+														explorerLayoutStore.showImageSlider
+															? 'fill'
+															: 'regular'
+													}
+												/>
+											</IconButton>
+										</Tooltip>
+
+										<Tooltip label={t('show_details')}>
 											<IconButton
 												onClick={() => setShowMetadata(!showMetadata)}
 												active={showMetadata}
@@ -478,16 +497,17 @@ export const QuickPreview = () => {
 								<FileThumb
 									data={item}
 									onLoad={(type) =>
-										type === 'ORIGINAL' && setThumbErrorToast(undefined)
+										type.variant === 'original' && setThumbErrorToast(undefined)
 									}
 									onError={(type, error) =>
-										type === 'ORIGINAL' &&
+										type.variant === 'original' &&
 										setThumbErrorToast({
-											title: 'Error loading original file',
+											title: t('error_loading_original_file'),
 											body: error.message
 										})
 									}
 									loadOriginal
+									frameClassName="!border-0"
 									mediaControls
 									className={clsx(
 										'm-3 !w-auto flex-1 !overflow-hidden rounded',

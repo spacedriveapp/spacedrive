@@ -1,3 +1,11 @@
+use crate::{
+	invalidate_query,
+	library::{Library, LibraryManagerError},
+	Node,
+};
+
+use sd_utils::error::FileIOError;
+
 use std::{
 	cmp,
 	path::{Path, PathBuf},
@@ -24,13 +32,6 @@ use tokio::{
 };
 use tracing::{error, info};
 use uuid::Uuid;
-
-use crate::{
-	invalidate_query,
-	library::{Library, LibraryManagerError},
-	util::error::FileIOError,
-	Node,
-};
 
 use super::{utils::library, Ctx, R};
 
@@ -115,29 +116,30 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("backup", {
 			R.with2(library())
-				.mutation(|(node, library), _: ()| start_backup(node, library))
+				.mutation(
+					|(node, library), _: ()| async move { Ok(start_backup(node, library).await) },
+				)
 		})
 		.procedure("restore", {
-			R
-				// TODO: Paths as strings is bad but here we want the flexibility of the frontend allowing any path
-				.mutation(|node, path: String| start_restore(node, path.into()))
+			R.mutation(|node, path: PathBuf| async move {
+				start_restore(node, path).await;
+				Ok(())
+			})
 		})
 		.procedure("delete", {
-			R
-				// TODO: Paths as strings is bad but here we want the flexibility of the frontend allowing any path
-				.mutation(|node, path: String| async move {
-					fs::remove_file(path)
-						.await
-						.map(|_| {
-							invalidate_query!(node; node, "backups.getAll");
-						})
-						.map_err(|_| {
-							rspc::Error::new(
-								ErrorCode::InternalServerError,
-								"Error deleting backup!".to_string(),
-							)
-						})
-				})
+			R.mutation(|node, path: PathBuf| async move {
+				fs::remove_file(path)
+					.await
+					.map(|_| {
+						invalidate_query!(node; node, "backups.getAll");
+					})
+					.map_err(|_| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"Error deleting backup!".to_string(),
+						)
+					})
+			})
 		})
 }
 

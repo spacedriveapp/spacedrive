@@ -3,6 +3,13 @@ import { auth } from '@sd/client';
 
 export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unknown';
 
+// This is copied from the Tauri Specta output.
+// It will only exist on desktop
+export type DragAndDropEvent =
+	| { type: 'Hovered'; paths: string[]; x: number; y: number }
+	| { type: 'Dropped'; paths: string[]; x: number; y: number }
+	| { type: 'Cancelled' };
+
 // Platform represents the underlying native layer the app is running on.
 // This could be Tauri or web.
 export type Platform = {
@@ -45,6 +52,7 @@ export type Platform = {
 	refreshMenuBar?(): Promise<unknown>;
 	setMenuBarItemState?(id: string, enabled: boolean): Promise<unknown>;
 	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;
+	subscribeToDragAndDropEvents?(callback: (event: DragAndDropEvent) => void): Promise<() => void>;
 	updater?: {
 		useSnapshot: () => UpdateStore;
 		checkForUpdate(): Promise<Update | null>;

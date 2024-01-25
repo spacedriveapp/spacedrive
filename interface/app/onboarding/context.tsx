@@ -3,13 +3,15 @@ import { createContext, useContext } from 'react';
 import { useNavigate } from 'react-router';
 import {
 	currentLibraryCache,
-	getOnboardingStore,
-	getUnitFormatStore,
+	insertLibrary,
+	onboardingStore,
 	resetOnboardingStore,
-	telemetryStore,
+	telemetryState,
+	unitFormatStore,
 	useBridgeMutation,
 	useCachedLibraries,
 	useMultiZodForm,
+	useNormalisedCache,
 	useOnboardingStore,
 	usePlausibleEvent
 } from '@sd/client';
@@ -81,7 +83,7 @@ const useFormState = () => {
 				shareTelemetry: 'share-telemetry'
 			}
 		},
-		onData: (data) => (getOnboardingStore().data = { ...obStore.data, ...data })
+		onData: (data) => (onboardingStore.data = { ...obStore.data, ...data })
 	});
 
 	const navigate = useNavigate();
@@ -90,11 +92,12 @@ const useFormState = () => {
 
 	if (window.navigator.language === 'en-US') {
 		// not perfect as some linux users use en-US by default, same w/ windows
-		getUnitFormatStore().distanceFormat = 'miles';
-		getUnitFormatStore().temperatureFormat = 'fahrenheit';
+		unitFormatStore.distanceFormat = 'miles';
+		unitFormatStore.temperatureFormat = 'fahrenheit';
 	}
 
 	const createLibrary = useBridgeMutation('library.create');
+	const cache = useNormalisedCache();
 
 	const submit = handleSubmit(
 		async (data) => {
@@ -102,28 +105,24 @@ const useFormState = () => {
 
 			// opted to place this here as users could change their mind before library creation/onboarding finalization
 			// it feels more fitting to configure it here (once)
-			telemetryStore.shareFullTelemetry = data.privacy.shareTelemetry === 'share-telemetry';
+			telemetryState.shareFullTelemetry = data.privacy.shareTelemetry === 'share-telemetry';
 
 			try {
 				// show creation screen for a bit for smoothness
-				const [library] = await Promise.all([
+				const [libraryRaw] = await Promise.all([
 					createLibrary.mutateAsync({
 						name: data['new-library'].name,
 						default_locations: data.locations.locations
 					}),
 					new Promise((res) => setTimeout(res, 500))
 				]);
-
-				queryClient.setQueryData(['library.list'], (libraries: any) => {
-					// The invalidation system beat us to it
-					if (libraries.find((l: any) => l.uuid === library.uuid)) return libraries;
-
-					return [...(libraries || []), library];
-				});
+				cache.withNodes(libraryRaw.nodes);
+				const library = cache.withCache(libraryRaw.item);
+				insertLibrary(queryClient, library);
 
 				platform.refreshMenuBar && platform.refreshMenuBar();
 
-				if (telemetryStore.shareFullTelemetry) {
+				if (telemetryState.shareFullTelemetry) {
 					submitPlausibleEvent({ event: { type: 'libraryCreate' } });
 				}
 

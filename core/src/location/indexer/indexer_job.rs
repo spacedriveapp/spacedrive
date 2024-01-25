@@ -5,21 +5,20 @@ use crate::{
 		JobStepOutput, StatefulJob, WorkerContext,
 	},
 	library::Library,
-	location::{
-		file_path_helper::{
-			ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-			IsolatedFilePathData,
-		},
-		location_with_indexer_rules, update_location_size,
-	},
-	prisma::{file_path, location},
+	location::{location_with_indexer_rules, update_location_size},
 	to_remove_db_fetcher_fn,
-	util::db::maybe_missing,
 };
 
-use sd_prisma::prisma_sync;
+use sd_file_path_helper::{
+	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+	IsolatedFilePathData,
+};
+use sd_prisma::{
+	prisma::{file_path, location},
+	prisma_sync,
+};
 use sd_sync::*;
-use sd_utils::from_bytes_to_uuid;
+use sd_utils::{db::maybe_missing, from_bytes_to_uuid};
 
 use std::{
 	collections::HashMap,
@@ -447,8 +446,8 @@ impl StatefulJob for IndexerJobInit {
 					vec![
 						ScanProgress::ChunkCount(more_steps.len() - to_walk_count),
 						ScanProgress::Message(format!(
-							"Scanned more {} files or directories; \
-							{} more directories to scan and more {} entries to update",
+							"Scanned {} more files or directories; \
+							{} more directories to scan and {} more entries to update",
 							new_metadata.total_paths,
 							to_walk_count,
 							new_metadata.total_updated_paths

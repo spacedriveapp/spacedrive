@@ -1,13 +1,11 @@
 use crate::{
 	library::{Libraries, LibraryId},
 	object::media::thumbnail::ONE_SEC,
-	util::{
-		error::FileIOError,
-		version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
-	},
+	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 
 use sd_prisma::prisma::{file_path, PrismaClient};
+use sd_utils::error::FileIOError;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use std::{

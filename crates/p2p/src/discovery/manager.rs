@@ -14,11 +14,11 @@ use crate::{spacetunnel::RemoteIdentity, ManagerConfig, Mdns, ServiceEventIntern
 
 type ServiceName = String;
 
-pub(crate) type ListenAddrs = HashSet<SocketAddr>;
-pub(crate) type State = Arc<RwLock<DiscoveryManagerState>>;
+pub type ListenAddrs = HashSet<SocketAddr>;
+pub type State = Arc<RwLock<DiscoveryManagerState>>;
 
-/// DiscoveryManager controls all user-defined [Service]'s and connects them with the network through mDNS and other discovery protocols
-pub(crate) struct DiscoveryManager {
+/// `DiscoveryManager` controls all user-defined [Service]'s and connects them with the network through mDNS and other discovery protocols
+pub struct DiscoveryManager {
 	pub(crate) state: State,
 	pub(crate) listen_addrs: ListenAddrs,
 	pub(crate) application_name: &'static str,
@@ -86,7 +86,7 @@ impl DiscoveryManager {
 
 				self.do_advertisement();
 			}
-			_ = poll_fn(|cx| {
+			() = poll_fn(|cx| {
 				if let Some(mdns) = &mut self.mdns {
 					return mdns.poll(cx, &self.listen_addrs, &self.state);
 				}
@@ -105,7 +105,7 @@ impl DiscoveryManager {
 
 #[derive(Debug, Clone)]
 #[allow(clippy::type_complexity)]
-pub(crate) struct DiscoveryManagerState {
+pub struct DiscoveryManagerState {
 	/// A list of services the current node is advertising w/ their metadata
 	pub(crate) services: HashMap<
 		ServiceName,
@@ -131,6 +131,7 @@ pub(crate) struct DiscoveryManagerState {
 }
 
 impl DiscoveryManagerState {
+	#[must_use]
 	pub fn new() -> (Arc<RwLock<Self>>, mpsc::Receiver<String>) {
 		let (service_shutdown_tx, service_shutdown_rx) = mpsc::channel(10);
 
@@ -148,7 +149,7 @@ impl DiscoveryManagerState {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct DiscoveredPeerCandidate {
+pub struct DiscoveredPeerCandidate {
 	pub(crate) peer_id: PeerId,
 	pub(crate) meta: HashMap<String, String>,
 	pub(crate) addresses: Vec<SocketAddr>,

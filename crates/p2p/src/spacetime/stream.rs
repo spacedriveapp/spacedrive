@@ -10,6 +10,7 @@ use thiserror::Error;
 use tokio::{
 	io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt as TokioAsyncWriteExt, ReadBuf},
 	sync::oneshot,
+	time::{timeout, Duration},
 };
 use tokio_util::compat::Compat;
 
@@ -19,6 +20,7 @@ use crate::{
 };
 
 pub const CHALLENGE_LENGTH: usize = 32;
+const ONE_MINUTE: Duration = Duration::from_secs(60);
 
 /// A unicast stream is a direct stream to a specific peer.
 #[derive(Debug)]
@@ -46,11 +48,21 @@ impl UnicastStream {
 		// TODO: THIS IS INSECURE!!!!!
 		// We are just sending strings of the public key without any verification the other party holds the private key.
 		let mut actual = [0; REMOTE_IDENTITY_LEN];
-		io.read_exact(&mut actual).await?; // TODO: timeout
+		match timeout(ONE_MINUTE, io.read_exact(&mut actual)).await {
+			Ok(r) => r?,
+			Err(_) => return Err(UnicastStreamError::Timeout),
+		};
 		let remote = RemoteIdentity::from_bytes(&actual)?;
 
-		io.write_all(&identity.to_remote_identity().get_bytes())
-			.await?; // TODO: timeout
+		match timeout(
+			ONE_MINUTE,
+			io.write_all(&identity.to_remote_identity().get_bytes()),
+		)
+		.await
+		{
+			Ok(w) => w?,
+			Err(_) => return Err(UnicastStreamError::Timeout),
+		};
 
 		// TODO: Do we have something to compare against? I don't think so this is fine.
 		// if expected.get_bytes() != actual {
@@ -74,11 +86,21 @@ impl UnicastStream {
 
 		// TODO: THIS IS INSECURE!!!!!
 		// We are just sending strings of the public key without any verification the other party holds the private key.
-		io.write_all(&identity.to_remote_identity().get_bytes())
-			.await?; // TODO: Timeout
+		match timeout(
+			ONE_MINUTE,
+			io.write_all(&identity.to_remote_identity().get_bytes()),
+		)
+		.await
+		{
+			Ok(w) => w?,
+			Err(_) => return Err(UnicastStreamError::Timeout),
+		};
 
 		let mut actual = [0; REMOTE_IDENTITY_LEN];
-		io.read_exact(&mut actual).await?; // TODO: Timeout
+		match timeout(ONE_MINUTE, io.read_exact(&mut actual)).await {
+			Ok(r) => r?,
+			Err(_) => return Err(UnicastStreamError::Timeout),
+		};
 		let remote = RemoteIdentity::from_bytes(&actual)?;
 
 		// TODO: Do we have something to compare against? I don't think so this is fine.
@@ -93,6 +115,7 @@ impl UnicastStream {
 		})
 	}
 
+	#[must_use]
 	pub fn remote_identity(&self) -> RemoteIdentity {
 		self.remote
 	}
@@ -143,6 +166,8 @@ pub enum UnicastStreamError {
 	ErrManagerShutdown(#[from] oneshot::error::RecvError),
 	#[error("error getting peer id for '{0}'")]
 	ErrPeerIdNotFound(RemoteIdentity),
+	#[error("timeout")]
+	Timeout,
 }
 
 #[derive(Debug)]

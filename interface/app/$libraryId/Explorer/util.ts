@@ -1,21 +1,23 @@
 import { useMemo } from 'react';
-import { getExplorerItemData, type ExplorerItem } from '@sd/client';
+import { getExplorerItemData, useSelector, type ExplorerItem } from '@sd/client';
 import { ExplorerParamsSchema } from '~/app/route-schemas';
 import { useZodSearchParams } from '~/hooks';
 
-import { flattenThumbnailKey, useExplorerStore } from './store';
+import { explorerStore, flattenThumbnailKey } from './store';
 
 export function useExplorerSearchParams() {
 	return useZodSearchParams(ExplorerParamsSchema);
 }
 
 export function useExplorerItemData(explorerItem: ExplorerItem) {
-	const explorerStore = useExplorerStore();
+	const newThumbnail = useSelector(explorerStore, (s) => {
+		const firstThumbnail =
+			explorerItem.type === 'Label'
+				? explorerItem.thumbnails?.[0]
+				: 'thumbnail' in explorerItem && explorerItem.thumbnail;
 
-	const newThumbnail = !!(
-		explorerItem.thumbnail_key &&
-		explorerStore.newThumbnails.has(flattenThumbnailKey(explorerItem.thumbnail_key))
-	);
+		return !!(firstThumbnail && s.newThumbnails.has(flattenThumbnailKey(firstThumbnail)));
+	});
 
 	return useMemo(() => {
 		const itemData = getExplorerItemData(explorerItem);
@@ -27,6 +29,8 @@ export function useExplorerItemData(explorerItem: ExplorerItem) {
 		return itemData;
 	}, [explorerItem, newThumbnail]);
 }
+
+export type ExplorerItemData = ReturnType<typeof useExplorerItemData>;
 
 export const pubIdToString = (pub_id: number[]) =>
 	pub_id.map((b) => b.toString(16).padStart(2, '0')).join('');

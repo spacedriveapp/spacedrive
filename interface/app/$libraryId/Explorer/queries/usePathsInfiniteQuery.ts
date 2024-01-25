@@ -1,35 +1,40 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import {
 	ExplorerItem,
 	FilePathCursorVariant,
 	FilePathObjectCursor,
 	FilePathOrder,
 	FilePathSearchArgs,
+	useLibraryContext,
+	useNodes,
+	useNormalisedCache,
 	useRspcLibraryContext
 } from '@sd/client';
 
-import { getExplorerStore } from '../store';
+import { explorerStore } from '../store';
 import { UseExplorerInfiniteQueryArgs } from './useExplorerInfiniteQuery';
 
 export function usePathsInfiniteQuery({
-	library,
 	arg,
-	settings,
+	explorerSettings,
 	...args
 }: UseExplorerInfiniteQueryArgs<FilePathSearchArgs, FilePathOrder>) {
+	const { library } = useLibraryContext();
 	const ctx = useRspcLibraryContext();
-	const explorerSettings = settings.useSettingsSnapshot();
+	const settings = explorerSettings.useSettingsSnapshot();
+	const cache = useNormalisedCache();
 
-	if (explorerSettings.order) {
-		arg.orderAndPagination = { orderOnly: explorerSettings.order };
+	if (settings.order) {
+		arg.orderAndPagination = { orderOnly: settings.order };
 		if (arg.orderAndPagination.orderOnly.field === 'sizeInBytes') delete arg.take;
 	}
 
-	return useInfiniteQuery({
+	const query = useInfiniteQuery({
 		queryKey: ['search.paths', { library_id: library.uuid, arg }] as const,
-		queryFn: ({ pageParam, queryKey: [_, { arg }] }) => {
+		queryFn: async ({ pageParam, queryKey: [_, { arg }] }) => {
 			const cItem: Extract<ExplorerItem, { type: 'Path' }> = pageParam;
-			const { order } = explorerSettings;
+			const { order } = settings;
 
 			let orderAndPagination: (typeof arg)['orderAndPagination'];
 
@@ -119,14 +124,25 @@ export function usePathsInfiniteQuery({
 
 			arg.orderAndPagination = orderAndPagination;
 
-			return ctx.client.query(['search.paths', arg]);
+			const result = await ctx.client.query(['search.paths', arg]);
+			cache.withNodes(result.nodes);
+			return result;
 		},
 		getNextPageParam: (lastPage) => {
 			if (arg.take === null || arg.take === undefined) return undefined;
 			if (lastPage.items.length < arg.take) return undefined;
-			else return lastPage.items[arg.take - 1];
+			else return lastPage.nodes[arg.take - 1];
 		},
-		onSuccess: () => getExplorerStore().resetNewThumbnails(),
+		onSuccess: () => explorerStore.resetNewThumbnails(),
 		...args
 	});
+
+	const nodes = useMemo(
+		() => query.data?.pages.flatMap((page) => page.nodes) ?? [],
+		[query.data?.pages]
+	);
+
+	useNodes(nodes);
+
+	return query;
 }

@@ -1,14 +1,16 @@
+// use crate::library::Category;
+
+use sd_prisma::prisma::{self, label_on_object, object, tag_on_object};
+
 use chrono::{DateTime, FixedOffset};
-use prisma_client_rust::not;
-use prisma_client_rust::{or, OrderByQuery, PaginatedQuery, WhereQuery};
-use sd_prisma::prisma::{self, object, tag_on_object};
+use prisma_client_rust::{not, or, OrderByQuery, PaginatedQuery, WhereQuery};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-// use crate::library::Category;
-
-use super::media_data::*;
-use super::utils::{self, *};
+use super::{
+	media_data::*,
+	utils::{self, *},
+};
 
 #[derive(Deserialize, Type, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -28,25 +30,25 @@ impl ObjectCursor {
 
 				query.add_where(or![
 					match item.order {
-						SortOrder::Asc => prisma::object::$field::gt(data),
-						SortOrder::Desc => prisma::object::$field::lt(data),
+						SortOrder::Asc => object::$field::gt(data),
+						SortOrder::Desc => object::$field::lt(data),
 					},
 					prisma_client_rust::and![
-						prisma::object::$field::equals(Some(item.data)),
+						object::$field::equals(Some(item.data)),
 						match item.order {
-							SortOrder::Asc => prisma::object::id::gt(id),
-							SortOrder::Desc => prisma::object::id::lt(id),
+							SortOrder::Asc => object::id::gt(id),
+							SortOrder::Desc => object::id::lt(id),
 						}
 					]
 				]);
 
-				query.add_order_by(prisma::object::$field::order(item.order.into()));
+				query.add_order_by(object::$field::order(item.order.into()));
 			}};
 		}
 
 		match self {
 			Self::None => {
-				query.add_where(prisma::object::id::gt(id));
+				query.add_where(object::id::gt(id));
 			}
 			Self::Kind(item) => arm!(kind, item),
 			Self::DateAccessed(item) => arm!(date_accessed, item),
@@ -84,7 +86,7 @@ impl ObjectOrder {
 	}
 }
 
-#[derive(Deserialize, Type, Debug, Default, Clone, Copy)]
+#[derive(Serialize, Deserialize, Type, Debug, Default, Clone, Copy)]
 #[serde(rename_all = "camelCase")]
 pub enum ObjectHiddenFilter {
 	#[default]
@@ -104,13 +106,14 @@ impl ObjectHiddenFilter {
 	}
 }
 
-#[derive(Deserialize, Type, Debug, Clone)]
+#[derive(Serialize, Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum ObjectFilterArgs {
 	Favorite(bool),
 	Hidden(ObjectHiddenFilter),
 	Kind(InOrNotIn<i32>),
 	Tags(InOrNotIn<i32>),
+	Labels(InOrNotIn<i32>),
 	DateAccessed(Range<chrono::DateTime<FixedOffset>>),
 }
 
@@ -122,14 +125,21 @@ impl ObjectFilterArgs {
 			Self::Favorite(v) => vec![favorite::equals(Some(v))],
 			Self::Hidden(v) => v.to_param().map(|v| vec![v]).unwrap_or_default(),
 			Self::Tags(v) => v
-				.to_param(
+				.into_param(
 					|v| tags::some(vec![tag_on_object::tag_id::in_vec(v)]),
 					|v| tags::none(vec![tag_on_object::tag_id::in_vec(v)]),
 				)
 				.map(|v| vec![v])
 				.unwrap_or_default(),
+			Self::Labels(v) => v
+				.into_param(
+					|v| labels::some(vec![label_on_object::label_id::in_vec(v)]),
+					|v| labels::none(vec![label_on_object::label_id::in_vec(v)]),
+				)
+				.map(|v| vec![v])
+				.unwrap_or_default(),
 			Self::Kind(v) => v
-				.to_param(kind::in_vec, kind::not_in_vec)
+				.into_param(kind::in_vec, kind::not_in_vec)
 				.map(|v| vec![v])
 				.unwrap_or_default(),
 			Self::DateAccessed(v) => {
@@ -146,7 +156,7 @@ impl ObjectFilterArgs {
 }
 
 pub type OrderAndPagination =
-	utils::OrderAndPagination<prisma::object::id::Type, ObjectOrder, ObjectCursor>;
+	utils::OrderAndPagination<object::id::Type, ObjectOrder, ObjectCursor>;
 
 impl OrderAndPagination {
 	pub fn apply(self, query: &mut object::FindManyQuery) {
@@ -164,7 +174,7 @@ impl OrderAndPagination {
 			Self::Cursor { id, cursor } => {
 				cursor.apply(query, id);
 
-				query.add_order_by(prisma::object::pub_id::order(prisma::SortOrder::Asc))
+				query.add_order_by(object::pub_id::order(prisma::SortOrder::Asc))
 			}
 		}
 	}

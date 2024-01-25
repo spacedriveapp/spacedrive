@@ -6,12 +6,14 @@ use crate::{
 	object::media::thumbnail::actor::Thumbnailer,
 };
 
+#[cfg(feature = "ai")]
+use sd_ai::image_labeler::{DownloadModelError, ImageLabeler, YoloV8};
+
 use api::notifications::{Notification, NotificationData, NotificationId};
 use chrono::{DateTime, Utc};
 use node::config;
 use notifications::Notifications;
 use reqwest::{RequestBuilder, Response};
-pub use sd_prisma::*;
 
 use std::{
 	fmt,
@@ -26,15 +28,10 @@ use tracing_appender::{
 	non_blocking::{NonBlocking, WorkerGuard},
 	rolling::{RollingFileAppender, Rotation},
 };
-use tracing_subscriber::{
-	filter::{Directive, FromEnvError, LevelFilter},
-	fmt as tracing_fmt,
-	prelude::*,
-	EnvFilter,
-};
+use tracing_subscriber::{filter::FromEnvError, prelude::*, EnvFilter};
 
 pub mod api;
-mod auth;
+mod cloud;
 pub mod custom_uri;
 mod env;
 pub(crate) mod job;
@@ -66,8 +63,11 @@ pub struct Node {
 	pub notifications: Notifications,
 	pub thumbnailer: Thumbnailer,
 	pub files_over_p2p_flag: Arc<AtomicBool>,
-	pub env: env::Env,
+	pub cloud_sync_flag: Arc<AtomicBool>,
+	pub env: Arc<env::Env>,
 	pub http: reqwest::Client,
+	#[cfg(feature = "ai")]
+	pub image_labeller: ImageLabeler,
 }
 
 impl fmt::Debug for Node {
@@ -87,6 +87,8 @@ impl Node {
 
 		info!("Starting core with data directory '{}'", data_dir.display());
 
+		let env = Arc::new(env);
+
 		#[cfg(debug_assertions)]
 		let init_data = util::debug_initializer::InitConfig::load(data_dir).await?;
 
@@ -97,6 +99,11 @@ impl Node {
 		let config = config::Manager::new(data_dir.to_path_buf())
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
+
+		#[cfg(feature = "ai")]
+		sd_ai::init()?;
+		#[cfg(feature = "ai")]
+		let image_labeler_version = config.get().await.image_labeler_version;
 
 		let (locations, locations_actor) = location::Locations::new();
 		let (jobs, jobs_actor) = job::Jobs::new();
@@ -109,7 +116,7 @@ impl Node {
 			notifications: notifications::Notifications::new(),
 			p2p,
 			thumbnailer: Thumbnailer::new(
-				data_dir.to_path_buf(),
+				data_dir,
 				libraries.clone(),
 				event_bus.0.clone(),
 				config.preferences_watcher(),
@@ -119,8 +126,13 @@ impl Node {
 			event_bus,
 			libraries,
 			files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
+			cloud_sync_flag: Arc::new(AtomicBool::new(false)),
 			http: reqwest::Client::new(),
 			env,
+			#[cfg(feature = "ai")]
+			image_labeller: ImageLabeler::new(YoloV8::model(image_labeler_version)?, data_dir)
+				.await
+				.map_err(sd_ai::Error::from)?,
 		});
 
 		// Restore backend feature flags
@@ -158,46 +170,35 @@ impl Node {
 
 		// Set a default if the user hasn't set an override
 		if std::env::var("RUST_LOG") == Err(std::env::VarError::NotPresent) {
-			let directive: Directive = if cfg!(debug_assertions) {
-				LevelFilter::DEBUG
+			let level = if cfg!(debug_assertions) {
+				"debug"
 			} else {
-				LevelFilter::INFO
-			}
-			.into();
-			std::env::set_var("RUST_LOG", directive.to_string());
+				"info"
+			};
+
+			std::env::set_var(
+				"RUST_LOG",
+				format!("info,sd_core={level},sd_core::location::manager=info,sd_ai={level}"),
+			);
 		}
 
-		let collector = tracing_subscriber::registry()
+		tracing_subscriber::registry()
 			.with(
-				tracing_fmt::Subscriber::new()
+				tracing_subscriber::fmt::layer()
 					.with_file(true)
 					.with_line_number(true)
 					.with_ansi(false)
 					.with_writer(logfile)
-					.with_filter(
-						EnvFilter::builder()
-							.from_env()?
-							.add_directive("info".parse()?),
-					),
+					.with_filter(EnvFilter::from_default_env()),
 			)
 			.with(
-				tracing_fmt::Subscriber::new()
+				tracing_subscriber::fmt::layer()
 					.with_file(true)
 					.with_line_number(true)
 					.with_writer(std::io::stdout)
-					.with_filter(
-						EnvFilter::builder()
-							.from_env()?
-							// We don't wanna blow up the logs
-							.add_directive("sd_core::location::manager=info".parse()?),
-					),
-			);
-
-		tracing::collect::set_global_default(collector)
-			.map_err(|err| {
-				eprintln!("Error initializing global logger: {:?}", err);
-			})
-			.ok();
+					.with_filter(EnvFilter::from_default_env()),
+			)
+			.init();
 
 		std::panic::set_hook(Box::new(move |panic| {
 			if let Some(location) = panic.location() {
@@ -219,6 +220,8 @@ impl Node {
 		self.thumbnailer.shutdown().await;
 		self.jobs.shutdown().await;
 		self.p2p.shutdown().await;
+		#[cfg(feature = "ai")]
+		self.image_labeller.shutdown().await;
 		info!("Spacedrive Core shutdown successful!");
 	}
 
@@ -275,6 +278,23 @@ impl Node {
 			)
 		})
 	}
+
+	pub async fn api_request(&self, req: RequestBuilder) -> Result<Response, rspc::Error> {
+		req.send().await.map_err(|_| {
+			rspc::Error::new(
+				rspc::ErrorCode::InternalServerError,
+				"Request failed".to_string(),
+			)
+		})
+	}
+
+	pub async fn cloud_api_config(&self) -> sd_cloud_api::RequestConfig {
+		sd_cloud_api::RequestConfig {
+			client: self.http.clone(),
+			api_url: self.env.api_url.lock().await.clone(),
+			auth_token: self.config.get().await.auth_token,
+		}
+	}
 }
 
 /// Error type for Node related errors.
@@ -295,4 +315,10 @@ pub enum NodeError {
 	InitConfig(#[from] util::debug_initializer::InitConfigError),
 	#[error("logger error: {0}")]
 	Logger(#[from] FromEnvError),
+	#[cfg(feature = "ai")]
+	#[error("ai error: {0}")]
+	AI(#[from] sd_ai::Error),
+	#[cfg(feature = "ai")]
+	#[error("Failed to download model: {0}")]
+	DownloadModel(#[from] DownloadModelError),
 }

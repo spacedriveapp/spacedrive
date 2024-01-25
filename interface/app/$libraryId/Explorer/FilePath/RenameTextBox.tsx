@@ -1,31 +1,43 @@
 import clsx from 'clsx';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import {
+	forwardRef,
+	memo,
+	useCallback,
+	useEffect,
+	useImperativeHandle,
+	useRef,
+	useState
+} from 'react';
 import TruncateMarkup from 'react-truncate-markup';
-import { Tooltip } from '@sd/ui';
+import { useSelector } from '@sd/client';
+import { dialogManager, Tooltip } from '@sd/ui';
 import { useOperatingSystem, useShortcut } from '~/hooks';
 
-import { useExplorerViewContext } from '../ViewContext';
+import { explorerStore } from '../store';
 
-interface Props extends React.HTMLAttributes<HTMLDivElement> {
+export interface RenameTextBoxProps extends React.HTMLAttributes<HTMLDivElement> {
 	name: string;
 	onRename: (newName: string) => void;
 	disabled?: boolean;
 	lines?: number;
+	// Temporary solution for TruncatedText in list view
+	idleClassName?: string;
 }
 
-export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
-	({ name, onRename, disabled, className, lines, ...props }, _ref) => {
-		const explorerView = useExplorerViewContext();
+export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
+	({ name, onRename, disabled, className, idleClassName, lines, ...props }, _ref) => {
 		const os = useOperatingSystem();
 
-		const [allowRename, setAllowRename] = useState(false);
-		const [isTruncated, setIsTruncated] = useState(false);
+		const [isRenaming, drag] = useSelector(explorerStore, (s) => [s.isRenaming, s.drag]);
+
+		const ref = useRef<HTMLDivElement>(null);
+		useImperativeHandle<HTMLDivElement | null, HTMLDivElement | null>(_ref, () => ref.current);
 
 		const renamable = useRef<boolean>(false);
 		const timeout = useRef<NodeJS.Timeout | null>(null);
 
-		const ref = useRef<HTMLDivElement>(null);
-		useImperativeHandle<HTMLDivElement | null, HTMLDivElement | null>(_ref, () => ref.current);
+		const [allowRename, setAllowRename] = useState(false);
+		const [isTruncated, setIsTruncated] = useState(false);
 
 		// Highlight file name up to extension or
 		// fully if it's a directory, hidden file or has no extension
@@ -53,7 +65,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 		const blur = useCallback(() => ref.current?.blur(), []);
 
 		// Reset to original file name
-		const reset = () => ref.current && (ref.current.innerText = name ?? '');
+		const reset = () => ref.current && (ref.current.innerText = name);
 
 		const handleRename = async () => {
 			let newName = ref.current?.innerText;
@@ -69,14 +81,16 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 		};
 
 		const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+			e.stopPropagation();
+
 			switch (e.key) {
-				case 'Tab': {
+				case 'Tab':
+				case 'Enter': {
 					e.preventDefault();
 					blur();
 					break;
 				}
 				case 'Escape': {
-					e.stopPropagation();
 					reset();
 					blur();
 					break;
@@ -99,13 +113,8 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 			}
 		};
 
-		const ellipsis = useCallback(() => {
-			const extension = name.lastIndexOf('.');
-			if (extension !== -1) return `...${name.slice(-(name.length - extension + 2))}`;
-			return `...${name.slice(-8)}`;
-		}, [name]);
-
 		useShortcut('renameObject', (e) => {
+			if (dialogManager.isAnyDialogOpen()) return;
 			e.preventDefault();
 			if (allowRename) blur();
 			else if (!disabled) setAllowRename(true);
@@ -128,10 +137,10 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 
 		useEffect(() => {
 			if (!disabled) {
-				if (explorerView.isRenaming && !allowRename) setAllowRename(true);
-				else explorerView.setIsRenaming(allowRename);
+				if (isRenaming && !allowRename) setAllowRename(true);
+				else explorerStore.isRenaming = allowRename;
 			} else resetState();
-		}, [explorerView.isRenaming, disabled, allowRename, explorerView]);
+		}, [isRenaming, disabled, allowRename]);
 
 		useEffect(() => {
 			const onMouseDown = (event: MouseEvent) => {
@@ -146,7 +155,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 			<Tooltip
 				labelClassName="break-all"
 				tooltipClassName="!max-w-[250px]"
-				label={!isTruncated || allowRename ? null : name}
+				label={!isTruncated || allowRename || drag?.type === 'dragging' ? null : name}
 				asChild
 			>
 				<div
@@ -158,13 +167,17 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 					className={clsx(
 						'cursor-default overflow-hidden rounded-md px-1.5 py-px text-xs text-ink outline-none',
 						allowRename && 'whitespace-normal bg-app !text-ink ring-2 ring-accent-deep',
+						!allowRename && idleClassName,
 						className
 					)}
 					onDoubleClick={(e) => {
 						if (allowRename) e.stopPropagation();
 						renamable.current = false;
 					}}
-					onMouseDownCapture={(e) => e.button === 0 && (renamable.current = !disabled)}
+					onMouseDownCapture={(e) => {
+						if (allowRename) e.stopPropagation();
+						e.button === 0 && (renamable.current = !disabled);
+					}}
 					onMouseUp={(e) => {
 						if (e.button === 0 || renamable.current || !allowRename) {
 							timeout.current = setTimeout(
@@ -174,9 +187,9 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 						}
 					}}
 					onBlur={() => {
+						explorerStore.isRenaming = false;
 						handleRename();
 						resetState();
-						explorerView.setIsRenaming(false);
 					}}
 					onKeyDown={handleKeyDown}
 					{...props}
@@ -184,16 +197,34 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 					{allowRename ? (
 						name
 					) : (
-						<TruncateMarkup
-							lines={lines}
-							ellipsis={ellipsis}
-							onTruncate={setIsTruncated}
-						>
-							<div>{name}</div>
-						</TruncateMarkup>
+						<TruncatedText text={name} lines={lines} onTruncate={setIsTruncated} />
 					)}
 				</div>
 			</Tooltip>
 		);
 	}
 );
+
+RenameTextBox.displayName = 'RenameTextBox';
+
+interface TruncatedTextProps {
+	text: string;
+	lines?: number;
+	onTruncate: (wasTruncated: boolean) => void;
+}
+
+const TruncatedText = memo(({ text, lines, onTruncate }: TruncatedTextProps) => {
+	const ellipsis = useCallback(() => {
+		const extension = text.lastIndexOf('.');
+		if (extension !== -1) return `...${text.slice(-(text.length - extension + 2))}`;
+		return `...${text.slice(-8)}`;
+	}, [text]);
+
+	return (
+		<TruncateMarkup lines={lines} ellipsis={ellipsis} onTruncate={onTruncate}>
+			<div>{text}</div>
+		</TruncateMarkup>
+	);
+});
+
+TruncatedText.displayName = 'TruncatedText';

@@ -1,6 +1,7 @@
 import { useLibraryMutation, useZodForm } from '@sd/client';
 import { CheckBox, Dialog, Tooltip, useDialog, UseDialogProps } from '@sd/ui';
 import { Icon } from '~/components';
+import { useLocale } from '~/hooks';
 
 interface Props extends UseDialogProps {
 	indexedArgs?: {
@@ -43,6 +44,7 @@ function getWording(dirCount: number, fileCount: number) {
 }
 
 export default (props: Props) => {
+	const { t } = useLocale();
 	const deleteFile = useLibraryMutation('files.deleteFiles');
 	const deleteEphemeralFile = useLibraryMutation('ephemeralFiles.deleteFiles');
 
@@ -51,8 +53,9 @@ export default (props: Props) => {
 
 	const { type, prefix } = getWording(dirCount, fileCount);
 
-	const description = `Warning: This will delete your ${type} forever, we don't have a trash can yet...`;
 	const icon = type === 'file' || type === 'files' ? 'Document' : 'Folder';
+
+	const description = t('delete_warning', { type });
 
 	return (
 		<Dialog
@@ -75,14 +78,14 @@ export default (props: Props) => {
 			})}
 			icon={<Icon theme="light" name={icon} size={28} />}
 			dialog={useDialog(props)}
-			title={'Delete ' + prefix + ' ' + type}
+			title={t('delete_dialog_title', { prefix, type })}
 			description={description}
 			loading={deleteFile.isLoading}
-			ctaLabel="Delete"
+			ctaLabel={t('delete')}
 			ctaDanger
 			className="w-[200px]"
 		>
-			<Tooltip label="Coming soon">
+			<Tooltip label={t('coming_soon')}>
 				<div className="flex items-center pt-2 opacity-50">
 					<CheckBox disabled className="!mt-0" />
 					<p className="text-sm text-ink-dull">

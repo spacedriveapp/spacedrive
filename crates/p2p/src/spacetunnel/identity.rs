@@ -9,6 +9,7 @@ use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
+use zeroize::ZeroizeOnDrop;
 
 pub const REMOTE_IDENTITY_LEN: usize = 32;
 
@@ -22,8 +23,8 @@ pub enum IdentityErr {
 }
 
 /// TODO
-#[derive(Debug, Clone)]
-pub struct Identity(ed25519_dalek::SigningKey); // TODO: Zeroize on this type
+#[derive(Debug, Clone, ZeroizeOnDrop)]
+pub struct Identity(ed25519_dalek::SigningKey);
 
 impl PartialEq for Identity {
 	fn eq(&self, other: &Self) -> bool {
@@ -38,6 +39,7 @@ impl Default for Identity {
 }
 
 impl Identity {
+	#[must_use]
 	pub fn new() -> Self {
 		Self::default()
 	}
@@ -50,17 +52,20 @@ impl Identity {
 		)))
 	}
 
+	#[must_use]
 	pub fn to_bytes(&self) -> Vec<u8> {
 		self.0.to_bytes().to_vec()
 	}
 
+	#[must_use]
 	pub fn to_remote_identity(&self) -> RemoteIdentity {
 		RemoteIdentity(self.0.verifying_key())
 	}
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub struct RemoteIdentity(ed25519_dalek::VerifyingKey);
+#[derive(Copy, Clone, PartialEq, Eq, Type)]
+#[specta(transparent)]
+pub struct RemoteIdentity(#[specta(type = String)] ed25519_dalek::VerifyingKey);
 
 impl Hash for RemoteIdentity {
 	fn hash<H: Hasher>(&self, state: &mut H) {
@@ -138,15 +143,6 @@ impl FromStr for RemoteIdentity {
 	}
 }
 
-impl Type for RemoteIdentity {
-	fn inline(
-		_: specta::DefOpts,
-		_: &[specta::DataType],
-	) -> Result<specta::DataType, specta::ExportError> {
-		Ok(specta::DataType::Primitive(specta::PrimitiveType::String))
-	}
-}
-
 impl RemoteIdentity {
 	pub fn from_bytes(bytes: &[u8]) -> Result<Self, IdentityErr> {
 		Ok(Self(ed25519_dalek::VerifyingKey::from_bytes(
@@ -156,10 +152,12 @@ impl RemoteIdentity {
 		)?))
 	}
 
+	#[must_use]
 	pub fn get_bytes(&self) -> [u8; REMOTE_IDENTITY_LEN] {
 		self.0.to_bytes()
 	}
 
+	#[must_use]
 	pub fn verifying_key(&self) -> VerifyingKey {
 		self.0
 	}

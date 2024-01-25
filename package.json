@@ -1,4 +1,5 @@
 {
+	"name": "@sd/monorepo",
 	"private": true,
 	"scripts": {
 		"preprep": "pnpm --filter @sd/scripts -- prep",
@@ -22,6 +23,7 @@
 		"storybook": "pnpm --filter @sd/storybook -- ",
 		"prisma": "cd core && cargo prisma",
 		"dev:web": "turbo run dev --filter @sd/web --filter @sd/server",
+		"dev:desktop": "pnpm run --filter @sd/desktop tauri dev",
 		"bootstrap:desktop": "cargo clean && ./scripts/setup.sh && pnpm i && pnpm prep && pnpm tauri dev",
 		"codegen": "cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
 		"typecheck": "pnpm -r typecheck",
@@ -32,6 +34,9 @@
 	"pnpm": {
 		"overrides": {
 			"@radix-ui/react-dismissable-layer": "1.0.2"
+		},
+		"patchedDependencies": {
+			"@remix-run/router@1.13.1": "patches/@remix-run__router@1.13.1.patch"
 		}
 	},
 	"devDependencies": {
@@ -43,10 +48,10 @@
 		"cspell": "^7.3.8",
 		"prettier": "^3.0.3",
 		"prettier-plugin-tailwindcss": "^0.5.6",
-		"turbo": "^1.10.16",
+		"turbo": "^1.11.2",
 		"turbo-ignore": "^1.10.16",
-		"typescript": "^5.2.2",
-		"vite": "^4.5.0"
+		"typescript": "^5.3.3",
+		"vite": "^5.0.10"
 	},
 	"overrides": {
 		"vite-plugin-svgr": "https://github.com/spacedriveapp/vite-plugin-svgr#cb4195b69849429cdb18d1f12381676bf9196a84",

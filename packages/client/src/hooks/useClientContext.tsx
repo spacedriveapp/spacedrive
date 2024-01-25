@@ -1,14 +1,15 @@
-import { createContext, PropsWithChildren, useContext, useMemo } from 'react';
+import { createContext, PropsWithChildren, useContext, useEffect, useMemo } from 'react';
 
+import { NormalisedCache, useCache, useNodes } from '../cache';
 import { LibraryConfigWrapped } from '../core';
 import { valtioPersist } from '../lib';
-import { useBridgeQuery } from '../rspc';
+import { nonLibraryClient, useBridgeQuery } from '../rspc';
 
 // The name of the localStorage key for caching library data
-const libraryCacheLocalStorageKey = 'sd-library-list';
+const libraryCacheLocalStorageKey = 'sd-library-list2'; // `2` is because the format of this underwent a breaking change when introducing normalised caching
 
-export const useCachedLibraries = () =>
-	useBridgeQuery(['library.list'], {
+export const useCachedLibraries = () => {
+	const result = useBridgeQuery(['library.list'], {
 		keepPreviousData: true,
 		initialData: () => {
 			const cachedData = localStorage.getItem(libraryCacheLocalStorageKey);
@@ -26,6 +27,36 @@ export const useCachedLibraries = () =>
 		},
 		onSuccess: (data) => localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(data))
 	});
+	useNodes(result.data?.nodes);
+
+	return {
+		...result,
+		data: useCache(result.data?.items)
+	};
+};
+
+export async function getCachedLibraries(cache: NormalisedCache) {
+	const cachedData = localStorage.getItem(libraryCacheLocalStorageKey);
+
+	if (cachedData) {
+		// If we fail to load cached data, it's fine
+		try {
+			const data = JSON.parse(cachedData);
+			cache.withNodes(data.nodes);
+			return cache.withCache(data.items) as LibraryConfigWrapped[];
+		} catch (e) {
+			console.error("Error loading cached 'sd-library-list' data", e);
+		}
+	}
+
+	const result = await nonLibraryClient.query(['library.list']);
+	cache.withNodes(result.nodes);
+	const libraries = cache.withCache(result.items);
+
+	localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(result));
+
+	return libraries;
+}
 
 export interface ClientContext {
 	currentLibraryId: string | null;

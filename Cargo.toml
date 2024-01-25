@@ -21,44 +21,84 @@ edition = "2021"
 repository = "https://github.com/spacedriveapp/spacedrive"
 
 [workspace.dependencies]
-prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust", branch = "spacedrive", features = [
+# First party dependencies
+prisma-client-rust = { git = "https://github.com/spacedriveapp/prisma-client-rust", rev = "f99d6f5566570f3ab1edecb7a172ad25b03d95af", features = [
 	"rspc",
 	"sqlite-create-many",
 	"migrations",
 	"sqlite",
 ], default-features = false }
-prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", branch = "spacedrive", features = [
+prisma-client-rust-cli = { git = "https://github.com/spacedriveapp/prisma-client-rust", rev = "f99d6f5566570f3ab1edecb7a172ad25b03d95af", features = [
 	"rspc",
 	"sqlite-create-many",
 	"migrations",
 	"sqlite",
 ], default-features = false }
-prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-rust", branch = "spacedrive", features = [
+prisma-client-rust-sdk = { git = "https://github.com/spacedriveapp/prisma-client-rust", rev = "f99d6f5566570f3ab1edecb7a172ad25b03d95af", features = [
 	"sqlite",
 ], default-features = false }
 
-tracing = { git = "https://github.com/tokio-rs/tracing", rev = "29146260fb4615d271d2e899ad95a753bb42915e" } # To work with tracing-appender
-tracing-subscriber = { git = "https://github.com/tokio-rs/tracing", rev = "29146260fb4615d271d2e899ad95a753bb42915e", features = [
-	"env-filter",
-] } # To work with tracing-appender
-tracing-appender = { git = "https://github.com/tokio-rs/tracing", rev = "29146260fb4615d271d2e899ad95a753bb42915e" } # Unreleased changes for rolling log deletion
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+tracing-appender = "0.2.3"
 
 rspc = { version = "0.1.4" }
-specta = { version = "1.0.5" }
-tauri-specta = { version = "1.0.2" }
+specta = { version = "=2.0.0-rc.7" }
+tauri-specta = { version = "=2.0.0-rc.4" }
 
 swift-rs = { version = "1.0.6" }
 
-tokio = { version = "1.34.0" }
-uuid = { version = "1.5.0", features = ["v4", "serde"] }
-serde = { version = "1.0" }
-serde_json = { version = "1.0" }
+
+# Third party dependencies used by one or more of our crates
+anyhow = "1.0.75"
+async-channel = "2.0.0"
+axum = "0.6.20"
+base64 = "0.21.5"
+blake3 = "1.5.0"
+chrono = "0.4.31"
+clap = "4.4.7"
+futures = "0.3.29"
+futures-concurrency = "7.4.3"
+hex = "0.4.3"
+http = "0.2.9"
+image = "0.24.7"
+normpath = "1.1.1"
+once_cell = "1.18.0"
+pin-project-lite = "0.2.13"
+rand = "0.8.5"
+rand_chacha = "0.3.1"
+regex = "1.10.2"
+reqwest = "0.11.22"
+rmp-serde = "1.1.2"
+serde = "1.0"
+serde_json = "1.0"
+strum = "0.25"
+strum_macros = "0.25"
+tempfile = "3.8.1"
+thiserror = "1.0.50"
+tokio = "1.34.0"
+tokio-stream = "0.1.14"
+tokio-util = "0.7.10"
+uhlc = "=0.5.2"
+uuid = "1.5.0"
+webp = "0.2.6"
 
 [patch.crates-io]
 # Proper IOS Support
 if-watch = { git = "https://github.com/oscartbeaumont/if-watch.git", rev = "f732786057e57250e863a9ea0b1874e4cc9907c2" }
 
 # Beta features
-specta = { git = "https://github.com/oscartbeaumont/specta", rev = "4bc6e46fc8747cd8d8a07597c1fe13c52aa16a41" }
-rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "adebce542049b982dd251466d4144f4d57e92177" }
-tauri-specta = { git = "https://github.com/oscartbeaumont/tauri-specta", rev = "c964bef228a90a66effc18cefcba6859c45a8e08" }
+rspc = { git = "https://github.com/spacedriveapp/rspc.git", rev = "f3347e2e8bfe3f37bfacc437ca329fe71cdcb048" }
+
+# `cursor_position` method
+tauri = { git = "https://github.com/spacedriveapp/tauri.git", rev = "8409af71a83d631ff9d1cd876c441a57511a1cbd" }
+tao = { git = "https://github.com/spacedriveapp/tao", rev = "7880adbc090402c44fbcf006669458fa82623403" }
+
+# Set the settings for build scripts and proc-macros.
+[profile.dev.build-override]
+opt-level = 3
+
+# Set the default for dependencies, except workspace members.
+[profile.dev.package."*"]
+opt-level = 3
+incremental = false

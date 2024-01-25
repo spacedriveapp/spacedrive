@@ -3,7 +3,7 @@ use std::sync::Arc;
 use sd_core::Node;
 use tokio::signal;
 
-/// shutdown_signal will inform axum to gracefully shutdown when the process is asked to shutdown.
+/// `shutdown_signal` will inform axum to gracefully shutdown when the process is asked to shutdown.
 pub async fn axum_shutdown_signal(node: Arc<Node>) {
 	let ctrl_c = async {
 		signal::ctrl_c()
@@ -23,8 +23,8 @@ pub async fn axum_shutdown_signal(node: Arc<Node>) {
 	let terminate = std::future::pending::<()>();
 
 	tokio::select! {
-		_ = ctrl_c => {},
-		_ = terminate => {},
+		() = ctrl_c => {},
+		() = terminate => {},
 	}
 
 	println!("signal received, starting graceful shutdown");

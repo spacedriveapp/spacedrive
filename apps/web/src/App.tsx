@@ -1,9 +1,15 @@
 import { hydrate, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
-import { RspcProvider } from '@sd/client';
-import { Platform, PlatformProvider, routes, SpacedriveInterface } from '@sd/interface';
-import { useOperatingSystem, useShowControls } from '@sd/interface/hooks';
+import { CacheProvider, createCache, RspcProvider } from '@sd/client';
+import {
+	createRoutes,
+	Platform,
+	PlatformProvider,
+	SpacedriveInterfaceRoot,
+	SpacedriveRouterProvider
+} from '@sd/interface';
+import { useShowControls } from '@sd/interface/hooks';
 
 import demoData from './demoData.json';
 import ScreenshotWrapper from './ScreenshotWrapper';
@@ -75,12 +81,61 @@ const queryClient = new QueryClient({
 	}
 });
 
+const cache = createCache();
+
+const routes = createRoutes(platform, cache);
+
 function App() {
-	const os = useOperatingSystem();
+	const router = useRouter();
+
+	const domEl = useRef<HTMLDivElement>(null);
+	const { isEnabled: showControls } = useShowControls();
+
+	useEffect(() => window.parent.postMessage('spacedrive-hello', '*'), []);
+
+	if (
+		import.meta.env.VITE_SD_DEMO_MODE === 'true' &&
+		// quick and dirty check for if we've already rendered lol
+		domEl === null
+	) {
+		hydrate(queryClient, demoData);
+	}
+
+	return (
+		<ScreenshotWrapper showControls={!!showControls}>
+			<div ref={domEl} className="App">
+				<RspcProvider queryClient={queryClient}>
+					<PlatformProvider platform={platform}>
+						<QueryClientProvider client={queryClient}>
+							<CacheProvider cache={cache}>
+								<SpacedriveInterfaceRoot>
+									<SpacedriveRouterProvider
+										routing={{
+											...router,
+											routes,
+											visible: true
+										}}
+									/>
+								</SpacedriveInterfaceRoot>
+							</CacheProvider>
+						</QueryClientProvider>
+					</PlatformProvider>
+				</RspcProvider>
+			</div>
+		</ScreenshotWrapper>
+	);
+}
+
+export default App;
+
+function useRouter() {
 	const [router, setRouter] = useState(() => {
-		const router = createBrowserRouter(routes(os));
+		const router = createBrowserRouter(routes);
 
 		router.subscribe((event) => {
+			// we don't care about non-idle events as those are artifacts of form mutations + suspense
+			if (event.navigation.state !== 'idle') return;
+
 			setRouter((router) => {
 				const currentIndex: number | undefined = history.state?.idx;
 				if (currentIndex === undefined) return router;
@@ -104,37 +159,5 @@ function App() {
 		};
 	});
 
-	const domEl = useRef<HTMLDivElement>(null);
-	const { isEnabled: showControls } = useShowControls();
-
-	useEffect(() => window.parent.postMessage('spacedrive-hello', '*'), []);
-
-	if (
-		import.meta.env.VITE_SD_DEMO_MODE === 'true' &&
-		// quick and dirty check for if we've already rendered lol
-		domEl === null
-	) {
-		hydrate(queryClient, demoData);
-	}
-
-	return (
-		<ScreenshotWrapper showControls={!!showControls}>
-			<div ref={domEl} className="App">
-				<RspcProvider queryClient={queryClient}>
-					<PlatformProvider platform={platform}>
-						<QueryClientProvider client={queryClient}>
-							<SpacedriveInterface
-								routing={{
-									...router,
-									routerKey: 0
-								}}
-							/>
-						</QueryClientProvider>
-					</PlatformProvider>
-				</RspcProvider>
-			</div>
-		</ScreenshotWrapper>
-	);
+	return router;
 }
-
-export default App;

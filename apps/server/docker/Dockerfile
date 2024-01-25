@@ -74,7 +74,8 @@ RUN cargo build --features assets --release -p sd-server
 
 #--
 
-FROM base
+# Debug just means it includes busybox, and we need its tools both for the entrypoint.sh script and during runtime
+FROM gcr.io/distroless/base-debian12:debug
 
 ENV TZ=UTC \
 	PUID=1000 \
@@ -85,14 +86,9 @@ ENV TZ=UTC \
 	LANGUAGE=en \
 	DATA_DIR=/data
 
-# Note: This needs to happen before the apt call to avoid locking issues with the previous step
 COPY --from=server /srv/spacedrive/target/release/sd-server /usr/bin/
+COPY --from=server /lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/
 COPY --from=server /srv/spacedrive/apps/.deps/lib /usr/lib/spacedrive
-
-RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
-	apt-get install \
-		libavdevice59 libpostproc56 libswscale6 libswresample4 libavformat59 libavutil57 libavfilter8 \
-		libavcodec59
 
 COPY --chmod=755 entrypoint.sh /usr/bin/
 

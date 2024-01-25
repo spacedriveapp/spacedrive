@@ -3,7 +3,7 @@ import { proxy, useSnapshot } from 'valtio';
 import { UpdateStore } from '@sd/interface';
 import { toast, ToastId } from '@sd/ui';
 
-import * as commands from './commands';
+import { commands } from './commands';
 
 declare global {
 	interface Window {
@@ -21,15 +21,20 @@ export function createUpdater() {
 
 	listen<UpdateStore>('updater', (e) => {
 		Object.assign(updateStore, e.payload);
-		console.log(updateStore);
 	});
 
 	const onInstallCallbacks = new Set<() => void>();
 
 	async function checkForUpdate() {
-		const update = await commands.checkForUpdate();
+		const result = await commands.checkForUpdate();
 
-		if (!update) return null;
+		if (result.status === 'error') {
+			console.error('UPDATER ERROR', result.error);
+			// TODO: Show some UI?
+			return null;
+		}
+		if (!result.data) return null;
+		const update = result.data;
 
 		let id: ToastId | null = null;
 
@@ -91,15 +96,23 @@ export function createUpdater() {
 
 		if (lastVersion !== version) {
 			localStorage.setItem(SD_VERSION_LOCALSTORAGE, version);
+			let tagline = null;
 
-			const { frontmatter } = await fetch(
-				`${import.meta.env.VITE_LANDING_ORIGIN}/api/releases/${version}`
-			).then((r) => r.json());
+			try {
+				const request = await fetch(
+					`${import.meta.env.VITE_LANDING_ORIGIN}/api/releases/${version}`
+				);
+				const { frontmatter } = await request.json();
+				tagline = frontmatter?.tagline;
+			} catch (error) {
+				console.warn('Failed to fetch release info');
+				console.error(error);
+			}
 
 			toast.success(
 				{
 					title: `Updated successfully, you're on version ${version}`,
-					body: frontmatter?.tagline
+					body: tagline
 				},
 				{
 					duration: 10 * 1000,

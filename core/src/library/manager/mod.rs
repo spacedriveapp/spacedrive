@@ -8,20 +8,19 @@ use crate::{
 	node::Platform,
 	object::tag,
 	p2p::{self, IdentityOrRemoteIdentity},
-	prisma::location,
 	sync,
-	util::{
-		db,
-		error::{FileIOError, NonUtf8PathError},
-		mpscrr, MaybeUndefined,
-	},
-	volume::watcher::spawn_volume_watcher,
+	util::{mpscrr, MaybeUndefined},
 	Node,
 };
 
 use sd_core_sync::SyncMessage;
 use sd_p2p::spacetunnel::Identity;
-use sd_prisma::prisma::instance;
+use sd_prisma::prisma::{crdt_operation, instance, location};
+use sd_utils::{
+	db,
+	error::{FileIOError, NonUtf8PathError},
+	from_bytes_to_uuid,
+};
 
 use std::{
 	collections::HashMap,
@@ -32,7 +31,10 @@ use std::{
 
 use chrono::Utc;
 use futures_concurrency::future::{Join, TryJoin};
-use tokio::{fs, io, sync::RwLock};
+use tokio::{
+	fs, io,
+	sync::{broadcast, RwLock},
+};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
@@ -127,11 +129,17 @@ impl Libraries {
 					Err(e) => return Err(FileIOError::from((db_path, e)).into()),
 				}
 
-				let library_arc = self
+				let _library_arc = self
 					.load(library_id, &db_path, config_path, None, true, node)
 					.await?;
 
-				spawn_volume_watcher(library_arc.clone());
+				// FIX-ME: Linux releases crashes with *** stack smashing detected *** if spawn_volume_watcher is enabled
+				// No ideia why, but this will be irrelevant after the UDisk API is implemented, so let's leave it disabled for now
+				#[cfg(not(target_os = "linux"))]
+				{
+					use crate::volume::watcher::spawn_volume_watcher;
+					spawn_volume_watcher(_library_arc.clone());
+				}
 			}
 		}
 
@@ -139,7 +147,7 @@ impl Libraries {
 	}
 
 	/// create creates a new library with the given config and mounts it into the running [LibraryManager].
-	pub(crate) async fn create(
+	pub async fn create(
 		self: &Arc<Self>,
 		name: LibraryName,
 		description: Option<String>,
@@ -386,14 +394,15 @@ impl Libraries {
 		let node_config = node.config.get().await;
 		let config = LibraryConfig::load(config_path, &node_config, &db).await?;
 
-		let instance = db
-			.instance()
-			.find_unique(instance::id::equals(config.instance_id))
-			.exec()
-			.await?
+		let instances = db.instance().find_many(vec![]).exec().await?;
+
+		let instance = instances
+			.iter()
+			.find(|i| i.id == config.instance_id)
 			.ok_or_else(|| {
 				LibraryManagerError::CurrentInstanceNotFound(config.instance_id.to_string())
 			})?;
+
 		let identity = Arc::new(
 			match IdentityOrRemoteIdentity::from_bytes(&instance.identity)? {
 				IdentityOrRemoteIdentity::Identity(identity) => identity,
@@ -433,7 +442,30 @@ impl Libraries {
 		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		// seed_keymanager(&db, &key_manager).await?;
 
-		let mut sync = sync::Manager::new(&db, instance_id, &self.emit_messages_flag);
+		let timestamps = db
+			._batch(
+				instances
+					.iter()
+					.map(|i| {
+						db.crdt_operation()
+							.find_first(vec![crdt_operation::instance::is(vec![
+								instance::id::equals(i.id),
+							])])
+					})
+					.collect::<Vec<_>>(),
+			)
+			.await?
+			.into_iter()
+			.zip(&instances)
+			.map(|(op, i)| {
+				(
+					from_bytes_to_uuid(&i.pub_id),
+					sd_sync::NTP64(op.map(|o| o.timestamp).unwrap_or_default() as u64),
+				)
+			})
+			.collect::<HashMap<_, _>>();
+
+		let sync = sync::Manager::new(&db, instance_id, &self.emit_messages_flag, timestamps);
 
 		let library = Library::new(
 			id,
@@ -448,28 +480,9 @@ impl Libraries {
 		.await;
 
 		// This is an exception. Generally subscribe to this by `self.tx.subscribe`.
-		tokio::spawn({
-			let library = library.clone();
-			let node = node.clone();
+		tokio::spawn(sync_rx_actor(library.clone(), node.clone(), sync.rx));
 
-			async move {
-				loop {
-					let Ok(msg) = sync.rx.recv().await else {
-						continue;
-					};
-
-					match msg {
-						// TODO: Any sync event invalidates the entire React Query cache this is a hacky workaround until the new invalidation system.
-						SyncMessage::Ingested => node.emit(CoreEvent::InvalidateOperation(
-							InvalidateOperationEvent::all(),
-						)),
-						SyncMessage::Created => {
-							p2p::sync::originator(id, &library.sync, &node.p2p).await
-						}
-					}
-				}
-			}
-		});
+		crate::cloud::sync::declare_actors(&library, node).await;
 
 		self.tx
 			.emit(LibraryManagerEvent::Load(library.clone()))
@@ -511,5 +524,27 @@ impl Libraries {
 		self.tx
 			.emit(LibraryManagerEvent::InstancesModified(library))
 			.await;
+	}
+}
+
+async fn sync_rx_actor(
+	library: Arc<Library>,
+	node: Arc<Node>,
+	mut sync_rx: broadcast::Receiver<SyncMessage>,
+) {
+	loop {
+		let Ok(msg) = sync_rx.recv().await else {
+			continue;
+		};
+
+		match msg {
+			// TODO: Any sync event invalidates the entire React Query cache this is a hacky workaround until the new invalidation system.
+			SyncMessage::Ingested => node.emit(CoreEvent::InvalidateOperation(
+				InvalidateOperationEvent::all(),
+			)),
+			SyncMessage::Created => {
+				p2p::sync::originator(library.id, &library.sync, &node.p2p).await
+			}
+		}
 	}
 }

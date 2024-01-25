@@ -10,9 +10,11 @@
 		"dotenv",
 		"dotenvy",
 		"fontsource",
+		"ianvs",
 		"ipfs",
 		"Keepsafe",
 		"nodestate",
+		"normalise",
 		"overscan",
 		"pathctx",
 		"prismjs",
@@ -26,7 +28,6 @@
 		"tailwindcss",
 		"tanstack",
 		"titlebar",
-		"ianvs",
 		"tsparticles",
 		"unlisten",
 		"upsert",
@@ -43,6 +44,7 @@
 		"tw\\.[^`]+`([^`]*)`", // tw.xxx`...`
 		"tw\\(.*?\\).*?`([^`]*)", // tw(....)`...`
 		"tw`([^`]*)", // tw`...` (mobile)
+		"twStyle(([^)]*)", // twStyle(....) (mobile)
 		"twStyle\\(([^)]*)\\)", // twStyle(....) (mobile)
 		["styled\\([^,)]+,([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"] // styled(....)`...` (mobile)
 	],

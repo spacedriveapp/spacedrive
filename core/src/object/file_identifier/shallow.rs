@@ -1,20 +1,17 @@
-use crate::{
-	invalidate_query,
-	job::JobError,
-	library::Library,
-	location::file_path_helper::{
-		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-		file_path_for_file_identifier, IsolatedFilePathData,
-	},
-	prisma::{file_path, location, PrismaClient, SortOrder},
-	util::db::maybe_missing,
+use crate::{invalidate_query, job::JobError, library::Library};
+
+use sd_file_path_helper::{
+	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+	file_path_for_file_identifier, IsolatedFilePathData,
 };
+use sd_prisma::prisma::{file_path, location, PrismaClient, SortOrder};
+use sd_utils::db::maybe_missing;
 
 use std::path::{Path, PathBuf};
 
 use prisma_client_rust::or;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, trace, warn};
+use tracing::{trace, warn};
 
 use super::{process_identifier_file_paths, FileIdentifierJobError, CHUNK_SIZE};
 
@@ -31,7 +28,7 @@ pub async fn shallow(
 ) -> Result<(), JobError> {
 	let Library { db, .. } = library;
 
-	debug!("Identifying orphan File Paths...");
+	warn!("Identifying orphan File Paths...");
 
 	let location_id = location.id;
 	let location_path = maybe_missing(&location.path, "location.path").map(Path::new)?;
@@ -69,7 +66,7 @@ pub async fn shallow(
 	}
 
 	let task_count = (orphan_count as f64 / CHUNK_SIZE as f64).ceil() as usize;
-	debug!(
+	warn!(
 		"Found {} orphan Paths. Will execute {} tasks...",
 		orphan_count, task_count
 	);

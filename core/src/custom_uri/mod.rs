@@ -1,20 +1,23 @@
 use crate::{
 	api::{utils::InvalidateOperationEvent, CoreEvent},
 	library::Library,
-	location::file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData},
 	object::media::thumbnail::WEBP_EXTENSION,
 	p2p::{operations, IdentityOrRemoteIdentity},
-	prisma::{file_path, location},
-	util::{db::*, InfallibleResponse},
+	util::InfallibleResponse,
 	Node,
 };
+
+use sd_file_ext::text::is_text;
+use sd_file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData};
+use sd_p2p::{spaceblock::Range, spacetunnel::RemoteIdentity};
+use sd_prisma::prisma::{file_path, location};
+use sd_utils::db::maybe_missing;
 
 use std::{
 	cmp::min,
 	ffi::OsStr,
 	fmt::Debug,
 	fs::Metadata,
-	io::{self, SeekFrom},
 	path::{Path, PathBuf},
 	str::FromStr,
 	sync::{atomic::Ordering, Arc},
@@ -30,13 +33,10 @@ use axum::{
 	Router,
 };
 use bytes::Bytes;
-
 use mini_moka::sync::Cache;
-use sd_file_ext::text::is_text;
-use sd_p2p::{spaceblock::Range, spacetunnel::RemoteIdentity};
 use tokio::{
 	fs::{self, File},
-	io::{AsyncReadExt, AsyncSeekExt},
+	io::{self, AsyncReadExt, AsyncSeekExt, SeekFrom},
 };
 use tokio_util::sync::PollSender;
 use tracing::error;
@@ -423,11 +423,22 @@ async fn infer_the_mime_type(
 		"webp" => "image/webp",
 		// PDF document
 		"pdf" => "application/pdf",
-		// HEIF/HEIC images
-		"heif" | "heifs" => "image/heif,image/heif-sequence",
-		"heic" | "heics" => "image/heic,image/heic-sequence",
-		// AVIF images
-		"avif" | "avci" | "avcs" => "image/avif",
+		// HEIF images
+		"heif" => "image/heif",
+		// HEIF images sequence (animated)
+		"heifs" => "image/heif-sequence",
+		// HEIC images
+		"heic" | "hif" => "image/heic",
+		// HEIC images sequence (animated)
+		"heics" => "image/heic-sequence",
+		// AV1 in HEIF images
+		"avif" => "image/avif",
+		// AV1 in HEIF images sequence (DEPRECATED: https://github.com/AOMediaCodec/av1-avif/pull/86/files)
+		"avifs" => "image/avif-sequence",
+		// AVC in HEIF images
+		"avci" => "image/avci",
+		// AVC in HEIF images sequence (animated)
+		"avcs" => "image/avcs",
 		_ => "text/plain",
 	};
 

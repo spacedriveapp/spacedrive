@@ -46,10 +46,14 @@ export async function Sidebar() {
 				{navigationWithReleases.map((section) => {
 					const Icon = iconConfig[section.slug];
 
+					const href = section.categories[0]?.docs[0]?.url;
+
+					if (!href) return null;
+
 					return (
 						<SectionLink
 							// Use the first page in the section as the link
-							href={section.categories[0].docs[0].url}
+							href={href}
 							key={section.slug}
 							slug={section.slug}
 						>

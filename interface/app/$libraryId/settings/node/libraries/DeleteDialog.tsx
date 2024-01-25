@@ -1,6 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router';
 import { useBridgeMutation, usePlausibleEvent, useZodForm } from '@sd/client';
 import { Dialog, useDialog, UseDialogProps } from '@sd/ui';
+import { useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 interface Props extends UseDialogProps {
@@ -8,9 +10,12 @@ interface Props extends UseDialogProps {
 }
 
 export default function DeleteLibraryDialog(props: Props) {
+	const { t } = useLocale();
+
 	const submitPlausibleEvent = usePlausibleEvent();
 	const queryClient = useQueryClient();
 	const platform = usePlatform();
+	const navigate = useNavigate();
 
 	const deleteLib = useBridgeMutation('library.delete');
 
@@ -29,6 +34,8 @@ export default function DeleteLibraryDialog(props: Props) {
 					type: 'libraryDelete'
 				}
 			});
+
+			navigate('/');
 		} catch (e) {
 			alert(`Failed to delete library: ${e}`);
 		}
@@ -39,10 +46,10 @@ export default function DeleteLibraryDialog(props: Props) {
 			form={form}
 			onSubmit={onSubmit}
 			dialog={useDialog(props)}
-			title="Delete Library"
-			description="Deleting a library will permanently the database, the files themselves will not be deleted."
+			title={t('delete_library')}
+			description={t('delete_library_description')}
 			ctaDanger
-			ctaLabel="Delete"
+			ctaLabel={t('delete')}
 		/>
 	);
 }

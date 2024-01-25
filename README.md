@@ -87,7 +87,7 @@ This project is using what I'm calling the **"PRRTT"** stack (Prisma, Rust, Reac
 
 ### Apps:
 
-- `desktop`: A [Tauri](https://tauri.studio) app.
+- `desktop`: A [Tauri](https://tauri.app) app.
 - `mobile`: A [React Native](https://reactnative.dev/) app.
 - `web`: A [React](https://reactjs.org) webapp.
 - `landing`: A [React](https://reactjs.org) app using Vite SSR & Vite pages.
@@ -101,7 +101,8 @@ This project is using what I'm calling the **"PRRTT"** stack (Prisma, Rust, Reac
 - `client`: A [TypeScript](https://www.typescriptlang.org/) client library to handle dataflow via RPC between UI and the Rust core.
 - `ui`: A [React](https://reactjs.org) Shared component library.
 - `interface`: The complete user interface in React (used by apps `desktop`, `web` and `landing`)
-- `config`: `eslint` configurations (includes `eslint-config-next`, `eslint-config-prettier` and all `tsconfig.json` configs used throughout the monorepo.
+- `config`: `eslint` configurations (includes `eslint-config-next`, `eslint-config-prettier` and all `tsconfig.json` configs used throughout the monorepo).
+
 - `macos`: A [Swift](https://developer.apple.com/swift/) Native binary for MacOS system extensions.
 - `ios`: A [Swift](https://developer.apple.com/swift/) Native binary (planned).
 - `windows`: A [C#](https://docs.microsoft.com/en-us/dotnet/csharp/) Native binary (planned).

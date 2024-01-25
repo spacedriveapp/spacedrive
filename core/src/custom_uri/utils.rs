@@ -1,3 +1,5 @@
+use crate::util::InfallibleResponse;
+
 use std::{fmt::Debug, panic::Location};
 
 use axum::{
@@ -7,8 +9,6 @@ use axum::{
 };
 use http_body::Full;
 use tracing::debug;
-
-use crate::util::InfallibleResponse;
 
 #[track_caller]
 pub(crate) fn bad_request(err: impl Debug) -> http::Response<BoxBody> {

@@ -70,7 +70,7 @@ const OverviewStats = () => {
 		<ScrollView horizontal showsHorizontalScrollIndicator={false}>
 			{Object.entries(libraryStatistics).map(([key, bytesRaw]) => {
 				if (!displayableStatItems.includes(key)) return null;
-				let bytes = BigInt(bytesRaw);
+				let bytes = BigInt(bytesRaw?.total_bytes_free ?? 0);
 				if (key === 'total_bytes_free') {
 					bytes = BigInt(sizeInfo.freeSpace);
 				} else if (key === 'total_bytes_capacity') {

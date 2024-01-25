@@ -2,7 +2,6 @@
 
 import * as RDialog from '@radix-ui/react-dialog';
 import { animated, useTransition } from '@react-spring/web';
-import { iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import { ReactElement, ReactNode, useEffect } from 'react';
 import { FieldValues, UseFormHandleSubmit } from 'react-hook-form';
@@ -52,6 +51,10 @@ class DialogManager {
 
 	getState(id: number) {
 		return this.state[id];
+	}
+
+	isAnyDialogOpen() {
+		return Object.values(this.state).some((s) => s.open);
 	}
 
 	remove(id: number) {
@@ -123,7 +126,7 @@ export interface DialogProps<S extends FieldValues>
 	ctaDanger?: boolean;
 	closeLabel?: string;
 	cancelBtn?: boolean;
-	description?: string;
+	description?: ReactNode;
 	onCancelled?: boolean | (() => void);
 	submitDisabled?: boolean;
 	transformOrigin?: string;
@@ -143,7 +146,6 @@ export function Dialog<S extends FieldValues>({
 	...props
 }: DialogProps<S>) {
 	const stateSnap = useSnapshot(dialog.state);
-
 	const transitions = useTransition(stateSnap.open, {
 		from: {
 			opacity: 0,
@@ -250,7 +252,7 @@ export function Dialog<S extends FieldValues>({
 								</div>
 								<div
 									className={clsx(
-										'flex justify-end space-x-2 border-t border-app-line bg-app-input/60 p-3'
+										'flex items-center justify-end space-x-2 border-t border-app-line bg-app-input/60 p-3'
 									)}
 								>
 									{form.formState.isSubmitting && <Loader />}

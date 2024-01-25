@@ -2,22 +2,32 @@ use crate::{
 	invalidate_query,
 	job::{JobError, JobRunMetadata},
 	library::Library,
-	location::file_path_helper::{
-		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-		file_path_for_media_processor, IsolatedFilePathData,
-	},
 	object::media::thumbnail::GenerateThumbnailArgs,
-	prisma::{location, PrismaClient},
-	util::db::maybe_missing,
 	Node,
 };
 
+use sd_file_ext::extensions::Extension;
+use sd_file_path_helper::{
+	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+	file_path_for_media_processor, IsolatedFilePathData,
+};
+use sd_prisma::prisma::{location, PrismaClient};
+use sd_utils::db::maybe_missing;
+
+#[cfg(feature = "ai")]
+use sd_ai::image_labeler::LabelerOutput;
+
 use std::path::{Path, PathBuf};
+
+#[cfg(feature = "ai")]
+use std::sync::Arc;
 
 use itertools::Itertools;
 use prisma_client_rust::{raw, PrismaValue};
-use sd_file_ext::extensions::Extension;
 use tracing::{debug, error};
+
+#[cfg(feature = "ai")]
+use futures::StreamExt;
 
 use super::{
 	media_data_extractor::{self, process},
@@ -30,11 +40,10 @@ const BATCH_SIZE: usize = 10;
 pub async fn shallow(
 	location: &location::Data,
 	sub_path: &PathBuf,
-	library: &Library,
+	library @ Library { db, .. }: &Library,
+	#[cfg(feature = "ai")] regenerate_labels: bool,
 	node: &Node,
 ) -> Result<(), JobError> {
-	let Library { db, .. } = library;
-
 	let location_id = location.id;
 	let location_path = maybe_missing(&location.path, "location.path").map(PathBuf::from)?;
 
@@ -64,7 +73,7 @@ pub async fn shallow(
 			.map_err(MediaProcessorError::from)?
 	};
 
-	debug!("Searching for images in location {location_id} at path {iso_file_path}");
+	debug!("Searching for media in location {location_id} at path {iso_file_path}");
 
 	dispatch_thumbnails_for_processing(
 		location.id,
@@ -77,6 +86,13 @@ pub async fn shallow(
 	.await?;
 
 	let file_paths = get_files_for_media_data_extraction(db, &iso_file_path).await?;
+
+	#[cfg(feature = "ai")]
+	let file_paths_for_labelling =
+		get_files_for_labeling(db, &iso_file_path, regenerate_labels).await?;
+
+	#[cfg(feature = "ai")]
+	let has_labels = !file_paths_for_labelling.is_empty();
 
 	let total_files = file_paths.len();
 
@@ -91,6 +107,17 @@ pub async fn shallow(
 		"Preparing to process {total_files} files in {} chunks",
 		chunked_files.len()
 	);
+
+	#[cfg(feature = "ai")]
+	let labels_rx = node
+		.image_labeller
+		.new_batch(
+			location_id,
+			location_path.clone(),
+			file_paths_for_labelling,
+			Arc::clone(db),
+		)
+		.await;
 
 	let mut run_metadata = MediaProcessorMetadata::default();
 
@@ -113,6 +140,33 @@ pub async fn shallow(
 		invalidate_query!(library, "search.objects");
 	}
 
+	#[cfg(feature = "ai")]
+	{
+		if has_labels {
+			labels_rx
+				.for_each(
+					|LabelerOutput {
+					     file_path_id,
+					     has_new_labels,
+					     result,
+					 }| async move {
+						if let Err(e) = result {
+							error!(
+								"Failed to generate labels <file_path_id='{file_path_id}'>: {e:#?}"
+							);
+						} else if has_new_labels {
+							// invalidate_query!(library, "labels.count"); // TODO: This query doesn't exist on main yet
+						}
+					},
+				)
+				.await;
+
+			invalidate_query!(library, "labels.list");
+			invalidate_query!(library, "labels.getForObject");
+			invalidate_query!(library, "labels.getWithObjects");
+		}
+	}
+
 	Ok(())
 }
 
@@ -125,6 +179,47 @@ async fn get_files_for_media_data_extraction(
 		parent_iso_file_path,
 		&media_data_extractor::FILTERED_IMAGE_EXTENSIONS,
 	)
+	.await
+	.map_err(Into::into)
+}
+
+#[cfg(feature = "ai")]
+async fn get_files_for_labeling(
+	db: &PrismaClient,
+	parent_iso_file_path: &IsolatedFilePathData<'_>,
+	regenerate_labels: bool,
+) -> Result<Vec<file_path_for_media_processor::Data>, MediaProcessorError> {
+	// FIXME: Had to use format! macro because PCR doesn't support IN with Vec for SQLite
+	// We have no data coming from the user, so this is sql injection safe
+	db._query_raw(raw!(
+		&format!(
+			"SELECT id, materialized_path, is_dir, name, extension, cas_id, object_id
+			FROM file_path f
+			WHERE
+				location_id={{}}
+				AND cas_id IS NOT NULL
+				AND LOWER(extension) IN ({})
+				AND materialized_path = {{}}
+				{}",
+			&media_data_extractor::FILTERED_IMAGE_EXTENSIONS
+				.iter()
+				.map(|ext| format!("LOWER('{ext}')"))
+				.collect::<Vec<_>>()
+				.join(","),
+			if !regenerate_labels {
+				"AND NOT EXISTS (SELECT 1 FROM label_on_object WHERE object_id = f.object_id)"
+			} else {
+				""
+			}
+		),
+		PrismaValue::Int(parent_iso_file_path.location_id() as i64),
+		PrismaValue::String(
+			parent_iso_file_path
+				.materialized_path_for_children()
+				.expect("sub path iso_file_path must be a directory")
+		)
+	))
+	.exec()
 	.await
 	.map_err(Into::into)
 }
