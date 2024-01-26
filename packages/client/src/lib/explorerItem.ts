@@ -1,5 +1,6 @@
 import { byteSize } from '.';
-import { getItemFilePath, getItemLocation, getItemObject, type ObjectKindKey } from '..';
+import { type ObjectKindKey } from '..';
+import { getItemObject, getItemFilePath, getItemLocation } from '../utils/index';
 import type { ExplorerItem } from '../core';
 import { ObjectKind } from './objectKind';
 
