@@ -19,16 +19,16 @@ use tokio::{
 	task::{block_in_place, JoinHandle},
 	time::{interval_at, Instant, MissedTickBehavior},
 };
-use tracing::{debug, error, warn, info};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use super::LocationManagerError;
 
+mod android;
 mod ios;
 mod linux;
 mod macos;
 mod windows;
-mod android;
 
 mod utils;
 
@@ -97,8 +97,8 @@ impl LocationWatcher {
 
 		let watcher = RecommendedWatcher::new(
 			move |result| {
-				info!("Received watcher event: {:#?}", result);
 				if !events_tx.is_closed() {
+					info!("Received watcher event: {:#?}", result);
 					if events_tx.send(result).is_err() {
 						error!(
 						"Unable to send watcher event to location manager for location: <id='{}'>",
@@ -145,6 +145,7 @@ impl LocationWatcher {
 		mut stop_rx: oneshot::Receiver<()>,
 	) {
 		let mut event_handler = Handler::new(location_id, &library, &node);
+		info!("Event Handler: {:#?}", event_handler);
 
 		let mut paths_to_ignore = HashSet::new();
 
@@ -152,15 +153,12 @@ impl LocationWatcher {
 		// In case of doubt check: https://docs.rs/tokio/latest/tokio/time/enum.MissedTickBehavior.html
 		handler_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
-		info!(
-			"Start Location Manager event handler for location: <id='{}'>",
-			location_id
-		);
 		loop {
 			select! {
 				Some(event) = events_rx.recv() => {
 					match event {
 						Ok(event) => {
+							info!("[Debug - handle_watch_events] Received event: {:#?}", event);
 							if let Err(e) = Self::handle_single_event(
 								location_id,
 								location_pub_id,
@@ -194,7 +192,7 @@ impl LocationWatcher {
 				}
 
 				_ = &mut stop_rx => {
-					debug!("Stop Location Manager event handler for location: <id='{}'>", location_id);
+					info!("Stop Location Manager event handler for location: <id='{}'>", location_id);
 					break
 				}
 			}
@@ -210,7 +208,7 @@ impl LocationWatcher {
 		_library: &'lib Library,
 		ignore_paths: &HashSet<PathBuf>,
 	) -> Result<(), LocationManagerError> {
-		debug!("Event: {:#?}", event);
+		info!("Event: {:#?}", event);
 		if !check_event(&event, ignore_paths) {
 			return Ok(());
 		}
@@ -248,7 +246,7 @@ impl LocationWatcher {
 
 	pub(super) fn watch(&mut self) {
 		let path = &self.path;
-		debug!("Start watching location: (path: {path})");
+		info!("Start watching location: (path: {path})");
 
 		if let Err(e) = self
 			.watcher
@@ -256,7 +254,7 @@ impl LocationWatcher {
 		{
 			error!("Unable to watch location: (path: {path}, error: {e:#?})");
 		} else {
-			debug!("Now watching location: (path: {path})");
+			info!("Now watching location: (path: {path})");
 		}
 	}
 
@@ -270,7 +268,7 @@ impl LocationWatcher {
 			 **************************************************************************************/
 			error!("Unable to unwatch location: (path: {path}, error: {e:#?})",);
 		} else {
-			debug!("Stop watching location: (path: {path})");
+			info!("Stop watching location: (path: {path})");
 		}
 	}
 }

@@ -21,11 +21,10 @@ const AboutScreen = () => {
 				<View style={tw.style('flex flex-col')}>
 					<Text style={tw.style('text-2xl font-bold text-white')}>
 						Spacedrive{' '}
-						{`for ${
-							Platform.OS === 'android'
-								? Platform.OS[0]?.toUpperCase() + Platform.OS.slice(1)
-								: Platform.OS[0] + Platform.OS.slice(1).toUpperCase()
-						}`}
+						{`for ${Platform.OS === 'android'
+							? Platform.OS[0]?.toUpperCase() + Platform.OS.slice(1)
+							: Platform.OS[0] + Platform.OS.slice(1).toUpperCase()
+							}`}
 					</Text>
 					<Text style={tw.style('mt-1 text-sm text-ink-dull')}>
 						The file manager from the future.

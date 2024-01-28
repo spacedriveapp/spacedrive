@@ -113,8 +113,7 @@ cargo {
     libname = "sd_mobile_android"
     pythonCommand = 'python3'
     profile = 'release'
-    // targets = cargoTargets
-		targets = ["arm", "arm64"]
+    targets = cargoTargets
     targetDirectory = "../../../../../target" // Monorepo moment
 		exec { spec, toolchain ->
 

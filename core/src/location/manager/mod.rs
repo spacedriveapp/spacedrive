@@ -388,7 +388,7 @@ impl Locations {
 
 		use futures::stream::{FuturesUnordered, StreamExt};
 		use tokio::select;
-		use tracing::{info, warn};
+		use tracing::{warn};
 
 		use helpers::{
 			check_online, drop_location, get_location, handle_ignore_path_request,
@@ -430,6 +430,8 @@ impl Locations {
 													(location_id, library.id),
 													watcher
 												);
+												info!("Location {location_id} is online, watching it");
+												info!("Locations watched: {:#?}", locations_watched);
 											} else {
 												locations_unwatched.insert(
 													(location_id, library.id),
