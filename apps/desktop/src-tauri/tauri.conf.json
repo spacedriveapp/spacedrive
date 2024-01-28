@@ -44,7 +44,6 @@
 				"digestAlgorithm": "sha256",
 				"timestampUrl": "",
 				"wix": {
-					"enableElevatedUpdateTask": true,
 					"dialogImagePath": "icons/WindowsDialogImage.bmp",
 					"bannerPath": "icons/WindowsBanner.bmp"
 				}
