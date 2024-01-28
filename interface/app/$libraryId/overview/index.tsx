@@ -4,6 +4,7 @@ import { hardwareModelToIcon } from '~/util/hardware';
 
 import { SearchContextProvider, useSearch } from '../search';
 import SearchBar from '../search/SearchBar';
+import { AddLocationButton } from '../settings/library/locations/AddLocationButton';
 import { TopBarPortal } from '../TopBar/Portal';
 import FileKindStatistics from './FileKindStats';
 import OverviewSection from './Layout/Section';
@@ -13,7 +14,6 @@ import StatisticItem from './StatCard';
 
 export const Component = () => {
 	useRouteTitle('Overview');
-
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	useNodes(locationsQuery.data?.nodes);
 	const locations = useCache(locationsQuery.data?.items) ?? [];
@@ -127,6 +127,7 @@ export const Component = () => {
 						<NewCard
 							icons={['Laptop', 'Server', 'SilverBox', 'Tablet']}
 							text="Spacedrive works best on all your devices."
+							className="h-auto"
 							// buttonText="Connect a device"
 						/>
 						{/**/}
@@ -147,7 +148,7 @@ export const Component = () => {
 							<NewCard
 								icons={['HDD', 'Folder', 'Globe', 'SD']}
 								text="Connect a local path, volume or network location to Spacedrive."
-								buttonText="Add a Location"
+								button={() => <AddLocationButton variant="outline" />}
 							/>
 						)}
 					</OverviewSection>
