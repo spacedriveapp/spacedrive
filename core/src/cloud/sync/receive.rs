@@ -34,13 +34,20 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 				let timestamps = library.sync.timestamps.read().await;
 
 				err_return!(
-					db._batch(timestamps.keys().map(|id| {
-						db.cloud_crdt_operation()
-							.find_first(vec![cloud_crdt_operation::instance::is(vec![
-								instance::pub_id::equals(uuid_to_bytes(*id)),
-							])])
-							.order_by(cloud_crdt_operation::timestamp::order(SortOrder::Desc))
-					}))
+					db._batch(
+						timestamps
+							.keys()
+							.map(|id| {
+								db.cloud_crdt_operation()
+									.find_first(vec![cloud_crdt_operation::instance::is(vec![
+										instance::pub_id::equals(uuid_to_bytes(*id)),
+									])])
+									.order_by(cloud_crdt_operation::timestamp::order(
+										SortOrder::Desc,
+									))
+							})
+							.collect::<Vec<_>>()
+					)
 					.await
 				)
 				.into_iter()
