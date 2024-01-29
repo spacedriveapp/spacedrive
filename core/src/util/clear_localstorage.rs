@@ -20,7 +20,7 @@ pub async fn clear_localstorage() {
 		#[cfg(target_os = "windows")]
 		fs::remove_dir_all(&base_dir.data_local_dir().join("com.spacedrive.desktop"))
 			.await
-			.map_err(|_| warn!("Unable to delete the `localStorage` primary directory."))
+			.map_err(|_| warn!("Unable to delete the `localStorage` directory in Local AppData."))
 			.ok();
 
 		info!("Deleted {}", data_dir.display());
