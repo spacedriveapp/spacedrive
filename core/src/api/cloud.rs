@@ -161,6 +161,13 @@ mod library {
 					Ok(LibraryConfigWrapped::from_library(&library).await)
 				})
 			})
+			.procedure("sync", {
+				R.with2(library())
+					.mutation(|(_, library), _: ()| async move {
+						library.do_cloud_sync();
+						Ok(())
+					})
+			})
 	}
 }
 

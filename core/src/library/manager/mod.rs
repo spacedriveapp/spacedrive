@@ -475,6 +475,7 @@ impl Libraries {
 
 		let sync = sync::Manager::new(&db, instance_id, &self.emit_messages_flag, timestamps);
 
+		let (tx, mut rx) = broadcast::channel(10);
 		let library = Library::new(
 			id,
 			config,
@@ -484,6 +485,7 @@ impl Libraries {
 			db,
 			node,
 			Arc::new(sync.manager),
+			tx,
 		)
 		.await;
 
@@ -526,33 +528,114 @@ impl Libraries {
 		}
 
 		tokio::spawn({
+			let this = self.clone();
 			let node = node.clone();
 			let library = library.clone();
 			async move {
-				if let Some(_) = library.config().await.cloud_id {
-					if let Ok(Some(lib)) =
-						sd_cloud_api::library::get(node.cloud_api_config().await, library.id).await
-					{
-						for instance in lib.instances {
-							if let Err(err) = cloud::sync::receive::create_instance(
-								library.clone(),
-								&node.libraries,
-								instance.uuid,
-								instance.identity,
-								instance.node_id,
-								instance.node_name,
-								instance.node_platform,
-							)
-							.await
-							{
-								error!("Failed to create instance from cloud: {:#?}", err);
+				loop {
+					debug!("Syncing library with cloud!");
+
+					if let Some(_) = library.config().await.cloud_id {
+						if let Ok(lib) =
+							sd_cloud_api::library::get(node.cloud_api_config().await, library.id)
+								.await
+						{
+							match lib {
+								Some(lib) => {
+									if let Some(this_instance) = lib
+										.instances
+										.iter()
+										.find(|i| i.uuid == library.instance_uuid)
+									{
+										let node_config = node.config.get().await;
+										let should_update = this_instance.node_id != node_config.id
+											|| this_instance.node_platform
+												!= (Platform::current() as u8)
+											|| this_instance.node_name != node_config.name;
+
+										if should_update {
+											warn!("Library instance on cloud is outdated. Updating...");
+
+											if let Err(err) =
+												sd_cloud_api::library::update_instance(
+													node.cloud_api_config().await,
+													library.id,
+													this_instance.uuid,
+													Some(node_config.id),
+													Some(node_config.name),
+													Some(Platform::current() as u8),
+												)
+												.await
+											{
+												error!(
+													"Failed to updating instance '{}' on cloud: {:#?}",
+													this_instance.uuid, err
+												);
+											}
+										}
+									}
+
+									if &lib.name != &*library.config().await.name {
+										warn!("Library name on cloud is outdated. Updating...");
+
+										if let Err(err) = sd_cloud_api::library::update(
+											node.cloud_api_config().await,
+											library.id,
+											Some(lib.name),
+										)
+										.await
+										{
+											error!(
+												"Failed to update library name on cloud: {:#?}",
+												err
+											);
+										}
+									}
+
+									for instance in lib.instances {
+										if let Err(err) = cloud::sync::receive::create_instance(
+											library.clone(),
+											&node.libraries,
+											instance.uuid,
+											instance.identity,
+											instance.node_id,
+											instance.node_name,
+											instance.node_platform,
+										)
+										.await
+										{
+											error!(
+												"Failed to create instance from cloud: {:#?}",
+												err
+											);
+										}
+									}
+								}
+								None => {
+									warn!(
+										"Library not found on cloud. Removing from local node..."
+									);
+
+									let _ = this
+										.edit(
+											library.id.clone(),
+											None,
+											MaybeUndefined::Undefined,
+											MaybeUndefined::Null,
+										)
+										.await;
+								}
 							}
 						}
 					}
-				}
 
-				// Update instances every 2 minutes
-				sleep(Duration::from_secs(120)).await;
+					tokio::select! {
+						// Update instances every 2 minutes
+						_ = sleep(Duration::from_secs(120)) => {}
+						// Or when asked by user
+						Ok(_) = rx.recv() => {}
+					};
+				}
 			}
 		});
 

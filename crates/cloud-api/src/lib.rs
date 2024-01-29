@@ -236,6 +236,71 @@ pub mod library {
 		}
 	}
 
+	pub use update::exec as update;
+	pub mod update {
+		use super::*;
+
+		pub async fn exec(
+			config: RequestConfig,
+			library_id: Uuid,
+			name: Option<String>,
+		) -> Result<(), Error> {
+			let Some(auth_token) = config.auth_token else {
+				return Err(Error("Authentication required".to_string()));
+			};
+
+			config
+				.client
+				.patch(&format!(
+					"{}/api/v1/libraries/{}",
+					config.api_url, library_id
+				))
+				.json(&json!({
+					"name":name
+				}))
+				.with_auth(auth_token)
+				.send()
+				.await
+				.map_err(|e| Error(e.to_string()))
+				.map(|_| ())
+		}
+	}
+
+	pub use update_instance::exec as update_instance;
+	pub mod update_instance {
+		use super::*;
+
+		pub async fn exec(
+			config: RequestConfig,
+			library_id: Uuid,
+			instance_id: Uuid,
+			node_id: Option<Uuid>,
+			node_name: Option<String>,
+			node_platform: Option<u8>,
+		) -> Result<(), Error> {
+			let Some(auth_token) = config.auth_token else {
+				return Err(Error("Authentication required".to_string()));
+			};
+
+			config
+				.client
+				.patch(&format!(
+					"{}/api/v1/libraries/{}/{}",
+					config.api_url, library_id, instance_id
+				))
+				.json(&json!({
+					"nodeId": node_id,
+					"nodeName": node_name,
+					"nodePlatform": node_platform
+				}))
+				.with_auth(auth_token)
+				.send()
+				.await
+				.map_err(|e| Error(e.to_string()))
+				.map(|_| ())
+		}
+	}
+
 	pub use join::exec as join;
 	pub mod join {
 		use super::*;
