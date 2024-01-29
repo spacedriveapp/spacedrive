@@ -6,6 +6,7 @@ import { useExplorerContext } from '../../../Context';
 import { ExplorerDraggable } from '../../../ExplorerDraggable';
 import { ExplorerDroppable, useExplorerDroppableContext } from '../../../ExplorerDroppable';
 import { FileThumb } from '../../../FilePath/Thumb';
+import { useFrame } from '../../../FilePath/useFrame';
 import { explorerStore } from '../../../store';
 import { useExplorerDraggable } from '../../../useExplorerDraggable';
 import { RenamableItemText } from '../../RenamableItemText';
@@ -49,7 +50,7 @@ const InnerDroppable = () => {
 		<>
 			<div
 				className={clsx(
-					'mb-1 aspect-square rounded-lg',
+					'mb-1 flex aspect-square items-center justify-center rounded-lg',
 					(item.selected || isDroppable) && 'bg-app-selectedItem'
 				)}
 			>
@@ -62,7 +63,10 @@ const InnerDroppable = () => {
 };
 
 const ItemFileThumb = () => {
+	const frame = useFrame();
+
 	const item = useGridViewItemContext();
+	const isLabel = item.data.type === 'Label';
 
 	const { attributes, listeners, style, setDraggableRef } = useExplorerDraggable({
 		data: item.data
@@ -71,12 +75,15 @@ const ItemFileThumb = () => {
 	return (
 		<FileThumb
 			data={item.data}
-			frame
+			frame={!isLabel}
+			cover={isLabel}
 			blackBars
 			extension
-			className={clsx('px-2 py-1', item.cut && 'opacity-60')}
+			className={clsx(
+				isLabel ? [frame.className, '!size-[90%] !rounded-md'] : 'px-2 py-1',
+				item.cut && 'opacity-60'
+			)}
 			ref={setDraggableRef}
-			frameClassName={clsx(item.data.type === "Label" && "!rounded-2xl")}
 			childProps={{
 				style,
 				...attributes,
