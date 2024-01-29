@@ -34,7 +34,7 @@ export const Component = () => {
 							<span className="text-sm font-medium truncate">Library Overview</span>
 						</div>
 					}
-					center={<SearchBar redirectToSearch />}
+					center={<SearchBar />}
 					// right={
 					// 	<TopBarOptions
 					// 		options={[
