@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useBridgeQuery, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 import { hardwareModelToIcon } from '~/util/hardware';
@@ -21,9 +21,7 @@ export const Component = () => {
 
 	const { data: node } = useBridgeQuery(['nodeState']);
 
-	const search = useSearch({
-		open: true
-	});
+	const search = useSearch();
 
 	const stats = useLibraryQuery(['library.statistics']);
 
@@ -36,7 +34,7 @@ export const Component = () => {
 							<span className="text-sm font-medium truncate">Library Overview</span>
 						</div>
 					}
-					center={<SearchBar />}
+					center={<SearchBar redirectToSearch />}
 					// right={
 					// 	<TopBarOptions
 					// 		options={[
@@ -136,7 +134,7 @@ export const Component = () => {
 
 					<OverviewSection count={locations.length} title="Locations">
 						{locations?.map((item) => (
-							<NavLink key={item.id} to={`../location/${item.id}`}>
+							<Link key={item.id} to={`../location/${item.id}`}>
 								<StatisticItem
 									name={item.name || 'Unnamed Location'}
 									icon="Folder"
@@ -144,7 +142,7 @@ export const Component = () => {
 									color="#0362FF"
 									connectionType={null}
 								/>
-							</NavLink>
+							</Link>
 						))}
 						{!locations?.length && (
 							<NewCard
