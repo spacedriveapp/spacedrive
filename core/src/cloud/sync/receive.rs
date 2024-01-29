@@ -9,7 +9,7 @@ use sd_core_sync::NTP64;
 use sd_p2p::spacetunnel::RemoteIdentity;
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
 use sd_sync::CRDTOperation;
-use sd_utils::{from_bytes_to_uuid, uuid_to_bytes};
+use sd_utils::uuid_to_bytes;
 use tracing::info;
 
 use std::{
@@ -28,79 +28,72 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 	let db = &library.db;
 	let library_id = library.id;
 
-	let mut cloud_timestamps = {
-		let timestamps = library.sync.timestamps.read().await;
-
-		let batch = timestamps
-			.keys()
-			.map(|id| {
-				db.cloud_crdt_operation()
-					.find_first(vec![cloud_crdt_operation::instance::is(vec![
-						instance::pub_id::equals(uuid_to_bytes(*id)),
-					])])
-					.order_by(cloud_crdt_operation::timestamp::order(SortOrder::Desc))
-			})
-			.collect::<Vec<_>>();
-
-		err_return!(db._batch(batch).await)
-			.into_iter()
-			.zip(timestamps.keys())
-			.map(|(d, id)| {
-				let cloud_timestamp = NTP64(d.map(|d| d.timestamp).unwrap_or_default() as u64);
-				let sync_timestamp = *timestamps
-					.get(id)
-					.expect("unable to find matching timestamp");
-
-				let max_timestamp = Ord::max(cloud_timestamp, sync_timestamp);
-
-				(*id, max_timestamp)
-			})
-			.collect::<HashMap<_, _>>()
-	};
-
-	info!(
-		"Fetched timestamps for {} local instances",
-		cloud_timestamps.len()
-	);
-
 	loop {
-		let instances = err_break!(
-			db.instance()
-				.find_many(vec![])
-				.select(instance::select!({ pub_id }))
-				.exec()
-				.await
-		);
+		loop {
+			let mut cloud_timestamps = {
+				let timestamps = library.sync.timestamps.read().await;
 
-		{
-			let collections = {
-				use sd_cloud_api::library::message_collections;
-				message_collections::get(
+				err_return!(
+					db._batch(timestamps.keys().map(|id| {
+						db.cloud_crdt_operation()
+							.find_first(vec![cloud_crdt_operation::instance::is(vec![
+								instance::pub_id::equals(uuid_to_bytes(*id)),
+							])])
+							.order_by(cloud_crdt_operation::timestamp::order(SortOrder::Desc))
+					}))
+					.await
+				)
+				.into_iter()
+				.zip(timestamps.iter())
+				.map(|(d, (id, sync_timestamp))| {
+					let cloud_timestamp = NTP64(d.map(|d| d.timestamp).unwrap_or_default() as u64);
+
+					let max_timestamp = Ord::max(cloud_timestamp, *sync_timestamp);
+
+					(*id, max_timestamp)
+				})
+				.collect::<HashMap<_, _>>()
+			};
+
+			info!(
+				"Fetched timestamps for {} local instances",
+				cloud_timestamps.len()
+			);
+
+			let instance_timestamps = library
+				.sync
+				.timestamps
+				.read()
+				.await
+				.keys()
+				.map(
+					|uuid| sd_cloud_api::library::message_collections::get::InstanceTimestamp {
+						instance_uuid: *uuid,
+						from_time: cloud_timestamps
+							.get(&uuid)
+							.cloned()
+							.unwrap_or_default()
+							.as_u64()
+							.to_string(),
+					},
+				)
+				.collect();
+
+			let collections = err_break!(
+				sd_cloud_api::library::message_collections::get(
 					node.cloud_api_config().await,
 					library_id,
 					library.instance_uuid,
-					instances
-						.into_iter()
-						.map(|i| {
-							let uuid = from_bytes_to_uuid(&i.pub_id);
-
-							message_collections::get::InstanceTimestamp {
-								instance_uuid: uuid,
-								from_time: cloud_timestamps
-									.get(&uuid)
-									.cloned()
-									.unwrap_or_default()
-									.as_u64()
-									.to_string(),
-							}
-						})
-						.collect::<Vec<_>>(),
+					instance_timestamps,
 				)
 				.await
-			};
-			let collections = err_break!(collections);
+			);
 
 			info!("Received {} collections", collections.len());
+
+			if collections.is_empty() {
+				break;
+			}
 
 			let mut cloud_library_data: Option<Option<sd_cloud_api::Library>> = None;
 
@@ -231,6 +224,7 @@ pub async fn create_instance(
 		.exec()
 		.await?;
 
+	library.sync.timestamps.write().await.insert(uuid, NTP64(0));
 	// Called again so the new instances are picked up
 	libraries.update_instances(library).await;
 

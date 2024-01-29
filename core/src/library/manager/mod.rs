@@ -15,7 +15,7 @@ use crate::{
 
 use sd_core_sync::SyncMessage;
 use sd_p2p::spacetunnel::Identity;
-use sd_prisma::prisma::{crdt_operation, instance, location};
+use sd_prisma::prisma::{crdt_operation, instance, location, SortOrder};
 use sd_utils::{
 	db,
 	error::{FileIOError, NonUtf8PathError},
@@ -450,8 +450,8 @@ impl Libraries {
 		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		// seed_keymanager(&db, &key_manager).await?;
 
-		let timestamps = db
-			._batch(
+		let sync = sync::Manager::new(&db, instance_id, &self.emit_messages_flag, {
+			db._batch(
 				instances
 					.iter()
 					.map(|i| {
@@ -459,6 +459,7 @@ impl Libraries {
 							.find_first(vec![crdt_operation::instance::is(vec![
 								instance::id::equals(i.id),
 							])])
+							.order_by(crdt_operation::timestamp::order(SortOrder::Desc))
 					})
 					.collect::<Vec<_>>(),
 			)
@@ -471,9 +472,8 @@ impl Libraries {
 					sd_sync::NTP64(op.map(|o| o.timestamp).unwrap_or_default() as u64),
 				)
 			})
-			.collect::<HashMap<_, _>>();
-
-		let sync = sync::Manager::new(&db, instance_id, &self.emit_messages_flag, timestamps);
+			.collect()
+		});
 
 		let (tx, mut rx) = broadcast::channel(10);
 		let library = Library::new(
