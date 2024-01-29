@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import { memo, useMemo } from 'react';
 import { byteSize, getItemFilePath, useSelector, type ExplorerItem, useLibraryQuery } from '@sd/client';
+import { t } from 'i18next';
 
 import { useExplorerContext } from '../../../Context';
 import { ExplorerDraggable } from '../../../ExplorerDraggable';
@@ -154,7 +155,7 @@ function LabelItemCount({data}: {data: Extract<ExplorerItem, {type: "Label"}>}) 
 	if(count.data === undefined) return
 
 	return <div className="truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull">
-		{count.data} {count.data === 1 ? "item" : "items"}
+		{t("itemWithCount", {count: count.data})}
 	</div>
 
 }

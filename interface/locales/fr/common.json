@@ -344,5 +344,7 @@
 	"your_account": "Votre compte",
 	"your_account_description": "Compte et informations Spacedrive.",
 	"your_local_network": "Votre réseau local",
-	"your_privacy": "Votre confidentialité"
+	"your_privacy": "Votre confidentialité",
+	"itemWithCount_one": "{{count}} article",
+	"itemWithCount_other": "{{count}} articles"
 }
