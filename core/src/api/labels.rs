@@ -113,7 +113,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.await?)
 				})
 		})
-	.procedure(
+		.procedure(
 			"delete",
 			R.with2(library())
 				.mutation(|(_, library), label_id: i32| async move {
