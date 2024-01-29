@@ -19,7 +19,7 @@ import { useExplorerItemData } from '../util';
 import { Image, ImageProps } from './Image';
 import LayeredFileIcon from './LayeredFileIcon';
 import { Original } from './Original';
-import classes from './Thumb.module.scss';
+import { useFrame } from './useFrame';
 import { useBlackBars, useSize } from './utils';
 
 export interface ThumbProps {
@@ -47,6 +47,7 @@ type ThumbType = { variant: 'original' } | { variant: 'thumbnail' } | { variant:
 export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) => {
 	const isDark = useIsDark();
 	const platform = usePlatform();
+	const frame = useFrame();
 
 	const itemData = useExplorerItemData(props.data);
 	const filePath = getItemFilePath(props.data);
@@ -58,11 +59,7 @@ export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) =
 	}>({ original: 'notLoaded', thumbnail: 'notLoaded', icon: 'notLoaded' });
 
 	const childClassName = 'max-h-full max-w-full object-contain';
-	const frameClassName = clsx(
-		'rounded-sm border-2 border-app-line bg-app-darkBox',
-		props.frameClassName,
-		isDark ? classes.checkers : classes.checkersLight
-	);
+	const frameClassName = clsx(frame.className, props.frameClassName);
 
 	const thumbType = useMemo<ThumbType>(() => {
 		const thumbType = 'thumbnail';
