@@ -35,6 +35,7 @@ pub struct Mdns {
 	next_mdns_advertisement: Pin<Box<Sleep>>,
 	// This is an ugly workaround for: https://github.com/keepsimple1/mdns-sd/issues/145
 	mdns_rx: StreamUnordered<MdnsRecv>,
+	mdns_service_differentiator: usize,
 }
 
 impl Mdns {
@@ -53,6 +54,7 @@ impl Mdns {
 			mdns_daemon,
 			next_mdns_advertisement: Box::pin(sleep_until(Instant::now())), // Trigger an advertisement immediately
 			mdns_rx: StreamUnordered::new(),
+			mdns_service_differentiator: 0,
 		})
 	}
 
@@ -80,19 +82,39 @@ impl Mdns {
 					continue;
 				};
 
-				let service_domain =
-				    // TODO: Use "Selective Instance Enumeration" instead in future but right now it is causing `TMeta` to get garbled.
-					// format!("{service_name}._sub._{}", self.service_name)
-					format!("{service_name}._sub._{service_name}{}", self.service_name);
+				self.mdns_service_differentiator += 1;
+				// The usage of `self.mdns_service_differentiator` is super weird here.
+				//
+				// The mdns spec defines "Selective Instance Enumeration (Subtype)" (https://www.rfc-editor.org/rfc/rfc6763.html#section-7.1)
+				// which is a feature for narrowing the set of results based on information.
+				// Eg. printers with the http service
+				//
+				// I was thinking that P2P services in Rust would convert to a subtype.
+				// However, as they are used in the spec for narrowing this would mean the TXT records
+				// would be set to *one* of the subtypes not the one for the *exact* subtype.
+				// This means it's a no-go for this use case.
+				//
+				// For now the hack around this is to add a random number to the service name.
+				// As the service name is now unique for each subtype we know the TXT records
+				// will remain correlated correctly.
+				//
+				// When receiving we strip this number and don't care about it.
+				//
+				// This is kinda a hack but is good enough for now. More discussion:
+				// https://github.com/keepsimple1/mdns-sd/issues/145
+				let service_domain = format!(
+					"{service_name}._sub._{}:{}",
+					self.mdns_service_differentiator, self.service_name
+				);
 
 				let mut meta = metadata.clone();
 				meta.insert("__peer_id".into(), self.peer_id.to_string());
 
 				let service = match ServiceInfo::new(
 					&service_domain,
-					&self.identity.to_string(), // TODO: This shows up in `fullname` without sub service. Is that a problem???
+					&self.identity.to_string(),
 					&format!("{}.{}.", service_name, self.identity), // TODO: Should this change???
-					&*ips,                      // TODO: &[] as &[Ipv4Addr],
+					&*ips,
 					port,
 					Some(meta.clone()), // TODO: Prevent the user defining a value that overflows a DNS record
 				) {
@@ -194,23 +216,13 @@ impl Mdns {
 						warn!("resolved mDNS peer advertising itself with invalid subservice '{subdomain}'");
 						return;
 					}
-				}; // TODO: .replace(&format!("._sub.{}", self.service_name), "");
-				let raw_remote_identity = info
-					.get_fullname()
-					.replace(&format!("._{service_name}{}", self.service_name), "");
-
-				let Ok(identity) = RemoteIdentity::from_str(&raw_remote_identity) else {
-					warn!(
-						"resolved peer advertising itself with an invalid RemoteIdentity('{}')",
-						raw_remote_identity
-					);
-					return;
 				};
 
-				// Prevent discovery of the current peer.
-				if identity == self.identity {
-					return;
-				}
+				let identity =
+					match self.parse_remote_identity(info.get_type(), info.get_fullname()) {
+						Some(identity) => identity,
+						None => return,
+					};
 
 				let mut meta = info
 					.get_properties()
@@ -276,21 +288,11 @@ impl Mdns {
 						return;
 					}
 				};
-				let raw_remote_identity =
-					fullname.replace(&format!("._{service_name}{}", self.service_name), "");
 
-				let Ok(identity) = RemoteIdentity::from_str(&raw_remote_identity) else {
-					warn!(
-						"resolved peer deadvertising itself with an invalid RemoteIdentity('{}')",
-						raw_remote_identity
-					);
-					return;
+				let identity = match self.parse_remote_identity(&service_type, &fullname) {
+					Some(identity) => identity,
+					None => return,
 				};
-
-				// Prevent discovery of the current peer.
-				if identity == self.identity {
-					return;
-				}
 
 				let mut state = state.write().unwrap_or_else(PoisonError::into_inner);
 
@@ -338,6 +340,32 @@ impl Mdns {
 				error!("error shutting down mdns daemon: {err}");
 			}
 		}
+	}
+
+	fn parse_remote_identity(&self, service_type: &str, fullname: &str) -> Option<RemoteIdentity> {
+		if !service_type.ends_with(&self.service_name) {
+			warn!(
+				"resolved mDNS peer advertising itself with invalid service type '{service_type}'"
+			);
+			return None;
+		}
+
+		let Some(raw_remote_identity) = fullname.strip_suffix(&format!(".{}", service_type)) else {
+			warn!("resolved peer advertising itself with invalid fullname '{fullname}' '{service_type}'");
+			return None;
+		};
+
+		let Ok(identity) = RemoteIdentity::from_str(&raw_remote_identity) else {
+			warn!("resolved peer advertising itself with an invalid RemoteIdentity('{raw_remote_identity}')");
+			return None;
+		};
+
+		// Prevent discovery of the current peer.
+		if identity == self.identity {
+			return None;
+		}
+
+		Some(identity)
 	}
 }
 
