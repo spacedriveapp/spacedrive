@@ -1,6 +1,6 @@
 [package]
 name = "sd-core"
-version = "0.2.0"
+version = "0.2.2"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc."]
 rust-version = "1.73.0"
