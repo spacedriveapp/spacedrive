@@ -345,6 +345,6 @@
 	"your_account_description": "Spacedrive帳戶和資訊。",
 	"your_local_network": "您的本地網路",
 	"your_privacy": "您的隱私",
-	"itemWithCount_one": "{{count}} 项目",
-	"itemWithCount_other": "{{count}} 项目"
+	"item_with_count_one": "{{count}} 项目",
+	"item_with_count_other": "{{count}} 项目"
 }

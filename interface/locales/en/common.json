@@ -346,6 +346,6 @@
 	"your_account_description": "Spacedrive account and information.",
 	"your_local_network": "Your Local Network",
 	"your_privacy": "Your Privacy",
-	"itemWithCount_one": "{{count}} item",
-	"itemWithCount_other": "{{count}} items"
+	"item_with_count_one": "{{count}} item",
+	"item_with_count_other": "{{count}} items"
 }

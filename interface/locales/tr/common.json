@@ -346,6 +346,6 @@
 	"your_account_description": "Spacedrive hesabınız ve bilgileri.",
 	"your_local_network": "Yerel Ağınız",
 	"your_privacy": "Gizliliğiniz",
-	"itemWithCount_one": "{{count}} madde",
-	"itemWithCount_other": "{{count}} maddeler"
+	"item_with_count_one": "{{count}} madde",
+	"item_with_count_other": "{{count}} maddeler"
 }
