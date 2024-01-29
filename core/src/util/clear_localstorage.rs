@@ -9,12 +9,16 @@ const EXTRA_DIRS: [&str; 2] = ["Library/WebKit/Spacedrive", "Library/Caches/Spac
 
 pub async fn clear_localstorage() {
 	if let Some(base_dir) = BaseDirs::new() {
-		// this equates to `~/.local/share` on Linux, ~/Library/Application Support` on MacOS
-		// and `~/AppData/Local` on Windows. you can find `localStorage` and other cached files here, as
-		// well as in a few other dedicated paths on Linux and MacOS (which are cleared below)
-		let data_dir = base_dir.data_local_dir().join("com.spacedrive.desktop"); // maybe tie this into something static?
+		let data_dir = base_dir.data_dir().join("com.spacedrive.desktop"); // maybe tie this into something static?
 
 		fs::remove_dir_all(&data_dir)
+			.await
+			.map_err(|_| warn!("Unable to delete the `localStorage` primary directory."))
+			.ok();
+
+		// Windows needs both AppData/Local and AppData/Roaming clearing as it stores data in both
+		#[cfg(target_os = "windows")]
+		fs::remove_dir_all(&base_dir.data_local_dir().join("com.spacedrive.desktop"))
 			.await
 			.map_err(|_| warn!("Unable to delete the `localStorage` primary directory."))
 			.ok();
