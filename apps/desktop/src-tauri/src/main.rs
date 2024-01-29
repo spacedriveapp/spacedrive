@@ -182,7 +182,7 @@ async fn main() -> tauri::Result<()> {
 	let (_guard, result) = match Node::init_logger(&data_dir) {
 		Ok(guard) => (
 			Some(guard),
-			Node::new(data_dir, sd_core::Env::new(CLIENT_ID)).await,
+			Node::new(data_dir, sd_core::Env::new(CLIENT_ID), true).await,
 		),
 		Err(err) => (None, Err(NodeError::Logger(err))),
 	};
