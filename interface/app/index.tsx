@@ -40,7 +40,7 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 						{useFeatureFlag('solidJsDemo') ? <WithSolid root={Demo2} /> : null}
 						<Outlet />
 						<Dialogs />
-						<Toaster position="bottom-right" expand={true} />
+						<Toaster position="bottom-right" expand={true} offset={18} />
 					</RootContext.Provider>
 				);
 			},
