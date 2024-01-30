@@ -448,6 +448,9 @@ importers:
       react-native-wheel-color-picker:
         specifier: ^1.2.0
         version: 1.2.0
+      rive-react-native:
+        specifier: ^6.2.3
+        version: 6.2.3(react-native@0.72.6)(react@18.2.0)
       solid-js:
         specifier: ^1.8.8
         version: 1.8.8
@@ -22085,6 +22088,17 @@ packages:
     hasBin: true
     dependencies:
       glob: 7.2.3
+
+  /rive-react-native@6.2.3(react-native@0.72.6)(react@18.2.0):
+    resolution: {integrity: sha512-oOhalZdCTCiSXDBR/YIYQtBmfunxKCZioCIjsQ/C+sd51b0G1hxk4TqDl4f0zE7iFC3y3k57G0aIL5+N+iYZhA==}
+    engines: {node: '>=16'}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
+    dependencies:
+      react: 18.2.0
+      react-native: 0.72.6(@babel/core@7.23.2)(@babel/preset-env@7.23.8)(react@18.2.0)
+    dev: false
 
   /rollup-plugin-visualizer@5.9.2:
     resolution: {integrity: sha512-waHktD5mlWrYFrhOLbti4YgQCn1uR24nYsNuXxg7LkPH8KdTXVWR9DNY1WU0QqokyMixVXJS4J04HNrVTMP01A==}

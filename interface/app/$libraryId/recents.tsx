@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ObjectFilterArgs, ObjectKindEnum, ObjectOrder, SearchFilterArgs } from '@sd/client';
+import { ObjectKindEnum, ObjectOrder, SearchFilterArgs } from '@sd/client';
 import { Icon } from '~/components';
 import { useRouteTitle } from '~/hooks';
 
@@ -45,7 +45,7 @@ export function Component() {
 			take: 100,
 			filters: [
 				...search.allFilters,
-				// TODO: Add filter to search options
+				// TODO: Add fil ter to search options
 				{ object: { dateAccessed: { from: new Date(0).toISOString() } } }
 			]
 		},
@@ -65,7 +65,7 @@ export function Component() {
 					center={<SearchBar />}
 					left={
 						<div className="flex flex-row items-center gap-2">
-							<span className="truncate text-sm font-medium">Recents</span>
+							<span className="text-sm font-medium truncate">Recents</span>
 						</div>
 					}
 					right={<DefaultTopBarOptions />}

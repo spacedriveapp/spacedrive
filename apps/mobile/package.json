@@ -13,7 +13,7 @@
     "android-studio": "open -a '/Applications/Android Studio.app' ./android",
     "lint": "eslint src --cache",
     "test": "cd ../.. && ./apps/mobile/scripts/run-maestro-tests ios",
-	"export": "expo export",
+    "export": "expo export",
     "typecheck": "tsc -b"
   },
   "dependencies": {
@@ -60,6 +60,7 @@
     "react-native-screens": "~3.22.1",
     "react-native-svg": "14.1.0",
     "react-native-wheel-color-picker": "^1.2.0",
+    "rive-react-native": "^6.2.3",
     "solid-js": "^1.8.8",
     "twrnc": "^3.6.4",
     "use-count-up": "^3.0.1",
