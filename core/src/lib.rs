@@ -97,6 +97,20 @@ impl Node {
 		// This error is ignored because it's throwing on mobile despite the folder existing.
 		let _ = fs::create_dir_all(&data_dir).await;
 
+		let libraries_dir = data_dir.join("libraries");
+
+		if (!libraries_dir.try_exists().is_ok_and(|x| x)
+			|| !fs::read_dir(&libraries_dir)
+				.await
+				.expect("Unable to read libraries directory")
+				.next_entry()
+				.await
+				.is_ok_and(|x| x.is_some()))
+			&& desktop
+		{
+			clear_localstorage().await;
+		}
+
 		let event_bus = broadcast::channel(1024);
 		let config = config::Manager::new(data_dir.to_path_buf())
 			.await
@@ -109,7 +123,7 @@ impl Node {
 
 		let (locations, locations_actor) = location::Locations::new();
 		let (jobs, jobs_actor) = job::Jobs::new();
-		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
+		let libraries = library::Libraries::new(libraries_dir).await?;
 
 		let (p2p, p2p_actor) = p2p::P2PManager::new(config.clone(), libraries.clone()).await?;
 		let node = Arc::new(Node {
@@ -154,10 +168,6 @@ impl Node {
 		node.libraries.init(&node).await?;
 		jobs_actor.start(node.clone());
 		p2p_actor.start(node.clone());
-
-		if desktop && node.libraries.get_all().await.is_empty() {
-			clear_localstorage().await;
-		}
 
 		let router = api::mount();
 
