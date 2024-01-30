@@ -102,17 +102,23 @@ impl Mdns {
 				//
 				// This is kinda a hack but is good enough for now. More discussion:
 				// https://github.com/keepsimple1/mdns-sd/issues/145
-				let service_domain = format!(
-					"{service_name}._sub._{}:{}",
-					self.mdns_service_differentiator, self.service_name
-				);
+				let service_domain = format!("_{service_name}._sub.{}", self.service_name);
 
 				let mut meta = metadata.clone();
 				meta.insert("__peer_id".into(), self.peer_id.to_string());
+				meta.insert("__service".into(), service_name.to_string());
+				meta.insert("__identity".into(), self.identity.to_string());
+
+				// The max length of an MDNS record is painful so we just hash the data to come up with a pseudo-random but deterministic value.
+				// The full values are stored within TXT records.
+				let my_name = String::from_utf8_lossy(&base91::slice_encode(
+					&sha256::digest(format!("{}_{}", service_name, self.identity)).as_bytes(),
+				))[..63]
+					.to_string();
 
 				let service = match ServiceInfo::new(
 					&service_domain,
-					&self.identity.to_string(),
+					&my_name[..63], // 63 as long as the mDNS spec will allow us
 					&format!("{}.{}.", service_name, self.identity), // TODO: Should this change???
 					&*ips,
 					port,
@@ -205,115 +211,119 @@ impl Mdns {
 			ServiceEvent::SearchStarted(_) => {}
 			ServiceEvent::ServiceFound(_, _) => {}
 			ServiceEvent::ServiceResolved(info) => {
-				let Some(subdomain) = info.get_subtype() else {
-					warn!("resolved mDNS peer advertising itself with missing subservice");
-					return;
-				};
+				// TODO
 
-				let service_name = match subdomain.split("._sub.").next() {
-					Some(service_name) => service_name,
-					None => {
-						warn!("resolved mDNS peer advertising itself with invalid subservice '{subdomain}'");
-						return;
-					}
-				};
+				// let Some(subdomain) = info.get_subtype() else {
+				// 	warn!("resolved mDNS peer advertising itself with missing subservice");
+				// 	return;
+				// };
 
-				let identity =
-					match self.parse_remote_identity(info.get_type(), info.get_fullname()) {
-						Some(identity) => identity,
-						None => return,
-					};
+				// let service_name = match subdomain.split("._sub.").next() {
+				// 	Some(service_name) => service_name,
+				// 	None => {
+				// 		warn!("resolved mDNS peer advertising itself with invalid subservice '{subdomain}'");
+				// 		return;
+				// 	}
+				// };
 
-				let mut meta = info
-					.get_properties()
-					.iter()
-					.map(|v| (v.key().to_owned(), v.val_str().to_owned()))
-					.collect::<HashMap<_, _>>();
+				// let identity =
+				// 	match self.parse_remote_identity(info.get_type(), info.get_fullname()) {
+				// 		Some(identity) => identity,
+				// 		None => return,
+				// 	};
 
-				let Some(peer_id) = meta.remove("__peer_id") else {
-					warn!(
-						"resolved mDNS peer advertising itself with missing '__peer_id' metadata"
-					);
-					return;
-				};
-				let Ok(peer_id) = PeerId::from_str(&peer_id) else {
-					warn!(
-						"resolved mDNS peer advertising itself with invalid '__peer_id' metadata"
-					);
-					return;
-				};
+				// let mut meta = info
+				// 	.get_properties()
+				// 	.iter()
+				// 	.map(|v| (v.key().to_owned(), v.val_str().to_owned()))
+				// 	.collect::<HashMap<_, _>>();
 
-				let mut state = state.write().unwrap_or_else(PoisonError::into_inner);
+				// let Some(peer_id) = meta.remove("__peer_id") else {
+				// 	warn!(
+				// 		"resolved mDNS peer advertising itself with missing '__peer_id' metadata"
+				// 	);
+				// 	return;
+				// };
+				// let Ok(peer_id) = PeerId::from_str(&peer_id) else {
+				// 	warn!(
+				// 		"resolved mDNS peer advertising itself with invalid '__peer_id' metadata"
+				// 	);
+				// 	return;
+				// };
 
-				if let Some((tx, _)) = state.services.get_mut(service_name) {
-					if let Err(err) = tx.send((
-						service_name.to_string(),
-						ServiceEventInternal::Discovered {
-							identity,
-							metadata: meta.clone(),
-						},
-					)) {
-						warn!(
-							"error sending mDNS service event to '{service_name}' channel: {err}"
-						);
-					}
-				} else {
-					warn!(
-						"mDNS service '{service_name}' is missing from 'state.services'. This is likely a bug!"
-					);
-				}
+				// let mut state = state.write().unwrap_or_else(PoisonError::into_inner);
 
-				if let Some(discovered) = state.discovered.get_mut(service_name) {
-					discovered.insert(
-						identity,
-						DiscoveredPeerCandidate {
-							peer_id,
-							meta,
-							addresses: info
-								.get_addresses()
-								.iter()
-								.map(|addr| SocketAddr::new(*addr, info.get_port()))
-								.collect(),
-						},
-					);
-				} else {
-					warn!("mDNS service '{service_name}' is missing from 'state.discovered'. This is likely a bug!");
-				}
+				// if let Some((tx, _)) = state.services.get_mut(service_name) {
+				// 	if let Err(err) = tx.send((
+				// 		service_name.to_string(),
+				// 		ServiceEventInternal::Discovered {
+				// 			identity,
+				// 			metadata: meta.clone(),
+				// 		},
+				// 	)) {
+				// 		warn!(
+				// 			"error sending mDNS service event to '{service_name}' channel: {err}"
+				// 		);
+				// 	}
+				// } else {
+				// 	warn!(
+				// 		"mDNS service '{service_name}' is missing from 'state.services'. This is likely a bug!"
+				// 	);
+				// }
+
+				// if let Some(discovered) = state.discovered.get_mut(service_name) {
+				// 	discovered.insert(
+				// 		identity,
+				// 		DiscoveredPeerCandidate {
+				// 			peer_id,
+				// 			meta,
+				// 			addresses: info
+				// 				.get_addresses()
+				// 				.iter()
+				// 				.map(|addr| SocketAddr::new(*addr, info.get_port()))
+				// 				.collect(),
+				// 		},
+				// 	);
+				// } else {
+				// 	warn!("mDNS service '{service_name}' is missing from 'state.discovered'. This is likely a bug!");
+				// }
 			}
 			ServiceEvent::ServiceRemoved(service_type, fullname) => {
-				let service_name = match service_type.split("._sub.").next() {
-					Some(service_name) => service_name,
-					None => {
-						warn!("resolved mDNS peer deadvertising itself with missing subservice '{service_type}'");
-						return;
-					}
-				};
+				// TODO
 
-				let identity = match self.parse_remote_identity(&service_type, &fullname) {
-					Some(identity) => identity,
-					None => return,
-				};
+				// let service_name = match service_type.split("._sub.").next() {
+				// 	Some(service_name) => service_name,
+				// 	None => {
+				// 		warn!("resolved mDNS peer deadvertising itself with missing subservice '{service_type}'");
+				// 		return;
+				// 	}
+				// };
 
-				let mut state = state.write().unwrap_or_else(PoisonError::into_inner);
+				// let identity = match self.parse_remote_identity(&service_type, &fullname) {
+				// 	Some(identity) => identity,
+				// 	None => return,
+				// };
 
-				if let Some((tx, _)) = state.services.get_mut(service_name) {
-					if let Err(err) = tx.send((
-						service_name.to_string(),
-						ServiceEventInternal::Expired { identity },
-					)) {
-						warn!("error sending mDNS service event '{service_name}': {err}");
-					}
-				} else {
-					warn!(
-						"mDNS service '{service_name}' is missing from 'state.services'. This is likely a bug!"
-					);
-				}
+				// let mut state = state.write().unwrap_or_else(PoisonError::into_inner);
 
-				if let Some(discovered) = state.discovered.get_mut(service_name) {
-					discovered.remove(&identity);
-				} else {
-					warn!("mDNS service '{service_name}' is missing from 'state.discovered'. This is likely a bug!");
-				}
+				// if let Some((tx, _)) = state.services.get_mut(service_name) {
+				// 	if let Err(err) = tx.send((
+				// 		service_name.to_string(),
+				// 		ServiceEventInternal::Expired { identity },
+				// 	)) {
+				// 		warn!("error sending mDNS service event '{service_name}': {err}");
+				// 	}
+				// } else {
+				// 	warn!(
+				// 		"mDNS service '{service_name}' is missing from 'state.services'. This is likely a bug!"
+				// 	);
+				// }
+
+				// if let Some(discovered) = state.discovered.get_mut(service_name) {
+				// 	discovered.remove(&identity);
+				// } else {
+				// 	warn!("mDNS service '{service_name}' is missing from 'state.discovered'. This is likely a bug!");
+				// }
 			}
 			ServiceEvent::SearchStopped(_) => {}
 		}
@@ -343,6 +353,8 @@ impl Mdns {
 	}
 
 	fn parse_remote_identity(&self, service_type: &str, fullname: &str) -> Option<RemoteIdentity> {
+		println!("{:?} {:?}", fullname, service_type); // TODO
+
 		if !service_type.ends_with(&self.service_name) {
 			warn!(
 				"resolved mDNS peer advertising itself with invalid service type '{service_type}'"
@@ -352,6 +364,11 @@ impl Mdns {
 
 		let Some(raw_remote_identity) = fullname.strip_suffix(&format!(".{}", service_type)) else {
 			warn!("resolved peer advertising itself with invalid fullname '{fullname}' '{service_type}'");
+			return None;
+		};
+
+		let Some((raw_remote_identity, _number)) = raw_remote_identity.rsplit_once(":") else {
+			warn!("resolved peer advertising itself with invalid fullname missing discriminator '{raw_remote_identity}'");
 			return None;
 		};
 

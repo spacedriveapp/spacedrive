@@ -966,6 +966,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 
 [[package]]
+name = "base91"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4eb5fbae7b5ee422f239444a3dca9bdf5ecb3abf3af1bf87c8097db3f7bc025"
+
+[[package]]
 name = "bigdecimal"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7556,6 +7562,7 @@ dependencies = [
  "aws-sdk-s3",
  "axum",
  "base64 0.21.5",
+ "base91",
  "blake3",
  "bytes",
  "chrono",
@@ -7853,6 +7860,7 @@ name = "sd-p2p"
 version = "0.1.0"
 dependencies = [
  "base64 0.21.5",
+ "base91",
  "ed25519-dalek",
  "flume 0.11.0",
  "futures-core",
@@ -7863,6 +7871,7 @@ dependencies = [
  "pin-project-lite",
  "rand_core 0.6.4",
  "serde",
+ "sha256",
  "specta",
  "streamunordered",
  "thiserror",
@@ -8215,6 +8224,19 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest 0.10.7",
+]
+
+[[package]]
+name = "sha256"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18278f6a914fa3070aa316493f7d2ddfb9ac86ebc06fa3b83bffda487e9065b0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "hex",
+ "sha2 0.10.8",
+ "tokio",
 ]
 
 [[package]]

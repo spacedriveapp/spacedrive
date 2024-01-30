@@ -45,6 +45,8 @@ mdns-sd = "0.10.3"
 rand_core = { version = "0.6.4" }
 streamunordered = "0.5.3"
 zeroize = { version = "1.7.0", features = ["derive"] }
+base91 = "0.1.0"
+sha256 = "1.5.0"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread"] }

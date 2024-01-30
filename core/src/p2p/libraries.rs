@@ -124,8 +124,11 @@ impl LibraryServices {
 			let service = service.entry(library.id).or_insert_with(|| {
 				inserted = true;
 				Arc::new(
-					Service::new(library.id.to_string(), manager.manager.clone())
-						.expect("error creating service with duplicate service name"),
+					Service::new(
+						String::from_utf8_lossy(&base91::slice_encode(&*library.id.as_bytes())),
+						manager.manager.clone(),
+					)
+					.expect("error creating service with duplicate service name"),
 				)
 			});
 			service.add_known(identities);
