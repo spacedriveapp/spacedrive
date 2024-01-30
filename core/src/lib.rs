@@ -155,7 +155,7 @@ impl Node {
 		jobs_actor.start(node.clone());
 		p2p_actor.start(node.clone());
 
-		if desktop && libraries.get_all().await.is_empty() {
+		if desktop && node.libraries.get_all().await.is_empty() {
 			clear_localstorage().await;
 		}
 
