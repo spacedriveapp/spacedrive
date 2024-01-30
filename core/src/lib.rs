@@ -111,10 +111,6 @@ impl Node {
 		let (jobs, jobs_actor) = job::Jobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
 
-		if desktop && libraries.get_all().await.is_empty() {
-			clear_localstorage().await;
-		}
-
 		let (p2p, p2p_actor) = p2p::P2PManager::new(config.clone(), libraries.clone()).await?;
 		let node = Arc::new(Node {
 			data_dir: data_dir.to_path_buf(),
@@ -158,6 +154,10 @@ impl Node {
 		node.libraries.init(&node).await?;
 		jobs_actor.start(node.clone());
 		p2p_actor.start(node.clone());
+
+		if desktop && libraries.get_all().await.is_empty() {
+			clear_localstorage().await;
+		}
 
 		let router = api::mount();
 
