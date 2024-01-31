@@ -4,7 +4,7 @@ import { StackScreenProps } from '@react-navigation/stack';
 import { BlurView } from 'expo-blur';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
-import { TouchableOpacity } from 'react-native-gesture-handler';
+import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
 import Rive, { RiveRef } from 'rive-react-native';
 import { Style } from 'twrnc/dist/esm/types';
 import { tw } from '~/lib/tailwind';
@@ -25,6 +25,7 @@ export default function TabNavigator() {
 		icon: React.ReactNode;
 		label: string;
 		labelStyle: Style;
+		testId?: string;
 	}[] = [
 		{
 			name: 'OverviewStack',
@@ -69,7 +70,8 @@ export default function TabNavigator() {
 				/>
 			),
 			label: 'Browse',
-			labelStyle: tw`text-[10px] font-semibold`
+			labelStyle: tw`text-[10px] font-semibold`,
+			testId: 'browse-tab'
 		},
 		{
 			name: 'SettingsStack',
@@ -115,7 +117,9 @@ export default function TabNavigator() {
 						tabBarLabel: screen.label,
 						tabBarLabelStyle: screen.labelStyle,
 						tabBarIcon: () => (
-							<TouchableOpacity activeOpacity={1}>{screen.icon}</TouchableOpacity>
+							<TouchableWithoutFeedback testID={screen.testId}>
+								{screen.icon}
+							</TouchableWithoutFeedback>
 						)
 					}}
 					listeners={() => ({
