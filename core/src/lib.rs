@@ -304,6 +304,12 @@ impl Node {
 	}
 }
 
+impl sd_cloud_api::RequestConfigProvider for Node {
+	async fn cloud_api_config(self: &Arc<Self>) -> sd_cloud_api::RequestConfig {
+		Node::cloud_api_config(self).await
+	}
+}
+
 /// Error type for Node related errors.
 #[derive(Error, Debug)]
 pub enum NodeError {

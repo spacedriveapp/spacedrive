@@ -20,7 +20,7 @@ use tokio::{fs, io, sync::broadcast, sync::RwLock};
 use tracing::warn;
 use uuid::Uuid;
 
-use super::{Actors, LibraryConfig, LibraryManagerError};
+use super::{LibraryConfig, LibraryManagerError};
 
 // TODO: Finish this
 // pub enum LibraryNew {
@@ -53,7 +53,7 @@ pub struct Library {
 	// TODO(@Oscar): Get rid of this with the new invalidation system.
 	event_bus_tx: broadcast::Sender<CoreEvent>,
 
-	pub actors: Arc<Actors>,
+	pub actors: Arc<sd_actors::Actors>,
 }
 
 impl Debug for Library {

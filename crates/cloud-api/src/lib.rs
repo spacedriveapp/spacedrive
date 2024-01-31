@@ -1,5 +1,7 @@
 pub mod auth;
 
+use std::{future::Future, sync::Arc};
+
 use auth::OAuthToken;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -10,6 +12,10 @@ pub struct RequestConfig {
 	pub client: reqwest::Client,
 	pub api_url: String,
 	pub auth_token: Option<auth::OAuthToken>,
+}
+
+pub trait RequestConfigProvider {
+	fn cloud_api_config(self: &Arc<Self>) -> impl Future<Output = RequestConfig> + Send;
 }
 
 #[derive(thiserror::Error, Debug)]
