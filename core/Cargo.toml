@@ -22,6 +22,7 @@ ai = ["dep:sd-ai"]
 # Sub-crates
 sd-cache = { path = "../crates/cache" }
 sd-core-sync = { path = "./crates/sync" }
+sd-core-cloud-sync = { path = "./crates/cloud-sync" }
 # sd-cloud-api = { path = "../crates/cloud-api" }
 sd-crypto = { path = "../crates/crypto", features = [
 	"rspc",
@@ -122,6 +123,7 @@ tar = "0.4.40"
 aws-sdk-s3 = { version = "1.5.0", features = ["behavior-version-latest"] }
 aws-config = "1.0.3"
 aws-credential-types = "1.0.3"
+sd-actors = { version = "0.1.0", path = "../crates/actors" }
 
 # Override features of transitive dependencies
 [dependencies.openssl]

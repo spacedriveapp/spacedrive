@@ -1,9 +1,6 @@
-use crate::{
-	cloud::sync::{err_break, err_return, CompressedCRDTOperations},
-	library::Library,
-	Node,
-};
+use crate::{err_break, err_return, CompressedCRDTOperations};
 
+use sd_cloud_api::RequestConfigProvider;
 use sd_core_sync::NTP64;
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
 use sd_sync::CRDTOperation;
@@ -22,12 +19,16 @@ use serde_json::to_vec;
 use tokio::{sync::Notify, time::sleep};
 use uuid::Uuid;
 
-pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>, Arc<Notify>)) {
-	let db = &library.db;
-	let library_id = library.id;
-
+pub async fn run_actor(
+	db: Arc<PrismaClient>,
+	library_id: Uuid,
+	instance_uuid: Uuid,
+	sync: Arc<sd_core_sync::Manager>,
+	cloud_api_config_provider: Arc<impl RequestConfigProvider>,
+	ingest_notify: Arc<Notify>,
+) {
 	let mut cloud_timestamps = {
-		let timestamps = library.sync.timestamps.read().await;
+		let timestamps = sync.timestamps.read().await;
 
 		let batch = timestamps
 			.keys()
@@ -74,9 +75,9 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 			let collections = {
 				use sd_cloud_api::library::message_collections;
 				message_collections::get(
-					node.cloud_api_config().await,
+					cloud_api_config_provider.cloud_api_config().await,
 					library_id,
-					library.instance_uuid,
+					instance_uuid,
 					instances
 						.into_iter()
 						.map(|i| {
@@ -108,8 +109,8 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 						None => {
 							let Some(fetched_library) = err_break!(
 								sd_cloud_api::library::get(
-									node.cloud_api_config().await,
-									library.id
+									cloud_api_config_provider.cloud_api_config().await,
+									library_id
 								)
 								.await
 							) else {
@@ -137,7 +138,7 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 
 					err_break!(
 						create_instance(
-							db,
+							&db,
 							collection.instance_uuid,
 							err_break!(BASE64_STANDARD.decode(instance.identity.clone()))
 						)
@@ -152,7 +153,7 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 						&BASE64_STANDARD.decode(collection.contents)
 					)));
 
-				err_break!(write_cloud_ops_to_db(compressed_operations.into_ops(), db).await);
+				err_break!(write_cloud_ops_to_db(compressed_operations.into_ops(), &db).await);
 
 				let collection_timestamp =
 					NTP64(collection.end_time.parse().expect("unable to parse time"));
