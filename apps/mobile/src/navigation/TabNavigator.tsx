@@ -17,6 +17,11 @@ import SettingsStack, { SettingsStackParamList } from './tabs/SettingsStack';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
+//TouchableWithoutFeedback is used to prevent Android ripple effect
+//State is being used to control the animation and make Rive work
+//Tab.Screen listeners are needed because if a user taps on the tab text only, the animation won't play
+//This may be revisted in the future to update accordingly
+
 export default function TabNavigator() {
 	const [activeIndex, setActiveIndex] = useState(0);
 	const TabScreens: {
