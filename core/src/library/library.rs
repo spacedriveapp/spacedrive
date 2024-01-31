@@ -43,7 +43,7 @@ pub struct Library {
 	// pub key_manager: Arc<KeyManager>,
 	/// p2p identity
 	pub identity: Arc<Identity>,
-	pub orphan_remover: OrphanRemoverActor,
+	// pub orphan_remover: OrphanRemoverActor,
 	// The UUID which matches `config.instance_id`'s primary key.
 	pub instance_uuid: Uuid,
 
@@ -86,7 +86,7 @@ impl Library {
 			db: db.clone(),
 			// key_manager,
 			identity,
-			orphan_remover: OrphanRemoverActor::spawn(db),
+			// orphan_remover: OrphanRemoverActor::spawn(db),
 			instance_uuid,
 			env: node.env.clone(),
 			event_bus_tx: node.event_bus.0.clone(),
