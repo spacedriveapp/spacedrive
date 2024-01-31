@@ -1,9 +1,9 @@
 import { useNavigation } from '@react-navigation/native';
-import { useClientContext } from '@sd/client';
 import { MotiView } from 'moti';
 import { CaretRight, Gear, Lock, Plus } from 'phosphor-react-native';
 import { useRef, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
+import { useClientContext } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 import { currentLibraryStore } from '~/utils/nav';
@@ -48,7 +48,7 @@ const BrowseLibraryManager = ({ style }: Props) => {
 					</MotiView>
 				</View>
 			</Pressable>
-			<AnimatedHeight style={tw`absolute top-10 z-[10] w-full`} hide={dropdownClosed}>
+			<AnimatedHeight style={tw`absolute top-10 z-10 w-full`} hide={dropdownClosed}>
 				<View
 					style={tw`w-full rounded-b-md border border-sidebar-line bg-sidebar-button p-2`}
 				>
@@ -83,7 +83,7 @@ const BrowseLibraryManager = ({ style }: Props) => {
 					<Pressable
 						style={tw`flex flex-row items-center px-1.5 py-[8px]`}
 						onPress={() => {
-							modalRef.current?.present()
+							modalRef.current?.present();
 							setDropdownClosed(true);
 						}}
 					>
