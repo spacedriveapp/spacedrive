@@ -1,6 +1,6 @@
 [package]
-name = "sd-p2p"
-version = "0.1.0"
+name = "sd-p2p2"
+version = "0.2.0"
 description = "Rust Peer to Peer Networking Library"
 authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
 readme = "README.md"
@@ -8,14 +8,14 @@ license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
 
+# TODO: Remove features??? and dependencies
+
 [features]
 default = []
-serde = ["sd-p2p2/serde"]
-specta = ["sd-p2p2/specta"]
+serde = []
+specta = []
 
 [dependencies]
-sd-p2p2 = { path = "../p2p2" }
-
 base64 = { workspace = true }
 pin-project-lite = { workspace = true }
 serde = { workspace = true, features = [

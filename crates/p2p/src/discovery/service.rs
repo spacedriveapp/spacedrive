@@ -73,6 +73,8 @@ impl<TMeta: Metadata> Service<TMeta> {
 	}
 
 	pub fn update(&self, meta: TMeta) {
+		println!("A {:?} {:#?}", self.name, meta); // TODO
+
 		if let Some((_, services_meta)) = self
 			.state
 			.write()
@@ -80,6 +82,8 @@ impl<TMeta: Metadata> Service<TMeta> {
 			.services
 			.get_mut(&self.name)
 		{
+			println!("\t {:#?}", meta); // TODO
+
 			let meta = meta.to_hashmap();
 			let did_change = services_meta.as_ref().is_some_and(|v| *v == meta);
 			*services_meta = Some(meta);
@@ -107,7 +111,7 @@ impl<TMeta: Metadata> Service<TMeta> {
 			.collect::<Vec<_>>();
 
 		let state = self.state.read().unwrap_or_else(PoisonError::into_inner);
-		state
+		let state2 = state
 			.known
 			.get(&self.name)
 			.into_iter()
@@ -123,7 +127,11 @@ impl<TMeta: Metadata> Service<TMeta> {
 					.flatten()
 					.map(|(remote_identity, _)| (*remote_identity, PeerStatus::Discovered)),
 			)
-			.collect::<HashMap<RemoteIdentity, PeerStatus>>()
+			.collect::<HashMap<RemoteIdentity, PeerStatus>>();
+
+		// println!("B {:?} {:#?}", self.name, state2); // TODO
+
+		return state2;
 	}
 
 	pub fn add_known(&self, identity: Vec<RemoteIdentity>) {

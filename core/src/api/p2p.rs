@@ -1,6 +1,6 @@
-use crate::p2p::{operations, P2PEvent};
+use crate::p2p::{operations, P2PEvent, PeerMetadata};
 
-use sd_p2p::spacetunnel::RemoteIdentity;
+use sd_p2p::{spacetunnel::RemoteIdentity, Metadata};
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
@@ -19,10 +19,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				let mut queued = Vec::new();
 
 				// TODO: Don't block subscription start
-				for peer in node.p2p.node.get_discovered() {
+				for (identity, metadata) in node.p2p.p2p.discovered().clone().into_iter() {
 					queued.push(P2PEvent::DiscoveredPeer {
-						identity: peer.identity,
-						metadata: peer.metadata,
+						identity,
+						metadata: PeerMetadata::from_hashmap(&metadata).unwrap(), // TODO: Error handling
 					});
 				}
 

@@ -39,6 +39,7 @@ sd-images = { path = "../crates/images", features = [
 ] }
 sd-media-metadata = { path = "../crates/media-metadata" }
 sd-p2p = { path = "../crates/p2p", features = ["specta", "serde"] }
+sd-p2p2 = { path = "../crates/p2p2", features = ["specta", "serde"] }
 sd-prisma = { path = "../crates/prisma" }
 sd-ai = { path = "../crates/ai", optional = true }
 sd-sync = { path = "../crates/sync" }
@@ -123,6 +124,7 @@ aws-sdk-s3 = { version = "1.5.0", features = ["behavior-version-latest"] }
 aws-config = "1.0.3"
 aws-credential-types = "1.0.3"
 base91 = "0.1.0"
+mdns-sd = "0.10.3"
 
 # Override features of transitive dependencies
 [dependencies.openssl]

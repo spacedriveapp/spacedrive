@@ -114,6 +114,8 @@ impl LibraryServices {
 			}
 		};
 
+		println!("\nLOADING LIBRARY\n\t{}\n\t{identities:?}\n", library.id); // TODO
+
 		let mut inserted = false;
 
 		let service = {
@@ -131,6 +133,7 @@ impl LibraryServices {
 					.expect("error creating service with duplicate service name"),
 				)
 			});
+			println!("SERVICE {:?} {:?}", library.id, identities); // TODO
 			service.add_known(identities);
 			service.clone()
 		};

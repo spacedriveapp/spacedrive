@@ -51,6 +51,8 @@ impl Mdns {
 		identity: RemoteIdentity,
 		peer_id: PeerId,
 	) -> Result<Self, mdns_sd::Error> {
+		println!("REGISTERING MDNS {:?}", identity); // TODO
+
 		let mdns_daemon = ServiceDaemon::new()?;
 
 		Ok(Self {
@@ -100,6 +102,14 @@ impl Mdns {
 					&sha256::digest(format!("{}_{}", service_name, self.identity)).as_bytes(),
 				))[..63]
 					.to_string();
+
+				println!(
+					"\n ADVERTISE: \t{:?}\n\t{:?}\n\t{:?}\n\t{:?}",
+					&my_name[..63],
+					service_name,
+					self.service_name,
+					self.identity
+				);
 
 				let service_domain = format!("_{service_name}._sub.{}", self.service_name);
 				let service = match ServiceInfo::new(
@@ -245,6 +255,8 @@ impl Mdns {
 					.iter()
 					.map(|v| (v.key().to_owned(), v.val_str().to_owned()))
 					.collect::<HashMap<_, _>>();
+				meta.remove("__service");
+				meta.remove("__identity");
 
 				let Some(peer_id) = meta.remove("__peer_id") else {
 					warn!(
@@ -280,6 +292,11 @@ impl Mdns {
 				}
 
 				if let Some(discovered) = state.discovered.get_mut(service_name) {
+					println!(
+						"INSERT {:?} {:?} {:?} {:?}",
+						discovered, identity, peer_id, meta
+					); // TODO
+
 					discovered.insert(
 						identity,
 						DiscoveredPeerCandidate {

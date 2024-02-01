@@ -1,3 +1,5 @@
+// TODO: Document all types in this file
+
 use std::{
 	hash::{Hash, Hasher},
 	str::FromStr,

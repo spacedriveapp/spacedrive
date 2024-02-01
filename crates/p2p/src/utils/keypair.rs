@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::spacetunnel::{Identity, RemoteIdentity};
 
+#[deprecated]
 #[derive(Debug, Clone)]
 pub struct Keypair(ed25519::Keypair);
 

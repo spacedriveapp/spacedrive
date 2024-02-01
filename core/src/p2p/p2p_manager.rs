@@ -4,8 +4,10 @@ use crate::{
 };
 
 use sd_p2p::{
-	spacetunnel::RemoteIdentity, Manager, ManagerConfig, ManagerError, PeerStatus, Service,
+	spacetunnel::RemoteIdentity, Manager, ManagerConfig, ManagerError, Metadata, PeerStatus,
+	Service,
 };
+use sd_p2p2::P2P;
 use std::{
 	collections::{HashMap, HashSet},
 	net::SocketAddr,
@@ -21,7 +23,9 @@ use uuid::Uuid;
 use super::{LibraryMetadata, LibraryServices, P2PEvent, P2PManagerActor, PeerMetadata};
 
 pub struct P2PManager {
-	pub(crate) node: Service<PeerMetadata>,
+	pub(crate) p2p: P2P,
+
+	// TODO: BREAK
 	pub(crate) libraries: LibraryServices,
 
 	pub events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
@@ -41,6 +45,8 @@ impl P2PManager {
 			(config.keypair, config.p2p.clone())
 		};
 
+		println!("LOADED KEYPAIR: {:?}", keypair.to_remote_identity()); // TODO
+
 		let (manager, stream) =
 			sd_p2p::Manager::new(SPACEDRIVE_APP_ID, &keypair, manager_config).await?;
 
@@ -53,8 +59,9 @@ impl P2PManager {
 
 		let (register_service_tx, register_service_rx) = mpsc::channel(10);
 		let this = Arc::new(Self {
-			node: Service::new("node", manager.clone())
-				.expect("Hardcoded service name will never be a duplicate!"),
+			p2p: P2P::new(SPACEDRIVE_APP_ID, keypair.to_identity()),
+			// node: Service::new("node", manager.clone())
+			// 	.expect("Hardcoded service name will never be a duplicate!"),
 			libraries: LibraryServices::new(register_service_tx),
 			events: broadcast::channel(100),
 			manager,
@@ -81,15 +88,17 @@ impl P2PManager {
 	}
 
 	pub async fn update_metadata(&self) {
-		self.node.update({
-			let config = self.node_config_manager.get().await;
-			PeerMetadata {
-				name: config.name.clone(),
-				operating_system: Some(OperatingSystem::get_os()),
-				device_model: Some(get_hardware_model_name().unwrap_or(HardwareModel::Other)),
-				version: Some(env!("CARGO_PKG_VERSION").to_string()),
-			}
-		});
+		let mut service = self.p2p.service_mut();
+		let config = self.node_config_manager.get().await;
+		let meta = PeerMetadata {
+			name: config.name.clone(),
+			operating_system: Some(OperatingSystem::get_os()),
+			device_model: Some(get_hardware_model_name().unwrap_or(HardwareModel::Other)),
+			version: Some(env!("CARGO_PKG_VERSION").to_string()),
+		};
+		for (k, v) in meta.to_hashmap() {
+			service.insert(k, v);
+		}
 	}
 
 	pub fn subscribe(&self) -> broadcast::Receiver<P2PEvent> {
