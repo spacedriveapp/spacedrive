@@ -1,7 +1,7 @@
 pub mod auth;
 
 use auth::OAuthToken;
-use sd_p2p::spacetunnel::RemoteIdentity;
+use sd_p2p2::RemoteIdentity;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use specta::Type;

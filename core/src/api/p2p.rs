@@ -1,6 +1,6 @@
 use crate::p2p::{operations, P2PEvent, PeerMetadata};
 
-use sd_p2p::{spacetunnel::RemoteIdentity, Metadata};
+use sd_p2p2::RemoteIdentity;
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
@@ -48,11 +48,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("state", {
-			R.query(|node, _: ()| async move {
-				// TODO: This has a potentially invalid map key and Specta don't like that.
-				// TODO: This will bypass that check and for an debug route that's fine.
-				Ok(serde_json::to_value(node.p2p.state()).unwrap())
-			})
+			R.query(|node, _: ()| async move { Ok(node.p2p.state()) })
 		})
 		.procedure("spacedrop", {
 			#[derive(Type, Deserialize)]

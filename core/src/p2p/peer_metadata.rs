@@ -1,6 +1,6 @@
 use crate::node::{HardwareModel, Platform};
 
-use sd_p2p::Metadata;
+// use sd_p2p::Metadata;
 
 use std::{collections::HashMap, env, str::FromStr};
 
@@ -15,9 +15,8 @@ pub struct PeerMetadata {
 	pub version: Option<String>,
 }
 
-impl Metadata for PeerMetadata {
-	fn to_hashmap(self) -> HashMap<String, String> {
-		let mut map = HashMap::with_capacity(5);
+impl PeerMetadata {
+	pub fn update(&self, map: &HashMap<String, String>) {
 		map.insert("name".to_owned(), self.name);
 		if let Some(os) = self.operating_system {
 			map.insert("os".to_owned(), os.to_string());
@@ -28,13 +27,9 @@ impl Metadata for PeerMetadata {
 		if let Some(device_model) = self.device_model {
 			map.insert("device_model".to_owned(), device_model.to_string());
 		}
-		map
 	}
 
-	fn from_hashmap(data: &HashMap<String, String>) -> Result<Self, String>
-	where
-		Self: Sized,
-	{
+	pub fn from_hashmap(data: &HashMap<String, String>) -> Result<Self, String> {
 		Ok(Self {
 			name: data
 				.get("name")

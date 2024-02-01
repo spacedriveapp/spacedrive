@@ -223,7 +223,7 @@ impl Node {
 		info!("Spacedrive shutting down...");
 		self.thumbnailer.shutdown().await;
 		self.jobs.shutdown().await;
-		self.p2p.shutdown().await;
+		self.p2p.shutdown();
 		#[cfg(feature = "ai")]
 		self.image_labeller.shutdown().await;
 		info!("Spacedrive Core shutdown successful!");
@@ -310,8 +310,8 @@ pub enum NodeError {
 	FailedToInitializeLibraryManager(#[from] library::LibraryManagerError),
 	#[error("failed to initialize location manager: {0}")]
 	LocationManager(#[from] LocationManagerError),
-	#[error("failed to initialize p2p manager: {0}")]
-	P2PManager(#[from] sd_p2p::ManagerError),
+	// #[error("failed to initialize p2p manager: {0}")]
+	// P2PManager(#[from] sd_p2p2::ManagerError),
 	#[error("invalid platform integer: {0}")]
 	InvalidPlatformInt(u8),
 	#[cfg(debug_assertions)]

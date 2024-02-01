@@ -6,7 +6,6 @@ pub(super) mod libraries;
 pub mod operations;
 mod p2p_events;
 mod p2p_manager;
-mod p2p_manager_actor;
 mod peer_metadata;
 mod protocol;
 pub mod sync;
@@ -14,7 +13,6 @@ pub mod sync;
 pub use identity_or_remote_identity::*;
 pub use p2p_events::*;
 pub use p2p_manager::*;
-pub use p2p_manager_actor::*;
 pub use peer_metadata::*;
 pub use protocol::*;
 

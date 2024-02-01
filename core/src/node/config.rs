@@ -4,7 +4,7 @@ use crate::{
 	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 
-use sd_p2p::{Keypair, ManagerConfig};
+use sd_p2p2::Identity;
 use sd_utils::error::FileIOError;
 
 use std::{
@@ -28,6 +28,14 @@ use uuid::Uuid;
 /// NODE_STATE_CONFIG_NAME is the name of the file which stores the NodeState
 pub const NODE_STATE_CONFIG_NAME: &str = "node_state.sdconfig";
 
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+pub enum P2PDiscoveryState {
+	#[default]
+	Everyone,
+	ContactsOnly,
+	Disabled,
+}
+
 /// NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
 #[derive(Debug, Clone, Serialize, Deserialize)] // If you are adding `specta::Type` on this your probably about to leak the P2P private key
 pub struct NodeConfig {
@@ -40,10 +48,13 @@ pub struct NodeConfig {
 	pub notifications: Vec<Notification>,
 	/// The p2p identity keypair for this node. This is used to identify the node on the network.
 	/// This keypair does effectively nothing except for provide libp2p with a stable peer_id.
-	pub keypair: Keypair,
+	#[serde(skip)] // TODO
+	pub identity: Identity,
 	/// P2P config
 	#[serde(default)]
-	pub p2p: ManagerConfig,
+	pub p2p_disabled: bool,
+	#[serde(default)]
+	pub p2p_discovery: P2PDiscoveryState,
 	/// Feature flags enabled on the node
 	#[serde(default)]
 	pub features: Vec<BackendFeature>,
@@ -99,9 +110,10 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 		Some(Self {
 			id: Uuid::new_v4(),
 			name,
-			keypair: Keypair::generate(),
+			identity: Identity::default(),
+			p2p_disabled: false,
+			p2p_discovery: P2PDiscoveryState::Everyone,
 			version: Self::LATEST_VERSION,
-			p2p: ManagerConfig::default(),
 			features: vec![],
 			notifications: vec![],
 			auth_token: None,

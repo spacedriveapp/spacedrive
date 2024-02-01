@@ -7546,7 +7546,7 @@ dependencies = [
  "base64 0.21.5",
  "reqwest",
  "rspc",
- "sd-p2p",
+ "sd-p2p2",
  "serde",
  "serde_json",
  "specta",
@@ -7862,36 +7862,6 @@ name = "sd-mobile-ios"
 version = "0.1.0"
 dependencies = [
  "sd-mobile-core",
-]
-
-[[package]]
-name = "sd-p2p"
-version = "0.1.0"
-dependencies = [
- "base64 0.21.5",
- "base91",
- "ed25519-dalek",
- "flume 0.11.0",
- "futures-core",
- "if-watch",
- "libp2p",
- "libp2p-quic",
- "mdns-sd",
- "pin-project-lite",
- "rand_core 0.6.4",
- "sd-p2p2",
- "serde",
- "sha256",
- "specta",
- "streamunordered",
- "thiserror",
- "tokio",
- "tokio-stream",
- "tokio-util",
- "tracing",
- "tracing-subscriber",
- "uuid",
- "zeroize",
 ]
 
 [[package]]

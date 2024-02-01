@@ -1,7 +1,9 @@
-use sd_p2p::spacetunnel::RemoteIdentity;
+use std::sync::Arc;
 
+use sd_p2p2::{HookEvent, RemoteIdentity, P2P};
 use serde::Serialize;
 use specta::Type;
+use tokio::sync::{broadcast, mpsc};
 use uuid::Uuid;
 
 use super::PeerMetadata;
@@ -39,4 +41,36 @@ pub enum P2PEvent {
 	SpacedropRejected {
 		id: Uuid,
 	},
+}
+
+/// A P2P hook which listens for events and sends them over a channel which can be connected to the frontend.
+pub struct P2PEvents {
+	events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
+}
+
+impl P2PEvents {
+	pub fn spawn(p2p: Arc<P2P>) -> Self {
+		let events = broadcast::channel(15);
+		let (tx, rx) = mpsc::channel(15);
+		let _ = p2p.register_hook(tx);
+
+		let events_tx = events.tx.clone();
+		tokio::spawn(async move {
+			while let Some(event) = rx.recv().await {
+				match event {
+					// TODO: Create `P2PEvent` from `HookEvent` and emit on `events_tx`
+					HookEvent::MetadataChange(_) => todo!(),
+					HookEvent::DiscoveredChange(_) => todo!(),
+					HookEvent::ListenersChange(_) => todo!(),
+					HookEvent::Shutdown => return,
+				}
+			}
+		});
+
+		Self { events }
+	}
+
+	pub fn subscribe(&self) -> broadcast::Receiver<P2PEvent> {
+		self.events.0.subscribe()
+	}
 }

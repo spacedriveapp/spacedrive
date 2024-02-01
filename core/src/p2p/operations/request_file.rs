@@ -5,11 +5,8 @@ use crate::{
 };
 
 use sd_file_path_helper::{file_path_to_handle_p2p_serve_file, IsolatedFilePathData};
-use sd_p2p::{
-	spaceblock::{BlockSize, Range, SpaceblockRequest, SpaceblockRequests, Transfer},
-	spacetime::UnicastStream,
-	PeerMessageEvent,
-};
+use sd_p2p2::{PeerMessageEvent, UnicastStream};
+use sd_p2p_block::{BlockSize, Range, SpaceblockRequest, SpaceblockRequests, Transfer};
 use sd_prisma::prisma::file_path;
 
 use std::{
