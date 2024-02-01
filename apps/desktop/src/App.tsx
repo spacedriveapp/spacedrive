@@ -148,7 +148,7 @@ function AppInner() {
 				() => ({
 					setTitle(id, title) {
 						setTabs((tabs) => {
-							const tabIndex =tabs.findIndex(t => t.id === id);
+							const tabIndex = tabs.findIndex(t => t.id === id);
 							if (tabIndex === -1) return tabs;
 
 							tabs[tabIndex] = { ...tabs[tabIndex]!, title };
