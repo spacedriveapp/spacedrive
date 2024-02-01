@@ -86,12 +86,14 @@ function AppInner() {
 		const history = createMemoryHistory();
 		const router = createMemoryRouterWithHistory({ routes, history });
 
+		const id = Math.random().toString();
+
 		const dispose = router.subscribe((event) => {
 			// we don't care about non-idle events as those are artifacts of form mutations + suspense
 			if (event.navigation.state !== 'idle') return;
 
 			setTabs((routers) => {
-				const index = routers.findIndex((r) => r.router === router);
+				const index = routers.findIndex((r) => r.id === id);
 				if (index === -1) return routers;
 
 				const routerAtIndex = routers[index]!;
@@ -105,12 +107,12 @@ function AppInner() {
 							: Math.max(routerAtIndex.maxIndex, history.index)
 				};
 
-				return [...routers];
+				return [...routers]
 			});
 		});
 
 		return {
-			id: Math.random().toString(),
+			id,
 			router,
 			history,
 			dispose,
@@ -144,19 +146,18 @@ function AppInner() {
 		<RouteTitleContext.Provider
 			value={useMemo(
 				() => ({
-					setTitle(title) {
-						setTabs((oldTabs) => {
-							const tabs = [...oldTabs];
-							const tab = tabs[tabIndex];
-							if (!tab) return tabs;
+					setTitle(id, title) {
+						setTabs((tabs) => {
+							const tabIndex =tabs.findIndex(t => t.id === id);
+							if (tabIndex === -1) return tabs;
 
-							tabs[tabIndex] = { ...tab, title };
+							tabs[tabIndex] = { ...tabs[tabIndex]!, title };
 
-							return tabs;
+							return [...tabs];
 						});
 					}
 				}),
-				[tabIndex]
+				[]
 			)}
 		>
 			<TabsContext.Provider
@@ -170,7 +171,8 @@ function AppInner() {
 								new Promise((res) => {
 									startTransition(() => {
 										setTabs((tabs) => {
-											const newTabs = [...tabs, createTab()];
+											const newTab = createTab();
+											const newTabs = [...tabs, newTab];
 
 											setTabIndex(newTabs.length - 1);
 
@@ -201,7 +203,7 @@ function AppInner() {
 				}}
 			>
 				<SpacedriveInterfaceRoot>
-					{tabs.map((tab) =>
+					{tabs.map((tab, index) =>
 						createPortal(
 							<SpacedriveRouterProvider
 								key={tab.id}
@@ -209,7 +211,8 @@ function AppInner() {
 									routes,
 									visible: tabIndex === tabs.indexOf(tab),
 									router: tab.router,
-									currentIndex: tab.currentIndex,
+									tabIndex: index,
+									tabId: tab.id,
 									maxIndex: tab.maxIndex
 								}}
 							/>,

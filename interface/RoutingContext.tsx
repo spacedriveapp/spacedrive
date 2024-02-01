@@ -5,7 +5,8 @@ import { createRoutes } from './app';
 
 export const RoutingContext = createContext<{
 	visible: boolean;
-	currentIndex: number;
+	tabIndex: number;
+	tabId: string;
 	maxIndex: number;
 	routes: ReturnType<typeof createRoutes>;
 } | null>(null);
