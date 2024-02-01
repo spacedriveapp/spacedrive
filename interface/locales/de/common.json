@@ -1,5 +1,4 @@
 {
-	"meet_title": "Treffen Sie {{title}}",
 	"about": "Über",
 	"about_vision_text": "Viele von uns haben mehrere Cloud-Konten, Laufwerke, die nicht gesichert sind, und Daten, die von Verlust bedroht sind. Wir verlassen uns auf Cloud-Dienste wie Google Fotos und iCloud, sind aber mit begrenzter Kapazität eingesperrt und haben fast keine Interoperabilität zwischen Diensten und Betriebssystemen. Fotoalben sollten nicht in einem Geräte-Ökosystem feststecken oder für Werbedaten geerntet werden. Sie sollten betriebssystemunabhängig, dauerhaft und persönlich besessen sein. Daten, die wir erstellen, sind unser Erbe, das uns lange überleben wird - Open-Source-Technologie ist der einzige Weg, um sicherzustellen, dass wir absolute Kontrolle über die Daten behalten, die unser Leben definieren, in unbegrenztem Maßstab.",
 	"about_vision_title": "Vision",
@@ -176,6 +175,8 @@
 	"install_update": "Update installieren",
 	"installed": "Installiert",
 	"item_size": "Elementgröße",
+	"item_with_count_one": "{{count}} artikel",
+	"item_with_count_other": "{{count}} artikel",
 	"job_has_been_canceled": "Der Job wurde abgebrochen.",
 	"job_has_been_paused": "Der Job wurde pausiert.",
 	"job_has_been_removed": "Der Job wurde entfernt.",
@@ -221,6 +222,7 @@
 	"media_view_context": "Medienansichtskontext",
 	"media_view_notice_description": "Entdecken Sie Fotos und Videos leicht, die Medienansicht zeigt Resultate beginnend am aktuellen Standort einschließlich Unterordnern.",
 	"meet_contributors_behind_spacedrive": "Treffen Sie die Mitwirkenden hinter Spacedrive",
+	"meet_title": "Treffen Sie {{title}}",
 	"miles": "Meilen",
 	"mode": "Modus",
 	"modified": "Geändert",
@@ -304,6 +306,10 @@
 	"settings": "Einstellungen",
 	"setup": "Einrichten",
 	"share": "Teilen",
+	"share_anonymous_usage": "Anonyme Nutzung teilen",
+	"share_anonymous_usage_description": "Teilen Sie völlig anonyme Telemetriedaten, um den Entwicklern bei der Verbesserung der App zu helfen",
+	"share_bare_minimum": "Mindestinformationen teilen",
+	"share_bare_minimum_description": "Nur teilen, dass ich ein aktiver Benutzer von Spacedrive bin und einige technische Details",
 	"sharing": "Teilen",
 	"sharing_description": "Verwalten Sie, wer Zugriff auf Ihre Bibliotheken hat.",
 	"show_details": "Details anzeigen",
@@ -345,7 +351,5 @@
 	"your_account": "Ihr Konto",
 	"your_account_description": "Spacedrive-Konto und -Informationen.",
 	"your_local_network": "Ihr lokales Netzwerk",
-	"your_privacy": "Ihre Privatsphäre",
-	"item_with_count_one": "{{count}} artikel",
-	"item_with_count_other": "{{count}} artikel"
+	"your_privacy": "Ihre Privatsphäre"
 }

@@ -1,5 +1,4 @@
 {
-	"meet_title": "Meet {{title}}",
 	"about": "About",
 	"about_vision_text": "Many of us have multiple cloud accounts, drives that aren’t backed up and data at risk of loss. We depend on cloud services like Google Photos and iCloud, but are locked in with limited capacity and almost zero interoperability between services and operating systems. Photo albums shouldn’t be stuck in a device ecosystem, or harvested for advertising data. They should be OS agnostic, permanent and personally owned. Data we create is our legacy, that will long outlive us—open source technology is the only way to ensure we retain absolute control over the data that defines our lives, at unlimited scale.",
 	"about_vision_title": "Vision",
@@ -176,6 +175,8 @@
 	"install_update": "Install Update",
 	"installed": "Installed",
 	"item_size": "Item size",
+	"item_with_count_one": "{{count}} item",
+	"item_with_count_other": "{{count}} items",
 	"job_has_been_canceled": "Job has been canceled.",
 	"job_has_been_paused": "Job has been paused.",
 	"job_has_been_removed": "Job has been removed.",
@@ -221,6 +222,7 @@
 	"media_view_context": "Media View Context",
 	"media_view_notice_description": "Discover photos and videos easily, Media View will show results starting at the current location including sub directories.",
 	"meet_contributors_behind_spacedrive": "Meet the contributors behind Spacedrive",
+	"meet_title": "Meet {{title}}",
 	"miles": "Miles",
 	"mode": "Mode",
 	"modified": "Modified",
@@ -346,6 +348,8 @@
 	"your_account_description": "Spacedrive account and information.",
 	"your_local_network": "Your Local Network",
 	"your_privacy": "Your Privacy",
-	"item_with_count_one": "{{count}} item",
-	"item_with_count_other": "{{count}} items"
+	"share_anonymous_usage": "Share anonymous usage",
+	"share_anonymous_usage_description": "Share completely anonymous telemetry data to help the developers improve the app",
+	"share_bare_minimum": "Share the bare minimum",
+	"share_bare_minimum_description": "Only share that I am an active user of Spacedrive and a few technical bits"
 }

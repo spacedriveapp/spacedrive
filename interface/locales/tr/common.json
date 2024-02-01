@@ -1,5 +1,4 @@
 {
-	"meet_title": "{{title}} ile Tanışın",
 	"about": "Hakkında",
 	"about_vision_text": "Birçoğumuzun birden fazla bulut hesabı, yedeklenmemiş sürücüleri ve kaybolma riski taşıyan verileri var. Google Fotoğraflar ve iCloud gibi bulut hizmetlerine bağımlıyız, ancak sınırlı kapasiteyle ve hizmetler ile işletim sistemleri arasında neredeyse sıfır geçiş yapabilirlikle kısıtlanmış durumdayız. Fotoğraf albümleri bir cihaz ekosisteminde sıkışıp kalmamalı veya reklam verileri için kullanılmamalıdır. OS bağımsız, kalıcı ve kişisel olarak sahip olunmalıdır. Oluşturduğumuz veriler, bizden uzun süre yaşayacak mirasımızdır - verilerimiz üzerinde mutlak kontrol sağlamak için açık kaynak teknolojisi tek yoludur, sınırsız ölçekte.",
 	"about_vision_title": "Vizyon",
@@ -176,6 +175,8 @@
 	"install_update": "Güncellemeyi Yükle",
 	"installed": "Yüklendi",
 	"item_size": "Öğe Boyutu",
+	"item_with_count_one": "{{count}} madde",
+	"item_with_count_other": "{{count}} maddeler",
 	"job_has_been_canceled": "İş iptal edildi.",
 	"job_has_been_paused": "İş duraklatıldı.",
 	"job_has_been_removed": "İş kaldırıldı.",
@@ -221,6 +222,7 @@
 	"media_view_context": "Medya Görünümü Bağlamı",
 	"media_view_notice_description": "Fotoğrafları ve videoları kolayca keşfedin, Medya Görünümü alt dizinler dahil olmak üzere mevcut konumdan itibaren sonuçları gösterecektir.",
 	"meet_contributors_behind_spacedrive": "Spacedrive'ın arkasındaki katkıda bulunanlarla tanışın",
+	"meet_title": "{{title}} ile Tanışın",
 	"miles": "Mil",
 	"mode": "Mod",
 	"modified": "Değiştirildi",
@@ -346,6 +348,8 @@
 	"your_account_description": "Spacedrive hesabınız ve bilgileri.",
 	"your_local_network": "Yerel Ağınız",
 	"your_privacy": "Gizliliğiniz",
-	"item_with_count_one": "{{count}} madde",
-	"item_with_count_other": "{{count}} maddeler"
+	"share_anonymous_usage": "Anonim kullanımı paylaş",
+	"share_anonymous_usage_description": "Geliştiricilere uygulamayı iyileştirmelerine yardımcı olmak için tamamen anonim telemetri verilerini paylaşın",
+	"share_bare_minimum": "Sadece en azını paylaş",
+	"share_bare_minimum_description": "Yalnızca Spacedrive'ın aktif bir kullanıcısı olduğumu ve birkaç teknik ayrıntıyı paylaşın"
 }

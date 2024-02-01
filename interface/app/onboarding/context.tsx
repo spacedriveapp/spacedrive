@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { t } from 'i18next';
 import { createContext, useContext } from 'react';
 import { useNavigate } from 'react-router';
 import {
@@ -41,13 +42,12 @@ export const shareTelemetry = RadioGroupField.options([
 	z.literal('minimal-telemetry')
 ]).details({
 	'share-telemetry': {
-		heading: 'Share anonymous usage',
-		description:
-			'Share completely anonymous telemetry data to help the developers improve the app'
+		heading: t('share_anonymous_usage'),
+		description: t('share_anonymous_usage_description')
 	},
 	'minimal-telemetry': {
-		heading: 'Share the bare minimum',
-		description: 'Only share that I am an active user of Spacedrive and a few technical bits'
+		heading: t('share_bare_minimum'),
+		description: t('share_bare_minimum_description')
 	}
 });
 

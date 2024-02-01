@@ -1,5 +1,4 @@
 {
-	"meet_title": "會見 {{title}}",
 	"about": "關於",
 	"about_vision_text": "我們中的許多人都擁有數個雲帳戶，這些雲帳戶中的硬碟未備份且資料面臨丟失的風險。我們依賴諸如Google照片和iCloud之類的雲服務，但這些服務容量有限且幾乎不能在不同的服務及作業系統間進行互通。相簿不應僅限於某個裝置生態系統內，或被用於收集廣告數據。它們應該是與作業系統無關，永久且屬於個人所有的。我們創建的數據是我們的遺產，它們將比我們存活得更久——開源技術是確保我們對定義我們生活的數據擁有絕對控制權的唯一方式，並且無限規模地延伸。",
 	"about_vision_title": "遠景",
@@ -175,6 +174,8 @@
 	"install_update": "安裝更新",
 	"installed": "已安裝",
 	"item_size": "項目大小",
+	"item_with_count_one": "{{count}} 项目",
+	"item_with_count_other": "{{count}} 项目",
 	"job_has_been_canceled": "工作已取消。",
 	"job_has_been_paused": "工作已暫停。",
 	"job_has_been_removed": "工作已移除。",
@@ -220,6 +221,7 @@
 	"media_view_context": "媒體視圖上下文",
 	"media_view_notice_description": "輕鬆發現照片和視頻，媒體視圖會從當前位置（包括子目錄）顯示結果。",
 	"meet_contributors_behind_spacedrive": "認識Spacedrive背後的貢獻者",
+	"meet_title": "會見 {{title}}",
 	"miles": "英里",
 	"mode": "模式",
 	"modified": "已修改",
@@ -345,6 +347,8 @@
 	"your_account_description": "Spacedrive帳戶和資訊。",
 	"your_local_network": "您的本地網路",
 	"your_privacy": "您的隱私",
-	"item_with_count_one": "{{count}} 项目",
-	"item_with_count_other": "{{count}} 项目"
+	"share_anonymous_usage": "分享匿名使用情況",
+	"share_anonymous_usage_description": "分享完全匿名的遙測數據，以幫助開發人員改進應用程序",
+	"share_bare_minimum": "分享最低限度",
+	"share_bare_minimum_description": "僅分享我是Spacedrive的活躍用戶和一些技術細節"
 }
