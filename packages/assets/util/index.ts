@@ -13,8 +13,7 @@ export const iconNames = Object.fromEntries(
 ) as Record<IconTypes, string>;
 
 export const getIconByName = (name: IconTypes, isDark?: boolean) => {
-	let _name = name;
-	if (!isDark) _name = (name + '_Light') as IconTypes;
+	if (!isDark) name = (name + '_Light') as IconTypes;
 	return icons[name];
 };
 
