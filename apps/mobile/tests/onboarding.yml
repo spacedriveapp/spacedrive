@@ -10,6 +10,4 @@ appId: com.spacedrive.app
 - tapOn:
     id: 'share-minimal'
 - tapOn: 'Continue'
-- tapOn:
-    id: 'browse-tab'
 - assertVisible: 'TestLib'
