@@ -5,7 +5,7 @@ import { tw, twStyle } from '~/lib/tailwind';
 type SettingsItemProps = {
 	title: string;
 	onPress?: () => void;
-	leftIcon: Icon;
+	leftIcon?: Icon;
 	rightArea?: React.ReactNode;
 	rounded?: 'top' | 'bottom';
 };
@@ -25,11 +25,13 @@ export function SettingsItem(props: SettingsItemProps) {
 		<Pressable onPress={props.onPress}>
 			<View style={twStyle(' border-app-input bg-sidebar-box', borderRounded, border)}>
 				<View style={tw`h-auto flex-row items-center`}>
-					<View
-						style={tw`ml-4 mr-5 h-8 w-8 items-center justify-center rounded-full bg-app-input`}
-					>
-						{props.leftIcon({ size: 20, color: tw.color('ink-dull') })}
-					</View>
+					{props.leftIcon && (
+						<View
+							style={tw`ml-4 mr-5 h-8 w-8 items-center justify-center rounded-full bg-app-input`}
+						>
+							{props.leftIcon({ size: 20, color: tw.color('ink-dull') })}
+						</View>
+					)}
 					<View
 						style={twStyle(
 							`flex-1 flex-row items-center justify-between py-4`,
