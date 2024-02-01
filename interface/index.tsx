@@ -52,7 +52,7 @@ export function SpacedriveRouterProvider(props: {
 		routes: ReturnType<typeof createRoutes>;
 		visible: boolean;
 		router: Router;
-		tabIndex: number;
+		currentIndex: number;
 		tabId: string;
 		maxIndex: number;
 	};
@@ -63,7 +63,7 @@ export function SpacedriveRouterProvider(props: {
 				value={{
 					routes: props.routing.routes,
 					visible: props.routing.visible,
-					tabIndex: props.routing.tabIndex,
+					currentIndex: props.routing.currentIndex,
 					tabId: props.routing.tabId,
 					maxIndex: props.routing.maxIndex
 				}}

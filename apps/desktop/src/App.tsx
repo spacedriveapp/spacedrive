@@ -80,7 +80,9 @@ const routes = createRoutes(platform, cache);
 
 function AppInner() {
 	const [tabs, setTabs] = useState(() => [createTab()]);
-	const [tabIndex, setTabIndex] = useState(0);
+	const [selectedTabIndex, setSelectedTabIndex] = useState(0);
+
+	const selectedTab = tabs[selectedTabIndex]!;
 
 	function createTab() {
 		const history = createMemoryHistory();
@@ -123,8 +125,6 @@ function AppInner() {
 		};
 	}
 
-	const tab = tabs[tabIndex]!;
-
 	const createTabPromise = useRef(Promise.resolve());
 
 	const ref = useRef<HTMLDivElement>(null);
@@ -133,14 +133,14 @@ function AppInner() {
 		const div = ref.current;
 		if (!div) return;
 
-		div.appendChild(tab.element);
+		div.appendChild(selectedTab.element);
 
 		return () => {
 			while (div.firstChild) {
 				div.removeChild(div.firstChild);
 			}
 		};
-	}, [tab.element]);
+	}, [selectedTab.element]);
 
 	return (
 		<RouteTitleContext.Provider
@@ -162,8 +162,8 @@ function AppInner() {
 		>
 			<TabsContext.Provider
 				value={{
-					tabIndex,
-					setTabIndex,
+					tabIndex: selectedTabIndex,
+					setTabIndex: setSelectedTabIndex,
 					tabs: tabs.map(({ router, title }) => ({ router, title })),
 					createTab() {
 						createTabPromise.current = createTabPromise.current.then(
@@ -174,7 +174,7 @@ function AppInner() {
 											const newTab = createTab();
 											const newTabs = [...tabs, newTab];
 
-											setTabIndex(newTabs.length - 1);
+											setSelectedTabIndex(newTabs.length - 1);
 
 											return newTabs;
 										});
@@ -194,7 +194,7 @@ function AppInner() {
 
 								tabs.splice(index, 1);
 
-								setTabIndex(Math.min(tabIndex, tabs.length - 1));
+								setSelectedTabIndex(Math.min(selectedTabIndex, tabs.length - 1));
 
 								return [...tabs];
 							});
@@ -209,9 +209,9 @@ function AppInner() {
 								key={tab.id}
 								routing={{
 									routes,
-									visible: tabIndex === tabs.indexOf(tab),
+									visible: selectedTabIndex === tabs.indexOf(tab),
 									router: tab.router,
-									tabIndex: index,
+									currentIndex: tab.currentIndex,
 									tabId: tab.id,
 									maxIndex: tab.maxIndex
 								}}

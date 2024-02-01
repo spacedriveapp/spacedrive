@@ -10,7 +10,7 @@ import { useExplorerDroppable } from '../Explorer/useExplorerDroppable';
 import TopBarButton from './TopBarButton';
 
 export const NavigationButtons = () => {
-	const { tabIndex: currentIndex, maxIndex } = useRoutingContext();
+	const { currentIndex, maxIndex } = useRoutingContext();
 
 	const { t } = useLocale();
 
