@@ -121,10 +121,9 @@ export default function TabNavigator() {
 					options={{
 						tabBarLabel: screen.label,
 						tabBarLabelStyle: screen.labelStyle,
+						tabBarTestID: screen.testId,
 						tabBarIcon: () => (
-							<TouchableWithoutFeedback testID={screen.testId}>
-								{screen.icon}
-							</TouchableWithoutFeedback>
+							<TouchableWithoutFeedback>{screen.icon}</TouchableWithoutFeedback>
 						)
 					}}
 					listeners={() => ({
