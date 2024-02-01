@@ -49,6 +49,7 @@ streamunordered = "0.5.3"
 zeroize = { version = "1.7.0", features = ["derive"] }
 base91 = "0.1.0"
 sha256 = "1.5.0"
+stable-vec = "0.4.0"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread"] }

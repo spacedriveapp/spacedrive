@@ -10,7 +10,7 @@ pub enum IdentityOrRemoteIdentityErr {
 	InvalidFormat,
 }
 
-/// TODO
+// #[deprecated] /// TODO: Remove this it was a mistake
 #[derive(Debug, PartialEq)]
 
 pub enum IdentityOrRemoteIdentity {

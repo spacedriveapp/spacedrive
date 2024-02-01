@@ -5204,6 +5204,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "no-std-compat"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df270209a7f04d62459240d890ecb792714d5db12c92937823574a09930276b4"
+
+[[package]]
 name = "nodrop"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7578,7 +7584,6 @@ dependencies = [
  "image",
  "int-enum",
  "itertools 0.12.0",
- "mdns-sd",
  "mini-moka",
  "normpath",
  "notify",
@@ -7905,6 +7910,7 @@ dependencies = [
  "serde",
  "sha256",
  "specta",
+ "stable-vec",
  "streamunordered",
  "thiserror",
  "tokio",
@@ -8638,6 +8644,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0366f270dbabb5cc2e4c88427dc4c08bba144f81e32fbd459a013f26a4d16aa0"
 dependencies = [
  "log",
+]
+
+[[package]]
+name = "stable-vec"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80dfb7bb28f3d2fa50566793349d633b33f938543154be8071610ea9f590d8ca"
+dependencies = [
+ "no-std-compat",
 ]
 
 [[package]]

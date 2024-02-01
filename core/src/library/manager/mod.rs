@@ -639,28 +639,6 @@ impl Libraries {
 			}
 		});
 
-		let instances = library
-			.db
-			.instance()
-			.find_many(vec![])
-			.exec()
-			.await
-			.unwrap_or_default();
-		if instances.len() == 0 {
-			println!("NO INSTANCES FOUND FOR {:?}", library.id);
-		}
-		for instance in instances {
-			let identity = IdentityOrRemoteIdentity::from_bytes(&instance.identity).unwrap();
-			println!(
-				"LOAD INSTANCE:\n\t{:?}\n\t{:?}\n\t{:?}\n\t{:?}\n\t{:?}\n\n",
-				library.id,
-				instance.pub_id,
-				instance.node_id,
-				identity,
-				identity.remote_identity()
-			);
-		}
-
 		Ok(library)
 	}
 

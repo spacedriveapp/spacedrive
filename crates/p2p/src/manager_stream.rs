@@ -394,7 +394,6 @@ impl ManagerStream {
 				}
 				ManagerStreamAction::Shutdown(tx) => {
 					info!("Shutting down P2P Manager...");
-					self.discovery_manager.shutdown();
 					tx.send(()).unwrap_or_else(|()| {
 						warn!("Error sending shutdown signal to P2P Manager!");
 					});

@@ -1,13 +1,13 @@
 use crate::{
 	node::{config, get_hardware_model_name, HardwareModel},
-	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
+	p2p::{libraries, OperatingSystem, SPACEDRIVE_APP_ID},
 };
 
 use sd_p2p::{
 	spacetunnel::RemoteIdentity, Manager, ManagerConfig, ManagerError, Metadata, PeerStatus,
 	Service,
 };
-use sd_p2p2::P2P;
+use sd_p2p2::{Mdns, P2P};
 use std::{
 	collections::{HashMap, HashSet},
 	net::SocketAddr,
@@ -20,14 +20,13 @@ use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
 use tracing::info;
 use uuid::Uuid;
 
-use super::{LibraryMetadata, LibraryServices, P2PEvent, P2PManagerActor, PeerMetadata};
+use super::{P2PEvent, P2PManagerActor, PeerMetadata};
 
 pub struct P2PManager {
 	pub(crate) p2p: P2P,
+	mdns: Mutex<Option<Mdns>>,
 
 	// TODO: BREAK
-	pub(crate) libraries: LibraryServices,
-
 	pub events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
 	pub manager: Arc<Manager>,
 	pub(super) spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
@@ -45,8 +44,6 @@ impl P2PManager {
 			(config.keypair, config.p2p.clone())
 		};
 
-		println!("LOADED KEYPAIR: {:?}", keypair.to_remote_identity()); // TODO
-
 		let (manager, stream) =
 			sd_p2p::Manager::new(SPACEDRIVE_APP_ID, &keypair, manager_config).await?;
 
@@ -57,12 +54,21 @@ impl P2PManager {
 			stream.listen_addrs()
 		);
 
-		let (register_service_tx, register_service_rx) = mpsc::channel(10);
+		let p2p = P2P::new(SPACEDRIVE_APP_ID, keypair.to_identity());
+		// TODO: `Self::update_metadata` now
+
+		// TODO: Only register this if mDNS is enabled in node config
+		let mdns = Mdns::spawn(p2p.clone())?;
+
+		// TODO: Setup libp2p
+
+		// TODO: Control whether connections are made or not when discovered????
+
+		libraries::start(p2p.clone(), libraries);
+
 		let this = Arc::new(Self {
-			p2p: P2P::new(SPACEDRIVE_APP_ID, keypair.to_identity()),
-			// node: Service::new("node", manager.clone())
-			// 	.expect("Hardcoded service name will never be a duplicate!"),
-			libraries: LibraryServices::new(register_service_tx),
+			p2p,
+			mdns: Mutex::new(Some(mdns)),
 			events: broadcast::channel(100),
 			manager,
 			spacedrop_pairing_reqs: Default::default(),
@@ -71,24 +77,22 @@ impl P2PManager {
 		});
 		this.update_metadata().await;
 
-		tokio::spawn(LibraryServices::start(this.clone(), libraries));
-
 		Ok((
 			this.clone(),
 			P2PManagerActor {
 				manager: this,
 				stream,
-				register_service_rx,
 			},
 		))
 	}
 
-	pub fn get_library_service(&self, library_id: &Uuid) -> Option<Arc<Service<LibraryMetadata>>> {
-		self.libraries.get(library_id)
+	pub fn get_library_service(&self, library_id: &Uuid) -> Option<Arc<Service<()>>> {
+		// self.libraries.get(library_id)
+		todo!();
 	}
 
 	pub async fn update_metadata(&self) {
-		let mut service = self.p2p.service_mut();
+		let mut service = self.p2p.metadata_mut();
 		let config = self.node_config_manager.get().await;
 		let meta = PeerMetadata {
 			name: config.name.clone(),
@@ -118,36 +122,37 @@ impl P2PManager {
 			discovery_known,
 		) = self.manager.get_debug_state();
 
-		P2PState {
-			node: self.node.get_state(),
-			libraries: self
-				.libraries
-				.libraries()
-				.into_iter()
-				.map(|(id, lib)| (id, lib.get_state()))
-				.collect(),
-			self_peer_id: PeerId(self_peer_id),
-			self_identity,
-			config,
-			manager_connected: manager_connected
-				.into_iter()
-				.map(|(k, v)| (PeerId(k), v))
-				.collect(),
-			manager_connections: manager_connections.into_iter().map(PeerId).collect(),
-			dicovery_services,
-			discovery_discovered: discovery_discovered
-				.into_iter()
-				.map(|(k, v)| {
-					(
-						k,
-						v.into_iter()
-							.map(|(k, (k1, v, b))| (k, (PeerId(k1), v, b)))
-							.collect(),
-					)
-				})
-				.collect(),
-			discovery_known,
-		}
+		todo!();
+		// P2PState {
+		// 	node: self.node.get_state(),
+		// 	libraries: self
+		// 		.libraries
+		// 		.libraries()
+		// 		.into_iter()
+		// 		.map(|(id, lib)| (id, lib.get_state()))
+		// 		.collect(),
+		// 	self_peer_id: PeerId(self_peer_id),
+		// 	self_identity,
+		// 	config,
+		// 	manager_connected: manager_connected
+		// 		.into_iter()
+		// 		.map(|(k, v)| (PeerId(k), v))
+		// 		.collect(),
+		// 	manager_connections: manager_connections.into_iter().map(PeerId).collect(),
+		// 	dicovery_services,
+		// 	discovery_discovered: discovery_discovered
+		// 		.into_iter()
+		// 		.map(|(k, v)| {
+		// 			(
+		// 				k,
+		// 				v.into_iter()
+		// 					.map(|(k, (k1, v, b))| (k, (PeerId(k1), v, b)))
+		// 					.collect(),
+		// 			)
+		// 		})
+		// 		.collect(),
+		// 	discovery_known,
+		// }
 	}
 
 	pub async fn shutdown(&self) {

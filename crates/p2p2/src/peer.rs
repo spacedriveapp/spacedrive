@@ -31,6 +31,31 @@ pub struct Peer {
 }
 
 impl Peer {
+	pub fn new() -> Self {
+		Self {
+			state: PeerStatus::Unavailable,
+			service: Default::default(),
+			connector: Default::default(),
+		}
+	}
+
+	pub fn state(&self) -> PeerStatus {
+		self.state
+	}
+
+	pub fn set_state(&mut self, state: PeerStatus) {
+		self.state = state;
+	}
+
+	pub fn service(&self) -> &HashMap<String, String> {
+		&self.service
+	}
+
+	// TODO: Mutex instead here???
+	pub fn service_mut(&mut self) -> &mut HashMap<String, String> {
+		&mut self.service
+	}
+
 	pub fn is_connected(&self) -> bool {
 		todo!();
 	}

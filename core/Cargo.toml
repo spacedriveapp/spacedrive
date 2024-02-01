@@ -124,7 +124,6 @@ aws-sdk-s3 = { version = "1.5.0", features = ["behavior-version-latest"] }
 aws-config = "1.0.3"
 aws-credential-types = "1.0.3"
 base91 = "0.1.0"
-mdns-sd = "0.10.3"
 
 # Override features of transitive dependencies
 [dependencies.openssl]

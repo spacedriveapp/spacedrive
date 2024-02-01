@@ -84,55 +84,57 @@ mod originator {
 
 	/// REMEMBER: This only syncs one direction!
 	pub async fn run(library_id: Uuid, sync: &Arc<sync::Manager>, p2p: &Arc<super::P2PManager>) {
-		let service = p2p.get_library_service(&library_id).unwrap();
+		// let service = p2p.get_library_service(&library_id).unwrap();
 
-		// TODO: Deduplicate any duplicate peer ids -> This is an edge case but still
-		for (remote_identity, status) in service.get_state() {
-			let PeerStatus::Connected = status else {
-				continue;
-			};
+		// // TODO: Deduplicate any duplicate peer ids -> This is an edge case but still
+		// for (remote_identity, status) in service.get_state() {
+		// 	let PeerStatus::Connected = status else {
+		// 		continue;
+		// 	};
 
-			let sync = sync.clone();
-			let p2p = p2p.clone();
-			let service = service.clone();
+		// 	let sync = sync.clone();
+		// 	let p2p = p2p.clone();
+		// 	let service = service.clone();
 
-			tokio::spawn(async move {
-				debug!(
-					"Alerting peer '{remote_identity:?}' of new sync events for library '{library_id:?}'"
-				);
+		// 	tokio::spawn(async move {
+		// 		debug!(
+		// 			"Alerting peer '{remote_identity:?}' of new sync events for library '{library_id:?}'"
+		// 		);
 
-				let mut stream = service
-					.connect(p2p.manager.clone(), &remote_identity)
-					.await
-					.map_err(|_| ())
-					.unwrap(); // TODO: handle providing incorrect peer id
+		// 		let mut stream = service
+		// 			.connect(p2p.manager.clone(), &remote_identity)
+		// 			.await
+		// 			.map_err(|_| ())
+		// 			.unwrap(); // TODO: handle providing incorrect peer id
 
-				stream
-					.write_all(&Header::Sync(library_id).to_bytes())
-					.await
-					.unwrap();
+		// 		stream
+		// 			.write_all(&Header::Sync(library_id).to_bytes())
+		// 			.await
+		// 			.unwrap();
 
-				let mut tunnel = Tunnel::initiator(stream).await.unwrap();
+		// 		let mut tunnel = Tunnel::initiator(stream).await.unwrap();
 
-				tunnel
-					.write_all(&SyncMessage::NewOperations.to_bytes())
-					.await
-					.unwrap();
-				tunnel.flush().await.unwrap();
+		// 		tunnel
+		// 			.write_all(&SyncMessage::NewOperations.to_bytes())
+		// 			.await
+		// 			.unwrap();
+		// 		tunnel.flush().await.unwrap();
 
-				while let Ok(rx::MainRequest::GetOperations(args)) =
-					rx::MainRequest::from_stream(&mut tunnel).await
-				{
-					let ops = sync.get_ops(args).await.unwrap();
+		// 		while let Ok(rx::MainRequest::GetOperations(args)) =
+		// 			rx::MainRequest::from_stream(&mut tunnel).await
+		// 		{
+		// 			let ops = sync.get_ops(args).await.unwrap();
 
-					tunnel
-						.write_all(&tx::Operations(ops).to_bytes())
-						.await
-						.unwrap();
-					tunnel.flush().await.unwrap();
-				}
-			});
-		}
+		// 			tunnel
+		// 				.write_all(&tx::Operations(ops).to_bytes())
+		// 				.await
+		// 				.unwrap();
+		// 			tunnel.flush().await.unwrap();
+		// 		}
+		// 	});
+		// }
+
+		todo!();
 	}
 }
 

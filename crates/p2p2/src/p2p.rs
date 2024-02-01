@@ -1,9 +1,38 @@
 use std::{
+	borrow::Cow,
 	collections::HashMap,
-	sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
+	net::SocketAddr,
+	sync::{Arc, Mutex, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
-use crate::{Identity, RemoteIdentity};
+use stable_vec::StableVec;
+use tokio::sync::mpsc;
+
+use crate::{Identity, Peer, RemoteIdentity};
+
+// TODO: `HookEvent` split into `Add`/`Delete` operation???
+// TODO: Fire `HookEvent`'s on change using custom `MutexGuard`
+// TODO: Finish shutdown process
+// TODO: Rename `discovered` property cause it's more than that
+
+// TODO: mDNS service removal fully hooked up
+
+#[derive(Debug, Clone)]
+pub enum HookEvent {
+	/// A change to `P2P::service`
+	MetadataChange(String),
+	/// A change to `P2P::discovered`
+	DiscoveredChange(RemoteIdentity),
+	/// A change to `P2P::listeners`
+	ListenersChange(String),
+	/// Shutting down the P2P manager
+	Shutdown,
+}
+
+#[derive(Debug, Clone)]
+pub struct HookId(usize);
+
+type ListenerName = Cow<'static, str>;
 
 /// Manager for the entire P2P system.
 #[derive(Debug)]
@@ -16,19 +45,27 @@ pub struct P2P {
 	identity: Identity,
 	/// A metadata being shared from the local node to the remote nodes.
 	/// This will contain information such as the node's name, version, and services we provide.
-	service: Arc<RwLock<HashMap<String, String>>>,
+	metadata: RwLock<HashMap<String, String>>,
 	/// A list of all discovered nodes and their metadata (which comes from `self.service` above).
-	discovered: Arc<RwLock<HashMap<RemoteIdentity, HashMap<String, String>>>>,
+	discovered: RwLock<HashMap<RemoteIdentity, Peer>>,
+	/// A list of active listeners on the current node.
+	listeners: RwLock<HashMap<ListenerName, SocketAddr>>,
+	/// Hooks can be registered to react to state changes.
+	hooks: Mutex<StableVec<mpsc::Sender<HookEvent>>>,
 }
 
 impl P2P {
-	pub fn new(app_name: &'static str, identity: Identity) -> Self {
-		P2P {
+	pub fn new(app_name: &'static str, identity: Identity) -> Arc<Self> {
+		// TODO: Validate `app_name` is valid for mDNS
+
+		Arc::new(P2P {
 			app_name,
 			identity,
-			service: Default::default(),
+			metadata: Default::default(),
 			discovered: Default::default(),
-		}
+			listeners: Default::default(),
+			hooks: Default::default(),
+		})
 	}
 
 	pub fn app_name(&self) -> &'static str {
@@ -43,23 +80,69 @@ impl P2P {
 		self.identity.to_remote_identity()
 	}
 
-	pub fn service(&self) -> RwLockReadGuard<HashMap<String, String>> {
-		self.service.read().unwrap_or_else(PoisonError::into_inner)
+	pub fn metadata(&self) -> RwLockReadGuard<HashMap<String, String>> {
+		self.metadata.read().unwrap_or_else(PoisonError::into_inner)
 	}
 
-	pub fn service_mut(&self) -> RwLockWriteGuard<HashMap<String, String>> {
-		self.service.write().unwrap_or_else(PoisonError::into_inner)
+	pub fn metadata_mut(&self) -> RwLockWriteGuard<HashMap<String, String>> {
+		self.metadata
+			.write()
+			.unwrap_or_else(PoisonError::into_inner)
 	}
 
-	pub fn discovered(&self) -> RwLockReadGuard<HashMap<RemoteIdentity, HashMap<String, String>>> {
+	pub fn discovered(&self) -> RwLockReadGuard<HashMap<RemoteIdentity, Peer>> {
 		self.discovered
 			.read()
 			.unwrap_or_else(PoisonError::into_inner)
 	}
 
-	// TODO: Subscribe to discovered & allow triggering a connection
+	pub fn discovered_mut(&self) -> RwLockWriteGuard<HashMap<RemoteIdentity, Peer>> {
+		// TODO: before releasing the lock we should ask the hooks if they wanna register a connection method
+
+		self.discovered
+			.write()
+			.unwrap_or_else(PoisonError::into_inner)
+	}
+
+	pub fn listeners(&self) -> RwLockReadGuard<HashMap<ListenerName, SocketAddr>> {
+		self.listeners
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+	}
+
+	pub fn listeners_mut(&self) -> RwLockWriteGuard<HashMap<ListenerName, SocketAddr>> {
+		self.listeners
+			.write()
+			.unwrap_or_else(PoisonError::into_inner)
+	}
+
+	pub fn register_hook(&self, tx: mpsc::Sender<HookEvent>) -> HookId {
+		HookId(
+			self.hooks
+				.lock()
+				.unwrap_or_else(PoisonError::into_inner)
+				.push(tx),
+		)
+	}
+
+	pub fn unregister_hook(&self, id: HookId) {
+		if let Some(sender) = self
+			.hooks
+			.lock()
+			.unwrap_or_else(PoisonError::into_inner)
+			.remove(id.0)
+		{
+			let _ = sender.send(HookEvent::Shutdown);
+		}
+	}
 
 	pub fn shutdown(&self) {
-		// TODO: Properly trigger mDNS shutdown
+		let hooks = self.hooks.lock().unwrap_or_else(PoisonError::into_inner);
+		for (_, tx) in hooks.iter() {
+			let _ = tx.send(HookEvent::Shutdown);
+		}
+
+		// TODO: Wait for response from hooks saying they are done shutting down
+		// TODO: Maybe wait until `unregister_hook` is called internally by each of them or with timeout and force removal overwise.
 	}
 }
