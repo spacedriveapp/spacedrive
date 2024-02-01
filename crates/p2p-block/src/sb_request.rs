@@ -4,7 +4,7 @@ use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use uuid::Uuid;
 
-use crate::proto::{decode, encode};
+use sd_p2p_proto::{decode, encode};
 
 use super::BlockSize;
 

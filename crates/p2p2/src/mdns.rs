@@ -16,6 +16,7 @@ use crate::{
 const MDNS_READVERTISEMENT_INTERVAL: Duration = Duration::from_secs(60); // Every minute re-advertise
 
 /// Multicast DNS (mDNS) is used for discovery of peers over local networks.
+#[derive(Debug)]
 pub struct Mdns {
 	p2p: Arc<P2P>,
 	hook_id: HookId,
@@ -28,7 +29,7 @@ impl Mdns {
 
 		start(p2p.clone(), rx)?;
 
-		Ok(Mdns { p2p, hook_id })
+		Ok(Self { p2p, hook_id })
 	}
 
 	pub fn shutdown(self) {

@@ -7,7 +7,7 @@ use sd_p2p::{
 	spacetunnel::RemoteIdentity, Manager, ManagerConfig, ManagerError, Metadata, PeerStatus,
 	Service,
 };
-use sd_p2p2::{Mdns, P2P};
+use sd_p2p2::{quic::QuicTransport, Mdns, P2P};
 use std::{
 	collections::{HashMap, HashSet},
 	net::SocketAddr,
@@ -25,6 +25,7 @@ use super::{P2PEvent, P2PManagerActor, PeerMetadata};
 pub struct P2PManager {
 	pub(crate) p2p: P2P,
 	mdns: Mutex<Option<Mdns>>,
+	quic: Mutex<Option<QuicTransport>>,
 
 	// TODO: BREAK
 	pub events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
@@ -57,8 +58,10 @@ impl P2PManager {
 		let p2p = P2P::new(SPACEDRIVE_APP_ID, keypair.to_identity());
 		// TODO: `Self::update_metadata` now
 
-		// TODO: Only register this if mDNS is enabled in node config
+		// TODO: Only register this if mDNS is enabled in node config + allow toggling it without restarting
 		let mdns = Mdns::spawn(p2p.clone())?;
+		// TODO: only register this if QUIC is enabled in node config + allow toggling it without restarting
+		let quic = QuicTransport::spawn(p2p.clone())?;
 
 		// TODO: Setup libp2p
 

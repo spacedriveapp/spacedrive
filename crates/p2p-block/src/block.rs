@@ -58,7 +58,7 @@ impl<'a> Block<'a> {
 mod tests {
 	use std::io::Cursor;
 
-	use crate::spaceblock::BlockSize;
+	use crate::BlockSize;
 
 	use super::*;
 

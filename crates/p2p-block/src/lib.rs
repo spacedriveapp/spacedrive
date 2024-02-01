@@ -1,3 +1,6 @@
+//! TODO
+// TODO: Clippy lints here
+
 //! Spaceblock is a file transfer protocol that uses a block based system to transfer files.
 //! This protocol is modelled after `SyncThing`'s BEP protocol. A huge thanks to it's original authors!
 //! You can read more about it here: <https://docs.syncthing.net/specs/bep-v1.html>
@@ -21,10 +24,8 @@ use tokio::{
 };
 use tracing::debug;
 
-use crate::{
-	proto::{decode, encode},
-	spacetime::UnicastStream,
-};
+use sd_p2p2::UnicastStream;
+use sd_p2p_proto::{decode, encode};
 
 mod block;
 mod block_size;

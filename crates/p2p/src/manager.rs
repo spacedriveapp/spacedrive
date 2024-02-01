@@ -54,12 +54,6 @@ pub struct Manager {
 	event_stream_tx2: mpsc::Sender<ManagerStreamAction2>,
 }
 
-impl fmt::Debug for Manager {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		f.debug_struct("Debug").finish()
-	}
-}
-
 impl Manager {
 	/// create a new P2P manager. Please do your best to make the callback closures as fast as possible because they will slow the P2P event loop!
 	pub async fn new(
@@ -67,12 +61,6 @@ impl Manager {
 		keypair: &Keypair,
 		config: ManagerConfig,
 	) -> Result<(Arc<Self>, ManagerStream), ManagerError> {
-		application_name
-			.chars()
-			.all(|c| char::is_alphanumeric(c) || c == '-')
-			.then_some(())
-			.ok_or(ManagerError::InvalidAppName)?;
-
 		let peer_id = keypair.peer_id();
 		let (event_stream_tx, event_stream_rx) = mpsc::channel(128);
 		let (event_stream_tx2, event_stream_rx2) = mpsc::channel(128);

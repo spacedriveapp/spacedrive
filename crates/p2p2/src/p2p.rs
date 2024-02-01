@@ -56,7 +56,12 @@ pub struct P2P {
 
 impl P2P {
 	pub fn new(app_name: &'static str, identity: Identity) -> Arc<Self> {
-		// TODO: Validate `app_name` is valid for mDNS
+		// TODO: Validate `app_name`'s max length too
+		// app_name
+		// 	.chars()
+		// 	.all(|c| char::is_alphanumeric(c) || c == '-')
+		// 	.then_some(())
+		// 	.ok_or(ManagerError::InvalidAppName)?;
 
 		Arc::new(P2P {
 			app_name,

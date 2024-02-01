@@ -6,7 +6,7 @@ use std::{
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 
-use crate::spacetime::UnicastStream;
+use sd_p2p2::UnicastStream;
 
 #[derive(Debug)]
 pub struct Tunnel {

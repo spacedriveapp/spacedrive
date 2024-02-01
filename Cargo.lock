@@ -7608,7 +7608,9 @@ dependencies = [
  "sd-file-path-helper",
  "sd-images",
  "sd-media-metadata",
- "sd-p2p",
+ "sd-p2p-block",
+ "sd-p2p-proto",
+ "sd-p2p-tunnel",
  "sd-p2p2",
  "sd-prisma",
  "sd-sync",
@@ -7890,6 +7892,36 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
  "zeroize",
+]
+
+[[package]]
+name = "sd-p2p-block"
+version = "0.1.0"
+dependencies = [
+ "sd-p2p-proto",
+ "sd-p2p2",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "sd-p2p-proto"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "thiserror",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "sd-p2p-tunnel"
+version = "0.1.0"
+dependencies = [
+ "sd-p2p2",
+ "tokio",
 ]
 
 [[package]]

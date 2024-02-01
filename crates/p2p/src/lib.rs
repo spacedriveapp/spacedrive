@@ -1,13 +1,10 @@
 //! Rust Peer to Peer Networking Library
 #![warn(clippy::all, clippy::unwrap_used, clippy::panic)]
 
-mod discovery;
 mod event;
 mod manager;
 mod manager_stream;
 mod peer;
-pub mod proto;
-pub mod spaceblock;
 pub mod spacetime;
 pub mod spacetunnel;
 mod utils;
