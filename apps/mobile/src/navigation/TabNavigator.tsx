@@ -30,7 +30,6 @@ export default function TabNavigator() {
 		icon: React.ReactNode;
 		label: string;
 		labelStyle: Style;
-		testId?: string;
 	}[] = [
 		{
 			name: 'OverviewStack',
@@ -75,8 +74,7 @@ export default function TabNavigator() {
 				/>
 			),
 			label: 'Browse',
-			labelStyle: tw`text-[10px] font-semibold`,
-			testId: 'browse-tab'
+			labelStyle: tw`text-[10px] font-semibold`
 		},
 		{
 			name: 'SettingsStack',
@@ -122,9 +120,7 @@ export default function TabNavigator() {
 						tabBarLabel: screen.label,
 						tabBarLabelStyle: screen.labelStyle,
 						tabBarIcon: () => (
-							<TouchableWithoutFeedback testID={screen.testId}>
-								{screen.icon}
-							</TouchableWithoutFeedback>
+							<TouchableWithoutFeedback>{screen.icon}</TouchableWithoutFeedback>
 						)
 					}}
 					listeners={() => ({
