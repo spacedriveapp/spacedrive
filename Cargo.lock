@@ -7593,6 +7593,7 @@ name = "sd-desktop"
 version = "0.2.2"
 dependencies = [
  "axum",
+ "directories 5.0.1",
  "futures",
  "http",
  "hyper",
