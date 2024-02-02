@@ -142,6 +142,7 @@
 	"failed_to_resume_job": "Aufgabe konnte nicht fortgesetzt werden.",
 	"failed_to_update_location_settings": "Standorteinstellungen konnten nicht aktualisiert werden",
 	"favorite": "Favorit",
+	"favorites": "Favoriten",
 	"file_indexing_rules": "Dateiindizierungsregeln",
 	"filters": "Filter",
 	"forward": "Vorwärts",
@@ -193,6 +194,9 @@
 	"keybinds_description": "Client-Tastenkombinationen anzeigen und verwalten",
 	"keys": "Schlüssel",
 	"kilometers": "Kilometer",
+	"labels": "Labels",
+	"language": "Sprache",
+	"language_description": "Ändern Sie die Sprache der Spacedrive-Benutzeroberfläche",
 	"learn_more_about_telemetry": "Mehr über Telemetrie erfahren",
 	"libraries": "Bibliotheken",
 	"libraries_description": "Die Datenbank enthält alle Bibliotheksdaten und Dateimetadaten.",
@@ -283,6 +287,7 @@
 	"quick_preview": "Schnellvorschau",
 	"quick_view": "Schnellansicht",
 	"recent_jobs": "Aktuelle Aufgaben",
+	"recents": "Zuletzt verwendet",
 	"regen_labels": "Labels erneuern",
 	"regen_thumbnails": "Vorschaubilder erneuern",
 	"regenerate_thumbs": "Vorschaubilder neu generieren",
@@ -359,10 +364,5 @@
 	"your_account": "Ihr Konto",
 	"your_account_description": "Spacedrive-Konto und -Informationen.",
 	"your_local_network": "Ihr lokales Netzwerk",
-	"your_privacy": "Ihre Privatsphäre",
-	"recents": "Zuletzt verwendet",
-	"favorites": "Favoriten",
-	"labels": "Labels",
-	"language": "Sprache",
-	"language_description": "Ändern Sie die Sprache der Spacedrive-Benutzeroberfläche"
+	"your_privacy": "Ihre Privatsphäre"
 }
