@@ -1,4 +1,4 @@
-import { ArrowsClockwise, Cloud, Database, Factory } from '@phosphor-icons/react';
+import { ArrowsClockwise, Cloud, Database, Factory, ShareNetwork } from '@phosphor-icons/react';
 import { useFeatureFlag } from '@sd/client';
 
 import Icon from '../../SidebarLayout/Icon';
@@ -28,6 +28,10 @@ export default function DebugSection() {
 				<SidebarLink to="debug/actors">
 					<Icon component={Factory} />
 					Actors
+				</SidebarLink>
+				<SidebarLink to="debug/p2p">
+					<Icon component={ShareNetwork} />
+					P2P
 				</SidebarLink>
 			</div>
 		</Section>

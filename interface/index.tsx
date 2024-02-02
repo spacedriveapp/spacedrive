@@ -19,7 +19,7 @@ import { toast, TooltipProvider } from '@sd/ui';
 import { createRoutes } from './app';
 import { SpacedropProvider } from './app/$libraryId/Spacedrop';
 import i18n from './app/I18n';
-import { P2P, useP2PErrorToast } from './app/p2p';
+import { useP2PErrorToast } from './app/p2p';
 import { Devtools } from './components/Devtools';
 import { WithPrismTheme } from './components/TextViewer/prism';
 import ErrorFallback, { BetterErrorBoundary } from './ErrorFallback';
@@ -98,7 +98,6 @@ export function SpacedriveInterfaceRoot({ children }: PropsWithChildren) {
 					<InteropProviderReact>
 						<TooltipProvider>
 							<P2PContextProvider>
-								<P2P />
 								<Devtools />
 								<WithPrismTheme />
 								<SpacedropProvider />
