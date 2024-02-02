@@ -15,7 +15,7 @@ export default function DevicesSection() {
 
 	return (
 		<Section
-			name="Devices"
+			name={t('devices')}
 			actionArea={
 				isPairingEnabled && (
 					<Link to="settings/library/nodes">

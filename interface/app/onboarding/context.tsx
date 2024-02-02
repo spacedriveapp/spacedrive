@@ -1,5 +1,4 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { t } from 'i18next';
 import { createContext, useContext } from 'react';
 import { useNavigate } from 'react-router';
 import {
@@ -18,6 +17,8 @@ import {
 } from '@sd/client';
 import { RadioGroupField, z } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
+
+import i18n from '../I18n';
 
 export const OnboardingContext = createContext<ReturnType<typeof useContextValue> | null>(null);
 
@@ -42,12 +43,12 @@ export const shareTelemetry = RadioGroupField.options([
 	z.literal('minimal-telemetry')
 ]).details({
 	'share-telemetry': {
-		heading: t('share_anonymous_usage'),
-		description: t('share_anonymous_usage_description')
+		heading: i18n.t('share_anonymous_usage'),
+		description: i18n.t('share_anonymous_usage_description')
 	},
 	'minimal-telemetry': {
-		heading: t('share_bare_minimum'),
-		description: t('share_bare_minimum_description')
+		heading: i18n.t('share_bare_minimum'),
+		description: i18n.t('share_bare_minimum_description')
 	}
 });
 
