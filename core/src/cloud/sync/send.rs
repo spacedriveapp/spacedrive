@@ -1,19 +1,23 @@
-use crate::{cloud::sync::CompressedCRDTOperations, Node};
+use super::CompressedCRDTOperations;
 
+use sd_cloud_api::RequestConfigProvider;
 use sd_core_sync::{GetOpsArgs, SyncMessage, NTP64};
-use sd_prisma::prisma::instance;
+use sd_prisma::prisma::{instance, PrismaClient};
 use sd_utils::from_bytes_to_uuid;
+use uuid::Uuid;
 
 use std::{sync::Arc, time::Duration};
 
 use tokio::time::sleep;
 
-use super::{err_break, Library};
+use super::err_break;
 
-pub async fn run_actor((library, node): (Arc<Library>, Arc<Node>)) {
-	let db = &library.db;
-	let library_id = library.id;
-
+pub async fn run_actor(
+	db: Arc<PrismaClient>,
+	library_id: Uuid,
+	sync: Arc<sd_core_sync::Manager>,
+	cloud_api_config_provider: Arc<impl RequestConfigProvider>,
+) {
 	loop {
 		loop {
 			let instances = err_break!(
@@ -29,7 +33,7 @@ pub async fn run_actor((library, node): (Arc<Library>, Arc<Node>)) {
 
 			let req_adds = err_break!(
 				sd_cloud_api::library::message_collections::request_add(
-					node.cloud_api_config().await,
+					cloud_api_config_provider.get_request_config().await,
 					library_id,
 					instances,
 				)
@@ -42,22 +46,20 @@ pub async fn run_actor((library, node): (Arc<Library>, Arc<Node>)) {
 
 			for req_add in req_adds {
 				let ops = err_break!(
-					library
-						.sync
-						.get_ops(GetOpsArgs {
-							count: 1000,
-							clocks: vec![(
-								req_add.instance_uuid,
-								NTP64(
-									req_add
-										.from_time
-										.unwrap_or_else(|| "0".to_string())
-										.parse()
-										.expect("couldn't parse ntp64 value"),
-								),
-							)],
-						})
-						.await
+					sync.get_ops(GetOpsArgs {
+						count: 1000,
+						clocks: vec![(
+							req_add.instance_uuid,
+							NTP64(
+								req_add
+									.from_time
+									.unwrap_or_else(|| "0".to_string())
+									.parse()
+									.expect("couldn't parse ntp64 value"),
+							),
+						)],
+					})
+					.await
 				);
 
 				if ops.is_empty() {
@@ -81,12 +83,19 @@ pub async fn run_actor((library, node): (Arc<Library>, Arc<Node>)) {
 				break;
 			}
 
-			err_break!(do_add(node.cloud_api_config().await, library_id, instances,).await);
+			err_break!(
+				do_add(
+					cloud_api_config_provider.get_request_config().await,
+					library_id,
+					instances,
+				)
+				.await
+			);
 		}
 
 		{
 			// recreate subscription each time so that existing messages are dropped
-			let mut rx = library.sync.subscribe();
+			let mut rx = sync.subscribe();
 
 			// wait until Created message comes in
 			loop {

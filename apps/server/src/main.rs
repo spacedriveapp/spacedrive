@@ -47,6 +47,7 @@ async fn main() {
 			client_id: std::env::var("SD_CLIENT_ID")
 				.unwrap_or_else(|_| "04701823-a498-406e-aef9-22081c1dae34".to_string()),
 		},
+		false,
 	)
 	.await
 	{

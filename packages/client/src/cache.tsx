@@ -143,7 +143,13 @@ function restore(cache: Store, subscribed: Map<string, Set<unknown>>, item: unkn
 				subscribed.set(item.__type, new Set([item.__id]));
 			}
 
-			return result;
+			// We call restore again for arrays and objects to deal with nested relations.
+			return Object.fromEntries(
+				Object.entries(result).map(([key, value]) => [
+					key,
+					restore(cache, subscribed, value)
+				])
+			);
 		}
 
 		return Object.fromEntries(
@@ -186,9 +192,37 @@ function updateNodes(cache: Store, data: CacheNode[] | undefined) {
 		delete copy.__type;
 		delete copy.__id;
 
+		const original = cache.nodes?.[item.__type]?.[item.__id];
+		specialMerge(copy, original);
+
 		if (!cache.nodes[item.__type]) cache.nodes[item.__type] = {};
 		// TODO: This should be a deepmerge but that would break stuff like `size_in_bytes` or `inode` as the arrays are joined.
 		cache.nodes[item.__type]![item.__id] = copy;
+	}
+}
+
+// When using PCR's data structure if you don't fetch a relation `null` is returned.
+// If two queries return a single entity but one fetches relations and the other doesn't that null might "win" over the actual data.
+// Once it "wins" the normalised cache is updated causing all `useCache`'s to rerun.
+//
+// The `useCache` hook derives the type from  the specific React Query operation.
+// Due to this the result of a `useCache` might end up as `null` even when TS says it's `T` causing crashes due to no-null checks.
+//
+// So this merge function causes the `null` to be replaced with the original value.
+function specialMerge(copy: Record<any, any>, original: unknown) {
+	if (
+		original &&
+		typeof original === 'object' &&
+		typeof copy === 'object' &&
+		!Array.isArray(original) &&
+		!Array.isArray(copy)
+	) {
+		for (const [property, value] of Object.entries(original)) {
+			copy[property] = copy[property] || value;
+
+			if (typeof copy[property] === 'object' && !Array.isArray(copy[property]))
+				specialMerge(copy[property], value);
+		}
 	}
 }
 

@@ -1,20 +1,20 @@
 use crate::{
 	api::{utils::InvalidateOperationEvent, CoreEvent},
-	cloud, invalidate_query,
+	invalidate_query,
 	location::{
 		indexer,
 		metadata::{LocationMetadataError, SpacedriveLocationMetadataFile},
 	},
 	node::Platform,
 	object::tag,
-	p2p::{self, IdentityOrRemoteIdentity},
+	p2p::{self},
 	sync,
 	util::{mpscrr, MaybeUndefined},
 	Node,
 };
 
 use sd_core_sync::SyncMessage;
-use sd_p2p::spacetunnel::Identity;
+use sd_p2p::spacetunnel::{Identity, IdentityOrRemoteIdentity};
 use sd_prisma::prisma::{crdt_operation, instance, location, SortOrder};
 use sd_utils::{
 	db,
@@ -504,7 +504,7 @@ impl Libraries {
 			.insert(library.id, Arc::clone(&library));
 
 		if should_seed {
-			library.orphan_remover.invoke().await;
+			// library.orphan_remover.invoke().await;
 			indexer::rules::seed::new_or_existing_library(&library).await?;
 		}
 
@@ -593,16 +593,17 @@ impl Libraries {
 									}
 
 									for instance in lib.instances {
-										if let Err(err) = cloud::sync::receive::create_instance(
-											library.clone(),
-											&node.libraries,
-											instance.uuid,
-											instance.identity,
-											instance.node_id,
-											instance.node_name,
-											instance.node_platform,
-										)
-										.await
+										if let Err(err) =
+											crate::cloud::sync::receive::create_instance(
+												&library,
+												&node.libraries,
+												instance.uuid,
+												instance.identity,
+												instance.node_id,
+												instance.node_name,
+												instance.node_platform,
+											)
+											.await
 										{
 											error!(
 												"Failed to create instance from cloud: {:#?}",

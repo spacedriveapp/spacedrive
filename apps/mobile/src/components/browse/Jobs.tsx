@@ -45,7 +45,7 @@ const Job = ({ progress, message, error }: JobProps) => {
 		: tw.color('accent');
 	return (
 		<View
-			style={tw`h-fit w-[310px] flex-col rounded-md border border-sidebar-line/50 bg-sidebar-box`}
+			style={tw`h-auto w-[310px] flex-col rounded-md border border-sidebar-line/50 bg-sidebar-box`}
 		>
 			<View
 				style={tw`w-full flex-row items-center justify-between rounded-t-md border-b border-sidebar-line/80 bg-mobile-header/50 px-5 py-2`}

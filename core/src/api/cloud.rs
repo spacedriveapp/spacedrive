@@ -44,7 +44,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 }
 
 mod library {
-	use crate::{cloud, node::Platform, util::MaybeUndefined};
+	use crate::{node::Platform, util::MaybeUndefined};
 
 	use super::*;
 
@@ -143,8 +143,8 @@ mod library {
 					.await?;
 
 					for instance in instances {
-						cloud::sync::receive::create_instance(
-							library.clone(),
+						crate::cloud::sync::receive::create_instance(
+							&library,
 							&node.libraries,
 							instance.uuid,
 							instance.identity,

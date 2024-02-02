@@ -1,9 +1,11 @@
+import { Link } from 'react-router-dom';
 import { useBridgeQuery, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 import { hardwareModelToIcon } from '~/util/hardware';
 
 import { SearchContextProvider, useSearch } from '../search';
 import SearchBar from '../search/SearchBar';
+import { AddLocationButton } from '../settings/library/locations/AddLocationButton';
 import { TopBarPortal } from '../TopBar/Portal';
 import FileKindStatistics from './FileKindStats';
 import OverviewSection from './Layout/Section';
@@ -13,16 +15,13 @@ import StatisticItem from './StatCard';
 
 export const Component = () => {
 	useRouteTitle('Overview');
-
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	useNodes(locationsQuery.data?.nodes);
 	const locations = useCache(locationsQuery.data?.items) ?? [];
 
 	const { data: node } = useBridgeQuery(['nodeState']);
 
-	const search = useSearch({
-		open: true
-	});
+	const search = useSearch();
 
 	const stats = useLibraryQuery(['library.statistics']);
 
@@ -32,10 +31,10 @@ export const Component = () => {
 				<TopBarPortal
 					left={
 						<div className="flex items-center gap-2">
-							<span className="truncate text-sm font-medium">Library Overview</span>
+							<span className="text-sm font-medium truncate">Library Overview</span>
 						</div>
 					}
-					center={<SearchBar />}
+					center={<SearchBar redirectToSearch />}
 					// right={
 					// 	<TopBarOptions
 					// 		options={[
@@ -66,7 +65,7 @@ export const Component = () => {
 					// 	/>
 					// }
 				/>
-				<div className="mt-4 flex flex-col gap-3 pt-3">
+				<div className="flex flex-col gap-3 pt-3 mt-4">
 					<OverviewSection>
 						<LibraryStatistics />
 					</OverviewSection>
@@ -127,6 +126,7 @@ export const Component = () => {
 						<NewCard
 							icons={['Laptop', 'Server', 'SilverBox', 'Tablet']}
 							text="Spacedrive works best on all your devices."
+							className="h-auto"
 							// buttonText="Connect a device"
 						/>
 						{/**/}
@@ -134,20 +134,21 @@ export const Component = () => {
 
 					<OverviewSection count={locations.length} title="Locations">
 						{locations?.map((item) => (
-							<StatisticItem
-								key={item.id}
-								name={item.name || 'Unnamed Location'}
-								icon="Folder"
-								totalSpace={item.size_in_bytes || [0]}
-								color="#0362FF"
-								connectionType={null}
-							/>
+							<Link key={item.id} to={`../location/${item.id}`}>
+								<StatisticItem
+									name={item.name || 'Unnamed Location'}
+									icon="Folder"
+									totalSpace={item.size_in_bytes || [0]}
+									color="#0362FF"
+									connectionType={null}
+								/>
+							</Link>
 						))}
 						{!locations?.length && (
 							<NewCard
 								icons={['HDD', 'Folder', 'Globe', 'SD']}
 								text="Connect a local path, volume or network location to Spacedrive."
-								buttonText="Add a Location"
+								button={() => <AddLocationButton variant="outline" />}
 							/>
 						)}
 					</OverviewSection>

@@ -2,7 +2,7 @@
 
 use crate::library::{Libraries, Library, LibraryManagerEvent};
 
-use sd_p2p::Service;
+use sd_p2p::{spacetunnel::IdentityOrRemoteIdentity, Service};
 
 use std::{
 	collections::HashMap,
@@ -14,7 +14,7 @@ use tokio::sync::mpsc;
 use tracing::{error, warn};
 use uuid::Uuid;
 
-use super::{IdentityOrRemoteIdentity, LibraryMetadata, P2PManager};
+use super::{LibraryMetadata, P2PManager};
 
 pub struct LibraryServices {
 	services: RwLock<HashMap<Uuid, Arc<Service<LibraryMetadata>>>>,

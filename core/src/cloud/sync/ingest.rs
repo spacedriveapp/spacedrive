@@ -1,15 +1,11 @@
-use crate::cloud::sync::err_return;
+use super::err_return;
 
 use std::sync::Arc;
 
 use tokio::sync::Notify;
 use tracing::info;
 
-use super::Library;
-
-pub async fn run_actor((library, notify): (Arc<Library>, Arc<Notify>)) {
-	let Library { sync, .. } = library.as_ref();
-
+pub async fn run_actor(sync: Arc<sd_core_sync::Manager>, notify: Arc<Notify>) {
 	loop {
 		{
 			let mut rx = sync.ingest.req_rx.lock().await;
@@ -21,10 +17,10 @@ pub async fn run_actor((library, notify): (Arc<Library>, Arc<Notify>)) {
 				.await
 				.is_ok()
 			{
-				use crate::sync::ingest::*;
-
 				while let Some(req) = rx.recv().await {
 					const OPS_PER_REQUEST: u32 = 1000;
+
+					use sd_core_sync::*;
 
 					let timestamps = match req {
 						Request::FinishedIngesting => break,
@@ -33,7 +29,7 @@ pub async fn run_actor((library, notify): (Arc<Library>, Arc<Notify>)) {
 					};
 
 					let ops = err_return!(
-						sync.get_cloud_ops(crate::sync::GetOpsArgs {
+						sync.get_cloud_ops(GetOpsArgs {
 							clocks: timestamps,
 							count: OPS_PER_REQUEST,
 						})
@@ -46,7 +42,7 @@ pub async fn run_actor((library, notify): (Arc<Library>, Arc<Notify>)) {
 						sync.ingest
 							.event_tx
 							.send(sd_core_sync::Event::Messages(MessagesEvent {
-								instance_id: library.sync.instance,
+								instance_id: sync.instance,
 								has_more: ops.len() == 1000,
 								messages: ops,
 							}))

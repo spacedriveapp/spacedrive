@@ -79,12 +79,11 @@ const Component = memo(({ children }: { children: RenderItem }) => {
 
 	const getElementById = useCallback(
 		(id: string) => {
-			if (!explorer.parent) return;
-			const itemId =
-				realOS === 'windows' && explorer.parent.type === 'Ephemeral'
-					? id.replaceAll('\\', '\\\\')
-					: id;
-			return document.querySelector(`[data-selectable-id="${itemId}"]`);
+			if (realOS === 'windows' && explorer.parent?.type === 'Ephemeral') {
+				id = id.replaceAll('\\', '\\\\');
+			}
+
+			return document.querySelector(`[data-selectable-id="${id}"]`);
 		},
 		[explorer.parent, realOS]
 	);

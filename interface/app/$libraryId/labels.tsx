@@ -1,17 +1,10 @@
 import { useMemo } from 'react';
-import {
-	ObjectFilterArgs,
-	ObjectKindEnum,
-	ObjectOrder,
-	SearchFilterArgs,
-	useLibraryQuery
-} from '@sd/client';
+import { ObjectOrder, useLibraryQuery } from '@sd/client';
 import { Icon } from '~/components';
 import { useRouteTitle } from '~/hooks';
 
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
-import { useObjectsExplorerQuery } from './Explorer/queries/useObjectsExplorerQuery';
 import { createDefaultExplorerSettings, objectOrderingKeysSchema } from './Explorer/store';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
@@ -57,7 +50,7 @@ export function Component() {
 		items: labels.data || null,
 		settings: explorerSettings,
 		showPathBar: false,
-		layouts: { media: false }
+		layouts: { media: false, list: false }
 	});
 
 	return (

@@ -1,12 +1,9 @@
-use crate::{
-	cloud::sync::{err_break, err_return, CompressedCRDTOperations},
-	library::{Libraries, Library},
-	p2p::IdentityOrRemoteIdentity,
-	Node,
-};
+use crate::library::{Libraries, Library};
 
+use super::{err_break, err_return, CompressedCRDTOperations};
+use sd_cloud_api::RequestConfigProvider;
 use sd_core_sync::NTP64;
-use sd_p2p::spacetunnel::RemoteIdentity;
+use sd_p2p::spacetunnel::{IdentityOrRemoteIdentity, RemoteIdentity};
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
 use sd_sync::CRDTOperation;
 use sd_utils::uuid_to_bytes;
@@ -24,14 +21,20 @@ use serde_json::to_vec;
 use tokio::{sync::Notify, time::sleep};
 use uuid::Uuid;
 
-pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>, Arc<Notify>)) {
-	let db = &library.db;
-	let library_id = library.id;
-
+pub async fn run_actor(
+	library: Arc<Library>,
+	libraries: Arc<Libraries>,
+	db: Arc<PrismaClient>,
+	library_id: Uuid,
+	instance_uuid: Uuid,
+	sync: Arc<sd_core_sync::Manager>,
+	cloud_api_config_provider: Arc<impl RequestConfigProvider>,
+	ingest_notify: Arc<Notify>,
+) {
 	loop {
 		loop {
 			let mut cloud_timestamps = {
-				let timestamps = library.sync.timestamps.read().await;
+				let timestamps = sync.timestamps.read().await;
 
 				err_return!(
 					db._batch(
@@ -67,8 +70,7 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 				cloud_timestamps.len()
 			);
 
-			let instance_timestamps = library
-				.sync
+			let instance_timestamps = sync
 				.timestamps
 				.read()
 				.await
@@ -88,9 +90,9 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 
 			let collections = err_break!(
 				sd_cloud_api::library::message_collections::get(
-					node.cloud_api_config().await,
+					cloud_api_config_provider.get_request_config().await,
 					library_id,
-					library.instance_uuid,
+					instance_uuid,
 					instance_timestamps,
 				)
 				.await
@@ -110,8 +112,8 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 						None => {
 							let Some(fetched_library) = err_break!(
 								sd_cloud_api::library::get(
-									node.cloud_api_config().await,
-									library.id
+									cloud_api_config_provider.get_request_config().await,
+									library_id
 								)
 								.await
 							) else {
@@ -139,8 +141,8 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 
 					err_break!(
 						create_instance(
-							library.clone(),
-							&node.libraries,
+							&library,
+							&libraries,
 							collection.instance_uuid,
 							instance.identity,
 							instance.node_id,
@@ -158,7 +160,7 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 						&BASE64_STANDARD.decode(collection.contents)
 					)));
 
-				err_break!(write_cloud_ops_to_db(compressed_operations.into_ops(), db).await);
+				err_break!(write_cloud_ops_to_db(compressed_operations.into_ops(), &db).await);
 
 				let collection_timestamp =
 					NTP64(collection.end_time.parse().expect("unable to parse time"));
@@ -203,7 +205,7 @@ fn crdt_op_db(op: &CRDTOperation) -> cloud_crdt_operation::Create {
 }
 
 pub async fn create_instance(
-	library: Arc<Library>,
+	library: &Arc<Library>,
 	libraries: &Libraries,
 	uuid: Uuid,
 	identity: RemoteIdentity,
@@ -232,8 +234,9 @@ pub async fn create_instance(
 		.await?;
 
 	library.sync.timestamps.write().await.insert(uuid, NTP64(0));
+
 	// Called again so the new instances are picked up
-	libraries.update_instances(library).await;
+	libraries.update_instances(library.clone()).await;
 
 	Ok(())
 }
