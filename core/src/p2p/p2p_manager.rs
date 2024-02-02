@@ -10,6 +10,7 @@ use sd_p2p2::{Mdns, QuicTransport, P2P};
 use serde_json::json;
 use std::{
 	collections::HashMap,
+	convert::Infallible,
 	sync::{atomic::AtomicBool, Arc, Mutex, PoisonError},
 };
 
@@ -36,7 +37,7 @@ impl P2PManager {
 	pub async fn new(
 		node_config: Arc<config::Manager>,
 		libraries: Arc<crate::library::Libraries>,
-	) -> Result<Arc<P2PManager>, ()> {
+	) -> Result<Arc<P2PManager>, Infallible> {
 		let p2p = P2P::new(
 			SPACEDRIVE_APP_ID,
 			node_config.get().await.identity,
@@ -77,22 +78,22 @@ impl P2PManager {
 			device_model: Some(get_hardware_model_name().unwrap_or(HardwareModel::Other)),
 			version: Some(env!("CARGO_PKG_VERSION").to_string()),
 		}
-		.update(&self.p2p.metadata_mut());
+		.update(&mut self.p2p.metadata_mut());
 
 		{
-			let quic = self.quic.lock().unwrap_or_else(PoisonError::into_inner);
+			let mut quic = self.quic.lock().unwrap_or_else(PoisonError::into_inner);
 
-			if !config.p2p_disabled && quic.is_none() {
+			if !config.p2p_enabled && quic.is_none() {
 				let quic = match QuicTransport::spawn(self.p2p.clone()) {
 					Ok(q) => *quic = Some(q),
 					Err(err) => {
 						error!("Failed to start P2P QUIC transport: {err}");
-						self.node_config.write(|c| c.p2p_disabled = true);
+						let _ = self.node_config.write(|c| c.p2p_enabled = true).await;
 					}
 				};
 			}
 
-			if config.p2p_disabled && quic.is_some() {
+			if config.p2p_enabled && quic.is_some() {
 				if let Some(quic) = quic.take() {
 					quic.shutdown();
 				}
@@ -100,9 +101,9 @@ impl P2PManager {
 		}
 
 		{
-			let mdns = self.mdns.lock().unwrap_or_else(PoisonError::into_inner);
+			let mut mdns = self.mdns.lock().unwrap_or_else(PoisonError::into_inner);
 
-			let enabled = !config.p2p_disabled
+			let enabled = !config.p2p_enabled
 				&& (config.p2p_discovery == P2PDiscoveryState::Everyone
 					|| config.p2p_discovery == P2PDiscoveryState::ContactsOnly);
 
@@ -111,7 +112,7 @@ impl P2PManager {
 					Ok(m) => *mdns = Some(m),
 					Err(err) => {
 						error!("Failed to start P2P mDNS: {err}");
-						self.node_config.write(|c| c.p2p_disabled = true);
+						// let _ = self.node_config.write(|c| c.p2p_discovery = P2PDiscoveryState::Everyone).await; // TODO: Reenable this
 					}
 				};
 			}
@@ -129,7 +130,7 @@ impl P2PManager {
 			"self_identity": self.p2p.remote_identity().to_string(),
 			// "self_peer_id": self.p2p.remote_identity().to_string(), // TODO
 			"metadata": self.p2p.metadata().clone(),
-			"listeners": self.p2p.listeners().clone(),
+			"listeners": self.p2p.listeners().iter().map(|(k, v)| (k, v.addr())).collect::<HashMap<_, _>>().clone(),
 			"discovered": self.p2p.discovered().clone(),
 		})
 	}

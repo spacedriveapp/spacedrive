@@ -1,6 +1,6 @@
 use crate::p2p::{operations, P2PEvent, PeerMetadata};
 
-use sd_p2p2::RemoteIdentity;
+use sd_p2p2::{PeerStatus, RemoteIdentity};
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
@@ -14,26 +14,30 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("events", {
 			R.subscription(|node, _: ()| async move {
-				let mut rx = node.p2p.subscribe();
+				let mut rx = node.p2p.events.subscribe();
 
 				let mut queued = Vec::new();
 
 				// TODO: Don't block subscription start
-				for (identity, metadata) in node.p2p.p2p.discovered().clone().into_iter() {
+				for (identity, peer) in node.p2p.p2p.discovered().clone().into_iter() {
 					queued.push(P2PEvent::DiscoveredPeer {
 						identity,
-						metadata: PeerMetadata::from_hashmap(&metadata).unwrap(), // TODO: Error handling
+						metadata: PeerMetadata::from_hashmap(peer.service()).unwrap(), // TODO: Error handling
 					});
 				}
 
-				// TODO: Don't block subscription start
-				for identity in node.p2p.manager.get_connected_peers().await.map_err(|_| {
-					rspc::Error::new(
-						ErrorCode::InternalServerError,
-						"todo: error getting connected peers".into(),
-					)
-				})? {
-					queued.push(P2PEvent::ConnectedPeer { identity });
+				for (identity, peer) in node.p2p.p2p.discovered().iter() {
+					let identity = *identity;
+					match peer.state() {
+						PeerStatus::Unavailable => {}
+						PeerStatus::Discovered => {
+							queued.push(P2PEvent::DiscoveredPeer {
+								identity,
+								metadata: PeerMetadata::from_hashmap(peer.service()).unwrap(), // TODO: Error handling
+							})
+						}
+						PeerStatus::Connected => queued.push(P2PEvent::ConnectedPeer { identity }),
+					}
 				}
 
 				Ok(async_stream::stream! {
@@ -50,43 +54,43 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("state", {
 			R.query(|node, _: ()| async move { Ok(node.p2p.state()) })
 		})
-		.procedure("spacedrop", {
-			#[derive(Type, Deserialize)]
-			pub struct SpacedropArgs {
-				identity: RemoteIdentity,
-				file_path: Vec<String>,
-			}
+	// .procedure("spacedrop", {
+	// 	#[derive(Type, Deserialize)]
+	// 	pub struct SpacedropArgs {
+	// 		identity: RemoteIdentity,
+	// 		file_path: Vec<String>,
+	// 	}
 
-			R.mutation(|node, args: SpacedropArgs| async move {
-				operations::spacedrop(
-					node.p2p.clone(),
-					args.identity,
-					args.file_path
-						.into_iter()
-						.map(PathBuf::from)
-						.collect::<Vec<_>>(),
-				)
-				.await
-				.map_err(|_err| {
-					rspc::Error::new(ErrorCode::InternalServerError, "todo: error".into())
-				})
-			})
-		})
-		.procedure("acceptSpacedrop", {
-			R.mutation(|node, (id, path): (Uuid, Option<String>)| async move {
-				match path {
-					Some(path) => node.p2p.accept_spacedrop(id, path).await,
-					None => node.p2p.reject_spacedrop(id).await,
-				};
+	// 	R.mutation(|node, args: SpacedropArgs| async move {
+	// 		operations::spacedrop(
+	// 			node.p2p.clone(),
+	// 			args.identity,
+	// 			args.file_path
+	// 				.into_iter()
+	// 				.map(PathBuf::from)
+	// 				.collect::<Vec<_>>(),
+	// 		)
+	// 		.await
+	// 		.map_err(|_err| {
+	// 			rspc::Error::new(ErrorCode::InternalServerError, "todo: error".into())
+	// 		})
+	// 	})
+	// })
+	// .procedure("acceptSpacedrop", {
+	// 	R.mutation(|node, (id, path): (Uuid, Option<String>)| async move {
+	// 		match path {
+	// 			Some(path) => node.p2p.accept_spacedrop(id, path).await,
+	// 			None => node.p2p.reject_spacedrop(id).await,
+	// 		};
 
-				Ok(())
-			})
-		})
-		.procedure("cancelSpacedrop", {
-			R.mutation(|node, id: Uuid| async move {
-				node.p2p.cancel_spacedrop(id).await;
+	// 		Ok(())
+	// 	})
+	// })
+	// .procedure("cancelSpacedrop", {
+	// 	R.mutation(|node, id: Uuid| async move {
+	// 		node.p2p.cancel_spacedrop(id).await;
 
-				Ok(())
-			})
-		})
+	// 		Ok(())
+	// 	})
+	// })
 }

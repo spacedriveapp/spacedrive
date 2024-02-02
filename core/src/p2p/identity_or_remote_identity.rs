@@ -1,4 +1,4 @@
-use sd_p2p::spacetunnel::{Identity, IdentityErr, RemoteIdentity};
+use sd_p2p2::{Identity, IdentityErr, RemoteIdentity};
 
 use thiserror::Error;
 

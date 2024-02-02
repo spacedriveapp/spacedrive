@@ -13,16 +13,19 @@ pub fn start(p2p: Arc<P2P>, libraries: Arc<Libraries>) {
 		if let Err(err) = libraries
 			.rx
 			.clone()
-			.subscribe(|msg| async move {
-				match msg {
-					LibraryManagerEvent::InstancesModified(library)
-					| LibraryManagerEvent::Load(library) => on_load(&p2p, &library).await,
-					LibraryManagerEvent::Edit(library) => {
-						// TODO: Send changes to all connected nodes!
-						// TODO: Update mdns
-					}
-					LibraryManagerEvent::Delete(library) => {
-						// TODO: Remove library
+			.subscribe(|msg| {
+				let p2p = p2p.clone();
+				async move {
+					match msg {
+						LibraryManagerEvent::InstancesModified(library)
+						| LibraryManagerEvent::Load(library) => on_load(&p2p, &library).await,
+						LibraryManagerEvent::Edit(library) => {
+							// TODO: Send changes to all connected nodes!
+							// TODO: Update mdns
+						}
+						LibraryManagerEvent::Delete(library) => {
+							// TODO: Remove library
+						}
 					}
 				}
 			})
@@ -34,30 +37,30 @@ pub fn start(p2p: Arc<P2P>, libraries: Arc<Libraries>) {
 }
 
 async fn on_load(p2p: &P2P, library: &Library) {
-	let identities = match library.db.instance().find_many(vec![]).exec().await {
-		Ok(library) => library
-			.into_iter()
-			.filter_map(
-				// TODO: Error handling
-				|i| match IdentityOrRemoteIdentity::from_bytes(&i.identity) {
-					Err(err) => {
-						warn!("error parsing identity: {err:?}");
-						None
-					}
-					Ok(IdentityOrRemoteIdentity::Identity(_)) => None,
-					Ok(IdentityOrRemoteIdentity::RemoteIdentity(identity)) => Some(identity),
-				},
-			)
-			.collect::<Vec<_>>(),
-		Err(err) => {
-			warn!("error loading library '{}': {err:?}", library.id);
-			return;
-		}
-	};
+	// let identities = match library.db.instance().find_many(vec![]).exec().await {
+	// 	Ok(library) => library
+	// 		.into_iter()
+	// 		.filter_map(
+	// 			// TODO: Error handling
+	// 			|i| match IdentityOrRemoteIdentity::from_bytes(&i.identity) {
+	// 				Err(err) => {
+	// 					warn!("error parsing identity: {err:?}");
+	// 					None
+	// 				}
+	// 				Ok(IdentityOrRemoteIdentity::Identity(_)) => None,
+	// 				Ok(IdentityOrRemoteIdentity::RemoteIdentity(identity)) => Some(identity),
+	// 			},
+	// 		)
+	// 		.collect::<Vec<_>>(),
+	// 	Err(err) => {
+	// 		warn!("error loading library '{}': {err:?}", library.id);
+	// 		return;
+	// 	}
+	// };
 
 	let mut service = p2p.metadata_mut();
 	service.insert(
 		library.id.to_string(),
-		library.identity.to_remote_identity(),
+		library.identity.to_remote_identity().to_string(),
 	);
 }

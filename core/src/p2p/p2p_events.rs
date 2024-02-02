@@ -51,10 +51,10 @@ pub struct P2PEvents {
 impl P2PEvents {
 	pub fn spawn(p2p: Arc<P2P>) -> Self {
 		let events = broadcast::channel(15);
-		let (tx, rx) = mpsc::channel(15);
+		let (tx, mut rx) = mpsc::channel(15);
 		let _ = p2p.register_hook(tx);
 
-		let events_tx = events.tx.clone();
+		let events_tx = events.0.clone();
 		tokio::spawn(async move {
 			while let Some(event) = rx.recv().await {
 				match event {

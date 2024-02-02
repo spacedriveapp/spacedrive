@@ -16,8 +16,8 @@ pub struct PeerMetadata {
 }
 
 impl PeerMetadata {
-	pub fn update(&self, map: &HashMap<String, String>) {
-		map.insert("name".to_owned(), self.name);
+	pub fn update(self, map: &mut HashMap<String, String>) {
+		map.insert("name".to_owned(), self.name.clone());
 		if let Some(os) = self.operating_system {
 			map.insert("os".to_owned(), os.to_string());
 		}

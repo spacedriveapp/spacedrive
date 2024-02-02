@@ -164,12 +164,7 @@ impl LibraryConfig {
 						db.node()
 							.update_many(
 								vec![],
-								vec![
-									node::pub_id::set(node_config.id.as_bytes().to_vec()),
-									node::node_peer_id::set(Some(
-										node_config.keypair.peer_id().to_string(),
-									)),
-								],
+								vec![node::pub_id::set(node_config.id.as_bytes().to_vec())],
 							)
 							.exec()
 							.await?;

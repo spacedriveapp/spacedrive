@@ -1,4 +1,4 @@
-use crate::{invalidate_query, util::MaybeUndefined};
+use crate::{invalidate_query, node::config::P2PDiscoveryState, util::MaybeUndefined};
 
 use sd_prisma::prisma::{instance, location};
 
@@ -18,6 +18,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub name: Option<String>,
 				pub p2p_port: MaybeUndefined<u16>,
 				pub p2p_enabled: Option<bool>,
+				pub p2p_discovery: Option<P2PDiscoveryState>,
 				pub image_labeler_version: Option<String>,
 			}
 			R.mutation(|node, args: ChangeNodeNameArgs| async move {
@@ -42,10 +43,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							config.name = name;
 						}
 
-						config.p2p.enabled = args.p2p_enabled.unwrap_or(config.p2p.enabled);
+						config.p2p_enabled = args.p2p_enabled.unwrap_or(config.p2p_enabled);
 
 						if let Some(v) = args.p2p_port.into() {
-							config.p2p.port = v;
+							config.p2p_port = v;
+						}
+
+						if let Some(v) = args.p2p_discovery {
+							config.p2p_discovery = v;
 						}
 
 						#[cfg(feature = "ai")]
@@ -81,10 +86,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				// If a P2P config was modified reload it
 				if does_p2p_need_refresh {
-					node.p2p
-						.manager
-						.update_config(node.config.get().await.p2p.clone())
-						.await;
+					node.p2p.on_node_config_change().await;
 				}
 
 				invalidate_query!(node; node, "nodeState");

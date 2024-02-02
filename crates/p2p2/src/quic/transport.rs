@@ -26,7 +26,8 @@ pub struct QuicTransport {
 }
 
 impl QuicTransport {
-	pub fn spawn(p2p: Arc<P2P>) -> Result<Self, ()> {
+	// TODO: Error type here
+	pub fn spawn(p2p: Arc<P2P>) -> Result<Self, String> {
 		let keypair: libp2p::identity::Keypair = todo!(); // TODO: Work out how to do this conversion
 
 		let (tx, rx) = mpsc::channel(15);

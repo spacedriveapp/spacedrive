@@ -28,7 +28,7 @@ use uuid::Uuid;
 /// NODE_STATE_CONFIG_NAME is the name of the file which stores the NodeState
 pub const NODE_STATE_CONFIG_NAME: &str = "node_state.sdconfig";
 
-#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Type)]
 pub enum P2PDiscoveryState {
 	#[default]
 	Everyone,
@@ -52,7 +52,10 @@ pub struct NodeConfig {
 	pub identity: Identity,
 	/// P2P config
 	#[serde(default)]
-	pub p2p_disabled: bool,
+	pub p2p_enabled: bool,
+	// `None` will chose a random free port on startup
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub p2p_port: Option<u16>,
 	#[serde(default)]
 	pub p2p_discovery: P2PDiscoveryState,
 	/// Feature flags enabled on the node
@@ -111,7 +114,8 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 			id: Uuid::new_v4(),
 			name,
 			identity: Identity::default(),
-			p2p_disabled: false,
+			p2p_enabled: false,
+			p2p_port: None,
 			p2p_discovery: P2PDiscoveryState::Everyone,
 			version: Self::LATEST_VERSION,
 			features: vec![],

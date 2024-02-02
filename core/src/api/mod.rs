@@ -2,14 +2,13 @@ use crate::{
 	invalidate_query,
 	job::JobProgressEvent,
 	node::{
-		config::{NodeConfig, NodePreferences},
+		config::{NodeConfig, NodePreferences, P2PDiscoveryState},
 		get_hardware_model_name, HardwareModel,
 	},
 	Node,
 };
 
 use sd_cache::patch_typedef;
-use sd_p2p::P2PStatus;
 use std::sync::{atomic::Ordering, Arc};
 
 use itertools::Itertools;
@@ -93,8 +92,9 @@ pub struct SanitisedNodeConfig {
 	pub id: Uuid,
 	/// name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
 	pub name: String,
-	pub p2p_enabled: bool,
+	pub p2p_disabled: bool,
 	pub p2p_port: Option<u16>,
+	pub p2p_discovery: P2PDiscoveryState,
 	pub features: Vec<BackendFeature>,
 	pub preferences: NodePreferences,
 	pub image_labeler_version: Option<String>,
@@ -105,8 +105,9 @@ impl From<NodeConfig> for SanitisedNodeConfig {
 		Self {
 			id: value.id,
 			name: value.name,
-			p2p_enabled: value.p2p.enabled,
-			p2p_port: value.p2p.port,
+			p2p_disabled: value.p2p_enabled,
+			p2p_port: value.p2p_port,
+			p2p_discovery: value.p2p_discovery,
 			features: value.features,
 			preferences: value.preferences,
 			image_labeler_version: value.image_labeler_version,
@@ -119,7 +120,7 @@ struct NodeState {
 	#[serde(flatten)]
 	config: SanitisedNodeConfig,
 	data_path: String,
-	p2p: P2PStatus,
+	// p2p: P2PStatus,
 	device_model: Option<String>,
 }
 
@@ -155,7 +156,7 @@ pub(crate) fn mount() -> Arc<Router> {
 						.to_str()
 						.expect("Found non-UTF-8 path")
 						.to_string(),
-					p2p: node.p2p.manager.status(),
+					// p2p: todo!(),
 					device_model: Some(device_model),
 				})
 			})

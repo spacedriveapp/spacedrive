@@ -1,7 +1,9 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, convert::Infallible};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
+
+use crate::UnicastStream;
 
 /// The status of the communication with a peer.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Type)]
@@ -60,7 +62,7 @@ impl Peer {
 		todo!();
 	}
 
-	pub fn connect(&self) {
+	pub fn connect(&self) -> Result<UnicastStream, Infallible> {
 		todo!();
 	}
 
