@@ -91,6 +91,7 @@ impl WorkerBuilder {
 	}
 }
 
+#[derive(Debug)]
 pub(crate) struct Worker {
 	pub id: usize,
 	system_comm: SystemComm,
@@ -156,7 +157,7 @@ impl Worker {
 			.expect("Worker channel closed trying to force task abortion");
 	}
 
-	pub async fn shutdown(&self) -> Vec<DynTask> {
+	pub async fn shutdown(&self) {
 		if let Some(handle) = self
 			.handle
 			.try_borrow_mut()
@@ -170,18 +171,15 @@ impl Worker {
 				.await
 				.expect("Worker channel closed trying to shutdown");
 
-			let tasks = rx.await.expect("Worker channel closed trying to shutdown");
+			rx.await.expect("Worker channel closed trying to shutdown");
 
 			if let Err(e) = handle.await {
 				if e.is_panic() {
 					error!("Worker {} critically failed: {e:#?}", self.id);
 				}
 			}
-
-			tasks
 		} else {
 			warn!("Trying to shutdown a worker that was already shutdown");
-			Vec::new()
 		}
 	}
 

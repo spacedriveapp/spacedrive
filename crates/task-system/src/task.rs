@@ -1,6 +1,6 @@
 use std::{
+	fmt,
 	future::{pending, Future},
-	path::Path,
 	pin::{pin, Pin},
 	sync::{
 		atomic::{AtomicBool, AtomicU8, Ordering},
@@ -12,6 +12,7 @@ use std::{
 use async_channel as chan;
 use async_trait::async_trait;
 use chan::RecvError;
+use downcast_rs::{impl_downcast, Downcast};
 use futures::{stream::FuturesUnordered, StreamExt};
 use futures_concurrency::future::{Join, Race};
 use tokio::sync::oneshot;
@@ -27,42 +28,26 @@ use super::{
 pub type TaskId = Uuid;
 pub type DynTask = Box<dyn Task>;
 
-pub trait KindRegister {
-	fn gen_kind(&self, kind_name: &'static str) -> Result<Box<dyn TaskKind>, Error>;
-}
-
-pub trait TaskLoader<R: KindRegister> {
-	fn load(
-		&self,
-		store_file: impl AsRef<Path>,
-	) -> impl Future<Output = Result<Vec<Result<DynTask, Error>>, Error>> + Send;
-
-	fn store(
-		&self,
-		store_file: impl AsRef<Path>,
-		tasks: Vec<DynTask>,
-	) -> impl Future<Output = Result<(), Error>> + Send;
-}
-
 #[derive(Debug)]
 pub enum TaskStatus {
 	Done,
-	Cancelled,
+	Canceled,
 	ForcedAbortion,
+	Shutdown(DynTask),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ExecStatus {
 	Done,
 	Paused,
-	Cancelled,
+	Canceled,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub(crate) enum InternalTaskExecStatus {
 	Done,
 	Paused,
-	Cancelled,
+	Canceled,
 	Suspend,
 }
 
@@ -71,28 +56,33 @@ impl From<ExecStatus> for InternalTaskExecStatus {
 		match status {
 			ExecStatus::Done => Self::Done,
 			ExecStatus::Paused => Self::Paused,
-			ExecStatus::Cancelled => Self::Cancelled,
+			ExecStatus::Canceled => Self::Canceled,
 		}
 	}
 }
 
-pub trait TaskKind {
-	fn kind(&self) -> &'static str;
-	fn with_priority(&self) -> bool {
-		false
+pub trait IntoTask {
+	fn into_task(self) -> DynTask;
+}
+
+impl<T: Task + 'static> IntoTask for T {
+	fn into_task(self) -> DynTask {
+		Box::new(self)
 	}
 }
 
 #[async_trait]
-pub trait Task: Send {
+pub trait Task: fmt::Debug + Downcast + Send + 'static {
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error>;
 
-	fn kind(&self) -> Box<dyn TaskKind>;
+	fn with_priority(&self) -> bool {
+		false
+	}
 
 	fn id(&self) -> TaskId;
-
-	fn serialize_save_state(&self) -> Result<Vec<u8>, Error>;
 }
+
+impl_downcast!(Task);
 
 pub struct Interrupter {
 	interrupt_rx: chan::Receiver<InterruptionRequest>,
@@ -193,7 +183,7 @@ impl Future for TaskHandle {
 	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
 		Pin::new(&mut self.done_rx)
 			.poll(cx)
-			.map(|res| res.expect("TaskWaiter channel unexpectedly closed"))
+			.map(|res| res.expect("TaskHandle done channel unexpectedly closed"))
 	}
 }
 
@@ -354,86 +344,86 @@ impl TaskHandlesBag {
 		Self { handles }
 	}
 
-	/// Wait for all tasks to run to completion, but in case of a task error, return the error and
-	/// cancel of all other tasks
-	pub async fn try_wait_all_or_interrupt(
-		self,
-		interrupt_rx: oneshot::Receiver<InterruptionKind>,
-	) -> Result<Option<Self>, Error> {
-		let mut futures = FuturesUnordered::from_iter(self.handles.into_iter());
+	// /// Wait for all tasks to run to completion, but in case of a task error, return the error and
+	// /// cancel of all other tasks
+	// pub async fn try_wait_all_or_interrupt(
+	// 	self,
+	// 	interrupt_rx: oneshot::Receiver<InterruptionKind>,
+	// ) -> Result<Option<Self>, Error> {
+	// 	let mut futures = FuturesUnordered::from_iter(self.handles.into_iter());
 
-		enum RaceOutput {
-			Completed(Result<TaskStatus, Error>),
-			Interrupted(InterruptionKind),
-		}
+	// 	enum RaceOutput {
+	// 		Completed(Result<TaskStatus, Error>),
+	// 		Interrupted(InterruptionKind),
+	// 	}
 
-		match (
-			async {
-				while let Some(res) = futures.next().await {
-					if matches!(
-						&res,
-						&Ok(TaskStatus::Cancelled) | &Ok(TaskStatus::ForcedAbortion) | &Err(_)
-					) {
-						return RaceOutput::Completed(res);
-					}
-				}
+	// 	match (
+	// 		async {
+	// 			while let Some(res) = futures.next().await {
+	// 				if matches!(
+	// 					&res,
+	// 					&Ok(TaskStatus::Cancelled) | &Ok(TaskStatus::ForcedAbortion) | &Err(_)
+	// 				) {
+	// 					return RaceOutput::Completed(res);
+	// 				}
+	// 			}
 
-				RaceOutput::Completed(Ok(TaskStatus::Done))
-			},
-			async move {
-				if let Ok(kind) = interrupt_rx.await {
-					RaceOutput::Interrupted(kind)
-				} else {
-					// if the sender was dropped, we will never resolve this interrupt future, so we
-					// wait until all tasks completion
-					pending().await
-				}
-			},
-		)
-			.race()
-			.await
-		{
-			RaceOutput::Completed(Ok(TaskStatus::Done)) => Ok(None),
+	// 			RaceOutput::Completed(Ok(TaskStatus::Done))
+	// 		},
+	// 		async move {
+	// 			if let Ok(kind) = interrupt_rx.await {
+	// 				RaceOutput::Interrupted(kind)
+	// 			} else {
+	// 				// if the sender was dropped, we will never resolve this interrupt future, so we
+	// 				// wait until all tasks completion
+	// 				pending().await
+	// 			}
+	// 		},
+	// 	)
+	// 		.race()
+	// 		.await
+	// 	{
+	// 		RaceOutput::Completed(Ok(TaskStatus::Done)) => Ok(None),
 
-			RaceOutput::Completed(Ok(TaskStatus::Cancelled)) => {
-				warn!("Cancelling all tasks due to a task being cancelled");
-				cancel_tasks(futures).await;
-				Ok(None)
-			}
+	// 		RaceOutput::Completed(Ok(TaskStatus::Cancelled)) => {
+	// 			warn!("Cancelling all tasks due to a task being cancelled");
+	// 			cancel_tasks(futures).await;
+	// 			Ok(None)
+	// 		}
 
-			RaceOutput::Completed(Ok(TaskStatus::ForcedAbortion)) => {
-				warn!("Cancelling all tasks due to a task being force aborted");
-				cancel_tasks(futures).await;
-				Ok(None)
-			}
+	// 		RaceOutput::Completed(Ok(TaskStatus::ForcedAbortion)) => {
+	// 			warn!("Cancelling all tasks due to a task being force aborted");
+	// 			cancel_tasks(futures).await;
+	// 			Ok(None)
+	// 		}
 
-			RaceOutput::Completed(Err(e)) => {
-				cancel_tasks(futures).await;
-				Err(e)
-			}
+	// 		RaceOutput::Completed(Err(e)) => {
+	// 			cancel_tasks(futures).await;
+	// 			Err(e)
+	// 		}
 
-			RaceOutput::Interrupted(kind) => Ok(Some(Self {
-				handles: futures
-					.into_iter()
-					.map(|handle| {
-						#[allow(clippy::async_yields_async)]
-						async move {
-							if let Err(e) = match kind {
-								InterruptionKind::Pause => handle.pause().await,
-								InterruptionKind::Cancel => handle.cancel().await,
-							} {
-								error!("Failed to pause task: {e:#?}");
-							}
+	// 		RaceOutput::Interrupted(kind) => Ok(Some(Self {
+	// 			handles: futures
+	// 				.into_iter()
+	// 				.map(|handle| {
+	// 					#[allow(clippy::async_yields_async)]
+	// 					async move {
+	// 						if let Err(e) = match kind {
+	// 							InterruptionKind::Pause => handle.pause().await,
+	// 							InterruptionKind::Cancel => handle.cancel().await,
+	// 						} {
+	// 							error!("Failed to pause task: {e:#?}");
+	// 						}
 
-							handle
-						}
-					})
-					.collect::<Vec<_>>()
-					.join()
-					.await,
-			})),
-		}
-	}
+	// 						handle
+	// 					}
+	// 				})
+	// 				.collect::<Vec<_>>()
+	// 				.join()
+	// 				.await,
+	// 		})),
+	// 	}
+	// }
 
 	/// Wait all tasks run to completion or pause/cancel when you wish
 	pub async fn wait_all_or_interrupt(

@@ -76,8 +76,7 @@ pub(super) async fn run(
 		match msg {
 			// Worker messages
 			StreamMessage::Commands(WorkerMessage::NewTask(task_work_state)) => {
-				let new_kind =
-					PendingTaskKind::with_priority(task_work_state.task.kind().with_priority());
+				let new_kind = PendingTaskKind::with_priority(task_work_state.task.with_priority());
 
 				tasks_kinds.insert(task_work_state.task.id(), new_kind);
 
@@ -192,27 +191,24 @@ pub(super) async fn run(
 			}
 
 			StreamMessage::Commands(WorkerMessage::ShutdownRequest(tx)) => {
-				let all_tasks = if !is_idle {
-					let suspended_tasks = if let Some(RunningTask {
+				if !is_idle {
+					if let Some(RunningTask {
 						task_id, handle, ..
 					}) = current_task_handle.take()
 					{
-						if abort_and_suspend_map
-							.remove(&task_id)
-							.expect("we always store the abort and suspend signalers")
-							.suspend_tx
-							.send(())
-							.is_err()
-						{
-							warn!("Shutdown request channel closed before sending abort signal");
-						}
+						abort_and_suspend_map.into_values().for_each(
+							|AbortAndSuspendSignalers { suspend_tx, .. }| {
+								if suspend_tx.send(()).is_err() {
+									warn!("Shutdown request channel closed before sending abort signal");
+								}
+							},
+						);
 
 						if let Err(e) = handle.await {
 							error!("Task <id='{task_id}'> failed to join: {e:#?}");
 						}
 
 						runner_tx.close();
-						let mut suspended_tasks = Vec::new();
 
 						while let Some((task_id, res)) = suspend_on_shutdown_rx.next().await {
 							match res {
@@ -226,14 +222,18 @@ pub(super) async fn run(
 										}
 									}
 
-									InternalTaskExecStatus::Cancelled => {
-										if done_tx.send(Ok(TaskStatus::Cancelled)).is_err() {
-											warn!("Task done channel closed before sending done response for task <id='{task_id}'>");
+									InternalTaskExecStatus::Canceled => {
+										if done_tx.send(Ok(TaskStatus::Canceled)).is_err() {
+											warn!("Task done channel closed before sending canceled response for task <id='{task_id}'>");
 										}
 									}
 
 									InternalTaskExecStatus::Suspend
-									| InternalTaskExecStatus::Paused => suspended_tasks.push(task),
+									| InternalTaskExecStatus::Paused => {
+										if done_tx.send(Ok(TaskStatus::Shutdown(task))).is_err() {
+											warn!("Task done channel closed before sending shutdown response for task <id='{task_id}'>");
+										}
+									}
 								},
 								Err(e) => {
 									error!(
@@ -242,33 +242,22 @@ pub(super) async fn run(
 								}
 							}
 						}
-
-						suspended_tasks
-					} else {
-						Vec::new()
-					};
+					}
 
 					priority_tasks
 						.into_iter()
-						.map(|task_work_state| task_work_state.task)
-						.chain(suspended_tasks.into_iter())
-						.chain(
-							paused_tasks
-								.into_values()
-								.map(|task_work_state| task_work_state.task),
-						)
-						.chain(
-							tasks
-								.into_iter()
-								.map(|task_work_state| task_work_state.task),
-						)
-						.collect::<Vec<_>>()
-				} else {
-					Vec::new()
-				};
+						.chain(paused_tasks.into_values())
+						.chain(tasks.into_iter())
+						.for_each(|TaskWorkState { task, done_tx, .. }| {
+							let task_id = task.id();
+							if done_tx.send(Ok(TaskStatus::Shutdown(task))).is_err() {
+								warn!("Task done channel closed before sending shutdown response for task <id='{task_id}'>");
+							}
+						})
+				}
 
-				if tx.send(all_tasks).is_err() {
-					warn!("Shutdown request channel closed before sending task list");
+				if tx.send(()).is_err() {
+					warn!("Shutdown request channel closed before sending ack");
 				}
 
 				return;
@@ -299,7 +288,7 @@ pub(super) async fn run(
 			StreamMessage::Commands(WorkerMessage::WakeUp) => {
 				if is_idle {
 					if let Some(task_work_state) = work_stealer.steal(id).await {
-						let kind = if task_work_state.task.kind().with_priority() {
+						let kind = if task_work_state.task.with_priority() {
 							PendingTaskKind::Priority
 						} else {
 							PendingTaskKind::Normal
@@ -356,8 +345,8 @@ pub(super) async fn run(
 							},
 						);
 					}
-					InternalTaskExecStatus::Cancelled => {
-						if done_tx.send(Ok(TaskStatus::Cancelled)).is_err() {
+					InternalTaskExecStatus::Canceled => {
+						if done_tx.send(Ok(TaskStatus::Canceled)).is_err() {
 							warn!("Task done channel closed before sending cancelled response for task <id='{task_id}'>");
 						}
 					}
@@ -406,7 +395,7 @@ pub(super) async fn run(
 			StreamMessage::IdleCheck => {
 				if is_idle {
 					if let Some(task_work_state) = work_stealer.steal(id).await {
-						let kind = if task_work_state.task.kind().with_priority() {
+						let kind = if task_work_state.task.with_priority() {
 							PendingTaskKind::Priority
 						} else {
 							PendingTaskKind::Normal
@@ -507,7 +496,7 @@ async fn dispatch_next_task(
 			handle,
 		});
 	} else if let Some(task_work_state) = work_stealer.steal(worker_id).await {
-		let kind = PendingTaskKind::with_priority(task_work_state.task.kind().with_priority());
+		let kind = PendingTaskKind::with_priority(task_work_state.task.with_priority());
 
 		let (task_id, handle) =
 			spawn_task_runner(task_work_state, abort_and_suspend_map, runner_tx);

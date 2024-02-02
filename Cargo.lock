@@ -2202,6 +2202,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
 
 [[package]]
+name = "downcast-rs"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
+
+[[package]]
 name = "dtoa"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7837,17 +7843,20 @@ version = "0.1.0"
 dependencies = [
  "async-channel",
  "async-trait",
+ "downcast-rs",
  "futures",
  "futures-concurrency",
+ "rand 0.8.5",
  "rmp-serde",
- "rspc",
  "sd-utils",
  "serde",
+ "tempfile",
  "thiserror",
  "tokio",
  "tokio-stream",
  "tokio-util",
  "tracing",
+ "tracing-test",
  "uuid",
 ]
 

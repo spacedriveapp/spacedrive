@@ -2,7 +2,7 @@ use tokio::sync::oneshot;
 
 use super::{
 	error::Error,
-	task::{DynTask, TaskId, TaskWorkState},
+	task::{TaskId, TaskWorkState},
 	worker::WorkerId,
 };
 
@@ -38,7 +38,7 @@ pub(crate) enum WorkerMessage {
 		task_id: TaskId,
 		ack: oneshot::Sender<Result<(), Error>>,
 	},
-	ShutdownRequest(oneshot::Sender<Vec<DynTask>>),
+	ShutdownRequest(oneshot::Sender<()>),
 	StealRequest(oneshot::Sender<Option<TaskWorkState>>),
 	WakeUp,
 }
