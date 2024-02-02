@@ -1,7 +1,6 @@
-import { Link } from 'react-router-dom';
-import { useBridgeQuery, useFeatureFlag } from '@sd/client';
+import { useBridgeQuery } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
-import { Icon, SubtleButton } from '~/components';
+import { Icon } from '~/components';
 import { useLocale } from '~/hooks';
 
 import SidebarLink from '../../SidebarLayout/Link';
