@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useBridgeQuery, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { useLocale } from '~/hooks';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 import { hardwareModelToIcon } from '~/util/hardware';
 
@@ -15,6 +16,9 @@ import StatisticItem from './StatCard';
 
 export const Component = () => {
 	useRouteTitle('Overview');
+
+	const { t } = useLocale();
+
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	useNodes(locationsQuery.data?.nodes);
 	const locations = useCache(locationsQuery.data?.items) ?? [];
@@ -31,7 +35,9 @@ export const Component = () => {
 				<TopBarPortal
 					left={
 						<div className="flex items-center gap-2">
-							<span className="text-sm font-medium truncate">Library Overview</span>
+							<span className="truncate text-sm font-medium">
+								{t('library_overview')}
+							</span>
 						</div>
 					}
 					center={<SearchBar redirectToSearch />}
@@ -65,7 +71,7 @@ export const Component = () => {
 					// 	/>
 					// }
 				/>
-				<div className="flex flex-col gap-3 pt-3 mt-4">
+				<div className="mt-4 flex flex-col gap-3 pt-3">
 					<OverviewSection>
 						<LibraryStatistics />
 					</OverviewSection>
@@ -132,11 +138,11 @@ export const Component = () => {
 						{/**/}
 					</OverviewSection>
 
-					<OverviewSection count={locations.length} title="Locations">
+					<OverviewSection count={locations.length} title={t('locations')}>
 						{locations?.map((item) => (
 							<Link key={item.id} to={`../location/${item.id}`}>
 								<StatisticItem
-									name={item.name || 'Unnamed Location'}
+									name={item.name || t('unnamed_location')}
 									icon="Folder"
 									totalSpace={item.size_in_bytes || [0]}
 									color="#0362FF"

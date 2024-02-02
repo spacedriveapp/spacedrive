@@ -1,7 +1,6 @@
-import { Link } from 'react-router-dom';
-import { useBridgeQuery, useFeatureFlag } from '@sd/client';
+import { useBridgeQuery } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
-import { Icon, SubtleButton } from '~/components';
+import { Icon } from '~/components';
 import { useLocale } from '~/hooks';
 
 import SidebarLink from '../../SidebarLayout/Link';
@@ -13,7 +12,7 @@ export default function DevicesSection() {
 	const { t } = useLocale();
 
 	return (
-		<Section name="Devices">
+		<Section name={t('devices')}>
 			{node && (
 				<SidebarLink className="group relative w-full" to={`node/${node.id}`} key={node.id}>
 					<Icon name="Laptop" className="mr-1 h-5 w-5" />
