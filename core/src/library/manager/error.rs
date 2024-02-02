@@ -1,9 +1,9 @@
 use crate::{
 	library::LibraryConfigError,
 	location::{indexer, LocationManagerError},
-	p2p::IdentityOrRemoteIdentityErr,
 };
 
+use sd_p2p::spacetunnel::IdentityOrRemoteIdentityErr;
 use sd_utils::{
 	db::{self, MissingFieldError},
 	error::{FileIOError, NonUtf8PathError},

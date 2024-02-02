@@ -1,10 +1,12 @@
-use crate::{err_break, err_return, CompressedCRDTOperations};
+use crate::library::{Libraries, Library};
 
+use super::{err_break, err_return, CompressedCRDTOperations};
 use sd_cloud_api::RequestConfigProvider;
 use sd_core_sync::NTP64;
+use sd_p2p::spacetunnel::{IdentityOrRemoteIdentity, RemoteIdentity};
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
 use sd_sync::CRDTOperation;
-use sd_utils::{from_bytes_to_uuid, uuid_to_bytes};
+use sd_utils::uuid_to_bytes;
 use tracing::info;
 
 use std::{
@@ -20,6 +22,8 @@ use tokio::{sync::Notify, time::sleep};
 use uuid::Uuid;
 
 pub async fn run_actor(
+	library: Arc<Library>,
+	libraries: Arc<Libraries>,
 	db: Arc<PrismaClient>,
 	library_id: Uuid,
 	instance_uuid: Uuid,
@@ -27,79 +31,78 @@ pub async fn run_actor(
 	cloud_api_config_provider: Arc<impl RequestConfigProvider>,
 	ingest_notify: Arc<Notify>,
 ) {
-	let mut cloud_timestamps = {
-		let timestamps = sync.timestamps.read().await;
-
-		let batch = timestamps
-			.keys()
-			.map(|id| {
-				db.cloud_crdt_operation()
-					.find_first(vec![cloud_crdt_operation::instance::is(vec![
-						instance::pub_id::equals(uuid_to_bytes(*id)),
-					])])
-					.order_by(cloud_crdt_operation::timestamp::order(SortOrder::Desc))
-			})
-			.collect::<Vec<_>>();
-
-		err_return!(db._batch(batch).await)
-			.into_iter()
-			.zip(timestamps.keys())
-			.map(|(d, id)| {
-				let cloud_timestamp = NTP64(d.map(|d| d.timestamp).unwrap_or_default() as u64);
-				let sync_timestamp = *timestamps
-					.get(id)
-					.expect("unable to find matching timestamp");
-
-				let max_timestamp = Ord::max(cloud_timestamp, sync_timestamp);
-
-				(*id, max_timestamp)
-			})
-			.collect::<HashMap<_, _>>()
-	};
-
-	info!(
-		"Fetched timestamps for {} local instances",
-		cloud_timestamps.len()
-	);
-
 	loop {
-		let instances = err_break!(
-			db.instance()
-				.find_many(vec![])
-				.select(instance::select!({ pub_id }))
-				.exec()
-				.await
-		);
+		loop {
+			let mut cloud_timestamps = {
+				let timestamps = sync.timestamps.read().await;
 
-		{
-			let collections = {
-				use sd_cloud_api::library::message_collections;
-				message_collections::get(
-					cloud_api_config_provider.cloud_api_config().await,
+				err_return!(
+					db._batch(
+						timestamps
+							.keys()
+							.map(|id| {
+								db.cloud_crdt_operation()
+									.find_first(vec![cloud_crdt_operation::instance::is(vec![
+										instance::pub_id::equals(uuid_to_bytes(*id)),
+									])])
+									.order_by(cloud_crdt_operation::timestamp::order(
+										SortOrder::Desc,
+									))
+							})
+							.collect::<Vec<_>>()
+					)
+					.await
+				)
+				.into_iter()
+				.zip(timestamps.iter())
+				.map(|(d, (id, sync_timestamp))| {
+					let cloud_timestamp = NTP64(d.map(|d| d.timestamp).unwrap_or_default() as u64);
+
+					let max_timestamp = Ord::max(cloud_timestamp, *sync_timestamp);
+
+					(*id, max_timestamp)
+				})
+				.collect::<HashMap<_, _>>()
+			};
+
+			info!(
+				"Fetched timestamps for {} local instances",
+				cloud_timestamps.len()
+			);
+
+			let instance_timestamps = sync
+				.timestamps
+				.read()
+				.await
+				.keys()
+				.map(
+					|uuid| sd_cloud_api::library::message_collections::get::InstanceTimestamp {
+						instance_uuid: *uuid,
+						from_time: cloud_timestamps
+							.get(&uuid)
+							.cloned()
+							.unwrap_or_default()
+							.as_u64()
+							.to_string(),
+					},
+				)
+				.collect();
+
+			let collections = err_break!(
+				sd_cloud_api::library::message_collections::get(
+					cloud_api_config_provider.get_request_config().await,
 					library_id,
 					instance_uuid,
-					instances
-						.into_iter()
-						.map(|i| {
-							let uuid = from_bytes_to_uuid(&i.pub_id);
-
-							message_collections::get::InstanceTimestamp {
-								instance_uuid: uuid,
-								from_time: cloud_timestamps
-									.get(&uuid)
-									.cloned()
-									.unwrap_or_default()
-									.as_u64()
-									.to_string(),
-							}
-						})
-						.collect::<Vec<_>>(),
+					instance_timestamps,
 				)
 				.await
-			};
-			let collections = err_break!(collections);
+			);
 
 			info!("Received {} collections", collections.len());
+
+			if collections.is_empty() {
+				break;
+			}
 
 			let mut cloud_library_data: Option<Option<sd_cloud_api::Library>> = None;
 
@@ -109,7 +112,7 @@ pub async fn run_actor(
 						None => {
 							let Some(fetched_library) = err_break!(
 								sd_cloud_api::library::get(
-									cloud_api_config_provider.cloud_api_config().await,
+									cloud_api_config_provider.get_request_config().await,
 									library_id
 								)
 								.await
@@ -138,9 +141,13 @@ pub async fn run_actor(
 
 					err_break!(
 						create_instance(
-							&db,
+							&library,
+							&libraries,
 							collection.instance_uuid,
-							err_break!(BASE64_STANDARD.decode(instance.identity.clone()))
+							instance.identity,
+							instance.node_id,
+							instance.node_name.clone(),
+							instance.node_platform,
 						)
 						.await
 					);
@@ -197,20 +204,26 @@ fn crdt_op_db(op: &CRDTOperation) -> cloud_crdt_operation::Create {
 	}
 }
 
-async fn create_instance(
-	db: &PrismaClient,
+pub async fn create_instance(
+	library: &Arc<Library>,
+	libraries: &Libraries,
 	uuid: Uuid,
-	identity: Vec<u8>,
+	identity: RemoteIdentity,
+	node_id: Uuid,
+	node_name: String,
+	node_platform: u8,
 ) -> prisma_client_rust::Result<()> {
-	db.instance()
+	library
+		.db
+		.instance()
 		.upsert(
 			instance::pub_id::equals(uuid_to_bytes(uuid)),
 			instance::create(
 				uuid_to_bytes(uuid),
-				identity,
-				vec![],
-				"".to_string(),
-				0,
+				IdentityOrRemoteIdentity::RemoteIdentity(identity).to_bytes(),
+				node_id.as_bytes().to_vec(),
+				node_name,
+				node_platform as i32,
 				Utc::now().into(),
 				Utc::now().into(),
 				vec![],
@@ -219,6 +232,11 @@ async fn create_instance(
 		)
 		.exec()
 		.await?;
+
+	library.sync.timestamps.write().await.insert(uuid, NTP64(0));
+
+	// Called again so the new instances are picked up
+	libraries.update_instances(library.clone()).await;
 
 	Ok(())
 }

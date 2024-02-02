@@ -102,6 +102,10 @@ impl Node {
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
 
+		if let Some(url) = config.get().await.sd_api_origin {
+			*env.api_url.lock().await = url;
+		}
+
 		#[cfg(feature = "ai")]
 		sd_ai::init()?;
 		#[cfg(feature = "ai")]
@@ -305,7 +309,7 @@ impl Node {
 }
 
 impl sd_cloud_api::RequestConfigProvider for Node {
-	async fn cloud_api_config(self: &Arc<Self>) -> sd_cloud_api::RequestConfig {
+	async fn get_request_config(self: &Arc<Self>) -> sd_cloud_api::RequestConfig {
 		Node::cloud_api_config(self).await
 	}
 }
