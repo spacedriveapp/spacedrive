@@ -1,7 +1,5 @@
 use crate::node::{HardwareModel, Platform};
 
-// use sd_p2p::Metadata;
-
 use std::{collections::HashMap, env, str::FromStr};
 
 use serde::{Deserialize, Serialize};

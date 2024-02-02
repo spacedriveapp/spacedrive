@@ -164,12 +164,12 @@ pub(crate) async fn receiver(
 		// TODO: Send error to remote peer???
 	})?;
 	let path = Path::new(location_path)
-			.join(IsolatedFilePathData::try_from((location.id, &file_path)).map_err(|err| {
-				warn!("({id}): failed to construct 'IsolatedFilePathData' for location '{:?} '{file_path:?}': {err:?}", location.id);
+		.join(IsolatedFilePathData::try_from((location.id, &file_path)).map_err(|err| {
+			warn!("({id}): failed to construct 'IsolatedFilePathData' for location '{:?} '{file_path:?}': {err:?}", location.id);
 
-				// TODO: Error in UI
-				// TODO: Send error to remote peer???
-			})?);
+			// TODO: Error in UI
+			// TODO: Send error to remote peer???
+		})?);
 
 	debug!("Serving path '{:?}' over P2P", path);
 

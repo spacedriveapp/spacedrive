@@ -18,23 +18,17 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				let mut queued = Vec::new();
 
-				// TODO: Don't block subscription start
-				for (identity, peer) in node.p2p.p2p.discovered().clone().into_iter() {
-					queued.push(P2PEvent::DiscoveredPeer {
-						identity,
-						metadata: PeerMetadata::from_hashmap(peer.service()).unwrap(), // TODO: Error handling
-					});
-				}
-
-				for (identity, peer) in node.p2p.p2p.discovered().iter() {
+				for (identity, peer, metadata) in
+					node.p2p.p2p.discovered().iter().filter_map(|(i, p)| {
+						PeerMetadata::from_hashmap(p.service())
+							.ok()
+							.map(|m| (i, p, m))
+					}) {
 					let identity = *identity;
 					match peer.status() {
 						PeerStatus::Unavailable => {}
 						PeerStatus::Discovered => {
-							queued.push(P2PEvent::DiscoveredPeer {
-								identity,
-								metadata: PeerMetadata::from_hashmap(peer.service()).unwrap(), // TODO: Error handling
-							})
+							queued.push(P2PEvent::DiscoveredPeer { identity, metadata })
 						}
 						PeerStatus::Connected => queued.push(P2PEvent::ConnectedPeer { identity }),
 					}
