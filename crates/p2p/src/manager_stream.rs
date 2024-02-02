@@ -299,6 +299,7 @@ impl ManagerStream {
 						}
 						SwarmEvent::ListenerError { listener_id, error } => warn!("listener '{:?}' reported a non-fatal error: {}", listener_id, error),
 						SwarmEvent::Dialing { .. } => {},
+						_ => {}
 					}
 				}
 			}

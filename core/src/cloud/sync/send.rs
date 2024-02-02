@@ -1,4 +1,4 @@
-use crate::CompressedCRDTOperations;
+use super::CompressedCRDTOperations;
 
 use sd_cloud_api::RequestConfigProvider;
 use sd_core_sync::{GetOpsArgs, SyncMessage, NTP64};
@@ -33,7 +33,7 @@ pub async fn run_actor(
 
 			let req_adds = err_break!(
 				sd_cloud_api::library::message_collections::request_add(
-					cloud_api_config_provider.cloud_api_config().await,
+					cloud_api_config_provider.get_request_config().await,
 					library_id,
 					instances,
 				)
@@ -85,7 +85,7 @@ pub async fn run_actor(
 
 			err_break!(
 				do_add(
-					cloud_api_config_provider.cloud_api_config().await,
+					cloud_api_config_provider.get_request_config().await,
 					library_id,
 					instances,
 				)

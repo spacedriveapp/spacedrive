@@ -22,7 +22,6 @@ pub enum Header {
 	// TODO: Split out cause this is a broadcast
 	Ping,
 	Spacedrop(SpaceblockRequests),
-	Pair,
 	Sync(Uuid),
 	File(HeaderFile),
 }
@@ -55,7 +54,6 @@ impl Header {
 				SpaceblockRequests::from_stream(stream).await?,
 			)),
 			1 => Ok(Self::Ping),
-			2 => Ok(Self::Pair),
 			3 => Ok(Self::Sync(
 				decode::uuid(stream)
 					.await
@@ -103,7 +101,6 @@ impl Header {
 				bytes
 			}
 			Self::Ping => vec![1],
-			Self::Pair => vec![2],
 			Self::Sync(uuid) => {
 				let mut bytes = vec![3];
 				encode::uuid(&mut bytes, uuid);

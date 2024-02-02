@@ -49,6 +49,9 @@ pub struct NodeConfig {
 	pub features: Vec<BackendFeature>,
 	/// Authentication for Spacedrive Accounts
 	pub auth_token: Option<sd_cloud_api::auth::OAuthToken>,
+	/// URL of the Spacedrive API
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub sd_api_origin: Option<String>,
 	/// The aggreagation of many different preferences for the node
 	pub preferences: NodePreferences,
 	// Model version for the image labeler
@@ -102,6 +105,7 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 			features: vec![],
 			notifications: vec![],
 			auth_token: None,
+			sd_api_origin: None,
 			preferences: NodePreferences::default(),
 			image_labeler_version,
 		})

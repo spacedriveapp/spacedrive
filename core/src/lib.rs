@@ -4,7 +4,6 @@ use crate::{
 	api::{CoreEvent, Router},
 	location::LocationManagerError,
 	object::media::thumbnail::actor::Thumbnailer,
-	util::clear_localstorage::clear_localstorage,
 };
 
 #[cfg(feature = "ai")]
@@ -83,7 +82,6 @@ impl Node {
 	pub async fn new(
 		data_dir: impl AsRef<Path>,
 		env: env::Env,
-		desktop: bool,
 	) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
 		let data_dir = data_dir.as_ref();
 
@@ -102,18 +100,19 @@ impl Node {
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
 
+		if let Some(url) = config.get().await.sd_api_origin {
+			*env.api_url.lock().await = url;
+		}
+
 		#[cfg(feature = "ai")]
-		sd_ai::init()?;
-		#[cfg(feature = "ai")]
-		let image_labeler_version = config.get().await.image_labeler_version;
+		let image_labeler_version = {
+			sd_ai::init()?;
+			config.get().await.image_labeler_version
+		};
 
 		let (locations, locations_actor) = location::Locations::new();
 		let (jobs, jobs_actor) = job::Jobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
-
-		if desktop && libraries.get_all().await.is_empty() {
-			clear_localstorage().await;
-		}
 
 		let (p2p, p2p_actor) = p2p::P2PManager::new(config.clone(), libraries.clone()).await?;
 		let node = Arc::new(Node {
@@ -305,7 +304,7 @@ impl Node {
 }
 
 impl sd_cloud_api::RequestConfigProvider for Node {
-	async fn cloud_api_config(self: &Arc<Self>) -> sd_cloud_api::RequestConfig {
+	async fn get_request_config(self: &Arc<Self>) -> sd_cloud_api::RequestConfig {
 		Node::cloud_api_config(self).await
 	}
 }
