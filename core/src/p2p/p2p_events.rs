@@ -73,4 +73,8 @@ impl P2PEvents {
 	pub fn subscribe(&self) -> broadcast::Receiver<P2PEvent> {
 		self.events.0.subscribe()
 	}
+
+	pub fn send(&self, event: P2PEvent) -> Result<usize, broadcast::error::SendError<P2PEvent>> {
+		self.events.0.send(event)
+	}
 }
