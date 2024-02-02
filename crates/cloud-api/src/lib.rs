@@ -41,11 +41,8 @@ pub struct Instance {
 	pub id: String,
 	pub uuid: Uuid,
 	pub identity: RemoteIdentity,
-	#[serde(rename = "nodeId")]
 	pub node_id: Uuid,
-	#[serde(rename = "nodeName")]
 	pub node_name: String,
-	#[serde(rename = "nodePlatform")]
 	pub node_platform: u8,
 }
 
