@@ -3278,6 +3278,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "hash_map_diff"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff9168f8bc101ee284e882004680c32a048cd8076bc4c134443ff0f5dd302610"
+
+[[package]]
 name = "hashbrown"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7903,6 +7909,7 @@ dependencies = [
  "ed25519-dalek",
  "flume 0.11.0",
  "futures-core",
+ "hash_map_diff",
  "if-watch",
  "libp2p",
  "libp2p-quic",

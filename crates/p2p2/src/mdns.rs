@@ -1,4 +1,6 @@
-use std::{collections::HashMap, pin::Pin, str::FromStr, sync::Arc, time::Duration};
+use std::{
+	collections::HashMap, net::SocketAddr, pin::Pin, str::FromStr, sync::Arc, time::Duration,
+};
 
 use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
 use tokio::{
@@ -77,7 +79,7 @@ fn start(p2p: Arc<P2P>, mut rx: mpsc::Receiver<HookEvent>) -> Result<(), mdns_sd
 
 fn advertise(state: &mut State) {
 	let mut ports_to_service = HashMap::new();
-	for addr in state.p2p.listeners().clone().values() {
+	for addr in state.p2p.listeners().iter().map(|(_, l)| l.addr()) {
 		ports_to_service
 			.entry(addr.port())
 			.or_insert_with(Vec::new)
@@ -134,9 +136,16 @@ fn on_event(state: &State, event: ServiceEvent) {
 				for property in info.get_properties().iter() {
 					peer_meta.insert(property.key().to_string(), property.val_str().to_string());
 				}
+				let addrs = info
+					.get_addresses()
+					.iter()
+					.map(|addr| SocketAddr::new(*addr, info.get_port()))
+					.collect();
 
-				// TODO: Allow adding extra metadata to services or something??? How does libp2p get this data???
-				// info.get_addresses().iter().map(|addr| SocketAddr::new(*addr, info.get_port())).collect()
+				// TODO: Make this be called in the `SmartLock` instead. How do `addrs` make it through???
+				for (_, listener) in state.p2p.listeners().iter() {
+					listener.acceptor(&mut peer, &addrs);
+				}
 
 				discovered.insert(identity.clone(), peer);
 			}

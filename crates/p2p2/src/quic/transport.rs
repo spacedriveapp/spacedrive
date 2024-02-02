@@ -32,6 +32,9 @@ impl QuicTransport {
 		let (tx, rx) = mpsc::channel(15);
 		let hook_id = p2p.register_hook(tx);
 
+		// p2p.listeners_mut().insert(k, Listener::new()); // TODO: These are important
+		// TODO: Cleanup listeners on shutdown
+
 		// let application_name = format!("/{application_name}/spacetime/1.0.0");
 		// stream_id: AtomicU64::new(0),
 

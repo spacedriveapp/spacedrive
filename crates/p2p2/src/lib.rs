@@ -5,11 +5,12 @@ mod identity;
 mod mdns;
 mod p2p;
 mod peer;
-pub mod quic;
+mod quic;
 mod stream;
 
 pub use identity::{Identity, IdentityErr, RemoteIdentity, REMOTE_IDENTITY_LEN};
 pub use mdns::Mdns;
-pub use p2p::{HookEvent, HookId, P2P};
+pub use p2p::{HookEvent, HookId, Listener, SmartWriteGuard, P2P};
 pub use peer::{Peer, PeerStatus};
+pub use quic::QuicTransport;
 pub use stream::UnicastStream;

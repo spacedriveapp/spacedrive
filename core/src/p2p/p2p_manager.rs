@@ -6,7 +6,7 @@ use crate::{
 	p2p::{libraries, OperatingSystem, SPACEDRIVE_APP_ID},
 };
 
-use sd_p2p2::{quic::QuicTransport, Mdns, P2P};
+use sd_p2p2::{Mdns, QuicTransport, P2P};
 use serde_json::json;
 use std::{
 	collections::HashMap,
@@ -37,7 +37,13 @@ impl P2PManager {
 		node_config: Arc<config::Manager>,
 		libraries: Arc<crate::library::Libraries>,
 	) -> Result<Arc<P2PManager>, ()> {
-		let p2p = P2P::new(SPACEDRIVE_APP_ID, node_config.get().await.identity);
+		let p2p = P2P::new(
+			SPACEDRIVE_APP_ID,
+			node_config.get().await.identity,
+			|stream| {
+				todo!();
+			},
+		);
 		let this = Arc::new(Self {
 			p2p: p2p.clone(),
 			mdns: Mutex::new(None),
@@ -49,7 +55,7 @@ impl P2PManager {
 		});
 		this.on_node_config_change().await;
 
-		libraries::start(p2p.clone(), libraries);
+		libraries::start(this.p2p.clone(), libraries);
 
 		info!(
 			"Node RemoteIdentity('{}') libp2p::PeerId('{}') is now online listening at addresses: {:?}",
@@ -76,7 +82,7 @@ impl P2PManager {
 		{
 			let quic = self.quic.lock().unwrap_or_else(PoisonError::into_inner);
 
-			if !config.p2p_disabled && *quic == None {
+			if !config.p2p_disabled && quic.is_none() {
 				let quic = match QuicTransport::spawn(self.p2p.clone()) {
 					Ok(q) => *quic = Some(q),
 					Err(err) => {
@@ -122,7 +128,9 @@ impl P2PManager {
 		json!({
 			"self_identity": self.p2p.remote_identity().to_string(),
 			// "self_peer_id": self.p2p.remote_identity().to_string(), // TODO
-			// TODO: Finish this
+			"metadata": self.p2p.metadata().clone(),
+			"listeners": self.p2p.listeners().clone(),
+			"discovered": self.p2p.discovered().clone(),
 		})
 	}
 

@@ -50,6 +50,7 @@ zeroize = { version = "1.7.0", features = ["derive"] }
 base91 = "0.1.0"
 sha256 = "1.5.0"
 stable-vec = "0.4.0"
+hash_map_diff = "0.2.0"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread"] }
