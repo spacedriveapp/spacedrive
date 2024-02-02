@@ -75,7 +75,7 @@ pub fn handle_core_msg(
 					let _guard = Node::init_logger(&data_dir);
 
 					// TODO: probably don't unwrap
-					let new_node = Node::new(data_dir, sd_core::Env::new(CLIENT_ID), false)
+					let new_node = Node::new(data_dir, sd_core::Env::new(CLIENT_ID))
 						.await
 						.unwrap();
 					node.replace(new_node.clone());
