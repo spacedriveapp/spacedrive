@@ -74,6 +74,7 @@ impl P2PEvents {
 		self.events.0.subscribe()
 	}
 
+	#[allow(clippy::result_large_err)]
 	pub fn send(&self, event: P2PEvent) -> Result<usize, broadcast::error::SendError<P2PEvent>> {
 		self.events.0.send(event)
 	}

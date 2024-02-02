@@ -22,7 +22,7 @@ pub enum PeerStatus {
 /// TODO
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Peer {
-	state: PeerStatus,
+	status: PeerStatus,
 	service: HashMap<String, String>,
 
 	connector: Vec<()>,
@@ -35,18 +35,18 @@ pub struct Peer {
 impl Peer {
 	pub fn new() -> Self {
 		Self {
-			state: PeerStatus::Unavailable,
+			status: PeerStatus::Unavailable,
 			service: Default::default(),
 			connector: Default::default(),
 		}
 	}
 
-	pub fn state(&self) -> PeerStatus {
-		self.state
+	pub fn status(&self) -> PeerStatus {
+		self.status
 	}
 
 	pub fn set_state(&mut self, state: PeerStatus) {
-		self.state = state;
+		self.status = state;
 	}
 
 	pub fn service(&self) -> &HashMap<String, String> {
@@ -62,11 +62,11 @@ impl Peer {
 		todo!();
 	}
 
-	pub fn connect(&self) -> Result<UnicastStream, Infallible> {
+	pub async fn connect(&self) -> Result<UnicastStream, Infallible> {
 		todo!();
 	}
 
-	pub fn disconnect(&self) {
+	pub async fn disconnect(&self) {
 		todo!();
 	}
 }

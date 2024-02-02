@@ -28,7 +28,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				for (identity, peer) in node.p2p.p2p.discovered().iter() {
 					let identity = *identity;
-					match peer.state() {
+					match peer.status() {
 						PeerStatus::Unavailable => {}
 						PeerStatus::Discovered => {
 							queued.push(P2PEvent::DiscoveredPeer {
@@ -54,43 +54,43 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("state", {
 			R.query(|node, _: ()| async move { Ok(node.p2p.state()) })
 		})
-	// .procedure("spacedrop", {
-	// 	#[derive(Type, Deserialize)]
-	// 	pub struct SpacedropArgs {
-	// 		identity: RemoteIdentity,
-	// 		file_path: Vec<String>,
-	// 	}
+		.procedure("spacedrop", {
+			#[derive(Type, Deserialize)]
+			pub struct SpacedropArgs {
+				identity: RemoteIdentity,
+				file_path: Vec<String>,
+			}
 
-	// 	R.mutation(|node, args: SpacedropArgs| async move {
-	// 		operations::spacedrop(
-	// 			node.p2p.clone(),
-	// 			args.identity,
-	// 			args.file_path
-	// 				.into_iter()
-	// 				.map(PathBuf::from)
-	// 				.collect::<Vec<_>>(),
-	// 		)
-	// 		.await
-	// 		.map_err(|_err| {
-	// 			rspc::Error::new(ErrorCode::InternalServerError, "todo: error".into())
-	// 		})
-	// 	})
-	// })
-	// .procedure("acceptSpacedrop", {
-	// 	R.mutation(|node, (id, path): (Uuid, Option<String>)| async move {
-	// 		match path {
-	// 			Some(path) => node.p2p.accept_spacedrop(id, path).await,
-	// 			None => node.p2p.reject_spacedrop(id).await,
-	// 		};
+			R.mutation(|node, args: SpacedropArgs| async move {
+				operations::spacedrop(
+					node.p2p.clone(),
+					args.identity,
+					args.file_path
+						.into_iter()
+						.map(PathBuf::from)
+						.collect::<Vec<_>>(),
+				)
+				.await
+				.map_err(|_err| {
+					rspc::Error::new(ErrorCode::InternalServerError, "todo: error".into())
+				})
+			})
+		})
+		.procedure("acceptSpacedrop", {
+			R.mutation(|node, (id, path): (Uuid, Option<String>)| async move {
+				match path {
+					Some(path) => node.p2p.accept_spacedrop(id, path).await,
+					None => node.p2p.reject_spacedrop(id).await,
+				};
 
-	// 		Ok(())
-	// 	})
-	// })
-	// .procedure("cancelSpacedrop", {
-	// 	R.mutation(|node, id: Uuid| async move {
-	// 		node.p2p.cancel_spacedrop(id).await;
+				Ok(())
+			})
+		})
+		.procedure("cancelSpacedrop", {
+			R.mutation(|node, id: Uuid| async move {
+				node.p2p.cancel_spacedrop(id).await;
 
-	// 		Ok(())
-	// 	})
-	// })
+				Ok(())
+			})
+		})
 }

@@ -3,10 +3,12 @@ use crate::{
 		config::{self, P2PDiscoveryState},
 		get_hardware_model_name, HardwareModel,
 	},
-	p2p::{libraries, OperatingSystem, SPACEDRIVE_APP_ID},
+	p2p::{libraries, operations, sync::SyncMessage, Header, OperatingSystem, SPACEDRIVE_APP_ID},
+	Node,
 };
 
-use sd_p2p2::{Mdns, QuicTransport, P2P};
+use sd_p2p2::{Mdns, Peer, QuicTransport, RemoteIdentity, UnicastStream, P2P};
+use sd_p2p_tunnel::Tunnel;
 use serde_json::json;
 use std::{
 	collections::HashMap,
@@ -14,7 +16,7 @@ use std::{
 	sync::{atomic::AtomicBool, Arc, Mutex, PoisonError},
 };
 
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
 use tracing::{error, info};
 use uuid::Uuid;
 
@@ -37,14 +39,9 @@ impl P2PManager {
 	pub async fn new(
 		node_config: Arc<config::Manager>,
 		libraries: Arc<crate::library::Libraries>,
-	) -> Result<Arc<P2PManager>, Infallible> {
-		let p2p = P2P::new(
-			SPACEDRIVE_APP_ID,
-			node_config.get().await.identity,
-			|stream| {
-				todo!();
-			},
-		);
+	) -> Result<(Arc<P2PManager>, impl FnOnce(Arc<Node>)), Infallible> {
+		let (tx, rx) = mpsc::channel(25);
+		let p2p = P2P::new(SPACEDRIVE_APP_ID, node_config.get().await.identity, tx);
 		let this = Arc::new(Self {
 			p2p: p2p.clone(),
 			mdns: Mutex::new(None),
@@ -65,7 +62,9 @@ impl P2PManager {
 			this.p2p.listeners().values()
 		);
 
-		Ok(this)
+		Ok((this.clone(), |node| {
+			tokio::spawn(start(this, node, rx));
+		}))
 	}
 
 	// TODO: Remove this and add a subscription system to `config::Manager`
@@ -80,24 +79,36 @@ impl P2PManager {
 		}
 		.update(&mut self.p2p.metadata_mut());
 
-		{
+		let should_revert = {
 			let mut quic = self.quic.lock().unwrap_or_else(PoisonError::into_inner);
-
-			if !config.p2p_enabled && quic.is_none() {
-				let quic = match QuicTransport::spawn(self.p2p.clone()) {
-					Ok(q) => *quic = Some(q),
-					Err(err) => {
-						error!("Failed to start P2P QUIC transport: {err}");
-						let _ = self.node_config.write(|c| c.p2p_enabled = true).await;
-					}
-				};
-			}
 
 			if config.p2p_enabled && quic.is_some() {
 				if let Some(quic) = quic.take() {
 					quic.shutdown();
 				}
 			}
+
+			if !config.p2p_enabled && quic.is_none() {
+				match QuicTransport::spawn(self.p2p.clone()) {
+					Ok(q) => {
+						*quic = Some(q);
+						false
+					}
+					Err(err) => {
+						error!("Failed to start P2P QUIC transport: {err}");
+						true
+					}
+				}
+			} else {
+				false
+			}
+		};
+
+		// The `should_revert` bit is weird but we need this future to stay `Send` as rspc requires.
+		// To make it send we have to drop `quic` (a `!Send` `MutexGuard`).
+		// Doing it within the above scope seems to not work (even when manually calling `drop`).
+		if should_revert {
+			let _ = self.node_config.write(|c| c.p2p_enabled = true).await;
 		}
 
 		{
@@ -107,8 +118,14 @@ impl P2PManager {
 				&& (config.p2p_discovery == P2PDiscoveryState::Everyone
 					|| config.p2p_discovery == P2PDiscoveryState::ContactsOnly);
 
+			if !enabled && mdns.is_some() {
+				if let Some(mdns) = mdns.take() {
+					mdns.shutdown();
+				}
+			}
+
 			if enabled && mdns.is_none() {
-				let mdns = match Mdns::spawn(self.p2p.clone()) {
+				match Mdns::spawn(self.p2p.clone()) {
 					Ok(m) => *mdns = Some(m),
 					Err(err) => {
 						error!("Failed to start P2P mDNS: {err}");
@@ -116,13 +133,26 @@ impl P2PManager {
 					}
 				};
 			}
-
-			if !enabled && mdns.is_some() {
-				if let Some(mdns) = mdns.take() {
-					mdns.shutdown();
-				}
-			}
 		}
+	}
+
+	pub fn get_library_instances(&self, library: &Uuid) -> Vec<(RemoteIdentity, Peer)> {
+		let library_id = library.to_string();
+		self.p2p
+			.discovered()
+			.iter()
+			.filter(|(_, p)| p.service().contains_key(&library_id))
+			.map(|(i, p)| (*i, p.clone()))
+			.collect()
+	}
+
+	pub fn get_instance(&self, library: &Uuid, identity: RemoteIdentity) -> Option<Peer> {
+		let library_id = library.to_string();
+		self.p2p
+			.discovered()
+			.iter()
+			.find(|(i, p)| **i == identity && p.service().contains_key(&library_id))
+			.map(|(_, p)| p.clone())
 	}
 
 	pub fn state(&self) -> serde_json::Value {
@@ -139,4 +169,51 @@ impl P2PManager {
 		// `self.p2p` will automatically take care of shutting down all the hooks. Eg. `self.quic`, `self.mdns`, etc.
 		self.p2p.shutdown();
 	}
+}
+
+async fn start(
+	this: Arc<P2PManager>,
+	node: Arc<Node>,
+	mut rx: mpsc::Receiver<UnicastStream>,
+) -> Result<(), ()> {
+	while let Some(mut stream) = rx.recv().await {
+		let header = Header::from_stream(&mut stream).await.map_err(|err| {
+			error!("Failed to read header from stream: {}", err);
+		})?;
+
+		match header {
+			Header::Ping => operations::ping::reciever(stream).await,
+			Header::Spacedrop(req) => operations::spacedrop::reciever(&this, req, stream).await?,
+			Header::Sync(library_id) => {
+				let mut tunnel = Tunnel::responder(stream).await.map_err(|err| {
+					error!("Failed `Tunnel::responder`: {}", err);
+				})?;
+
+				let msg = SyncMessage::from_stream(&mut tunnel).await.map_err(|err| {
+					error!("Failed `SyncMessage::from_stream`: {}", err);
+				})?;
+
+				let library = node
+					.libraries
+					.get_library(&library_id)
+					.await
+					.ok_or_else(|| {
+						error!("Failed to get library '{library_id}'");
+
+						// TODO: Respond to remote client with warning!
+					})?;
+
+				match msg {
+					SyncMessage::NewOperations => {
+						super::sync::responder(&mut tunnel, library).await?;
+					}
+				};
+			}
+			Header::File(req) => {
+				operations::request_file::receiver(&node, req, stream).await?;
+			}
+		};
+	}
+
+	Ok::<_, ()>(())
 }

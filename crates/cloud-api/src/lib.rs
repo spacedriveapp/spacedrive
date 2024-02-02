@@ -198,6 +198,7 @@ pub mod library {
 			pub id: String,
 		}
 
+		#[allow(clippy::too_many_arguments)]
 		pub async fn exec(
 			config: RequestConfig,
 			library_id: Uuid,

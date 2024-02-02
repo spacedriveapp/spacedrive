@@ -71,6 +71,7 @@ impl Debug for Library {
 }
 
 impl Library {
+	#[allow(clippy::too_many_arguments)]
 	pub async fn new(
 		id: Uuid,
 		config: LibraryConfig,

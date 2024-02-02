@@ -77,7 +77,7 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 					|uuid| sd_cloud_api::library::message_collections::get::InstanceTimestamp {
 						instance_uuid: *uuid,
 						from_time: cloud_timestamps
-							.get(&uuid)
+							.get(uuid)
 							.cloned()
 							.unwrap_or_default()
 							.as_u64()

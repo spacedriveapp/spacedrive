@@ -50,6 +50,8 @@ impl<F> fmt::Debug for HandlerFn<F> {
 #[derive(Debug, Clone)]
 pub struct Listener {
 	addr: SocketAddr,
+	/// This is a function over a channel because we need to ensure the code runs prior to the peer being emitted to the application.
+	/// If not the peer would have no registered way to connect to it initially which would be confusing.
 	acceptor: HandlerFn<Arc<dyn Fn(&mut Peer, &Vec<SocketAddr>) + Send + Sync>>,
 }
 
@@ -100,8 +102,9 @@ pub struct P2P {
 	/// A list of active listeners on the current node.
 	/// Each listener have an acceptor function is called by discovery when a new peer is found prior to it being emitted to the application.
 	listeners: RwLock<HashMap<ListenerName, Listener>>,
-	/// The function used to accept incoming connections.
-	handler: HandlerFn<Box<dyn Fn(UnicastStream) + Send + Sync>>,
+	/// The channel is used by the application to handle incoming connections.
+	/// Connection's are automatically closed when dropped so if user forgets to subscribe to this that will just happen as expected.
+	handler_tx: mpsc::Sender<UnicastStream>,
 	/// Hooks can be registered to react to state changes.
 	hooks: Mutex<StableVec<mpsc::Sender<HookEvent>>>,
 }
@@ -110,7 +113,7 @@ impl P2P {
 	pub fn new(
 		app_name: &'static str,
 		identity: Identity,
-		handler: impl Fn(UnicastStream) + Send + Sync + 'static,
+		handler_tx: mpsc::Sender<UnicastStream>,
 	) -> Arc<Self> {
 		// TODO: Validate `app_name`'s max length too
 		// app_name
@@ -125,7 +128,7 @@ impl P2P {
 			metadata: Default::default(),
 			discovered: Default::default(),
 			listeners: Default::default(),
-			handler: HandlerFn(Box::new(handler)),
+			handler_tx,
 			hooks: Default::default(),
 		})
 	}

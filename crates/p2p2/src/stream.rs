@@ -13,7 +13,7 @@ impl<S: AsyncRead + AsyncWrite> IoStream for S {}
 
 /// A unicast stream is a direct stream to a specific peer.
 pub struct UnicastStream {
-	io: Pin<Box<dyn IoStream>>,
+	io: Pin<Box<dyn IoStream + Send + Sync>>,
 	remote: RemoteIdentity,
 }
 
@@ -26,7 +26,10 @@ impl fmt::Debug for UnicastStream {
 }
 
 impl UnicastStream {
-	pub fn new<S: AsyncRead + AsyncWrite + 'static>(remote: RemoteIdentity, io: S) -> Self {
+	pub fn new<S: AsyncRead + AsyncWrite + Send + Sync + 'static>(
+		remote: RemoteIdentity,
+		io: S,
+	) -> Self {
 		Self {
 			io: Box::pin(io),
 			remote,

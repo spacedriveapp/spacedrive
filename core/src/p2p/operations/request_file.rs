@@ -10,9 +10,10 @@ use sd_p2p_block::{BlockSize, Range, SpaceblockRequest, SpaceblockRequests, Tran
 use sd_prisma::prisma::file_path;
 use tokio::{
 	fs::File,
-	io::{AsyncWriteExt, BufReader},
+	io::{AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
 };
 use tracing::{debug, warn};
+use uuid::Uuid;
 
 use std::{
 	path::Path,
@@ -22,81 +23,81 @@ use std::{
 	},
 };
 
-// /// Request a file from the remote machine over P2P. This is used for preview media and quick preview.
-// ///
-// /// DO NOT USE THIS WITHOUT `node.files_over_p2p_flag == true`
-// pub async fn request_file(
-// 	mut stream: UnicastStream,
-// 	library: &Library,
-// 	file_path_id: Uuid,
-// 	range: Range,
-// 	output: impl AsyncWrite + Unpin,
-// ) -> Result<(), ()> {
-// 	let id = Uuid::new_v4();
-// 	// TODO: Tunnel for encryption + authentication
+/// Request a file from the remote machine over P2P. This is used for preview media and quick preview.
+///
+/// DO NOT USE THIS WITHOUT `node.files_over_p2p_flag == true`
+pub async fn request_file(
+	mut stream: UnicastStream,
+	library: &Library,
+	file_path_id: Uuid,
+	range: Range,
+	output: impl AsyncWrite + Unpin,
+) -> Result<(), ()> {
+	let id = Uuid::new_v4();
+	// TODO: Tunnel for encryption + authentication
 
-// 	stream
-// 		.write_all(
-// 			&Header::File(HeaderFile {
-// 				id,
-// 				library_id: library.id,
-// 				file_path_id,
-// 				range: range.clone(),
-// 			})
-// 			.to_bytes(),
-// 		)
-// 		.await
-// 		.map_err(|err| {
-// 			warn!("({id}): failed to read `Header::File`: {err:?}");
+	stream
+		.write_all(
+			&Header::File(HeaderFile {
+				id,
+				library_id: library.id,
+				file_path_id,
+				range: range.clone(),
+			})
+			.to_bytes(),
+		)
+		.await
+		.map_err(|err| {
+			warn!("({id}): failed to read `Header::File`: {err:?}");
 
-// 			// TODO: UI error
-// 			// TODO: Error sent to remote peer
-// 		})?;
+			// TODO: UI error
+			// TODO: Error sent to remote peer
+		})?;
 
-// 	let block_size = BlockSize::from_stream(&mut stream).await.map_err(|err| {
-// 		warn!("({id}): failed to read block size: {err:?}");
+	let block_size = BlockSize::from_stream(&mut stream).await.map_err(|err| {
+		warn!("({id}): failed to read block size: {err:?}");
 
-// 		// TODO: UI error
-// 		// TODO: Error sent to remote peer
-// 	})?;
-// 	let size = stream.read_u64_le().await.map_err(|err| {
-// 		warn!("({id}): failed to read file size: {err:?}");
+		// TODO: UI error
+		// TODO: Error sent to remote peer
+	})?;
+	let size = stream.read_u64_le().await.map_err(|err| {
+		warn!("({id}): failed to read file size: {err:?}");
 
-// 		// TODO: UI error
-// 		// TODO: Error sent to remote peer
-// 	})?;
+		// TODO: UI error
+		// TODO: Error sent to remote peer
+	})?;
 
-// 	Transfer::new(
-// 		&SpaceblockRequests {
-// 			id,
-// 			block_size,
-// 			requests: vec![SpaceblockRequest {
-// 				// TODO: Removing need for this field in this case
-// 				name: "todo".to_string(),
-// 				// TODO: Maybe removing need for `size` from this side
-// 				size,
-// 				range,
-// 			}],
-// 		},
-// 		|percent| {
-// 			debug!(
-// 				"P2P receiving file path '{}' - progress {}%",
-// 				file_path_id, percent
-// 			);
-// 		},
-// 		&Arc::new(AtomicBool::new(false)),
-// 	)
-// 	.receive(&mut stream, output)
-// 	.await
-// 	.map_err(|err| {
-// 		warn!("({id}): transfer failed: {err:?}");
+	Transfer::new(
+		&SpaceblockRequests {
+			id,
+			block_size,
+			requests: vec![SpaceblockRequest {
+				// TODO: Removing need for this field in this case
+				name: "todo".to_string(),
+				// TODO: Maybe removing need for `size` from this side
+				size,
+				range,
+			}],
+		},
+		|percent| {
+			debug!(
+				"P2P receiving file path '{}' - progress {}%",
+				file_path_id, percent
+			);
+		},
+		&Arc::new(AtomicBool::new(false)),
+	)
+	.receive(&mut stream, output)
+	.await
+	.map_err(|err| {
+		warn!("({id}): transfer failed: {err:?}");
 
-// 		// TODO: Error in UI
-// 		// TODO: Send error to remote peer???
-// 	})?;
+		// TODO: Error in UI
+		// TODO: Send error to remote peer???
+	})?;
 
-// 	Ok(())
-// }
+	Ok(())
+}
 
 pub(crate) async fn receiver(
 	node: &Arc<Node>,
