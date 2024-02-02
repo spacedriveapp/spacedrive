@@ -39,6 +39,7 @@
 		"dayjs": "^1.11.10",
 		"framer-motion": "^10.16.4",
 		"i18next": "^23.7.10",
+		"i18next-browser-languagedetector": "^7.2.0",
 		"immer": "^10.0.3",
 		"prismjs": "^1.29.0",
 		"react": "^18.2.0",
