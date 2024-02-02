@@ -4,6 +4,7 @@ import { PropsWithChildren, useMemo } from 'react';
 import { useBridgeQuery, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { Button, toast, tw } from '@sd/ui';
 import { Icon, IconName } from '~/components';
+import { useLocale } from '~/hooks';
 import { useHomeDir } from '~/hooks/useHomeDir';
 
 import { useExplorerDroppable } from '../../../../Explorer/useExplorerDroppable';
@@ -38,6 +39,8 @@ export default function LocalSection() {
 	const result = useBridgeQuery(['volumes.list']);
 	useNodes(result.data?.nodes);
 	const volumes = useCache(result.data?.items);
+
+	const { t } = useLocale();
 
 	// this will return an array of location ids that are also volumes
 	// { "/Mount/Point": 1, "/Mount/Point2": 2"}
@@ -74,11 +77,11 @@ export default function LocalSection() {
 	);
 
 	return (
-		<Section name="Local">
+		<Section name={t('local')}>
 			<SeeMore>
 				<SidebarLink className="group relative w-full" to="network">
 					<SidebarIcon name="Globe" />
-					<Name>Network</Name>
+					<Name>{t('network')}</Name>
 				</SidebarLink>
 
 				{homeDir.data && (
@@ -87,7 +90,7 @@ export default function LocalSection() {
 						path={homeDir.data ?? ''}
 					>
 						<SidebarIcon name="Home" />
-						<Name>Home</Name>
+						<Name>{t('home')}</Name>
 					</EphemeralLocation>
 				)}
 
