@@ -194,7 +194,7 @@ pub mod library {
 		use super::*;
 
 		#[derive(Debug, Deserialize)]
-		pub struct CreateResult {
+		pub struct Response {
 			pub id: String,
 		}
 
@@ -207,7 +207,7 @@ pub mod library {
 			node_id: Uuid,
 			node_name: &str,
 			node_platform: u8,
-		) -> Result<CreateResult, Error> {
+		) -> Result<Response, Error> {
 			let Some(auth_token) = config.auth_token else {
 				return Err(Error("Authentication required".to_string()));
 			};
