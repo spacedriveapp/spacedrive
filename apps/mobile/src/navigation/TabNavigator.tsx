@@ -30,6 +30,7 @@ export default function TabNavigator() {
 		icon: React.ReactNode;
 		label: string;
 		labelStyle: Style;
+		testID: string;
 	}[] = [
 		{
 			name: 'OverviewStack',
@@ -44,7 +45,8 @@ export default function TabNavigator() {
 				/>
 			),
 			label: 'Overview',
-			labelStyle: tw`text-[10px] font-semibold`
+			labelStyle: tw`text-[10px] font-semibold`,
+			testID: 'overview-tab'
 		},
 		{
 			name: 'NetworkStack',
@@ -59,7 +61,8 @@ export default function TabNavigator() {
 				/>
 			),
 			label: 'Network',
-			labelStyle: tw`text-[10px] font-semibold`
+			labelStyle: tw`text-[10px] font-semibold`,
+			testID: 'network-tab'
 		},
 		{
 			name: 'BrowseStack',
@@ -74,7 +77,8 @@ export default function TabNavigator() {
 				/>
 			),
 			label: 'Browse',
-			labelStyle: tw`text-[10px] font-semibold`
+			labelStyle: tw`text-[10px] font-semibold`,
+			testID: 'browse-tab'
 		},
 		{
 			name: 'SettingsStack',
@@ -89,7 +93,8 @@ export default function TabNavigator() {
 				/>
 			),
 			label: 'Settings',
-			labelStyle: tw`text-[10px] font-semibold`
+			labelStyle: tw`text-[10px] font-semibold`,
+			testID: 'settings-tab'
 		}
 	];
 	return (
@@ -121,7 +126,8 @@ export default function TabNavigator() {
 						tabBarLabelStyle: screen.labelStyle,
 						tabBarIcon: () => (
 							<TouchableWithoutFeedback>{screen.icon}</TouchableWithoutFeedback>
-						)
+						),
+						tabBarTestID: screen.testID
 					}}
 					listeners={() => ({
 						tabPress: () => {
