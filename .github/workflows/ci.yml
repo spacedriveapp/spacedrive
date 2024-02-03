@@ -97,7 +97,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     strategy:
       matrix:
-        platform: [ubuntu-20.04, macos-latest, windows-latest]
+        platform: [ubuntu-20.04, macos-14, windows-latest]
     steps:
       - name: Maximize build space
         if: ${{ runner.os == 'Linux' }}
