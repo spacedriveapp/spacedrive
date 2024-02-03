@@ -2,15 +2,13 @@ use libp2p::{
 	swarm::{
 		handler::{
 			ConnectionEvent, ConnectionHandler, ConnectionHandlerEvent, FullyNegotiatedInbound,
-			KeepAlive,
 		},
-		StreamUpgradeError, SubstreamProtocol,
+		SubstreamProtocol,
 	},
 	PeerId,
 };
 use std::{
 	collections::VecDeque,
-	io,
 	sync::Arc,
 	task::{Context, Poll},
 	time::Duration,
@@ -33,7 +31,7 @@ pub struct SpaceTimeConnection {
 			OutboundProtocol,
 			<Self as ConnectionHandler>::OutboundOpenInfo,
 			<Self as ConnectionHandler>::ToBehaviour,
-			StreamUpgradeError<io::Error>,
+			// StreamUpgradeError<io::Error>,
 		>,
 	>,
 }
@@ -51,7 +49,6 @@ impl SpaceTimeConnection {
 impl ConnectionHandler for SpaceTimeConnection {
 	type FromBehaviour = OutboundRequest;
 	type ToBehaviour = ManagerStreamAction2;
-	type Error = StreamUpgradeError<io::Error>;
 	type InboundProtocol = InboundProtocol;
 	type OutboundProtocol = OutboundProtocol;
 	type OutboundOpenInfo = ();
@@ -87,20 +84,15 @@ impl ConnectionHandler for SpaceTimeConnection {
 			});
 	}
 
-	fn connection_keep_alive(&self) -> KeepAlive {
-		KeepAlive::Yes // TODO: Make this work how the old one did with storing it on `self` and updating on events
+	fn connection_keep_alive(&self) -> bool {
+		true // TODO: Make this work how the old one did with storing it on `self` and updating on events
 	}
 
 	fn poll(
 		&mut self,
 		_cx: &mut Context<'_>,
 	) -> Poll<
-		ConnectionHandlerEvent<
-			Self::OutboundProtocol,
-			Self::OutboundOpenInfo,
-			Self::ToBehaviour,
-			StreamUpgradeError<io::Error>,
-		>,
+		ConnectionHandlerEvent<Self::OutboundProtocol, Self::OutboundOpenInfo, Self::ToBehaviour>,
 	> {
 		if let Some(event) = self.pending_events.pop_front() {
 			return Poll::Ready(event);
@@ -142,6 +134,7 @@ impl ConnectionHandler for SpaceTimeConnection {
 			}
 			ConnectionEvent::LocalProtocolsChange(_) => {}
 			ConnectionEvent::RemoteProtocolsChange(_) => {}
+			_ => {}
 		}
 	}
 }

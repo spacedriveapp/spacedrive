@@ -852,7 +852,7 @@ pub async fn delete_directory(
 
 	db.file_path().delete_many(children_params).exec().await?;
 
-	library.orphan_remover.invoke().await;
+	// library.orphan_remover.invoke().await;
 
 	invalidate_query!(library, "search.paths");
 	invalidate_query!(library, "search.objects");

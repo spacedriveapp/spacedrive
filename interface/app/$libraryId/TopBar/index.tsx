@@ -1,14 +1,18 @@
 import { Plus, X } from '@phosphor-icons/react';
-import clsx from 'clsx';
-import { useLayoutEffect, useRef } from 'react';
-import { useKey } from 'rooks';
-import useResizeObserver from 'use-resize-observer';
 import { useSelector } from '@sd/client';
 import { Tooltip } from '@sd/ui';
-import { useKeyMatcher, useLocale, useOperatingSystem, useShowControls } from '~/hooks';
+import clsx from 'clsx';
+import { useLayoutEffect, useRef } from 'react';
+import useResizeObserver from 'use-resize-observer';
 import { useRoutingContext } from '~/RoutingContext';
 import { useTabsContext } from '~/TabsContext';
-import { usePlatform } from '~/util/Platform';
+import {
+	useKeyMatcher,
+	useLocale,
+	useOperatingSystem,
+	useShortcut,
+	useShowControls
+} from '~/hooks';
 
 import { explorerStore } from '../Explorer/store';
 import { useTopBarContext } from './Layout';
@@ -38,8 +42,6 @@ const TopBar = () => {
 		const height = ref.current!.getBoundingClientRect().height;
 		ctx.setTopBarHeight.call(undefined, height);
 	}, [ctx.setTopBarHeight]);
-
-	const platform = usePlatform();
 
 	return (
 		<div
@@ -155,34 +157,35 @@ function useTabKeybinds(props: { addTab(): void; removeTab(index: number): void 
 	const os = useOperatingSystem();
 	const { visible } = useRoutingContext();
 
-	// these keybinds aren't part of the regular shortcuts system as they're desktop-only
-	useKey(['t'], (e) => {
+	useShortcut('newTab', (e) => {
 		if (!visible) return;
-		if ((os === 'macOS' && !e.metaKey) || (os !== 'macOS' && !e.ctrlKey)) return;
 
 		e.stopPropagation();
 
 		props.addTab();
 	});
 
-	useKey(['w'], (e) => {
+	useShortcut('closeTab', (e) => {
 		if (!visible) return;
-		if ((os === 'macOS' && !e.metaKey) || (os !== 'macOS' && !e.ctrlKey)) return;
 
 		e.stopPropagation();
 
 		props.removeTab(ctx.tabIndex);
 	});
 
-	useKey(['ArrowLeft', 'ArrowRight'], (e) => {
+	useShortcut('nextTab', (e) => {
 		if (!visible) return;
-		// TODO: figure out non-macos keybind
-		if ((os === 'macOS' && !(e.metaKey && e.altKey)) || os !== 'macOS') return;
 
 		e.stopPropagation();
 
-		const delta = e.key === 'ArrowLeft' ? -1 : 1;
+		ctx.setTabIndex(Math.min(ctx.tabIndex + 1, ctx.tabs.length - 1));
+	});
 
-		ctx.setTabIndex(Math.min(Math.max(0, ctx.tabIndex + delta), ctx.tabs.length - 1));
+	useShortcut('previousTab', (e) => {
+		if (!visible) return;
+
+		e.stopPropagation();
+
+		ctx.setTabIndex(Math.max(ctx.tabIndex - 1, 0));
 	});
 }

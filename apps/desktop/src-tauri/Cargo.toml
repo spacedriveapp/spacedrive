@@ -1,6 +1,6 @@
 [package]
 name = "sd-desktop"
-version = "0.2.0"
+version = "0.2.3"
 description = "The universal file manager."
 authors = ["Spacedrive Technology Inc <support@spacedrive.com>"]
 default-run = "sd-desktop"
@@ -46,6 +46,7 @@ tauri = { version = "=1.5.3", features = [
 	"tracing",
 ] }
 tauri-plugin-window-state = { path = "../crates/tauri-plugin-window-state" }
+directories = "5.0.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 sd-desktop-linux = { path = "../crates/linux" }

@@ -112,6 +112,7 @@ function App() {
 									<SpacedriveRouterProvider
 										routing={{
 											...router,
+											tabId: '',
 											routes,
 											visible: true
 										}}

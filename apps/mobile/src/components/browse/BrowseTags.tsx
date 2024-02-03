@@ -22,7 +22,7 @@ const BrowseTagItem: React.FC<BrowseTagItemProps> = ({ tag, onPress }) => {
 	return (
 		<Pressable onPress={onPress} testID="browse-tag">
 			<View
-				style={tw`h-fit w-[90px] flex-col justify-center gap-2.5 rounded-md border border-sidebar-line/50 bg-sidebar-box p-2`}
+				style={tw`h-auto w-[90px] flex-col justify-center gap-2.5 rounded-md border border-sidebar-line/50 bg-sidebar-box p-2`}
 			>
 				<View style={tw`flex-row items-center justify-between`}>
 					<View

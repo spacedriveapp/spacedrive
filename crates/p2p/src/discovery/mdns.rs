@@ -35,6 +35,14 @@ pub struct Mdns {
 	next_mdns_advertisement: Pin<Box<Sleep>>,
 	// This is an ugly workaround for: https://github.com/keepsimple1/mdns-sd/issues/145
 	mdns_rx: StreamUnordered<MdnsRecv>,
+	// This is hacky but it lets us go from service name back to `RemoteIdentity` when removing the service.
+	// During service removal we only have the service name (not metadata) but during service discovery we insert into this map.
+	tracked_services: HashMap<String /* Service FQDN */, TrackedService>,
+}
+
+struct TrackedService {
+	service_name: String,
+	identity: RemoteIdentity,
 }
 
 impl Mdns {
@@ -53,6 +61,7 @@ impl Mdns {
 			mdns_daemon,
 			next_mdns_advertisement: Box::pin(sleep_until(Instant::now())), // Trigger an advertisement immediately
 			mdns_rx: StreamUnordered::new(),
+			tracked_services: HashMap::new(),
 		})
 	}
 
@@ -80,19 +89,24 @@ impl Mdns {
 					continue;
 				};
 
-				let service_domain =
-				    // TODO: Use "Selective Instance Enumeration" instead in future but right now it is causing `TMeta` to get garbled.
-					// format!("{service_name}._sub._{}", self.service_name)
-					format!("{service_name}._sub._{service_name}{}", self.service_name);
-
 				let mut meta = metadata.clone();
 				meta.insert("__peer_id".into(), self.peer_id.to_string());
+				meta.insert("__service".into(), service_name.to_string());
+				meta.insert("__identity".into(), self.identity.to_string());
 
+				// The max length of an MDNS record is painful so we just hash the data to come up with a pseudo-random but deterministic value.
+				// The full values are stored within TXT records.
+				let my_name = String::from_utf8_lossy(&base91::slice_encode(
+					&sha256::digest(format!("{}_{}", service_name, self.identity)).as_bytes(),
+				))[..63]
+					.to_string();
+
+				let service_domain = format!("_{service_name}._sub.{}", self.service_name);
 				let service = match ServiceInfo::new(
 					&service_domain,
-					&self.identity.to_string(), // TODO: This shows up in `fullname` without sub service. Is that a problem???
+					&my_name[..63], // 63 as long as the mDNS spec will allow us
 					&format!("{}.{}.", service_name, self.identity), // TODO: Should this change???
-					&*ips,                      // TODO: &[] as &[Ipv4Addr],
+					&*ips,
 					port,
 					Some(meta.clone()), // TODO: Prevent the user defining a value that overflows a DNS record
 				) {
@@ -183,27 +197,33 @@ impl Mdns {
 			ServiceEvent::SearchStarted(_) => {}
 			ServiceEvent::ServiceFound(_, _) => {}
 			ServiceEvent::ServiceResolved(info) => {
-				let Some(subdomain) = info.get_subtype() else {
-					warn!("resolved mDNS peer advertising itself with missing subservice");
+				let Some(service_name) = info.get_properties().get("__service") else {
+					warn!(
+						"resolved mDNS peer advertising itself with missing '__service' metadata"
+					);
 					return;
 				};
+				let service_name = service_name.val_str();
 
-				let service_name = match subdomain.split("._sub.").next() {
-					Some(service_name) => service_name,
-					None => {
-						warn!("resolved mDNS peer advertising itself with invalid subservice '{subdomain}'");
-						return;
-					}
-				}; // TODO: .replace(&format!("._sub.{}", self.service_name), "");
-				let raw_remote_identity = info
-					.get_fullname()
-					.replace(&format!("._{service_name}{}", self.service_name), "");
-
-				let Ok(identity) = RemoteIdentity::from_str(&raw_remote_identity) else {
+				let Some(identity) = info.get_properties().get("__identity") else {
 					warn!(
-						"resolved peer advertising itself with an invalid RemoteIdentity('{}')",
-						raw_remote_identity
+						"resolved mDNS peer advertising itself with missing '__identity' metadata"
 					);
+					return;
+				};
+				let identity = identity.val_str();
+
+				println!("\t {:?} {:?}", info.get_fullname(), self.service_name); // TODO
+
+				// if !service_type.ends_with(&self.service_name) {
+				// 	warn!(
+				// 		"resolved mDNS peer advertising itself with invalid service type '{service_type}'"
+				// 	);
+				// 	return;
+				// }
+
+				let Ok(identity) = RemoteIdentity::from_str(identity) else {
+					warn!("resolved peer advertising itself with an invalid RemoteIdentity('{identity}')");
 					return;
 				};
 
@@ -211,6 +231,14 @@ impl Mdns {
 				if identity == self.identity {
 					return;
 				}
+
+				self.tracked_services.insert(
+					info.get_fullname().to_string(),
+					TrackedService {
+						service_name: service_name.to_string(),
+						identity: identity.clone(),
+					},
+				);
 
 				let mut meta = info
 					.get_properties()
@@ -268,33 +296,20 @@ impl Mdns {
 					warn!("mDNS service '{service_name}' is missing from 'state.discovered'. This is likely a bug!");
 				}
 			}
-			ServiceEvent::ServiceRemoved(service_type, fullname) => {
-				let service_name = match service_type.split("._sub.").next() {
-					Some(service_name) => service_name,
-					None => {
-						warn!("resolved mDNS peer deadvertising itself with missing subservice '{service_type}'");
-						return;
-					}
-				};
-				let raw_remote_identity =
-					fullname.replace(&format!("._{service_name}{}", self.service_name), "");
-
-				let Ok(identity) = RemoteIdentity::from_str(&raw_remote_identity) else {
+			ServiceEvent::ServiceRemoved(_, fullname) => {
+				let Some(TrackedService {
+					service_name,
+					identity,
+				}) = self.tracked_services.remove(&fullname)
+				else {
 					warn!(
-						"resolved peer deadvertising itself with an invalid RemoteIdentity('{}')",
-						raw_remote_identity
+						"resolved mDNS peer deadvertising itself without having been discovered!"
 					);
 					return;
 				};
-
-				// Prevent discovery of the current peer.
-				if identity == self.identity {
-					return;
-				}
-
 				let mut state = state.write().unwrap_or_else(PoisonError::into_inner);
 
-				if let Some((tx, _)) = state.services.get_mut(service_name) {
+				if let Some((tx, _)) = state.services.get_mut(&service_name) {
 					if let Err(err) = tx.send((
 						service_name.to_string(),
 						ServiceEventInternal::Expired { identity },
@@ -307,7 +322,7 @@ impl Mdns {
 					);
 				}
 
-				if let Some(discovered) = state.discovered.get_mut(service_name) {
+				if let Some(discovered) = state.discovered.get_mut(&service_name) {
 					discovered.remove(&identity);
 				} else {
 					warn!("mDNS service '{service_name}' is missing from 'state.discovered'. This is likely a bug!");
@@ -330,9 +345,14 @@ impl Mdns {
 		// TODO: Without this mDNS is not sending it goodbye packets without a timeout. Try and remove this cause it makes shutdown slow.
 		sleep(Duration::from_millis(100));
 
-		self.mdns_daemon.shutdown().unwrap_or_else(|err| {
-			error!("error shutting down mdns daemon: {err}");
-		});
+		match self.mdns_daemon.shutdown() {
+			Ok(chan) => {
+				let _ = chan.recv();
+			}
+			Err(err) => {
+				error!("error shutting down mdns daemon: {err}");
+			}
+		}
 	}
 }
 

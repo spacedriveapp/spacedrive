@@ -18,9 +18,7 @@ use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
 use tracing::info;
 use uuid::Uuid;
 
-use super::{
-	LibraryMetadata, LibraryServices, P2PEvent, P2PManagerActor, PairingManager, PeerMetadata,
-};
+use super::{LibraryMetadata, LibraryServices, P2PEvent, P2PManagerActor, PeerMetadata};
 
 pub struct P2PManager {
 	pub(crate) node: Service<PeerMetadata>,
@@ -30,7 +28,6 @@ pub struct P2PManager {
 	pub manager: Arc<Manager>,
 	pub(super) spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub(super) spacedrop_cancelations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
-	pub pairing: Arc<PairingManager>,
 	node_config_manager: Arc<config::Manager>,
 }
 
@@ -54,17 +51,12 @@ impl P2PManager {
 			stream.listen_addrs()
 		);
 
-		// need to keep 'rx' around so that the channel isn't dropped
-		let (tx, rx) = broadcast::channel(100);
-		let pairing = PairingManager::new(manager.clone(), tx.clone());
-
 		let (register_service_tx, register_service_rx) = mpsc::channel(10);
 		let this = Arc::new(Self {
 			node: Service::new("node", manager.clone())
 				.expect("Hardcoded service name will never be a duplicate!"),
 			libraries: LibraryServices::new(register_service_tx),
-			pairing,
-			events: (tx, rx),
+			events: broadcast::channel(100),
 			manager,
 			spacedrop_pairing_reqs: Default::default(),
 			spacedrop_cancelations: Default::default(),
