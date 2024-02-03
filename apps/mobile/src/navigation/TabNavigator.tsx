@@ -30,7 +30,7 @@ export default function TabNavigator() {
 		icon: React.ReactNode;
 		label: string;
 		labelStyle: Style;
-		testID?: string;
+		testID: string;
 	}[] = [
 		{
 			name: 'OverviewStack',
@@ -45,7 +45,8 @@ export default function TabNavigator() {
 				/>
 			),
 			label: 'Overview',
-			labelStyle: tw`text-[10px] font-semibold`
+			labelStyle: tw`text-[10px] font-semibold`,
+			testID: 'overview-tab'
 		},
 		{
 			name: 'NetworkStack',
@@ -60,7 +61,8 @@ export default function TabNavigator() {
 				/>
 			),
 			label: 'Network',
-			labelStyle: tw`text-[10px] font-semibold`
+			labelStyle: tw`text-[10px] font-semibold`,
+			testID: 'network-tab'
 		},
 		{
 			name: 'BrowseStack',
@@ -91,7 +93,8 @@ export default function TabNavigator() {
 				/>
 			),
 			label: 'Settings',
-			labelStyle: tw`text-[10px] font-semibold`
+			labelStyle: tw`text-[10px] font-semibold`,
+			testID: 'settings-tab'
 		}
 	];
 	return (
