@@ -201,7 +201,6 @@ export const Component = () => {
 					<Select
 						value={i18n.language}
 						onChange={(e) => {
-							console.log('e', e);
 							i18n.changeLanguage(e);
 							// add "i18nextLng" key to localStorage and set it to the selected language
 							localStorage.setItem('i18nextLng', e);
