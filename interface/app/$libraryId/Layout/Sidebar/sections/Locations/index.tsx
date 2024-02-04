@@ -12,6 +12,7 @@ import { useExplorerDroppable } from '~/app/$libraryId/Explorer/useExplorerDropp
 import { useExplorerSearchParams } from '~/app/$libraryId/Explorer/util';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
 import { Icon, SubtleButton } from '~/components';
+import { useLocale } from '~/hooks';
 
 import SidebarLink from '../../SidebarLayout/Link';
 import Section from '../../SidebarLayout/Section';
@@ -24,9 +25,11 @@ export default function Locations() {
 	const locations = useCache(locationsQuery.data?.items);
 	const onlineLocations = useOnlineLocations();
 
+	const { t } = useLocale();
+
 	return (
 		<Section
-			name="Locations"
+			name={t('locations')}
 			actionArea={
 				<Link to="settings/library/locations">
 					<SubtleButton />

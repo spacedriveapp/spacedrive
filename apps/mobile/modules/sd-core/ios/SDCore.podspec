@@ -11,7 +11,7 @@ Pod::Spec.new do |s|
   s.description    = 'Spacedrive core for React Native'
   s.author         = 'Oscar Beaumont'
 	s.license				 = 'APGL-3.0'
-  s.platform       = :ios, '13.0'
+  s.platform       = :ios, '14.0'
   s.source         = { git: 'https://github.com/spacedriveapp/spacedrive' }
 	s.homepage		 	 = 'https://www.spacedrive.com'
   s.static_framework = true

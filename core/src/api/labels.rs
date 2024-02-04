@@ -24,7 +24,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				Ok(library.db.label().find_many(vec![]).exec().await?)
 			})
 		})
-		//
 		.procedure("listWithThumbnails", {
 			R.with2(library())
 				.query(|(_, library), cursor: label::name::Type| async move {

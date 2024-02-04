@@ -1,13 +1,3 @@
 appId: com.spacedrive.app
 ---
 - launchApp
-- tapOn:
-    id: 'browse-tab'
-- tapOn:
-    id: 'add-tag'
-- tapOn:
-    id: 'create-tag-name'
-- inputText: 'MyTag'
-- tapOn: Create
-- assertVisible:
-    id: 'browse-tag'

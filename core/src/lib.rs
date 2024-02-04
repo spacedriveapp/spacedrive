@@ -100,14 +100,20 @@ impl Node {
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
 
+		if let Some(url) = config.get().await.sd_api_origin {
+			*env.api_url.lock().await = url;
+		}
+
 		#[cfg(feature = "ai")]
-		sd_ai::init()?;
-		#[cfg(feature = "ai")]
-		let image_labeler_version = config.get().await.image_labeler_version;
+		let image_labeler_version = {
+			sd_ai::init()?;
+			config.get().await.image_labeler_version
+		};
 
 		let (locations, locations_actor) = location::Locations::new();
 		let (jobs, jobs_actor) = job::Jobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
+
 		let (p2p, p2p_actor) = p2p::P2PManager::new(config.clone(), libraries.clone()).await?;
 		let node = Arc::new(Node {
 			data_dir: data_dir.to_path_buf(),
@@ -294,6 +300,12 @@ impl Node {
 			api_url: self.env.api_url.lock().await.clone(),
 			auth_token: self.config.get().await.auth_token,
 		}
+	}
+}
+
+impl sd_cloud_api::RequestConfigProvider for Node {
+	async fn get_request_config(self: &Arc<Self>) -> sd_cloud_api::RequestConfig {
+		Node::cloud_api_config(self).await
 	}
 }
 

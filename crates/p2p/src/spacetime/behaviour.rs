@@ -8,8 +8,8 @@ use libp2p::{
 	core::{ConnectedPoint, Endpoint},
 	swarm::{
 		derive_prelude::{ConnectionEstablished, ConnectionId, FromSwarm},
-		ConnectionClosed, ConnectionDenied, NetworkBehaviour, PollParameters, THandler,
-		THandlerInEvent, THandlerOutEvent, ToSwarm,
+		ConnectionClosed, ConnectionDenied, NetworkBehaviour, THandler, THandlerInEvent,
+		THandlerOutEvent, ToSwarm,
 	},
 	Multiaddr,
 };
@@ -83,7 +83,7 @@ impl NetworkBehaviour for SpaceTime {
 		Ok(SpaceTimeConnection::new(peer_id, self.manager.clone()))
 	}
 
-	fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
+	fn on_swarm_event(&mut self, event: FromSwarm) {
 		match event {
 			FromSwarm::ConnectionEstablished(ConnectionEstablished {
 				peer_id,
@@ -160,15 +160,7 @@ impl NetworkBehaviour for SpaceTime {
 					// }
 				}
 			}
-			FromSwarm::ListenFailure(_)
-			| FromSwarm::NewListener(_)
-			| FromSwarm::NewListenAddr(_)
-			| FromSwarm::ExpiredListenAddr(_)
-			| FromSwarm::ListenerError(_)
-			| FromSwarm::ListenerClosed(_)
-			| FromSwarm::NewExternalAddrCandidate(_)
-			| FromSwarm::ExternalAddrConfirmed(_)
-			| FromSwarm::ExternalAddrExpired(_) => {}
+			_ => {}
 		}
 	}
 
@@ -181,11 +173,7 @@ impl NetworkBehaviour for SpaceTime {
 		self.pending_events.push_back(ToSwarm::GenerateEvent(event));
 	}
 
-	fn poll(
-		&mut self,
-		_: &mut Context<'_>,
-		_: &mut impl PollParameters,
-	) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
+	fn poll(&mut self, _: &mut Context<'_>) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
 		if let Some(ev) = self.pending_events.pop_front() {
 			return Poll::Ready(ev);
 		} else if self.pending_events.capacity() > EMPTY_QUEUE_SHRINK_THRESHOLD {

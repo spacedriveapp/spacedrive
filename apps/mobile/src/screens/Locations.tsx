@@ -92,7 +92,7 @@ const LocationItem: React.FC<LocationItemProps> = ({
 	return (
 		<Pressable onPress={onPress}>
 			<View
-				style={tw`flex-row justify-between w-full gap-3 p-2 border rounded-md h-fit border-sidebar-line/50 bg-sidebar-box`}
+				style={tw`h-auto w-full flex-row justify-between gap-3 rounded-md border border-sidebar-line/50 bg-sidebar-box p-2`}
 			>
 				<View style={tw`flex-row items-center gap-2`}>
 					<View style={tw`relative`}>
@@ -105,7 +105,7 @@ const LocationItem: React.FC<LocationItemProps> = ({
 						/>
 					</View>
 					<Text
-						style={tw`w-fit max-w-[160px] truncate text-sm font-bold text-white`}
+						style={tw`w-auto max-w-[160px] truncate text-sm font-bold text-white`}
 						numberOfLines={1}
 					>
 						{location.name}
@@ -114,7 +114,7 @@ const LocationItem: React.FC<LocationItemProps> = ({
 				<View style={tw`flex-row items-center gap-3`}>
 					<View style={tw`rounded-md bg-app-input p-1.5`}>
 						<Text
-							style={tw`text-xs font-bold text-left truncate text-ink-dull`}
+							style={tw`truncate text-left text-xs font-bold text-ink-dull`}
 							numberOfLines={1}
 						>
 							{`${byteSize(location.size_in_bytes)}`}
