@@ -364,5 +364,11 @@
 	"favorites": "Favorites",
 	"labels": "Labels",
 	"language": "Language",
-	"language_description": "Change the language of the Spacedrive interface"
+	"language_description": "Change the language of the Spacedrive interface",
+	"logout": "Logout",
+	"logged_in_as": "Logged in as {{email}}",
+	"spacedrive_account": "Spacedrive Account",
+	"add_location": "Add Location",
+	"spacedrive_cloud": "Spacedrive Cloud",
+	"spacedrive_cloud_description": "Spacedrive is always local first, but we will offer our own optional cloud services in the future. For now, authentication is only used for the Feedback feature, otherwise it is not required."
 }

@@ -142,7 +142,6 @@
 	"failed_to_resume_job": "İş devam ettirilemedi.",
 	"failed_to_update_location_settings": "Konum ayarları güncellenemedi",
 	"favorite": "Favori",
-	"favorites": "Favoriler",
 	"file_indexing_rules": "Dosya İndeksleme Kuralları",
 	"filters": "Filtreler",
 	"forward": "İleri",
@@ -194,9 +193,6 @@
 	"keybinds_description": "İstemci tuş bağlamalarını görüntüleyin ve yönetin",
 	"keys": "Anahtarlar",
 	"kilometers": "Kilometreler",
-	"labels": "Etiketler",
-	"language": "Dil",
-	"language_description": "Spacedrive arayüzünün dilini değiştirin",
 	"learn_more_about_telemetry": "Telemetri hakkında daha fazla bilgi edinin",
 	"libraries": "Kütüphaneler",
 	"libraries_description": "Veritabanı tüm kütüphane verilerini ve dosya metaverilerini içerir.",
@@ -287,7 +283,6 @@
 	"quick_preview": "Hızlı Önizleme",
 	"quick_view": "Hızlı bakış",
 	"recent_jobs": "Son İşler",
-	"recents": "Son Kullanılanlar",
 	"regen_labels": "Etiketleri Yeniden Oluştur",
 	"regen_thumbnails": "Küçük Resimleri Yeniden Oluştur",
 	"regenerate_thumbs": "Küçük Resimleri Yeniden Oluştur",
@@ -364,5 +359,10 @@
 	"your_account": "Hesabınız",
 	"your_account_description": "Spacedrive hesabınız ve bilgileri.",
 	"your_local_network": "Yerel Ağınız",
-	"your_privacy": "Gizliliğiniz"
+	"your_privacy": "Gizliliğiniz",
+	"recents": "Son Kullanılanlar",
+	"favorites": "Favoriler",
+	"labels": "Etiketler",
+	"language": "Dil",
+	"language_description": "Spacedrive arayüzünün dilini değiştirin"
 }

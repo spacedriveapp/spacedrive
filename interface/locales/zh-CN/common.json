@@ -142,7 +142,6 @@
 	"failed_to_resume_job": "恢复任务失败。",
 	"failed_to_update_location_settings": "更新位置设置失败",
 	"favorite": "收藏",
-	"favorites": "收藏夹",
 	"file_indexing_rules": "文件索引规则",
 	"filters": "过滤器",
 	"forward": "前进",
@@ -194,9 +193,6 @@
 	"keybinds_description": "查看和管理客户端键绑定",
 	"keys": "密钥",
 	"kilometers": "千米",
-	"labels": "标签",
-	"language": "语言",
-	"language_description": "更改Spacedrive界面的语言",
 	"learn_more_about_telemetry": "了解更多有关遥测的信息",
 	"libraries": "库",
 	"libraries_description": "数据库包含所有库数据和文件元数据。",
@@ -287,7 +283,6 @@
 	"quick_preview": "快速预览",
 	"quick_view": "快速查看",
 	"recent_jobs": "最近的作业",
-	"recents": "最近使用",
 	"regen_labels": "重新生成标签",
 	"regen_thumbnails": "重新生成缩略图",
 	"regenerate_thumbs": "重新生成缩略图",
@@ -364,5 +359,10 @@
 	"your_account": "您的账户",
 	"your_account_description": "Spacedrive账号和信息。",
 	"your_local_network": "您的本地网络",
-	"your_privacy": "您的隐私"
+	"your_privacy": "您的隐私",
+	"recents": "最近使用",
+	"favorites": "收藏夹",
+	"labels": "标签",
+	"language": "语言",
+	"language_description": "更改Spacedrive界面的语言"
 }
