@@ -28,8 +28,8 @@ const LANGUAGE_OPTIONS = [
 	{ value: 'es', label: 'Español' },
 	{ value: 'fr', label: 'Français' },
 	{ value: 'tr', label: 'Türkçe' },
-	{ value: 'zh-CN', label: '中文（简体）' },
-	{ value: 'zh-TW', label: '中文（繁體）' }
+	{ value: 'zh_CN', label: '中文（简体）' },
+	{ value: 'zh_TW', label: '中文（繁體）' }
 ];
 
 export const Component = () => {
@@ -201,8 +201,8 @@ export const Component = () => {
 					<Select
 						value={i18n.language}
 						onChange={(e) => {
-							// add "i18nextLng" key to localStorage and set it to the selected language
 							i18n.changeLanguage(e);
+							// add "i18nextLng" key to localStorage and set it to the selected language
 							localStorage.setItem('i18nextLng', e);
 						}}
 						containerClassName="h-[30px] whitespace-nowrap"
