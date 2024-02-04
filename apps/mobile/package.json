@@ -44,6 +44,7 @@
     "expo-status-bar": "~1.11.1",
     "intl": "^1.2.5",
     "lottie-react-native": "6.5.1",
+    "metro-react-native-babel-transformer": "^0.77.0",
     "moti": "^0.26.0",
     "phosphor-react-native": "^2.0.0",
     "react": "^18.2.0",

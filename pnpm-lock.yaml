@@ -400,6 +400,9 @@ importers:
       lottie-react-native:
         specifier: 6.5.1
         version: 6.5.1(react-native@0.73.2)(react@18.2.0)
+      metro-react-native-babel-transformer:
+        specifier: ^0.77.0
+        version: 0.77.0(@babel/core@7.23.2)
       moti:
         specifier: ^0.26.0
         version: 0.26.1(react-dom@18.2.0)(react-native-reanimated@3.6.2)(react@18.2.0)
@@ -12618,6 +12621,41 @@ packages:
       - supports-color
     dev: false
 
+  /babel-preset-fbjs@3.4.0(@babel/core@7.23.2):
+    resolution: {integrity: sha512-9ywCsCvo1ojrw0b+XYk7aFvTH6D9064t0RIL1rtMf3nsa02Xw41MS7sZw216Im35xj/UY0PDBQsa1brUDDF1Ow==}
+    peerDependencies:
+      '@babel/core': ^7.0.0
+    dependencies:
+      '@babel/core': 7.23.2
+      '@babel/plugin-proposal-class-properties': 7.18.6(@babel/core@7.23.2)
+      '@babel/plugin-proposal-object-rest-spread': 7.20.7(@babel/core@7.23.2)
+      '@babel/plugin-syntax-class-properties': 7.12.13(@babel/core@7.23.2)
+      '@babel/plugin-syntax-flow': 7.22.5(@babel/core@7.23.2)
+      '@babel/plugin-syntax-jsx': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-syntax-object-rest-spread': 7.8.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-arrow-functions': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-block-scoped-functions': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-block-scoping': 7.23.4(@babel/core@7.23.2)
+      '@babel/plugin-transform-classes': 7.23.8(@babel/core@7.23.2)
+      '@babel/plugin-transform-computed-properties': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-destructuring': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-flow-strip-types': 7.22.5(@babel/core@7.23.2)
+      '@babel/plugin-transform-for-of': 7.23.6(@babel/core@7.23.2)
+      '@babel/plugin-transform-function-name': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-literals': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-member-expression-literals': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-modules-commonjs': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-object-super': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-parameters': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-property-literals': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-react-display-name': 7.22.5(@babel/core@7.23.2)
+      '@babel/plugin-transform-react-jsx': 7.22.15(@babel/core@7.23.2)
+      '@babel/plugin-transform-shorthand-properties': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-spread': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-template-literals': 7.23.3(@babel/core@7.23.2)
+      babel-plugin-syntax-trailing-function-commas: 7.0.0-beta.0
+    dev: false
+
   /babel-preset-fbjs@3.4.0(@babel/core@7.23.7):
     resolution: {integrity: sha512-9ywCsCvo1ojrw0b+XYk7aFvTH6D9064t0RIL1rtMf3nsa02Xw41MS7sZw216Im35xj/UY0PDBQsa1brUDDF1Ow==}
     peerDependencies:
@@ -16576,11 +16614,21 @@ packages:
     hasBin: true
     dev: true
 
+  /hermes-estree@0.14.0:
+    resolution: {integrity: sha512-L6M67+0/eSEbt6Ha2XOBFXL++7MR34EOJMgm+j7YCaI4L/jZqrVAg6zYQKzbs1ZCFDLvEQpOgLlapTX4gpFriA==}
+    dev: false
+
   /hermes-estree@0.15.0:
     resolution: {integrity: sha512-lLYvAd+6BnOqWdnNbP/Q8xfl8LOGw4wVjfrNd9Gt8eoFzhNBRVD95n4l2ksfMVOoxuVyegs85g83KS9QOsxbVQ==}
 
   /hermes-estree@0.18.2:
     resolution: {integrity: sha512-KoLsoWXJ5o81nit1wSyEZnWUGy9cBna9iYMZBR7skKh7okYAYKqQ9/OczwpMHn/cH0hKDyblulGsJ7FknlfVxQ==}
+
+  /hermes-parser@0.14.0:
+    resolution: {integrity: sha512-pt+8uRiJhVlErY3fiXB3gKhZ72RxM6E1xRMpvfZ5n6Z5TQKQQXKorgRCRzoe02mmvLKBJFP5nPDGv75MWAgCTw==}
+    dependencies:
+      hermes-estree: 0.14.0
+    dev: false
 
   /hermes-parser@0.15.0:
     resolution: {integrity: sha512-Q1uks5rjZlE9RjMMjSUCkGrEIPI5pKJILeCtK1VmTj7U4pf3wVPoo+cxfu+s4cBAPy2JzikIIdCZgBoR6x7U1Q==}
@@ -18495,6 +18543,70 @@ packages:
     engines: {node: '>=18'}
     dependencies:
       terser: 5.26.0
+
+  /metro-react-native-babel-preset@0.77.0(@babel/core@7.23.2):
+    resolution: {integrity: sha512-HPPD+bTxADtoE4y/4t1txgTQ1LVR6imOBy7RMHUsqMVTbekoi8Ph5YI9vKX2VMPtVWeFt0w9YnCSLPa76GcXsA==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@babel/core': '*'
+    dependencies:
+      '@babel/core': 7.23.2
+      '@babel/plugin-proposal-async-generator-functions': 7.20.7(@babel/core@7.23.2)
+      '@babel/plugin-proposal-class-properties': 7.18.6(@babel/core@7.23.2)
+      '@babel/plugin-proposal-export-default-from': 7.22.17(@babel/core@7.23.2)
+      '@babel/plugin-proposal-nullish-coalescing-operator': 7.18.6(@babel/core@7.23.2)
+      '@babel/plugin-proposal-numeric-separator': 7.18.6(@babel/core@7.23.2)
+      '@babel/plugin-proposal-object-rest-spread': 7.20.7(@babel/core@7.23.2)
+      '@babel/plugin-proposal-optional-catch-binding': 7.18.6(@babel/core@7.23.2)
+      '@babel/plugin-proposal-optional-chaining': 7.21.0(@babel/core@7.23.2)
+      '@babel/plugin-syntax-dynamic-import': 7.8.3(@babel/core@7.23.2)
+      '@babel/plugin-syntax-export-default-from': 7.22.5(@babel/core@7.23.2)
+      '@babel/plugin-syntax-flow': 7.22.5(@babel/core@7.23.2)
+      '@babel/plugin-syntax-nullish-coalescing-operator': 7.8.3(@babel/core@7.23.2)
+      '@babel/plugin-syntax-optional-chaining': 7.8.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-arrow-functions': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-async-to-generator': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-block-scoping': 7.23.4(@babel/core@7.23.2)
+      '@babel/plugin-transform-classes': 7.23.8(@babel/core@7.23.2)
+      '@babel/plugin-transform-computed-properties': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-destructuring': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-flow-strip-types': 7.22.5(@babel/core@7.23.2)
+      '@babel/plugin-transform-function-name': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-literals': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-modules-commonjs': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-named-capturing-groups-regex': 7.22.5(@babel/core@7.23.2)
+      '@babel/plugin-transform-parameters': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-react-display-name': 7.22.5(@babel/core@7.23.2)
+      '@babel/plugin-transform-react-jsx': 7.22.15(@babel/core@7.23.2)
+      '@babel/plugin-transform-react-jsx-self': 7.22.5(@babel/core@7.23.2)
+      '@babel/plugin-transform-react-jsx-source': 7.22.5(@babel/core@7.23.2)
+      '@babel/plugin-transform-runtime': 7.23.2(@babel/core@7.23.2)
+      '@babel/plugin-transform-shorthand-properties': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-spread': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-sticky-regex': 7.23.3(@babel/core@7.23.2)
+      '@babel/plugin-transform-typescript': 7.23.6(@babel/core@7.23.2)
+      '@babel/plugin-transform-unicode-regex': 7.23.3(@babel/core@7.23.2)
+      '@babel/template': 7.22.15
+      babel-plugin-transform-flow-enums: 0.0.2(@babel/core@7.23.2)
+      react-refresh: 0.4.3
+    transitivePeerDependencies:
+      - supports-color
+    dev: false
+
+  /metro-react-native-babel-transformer@0.77.0(@babel/core@7.23.2):
+    resolution: {integrity: sha512-uCV1Kt4ebY9/hT7ayDGMDgIsrbyxiBHNP+q0LGxscOx3D/QODv1z+WhfC4Hy0/1wDCGV3l0EQrfLqM+7qpjsWA==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@babel/core': '*'
+    dependencies:
+      '@babel/core': 7.23.2
+      babel-preset-fbjs: 3.4.0(@babel/core@7.23.2)
+      hermes-parser: 0.14.0
+      metro-react-native-babel-preset: 0.77.0(@babel/core@7.23.2)
+      nullthrows: 1.1.1
+    transitivePeerDependencies:
+      - supports-color
+    dev: false
 
   /metro-resolver@0.80.5:
     resolution: {integrity: sha512-haJ/Hveio3zv/Fr4eXVdKzjUeHHDogYok7OpRqPSXGhTXisNXB+sLN7CpcUrCddFRUDLnVaqQOYwhYsFndgUwA==}
@@ -21223,6 +21335,11 @@ packages:
   /react-refresh@0.14.0:
     resolution: {integrity: sha512-wViHqhAd8OHeLS/IRMJjTSDHF3U9eWi62F/MledQGPdJGDhodXJ9PBLNGr6WWL7qlH12Mt3TyTpbS+hGXMjCzQ==}
     engines: {node: '>=0.10.0'}
+
+  /react-refresh@0.4.3:
+    resolution: {integrity: sha512-Hwln1VNuGl/6bVwnd0Xdn1e84gT/8T9aYNL+HAKDArLCS7LWjwr7StE30IEYbIkx0Vi3vs+coQxe+SQDbGbbpA==}
+    engines: {node: '>=0.10.0'}
+    dev: false
 
   /react-remove-scroll-bar@2.3.4(@types/react@18.2.34)(react@18.2.0):
     resolution: {integrity: sha512-63C4YQBUt0m6ALadE9XV56hV8BgJWDmmTPY758iIJjfQKt2nYwoUrPk0LXRXcB/yIj82T1/Ixfdpdk68LwIB0A==}
