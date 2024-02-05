@@ -40,10 +40,10 @@ pub enum HookEvent {
 	Shutdown,
 }
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub struct HookId(pub(crate) usize);
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub struct ListenerId(pub(crate) usize);
 
 impl From<ListenerId> for HookId {

@@ -85,7 +85,13 @@ fn start(
 
 fn advertise(state: &mut State) {
 	let mut ports_to_service = HashMap::new();
-	for addr in state.p2p.listeners().iter().map(|l| l.addrs).flatten() {
+	for addr in state
+		.p2p
+		.listeners()
+		.iter()
+		.map(|l| l.addrs.clone())
+		.flatten()
+	{
 		ports_to_service
 			.entry(addr.port())
 			.or_insert_with(Vec::new)
@@ -133,18 +139,19 @@ fn on_event(state: &State, event: ServiceEvent) {
 				return;
 			};
 
-			state.p2p.discover_peer(
-				state.hook_id,
-				identity,
-				info.get_properties()
-					.iter()
-					.map(|p| (p.key().to_string(), p.val_str().to_string()))
-					.collect(),
-				info.get_addresses()
-					.iter()
-					.map(|addr| SocketAddr::new(*addr, info.get_port()))
-					.collect(),
-			);
+			// state.p2p.discover_peer(
+			// 	state.hook_id,
+			// 	identity,
+			// 	info.get_properties()
+			// 		.iter()
+			// 		.map(|p| (p.key().to_string(), p.val_str().to_string()))
+			// 		.collect(),
+			// 	info.get_addresses()
+			// 		.iter()
+			// 		.map(|addr| SocketAddr::new(*addr, info.get_port()))
+			// 		.collect(),
+			// );
+			todo!();
 		}
 		ServiceEvent::ServiceRemoved(_, fullname) => {
 			let Some(identity) = fullname_to_identity(&state, &fullname) else {

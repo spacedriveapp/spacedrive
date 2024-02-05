@@ -17,7 +17,11 @@ use tracing::error;
 
 use crate::P2P;
 
-use super::proto_outbound::OutboundProtocol;
+use super::{
+	behaviour::EMPTY_QUEUE_SHRINK_THRESHOLD,
+	proto_inbound::InboundProtocol,
+	proto_outbound::{OutboundProtocol, OutboundRequest},
+};
 
 // TODO: Probs change this based on the ConnectionEstablishmentPayload
 const SUBSTREAM_TIMEOUT: Duration = Duration::from_secs(10); // TODO: Tune value
@@ -50,21 +54,22 @@ impl SpaceTimeConnection {
 
 impl ConnectionHandler for SpaceTimeConnection {
 	type FromBehaviour = OutboundRequest;
-	type ToBehaviour = ManagerStreamAction2;
+	type ToBehaviour = (); // TODO: ManagerStreamAction2;
 	type InboundProtocol = InboundProtocol;
 	type OutboundProtocol = OutboundProtocol;
 	type OutboundOpenInfo = ();
 	type InboundOpenInfo = ();
 
 	fn listen_protocol(&self) -> SubstreamProtocol<Self::InboundProtocol, Self::InboundOpenInfo> {
-		SubstreamProtocol::new(
-			InboundProtocol {
-				peer_id: self.peer_id,
-				manager: self.manager.clone(),
-			},
-			(),
-		)
-		.with_timeout(SUBSTREAM_TIMEOUT)
+		// SubstreamProtocol::new(
+		// 	InboundProtocol {
+		// 		peer_id: self.peer_id,
+		// 		manager: self.manager.clone(),
+		// 	},
+		// 	(),
+		// )
+		// .with_timeout(SUBSTREAM_TIMEOUT)
+		todo!();
 	}
 
 	fn on_behaviour_event(&mut self, req: Self::FromBehaviour) {
@@ -72,18 +77,20 @@ impl ConnectionHandler for SpaceTimeConnection {
 		// self.keep_alive = KeepAlive::Yes;
 		// self.outbound.push_back(request);
 
-		self.pending_events
-			.push_back(ConnectionHandlerEvent::OutboundSubstreamRequest {
-				protocol: SubstreamProtocol::new(
-					OutboundProtocol {
-						application_name: self.manager.application_name.clone(),
-						req,
-						identity: self.manager.identity.clone(),
-					},
-					(),
-				) // TODO: Use `info` here maybe to pass into about the client. Idk?
-				.with_timeout(SUBSTREAM_TIMEOUT),
-			});
+		// self.pending_events
+		// 	.push_back(ConnectionHandlerEvent::OutboundSubstreamRequest {
+		// 		protocol: SubstreamProtocol::new(
+		// 			OutboundProtocol {
+		// 				application_name: self.manager.application_name.clone(),
+		// 				req,
+		// 				identity: self.manager.identity.clone(),
+		// 			},
+		// 			(),
+		// 		) // TODO: Use `info` here maybe to pass into about the client. Idk?
+		// 		.with_timeout(SUBSTREAM_TIMEOUT),
+		// 	});
+
+		todo!();
 	}
 
 	fn connection_keep_alive(&self) -> bool {

@@ -121,44 +121,45 @@ impl P2P {
 		metadata: HashMap<String, String>,
 		addrs: Vec<SocketAddr>,
 	) -> Arc<Peer> {
-		let mut peer = self
-			.peers
-			.write()
-			.unwrap_or_else(PoisonError::into_inner)
-			.entry(identity);
-		let was_peer_inserted = matches!(peer, Entry::Vacant(_));
-		let peer = peer
-			.or_insert_with({
-				let p2p = self.clone();
-				|| Peer::new(identity, p2p)
-			})
-			.clone();
+		// let mut peer = self
+		// 	.peers
+		// 	.write()
+		// 	.unwrap_or_else(PoisonError::into_inner)
+		// 	.entry(identity);
+		// let was_peer_inserted = matches!(peer, Entry::Vacant(_));
+		// let peer = peer
+		// 	.or_insert_with({
+		// 		let p2p = self.clone();
+		// 		|| Peer::new(identity, p2p)
+		// 	})
+		// 	.clone();
 
-		{
-			let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
-			state.discovered.insert(hook_id);
-		}
+		// {
+		// 	let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
+		// 	state.discovered.insert(hook_id);
+		// }
 
-		peer.metadata_mut().extend(metadata);
+		// peer.metadata_mut().extend(metadata);
 
-		{
-			let hooks = self.hooks.read().unwrap_or_else(PoisonError::into_inner);
-			hooks
-				.iter()
-				.for_each(|(id, hook)| hook.acceptor(&peer, &addrs));
+		// {
+		// 	let hooks = self.hooks.read().unwrap_or_else(PoisonError::into_inner);
+		// 	hooks
+		// 		.iter()
+		// 		.for_each(|(id, hook)| hook.acceptor(&peer, &addrs));
 
-			if was_peer_inserted {
-				hooks
-					.iter()
-					.for_each(|(id, hook)| hook.send(HookEvent::PeerAvailable(peer.clone())));
-			}
+		// 	if was_peer_inserted {
+		// 		hooks
+		// 			.iter()
+		// 			.for_each(|(id, hook)| hook.send(HookEvent::PeerAvailable(peer.clone())));
+		// 	}
 
-			hooks.iter().for_each(|(id, hook)| {
-				hook.send(HookEvent::PeerDiscoveredBy(hook_id, peer.clone()))
-			});
-		}
+		// 	hooks.iter().for_each(|(id, hook)| {
+		// 		hook.send(HookEvent::PeerDiscoveredBy(hook_id, peer.clone()))
+		// 	});
+		// }
 
-		peer
+		// peer
+		todo!();
 	}
 
 	pub fn connected_to(
@@ -168,57 +169,61 @@ impl P2P {
 		metadata: HashMap<String, String>,
 		shutdown_tx: oneshot::Sender<()>,
 	) -> Arc<Peer> {
-		let mut peer = self
-			.peers
-			.write()
-			.unwrap_or_else(PoisonError::into_inner)
-			.entry(identity);
-		let was_peer_inserted = matches!(peer, Entry::Vacant(_));
-		let peer = peer
-			.or_insert_with({
-				let p2p = self.clone();
-				move || Peer::new(identity, p2p)
-			})
-			.clone();
+		// let mut peer = self
+		// 	.peers
+		// 	.write()
+		// 	.unwrap_or_else(PoisonError::into_inner)
+		// 	.entry(identity);
+		// let was_peer_inserted = matches!(peer, Entry::Vacant(_));
+		// let peer = peer
+		// 	.or_insert_with({
+		// 		let p2p = self.clone();
+		// 		move || Peer::new(identity, p2p)
+		// 	})
+		// 	.clone();
 
-		{
-			let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
-			state.active_connections.insert(listener, shutdown_tx);
-		}
+		// {
+		// 	let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
+		// 	state.active_connections.insert(listener, shutdown_tx);
+		// }
 
-		peer.metadata_mut().extend(metadata);
+		// peer.metadata_mut().extend(metadata);
 
-		{
-			let hooks = self.hooks.read().unwrap_or_else(PoisonError::into_inner);
+		// {
+		// 	let hooks = self.hooks.read().unwrap_or_else(PoisonError::into_inner);
 
-			if was_peer_inserted {
-				hooks
-					.iter()
-					.for_each(|(id, hook)| hook.send(HookEvent::PeerAvailable(peer.clone())));
-			}
+		// 	if was_peer_inserted {
+		// 		hooks
+		// 			.iter()
+		// 			.for_each(|(id, hook)| hook.send(HookEvent::PeerAvailable(peer.clone())));
+		// 	}
 
-			hooks.iter().for_each(|(id, hook)| {
-				hook.send(HookEvent::PeerConnectedWith(listener, peer.clone()))
-			});
-		}
+		// 	// hooks.iter().for_each(|(id, hook)| {
+		// 	// 	hook.send(HookEvent::PeerConnectedWith(listener, peer.clone()))
+		// 	// });
+		// 	todo!();
+		// }
 
-		peer
+		// peer
+		todo!();
 	}
 
 	/// All active listeners registered with the P2P system.
 	pub fn listeners(&self) -> Vec<Listener> {
-		self.hooks
-			.read()
-			.unwrap_or_else(PoisonError::into_inner)
-			.iter()
-			.filter_map(|(id, hook)| {
-				hook.listener.map(|listener| Listener {
-					id: ListenerId(id),
-					name: hook.name,
-					addrs: listener.addrs,
-				})
-			})
-			.collect()
+		// self.hooks
+		// 	.read()
+		// 	.unwrap_or_else(PoisonError::into_inner)
+		// 	.iter()
+		// 	.filter_map(|(id, hook)| {
+		// 		hook.listener.map(|listener| Listener {
+		// 			id: ListenerId(id),
+		// 			name: hook.name,
+		// 			addrs: listener.addrs,
+		// 		})
+		// 	})
+		// 	.collect()
+
+		todo!();
 	}
 
 	/// A listener is a special type of hook which is responsible for accepting incoming connections.
@@ -314,7 +319,8 @@ impl P2P {
 				state.discovered.remove(&id);
 
 				if state.connection_methods.is_empty() && state.discovered.is_empty() {
-					peers.remove(&identity);
+					// peers.remove(&identity);
+					todo!(); // TODO: mutating in iteration is bad, thanks compiler
 				}
 			}
 		}

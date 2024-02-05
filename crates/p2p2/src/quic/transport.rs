@@ -117,8 +117,8 @@ fn ok<T>(v: Result<T, Infallible>) -> T {
 async fn start(
 	p2p: Arc<P2P>,
 	state: Arc<RwLock<State>>,
-	swarm: Swarm<SpaceTime>,
-	rx: mpsc::Receiver<HookEvent>,
+	mut swarm: Swarm<SpaceTime>,
+	mut rx: mpsc::Receiver<HookEvent>,
 ) {
 	loop {
 		tokio::select! {

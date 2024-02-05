@@ -18,7 +18,7 @@ pub struct SmartWriteGuard<'a, T> {
 }
 
 impl<'a, T: Clone> SmartWriteGuard<'a, T> {
-	pub(crate) fn new(p2p: &P2P, lock: RwLockWriteGuard<'a, T>, save: SaveFn<T>) -> Self {
+	pub(crate) fn new(p2p: &'a P2P, lock: RwLockWriteGuard<'a, T>, save: SaveFn<T>) -> Self {
 		Self {
 			p2p,
 			before: Some(lock.clone()),
