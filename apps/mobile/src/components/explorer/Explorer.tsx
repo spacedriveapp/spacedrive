@@ -57,7 +57,7 @@ const Explorer = ({ items }: ExplorerProps) => {
 							transition={{ type: 'timing', duration: 300 }}
 							exit={{ translateY: -70 }}
 						>
-							<LocationMenu
+							<ExplorerMenu
 								changeLayoutMode={(kind: ExplorerLayoutMode) => {
 									changeLayoutMode(kind);
 								}}
@@ -111,15 +111,15 @@ const Explorer = ({ items }: ExplorerProps) => {
 	);
 };
 
-interface LocationMenuProps {
+interface ExplorerMenuProps {
 	layoutMode: ExplorerLayoutMode;
 	changeLayoutMode: (kind: ExplorerLayoutMode) => void;
 }
 
-const LocationMenu = ({ layoutMode, changeLayoutMode }: LocationMenuProps) => {
+const ExplorerMenu = ({ layoutMode, changeLayoutMode }: ExplorerMenuProps) => {
 	return (
 		<View
-			style={tw`flex-row justify-between w-screen py-4 border-b border-app-line/50 bg-mobile-header px-7`}
+			style={tw`w-screen flex-row justify-between border-b border-app-line/50 bg-mobile-header px-7 py-4`}
 		>
 			<View style={tw`flex-row gap-3`}>
 				<Pressable onPress={() => changeLayoutMode('grid')}>
