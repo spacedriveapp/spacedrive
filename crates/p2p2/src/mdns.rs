@@ -9,10 +9,7 @@ use tokio::{
 };
 use tracing::{error, trace, warn};
 
-use crate::{
-	p2p::{HookEvent, HookId},
-	Peer, PeerStatus, RemoteIdentity, P2P,
-};
+use crate::{HookEvent, HookId, Peer, RemoteIdentity, P2P};
 
 /// The time between re-advertising the mDNS service.
 const MDNS_READVERTISEMENT_INTERVAL: Duration = Duration::from_secs(60); // Every minute re-advertise
@@ -27,9 +24,9 @@ pub struct Mdns {
 impl Mdns {
 	pub fn spawn(p2p: Arc<P2P>) -> Result<Self, mdns_sd::Error> {
 		let (tx, rx) = mpsc::channel(15);
-		let hook_id = p2p.register_hook(tx);
+		let hook_id = p2p.register_hook("mdns", tx);
 
-		start(p2p.clone(), rx)?;
+		start(p2p.clone(), hook_id, rx)?;
 
 		Ok(Self { p2p, hook_id })
 	}
@@ -40,6 +37,7 @@ impl Mdns {
 }
 
 struct State {
+	hook_id: HookId,
 	p2p: Arc<P2P>,
 	service_domain: String,
 	service_name: String,
@@ -47,9 +45,14 @@ struct State {
 	next_mdns_advertisement: Pin<Box<Sleep>>,
 }
 
-fn start(p2p: Arc<P2P>, mut rx: mpsc::Receiver<HookEvent>) -> Result<(), mdns_sd::Error> {
+fn start(
+	p2p: Arc<P2P>,
+	hook_id: HookId,
+	mut rx: mpsc::Receiver<HookEvent>,
+) -> Result<(), mdns_sd::Error> {
 	let service_domain = format!("_{}._udp.local.", p2p.app_name());
 	let mut state = State {
+		hook_id,
 		service_name: format!("{}.{service_domain}", p2p.remote_identity()),
 		service_domain,
 		p2p,
@@ -64,9 +67,12 @@ fn start(p2p: Arc<P2P>, mut rx: mpsc::Receiver<HookEvent>) -> Result<(), mdns_sd
 		loop {
 			tokio::select! {
 				Some(event) = rx.recv() => match event {
-					HookEvent::DiscoveredChange(_) => {},
-					HookEvent::MetadataChange(_) | HookEvent::ListenersChange(_) => advertise(&mut state),
-					HookEvent::Shutdown => shutdown(&mut state),
+					HookEvent::MetadataModified | HookEvent::ListenerRegistered { .. } | HookEvent::ListenerUnregistered(_)  => advertise(&mut state),
+					HookEvent::Shutdown => {
+						shutdown(&mut state);
+						break;
+					},
+					_ => continue,
 				},
 				_ = &mut state.next_mdns_advertisement => advertise(&mut state),
 				Ok(event) = mdns_service.recv_async() => on_event(&mut state, event)
@@ -79,7 +85,7 @@ fn start(p2p: Arc<P2P>, mut rx: mpsc::Receiver<HookEvent>) -> Result<(), mdns_sd
 
 fn advertise(state: &mut State) {
 	let mut ports_to_service = HashMap::new();
-	for addr in state.p2p.listeners().iter().map(|(_, l)| l.addr()) {
+	for addr in state.p2p.listeners().iter().map(|l| l.addrs).flatten() {
 		ports_to_service
 			.entry(addr.port())
 			.or_insert_with(Vec::new)
@@ -127,28 +133,18 @@ fn on_event(state: &State, event: ServiceEvent) {
 				return;
 			};
 
-			let mut discovered = state.p2p.discovered_mut();
-			if let Some(peer) = discovered.get_mut(&identity) {
-			} else {
-				let mut peer = Peer::new();
-				peer.set_state(PeerStatus::Discovered);
-				let mut peer_meta = peer.service_mut();
-				for property in info.get_properties().iter() {
-					peer_meta.insert(property.key().to_string(), property.val_str().to_string());
-				}
-				let addrs = info
-					.get_addresses()
+			state.p2p.discover_peer(
+				state.hook_id,
+				identity,
+				info.get_properties()
+					.iter()
+					.map(|p| (p.key().to_string(), p.val_str().to_string()))
+					.collect(),
+				info.get_addresses()
 					.iter()
 					.map(|addr| SocketAddr::new(*addr, info.get_port()))
-					.collect();
-
-				// TODO: Make this be called in the `SmartLock` instead. How do `addrs` make it through???
-				for (_, listener) in state.p2p.listeners().iter() {
-					listener.acceptor(&mut peer, &addrs);
-				}
-
-				discovered.insert(identity.clone(), peer);
-			}
+					.collect(),
+			);
 		}
 		ServiceEvent::ServiceRemoved(_, fullname) => {
 			let Some(identity) = fullname_to_identity(&state, &fullname) else {

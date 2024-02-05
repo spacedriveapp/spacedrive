@@ -1,7 +1,10 @@
 use crate::{
 	api::{notifications::Notification, BackendFeature},
 	object::media::thumbnail::preferences::ThumbnailerPreferences,
-	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
+	util::{
+		version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
+		MaybeUndefined,
+	},
 };
 
 use sd_p2p2::Identity;
@@ -51,11 +54,10 @@ pub struct NodeConfig {
 	#[serde(skip)] // TODO
 	pub identity: Identity,
 	/// P2P config
-	#[serde(default)]
-	pub p2p_enabled: bool,
-	// `None` will chose a random free port on startup
-	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub p2p_port: Option<u16>,
+	#[serde(default, skip_serializing_if = "MaybeUndefined::is_undefined")]
+	pub p2p_ipv4_port: MaybeUndefined<u16>,
+	#[serde(default, skip_serializing_if = "MaybeUndefined::is_undefined")]
+	pub p2p_ipv6_port: MaybeUndefined<u16>,
 	#[serde(default)]
 	pub p2p_discovery: P2PDiscoveryState,
 	/// Feature flags enabled on the node
@@ -114,8 +116,8 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 			id: Uuid::new_v4(),
 			name,
 			identity: Identity::default(),
-			p2p_enabled: false,
-			p2p_port: None,
+			p2p_ipv4_port: MaybeUndefined::Null,
+			p2p_ipv6_port: MaybeUndefined::Null,
 			p2p_discovery: P2PDiscoveryState::Everyone,
 			version: Self::LATEST_VERSION,
 			features: vec![],

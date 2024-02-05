@@ -96,7 +96,7 @@ mod originator {
 					"Alerting peer '{remote_identity:?}' of new sync events for library '{library_id:?}'"
 				);
 
-				let mut stream = peer.connect().await.unwrap();
+				let mut stream = peer.new_stream().await.unwrap();
 
 				stream
 					.write_all(&Header::Sync(library_id).to_bytes())

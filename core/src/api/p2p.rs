@@ -19,8 +19,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				let mut queued = Vec::new();
 
 				for (identity, peer, metadata) in
-					node.p2p.p2p.discovered().iter().filter_map(|(i, p)| {
-						PeerMetadata::from_hashmap(p.service())
+					node.p2p.p2p.peers().iter().filter_map(|(i, p)| {
+						PeerMetadata::from_hashmap(&*p.metadata())
 							.ok()
 							.map(|m| (i, p, m))
 					}) {

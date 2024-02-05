@@ -4,10 +4,11 @@ use crate::{
 		get_hardware_model_name, HardwareModel,
 	},
 	p2p::{libraries, operations, sync::SyncMessage, Header, OperatingSystem, SPACEDRIVE_APP_ID},
+	util::MaybeUndefined,
 	Node,
 };
 
-use sd_p2p2::{Mdns, Peer, QuicTransport, RemoteIdentity, UnicastStream, P2P};
+use sd_p2p2::{Libp2pPeerId, Mdns, Peer, QuicTransport, RemoteIdentity, UnicastStream, P2P};
 use sd_p2p_tunnel::Tunnel;
 use serde_json::json;
 use std::{
@@ -25,7 +26,9 @@ use super::{P2PEvents, PeerMetadata};
 pub struct P2PManager {
 	pub(crate) p2p: Arc<P2P>,
 	mdns: Mutex<Option<Mdns>>,
-	quic: Mutex<Option<QuicTransport>>,
+	quic: QuicTransport,
+	// The `libp2p::PeerId`. This is for debugging only, use `RemoteIdentity` instead.
+	peer_id: Option<Libp2pPeerId>,
 	pub(crate) events: P2PEvents,
 
 	// TODO: Remove these from here in future PR
@@ -44,8 +47,9 @@ impl P2PManager {
 		let p2p = P2P::new(SPACEDRIVE_APP_ID, node_config.get().await.identity, tx);
 		let this = Arc::new(Self {
 			p2p: p2p.clone(),
+			peer_id: None,
 			mdns: Mutex::new(None),
-			quic: Mutex::new(None),
+			quic: QuicTransport::spawn(p2p.clone()),
 			events: P2PEvents::spawn(p2p),
 			spacedrop_pairing_reqs: Default::default(),
 			spacedrop_cancelations: Default::default(),
@@ -79,69 +83,76 @@ impl P2PManager {
 		}
 		.update(&mut self.p2p.metadata_mut());
 
-		let should_revert = {
-			let mut quic = self.quic.lock().unwrap_or_else(PoisonError::into_inner);
+		if let Err(err) = self.quic.set_ipv4_enabled(match config.p2p_ipv4_port {
+			MaybeUndefined::Undefined => None, // Disabled
+			MaybeUndefined::Null => Some(0),   // Random port
+			MaybeUndefined::Value(port) => Some(port),
+		}) {
+			error!("Failed to enabled quic ipv4 listener: {err}");
+			self.node_config
+				.write(|c| c.p2p_ipv4_port = MaybeUndefined::Undefined)
+				.await
+				.ok();
+		}
 
-			if config.p2p_enabled && quic.is_some() {
-				if let Some(quic) = quic.take() {
-					quic.shutdown();
+		if let Err(err) = self.quic.set_ipv6_enabled(match config.p2p_ipv6_port {
+			MaybeUndefined::Undefined => None, // Disabled
+			MaybeUndefined::Null => Some(0),   // Random port
+			MaybeUndefined::Value(port) => Some(port),
+		}) {
+			error!("Failed to enabled quic ipv6 listener: {err}");
+			self.node_config
+				.write(|c| c.p2p_ipv6_port = MaybeUndefined::Undefined)
+				.await
+				.ok();
+		}
+
+		let should_revert = match config.p2p_discovery {
+			P2PDiscoveryState::Everyone
+			// TODO: Make `ContactsOnly` work
+			| P2PDiscoveryState::ContactsOnly => {
+				let mut mdns = self.mdns.lock().unwrap_or_else(PoisonError::into_inner);
+				if mdns.is_none() {
+					match Mdns::spawn(self.p2p.clone()) {
+						Ok(mdns) => {
+							*mdns = Some(mdns);
+							false
+						}
+						Err(e) => {
+							error!("Failed to start mDNS: {err}");
+							true
+						}
+					}
+				} else {
+					false
 				}
 			}
-
-			if !config.p2p_enabled && quic.is_none() {
-				match QuicTransport::spawn(self.p2p.clone()) {
-					Ok(q) => {
-						*quic = Some(q);
-						false
-					}
-					Err(err) => {
-						error!("Failed to start P2P QUIC transport: {err}");
-						true
-					}
+			P2PDiscoveryState::Disabled => {
+				if let Some(mdns) = self.mdns.lock().unwrap_or_else(PoisonError::into_inner).take() {
+					mdns.shutdown();
 				}
-			} else {
+
 				false
-			}
+			},
 		};
 
 		// The `should_revert` bit is weird but we need this future to stay `Send` as rspc requires.
 		// To make it send we have to drop `quic` (a `!Send` `MutexGuard`).
 		// Doing it within the above scope seems to not work (even when manually calling `drop`).
 		if should_revert {
-			let _ = self.node_config.write(|c| c.p2p_enabled = true).await;
-		}
-
-		{
-			let mut mdns = self.mdns.lock().unwrap_or_else(PoisonError::into_inner);
-
-			let enabled = !config.p2p_enabled
-				&& (config.p2p_discovery == P2PDiscoveryState::Everyone
-					|| config.p2p_discovery == P2PDiscoveryState::ContactsOnly);
-
-			if !enabled && mdns.is_some() {
-				if let Some(mdns) = mdns.take() {
-					mdns.shutdown();
-				}
-			}
-
-			if enabled && mdns.is_none() {
-				match Mdns::spawn(self.p2p.clone()) {
-					Ok(m) => *mdns = Some(m),
-					Err(err) => {
-						error!("Failed to start P2P mDNS: {err}");
-						// let _ = self.node_config.write(|c| c.p2p_discovery = P2PDiscoveryState::Everyone).await; // TODO: Reenable this
-					}
-				};
-			}
+			let _ = self
+				.node_config
+				.write(|c| c.p2p_discovery = P2PDiscoveryState::Disabled)
+				.await;
 		}
 	}
 
 	pub fn get_library_instances(&self, library: &Uuid) -> Vec<(RemoteIdentity, Peer)> {
 		let library_id = library.to_string();
 		self.p2p
-			.discovered()
+			.peers()
 			.iter()
-			.filter(|(_, p)| p.service().contains_key(&library_id))
+			.filter(|(_, p)| p.metadata().contains_key(&library_id))
 			.map(|(i, p)| (*i, p.clone()))
 			.collect()
 	}
@@ -149,19 +160,19 @@ impl P2PManager {
 	pub fn get_instance(&self, library: &Uuid, identity: RemoteIdentity) -> Option<Peer> {
 		let library_id = library.to_string();
 		self.p2p
-			.discovered()
+			.peers()
 			.iter()
-			.find(|(i, p)| **i == identity && p.service().contains_key(&library_id))
+			.find(|(i, p)| **i == identity && p.metadata().contains_key(&library_id))
 			.map(|(_, p)| p.clone())
 	}
 
 	pub fn state(&self) -> serde_json::Value {
 		json!({
 			"self_identity": self.p2p.remote_identity().to_string(),
-			// "self_peer_id": self.p2p.remote_identity().to_string(), // TODO
+			"self_peer_id": format!("{:?}", self.peer_id),
 			"metadata": self.p2p.metadata().clone(),
 			"listeners": self.p2p.listeners().iter().map(|(k, v)| (k, v.addr())).collect::<HashMap<_, _>>().clone(),
-			"discovered": self.p2p.discovered().clone(),
+			"discovered": self.p2p.peers().clone(),
 		})
 	}
 

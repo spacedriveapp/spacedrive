@@ -248,7 +248,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 								.ok_or_else(|| {
 									not_found(format!("Error connecting to {identity}: no connection method available"))
 								})?
-								.connect()
+								.new_stream()
 								.await
 								.map_err(|err| {
 									not_found(format!("Error connecting to {identity}: {err:?}"))

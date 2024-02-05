@@ -52,18 +52,36 @@ impl P2PEvents {
 	pub fn spawn(p2p: Arc<P2P>) -> Self {
 		let events = broadcast::channel(15);
 		let (tx, mut rx) = mpsc::channel(15);
-		let _ = p2p.register_hook(tx);
+		let _ = p2p.register_hook("p2p-events", tx);
 
 		let events_tx = events.0.clone();
 		tokio::spawn(async move {
 			while let Some(event) = rx.recv().await {
-				match event {
-					// TODO: Create `P2PEvent` from `HookEvent` and emit on `events_tx`
-					HookEvent::MetadataChange(_) => todo!(),
-					HookEvent::DiscoveredChange(_) => todo!(),
-					HookEvent::ListenersChange(_) => todo!(),
-					HookEvent::Shutdown => return,
-				}
+				let event = match event {
+					// We use `HookEvent::PeerUnavailable`/`HookEvent::PeerAvailable` over `HookEvent::PeerExpiredBy`/`HookEvent::PeerDiscoveredBy` so that having an active connection is treated as "discovered".
+					// It's possible to have an active connection without mDNS data (which is what Peer*By` are for)
+					HookEvent::PeerAvailable(peer) => P2PEvent::DiscoveredPeer {
+						identity: peer.identity(),
+						metadata: PeerMetadata::from_hashmap(&*peer.metadata()).unwrap(), // TODO: Error handling
+					},
+					HookEvent::PeerUnavailable(identity) => P2PEvent::ExpiredPeer { identity },
+					HookEvent::PeerConnectedWith {
+						listener,
+						peer,
+						first_connection,
+					} if first_connection => P2PEvent::ConnectedPeer {
+						identity: peer.identity(),
+					},
+					HookEvent::PeerDisconnectedWith {
+						listener,
+						identity,
+						last_connection,
+					} if last_connection => P2PEvent::DisconnectedPeer { identity },
+					HookEvent::Shutdown => break,
+					_ => continue,
+				};
+
+				let _ = events_tx.send(event);
 			}
 		});
 

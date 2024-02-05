@@ -1,21 +1,28 @@
 use std::{
 	future::Future,
 	pin::Pin,
-	sync::{atomic::Ordering, Arc, PoisonError},
+	sync::{
+		atomic::{AtomicU64, Ordering},
+		Arc, PoisonError,
+	},
 };
 
 use libp2p::{
 	core::{ConnectedPoint, UpgradeInfo},
 	InboundUpgrade, PeerId, Stream,
 };
+use tokio::sync::oneshot;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tracing::{debug, warn};
 
-use super::SpaceTimeProtocolName;
+use crate::{identity, quic::stream::new_inbound, Peer, P2P};
+
+use super::{behaviour::SpaceTimeState, SpaceTimeProtocolName};
 
 pub struct InboundProtocol {
 	pub(crate) peer_id: PeerId,
-	// pub(crate) manager: Arc<Manager>,
+	pub(crate) p2p: Arc<P2P>,
+	pub(crate) state: Arc<SpaceTimeState>,
 }
 
 impl UpgradeInfo for InboundProtocol {
@@ -23,8 +30,7 @@ impl UpgradeInfo for InboundProtocol {
 	type InfoIter = [Self::Info; 1];
 
 	fn protocol_info(&self) -> Self::InfoIter {
-		// [SpaceTimeProtocolName(self.manager.application_name.clone())]
-		todo!();
+		[SpaceTimeProtocolName(self.p2p.app_name())]
 	}
 }
 
@@ -33,76 +39,36 @@ impl InboundUpgrade<Stream> for InboundProtocol {
 	type Error = ();
 	type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send + 'static>>;
 
-	fn upgrade_inbound(self, io: Stream, _: Self::Info) -> Self::Future {
-		// let id = self.manager.stream_id.fetch_add(1, Ordering::Relaxed);
-		// Box::pin(async move {
-		// 	debug!(
-		// 		"stream({}, {id}): accepting inbound connection",
-		// 		self.peer_id
-		// 	);
+	fn upgrade_inbound(self, stream: Stream, _: Self::Info) -> Self::Future {
+		let id = self.state.stream_id.fetch_add(1, Ordering::Relaxed);
+		Box::pin(async move {
+			debug!(
+				"stream({id}): accepting inbound connection with libp2p::PeerId({})",
+				self.peer_id
+			);
 
-		// 	let io = io.compat();
-		// 	debug!("stream({}, {id}): unicast stream accepted", self.peer_id);
+			let Ok(stream) = new_inbound(id, self.p2p.identity(), stream).await else {
+				return Ok(());
+			};
+			debug!(
+				"stream({id}): upgraded to Unicast stream with '{}'",
+				stream.remote_identity()
+			);
 
-		// 	let stream = match UnicastStream::new_inbound(self.manager.identity.clone(), io).await {
-		// 		Ok(v) => v,
-		// 		Err(err) => {
-		// 			warn!(
-		// 				"Failed to construct 'UnicastStream' with Peer('{}'): {err:?}",
-		// 				self.peer_id
-		// 			);
-		// 			return Err(());
-		// 		}
-		// 	};
+			// TODO: Sync `peer.metadata` with remote
 
-		// 	let establisher = {
-		// 		let mut state = self
-		// 			.manager
-		// 			.state
-		// 			.write()
-		// 			.unwrap_or_else(PoisonError::into_inner);
+			// let peer = Peer::new(stream.remote_identity());
+			// let (tx, rx) = oneshot::channel();
+			// peer.connected_to(listener, tx);
+			// TODO: Handle `rx` for shutdown.
 
-		// 		state
-		// 			.connected
-		// 			.insert(self.peer_id, stream.remote_identity());
+			// self.p2p.peers_mut().insert(peer.identity(), peer);
 
-		// 		match state.connections.get(&self.peer_id) {
-		// 			Some((endpoint, 0)) => Some(match endpoint {
-		// 				ConnectedPoint::Dialer { .. } => true,
-		// 				ConnectedPoint::Listener { .. } => false,
-		// 			}),
-		// 			None => {
-		// 				warn!("Error getting PeerId({})'s connection state. This indicates a bug in P2P", self.peer_id);
-		// 				None
-		// 			}
-		// 			_ => None,
-		// 		}
-		// 	};
+			// TODO: Update state to reflect that we are connected
 
-		// 	debug!(
-		// 		"sending establishment request to peer '{}'",
-		// 		stream.remote_identity()
-		// 	);
+			// TODO: Send this back to the application to handle
 
-		// 	let identity = stream.remote_identity();
-		// 	let mut events = vec![PeerMessageEvent {
-		// 		stream_id: id,
-		// 		identity,
-		// 		manager: self.manager.clone(),
-		// 		stream,
-		// 		_priv: (),
-		// 	}
-		// 	.into()];
-
-		// 	if let Some(establisher) = establisher {
-		// 		events.push(Event::PeerConnected(ConnectedPeer {
-		// 			identity,
-		// 			establisher,
-		// 		}));
-		// 	}
-
-		// 	Ok(ManagerStreamAction2::Events(events))
-		// })
-		todo!();
+			Ok(())
+		})
 	}
 }

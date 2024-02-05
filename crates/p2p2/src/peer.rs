@@ -1,72 +1,137 @@
-use std::{collections::HashMap, convert::Infallible};
+use std::{
+	collections::{HashMap, HashSet},
+	sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak},
+};
 
-use serde::{Deserialize, Serialize};
-use specta::Type;
+use tokio::sync::{mpsc, oneshot};
+use tracing::warn;
 
-use crate::UnicastStream;
+use crate::{HookId, ListenerId, RemoteIdentity, UnicastStream, P2P};
 
-/// The status of the communication with a peer.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type)]
-pub enum PeerStatus {
-	/// The peer is not available for communication.
-	/// We could be offline or they could be offline, blocked by a firewall or any other reason.
-	Unavailable,
-	/// We have discovered a method to connect to the peer.
-	/// You can call [Peer::connect] to establish a connection.
-	Discovered,
-	/// We have an active connection with the peer.
-	/// You can call [Peer::disconnect] to disconnect.
-	Connected,
-}
-
-/// TODO
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug)]
 pub struct Peer {
-	status: PeerStatus,
-	service: HashMap<String, String>,
-
-	connector: Vec<()>,
-	// TODO: How to choice which mechanism to use for the connection? Maybe have a channel that's fired.
-	// metadata
-
-	// TODO: Avoid this `pub peer_id: PeerId,`
+	/// RemoteIdentity of the peer.
+	pub(crate) identity: RemoteIdentity,
+	/// Information from `P2P::service` on the remote node.
+	pub(crate) metadata: RwLock<HashMap<String, String>>,
+	/// We want these states to locked by the same lock so we can ensure they are consistent.
+	pub(crate) state: RwLock<State>,
+	/// A reference back to the P2P system.
+	/// This is weak so we don't have recursive `Arc`'s that can never be dropped.
+	pub(crate) p2p: Weak<P2P>,
+	// TODO: `pub removed: AtomicBool,` // TODO: This should disable methods on this `Peer` instance cause it can be cloned outta the system.
 }
 
+#[derive(Debug, Default)]
+pub(crate) struct State {
+	/// Active connections with the remote
+	pub(crate) active_connections: HashMap<ListenerId, oneshot::Sender<()>>,
+	/// Methods for establishing an active connections with the remote
+	/// These should be inject by `Listener::acceptor` which is called when a new peer is discovered.
+	pub(crate) connection_methods: HashMap<ListenerId, mpsc::Sender<RemoteIdentity>>,
+	/// Methods that have discovered this peer.
+	pub(crate) discovered: HashSet<HookId>,
+}
+
+impl State {
+	pub(crate) fn needs_removal(&self) -> bool {
+		self.discovered.is_empty()
+			&& self.connection_methods.is_empty()
+			&& self.active_connections.is_empty()
+	}
+}
+
+impl Eq for Peer {}
+impl PartialEq for Peer {
+	fn eq(&self, other: &Self) -> bool {
+		self.identity == other.identity
+	}
+}
+
+// Internal methods
 impl Peer {
-	pub fn new() -> Self {
-		Self {
-			status: PeerStatus::Unavailable,
-			service: Default::default(),
-			connector: Default::default(),
-		}
+	pub(crate) fn new(identity: RemoteIdentity, p2p: Arc<P2P>) -> Arc<Self> {
+		Arc::new(Self {
+			identity,
+			metadata: Default::default(),
+			state: Default::default(),
+			p2p: Arc::downgrade(&p2p),
+		})
+	}
+}
+
+// User-facing methods
+impl Peer {
+	pub fn identity(&self) -> RemoteIdentity {
+		self.identity
 	}
 
-	pub fn status(&self) -> PeerStatus {
-		self.status
+	pub fn metadata(&self) -> RwLockReadGuard<HashMap<String, String>> {
+		self.metadata.read().unwrap_or_else(PoisonError::into_inner)
 	}
 
-	pub fn set_state(&mut self, state: PeerStatus) {
-		self.status = state;
+	pub fn metadata_mut(&self) -> RwLockWriteGuard<HashMap<String, String>> {
+		self.metadata
+			.write()
+			.unwrap_or_else(PoisonError::into_inner)
 	}
 
-	pub fn service(&self) -> &HashMap<String, String> {
-		&self.service
+	pub fn discovered_by(&self, hook: HookId) {
+		self.state
+			.write()
+			.unwrap_or_else(PoisonError::into_inner)
+			.discovered
+			.insert(hook);
 	}
 
-	// TODO: Mutex instead here???
-	pub fn service_mut(&mut self) -> &mut HashMap<String, String> {
-		&mut self.service
+	pub fn can_connect(&self) -> bool {
+		!self
+			.state
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.connection_methods
+			.is_empty()
 	}
 
 	pub fn is_connected(&self) -> bool {
-		todo!();
+		!self
+			.state
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.active_connections
+			.is_empty()
 	}
 
-	pub async fn connect(&self) -> Result<UnicastStream, Infallible> {
+	/// Construct a new Quic stream to the peer.
+	pub async fn new_stream(&self) -> Result<UnicastStream, ()> {
+		// self.state
+		// 	.read()
+		// 	.unwrap_or_else(PoisonError::into_inner)
+		// 	.connection_methods
+		// 	.iter()
+		// 	.next()
+		// 	.map(|(id, tx)| {
+		// 		let (tx, rx) = oneshot::channel();
+		// 		self.state
+		// 			.write()
+		// 			.unwrap_or_else(PoisonError::into_inner)
+		// 			.active_connections
+		// 			.insert(*id, tx);
+		// 		Ok(UnicastStream::new(rx))
+		// 	})
 		todo!();
 	}
+}
 
-	pub async fn disconnect(&self) {
-		todo!();
+// Hook-facing methods
+impl Peer {
+	pub fn connected_to(&self, listener: ListenerId, shutdown_tx: oneshot::Sender<()>) {
+		let Some(p2p) = self.p2p.upgrade() else {
+			warn!(
+				"P2P System holding peer '{:?}' despite system being dropped",
+				self.identity
+			);
+			return;
+		};
 	}
 }

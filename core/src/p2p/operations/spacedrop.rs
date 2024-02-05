@@ -65,7 +65,7 @@ pub async fn spacedrop(
 	debug!("({id}): starting Spacedrop with peer '{identity}");
 	let peer = p2p
 		.p2p
-		.discovered()
+		.peers()
 		.get(&identity)
 		.ok_or_else(|| {
 			debug!("({id}): failed to find connection method with '{identity}'");
@@ -73,7 +73,7 @@ pub async fn spacedrop(
 		})?
 		.clone();
 
-	let mut stream = peer.connect().await.map_err(|err| {
+	let mut stream = peer.new_stream().await.map_err(|err| {
 		debug!("({id}): failed to connect to '{identity}': {err:?}");
 		// TODO: Proper error
 	})?;
