@@ -17,7 +17,6 @@ type HeaderProps = {
 	showLibrary?: boolean; //show the library manager
 	searchType?: 'explorer' | 'location'; //Temporary
 	navBack?: boolean; //navigate back to the previous screen
-	isLocation?: boolean; //is this a location page
 	headerKind?: 'default' | 'location' | 'tag'; //kind of header
 	route?: never;
 	routeTitle?: never;
