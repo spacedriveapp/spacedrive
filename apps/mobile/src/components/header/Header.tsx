@@ -61,7 +61,7 @@ export default function Header({
 			case 'tag':
 				return (
 					<View
-						style={twStyle('h-[24px] w-[24px] rounded-full', {
+						style={twStyle('h-6 w-6 rounded-full', {
 							backgroundColor: routeParams.color
 						})}
 					/>
