@@ -23,7 +23,7 @@ export default function BrowseScreen() {
 	const height = useBottomTabBarHeight();
 	return (
 		<ScrollView style={twStyle('flex-1 bg-mobile-screen', { marginBottom: height })}>
-			<View style={twStyle('justify-between gap-3 py-5')}>
+			<View style={twStyle('justify-between gap-6 py-5')}>
 				{/*Categories*/}
 				<Categories />
 				{/* Locations */}
