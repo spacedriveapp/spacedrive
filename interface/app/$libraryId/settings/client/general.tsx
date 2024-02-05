@@ -8,6 +8,7 @@ import {
 	useZodForm
 } from '@sd/client';
 import { Button, Card, Input, Select, SelectOption, Slider, Switch, tw, z } from '@sd/ui';
+import i18n from '~/app/I18n';
 import { Icon } from '~/components';
 import { useDebouncedFormWatch, useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -20,6 +21,16 @@ const NodeSettingLabel = tw.div`mb-1 text-xs font-medium`;
 
 // https://doc.rust-lang.org/std/u16/index.html
 const u16 = z.number().min(0).max(65_535);
+
+const LANGUAGE_OPTIONS = [
+	{ value: 'en', label: 'English' },
+	{ value: 'de', label: 'Deutsch' },
+	{ value: 'es', label: 'Español' },
+	{ value: 'fr', label: 'Français' },
+	{ value: 'tr', label: 'Türkçe' },
+	{ value: 'zh_CN', label: '中文（简体）' },
+	{ value: 'zh_TW', label: '中文（繁體）' }
+];
 
 export const Component = () => {
 	const node = useBridgeQuery(['nodeState']);
@@ -96,6 +107,7 @@ export const Component = () => {
 				title={t('general_settings')}
 				description={t('general_settings_description')}
 			/>
+			{/* Node Card */}
 			<Card className="px-5">
 				<div className="my-2 flex w-full flex-col">
 					<div className="flex flex-row items-center justify-between">
@@ -161,7 +173,7 @@ export const Component = () => {
 										}
 									}}
 								>
-									Open
+									{t('open')}
 								</Button>
 								{/* <Button size="sm" variant="outline">
 									Change
@@ -183,7 +195,27 @@ export const Component = () => {
 					</div> */}
 				</div>
 			</Card>
-
+			{/* Language Settings */}
+			<Setting mini title={t('language')} description={t('language_description')}>
+				<div className="flex h-[30px] gap-2">
+					<Select
+						value={i18n.language}
+						onChange={(e) => {
+							i18n.changeLanguage(e);
+							// add "i18nextLng" key to localStorage and set it to the selected language
+							localStorage.setItem('i18nextLng', e);
+						}}
+						containerClassName="h-[30px] whitespace-nowrap"
+					>
+						{LANGUAGE_OPTIONS.map((lang, key) => (
+							<SelectOption key={key} value={lang.value}>
+								{lang.label}
+							</SelectOption>
+						))}
+					</Select>
+				</div>
+			</Setting>
+			{/* Debug Mode */}
 			<Setting mini title={t('debug_mode')} description={t('debug_mode_description')}>
 				<Switch
 					size="md"
@@ -191,6 +223,7 @@ export const Component = () => {
 					onClick={() => (debugState.enabled = !debugState.enabled)}
 				/>
 			</Setting>
+			{/* Background Processing */}
 			<Setting
 				mini
 				registerName="background_processing_percentage"
@@ -223,13 +256,14 @@ export const Component = () => {
 					/>
 				</div>
 			</Setting>
+			{/* Image Labeler */}
 			<Setting
 				mini
 				title={t('image_labeler_ai_model')}
 				description={t('image_labeler_ai_model_description')}
 				registerName="image_labeler_version"
 			>
-				<div className="flex h-[30px] gap-2">
+				<div className="flex h-[30px]">
 					<Controller
 						name="image_labeler_version"
 						disabled={node.data?.image_labeler_version == null}

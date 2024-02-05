@@ -1,5 +1,7 @@
 pub mod auth;
 
+use std::{future::Future, sync::Arc};
+
 use auth::OAuthToken;
 use sd_p2p2::RemoteIdentity;
 use serde::{Deserialize, Serialize};
@@ -11,6 +13,10 @@ pub struct RequestConfig {
 	pub client: reqwest::Client,
 	pub api_url: String,
 	pub auth_token: Option<auth::OAuthToken>,
+}
+
+pub trait RequestConfigProvider {
+	fn get_request_config(self: &Arc<Self>) -> impl Future<Output = RequestConfig> + Send;
 }
 
 #[derive(thiserror::Error, Debug)]

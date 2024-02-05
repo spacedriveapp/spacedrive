@@ -2,7 +2,7 @@ use crate::{
 	api::{utils::InvalidateOperationEvent, CoreEvent},
 	library::Library,
 	object::media::thumbnail::WEBP_EXTENSION,
-	p2p::{operations, IdentityOrRemoteIdentity},
+	p2p::operations,
 	util::InfallibleResponse,
 	Node,
 };

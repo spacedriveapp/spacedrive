@@ -1,6 +1,5 @@
 use crate::{
 	node::{config::NodeConfig, Platform},
-	p2p::IdentityOrRemoteIdentity,
 	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 

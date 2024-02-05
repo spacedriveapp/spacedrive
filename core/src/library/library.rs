@@ -1,8 +1,4 @@
-use crate::{
-	api::CoreEvent,
-	object::{media::thumbnail::get_indexed_thumbnail_path, orphan_remover::OrphanRemoverActor},
-	sync, Node,
-};
+use crate::{api::CoreEvent, object::media::thumbnail::get_indexed_thumbnail_path, sync, Node};
 
 use sd_file_path_helper::{file_path_to_full_path, IsolatedFilePathData};
 use sd_p2p2::Identity;
@@ -20,7 +16,7 @@ use tokio::{fs, io, sync::broadcast, sync::RwLock};
 use tracing::warn;
 use uuid::Uuid;
 
-use super::{Actors, LibraryConfig, LibraryManagerError};
+use super::{LibraryConfig, LibraryManagerError};
 
 // TODO: Finish this
 // pub enum LibraryNew {
@@ -43,7 +39,7 @@ pub struct Library {
 	// pub key_manager: Arc<KeyManager>,
 	/// p2p identity
 	pub identity: Arc<Identity>,
-	pub orphan_remover: OrphanRemoverActor,
+	// pub orphan_remover: OrphanRemoverActor,
 	// The UUID which matches `config.instance_id`'s primary key.
 	pub instance_uuid: Uuid,
 
@@ -54,7 +50,7 @@ pub struct Library {
 	// TODO(@Oscar): Get rid of this with the new invalidation system.
 	event_bus_tx: broadcast::Sender<CoreEvent>,
 
-	pub actors: Arc<Actors>,
+	pub actors: Arc<sd_actors::Actors>,
 }
 
 impl Debug for Library {
@@ -89,7 +85,7 @@ impl Library {
 			db: db.clone(),
 			// key_manager,
 			identity,
-			orphan_remover: OrphanRemoverActor::spawn(db),
+			// orphan_remover: OrphanRemoverActor::spawn(db),
 			instance_uuid,
 			do_cloud_sync,
 			env: node.env.clone(),

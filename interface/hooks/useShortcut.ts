@@ -20,6 +20,63 @@ export type ShortcutCategory = {
 };
 
 export const shortcutCategories = {
+	General: {
+		description: 'General usage shortcuts',
+		shortcuts: {
+			newTab: {
+				action: 'Open new tab',
+				keys: {
+					macOS: ['Meta', 'KeyT'],
+					all: ['Control', 'KeyT']
+				},
+				icons: {
+					macOS: [modifierSymbols.Meta.macOS as string, 'T'],
+					all: [modifierSymbols.Control.Other, 'T']
+				}
+			},
+			closeTab: {
+				action: 'Close current tab',
+				keys: {
+					macOS: ['Meta', 'KeyW'],
+					all: ['Control', 'KeyW']
+				},
+				icons: {
+					macOS: [modifierSymbols.Meta.macOS as string, 'W'],
+					all: [modifierSymbols.Control.Other, 'W']
+				}
+			},
+			nextTab: {
+				action: 'Switch to next tab',
+				keys: {
+					macOS: ['Meta', 'Alt', 'ArrowRight'],
+					all: ['Control', 'Alt', 'ArrowRight']
+				},
+				icons: {
+					macOS: [
+						modifierSymbols.Meta.macOS as string,
+						modifierSymbols.Alt.macOS as string,
+						'ArrowRight'
+					],
+					all: [modifierSymbols.Control.Other, modifierSymbols.Alt.Other, 'ArrowRight']
+				}
+			},
+			previousTab: {
+				action: 'Switch to previous tab',
+				keys: {
+					macOS: ['Meta', 'Alt', 'ArrowLeft'],
+					all: ['Control', 'Alt', 'ArrowLeft']
+				},
+				icons: {
+					macOS: [
+						modifierSymbols.Meta.macOS as string,
+						modifierSymbols.Alt.macOS as string,
+						'ArrowLeft'
+					],
+					all: [modifierSymbols.Control.Other, modifierSymbols.Alt.Other, 'ArrowLeft']
+				}
+			}
+		}
+	},
 	Dialogs: {
 		description: 'To perform actions and operations',
 		shortcuts: {
@@ -382,9 +439,8 @@ export const useShortcut = (shortcut: ShortcutName, func: (e: KeyboardEvent) => 
 		if (!visible) return [];
 
 		const category = Object.values(categories).find((category) =>
-			Object.hasOwn(category.shortcuts, shortcut)
+			Object.prototype.hasOwnProperty.call(category.shortcuts, shortcut)
 		) as ShortcutCategory | undefined;
-
 		const categoryShortcut = category?.shortcuts[shortcut];
 
 		return categoryShortcut?.keys[os] ?? categoryShortcut?.keys.all ?? [];

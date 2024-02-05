@@ -69,8 +69,8 @@ export function Component() {
 			<Explorer
 				emptyNotice={
 					<EmptyNotice
-						icon={<Icon name="Collection" size={128} />}
-						message="No recent items"
+						icon={<Icon name="Search" size={128} />}
+						message="No items found"
 					/>
 				}
 			/>

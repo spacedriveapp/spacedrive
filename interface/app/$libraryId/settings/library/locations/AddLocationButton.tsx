@@ -1,7 +1,7 @@
 import { FolderSimplePlus } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
-import { useRef, useState } from 'react';
+import { ComponentProps, useRef, useState } from 'react';
 import { useLibraryContext } from '@sd/client';
 import { Button, dialogManager, type ButtonProps } from '@sd/ui';
 import { useCallbackToWatchResize } from '~/hooks';
@@ -13,9 +13,16 @@ import { openDirectoryPickerDialog } from './openDirectoryPickerDialog';
 interface AddLocationButton extends ButtonProps {
 	path?: string;
 	onClick?: () => void;
+	buttonVariant?: ComponentProps<typeof Button>['variant'];
 }
 
-export const AddLocationButton = ({ path, className, onClick, ...props }: AddLocationButton) => {
+export const AddLocationButton = ({
+	path,
+	className,
+	onClick,
+	buttonVariant = 'dotted',
+	...props
+}: AddLocationButton) => {
 	const platform = usePlatform();
 	const libraryId = useLibraryContext().library.uuid;
 
@@ -53,7 +60,7 @@ export const AddLocationButton = ({ path, className, onClick, ...props }: AddLoc
 	return (
 		<>
 			<Button
-				variant="dotted"
+				variant={buttonVariant}
 				className={clsx('w-full', className)}
 				onClick={async () => {
 					await locationDialogHandler();

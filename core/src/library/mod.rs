@@ -1,4 +1,3 @@
-mod actors;
 mod config;
 #[allow(clippy::module_inception)]
 mod library;
@@ -6,7 +5,6 @@ mod manager;
 mod name;
 mod statistics;
 
-pub use actors::*;
 pub use config::*;
 pub use library::*;
 pub use manager::*;

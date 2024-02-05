@@ -105,9 +105,10 @@ impl Node {
 		}
 
 		#[cfg(feature = "ai")]
-		sd_ai::init()?;
-		#[cfg(feature = "ai")]
-		let image_labeler_version = config.get().await.image_labeler_version;
+		let image_labeler_version = {
+			sd_ai::init()?;
+			config.get().await.image_labeler_version
+		};
 
 		let (locations, locations_actor) = location::Locations::new();
 		let (jobs, jobs_actor) = job::Jobs::new();
@@ -300,6 +301,12 @@ impl Node {
 			api_url: self.env.api_url.lock().await.clone(),
 			auth_token: self.config.get().await.auth_token,
 		}
+	}
+}
+
+impl sd_cloud_api::RequestConfigProvider for Node {
+	async fn get_request_config(self: &Arc<Self>) -> sd_cloud_api::RequestConfig {
+		Node::cloud_api_config(self).await
 	}
 }
 

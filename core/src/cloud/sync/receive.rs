@@ -5,6 +5,8 @@ use crate::{
 	Node,
 };
 
+use super::{err_break, err_return, CompressedCRDTOperations};
+use sd_cloud_api::RequestConfigProvider;
 use sd_core_sync::NTP64;
 use sd_p2p2::RemoteIdentity;
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
@@ -110,8 +112,8 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 						None => {
 							let Some(fetched_library) = err_break!(
 								sd_cloud_api::library::get(
-									node.cloud_api_config().await,
-									library.id
+									cloud_api_config_provider.get_request_config().await,
+									library_id
 								)
 								.await
 							) else {
@@ -158,7 +160,7 @@ pub async fn run_actor((library, node, ingest_notify): (Arc<Library>, Arc<Node>,
 						&BASE64_STANDARD.decode(collection.contents)
 					)));
 
-				err_break!(write_cloud_ops_to_db(compressed_operations.into_ops(), db).await);
+				err_break!(write_cloud_ops_to_db(compressed_operations.into_ops(), &db).await);
 
 				let collection_timestamp =
 					NTP64(collection.end_time.parse().expect("unable to parse time"));

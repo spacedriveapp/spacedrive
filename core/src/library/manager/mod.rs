@@ -7,7 +7,7 @@ use crate::{
 	},
 	node::Platform,
 	object::tag,
-	p2p::{self, IdentityOrRemoteIdentity},
+	p2p::{self},
 	sync,
 	util::{mpscrr, MaybeUndefined},
 	Node,
@@ -504,7 +504,7 @@ impl Libraries {
 			.insert(library.id, Arc::clone(&library));
 
 		if should_seed {
-			library.orphan_remover.invoke().await;
+			// library.orphan_remover.invoke().await;
 			indexer::rules::seed::new_or_existing_library(&library).await?;
 		}
 

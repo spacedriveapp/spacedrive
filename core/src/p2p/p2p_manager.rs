@@ -21,7 +21,7 @@ use tokio::sync::{mpsc, oneshot};
 use tracing::{error, info};
 use uuid::Uuid;
 
-use super::{P2PEvents, PeerMetadata};
+use super::{LibraryMetadata, LibraryServices, P2PEvent, P2PManagerActor, PeerMetadata};
 
 pub struct P2PManager {
 	pub(crate) p2p: Arc<P2P>,
@@ -31,11 +31,11 @@ pub struct P2PManager {
 	peer_id: Option<Libp2pPeerId>,
 	pub(crate) events: P2PEvents,
 
-	// TODO: Remove these from here in future PR
-	pub(super) spacedrop_pairing_reqs:
-		Arc<tokio::sync::Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
-	pub(super) spacedrop_cancelations: Arc<tokio::sync::Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
-	node_config: Arc<config::Manager>,
+	pub events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
+	pub manager: Arc<Manager>,
+	pub(super) spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
+	pub(super) spacedrop_cancelations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
+	node_config_manager: Arc<config::Manager>,
 }
 
 impl P2PManager {
