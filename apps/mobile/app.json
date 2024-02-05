@@ -57,7 +57,8 @@
 						"deploymentTarget": "14.0"
 					}
 				}
-			]
+			],
+			["./withRiveAssets.js"]
 		]
 	}
 }
