@@ -2,7 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackHeaderProps } from '@react-navigation/stack';
 import { ArrowLeft, DotsThreeOutline, MagnifyingGlass } from 'phosphor-react-native';
 import { lazy } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getExplorerStore, useExplorerStore } from '~/stores/explorerStore';
 
@@ -71,7 +71,11 @@ export default function Header({
 	};
 
 	return (
-		<View style={tw`relative h-auto w-full border-b border-app-line/50 bg-mobile-header pt-10`}>
+		<View
+			style={tw`relative h-auto w-full border-b border-app-line/50 bg-mobile-header ${
+				Platform.OS === 'android' ? 'pt-5' : 'pt-10'
+			}`}
+		>
 			<View style={tw`mx-auto mt-5 h-auto w-full justify-center px-7 pb-5`}>
 				<View style={tw`w-full flex-row items-center justify-between`}>
 					<View style={tw`flex-row items-center gap-5`}>

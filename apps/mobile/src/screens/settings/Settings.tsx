@@ -13,7 +13,7 @@ import {
 	TagSimple
 } from 'phosphor-react-native';
 import React from 'react';
-import { SectionList, Text, TouchableWithoutFeedback, View } from 'react-native';
+import { Platform, SectionList, Text, TouchableWithoutFeedback, View } from 'react-native';
 import { DebugState, useDebugState, useDebugStateEnabler } from '@sd/client';
 import { SettingsItem } from '~/components/settings/SettingsItem';
 import { tw, twStyle } from '~/lib/tailwind';
@@ -143,7 +143,7 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 		<View style={tw`flex-1 bg-mobile-screen px-7`}>
 			<SectionList
 				sections={sections(debugState)}
-				contentContainerStyle={tw`py-5`}
+				contentContainerStyle={tw`h-auto pb-5 pt-3`}
 				renderItem={({ item }) => (
 					<SettingsItem
 						title={item.title}
@@ -164,9 +164,8 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 
 function FooterComponent() {
 	const onClick = useDebugStateEnabler();
-
 	return (
-		<View style={tw`mb-4 mt-6 items-center`}>
+		<View style={tw`${Platform.OS === 'android' ? 'mb-14 mt-4' : 'mb-20 mt-5'} items-center`}>
 			<TouchableWithoutFeedback onPress={onClick}>
 				<Text style={tw`text-base font-bold text-ink`}>Spacedrive</Text>
 			</TouchableWithoutFeedback>
