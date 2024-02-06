@@ -1,6 +1,5 @@
 import { CompositeScreenProps } from '@react-navigation/native';
 import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
-import { ArrowLeft } from 'phosphor-react-native';
 import Header from '~/components/header/Header';
 import { tw } from '~/lib/tailwind';
 import BrowseScreen from '~/screens/browse';
@@ -32,8 +31,8 @@ export default function BrowseStack() {
 				name="Location"
 				component={LocationScreen}
 				options={{
-					headerBackImage: () => (
-						<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+					header: (route) => (
+						<Header route={route} headerKind="location" routeTitle navBack />
 					)
 				}}
 			/>
@@ -48,9 +47,7 @@ export default function BrowseStack() {
 				name="Tag"
 				component={TagScreen}
 				options={{
-					headerBackImage: () => (
-						<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
-					)
+					header: (route) => <Header routeTitle route={route} headerKind="tag" navBack />
 				}}
 			/>
 		</Stack.Navigator>
@@ -61,7 +58,7 @@ export type BrowseStackParamList = {
 	Browse: undefined;
 	Location: { id: number; path?: string };
 	Locations: undefined;
-	Tag: { id: number };
+	Tag: { id: number; color: string };
 };
 
 export type BrowseStackScreenProps<Screen extends keyof BrowseStackParamList> =
