@@ -24,14 +24,7 @@ pub async fn declare_actors(library: &Arc<Library>, node: &Arc<Node>) {
 				let library = library.clone();
 				let node = node.clone();
 
-				move || {
-					send::run_actor(
-						library.db.clone(),
-						library.id,
-						library.sync.clone(),
-						node.clone(),
-					)
-				}
+				move || send::run_actor(library.id, library.sync.clone(), node.clone())
 			},
 			autorun,
 		)

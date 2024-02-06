@@ -13,8 +13,14 @@ i18n
 	// for all options read: https://www.i18next.com/overview/configuration-options
 	.init({
 		resources,
-		load: 'languageOnly',
+		detection: {
+			// We need to convert due to ES syntactical rules (e.g. ch-TW -> ch_TW) and vite's virtual module stuff -_-
+			// NOTE: This whole issue sounds very error-prone...
+			convertDetectedLanguage: (lng) => lng.replace('-', '_')
+		},
+		// debug: true,
 		fallbackLng: 'en',
+		nonExplicitSupportedLngs: true,
 		ns: ['common'],
 		fallbackNS: 'common',
 		defaultNS: 'common'
