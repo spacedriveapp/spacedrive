@@ -5,10 +5,12 @@ use crate::{
 		config::{NodeConfig, NodePreferences, P2PDiscoveryState},
 		get_hardware_model_name, HardwareModel,
 	},
+	util::MaybeUndefined,
 	Node,
 };
 
 use sd_cache::patch_typedef;
+use sd_p2p2::RemoteIdentity;
 use std::sync::{atomic::Ordering, Arc};
 
 use itertools::Itertools;
@@ -92,8 +94,9 @@ pub struct SanitisedNodeConfig {
 	pub id: Uuid,
 	/// name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
 	pub name: String,
-	pub p2p_disabled: bool,
-	pub p2p_port: Option<u16>,
+	pub identity: RemoteIdentity,
+	pub p2p_ipv4_port: MaybeUndefined<u16>,
+	pub p2p_ipv6_port: MaybeUndefined<u16>,
 	pub p2p_discovery: P2PDiscoveryState,
 	pub features: Vec<BackendFeature>,
 	pub preferences: NodePreferences,
@@ -102,17 +105,17 @@ pub struct SanitisedNodeConfig {
 
 impl From<NodeConfig> for SanitisedNodeConfig {
 	fn from(value: NodeConfig) -> Self {
-		// Self {
-		// 	id: value.id,
-		// 	name: value.name,
-		// 	p2p_disabled: value.p2p_disabled,
-		// 	p2p_port: value.p2p_port,
-		// 	p2p_discovery: value.p2p_discovery,
-		// 	features: value.features,
-		// 	preferences: value.preferences,
-		// 	image_labeler_version: value.image_labeler_version,
-		// }
-		todo!();
+		Self {
+			id: value.id,
+			name: value.name,
+			identity: value.identity.to_remote_identity(),
+			p2p_ipv4_port: value.p2p_ipv4_port,
+			p2p_ipv6_port: value.p2p_ipv6_port,
+			p2p_discovery: value.p2p_discovery,
+			features: value.features,
+			preferences: value.preferences,
+			image_labeler_version: value.image_labeler_version,
+		}
 	}
 }
 

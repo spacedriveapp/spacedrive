@@ -51,7 +51,7 @@ pub struct NodeConfig {
 	pub notifications: Vec<Notification>,
 	/// The p2p identity keypair for this node. This is used to identify the node on the network.
 	/// This keypair does effectively nothing except for provide libp2p with a stable peer_id.
-	#[serde(skip)] // TODO
+	#[serde(with = "identity_serde")]
 	pub identity: Identity,
 	/// P2P config
 	#[serde(default, skip_serializing_if = "MaybeUndefined::is_undefined")]
@@ -74,6 +74,25 @@ pub struct NodeConfig {
 	pub image_labeler_version: Option<String>,
 
 	version: NodeConfigVersion,
+}
+
+mod identity_serde {
+	use sd_p2p2::Identity;
+	use serde::{Deserializer, Serializer};
+
+	pub fn serialize<S>(identity: &Identity, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		todo!();
+	}
+
+	pub fn deserialize<'de, D>(deserializer: D) -> Result<Identity, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		todo!();
+	}
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, Type)]
