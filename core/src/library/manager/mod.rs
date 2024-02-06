@@ -7,14 +7,13 @@ use crate::{
 	},
 	node::Platform,
 	object::tag,
-	p2p::{self},
-	sync,
+	p2p, sync,
 	util::{mpscrr, MaybeUndefined},
 	Node,
 };
 
 use sd_core_sync::SyncMessage;
-use sd_p2p2::Identity;
+use sd_p2p2::{Identity, IdentityOrRemoteIdentity};
 use sd_prisma::prisma::{crdt_operation, instance, location, SortOrder};
 use sd_utils::{
 	db,
@@ -594,7 +593,7 @@ impl Libraries {
 
 									for instance in lib.instances {
 										if let Err(err) = cloud::sync::receive::create_instance(
-											library.clone(),
+											&library,
 											&node.libraries,
 											instance.uuid,
 											instance.identity,

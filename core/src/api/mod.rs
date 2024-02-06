@@ -102,16 +102,17 @@ pub struct SanitisedNodeConfig {
 
 impl From<NodeConfig> for SanitisedNodeConfig {
 	fn from(value: NodeConfig) -> Self {
-		Self {
-			id: value.id,
-			name: value.name,
-			p2p_disabled: value.p2p_enabled,
-			p2p_port: value.p2p_port,
-			p2p_discovery: value.p2p_discovery,
-			features: value.features,
-			preferences: value.preferences,
-			image_labeler_version: value.image_labeler_version,
-		}
+		// Self {
+		// 	id: value.id,
+		// 	name: value.name,
+		// 	p2p_disabled: value.p2p_disabled,
+		// 	p2p_port: value.p2p_port,
+		// 	p2p_discovery: value.p2p_discovery,
+		// 	features: value.features,
+		// 	preferences: value.preferences,
+		// 	image_labeler_version: value.image_labeler_version,
+		// }
+		todo!();
 	}
 }
 

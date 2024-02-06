@@ -11,7 +11,9 @@ mod smart_guards;
 mod stream;
 
 pub use hooks::{HookEvent, HookId, ListenerId};
-pub use identity::{Identity, IdentityErr, RemoteIdentity};
+pub use identity::{
+	Identity, IdentityErr, IdentityOrRemoteIdentity, IdentityOrRemoteIdentityErr, RemoteIdentity,
+};
 pub use mdns::Mdns;
 pub use p2p::{Listener, P2P};
 pub use peer::Peer;

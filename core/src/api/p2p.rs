@@ -1,6 +1,6 @@
-use crate::p2p::{operations, P2PEvent, PeerMetadata};
+use crate::p2p::{operations, PeerMetadata};
 
-use sd_p2p2::{PeerStatus, RemoteIdentity};
+use sd_p2p2::RemoteIdentity;
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
@@ -25,13 +25,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.map(|m| (i, p, m))
 					}) {
 					let identity = *identity;
-					match peer.status() {
-						PeerStatus::Unavailable => {}
-						PeerStatus::Discovered => {
-							queued.push(P2PEvent::DiscoveredPeer { identity, metadata })
-						}
-						PeerStatus::Connected => queued.push(P2PEvent::ConnectedPeer { identity }),
-					}
+					// match peer.status() {
+					// 	PeerStatus::Unavailable => {}
+					// 	PeerStatus::Discovered => {
+					// 		queued.push(P2PEvent::DiscoveredPeer { identity, metadata })
+					// 	}
+					// 	PeerStatus::Connected => queued.push(P2PEvent::ConnectedPeer { identity }),
+					// }
+					todo!();
 				}
 
 				Ok(async_stream::stream! {

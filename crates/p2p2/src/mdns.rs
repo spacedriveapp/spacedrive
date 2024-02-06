@@ -1,6 +1,4 @@
-use std::{
-	collections::HashMap, net::SocketAddr, pin::Pin, str::FromStr, sync::Arc, time::Duration,
-};
+use std::{collections::HashMap, pin::Pin, str::FromStr, sync::Arc, time::Duration};
 
 use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
 use tokio::{
@@ -9,7 +7,7 @@ use tokio::{
 };
 use tracing::{error, trace, warn};
 
-use crate::{HookEvent, HookId, Peer, RemoteIdentity, P2P};
+use crate::{HookEvent, HookId, RemoteIdentity, P2P};
 
 /// The time between re-advertising the mDNS service.
 const MDNS_READVERTISEMENT_INTERVAL: Duration = Duration::from_secs(60); // Every minute re-advertise

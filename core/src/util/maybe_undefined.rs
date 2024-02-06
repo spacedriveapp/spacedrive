@@ -13,6 +13,12 @@ pub enum MaybeUndefined<T> {
 	Value(T),
 }
 
+impl<T> Default for MaybeUndefined<T> {
+	fn default() -> Self {
+		Self::Undefined
+	}
+}
+
 impl<T> MaybeUndefined<T> {
 	// `Undefined` will return `true` else `false`.
 	pub fn is_undefined(&self) -> bool {

@@ -2,5 +2,5 @@
 
 mod tunnel;
 
-pub use sd_p2p2::{Identity, IdentityErr, RemoteIdentity, REMOTE_IDENTITY_LEN};
+pub use sd_p2p2::{Identity, IdentityErr, RemoteIdentity};
 pub use tunnel::*;

@@ -25,7 +25,6 @@ mod originator {
 
 	use super::*;
 	use responder::tx as rx;
-	use sd_p2p2::PeerStatus;
 	use sd_p2p_tunnel::Tunnel;
 
 	pub mod tx {
@@ -85,7 +84,7 @@ mod originator {
 	/// REMEMBER: This only syncs one direction!
 	pub async fn run(library_id: Uuid, sync: &Arc<sync::Manager>, p2p: &Arc<super::P2PManager>) {
 		for (remote_identity, peer) in p2p.get_library_instances(&library_id) {
-			let PeerStatus::Connected = peer.status() else {
+			if !peer.is_connected() {
 				continue;
 			};
 

@@ -65,18 +65,19 @@ impl P2PEvents {
 						metadata: PeerMetadata::from_hashmap(&*peer.metadata()).unwrap(), // TODO: Error handling
 					},
 					HookEvent::PeerUnavailable(identity) => P2PEvent::ExpiredPeer { identity },
-					HookEvent::PeerConnectedWith {
-						listener,
-						peer,
-						first_connection,
-					} if first_connection => P2PEvent::ConnectedPeer {
-						identity: peer.identity(),
-					},
-					HookEvent::PeerDisconnectedWith {
-						listener,
-						identity,
-						last_connection,
-					} if last_connection => P2PEvent::DisconnectedPeer { identity },
+					// HookEvent::PeerConnectedWith {
+					// 	listener,
+					// 	peer,
+					// 	first_connection,
+					// } if first_connection => P2PEvent::ConnectedPeer {
+					// 	identity: peer.identity(),
+					// },
+					// HookEvent::PeerDisconnectedWith {
+					// 	listener,
+					// 	identity,
+					// 	last_connection,
+					// } if last_connection => P2PEvent::DisconnectedPeer { identity },
+					_ => todo!(),
 					HookEvent::Shutdown => break,
 					_ => continue,
 				};

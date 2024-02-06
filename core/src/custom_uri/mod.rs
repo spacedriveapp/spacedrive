@@ -9,7 +9,7 @@ use crate::{
 
 use sd_file_ext::text::is_text;
 use sd_file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData};
-use sd_p2p2::RemoteIdentity;
+use sd_p2p2::{IdentityOrRemoteIdentity, RemoteIdentity};
 use sd_p2p_block::Range;
 use sd_prisma::prisma::{file_path, location};
 use sd_utils::db::maybe_missing;

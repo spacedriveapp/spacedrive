@@ -179,7 +179,7 @@ pub enum IdentityOrRemoteIdentityErr {
 	InvalidFormat,
 }
 
-/// TODO
+/// TODO: Remove this. I think it make security issues far too easy.
 #[derive(Debug, PartialEq)]
 pub enum IdentityOrRemoteIdentity {
 	Identity(Identity),

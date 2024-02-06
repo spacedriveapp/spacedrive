@@ -43,11 +43,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							config.name = name;
 						}
 
-						config.p2p_enabled = args.p2p_enabled.unwrap_or(config.p2p_enabled);
+						todo!();
 
-						if let Some(v) = args.p2p_port.into() {
-							config.p2p_port = v;
-						}
+						// config.p2p_enabled = args.p2p_enabled.unwrap_or(config.p2p_enabled);
+
+						// if let Some(v) = args.p2p_port.into() {
+						// 	config.p2p_port = v;
+						// }
 
 						if let Some(v) = args.p2p_discovery {
 							config.p2p_discovery = v;

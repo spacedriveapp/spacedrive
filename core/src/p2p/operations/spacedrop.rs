@@ -3,7 +3,7 @@ use std::{
 	path::PathBuf,
 	sync::{
 		atomic::{AtomicBool, Ordering},
-		Arc,
+		Arc, PoisonError,
 	},
 	time::Duration,
 };
@@ -118,7 +118,7 @@ pub async fn spacedrop(
 		let cancelled = Arc::new(AtomicBool::new(false));
 		p2p.spacedrop_cancelations
 			.lock()
-			.await
+			.unwrap_or_else(PoisonError::into_inner)
 			.insert(id, cancelled.clone());
 
 		debug!("({id}): starting transfer");
@@ -156,7 +156,12 @@ pub async fn spacedrop(
 // TODO: Move these off the manager
 impl P2PManager {
 	pub async fn accept_spacedrop(&self, id: Uuid, path: String) {
-		if let Some(chan) = self.spacedrop_pairing_reqs.lock().await.remove(&id) {
+		if let Some(chan) = self
+			.spacedrop_pairing_reqs
+			.lock()
+			.unwrap_or_else(PoisonError::into_inner)
+			.remove(&id)
+		{
 			chan.send(Some(path))
 				.map_err(|err| {
 					warn!("error accepting Spacedrop '{id:?}': '{err:?}'");
@@ -166,7 +171,12 @@ impl P2PManager {
 	}
 
 	pub async fn reject_spacedrop(&self, id: Uuid) {
-		if let Some(chan) = self.spacedrop_pairing_reqs.lock().await.remove(&id) {
+		if let Some(chan) = self
+			.spacedrop_pairing_reqs
+			.lock()
+			.unwrap_or_else(PoisonError::into_inner)
+			.remove(&id)
+		{
 			chan.send(None)
 				.map_err(|err| {
 					warn!("error rejecting Spacedrop '{id:?}': '{err:?}'");
@@ -176,7 +186,12 @@ impl P2PManager {
 	}
 
 	pub async fn cancel_spacedrop(&self, id: Uuid) {
-		if let Some(cancelled) = self.spacedrop_cancelations.lock().await.remove(&id) {
+		if let Some(cancelled) = self
+			.spacedrop_cancelations
+			.lock()
+			.unwrap_or_else(PoisonError::into_inner)
+			.remove(&id)
+		{
 			cancelled.store(true, Ordering::Relaxed);
 		}
 	}
@@ -196,7 +211,10 @@ pub(crate) async fn reciever(
 		stream.remote_identity(),
 		req.block_size
 	);
-	this.spacedrop_pairing_reqs.lock().await.insert(id, tx);
+	this.spacedrop_pairing_reqs
+		.lock()
+		.unwrap_or_else(PoisonError::into_inner)
+		.insert(id, tx);
 
 	if this
 		.events
@@ -245,7 +263,7 @@ pub(crate) async fn reciever(
 					let cancelled = Arc::new(AtomicBool::new(false));
 					this.spacedrop_cancelations
 						.lock()
-						.await
+						.unwrap_or_else(PoisonError::into_inner)
 						.insert(id, cancelled.clone());
 
 					stream.write_all(&[1]).await.map_err(|err| {
