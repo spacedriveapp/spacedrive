@@ -165,7 +165,9 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 function FooterComponent() {
 	const onClick = useDebugStateEnabler();
 	return (
-		<View style={tw`${Platform.OS === 'android' ? 'mb-14 mt-4' : 'mb-20 mt-5'} items-center`}>
+		<View
+			style={twStyle(Platform.OS === 'android' ? 'mb-14 mt-4' : 'mb-20 mt-5', 'items-center')}
+		>
 			<TouchableWithoutFeedback onPress={onClick}>
 				<Text style={tw`text-base font-bold text-ink`}>Spacedrive</Text>
 			</TouchableWithoutFeedback>

@@ -72,9 +72,10 @@ export default function Header({
 
 	return (
 		<View
-			style={tw`relative h-auto w-full border-b border-app-line/50 bg-mobile-header ${
+			style={twStyle(
+				'relative h-auto w-full border-b border-app-line/50 bg-mobile-header',
 				Platform.OS === 'android' ? 'pt-5' : 'pt-10'
-			}`}
+			)}
 		>
 			<View style={tw`mx-auto mt-5 h-auto w-full justify-center px-7 pb-5`}>
 				<View style={tw`w-full flex-row items-center justify-between`}>
