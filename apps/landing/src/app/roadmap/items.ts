@@ -70,14 +70,13 @@ export const items = [
 			'Automatically label images with objects, with a model loader to support future models and upgrading to more powerful models for various jobs.'
 	},
 	{
-		completed: true,
-
 		title: 'Drag & drop',
+		completed: true,
 		description: 'Drag and drop files between devices and drives.'
 	},
 	{
 		when: '0.2 Alpha',
-		subtext: 'December 2023',
+		subtext: 'January 2024',
 		title: 'Column View',
 		description: 'View files in the beloved column layout with a nested inspector, with trees!.'
 	},
@@ -101,7 +100,7 @@ export const items = [
 	},
 	{
 		when: '0.3 Alpha',
-		subtext: 'January 2024',
+		subtext: 'Febuary 2024',
 		title: 'Connect devices & sync',
 		description: 'Automatically synchronized libraries across all your devices.'
 	},
@@ -125,7 +124,7 @@ export const items = [
 	},
 	{
 		when: '0.4 Alpha',
-		subtext: 'February 2024',
+		subtext: 'March 2024',
 		title: 'Third-party cloud integrations',
 		description:
 			'Filesystem integrations with iCloud, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.'
@@ -144,8 +143,8 @@ export const items = [
 		description: 'Spacedrive will be available on the App Store and Google Play Store.'
 	},
 	{
-		when: '0.5.0 Beta',
-		subtext: 'March 2024',
+		when: '0.5 Beta',
+		subtext: 'April 2024',
 		title: 'Extensions',
 		description:
 			'Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on spacedrive.com/extensions.'
