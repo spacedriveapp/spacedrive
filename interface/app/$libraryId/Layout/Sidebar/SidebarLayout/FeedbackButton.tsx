@@ -2,22 +2,26 @@ import clsx from 'clsx';
 import { Controller } from 'react-hook-form';
 import { auth, useBridgeMutation, useZodForm } from '@sd/client';
 import { Button, Form, Popover, TextAreaField, toast, usePopover, z } from '@sd/ui';
+import i18n from '~/app/I18n';
 import { LoginButton } from '~/components/LoginButton';
+import { useLocale } from '~/hooks';
 
 const schema = z.object({
-	message: z.string().min(1, { message: 'Feedback is required' }),
+	message: z.string().min(1, { message: i18n.t('feedback_is_required') }),
 	emoji: z.number().min(0).max(3)
 });
 
 const EMOJIS = ['🤩', '😀', '🙁', '😭'];
 
 export default function () {
+	const { t } = useLocale();
+
 	const sendFeedback = useBridgeMutation(['api.sendFeedback'], {
 		onError() {
-			toast.error('There was an error submitting your feedback. Please try again.');
+			toast.error(t('feedback_toast_error_message'));
 		},
 		onSuccess() {
-			toast.success('Thanks for your feedback!');
+			toast.success(t('thank_you_for_your_feedback'));
 		}
 	});
 
@@ -37,7 +41,7 @@ export default function () {
 			popover={popover}
 			trigger={
 				<Button variant="outline" className="flex items-center gap-1">
-					<p className="text-[11px] font-normal text-sidebar-inkFaint">Feedback</p>
+					<p className="text-[11px] font-normal text-sidebar-inkFaint">{t('feedback')}</p>
 				</Button>
 			}
 		>
@@ -55,14 +59,14 @@ export default function () {
 						<div className="flex flex-row items-center gap-2">
 							<p className="flex-1 text-xs text-ink-dull">
 								{authState.status !== 'loggingIn' &&
-									'Logging in allows us to respond to your feedback'}
+									t('feedback_login_description')}
 							</p>
 							<LoginButton cancelPosition="left" />
 						</div>
 					)}
 					<TextAreaField
 						{...form.register('message')}
-						placeholder="Your feedback..."
+						placeholder={t('feedback_placeholder')}
 						className="!h-36 w-full flex-1"
 					/>
 					<div className="flex flex-row justify-between">
@@ -89,7 +93,7 @@ export default function () {
 						/>
 
 						<Button type="submit" variant="accent" disabled={!form.formState.isValid}>
-							Send
+							{t('send')}
 						</Button>
 					</div>
 				</div>
