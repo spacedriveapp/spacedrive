@@ -105,7 +105,7 @@ const LocationItem: React.FC<LocationItemProps> = ({
 						/>
 					</View>
 					<Text
-						style={tw`w-auto max-w-[160px] truncate text-sm font-bold text-white`}
+						style={tw`w-auto max-w-[160px] text-sm font-bold text-white`}
 						numberOfLines={1}
 					>
 						{location.name}
@@ -114,7 +114,7 @@ const LocationItem: React.FC<LocationItemProps> = ({
 				<View style={tw`flex-row items-center gap-3`}>
 					<View style={tw`rounded-md bg-app-input p-1.5`}>
 						<Text
-							style={tw`truncate text-left text-xs font-bold text-ink-dull`}
+							style={tw`text-left text-xs font-bold text-ink-dull`}
 							numberOfLines={1}
 						>
 							{`${byteSize(location.size_in_bytes)}`}

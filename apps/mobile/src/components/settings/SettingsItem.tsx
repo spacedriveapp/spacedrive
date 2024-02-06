@@ -34,8 +34,10 @@ export function SettingsItem(props: SettingsItemProps) {
 					)}
 					<View
 						style={twStyle(
-							`flex-1 flex-row items-center justify-between py-4`,
-							borderRounded !== 'rounded-b-md' && 'border-b border-app-input'
+							`flex-1 flex-row items-center justify-between border-b py-4`,
+							borderRounded !== 'rounded-b-md'
+								? 'border-app-input'
+								: 'border-transparent'
 						)}
 					>
 						<Text style={tw`text-sm font-medium text-ink`}>{props.title}</Text>
