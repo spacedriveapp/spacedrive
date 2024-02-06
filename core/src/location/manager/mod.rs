@@ -7,6 +7,7 @@ use crate::{
 use sd_file_path_helper::FilePathError;
 use sd_prisma::prisma::location;
 use sd_utils::{db::MissingFieldError, error::FileIOError};
+use tracing_subscriber::field::debug;
 
 use std::{
 	collections::BTreeSet,
@@ -20,7 +21,7 @@ use tokio::sync::{
 	broadcast::{self, Receiver},
 	oneshot, RwLock,
 };
-use tracing::{error, info};
+use tracing::{error, info, debug};
 
 //#[cfg(feature = "location-watcher")]
 use tokio::sync::mpsc;
@@ -252,6 +253,7 @@ impl Locations {
 		//#[cfg(feature = "location-watcher")]
 		{
 			let (tx, rx) = oneshot::channel();
+			debug!("Sending location management message to location manager actor: {action:?}");
 
 			self.location_management_tx
 				.send(LocationManagementMessage {
@@ -280,6 +282,9 @@ impl Locations {
 		//#[cfg(feature = "location-watcher")]
 		{
 			let (tx, rx) = oneshot::channel();
+
+			debug!("Sending watcher management message to location manager actor: {action:?}");
+
 
 			self.watcher_management_tx
 				.send(WatcherManagementMessage {
@@ -431,7 +436,7 @@ impl Locations {
 													watcher
 												);
 												info!("Location {location_id} is online, watching it");
-												info!("Locations watched: {:#?}", locations_watched);
+												// info!("Locations watched: {:#?}", locations_watched);
 											} else {
 												locations_unwatched.insert(
 													(location_id, library.id),

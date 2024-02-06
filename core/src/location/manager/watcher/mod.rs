@@ -98,7 +98,6 @@ impl LocationWatcher {
 		let watcher = RecommendedWatcher::new(
 			move |result| {
 				if !events_tx.is_closed() {
-					info!("Received watcher event: {:#?}", result);
 					if events_tx.send(result).is_err() {
 						error!(
 						"Unable to send watcher event to location manager for location: <id='{}'>",
@@ -133,7 +132,7 @@ impl LocationWatcher {
 			handle: Some(handle),
 			stop_tx: Some(stop_tx),
 		})
-	}
+}
 
 	async fn handle_watch_events(
 		location_id: location::id::Type,
@@ -145,14 +144,12 @@ impl LocationWatcher {
 		mut stop_rx: oneshot::Receiver<()>,
 	) {
 		let mut event_handler = Handler::new(location_id, &library, &node);
-		info!("Event Handler: {:#?}", event_handler);
 
 		let mut paths_to_ignore = HashSet::new();
 
 		let mut handler_interval = interval_at(Instant::now() + HUNDRED_MILLIS, HUNDRED_MILLIS);
 		// In case of doubt check: https://docs.rs/tokio/latest/tokio/time/enum.MissedTickBehavior.html
 		handler_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
-
 		loop {
 			select! {
 				Some(event) = events_rx.recv() => {

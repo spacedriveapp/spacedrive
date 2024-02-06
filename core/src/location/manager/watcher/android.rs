@@ -14,10 +14,10 @@ use std::{
 use async_trait::async_trait;
 use notify::{
 	event::{CreateKind, DataChange, ModifyKind, RenameMode},
-	Event, EventKind,
+	Event,
 };
 use tokio::{fs, time::Instant};
-use tracing::{error, trace, info};
+use tracing::{error, info, trace};
 
 use super::{
 	utils::{create_dir, recalculate_directories_size, remove, rename, update_file},
