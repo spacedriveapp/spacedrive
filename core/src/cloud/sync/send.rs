@@ -2,8 +2,6 @@ use super::CompressedCRDTOperations;
 
 use sd_cloud_api::RequestConfigProvider;
 use sd_core_sync::{GetOpsArgs, SyncMessage, NTP64};
-use sd_prisma::prisma::{instance, PrismaClient};
-use sd_utils::from_bytes_to_uuid;
 use uuid::Uuid;
 
 use std::{sync::Arc, time::Duration};
@@ -13,23 +11,20 @@ use tokio::time::sleep;
 use super::err_break;
 
 pub async fn run_actor(
-	db: Arc<PrismaClient>,
 	library_id: Uuid,
 	sync: Arc<sd_core_sync::Manager>,
 	cloud_api_config_provider: Arc<impl RequestConfigProvider>,
 ) {
 	loop {
 		loop {
-			let instances = err_break!(
-				db.instance()
-					.find_many(vec![])
-					.select(instance::select!({ pub_id }))
-					.exec()
-					.await
-			)
-			.into_iter()
-			.map(|i| from_bytes_to_uuid(&i.pub_id))
-			.collect::<Vec<_>>();
+			// all available instances will have a default timestamp from create_instance
+			let instances = sync
+				.timestamps
+				.read()
+				.await
+				.keys()
+				.cloned()
+				.collect::<Vec<_>>();
 
 			let req_adds = err_break!(
 				sd_cloud_api::library::message_collections::request_add(
