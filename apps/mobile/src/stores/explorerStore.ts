@@ -1,9 +1,9 @@
+import { resetStore } from '@sd/client';
 import { proxy, useSnapshot } from 'valtio';
 import { proxySet } from 'valtio/utils';
-import { resetStore } from '@sd/client';
 
 // TODO: Add "media"
-export type ExplorerLayoutMode = 'list' | 'grid';
+export type ExplorerLayoutMode = 'list' | 'grid' | "media"
 
 export type ExplorerKind = 'Location' | 'Tag' | 'Space';
 
@@ -11,6 +11,7 @@ const state = {
 	locationId: null as number | null,
 	path: '',
 	layoutMode: 'grid' as ExplorerLayoutMode,
+	toggleMenu: false as boolean,
 	// Using gridNumColumns instead of fixed size. We dynamically calculate the item size.
 	gridNumColumns: 3,
 	listItemSize: 65,
