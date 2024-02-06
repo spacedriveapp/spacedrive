@@ -26,6 +26,7 @@ pub async fn run_actor(
 				.cloned()
 				.collect::<Vec<_>>();
 
+			// obtains a lock on the timestamp collections for the instances we have
 			let req_adds = err_break!(
 				sd_cloud_api::library::message_collections::request_add(
 					cloud_api_config_provider.get_request_config().await,
@@ -39,6 +40,7 @@ pub async fn run_actor(
 
 			use sd_cloud_api::library::message_collections::do_add;
 
+			// gets new operations for each instance to send to cloud
 			for req_add in req_adds {
 				let ops = err_break!(
 					sync.get_ops(GetOpsArgs {
@@ -78,6 +80,7 @@ pub async fn run_actor(
 				break;
 			}
 
+			// uses lock we acquired earlier to send the operations to the cloud
 			err_break!(
 				do_add(
 					cloud_api_config_provider.get_request_config().await,
