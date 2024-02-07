@@ -1,6 +1,5 @@
 use crate::{invalidate_query, util::MaybeUndefined};
 
-use sd_ai::image_labeler;
 use sd_prisma::prisma::{instance, location};
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
@@ -57,7 +56,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								.map(|node_version| version != *node_version)
 								.unwrap_or(true)
 							{
-								new_model = image_labeler::YoloV8::model(Some(&version))
+								new_model = sd_ai::image_labeler::YoloV8::model(Some(&version))
 									.map_err(|e| {
 										error!(
 										"Failed to crate image_detection model: '{}'; Error: {e:#?}",

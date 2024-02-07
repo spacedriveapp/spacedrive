@@ -99,7 +99,7 @@ EXPOSE 8080
 VOLUME [ "/data" ]
 
 # Run the CLI when the container is started
-ENTRYPOINT [ "sd-server" ]
+ENTRYPOINT [ "entrypoint.sh" ]
 
 LABEL org.opencontainers.image.title="Spacedrive Server" \
 	org.opencontainers.image.source="https://github.com/spacedriveapp/spacedrive"
