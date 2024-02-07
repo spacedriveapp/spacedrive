@@ -1,5 +1,7 @@
 use std::{collections::HashSet, fmt, net::SocketAddr, sync::Arc};
 
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use tokio::sync::mpsc;
 
 use crate::{Peer, RemoteIdentity};
@@ -43,7 +45,7 @@ pub enum HookEvent {
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub struct HookId(pub(crate) usize);
 
-#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize, Type)]
 pub struct ListenerId(pub(crate) usize);
 
 impl From<ListenerId> for HookId {

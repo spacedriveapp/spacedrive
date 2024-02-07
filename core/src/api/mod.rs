@@ -10,7 +10,7 @@ use crate::{
 };
 
 use sd_cache::patch_typedef;
-use sd_p2p2::RemoteIdentity;
+use sd_p2p2::{Listener, RemoteIdentity};
 use std::sync::{atomic::Ordering, Arc};
 
 use itertools::Itertools;
@@ -124,7 +124,7 @@ struct NodeState {
 	#[serde(flatten)]
 	config: SanitisedNodeConfig,
 	data_path: String,
-	// p2p: P2PStatus,
+	listeners: Vec<Listener>,
 	device_model: Option<String>,
 }
 
@@ -160,7 +160,7 @@ pub(crate) fn mount() -> Arc<Router> {
 						.to_str()
 						.expect("Found non-UTF-8 path")
 						.to_string(),
-					// p2p: todo!(),
+					listeners: node.p2p.p2p.listeners(),
 					device_model: Some(device_model),
 				})
 			})

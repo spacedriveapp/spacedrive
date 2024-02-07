@@ -21,14 +21,14 @@ use tokio::sync::{mpsc, oneshot};
 use tracing::{error, info};
 use uuid::Uuid;
 
-use super::{P2PEvent, P2PEvents, PeerMetadata};
+use super::{P2PEvents, PeerMetadata};
 
 pub struct P2PManager {
 	pub(crate) p2p: Arc<P2P>,
 	mdns: Mutex<Option<Mdns>>,
 	quic: QuicTransport,
 	// The `libp2p::PeerId`. This is for debugging only, use `RemoteIdentity` instead.
-	peer_id: Option<Libp2pPeerId>,
+	lp2p_peer_id: Libp2pPeerId,
 	pub(crate) events: P2PEvents,
 
 	pub(super) spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
@@ -46,7 +46,7 @@ impl P2PManager {
 		let (quic, lp2p_peer_id) = QuicTransport::spawn(p2p.clone()).unwrap(); // TODO: Error handling
 		let this = Arc::new(Self {
 			p2p: p2p.clone(),
-			peer_id: None,
+			lp2p_peer_id,
 			mdns: Mutex::new(None),
 			quic,
 			events: P2PEvents::spawn(p2p),
@@ -58,13 +58,12 @@ impl P2PManager {
 
 		libraries::start(this.p2p.clone(), libraries);
 
-		// info!(
-		// 	"Node RemoteIdentity('{}') libp2p::PeerId('{}') is now online listening at addresses: {:?}",
-		// 	this.p2p.remote_identity(),
-		// 	"todo", // TODO: Work this out??? // TODO: Work out libp2p `PeerId`
-		// 	this.p2p.listeners().values()
-		// );
-		todo!();
+		info!(
+			"Node RemoteIdentity('{}') libp2p::PeerId('{:?}') is now online listening at addresses: {:?}",
+			this.p2p.remote_identity(),
+			this.lp2p_peer_id,
+			this.p2p.listeners()
+		);
 
 		Ok((this.clone(), |node| {
 			tokio::spawn(start(this, node, rx));
@@ -167,14 +166,18 @@ impl P2PManager {
 	}
 
 	pub fn state(&self) -> serde_json::Value {
-		todo!();
-		// json!({
-		// 	"self_identity": self.p2p.remote_identity().to_string(),
-		// 	"self_peer_id": format!("{:?}", self.peer_id),
-		// 	"metadata": self.p2p.metadata().clone(),
-		// 	"listeners": self.p2p.listeners().iter().map(|(k, v)| (k, v.addr())).collect::<HashMap<_, _>>().clone(),
-		// 	"discovered": self.p2p.peers().clone(),
-		// })
+		json!({
+			"self_identity": self.p2p.remote_identity().to_string(),
+			"self_peer_id": format!("{:?}", self.lp2p_peer_id),
+			"metadata": self.p2p.metadata().clone(),
+			"listeners": self.p2p.listeners().iter().map(|l| (l.id, l.addrs.clone())).collect::<HashMap<_, _>>().clone(),
+			"discovered": self.p2p.peers().iter().map(|(identity, p)| json!({
+				"identity": identity.to_string(),
+				"metadata": p.metadata().clone(),
+				"can_connect": p.can_connect(),
+				"is_connected": p.is_connected(),
+			})).collect::<Vec<_>>(),
+		})
 	}
 
 	pub fn shutdown(&self) {

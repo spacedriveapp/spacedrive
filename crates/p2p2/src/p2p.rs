@@ -1,10 +1,12 @@
 use std::{
-	collections::{hash_map::Entry, HashMap, HashSet},
+	collections::{HashMap, HashSet},
 	net::SocketAddr,
 	sync::{atomic::AtomicUsize, Arc, PoisonError, RwLock, RwLockReadGuard},
 };
 
 use hash_map_diff::hash_map_diff;
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use stable_vec::StableVec;
 use tokio::sync::{mpsc, oneshot};
 
@@ -346,7 +348,7 @@ impl P2P {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Type)]
 #[non_exhaustive]
 pub struct Listener {
 	pub id: ListenerId,
