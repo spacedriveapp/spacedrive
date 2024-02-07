@@ -5,6 +5,9 @@ const path = require('path');
 // Needed for transforming svgs from @sd/assets
 const [reactSVGPath, reactSVGExclude] = resolveUniqueModule('react-native-svg');
 
+//transform mp4 files from @sd/assets
+const [reactNativeVideoPath, reactNativeVideoExclude] = resolveUniqueModule('expo-av');
+
 const [rspcClientPath, rspcClientExclude] = resolveUniqueModule('@oscartbeaumont-sd/rspc-client');
 const [rspcReactPath, rspcReactExclude] = resolveUniqueModule('@oscartbeaumont-sd/rspc-react');
 
@@ -21,9 +24,10 @@ const metroConfig = makeMetroConfig({
 	resolver: {
 		...expoDefaultConfig.resolver,
 		extraNodeModules: {
-			'react-native-svg': reactSVGPath
+			'react-native-svg': reactSVGPath,
+			'react-native-video': reactNativeVideoPath,
 		},
-		blockList: exclusionList([reactSVGExclude, rspcClientExclude, rspcReactExclude]),
+		blockList: exclusionList([reactSVGExclude, rspcClientExclude, rspcReactExclude, reactNativeVideoExclude]),
 		sourceExts: [...expoDefaultConfig.resolver.sourceExts, 'svg'],
 		assetExts: expoDefaultConfig.resolver.assetExts.filter((ext) => ext !== 'svg'),
 		disableHierarchicalLookup: false,
