@@ -30,7 +30,8 @@ const LANGUAGE_OPTIONS = [
 	{ value: 'tr', label: 'Türkçe' },
 	{ value: 'nl', label: 'Nederlands'},
 	{ value: 'zh-CN', label: '中文（简体）' },
-	{ value: 'zh-TW', label: '中文（繁體）' }
+	{ value: 'zh-TW', label: '中文（繁體）' },
+	{ value: 'it', label: "Italiano"}
 ];
 
 export const Component = () => {
