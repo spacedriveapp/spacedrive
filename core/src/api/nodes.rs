@@ -1,5 +1,6 @@
 use crate::{invalidate_query, util::MaybeUndefined};
 
+use sd_ai::image_labeler;
 use sd_prisma::prisma::{instance, location};
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
@@ -56,7 +57,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								.map(|node_version| version != *node_version)
 								.unwrap_or(true)
 							{
-								new_model = sd_ai::image_labeler::YoloV8::model(Some(&version))
+								new_model = image_labeler::YoloV8::model(Some(&version))
 									.map_err(|e| {
 										error!(
 										"Failed to crate image_detection model: '{}'; Error: {e:#?}",
@@ -96,21 +97,30 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					if let Some(model) = new_model {
 						let version = model.version().to_string();
 						tokio::spawn(async move {
-							let notification = if let Err(e) =
-								node.image_labeller.change_model(model).await
-							{
-								NotificationData {
+							let notification =
+								if let Some(image_labeller) = node.image_labeller.as_ref() {
+									if let Err(e) = image_labeller.change_model(model).await {
+										NotificationData {
+											title: String::from(
+												"Failed to change image detection model",
+											),
+											content: format!("Error: {e}"),
+											kind: NotificationKind::Error,
+										}
+									} else {
+										NotificationData {
+											title: String::from("Model download completed"),
+											content: format!("Sucessfuly loaded model: {version}"),
+											kind: NotificationKind::Success,
+										}
+									}
+								} else {
+									NotificationData {
 									title: String::from("Failed to change image detection model"),
-									content: format!("Error: {e}"),
-									kind: NotificationKind::Error,
-								}
-							} else {
-								NotificationData {
-									title: String::from("Model download completed"),
-									content: format!("Sucessfuly loaded model: {version}"),
+									content: "The AI system is disabled due to a previous error. Contact support for help.".to_string(),
 									kind: NotificationKind::Success,
 								}
-							};
+								};
 
 							node.emit_notification(notification, None).await;
 						});

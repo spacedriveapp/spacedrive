@@ -21,6 +21,7 @@ use sd_utils::db::maybe_missing;
 
 #[cfg(feature = "ai")]
 use sd_ai::image_labeler::{BatchToken as ImageLabelerBatchToken, LabelerOutput};
+use uuid::Uuid;
 
 #[cfg(feature = "ai")]
 use std::sync::Arc;
@@ -105,7 +106,7 @@ impl StatefulJob for MediaProcessorJobInit {
 		ctx: &WorkerContext,
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
-		let Library { db, sync, .. } = ctx.library.as_ref();
+		let Library { db, .. } = ctx.library.as_ref();
 
 		let location_id = self.location.id;
 		let location_path =
@@ -178,17 +179,21 @@ impl StatefulJob for MediaProcessorJobInit {
 		let total_files_for_labeling = file_paths_for_labeling.len();
 
 		#[cfg(feature = "ai")]
-		let (labeler_batch_token, labels_rx) = ctx
-			.node
-			.image_labeller
-			.new_resumable_batch(
-				location_id,
-				location_path.clone(),
-				file_paths_for_labeling,
-				Arc::clone(db),
-				sync.clone(),
-			)
-			.await;
+		let (labeler_batch_token, labels_rx) =
+			if let Some(image_labeller) = ctx.node.image_labeller.as_ref() {
+				let (labeler_batch_token, labels_rx) = image_labeller
+					.new_resumable_batch(
+						location_id,
+						location_path.clone(),
+						file_paths_for_labeling,
+						Arc::clone(db),
+						sync.clone(),
+					)
+					.await;
+				(labeler_batch_token, Some(labels_rx))
+			} else {
+				(Uuid::new_v4(), None)
+			};
 
 		let total_files = file_paths.len();
 
@@ -240,7 +245,7 @@ impl StatefulJob for MediaProcessorJobInit {
 			#[cfg(feature = "ai")]
 			labeler_batch_token,
 			#[cfg(feature = "ai")]
-			maybe_labels_rx: Some(labels_rx),
+			maybe_labels_rx: labels_rx,
 		});
 
 		Ok((
@@ -323,6 +328,12 @@ impl StatefulJob for MediaProcessorJobInit {
 
 			#[cfg(feature = "ai")]
 			MediaProcessorJobStep::WaitLabels(total_labels) => {
+				let Some(image_labeller) = ctx.node.image_labeller.as_ref() else {
+					let err = "AI system is disabled due to a previous error, skipping labels job";
+					error!(err);
+					return Ok(JobRunErrors(vec![err.to_string()]).into());
+				};
+
 				ctx.progress(vec![
 					JobReportUpdate::TaskCount(*total_labels),
 					JobReportUpdate::Phase("labels".to_string()),
@@ -334,9 +345,7 @@ impl StatefulJob for MediaProcessorJobInit {
 				let mut labels_rx = pin!(if let Some(labels_rx) = data.maybe_labels_rx.clone() {
 					labels_rx
 				} else {
-					match ctx
-						.node
-						.image_labeller
+					match image_labeller
 						.resume_batch(
 							data.labeler_batch_token,
 							Arc::clone(&ctx.library.db),
