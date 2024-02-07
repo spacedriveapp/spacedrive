@@ -15,7 +15,8 @@ const onboardingStoreDefaults = () => ({
 	lastActiveScreen: null as string | null,
 	useCases: [] as UseCase[],
 	grantedFullDiskAccess: false,
-	data: {} as Record<string, any> | undefined
+	data: {} as Record<string, any> | undefined,
+	showIntro: true
 });
 
 export const onboardingStore = createPersistedMutable(

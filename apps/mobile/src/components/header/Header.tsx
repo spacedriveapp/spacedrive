@@ -77,8 +77,8 @@ export default function Header({
 				Platform.OS === 'android' ? 'pt-5' : 'pt-10'
 			)}
 		>
-			<View style={tw`mx-auto mt-5 h-auto w-full justify-center px-7 pb-5`}>
-				<View style={tw`w-full flex-row items-center justify-between`}>
+			<View style={tw`justify-center w-full h-auto pb-5 mx-auto mt-5 px-7`}>
+				<View style={tw`flex-row items-center justify-between w-full`}>
 					<View style={tw`flex-row items-center gap-5`}>
 						{navBack && (
 							<Pressable

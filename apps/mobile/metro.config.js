@@ -21,7 +21,7 @@ const metroConfig = makeMetroConfig({
 	resolver: {
 		...expoDefaultConfig.resolver,
 		extraNodeModules: {
-			'react-native-svg': reactSVGPath
+			'react-native-svg': reactSVGPath,
 		},
 		blockList: exclusionList([reactSVGExclude, rspcClientExclude, rspcReactExclude]),
 		sourceExts: [...expoDefaultConfig.resolver.sourceExts, 'svg'],
