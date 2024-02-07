@@ -3,7 +3,7 @@ use std::sync::Arc;
 use sd_p2p2::P2P;
 use tracing::error;
 
-use crate::library::{Libraries, Library, LibraryManagerEvent};
+use crate::library::{Libraries, LibraryManagerEvent};
 
 pub fn start(p2p: Arc<P2P>, libraries: Arc<Libraries>) {
 	tokio::spawn(async move {

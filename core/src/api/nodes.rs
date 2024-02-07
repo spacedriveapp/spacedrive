@@ -16,8 +16,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Deserialize, Type)]
 			pub struct ChangeNodeNameArgs {
 				pub name: Option<String>,
-				pub p2p_port: MaybeUndefined<u16>,
-				pub p2p_enabled: Option<bool>,
+				pub p2p_ipv4_port: MaybeUndefined<u16>,
+				pub p2p_ipv6_port: MaybeUndefined<u16>,
 				pub p2p_discovery: Option<P2PDiscoveryState>,
 				pub image_labeler_version: Option<String>,
 			}
@@ -31,9 +31,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					}
 				}
 
-				let does_p2p_need_refresh =
-					args.p2p_enabled.is_some() || args.p2p_port.is_defined();
-
 				#[cfg(feature = "ai")]
 				let mut new_model = None;
 
@@ -43,17 +40,19 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							config.name = name;
 						}
 
-						todo!();
+						match args.p2p_ipv4_port {
+							MaybeUndefined::Undefined => {}
+							v => config.p2p_ipv4_port = v,
+						};
 
-						// config.p2p_enabled = args.p2p_enabled.unwrap_or(config.p2p_enabled);
-
-						// if let Some(v) = args.p2p_port.into() {
-						// 	config.p2p_port = v;
-						// }
+						match args.p2p_ipv6_port {
+							MaybeUndefined::Undefined => {}
+							v => config.p2p_ipv6_port = v,
+						};
 
 						if let Some(v) = args.p2p_discovery {
 							config.p2p_discovery = v;
-						}
+						};
 
 						#[cfg(feature = "ai")]
 						if let Some(version) = args.image_labeler_version {
@@ -86,10 +85,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						)
 					})?;
 
-				// If a P2P config was modified reload it
-				if does_p2p_need_refresh {
-					node.p2p.on_node_config_change().await;
-				}
+				// This is a no-op if the config didn't change
+				node.p2p.on_node_config_change().await;
 
 				invalidate_query!(node; node, "nodeState");
 

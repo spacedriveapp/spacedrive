@@ -78,20 +78,24 @@ pub struct NodeConfig {
 
 mod identity_serde {
 	use sd_p2p2::Identity;
-	use serde::{Deserializer, Serializer};
+	use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 	pub fn serialize<S>(identity: &Identity, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: Serializer,
 	{
-		todo!();
+		String::from_utf8_lossy(&base91::slice_encode(&identity.to_bytes()))
+			.to_string()
+			.serialize(serializer)
 	}
 
 	pub fn deserialize<'de, D>(deserializer: D) -> Result<Identity, D::Error>
 	where
 		D: Deserializer<'de>,
 	{
-		todo!();
+		let s = String::deserialize(deserializer)?;
+		Ok(Identity::from_bytes(&base91::slice_decode(s.as_bytes()))
+			.map_err(serde::de::Error::custom)?)
 	}
 }
 
