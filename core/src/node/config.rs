@@ -96,9 +96,7 @@ mod identity_serde {
 	where
 		S: Serializer,
 	{
-		String::from_utf8_lossy(&base91::slice_encode(&identity.to_bytes()))
-			.to_string()
-			.serialize(serializer)
+		to_string(identity).serialize(serializer)
 	}
 
 	pub fn deserialize<'de, D>(deserializer: D) -> Result<Identity, D::Error>
@@ -108,6 +106,10 @@ mod identity_serde {
 		let s = String::deserialize(deserializer)?;
 		Ok(Identity::from_bytes(&base91::slice_decode(s.as_bytes()))
 			.map_err(serde::de::Error::custom)?)
+	}
+
+	pub fn to_string(identity: &Identity) -> String {
+		String::from_utf8_lossy(&base91::slice_encode(&identity.to_bytes())).to_string()
 	}
 }
 
@@ -124,10 +126,11 @@ pub enum NodeConfigVersion {
 	V0 = 0,
 	V1 = 1,
 	V2 = 2,
+	V3 = 3,
 }
 
 impl ManagedVersion<NodeConfigVersion> for NodeConfig {
-	const LATEST_VERSION: NodeConfigVersion = NodeConfigVersion::V2;
+	const LATEST_VERSION: NodeConfigVersion = NodeConfigVersion::V3;
 	const KIND: Kind = Kind::Json("version");
 	type MigrationError = NodeConfigError;
 
@@ -216,6 +219,33 @@ impl NodeConfig {
 						config.insert(
 							String::from("preferences"),
 							json!(NodePreferences::default()),
+						);
+
+						let a =
+							serde_json::to_vec(&config).map_err(VersionManagerError::SerdeJson)?;
+
+						fs::write(path, a)
+							.await
+							.map_err(|e| FileIOError::from((path, e)))?;
+					}
+
+					(NodeConfigVersion::V2, NodeConfigVersion::V3) => {
+						let mut config: Map<String, Value> =
+							serde_json::from_slice(&fs::read(path).await.map_err(|e| {
+								FileIOError::from((
+									path,
+									e,
+									"Failed to read node config file for migration",
+								))
+							})?)
+							.map_err(VersionManagerError::SerdeJson)?;
+
+						config.remove("keypair");
+						config.remove("p2p");
+
+						config.insert(
+							String::from("identity"),
+							json!(identity_serde::to_string(&Default::default())),
 						);
 
 						let a =
