@@ -16,6 +16,7 @@ use notifications::Notifications;
 use reqwest::{RequestBuilder, Response};
 
 use std::{
+	convert::Infallible,
 	fmt,
 	path::{Path, PathBuf},
 	sync::{atomic::AtomicBool, Arc},
@@ -113,9 +114,7 @@ impl Node {
 		let (locations, locations_actor) = location::Locations::new();
 		let (jobs, jobs_actor) = job::Jobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
-		let (p2p, start_p2p) = p2p::P2PManager::new(config.clone(), libraries.clone())
-			.await
-			.unwrap(); // TODO: Don't panic here
+		let (p2p, start_p2p) = p2p::P2PManager::new(config.clone(), libraries.clone()).await?;
 		let node = Arc::new(Node {
 			data_dir: data_dir.to_path_buf(),
 			jobs,
@@ -319,8 +318,8 @@ pub enum NodeError {
 	FailedToInitializeLibraryManager(#[from] library::LibraryManagerError),
 	#[error("failed to initialize location manager: {0}")]
 	LocationManager(#[from] LocationManagerError),
-	// #[error("failed to initialize p2p manager: {0}")]
-	// P2PManager(#[from] sd_p2p2::ManagerError),
+	#[error("failed to initialize p2p manager: {0}")]
+	P2PManager(#[from] Infallible),
 	#[error("invalid platform integer: {0}")]
 	InvalidPlatformInt(u8),
 	#[cfg(debug_assertions)]
