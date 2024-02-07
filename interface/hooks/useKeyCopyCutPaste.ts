@@ -8,11 +8,13 @@ import { toast } from '@sd/ui';
 import { useExplorerContext } from '~/app/$libraryId/Explorer/Context';
 import { explorerStore } from '~/app/$libraryId/Explorer/store';
 import { useExplorerSearchParams } from '~/app/$libraryId/Explorer/util';
-import { isNonEmpty } from '~/util';
 
+import { useLocale } from './useLocale';
 import { useShortcut } from './useShortcut';
 
 export const useKeyCopyCutPaste = () => {
+	const { t } = useLocale();
+
 	const cutCopyState = useSelector(explorerStore, (s) => s.cutCopyState);
 	const [{ path }] = useExplorerSearchParams();
 
@@ -76,7 +78,7 @@ export const useKeyCopyCutPaste = () => {
 				});
 			} catch (error) {
 				toast.error({
-					title: 'Failed to duplicate file',
+					title: t('failed_to_duplicate_file'),
 					body: `Error: ${error}.`
 				});
 			}
@@ -116,7 +118,7 @@ export const useKeyCopyCutPaste = () => {
 							indexedArgs.sourceLocationId === parent.location.id &&
 							sourceParentPath === path
 						) {
-							toast.error('File already exists in this location');
+							toast.error(t('file_already_exist_in_this_location'));
 						}
 						await cutFiles.mutateAsync({
 							source_location_id: indexedArgs.sourceLocationId,
@@ -136,10 +138,17 @@ export const useKeyCopyCutPaste = () => {
 					}
 				}
 			} catch (error) {
-				toast.error({
-					title: `Failed to ${type.toLowerCase()} file`,
-					body: `Error: ${error}.`
-				});
+				if (type === 'Copy') {
+					toast.error({
+						title: t('failed_to_copy_file'),
+						body: `Error: ${error}.`
+					});
+				} else if (type === 'Cut') {
+					toast.error({
+						title: t('failed_to_cut_file'),
+						body: `Error: ${error}.`
+					});
+				}
 			}
 		}
 	});
