@@ -354,7 +354,7 @@ export const shortcutCategories = {
 				}
 			},
 			quickPreviewOpenNative: {
-				action: i18n.t('quickPreviewOpenNative'),
+				action: i18n.t('open_object_from_quick_preview_in_native_file_manager'),
 				keys: {
 					macOS: ['Meta', 'KeyO'],
 					all: ['Enter']
