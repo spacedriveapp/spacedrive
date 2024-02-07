@@ -6,10 +6,8 @@ use std::{
 
 use flume::Sender;
 use hash_map_diff::hash_map_diff;
-use serde::{Deserialize, Serialize};
-use specta::Type;
 use stable_vec::StableVec;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::oneshot;
 
 use crate::{
 	hooks::{HandlerFn, Hook, HookEvent, ListenerData, ListenerId},
@@ -292,7 +290,7 @@ impl P2P {
 	}
 
 	/// Unregister a hook. This will also call `HookEvent::Shutdown` on the hook.
-	pub async fn unregister_hook(&self, id: HookId) {
+	pub fn unregister_hook(&self, id: HookId) {
 		if let Some(hook) = self
 			.hooks
 			.write()

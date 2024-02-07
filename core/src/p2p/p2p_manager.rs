@@ -87,11 +87,15 @@ impl P2PManager {
 		}
 		.update(&mut self.p2p.metadata_mut());
 
-		if let Err(err) = self.quic.set_ipv4_enabled(match config.p2p_ipv4_port {
-			Port::Disabled => None,
-			Port::Random => Some(0),
-			Port::Discrete(port) => Some(port),
-		}) {
+		if let Err(err) = self
+			.quic
+			.set_ipv4_enabled(match config.p2p_ipv4_port {
+				Port::Disabled => None,
+				Port::Random => Some(0),
+				Port::Discrete(port) => Some(port),
+			})
+			.await
+		{
 			error!("Failed to enabled quic ipv4 listener: {err}");
 			self.node_config
 				.write(|c| c.p2p_ipv4_port = Port::Disabled)
@@ -99,11 +103,15 @@ impl P2PManager {
 				.ok();
 		}
 
-		if let Err(err) = self.quic.set_ipv6_enabled(match config.p2p_ipv6_port {
-			Port::Disabled => None,
-			Port::Random => Some(0),
-			Port::Discrete(port) => Some(port),
-		}) {
+		if let Err(err) = self
+			.quic
+			.set_ipv6_enabled(match config.p2p_ipv6_port {
+				Port::Disabled => None,
+				Port::Random => Some(0),
+				Port::Discrete(port) => Some(port),
+			})
+			.await
+		{
 			error!("Failed to enabled quic ipv6 listener: {err}");
 			self.node_config
 				.write(|c| c.p2p_ipv6_port = Port::Disabled)

@@ -7,5 +7,3 @@ pub(super) mod stream;
 pub(super) mod transport;
 
 pub use transport::{Libp2pPeerId, QuicTransport};
-
-pub(super) use libp2p::SpaceTimeProtocolName;

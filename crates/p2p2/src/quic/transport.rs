@@ -1,13 +1,14 @@
 use std::{
 	convert::Infallible,
-	net::{SocketAddrV4, SocketAddrV6},
+	net::{Ipv4Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
 	sync::{Arc, RwLock},
 };
 
-use flume::{bounded, Receiver};
+use flume::{bounded, Receiver, Sender};
 use libp2p::{core::muxing::StreamMuxerBox, futures::StreamExt, Swarm, SwarmBuilder, Transport};
+use tokio::sync::oneshot;
 
-use crate::{HookEvent, HookId, ListenerId, P2P};
+use crate::{quic::libp2p::socketaddr_to_quic_multiaddr, HookEvent, HookId, ListenerId, P2P};
 
 use super::behaviour::SpaceTime;
 
@@ -20,6 +21,14 @@ use super::behaviour::SpaceTime;
 #[derive(Debug)]
 pub struct Libp2pPeerId(libp2p::PeerId);
 
+#[derive(Debug)]
+enum InternalEvent {
+	RegisterListener {
+		addr: SocketAddr,
+		result: oneshot::Sender<()>,
+	},
+}
+
 /// Transport using Quic to establish a connection between peers.
 /// This uses `libp2p` internally.
 #[derive(Debug)]
@@ -27,6 +36,7 @@ pub struct QuicTransport {
 	id: ListenerId,
 	p2p: Arc<P2P>,
 	state: Arc<RwLock<State>>,
+	internal_tx: Sender<InternalEvent>,
 }
 
 #[derive(Debug, Default)]
@@ -54,6 +64,7 @@ impl QuicTransport {
 		let libp2p_peer_id = Libp2pPeerId(keypair.public().to_peer_id());
 
 		let (tx, rx) = bounded(15);
+		let (internal_tx, internal_rx) = bounded(15);
 		let id = p2p.register_listener("libp2p-quic", tx, |peer, addrs| {
 			todo!();
 		});
@@ -73,33 +84,59 @@ impl QuicTransport {
 		.build();
 
 		let state: Arc<RwLock<State>> = Default::default();
-		tokio::spawn(start(p2p.clone(), state.clone(), swarm, rx));
+		tokio::spawn(start(
+			p2p.clone(),
+			id,
+			state.clone(),
+			swarm,
+			rx,
+			internal_rx,
+		));
 
-		Ok((Self { id, p2p, state }, libp2p_peer_id))
+		Ok((
+			Self {
+				id,
+				p2p,
+				state,
+				internal_tx,
+			},
+			libp2p_peer_id,
+		))
 	}
 
-	pub fn set_ipv4_enabled(&self, port: Option<u16>) -> Result<(), String> {
-		// if let Some(port) = port {
-		// } else {
-		// 	//  let Some(addr) = self
-		// 	// 	.state
-		// 	// 	.read()
-		// 	// 	.unwrap_or_else(PoisonError::into_inner)
-		// 	// 	.ipv4_addr {
+	// `None` on the port means disabled. Use `0` for random port.
+	pub async fn set_ipv4_enabled(&self, port: Option<u16>) -> Result<(), String> {
+		if let Some(port) = port {
+			let addr = SocketAddr::from((Ipv4Addr::UNSPECIFIED, port));
+			self.p2p.register_listener_addr(self.id, addr);
 
-		// 	// 		self.p2p.unregister_listener_addr(self.id, addr);
-		// 	// 	}
-		// }
+			let (tx, rx) = oneshot::channel();
+			let Ok(_) = self
+				.internal_tx
+				.send(InternalEvent::RegisterListener { addr, result: tx })
+			else {
+				return Ok(());
+			};
+			let Ok(_) = rx.await else {
+				return Ok(());
+			};
+		} else {
+			// 	//  let Some(addr) = self
+			// 	// 	.state
+			// 	// 	.read()
+			// 	// 	.unwrap_or_else(PoisonError::into_inner)
+			// 	// 	.ipv4_addr {
 
-		// let addr = SocketAddr::from((Ipv4Addr::UNSPECIFIED, port.unwrap_or(0)));
-		// self.p2p.register_listener_addr(self.id, addr)
+			// 	// 		self.p2p.unregister_listener_addr(self.id, addr);
+			// 	// 	}
 
-		// todo!();
+			todo!();
+		}
 
 		Ok(())
 	}
 
-	pub fn set_ipv6_enabled(&self, port: Option<u16>) -> Result<(), String> {
+	pub async fn set_ipv6_enabled(&self, port: Option<u16>) -> Result<(), String> {
 		// todo!();
 
 		Ok(())
@@ -119,9 +156,11 @@ fn ok<T>(v: Result<T, Infallible>) -> T {
 
 async fn start(
 	p2p: Arc<P2P>,
+	id: ListenerId,
 	state: Arc<RwLock<State>>,
 	mut swarm: Swarm<SpaceTime>,
 	mut rx: Receiver<HookEvent>,
+	mut internal_rx: Receiver<InternalEvent>,
 ) {
 	loop {
 		tokio::select! {
@@ -129,8 +168,20 @@ async fn start(
 				HookEvent::Shutdown => break,
 				_ => {},
 			},
-			event = swarm.select_next_some() => {
-				todo!();
+			event = swarm.select_next_some() => match event {
+				_ => {}, // todo!();
+			},
+			Ok(event) = internal_rx.recv_async() => match event {
+				InternalEvent::RegisterListener { addr, result } => {
+					// let id = swarm.listen_on(socketaddr_to_quic_multiaddr(&addr));
+
+					// p2p.register_listener_addr()
+
+					// TODO: Store listener
+					// TODO: Do the thing and return the result
+
+					let _ = result.send(());
+				},
 			}
 		}
 	}

@@ -17,7 +17,7 @@ use tracing::{debug, warn};
 
 use crate::{identity, quic::stream::new_inbound, Peer, P2P};
 
-use super::{behaviour::SpaceTimeState, SpaceTimeProtocolName};
+use super::{behaviour::SpaceTimeState, libp2p::SpaceTimeProtocolName};
 
 pub struct InboundProtocol {
 	pub(crate) peer_id: PeerId,

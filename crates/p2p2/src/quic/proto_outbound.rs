@@ -11,7 +11,7 @@ use tracing::warn;
 
 use crate::{Identity, P2P};
 
-use super::SpaceTimeProtocolName;
+use super::libp2p::SpaceTimeProtocolName;
 
 #[derive(Debug)] // TODO: Would this be better as another type????
 pub struct OutboundRequest(Infallible); // TODO: oneshot::Sender<UnicastStreamBuilder>
