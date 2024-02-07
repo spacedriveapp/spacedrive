@@ -1,4 +1,7 @@
-use crate::{invalidate_query, node::config::P2PDiscoveryState, util::MaybeUndefined};
+use crate::{
+	invalidate_query,
+	node::config::{P2PDiscoveryState, Port},
+};
 
 use sd_prisma::prisma::{instance, location};
 
@@ -16,8 +19,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Deserialize, Type)]
 			pub struct ChangeNodeNameArgs {
 				pub name: Option<String>,
-				pub p2p_ipv4_port: MaybeUndefined<u16>,
-				pub p2p_ipv6_port: MaybeUndefined<u16>,
+				pub p2p_ipv4_port: Option<Port>,
+				pub p2p_ipv6_port: Option<Port>,
 				pub p2p_discovery: Option<P2PDiscoveryState>,
 				pub image_labeler_version: Option<String>,
 			}
@@ -40,16 +43,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							config.name = name;
 						}
 
-						match args.p2p_ipv4_port {
-							MaybeUndefined::Undefined => {}
-							v => config.p2p_ipv4_port = v,
+						if let Some(port) = args.p2p_ipv4_port {
+							config.p2p_ipv4_port = port;
 						};
-
-						match args.p2p_ipv6_port {
-							MaybeUndefined::Undefined => {}
-							v => config.p2p_ipv6_port = v,
+						if let Some(port) = args.p2p_ipv6_port {
+							config.p2p_ipv6_port = port;
 						};
-
 						if let Some(v) = args.p2p_discovery {
 							config.p2p_discovery = v;
 						};

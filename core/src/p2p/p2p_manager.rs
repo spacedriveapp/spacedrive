@@ -1,10 +1,9 @@
 use crate::{
 	node::{
-		config::{self, P2PDiscoveryState},
+		config::{self, P2PDiscoveryState, Port},
 		get_hardware_model_name, HardwareModel,
 	},
 	p2p::{libraries, operations, sync::SyncMessage, Header, OperatingSystem, SPACEDRIVE_APP_ID},
-	util::MaybeUndefined,
 	Node,
 };
 
@@ -83,25 +82,25 @@ impl P2PManager {
 		.update(&mut self.p2p.metadata_mut());
 
 		if let Err(err) = self.quic.set_ipv4_enabled(match config.p2p_ipv4_port {
-			MaybeUndefined::Undefined => None, // Disabled
-			MaybeUndefined::Null => Some(0),   // Random port
-			MaybeUndefined::Value(port) => Some(port),
+			Port::Disabled => None,
+			Port::Random => Some(0),
+			Port::Discrete(port) => Some(port),
 		}) {
 			error!("Failed to enabled quic ipv4 listener: {err}");
 			self.node_config
-				.write(|c| c.p2p_ipv4_port = MaybeUndefined::Undefined)
+				.write(|c| c.p2p_ipv4_port = Port::Disabled)
 				.await
 				.ok();
 		}
 
 		if let Err(err) = self.quic.set_ipv6_enabled(match config.p2p_ipv6_port {
-			MaybeUndefined::Undefined => None, // Disabled
-			MaybeUndefined::Null => Some(0),   // Random port
-			MaybeUndefined::Value(port) => Some(port),
+			Port::Disabled => None,
+			Port::Random => Some(0),
+			Port::Discrete(port) => Some(port),
 		}) {
 			error!("Failed to enabled quic ipv6 listener: {err}");
 			self.node_config
-				.write(|c| c.p2p_ipv6_port = MaybeUndefined::Undefined)
+				.write(|c| c.p2p_ipv6_port = Port::Disabled)
 				.await
 				.ok();
 		}

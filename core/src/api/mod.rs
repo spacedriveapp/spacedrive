@@ -2,10 +2,9 @@ use crate::{
 	invalidate_query,
 	job::JobProgressEvent,
 	node::{
-		config::{NodeConfig, NodePreferences, P2PDiscoveryState},
+		config::{NodeConfig, NodePreferences, P2PDiscoveryState, Port},
 		get_hardware_model_name, HardwareModel,
 	},
-	util::MaybeUndefined,
 	Node,
 };
 
@@ -95,8 +94,8 @@ pub struct SanitisedNodeConfig {
 	/// name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
 	pub name: String,
 	pub identity: RemoteIdentity,
-	pub p2p_ipv4_port: MaybeUndefined<u16>,
-	pub p2p_ipv6_port: MaybeUndefined<u16>,
+	pub p2p_ipv4_port: Port,
+	pub p2p_ipv6_port: Port,
 	pub p2p_discovery: P2PDiscoveryState,
 	pub features: Vec<BackendFeature>,
 	pub preferences: NodePreferences,

@@ -1,10 +1,7 @@
 use crate::{
 	api::{notifications::Notification, BackendFeature},
 	object::media::thumbnail::preferences::ThumbnailerPreferences,
-	util::{
-		version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
-		MaybeUndefined,
-	},
+	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 
 use sd_p2p2::Identity;
@@ -39,6 +36,21 @@ pub enum P2PDiscoveryState {
 	Disabled,
 }
 
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case", untagged)]
+pub enum Port {
+	Disabled,
+	#[default]
+	Random,
+	Discrete(u16),
+}
+
+impl Port {
+	pub fn is_random(&self) -> bool {
+		matches!(self, Port::Random)
+	}
+}
+
 /// NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
 #[derive(Debug, Clone, Serialize, Deserialize)] // If you are adding `specta::Type` on this your probably about to leak the P2P private key
 pub struct NodeConfig {
@@ -54,10 +66,10 @@ pub struct NodeConfig {
 	#[serde(with = "identity_serde")]
 	pub identity: Identity,
 	/// P2P config
-	#[serde(default, skip_serializing_if = "MaybeUndefined::is_undefined")]
-	pub p2p_ipv4_port: MaybeUndefined<u16>,
-	#[serde(default, skip_serializing_if = "MaybeUndefined::is_undefined")]
-	pub p2p_ipv6_port: MaybeUndefined<u16>,
+	#[serde(default, skip_serializing_if = "Port::is_random")]
+	pub p2p_ipv4_port: Port,
+	#[serde(default, skip_serializing_if = "Port::is_random")]
+	pub p2p_ipv6_port: Port,
 	#[serde(default)]
 	pub p2p_discovery: P2PDiscoveryState,
 	/// Feature flags enabled on the node
@@ -139,8 +151,8 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 			id: Uuid::new_v4(),
 			name,
 			identity: Identity::default(),
-			p2p_ipv4_port: MaybeUndefined::Null,
-			p2p_ipv6_port: MaybeUndefined::Null,
+			p2p_ipv4_port: Port::Random,
+			p2p_ipv6_port: Port::Random,
 			p2p_discovery: P2PDiscoveryState::Everyone,
 			version: Self::LATEST_VERSION,
 			features: vec![],
