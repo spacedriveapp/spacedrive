@@ -1,8 +1,6 @@
 use std::{collections::HashSet, fmt, net::SocketAddr, sync::Arc};
 
-use serde::{Deserialize, Serialize};
-use specta::Type;
-use tokio::sync::mpsc;
+use flume::Sender;
 
 use crate::{Peer, RemoteIdentity};
 
@@ -45,7 +43,7 @@ pub enum HookEvent {
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub struct HookId(pub(crate) usize);
 
-#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub struct ListenerId(pub(crate) usize);
 
 impl From<ListenerId> for HookId {
@@ -60,7 +58,7 @@ pub(crate) struct Hook {
 	pub(crate) name: &'static str,
 	/// A channel to send events to the hook.
 	/// This hooks implementing will be responsible for subscribing to this channel.
-	pub(crate) tx: mpsc::Sender<HookEvent>,
+	pub(crate) tx: Sender<HookEvent>,
 	/// If this hook is a listener this will be set.
 	pub(crate) listener: Option<ListenerData>,
 }

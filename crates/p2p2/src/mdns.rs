@@ -1,10 +1,8 @@
 use std::{collections::HashMap, pin::Pin, str::FromStr, sync::Arc, time::Duration};
 
+use flume::{bounded, Receiver};
 use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
-use tokio::{
-	sync::mpsc,
-	time::{sleep_until, Instant, Sleep},
-};
+use tokio::time::{sleep_until, Instant, Sleep};
 use tracing::{error, trace, warn};
 
 use crate::{HookEvent, HookId, RemoteIdentity, P2P};
@@ -21,7 +19,7 @@ pub struct Mdns {
 
 impl Mdns {
 	pub fn spawn(p2p: Arc<P2P>) -> Result<Self, mdns_sd::Error> {
-		let (tx, rx) = mpsc::channel(15);
+		let (tx, rx) = bounded(15);
 		let hook_id = p2p.register_hook("mdns", tx);
 
 		start(p2p.clone(), hook_id, rx)?;
@@ -46,7 +44,7 @@ struct State {
 fn start(
 	p2p: Arc<P2P>,
 	hook_id: HookId,
-	mut rx: mpsc::Receiver<HookEvent>,
+	mut rx: Receiver<HookEvent>,
 ) -> Result<(), mdns_sd::Error> {
 	let service_domain = format!("_{}._udp.local.", p2p.app_name());
 	let mut state = State {
@@ -64,7 +62,7 @@ fn start(
 	tokio::spawn(async move {
 		loop {
 			tokio::select! {
-				Some(event) = rx.recv() => match event {
+				Ok(event) = rx.recv_async() => match event {
 					HookEvent::MetadataModified | HookEvent::ListenerRegistered { .. } | HookEvent::ListenerUnregistered(_)  => advertise(&mut state),
 					HookEvent::Shutdown => {
 						shutdown(&mut state);

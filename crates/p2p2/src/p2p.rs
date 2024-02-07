@@ -4,6 +4,7 @@ use std::{
 	sync::{atomic::AtomicUsize, Arc, PoisonError, RwLock, RwLockReadGuard},
 };
 
+use flume::Sender;
 use hash_map_diff::hash_map_diff;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -27,7 +28,7 @@ pub struct P2P {
 	identity: Identity,
 	/// The channel is used by the application to handle incoming connections.
 	/// Connection's are automatically closed when dropped so if user forgets to subscribe to this that will just happen as expected.
-	handler_tx: mpsc::Sender<UnicastStream>,
+	handler_tx: Sender<UnicastStream>,
 	/// Metadata is shared from the local node to the remote nodes.
 	/// This will contain information such as the node's name, version, and services we provide.
 	metadata: RwLock<HashMap<String, String>>,
@@ -45,7 +46,7 @@ impl P2P {
 	pub fn new(
 		app_name: &'static str,
 		identity: Identity,
-		handler_tx: mpsc::Sender<UnicastStream>,
+		handler_tx: Sender<UnicastStream>,
 	) -> Arc<Self> {
 		app_name
 			.chars()
@@ -106,7 +107,9 @@ impl P2P {
 				.read()
 				.unwrap_or_else(PoisonError::into_inner)
 				.iter()
-				.for_each(|(id, hook)| hook.send(HookEvent::MetadataModified));
+				.for_each(|(_, hook)| {
+					hook.send(HookEvent::MetadataModified);
+				});
 		})
 	}
 
@@ -212,20 +215,18 @@ impl P2P {
 
 	/// All active listeners registered with the P2P system.
 	pub fn listeners(&self) -> Vec<Listener> {
-		// self.hooks
-		// 	.read()
-		// 	.unwrap_or_else(PoisonError::into_inner)
-		// 	.iter()
-		// 	.filter_map(|(id, hook)| {
-		// 		hook.listener.map(|listener| Listener {
-		// 			id: ListenerId(id),
-		// 			name: hook.name,
-		// 			addrs: listener.addrs,
-		// 		})
-		// 	})
-		// 	.collect()
-
-		todo!();
+		self.hooks
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.iter()
+			.filter_map(|(id, hook)| {
+				hook.listener.as_ref().map(|listener| Listener {
+					id: ListenerId(id),
+					name: hook.name,
+					addrs: listener.addrs.clone(),
+				})
+			})
+			.collect()
 	}
 
 	/// A listener is a special type of hook which is responsible for accepting incoming connections.
@@ -234,7 +235,7 @@ impl P2P {
 	pub fn register_listener(
 		&self,
 		name: &'static str,
-		tx: mpsc::Sender<HookEvent>,
+		tx: Sender<HookEvent>,
 		acceptor: impl Fn(&Arc<Peer>, &Vec<SocketAddr>) + Send + Sync + 'static,
 	) -> ListenerId {
 		let id = self
@@ -277,7 +278,7 @@ impl P2P {
 	}
 
 	/// Register a new hook which can be used to react to state changes in the P2P system.
-	pub fn register_hook(&self, name: &'static str, tx: mpsc::Sender<HookEvent>) -> HookId {
+	pub fn register_hook(&self, name: &'static str, tx: Sender<HookEvent>) -> HookId {
 		HookId(
 			self.hooks
 				.write()
@@ -291,7 +292,7 @@ impl P2P {
 	}
 
 	/// Unregister a hook. This will also call `HookEvent::Shutdown` on the hook.
-	pub fn unregister_hook(&self, id: HookId) {
+	pub async fn unregister_hook(&self, id: HookId) {
 		if let Some(hook) = self
 			.hooks
 			.write()
@@ -305,8 +306,8 @@ impl P2P {
 					.read()
 					.unwrap_or_else(PoisonError::into_inner)
 					.iter()
-					.for_each(|(id, hook)| {
-						hook.send(HookEvent::ListenerUnregistered(ListenerId(id)))
+					.for_each(|(_, hook)| {
+						hook.send(HookEvent::ListenerUnregistered(ListenerId(id.0)));
 					});
 			}
 
@@ -348,7 +349,7 @@ impl P2P {
 	}
 }
 
-#[derive(Debug, Serialize, Deserialize, Type)]
+#[derive(Debug)]
 #[non_exhaustive]
 pub struct Listener {
 	pub id: ListenerId,

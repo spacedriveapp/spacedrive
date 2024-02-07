@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use sd_p2p2::{HookEvent, RemoteIdentity, P2P};
+use sd_p2p2::{flume::bounded, HookEvent, RemoteIdentity, P2P};
 use serde::Serialize;
 use specta::Type;
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::broadcast;
 use uuid::Uuid;
 
 use super::PeerMetadata;
@@ -51,12 +51,12 @@ pub struct P2PEvents {
 impl P2PEvents {
 	pub fn spawn(p2p: Arc<P2P>) -> Self {
 		let events = broadcast::channel(15);
-		let (tx, mut rx) = mpsc::channel(15);
+		let (tx, mut rx) = bounded(15);
 		let _ = p2p.register_hook("p2p-events", tx);
 
 		let events_tx = events.0.clone();
 		tokio::spawn(async move {
-			while let Some(event) = rx.recv().await {
+			while let Ok(event) = rx.recv_async().await {
 				let event = match event {
 					// We use `HookEvent::PeerUnavailable`/`HookEvent::PeerAvailable` over `HookEvent::PeerExpiredBy`/`HookEvent::PeerDiscoveredBy` so that having an active connection is treated as "discovered".
 					// It's possible to have an active connection without mDNS data (which is what Peer*By` are for)

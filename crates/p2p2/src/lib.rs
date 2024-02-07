@@ -20,3 +20,5 @@ pub use peer::Peer;
 pub use quic::{Libp2pPeerId, QuicTransport};
 pub use smart_guards::SmartWriteGuard;
 pub use stream::UnicastStream;
+
+pub use flume;

@@ -49,11 +49,11 @@ pub struct SpaceTime {
 
 impl SpaceTime {
 	/// intialise the fabric of space time
-	pub fn new(p2p: Arc<P2P>) -> Self {
+	pub fn new(p2p: Arc<P2P>, listener_id: ListenerId) -> Self {
 		Self {
 			state: Arc::new(SpaceTimeState {
 				p2p,
-				listener_id: todo!(),
+				listener_id,
 				stream_id: Default::default(),
 			}),
 			pending_events: VecDeque::new(),

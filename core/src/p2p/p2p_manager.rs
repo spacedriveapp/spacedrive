@@ -7,12 +7,18 @@ use crate::{
 	Node,
 };
 
-use sd_p2p2::{Libp2pPeerId, Mdns, Peer, QuicTransport, RemoteIdentity, UnicastStream, P2P};
+use sd_p2p2::{
+	flume::{bounded, Receiver},
+	Libp2pPeerId, Listener, Mdns, Peer, QuicTransport, RemoteIdentity, UnicastStream, P2P,
+};
 use sd_p2p_tunnel::Tunnel;
+use serde::Serialize;
 use serde_json::json;
+use specta::Type;
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	convert::Infallible,
+	net::SocketAddr,
 	sync::{atomic::AtomicBool, Arc, Mutex, PoisonError},
 };
 
@@ -40,7 +46,7 @@ impl P2PManager {
 		node_config: Arc<config::Manager>,
 		libraries: Arc<crate::library::Libraries>,
 	) -> Result<(Arc<P2PManager>, impl FnOnce(Arc<Node>)), Infallible> {
-		let (tx, rx) = mpsc::channel(25);
+		let (tx, rx) = bounded(25);
 		let p2p = P2P::new(SPACEDRIVE_APP_ID, node_config.get().await.identity, tx);
 		let (quic, lp2p_peer_id) = QuicTransport::spawn(p2p.clone()).unwrap(); // TODO: Error handling
 		let this = Arc::new(Self {
@@ -169,7 +175,7 @@ impl P2PManager {
 			"self_identity": self.p2p.remote_identity().to_string(),
 			"self_peer_id": format!("{:?}", self.lp2p_peer_id),
 			"metadata": self.p2p.metadata().clone(),
-			"listeners": self.p2p.listeners().iter().map(|l| (l.id, l.addrs.clone())).collect::<HashMap<_, _>>().clone(),
+			"listeners": into_listener2(&self.p2p.listeners()),
 			"discovered": self.p2p.peers().iter().map(|(identity, p)| json!({
 				"identity": identity.to_string(),
 				"metadata": p.metadata().clone(),
@@ -188,9 +194,9 @@ impl P2PManager {
 async fn start(
 	this: Arc<P2PManager>,
 	node: Arc<Node>,
-	mut rx: mpsc::Receiver<UnicastStream>,
+	mut rx: Receiver<UnicastStream>,
 ) -> Result<(), ()> {
-	while let Some(mut stream) = rx.recv().await {
+	while let Ok(mut stream) = rx.recv_async().await {
 		let header = Header::from_stream(&mut stream).await.map_err(|err| {
 			error!("Failed to read header from stream: {}", err);
 		})?;
@@ -230,4 +236,21 @@ async fn start(
 	}
 
 	Ok::<_, ()>(())
+}
+
+#[derive(Debug, Serialize, Type)]
+pub struct Listener2 {
+	pub id: String,
+	pub name: &'static str,
+	pub addrs: HashSet<SocketAddr>,
+}
+
+pub fn into_listener2(l: &Vec<Listener>) -> Vec<Listener2> {
+	l.into_iter()
+		.map(|l| Listener2 {
+			id: format!("{:?}", l.id),
+			name: l.name,
+			addrs: l.addrs.clone(),
+		})
+		.collect()
 }

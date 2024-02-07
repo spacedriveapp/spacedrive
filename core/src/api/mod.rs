@@ -5,6 +5,7 @@ use crate::{
 		config::{NodeConfig, NodePreferences, P2PDiscoveryState, Port},
 		get_hardware_model_name, HardwareModel,
 	},
+	p2p::{into_listener2, Listener2},
 	Node,
 };
 
@@ -123,7 +124,7 @@ struct NodeState {
 	#[serde(flatten)]
 	config: SanitisedNodeConfig,
 	data_path: String,
-	listeners: Vec<Listener>,
+	listeners: Vec<Listener2>,
 	device_model: Option<String>,
 }
 
@@ -159,7 +160,7 @@ pub(crate) fn mount() -> Arc<Router> {
 						.to_str()
 						.expect("Found non-UTF-8 path")
 						.to_string(),
-					listeners: node.p2p.p2p.listeners(),
+					listeners: into_listener2(&node.p2p.p2p.listeners()),
 					device_model: Some(device_model),
 				})
 			})
