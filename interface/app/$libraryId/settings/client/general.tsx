@@ -28,8 +28,9 @@ const LANGUAGE_OPTIONS = [
 	{ value: 'es', label: 'Español' },
 	{ value: 'fr', label: 'Français' },
 	{ value: 'tr', label: 'Türkçe' },
-	{ value: 'zh_CN', label: '中文（简体）' },
-	{ value: 'zh_TW', label: '中文（繁體）' }
+	{ value: 'nl', label: 'Nederlands'},
+	{ value: 'zh-CN', label: '中文（简体）' },
+	{ value: 'zh-TW', label: '中文（繁體）' }
 ];
 
 export const Component = () => {
