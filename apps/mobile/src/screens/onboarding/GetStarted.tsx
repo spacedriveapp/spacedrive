@@ -1,6 +1,6 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { AppLogo, BloomOne } from '@sd/assets/images';
-import { SdIntro } from '@sd/assets/videos';
+import { sdintro } from '@sd/assets/videos';
 import { ResizeMode, Video } from 'expo-av';
 import { MotiView } from 'moti';
 import { CaretLeft } from 'phosphor-react-native';
@@ -36,7 +36,7 @@ export function OnboardingContainer({ children }: React.PropsWithChildren) {
 								store.showIntro = false;
 							}
 						}}
-						source={SdIntro}
+						source={sdintro}
 						isMuted
 						resizeMode={ResizeMode.CONTAIN}
 					/>
