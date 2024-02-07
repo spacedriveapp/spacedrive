@@ -40,7 +40,6 @@ export type Procedures = {
         { key: "notifications.dismiss", input: NotificationId, result: null } | 
         { key: "notifications.dismissAll", input: never, result: null } | 
         { key: "notifications.get", input: never, result: Notification[] } | 
-        { key: "p2p.state", input: never, result: JsonValue } | 
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.objectsCount", input: LibraryArgs<{ filters?: SearchFilterArgs[] }>, result: number } | 
@@ -108,7 +107,6 @@ export type Procedures = {
         { key: "locations.relink", input: LibraryArgs<string>, result: number } | 
         { key: "locations.subPathRescan", input: LibraryArgs<RescanArgs>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
-        { key: "nodes.edit", input: ChangeNodeNameArgs, result: null } | 
         { key: "nodes.updateThumbnailerPreferences", input: UpdateThumbnailerPreferences, result: null } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
         { key: "p2p.cancelSpacedrop", input: string, result: null } | 
@@ -131,7 +129,6 @@ export type Procedures = {
         { key: "locations.online", input: never, result: number[][] } | 
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "notifications.listen", input: never, result: Notification } | 
-        { key: "p2p.events", input: never, result: P2PEvent } | 
         { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: EphemeralPathsResultItem } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
@@ -158,8 +155,6 @@ export type CRDTOperationData = "c" | { u: { field: string; value: JsonValue } }
 export type CacheNode = { __type: string; __id: string; "#node": any }
 
 export type CameraData = { device_make: string | null; device_model: string | null; color_space: string | null; color_profile: ColorProfile | null; focal_length: number | null; shutter_speed: number | null; flash: Flash | null; orientation: Orientation; lens_make: string | null; lens_model: string | null; bit_depth: number | null; red_eye: boolean | null; zoom: number | null; iso: number | null; software: string | null; serial_number: string | null; lens_serial_number: string | null; contrast: number | null; saturation: number | null; sharpness: number | null; composite: Composite | null }
-
-export type ChangeNodeNameArgs = { name: string | null; p2p_port: MaybeUndefined<number>; p2p_enabled: boolean | null; image_labeler_version: string | null }
 
 export type CloudInstance = { id: string; uuid: string; identity: RemoteIdentity; nodeId: string; nodeName: string; nodePlatform: number }
 
@@ -396,199 +391,4 @@ export type LibraryPreferences = { location?: { [key in string]: LocationSetting
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
-export type ListenerStatus = { status: "Disabled" } | { status: "Enabling" } | { status: "Listening"; port: number } | { status: "Error"; error: string }
-
-export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null }
-
-/**
- * `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
- * It has the actual path and a vector of indexer rules ids, to create many-to-many relationships
- * between the location and indexer rules.
- */
-export type LocationCreateArgs = { path: string; dry_run: boolean; indexer_rules_ids: number[] }
-
-export type LocationSettings = { explorer: ExplorerSettings<FilePathOrder> }
-
-/**
- * `LocationUpdateArgs` is the argument received from the client using `rspc` to update a location.
- * It contains the id of the location to be updated, possible a name to change the current location's name
- * and a vector of indexer rules ids to add or remove from the location.
- * 
- * It is important to note that only the indexer rule ids in this vector will be used from now on.
- * Old rules that aren't in this vector will be purged.
- */
-export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[]; path: string | null }
-
-export type LocationWithIndexerRule = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: Reference<IndexerRule>[] }
-
-export type MaybeUndefined<T> = null | T
-
-export type MediaDataOrder = { field: "epochTime"; value: SortOrder }
-
-/**
- * This can be either naive with no TZ (`YYYY-MM-DD HH-MM-SS`) or UTC (`YYYY-MM-DD HH-MM-SS ±HHMM`),
- * where `±HHMM` is the timezone data. It may be negative if West of the Prime Meridian, or positive if East.
- */
-export type MediaDate = string
-
-export type MediaLocation = { latitude: number; longitude: number; pluscode: PlusCode; altitude: number | null; direction: number | null }
-
-export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata)
-
-export type NodePreferences = { thumbnailer: ThumbnailerPreferences }
-
-export type NodeState = ({ 
-/**
- * id is a unique identifier for the current node. Each node has a public identifier (this one) and is given a local id for each library (done within the library code).
- */
-id: string; 
-/**
- * name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
- */
-name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[]; preferences: NodePreferences; image_labeler_version: string | null }) & { data_path: string; p2p: P2PStatus; device_model: string | null }
-
-export type NonIndexedPathItem = { path: string; name: string; extension: string; kind: number; is_dir: boolean; date_created: string; date_modified: string; size_in_bytes_bytes: number[]; hidden: boolean }
-
-/**
- * A type that can be used to return a group of `Reference<T>` and `CacheNode`'s
- * 
- * You don't need to use this, it's just a shortcut to avoid having to write out the full type everytime.
- */
-export type NormalisedResult<T> = { item: Reference<T>; nodes: CacheNode[] }
-
-/**
- * A type that can be used to return a group of `Reference<T>` and `CacheNode`'s
- * 
- * You don't need to use this, it's just a shortcut to avoid having to write out the full type everytime.
- */
-export type NormalisedResults<T> = { items: Reference<T>[]; nodes: CacheNode[] }
-
-/**
- * Represents a single notification.
- */
-export type Notification = ({ type: "library"; id: [string, number] } | { type: "node"; id: number }) & { data: NotificationData; read: boolean; expires: string | null }
-
-/**
- * Represents the data of a single notification.
- * This data is used by the frontend to properly display the notification.
- */
-export type NotificationData = { title: string; content: string; kind: NotificationKind }
-
-export type NotificationId = { type: "library"; id: [string, number] } | { type: "node"; id: number }
-
-export type NotificationKind = "info" | "success" | "error" | "warning"
-
-export type Object = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null }
-
-export type ObjectCursor = "none" | { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
-
-export type ObjectFilterArgs = { favorite: boolean } | { hidden: ObjectHiddenFilter } | { kind: InOrNotIn<number> } | { tags: InOrNotIn<number> } | { labels: InOrNotIn<number> } | { dateAccessed: Range<string> }
-
-export type ObjectHiddenFilter = "exclude" | "include"
-
-export type ObjectOrder = { field: "dateAccessed"; value: SortOrder } | { field: "kind"; value: SortOrder } | { field: "mediaData"; value: MediaDataOrder }
-
-export type ObjectSearchArgs = { take: number; orderAndPagination?: OrderAndPagination<number, ObjectOrder, ObjectCursor> | null; filters?: SearchFilterArgs[] }
-
-export type ObjectValidatorArgs = { id: number; path: string }
-
-export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[] }
-
-export type ObjectWithFilePaths2 = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: Reference<FilePath>[] }
-
-/**
- * Represents the operating system which the remote peer is running.
- * This is not used internally and predominantly is designed to be used for display purposes by the embedding application.
- */
-export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "Ios" | "Android" | { Other: string }
-
-export type OrderAndPagination<TId, TOrder, TCursor> = { orderOnly: TOrder } | { offset: { offset: number; order: TOrder | null } } | { cursor: { id: TId; cursor: TCursor } }
-
-export type Orientation = "Normal" | "CW90" | "CW180" | "CW270" | "MirroredVertical" | "MirroredHorizontal" | "MirroredHorizontalAnd90CW" | "MirroredHorizontalAnd270CW"
-
-/**
- * TODO: P2P event for the frontend
- */
-export type P2PEvent = { type: "DiscoveredPeer"; identity: RemoteIdentity; metadata: PeerMetadata } | { type: "ExpiredPeer"; identity: RemoteIdentity } | { type: "ConnectedPeer"; identity: RemoteIdentity } | { type: "DisconnectedPeer"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedout"; id: string } | { type: "SpacedropRejected"; id: string }
-
-export type P2PStatus = { ipv4: ListenerStatus; ipv6: ListenerStatus }
-
-export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; device_model: HardwareModel | null; version: string | null }
-
-export type PlusCode = string
-
-export type Range<T> = { from: T } | { to: T }
-
-/**
- * A reference to a `CacheNode`.
- * 
- * This does not contain the actual data, but instead a reference to it.
- * This allows the CacheNode's to be switched out and the query recomputed without any backend communication.
- * 
- * If you use a `Reference` in a query, you *must* ensure the corresponding `CacheNode` is also in the query.
- */
-export type Reference<T> = { __type: string; __id: string; "#type": T }
-
-export type RemoteIdentity = string
-
-export type RenameFileArgs = { location_id: number; kind: RenameKind }
-
-export type RenameKind = { One: RenameOne } | { Many: RenameMany }
-
-export type RenameMany = { from_pattern: FromPattern; to_pattern: string; from_file_path_ids: number[] }
-
-export type RenameOne = { from_file_path_id: number; to: string }
-
-export type RescanArgs = { location_id: number; sub_path: string }
-
-export type Resolution = { width: number; height: number }
-
-export type Response = { Start: { user_code: string; verification_url: string; verification_url_complete: string } } | "Complete" | { Error: string }
-
-export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
-
-export type SavedSearch = { id: number; pub_id: number[]; search: string | null; filters: string | null; name: string | null; icon: string | null; description: string | null; date_created: string | null; date_modified: string | null }
-
-export type SearchData<T> = { cursor: number[] | null; items: Reference<T>[]; nodes: CacheNode[] }
-
-export type SearchFilterArgs = { filePath: FilePathFilterArgs } | { object: ObjectFilterArgs }
-
-export type SetFavoriteArgs = { id: number; favorite: boolean }
-
-export type SetNoteArgs = { id: number; note: string | null }
-
-export type SingleInvalidateOperationEvent = { 
-/**
- * This fields are intentionally private.
- */
-key: string; arg: JsonValue; result: JsonValue | null }
-
-export type SortOrder = "Asc" | "Desc"
-
-export type SpacedropArgs = { identity: RemoteIdentity; file_path: string[] }
-
-export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
-
-export type StatisticsResponse = { statistics: Statistics | null }
-
-export type SystemLocations = { desktop: string | null; documents: string | null; downloads: string | null; pictures: string | null; music: string | null; videos: string | null }
-
-export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; is_hidden: boolean | null; date_created: string | null; date_modified: string | null }
-
-export type TagCreateArgs = { name: string; color: string }
-
-export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
-
-export type Target = { Object: number } | { FilePath: number }
-
-export type TestingParams = { id: string; path: string }
-
-export type TextMatch = { contains: string } | { startsWith: string } | { endsWith: string } | { equals: string }
-
-export type ThumbnailerPreferences = { background_processing_percentage: number }
-
-export type UpdateThumbnailerPreferences = { background_processing_percentage: number }
-
-export type VideoMetadata = { duration: number | null; video_codec: string | null; audio_codec: string | null }
-
-export type Volume = { name: string; mount_points: string[]; total_capacity: string; available_capacity: string; disk_type: DiskType; file_system: string | null; is_root_filesystem: boolean }
+export type Listener = { id: ListenerId; name: string; addrs: string[] }

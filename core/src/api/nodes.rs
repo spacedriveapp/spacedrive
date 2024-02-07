@@ -64,9 +64,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								new_model = sd_ai::image_labeler::YoloV8::model(Some(&version))
 									.map_err(|e| {
 										error!(
-										"Failed to crate image_detection model: '{}'; Error: {e:#?}",
-										&version,
-									);
+											"Failed to crate image_detection model: '{}'; Error: {e:#?}",
+											&version,
+										);
 									})
 									.ok();
 								if new_model.is_some() {

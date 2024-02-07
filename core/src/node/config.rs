@@ -104,8 +104,7 @@ mod identity_serde {
 		D: Deserializer<'de>,
 	{
 		let s = String::deserialize(deserializer)?;
-		Ok(Identity::from_bytes(&base91::slice_decode(s.as_bytes()))
-			.map_err(serde::de::Error::custom)?)
+		Identity::from_bytes(&base91::slice_decode(s.as_bytes())).map_err(serde::de::Error::custom)
 	}
 
 	pub fn to_string(identity: &Identity) -> String {
