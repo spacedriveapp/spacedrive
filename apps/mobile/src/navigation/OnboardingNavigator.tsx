@@ -1,4 +1,6 @@
 import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
+import { useEffect } from 'react';
+import { useOnboardingStore } from '@sd/client';
 import { OnboardingContext, useContextValue } from '~/screens/onboarding/context';
 import CreatingLibraryScreen from '~/screens/onboarding/CreatingLibrary';
 import GetStartedScreen from '~/screens/onboarding/GetStarted';
