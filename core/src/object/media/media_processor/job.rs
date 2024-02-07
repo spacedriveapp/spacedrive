@@ -21,7 +21,6 @@ use sd_utils::db::maybe_missing;
 
 #[cfg(feature = "ai")]
 use sd_ai::image_labeler::{BatchToken as ImageLabelerBatchToken, LabelerOutput};
-use uuid::Uuid;
 
 #[cfg(feature = "ai")]
 use std::sync::Arc;
@@ -192,7 +191,7 @@ impl StatefulJob for MediaProcessorJobInit {
 					.await;
 				(labeler_batch_token, Some(labels_rx))
 			} else {
-				(Uuid::new_v4(), None)
+				(uuid::Uuid::new_v4(), None)
 			};
 
 		let total_files = file_paths.len();
