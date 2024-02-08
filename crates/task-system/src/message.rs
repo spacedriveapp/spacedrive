@@ -6,10 +6,10 @@ use super::{
 	worker::WorkerId,
 };
 
+#[derive(Debug)]
 pub(crate) enum SystemMessage {
 	IdleReport(WorkerId),
 	WorkingReport(WorkerId),
-	ActiveReports(Vec<WorkerId>),
 	ResumeTask {
 		task_id: TaskId,
 		worker_id: WorkerId,
@@ -27,6 +27,7 @@ pub(crate) enum SystemMessage {
 	ShutdownRequest(oneshot::Sender<Result<(), Error>>),
 }
 
+#[derive(Debug)]
 pub(crate) enum WorkerMessage {
 	NewTask(TaskWorkState),
 	TaskCountRequest(oneshot::Sender<usize>),

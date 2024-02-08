@@ -1,24 +1,29 @@
 use std::{
 	cell::RefCell,
 	sync::{atomic::AtomicUsize, Arc},
+	time::Duration,
 };
 
 use async_channel as chan;
 use tokio::{spawn, sync::oneshot, task::JoinHandle};
-use tracing::{error, info, warn};
-
-use crate::task::Interrupter;
+use tracing::{error, info, trace, warn};
 
 use super::{
 	error::Error,
 	message::WorkerMessage,
 	system::SystemComm,
-	task::{DynTask, TaskHandle, TaskId, TaskWorkState, TaskWorktable},
+	task::{
+		DynTask, InternalTaskExecStatus, Interrupter, TaskHandle, TaskId, TaskWorkState,
+		TaskWorktable,
+	},
 };
 
 mod run;
+mod runner;
 
 use run::run;
+
+const ONE_SECOND: Duration = Duration::from_secs(1);
 
 pub type WorkerId = usize;
 pub(crate) type AtomicWorkerId = AtomicUsize;
@@ -61,24 +66,29 @@ impl WorkerBuilder {
 			let task_stealer = task_stealer.clone();
 
 			async move {
-				loop {
-					if let Err(e) = spawn(run(
-						id,
-						system_comm.clone(),
-						task_stealer.clone(),
-						msgs_rx.clone(),
-					))
-					.await
-					{
-						if e.is_panic() {
-							error!("Worker {id} critically failed and will restart: {e:#?}");
-							continue;
-						}
+				trace!("Worker <worker_id='{id}'> message processing task starting...");
+				while let Err(e) = spawn(run(
+					id,
+					system_comm.clone(),
+					task_stealer.clone(),
+					msgs_rx.clone(),
+				))
+				.await
+				{
+					if e.is_panic() {
+						error!(
+							"Worker <worker_id='{id}'> critically failed and will restart: \
+							{e:#?}"
+						);
+					} else {
+						trace!(
+							"Worker <worker_id='{id}'> received shutdown signal and will exit..."
+						);
+						break;
 					}
-
-					info!("Worker {id} gracefully shutdown");
-					break;
 				}
+
+				info!("Worker <worker_id='{id}'> gracefully shutdown");
 			}
 		});
 
@@ -246,8 +256,18 @@ impl WorkStealer {
 			// Removing the current worker as we can't steal from ourselves
 			.filter(|worker_comm| worker_comm.worker_id != worker_id)
 		{
+			trace!(
+				"Trying to steal from worker <worker_id='{}', stealer_id='{worker_id}'>",
+				worker_comm.worker_id
+			);
+
 			if let Some(task) = worker_comm.steal_task(worker_id).await {
 				return Some(task);
+			} else {
+				trace!(
+					"Worker <worker_id='{}', stealer_id='{worker_id}'> has no tasks to steal",
+					worker_comm.worker_id
+				);
 			}
 		}
 
@@ -257,4 +277,14 @@ impl WorkStealer {
 	pub fn workers_count(&self) -> usize {
 		self.worker_comms.len()
 	}
+}
+
+struct TaskRunnerOutput {
+	task_work_state: TaskWorkState,
+	status: InternalTaskExecStatus,
+}
+
+enum RunnerMessage {
+	TaskOutput(TaskId, Result<TaskRunnerOutput, Error>),
+	StealedTask(Option<TaskWorkState>),
 }

@@ -2,14 +2,17 @@ use std::{
 	cell::RefCell,
 	collections::HashSet,
 	pin::pin,
-	sync::{atomic::Ordering, Arc},
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
 };
 
 use async_channel as chan;
 use futures::StreamExt;
 use futures_concurrency::future::Join;
 use tokio::{spawn, sync::oneshot, task::JoinHandle};
-use tracing::{error, warn};
+use tracing::{error, info, trace, warn};
 
 use super::{
 	error::Error,
@@ -44,6 +47,8 @@ impl System {
 
 		let task_stealer = WorkStealer::new(worker_comms);
 
+		let idle_workers = Arc::new((0..workers_count).map(|_| AtomicBool::new(true)).collect());
+
 		let workers = Arc::new(
 			workers_builders
 				.into_iter()
@@ -54,24 +59,38 @@ impl System {
 		let handle = spawn({
 			let workers = Arc::clone(&workers);
 			let msgs_rx = msgs_rx.clone();
+			let idle_workers = Arc::clone(&idle_workers);
 
 			async move {
-				while let Err(e) = spawn(Self::run(Arc::clone(&workers), msgs_rx.clone())).await {
+				trace!("Task System message processing task starting...");
+				while let Err(e) = spawn(Self::run(
+					Arc::clone(&workers),
+					Arc::clone(&idle_workers),
+					msgs_rx.clone(),
+				))
+				.await
+				{
 					if e.is_panic() {
 						error!("Job system panicked: {e:#?}");
 					} else {
-						error!("Job system failed: {e:#?}");
+						trace!("Task system received shutdown signal and will exit...");
+						break;
 					}
+					trace!("Restarting task system message processing task...")
 				}
+
+				info!("Task system gracefully shutdown");
 			}
 		});
 
+		trace!("Task system online!");
+
 		Self {
 			workers: Arc::clone(&workers),
-			msgs_tx: msgs_tx.clone(),
+			msgs_tx,
 			dispatcher: Dispatcher {
 				workers,
-				msgs_tx,
+				idle_workers,
 				last_worker_id: Arc::new(AtomicWorkerId::new(0)),
 			},
 
@@ -91,49 +110,63 @@ impl System {
 		self.dispatcher.clone()
 	}
 
-	async fn run(workers: Arc<Vec<Worker>>, msgs_rx: chan::Receiver<SystemMessage>) {
+	async fn run(
+		workers: Arc<Vec<Worker>>,
+		idle_workers: Arc<Vec<AtomicBool>>,
+		msgs_rx: chan::Receiver<SystemMessage>,
+	) {
 		let mut msg_stream = pin!(msgs_rx);
-
-		let mut idle_workers = vec![true; workers.len()];
 
 		while let Some(msg) = msg_stream.next().await {
 			match msg {
 				SystemMessage::IdleReport(worker_id) => {
-					idle_workers[worker_id] = true;
+					trace!("Task system received a worker idle report request: <worker_id='{worker_id}'>");
+					idle_workers[worker_id].store(true, Ordering::Relaxed);
 				}
 
 				SystemMessage::WorkingReport(worker_id) => {
-					idle_workers[worker_id] = false;
-				}
-
-				SystemMessage::ActiveReports(worker_ids) => {
-					for worker_id in worker_ids {
-						idle_workers[worker_id] = false;
-					}
+					trace!(
+						"Task system received a working report request: <worker_id='{worker_id}'>"
+					);
+					idle_workers[worker_id].store(false, Ordering::Relaxed);
 				}
 
 				SystemMessage::ResumeTask {
 					task_id,
 					worker_id,
 					ack,
-				} => workers[worker_id].resume_task(task_id, ack).await,
+				} => {
+					trace!("Task system received a task resume request: <task_id='{task_id}', worker_id='{worker_id}'>");
+					workers[worker_id].resume_task(task_id, ack).await;
+				}
 
 				SystemMessage::ForceAbortion {
 					task_id,
 					worker_id,
 					ack,
-				} => workers[worker_id].force_task_abortion(task_id, ack).await,
+				} => {
+					trace!(
+						"Task system received a task force abortion request: \
+						<task_id='{task_id}', worker_id='{worker_id}'>"
+					);
+					workers[worker_id].force_task_abortion(task_id, ack).await;
+				}
 
 				SystemMessage::NotifyIdleWorkers {
 					start_from,
 					task_count,
 				} => {
+					trace!(
+						"Task system received a request to notify idle workers: \
+						<start_from='{start_from}', task_count='{task_count}'>"
+					);
+
 					for idx in (0..workers.len())
 						.cycle()
 						.skip(start_from)
 						.take(usize::min(task_count, workers.len()))
 					{
-						if idle_workers[idx] {
+						if idle_workers[idx].load(Ordering::Relaxed) {
 							workers[idx].wake().await;
 							// we don't mark the worker as not idle because we wait for it to
 							// successfully steal a task and then report it back as active
@@ -142,9 +175,10 @@ impl System {
 				}
 
 				SystemMessage::ShutdownRequest(tx) => {
+					trace!("Task system received a shutdown request");
 					tx.send(Ok(()))
 						.expect("System channel closed trying to shutdown");
-					break;
+					return;
 				}
 			}
 		}
@@ -256,7 +290,7 @@ impl SystemComm {
 #[derive(Clone, Debug)]
 pub struct Dispatcher {
 	workers: Arc<Vec<Worker>>,
-	msgs_tx: chan::Sender<SystemMessage>,
+	idle_workers: Arc<Vec<AtomicBool>>,
 	last_worker_id: Arc<AtomicWorkerId>,
 }
 
@@ -273,12 +307,10 @@ impl Dispatcher {
 				})
 				.expect("we hardcoded the update function to always return Some(next_worker_id) through dispatcher");
 
+			trace!("Dispatching task to worker: <worker_id='{worker_id}'>");
 			let handle = self.workers[worker_id].add_task(task).await;
 
-			self.msgs_tx
-				.send(SystemMessage::ActiveReports(vec![worker_id]))
-				.await
-				.expect("System channel closed trying to report active worker through dispatcher");
+			self.idle_workers[worker_id].store(false, Ordering::Relaxed);
 
 			handle
 		};
@@ -310,12 +342,9 @@ impl Dispatcher {
 			.into_iter()
 			.unzip::<_, _, Vec<_>, HashSet<_>>();
 
-		self.msgs_tx
-			.send(SystemMessage::ActiveReports(
-				workers_ids_set.into_iter().collect(),
-			))
-			.await
-			.expect("System channel closed trying to report active workers");
+		workers_ids_set.into_iter().for_each(|worker_id| {
+			self.idle_workers[worker_id].store(false, Ordering::Relaxed);
+		});
 
 		handles
 	}

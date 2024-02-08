@@ -16,6 +16,7 @@ use futures::stream::{self, FuturesUnordered, StreamExt};
 use futures_concurrency::future::Race;
 use tokio::{
 	fs, spawn,
+	sync::broadcast,
 	time::{sleep, Instant},
 };
 use tracing::{error, info, warn};
@@ -33,8 +34,10 @@ impl SampleActor {
 		data_directory: impl AsRef<Path>,
 		data: String,
 		task_dispatcher: TaskDispatcher,
-	) -> Self {
+	) -> (Self, broadcast::Receiver<()>) {
 		let (task_handles_tx, task_handles_rx) = chan::bounded(8);
+
+		let (idle_tx, idle_rx) = broadcast::channel(1);
 
 		let save_state_file_path = data_directory
 			.as_ref()
@@ -61,7 +64,7 @@ impl SampleActor {
 			})
 			.unwrap_or_default();
 
-		spawn(Self::run(save_state_file_path, task_handles_rx));
+		spawn(Self::run(save_state_file_path, task_handles_rx, idle_tx));
 
 		for SampleActorTaskSaveState {
 			id,
@@ -91,11 +94,14 @@ impl SampleActor {
 				.expect("Task handle receiver dropped");
 		}
 
-		Self {
-			data,
-			task_dispatcher,
-			task_handles_tx,
-		}
+		(
+			Self {
+				data,
+				task_dispatcher,
+				task_handles_tx,
+			},
+			idle_rx,
+		)
 	}
 
 	pub fn new_task(&self, duration: Duration) -> SampleActorTask {
@@ -135,7 +141,11 @@ impl SampleActor {
 		self.inner_process(duration, true).await
 	}
 
-	async fn run(save_state_file_path: PathBuf, task_handles_rx: chan::Receiver<TaskHandle>) {
+	async fn run(
+		save_state_file_path: PathBuf,
+		task_handles_rx: chan::Receiver<TaskHandle>,
+		idle_tx: broadcast::Sender<()>,
+	) {
 		let mut handles = FuturesUnordered::<TaskHandle>::new();
 
 		enum RaceOutput {
@@ -143,6 +153,8 @@ impl SampleActor {
 			CompletedHandle,
 			Stop(Option<DynTask>),
 		}
+
+		let mut pending = 0usize;
 
 		loop {
 			match (
@@ -170,18 +182,29 @@ impl SampleActor {
 								error!("Task failed: {e:#?}");
 							}
 						}
-					}
 
-					RaceOutput::CompletedHandle
+						RaceOutput::CompletedHandle
+					} else {
+						RaceOutput::Stop(None)
+					}
 				},
 			)
 				.race()
 				.await
 			{
 				RaceOutput::NewHandle(handle) => {
+					pending += 1;
+					info!("Received new task handle, total pending tasks: {pending}");
 					handles.push(handle);
 				}
-				RaceOutput::CompletedHandle => {}
+				RaceOutput::CompletedHandle => {
+					pending -= 1;
+					info!("Task completed, total pending tasks: {pending}");
+					if pending == 0 {
+						info!("All tasks completed, sending idle report...");
+						idle_tx.send(()).expect("idle receiver dropped");
+					}
+				}
 				RaceOutput::Stop(maybe_task) => {
 					task_handles_rx.close();
 					task_handles_rx
@@ -289,27 +312,30 @@ async fn run_actor_task(
 		Completed,
 	}
 
-	match (
-		async {
-			sleep(*task_duration).await;
-			RaceOutput::Completed
-		},
-		async {
-			match interrupter.await {
-				InterruptionKind::Pause => RaceOutput::Paused(*task_duration - start.elapsed()),
-				InterruptionKind::Cancel => RaceOutput::Canceled,
-			}
-		},
-	)
-		.race()
-		.await
-	{
+	let task_work_fut = async {
+		sleep(*task_duration).await;
+		RaceOutput::Completed
+	};
+
+	let interrupt_fut = async {
+		let elapsed = start.elapsed();
+		match interrupter.await {
+			InterruptionKind::Pause => RaceOutput::Paused(if elapsed < *task_duration {
+				*task_duration - elapsed
+			} else {
+				Duration::ZERO
+			}),
+			InterruptionKind::Cancel => RaceOutput::Canceled,
+		}
+	};
+
+	match (task_work_fut, interrupt_fut).race().await {
+		RaceOutput::Completed | RaceOutput::Paused(Duration::ZERO) => Ok(ExecStatus::Done),
 		RaceOutput::Paused(remaining_duration) => {
 			*task_duration = remaining_duration;
 			Ok(ExecStatus::Paused)
 		}
 		RaceOutput::Canceled => Ok(ExecStatus::Canceled),
-		RaceOutput::Completed => Ok(ExecStatus::Done),
 	}
 }
 

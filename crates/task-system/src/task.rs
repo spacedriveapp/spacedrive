@@ -84,6 +84,7 @@ pub trait Task: fmt::Debug + Downcast + Send + 'static {
 
 impl_downcast!(Task);
 
+#[derive(Debug)]
 pub struct Interrupter {
 	interrupt_rx: chan::Receiver<InterruptionRequest>,
 	has_interrupted: AtomicU8,
@@ -164,6 +165,7 @@ impl InterruptionKind {
 	}
 }
 
+#[derive(Debug)]
 pub(crate) struct InterruptionRequest {
 	kind: InterruptionKind,
 	ack: oneshot::Sender<Result<(), Error>>,
@@ -318,6 +320,7 @@ impl TaskWorktable {
 	}
 }
 
+#[derive(Debug)]
 pub(crate) struct TaskWorkState {
 	pub(crate) task: DynTask,
 	pub(crate) worktable: Arc<TaskWorktable>,
@@ -487,20 +490,20 @@ impl TaskHandlesBag {
 	}
 }
 
-async fn cancel_tasks(handles: FuturesUnordered<TaskHandle>) {
-	handles
-		.into_iter()
-		.map(|handle| {
-			#[allow(clippy::async_yields_async)]
-			async move {
-				if let Err(e) = handle.cancel().await {
-					error!("Failed to cancel task: {e:#?}");
-				}
+// async fn cancel_tasks(handles: FuturesUnordered<TaskHandle>) {
+// 	handles
+// 		.into_iter()
+// 		.map(|handle| {
+// 			#[allow(clippy::async_yields_async)]
+// 			async move {
+// 				if let Err(e) = handle.cancel().await {
+// 					error!("Failed to cancel task: {e:#?}");
+// 				}
 
-				handle
-			}
-		})
-		.collect::<Vec<_>>()
-		.join()
-		.await;
-}
+// 				handle
+// 			}
+// 		})
+// 		.collect::<Vec<_>>()
+// 		.join()
+// 		.await;
+// }
