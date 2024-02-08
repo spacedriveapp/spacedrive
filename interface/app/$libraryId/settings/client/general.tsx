@@ -22,6 +22,8 @@ const NodeSettingLabel = tw.div`mb-1 text-xs font-medium`;
 // https://doc.rust-lang.org/std/u16/index.html
 const u16 = z.number().min(0).max(65_535);
 
+// Unsorted list of languages available in the app.
+// Make sure to add new languages to this list and to `project.inlang/settings.json`
 const LANGUAGE_OPTIONS = [
 	{ value: 'en', label: 'English' },
 	{ value: 'de', label: 'Deutsch' },
@@ -32,6 +34,9 @@ const LANGUAGE_OPTIONS = [
 	{ value: 'zh-CN', label: '中文（简体）' },
 	{ value: 'zh-TW', label: '中文（繁體）' }
 ];
+
+// Sort the languages by their label
+LANGUAGE_OPTIONS.sort((a, b) => a.label.localeCompare(b.label));
 
 export const Component = () => {
 	const node = useBridgeQuery(['nodeState']);
