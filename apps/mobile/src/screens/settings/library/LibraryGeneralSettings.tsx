@@ -1,7 +1,7 @@
 import { Trash } from 'phosphor-react-native';
 import React from 'react';
 import { Controller } from 'react-hook-form';
-import { Alert, View } from 'react-native';
+import { Alert, Text, View } from 'react-native';
 import { z } from 'zod';
 import { useBridgeMutation, useLibraryContext, useZodForm } from '@sd/client';
 import { Input } from '~/components/form/Input';
@@ -38,7 +38,7 @@ const LibraryGeneralSettingsScreen = (_: SettingsStackScreenProps<'LibraryGenera
 
 	return (
 		<View style={tw`gap-4`}>
-			<View style={tw`mt-4 px-2`}>
+			<View style={tw`px-2 mt-4`}>
 				<SettingsTitle>Name</SettingsTitle>
 				<Controller
 					name="name"
@@ -66,21 +66,7 @@ const LibraryGeneralSettingsScreen = (_: SettingsStackScreenProps<'LibraryGenera
 				{/* Export */}
 				<SettingsItem title="Export Library" onPress={() => Alert.alert('TODO')} />
 				{/* Delete Library */}
-				<SettingsContainer description="This is permanent, your files will not be deleted, only the Spacedrive library.">
-					<SettingsItem
-						title="Delete Library"
-						rightArea={
-							<DeleteLibraryModal
-								libraryUuid={library.uuid}
-								trigger={
-									<FakeButton size="sm" variant="danger">
-										<Trash color={tw.color('ink')} size={20} />
-									</FakeButton>
-								}
-							/>
-						}
-					/>
-				</SettingsContainer>
+				<DeleteLibraryModal trigger={<Text>Delete</Text>} libraryUuid={library.uuid} />
 			</View>
 		</View>
 	);

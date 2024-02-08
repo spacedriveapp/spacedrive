@@ -1,8 +1,9 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { CheckCircle } from 'phosphor-react-native';
 import React from 'react';
 import { ScrollView, View } from 'react-native';
-import { useLibraryQuery } from '@sd/client';
+import { resetOnboardingStore, useLibraryQuery } from '@sd/client';
 import { PulseAnimation } from '~/components/animation/lottie';
 import BrowseLocations from '~/components/browse/BrowseLocations';
 import BrowseTags from '~/components/browse/BrowseTags';
