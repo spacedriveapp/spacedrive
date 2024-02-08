@@ -3,6 +3,7 @@ import { useKeys } from 'rooks';
 import { useSnapshot } from 'valtio';
 import { valtioPersist } from '@sd/client';
 import { modifierSymbols } from '@sd/ui';
+import i18n from '~/app/I18n';
 import { useRoutingContext } from '~/RoutingContext';
 import { OperatingSystem } from '~/util/Platform';
 
@@ -18,13 +19,12 @@ export type ShortcutCategory = {
 	description: string;
 	shortcuts: Record<string, Shortcut>;
 };
-
 export const shortcutCategories = {
-	General: {
-		description: 'General usage shortcuts',
+	[i18n.t('general')]: {
+		description: i18n.t('general_shortcut_description'),
 		shortcuts: {
 			newTab: {
-				action: 'Open new tab',
+				action: i18n.t('open_new_tab'),
 				keys: {
 					macOS: ['Meta', 'KeyT'],
 					all: ['Control', 'KeyT']
@@ -35,7 +35,7 @@ export const shortcutCategories = {
 				}
 			},
 			closeTab: {
-				action: 'Close current tab',
+				action: i18n.t('close_current_tab'),
 				keys: {
 					macOS: ['Meta', 'KeyW'],
 					all: ['Control', 'KeyW']
@@ -46,7 +46,7 @@ export const shortcutCategories = {
 				}
 			},
 			nextTab: {
-				action: 'Switch to next tab',
+				action: i18n.t('switch_to_next_tab'),
 				keys: {
 					macOS: ['Meta', 'Alt', 'ArrowRight'],
 					all: ['Control', 'Alt', 'ArrowRight']
@@ -61,7 +61,7 @@ export const shortcutCategories = {
 				}
 			},
 			previousTab: {
-				action: 'Switch to previous tab',
+				action: i18n.t('switch_to_previous_tab'),
 				keys: {
 					macOS: ['Meta', 'Alt', 'ArrowLeft'],
 					all: ['Control', 'Alt', 'ArrowLeft']
@@ -77,11 +77,11 @@ export const shortcutCategories = {
 			}
 		}
 	},
-	Dialogs: {
-		description: 'To perform actions and operations',
+	[i18n.t('dialog')]: {
+		description: i18n.t('dialog_shortcut_description'),
 		shortcuts: {
 			toggleJobManager: {
-				action: 'Toggle job manager',
+				action: i18n.t('toggle_job_manager'),
 				keys: {
 					macOS: ['Meta', 'KeyJ'],
 					all: ['Control', 'KeyJ']
@@ -93,11 +93,11 @@ export const shortcutCategories = {
 			}
 		}
 	},
-	Pages: {
-		description: 'Different pages in the app',
+	[i18n.t('page')]: {
+		description: i18n.t('page_shortcut_description'),
 		shortcuts: {
 			navBackwardHistory: {
-				action: 'Navigate backwards',
+				action: i18n.t('navigate_backwards'),
 				keys: {
 					macOS: ['Meta', '['],
 					all: ['Control', '[']
@@ -108,7 +108,7 @@ export const shortcutCategories = {
 				}
 			},
 			navForwardHistory: {
-				action: 'Navigate forwards',
+				action: i18n.t('navigate_forwards'),
 				keys: {
 					macOS: ['Meta', ']'],
 					all: ['Control', ']']
@@ -119,7 +119,7 @@ export const shortcutCategories = {
 				}
 			},
 			navToSettings: {
-				action: 'Navigate to Settings page',
+				action: i18n.t('navigate_to_settings_page'),
 				keys: {
 					macOS: ['Shift', 'Meta', 'KeyT'],
 					all: ['Shift', 'Control', 'KeyT']
@@ -135,11 +135,11 @@ export const shortcutCategories = {
 			}
 		}
 	},
-	Explorer: {
-		description: 'To navigate and interact with the file system',
+	[i18n.t('explorer')]: {
+		description: i18n.t('explorer_shortcut_description'),
 		shortcuts: {
 			gridView: {
-				action: 'Switch to grid view',
+				action: i18n.t('switch_to_grid_view'),
 				keys: {
 					macOS: ['Meta', '1'],
 					all: ['Control', '1']
@@ -150,7 +150,7 @@ export const shortcutCategories = {
 				}
 			},
 			listView: {
-				action: 'Switch to list view',
+				action: i18n.t('switch_to_list_view'),
 				keys: {
 					macOS: ['Meta', '2'],
 					all: ['Control', '2']
@@ -161,7 +161,7 @@ export const shortcutCategories = {
 				}
 			},
 			mediaView: {
-				action: 'Switch to media view',
+				action: i18n.t('switch_to_media_view'),
 				keys: {
 					macOS: ['Meta', '3'],
 					all: ['Control', '3']
@@ -172,7 +172,7 @@ export const shortcutCategories = {
 				}
 			},
 			showHiddenFiles: {
-				action: 'Toggle hidden files',
+				action: i18n.t('toggle_hidden_files'),
 				keys: {
 					macOS: ['Meta', 'Shift', '.'],
 					all: ['Control', 'KeyH']
@@ -187,7 +187,7 @@ export const shortcutCategories = {
 				}
 			},
 			showPathBar: {
-				action: 'Toggle path bar',
+				action: i18n.t('toggle_path_bar'),
 				keys: {
 					macOS: ['Alt', 'Meta', 'KeyP'],
 					all: ['Alt', 'Control', 'KeyP']
@@ -202,7 +202,7 @@ export const shortcutCategories = {
 				}
 			},
 			showImageSlider: {
-				action: 'Toggle image slider within quick preview',
+				action: i18n.t('toggle_image_slider_within_quick_preview'),
 				keys: {
 					macOS: ['Alt', 'Meta', 'KeyM'],
 					all: ['Alt', 'Control', 'KeyM']
@@ -217,7 +217,7 @@ export const shortcutCategories = {
 				}
 			},
 			showInspector: {
-				action: 'Toggle inspector',
+				action: i18n.t('toggle_inspector'),
 				keys: {
 					macOS: ['Meta', 'KeyI'],
 					all: ['Control', 'KeyI']
@@ -228,7 +228,7 @@ export const shortcutCategories = {
 				}
 			},
 			toggleQuickPreview: {
-				action: 'Toggle quick preview',
+				action: i18n.t('toggle_quick_preview'),
 				keys: {
 					all: [' ']
 				},
@@ -237,7 +237,7 @@ export const shortcutCategories = {
 				}
 			},
 			toggleMetaData: {
-				action: 'Toggle metadata',
+				action: i18n.t('toggle_metadata'),
 				keys: {
 					macOS: ['Meta', 'KeyI'],
 					all: ['Control', 'KeyI']
@@ -248,7 +248,7 @@ export const shortcutCategories = {
 				}
 			},
 			quickPreviewMoveBack: {
-				action: 'Move back within quick preview',
+				action: i18n.t('move_back_within_quick_preview'),
 				keys: {
 					all: ['ArrowLeft']
 				},
@@ -257,7 +257,7 @@ export const shortcutCategories = {
 				}
 			},
 			quickPreviewMoveForward: {
-				action: 'Move forward within quick preview',
+				action: i18n.t('move_forward_within_quick_preview'),
 				keys: {
 					all: ['ArrowRight']
 				},
@@ -266,7 +266,7 @@ export const shortcutCategories = {
 				}
 			},
 			revealNative: {
-				action: 'Reveal in native file manager',
+				action: i18n.t('reveal_in_native_file_manager'),
 				keys: {
 					macOS: ['Meta', 'KeyY'],
 					all: ['Control', 'KeyY']
@@ -277,7 +277,7 @@ export const shortcutCategories = {
 				}
 			},
 			renameObject: {
-				action: 'Rename object',
+				action: i18n.t('rename_object'),
 				keys: {
 					macOS: ['Enter'],
 					all: ['F2']
@@ -288,7 +288,7 @@ export const shortcutCategories = {
 				}
 			},
 			rescan: {
-				action: 'Rescan location',
+				action: i18n.t('rescan_location'),
 				keys: {
 					macOS: ['Meta', 'KeyR'],
 					all: ['Control', 'KeyR']
@@ -299,7 +299,7 @@ export const shortcutCategories = {
 				}
 			},
 			cutObject: {
-				action: 'Cut object',
+				action: i18n.t('cut_object'),
 				keys: {
 					macOS: ['Meta', 'KeyX'],
 					all: ['Control', 'KeyX']
@@ -310,7 +310,7 @@ export const shortcutCategories = {
 				}
 			},
 			copyObject: {
-				action: 'Copy object',
+				action: i18n.t('copy_object'),
 				keys: {
 					macOS: ['Meta', 'KeyC'],
 					all: ['Control', 'KeyC']
@@ -321,7 +321,7 @@ export const shortcutCategories = {
 				}
 			},
 			pasteObject: {
-				action: 'Paste object',
+				action: i18n.t('paste_object'),
 				keys: {
 					macOS: ['Meta', 'KeyV'],
 					all: ['Control', 'KeyV']
@@ -332,7 +332,7 @@ export const shortcutCategories = {
 				}
 			},
 			duplicateObject: {
-				action: 'Duplicate object',
+				action: i18n.t('duplicate_object'),
 				keys: {
 					macOS: ['Meta', 'KeyD'],
 					all: ['Control', 'KeyD']
@@ -343,7 +343,7 @@ export const shortcutCategories = {
 				}
 			},
 			openObject: {
-				action: 'Open object',
+				action: i18n.t('open_object'),
 				keys: {
 					macOS: ['Meta', 'KeyO'],
 					all: ['Enter']
@@ -354,7 +354,7 @@ export const shortcutCategories = {
 				}
 			},
 			quickPreviewOpenNative: {
-				action: 'Open object from quick preview in native file manager',
+				action: i18n.t('open_object_from_quick_preview_in_native_file_manager'),
 				keys: {
 					macOS: ['Meta', 'KeyO'],
 					all: ['Enter']
@@ -365,7 +365,7 @@ export const shortcutCategories = {
 				}
 			},
 			delItem: {
-				action: 'Delete object',
+				action: i18n.t('delete_object'),
 				keys: {
 					macOS: ['Meta', 'Backspace'],
 					all: ['Delete']
@@ -376,7 +376,7 @@ export const shortcutCategories = {
 				}
 			},
 			explorerEscape: {
-				action: 'Cancel selection',
+				action: i18n.t('cancel_selection'),
 				keys: {
 					all: ['Escape']
 				},
@@ -385,7 +385,7 @@ export const shortcutCategories = {
 				}
 			},
 			explorerDown: {
-				action: 'Navigate files downwards',
+				action: i18n.t('navigate_files_downwards'),
 				keys: {
 					all: ['ArrowDown']
 				},
@@ -394,7 +394,7 @@ export const shortcutCategories = {
 				}
 			},
 			explorerUp: {
-				action: 'Navigate files upwards',
+				action: i18n.t('navigate_files_upwards'),
 				keys: {
 					all: ['ArrowUp']
 				},
@@ -403,7 +403,7 @@ export const shortcutCategories = {
 				}
 			},
 			explorerLeft: {
-				action: 'Navigate files leftwards',
+				action: i18n.t('navigate_files_leftwards'),
 				keys: {
 					all: ['ArrowLeft']
 				},
@@ -412,7 +412,7 @@ export const shortcutCategories = {
 				}
 			},
 			explorerRight: {
-				action: 'Navigate files rightwards',
+				action: i18n.t('navigate_files_rightwards'),
 				keys: {
 					all: ['ArrowRight']
 				},

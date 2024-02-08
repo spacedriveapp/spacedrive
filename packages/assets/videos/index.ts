@@ -4,5 +4,6 @@
  */
 
 import fda from './fda.mp4';
+import sdintro from './sdintro.mp4';
 
-export { fda };
+export { fda, sdintro };
