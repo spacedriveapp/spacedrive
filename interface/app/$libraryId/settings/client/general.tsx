@@ -28,7 +28,9 @@ const LANGUAGE_OPTIONS = [
 	{ value: 'es', label: 'Español' },
 	{ value: 'fr', label: 'Français' },
 	{ value: 'tr', label: 'Türkçe' },
-	{ value: 'nl', label: 'Nederlands'},
+	{ value: 'nl', label: 'Nederlands' },
+	{ value: 'by', label: 'Беларуская' },
+	{ value: 'ru', label: 'Русский' },
 	{ value: 'zh-CN', label: '中文（简体）' },
 	{ value: 'zh-TW', label: '中文（繁體）' }
 ];
