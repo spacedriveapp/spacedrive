@@ -117,7 +117,7 @@ Congratulations! 🎉🎉 The Spacedrive team thanks you for your contribution! 
 
 Once your PR is merged, your changes will be included in the next release of the application.
 
-<!-- ### Common Errors
+### Common Errors
 
 #### `xcrun: error: unable to find utility "xctest", not a developer tool or in PATH`
 
@@ -142,7 +142,7 @@ Ensure that macOS is fully updated, and that you have Xcode installed (via the a
 
 Once that has completed, run `xcode-select --install` in the terminal to install the command line tools. If they are already installed, ensure that you update macOS to the latest version available.
 
-Also ensure that Rosetta is installed, as a few of our dependencies require it. You can install Rosetta with `softwareupdate --install-rosetta --agree-to-license`. -->
+Also ensure that Rosetta is installed, as a few of our dependencies require it. You can install Rosetta with `softwareupdate --install-rosetta --agree-to-license`.
 
 ### Credits
 
