@@ -11,14 +11,13 @@ use tracing::warn;
 
 use crate::{Identity, P2P};
 
-use super::libp2p::SpaceTimeProtocolName;
+use super::{behaviour::SpaceTimeState, libp2p::SpaceTimeProtocolName};
 
 #[derive(Debug)] // TODO: Would this be better as another type????
 pub struct OutboundRequest(Infallible); // TODO: oneshot::Sender<UnicastStreamBuilder>
 
 pub struct OutboundProtocol {
-	pub(crate) p2p: Arc<P2P>,
-	pub(crate) stream_id: Arc<AtomicU64>,
+	pub(crate) state: Arc<SpaceTimeState>,
 	pub(crate) req: OutboundRequest,
 }
 
@@ -27,7 +26,7 @@ impl UpgradeInfo for OutboundProtocol {
 	type InfoIter = [Self::Info; 1];
 
 	fn protocol_info(&self) -> Self::InfoIter {
-		[SpaceTimeProtocolName(self.p2p.app_name())]
+		[SpaceTimeProtocolName(self.state.p2p.app_name())]
 	}
 }
 

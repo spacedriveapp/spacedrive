@@ -15,13 +15,11 @@ use tokio::sync::oneshot;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tracing::{debug, warn};
 
-use crate::{identity, quic::stream::new_inbound, Peer, P2P};
+use crate::{identity, peer::State, quic::stream::new_inbound, Peer, P2P};
 
 use super::{behaviour::SpaceTimeState, libp2p::SpaceTimeProtocolName};
 
 pub struct InboundProtocol {
-	pub(crate) peer_id: PeerId,
-	pub(crate) p2p: Arc<P2P>,
 	pub(crate) state: Arc<SpaceTimeState>,
 }
 
@@ -30,7 +28,7 @@ impl UpgradeInfo for InboundProtocol {
 	type InfoIter = [Self::Info; 1];
 
 	fn protocol_info(&self) -> Self::InfoIter {
-		[SpaceTimeProtocolName(self.p2p.app_name())]
+		[SpaceTimeProtocolName(self.state.p2p.app_name())]
 	}
 }
 
@@ -42,12 +40,12 @@ impl InboundUpgrade<Stream> for InboundProtocol {
 	fn upgrade_inbound(self, stream: Stream, _: Self::Info) -> Self::Future {
 		let id = self.state.stream_id.fetch_add(1, Ordering::Relaxed);
 		Box::pin(async move {
-			debug!(
-				"stream({id}): accepting inbound connection with libp2p::PeerId({})",
-				self.peer_id
-			);
+			// debug!(
+			// 	"stream({id}): accepting inbound connection with libp2p::PeerId({})",
+			// 	self.state.p2p.identity()
+			// );
 
-			let Ok(stream) = new_inbound(id, self.p2p.identity(), stream).await else {
+			let Ok(stream) = new_inbound(id, self.state.p2p.identity(), stream).await else {
 				return Ok(());
 			};
 			debug!(

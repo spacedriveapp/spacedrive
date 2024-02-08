@@ -9,16 +9,14 @@ use libp2p::{
 };
 use std::{
 	collections::VecDeque,
-	sync::{atomic::AtomicU64, Arc},
+	sync::Arc,
 	task::{Context, Poll},
 	time::Duration,
 };
 use tracing::error;
 
-use crate::P2P;
-
 use super::{
-	behaviour::EMPTY_QUEUE_SHRINK_THRESHOLD,
+	behaviour::{SpaceTimeState, EMPTY_QUEUE_SHRINK_THRESHOLD},
 	proto_inbound::InboundProtocol,
 	proto_outbound::{OutboundProtocol, OutboundRequest},
 };
@@ -29,24 +27,21 @@ const SUBSTREAM_TIMEOUT: Duration = Duration::from_secs(10); // TODO: Tune value
 #[allow(clippy::type_complexity)]
 pub struct SpaceTimeConnection {
 	peer_id: PeerId,
-	p2p: Arc<P2P>,
-	stream_id: Arc<AtomicU64>,
+	state: Arc<SpaceTimeState>,
 	pending_events: VecDeque<
 		ConnectionHandlerEvent<
 			OutboundProtocol,
 			<Self as ConnectionHandler>::OutboundOpenInfo,
 			<Self as ConnectionHandler>::ToBehaviour,
-			// StreamUpgradeError<io::Error>,
 		>,
 	>,
 }
 
 impl SpaceTimeConnection {
-	pub(super) fn new(peer_id: PeerId, p2p: Arc<P2P>, stream_id: Arc<AtomicU64>) -> Self {
+	pub(super) fn new(peer_id: PeerId, state: Arc<SpaceTimeState>) -> Self {
 		Self {
 			peer_id,
-			p2p,
-			stream_id,
+			state,
 			pending_events: VecDeque::new(),
 		}
 	}
@@ -61,15 +56,13 @@ impl ConnectionHandler for SpaceTimeConnection {
 	type InboundOpenInfo = ();
 
 	fn listen_protocol(&self) -> SubstreamProtocol<Self::InboundProtocol, Self::InboundOpenInfo> {
-		// SubstreamProtocol::new(
-		// 	InboundProtocol {
-		// 		peer_id: self.peer_id,
-		// 		manager: self.manager.clone(),
-		// 	},
-		// 	(),
-		// )
-		// .with_timeout(SUBSTREAM_TIMEOUT)
-		todo!();
+		SubstreamProtocol::new(
+			InboundProtocol {
+				state: self.state.clone(),
+			},
+			(),
+		)
+		.with_timeout(SUBSTREAM_TIMEOUT)
 	}
 
 	fn on_behaviour_event(&mut self, req: Self::FromBehaviour) {
@@ -77,20 +70,17 @@ impl ConnectionHandler for SpaceTimeConnection {
 		// self.keep_alive = KeepAlive::Yes;
 		// self.outbound.push_back(request);
 
-		// self.pending_events
-		// 	.push_back(ConnectionHandlerEvent::OutboundSubstreamRequest {
-		// 		protocol: SubstreamProtocol::new(
-		// 			OutboundProtocol {
-		// 				application_name: self.manager.application_name.clone(),
-		// 				req,
-		// 				identity: self.manager.identity.clone(),
-		// 			},
-		// 			(),
-		// 		) // TODO: Use `info` here maybe to pass into about the client. Idk?
-		// 		.with_timeout(SUBSTREAM_TIMEOUT),
-		// 	});
-
-		todo!();
+		self.pending_events
+			.push_back(ConnectionHandlerEvent::OutboundSubstreamRequest {
+				protocol: SubstreamProtocol::new(
+					OutboundProtocol {
+						state: self.state.clone(),
+						req,
+					},
+					(),
+				) // TODO: Use `info` here maybe to pass into about the client. Idk?
+				.with_timeout(SUBSTREAM_TIMEOUT),
+			});
 	}
 
 	fn connection_keep_alive(&self) -> bool {

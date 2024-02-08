@@ -72,12 +72,7 @@ impl NetworkBehaviour for SpaceTime {
 		_local_addr: &Multiaddr,
 		_remote_addr: &Multiaddr,
 	) -> Result<THandler<Self>, ConnectionDenied> {
-		// Ok(SpaceTimeConnection::new(
-		// 	peer_id,
-		// 	self.p2p.clone(),
-		// 	self.stream_id.clone(),
-		// ))
-		todo!();
+		Ok(SpaceTimeConnection::new(peer_id, self.state.clone()))
 	}
 
 	fn handle_pending_outbound_connection(
@@ -98,94 +93,44 @@ impl NetworkBehaviour for SpaceTime {
 		_addr: &Multiaddr,
 		_role_override: Endpoint,
 	) -> Result<THandler<Self>, ConnectionDenied> {
-		// Ok(SpaceTimeConnection::new(
-		// 	peer_id,
-		// 	self.p2p.clone(),
-		// 	self.stream_id.clone(),
-		// ))
-		todo!();
+		Ok(SpaceTimeConnection::new(peer_id, self.state.clone()))
 	}
 
 	fn on_swarm_event(&mut self, event: FromSwarm) {
-		// match event {
-		// 	FromSwarm::ConnectionEstablished(ConnectionEstablished {
-		// 		peer_id,
-		// 		endpoint,
-		// 		other_established,
-		// 		..
-		// 	}) => {
-		// 		let address = match endpoint {
-		// 			ConnectedPoint::Dialer { address, .. } => Some(address.clone()),
-		// 			ConnectedPoint::Listener { .. } => None,
-		// 		};
-		// 		trace!(
-		// 			"connection establishing with peer '{}' found at '{:?}'; peer has {} active connections",
-		// 			peer_id, address, other_established
-		// 		);
-		// 		self.p2p
-		// 			.state
-		// 			.write()
-		// 			.unwrap_or_else(PoisonError::into_inner)
-		// 			.connections
-		// 			.insert(peer_id, (endpoint.clone(), other_established));
-		// 	}
-		// 	FromSwarm::ConnectionClosed(ConnectionClosed {
-		// 		peer_id,
-		// 		remaining_established,
-		// 		..
-		// 	}) => {
-		// 		if remaining_established == 0 {
-		// 			debug!("Disconnected from peer '{}'", peer_id);
-		// 			let mut state = self
-		// 				.p2p
-		// 				.state
-		// 				.write()
-		// 				.unwrap_or_else(PoisonError::into_inner);
+		match event {
+			FromSwarm::AddressChange(event) => {
+				debug!(
+					"Address change event: {:?} {:?} {:?} {:?}",
+					event.peer_id, event.connection_id, event.old, event.new
+				);
+			}
+			FromSwarm::DialFailure(event) => {
+				if let Some(peer_id) = event.peer_id {
+					debug!("Dialing failure to peer '{}': {:?}", peer_id, event.error);
 
-		// 			state.connections.remove(&peer_id);
-		// 			if let Some(remote_identity) = state.connected.remove(&peer_id) {
-		// 				self.pending_events.push_back(ToSwarm::GenerateEvent(
-		// 					Event::PeerDisconnected(remote_identity).into(),
-		// 				));
-		// 			} else {
-		// 				warn!("Disconnected peer '{peer_id}' but was not connected. This likely indicates a bug!");
-		// 			}
-		// 		}
-		// 	}
-		// 	FromSwarm::AddressChange(event) => {
-		// 		debug!(
-		// 			"Address change event: {:?} {:?} {:?} {:?}",
-		// 			event.peer_id, event.connection_id, event.old, event.new
-		// 		);
-		// 	}
-		// 	FromSwarm::DialFailure(event) => {
-		// 		if let Some(peer_id) = event.peer_id {
-		// 			debug!("Dialing failure to peer '{}': {:?}", peer_id, event.error);
-
-		// 			// TODO
-		// 			// If there are pending outgoing requests when a dial failure occurs,
-		// 			// it is implied that we are not connected to the peer, since pending
-		// 			// outgoing requests are drained when a connection is established and
-		// 			// only created when a peer is not connected when a request is made.
-		// 			// Thus these requests must be considered failed, even if there is
-		// 			// another, concurrent dialing attempt ongoing.
-		// 			// if let Some(pending) = self.pending_outbound_requests.remove(&peer_id) {
-		// 			// 	for request in pending {
-		// 			// 		self.pending_events
-		// 			// 			.push_back(NetworkBehaviourAction::GenerateEvent(
-		// 			// 				Event::OutboundFailure {
-		// 			// 					peer_id,
-		// 			// 					request_id: request.request_id,
-		// 			// 					error: OutboundFailure::DialFailure,
-		// 			// 				},
-		// 			// 			));
-		// 			// 	}
-		// 			// }
-		// 		}
-		// 	}
-		// 	_ => {}
-		// }
-		todo!();
+					// TODO
+					// If there are pending outgoing requests when a dial failure occurs,
+					// it is implied that we are not connected to the peer, since pending
+					// outgoing requests are drained when a connection is established and
+					// only created when a peer is not connected when a request is made.
+					// Thus these requests must be considered failed, even if there is
+					// another, concurrent dialing attempt ongoing.
+					// if let Some(pending) = self.pending_outbound_requests.remove(&peer_id) {
+					// 	for request in pending {
+					// 		self.pending_events
+					// 			.push_back(NetworkBehaviourAction::GenerateEvent(
+					// 				Event::OutboundFailure {
+					// 					peer_id,
+					// 					request_id: request.request_id,
+					// 					error: OutboundFailure::DialFailure,
+					// 				},
+					// 			));
+					// 	}
+					// }
+				}
+			}
+			_ => {}
+		}
 	}
 
 	fn on_connection_handler_event(
