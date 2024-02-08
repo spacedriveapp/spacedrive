@@ -40,12 +40,12 @@ To make changes locally, follow these steps:
 1. Clone the repository: `git clone https://github.com/spacedriveapp/spacedrive`
 2. Navigate to the project directory: `cd spacedrive`
 3. Configure your system environment for Spacedrive development
-	1. For Linux users, run: `./scripts/setup.sh`
-		> This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh#L133) will check if Rust and pnpm are installed then proceed to install Clang, NASM, LLVM, libvips, Gstreamer's Plugins, FFmpeg, Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-linux) and any other required dependencies for Spacedrive to build.
-	2. For macOS users, run: `./scripts/setup.sh`
-		> This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh#L108) will check if Rust, pnpm and Xcode are installed and proceed to use Homebrew to install NASM, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-macos) and install any other required dependencies for Spacedrive to build.
-	3. For Windows users, run in PowerShell: `.\scripts\setup.ps1`
-		> This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.ps1#L81) will install pnpm, LLVM, FFmpeg, C++ build tools, NASM, Rust + Cargo, Rust tools, Edge Webview 2, Strawberry Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-windows) and any other required dependencies for Spacedrive to build.
+   1. For Linux users, run: `./scripts/setup.sh`
+      > This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh#L133) will check if Rust and pnpm are installed then proceed to install Clang, NASM, LLVM, libvips, Gstreamer's Plugins, FFmpeg, Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-linux) and any other required dependencies for Spacedrive to build.
+   2. For macOS users, run: `./scripts/setup.sh`
+      > This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh#L108) will check if Rust, pnpm and Xcode are installed and proceed to use Homebrew to install NASM, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-macos) and install any other required dependencies for Spacedrive to build.
+   3. For Windows users, run in PowerShell: `.\scripts\setup.ps1`
+      > This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.ps1#L81) will install pnpm, LLVM, FFmpeg, C++ build tools, NASM, Rust + Cargo, Rust tools, Edge Webview 2, Strawberry Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-windows) and any other required dependencies for Spacedrive to build.
 4. Install dependencies: `pnpm i`
 5. Prepare the build: `pnpm prep` (This will run all necessary codegen and build required dependencies)
 
@@ -91,9 +91,9 @@ To run the mobile app:
   - This will set up most of the dependencies required to build the mobile app.
 - Make sure you have [NDK 23.1.7779620 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) installed in Android Studio.
 - Run the following commands:
-  - `pnpm android` (runs on Android Emulator)
-  - `pnpm ios` (runs on iOS Emulator)
-  - `pnpm start` (runs the metro bundler)
+  - `pnpm mobile android` (runs on Android Emulator)
+  - `pnpm mobile ios` (runs on iOS Emulator)
+  - `pnpm mobile start` (runs the metro bundler only)
 
 ##### AppImage
 
@@ -117,7 +117,7 @@ Congratulations! 🎉🎉 The Spacedrive team thanks you for your contribution! 
 
 Once your PR is merged, your changes will be included in the next release of the application.
 
-### Common Errors
+<!-- ### Common Errors
 
 #### `xcrun: error: unable to find utility "xctest", not a developer tool or in PATH`
 
@@ -142,7 +142,7 @@ Ensure that macOS is fully updated, and that you have Xcode installed (via the a
 
 Once that has completed, run `xcode-select --install` in the terminal to install the command line tools. If they are already installed, ensure that you update macOS to the latest version available.
 
-Also ensure that Rosetta is installed, as a few of our dependencies require it. You can install Rosetta with `softwareupdate --install-rosetta --agree-to-license`.
+Also ensure that Rosetta is installed, as a few of our dependencies require it. You can install Rosetta with `softwareupdate --install-rosetta --agree-to-license`. -->
 
 ### Credits
 
