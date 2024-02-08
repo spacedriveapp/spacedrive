@@ -1,4 +1,6 @@
-use std::{collections::HashMap, pin::Pin, str::FromStr, sync::Arc, time::Duration};
+use std::{
+	collections::HashMap, net::SocketAddr, pin::Pin, str::FromStr, sync::Arc, time::Duration,
+};
 
 use flume::{bounded, Receiver};
 use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
@@ -81,13 +83,7 @@ fn start(
 
 fn advertise(state: &mut State) {
 	let mut ports_to_service = HashMap::new();
-	for addr in state
-		.p2p
-		.listeners()
-		.iter()
-		.map(|l| l.addrs.clone())
-		.flatten()
-	{
+	for addr in state.p2p.listeners().iter().flat_map(|l| l.addrs.clone()) {
 		ports_to_service
 			.entry(addr.port())
 			.or_insert_with(Vec::new)
@@ -135,26 +131,27 @@ fn on_event(state: &State, event: ServiceEvent) {
 				return;
 			};
 
-			// state.p2p.discover_peer(
-			// 	state.hook_id,
-			// 	identity,
-			// 	info.get_properties()
-			// 		.iter()
-			// 		.map(|p| (p.key().to_string(), p.val_str().to_string()))
-			// 		.collect(),
-			// 	info.get_addresses()
-			// 		.iter()
-			// 		.map(|addr| SocketAddr::new(*addr, info.get_port()))
-			// 		.collect(),
-			// );
-			todo!();
+			state.p2p.clone().discover_peer(
+				state.hook_id,
+				identity,
+				info.get_properties()
+					.iter()
+					.map(|p| (p.key().to_string(), p.val_str().to_string()))
+					.collect(),
+				info.get_addresses()
+					.iter()
+					.map(|addr| SocketAddr::new(*addr, info.get_port()))
+					.collect(),
+			);
 		}
 		ServiceEvent::ServiceRemoved(_, fullname) => {
 			let Some(identity) = fullname_to_identity(&state, &fullname) else {
 				return;
 			};
 
-			todo!();
+			if let Some(peer) = state.p2p.peers().get(&identity) {
+				peer.undiscover_peer(state.hook_id);
+			}
 		}
 		ServiceEvent::SearchStarted(_)
 		| ServiceEvent::SearchStopped(_)

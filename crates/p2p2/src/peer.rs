@@ -125,13 +125,39 @@ impl Peer {
 
 // Hook-facing methods
 impl Peer {
-	pub fn connected_to(&self, listener: ListenerId, shutdown_tx: oneshot::Sender<()>) {
-		let Some(p2p) = self.p2p.upgrade() else {
-			warn!(
-				"P2P System holding peer '{:?}' despite system being dropped",
-				self.identity
-			);
-			return;
-		};
+	// pub fn connected_to(&self, listener: ListenerId, shutdown_tx: oneshot::Sender<()>) {
+	// 	let Some(p2p) = self.p2p.upgrade() else {
+	// 		warn!(
+	// 			"P2P System holding peer '{:?}' despite system being dropped",
+	// 			self.identity
+	// 		);
+	// 		return;
+	// 	};
+
+	// 	todo!();
+	// }
+
+	pub fn undiscover_peer(&self, listener: HookId) {
+		// self.state
+		// 	.write()
+		// 	.unwrap_or_else(PoisonError::into_inner)
+		// 	.active_connections
+		// 	.remove(&listener);
+
+		// TODO: Emit event
+
+		todo!();
+	}
+
+	pub fn disconnected_from(&self, listener: ListenerId) {
+		// self.state
+		// 	.write()
+		// 	.unwrap_or_else(PoisonError::into_inner)
+		// 	.active_connections
+		// 	.remove(&listener);
+
+		// TODO: Emit event
+
+		todo!();
 	}
 }
