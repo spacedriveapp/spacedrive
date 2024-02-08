@@ -32,7 +32,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					// 	}
 					// 	PeerStatus::Connected => queued.push(P2PEvent::ConnectedPeer { identity }),
 					// }
-					todo!();
+					// todo!();
 				}
 
 				Ok(async_stream::stream! {

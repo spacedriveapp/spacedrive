@@ -1,4 +1,5 @@
 use std::{
+	collections::HashMap,
 	future::Future,
 	pin::Pin,
 	sync::{
@@ -11,7 +12,7 @@ use libp2p::{
 	core::{ConnectedPoint, UpgradeInfo},
 	InboundUpgrade, PeerId, Stream,
 };
-use tokio::sync::oneshot;
+use tokio::{io::AsyncWriteExt, sync::oneshot};
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tracing::{debug, warn};
 
@@ -20,6 +21,7 @@ use crate::{identity, peer::State, quic::stream::new_inbound, Peer, P2P};
 use super::{behaviour::SpaceTimeState, libp2p::SpaceTimeProtocolName};
 
 pub struct InboundProtocol {
+	pub(crate) peer_id: PeerId,
 	pub(crate) state: Arc<SpaceTimeState>,
 }
 
@@ -40,10 +42,10 @@ impl InboundUpgrade<Stream> for InboundProtocol {
 	fn upgrade_inbound(self, stream: Stream, _: Self::Info) -> Self::Future {
 		let id = self.state.stream_id.fetch_add(1, Ordering::Relaxed);
 		Box::pin(async move {
-			// debug!(
-			// 	"stream({id}): accepting inbound connection with libp2p::PeerId({})",
-			// 	self.state.p2p.identity()
-			// );
+			debug!(
+				"stream({id}): accepting inbound connection with libp2p::PeerId({})",
+				self.peer_id
+			);
 
 			let Ok(stream) = new_inbound(id, self.state.p2p.identity(), stream).await else {
 				return Ok(());
@@ -53,18 +55,20 @@ impl InboundUpgrade<Stream> for InboundProtocol {
 				stream.remote_identity()
 			);
 
-			// TODO: Sync `peer.metadata` with remote
+			// TODO: Hook this up
+			// write_hashmap(stream, map).await;
+			// read_hashmap(stream).await;
+			let metadata = HashMap::new();
 
-			// let peer = Peer::new(stream.remote_identity());
-			// let (tx, rx) = oneshot::channel();
-			// peer.connected_to(listener, tx);
-			// TODO: Handle `rx` for shutdown.
+			let (shutdown_tx, shutdown_rx) = oneshot::channel();
+			let peer = self.state.p2p.clone().connected_to(
+				self.state.listener_id,
+				stream.remote_identity(),
+				metadata,
+				shutdown_tx,
+			);
 
-			// self.p2p.peers_mut().insert(peer.identity(), peer);
-
-			// TODO: Update state to reflect that we are connected
-
-			// TODO: Send this back to the application to handle
+			// TODO: Handle `shutdown_rx`
 
 			Ok(())
 		})

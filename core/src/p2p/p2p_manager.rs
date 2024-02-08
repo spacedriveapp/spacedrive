@@ -22,7 +22,7 @@ use std::{
 	sync::{atomic::AtomicBool, Arc, Mutex, PoisonError},
 };
 
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::oneshot;
 use tracing::{error, info};
 use uuid::Uuid;
 
@@ -179,17 +179,26 @@ impl P2PManager {
 	}
 
 	pub fn state(&self) -> serde_json::Value {
+		let listeners = self.p2p.listeners();
 		json!({
 			"self_identity": self.p2p.remote_identity().to_string(),
 			"self_peer_id": format!("{:?}", self.lp2p_peer_id),
 			"metadata": self.p2p.metadata().clone(),
-			"listeners": into_listener2(&self.p2p.listeners()),
-			"discovered": self.p2p.peers().iter().map(|(identity, p)| json!({
+			"peers": self.p2p.peers().iter().map(|(identity, p)| json!({
 				"identity": identity.to_string(),
 				"metadata": p.metadata().clone(),
 				"can_connect": p.can_connect(),
 				"is_connected": p.is_connected(),
+				"active_connections": p.active_connections(),
+				"connection_methods": p.connection_methods().iter().map(|id| format!("{:?}", id)).collect::<Vec<_>>(),
+				"discovered_by": p.discovered_by().iter().map(|id| format!("{:?}", id)).collect::<Vec<_>>(),
 			})).collect::<Vec<_>>(),
+			"hooks": self.p2p.hooks().iter().map(|(id, name)| json!({
+				"id": format!("{:?}", id),
+				"name": name,
+				"listener_addrs": listeners.iter().find(|l| l.is_hook_id(*id)).map(|l| l.addrs.clone()),
+			})).collect::<Vec<_>>(),
+
 		})
 	}
 
@@ -202,7 +211,7 @@ impl P2PManager {
 async fn start(
 	this: Arc<P2PManager>,
 	node: Arc<Node>,
-	mut rx: Receiver<UnicastStream>,
+	rx: Receiver<UnicastStream>,
 ) -> Result<(), ()> {
 	while let Ok(mut stream) = rx.recv_async().await {
 		let header = Header::from_stream(&mut stream).await.map_err(|err| {

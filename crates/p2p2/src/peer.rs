@@ -76,14 +76,6 @@ impl Peer {
 			.unwrap_or_else(PoisonError::into_inner)
 	}
 
-	pub fn discovered_by(&self, hook: HookId) {
-		self.state
-			.write()
-			.unwrap_or_else(PoisonError::into_inner)
-			.discovered
-			.insert(hook);
-	}
-
 	pub fn can_connect(&self) -> bool {
 		!self
 			.state
@@ -100,6 +92,32 @@ impl Peer {
 			.unwrap_or_else(PoisonError::into_inner)
 			.active_connections
 			.is_empty()
+	}
+
+	pub fn active_connections(&self) -> usize {
+		self.state
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.active_connections
+			.len()
+	}
+
+	pub fn connection_methods(&self) -> HashSet<ListenerId> {
+		self.state
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.connection_methods
+			.keys()
+			.copied()
+			.collect()
+	}
+
+	pub fn discovered_by(&self) -> HashSet<HookId> {
+		self.state
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.discovered
+			.clone()
 	}
 
 	/// Construct a new Quic stream to the peer.
@@ -125,6 +143,14 @@ impl Peer {
 
 // Hook-facing methods
 impl Peer {
+	pub fn hook_discovered(&self, hook: HookId) {
+		self.state
+			.write()
+			.unwrap_or_else(PoisonError::into_inner)
+			.discovered
+			.insert(hook);
+	}
+
 	// pub fn connected_to(&self, listener: ListenerId, shutdown_tx: oneshot::Sender<()>) {
 	// 	let Some(p2p) = self.p2p.upgrade() else {
 	// 		warn!(

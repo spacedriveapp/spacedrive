@@ -10,7 +10,11 @@ pub enum HookEvent {
 	MetadataModified,
 
 	/// A new listener was registered with the P2P system.
-	ListenerRegistered { id: ListenerId, addr: SocketAddr },
+	ListenerRegistered(ListenerId),
+	/// A listener's address was added.
+	ListenerAddrAdded(ListenerId, SocketAddr),
+	/// A listener's address was removed.
+	ListenerAddrRemoved(ListenerId, SocketAddr),
 	/// A listener was unregistered from the P2P system.
 	ListenerUnregistered(ListenerId),
 

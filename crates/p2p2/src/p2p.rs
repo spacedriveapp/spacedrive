@@ -1,5 +1,5 @@
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{hash_map::Entry, HashMap, HashSet},
 	net::SocketAddr,
 	sync::{atomic::AtomicUsize, Arc, PoisonError, RwLock, RwLockReadGuard},
 };
@@ -124,45 +124,43 @@ impl P2P {
 		metadata: HashMap<String, String>,
 		addrs: Vec<SocketAddr>,
 	) -> Arc<Peer> {
-		// let mut peer = self
-		// 	.peers
-		// 	.write()
-		// 	.unwrap_or_else(PoisonError::into_inner)
-		// 	.entry(identity);
-		// let was_peer_inserted = matches!(peer, Entry::Vacant(_));
-		// let peer = peer
-		// 	.or_insert_with({
-		// 		let p2p = self.clone();
-		// 		|| Peer::new(identity, p2p)
-		// 	})
-		// 	.clone();
+		let mut peers = self.peers.write().unwrap_or_else(PoisonError::into_inner);
+		let peer = peers.entry(identity);
+		let was_peer_inserted = matches!(peer, Entry::Vacant(_));
+		let peer = peer
+			.or_insert_with({
+				let p2p = self.clone();
+				|| Peer::new(identity, p2p)
+			})
+			.clone();
 
-		// {
-		// 	let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
-		// 	state.discovered.insert(hook_id);
-		// }
+		{
+			let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
+			state.discovered.insert(hook_id);
+		}
 
-		// peer.metadata_mut().extend(metadata);
+		peer.metadata_mut().extend(metadata);
 
-		// {
-		// 	let hooks = self.hooks.read().unwrap_or_else(PoisonError::into_inner);
-		// 	hooks
-		// 		.iter()
-		// 		.for_each(|(id, hook)| hook.acceptor(&peer, &addrs));
+		{
+			let hooks = self.hooks.read().unwrap_or_else(PoisonError::into_inner);
+			hooks
+				.iter()
+				.for_each(|(_, hook)| hook.acceptor(&peer, &addrs));
 
-		// 	if was_peer_inserted {
-		// 		hooks
-		// 			.iter()
-		// 			.for_each(|(id, hook)| hook.send(HookEvent::PeerAvailable(peer.clone())));
-		// 	}
+			if was_peer_inserted {
+				hooks
+					.iter()
+					.for_each(|(_, hook)| hook.send(HookEvent::PeerAvailable(peer.clone())));
+			}
 
-		// 	hooks.iter().for_each(|(id, hook)| {
-		// 		hook.send(HookEvent::PeerDiscoveredBy(hook_id, peer.clone()))
-		// 	});
-		// }
+			hooks.iter().for_each(|(_, hook)| {
+				hook.send(HookEvent::PeerDiscoveredBy(hook_id, peer.clone()))
+			});
+		}
 
-		// peer
-		todo!();
+		println!("GOT {peer:?}"); // TODO: Apps needs to be given decision and connect here
+
+		peer
 	}
 
 	pub fn connected_to(
@@ -172,43 +170,38 @@ impl P2P {
 		metadata: HashMap<String, String>,
 		shutdown_tx: oneshot::Sender<()>,
 	) -> Arc<Peer> {
-		// let mut peer = self
-		// 	.peers
-		// 	.write()
-		// 	.unwrap_or_else(PoisonError::into_inner)
-		// 	.entry(identity);
-		// let was_peer_inserted = matches!(peer, Entry::Vacant(_));
-		// let peer = peer
-		// 	.or_insert_with({
-		// 		let p2p = self.clone();
-		// 		move || Peer::new(identity, p2p)
-		// 	})
-		// 	.clone();
+		let mut peers = self.peers.write().unwrap_or_else(PoisonError::into_inner);
+		let peer = peers.entry(identity);
+		let was_peer_inserted = matches!(peer, Entry::Vacant(_));
+		let peer = peer
+			.or_insert_with({
+				let p2p = self.clone();
+				move || Peer::new(identity, p2p)
+			})
+			.clone();
 
-		// {
-		// 	let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
-		// 	state.active_connections.insert(listener, shutdown_tx);
-		// }
+		{
+			let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
+			state.active_connections.insert(listener, shutdown_tx);
+		}
 
-		// peer.metadata_mut().extend(metadata);
+		peer.metadata_mut().extend(metadata);
 
-		// {
-		// 	let hooks = self.hooks.read().unwrap_or_else(PoisonError::into_inner);
+		{
+			let hooks = self.hooks.read().unwrap_or_else(PoisonError::into_inner);
 
-		// 	if was_peer_inserted {
-		// 		hooks
-		// 			.iter()
-		// 			.for_each(|(id, hook)| hook.send(HookEvent::PeerAvailable(peer.clone())));
-		// 	}
+			if was_peer_inserted {
+				hooks
+					.iter()
+					.for_each(|(_, hook)| hook.send(HookEvent::PeerAvailable(peer.clone())));
+			}
 
-		// 	// hooks.iter().for_each(|(id, hook)| {
-		// 	// 	hook.send(HookEvent::PeerConnectedWith(listener, peer.clone()))
-		// 	// });
-		// 	todo!();
-		// }
+			hooks.iter().for_each(|(_, hook)| {
+				hook.send(HookEvent::PeerConnectedWith(listener, peer.clone()))
+			});
+		}
 
-		// peer
-		todo!();
+		peer
 	}
 
 	/// All active listeners registered with the P2P system.
@@ -236,43 +229,63 @@ impl P2P {
 		tx: Sender<HookEvent>,
 		acceptor: impl Fn(&Arc<Peer>, &Vec<SocketAddr>) + Send + Sync + 'static,
 	) -> ListenerId {
-		let id = self
-			.hooks
-			.write()
-			.unwrap_or_else(PoisonError::into_inner)
-			.push(Hook {
-				name,
-				tx,
-				listener: Some(ListenerData {
-					addrs: Default::default(),
-					acceptor: HandlerFn(Arc::new(acceptor)),
-				}),
-			});
+		let mut hooks = self.hooks.write().unwrap_or_else(PoisonError::into_inner);
+		let hook_id = hooks.push(Hook {
+			name,
+			tx,
+			listener: Some(ListenerData {
+				addrs: Default::default(),
+				acceptor: HandlerFn(Arc::new(acceptor)),
+			}),
+		});
 
-		ListenerId(id)
+		hooks.iter().for_each(|(id, hook)| {
+			if id == hook_id {
+				return;
+			}
+
+			hook.send(HookEvent::ListenerRegistered(ListenerId(hook_id)));
+		});
+
+		ListenerId(hook_id)
 	}
 
 	pub fn register_listener_addr(&self, listener_id: ListenerId, addr: SocketAddr) {
-		self.hooks
-			.read()
-			.unwrap_or_else(PoisonError::into_inner)
-			.iter()
-			.for_each(|(id, hook)| {
-				hook.send(HookEvent::ListenerRegistered {
-					id: ListenerId(id),
-					addr,
-				});
-			});
+		let mut hooks = self.hooks.write().unwrap_or_else(PoisonError::into_inner);
+		if let Some(mut listener) = hooks
+			.get_mut(listener_id.0)
+			.and_then(|l| l.listener.as_mut())
+		{
+			listener.addrs.insert(addr);
+		}
+
+		hooks.iter().for_each(|(_, hook)| {
+			hook.send(HookEvent::ListenerAddrAdded(listener_id, addr));
+		});
 	}
 
 	pub fn unregister_listener_addr(&self, listener_id: ListenerId, addr: SocketAddr) {
+		let mut hooks = self.hooks.write().unwrap_or_else(PoisonError::into_inner);
+		if let Some(listener) = hooks
+			.get_mut(listener_id.0)
+			.and_then(|l| l.listener.as_mut())
+		{
+			listener.addrs.remove(&addr);
+		}
+
+		hooks.iter().for_each(|(_, hook)| {
+			hook.send(HookEvent::ListenerAddrRemoved(listener_id, addr));
+		});
+	}
+
+	// TODO: Probs cleanup return type
+	pub fn hooks(&self) -> Vec<(HookId, &'static str)> {
 		self.hooks
 			.read()
 			.unwrap_or_else(PoisonError::into_inner)
 			.iter()
-			.for_each(|(id, hook)| {
-				hook.send(HookEvent::ListenerUnregistered(ListenerId(id)));
-			});
+			.map(|(id, hook)| (HookId(id), hook.name))
+			.collect()
 	}
 
 	/// Register a new hook which can be used to react to state changes in the P2P system.
@@ -310,6 +323,7 @@ impl P2P {
 			}
 
 			let mut peers = self.peers.write().unwrap_or_else(PoisonError::into_inner);
+			let mut peers_to_remove = HashSet::new(); // We are mutate while iterating
 			for (identity, peer) in peers.iter_mut() {
 				let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
 				if let Some(active_connection) = state.active_connections.remove(&ListenerId(id.0))
@@ -320,9 +334,12 @@ impl P2P {
 				state.discovered.remove(&id);
 
 				if state.connection_methods.is_empty() && state.discovered.is_empty() {
-					// peers.remove(&identity);
-					todo!(); // TODO: mutating in iteration is bad, thanks compiler
+					peers_to_remove.insert(*identity);
 				}
+			}
+
+			for identity in peers_to_remove {
+				peers.remove(&identity);
 			}
 		}
 	}
@@ -330,7 +347,7 @@ impl P2P {
 	/// Shutdown the whole P2P system.
 	/// This will close all connections and remove all hooks.
 	pub fn shutdown(&self) {
-		let mut hooks = self
+		let hooks = self
 			.hooks
 			.write()
 			.unwrap_or_else(PoisonError::into_inner)
@@ -353,4 +370,10 @@ pub struct Listener {
 	pub id: ListenerId,
 	pub name: &'static str,
 	pub addrs: HashSet<SocketAddr>,
+}
+
+impl Listener {
+	pub fn is_hook_id(&self, id: HookId) -> bool {
+		self.id.0 == id.0
+	}
 }

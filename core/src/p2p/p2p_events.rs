@@ -77,7 +77,6 @@ impl P2PEvents {
 					// 	identity,
 					// 	last_connection,
 					// } if last_connection => P2PEvent::DisconnectedPeer { identity },
-					_ => todo!(),
 					HookEvent::Shutdown => break,
 					_ => continue,
 				};

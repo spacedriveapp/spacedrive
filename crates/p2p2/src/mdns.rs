@@ -43,11 +43,7 @@ struct State {
 	next_mdns_advertisement: Pin<Box<Sleep>>,
 }
 
-fn start(
-	p2p: Arc<P2P>,
-	hook_id: HookId,
-	mut rx: Receiver<HookEvent>,
-) -> Result<(), mdns_sd::Error> {
+fn start(p2p: Arc<P2P>, hook_id: HookId, rx: Receiver<HookEvent>) -> Result<(), mdns_sd::Error> {
 	let service_domain = format!("_{}._udp.local.", p2p.app_name());
 	let mut state = State {
 		hook_id,
@@ -65,7 +61,7 @@ fn start(
 		loop {
 			tokio::select! {
 				Ok(event) = rx.recv_async() => match event {
-					HookEvent::MetadataModified | HookEvent::ListenerRegistered { .. } | HookEvent::ListenerUnregistered(_)  => advertise(&mut state),
+					HookEvent::MetadataModified | HookEvent::ListenerRegistered(_) | HookEvent::ListenerAddrAdded(_, _) | HookEvent::ListenerAddrRemoved(_, _) | HookEvent::ListenerUnregistered(_)  => advertise(&mut state),
 					HookEvent::Shutdown => {
 						shutdown(&mut state);
 						break;
@@ -90,14 +86,12 @@ fn advertise(state: &mut State) {
 			.push(addr.ip());
 	}
 
-	let identity = state.p2p.remote_identity();
 	let meta = state.p2p.metadata().clone();
-
 	for (port, ips) in ports_to_service {
 		let service = ServiceInfo::new(
 			&state.service_domain,
-			&identity.to_string(),
-			&format!("{identity}.{}", state.service_domain),
+			&state.p2p.remote_identity().to_string(),
+			&state.service_name,
 			&*ips,
 			port,
 			// TODO: If a piece of metadata overflows a DNS record take care of splitting it across multiple.
@@ -162,12 +156,15 @@ fn on_event(state: &State, event: ServiceEvent) {
 fn fullname_to_identity(
 	State {
 		p2p,
-		service_domain: service_name,
+		service_domain,
 		..
 	}: &State,
 	fullname: &str,
 ) -> Option<RemoteIdentity> {
-	let Some(identity) = fullname.strip_prefix(&*service_name).map(|s| &s[1..]) else {
+	let Some(identity) = fullname
+		.strip_suffix(&*service_domain)
+		.map(|s| &s[0..s.len() - 1])
+	else {
 		warn!(
 			"resolved peer advertising itself with an invalid fullname '{}'",
 			fullname
