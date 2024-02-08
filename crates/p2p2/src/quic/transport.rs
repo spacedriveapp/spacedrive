@@ -12,11 +12,6 @@ use crate::{quic::libp2p::socketaddr_to_quic_multiaddr, HookEvent, HookId, Liste
 
 use super::behaviour::SpaceTime;
 
-// TODO: User can set port
-// TODO: Enabled/disabled specific listener
-// TODO: Get the listeners and `peer_id` from `sd-core`
-// TODO: Ensure we remove all information from the `Peer` when they disconnect
-
 /// [libp2p::PeerId] for debugging purposes only.
 #[derive(Debug)]
 pub struct Libp2pPeerId(libp2p::PeerId);
