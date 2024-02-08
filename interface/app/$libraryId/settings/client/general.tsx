@@ -28,7 +28,7 @@ const LANGUAGE_OPTIONS = [
 	{ value: 'es', label: 'Español' },
 	{ value: 'fr', label: 'Français' },
 	{ value: 'tr', label: 'Türkçe' },
-	{ value: 'nl', label: 'Nederlands'},
+	{ value: 'nl', label: 'Nederlands' },
 	{ value: 'zh-CN', label: '中文（简体）' },
 	{ value: 'zh-TW', label: '中文（繁體）' }
 ];
@@ -200,7 +200,7 @@ export const Component = () => {
 			<Setting mini title={t('language')} description={t('language_description')}>
 				<div className="flex h-[30px] gap-2">
 					<Select
-						value={i18n.language}
+						value={i18n.resolvedLanguage || i18n.language || 'en'}
 						onChange={(e) => {
 							i18n.changeLanguage(e);
 							// add "i18nextLng" key to localStorage and set it to the selected language
