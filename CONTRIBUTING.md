@@ -92,7 +92,15 @@ To run the mobile app:
 - Make sure you have [NDK 23.1.7779620 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) installed in Android Studio.
 - Run the following commands:
   - `pnpm mobile android` (runs on Android Emulator)
+    - In order to have locations working on Android, you must run the following command once the application has been installed for the first time. Otherwise, locations will not work.
+      - `adb shell appops set --uid com.spacedrive.app MANAGE_EXTERNAL_STORAGE allow`
+    - Run the following commands to access the logs from `sd-core`.
+      - `adb shell`
+      - Then `run-as com.spacedrive.app` to access the app's directory on device.
+      - Run `cd files/logs` and then select the logs with the timestamp of when you ran the app. Ex: `sd.log.2023-11-28`.
+        - You can view the logs using `cat [log-name]`. Ex: `cat sd.log.2023-11-28`.
   - `pnpm mobile ios` (runs on iOS Emulator)
+    - `xcrun simctl launch --console booted com.spacedrive.app` allows you to view the console output of the iOS app from `tracing`. However, the application must be built in `debug` mode for this.
   - `pnpm mobile start` (runs the metro bundler only)
 
 ##### AppImage
