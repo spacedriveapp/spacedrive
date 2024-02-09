@@ -1,10 +1,6 @@
 //! iOS file system watcher implementation.
 
-use crate::{
-	invalidate_query,
-	library::Library,
-	location::manager::LocationManagerError, Node,
-};
+use crate::{invalidate_query, library::Library, location::manager::LocationManagerError, Node};
 
 use sd_file_path_helper::{check_file_path_exists, get_inode, FilePathError, IsolatedFilePathData};
 use sd_prisma::prisma::location;

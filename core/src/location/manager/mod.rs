@@ -21,16 +21,13 @@ use tokio::sync::{
 	broadcast::{self, Receiver},
 	oneshot, RwLock,
 };
-use tracing::{error, info, debug};
+use tracing::{debug, error, info};
 
-//#[cfg(feature = "location-watcher")]
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-//#[cfg(feature = "location-watcher")]
 mod watcher;
 
-//#[cfg(feature = "location-watcher")]
 mod helpers;
 
 #[derive(Clone, Copy, Debug)]
@@ -68,22 +65,18 @@ pub struct WatcherManagementMessage {
 
 #[derive(Error, Debug)]
 pub enum LocationManagerError {
-	//#[cfg(feature = "location-watcher")]
 	#[error("Unable to send location management message to location manager actor: (error: {0})")]
 	ActorSendLocationError(#[from] mpsc::error::SendError<LocationManagementMessage>),
 
-	//#[cfg(feature = "location-watcher")]
 	#[error("Unable to send path to be ignored by watcher actor: (error: {0})")]
 	ActorIgnorePathError(#[from] mpsc::error::SendError<watcher::IgnorePath>),
 
-	//#[cfg(feature = "location-watcher")]
 	#[error("Unable to watcher management message to watcher manager actor: (error: {0})")]
 	ActorIgnorePathMessageError(#[from] mpsc::error::SendError<WatcherManagementMessage>),
 
 	#[error("Unable to receive actor response: (error: {0})")]
 	ActorResponseError(#[from] oneshot::error::RecvError),
 
-	//#[cfg(feature = "location-watcher")]
 	#[error("Watcher error: (error: {0})")]
 	WatcherError(#[from] notify::Error),
 
@@ -120,11 +113,10 @@ type OnlineLocations = BTreeSet<Vec<u8>>;
 
 #[must_use = "'LocationManagerActor::start' must be used to start the actor"]
 pub struct LocationManagerActor {
-	//#[cfg(feature = "location-watcher")]
 	location_management_rx: mpsc::Receiver<LocationManagementMessage>,
-	//#[cfg(feature = "location-watcher")]
+
 	watcher_management_rx: mpsc::Receiver<WatcherManagementMessage>,
-	//#[cfg(feature = "location-watcher")]
+
 	stop_rx: oneshot::Receiver<()>,
 }
 
@@ -179,7 +171,6 @@ impl LocationManagerActor {
 			}
 		});
 
-		//#[cfg(feature = "location-watcher")]
 		tokio::spawn(Locations::run_locations_checker(
 			self.location_management_rx,
 			self.watcher_management_rx,
@@ -187,7 +178,7 @@ impl LocationManagerActor {
 			node,
 		));
 
-		// #[cfg(not(feature = "location-watcher"))]
+		// #[cfg(not(feature = ""))]
 		// tracing::warn!("Location watcher is disabled, locations will not be checked");
 	}
 }
@@ -195,9 +186,9 @@ impl LocationManagerActor {
 pub struct Locations {
 	online_locations: RwLock<OnlineLocations>,
 	pub online_tx: broadcast::Sender<OnlineLocations>,
-	//#[cfg(feature = "location-watcher")]
+
 	location_management_tx: mpsc::Sender<LocationManagementMessage>,
-	//#[cfg(feature = "location-watcher")]
+
 	watcher_management_tx: mpsc::Sender<WatcherManagementMessage>,
 	stop_tx: Option<oneshot::Sender<()>>,
 }
@@ -228,7 +219,7 @@ impl Locations {
 			)
 		}
 
-		// #[cfg(not(feature = "location-watcher"))]
+		// #[cfg(not(feature = ""))]
 		// {
 		// 	tracing::warn!("Location watcher is disabled, locations will not be checked");
 		// 	(
@@ -250,7 +241,6 @@ impl Locations {
 		library: Arc<Library>,
 		action: ManagementMessageAction,
 	) -> Result<(), LocationManagerError> {
-		//#[cfg(feature = "location-watcher")]
 		{
 			let (tx, rx) = oneshot::channel();
 			debug!("Sending location management message to location manager actor: {action:?}");
@@ -267,7 +257,7 @@ impl Locations {
 			rx.await?
 		}
 
-		// #[cfg(not(feature = "location-watcher"))]
+		// #[cfg(not(feature = ""))]
 		// Ok(())
 	}
 
@@ -279,12 +269,10 @@ impl Locations {
 		library: Arc<Library>,
 		action: WatcherManagementMessageAction,
 	) -> Result<(), LocationManagerError> {
-		//#[cfg(feature = "location-watcher")]
 		{
 			let (tx, rx) = oneshot::channel();
 
 			debug!("Sending watcher management message to location manager actor: {action:?}");
-
 
 			self.watcher_management_tx
 				.send(WatcherManagementMessage {
@@ -298,7 +286,7 @@ impl Locations {
 			rx.await?
 		}
 
-		// #[cfg(not(feature = "location-watcher"))]
+		// #[cfg(not(feature = ""))]
 		// Ok(())
 	}
 
@@ -382,7 +370,6 @@ impl Locations {
 		})
 	}
 
-	//#[cfg(feature = "location-watcher")]
 	async fn run_locations_checker(
 		mut location_management_rx: mpsc::Receiver<LocationManagementMessage>,
 		mut watcher_management_rx: mpsc::Receiver<WatcherManagementMessage>,
@@ -393,7 +380,7 @@ impl Locations {
 
 		use futures::stream::{FuturesUnordered, StreamExt};
 		use tokio::select;
-		use tracing::{warn};
+		use tracing::warn;
 
 		use helpers::{
 			check_online, drop_location, get_location, handle_ignore_path_request,
@@ -649,7 +636,7 @@ pub struct StopWatcherGuard<'m> {
 
 impl Drop for StopWatcherGuard<'_> {
 	fn drop(&mut self) {
-		// if cfg!(feature = "location-watcher") {
+		// if cfg!(feature = "") {
 		// FIXME: change this Drop to async drop in the future
 		if let Err(e) = block_on(self.manager.reinit_watcher(
 			self.location_id,
@@ -671,7 +658,7 @@ pub struct IgnoreEventsForPathGuard<'m> {
 
 impl Drop for IgnoreEventsForPathGuard<'_> {
 	fn drop(&mut self) {
-		// if cfg!(feature = "location-watcher") {
+		// if cfg!(feature = "") {
 		// FIXME: change this Drop to async drop in the future
 		if let Err(e) = block_on(self.manager.watcher_management_message(
 			self.location_id,

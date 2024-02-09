@@ -132,7 +132,7 @@ impl LocationWatcher {
 			handle: Some(handle),
 			stop_tx: Some(stop_tx),
 		})
-}
+	}
 
 	async fn handle_watch_events(
 		location_id: location::id::Type,
