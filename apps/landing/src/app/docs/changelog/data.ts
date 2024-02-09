@@ -31,3 +31,17 @@ export async function getReleasesCategories(): Promise<SectionMeta['categories']
 
 	return Object.values(categories);
 }
+
+export async function getLatestRelease(): Promise<{ tag: string; category: string } | undefined> {
+	const releases = await githubFetch(getRecentReleases);
+
+	for (const release of releases ?? []) {
+		if (!release.draft)
+			return {
+				tag: release.tag_name,
+				category: getReleaseFrontmatter(release).frontmatter.category
+			};
+	}
+
+	return undefined;
+}
