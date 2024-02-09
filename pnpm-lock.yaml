@@ -703,8 +703,8 @@ importers:
         specifier: ^0.5.1
         version: 0.5.1
       '@virtual-grid/react':
-        specifier: ^1.1.0
-        version: 1.1.0(react-dom@18.2.0)(react@18.2.0)
+        specifier: ^2.0.0
+        version: 2.0.0(react-dom@18.2.0)(react@18.2.0)
       class-variance-authority:
         specifier: ^0.7.0
         version: 0.7.0
@@ -10857,6 +10857,17 @@ packages:
       react: 18.2.0
     dev: false
 
+  /@tanstack/react-virtual@3.0.1(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-IFOFuRUTaiM/yibty9qQ9BfycQnYXIDHGP2+cU+0LrFFGNhVxCXSQnaY6wkX8uJVteFEBjUondX0Hmpp7TNcag==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
+    dependencies:
+      '@tanstack/virtual-core': 3.0.0
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+    dev: false
+
   /@tanstack/solid-query@5.17.9(solid-js@1.8.8):
     resolution: {integrity: sha512-ebcoTLajGoy4HRm9yAVH4N28CQZU5OPj5Gu2PwjWIePuCkWLFBYJcvYxgRxyf4GCh2GmelKNUu72HAvJbmKUOQ==}
     peerDependencies:
@@ -10869,6 +10880,10 @@ packages:
   /@tanstack/table-core@8.10.7:
     resolution: {integrity: sha512-KQk5OMg5OH6rmbHZxuNROvdI+hKDIUxANaHlV+dPlNN7ED3qYQ/WkpY2qlXww1SIdeMlkIhpN/2L00rof0fXFw==}
     engines: {node: '>=12'}
+    dev: false
+
+  /@tanstack/virtual-core@3.0.0:
+    resolution: {integrity: sha512-SYXOBTjJb05rXa2vl55TTwO40A6wKu0R5i1qQwhJYNDIqaIGF7D0HsLw+pJAyi2OvntlEIVusx3xtbbgSUi6zg==}
     dev: false
 
   /@tanstack/virtual-core@3.0.0-beta.66:
@@ -11681,22 +11696,28 @@ packages:
     hasBin: true
     dev: true
 
-  /@virtual-grid/core@1.1.0:
-    resolution: {integrity: sha512-Ajm2KfPESKsaYmgj4LAtkWuomdbVkw5c/1Xmg2LS+L2kYDAhi98rXdpn+AErR++9KGjlEqhz/vplmPchRbFolQ==}
+  /@virtual-grid/core@2.0.0:
+    resolution: {integrity: sha512-RwsDMgVJLbiOj5oKzyywFlt3XycoxhBTmGavfj+1+w0TJcwG48QgItuN36JQ27tjo9ks7K9BY7fFJjHm6PA7Ew==}
     dev: false
 
-  /@virtual-grid/react@1.1.0(react-dom@18.2.0)(react@18.2.0):
-    resolution: {integrity: sha512-s+VzaWQZLcgZynvM9c8xUIkOUifrqDY/gMY+ka8ZbkuQOiEGkTKYlqy5xUkwCfN14qk+LLmfE78UyVD49bh9yw==}
+  /@virtual-grid/react@2.0.0(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-X36yfSd/zp90EqLfyM+ubRQVncZ92lGBTNDDN9oRI5hcWDCrXhfyPTCNjCknoOfxCKeq37TIiTlRqJ1gR3g5lw==}
     peerDependencies:
       react: ^17.0.2 || ^18.0.0
     dependencies:
-      '@tanstack/react-virtual': 3.0.0-beta.66(react@18.2.0)
-      '@virtual-grid/core': 1.1.0
+      '@tanstack/react-virtual': 3.0.1(react-dom@18.2.0)(react@18.2.0)
+      '@virtual-grid/core': 2.0.0
+      '@virtual-grid/shared': 2.0.0
       react: 18.2.0
       react-intersection-observer: 9.5.2(react@18.2.0)
+      use-deep-compare: 1.2.1(react@18.2.0)
       use-resize-observer: 9.1.0(react-dom@18.2.0)(react@18.2.0)
     transitivePeerDependencies:
       - react-dom
+    dev: false
+
+  /@virtual-grid/shared@2.0.0:
+    resolution: {integrity: sha512-Va84yzJ/9jZnkff0bAFwyrFgVUfur06Fo836bLfeqKRElU7QHREoFPWRCTu+PJi1bemcMBnynmBKdDN7x2YcdQ==}
     dev: false
 
   /@vitejs/plugin-react-swc@3.5.0(vite@4.5.1):
@@ -24396,6 +24417,15 @@ packages:
     peerDependencies:
       react: '>=16.8.0'
     dependencies:
+      react: 18.2.0
+    dev: false
+
+  /use-deep-compare@1.2.1(react@18.2.0):
+    resolution: {integrity: sha512-JTnOZAr0fq1ix6CQ4XANoWIh03xAiMFlP/lVAYDdAOZwur6nqBSdATn1/Q9PLIGIW+C7xmFZBCcaA4KLDcQJtg==}
+    peerDependencies:
+      react: '>=16.8.0'
+    dependencies:
+      dequal: 2.0.3
       react: 18.2.0
     dev: false
 

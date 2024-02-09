@@ -80,6 +80,11 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 
 	useShortcuts();
 
+	useShortcut('explorerEscape', () => {
+		if (!selectable || explorer.selectedItems.size === 0) return;
+		explorer.resetSelectedItems([]);
+	});
+
 	useEffect(() => {
 		if (!isContextMenuOpen || explorer.selectedItems.size !== 0) return;
 		// Close context menu when no items are selected
