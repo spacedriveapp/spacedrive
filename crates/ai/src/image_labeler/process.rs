@@ -473,7 +473,7 @@ pub async fn assign_labels(
 		.collect();
 
 	sync.write_ops(
-		&db,
+		db,
 		(
 			sync_params,
 			db.label_on_object()
