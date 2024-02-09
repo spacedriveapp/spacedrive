@@ -43,6 +43,7 @@ export default function Header({
 	const navigation = useNavigation();
 	const explorerStore = useExplorerStore();
 	const routeParams = route?.route.params as any;
+
 	const SearchType = () => {
 		switch (searchType) {
 			case 'explorer':
@@ -93,7 +94,7 @@ export default function Header({
 							<HeaderIconKind />
 							<Text
 								numberOfLines={1}
-								style={tw`max-w-[190px] text-lg font-bold text-white`}
+								style={tw`max-w-[190px] text-[22px] font-bold text-white`}
 							>
 								{title || (routeTitle && route?.options.title)}
 							</Text>
