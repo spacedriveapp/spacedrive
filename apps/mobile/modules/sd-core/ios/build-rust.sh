@@ -20,10 +20,10 @@ TARGET_DIRECTORY="${__dirname}/../../../../../target"
 mkdir -p "$TARGET_DIRECTORY"
 TARGET_DIRECTORY="$(CDPATH='' cd -- "$TARGET_DIRECTORY" && pwd -P)"
 
-# if [ "${CONFIGURATION:-}" != "Debug" ]; then
-#   CARGO_FLAGS=--debug
-#   export CARGO_FLAGS
-# fi
+if [ "${CONFIGURATION:-}" != "Debug" ]; then
+  CARGO_FLAGS=--debug
+  export CARGO_FLAGS
+fi
 
 # Required for CI and for everyone I guess?
 export PATH="${CARGO_HOME:-"${HOME}/.cargo"}/bin:$PATH"
