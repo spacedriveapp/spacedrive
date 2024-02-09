@@ -178,7 +178,6 @@ impl LocationManagerActor {
 			node,
 		));
 
-		// #[cfg(not(feature = ""))]
 		// tracing::warn!("Location watcher is disabled, locations will not be checked");
 	}
 }
@@ -219,7 +218,6 @@ impl Locations {
 			)
 		}
 
-		// #[cfg(not(feature = ""))]
 		// {
 		// 	tracing::warn!("Location watcher is disabled, locations will not be checked");
 		// 	(
@@ -257,7 +255,6 @@ impl Locations {
 			rx.await?
 		}
 
-		// #[cfg(not(feature = ""))]
 		// Ok(())
 	}
 
@@ -286,7 +283,6 @@ impl Locations {
 			rx.await?
 		}
 
-		// #[cfg(not(feature = ""))]
 		// Ok(())
 	}
 
