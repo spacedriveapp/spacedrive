@@ -48,7 +48,7 @@ export const DateHeader = ({ date }: { date: string }) => {
 		>
 			<div
 				className={clsx(
-					'absolute inset-0 bg-gradient-to-b from-black/50 via-black/25 via-25% to-transparent transition-opacity duration-500',
+					'absolute inset-0 bg-gradient-to-b from-black/50 to-transparent transition-opacity duration-500',
 					isSticky ? 'opacity-100' : 'opacity-0'
 				)}
 			/>
