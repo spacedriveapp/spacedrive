@@ -1,9 +1,9 @@
 use std::{
 	collections::{HashMap, HashSet},
+	net::SocketAddr,
 	sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak},
 };
 
-use flume::Sender;
 use tokio::sync::{mpsc, oneshot};
 use tracing::warn;
 
@@ -29,9 +29,19 @@ pub(crate) struct State {
 	pub(crate) active_connections: HashMap<ListenerId, oneshot::Sender<()>>,
 	/// Methods for establishing an active connections with the remote
 	/// These should be inject by `Listener::acceptor` which is called when a new peer is discovered.
-	pub(crate) connection_methods: HashMap<ListenerId, mpsc::Sender<RemoteIdentity>>,
+	pub(crate) connection_methods: HashMap<ListenerId, mpsc::Sender<ConnectionRequest>>,
 	/// Methods that have discovered this peer.
-	pub(crate) discovered: HashSet<HookId>,
+	pub(crate) discovered: HashMap<HookId, HashSet<SocketAddr>>,
+}
+
+/// A request to connect to a client.
+/// This will be handled by a configured listener hook.
+#[derive(Debug)]
+#[non_exhaustive]
+pub struct ConnectionRequest {
+	pub to: RemoteIdentity,
+	pub addrs: HashSet<SocketAddr>,
+	pub tx: oneshot::Sender<Result<UnicastStream, String>>,
 }
 
 impl State {
@@ -118,59 +128,75 @@ impl Peer {
 			.read()
 			.unwrap_or_else(PoisonError::into_inner)
 			.discovered
-			.clone()
+			.keys()
+			.copied()
+			.collect()
 	}
 
 	/// Construct a new Quic stream to the peer.
 	pub async fn new_stream(&self) -> Result<UnicastStream, ()> {
-		// self.state
-		// 	.read()
-		// 	.unwrap_or_else(PoisonError::into_inner)
-		// 	.connection_methods
-		// 	.iter()
-		// 	.next()
-		// 	.map(|(id, tx)| {
-		// 		let (tx, rx) = oneshot::channel();
-		// 		self.state
-		// 			.write()
-		// 			.unwrap_or_else(PoisonError::into_inner)
-		// 			.active_connections
-		// 			.insert(*id, tx);
-		// 		Ok(UnicastStream::new(rx))
-		// 	})
-		todo!();
+		let (addrs, id, connect_tx) = {
+			let state = self.state.read().unwrap_or_else(PoisonError::into_inner);
+
+			let addrs = state
+				.discovered
+				.values()
+				.cloned()
+				.flatten()
+				.collect::<HashSet<_>>();
+
+			let Some((id, connect_tx)) = state
+				.connection_methods
+				.iter()
+				.map(|(id, tx)| (*id, tx.clone()))
+				.next()
+			else {
+				todo!();
+			};
+
+			(addrs, id, connect_tx)
+		};
+
+		let (tx, rx) = oneshot::channel();
+		connect_tx
+			.send(ConnectionRequest {
+				to: self.identity.clone(),
+				addrs,
+				tx,
+			})
+			.await
+			.map_err(|err| {
+				warn!("Failed to send connect request to peer: {}", err);
+			})?;
+		rx.await
+			.map_err(|err| {
+				warn!("Failed to receive connect response from peer: {err}");
+			})?
+			.map_err(|err| {
+				warn!("Failed to do the thing: {err}");
+			})
 	}
 }
 
 // Hook-facing methods
 impl Peer {
-	pub fn hook_discovered(&self, hook: HookId) {
+	pub fn hook_discovered(&self, hook: HookId, addrs: HashSet<SocketAddr>) {
+		// TODO: Emit event maybe???
+
 		self.state
 			.write()
 			.unwrap_or_else(PoisonError::into_inner)
 			.discovered
-			.insert(hook);
+			.insert(hook, addrs);
 	}
 
-	pub fn listener_available(&self, listener: ListenerId, tx: mpsc::Sender<RemoteIdentity>) {
+	pub fn listener_available(&self, listener: ListenerId, tx: mpsc::Sender<ConnectionRequest>) {
 		self.state
 			.write()
 			.unwrap_or_else(PoisonError::into_inner)
 			.connection_methods
 			.insert(listener, tx);
 	}
-
-	// pub fn connected_to(&self, listener: ListenerId, shutdown_tx: oneshot::Sender<()>) {
-	// 	let Some(p2p) = self.p2p.upgrade() else {
-	// 		warn!(
-	// 			"P2P System holding peer '{:?}' despite system being dropped",
-	// 			self.identity
-	// 		);
-	// 		return;
-	// 	};
-
-	// 	todo!();
-	// }
 
 	pub fn undiscover_peer(&self, listener: HookId) {
 		// self.state

@@ -122,7 +122,7 @@ impl P2P {
 		hook_id: HookId,
 		identity: RemoteIdentity,
 		metadata: HashMap<String, String>,
-		addrs: Vec<SocketAddr>,
+		addrs: HashSet<SocketAddr>,
 	) -> Arc<Peer> {
 		let mut peers = self.peers.write().unwrap_or_else(PoisonError::into_inner);
 		let peer = peers.entry(identity);
@@ -136,7 +136,7 @@ impl P2P {
 
 		{
 			let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
-			state.discovered.insert(hook_id);
+			state.discovered.insert(hook_id, addrs.clone());
 		}
 
 		peer.metadata_mut().extend(metadata);
@@ -228,7 +228,7 @@ impl P2P {
 		&self,
 		name: &'static str,
 		tx: Sender<HookEvent>,
-		acceptor: impl Fn(ListenerId, &Arc<Peer>, &Vec<SocketAddr>) + Send + Sync + 'static,
+		acceptor: impl Fn(ListenerId, &Arc<Peer>, &HashSet<SocketAddr>) + Send + Sync + 'static,
 	) -> ListenerId {
 		let mut hooks = self.hooks.write().unwrap_or_else(PoisonError::into_inner);
 		let hook_id = hooks.push(Hook {

@@ -1,8 +1,8 @@
 use std::{
-	collections::VecDeque,
+	collections::{HashMap, VecDeque},
 	sync::{
 		atomic::{AtomicU64, AtomicUsize},
-		Arc, PoisonError,
+		Arc, Mutex, PoisonError,
 	},
 	task::{Context, Poll},
 };
@@ -19,7 +19,7 @@ use libp2p::{
 use thiserror::Error;
 use tracing::{debug, trace, warn};
 
-use crate::{ListenerId, P2P};
+use crate::{ConnectionRequest, ListenerId, P2P};
 
 use super::connection::SpaceTimeConnection;
 
@@ -37,6 +37,9 @@ pub(crate) struct SpaceTimeState {
 	pub p2p: Arc<P2P>,
 	pub listener_id: ListenerId,
 	pub stream_id: Arc<AtomicU64>,
+	// A list of the `new_stream` callbacks that are waiting for a connection to be established.
+	// Once established, the outbound protocol can return the `UnicastStream` to the user.
+	pub establishing_outbound: Mutex<HashMap<ConnectionId, ConnectionRequest>>,
 }
 
 /// `SpaceTime` is a [`NetworkBehaviour`](libp2p_swarm::NetworkBehaviour) that implements the `SpaceTime` protocol.
@@ -55,6 +58,7 @@ impl SpaceTime {
 				p2p,
 				listener_id,
 				stream_id: Default::default(),
+				establishing_outbound: Default::default(),
 			}),
 			pending_events: VecDeque::new(),
 		}
@@ -67,12 +71,16 @@ impl NetworkBehaviour for SpaceTime {
 
 	fn handle_established_inbound_connection(
 		&mut self,
-		_connection_id: ConnectionId,
+		connection_id: ConnectionId,
 		peer_id: libp2p::PeerId,
 		_local_addr: &Multiaddr,
 		_remote_addr: &Multiaddr,
 	) -> Result<THandler<Self>, ConnectionDenied> {
-		Ok(SpaceTimeConnection::new(peer_id, self.state.clone()))
+		Ok(SpaceTimeConnection::new(
+			connection_id,
+			peer_id,
+			self.state.clone(),
+		))
 	}
 
 	fn handle_pending_outbound_connection(
@@ -88,12 +96,16 @@ impl NetworkBehaviour for SpaceTime {
 
 	fn handle_established_outbound_connection(
 		&mut self,
-		_connection_id: ConnectionId,
+		connection_id: ConnectionId,
 		peer_id: libp2p::PeerId,
 		_addr: &Multiaddr,
 		_role_override: Endpoint,
 	) -> Result<THandler<Self>, ConnectionDenied> {
-		Ok(SpaceTimeConnection::new(peer_id, self.state.clone()))
+		Ok(SpaceTimeConnection::new(
+			connection_id,
+			peer_id,
+			self.state.clone(),
+		))
 	}
 
 	fn on_swarm_event(&mut self, event: FromSwarm) {

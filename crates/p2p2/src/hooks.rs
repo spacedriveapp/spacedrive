@@ -72,7 +72,7 @@ impl Hook {
 		let _ = self.tx.send(event);
 	}
 
-	pub fn acceptor(&self, id: ListenerId, peer: &Arc<Peer>, addrs: &Vec<SocketAddr>) {
+	pub fn acceptor(&self, id: ListenerId, peer: &Arc<Peer>, addrs: &HashSet<SocketAddr>) {
 		if let Some(listener) = &self.listener {
 			(listener.acceptor.0)(id, peer, addrs);
 		}
@@ -86,7 +86,8 @@ pub(crate) struct ListenerData {
 	pub addrs: HashSet<SocketAddr>,
 	/// This is a function over a channel because we need to ensure the code runs prior to the peer being emitted to the application.
 	/// If not the peer would have no registered way to connect to it initially which would be confusing.
-	pub acceptor: HandlerFn<Arc<dyn Fn(ListenerId, &Arc<Peer>, &Vec<SocketAddr>) + Send + Sync>>,
+	pub acceptor:
+		HandlerFn<Arc<dyn Fn(ListenerId, &Arc<Peer>, &HashSet<SocketAddr>) + Send + Sync>>,
 }
 
 /// A little wrapper for functions to make them `Debug`.

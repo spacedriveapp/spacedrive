@@ -3,7 +3,7 @@ use libp2p::{
 		handler::{
 			ConnectionEvent, ConnectionHandler, ConnectionHandlerEvent, FullyNegotiatedInbound,
 		},
-		SubstreamProtocol,
+		ConnectionId, SubstreamProtocol,
 	},
 	PeerId,
 };
@@ -18,7 +18,7 @@ use tracing::error;
 use super::{
 	behaviour::{SpaceTimeState, EMPTY_QUEUE_SHRINK_THRESHOLD},
 	proto_inbound::InboundProtocol,
-	proto_outbound::{OutboundProtocol, OutboundRequest},
+	proto_outbound::OutboundProtocol,
 };
 
 // TODO: Probs change this based on the ConnectionEstablishmentPayload
@@ -26,6 +26,7 @@ const SUBSTREAM_TIMEOUT: Duration = Duration::from_secs(10); // TODO: Tune value
 
 #[allow(clippy::type_complexity)]
 pub struct SpaceTimeConnection {
+	id: ConnectionId,
 	peer_id: PeerId,
 	state: Arc<SpaceTimeState>,
 	pending_events: VecDeque<
@@ -38,8 +39,9 @@ pub struct SpaceTimeConnection {
 }
 
 impl SpaceTimeConnection {
-	pub(super) fn new(peer_id: PeerId, state: Arc<SpaceTimeState>) -> Self {
+	pub(super) fn new(id: ConnectionId, peer_id: PeerId, state: Arc<SpaceTimeState>) -> Self {
 		Self {
+			id,
 			peer_id,
 			state,
 			pending_events: VecDeque::new(),
@@ -48,8 +50,8 @@ impl SpaceTimeConnection {
 }
 
 impl ConnectionHandler for SpaceTimeConnection {
-	type FromBehaviour = OutboundRequest;
-	type ToBehaviour = (); // TODO: ManagerStreamAction2;
+	type FromBehaviour = ();
+	type ToBehaviour = ();
 	type InboundProtocol = InboundProtocol;
 	type OutboundProtocol = OutboundProtocol;
 	type OutboundOpenInfo = ();
@@ -66,7 +68,7 @@ impl ConnectionHandler for SpaceTimeConnection {
 		.with_timeout(SUBSTREAM_TIMEOUT)
 	}
 
-	fn on_behaviour_event(&mut self, req: Self::FromBehaviour) {
+	fn on_behaviour_event(&mut self, _req: Self::FromBehaviour) {
 		// TODO: Working keep alives
 		// self.keep_alive = KeepAlive::Yes;
 		// self.outbound.push_back(request);
@@ -75,8 +77,8 @@ impl ConnectionHandler for SpaceTimeConnection {
 			.push_back(ConnectionHandlerEvent::OutboundSubstreamRequest {
 				protocol: SubstreamProtocol::new(
 					OutboundProtocol {
+						connection_id: self.id,
 						state: self.state.clone(),
-						req,
 					},
 					(),
 				) // TODO: Use `info` here maybe to pass into about the client. Idk?

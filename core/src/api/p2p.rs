@@ -43,7 +43,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("state", {
-			R.query(|node, _: ()| async move { Ok(node.p2p.state()) })
+			R.query(|node, _: ()| async move { Ok(node.p2p.state().await) })
 		})
 		.procedure("spacedrop", {
 			#[derive(Type, Deserialize)]

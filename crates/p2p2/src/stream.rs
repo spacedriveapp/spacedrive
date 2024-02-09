@@ -4,6 +4,7 @@ use std::{
 	task::{Context, Poll},
 };
 
+use sync_wrapper::SyncWrapper;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, ReadBuf};
 
 use crate::RemoteIdentity;
@@ -13,7 +14,7 @@ impl<S: AsyncRead + AsyncWrite> IoStream for S {}
 
 /// A unicast stream is a direct stream to a specific peer.
 pub struct UnicastStream {
-	io: Pin<Box<dyn IoStream + Send>>,
+	io: SyncWrapper<Pin<Box<dyn IoStream + Send>>>,
 	remote: RemoteIdentity,
 }
 
@@ -28,7 +29,7 @@ impl fmt::Debug for UnicastStream {
 impl UnicastStream {
 	pub fn new<S: AsyncRead + AsyncWrite + Send + 'static>(remote: RemoteIdentity, io: S) -> Self {
 		Self {
-			io: Box::pin(io),
+			io: SyncWrapper::new(Box::pin(io)),
 			remote,
 		}
 	}
@@ -38,8 +39,8 @@ impl UnicastStream {
 		self.remote
 	}
 
-	pub async fn close(mut self) -> Result<(), io::Error> {
-		self.io.shutdown().await
+	pub async fn close(self) -> Result<(), io::Error> {
+		self.io.into_inner().shutdown().await
 	}
 }
 
@@ -49,7 +50,9 @@ impl AsyncRead for UnicastStream {
 		cx: &mut Context<'_>,
 		buf: &mut ReadBuf<'_>,
 	) -> Poll<io::Result<()>> {
-		Pin::new(&mut self.get_mut().io).poll_read(cx, buf)
+		Pin::new(&mut self.get_mut().io)
+			.get_pin_mut()
+			.poll_read(cx, buf)
 	}
 }
 
@@ -59,14 +62,20 @@ impl AsyncWrite for UnicastStream {
 		cx: &mut Context<'_>,
 		buf: &[u8],
 	) -> Poll<io::Result<usize>> {
-		Pin::new(&mut self.get_mut().io).poll_write(cx, buf)
+		Pin::new(&mut self.get_mut().io)
+			.get_pin_mut()
+			.poll_write(cx, buf)
 	}
 
 	fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-		Pin::new(&mut self.get_mut().io).poll_flush(cx)
+		Pin::new(&mut self.get_mut().io)
+			.get_pin_mut()
+			.poll_flush(cx)
 	}
 
 	fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-		Pin::new(&mut self.get_mut().io).poll_shutdown(cx)
+		Pin::new(&mut self.get_mut().io)
+			.get_pin_mut()
+			.poll_shutdown(cx)
 	}
 }

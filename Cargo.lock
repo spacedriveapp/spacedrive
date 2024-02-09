@@ -7931,6 +7931,7 @@ dependencies = [
  "specta",
  "stable-vec",
  "streamunordered",
+ "sync_wrapper",
  "thiserror",
  "tokio",
  "tokio-stream",

@@ -1,19 +1,26 @@
 use std::{
 	convert::Infallible,
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
-	sync::{Arc, RwLock},
+	sync::{Arc, PoisonError, RwLock},
 };
 
 use flume::{bounded, Receiver, Sender};
-use libp2p::{core::muxing::StreamMuxerBox, futures::StreamExt, Swarm, SwarmBuilder, Transport};
+use libp2p::{
+	core::muxing::StreamMuxerBox,
+	futures::StreamExt,
+	swarm::dial_opts::{DialOpts, PeerCondition},
+	Swarm, SwarmBuilder, Transport,
+};
 use stable_vec::StableVec;
 use tokio::{
 	net::TcpListener,
 	sync::{mpsc, oneshot},
 };
+use tracing::warn;
 
 use crate::{
-	quic::libp2p::socketaddr_to_quic_multiaddr, HookEvent, HookId, ListenerId, RemoteIdentity, P2P,
+	quic::libp2p::socketaddr_to_quic_multiaddr, ConnectionRequest, HookEvent, HookId, ListenerId,
+	RemoteIdentity, UnicastStream, P2P,
 };
 
 use super::behaviour::SpaceTime;
@@ -187,7 +194,7 @@ async fn start(
 	mut swarm: Swarm<SpaceTime>,
 	rx: Receiver<HookEvent>,
 	internal_rx: Receiver<InternalEvent>,
-	mut connect_rx: mpsc::Receiver<RemoteIdentity>,
+	mut connect_rx: mpsc::Receiver<ConnectionRequest>,
 ) {
 	let mut ipv4_listener = None;
 	let mut ipv6_listener = None;
@@ -235,8 +242,23 @@ async fn start(
 					let _ = result.send(Ok(()));
 				},
 			},
-			Some(event) = connect_rx.recv() => {
-				todo!();
+			Some(req) = connect_rx.recv() => {
+				let opts = DialOpts::unknown_peer_id()
+					// TODO: PR to libp2p to support multiple (their tech stack already supports it just not this builder)
+					.address(socketaddr_to_quic_multiaddr(req.addrs.iter().next().unwrap()))
+					// .address(req.addrs.iter().map(socketaddr_to_quic_multiaddr).collect())
+					.build();
+				let id = opts.connection_id();
+				let Err(err) = swarm.dial(opts) else {
+					swarm.behaviour_mut().state.establishing_outbound.lock().unwrap_or_else(PoisonError::into_inner).insert(id, req);
+					return;
+				};
+
+				warn!(
+					"error dialing peer '{}' with addresses '{:?}': {}",
+					req.to, req.addrs, err
+				);
+				let _ = req.tx.send(Err(err.to_string()));
 			}
 		}
 	}

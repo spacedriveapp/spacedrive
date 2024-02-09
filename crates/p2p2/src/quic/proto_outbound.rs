@@ -1,24 +1,20 @@
 use std::{
 	convert::Infallible,
-	future::{ready, Ready},
-	sync::{atomic::AtomicU64, Arc},
+	future::Future,
+	pin::Pin,
+	sync::{atomic::Ordering, Arc, PoisonError},
 };
 
-use libp2p::{core::UpgradeInfo, OutboundUpgrade, Stream};
-use tokio::sync::oneshot;
-use tokio_util::compat::FuturesAsyncReadCompatExt;
+use libp2p::{core::UpgradeInfo, swarm::ConnectionId, OutboundUpgrade, Stream};
 use tracing::warn;
 
 use crate::{Identity, P2P};
 
-use super::{behaviour::SpaceTimeState, libp2p::SpaceTimeProtocolName};
-
-#[derive(Debug)] // TODO: Would this be better as another type????
-pub struct OutboundRequest(Infallible); // TODO: oneshot::Sender<UnicastStreamBuilder>
+use super::{behaviour::SpaceTimeState, libp2p::SpaceTimeProtocolName, stream::new_outbound};
 
 pub struct OutboundProtocol {
+	pub(crate) connection_id: ConnectionId,
 	pub(crate) state: Arc<SpaceTimeState>,
-	pub(crate) req: OutboundRequest,
 }
 
 impl UpgradeInfo for OutboundProtocol {
@@ -33,24 +29,32 @@ impl UpgradeInfo for OutboundProtocol {
 impl OutboundUpgrade<Stream> for OutboundProtocol {
 	type Output = ();
 	type Error = ();
-	type Future = Ready<Result<(), ()>>;
+	type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send + 'static>>;
 
 	fn upgrade_outbound(self, io: Stream, _protocol: Self::Info) -> Self::Future {
-		// let result = match self.req {
-		// 	OutboundRequest::Unicast(sender) => {
-		// 		// We write the discriminator to the stream in the `Manager::stream` method before returning the stream to the user to make async a tad nicer.
-		// 		sender
-		// 			.send(UnicastStreamBuilder::new(
-		// 				self.identity.clone(),
-		// 				io.compat(),
-		// 			))
-		// 			.map_err(|err| {
-		// 				warn!("error transmitting unicast stream: {err:?}");
-		// 			})
-		// 	}
-		// };
+		let id = self.state.stream_id.fetch_add(1, Ordering::Relaxed);
+		Box::pin(async move {
+			let Some(req) = self
+				.state
+				.establishing_outbound
+				.lock()
+				.unwrap_or_else(PoisonError::into_inner)
+				.remove(&self.connection_id)
+			else {
+				warn!(
+					"id({id}): outbound connection '{}', no request found",
+					self.connection_id
+				);
+				return Ok(());
+			};
 
-		// ready(result)
-		todo!();
+			let _ = req.tx.send(
+				new_outbound(id, self.state.p2p.identity(), io)
+					.await
+					.map_err(|_| "error creating outbound stream".to_string()),
+			);
+
+			Ok(())
+		})
 	}
 }

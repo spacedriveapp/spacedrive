@@ -14,9 +14,9 @@ use libp2p::{
 };
 use tokio::{io::AsyncWriteExt, sync::oneshot};
 use tokio_util::compat::FuturesAsyncReadCompatExt;
-use tracing::{debug, warn};
+use tracing::debug;
 
-use crate::{identity, peer::State, quic::stream::new_inbound, Peer, P2P};
+use crate::{quic::stream::new_inbound, Peer, P2P};
 
 use super::{behaviour::SpaceTimeState, libp2p::SpaceTimeProtocolName};
 

@@ -89,15 +89,13 @@ impl P2PManager {
 		}
 		.update(&mut self.p2p.metadata_mut());
 
-		if let Err(err) = self
-			.quic
-			.set_ipv4_enabled(match config.p2p_ipv4_port {
-				Port::Disabled => None,
-				Port::Random => Some(0),
-				Port::Discrete(port) => Some(port),
-			})
-			.await
-		{
+		let port = match config.p2p_ipv4_port {
+			Port::Disabled => None,
+			Port::Random => Some(0),
+			Port::Discrete(port) => Some(port),
+		};
+		info!("Setting quic ipv4 listener to: {port:?}");
+		if let Err(err) = self.quic.set_ipv4_enabled(port).await {
 			error!("Failed to enabled quic ipv4 listener: {err}");
 			self.node_config
 				.write(|c| c.p2p_ipv4_port = Port::Disabled)
@@ -105,15 +103,13 @@ impl P2PManager {
 				.ok();
 		}
 
-		if let Err(err) = self
-			.quic
-			.set_ipv6_enabled(match config.p2p_ipv6_port {
-				Port::Disabled => None,
-				Port::Random => Some(0),
-				Port::Discrete(port) => Some(port),
-			})
-			.await
-		{
+		let port = match config.p2p_ipv6_port {
+			Port::Disabled => None,
+			Port::Random => Some(0),
+			Port::Discrete(port) => Some(port),
+		};
+		info!("Setting quic ipv4 listener to: {port:?}");
+		if let Err(err) = self.quic.set_ipv6_enabled(port).await {
 			error!("Failed to enabled quic ipv6 listener: {err}");
 			self.node_config
 				.write(|c| c.p2p_ipv6_port = Port::Disabled)
@@ -129,6 +125,7 @@ impl P2PManager {
 				if mdns.is_none() {
 					match Mdns::spawn(self.p2p.clone()) {
 						Ok(m) => {
+							info!("mDNS started successfully.");
 							*mdns = Some(m);
 							false
 						}
@@ -144,6 +141,7 @@ impl P2PManager {
 			P2PDiscoveryState::Disabled => {
 				if let Some(mdns) = self.mdns.lock().unwrap_or_else(PoisonError::into_inner).take() {
 					mdns.shutdown();
+					info!("mDNS shutdown successfully.");
 				}
 
 				false
@@ -180,8 +178,9 @@ impl P2PManager {
 			.map(|(_, p)| p.clone())
 	}
 
-	pub fn state(&self) -> serde_json::Value {
+	pub async fn state(&self) -> serde_json::Value {
 		let listeners = self.p2p.listeners();
+		let node_config = self.node_config.get().await;
 		json!({
 			"self_identity": self.p2p.remote_identity().to_string(),
 			"self_peer_id": format!("{:?}", self.lp2p_peer_id),
@@ -200,6 +199,11 @@ impl P2PManager {
 				"name": name,
 				"listener_addrs": listeners.iter().find(|l| l.is_hook_id(*id)).map(|l| l.addrs.clone()),
 			})).collect::<Vec<_>>(),
+			"config": json!({
+				"p2p_ipv4_port": node_config.p2p_ipv4_port,
+				"p2p_ipv6_port": node_config.p2p_ipv6_port,
+				"p2p_discovery": node_config.p2p_discovery,
+			})
 
 		})
 	}
