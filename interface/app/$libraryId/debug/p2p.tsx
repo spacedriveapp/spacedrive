@@ -1,15 +1,24 @@
-import { useBridgeQuery, useCache, useConnectedPeers, useNodes } from '@sd/client';
+import {
+	useBridgeQuery,
+	useCache,
+	useConnectedPeers,
+	useDiscoveredPeers,
+	useNodes,
+	useP2PContextRaw
+} from '@sd/client';
 
 export const Component = () => {
 	const node = useBridgeQuery(['nodeState']);
 
 	return (
 		<div className="p-4">
-			{node.data?.p2p_enabled === false ? (
+			{/* // TODO: Fix this */}
+			{/* {node.data?.p2p_enabled === false ? (
 				<h1 className="text-red-500">P2P is disabled. Please enable it in settings!</h1>
 			) : (
 				<Page />
-			)}
+			)} */}
+			<Page />
 		</div>
 	);
 };
@@ -20,19 +29,32 @@ function Page() {
 	});
 	const result = useBridgeQuery(['library.list']);
 	const connectedPeers = useConnectedPeers();
+	const discoveredPeers = useDiscoveredPeers();
 	useNodes(result.data?.nodes);
 	const libraries = useCache(result.data?.items);
+	const p2pCtxRaw = useP2PContextRaw();
 
 	return (
 		<div className="flex flex-col space-y-8">
-			<div>
-				<h1 className="mt-4">Connected to:</h1>
-				{connectedPeers.size === 0 && <p className="pl-2">None</p>}
-				{[...connectedPeers.entries()].map(([id, node]) => (
-					<div key={id} className="flex space-x-2">
-						<p>{id}</p>
-					</div>
-				))}
+			<div className="flex justify-around">
+				<div>
+					<h1 className="mt-4">Discovered:</h1>
+					{discoveredPeers.size === 0 && <p className="pl-2">None</p>}
+					{[...discoveredPeers.entries()].map(([id, node]) => (
+						<div key={id} className="flex space-x-2">
+							<p>{id}</p>
+						</div>
+					))}
+				</div>
+				<div>
+					<h1 className="mt-4">Connected to:</h1>
+					{connectedPeers.size === 0 && <p className="pl-2">None</p>}
+					{[...connectedPeers.entries()].map(([id, node]) => (
+						<div key={id} className="flex space-x-2">
+							<p>{id}</p>
+						</div>
+					))}
+				</div>
 			</div>
 
 			<div>

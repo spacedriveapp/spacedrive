@@ -1,4 +1,4 @@
-use crate::p2p::{operations, PeerMetadata};
+use crate::p2p::{operations, P2PEvent, PeerMetadata};
 
 use sd_p2p2::RemoteIdentity;
 
@@ -25,14 +25,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.map(|m| (i, p, m))
 					}) {
 					let identity = *identity;
-					// match peer.status() {
-					// 	PeerStatus::Unavailable => {}
-					// 	PeerStatus::Discovered => {
-					// 		queued.push(P2PEvent::DiscoveredPeer { identity, metadata })
-					// 	}
-					// 	PeerStatus::Connected => queued.push(P2PEvent::ConnectedPeer { identity }),
-					// }
-					// todo!();
+					match peer.is_connected() {
+						true => queued.push(P2PEvent::ConnectedPeer { identity }),
+						false => queued.push(P2PEvent::DiscoveredPeer { identity, metadata }),
+					}
 				}
 
 				Ok(async_stream::stream! {

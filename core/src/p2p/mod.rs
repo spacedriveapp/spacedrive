@@ -1,17 +1,19 @@
 #![warn(clippy::all, clippy::unwrap_used, clippy::panic)]
 #![allow(clippy::unnecessary_cast)] // Yeah they aren't necessary on this arch, but they are on others
 
+mod connect_hook;
+mod events;
 pub(super) mod libraries;
+mod manager;
+mod metadata;
 pub mod operations;
-mod p2p_events;
-mod p2p_manager;
-mod peer_metadata;
 mod protocol;
 pub mod sync;
 
-pub use p2p_events::*;
-pub use p2p_manager::*;
-pub use peer_metadata::*;
+pub use connect_hook::*;
+pub use events::*;
+pub use manager::*;
+pub use metadata::*;
 pub use protocol::*;
 
 pub(super) const SPACEDRIVE_APP_ID: &str = "sd";

@@ -145,7 +145,7 @@ impl P2P {
 			let hooks = self.hooks.read().unwrap_or_else(PoisonError::into_inner);
 			hooks
 				.iter()
-				.for_each(|(_, hook)| hook.acceptor(&peer, &addrs));
+				.for_each(|(id, hook)| hook.acceptor(ListenerId(id), &peer, &addrs));
 
 			if was_peer_inserted {
 				hooks
@@ -157,8 +157,6 @@ impl P2P {
 				hook.send(HookEvent::PeerDiscoveredBy(hook_id, peer.clone()))
 			});
 		}
-
-		println!("GOT {peer:?}"); // TODO: Apps needs to be given decision and connect here
 
 		peer
 	}
@@ -223,11 +221,14 @@ impl P2P {
 	/// A listener is a special type of hook which is responsible for accepting incoming connections.
 	///
 	/// It is expected you call `Self::register_listener_addr` after this to register the addresses you are listening on.
+	///
+	/// `acceptor` is called when a peer is discovered, but before it is emitted to the application.
+	/// This lets you register a connection method if you have one.
 	pub fn register_listener(
 		&self,
 		name: &'static str,
 		tx: Sender<HookEvent>,
-		acceptor: impl Fn(&Arc<Peer>, &Vec<SocketAddr>) + Send + Sync + 'static,
+		acceptor: impl Fn(ListenerId, &Arc<Peer>, &Vec<SocketAddr>) + Send + Sync + 'static,
 	) -> ListenerId {
 		let mut hooks = self.hooks.write().unwrap_or_else(PoisonError::into_inner);
 		let hook_id = hooks.push(Hook {

@@ -3,6 +3,7 @@ use std::{
 	sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak},
 };
 
+use flume::Sender;
 use tokio::sync::{mpsc, oneshot};
 use tracing::warn;
 
@@ -149,6 +150,14 @@ impl Peer {
 			.unwrap_or_else(PoisonError::into_inner)
 			.discovered
 			.insert(hook);
+	}
+
+	pub fn listener_available(&self, listener: ListenerId, tx: mpsc::Sender<RemoteIdentity>) {
+		self.state
+			.write()
+			.unwrap_or_else(PoisonError::into_inner)
+			.connection_methods
+			.insert(listener, tx);
 	}
 
 	// pub fn connected_to(&self, listener: ListenerId, shutdown_tx: oneshot::Sender<()>) {

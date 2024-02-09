@@ -6,9 +6,15 @@ use std::{
 
 use flume::{bounded, Receiver, Sender};
 use libp2p::{core::muxing::StreamMuxerBox, futures::StreamExt, Swarm, SwarmBuilder, Transport};
-use tokio::{net::TcpListener, sync::oneshot};
+use stable_vec::StableVec;
+use tokio::{
+	net::TcpListener,
+	sync::{mpsc, oneshot},
+};
 
-use crate::{quic::libp2p::socketaddr_to_quic_multiaddr, HookEvent, HookId, ListenerId, P2P};
+use crate::{
+	quic::libp2p::socketaddr_to_quic_multiaddr, HookEvent, HookId, ListenerId, RemoteIdentity, P2P,
+};
 
 use super::behaviour::SpaceTime;
 
@@ -20,8 +26,14 @@ pub struct Libp2pPeerId(libp2p::PeerId);
 enum InternalEvent {
 	RegisterListener {
 		id: ListenerId,
+		ipv4: bool,
 		addr: SocketAddr,
-		result: oneshot::Sender<()>,
+		result: oneshot::Sender<Result<(), String>>,
+	},
+	UnregisterListener {
+		id: ListenerId,
+		ipv4: bool,
+		result: oneshot::Sender<Result<(), String>>,
 	},
 }
 
@@ -61,13 +73,14 @@ impl QuicTransport {
 
 		let (tx, rx) = bounded(15);
 		let (internal_tx, internal_rx) = bounded(15);
-		let id = p2p.register_listener("libp2p-quic", tx, |peer, addrs| {
-			// todo!();
-			println!("TODO: Quic TRANSPORT {peer:?} {addrs:?}");
+		let (connect_tx, connect_rx) = mpsc::channel(15);
+		let id = p2p.register_listener("libp2p-quic", tx, move |listener_id, peer, _addrs| {
+			// TODO: I don't love this always being registered. Really it should only show up if the other device is online (do a ping-type thing)???
+			peer.listener_available(listener_id, connect_tx.clone());
 		});
 
-		let application_name = format!("/{}/spacetime/1.0.0", p2p.app_name());
-		let mut swarm = ok(ok(SwarmBuilder::with_existing_identity(keypair)
+		// let application_name = format!("/{}/spacetime/1.0.0", p2p.app_name());
+		let swarm = ok(ok(SwarmBuilder::with_existing_identity(keypair)
 			.with_tokio()
 			.with_other_transport(|keypair| {
 				libp2p_quic::GenTransport::<libp2p_quic::tokio::Provider>::new(
@@ -87,6 +100,7 @@ impl QuicTransport {
 			swarm,
 			rx,
 			internal_rx,
+			connect_rx,
 		));
 
 		Ok((
@@ -102,18 +116,25 @@ impl QuicTransport {
 
 	// `None` on the port means disabled. Use `0` for random port.
 	pub async fn set_ipv4_enabled(&self, port: Option<u16>) -> Result<(), String> {
-		self.setup_listener(port.map(|p| SocketAddr::from((Ipv4Addr::UNSPECIFIED, p))))
-			.await
+		self.setup_listener(
+			port.map(|p| SocketAddr::from((Ipv4Addr::UNSPECIFIED, p))),
+			true,
+		)
+		.await
 	}
 
 	pub async fn set_ipv6_enabled(&self, port: Option<u16>) -> Result<(), String> {
-		self.setup_listener(port.map(|p| SocketAddr::from((Ipv6Addr::UNSPECIFIED, p))))
-			.await
+		self.setup_listener(
+			port.map(|p| SocketAddr::from((Ipv6Addr::UNSPECIFIED, p))),
+			false,
+		)
+		.await
 	}
 
 	// TODO: Proper error type
-	async fn setup_listener(&self, addr: Option<SocketAddr>) -> Result<(), String> {
-		if let Some(mut addr) = addr {
+	async fn setup_listener(&self, addr: Option<SocketAddr>, ipv4: bool) -> Result<(), String> {
+		let (tx, rx) = oneshot::channel();
+		let event = if let Some(mut addr) = addr {
 			if addr.port() == 0 {
 				addr.set_port(
 					TcpListener::bind(addr)
@@ -125,31 +146,26 @@ impl QuicTransport {
 				);
 			}
 
-			let (tx, rx) = oneshot::channel();
-			let Ok(_) = self.internal_tx.send(InternalEvent::RegisterListener {
+			InternalEvent::RegisterListener {
 				id: self.id,
+				ipv4,
 				addr,
 				result: tx,
-			}) else {
-				return Ok(());
-			};
-			let Ok(_) = rx.await else {
-				return Ok(());
-			};
+			}
 		} else {
-			// 	//  let Some(addr) = self
-			// 	// 	.state
-			// 	// 	.read()
-			// 	// 	.unwrap_or_else(PoisonError::into_inner)
-			// 	// 	.ipv4_addr {
+			InternalEvent::UnregisterListener {
+				id: self.id,
+				ipv4,
+				result: tx,
+			}
+		};
 
-			// 	// 		self.p2p.unregister_listener_addr(self.id, addr);
-			// 	// 	}
-
-			todo!();
-		}
-
-		Ok(())
+		let Ok(_) = self.internal_tx.send(event) else {
+			return Err("internal channel closed".to_string());
+		};
+		rx.await
+			.map_err(|_| "internal response channel closed".to_string())
+			.and_then(|r| r)
 	}
 
 	pub fn shutdown(self) {
@@ -169,9 +185,13 @@ async fn start(
 	id: ListenerId,
 	state: Arc<RwLock<State>>,
 	mut swarm: Swarm<SpaceTime>,
-	mut rx: Receiver<HookEvent>,
-	mut internal_rx: Receiver<InternalEvent>,
+	rx: Receiver<HookEvent>,
+	internal_rx: Receiver<InternalEvent>,
+	mut connect_rx: mpsc::Receiver<RemoteIdentity>,
 ) {
+	let mut ipv4_listener = None;
+	let mut ipv6_listener = None;
+
 	loop {
 		tokio::select! {
 			Ok(event) = rx.recv_async() => match event {
@@ -179,17 +199,44 @@ async fn start(
 				_ => {},
 			},
 			event = swarm.select_next_some() => match event {
-				_ => {}, // todo!();
+				_ => {},
 			},
 			Ok(event) = internal_rx.recv_async() => match event {
-				InternalEvent::RegisterListener { id, addr, result } => {
-					let libp2p_listener_id = swarm.listen_on(socketaddr_to_quic_multiaddr(&addr));
-					p2p.register_listener_addr(id, addr);
+				InternalEvent::RegisterListener { id, ipv4, addr, result } => {
+					match swarm.listen_on(socketaddr_to_quic_multiaddr(&addr)) {
+						Ok(libp2p_listener_id) => {
+							let this = match ipv4 {
+								true => &mut ipv4_listener,
+								false => &mut ipv6_listener,
+							};
+							// TODO: Diff the `addr` & if it's changed actually update it
+							if this.is_none() {
+								*this =  Some((libp2p_listener_id, addr));
+								p2p.register_listener_addr(id, addr);
+							}
 
-					// TODO: Store listener id for cleanup code
-
-					let _ = result.send(());
+							let _ = result.send(Ok(()));
+						},
+						Err(e) => {
+							let _ = result.send(Err(e.to_string()));
+						},
+					}
 				},
+				InternalEvent::UnregisterListener { id, ipv4, result } => {
+					let this = match ipv4 {
+						true => &mut ipv4_listener,
+						false => &mut ipv6_listener,
+					};
+					if let Some((addr_id, addr)) = this.take() {
+						if swarm.remove_listener(addr_id) {
+							p2p.unregister_listener_addr(id, addr);
+						}
+					}
+					let _ = result.send(Ok(()));
+				},
+			},
+			Some(event) = connect_rx.recv() => {
+				todo!();
 			}
 		}
 	}

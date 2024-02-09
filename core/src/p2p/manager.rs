@@ -26,7 +26,7 @@ use tokio::sync::oneshot;
 use tracing::{error, info};
 use uuid::Uuid;
 
-use super::{P2PEvents, PeerMetadata};
+use super::{ConnectHook, P2PEvents, PeerMetadata};
 
 pub struct P2PManager {
 	pub(crate) p2p: Arc<P2P>,
@@ -35,6 +35,7 @@ pub struct P2PManager {
 	// The `libp2p::PeerId`. This is for debugging only, use `RemoteIdentity` instead.
 	lp2p_peer_id: Libp2pPeerId,
 	pub(crate) events: P2PEvents,
+	connect_hook: ConnectHook,
 
 	pub(super) spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub(super) spacedrop_cancelations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
@@ -54,7 +55,8 @@ impl P2PManager {
 			lp2p_peer_id,
 			mdns: Mutex::new(None),
 			quic,
-			events: P2PEvents::spawn(p2p),
+			events: P2PEvents::spawn(p2p.clone()),
+			connect_hook: ConnectHook::spawn(p2p),
 			spacedrop_pairing_reqs: Default::default(),
 			spacedrop_cancelations: Default::default(),
 			node_config,

@@ -51,8 +51,8 @@ pub struct P2PEvents {
 impl P2PEvents {
 	pub fn spawn(p2p: Arc<P2P>) -> Self {
 		let events = broadcast::channel(15);
-		let (tx, mut rx) = bounded(15);
-		let _ = p2p.register_hook("p2p-events", tx);
+		let (tx, rx) = bounded(15);
+		let _ = p2p.register_hook("sd-frontend-events", tx);
 
 		let events_tx = events.0.clone();
 		tokio::spawn(async move {
@@ -65,6 +65,7 @@ impl P2PEvents {
 						metadata: PeerMetadata::from_hashmap(&*peer.metadata()).unwrap(), // TODO: Error handling
 					},
 					HookEvent::PeerUnavailable(identity) => P2PEvent::ExpiredPeer { identity },
+					// TODO: Finish this
 					// HookEvent::PeerConnectedWith {
 					// 	listener,
 					// 	peer,
