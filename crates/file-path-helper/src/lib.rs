@@ -22,7 +22,7 @@ pub use isolated_file_path_data::{
 };
 
 // File Path selectables!
-file_path::select!(file_path_pub_and_cas_ids { pub_id cas_id });
+file_path::select!(file_path_pub_and_cas_ids { id pub_id cas_id });
 file_path::select!(file_path_just_pub_id_materialized_path {
 	pub_id
 	materialized_path
