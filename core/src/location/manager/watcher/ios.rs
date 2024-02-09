@@ -11,7 +11,7 @@ use sd_prisma::prisma::location;
 use sd_utils::error::FileIOError;
 
 use std::{
-	collections::{BTreeMap, HashMap},
+	collections::HashMap,
 	path::{Path, PathBuf},
 	sync::Arc,
 };

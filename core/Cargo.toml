@@ -106,7 +106,7 @@ http-range = "0.1.5"
 int-enum = "0.5.0"
 itertools = "0.12.0"
 mini-moka = "0.10.2"
-notify = { path = "../crates/notify", default-features = false, features = [
+notify = { git="https://github.com/notify-rs/notify.git", rev="c3929ed114fbb0bc7457a9a498260461596b00ca", default-features = false, features = [
   "macos_fsevent",
 ] }
 rmpv = "^1.0.1"

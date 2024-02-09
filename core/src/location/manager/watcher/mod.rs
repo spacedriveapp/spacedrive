@@ -155,7 +155,7 @@ impl LocationWatcher {
 				Some(event) = events_rx.recv() => {
 					match event {
 						Ok(event) => {
-							info!("[Debug - handle_watch_events] Received event: {:#?}", event);
+							debug!("[Debug - handle_watch_events] Received event: {:#?}", event);
 							if let Err(e) = Self::handle_single_event(
 								location_id,
 								location_pub_id,
@@ -189,7 +189,7 @@ impl LocationWatcher {
 				}
 
 				_ = &mut stop_rx => {
-					info!("Stop Location Manager event handler for location: <id='{}'>", location_id);
+					debug!("Stop Location Manager event handler for location: <id='{}'>", location_id);
 					break
 				}
 			}
@@ -205,7 +205,7 @@ impl LocationWatcher {
 		_library: &'lib Library,
 		ignore_paths: &HashSet<PathBuf>,
 	) -> Result<(), LocationManagerError> {
-		info!("Event: {:#?}", event);
+		debug!("Event: {:#?}", event);
 		if !check_event(&event, ignore_paths) {
 			return Ok(());
 		}
@@ -243,7 +243,7 @@ impl LocationWatcher {
 
 	pub(super) fn watch(&mut self) {
 		let path = &self.path;
-		info!("Start watching location: (path: {path})");
+		debug!("Start watching location: (path: {path})");
 
 		if let Err(e) = self
 			.watcher
@@ -251,7 +251,7 @@ impl LocationWatcher {
 		{
 			error!("Unable to watch location: (path: {path}, error: {e:#?})");
 		} else {
-			info!("Now watching location: (path: {path})");
+			debug!("Now watching location: (path: {path})");
 		}
 	}
 
@@ -265,7 +265,7 @@ impl LocationWatcher {
 			 **************************************************************************************/
 			error!("Unable to unwatch location: (path: {path}, error: {e:#?})",);
 		} else {
-			info!("Stop watching location: (path: {path})");
+			debug!("Stop watching location: (path: {path})");
 		}
 	}
 }

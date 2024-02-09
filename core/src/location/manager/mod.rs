@@ -210,7 +210,7 @@ impl Locations {
 			let (location_management_tx, location_management_rx) = mpsc::channel(128);
 			let (watcher_management_tx, watcher_management_rx) = mpsc::channel(128);
 			let (stop_tx, stop_rx) = oneshot::channel();
-			info!("Starting location manager actor");
+			debug!("Starting location manager actor");
 
 			(
 				Self {
@@ -435,7 +435,7 @@ impl Locations {
 													(location_id, library.id),
 													watcher
 												);
-												info!("Location {location_id} is online, watching it");
+												debug!("Location {location_id} is online, watching it");
 												// info!("Locations watched: {:#?}", locations_watched);
 											} else {
 												locations_unwatched.insert(
@@ -585,7 +585,7 @@ impl Locations {
 				}
 
 				_ = &mut stop_rx => {
-					info!("Stopping location manager");
+					debug!("Stopping location manager");
 					break;
 				}
 			}
