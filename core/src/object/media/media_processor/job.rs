@@ -105,7 +105,7 @@ impl StatefulJob for MediaProcessorJobInit {
 		ctx: &WorkerContext,
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
-		let Library { db, .. } = ctx.library.as_ref();
+		let Library { db, sync, .. } = ctx.library.as_ref();
 
 		let location_id = self.location.id;
 		let location_path =
@@ -186,6 +186,7 @@ impl StatefulJob for MediaProcessorJobInit {
 				location_path.clone(),
 				file_paths_for_labeling,
 				Arc::clone(db),
+				sync.clone(),
 			)
 			.await;
 
@@ -336,7 +337,11 @@ impl StatefulJob for MediaProcessorJobInit {
 					match ctx
 						.node
 						.image_labeller
-						.resume_batch(data.labeler_batch_token, Arc::clone(&ctx.library.db))
+						.resume_batch(
+							data.labeler_batch_token,
+							Arc::clone(&ctx.library.db),
+							ctx.library.sync.clone(),
+						)
 						.await
 					{
 						Ok(labels_rx) => labels_rx,

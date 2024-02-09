@@ -1,9 +1,13 @@
 use sd_file_path_helper::{file_path_for_media_processor, IsolatedFilePathData};
-use sd_prisma::prisma::{file_path, label, label_on_object, object, PrismaClient};
+use sd_prisma::{
+	prisma::{file_path, label, label_on_object, object, PrismaClient},
+	prisma_sync,
+};
+use sd_sync::OperationFactory;
 use sd_utils::{db::MissingFieldError, error::FileIOError};
 
 use std::{
-	collections::{HashMap, HashSet, VecDeque},
+	collections::{BTreeMap, HashMap, HashSet, VecDeque},
 	path::{Path, PathBuf},
 	sync::Arc,
 };
@@ -12,12 +16,12 @@ use async_channel as chan;
 use chrono::{DateTime, FixedOffset, Utc};
 use futures_concurrency::future::{Join, Race};
 use image::ImageFormat;
+use serde_json::json;
 use tokio::{
 	fs, spawn,
 	sync::{oneshot, OwnedRwLockReadGuard, OwnedSemaphorePermit, RwLock, Semaphore},
 };
 use tracing::{error, warn};
-use uuid::Uuid;
 
 use super::{actor::Batch, model::ModelAndSession, BatchToken, ImageLabelerError, LabelerOutput};
 
@@ -65,6 +69,7 @@ pub(super) async fn spawned_processing(
 		file_paths,
 		output_tx,
 		db,
+		sync,
 		is_resumable,
 	}: Batch,
 	available_parallelism: usize,
@@ -213,6 +218,7 @@ pub(super) async fn spawned_processing(
 					format,
 					(output_tx.clone(), completed_tx.clone()),
 					Arc::clone(&db),
+					sync.clone(),
 					permit,
 				)));
 			}
@@ -247,6 +253,7 @@ pub(super) async fn spawned_processing(
 					.collect(),
 				output_tx,
 				db,
+				sync: sync.clone(),
 				is_resumable,
 			})
 		};
@@ -289,6 +296,7 @@ async fn spawned_process_single_file(
 		chan::Sender<file_path::id::Type>,
 	),
 	db: Arc<PrismaClient>,
+	sync: Arc<sd_core_sync::Manager>,
 	_permit: OwnedSemaphorePermit,
 ) {
 	let image =
@@ -338,7 +346,7 @@ async fn spawned_process_single_file(
 		}
 	};
 
-	let (has_new_labels, result) = match assign_labels(object_id, labels, &db).await {
+	let (has_new_labels, result) = match assign_labels(object_id, labels, &db, &sync).await {
 		Ok(has_new_labels) => (has_new_labels, Ok(())),
 		Err(e) => (false, Err(e)),
 	};
@@ -386,7 +394,16 @@ pub async fn assign_labels(
 	object_id: object::id::Type,
 	mut labels: HashSet<String>,
 	db: &PrismaClient,
+	sync: &sd_core_sync::Manager,
 ) -> Result<bool, ImageLabelerError> {
+	let object = db
+		.object()
+		.find_unique(object::id::equals(object_id))
+		.select(object::select!({ pub_id }))
+		.exec()
+		.await?
+		.unwrap();
+
 	let mut has_new_labels = false;
 
 	let mut labels_ids = db
@@ -399,53 +416,72 @@ pub async fn assign_labels(
 		.map(|label| {
 			labels.remove(&label.name);
 
-			label.id
+			(label.id, label.name)
 		})
-		.collect::<Vec<_>>();
-
-	labels_ids.reserve(labels.len());
+		.collect::<BTreeMap<_, _>>();
 
 	let date_created: DateTime<FixedOffset> = Utc::now().into();
 
 	if !labels.is_empty() {
-		labels_ids.extend(
-			db._batch(
-				labels
-					.into_iter()
-					.map(|name| {
-						db.label()
-							.create(
-								Uuid::new_v4().as_bytes().to_vec(),
-								name,
-								vec![label::date_created::set(date_created)],
-							)
-							.select(label::select!({ id }))
-					})
-					.collect::<Vec<_>>(),
-			)
-			.await?
+		let mut sync_params = Vec::with_capacity(labels.len() * 2);
+
+		let db_params = labels
 			.into_iter()
-			.map(|label| label.id),
+			.map(|name| {
+				sync_params.extend(sync.shared_create(
+					prisma_sync::label::SyncId { name: name.clone() },
+					[(label::date_created::NAME, json!(&date_created))],
+				));
+
+				db.label()
+					.create(name, vec![label::date_created::set(date_created)])
+					.select(label::select!({ id name }))
+			})
+			.collect::<Vec<_>>();
+
+		labels_ids.extend(
+			sync.write_ops(db, (sync_params, db_params))
+				.await?
+				.into_iter()
+				.map(|l| (l.id, l.name)),
 		);
+
 		has_new_labels = true;
 	}
 
-	db.label_on_object()
-		.create_many(
-			labels_ids
-				.into_iter()
-				.map(|label_id| {
-					label_on_object::create_unchecked(
-						label_id,
-						object_id,
-						vec![label_on_object::date_created::set(date_created)],
-					)
-				})
-				.collect(),
-		)
-		.skip_duplicates()
-		.exec()
-		.await?;
+	let mut sync_params = Vec::with_capacity(labels_ids.len() * 2);
+
+	let db_params: Vec<_> = labels_ids
+		.into_iter()
+		.map(|(label_id, name)| {
+			sync_params.extend(sync.relation_create(
+				prisma_sync::label_on_object::SyncId {
+					label: prisma_sync::label::SyncId { name },
+					object: prisma_sync::object::SyncId {
+						pub_id: object.pub_id.clone(),
+					},
+				},
+				[],
+			));
+
+			label_on_object::create_unchecked(
+				label_id,
+				object_id,
+				vec![label_on_object::date_created::set(date_created)],
+			)
+		})
+		.collect();
+
+	sync.write_ops(
+		&db,
+		(
+			sync_params,
+			db.label_on_object()
+				.create_many(db_params)
+				.skip_duplicates(),
+		),
+	)
+	.await?;
 
 	Ok(has_new_labels)
 }
