@@ -526,6 +526,7 @@ export const DragSelect = ({ grid, children, onActiveItemChange }: Props) => {
 		<DragSelectContext.Provider value={{ selecto, drag, ...selectedTargets }}>
 			<Selecto
 				ref={selecto}
+				dragContainer={explorerView.ref.current}
 				boundContainer={{
 					element: explorerView.ref.current ?? false,
 					top: false,
