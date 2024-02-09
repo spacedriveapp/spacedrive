@@ -420,8 +420,6 @@ pub async fn assign_labels(
 		})
 		.collect::<BTreeMap<_, _>>();
 
-	labels_ids.reserve(labels.len());
-
 	let date_created: DateTime<FixedOffset> = Utc::now().into();
 
 	if !labels.is_empty() {
@@ -451,27 +449,28 @@ pub async fn assign_labels(
 		has_new_labels = true;
 	}
 
-	let (sync_params, db_params): (Vec<_>, Vec<_>) = labels_ids
+	let mut sync_params = Vec::with_capacity(labels_ids.len() * 2);
+
+	let db_params: Vec<_> = labels_ids
 		.into_iter()
-		.map(|(id, name)| {
-			(
-				sync.relation_create(
-					prisma_sync::label_on_object::SyncId {
-						label: prisma_sync::label::SyncId { name },
-						object: prisma_sync::object::SyncId {
-							pub_id: object.pub_id.clone(),
-						},
+		.map(|(label_id, name)| {
+			sync_params.extend(sync.relation_create(
+				prisma_sync::label_on_object::SyncId {
+					label: prisma_sync::label::SyncId { name },
+					object: prisma_sync::object::SyncId {
+						pub_id: object.pub_id.clone(),
 					},
-					[],
-				),
-				label_on_object::create_unchecked(
-					label_id,
-					object_id,
-					vec![label_on_object::date_created::set(date_created)],
-				),
+				},
+				[],
+			));
+
+			label_on_object::create_unchecked(
+				label_id,
+				object_id,
+				vec![label_on_object::date_created::set(date_created)],
 			)
 		})
-		.unzip();
+		.collect();
 
 	sync.write_ops(
 		&db,

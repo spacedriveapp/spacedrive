@@ -105,7 +105,7 @@ impl StatefulJob for MediaProcessorJobInit {
 		ctx: &WorkerContext,
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
-		let Library { db, .. } = ctx.library.as_ref();
+		let Library { db, sync, .. } = ctx.library.as_ref();
 
 		let location_id = self.location.id;
 		let location_path =

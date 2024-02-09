@@ -40,7 +40,7 @@ const BATCH_SIZE: usize = 10;
 pub async fn shallow(
 	location: &location::Data,
 	sub_path: &PathBuf,
-	library @ Library { db, .. }: &Library,
+	library @ Library { db, sync, .. }: &Library,
 	#[cfg(feature = "ai")] regenerate_labels: bool,
 	node: &Node,
 ) -> Result<(), JobError> {
