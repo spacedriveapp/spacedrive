@@ -1,6 +1,6 @@
 [package]
 name = "sd-core"
-version = "0.2.0"
+version = "0.2.3"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc."]
 rust-version = "1.73.0"
@@ -122,6 +122,8 @@ tar = "0.4.40"
 aws-sdk-s3 = { version = "1.5.0", features = ["behavior-version-latest"] }
 aws-config = "1.0.3"
 aws-credential-types = "1.0.3"
+base91 = "0.1.0"
+sd-actors = { version = "0.1.0", path = "../crates/actors" }
 
 # Override features of transitive dependencies
 [dependencies.openssl]

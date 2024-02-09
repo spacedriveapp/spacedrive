@@ -1,3 +1,5 @@
 - Make sure to run `pnpm i` if you make any change to the `package` mobile uses like `assets`.
 - If iOS build fails with `node not found` error, run `echo "export NODE_BINARY=$(command -v node)" >> .xcode.env.local` on `mobile/ios/` directory.
 - If XCode can't find node, run `ln -s "$(which node)" /usr/local/bin/node`
+- To view the logs from the Spacedrive Core API, run `xcrun simctl launch --console booted com.spacedrive.app` with the app built in debug mode.
+- If Rive Assets have been updated, run `pnpm mobile prebuild` to import the latest version of the `.riv` files into the project.

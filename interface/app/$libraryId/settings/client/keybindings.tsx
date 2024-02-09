@@ -7,6 +7,7 @@ import {
 import clsx from 'clsx';
 import { useState } from 'react';
 import { Divider, ModifierKeys, Switch } from '@sd/ui';
+import i18n from '~/app/I18n';
 import { Shortcut, shortcutCategories, useLocale, useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 import { OperatingSystem } from '~/util/Platform';
@@ -102,11 +103,11 @@ function createKeybindColumns(os: OperatingSystem) {
 	}>();
 	const columns = [
 		columnHelper.accessor('action', {
-			header: 'Description',
+			header: i18n.t('description'),
 			cell: (info) => <p className="w-full text-sm text-ink-faint">{info.getValue()}</p>
 		}),
 		columnHelper.accessor('icons', {
-			header: () => <p className="text-right">Key</p>,
+			header: () => <p className="text-right">{i18n.t('key')}</p>,
 			size: 200,
 			cell: (info) => {
 				const checkData = info.getValue()[os] || info.getValue()['all'];

@@ -1,6 +1,6 @@
-import { t } from 'i18next';
 import { useBridgeQuery, useCache, useLibraryContext, useNodes } from '@sd/client';
 import { Button, dialogManager } from '@sd/ui';
+import { useLocale } from '~/hooks';
 
 import { Heading } from '../../Layout';
 import CreateDialog from './CreateDialog';
@@ -13,11 +13,13 @@ export const Component = () => {
 
 	const { library } = useLibraryContext();
 
+	const { t } = useLocale();
+
 	return (
 		<>
 			<Heading
 				title={t('libraries')}
-				description={t("libraries_description")}
+				description={t('libraries_description')}
 				rightArea={
 					<div className="flex-row space-x-2">
 						<Button
@@ -27,7 +29,7 @@ export const Component = () => {
 								dialogManager.create((dp) => <CreateDialog {...dp} />);
 							}}
 						>
-							{t("add_library")}
+							{t('add_library')}
 						</Button>
 					</div>
 				}

@@ -7,7 +7,7 @@ export type Procedures = {
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "cloud.getApiOrigin", input: never, result: string } | 
-        { key: "cloud.library.get", input: LibraryArgs<null>, result: { uuid: string; name: string; instances: CloudInstance[]; ownerId: string } | null } | 
+        { key: "cloud.library.get", input: LibraryArgs<null>, result: { id: string; uuid: string; name: string; instances: CloudInstance[]; ownerId: string } | null } | 
         { key: "cloud.library.list", input: never, result: CloudLibrary[] } | 
         { key: "cloud.locations.list", input: never, result: CloudLocation[] } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata) | null } | 
@@ -19,7 +19,7 @@ export type Procedures = {
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
         { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
         { key: "labels.count", input: LibraryArgs<null>, result: number } | 
-        { key: "labels.get", input: LibraryArgs<number>, result: { id: number; pub_id: number[]; name: string; date_created: string; date_modified: string } | null } | 
+        { key: "labels.get", input: LibraryArgs<number>, result: { id: number; name: string; date_created: string; date_modified: string } | null } | 
         { key: "labels.getForObject", input: LibraryArgs<number>, result: Label[] } | 
         { key: "labels.getWithObjects", input: LibraryArgs<number[]>, result: { [key in number]: { date_created: string; object: { id: number } }[] } } | 
         { key: "labels.list", input: LibraryArgs<null>, result: Label[] } | 
@@ -40,6 +40,7 @@ export type Procedures = {
         { key: "notifications.dismiss", input: NotificationId, result: null } | 
         { key: "notifications.dismissAll", input: never, result: null } | 
         { key: "notifications.get", input: never, result: Notification[] } | 
+        { key: "p2p.state", input: never, result: JsonValue } | 
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.objectsCount", input: LibraryArgs<{ filters?: SearchFilterArgs[] }>, result: number } | 
@@ -61,6 +62,7 @@ export type Procedures = {
         { key: "backups.restore", input: string, result: null } | 
         { key: "cloud.library.create", input: LibraryArgs<null>, result: null } | 
         { key: "cloud.library.join", input: string, result: LibraryConfigWrapped } | 
+        { key: "cloud.library.sync", input: LibraryArgs<null>, result: null } | 
         { key: "cloud.locations.create", input: string, result: CloudLocation } | 
         { key: "cloud.locations.remove", input: string, result: CloudLocation } | 
         { key: "cloud.locations.testing", input: TestingParams, result: null } | 
@@ -110,8 +112,6 @@ export type Procedures = {
         { key: "nodes.updateThumbnailerPreferences", input: UpdateThumbnailerPreferences, result: null } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
         { key: "p2p.cancelSpacedrop", input: string, result: null } | 
-        { key: "p2p.pair", input: RemoteIdentity, result: number } | 
-        { key: "p2p.pairingResponse", input: [number, PairingDecision], result: null } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: string } | 
         { key: "preferences.update", input: LibraryArgs<LibraryPreferences>, result: null } | 
         { key: "search.saved.create", input: LibraryArgs<{ name: string; search?: string | null; filters?: string | null; description?: string | null; icon?: string | null }>, result: null } | 
@@ -161,9 +161,9 @@ export type CameraData = { device_make: string | null; device_model: string | nu
 
 export type ChangeNodeNameArgs = { name: string | null; p2p_port: MaybeUndefined<number>; p2p_enabled: boolean | null; image_labeler_version: string | null }
 
-export type CloudInstance = { id: string; uuid: string; identity: string }
+export type CloudInstance = { id: string; uuid: string; identity: RemoteIdentity; nodeId: string; nodeName: string; nodePlatform: number }
 
-export type CloudLibrary = { uuid: string; name: string; instances: CloudInstance[]; ownerId: string }
+export type CloudLibrary = { id: string; uuid: string; name: string; instances: CloudInstance[]; ownerId: string }
 
 export type CloudLocation = { id: string; name: string }
 
@@ -355,9 +355,9 @@ export type KindStatistic = { kind: number; name: string; count: number; total_b
 
 export type KindStatistics = { statistics: KindStatistic[] }
 
-export type Label = { id: number; pub_id: number[]; name: string; date_created: string; date_modified: string }
+export type Label = { id: number; name: string; date_created: string; date_modified: string }
 
-export type LabelWithObjects = { id: number; pub_id: number[]; name: string; date_created: string; date_modified: string; label_objects: { object: { id: number; file_paths: FilePath[] } }[] }
+export type LabelWithObjects = { id: number; name: string; date_created: string; date_modified: string; label_objects: { object: { id: number; file_paths: FilePath[] } }[] }
 
 /**
  * Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
@@ -379,7 +379,12 @@ description: string | null;
 /**
  * id of the current instance so we know who this `.db` is. This can be looked up within the `Instance` table.
  */
-instance_id: number; version: LibraryConfigVersion }
+instance_id: number; 
+/**
+ * cloud_id is the ID of the cloud library this library is linked to.
+ * If this is set we can assume the library is synced with the Cloud.
+ */
+cloud_id?: string | null; version: LibraryConfigVersion }
 
 export type LibraryConfigVersion = "V0" | "V1" | "V2" | "V3" | "V4" | "V5" | "V6" | "V7" | "V8" | "V9"
 
@@ -504,13 +509,9 @@ export type Orientation = "Normal" | "CW90" | "CW180" | "CW270" | "MirroredVerti
 /**
  * TODO: P2P event for the frontend
  */
-export type P2PEvent = { type: "DiscoveredPeer"; identity: RemoteIdentity; metadata: PeerMetadata } | { type: "ExpiredPeer"; identity: RemoteIdentity } | { type: "ConnectedPeer"; identity: RemoteIdentity } | { type: "DisconnectedPeer"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedout"; id: string } | { type: "SpacedropRejected"; id: string } | { type: "PairingRequest"; id: number; name: string; os: OperatingSystem } | { type: "PairingProgress"; id: number; status: PairingStatus }
+export type P2PEvent = { type: "DiscoveredPeer"; identity: RemoteIdentity; metadata: PeerMetadata } | { type: "ExpiredPeer"; identity: RemoteIdentity } | { type: "ConnectedPeer"; identity: RemoteIdentity } | { type: "DisconnectedPeer"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedout"; id: string } | { type: "SpacedropRejected"; id: string }
 
 export type P2PStatus = { ipv4: ListenerStatus; ipv6: ListenerStatus }
-
-export type PairingDecision = { decision: "accept"; libraryId: string } | { decision: "reject" }
-
-export type PairingStatus = { type: "EstablishingConnection" } | { type: "PairingRequested" } | { type: "LibraryAlreadyExists" } | { type: "PairingDecisionRequest" } | { type: "PairingInProgress"; data: { library_name: string; library_description: string | null } } | { type: "InitialSyncProgress"; data: number } | { type: "PairingComplete"; data: string } | { type: "PairingRejected" }
 
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; device_model: HardwareModel | null; version: string | null }
 

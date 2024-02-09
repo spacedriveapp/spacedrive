@@ -83,17 +83,6 @@ impl P2PManagerActor {
 											Header::Spacedrop(req) => {
 												operations::spacedrop::reciever(&this, req, event).await?
 											}
-											Header::Pair => {
-												this.pairing
-													.clone()
-													.responder(
-														event.identity,
-														event.stream,
-														&node.libraries,
-														node.clone(),
-													)
-													.await?
-											}
 											Header::Sync(library_id) => {
 												let mut tunnel =
 													Tunnel::responder(event.stream).await.map_err(|err| {

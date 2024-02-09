@@ -1,10 +1,9 @@
 use crate::{
 	node::{config::NodeConfig, Platform},
-	p2p::IdentityOrRemoteIdentity,
 	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 
-use sd_p2p::spacetunnel::Identity;
+use sd_p2p::spacetunnel::{Identity, IdentityOrRemoteIdentity};
 use sd_prisma::prisma::{file_path, indexer_rule, instance, location, node, PrismaClient};
 use sd_utils::{db::maybe_missing, error::FileIOError};
 
@@ -33,7 +32,10 @@ pub struct LibraryConfig {
 	pub description: Option<String>,
 	/// id of the current instance so we know who this `.db` is. This can be looked up within the `Instance` table.
 	pub instance_id: i32,
-
+	/// cloud_id is the ID of the cloud library this library is linked to.
+	/// If this is set we can assume the library is synced with the Cloud.
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub cloud_id: Option<String>,
 	version: LibraryConfigVersion,
 }
 
@@ -83,6 +85,7 @@ impl LibraryConfig {
 			description,
 			instance_id,
 			version: Self::LATEST_VERSION,
+			cloud_id: None,
 		};
 
 		this.save(path).await.map(|()| this)
@@ -222,9 +225,9 @@ impl LibraryConfig {
 													Some(size.to_be_bytes().to_vec())
 												} else {
 													error!(
-											"File path <id='{}'> had invalid size: '{}'",
-											path.id, size_in_bytes
-										);
+														"File path <id='{}'> had invalid size: '{}'",
+														path.id, size_in_bytes
+													);
 													None
 												};
 

@@ -336,7 +336,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				     name,
 				     description,
 				 }: EditLibraryArgs| async move {
-					Ok(node.libraries.edit(id, name, description).await?)
+					Ok(node
+						.libraries
+						.edit(id, name, description, MaybeUndefined::Undefined)
+						.await?)
 				},
 			)
 		})

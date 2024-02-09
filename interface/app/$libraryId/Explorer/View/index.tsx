@@ -11,6 +11,7 @@ import {
 import { dialogManager } from '@sd/ui';
 import { Loader } from '~/components';
 import { useKeyCopyCutPaste, useKeyMatcher, useShortcut } from '~/hooks';
+import { useRoutingContext } from '~/RoutingContext';
 import { isNonEmpty } from '~/util';
 
 import CreateDialog from '../../settings/library/tags/CreateDialog';
@@ -46,6 +47,8 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	const quickPreviewStore = useQuickPreviewStore();
 
 	const [{ path }] = useExplorerSearchParams();
+
+	const { visible } = useRoutingContext();
 
 	const ref = useRef<HTMLDivElement | null>(null);
 
@@ -86,11 +89,12 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	});
 
 	useEffect(() => {
-		if (!isContextMenuOpen || explorer.selectedItems.size !== 0) return;
+		if (!visible || !isContextMenuOpen || explorer.selectedItems.size !== 0) return;
+
 		// Close context menu when no items are selected
 		document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 		explorerStore.isContextMenuOpen = false;
-	}, [explorer.selectedItems, isContextMenuOpen]);
+	}, [explorer.selectedItems, isContextMenuOpen, visible]);
 
 	useEffect(() => {
 		if (explorer.isFetchingNextPage) {

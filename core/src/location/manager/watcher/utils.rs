@@ -741,7 +741,7 @@ pub(super) async fn rename(
 	let location_path = extract_location_path(location_id, library).await?;
 	let old_path = old_path.as_ref();
 	let new_path = new_path.as_ref();
-	let Library { db, .. } = library;
+	let Library { db, sync, .. } = library;
 
 	let old_path_materialized_str =
 		extract_normalized_materialized_path_str(location_id, &location_path, old_path)?;
@@ -784,8 +784,8 @@ pub(super) async fn rename(
 			let old_parts = old.to_parts();
 			// TODO: Fetch all file_paths that will be updated and dispatch sync events
 
-			let updated = library
-				.db
+			// This is NOT sync compatible! @brendan
+			let updated = db
 				._execute_raw(raw!(
 					"UPDATE file_path \
 						SET materialized_path = REPLACE(materialized_path, {}, {}) \
@@ -807,23 +807,56 @@ pub(super) async fn rename(
 
 		let is_hidden = path_is_hidden(new_path, &new_path_metadata);
 
-		library
-			.db
-			.file_path()
-			.update(
-				file_path::pub_id::equals(file_path.pub_id),
-				vec![
-					file_path::materialized_path::set(Some(new_path_materialized_str)),
-					file_path::name::set(Some(new_parts.name.to_string())),
-					file_path::extension::set(Some(new_parts.extension.to_string())),
-					file_path::date_modified::set(Some(
-						DateTime::<Utc>::from(new_path_metadata.modified_or_now()).into(),
-					)),
-					file_path::hidden::set(Some(is_hidden)),
-				],
-			)
-			.exec()
-			.await?;
+		let date_modified = DateTime::<Utc>::from(new_path_metadata.modified_or_now()).into();
+
+		let (sync_params, db_params): (Vec<_>, Vec<_>) = [
+			(
+				(
+					file_path::materialized_path::NAME,
+					json!(new_path_materialized_str),
+				),
+				file_path::materialized_path::set(Some(new_path_materialized_str)),
+			),
+			(
+				(file_path::name::NAME, json!(new_parts.name)),
+				file_path::name::set(Some(new_parts.name.to_string())),
+			),
+			(
+				(file_path::extension::NAME, json!(new_parts.extension)),
+				file_path::extension::set(Some(new_parts.extension.to_string())),
+			),
+			(
+				(file_path::date_modified::NAME, json!(&date_modified)),
+				file_path::date_modified::set(Some(date_modified)),
+			),
+			(
+				(file_path::hidden::NAME, json!(is_hidden)),
+				file_path::hidden::set(Some(is_hidden)),
+			),
+		]
+		.into_iter()
+		.unzip();
+
+		sync.write_ops(
+			db,
+			(
+				sync_params
+					.into_iter()
+					.map(|(k, v)| {
+						sync.shared_update(
+							prisma_sync::file_path::SyncId {
+								pub_id: file_path.pub_id.clone(),
+							},
+							k,
+							v,
+						)
+					})
+					.collect(),
+				db.file_path()
+					.update(file_path::pub_id::equals(file_path.pub_id), db_params),
+			),
+		)
+		.await?;
 
 		invalidate_query!(library, "search.paths");
 		invalidate_query!(library, "search.objects");
@@ -870,7 +903,7 @@ pub(super) async fn remove_by_file_path(
 			todo!("file has changed in some way, re-identify it")
 		}
 		Err(e) if e.kind() == ErrorKind::NotFound => {
-			let db = &library.db;
+			let Library { sync, db, .. } = library;
 
 			let is_dir = maybe_missing(file_path.is_dir, "file_path.is_dir")?;
 
@@ -883,10 +916,14 @@ pub(super) async fn remove_by_file_path(
 				)
 				.await?;
 			} else {
-				db.file_path()
-					.delete(file_path::pub_id::equals(file_path.pub_id.clone()))
-					.exec()
-					.await?;
+				sync.write_op(
+					&db,
+					sync.shared_delete(prisma_sync::file_path::SyncId {
+						pub_id: file_path.pub_id.clone(),
+					}),
+					db.file_path().delete(file_path::id::equals(file_path.id)),
+				)
+				.await?;
 
 				if let Some(object_id) = file_path.object_id {
 					db.object()

@@ -2,14 +2,17 @@ use crate::{
 	api::{utils::InvalidateOperationEvent, CoreEvent},
 	library::Library,
 	object::media::thumbnail::WEBP_EXTENSION,
-	p2p::{operations, IdentityOrRemoteIdentity},
+	p2p::operations,
 	util::InfallibleResponse,
 	Node,
 };
 
 use sd_file_ext::text::is_text;
 use sd_file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData};
-use sd_p2p::{spaceblock::Range, spacetunnel::RemoteIdentity};
+use sd_p2p::{
+	spaceblock::Range,
+	spacetunnel::{IdentityOrRemoteIdentity, RemoteIdentity},
+};
 use sd_prisma::prisma::{file_path, location};
 use sd_utils::db::maybe_missing;
 

@@ -91,7 +91,7 @@ export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) =
 
 				break;
 			case 'icon':
-				if (itemData.customIcon) return getIconByName(itemData.customIcon as any);
+				if (itemData.customIcon) return getIconByName(itemData.customIcon as any, isDark);
 
 				return getIcon(
 					// itemData.isDir || parent?.type === 'Node' ? 'Folder' :

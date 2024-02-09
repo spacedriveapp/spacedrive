@@ -164,6 +164,7 @@ impl StatefulJob for IndexerJobInit {
 		let location_path = maybe_missing(&init.location.path, "location.path").map(Path::new)?;
 
 		let db = Arc::clone(&ctx.library.db);
+		let sync = &ctx.library.sync;
 
 		let indexer_rules = init
 			.location
@@ -235,7 +236,7 @@ impl StatefulJob for IndexerJobInit {
 
 		let db_delete_start = Instant::now();
 		// TODO pass these uuids to sync system
-		let removed_count = remove_non_existing_file_paths(to_remove, &db).await?;
+		let removed_count = remove_non_existing_file_paths(to_remove, &db, sync).await?;
 		let db_delete_time = db_delete_start.elapsed();
 
 		let total_new_paths = &mut 0;
@@ -381,6 +382,7 @@ impl StatefulJob for IndexerJobInit {
 					maybe_missing(&init.location.path, "location.path").map(Path::new)?;
 
 				let db = Arc::clone(&ctx.library.db);
+				let sync = &ctx.library.sync;
 
 				let scan_start = Instant::now();
 
@@ -407,7 +409,8 @@ impl StatefulJob for IndexerJobInit {
 
 				let db_delete_time = Instant::now();
 				// TODO pass these uuids to sync system
-				new_metadata.removed_count = remove_non_existing_file_paths(to_remove, &db).await?;
+				new_metadata.removed_count =
+					remove_non_existing_file_paths(to_remove, &db, sync).await?;
 				new_metadata.db_write_time = db_delete_time.elapsed();
 
 				let to_walk_count = to_walk.len();
@@ -497,7 +500,7 @@ impl StatefulJob for IndexerJobInit {
 
 		if run_metadata.total_updated_paths > 0 {
 			// Invoking orphan remover here as we probably have some orphans objects due to updates
-			ctx.library.orphan_remover.invoke().await;
+			// ctx.library.orphan_remover.invoke().await;
 		}
 
 		if run_metadata.indexed_count > 0
