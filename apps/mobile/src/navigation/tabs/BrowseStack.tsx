@@ -6,6 +6,7 @@ import BrowseScreen from '~/screens/browse';
 import LocationScreen from '~/screens/Location';
 import { Locations } from '~/screens/Locations';
 import TagScreen from '~/screens/Tag';
+import Tags from '~/screens/Tags';
 
 import { TabScreenProps } from '../TabNavigator';
 
@@ -37,6 +38,13 @@ export default function BrowseStack() {
 				}}
 			/>
 			<Stack.Screen
+				name="Tags"
+				component={Tags}
+				options={{
+					header: () => <Header navBack title="Tags" />
+				}}
+			/>
+			<Stack.Screen
 				name="Locations"
 				component={Locations}
 				options={{
@@ -59,6 +67,7 @@ export type BrowseStackParamList = {
 	Location: { id: number; path?: string };
 	Locations: undefined;
 	Tag: { id: number; color: string };
+	Tags: undefined;
 };
 
 export type BrowseStackScreenProps<Screen extends keyof BrowseStackParamList> =

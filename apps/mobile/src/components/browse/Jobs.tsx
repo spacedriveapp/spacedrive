@@ -10,7 +10,7 @@ import Fade from '../layout/Fade';
 const Jobs = () => {
 	return (
 		<View style={tw`gap-5`}>
-			<View style={tw`w-full flex-row items-center justify-between px-7`}>
+			<View style={tw`flex-row items-center justify-between w-full px-7`}>
 				<Text style={tw`text-lg font-bold text-white`}>Jobs</Text>
 			</View>
 			<Fade color="mobile-screen" height="100%" width={30}>
@@ -45,18 +45,18 @@ const Job = ({ progress, message, error }: JobProps) => {
 		: tw.color('accent');
 	return (
 		<View
-			style={tw`h-[170px] w-[310px] flex-col rounded-md border border-sidebar-line/50 bg-sidebar-box`}
+			style={tw`h-[170px] w-[310px] flex-col rounded-md border border-app-line/50 bg-app-box/50`}
 		>
 			<View
-				style={tw`w-full flex-row items-center justify-between rounded-t-md border-b border-sidebar-line/80 bg-mobile-header/50 px-5 py-2`}
+				style={tw`flex-row items-center justify-between w-full px-5 py-2 border-b rounded-t-md border-sidebar-line/80 bg-mobile-header/50`}
 			>
 				<View style={tw`flex-row items-center gap-2`}>
 					<FolderIcon size={36} />
-					<Text style={tw`text-md font-bold text-white`}>Added Memories</Text>
+					<Text style={tw`font-bold text-white text-md`}>Added Memories</Text>
 				</View>
 				<DotsThreeOutlineVertical weight="fill" size={20} color={tw.color('ink-faint')} />
 			</View>
-			<View style={tw`mx-auto flex-1 flex-row items-center justify-between gap-5 px-5 py-3`}>
+			<View style={tw`flex-row items-center justify-between flex-1 gap-5 px-5 py-3 mx-auto`}>
 				<AnimatedCircularProgress
 					size={80}
 					width={7}
