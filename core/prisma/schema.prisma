@@ -124,6 +124,8 @@ model Location {
   hidden                 Boolean?
   date_created           DateTime?
 
+  /// @local
+  // this is just a client side cache which is annoying but oh well (@brendan)
   instance_id Int?
   instance    Instance? @relation(fields: [instance_id], references: [id], onDelete: SetNull)
 
@@ -514,6 +516,7 @@ model Notification {
   @@map("notification")
 }
 
+/// @shared(id: pub_id)
 model SavedSearch {
   id     Int   @id @default(autoincrement())
   pub_id Bytes @unique
@@ -532,6 +535,7 @@ model SavedSearch {
   @@map("saved_search")
 }
 
+/// @local(id: id)
 model CloudCRDTOperation {
   id        Bytes  @id
   timestamp BigInt
