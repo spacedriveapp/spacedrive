@@ -64,7 +64,7 @@ export const ListView = memo(() => {
 		getScrollElement: useCallback(() => explorer.scrollRef.current, [explorer.scrollRef]),
 		estimateSize: useCallback(() => ROW_HEIGHT, []),
 		paddingStart: TABLE_PADDING_Y,
-		paddingEnd: TABLE_PADDING_Y + (explorerView.bottom ?? 0),
+		paddingEnd: TABLE_PADDING_Y + (explorerView.scrollPadding?.bottom ?? 0),
 		scrollMargin: listOffset,
 		overscan: explorer.overscan ?? 10
 	});
@@ -367,7 +367,7 @@ export const ListView = memo(() => {
 
 			const tableTop =
 				scrollRect.top +
-				(explorerView.top ??
+				(explorerView.scrollPadding?.top ??
 					parseInt(getComputedStyle(explorer.scrollRef.current).paddingTop)) +
 				(explorer.scrollRef.current.scrollTop > top ? 36 : 0);
 
@@ -382,11 +382,11 @@ export const ListView = memo(() => {
 			if (rowTop < tableTop) {
 				const scrollBy = rowTop - tableTop - (row.index === 0 ? TABLE_PADDING_Y : 0);
 				explorer.scrollRef.current.scrollBy({ top: scrollBy });
-			} else if (rowBottom > scrollRect.height - (explorerView.bottom ?? 0)) {
+			} else if (rowBottom > scrollRect.height - (explorerView.scrollPadding?.bottom ?? 0)) {
 				const scrollBy =
 					rowBottom -
 					scrollRect.height +
-					(explorerView.bottom ?? 0) +
+					(explorerView.scrollPadding?.bottom ?? 0) +
 					(row.index === rows.length - 1 ? TABLE_PADDING_Y : 0);
 
 				explorer.scrollRef.current.scrollBy({ top: scrollBy });
@@ -394,8 +394,8 @@ export const ListView = memo(() => {
 		},
 		[
 			explorer.scrollRef,
-			explorerView.bottom,
-			explorerView.top,
+			explorerView.scrollPadding?.bottom,
+			explorerView.scrollPadding?.top,
 			rowVirtualizer.options.paddingStart,
 			rows.length,
 			top
@@ -744,7 +744,7 @@ export const ListView = memo(() => {
 
 		const observer = new MutationObserver(() => {
 			setTop(
-				explorerView.top ??
+				explorerView.scrollPadding?.top ??
 					parseInt(getComputedStyle(element).paddingTop) +
 						element.getBoundingClientRect().top
 			);
@@ -757,7 +757,7 @@ export const ListView = memo(() => {
 		});
 
 		return () => observer.disconnect();
-	}, [explorer.scrollRef, explorerView.top]);
+	}, [explorer.scrollRef, explorerView.scrollPadding?.top]);
 
 	// Set list offset
 	useLayoutEffect(() => setListOffset(tableRef.current?.offsetTop ?? 0), []);
