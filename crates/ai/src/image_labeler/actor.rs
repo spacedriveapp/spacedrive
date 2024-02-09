@@ -37,6 +37,7 @@ const PENDING_BATCHES_FILE: &str = "pending_image_labeler_batches.bin";
 type ResumeBatchRequest = (
 	BatchToken,
 	Arc<PrismaClient>,
+	Arc<sd_core_sync::Manager>,
 	oneshot::Sender<Result<chan::Receiver<LabelerOutput>, ImageLabelerError>>,
 );
 
@@ -53,6 +54,7 @@ pub(super) struct Batch {
 	pub(super) output_tx: chan::Sender<LabelerOutput>,
 	pub(super) is_resumable: bool,
 	pub(super) db: Arc<PrismaClient>,
+	pub(super) sync: Arc<sd_core_sync::Manager>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -165,6 +167,7 @@ impl ImageLabeler {
 		location_path: PathBuf,
 		file_paths: Vec<file_path_for_media_processor::Data>,
 		db: Arc<PrismaClient>,
+		sync: Arc<sd_core_sync::Manager>,
 		is_resumable: bool,
 	) -> (BatchToken, chan::Receiver<LabelerOutput>) {
 		let (tx, rx) = chan::bounded(usize::max(file_paths.len(), 1));
@@ -180,6 +183,7 @@ impl ImageLabeler {
 					output_tx: tx,
 					is_resumable,
 					db,
+					sync,
 				})
 				.await
 				.is_err()
@@ -201,8 +205,9 @@ impl ImageLabeler {
 		location_path: PathBuf,
 		file_paths: Vec<file_path_for_media_processor::Data>,
 		db: Arc<PrismaClient>,
+		sync: Arc<sd_core_sync::Manager>,
 	) -> chan::Receiver<LabelerOutput> {
-		self.new_batch_inner(location_id, location_path, file_paths, db, false)
+		self.new_batch_inner(location_id, location_path, file_paths, db, sync, false)
 			.await
 			.1
 	}
@@ -214,8 +219,9 @@ impl ImageLabeler {
 		location_path: PathBuf,
 		file_paths: Vec<file_path_for_media_processor::Data>,
 		db: Arc<PrismaClient>,
+		sync: Arc<sd_core_sync::Manager>,
 	) -> (BatchToken, chan::Receiver<LabelerOutput>) {
-		self.new_batch_inner(location_id, location_path, file_paths, db, true)
+		self.new_batch_inner(location_id, location_path, file_paths, db, sync, true)
 			.await
 	}
 
@@ -284,11 +290,12 @@ impl ImageLabeler {
 		&self,
 		token: BatchToken,
 		db: Arc<PrismaClient>,
+		sync: Arc<sd_core_sync::Manager>,
 	) -> Result<chan::Receiver<LabelerOutput>, ImageLabelerError> {
 		let (tx, rx) = oneshot::channel();
 
 		self.resume_batch_tx
-			.send((token, db, tx))
+			.send((token, db, sync, tx))
 			.await
 			.expect("critical error: image labeler communication channel unexpectedly closed");
 
@@ -334,6 +341,7 @@ async fn actor_loop(
 		ResumeBatch(
 			BatchToken,
 			Arc<PrismaClient>,
+			Arc<sd_core_sync::Manager>,
 			oneshot::Sender<Result<chan::Receiver<LabelerOutput>, ImageLabelerError>>,
 		),
 		UpdateModel(
@@ -350,7 +358,8 @@ async fn actor_loop(
 
 	let mut msg_stream = pin!((
 		new_batches_rx.map(StreamMessage::NewBatch),
-		resume_batch_rx.map(|(token, db, done_tx)| StreamMessage::ResumeBatch(token, db, done_tx)),
+		resume_batch_rx
+			.map(|(token, db, sync, done_tx)| StreamMessage::ResumeBatch(token, db, sync, done_tx)),
 		update_model_rx.map(|(model, done_tx)| StreamMessage::UpdateModel(model, done_tx)),
 		done_rx.clone().map(StreamMessage::BatchDone),
 		shutdown_rx.map(StreamMessage::Shutdown)
@@ -376,7 +385,7 @@ async fn actor_loop(
 				}
 			}
 
-			StreamMessage::ResumeBatch(token, db, resume_done_tx) => {
+			StreamMessage::ResumeBatch(token, db, sync, resume_done_tx) => {
 				let resume_result = if let Some((batch, output_rx)) =
 					to_resume_batches.write().await.remove(&token).map(
 						|ResumableBatch {
@@ -390,6 +399,7 @@ async fn actor_loop(
 								Batch {
 									token,
 									db,
+									sync,
 									output_tx,
 									location_id,
 									location_path,
