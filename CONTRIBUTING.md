@@ -89,7 +89,7 @@ To run the mobile app:
 - Install [Android Studio](https://developer.android.com/studio) for Android and [Xcode](https://apps.apple.com/au/app/xcode/id497799835) for iOS development.
 - Run `./scripts/setup.sh mobile`
   - This will set up most of the dependencies required to build the mobile app.
-- Make sure you have [NDK 23.1.7779620 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) installed in Android Studio.
+- Make sure you have [NDK 26.1.10909125 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) installed in Android Studio.
 - Run the following commands:
   - `pnpm mobile android` (runs on Android Emulator)
     - In order to have locations working on Android, you must run the following command once the application has been installed for the first time. Otherwise, locations will not work.

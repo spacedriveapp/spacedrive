@@ -77,11 +77,11 @@ jobs:
   #     - name: Cache NDK
   #       uses: actions/cache@v3
   #       with:
-  #         path: ${{ env.ANDROID_HOME }}/ndk/23.1.7779620
-  #         key: ndk-23.1.7779620
+  #         path: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
+  #         key: ndk-26.1.10909125
   #
   #     - name: Install NDK
-  #       run: echo "y" | sudo ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;23.1.7779620"
+  #       run: echo "y" | sudo ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909125"
   #
   #     - name: Cache Gradle
   #       uses: gradle/gradle-build-action@v2
@@ -106,7 +106,7 @@ jobs:
   #         arch: x86_64
   #         api-level: 30
   #         target: google_apis
-  #         ndk: 23.1.7779620
+  #         ndk: 26.1.10909125
   #         ram-size: 4096M
   #         emulator-boot-timeout: 12000
   #         force-avd-creation: false
@@ -126,7 +126,7 @@ jobs:
   #         arch: x86_64
   #         api-level: 30
   #         target: google_apis
-  #         ndk: 23.1.7779620
+  #         ndk: 26.1.10909125
   #         ram-size: 4096M
   #         emulator-boot-timeout: 12000
   #         force-avd-creation: false
