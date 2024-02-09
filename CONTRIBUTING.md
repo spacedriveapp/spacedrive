@@ -98,7 +98,7 @@ To run the mobile app:
       - `adb shell`
       - Then `run-as com.spacedrive.app` to access the app's directory on device.
       - Run `cd files/logs` and then select the logs with the timestamp of when you ran the app. Ex: `sd.log.2023-11-28`.
-        - You can view the logs using `cat [log-name]`. Ex: `cat sd.log.2023-11-28`.
+        - You can view the logs using `tail -f [log-name]`. Ex: `tail -f sd.log.2023-11-28`.
   - `pnpm mobile ios` (runs on iOS Emulator)
     - `xcrun simctl launch --console booted com.spacedrive.app` allows you to view the console output of the iOS app from `tracing`. However, the application must be built in `debug` mode for this.
   - `pnpm mobile start` (runs the metro bundler only)
