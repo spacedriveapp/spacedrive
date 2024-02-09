@@ -1,9 +1,9 @@
 import { LoadMoreTrigger, useGrid, useScrollMargin, useVirtualizer } from '@virtual-grid/react';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { getItemFilePath } from '@sd/client';
+import { getExplorerItemData } from '@sd/client';
 
 import { useExplorerContext } from '../../Context';
-import { orderingKey } from '../../store';
+import { getOrderingDirection, orderingKey } from '../../store';
 import { getItemData, getItemId, uniqueId } from '../../util';
 import { useExplorerViewContext } from '../Context';
 import { DragSelect } from '../Grid/DragSelect';
@@ -13,6 +13,14 @@ import { DATE_HEADER_HEIGHT, DateHeader } from './DateHeader';
 import { MediaViewItem } from './Item';
 import { formatDate } from './util';
 
+const SORT_BY_DATE_KEYS = [
+	'dateCreated',
+	'dateIndexed',
+	'dateModified',
+	'object.dateAccessed',
+	'object.mediaData.epochTime'
+];
+
 export const MediaView = () => {
 	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
@@ -20,9 +28,10 @@ export const MediaView = () => {
 
 	const gridRef = useRef<HTMLDivElement>(null);
 
-	const isSortingByDate = explorerSettings.order
-		? orderingKey(explorerSettings.order).toLowerCase().includes('date')
-		: undefined;
+	const orderBy = explorerSettings.order && orderingKey(explorerSettings.order);
+	const orderDirection = explorerSettings.order && getOrderingDirection(explorerSettings.order);
+
+	const isSortingByDate = orderBy && SORT_BY_DATE_KEYS.includes(orderBy);
 
 	const grid = useGrid({
 		scrollRef: explorer.scrollRef,
@@ -63,7 +72,7 @@ export const MediaView = () => {
 	const virtualRows = rowVirtualizer.getVirtualItems();
 
 	const date = useMemo(() => {
-		if (!isSortingByDate) return;
+		if (!isSortingByDate || !orderBy || !orderDirection) return;
 
 		let firstRowIndex: number | undefined = undefined;
 		let lastRowIndex: number | undefined = undefined;
@@ -95,27 +104,66 @@ export const MediaView = () => {
 		const firstExplorerItem = explorer.items?.[firstRowIndex * grid.columnCount];
 		const lastExplorerItem = explorer.items?.[lastItemIndex];
 
-		const firstFilePath = firstExplorerItem && getItemFilePath(firstExplorerItem);
+		const firstFilePath = firstExplorerItem && getExplorerItemData(firstExplorerItem);
 		if (!firstFilePath) return;
 
-		const lastFilePath = lastExplorerItem && getItemFilePath(lastExplorerItem);
+		const lastFilePath = lastExplorerItem && getExplorerItemData(lastExplorerItem);
 		if (!lastFilePath) return;
 
-		const firstDateCreated = firstFilePath.date_created
-			? new Date(new Date(firstFilePath.date_created).setHours(0, 0, 0, 0))
-			: undefined;
+		let firstFilePathDate: string | null = null;
+		let lastFilePathDate: string | null = null;
 
-		const lastDateCreated = lastFilePath.date_created
-			? new Date(new Date(lastFilePath.date_created).setHours(0, 0, 0, 0))
-			: undefined;
+		switch (orderBy) {
+			case 'dateCreated': {
+				firstFilePathDate = firstFilePath.dateCreated;
+				lastFilePathDate = lastFilePath.dateCreated;
+				break;
+			}
 
-		if (!firstDateCreated || !lastDateCreated) return;
+			case 'dateIndexed': {
+				firstFilePathDate = firstFilePath.dateIndexed;
+				lastFilePathDate = lastFilePath.dateIndexed;
+				break;
+			}
 
-		if (firstDateCreated.getTime() !== lastDateCreated.getTime()) {
-			return formatDate({ from: firstDateCreated, to: lastDateCreated });
+			case 'dateModified': {
+				firstFilePathDate = firstFilePath.dateModified;
+				lastFilePathDate = lastFilePath.dateModified;
+				break;
+			}
+
+			case 'object.dateAccessed': {
+				firstFilePathDate = firstFilePath.dateAccessed;
+				lastFilePathDate = lastFilePath.dateAccessed;
+				break;
+			}
+
+			// TODO: Uncomment when we add sorting by date taken
+			// case 'object.mediaData.epochTime': {
+			// 	firstFilePathDate = firstFilePath.dateTaken;
+			// 	lastFilePathDate = lastFilePath.dateTaken;
+			// 	break;
+			// }
 		}
 
-		return formatDate(firstDateCreated);
+		const firstDate = firstFilePathDate
+			? new Date(new Date(firstFilePathDate).setHours(0, 0, 0, 0))
+			: undefined;
+
+		const lastDate = lastFilePathDate
+			? new Date(new Date(lastFilePathDate).setHours(0, 0, 0, 0))
+			: undefined;
+
+		if (!firstDate || !lastDate) return;
+
+		if (firstDate.getTime() !== lastDate.getTime()) {
+			return formatDate({
+				from: orderDirection === 'Asc' ? firstDate : lastDate,
+				to: orderDirection === 'Asc' ? lastDate : firstDate
+			});
+		}
+
+		return formatDate(firstDate);
 	}, [
 		explorer.items,
 		grid.columnCount,
@@ -123,7 +171,9 @@ export const MediaView = () => {
 		isSortingByDate,
 		rowVirtualizer.scrollOffset,
 		rowVirtualizer.scrollRect.height,
-		virtualRows
+		virtualRows,
+		orderBy,
+		orderDirection
 	]);
 
 	const { activeItem } = useKeySelection(grid);
