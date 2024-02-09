@@ -75,9 +75,10 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 			ModelSyncType::Relation { item, group } => {
 				let compound_id = format_ident!(
 					"{}",
-					item.fields()
+					group
+						.fields()
 						.unwrap()
-						.chain(group.fields().unwrap())
+						.chain(item.fields().unwrap())
 						.map(|f| f.name())
 						.collect::<Vec<_>>()
 						.join("_")

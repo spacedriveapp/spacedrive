@@ -338,7 +338,7 @@ model TagOnObject {
 
   date_created DateTime?
 
-  @@id([object_id, tag_id])
+  @@id([tag_id, object_id])
   @@map("tag_on_object")
 }
 
@@ -366,7 +366,7 @@ model LabelOnObject {
   label_id     Int
   label        Label    @relation(fields: [label_id], references: [id], onDelete: Restrict)
 
-  @@id([object_id, label_id])
+  @@id([label_id, object_id])
   @@map("label_on_object")
 }
 
