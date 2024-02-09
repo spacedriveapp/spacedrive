@@ -48,11 +48,11 @@ export const DateHeader = ({ date }: { date: string }) => {
 		>
 			<div
 				className={clsx(
-					'absolute inset-0 bg-gradient-to-b from-black/50 to-transparent transition-opacity duration-500',
+					'absolute inset-0 bg-gradient-to-b from-black/60 to-transparent transition-opacity duration-500',
 					isSticky ? 'opacity-100' : 'opacity-0'
 				)}
 			/>
-			<div className="relative text-2xl font-semibold">{date}</div>
+			<div className="relative text-xl font-semibold">{date}</div>
 		</div>
 	);
 };
