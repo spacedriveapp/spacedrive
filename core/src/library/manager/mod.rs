@@ -619,7 +619,7 @@ impl Libraries {
 
 									let _ = this
 										.edit(
-											library.id.clone(),
+											library.id,
 											None,
 											MaybeUndefined::Undefined,
 											MaybeUndefined::Null,

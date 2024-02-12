@@ -89,7 +89,7 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 						let item_model_sync_id_field_name_snake = models
 							.iter()
 							.find(|m| m.0.name() == item.related_model().name())
-							.and_then(|(m, sync)| sync.as_ref())
+							.and_then(|(_m, sync)| sync.as_ref())
 							.map(|sync| snake_ident(sync.sync_id()[0].name()))
 							.unwrap();
 						let item_model_name_snake = snake_ident(item.related_model().name());
