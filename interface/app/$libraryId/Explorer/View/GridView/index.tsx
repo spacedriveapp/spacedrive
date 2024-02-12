@@ -53,7 +53,12 @@ export const GridView = () => {
 					if (!item) return null;
 
 					return (
-						<GridItem key={uniqueId(item)} index={index} item={item}>
+						<GridItem
+							key={uniqueId(item)}
+							index={index}
+							item={item}
+							style={{ width: grid.itemWidth }}
+						>
 							{({ selected, cut }) => (
 								<GridViewItem data={item} selected={selected} cut={cut} />
 							)}
