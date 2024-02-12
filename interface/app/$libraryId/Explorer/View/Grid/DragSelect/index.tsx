@@ -304,18 +304,12 @@ export const DragSelect = ({ grid, children, onActiveItemChange }: Props) => {
 				}
 
 				if (!isColumnInDrag && dragDirection.x === 'left') {
-					// TODO: Use grid.totalCount instead of grid.options.totalCount
-					const gridItemCount = Math.max(
-						grid.options.count,
-						grid.options.totalCount ?? 0
-					);
-
 					// Get the item that's closest to grid's end
 					const item = dragDirection.y === 'down' ? lastItem : firstItem;
 
 					// Remove row if dragged out of the last grid item
 					// from a row that's above it
-					if (item.item.index === gridItemCount - 1) {
+					if (item.item.index === grid.totalCount - 1) {
 						removedRows.add(item.item.row);
 					}
 				}
@@ -335,8 +329,7 @@ export const DragSelect = ({ grid, children, onActiveItemChange }: Props) => {
 				if (
 					!isFirstRowInDrag &&
 					firstRow === grid.totalRowCount - 2 &&
-					// TODO: Use grid.totalCount instead of grid.options.totalCount
-					firstItem.item.index + grid.totalColumnCount > grid.options.totalCount! - 1
+					firstItem.item.index + grid.totalColumnCount > grid.totalCount - 1
 				) {
 					removedColumns.add(column);
 				}
