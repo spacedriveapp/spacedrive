@@ -13,9 +13,10 @@ import { OnboardingContext, useContextValue } from './context';
 import Progress from './Progress';
 
 export const Component = () => {
-	const os = useOperatingSystem();
+	const os = useOperatingSystem(false);
 	const debugState = useDebugState();
-	const [showIntro, setShowIntro] = useState(true);
+	// FIX-ME: Intro video breaks onboarding for the web version
+	const [showIntro, setShowIntro] = useState(os !== 'browser');
 	const ctx = useContextValue();
 
 	if (ctx.libraries.isLoading) return null;

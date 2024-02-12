@@ -73,6 +73,10 @@ impl YoloV8 {
 }
 
 impl Model for YoloV8 {
+	fn name(&self) -> &'static str {
+		"YoloV8"
+	}
+
 	fn origin(&self) -> &'static ModelSource {
 		self.model_origin
 	}
