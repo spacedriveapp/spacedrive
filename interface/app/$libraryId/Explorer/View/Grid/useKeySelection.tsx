@@ -130,9 +130,7 @@ export const useKeySelection = (grid: Grid, options: Options = { scrollToEnd: fa
 
 		if (!e.shiftKey) {
 			explorer.resetSelectedItems([newSelectedItem.data]);
-
-			// TODO: Remove allowMultiSelect
-		} else if (explorer.allowMultiSelect && !explorer.isItemSelected(newSelectedItem.data)) {
+		} else if (!explorer.isItemSelected(newSelectedItem.data)) {
 			explorer.addSelectedItem(newSelectedItem.data);
 		}
 
