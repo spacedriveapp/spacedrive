@@ -88,7 +88,7 @@ impl StatefulJob for FileDeleterJobInit {
 					step.full_path.display()
 				);
 				sync.write_op(
-					&db,
+					db,
 					sync.shared_delete(prisma_sync::file_path::SyncId {
 						pub_id: step.file_path.pub_id.clone(),
 					}),

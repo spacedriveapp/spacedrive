@@ -36,4 +36,4 @@ fi
 echo "Fix spacedrive's directories permissions"
 chown -R "${PUID}:${PGID}" /data
 
-exec su spacedrive -s /bin/server -- "$@"
+exec su spacedrive -s /usr/bin/sd-server -- "$@"
