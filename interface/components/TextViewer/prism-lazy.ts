@@ -54,6 +54,6 @@ import 'prismjs/components/prism-zig.js';
 // WARNING: Import order matters
 
 window.Prism = window.Prism || {};
-Prism.manual = true;
+window.Prism.manual = true;
 
 export { highlightElement } from 'prismjs';
