@@ -1,12 +1,3 @@
-//@ts-nocheck
-
-// WARNING: Import order matters
-
-window.Prism = window.Prism || {};
-Prism.manual = true;
-
-export { highlightElement } from "prismjs";
-
 // Languages
 // Do not include default ones: markup, html, xml, svg, mathml, ssml, atom, rss, css, clike, javascript, js
 import 'prismjs/components/prism-applescript.js';
@@ -58,3 +49,11 @@ import 'prismjs/components/prism-vala.js';
 import 'prismjs/components/prism-yaml.js';
 import 'prismjs/components/prism-zig.js';
 
+//@ts-nocheck
+
+// WARNING: Import order matters
+
+window.Prism = window.Prism || {};
+Prism.manual = true;
+
+export { highlightElement } from 'prismjs';

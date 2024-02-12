@@ -84,7 +84,7 @@ export default ({ redirectToSearch }: Props) => {
 		<Input
 			ref={searchRef}
 			placeholder="Search"
-			className="w-48 mx-2 transition-all duration-200 focus-within:w-60"
+			className="mx-2 w-48 transition-all duration-200 focus-within:w-60"
 			size="sm"
 			value={value}
 			onChange={(e) => {
@@ -98,7 +98,7 @@ export default ({ redirectToSearch }: Props) => {
 			}}
 			onFocus={() => search.setSearchBarFocused(true)}
 			right={
-				<div className="flex items-center space-x-1 pointer-events-none h-7 opacity-70 group-focus-within:hidden">
+				<div className="pointer-events-none flex h-7 items-center space-x-1 opacity-70 group-focus-within:hidden">
 					{
 						<Shortcut
 							chars={keybind([ModifierKeys.Control], ['F'])}

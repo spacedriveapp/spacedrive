@@ -38,7 +38,7 @@ const NameCell = memo(({ item, selected }: { item: ExplorerItem; selected: boole
 			<FileThumb
 				data={item}
 				frame
-				frameClassName={clsx("!border", item.type === "Label" && "!rounded-lg")}
+				frameClassName={clsx('!border', item.type === 'Label' && '!rounded-lg')}
 				blackBars
 				size={35}
 				className={clsx('mr-2.5', cut && 'opacity-60')}
