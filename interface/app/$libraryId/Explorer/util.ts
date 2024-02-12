@@ -50,3 +50,12 @@ export const uniqueId = (item: ExplorerItem | { pub_id: number[] }) => {
 			return pubIdToString(item.item.pub_id);
 	}
 };
+
+export function getItemId(index: number, items: ExplorerItem[]) {
+	const item = items[index];
+	return item ? uniqueId(item) : undefined;
+}
+
+export function getItemData(index: number, items: ExplorerItem[]) {
+	return items[index];
+}
