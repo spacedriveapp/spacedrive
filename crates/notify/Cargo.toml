@@ -26,7 +26,6 @@ log = "0.4.17"
 serde = { version = "1.0.89", features = ["derive"], optional = true }
 walkdir = "2.2.2"
 tracing = { workspace = true }
-tokio = { workspace = true }
 
 [target.'cfg(any(target_os="linux", target_os="android"))'.dependencies]
 inotify = { version = "0.10", default-features = false }

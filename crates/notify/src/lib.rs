@@ -103,14 +103,14 @@
 //! ```rust
 //! # use std::path::Path;
 //! use notify::{recommended_watcher, Event, RecursiveMode, Result, Watcher};
-//! use tokio::sync::mpsc;
+//! use std::sync::mpsc;
 //!
 //! fn main() -> Result<()> {
 //!     let (tx, rx) = mpsc::channel::<Result<Event>>();
 //!
 //!     // Use recommended_watcher() to automatically select the best implementation
 //!     // for your platform. The `EventHandler` passed to this constructor can be a
-//!     // closure, a `tokio::sync::mpsc::Sender`, a `crossbeam_channel::Sender`, or
+//!     // closure, a `std::sync::mpsc::Sender`, a `crossbeam_channel::Sender`, or
 //!     // another type the trait is implemented for.
 //!     let mut watcher = notify::recommended_watcher(tx)?;
 //!
@@ -180,56 +180,45 @@ pub use config::{Config, RecursiveMode};
 pub use error::{Error, ErrorKind, Result};
 pub use event::{Event, EventKind};
 use std::path::Path;
-use tracing::{debug, error, info};
 
 #[allow(dead_code)]
 #[cfg(feature = "crossbeam-channel")]
 pub(crate) type Receiver<T> = crossbeam_channel::Receiver<T>;
 #[allow(dead_code)]
 #[cfg(not(feature = "crossbeam-channel"))]
-pub(crate) type Receiver<T> = tokio::sync::mpsc::UnboundedReceiver<T>;
+pub(crate) type Receiver<T> = std::sync::mpsc::Receiver<T>;
 
 #[allow(dead_code)]
 #[cfg(feature = "crossbeam-channel")]
 pub(crate) type Sender<T> = crossbeam_channel::Sender<T>;
 #[allow(dead_code)]
 #[cfg(not(feature = "crossbeam-channel"))]
-pub(crate) type Sender<T> = tokio::sync::mpsc::UnboundedSender<T>;
+pub(crate) type Sender<T> = std::sync::mpsc::Sender<T>;
 
 // std limitation
 #[allow(dead_code)]
 #[cfg(feature = "crossbeam-channel")]
 pub(crate) type BoundSender<T> = crossbeam_channel::Sender<T>;
-// #[allow(dead_code)]
-#[cfg(not(feature = "crossbeam-channel"))]
-pub(crate) type BoundSender<T> = tokio::sync::mpsc::Sender<T>;
-
-// std limitation
 #[allow(dead_code)]
-#[cfg(feature = "crossbeam-channel")]
-pub(crate) type BoundReceiver<T> = crossbeam_channel::Receiver<T>;
-// #[allow(dead_code)]
 #[cfg(not(feature = "crossbeam-channel"))]
-pub(crate) type BoundReceiver<T> = tokio::sync::mpsc::Receiver<T>;
-
+pub(crate) type BoundSender<T> = std::sync::mpsc::SyncSender<T>;
 
 #[allow(dead_code)]
 #[inline]
 pub(crate) fn unbounded<T>() -> (Sender<T>, Receiver<T>) {
-	#[cfg(feature = "crossbeam-channel")]
-	return crossbeam_channel::unbounded();
-	#[cfg(not(feature = "crossbeam-channel"))]
-	return tokio::sync::mpsc::unbounded_channel();
-
+    #[cfg(feature = "crossbeam-channel")]
+    return crossbeam_channel::unbounded();
+    #[cfg(not(feature = "crossbeam-channel"))]
+    return std::sync::mpsc::channel();
 }
 
 #[allow(dead_code)]
 #[inline]
-pub(crate) fn bounded<T>(cap: usize) -> (BoundSender<T>, BoundReceiver<T>) {
-	#[cfg(feature = "crossbeam-channel")]
-	return crossbeam_channel::bounded(cap);
-	#[cfg(not(feature = "crossbeam-channel"))]
-	return tokio::sync::mpsc::channel(cap);
+pub(crate) fn bounded<T>(cap: usize) -> (BoundSender<T>, Receiver<T>) {
+    #[cfg(feature = "crossbeam-channel")]
+    return crossbeam_channel::bounded(cap);
+    #[cfg(not(feature = "crossbeam-channel"))]
+    return std::sync::mpsc::sync_channel(cap);
 }
 
 #[cfg(all(target_os = "macos", not(feature = "macos_kqueue")))]
@@ -237,12 +226,12 @@ pub use crate::fsevent::FsEventWatcher;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub use crate::inotify::INotifyWatcher;
 #[cfg(any(
-	target_os = "freebsd",
-	target_os = "openbsd",
-	target_os = "netbsd",
-	target_os = "dragonflybsd",
-	target_os = "ios",
-	all(target_os = "macos", feature = "macos_kqueue")
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "netbsd",
+    target_os = "dragonflybsd",
+    target_os = "ios",
+    all(target_os = "macos", feature = "macos_kqueue")
 ))]
 pub use crate::kqueue::KqueueWatcher;
 pub use null::NullWatcher;
@@ -255,12 +244,12 @@ pub mod fsevent;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub mod inotify;
 #[cfg(any(
-	target_os = "freebsd",
-	target_os = "openbsd",
-	target_os = "dragonflybsd",
-	target_os = "netbsd",
-	target_os = "ios",
-	all(target_os = "macos", feature = "macos_kqueue")
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "dragonflybsd",
+    target_os = "netbsd",
+    target_os = "ios",
+    all(target_os = "macos", feature = "macos_kqueue")
 ))]
 pub mod kqueue;
 #[cfg(target_os = "windows")]
@@ -292,50 +281,48 @@ mod error;
 /// }
 /// ```
 pub trait EventHandler: Send + 'static {
-	/// Handles an event.
-	fn handle_event(&mut self, event: Result<Event>);
+    /// Handles an event.
+    fn handle_event(&mut self, event: Result<Event>);
 }
 
 impl<F> EventHandler for F
 where
-	F: FnMut(Result<Event>) + Send + 'static,
+    F: FnMut(Result<Event>) + Send + 'static,
 {
-	fn handle_event(&mut self, event: Result<Event>) {
-		info!("[notify-rs (F)] Received event: {:?}", event);
-		(self)(event);
-	}
+    fn handle_event(&mut self, event: Result<Event>) {
+        (self)(event);
+    }
 }
 
 #[cfg(feature = "crossbeam-channel")]
 impl EventHandler for crossbeam_channel::Sender<Result<Event>> {
-	fn handle_event(&mut self, event: Result<Event>) {
-		let _ = self.send(event);
-	}
+    fn handle_event(&mut self, event: Result<Event>) {
+        let _ = self.send(event);
+    }
 }
 
-impl EventHandler for tokio::sync::mpsc::Sender<Result<Event>> {
-	fn handle_event(&mut self, event: Result<Event>) {
-		info!("[notify-rs (mspc)] Received event: {:?}", event);
-		let _ = self.send(event);
-	}
+impl EventHandler for std::sync::mpsc::Sender<Result<Event>> {
+    fn handle_event(&mut self, event: Result<Event>) {
+        let _ = self.send(event);
+    }
 }
 
 /// Watcher kind enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum WatcherKind {
-	/// inotify backend (linux)
-	Inotify,
-	/// FS-Event backend (mac)
-	Fsevent,
-	/// KQueue backend (bsd,optionally mac)
-	Kqueue,
-	/// Polling based backend (fallback)
-	PollWatcher,
-	/// Windows backend
-	ReadDirectoryChangesWatcher,
-	/// Fake watcher for testing
-	NullWatcher,
+    /// inotify backend (linux)
+    Inotify,
+    /// FS-Event backend (mac)
+    Fsevent,
+    /// KQueue backend (bsd,optionally mac)
+    Kqueue,
+    /// Polling based backend (fallback)
+    PollWatcher,
+    /// Windows backend
+    ReadDirectoryChangesWatcher,
+    /// Fake watcher for testing
+    NullWatcher,
 }
 
 /// Type that can deliver file activity notifications
@@ -344,52 +331,52 @@ pub enum WatcherKind {
 /// In addition to such event driven implementations, a polling implementation is also provided
 /// that should work on any platform.
 pub trait Watcher {
-	/// Create a new watcher with an initial Config.
-	fn new<F: EventHandler>(event_handler: F, config: config::Config) -> Result<Self>
-	where
-		Self: Sized;
-	/// Begin watching a new path.
-	///
-	/// If the `path` is a directory, `recursive_mode` will be evaluated. If `recursive_mode` is
-	/// `RecursiveMode::Recursive` events will be delivered for all files in that tree. Otherwise
-	/// only the directory and its immediate children will be watched.
-	///
-	/// If the `path` is a file, `recursive_mode` will be ignored and events will be delivered only
-	/// for the file.
-	///
-	/// On some platforms, if the `path` is renamed or removed while being watched, behaviour may
-	/// be unexpected. See discussions in [#165] and [#166]. If less surprising behaviour is wanted
-	/// one may non-recursively watch the _parent_ directory as well and manage related events.
-	///
-	/// [#165]: https://github.com/notify-rs/notify/issues/165
-	/// [#166]: https://github.com/notify-rs/notify/issues/166
-	fn watch(&mut self, path: &Path, recursive_mode: RecursiveMode) -> Result<()>;
+    /// Create a new watcher with an initial Config.
+    fn new<F: EventHandler>(event_handler: F, config: config::Config) -> Result<Self>
+    where
+        Self: Sized;
+    /// Begin watching a new path.
+    ///
+    /// If the `path` is a directory, `recursive_mode` will be evaluated. If `recursive_mode` is
+    /// `RecursiveMode::Recursive` events will be delivered for all files in that tree. Otherwise
+    /// only the directory and its immediate children will be watched.
+    ///
+    /// If the `path` is a file, `recursive_mode` will be ignored and events will be delivered only
+    /// for the file.
+    ///
+    /// On some platforms, if the `path` is renamed or removed while being watched, behaviour may
+    /// be unexpected. See discussions in [#165] and [#166]. If less surprising behaviour is wanted
+    /// one may non-recursively watch the _parent_ directory as well and manage related events.
+    ///
+    /// [#165]: https://github.com/notify-rs/notify/issues/165
+    /// [#166]: https://github.com/notify-rs/notify/issues/166
+    fn watch(&mut self, path: &Path, recursive_mode: RecursiveMode) -> Result<()>;
 
-	/// Stop watching a path.
-	///
-	/// # Errors
-	///
-	/// Returns an error in the case that `path` has not been watched or if removing the watch
-	/// fails.
-	fn unwatch(&mut self, path: &Path) -> Result<()>;
+    /// Stop watching a path.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error in the case that `path` has not been watched or if removing the watch
+    /// fails.
+    fn unwatch(&mut self, path: &Path) -> Result<()>;
 
-	/// Configure the watcher at runtime.
-	///
-	/// See the [`Config`](config/struct.Config.html) struct for all configuration options.
-	///
-	/// # Returns
-	///
-	/// - `Ok(true)` on success.
-	/// - `Ok(false)` if the watcher does not support or implement the option.
-	/// - `Err(notify::Error)` on failure.
-	fn configure(&mut self, _option: Config) -> Result<bool> {
-		Ok(false)
-	}
+    /// Configure the watcher at runtime.
+    ///
+    /// See the [`Config`](config/struct.Config.html) struct for all configuration options.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(true)` on success.
+    /// - `Ok(false)` if the watcher does not support or implement the option.
+    /// - `Err(notify::Error)` on failure.
+    fn configure(&mut self, _option: Config) -> Result<bool> {
+        Ok(false)
+    }
 
-	/// Returns the watcher kind, allowing to perform backend-specific tasks
-	fn kind() -> WatcherKind
-	where
-		Self: Sized;
+    /// Returns the watcher kind, allowing to perform backend-specific tasks
+    fn kind() -> WatcherKind
+    where
+        Self: Sized;
 }
 
 /// The recommended `Watcher` implementation for the current platform
@@ -403,25 +390,25 @@ pub type RecommendedWatcher = FsEventWatcher;
 pub type RecommendedWatcher = ReadDirectoryChangesWatcher;
 /// The recommended `Watcher` implementation for the current platform
 #[cfg(any(
-	target_os = "freebsd",
-	target_os = "openbsd",
-	target_os = "netbsd",
-	target_os = "dragonflybsd",
-	target_os = "ios",
-	all(target_os = "macos", feature = "macos_kqueue")
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "netbsd",
+    target_os = "dragonflybsd",
+    target_os = "ios",
+    all(target_os = "macos", feature = "macos_kqueue")
 ))]
 pub type RecommendedWatcher = KqueueWatcher;
 /// The recommended `Watcher` implementation for the current platform
 #[cfg(not(any(
-	target_os = "linux",
-	target_os = "android",
-	target_os = "macos",
-	target_os = "windows",
-	target_os = "freebsd",
-	target_os = "openbsd",
-	target_os = "netbsd",
-	target_os = "dragonflybsd",
-	target_os = "ios"
+    target_os = "linux",
+    target_os = "android",
+    target_os = "macos",
+    target_os = "windows",
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "netbsd",
+    target_os = "dragonflybsd",
+    target_os = "ios"
 )))]
 pub type RecommendedWatcher = PollWatcher;
 
@@ -431,49 +418,49 @@ pub type RecommendedWatcher = PollWatcher;
 /// See [`Watcher::new_immediate`](trait.Watcher.html#tymethod.new_immediate).
 pub fn recommended_watcher<F>(event_handler: F) -> Result<RecommendedWatcher>
 where
-	F: EventHandler,
+    F: EventHandler,
 {
-	// All recommended watchers currently implement `new`, so just call that.
-	RecommendedWatcher::new(event_handler, Config::default())
+    // All recommended watchers currently implement `new`, so just call that.
+    RecommendedWatcher::new(event_handler, Config::default())
 }
 
 #[cfg(test)]
 mod tests {
-	use super::*;
+    use super::*;
 
-	#[test]
-	fn test_object_safe() {
-		let _watcher: &dyn Watcher = &NullWatcher;
-	}
+    #[test]
+    fn test_object_safe() {
+        let _watcher: &dyn Watcher = &NullWatcher;
+    }
 
-	#[test]
-	fn test_debug_impl() {
-		macro_rules! assert_debug_impl {
-			($t:ty) => {{
-				trait NeedsDebug: std::fmt::Debug {}
-				impl NeedsDebug for $t {}
-			}};
-		}
+    #[test]
+    fn test_debug_impl() {
+        macro_rules! assert_debug_impl {
+            ($t:ty) => {{
+                trait NeedsDebug: std::fmt::Debug {}
+                impl NeedsDebug for $t {}
+            }};
+        }
 
-		assert_debug_impl!(Config);
-		assert_debug_impl!(Error);
-		assert_debug_impl!(ErrorKind);
-		assert_debug_impl!(event::AccessKind);
-		assert_debug_impl!(event::AccessMode);
-		assert_debug_impl!(event::CreateKind);
-		assert_debug_impl!(event::DataChange);
-		assert_debug_impl!(event::EventAttributes);
-		assert_debug_impl!(event::Flag);
-		assert_debug_impl!(event::MetadataKind);
-		assert_debug_impl!(event::ModifyKind);
-		assert_debug_impl!(event::RemoveKind);
-		assert_debug_impl!(event::RenameMode);
-		assert_debug_impl!(Event);
-		assert_debug_impl!(EventKind);
-		assert_debug_impl!(NullWatcher);
-		assert_debug_impl!(PollWatcher);
-		assert_debug_impl!(RecommendedWatcher);
-		assert_debug_impl!(RecursiveMode);
-		assert_debug_impl!(WatcherKind);
-	}
+        assert_debug_impl!(Config);
+        assert_debug_impl!(Error);
+        assert_debug_impl!(ErrorKind);
+        assert_debug_impl!(event::AccessKind);
+        assert_debug_impl!(event::AccessMode);
+        assert_debug_impl!(event::CreateKind);
+        assert_debug_impl!(event::DataChange);
+        assert_debug_impl!(event::EventAttributes);
+        assert_debug_impl!(event::Flag);
+        assert_debug_impl!(event::MetadataKind);
+        assert_debug_impl!(event::ModifyKind);
+        assert_debug_impl!(event::RemoveKind);
+        assert_debug_impl!(event::RenameMode);
+        assert_debug_impl!(Event);
+        assert_debug_impl!(EventKind);
+        assert_debug_impl!(NullWatcher);
+        assert_debug_impl!(PollWatcher);
+        assert_debug_impl!(RecommendedWatcher);
+        assert_debug_impl!(RecursiveMode);
+        assert_debug_impl!(WatcherKind);
+    }
 }

@@ -5258,7 +5258,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "tokio",
  "tracing",
  "walkdir",
  "windows-sys 0.48.0",

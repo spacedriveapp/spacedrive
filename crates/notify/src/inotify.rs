@@ -124,6 +124,7 @@ impl EventLoop {
 		let _ = thread::Builder::new()
 			.name("notify-rs inotify loop".to_string())
 			.spawn(|| self.event_loop_thread());
+		info!("[notify-rs] inotify event loop started in a thread");
 	}
 
 	fn event_loop_thread(mut self) {
@@ -136,7 +137,7 @@ impl EventLoop {
 					// System call was interrupted, we will retry
 					// TODO: Not covered by tests (to reproduce likely need to setup signal handlers)
 				}
-				Err(e) => panic!("poll failed: {}", e),
+				Err(e) => error!("poll failed: {}", e),
 				Ok(()) => {}
 			}
 
@@ -209,7 +210,7 @@ impl EventLoop {
 					Ok(events) => {
 						let mut num_events = 0;
 						for event in events {
-							info!("inotify event: {event:?}");
+							info!("inotify event: {:?}", event);
 
 							num_events += 1;
 							if event.mask.contains(EventMask::Q_OVERFLOW) {
@@ -312,7 +313,7 @@ impl EventLoop {
 										}
 									}
 									None => {
-										log::trace!(
+										info!(
 											"No patch for DELETE_SELF event, may be a bug?"
 										);
 										RemoveKind::Other
@@ -439,7 +440,7 @@ impl EventLoop {
 		}
 
 		if let Some(ref mut inotify) = self.inotify {
-			log::trace!("adding inotify watch: {}", path.display());
+			info!("adding inotify watch: {}", path.display());
 
 			match inotify.watches().add(&path, watchmask) {
 				Err(e) => {
@@ -471,7 +472,7 @@ impl EventLoop {
 			Some((w, _, is_recursive, _)) => {
 				if let Some(ref mut inotify) = self.inotify {
 					let mut inotify_watches = inotify.watches();
-					log::trace!("removing inotify watch: {}", path.display());
+					info!("removing inotify watch: {}", path.display());
 
 					inotify_watches
 						.remove(w.clone())
