@@ -396,105 +396,106 @@ export const DragSelect = ({ grid, children, onActiveItemChange }: Props) => {
 
 						return;
 					}
+
 					if (!isItemInDrag) explorer.removeSelectedItem(item.data);
 					else explorer.addSelectedItem(item.data);
 				});
 			});
 
+			const addedColumnsArray = [...addedColumns];
+			const removedColumnsArray = [...removedColumns];
+
 			// Sort added rows in drag direction in case we add a row
 			// from the empty column drag space
-			const sortedAddedRows = [...addedRows].sort((a, b) => {
+			const addedRowsArray = [...addedRows].sort((a, b) => {
 				if (dragDirection.y === 'up') return b - a;
 				return a - b;
 			});
 
-			// TODO: cleanup
+			const lastAddedColumn = addedColumnsArray[addedColumnsArray.length - 1];
+			const lastRemovedColumn = removedColumnsArray[removedColumnsArray.length - 1];
+			const lastAddedRow = addedRowsArray[addedRowsArray.length - 1];
 
-			const addedCols = [...addedColumns];
-			const removedCols = [...removedColumns];
+			const furthestAddedColumn =
+				dragDirection.x === 'right' ? lastAddedColumn : addedColumnsArray[0];
 
-			const lastAddedColumn = addedCols[addedCols.length - 1];
-			const lastRemovedColumn = removedCols[removedCols.length - 1];
-			const lastAddedRow = sortedAddedRows[sortedAddedRows.length - 1];
-
-			const lastColumn = dragDirection.x === 'right' ? lastAddedColumn : addedCols[0];
-			const lastRemovedCol = dragDirection.x === 'right' ? lastRemovedColumn : removedCols[0];
+			const furthestRemovedColumn =
+				dragDirection.x === 'right' ? lastRemovedColumn : removedColumnsArray[0];
 
 			let startColumn = drag.current?.startColumn;
 			let endColumn = drag.current?.endColumn;
 			let startRow = drag.current?.startRow;
 			let endRow = drag.current?.endRow;
 
-			console.log('Added columns', addedColumns);
-			console.log('Removed columns', removedColumns);
-			console.log('Added rows', addedRows);
-			console.log('Removed rows', removedRows);
+			const isStartRowRemoved = startRow !== undefined && removedRows.has(startRow);
+			const isEndRowRemoved = endRow !== undefined && removedRows.has(endRow);
 
+			const isStartColumnRemoved =
+				startColumn !== undefined && removedColumns.has(startColumn);
+
+			// Reset drag state if we drag out of the starting point
+			// which isn't a selectable item
 			if (
-				startRow !== undefined &&
-				startColumn !== undefined &&
-				addedColumns.size === 0 &&
-				addedRows.size === 0 &&
-				removedColumns.has(startColumn) &&
-				removedRows.has(startRow)
+				isStartRowRemoved &&
+				isStartColumnRemoved &&
+				!addedColumns.size &&
+				!addedRows.size
 			) {
-				console.log('Reset drag state');
 				drag.current = null;
 				return;
 			}
 
-			if (
-				startColumn !== undefined &&
-				lastColumn !== undefined &&
-				dragDirection.x === 'left' &&
-				lastColumn > startColumn
-			) {
-				startColumn = lastColumn;
+			// Start column
+			if (startColumn !== undefined && dragDirection.x === 'left') {
+				if (furthestAddedColumn !== undefined && furthestAddedColumn > startColumn) {
+					startColumn = furthestAddedColumn;
+				}
+
+				if (
+					isEndRowRemoved &&
+					furthestRemovedColumn !== undefined &&
+					startColumn <= furthestRemovedColumn
+				) {
+					startColumn = startColumn - removedColumns.size;
+				}
+			} else if (startColumn === undefined || isStartColumnRemoved) {
+				startColumn = addedColumnsArray[0];
 			}
 
-			if (
-				endRow !== undefined &&
-				removedRows.has(endRow) &&
-				startColumn !== undefined &&
-				lastRemovedCol !== undefined &&
-				dragDirection.x === 'left' &&
-				startColumn <= lastRemovedCol
-			) {
-				startColumn = startColumn - removedColumns.size;
-			}
-
-			if (startColumn === undefined || removedColumns.has(startColumn)) {
-				startColumn = addedCols[0];
-			}
-
+			// End column
 			if (lastAddedColumn !== undefined) {
-				if (endColumn === undefined) endColumn = lastAddedColumn;
-				else {
-					const isColumnBeyondEndColumn =
-						dragDirection.x === 'right'
-							? lastAddedColumn > endColumn
-							: lastAddedColumn < endColumn;
+				const isLastColumnFurther = endColumn
+					? dragDirection.x === 'right'
+						? lastAddedColumn > endColumn
+						: lastAddedColumn < endColumn
+					: undefined;
 
-					if (isColumnBeyondEndColumn) endColumn = lastAddedColumn;
+				if (isLastColumnFurther === undefined || isLastColumnFurther) {
+					endColumn = lastAddedColumn;
 				}
 			} else if (endColumn !== undefined) {
-				const offset = removedCols.filter((column) => column <= endColumn!).length;
+				const offset = removedColumnsArray.filter((column) => column <= endColumn!).length;
 				endColumn += dragDirection.x === 'right' ? -[offset] : offset;
 			}
 
-			if (startRow === undefined || removedRows.has(startRow)) {
-				startRow = sortedAddedRows[0] ?? endRow;
+			// Start row
+			if (startRow === undefined || isStartRowRemoved) {
+				startRow = addedRowsArray[0] ?? endRow;
 			} else if (lastAddedRow !== undefined) {
 				const isLastRowAboveStartRow = dragDirection.y === 'up' && lastAddedRow > startRow;
 				startRow = isLastRowAboveStartRow ? lastAddedRow : startRow;
 			}
 
+			// End row
 			if (lastAddedRow !== undefined) {
-				if (endRow === undefined) endRow = lastAddedRow;
-				else if (lastAddedRow !== endRow) {
-					const isLastRowAboveEndRow =
-						dragDirection.y === 'down' ? lastAddedRow > endRow : lastAddedRow < endRow;
-					if (isLastRowAboveEndRow) endRow = lastAddedRow;
+				const isLastRowFurther = endRow
+					? dragDirection.y === 'down'
+						? lastAddedRow > endRow
+						: lastAddedRow < endRow
+					: undefined;
+
+				if (isLastRowFurther === undefined || isLastRowFurther) {
+					endRow = lastAddedRow;
 				}
 			} else if (removedRows.size !== 0 && endRow !== undefined) {
 				const offset = removedRows.size;
@@ -510,8 +511,6 @@ export const DragSelect = ({ grid, children, onActiveItemChange }: Props) => {
 			) {
 				drag.current = { startColumn, endColumn, startRow, endRow };
 			}
-
-			console.log(drag.current);
 		}
 	}
 
