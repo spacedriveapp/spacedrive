@@ -380,7 +380,7 @@ mod tests {
 	use tracing::{debug, error};
 	// use tracing_test::traced_test;
 
-	#[cfg(target_os = "macos")]
+	#[cfg(any(target_os = "macos", target_os = "ios"))]
 	use notify::event::DataChange;
 
 	#[cfg(target_os = "linux")]
@@ -459,7 +459,7 @@ mod tests {
 		#[cfg(target_os = "windows")]
 		expect_event(events_rx, &file_path, EventKind::Modify(ModifyKind::Any)).await;
 
-		#[cfg(target_os = "macos")]
+		#[cfg(any(target_os = "macos", target_os = "ios"))]
 		expect_event(
 			events_rx,
 			&file_path,
@@ -499,7 +499,7 @@ mod tests {
 		#[cfg(target_os = "windows")]
 		expect_event(events_rx, &dir_path, EventKind::Create(CreateKind::Any)).await;
 
-		#[cfg(target_os = "macos")]
+		#[cfg(any(target_os = "macos", target_os = "ios"))]
 		expect_event(events_rx, &dir_path, EventKind::Create(CreateKind::Folder)).await;
 
 		#[cfg(target_os = "linux")]
@@ -540,7 +540,7 @@ mod tests {
 		#[cfg(target_os = "windows")]
 		expect_event(events_rx, &file_path, EventKind::Modify(ModifyKind::Any)).await;
 
-		#[cfg(target_os = "macos")]
+		#[cfg(any(target_os = "macos", target_os = "ios"))]
 		expect_event(
 			events_rx,
 			&file_path,
@@ -589,7 +589,7 @@ mod tests {
 		)
 		.await;
 
-		#[cfg(target_os = "macos")]
+		#[cfg(any(target_os = "macos", target_os = "ios"))]
 		expect_event(
 			events_rx,
 			&file_path,
@@ -640,7 +640,7 @@ mod tests {
 		)
 		.await;
 
-		#[cfg(target_os = "macos")]
+		#[cfg(any(target_os = "macos", target_os = "ios"))]
 		expect_event(
 			events_rx,
 			&dir_path,
@@ -688,6 +688,14 @@ mod tests {
 		#[cfg(target_os = "linux")]
 		expect_event(events_rx, &file_path, EventKind::Remove(RemoveKind::File)).await;
 
+		#[cfg(target_os = "ios")]
+		expect_event(
+			events_rx,
+			&file_path,
+			EventKind::Modify(ModifyKind::Metadata(MetadataKind::Any)),
+		)
+		.await;
+
 		debug!("Unwatching root directory: {}", root_dir.path().display());
 		if let Err(e) = watcher.unwatch(root_dir.path()) {
 			error!("Failed to unwatch root directory: {e:#?}");
@@ -734,6 +742,14 @@ mod tests {
 
 		#[cfg(target_os = "linux")]
 		expect_event(events_rx, &dir_path, EventKind::Remove(RemoveKind::Folder)).await;
+
+		#[cfg(target_os = "ios")]
+		expect_event(
+			events_rx,
+			&file_path,
+			EventKind::Modify(ModifyKind::Metadata(MetadataKind::Any)),
+		)
+		.await;
 
 		debug!("Unwatching root directory: {}", root_dir.path().display());
 		if let Err(e) = watcher.unwatch(root_dir.path()) {
