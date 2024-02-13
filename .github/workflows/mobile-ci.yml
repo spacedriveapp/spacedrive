@@ -164,15 +164,15 @@ jobs:
         working-directory: ./apps/mobile
         run: pnpm expo prebuild --platform ios --no-install
 
-      - name: Cache Pods
-        uses: actions/cache@v3
-        with:
-          path: |
-            ./apps/mobile/ios/Pods
-            ~/Library/Caches/CocoaPods
-            ~/.cocoapods
-          key: pods-${{ hashFiles('./apps/mobile/ios/Podfile.lock') }}
-          restore-keys: pods-
+      # - name: Cache Pods
+      #   uses: actions/cache@v3
+      #   with:
+      #     path: |
+      #       ./apps/mobile/ios/Pods
+      #       ~/Library/Caches/CocoaPods
+      #       ~/.cocoapods
+      #     key: pods-${{ hashFiles('./apps/mobile/ios/Podfile.lock') }}
+      #     restore-keys: pods-
 
       - name: Install Pods
         working-directory: ./apps/mobile/ios
