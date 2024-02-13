@@ -1,5 +1,5 @@
 use sd_task_system::{TaskStatus, TaskSystem};
-use tracing::info;
+use tracing::{info, trace};
 
 use std::time::Duration;
 
@@ -13,6 +13,8 @@ mod tasks;
 
 use actors::SampleActor;
 use tasks::NeverTask;
+
+use crate::tasks::ReadyTask;
 
 #[tokio::test]
 #[traced_test]
@@ -51,7 +53,7 @@ async fn test_actor() {
 
 #[tokio::test]
 #[traced_test]
-async fn pause_test() {
+async fn shutdown_test() {
 	let system = TaskSystem::new().await;
 
 	let handle = system.dispatch(NeverTask::default()).await;
@@ -59,6 +61,49 @@ async fn pause_test() {
 	system.shutdown().await;
 
 	assert!(matches!(handle.await, Ok(TaskStatus::Shutdown(_))));
+}
 
-	info!("done");
+#[tokio::test]
+#[traced_test]
+async fn cancel_test() {
+	let system = TaskSystem::new().await;
+
+	let handle = system.dispatch(NeverTask::default()).await;
+
+	info!("issuing cancel");
+	handle.cancel().await.unwrap();
+
+	assert!(matches!(handle.await, Ok(TaskStatus::Canceled)));
+
+	system.shutdown().await;
+}
+
+#[tokio::test]
+#[traced_test]
+async fn done_test() {
+	let system = TaskSystem::new().await;
+
+	let handle = system.dispatch(ReadyTask::default()).await;
+
+	assert!(matches!(handle.await, Ok(TaskStatus::Done)));
+
+	system.shutdown().await;
+}
+
+#[tokio::test]
+#[traced_test]
+async fn abort_test() {
+	let system = TaskSystem::new().await;
+
+	let handle = system.dispatch(NeverTask::default()).await;
+
+	handle.force_abortion().await.unwrap();
+
+	let res = handle.await;
+
+	trace!("abort test result: {res:#?}");
+
+	assert!(matches!(res, Ok(TaskStatus::ForcedAbortion)));
+
+	system.shutdown().await;
 }

@@ -222,10 +222,10 @@ impl TaskHandle {
 	/// Gracefully pause the task at a safe point defined by the user using the `TaskInterrupter`
 	pub async fn pause(&self) -> Result<(), Error> {
 		let is_paused = self.worktable.is_paused.load(Ordering::Relaxed);
-		let is_cancelled = self.worktable.is_cancelled.load(Ordering::Relaxed);
+		let is_canceled = self.worktable.is_canceled.load(Ordering::Relaxed);
 		let is_done = self.worktable.is_done.load(Ordering::Relaxed);
 
-		if !is_paused && !is_cancelled && !is_done {
+		if !is_paused && !is_canceled && !is_done {
 			if self.worktable.is_running.load(Ordering::Relaxed) {
 				let (tx, rx) = oneshot::channel();
 
@@ -242,18 +242,23 @@ impl TaskHandle {
 
 	/// Gracefully cancel the task at a safe point defined by the user using the `TaskInterrupter`
 	pub async fn cancel(&self) -> Result<(), Error> {
-		let is_cancelled = self.worktable.is_cancelled.load(Ordering::Relaxed);
+		let is_canceled = self.worktable.is_canceled.load(Ordering::Relaxed);
 		let is_done = self.worktable.is_done.load(Ordering::Relaxed);
 
-		if !is_cancelled && !is_done {
+		trace!("Received cancel command task: <is_canceled={is_canceled}, is_done={is_done}>");
+
+		if !is_canceled && !is_done {
 			if self.worktable.is_running.load(Ordering::Relaxed) {
 				let (tx, rx) = oneshot::channel();
+
+				trace!("Task is running, sending cancel request");
 
 				self.worktable.cancel(tx).await;
 
 				rx.await.expect("Worker failed to ack cancel request")?;
 			} else {
-				self.worktable.is_cancelled.store(true, Ordering::Relaxed);
+				trace!("Task is not running, setting is_canceled flag");
+				self.worktable.is_canceled.store(true, Ordering::Relaxed);
 			}
 		}
 
@@ -281,13 +286,13 @@ impl TaskHandle {
 
 #[derive(Debug)]
 pub(crate) struct TaskWorktable {
-	pub(crate) started: AtomicBool,
-	pub(crate) is_running: AtomicBool,
-	pub(crate) is_done: AtomicBool,
-	pub(crate) is_paused: AtomicBool,
-	pub(crate) is_cancelled: AtomicBool,
-	pub(crate) interrupt_tx: chan::Sender<InterruptionRequest>,
-	pub(crate) current_worker_id: AtomicWorkerId,
+	started: AtomicBool,
+	is_running: AtomicBool,
+	is_done: AtomicBool,
+	is_paused: AtomicBool,
+	is_canceled: AtomicBool,
+	interrupt_tx: chan::Sender<InterruptionRequest>,
+	current_worker_id: AtomicWorkerId,
 }
 
 impl TaskWorktable {
@@ -297,7 +302,7 @@ impl TaskWorktable {
 			is_running: AtomicBool::new(false),
 			is_done: AtomicBool::new(false),
 			is_paused: AtomicBool::new(false),
-			is_cancelled: AtomicBool::new(false),
+			is_canceled: AtomicBool::new(false),
 			interrupt_tx,
 			current_worker_id: AtomicWorkerId::new(worker_id),
 		}
@@ -334,7 +339,7 @@ impl TaskWorktable {
 	}
 
 	pub async fn cancel(&self, tx: oneshot::Sender<Result<(), Error>>) {
-		self.is_cancelled.store(true, Ordering::Relaxed);
+		self.is_canceled.store(true, Ordering::Relaxed);
 		self.is_running.store(false, Ordering::Relaxed);
 
 		self.interrupt_tx
@@ -344,6 +349,10 @@ impl TaskWorktable {
 			})
 			.await
 			.expect("Worker channel closed trying to pause task");
+	}
+
+	pub fn is_canceled(&self) -> bool {
+		self.is_canceled.load(Ordering::Relaxed)
 	}
 }
 

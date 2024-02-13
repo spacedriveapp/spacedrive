@@ -587,7 +587,7 @@ impl Runner {
 	}
 
 	pub(super) fn steal_request(&mut self, tx: oneshot::Sender<Option<TaskWorkState>>) {
-		trace!("Steal request: <worker_id='{}'>", self.worker_id);
+		// trace!("Steal request: <worker_id='{}'>", self.worker_id);
 		if let Some((kind, task)) = self.get_next_task() {
 			let task_id = task.task.id();
 			self.task_kinds.remove(&task_id);
@@ -611,7 +611,7 @@ impl Runner {
 				self.task_kinds.insert(task_id, kind);
 			}
 		} else {
-			trace!("No task to steal: <worker_id='{}'>", self.worker_id);
+			// trace!("No task to steal: <worker_id='{}'>", self.worker_id);
 			if tx.send(None).is_err() {
 				warn!(
 					"Steal request channel closed before sending no task response: \
@@ -800,10 +800,12 @@ impl Runner {
 
 	pub(super) async fn idle_check(&mut self) {
 		if self.is_idle {
-			trace!(
-				"Worker is idle for some time and will try to steal a task: <worker_id='{}'>",
-				self.worker_id
-			);
+			// trace!(
+			// 	"Worker is idle for some time and will try to steal a task: <worker_id='{}'>",
+			// 	self.worker_id
+			// );
+
+			// TODO: Introduce some backoff when no task is available to steal
 
 			if self.current_steal_task_handle.is_none() {
 				self.current_steal_task_handle = Some(dispatch_steal_request(
@@ -884,16 +886,27 @@ async fn run_single_task(
 
 	let handle = spawn({
 		let interrupter = Arc::clone(&interrupter);
+
+		let already_canceled = worktable.is_canceled();
+
 		async move {
-			let res = task.run(&interrupter).await;
+			if !already_canceled {
+				let res = task.run(&interrupter).await;
 
-			trace!("Ran task: <worker_id='{worker_id}', task_id='{task_id}'>: {res:?}");
+				trace!("Ran task: <worker_id='{worker_id}', task_id='{task_id}'>: {res:?}");
 
-			(task, res)
+				(task, res)
+			} else {
+				trace!(
+					"Task was canceled before running: <worker_id='{worker_id}', task_id='{task_id}'>"
+				);
+
+				(task, Ok(ExecStatus::Canceled))
+			}
 		}
 	});
 
-	let abort_handle = handle.abort_handle();
+	let task_abort_handle = handle.abort_handle();
 
 	let has_suspended = Arc::new(AtomicBool::new(false));
 
@@ -1002,11 +1015,11 @@ async fn run_single_task(
 		}
 
 		RaceOutput::Abort(tx) => {
-			abort_handle.abort();
+			task_abort_handle.abort();
 
 			trace!("Task aborted: <worker_id='{worker_id}', task_id='{task_id}'>");
 
-			if done_tx.send(Err(Error::TaskAborted(task_id))).is_err() {
+			if done_tx.send(Ok(TaskStatus::ForcedAbortion)).is_err() {
 				error!("Task done channel closed while sending abort error response");
 			}
 

@@ -35,3 +35,27 @@ impl Task for NeverTask {
 		}
 	}
 }
+
+#[derive(Debug)]
+pub struct ReadyTask {
+	id: TaskId,
+}
+
+impl Default for ReadyTask {
+	fn default() -> Self {
+		Self {
+			id: TaskId::new_v4(),
+		}
+	}
+}
+
+#[async_trait]
+impl Task for ReadyTask {
+	fn id(&self) -> TaskId {
+		self.id
+	}
+
+	async fn run(&mut self, _interrupter: &Interrupter) -> Result<ExecStatus, TaskSystemError> {
+		Ok(ExecStatus::Done)
+	}
+}
