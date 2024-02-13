@@ -5,7 +5,7 @@ import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
 import { formatNumber, KindStatistics } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 
-import { Icon } from '../icons/Icon';
+import { Icon, IconName } from '../icons/Icon';
 import Fade from '../layout/Fade';
 
 interface Props {
@@ -40,7 +40,7 @@ const Categories = ({ kinds }: Props) => {
 							showsHorizontalScrollIndicator={false}
 							renderItem={({ item }) => {
 								const { kind, name, count } = item;
-								let icon = name;
+								let icon = name as IconName;
 								switch (name) {
 									case 'Code':
 										icon = 'Terminal';
@@ -72,7 +72,7 @@ interface KindItemProps {
 	kind: number;
 	name: string;
 	items: number;
-	icon: string;
+	icon: IconName;
 	selected?: boolean;
 	onClick?: () => void;
 	disabled?: boolean;
@@ -86,7 +86,7 @@ const KindItem = ({ name, icon, items }: KindItemProps) => {
 			}}
 		>
 			<View style={twStyle('shrink-0 flex-row items-center', 'gap-2 rounded-lg text-sm')}>
-				<Icon name={icon as any} size={40} style={tw`mr-3 h-12 w-12`} />
+				<Icon name={icon} size={40} style={tw`mr-3 h-12 w-12`} />
 				<View>
 					<Text style={tw`text-sm font-medium text-ink`}>{name}</Text>
 					{items !== undefined && (
