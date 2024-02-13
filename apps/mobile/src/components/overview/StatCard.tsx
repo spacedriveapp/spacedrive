@@ -85,7 +85,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 				style={tw`flex h-10 flex-row items-center gap-1.5  border-t border-app-line px-2`}
 			>
 				<View style={tw`rounded border border-app-line bg-app-box px-1.5 py-[1px]`}>
-					<Text style={tw`text-xs font-medium text-ink-dull`}>
+					<Text style={tw`text-xs font-medium uppercase text-ink-dull`}>
 						{connectionType || 'Local'}
 					</Text>
 				</View>
