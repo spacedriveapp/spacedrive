@@ -925,6 +925,11 @@ async fn run_single_task(
 						trace!("Suspend channel closed: <worker_id='{worker_id}', task_id='{task_id}'>");
 					}
 				}
+			} else {
+				trace!(
+					"Suspend channel closed, task probably finished before we could suspend it: \
+					<worker_id='{worker_id}', task_id='{task_id}'>"
+				);
 			}
 		}
 	});

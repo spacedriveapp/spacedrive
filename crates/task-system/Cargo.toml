@@ -32,7 +32,9 @@ tokio-stream = { workspace = true }
 tokio-util = { workspace = true, features = ["io"] }
 tracing = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
+
 downcast-rs = "1.2.0"
+pin-project-lite = "0.2"
 
 [dev-dependencies]
 tempfile = { workspace = true }

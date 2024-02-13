@@ -1,7 +1,7 @@
 use std::{
 	fmt,
-	future::{pending, Future},
-	pin::{pin, Pin},
+	future::{pending, Future, IntoFuture},
+	pin::Pin,
 	sync::{
 		atomic::{AtomicBool, AtomicU8, Ordering},
 		Arc,
@@ -11,12 +11,13 @@ use std::{
 
 use async_channel as chan;
 use async_trait::async_trait;
-use chan::RecvError;
+use chan::{Recv, RecvError};
 use downcast_rs::{impl_downcast, Downcast};
 use futures::{stream::FuturesUnordered, StreamExt};
 use futures_concurrency::future::{Join, Race};
+use pin_project_lite::pin_project;
 use tokio::sync::oneshot;
-use tracing::{error, warn};
+use tracing::{error, trace, warn};
 use uuid::Uuid;
 
 use super::{
@@ -84,32 +85,56 @@ pub trait Task: fmt::Debug + Downcast + Send + 'static {
 
 impl_downcast!(Task);
 
-#[derive(Debug)]
-pub struct Interrupter {
-	interrupt_rx: chan::Receiver<InterruptionRequest>,
-	has_interrupted: AtomicU8,
+pin_project! {
+	pub struct InterrupterFuture<'recv> {
+		#[pin]
+		fut: Recv<'recv, InterruptionRequest>,
+		has_interrupted: &'recv AtomicU8,
+	}
 }
 
-impl Future for &Interrupter {
+impl Future for InterrupterFuture<'_> {
 	type Output = InterruptionKind;
 
 	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-		match pin!(self.interrupt_rx.recv()).poll(cx) {
+		let this = self.project();
+
+		match this.fut.poll(cx) {
 			Poll::Ready(Ok(InterruptionRequest { kind, ack })) => {
 				if ack.send(Ok(())).is_err() {
 					warn!("TaskInterrupter ack channel closed");
 				}
-				self.has_interrupted.store(kind as u8, Ordering::Relaxed);
+				this.has_interrupted.store(kind as u8, Ordering::Relaxed);
 				Poll::Ready(kind)
 			}
-
-			Poll::Pending | Poll::Ready(Err(RecvError)) => {
+			Poll::Ready(Err(RecvError)) => {
 				// In case the task handle was dropped, we can't receive any more interrupt messages
 				// so we will never interrupt and the task will run freely until ended
+				warn!("Task interrupter channel closed, will run task until it finishes!");
 				Poll::Pending
 			}
+			Poll::Pending => Poll::Pending,
 		}
 	}
+}
+
+impl<'recv> IntoFuture for &'recv Interrupter {
+	type Output = InterruptionKind;
+
+	type IntoFuture = InterrupterFuture<'recv>;
+
+	fn into_future(self) -> Self::IntoFuture {
+		InterrupterFuture {
+			fut: self.interrupt_rx.recv(),
+			has_interrupted: &self.has_interrupted,
+		}
+	}
+}
+
+#[derive(Debug)]
+pub struct Interrupter {
+	interrupt_rx: chan::Receiver<InterruptionRequest>,
+	has_interrupted: AtomicU8,
 }
 
 impl Interrupter {
@@ -296,6 +321,8 @@ impl TaskWorktable {
 	pub async fn pause(&self, tx: oneshot::Sender<Result<(), Error>>) {
 		self.is_paused.store(true, Ordering::Relaxed);
 		self.is_running.store(false, Ordering::Relaxed);
+
+		trace!("Sending pause signal to Interrupter object on task");
 
 		self.interrupt_tx
 			.send(InterruptionRequest {
