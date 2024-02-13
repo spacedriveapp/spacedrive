@@ -29,7 +29,7 @@ const StatItem = ({ title, bytes, isLoading, style }: StatItemProps) => {
 	return (
 		<View
 			style={twStyle(
-				'flex flex-col items-center justify-center rounded-md border border-sidebar-line/50 bg-sidebar-box p-2',
+				'flex flex-col items-center justify-center rounded-md border border-app-line/50 bg-app-box/50 p-2',
 				style,
 				{
 					hidden: isLoading
@@ -37,7 +37,7 @@ const StatItem = ({ title, bytes, isLoading, style }: StatItemProps) => {
 			)}
 		>
 			<Text style={tw`text-sm font-bold text-gray-400`}>{title}</Text>
-			<View style={tw`flex-row items-baseline mt-1`}>
+			<View style={tw`mt-1 flex-row items-baseline`}>
 				<Text style={twStyle('text-xl font-bold tabular-nums text-white')}>{count}</Text>
 				<Text style={tw`ml-1 text-sm text-gray-400`}>{unit}</Text>
 			</View>

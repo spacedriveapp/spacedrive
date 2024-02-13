@@ -37,8 +37,6 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 		return Math.floor((usedSpaceSpace.value / totalSpace.value) * 100);
 	}, [mounted, totalSpace, usedSpaceSpace]);
 
-	console.log(usedSpaceSpace.value);
-
 	return (
 		<View
 			style={tw`flex w-[300px] shrink-0 flex-col rounded-md border border-app-line/50 bg-app-box/50`}
