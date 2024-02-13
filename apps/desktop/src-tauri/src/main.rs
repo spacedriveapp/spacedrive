@@ -24,12 +24,11 @@ use tauri_specta::{collect_events, ts, Event};
 use tokio::time::sleep;
 use tracing::error;
 
-mod tauri_plugins;
-
-mod theme;
-
+mod clear_localstorage;
 mod file;
 mod menu;
+mod tauri_plugins;
+mod theme;
 mod updater;
 
 #[tauri::command(async)]
@@ -182,7 +181,7 @@ async fn main() -> tauri::Result<()> {
 	let (_guard, result) = match Node::init_logger(&data_dir) {
 		Ok(guard) => (
 			Some(guard),
-			Node::new(data_dir, sd_core::Env::new(CLIENT_ID), true).await,
+			Node::new(data_dir, sd_core::Env::new(CLIENT_ID)).await,
 		),
 		Err(err) => (None, Err(NodeError::Logger(err))),
 	};
@@ -197,11 +196,9 @@ async fn main() -> tauri::Result<()> {
 		}
 	};
 
-	let (node, router) = if let Some((node, router)) = node_router {
-		(node, router)
-	} else {
-		panic!("Unable to get the node or router");
-	};
+	let (node, router) = node_router.expect("Unable to get the node or router");
+
+	let should_clear_localstorage = node.libraries.get_all().await.is_empty();
 
 	let app = app
 		.plugin(rspc::integrations::tauri::plugin(router, {
@@ -262,7 +259,14 @@ async fn main() -> tauri::Result<()> {
 		.setup(move |app| {
 			let app = app.handle();
 
+			println!("setup");
+
 			app.windows().iter().for_each(|(_, window)| {
+				if should_clear_localstorage {
+					println!("bruh?");
+					window.eval("localStorage.clear();").ok();
+				}
+
 				tokio::spawn({
 					let window = window.clone();
 					async move {

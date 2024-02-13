@@ -28,9 +28,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("setApiOrigin", {
 			R.mutation(|node, origin: String| async move {
 				let mut origin_env = node.env.api_url.lock().await;
-				*origin_env = origin;
+				*origin_env = origin.clone();
 
-				node.config.write(|c| c.auth_token = None).await.ok();
+				node.config
+					.write(|c| {
+						c.auth_token = None;
+						c.sd_api_origin = Some(origin);
+					})
+					.await
+					.ok();
 
 				Ok(())
 			})
@@ -38,6 +44,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 }
 
 mod library {
+	use crate::{node::Platform, util::MaybeUndefined};
+
 	use super::*;
 
 	pub fn mount() -> AlphaRouter<Ctx> {
@@ -59,14 +67,26 @@ mod library {
 			.procedure("create", {
 				R.with2(library())
 					.mutation(|(node, library), _: ()| async move {
-						sd_cloud_api::library::create(
+						let node_config = node.config.get().await;
+						let cloud_library = sd_cloud_api::library::create(
 							node.cloud_api_config().await,
 							library.id,
 							&library.config().await.name,
 							library.instance_uuid,
-							&library.identity.to_remote_identity(),
+							library.identity.to_remote_identity(),
+							node_config.id,
+							&node_config.name,
+							Platform::current().into(),
 						)
 						.await?;
+						node.libraries
+							.edit(
+								library.id,
+								None,
+								MaybeUndefined::Undefined,
+								MaybeUndefined::Value(cloud_library.id),
+							)
+							.await?;
 
 						invalidate_query!(library, "cloud.library.get");
 
@@ -101,20 +121,52 @@ mod library {
 							&node,
 						)
 						.await?;
+					node.libraries
+						.edit(
+							library.id,
+							None,
+							MaybeUndefined::Undefined,
+							MaybeUndefined::Value(cloud_library.id),
+						)
+						.await?;
 
-					sd_cloud_api::library::join(
+					let node_config = node.config.get().await;
+					let instances = sd_cloud_api::library::join(
 						node.cloud_api_config().await,
 						library_id,
 						library.instance_uuid,
-						&library.identity.to_remote_identity(),
+						library.identity.to_remote_identity(),
+						node_config.id,
+						&node_config.name,
+						Platform::current().into(),
 					)
 					.await?;
+
+					for instance in instances {
+						crate::cloud::sync::receive::create_instance(
+							&library,
+							&node.libraries,
+							instance.uuid,
+							instance.identity,
+							instance.node_id,
+							instance.node_name,
+							instance.node_platform,
+						)
+						.await?;
+					}
 
 					invalidate_query!(library, "cloud.library.get");
 					invalidate_query!(library, "cloud.library.list");
 
 					Ok(LibraryConfigWrapped::from_library(&library).await)
 				})
+			})
+			.procedure("sync", {
+				R.with2(library())
+					.mutation(|(_, library), _: ()| async move {
+						library.do_cloud_sync();
+						Ok(())
+					})
 			})
 	}
 }

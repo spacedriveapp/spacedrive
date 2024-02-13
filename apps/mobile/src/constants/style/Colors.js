@@ -49,7 +49,7 @@ module.exports = {
 		mobile: {
 			header: `hsla(${DARK_HUE}, 15%, 10%, ${ALPHA})`,
 			screen: `hsla(${DARK_HUE}, 15%, 12%, ${ALPHA})`,
-			navtab: `hsla(${DARK_HUE}, 15%, 8%, ${ALPHA})`,
+			navtab: `hsla(${DARK_HUE}, 15%, 8%, ${ALPHA})`
 		},
 		app: {
 			DEFAULT: `hsla(${DARK_HUE}, 15%, 13%, ${ALPHA})`,
@@ -70,7 +70,7 @@ module.exports = {
 			// menu
 			menu: `hsla(${DARK_HUE}, 25%, 5%, ${ALPHA})`,
 			// input
-			input: `hsla(${DARK_HUE}, 15%, 20%, ${ALPHA})`,
+			input: `hsla(${DARK_HUE}, 15%, 20%, ${ALPHA})`
 		},
 		sidebar: {
 			box: `hsla(${DARK_HUE}, 15%, 16%, ${ALPHA})`,

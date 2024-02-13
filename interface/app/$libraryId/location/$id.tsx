@@ -1,5 +1,5 @@
 import { ArrowClockwise, Info } from '@phosphor-icons/react';
-import { memo, useEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useSearchParams as useRawSearchParams } from 'react-router-dom';
 import { stringify } from 'uuid';
 import {
@@ -143,7 +143,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 							<Folder size={22} className="mt-[-1px]" />
 							<span className="truncate text-sm font-medium">{title}</span>
 							{!locationOnline && (
-								<Tooltip label={t('location_offline_tooltip')}>
+								<Tooltip label={t('location_disconnected_tooltip')}>
 									<Info className="text-ink-faint" />
 								</Tooltip>
 							)}

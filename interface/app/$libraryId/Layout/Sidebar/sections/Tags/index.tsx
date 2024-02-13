@@ -1,8 +1,10 @@
 import clsx from 'clsx';
+import { t } from 'i18next';
 import { NavLink, useMatch } from 'react-router-dom';
 import { useCache, useLibraryQuery, useNodes, type Tag } from '@sd/client';
 import { useExplorerDroppable } from '~/app/$libraryId/Explorer/useExplorerDroppable';
 import { SubtleButton } from '~/components';
+import { useLocale } from '~/hooks';
 
 import SidebarLink from '../../SidebarLayout/Link';
 import Section from '../../SidebarLayout/Section';
@@ -14,11 +16,13 @@ export default function TagsSection() {
 	useNodes(result.data?.nodes);
 	const tags = useCache(result.data?.items);
 
+	const { t } = useLocale();
+
 	if (!tags?.length) return null;
 
 	return (
 		<Section
-			name="Tags"
+			name={t('tags')}
 			actionArea={
 				<NavLink to="settings/library/tags">
 					<SubtleButton />

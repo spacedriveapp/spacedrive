@@ -4,7 +4,6 @@ use crate::{
 	api::{CoreEvent, Router},
 	location::LocationManagerError,
 	object::media::thumbnail::actor::Thumbnailer,
-	util::clear_localstorage::clear_localstorage,
 };
 
 #[cfg(feature = "ai")]
@@ -68,7 +67,7 @@ pub struct Node {
 	pub env: Arc<env::Env>,
 	pub http: reqwest::Client,
 	#[cfg(feature = "ai")]
-	pub image_labeller: ImageLabeler,
+	pub image_labeller: Option<ImageLabeler>,
 }
 
 impl fmt::Debug for Node {
@@ -83,7 +82,6 @@ impl Node {
 	pub async fn new(
 		data_dir: impl AsRef<Path>,
 		env: env::Env,
-		desktop: bool,
 	) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
 		let data_dir = data_dir.as_ref();
 
@@ -102,45 +100,50 @@ impl Node {
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
 
+		if let Some(url) = config.get().await.sd_api_origin {
+			*env.api_url.lock().await = url;
+		}
+
 		#[cfg(feature = "ai")]
-		sd_ai::init()?;
-		#[cfg(feature = "ai")]
-		let image_labeler_version = config.get().await.image_labeler_version;
+		let image_labeler_version = {
+			sd_ai::init()?;
+			config.get().await.image_labeler_version
+		};
 
 		let (locations, locations_actor) = location::Locations::new();
 		let (jobs, jobs_actor) = job::Jobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
 
-		if desktop && libraries.get_all().await.is_empty() {
-			clear_localstorage().await;
-		}
-
 		let (p2p, p2p_actor) = p2p::P2PManager::new(config.clone(), libraries.clone()).await?;
-		let node = Arc::new(Node {
-			data_dir: data_dir.to_path_buf(),
-			jobs,
-			locations,
-			notifications: notifications::Notifications::new(),
-			p2p,
-			thumbnailer: Thumbnailer::new(
-				data_dir,
-				libraries.clone(),
-				event_bus.0.clone(),
-				config.preferences_watcher(),
-			)
-			.await,
-			config,
-			event_bus,
-			libraries,
-			files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
-			cloud_sync_flag: Arc::new(AtomicBool::new(false)),
-			http: reqwest::Client::new(),
-			env,
-			#[cfg(feature = "ai")]
-			image_labeller: ImageLabeler::new(YoloV8::model(image_labeler_version)?, data_dir)
-				.await
-				.map_err(sd_ai::Error::from)?,
-		});
+		let node =
+			Arc::new(Node {
+				data_dir: data_dir.to_path_buf(),
+				jobs,
+				locations,
+				notifications: notifications::Notifications::new(),
+				p2p,
+				thumbnailer: Thumbnailer::new(
+					data_dir,
+					libraries.clone(),
+					event_bus.0.clone(),
+					config.preferences_watcher(),
+				)
+				.await,
+				config,
+				event_bus,
+				libraries,
+				files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
+				cloud_sync_flag: Arc::new(AtomicBool::new(false)),
+				http: reqwest::Client::new(),
+				env,
+				#[cfg(feature = "ai")]
+				image_labeller: ImageLabeler::new(YoloV8::model(image_labeler_version)?, data_dir)
+					.await
+					.map_err(|e| {
+						error!("Failed to initialize image labeller. AI features will be disabled: {e:#?}");
+					})
+					.ok(),
+			});
 
 		// Restore backend feature flags
 		for feature in node.config.get().await.features {
@@ -228,7 +231,9 @@ impl Node {
 		self.jobs.shutdown().await;
 		self.p2p.shutdown().await;
 		#[cfg(feature = "ai")]
-		self.image_labeller.shutdown().await;
+		if let Some(image_labeller) = &self.image_labeller {
+			image_labeller.shutdown().await;
+		}
 		info!("Spacedrive Core shutdown successful!");
 	}
 
@@ -305,7 +310,7 @@ impl Node {
 }
 
 impl sd_cloud_api::RequestConfigProvider for Node {
-	async fn cloud_api_config(self: &Arc<Self>) -> sd_cloud_api::RequestConfig {
+	async fn get_request_config(self: &Arc<Self>) -> sd_cloud_api::RequestConfig {
 		Node::cloud_api_config(self).await
 	}
 }

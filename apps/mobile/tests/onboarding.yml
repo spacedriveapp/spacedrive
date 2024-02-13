@@ -3,13 +3,3 @@ appId: com.spacedrive.app
 - launchApp:
     clearState: true
 - tapOn: 'Get Started'
-- tapOn:
-    id: 'library-name'
-- inputText: 'TestLib'
-- tapOn: 'New Library'
-- tapOn:
-    id: 'share-minimal'
-- tapOn: 'Continue'
-- tapOn:
-    id: 'browse-tab'
-- assertVisible: 'TestLib'

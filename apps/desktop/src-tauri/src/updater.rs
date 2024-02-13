@@ -108,7 +108,7 @@ pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
 
 			if updater_available {
 				window
-					.eval("window.__SD_UPDATER__ = true")
+					.eval("window.__SD_UPDATER__ = true;")
 					.expect("Failed to inject updater JS");
 			}
 		})

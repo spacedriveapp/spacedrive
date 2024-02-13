@@ -2,7 +2,7 @@
 
 use crate::library::{Libraries, Library, LibraryManagerEvent};
 
-use sd_p2p::Service;
+use sd_p2p::{spacetunnel::IdentityOrRemoteIdentity, Service};
 
 use std::{
 	collections::HashMap,
@@ -14,7 +14,7 @@ use tokio::sync::mpsc;
 use tracing::{error, warn};
 use uuid::Uuid;
 
-use super::{IdentityOrRemoteIdentity, LibraryMetadata, P2PManager};
+use super::{LibraryMetadata, P2PManager};
 
 pub struct LibraryServices {
 	services: RwLock<HashMap<Uuid, Arc<Service<LibraryMetadata>>>>,
@@ -44,36 +44,35 @@ impl LibraryServices {
 		}
 	}
 
-	pub(crate) async fn start(_manager: Arc<P2PManager>, _libraries: Arc<Libraries>) {
-		warn!("P2PManager has library communication disabled.");
-		// if let Err(err) = libraries
-		// 	.rx
-		// 	.clone()
-		// 	.subscribe(|msg| {
-		// 		let manager = manager.clone();
-		// 		async move {
-		// 			match msg {
-		// 				LibraryManagerEvent::InstancesModified(library)
-		// 				| LibraryManagerEvent::Load(library) => {
-		// 					manager
-		// 						.clone()
-		// 						.libraries
-		// 						.load_library(manager, &library)
-		// 						.await
-		// 				}
-		// 				LibraryManagerEvent::Edit(library) => {
-		// 					manager.libraries.edit_library(&library).await
-		// 				}
-		// 				LibraryManagerEvent::Delete(library) => {
-		// 					manager.libraries.delete_library(&library).await
-		// 				}
-		// 			}
-		// 		}
-		// 	})
-		// 	.await
-		// {
-		// 	error!("Core may become unstable! `LibraryServices::start` manager aborted with error: {err:?}");
-		// }
+	pub(crate) async fn start(manager: Arc<P2PManager>, libraries: Arc<Libraries>) {
+		if let Err(err) = libraries
+			.rx
+			.clone()
+			.subscribe(|msg| {
+				let manager = manager.clone();
+				async move {
+					match msg {
+						LibraryManagerEvent::InstancesModified(library)
+						| LibraryManagerEvent::Load(library) => {
+							manager
+								.clone()
+								.libraries
+								.load_library(manager, &library)
+								.await
+						}
+						LibraryManagerEvent::Edit(library) => {
+							manager.libraries.edit_library(&library).await
+						}
+						LibraryManagerEvent::Delete(library) => {
+							manager.libraries.delete_library(&library).await
+						}
+					}
+				}
+			})
+			.await
+		{
+			error!("Core may become unstable! `LibraryServices::start` manager aborted with error: {err:?}");
+		}
 	}
 
 	pub fn get(&self, id: &Uuid) -> Option<Arc<Service<LibraryMetadata>>> {
@@ -125,8 +124,11 @@ impl LibraryServices {
 			let service = service.entry(library.id).or_insert_with(|| {
 				inserted = true;
 				Arc::new(
-					Service::new(library.id.to_string(), manager.manager.clone())
-						.expect("error creating service with duplicate service name"),
+					Service::new(
+						String::from_utf8_lossy(&base91::slice_encode(library.id.as_bytes())),
+						manager.manager.clone(),
+					)
+					.expect("error creating service with duplicate service name"),
 				)
 			});
 			service.add_known(identities);

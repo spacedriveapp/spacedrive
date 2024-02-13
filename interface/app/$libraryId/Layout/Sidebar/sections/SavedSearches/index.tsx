@@ -5,6 +5,7 @@ import { useLibraryMutation, useLibraryQuery, type SavedSearch } from '@sd/clien
 import { Button } from '@sd/ui';
 import { useExplorerDroppable } from '~/app/$libraryId/Explorer/useExplorerDroppable';
 import { Folder } from '~/components';
+import { useLocale } from '~/hooks';
 
 import SidebarLink from '../../SidebarLayout/Link';
 import Section from '../../SidebarLayout/Section';
@@ -23,6 +24,8 @@ export default function SavedSearches() {
 
 	const navigate = useNavigate();
 
+	const { t } = useLocale();
+
 	const deleteSavedSearch = useLibraryMutation(['search.saved.delete'], {
 		onSuccess() {
 			if (currentIndex !== undefined && savedSearches.data) {
@@ -40,7 +43,7 @@ export default function SavedSearches() {
 
 	return (
 		<Section
-			name="Saved Searches"
+			name={t('saved_searches')}
 			// actionArea={
 			// 	<Link to="settings/library/saved-searches">
 			// 		<SubtleButton />

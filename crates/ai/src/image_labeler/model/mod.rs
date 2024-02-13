@@ -29,9 +29,7 @@ pub enum ModelSource {
 }
 
 pub trait Model: Send + Sync + 'static {
-	fn name(&self) -> &'static str {
-		std::any::type_name::<Self>()
-	}
+	fn name(&self) -> &'static str;
 
 	fn origin(&self) -> &ModelSource;
 

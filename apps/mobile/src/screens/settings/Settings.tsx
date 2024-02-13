@@ -13,9 +13,9 @@ import {
 	TagSimple
 } from 'phosphor-react-native';
 import React from 'react';
-import { SectionList, Text, TouchableWithoutFeedback, View } from 'react-native';
+import { Platform, SectionList, Text, TouchableWithoutFeedback, View } from 'react-native';
 import { DebugState, useDebugState, useDebugStateEnabler } from '@sd/client';
-import { SettingsItem, SettingsItemDivider } from '~/components/settings/SettingsItem';
+import { SettingsItem } from '~/components/settings/SettingsItem';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackParamList, SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
@@ -25,6 +25,7 @@ type SectionType = {
 		title: string;
 		icon: Icon;
 		navigateTo: keyof SettingsStackParamList;
+		rounded?: 'top' | 'bottom';
 	}[];
 };
 
@@ -35,7 +36,8 @@ const sections: (debugState: DebugState) => SectionType[] = (debugState) => [
 			{
 				icon: GearSix,
 				navigateTo: 'GeneralSettings',
-				title: 'General'
+				title: 'General',
+				rounded: 'top'
 			},
 			{
 				icon: Books,
@@ -55,7 +57,8 @@ const sections: (debugState: DebugState) => SectionType[] = (debugState) => [
 			{
 				icon: PuzzlePiece,
 				navigateTo: 'ExtensionsSettings',
-				title: 'Extensions'
+				title: 'Extensions',
+				rounded: 'bottom'
 			}
 		]
 	},
@@ -65,7 +68,8 @@ const sections: (debugState: DebugState) => SectionType[] = (debugState) => [
 			{
 				icon: GearSix,
 				navigateTo: 'LibraryGeneralSettings',
-				title: 'General'
+				title: 'General',
+				rounded: 'top'
 			},
 			{
 				icon: HardDrive,
@@ -80,7 +84,8 @@ const sections: (debugState: DebugState) => SectionType[] = (debugState) => [
 			{
 				icon: TagSimple,
 				navigateTo: 'TagsSettings',
-				title: 'Tags'
+				title: 'Tags',
+				rounded: 'bottom'
 			}
 			// {
 			// 	icon: Key,
@@ -95,19 +100,22 @@ const sections: (debugState: DebugState) => SectionType[] = (debugState) => [
 			{
 				icon: FlyingSaucer,
 				navigateTo: 'About',
-				title: 'About'
+				title: 'About',
+				rounded: 'top'
 			},
 			{
 				icon: Heart,
 				navigateTo: 'Support',
-				title: 'Support'
+				title: 'Support',
+				rounded: !debugState.enabled ? 'bottom' : undefined
 			},
 			...(debugState.enabled
 				? ([
 						{
 							icon: Gear,
 							navigateTo: 'Debug',
-							title: 'Debug'
+							title: 'Debug',
+							rounded: 'bottom'
 						}
 				  ] as const)
 				: [])
@@ -119,7 +127,7 @@ function renderSectionHeader({ section }: { section: { title: string } }) {
 	return (
 		<Text
 			style={twStyle(
-				'mb-2 ml-2 text-sm font-bold text-ink',
+				'mb-4 text-md font-bold text-ink',
 				section.title === 'Client' ? 'mt-2' : 'mt-5'
 			)}
 		>
@@ -132,16 +140,16 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 	const debugState = useDebugState();
 
 	return (
-		<View style={tw`flex-1`}>
+		<View style={tw`flex-1 bg-mobile-screen px-7`}>
 			<SectionList
 				sections={sections(debugState)}
-				contentContainerStyle={tw`py-4`}
-				ItemSeparatorComponent={SettingsItemDivider}
+				contentContainerStyle={tw`h-auto pb-5 pt-3`}
 				renderItem={({ item }) => (
 					<SettingsItem
 						title={item.title}
 						leftIcon={item.icon}
 						onPress={() => navigation.navigate(item.navigateTo as any)}
+						rounded={item.rounded}
 					/>
 				)}
 				renderSectionHeader={renderSectionHeader}
@@ -156,9 +164,10 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 
 function FooterComponent() {
 	const onClick = useDebugStateEnabler();
-
 	return (
-		<View style={tw`mb-4 mt-6 items-center`}>
+		<View
+			style={twStyle(Platform.OS === 'android' ? 'mb-14 mt-4' : 'mb-20 mt-5', 'items-center')}
+		>
 			<TouchableWithoutFeedback onPress={onClick}>
 				<Text style={tw`text-base font-bold text-ink`}>Spacedrive</Text>
 			</TouchableWithoutFeedback>

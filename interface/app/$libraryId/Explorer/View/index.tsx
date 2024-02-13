@@ -83,6 +83,11 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 
 	useShortcuts();
 
+	useShortcut('explorerEscape', () => {
+		if (!selectable || explorer.selectedItems.size === 0) return;
+		explorer.resetSelectedItems([]);
+	});
+
 	useEffect(() => {
 		if (!visible || !isContextMenuOpen || explorer.selectedItems.size !== 0) return;
 

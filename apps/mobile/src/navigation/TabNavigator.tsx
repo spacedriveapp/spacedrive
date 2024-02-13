@@ -3,7 +3,7 @@ import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/n
 import { StackScreenProps } from '@react-navigation/stack';
 import { BlurView } from 'expo-blur';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
 import Rive, { RiveRef } from 'rive-react-native';
 import { Style } from 'twrnc/dist/esm/types';
@@ -30,7 +30,7 @@ export default function TabNavigator() {
 		icon: React.ReactNode;
 		label: string;
 		labelStyle: Style;
-		testId?: string;
+		testID: string;
 	}[] = [
 		{
 			name: 'OverviewStack',
@@ -45,7 +45,8 @@ export default function TabNavigator() {
 				/>
 			),
 			label: 'Overview',
-			labelStyle: tw`text-[10px] font-semibold`
+			labelStyle: tw`text-[10px] font-semibold`,
+			testID: 'overview-tab'
 		},
 		{
 			name: 'NetworkStack',
@@ -60,7 +61,8 @@ export default function TabNavigator() {
 				/>
 			),
 			label: 'Network',
-			labelStyle: tw`text-[10px] font-semibold`
+			labelStyle: tw`text-[10px] font-semibold`,
+			testID: 'network-tab'
 		},
 		{
 			name: 'BrowseStack',
@@ -76,7 +78,7 @@ export default function TabNavigator() {
 			),
 			label: 'Browse',
 			labelStyle: tw`text-[10px] font-semibold`,
-			testId: 'browse-tab'
+			testID: 'browse-tab'
 		},
 		{
 			name: 'SettingsStack',
@@ -91,7 +93,8 @@ export default function TabNavigator() {
 				/>
 			),
 			label: 'Settings',
-			labelStyle: tw`text-[10px] font-semibold`
+			labelStyle: tw`text-[10px] font-semibold`,
+			testID: 'settings-tab'
 		}
 	];
 	return (
@@ -103,7 +106,12 @@ export default function TabNavigator() {
 					position: 'absolute',
 					backgroundColor: tw.color('mobile-navtab'),
 					borderTopWidth: 1,
-					borderTopColor: tw.color('app-line/50')
+					borderTopColor: tw.color('app-line/50'),
+					height: Platform.OS === 'android' ? 60 : 80,
+					paddingVertical: 5
+				},
+				tabBarItemStyle: {
+					marginBottom: Platform.OS === 'android' ? 10 : 0
 				},
 				tabBarBackground: () => (
 					<BlurView tint="dark" intensity={50} style={StyleSheet.absoluteFill} />
@@ -118,17 +126,23 @@ export default function TabNavigator() {
 					key={screen.name + index}
 					name={screen.name}
 					component={screen.component}
-					options={{
+					options={({ navigation }) => ({
 						tabBarLabel: screen.label,
 						tabBarLabelStyle: screen.labelStyle,
 						tabBarIcon: () => (
-							<TouchableWithoutFeedback testID={screen.testId}>
+							<TouchableWithoutFeedback
+								onPress={() => {
+									navigation.navigate(screen.name);
+									setActiveIndex(index);
+								}}
+							>
 								{screen.icon}
 							</TouchableWithoutFeedback>
-						)
-					}}
+						),
+						tabBarTestID: screen.testID
+					})}
 					listeners={() => ({
-						tabPress: () => {
+						focus: () => {
 							setActiveIndex(index);
 						}
 					})}
@@ -156,8 +170,10 @@ const TabBarButton = ({
 	const ref = useRef<RiveRef>(null);
 	useEffect(() => {
 		if (active && ref.current) {
-			ref.current?.play();
-		} else ref.current?.stop();
+			ref.current?.play('animate');
+		} else {
+			ref.current?.stop();
+		}
 	}, [active]);
 	return (
 		<Rive

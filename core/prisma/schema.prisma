@@ -124,6 +124,8 @@ model Location {
   hidden                 Boolean?
   date_created           DateTime?
 
+  /// @local
+  // this is just a client side cache which is annoying but oh well (@brendan)
   instance_id Int?
   instance    Instance? @relation(fields: [instance_id], references: [id], onDelete: SetNull)
 
@@ -326,13 +328,13 @@ model Tag {
   @@map("tag")
 }
 
-/// @relation(item: tag, group: object)
+/// @relation(item: object, group: tag)
 model TagOnObject {
-  tag_id Int
-  tag    Tag @relation(fields: [tag_id], references: [id], onDelete: Restrict)
-
   object_id Int
   object    Object @relation(fields: [object_id], references: [id], onDelete: Restrict)
+
+  tag_id Int
+  tag    Tag @relation(fields: [tag_id], references: [id], onDelete: Restrict)
 
   date_created DateTime?
 
@@ -342,9 +344,9 @@ model TagOnObject {
 
 //// Label ////
 
+/// @shared(id: name)
 model Label {
   id            Int      @id @default(autoincrement())
-  pub_id        Bytes    @unique
   name          String   @unique
   date_created  DateTime @default(now())
   date_modified DateTime @default(now())
@@ -354,14 +356,15 @@ model Label {
   @@map("label")
 }
 
+/// @relation(item: object, group: label)
 model LabelOnObject {
   date_created DateTime @default(now())
 
-  label_id     Int
-  label        Label    @relation(fields: [label_id], references: [id], onDelete: Restrict)
-
   object_id    Int
   object       Object   @relation(fields: [object_id], references: [id], onDelete: Restrict)
+
+  label_id     Int
+  label        Label    @relation(fields: [label_id], references: [id], onDelete: Restrict)
 
   @@id([label_id, object_id])
   @@map("label_on_object")
@@ -514,6 +517,7 @@ model Notification {
   @@map("notification")
 }
 
+/// @shared(id: pub_id)
 model SavedSearch {
   id     Int   @id @default(autoincrement())
   pub_id Bytes @unique
@@ -532,6 +536,7 @@ model SavedSearch {
   @@map("saved_search")
 }
 
+/// @local(id: id)
 model CloudCRDTOperation {
   id        Bytes  @id
   timestamp BigInt

@@ -1,9 +1,8 @@
 import { Envelope, User } from '@phosphor-icons/react';
-import { iconNames } from '@sd/assets/util';
 import { useEffect, useState } from 'react';
 import { auth, useBridgeMutation, useBridgeQuery, useFeatureFlag } from '@sd/client';
 import { Button, Card, Input, toast } from '@sd/ui';
-import { Icon, TruncatedText } from '~/components';
+import { TruncatedText } from '~/components';
 import { AuthRequiredOverlay } from '~/components/AuthRequiredOverlay';
 import { useLocale } from '~/hooks';
 
@@ -21,14 +20,14 @@ export const Component = () => {
 						{authStore.status === 'loggedIn' && (
 							<div className="flex-row space-x-2">
 								<Button variant="accent" size="sm" onClick={auth.logout}>
-									Logout
+									{t('logout')}
 								</Button>
 							</div>
 						)}
 					</>
 				}
-				title="Spacedrive Cloud"
-				description="Spacedrive is always local first, but we will offer our own optional cloud services in the future. For now, authentication is only used for the Feedback feature, otherwise it is not required."
+				title={t('spacedrive_cloud')}
+				description={t('spacedrive_cloud_description')}
 			/>
 			<div className="flex flex-col justify-between gap-5 lg:flex-row">
 				<Profile authStore={authStore} email={me.data?.email} />
