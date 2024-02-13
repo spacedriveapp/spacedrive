@@ -34,24 +34,28 @@ const Locations = ({ locations }: Props) => {
 							showsHorizontalScrollIndicator={false}
 							keyExtractor={(location) => location.id.toString()}
 							ItemSeparatorComponent={() => <View style={tw`w-2`} />}
-							ListFooterComponent={() => (
-								<NewCard
-									style={twStyle(locations?.length !== 0 ? 'ml-2' : 'ml-0')}
-									icons={['HDD', 'Folder', 'Globe', 'SD']}
-									text="Connect a local path, volume or network location to Spacedrive."
-									button={() => (
-										<Button
-											style={tw`mt-2.5`}
-											variant="outline"
-											onPress={() => {
-												modalRef.current?.present();
-											}}
-										>
-											<Text style={tw`font-bold text-ink`}>Add Location</Text>
-										</Button>
-									)}
-								/>
-							)}
+							ListEmptyComponent={() => {
+								return (
+									<NewCard
+										style={twStyle(locations?.length !== 0 ? 'ml-2' : 'ml-0')}
+										icons={['HDD', 'Folder', 'Globe', 'SD']}
+										text="Connect a local path, volume or network location to Spacedrive."
+										button={() => (
+											<Button
+												style={tw`mt-2.5`}
+												variant="outline"
+												onPress={() => {
+													modalRef.current?.present();
+												}}
+											>
+												<Text style={tw`font-bold text-ink`}>
+													Add Location
+												</Text>
+											</Button>
+										)}
+									/>
+								);
+							}}
 							showsVerticalScrollIndicator={false}
 							renderItem={({ item }) => (
 								<Pressable
