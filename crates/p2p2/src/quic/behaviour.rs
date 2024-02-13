@@ -90,6 +90,8 @@ impl NetworkBehaviour for SpaceTime {
 		_addresses: &[Multiaddr],
 		_effective_role: Endpoint,
 	) -> Result<Vec<Multiaddr>, ConnectionDenied> {
+		println!("handle_pending_outbound_connection {:?}", _maybe_peer); // TODO
+
 		// This should be unused but libp2p still calls it
 		Ok(vec![])
 	}

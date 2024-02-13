@@ -1,5 +1,4 @@
 use std::{
-	convert::Infallible,
 	future::Future,
 	pin::Pin,
 	sync::{atomic::Ordering, Arc, PoisonError},
@@ -7,8 +6,6 @@ use std::{
 
 use libp2p::{core::UpgradeInfo, swarm::ConnectionId, OutboundUpgrade, Stream};
 use tracing::warn;
-
-use crate::{Identity, P2P};
 
 use super::{behaviour::SpaceTimeState, libp2p::SpaceTimeProtocolName, stream::new_outbound};
 
@@ -22,7 +19,7 @@ impl UpgradeInfo for OutboundProtocol {
 	type InfoIter = [Self::Info; 1];
 
 	fn protocol_info(&self) -> Self::InfoIter {
-		[SpaceTimeProtocolName(self.state.p2p.app_name())]
+		[SpaceTimeProtocolName::new(&self.state.p2p)]
 	}
 }
 
@@ -34,6 +31,8 @@ impl OutboundUpgrade<Stream> for OutboundProtocol {
 	fn upgrade_outbound(self, io: Stream, _protocol: Self::Info) -> Self::Future {
 		let id = self.state.stream_id.fetch_add(1, Ordering::Relaxed);
 		Box::pin(async move {
+			println!("A"); // TODO
+
 			let Some(req) = self
 				.state
 				.establishing_outbound
@@ -48,11 +47,15 @@ impl OutboundUpgrade<Stream> for OutboundProtocol {
 				return Ok(());
 			};
 
+			println!("B"); // TODO
+
 			let _ = req.tx.send(
 				new_outbound(id, self.state.p2p.identity(), io)
 					.await
 					.map_err(|_| "error creating outbound stream".to_string()),
 			);
+
+			println!("C"); // TODO
 
 			Ok(())
 		})

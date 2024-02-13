@@ -158,6 +158,7 @@ impl Peer {
 		};
 
 		let (tx, rx) = oneshot::channel();
+		println!("ZZZ"); // TODO
 		connect_tx
 			.send(ConnectionRequest {
 				to: self.identity.clone(),
@@ -168,13 +169,17 @@ impl Peer {
 			.map_err(|err| {
 				warn!("Failed to send connect request to peer: {}", err);
 			})?;
-		rx.await
+		println!("XXX"); // TODO
+		let y = rx
+			.await
 			.map_err(|err| {
 				warn!("Failed to receive connect response from peer: {err}");
 			})?
 			.map_err(|err| {
 				warn!("Failed to do the thing: {err}");
-			})
+			});
+		println!("XXX -- DONE {:?}", y); // TODO
+		y
 	}
 }
 

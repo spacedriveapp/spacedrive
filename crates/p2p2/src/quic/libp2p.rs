@@ -4,8 +4,16 @@ use std::net::{IpAddr, SocketAddr};
 
 use libp2p::{multiaddr::Protocol, Multiaddr};
 
+use crate::P2P;
+
 #[derive(Clone)]
-pub struct SpaceTimeProtocolName(pub &'static str);
+pub struct SpaceTimeProtocolName(String);
+
+impl SpaceTimeProtocolName {
+	pub fn new(p2p: &P2P) -> Self {
+		SpaceTimeProtocolName(format!("/{}/spacetime/1.0.0", p2p.app_name()))
+	}
+}
 
 impl AsRef<str> for SpaceTimeProtocolName {
 	fn as_ref(&self) -> &str {

@@ -30,7 +30,7 @@ impl UpgradeInfo for InboundProtocol {
 	type InfoIter = [Self::Info; 1];
 
 	fn protocol_info(&self) -> Self::InfoIter {
-		[SpaceTimeProtocolName(self.state.p2p.app_name())]
+		[SpaceTimeProtocolName::new(&self.state.p2p)]
 	}
 }
 

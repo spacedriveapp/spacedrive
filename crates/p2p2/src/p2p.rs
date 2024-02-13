@@ -8,6 +8,7 @@ use flume::Sender;
 use hash_map_diff::hash_map_diff;
 use stable_vec::StableVec;
 use tokio::sync::oneshot;
+use tracing::info;
 
 use crate::{
 	hooks::{HandlerFn, Hook, HookEvent, ListenerData, ListenerId},
@@ -260,6 +261,7 @@ impl P2P {
 			listener.addrs.insert(addr);
 		}
 
+		info!("HookEvent::ListenerAddrAdded({listener_id:?}, {addr})");
 		hooks.iter().for_each(|(_, hook)| {
 			hook.send(HookEvent::ListenerAddrAdded(listener_id, addr));
 		});
@@ -274,6 +276,7 @@ impl P2P {
 			listener.addrs.remove(&addr);
 		}
 
+		info!("HookEvent::ListenerAddrRemoved({listener_id:?}, {addr})");
 		hooks.iter().for_each(|(_, hook)| {
 			hook.send(HookEvent::ListenerAddrRemoved(listener_id, addr));
 		});

@@ -55,7 +55,10 @@ pub async fn spacedrop(
 	.await
 	.into_iter()
 	.collect::<Result<Vec<_>, std::io::Error>>()
-	.map_err(|_| ())? // TODO: Error handling
+	.map_err(|err| {
+		warn!("error opening file: '{err:?}'");
+		() // TODO: Proper error
+	})?
 	.into_iter()
 	.unzip();
 

@@ -20,7 +20,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				for (identity, peer, metadata) in
 					node.p2p.p2p.peers().iter().filter_map(|(i, p)| {
-						PeerMetadata::from_hashmap(&*p.metadata())
+						PeerMetadata::from_hashmap(&p.metadata())
 							.ok()
 							.map(|m| (i, p, m))
 					}) {
@@ -44,6 +44,26 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("state", {
 			R.query(|node, _: ()| async move { Ok(node.p2p.state().await) })
+		})
+		.procedure("debugConnect", {
+			R.mutation(|node, identity: RemoteIdentity| async move {
+				let peer = { node.p2p.p2p.peers().get(&identity).cloned() };
+				let _stream = peer
+					.ok_or(rspc::Error::new(
+						ErrorCode::InternalServerError,
+						"big man, offline".into(),
+					))?
+					.new_stream()
+					.await
+					.map_err(|err| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							format!("huh, lol: {:?}", err),
+						)
+					})?;
+
+				Ok("connected")
+			})
 		})
 		.procedure("spacedrop", {
 			#[derive(Type, Deserialize)]

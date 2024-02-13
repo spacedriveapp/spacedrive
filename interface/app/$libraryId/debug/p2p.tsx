@@ -1,4 +1,5 @@
 import {
+	useBridgeMutation,
 	useBridgeQuery,
 	useCache,
 	useConnectedPeers,
@@ -32,7 +33,7 @@ function Page() {
 	const discoveredPeers = useDiscoveredPeers();
 	useNodes(result.data?.nodes);
 	const libraries = useCache(result.data?.items);
-	const p2pCtxRaw = useP2PContextRaw();
+	const debugConnect = useBridgeMutation(['p2p.debugConnect']);
 
 	return (
 		<div className="flex flex-col space-y-8">
@@ -43,6 +44,7 @@ function Page() {
 					{[...discoveredPeers.entries()].map(([id, node]) => (
 						<div key={id} className="flex space-x-2">
 							<p>{id}</p>
+							<button onClick={() => debugConnect.mutate(id)}>Connect</button>
 						</div>
 					))}
 				</div>

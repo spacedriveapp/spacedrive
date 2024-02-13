@@ -57,7 +57,7 @@ base64 = "0.21.5"
 blake3 = "1.5.0"
 chrono = "0.4.31"
 clap = "4.4.7"
-futures = "0.3.29"
+futures = "0.3.30"
 futures-concurrency = "7.4.3"
 hex = "0.4.3"
 http = "0.2.9"
@@ -93,6 +93,15 @@ rspc = { git = "https://github.com/spacedriveapp/rspc.git", rev = "f3347e2e8bfe3
 # `cursor_position` method
 tauri = { git = "https://github.com/spacedriveapp/tauri.git", rev = "8409af71a83d631ff9d1cd876c441a57511a1cbd" }
 tao = { git = "https://github.com/spacedriveapp/tao", rev = "7880adbc090402c44fbcf006669458fa82623403" }
+
+# libp2p = { git = "https://github.com/spacedriveapp/rust-libp2p", rev = "0888a95ad875764c21839d8e36c4c1bf4b7299a5" }
+# libp2p-quic = { git = "https://github.com/spacedriveapp/rust-libp2p", rev = "0888a95ad875764c21839d8e36c4c1bf4b7299a5" }
+# libp2p-swarm = { git = "https://github.com/spacedriveapp/rust-libp2p", rev = "0888a95ad875764c21839d8e36c4c1bf4b7299a5" }
+
+libp2p = { path = "/Users/oscar/Desktop/rust-libp2p/libp2p" }
+libp2p-quic = { path = "/Users/oscar/Desktop/rust-libp2p/transports/quic" }
+libp2p-swarm = { path = "/Users/oscar/Desktop/rust-libp2p/swarm" }
+
 
 # Set the settings for build scripts and proc-macros.
 [profile.dev.build-override]

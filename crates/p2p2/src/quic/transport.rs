@@ -1,6 +1,7 @@
 use std::{
 	convert::Infallible,
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
+	str::FromStr,
 	sync::{Arc, PoisonError, RwLock},
 };
 
@@ -9,7 +10,7 @@ use libp2p::{
 	core::muxing::StreamMuxerBox,
 	futures::StreamExt,
 	swarm::dial_opts::{DialOpts, PeerCondition},
-	Swarm, SwarmBuilder, Transport,
+	PeerId, Swarm, SwarmBuilder, Transport,
 };
 use stable_vec::StableVec;
 use tokio::{
@@ -74,8 +75,8 @@ impl QuicTransport {
 		// This is sketchy, but it makes the whole system a lot easier to work with
 		// We are assuming the libp2p `Keypair`` is the same format as our `Identity` type.
 		// This is *acktually* true but they reserve the right to change it at any point.
-		let keypair =
-			libp2p::identity::Keypair::ed25519_from_bytes(p2p.identity().to_bytes()).unwrap(); // TODO: Work out how to do this conversion
+		let keypair = libp2p::identity::Keypair::generate_ed25519();
+		// libp2p::identity::Keypair::ed25519_from_bytes(p2p.identity().to_bytes()).unwrap();
 		let libp2p_peer_id = Libp2pPeerId(keypair.public().to_peer_id());
 
 		let (tx, rx) = bounded(15);
@@ -200,13 +201,14 @@ async fn start(
 	let mut ipv6_listener = None;
 
 	loop {
+		println!("POLL");
 		tokio::select! {
 			Ok(event) = rx.recv_async() => match event {
 				HookEvent::Shutdown => break,
 				_ => {},
 			},
 			event = swarm.select_next_some() => match event {
-				_ => {},
+				event => println!("libp2p event: {:?}", event),
 			},
 			Ok(event) = internal_rx.recv_async() => match event {
 				InternalEvent::RegisterListener { id, ipv4, addr, result } => {
@@ -243,22 +245,46 @@ async fn start(
 				},
 			},
 			Some(req) = connect_rx.recv() => {
+				println!("{:?}\n\n", req.addrs);
+
+				let bruh = req.addrs.iter().filter(|a| a.is_ipv4()).map(socketaddr_to_quic_multiaddr).collect::<Vec<_>>();
+				println!("BRUH {bruh:?}");
+
 				let opts = DialOpts::unknown_peer_id()
-					// TODO: PR to libp2p to support multiple (their tech stack already supports it just not this builder)
-					.address(socketaddr_to_quic_multiaddr(req.addrs.iter().next().unwrap()))
-					// .address(req.addrs.iter().map(socketaddr_to_quic_multiaddr).collect())
+					.addresses(bruh)
 					.build();
+				// let opts = DialOpts::peer_id(PeerId::from_str("12D3KooWQ7ei5eiMWos5gkXao9YaPBwi2bHgHnam4xiLnFGLAfKy").unwrap())
+				// 	.condition(PeerCondition::Disconnected)
+				//    .addresses(req.addrs.iter().map(socketaddr_to_quic_multiaddr).collect())
+				//    .build();
+
+
 				let id = opts.connection_id();
 				let Err(err) = swarm.dial(opts) else {
+					println!("QQQ"); // TODO
 					swarm.behaviour_mut().state.establishing_outbound.lock().unwrap_or_else(PoisonError::into_inner).insert(id, req);
+
+					let y = swarm.behaviour_mut().state.clone();
+					tokio::spawn(async move {
+						// TODO: Timeout and remove from the map sending an error
+						loop {
+							println!("{:?}", y.establishing_outbound);
+							tokio::time::sleep(std::time::Duration::from_secs(100)).await;
+						}
+					});
+
 					return;
 				};
+
+				println!("EEE"); // TODO
 
 				warn!(
 					"error dialing peer '{}' with addresses '{:?}': {}",
 					req.to, req.addrs, err
 				);
 				let _ = req.tx.send(Err(err.to_string()));
+
+				println!("DONE"); // TODO
 			}
 		}
 	}
