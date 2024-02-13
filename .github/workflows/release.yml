@@ -9,12 +9,12 @@ jobs:
     strategy:
       matrix:
         settings:
-          - host: macos-latest
+          - host: macos-14
             target: x86_64-apple-darwin
             bundles: app,dmg
             os: darwin
             arch: x86_64
-          - host: macos-latest
+          - host: macos-14
             target: aarch64-apple-darwin
             bundles: app,dmg
             os: darwin
