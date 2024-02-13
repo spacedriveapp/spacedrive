@@ -1,11 +1,9 @@
 import { Plus, X } from '@phosphor-icons/react';
-import { useSelector } from '@sd/client';
-import { Tooltip } from '@sd/ui';
 import clsx from 'clsx';
 import { useLayoutEffect, useRef } from 'react';
 import useResizeObserver from 'use-resize-observer';
-import { useRoutingContext } from '~/RoutingContext';
-import { useTabsContext } from '~/TabsContext';
+import { useSelector } from '@sd/client';
+import { Tooltip } from '@sd/ui';
 import {
 	useKeyMatcher,
 	useLocale,
@@ -13,6 +11,8 @@ import {
 	useShortcut,
 	useShowControls
 } from '~/hooks';
+import { useRoutingContext } from '~/RoutingContext';
+import { useTabsContext } from '~/TabsContext';
 
 import { explorerStore } from '../Explorer/store';
 import { useTopBarContext } from './Layout';

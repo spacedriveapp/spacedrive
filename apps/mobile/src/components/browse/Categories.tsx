@@ -29,7 +29,7 @@ const CATEGORIES_LIST = [
 const Categories = () => {
 	return (
 		<View style={tw`relative gap-5`}>
-			<Text style={tw`text-lg font-bold text-white px-7`}>Library</Text>
+			<Text style={tw`px-7 text-lg font-bold text-white`}>Library</Text>
 			<Fade width={30} height="100%" color="mobile-screen">
 				<ScrollView showsHorizontalScrollIndicator={false} horizontal>
 					<View style={tw`flex-row gap-2 px-7`}>
