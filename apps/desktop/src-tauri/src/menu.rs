@@ -158,7 +158,7 @@ pub fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 				#[cfg(not(debug_assertions))]
 				window.close().unwrap();
 			}
-		},
+		}
 		"open_search" => event
 			.window()
 			.emit("keybind", "open_search".to_string())
