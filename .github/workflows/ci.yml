@@ -15,7 +15,7 @@ concurrency:
 jobs:
   typescript:
     name: TypeScript
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -30,7 +30,7 @@ jobs:
 
   eslint:
     name: ESLint
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -45,7 +45,7 @@ jobs:
 
   rustfmt:
     name: Rust Formatting
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Maximize build space
         if: ${{ runner.os == 'Linux' }}

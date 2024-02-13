@@ -8,7 +8,7 @@ on:
 jobs:
   build-server:
     name: Build a docker image for spacedrive server
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash
