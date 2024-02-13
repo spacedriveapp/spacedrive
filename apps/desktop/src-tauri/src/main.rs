@@ -13,7 +13,6 @@ use std::{
 
 use sd_core::{Node, NodeError};
 
-use clear_localstorage::clear_localstorage;
 use sd_fda::DiskAccess;
 use serde::{Deserialize, Serialize};
 use tauri::{

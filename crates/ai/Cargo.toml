@@ -42,21 +42,20 @@ half = { version = "2.1", features = ['num-traits'] }
 # "gpu" means CUDA or TensorRT EP. Thus, the ort crate cannot download them at build time.
 # Ref: https://github.com/pykeio/ort/blob/d7defd1862969b4b44f7f3f4b9c72263690bd67b/build.rs#L148
 [target.'cfg(target_os = "windows")'.dependencies]
-ort = { version = "=2.0.0-alpha.2", default-features = false, features = [
+ort = { version = "=2.0.0-rc.0", default-features = false, features = [
 	"ndarray",
 	"half",
 	"load-dynamic",
 	"directml",
 ] }
 [target.'cfg(target_os = "linux")'.dependencies]
-ort = { version = "=2.0.0-alpha.2", default-features = false, features = [
+ort = { version = "=2.0.0-rc.0", default-features = false, features = [
 	"ndarray",
 	"half",
-	"load-dynamic",
 	"xnnpack",
 ] }
 # [target.'cfg(target_os = "android")'.dependencies]
-# ort = { version = "2.0.0-alpha.2", default-features = false, features = [
+# ort = { version = "=2.0.0-rc.0", default-features = false, features = [
 # 	"half",
 # 	"load-dynamic",
 # 	"qnn",
@@ -66,7 +65,7 @@ ort = { version = "=2.0.0-alpha.2", default-features = false, features = [
 # 	"armnn",
 # ] }
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
-ort = { version = "=2.0.0-alpha.2", features = [
+ort = { version = "=2.0.0-rc.0", features = [
 	"ndarray",
 	"half",
 	"load-dynamic",

@@ -210,7 +210,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.unzip();
 
 					sync.write_ops(
-						&db,
+						db,
 						(
 							sync_params,
 							db.saved_search()
@@ -242,7 +242,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						})?;
 
 					sync.write_op(
-						&db,
+						db,
 						sync.shared_delete(prisma_sync::saved_search::SyncId {
 							pub_id: search.pub_id,
 						}),
