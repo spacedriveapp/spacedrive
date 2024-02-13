@@ -67,7 +67,7 @@ const BrowseTags = () => {
 
 	return (
 		<View style={tw`gap-5`}>
-			<View style={tw`flex-row items-center justify-between w-full px-7`}>
+			<View style={tw`w-full flex-row items-center justify-between px-7`}>
 				<Text style={tw`text-lg font-bold text-white`}>Tags</Text>
 				<View style={tw`flex-row gap-3`}>
 					<Pressable onPress={() => navigation.navigate('Tags')}>
@@ -81,7 +81,7 @@ const BrowseTags = () => {
 					</Pressable>
 					<Pressable testID="add-tag" onPress={() => modalRef.current?.present()}>
 						<View
-							style={tw`items-center justify-center w-8 h-8 bg-transparent border border-dashed rounded-md border-ink-faint`}
+							style={tw`h-8 w-8 items-center justify-center rounded-md border border-dashed border-ink-faint bg-transparent`}
 						>
 							<Plus weight="bold" size={18} style={tw`text-ink-faint`} />
 						</View>
@@ -96,7 +96,7 @@ const BrowseTags = () => {
 							style={tw`relative h-auto w-[85.5vw] flex-col items-center justify-center overflow-hidden rounded-md border border-dashed border-sidebar-line p-4`}
 						>
 							<Icon name="Tags" size={38} />
-							<Text style={tw`mt-2 font-medium text-center text-ink-dull`}>
+							<Text style={tw`mt-2 text-center font-medium text-ink-dull`}>
 								You have no tags
 							</Text>
 						</View>

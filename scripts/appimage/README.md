@@ -21,6 +21,7 @@ This directory contains the script and recipe to build an AppImage from a Spaced
 - Execute the `build_appimage.sh` script inside a `debian:bookworm` container
 
   - Podman: `podman run --rm -v "$(CDPATH='' cd ../.. && pwd -P):/srv" -w /srv debian:bookworm scripts/appimage/build_appimage.sh`
+
     - You may have to run Podman with `podman run --privileged` if you get a permission denied error
 
   - Docker: `docker run --rm -v "$(CDPATH='' cd ../.. && pwd -P):/srv" -w /srv debian:bookworm scripts/appimage/build_appimage.sh`

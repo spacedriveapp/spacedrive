@@ -448,6 +448,7 @@ export const useShortcut = (shortcut: ShortcutName, func: (e: KeyboardEvent) => 
 
 	useKeys(keys, (e) => {
 		if (!visible) return;
+		if (!import.meta.env.DEV) e.preventDefault();
 		return func(e);
 	});
 };

@@ -65,7 +65,7 @@ export function Component() {
 					center={<SearchBar />}
 					left={
 						<div className="flex flex-row items-center gap-2">
-							<span className="text-sm font-medium truncate">Recents</span>
+							<span className="truncate text-sm font-medium">Recents</span>
 						</div>
 					}
 					right={<DefaultTopBarOptions />}
