@@ -40,7 +40,7 @@ const BrowseLocationItem: React.FC<BrowseLocationItemProps> = ({
 	return (
 		<Pressable onPress={onPress}>
 			<View
-				style={tw`h-auto w-[110px] flex-col justify-center gap-3 rounded-md border border-sidebar-line/50 bg-sidebar-box p-2`}
+				style={tw`h-auto w-[110px] flex-col justify-center gap-3 rounded-md border border-app-line/50 bg-app-box/50 p-2`}
 			>
 				<View style={tw`w-full flex-col justify-between gap-1`}>
 					<View style={tw`flex-row items-center justify-between`}>
