@@ -1,6 +1,8 @@
 import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/v2';
 import { UseQueryResult } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
+import RNFS from 'react-native-fs';
 import { ClassInput } from 'twrnc/dist/esm/types';
 import { byteSize, Statistics, StatisticsResponse, useLibraryContext } from '@sd/client';
 import useCounter from '~/hooks/useCounter';
@@ -37,7 +39,7 @@ const StatItem = ({ title, bytes, isLoading, style }: StatItemProps) => {
 			)}
 		>
 			<Text style={tw`text-sm font-bold text-gray-400`}>{title}</Text>
-			<View style={tw`mt-1 flex-row items-baseline`}>
+			<View style={tw`flex-row items-baseline mt-1`}>
 				<Text style={twStyle('text-xl font-bold tabular-nums text-white')}>{count}</Text>
 				<Text style={tw`ml-1 text-sm text-gray-400`}>{unit}</Text>
 			</View>
@@ -56,19 +58,38 @@ const OverviewStats = ({ stats }: Props) => {
 		StatItemNames
 	) as unknown as keyof typeof StatItemNames;
 
+	// For Demo purposes as we probably wanna save this to database
+	// Sets Total Capacity and Free Space of the device
+	const [sizeInfo, setSizeInfo] = useState<RNFS.FSInfoResult>({ freeSpace: 0, totalSpace: 0 });
+
+	useEffect(() => {
+		const getFSInfo = async () => {
+			return await RNFS.getFSInfo();
+		};
+		getFSInfo().then((size) => {
+			setSizeInfo(size);
+		});
+	}, []);
+
 	const renderStatItems = (isTotalStat = true) => {
-		return Object.entries(stats?.data?.statistics || []).map(([key, value]) => {
+		if (!stats.data?.statistics) return null;
+		return Object.entries(stats.data.statistics).map(([key, bytesRaw]) => {
 			if (!displayableStatItems.includes(key)) return null;
 			if (isTotalStat && !['total_bytes_capacity', 'total_bytes_used'].includes(key))
 				return null;
 			if (!isTotalStat && ['total_bytes_capacity', 'total_bytes_used'].includes(key))
 				return null;
-
+			let bytes = BigInt(bytesRaw ?? 0);
+			if (key === 'total_bytes_free') {
+				bytes = BigInt(sizeInfo.freeSpace);
+			} else if (key === 'total_bytes_capacity') {
+				bytes = BigInt(sizeInfo.totalSpace);
+			}
 			return (
 				<StatItem
 					key={`${library.uuid} ${key}`}
 					title={StatItemNames[key as keyof Statistics]!}
-					bytes={BigInt(value)}
+					bytes={bytes}
 					isLoading={stats.isLoading}
 					style={tw`${isTotalStat ? 'h-[101px] w-full' : 'w-full'} flex-1`}
 				/>

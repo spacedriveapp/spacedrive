@@ -1,12 +1,13 @@
 import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/v2';
 import { UseQueryResult } from '@tanstack/react-query';
 import React from 'react';
-import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
+import { FlatList, Pressable, Text, View } from 'react-native';
 import { formatNumber, KindStatistics } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 
 import { Icon, IconName } from '../icons/Icon';
 import Fade from '../layout/Fade';
+import VirtualizedListWrapper from '../layout/VirtualizedListWrapper';
 
 interface Props {
 	kinds: UseQueryResult<KindStatistics, AlphaRSPCError>;
@@ -15,18 +16,14 @@ interface Props {
 const Categories = ({ kinds }: Props) => {
 	return (
 		<View>
-			<Text style={tw`px-7 pb-5 text-lg font-bold text-white`}>Categories</Text>
+			<Text style={tw`pb-5 text-lg font-bold text-white px-7`}>Categories</Text>
 			<View>
 				<Fade color="mobile-screen" width={30} height="100%">
 					{/*/
 						This addresses the issue of 'Virtualized lists being nested error message'
 						by using a scrollview with a different orientation and making it handle scrolling
 					*/}
-					<ScrollView
-						horizontal
-						showsHorizontalScrollIndicator={false}
-						alwaysBounceVertical={false}
-					>
+					<VirtualizedListWrapper horizontal>
 						<FlatList
 							data={kinds.data?.statistics
 								?.sort((a, b) => b.count - a.count)
@@ -36,7 +33,7 @@ const Categories = ({ kinds }: Props) => {
 							key={kinds.data?.statistics ? 'kinds' : '_'} //needed to update numColumns when data is available
 							keyExtractor={(item) => item.name}
 							scrollEnabled={false}
-							ItemSeparatorComponent={() => <View style={tw`h-3 w-3`} />}
+							ItemSeparatorComponent={() => <View style={tw`w-3 h-3`} />}
 							showsHorizontalScrollIndicator={false}
 							renderItem={({ item }) => {
 								const { kind, name, count } = item;
@@ -61,7 +58,7 @@ const Categories = ({ kinds }: Props) => {
 								);
 							}}
 						/>
-					</ScrollView>
+					</VirtualizedListWrapper>
 				</Fade>
 			</View>
 		</View>
@@ -86,7 +83,7 @@ const KindItem = ({ name, icon, items }: KindItemProps) => {
 			}}
 		>
 			<View style={twStyle('shrink-0 flex-row items-center', 'gap-2 rounded-lg text-sm')}>
-				<Icon name={icon} size={40} style={tw`mr-3 h-12 w-12`} />
+				<Icon name={icon} size={40} style={tw`w-12 h-12 mr-3`} />
 				<View>
 					<Text style={tw`text-sm font-medium text-ink`}>{name}</Text>
 					{items !== undefined && (

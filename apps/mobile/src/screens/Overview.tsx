@@ -9,11 +9,25 @@ import Locations from '~/components/overview/Locations';
 import OverviewStats from '~/components/overview/OverviewStats';
 import { twStyle } from '~/lib/tailwind';
 
+const EMPTY_STATISTICS = {
+	id: 0,
+	date_captured: '',
+	total_bytes_capacity: '0',
+	preview_media_bytes: '0',
+	library_db_size: '0',
+	total_object_count: 0,
+	total_bytes_free: '0',
+	total_bytes_used: '0',
+	total_unique_bytes: '0'
+};
+
 export default function OverviewScreen() {
 	const height = useBottomTabBarHeight();
 	const { data: node } = useBridgeQuery(['nodeState']);
 	const kinds = useLibraryQuery(['library.kindStatistics']);
-	const stats = useLibraryQuery(['library.statistics']);
+	const stats = useLibraryQuery(['library.statistics'], {
+		initialData: { ...EMPTY_STATISTICS }
+	});
 	const locationsQuery = useLibraryQuery(['locations.list']);
 	useNodes(locationsQuery.data?.nodes);
 	const locations = useCache(locationsQuery.data?.items);

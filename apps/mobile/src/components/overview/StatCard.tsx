@@ -4,11 +4,11 @@ import { AnimatedCircularProgress } from 'react-native-circular-progress';
 import { byteSize } from '@sd/client';
 import { tw } from '~/lib/tailwind';
 
-import { Icon } from '../icons/Icon';
+import { Icon, IconName } from '../icons/Icon';
 
 type StatCardProps = {
 	name: string;
-	icon: string;
+	icon: IconName;
 	totalSpace: string | number[];
 	freeSpace?: string | number[];
 	color: string;
@@ -58,7 +58,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 								<View
 									style={tw`absolute flex-row items-end gap-0.5 text-lg font-semibold`}
 								>
-									<Text style={tw`mx-auto text-md font-semibold text-ink`}>
+									<Text style={tw`mx-auto font-semibold text-md text-ink`}>
 										{fill.toFixed(0)}
 									</Text>
 									<Text style={tw`text-xs font-bold text-ink-dull opacity-60`}>
@@ -70,7 +70,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 					</>
 				)}
 				<View style={tw`flex-col overflow-hidden`}>
-					<Icon style={tw`-ml-1`} name={icon as any} size={60} />
+					<Icon style={tw`-ml-1`} name={icon} size={60} />
 					<Text numberOfLines={1} style={tw`max-w-[130px] py-1 font-medium text-ink`}>
 						{name}
 					</Text>
