@@ -19,10 +19,6 @@ const Categories = ({ kinds }: Props) => {
 			<Text style={tw`pb-5 text-lg font-bold text-white px-7`}>Categories</Text>
 			<View>
 				<Fade color="mobile-screen" width={30} height="100%">
-					{/*/
-						This addresses the issue of 'Virtualized lists being nested error message'
-						by using a scrollview with a different orientation and making it handle scrolling
-					*/}
 					<VirtualizedListWrapper horizontal>
 						<FlatList
 							data={kinds.data?.statistics
