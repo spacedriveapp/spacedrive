@@ -31,7 +31,7 @@ export const Component = () => {
 				)}
 			>
 				{showIntro && (
-					<div className="absolute left-0 top-0 z-50 flex h-screen w-screen items-center justify-center bg-[#1F212C]">
+					<div className="absolute left-0 top-0 z-50 flex h-screen w-screen items-center justify-center bg-[#1B1D25]">
 						<video
 							width={700}
 							className="mx-auto"
