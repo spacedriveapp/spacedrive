@@ -2,8 +2,10 @@ import { createContext, useContext, type ReactNode, type RefObject } from 'react
 
 export interface ExplorerViewContext {
 	ref: RefObject<HTMLDivElement>;
-	top?: number;
-	bottom?: number;
+	/**
+	 * Padding to apply when scrolling to an item.
+	 */
+	scrollPadding?: { top?: number; bottom?: number };
 	contextMenu?: ReactNode;
 	selectable: boolean;
 	listViewOptions?: {

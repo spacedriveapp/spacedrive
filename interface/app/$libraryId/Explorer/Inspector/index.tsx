@@ -297,7 +297,11 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 			<Divider />
 
 			<MetaContainer>
-				<MetaData icon={Cube} label={t('size')} value={`${size}`} />
+				<MetaData
+					icon={Cube}
+					label={t('size')}
+					value={!!ephemeralPathData && ephemeralPathData.is_dir ? null : `${size}`}
+				/>
 
 				<MetaData icon={Clock} label={t('created')} value={formatDate(dateCreated)} />
 
@@ -462,7 +466,9 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 					const { kind, size, dateCreated, dateAccessed, dateModified, dateIndexed } =
 						getExplorerItemData(item);
 
-					metadata.size += size.original;
+					if (item.type !== 'NonIndexedPath' || !item.item.is_dir) {
+						metadata.size = (metadata.size ?? BigInt(0)) + size.original;
+					}
 
 					if (dateCreated)
 						metadata.created = getDate(metadata.created, new Date(dateCreated));
@@ -484,8 +490,8 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 
 					return metadata;
 				},
-				{ size: BigInt(0), indexed: null, types: new Set(), kinds: new Map() } as {
-					size: bigint;
+				{ size: null, indexed: null, types: new Set(), kinds: new Map() } as {
+					size: bigint | null;
 					created: MetadataDate;
 					modified: MetadataDate;
 					indexed: MetadataDate;
@@ -504,7 +510,11 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 	return (
 		<>
 			<MetaContainer>
-				<MetaData icon={Cube} label={t('size')} value={`${byteSize(metadata.size)}`} />
+				<MetaData
+					icon={Cube}
+					label={t('size')}
+					value={metadata.size !== null ? `${byteSize(metadata.size)}` : null}
+				/>
 				<MetaData icon={Clock} label={t('created')} value={formatDate(metadata.created)} />
 				<MetaData
 					icon={Eraser}

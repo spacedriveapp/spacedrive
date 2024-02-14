@@ -16,14 +16,18 @@ import { TagModal } from '../modal/tag/TagModal';
 type BrowseTagItemProps = {
 	tag: Tag;
 	onPress: () => void;
+	tagStyle?: string;
 };
 
-const BrowseTagItem: React.FC<BrowseTagItemProps> = ({ tag, onPress }) => {
+export const BrowseTagItem: React.FC<BrowseTagItemProps> = ({ tag, onPress, tagStyle }) => {
 	const modalRef = useRef<ModalRef>(null);
 	return (
 		<Pressable onPress={onPress} testID="browse-tag">
 			<View
-				style={tw`h-auto w-[90px] flex-col justify-center gap-2.5 rounded-md border border-sidebar-line/50 bg-sidebar-box p-2`}
+				style={twStyle(
+					'h-auto w-[90px] flex-col justify-center gap-2.5 rounded-md border border-app-line/50 bg-app-box/50 p-2',
+					tagStyle
+				)}
 			>
 				<View style={tw`flex-row items-center justify-between`}>
 					<View
@@ -66,7 +70,7 @@ const BrowseTags = () => {
 			<View style={tw`w-full flex-row items-center justify-between px-7`}>
 				<Text style={tw`text-lg font-bold text-white`}>Tags</Text>
 				<View style={tw`flex-row gap-3`}>
-					<Pressable>
+					<Pressable onPress={() => navigation.navigate('Tags')}>
 						<View
 							style={tw`h-8 w-8 items-center justify-center rounded-md bg-accent ${
 								tags.data?.nodes.length === 0 ? 'opacity-40' : 'opacity-100'

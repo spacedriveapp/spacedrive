@@ -48,7 +48,7 @@ export const Locations = () => {
 				fadeSides="top-bottom"
 				orientation="vertical"
 				color="mobile-screen"
-				width={50}
+				width={30}
 				height="100%"
 			>
 				<FlatList

@@ -40,7 +40,8 @@ export function getExplorerItemData(data?: ExplorerItem | null): ItemData {
 			const object = getItemObject(data);
 
 			if (object?.kind) itemData.kind = ObjectKind[object?.kind] ?? 'Unknown';
-			else if(data.type === "NonIndexedPath") itemData.kind = ObjectKind[data.item.kind] ?? 'Unknown';
+			else if (data.type === 'NonIndexedPath')
+				itemData.kind = ObjectKind[data.item.kind] ?? 'Unknown';
 
 			// Objects only have dateCreated and dateAccessed
 			itemData.dateCreated = object?.date_created ?? null;

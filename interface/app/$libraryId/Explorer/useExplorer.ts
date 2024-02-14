@@ -42,10 +42,6 @@ export interface UseExplorerProps<TOrder extends Ordering> {
 	isFetchingNextPage?: boolean;
 	isLoadingPreferences?: boolean;
 	scrollRef?: RefObject<HTMLDivElement>;
-	/**
-	 * @defaultValue `true`
-	 */
-	allowMultiSelect?: boolean;
 	overscan?: number;
 	/**
 	 * @defaultValue `true`
@@ -72,7 +68,6 @@ export function useExplorer<TOrder extends Ordering>({
 
 	return {
 		// Default values
-		allowMultiSelect: true,
 		selectable: true,
 		scrollRef,
 		count: props.items?.length,

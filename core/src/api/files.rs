@@ -198,7 +198,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						})?;
 
 					sync.write_op(
-						&db,
+						db,
 						sync.shared_update(
 							prisma_sync::object::SyncId {
 								pub_id: object.pub_id,
@@ -244,7 +244,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						})?;
 
 					sync.write_op(
-						&db,
+						db,
 						sync.shared_update(
 							prisma_sync::object::SyncId {
 								pub_id: object.pub_id,
@@ -324,7 +324,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.unzip();
 
 					sync.write_ops(
-						&db,
+						db,
 						(
 							sync_params,
 							db.object().update_many(
@@ -366,7 +366,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						})
 						.unzip();
 					sync.write_ops(
-						&db,
+						db,
 						(
 							sync_params,
 							db.object().update_many(

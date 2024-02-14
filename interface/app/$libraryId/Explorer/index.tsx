@@ -104,7 +104,10 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 							)
 						}
 						listViewOptions={{ hideHeaderBorder: true }}
-						bottom={showPathBar ? PATH_BAR_HEIGHT : undefined}
+						scrollPadding={{
+							top: topBar.topBarHeight,
+							bottom: showPathBar ? PATH_BAR_HEIGHT : undefined
+						}}
 					/>
 				</div>
 			</ExplorerContextMenu>

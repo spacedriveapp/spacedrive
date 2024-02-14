@@ -97,7 +97,7 @@ impl Mdns {
 				// The max length of an MDNS record is painful so we just hash the data to come up with a pseudo-random but deterministic value.
 				// The full values are stored within TXT records.
 				let my_name = String::from_utf8_lossy(&base91::slice_encode(
-					&sha256::digest(format!("{}_{}", service_name, self.identity)).as_bytes(),
+					sha256::digest(format!("{}_{}", service_name, self.identity)).as_bytes(),
 				))[..63]
 					.to_string();
 
@@ -236,7 +236,7 @@ impl Mdns {
 					info.get_fullname().to_string(),
 					TrackedService {
 						service_name: service_name.to_string(),
-						identity: identity.clone(),
+						identity,
 					},
 				);
 

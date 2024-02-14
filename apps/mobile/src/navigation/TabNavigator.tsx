@@ -142,7 +142,7 @@ export default function TabNavigator() {
 						tabBarTestID: screen.testID
 					})}
 					listeners={() => ({
-						tabPress: () => {
+						focus: () => {
 							setActiveIndex(index);
 						}
 					})}

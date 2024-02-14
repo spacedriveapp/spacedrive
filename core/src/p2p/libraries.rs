@@ -125,7 +125,7 @@ impl LibraryServices {
 				inserted = true;
 				Arc::new(
 					Service::new(
-						String::from_utf8_lossy(&base91::slice_encode(&*library.id.as_bytes())),
+						String::from_utf8_lossy(&base91::slice_encode(library.id.as_bytes())),
 						manager.manager.clone(),
 					)
 					.expect("error creating service with duplicate service name"),
