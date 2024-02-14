@@ -164,15 +164,22 @@ jobs:
         working-directory: ./apps/mobile
         run: pnpm expo prebuild --platform ios --no-install
 
-      - name: Cache Pods
-        uses: actions/cache@v3
+      # Hermes doesn't work with Cocoapods 1.15.0
+      # https://forums.developer.apple.com/forums/thread/745518
+      - name: Setup Cocoapods
+        uses: maxim-lobanov/setup-cocoapods@v1
         with:
-          path: |
-            ./apps/mobile/ios/Pods
-            ~/Library/Caches/CocoaPods
-            ~/.cocoapods
-          key: pods-${{ hashFiles('./apps/mobile/ios/Podfile.lock') }}
-          restore-keys: pods-
+          version: latest
+
+      # - name: Cache Pods
+      #   uses: actions/cache@v3
+      #   with:
+      #     path: |
+      #       ./apps/mobile/ios/Pods
+      #       ~/Library/Caches/CocoaPods
+      #       ~/.cocoapods
+      #     key: pods-${{ hashFiles('./apps/mobile/ios/Podfile.lock') }}
+      #     restore-keys: pods-
 
       - name: Install Pods
         working-directory: ./apps/mobile/ios

@@ -1,4 +1,3 @@
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
 import { DotsThreeOutlineVertical } from 'phosphor-react-native';
 import { useMemo, useRef } from 'react';
@@ -16,6 +15,7 @@ import {
 import FolderIcon from '~/components/icons/FolderIcon';
 import Fade from '~/components/layout/Fade';
 import { ModalRef } from '~/components/layout/Modal';
+import ScreenContainer from '~/components/layout/ScreenContainer';
 import { LocationModal } from '~/components/modal/location/LocationModal';
 import { tw, twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
@@ -36,14 +36,12 @@ export const Locations = () => {
 		[debouncedSearch, locations]
 	);
 
-	const height = useBottomTabBarHeight();
-
 	const navigation = useNavigation<
 		BrowseStackScreenProps<'Browse'>['navigation'] &
 			SettingsStackScreenProps<'Settings'>['navigation']
 	>();
 	return (
-		<View style={twStyle('relative flex-1 bg-mobile-screen px-7', { marginBottom: height })}>
+		<ScreenContainer scrollview={false} style={tw`relative py-0 px-7`}>
 			<Fade
 				fadeSides="top-bottom"
 				orientation="vertical"
@@ -71,7 +69,7 @@ export const Locations = () => {
 					)}
 				/>
 			</Fade>
-		</View>
+		</ScreenContainer>
 	);
 };
 
