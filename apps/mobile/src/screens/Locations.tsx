@@ -1,4 +1,3 @@
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
 import { DotsThreeOutlineVertical } from 'phosphor-react-native';
 import { useMemo, useRef } from 'react';
@@ -16,6 +15,7 @@ import {
 import FolderIcon from '~/components/icons/FolderIcon';
 import Fade from '~/components/layout/Fade';
 import { ModalRef } from '~/components/layout/Modal';
+import ScreenContainer from '~/components/layout/ScreenContainer';
 import { LocationModal } from '~/components/modal/location/LocationModal';
 import { tw, twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
@@ -36,14 +36,12 @@ export const Locations = () => {
 		[debouncedSearch, locations]
 	);
 
-	const height = useBottomTabBarHeight();
-
 	const navigation = useNavigation<
 		BrowseStackScreenProps<'Browse'>['navigation'] &
 			SettingsStackScreenProps<'Settings'>['navigation']
 	>();
 	return (
-		<View style={twStyle('relative flex-1 bg-mobile-screen px-7', { marginBottom: height })}>
+		<ScreenContainer scrollview={false} style={tw`relative py-0 px-7`}>
 			<Fade
 				fadeSides="top-bottom"
 				orientation="vertical"
@@ -71,7 +69,7 @@ export const Locations = () => {
 					)}
 				/>
 			</Fade>
-		</View>
+		</ScreenContainer>
 	);
 };
 
@@ -92,7 +90,7 @@ const LocationItem: React.FC<LocationItemProps> = ({
 	return (
 		<Pressable onPress={onPress}>
 			<View
-				style={tw`h-auto w-full flex-row justify-between gap-3 rounded-md border border-sidebar-line/50 bg-sidebar-box p-2`}
+				style={tw`flex-row justify-between w-full h-auto gap-3 p-2 border rounded-md border-sidebar-line/50 bg-sidebar-box`}
 			>
 				<View style={tw`flex-row items-center gap-2`}>
 					<View style={tw`relative`}>
@@ -114,7 +112,7 @@ const LocationItem: React.FC<LocationItemProps> = ({
 				<View style={tw`flex-row items-center gap-3`}>
 					<View style={tw`rounded-md bg-app-input p-1.5`}>
 						<Text
-							style={tw`text-left text-xs font-bold text-ink-dull`}
+							style={tw`text-xs font-bold text-left text-ink-dull`}
 							numberOfLines={1}
 						>
 							{`${byteSize(location.size_in_bytes)}`}
