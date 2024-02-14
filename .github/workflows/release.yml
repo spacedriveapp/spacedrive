@@ -75,7 +75,7 @@ jobs:
           mkdir -p ~/.appstoreconnect/private_keys/
           cd ~/.appstoreconnect/private_keys/
           echo ${{ secrets.APPLE_API_KEY_BASE64 }} >> AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64
-          base64 --decode AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64 -o AuthKey_${{ secrets.APPLE_API_KEY }}.p8
+          base64 --decode -i AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64 -o AuthKey_${{ secrets.APPLE_API_KEY }}.p8
           rm AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64
 
       - name: Install Codesigning Certificate
