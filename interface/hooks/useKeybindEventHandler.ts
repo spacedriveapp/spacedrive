@@ -2,11 +2,13 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 
 import { KeybindEvent } from '../util/keybind';
+import { useQuickRescan } from './useQuickRescan';
 import { getWindowState } from './useWindowState';
 
 export const useKeybindEventHandler = (libraryId?: string) => {
 	const navigate = useNavigate();
 	const windowState = getWindowState();
+	const rescan = useQuickRescan();
 
 	useEffect(() => {
 		const handler = (e: KeybindEvent) => {
@@ -15,6 +17,9 @@ export const useKeybindEventHandler = (libraryId?: string) => {
 			switch (e.detail.action) {
 				case 'open_settings':
 					libraryId && navigate(`/${libraryId}/settings/client/general`);
+					break;
+				case 'reload_explorer':
+					rescan();
 					break;
 				// case 'open_overview':
 				// 	libraryId && navigate(`/${libraryId}/overview`);

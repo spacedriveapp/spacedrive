@@ -85,9 +85,7 @@ fn custom_menu_bar() -> Menu {
 		.add_item(CustomMenuItem::new("open_search", "Search").accelerator("CmdOrCtrl+F"))
 		.add_item(CustomMenuItem::new("open_settings", "Settings").accelerator("CmdOrCtrl+Comma"))
 		.add_item(
-			CustomMenuItem::new("reload_explorer", "Reload explorer")
-				.accelerator("CmdOrCtrl+R")
-				.disabled(),
+			CustomMenuItem::new("reload_explorer", "Reload explorer").accelerator("CmdOrCtrl+R"),
 		)
 		.add_submenu(Submenu::new(
 			"Layout",
@@ -119,8 +117,7 @@ fn custom_menu_bar() -> Menu {
 		.add_native_item(MenuItem::EnterFullScreen)
 		.add_native_item(MenuItem::Separator)
 		.add_item(
-			CustomMenuItem::new("reload_app", "Reload Webview")
-				.accelerator("CmdOrCtrl+Shift+Alt+R"),
+			CustomMenuItem::new("reload_app", "Reload Webview").accelerator("CmdOrCtrl+Shift+R"),
 		);
 
 	Menu::new()
