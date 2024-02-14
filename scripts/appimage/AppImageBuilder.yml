@@ -161,5 +161,6 @@ AppDir:
 
 AppImage:
   arch: !ENV '${TARGET_APPIMAGE_ARCH}'
+  comp: xz
   sign-key: None
   update-information: None

@@ -25,6 +25,10 @@ export default () => {
 	const updater = usePlatform().updater;
 	const updaterState = updater?.useSnapshot();
 
+	const jobManagerPopover = usePopover();
+
+	useShortcut('toggleJobManager', () => jobManagerPopover.setOpen((open) => !open));
+
 	return (
 		<div className="space-y-2">
 			{updater && updaterState && (
@@ -58,8 +62,7 @@ export default () => {
 					</ButtonLink>
 					<JobManagerContextProvider>
 						<Popover
-							popover={usePopover()}
-							keybind={[symbols.Meta.key, 'j']}
+							popover={jobManagerPopover}
 							trigger={
 								<Button
 									size="icon"

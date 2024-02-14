@@ -21,9 +21,9 @@ jobs:
       fail-fast: true
       matrix:
         settings:
-          - host: macos-latest
+          - host: macos-14
             target: x86_64-apple-darwin
-          - host: macos-latest
+          - host: macos-14
             target: aarch64-apple-darwin
           - host: windows-latest
             target: x86_64-pc-windows-msvc
@@ -46,7 +46,7 @@ jobs:
         if: ${{ runner.os == 'Linux' }}
         uses: easimon/maximize-build-space@master
         with:
-          swap-size-mb: 3072
+          swap-size-mb: 4096
           root-reserve-mb: 6144
           remove-dotnet: 'true'
           remove-codeql: 'true'

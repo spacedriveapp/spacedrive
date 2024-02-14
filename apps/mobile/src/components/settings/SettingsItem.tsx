@@ -24,10 +24,10 @@ export function SettingsItem(props: SettingsItemProps) {
 	return (
 		<Pressable onPress={props.onPress}>
 			<View style={twStyle(' border-app-line/50 bg-app-box/50', borderRounded, border)}>
-				<View style={tw`flex-row items-center h-auto`}>
+				<View style={tw`h-auto flex-row items-center`}>
 					{props.leftIcon && (
 						<View
-							style={tw`items-center justify-center w-8 h-8 ml-4 mr-5 border rounded-full bg-app-input border-app-line`}
+							style={tw`ml-4 mr-5 h-8 w-8 items-center justify-center rounded-full border border-app-line bg-app-input`}
 						>
 							{props.leftIcon({ size: 20, color: tw.color('ink-dull') })}
 						</View>

@@ -1,5 +1,4 @@
 use std::io::Error;
-use std::process::Command;
 use std::str;
 
 use serde::{Deserialize, Serialize};
@@ -37,6 +36,8 @@ impl HardwareModel {
 pub fn get_hardware_model_name() -> Result<HardwareModel, Error> {
 	#[cfg(target_os = "macos")]
 	{
+		use std::process::Command;
+
 		let output = Command::new("system_profiler")
 			.arg("SPHardwareDataType")
 			.output()?;
