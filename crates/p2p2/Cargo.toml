@@ -54,6 +54,6 @@ hash_map_diff = "0.2.0"
 sync_wrapper = "0.1.2"
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["rt-multi-thread"] }
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tracing-subscriber = { version = "0.3.18" }
 uuid = { workspace = true, features = ["v4"] }

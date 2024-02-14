@@ -227,6 +227,7 @@ async fn start(
 							let _ = result.send(Ok(()));
 						},
 						Err(e) => {
+							panic!("{:?}", e); // TODO
 							let _ = result.send(Err(e.to_string()));
 						},
 					}
@@ -251,7 +252,8 @@ async fn start(
 				println!("BRUH {bruh:?}");
 
 				let opts = DialOpts::unknown_peer_id()
-					.addresses(bruh)
+					// .addresses(bruh)
+					.address(socketaddr_to_quic_multiaddr(req.addrs.iter().next().unwrap()))
 					.build();
 				// let opts = DialOpts::peer_id(PeerId::from_str("12D3KooWQ7ei5eiMWos5gkXao9YaPBwi2bHgHnam4xiLnFGLAfKy").unwrap())
 				// 	.condition(PeerCondition::Disconnected)
@@ -282,6 +284,7 @@ async fn start(
 					"error dialing peer '{}' with addresses '{:?}': {}",
 					req.to, req.addrs, err
 				);
+				println!("EMIT ERROR {:?}", err.to_string());
 				let _ = req.tx.send(Err(err.to_string()));
 
 				println!("DONE"); // TODO
