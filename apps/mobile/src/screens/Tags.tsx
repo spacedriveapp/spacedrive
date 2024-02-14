@@ -1,22 +1,21 @@
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
 import { View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { BrowseTagItem } from '~/components/browse/BrowseTags';
 import Fade from '~/components/layout/Fade';
-import { tw, twStyle } from '~/lib/tailwind';
+import ScreenContainer from '~/components/layout/ScreenContainer';
+import { tw } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 
 export default function Tags() {
-	const height = useBottomTabBarHeight();
 	const tags = useLibraryQuery(['tags.list']);
 	const navigation = useNavigation<BrowseStackScreenProps<'Browse'>['navigation']>();
 
 	useNodes(tags.data?.nodes);
 	const tagData = useCache(tags.data?.items);
 	return (
-		<View style={twStyle('relative flex-1 bg-mobile-screen px-7', { marginBottom: height })}>
+		<ScreenContainer scrollview={false} style={tw`relative py-0 px-7`}>
 			<Fade
 				fadeSides="top-bottom"
 				orientation="vertical"
@@ -44,6 +43,6 @@ export default function Tags() {
 					contentContainerStyle={tw`py-5`}
 				/>
 			</Fade>
-		</View>
+		</ScreenContainer>
 	);
 }
