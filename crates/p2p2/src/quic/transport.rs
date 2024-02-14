@@ -71,11 +71,12 @@ impl QuicTransport {
 	/// Spawn the `QuicTransport` and register it with the P2P system.
 	/// Be aware spawning this does nothing unless you call `Self::set_ipv4_enabled`/`Self::set_ipv6_enabled` to enable the listeners.
 	// TODO: Error type here
-	pub fn spawn(p2p: Arc<P2P>) -> Result<(Self, Libp2pPeerId), String> {
+	pub fn spawn(p2p: Arc<P2P>, todo_port: u16) -> Result<(Self, Libp2pPeerId), String> {
 		// This is sketchy, but it makes the whole system a lot easier to work with
 		// We are assuming the libp2p `Keypair`` is the same format as our `Identity` type.
 		// This is *acktually* true but they reserve the right to change it at any point.
 		let keypair = libp2p::identity::Keypair::generate_ed25519();
+		// TODO: Derive this this not generate it
 		// libp2p::identity::Keypair::ed25519_from_bytes(p2p.identity().to_bytes()).unwrap();
 		let libp2p_peer_id = Libp2pPeerId(keypair.public().to_peer_id());
 
@@ -88,7 +89,7 @@ impl QuicTransport {
 		});
 
 		// let application_name = format!("/{}/spacetime/1.0.0", p2p.app_name());
-		let swarm = ok(ok(SwarmBuilder::with_existing_identity(keypair)
+		let mut swarm = ok(ok(SwarmBuilder::with_existing_identity(keypair)
 			.with_tokio()
 			.with_other_transport(|keypair| {
 				libp2p_quic::GenTransport::<libp2p_quic::tokio::Provider>::new(
@@ -97,8 +98,19 @@ impl QuicTransport {
 				.map(|(p, c), _| (p, StreamMuxerBox::new(c)))
 				.boxed()
 			}))
-		.with_behaviour(|_| SpaceTime::new(p2p.clone(), id)))
+		// .with_behaviour(|_| SpaceTime::new(p2p.clone(), id)))
+		.with_behaviour(|_| libp2p::ping::Behaviour::default()))
+		.with_swarm_config(|cfg| {
+			cfg.with_idle_connection_timeout(std::time::Duration::from_secs(u64::MAX))
+		})
 		.build();
+
+		swarm
+			.listen_on(socketaddr_to_quic_multiaddr(&SocketAddr::from((
+				Ipv4Addr::LOCALHOST,
+				todo_port,
+			))))
+			.unwrap();
 
 		let state: Arc<RwLock<State>> = Default::default();
 		tokio::spawn(start(
@@ -143,16 +155,16 @@ impl QuicTransport {
 	async fn setup_listener(&self, addr: Option<SocketAddr>, ipv4: bool) -> Result<(), String> {
 		let (tx, rx) = oneshot::channel();
 		let event = if let Some(mut addr) = addr {
-			if addr.port() == 0 {
-				addr.set_port(
-					TcpListener::bind(addr)
-						.await
-						.unwrap()
-						.local_addr()
-						.unwrap()
-						.port(),
-				);
-			}
+			// if addr.port() == 0 {
+			// 	addr.set_port(
+			// 		TcpListener::bind(addr)
+			// 			.await
+			// 			.unwrap()
+			// 			.local_addr()
+			// 			.unwrap()
+			// 			.port(),
+			// 	);
+			// }
 
 			InternalEvent::RegisterListener {
 				id: self.id,
@@ -192,13 +204,13 @@ async fn start(
 	p2p: Arc<P2P>,
 	id: ListenerId,
 	state: Arc<RwLock<State>>,
-	mut swarm: Swarm<SpaceTime>,
+	mut swarm: Swarm<libp2p::ping::Behaviour>, // TODO: SpaceTime
 	rx: Receiver<HookEvent>,
 	internal_rx: Receiver<InternalEvent>,
 	mut connect_rx: mpsc::Receiver<ConnectionRequest>,
 ) {
-	let mut ipv4_listener = None;
-	let mut ipv6_listener = None;
+	// let mut ipv4_listener = None;
+	// let mut ipv6_listener = None;
 
 	loop {
 		println!("POLL");
@@ -211,39 +223,40 @@ async fn start(
 				event => println!("libp2p event: {:?}", event),
 			},
 			Ok(event) = internal_rx.recv_async() => match event {
-				InternalEvent::RegisterListener { id, ipv4, addr, result } => {
-					match swarm.listen_on(socketaddr_to_quic_multiaddr(&addr)) {
-						Ok(libp2p_listener_id) => {
-							let this = match ipv4 {
-								true => &mut ipv4_listener,
-								false => &mut ipv6_listener,
-							};
-							// TODO: Diff the `addr` & if it's changed actually update it
-							if this.is_none() {
-								*this =  Some((libp2p_listener_id, addr));
-								p2p.register_listener_addr(id, addr);
-							}
+				// InternalEvent::RegisterListener { id, ipv4, addr, result } => {
+				// 	match swarm.listen_on(socketaddr_to_quic_multiaddr(&addr)) {
+				// 		Ok(libp2p_listener_id) => {
+				// 			let this = match ipv4 {
+				// 				true => &mut ipv4_listener,
+				// 				false => &mut ipv6_listener,
+				// 			};
+				// 			// TODO: Diff the `addr` & if it's changed actually update it
+				// 			if this.is_none() {
+				// 				*this =  Some((libp2p_listener_id, addr));
+				// 				p2p.register_listener_addr(id, addr);
+				// 			}
 
-							let _ = result.send(Ok(()));
-						},
-						Err(e) => {
-							panic!("{:?}", e); // TODO
-							let _ = result.send(Err(e.to_string()));
-						},
-					}
-				},
-				InternalEvent::UnregisterListener { id, ipv4, result } => {
-					let this = match ipv4 {
-						true => &mut ipv4_listener,
-						false => &mut ipv6_listener,
-					};
-					if let Some((addr_id, addr)) = this.take() {
-						if swarm.remove_listener(addr_id) {
-							p2p.unregister_listener_addr(id, addr);
-						}
-					}
-					let _ = result.send(Ok(()));
-				},
+				// 			let _ = result.send(Ok(()));
+				// 		},
+				// 		Err(e) => {
+				// 			panic!("{:?}", e); // TODO
+				// 			let _ = result.send(Err(e.to_string()));
+				// 		},
+				// 	}
+				// },
+				// InternalEvent::UnregisterListener { id, ipv4, result } => {
+				// 	let this = match ipv4 {
+				// 		true => &mut ipv4_listener,
+				// 		false => &mut ipv6_listener,
+				// 	};
+				// 	if let Some((addr_id, addr)) = this.take() {
+				// 		if swarm.remove_listener(addr_id) {
+				// 			p2p.unregister_listener_addr(id, addr);
+				// 		}
+				// 	}
+				// 	let _ = result.send(Ok(()));
+				// },
+				_ => {}, // TODO: Fix this
 			},
 			Some(req) = connect_rx.recv() => {
 				println!("{:?}\n\n", req.addrs);
@@ -264,15 +277,20 @@ async fn start(
 				let id = opts.connection_id();
 				let Err(err) = swarm.dial(opts) else {
 					println!("QQQ"); // TODO
-					swarm.behaviour_mut().state.establishing_outbound.lock().unwrap_or_else(PoisonError::into_inner).insert(id, req);
+					// swarm.behaviour_mut().state.establishing_outbound.lock().unwrap_or_else(PoisonError::into_inner).insert(id, req);
 
-					let y = swarm.behaviour_mut().state.clone();
+					// let y = swarm.behaviour_mut().state.clone();
+					// tokio::spawn(async move {
+					// 	// TODO: Timeout and remove from the map sending an error
+					// 	loop {
+					// 		println!("{:?}", y.establishing_outbound);
+					// 		tokio::time::sleep(std::time::Duration::from_secs(100)).await;
+					// 	}
+					// });
+
 					tokio::spawn(async move {
-						// TODO: Timeout and remove from the map sending an error
-						loop {
-							println!("{:?}", y.establishing_outbound);
-							tokio::time::sleep(std::time::Duration::from_secs(100)).await;
-						}
+						tokio::time::sleep(std::time::Duration::from_secs(99999)).await;
+						let _req = req;
 					});
 
 					return;

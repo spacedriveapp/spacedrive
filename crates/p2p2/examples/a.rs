@@ -13,11 +13,11 @@ async fn main() {
 
 	// TODO: Mount mdns
 
-	let (quic, libp2p_peer_id) = QuicTransport::spawn(p2p).unwrap();
+	let (quic, libp2p_peer_id) = QuicTransport::spawn(p2p, 8075).unwrap();
 	println!("{:?}", libp2p_peer_id);
 
 	// Enable IPv4 (`Some`) on a random port (`0`)
-	quic.set_ipv4_enabled(Some(8075)).await.unwrap();
+	// quic.set_ipv4_enabled(Some(8075)).await.unwrap();
 	// quic.set_ipv6_enabled(Some(0)).await.unwrap();
 
 	loop {

@@ -41,7 +41,7 @@ futures-core = "0.3.30"
 if-watch = { version = "=3.2.0", features = [
 	"tokio",
 ] } # Override the features of if-watch which is used by libp2p-quic
-libp2p = { version = "0.53.2", features = ["tokio", "serde"] }
+libp2p = { version = "0.53.2", features = ["tokio", "serde", "ping"] }
 libp2p-quic = { version = "0.10.2", features = ["tokio"] }
 mdns-sd = "0.10.3"
 rand_core = { version = "0.6.4" }

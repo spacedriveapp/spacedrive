@@ -15,11 +15,11 @@ async fn main() {
 
 	// TODO: Mount mdns
 
-	let (quic, libp2p_peer_id) = QuicTransport::spawn(p2p.clone()).unwrap();
+	let (quic, libp2p_peer_id) = QuicTransport::spawn(p2p.clone(), 8076).unwrap();
 	println!("{:?}", libp2p_peer_id);
 
 	// Enable IPv4 (`Some`) on a random port (`0`)
-	quic.set_ipv4_enabled(Some(08076)).await.unwrap();
+	// quic.set_ipv4_enabled(Some(08076)).await.unwrap();
 	// quic.set_ipv6_enabled(Some(0)).await.unwrap();
 
 	let (hook_tx, hook_rx) = flume::bounded(69);
