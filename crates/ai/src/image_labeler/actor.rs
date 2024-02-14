@@ -321,15 +321,17 @@ async fn actor_loop(
 
 	let new_batches_rx_for_shutdown = new_batches_rx.clone();
 
-	// TODO: Make this configurable!
-	let available_parallelism = std::thread::available_parallelism().map_or_else(
-		|e| {
-			error!("Failed to get available parallelism: {e:#?}");
-			1
-		},
-		// Using 25% of available parallelism
-		|non_zero| usize::max(non_zero.get() / 4, 1),
-	);
+	// // TODO: Make this configurable!
+	// let available_parallelism = std::thread::available_parallelism().map_or_else(
+	// 	|e| {
+	// 		error!("Failed to get available parallelism: {e:#?}");
+	// 		1
+	// 	},
+	// 	// Using 25% of available parallelism
+	// 	|non_zero| usize::max(non_zero.get() / 4, 1),
+	// );
+
+	let available_parallelism = 1;
 
 	info!(
 		"Image labeler available parallelism: {} cores",
