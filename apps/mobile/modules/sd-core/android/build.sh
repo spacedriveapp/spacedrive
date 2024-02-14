@@ -38,7 +38,13 @@ ANDROID_BUILD_TARGET_LIST="arm64-v8a armeabi-v7a x86 x86_64"
 
 # Loop through the list of targets and build them concurrently
 cd crate/
+
+# Parallel build
+echo "Building targets: $ANDROID_BUILD_TARGET_LIST"
+
+# Build for each target
 for target in $ANDROID_BUILD_TARGET_LIST; do
+  echo "Building for target: $target"
   cargo ndk --platform 34 -t $target -o $TARGET_DIRECTORY build --release
 done
 
