@@ -4,6 +4,7 @@
  */
 
 import fda from './fda.mp4';
-import sdintro from './sdintro.mp4';
+import sdintro from './sdintro.webm';
+import video from './video.webp';
 
-export { fda, sdintro };
+export { fda, sdintro, video };
