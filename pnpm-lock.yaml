@@ -397,9 +397,6 @@ importers:
       expo-status-bar:
         specifier: ~1.11.1
         version: 1.11.1
-      intl:
-        specifier: ^1.2.5
-        version: 1.2.5
       lottie-react-native:
         specifier: 6.5.1
         version: 6.5.1(react-native@0.73.4)(react@18.2.0)
@@ -10640,7 +10637,7 @@ packages:
     dependencies:
       '@babel/core': 7.23.2
       '@svgr/babel-preset': 8.1.0(@babel/core@7.23.2)
-      '@svgr/core': 8.1.0(typescript@5.2.2)
+      '@svgr/core': 8.1.0(typescript@5.3.3)
       '@svgr/hast-util-to-babel-ast': 8.0.0
       svg-parser: 2.0.4
     transitivePeerDependencies:
@@ -16956,10 +16953,6 @@ packages:
       get-intrinsic: 1.2.2
       hasown: 2.0.0
       side-channel: 1.0.4
-
-  /intl@1.2.5:
-    resolution: {integrity: sha512-rK0KcPHeBFBcqsErKSpvZnrOmWOj+EmDkyJ57e90YWaQNqbcivcqmKDlHEeNprDWOsKzPsh1BfSpPQdDvclHVw==}
-    dev: false
 
   /invariant@2.2.4:
     resolution: {integrity: sha512-phJfQVBuaJM5raOpJjSfkiD6BpbCE4Ns//LaXl6wGYtUBY83nWS6Rf9tXm2e8VaK60JEjYldbPif/A2B1C2gNA==}

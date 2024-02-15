@@ -44,7 +44,6 @@
 		"expo-media-library": "~15.9.1",
 		"expo-splash-screen": "~0.26.4",
 		"expo-status-bar": "~1.11.1",
-		"intl": "^1.2.5",
 		"lottie-react-native": "6.5.1",
 		"metro-react-native-babel-transformer": "^0.77.0",
 		"moti": "^0.26.0",
