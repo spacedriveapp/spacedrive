@@ -41,7 +41,7 @@ export const Locations = () => {
 			SettingsStackScreenProps<'Settings'>['navigation']
 	>();
 	return (
-		<ScreenContainer scrollview={false} style={tw`relative py-0 px-7`}>
+		<ScreenContainer scrollview={false} style={tw`relative px-7 py-0`}>
 			<Fade
 				fadeSides="top-bottom"
 				orientation="vertical"
