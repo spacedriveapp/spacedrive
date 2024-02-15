@@ -94,14 +94,9 @@ rspc = { git = "https://github.com/spacedriveapp/rspc.git", rev = "f3347e2e8bfe3
 tauri = { git = "https://github.com/spacedriveapp/tauri.git", rev = "8409af71a83d631ff9d1cd876c441a57511a1cbd" }
 tao = { git = "https://github.com/spacedriveapp/tao", rev = "7880adbc090402c44fbcf006669458fa82623403" }
 
-# libp2p = { git = "https://github.com/spacedriveapp/rust-libp2p", rev = "0888a95ad875764c21839d8e36c4c1bf4b7299a5" }
-# libp2p-quic = { git = "https://github.com/spacedriveapp/rust-libp2p", rev = "0888a95ad875764c21839d8e36c4c1bf4b7299a5" }
-# libp2p-swarm = { git = "https://github.com/spacedriveapp/rust-libp2p", rev = "0888a95ad875764c21839d8e36c4c1bf4b7299a5" }
-
-libp2p = { path = "/Users/oscar/Desktop/rust-libp2p/libp2p" }
-libp2p-quic = { path = "/Users/oscar/Desktop/rust-libp2p/transports/quic" }
-libp2p-swarm = { path = "/Users/oscar/Desktop/rust-libp2p/swarm" }
-
+libp2p = { git = "https://github.com/spacedriveapp/rust-libp2p", rev = "0888a95ad875764c21839d8e36c4c1bf4b7299a5" }
+libp2p-quic = { git = "https://github.com/spacedriveapp/rust-libp2p", rev = "0888a95ad875764c21839d8e36c4c1bf4b7299a5" }
+libp2p-swarm = { git = "https://github.com/spacedriveapp/rust-libp2p", rev = "0888a95ad875764c21839d8e36c4c1bf4b7299a5" }
 
 # Set the settings for build scripts and proc-macros.
 [profile.dev.build-override]

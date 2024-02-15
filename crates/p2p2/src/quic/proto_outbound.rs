@@ -29,9 +29,24 @@ impl OutboundUpgrade<Stream> for OutboundProtocol {
 	type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send + 'static>>;
 
 	fn upgrade_outbound(self, io: Stream, _protocol: Self::Info) -> Self::Future {
+		println!("\n\tFIRE OUTBOUND\n"); // TODO
+
 		let id = self.state.stream_id.fetch_add(1, Ordering::Relaxed);
 		Box::pin(async move {
-			println!("A"); // TODO
+			println!(
+				"\t POP for {:?} {:?}",
+				self.connection_id,
+				self.state
+					.establishing_outbound
+					.lock()
+					.unwrap_or_else(PoisonError::into_inner)
+					.get(&self.connection_id)
+			); // TODO
+
+			// TODO: Skip this and handle it if the `self.state.establishing_outbound` is empty
+			let todo = new_outbound(id, self.state.p2p.identity(), io)
+				.await
+				.map_err(|_| "error creating outbound stream".to_string());
 
 			let Some(req) = self
 				.state
@@ -47,15 +62,7 @@ impl OutboundUpgrade<Stream> for OutboundProtocol {
 				return Ok(());
 			};
 
-			println!("B"); // TODO
-
-			let _ = req.tx.send(
-				new_outbound(id, self.state.p2p.identity(), io)
-					.await
-					.map_err(|_| "error creating outbound stream".to_string()),
-			);
-
-			println!("C"); // TODO
+			let _ = req.tx.send(todo);
 
 			Ok(())
 		})

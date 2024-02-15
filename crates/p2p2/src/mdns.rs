@@ -87,7 +87,6 @@ fn advertise(state: &mut State) {
 	}
 
 	let meta = state.p2p.metadata().clone();
-	println!("{:?}", ports_to_service); // TODO
 	for (port, ips) in ports_to_service {
 		let service = ServiceInfo::new(
 			&state.service_domain,

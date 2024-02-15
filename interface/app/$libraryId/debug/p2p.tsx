@@ -7,6 +7,7 @@ import {
 	useNodes,
 	useP2PContextRaw
 } from '@sd/client';
+import { toast } from '@sd/ui';
 
 export const Component = () => {
 	const node = useBridgeQuery(['nodeState']);
@@ -33,7 +34,14 @@ function Page() {
 	const discoveredPeers = useDiscoveredPeers();
 	useNodes(result.data?.nodes);
 	const libraries = useCache(result.data?.items);
-	const debugConnect = useBridgeMutation(['p2p.debugConnect']);
+	const debugConnect = useBridgeMutation(['p2p.debugConnect'], {
+		onSuccess: () => {
+			toast.success('Connected!');
+		},
+		onError: (e) => {
+			toast.error(`Error connecting '${e.message}'`);
+		}
+	});
 
 	return (
 		<div className="flex flex-col space-y-8">

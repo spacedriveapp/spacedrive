@@ -1,7 +1,6 @@
 use std::{
 	convert::Infallible,
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
-	str::FromStr,
 	sync::{Arc, PoisonError, RwLock},
 };
 
@@ -9,10 +8,9 @@ use flume::{bounded, Receiver, Sender};
 use libp2p::{
 	core::muxing::StreamMuxerBox,
 	futures::StreamExt,
-	swarm::dial_opts::{DialOpts, PeerCondition},
-	PeerId, Swarm, SwarmBuilder, Transport,
+	swarm::{dial_opts::DialOpts, NotifyHandler, SwarmEvent, ToSwarm},
+	Swarm, SwarmBuilder, Transport,
 };
-use stable_vec::StableVec;
 use tokio::{
 	net::TcpListener,
 	sync::{mpsc, oneshot},
@@ -20,8 +18,7 @@ use tokio::{
 use tracing::warn;
 
 use crate::{
-	quic::libp2p::socketaddr_to_quic_multiaddr, ConnectionRequest, HookEvent, HookId, ListenerId,
-	RemoteIdentity, UnicastStream, P2P,
+	quic::libp2p::socketaddr_to_quic_multiaddr, ConnectionRequest, HookEvent, ListenerId, P2P,
 };
 
 use super::behaviour::SpaceTime;
@@ -87,7 +84,7 @@ impl QuicTransport {
 			peer.listener_available(listener_id, connect_tx.clone());
 		});
 
-		let mut swarm = ok(ok(SwarmBuilder::with_existing_identity(keypair)
+		let swarm = ok(ok(SwarmBuilder::with_existing_identity(keypair)
 			.with_tokio()
 			.with_other_transport(|keypair| {
 				libp2p_quic::GenTransport::<libp2p_quic::tokio::Provider>::new(
@@ -98,6 +95,7 @@ impl QuicTransport {
 			}))
 		.with_behaviour(|_| SpaceTime::new(p2p.clone(), id)))
 		.with_swarm_config(|cfg| {
+			// TODO: Fix this
 			cfg.with_idle_connection_timeout(std::time::Duration::from_secs(u64::MAX))
 		})
 		.build();
@@ -203,14 +201,24 @@ async fn start(
 	let mut ipv6_listener = None;
 
 	loop {
-		println!("POLL");
 		tokio::select! {
 			Ok(event) = rx.recv_async() => match event {
 				HookEvent::Shutdown => break,
 				_ => {},
 			},
 			event = swarm.select_next_some() => match event {
-				event => println!("libp2p event: {:?}", event),
+				// I don't get why this is required but without it the Quinn connection upgrade stalls and times out.
+				SwarmEvent::ConnectionEstablished { peer_id, connection_id, .. } => {
+					swarm
+						.behaviour_mut()
+						.pending_events
+						.push_back(ToSwarm::NotifyHandler {
+							peer_id,
+							handler: NotifyHandler::One(connection_id),
+							event: ()
+						});
+				},
+				_ => {},
 			},
 			Ok(event) = internal_rx.recv_async() => match event {
 				InternalEvent::RegisterListener { id, ipv4, addr, result } => {
@@ -248,27 +256,15 @@ async fn start(
 			},
 			Some(req) = connect_rx.recv() => {
 				let opts = DialOpts::unknown_peer_id()
-				.addresses(req.addrs.iter().map(socketaddr_to_quic_multiaddr).collect())
+					.addresses(req.addrs.iter().map(socketaddr_to_quic_multiaddr).collect())
 					.build();
 
 				let id = opts.connection_id();
+
+				println!("\t INSERT {:?}", id); // TODO
+
 				let Err(err) = swarm.dial(opts) else {
 					swarm.behaviour_mut().state.establishing_outbound.lock().unwrap_or_else(PoisonError::into_inner).insert(id, req);
-
-					// let y = swarm.behaviour_mut().state.clone();
-					// tokio::spawn(async move {
-					// 	// TODO: Timeout and remove from the map sending an error
-					// 	loop {
-					// 		println!("{:?}", y.establishing_outbound);
-					// 		tokio::time::sleep(std::time::Duration::from_secs(100)).await;
-					// 	}
-					// });
-
-					// tokio::spawn(async move {
-					// 	tokio::time::sleep(std::time::Duration::from_secs(99999)).await;
-					// 	let _req = req;
-					// });
-
 					continue;
 				};
 

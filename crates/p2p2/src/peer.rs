@@ -4,6 +4,7 @@ use std::{
 	sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak},
 };
 
+use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tracing::warn;
 
@@ -134,7 +135,7 @@ impl Peer {
 	}
 
 	/// Construct a new Quic stream to the peer.
-	pub async fn new_stream(&self) -> Result<UnicastStream, ()> {
+	pub async fn new_stream(&self) -> Result<UnicastStream, NewStreamError> {
 		let (addrs, id, connect_tx) = {
 			let state = self.state.read().unwrap_or_else(PoisonError::into_inner);
 
@@ -151,14 +152,13 @@ impl Peer {
 				.map(|(id, tx)| (*id, tx.clone()))
 				.next()
 			else {
-				todo!();
+				return Err(NewStreamError::NoConnectionMethodsAvailable);
 			};
 
 			(addrs, id, connect_tx)
 		};
 
 		let (tx, rx) = oneshot::channel();
-		println!("ZZZ"); // TODO
 		connect_tx
 			.send(ConnectionRequest {
 				to: self.identity.clone(),
@@ -168,18 +168,22 @@ impl Peer {
 			.await
 			.map_err(|err| {
 				warn!("Failed to send connect request to peer: {}", err);
+				NewStreamError::EventLoopOffline(err)
 			})?;
-		println!("XXX"); // TODO
 		let y = rx
 			.await
 			.map_err(|err| {
 				warn!("Failed to receive connect response from peer: {err}");
+				NewStreamError::ConnectionNeverEstablished(err)
 			})?
 			.map_err(|err| {
 				warn!("Failed to do the thing: {err}");
-			});
-		println!("XXX -- DONE {:?}", y); // TODO
-		y
+				NewStreamError::Connecting(err)
+			})?;
+
+		println!("GOT STREAM BACK FOR: {:?}", y.remote_identity());
+
+		Ok(y)
 	}
 }
 
@@ -226,4 +230,16 @@ impl Peer {
 
 		todo!();
 	}
+}
+
+#[derive(Debug, Error)]
+pub enum NewStreamError {
+	#[error("No connection methods available for peer")]
+	NoConnectionMethodsAvailable,
+	#[error("The event loop is offline")]
+	EventLoopOffline(mpsc::error::SendError<ConnectionRequest>),
+	#[error("Failed to establish the connection w/ error: {0}")]
+	ConnectionNeverEstablished(oneshot::error::RecvError),
+	#[error("error connecting to peer: {0}")]
+	Connecting(String),
 }

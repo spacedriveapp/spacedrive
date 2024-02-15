@@ -28,11 +28,13 @@ pub async fn new_inbound(
 			warn!("stream({id}): timeout verifying remote identity");
 			()
 		})?;
+	println!("\t AA {:?}", actual); // TODO
 
 	let remote = RemoteIdentity::from_bytes(&actual).map_err(|err| {
 		warn!("stream({id}): invalid remote identity: {err:?}");
 		()
 	})?;
+	println!("\t BB {:?}", remote); // TODO
 
 	timeout(
 		ONE_MINUTE,
@@ -55,6 +57,7 @@ pub async fn new_outbound(
 	// TODO: THIS IS INSECURE!!!!!
 	// TODO: This should use a proper crypto exchange so that we can be certain they are the owner of the private key.
 	// We are just sending strings of the public key without any verification the other party holds the private key.
+	println!("\t CC {:?}", self_identity.to_remote_identity().get_bytes()); // TODO
 	timeout(
 		ONE_MINUTE,
 		stream.write_all(&self_identity.to_remote_identity().get_bytes()),

@@ -60,6 +60,7 @@ impl ConnectionHandler for SpaceTimeConnection {
 	fn listen_protocol(&self) -> SubstreamProtocol<Self::InboundProtocol, Self::InboundOpenInfo> {
 		SubstreamProtocol::new(
 			InboundProtocol {
+				connection_id: self.id,
 				peer_id: self.peer_id,
 				state: self.state.clone(),
 			},

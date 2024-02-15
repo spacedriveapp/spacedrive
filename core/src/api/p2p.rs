@@ -58,7 +58,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.map_err(|err| {
 						rspc::Error::new(
 							ErrorCode::InternalServerError,
-							format!("huh, lol: {:?}", err),
+							format!("error in peer.new_stream: {:?}", err),
 						)
 					})?;
 
