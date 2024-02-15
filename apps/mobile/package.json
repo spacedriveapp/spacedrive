@@ -66,7 +66,9 @@
 		"use-count-up": "^3.0.1",
 		"use-debounce": "^9.0.4",
 		"valtio": "^1.11.2",
-		"zod": "~3.22.4"
+		"zod": "~3.22.4",
+		"solid-js": "^1.8.8",
+		"babel-preset-solid": "^1.8.9"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.23.2",

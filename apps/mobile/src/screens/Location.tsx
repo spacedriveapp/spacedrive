@@ -11,21 +11,23 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 	useNodes(location.data?.nodes);
 	const locationData = useCache(location.data?.item);
 
-	const { data } = useLibraryQuery([
+	const paths = useLibraryQuery([
 		'search.paths',
 		{
 			filters: [
 				{
 					filePath: {
-						locations: { in: [id] },
-						path: { path: path ?? '', location_id: id, include_descendants: false }
+						locations: { in: [id] }
+						// path: {location_id: id, path: path ?? '', include_descendants: true} // FIXME: This is the correct query, but it doesn't work and then provides a deserialization error.
 					}
 				}
 			],
 			take: 100
 		}
 	]);
-	const pathsItemsReferences = useMemo(() => data?.items ?? [], [data]);
+
+	const pathsItemsReferences = useMemo(() => paths.data?.items ?? [], [paths.data]);
+	useNodes(paths.data?.nodes);
 	const pathsItems = useCache(pathsItemsReferences);
 
 	useEffect(() => {
