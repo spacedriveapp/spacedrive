@@ -251,9 +251,7 @@ function Options({
 					<Tooltip label={t('pause')}>
 						<Button
 							className="cursor-pointer"
-							onClick={() => {
-								pauseJob.mutate(group.id);
-							}}
+							onClick={() => pauseJob.mutate(group.id)}
 							size="icon"
 							variant="outline"
 						>

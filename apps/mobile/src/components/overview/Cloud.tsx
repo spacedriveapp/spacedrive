@@ -7,26 +7,19 @@ import OverviewSection from './OverviewSection';
 
 const Cloud = () => {
 	return (
-		<View>
-			<OverviewSection title="Cloud Drives" count={0}>
-				<View style={tw`px-7`}>
-					<NewCard
-						icons={[
-							'DriveAmazonS3',
-							'DriveDropbox',
-							'DriveGoogleDrive',
-							'DriveOneDrive'
-						]}
-						text="Connect your cloud accounts to Spacedrive."
-						button={() => (
-							<Button variant="transparent">
-								<Text style={tw`font-bold text-ink-dull`}>Coming soon</Text>
-							</Button>
-						)}
-					/>
-				</View>
-			</OverviewSection>
-		</View>
+		<OverviewSection title="Cloud Drives" count={0}>
+			<View style={tw`px-7`}>
+				<NewCard
+					icons={['DriveAmazonS3', 'DriveDropbox', 'DriveGoogleDrive', 'DriveOneDrive']}
+					text="Connect your cloud accounts to Spacedrive."
+					button={() => (
+						<Button variant="transparent">
+							<Text style={tw`font-bold text-ink-dull`}>Coming soon</Text>
+						</Button>
+					)}
+				/>
+			</View>
+		</OverviewSection>
 	);
 };
 
