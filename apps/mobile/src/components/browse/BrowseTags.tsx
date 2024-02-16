@@ -8,6 +8,7 @@ import { ModalRef } from '~/components/layout/Modal';
 import { tw, twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 
+import { Icon } from '../icons/Icon';
 import Fade from '../layout/Fade';
 import CreateTagModal from '../modal/tag/CreateTagModal';
 import { TagModal } from '../modal/tag/TagModal';
@@ -15,14 +16,18 @@ import { TagModal } from '../modal/tag/TagModal';
 type BrowseTagItemProps = {
 	tag: Tag;
 	onPress: () => void;
+	tagStyle?: string;
 };
 
-const BrowseTagItem: React.FC<BrowseTagItemProps> = ({ tag, onPress }) => {
+export const BrowseTagItem: React.FC<BrowseTagItemProps> = ({ tag, onPress, tagStyle }) => {
 	const modalRef = useRef<ModalRef>(null);
 	return (
 		<Pressable onPress={onPress} testID="browse-tag">
 			<View
-				style={tw`h-fit w-[90px] flex-col justify-center gap-2.5 rounded-md border border-sidebar-line/50 bg-sidebar-box p-2`}
+				style={twStyle(
+					'h-auto w-[90px] flex-col justify-center gap-2.5 rounded-md border border-app-line/50 bg-app-box/50 p-2',
+					tagStyle
+				)}
 			>
 				<View style={tw`flex-row items-center justify-between`}>
 					<View
@@ -63,10 +68,14 @@ const BrowseTags = () => {
 	return (
 		<View style={tw`gap-5`}>
 			<View style={tw`w-full flex-row items-center justify-between px-7`}>
-				<Text style={tw`text-xl font-bold text-white`}>Tags</Text>
+				<Text style={tw`text-lg font-bold text-white`}>Tags</Text>
 				<View style={tw`flex-row gap-3`}>
-					<Pressable>
-						<View style={tw`h-8 w-8 items-center justify-center rounded-md bg-accent`}>
+					<Pressable onPress={() => navigation.navigate('Tags')}>
+						<View
+							style={tw`h-8 w-8 items-center justify-center rounded-md bg-accent ${
+								tags.data?.nodes.length === 0 ? 'opacity-40' : 'opacity-100'
+							}`}
+						>
 							<Eye weight="bold" size={18} style={tw`text-white`} />
 						</View>
 					</Pressable>
@@ -82,10 +91,22 @@ const BrowseTags = () => {
 			<Fade color="mobile-screen" width={30} height="100%">
 				<FlatList
 					data={tagData}
+					ListEmptyComponent={() => (
+						<View
+							style={tw`relative h-auto w-[85.5vw] flex-col items-center justify-center overflow-hidden rounded-md border border-dashed border-sidebar-line p-4`}
+						>
+							<Icon name="Tags" size={38} />
+							<Text style={tw`mt-2 text-center font-medium text-ink-dull`}>
+								You have no tags
+							</Text>
+						</View>
+					)}
 					renderItem={({ item }) => (
 						<BrowseTagItem
 							tag={item}
-							onPress={() => navigation.navigate('Tag', { id: item.id })}
+							onPress={() =>
+								navigation.navigate('Tag', { id: item.id, color: item.color! })
+							}
 						/>
 					)}
 					keyExtractor={(item) => item.id.toString()}

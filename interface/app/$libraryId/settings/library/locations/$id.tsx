@@ -31,7 +31,7 @@ const FlexCol = tw.label`flex flex-col flex-1`;
 const ToggleSection = tw.label`flex flex-row w-full`;
 
 const schema = z.object({
-	name: z.string().nullable(),
+	name: z.string().min(1).nullable(),
 	path: z.string().min(1).nullable(),
 	hidden: z.boolean().nullable(),
 	indexerRulesIds: z.array(z.number()),

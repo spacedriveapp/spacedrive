@@ -86,7 +86,7 @@ webp = "0.2.6"
 
 [patch.crates-io]
 # Proper IOS Support
-if-watch = { git = "https://github.com/oscartbeaumont/if-watch.git", rev = "f732786057e57250e863a9ea0b1874e4cc9907c2" }
+if-watch = { git = "https://github.com/oscartbeaumont/if-watch.git", rev = "a92c17d3f85c1c6fb0afeeaf6c2b24d0b147e8c3" }
 
 # Beta features
 rspc = { git = "https://github.com/spacedriveapp/rspc.git", rev = "f3347e2e8bfe3f37bfacc437ca329fe71cdcb048" }

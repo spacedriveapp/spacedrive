@@ -80,18 +80,22 @@ const routes = createRoutes(platform, cache);
 
 function AppInner() {
 	const [tabs, setTabs] = useState(() => [createTab()]);
-	const [tabIndex, setTabIndex] = useState(0);
+	const [selectedTabIndex, setSelectedTabIndex] = useState(0);
+
+	const selectedTab = tabs[selectedTabIndex]!;
 
 	function createTab() {
 		const history = createMemoryHistory();
 		const router = createMemoryRouterWithHistory({ routes, history });
+
+		const id = Math.random().toString();
 
 		const dispose = router.subscribe((event) => {
 			// we don't care about non-idle events as those are artifacts of form mutations + suspense
 			if (event.navigation.state !== 'idle') return;
 
 			setTabs((routers) => {
-				const index = routers.findIndex((r) => r.router === router);
+				const index = routers.findIndex((r) => r.id === id);
 				if (index === -1) return routers;
 
 				const routerAtIndex = routers[index]!;
@@ -110,7 +114,7 @@ function AppInner() {
 		});
 
 		return {
-			id: Math.random().toString(),
+			id,
 			router,
 			history,
 			dispose,
@@ -121,8 +125,6 @@ function AppInner() {
 		};
 	}
 
-	const tab = tabs[tabIndex]!;
-
 	const createTabPromise = useRef(Promise.resolve());
 
 	const ref = useRef<HTMLDivElement>(null);
@@ -131,38 +133,37 @@ function AppInner() {
 		const div = ref.current;
 		if (!div) return;
 
-		div.appendChild(tab.element);
+		div.appendChild(selectedTab.element);
 
 		return () => {
 			while (div.firstChild) {
 				div.removeChild(div.firstChild);
 			}
 		};
-	}, [tab.element]);
+	}, [selectedTab.element]);
 
 	return (
 		<RouteTitleContext.Provider
 			value={useMemo(
 				() => ({
-					setTitle(title) {
-						setTabs((oldTabs) => {
-							const tabs = [...oldTabs];
-							const tab = tabs[tabIndex];
-							if (!tab) return tabs;
+					setTitle(id, title) {
+						setTabs((tabs) => {
+							const tabIndex = tabs.findIndex((t) => t.id === id);
+							if (tabIndex === -1) return tabs;
 
-							tabs[tabIndex] = { ...tab, title };
+							tabs[tabIndex] = { ...tabs[tabIndex]!, title };
 
-							return tabs;
+							return [...tabs];
 						});
 					}
 				}),
-				[tabIndex]
+				[]
 			)}
 		>
 			<TabsContext.Provider
 				value={{
-					tabIndex,
-					setTabIndex,
+					tabIndex: selectedTabIndex,
+					setTabIndex: setSelectedTabIndex,
 					tabs: tabs.map(({ router, title }) => ({ router, title })),
 					createTab() {
 						createTabPromise.current = createTabPromise.current.then(
@@ -170,9 +171,10 @@ function AppInner() {
 								new Promise((res) => {
 									startTransition(() => {
 										setTabs((tabs) => {
-											const newTabs = [...tabs, createTab()];
+											const newTab = createTab();
+											const newTabs = [...tabs, newTab];
 
-											setTabIndex(newTabs.length - 1);
+											setSelectedTabIndex(newTabs.length - 1);
 
 											return newTabs;
 										});
@@ -192,7 +194,7 @@ function AppInner() {
 
 								tabs.splice(index, 1);
 
-								setTabIndex(Math.min(tabIndex, tabs.length - 1));
+								setSelectedTabIndex(Math.min(selectedTabIndex, tabs.length - 1));
 
 								return [...tabs];
 							});
@@ -201,15 +203,16 @@ function AppInner() {
 				}}
 			>
 				<SpacedriveInterfaceRoot>
-					{tabs.map((tab) =>
+					{tabs.map((tab, index) =>
 						createPortal(
 							<SpacedriveRouterProvider
 								key={tab.id}
 								routing={{
 									routes,
-									visible: tabIndex === tabs.indexOf(tab),
+									visible: selectedTabIndex === tabs.indexOf(tab),
 									router: tab.router,
 									currentIndex: tab.currentIndex,
+									tabId: tab.id,
 									maxIndex: tab.maxIndex
 								}}
 							/>,

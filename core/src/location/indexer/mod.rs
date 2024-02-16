@@ -304,15 +304,29 @@ fn iso_file_path_factory(
 async fn remove_non_existing_file_paths(
 	to_remove: impl IntoIterator<Item = file_path_pub_and_cas_ids::Data>,
 	db: &PrismaClient,
+	sync: &sd_core_sync::Manager,
 ) -> Result<u64, IndexerError> {
-	db.file_path()
-		.delete_many(vec![file_path::pub_id::in_vec(
-			to_remove.into_iter().map(|data| data.pub_id).collect(),
-		)])
-		.exec()
-		.await
-		.map(|count| count as u64)
-		.map_err(Into::into)
+	let (sync_params, db_params): (Vec<_>, Vec<_>) = to_remove
+		.into_iter()
+		.map(|d| {
+			(
+				sync.shared_delete(prisma_sync::file_path::SyncId { pub_id: d.pub_id }),
+				d.id,
+			)
+		})
+		.unzip();
+
+	sync.write_ops(
+		db,
+		(
+			sync_params,
+			db.file_path()
+				.delete_many(vec![file_path::id::in_vec(db_params)]),
+		),
+	)
+	.await?;
+
+	Ok(0)
 }
 
 // TODO: Change this macro to a fn when we're able to return
@@ -422,6 +436,7 @@ macro_rules! to_remove_db_fetcher_fn {
 						.into_iter()
 						.filter(|file_path| !founds_ids.contains(&file_path.id))
 						.map(|file_path| ::sd_file_path_helper::file_path_pub_and_cas_ids::Data {
+							id: file_path.id,
 							pub_id: file_path.pub_id,
 							cas_id: file_path.cas_id,
 						}),

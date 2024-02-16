@@ -29,6 +29,7 @@ import Code20 from './Code-20.png';
 import Collection_Light from './Collection_Light.png';
 import Collection20 from './Collection-20.png';
 import Collection from './Collection.png';
+import CollectionSparkle_Light from './CollectionSparkle_Light.png';
 import CollectionSparkle from './CollectionSparkle.png';
 import Config20 from './Config-20.png';
 import Database_Light from './Database_Light.png';
@@ -148,6 +149,7 @@ import Screenshot from './Screenshot.png';
 import ScreenshotAlt from './ScreenshotAlt.png';
 import SD_Light from './SD_Light.png';
 import SD from './SD.png';
+import Search_Light from './Search_Light.png';
 import Search from './Search.png';
 import SearchAlt from './SearchAlt.png';
 import Server_Light from './Server_Light.png';
@@ -210,6 +212,7 @@ export {
 	Collection20,
 	Collection,
 	CollectionSparkle,
+	CollectionSparkle_Light,
 	Collection_Light,
 	Config20,
 	DAV,
@@ -331,6 +334,7 @@ export {
 	Screenshot_Light,
 	Search,
 	SearchAlt,
+	Search_Light,
 	Server,
 	Server_Light,
 	SilverBox,

@@ -1,4 +1,5 @@
 const COLORS = require('./Colors');
+const plugin = require('tailwindcss/plugin');
 
 module.exports = function (theme) {
 	return {
@@ -7,13 +8,12 @@ module.exports = function (theme) {
 			extend: {
 				colors: theme ? COLORS[theme] : COLORS.dark,
 				fontSize: {
-					md: '16px',
-				},
+					md: '16px'
+				}
 			}
 		},
 		variants: {
 			extend: {}
-		},
-		plugins: []
+		}
 	};
 };

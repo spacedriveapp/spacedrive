@@ -44,8 +44,18 @@ export const uniqueId = (item: ExplorerItem | { pub_id: number[] }) => {
 		case 'NonIndexedPath':
 			return item.item.path;
 		case 'SpacedropPeer':
+		case 'Label':
 			return item.item.name;
 		default:
 			return pubIdToString(item.item.pub_id);
 	}
 };
+
+export function getItemId(index: number, items: ExplorerItem[]) {
+	const item = items[index];
+	return item ? uniqueId(item) : undefined;
+}
+
+export function getItemData(index: number, items: ExplorerItem[]) {
+	return items[index];
+}

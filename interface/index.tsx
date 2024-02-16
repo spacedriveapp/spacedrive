@@ -5,6 +5,7 @@ import advancedFormat from 'dayjs/plugin/advancedFormat';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { PropsWithChildren, Suspense } from 'react';
+import { I18nextProvider } from 'react-i18next';
 import { RouterProvider, RouterProviderProps } from 'react-router-dom';
 import {
 	InteropProviderReact,
@@ -17,7 +18,8 @@ import { toast, TooltipProvider } from '@sd/ui';
 
 import { createRoutes } from './app';
 import { SpacedropProvider } from './app/$libraryId/Spacedrop';
-import { P2P, useP2PErrorToast } from './app/p2p';
+import i18n from './app/I18n';
+import { useP2PErrorToast } from './app/p2p';
 import { Devtools } from './components/Devtools';
 import { WithPrismTheme } from './components/TextViewer/prism';
 import ErrorFallback, { BetterErrorBoundary } from './ErrorFallback';
@@ -51,6 +53,7 @@ export function SpacedriveRouterProvider(props: {
 		visible: boolean;
 		router: Router;
 		currentIndex: number;
+		tabId: string;
 		maxIndex: number;
 	};
 }) {
@@ -61,6 +64,7 @@ export function SpacedriveRouterProvider(props: {
 					routes: props.routing.routes,
 					visible: props.routing.visible,
 					currentIndex: props.routing.currentIndex,
+					tabId: props.routing.tabId,
 					maxIndex: props.routing.maxIndex
 				}}
 			>
@@ -89,19 +93,20 @@ export function SpacedriveInterfaceRoot({ children }: PropsWithChildren) {
 
 	return (
 		<Suspense>
-			<BetterErrorBoundary FallbackComponent={ErrorFallback}>
-				<InteropProviderReact>
-					<TooltipProvider>
-						<P2PContextProvider>
-							<P2P />
-							<Devtools />
-							<WithPrismTheme />
-							<SpacedropProvider />
-							{children}
-						</P2PContextProvider>
-					</TooltipProvider>
-				</InteropProviderReact>
-			</BetterErrorBoundary>
+			<I18nextProvider i18n={i18n}>
+				<BetterErrorBoundary FallbackComponent={ErrorFallback}>
+					<InteropProviderReact>
+						<TooltipProvider>
+							<P2PContextProvider>
+								<Devtools />
+								<WithPrismTheme />
+								<SpacedropProvider />
+								{children}
+							</P2PContextProvider>
+						</TooltipProvider>
+					</InteropProviderReact>
+				</BetterErrorBoundary>
+			</I18nextProvider>
 		</Suspense>
 	);
 }

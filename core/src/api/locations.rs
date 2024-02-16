@@ -393,7 +393,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 						debug!("Disconnected {count} file paths from objects");
 
-						library.orphan_remover.invoke().await;
+						// library.orphan_remover.invoke().await;
 					}
 
 					// rescan location

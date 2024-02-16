@@ -40,7 +40,7 @@ export default function OnboardingNewLibrary() {
 						<Button onClick={handleImport} variant="accent" size="sm">
 							{t('import')}
 						</Button>
-						<span className="px-2 text-xs font-bold text-ink-faint">OR</span>
+						<span className="px-2 text-xs font-bold text-ink-faint">{t('or')}</span>
 						<Button onClick={() => setImportMode(false)} variant="outline" size="sm">
 							{t('create_new_library')}
 						</Button>

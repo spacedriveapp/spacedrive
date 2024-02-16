@@ -28,6 +28,7 @@ function Authenticated() {
 	const cloudLibrary = useLibraryQuery(['cloud.library.get'], { suspense: true, retry: false });
 
 	const createLibrary = useLibraryMutation(['cloud.library.create']);
+	const syncLibrary = useLibraryMutation(['cloud.library.sync']);
 
 	const thisInstance = cloudLibrary.data?.instances.find(
 		(instance) => instance.uuid === library.instance_id
@@ -41,6 +42,16 @@ function Authenticated() {
 						<p>Library</p>
 						<p>Name: {cloudLibrary.data.name}</p>
 					</div>
+
+					<Button
+						disabled={syncLibrary.isLoading}
+						onClick={() => {
+							syncLibrary.mutateAsync(null);
+						}}
+					>
+						Sync Library
+					</Button>
+
 					{thisInstance && (
 						<div>
 							<p>This Instance</p>

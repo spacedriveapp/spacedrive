@@ -44,7 +44,6 @@
 				"digestAlgorithm": "sha256",
 				"timestampUrl": "",
 				"wix": {
-					"enableElevatedUpdateTask": true,
 					"dialogImagePath": "icons/WindowsDialogImage.bmp",
 					"bannerPath": "icons/WindowsBanner.bmp"
 				}
@@ -87,7 +86,7 @@
 				"title": "Spacedrive",
 				"hiddenTitle": true,
 				"width": 1400,
-				"height": 725,
+				"height": 750,
 				"minWidth": 768,
 				"minHeight": 500,
 				"resizable": true,

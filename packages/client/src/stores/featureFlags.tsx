@@ -6,7 +6,6 @@ import { nonLibraryClient, useBridgeQuery } from '../rspc';
 import { createPersistedMutable, useObserver, useSolidStore } from '../solid';
 
 export const features = [
-	'p2pPairing',
 	'backups',
 	'debugRoutes',
 	'solidJsDemo',
@@ -90,10 +89,7 @@ export function toggleFeatureFlag(flags: FeatureFlag | FeatureFlag[]) {
 
 		if (!featureFlagsStore.enabled.find((ff) => f === ff)) {
 			let message: string | undefined;
-			if (f === 'p2pPairing') {
-				message =
-					'This feature will render your database broken and it WILL need to be reset! Use at your own risk!';
-			} else if (f === 'backups') {
+			if (f === 'backups') {
 				message =
 					'Backups are done on your live DB without proper Sqlite snapshotting. This will work but it could result in unintended side so be careful!';
 			}

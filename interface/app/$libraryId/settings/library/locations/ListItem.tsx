@@ -56,23 +56,33 @@ export default ({ location }: Props) => {
 			<div className="flex grow" />
 			<div className="flex h-[45px] w-full max-w-fit space-x-2 p-2">
 				{/* This is a fake button, do not add disabled prop pls */}
-				<Button
-					onClick={(e: { stopPropagation: () => void }) => {
-						e.stopPropagation();
-					}}
-					variant="gray"
-					className="pointer-events-none flex !px-2 !py-1.5"
+				<Tooltip
+					position="top"
+					tooltipClassName="max-w-[140px]"
+					label={
+						online
+							? t('location_connected_tooltip')
+							: t('location_disconnected_tooltip')
+					}
 				>
-					<div
-						className={clsx(
-							'h-2 w-2  rounded-full',
-							online ? 'bg-green-500' : 'bg-red-500'
-						)}
-					/>
-					<span className="ml-1.5 text-xs text-ink-dull">
-						{online ? t('online') : t('offline')}
-					</span>
-				</Button>
+					<Button
+						onClick={(e: { stopPropagation: () => void }) => {
+							e.stopPropagation();
+						}}
+						variant="gray"
+						className="pointer-events-none flex !px-2 !py-1.5"
+					>
+						<div
+							className={clsx(
+								'h-2 w-2  rounded-full',
+								online ? 'bg-green-500' : 'bg-red-500'
+							)}
+						/>
+						<span className="ml-1.5 text-xs text-ink-dull">
+							{online ? t('connected') : t('disconnected')}
+						</span>
+					</Button>
+				</Tooltip>
 				<Button
 					onClick={(e: { stopPropagation: () => void }) => {
 						e.stopPropagation();

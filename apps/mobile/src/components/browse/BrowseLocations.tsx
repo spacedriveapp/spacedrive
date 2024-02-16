@@ -18,6 +18,7 @@ import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
 import FolderIcon from '../icons/FolderIcon';
+import { Icon } from '../icons/Icon';
 import Fade from '../layout/Fade';
 import ImportModal from '../modal/ImportModal';
 import { LocationModal } from '../modal/location/LocationModal';
@@ -39,9 +40,9 @@ const BrowseLocationItem: React.FC<BrowseLocationItemProps> = ({
 	return (
 		<Pressable onPress={onPress}>
 			<View
-				style={tw`h-fit w-[100px] flex-col justify-center gap-3 rounded-md border border-sidebar-line/50 bg-sidebar-box p-2`}
+				style={tw`h-auto w-[110px] flex-col justify-center gap-3 rounded-md border border-app-line/50 bg-app-box/50 p-2`}
 			>
-				<View style={tw`flex-col justify-between w-full gap-1`}>
+				<View style={tw`w-full flex-col justify-between gap-1`}>
 					<View style={tw`flex-row items-center justify-between`}>
 						<View style={tw`relative`}>
 							<FolderIcon size={42} />
@@ -61,7 +62,7 @@ const BrowseLocationItem: React.FC<BrowseLocationItemProps> = ({
 						</Pressable>
 					</View>
 					<Text
-						style={tw`w-full max-w-[75px] text-xs font-bold text-white`}
+						style={tw`w-full max-w-[100px] text-xs font-bold text-white`}
 						numberOfLines={1}
 					>
 						{location.name}
@@ -97,21 +98,26 @@ const BrowseLocations = () => {
 
 	return (
 		<View style={tw`gap-5`}>
-			<View style={tw`flex-row items-center justify-between w-full px-7`}>
-				<Text style={tw`text-xl font-bold text-white`}>Locations</Text>
+			<View style={tw`w-full flex-row items-center justify-between px-7`}>
+				<Text style={tw`text-lg font-bold text-white`}>Locations</Text>
 				<View style={tw`flex-row gap-3`}>
 					<Pressable
+						disabled={result.data?.nodes.length === 0}
 						onPress={() => {
 							navigation.navigate('Locations');
 						}}
 					>
-						<View style={tw`items-center justify-center w-8 h-8 rounded-md bg-accent`}>
+						<View
+							style={tw`h-8 w-8 items-center justify-center rounded-md bg-accent  ${
+								result.data?.nodes.length === 0 ? 'opacity-40' : 'opacity-100'
+							}`}
+						>
 							<Eye weight="bold" size={18} style={tw`text-white`} />
 						</View>
 					</Pressable>
 					<Pressable onPress={() => modalRef.current?.present()}>
 						<View
-							style={tw`items-center justify-center w-8 h-8 bg-transparent border border-dashed rounded-md border-ink-faint`}
+							style={tw`h-8 w-8 items-center justify-center rounded-md border border-dashed border-ink-faint bg-transparent`}
 						>
 							<Plus weight="bold" size={18} style={tw`text-ink-faint`} />
 						</View>
@@ -121,6 +127,16 @@ const BrowseLocations = () => {
 			<Fade color="mobile-screen" width={30} height="100%">
 				<FlatList
 					data={locations}
+					ListEmptyComponent={() => (
+						<View
+							style={tw`relative h-auto w-[85.5vw] flex-col items-center justify-center overflow-hidden rounded-md border border-dashed border-sidebar-line  p-4`}
+						>
+							<Icon name="Folder" size={38} />
+							<Text style={tw`mt-2 text-center font-medium text-ink-dull`}>
+								You have no locations
+							</Text>
+						</View>
+					)}
 					contentContainerStyle={tw`px-7`}
 					showsHorizontalScrollIndicator={false}
 					ItemSeparatorComponent={() => <View style={tw`w-2`} />}

@@ -1,4 +1,4 @@
-use crate::p2p::{operations, P2PEvent, PairingDecision};
+use crate::p2p::{operations, P2PEvent};
 
 use sd_p2p::spacetunnel::RemoteIdentity;
 
@@ -47,10 +47,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 			})
 		})
-		// TODO: This has a potentially invalid map key and Specta don't like that. Can bring back in another PR.
-		// .procedure("state", {
-		// 	R.query(|node, _: ()| async move { Ok(node.p2p.state()) })
-		// })
+		.procedure("state", {
+			R.query(|node, _: ()| async move {
+				// TODO: This has a potentially invalid map key and Specta don't like that.
+				// TODO: This will bypass that check and for an debug route that's fine.
+				Ok(serde_json::to_value(node.p2p.state()).unwrap())
+			})
+		})
 		.procedure("spacedrop", {
 			#[derive(Type, Deserialize)]
 			pub struct SpacedropArgs {
@@ -86,18 +89,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("cancelSpacedrop", {
 			R.mutation(|node, id: Uuid| async move {
 				node.p2p.cancel_spacedrop(id).await;
-
-				Ok(())
-			})
-		})
-		.procedure("pair", {
-			R.mutation(|node, id: RemoteIdentity| async move {
-				Ok(node.p2p.pairing.clone().originator(id, node).await)
-			})
-		})
-		.procedure("pairingResponse", {
-			R.mutation(|node, (pairing_id, decision): (u16, PairingDecision)| {
-				node.p2p.pairing.decision(pairing_id, decision);
 
 				Ok(())
 			})

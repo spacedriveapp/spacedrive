@@ -4,7 +4,7 @@ use serde::Serialize;
 use specta::Type;
 use uuid::Uuid;
 
-use super::{OperatingSystem, PairingStatus, PeerMetadata};
+use super::PeerMetadata;
 
 /// TODO: P2P event for the frontend
 #[derive(Debug, Clone, Serialize, Type)]
@@ -39,15 +39,4 @@ pub enum P2PEvent {
 	SpacedropRejected {
 		id: Uuid,
 	},
-	// Pairing was reuqest has come in.
-	// This will fire on the responder only.
-	PairingRequest {
-		id: u16,
-		name: String,
-		os: OperatingSystem,
-	},
-	PairingProgress {
-		id: u16,
-		status: PairingStatus,
-	}, // TODO: Expire peer + connection/disconnect
 }

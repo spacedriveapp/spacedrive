@@ -18,6 +18,8 @@ import {
 import { RadioGroupField, z } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
 
+import i18n from '../I18n';
+
 export const OnboardingContext = createContext<ReturnType<typeof useContextValue> | null>(null);
 
 // Hook for generating the value to put into `OnboardingContext.Provider`,
@@ -41,13 +43,12 @@ export const shareTelemetry = RadioGroupField.options([
 	z.literal('minimal-telemetry')
 ]).details({
 	'share-telemetry': {
-		heading: 'Share anonymous usage',
-		description:
-			'Share completely anonymous telemetry data to help the developers improve the app'
+		heading: i18n.t('share_anonymous_usage'),
+		description: i18n.t('share_anonymous_usage_description')
 	},
 	'minimal-telemetry': {
-		heading: 'Share the bare minimum',
-		description: 'Only share that I am an active user of Spacedrive and a few technical bits'
+		heading: i18n.t('share_bare_minimum'),
+		description: i18n.t('share_bare_minimum_description')
 	}
 });
 
