@@ -46,7 +46,10 @@ export const ImageSlider = ({ activeItem }: { activeItem: QuickPreviewItem }) =>
 		const { index } = activeItem;
 		if (index === activeIndex.current) return;
 
-		const { left: rectLeft, right: rectRight, width: rectWidth } = grid.getItemRect(index);
+		const gridItem = grid.getItem(index);
+		if (!gridItem) return;
+
+		const { left: rectLeft, right: rectRight, width: rectWidth } = gridItem.rect;
 
 		const { clientWidth: containerWidth, scrollLeft: containerScrollLeft } = element;
 

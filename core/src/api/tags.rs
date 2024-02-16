@@ -1,7 +1,6 @@
 use crate::{invalidate_query, library::Library, object::tag::TagCreateArgs};
 
 use sd_cache::{CacheNode, Normalise, NormalisedResult, NormalisedResults, Reference};
-use sd_file_ext::kind::ObjectKind;
 use sd_prisma::{
 	prisma::{file_path, object, tag, tag_on_object},
 	prisma_sync,
@@ -165,6 +164,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									.select(file_path::select!({
 										id
 										pub_id
+										is_dir
 										object: select { id pub_id }
 									})),
 							)
@@ -216,37 +216,40 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						)
 						.await?;
 					} else {
-						let (new_objects, _) = db
-							._batch({
-								let (left, right): (Vec<_>, Vec<_>) = file_paths
-									.iter()
-									.filter(|fp| fp.object.is_none())
-									.map(|fp| {
-										let id = uuid_to_bytes(Uuid::new_v4());
+						let mut sync_params = vec![];
 
-										(
-											db.object().create(
-												id.clone(),
-												vec![
-													object::date_created::set(None),
-													object::kind::set(Some(
-														ObjectKind::Folder as i32,
-													)),
-												],
-											),
-											db.file_path().update(
-												file_path::id::equals(fp.id),
-												vec![file_path::object::connect(
-													object::pub_id::equals(id),
-												)],
-											),
-										)
-									})
-									.unzip();
+						let db_params: (Vec<_>, Vec<_>) = file_paths
+							.iter()
+							.filter(|fp| fp.is_dir.unwrap_or_default() && fp.object.is_none())
+							.map(|fp| {
+								let id = uuid_to_bytes(Uuid::new_v4());
 
-								(left, right)
+								sync_params.extend(sync.shared_create(
+									prisma_sync::object::SyncId { pub_id: id.clone() },
+									[],
+								));
+
+								sync_params.push(sync.shared_update(
+									prisma_sync::file_path::SyncId {
+										pub_id: fp.pub_id.clone(),
+									},
+									file_path::object::NAME,
+									json!(id),
+								));
+
+								(
+									db.object().create(id.clone(), vec![]),
+									db.file_path().update(
+										file_path::id::equals(fp.id),
+										vec![file_path::object::connect(object::pub_id::equals(
+											id,
+										))],
+									),
+								)
 							})
-							.await?;
+							.unzip();
+
+						let (new_objects, _) = sync.write_ops(db, (sync_params, db_params)).await?;
 
 						let (sync_ops, db_creates) = objects
 							.into_iter()

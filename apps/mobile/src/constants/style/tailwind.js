@@ -8,12 +8,12 @@ module.exports = function (theme) {
 			extend: {
 				colors: theme ? COLORS[theme] : COLORS.dark,
 				fontSize: {
-					md: '16px',
-				},
+					md: '16px'
+				}
 			}
 		},
 		variants: {
 			extend: {}
-		},
+		}
 	};
 };

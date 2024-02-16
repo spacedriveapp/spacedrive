@@ -140,18 +140,24 @@ pub fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 		"reload_explorer" => event.window().emit("keybind", "reload_explorer").unwrap(),
 		"open_settings" => event.window().emit("keybind", "open_settings").unwrap(),
 		"open_overview" => event.window().emit("keybind", "open_overview").unwrap(),
-		"close" => {
-			let window = event.window();
+		"close_window" => {
+			#[cfg(target_os = "macos")]
+			tauri::AppHandle::hide(&event.window().app_handle()).unwrap();
 
-			#[cfg(debug_assertions)]
-			if window.is_devtools_open() {
-				window.close_devtools();
-			} else {
+			#[cfg(not(target_os = "macos"))]
+			{
+				let window = event.window();
+
+				#[cfg(debug_assertions)]
+				if window.is_devtools_open() {
+					window.close_devtools();
+				} else {
+					window.close().unwrap();
+				}
+
+				#[cfg(not(debug_assertions))]
 				window.close().unwrap();
 			}
-
-			#[cfg(not(debug_assertions))]
-			window.close().unwrap();
 		}
 		"open_search" => event
 			.window()

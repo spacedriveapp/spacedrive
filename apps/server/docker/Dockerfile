@@ -77,6 +77,9 @@ RUN cargo build --features assets --release -p sd-server
 # Debug just means it includes busybox, and we need its tools both for the entrypoint.sh script and during runtime
 FROM gcr.io/distroless/base-debian12:debug
 
+RUN [ "/busybox/ln", "-s", "/busybox/sh", "/bin/sh" ]
+RUN ln -s /busybox/env /usr/bin/env
+
 ENV TZ=UTC \
 	PUID=1000 \
 	PGID=1000 \
@@ -86,9 +89,10 @@ ENV TZ=UTC \
 	LANGUAGE=en \
 	DATA_DIR=/data
 
-COPY --from=server /srv/spacedrive/target/release/sd-server /usr/bin/
-COPY --from=server /lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/
-COPY --from=server /srv/spacedrive/apps/.deps/lib /usr/lib/spacedrive
+COPY --from=server --chmod=755 /srv/spacedrive/target/release/sd-server /usr/bin/
+COPY --from=server --chmod=755 /lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/
+COPY --from=server --chmod=755 /srv/spacedrive/apps/.deps/lib /usr/lib/spacedrive
+ADD --chmod=755 https://github.com/spacedriveapp/native-deps/releases/download/yolo-2024-02-07/yolov8s.onnx /usr/share/spacedrive/models/yolov8s.onnx
 
 COPY --chmod=755 entrypoint.sh /usr/bin/
 
@@ -99,7 +103,7 @@ EXPOSE 8080
 VOLUME [ "/data" ]
 
 # Run the CLI when the container is started
-ENTRYPOINT [ "sd-server" ]
+ENTRYPOINT [ "entrypoint.sh" ]
 
 LABEL org.opencontainers.image.title="Spacedrive Server" \
 	org.opencontainers.image.source="https://github.com/spacedriveapp/spacedrive"

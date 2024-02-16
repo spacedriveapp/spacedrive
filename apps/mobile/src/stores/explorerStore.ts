@@ -1,9 +1,9 @@
-import { resetStore } from '@sd/client';
 import { proxy, useSnapshot } from 'valtio';
 import { proxySet } from 'valtio/utils';
+import { resetStore } from '@sd/client';
 
 // TODO: Add "media"
-export type ExplorerLayoutMode = 'list' | 'grid' | "media"
+export type ExplorerLayoutMode = 'list' | 'grid' | 'media';
 
 export type ExplorerKind = 'Location' | 'Tag' | 'Space';
 

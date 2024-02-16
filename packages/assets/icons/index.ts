@@ -149,6 +149,7 @@ import Screenshot from './Screenshot.png';
 import ScreenshotAlt from './ScreenshotAlt.png';
 import SD_Light from './SD_Light.png';
 import SD from './SD.png';
+import Search_Light from './Search_Light.png';
 import Search from './Search.png';
 import SearchAlt from './SearchAlt.png';
 import Server_Light from './Server_Light.png';
@@ -333,6 +334,7 @@ export {
 	Screenshot_Light,
 	Search,
 	SearchAlt,
+	Search_Light,
 	Server,
 	Server_Light,
 	SilverBox,

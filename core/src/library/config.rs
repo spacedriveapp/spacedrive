@@ -220,9 +220,9 @@ impl LibraryConfig {
 													Some(size.to_be_bytes().to_vec())
 												} else {
 													error!(
-											"File path <id='{}'> had invalid size: '{}'",
-											path.id, size_in_bytes
-										);
+														"File path <id='{}'> had invalid size: '{}'",
+														path.id, size_in_bytes
+													);
 													None
 												};
 

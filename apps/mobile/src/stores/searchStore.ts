@@ -1,5 +1,4 @@
-import { proxy, useSnapshot } from "valtio";
-
+import { proxy, useSnapshot } from 'valtio';
 
 /**
  This is subject to change, but the idea is to have a global store for search
@@ -13,7 +12,7 @@ const searchStore = proxy({
 	setSearch: (search: string) => {
 		searchStore.search = search;
 	}
-})
+});
 
 export function useSearchStore() {
 	return useSnapshot(searchStore);

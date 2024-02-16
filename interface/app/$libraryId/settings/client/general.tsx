@@ -22,16 +22,23 @@ const NodeSettingLabel = tw.div`mb-1 text-xs font-medium`;
 // https://doc.rust-lang.org/std/u16/index.html
 const u16 = z.number().min(0).max(65_535);
 
+// Unsorted list of languages available in the app.
+// Make sure to add new languages to this list and to `project.inlang/settings.json`
 const LANGUAGE_OPTIONS = [
 	{ value: 'en', label: 'English' },
 	{ value: 'de', label: 'Deutsch' },
 	{ value: 'es', label: 'Español' },
 	{ value: 'fr', label: 'Français' },
 	{ value: 'tr', label: 'Türkçe' },
-	{ value: 'nl', label: 'Nederlands'},
+	{ value: 'nl', label: 'Nederlands' },
+	{ value: 'by', label: 'Беларуская' },
+	{ value: 'ru', label: 'Русский' },
 	{ value: 'zh-CN', label: '中文（简体）' },
 	{ value: 'zh-TW', label: '中文（繁體）' }
 ];
+
+// Sort the languages by their label
+LANGUAGE_OPTIONS.sort((a, b) => a.label.localeCompare(b.label));
 
 export const Component = () => {
 	const node = useBridgeQuery(['nodeState']);
@@ -200,7 +207,7 @@ export const Component = () => {
 			<Setting mini title={t('language')} description={t('language_description')}>
 				<div className="flex h-[30px] gap-2">
 					<Select
-						value={i18n.language}
+						value={i18n.resolvedLanguage || i18n.language || 'en'}
 						onChange={(e) => {
 							i18n.changeLanguage(e);
 							// add "i18nextLng" key to localStorage and set it to the selected language

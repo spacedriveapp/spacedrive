@@ -46,6 +46,7 @@ pub async fn shallow(
 	let location_path = maybe_missing(&location.path, "location.path").map(Path::new)?;
 
 	let db = library.db.clone();
+	let sync = &library.sync;
 
 	let indexer_rules = location
 		.indexer_rules
@@ -103,7 +104,7 @@ pub async fn shallow(
 	errors.into_iter().for_each(|e| error!("{e}"));
 
 	// TODO pass these uuids to sync system
-	remove_non_existing_file_paths(to_remove, &db).await?;
+	remove_non_existing_file_paths(to_remove, &db, sync).await?;
 
 	let mut new_directories_to_scan = HashSet::new();
 
