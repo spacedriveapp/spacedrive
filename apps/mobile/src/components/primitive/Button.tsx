@@ -30,6 +30,7 @@ const button = cva(['items-center justify-center rounded-md border shadow-sm'], 
 });
 
 type ButtonProps = VariantProps<typeof button> & PressableProps;
+export type ButtonVariants = VariantProps<typeof button>['variant'];
 
 export const Button: FC<ButtonProps> = ({ variant, size, disabled, ...props }) => {
 	const { style, ...otherProps } = props;
