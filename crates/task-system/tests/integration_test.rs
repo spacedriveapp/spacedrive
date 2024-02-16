@@ -1,20 +1,18 @@
 use sd_task_system::{TaskStatus, TaskSystem};
-use tracing::{info, trace};
 
 use std::time::Duration;
 
 use rand::Rng;
 use tempfile::tempdir;
+use tracing::info;
 use tracing_test::traced_test;
 
-mod actors;
-// mod jobs;
-mod tasks;
+mod common;
 
-use actors::SampleActor;
-use tasks::NeverTask;
-
-use crate::tasks::ReadyTask;
+use common::{
+	actors::SampleActor,
+	tasks::{BogusTask, BrokenTask, NeverTask, PauseOnceTask, ReadyTask, SampleError},
+};
 
 #[tokio::test]
 #[traced_test]
@@ -28,7 +26,7 @@ async fn test_actor() {
 
 	let mut rng = rand::thread_rng();
 
-	for i in 0..=500 {
+	for i in 0..=250 {
 		if rng.gen_bool(0.1) {
 			info!("dispatching priority task {i}");
 			actor
@@ -37,7 +35,7 @@ async fn test_actor() {
 		} else {
 			info!("dispatching task {i}");
 			actor
-				.process(Duration::from_millis(rng.gen_range(200..1000)))
+				.process(Duration::from_millis(rng.gen_range(200..500)))
 				.await;
 		}
 	}
@@ -95,15 +93,56 @@ async fn done_test() {
 async fn abort_test() {
 	let system = TaskSystem::new().await;
 
-	let handle = system.dispatch(NeverTask::default()).await;
+	let (task, began_rx) = BrokenTask::new();
+
+	let handle = system.dispatch(task).await;
+
+	began_rx.await.unwrap();
 
 	handle.force_abortion().await.unwrap();
 
-	let res = handle.await;
+	assert!(matches!(handle.await, Ok(TaskStatus::ForcedAbortion)));
 
-	trace!("abort test result: {res:#?}");
+	system.shutdown().await;
+}
 
-	assert!(matches!(res, Ok(TaskStatus::ForcedAbortion)));
+#[tokio::test]
+#[traced_test]
+async fn error_test() {
+	let system = TaskSystem::new().await;
+
+	let handle = system.dispatch(BogusTask::default()).await;
+
+	assert!(matches!(
+		handle.await,
+		Ok(TaskStatus::Error(SampleError::SampleError))
+	));
+
+	system.shutdown().await;
+}
+
+#[tokio::test]
+#[traced_test]
+async fn pause_test() {
+	let system = TaskSystem::new().await;
+
+	let (task, began_rx) = PauseOnceTask::new();
+
+	let handle = system.dispatch(task).await;
+
+	info!("Task dispatched, now we wait for it to begin...");
+
+	began_rx.await.unwrap();
+
+	handle.pause().await.unwrap();
+
+	info!("Paused task, now we resume it...");
+
+	handle.resume().await.unwrap();
+
+	info!("Resumed task, now we wait for it to complete...");
+
+	assert!(matches!(handle.await, Ok(TaskStatus::Done)));
 
 	system.shutdown().await;
 }

@@ -27,14 +27,14 @@ use super::{
 };
 
 pub type TaskId = Uuid;
-pub type DynTask = Box<dyn Task>;
 
 #[derive(Debug)]
-pub enum TaskStatus {
+pub enum TaskStatus<E: TaskRunError> {
 	Done,
 	Canceled,
 	ForcedAbortion,
-	Shutdown(DynTask),
+	Shutdown(Box<dyn Task<E>>),
+	Error(E),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -44,37 +44,44 @@ pub enum ExecStatus {
 	Canceled,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub(crate) enum InternalTaskExecStatus {
+#[derive(Debug)]
+pub(crate) enum InternalTaskExecStatus<E: TaskRunError> {
 	Done,
 	Paused,
 	Canceled,
 	Suspend,
+	Error(E),
 }
 
-impl From<ExecStatus> for InternalTaskExecStatus {
-	fn from(status: ExecStatus) -> Self {
-		match status {
-			ExecStatus::Done => Self::Done,
-			ExecStatus::Paused => Self::Paused,
-			ExecStatus::Canceled => Self::Canceled,
-		}
+impl<E: TaskRunError> From<Result<ExecStatus, E>> for InternalTaskExecStatus<E> {
+	fn from(result: Result<ExecStatus, E>) -> Self {
+		result
+			.map(|status| match status {
+				ExecStatus::Done => Self::Done,
+				ExecStatus::Paused => Self::Paused,
+				ExecStatus::Canceled => Self::Canceled,
+			})
+			.unwrap_or_else(|e| Self::Error(e))
 	}
 }
 
-pub trait IntoTask {
-	fn into_task(self) -> DynTask;
+pub trait IntoTask<E: TaskRunError> {
+	fn into_task(self) -> Box<dyn Task<E>>;
 }
 
-impl<T: Task + 'static> IntoTask for T {
-	fn into_task(self) -> DynTask {
+impl<T: Task<E> + 'static, E: TaskRunError> IntoTask<E> for T {
+	fn into_task(self) -> Box<dyn Task<E>> {
 		Box::new(self)
 	}
 }
 
+pub trait TaskRunError: std::error::Error + fmt::Debug + Send + Sync + 'static {}
+
+impl<T: std::error::Error + fmt::Debug + Send + Sync + 'static> TaskRunError for T {}
+
 #[async_trait]
-pub trait Task: fmt::Debug + Downcast + Send + 'static {
-	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error>;
+pub trait Task<E: TaskRunError>: fmt::Debug + Downcast + Send + 'static {
+	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, E>;
 
 	fn with_priority(&self) -> bool {
 		false
@@ -83,7 +90,7 @@ pub trait Task: fmt::Debug + Downcast + Send + 'static {
 	fn id(&self) -> TaskId;
 }
 
-impl_downcast!(Task);
+impl_downcast!(Task<E> where E: TaskRunError);
 
 pin_project! {
 	pub struct InterrupterFuture<'recv> {
@@ -197,15 +204,15 @@ pub(crate) struct InterruptionRequest {
 }
 
 #[derive(Debug)]
-pub struct TaskHandle {
+pub struct TaskHandle<E: TaskRunError> {
 	pub(crate) worktable: Arc<TaskWorktable>,
-	pub(crate) done_rx: oneshot::Receiver<Result<TaskStatus, Error>>,
+	pub(crate) done_rx: oneshot::Receiver<Result<TaskStatus<E>, Error>>,
 	pub(crate) system_comm: SystemComm,
 	pub(crate) task_id: TaskId,
 }
 
-impl Future for TaskHandle {
-	type Output = Result<TaskStatus, Error>;
+impl<E: TaskRunError> Future for TaskHandle<E> {
+	type Output = Result<TaskStatus<E>, Error>;
 
 	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
 		Pin::new(&mut self.done_rx)
@@ -214,7 +221,7 @@ impl Future for TaskHandle {
 	}
 }
 
-impl TaskHandle {
+impl<E: TaskRunError> TaskHandle<E> {
 	pub fn task_id(&self) -> TaskId {
 		self.task_id
 	}
@@ -225,15 +232,27 @@ impl TaskHandle {
 		let is_canceled = self.worktable.is_canceled.load(Ordering::Relaxed);
 		let is_done = self.worktable.is_done.load(Ordering::Relaxed);
 
+		trace!("Received pause command task: <is_canceled={is_canceled}, is_done={is_done}>");
+
 		if !is_paused && !is_canceled && !is_done {
 			if self.worktable.is_running.load(Ordering::Relaxed) {
 				let (tx, rx) = oneshot::channel();
+
+				trace!("Task is running, sending pause request");
 
 				self.worktable.pause(tx).await;
 
 				rx.await.expect("Worker failed to ack pause request")?;
 			} else {
+				trace!("Task is not running, setting is_paused flag");
 				self.worktable.is_paused.store(true, Ordering::Relaxed);
+				return self
+					.system_comm
+					.pause_not_running_task(
+						self.task_id,
+						self.worktable.current_worker_id.load(Ordering::Relaxed),
+					)
+					.await;
 			}
 		}
 
@@ -259,6 +278,13 @@ impl TaskHandle {
 			} else {
 				trace!("Task is not running, setting is_canceled flag");
 				self.worktable.is_canceled.store(true, Ordering::Relaxed);
+				return self
+					.system_comm
+					.cancel_not_running_task(
+						self.task_id,
+						self.worktable.current_worker_id.load(Ordering::Relaxed),
+					)
+					.await;
 			}
 		}
 
@@ -266,6 +292,7 @@ impl TaskHandle {
 	}
 
 	pub async fn force_abortion(&self) -> Result<(), Error> {
+		self.worktable.set_aborted();
 		self.system_comm
 			.force_abortion(
 				self.task_id,
@@ -291,6 +318,7 @@ pub(crate) struct TaskWorktable {
 	is_done: AtomicBool,
 	is_paused: AtomicBool,
 	is_canceled: AtomicBool,
+	is_aborted: AtomicBool,
 	interrupt_tx: chan::Sender<InterruptionRequest>,
 	current_worker_id: AtomicWorkerId,
 }
@@ -303,6 +331,7 @@ impl TaskWorktable {
 			is_done: AtomicBool::new(false),
 			is_paused: AtomicBool::new(false),
 			is_canceled: AtomicBool::new(false),
+			is_aborted: AtomicBool::new(false),
 			interrupt_tx,
 			current_worker_id: AtomicWorkerId::new(worker_id),
 		}
@@ -318,9 +347,12 @@ impl TaskWorktable {
 		self.is_running.store(false, Ordering::Relaxed);
 	}
 
-	pub fn set_resumed(&self) {
+	pub fn set_unpause(&self) {
 		self.is_paused.store(false, Ordering::Relaxed);
-		self.is_running.store(true, Ordering::Relaxed);
+	}
+
+	pub fn set_aborted(&self) {
+		self.is_aborted.store(true, Ordering::Relaxed);
 	}
 
 	pub async fn pause(&self, tx: oneshot::Sender<Result<(), Error>>) {
@@ -351,20 +383,28 @@ impl TaskWorktable {
 			.expect("Worker channel closed trying to pause task");
 	}
 
+	pub fn is_paused(&self) -> bool {
+		self.is_paused.load(Ordering::Relaxed)
+	}
+
 	pub fn is_canceled(&self) -> bool {
 		self.is_canceled.load(Ordering::Relaxed)
+	}
+
+	pub fn is_aborted(&self) -> bool {
+		self.is_aborted.load(Ordering::Relaxed)
 	}
 }
 
 #[derive(Debug)]
-pub(crate) struct TaskWorkState {
-	pub(crate) task: DynTask,
+pub(crate) struct TaskWorkState<E: TaskRunError> {
+	pub(crate) task: Box<dyn Task<E>>,
 	pub(crate) worktable: Arc<TaskWorktable>,
-	pub(crate) done_tx: oneshot::Sender<Result<TaskStatus, Error>>,
+	pub(crate) done_tx: oneshot::Sender<Result<TaskStatus<E>, Error>>,
 	pub(crate) interrupter: Arc<Interrupter>,
 }
 
-impl TaskWorkState {
+impl<E: TaskRunError> TaskWorkState<E> {
 	pub fn change_worker(&self, new_worker_id: WorkerId) {
 		self.worktable
 			.current_worker_id
@@ -374,12 +414,12 @@ impl TaskWorkState {
 
 /// Util struct that handles the completion with erroring of multiple related tasks at once
 #[derive(Debug)]
-pub struct TaskHandlesBag {
-	handles: Vec<TaskHandle>,
+pub struct TaskHandlesBag<E: TaskRunError> {
+	handles: Vec<TaskHandle<E>>,
 }
 
-impl TaskHandlesBag {
-	pub fn new(handles: Vec<TaskHandle>) -> Self {
+impl<E: TaskRunError> TaskHandlesBag<E> {
+	pub fn new(handles: Vec<TaskHandle<E>>) -> Self {
 		Self { handles }
 	}
 
@@ -468,7 +508,7 @@ impl TaskHandlesBag {
 	pub async fn wait_all_or_interrupt(
 		self,
 		interrupt_rx: oneshot::Receiver<InterruptionKind>,
-	) -> (Option<Self>, Vec<Result<TaskStatus, Error>>) {
+	) -> (Option<Self>, Vec<Result<TaskStatus<E>, Error>>) {
 		let mut futures = FuturesUnordered::from_iter(self.handles.into_iter());
 
 		enum RaceOutput {
@@ -526,7 +566,7 @@ impl TaskHandlesBag {
 	}
 }
 
-// async fn cancel_tasks(handles: FuturesUnordered<TaskHandle>) {
+// async fn cancel_tasks(handles: FuturesUnordered<TaskHandle<E>>) {
 // 	handles
 // 		.into_iter()
 // 		.map(|handle| {

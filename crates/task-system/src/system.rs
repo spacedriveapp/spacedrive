@@ -17,18 +17,18 @@ use tracing::{error, info, trace, warn};
 use super::{
 	error::Error,
 	message::SystemMessage,
-	task::{IntoTask, TaskHandle, TaskId},
+	task::{IntoTask, Task, TaskHandle, TaskId, TaskRunError},
 	worker::{AtomicWorkerId, WorkStealer, Worker, WorkerBuilder, WorkerId},
 };
 
-pub struct System {
-	workers: Arc<Vec<Worker>>,
+pub struct System<E: TaskRunError> {
+	workers: Arc<Vec<Worker<E>>>,
 	msgs_tx: chan::Sender<SystemMessage>,
-	dispatcher: Dispatcher,
+	dispatcher: Dispatcher<E>,
 	handle: RefCell<Option<JoinHandle<()>>>,
 }
 
-impl System {
+impl<E: TaskRunError> System<E> {
 	pub async fn new() -> Self {
 		let workers_count = std::thread::available_parallelism().map_or_else(
 			|e| {
@@ -98,20 +98,20 @@ impl System {
 		}
 	}
 
-	pub async fn dispatch(&self, into_task: impl IntoTask) -> TaskHandle {
+	pub async fn dispatch(&self, into_task: impl IntoTask<E>) -> TaskHandle<E> {
 		self.dispatcher.dispatch(into_task).await
 	}
 
-	pub async fn dispatch_many(&self, into_tasks: Vec<impl IntoTask>) -> Vec<TaskHandle> {
+	pub async fn dispatch_many(&self, into_tasks: Vec<impl IntoTask<E>>) -> Vec<TaskHandle<E>> {
 		self.dispatcher.dispatch_many(into_tasks).await
 	}
 
-	pub fn get_dispatcher(&self) -> Dispatcher {
+	pub fn get_dispatcher(&self) -> Dispatcher<E> {
 		self.dispatcher.clone()
 	}
 
 	async fn run(
-		workers: Arc<Vec<Worker>>,
+		workers: Arc<Vec<Worker<E>>>,
 		idle_workers: Arc<Vec<AtomicBool>>,
 		msgs_rx: chan::Receiver<SystemMessage>,
 	) {
@@ -138,6 +138,28 @@ impl System {
 				} => {
 					trace!("Task system received a task resume request: <task_id='{task_id}', worker_id='{worker_id}'>");
 					workers[worker_id].resume_task(task_id, ack).await;
+				}
+
+				SystemMessage::PauseNotRunningTask {
+					task_id,
+					worker_id,
+					ack,
+				} => {
+					trace!("Task system received a task resume request: <task_id='{task_id}', worker_id='{worker_id}'>");
+					workers[worker_id]
+						.pause_not_running_task(task_id, ack)
+						.await;
+				}
+
+				SystemMessage::CancelNotRunningTask {
+					task_id,
+					worker_id,
+					ack,
+				} => {
+					trace!("Task system received a task resume request: <task_id='{task_id}', worker_id='{worker_id}'>");
+					workers[worker_id]
+						.cancel_not_running_task(task_id, ack)
+						.await;
 				}
 
 				SystemMessage::ForceAbortion {
@@ -223,7 +245,7 @@ impl System {
 
 /// SAFETY: Due to usage of refcell we lost `Sync` impl, but we only use it to have a shutdown method
 /// receiving `&self` which is called once, and we also use `try_borrow_mut` so we never panic
-unsafe impl Sync for System {}
+unsafe impl<E: TaskRunError> Sync for System<E> {}
 
 #[derive(Clone, Debug)]
 #[repr(transparent)]
@@ -242,6 +264,46 @@ impl SystemComm {
 			.send(SystemMessage::WorkingReport(worker_id))
 			.await
 			.expect("System channel closed trying to report working");
+	}
+
+	pub async fn pause_not_running_task(
+		&self,
+		task_id: TaskId,
+		worker_id: WorkerId,
+	) -> Result<(), Error> {
+		let (tx, rx) = oneshot::channel();
+
+		self.0
+			.send(SystemMessage::PauseNotRunningTask {
+				task_id,
+				worker_id,
+				ack: tx,
+			})
+			.await
+			.expect("System channel closed trying to pause not running task");
+
+		rx.await
+			.expect("System channel closed trying receive pause not running task response")
+	}
+
+	pub async fn cancel_not_running_task(
+		&self,
+		task_id: TaskId,
+		worker_id: WorkerId,
+	) -> Result<(), Error> {
+		let (tx, rx) = oneshot::channel();
+
+		self.0
+			.send(SystemMessage::CancelNotRunningTask {
+				task_id,
+				worker_id,
+				ack: tx,
+			})
+			.await
+			.expect("System channel closed trying to cancel a not running task");
+
+		rx.await
+			.expect("System channel closed trying receive cancel a not running task response")
 	}
 
 	pub async fn request_help(&self, worker_id: WorkerId, task_count: usize) {
@@ -287,38 +349,53 @@ impl SystemComm {
 	}
 }
 
-#[derive(Clone, Debug)]
-pub struct Dispatcher {
-	workers: Arc<Vec<Worker>>,
+#[derive(Debug)]
+pub struct Dispatcher<E: TaskRunError> {
+	workers: Arc<Vec<Worker<E>>>,
 	idle_workers: Arc<Vec<AtomicBool>>,
 	last_worker_id: Arc<AtomicWorkerId>,
 }
 
-impl Dispatcher {
-	pub async fn dispatch(&self, into_task: impl IntoTask) -> TaskHandle {
+impl<E: TaskRunError> Clone for Dispatcher<E> {
+	fn clone(&self) -> Self {
+		Self {
+			workers: Arc::clone(&self.workers),
+			idle_workers: Arc::clone(&self.idle_workers),
+			last_worker_id: Arc::clone(&self.last_worker_id),
+		}
+	}
+}
+
+impl<E: TaskRunError> Dispatcher<E> {
+	pub async fn dispatch(&self, into_task: impl IntoTask<E>) -> TaskHandle<E> {
 		let task = into_task.into_task();
 
-		#[allow(clippy::async_yields_async)]
-		let inner = |task| async {
-			let worker_id = self
+		async fn inner<E: TaskRunError>(
+			this: &Dispatcher<E>,
+			task: Box<dyn Task<E>>,
+		) -> TaskHandle<E> {
+			let worker_id = this
 				.last_worker_id
 				.fetch_update(Ordering::Release, Ordering::Acquire, |last_worker_id| {
-					Some((last_worker_id + 1) % self.workers.len())
+					Some((last_worker_id + 1) % this.workers.len())
 				})
 				.expect("we hardcoded the update function to always return Some(next_worker_id) through dispatcher");
 
-			trace!("Dispatching task to worker: <worker_id='{worker_id}'>");
-			let handle = self.workers[worker_id].add_task(task).await;
+			trace!(
+				"Dispatching task to worker: <worker_id='{worker_id}', task_id='{}'>",
+				task.id()
+			);
+			let handle = this.workers[worker_id].add_task(task).await;
 
-			self.idle_workers[worker_id].store(false, Ordering::Relaxed);
+			this.idle_workers[worker_id].store(false, Ordering::Relaxed);
 
 			handle
-		};
+		}
 
-		inner(task).await
+		inner(self, task).await
 	}
 
-	pub async fn dispatch_many(&self, into_tasks: Vec<impl IntoTask>) -> Vec<TaskHandle> {
+	pub async fn dispatch_many(&self, into_tasks: Vec<impl IntoTask<E>>) -> Vec<TaskHandle<E>> {
 		let mut workers_task_count = self
 			.workers
 			.iter()

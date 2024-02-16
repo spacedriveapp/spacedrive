@@ -5,28 +5,28 @@ use futures::StreamExt;
 use futures_concurrency::stream::Merge;
 use tokio::time::{interval_at, Instant};
 use tokio_stream::wrappers::IntervalStream;
-use tracing::{debug, error, warn};
+use tracing::{error, warn};
 
 use super::{
-	super::{error::Error, message::WorkerMessage, system::SystemComm},
+	super::{message::WorkerMessage, system::SystemComm, task::TaskRunError},
 	runner::Runner,
 	RunnerMessage, WorkStealer, WorkerId, ONE_SECOND,
 };
 
-pub(super) async fn run(
+pub(super) async fn run<E: TaskRunError>(
 	id: WorkerId,
 	system_comm: SystemComm,
-	work_stealer: WorkStealer,
-	msgs_rx: chan::Receiver<WorkerMessage>,
+	work_stealer: WorkStealer<E>,
+	msgs_rx: chan::Receiver<WorkerMessage<E>>,
 ) {
 	let (mut runner, runner_rx) = Runner::new(id, work_stealer, system_comm);
 
 	let mut idle_checker_interval = interval_at(Instant::now(), ONE_SECOND);
 	idle_checker_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-	enum StreamMessage {
-		Commands(WorkerMessage),
-		RunnerMsg(RunnerMessage),
+	enum StreamMessage<E: TaskRunError> {
+		Commands(WorkerMessage<E>),
+		RunnerMsg(RunnerMessage<E>),
 		IdleCheck,
 	}
 
@@ -57,6 +57,24 @@ pub(super) async fn run(
 				}
 			}
 
+			StreamMessage::Commands(WorkerMessage::PauseNotRunningTask { task_id, ack }) => {
+				if ack
+					.send(runner.pause_not_running_task(task_id).await)
+					.is_err()
+				{
+					warn!("Resume task channel closed before sending ack");
+				}
+			}
+
+			StreamMessage::Commands(WorkerMessage::CancelNotRunningTask { task_id, ack }) => {
+				if ack
+					.send(runner.cancel_not_running_task(task_id).await)
+					.is_err()
+				{
+					warn!("Resume task channel closed before sending ack");
+				}
+			}
+
 			StreamMessage::Commands(WorkerMessage::ForceAbortion { task_id, ack }) => {
 				if ack.send(runner.force_task_abortion(task_id).await).is_err() {
 					warn!("Force abortion channel closed before sending ack");
@@ -71,17 +89,13 @@ pub(super) async fn run(
 
 			StreamMessage::Commands(WorkerMessage::WakeUp) => runner.wake_up().await,
 
-			// TaskOutput messages
+			// Runner messages
 			StreamMessage::RunnerMsg(RunnerMessage::TaskOutput(task_id, Ok(output))) => {
 				runner.process_task_output(task_id, output).await
 			}
 
-			StreamMessage::RunnerMsg(RunnerMessage::TaskOutput(task_id, Err(e))) => {
-				if matches!(e, Error::TaskAborted(_)) {
-					debug!("Sucessfully aborted task <worker_id='{id}', id='{task_id}'>");
-				} else {
-					error!("Task failed <worker_id='{id}', task_id='{task_id}'>: {e:#?}");
-				}
+			StreamMessage::RunnerMsg(RunnerMessage::TaskOutput(task_id, Err(()))) => {
+				error!("Task failed <worker_id='{id}', task_id='{task_id}'>");
 
 				runner.clean_suspended_task(task_id);
 

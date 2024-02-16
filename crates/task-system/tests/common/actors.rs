@@ -1,8 +1,6 @@
 use sd_task_system::{
-	DynTask, ExecStatus, Interrupter, InterruptionKind, Task, TaskDispatcher, TaskHandle, TaskId,
-	TaskStatus, TaskSystemError,
+	ExecStatus, Interrupter, Task, TaskDispatcher, TaskHandle, TaskId, TaskStatus,
 };
-use serde::{Deserialize, Serialize};
 
 use std::{
 	path::{Path, PathBuf},
@@ -14,26 +12,25 @@ use async_channel as chan;
 use async_trait::async_trait;
 use futures::stream::{self, FuturesUnordered, StreamExt};
 use futures_concurrency::future::Race;
-use tokio::{
-	fs, spawn,
-	sync::broadcast,
-	time::{sleep, Instant},
-};
+use serde::{Deserialize, Serialize};
+use tokio::{fs, spawn, sync::broadcast};
 use tracing::{error, info, warn};
+
+use super::tasks::{SampleError, TimeTask};
 
 const SAMPLE_ACTOR_SAVE_STATE_FILE_NAME: &str = "sample_actor_save_state.bin";
 
 pub struct SampleActor {
 	data: Arc<String>, // Can hold any kind of actor data, like an AI model
-	task_dispatcher: TaskDispatcher,
-	task_handles_tx: chan::Sender<TaskHandle>,
+	task_dispatcher: TaskDispatcher<SampleError>,
+	task_handles_tx: chan::Sender<TaskHandle<SampleError>>,
 }
 
 impl SampleActor {
 	pub async fn new(
 		data_directory: impl AsRef<Path>,
 		data: String,
-		task_dispatcher: TaskDispatcher,
+		task_dispatcher: TaskDispatcher<SampleError>,
 	) -> (Self, broadcast::Receiver<()>) {
 		let (task_handles_tx, task_handles_rx) = chan::bounded(8);
 
@@ -75,19 +72,15 @@ impl SampleActor {
 			task_handles_tx
 				.send(if has_priority {
 					task_dispatcher
-						.dispatch(SampleActorTaskWithPriority {
+						.dispatch(SampleActorTaskWithPriority::with_id(
 							id,
 							duration,
-							actor_data: Arc::clone(&data),
-						})
+							Arc::clone(&data),
+						))
 						.await
 				} else {
 					task_dispatcher
-						.dispatch(SampleActorTask {
-							id,
-							duration,
-							actor_data: Arc::clone(&data),
-						})
+						.dispatch(SampleActorTask::with_id(id, duration, Arc::clone(&data)))
 						.await
 				})
 				.await
@@ -105,19 +98,11 @@ impl SampleActor {
 	}
 
 	pub fn new_task(&self, duration: Duration) -> SampleActorTask {
-		SampleActorTask {
-			id: TaskId::new_v4(),
-			duration,
-			actor_data: Arc::clone(&self.data),
-		}
+		SampleActorTask::new(duration, Arc::clone(&self.data))
 	}
 
 	pub fn new_priority_task(&self, duration: Duration) -> SampleActorTaskWithPriority {
-		SampleActorTaskWithPriority {
-			id: TaskId::new_v4(),
-			duration,
-			actor_data: Arc::clone(&self.data),
-		}
+		SampleActorTaskWithPriority::new(duration, Arc::clone(&self.data))
 	}
 
 	async fn inner_process(&self, duration: Duration, has_priority: bool) {
@@ -143,15 +128,15 @@ impl SampleActor {
 
 	async fn run(
 		save_state_file_path: PathBuf,
-		task_handles_rx: chan::Receiver<TaskHandle>,
+		task_handles_rx: chan::Receiver<TaskHandle<SampleError>>,
 		idle_tx: broadcast::Sender<()>,
 	) {
-		let mut handles = FuturesUnordered::<TaskHandle>::new();
+		let mut handles = FuturesUnordered::<TaskHandle<SampleError>>::new();
 
 		enum RaceOutput {
-			NewHandle(TaskHandle),
+			NewHandle(TaskHandle<SampleError>),
 			CompletedHandle,
-			Stop(Option<DynTask>),
+			Stop(Option<Box<dyn Task<SampleError>>>),
 		}
 
 		let mut pending = 0usize;
@@ -178,8 +163,11 @@ impl SampleActor {
 
 								return RaceOutput::Stop(Some(task));
 							}
-							Err(e) => {
+							Ok(TaskStatus::Error(e)) => {
 								error!("Task failed: {e:#?}");
+							}
+							Err(e) => {
+								error!("Task system failed: {e:#?}");
 							}
 						}
 
@@ -226,8 +214,12 @@ impl SampleActor {
 							Ok(TaskStatus::Shutdown(task)) => {
 								Some(SampleActorTaskSaveState::from_task(task))
 							}
-							Err(e) => {
+							Ok(TaskStatus::Error(e)) => {
 								error!("Task failed: {e:#?}");
+								None
+							}
+							Err(e) => {
+								error!("Task system failed: {e:#?}");
 								None
 							}
 						}
@@ -259,83 +251,76 @@ impl Drop for SampleActor {
 
 #[derive(Debug)]
 pub struct SampleActorTask {
-	id: TaskId,
-	duration: Duration,
+	timed_task: TimeTask,
 	actor_data: Arc<String>, // Can hold any kind of actor data
+}
+
+impl SampleActorTask {
+	pub fn new(duration: Duration, actor_data: Arc<String>) -> Self {
+		Self {
+			timed_task: TimeTask::new(duration, false),
+			actor_data,
+		}
+	}
+
+	fn with_id(id: TaskId, duration: Duration, actor_data: Arc<String>) -> Self {
+		Self {
+			timed_task: TimeTask::with_id(id, duration, false),
+			actor_data,
+		}
+	}
 }
 
 #[derive(Debug)]
 pub struct SampleActorTaskWithPriority {
-	id: TaskId,
-	duration: Duration,
+	timed_task: TimeTask,
 	actor_data: Arc<String>, // Can hold any kind of actor data
 }
-
-#[async_trait]
-impl Task for SampleActorTask {
-	fn id(&self) -> TaskId {
-		self.id
+impl SampleActorTaskWithPriority {
+	fn new(duration: Duration, actor_data: Arc<String>) -> SampleActorTaskWithPriority {
+		Self {
+			timed_task: TimeTask::new(duration, true),
+			actor_data,
+		}
 	}
 
-	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, TaskSystemError> {
-		run_actor_task(&mut self.duration, &self.actor_data, interrupter).await
+	fn with_id(id: TaskId, duration: Duration, actor_data: Arc<String>) -> Self {
+		Self {
+			timed_task: TimeTask::with_id(id, duration, true),
+			actor_data,
+		}
 	}
 }
 
 #[async_trait]
-impl Task for SampleActorTaskWithPriority {
+impl Task<SampleError> for SampleActorTask {
 	fn id(&self) -> TaskId {
-		self.id
+		self.timed_task.id()
 	}
 
-	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, TaskSystemError> {
-		run_actor_task(&mut self.duration, &self.actor_data, interrupter).await
+	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, SampleError> {
+		info!("Actor data: {:#?}", self.actor_data);
+		self.timed_task.run(interrupter).await
 	}
 
 	fn with_priority(&self) -> bool {
-		true
+		self.timed_task.with_priority()
 	}
 }
 
-async fn run_actor_task(
-	task_duration: &mut Duration,
-	actor_data: &str,
-	interrupter: &Interrupter,
-) -> Result<ExecStatus, TaskSystemError> {
-	let start = Instant::now();
-
-	info!("Running actor task for {task_duration:#?}; Data: {actor_data}");
-
-	enum RaceOutput {
-		Paused(Duration),
-		Canceled,
-		Completed,
+#[async_trait]
+impl Task<SampleError> for SampleActorTaskWithPriority {
+	fn id(&self) -> TaskId {
+		self.timed_task.id()
 	}
 
-	let task_work_fut = async {
-		sleep(*task_duration).await;
-		RaceOutput::Completed
-	};
+	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, SampleError> {
+		info!("Actor data: {:#?}", self.actor_data);
+		self.timed_task.run(interrupter).await
+	}
 
-	let interrupt_fut = async {
-		let elapsed = start.elapsed();
-		match interrupter.await {
-			InterruptionKind::Pause => RaceOutput::Paused(if elapsed < *task_duration {
-				*task_duration - elapsed
-			} else {
-				Duration::ZERO
-			}),
-			InterruptionKind::Cancel => RaceOutput::Canceled,
-		}
-	};
-
-	match (task_work_fut, interrupt_fut).race().await {
-		RaceOutput::Completed | RaceOutput::Paused(Duration::ZERO) => Ok(ExecStatus::Done),
-		RaceOutput::Paused(remaining_duration) => {
-			*task_duration = remaining_duration;
-			Ok(ExecStatus::Paused)
-		}
-		RaceOutput::Canceled => Ok(ExecStatus::Canceled),
+	fn with_priority(&self) -> bool {
+		self.timed_task.with_priority()
 	}
 }
 
@@ -347,11 +332,11 @@ struct SampleActorTaskSaveState {
 }
 
 impl SampleActorTaskSaveState {
-	fn from_task(dyn_task: Box<dyn Task>) -> Self {
+	fn from_task(dyn_task: Box<dyn Task<SampleError>>) -> Self {
 		match dyn_task.downcast::<SampleActorTask>() {
 			Ok(concrete_task) => SampleActorTaskSaveState {
-				id: concrete_task.id,
-				duration: concrete_task.duration,
+				id: concrete_task.timed_task.id(),
+				duration: concrete_task.timed_task.duration,
 				has_priority: false,
 			},
 			Err(dyn_task) => {
@@ -360,8 +345,8 @@ impl SampleActorTaskSaveState {
 					.expect("we know the task type");
 
 				SampleActorTaskSaveState {
-					id: concrete_task.id,
-					duration: concrete_task.duration,
+					id: concrete_task.timed_task.id(),
+					duration: concrete_task.timed_task.duration,
 					has_priority: true,
 				}
 			}

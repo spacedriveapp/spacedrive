@@ -13,7 +13,7 @@ use super::{
 	message::WorkerMessage,
 	system::SystemComm,
 	task::{
-		DynTask, InternalTaskExecStatus, Interrupter, TaskHandle, TaskId, TaskWorkState,
+		InternalTaskExecStatus, Interrupter, Task, TaskHandle, TaskId, TaskRunError, TaskWorkState,
 		TaskWorktable,
 	},
 };
@@ -28,14 +28,14 @@ const ONE_SECOND: Duration = Duration::from_secs(1);
 pub type WorkerId = usize;
 pub(crate) type AtomicWorkerId = AtomicUsize;
 
-pub(crate) struct WorkerBuilder {
+pub(crate) struct WorkerBuilder<E: TaskRunError> {
 	id: usize,
-	msgs_tx: chan::Sender<WorkerMessage>,
-	msgs_rx: chan::Receiver<WorkerMessage>,
+	msgs_tx: chan::Sender<WorkerMessage<E>>,
+	msgs_rx: chan::Receiver<WorkerMessage<E>>,
 }
 
-impl WorkerBuilder {
-	pub fn new(id: WorkerId) -> (Self, WorkerComm) {
+impl<E: TaskRunError> WorkerBuilder<E> {
+	pub fn new(id: WorkerId) -> (Self, WorkerComm<E>) {
 		let (msgs_tx, msgs_rx) = chan::bounded(8);
 
 		let worker_comm = WorkerComm {
@@ -53,7 +53,7 @@ impl WorkerBuilder {
 		)
 	}
 
-	pub fn build(self, system_comm: SystemComm, task_stealer: WorkStealer) -> Worker {
+	pub fn build(self, system_comm: SystemComm, task_stealer: WorkStealer<E>) -> Worker<E> {
 		let Self {
 			id,
 			msgs_tx,
@@ -102,15 +102,15 @@ impl WorkerBuilder {
 }
 
 #[derive(Debug)]
-pub(crate) struct Worker {
+pub(crate) struct Worker<E: TaskRunError> {
 	pub id: usize,
 	system_comm: SystemComm,
-	msgs_tx: chan::Sender<WorkerMessage>,
+	msgs_tx: chan::Sender<WorkerMessage<E>>,
 	handle: RefCell<Option<JoinHandle<()>>>,
 }
 
-impl Worker {
-	pub async fn add_task(&self, new_task: DynTask) -> TaskHandle {
+impl<E: TaskRunError> Worker<E> {
+	pub async fn add_task(&self, new_task: Box<dyn Task<E>>) -> TaskHandle<E> {
 		let (done_tx, done_rx) = oneshot::channel();
 
 		let (interrupt_tx, interrupt_rx) = chan::bounded(1);
@@ -154,6 +154,28 @@ impl Worker {
 			.send(WorkerMessage::ResumeTask { task_id, ack })
 			.await
 			.expect("Worker channel closed trying to resume task");
+	}
+
+	pub async fn pause_not_running_task(
+		&self,
+		task_id: TaskId,
+		ack: oneshot::Sender<Result<(), Error>>,
+	) {
+		self.msgs_tx
+			.send(WorkerMessage::PauseNotRunningTask { task_id, ack })
+			.await
+			.expect("Worker channel closed trying to pause a not running task");
+	}
+
+	pub async fn cancel_not_running_task(
+		&self,
+		task_id: TaskId,
+		ack: oneshot::Sender<Result<(), Error>>,
+	) {
+		self.msgs_tx
+			.send(WorkerMessage::CancelNotRunningTask { task_id, ack })
+			.await
+			.expect("Worker channel closed trying to cancel a not running task");
 	}
 
 	pub async fn force_task_abortion(
@@ -203,16 +225,16 @@ impl Worker {
 
 /// SAFETY: Due to usage of refcell we lost `Sync` impl, but we only use it to have a shutdown method
 /// receiving `&self` which is called once, and we also use `try_borrow_mut` so we never panic
-unsafe impl Sync for Worker {}
+unsafe impl<E: TaskRunError> Sync for Worker<E> {}
 
 #[derive(Clone)]
-pub(crate) struct WorkerComm {
+pub(crate) struct WorkerComm<E: TaskRunError> {
 	worker_id: WorkerId,
-	msgs_tx: chan::Sender<WorkerMessage>,
+	msgs_tx: chan::Sender<WorkerMessage<E>>,
 }
 
-impl WorkerComm {
-	pub async fn steal_task(&self, worker_id: WorkerId) -> Option<TaskWorkState> {
+impl<E: TaskRunError> WorkerComm<E> {
+	pub async fn steal_task(&self, worker_id: WorkerId) -> Option<TaskWorkState<E>> {
 		let (tx, rx) = oneshot::channel();
 
 		self.msgs_tx
@@ -223,25 +245,38 @@ impl WorkerComm {
 		rx.await
 			.expect("Worker channel closed trying to steal task")
 			.map(|task_work_state| {
+				trace!(
+					"Worker stole task: \
+					<worker_id='{worker_id}', stolen_worker_id='{}', task_id='{}'>",
+					self.worker_id,
+					task_work_state.task.id()
+				);
 				task_work_state.change_worker(worker_id);
 				task_work_state
 			})
 	}
 }
 
-#[derive(Clone)]
-pub(crate) struct WorkStealer {
-	worker_comms: Arc<Vec<WorkerComm>>,
+pub(crate) struct WorkStealer<E: TaskRunError> {
+	worker_comms: Arc<Vec<WorkerComm<E>>>,
 }
 
-impl WorkStealer {
-	pub fn new(worker_comms: Vec<WorkerComm>) -> Self {
+impl<E: TaskRunError> Clone for WorkStealer<E> {
+	fn clone(&self) -> Self {
+		Self {
+			worker_comms: Arc::clone(&self.worker_comms),
+		}
+	}
+}
+
+impl<E: TaskRunError> WorkStealer<E> {
+	pub fn new(worker_comms: Vec<WorkerComm<E>>) -> Self {
 		Self {
 			worker_comms: Arc::new(worker_comms),
 		}
 	}
 
-	pub async fn steal(&self, worker_id: WorkerId) -> Option<TaskWorkState> {
+	pub async fn steal(&self, worker_id: WorkerId) -> Option<TaskWorkState<E>> {
 		let total_workers = self.worker_comms.len();
 
 		for worker_comm in self
@@ -279,12 +314,12 @@ impl WorkStealer {
 	}
 }
 
-struct TaskRunnerOutput {
-	task_work_state: TaskWorkState,
-	status: InternalTaskExecStatus,
+struct TaskRunnerOutput<E: TaskRunError> {
+	task_work_state: TaskWorkState<E>,
+	status: InternalTaskExecStatus<E>,
 }
 
-enum RunnerMessage {
-	TaskOutput(TaskId, Result<TaskRunnerOutput, Error>),
-	StealedTask(Option<TaskWorkState>),
+enum RunnerMessage<E: TaskRunError> {
+	TaskOutput(TaskId, Result<TaskRunnerOutput<E>, ()>),
+	StealedTask(Option<TaskWorkState<E>>),
 }
