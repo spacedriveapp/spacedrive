@@ -1,5 +1,5 @@
 import { BloomOne } from '@sd/assets/images';
-import { sdintro } from '@sd/assets/videos';
+import { introvideobg, sdintro } from '@sd/assets/videos';
 import clsx from 'clsx';
 import { useState } from 'react';
 import { Navigate, Outlet } from 'react-router';
@@ -32,6 +32,18 @@ export const Component = () => {
 			>
 				{showIntro && (
 					<div className="introbg absolute left-0 top-0 z-50 flex h-screen w-screen items-center justify-center">
+						<video
+							style={{
+								position: 'absolute',
+								objectFit: 'cover',
+								width: '100vw',
+								height: '100vh',
+								zIndex: -1
+							}}
+							src={introvideobg}
+							muted
+							controls={false}
+						/>
 						<video
 							className="mx-auto w-[700px]"
 							autoPlay
