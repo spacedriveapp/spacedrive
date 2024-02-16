@@ -1,9 +1,14 @@
-import { PropsWithChildren } from 'react';
-import { FlatList } from 'react-native';
+import { ReactNode } from 'react';
+import { FlatList, FlatListProps } from 'react-native';
 
-export default function VirtualizedListWrapper({ children }: PropsWithChildren) {
+type Props = {
+	children: ReactNode;
+} & Partial<FlatListProps<unknown>>;
+
+export default function VirtualizedListWrapper({ children, ...rest }: Props) {
 	return (
 		<FlatList
+			{...rest}
 			data={[]}
 			keyExtractor={() => 'key'}
 			showsHorizontalScrollIndicator={false}

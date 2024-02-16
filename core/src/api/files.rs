@@ -21,8 +21,13 @@ use sd_file_path_helper::{
 };
 use sd_images::ConvertableExtension;
 use sd_media_metadata::MediaMetadata;
-use sd_prisma::prisma::{file_path, location, object};
+use sd_prisma::{
+	prisma::{file_path, location, object},
+	prisma_sync,
+};
+use sd_sync::OperationFactory;
 use sd_utils::{db::maybe_missing, error::FileIOError};
+use serde_json::json;
 
 use std::{
 	ffi::OsString,
@@ -177,15 +182,36 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 			R.with2(library())
 				.mutation(|(_, library), args: SetNoteArgs| async move {
-					library
-						.db
+					let Library { db, sync, .. } = library.as_ref();
+
+					let object = db
 						.object()
-						.update(
+						.find_unique(object::id::equals(args.id))
+						.select(object::select!({ pub_id }))
+						.exec()
+						.await?
+						.ok_or_else(|| {
+							rspc::Error::new(
+								rspc::ErrorCode::NotFound,
+								"Object not found".to_string(),
+							)
+						})?;
+
+					sync.write_op(
+						db,
+						sync.shared_update(
+							prisma_sync::object::SyncId {
+								pub_id: object.pub_id,
+							},
+							object::note::NAME,
+							json!(&args.note),
+						),
+						db.object().update(
 							object::id::equals(args.id),
 							vec![object::note::set(args.note)],
-						)
-						.exec()
-						.await?;
+						),
+					)
+					.await?;
 
 					invalidate_query!(library, "search.paths");
 					invalidate_query!(library, "search.objects");
@@ -202,15 +228,36 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 			R.with2(library())
 				.mutation(|(_, library), args: SetFavoriteArgs| async move {
-					library
-						.db
+					let Library { sync, db, .. } = library.as_ref();
+
+					let object = db
 						.object()
-						.update(
+						.find_unique(object::id::equals(args.id))
+						.select(object::select!({ pub_id }))
+						.exec()
+						.await?
+						.ok_or_else(|| {
+							rspc::Error::new(
+								rspc::ErrorCode::NotFound,
+								"Object not found".to_string(),
+							)
+						})?;
+
+					sync.write_op(
+						db,
+						sync.shared_update(
+							prisma_sync::object::SyncId {
+								pub_id: object.pub_id,
+							},
+							object::favorite::NAME,
+							json!(&args.favorite),
+						),
+						db.object().update(
 							object::id::equals(args.id),
 							vec![object::favorite::set(Some(args.favorite))],
-						)
-						.exec()
-						.await?;
+						),
+					)
+					.await?;
 
 					invalidate_query!(library, "search.paths");
 					invalidate_query!(library, "search.objects");
@@ -251,15 +298,42 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("updateAccessTime", {
 			R.with2(library())
 				.mutation(|(_, library), ids: Vec<i32>| async move {
-					library
-						.db
+					let Library { sync, db, .. } = library.as_ref();
+
+					let objects = db
 						.object()
-						.update_many(
-							vec![object::id::in_vec(ids)],
-							vec![object::date_accessed::set(Some(Utc::now().into()))],
-						)
+						.find_many(vec![object::id::in_vec(ids)])
+						.select(object::select!({ id pub_id }))
 						.exec()
 						.await?;
+
+					let date_accessed = Utc::now().into();
+
+					let (sync_params, db_params): (Vec<_>, Vec<_>) = objects
+						.into_iter()
+						.map(|d| {
+							(
+								sync.shared_update(
+									prisma_sync::object::SyncId { pub_id: d.pub_id },
+									object::date_accessed::NAME,
+									json!(date_accessed),
+								),
+								d.id,
+							)
+						})
+						.unzip();
+
+					sync.write_ops(
+						db,
+						(
+							sync_params,
+							db.object().update_many(
+								vec![object::id::in_vec(db_params)],
+								vec![object::date_accessed::set(Some(date_accessed))],
+							),
+						),
+					)
+					.await?;
 
 					invalidate_query!(library, "search.paths");
 					invalidate_query!(library, "search.objects");
@@ -269,15 +343,39 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("removeAccessTime", {
 			R.with2(library())
 				.mutation(|(_, library), object_ids: Vec<i32>| async move {
-					library
-						.db
+					let Library { db, sync, .. } = library.as_ref();
+
+					let objects = db
 						.object()
-						.update_many(
-							vec![object::id::in_vec(object_ids)],
-							vec![object::date_accessed::set(None)],
-						)
+						.find_many(vec![object::id::in_vec(object_ids)])
+						.select(object::select!({ id pub_id }))
 						.exec()
 						.await?;
+
+					let (sync_params, db_params): (Vec<_>, Vec<_>) = objects
+						.into_iter()
+						.map(|d| {
+							(
+								sync.shared_update(
+									prisma_sync::object::SyncId { pub_id: d.pub_id },
+									object::date_accessed::NAME,
+									json!(null),
+								),
+								d.id,
+							)
+						})
+						.unzip();
+					sync.write_ops(
+						db,
+						(
+							sync_params,
+							db.object().update_many(
+								vec![object::id::in_vec(db_params)],
+								vec![object::date_accessed::set(None)],
+							),
+						),
+					)
+					.await?;
 
 					invalidate_query!(library, "search.objects");
 					invalidate_query!(library, "search.paths");

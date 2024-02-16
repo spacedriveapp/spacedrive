@@ -38,7 +38,7 @@ const LibraryGeneralSettingsScreen = (_: SettingsStackScreenProps<'LibraryGenera
 
 	return (
 		<View style={tw`gap-4`}>
-			<View style={tw`px-2 mt-4`}>
+			<View style={tw`mt-4 px-2`}>
 				<SettingsTitle>Name</SettingsTitle>
 				<Controller
 					name="name"

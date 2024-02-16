@@ -11,7 +11,7 @@ export enum ModifierKeys {
 	NumLock = 'NumLock',
 	ScrollLock = 'ScrollLock',
 	Symbol = 'Symbol',
-	SymbolLock = 'SymbolLock',
+	SymbolLock = 'SymbolLock'
 }
 
 export enum EditingKeys {
@@ -20,14 +20,14 @@ export enum EditingKeys {
 }
 
 export enum UIKeys {
-	Escape = 'Escape',
+	Escape = 'Escape'
 }
 
 export enum NavigationKeys {
 	ArrowUp = 'ArrowUp',
 	ArrowDown = 'ArrowDown',
 	ArrowLeft = 'ArrowLeft',
-	ArrowRight = 'ArrowRight',
+	ArrowRight = 'ArrowRight'
 }
 
 export type OSforKeys = 'macOS' | 'Windows' | 'Other';
@@ -54,7 +54,7 @@ export const modifierSymbols: Record<
 	ArrowUp: { Other: '↑' },
 	ArrowDown: { Other: '↓' },
 	ArrowLeft: { Other: '←' },
-	ArrowRight: { Other: '→' },
+	ArrowRight: { Other: '→' }
 };
 
 export const keySymbols: Record<string, { macOS?: string; Windows?: string; Other: string }> = {

@@ -70,7 +70,7 @@ if ! command -v appimage-builder >/dev/null 2>&1; then
   pip3 install wheel setuptools --upgrade
 
   echo 'Install appimage-build in temporary Python virtual environment...'
-  pip3 install git+https://github.com/AppImageCrafters/appimage-builder.git
+  pip3 install git+https://github.com/AppImageCrafters/appimage-builder.git@61c8ddde9ef44b85d7444bbe79d80b44a6a5576d
 fi
 
 echo 'Running appimage-builder...'

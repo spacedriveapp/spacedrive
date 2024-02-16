@@ -40,7 +40,7 @@ const BATCH_SIZE: usize = 10;
 pub async fn shallow(
 	location: &location::Data,
 	sub_path: &PathBuf,
-	library @ Library { db, .. }: &Library,
+	library @ Library { db, sync, .. }: &Library,
 	#[cfg(feature = "ai")] regenerate_labels: bool,
 	node: &Node,
 ) -> Result<(), JobError> {
@@ -109,15 +109,18 @@ pub async fn shallow(
 	);
 
 	#[cfg(feature = "ai")]
-	let labels_rx = node
-		.image_labeller
-		.new_batch(
-			location_id,
-			location_path.clone(),
-			file_paths_for_labelling,
-			Arc::clone(db),
-		)
-		.await;
+	// Check if we have an image labeller and has_labels then enqueue a new batch
+	let labels_rx = node.image_labeller.as_ref().and_then(|image_labeller| {
+		has_labels.then(|| {
+			image_labeller.new_batch(
+				location_id,
+				location_path.clone(),
+				file_paths_for_labelling,
+				Arc::clone(db),
+				sync.clone(),
+			)
+		})
+	});
 
 	let mut run_metadata = MediaProcessorMetadata::default();
 
@@ -143,27 +146,30 @@ pub async fn shallow(
 	#[cfg(feature = "ai")]
 	{
 		if has_labels {
-			labels_rx
-				.for_each(
-					|LabelerOutput {
-					     file_path_id,
-					     has_new_labels,
-					     result,
-					 }| async move {
-						if let Err(e) = result {
-							error!(
+			if let Some(labels_rx) = labels_rx {
+				labels_rx
+					.await
+					.for_each(
+						|LabelerOutput {
+						     file_path_id,
+						     has_new_labels,
+						     result,
+						 }| async move {
+							if let Err(e) = result {
+								error!(
 								"Failed to generate labels <file_path_id='{file_path_id}'>: {e:#?}"
 							);
-						} else if has_new_labels {
-							// invalidate_query!(library, "labels.count"); // TODO: This query doesn't exist on main yet
-						}
-					},
-				)
-				.await;
+							} else if has_new_labels {
+								// invalidate_query!(library, "labels.count"); // TODO: This query doesn't exist on main yet
+							}
+						},
+					)
+					.await;
 
-			invalidate_query!(library, "labels.list");
-			invalidate_query!(library, "labels.getForObject");
-			invalidate_query!(library, "labels.getWithObjects");
+				invalidate_query!(library, "labels.list");
+				invalidate_query!(library, "labels.getForObject");
+				invalidate_query!(library, "labels.getWithObjects");
+			}
 		}
 	}
 
