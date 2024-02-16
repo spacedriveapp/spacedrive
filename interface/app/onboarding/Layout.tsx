@@ -1,5 +1,5 @@
 import { BloomOne } from '@sd/assets/images';
-import { video } from '@sd/assets/videos';
+import { sdintro } from '@sd/assets/videos';
 import clsx from 'clsx';
 import { useState } from 'react';
 import { Navigate, Outlet } from 'react-router';
@@ -31,10 +31,9 @@ export const Component = () => {
 				)}
 			>
 				{showIntro && (
-					<div className="absolute left-0 top-0 z-50 flex h-screen w-screen items-center justify-center bg-[#1D1E26]">
-						<img className="w-[700px]" src={video} />
-						{/* <video
-							className="mx-auto"
+					<div className="introbg absolute left-0 top-0 z-50 flex h-screen w-screen items-center justify-center">
+						<video
+							className="mx-auto w-[700px]"
 							autoPlay
 							onEnded={() => {
 								setShowIntro(false);
@@ -42,7 +41,7 @@ export const Component = () => {
 							muted
 							controls={false}
 							src={sdintro}
-						/> */}
+						/>
 					</div>
 				)}
 				<DragRegion className="z-50 h-9" />
