@@ -16,6 +16,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
 use walkdir::WalkDir;
+use tracing::info;
 
 const KQUEUE: mio::Token = mio::Token(0);
 const MESSAGE: mio::Token = mio::Token(1);
@@ -108,6 +109,7 @@ impl EventLoop {
 
     // Handle a single event.
     fn handle_event(&mut self, event: &mio::event::Event) {
+		info!("[kqueue] handling event: {:?}", event);
         match event.token() {
             MESSAGE => {
                 // The channel is readable - handle messages.
@@ -125,12 +127,15 @@ impl EventLoop {
         while let Ok(msg) = self.event_loop_rx.try_recv() {
             match msg {
                 EventLoopMsg::AddWatch(path, recursive_mode, tx) => {
+					info!("[kqueue] adding watch: {}", path.display());
                     let _ = tx.send(self.add_watch(path, recursive_mode.is_recursive()));
                 }
                 EventLoopMsg::RemoveWatch(path, tx) => {
+					info!("[kqueue] removing watch: {}", path.display());
                     let _ = tx.send(self.remove_watch(path, false));
                 }
                 EventLoopMsg::Shutdown => {
+					info!("[kqueue] shutting down event loop");
                     self.running = false;
                     break;
                 }
@@ -143,7 +148,7 @@ impl EventLoop {
         let mut remove_watches = Vec::new();
 
         while let Some(event) = self.kqueue.poll(None) {
-            log::trace!("kqueue event: {event:?}");
+            info!("kqueue event: {event:?}");
 
             match event {
                 kqueue::Event {
