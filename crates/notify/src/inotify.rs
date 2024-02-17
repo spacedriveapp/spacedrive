@@ -131,11 +131,13 @@ impl EventLoop {
 		let mut events = mio::Events::with_capacity(16);
 		loop {
 			info!("[notify-rs] inotify event loop waiting for events");
+			info!("[notify-rs] running: {}", self.running);
 			// Wait for something to happen.
 			match self.poll.poll(&mut events, None) {
 				Err(ref e) if matches!(e.kind(), std::io::ErrorKind::Interrupted) => {
 					// System call was interrupted, we will retry
 					// TODO: Not covered by tests (to reproduce likely need to setup signal handlers)
+					info!("[notify-rs] poll interrupted");
 				}
 				Err(e) => error!("poll failed: {}", e),
 				Ok(()) => {}
@@ -173,12 +175,15 @@ impl EventLoop {
 		while let Ok(msg) = self.event_loop_rx.try_recv() {
 			match msg {
 				EventLoopMsg::AddWatch(path, recursive_mode, tx) => {
+					info!("[notify-rs] add watch: {:?}", path);
 					let _ = tx.send(self.add_watch(path, recursive_mode.is_recursive(), true));
 				}
 				EventLoopMsg::RemoveWatch(path, tx) => {
+					info!("[notify-rs] remove watch: {:?}", path);
 					let _ = tx.send(self.remove_watch(path, false));
 				}
 				EventLoopMsg::Shutdown => {
+					info!("[notify-rs] shutting down inotify event loop");
 					let _ = self.remove_all_watches();
 					if let Some(inotify) = self.inotify.take() {
 						let _ = inotify.close();
@@ -187,6 +192,7 @@ impl EventLoop {
 					break;
 				}
 				EventLoopMsg::Configure(config, tx) => {
+					info!("[notify-rs] configure inotify: {:?}", config);
 					self.configure_raw_mode(config, tx);
 				}
 			}
@@ -210,7 +216,7 @@ impl EventLoop {
 					Ok(events) => {
 						let mut num_events = 0;
 						for event in events {
-							info!("inotify event: {:?}", event);
+							info!("inotify event: {event:?}");
 
 							num_events += 1;
 							if event.mask.contains(EventMask::Q_OVERFLOW) {
@@ -378,9 +384,11 @@ impl EventLoop {
 					}
 					Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
 						// No events read. Break out.
+						info!("[notify-rs] inotify read would block");
 						break;
 					}
 					Err(e) => {
+						error!("inotify read error: {}", e);
 						self.event_handler.handle_event(Err(Error::io(e)));
 					}
 				}
@@ -448,6 +456,7 @@ impl EventLoop {
 						// do not report inotify limits as "no more space" on linux #266
 						Error::new(ErrorKind::MaxFilesWatch)
 					} else {
+						error!("inotify add watch error: {}", e);
 						Error::io(e)
 					}
 					.add_path(path))

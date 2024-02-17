@@ -34,7 +34,8 @@ mkdir -p $OUTPUT_DIRECTORY
 # Required for CI and for everyone I guess?
 export PATH="${CARGO_HOME:-"${HOME}/.cargo"}/bin:$PATH"
 
-ANDROID_BUILD_TARGET_LIST="arm64-v8a armeabi-v7a x86 x86_64"
+# ANDROID_BUILD_TARGET_LIST="arm64-v8a armeabi-v7a x86 x86_64"
+ANDROID_BUILD_TARGET_LIST="arm64-v8a"
 
 # Loop through the list of targets and build them concurrently
 cd crate/
