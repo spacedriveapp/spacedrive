@@ -21,20 +21,25 @@ OUTPUT_DIRECTORY="${__dirname}/../../../../../apps/mobile/android/app/src/main/j
 mkdir -p "$TARGET_DIRECTORY"
 TARGET_DIRECTORY="$(CDPATH='' cd -- "$TARGET_DIRECTORY" && pwd -P)"
 
-# if [ "${CONFIGURATION:-}" != "Debug" ]; then
-#   CARGO_FLAGS=--debug
-#   export CARGO_FLAGS
-# fi
-
-# Clean OUTPUT_DIRECTORY before building
-echo "Cleaning $OUTPUT_DIRECTORY"
-rm -rf $OUTPUT_DIRECTORY/*
-mkdir -p $OUTPUT_DIRECTORY
+# If CI, then we can skip the clean: we know we're starting from a clean state
+if [ "${CI:-}" = "true" ]; then
+  echo "CI environment detected, skipping clean"
+else
+  # Clean the target directory
+  echo "Cleaning $TARGET_DIRECTORY"
+  rm -rf $TARGET_DIRECTORY/*
+fi
 
 # Required for CI and for everyone I guess?
 export PATH="${CARGO_HOME:-"${HOME}/.cargo"}/bin:$PATH"
 
-ANDROID_BUILD_TARGET_LIST="arm64-v8a armeabi-v7a x86 x86_64"
+# Set the targets to build
+# If CI, then we build x86_64 else we build all targets
+if [ "${CI:-}" = "true" ]; then
+  ANDROID_BUILD_TARGET_LIST="x86_64"
+else
+  ANDROID_BUILD_TARGET_LIST="arm64-v8a armeabi-v7a x86"
+fi
 
 # Loop through the list of targets and build them concurrently
 cd crate/
@@ -46,9 +51,6 @@ for target in $ANDROID_BUILD_TARGET_LIST; do
   echo "Building for target: $target"
   cargo ndk --platform 34 -t $target -o $TARGET_DIRECTORY build --release
 done
-
-# Clean up apps/mobile/android/app/src/main/jniLibs directory before moving new files
-# rm -rf ${__dirname}/apps/mobile/android/app/src/main/jniLibs/*
 
 # Move contents of target directory to apps/mobile/android/app/src/main/jniLibs
 echo "Moving files to $OUTPUT_DIRECTORY"
