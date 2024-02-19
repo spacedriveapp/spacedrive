@@ -5,6 +5,7 @@ import { useLayoutEffect, useState } from 'react';
 import { Navigate, Outlet } from 'react-router';
 import { useDebugState } from '@sd/client';
 import DragRegion from '~/components/DragRegion';
+import { useWindowSize } from '~/hooks';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 
 import DebugPopover from '../$libraryId/Layout/Sidebar/DebugPopover';
@@ -17,20 +18,9 @@ export const Component = () => {
 	const debugState = useDebugState();
 	// FIX-ME: Intro video breaks onboarding for the web and Linux versions
 	const [showIntro, setShowIntro] = useState(os === 'macOS' || os === 'windows');
-	const [windowSize, setWindowSize] = useState({
-		width: window.innerWidth,
-		height: window.innerHeight
-	});
-	const ctx = useContextValue();
+	const windowSize = useWindowSize();
 
-	//this is to make sure on initial render a BG is visible as video loads
-	useLayoutEffect(() => {
-		const handleResize = () => {
-			setWindowSize({ width: window.innerWidth, height: window.innerHeight });
-		};
-		window.addEventListener('resize', handleResize);
-		return () => window.removeEventListener('resize', handleResize);
-	}, []);
+	const ctx = useContextValue();
 
 	if (ctx.libraries.isLoading) return null;
 	if (ctx.library?.uuid !== undefined) return <Navigate to={`/${ctx.library.uuid}`} replace />;
@@ -45,6 +35,7 @@ export const Component = () => {
 			>
 				{showIntro && (
 					<div className="absolute top-0 left-0 z-50 flex items-center justify-center w-screen h-screen">
+						{/*This makes sure on initial render a BG is visible before video loads*/}
 						<svg
 							width="100%"
 							height="100%"

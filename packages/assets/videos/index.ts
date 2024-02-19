@@ -6,5 +6,6 @@
 import fda from './fda.mp4';
 import introvideobg from './introvideobg.webm';
 import sdintro from './sdintro.webm';
+import mobsdintro from './mobsdintro.mp4';
 
-export { fda, introvideobg, sdintro };
+export { fda, introvideobg, sdintro, mobsdintro };
