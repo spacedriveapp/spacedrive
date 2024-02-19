@@ -167,7 +167,7 @@ model FilePath {
   object_id Int?
   object    Object? @relation(fields: [object_id], references: [id], onDelete: SetNull)
 
-  key_id Int? // replacement for encryption
+  // key_id Int? // replacement for encryption
   // permissions       String?
 
   date_created  DateTime?
