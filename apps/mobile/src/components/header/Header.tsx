@@ -45,33 +45,6 @@ export default function Header({
 	const explorerStore = useExplorerStore();
 	const routeParams = route?.route.params as any;
 
-	const SearchType = () => {
-		switch (searchType) {
-			case 'explorer':
-				return 'Explorer'; //TODO
-			case 'location':
-				return <Search placeholder="Location name..." />;
-			default:
-				return null;
-		}
-	};
-	const HeaderIconKind = () => {
-		switch (headerKind) {
-			case 'location':
-				return <Icon size={30} name="Folder" />;
-			case 'tag':
-				return (
-					<View
-						style={twStyle('h-[30px] w-[30px] rounded-full', {
-							backgroundColor: routeParams.color
-						})}
-					/>
-				);
-			default:
-				return null;
-		}
-	};
-
 	const headerHeight = useSafeAreaInsets().top;
 
 	return (
@@ -95,7 +68,7 @@ export default function Header({
 							</Pressable>
 						)}
 						<View style={tw`flex-row items-center gap-2`}>
-							<HeaderIconKind />
+							<HeaderIconKind headerKind={headerKind} routeParams={routeParams} />
 							<Text
 								numberOfLines={1}
 								style={tw`max-w-[200px] text-lg font-bold text-white`}
@@ -130,8 +103,45 @@ export default function Header({
 				</View>
 
 				{showLibrary && <BrowseLibraryManager style="mt-4" />}
-				{searchType && <SearchType />}
+				{searchType && <HeaderSearchType searchType={searchType} />}
 			</View>
 		</View>
 	);
 }
+
+interface HeaderSearchTypeProps {
+	searchType: HeaderProps['searchType'];
+}
+
+const HeaderSearchType = ({ searchType }: HeaderSearchTypeProps) => {
+	switch (searchType) {
+		case 'explorer':
+			return 'Explorer'; //TODO
+		case 'location':
+			return <Search placeholder="Location name..." />;
+		default:
+			return null;
+	}
+};
+
+interface HeaderIconKindProps {
+	headerKind: HeaderProps['headerKind'];
+	routeParams?: any;
+}
+
+const HeaderIconKind = ({ headerKind, routeParams }: HeaderIconKindProps) => {
+	switch (headerKind) {
+		case 'location':
+			return <Icon size={30} name="Folder" />;
+		case 'tag':
+			return (
+				<View
+					style={twStyle('h-[30px] w-[30px] rounded-full', {
+						backgroundColor: routeParams.color
+					})}
+				/>
+			);
+		default:
+			return null;
+	}
+};
