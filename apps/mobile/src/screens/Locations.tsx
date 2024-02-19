@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import { DotsThreeOutlineVertical } from 'phosphor-react-native';
+import { DotsThreeOutlineVertical, Plus } from 'phosphor-react-native';
 import { useMemo, useRef } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { useDebounce } from 'use-debounce';
@@ -16,6 +16,7 @@ import FolderIcon from '~/components/icons/FolderIcon';
 import Fade from '~/components/layout/Fade';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
+import ImportModal from '~/components/modal/ImportModal';
 import { LocationModal } from '~/components/modal/location/LocationModal';
 import { tw, twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
@@ -27,6 +28,7 @@ export const Locations = () => {
 	useNodes(locationsQuery.data?.nodes);
 	const locations = useCache(locationsQuery.data?.items);
 	const { search } = useSearchStore();
+	const modalRef = useRef<ModalRef>(null);
 	const [debouncedSearch] = useDebounce(search, 200);
 	const filteredLocations = useMemo(
 		() =>
@@ -42,6 +44,14 @@ export const Locations = () => {
 	>();
 	return (
 		<ScreenContainer scrollview={false} style={tw`relative py-0 px-7`}>
+			<Pressable
+				style={tw`absolute z-10 flex items-center justify-center w-12 h-12 rounded-full bottom-7 right-7 bg-accent`}
+				onPress={() => {
+					modalRef.current?.present();
+				}}
+			>
+				<Plus size={20} weight="bold" style={tw`text-ink`} />
+			</Pressable>
 			<Fade
 				fadeSides="top-bottom"
 				orientation="vertical"
@@ -63,12 +73,18 @@ export const Locations = () => {
 									params: { id: item.id }
 								})
 							}
-							onPress={() => navigation.navigate('Location', { id: item.id })}
+							onPress={() =>
+								navigation.navigate('BrowseStack', {
+									screen: 'Location',
+									params: { id: item.id }
+								})
+							}
 							location={item}
 						/>
 					)}
 				/>
 			</Fade>
+			<ImportModal ref={modalRef} />
 		</ScreenContainer>
 	);
 };
@@ -79,7 +95,7 @@ interface LocationItemProps {
 	editLocation: () => void;
 }
 
-const LocationItem: React.FC<LocationItemProps> = ({
+export const LocationItem: React.FC<LocationItemProps> = ({
 	location,
 	editLocation,
 	onPress
@@ -90,9 +106,9 @@ const LocationItem: React.FC<LocationItemProps> = ({
 	return (
 		<Pressable onPress={onPress}>
 			<View
-				style={tw`h-auto w-full flex-row justify-between gap-3 rounded-md border border-sidebar-line/50 bg-sidebar-box p-2`}
+				style={tw`flex-row justify-between w-full h-auto gap-3 p-2 border rounded-md border-sidebar-line/50 bg-sidebar-box`}
 			>
-				<View style={tw`flex-row items-center gap-2`}>
+				<View style={tw`w-[50%] flex-row items-center gap-2`}>
 					<View style={tw`relative`}>
 						<FolderIcon size={42} />
 						<View
@@ -102,17 +118,22 @@ const LocationItem: React.FC<LocationItemProps> = ({
 							)}
 						/>
 					</View>
-					<Text
-						style={tw`w-auto max-w-[160px] text-sm font-bold text-white`}
-						numberOfLines={1}
-					>
-						{location.name}
-					</Text>
+					<View>
+						<Text
+							style={tw`w-auto max-w-[160px] text-sm font-bold text-white`}
+							numberOfLines={1}
+						>
+							{location.name}
+						</Text>
+						<Text numberOfLines={1} style={tw`text-xs text-ink-dull`}>
+							{location.path}
+						</Text>
+					</View>
 				</View>
 				<View style={tw`flex-row items-center gap-3`}>
 					<View style={tw`rounded-md bg-app-input p-1.5`}>
 						<Text
-							style={tw`text-left text-xs font-bold text-ink-dull`}
+							style={tw`text-xs font-bold text-left text-ink-dull`}
 							numberOfLines={1}
 						>
 							{`${byteSize(location.size_in_bytes)}`}

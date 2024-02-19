@@ -74,7 +74,9 @@ export default function SettingsStack() {
 			<Stack.Screen
 				name="LocationSettings"
 				component={LocationSettingsScreen}
-				options={{ header: () => <Header navBack title="Locations" /> }}
+				options={{
+					header: () => <Header searchType="location" navBack title="Locations" />
+				}}
 			/>
 			<Stack.Screen
 				name="EditLocationSettings"

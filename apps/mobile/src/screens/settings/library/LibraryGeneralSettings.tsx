@@ -1,11 +1,12 @@
-import React from 'react';
 import { Controller } from 'react-hook-form';
 import { Text, View } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import { z } from 'zod';
 import { useBridgeMutation, useLibraryContext, useZodForm } from '@sd/client';
 import { Input } from '~/components/form/Input';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import DeleteLibraryModal from '~/components/modal/confirmModals/DeleteLibraryModal';
+import { Button } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
 import SettingsButton from '~/components/settings/SettingsButton';
 import { SettingsTitle } from '~/components/settings/SettingsContainer';
@@ -76,7 +77,26 @@ const LibraryGeneralSettingsScreen = (_: SettingsStackScreenProps<'LibraryGenera
 					title="Export Library"
 				/>
 				{/* Delete Library */}
-				<DeleteLibraryModal trigger={<Text>Delete</Text>} libraryUuid={library.uuid} />
+				<View style={tw`flex-row items-center justify-between`}>
+					<View style={tw`w-[73%]`}>
+						<Text style={tw`text-sm font-medium text-ink`}>Delete Library</Text>
+						<Text style={tw`mt-1 text-xs text-ink-dull`}>
+							This is permanent, your files not be deleted, only the Spacedrive
+							library.
+						</Text>
+					</View>
+					<DeleteLibraryModal
+						trigger={
+							//Needed to make button work
+							<TouchableOpacity activeOpacity={1}>
+								<Button variant="danger">
+									<Text style={tw`font-bold text-ink`}>Delete</Text>
+								</Button>
+							</TouchableOpacity>
+						}
+						libraryUuid={library.uuid}
+					/>
+				</View>
 			</View>
 		</ScreenContainer>
 	);

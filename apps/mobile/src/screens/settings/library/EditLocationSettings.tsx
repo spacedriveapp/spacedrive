@@ -2,20 +2,16 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Archive, ArrowsClockwise, Trash } from 'phosphor-react-native';
 import { useEffect } from 'react';
 import { Controller } from 'react-hook-form';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { Alert, Text, View } from 'react-native';
 import { z } from 'zod';
 import { useLibraryMutation, useLibraryQuery, useNormalisedCache, useZodForm } from '@sd/client';
 import { Input } from '~/components/form/Input';
-import { Switch } from '~/components/form/Switch';
-import DeleteLocationModal from '~/components/modal/confirmModals/DeleteLocationModal';
-import { AnimatedButton, FakeButton } from '~/components/primitive/Button';
+import ScreenContainer from '~/components/layout/ScreenContainer';
+import { AnimatedButton } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
-import {
-	SettingsContainer,
-	SettingsInputInfo,
-	SettingsTitle
-} from '~/components/settings/SettingsContainer';
-import { SettingsItem } from '~/components/settings/SettingsItem';
+import SettingsButton from '~/components/settings/SettingsButton';
+import { SettingsInputInfo, SettingsTitle } from '~/components/settings/SettingsContainer';
+import SettingsToggle from '~/components/settings/SettingsToggle';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
@@ -64,7 +60,7 @@ const EditLocationSettingsScreen = ({
 	useEffect(() => {
 		navigation.setOptions({
 			headerRight: () => (
-				<View style={tw`mr-1 flex flex-row gap-x-1`}>
+				<View style={tw`flex flex-row mr-1 gap-x-1`}>
 					{form.formState.isDirty && (
 						<AnimatedButton
 							variant="outline"
@@ -113,10 +109,10 @@ const EditLocationSettingsScreen = ({
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 
 	return (
-		<ScrollView contentContainerStyle={tw`gap-y-6 pb-12 pt-4`}>
+		<ScreenContainer style={tw`px-7`}>
 			{/* Inputs */}
-			<View style={tw`px-2`}>
-				<SettingsTitle>Display Name</SettingsTitle>
+			<View>
+				<SettingsTitle style={tw`mb-1`}>Display Name</SettingsTitle>
 				<Controller
 					name="displayName"
 					control={form.control}
@@ -129,7 +125,7 @@ const EditLocationSettingsScreen = ({
 					not rename the actual folder on disk.
 				</SettingsInputInfo>
 
-				<SettingsTitle style={tw`mt-3`}>Local Path</SettingsTitle>
+				<SettingsTitle style={tw`mt-3 mb-1`}>Local Path</SettingsTitle>
 				<Controller
 					name="localPath"
 					control={form.control}
@@ -144,94 +140,62 @@ const EditLocationSettingsScreen = ({
 			<Divider style={tw`my-0`} />
 			{/* Switches */}
 			<View style={tw`gap-y-6`}>
-				<SettingsContainer>
-					<SettingsItem
-						title="Generate preview media"
-						rightArea={
-							<Controller
-								name="generatePreviewMedia"
-								control={form.control}
-								render={({ field: { onChange, value } }) => (
-									<Switch value={value ?? undefined} onValueChange={onChange} />
-								)}
-							/>
-						}
-					/>
-					<SettingsItem
-						title="Sync preview media with your devices"
-						rightArea={
-							<Controller
-								name="syncPreviewMedia"
-								control={form.control}
-								render={({ field: { onChange, value } }) => (
-									<Switch value={value ?? undefined} onValueChange={onChange} />
-								)}
-							/>
-						}
-					/>
-					<SettingsItem
-						title="Hide location and contents from view"
-						rightArea={
-							<Controller
-								name="hidden"
-								control={form.control}
-								render={({ field: { onChange, value } }) => (
-									<Switch value={value ?? undefined} onValueChange={onChange} />
-								)}
-							/>
-						}
-					/>
-				</SettingsContainer>
+				<SettingsToggle
+					name="generatePreviewMedia"
+					control={form.control}
+					title="Generate preview media"
+				/>
+				<SettingsToggle
+					control={form.control}
+					name="syncPreviewMedia"
+					title="Sync preview media with your devices"
+				/>
+				<SettingsToggle
+					control={form.control}
+					name="hidden"
+					title="Hide location and contents from view"
+				/>
 			</View>
-			{/* Indexer Rules */}
-			<Text style={tw`text-center text-xs font-bold text-white`}>TODO: Indexer Rules</Text>
 			{/* Buttons */}
 			<View style={tw`gap-y-6`}>
-				<SettingsContainer description="Perform a full rescan of this Location.">
-					<SettingsItem
-						title="Full Reindex"
-						rightArea={
-							<AnimatedButton
-								size="sm"
-								onPress={() =>
-									fullRescan.mutate({ location_id: id, reidentify_objects: true })
-								}
-							>
-								<ArrowsClockwise color="white" size={20} />
-							</AnimatedButton>
-						}
-					/>
-				</SettingsContainer>
-				<SettingsContainer description="Extract data from Library as an archive, useful to preserve Location folder structure.">
-					<SettingsItem
-						title="Archive"
-						rightArea={
-							<AnimatedButton
-								size="sm"
-								onPress={() => Alert.alert('Archiving locations is coming soon...')}
-							>
-								<Archive color="white" size={20} />
-							</AnimatedButton>
-						}
-					/>
-				</SettingsContainer>
-				<SettingsContainer description="This will not delete the actual folder on disk. Preview media will be...???">
-					<SettingsItem
-						title="Delete"
-						rightArea={
-							<DeleteLocationModal
-								locationId={id}
-								trigger={
-									<FakeButton size="sm" variant="danger">
-										<Trash color={tw.color('ink')} size={20} />
-									</FakeButton>
-								}
-							/>
-						}
-					/>
-				</SettingsContainer>
+				<SettingsButton
+					title="Reindex"
+					description="Perform a full rescan of this location"
+					buttonPress={() =>
+						fullRescan.mutate({ location_id: id, reidentify_objects: true })
+					}
+					buttonText="Full Reindex"
+					buttonIcon={<ArrowsClockwise color="white" size={20} />}
+					buttonTextStyle="text-white font-bold"
+					buttonVariant="outline"
+					infoContainerStyle={'w-[50%]'}
+				/>
+				<SettingsButton
+					title="Archive Location"
+					description="Extract data from Library as an archive, useful to preserve Location folder structure."
+					buttonText="Archive"
+					buttonIcon={<Archive color="white" size={20} />}
+					buttonPress={() => Alert.alert('Archiving locations is coming soon...')}
+					buttonVariant="outline"
+					buttonTextStyle="text-white font-bold"
+					infoContainerStyle={'w-[60%]'}
+				/>
+				<SettingsButton
+					title="Delete Location"
+					description="This will not delete the actual folder on disk. Preview media will be...???"
+					buttonText="Delete"
+					buttonIcon={<Trash color="white" size={20} />}
+					buttonPress={() => Alert.alert('Deleting locations is coming soon...')}
+					buttonVariant="danger"
+					buttonTextStyle="text-white font-bold"
+					infoContainerStyle={'w-[60%]'}
+				/>
+				{/* Indexer Rules */}
+				<Text style={tw`text-xs font-bold text-center text-white`}>
+					TODO: Indexer Rules
+				</Text>
 			</View>
-		</ScrollView>
+		</ScreenContainer>
 	);
 };
 

@@ -44,33 +44,6 @@ export default function Header({
 	const explorerStore = useExplorerStore();
 	const routeParams = route?.route.params as any;
 
-	const SearchType = () => {
-		switch (searchType) {
-			case 'explorer':
-				return 'Explorer'; //TODO
-			case 'location':
-				return <Search placeholder="Location name..." />;
-			default:
-				return null;
-		}
-	};
-	const HeaderIconKind = () => {
-		switch (headerKind) {
-			case 'location':
-				return <Icon size={32} name="Folder" />;
-			case 'tag':
-				return (
-					<View
-						style={twStyle('h-6 w-6 rounded-full', {
-							backgroundColor: routeParams.color
-						})}
-					/>
-				);
-			default:
-				return null;
-		}
-	};
-
 	return (
 		<View
 			style={twStyle(
@@ -78,8 +51,8 @@ export default function Header({
 				Platform.OS === 'android' ? 'pt-5' : 'pt-10'
 			)}
 		>
-			<View style={tw`mx-auto mt-5 h-auto w-full justify-center px-7 pb-5`}>
-				<View style={tw`w-full flex-row items-center justify-between`}>
+			<View style={tw`justify-center w-full h-auto pb-5 mx-auto mt-5 px-7`}>
+				<View style={tw`flex-row items-center justify-between w-full`}>
 					<View style={tw`flex-row items-center gap-5`}>
 						{navBack && (
 							<Pressable
@@ -91,7 +64,7 @@ export default function Header({
 							</Pressable>
 						)}
 						<View style={tw`flex-row items-center gap-2`}>
-							<HeaderIconKind />
+							<HeaderIconKind headerKind={headerKind} routeParams={routeParams} />
 							<Text
 								numberOfLines={1}
 								style={tw`max-w-[190px] text-[22px] font-bold text-white`}
@@ -126,8 +99,45 @@ export default function Header({
 				</View>
 
 				{showLibrary && <BrowseLibraryManager style="mt-4" />}
-				{searchType && <SearchType />}
+				{searchType && <HeaderSearchType searchType={searchType} />}
 			</View>
 		</View>
 	);
 }
+
+interface HeaderSearchTypeProps {
+	searchType: HeaderProps['searchType'];
+}
+
+const HeaderSearchType = ({ searchType }: HeaderSearchTypeProps) => {
+	switch (searchType) {
+		case 'explorer':
+			return 'Explorer'; //TODO
+		case 'location':
+			return <Search placeholder="Location name..." />;
+		default:
+			return null;
+	}
+};
+
+interface HeaderIconKindProps {
+	headerKind: HeaderProps['headerKind'];
+	routeParams?: any;
+}
+
+const HeaderIconKind = ({ headerKind, routeParams }: HeaderIconKindProps) => {
+	switch (headerKind) {
+		case 'location':
+			return <Icon size={32} name="Folder" />;
+		case 'tag':
+			return (
+				<View
+					style={twStyle('h-6 w-6 rounded-full', {
+						backgroundColor: routeParams.color
+					})}
+				/>
+			);
+		default:
+			return null;
+	}
+};
