@@ -8,7 +8,7 @@ const TagsSettingsScreen = () => {
 
 	return (
 		<>
-			<Tags />
+			<Tags viewStyle="list" />
 			<CreateTagModal ref={modalRef} />
 		</>
 	);

@@ -58,9 +58,9 @@ function LibraryItem({
 			enableTrackpadTwoFingerGesture
 			renderRightActions={renderRightActions}
 		>
-			<View style={tw`flex flex-row items-center justify-between`}>
+			<View style={tw`flex-row items-center justify-between`}>
 				<View>
-					<Text style={tw`font-semibold text-ink text-md`}>{library.config.name}</Text>
+					<Text style={tw`font-semibold text-md text-ink`}>{library.config.name}</Text>
 					<Text style={tw`mt-1 text-xs text-ink-dull`}>{library.uuid}</Text>
 				</View>
 				<CaretRight color={tw.color('ink')} size={20} />

@@ -1,7 +1,7 @@
 import { Locations } from '~/screens/Locations';
 
 const LocationSettingsScreen = () => {
-	return <Locations />;
+	return <Locations redirectToLocationSettings />;
 };
 
 export default LocationSettingsScreen;

@@ -4,15 +4,19 @@ import { useRef } from 'react';
 import { Pressable, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { useCache, useLibraryQuery, useNodes } from '@sd/client';
-import { BrowseTagItem } from '~/components/browse/BrowseTags';
+import { TagItem } from '~/components/browse/BrowseTags';
 import Fade from '~/components/layout/Fade';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import CreateTagModal from '~/components/modal/tag/CreateTagModal';
-import { tw } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 
-export default function Tags() {
+interface Props {
+	viewStyle?: 'grid' | 'list';
+}
+
+export default function Tags({ viewStyle = 'list' }: Props) {
 	const tags = useLibraryQuery(['tags.list']);
 	const navigation = useNavigation<BrowseStackScreenProps<'Browse'>['navigation']>();
 	const modalRef = useRef<ModalRef>(null);
@@ -20,9 +24,9 @@ export default function Tags() {
 	useNodes(tags.data?.nodes);
 	const tagData = useCache(tags.data?.items);
 	return (
-		<ScreenContainer scrollview={false} style={tw`relative px-7 py-0`}>
+		<ScreenContainer scrollview={false} style={tw`relative py-0 px-7`}>
 			<Pressable
-				style={tw`absolute bottom-7 right-7 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-accent`}
+				style={tw`absolute z-10 flex items-center justify-center w-12 h-12 rounded-full bottom-7 right-7 bg-accent`}
 				onPress={() => {
 					modalRef.current?.present();
 				}}
@@ -39,8 +43,9 @@ export default function Tags() {
 				<FlatList
 					data={tagData}
 					renderItem={({ item }) => (
-						<BrowseTagItem
-							tagStyle="w-[105px]"
+						<TagItem
+							tagStyle={twStyle(viewStyle === 'grid' ? 'w-[105px]' : 'w-full')}
+							viewStyle={viewStyle}
 							tag={item}
 							onPress={() => {
 								navigation.navigate('BrowseStack', {
@@ -50,8 +55,8 @@ export default function Tags() {
 							}}
 						/>
 					)}
-					numColumns={3}
-					columnWrapperStyle={tw`gap-2.5`}
+					numColumns={viewStyle === 'grid' ? 3 : 1}
+					columnWrapperStyle={viewStyle === 'grid' && tw`justify-between`}
 					horizontal={false}
 					keyExtractor={(item) => item.id.toString()}
 					showsHorizontalScrollIndicator={false}
