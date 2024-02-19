@@ -1,10 +1,10 @@
 import { useNavigation } from '@react-navigation/native';
+import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { DotsThreeOutlineVertical, Eye, Pen, Plus, Trash } from 'phosphor-react-native';
 import React, { useRef } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
 import { FlatList, Swipeable } from 'react-native-gesture-handler';
 import { ClassInput } from 'twrnc/dist/esm/types';
-import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw, twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
@@ -37,9 +37,8 @@ export const TagItem = ({
 	const renderTagView = () => (
 		<View
 			style={twStyle(
-				`h-auto ${
-					viewStyle === 'grid' ? 'w-[90px]' : 'w-full'
-				} flex-col justify-center gap-2.5 rounded-md border border-app-line/50 bg-app-box/50 p-2`,
+				`h-auto flex-col justify-center gap-2.5 rounded-md border border-app-line/50 bg-app-box/50 p-2`,
+				viewStyle === 'grid' ? 'w-[90px]' : 'w-full',
 				tagStyle
 			)}
 		>
@@ -77,7 +76,7 @@ export const TagItem = ({
 		return (
 			<Animated.View
 				style={[
-					tw`flex flex-row items-center ml-5`,
+					tw`ml-5 flex flex-row items-center`,
 					{ transform: [{ translateX: translate }] }
 				]}
 			>
@@ -103,12 +102,12 @@ export const TagItem = ({
 				renderTagView()
 			) : (
 				<Swipeable
-					containerStyle={tw`p-3 border rounded-md border-app-line/50 bg-app-box/50`}
+					containerStyle={tw`rounded-md border border-app-line/50 bg-app-box/50 p-3`}
 					enableTrackpadTwoFingerGesture
 					renderRightActions={renderRightActions}
 				>
 					<View style={twStyle('h-auto flex-row items-center justify-between', tagStyle)}>
-						<View style={tw`flex-row items-center flex-1 gap-2`}>
+						<View style={tw`flex-1 flex-row items-center gap-2`}>
 							<View
 								style={twStyle('h-[28px] w-[28px] rounded-full', {
 									backgroundColor: tag.color!
@@ -148,7 +147,7 @@ const BrowseTags = () => {
 
 	return (
 		<View style={tw`gap-5`}>
-			<View style={tw`flex-row items-center justify-between w-full px-7`}>
+			<View style={tw`w-full flex-row items-center justify-between px-7`}>
 				<Text style={tw`text-lg font-bold text-white`}>Tags</Text>
 				<View style={tw`flex-row gap-3`}>
 					<Pressable onPress={() => navigation.navigate('Tags')}>
@@ -162,7 +161,7 @@ const BrowseTags = () => {
 					</Pressable>
 					<Pressable testID="add-tag" onPress={() => modalRef.current?.present()}>
 						<View
-							style={tw`items-center justify-center w-8 h-8 bg-transparent border border-dashed rounded-md border-ink-faint`}
+							style={tw`h-8 w-8 items-center justify-center rounded-md border border-dashed border-ink-faint bg-transparent`}
 						>
 							<Plus weight="bold" size={18} style={tw`text-ink-faint`} />
 						</View>
@@ -177,7 +176,7 @@ const BrowseTags = () => {
 							style={tw`relative h-auto w-[85.5vw] flex-col items-center justify-center overflow-hidden rounded-md border border-dashed border-sidebar-line p-4`}
 						>
 							<Icon name="Tags" size={38} />
-							<Text style={tw`mt-2 font-medium text-center text-ink-dull`}>
+							<Text style={tw`mt-2 text-center font-medium text-ink-dull`}>
 								You have no tags
 							</Text>
 						</View>

@@ -5,11 +5,11 @@ import { tw } from '~/lib/tailwind';
 
 type Props =
 	| {
-			title: string;
-			description?: string;
-			onEnabledChange?: (enabled: boolean) => void;
-			control: Control<any>;
-			name: string;
+			title: string; // Title of the setting
+			description?: string; // This is to display a description below the title
+			onEnabledChange?: (enabled: boolean) => void; // This is to receive the value of the toggle when it changes
+			control: Control<any>; //Zod form control
+			name: string; //Name of the field for zod form controller
 	  }
 	| {
 			title: string;

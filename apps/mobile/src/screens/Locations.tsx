@@ -49,9 +49,9 @@ export const Locations = ({ redirectToLocationSettings }: Props) => {
 			SettingsStackScreenProps<'Settings'>['navigation']
 	>();
 	return (
-		<ScreenContainer scrollview={false} style={tw`relative py-0 px-7`}>
+		<ScreenContainer scrollview={false} style={tw`relative px-7 py-0`}>
 			<Pressable
-				style={tw`absolute z-10 flex items-center justify-center w-12 h-12 rounded-full bottom-7 right-7 bg-accent`}
+				style={tw`absolute bottom-7 right-7 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-accent`}
 				onPress={() => {
 					modalRef.current?.present();
 				}}
@@ -134,7 +134,7 @@ export const LocationItem = ({
 		return (
 			<Animated.View
 				style={[
-					tw`flex flex-row items-center gap-2 ml-5 mr-3`,
+					tw`ml-5 mr-3 flex flex-row items-center gap-2`,
 					{ transform: [{ translateX: translate }] }
 				]}
 			>
@@ -164,11 +164,11 @@ export const LocationItem = ({
 	return (
 		<Pressable onPress={onPress}>
 			<Swipeable
-				containerStyle={tw`border rounded-md border-sidebar-line/50 bg-sidebar-box`}
+				containerStyle={tw`rounded-md border border-sidebar-line/50 bg-sidebar-box`}
 				enableTrackpadTwoFingerGesture
 				renderRightActions={renderRightActions}
 			>
-				<View style={tw`flex-row justify-between h-auto gap-3 p-2`}>
+				<View style={tw`h-auto flex-row justify-between gap-3 p-2`}>
 					<View style={tw`w-[50%] flex-row items-center gap-2`}>
 						<View style={tw`relative`}>
 							<FolderIcon size={42} />
@@ -194,7 +194,7 @@ export const LocationItem = ({
 					<View style={tw`flex-row items-center gap-3`}>
 						<View style={tw`rounded-md bg-app-input p-1.5`}>
 							<Text
-								style={tw`text-xs font-bold text-left text-ink-dull`}
+								style={tw`text-left text-xs font-bold text-ink-dull`}
 								numberOfLines={1}
 							>
 								{`${byteSize(location.size_in_bytes)}`}

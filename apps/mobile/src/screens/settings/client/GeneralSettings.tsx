@@ -33,11 +33,11 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 					</View>
 				</View>
 				{/* Divider */}
-				<Divider style={tw`mt-2 mb-4`} />
+				<Divider style={tw`mb-4 mt-2`} />
 				{/* Node Name and Port */}
 				<SettingsTitle style={tw`mb-1`}>Node Name</SettingsTitle>
 				<Input value={node.name} />
-				<SettingsTitle style={tw`mt-3 mb-1`}>Node Port</SettingsTitle>
+				<SettingsTitle style={tw`mb-1 mt-3`}>Node Port</SettingsTitle>
 				<Input value={node.p2p_port?.toString() ?? '5795'} keyboardType="numeric" />
 			</Card>
 			{debugState.enabled && (
@@ -45,7 +45,7 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 					{/* Card Header */}
 					<Text style={tw`font-semibold text-ink`}>Debug</Text>
 					{/* Divider */}
-					<Divider style={tw`mt-2 mb-4`} />
+					<Divider style={tw`mb-4 mt-2`} />
 					<SettingsTitle style={tw`mb-1`}>Data Folder</SettingsTitle>
 					{/* Useful for simulator, not so for real devices. */}
 					<Input value={node.data_path} />

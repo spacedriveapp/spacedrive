@@ -60,7 +60,7 @@ function LibraryItem({
 		>
 			<View style={tw`flex-row items-center justify-between`}>
 				<View>
-					<Text style={tw`font-semibold text-md text-ink`}>{library.config.name}</Text>
+					<Text style={tw`text-md font-semibold text-ink`}>{library.config.name}</Text>
 					<Text style={tw`mt-1 text-xs text-ink-dull`}>{library.uuid}</Text>
 				</View>
 				<CaretRight color={tw.color('ink')} size={20} />
@@ -92,7 +92,7 @@ const LibrarySettingsScreen = ({ navigation }: SettingsStackScreenProps<'Library
 	const modalRef = useRef<ModalRef>(null);
 
 	return (
-		<ScreenContainer style={tw`justify-start gap-0 py-0 px-7`} scrollview={false}>
+		<ScreenContainer style={tw`justify-start gap-0 px-7 py-0`} scrollview={false}>
 			<Fade
 				fadeSides="top-bottom"
 				orientation="vertical"

@@ -60,7 +60,7 @@ const EditLocationSettingsScreen = ({
 	useEffect(() => {
 		navigation.setOptions({
 			headerRight: () => (
-				<View style={tw`flex flex-row mr-1 gap-x-1`}>
+				<View style={tw`mr-1 flex flex-row gap-x-1`}>
 					{form.formState.isDirty && (
 						<AnimatedButton
 							variant="outline"
@@ -125,7 +125,7 @@ const EditLocationSettingsScreen = ({
 					not rename the actual folder on disk.
 				</SettingsInputInfo>
 
-				<SettingsTitle style={tw`mt-3 mb-1`}>Local Path</SettingsTitle>
+				<SettingsTitle style={tw`mb-1 mt-3`}>Local Path</SettingsTitle>
 				<Controller
 					name="localPath"
 					control={form.control}
@@ -191,7 +191,7 @@ const EditLocationSettingsScreen = ({
 					infoContainerStyle={'w-[60%]'}
 				/>
 				{/* Indexer Rules */}
-				<Text style={tw`text-xs font-bold text-center text-white`}>
+				<Text style={tw`text-center text-xs font-bold text-white`}>
 					TODO: Indexer Rules
 				</Text>
 			</View>

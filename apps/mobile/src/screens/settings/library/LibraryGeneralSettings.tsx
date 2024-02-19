@@ -37,7 +37,7 @@ const LibraryGeneralSettingsScreen = (_: SettingsStackScreenProps<'LibraryGenera
 	});
 
 	return (
-		<ScreenContainer scrollview={false} style={tw`justify-start py-0 px-7`}>
+		<ScreenContainer scrollview={false} style={tw`justify-start px-7 py-0`}>
 			<View style={tw`pt-5`}>
 				<SettingsTitle style={tw`mb-1`}>Name</SettingsTitle>
 				<Controller
@@ -47,7 +47,7 @@ const LibraryGeneralSettingsScreen = (_: SettingsStackScreenProps<'LibraryGenera
 						<Input onBlur={onBlur} onChangeText={onChange} value={value} />
 					)}
 				/>
-				<SettingsTitle style={tw`mt-4 mb-1`}>Description</SettingsTitle>
+				<SettingsTitle style={tw`mb-1 mt-4`}>Description</SettingsTitle>
 				<Controller
 					name="description"
 					control={form.control}

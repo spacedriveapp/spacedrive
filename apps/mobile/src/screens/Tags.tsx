@@ -24,9 +24,9 @@ export default function Tags({ viewStyle = 'list' }: Props) {
 	useNodes(tags.data?.nodes);
 	const tagData = useCache(tags.data?.items);
 	return (
-		<ScreenContainer scrollview={false} style={tw`relative py-0 px-7`}>
+		<ScreenContainer scrollview={false} style={tw`relative px-7 py-0`}>
 			<Pressable
-				style={tw`absolute z-10 flex items-center justify-center w-12 h-12 rounded-full bottom-7 right-7 bg-accent`}
+				style={tw`absolute bottom-7 right-7 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-accent`}
 				onPress={() => {
 					modalRef.current?.present();
 				}}

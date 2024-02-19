@@ -12,7 +12,7 @@ const AboutScreen = () => {
 	const buildInfo = useBridgeQuery(['buildInfo']);
 
 	return (
-		<ScreenContainer style={tw`justify-start gap-0 py-5 px-7`}>
+		<ScreenContainer style={tw`justify-start gap-0 px-7 py-5`}>
 			<View style={tw.style('flex flex-row items-center')}>
 				<Image
 					source={require('../../../../assets/icon.png')}
