@@ -917,7 +917,7 @@ pub(super) async fn remove_by_file_path(
 				.await?;
 			} else {
 				sync.write_op(
-					&db,
+					db,
 					sync.shared_delete(prisma_sync::file_path::SyncId {
 						pub_id: file_path.pub_id.clone(),
 					}),

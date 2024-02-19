@@ -1339,6 +1339,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "castaway"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a17ed5635fc8536268e5d4de1e22e81ac34419e5f052d4d51f4e01dcc263fcc"
+dependencies = [
+ "rustversion",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1582,6 +1591,19 @@ checksum = "35ed6e9d84f0b51a7f52daf1c7d71dd136fd7a3f41a8462b8cdb8c78d920fad4"
 dependencies = [
  "bytes",
  "memchr",
+]
+
+[[package]]
+name = "compact_str"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f86b9c4c00838774a6d902ef931eff7470720c51d90c2e32cfe15dc304737b3f"
+dependencies = [
+ "castaway",
+ "cfg-if",
+ "itoa 1.0.10",
+ "ryu",
+ "static_assertions",
 ]
 
 [[package]]
@@ -5584,14 +5606,14 @@ checksum = "a86ed3f5f244b372d6b1a00b72ef7f8876d0bc6a78a4c9985c53614041512063"
 
 [[package]]
 name = "ort"
-version = "2.0.0-alpha.2"
+version = "2.0.0-rc.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a094a17bfe4f9eb561bfdf4454b8d0f6f89deaf9a5a572a1ef29c29ce708627"
+checksum = "f8e5caf4eb2ead4bc137c3ff4e347940e3e556ceb11a4180627f04b63d7342dd"
 dependencies = [
+ "compact_str",
  "half",
  "libloading 0.8.1",
  "ndarray",
- "once_cell",
  "ort-sys",
  "thiserror",
  "tracing",
@@ -5599,9 +5621,9 @@ dependencies = [
 
 [[package]]
 name = "ort-sys"
-version = "2.0.0-alpha.3"
+version = "2.0.0-rc.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "846ab4ca6873d26ac40f4bdfa8375e5e4547117693b06de5b7903e0c7471d1b7"
+checksum = "f48b5623df2187e0db543ecb2032a6a999081086b7ffddd318000c00b23ace46"
 dependencies = [
  "flate2",
  "sha2 0.10.8",
@@ -7561,7 +7583,7 @@ dependencies = [
 
 [[package]]
 name = "sd-core"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "aovec",
  "async-channel",
@@ -7700,7 +7722,7 @@ dependencies = [
 
 [[package]]
 name = "sd-desktop"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "axum",
  "directories 5.0.1",

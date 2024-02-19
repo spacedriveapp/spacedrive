@@ -15,6 +15,7 @@ import {
 import React from 'react';
 import { Platform, SectionList, Text, TouchableWithoutFeedback, View } from 'react-native';
 import { DebugState, useDebugState, useDebugStateEnabler } from '@sd/client';
+import ScreenContainer from '~/components/layout/ScreenContainer';
 import { SettingsItem } from '~/components/settings/SettingsItem';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackParamList, SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
@@ -140,10 +141,10 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 	const debugState = useDebugState();
 
 	return (
-		<View style={tw`flex-1 bg-mobile-screen px-7`}>
+		<ScreenContainer tabHeight={false} scrollview={false} style={tw`relative gap-0 py-0 px-7`}>
 			<SectionList
 				sections={sections(debugState)}
-				contentContainerStyle={tw`h-auto pb-5 pt-3`}
+				contentContainerStyle={tw`h-auto pt-3 pb-5`}
 				renderItem={({ item }) => (
 					<SettingsItem
 						title={item.title}
@@ -158,7 +159,7 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 				stickySectionHeadersEnabled={false}
 				initialNumToRender={50}
 			/>
-		</View>
+		</ScreenContainer>
 	);
 }
 
