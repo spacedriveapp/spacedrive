@@ -9,7 +9,7 @@ export default function NetworkScreen({ navigation }: NetworkStackScreenProps<'N
 		<ScreenContainer scrollview={false} style={tw`items-center justify-center gap-0`}>
 			<Icon name="Globe" size={128} />
 			<Text style={tw`mt-4 text-lg font-bold text-white`}>Your Local Network</Text>
-			<Text style={tw`max-w-sm mt-1 text-sm text-center text-ink-dull`}>
+			<Text style={tw`mt-1 max-w-sm text-center text-sm text-ink-dull`}>
 				Other Spacedrive nodes on your LAN will appear here, along with your default OS
 				network mounts.
 			</Text>

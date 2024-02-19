@@ -2,6 +2,7 @@ import { CheckCircle } from 'phosphor-react-native';
 import React, { useState } from 'react';
 import { ColorValue, Pressable, ScrollView, Text, View, ViewStyle } from 'react-native';
 import { Themes, useThemeStore } from '@sd/client';
+import ScreenContainer from '~/components/layout/ScreenContainer';
 import { SettingsTitle } from '~/components/settings/SettingsContainer';
 import Colors from '~/constants/style/Colors';
 import { tw, twStyle } from '~/lib/tailwind';
@@ -70,7 +71,7 @@ function Theme(props: ThemeProps) {
 				{/* Checkmark */}
 				{props.isSelected && (
 					<CheckCircle
-						color={props.textColor as string}
+						color={tw.color('accent')}
 						weight="fill"
 						size={24}
 						style={tw`absolute bottom-1.5 right-1.5`}
@@ -83,7 +84,7 @@ function Theme(props: ThemeProps) {
 
 function SystemTheme(props: { isSelected: boolean }) {
 	return (
-		<View style={tw`h-[90px] w-[110px] flex-1 flex-row overflow-hidden rounded-xl`}>
+		<View style={tw`h-[80px] w-[110px] flex-row overflow-hidden rounded-xl`}>
 			<View
 				style={twStyle('flex-1 overflow-hidden', {
 					backgroundColor: themes[1]!.outsideColor
@@ -94,7 +95,7 @@ function SystemTheme(props: { isSelected: boolean }) {
 				</View>
 			</View>
 			<View
-				style={twStyle(' flex-1 overflow-hidden', {
+				style={twStyle('flex-1 overflow-hidden', {
 					backgroundColor: themes[0]!.outsideColor
 				})}
 			>
@@ -103,7 +104,7 @@ function SystemTheme(props: { isSelected: boolean }) {
 			{/* Checkmark */}
 			{props.isSelected && (
 				<CheckCircle
-					color={'black'}
+					color={tw.color('accent')}
 					weight="fill"
 					size={24}
 					style={tw`absolute bottom-1.5 right-1.5`}
@@ -125,33 +126,30 @@ const AppearanceSettingsScreen = ({
 	// TODO: Hook this up to the theme store once light theme is fixed.
 
 	return (
-		<View style={tw`flex-1 pt-4`}>
-			<View style={tw`px-4`}>
-				<SettingsTitle>Theme</SettingsTitle>
-				<View style={tw`mb-4 border-b border-b-app-line`} />
-				<ScrollView
-					horizontal
-					showsHorizontalScrollIndicator={false}
-					contentContainerStyle={tw`gap-x-3`}
-				>
-					{themes.map((theme) => (
-						<Pressable
-							key={theme.themeValue}
-							onPress={() => setSelectedTheme(theme.themeValue)}
-						>
-							{theme.themeValue === 'system' ? (
-								<SystemTheme isSelected={selectedTheme === 'system'} />
-							) : (
-								<Theme {...theme} isSelected={selectedTheme === theme.themeValue} />
-							)}
-							<Text style={tw`mt-1.5 text-center font-medium text-white`}>
-								{theme.themeName}
-							</Text>
-						</Pressable>
-					))}
-				</ScrollView>
-			</View>
-		</View>
+		<ScreenContainer scrollview={false} style={tw`gap-2 px-7`}>
+			<SettingsTitle>Theme</SettingsTitle>
+			<ScrollView
+				horizontal
+				showsHorizontalScrollIndicator={false}
+				contentContainerStyle={tw`gap-x-3`}
+			>
+				{themes.map((theme) => (
+					<Pressable
+						key={theme.themeValue}
+						onPress={() => setSelectedTheme(theme.themeValue)}
+					>
+						{theme.themeValue === 'system' ? (
+							<SystemTheme isSelected={selectedTheme === 'system'} />
+						) : (
+							<Theme {...theme} isSelected={selectedTheme === theme.themeValue} />
+						)}
+						<Text style={tw`mt-1.5 text-center font-medium text-white`}>
+							{theme.themeName}
+						</Text>
+					</Pressable>
+				))}
+			</ScrollView>
+		</ScreenContainer>
 	);
 };
 

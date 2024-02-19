@@ -3,7 +3,9 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { LibraryConfigWrapped, useBridgeQuery, useCache, useNodes } from '@sd/client';
+import Fade from '~/components/layout/Fade';
 import { ModalRef } from '~/components/layout/Modal';
+import ScreenContainer from '~/components/layout/ScreenContainer';
 import DeleteLibraryModal from '~/components/modal/confirmModals/DeleteLibraryModal';
 import { AnimatedButton, FakeButton } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
@@ -56,12 +58,12 @@ function LibraryItem({
 			enableTrackpadTwoFingerGesture
 			renderRightActions={renderRightActions}
 		>
-			<View style={tw`flex flex-row items-center justify-between`}>
+			<View style={tw`flex-row items-center justify-between`}>
 				<View>
-					<Text style={tw`font-semibold text-ink`}>{library.config.name}</Text>
-					<Text style={tw`mt-0.5 text-xs text-ink-dull`}>{library.uuid}</Text>
+					<Text style={tw`text-md font-semibold text-ink`}>{library.config.name}</Text>
+					<Text style={tw`mt-1 text-xs text-ink-dull`}>{library.uuid}</Text>
 				</View>
-				<CaretRight color={tw.color('ink-dull')} size={18} />
+				<CaretRight color={tw.color('ink')} size={20} />
 			</View>
 		</Swipeable>
 	);
@@ -90,15 +92,24 @@ const LibrarySettingsScreen = ({ navigation }: SettingsStackScreenProps<'Library
 	const modalRef = useRef<ModalRef>(null);
 
 	return (
-		<View style={tw`flex-1 px-3 py-4`}>
-			<FlatList
-				data={libraries}
-				keyExtractor={(item) => item.uuid}
-				renderItem={({ item, index }) => (
-					<LibraryItem navigation={navigation} library={item} index={index} />
-				)}
-			/>
-		</View>
+		<ScreenContainer style={tw`justify-start gap-0 px-7 py-0`} scrollview={false}>
+			<Fade
+				fadeSides="top-bottom"
+				orientation="vertical"
+				color="mobile-screen"
+				width={30}
+				height="100%"
+			>
+				<FlatList
+					data={libraries}
+					contentContainerStyle={tw`py-5`}
+					keyExtractor={(item) => item.uuid}
+					renderItem={({ item, index }) => (
+						<LibraryItem navigation={navigation} library={item} index={index} />
+					)}
+				/>
+			</Fade>
+		</ScreenContainer>
 	);
 };
 
