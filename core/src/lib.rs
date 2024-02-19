@@ -230,7 +230,7 @@ impl Node {
 		info!("Spacedrive shutting down...");
 		self.thumbnailer.shutdown().await;
 		self.jobs.shutdown().await;
-		self.p2p.shutdown();
+		self.p2p.shutdown().await;
 		#[cfg(feature = "ai")]
 		if let Some(image_labeller) = &self.image_labeller {
 			image_labeller.shutdown().await;

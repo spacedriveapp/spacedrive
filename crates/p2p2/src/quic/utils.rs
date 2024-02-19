@@ -1,6 +1,6 @@
 //! This file contains some fairly meaningless glue code for integrating with libp2p.
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 
 use libp2p::{identity::Keypair, multiaddr::Protocol, Multiaddr, PeerId};
 

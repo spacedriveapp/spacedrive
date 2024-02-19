@@ -1,6 +1,7 @@
 use std::{collections::HashSet, fmt, net::SocketAddr, sync::Arc};
 
 use flume::Sender;
+use tokio::sync::oneshot;
 
 use crate::{Peer, RemoteIdentity};
 
@@ -41,7 +42,34 @@ pub enum HookEvent {
 	PeerDisconnectedWith(ListenerId, RemoteIdentity),
 
 	/// Your hook or the P2P system was told to shutdown.
-	Shutdown,
+	Shutdown {
+		// We can detect when this guard is dropped, it doesn't need to be used.
+		_guard: ShutdownGuard,
+	},
+}
+
+#[derive(Debug)]
+pub struct ShutdownGuard(pub(crate) Option<oneshot::Sender<()>>);
+
+impl ShutdownGuard {
+	pub(crate) fn new() -> (Self, oneshot::Receiver<()>) {
+		let (tx, rx) = oneshot::channel();
+		(Self(Some(tx)), rx)
+	}
+}
+
+impl Drop for ShutdownGuard {
+	fn drop(&mut self) {
+		if let Some(tx) = self.0.take() {
+			let _ = tx.send(());
+		}
+	}
+}
+
+impl Clone for ShutdownGuard {
+	fn clone(&self) -> Self {
+		Self(None)
+	}
 }
 
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]

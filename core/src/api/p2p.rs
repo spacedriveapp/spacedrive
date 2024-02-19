@@ -1,4 +1,4 @@
-use crate::p2p::{operations, P2PEvent, PeerMetadata};
+use crate::p2p::{operations, Header, P2PEvent, PeerMetadata};
 
 use sd_p2p2::RemoteIdentity;
 
@@ -6,6 +6,7 @@ use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
 use std::path::PathBuf;
+use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 
 use super::{Ctx, R};
@@ -48,7 +49,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("debugConnect", {
 			R.mutation(|node, identity: RemoteIdentity| async move {
 				let peer = { node.p2p.p2p.peers().get(&identity).cloned() };
-				let _stream = peer
+				let mut stream = peer
 					.ok_or(rspc::Error::new(
 						ErrorCode::InternalServerError,
 						"big man, offline".into(),
@@ -59,6 +60,16 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						rspc::Error::new(
 							ErrorCode::InternalServerError,
 							format!("error in peer.new_stream: {:?}", err),
+						)
+					})?;
+
+				stream
+					.write_all(&Header::Ping.to_bytes())
+					.await
+					.map_err(|err| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							format!("error sending ping header: {:?}", err),
 						)
 					})?;
 

@@ -2,16 +2,18 @@ use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
 	net::SocketAddr,
 	sync::{atomic::AtomicUsize, Arc, PoisonError, RwLock, RwLockReadGuard},
+	time::Duration,
 };
 
 use flume::Sender;
 use hash_map_diff::hash_map_diff;
+use libp2p::futures::future::join_all;
 use stable_vec::StableVec;
-use tokio::sync::oneshot;
+use tokio::{sync::oneshot, time::timeout};
 use tracing::info;
 
 use crate::{
-	hooks::{HandlerFn, Hook, HookEvent, ListenerData, ListenerId},
+	hooks::{HandlerFn, Hook, HookEvent, ListenerData, ListenerId, ShutdownGuard},
 	smart_guards::SmartWriteGuard,
 	HookId, Identity, Peer, RemoteIdentity, UnicastStream,
 };
@@ -32,7 +34,7 @@ pub struct P2P {
 	/// This will contain information such as the node's name, version, and services we provide.
 	metadata: RwLock<HashMap<String, String>>,
 	/// A list of all peers known to the P2P system. Be aware a peer could be connected and/or discovered at any time.
-	peers: RwLock<HashMap<RemoteIdentity, Arc<Peer>>>,
+	pub(crate) peers: RwLock<HashMap<RemoteIdentity, Arc<Peer>>>,
 	/// A counter for getting a new unique ID for the next hook.
 	/// This number is converted to a `HookId` and returned to the user. // TODO: Fix this
 	hook_id: AtomicUsize,
@@ -310,64 +312,65 @@ impl P2P {
 	}
 
 	/// Unregister a hook. This will also call `HookEvent::Shutdown` on the hook.
-	pub fn unregister_hook(&self, id: HookId) {
-		if let Some(hook) = self
-			.hooks
-			.write()
-			.unwrap_or_else(PoisonError::into_inner)
-			.remove(id.0)
+	pub async fn unregister_hook(&self, id: HookId) {
+		let mut shutdown_rxs = Vec::new();
 		{
-			let _ = hook.send(HookEvent::Shutdown);
+			let mut hooks = self.hooks.write().unwrap_or_else(PoisonError::into_inner);
+			if let Some(hook) = hooks.remove(id.0) {
+				let (_guard, rx) = ShutdownGuard::new();
+				shutdown_rxs.push(rx);
+				let _ = hook.send(HookEvent::Shutdown { _guard });
 
-			if let Some(_) = hook.listener {
-				self.hooks
-					.read()
-					.unwrap_or_else(PoisonError::into_inner)
-					.iter()
-					.for_each(|(_, hook)| {
+				if let Some(_) = hook.listener {
+					hooks.iter().for_each(|(_, hook)| {
 						hook.send(HookEvent::ListenerUnregistered(ListenerId(id.0)));
 					});
-			}
-
-			let mut peers = self.peers.write().unwrap_or_else(PoisonError::into_inner);
-			let mut peers_to_remove = HashSet::new(); // We are mutate while iterating
-			for (identity, peer) in peers.iter_mut() {
-				let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
-				if let Some(active_connection) = state.active_connections.remove(&ListenerId(id.0))
-				{
-					let _ = active_connection.send(());
 				}
-				state.connection_methods.remove(&ListenerId(id.0));
-				state.discovered.remove(&id);
 
-				if state.connection_methods.is_empty() && state.discovered.is_empty() {
-					peers_to_remove.insert(*identity);
+				let mut peers = self.peers.write().unwrap_or_else(PoisonError::into_inner);
+				let mut peers_to_remove = HashSet::new(); // We are mutate while iterating
+				for (identity, peer) in peers.iter_mut() {
+					let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
+					if let Some(active_connection) =
+						state.active_connections.remove(&ListenerId(id.0))
+					{
+						let _ = active_connection.send(());
+					}
+					state.connection_methods.remove(&ListenerId(id.0));
+					state.discovered.remove(&id);
+
+					if state.connection_methods.is_empty() && state.discovered.is_empty() {
+						peers_to_remove.insert(*identity);
+					}
 				}
-			}
 
-			for identity in peers_to_remove {
-				peers.remove(&identity);
+				for identity in peers_to_remove {
+					peers.remove(&identity);
+				}
 			}
 		}
+
+		// We rely on the fact that when the oneshot is dropped this will return an error as opposed to hanging.
+		// So we can detect when the hooks shutdown code has completed.
+		let _ = timeout(Duration::from_secs(2), join_all(shutdown_rxs)).await;
 	}
 
 	/// Shutdown the whole P2P system.
 	/// This will close all connections and remove all hooks.
-	pub fn shutdown(&self) {
-		let hooks = self
-			.hooks
-			.write()
-			.unwrap_or_else(PoisonError::into_inner)
-			.iter()
-			.map(|i| i.0)
-			.collect::<Vec<_>>();
+	pub async fn shutdown(&self) {
+		let hooks = {
+			self.hooks
+				.write()
+				.unwrap_or_else(PoisonError::into_inner)
+				.iter()
+				.map(|i| i.0)
+				.collect::<Vec<_>>()
+				.clone()
+		};
 
 		for hook_id in hooks {
-			self.unregister_hook(HookId(hook_id));
+			self.unregister_hook(HookId(hook_id)).await;
 		}
-
-		// TODO: Wait for response from hooks saying they are done shutting down
-		// TODO: Maybe wait until `unregister_hook` is called internally by each of them or with timeout and force removal overwise.
 	}
 }
 

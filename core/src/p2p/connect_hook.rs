@@ -14,7 +14,7 @@ impl ConnectHook {
 			while let Ok(event) = rx.recv_async().await {
 				match event {
 					// TODO: Do the thing. For now we don't need this.
-					HookEvent::Shutdown => break,
+					HookEvent::Shutdown { _guard } => break,
 					_ => continue,
 				}
 			}

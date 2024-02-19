@@ -10,7 +10,7 @@ mod quic;
 mod smart_guards;
 mod stream;
 
-pub use hooks::{HookEvent, HookId, ListenerId};
+pub use hooks::{HookEvent, HookId, ListenerId, ShutdownGuard};
 pub use identity::{
 	Identity, IdentityErr, IdentityOrRemoteIdentity, IdentityOrRemoteIdentityErr, RemoteIdentity,
 };

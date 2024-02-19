@@ -10,6 +10,7 @@ use flume::{bounded, Receiver, Sender};
 use libp2p::{
 	core::muxing::StreamMuxerBox,
 	futures::{AsyncReadExt, AsyncWriteExt, StreamExt},
+	swarm::SwarmEvent,
 	StreamProtocol, Swarm, SwarmBuilder, Transport,
 };
 use libp2p_stream::Behaviour;
@@ -176,8 +177,8 @@ impl QuicTransport {
 			.and_then(|r| r)
 	}
 
-	pub fn shutdown(self) {
-		self.p2p.unregister_hook(self.id.into());
+	pub async fn shutdown(self) {
+		self.p2p.unregister_hook(self.id.into()).await;
 	}
 }
 
@@ -202,18 +203,33 @@ async fn start(
 
 	let mut control = swarm.behaviour().new_control();
 	let mut incoming = control.accept(PROTOCOL).unwrap(); // TODO: Error handling
+	let map = Arc::new(RwLock::new(HashMap::new()));
 
 	loop {
 		tokio::select! {
 			Ok(event) = rx.recv_async() => match event {
-				HookEvent::Shutdown => break,
+				HookEvent::Shutdown { _guard } => {
+					let connected_peers = swarm.connected_peers().cloned().collect::<Vec<_>>();
+					for peer_id in connected_peers {
+						let _ = swarm.disconnect_peer_id(peer_id);
+					}
+
+					if let Some((id, _)) = ipv4_listener.take() {
+						let _ = swarm.remove_listener(id);
+					}
+					if let Some((id, _)) = ipv6_listener.take() {
+						let _ = swarm.remove_listener(id);
+					}
+
+					// TODO: We don't break the event loop so libp2p can be polled to keep cleaning up.
+					// break;
+				},
 				_ => {},
 			},
 			Some((peer_id, mut stream)) = incoming.next() => {
 				let p2p = p2p.clone();
+				let map = map.clone();
 				tokio::spawn(async move {
-					println!("GOT STREAM FOR {:?}", peer_id); // TODO
-
 					let mut actual = [0; REMOTE_IDENTITY_LEN];
 					stream.read_exact(&mut actual).await.unwrap(); // TODO: Error handling
 					let identity = RemoteIdentity::from_bytes(&actual).unwrap();
@@ -226,30 +242,40 @@ async fn start(
 					if peer_id != remote_identity_peer_id {
 						panic!("no please don't hack me, hacker man"); // TODO: Error handling
 					}
+					map.write().unwrap_or_else(PoisonError::into_inner).insert(peer_id, identity);
 
 					// TODO: Sync metadata
 					let metadata = HashMap::new();
 
 					let stream = UnicastStream::new(identity, stream.compat());
-					// debug!(
-					// 	"stream({id}): established stream with '{}'",
-					// 	stream.remote_identity()
-					// );
-
-
 					let (shutdown_tx, shutdown_rx) = oneshot::channel();
-					let peer = p2p.connected_to(
+					p2p.connected_to(
 						id,
 						metadata,
 						stream,
 						shutdown_tx,
 					);
-					// println!("INITIALISED PEER: {:?}", peer); // TODO
+
+					debug!("established inbound stream with '{}'", identity);
 
 					// TODO: Handle `shutdown_rx`
 				});
 			},
 			event = swarm.select_next_some() => match event {
+				SwarmEvent::ConnectionClosed { peer_id, num_established, .. }  if num_established == 0 => {
+					let Some(identity) = map.write().unwrap_or_else(PoisonError::into_inner).remove(&peer_id) else {
+						warn!("Tried to remove a peer that wasn't in the map.");
+						continue;
+					};
+
+					let peers = p2p.peers.read().unwrap_or_else(PoisonError::into_inner);
+					let Some(peer) = peers.get(&identity) else {
+						warn!("Tried to remove a peer that wasn't in the P2P system.");
+						continue;
+					};
+
+					peer.disconnected_from(id);
+				},
 				_ => {},
 			},
 			Ok(event) = internal_rx.recv_async() => match event {
@@ -289,25 +315,21 @@ async fn start(
 			Some(req) = connect_rx.recv() => {
 				let mut control = control.clone();
 				let self_remote_identity = p2p.identity().to_remote_identity();
+				let map = map.clone();
 				tokio::spawn(async move {
 					let peer_id = remote_identity_to_libp2p_peerid(&req.to);
 					let mut stream = control.open_stream_with_addrs(
 						peer_id,
 						PROTOCOL,
 						req.addrs.iter()
-							// TODO: Remove this `filter`
-							.filter(|a| a.is_ipv4())
 							.map(socketaddr_to_quic_multiaddr)
 							.collect()
 					).await.unwrap();  // TODO: Error handling send back to caller though channel
+					map.write().unwrap_or_else(PoisonError::into_inner).insert(peer_id, req.to.clone());
 
 					stream.write_all(&self_remote_identity.get_bytes()).await.unwrap(); // TODO: Error handling
 
-					// TODO: Sync metadata
-
-					// TODO: Convert into log
-					println!("ESTABLISHED STREAM: {:?}", stream); // TODO
-
+					debug!("Established outbound stream with '{}'", req.to);
 					let _ = req.tx.send(Ok(UnicastStream::new(req.to, stream.compat())));
 				});
 			}

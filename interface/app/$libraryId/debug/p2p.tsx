@@ -4,17 +4,15 @@ import {
 	useCache,
 	useConnectedPeers,
 	useDiscoveredPeers,
-	useNodes,
-	useP2PContextRaw
+	useNodes
 } from '@sd/client';
-import { toast } from '@sd/ui';
+import { Button, toast } from '@sd/ui';
 
 export const Component = () => {
 	const node = useBridgeQuery(['nodeState']);
 
 	return (
 		<div className="p-4">
-			{/* // TODO: Fix this */}
 			{/* {node.data?.p2p_enabled === false ? (
 				<h1 className="text-red-500">P2P is disabled. Please enable it in settings!</h1>
 			) : (
@@ -49,10 +47,16 @@ function Page() {
 				<div>
 					<h1 className="mt-4">Discovered:</h1>
 					{discoveredPeers.size === 0 && <p className="pl-2">None</p>}
-					{[...discoveredPeers.entries()].map(([id, node]) => (
+					{[...discoveredPeers.entries()].map(([id, _node]) => (
 						<div key={id} className="flex space-x-2">
 							<p>{id}</p>
-							<button onClick={() => debugConnect.mutate(id)}>Connect</button>
+							<Button
+								variant="accent"
+								onClick={() => debugConnect.mutate(id)}
+								disabled={debugConnect.isLoading}
+							>
+								Connect
+							</Button>
 						</div>
 					))}
 				</div>

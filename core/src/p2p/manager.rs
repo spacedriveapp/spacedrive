@@ -139,8 +139,12 @@ impl P2PManager {
 				}
 			}
 			P2PDiscoveryState::Disabled => {
-				if let Some(mdns) = self.mdns.lock().unwrap_or_else(PoisonError::into_inner).take() {
-					mdns.shutdown();
+				let mdns = {
+					let mut mdns = self.mdns.lock().unwrap_or_else(PoisonError::into_inner);
+					mdns.take()
+				};
+				if let Some(mdns) = mdns {
+					mdns.shutdown().await;
 					info!("mDNS shutdown successfully.");
 				}
 
@@ -208,9 +212,9 @@ impl P2PManager {
 		})
 	}
 
-	pub fn shutdown(&self) {
+	pub async fn shutdown(&self) {
 		// `self.p2p` will automatically take care of shutting down all the hooks. Eg. `self.quic`, `self.mdns`, etc.
-		self.p2p.shutdown();
+		self.p2p.shutdown().await;
 	}
 }
 

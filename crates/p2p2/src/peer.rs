@@ -8,7 +8,7 @@ use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tracing::warn;
 
-use crate::{HookId, ListenerId, RemoteIdentity, UnicastStream, P2P};
+use crate::{HookEvent, HookId, ListenerId, RemoteIdentity, UnicastStream, P2P};
 
 #[derive(Debug)]
 pub struct Peer {
@@ -170,8 +170,7 @@ impl Peer {
 				warn!("Failed to send connect request to peer: {}", err);
 				NewStreamError::EventLoopOffline(err)
 			})?;
-		let y = rx
-			.await
+		rx.await
 			.map_err(|err| {
 				warn!("Failed to receive connect response from peer: {err}");
 				NewStreamError::ConnectionNeverEstablished(err)
@@ -179,11 +178,7 @@ impl Peer {
 			.map_err(|err| {
 				warn!("Failed to do the thing: {err}");
 				NewStreamError::Connecting(err)
-			})?;
-
-		println!("GOT STREAM BACK FOR: {:?}", y.remote_identity());
-
-		Ok(y)
+			})
 	}
 }
 
@@ -207,28 +202,57 @@ impl Peer {
 			.insert(listener, tx);
 	}
 
-	pub fn undiscover_peer(&self, listener: HookId) {
-		// self.state
-		// 	.write()
-		// 	.unwrap_or_else(PoisonError::into_inner)
-		// 	.active_connections
-		// 	.remove(&listener);
+	pub fn undiscover_peer(&self, hook_id: HookId) {
+		let Some(p2p) = self.p2p.upgrade() else {
+			return;
+		};
 
-		// TODO: Emit event
+		let mut state = self.state.write().unwrap_or_else(PoisonError::into_inner);
+		state.discovered.remove(&hook_id);
 
-		todo!();
+		let hooks = p2p.hooks.read().unwrap_or_else(PoisonError::into_inner);
+		hooks.iter().for_each(|(_, hook)| {
+			hook.send(HookEvent::PeerExpiredBy(hook_id, self.identity.clone()));
+		});
+
+		if state.connection_methods.is_empty() && state.discovered.is_empty() {
+			p2p.peers
+				.write()
+				.unwrap_or_else(PoisonError::into_inner)
+				.remove(&self.identity);
+
+			hooks.iter().for_each(|(_, hook)| {
+				hook.send(HookEvent::PeerUnavailable(self.identity.clone()));
+			});
+		}
 	}
 
-	pub fn disconnected_from(&self, listener: ListenerId) {
-		// self.state
-		// 	.write()
-		// 	.unwrap_or_else(PoisonError::into_inner)
-		// 	.active_connections
-		// 	.remove(&listener);
+	pub fn disconnected_from(&self, listener_id: ListenerId) {
+		let Some(p2p) = self.p2p.upgrade() else {
+			return;
+		};
 
-		// TODO: Emit event
+		let mut state = self.state.write().unwrap_or_else(PoisonError::into_inner);
+		state.connection_methods.remove(&listener_id);
 
-		todo!();
+		let hooks = p2p.hooks.read().unwrap_or_else(PoisonError::into_inner);
+		hooks.iter().for_each(|(_, hook)| {
+			hook.send(HookEvent::PeerDisconnectedWith(
+				listener_id,
+				self.identity.clone(),
+			));
+		});
+
+		if state.connection_methods.is_empty() && state.discovered.is_empty() {
+			p2p.peers
+				.write()
+				.unwrap_or_else(PoisonError::into_inner)
+				.remove(&self.identity);
+
+			hooks.iter().for_each(|(_, hook)| {
+				hook.send(HookEvent::PeerUnavailable(self.identity.clone()));
+			});
+		}
 	}
 }
 

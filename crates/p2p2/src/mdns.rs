@@ -7,7 +7,7 @@ use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
 use tokio::time::{sleep_until, Instant, Sleep};
 use tracing::{error, trace, warn};
 
-use crate::{HookEvent, HookId, RemoteIdentity, P2P};
+use crate::{HookEvent, HookId, RemoteIdentity, ShutdownGuard, P2P};
 
 /// The time between re-advertising the mDNS service.
 const MDNS_READVERTISEMENT_INTERVAL: Duration = Duration::from_secs(60); // Every minute re-advertise
@@ -29,8 +29,8 @@ impl Mdns {
 		Ok(Self { p2p, hook_id })
 	}
 
-	pub fn shutdown(self) {
-		self.p2p.unregister_hook(self.hook_id);
+	pub async fn shutdown(self) {
+		self.p2p.unregister_hook(self.hook_id).await;
 	}
 }
 
@@ -62,8 +62,8 @@ fn start(p2p: Arc<P2P>, hook_id: HookId, rx: Receiver<HookEvent>) -> Result<(), 
 			tokio::select! {
 				Ok(event) = rx.recv_async() => match event {
 					HookEvent::MetadataModified | HookEvent::ListenerRegistered(_) | HookEvent::ListenerAddrAdded(_, _) | HookEvent::ListenerAddrRemoved(_, _) | HookEvent::ListenerUnregistered(_)  => advertise(&mut state),
-					HookEvent::Shutdown => {
-						shutdown(&mut state);
+					HookEvent::Shutdown { _guard } => {
+						shutdown(_guard, &mut state);
 						break;
 					},
 					_ => continue,
@@ -185,8 +185,8 @@ fn fullname_to_identity(
 	Some(identity)
 }
 
-fn shutdown(state: &mut State) {
-	state
+fn shutdown(_guard: ShutdownGuard, state: &mut State) {
+	match state
 		.mdns_daemon
 		.unregister(&state.service_name)
 		.map_err(|err| {
@@ -194,8 +194,12 @@ fn shutdown(state: &mut State) {
 				"error removing mdns service '{}': {err}",
 				state.service_name
 			);
-		})
-		.ok();
+		}) {
+		Ok(chan) => {
+			let _ = chan.recv();
+		}
+		Err(_) => {}
+	};
 
 	// TODO: Without this mDNS is not sending it goodbye packets without a timeout. Try and remove this cause it makes shutdown slow.
 	std::thread::sleep(Duration::from_millis(100));
