@@ -220,42 +220,66 @@ async fn start(
 	rx: Receiver<UnicastStream>,
 ) -> Result<(), ()> {
 	while let Ok(mut stream) = rx.recv_async().await {
-		let header = Header::from_stream(&mut stream).await.map_err(|err| {
-			error!("Failed to read header from stream: {}", err);
-		})?;
+		let this = this.clone();
+		let node = node.clone();
+		tokio::spawn(async move {
+			println!("APPLICATION GOT STREAM: {:?}", stream); // TODO
 
-		match header {
-			Header::Ping => operations::ping::reciever(stream).await,
-			Header::Spacedrop(req) => operations::spacedrop::reciever(&this, req, stream).await?,
-			Header::Sync(library_id) => {
-				let mut tunnel = Tunnel::responder(stream).await.map_err(|err| {
-					error!("Failed `Tunnel::responder`: {}", err);
-				})?;
+			let header = Header::from_stream(&mut stream)
+				.await
+				.map_err(|err| {
+					error!("Failed to read header from stream: {}", err);
+				})
+				.unwrap(); // TODO
 
-				let msg = SyncMessage::from_stream(&mut tunnel).await.map_err(|err| {
-					error!("Failed `SyncMessage::from_stream`: {}", err);
-				})?;
+			println!("APPLICATION GOT HEADER: {:?}", header); // TODO
 
-				let library = node
-					.libraries
-					.get_library(&library_id)
-					.await
-					.ok_or_else(|| {
-						error!("Failed to get library '{library_id}'");
+			match header {
+				Header::Ping => operations::ping::reciever(stream).await,
+				Header::Spacedrop(req) => {
+					operations::spacedrop::reciever(&this, req, stream)
+						.await
+						.unwrap() // TODO
+				}
+				Header::Sync(library_id) => {
+					let mut tunnel = Tunnel::responder(stream)
+						.await
+						.map_err(|err| {
+							error!("Failed `Tunnel::responder`: {}", err);
+						})
+						.unwrap(); // TODO
 
-						// TODO: Respond to remote client with warning!
-					})?;
+					let msg = SyncMessage::from_stream(&mut tunnel)
+						.await
+						.map_err(|err| {
+							error!("Failed `SyncMessage::from_stream`: {}", err);
+						})
+						.unwrap(); // TODO
 
-				match msg {
-					SyncMessage::NewOperations => {
-						super::sync::responder(&mut tunnel, library).await?;
-					}
-				};
-			}
-			Header::File(req) => {
-				operations::request_file::receiver(&node, req, stream).await?;
-			}
-		};
+					let library = node
+						.libraries
+						.get_library(&library_id)
+						.await
+						.ok_or_else(|| {
+							error!("Failed to get library '{library_id}'");
+
+							// TODO: Respond to remote client with warning!
+						})
+						.unwrap(); // TODO: Error handling
+
+					match msg {
+						SyncMessage::NewOperations => {
+							super::sync::responder(&mut tunnel, library).await.unwrap(); // TODO: Error handling
+						}
+					};
+				}
+				Header::File(req) => {
+					operations::request_file::receiver(&node, req, stream)
+						.await
+						.unwrap(); // TODO: Error handling
+				}
+			};
+		});
 	}
 
 	Ok::<_, ()>(())

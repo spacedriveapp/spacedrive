@@ -2793,7 +2793,7 @@ dependencies = [
 [[package]]
 name = "futures-bounded"
 version = "0.2.3"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=0888a95ad875764c21839d8e36c4c1bf4b7299a5#0888a95ad875764c21839d8e36c4c1bf4b7299a5"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
 dependencies = [
  "futures-timer",
  "futures-util",
@@ -4252,7 +4252,7 @@ checksum = "4ec2a862134d2a7d32d7983ddcdd1c4923530833c9f2ea1a44fc5fa473989058"
 [[package]]
 name = "libp2p"
 version = "0.53.2"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=0888a95ad875764c21839d8e36c4c1bf4b7299a5#0888a95ad875764c21839d8e36c4c1bf4b7299a5"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
 dependencies = [
  "bytes",
  "either",
@@ -4268,9 +4268,7 @@ dependencies = [
  "libp2p-identity",
  "libp2p-kad",
  "libp2p-mdns",
- "libp2p-metrics",
- "libp2p-ping",
- "libp2p-quic",
+ "libp2p-quic 0.10.2 (git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c)",
  "libp2p-swarm",
  "libp2p-tcp",
  "libp2p-upnp",
@@ -4283,7 +4281,7 @@ dependencies = [
 [[package]]
 name = "libp2p-allow-block-list"
 version = "0.3.0"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=0888a95ad875764c21839d8e36c4c1bf4b7299a5#0888a95ad875764c21839d8e36c4c1bf4b7299a5"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
 dependencies = [
  "libp2p-core",
  "libp2p-identity",
@@ -4294,7 +4292,7 @@ dependencies = [
 [[package]]
 name = "libp2p-connection-limits"
 version = "0.3.1"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=0888a95ad875764c21839d8e36c4c1bf4b7299a5#0888a95ad875764c21839d8e36c4c1bf4b7299a5"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
 dependencies = [
  "libp2p-core",
  "libp2p-identity",
@@ -4305,7 +4303,7 @@ dependencies = [
 [[package]]
 name = "libp2p-core"
 version = "0.41.2"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=0888a95ad875764c21839d8e36c4c1bf4b7299a5#0888a95ad875764c21839d8e36c4c1bf4b7299a5"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
 dependencies = [
  "either",
  "fnv",
@@ -4333,7 +4331,7 @@ dependencies = [
 [[package]]
 name = "libp2p-dns"
 version = "0.41.1"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=0888a95ad875764c21839d8e36c4c1bf4b7299a5#0888a95ad875764c21839d8e36c4c1bf4b7299a5"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
 dependencies = [
  "async-trait",
  "futures",
@@ -4348,7 +4346,7 @@ dependencies = [
 [[package]]
 name = "libp2p-gossipsub"
 version = "0.46.1"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=0888a95ad875764c21839d8e36c4c1bf4b7299a5#0888a95ad875764c21839d8e36c4c1bf4b7299a5"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
 dependencies = [
  "asynchronous-codec",
  "base64 0.21.7",
@@ -4397,8 +4395,8 @@ dependencies = [
 
 [[package]]
 name = "libp2p-kad"
-version = "0.45.3"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=0888a95ad875764c21839d8e36c4c1bf4b7299a5#0888a95ad875764c21839d8e36c4c1bf4b7299a5"
+version = "0.45.4"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
 dependencies = [
  "arrayvec",
  "asynchronous-codec",
@@ -4427,7 +4425,7 @@ dependencies = [
 [[package]]
 name = "libp2p-mdns"
 version = "0.45.1"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=0888a95ad875764c21839d8e36c4c1bf4b7299a5#0888a95ad875764c21839d8e36c4c1bf4b7299a5"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
 dependencies = [
  "data-encoding",
  "futures",
@@ -4445,41 +4443,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "libp2p-metrics"
-version = "0.14.1"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=0888a95ad875764c21839d8e36c4c1bf4b7299a5#0888a95ad875764c21839d8e36c4c1bf4b7299a5"
-dependencies = [
- "futures",
- "instant",
- "libp2p-core",
- "libp2p-identity",
- "libp2p-ping",
- "libp2p-swarm",
- "pin-project",
- "prometheus-client",
-]
-
-[[package]]
-name = "libp2p-ping"
-version = "0.44.0"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=0888a95ad875764c21839d8e36c4c1bf4b7299a5#0888a95ad875764c21839d8e36c4c1bf4b7299a5"
-dependencies = [
- "either",
- "futures",
- "futures-timer",
- "instant",
- "libp2p-core",
- "libp2p-identity",
- "libp2p-swarm",
- "rand 0.8.5",
- "tracing",
- "void",
-]
-
-[[package]]
 name = "libp2p-quic"
 version = "0.10.2"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=0888a95ad875764c21839d8e36c4c1bf4b7299a5#0888a95ad875764c21839d8e36c4c1bf4b7299a5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0375cdfee57b47b313ef1f0fdb625b78aed770d33a40cf1c294a371ff5e6666"
 dependencies = [
  "bytes",
  "futures",
@@ -4487,7 +4454,7 @@ dependencies = [
  "if-watch",
  "libp2p-core",
  "libp2p-identity",
- "libp2p-tls",
+ "libp2p-tls 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.12.1",
  "quinn",
  "rand 0.8.5",
@@ -4500,9 +4467,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "libp2p-quic"
+version = "0.10.2"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
+dependencies = [
+ "bytes",
+ "futures",
+ "futures-timer",
+ "if-watch",
+ "libp2p-core",
+ "libp2p-identity",
+ "libp2p-tls 0.3.0 (git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c)",
+ "parking_lot 0.12.1",
+ "quinn",
+ "rand 0.8.5",
+ "ring 0.16.20",
+ "rustls",
+ "socket2 0.5.5",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "libp2p-stream"
+version = "0.1.0-alpha"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
+dependencies = [
+ "futures",
+ "libp2p-core",
+ "libp2p-identity",
+ "libp2p-swarm",
+ "rand 0.8.5",
+ "tracing",
+ "void",
+]
+
+[[package]]
 name = "libp2p-swarm"
 version = "0.44.2"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=0888a95ad875764c21839d8e36c4c1bf4b7299a5#0888a95ad875764c21839d8e36c4c1bf4b7299a5"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
 dependencies = [
  "either",
  "fnv",
@@ -4524,7 +4528,7 @@ dependencies = [
 [[package]]
 name = "libp2p-tcp"
 version = "0.41.0"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=0888a95ad875764c21839d8e36c4c1bf4b7299a5#0888a95ad875764c21839d8e36c4c1bf4b7299a5"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
 dependencies = [
  "futures",
  "futures-timer",
@@ -4540,7 +4544,26 @@ dependencies = [
 [[package]]
 name = "libp2p-tls"
 version = "0.3.0"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=0888a95ad875764c21839d8e36c4c1bf4b7299a5#0888a95ad875764c21839d8e36c4c1bf4b7299a5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93ce7e3c2e7569d685d08ec795157981722ff96e9e9f9eae75df3c29d02b07a5"
+dependencies = [
+ "futures",
+ "futures-rustls",
+ "libp2p-core",
+ "libp2p-identity",
+ "rcgen",
+ "ring 0.16.20",
+ "rustls",
+ "rustls-webpki",
+ "thiserror",
+ "x509-parser",
+ "yasna",
+]
+
+[[package]]
+name = "libp2p-tls"
+version = "0.3.0"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
 dependencies = [
  "futures",
  "futures-rustls",
@@ -4558,7 +4581,7 @@ dependencies = [
 [[package]]
 name = "libp2p-upnp"
 version = "0.2.1"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=0888a95ad875764c21839d8e36c4c1bf4b7299a5#0888a95ad875764c21839d8e36c4c1bf4b7299a5"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
 dependencies = [
  "futures",
  "futures-timer",
@@ -5074,7 +5097,7 @@ dependencies = [
 [[package]]
 name = "multistream-select"
 version = "0.13.0"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=0888a95ad875764c21839d8e36c4c1bf4b7299a5#0888a95ad875764c21839d8e36c4c1bf4b7299a5"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
 dependencies = [
  "bytes",
  "futures",
@@ -6716,7 +6739,7 @@ dependencies = [
 [[package]]
 name = "quick-protobuf-codec"
 version = "0.3.1"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=0888a95ad875764c21839d8e36c4c1bf4b7299a5#0888a95ad875764c21839d8e36c4c1bf4b7299a5"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
 dependencies = [
  "asynchronous-codec",
  "bytes",
@@ -7447,7 +7470,7 @@ dependencies = [
 [[package]]
 name = "rw-stream-sink"
 version = "0.4.0"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=0888a95ad875764c21839d8e36c4c1bf4b7299a5#0888a95ad875764c21839d8e36c4c1bf4b7299a5"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
 dependencies = [
  "futures",
  "pin-project",
@@ -7996,7 +8019,8 @@ dependencies = [
  "hash_map_diff",
  "if-watch",
  "libp2p",
- "libp2p-quic",
+ "libp2p-quic 0.10.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libp2p-stream",
  "mdns-sd",
  "pin-project-lite",
  "rand_core 0.6.4",
@@ -9488,9 +9512,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.35.1"
+version = "1.36.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c89b4efa943be685f629b149f53829423f8f5531ea21249408e8e2f8671ec104"
+checksum = "61285f6515fa018fb2d1e46eb21223fff441ee8db5d0f1435e8ab4f5cdb80931"
 dependencies = [
  "backtrace",
  "bytes",

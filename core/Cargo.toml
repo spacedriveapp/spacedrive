@@ -38,7 +38,7 @@ sd-images = { path = "../crates/images", features = [
 	"specta",
 ] }
 sd-media-metadata = { path = "../crates/media-metadata" }
-sd-p2p2 = { path = "../crates/p2p2", features = ["specta", "serde"] }
+sd-p2p2 = { path = "../crates/p2p2", features = ["specta"] }
 sd-p2p-block = { path = "../crates/p2p-block" }
 sd-p2p-proto = { path = "../crates/p2p-proto" }
 sd-p2p-tunnel = { path = "../crates/p2p-tunnel" }

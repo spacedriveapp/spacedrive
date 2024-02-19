@@ -12,15 +12,12 @@ edition = { workspace = true }
 
 [features]
 default = []
-serde = []
 specta = []
 
 [dependencies]
 base64 = { workspace = true }
 pin-project-lite = { workspace = true }
-serde = { workspace = true, features = [
-	"derive",
-] } # TODO: Optional or remove feature
+serde = { workspace = true, features = ["derive"] }
 specta = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = [
@@ -41,8 +38,9 @@ futures-core = "0.3.30"
 if-watch = { version = "=3.2.0", features = [
 	"tokio",
 ] } # Override the features of if-watch which is used by libp2p-quic
-libp2p = { version = "0.53.2", features = ["tokio", "serde", "ping"] }
+libp2p = { version = "0.53.2", features = ["tokio", "serde"] }
 libp2p-quic = { version = "0.10.2", features = ["tokio"] }
+libp2p-stream = "0.1.0-alpha"
 mdns-sd = "0.10.3"
 rand_core = { version = "0.6.4" }
 streamunordered = "0.5.3"

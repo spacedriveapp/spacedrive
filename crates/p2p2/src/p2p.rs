@@ -165,10 +165,11 @@ impl P2P {
 	pub fn connected_to(
 		self: Arc<Self>,
 		listener: ListenerId,
-		identity: RemoteIdentity,
 		metadata: HashMap<String, String>,
+		stream: UnicastStream,
 		shutdown_tx: oneshot::Sender<()>,
 	) -> Arc<Peer> {
+		let identity = stream.remote_identity();
 		let mut peers = self.peers.write().unwrap_or_else(PoisonError::into_inner);
 		let peer = peers.entry(identity);
 		let was_peer_inserted = matches!(peer, Entry::Vacant(_));
@@ -199,6 +200,8 @@ impl P2P {
 				hook.send(HookEvent::PeerConnectedWith(listener, peer.clone()))
 			});
 		}
+
+		self.handler_tx.send(stream);
 
 		peer
 	}

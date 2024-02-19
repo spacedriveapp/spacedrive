@@ -76,7 +76,7 @@ strum = "0.25"
 strum_macros = "0.25"
 tempfile = "3.8.1"
 thiserror = "1.0.50"
-tokio = "1.34.0"
+tokio = "1.36.0"
 tokio-stream = "0.1.14"
 tokio-util = "0.7.10"
 uhlc = "=0.5.2"
@@ -87,16 +87,18 @@ webp = "0.2.6"
 # Proper IOS Support
 if-watch = { git = "https://github.com/oscartbeaumont/if-watch.git", rev = "a92c17d3f85c1c6fb0afeeaf6c2b24d0b147e8c3" }
 
-# Beta features
+# We hack it to the high heavens
 rspc = { git = "https://github.com/spacedriveapp/rspc.git", rev = "f3347e2e8bfe3f37bfacc437ca329fe71cdcb048" }
 
 # `cursor_position` method
 tauri = { git = "https://github.com/spacedriveapp/tauri.git", rev = "8409af71a83d631ff9d1cd876c441a57511a1cbd" }
 tao = { git = "https://github.com/spacedriveapp/tao", rev = "7880adbc090402c44fbcf006669458fa82623403" }
 
-libp2p = { git = "https://github.com/spacedriveapp/rust-libp2p", rev = "0888a95ad875764c21839d8e36c4c1bf4b7299a5" }
-libp2p-quic = { git = "https://github.com/spacedriveapp/rust-libp2p", rev = "0888a95ad875764c21839d8e36c4c1bf4b7299a5" }
-libp2p-swarm = { git = "https://github.com/spacedriveapp/rust-libp2p", rev = "0888a95ad875764c21839d8e36c4c1bf4b7299a5" }
+# Add `Control::open_stream_with_addrs`
+libp2p = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev = "a005656df7e82059a0eb2e333ebada4731d23f8c" }
+libp2p-core = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev = "a005656df7e82059a0eb2e333ebada4731d23f8c" }
+libp2p-swarm = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev = "a005656df7e82059a0eb2e333ebada4731d23f8c" }
+libp2p-stream = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev = "a005656df7e82059a0eb2e333ebada4731d23f8c" }
 
 # Set the settings for build scripts and proc-macros.
 [profile.dev.build-override]

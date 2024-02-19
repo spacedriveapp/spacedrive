@@ -1,9 +1,4 @@
-pub(super) mod behaviour;
-pub(super) mod connection;
-pub(super) mod libp2p;
-pub(super) mod proto_inbound;
-pub(super) mod proto_outbound;
-pub(super) mod stream;
 pub(super) mod transport;
+pub(super) mod utils;
 
 pub use transport::{Libp2pPeerId, QuicTransport};

@@ -92,7 +92,6 @@ pub async fn spacedrop(
 			debug!("({id}): failed to send header: {err}");
 			return;
 		}
-		println!("GOT: {:?}", header);
 		let Header::Spacedrop(requests) = header else {
 			unreachable!();
 		};
@@ -114,9 +113,9 @@ pub async fn spacedrop(
 				p2p.events.send(P2PEvent::SpacedropRejected { id }).ok();
 				return;
 			}
-			Ok(1) => {}        // Okay
-			Ok(_) => todo!(),  // TODO: Proper error
-			Err(_) => todo!(), // TODO: Proper error
+			Ok(1) => {}                     // Okay
+			Ok(_) => todo!(),               // TODO: Proper error
+			Err(err) => todo!("{:?}", err), // TODO: Proper error
 		}
 
 		let cancelled = Arc::new(AtomicBool::new(false));

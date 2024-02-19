@@ -1,27 +1,34 @@
 use std::{
+	collections::HashMap,
 	convert::Infallible,
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
 	sync::{Arc, PoisonError, RwLock},
+	time::Duration,
 };
 
 use flume::{bounded, Receiver, Sender};
 use libp2p::{
-	core::{muxing::StreamMuxerBox, ConnectedPoint, Endpoint},
-	futures::StreamExt,
-	swarm::{dial_opts::DialOpts, NotifyHandler, SwarmEvent, ToSwarm},
-	Swarm, SwarmBuilder, Transport,
+	core::muxing::StreamMuxerBox,
+	futures::{AsyncReadExt, AsyncWriteExt, StreamExt},
+	StreamProtocol, Swarm, SwarmBuilder, Transport,
 };
+use libp2p_stream::Behaviour;
 use tokio::{
 	net::TcpListener,
 	sync::{mpsc, oneshot},
 };
-use tracing::warn;
+use tokio_util::compat::FuturesAsyncReadCompatExt;
+use tracing::{debug, warn};
 
 use crate::{
-	quic::libp2p::socketaddr_to_quic_multiaddr, ConnectionRequest, HookEvent, ListenerId, P2P,
+	identity::REMOTE_IDENTITY_LEN,
+	quic::utils::{
+		identity_to_libp2p_keypair, remote_identity_to_libp2p_peerid, socketaddr_to_quic_multiaddr,
+	},
+	ConnectionRequest, HookEvent, ListenerId, RemoteIdentity, UnicastStream, P2P,
 };
 
-use super::behaviour::SpaceTime;
+const PROTOCOL: StreamProtocol = StreamProtocol::new("/sdp2p/1");
 
 /// [libp2p::PeerId] for debugging purposes only.
 #[derive(Debug)]
@@ -69,11 +76,7 @@ impl QuicTransport {
 	/// Be aware spawning this does nothing unless you call `Self::set_ipv4_enabled`/`Self::set_ipv6_enabled` to enable the listeners.
 	// TODO: Error type here
 	pub fn spawn(p2p: Arc<P2P>) -> Result<(Self, Libp2pPeerId), String> {
-		// This is sketchy, but it makes the whole system a lot easier to work with
-		// We are assuming the libp2p `Keypair`` is the same format as our `Identity` type.
-		// This is *acktually* true but they reserve the right to change it at any point.
-		let keypair =
-			libp2p::identity::Keypair::ed25519_from_bytes(p2p.identity().to_bytes()).unwrap();
+		let keypair = identity_to_libp2p_keypair(p2p.identity());
 		let libp2p_peer_id = Libp2pPeerId(keypair.public().to_peer_id());
 
 		let (tx, rx) = bounded(15);
@@ -93,11 +96,8 @@ impl QuicTransport {
 				.map(|(p, c), _| (p, StreamMuxerBox::new(c)))
 				.boxed()
 			}))
-		.with_behaviour(|_| SpaceTime::new(p2p.clone(), id)))
-		.with_swarm_config(|cfg| {
-			// TODO: Fix this
-			cfg.with_idle_connection_timeout(std::time::Duration::from_secs(u64::MAX))
-		})
+		.with_behaviour(|_| Behaviour::new()))
+		.with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
 		.build();
 
 		let state: Arc<RwLock<State>> = Default::default();
@@ -191,8 +191,8 @@ fn ok<T>(v: Result<T, Infallible>) -> T {
 async fn start(
 	p2p: Arc<P2P>,
 	id: ListenerId,
-	state: Arc<RwLock<State>>,
-	mut swarm: Swarm<SpaceTime>,
+	state: Arc<RwLock<State>>, // TODO: Removing this or using it???
+	mut swarm: Swarm<Behaviour>,
 	rx: Receiver<HookEvent>,
 	internal_rx: Receiver<InternalEvent>,
 	mut connect_rx: mpsc::Receiver<ConnectionRequest>,
@@ -200,40 +200,56 @@ async fn start(
 	let mut ipv4_listener = None;
 	let mut ipv6_listener = None;
 
+	let mut control = swarm.behaviour().new_control();
+	let mut incoming = control.accept(PROTOCOL).unwrap(); // TODO: Error handling
+
 	loop {
 		tokio::select! {
 			Ok(event) = rx.recv_async() => match event {
 				HookEvent::Shutdown => break,
 				_ => {},
 			},
+			Some((peer_id, mut stream)) = incoming.next() => {
+				let p2p = p2p.clone();
+				tokio::spawn(async move {
+					println!("GOT STREAM FOR {:?}", peer_id); // TODO
+
+					let mut actual = [0; REMOTE_IDENTITY_LEN];
+					stream.read_exact(&mut actual).await.unwrap(); // TODO: Error handling
+					let identity = RemoteIdentity::from_bytes(&actual).unwrap();
+
+					// We need to go `PeerId -> RemoteIdentity` but as `PeerId` is a hash that's impossible.
+					// So to make this work the connection initiator will send their remote identity.
+					// It is however untrusted as they could send anything, so we convert it to a PeerId and check it matches the PeerId for this connection.
+					// If it matches, we are certain they own the private key as libp2p takes care of ensuring the PeerId is trusted.
+					let remote_identity_peer_id = remote_identity_to_libp2p_peerid(&identity);
+					if peer_id != remote_identity_peer_id {
+						panic!("no please don't hack me, hacker man"); // TODO: Error handling
+					}
+
+					// TODO: Sync metadata
+					let metadata = HashMap::new();
+
+					let stream = UnicastStream::new(identity, stream.compat());
+					// debug!(
+					// 	"stream({id}): established stream with '{}'",
+					// 	stream.remote_identity()
+					// );
+
+
+					let (shutdown_tx, shutdown_rx) = oneshot::channel();
+					let peer = p2p.connected_to(
+						id,
+						metadata,
+						stream,
+						shutdown_tx,
+					);
+					// println!("INITIALISED PEER: {:?}", peer); // TODO
+
+					// TODO: Handle `shutdown_rx`
+				});
+			},
 			event = swarm.select_next_some() => match event {
-				// I don't get why this is required but without it the Quinn connection upgrade stalls and times out.
-				SwarmEvent::ConnectionEstablished { peer_id, connection_id, endpoint, .. } => {
-					// let y = match endpoint {
-					// 	ConnectedPoint::Dialer { .. } => {
-					// 		// swarm
-					// 		// 	.behaviour_mut()
-					// 		// 	.pending_events
-					// 		// 	.push_back(ToSwarm::NotifyHandler {
-					// 		// 		peer_id,
-					// 		// 		handler: NotifyHandler::One(connection_id),
-					// 		// 		event: ()
-					// 		// 	});
-					// 	},
-					// 	ConnectedPoint::Listener { .. } => {
-
-					// 	},
-					// };
-
-					swarm
-						.behaviour_mut()
-						.pending_events
-						.push_back(ToSwarm::NotifyHandler {
-							peer_id,
-							handler: NotifyHandler::One(connection_id),
-							event: ()
-						});
-				},
 				_ => {},
 			},
 			Ok(event) = internal_rx.recv_async() => match event {
@@ -271,27 +287,29 @@ async fn start(
 				},
 			},
 			Some(req) = connect_rx.recv() => {
-				let opts = DialOpts::unknown_peer_id()
-					.addresses(req.addrs.iter()
-					// TODO: Remove this `filter`
-					.filter(|a| a.is_ipv4())
-					.map(socketaddr_to_quic_multiaddr).collect())
-					.build();
+				let mut control = control.clone();
+				let self_remote_identity = p2p.identity().to_remote_identity();
+				tokio::spawn(async move {
+					let peer_id = remote_identity_to_libp2p_peerid(&req.to);
+					let mut stream = control.open_stream_with_addrs(
+						peer_id,
+						PROTOCOL,
+						req.addrs.iter()
+							// TODO: Remove this `filter`
+							.filter(|a| a.is_ipv4())
+							.map(socketaddr_to_quic_multiaddr)
+							.collect()
+					).await.unwrap();  // TODO: Error handling send back to caller though channel
 
-				let id = opts.connection_id();
+					stream.write_all(&self_remote_identity.get_bytes()).await.unwrap(); // TODO: Error handling
 
-				println!("\t INSERT {:?}", id); // TODO
+					// TODO: Sync metadata
 
-				let Err(err) = swarm.dial(opts) else {
-					swarm.behaviour_mut().state.establishing_outbound.lock().unwrap_or_else(PoisonError::into_inner).insert(id, req);
-					continue;
-				};
+					// TODO: Convert into log
+					println!("ESTABLISHED STREAM: {:?}", stream); // TODO
 
-				warn!(
-					"error dialing peer '{}' with addresses '{:?}': {}",
-					req.to, req.addrs, err
-				);
-				let _ = req.tx.send(Err(err.to_string()));
+					let _ = req.tx.send(Ok(UnicastStream::new(req.to, stream.compat())));
+				});
 			}
 		}
 	}
