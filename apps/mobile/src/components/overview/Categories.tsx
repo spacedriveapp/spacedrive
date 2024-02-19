@@ -16,7 +16,7 @@ interface Props {
 const Categories = ({ kinds }: Props) => {
 	return (
 		<View>
-			<Text style={tw`pb-5 text-lg font-bold text-white px-7`}>Categories</Text>
+			<Text style={tw`px-7 pb-5 text-lg font-bold text-white`}>Categories</Text>
 			<View>
 				<Fade color="mobile-screen" width={30} height="100%">
 					<VirtualizedListWrapper horizontal>
@@ -29,7 +29,7 @@ const Categories = ({ kinds }: Props) => {
 							key={kinds.data?.statistics ? 'kinds' : '_'} //needed to update numColumns when data is available
 							keyExtractor={(item) => item.name}
 							scrollEnabled={false}
-							ItemSeparatorComponent={() => <View style={tw`w-3 h-3`} />}
+							ItemSeparatorComponent={() => <View style={tw`h-3 w-3`} />}
 							showsHorizontalScrollIndicator={false}
 							renderItem={({ item }) => {
 								const { kind, name, count } = item;
@@ -79,7 +79,7 @@ const KindItem = ({ name, icon, items }: KindItemProps) => {
 			}}
 		>
 			<View style={twStyle('shrink-0 flex-row items-center', 'gap-2 rounded-lg text-sm')}>
-				<Icon name={icon} size={40} style={tw`w-12 h-12 mr-3`} />
+				<Icon name={icon} size={40} style={tw`mr-3 h-12 w-12`} />
 				<View>
 					<Text style={tw`text-sm font-medium text-ink`}>{name}</Text>
 					{items !== undefined && (
