@@ -18,6 +18,7 @@ interface Props {
 }
 
 function hardwareModelToIcon(hardwareModel: HardwareModel) {
+	console.log('hardwareModel', hardwareModel);
 	switch (hardwareModel) {
 		case 'MacBookPro':
 			return 'Laptop';
