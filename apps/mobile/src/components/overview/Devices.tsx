@@ -18,12 +18,17 @@ interface Props {
 }
 
 function hardwareModelToIcon(hardwareModel: HardwareModel) {
-	console.log('hardwareModel', hardwareModel);
 	switch (hardwareModel) {
 		case 'MacBookPro':
 			return 'Laptop';
 		case 'MacStudio':
 			return 'SilverBox';
+		case 'IPhone':
+			return 'Mobile';
+		case 'IPad':
+			return 'Tablet';
+		case 'Simulator':
+			return 'Drive';
 		default:
 			return 'Laptop';
 	}

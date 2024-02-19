@@ -5,8 +5,6 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use strum_macros::{Display, EnumIter};
 
-use tracing::info;
-
 #[repr(i32)]
 #[derive(Debug, Clone, Display, Copy, EnumIter, Type, Serialize, Deserialize, Eq, PartialEq)]
 pub enum HardwareModel {
@@ -111,7 +109,6 @@ pub fn get_hardware_model_name() -> Result<HardwareModel, Error> {
 
 			// Convert the buffer to a String
 			let machine_type = String::from_utf8_lossy(&buffer).trim().to_string();
-			info!("Machine type: {}", machine_type);
 
 			// Check if the device is an iPad or iPhone
 			if machine_type.starts_with("iPad") {
@@ -127,9 +124,6 @@ pub fn get_hardware_model_name() -> Result<HardwareModel, Error> {
 
 		if let Some(device_type) = get_device_type() {
 			let hardware_model = HardwareModel::from_display_name(&device_type.as_str());
-			info!("Device type: {}", device_type);
-			info!("Name: {}", device_type.to_lowercase().replace(' ', ""));
-			info!("Hardware model: {:?}", hardware_model);
 
 			Ok(hardware_model)
 		} else {
@@ -140,6 +134,7 @@ pub fn get_hardware_model_name() -> Result<HardwareModel, Error> {
 		}
 	}
 
+	// #[cfg]
 	#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 	{
 		Err(Error::new(
