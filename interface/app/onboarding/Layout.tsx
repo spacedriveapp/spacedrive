@@ -23,6 +23,7 @@ export const Component = () => {
 	});
 	const ctx = useContextValue();
 
+	//this is to make sure on initial render a BG is visible as video loads
 	useLayoutEffect(() => {
 		const handleResize = () => {
 			setWindowSize({ width: window.innerWidth, height: window.innerHeight });
