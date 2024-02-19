@@ -1,6 +1,7 @@
 use sd_prisma::{
 	prisma::{
-		file_path, label, label_on_object, location, object, tag, tag_on_object, PrismaClient,
+		file_path, label, label_on_object, location, media_data, object, tag, tag_on_object,
+		PrismaClient,
 	},
 	prisma_sync,
 };
@@ -76,6 +77,57 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 									.map(|v| (object::date_created::NAME, json!(v))),
 								o.date_accessed
 									.map(|v| (object::date_accessed::NAME, json!(v))),
+							],
+						),
+					)
+				})
+				.map(|o| crdt_op_unchecked_db(&o, instance_id))
+				.collect(),
+		)
+		.exec()
+		.await
+		.unwrap();
+
+	let media_datas = db
+		.media_data()
+		.find_many(vec![])
+		.include(media_data::include!({
+			object: select { pub_id }
+		}))
+		.exec()
+		.await
+		.unwrap();
+	db.crdt_operation()
+		.create_many(
+			media_datas
+				.into_iter()
+				.flat_map(|md| {
+					sync.shared_create(
+						prisma_sync::media_data::SyncId {
+							object: prisma_sync::object::SyncId {
+								pub_id: md.o.pub_id,
+							},
+						},
+						chain_optional_iter(
+							[],
+							[
+								md.resolution
+									.map(|v| (media_data::resolution::NAME, json!(v))),
+								md.media_date
+									.map(|v| (media_data::media_date::NAME, json!(v))),
+								md.media_location
+									.map(|v| (media_data::media_location::NAME, json!(v))),
+								md.camera_data
+									.map(|v| (media_data::camera_data::NAME, json!(v))),
+								md.artist.map(|v| (media_data::artist_data::NAME, json!(v))),
+								md.description
+									.map(|v| (media_data::description::NAME, json!(v))),
+								md.copyright
+									.map(|v| (media_data::copyright::NAME, json!(v))),
+								md.exif_version
+									.map(|v| (media_data::exif_version::NAME, json!(v))),
+								md.epoch_time
+									.map(|v| (media_data::epoch_time::NAME, json!(v))),
 							],
 						),
 					)

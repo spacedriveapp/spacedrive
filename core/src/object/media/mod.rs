@@ -28,21 +28,33 @@ pub fn media_data_image_to_query(
 	})
 }
 
+macro_rules! column_entry {
+	($v:expr; $field:ident) => {
+		$v.map(|v| (($field::NAME, json!(v)), $field::set(Some(v))))
+	};
+}
+
 #[cfg(feature = "location-watcher")]
 pub fn media_data_image_to_query_params(
 	mdi: ImageMetadata,
-) -> Result<Vec<SetParam>, MediaDataError> {
-	Ok(vec![
-		camera_data::set(serde_json::to_vec(&mdi.camera_data).ok()),
-		media_date::set(serde_json::to_vec(&mdi.date_taken).ok()),
-		resolution::set(serde_json::to_vec(&mdi.resolution).ok()),
-		media_location::set(serde_json::to_vec(&mdi.location).ok()),
-		artist::set(mdi.artist),
-		description::set(mdi.description),
-		copyright::set(mdi.copyright),
-		exif_version::set(mdi.exif_version),
-		epoch_time::set(mdi.date_taken.map(|x| x.unix_timestamp())),
-	])
+) -> (Vec<(&'static str, serde_json::Value)>, Vec<SetParam>) {
+	use sd_utils::chain_optional_iter;
+
+	chain_optional_iter(
+		[],
+		[
+			column_entry!(serde_json::to_vec(&mdi.camera_data).ok(); camera_data),
+			column_entry!(serde_json::to_vec(&mdi.date_taken).ok(); media_date),
+			column_entry!(serde_json::to_vec(&mdi.location).ok(); media_location),
+			column_entry!(mdi.artist; artist),
+			column_entry!(mdi.description; description),
+			column_entry!(mdi.copyright; copyright),
+			column_entry!(mdi.exif_version; exif_version),
+			column_entry!(mdi.date_taken; date_taken),
+		],
+	)
+	.into_iter()
+	.unzip()
 }
 
 pub fn media_data_image_from_prisma_data(
