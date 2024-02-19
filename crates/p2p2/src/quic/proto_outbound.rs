@@ -5,7 +5,7 @@ use std::{
 };
 
 use libp2p::{core::UpgradeInfo, swarm::ConnectionId, OutboundUpgrade, Stream};
-use tracing::warn;
+use tracing::{debug, warn};
 
 use super::{behaviour::SpaceTimeState, libp2p::SpaceTimeProtocolName, stream::new_outbound};
 
@@ -29,22 +29,11 @@ impl OutboundUpgrade<Stream> for OutboundProtocol {
 	type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send + 'static>>;
 
 	fn upgrade_outbound(self, io: Stream, _protocol: Self::Info) -> Self::Future {
-		println!("\n\tFIRE OUTBOUND\n"); // TODO
-
 		let id = self.state.stream_id.fetch_add(1, Ordering::Relaxed);
+		debug!("Establishing outbound connection {id}");
 		Box::pin(async move {
-			println!(
-				"\t POP for {:?} {:?}",
-				self.connection_id,
-				self.state
-					.establishing_outbound
-					.lock()
-					.unwrap_or_else(PoisonError::into_inner)
-					.get(&self.connection_id)
-			); // TODO
-
 			// TODO: Skip this and handle it if the `self.state.establishing_outbound` is empty
-			let todo = new_outbound(id, self.state.p2p.identity(), io)
+			let result = new_outbound(id, self.state.p2p.identity(), io)
 				.await
 				.map_err(|_| "error creating outbound stream".to_string());
 
@@ -62,7 +51,7 @@ impl OutboundUpgrade<Stream> for OutboundProtocol {
 				return Ok(());
 			};
 
-			let _ = req.tx.send(todo);
+			let _ = req.tx.send(result);
 
 			Ok(())
 		})

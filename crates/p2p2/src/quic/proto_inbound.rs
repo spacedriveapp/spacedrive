@@ -2,22 +2,15 @@ use std::{
 	collections::HashMap,
 	future::Future,
 	pin::Pin,
-	sync::{
-		atomic::{AtomicU64, Ordering},
-		Arc, PoisonError,
-	},
+	sync::{atomic::Ordering, Arc, PoisonError},
 };
 
-use libp2p::{
-	core::{ConnectedPoint, UpgradeInfo},
-	swarm::ConnectionId,
-	InboundUpgrade, PeerId, Stream,
-};
-use tokio::{io::AsyncWriteExt, sync::oneshot};
-use tokio_util::compat::FuturesAsyncReadCompatExt;
+use libp2p::{core::UpgradeInfo, swarm::ConnectionId, InboundUpgrade, PeerId, Stream};
+use tokio::sync::oneshot;
+
 use tracing::debug;
 
-use crate::{quic::stream::new_inbound, Peer, P2P};
+use crate::quic::stream::new_inbound;
 
 use super::{behaviour::SpaceTimeState, libp2p::SpaceTimeProtocolName};
 
@@ -37,28 +30,14 @@ impl UpgradeInfo for InboundProtocol {
 }
 
 impl InboundUpgrade<Stream> for InboundProtocol {
-	type Output = (); // TODO: ManagerStreamAction2;
+	type Output = ();
 	type Error = ();
 	type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send + 'static>>;
 
 	fn upgrade_inbound(self, stream: Stream, _: Self::Info) -> Self::Future {
-		println!("\n\tFIRE INBOUND\n"); // TODO
 		let id = self.state.stream_id.fetch_add(1, Ordering::Relaxed);
+		debug!("Establishing inbound connection {id}");
 		Box::pin(async move {
-			debug!(
-				"stream({id}): accepting inbound connection with libp2p::PeerId({})",
-				self.peer_id
-			);
-
-			println!(
-				"\n INBOUND_PROTOCOL: {:?}",
-				self.state
-					.establishing_outbound
-					.lock()
-					.unwrap_or_else(PoisonError::into_inner)
-					.remove(&self.connection_id)
-			); // TODO
-
 			let Ok(stream) = new_inbound(id, self.state.p2p.identity(), stream).await else {
 				return Ok(());
 			};
@@ -67,12 +46,23 @@ impl InboundUpgrade<Stream> for InboundProtocol {
 				stream.remote_identity()
 			);
 
+			// // TODO: This is temporary for debugging
+			// if let Some(req) = self
+			// 	.state
+			// 	.establishing_outbound
+			// 	.lock()
+			// 	.unwrap_or_else(PoisonError::into_inner)
+			// 	.remove(&self.connection_id)
+			// {
+			// 	println!("\n\nFIRED FROM INBOUND\n\n");
+			// 	let _ = req.tx.send(Ok(stream));
+			// 	return Ok(());
+			// };
+
 			// TODO: Hook this up
 			// write_hashmap(stream, map).await;
 			// read_hashmap(stream).await;
 			let metadata = HashMap::new();
-
-			println!("\tPROTO_INBOUND: {:?}", stream.remote_identity()); // TODO
 
 			let (shutdown_tx, shutdown_rx) = oneshot::channel();
 			let peer = self.state.p2p.clone().connected_to(

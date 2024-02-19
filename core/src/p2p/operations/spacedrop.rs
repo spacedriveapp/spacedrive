@@ -92,6 +92,7 @@ pub async fn spacedrop(
 			debug!("({id}): failed to send header: {err}");
 			return;
 		}
+		println!("GOT: {:?}", header);
 		let Header::Spacedrop(requests) = header else {
 			unreachable!();
 		};

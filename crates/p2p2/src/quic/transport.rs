@@ -6,7 +6,7 @@ use std::{
 
 use flume::{bounded, Receiver, Sender};
 use libp2p::{
-	core::muxing::StreamMuxerBox,
+	core::{muxing::StreamMuxerBox, ConnectedPoint, Endpoint},
 	futures::StreamExt,
 	swarm::{dial_opts::DialOpts, NotifyHandler, SwarmEvent, ToSwarm},
 	Swarm, SwarmBuilder, Transport,
@@ -208,7 +208,23 @@ async fn start(
 			},
 			event = swarm.select_next_some() => match event {
 				// I don't get why this is required but without it the Quinn connection upgrade stalls and times out.
-				SwarmEvent::ConnectionEstablished { peer_id, connection_id, .. } => {
+				SwarmEvent::ConnectionEstablished { peer_id, connection_id, endpoint, .. } => {
+					// let y = match endpoint {
+					// 	ConnectedPoint::Dialer { .. } => {
+					// 		// swarm
+					// 		// 	.behaviour_mut()
+					// 		// 	.pending_events
+					// 		// 	.push_back(ToSwarm::NotifyHandler {
+					// 		// 		peer_id,
+					// 		// 		handler: NotifyHandler::One(connection_id),
+					// 		// 		event: ()
+					// 		// 	});
+					// 	},
+					// 	ConnectedPoint::Listener { .. } => {
+
+					// 	},
+					// };
+
 					swarm
 						.behaviour_mut()
 						.pending_events
@@ -256,7 +272,10 @@ async fn start(
 			},
 			Some(req) = connect_rx.recv() => {
 				let opts = DialOpts::unknown_peer_id()
-					.addresses(req.addrs.iter().map(socketaddr_to_quic_multiaddr).collect())
+					.addresses(req.addrs.iter()
+					// TODO: Remove this `filter`
+					.filter(|a| a.is_ipv4())
+					.map(socketaddr_to_quic_multiaddr).collect())
 					.build();
 
 				let id = opts.connection_id();
