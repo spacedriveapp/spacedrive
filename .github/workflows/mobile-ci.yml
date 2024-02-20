@@ -187,7 +187,7 @@ jobs:
 
       - name: Build iOS
         working-directory: ./apps/mobile/ios
-        run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -configuration Release -sdk iphonesimulator -derivedDataPath build -arch x86_64
+        run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -configuration Release -sdk iphonesimulator -derivedDataPath build -arch "$(uname -m)"
 
       - name: Install Maestro
         run: |
