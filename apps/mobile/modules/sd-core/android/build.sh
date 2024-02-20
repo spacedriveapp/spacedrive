@@ -46,7 +46,17 @@ export PATH="${CARGO_HOME:-"${HOME}/.cargo"}/bin:$PATH"
 # If CI, then we build x86_64 else we build all targets
 if [ "${CI:-}" = "true" ]; then
   # TODO: This need to be adjusted for future mobile release CI
-  ANDROID_BUILD_TARGET_LIST="x86_64"
+  case "$(uname -m)" in
+    "arm64" | "aarch64")
+      ANDROID_BUILD_TARGET_LIST="arm64-v8a"
+      ;;
+    "x86_64")
+      ANDROID_BUILD_TARGET_LIST="x86_64"
+      ;;
+    *)
+      err 'Unsupported architecture for CI build.'
+      ;;
+  esac
 else
   ANDROID_BUILD_TARGET_LIST="arm64-v8a armeabi-v7a x86_64"
 fi
