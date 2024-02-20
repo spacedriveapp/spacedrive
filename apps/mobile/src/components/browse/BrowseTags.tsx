@@ -76,7 +76,7 @@ export const TagItem = ({
 		return (
 			<Animated.View
 				style={[
-					tw`ml-5 flex flex-row items-center`,
+					tw`ml-0 flex flex-row items-center`,
 					{ transform: [{ translateX: translate }] }
 				]}
 			>
