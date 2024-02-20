@@ -5,6 +5,7 @@ on:
   merge_group:
 
 env:
+  RUSTFLAGS: -D warnings
   SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
 
 # Cancel previous runs of the same workflow on the same branch.

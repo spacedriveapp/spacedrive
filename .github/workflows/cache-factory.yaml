@@ -9,11 +9,20 @@ on:
       - main
   schedule:
     - cron: '0 0 * * *'
+  workflow_dispatch:
 
 # Cancel previous runs of the same workflow on the same branch.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+# From: https://github.com/rust-lang/rust-analyzer/blob/master/.github/workflows/ci.yaml
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUST_BACKTRACE: short
+  RUSTFLAGS: "-D warnings"
+  RUSTUP_MAX_RETRIES: 10
 
 jobs:
   make_cache:
@@ -70,11 +79,23 @@ jobs:
           target: ${{ matrix.settings.target }}
           save-cache: 'true'
 
-      - name: Clippy
-        run: cargo clippy --workspace --all-features --target ${{ matrix.settings.target }}
+      - name: Turn Off Debuginfo and bump opt-level
+        run: |
+          sed -i '/\[profile.dev]/a debug = 0' Cargo.toml
+          sed -i '/\[profile.dev]/a opt-level=1' Cargo.toml
 
+      - name: Compile tests (debug)
+        run: cargo test --workspace --all-features --no-run --locked --target ${{ matrix.settings.target }}
+
+      - name: Compile tests (release)
+        run: cargo test --workspace --all-features --no-run --locked --release --target ${{ matrix.settings.target }}
+
+      # It's faster to `test` before `build` ¯\_(ツ)_/¯
       - name: Compile (debug)
-        run: cargo test --workspace --all-features --no-run --target ${{ matrix.settings.target }}
+        run: cargo build --quiet --workspace --all-features --target ${{ matrix.settings.target }}
 
       - name: Compile (release)
-        run: cargo test --workspace --all-features --no-run --release --target ${{ matrix.settings.target }}
+        run: cargo build --quiet --workspace --all-features --release --target ${{ matrix.settings.target }}
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-features --target ${{ matrix.settings.target }}

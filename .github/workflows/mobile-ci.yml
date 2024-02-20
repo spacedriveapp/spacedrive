@@ -18,6 +18,7 @@ on:
 env:
   SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
   SPACEDRIVE_CI: '1'
+  RUSTFLAGS: -D warnings
 
 # Cancel previous runs of the same workflow on the same branch.
 concurrency:

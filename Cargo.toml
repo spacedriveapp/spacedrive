@@ -100,6 +100,8 @@ libp2p-core = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev = 
 libp2p-swarm = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev = "a005656df7e82059a0eb2e333ebada4731d23f8c" }
 libp2p-stream = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev = "a005656df7e82059a0eb2e333ebada4731d23f8c" }
 
+[profile.dev]
+
 # Set the settings for build scripts and proc-macros.
 [profile.dev.build-override]
 opt-level = 3
