@@ -2,7 +2,7 @@ import { forwardRef, useCallback } from 'react';
 import { Alert, Platform, Text, View } from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
 import RNFS from 'react-native-fs';
-import { useLibraryMutation } from '@sd/client';
+import { useLibraryMutation, useRspcLibraryContext } from '@sd/client';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import useForwardedRef from '~/hooks/useForwardedRef';
@@ -16,6 +16,7 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 
 	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
 	const relinkLocation = useLibraryMutation('locations.relink');
+	const rspc = useRspcLibraryContext();
 
 	const createLocation = useLibraryMutation('locations.create', {
 		onError: (error, variables) => {
@@ -31,7 +32,7 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 			}
 		},
 		onSettled: () => {
-			// Close the modal
+			rspc.queryClient.invalidateQueries(['locations.list']);
 			modalRef.current?.close();
 		}
 	});
