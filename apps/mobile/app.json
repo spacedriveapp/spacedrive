@@ -64,7 +64,8 @@
 					"microphonePermission": "Allow Spacedrive to access your microphone."
 				}
 			],
-			["./withRiveAssets.js"]
+			["./scripts/withRiveAssets.js"],
+			["./scripts/withAndroidIntent.js"]
 		]
 	}
 }

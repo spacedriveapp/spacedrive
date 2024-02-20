@@ -32,7 +32,7 @@ const ActionsContainer = ({ children, style }: ActionsContainerProps) => (
 
 type ActionsItemProps = {
 	title: string;
-	icon: Icon;
+	icon?: Icon;
 	onPress?: () => void;
 	isDanger?: boolean;
 };
@@ -49,7 +49,7 @@ const ActionsItem = ({ icon, onPress, title, isDanger = false }: ActionsItemProp
 			>
 				{title}
 			</Text>
-			<Icon color={isDanger ? 'red' : 'white'} size={22} />
+			{Icon && <Icon color={isDanger ? 'red' : 'white'} size={22} />}
 		</Pressable>
 	);
 };
@@ -99,6 +99,11 @@ export const ActionsModal = () => {
 						<View style={tw`my-3`} />
 						{/* Actions */}
 						<ActionsContainer>
+							<ActionsItem
+								title="Open"
+								onPress={() => fileInfoRef.current?.present()}
+							/>
+							<ActionDivider />
 							<ActionsItem
 								icon={Info}
 								title="Show Info"

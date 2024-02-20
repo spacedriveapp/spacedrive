@@ -43,7 +43,6 @@ const Explorer = ({ items }: ExplorerProps) => {
 		}
 	}
 
-	console.log('Explorer items length', items?.length);
 
 	return (
 		<View style={tw`flex-1 bg-mobile-screen`}>
