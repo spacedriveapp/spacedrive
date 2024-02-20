@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js, pnpm and dependencies
         uses: ./.github/actions/setup-pnpm
@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js, pnpm and dependencies
         uses: ./.github/actions/setup-pnpm
@@ -59,7 +59,7 @@ jobs:
           remove-docker-images: 'true'
 
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
@@ -68,7 +68,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path C:\spacedrive_target
           New-Item -Path target -ItemType Junction -Value C:\spacedrive_target
 
-      - uses: dorny/paths-filter@v2
+      - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -111,7 +111,7 @@ jobs:
           remove-docker-images: 'true'
 
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
@@ -120,7 +120,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path C:\spacedrive_target
           New-Item -Path target -ItemType Junction -Value C:\spacedrive_target
 
-      - uses: dorny/paths-filter@v2
+      - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -146,10 +146,9 @@ jobs:
 
       - name: Run Clippy
         if: steps.filter.outputs.changes == 'true'
-        uses: actions-rs/clippy-check@v1
+        uses: actions-rs-plus/clippy-check@v2
         with:
           args: --workspace --all-features
-          token: ${{ secrets.GITHUB_TOKEN }}
 
   # test:
   #   name: Test (${{ matrix.platform }})
@@ -159,7 +158,7 @@ jobs:
   #       platform: [ubuntu-20.04, macos-latest, windows-latest]
   #   steps:
   #     - name: Checkout repository
-  #       uses: actions/checkout@v3
+  #       uses: actions/checkout@v4
   #
   #     - name: Setup
   #       uses: ./.github/actions/setup

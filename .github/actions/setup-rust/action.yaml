@@ -31,7 +31,7 @@ runs:
 
     - name: Restore cached Prisma codegen
       id: cache-prisma-restore
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         key: prisma-1-${{ runner.os }}-${{ hashFiles('./core/prisma/*', './crates/sync-generator/*', './Cargo.*') }}
         path: crates/prisma/src/**/*.rs
@@ -45,7 +45,7 @@ runs:
     - name: Save Prisma codegen
       id: cache-prisma-save
       if: ${{ inputs.save-cache == 'true' }}
-      uses: actions/cache/save@v3
+      uses: actions/cache/save@v4
       with:
         key: ${{ steps.cache-prisma-restore.outputs.cache-primary-key }}
         path: crates/prisma/src/**/*.rs

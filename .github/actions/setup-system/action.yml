@@ -22,7 +22,7 @@ runs:
     - name: Restore cached LLVM and Clang
       if: ${{ runner.os == 'Windows' }}
       id: cache-llvm-restore
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         key: llvm-15
         path: C:/Program Files/LLVM
@@ -37,7 +37,7 @@ runs:
     - name: Save LLVM and Clang
       if: ${{ runner.os == 'Windows' && inputs.save-cache == 'true' }}
       id: cache-llvm-save
-      uses: actions/cache/save@v3
+      uses: actions/cache/save@v4
       with:
         key: ${{ steps.cache-llvm-restore.outputs.cache-primary-key }}
         path: C:/Program Files/LLVM
