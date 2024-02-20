@@ -58,7 +58,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 								<View
 									style={tw`absolute flex-row items-end gap-0.5 text-lg font-semibold`}
 								>
-									<Text style={tw`mx-auto font-semibold text-md text-ink`}>
+									<Text style={tw`mx-auto text-md font-semibold text-ink`}>
 										{fill.toFixed(0)}
 									</Text>
 									<Text style={tw`text-xs font-bold text-ink-dull opacity-60`}>
