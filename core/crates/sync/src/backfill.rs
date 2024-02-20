@@ -68,7 +68,6 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 							[],
 							[
 								o.kind.map(|v| (object::kind::NAME, json!(v))),
-								o.key_id.map(|v| (object::key_id::NAME, json!(v))),
 								o.hidden.map(|v| (object::hidden::NAME, json!(v))),
 								o.favorite.map(|v| (object::favorite::NAME, json!(v))),
 								o.important.map(|v| (object::important::NAME, json!(v))),
