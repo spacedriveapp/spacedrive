@@ -96,8 +96,10 @@ jobs:
         if: ${{ runner.os == 'Windows' }}
         shell: powershell
         run: |
-          (Get-Content Cargo.toml) -replace '\[profile.dev\]', '[profile.dev]`n  debug = 0' | Set-Content Cargo.toml
-          (Get-Content Cargo.toml) -replace '\[profile.dev\]', '[profile.dev]`n  opt-level=1' | Set-Content Cargo.toml
+          (Get-Content Cargo.toml) -replace '\[profile.dev\]', '[profile.dev]
+          debug = 0' | Set-Content Cargo.toml
+          (Get-Content Cargo.toml) -replace '\[profile.dev\]', '[profile.dev]
+          opt-level=1' | Set-Content Cargo.toml
 
       - name: Compile tests (debug)
         run: cargo test --workspace --all-features --no-run --locked --target ${{ matrix.settings.target }}
