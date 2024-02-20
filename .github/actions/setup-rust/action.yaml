@@ -22,6 +22,7 @@ runs:
     - name: Cache Rust Dependencies
       uses: Swatinem/rust-cache@v2
       with:
+        key: ${{ inputs.target }}
         save-if: ${{ inputs.save-cache }}
         shared-key: stable-cache
 
