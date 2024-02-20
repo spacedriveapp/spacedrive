@@ -1,5 +1,5 @@
 use sd_task_system::{
-	ExecStatus, Interrupter, Task, TaskDispatcher, TaskHandle, TaskId, TaskStatus,
+	ExecStatus, Interrupter, Task, TaskDispatcher, TaskHandle, TaskId, TaskOutput, TaskStatus,
 };
 
 use std::{
@@ -14,7 +14,9 @@ use futures::stream::{self, FuturesUnordered, StreamExt};
 use futures_concurrency::future::Race;
 use serde::{Deserialize, Serialize};
 use tokio::{fs, spawn, sync::broadcast};
-use tracing::{error, info, warn};
+use tracing::{error, info, trace, warn};
+
+use crate::common::tasks::TimedTaskOutput;
 
 use super::tasks::{SampleError, TimeTask};
 
@@ -67,6 +69,7 @@ impl SampleActor {
 			id,
 			duration,
 			has_priority,
+			paused_count,
 		} in pending_tasks
 		{
 			task_handles_tx
@@ -76,11 +79,17 @@ impl SampleActor {
 							id,
 							duration,
 							Arc::clone(&data),
+							paused_count,
 						))
 						.await
 				} else {
 					task_dispatcher
-						.dispatch(SampleActorTask::with_id(id, duration, Arc::clone(&data)))
+						.dispatch(SampleActorTask::with_id(
+							id,
+							duration,
+							Arc::clone(&data),
+							paused_count,
+						))
 						.await
 				})
 				.await
@@ -153,7 +162,18 @@ impl SampleActor {
 				async {
 					if let Some(out) = handles.next().await {
 						match out {
-							Ok(TaskStatus::Done) | Ok(TaskStatus::Canceled) => {}
+							Ok(TaskStatus::Done(maybe_out)) => {
+								if let TaskOutput::Out(out) = maybe_out {
+									info!(
+										"Task completed: {:?}",
+										out.downcast::<TimedTaskOutput>()
+											.expect("we know the task type")
+									);
+								}
+							}
+							Ok(TaskStatus::Canceled) => {
+								trace!("Task was canceled")
+							}
 							Ok(TaskStatus::ForcedAbortion) => {
 								warn!("Task was forcibly aborted");
 							}
@@ -206,7 +226,18 @@ impl SampleActor {
 					)
 					.chain(handles.filter_map(|handle| async move {
 						match handle {
-							Ok(TaskStatus::Done) | Ok(TaskStatus::Canceled) => None,
+							Ok(TaskStatus::Done(maybe_out)) => {
+								if let TaskOutput::Out(out) = maybe_out {
+									info!(
+										"Task completed: {:?}",
+										out.downcast::<TimedTaskOutput>()
+											.expect("we know the task type")
+									);
+								}
+
+								None
+							}
+							Ok(TaskStatus::Canceled) => None,
 							Ok(TaskStatus::ForcedAbortion) => {
 								warn!("Task was forcibly aborted");
 								None
@@ -263,9 +294,9 @@ impl SampleActorTask {
 		}
 	}
 
-	fn with_id(id: TaskId, duration: Duration, actor_data: Arc<String>) -> Self {
+	fn with_id(id: TaskId, duration: Duration, actor_data: Arc<String>, paused_count: u32) -> Self {
 		Self {
-			timed_task: TimeTask::with_id(id, duration, false),
+			timed_task: TimeTask::with_id(id, duration, false, paused_count),
 			actor_data,
 		}
 	}
@@ -284,9 +315,9 @@ impl SampleActorTaskWithPriority {
 		}
 	}
 
-	fn with_id(id: TaskId, duration: Duration, actor_data: Arc<String>) -> Self {
+	fn with_id(id: TaskId, duration: Duration, actor_data: Arc<String>, paused_count: u32) -> Self {
 		Self {
-			timed_task: TimeTask::with_id(id, duration, true),
+			timed_task: TimeTask::with_id(id, duration, true, paused_count),
 			actor_data,
 		}
 	}
@@ -329,6 +360,7 @@ struct SampleActorTaskSaveState {
 	id: TaskId,
 	duration: Duration,
 	has_priority: bool,
+	paused_count: u32,
 }
 
 impl SampleActorTaskSaveState {
@@ -338,6 +370,7 @@ impl SampleActorTaskSaveState {
 				id: concrete_task.timed_task.id(),
 				duration: concrete_task.timed_task.duration,
 				has_priority: false,
+				paused_count: concrete_task.timed_task.paused_count,
 			},
 			Err(dyn_task) => {
 				let concrete_task = dyn_task
@@ -348,6 +381,7 @@ impl SampleActorTaskSaveState {
 					id: concrete_task.timed_task.id(),
 					duration: concrete_task.timed_task.duration,
 					has_priority: true,
+					paused_count: concrete_task.timed_task.paused_count,
 				}
 			}
 		}

@@ -1,4 +1,4 @@
-use sd_task_system::{TaskStatus, TaskSystem};
+use sd_task_system::{TaskOutput, TaskStatus, TaskSystem};
 
 use std::time::Duration;
 
@@ -83,7 +83,10 @@ async fn done_test() {
 
 	let handle = system.dispatch(ReadyTask::default()).await;
 
-	assert!(matches!(handle.await, Ok(TaskStatus::Done)));
+	assert!(matches!(
+		handle.await,
+		Ok(TaskStatus::Done(TaskOutput::Empty))
+	));
 
 	system.shutdown().await;
 }
@@ -142,7 +145,10 @@ async fn pause_test() {
 
 	info!("Resumed task, now we wait for it to complete...");
 
-	assert!(matches!(handle.await, Ok(TaskStatus::Done)));
+	assert!(matches!(
+		handle.await,
+		Ok(TaskStatus::Done(TaskOutput::Empty))
+	));
 
 	system.shutdown().await;
 }

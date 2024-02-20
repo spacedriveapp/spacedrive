@@ -1,13 +1,16 @@
-use std::future::pending;
-use std::time::Duration;
+use std::{future::pending, time::Duration};
 
-use futures_concurrency::future::Race;
-use sd_task_system::{ExecStatus, Interrupter, InterruptionKind, Task, TaskId};
+use sd_task_system::{
+	ExecStatus, Interrupter, InterruptionKind, IntoAnyTaskOutput, Task, TaskId, TaskOutput,
+};
 
 use async_trait::async_trait;
+use futures_concurrency::future::Race;
 use thiserror::Error;
-use tokio::sync::oneshot;
-use tokio::time::{sleep, Instant};
+use tokio::{
+	sync::oneshot,
+	time::{sleep, Instant},
+};
 use tracing::{error, info};
 
 #[derive(Debug, Error)]
@@ -69,7 +72,7 @@ impl Task<SampleError> for ReadyTask {
 	}
 
 	async fn run(&mut self, _interrupter: &Interrupter) -> Result<ExecStatus, SampleError> {
-		Ok(ExecStatus::Done)
+		Ok(ExecStatus::Done(TaskOutput::Empty))
 	}
 }
 
@@ -102,6 +105,7 @@ pub struct TimeTask {
 	id: TaskId,
 	pub duration: Duration,
 	priority: bool,
+	pub paused_count: u32,
 }
 
 impl TimeTask {
@@ -110,16 +114,23 @@ impl TimeTask {
 			id: TaskId::new_v4(),
 			duration,
 			priority,
+			paused_count: 0,
 		}
 	}
 
-	pub fn with_id(id: TaskId, duration: Duration, priority: bool) -> Self {
+	pub fn with_id(id: TaskId, duration: Duration, priority: bool, paused_count: u32) -> Self {
 		Self {
 			id,
 			duration,
 			priority,
+			paused_count,
 		}
 	}
+}
+
+#[derive(Debug)]
+pub struct TimedTaskOutput {
+	pub pauses_count: u32,
 }
 
 #[async_trait]
@@ -157,9 +168,15 @@ impl Task<SampleError> for TimeTask {
 		};
 
 		Ok(match (task_work_fut, interrupt_fut).race().await {
-			RaceOutput::Completed | RaceOutput::Paused(Duration::ZERO) => ExecStatus::Done,
+			RaceOutput::Completed | RaceOutput::Paused(Duration::ZERO) => ExecStatus::Done(
+				TimedTaskOutput {
+					pauses_count: self.paused_count,
+				}
+				.into_output(),
+			),
 			RaceOutput::Paused(remaining_duration) => {
 				self.duration = remaining_duration;
+				self.paused_count += 1;
 				ExecStatus::Paused
 			}
 			RaceOutput::Canceled => ExecStatus::Canceled,
@@ -219,7 +236,7 @@ impl Task<SampleError> for PauseOnceTask {
 				}
 			}
 		} else {
-			Ok(ExecStatus::Done)
+			Ok(ExecStatus::Done(TaskOutput::Empty))
 		}
 	}
 }

@@ -24,7 +24,7 @@ use super::{
 		error::Error,
 		system::SystemComm,
 		task::{
-			ExecStatus, InternalTaskExecStatus, Task, TaskId, TaskRunError, TaskStatus,
+			ExecStatus, InternalTaskExecStatus, Task, TaskId, TaskOutput, TaskRunError, TaskStatus,
 			TaskWorkState,
 		},
 	},
@@ -687,10 +687,11 @@ impl<E: TaskRunError> Runner<E> {
 								task_work_state,
 								status,
 							}) => match status {
-								InternalTaskExecStatus::Done => send_complete_task_response(
+								InternalTaskExecStatus::Done(out) => send_complete_task_response(
 									self.worker_id,
 									task_id,
 									task_work_state,
+									out,
 								),
 
 								InternalTaskExecStatus::Canceled => {
@@ -914,8 +915,8 @@ impl<E: TaskRunError> Runner<E> {
 		}: TaskRunnerOutput<E>,
 	) {
 		match status {
-			InternalTaskExecStatus::Done => {
-				send_complete_task_response(self.worker_id, task_id, task_work_state)
+			InternalTaskExecStatus::Done(out) => {
+				send_complete_task_response(self.worker_id, task_id, task_work_state, out)
 			}
 
 			InternalTaskExecStatus::Paused => {
@@ -1246,9 +1247,10 @@ fn send_complete_task_response<E: TaskRunError>(
 	TaskWorkState {
 		done_tx, worktable, ..
 	}: TaskWorkState<E>,
+	out: TaskOutput,
 ) {
 	worktable.set_completed();
-	if done_tx.send(Ok(TaskStatus::Done)).is_err() {
+	if done_tx.send(Ok(TaskStatus::Done(out))).is_err() {
 		warn!(
 			"Task done channel closed before sending done response for task: \
 		<worker_id='{worker_id}', task_id='{task_id}'>"

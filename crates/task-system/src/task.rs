@@ -28,25 +28,47 @@ use super::{
 
 pub type TaskId = Uuid;
 
+pub trait AnyTaskOutput: Send + fmt::Debug + Downcast + 'static {}
+
+impl_downcast!(AnyTaskOutput);
+
+impl<T: fmt::Debug + Send + 'static> AnyTaskOutput for T {}
+
+pub trait IntoAnyTaskOutput {
+	fn into_output(self) -> TaskOutput;
+}
+
+impl<T: AnyTaskOutput + 'static> IntoAnyTaskOutput for T {
+	fn into_output(self) -> TaskOutput {
+		TaskOutput::Out(Box::new(self))
+	}
+}
+
+#[derive(Debug)]
+pub enum TaskOutput {
+	Out(Box<dyn AnyTaskOutput>),
+	Empty,
+}
+
 #[derive(Debug)]
 pub enum TaskStatus<E: TaskRunError> {
-	Done,
+	Done(TaskOutput),
 	Canceled,
 	ForcedAbortion,
 	Shutdown(Box<dyn Task<E>>),
 	Error(E),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug)]
 pub enum ExecStatus {
-	Done,
+	Done(TaskOutput),
 	Paused,
 	Canceled,
 }
 
 #[derive(Debug)]
 pub(crate) enum InternalTaskExecStatus<E: TaskRunError> {
-	Done,
+	Done(TaskOutput),
 	Paused,
 	Canceled,
 	Suspend,
@@ -57,7 +79,7 @@ impl<E: TaskRunError> From<Result<ExecStatus, E>> for InternalTaskExecStatus<E> 
 	fn from(result: Result<ExecStatus, E>) -> Self {
 		result
 			.map(|status| match status {
-				ExecStatus::Done => Self::Done,
+				ExecStatus::Done(out) => Self::Done(out),
 				ExecStatus::Paused => Self::Paused,
 				ExecStatus::Canceled => Self::Canceled,
 			})
