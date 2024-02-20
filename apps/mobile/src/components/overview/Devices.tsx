@@ -29,6 +29,8 @@ function hardwareModelToIcon(hardwareModel: HardwareModel) {
 			return 'Tablet';
 		case 'Simulator':
 			return 'Drive';
+		case 'Android':
+			return 'Mobile';
 		default:
 			return 'Laptop';
 	}

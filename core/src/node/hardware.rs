@@ -4,6 +4,7 @@ use std::str;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use strum_macros::{Display, EnumIter};
+use sysinfo::{System, SystemExt};
 
 #[repr(i32)]
 #[derive(Debug, Clone, Display, Copy, EnumIter, Type, Serialize, Deserialize, Eq, PartialEq)]
@@ -20,6 +21,7 @@ pub enum HardwareModel {
 	IPad,
 	IPhone,
 	Simulator,
+	Android,
 }
 
 impl HardwareModel {
@@ -134,8 +136,12 @@ pub fn get_hardware_model_name() -> Result<HardwareModel, Error> {
 		}
 	}
 
-	// #[cfg]
-	#[cfg(not(any(target_os = "macos", target_os = "ios")))]
+	#[cfg(target_os = "android")]
+	{
+		Ok(HardwareModel::Android)
+	}
+
+	#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
 	{
 		Err(Error::new(
 			std::io::ErrorKind::Unsupported,
