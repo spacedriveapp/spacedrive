@@ -9,6 +9,9 @@ on:
       - main
   schedule:
     - cron: '0 0 * * *'
+  pull_request:
+    paths:
+      - '.github/workflows/cache-factory.yaml'
   workflow_dispatch:
 
 # Cancel previous runs of the same workflow on the same branch.
