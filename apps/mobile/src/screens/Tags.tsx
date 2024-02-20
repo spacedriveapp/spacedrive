@@ -1,10 +1,11 @@
 import { useNavigation } from '@react-navigation/native';
 import { Plus } from 'phosphor-react-native';
 import { useRef } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { TagItem } from '~/components/browse/BrowseTags';
+import { Icon } from '~/components/icons/Icon';
 import Fade from '~/components/layout/Fade';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
@@ -33,6 +34,7 @@ export default function Tags({ viewStyle = 'list' }: Props) {
 			>
 				<Plus size={20} weight="bold" style={tw`text-ink`} />
 			</Pressable>
+
 			<Fade
 				fadeSides="top-bottom"
 				orientation="vertical"
@@ -55,13 +57,24 @@ export default function Tags({ viewStyle = 'list' }: Props) {
 							}}
 						/>
 					)}
+					ListEmptyComponent={() => (
+						<View style={tw`h-auto w-[85.5vw] flex-col items-center justify-center`}>
+							<Icon name="Tags" size={90} />
+							<Text style={tw`mt-2 text-center text-lg font-medium text-ink-dull`}>
+								You have no tags
+							</Text>
+						</View>
+					)}
 					numColumns={viewStyle === 'grid' ? 3 : 1}
 					columnWrapperStyle={viewStyle === 'grid' && tw`justify-between`}
 					horizontal={false}
 					keyExtractor={(item) => item.id.toString()}
 					showsHorizontalScrollIndicator={false}
 					ItemSeparatorComponent={() => <View style={tw`h-2.5`} />}
-					contentContainerStyle={tw`py-5`}
+					contentContainerStyle={twStyle(
+						`py-5`,
+						tagData.length === 0 && 'h-full items-center justify-center'
+					)}
 				/>
 			</Fade>
 			<CreateTagModal ref={modalRef} />
