@@ -50,8 +50,8 @@ export const GridItem = ({ children, item, index, ...props }: Props) => {
 			// Prevent explorer view onMouseDown event from
 			// being executed and resetting the selection
 			onMouseDown={(e) => {
-				if (os === 'browser') return;
 				e.stopPropagation();
+				if (os === 'browser') return;
 				if (e.buttons === 8 || e.buttons === 3) {
 					if (!canGoBack) return;
 					navigate(-1);
