@@ -1,23 +1,4 @@
-import { CaretRight, Pen, Repeat, Trash } from 'phosphor-react-native';
-import { useEffect, useRef } from 'react';
-import { Animated, FlatList, Pressable, Text, View } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler';
-import {
-	arraysEqual,
-	Location,
-	useCache,
-	useLibraryMutation,
-	useLibraryQuery,
-	useNodes,
-	useOnlineLocations
-} from '@sd/client';
-import FolderIcon from '~/components/icons/FolderIcon';
-import { ModalRef } from '~/components/layout/Modal';
-import DeleteLocationModal from '~/components/modal/confirmModals/DeleteLocationModal';
-import ImportModal from '~/components/modal/ImportModal';
-import { AnimatedButton } from '~/components/primitive/Button';
-import { tw, twStyle } from '~/lib/tailwind';
-import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
+import { Locations } from '~/screens/Locations';
 
 type LocationItemProps = {
 	location: Location;
@@ -165,6 +146,9 @@ const LocationSettingsScreen = ({ navigation }: SettingsStackScreenProps<'Locati
 			<ImportModal ref={modalRef} />
 		</View>
 	);
+
+const LocationSettingsScreen = () => {
+	return <Locations redirectToLocationSettings />;
 };
 
 export default LocationSettingsScreen;
