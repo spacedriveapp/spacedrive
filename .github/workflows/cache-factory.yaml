@@ -84,8 +84,13 @@ jobs:
 
       - name: Turn Off Debuginfo and bump opt-level
         run: |
-          sed -i '/\[profile.dev]/a debug = 0' Cargo.toml
-          sed -i '/\[profile.dev]/a opt-level=1' Cargo.toml
+          sed '/\[profile.dev]/a\
+          debug = 0
+          ' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
+
+          sed '/\[profile.dev]/a\
+          opt-level=1
+          ' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
 
       - name: Compile tests (debug)
         run: cargo test --workspace --all-features --no-run --locked --target ${{ matrix.settings.target }}
