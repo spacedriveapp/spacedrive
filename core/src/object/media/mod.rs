@@ -28,29 +28,24 @@ pub fn media_data_image_to_query(
 	})
 }
 
-macro_rules! column_entry {
-	($v:expr; $field:ident) => {
-		$v.map(|v| (($field::NAME, json!(v)), $field::set(Some(v))))
-	};
-}
-
 #[cfg(feature = "location-watcher")]
 pub fn media_data_image_to_query_params(
 	mdi: ImageMetadata,
 ) -> (Vec<(&'static str, serde_json::Value)>, Vec<SetParam>) {
+	use sd_sync::option_sync_db_entry;
 	use sd_utils::chain_optional_iter;
 
 	chain_optional_iter(
 		[],
 		[
-			column_entry!(serde_json::to_vec(&mdi.camera_data).ok(); camera_data),
-			column_entry!(serde_json::to_vec(&mdi.date_taken).ok(); media_date),
-			column_entry!(serde_json::to_vec(&mdi.location).ok(); media_location),
-			column_entry!(mdi.artist; artist),
-			column_entry!(mdi.description; description),
-			column_entry!(mdi.copyright; copyright),
-			column_entry!(mdi.exif_version; exif_version),
-			column_entry!(mdi.date_taken; date_taken),
+			option_sync_db_entry!(serde_json::to_vec(&mdi.camera_data).ok(); camera_data),
+			option_sync_db_entry!(serde_json::to_vec(&mdi.date_taken).ok(); media_date),
+			option_sync_db_entry!(serde_json::to_vec(&mdi.location).ok(); media_location),
+			option_sync_db_entry!(mdi.artist; artist),
+			option_sync_db_entry!(mdi.description; description),
+			option_sync_db_entry!(mdi.copyright; copyright),
+			option_sync_db_entry!(mdi.exif_version; exif_version),
+			option_sync_db_entry!(mdi.date_taken; date_taken),
 		],
 	)
 	.into_iter()

@@ -106,3 +106,31 @@ pub trait OperationFactory {
 		self.new_op(&id, CRDTOperationData::Delete)
 	}
 }
+
+#[macro_export]
+macro_rules! sync_entry {
+    ($v:expr, $($m:tt)*) => {
+        ($($m)*::NAME, json!(&v))
+    }
+}
+
+#[macro_export]
+macro_rules! option_sync_entry {
+    ($v:expr, $($m:tt)*) => {
+        $value.map(|v| $crate::sync_entry(v, $($m)*))
+    }
+}
+
+#[macro_export]
+macro_rules! sync_db_entry {
+    ($v:expr, $($m:tt)*) => {
+        ((($($m)*::NAME, json!(&v)), $($m)*::set(Some(v))))
+    }
+}
+
+#[macro_export]
+macro_rules! option_sync_db_entry {
+	($value:expr, $($m:tt)*) => {
+	   $value.map(|v| $crate::sync_db_entry(v, $($m)*))
+	};
+}
