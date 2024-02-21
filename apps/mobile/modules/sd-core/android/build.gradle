@@ -4,7 +4,7 @@ apply plugin: 'maven-publish'
 
 
 group = 'com.spacedrive.core'
-version = '0.0.1'
+version = '0.1.0'
 
 buildscript {
   def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
@@ -72,7 +72,7 @@ android {
     minSdkVersion safeExtGet("minSdkVersion", 28)
     targetSdkVersion safeExtGet("targetSdkVersion", 34)
     versionCode 1
-    versionName "0.2.0"
+    versionName "0.1.0"
   }
   lintOptions {
     abortOnError false
