@@ -31,6 +31,7 @@ runs:
       run: echo '{}' | npx -y mustache - .cargo/config.toml.mustache .cargo/config.toml
 
     - name: Turn Off Debuginfo and bump opt-level
+      shell: bash
       if: ${{ runner.os != 'Windows' }}
       run: |
         sed '/\[profile.dev]/a\
