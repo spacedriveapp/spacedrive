@@ -189,37 +189,37 @@ export const Crypto = new ConditionalItem({
 	}
 });
 
-export const SecureDelete = new ConditionalItem({
-	useCondition: () => {
-		const { selectedFilePaths } = useContextMenuContext();
-		if (!isNonEmpty(selectedFilePaths)) return null;
+// export const SecureDelete = new ConditionalItem({
+// 	useCondition: () => {
+// 		const { selectedFilePaths } = useContextMenuContext();
+// 		if (!isNonEmpty(selectedFilePaths)) return null;
 
-		const locationId = selectedFilePaths[0].location_id;
-		if (locationId === null) return null;
+// 		const locationId = selectedFilePaths[0].location_id;
+// 		if (locationId === null) return null;
 
-		return { locationId, selectedFilePaths };
-	},
-	Component: ({ locationId, selectedFilePaths }) => {
-		const { t } = useLocale();
-		return (
-			<Menu.Item
-				variant="danger"
-				label={t('secure_delete')}
-				icon={TrashSimple}
-				onClick={() =>
-					dialogManager.create((dp) => (
-						<EraseDialog
-							{...dp}
-							locationId={locationId}
-							filePaths={selectedFilePaths}
-						/>
-					))
-				}
-				disabled
-			/>
-		);
-	}
-});
+// 		return { locationId, selectedFilePaths };
+// 	},
+// 	Component: ({ locationId, selectedFilePaths }) => {
+// 		const { t } = useLocale();
+// 		return (
+// 			<Menu.Item
+// 				variant="danger"
+// 				label={t('secure_delete')}
+// 				icon={TrashSimple}
+// 				onClick={() =>
+// 					dialogManager.create((dp) => (
+// 						<EraseDialog
+// 							{...dp}
+// 							locationId={locationId}
+// 							filePaths={selectedFilePaths}
+// 						/>
+// 					))
+// 				}
+// 				disabled
+// 			/>
+// 		);
+// 	}
+// });
 
 export const ParentFolderActions = new ConditionalItem({
 	useCondition: () => {
