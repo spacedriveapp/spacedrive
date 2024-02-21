@@ -81,26 +81,6 @@ jobs:
           target: ${{ matrix.settings.target }}
           save-cache: 'true'
 
-      - name: Turn Off Debuginfo and bump opt-level
-        if: ${{ runner.os != 'Windows' }}
-        run: |
-          sed '/\[profile.dev]/a\
-          debug = 0
-          ' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
-
-          sed '/\[profile.dev]/a\
-          opt-level=1
-          ' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
-
-      - name: Turn Off Debuginfo and bump opt-level
-        if: ${{ runner.os == 'Windows' }}
-        shell: powershell
-        run: |
-          (Get-Content Cargo.toml) -replace '\[profile.dev\]', '[profile.dev]
-          debug = 0' | Set-Content Cargo.toml
-          (Get-Content Cargo.toml) -replace '\[profile.dev\]', '[profile.dev]
-          opt-level=1' | Set-Content Cargo.toml
-
       - name: Compile tests (debug)
         run: cargo test --workspace --all-features --no-run --locked --target ${{ matrix.settings.target }}
 
