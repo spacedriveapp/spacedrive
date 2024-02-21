@@ -139,7 +139,7 @@ jobs:
 
   ios:
     name: iOS
-    runs-on: macos-12
+    runs-on: macos-14
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -172,7 +172,7 @@ jobs:
           version: latest
 
       # - name: Cache Pods
-      #   uses: actions/cache@v3
+      #   uses: actions/cache@v4
       #   with:
       #     path: |
       #       ./apps/mobile/ios/Pods
@@ -187,7 +187,7 @@ jobs:
 
       - name: Build iOS
         working-directory: ./apps/mobile/ios
-        run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -configuration Release -sdk iphonesimulator -derivedDataPath build -arch x86_64
+        run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -configuration Release -sdk iphonesimulator -derivedDataPath build -arch "$(uname -m)"
 
       - name: Install Maestro
         run: |
