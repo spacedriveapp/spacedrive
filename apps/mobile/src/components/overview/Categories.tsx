@@ -24,7 +24,7 @@ const Categories = ({ kinds }: Props) => {
 							data={kinds.data?.statistics
 								?.sort((a, b) => b.count - a.count)
 								.filter((i) => i.kind !== 0)}
-							contentContainerStyle={tw`pl-7 pr-14`}
+							contentContainerStyle={tw`pl-7`}
 							numColumns={Math.ceil(Number(kinds.data?.statistics.length ?? 0) / 2)}
 							key={kinds.data?.statistics ? 'kinds' : '_'} //needed to update numColumns when data is available
 							keyExtractor={(item) => item.name}
@@ -43,7 +43,7 @@ const Categories = ({ kinds }: Props) => {
 										break;
 								}
 								return (
-									<View style={twStyle('w-[140px]')}>
+									<View style={twStyle('w-fit')}>
 										<KindItem
 											kind={kind}
 											name={name}
@@ -78,7 +78,7 @@ const KindItem = ({ name, icon, items }: KindItemProps) => {
 				//TODO: implement
 			}}
 		>
-			<View style={twStyle('shrink-0 flex-row items-center', 'gap-2 rounded-lg text-sm')}>
+			<View style={twStyle('mr-10 shrink-0 flex-row items-center', 'gap-2 rounded-lg text-sm')}>
 				<Icon name={icon} size={40} style={tw`mr-3 h-12 w-12`} />
 				<View>
 					<Text style={tw`text-sm font-medium text-ink`}>{name}</Text>
