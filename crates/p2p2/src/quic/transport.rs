@@ -1,5 +1,5 @@
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	convert::Infallible,
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
 	sync::{Arc, PoisonError, RwLock},
@@ -17,6 +17,7 @@ use libp2p_stream::Behaviour;
 use tokio::{
 	net::TcpListener,
 	sync::{mpsc, oneshot},
+	time::timeout,
 };
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tracing::{debug, warn};
@@ -208,6 +209,41 @@ async fn start(
 	loop {
 		tokio::select! {
 			Ok(event) = rx.recv_async() => match event {
+				HookEvent::PeerExpiredBy(_, identity) => {
+					println!("CHECKING {:?}", identity); // TODO
+
+					let Some(peer) = p2p.peers.read().unwrap_or_else(PoisonError::into_inner).get(&identity).map(Clone::clone) else {
+						continue;
+					};
+
+					let addrs = {
+						let state = peer.state.read().unwrap_or_else(PoisonError::into_inner);
+
+						state
+							.discovered
+							.values()
+							.cloned()
+							.flatten()
+							.collect::<HashSet<_>>()
+					};
+
+					let peer_id = remote_identity_to_libp2p_peerid(&identity);
+
+					let mut control = control.clone();
+					let id = id.clone();
+					tokio::spawn(async move {
+						match timeout(Duration::from_secs(5), control.open_stream_with_addrs(
+							peer_id,
+							PROTOCOL,
+							addrs.iter()
+								.map(socketaddr_to_quic_multiaddr)
+								.collect()
+						)).await {
+							Ok(Ok(_)) => {}
+							Err(_) | Ok(Err(_)) => peer.disconnected_from(id),
+						};
+					});
+				},
 				HookEvent::Shutdown { _guard } => {
 					let connected_peers = swarm.connected_peers().cloned().collect::<Vec<_>>();
 					for peer_id in connected_peers {
@@ -318,19 +354,30 @@ async fn start(
 				let map = map.clone();
 				tokio::spawn(async move {
 					let peer_id = remote_identity_to_libp2p_peerid(&req.to);
-					let mut stream = control.open_stream_with_addrs(
+					match control.open_stream_with_addrs(
 						peer_id,
 						PROTOCOL,
 						req.addrs.iter()
 							.map(socketaddr_to_quic_multiaddr)
 							.collect()
-					).await.unwrap();  // TODO: Error handling send back to caller though channel
-					map.write().unwrap_or_else(PoisonError::into_inner).insert(peer_id, req.to.clone());
+					).await {
+						Ok(mut stream) => {
+							map.write().unwrap_or_else(PoisonError::into_inner).insert(peer_id, req.to.clone());
 
-					stream.write_all(&self_remote_identity.get_bytes()).await.unwrap(); // TODO: Error handling
-
-					debug!("Established outbound stream with '{}'", req.to);
-					let _ = req.tx.send(Ok(UnicastStream::new(req.to, stream.compat())));
+							match stream.write_all(&self_remote_identity.get_bytes()).await {
+								Ok(_) => {
+									debug!("Established outbound stream with '{}'", req.to);
+									let _ = req.tx.send(Ok(UnicastStream::new(req.to, stream.compat())));
+								},
+								Err(e) => {
+									let _ = req.tx.send(Err(e.to_string()));
+								},
+							}
+						},
+						Err(e) => {
+							let _ = req.tx.send(Err(e.to_string()));
+						},
+					}
 				});
 			}
 		}
