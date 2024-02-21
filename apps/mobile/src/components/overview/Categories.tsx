@@ -24,7 +24,7 @@ const Categories = ({ kinds }: Props) => {
 							data={kinds.data?.statistics
 								?.sort((a, b) => b.count - a.count)
 								.filter((i) => i.kind !== 0)}
-							contentContainerStyle={tw`pl-7 pr-14`}
+							contentContainerStyle={tw`pl-7`}
 							numColumns={Math.ceil(Number(kinds.data?.statistics.length ?? 0) / 2)}
 							key={kinds.data?.statistics ? 'kinds' : '_'} //needed to update numColumns when data is available
 							keyExtractor={(item) => item.name}
