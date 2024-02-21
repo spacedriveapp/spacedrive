@@ -46,10 +46,10 @@ impl P2PManager {
 	pub async fn new(
 		node_config: Arc<config::Manager>,
 		libraries: Arc<crate::library::Libraries>,
-	) -> Result<(Arc<P2PManager>, impl FnOnce(Arc<Node>)), Infallible> {
+	) -> Result<(Arc<P2PManager>, impl FnOnce(Arc<Node>)), String> {
 		let (tx, rx) = bounded(25);
 		let p2p = P2P::new(SPACEDRIVE_APP_ID, node_config.get().await.identity, tx);
-		let (quic, lp2p_peer_id) = QuicTransport::spawn(p2p.clone()).unwrap(); // TODO: Error handling
+		let (quic, lp2p_peer_id) = QuicTransport::spawn(p2p.clone())?;
 		let this = Arc::new(Self {
 			p2p: p2p.clone(),
 			lp2p_peer_id,

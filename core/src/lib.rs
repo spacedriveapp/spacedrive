@@ -115,7 +115,9 @@ impl Node {
 		let (jobs, jobs_actor) = job::Jobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
 
-		let (p2p, start_p2p) = p2p::P2PManager::new(config.clone(), libraries.clone()).await?;
+		let (p2p, start_p2p) = p2p::P2PManager::new(config.clone(), libraries.clone())
+			.await
+			.map_err(NodeError::P2PManager)?;
 		let node =
 			Arc::new(Node {
 				data_dir: data_dir.to_path_buf(),
@@ -326,7 +328,7 @@ pub enum NodeError {
 	#[error("failed to initialize location manager: {0}")]
 	LocationManager(#[from] LocationManagerError),
 	#[error("failed to initialize p2p manager: {0}")]
-	P2PManager(#[from] Infallible),
+	P2PManager(String),
 	#[error("invalid platform integer: {0}")]
 	InvalidPlatformInt(u8),
 	#[cfg(debug_assertions)]
