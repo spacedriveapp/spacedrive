@@ -53,14 +53,6 @@ runs:
         curl -L# 'https://github.com/rui314/mold/releases/download/v2.4.0/mold-2.4.0-x86_64-linux.tar.gz' \
         | sudo tar -xzf- -C /usr/local
 
-    - name: Install ZLD
-      shell: bash
-      if: ${{ runner.os == 'macOS' }}
-      run: |
-        curl -L# 'https://github.com/michaeleisel/zld/releases/download/1.3.9.1/zld.zip' \
-        | bsdtar -xf- -C /usr/local/bin
-        chmod +x /usr/local/bin/zld
-
     - name: Setup Rust and Dependencies
       uses: ./.github/actions/setup-rust
       with:

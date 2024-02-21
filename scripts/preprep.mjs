@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 
-import { exec as execCb } from 'node:child_process'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { env, exit, umask } from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { promisify } from 'node:util'
 
 import { extractTo } from 'archive-wasm/src/fs.mjs'
 import * as _mustache from 'mustache'
@@ -106,7 +104,6 @@ try {
 	let isWin = false
 	let isMacOS = false
 	let isLinux = false
-	let hasZLD = false
 	/** @type {boolean | { linker: string }} */
 	let hasLLD = false
 	switch (machineId[0]) {
@@ -120,15 +117,9 @@ try {
 				}
 			}
 			break
-		case 'Darwin': {
+		case 'Darwin':
 			isMacOS = true
-			const exec = promisify(execCb)
-			hasZLD = await exec('zld -v').then(
-				ret => ret.stderr.startsWith('@(#)PROGRAM:zld  PROJECT:zld-'),
-				() => false
-			)
 			break
-		}
 		case 'Windows_NT':
 			isWin = true
 			hasLLD = await which('lld-link')
@@ -155,7 +146,6 @@ try {
 						)
 						.replaceAll('\\', '\\\\'),
 					nativeDeps: nativeDeps.replaceAll('\\', '\\\\'),
-					hasZLD,
 					hasLLD,
 				}
 			)
