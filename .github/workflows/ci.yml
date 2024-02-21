@@ -79,7 +79,7 @@ jobs:
 
       - name: Setup Rust and Prisma
         if: steps.filter.outputs.changes == 'true'
-        uses: ./.github/actions/setup-
+        uses: ./.github/actions/setup-rust
         with:
           restore-cache: 'false'
 
