@@ -64,6 +64,13 @@ jobs:
           remove-haskell: 'true'
           remove-docker-images: 'true'
 
+      - name: Symlink target to C:\
+        if: ${{ runner.os == 'Windows' }}
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path C:\spacedrive_target
+          New-Item -Path target -ItemType Junction -Value C:\spacedrive_target
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
