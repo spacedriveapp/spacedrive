@@ -38,14 +38,13 @@ pub fn media_data_image_to_query_params(
 	chain_optional_iter(
 		[],
 		[
-			option_sync_db_entry!(serde_json::to_vec(&mdi.camera_data).ok(); camera_data),
-			option_sync_db_entry!(serde_json::to_vec(&mdi.date_taken).ok(); media_date),
-			option_sync_db_entry!(serde_json::to_vec(&mdi.location).ok(); media_location),
-			option_sync_db_entry!(mdi.artist; artist),
-			option_sync_db_entry!(mdi.description; description),
-			option_sync_db_entry!(mdi.copyright; copyright),
-			option_sync_db_entry!(mdi.exif_version; exif_version),
-			option_sync_db_entry!(mdi.date_taken; date_taken),
+			option_sync_db_entry!(serde_json::to_vec(&mdi.camera_data).ok(), camera_data),
+			option_sync_db_entry!(serde_json::to_vec(&mdi.date_taken).ok(), media_date),
+			option_sync_db_entry!(serde_json::to_vec(&mdi.location).ok(), media_location),
+			option_sync_db_entry!(mdi.artist, artist),
+			option_sync_db_entry!(mdi.description, description),
+			option_sync_db_entry!(mdi.copyright, copyright),
+			option_sync_db_entry!(mdi.exif_version, exif_version),
 		],
 	)
 	.into_iter()

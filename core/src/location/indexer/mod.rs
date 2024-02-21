@@ -106,7 +106,7 @@ async fn execute_indexer_save_step(
 
 			let pub_id = sd_utils::uuid_to_bytes(entry.pub_id);
 
-			let (sync_params, db_params): (Vec<_>, Vec<_>) = [
+			let (sync_params, db_params): (Vec<_>, Vec<UncheckedSetParam>) = [
 				(
 					(
 						location::NAME,
@@ -116,9 +116,9 @@ async fn execute_indexer_save_step(
 					),
 					location_id::set(Some(location.id)),
 				),
-				sync_db_entry!(materialized_path, materialized_path),
-				sync_db_entry!(name, name),
-				sync_db_entry!(is_dir, is_dir),
+				sync_db_entry!(materialized_path.to_string(), materialized_path),
+				sync_db_entry!(name.to_string(), name),
+				sync_db_entry!(*is_dir, is_dir),
 				sync_db_entry!(extension.to_string(), extension),
 				sync_db_entry!(
 					entry.metadata.size_in_bytes.to_be_bytes().to_vec(),
@@ -195,34 +195,29 @@ async fn execute_indexer_update_step(
 			let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 				// As this file was updated while Spacedrive was offline, we mark the object_id and cas_id as null
 				// So this file_path will be updated at file identifier job
-				(
+				should_unlink_object.then_some((
 					(object_id::NAME, serde_json::Value::Null),
-					should_unlink_object.then_some(object::disconnect()),
-				),
-				(
-					(cas_id::NAME, serde_json::Value::Null),
-					Some(cas_id::set(None)),
-				),
-				sync_db_entry!(*is_dir, is_dir),
-				sync_db_entry!(
+					object::disconnect(),
+				)),
+				Some(((cas_id::NAME, serde_json::Value::Null), cas_id::set(None))),
+				Some(sync_db_entry!(*is_dir, is_dir)),
+				Some(sync_db_entry!(
 					entry.metadata.size_in_bytes.to_be_bytes().to_vec(),
 					size_in_bytes_bytes
-				),
-				sync_db_entry!(inode_to_db(entry.metadata.inode), inode),
-				{
+				)),
+				Some(sync_db_entry!(inode_to_db(entry.metadata.inode), inode)),
+				Some({
 					let v = entry.metadata.created_at.into();
 					sync_db_entry!(v, date_created)
-				},
-				{
+				}),
+				Some({
 					let v = entry.metadata.modified_at.into();
-					(v, date_modified)
-				},
-				sync_db_entry!(entry.metadata.hidden, hidden),
+					sync_db_entry!(v, date_modified)
+				}),
+				Some(sync_db_entry!(entry.metadata.hidden, hidden)),
 			]
 			.into_iter()
-			.filter_map(|(sync_param, maybe_db_param)| {
-				maybe_db_param.map(|db_param| (sync_param, db_param))
-			})
+			.flatten()
 			.unzip();
 
 			Ok::<_, IndexerError>((

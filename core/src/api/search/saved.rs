@@ -7,7 +7,6 @@ use sd_utils::chain_optional_iter;
 use chrono::{DateTime, FixedOffset, Utc};
 use rspc::alpha::AlphaRouter;
 use serde::{de::IgnoredAny, Deserialize, Serialize};
-use serde_json::json;
 use specta::Type;
 use tracing::error;
 use uuid::Uuid;
@@ -54,12 +53,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									} else {
 										Some(s)
 									}
-								});
+								}),
 								saved_search::filters
 							),
-							option_sync_db_entry!(args.search; saved_search::search),
-							option_sync_db_entry!(args.description; saved_search::description),
-							option_sync_db_entry!(args.icon; saved_search::icon),
+							option_sync_db_entry!(args.search, saved_search::search),
+							option_sync_db_entry!(args.description, saved_search::description),
+							option_sync_db_entry!(args.icon, saved_search::icon),
 						],
 					)
 					.into_iter()
@@ -135,7 +134,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						[sync_db_entry!(updated_at, saved_search::date_modified)],
 						[
 							option_sync_db_entry!(args.name.flatten(), saved_search::name),
-							option_sync_db_entry!(args.description.flattel(), saved_search::name),
+							option_sync_db_entry!(args.description.flatten(), saved_search::name),
 							option_sync_db_entry!(args.icon.flatten(), saved_search::icon),
 							option_sync_db_entry!(args.search.flatten(), saved_search::search),
 							option_sync_db_entry!(args.filters.flatten(), saved_search::filters),

@@ -306,7 +306,7 @@ async fn inner_create_file(
 		db.file_path().update(
 			file_path::pub_id::equals(created_file.pub_id.clone()),
 			vec![file_path::object::connect(object::pub_id::equals(
-				object_pub_id,
+				object_pub_id.clone(),
 			))],
 		),
 	)

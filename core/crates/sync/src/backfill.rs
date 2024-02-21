@@ -24,6 +24,8 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 			locations
 				.into_iter()
 				.flat_map(|l| {
+					use location::*;
+
 					sync.shared_create(
 						prisma_sync::location::SyncId { pub_id: l.pub_id },
 						chain_optional_iter(
@@ -59,6 +61,8 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 			objects
 				.into_iter()
 				.flat_map(|o| {
+					use object::*;
+
 					sync.shared_create(
 						prisma_sync::object::SyncId { pub_id: o.pub_id },
 						chain_optional_iter(
@@ -96,20 +100,22 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 			media_datas
 				.into_iter()
 				.flat_map(|md| {
+					use media_data::*;
+
 					sync.shared_create(
 						prisma_sync::media_data::SyncId {
 							object: prisma_sync::object::SyncId {
-								pub_id: md.o.pub_id,
+								pub_id: md.object.pub_id,
 							},
 						},
 						chain_optional_iter(
 							[],
 							[
-								option_sync_entry!(mp.resolution, resolution),
+								option_sync_entry!(md.resolution, resolution),
 								option_sync_entry!(md.media_date, media_date),
 								option_sync_entry!(md.media_location, media_location),
 								option_sync_entry!(md.camera_data, camera_data),
-								option_sync_entry!(md.artist, artist_data),
+								option_sync_entry!(md.artist, artist),
 								option_sync_entry!(md.description, description),
 								option_sync_entry!(md.copyright, copyright),
 								option_sync_entry!(md.exif_version, exif_version),
@@ -228,7 +234,7 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 						},
 						chain_optional_iter(
 							[],
-							[option_sync_db_entry!(
+							[option_sync_entry!(
 								t_o.date_created,
 								tag_on_object::date_created
 							)],
