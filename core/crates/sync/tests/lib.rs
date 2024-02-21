@@ -169,18 +169,9 @@ async fn bruh() -> Result<(), Box<dyn std::error::Error>> {
 
 			use prisma::location;
 
-			macro_rules! item {
-				($name:ident, $value:expr) => {
-					(
-						(location::$name::NAME, json!($value)),
-						location::$name::set(Some($value.to_string())),
-					)
-				};
-			}
-
 			let (sync_ops, db_ops): (Vec<_>, Vec<_>) = [
-				item!(name, "Location 0"),
-				item!(path, "/User/Brendan/Documents"),
+				sync_db_entry!(location::name, "Location 0"),
+				sync_db_entry!(location::path, "/User/Brendan/Documents"),
 			]
 			.into_iter()
 			.unzip();

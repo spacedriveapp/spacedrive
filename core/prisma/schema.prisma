@@ -278,6 +278,7 @@ model Object {
 //     @@map("key")
 // }
 
+/// @shared(id: object)
 model MediaData {
   id Int @id @default(autoincrement())
 

@@ -1,13 +1,12 @@
 use crate::{api::utils::library, invalidate_query, library::Library};
 
 use sd_prisma::{prisma::saved_search, prisma_sync};
-use sd_sync::OperationFactory;
+use sd_sync::{option_sync_db_entry, sync_db_entry, OperationFactory};
 use sd_utils::chain_optional_iter;
 
 use chrono::{DateTime, FixedOffset, Utc};
 use rspc::alpha::AlphaRouter;
 use serde::{de::IgnoredAny, Deserialize, Serialize};
-use serde_json::json;
 use specta::Type;
 use tracing::error;
 use uuid::Uuid;
@@ -39,18 +38,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					let (sync_params, db_params): (Vec<_>, Vec<_>) = chain_optional_iter(
 						[
-							(
-								(saved_search::date_created::NAME, json!(date_created)),
-								saved_search::date_created::set(Some(date_created)),
-							),
-							(
-								(saved_search::name::NAME, json!(&args.name)),
-								saved_search::name::set(Some(args.name)),
-							),
+							sync_db_entry!(date_created, saved_search::date_created),
+							sync_db_entry!(args.name, saved_search::name),
 						],
 						[
-							args.filters
-								.and_then(|s| {
+							option_sync_db_entry!(
+								args.filters.and_then(|s| {
 									// https://github.com/serde-rs/json/issues/579
 									// https://docs.rs/serde/latest/serde/de/struct.IgnoredAny.html
 
@@ -60,31 +53,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									} else {
 										Some(s)
 									}
-								})
-								.map(|v| {
-									(
-										(saved_search::filters::NAME, json!(&v)),
-										saved_search::filters::set(Some(v)),
-									)
 								}),
-							args.search.map(|v| {
-								(
-									(saved_search::search::NAME, json!(&v)),
-									saved_search::search::set(Some(v)),
-								)
-							}),
-							args.description.map(|v| {
-								(
-									(saved_search::description::NAME, json!(&v)),
-									saved_search::description::set(Some(v)),
-								)
-							}),
-							args.icon.map(|v| {
-								(
-									(saved_search::icon::NAME, json!(&v)),
-									saved_search::icon::set(Some(v)),
-								)
-							}),
+								saved_search::filters
+							),
+							option_sync_db_entry!(args.search, saved_search::search),
+							option_sync_db_entry!(args.description, saved_search::description),
+							option_sync_db_entry!(args.icon, saved_search::icon),
 						],
 					)
 					.into_iter()
@@ -157,41 +131,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						})?;
 
 					let (sync_params, db_params): (Vec<_>, Vec<_>) = chain_optional_iter(
-						[(
-							(saved_search::date_modified::NAME, json!(updated_at)),
-							saved_search::date_modified::set(Some(updated_at)),
-						)],
+						[sync_db_entry!(updated_at, saved_search::date_modified)],
 						[
-							args.name.map(|v| {
-								(
-									(saved_search::name::NAME, json!(&v)),
-									saved_search::name::set(v),
-								)
-							}),
-							args.description.map(|v| {
-								(
-									(saved_search::name::NAME, json!(&v)),
-									saved_search::name::set(v),
-								)
-							}),
-							args.icon.map(|v| {
-								(
-									(saved_search::icon::NAME, json!(&v)),
-									saved_search::icon::set(v),
-								)
-							}),
-							args.search.map(|v| {
-								(
-									(saved_search::search::NAME, json!(&v)),
-									saved_search::search::set(v),
-								)
-							}),
-							args.filters.map(|v| {
-								(
-									(saved_search::filters::NAME, json!(&v)),
-									saved_search::filters::set(v),
-								)
-							}),
+							option_sync_db_entry!(args.name.flatten(), saved_search::name),
+							option_sync_db_entry!(args.description.flatten(), saved_search::name),
+							option_sync_db_entry!(args.icon.flatten(), saved_search::icon),
+							option_sync_db_entry!(args.search.flatten(), saved_search::search),
+							option_sync_db_entry!(args.filters.flatten(), saved_search::filters),
 						],
 					)
 					.into_iter()
