@@ -48,14 +48,14 @@ runs:
 
     - name: Install Mold
       shell: bash
-      if: ${{ runner.os = 'Linux' }}
+      if: ${{ runner.os == 'Linux' }}
       run: |
         curl -L# 'https://github.com/rui314/mold/releases/download/v2.4.0/mold-2.4.0-x86_64-linux.tar.gz' \
         | bsdtar -xf- -C /usr/local
 
     - name: Install ZLD
       shell: bash
-      if: ${{ runner.os = 'macOS' }}
+      if: ${{ runner.os == 'macOS' }}
       run: |
         curl -L# 'https://github.com/michaeleisel/zld/releases/download/1.3.9.1/zld.zip' \
         | bsdtar -xf- -C /usr/local/bin
