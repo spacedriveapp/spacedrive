@@ -203,7 +203,7 @@ impl P2P {
 			});
 		}
 
-		self.handler_tx.send(stream);
+		let _ = self.handler_tx.send(stream);
 
 		peer
 	}

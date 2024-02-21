@@ -16,7 +16,6 @@ use notifications::Notifications;
 use reqwest::{RequestBuilder, Response};
 
 use std::{
-	convert::Infallible,
 	fmt,
 	path::{Path, PathBuf},
 	sync::{atomic::AtomicBool, Arc},

@@ -1,4 +1,4 @@
-use sd_p2p::proto::decode;
+use sd_p2p_proto::decode;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
 // will probs have more variants in future

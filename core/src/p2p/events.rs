@@ -79,19 +79,20 @@ impl P2PEvents {
 						}
 					}
 					HookEvent::PeerUnavailable(identity) => P2PEvent::ExpiredPeer { identity },
-					// TODO: Finish this
-					// HookEvent::PeerConnectedWith {
-					// 	listener,
-					// 	peer,
-					// 	first_connection,
-					// } if first_connection => P2PEvent::ConnectedPeer {
-					// 	identity: peer.identity(),
-					// },
-					// HookEvent::PeerDisconnectedWith {
-					// 	listener,
-					// 	identity,
-					// 	last_connection,
-					// } if last_connection => P2PEvent::DisconnectedPeer { identity },
+					HookEvent::PeerConnectedWith(listener, peer) => P2PEvent::ConnectedPeer {
+						identity: peer.identity(),
+					},
+					HookEvent::PeerDisconnectedWith(listener, identity) => {
+						let Some(peer) = p2p.peers().get(&identity) else {
+							continue;
+						};
+
+						if !peer.is_connected() {
+							P2PEvent::DisconnectedPeer { identity }
+						} else {
+							continue;
+						}
+					}
 					HookEvent::Shutdown { _guard } => break,
 					_ => continue,
 				};

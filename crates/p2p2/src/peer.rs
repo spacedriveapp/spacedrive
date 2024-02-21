@@ -21,7 +21,6 @@ pub struct Peer {
 	/// A reference back to the P2P system.
 	/// This is weak so we don't have recursive `Arc`'s that can never be dropped.
 	pub(crate) p2p: Weak<P2P>,
-	// TODO: `pub removed: AtomicBool,` // TODO: This should disable methods on this `Peer` instance cause it can be cloned outta the system.
 }
 
 #[derive(Debug, Default)]
@@ -234,6 +233,7 @@ impl Peer {
 
 		let mut state = self.state.write().unwrap_or_else(PoisonError::into_inner);
 		state.connection_methods.remove(&listener_id);
+		state.active_connections.remove(&listener_id);
 
 		let hooks = p2p.hooks.read().unwrap_or_else(PoisonError::into_inner);
 		hooks.iter().for_each(|(_, hook)| {
