@@ -43,55 +43,55 @@ export default function SettingsStack() {
 			<Stack.Screen
 				name="GeneralSettings"
 				component={GeneralSettingsScreen}
-				options={{ headerTitle: 'General Settings' }}
+				options={{ header: () => <Header navBack title="General" /> }}
 			/>
 			<Stack.Screen
 				name="LibrarySettings"
 				component={LibrarySettingsScreen}
-				options={{ headerTitle: 'Libraries' }}
+				options={{ header: () => <Header navBack title="Libraries" /> }}
 			/>
 			<Stack.Screen
 				name="AppearanceSettings"
 				component={AppearanceSettingsScreen}
-				options={{ headerTitle: 'Appearance' }}
+				options={{ header: () => <Header navBack title="Appearance" /> }}
 			/>
 			<Stack.Screen
 				name="PrivacySettings"
 				component={PrivacySettingsScreen}
-				options={{ headerTitle: 'Privacy' }}
+				options={{ header: () => <Header navBack title="Privacy" /> }}
 			/>
 			<Stack.Screen
 				name="ExtensionsSettings"
 				component={ExtensionsSettingsScreen}
-				options={{ headerTitle: 'Extensions' }}
+				options={{ header: () => <Header navBack title="Extensions" /> }}
 			/>
 			{/* Library */}
 			<Stack.Screen
 				name="LibraryGeneralSettings"
 				component={LibraryGeneralSettingsScreen}
-				options={{ headerTitle: 'Library Settings' }}
+				options={{ header: () => <Header navBack title="Library Settings" /> }}
 			/>
 			<Stack.Screen
 				name="LocationSettings"
 				component={LocationSettingsScreen}
-				options={{ headerTitle: 'Locations' }}
+				options={{
+					header: () => <Header searchType="location" navBack title="Locations" />
+				}}
 			/>
 			<Stack.Screen
 				name="EditLocationSettings"
 				component={EditLocationSettingsScreen}
-				options={{ headerTitle: 'Edit Location' }}
+				options={{ header: () => <Header navBack title="Edit Location" /> }}
 			/>
 			<Stack.Screen
 				name="NodesSettings"
 				component={NodesSettingsScreen}
-				options={{
-					headerTitle: 'Nodes'
-				}}
+				options={{ header: () => <Header navBack title="Nodes" /> }}
 			/>
 			<Stack.Screen
 				name="TagsSettings"
 				component={TagsSettingsScreen}
-				options={{ headerTitle: 'Tags' }}
+				options={{ header: () => <Header navBack title="Tags" /> }}
 			/>
 			{/* <Stack.Screen
 				name="KeysSettings"
@@ -99,13 +99,21 @@ export default function SettingsStack() {
 				options={{ headerTitle: 'Keys' }}
 			/> */}
 			{/* Info */}
-			<Stack.Screen name="About" component={AboutScreen} options={{ headerTitle: 'About' }} />
+			<Stack.Screen
+				name="About"
+				component={AboutScreen}
+				options={{ header: () => <Header navBack title="About" /> }}
+			/>
 			<Stack.Screen
 				name="Support"
 				component={SupportScreen}
-				options={{ headerTitle: 'Support' }}
+				options={{ header: () => <Header navBack title="Support" /> }}
 			/>
-			<Stack.Screen name="Debug" component={DebugScreen} options={{ headerTitle: 'Debug' }} />
+			<Stack.Screen
+				name="Debug"
+				component={DebugScreen}
+				options={{ header: () => <Header navBack title="Debug" /> }}
+			/>
 		</Stack.Navigator>
 	);
 }
