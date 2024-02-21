@@ -6,6 +6,11 @@ on:
 
 env:
   SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
+  # From: https://github.com/rust-lang/rust-analyzer/blob/master/.github/workflows/ci.yaml
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUST_BACKTRACE: short
+  RUSTUP_MAX_RETRIES: 10
 
 # Cancel previous runs of the same workflow on the same branch.
 concurrency:
