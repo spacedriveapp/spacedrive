@@ -1,5 +1,6 @@
 const { withAndroidManifest } = require('@expo/config-plugins');
 
+// NOTE: Can be extended if needed (https://forums.expo.dev/t/how-to-edit-android-manifest-was-build/65663/4)
 function modifyAndroidManifest(androidManifest) {
 	const { manifest } = androidManifest;
 

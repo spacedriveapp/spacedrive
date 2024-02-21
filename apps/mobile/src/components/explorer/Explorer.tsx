@@ -43,7 +43,6 @@ const Explorer = ({ items }: ExplorerProps) => {
 		}
 	}
 
-
 	return (
 		<View style={tw`flex-1 bg-mobile-screen`}>
 			{/* Header */}

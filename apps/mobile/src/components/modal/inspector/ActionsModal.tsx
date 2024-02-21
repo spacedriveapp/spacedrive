@@ -12,7 +12,14 @@ import {
 } from 'phosphor-react-native';
 import { PropsWithChildren, useRef } from 'react';
 import { Pressable, Text, View, ViewStyle } from 'react-native';
-import { byteSize, getItemFilePath, getItemObject } from '@sd/client';
+import FileViewer from 'react-native-file-viewer';
+import {
+	byteSize,
+	getIndexedItemFilePath,
+	getItemObject,
+	useLibraryMutation,
+	useLibraryQuery
+} from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
 import FavoriteButton from '~/components/explorer/sections/FavoriteButton';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
@@ -62,7 +69,31 @@ export const ActionsModal = () => {
 	const { modalRef, data } = useActionsModalStore();
 
 	const objectData = data && getItemObject(data);
-	const filePath = data && getItemFilePath(data);
+	const filePath = data && getIndexedItemFilePath(data);
+
+	// Open
+
+	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
+	const queriedFullPath = useLibraryQuery(['files.getPath', filePath?.id ?? -1], {
+		enabled: filePath != null
+	});
+
+	async function handleOpen() {
+		const absolutePath = queriedFullPath.data;
+		if (!absolutePath) return;
+		try {
+			await FileViewer.open(absolutePath, {
+				// Android only
+				showAppsSuggestions: false, // If there is not an installed app that can open the file, open the Play Store with suggested apps
+				showOpenWithDialog: true // if there is more than one app that can open the file, show an Open With dialogue box
+			});
+			filePath &&
+				filePath.object_id &&
+				updateAccessTime.mutateAsync([filePath.object_id]).catch(console.error);
+		} catch (error) {
+			// TODO: Handle Error & toast message
+		}
+	}
 
 	return (
 		<>
@@ -99,10 +130,7 @@ export const ActionsModal = () => {
 						<View style={tw`my-3`} />
 						{/* Actions */}
 						<ActionsContainer>
-							<ActionsItem
-								title="Open"
-								onPress={() => fileInfoRef.current?.present()}
-							/>
+							<ActionsItem title="Open" onPress={handleOpen} />
 							<ActionDivider />
 							<ActionsItem
 								icon={Info}
