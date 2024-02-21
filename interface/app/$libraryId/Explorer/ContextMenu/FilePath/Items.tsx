@@ -10,7 +10,7 @@ import { isNonEmpty } from '~/util';
 import { useExplorerContext } from '../../Context';
 import { CopyAsPathBase } from '../../CopyAsPath';
 import DeleteDialog from '../../FilePath/DeleteDialog';
-import EraseDialog from '../../FilePath/EraseDialog';
+// import EraseDialog from '../../FilePath/EraseDialog';
 import { ConditionalItem } from '../ConditionalItem';
 import { useContextMenuContext } from '../context';
 
