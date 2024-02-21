@@ -46,7 +46,7 @@ runs:
       if: ${{ runner.os != 'Linux' }}
       uses: ilammy/setup-nasm@v1
 
-    - name: Install Mold
+    - name: Install Mold (linker)
       shell: bash
       if: ${{ runner.os == 'Linux' }}
       run: |
