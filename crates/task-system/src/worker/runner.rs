@@ -6,6 +6,7 @@ use std::{
 		atomic::{AtomicBool, Ordering},
 		Arc,
 	},
+	time::Duration,
 };
 
 use async_channel as chan;
@@ -30,6 +31,9 @@ use super::{
 	},
 	RunnerMessage, TaskRunnerOutput, WorkStealer, WorkerId, ONE_SECOND,
 };
+
+const TEN_SECONDS: Duration = Duration::from_secs(10);
+const ONE_MINUTE: Duration = Duration::from_secs(60);
 
 pub(super) enum TaskAddStatus {
 	Running,
@@ -107,6 +111,8 @@ pub(super) struct Runner<E: TaskRunError> {
 	current_task_handle: Option<RunningTask>,
 	suspend_on_shutdown_rx: chan::Receiver<RunnerMessage<E>>,
 	current_steal_task_handle: Option<JoinHandle<()>>,
+	last_steal_attempt_at: Instant,
+	steal_attempts_count: u32,
 }
 
 impl<E: TaskRunError> Runner<E> {
@@ -135,6 +141,8 @@ impl<E: TaskRunError> Runner<E> {
 				current_task_handle: None,
 				suspend_on_shutdown_rx: runner_rx.clone(),
 				current_steal_task_handle: None,
+				last_steal_attempt_at: Instant::now(),
+				steal_attempts_count: 0,
 			},
 			runner_rx,
 		)
@@ -771,7 +779,7 @@ impl<E: TaskRunError> Runner<E> {
 	}
 
 	pub(super) fn steal_request(&mut self, tx: oneshot::Sender<Option<TaskWorkState<E>>>) {
-		// trace!("Steal request: <worker_id='{}'>", self.worker_id);
+		trace!("Steal request: <worker_id='{}'>", self.worker_id);
 		if let Some((kind, task)) = self.get_next_task() {
 			let task_id = task.task.id();
 			self.task_kinds.remove(&task_id);
@@ -795,7 +803,7 @@ impl<E: TaskRunError> Runner<E> {
 				self.task_kinds.insert(task_id, kind);
 			}
 		} else {
-			// trace!("No task to steal: <worker_id='{}'>", self.worker_id);
+			trace!("No task to steal: <worker_id='{}'>", self.worker_id);
 			if tx.send(None).is_err() {
 				warn!(
 					"Steal request channel closed before sending no task response: \
@@ -962,14 +970,26 @@ impl<E: TaskRunError> Runner<E> {
 				self.worker_id
 			);
 
-			// TODO: Introduce some backoff when no task is available to steal
-
 			if self.current_steal_task_handle.is_none() {
-				self.current_steal_task_handle = Some(dispatch_steal_request(
-					self.worker_id,
-					self.work_stealer.clone(),
-					self.runner_tx.clone(),
-				));
+				let elapsed = self.last_steal_attempt_at.elapsed();
+				let required = (TEN_SECONDS * self.steal_attempts_count).min(ONE_MINUTE);
+				trace!(
+					"Steal attempt required cooldown: <worker_id='{}', elapsed='{elapsed:?}', required='{required:?}', steal_attempts_count={}>",
+					self.worker_id, self.steal_attempts_count);
+				if elapsed > required {
+					self.current_steal_task_handle = Some(dispatch_steal_request(
+						self.worker_id,
+						self.work_stealer.clone(),
+						self.runner_tx.clone(),
+					));
+					self.last_steal_attempt_at = Instant::now();
+				} else {
+					trace!(
+						"Steal attempt still cooling down: <worker_id='{}', steal_attempts_count={}>",
+						self.worker_id,
+						self.steal_attempts_count
+					);
+				}
 			} else {
 				trace!(
 					"Steal task already running, ignoring on this idle check: <worker_id='{}'>",
@@ -1002,7 +1022,10 @@ impl<E: TaskRunError> Runner<E> {
 				self.worker_id,
 				task_work_state.task.id()
 			);
+			self.steal_attempts_count = 0;
 			self.new_task(task_work_state).await;
+		} else {
+			self.steal_attempts_count += 1;
 		}
 	}
 
