@@ -6,7 +6,7 @@ use crate::{
 	},
 };
 
-use sd_crypto::Error as CryptoError;
+// use sd_crypto::Error as CryptoError;
 use sd_utils::{db::MissingFieldError, error::FileIOError};
 
 use std::time::Duration;
@@ -66,8 +66,8 @@ pub enum JobError {
 	Validator(#[from] ValidatorError),
 	#[error(transparent)]
 	FileSystemJobsError(#[from] FileSystemJobsError),
-	#[error(transparent)]
-	CryptoError(#[from] CryptoError),
+	// #[error(transparent)]
+	// CryptoError(#[from] CryptoError),
 
 	// Not errors
 	#[error("job had a early finish: <name='{name}', reason='{reason}'>")]

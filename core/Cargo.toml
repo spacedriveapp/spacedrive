@@ -17,19 +17,18 @@ ffmpeg = ["dep:sd-ffmpeg"]
 location-watcher = ["dep:notify"]
 heif = ["sd-images/heif"]
 ai = ["dep:sd-ai"]
+crypto = ["dep:sd-crypto"]
 
 [dependencies]
 # Sub-crates
 sd-cache = { path = "../crates/cache" }
 sd-core-sync = { path = "./crates/sync" }
 # sd-cloud-api = { path = "../crates/cloud-api" }
-sd-crypto = { path = "../crates/crypto", features = [
-	"rspc",
-	"specta",
-	"serde",
-	"keymanager",
-] }
 sd-file-path-helper = { path = "../crates/file-path-helper" }
+sd-crypto = { path = "../crates/crypto", features = [
+	"sys",
+	"tokio",
+], optional = true }
 sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
 sd-file-ext = { path = "../crates/file-ext" }
 sd-images = { path = "../crates/images", features = [
