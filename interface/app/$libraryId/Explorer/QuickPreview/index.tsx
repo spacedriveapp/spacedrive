@@ -441,8 +441,8 @@ export const QuickPreview = () => {
 														FilePathItems.CopyAsPath,
 														FilePathItems.Crypto,
 														FilePathItems.Compress,
-														ObjectItems.ConvertObject,
-														FilePathItems.SecureDelete
+														ObjectItems.ConvertObject
+														// FilePathItems.SecureDelete
 													]}
 												>
 													{(items) => (
