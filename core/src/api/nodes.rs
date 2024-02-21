@@ -1,4 +1,7 @@
-use crate::{invalidate_query, util::MaybeUndefined};
+use crate::{
+	invalidate_query,
+	node::config::{P2PDiscoveryState, Port},
+};
 
 use sd_prisma::prisma::{instance, location};
 
@@ -16,8 +19,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Deserialize, Type)]
 			pub struct ChangeNodeNameArgs {
 				pub name: Option<String>,
-				pub p2p_port: MaybeUndefined<u16>,
-				pub p2p_enabled: Option<bool>,
+				pub p2p_ipv4_port: Option<Port>,
+				pub p2p_ipv6_port: Option<Port>,
+				pub p2p_discovery: Option<P2PDiscoveryState>,
 				pub image_labeler_version: Option<String>,
 			}
 			R.mutation(|node, args: ChangeNodeNameArgs| async move {
@@ -30,9 +34,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					}
 				}
 
-				let does_p2p_need_refresh =
-					args.p2p_enabled.is_some() || args.p2p_port.is_defined();
-
 				#[cfg(feature = "ai")]
 				let mut new_model = None;
 
@@ -42,11 +43,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							config.name = name;
 						}
 
-						config.p2p.enabled = args.p2p_enabled.unwrap_or(config.p2p.enabled);
-
-						if let Some(v) = args.p2p_port.into() {
-							config.p2p.port = v;
-						}
+						if let Some(port) = args.p2p_ipv4_port {
+							config.p2p_ipv4_port = port;
+						};
+						if let Some(port) = args.p2p_ipv6_port {
+							config.p2p_ipv6_port = port;
+						};
+						if let Some(v) = args.p2p_discovery {
+							config.p2p_discovery = v;
+						};
 
 						#[cfg(feature = "ai")]
 						if let Some(version) = args.image_labeler_version {
@@ -59,9 +64,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								new_model = sd_ai::image_labeler::YoloV8::model(Some(&version))
 									.map_err(|e| {
 										error!(
-										"Failed to crate image_detection model: '{}'; Error: {e:#?}",
-										&version,
-									);
+											"Failed to crate image_detection model: '{}'; Error: {e:#?}",
+											&version,
+										);
 									})
 									.ok();
 								if new_model.is_some() {
@@ -79,13 +84,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						)
 					})?;
 
-				// If a P2P config was modified reload it
-				if does_p2p_need_refresh {
-					node.p2p
-						.manager
-						.update_config(node.config.get().await.p2p.clone())
-						.await;
-				}
+				// This is a no-op if the config didn't change
+				node.p2p.on_node_config_change().await;
 
 				invalidate_query!(node; node, "nodeState");
 
