@@ -37,8 +37,9 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 				{/* Node Name and Port */}
 				<SettingsTitle style={tw`mb-1`}>Node Name</SettingsTitle>
 				<Input value={node.name} />
-				<SettingsTitle style={tw`mb-1 mt-3`}>Node Port</SettingsTitle>
-				<Input value={node.p2p_port?.toString() ?? '5795'} keyboardType="numeric" />
+				{/* // TODO: Bring this back */}
+				{/* <SettingsTitle style={tw`mb-1 mt-3`}>Node Port</SettingsTitle> */}
+				{/* <Input value={node.p2p_port?.toString() ?? '5795'} keyboardType="numeric" /> */}
 			</Card>
 			{debugState.enabled && (
 				<Card style={tw`mt-4`}>
