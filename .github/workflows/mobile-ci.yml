@@ -139,7 +139,7 @@ jobs:
 
   ios:
     name: iOS
-    runs-on: macos-12
+    runs-on: macos-14
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
