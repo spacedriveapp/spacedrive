@@ -52,10 +52,9 @@ export default function Header({
 			style={twStyle(
 				'relative h-auto w-full border-b border-app-line/50 bg-mobile-header',
 				{ paddingTop: headerHeight }
-				// Platform.OS === 'android' ? 'pt-5' : 'pt-10'
 			)}
 		>
-			<View style={tw`mx-auto mt-5 h-auto w-full justify-center px-7 pb-5`}>
+			<View style={tw`mx-auto h-auto w-full justify-center px-7 pb-5`}>
 				<View style={tw`w-full flex-row items-center justify-between`}>
 					<View style={tw`flex-row items-center gap-3`}>
 						{navBack && (
@@ -71,7 +70,7 @@ export default function Header({
 							<HeaderIconKind headerKind={headerKind} routeParams={routeParams} />
 							<Text
 								numberOfLines={1}
-								style={tw`max-w-[200px] text-lg font-bold text-white`}
+								style={tw`max-w-[200px] text-xl font-bold text-white`}
 							>
 								{title || (routeTitle && route?.options.title)}
 							</Text>
