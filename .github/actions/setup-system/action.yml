@@ -51,7 +51,7 @@ runs:
       if: ${{ runner.os == 'Linux' }}
       run: |
         curl -L# 'https://github.com/rui314/mold/releases/download/v2.4.0/mold-2.4.0-x86_64-linux.tar.gz' \
-        | tar -xzf- -C /usr/local
+        | sudo tar -xzf- -C /usr/local
 
     - name: Install ZLD
       shell: bash
