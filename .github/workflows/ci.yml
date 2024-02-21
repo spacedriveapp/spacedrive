@@ -61,13 +61,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Symlink target to C:\
-        if: ${{ runner.os == 'Windows' }}
-        shell: powershell
-        run: |
-          New-Item -ItemType Directory -Force -Path C:\spacedrive_target
-          New-Item -Path target -ItemType Junction -Value C:\spacedrive_target
-
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -86,7 +79,9 @@ jobs:
 
       - name: Setup Rust and Prisma
         if: steps.filter.outputs.changes == 'true'
-        uses: ./.github/actions/setup-rust
+        uses: ./.github/actions/setup-
+        with:
+          restore-cache: 'false'
 
       - name: Run rustfmt
         if: steps.filter.outputs.changes == 'true'
@@ -112,13 +107,6 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Symlink target to C:\
-        if: ${{ runner.os == 'Windows' }}
-        shell: powershell
-        run: |
-          New-Item -ItemType Directory -Force -Path C:\spacedrive_target
-          New-Item -Path target -ItemType Junction -Value C:\spacedrive_target
 
       - uses: dorny/paths-filter@v3
         id: filter

@@ -55,13 +55,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Symlink target to C:\
-        if: ${{ runner.os == 'Windows' }}
-        shell: powershell
-        run: |
-          New-Item -ItemType Directory -Force -Path C:\spacedrive_target
-          New-Item -Path target -ItemType Junction -Value C:\spacedrive_target
-
       - name: Remove 32-bit libs
         if: ${{ runner.os == 'Linux' }}
         run: |

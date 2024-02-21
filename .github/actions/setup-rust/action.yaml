@@ -8,6 +8,10 @@ inputs:
     description: Whether to save the Rust cache
     required: false
     default: 'false'
+  restore-cache:
+    description: Whether to restore the Rust cache
+    required: false
+    default: 'true'
 runs:
   using: 'composite'
   steps:
@@ -20,6 +24,7 @@ runs:
         components: clippy, rustfmt
 
     - name: Cache Rust Dependencies
+      if: ${{ inputs.restore-cache == 'true' }}
       uses: Swatinem/rust-cache@v2
       with:
         key: ${{ inputs.target }}
@@ -66,7 +71,7 @@ runs:
 
     - name: Save Prisma codegen
       id: cache-prisma-save
-      if: ${{ inputs.save-cache == 'true' }}
+      if: ${{ steps.cache-prisma-restore.outputs.cache-hit != 'true' }}
       uses: actions/cache/save@v4
       with:
         key: ${{ steps.cache-prisma-restore.outputs.cache-primary-key }}
