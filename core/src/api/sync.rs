@@ -32,4 +32,17 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.await?)
 			})
 		})
+		.procedure("backfill", {
+			R.with2(library())
+				.mutation(|(_, library), _: ()| async move {
+					sd_core_sync::backfill::backfill_operations(
+						&library.db,
+						&library.sync,
+						library.config().await.instance_id,
+					)
+					.await;
+
+					Ok(())
+				})
+		})
 }

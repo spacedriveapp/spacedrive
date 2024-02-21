@@ -53,9 +53,9 @@ export const Component = () => {
 		schema: z
 			.object({
 				name: z.string().min(1).max(250).optional(),
-				p2p_enabled: z.boolean().optional(),
-				p2p_port: u16,
-				customOrDefault: z.enum(['Custom', 'Default']),
+				// p2p_enabled: z.boolean().optional(),
+				// p2p_port: u16,
+				// customOrDefault: z.enum(['Custom', 'Default']),
 				image_labeler_version: z.string().optional(),
 				background_processing_percentage: z.coerce
 					.number({
@@ -69,25 +69,28 @@ export const Component = () => {
 		reValidateMode: 'onChange',
 		defaultValues: {
 			name: node.data?.name,
-			p2p_port: node.data?.p2p_port || 0,
-			p2p_enabled: node.data?.p2p_enabled,
-			customOrDefault: node.data?.p2p_port ? 'Custom' : 'Default',
+			// p2p_port: node.data?.p2p_port || 0,
+			// p2p_enabled: node.data?.p2p_enabled,
+			// customOrDefault: node.data?.p2p_port ? 'Custom' : 'Default',
 			image_labeler_version: node.data?.image_labeler_version ?? undefined,
 			background_processing_percentage:
 				node.data?.preferences.thumbnailer.background_processing_percentage || 50
 		}
 	});
 
-	const watchCustomOrDefault = form.watch('customOrDefault');
-	const watchP2pEnabled = form.watch('p2p_enabled');
+	// const watchCustomOrDefault = form.watch('customOrDefault');
+	// const watchP2pEnabled = form.watch('p2p_enabled');
 	const watchBackgroundProcessingPercentage = form.watch('background_processing_percentage');
 
 	useDebouncedFormWatch(form, async (value) => {
 		if (await form.trigger()) {
 			await editNode.mutateAsync({
 				name: value.name || null,
-				p2p_port: value.customOrDefault === 'Default' ? 0 : Number(value.p2p_port),
-				p2p_enabled: value.p2p_enabled ?? null,
+				p2p_ipv4_port: null,
+				p2p_ipv6_port: null,
+				p2p_discovery: null,
+				// p2p_port: value.customOrDefault === 'Default' ? 0 : Number(value.p2p_port),
+				// p2p_enabled: value.p2p_enabled ?? null,
 				image_labeler_version: value.image_labeler_version ?? null
 			});
 
@@ -101,11 +104,11 @@ export const Component = () => {
 		node.refetch();
 	});
 
-	form.watch((data) => {
-		if (Number(data.p2p_port) > 65535) {
-			form.setValue('p2p_port', 65535);
-		}
-	});
+	// form.watch((data) => {
+	// 	if (Number(data.p2p_port) > 65535) {
+	// 		form.setValue('p2p_port', 65535);
+	// 	}
+	// });
 
 	const { t } = useLocale();
 
@@ -124,13 +127,13 @@ export const Component = () => {
 							<NodePill>
 								{connectedPeers.size} {t('peers')}
 							</NodePill>
-							{node.data?.p2p_enabled === true ? (
+							{/* {node.data?.p2p_enabled === true ? (
 								<NodePill className="!bg-accent text-white">
 									{t('running')}
 								</NodePill>
 							) : (
 								<NodePill className="text-white">{t('disabled')}</NodePill>
-							)}
+							)} */}
 						</div>
 					</div>
 
@@ -321,11 +324,12 @@ export const Component = () => {
 					{/* TODO: Switch doesn't handle optional fields correctly */}
 					<Switch
 						size="md"
-						checked={watchP2pEnabled || false}
-						onClick={() => form.setValue('p2p_enabled', !form.getValues('p2p_enabled'))}
+						// checked={watchP2pEnabled || false}
+						// onClick={() => form.setValue('p2p_enabled', !form.getValues('p2p_enabled'))}
+						disabled
 					/>
 				</Setting>
-				<Setting
+				{/* <Setting
 					mini
 					title={t('networking_port')}
 					description={t('networking_port_description')}
@@ -367,7 +371,7 @@ export const Component = () => {
 							}}
 						/>
 					</div>
-				</Setting>
+				</Setting> */}
 			</div>
 		</FormProvider>
 	);

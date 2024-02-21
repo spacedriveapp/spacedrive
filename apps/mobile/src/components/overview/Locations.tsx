@@ -23,7 +23,7 @@ const Locations = ({ locations }: Props) => {
 	const modalRef = useRef<ModalRef>(null);
 
 	return (
-		<View>
+		<>
 			<OverviewSection title="Locations" count={locations?.length}>
 				<View style={tw`flex-row items-center`}>
 					<Fade height={'100%'} width={30} color="mobile-screen">
@@ -80,7 +80,7 @@ const Locations = ({ locations }: Props) => {
 				</View>
 			</OverviewSection>
 			<ImportModal ref={modalRef} />
-		</View>
+		</>
 	);
 };
 

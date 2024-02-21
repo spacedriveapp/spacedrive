@@ -18,6 +18,11 @@ on:
 env:
   SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
   SPACEDRIVE_CI: '1'
+  # From: https://github.com/rust-lang/rust-analyzer/blob/master/.github/workflows/ci.yaml
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUST_BACKTRACE: short
+  RUSTUP_MAX_RETRIES: 10
 
 # Cancel previous runs of the same workflow on the same branch.
 concurrency:
@@ -139,7 +144,7 @@ jobs:
 
   ios:
     name: iOS
-    runs-on: macos-12
+    runs-on: macos-14
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -172,7 +177,7 @@ jobs:
           version: latest
 
       # - name: Cache Pods
-      #   uses: actions/cache@v3
+      #   uses: actions/cache@v4
       #   with:
       #     path: |
       #       ./apps/mobile/ios/Pods
@@ -187,7 +192,7 @@ jobs:
 
       - name: Build iOS
         working-directory: ./apps/mobile/ios
-        run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -configuration Release -sdk iphonesimulator -derivedDataPath build -arch x86_64
+        run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -configuration Release -sdk iphonesimulator -derivedDataPath build -arch "$(uname -m)"
 
       - name: Install Maestro
         run: |
@@ -199,7 +204,7 @@ jobs:
       - name: Run Simulator
         uses: futureware-tech/simulator-action@v2
         with:
-          model: 'iPhone 11'
+          model: 'iPhone SE (3rd generation)'
 
       - name: Run Tests
         run: |

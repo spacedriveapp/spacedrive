@@ -1,20 +1,19 @@
 use crate::{
 	api::{utils::InvalidateOperationEvent, CoreEvent},
-	invalidate_query,
+	cloud, invalidate_query,
 	location::{
 		indexer,
 		metadata::{LocationMetadataError, SpacedriveLocationMetadataFile},
 	},
 	node::Platform,
 	object::tag,
-	p2p::{self},
-	sync,
+	p2p, sync,
 	util::{mpscrr, MaybeUndefined},
 	Node,
 };
 
 use sd_core_sync::SyncMessage;
-use sd_p2p::spacetunnel::{Identity, IdentityOrRemoteIdentity};
+use sd_p2p2::{Identity, IdentityOrRemoteIdentity};
 use sd_prisma::prisma::{crdt_operation, instance, location, SortOrder};
 use sd_utils::{
 	db,
@@ -535,7 +534,7 @@ impl Libraries {
 				loop {
 					debug!("Syncing library with cloud!");
 
-					if let Some(_) = library.config().await.cloud_id {
+					if library.config().await.cloud_id.is_some() {
 						if let Ok(lib) =
 							sd_cloud_api::library::get(node.cloud_api_config().await, library.id)
 								.await
@@ -575,7 +574,7 @@ impl Libraries {
 										}
 									}
 
-									if &lib.name != &*library.config().await.name {
+									if lib.name != *library.config().await.name {
 										warn!("Library name on cloud is outdated. Updating...");
 
 										if let Err(err) = sd_cloud_api::library::update(
@@ -593,17 +592,16 @@ impl Libraries {
 									}
 
 									for instance in lib.instances {
-										if let Err(err) =
-											crate::cloud::sync::receive::create_instance(
-												&library,
-												&node.libraries,
-												instance.uuid,
-												instance.identity,
-												instance.node_id,
-												instance.node_name,
-												instance.node_platform,
-											)
-											.await
+										if let Err(err) = cloud::sync::receive::create_instance(
+											&library,
+											&node.libraries,
+											instance.uuid,
+											instance.identity,
+											instance.node_id,
+											instance.node_name,
+											instance.node_platform,
+										)
+										.await
 										{
 											error!(
 												"Failed to create instance from cloud: {:#?}",

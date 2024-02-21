@@ -14,6 +14,7 @@ import {
 	useOnlineLocations
 } from '@sd/client';
 import FolderIcon from '~/components/icons/FolderIcon';
+import { Icon } from '~/components/icons/Icon';
 import Fade from '~/components/layout/Fade';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
@@ -51,13 +52,14 @@ export const Locations = ({ redirectToLocationSettings }: Props) => {
 	return (
 		<ScreenContainer scrollview={false} style={tw`relative px-7 py-0`}>
 			<Pressable
-				style={tw`absolute bottom-7 right-7 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-accent`}
+				style={tw`absolute bottom-7 right-7 z-10 h-12 w-12 items-center justify-center rounded-full bg-accent`}
 				onPress={() => {
 					modalRef.current?.present();
 				}}
 			>
 				<Plus size={20} weight="bold" style={tw`text-ink`} />
 			</Pressable>
+
 			<Fade
 				fadeSides="top-bottom"
 				orientation="vertical"
@@ -67,10 +69,22 @@ export const Locations = ({ redirectToLocationSettings }: Props) => {
 			>
 				<FlatList
 					data={filteredLocations}
-					contentContainerStyle={tw`py-5`}
+					contentContainerStyle={twStyle(
+						`py-5`,
+						filteredLocations.length === 0 && 'h-full items-center justify-center'
+					)}
 					keyExtractor={(location) => location.id.toString()}
 					ItemSeparatorComponent={() => <View style={tw`h-2`} />}
 					showsVerticalScrollIndicator={false}
+					scrollEnabled={filteredLocations.length > 0}
+					ListEmptyComponent={() => (
+						<View style={tw`h-auto w-[85.5vw] flex-col items-center justify-center`}>
+							<Icon name="Folder" size={90} />
+							<Text style={tw`text-center text-lg font-medium text-ink-dull`}>
+								You have no locations
+							</Text>
+						</View>
+					)}
 					renderItem={({ item }) => (
 						<LocationItem
 							navigation={navigation}
@@ -134,7 +148,7 @@ export const LocationItem = ({
 		return (
 			<Animated.View
 				style={[
-					tw`ml-5 mr-3 flex flex-row items-center gap-2`,
+					tw`mr-3 flex flex-row items-center gap-2`,
 					{ transform: [{ translateX: translate }] }
 				]}
 			>

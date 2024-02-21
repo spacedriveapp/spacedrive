@@ -6,6 +6,11 @@ on:
 
 env:
   SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
+  # From: https://github.com/rust-lang/rust-analyzer/blob/master/.github/workflows/ci.yaml
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUST_BACKTRACE: short
+  RUSTUP_MAX_RETRIES: 10
 
 # Cancel previous runs of the same workflow on the same branch.
 concurrency:
@@ -18,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js, pnpm and dependencies
         uses: ./.github/actions/setup-pnpm
@@ -33,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js, pnpm and dependencies
         uses: ./.github/actions/setup-pnpm
@@ -58,9 +63,6 @@ jobs:
           remove-haskell: 'true'
           remove-docker-images: 'true'
 
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
       - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
         shell: powershell
@@ -68,7 +70,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path C:\spacedrive_target
           New-Item -Path target -ItemType Junction -Value C:\spacedrive_target
 
-      - uses: dorny/paths-filter@v2
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -87,6 +92,8 @@ jobs:
       - name: Setup Rust and Prisma
         if: steps.filter.outputs.changes == 'true'
         uses: ./.github/actions/setup-rust
+        with:
+          restore-cache: 'false'
 
       - name: Run rustfmt
         if: steps.filter.outputs.changes == 'true'
@@ -110,9 +117,6 @@ jobs:
           remove-haskell: 'true'
           remove-docker-images: 'true'
 
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
       - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
         shell: powershell
@@ -120,7 +124,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path C:\spacedrive_target
           New-Item -Path target -ItemType Junction -Value C:\spacedrive_target
 
-      - uses: dorny/paths-filter@v2
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -146,10 +153,9 @@ jobs:
 
       - name: Run Clippy
         if: steps.filter.outputs.changes == 'true'
-        uses: actions-rs/clippy-check@v1
+        uses: actions-rs-plus/clippy-check@v2
         with:
           args: --workspace --all-features
-          token: ${{ secrets.GITHUB_TOKEN }}
 
   # test:
   #   name: Test (${{ matrix.platform }})
@@ -159,7 +165,7 @@ jobs:
   #       platform: [ubuntu-20.04, macos-latest, windows-latest]
   #   steps:
   #     - name: Checkout repository
-  #       uses: actions/checkout@v3
+  #       uses: actions/checkout@v4
   #
   #     - name: Setup
   #       uses: ./.github/actions/setup
