@@ -61,7 +61,7 @@ impl P2PEvents {
 					// We use `HookEvent::PeerUnavailable`/`HookEvent::PeerAvailable` over `HookEvent::PeerExpiredBy`/`HookEvent::PeerDiscoveredBy` so that having an active connection is treated as "discovered".
 					// It's possible to have an active connection without mDNS data (which is what Peer*By` are for)
 					HookEvent::PeerAvailable(peer) => {
-						let metadata = match PeerMetadata::from_hashmap(&*peer.metadata()) {
+						let metadata = match PeerMetadata::from_hashmap(&peer.metadata()) {
 							Ok(metadata) => metadata,
 							Err(e) => {
 								println!(
@@ -79,11 +79,12 @@ impl P2PEvents {
 						}
 					}
 					HookEvent::PeerUnavailable(identity) => P2PEvent::ExpiredPeer { identity },
-					HookEvent::PeerConnectedWith(listener, peer) => P2PEvent::ConnectedPeer {
+					HookEvent::PeerConnectedWith(_, peer) => P2PEvent::ConnectedPeer {
 						identity: peer.identity(),
 					},
-					HookEvent::PeerDisconnectedWith(listener, identity) => {
-						let Some(peer) = p2p.peers().get(&identity) else {
+					HookEvent::PeerDisconnectedWith(_, identity) => {
+						let peers = p2p.peers();
+						let Some(peer) = peers.get(&identity) else {
 							continue;
 						};
 

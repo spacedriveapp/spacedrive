@@ -25,7 +25,7 @@ use tokio::sync::oneshot;
 use tracing::{error, info};
 use uuid::Uuid;
 
-use super::{ConnectHook, P2PEvents, PeerMetadata};
+use super::{P2PEvents, PeerMetadata};
 
 pub struct P2PManager {
 	pub(crate) p2p: Arc<P2P>,
@@ -34,8 +34,7 @@ pub struct P2PManager {
 	// The `libp2p::PeerId`. This is for debugging only, use `RemoteIdentity` instead.
 	lp2p_peer_id: Libp2pPeerId,
 	pub(crate) events: P2PEvents,
-	connect_hook: ConnectHook,
-
+	// connect_hook: ConnectHook,
 	pub(super) spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub(super) spacedrop_cancelations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
 	pub(crate) node_config: Arc<config::Manager>,
@@ -55,7 +54,7 @@ impl P2PManager {
 			mdns: Mutex::new(None),
 			quic,
 			events: P2PEvents::spawn(p2p.clone()),
-			connect_hook: ConnectHook::spawn(p2p),
+			// connect_hook: ConnectHook::spawn(p2p),
 			spacedrop_pairing_reqs: Default::default(),
 			spacedrop_cancelations: Default::default(),
 			node_config,
@@ -228,58 +227,64 @@ async fn start(
 		tokio::spawn(async move {
 			println!("APPLICATION GOT STREAM: {:?}", stream); // TODO
 
-			let header = Header::from_stream(&mut stream)
-				.await
-				.map_err(|err| {
-					error!("Failed to read header from stream: {}", err);
-				})
-				.unwrap(); // TODO
-
-			println!("APPLICATION GOT HEADER: {:?}", header); // TODO
+			let Ok(header) = Header::from_stream(&mut stream).await.map_err(|err| {
+				error!("Failed to read header from stream: {}", err);
+			}) else {
+				return;
+			};
 
 			match header {
 				Header::Ping => operations::ping::reciever(stream).await,
 				Header::Spacedrop(req) => {
-					operations::spacedrop::reciever(&this, req, stream)
-						.await
-						.unwrap() // TODO
+					let Err(()) = operations::spacedrop::reciever(&this, req, stream).await else {
+						return;
+					};
+
+					error!("Failed to handle Spacedrop request");
 				}
 				Header::Sync(library_id) => {
-					let mut tunnel = Tunnel::responder(stream)
-						.await
-						.map_err(|err| {
-							error!("Failed `Tunnel::responder`: {}", err);
-						})
-						.unwrap(); // TODO
+					let Ok(mut tunnel) = Tunnel::responder(stream).await.map_err(|err| {
+						error!("Failed `Tunnel::responder`: {}", err);
+					}) else {
+						return;
+					};
 
-					let msg = SyncMessage::from_stream(&mut tunnel)
-						.await
-						.map_err(|err| {
-							error!("Failed `SyncMessage::from_stream`: {}", err);
-						})
-						.unwrap(); // TODO
+					let Ok(msg) = SyncMessage::from_stream(&mut tunnel).await.map_err(|err| {
+						error!("Failed `SyncMessage::from_stream`: {}", err);
+					}) else {
+						return;
+					};
 
-					let library = node
-						.libraries
-						.get_library(&library_id)
-						.await
-						.ok_or_else(|| {
-							error!("Failed to get library '{library_id}'");
+					let Ok(library) =
+						node.libraries
+							.get_library(&library_id)
+							.await
+							.ok_or_else(|| {
+								error!("Failed to get library '{library_id}'");
 
-							// TODO: Respond to remote client with warning!
-						})
-						.unwrap(); // TODO: Error handling
+								// TODO: Respond to remote client with warning!
+							})
+					else {
+						return;
+					};
 
 					match msg {
 						SyncMessage::NewOperations => {
-							super::sync::responder(&mut tunnel, library).await.unwrap(); // TODO: Error handling
+							let Err(()) = super::sync::responder(&mut tunnel, library).await else {
+								return;
+							};
+
+							error!("Failed to handle sync responder request");
 						}
 					};
 				}
 				Header::File(req) => {
-					operations::request_file::receiver(&node, req, stream)
-						.await
-						.unwrap(); // TODO: Error handling
+					let Err(()) = operations::request_file::receiver(&node, req, stream).await
+					else {
+						return;
+					};
+
+					error!("Failed to handle file request");
 				}
 			};
 		});
@@ -295,8 +300,8 @@ pub struct Listener2 {
 	pub addrs: HashSet<SocketAddr>,
 }
 
-pub fn into_listener2(l: &Vec<Listener>) -> Vec<Listener2> {
-	l.into_iter()
+pub fn into_listener2(l: &[Listener]) -> Vec<Listener2> {
+	l.iter()
 		.map(|l| Listener2 {
 			id: format!("{:?}", l.id),
 			name: l.name,

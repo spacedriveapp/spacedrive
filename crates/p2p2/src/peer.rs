@@ -44,13 +44,14 @@ pub struct ConnectionRequest {
 	pub tx: oneshot::Sender<Result<UnicastStream, String>>,
 }
 
-impl State {
-	pub(crate) fn needs_removal(&self) -> bool {
-		self.discovered.is_empty()
-			&& self.connection_methods.is_empty()
-			&& self.active_connections.is_empty()
-	}
-}
+// TODO: Maybe use this?
+// impl State {
+// 	pub(crate) fn needs_removal(&self) -> bool {
+// 		self.discovered.is_empty()
+// 			&& self.connection_methods.is_empty()
+// 			&& self.active_connections.is_empty()
+// 	}
+// }
 
 impl Eq for Peer {}
 impl PartialEq for Peer {
@@ -135,17 +136,17 @@ impl Peer {
 
 	/// Construct a new Quic stream to the peer.
 	pub async fn new_stream(&self) -> Result<UnicastStream, NewStreamError> {
-		let (addrs, id, connect_tx) = {
+		let (addrs, connect_tx) = {
 			let state = self.state.read().unwrap_or_else(PoisonError::into_inner);
 
 			let addrs = state
 				.discovered
 				.values()
-				.cloned()
 				.flatten()
+				.cloned()
 				.collect::<HashSet<_>>();
 
-			let Some((id, connect_tx)) = state
+			let Some((_id, connect_tx)) = state
 				.connection_methods
 				.iter()
 				.map(|(id, tx)| (*id, tx.clone()))
@@ -154,13 +155,13 @@ impl Peer {
 				return Err(NewStreamError::NoConnectionMethodsAvailable);
 			};
 
-			(addrs, id, connect_tx)
+			(addrs, connect_tx)
 		};
 
 		let (tx, rx) = oneshot::channel();
 		connect_tx
 			.send(ConnectionRequest {
-				to: self.identity.clone(),
+				to: self.identity,
 				addrs,
 				tx,
 			})
@@ -211,7 +212,7 @@ impl Peer {
 
 		let hooks = p2p.hooks.read().unwrap_or_else(PoisonError::into_inner);
 		hooks.iter().for_each(|(_, hook)| {
-			hook.send(HookEvent::PeerExpiredBy(hook_id, self.identity.clone()));
+			hook.send(HookEvent::PeerExpiredBy(hook_id, self.identity));
 		});
 
 		if state.connection_methods.is_empty() && state.discovered.is_empty() {
@@ -221,7 +222,7 @@ impl Peer {
 				.remove(&self.identity);
 
 			hooks.iter().for_each(|(_, hook)| {
-				hook.send(HookEvent::PeerUnavailable(self.identity.clone()));
+				hook.send(HookEvent::PeerUnavailable(self.identity));
 			});
 		}
 	}
@@ -237,10 +238,7 @@ impl Peer {
 
 		let hooks = p2p.hooks.read().unwrap_or_else(PoisonError::into_inner);
 		hooks.iter().for_each(|(_, hook)| {
-			hook.send(HookEvent::PeerDisconnectedWith(
-				listener_id,
-				self.identity.clone(),
-			));
+			hook.send(HookEvent::PeerDisconnectedWith(listener_id, self.identity));
 		});
 
 		if state.connection_methods.is_empty() && state.discovered.is_empty() {
@@ -250,7 +248,7 @@ impl Peer {
 				.remove(&self.identity);
 
 			hooks.iter().for_each(|(_, hook)| {
-				hook.send(HookEvent::PeerUnavailable(self.identity.clone()));
+				hook.send(HookEvent::PeerUnavailable(self.identity));
 			});
 		}
 	}

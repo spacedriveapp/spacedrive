@@ -1,7 +1,7 @@
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
 	net::SocketAddr,
-	sync::{atomic::AtomicUsize, Arc, PoisonError, RwLock, RwLockReadGuard},
+	sync::{Arc, PoisonError, RwLock, RwLockReadGuard},
 	time::Duration,
 };
 
@@ -35,9 +35,6 @@ pub struct P2P {
 	metadata: RwLock<HashMap<String, String>>,
 	/// A list of all peers known to the P2P system. Be aware a peer could be connected and/or discovered at any time.
 	pub(crate) peers: RwLock<HashMap<RemoteIdentity, Arc<Peer>>>,
-	/// A counter for getting a new unique ID for the next hook.
-	/// This number is converted to a `HookId` and returned to the user. // TODO: Fix this
-	hook_id: AtomicUsize,
 	/// Hooks can be registered to react to state changes in the P2P system.
 	pub(crate) hooks: RwLock<StableVec<Hook>>,
 }
@@ -54,6 +51,7 @@ impl P2P {
 			.all(|c| char::is_alphanumeric(c) || c == '-')
 			.then_some(())
 			.expect("'P2P::new': invalid app_name. Must be alphanumeric or '-' only.");
+		#[allow(clippy::panic)]
 		if app_name.len() > 12 {
 			panic!("'P2P::new': app_name too long. Must be 12 characters or less.");
 		}
@@ -64,7 +62,6 @@ impl P2P {
 			metadata: Default::default(),
 			peers: Default::default(),
 			handler_tx,
-			hook_id: Default::default(),
 			hooks: Default::default(),
 		})
 	}
@@ -259,7 +256,7 @@ impl P2P {
 
 	pub fn register_listener_addr(&self, listener_id: ListenerId, addr: SocketAddr) {
 		let mut hooks = self.hooks.write().unwrap_or_else(PoisonError::into_inner);
-		if let Some(mut listener) = hooks
+		if let Some(listener) = hooks
 			.get_mut(listener_id.0)
 			.and_then(|l| l.listener.as_mut())
 		{
@@ -319,9 +316,9 @@ impl P2P {
 			if let Some(hook) = hooks.remove(id.0) {
 				let (_guard, rx) = ShutdownGuard::new();
 				shutdown_rxs.push(rx);
-				let _ = hook.send(HookEvent::Shutdown { _guard });
+				hook.send(HookEvent::Shutdown { _guard });
 
-				if let Some(_) = hook.listener {
+				if hook.listener.is_some() {
 					hooks.iter().for_each(|(_, hook)| {
 						hook.send(HookEvent::ListenerUnregistered(ListenerId(id.0)));
 					});

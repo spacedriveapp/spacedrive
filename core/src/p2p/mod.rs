@@ -10,7 +10,7 @@ pub mod operations;
 mod protocol;
 pub mod sync;
 
-pub use connect_hook::*;
+// pub use connect_hook::*;
 pub use events::*;
 pub use manager::*;
 pub use metadata::*;

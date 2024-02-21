@@ -69,7 +69,7 @@ fn start(p2p: Arc<P2P>, hook_id: HookId, rx: Receiver<HookEvent>) -> Result<(), 
 					_ => continue,
 				},
 				_ = &mut state.next_mdns_advertisement => advertise(&mut state),
-				Ok(event) = mdns_service.recv_async() => on_event(&mut state, event)
+				Ok(event) = mdns_service.recv_async() => on_event(&state, event)
 			};
 		}
 	});
@@ -121,7 +121,7 @@ fn advertise(state: &mut State) {
 fn on_event(state: &State, event: ServiceEvent) {
 	match event {
 		ServiceEvent::ServiceResolved(info) => {
-			let Some(identity) = fullname_to_identity(&state, info.get_fullname()) else {
+			let Some(identity) = fullname_to_identity(state, info.get_fullname()) else {
 				return;
 			};
 
@@ -139,7 +139,7 @@ fn on_event(state: &State, event: ServiceEvent) {
 			);
 		}
 		ServiceEvent::ServiceRemoved(_, fullname) => {
-			let Some(identity) = fullname_to_identity(&state, &fullname) else {
+			let Some(identity) = fullname_to_identity(state, &fullname) else {
 				return;
 			};
 
@@ -162,7 +162,7 @@ fn fullname_to_identity(
 	fullname: &str,
 ) -> Option<RemoteIdentity> {
 	let Some(identity) = fullname
-		.strip_suffix(&*service_domain)
+		.strip_suffix(service_domain)
 		.map(|s| &s[0..s.len() - 1])
 	else {
 		warn!(
@@ -186,7 +186,7 @@ fn fullname_to_identity(
 }
 
 fn shutdown(_guard: ShutdownGuard, state: &mut State) {
-	match state
+	if let Ok(chan) = state
 		.mdns_daemon
 		.unregister(&state.service_name)
 		.map_err(|err| {
@@ -195,10 +195,7 @@ fn shutdown(_guard: ShutdownGuard, state: &mut State) {
 				state.service_name
 			);
 		}) {
-		Ok(chan) => {
-			let _ = chan.recv();
-		}
-		Err(_) => {}
+		let _ = chan.recv();
 	};
 
 	// TODO: Without this mDNS is not sending it goodbye packets without a timeout. Try and remove this cause it makes shutdown slow.

@@ -1,7 +1,7 @@
 use std::{
 	collections::{HashMap, HashSet},
 	convert::Infallible,
-	net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
+	net::{Ipv4Addr, Ipv6Addr, SocketAddr},
 	sync::{Arc, PoisonError, RwLock},
 	time::Duration,
 };
@@ -57,20 +57,7 @@ enum InternalEvent {
 pub struct QuicTransport {
 	id: ListenerId,
 	p2p: Arc<P2P>,
-	state: Arc<RwLock<State>>,
 	internal_tx: Sender<InternalEvent>,
-}
-
-#[derive(Debug, Default)]
-struct State {
-	ipv4_addr: Option<Listener<SocketAddrV4>>,
-	ipv6_addr: Option<Listener<SocketAddrV6>>,
-}
-
-#[derive(Debug)]
-struct Listener<T> {
-	addr: T,
-	libp2p: Result<ListenerId, String>,
 }
 
 impl QuicTransport {
@@ -102,22 +89,12 @@ impl QuicTransport {
 		.with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
 		.build();
 
-		let state: Arc<RwLock<State>> = Default::default();
-		tokio::spawn(start(
-			p2p.clone(),
-			id,
-			state.clone(),
-			swarm,
-			rx,
-			internal_rx,
-			connect_rx,
-		));
+		tokio::spawn(start(p2p.clone(), id, swarm, rx, internal_rx, connect_rx));
 
 		Ok((
 			Self {
 				id,
 				p2p,
-				state,
 				internal_tx,
 			},
 			libp2p_peer_id,
@@ -146,6 +123,7 @@ impl QuicTransport {
 		let (tx, rx) = oneshot::channel();
 		let event = if let Some(mut addr) = addr {
 			if addr.port() == 0 {
+				#[allow(clippy::unwrap_used)] // TODO: Error handling
 				addr.set_port(
 					TcpListener::bind(addr)
 						.await
@@ -193,7 +171,6 @@ fn ok<T>(v: Result<T, Infallible>) -> T {
 async fn start(
 	p2p: Arc<P2P>,
 	id: ListenerId,
-	state: Arc<RwLock<State>>, // TODO: Removing this or using it???
 	mut swarm: Swarm<Behaviour>,
 	rx: Receiver<HookEvent>,
 	internal_rx: Receiver<InternalEvent>,
@@ -203,7 +180,8 @@ async fn start(
 	let mut ipv6_listener = None;
 
 	let mut control = swarm.behaviour().new_control();
-	let mut incoming = control.accept(PROTOCOL).unwrap(); // TODO: Error handling
+	#[allow(clippy::unwrap_used)] // TODO: Error handling
+	let mut incoming = control.accept(PROTOCOL).unwrap();
 	let map = Arc::new(RwLock::new(HashMap::new()));
 
 	loop {
@@ -222,15 +200,14 @@ async fn start(
 						state
 							.discovered
 							.values()
-							.cloned()
 							.flatten()
+							.cloned()
 							.collect::<HashSet<_>>()
 					};
 
 					let peer_id = remote_identity_to_libp2p_peerid(&identity);
 
 					let mut control = control.clone();
-					let id = id.clone();
 					tokio::spawn(async move {
 						match timeout(Duration::from_secs(5), control.open_stream_with_addrs(
 							peer_id,
@@ -267,8 +244,20 @@ async fn start(
 				let map = map.clone();
 				tokio::spawn(async move {
 					let mut actual = [0; REMOTE_IDENTITY_LEN];
-					stream.read_exact(&mut actual).await.unwrap(); // TODO: Error handling
-					let identity = RemoteIdentity::from_bytes(&actual).unwrap();
+					match stream.read_exact(&mut actual).await {
+						Ok(_) => {},
+						Err(e) => {
+							warn!("Failed to read remote identity with libp2p::PeerId({peer_id:?}): {e:?}");
+							return;
+						},
+					}
+					let identity = match RemoteIdentity::from_bytes(&actual) {
+						Ok(i) => i,
+						Err(e) => {
+							warn!("Failed to parse remote identity with libp2p::PeerId({peer_id:?}): {e:?}");
+							return;
+						},
+					};
 
 					// We need to go `PeerId -> RemoteIdentity` but as `PeerId` is a hash that's impossible.
 					// So to make this work the connection initiator will send their remote identity.
@@ -276,7 +265,8 @@ async fn start(
 					// If it matches, we are certain they own the private key as libp2p takes care of ensuring the PeerId is trusted.
 					let remote_identity_peer_id = remote_identity_to_libp2p_peerid(&identity);
 					if peer_id != remote_identity_peer_id {
-						panic!("no please don't hack me, hacker man"); // TODO: Error handling
+						warn!("Derived remote identity '{remote_identity_peer_id:?}' does not match libp2p::PeerId({peer_id:?})");
+						return;
 					}
 					map.write().unwrap_or_else(PoisonError::into_inner).insert(peer_id, identity);
 
@@ -294,11 +284,10 @@ async fn start(
 
 					debug!("established inbound stream with '{}'", identity);
 
-					// TODO: Handle `shutdown_rx`
+					let _todo = shutdown_rx; // TODO: Handle `shutdown_rx`
 				});
 			},
-			event = swarm.select_next_some() => match event {
-				SwarmEvent::ConnectionClosed { peer_id, num_established, .. }  if num_established == 0 => {
+			event = swarm.select_next_some() => if let SwarmEvent::ConnectionClosed { peer_id, num_established: 0, .. } = event {
 					let Some(identity) = map.write().unwrap_or_else(PoisonError::into_inner).remove(&peer_id) else {
 						warn!("Tried to remove a peer that wasn't in the map.");
 						continue;
@@ -311,8 +300,6 @@ async fn start(
 					};
 
 					peer.disconnected_from(id);
-				},
-				_ => {},
 			},
 			Ok(event) = internal_rx.recv_async() => match event {
 				InternalEvent::RegisterListener { id, ipv4, addr, result } => {
@@ -362,7 +349,7 @@ async fn start(
 							.collect()
 					).await {
 						Ok(mut stream) => {
-							map.write().unwrap_or_else(PoisonError::into_inner).insert(peer_id, req.to.clone());
+							map.write().unwrap_or_else(PoisonError::into_inner).insert(peer_id, req.to);
 
 							match stream.write_all(&self_remote_identity.get_bytes()).await {
 								Ok(_) => {
