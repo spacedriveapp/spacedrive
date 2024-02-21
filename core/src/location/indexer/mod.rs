@@ -106,7 +106,7 @@ async fn execute_indexer_save_step(
 
 			let pub_id = sd_utils::uuid_to_bytes(entry.pub_id);
 
-			let (sync_params, db_params): (Vec<_>, Vec<UncheckedSetParam>) = [
+			let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 				(
 					(
 						location::NAME,
