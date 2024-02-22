@@ -106,13 +106,17 @@ export function Spacedrop({ triggerClose }: { triggerClose: () => void }) {
 				<span className="text-lg font-bold">Spacedrop</span>
 
 				<div className="flex flex-col space-y-4 pt-2">
-					{discoveredPeers.size === 0 && (
-						<div className="flex flex-col text-center">
-								<span className="mx-auto max-w-[180px] text-center text-ink-dull">
+					<p className="text-center text-ink-dull">
+						{t("spacedrop_description")}
+					</p>
+				{discoveredPeers.size === 0 && <div className={clsx(
+				'flex items-center justify-center gap-3 rounded-md border border-dashed border-app-line bg-app-darkBox px-3 py-2 font-medium text-ink',
+
+			)}>
+					<p className="text-center text-ink-faint">
 								{t("no_nodes_found")}
-							</span>
-						</div>
-					)}
+							</p>
+			</div>}
 					{Array.from(discoveredPeers).map(([id, meta]) => (
 						<Node key={id} id={id} name={meta.name as HardwareModel} onDropped={onDropped} />
 					))}
@@ -144,7 +148,7 @@ function Node({
 			ref={ref}
 			className={clsx(
 				'flex items-center justify-center gap-3 rounded-md border border-app-line bg-app-darkBox px-3 py-2 font-medium text-ink',
-				state === 'hovered' ? 'border-solid border-accent-deep' : 'border-dashed'
+				state === 'hovered' ? 'border-solid !border-accent-deep' : 'border-dashed'
 			)}
 			onClick={() => {
 				if (!platform.openFilePickerDialog) {
@@ -159,7 +163,7 @@ function Node({
 				});
 			}}
 		>
-			<Icon name={hardwareModelToIcon(name)} size={28} />
+			<Icon name={hardwareModelToIcon(name)} size={20} />
 			<h1>{name}</h1>
 		</div>
 	);
