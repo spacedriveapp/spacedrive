@@ -377,6 +377,7 @@
 	"spacedrive_cloud_description": "Spacedrive 始終以本地為先，但我們將來會提供自己的選擇性雲端服務。目前，身份驗證僅用於反饋功能，否則不需要。",
 	"spacedrop_a_file": "Spacedrop文件",
 	"spacedrop_description": "與在您的網路上運行 Spacedrive 的裝置立即分享。",
+	"spacedrop_already_progress": "Spacedrop 已在進行中",
 	"square_thumbnails": "方形縮略圖",
 	"star_on_github": "在GitHub上給星",
 	"stop": "停止",

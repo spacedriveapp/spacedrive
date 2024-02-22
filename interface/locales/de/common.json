@@ -378,6 +378,7 @@
 	"spacedrive_cloud_description": "Spacedrive ist immer lokal zuerst, aber wir werden in Zukunft unsere eigenen optionalen Cloud-Dienste anbieten. Derzeit wird die Authentifizierung nur für die Feedback-Funktion verwendet, ansonsten ist sie nicht erforderlich.",
 	"spacedrop_a_file": "Eine Datei Spacedropen",
 	"spacedrop_description": "Sofortiges Teilen mit Geräten, die Spacedrive in Ihrem Netzwerk ausführen.",
+	"spacedrop_already_progress": "Spacedrop bereits im Gange",
 	"square_thumbnails": "Quadratische Vorschaubilder",
 	"star_on_github": "Auf GitHub als Favorit markieren",
 	"stop": "Stoppen",

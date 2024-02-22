@@ -377,6 +377,7 @@
 	"spacedrive_cloud_description": "Spacedrive est toujours local en premier lieu, mais nous proposerons nos propres services cloud en option à l'avenir. Pour l'instant, l'authentification est uniquement utilisée pour la fonctionnalité de retour d'information, sinon elle n'est pas requise.",
 	"spacedrop_a_file": "Déposer un fichier dans Spacedrive",
 	"spacedrop_description": "Partagez instantanément avec les appareils exécutant Spacedrive sur votre réseau.",
+	"spacedrop_already_progress": "Spacedrop déjà en cours",
 	"square_thumbnails": "Vignettes carrées",
 	"star_on_github": "Mettre une étoile sur GitHub",
 	"stop": "Arrêter",

@@ -378,6 +378,7 @@
 	"spacedrive_cloud_description": "Spacedrive is altijd lokaal eerst, maar we zullen in de toekomst optionele cloudservices aanbieden. Voor nu wordt authenticatie alleen gebruikt voor de Feedback-functie, anders is het niet vereist.",
 	"spacedrop_a_file": "Spacedrop een Bestand",
 	"spacedrop_description": "Deel direct met apparaten die Spacedrive uitvoeren op uw netwerk.",
+	"spacedrop_already_progress": "Spacedrop is al bezig",
 	"square_thumbnails": "Vierkante Miniaturen",
 	"star_on_github": "Ster op GitHub",
 	"stop": "Stop",

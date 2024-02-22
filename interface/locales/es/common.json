@@ -378,6 +378,7 @@
 	"spacedrive_cloud_description": "Spacedrive siempre es primero local, pero ofreceremos nuestros propios servicios en la nube opcionalmente en el futuro. Por ahora, la autenticación solo se utiliza para la función de retroalimentación, de lo contrario no es requerida.",
 	"spacedrop_a_file": "Soltar un Archivo",
 	"spacedrop_description": "Comparta al instante con dispositivos que ejecuten Spacedrive en su red.",
+	"spacedrop_already_progress": "Spacedrop ya está en progreso",
 	"square_thumbnails": "Miniaturas Cuadradas",
 	"star_on_github": "Dar estrella en GitHub",
 	"stop": "Detener",
