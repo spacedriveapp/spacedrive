@@ -1,8 +1,11 @@
+use axum::http;
 use sd_p2p_block::{Range, SpaceblockRequests, SpaceblockRequestsError};
 use sd_p2p_proto::{decode, encode};
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use uuid::Uuid;
+
+use super::operations::{self};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct HeaderFile {
@@ -21,6 +24,7 @@ pub enum Header {
 	Spacedrop(SpaceblockRequests),
 	Sync(Uuid),
 	File(HeaderFile),
+	Rspc(operations::rspc::Request),
 }
 
 #[derive(Debug, Error)]
@@ -86,6 +90,7 @@ impl Header {
 					i => return Err(HeaderError::HeaderFileDiscriminatorInvalid(i)),
 				},
 			})),
+			5 => todo!(),
 			d => Err(HeaderError::DiscriminatorInvalid(d)),
 		}
 	}
@@ -116,6 +121,7 @@ impl Header {
 				buf.extend_from_slice(&range.to_bytes());
 				buf
 			}
+			Self::Rspc(_) => todo!(),
 		}
 	}
 }

@@ -247,31 +247,31 @@ pub(crate) fn mount() -> Arc<Router> {
 		p
 	}
 
-	// TODO: Break this out into an abstraction
-	let procedure_keys = r.procedures.map(|(k, _)| k).collect::<Vec<_>>();
-	for procedure_name in procedure_keys.into_iter() {
-		// TODO: Support query and mutation
-		// TODO: Support subscriptions
-		// TODO: Account for library *.
+	// // TODO: Break this out into an abstraction
+	// let procedure_keys = r.procedures.map(|(k, _)| k).collect::<Vec<_>>();
+	// for procedure_name in procedure_keys.into_iter() {
+	// 	// TODO: Support query and mutation
+	// 	// TODO: Support subscriptions
+	// 	// TODO: Account for library *.
 
-		// TODO: Fake the typescript types for these procedures
+	// 	// TODO: Fake the typescript types for these procedures
 
-		r.procedure2(format!("remote.{}", procedure_name).into(), {
-			#[derive(Deserialize, Type)]
-			pub struct Input {
-				remote: RemoteIdentity,
-				input: serde_json::Value,
-			}
+	// 	r.procedure2(format!("remote.{}", procedure_name).into(), {
+	// 		#[derive(Deserialize, Type)]
+	// 		pub struct Input {
+	// 			remote: RemoteIdentity,
+	// 			input: serde_json::Value,
+	// 		}
 
-			// TODO: Support query or mutation or subscription
-			R.query(|node, input: Input| async move {
-				// TODO: query.0, input.input
-				let _ = operations::remote_rspc(input.remote);
+	// 		// TODO: Support query or mutation or subscription
+	// 		R.query(|node, input: Input| async move {
+	// 			// TODO: query.0, input.input
+	// 			let _ = operations::remote_rspc(input.remote);
 
-				"Hello World"
-			})
-		});
-	}
+	// 			"Hello World"
+	// 		})
+	// 	});
+	// }
 
 	let r = r
 		.build(

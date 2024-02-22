@@ -14,6 +14,7 @@ use chrono::{DateTime, Utc};
 use node::config;
 use notifications::Notifications;
 use reqwest::{RequestBuilder, Response};
+use tower_service::Service;
 
 use std::{
 	fmt,
@@ -158,13 +159,23 @@ impl Node {
 			init_data.apply(&node.libraries, &node).await?;
 		}
 
+		let router = api::mount();
+
 		// Be REALLY careful about ordering here or you'll get unreliable deadlock's!
 		locations_actor.start(node.clone());
 		node.libraries.init(&node).await?;
 		jobs_actor.start(node.clone());
-		start_p2p(node.clone());
-
-		let router = api::mount();
+		start_p2p(
+			node.clone(),
+			router
+				.clone()
+				.endpoint({
+					let node = node.clone();
+					move |_| node.clone()
+				})
+				.axum::<()>()
+				.into_make_service(),
+		);
 
 		info!("Spacedrive online.");
 		Ok((node, router))
