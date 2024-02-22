@@ -17,7 +17,7 @@ interface Props {
 	stats: UseQueryResult<StatisticsResponse, AlphaRSPCError>;
 }
 
-function hardwareModelToIcon(hardwareModel: HardwareModel) {
+export function hardwareModelToIcon(hardwareModel: HardwareModel) {
 	switch (hardwareModel) {
 		case 'MacBookPro':
 			return 'Laptop';
