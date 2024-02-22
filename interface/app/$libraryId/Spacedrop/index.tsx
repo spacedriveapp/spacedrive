@@ -148,7 +148,7 @@ function Node({
 			ref={ref}
 			className={clsx(
 				'flex items-center justify-center gap-3 rounded-md border border-app-line bg-app-darkBox px-3 py-2 font-medium text-ink',
-				state === 'hovered' ? 'border-solid !border-accent-deep' : 'border-dashed'
+				state === 'hovered' ? 'border-solid border-accent-deep' : 'border-dashed'
 			)}
 			onClick={() => {
 				if (!platform.openFilePickerDialog) {
