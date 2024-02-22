@@ -98,6 +98,10 @@ impl<E: TaskRunError> System<E> {
 		}
 	}
 
+	pub fn workers_count(&self) -> usize {
+		self.workers.len()
+	}
+
 	pub async fn dispatch(&self, into_task: impl IntoTask<E>) -> TaskHandle<E> {
 		self.dispatcher.dispatch(into_task).await
 	}
@@ -424,5 +428,9 @@ impl<E: TaskRunError> Dispatcher<E> {
 		});
 
 		handles
+	}
+
+	pub fn workers_count(&self) -> usize {
+		self.workers.len()
 	}
 }

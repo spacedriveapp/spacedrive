@@ -14,6 +14,8 @@ use common::{
 	tasks::{BogusTask, BrokenTask, NeverTask, PauseOnceTask, ReadyTask, SampleError},
 };
 
+use crate::common::jobs::SampleJob;
+
 #[tokio::test]
 #[traced_test]
 async fn test_actor() {
@@ -149,6 +151,20 @@ async fn pause_test() {
 		handle.await,
 		Ok(TaskStatus::Done(TaskOutput::Empty))
 	));
+
+	system.shutdown().await;
+}
+
+#[tokio::test]
+#[traced_test]
+async fn jobs_test() {
+	let system = TaskSystem::new().await;
+
+	let task_dispatcher = system.get_dispatcher();
+
+	let job = SampleJob::new(256, task_dispatcher.clone());
+
+	job.run().await.unwrap();
 
 	system.shutdown().await;
 }

@@ -41,3 +41,4 @@ tempfile = { workspace = true }
 rand = "0.8.5"
 tracing-test = { version = "^0.2.4", features = ["no-env-filter"] }
 thiserror = { workspace = true }
+lending-stream = "1.0.0"
