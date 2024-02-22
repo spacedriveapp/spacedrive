@@ -44,7 +44,7 @@ impl SampleJob {
 				.into_iter(),
 		)
 		.lend_mut();
-	
+
 		while let Some((group, res)) = group.next().await {
 			match res.unwrap() {
 				TaskStatus::Done(TaskOutput::Out(out)) => {
