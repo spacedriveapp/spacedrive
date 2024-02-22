@@ -13,10 +13,13 @@ import { flattenThumbnailKey, useExplorerStore } from '~/stores/explorerStore';
 
 import { tw } from '../../lib/tailwind';
 
-export const getThumbnailUrlByThumbKey = (thumbKey: string[]) =>
-	`${DocumentDirectoryPath}/thumbnails/${thumbKey
+// TODO: This is the correct path for Android too but its not working for some reason...
+// Querying the path with rnfs returns thumbnails exist here...
+export const getThumbnailUrlByThumbKey = (thumbKey: string[]) => {
+	return `${DocumentDirectoryPath}/thumbnails/${thumbKey
 		.map((i) => encodeURIComponent(i))
 		.join('/')}.webp`;
+};
 
 const FileThumbWrapper = ({ children, size = 1 }: PropsWithChildren<{ size: number }>) => (
 	<View style={[tw`items-center justify-center`, { width: 80 * size, height: 80 * size }]}>

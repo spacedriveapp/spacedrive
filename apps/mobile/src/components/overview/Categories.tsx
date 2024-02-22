@@ -43,7 +43,7 @@ const Categories = ({ kinds }: Props) => {
 										break;
 								}
 								return (
-									<View style={twStyle('w-fit')}>
+									<View>
 										<KindItem
 											kind={kind}
 											name={name}
@@ -78,7 +78,9 @@ const KindItem = ({ name, icon, items }: KindItemProps) => {
 				//TODO: implement
 			}}
 		>
-			<View style={twStyle('mr-10 shrink-0 flex-row items-center', 'gap-2 rounded-lg text-sm')}>
+			<View
+				style={twStyle('mr-10 shrink-0 flex-row items-center', 'gap-2 rounded-lg text-sm')}
+			>
 				<Icon name={icon} size={40} style={tw`mr-3 h-12 w-12`} />
 				<View>
 					<Text style={tw`text-sm font-medium text-ink`}>{name}</Text>
