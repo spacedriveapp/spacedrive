@@ -92,7 +92,7 @@ const LibrarySettingsScreen = ({ navigation }: SettingsStackScreenProps<'Library
 	const modalRef = useRef<ModalRef>(null);
 
 	return (
-		<ScreenContainer style={tw`justify-start gap-0 px-7 py-0`} scrollview={false}>
+		<ScreenContainer style={tw`justify-start gap-0 px-6 py-0`} scrollview={false}>
 			<Fade
 				fadeSides="top-bottom"
 				orientation="vertical"

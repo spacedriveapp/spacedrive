@@ -8,7 +8,7 @@ const ExtensionsSettingsScreen = ({
 	navigation
 }: SettingsStackScreenProps<'ExtensionsSettings'>) => {
 	return (
-		<ScreenContainer style={tw`px-7`}>
+		<ScreenContainer style={tw`px-6`}>
 			<Text style={tw`text-ink`}>TODO</Text>
 		</ScreenContainer>
 	);
