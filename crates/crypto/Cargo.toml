@@ -53,7 +53,7 @@ cmov = "0.3.1"
 aes-gcm = "0.10.3"
 aes-gcm-siv = "0.11.1"
 chacha20poly1305 = "0.10.1"
-thiserror = "1.0.56"
+thiserror = "1.0.57"
 aead = { version = "0.5.2", default-features = false, features = ["stream"] }
 bincode = { version = "2.0.0-rc.3", features = [
 	"derive",
@@ -81,11 +81,11 @@ redb = "1.5.0"
 
 uuid = { version = "1.7.0", features = ["v4"] }
 
-ed25519-dalek = { version = "2.1.0", feature = ["std", "zeroize"] }
-x25519-dalek = { version = "2.0.0", feature = [
-	"std",
-	"zeroize",
-] } # ReusableSecrets feature may have to come out for live X3DH
+# ed25519-dalek = { version = "2.1.1", feature = ["std", "zeroize"] }
+# x25519-dalek = { version = "2.0.1", feature = [
+# 	"std",
+# 	"zeroize",
+# ] } # ReusableSecrets feature may have to come out for X3DH
 
 # linux OS keyring
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -101,7 +101,7 @@ security-framework = { version = "2.9.2", optional = true }
 [dev-dependencies]
 criterion = "0.5.1"
 paste = "1.0.14"
-tempfile = "3.9.0"
+tempfile = "3.10.0"
 
 [[bench]]
 path = "benches/crypto/aes-256-gcm-siv.rs"
