@@ -43,14 +43,12 @@ const Categories = ({ kinds }: Props) => {
 										break;
 								}
 								return (
-									<View style={twStyle('w-fit')}>
 										<KindItem
 											kind={kind}
 											name={name}
 											icon={icon}
 											items={count}
 										/>
-									</View>
 								);
 							}}
 						/>
