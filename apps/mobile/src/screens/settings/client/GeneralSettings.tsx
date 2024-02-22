@@ -16,7 +16,7 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 	if (!node) return null;
 
 	return (
-		<ScreenContainer style={tw`justify-start gap-0 px-7`} scrollview={false}>
+		<ScreenContainer style={tw`justify-start gap-0 px-6`} scrollview={false}>
 			<Card style={tw`bg-app-box`}>
 				{/* Card Header */}
 				<View style={tw`flex flex-row justify-between`}>
@@ -38,7 +38,7 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 				<SettingsTitle style={tw`mb-1`}>Node Name</SettingsTitle>
 				<Input value={node.name} />
 				{/* // TODO: Bring this back */}
-				{/* <SettingsTitle style={tw`mb-1 mt-3`}>Node Port</SettingsTitle> */}
+				{/* <SettingsTitle style={tw`mt-3 mb-1`}>Node Port</SettingsTitle> */}
 				{/* <Input value={node.p2p_port?.toString() ?? '5795'} keyboardType="numeric" /> */}
 			</Card>
 			{debugState.enabled && (
