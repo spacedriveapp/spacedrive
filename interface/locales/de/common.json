@@ -289,6 +289,7 @@
 	"no_tag_selected": "Kein Tag ausgewählt",
 	"no_tags": "Keine Tags",
 	"node_name": "Knotenname",
+	"no_nodes_found": "Auf Ihrem Netzwerk wurden keine Spacedrive-Knoten gefunden.",
 	"nodes": "Knoten",
 	"nodes_description": "Verwalten Sie die Knoten, die mit dieser Bibliothek verbunden sind. Ein Knoten ist eine Instanz von Spacedrives Backend, die auf einem Gerät oder Server läuft. Jeder Knoten führt eine Kopie der Datenbank und synchronisiert über Peer-to-Peer-Verbindungen in Echtzeit.",
 	"none": "Keine",

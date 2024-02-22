@@ -290,6 +290,7 @@
 	"no_tag_selected": "No Tag Selected",
 	"no_tags": "No tags",
 	"node_name": "Node Name",
+	"no_nodes_found": "No Spacedrive nodes were found on your network.",
 	"nodes": "Nodes",
 	"nodes_description": "Manage the nodes connected to this library. A node is an instance of Spacedrive's backend, running on a device or server. Each node carries a copy of the database and synchronizes via peer-to-peer connections in realtime.",
 	"none": "None",

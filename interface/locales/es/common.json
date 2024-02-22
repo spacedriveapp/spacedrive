@@ -289,6 +289,7 @@
 	"no_tag_selected": "No se seleccionó etiqueta",
 	"no_tags": "No hay etiquetas",
 	"node_name": "Nombre del Nodo",
+	"no_nodes_found": "No se encontraron nodos de Spacedrive en su red.",
 	"nodes": "Nodos",
 	"nodes_description": "Administra los nodos conectados a esta biblioteca. Un nodo es una instancia del backend de Spacedrive, ejecutándose en un dispositivo o servidor. Cada nodo lleva una copia de la base de datos y se sincroniza mediante conexiones peer-to-peer en tiempo real.",
 	"none": "Ninguno",

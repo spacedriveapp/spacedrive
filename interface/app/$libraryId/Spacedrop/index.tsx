@@ -2,14 +2,15 @@ import { Planet } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import { proxy } from 'valtio';
-import { useBridgeMutation, useDiscoveredPeers, useP2PEvents, useSelector } from '@sd/client';
+import { HardwareModel, useBridgeMutation, useDiscoveredPeers, useP2PEvents, useSelector } from '@sd/client';
 import { toast } from '@sd/ui';
 import { Icon } from '~/components';
-import { useDropzone, useOnDndLeave } from '~/hooks';
+import { useDropzone, useLocale, useOnDndLeave } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import { useIncomingSpacedropToast, useSpacedropProgressToast } from './toast';
+import { hardwareModelToIcon } from '~/util/hardware';
 
 // TODO: This is super hacky so should probs be rewritten but for now it works.
 const hackyState = proxy({
@@ -58,7 +59,7 @@ export function Spacedrop({ triggerClose }: { triggerClose: () => void }) {
 	const ref = useRef<HTMLDivElement>(null);
 	const discoveredPeers = useDiscoveredPeers();
 	const doSpacedrop = useBridgeMutation('p2p.spacedrop');
-
+		const { t } = useLocale();
 	// We keep track of how many instances of this component is rendering.
 	// This is used by `SpacedropButton` to determine if the animation should stop.
 	useEffect(() => {
@@ -107,14 +108,13 @@ export function Spacedrop({ triggerClose }: { triggerClose: () => void }) {
 				<div className="flex flex-col space-y-4 pt-2">
 					{discoveredPeers.size === 0 && (
 						<div className="flex flex-col text-center">
-							<span className="text-sm text-gray-400">
-								No Spacedrive nodes were
-								<br /> found on your network
+								<span className="mx-auto max-w-[180px] text-center text-ink-dull">
+								{t("no_nodes_found")}
 							</span>
 						</div>
 					)}
 					{Array.from(discoveredPeers).map(([id, meta]) => (
-						<Node key={id} id={id} name={meta.name} onDropped={onDropped} />
+						<Node key={id} id={id} name={meta.name as HardwareModel} onDropped={onDropped} />
 					))}
 				</div>
 			</div>
@@ -128,7 +128,7 @@ function Node({
 	onDropped
 }: {
 	id: string;
-	name: string;
+	name: HardwareModel;
 	onDropped: (id: string, files: string[]) => void;
 }) {
 	const ref = useRef<HTMLDivElement>(null);
@@ -143,8 +143,8 @@ function Node({
 		<div
 			ref={ref}
 			className={clsx(
-				'border px-4 py-2',
-				state === 'hovered' ? 'border-solid' : 'border-dashed'
+				'flex items-center justify-center gap-3 rounded-md border border-app-line bg-app-darkBox px-3 py-2 font-medium text-ink',
+				state === 'hovered' ? 'border-solid border-accent-deep' : 'border-dashed'
 			)}
 			onClick={() => {
 				if (!platform.openFilePickerDialog) {
@@ -159,6 +159,7 @@ function Node({
 				});
 			}}
 		>
+			<Icon name={hardwareModelToIcon(name)} size={28} />
 			<h1>{name}</h1>
 		</div>
 	);

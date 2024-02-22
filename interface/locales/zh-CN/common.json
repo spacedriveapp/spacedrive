@@ -289,6 +289,7 @@
 	"no_tag_selected": "没有选中的标签",
 	"no_tags": "没有标签",
 	"node_name": "节点名称",
+	"no_nodes_found": "在您的网络上找不到 Spacedrive 节点。",
 	"nodes": "节点",
 	"nodes_description": "管理连接到此库的节点。节点是在设备或服务器上运行的Spacedrive后端的实例。每个节点都携带数据库副本，并通过点对点连接实时同步。",
 	"none": "无",

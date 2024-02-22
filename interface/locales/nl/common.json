@@ -289,6 +289,7 @@
 	"no_tag_selected": "Geen Tag Geselecteerd",
 	"no_tags": "Geen tags",
 	"node_name": "Node Naam",
+	"no_nodes_found": "Er zijn geen Spacedrive-nodes gevonden op uw netwerk.",
 	"nodes": "Nodes",
 	"nodes_description": "Beheer de nodes die met deze bibliotheek zijn verbonden. Een node is een instantie van de Spacedrive backend, die op een apparaat of server draait. Elke node houdt een kopie van de database bij en synchroniseert deze in realtime via peer-to-peer verbindingen.",
 	"none": "Geen",

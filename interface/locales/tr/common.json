@@ -289,6 +289,7 @@
 	"no_tag_selected": "Etiket Seçilmedi",
 	"no_tags": "Etiket yok",
 	"node_name": "Düğüm Adı",
+	"no_nodes_found": "Ağınızda Spacedrive düğümleri bulunamadı.",
 	"nodes": "Düğümler",
 	"nodes_description": "Bu kütüphaneye bağlı düğümleri yönetin. Bir düğüm, bir cihazda veya sunucuda çalışan Spacedrive'ın arka ucunun bir örneğidir. Her düğüm bir veritabanı kopyası taşır ve eşler arası bağlantılar üzerinden gerçek zamanlı olarak senkronize olur.",
 	"none": "Hiçbiri",

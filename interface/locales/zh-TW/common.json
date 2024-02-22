@@ -288,6 +288,7 @@
 	"no_tag_selected": "沒有選擇標籤",
 	"no_tags": "沒有標籤",
 	"node_name": "節點名稱",
+	"no_nodes_found": "在您的網路上找不到 Spacedrive 節點。",
 	"nodes": "節點",
 	"nodes_description": "管理連接到此圖書館的節點。一個節點是在設備或服務器上運行的Spacedrive後端實例。每個節點帶有數據庫副本，通過點對點連接實時同步。",
 	"none": "無",
