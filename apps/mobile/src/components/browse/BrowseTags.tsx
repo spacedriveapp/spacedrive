@@ -22,13 +22,11 @@ type TagItemProps = {
 	onPress: () => void;
 	tagStyle?: ClassInput;
 	viewStyle?: 'grid' | 'list';
-	rightActions?: () => void;
 };
 
 export const TagItem = ({
 	tag,
 	onPress,
-	rightActions,
 	tagStyle,
 	viewStyle = 'grid'
 }: TagItemProps) => {
@@ -146,8 +144,8 @@ const BrowseTags = () => {
 	const modalRef = useRef<ModalRef>(null);
 
 	return (
-		<View style={tw`gap-5`}>
-			<View style={tw`w-full flex-row items-center justify-between px-7`}>
+		<View style={tw`gap-3`}>
+			<View style={tw`w-full flex-row items-center justify-between px-6`}>
 				<Text style={tw`text-lg font-bold text-white`}>Tags</Text>
 				<View style={tw`flex-row gap-3`}>
 					<Pressable onPress={() => navigation.navigate('Tags')}>
@@ -192,7 +190,7 @@ const BrowseTags = () => {
 					keyExtractor={(item) => item.id.toString()}
 					horizontal
 					showsHorizontalScrollIndicator={false}
-					contentContainerStyle={tw`px-7`}
+					contentContainerStyle={tw`px-6`}
 					ItemSeparatorComponent={() => <View style={tw`w-2`} />}
 				/>
 			</Fade>

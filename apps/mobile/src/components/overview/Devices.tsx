@@ -30,14 +30,13 @@ function hardwareModelToIcon(hardwareModel: HardwareModel) {
 
 const Devices = ({ node, stats }: Props) => {
 	return (
-		<View>
 			<OverviewSection title="Devices" count={node ? 1 : 0}>
 				<View>
 					<Fade height={'100%'} width={30} color="mobile-screen">
 						<ScrollView
 							horizontal
 							showsHorizontalScrollIndicator={false}
-							contentContainerStyle={tw`px-7`}
+							contentContainerStyle={tw`px-6`}
 						>
 							{node && (
 								<StatCard
@@ -63,7 +62,6 @@ const Devices = ({ node, stats }: Props) => {
 					</Fade>
 				</View>
 			</OverviewSection>
-		</View>
 	);
 };
 
