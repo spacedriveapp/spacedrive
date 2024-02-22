@@ -3,6 +3,7 @@
 use sd_cache::Model;
 
 use std::{
+	collections::HashMap,
 	fmt::Display,
 	hash::{Hash, Hasher},
 	path::PathBuf,
@@ -15,7 +16,7 @@ use specta::Type;
 use sysinfo::{DiskExt, System, SystemExt};
 use thiserror::Error;
 use tokio::sync::Mutex;
-use tracing::error;
+use tracing::{error, info};
 
 pub mod watcher;
 
@@ -224,6 +225,28 @@ pub async fn get_volumes() -> Vec<Volume> {
 	volumes
 }
 
+// #[cfg(target_os = "ios")]
+pub async fn get_volumes() -> Vec<Volume> {
+	let mut sys = sys_guard().lock().await;
+	sys.refresh_disks_list();
+
+	info!("Sys: {:?}", sys);
+
+	let mut volumes: Vec<Volume> = Vec::new();
+
+	volumes.push(Volume {
+		name: "iPhone".to_string(),
+		disk_type: DiskType::SSD,
+		file_system: Some("APFS".to_string()),
+		mount_points: vec![PathBuf::from("/Volumes/test")],
+		total_capacity: sys.total_memory() as u64,
+		available_capacity: sys.free_memory() as u64,
+		is_root_filesystem: true,
+	});
+
+	volumes
+}
+
 #[cfg(target_os = "macos")]
 #[derive(Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -245,7 +268,7 @@ struct HDIUtilInfo {
 	images: Vec<ImageInfo>,
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "ios")))]
 pub async fn get_volumes() -> Vec<Volume> {
 	use futures::future;
 	use tokio::process::Command;
