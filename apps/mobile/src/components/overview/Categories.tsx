@@ -16,7 +16,7 @@ interface Props {
 const Categories = ({ kinds }: Props) => {
 	return (
 		<View>
-			<Text style={tw`px-7 pb-5 text-lg font-bold text-white`}>Categories</Text>
+			<Text style={tw`px-6 pb-3 text-lg font-bold text-white`}>Categories</Text>
 			<View>
 				<Fade color="mobile-screen" width={30} height="100%">
 					<VirtualizedListWrapper horizontal>
@@ -24,7 +24,7 @@ const Categories = ({ kinds }: Props) => {
 							data={kinds.data?.statistics
 								?.sort((a, b) => b.count - a.count)
 								.filter((i) => i.kind !== 0)}
-							contentContainerStyle={tw`pl-7`}
+							contentContainerStyle={tw`pl-5`}
 							numColumns={Math.ceil(Number(kinds.data?.statistics.length ?? 0) / 2)}
 							key={kinds.data?.statistics ? 'kinds' : '_'} //needed to update numColumns when data is available
 							keyExtractor={(item) => item.name}

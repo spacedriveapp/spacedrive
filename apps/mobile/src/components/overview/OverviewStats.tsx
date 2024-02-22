@@ -98,8 +98,8 @@ const OverviewStats = ({ stats }: Props) => {
 	};
 
 	return (
-		<View style={tw`px-7`}>
-			<Text style={tw`pb-5 text-lg font-bold text-white`}>Statistics</Text>
+		<View style={tw`px-6`}>
+			<Text style={tw`pb-3 text-lg font-bold text-white`}>Statistics</Text>
 			<View style={tw`h-[250px] w-full flex-row justify-between gap-2`}>
 				<View style={tw`h-full w-[49%] flex-col justify-between gap-2`}>
 					{renderStatItems()}

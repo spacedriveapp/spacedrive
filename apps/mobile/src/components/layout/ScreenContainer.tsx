@@ -15,14 +15,14 @@ const ScreenContainer = ({ children, style, scrollview = true, tabHeight = true 
 	const height = useBottomTabBarHeight();
 	return scrollview ? (
 		<ScrollView
-			contentContainerStyle={twStyle('justify-between gap-6 py-5', style)}
+			contentContainerStyle={twStyle('justify-between gap-10 py-6', style)}
 			style={twStyle('flex-1 bg-mobile-screen', { marginBottom: tabHeight && height })}
 		>
 			{children}
 		</ScrollView>
 	) : (
 		<View
-			style={twStyle('flex-1 justify-between gap-6 bg-mobile-screen py-5', style, {
+			style={twStyle('flex-1 justify-between gap-10 bg-mobile-screen py-6', style, {
 				marginBottom: tabHeight && height
 			})}
 		>
