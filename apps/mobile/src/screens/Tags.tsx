@@ -25,7 +25,7 @@ export default function Tags({ viewStyle = 'list' }: Props) {
 	useNodes(tags.data?.nodes);
 	const tagData = useCache(tags.data?.items);
 	return (
-		<ScreenContainer scrollview={false} style={tw`relative px-7 py-0`}>
+		<ScreenContainer scrollview={false} style={tw`relative px-6 py-0`}>
 			<Pressable
 				style={tw`absolute bottom-7 right-7 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-accent`}
 				onPress={() => {
@@ -72,7 +72,7 @@ export default function Tags({ viewStyle = 'list' }: Props) {
 					showsHorizontalScrollIndicator={false}
 					ItemSeparatorComponent={() => <View style={tw`h-2.5`} />}
 					contentContainerStyle={twStyle(
-						`py-5`,
+						`py-6`,
 						tagData.length === 0 && 'h-full items-center justify-center'
 					)}
 				/>

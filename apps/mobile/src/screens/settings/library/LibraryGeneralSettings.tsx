@@ -37,7 +37,7 @@ const LibraryGeneralSettingsScreen = (_: SettingsStackScreenProps<'LibraryGenera
 	});
 
 	return (
-		<ScreenContainer scrollview={false} style={tw`justify-start px-7 py-0`}>
+		<ScreenContainer scrollview={false} style={tw`justify-start px-6 py-0`}>
 			<View style={tw`pt-5`}>
 				<SettingsTitle style={tw`mb-1`}>Name</SettingsTitle>
 				<Controller
