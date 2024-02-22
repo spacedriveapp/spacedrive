@@ -4,7 +4,6 @@ use sd_sync::*;
 use sd_utils::uuid_to_bytes;
 
 use prisma_client_rust::chrono::Utc;
-use serde_json::json;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 use uuid::Uuid;
@@ -170,8 +169,8 @@ async fn bruh() -> Result<(), Box<dyn std::error::Error>> {
 			use prisma::location;
 
 			let (sync_ops, db_ops): (Vec<_>, Vec<_>) = [
-				sync_db_entry!(location::name, "Location 0"),
-				sync_db_entry!(location::path, "/User/Brendan/Documents"),
+				sync_db_entry!("Location 0".to_string(), location::name),
+				sync_db_entry!("/User/Brendan/Documents".to_string(), location::path),
 			]
 			.into_iter()
 			.unzip();

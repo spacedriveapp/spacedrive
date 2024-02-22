@@ -44,7 +44,6 @@ export default function Header({
 	const navigation = useNavigation();
 	const explorerStore = useExplorerStore();
 	const routeParams = route?.route.params as any;
-
 	const headerHeight = useSafeAreaInsets().top;
 
 	return (
@@ -54,7 +53,7 @@ export default function Header({
 				{ paddingTop: headerHeight }
 			)}
 		>
-			<View style={tw`mx-auto h-auto w-full justify-center px-7 pb-5`}>
+			<View style={tw`mx-auto h-auto w-full justify-center px-5 pb-4`}>
 				<View style={tw`w-full flex-row items-center justify-between`}>
 					<View style={tw`flex-row items-center gap-3`}>
 						{navBack && (

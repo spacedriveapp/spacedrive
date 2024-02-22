@@ -9,7 +9,7 @@ const NodesSettingsScreen = ({ navigation }: SettingsStackScreenProps<'NodesSett
 	const onlineNodes = useDiscoveredPeers();
 
 	return (
-		<ScreenContainer scrollview={false} style={tw`gap-0 px-7`}>
+		<ScreenContainer scrollview={false} style={tw`gap-0 px-6`}>
 			<Text style={tw`text-ink`}>Pairing</Text>
 
 			{[...onlineNodes.entries()].map(([id, node]) => (
