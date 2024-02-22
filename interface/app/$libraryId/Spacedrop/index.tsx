@@ -21,6 +21,7 @@ const hackyState = proxy({
 export function SpacedropProvider() {
 	const incomingRequestToast = useIncomingSpacedropToast();
 	const progressToast = useSpacedropProgressToast();
+	const { t } = useLocale();
 
 	useP2PEvents((data) => {
 		if (data.type === 'SpacedropRequest') {
@@ -29,7 +30,7 @@ export function SpacedropProvider() {
 			progressToast(data);
 		} else if (data.type === 'SpacedropRejected') {
 			// TODO: Add more information to this like peer name, etc in future
-			toast.warning('Spacedrop Rejected');
+			toast.warning(t('spacedrop_rejected'));
 		}
 	});
 
@@ -87,7 +88,7 @@ export function Spacedrop({ triggerClose }: { triggerClose: () => void }) {
 
 	const onDropped = (id: string, files: string[]) => {
 		if (doSpacedrop.isLoading) {
-			toast.warning('Spacedrop already in progress');
+			toast.warning(t("spacedrop_already_progress"));
 			return;
 		}
 

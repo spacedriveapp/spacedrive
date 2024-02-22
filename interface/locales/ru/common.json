@@ -380,6 +380,7 @@
 	"spacedrop_a_file": "Отправить файл с помощью Spacedrop",
 	"spacedrop_description": "Мгновенно делитесь с устройствами, работающими с Spacedrive в вашей сети.",
 	"spacedrop_already_progress": "Spacedrop уже в процессе",
+	"spacedrop_rejected": "Spacedrop отклонен",
 	"square_thumbnails": "Квадратные эскизы",
 	"star_on_github": "Поставить звезду на GitHub",
 	"stop": "Остановить",
