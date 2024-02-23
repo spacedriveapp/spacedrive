@@ -3,6 +3,7 @@ import React from 'react';
 import { Image, Linking, Platform, Text, View } from 'react-native';
 import { useBridgeQuery } from '@sd/client';
 import { DiscordIcon, GitHubIcon } from '~/components/icons/Brands';
+import ScreenContainer from '~/components/layout/ScreenContainer';
 import { Button } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
 import { tw } from '~/lib/tailwind';
@@ -11,7 +12,7 @@ const AboutScreen = () => {
 	const buildInfo = useBridgeQuery(['buildInfo']);
 
 	return (
-		<View style={tw.style('flex-1 p-5')}>
+		<ScreenContainer style={tw`justify-start gap-0 px-6`}>
 			<View style={tw.style('flex flex-row items-center')}>
 				<Image
 					source={require('../../../../assets/icon.png')}
@@ -46,19 +47,19 @@ const AboutScreen = () => {
 					<View style={tw.style('h-4 w-4')}>
 						<DiscordIcon fill="white" />
 					</View>
-					<Text style={tw.style('ml-2 text-white')}>Join Discord</Text>
+					<Text style={tw.style('ml-2 text-white font-bold')}>Join Discord</Text>
 				</Button>
 
 				{/* GitHub Button */}
 				<Button
 					onPress={() => Linking.openURL('https://github.com/spacedriveapp/spacedrive')}
-					style={tw.style('flex-row items-center')}
+					style={tw.style('flex-row items-center font-bold')}
 					variant="accent"
 				>
 					<View style={tw.style('h-4 w-4')}>
 						<GitHubIcon fill="white" />
 					</View>
-					<Text style={tw.style('ml-2 text-white')}>Star on GitHub</Text>
+					<Text style={tw.style('ml-2 text-white font-bold')}>Star on GitHub</Text>
 				</Button>
 
 				{/* Website Button */}
@@ -68,9 +69,9 @@ const AboutScreen = () => {
 					variant="accent"
 				>
 					<View style={tw.style('h-4 w-4')}>
-						<Globe size={16} color="white" />
+						<Globe weight="bold" size={16} color="white" />
 					</View>
-					<Text style={tw.style('ml-2 text-white')}>Website</Text>
+					<Text style={tw.style('ml-2 text-white font-bold')}>Website</Text>
 				</Button>
 			</View>
 			<Divider />
@@ -92,16 +93,16 @@ const AboutScreen = () => {
 				<Text style={tw.style('my-5 text-lg font-bold text-ink')}>
 					Meet the contributors behind Spacedrive
 				</Text>
-				{/* For some reason, it won't load. ¯\_(ツ)_/¯ */}
+				{/* Temporary image url approach until a solution is reached */}
 				<Image
 					source={{
-						uri: 'https://contrib.rocks/image?repo=spacedriveapp/spacedrive&columns=12&anon=1'
+						uri: 'https://i.imgur.com/SwUcWHP.png'
 					}}
 					style={{ height: 200, width: '100%' }}
 					resizeMode="contain"
 				/>
 			</View>
-		</View>
+		</ScreenContainer>
 	);
 };
 

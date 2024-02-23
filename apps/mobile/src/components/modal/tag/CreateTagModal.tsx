@@ -2,7 +2,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { forwardRef, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import ColorPicker from 'react-native-wheel-color-picker';
-import { ToastDefautlColor, useLibraryMutation, usePlausibleEvent } from '@sd/client';
+import {
+	ToastDefautlColor,
+	useLibraryMutation,
+	usePlausibleEvent,
+	useRspcLibraryContext
+} from '@sd/client';
 import { FadeInAnimation } from '~/components/animation/layout';
 import { ModalInput } from '~/components/form/Input';
 import { Modal, ModalRef } from '~/components/layout/Modal';
@@ -12,7 +17,7 @@ import { useKeyboard } from '~/hooks/useKeyboard';
 import { tw, twStyle } from '~/lib/tailwind';
 
 const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
-	const queryClient = useQueryClient();
+	const rspc = useRspcLibraryContext();
 	const modalRef = useForwardedRef(ref);
 
 	const [tagName, setTagName] = useState('');
@@ -33,7 +38,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 			setTagColor(ToastDefautlColor);
 			setShowPicker(false);
 
-			queryClient.invalidateQueries(['tags.list']);
+			rspc.queryClient.invalidateQueries(['tags.list']);
 
 			submitPlausibleEvent({ event: { type: 'tagCreate' } });
 		},

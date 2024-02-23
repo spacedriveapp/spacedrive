@@ -4,17 +4,23 @@ on:
   workflow_dispatch:
 # NOTE: For Linux builds, we can only build with Ubuntu. It should be the oldest base system we intend to support. See PR-759 & https://tauri.app/v1/guides/building/linux for reference.
 
+# From: https://github.com/rust-lang/rust-analyzer/blob/master/.github/workflows/release.yaml#L13-L21
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+
 jobs:
   desktop-main:
     strategy:
       matrix:
         settings:
-          - host: macos-latest
+          - host: macos-14
             target: x86_64-apple-darwin
             bundles: app,dmg
             os: darwin
             arch: x86_64
-          - host: macos-latest
+          - host: macos-14
             target: aarch64-apple-darwin
             bundles: app,dmg
             os: darwin
@@ -52,15 +58,15 @@ jobs:
           remove-haskell: 'true'
           remove-docker-images: 'true'
 
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
       - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path C:\spacedrive_target
           New-Item -Path target -ItemType Junction -Value C:\spacedrive_target
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Remove 32-bit libs
         if: ${{ runner.os == 'Linux' }}
@@ -75,7 +81,7 @@ jobs:
           mkdir -p ~/.appstoreconnect/private_keys/
           cd ~/.appstoreconnect/private_keys/
           echo ${{ secrets.APPLE_API_KEY_BASE64 }} >> AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64
-          base64 --decode AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64 -o AuthKey_${{ secrets.APPLE_API_KEY }}.p8
+          base64 --decode -i AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64 -o AuthKey_${{ secrets.APPLE_API_KEY }}.p8
           rm AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64
 
       - name: Install Codesigning Certificate
@@ -140,10 +146,11 @@ jobs:
       contents: write
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        # TODO: Change to stable version when available
+        uses: softprops/action-gh-release@4634c16
         with:
           draft: true
           files: '*/**'

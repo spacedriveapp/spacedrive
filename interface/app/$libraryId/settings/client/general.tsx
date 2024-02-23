@@ -22,17 +22,24 @@ const NodeSettingLabel = tw.div`mb-1 text-xs font-medium`;
 // https://doc.rust-lang.org/std/u16/index.html
 const u16 = z.number().min(0).max(65_535);
 
+// Unsorted list of languages available in the app.
+// Make sure to add new languages to this list and to `project.inlang/settings.json`
 const LANGUAGE_OPTIONS = [
 	{ value: 'en', label: 'English' },
 	{ value: 'de', label: 'Deutsch' },
 	{ value: 'es', label: 'Español' },
 	{ value: 'fr', label: 'Français' },
 	{ value: 'tr', label: 'Türkçe' },
-	{ value: 'nl', label: 'Nederlands'},
+	{ value: 'nl', label: 'Nederlands' },
+	{ value: 'by', label: 'Беларуская' },
+	{ value: 'ru', label: 'Русский' },
 	{ value: 'zh-CN', label: '中文（简体）' },
 	{ value: 'zh-TW', label: '中文（繁體）' },
 	{ value: 'it', label: "Italiano"}
 ];
+
+// Sort the languages by their label
+LANGUAGE_OPTIONS.sort((a, b) => a.label.localeCompare(b.label));
 
 export const Component = () => {
 	const node = useBridgeQuery(['nodeState']);
@@ -47,9 +54,9 @@ export const Component = () => {
 		schema: z
 			.object({
 				name: z.string().min(1).max(250).optional(),
-				p2p_enabled: z.boolean().optional(),
-				p2p_port: u16,
-				customOrDefault: z.enum(['Custom', 'Default']),
+				// p2p_enabled: z.boolean().optional(),
+				// p2p_port: u16,
+				// customOrDefault: z.enum(['Custom', 'Default']),
 				image_labeler_version: z.string().optional(),
 				background_processing_percentage: z.coerce
 					.number({
@@ -63,25 +70,28 @@ export const Component = () => {
 		reValidateMode: 'onChange',
 		defaultValues: {
 			name: node.data?.name,
-			p2p_port: node.data?.p2p_port || 0,
-			p2p_enabled: node.data?.p2p_enabled,
-			customOrDefault: node.data?.p2p_port ? 'Custom' : 'Default',
+			// p2p_port: node.data?.p2p_port || 0,
+			// p2p_enabled: node.data?.p2p_enabled,
+			// customOrDefault: node.data?.p2p_port ? 'Custom' : 'Default',
 			image_labeler_version: node.data?.image_labeler_version ?? undefined,
 			background_processing_percentage:
 				node.data?.preferences.thumbnailer.background_processing_percentage || 50
 		}
 	});
 
-	const watchCustomOrDefault = form.watch('customOrDefault');
-	const watchP2pEnabled = form.watch('p2p_enabled');
+	// const watchCustomOrDefault = form.watch('customOrDefault');
+	// const watchP2pEnabled = form.watch('p2p_enabled');
 	const watchBackgroundProcessingPercentage = form.watch('background_processing_percentage');
 
 	useDebouncedFormWatch(form, async (value) => {
 		if (await form.trigger()) {
 			await editNode.mutateAsync({
 				name: value.name || null,
-				p2p_port: value.customOrDefault === 'Default' ? 0 : Number(value.p2p_port),
-				p2p_enabled: value.p2p_enabled ?? null,
+				p2p_ipv4_port: null,
+				p2p_ipv6_port: null,
+				p2p_discovery: null,
+				// p2p_port: value.customOrDefault === 'Default' ? 0 : Number(value.p2p_port),
+				// p2p_enabled: value.p2p_enabled ?? null,
 				image_labeler_version: value.image_labeler_version ?? null
 			});
 
@@ -95,11 +105,11 @@ export const Component = () => {
 		node.refetch();
 	});
 
-	form.watch((data) => {
-		if (Number(data.p2p_port) > 65535) {
-			form.setValue('p2p_port', 65535);
-		}
-	});
+	// form.watch((data) => {
+	// 	if (Number(data.p2p_port) > 65535) {
+	// 		form.setValue('p2p_port', 65535);
+	// 	}
+	// });
 
 	const { t } = useLocale();
 
@@ -118,13 +128,13 @@ export const Component = () => {
 							<NodePill>
 								{connectedPeers.size} {t('peers')}
 							</NodePill>
-							{node.data?.p2p_enabled === true ? (
+							{/* {node.data?.p2p_enabled === true ? (
 								<NodePill className="!bg-accent text-white">
 									{t('running')}
 								</NodePill>
 							) : (
 								<NodePill className="text-white">{t('disabled')}</NodePill>
-							)}
+							)} */}
 						</div>
 					</div>
 
@@ -201,7 +211,7 @@ export const Component = () => {
 			<Setting mini title={t('language')} description={t('language_description')}>
 				<div className="flex h-[30px] gap-2">
 					<Select
-						value={i18n.language}
+						value={i18n.resolvedLanguage || i18n.language || 'en'}
 						onChange={(e) => {
 							i18n.changeLanguage(e);
 							// add "i18nextLng" key to localStorage and set it to the selected language
@@ -315,11 +325,12 @@ export const Component = () => {
 					{/* TODO: Switch doesn't handle optional fields correctly */}
 					<Switch
 						size="md"
-						checked={watchP2pEnabled || false}
-						onClick={() => form.setValue('p2p_enabled', !form.getValues('p2p_enabled'))}
+						// checked={watchP2pEnabled || false}
+						// onClick={() => form.setValue('p2p_enabled', !form.getValues('p2p_enabled'))}
+						disabled
 					/>
 				</Setting>
-				<Setting
+				{/* <Setting
 					mini
 					title={t('networking_port')}
 					description={t('networking_port_description')}
@@ -361,7 +372,7 @@ export const Component = () => {
 							}}
 						/>
 					</div>
-				</Setting>
+				</Setting> */}
 			</div>
 		</FormProvider>
 	);

@@ -40,7 +40,7 @@ const BrowseLocationItem: React.FC<BrowseLocationItemProps> = ({
 	return (
 		<Pressable onPress={onPress}>
 			<View
-				style={tw`h-auto w-[110px] flex-col justify-center gap-3 rounded-md border border-sidebar-line/50 bg-sidebar-box p-2`}
+				style={tw`h-auto w-[110px] flex-col justify-center gap-3 rounded-md border border-app-line/50 bg-app-box/50 p-2`}
 			>
 				<View style={tw`w-full flex-col justify-between gap-1`}>
 					<View style={tw`flex-row items-center justify-between`}>
@@ -97,8 +97,8 @@ const BrowseLocations = () => {
 	const locations = useCache(result.data?.items);
 
 	return (
-		<View style={tw`gap-5`}>
-			<View style={tw`w-full flex-row items-center justify-between px-7`}>
+		<View style={tw`gap-3`}>
+			<View style={tw`w-full flex-row items-center justify-between px-6`}>
 				<Text style={tw`text-lg font-bold text-white`}>Locations</Text>
 				<View style={tw`flex-row gap-3`}>
 					<Pressable
@@ -129,7 +129,7 @@ const BrowseLocations = () => {
 					data={locations}
 					ListEmptyComponent={() => (
 						<View
-							style={tw`relative h-auto w-[85.5vw] flex-col items-center justify-center overflow-hidden rounded-md border border-dashed border-sidebar-line  p-4`}
+							style={tw`relative h-auto w-[87.5vw] flex-col items-center justify-center overflow-hidden rounded-md border border-dashed border-sidebar-line  p-4`}
 						>
 							<Icon name="Folder" size={38} />
 							<Text style={tw`mt-2 text-center font-medium text-ink-dull`}>

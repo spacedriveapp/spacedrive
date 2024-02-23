@@ -19,7 +19,7 @@ function Account() {
 	return (
 		<div className="my-2 flex w-full flex-col">
 			<div className="flex items-center justify-between">
-				<span className="font-semibold">{t("spacedrive_account")}</span>
+				<span className="font-semibold">{t('spacedrive_account')}</span>
 				<Button variant="gray" onClick={auth.logout}>
 					{t('logout')}
 				</Button>

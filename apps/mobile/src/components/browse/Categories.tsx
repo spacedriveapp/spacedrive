@@ -28,11 +28,11 @@ const CATEGORIES_LIST = [
 ];
 const Categories = () => {
 	return (
-		<View style={tw`relative gap-5`}>
-			<Text style={tw`text-lg font-bold text-white px-7`}>Library</Text>
+		<View style={tw`relative gap-3`}>
+			<Text style={tw`px-6 text-lg font-bold text-white`}>Library</Text>
 			<Fade width={30} height="100%" color="mobile-screen">
 				<ScrollView showsHorizontalScrollIndicator={false} horizontal>
-					<View style={tw`flex-row gap-2 px-7`}>
+					<View style={tw`flex-row gap-2 px-6`}>
 						{CATEGORIES_LIST.map((c, i) => {
 							return <Category icon={c.icon} key={i} name={c.name} />;
 						})}
@@ -51,7 +51,7 @@ interface CategoryProps {
 const Category = ({ name, icon }: CategoryProps) => {
 	return (
 		<View
-			style={tw`h-[70px] w-[70px] flex-col items-center justify-center rounded-md border border-sidebar-line/50 bg-sidebar-box`}
+			style={tw`h-[70px] w-[70px] flex-col items-center justify-center rounded-md border border-app-line/50 bg-app-box/50`}
 		>
 			{icon}
 			<Text style={tw`mt-2 text-xs text-white`}>{name}</Text>

@@ -90,20 +90,28 @@ This project is using what I'm calling the **"PRRTT"** stack (Prisma, Rust, Reac
 - `desktop`: A [Tauri](https://tauri.app) app.
 - `mobile`: A [React Native](https://reactnative.dev/) app.
 - `web`: A [React](https://reactjs.org) webapp.
-- `landing`: A [React](https://reactjs.org) app using Vite SSR & Vite pages.
+- `landing`: A [React](https://reactjs.org) app using [Next.js](https://nextjs.org).
+- `server`: A [Rust](https://www.rust-lang.org) server for the webapp. (planned)
+- `cli`: A [Rust](https://www.rust-lang.org) command line interface. (planned)
+- `storybook`: A [React](https://reactjs.org) storybook for the UI components.
 
 ### Core:
 
 - `core`: The [Rust](https://www.rust-lang.org) core, referred to internally as `sdcore`. Contains filesystem, database and networking logic. Can be deployed in a variety of host applications.
+- `crates`: Shared Rust libraries used by the core and other Rust applications.
+
+### Interface:
+
+- `interface`: The complete user interface in React (used by apps `desktop`, `web`)
 
 ### Packages:
 
+- `assets`: Shared assets (images, fonts, etc).
 - `client`: A [TypeScript](https://www.typescriptlang.org/) client library to handle dataflow via RPC between UI and the Rust core.
-- `ui`: A [React](https://reactjs.org) Shared component library.
-- `interface`: The complete user interface in React (used by apps `desktop`, `web` and `landing`)
 - `config`: `eslint` configurations (includes `eslint-config-next`, `eslint-config-prettier` and all `tsconfig.json` configs used throughout the monorepo).
+- `ui`: A [React](https://reactjs.org) Shared component library.
 
-- `macos`: A [Swift](https://developer.apple.com/swift/) Native binary for MacOS system extensions.
+- `macos`: A [Swift](https://developer.apple.com/swift/) Native binary for MacOS system extensions (planned).
 - `ios`: A [Swift](https://developer.apple.com/swift/) Native binary (planned).
 - `windows`: A [C#](https://docs.microsoft.com/en-us/dotnet/csharp/) Native binary (planned).
 - `android`: A [Kotlin](https://kotlinlang.org/) Native binary (planned).

@@ -1,7 +1,7 @@
-import { byteSize } from '.';
-import { getItemFilePath, getItemLocation, getItemObject, type ObjectKindKey } from '..';
 import type { ExplorerItem } from '../core';
-import { ObjectKind } from './objectKind';
+import { getItemFilePath, getItemLocation, getItemObject } from '../utils';
+import { byteSize } from './byte-size';
+import { ObjectKind, ObjectKindKey } from './objectKind';
 
 // ItemData is a single data structure understood by the Explorer, we map all ExplorerItems to this structure in this file
 // we use `null` instead of `?` optional values intentionally
@@ -39,7 +39,8 @@ export function getExplorerItemData(data?: ExplorerItem | null): ItemData {
 			const object = getItemObject(data);
 
 			if (object?.kind) itemData.kind = ObjectKind[object?.kind] ?? 'Unknown';
-			else if(data.type === "NonIndexedPath") itemData.kind = ObjectKind[data.item.kind] ?? 'Unknown';
+			else if (data.type === 'NonIndexedPath')
+				itemData.kind = ObjectKind[data.item.kind] ?? 'Unknown';
 
 			// Objects only have dateCreated and dateAccessed
 			itemData.dateCreated = object?.date_created ?? null;

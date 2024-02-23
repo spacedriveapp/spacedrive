@@ -20,7 +20,7 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
 FROM base as build-base
 
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
-	apt-get install build-essential git sudo unzip wget
+	apt-get install build-essential git sudo unzip wget curl
 
 RUN wget -qO- https://get.pnpm.io/install.sh | env SHELL=bash PNPM_HOME=/usr/share/pnpm sh -
 
@@ -60,6 +60,15 @@ RUN wget -qO- https://sh.rustup.rs | sh -s -- -yq --profile minimal
 
 ENV PATH="/root/.cargo/bin:$PATH"
 
+# From: https://github.com/rust-lang/rust-analyzer/blob/master/.github/workflows/release.yaml#L13-L21
+ENV CARGO_NET_RETRY=10
+ENV CARGO_INCREMENTAL=0
+ENV RUSTUP_MAX_RETRIES=10
+
+# Install mold (linker)
+RUN curl -L# 'https://github.com/rui314/mold/releases/download/v2.4.0/mold-2.4.0-x86_64-linux.tar.gz' \
+	| sudo tar -xzf- -C /usr/local
+
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
 	env CI=true ./scripts/setup.sh
 
@@ -77,6 +86,9 @@ RUN cargo build --features assets --release -p sd-server
 # Debug just means it includes busybox, and we need its tools both for the entrypoint.sh script and during runtime
 FROM gcr.io/distroless/base-debian12:debug
 
+RUN [ "/busybox/ln", "-s", "/busybox/sh", "/bin/sh" ]
+RUN ln -s /busybox/env /usr/bin/env
+
 ENV TZ=UTC \
 	PUID=1000 \
 	PGID=1000 \
@@ -86,9 +98,10 @@ ENV TZ=UTC \
 	LANGUAGE=en \
 	DATA_DIR=/data
 
-COPY --from=server /srv/spacedrive/target/release/sd-server /usr/bin/
-COPY --from=server /lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/
-COPY --from=server /srv/spacedrive/apps/.deps/lib /usr/lib/spacedrive
+COPY --from=server --chmod=755 /srv/spacedrive/target/release/sd-server /usr/bin/
+COPY --from=server --chmod=755 /lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/
+COPY --from=server --chmod=755 /srv/spacedrive/apps/.deps/lib /usr/lib/spacedrive
+ADD --chmod=755 https://github.com/spacedriveapp/native-deps/releases/download/yolo-2024-02-07/yolov8s.onnx /usr/share/spacedrive/models/yolov8s.onnx
 
 COPY --chmod=755 entrypoint.sh /usr/bin/
 
@@ -99,7 +112,7 @@ EXPOSE 8080
 VOLUME [ "/data" ]
 
 # Run the CLI when the container is started
-ENTRYPOINT [ "sd-server" ]
+ENTRYPOINT [ "entrypoint.sh" ]
 
 LABEL org.opencontainers.image.title="Spacedrive Server" \
 	org.opencontainers.image.source="https://github.com/spacedriveapp/spacedrive"

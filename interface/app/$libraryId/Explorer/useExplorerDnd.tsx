@@ -14,7 +14,7 @@ import { explorerStore } from './store';
 import { explorerDroppableSchema } from './useExplorerDroppable';
 import { useExplorerSearchParams } from './util';
 
-const getPaths = async (items: ExplorerItem[]) => {
+export const getPaths = async (items: ExplorerItem[]) => {
 	const paths = items.map(async (item) => {
 		const filePath = getItemFilePath(item);
 		if (!filePath) return;

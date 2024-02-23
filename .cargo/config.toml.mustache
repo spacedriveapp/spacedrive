@@ -1,20 +1,25 @@
+{{#nativeDeps}}
 [env]
 PROTOC = { force = true, value = "{{{protoc}}}" }
 FFMPEG_DIR = { force = true, value = "{{{nativeDeps}}}" }
+{{#isLinux}}
+ORT_LIB_LOCATION = { force = true, value = "{{{nativeDeps}}}/lib" }
+{{/isLinux}}
 OPENSSL_STATIC = { force = true, value = "1" }
 OPENSSL_NO_VENDOR = { force = true, value = "0" }
 OPENSSL_RUST_USE_NASM = { force = true, value = "1" }
+{{/nativeDeps}}
 
 {{#isMacOS}}
 [target.x86_64-apple-darwin]
-rustflags = ["-L", "{{{nativeDeps}}}/lib"]
+rustflags = ["-L", "{{{nativeDeps}}}/lib", "-Csplit-debuginfo=unpacked"]
 
 [target.x86_64-apple-darwin.heif]
 rustc-link-search = ["{{{nativeDeps}}}/lib"]
 rustc-link-lib = ["heif"]
 
 [target.aarch64-apple-darwin]
-rustflags = ["-L", "{{{nativeDeps}}}/lib"]
+rustflags = ["-L", "{{{nativeDeps}}}/lib", "-Csplit-debuginfo=unpacked"]
 
 [target.aarch64-apple-darwin.heif]
 rustc-link-search = ["{{{nativeDeps}}}/lib"]
@@ -23,6 +28,9 @@ rustc-link-lib = ["heif"]
 
 {{#isWin}}
 [target.x86_64-pc-windows-msvc]
+{{#hasLLD}}
+linker = "lld-link.exe"
+{{/hasLLD}}
 rustflags = ["-L", "{{{nativeDeps}}}\\lib"]
 
 [target.x86_64-pc-windows-msvc.heif]
@@ -32,14 +40,30 @@ rustc-link-lib = ["heif"]
 
 {{#isLinux}}
 [target.x86_64-unknown-linux-gnu]
-rustflags = ["-L", "{{{nativeDeps}}}/lib", "-C", "link-arg=-Wl,-rpath=${ORIGIN}/../lib/spacedrive"]
+{{#hasLLD}}
+linker = "clang"
+{{/hasLLD}}
+rustflags = [
+	"-L", "{{{nativeDeps}}}/lib", "-C", "link-arg=-Wl,-rpath=${ORIGIN}/../lib/spacedrive",
+	{{#hasLLD}}
+	"-C", "link-arg=-fuse-ld={{{linker}}}",
+	{{/hasLLD}}
+]
 
 [target.x86_64-unknown-linux-gnu.heif]
 rustc-link-search = ["{{{nativeDeps}}}/lib"]
 rustc-link-lib = ["heif"]
 
 [target.aarch64-unknown-linux-gnu]
-rustflags = ["-L", "{{{nativeDeps}}}/lib", "-C", "link-arg=-Wl,-rpath=${ORIGIN}/../lib/spacedrive"]
+{{#hasLLD}}
+linker = "clang"
+{{/hasLLD}}
+rustflags = [
+	"-L", "{{{nativeDeps}}}/lib", "-C", "link-arg=-Wl,-rpath=${ORIGIN}/../lib/spacedrive",
+	{{#hasLLD}}
+	"-C", "link-arg=-fuse-ld={{{linker}}}",
+	{{/hasLLD}}
+]
 
 [target.aarch64-unknown-linux-gnu.heif]
 rustc-link-search = ["{{{nativeDeps}}}/lib"]

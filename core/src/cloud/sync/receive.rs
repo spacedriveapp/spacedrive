@@ -3,7 +3,7 @@ use crate::library::{Libraries, Library};
 use super::{err_break, err_return, CompressedCRDTOperations};
 use sd_cloud_api::RequestConfigProvider;
 use sd_core_sync::NTP64;
-use sd_p2p::spacetunnel::{IdentityOrRemoteIdentity, RemoteIdentity};
+use sd_p2p2::{IdentityOrRemoteIdentity, RemoteIdentity};
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
 use sd_sync::CRDTOperation;
 use sd_utils::uuid_to_bytes;
@@ -79,7 +79,7 @@ pub async fn run_actor(
 					|uuid| sd_cloud_api::library::message_collections::get::InstanceTimestamp {
 						instance_uuid: *uuid,
 						from_time: cloud_timestamps
-							.get(&uuid)
+							.get(uuid)
 							.cloned()
 							.unwrap_or_default()
 							.as_u64()

@@ -9,10 +9,8 @@ use crate::{
 
 use sd_file_ext::text::is_text;
 use sd_file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData};
-use sd_p2p::{
-	spaceblock::Range,
-	spacetunnel::{IdentityOrRemoteIdentity, RemoteIdentity},
-};
+use sd_p2p2::{IdentityOrRemoteIdentity, RemoteIdentity};
+use sd_p2p_block::Range;
 use sd_prisma::prisma::{file_path, location};
 use sd_utils::db::maybe_missing;
 
@@ -243,45 +241,43 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							}
 
 							// TODO: Support `Range` requests and `ETag` headers
-							match state.node.p2p.get_library_service(&library.id) {
-								Some(service) => {
-									let stream = service
-										.connect(state.node.p2p.manager.clone(), &identity)
-										.await
-										.map_err(|err| {
-											not_found(format!(
-												"Error connecting to {identity}: {err:?}"
-											))
-										})?;
+							let stream = state
+								.node
+								.p2p
+								.get_instance(&library.id, identity)
+								.ok_or_else(|| {
+									not_found(format!("Error connecting to {identity}: no connection method available"))
+								})?
+								.new_stream()
+								.await
+								.map_err(|err| {
+									not_found(format!("Error connecting to {identity}: {err:?}"))
+								})?;
 
-									let (tx, mut rx) =
-										tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
-									// TODO: We only start a thread because of stupid `ManagerStreamAction2` and libp2p's `!Send/!Sync` bounds on a stream.
-									tokio::spawn(async move {
-										let Ok(()) = operations::request_file(
-											stream,
-											&library,
-											file_path_pub_id,
-											Range::Full,
-											MpscToAsyncWrite::new(PollSender::new(tx)),
-										)
-										.await
-										else {
-											return;
-										};
-									});
+							let (tx, mut rx) = tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
+							// TODO: We only start a thread because of stupid `ManagerStreamAction2` and libp2p's `!Send/!Sync` bounds on a stream.
+							tokio::spawn(async move {
+								let Ok(()) = operations::request_file(
+									stream,
+									&library,
+									file_path_pub_id,
+									Range::Full,
+									MpscToAsyncWrite::new(PollSender::new(tx)),
+								)
+								.await
+								else {
+									return;
+								};
+							});
 
-									// TODO: Content Type
-									Ok(InfallibleResponse::builder().status(StatusCode::OK).body(
-										body::boxed(StreamBody::new(stream! {
-											while let Some(item) = rx.recv().await {
-												yield item;
-											}
-										})),
-									))
-								}
-								None => Ok(not_found(())),
-							}
+							// TODO: Content Type
+							Ok(InfallibleResponse::builder().status(StatusCode::OK).body(
+								body::boxed(StreamBody::new(stream! {
+									while let Some(item) = rx.recv().await {
+										yield item;
+									}
+								})),
+							))
 						}
 					}
 				},

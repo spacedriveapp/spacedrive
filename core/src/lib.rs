@@ -67,7 +67,7 @@ pub struct Node {
 	pub env: Arc<env::Env>,
 	pub http: reqwest::Client,
 	#[cfg(feature = "ai")]
-	pub image_labeller: ImageLabeler,
+	pub image_labeller: Option<ImageLabeler>,
 }
 
 impl fmt::Debug for Node {
@@ -114,32 +114,38 @@ impl Node {
 		let (jobs, jobs_actor) = job::Jobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
 
-		let (p2p, p2p_actor) = p2p::P2PManager::new(config.clone(), libraries.clone()).await?;
-		let node = Arc::new(Node {
-			data_dir: data_dir.to_path_buf(),
-			jobs,
-			locations,
-			notifications: notifications::Notifications::new(),
-			p2p,
-			thumbnailer: Thumbnailer::new(
-				data_dir,
-				libraries.clone(),
-				event_bus.0.clone(),
-				config.preferences_watcher(),
-			)
-			.await,
-			config,
-			event_bus,
-			libraries,
-			files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
-			cloud_sync_flag: Arc::new(AtomicBool::new(false)),
-			http: reqwest::Client::new(),
-			env,
-			#[cfg(feature = "ai")]
-			image_labeller: ImageLabeler::new(YoloV8::model(image_labeler_version)?, data_dir)
-				.await
-				.map_err(sd_ai::Error::from)?,
-		});
+		let (p2p, start_p2p) = p2p::P2PManager::new(config.clone(), libraries.clone())
+			.await
+			.map_err(NodeError::P2PManager)?;
+		let node =
+			Arc::new(Node {
+				data_dir: data_dir.to_path_buf(),
+				jobs,
+				locations,
+				notifications: notifications::Notifications::new(),
+				p2p,
+				thumbnailer: Thumbnailer::new(
+					data_dir,
+					libraries.clone(),
+					event_bus.0.clone(),
+					config.preferences_watcher(),
+				)
+				.await,
+				config,
+				event_bus,
+				libraries,
+				files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
+				cloud_sync_flag: Arc::new(AtomicBool::new(false)),
+				http: reqwest::Client::new(),
+				env,
+				#[cfg(feature = "ai")]
+				image_labeller: ImageLabeler::new(YoloV8::model(image_labeler_version)?, data_dir)
+					.await
+					.map_err(|e| {
+						error!("Failed to initialize image labeller. AI features will be disabled: {e:#?}");
+					})
+					.ok(),
+			});
 
 		// Restore backend feature flags
 		for feature in node.config.get().await.features {
@@ -156,7 +162,7 @@ impl Node {
 		locations_actor.start(node.clone());
 		node.libraries.init(&node).await?;
 		jobs_actor.start(node.clone());
-		p2p_actor.start(node.clone());
+		start_p2p(node.clone());
 
 		let router = api::mount();
 
@@ -184,7 +190,7 @@ impl Node {
 
 			std::env::set_var(
 				"RUST_LOG",
-				format!("info,sd_core={level},sd_core::location::manager=info,sd_ai={level}"),
+				format!("info,sd_core={level},sd_p2p=debug,sd_core::location::manager=info,sd_ai={level}"),
 			);
 		}
 
@@ -227,7 +233,9 @@ impl Node {
 		self.jobs.shutdown().await;
 		self.p2p.shutdown().await;
 		#[cfg(feature = "ai")]
-		self.image_labeller.shutdown().await;
+		if let Some(image_labeller) = &self.image_labeller {
+			image_labeller.shutdown().await;
+		}
 		info!("Spacedrive Core shutdown successful!");
 	}
 
@@ -319,7 +327,7 @@ pub enum NodeError {
 	#[error("failed to initialize location manager: {0}")]
 	LocationManager(#[from] LocationManagerError),
 	#[error("failed to initialize p2p manager: {0}")]
-	P2PManager(#[from] sd_p2p::ManagerError),
+	P2PManager(String),
 	#[error("invalid platform integer: {0}")]
 	InvalidPlatformInt(u8),
 	#[cfg(debug_assertions)]

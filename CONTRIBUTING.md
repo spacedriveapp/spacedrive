@@ -40,12 +40,12 @@ To make changes locally, follow these steps:
 1. Clone the repository: `git clone https://github.com/spacedriveapp/spacedrive`
 2. Navigate to the project directory: `cd spacedrive`
 3. Configure your system environment for Spacedrive development
-	1. For Linux users, run: `./scripts/setup.sh`
-		> This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh#L133) will check if Rust and pnpm are installed then proceed to install Clang, NASM, LLVM, libvips, Gstreamer's Plugins, FFmpeg, Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-linux) and any other required dependencies for Spacedrive to build.
-	2. For macOS users, run: `./scripts/setup.sh`
-		> This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh#L108) will check if Rust, pnpm and Xcode are installed and proceed to use Homebrew to install NASM, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-macos) and install any other required dependencies for Spacedrive to build.
-	3. For Windows users, run in PowerShell: `.\scripts\setup.ps1`
-		> This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.ps1#L81) will install pnpm, LLVM, FFmpeg, C++ build tools, NASM, Rust + Cargo, Rust tools, Edge Webview 2, Strawberry Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-windows) and any other required dependencies for Spacedrive to build.
+   1. For Linux users, run: `./scripts/setup.sh`
+      > This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh#L133) will check if Rust and pnpm are installed then proceed to install Clang, NASM, LLVM, libvips, Gstreamer's Plugins, FFmpeg, Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-linux) and any other required dependencies for Spacedrive to build.
+   2. For macOS users, run: `./scripts/setup.sh`
+      > This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh#L108) will check if Rust, pnpm and Xcode are installed and proceed to use Homebrew to install NASM, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-macos) and install any other required dependencies for Spacedrive to build.
+   3. For Windows users, run in PowerShell: `.\scripts\setup.ps1`
+      > This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.ps1#L81) will install pnpm, LLVM, FFmpeg, C++ build tools, NASM, Rust + Cargo, Rust tools, Edge Webview 2, Strawberry Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-windows) and any other required dependencies for Spacedrive to build.
 4. Install dependencies: `pnpm i`
 5. Prepare the build: `pnpm prep` (This will run all necessary codegen and build required dependencies)
 
@@ -86,14 +86,24 @@ Make sure to read the [guidelines](https://spacedrive.com/docs/developers/prereq
 
 To run the mobile app:
 
+- Install Java JDK <= 17 for Android
+  - Java 21 is not compatible: https://github.com/react-native-async-storage/async-storage/issues/1057#issuecomment-1925963956
 - Install [Android Studio](https://developer.android.com/studio) for Android and [Xcode](https://apps.apple.com/au/app/xcode/id497799835) for iOS development.
 - Run `./scripts/setup.sh mobile`
   - This will set up most of the dependencies required to build the mobile app.
-- Make sure you have [NDK 23.1.7779620 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) installed in Android Studio.
+- Make sure you have [NDK 26.1.10909125 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) installed in Android Studio.
 - Run the following commands:
-  - `pnpm android` (runs on Android Emulator)
-  - `pnpm ios` (runs on iOS Emulator)
-  - `pnpm start` (runs the metro bundler)
+  - `pnpm mobile android` (runs on Android Emulator)
+    - In order to have locations working on Android, you must run the following command once the application has been installed for the first time. Otherwise, locations will not work.
+      - `adb shell appops set --uid com.spacedrive.app MANAGE_EXTERNAL_STORAGE allow`
+    - Run the following commands to access the logs from `sd-core`.
+      - `adb shell`
+      - Then `run-as com.spacedrive.app` to access the app's directory on device.
+      - Run `cd files/logs` and then select the logs with the timestamp of when you ran the app. Ex: `sd.log.2023-11-28`.
+        - You can view the logs using `tail -f [log-name]`. Ex: `tail -f sd.log.2023-11-28`.
+  - `pnpm mobile ios` (runs on iOS Emulator)
+    - `xcrun simctl launch --console booted com.spacedrive.app` allows you to view the console output of the iOS app from `tracing`. However, the application must be built in `debug` mode for this.
+  - `pnpm mobile start` (runs the metro bundler only)
 
 ##### AppImage
 

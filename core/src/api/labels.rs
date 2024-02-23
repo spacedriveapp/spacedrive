@@ -1,6 +1,10 @@
 use crate::{invalidate_query, library::Library, object::media::thumbnail::get_indexed_thumb_key};
 
-use sd_prisma::prisma::{label, label_on_object, object, SortOrder};
+use sd_prisma::{
+	prisma::{label, label_on_object, object, SortOrder},
+	prisma_sync,
+};
+use sd_sync::OperationFactory;
 
 use std::collections::BTreeMap;
 
@@ -117,12 +121,26 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			"delete",
 			R.with2(library())
 				.mutation(|(_, library), label_id: i32| async move {
-					library
-						.db
+					let Library { db, sync, .. } = library.as_ref();
+
+					let label = db
 						.label()
-						.delete(label::id::equals(label_id))
+						.find_unique(label::id::equals(label_id))
 						.exec()
-						.await?;
+						.await?
+						.ok_or_else(|| {
+							rspc::Error::new(
+								rspc::ErrorCode::NotFound,
+								"Label not found".to_string(),
+							)
+						})?;
+
+					sync.write_op(
+						db,
+						sync.shared_delete(prisma_sync::label::SyncId { name: label.name }),
+						db.label().delete(label::id::equals(label_id)),
+					)
+					.await?;
 
 					invalidate_query!(library, "labels.list");
 
