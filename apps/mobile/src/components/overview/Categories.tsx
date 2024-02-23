@@ -43,14 +43,7 @@ const Categories = ({ kinds }: Props) => {
 										break;
 								}
 								return (
-									<View>
-										<KindItem
-											kind={kind}
-											name={name}
-											icon={icon}
-											items={count}
-										/>
-									</View>
+									<KindItem kind={kind} name={name} icon={icon} items={count} />
 								);
 							}}
 						/>
