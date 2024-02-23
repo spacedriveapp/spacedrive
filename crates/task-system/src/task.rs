@@ -1,6 +1,6 @@
 use std::{
 	fmt,
-	future::{pending, Future, IntoFuture},
+	future::{Future, IntoFuture},
 	pin::Pin,
 	sync::{
 		atomic::{AtomicBool, AtomicU8, Ordering},
@@ -13,11 +13,9 @@ use async_channel as chan;
 use async_trait::async_trait;
 use chan::{Recv, RecvError};
 use downcast_rs::{impl_downcast, Downcast};
-use futures::{stream::FuturesUnordered, StreamExt};
-use futures_concurrency::future::{Join, Race};
 use pin_project_lite::pin_project;
 use tokio::sync::oneshot;
-use tracing::{error, trace, warn};
+use tracing::{trace, warn};
 use uuid::Uuid;
 
 use super::{
@@ -433,175 +431,3 @@ impl<E: TaskRunError> TaskWorkState<E> {
 			.store(new_worker_id, Ordering::Relaxed);
 	}
 }
-
-/// Util struct that handles the completion with erroring of multiple related tasks at once
-#[derive(Debug)]
-pub struct TaskHandlesBag<E: TaskRunError> {
-	handles: Vec<TaskHandle<E>>,
-}
-
-impl<E: TaskRunError> TaskHandlesBag<E> {
-	pub fn new(handles: Vec<TaskHandle<E>>) -> Self {
-		Self { handles }
-	}
-
-	// /// Wait for all tasks to run to completion, but in case of a task error, return the error and
-	// /// cancel of all other tasks
-	// pub async fn try_wait_all_or_interrupt(
-	// 	self,
-	// 	interrupt_rx: oneshot::Receiver<InterruptionKind>,
-	// ) -> Result<Option<Self>, Error> {
-	// 	let mut futures = FuturesUnordered::from_iter(self.handles.into_iter());
-
-	// 	enum RaceOutput {
-	// 		Completed(Result<TaskStatus, Error>),
-	// 		Interrupted(InterruptionKind),
-	// 	}
-
-	// 	match (
-	// 		async {
-	// 			while let Some(res) = futures.next().await {
-	// 				if matches!(
-	// 					&res,
-	// 					&Ok(TaskStatus::Cancelled) | &Ok(TaskStatus::ForcedAbortion) | &Err(_)
-	// 				) {
-	// 					return RaceOutput::Completed(res);
-	// 				}
-	// 			}
-
-	// 			RaceOutput::Completed(Ok(TaskStatus::Done))
-	// 		},
-	// 		async move {
-	// 			if let Ok(kind) = interrupt_rx.await {
-	// 				RaceOutput::Interrupted(kind)
-	// 			} else {
-	// 				// if the sender was dropped, we will never resolve this interrupt future, so we
-	// 				// wait until all tasks completion
-	// 				pending().await
-	// 			}
-	// 		},
-	// 	)
-	// 		.race()
-	// 		.await
-	// 	{
-	// 		RaceOutput::Completed(Ok(TaskStatus::Done)) => Ok(None),
-
-	// 		RaceOutput::Completed(Ok(TaskStatus::Cancelled)) => {
-	// 			warn!("Cancelling all tasks due to a task being cancelled");
-	// 			cancel_tasks(futures).await;
-	// 			Ok(None)
-	// 		}
-
-	// 		RaceOutput::Completed(Ok(TaskStatus::ForcedAbortion)) => {
-	// 			warn!("Cancelling all tasks due to a task being force aborted");
-	// 			cancel_tasks(futures).await;
-	// 			Ok(None)
-	// 		}
-
-	// 		RaceOutput::Completed(Err(e)) => {
-	// 			cancel_tasks(futures).await;
-	// 			Err(e)
-	// 		}
-
-	// 		RaceOutput::Interrupted(kind) => Ok(Some(Self {
-	// 			handles: futures
-	// 				.into_iter()
-	// 				.map(|handle| {
-	// 					#[allow(clippy::async_yields_async)]
-	// 					async move {
-	// 						if let Err(e) = match kind {
-	// 							InterruptionKind::Pause => handle.pause().await,
-	// 							InterruptionKind::Cancel => handle.cancel().await,
-	// 						} {
-	// 							error!("Failed to pause task: {e:#?}");
-	// 						}
-
-	// 						handle
-	// 					}
-	// 				})
-	// 				.collect::<Vec<_>>()
-	// 				.join()
-	// 				.await,
-	// 		})),
-	// 	}
-	// }
-
-	/// Wait all tasks run to completion or pause/cancel when you wish
-	pub async fn wait_all_or_interrupt(
-		self,
-		interrupt_rx: oneshot::Receiver<InterruptionKind>,
-	) -> (Option<Self>, Vec<Result<TaskStatus<E>, Error>>) {
-		let mut futures = FuturesUnordered::from_iter(self.handles.into_iter());
-
-		enum RaceOutput {
-			Completed,
-			Interrupted(InterruptionKind),
-		}
-
-		let mut outputs = Vec::with_capacity(futures.len());
-
-		if let RaceOutput::Interrupted(kind) = (
-			async {
-				while let Some(res) = futures.next().await {
-					outputs.push(res);
-				}
-
-				RaceOutput::Completed
-			},
-			async move {
-				if let Ok(kind) = interrupt_rx.await {
-					RaceOutput::Interrupted(kind)
-				} else {
-					pending().await
-				}
-			},
-		)
-			.race()
-			.await
-		{
-			(
-				Some(Self {
-					handles: futures
-						.into_iter()
-						.map(|handle| {
-							#[allow(clippy::async_yields_async)]
-							async move {
-								if let Err(e) = match kind {
-									InterruptionKind::Pause => handle.pause().await,
-									InterruptionKind::Cancel => handle.cancel().await,
-								} {
-									error!("Failed to pause task: {e:#?}");
-								}
-
-								handle
-							}
-						})
-						.collect::<Vec<_>>()
-						.join()
-						.await,
-				}),
-				outputs,
-			)
-		} else {
-			(None, outputs)
-		}
-	}
-}
-
-// async fn cancel_tasks(handles: FuturesUnordered<TaskHandle<E>>) {
-// 	handles
-// 		.into_iter()
-// 		.map(|handle| {
-// 			#[allow(clippy::async_yields_async)]
-// 			async move {
-// 				if let Err(e) = handle.cancel().await {
-// 					error!("Failed to cancel task: {e:#?}");
-// 				}
-
-// 				handle
-// 			}
-// 		})
-// 		.collect::<Vec<_>>()
-// 		.join()
-// 		.await;
-// }
