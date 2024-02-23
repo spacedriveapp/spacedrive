@@ -320,6 +320,23 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 				},
 			),
 		)
+		.route(
+			"/remote/:identity/rspc/*path",
+			get(
+				|State(state): State<LocalState>,
+				 extract::Path((identity, rest)): extract::Path<(String, String)>,
+				 mut request: Request<Body>| async move {
+					let identity = RemoteIdentity::from_str(&identity).unwrap(); // TODO: error handling
+					*request.uri_mut() = format!("/{rest}").parse().unwrap();
+					let result =
+						operations::remote_rspc(state.node.p2p.p2p.clone(), identity, request)
+							.await
+							.unwrap(); // TODO: error handling
+
+					(result.status, result.headers, result.body)
+				},
+			),
+		)
 		.route_layer(middleware::from_fn(cors_middleware))
 		.with_state({
 			let file_metadata_cache = Arc::new(Cache::new(150));

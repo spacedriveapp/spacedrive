@@ -41,6 +41,10 @@ pub enum HeaderError {
 	HeaderFile(decode::Error),
 	#[error("error invalid header file discriminator '{0}'")]
 	HeaderFileDiscriminatorInvalid(u8),
+	#[error("error reading rspc length: {0}")]
+	RspcIo(std::io::Error),
+	#[error("error reading rspc: {0}")]
+	Rspc(rmp_serde::decode::Error),
 }
 
 impl Header {
@@ -90,7 +94,18 @@ impl Header {
 					i => return Err(HeaderError::HeaderFileDiscriminatorInvalid(i)),
 				},
 			})),
-			5 => todo!(),
+			5 => {
+				let len = stream.read_u64_le().await.map_err(HeaderError::RspcIo)?;
+
+				let mut buf = vec![0; len as usize];
+				stream
+					.read_exact(&mut buf)
+					.await
+					.map_err(HeaderError::RspcIo)?;
+
+				let req = rmp_serde::from_read(&buf[..]).map_err(HeaderError::Rspc)?;
+				Ok(Self::Rspc(req))
+			}
 			d => Err(HeaderError::DiscriminatorInvalid(d)),
 		}
 	}
@@ -121,7 +136,13 @@ impl Header {
 				buf.extend_from_slice(&range.to_bytes());
 				buf
 			}
-			Self::Rspc(_) => todo!(),
+			Self::Rspc(req) => {
+				let mut bytes = vec![5];
+				let buf = rmp_serde::to_vec(req).unwrap(); // TODO: Error handling
+				bytes.extend_from_slice(&(buf.len() as u64).to_le_bytes());
+				bytes.extend_from_slice(&buf);
+				bytes
+			}
 		}
 	}
 }

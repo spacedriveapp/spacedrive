@@ -5,7 +5,7 @@ use crate::{
 		config::{NodeConfig, NodePreferences, P2PDiscoveryState, Port},
 		get_hardware_model_name, HardwareModel,
 	},
-	p2p::{into_listener2, operations, Listener2},
+	p2p::{into_listener2, Listener2},
 	Node,
 };
 
@@ -14,10 +14,7 @@ use sd_p2p2::RemoteIdentity;
 use std::sync::{atomic::Ordering, Arc};
 
 use itertools::Itertools;
-use rspc::{
-	alpha::{IntoProcedure, Rspc},
-	Config, ErrorCode,
-};
+use rspc::{alpha::Rspc, Config, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
@@ -132,7 +129,7 @@ struct NodeState {
 }
 
 pub(crate) fn mount() -> Arc<Router> {
-	let mut r = R
+	let r = R
 		.router()
 		.procedure("buildInfo", {
 			#[derive(Serialize, Type)]
@@ -242,36 +239,6 @@ pub(crate) fn mount() -> Arc<Router> {
 				def,
 			);
 		});
-
-	fn procedure<TCtx>(p: impl IntoProcedure<TCtx>) -> impl IntoProcedure<TCtx> {
-		p
-	}
-
-	// // TODO: Break this out into an abstraction
-	// let procedure_keys = r.procedures.map(|(k, _)| k).collect::<Vec<_>>();
-	// for procedure_name in procedure_keys.into_iter() {
-	// 	// TODO: Support query and mutation
-	// 	// TODO: Support subscriptions
-	// 	// TODO: Account for library *.
-
-	// 	// TODO: Fake the typescript types for these procedures
-
-	// 	r.procedure2(format!("remote.{}", procedure_name).into(), {
-	// 		#[derive(Deserialize, Type)]
-	// 		pub struct Input {
-	// 			remote: RemoteIdentity,
-	// 			input: serde_json::Value,
-	// 		}
-
-	// 		// TODO: Support query or mutation or subscription
-	// 		R.query(|node, input: Input| async move {
-	// 			// TODO: query.0, input.input
-	// 			let _ = operations::remote_rspc(input.remote);
-
-	// 			"Hello World"
-	// 		})
-	// 	});
-	// }
 
 	let r = r
 		.build(

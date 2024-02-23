@@ -9,6 +9,7 @@ use crate::{
 
 use axum::{body::Body, http, routing::IntoMakeService};
 use http_body::Body as _;
+use prisma_client_rust::bigdecimal::num_traits::ToBytes;
 use sd_p2p2::{
 	flume::{bounded, Receiver},
 	Libp2pPeerId, Listener, Mdns, Peer, QuicTransport, RemoteIdentity, UnicastStream, P2P,
@@ -317,14 +318,17 @@ async fn start(
 						headers: res.headers().clone(),
 						body: res.into_body().collect().await.unwrap().to_bytes().to_vec(), // TODO: Error handling
 					};
+
+					let buf = rmp_serde::to_vec(&result)
+						// TODO: Error handling
+						.unwrap();
+
 					stream
-						.write_all(
-							&rmp_serde::to_vec(&result)
-								// TODO: Error handling
-								.unwrap(),
-						)
+						.write_all(&(buf.len() as u64).to_le_bytes())
 						.await
 						.unwrap(); // TODO: Error handling
+
+					stream.write_all(&buf).await.unwrap(); // TODO: Error handling
 				}
 			};
 		});

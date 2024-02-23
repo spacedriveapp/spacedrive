@@ -24,18 +24,18 @@ sd-cache = { path = "../crates/cache" }
 sd-core-sync = { path = "./crates/sync" }
 # sd-cloud-api = { path = "../crates/cloud-api" }
 sd-crypto = { path = "../crates/crypto", features = [
-    "rspc",
-    "specta",
-    "serde",
-    "keymanager",
+	"rspc",
+	"specta",
+	"serde",
+	"keymanager",
 ] }
 sd-file-path-helper = { path = "../crates/file-path-helper" }
 sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
 sd-file-ext = { path = "../crates/file-ext" }
 sd-images = { path = "../crates/images", features = [
-    "rspc",
-    "serde",
-    "specta",
+	"rspc",
+	"serde",
+	"specta",
 ] }
 sd-media-metadata = { path = "../crates/media-metadata" }
 sd-p2p2 = { path = "../crates/p2p2", features = ["specta"] }
@@ -66,11 +66,12 @@ regex = { workspace = true }
 reqwest = { workspace = true, features = ["json", "native-tls-vendored"] }
 rmp-serde = { workspace = true }
 rspc = { workspace = true, features = [
-    "uuid",
-    "chrono",
-    "tracing",
-    "alpha",
-    "unstable",
+	"axum",
+	"uuid",
+	"chrono",
+	"tracing",
+	"alpha",
+	"unstable",
 ] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
@@ -80,12 +81,12 @@ strum_macros = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = [
-    "sync",
-    "rt-multi-thread",
-    "io-util",
-    "macros",
-    "time",
-    "process",
+	"sync",
+	"rt-multi-thread",
+	"io-util",
+	"macros",
+	"time",
+	"process",
 ] }
 tokio-stream = { workspace = true, features = ["fs"] }
 tokio-util = { workspace = true, features = ["io"] }
@@ -112,7 +113,7 @@ int-enum = "0.5.0"
 itertools = "0.12.0"
 mini-moka = "0.10.2"
 notify = { version = "=5.2.0", default-features = false, features = [
-    "macos_fsevent",
+	"macos_fsevent",
 ], optional = true }
 rmpv = "^1.0.1"
 serde-hashkey = "0.4.5"

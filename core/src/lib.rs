@@ -14,7 +14,6 @@ use chrono::{DateTime, Utc};
 use node::config;
 use notifications::Notifications;
 use reqwest::{RequestBuilder, Response};
-use tower_service::Service;
 
 use std::{
 	fmt,
