@@ -29,7 +29,7 @@ pub struct System<E: TaskRunError> {
 }
 
 impl<E: TaskRunError> System<E> {
-	pub async fn new() -> Self {
+	pub fn new() -> Self {
 		let workers_count = std::thread::available_parallelism().map_or_else(
 			|e| {
 				error!("Failed to get available parallelism in the job system: {e:#?}");
@@ -244,6 +244,12 @@ impl<E: TaskRunError> System<E> {
 		} else {
 			warn!("Trying to shutdown the tasks system that was already shutdown");
 		}
+	}
+}
+
+impl<E: TaskRunError> Default for System<E> {
+	fn default() -> Self {
+		Self::new()
 	}
 }
 
