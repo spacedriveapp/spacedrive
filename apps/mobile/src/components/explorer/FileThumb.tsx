@@ -13,10 +13,9 @@ import { flattenThumbnailKey, useExplorerStore } from '~/stores/explorerStore';
 
 import { tw } from '../../lib/tailwind';
 
-// TODO: This is the correct path for Android too but its not working for some reason...
-// Querying the path with rnfs returns thumbnails exist here...
+// NOTE: `file://` is required for Android to load local files!
 export const getThumbnailUrlByThumbKey = (thumbKey: string[]) => {
-	return `${DocumentDirectoryPath}/thumbnails/${thumbKey
+	return `file://${DocumentDirectoryPath}/thumbnails/${thumbKey
 		.map((i) => encodeURIComponent(i))
 		.join('/')}.webp`;
 };
