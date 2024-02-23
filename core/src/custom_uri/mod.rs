@@ -28,7 +28,7 @@ use async_stream::stream;
 use axum::{
 	body::{self, Body, BoxBody, Full, StreamBody},
 	extract::{self, State},
-	http::{HeaderValue, Request, Response, StatusCode},
+	http::{HeaderMap, HeaderValue, Request, Response, StatusCode},
 	middleware,
 	routing::get,
 	Router,
@@ -326,14 +326,26 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 				|State(state): State<LocalState>,
 				 extract::Path((identity, rest)): extract::Path<(String, String)>,
 				 mut request: Request<Body>| async move {
-					let identity = RemoteIdentity::from_str(&identity).unwrap(); // TODO: error handling
-					*request.uri_mut() = format!("/{rest}").parse().unwrap();
-					let result =
-						operations::remote_rspc(state.node.p2p.p2p.clone(), identity, request)
-							.await
-							.unwrap(); // TODO: error handling
+					let identity = match RemoteIdentity::from_str(&identity) {
+						Ok(identity) => identity,
+						Err(err) => {
+							error!("Error parsing identity '{}': {}", identity, err);
+							return (StatusCode::BAD_REQUEST, HeaderMap::new(), vec![]);
+						}
+					};
+					*request.uri_mut() = format!("/{rest}")
+						.parse()
+						.expect("url was validated by Axum");
 
-					(result.status, result.headers, result.body)
+					match operations::remote_rspc(state.node.p2p.p2p.clone(), identity, request)
+						.await
+					{
+						Ok(result) => (result.status, result.headers, result.body),
+						Err(err) => {
+							error!("Error doing remote rspc query with '{identity}': {err:?}");
+							(StatusCode::INTERNAL_SERVER_ERROR, HeaderMap::new(), vec![])
+						}
+					}
 				},
 			),
 		)

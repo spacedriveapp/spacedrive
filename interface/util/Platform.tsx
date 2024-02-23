@@ -19,7 +19,7 @@ export type Platform = {
 	getFileUrlByPath: (path: string) => string;
 	getRemoteRspcEndpoint: (remote_identity: string) => {
 		url: string;
-		headers: Record<string, string>;
+		headers?: Record<string, string>;
 	};
 	openLink: (url: string) => void;
 	// Tauri patches `window.confirm` to return `Promise` not `bool`

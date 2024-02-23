@@ -1,10 +1,15 @@
-use std::{fmt, sync::Arc};
+use std::{convert::Infallible, error::Error, fmt, sync::Arc};
 
-use axum::http::{self, HeaderMap, HeaderValue, Method, StatusCode, Uri};
-use http_body::Body;
+use axum::{
+	body::Body,
+	http::{self, HeaderMap, HeaderValue, Method, StatusCode, Uri},
+	Router,
+};
+use http_body::Body as _;
 use sd_p2p2::{RemoteIdentity, UnicastStream, P2P};
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tower_service::Service;
 use tracing::debug;
 
 use crate::p2p::Header;
@@ -41,37 +46,85 @@ pub struct Response {
 
 /// Transfer an rspc query to a remote node.
 #[allow(unused)]
-pub async fn remote_rspc<B: Body>(
+pub async fn remote_rspc<B: http_body::Body>(
 	p2p: Arc<P2P>,
 	identity: RemoteIdentity,
 	req: http::Request<B>,
-) -> Result<Response, ()>
+) -> Result<Response, Box<dyn Error>>
 where
-	B::Error: fmt::Debug,
+	B::Error: fmt::Debug + Error + 'static,
 {
-	let peer = p2p.peers().get(&identity).unwrap().clone(); // TODO: error handling
-	let mut stream = peer.new_stream().await.unwrap(); // TODO: error handling
+	let peer = p2p
+		.peers()
+		.get(&identity)
+		.ok_or("Peer not found, has it been discovered?")?
+		.clone();
+	let mut stream = peer.new_stream().await?;
 
 	let req = Request {
 		method: req.method().clone(),
 		uri: req.uri().clone(),
 		headers: req.headers().clone(),
-		body: req.into_body().collect().await.unwrap().to_bytes().to_vec(), // TODO: error handling
+		body: req.into_body().collect().await?.to_bytes().to_vec(),
 	};
 
-	stream
-		.write_all(&Header::Rspc(req).to_bytes())
-		.await
-		.unwrap(); // TODO: error handling
+	stream.write_all(&Header::Rspc(req).to_bytes()).await?;
 
-	let len = stream.read_u64_le().await.unwrap(); // TODO: error handling
+	let status = stream.read_u8().await?;
+	if status != 0 {
+		return Err("Received error status from remote rspc query".into());
+	}
+
+	let len = stream.read_u64_le().await?;
 
 	let mut buf = vec![0; len as usize];
-	stream.read_exact(&mut buf).await.unwrap(); // TODO: error handling
+	stream.read_exact(&mut buf).await?;
 
-	let resp: Response = rmp_serde::from_read(&*buf).unwrap(); // TODO: error handling
+	rmp_serde::from_read(&*buf).map_err(Into::into)
+}
 
-	debug!("Received rspc response: {:?}", resp); // TODO
+pub(crate) async fn receiver(
+	mut stream: UnicastStream,
+	req: Request,
+	service: &mut Router,
+) -> Result<(), Box<dyn Error>> {
+	debug!(
+		"Received rspc request from peer '{}': {} {}",
+		stream.remote_identity(),
+		req.method,
+		req.uri
+	);
 
-	Ok(resp)
+	let res = unwrap_infallible(service.call(req.into_req().map(Body::from)).await);
+	let result = Response {
+		status: res.status(),
+		headers: res.headers().clone(),
+		body: match res.into_body().collect().await {
+			Ok(b) => b.to_bytes().to_vec(),
+			Err(e) => {
+				stream.write_u8(1).await.ok();
+				return Err(e.into());
+			}
+		},
+	};
+
+	let buf = match rmp_serde::to_vec(&result) {
+		Ok(buf) => buf,
+		Err(e) => {
+			stream.write_u8(1).await.ok();
+			return Err(e.into());
+		}
+	};
+	stream.write_u8(0).await?;
+	stream.write_all(&(buf.len() as u64).to_le_bytes()).await?;
+	stream.write_all(&buf).await?;
+
+	Ok(())
+}
+
+pub(crate) fn unwrap_infallible<T>(result: Result<T, Infallible>) -> T {
+	match result {
+		Ok(value) => value,
+		Err(err) => match err {},
+	}
 }

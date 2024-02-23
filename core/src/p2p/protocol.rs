@@ -1,4 +1,3 @@
-use axum::http;
 use sd_p2p_block::{Range, SpaceblockRequests, SpaceblockRequestsError};
 use sd_p2p_proto::{decode, encode};
 use thiserror::Error;
@@ -138,7 +137,7 @@ impl Header {
 			}
 			Self::Rspc(req) => {
 				let mut bytes = vec![5];
-				let buf = rmp_serde::to_vec(req).unwrap(); // TODO: Error handling
+				let buf = rmp_serde::to_vec(req).expect("failed to serialize rspc request");
 				bytes.extend_from_slice(&(buf.len() as u64).to_le_bytes());
 				bytes.extend_from_slice(&buf);
 				bytes

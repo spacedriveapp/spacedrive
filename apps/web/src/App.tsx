@@ -49,6 +49,9 @@ const platform: Platform = {
 			locationLocalId
 		)}/${encodeURIComponent(filePathId)}`,
 	getFileUrlByPath: (path) => `${spacedriveURL}/local-file-by-path/${encodeURIComponent(path)}`,
+	getRemoteRspcEndpoint: (remote_identity) => ({
+		url: `${spacedriveURL}/remote/${encodeURIComponent(remote_identity)}/rspc`
+	}),
 	openLink: (url) => window.open(url, '_blank')?.focus(),
 	confirm: (message, cb) => cb(window.confirm(message)),
 	auth: {

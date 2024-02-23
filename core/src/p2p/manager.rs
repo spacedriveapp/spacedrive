@@ -7,9 +7,8 @@ use crate::{
 	Node,
 };
 
-use axum::{body::Body, http, routing::IntoMakeService};
-use http_body::Body as _;
-use prisma_client_rust::bigdecimal::num_traits::ToBytes;
+use axum::routing::IntoMakeService;
+
 use sd_p2p2::{
 	flume::{bounded, Receiver},
 	Libp2pPeerId, Listener, Mdns, Peer, QuicTransport, RemoteIdentity, UnicastStream, P2P,
@@ -20,18 +19,17 @@ use serde_json::json;
 use specta::Type;
 use std::{
 	collections::{HashMap, HashSet},
-	convert::Infallible,
 	net::SocketAddr,
 	sync::{atomic::AtomicBool, Arc, Mutex, PoisonError},
 };
 use tower_service::Service;
 use tracing::error;
 
-use tokio::{io::AsyncWriteExt, sync::oneshot};
-use tracing::{debug, info};
+use tokio::sync::oneshot;
+use tracing::info;
 use uuid::Uuid;
 
-use super::{P2PEvents, PeerMetadata};
+use super::{operations::rspc::unwrap_infallible, P2PEvents, PeerMetadata};
 
 pub struct P2PManager {
 	pub(crate) p2p: Arc<P2P>,
@@ -302,33 +300,13 @@ async fn start(
 					error!("Failed to handle file request");
 				}
 				Header::Rspc(req) => {
-					debug!(
-						"Received rspc request from peer '{}': {} {}",
-						stream.remote_identity(),
-						req.method,
-						req.uri
-					);
-
-					let res = unwrap_infallible(
-						service.call(req.into_req().map(|b| Body::from(b))).await,
-					);
-
-					let result = operations::rspc::Response {
-						status: res.status(),
-						headers: res.headers().clone(),
-						body: res.into_body().collect().await.unwrap().to_bytes().to_vec(), // TODO: Error handling
+					let remote = stream.remote_identity();
+					let Err(err) = operations::rspc::receiver(stream, req, &mut service).await
+					else {
+						return;
 					};
 
-					let buf = rmp_serde::to_vec(&result)
-						// TODO: Error handling
-						.unwrap();
-
-					stream
-						.write_all(&(buf.len() as u64).to_le_bytes())
-						.await
-						.unwrap(); // TODO: Error handling
-
-					stream.write_all(&buf).await.unwrap(); // TODO: Error handling
+					error!("Failed to handling rspc request with '{remote}': {err:?}");
 				}
 			};
 		});
@@ -352,11 +330,4 @@ pub fn into_listener2(l: &[Listener]) -> Vec<Listener2> {
 			addrs: l.addrs.clone(),
 		})
 		.collect()
-}
-
-fn unwrap_infallible<T>(result: Result<T, Infallible>) -> T {
-	match result {
-		Ok(value) => value,
-		Err(err) => match err {},
-	}
 }
