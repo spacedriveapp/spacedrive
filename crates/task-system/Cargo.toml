@@ -17,19 +17,14 @@ async-channel = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
 futures-concurrency = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
-rmp-serde = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = [
 	"sync",
+	"parking_lot",
 	"rt-multi-thread",
-	"io-util",
-	"macros",
 	"time",
-	"process",
 ] }
 tokio-stream = { workspace = true }
-tokio-util = { workspace = true, features = ["io"] }
 tracing = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
 
@@ -37,8 +32,11 @@ downcast-rs = "1.2.0"
 pin-project-lite = "0.2"
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["macros", "test-util"] }
 tempfile = { workspace = true }
 rand = "0.8.5"
 tracing-test = { version = "^0.2.4", features = ["no-env-filter"] }
 thiserror = { workspace = true }
 lending-stream = "1.0.0"
+serde = { workspace = true, features = ["derive"] }
+rmp-serde = { workspace = true }
