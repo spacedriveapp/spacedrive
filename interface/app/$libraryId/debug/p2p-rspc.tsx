@@ -44,7 +44,7 @@ function PeerSelector({ setActivePeer }: { setActivePeer: (peer: string) => void
 function P2PInfo({ peer }: { peer: string }) {
 	const platform = usePlatform();
 	const ref = useRef<AlphaClient<Procedures>>();
-	const [todo, setTodo] = useState('');
+	const [result, setResult] = useState('');
 	useEffect(() => {
 		// TODO: Cleanup when URL changed
 		const endpoint = platform.getRemoteRspcEndpoint(peer);
@@ -59,15 +59,9 @@ function P2PInfo({ peer }: { peer: string }) {
 	}, [peer]);
 
 	useEffect(() => {
-		console.log(ref.current); // TODO
 		if (!ref.current) return;
-
-		console.log('DO QUERY');
-		ref.current.query(['nodeState']).then((data) => {
-			console.log(data);
-			setTodo(JSON.stringify(data, null, 2));
-		});
-	}, [ref, todo]);
+		ref.current.query(['nodeState']).then((data) => setResult(JSON.stringify(data, null, 2)));
+	}, [ref, result]);
 
 	return (
 		<div className="flex flex-col">
@@ -75,15 +69,14 @@ function P2PInfo({ peer }: { peer: string }) {
 
 			<Button
 				onClick={() => {
-					ref.current?.query(['nodeState']).then((data) => {
-						setTodo(JSON.stringify(data, null, 2));
-						console.log(data);
-					});
+					ref.current
+						?.query(['nodeState'])
+						.then((data) => setResult(JSON.stringify(data, null, 2)));
 				}}
 			>
 				Refetch
 			</Button>
-			<code>{todo}</code>
+			<pre>{result}</pre>
 		</div>
 	);
 }
