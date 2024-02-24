@@ -1,15 +1,19 @@
 // Adapted from: https://github.com/kimlimjustin/xplorer/blob/f4f3590d06783d64949766cc2975205a3b689a56/src-tauri/src/drives.rs
-
 use sd_cache::Model;
 
 use std::{
 	collections::HashMap,
 	fmt::Display,
 	hash::{Hash, Hasher},
+	os::unix::fs::MetadataExt,
 	path::PathBuf,
 	sync::OnceLock,
 };
 
+use icrate::{
+	objc2::msg_send,
+	Foundation::{self, ns_string, NSFileManager, NSFileSystemSize, NSString},
+};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
@@ -225,25 +229,35 @@ pub async fn get_volumes() -> Vec<Volume> {
 	volumes
 }
 
-// #[cfg(target_os = "ios")]
+#[cfg(target_os = "ios")]
 pub async fn get_volumes() -> Vec<Volume> {
-	let mut sys = sys_guard().lock().await;
-	sys.refresh_disks_list();
-
-	info!("Sys: {:?}", sys);
-
 	let mut volumes: Vec<Volume> = Vec::new();
 
-	volumes.push(Volume {
-		name: "iPhone".to_string(),
-		disk_type: DiskType::SSD,
-		file_system: Some("APFS".to_string()),
-		mount_points: vec![PathBuf::from("/Volumes/test")],
-		total_capacity: sys.total_memory() as u64,
-		available_capacity: sys.free_memory() as u64,
-		is_root_filesystem: true,
-	});
+	// unsafe {
+	//  	let i = msg_send![NSFiNSFileManagerleSystemSize, init];
+	// 	info!("NSFileSystemSize: {:?}", size);
+	// }
 
+	unsafe {
+		let fs = NSFileManager::defaultManager();
+
+		let root = fs
+			.attributesOfFileSystemForPath_error(ns_string!("/"))
+			.clone();
+
+		let unwrapped_root = root.unwrap();
+		let unwrapped_root_ref = unwrapped_root.as_ref();
+
+		let size = unwrapped_root_ref
+			.objectForKey(ns_string!("NSFileSystemSize"))
+			.map(|size| {
+				size
+			});
+
+		info!("NSFileSystemSize: {:?}", size);
+	}
+
+	// let t = NSFileSystemSize;
 	volumes
 }
 
