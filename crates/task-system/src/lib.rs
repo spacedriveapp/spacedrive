@@ -12,7 +12,11 @@
 //! - Forced abortion of tasks;
 //! - Prioritizing tasks that will suspend running tasks without priority;
 //! - When the system is shutdown, it will return all pending and running tasks to theirs dispatchers, so the user can store them on disk or any other storage to be re-dispatched later;
-//! ```rust
+//!
+//!
+//! ## Basic example
+//!
+//! ```
 //! use sd_task_system::{TaskSystem, Task, TaskId, ExecStatus, TaskOutput, Interrupter, TaskStatus};
 //! use async_trait::async_trait;
 //! use thiserror::Error;
@@ -34,7 +38,7 @@
 //!         self.id
 //!     }
 //!
-//!     async fn run(&mut self, _interrupter: &Interrupter) -> Result<ExecStatus, SampleError> {```
+//!     async fn run(&mut self, _interrupter: &Interrupter) -> Result<ExecStatus, SampleError> {
 //!         Ok(ExecStatus::Done(TaskOutput::Empty))
 //!     }
 //! }
@@ -59,9 +63,9 @@ mod system;
 mod task;
 mod worker;
 
-pub use error::Error as TaskSystemError;
+pub use error::{RunError, SystemError as TaskSystemError};
 pub use system::{Dispatcher as TaskDispatcher, System as TaskSystem};
 pub use task::{
-	AnyTaskOutput, ExecStatus, Interrupter, InterruptionKind, IntoAnyTaskOutput, IntoTask, Task,
-	TaskHandle, TaskId, TaskOutput, TaskRunError, TaskStatus,
+	AnyTaskOutput, ExecStatus, Interrupter, InterrupterFuture, InterruptionKind, IntoAnyTaskOutput,
+	IntoTask, Task, TaskHandle, TaskId, TaskOutput, TaskStatus,
 };

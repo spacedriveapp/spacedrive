@@ -10,9 +10,7 @@ repository.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sd-utils = { path = "../utils" }
-
-
+# Workspace deps
 async-channel = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
@@ -26,10 +24,11 @@ tokio = { workspace = true, features = [
 ] }
 tokio-stream = { workspace = true }
 tracing = { workspace = true }
-uuid = { workspace = true, features = ["v4", "serde"] }
+uuid = { workspace = true, features = ["v4"] }
 
+# External deps
 downcast-rs = "1.2.0"
-pin-project-lite = "0.2"
+pin-project = "1.1.4"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "test-util"] }

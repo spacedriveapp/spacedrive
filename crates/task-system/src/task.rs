@@ -13,50 +13,70 @@ use async_channel as chan;
 use async_trait::async_trait;
 use chan::{Recv, RecvError};
 use downcast_rs::{impl_downcast, Downcast};
-use pin_project_lite::pin_project;
 use tokio::sync::oneshot;
 use tracing::{trace, warn};
 use uuid::Uuid;
 
 use super::{
-	error::Error,
+	error::{RunError, SystemError},
 	system::SystemComm,
 	worker::{AtomicWorkerId, WorkerId},
 };
 
+/// A unique identifier for a task using the [`uuid`](https://docs.rs/uuid) crate.
 pub type TaskId = Uuid;
 
+/// A trait that represents any kind of output that a task can return.
+///
+/// The user will downcast it to the concrete type that the task returns. Most of the time,
+/// tasks will not return anything, so it isn't a costly abstraction, as only a heap allocation
+/// is needed when the user wants to return a [`Box<dyn AnyTaskOutput>`].
 pub trait AnyTaskOutput: Send + fmt::Debug + Downcast + 'static {}
 
 impl_downcast!(AnyTaskOutput);
 
+/// Blanket implementation for all types that implements `std::fmt::Debug + Send + 'static`
 impl<T: fmt::Debug + Send + 'static> AnyTaskOutput for T {}
 
+/// A helper trait to convert any type that implements [`AnyTaskOutput`] into a [`TaskOutput`], boxing it.
 pub trait IntoAnyTaskOutput {
 	fn into_output(self) -> TaskOutput;
 }
 
+/// Blanket implementation for all types that implements AnyTaskOutput
 impl<T: AnyTaskOutput + 'static> IntoAnyTaskOutput for T {
 	fn into_output(self) -> TaskOutput {
 		TaskOutput::Out(Box::new(self))
 	}
 }
 
+/// An enum representing whether a task returned anything or not.
 #[derive(Debug)]
 pub enum TaskOutput {
 	Out(Box<dyn AnyTaskOutput>),
 	Empty,
 }
 
+/// An enum representing all possible outcomes for a task.
 #[derive(Debug)]
-pub enum TaskStatus<E: TaskRunError> {
+pub enum TaskStatus<E: RunError> {
+	/// The task has finished successfully and maybe has some output for the user.
 	Done(TaskOutput),
+	/// Task was gracefully cancelled by the user.
 	Canceled,
+	/// Task was forcefully aborted by the user.
 	ForcedAbortion,
+	/// The task system was shutdown and we give back the task to the user so they can downcast it
+	/// back to the original concrete type and store it on disk or any other storage to be re-dispatched later.
 	Shutdown(Box<dyn Task<E>>),
+	/// Task had and error so we return it back and the user can handle it appropriately.
 	Error(E),
 }
 
+/// Represents whether the current [`Task::run`] method on a task finished successfully or was interrupted.
+///
+/// `Done` and `Canceled` variants can only happen once, while `Paused` can happen multiple times,
+/// whenever the user wants to pause the task.
 #[derive(Debug)]
 pub enum ExecStatus {
 	Done(TaskOutput),
@@ -65,7 +85,7 @@ pub enum ExecStatus {
 }
 
 #[derive(Debug)]
-pub(crate) enum InternalTaskExecStatus<E: TaskRunError> {
+pub(crate) enum InternalTaskExecStatus<E: RunError> {
 	Done(TaskOutput),
 	Paused,
 	Canceled,
@@ -73,7 +93,7 @@ pub(crate) enum InternalTaskExecStatus<E: TaskRunError> {
 	Error(E),
 }
 
-impl<E: TaskRunError> From<Result<ExecStatus, E>> for InternalTaskExecStatus<E> {
+impl<E: RunError> From<Result<ExecStatus, E>> for InternalTaskExecStatus<E> {
 	fn from(result: Result<ExecStatus, E>) -> Self {
 		result
 			.map(|status| match status {
@@ -85,39 +105,57 @@ impl<E: TaskRunError> From<Result<ExecStatus, E>> for InternalTaskExecStatus<E> 
 	}
 }
 
-pub trait IntoTask<E: TaskRunError> {
+/// A helper trait to convert any type that implements [`Task<E>`] into a [`Box<dyn Task<E>>`], boxing it.
+pub trait IntoTask<E> {
 	fn into_task(self) -> Box<dyn Task<E>>;
 }
 
-impl<T: Task<E> + 'static, E: TaskRunError> IntoTask<E> for T {
+/// Blanket implementation for all types that implements [`Task<E>`] and `'static`
+impl<T: Task<E> + 'static, E: RunError> IntoTask<E> for T {
 	fn into_task(self) -> Box<dyn Task<E>> {
 		Box::new(self)
 	}
 }
 
-pub trait TaskRunError: std::error::Error + fmt::Debug + Send + Sync + 'static {}
-
-impl<T: std::error::Error + fmt::Debug + Send + Sync + 'static> TaskRunError for T {}
-
+/// The main trait that represents a task that can be dispatched to the task system.
+///
+/// All traits in the task system must return the same generic error type, so we can have a unified
+/// error handling.
+///
+/// We're currently using the [`async_trait`](https://docs.rs/async-trait) crate to allow dyn async traits,
+/// due to a limitation in the Rust language.
 #[async_trait]
-pub trait Task<E: TaskRunError>: fmt::Debug + Downcast + Send + 'static {
+pub trait Task<E: RunError>: fmt::Debug + Downcast + Send + 'static {
+	/// This method represent the work that should be done by the worker, it will be called by the
+	/// worker when there is a slot available in its internal queue.
+	/// We receive a `&mut self` so any internal data can be mutated on each `run` invocation.
+	///
+	/// The [`interrupter`](Interrupter) is a helper object that can be used to check if the user requested a pause or a cancel,
+	/// so the user can decide the appropriated moment to pause or cancel the task. Avoiding corrupted data or
+	/// inconsistent states.
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, E>;
 
+	/// This method defines whether a task should run with priority or not. The task system has a mechanism
+	/// to suspend non-priority tasks on any worker and run priority tasks ASAP. This is useful for tasks that
+	/// are more important than others, like a task that should be concluded and show results immediately to the user,
+	/// as thumbnails being generated for the current open directory or copy/paste operations.
 	fn with_priority(&self) -> bool {
 		false
 	}
 
+	/// An unique identifier for the task, it will be used to identify the task on the system and also to the user.
 	fn id(&self) -> TaskId;
 }
 
-impl_downcast!(Task<E> where E: TaskRunError);
+impl_downcast!(Task<E> where E: RunError);
 
-pin_project! {
-	pub struct InterrupterFuture<'recv> {
-		#[pin]
-		fut: Recv<'recv, InterruptionRequest>,
-		has_interrupted: &'recv AtomicU8,
-	}
+/// Intermediate struct to wait until a pause or a cancel commands are sent by the user.
+#[must_use = "`InterrupterFuture` does nothing unless polled"]
+#[pin_project::pin_project]
+pub struct InterrupterFuture<'recv> {
+	#[pin]
+	fut: Recv<'recv, InterruptionRequest>,
+	has_interrupted: &'recv AtomicU8,
 }
 
 impl Future for InterrupterFuture<'_> {
@@ -145,6 +183,8 @@ impl Future for InterrupterFuture<'_> {
 	}
 }
 
+/// We use an [`IntoFuture`] implementation to allow the user to use the `await` syntax on the [`Interrupter`] object.
+/// With this trait, we return an [`InterrupterFuture`] that will await until the user requests a pause or a cancel.
 impl<'recv> IntoFuture for &'recv Interrupter {
 	type Output = InterruptionKind;
 
@@ -158,6 +198,8 @@ impl<'recv> IntoFuture for &'recv Interrupter {
 	}
 }
 
+/// A helper object that can be used to check if the user requested a pause or a cancel, so the task `run`
+/// implementation can decide the appropriated moment to pause or cancel the task.
 #[derive(Debug)]
 pub struct Interrupter {
 	interrupt_rx: chan::Receiver<InterruptionRequest>,
@@ -172,6 +214,8 @@ impl Interrupter {
 		}
 	}
 
+	/// Check if the user requested a pause or a cancel, returning the kind of interruption that was requested
+	/// in a non-blocking manner.
 	pub fn try_check_interrupt(&self) -> Option<InterruptionKind> {
 		if let Some(kind) = InterruptionKind::load(&self.has_interrupted) {
 			Some(kind)
@@ -200,6 +244,7 @@ impl Interrupter {
 	}
 }
 
+/// The kind of interruption that can be requested by the user, a pause or a cancel
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum InterruptionKind {
@@ -220,19 +265,21 @@ impl InterruptionKind {
 #[derive(Debug)]
 pub(crate) struct InterruptionRequest {
 	kind: InterruptionKind,
-	ack: oneshot::Sender<Result<(), Error>>,
+	ack: oneshot::Sender<Result<(), SystemError>>,
 }
 
+/// A handle returned when a task is dispatched to the task system, it can be used to pause, cancel, resume, or wait
+/// until the task gets completed.
 #[derive(Debug)]
-pub struct TaskHandle<E: TaskRunError> {
+pub struct TaskHandle<E: RunError> {
 	pub(crate) worktable: Arc<TaskWorktable>,
-	pub(crate) done_rx: oneshot::Receiver<Result<TaskStatus<E>, Error>>,
+	pub(crate) done_rx: oneshot::Receiver<Result<TaskStatus<E>, SystemError>>,
 	pub(crate) system_comm: SystemComm,
 	pub(crate) task_id: TaskId,
 }
 
-impl<E: TaskRunError> Future for TaskHandle<E> {
-	type Output = Result<TaskStatus<E>, Error>;
+impl<E: RunError> Future for TaskHandle<E> {
+	type Output = Result<TaskStatus<E>, SystemError>;
 
 	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
 		Pin::new(&mut self.done_rx)
@@ -241,13 +288,14 @@ impl<E: TaskRunError> Future for TaskHandle<E> {
 	}
 }
 
-impl<E: TaskRunError> TaskHandle<E> {
+impl<E: RunError> TaskHandle<E> {
+	/// Get the unique identifier of the task
 	pub fn task_id(&self) -> TaskId {
 		self.task_id
 	}
 
-	/// Gracefully pause the task at a safe point defined by the user using the `TaskInterrupter`
-	pub async fn pause(&self) -> Result<(), Error> {
+	/// Gracefully pause the task at a safe point defined by the user using the [`Interrupter`]
+	pub async fn pause(&self) -> Result<(), SystemError> {
 		let is_paused = self.worktable.is_paused.load(Ordering::Relaxed);
 		let is_canceled = self.worktable.is_canceled.load(Ordering::Relaxed);
 		let is_done = self.worktable.is_done.load(Ordering::Relaxed);
@@ -279,8 +327,8 @@ impl<E: TaskRunError> TaskHandle<E> {
 		Ok(())
 	}
 
-	/// Gracefully cancel the task at a safe point defined by the user using the `TaskInterrupter`
-	pub async fn cancel(&self) -> Result<(), Error> {
+	/// Gracefully cancel the task at a safe point defined by the user using the [`Interrupter`]
+	pub async fn cancel(&self) -> Result<(), SystemError> {
 		let is_canceled = self.worktable.is_canceled.load(Ordering::Relaxed);
 		let is_done = self.worktable.is_done.load(Ordering::Relaxed);
 
@@ -311,7 +359,8 @@ impl<E: TaskRunError> TaskHandle<E> {
 		Ok(())
 	}
 
-	pub async fn force_abortion(&self) -> Result<(), Error> {
+	/// Forcefully abort the task, this can lead to corrupted data or inconsistent states, so use it with caution.
+	pub async fn force_abortion(&self) -> Result<(), SystemError> {
 		self.worktable.set_aborted();
 		self.system_comm
 			.force_abortion(
@@ -321,7 +370,9 @@ impl<E: TaskRunError> TaskHandle<E> {
 			.await
 	}
 
-	pub async fn resume(&self) -> Result<(), Error> {
+	/// Marks the task to be resumed by the task system, the worker will start processing it if there is a slot
+	/// available or will be enqueued otherwise.
+	pub async fn resume(&self) -> Result<(), SystemError> {
 		self.system_comm
 			.resume_task(
 				self.task_id,
@@ -375,7 +426,7 @@ impl TaskWorktable {
 		self.is_aborted.store(true, Ordering::Relaxed);
 	}
 
-	pub async fn pause(&self, tx: oneshot::Sender<Result<(), Error>>) {
+	pub async fn pause(&self, tx: oneshot::Sender<Result<(), SystemError>>) {
 		self.is_paused.store(true, Ordering::Relaxed);
 		self.is_running.store(false, Ordering::Relaxed);
 
@@ -390,7 +441,7 @@ impl TaskWorktable {
 			.expect("Worker channel closed trying to pause task");
 	}
 
-	pub async fn cancel(&self, tx: oneshot::Sender<Result<(), Error>>) {
+	pub async fn cancel(&self, tx: oneshot::Sender<Result<(), SystemError>>) {
 		self.is_canceled.store(true, Ordering::Relaxed);
 		self.is_running.store(false, Ordering::Relaxed);
 
@@ -417,14 +468,14 @@ impl TaskWorktable {
 }
 
 #[derive(Debug)]
-pub(crate) struct TaskWorkState<E: TaskRunError> {
+pub(crate) struct TaskWorkState<E: RunError> {
 	pub(crate) task: Box<dyn Task<E>>,
 	pub(crate) worktable: Arc<TaskWorktable>,
-	pub(crate) done_tx: oneshot::Sender<Result<TaskStatus<E>, Error>>,
+	pub(crate) done_tx: oneshot::Sender<Result<TaskStatus<E>, SystemError>>,
 	pub(crate) interrupter: Arc<Interrupter>,
 }
 
-impl<E: TaskRunError> TaskWorkState<E> {
+impl<E: RunError> TaskWorkState<E> {
 	pub fn change_worker(&self, new_worker_id: WorkerId) {
 		self.worktable
 			.current_worker_id

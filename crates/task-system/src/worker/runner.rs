@@ -22,11 +22,10 @@ use tracing::{debug, error, trace, warn};
 
 use super::{
 	super::{
-		error::Error,
+		error::{RunError, SystemError},
 		system::SystemComm,
 		task::{
-			ExecStatus, InternalTaskExecStatus, Task, TaskId, TaskOutput, TaskRunError, TaskStatus,
-			TaskWorkState,
+			ExecStatus, InternalTaskExecStatus, Task, TaskId, TaskOutput, TaskStatus, TaskWorkState,
 		},
 	},
 	RunnerMessage, TaskRunnerOutput, WorkStealer, WorkerId, ONE_SECOND,
@@ -41,7 +40,7 @@ pub(super) enum TaskAddStatus {
 }
 
 struct AbortAndSuspendSignalers {
-	abort_tx: oneshot::Sender<oneshot::Sender<Result<(), Error>>>,
+	abort_tx: oneshot::Sender<oneshot::Sender<Result<(), SystemError>>>,
 	suspend_tx: oneshot::Sender<()>,
 }
 
@@ -68,18 +67,18 @@ struct RunningTask {
 	handle: JoinHandle<()>,
 }
 
-fn dispatch_steal_request<E: TaskRunError>(
+fn dispatch_steal_request<E: RunError>(
 	worker_id: WorkerId,
 	work_stealer: WorkStealer<E>,
 	runner_tx: chan::Sender<RunnerMessage<E>>,
 ) -> JoinHandle<()> {
 	spawn(async move {
 		runner_tx
-			.send(RunnerMessage::StealedTask(
+			.send(RunnerMessage::StoleTask(
 				work_stealer.steal(worker_id).await,
 			))
 			.await
-			.expect("runner channel closed before send stealed task");
+			.expect("runner channel closed before send stolen task");
 	})
 }
 
@@ -94,7 +93,7 @@ impl WaitingSuspendedTask {
 	}
 }
 
-pub(super) struct Runner<E: TaskRunError> {
+pub(super) struct Runner<E: RunError> {
 	worker_id: WorkerId,
 	system_comm: SystemComm,
 	work_stealer: WorkStealer<E>,
@@ -115,7 +114,7 @@ pub(super) struct Runner<E: TaskRunError> {
 	steal_attempts_count: u32,
 }
 
-impl<E: TaskRunError> Runner<E> {
+impl<E: RunError> Runner<E> {
 	pub(super) fn new(
 		worker_id: WorkerId,
 		work_stealer: WorkStealer<E>,
@@ -229,7 +228,7 @@ impl<E: TaskRunError> Runner<E> {
 		}
 	}
 
-	pub(super) async fn resume_task(&mut self, task_id: TaskId) -> Result<(), Error> {
+	pub(super) async fn resume_task(&mut self, task_id: TaskId) -> Result<(), SystemError> {
 		trace!(
 			"Resume task request: <worker_id='{}', task_id='{task_id}'>",
 			self.worker_id
@@ -264,11 +263,14 @@ impl<E: TaskRunError> Runner<E> {
 				"Task not found: <worker_id='{}', task_id='{task_id}'>",
 				self.worker_id
 			);
-			Err(Error::TaskNotFound(task_id))
+			Err(SystemError::TaskNotFound(task_id))
 		}
 	}
 
-	pub(super) async fn pause_not_running_task(&mut self, task_id: TaskId) -> Result<(), Error> {
+	pub(super) async fn pause_not_running_task(
+		&mut self,
+		task_id: TaskId,
+	) -> Result<(), SystemError> {
 		trace!(
 			"Pause not running task request: <worker_id='{}', task_id='{task_id}'>",
 			self.worker_id
@@ -337,10 +339,13 @@ impl<E: TaskRunError> Runner<E> {
 			return Ok(());
 		}
 
-		Err(Error::TaskNotFound(task_id))
+		Err(SystemError::TaskNotFound(task_id))
 	}
 
-	pub(super) async fn cancel_not_running_task(&mut self, task_id: TaskId) -> Result<(), Error> {
+	pub(super) async fn cancel_not_running_task(
+		&mut self,
+		task_id: TaskId,
+	) -> Result<(), SystemError> {
 		trace!(
 			"Cancel not running task request: <worker_id='{}', task_id='{task_id}'>",
 			self.worker_id
@@ -539,7 +544,10 @@ impl<E: TaskRunError> Runner<E> {
 		}
 	}
 
-	pub(super) async fn force_task_abortion(&mut self, task_id: uuid::Uuid) -> Result<(), Error> {
+	pub(super) async fn force_task_abortion(
+		&mut self,
+		task_id: uuid::Uuid,
+	) -> Result<(), SystemError> {
 		if let Some(AbortAndSuspendSignalers { abort_tx, .. }) =
 			self.abort_and_suspend_map.remove(&task_id)
 		{
@@ -559,7 +567,7 @@ impl<E: TaskRunError> Runner<E> {
 					// If the sender was dropped, then the task finished before we could
 					// abort it which is fine
 					Ok(Err(_)) => Ok(()),
-					Err(_) => Err(Error::TaskForcedAbortTimeout(task_id)),
+					Err(_) => Err(SystemError::TaskForcedAbortTimeout(task_id)),
 				}
 			}
 		} else {
@@ -731,11 +739,11 @@ impl<E: TaskRunError> Runner<E> {
 							}
 						},
 
-						RunnerMessage::StealedTask(Some(task_work_state)) => {
+						RunnerMessage::StoleTask(Some(task_work_state)) => {
 							send_shutdown_task_response(worker_id, task_id, task_work_state);
 						}
 
-						RunnerMessage::StealedTask(None) => {}
+						RunnerMessage::StoleTask(None) => {}
 					}
 				}
 			}
@@ -974,7 +982,7 @@ impl<E: TaskRunError> Runner<E> {
 				let elapsed = self.last_steal_attempt_at.elapsed();
 				let required = (TEN_SECONDS * self.steal_attempts_count).min(ONE_MINUTE);
 				trace!(
-					"Steal attempt required cooldown: <worker_id='{}', elapsed='{elapsed:?}', required='{required:?}', steal_attempts_count={}>",
+					"Steal attempt required cool down: <worker_id='{}', elapsed='{elapsed:?}', required='{required:?}', steal_attempts_count={}>",
 					self.worker_id, self.steal_attempts_count);
 				if elapsed > required {
 					self.current_steal_task_handle = Some(dispatch_steal_request(
@@ -1008,7 +1016,7 @@ impl<E: TaskRunError> Runner<E> {
 		}
 	}
 
-	pub(super) async fn process_stealed_task(&mut self, maybe_new_task: Option<TaskWorkState<E>>) {
+	pub(super) async fn process_stolen_task(&mut self, maybe_new_task: Option<TaskWorkState<E>>) {
 		if let Some(steal_task_handle) = self.current_steal_task_handle.take() {
 			if let Err(e) = steal_task_handle.await {
 				error!("Steal task failed to join: {e:#?}");
@@ -1018,7 +1026,7 @@ impl<E: TaskRunError> Runner<E> {
 		if let Some(task_work_state) = maybe_new_task {
 			self.system_comm.working_report(self.worker_id).await;
 			trace!(
-				"Stealed task: <worker_id='{}', task_id='{}'>",
+				"Stolen task: <worker_id='{}', task_id='{}'>",
 				self.worker_id,
 				task_work_state.task.id()
 			);
@@ -1049,7 +1057,7 @@ impl<E: TaskRunError> Runner<E> {
 	}
 }
 
-async fn run_single_task<E: TaskRunError>(
+async fn run_single_task<E: RunError>(
 	worker_id: WorkerId,
 	TaskWorkState {
 		mut task,
@@ -1059,7 +1067,7 @@ async fn run_single_task<E: TaskRunError>(
 	}: TaskWorkState<E>,
 	runner_tx: chan::Sender<RunnerMessage<E>>,
 	suspend_rx: oneshot::Receiver<()>,
-	abort_rx: oneshot::Receiver<oneshot::Sender<Result<(), Error>>>,
+	abort_rx: oneshot::Receiver<oneshot::Sender<Result<(), SystemError>>>,
 ) {
 	let task_id = task.id();
 
@@ -1092,7 +1100,7 @@ async fn run_single_task<E: TaskRunError>(
 					"Task was aborted before running: <worker_id='{worker_id}', task_id='{task_id}'>"
 				);
 
-				(task, Err(Error::TaskAborted(task_id)))
+				(task, Err(SystemError::TaskAborted(task_id)))
 			} else {
 				let res = task.run(&interrupter).await;
 
@@ -1144,11 +1152,11 @@ async fn run_single_task<E: TaskRunError>(
 		}
 	});
 
-	type SpawnedTaskRunOutput<E> = (Box<dyn Task<E>>, Result<Result<ExecStatus, E>, Error>);
+	type SpawnedTaskRunOutput<E> = (Box<dyn Task<E>>, Result<Result<ExecStatus, E>, SystemError>);
 
-	enum RaceOutput<E: TaskRunError> {
+	enum RaceOutput<E: RunError> {
 		Completed(Result<SpawnedTaskRunOutput<E>, JoinError>),
-		Abort(oneshot::Sender<Result<(), Error>>),
+		Abort(oneshot::Sender<Result<(), SystemError>>),
 	}
 
 	match (async { RaceOutput::Completed(handle.await) }, async move {
@@ -1199,7 +1207,7 @@ async fn run_single_task<E: TaskRunError>(
 			trace!("Task had an error: <worker_id='{worker_id}', task_id='{task_id}'>");
 
 			if done_tx
-				.send(if matches!(e, Error::TaskAborted(_)) {
+				.send(if matches!(e, SystemError::TaskAborted(_)) {
 					Ok(TaskStatus::ForcedAbortion)
 				} else {
 					Err(e)
@@ -1217,7 +1225,7 @@ async fn run_single_task<E: TaskRunError>(
 
 		RaceOutput::Completed(Err(join_error)) => {
 			error!("Task <id='{task_id}'> failed to join: {join_error:#?}",);
-			if done_tx.send(Err(Error::TaskJoin(task_id))).is_err() {
+			if done_tx.send(Err(SystemError::TaskJoin(task_id))).is_err() {
 				error!("Task done channel closed while sending join error response");
 			}
 
@@ -1264,7 +1272,7 @@ async fn run_single_task<E: TaskRunError>(
 	trace!("Run single task finished: <worker_id='{worker_id}', task_id='{task_id}'>");
 }
 
-fn send_complete_task_response<E: TaskRunError>(
+fn send_complete_task_response<E: RunError>(
 	worker_id: WorkerId,
 	task_id: TaskId,
 	TaskWorkState {
@@ -1286,7 +1294,7 @@ fn send_complete_task_response<E: TaskRunError>(
 	}
 }
 
-fn send_cancel_task_response<E: TaskRunError>(
+fn send_cancel_task_response<E: RunError>(
 	worker_id: WorkerId,
 	task_id: TaskId,
 	TaskWorkState {
@@ -1307,7 +1315,7 @@ fn send_cancel_task_response<E: TaskRunError>(
 	}
 }
 
-fn send_shutdown_task_response<E: TaskRunError>(
+fn send_shutdown_task_response<E: RunError>(
 	worker_id: WorkerId,
 	task_id: TaskId,
 	TaskWorkState { task, done_tx, .. }: TaskWorkState<E>,
@@ -1319,13 +1327,13 @@ fn send_shutdown_task_response<E: TaskRunError>(
 		);
 	} else {
 		trace!(
-			"Sucessfully suspended and sent back DynTask on worker shutdown: \
+			"Successfully suspended and sent back DynTask on worker shutdown: \
 			<worker_id='{worker_id}', task_id='{task_id}'>"
 		);
 	}
 }
 
-fn send_error_task_response<E: TaskRunError>(
+fn send_error_task_response<E: RunError>(
 	worker_id: usize,
 	task_id: uuid::Uuid,
 	TaskWorkState {
@@ -1347,7 +1355,7 @@ fn send_error_task_response<E: TaskRunError>(
 	}
 }
 
-fn send_forced_abortion_task_response<E: TaskRunError>(
+fn send_forced_abortion_task_response<E: RunError>(
 	worker_id: WorkerId,
 	task_id: TaskId,
 	TaskWorkState {

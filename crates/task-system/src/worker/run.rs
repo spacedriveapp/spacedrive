@@ -8,12 +8,12 @@ use tokio_stream::wrappers::IntervalStream;
 use tracing::{error, warn};
 
 use super::{
-	super::{message::WorkerMessage, system::SystemComm, task::TaskRunError},
+	super::{error::RunError, message::WorkerMessage, system::SystemComm},
 	runner::Runner,
 	RunnerMessage, WorkStealer, WorkerId, ONE_SECOND,
 };
 
-pub(super) async fn run<E: TaskRunError>(
+pub(super) async fn run<E: RunError>(
 	id: WorkerId,
 	system_comm: SystemComm,
 	work_stealer: WorkStealer<E>,
@@ -24,7 +24,7 @@ pub(super) async fn run<E: TaskRunError>(
 	let mut idle_checker_interval = interval_at(Instant::now(), ONE_SECOND);
 	idle_checker_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-	enum StreamMessage<E: TaskRunError> {
+	enum StreamMessage<E: RunError> {
 		Commands(WorkerMessage<E>),
 		RunnerMsg(RunnerMessage<E>),
 		IdleCheck,
@@ -102,8 +102,8 @@ pub(super) async fn run<E: TaskRunError>(
 				runner.dispatch_next_task(task_id).await;
 			}
 
-			StreamMessage::RunnerMsg(RunnerMessage::StealedTask(maybe_new_task)) => {
-				runner.process_stealed_task(maybe_new_task).await;
+			StreamMessage::RunnerMsg(RunnerMessage::StoleTask(maybe_new_task)) => {
+				runner.process_stolen_task(maybe_new_task).await;
 			}
 
 			// Idle checking to steal some work

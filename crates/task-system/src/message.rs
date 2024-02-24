@@ -1,8 +1,8 @@
 use tokio::sync::oneshot;
 
 use super::{
-	error::Error,
-	task::{TaskId, TaskRunError, TaskWorkState},
+	error::{RunError, SystemError},
+	task::{TaskId, TaskWorkState},
 	worker::WorkerId,
 };
 
@@ -13,49 +13,49 @@ pub(crate) enum SystemMessage {
 	ResumeTask {
 		task_id: TaskId,
 		worker_id: WorkerId,
-		ack: oneshot::Sender<Result<(), Error>>,
+		ack: oneshot::Sender<Result<(), SystemError>>,
 	},
 	PauseNotRunningTask {
 		task_id: TaskId,
 		worker_id: WorkerId,
-		ack: oneshot::Sender<Result<(), Error>>,
+		ack: oneshot::Sender<Result<(), SystemError>>,
 	},
 	CancelNotRunningTask {
 		task_id: TaskId,
 		worker_id: WorkerId,
-		ack: oneshot::Sender<Result<(), Error>>,
+		ack: oneshot::Sender<Result<(), SystemError>>,
 	},
 	ForceAbortion {
 		task_id: TaskId,
 		worker_id: WorkerId,
-		ack: oneshot::Sender<Result<(), Error>>,
+		ack: oneshot::Sender<Result<(), SystemError>>,
 	},
 	NotifyIdleWorkers {
 		start_from: WorkerId,
 		task_count: usize,
 	},
-	ShutdownRequest(oneshot::Sender<Result<(), Error>>),
+	ShutdownRequest(oneshot::Sender<Result<(), SystemError>>),
 }
 
 #[derive(Debug)]
-pub(crate) enum WorkerMessage<E: TaskRunError> {
+pub(crate) enum WorkerMessage<E: RunError> {
 	NewTask(TaskWorkState<E>),
 	TaskCountRequest(oneshot::Sender<usize>),
 	ResumeTask {
 		task_id: TaskId,
-		ack: oneshot::Sender<Result<(), Error>>,
+		ack: oneshot::Sender<Result<(), SystemError>>,
 	},
 	PauseNotRunningTask {
 		task_id: TaskId,
-		ack: oneshot::Sender<Result<(), Error>>,
+		ack: oneshot::Sender<Result<(), SystemError>>,
 	},
 	CancelNotRunningTask {
 		task_id: TaskId,
-		ack: oneshot::Sender<Result<(), Error>>,
+		ack: oneshot::Sender<Result<(), SystemError>>,
 	},
 	ForceAbortion {
 		task_id: TaskId,
-		ack: oneshot::Sender<Result<(), Error>>,
+		ack: oneshot::Sender<Result<(), SystemError>>,
 	},
 	ShutdownRequest(oneshot::Sender<()>),
 	StealRequest(oneshot::Sender<Option<TaskWorkState<E>>>),
