@@ -11,8 +11,9 @@ use std::{
 };
 
 use icrate::{
-	objc2::msg_send,
-	Foundation::{self, ns_string, NSFileManager, NSFileSystemSize, NSString},
+	objc2::runtime::{Class, Object},
+	objc2::{msg_send, sel},
+	Foundation::{self, ns_string, NSFileManager, NSFileSystemSize, NSNumber, NSString},
 };
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
@@ -233,31 +234,44 @@ pub async fn get_volumes() -> Vec<Volume> {
 pub async fn get_volumes() -> Vec<Volume> {
 	let mut volumes: Vec<Volume> = Vec::new();
 
-	// unsafe {
-	//  	let i = msg_send![NSFiNSFileManagerleSystemSize, init];
-	// 	info!("NSFileSystemSize: {:?}", size);
-	// }
-
 	unsafe {
-		let fs = NSFileManager::defaultManager();
+		let file_manager = NSFileManager::defaultManager();
 
-		let root = fs
-			.attributesOfFileSystemForPath_error(ns_string!("/"))
-			.clone();
+		let root_dir = NSString::from_str("/");
 
-		let unwrapped_root = root.unwrap();
-		let unwrapped_root_ref = unwrapped_root.as_ref();
+		let root_dir_ref = root_dir.as_ref();
 
-		let size = unwrapped_root_ref
-			.objectForKey(ns_string!("NSFileSystemSize"))
-			.map(|size| {
-				size
-			});
+		let attributes = file_manager
+			.attributesOfFileSystemForPath_error(root_dir_ref)
+			.unwrap();
 
-		info!("NSFileSystemSize: {:?}", size);
+		let attributes_ref = attributes.as_ref();
+
+		// Total space
+		let key = NSString::from_str("NSFileSystemSize");
+		let key_ref = key.as_ref();
+
+		let t = attributes_ref.get(key_ref).unwrap();
+		let total_space: u64 = msg_send![t, unsignedLongLongValue];
+
+		// Used space
+		let key = NSString::from_str("NSFileSystemFreeSize");
+		let key_ref = key.as_ref();
+
+		let t = attributes_ref.get(key_ref).unwrap();
+		let free_space: u64 = msg_send![t, unsignedLongLongValue];
+
+		volumes.push(Volume {
+			name: "Root".to_string(),
+			disk_type: DiskType::SSD,
+			file_system: Some("APFS".to_string()),
+			mount_points: vec![PathBuf::from("/")],
+			total_capacity: total_space,
+			available_capacity: free_space,
+			is_root_filesystem: true,
+		});
 	}
 
-	// let t = NSFileSystemSize;
 	volumes
 }
 
