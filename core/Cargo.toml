@@ -129,8 +129,7 @@ aws-credential-types = "1.0.3"
 base91 = "0.1.0"
 sd-actors = { version = "0.1.0", path = "../crates/actors" }
 tower-service = "0.3.2"
-http-serde = "1.0.0"
-http-body-util = "0.1.0"
+hyper = { version = "=0.14.28", features = ["http1", "server", "client"] }
 
 # Override features of transitive dependencies
 [dependencies.openssl]

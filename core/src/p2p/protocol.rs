@@ -4,8 +4,6 @@ use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use uuid::Uuid;
 
-use super::operations::{self};
-
 #[derive(Debug, PartialEq, Eq)]
 pub struct HeaderFile {
 	// Request ID
@@ -23,7 +21,8 @@ pub enum Header {
 	Spacedrop(SpaceblockRequests),
 	Sync(Uuid),
 	File(HeaderFile),
-	Rspc(operations::rspc::Request),
+	// A HTTP server used for rspc requests and streaming files
+	Http,
 }
 
 #[derive(Debug, Error)]
@@ -40,10 +39,6 @@ pub enum HeaderError {
 	HeaderFile(decode::Error),
 	#[error("error invalid header file discriminator '{0}'")]
 	HeaderFileDiscriminatorInvalid(u8),
-	#[error("error reading rspc length: {0}")]
-	RspcIo(std::io::Error),
-	#[error("error reading rspc: {0}")]
-	Rspc(rmp_serde::decode::Error),
 }
 
 impl Header {
@@ -93,18 +88,7 @@ impl Header {
 					i => return Err(HeaderError::HeaderFileDiscriminatorInvalid(i)),
 				},
 			})),
-			5 => {
-				let len = stream.read_u64_le().await.map_err(HeaderError::RspcIo)?;
-
-				let mut buf = vec![0; len as usize];
-				stream
-					.read_exact(&mut buf)
-					.await
-					.map_err(HeaderError::RspcIo)?;
-
-				let req = rmp_serde::from_read(&buf[..]).map_err(HeaderError::Rspc)?;
-				Ok(Self::Rspc(req))
-			}
+			5 => Ok(Self::Http),
 			d => Err(HeaderError::DiscriminatorInvalid(d)),
 		}
 	}
@@ -135,13 +119,7 @@ impl Header {
 				buf.extend_from_slice(&range.to_bytes());
 				buf
 			}
-			Self::Rspc(req) => {
-				let mut bytes = vec![5];
-				let buf = rmp_serde::to_vec(req).expect("failed to serialize rspc request");
-				bytes.extend_from_slice(&(buf.len() as u64).to_le_bytes());
-				bytes.extend_from_slice(&buf);
-				bytes
-			}
+			Self::Http => vec![5],
 		}
 	}
 }

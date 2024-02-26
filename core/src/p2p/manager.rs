@@ -19,6 +19,7 @@ use serde_json::json;
 use specta::Type;
 use std::{
 	collections::{HashMap, HashSet},
+	convert::Infallible,
 	net::SocketAddr,
 	sync::{atomic::AtomicBool, Arc, Mutex, PoisonError},
 };
@@ -29,7 +30,7 @@ use tokio::sync::oneshot;
 use tracing::info;
 use uuid::Uuid;
 
-use super::{operations::rspc::unwrap_infallible, P2PEvents, PeerMetadata};
+use super::{P2PEvents, PeerMetadata};
 
 pub struct P2PManager {
 	pub(crate) p2p: Arc<P2P>,
@@ -299,10 +300,9 @@ async fn start(
 
 					error!("Failed to handle file request");
 				}
-				Header::Rspc(req) => {
+				Header::Http => {
 					let remote = stream.remote_identity();
-					let Err(err) = operations::rspc::receiver(stream, req, &mut service).await
-					else {
+					let Err(err) = operations::rspc::receiver(stream, &mut service).await else {
 						return;
 					};
 
@@ -330,4 +330,11 @@ pub fn into_listener2(l: &[Listener]) -> Vec<Listener2> {
 			addrs: l.addrs.clone(),
 		})
 		.collect()
+}
+
+fn unwrap_infallible<T>(result: Result<T, Infallible>) -> T {
+	match result {
+		Ok(value) => value,
+		Err(err) => match err {},
+	}
 }

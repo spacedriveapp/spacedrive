@@ -30,6 +30,7 @@ use axum::{
 	extract::{self, State},
 	http::{HeaderMap, HeaderValue, Request, Response, StatusCode},
 	middleware,
+	response::IntoResponse,
 	routing::get,
 	Router,
 };
@@ -330,7 +331,8 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 						Ok(identity) => identity,
 						Err(err) => {
 							error!("Error parsing identity '{}': {}", identity, err);
-							return (StatusCode::BAD_REQUEST, HeaderMap::new(), vec![]);
+							return (StatusCode::BAD_REQUEST, HeaderMap::new(), vec![])
+								.into_response();
 						}
 					};
 					*request.uri_mut() = format!("/{rest}")
@@ -340,10 +342,10 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 					match operations::remote_rspc(state.node.p2p.p2p.clone(), identity, request)
 						.await
 					{
-						Ok(result) => (result.status, result.headers, result.body),
+						Ok(response) => response.into_response(),
 						Err(err) => {
 							error!("Error doing remote rspc query with '{identity}': {err:?}");
-							(StatusCode::INTERNAL_SERVER_ERROR, HeaderMap::new(), vec![])
+							(StatusCode::INTERNAL_SERVER_ERROR, HeaderMap::new()).into_response()
 						}
 					}
 				},
