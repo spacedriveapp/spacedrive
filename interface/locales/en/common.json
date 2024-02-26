@@ -278,7 +278,7 @@
 	"network_page_description": "Other Spacedrive nodes on your LAN will appear here, along with your default OS network mounts.",
 	"networking": "Networking",
 	"networking_port": "Networking Port",
-	"networking_port_description": "The port for Spacedrive's Peer-to-peer networking to communicate on. You should leave this disabled unless you have a restictive firewall. Do not expose to the internet!",
+	"networking_port_description": "The port for Spacedrive's Peer-to-peer networking to communicate on. You should leave this disabled unless you have a restrictive firewall. Do not expose to the internet!",
 	"new_folder": "New folder",
 	"new_library": "New library",
 	"new_location": "New location",
