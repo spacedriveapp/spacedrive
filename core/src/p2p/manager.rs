@@ -7,6 +7,8 @@ use crate::{
 	Node,
 };
 
+use axum::routing::IntoMakeService;
+
 use sd_p2p2::{
 	flume::{bounded, Receiver},
 	Libp2pPeerId, Listener, Mdns, Peer, QuicTransport, RemoteIdentity, UnicastStream, P2P,
@@ -17,12 +19,15 @@ use serde_json::json;
 use specta::Type;
 use std::{
 	collections::{HashMap, HashSet},
+	convert::Infallible,
 	net::SocketAddr,
 	sync::{atomic::AtomicBool, Arc, Mutex, PoisonError},
 };
+use tower_service::Service;
+use tracing::error;
 
 use tokio::sync::oneshot;
-use tracing::{error, info};
+use tracing::info;
 use uuid::Uuid;
 
 use super::{P2PEvents, PeerMetadata};
@@ -44,7 +49,13 @@ impl P2PManager {
 	pub async fn new(
 		node_config: Arc<config::Manager>,
 		libraries: Arc<crate::library::Libraries>,
-	) -> Result<(Arc<P2PManager>, impl FnOnce(Arc<Node>)), String> {
+	) -> Result<
+		(
+			Arc<P2PManager>,
+			impl FnOnce(Arc<Node>, IntoMakeService<axum::Router<()>>),
+		),
+		String,
+	> {
 		let (tx, rx) = bounded(25);
 		let p2p = P2P::new(SPACEDRIVE_APP_ID, node_config.get().await.identity, tx);
 		let (quic, lp2p_peer_id) = QuicTransport::spawn(p2p.clone())?;
@@ -70,8 +81,8 @@ impl P2PManager {
 			this.p2p.listeners()
 		);
 
-		Ok((this.clone(), |node| {
-			tokio::spawn(start(this, node, rx));
+		Ok((this.clone(), |node, router| {
+			tokio::spawn(start(this, node, rx, router));
 		}))
 	}
 
@@ -220,10 +231,13 @@ async fn start(
 	this: Arc<P2PManager>,
 	node: Arc<Node>,
 	rx: Receiver<UnicastStream>,
+	mut service: IntoMakeService<axum::Router<()>>,
 ) -> Result<(), ()> {
 	while let Ok(mut stream) = rx.recv_async().await {
 		let this = this.clone();
 		let node = node.clone();
+		let mut service = unwrap_infallible(service.call(()).await);
+
 		tokio::spawn(async move {
 			println!("APPLICATION GOT STREAM: {:?}", stream); // TODO
 
@@ -286,6 +300,14 @@ async fn start(
 
 					error!("Failed to handle file request");
 				}
+				Header::Http => {
+					let remote = stream.remote_identity();
+					let Err(err) = operations::rspc::receiver(stream, &mut service).await else {
+						return;
+					};
+
+					error!("Failed to handling rspc request with '{remote}': {err:?}");
+				}
 			};
 		});
 	}
@@ -308,4 +330,11 @@ pub fn into_listener2(l: &[Listener]) -> Vec<Listener2> {
 			addrs: l.addrs.clone(),
 		})
 		.collect()
+}
+
+fn unwrap_infallible<T>(result: Result<T, Infallible>) -> T {
+	match result {
+		Ok(value) => value,
+		Err(err) => match err {},
+	}
 }

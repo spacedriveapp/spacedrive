@@ -33,6 +33,10 @@ export default function DebugSection() {
 					<Icon component={ShareNetwork} />
 					P2P
 				</SidebarLink>
+				<SidebarLink to="debug/p2p-rspc">
+					<Icon component={ShareNetwork} />
+					P2P (rspc)
+				</SidebarLink>
 			</div>
 		</Section>
 	);

@@ -28,8 +28,9 @@ use async_stream::stream;
 use axum::{
 	body::{self, Body, BoxBody, Full, StreamBody},
 	extract::{self, State},
-	http::{HeaderValue, Request, Response, StatusCode},
+	http::{HeaderMap, HeaderValue, Request, Response, StatusCode},
 	middleware,
+	response::IntoResponse,
 	routing::get,
 	Router,
 };
@@ -317,6 +318,36 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 					);
 
 					serve_file(file, Ok(metadata), request.into_parts().0, resp).await
+				},
+			),
+		)
+		.route(
+			"/remote/:identity/rspc/*path",
+			get(
+				|State(state): State<LocalState>,
+				 extract::Path((identity, rest)): extract::Path<(String, String)>,
+				 mut request: Request<Body>| async move {
+					let identity = match RemoteIdentity::from_str(&identity) {
+						Ok(identity) => identity,
+						Err(err) => {
+							error!("Error parsing identity '{}': {}", identity, err);
+							return (StatusCode::BAD_REQUEST, HeaderMap::new(), vec![])
+								.into_response();
+						}
+					};
+					*request.uri_mut() = format!("/{rest}")
+						.parse()
+						.expect("url was validated by Axum");
+
+					match operations::remote_rspc(state.node.p2p.p2p.clone(), identity, request)
+						.await
+					{
+						Ok(response) => response.into_response(),
+						Err(err) => {
+							error!("Error doing remote rspc query with '{identity}': {err:?}");
+							(StatusCode::INTERNAL_SERVER_ERROR, HeaderMap::new()).into_response()
+						}
+					}
 				},
 			),
 		)

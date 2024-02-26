@@ -21,6 +21,8 @@ pub enum Header {
 	Spacedrop(SpaceblockRequests),
 	Sync(Uuid),
 	File(HeaderFile),
+	// A HTTP server used for rspc requests and streaming files
+	Http,
 }
 
 #[derive(Debug, Error)]
@@ -86,6 +88,7 @@ impl Header {
 					i => return Err(HeaderError::HeaderFileDiscriminatorInvalid(i)),
 				},
 			})),
+			5 => Ok(Self::Http),
 			d => Err(HeaderError::DiscriminatorInvalid(d)),
 		}
 	}
@@ -116,6 +119,7 @@ impl Header {
 				buf.extend_from_slice(&range.to_bytes());
 				buf
 			}
+			Self::Http => vec![5],
 		}
 	}
 }

@@ -17,6 +17,10 @@ export type Platform = {
 	getThumbnailUrlByThumbKey: (thumbKey: string[]) => string;
 	getFileUrl: (libraryId: string, locationLocalId: number, filePathId: number) => string;
 	getFileUrlByPath: (path: string) => string;
+	getRemoteRspcEndpoint: (remote_identity: string) => {
+		url: string;
+		headers?: Record<string, string>;
+	};
 	openLink: (url: string) => void;
 	// Tauri patches `window.confirm` to return `Promise` not `bool`
 	confirm(msg: string, cb: (result: boolean) => void): void;
