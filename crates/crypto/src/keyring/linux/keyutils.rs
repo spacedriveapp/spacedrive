@@ -45,15 +45,14 @@ impl KeyringInterface for KeyutilsKeyring {
 		let key = self.session.add_key(&id.hash(), value.expose())?;
 		key.set_timeout(WEEK)?;
 
-		// TODO(brxken128): find the bits for this and get the perms directly
-		let p = KeyPermissionsBuilder::builder()
+		let perms = KeyPermissionsBuilder::builder()
 			.posessor(Permission::ALL)
 			.user(Permission::empty())
 			.group(Permission::empty())
 			.world(Permission::empty())
 			.build();
 
-		key.set_perms(p)?;
+		key.set_perms(perms)?;
 
 		self.persistent.link_key(key)?;
 
