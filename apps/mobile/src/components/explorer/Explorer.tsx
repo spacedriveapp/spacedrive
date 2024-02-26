@@ -13,6 +13,7 @@ import { useActionsModalStore } from '~/stores/modalStore';
 
 import FileItem from './FileItem';
 import FileRow from './FileRow';
+import ScreenContainer from '../layout/ScreenContainer';
 
 type ExplorerProps = {
 	items?: ExplorerItem[];
@@ -44,7 +45,7 @@ const Explorer = ({ items }: ExplorerProps) => {
 	}
 
 	return (
-		<View style={tw`flex-1 bg-mobile-screen`}>
+		<ScreenContainer style={'gap-0 py-0'} scrollview={false}>
 			{/* Header */}
 			<View style={tw`flex flex-row items-center justify-between`}>
 				{/* Sort By */}
@@ -99,6 +100,7 @@ const Explorer = ({ items }: ExplorerProps) => {
 							)}
 						</Pressable>
 					)}
+					contentContainerStyle={tw`p-2`}
 					extraData={layoutMode}
 					estimatedItemSize={
 						layoutMode === 'grid'
@@ -107,7 +109,7 @@ const Explorer = ({ items }: ExplorerProps) => {
 					}
 				/>
 			)}
-		</View>
+</ScreenContainer>
 	);
 };
 

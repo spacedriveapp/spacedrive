@@ -14,6 +14,11 @@ pub enum MaybeUndefined<T> {
 }
 
 impl<T> MaybeUndefined<T> {
+	// `Undefined` will return `true` else `false`.
+	pub fn is_undefined(&self) -> bool {
+		matches!(self, Self::Undefined)
+	}
+
 	// `Null | Value(T)` will return `true` else `false`.
 	pub fn is_defined(&self) -> bool {
 		!matches!(self, Self::Undefined)

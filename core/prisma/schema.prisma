@@ -43,7 +43,6 @@ model Node {
   platform     Int
   date_created DateTime
   identity     Bytes? // TODO: Change to required field in future
-  node_peer_id String? // TODO: Remove as part of - https://linear.app/spacedriveapp/issue/ENG-757/p2p-library-portability
 
   @@map("node")
 }
@@ -72,8 +71,8 @@ model Instance {
 
   locations Location[]
 
-  CRDTOperation        CRDTOperation[]
-  CloudCRDTOperation   CloudCRDTOperation[]
+  CRDTOperation      CRDTOperation[]
+  CloudCRDTOperation CloudCRDTOperation[]
 
   @@map("instance")
 }
@@ -279,6 +278,7 @@ model Object {
 //     @@map("key")
 // }
 
+/// @shared(id: object)
 model MediaData {
   id Int @id @default(autoincrement())
 
@@ -360,11 +360,11 @@ model Label {
 model LabelOnObject {
   date_created DateTime @default(now())
 
-  object_id    Int
-  object       Object   @relation(fields: [object_id], references: [id], onDelete: Restrict)
+  object_id Int
+  object    Object @relation(fields: [object_id], references: [id], onDelete: Restrict)
 
-  label_id     Int
-  label        Label    @relation(fields: [label_id], references: [id], onDelete: Restrict)
+  label_id Int
+  label    Label @relation(fields: [label_id], references: [id], onDelete: Restrict)
 
   @@id([label_id, object_id])
   @@map("label_on_object")

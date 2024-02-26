@@ -1,22 +1,17 @@
-use crate::p2p::{Header, P2PEvent, P2PManager};
-
-use sd_p2p::{
-	spaceblock::{BlockSize, Range, SpaceblockRequest, SpaceblockRequests, Transfer},
-	spacetunnel::RemoteIdentity,
-	PeerMessageEvent,
-};
-
 use std::{
 	borrow::Cow,
 	path::PathBuf,
 	sync::{
 		atomic::{AtomicBool, Ordering},
-		Arc,
+		Arc, PoisonError,
 	},
 	time::Duration,
 };
 
+use crate::p2p::{Header, P2PEvent, P2PManager};
 use futures::future::join_all;
+use sd_p2p2::{RemoteIdentity, UnicastStream};
+use sd_p2p_block::{BlockSize, Range, SpaceblockRequest, SpaceblockRequests, Transfer};
 use tokio::{
 	fs::{create_dir_all, File},
 	io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
@@ -32,7 +27,6 @@ pub(crate) const SPACEDROP_TIMEOUT: Duration = Duration::from_secs(60);
 // TODO: Proper error handling
 pub async fn spacedrop(
 	p2p: Arc<P2PManager>,
-	// TODO: Stop using `PeerId`
 	identity: RemoteIdentity,
 	paths: Vec<PathBuf>,
 ) -> Result<Uuid, ()> {
@@ -61,7 +55,10 @@ pub async fn spacedrop(
 	.await
 	.into_iter()
 	.collect::<Result<Vec<_>, std::io::Error>>()
-	.map_err(|_| ())? // TODO: Error handling
+	.map_err(|err| {
+		warn!("error opening file: '{err:?}'");
+		// TODO: Proper error type
+	})?
 	.into_iter()
 	.unzip();
 
@@ -69,8 +66,18 @@ pub async fn spacedrop(
 
 	let id = Uuid::new_v4();
 	debug!("({id}): starting Spacedrop with peer '{identity}");
-	let mut stream = p2p.manager.stream(identity).await.map_err(|err| {
-		debug!("({id}): failed to connect: {err:?}");
+	let peer = p2p
+		.p2p
+		.peers()
+		.get(&identity)
+		.ok_or_else(|| {
+			debug!("({id}): failed to find connection method with '{identity}'");
+			// TODO: Proper error
+		})?
+		.clone();
+
+	let mut stream = peer.new_stream().await.map_err(|err| {
+		debug!("({id}): failed to connect to '{identity}': {err:?}");
 		// TODO: Proper error
 	})?;
 
@@ -95,7 +102,7 @@ pub async fn spacedrop(
 		  // Add 5 seconds incase the user responded on the deadline and slow network
 		   _ = sleep(SPACEDROP_TIMEOUT + Duration::from_secs(5)) => {
 				debug!("({id}): timed out, cancelling");
-				p2p.events.0.send(P2PEvent::SpacedropTimedout { id }).ok();
+				p2p.events.send(P2PEvent::SpacedropTimedout { id }).ok();
 				return;
 			},
 		};
@@ -103,18 +110,18 @@ pub async fn spacedrop(
 		match result {
 			Ok(0) => {
 				debug!("({id}): Spacedrop was rejected from peer '{identity}'");
-				p2p.events.0.send(P2PEvent::SpacedropRejected { id }).ok();
+				p2p.events.send(P2PEvent::SpacedropRejected { id }).ok();
 				return;
 			}
-			Ok(1) => {}        // Okay
-			Ok(_) => todo!(),  // TODO: Proper error
-			Err(_) => todo!(), // TODO: Proper error
+			Ok(1) => {}                     // Okay
+			Ok(_) => todo!(),               // TODO: Proper error
+			Err(err) => todo!("{:?}", err), // TODO: Proper error
 		}
 
 		let cancelled = Arc::new(AtomicBool::new(false));
 		p2p.spacedrop_cancelations
 			.lock()
-			.await
+			.unwrap_or_else(PoisonError::into_inner)
 			.insert(id, cancelled.clone());
 
 		debug!("({id}): starting transfer");
@@ -124,7 +131,6 @@ pub async fn spacedrop(
 			&requests,
 			|percent| {
 				p2p.events
-					.0
 					.send(P2PEvent::SpacedropProgress { id, percent })
 					.ok();
 			},
@@ -138,7 +144,6 @@ pub async fn spacedrop(
 				debug!("({id}): failed to send file '{file_id}': {err}");
 				// TODO: Error to frontend
 				// p2p.events
-				// 	.0
 				// 	.send(P2PEvent::SpacedropFailed { id, file_id })
 				// 	.ok();
 				return;
@@ -154,7 +159,12 @@ pub async fn spacedrop(
 // TODO: Move these off the manager
 impl P2PManager {
 	pub async fn accept_spacedrop(&self, id: Uuid, path: String) {
-		if let Some(chan) = self.spacedrop_pairing_reqs.lock().await.remove(&id) {
+		if let Some(chan) = self
+			.spacedrop_pairing_reqs
+			.lock()
+			.unwrap_or_else(PoisonError::into_inner)
+			.remove(&id)
+		{
 			chan.send(Some(path))
 				.map_err(|err| {
 					warn!("error accepting Spacedrop '{id:?}': '{err:?}'");
@@ -164,7 +174,12 @@ impl P2PManager {
 	}
 
 	pub async fn reject_spacedrop(&self, id: Uuid) {
-		if let Some(chan) = self.spacedrop_pairing_reqs.lock().await.remove(&id) {
+		if let Some(chan) = self
+			.spacedrop_pairing_reqs
+			.lock()
+			.unwrap_or_else(PoisonError::into_inner)
+			.remove(&id)
+		{
 			chan.send(None)
 				.map_err(|err| {
 					warn!("error rejecting Spacedrop '{id:?}': '{err:?}'");
@@ -174,7 +189,12 @@ impl P2PManager {
 	}
 
 	pub async fn cancel_spacedrop(&self, id: Uuid) {
-		if let Some(cancelled) = self.spacedrop_cancelations.lock().await.remove(&id) {
+		if let Some(cancelled) = self
+			.spacedrop_cancelations
+			.lock()
+			.unwrap_or_else(PoisonError::into_inner)
+			.remove(&id)
+		{
 			cancelled.store(true, Ordering::Relaxed);
 		}
 	}
@@ -183,26 +203,27 @@ impl P2PManager {
 pub(crate) async fn reciever(
 	this: &Arc<P2PManager>,
 	req: SpaceblockRequests,
-	event: PeerMessageEvent,
+	mut stream: UnicastStream,
 ) -> Result<(), ()> {
 	let id = req.id;
-	let mut stream = event.stream;
 	let (tx, rx) = oneshot::channel();
 
 	info!(
 		"({id}): received '{}' files from peer '{}' with block size '{:?}'",
 		req.requests.len(),
-		event.identity,
+		stream.remote_identity(),
 		req.block_size
 	);
-	this.spacedrop_pairing_reqs.lock().await.insert(id, tx);
+	this.spacedrop_pairing_reqs
+		.lock()
+		.unwrap_or_else(PoisonError::into_inner)
+		.insert(id, tx);
 
 	if this
 		.events
-		.0
 		.send(P2PEvent::SpacedropRequest {
 			id,
-			identity: event.identity,
+			identity: stream.remote_identity(),
 			peer_name: "Unknown".into(),
 			// TODO: A better solution to this
 			// manager
@@ -245,7 +266,7 @@ pub(crate) async fn reciever(
 					let cancelled = Arc::new(AtomicBool::new(false));
 					this.spacedrop_cancelations
 						.lock()
-						.await
+						.unwrap_or_else(PoisonError::into_inner)
 						.insert(id, cancelled.clone());
 
 					stream.write_all(&[1]).await.map_err(|err| {
@@ -258,7 +279,7 @@ pub(crate) async fn reciever(
 
 					let names = req.requests.iter().map(|req| req.name.clone()).collect::<Vec<_>>();
 					let mut transfer = Transfer::new(&req, |percent| {
-						this.events.0.send(P2PEvent::SpacedropProgress { id, percent }).ok();
+						this.events.send(P2PEvent::SpacedropProgress { id, percent }).ok();
 					}, &cancelled);
 
 					let file_path = PathBuf::from(file_path);

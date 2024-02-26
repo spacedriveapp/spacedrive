@@ -43,11 +43,12 @@ export const NavigationButtons = () => {
 
 	useEffect(() => {
 		const onMouseDown = (e: MouseEvent) => {
+			if (os === 'browser') return;
 			e.stopPropagation();
-			if (e.buttons === 8) {
+			if (e.buttons === 8 || e.buttons === 3) {
 				if (!canGoBack) return;
 				navigate(-1);
-			} else if (e.buttons === 16) {
+			} else if (e.buttons === 16 || e.buttons === 4) {
 				if (!canGoForward) return;
 				navigate(1);
 			}

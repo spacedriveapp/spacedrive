@@ -3,7 +3,7 @@ use crate::{
 	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 
-use sd_p2p::spacetunnel::{Identity, IdentityOrRemoteIdentity};
+use sd_p2p2::{Identity, IdentityOrRemoteIdentity};
 use sd_prisma::prisma::{file_path, indexer_rule, instance, location, node, PrismaClient};
 use sd_utils::{db::maybe_missing, error::FileIOError};
 
@@ -163,12 +163,7 @@ impl LibraryConfig {
 						db.node()
 							.update_many(
 								vec![],
-								vec![
-									node::pub_id::set(node_config.id.as_bytes().to_vec()),
-									node::node_peer_id::set(Some(
-										node_config.keypair.peer_id().to_string(),
-									)),
-								],
+								vec![node::pub_id::set(node_config.id.as_bytes().to_vec())],
 							)
 							.exec()
 							.await?;

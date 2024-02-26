@@ -63,6 +63,10 @@ export function P2PContextProvider({ children }: PropsWithChildren) {
 	);
 }
 
+export function useP2PContextRaw() {
+	return useContext(Context);
+}
+
 export function useDiscoveredPeers() {
 	return useContext(Context).discoveredPeers;
 }

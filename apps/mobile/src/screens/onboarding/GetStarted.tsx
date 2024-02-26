@@ -1,6 +1,6 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { AppLogo, BloomOne } from '@sd/assets/images';
-import { sdintro } from '@sd/assets/videos';
+import { mobsdintro } from '@sd/assets/videos';
 import { ResizeMode, Video } from 'expo-av';
 import { MotiView } from 'moti';
 import { CaretLeft } from 'phosphor-react-native';
@@ -24,8 +24,7 @@ export function OnboardingContainer({ children }: React.PropsWithChildren) {
 			{store.showIntro && (
 				<View
 					style={twStyle(
-						'absolute z-50 mx-auto h-full w-full flex-1 items-center justify-center',
-						Platform.OS === 'ios' ? 'bg-[#1C1E27]' : 'bg-[#1E1D28]'
+						'absolute z-50 mx-auto h-full w-full flex-1 items-center justify-center bg-black'
 					)}
 				>
 					<Video
@@ -36,7 +35,7 @@ export function OnboardingContainer({ children }: React.PropsWithChildren) {
 								store.showIntro = false;
 							}
 						}}
-						source={sdintro}
+						source={mobsdintro}
 						isMuted
 						resizeMode={ResizeMode.CONTAIN}
 					/>
