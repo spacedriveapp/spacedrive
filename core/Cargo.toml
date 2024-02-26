@@ -66,6 +66,7 @@ regex = { workspace = true }
 reqwest = { workspace = true, features = ["json", "native-tls-vendored"] }
 rmp-serde = { workspace = true }
 rspc = { workspace = true, features = [
+	"axum",
 	"uuid",
 	"chrono",
 	"tracing",
@@ -127,6 +128,8 @@ aws-config = "1.0.3"
 aws-credential-types = "1.0.3"
 base91 = "0.1.0"
 sd-actors = { version = "0.1.0", path = "../crates/actors" }
+tower-service = "0.3.2"
+hyper = { version = "=0.14.28", features = ["http1", "server", "client"] }
 
 # Override features of transitive dependencies
 [dependencies.openssl]

@@ -238,7 +238,9 @@ pub(crate) fn mount() -> Arc<Router> {
 				<sd_prisma::prisma::object::Data as specta::NamedType>::SID,
 				def,
 			);
-		})
+		});
+
+	let r = r
 		.build(
 			#[allow(clippy::let_and_return)]
 			{
