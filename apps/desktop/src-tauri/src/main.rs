@@ -315,7 +315,6 @@ async fn main() -> tauri::Result<()> {
 					.expect("Window should hide on macOS");
 				api.prevent_close();
 			}
-
 			WindowEvent::FileDrop(drop) => {
 				let window = event.window();
 				let mut file_drop_status = file_drop_status
