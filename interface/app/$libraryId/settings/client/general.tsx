@@ -34,7 +34,8 @@ const LANGUAGE_OPTIONS = [
 	{ value: 'by', label: 'Беларуская' },
 	{ value: 'ru', label: 'Русский' },
 	{ value: 'zh-CN', label: '中文（简体）' },
-	{ value: 'zh-TW', label: '中文（繁體）' }
+	{ value: 'zh-TW', label: '中文（繁體）' },
+	{ value: 'it', label: "Italiano"}
 ];
 
 // Sort the languages by their label
