@@ -1,6 +1,7 @@
 import { listen } from '@tauri-apps/api/event';
 import { proxy, useSnapshot } from 'valtio';
 import { UpdateStore } from '@sd/interface';
+import { useLocale } from '@sd/interface/hooks';
 import { toast, ToastId } from '@sd/ui';
 
 import { commands } from './commands';
@@ -12,7 +13,7 @@ declare global {
 	}
 }
 
-export function createUpdater() {
+export function createUpdater(t: ReturnType<typeof useLocale>['t']) {
 	if (!window.__SD_UPDATER__) return;
 
 	const updateStore = proxy<UpdateStore>({
@@ -46,11 +47,13 @@ export function createUpdater() {
 
 		toast.info(
 			(_id) => {
+				const { t } = useLocale();
+
 				id = _id;
 
 				return {
-					title: 'New Update Available',
-					body: `Version ${update.version}`
+					title: t('new_update_available'),
+					body: `${t('version')} ${update.version}`
 				};
 			},
 			{
@@ -59,7 +62,7 @@ export function createUpdater() {
 				},
 				duration: 10 * 1000,
 				action: {
-					label: 'Update',
+					label: t('update'),
 					onClick: installUpdate
 				}
 			}
@@ -76,11 +79,11 @@ export function createUpdater() {
 		const promise = commands.installUpdate();
 
 		toast.promise(promise, {
-			loading: 'Downloading Update',
-			success: 'Update Downloaded. Restart Spacedrive to install',
+			loading: t('downloading_update'),
+			success: t('update_downloaded'),
 			error: (e: any) => (
 				<>
-					<p>Failed to download update</p>
+					<p>{t('failed_to_download_update')}</p>
 					<p className="text-gray-300">Error: {e.toString()}</p>
 				</>
 			)
@@ -111,13 +114,13 @@ export function createUpdater() {
 
 			toast.success(
 				{
-					title: `Updated successfully, you're on version ${version}`,
+					title: `${t('updated_successfully')} ${version}`,
 					body: tagline
 				},
 				{
 					duration: 10 * 1000,
 					action: {
-						label: 'View Changes',
+						label: t('view_changes'),
 						onClick: onViewChangelog
 					}
 				}

@@ -75,7 +75,6 @@ export const platform = {
 			cb(e.payload);
 		}),
 	userHomeDir: homeDir,
-	updater: window.__SD_UPDATER__ ? createUpdater() : undefined,
 	auth: {
 		start(url) {
 			open(url);
@@ -83,4 +82,4 @@ export const platform = {
 	},
 	...commands,
 	landingApiOrigin: env.VITE_LANDING_ORIGIN
-} satisfies Platform;
+} satisfies Omit<Platform, 'updater'>;
