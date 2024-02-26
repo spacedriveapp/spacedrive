@@ -2,7 +2,7 @@ import { Planet } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import { proxy } from 'valtio';
-import { HardwareModel, useBridgeMutation, useBridgeQuery, useDiscoveredPeers, useP2PEvents, useSelector } from '@sd/client';
+import { HardwareModel, useBridgeMutation, useDiscoveredPeers, useP2PEvents, useSelector } from '@sd/client';
 import { toast } from '@sd/ui';
 import { Icon } from '~/components';
 import { useDropzone, useLocale, useOnDndLeave } from '~/hooks';
