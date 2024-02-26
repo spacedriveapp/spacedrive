@@ -423,5 +423,13 @@
 	"your_account": "Votre compte",
 	"your_account_description": "Compte et informations Spacedrive.",
 	"your_local_network": "Votre réseau local",
-	"your_privacy": "Votre confidentialité"
+	"your_privacy": "Votre confidentialité",
+	"new_update_available": "Nouvelle mise à jour disponible !",
+	"version": "Version",
+	"downloading_update": "Téléchargement de la mise à jour",
+	"update_downloaded": "Mise à jour téléchargée. Redémarrez Spacedrive pour installer",
+	"failed_to_download_update": "Échec du téléchargement de la mise à jour",
+	"updated_successfully": "Mise à jour réussie, vous utilisez la version",
+	"view_changes": "Voir les changements",
+	"update": "Mettre à jour"
 }

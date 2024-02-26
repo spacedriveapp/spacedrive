@@ -424,5 +424,13 @@
 	"your_account": "Je account",
 	"your_account_description": "Spacedrive account en informatie.",
 	"your_local_network": "Je Lokale Netwerk",
-	"your_privacy": "Jouw Privacy"
+	"your_privacy": "Jouw Privacy",
+	"new_update_available": "Nieuwe update beschikbaar!",
+	"version": "Versie",
+	"downloading_update": "Update downloaden",
+	"update_downloaded": "Update gedownload. Herstart Spacedrive om te installeren",
+	"failed_to_download_update": "Update kon niet worden gedownload",
+	"updated_successfully": "Succesvol bijgewerkt, u gebruikt nu versie",
+	"view_changes": "Wijzigingen bekijken",
+	"update": "Bijwerken"
 }

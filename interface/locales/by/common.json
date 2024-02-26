@@ -425,5 +425,13 @@
 	"your_account": "Ваш уліковы запіс",
 	"your_account_description": "Уліковы запіс Spacedrive і інфармацыя.",
 	"your_local_network": "Ваша лакальная сетка",
-	"your_privacy": "Ваша прыватнасць"
+	"your_privacy": "Ваша прыватнасць",
+	"new_update_available": "Новая абнаўленне даступна!",
+	"version": "Версія",
+	"downloading_update": "Загрузка абнаўлення",
+	"update_downloaded": "Абнаўленне загружана. Перазагрузіце Spacedrive, каб ўсталяваць",
+	"failed_to_download_update": "Не ўдалося загрузіць абнаўленне",
+	"updated_successfully": "Паспяхова абноўлены, вы на версіі",
+	"view_changes": "Праглядзець змены",
+	"update": "Абнавіць"
 }
