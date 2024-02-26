@@ -2,7 +2,6 @@
 
 use std::string::FromUtf8Error;
 
-#[cfg(feature = "bincode")]
 impl From<Error> for bincode::error::EncodeError {
 	fn from(value: Error) -> Self {
 		Self::OtherString(value.to_string())
@@ -35,10 +34,9 @@ pub enum Error {
 	#[error("read magic bytes aren't equal to the expected bytes")]
 	MagicByteMismatch,
 
-	#[cfg(feature = "bincode")]
 	#[error("error while encoding with bincode: {0}")]
 	BincodeEncode(#[from] bincode::error::EncodeError),
-	#[cfg(feature = "bincode")]
+
 	#[error("error while decoding with bincode: {0}")]
 	BincodeDecode(#[from] bincode::error::DecodeError),
 

@@ -38,11 +38,8 @@ pub mod protected;
 pub mod rng;
 pub mod types;
 pub mod utils;
-
-#[cfg(feature = "bincode")]
 pub mod vault;
 
-#[cfg(feature = "bincode")]
 pub mod encrypted;
 
 #[cfg(feature = "sys")]

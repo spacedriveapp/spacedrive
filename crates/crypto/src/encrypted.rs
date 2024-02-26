@@ -1,7 +1,8 @@
-#![cfg(feature = "bincode")]
 use std::marker::PhantomData;
 
 // use bincode::Encode;
+
+use bincode::{Decode, Encode};
 
 use crate::{
 	crypto::{Decryptor, Encryptor},
@@ -12,9 +13,8 @@ use crate::{
 	Protected, Result,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Encode, Decode)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Encrypted<T> {
 	data: Vec<u8>,

@@ -9,6 +9,7 @@ use crate::{
 };
 
 use aead::generic_array::{ArrayLength, GenericArray};
+use bincode::{Decode, Encode};
 use cmov::Cmov;
 use std::fmt::{Debug, Display, Write};
 use zeroize::{DefaultIsZeroes, Zeroize, ZeroizeOnDrop};
@@ -56,9 +57,8 @@ impl DerivationContext {
 /// These parameters define the password-hashing level.
 ///
 /// The greater the parameter, the longer the password will take to hash.
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Encode, Decode)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum Params {
 	#[default]
@@ -68,13 +68,12 @@ pub enum Params {
 }
 
 /// This defines all available password hashing algorithms.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Encode, Decode)]
 #[cfg_attr(
 	feature = "serde",
 	derive(serde::Serialize, serde::Deserialize),
 	serde(tag = "name", content = "params")
 )]
-#[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum HashingAlgorithm {
 	Argon2id(Params),
@@ -109,9 +108,8 @@ impl HashingAlgorithm {
 /// This should be used for providing a nonce to encrypt/decrypt functions.
 ///
 /// You may also generate a nonce for a given algorithm with `Nonce::generate()`
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Encode, Decode)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum Nonce {
 	Aes256GcmSiv([u8; AES_256_GCM_SIV_NONCE_LEN]),
@@ -194,9 +192,8 @@ where
 }
 
 /// These are all possible algorithms that can be used for encryption and decryption
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Encode, Decode)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum Algorithm {
 	Aes256GcmSiv,
@@ -301,7 +298,7 @@ impl<'de> serde::Deserialize<'de> for Key {
 }
 
 #[cfg(feature = "serde")]
-#[cfg(feature = "bincode")]
+
 impl bincode::Encode for Key {
 	fn encode<E: bincode::enc::Encoder>(
 		&self,
@@ -314,7 +311,7 @@ impl bincode::Encode for Key {
 }
 
 #[cfg(feature = "serde")]
-#[cfg(feature = "bincode")]
+
 impl bincode::Decode for Key {
 	fn decode<D: bincode::de::Decoder>(
 		decoder: &mut D,
@@ -354,7 +351,7 @@ impl TryFrom<Protected<Box<[u8]>>> for Key {
 	}
 }
 
-// #[cfg(feature = "bincode")]
+//
 // impl bincode::Encode for Key {
 // 	fn encode<E: bincode::enc::Encoder>(
 // 		&self,
@@ -449,9 +446,8 @@ impl Display for SecretKey {
 /// The length of the encrypted key is `ENCRYPTED_KEY_LEN` (which is `KEY_LEM` + `AEAD_TAG_LEN`).
 ///
 /// This also stores the associated `Nonce`, in order to make the API a lot cleaner.
-#[derive(Clone)]
+#[derive(Clone, Encode, Decode)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct EncryptedKey(
 	#[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
@@ -499,9 +495,8 @@ impl PartialEq for EncryptedKey {
 	}
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Encode, Decode)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum Aad {
 	Standard([u8; AAD_LEN]),
@@ -546,9 +541,8 @@ impl PartialEq for Aad {
 /// This should be used for passing a salt around.
 ///
 /// You may also generate a salt with `Salt::generate()`
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Encode, Decode)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Salt([u8; SALT_LEN]);
 

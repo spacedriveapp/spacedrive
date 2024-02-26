@@ -15,12 +15,13 @@ repository = { workspace = true }
 
 [features]
 sys = []
-serde = ["dep:serde", "dep:serde_json", "dep:serde-big-array", "dep:serdect"]
-bincode = [
-	"dep:bincode",
+serde = [
+	"dep:serde",
+	"dep:serde_json",
+	"dep:serde-big-array",
 	"dep:serdect",
 	"bincode/serde",
-] # will probably become mandatory
+]
 keyring = ["dep:linux-keyutils", "dep:security-framework"]
 secret-service = [
 	"keyring",
@@ -55,10 +56,7 @@ aes-gcm-siv = "0.11.1"
 chacha20poly1305 = "0.10.1"
 thiserror = "1.0.57"
 aead = { version = "0.5.2", default-features = false, features = ["stream"] }
-bincode = { version = "2.0.0-rc.3", features = [
-	"derive",
-	"alloc",
-], optional = true }
+bincode = { version = "2.0.0-rc.3", features = ["derive", "alloc"] }
 
 zeroize = { version = "1.7.0", features = ["derive", "aarch64"] }
 
