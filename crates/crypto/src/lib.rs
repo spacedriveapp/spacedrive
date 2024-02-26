@@ -31,6 +31,7 @@
 pub mod crypto;
 pub mod ct;
 pub mod encoding;
+pub mod encrypted;
 pub mod error;
 pub mod hashing;
 pub mod primitives;
@@ -40,7 +41,8 @@ pub mod types;
 pub mod utils;
 pub mod vault;
 
-pub mod encrypted;
+#[cfg(feature = "keyring")]
+pub mod keyring;
 
 #[cfg(feature = "sys")]
 pub mod sys;
