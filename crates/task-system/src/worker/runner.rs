@@ -34,6 +34,10 @@ use super::{
 const TEN_SECONDS: Duration = Duration::from_secs(10);
 const ONE_MINUTE: Duration = Duration::from_secs(60);
 
+const TASK_QUEUE_INITIAL_SIZE: usize = 64;
+const PRIORITY_TASK_QUEUE_INITIAL_SIZE: usize = 32;
+const ABORT_AND_SUSPEND_MAP_INITIAL_SIZE: usize = 8;
+
 pub(super) enum TaskAddStatus {
 	Running,
 	Enqueued,
@@ -127,15 +131,15 @@ impl<E: RunError> Runner<E> {
 				worker_id,
 				system_comm,
 				work_stealer,
-				task_kinds: HashMap::with_capacity(64),
-				tasks: VecDeque::with_capacity(64),
+				task_kinds: HashMap::with_capacity(TASK_QUEUE_INITIAL_SIZE),
+				tasks: VecDeque::with_capacity(TASK_QUEUE_INITIAL_SIZE),
 				paused_tasks: HashMap::new(),
 				suspended_task: None,
-				priority_tasks: VecDeque::with_capacity(32),
+				priority_tasks: VecDeque::with_capacity(PRIORITY_TASK_QUEUE_INITIAL_SIZE),
 				last_requested_help: Instant::now(),
 				is_idle: true,
 				waiting_suspension: WaitingSuspendedTask::None,
-				abort_and_suspend_map: HashMap::with_capacity(8),
+				abort_and_suspend_map: HashMap::with_capacity(ABORT_AND_SUSPEND_MAP_INITIAL_SIZE),
 				runner_tx,
 				current_task_handle: None,
 				suspend_on_shutdown_rx: runner_rx.clone(),
@@ -1003,6 +1007,33 @@ impl<E: RunError> Runner<E> {
 					"Steal task already running, ignoring on this idle check: <worker_id='{}'>",
 					self.worker_id
 				);
+			}
+
+			// As we're idle, let's check if we need to do some memory cleanup
+			if self.tasks.capacity() > TASK_QUEUE_INITIAL_SIZE {
+				assert_eq!(self.tasks.len(), 0);
+				self.tasks.shrink_to(TASK_QUEUE_INITIAL_SIZE);
+			}
+
+			if self.task_kinds.capacity() > TASK_QUEUE_INITIAL_SIZE {
+				assert_eq!(self.task_kinds.len(), 0);
+				self.task_kinds.shrink_to(TASK_QUEUE_INITIAL_SIZE);
+			}
+
+			if self.priority_tasks.capacity() > PRIORITY_TASK_QUEUE_INITIAL_SIZE {
+				assert_eq!(self.priority_tasks.len(), 0);
+				self.priority_tasks
+					.shrink_to(PRIORITY_TASK_QUEUE_INITIAL_SIZE);
+			}
+
+			if self.paused_tasks.capacity() != self.paused_tasks.len() {
+				self.paused_tasks.shrink_to_fit();
+			}
+
+			if self.abort_and_suspend_map.capacity() > ABORT_AND_SUSPEND_MAP_INITIAL_SIZE {
+				assert!(self.abort_and_suspend_map.len() < ABORT_AND_SUSPEND_MAP_INITIAL_SIZE);
+				self.abort_and_suspend_map
+					.shrink_to(ABORT_AND_SUSPEND_MAP_INITIAL_SIZE);
 			}
 		}
 	}

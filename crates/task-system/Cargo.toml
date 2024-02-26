@@ -31,7 +31,7 @@ downcast-rs = "1.2.0"
 pin-project = "1.1.4"
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["macros", "test-util"] }
+tokio = { workspace = true, features = ["macros", "test-util", "fs"] }
 tempfile = { workspace = true }
 rand = "0.8.5"
 tracing-test = { version = "^0.2.4", features = ["no-env-filter"] }
@@ -39,3 +39,4 @@ thiserror = { workspace = true }
 lending-stream = "1.0.0"
 serde = { workspace = true, features = ["derive"] }
 rmp-serde = { workspace = true }
+uuid = { workspace = true, features = ["serde"] }
