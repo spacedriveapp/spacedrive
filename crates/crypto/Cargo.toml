@@ -51,7 +51,6 @@ blake3 = { version = "1.5.0", features = ["traits-preview", "zeroize"] }
 cmov = "0.3.1"
 
 # aeads
-aes-gcm = "0.10.3"
 aes-gcm-siv = "0.11.1"
 chacha20poly1305 = "0.10.1"
 thiserror = "1.0.57"
