@@ -228,8 +228,6 @@ impl HeaderEncode for Nonce {
 	}
 }
 
-///hybrid array it uppppp
-
 impl HeaderEncode for EncryptedKey {
 	const OUTPUT_LEN: usize = ENCRYPTED_KEY_LEN + Nonce::OUTPUT_LEN + 2;
 	type Identifier = [u8; 2];
