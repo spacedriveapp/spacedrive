@@ -1,5 +1,5 @@
 //! This is Spacedrive's Linux keyring implementation, which makes use of the `keyutils` API (provided by modern Linux kernels).
-use crate::sys::keyring::{Identifier, KeyringBackend, KeyringInterface, LinuxKeyring};
+use crate::keyring::{Identifier, KeyringBackend, KeyringInterface, LinuxKeyring};
 use crate::{Protected, Result};
 use linux_keyutils::{KeyPermissionsBuilder, KeyRing, KeyRingIdentifier, Permission};
 

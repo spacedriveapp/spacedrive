@@ -1,6 +1,6 @@
 //! This is Spacedrive's `iOS` keyring integration. It has no strict dependencies.
 use crate::{
-	sys::keyring::{Identifier, KeyringBackend, KeyringInterface},
+	keyring::{Identifier, KeyringBackend, KeyringInterface},
 	Error, Protected, Result,
 };
 use security_framework::passwords::{

@@ -1,5 +1,5 @@
 //! This is Spacedrive's Linux keyring implementation, which makes use of the `secret-service` API (provided by `gnome-passwords` and `kwallet`).
-use crate::sys::keyring::{Identifier, KeyringBackend, KeyringInterface, LinuxKeyring};
+use crate::keyring::{Identifier, KeyringBackend, KeyringInterface, LinuxKeyring};
 use crate::{Error, Protected, Result};
 use secret_service::blocking::{Collection, SecretService};
 use secret_service::EncryptionType;
