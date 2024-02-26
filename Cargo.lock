@@ -2278,6 +2278,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
 
 [[package]]
+name = "downcast-rs"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
+
+[[package]]
 name = "dtoa"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4182,6 +4188,16 @@ name = "lebe"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03087c2bad5e1034e8cace5926dec053fb3790248370865f5117a7d0213354c8"
+
+[[package]]
+name = "lending-stream"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6df9b2ed75ba713c108ef896cf3f4cb07b4bbe42b074de3a2d0b0b0f874bac42"
+dependencies = [
+ "futures-core",
+ "pin-project",
+]
 
 [[package]]
 name = "libc"
@@ -8087,6 +8103,29 @@ dependencies = [
  "prisma-client-rust-sdk",
  "serde",
  "thiserror",
+]
+
+[[package]]
+name = "sd-task-system"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "async-trait",
+ "downcast-rs",
+ "futures",
+ "futures-concurrency",
+ "lending-stream",
+ "pin-project",
+ "rand 0.8.5",
+ "rmp-serde",
+ "serde",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tracing-test",
+ "uuid",
 ]
 
 [[package]]
