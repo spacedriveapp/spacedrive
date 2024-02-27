@@ -96,6 +96,7 @@ export function createUpdater(t: ReturnType<typeof useLocale>['t']) {
 	async function runJustUpdatedCheck(onViewChangelog: () => void) {
 		const version = window.__SD_DESKTOP_VERSION__;
 		const lastVersion = localStorage.getItem(SD_VERSION_LOCALSTORAGE);
+		if (!lastVersion) return;
 
 		if (lastVersion !== version) {
 			localStorage.setItem(SD_VERSION_LOCALSTORAGE, version);
