@@ -59,8 +59,8 @@ bincode = { version = "2.0.0-rc.3", features = ["derive", "alloc"] }
 
 zeroize = { version = "1.7.0", features = ["derive", "aarch64"] }
 
-serde = { version = "1.0.195", features = ["derive"], optional = true }
-serde_json = { version = "1.0.111", optional = true }
+serde = { version = "1.0.197", features = ["derive"], optional = true }
+serde_json = { version = "1.0.114", optional = true }
 serde-big-array = { version = "0.5.1", optional = true }
 serdect = { version = "0.3.0-pre.0", optional = true }
 
@@ -86,11 +86,17 @@ uuid = { version = "1.7.0", features = ["v4"] }
 
 # linux OS keyring
 [target.'cfg(target_os = "linux")'.dependencies]
-linux-keyutils = { version = "0.2.3", features = ["std"], optional = true }
+linux-keyutils = { version = "0.2.4", features = ["std"], optional = true }
 secret-service = { version = "3.0.1", features = [
 	"crypto-rust",
 ], optional = true }
-zbus = { version = "4.0.1", features = ["tokio"], optional = true }
+
+# this needs to remain at versions < 4, as they made some changes and i can't get it
+# to compile for the time being
+zbus = { version = "3.15.2", default_features = false, features = [
+	"tokio",
+	"blocking",
+], optional = true }
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 security-framework = { version = "2.9.2", optional = true }
@@ -98,7 +104,7 @@ security-framework = { version = "2.9.2", optional = true }
 [dev-dependencies]
 criterion = "0.5.1"
 paste = "1.0.14"
-tempfile = "3.10.0"
+tempfile = "3.10.1"
 
 [[bench]]
 path = "benches/crypto/aes-256-gcm-siv.rs"
