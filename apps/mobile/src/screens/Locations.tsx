@@ -50,7 +50,7 @@ export const Locations = ({ redirectToLocationSettings }: Props) => {
 			SettingsStackScreenProps<'Settings'>['navigation']
 	>();
 	return (
-		<ScreenContainer scrollview={false} style={tw`relative px-6 py-0`}>
+		<ScreenContainer style={tw`relative px-6 py-0`}>
 			<Pressable
 				style={tw`absolute bottom-7 right-7 z-10 h-12 w-12 items-center justify-center rounded-full bg-accent`}
 				onPress={() => {

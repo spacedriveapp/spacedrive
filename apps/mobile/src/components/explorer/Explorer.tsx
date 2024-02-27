@@ -11,9 +11,9 @@ import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '~/stores/explorerStore';
 import { useActionsModalStore } from '~/stores/modalStore';
 
+import ScreenContainer from '../layout/ScreenContainer';
 import FileItem from './FileItem';
 import FileRow from './FileRow';
-import ScreenContainer from '../layout/ScreenContainer';
 
 type ExplorerProps = {
 	items?: ExplorerItem[];
@@ -45,7 +45,7 @@ const Explorer = ({ items }: ExplorerProps) => {
 	}
 
 	return (
-		<ScreenContainer style={'gap-0 py-0'} scrollview={false}>
+		<ScreenContainer style={'gap-0 py-0'}>
 			{/* Header */}
 			<View style={tw`flex flex-row items-center justify-between`}>
 				{/* Sort By */}
@@ -109,7 +109,7 @@ const Explorer = ({ items }: ExplorerProps) => {
 					}
 				/>
 			)}
-</ScreenContainer>
+		</ScreenContainer>
 	);
 };
 

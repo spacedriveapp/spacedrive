@@ -11,20 +11,26 @@ interface Props {
 	tabHeight?: boolean;
 }
 
+const BottomTabBarHeight = 80;
+
 const ScreenContainer = ({ children, style, scrollview = true, tabHeight = true }: Props) => {
-	const height = useBottomTabBarHeight();
 	return scrollview ? (
 		<ScrollView
 			contentContainerStyle={twStyle('justify-between gap-10 py-6', style)}
-			style={twStyle('flex-1 bg-mobile-screen', { marginBottom: tabHeight && height })}
+			style={twStyle(
+				'flex-1 bg-mobile-screen',
+				tabHeight && { marginBottom: BottomTabBarHeight }
+			)}
 		>
 			{children}
 		</ScrollView>
 	) : (
 		<View
-			style={twStyle('flex-1 justify-between gap-10 bg-mobile-screen py-6', style, {
-				marginBottom: tabHeight && height
-			})}
+			style={twStyle(
+				'flex-1 justify-between gap-10 bg-mobile-screen py-6',
+				style,
+				tabHeight && { marginBottom: BottomTabBarHeight }
+			)}
 		>
 			{children}
 		</View>
