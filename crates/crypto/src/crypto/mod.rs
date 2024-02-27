@@ -768,18 +768,18 @@ mod tests {
 		assert_eq!(buf, output);
 	}
 
-	// #[test]
-	// #[should_panic(expected = "Validity")]
-	// fn encrypt_with_invalid_nonce() {
-	// 	Encryptor::encrypt_bytes(
-	// 		Key::new([0x23; KEY_LEN]),
-	// 		&AES_256_GCM_SIV_NONCE,
-	// 		Algorithm::XChaCha20Poly1305,
-	// 		&PLAINTEXT,
-	// 		Aad::Null,
-	// 	)
-	// 	.unwrap();
-	// }
+	#[test]
+	#[should_panic(expected = "Validity")]
+	fn encrypt_with_invalid_nonce() {
+		Encryptor::encrypt_bytes(
+			&Key::new([0x23; KEY_LEN]),
+			&AES_256_GCM_SIV_NONCE,
+			Algorithm::XChaCha20Poly1305,
+			&PLAINTEXT,
+			Aad::Null,
+		)
+		.unwrap();
+	}
 
 	#[test]
 	#[should_panic(expected = "Validity")]
