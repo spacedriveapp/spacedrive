@@ -131,17 +131,16 @@ export default function TabNavigator() {
 						 * Tab.Screen listeners are needed because if a user taps on the tab text only, the animation won't play
 						 * This may be revisted in the future to update accordingly
 						 */
-						// TODO: Fix this (@utku) (navigation doesn't work as expected, clicking the tab again should go to the top of the stack)
-						// tabBarIcon: () => (
-						// 	<TouchableWithoutFeedback
-						// 		onPress={() => {
-						// 			navigation.push(screen.name);
-						// 			setActiveIndex(index);
-						// 		}}
-						// 	>
-						// 		{screen.icon}
-						// 	</TouchableWithoutFeedback>
-						// ),
+						tabBarIcon: () => (
+							<TouchableWithoutFeedback
+								onPress={() => {
+									navigation.navigate(screen.name);
+									setActiveIndex(index);
+								}}
+							>
+								{screen.icon}
+							</TouchableWithoutFeedback>
+						),
 						tabBarTestID: screen.testID
 					})}
 					listeners={() => ({

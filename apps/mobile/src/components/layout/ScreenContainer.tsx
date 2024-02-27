@@ -1,4 +1,3 @@
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
 import { ClassInput } from 'twrnc/dist/esm/types';
@@ -6,8 +5,10 @@ import { twStyle } from '~/lib/tailwind';
 
 interface Props {
 	children: ReactNode;
+	/** If true, the container will be a ScrollView */
 	scrollview?: boolean;
 	style?: ClassInput;
+	/** If true, the bottom tab bar height will be added to the bottom of the container */
 	tabHeight?: boolean;
 }
 

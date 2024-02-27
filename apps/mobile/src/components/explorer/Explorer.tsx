@@ -45,7 +45,7 @@ const Explorer = ({ items }: ExplorerProps) => {
 	}
 
 	return (
-		<ScreenContainer style={'gap-0 py-0'}>
+		<ScreenContainer scrollview={false} style={'gap-0 py-0'}>
 			{/* Header */}
 			<View style={tw`flex flex-row items-center justify-between`}>
 				{/* Sort By */}
