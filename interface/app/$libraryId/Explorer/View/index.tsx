@@ -10,12 +10,13 @@ import {
 } from '@sd/client';
 import { dialogManager } from '@sd/ui';
 import { Loader } from '~/components';
-import { useKeyCopyCutPaste, useKeyMatcher, useShortcut } from '~/hooks';
+import { useKeyMatcher, useShortcut } from '~/hooks';
 import { useRoutingContext } from '~/RoutingContext';
 import { isNonEmpty } from '~/util';
 
 import CreateDialog from '../../settings/library/tags/CreateDialog';
 import { useExplorerContext } from '../Context';
+import { useExplorerCopyPaste } from '../hooks/useExplorerCopyPaste';
 import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
 import { getQuickPreviewStore, useQuickPreviewStore } from '../QuickPreview/store';
@@ -177,7 +178,12 @@ const useShortcuts = () => {
 	const meta = useKeyMatcher('Meta');
 	const { doubleClick } = useViewItemDoubleClick();
 
-	useKeyCopyCutPaste();
+	const { copy, cut, duplicate, paste } = useExplorerCopyPaste();
+
+	useShortcut('copyObject', copy);
+	useShortcut('cutObject', cut);
+	useShortcut('duplicateObject', duplicate);
+	useShortcut('pasteObject', paste);
 
 	useShortcut('toggleQuickPreview', (e) => {
 		if (isRenaming || dialogManager.isAnyDialogOpen()) return;
