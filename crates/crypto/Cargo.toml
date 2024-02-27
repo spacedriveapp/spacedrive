@@ -27,7 +27,7 @@ secret-service = [
 	"keyring",
 	"dep:secret-service",
 	"dep:zbus",
-] # explicit enabling required as the secret service api is a mess
+] # explicit enabling required as the secret service api requires `zbus` and is messy
 experimental = []
 
 [dependencies]
