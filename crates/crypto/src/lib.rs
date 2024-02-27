@@ -27,4 +27,3 @@ pub mod types;
 pub use self::error::{Error, Result};
 pub use aead::Payload;
 pub use protected::Protected;
-pub use zeroize::Zeroize;

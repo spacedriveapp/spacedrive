@@ -3,7 +3,6 @@
 use aead::generic_array::{ArrayLength, GenericArray};
 use rand::{RngCore, SeedableRng};
 use std::ops::Deref;
-use zeroize::Zeroize;
 
 use crate::{Error, Protected};
 
@@ -164,8 +163,6 @@ impl Key {
 		let mut input = key.expose().to_vec();
 		input.extend_from_slice(&salt);
 		let key = blake3::derive_key(context, &input);
-
-		input.zeroize();
 
 		Self::new(key)
 	}

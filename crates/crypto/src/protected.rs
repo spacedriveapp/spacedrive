@@ -29,29 +29,19 @@
 //! ```
 //!
 use std::{fmt::Debug, mem::swap};
-use zeroize::Zeroize;
 #[derive(Clone)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[cfg_attr(any(feature = "specta", feature = "serde"), serde(transparent))]
-pub struct Protected<T>(T)
-where
-	T: Zeroize;
+pub struct Protected<T>(T);
 
-impl<T> Protected<T>
-where
-	T: Zeroize,
-{
+impl<T> Protected<T> {
 	pub const fn new(value: T) -> Self {
 		Self(value)
 	}
 
 	pub const fn expose(&self) -> &T {
 		&self.0
-	}
-
-	pub fn zeroize(mut self) {
-		self.0.zeroize();
 	}
 }
 
@@ -69,7 +59,7 @@ impl From<Protected<String>> for Protected<Vec<u8>> {
 
 impl<T> Protected<T>
 where
-	T: Zeroize + Default,
+	T: Default,
 {
 	pub fn into_inner(mut self) -> T {
 		let mut out = Default::default();
@@ -78,19 +68,7 @@ where
 	}
 }
 
-impl<T> Drop for Protected<T>
-where
-	T: Zeroize,
-{
-	fn drop(&mut self) {
-		self.0.zeroize();
-	}
-}
-
-impl<T> Debug for Protected<T>
-where
-	T: Zeroize,
-{
+impl<T> Debug for Protected<T> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.write_str("[REDACTED]")
 	}

@@ -2,7 +2,6 @@
 //!
 //! This includes things such as cryptographically-secure random salt/master key/nonce generation,
 //! lengths for master keys and even the STREAM block size.
-use zeroize::Zeroize;
 
 use crate::{
 	header::{
@@ -70,11 +69,9 @@ pub const FILE_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:54:12 file key deri
 /// This is used for converting a `&[u8]` to an array of bytes.
 ///
 /// It calls `Clone`, via `to_vec()`.
-///
-/// This function calls `zeroize` on any data it can
 pub fn to_array<const I: usize>(bytes: &[u8]) -> Result<[u8; I]> {
-	bytes.to_vec().try_into().map_err(|mut b: Vec<u8>| {
-		b.zeroize();
-		Error::VecArrSizeMismatch
-	})
+	bytes
+		.to_vec()
+		.try_into()
+		.map_err(|mut b: Vec<u8>| Error::VecArrSizeMismatch)
 }
