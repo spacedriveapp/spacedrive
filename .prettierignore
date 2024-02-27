@@ -2,6 +2,11 @@
 target/
 dist/
 
+# Mobile build artifacts
+apps/mobile/.expo
+apps/mobile/android/app/build
+apps/mobile/modules/sd-core/android/build
+
 # macOS/iOS product/cache
 .build/
 Pods/

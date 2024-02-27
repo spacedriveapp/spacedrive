@@ -1,16 +1,17 @@
 import { useRef } from 'react';
-import { useLibraryMutation, usePlausibleEvent } from '@sd/client';
+import { useLibraryMutation, usePlausibleEvent, useRspcLibraryContext } from '@sd/client';
 import { ConfirmModal, ModalRef } from '~/components/layout/Modal';
 
 type Props = {
 	locationId: number;
 	onSubmit?: () => void;
 	trigger: React.ReactNode;
+	triggerStyle?: string;
 };
 
-const DeleteLocationModal = ({ trigger, onSubmit, locationId }: Props) => {
+const DeleteLocationModal = ({ trigger, onSubmit, locationId, triggerStyle }: Props) => {
 	const modalRef = useRef<ModalRef>(null);
-
+	const rspc = useRspcLibraryContext();
 	const submitPlausibleEvent = usePlausibleEvent();
 
 	const { mutate: deleteLoc, isLoading: deleteLocLoading } = useLibraryMutation(
@@ -22,6 +23,7 @@ const DeleteLocationModal = ({ trigger, onSubmit, locationId }: Props) => {
 			},
 			onSettled: () => {
 				modalRef.current?.close();
+				rspc.queryClient.invalidateQueries(['locations.list']);
 			}
 		}
 	);
@@ -33,6 +35,7 @@ const DeleteLocationModal = ({ trigger, onSubmit, locationId }: Props) => {
 			ctaLabel="Delete"
 			ctaAction={() => deleteLoc(locationId)}
 			loading={deleteLocLoading}
+			triggerStyle={triggerStyle}
 			trigger={trigger}
 			ctaDanger
 		/>

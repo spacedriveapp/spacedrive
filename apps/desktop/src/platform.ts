@@ -53,6 +53,12 @@ export const platform = {
 		constructServerUrl(`/file/${libraryId}/${locationLocalId}/${filePathId}`),
 	getFileUrlByPath: (path) =>
 		constructServerUrl(`/local-file-by-path/${encodeURIComponent(path)}`),
+	getRemoteRspcEndpoint: (remote_identity) => ({
+		url: `${customUriServerUrl?.[0]}/remote/${encodeURIComponent(remote_identity)}/rspc`,
+		headers: {
+			authorization: `Bearer ${customUriAuthToken}`
+		}
+	}),
 	openLink: shell.open,
 	getOs,
 	openDirectoryPickerDialog: (opts) => {

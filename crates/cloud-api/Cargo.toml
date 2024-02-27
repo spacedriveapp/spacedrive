@@ -6,7 +6,7 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-sd-p2p = { path = "../p2p" }
+sd-p2p2 = { path = "../p2p2" }
 reqwest = "0.11.22"
 serde.workspace = true
 serde_json.workspace = true

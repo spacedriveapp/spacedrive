@@ -9,10 +9,8 @@ use crate::{
 
 use sd_file_ext::text::is_text;
 use sd_file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData};
-use sd_p2p::{
-	spaceblock::Range,
-	spacetunnel::{IdentityOrRemoteIdentity, RemoteIdentity},
-};
+use sd_p2p2::{IdentityOrRemoteIdentity, RemoteIdentity};
+use sd_p2p_block::Range;
 use sd_prisma::prisma::{file_path, location};
 use sd_utils::db::maybe_missing;
 
@@ -30,8 +28,9 @@ use async_stream::stream;
 use axum::{
 	body::{self, Body, BoxBody, Full, StreamBody},
 	extract::{self, State},
-	http::{HeaderValue, Request, Response, StatusCode},
+	http::{HeaderMap, HeaderValue, Request, Response, StatusCode},
 	middleware,
+	response::IntoResponse,
 	routing::get,
 	Router,
 };
@@ -243,45 +242,43 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							}
 
 							// TODO: Support `Range` requests and `ETag` headers
-							match state.node.p2p.get_library_service(&library.id) {
-								Some(service) => {
-									let stream = service
-										.connect(state.node.p2p.manager.clone(), &identity)
-										.await
-										.map_err(|err| {
-											not_found(format!(
-												"Error connecting to {identity}: {err:?}"
-											))
-										})?;
+							let stream = state
+								.node
+								.p2p
+								.get_instance(&library.id, identity)
+								.ok_or_else(|| {
+									not_found(format!("Error connecting to {identity}: no connection method available"))
+								})?
+								.new_stream()
+								.await
+								.map_err(|err| {
+									not_found(format!("Error connecting to {identity}: {err:?}"))
+								})?;
 
-									let (tx, mut rx) =
-										tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
-									// TODO: We only start a thread because of stupid `ManagerStreamAction2` and libp2p's `!Send/!Sync` bounds on a stream.
-									tokio::spawn(async move {
-										let Ok(()) = operations::request_file(
-											stream,
-											&library,
-											file_path_pub_id,
-											Range::Full,
-											MpscToAsyncWrite::new(PollSender::new(tx)),
-										)
-										.await
-										else {
-											return;
-										};
-									});
+							let (tx, mut rx) = tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
+							// TODO: We only start a thread because of stupid `ManagerStreamAction2` and libp2p's `!Send/!Sync` bounds on a stream.
+							tokio::spawn(async move {
+								let Ok(()) = operations::request_file(
+									stream,
+									&library,
+									file_path_pub_id,
+									Range::Full,
+									MpscToAsyncWrite::new(PollSender::new(tx)),
+								)
+								.await
+								else {
+									return;
+								};
+							});
 
-									// TODO: Content Type
-									Ok(InfallibleResponse::builder().status(StatusCode::OK).body(
-										body::boxed(StreamBody::new(stream! {
-											while let Some(item) = rx.recv().await {
-												yield item;
-											}
-										})),
-									))
-								}
-								None => Ok(not_found(())),
-							}
+							// TODO: Content Type
+							Ok(InfallibleResponse::builder().status(StatusCode::OK).body(
+								body::boxed(StreamBody::new(stream! {
+									while let Some(item) = rx.recv().await {
+										yield item;
+									}
+								})),
+							))
 						}
 					}
 				},
@@ -321,6 +318,36 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 					);
 
 					serve_file(file, Ok(metadata), request.into_parts().0, resp).await
+				},
+			),
+		)
+		.route(
+			"/remote/:identity/rspc/*path",
+			get(
+				|State(state): State<LocalState>,
+				 extract::Path((identity, rest)): extract::Path<(String, String)>,
+				 mut request: Request<Body>| async move {
+					let identity = match RemoteIdentity::from_str(&identity) {
+						Ok(identity) => identity,
+						Err(err) => {
+							error!("Error parsing identity '{}': {}", identity, err);
+							return (StatusCode::BAD_REQUEST, HeaderMap::new(), vec![])
+								.into_response();
+						}
+					};
+					*request.uri_mut() = format!("/{rest}")
+						.parse()
+						.expect("url was validated by Axum");
+
+					match operations::remote_rspc(state.node.p2p.p2p.clone(), identity, request)
+						.await
+					{
+						Ok(response) => response.into_response(),
+						Err(err) => {
+							error!("Error doing remote rspc query with '{identity}': {err:?}");
+							(StatusCode::INTERNAL_SERVER_ERROR, HeaderMap::new()).into_response()
+						}
+					}
 				},
 			),
 		)

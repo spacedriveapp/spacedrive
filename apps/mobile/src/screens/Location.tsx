@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
@@ -17,7 +17,7 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 			filters: [
 				{
 					filePath: {
-						locations: { in: [id] },
+						locations: { in: [id] }
 						// path: {location_id: id, path: path ?? '', include_descendants: true} // FIXME: This is the correct query, but it doesn't work and then provides a deserialization error.
 					}
 				}

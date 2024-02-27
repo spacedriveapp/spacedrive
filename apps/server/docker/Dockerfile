@@ -20,7 +20,7 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
 FROM base as build-base
 
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
-	apt-get install build-essential git sudo unzip wget
+	apt-get install build-essential git sudo unzip wget curl
 
 RUN wget -qO- https://get.pnpm.io/install.sh | env SHELL=bash PNPM_HOME=/usr/share/pnpm sh -
 
@@ -59,6 +59,15 @@ FROM build-base as server
 RUN wget -qO- https://sh.rustup.rs | sh -s -- -yq --profile minimal
 
 ENV PATH="/root/.cargo/bin:$PATH"
+
+# From: https://github.com/rust-lang/rust-analyzer/blob/master/.github/workflows/release.yaml#L13-L21
+ENV CARGO_NET_RETRY=10
+ENV CARGO_INCREMENTAL=0
+ENV RUSTUP_MAX_RETRIES=10
+
+# Install mold (linker)
+RUN curl -L# 'https://github.com/rui314/mold/releases/download/v2.4.0/mold-2.4.0-x86_64-linux.tar.gz' \
+	| sudo tar -xzf- -C /usr/local
 
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
 	env CI=true ./scripts/setup.sh

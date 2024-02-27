@@ -1,6 +1,6 @@
 import { FileX, Share as ShareIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
-import { useSelector } from '@sd/client';
+import { useBridgeMutation, useDiscoveredPeers, useSelector } from '@sd/client';
 import { ContextMenu, ModifierKeys } from '@sd/ui';
 import { Menu } from '~/components/Menu';
 import { useLocale, useOperatingSystem } from '~/hooks';
@@ -12,6 +12,7 @@ import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore } from '../QuickPreview/store';
 import { RevealInNativeExplorerBase } from '../RevealInNativeExplorer';
 import { explorerStore } from '../store';
+import { getPaths } from '../useExplorerDnd';
 import { useViewItemDoubleClick } from '../View/ViewItem';
 import { Conditional, ConditionalItem } from './ConditionalItem';
 import { useContextMenuContext } from './context';
@@ -200,21 +201,36 @@ export const Share = () => {
 	const { t } = useLocale();
 
 	return (
-		<>
-			<Menu.Item
-				label={t('share')}
-				icon={ShareIcon}
-				onClick={(e: { preventDefault: () => void }) => {
-					e.preventDefault();
-
-					navigator.share?.({
-						title: 'Spacedrive',
-						text: 'Check out this cool app',
-						url: 'https://spacedrive.com'
-					});
-				}}
-				disabled
-			/>
-		</>
+		<Menu.SubMenu label={t('share')} icon={ShareIcon}>
+			<Menu.SubMenu label="Spacedrop">
+				<SpacedropNodes />
+			</Menu.SubMenu>
+		</Menu.SubMenu>
 	);
+};
+
+const SpacedropNodes = () => {
+	const { t } = useLocale();
+	const explorer = useExplorerContext();
+	const discoveredPeers = useDiscoveredPeers();
+
+	const spacedrop = useBridgeMutation('p2p.spacedrop');
+
+	if (discoveredPeers.size === 0) {
+		return <p className="p-1 text-center text-sm">{t('no_nodes_found')}</p>;
+	}
+
+	return Array.from(discoveredPeers).map(([id, peer]) => (
+		<Menu.Item
+			key={id}
+			label={peer.name}
+			disabled={spacedrop.isLoading}
+			onClick={async () => {
+				spacedrop.mutateAsync({
+					identity: id,
+					file_path: await getPaths([...explorer.selectedItems])
+				});
+			}}
+		/>
+	));
 };
