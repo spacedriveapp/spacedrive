@@ -32,7 +32,7 @@ jobs:
       fail-fast: true
       matrix:
         settings:
-          - host: macos-14
+          - host: macos-13
             target: x86_64-apple-darwin
           - host: macos-14
             target: aarch64-apple-darwin
