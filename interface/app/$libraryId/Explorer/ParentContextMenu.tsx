@@ -17,6 +17,7 @@ import { keybindForOs } from '~/util/keybinds';
 
 import { useExplorerContext } from './Context';
 import { CopyAsPathBase } from './CopyAsPath';
+import { useExplorerCopyPaste } from './hooks/useExplorerCopyPaste';
 import { RevealInNativeExplorerBase } from './RevealInNativeExplorer';
 import { explorerStore } from './store';
 import { useExplorerSearchParams } from './util';
@@ -58,6 +59,8 @@ export default (props: PropsWithChildren) => {
 		}
 	});
 
+	const { paste } = useExplorerCopyPaste();
+
 	const { t } = useLocale();
 
 	return (
@@ -69,81 +72,7 @@ export default (props: PropsWithChildren) => {
 							<CM.Item
 								label={t('paste')}
 								keybind={keybind([ModifierKeys.Control], ['V'])}
-								onClick={async () => {
-									const path = currentPath ?? '/';
-									const { type, sourceParentPath, indexedArgs, ephemeralArgs } =
-										cutCopyState;
-
-									try {
-										if (type == 'Copy') {
-											if (
-												parent?.type === 'Location' &&
-												indexedArgs != undefined
-											) {
-												await copyFiles.mutateAsync({
-													source_location_id:
-														indexedArgs.sourceLocationId,
-													sources_file_path_ids: [
-														...indexedArgs.sourcePathIds
-													],
-													target_location_id: parent.location.id,
-													target_location_relative_directory_path: path
-												});
-											}
-
-											if (
-												parent?.type === 'Ephemeral' &&
-												ephemeralArgs != undefined
-											) {
-												await copyEphemeralFiles.mutateAsync({
-													sources: [...ephemeralArgs.sourcePaths],
-													target_dir: path
-												});
-											}
-										} else {
-											if (
-												parent?.type === 'Location' &&
-												indexedArgs != undefined
-											) {
-												if (
-													indexedArgs.sourceLocationId ===
-														parent.location.id &&
-													sourceParentPath === path
-												) {
-													toast.error(
-														'File already exists in this location'
-													);
-												}
-												await cutFiles.mutateAsync({
-													source_location_id:
-														indexedArgs.sourceLocationId,
-													sources_file_path_ids: [
-														...indexedArgs.sourcePathIds
-													],
-													target_location_id: parent.location.id,
-													target_location_relative_directory_path: path
-												});
-											}
-
-											if (
-												parent?.type === 'Ephemeral' &&
-												ephemeralArgs != undefined
-											) {
-												if (sourceParentPath !== path) {
-													await cutEphemeralFiles.mutateAsync({
-														sources: [...ephemeralArgs.sourcePaths],
-														target_dir: path
-													});
-												}
-											}
-										}
-									} catch (error) {
-										toast.error({
-											title: `Failed to ${type.toLowerCase()} file`,
-											body: `Error: ${error}.`
-										});
-									}
-								}}
+								onClick={paste}
 								icon={Clipboard}
 							/>
 
