@@ -233,15 +233,13 @@ impl Algorithm {
 /// You may also generate a secure random key with `Key::generate()`
 #[derive(Clone, Zeroize, ZeroizeOnDrop)]
 #[repr(transparent)]
-// TODO(brxken128): box this to avoid stack allocations.
-// will break tests that use `const` for keys`
-pub struct Key([u8; KEY_LEN]);
+pub struct Key(Box<[u8; KEY_LEN]>);
 
 impl Key {
 	#[inline]
 	#[must_use]
-	pub const fn new(v: [u8; KEY_LEN]) -> Self {
-		Self(v)
+	pub fn new(v: [u8; KEY_LEN]) -> Self {
+		Self(Box::new(v))
 	}
 
 	#[inline]
@@ -297,9 +295,11 @@ impl<'de> serde::Deserialize<'de> for Key {
 	}
 }
 
+// The `serde` feature is needed as this makes use of a crate called `serdect` which
+// allows for constant-time serialization and deserialization. We then use `bincode`s
+// compatability layer to serialize through that, so in theory it should remain constant-time
 #[cfg(feature = "serde")]
-
-impl bincode::Encode for Key {
+impl Encode for Key {
 	fn encode<E: bincode::enc::Encoder>(
 		&self,
 		encoder: &mut E,
@@ -310,9 +310,11 @@ impl bincode::Encode for Key {
 	}
 }
 
+// The `serde` feature is needed as this makes use of a crate called `serdect` which
+// allows for constant-time serialization and deserialization. We then use `bincode`s
+// compatability layer to serialize through that, so in theory it should remain constant-time
 #[cfg(feature = "serde")]
-
-impl bincode::Decode for Key {
+impl Decode for Key {
 	fn decode<D: bincode::de::Decoder>(
 		decoder: &mut D,
 	) -> Result<Self, bincode::error::DecodeError> {
@@ -630,41 +632,40 @@ impl Debug for EncryptedKey {
 
 #[cfg(test)]
 mod tests {
+	use super::Algorithm;
 	use crate::{
-		primitives::{ENCRYPTED_KEY_LEN, KEY_LEN, XCHACHA20_POLY1305_NONCE_LEN},
+		primitives::{
+			AES_256_GCM_SIV_NONCE_LEN, ENCRYPTED_KEY_LEN, KEY_LEN, XCHACHA20_POLY1305_NONCE_LEN,
+		},
 		types::{EncryptedKey, Key, Nonce},
 	};
 
-	use super::Algorithm;
-
-	const KEY: Key = Key::new([0x23; KEY_LEN]);
-	const KEY2: Key = Key::new([0x24; KEY_LEN]);
-
 	const EK: [[u8; ENCRYPTED_KEY_LEN]; 2] = [[0x20; ENCRYPTED_KEY_LEN], [0x21; ENCRYPTED_KEY_LEN]];
-	const NONCES: [Nonce; 1] = [Nonce::XChaCha20Poly1305(
-		[5u8; XCHACHA20_POLY1305_NONCE_LEN],
-	)];
+	const NONCES: [Nonce; 2] = [
+		Nonce::XChaCha20Poly1305([5u8; XCHACHA20_POLY1305_NONCE_LEN]),
+		Nonce::Aes256GcmSiv([8u8; AES_256_GCM_SIV_NONCE_LEN]),
+	];
 
-	// #[test]
-	// fn encrypted_key_eq() {
-	// 	// same key and nonce
-	// 	assert_eq!(
-	// 		EncryptedKey::new(EK[0], NONCES[0]),
-	// 		EncryptedKey::new(EK[0], NONCES[0])
-	// 	);
+	#[test]
+	fn encrypted_key_eq() {
+		// same key and nonce
+		assert_eq!(
+			EncryptedKey::new(EK[0], NONCES[0]),
+			EncryptedKey::new(EK[0], NONCES[0])
+		);
 
-	// 	// same key, different nonce
-	// 	assert_ne!(
-	// 		EncryptedKey::new(EK[0], NONCES[0]),
-	// 		EncryptedKey::new(EK[0], NONCES[1])
-	// 	);
+		// same key, different nonce
+		assert_ne!(
+			EncryptedKey::new(EK[0], NONCES[0]),
+			EncryptedKey::new(EK[0], NONCES[1])
+		);
 
-	// 	// different key, same nonce
-	// 	assert_ne!(
-	// 		EncryptedKey::new(EK[0], NONCES[0]),
-	// 		EncryptedKey::new(EK[1], NONCES[0])
-	// 	);
-	// }
+		// different key, same nonce
+		assert_ne!(
+			EncryptedKey::new(EK[0], NONCES[0]),
+			EncryptedKey::new(EK[1], NONCES[0])
+		);
+	}
 
 	#[test]
 	#[should_panic(expected = "assertion")]
@@ -676,25 +677,25 @@ mod tests {
 		);
 	}
 
-	// #[test]
-	// #[should_panic(expected = "assertion")]
-	// fn encrypted_key_eq_different_nonce() {
-	// 	// same key, different nonce
-	// 	assert_eq!(
-	// 		EncryptedKey::new(EK[0], NONCES[0]),
-	// 		EncryptedKey::new(EK[0], NONCES[1])
-	// 	);
-	// }
+	#[test]
+	#[should_panic(expected = "assertion")]
+	fn encrypted_key_eq_different_nonce() {
+		// same key, different nonce
+		assert_eq!(
+			EncryptedKey::new(EK[0], NONCES[0]),
+			EncryptedKey::new(EK[0], NONCES[1])
+		);
+	}
 
 	#[test]
 	fn key_eq() {
-		assert_eq!(KEY, KEY);
+		assert_eq!(Key::new([0x23; KEY_LEN]), Key::new([0x23; KEY_LEN]));
 	}
 
 	#[test]
 	#[should_panic(expected = "assertion")]
 	fn key_eq_fail() {
-		assert_eq!(KEY, KEY2);
+		assert_eq!(Key::new([0x23; KEY_LEN]), Key::new([0x24; KEY_LEN]));
 	}
 
 	#[test]
@@ -702,15 +703,15 @@ mod tests {
 		assert_eq!(Algorithm::XChaCha20Poly1305, Algorithm::XChaCha20Poly1305);
 	}
 
-	// #[test]
-	// #[should_panic(expected = "assertion")]
-	// fn algorithm_eq_fail() {
-	// 	assert_eq!(Algorithm::XChaCha20Poly1305, Algorithm::Aes256Gcm);
-	// }
+	#[test]
+	#[should_panic(expected = "assertion")]
+	fn algorithm_eq_fail() {
+		assert_eq!(Algorithm::XChaCha20Poly1305, Algorithm::Aes256GcmSiv);
+	}
 
 	#[test]
 	fn key_validate() {
-		KEY.validate().unwrap();
+		Key::new([0x23; KEY_LEN]).validate().unwrap();
 	}
 
 	#[test]
@@ -726,13 +727,13 @@ mod tests {
 			.unwrap();
 	}
 
-	// #[test]
-	// #[should_panic(expected = "Validity")]
-	// fn nonce_validate_different_algorithms() {
-	// 	Nonce::generate(Algorithm::XChaCha20Poly1305)
-	// 		.validate(Algorithm::Aes256Gcm)
-	// 		.unwrap();
-	// }
+	#[test]
+	#[should_panic(expected = "Validity")]
+	fn nonce_validate_different_algorithms() {
+		Nonce::generate(Algorithm::XChaCha20Poly1305)
+			.validate(Algorithm::Aes256GcmSiv)
+			.unwrap();
+	}
 
 	#[test]
 	#[should_panic(expected = "Validity")]
