@@ -1,8 +1,5 @@
-use std::marker::PhantomData;
-
-// use bincode::Encode;
-
 use bincode::{Decode, Encode};
+use std::marker::PhantomData;
 
 use crate::{
 	crypto::{Decryptor, Encryptor},
@@ -28,7 +25,7 @@ pub struct Encrypted<T> {
 impl<T> Encrypted<T> {
 	pub fn new(key: &Key, item: &T, algorithm: Algorithm) -> Result<Self>
 	where
-		T: bincode::Encode + bincode::Decode,
+		T: Encode + Decode,
 	{
 		let salt = Salt::generate();
 		let nonce = Nonce::generate(algorithm);
@@ -77,7 +74,7 @@ impl<T> Encrypted<T> {
 
 	pub fn decrypt(self, key: &Key) -> Result<T>
 	where
-		T: bincode::Encode + bincode::Decode,
+		T: Encode + Decode,
 	{
 		let bytes = Decryptor::decrypt_bytes(
 			&Hasher::derive_key(key, self.salt, ENCRYPTED_TYPE_CONTEXT),
@@ -106,7 +103,7 @@ impl<T> Encrypted<T> {
 
 	pub fn as_bytes(&self) -> Result<Vec<u8>>
 	where
-		T: bincode::Encode + bincode::Decode,
+		T: Encode + Decode,
 	{
 		encode(&self)
 	}
