@@ -128,39 +128,8 @@ mod tests {
 
 	const PASSWORD: [u8; 8] = [0x70, 0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64];
 
-	// const KEY: Key = Key::new([0x23; KEY_LEN]);
 	const SALT: Salt = Salt::new([0xFF; SALT_LEN]);
 	const SECRET_KEY: SecretKey = SecretKey::new([0x55; SECRET_KEY_LEN]);
-
-	// for the `const` arrays below, [0] is standard params, [1] is hardened and [2] is paranoid
-
-	// const ARGON2ID_EXPECTED: [Key; 3] = [
-	// 	,
-	// 	,
-	// 	,
-	// ];
-
-	// const ARGON2ID_WITH_SECRET_EXPECTED: [Key; 3] = [
-	// 	,
-	// 	,
-	// 	,
-	// ];
-
-	// const BLAKE3_BALLOON_EXPECTED: [Key; 3] = [
-	// 	,
-	// 	,
-	// 	,
-	// ];
-
-	// const BLAKE3_BALLOON_WITH_SECRET_EXPECTED: [Key; 3] = [
-	// 	,
-	// 	,
-	// 	,
-	// ];
-
-	// const BLAKE3_KDF_EXPECTED: Key = ;
-
-	// const BLAKE3_EXPECTED: Key = ;
 
 	#[test]
 	#[ignore]
