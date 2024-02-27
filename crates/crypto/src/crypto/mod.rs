@@ -811,7 +811,7 @@ mod tests {
 	#[should_panic(expected = "Validity")]
 	fn decrypt_with_invalid_nonce() {
 		Decryptor::decrypt_bytes(
-			&&Key::new([0x23; KEY_LEN]),
+			&Key::new([0x23; KEY_LEN]),
 			&AES_256_GCM_SIV_NONCE,
 			Algorithm::XChaCha20Poly1305,
 			&XCHACHA20_POLY1305_BYTES_EXPECTED[0],
