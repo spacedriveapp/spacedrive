@@ -3,7 +3,7 @@ import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/n
 import { StackScreenProps } from '@react-navigation/stack';
 import { BlurView } from 'expo-blur';
 import { useEffect, useRef, useState } from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet, ViewStyle } from 'react-native';
 import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
 import Rive, { RiveRef } from 'rive-react-native';
 import { Style } from 'twrnc/dist/esm/types';
@@ -17,13 +17,9 @@ import SettingsStack, { SettingsStackParamList } from './tabs/SettingsStack';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
-//TouchableWithoutFeedback is used to prevent Android ripple effect
-//State is being used to control the animation and make Rive work
-//Tab.Screen listeners are needed because if a user taps on the tab text only, the animation won't play
-//This may be revisted in the future to update accordingly
-
 export default function TabNavigator() {
 	const [activeIndex, setActiveIndex] = useState(0);
+
 	const TabScreens: {
 		name: keyof TabParamList;
 		component: () => React.JSX.Element;
@@ -129,16 +125,23 @@ export default function TabNavigator() {
 					options={({ navigation }) => ({
 						tabBarLabel: screen.label,
 						tabBarLabelStyle: screen.labelStyle,
-						tabBarIcon: () => (
-							<TouchableWithoutFeedback
-								onPress={() => {
-									navigation.navigate(screen.name);
-									setActiveIndex(index);
-								}}
-							>
-								{screen.icon}
-							</TouchableWithoutFeedback>
-						),
+						/**
+						 * TouchableWithoutFeedback is used to prevent Android ripple effect
+						 * State is being used to control the animation and make Rive work
+						 * Tab.Screen listeners are needed because if a user taps on the tab text only, the animation won't play
+						 * This may be revisted in the future to update accordingly
+						 */
+						// TODO: Fix this (@utku) (navigation doesn't work as expected, clicking the tab again should go to the top of the stack)
+						// tabBarIcon: () => (
+						// 	<TouchableWithoutFeedback
+						// 		onPress={() => {
+						// 			navigation.push(screen.name);
+						// 			setActiveIndex(index);
+						// 		}}
+						// 	>
+						// 		{screen.icon}
+						// 	</TouchableWithoutFeedback>
+						// ),
 						tabBarTestID: screen.testID
 					})}
 					listeners={() => ({
@@ -157,7 +160,7 @@ interface TabBarButtonProps {
 	resourceName: string;
 	animationName: string;
 	artboardName: string;
-	style?: any;
+	style?: ViewStyle;
 }
 
 const TabBarButton = ({
