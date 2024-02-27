@@ -1,6 +1,7 @@
 use std::{
 	cell::RefCell,
 	collections::HashSet,
+	num::NonZeroUsize,
 	pin::pin,
 	sync::{
 		atomic::{AtomicBool, Ordering},
@@ -41,7 +42,7 @@ impl<E: RunError> System<E> {
 				error!("Failed to get available parallelism in the job system: {e:#?}");
 				1
 			},
-			|non_zero| non_zero.get(),
+			NonZeroUsize::get,
 		);
 
 		let (msgs_tx, msgs_rx) = chan::bounded(8);
@@ -64,7 +65,6 @@ impl<E: RunError> System<E> {
 
 		let handle = spawn({
 			let workers = Arc::clone(&workers);
-			let msgs_rx = msgs_rx.clone();
 			let idle_workers = Arc::clone(&idle_workers);
 
 			async move {
@@ -82,7 +82,7 @@ impl<E: RunError> System<E> {
 						trace!("Task system received shutdown signal and will exit...");
 						break;
 					}
-					trace!("Restarting task system message processing task...")
+					trace!("Restarting task system message processing task...");
 				}
 
 				info!("Task system gracefully shutdown");
@@ -221,6 +221,11 @@ impl<E: RunError> System<E> {
 	}
 
 	/// Shuts down the system, returning all pending and running tasks to their respective handles.
+	///
+	/// # Panics
+	///
+	/// If the system message channel is closed for some unknown reason or if we fail to respond to
+	/// oneshot channel with shutdown response.
 	pub async fn shutdown(&self) {
 		if let Some(handle) = self
 			.handle
@@ -272,7 +277,7 @@ unsafe impl<E: RunError> Sync for System<E> {}
 
 #[derive(Clone, Debug)]
 #[repr(transparent)]
-pub(crate) struct SystemComm(chan::Sender<SystemMessage>);
+pub struct SystemComm(chan::Sender<SystemMessage>);
 
 impl SystemComm {
 	pub async fn idle_report(&self, worker_id: usize) {
@@ -404,8 +409,6 @@ impl<E: RunError> Clone for Dispatcher<E> {
 impl<E: RunError> Dispatcher<E> {
 	/// Dispatches a task to the system, the task will be assigned to a worker and executed as soon as possible.
 	pub async fn dispatch(&self, into_task: impl IntoTask<E>) -> TaskHandle<E> {
-		let task = into_task.into_task();
-
 		async fn inner<E: RunError>(this: &Dispatcher<E>, task: Box<dyn Task<E>>) -> TaskHandle<E> {
 			let worker_id = this
 				.last_worker_id
@@ -425,7 +428,7 @@ impl<E: RunError> Dispatcher<E> {
 			handle
 		}
 
-		inner(self, task).await
+		inner(self, into_task.into_task()).await
 	}
 
 	/// Dispatches many tasks to the system, the tasks will be assigned to workers and executed as soon as possible.
@@ -453,14 +456,15 @@ impl<E: RunError> Dispatcher<E> {
 			.into_iter()
 			.unzip::<_, _, Vec<_>, HashSet<_>>();
 
-		workers_ids_set.into_iter().for_each(|worker_id| {
+		for worker_id in workers_ids_set {
 			self.idle_workers[worker_id].store(false, Ordering::Relaxed);
-		});
+		}
 
 		handles
 	}
 
 	/// Returns the number of workers in the system.
+	#[must_use]
 	pub fn workers_count(&self) -> usize {
 		self.workers.len()
 	}

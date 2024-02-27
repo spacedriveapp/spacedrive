@@ -7,7 +7,7 @@ use super::{
 };
 
 #[derive(Debug)]
-pub(crate) enum SystemMessage {
+pub enum SystemMessage {
 	IdleReport(WorkerId),
 	WorkingReport(WorkerId),
 	ResumeTask {
@@ -38,7 +38,7 @@ pub(crate) enum SystemMessage {
 }
 
 #[derive(Debug)]
-pub(crate) enum WorkerMessage<E: RunError> {
+pub enum WorkerMessage<E: RunError> {
 	NewTask(TaskWorkState<E>),
 	TaskCountRequest(oneshot::Sender<usize>),
 	ResumeTask {

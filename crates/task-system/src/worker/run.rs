@@ -19,16 +19,16 @@ pub(super) async fn run<E: RunError>(
 	work_stealer: WorkStealer<E>,
 	msgs_rx: chan::Receiver<WorkerMessage<E>>,
 ) {
-	let (mut runner, runner_rx) = Runner::new(id, work_stealer, system_comm);
-
-	let mut idle_checker_interval = interval_at(Instant::now(), ONE_SECOND);
-	idle_checker_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-
 	enum StreamMessage<E: RunError> {
 		Commands(WorkerMessage<E>),
 		RunnerMsg(RunnerMessage<E>),
 		IdleCheck,
 	}
+
+	let (mut runner, runner_rx) = Runner::new(id, work_stealer, system_comm);
+
+	let mut idle_checker_interval = interval_at(Instant::now(), ONE_SECOND);
+	idle_checker_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
 	let mut msg_stream = pin!((
 		msgs_rx.map(StreamMessage::Commands),
@@ -58,19 +58,14 @@ pub(super) async fn run<E: RunError>(
 			}
 
 			StreamMessage::Commands(WorkerMessage::PauseNotRunningTask { task_id, ack }) => {
-				if ack
-					.send(runner.pause_not_running_task(task_id).await)
-					.is_err()
-				{
+				if ack.send(runner.pause_not_running_task(task_id)).is_err() {
 					warn!("Resume task channel closed before sending ack");
 				}
 			}
 
 			StreamMessage::Commands(WorkerMessage::CancelNotRunningTask { task_id, ack }) => {
-				if ack
-					.send(runner.cancel_not_running_task(task_id).await)
-					.is_err()
-				{
+				runner.cancel_not_running_task(task_id);
+				if ack.send(Ok(())).is_err() {
 					warn!("Resume task channel closed before sending ack");
 				}
 			}
@@ -87,11 +82,11 @@ pub(super) async fn run<E: RunError>(
 
 			StreamMessage::Commands(WorkerMessage::StealRequest(tx)) => runner.steal_request(tx),
 
-			StreamMessage::Commands(WorkerMessage::WakeUp) => runner.wake_up().await,
+			StreamMessage::Commands(WorkerMessage::WakeUp) => runner.wake_up(),
 
 			// Runner messages
 			StreamMessage::RunnerMsg(RunnerMessage::TaskOutput(task_id, Ok(output))) => {
-				runner.process_task_output(task_id, output).await
+				runner.process_task_output(task_id, output).await;
 			}
 
 			StreamMessage::RunnerMsg(RunnerMessage::TaskOutput(task_id, Err(()))) => {
@@ -107,7 +102,7 @@ pub(super) async fn run<E: RunError>(
 			}
 
 			// Idle checking to steal some work
-			StreamMessage::IdleCheck => runner.idle_check().await,
+			StreamMessage::IdleCheck => runner.idle_check(),
 		}
 	}
 }
