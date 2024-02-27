@@ -26,7 +26,7 @@ const LocationCard = ({ icon, name, connectionType, ...stats }: LocationCardProp
 			<div className="flex flex-row items-center gap-5 p-4 px-6 ">
 				<div className="flex flex-col overflow-hidden">
 					<Icon className="-ml-1" name={icon as any} size={60} />
-					<span className="font-medium truncate">{name}</span>
+					<span className="truncate font-medium">{name}</span>
 					<span className="mt-1 truncate text-tiny text-ink-faint">
 						{totalSpace.value}
 						{totalSpace.unit}
@@ -37,7 +37,7 @@ const LocationCard = ({ icon, name, connectionType, ...stats }: LocationCardProp
 				<Pill className="uppercase">{connectionType || 'Local'}</Pill>
 				<div className="grow" />
 				<Button size="icon" variant="outline">
-					<Ellipsis className="w-3 h-3 opacity-50" />
+					<Ellipsis className="h-3 w-3 opacity-50" />
 				</Button>
 			</div>
 		</Card>

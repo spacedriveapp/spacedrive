@@ -46,7 +46,7 @@ export const GridItem = ({ children, item, index, ...props }: Props) => {
 		<div
 			{...props}
 			{...attributes}
-			className="w-full h-full"
+			className="h-full w-full"
 			// Prevent explorer view onMouseDown event from
 			// being executed and resetting the selection
 			onMouseDown={(e) => {
