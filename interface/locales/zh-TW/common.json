@@ -425,11 +425,11 @@
 	"your_local_network": "您的本地網路",
 	"your_privacy": "您的隱私",
 	"new_update_available": "新版本可用！",
-	"version": "版本",
-	"downloading_update": "下載更新中",
-	"update_downloaded": "更新已下載。重新啟動 Spacedrive 以安裝",
+	"version": "版本 {{version}}",
+	"downloading_update": "下載更新",
+	"update_downloaded": "更新已下載。重新啟動 Spacedrive 進行安裝",
 	"failed_to_download_update": "無法下載更新",
-	"updated_successfully": "更新成功，您目前使用的是版本",
-	"view_changes": "查看變更",
+	"updated_successfully": "成功更新，您目前使用的是版本 {{version}}",
+	"view_changes": "檢視變更",
 	"update": "更新"
 }

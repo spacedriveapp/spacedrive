@@ -53,7 +53,7 @@ export function createUpdater(t: ReturnType<typeof useLocale>['t']) {
 
 				return {
 					title: t('new_update_available'),
-					body: `${t('version')} ${update.version}`
+					body: t('version', { version: update.version })
 				};
 			},
 			{
@@ -114,7 +114,7 @@ export function createUpdater(t: ReturnType<typeof useLocale>['t']) {
 
 			toast.success(
 				{
-					title: `${t('updated_successfully')} ${version}`,
+					title: t('updated_successfully', { version }),
 					body: tagline
 				},
 				{
