@@ -428,5 +428,13 @@
 	"your_account": "您的账户",
 	"your_account_description": "Spacedrive账号和信息。",
 	"your_local_network": "您的本地网络",
-	"your_privacy": "您的隐私"
+	"your_privacy": "您的隐私",
+	"new_update_available": "新版本可用！",
+	"version": "版本 {{version}}",
+	"downloading_update": "下载更新",
+	"update_downloaded": "更新已下载。重新启动 Spacedrive 以安装",
+	"failed_to_download_update": "无法下载更新",
+	"updated_successfully": "成功更新，您当前使用的是版本 {{version}}",
+	"view_changes": "查看更改",
+	"update": "更新"
 }
