@@ -62,6 +62,7 @@
 		"react-native-safe-area-context": "4.8.2",
 		"react-native-screens": "~3.29.0",
 		"react-native-svg": "14.1.0",
+		"react-native-toast-message": "^2.2.0",
 		"react-native-wheel-color-picker": "^1.2.0",
 		"rive-react-native": "^6.2.3",
 		"solid-js": "^1.8.8",

@@ -2,7 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import React, { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
-import { Location } from '@sd/client';
+import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 
@@ -14,13 +14,13 @@ import NewCard from './NewCard';
 import OverviewSection from './OverviewSection';
 import StatCard from './StatCard';
 
-interface Props {
-	locations?: Location[];
-}
-
-const Locations = ({ locations }: Props) => {
+const Locations = () => {
 	const navigation = useNavigation<BrowseStackScreenProps<'Browse'>['navigation']>();
 	const modalRef = useRef<ModalRef>(null);
+
+	const locationsQuery = useLibraryQuery(['locations.list']);
+	useNodes(locationsQuery.data?.nodes);
+	const locations = useCache(locationsQuery.data?.items);
 
 	return (
 		<>
