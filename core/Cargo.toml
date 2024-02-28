@@ -108,7 +108,6 @@ globset = { version = "^0.4.13", features = ["serde1"] }
 hostname = "0.3.1"
 http-body = "0.4.5"
 http-range = "0.1.5"
-icrate = { version = "0.1.0", features = ["Foundation", "Foundation_NSFileManager", "Foundation_NSString", "Foundation_NSNumber"] }
 int-enum = "0.5.0"
 itertools = "0.12.0"
 libc = "0.2.153"
@@ -141,6 +140,9 @@ features = ["vendored"]
 # Platform-specific dependencies
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"
+
+[target.'cfg(target_os = "ios")'.dependencies]
+icrate = { version = "0.1.0", features = ["Foundation", "Foundation_NSFileManager", "Foundation_NSString", "Foundation_NSNumber"] }
 
 [dev-dependencies]
 tracing-test = "^0.2.4"
