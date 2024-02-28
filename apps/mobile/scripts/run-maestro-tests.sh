@@ -77,9 +77,7 @@ for file in "${testFiles[@]}"; do
   fi
 done
 
-if [ ${#failedTests[@]} -eq 0 ]; then
-  exit 0
-else
+if [ ${#failedTests[@]} -gt 0 ]; then
   echo "These tests failed:" >&2
   printf '%s\n' "${failedTests[@]}" >&2
   exit 1
