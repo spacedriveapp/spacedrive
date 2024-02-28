@@ -621,8 +621,12 @@ export const MetaData = ({ icon: Icon, label, value, tooltipValue, onClick }: Me
 		<div className="flex items-center text-xs text-ink-dull" onClick={onClick}>
 			{Icon && <Icon weight="bold" className="mr-2 shrink-0" />}
 			<span className="mr-2 flex-1 whitespace-nowrap">{label}</span>
-			<Tooltip label={tooltipValue || value} asChild>
-				<span className="truncate break-all text-ink">{value ?? '--'}</span>
+			<Tooltip
+				label={tooltipValue || value}
+				className="truncate text-ink"
+				tooltipClassName="max-w-none"
+			>
+				{value ?? '--'}
 			</Tooltip>
 		</div>
 	);
