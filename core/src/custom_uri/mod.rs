@@ -42,7 +42,7 @@ use tokio::{
 	io::{self, copy_bidirectional, AsyncReadExt, AsyncSeekExt, SeekFrom},
 };
 use tokio_util::sync::PollSender;
-use tracing::error;
+use tracing::{error, warn};
 use uuid::Uuid;
 
 use self::{mpsc_to_async_write::MpscToAsyncWrite, serve_file::serve_file, utils::*};
@@ -331,7 +331,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 					let identity = match RemoteIdentity::from_str(&identity) {
 						Ok(identity) => identity,
 						Err(err) => {
-							error!("Error parsing identity '{}': {}", identity, err);
+							warn!("Error parsing identity '{}': {}", identity, err);
 							return (StatusCode::BAD_REQUEST, HeaderMap::new(), vec![])
 								.into_response();
 						}
@@ -354,7 +354,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 					{
 						Ok(v) => v,
 						Err(err) => {
-							error!("Error doing remote rspc query with '{identity}': {err:?}");
+							warn!("Error doing remote rspc query with '{identity}': {err:?}");
 							return StatusCode::BAD_GATEWAY.into_response();
 						}
 					};
@@ -376,13 +376,13 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 
 						tokio::spawn(async move {
 							let Ok(mut request_upgraded) = request_upgraded.await.map_err(|err| {
-								error!("Error upgrading websocket request: {err}");
+								warn!("Error upgrading websocket request: {err}");
 							}) else {
 								return;
 							};
 							let Ok(mut response_upgraded) =
 								response_upgraded.await.map_err(|err| {
-									error!("Error upgrading websocket response: {err}");
+									warn!("Error upgrading websocket response: {err}");
 								})
 							else {
 								return;
@@ -391,7 +391,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							copy_bidirectional(&mut request_upgraded, &mut response_upgraded)
 								.await
 								.map_err(|err| {
-									error!("Error upgrading websocket response: {err}");
+									warn!("Error upgrading websocket response: {err}");
 								})
 								.ok();
 						});
