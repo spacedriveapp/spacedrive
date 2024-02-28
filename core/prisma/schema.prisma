@@ -348,8 +348,8 @@ model TagOnObject {
 model Label {
   id            Int      @id @default(autoincrement())
   name          String   @unique
-  date_created  DateTime @default(now())
-  date_modified DateTime @default(now())
+  date_created  DateTime?
+  date_modified DateTime?
 
   label_objects LabelOnObject[]
 
