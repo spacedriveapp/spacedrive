@@ -177,8 +177,6 @@ impl LocationManagerActor {
 			self.stop_rx,
 			node,
 		));
-
-		// tracing::warn!("Location watcher is disabled, locations will not be checked");
 	}
 }
 
@@ -217,18 +215,6 @@ impl Locations {
 				},
 			)
 		}
-
-		// {
-		// 	tracing::warn!("Location watcher is disabled, locations will not be checked");
-		// 	(
-		// 		Self {
-		// 			online_tx,
-		// 			online_locations: Default::default(),
-		// 			stop_tx: None,
-		// 		},
-		// 		LocationManagerActor {},
-		// 	)
-		// }
 	}
 
 	#[inline]
@@ -254,8 +240,6 @@ impl Locations {
 
 			rx.await?
 		}
-
-		// Ok(())
 	}
 
 	#[inline]
@@ -282,8 +266,6 @@ impl Locations {
 
 			rx.await?
 		}
-
-		// Ok(())
 	}
 
 	pub async fn add(
@@ -632,7 +614,6 @@ pub struct StopWatcherGuard<'m> {
 
 impl Drop for StopWatcherGuard<'_> {
 	fn drop(&mut self) {
-		// if cfg!(feature = "") {
 		// FIXME: change this Drop to async drop in the future
 		if let Err(e) = block_on(self.manager.reinit_watcher(
 			self.location_id,
@@ -640,7 +621,6 @@ impl Drop for StopWatcherGuard<'_> {
 		)) {
 			error!("Failed to reinit watcher on stop watcher guard drop: {e}");
 		}
-		// }
 	}
 }
 
@@ -654,7 +634,6 @@ pub struct IgnoreEventsForPathGuard<'m> {
 
 impl Drop for IgnoreEventsForPathGuard<'_> {
 	fn drop(&mut self) {
-		// if cfg!(feature = "") {
 		// FIXME: change this Drop to async drop in the future
 		if let Err(e) = block_on(self.manager.watcher_management_message(
 			self.location_id,
@@ -666,6 +645,5 @@ impl Drop for IgnoreEventsForPathGuard<'_> {
 		)) {
 			error!("Failed to un-ignore path on watcher guard drop: {e}");
 		}
-		// }
 	}
 }
