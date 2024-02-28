@@ -53,7 +53,6 @@ use std::{
 
 use chrono::{DateTime, FixedOffset, Local, Utc};
 use notify::Event;
-use prisma_client_rust::{raw, PrismaValue};
 use serde_json::json;
 use tokio::{
 	fs,
