@@ -19,7 +19,7 @@ export type Procedures = {
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
         { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
         { key: "labels.count", input: LibraryArgs<null>, result: number } | 
-        { key: "labels.get", input: LibraryArgs<number>, result: { id: number; name: string; date_created: string; date_modified: string } | null } | 
+        { key: "labels.get", input: LibraryArgs<number>, result: { id: number; name: string; date_created: string | null; date_modified: string | null } | null } | 
         { key: "labels.getForObject", input: LibraryArgs<number>, result: Label[] } | 
         { key: "labels.getWithObjects", input: LibraryArgs<number[]>, result: { [key in number]: { date_created: string; object: { id: number } }[] } } | 
         { key: "labels.list", input: LibraryArgs<null>, result: Label[] } | 
@@ -148,7 +148,7 @@ export type AudioMetadata = { duration: number | null; audio_codec: string | nul
  * 
  * If you want a variant of this to show up on the frontend it must be added to `backendFeatures` in `useFeatureFlag.tsx`
  */
-export type BackendFeature = "syncEmitMessages" | "filesOverP2P" | "cloudSync"
+export type BackendFeature = "filesOverP2P" | "cloudSync"
 
 export type Backup = ({ id: string; timestamp: string; library_id: string; library_name: string }) & { path: string }
 
@@ -358,9 +358,9 @@ export type KindStatistic = { kind: number; name: string; count: number; total_b
 
 export type KindStatistics = { statistics: KindStatistic[] }
 
-export type Label = { id: number; name: string; date_created: string; date_modified: string }
+export type Label = { id: number; name: string; date_created: string | null; date_modified: string | null }
 
-export type LabelWithObjects = { id: number; name: string; date_created: string; date_modified: string; label_objects: { object: { id: number; file_paths: FilePath[] } }[] }
+export type LabelWithObjects = { id: number; name: string; date_created: string | null; date_modified: string | null; label_objects: { object: { id: number; file_paths: FilePath[] } }[] }
 
 /**
  * Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
