@@ -108,8 +108,10 @@ function TextRow({
 		const ref = contentRef.current;
 		if (ref == null) return;
 
+		let intersectionObserver: null | IntersectionObserver = null;
+
 		prismaLazy.then(({ highlightElement }) => {
-			new IntersectionObserver((events) => {
+			intersectionObserver = new IntersectionObserver((events) => {
 				for (const event of events) {
 					if (!event.isIntersecting || ref.getAttribute('data-highlighted') === 'true')
 						continue;
@@ -125,8 +127,11 @@ function TextRow({
 						}
 					}
 				}
-			}).observe(ref);
+			});
+			intersectionObserver.observe(ref);
 		});
+
+		return () => intersectionObserver?.disconnect();
 	}, []);
 
 	return (

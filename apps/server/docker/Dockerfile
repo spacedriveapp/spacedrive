@@ -28,6 +28,7 @@ ENV PNPM_HOME="/usr/share/pnpm" \
 	PATH="/usr/share/pnpm:$PATH"
 
 RUN pnpm env use --global latest
+RUN pnpm add -g pnpm@latest-8
 
 WORKDIR /srv
 
@@ -101,6 +102,7 @@ ENV TZ=UTC \
 COPY --from=server --chmod=755 /srv/spacedrive/target/release/sd-server /usr/bin/
 COPY --from=server --chmod=755 /lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/
 COPY --from=server --chmod=755 /srv/spacedrive/apps/.deps/lib /usr/lib/spacedrive
+ADD --chmod=755 https://raw.githubusercontent.com/kraj/uClibc/ca1c74d67dd115d059a875150e10b8560a9c35a8/extra/scripts/getent /usr/bin/
 ADD --chmod=755 https://github.com/spacedriveapp/native-deps/releases/download/yolo-2024-02-07/yolov8s.onnx /usr/share/spacedrive/models/yolov8s.onnx
 
 COPY --chmod=755 entrypoint.sh /usr/bin/

@@ -5,7 +5,7 @@
 window.Prism = window.Prism || {};
 window.Prism.manual = true;
 
-// This import must be first, to ensure that the `Prism` global is available
+// This import must be first, to ensure that the `Prism` global is available before importing its language plugins
 import "prismjs";
 
 // Languages

@@ -12,7 +12,7 @@ if [ -n "${1:-}" ] && [ "${1#-}" = "${1}" ] \
 fi
 
 if [ "$(id -u)" -ne 0 ]; then
-  echo "This container requires executing as root for initial setup, privilages are dropped shortly after" 1>&2
+  echo "This container requires executing as root for initial setup, privileges are dropped shortly after" 1>&2
   exit 1
 fi
 
@@ -60,6 +60,7 @@ create () {
         --home /var/empty \
         --shell /bin/nologin \
         --gecos "$2 system account" \
+        -G nobody \
         --no-create-home \
         "$2"
       passwd -l "$2"
@@ -72,7 +73,7 @@ create group spacedrive 1000
 create passwd spacedrive 1000
 
 # Add spacedrive user to spacedrive group, if it is not already in it
-if ! id -Gn spacedrive | grep -q '\bspacedrive\b'; then
+if ! id -Gn spacedrive | tr '[:space:]+' '\n' | grep -x 'spacedrive'; then
   adduser spacedrive spacedrive
 fi
 
