@@ -42,7 +42,7 @@ export type LibraryProceduresDef = {
 	subscriptions: StripLibraryArgsFromInput<LibraryProcedures<'subscriptions'>, true>;
 };
 
-const context = createContext<Context<Procedures>>(undefined!);
+export const context = createContext<Context<Procedures>>(undefined!);
 const context2 = createContext<Context<LibraryProceduresDef>>(undefined!);
 
 export const useRspcContext = () => useContext(context);

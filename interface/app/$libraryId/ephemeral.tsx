@@ -1,3 +1,4 @@
+import { type AlphaClient } from '@oscartbeaumont-sd/rspc-client/v2';
 import { ArrowLeft, ArrowRight, Info } from '@phosphor-icons/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { iconNames } from '@sd/assets/util';
@@ -59,7 +60,7 @@ const NOTICE_ITEMS: { icon: keyof typeof iconNames; name: string }[] = [
 	}
 ];
 
-const EphemeralNotice = ({ path }: { path: string }) => {
+export const EphemeralNotice = ({ path }: { path: string }) => {
 	const { t } = useLocale();
 
 	const isDark = useIsDark();
@@ -158,7 +159,7 @@ const EphemeralNotice = ({ path }: { path: string }) => {
 	);
 };
 
-const EphemeralExplorer = memo((props: { args: PathParams }) => {
+export const EphemeralExplorer = memo((props: { args: PathParams }) => {
 	const { path } = props.args;
 
 	const os = useOperatingSystem();
