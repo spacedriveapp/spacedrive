@@ -201,6 +201,9 @@ jobs:
           model: 'iPhone SE (3rd generation)'
 
       - name: Run Tests
+        env:
+          # https://maestro.mobile.dev/advanced/configuring-maestro-driver-timeout
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 60000
         run: |
           xcrun simctl install booted apps/mobile/ios/build/Build/Products/Release-iphonesimulator/Spacedrive.app
           bash ./apps/mobile/scripts/run-maestro-tests ios
