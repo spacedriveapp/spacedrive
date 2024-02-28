@@ -1,14 +1,11 @@
-import { useKey, useKeys } from 'rooks';
 import { useItemsAsEphemeralPaths, useItemsAsFilePaths, type ExplorerItem } from '@sd/client';
 import { dialogManager } from '@sd/ui';
 import DeleteDialog from '~/app/$libraryId/Explorer/FilePath/DeleteDialog';
 import { isNonEmpty } from '~/util';
 
-import { useOperatingSystem } from './useOperatingSystem';
+import { useShortcut } from './useShortcut';
 
 export const useKeyDeleteFile = (selectedItems: Set<ExplorerItem>, locationId?: number | null) => {
-	const os = useOperatingSystem();
-
 	const filePaths = useItemsAsFilePaths([...selectedItems]);
 	const ephemeralPaths = useItemsAsEphemeralPaths([...selectedItems]);
 
@@ -44,13 +41,5 @@ export const useKeyDeleteFile = (selectedItems: Set<ExplorerItem>, locationId?: 
 		));
 	};
 
-	useKeys(['Meta', 'Backspace'], (e) => {
-		if (os !== 'macOS') return;
-		deleteHandler(e);
-	});
-
-	useKey('Delete', (e) => {
-		if (os === 'macOS') return;
-		deleteHandler(e);
-	});
+	useShortcut('delItem', deleteHandler);
 };
