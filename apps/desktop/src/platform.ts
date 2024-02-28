@@ -54,10 +54,11 @@ export const platform = {
 	getFileUrlByPath: (path) =>
 		constructServerUrl(`/local-file-by-path/${encodeURIComponent(path)}`),
 	getRemoteRspcEndpoint: (remote_identity) => ({
-		url: `${customUriServerUrl?.[0]}/remote/${encodeURIComponent(remote_identity)}/rspc`,
-		headers: {
-			authorization: `Bearer ${customUriAuthToken}`
-		}
+		url: `${customUriServerUrl?.[0]
+			?.replace('https', 'wss')
+			?.replace('http', 'ws')}/remote/${encodeURIComponent(
+			remote_identity
+		)}/rspc/ws?token=${customUriAuthToken}`
 	}),
 	openLink: shell.open,
 	getOs,

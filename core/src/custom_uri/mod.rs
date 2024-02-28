@@ -7,6 +7,7 @@ use crate::{
 	Node,
 };
 
+use hyper::{header, upgrade::OnUpgrade};
 use sd_file_ext::text::is_text;
 use sd_file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData};
 use sd_p2p2::{IdentityOrRemoteIdentity, RemoteIdentity};
@@ -38,7 +39,7 @@ use bytes::Bytes;
 use mini_moka::sync::Cache;
 use tokio::{
 	fs::{self, File},
-	io::{self, AsyncReadExt, AsyncSeekExt, SeekFrom},
+	io::{self, copy_bidirectional, AsyncReadExt, AsyncSeekExt, SeekFrom},
 };
 use tokio_util::sync::PollSender;
 use tracing::error;
@@ -335,19 +336,68 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 								.into_response();
 						}
 					};
+
 					*request.uri_mut() = format!("/{rest}")
 						.parse()
 						.expect("url was validated by Axum");
 
-					match operations::remote_rspc(state.node.p2p.p2p.clone(), identity, request)
-						.await
+					let request_upgrade_header =
+						request.headers().get(header::UPGRADE).map(Clone::clone);
+					let maybe_client_upgrade = request.extensions_mut().remove::<OnUpgrade>();
+
+					let mut response = match operations::remote_rspc(
+						state.node.p2p.p2p.clone(),
+						identity,
+						request,
+					)
+					.await
 					{
-						Ok(response) => response.into_response(),
+						Ok(v) => v,
 						Err(err) => {
 							error!("Error doing remote rspc query with '{identity}': {err:?}");
-							(StatusCode::INTERNAL_SERVER_ERROR, HeaderMap::new()).into_response()
+							return StatusCode::BAD_GATEWAY.into_response();
 						}
+					};
+					if response.status() == StatusCode::SWITCHING_PROTOCOLS {
+						if response.headers().get(header::UPGRADE)
+							!= request_upgrade_header.as_ref()
+						{
+							return StatusCode::BAD_REQUEST.into_response();
+						}
+
+						let Some(request_upgraded) = maybe_client_upgrade else {
+							return StatusCode::BAD_REQUEST.into_response();
+						};
+						let Some(response_upgraded) =
+							response.extensions_mut().remove::<OnUpgrade>()
+						else {
+							return StatusCode::BAD_REQUEST.into_response();
+						};
+
+						tokio::spawn(async move {
+							let Ok(mut request_upgraded) = request_upgraded.await.map_err(|err| {
+								error!("Error upgrading websocket request: {err}");
+							}) else {
+								return;
+							};
+							let Ok(mut response_upgraded) =
+								response_upgraded.await.map_err(|err| {
+									error!("Error upgrading websocket response: {err}");
+								})
+							else {
+								return;
+							};
+
+							copy_bidirectional(&mut request_upgraded, &mut response_upgraded)
+								.await
+								.map_err(|err| {
+									error!("Error upgrading websocket response: {err}");
+								})
+								.ok();
+						});
 					}
+
+					response.into_response()
 				},
 			),
 		)

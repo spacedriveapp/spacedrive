@@ -53,7 +53,7 @@ swift-rs = { version = "1.0.6" }
 anyhow = "1.0.75"
 async-channel = "2.0.0"
 async-trait = "0.1.77"
-axum = "0.6.20"
+axum = { version = "=0.6.20", features = ["ws"] }
 base64 = "0.21.5"
 blake3 = "1.5.0"
 chrono = "0.4.31"

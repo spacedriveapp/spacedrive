@@ -1,8 +1,23 @@
-import { httpLink, initRspc, type AlphaClient } from '@oscartbeaumont-sd/rspc-client/v2';
+import {
+	httpLink,
+	initRspc,
+	wsBatchLink,
+	type AlphaClient
+} from '@oscartbeaumont-sd/rspc-client/v2';
 import { useEffect, useRef, useState } from 'react';
-import { useDiscoveredPeers, type Procedures } from '@sd/client';
+import {
+	useBridgeQuery,
+	useDiscoveredPeers,
+	useLibraryContext,
+	useLibraryQuery,
+	useNormalisedCache,
+	type Procedures
+} from '@sd/client';
 import { Button } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
+
+import { ExplorerContextProvider } from '../Explorer/Context';
+import { useExplorer } from '../Explorer/useExplorer';
 
 export const Component = () => {
 	// TODO: Handle if P2P is disabled
@@ -11,7 +26,7 @@ export const Component = () => {
 	return (
 		<div className="p-4">
 			{activePeer ? (
-				<P2PInfo peer={activePeer} />
+				<P2PInfo peer={activePeer} resetActivePeer={() => setActivePeer(null)} />
 			) : (
 				<PeerSelector setActivePeer={setActivePeer} />
 			)}
@@ -41,7 +56,7 @@ function PeerSelector({ setActivePeer }: { setActivePeer: (peer: string) => void
 	);
 }
 
-function P2PInfo({ peer }: { peer: string }) {
+function P2PInfo({ peer, resetActivePeer }: { peer: string; resetActivePeer: () => void }) {
 	const platform = usePlatform();
 	const ref = useRef<AlphaClient<Procedures>>();
 	const [result, setResult] = useState('');
@@ -50,9 +65,8 @@ function P2PInfo({ peer }: { peer: string }) {
 		const endpoint = platform.getRemoteRspcEndpoint(peer);
 		ref.current = initRspc<Procedures>({
 			links: [
-				httpLink({
-					url: endpoint.url,
-					headers: endpoint.headers
+				wsBatchLink({
+					url: endpoint.url
 				})
 			]
 		});
@@ -63,8 +77,63 @@ function P2PInfo({ peer }: { peer: string }) {
 		ref.current.query(['nodeState']).then((data) => setResult(JSON.stringify(data, null, 2)));
 	}, [ref, result]);
 
+	const libraryCtx = useLibraryContext();
+	const cache = useNormalisedCache();
+	// const query = useLibraryQuery(
+	// 	[
+	// 		'search.ephemeralPaths',
+	// 		{
+	// 			// path: path ?? (os === 'windows' ? 'C:\\' : '/'),
+	// 			// withHiddenFiles: settingsSnapshot.showHiddenFiles,
+	// 			// order: settingsSnapshot.order
+	// 		}
+	// 	],
+	// 	{
+	// 		// enabled: path != null,
+	// 		// suspense: true,
+	// 		// onSuccess: () => explorerStore.resetNewThumbnails(),
+	// 		// onBatch: (item) => {
+	// 		// 	cache.withNodes(item.nodes);
+	// 		// }
+	// 	}
+	// );
+
+	// const entries = useMemo(() => {
+	// 	return cache.withCache(
+	// 		query.data?.flatMap((item) => item.entries) ||
+	// 			query.streaming.flatMap((item) => item.entries)
+	// 	);
+	// }, [cache, query.streaming, query.data]);
+
+	// const items = useMemo(() => {
+	// 	if (!entries) return [];
+
+	// 	const ret: ExplorerItem[] = [];
+
+	// 	for (const item of entries) {
+	// 		if (settingsSnapshot.layoutMode !== 'media') ret.push(item);
+	// 		else {
+	// 			const { kind } = getExplorerItemData(item);
+
+	// 			if (kind === 'Video' || kind === 'Image') ret.push(item);
+	// 		}
+	// 	}
+
+	// 	return ret;
+	// }, [entries, settingsSnapshot.layoutMode]);
+
+	// const explorer = useExplorer({
+	// 	items,
+	// 	parent: path != null ? { type: 'Ephemeral', path } : undefined,
+	// 	settings: explorerSettings,
+	// 	layouts: { media: false }
+	// });
+
+	// useKeyDeleteFile(explorer.selectedItems, null);
+
 	return (
 		<div className="flex flex-col">
+			<Button onClick={() => resetActivePeer()}>Disconnect</Button>
 			<h1>Connected with: {peer}</h1>
 
 			<Button
@@ -77,6 +146,25 @@ function P2PInfo({ peer }: { peer: string }) {
 				Refetch
 			</Button>
 			<pre>{result}</pre>
+			{/* <ExplorerContextProvider explorer={explorer}> */}
+			{/* <TopBarPortal
+					left={
+						<Tooltip label={t('add_location_tooltip')} className="w-max min-w-0 shrink">
+							<AddLocationButton path={path} />
+						</Tooltip>
+					}
+					right={<DefaultTopBarOptions />}
+				/>
+				<Explorer
+					emptyNotice={
+						<EmptyNotice
+							loading={query.isFetching}
+							icon={<Icon name="FolderNoSpace" size={128} />}
+							message={t('no_files_found_here')}
+						/>
+					}
+				/> */}
+			{/* </ExplorerContextProvider> */}
 		</div>
 	);
 }

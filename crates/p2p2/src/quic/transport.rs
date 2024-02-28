@@ -188,8 +188,6 @@ async fn start(
 		tokio::select! {
 			Ok(event) = rx.recv_async() => match event {
 				HookEvent::PeerExpiredBy(_, identity) => {
-					println!("CHECKING {:?}", identity); // TODO
-
 					let Some(peer) = p2p.peers.read().unwrap_or_else(PoisonError::into_inner).get(&identity).map(Clone::clone) else {
 						continue;
 					};
