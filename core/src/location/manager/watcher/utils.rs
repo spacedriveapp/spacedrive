@@ -839,7 +839,7 @@ pub(super) async fn rename(
 				})
 				.unzip();
 
-			sync.write_ops(&db, (sync_params, db_params)).await?;
+			sync.write_ops(db, (sync_params, db_params)).await?;
 
 			trace!("Updated {len} file_paths");
 		}
