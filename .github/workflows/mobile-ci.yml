@@ -35,18 +35,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Install Node.js
-        uses: actions/setup-node@v3
+      - name: Setup Node.js, pnpm and dependencies
+        uses: ./.github/actions/setup-pnpm
         with:
-          node-version: latest
-
-      - uses: pnpm/action-setup@v2
-        name: Install pnpm
-        with:
-          version: latest
-          run_install: true
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build mobile JS
         run: pnpm mobile export
@@ -57,7 +51,7 @@ jobs:
   #   runs-on: macos-12
   #   steps:
   #     - name: Checkout repository
-  #       uses: actions/checkout@v3
+  #       uses: actions/checkout@v4
   #
   #     - name: Setup Java JDK
   #       uses: actions/setup-java@v3.10.0
@@ -140,14 +134,14 @@ jobs:
   #         script: |
   #           adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
   #           adb wait-for-device
-  #           bash ./apps/mobile/scripts/run-maestro-tests android
+  #           ./apps/mobile/scripts/run-maestro-tests.sh android
 
   ios:
     name: iOS
     runs-on: macos-14
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -195,18 +189,24 @@ jobs:
         run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -configuration Release -sdk iphonesimulator -derivedDataPath build -arch "$(uname -m)"
 
       - name: Install Maestro
+        env:
+          # Workaround: https://github.com/mobile-dev-inc/maestro/issues/1585
+          MAESTRO_VERSION: '1.33.1'
         run: |
           curl -Ls "https://get.maestro.mobile.dev" | bash
           brew tap facebook/fb
           brew install facebook/fb/idb-companion
-          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+          echo "${HOME}/.maestro/bin" >> $GITHUB_PATH
 
       - name: Run Simulator
-        uses: futureware-tech/simulator-action@v2
+        uses: futureware-tech/simulator-action@v3
         with:
           model: 'iPhone SE (3rd generation)'
 
       - name: Run Tests
+        env:
+          # https://github.com/expo/expo/blob/339fa68/apps/bare-expo/scripts/start-ios-e2e-test.ts#L12
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 120000
         run: |
           xcrun simctl install booted apps/mobile/ios/build/Build/Products/Release-iphonesimulator/Spacedrive.app
-          bash ./apps/mobile/scripts/run-maestro-tests ios
+          ./apps/mobile/scripts/run-maestro-tests.sh ios
