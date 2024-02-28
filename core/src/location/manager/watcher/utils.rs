@@ -306,7 +306,7 @@ async fn inner_create_file(
 		db.file_path().update(
 			file_path::pub_id::equals(created_file.pub_id.clone()),
 			vec![file_path::object::connect(object::pub_id::equals(
-				object_pub_id,
+				object_pub_id.clone(),
 			))],
 		),
 	)
@@ -342,22 +342,30 @@ async fn inner_create_file(
 						.await
 						.map_err(|e| error!("Failed to extract media data: {e:#?}"))
 					{
-						if let Ok(media_data_params) = media_data_image_to_query_params(media_data)
-							.map_err(|e| {
-								error!("Failed to prepare media data create params: {e:#?}")
-							}) {
-							db.media_data()
-								.upsert(
+						let (sync_params, db_params) = media_data_image_to_query_params(media_data);
+
+						sync.write_ops(
+							db,
+							(
+								sync.shared_create(
+									prisma_sync::media_data::SyncId {
+										object: prisma_sync::object::SyncId {
+											pub_id: object_pub_id.clone(),
+										},
+									},
+									sync_params,
+								),
+								db.media_data().upsert(
 									media_data::object_id::equals(object_id),
 									media_data::create(
 										object::id::equals(object_id),
-										media_data_params.clone(),
+										db_params.clone(),
 									),
-									media_data_params,
-								)
-								.exec()
-								.await?;
-						}
+									db_params,
+								),
+							),
+						)
+						.await?;
 					}
 				}
 			}
@@ -682,22 +690,31 @@ async fn inner_update_file(
 							.await
 							.map_err(|e| error!("Failed to extract media data: {e:#?}"))
 						{
-							if let Ok(media_data_params) =
-								media_data_image_to_query_params(media_data).map_err(|e| {
-									error!("Failed to prepare media data create params: {e:#?}")
-								}) {
-								db.media_data()
-									.upsert(
+							let (sync_params, db_params) =
+								media_data_image_to_query_params(media_data);
+
+							sync.write_ops(
+								db,
+								(
+									sync.shared_create(
+										prisma_sync::media_data::SyncId {
+											object: prisma_sync::object::SyncId {
+												pub_id: object.pub_id.clone(),
+											},
+										},
+										sync_params,
+									),
+									db.media_data().upsert(
 										media_data::object_id::equals(object.id),
 										media_data::create(
 											object::id::equals(object.id),
-											media_data_params.clone(),
+											db_params.clone(),
 										),
-										media_data_params,
-									)
-									.exec()
-									.await?;
-							}
+										db_params,
+									),
+								),
+							)
+							.await?;
 						}
 					}
 				}

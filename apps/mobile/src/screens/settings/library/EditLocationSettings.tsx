@@ -109,7 +109,7 @@ const EditLocationSettingsScreen = ({
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 
 	return (
-		<ScreenContainer style={tw`px-7`}>
+		<ScreenContainer style={tw`px-6`}>
 			{/* Inputs */}
 			<View>
 				<SettingsTitle style={tw`mb-1`}>Display Name</SettingsTitle>

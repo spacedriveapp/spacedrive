@@ -10,7 +10,7 @@ import {
 	useOnlineLocations
 } from '@sd/client';
 import { Button, Card, dialogManager, Tooltip } from '@sd/ui';
-import { Folder } from '~/components';
+import { Folder, Icon } from '~/components';
 import { useLocale } from '~/hooks';
 
 import DeleteDialog from './DeleteDialog';
@@ -39,7 +39,7 @@ export default ({ location }: Props) => {
 				navigate(`${location.id}`);
 			}}
 		>
-			<Folder className="mr-3 h-10 w-10 self-center" />
+			<Icon size={24} name="Folder" className="mr-3 h-10 w-10 self-center"/>
 			<div className="grid min-w-[110px] grid-cols-1">
 				<h1 className="truncate pt-0.5 text-sm font-semibold">{location.name}</h1>
 

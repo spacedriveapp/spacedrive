@@ -1,8 +1,7 @@
-import { byteSize } from '.';
-import { type ObjectKindKey } from '..';
-import { getItemObject, getItemFilePath, getItemLocation } from '../utils/index';
 import type { ExplorerItem } from '../core';
-import { ObjectKind } from './objectKind';
+import { getItemFilePath, getItemLocation, getItemObject } from '../utils';
+import { byteSize } from './byte-size';
+import { ObjectKind, ObjectKindKey } from './objectKind';
 
 // ItemData is a single data structure understood by the Explorer, we map all ExplorerItems to this structure in this file
 // we use `null` instead of `?` optional values intentionally

@@ -25,7 +25,7 @@ jobs:
           remove-docker-images: 'true'
 
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Update buildah
         shell: bash
@@ -54,7 +54,8 @@ jobs:
 
       - name: Build image
         id: build-image
-        uses: redhat-actions/buildah-build@v2
+        # TODO: Change to stable version when available
+        uses: redhat-actions/buildah-build@c79846f
         with:
           tags: ${{ steps.image_info.outputs.tag }} ${{ github.event_name == 'release' && 'latest' || 'staging' }}
           archs: amd64
@@ -68,7 +69,9 @@ jobs:
             ./apps/server/docker/Dockerfile
 
       - name: Push image to ghcr.io
-        uses: redhat-actions/push-to-registry@v2
+        # TODO: Restore redhat-actions/push-to-registry after PR is merged:
+        # https://github.com/redhat-actions/push-to-registry/pull/93
+        uses: Eusebiotrigo/push-to-registry@5acfa47
         with:
           tags: ${{ steps.build-image.outputs.tags }}
           image: ${{ steps.build-image.outputs.image }}

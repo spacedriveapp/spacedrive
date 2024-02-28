@@ -3,11 +3,14 @@ use crate::{
 	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 
-use sd_p2p::spacetunnel::{Identity, IdentityOrRemoteIdentity};
+use sd_p2p2::{Identity, IdentityOrRemoteIdentity};
 use sd_prisma::prisma::{file_path, indexer_rule, instance, location, node, PrismaClient};
 use sd_utils::{db::maybe_missing, error::FileIOError};
 
-use std::path::Path;
+use std::{
+	path::Path,
+	sync::{atomic::AtomicBool, Arc},
+};
 
 use chrono::Utc;
 use int_enum::IntEnum;
@@ -36,6 +39,10 @@ pub struct LibraryConfig {
 	/// If this is set we can assume the library is synced with the Cloud.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub cloud_id: Option<String>,
+	// false = library is old and sync hasn't been enabled
+	// true = sync is enabled as either the library is new or it has been manually toggled on
+	#[serde(default)]
+	pub generate_sync_operations: Arc<AtomicBool>,
 	version: LibraryConfigVersion,
 }
 
@@ -86,6 +93,8 @@ impl LibraryConfig {
 			instance_id,
 			version: Self::LATEST_VERSION,
 			cloud_id: None,
+			// will always be `true` eventually
+			generate_sync_operations: Arc::new(AtomicBool::new(false)),
 		};
 
 		this.save(path).await.map(|()| this)
@@ -163,12 +172,7 @@ impl LibraryConfig {
 						db.node()
 							.update_many(
 								vec![],
-								vec![
-									node::pub_id::set(node_config.id.as_bytes().to_vec()),
-									node::node_peer_id::set(Some(
-										node_config.keypair.peer_id().to_string(),
-									)),
-								],
+								vec![node::pub_id::set(node_config.id.as_bytes().to_vec())],
 							)
 							.exec()
 							.await?;

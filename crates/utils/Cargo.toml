@@ -9,6 +9,6 @@ edition = "2021"
 sd-prisma = { path = "../prisma" }
 
 prisma-client-rust = { workspace = true }
-rspc = { workspace = true }
+rspc = { workspace = true, features = ["unstable"] }
 thiserror = { workspace = true }
 uuid = { workspace = true }

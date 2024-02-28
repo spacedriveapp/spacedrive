@@ -3,7 +3,7 @@ name = "sd-core"
 version = "0.2.4"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc."]
-rust-version = "1.73.0"
+rust-version = "1.75.0"
 license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
@@ -37,7 +37,10 @@ sd-images = { path = "../crates/images", features = [
 	"specta",
 ] }
 sd-media-metadata = { path = "../crates/media-metadata" }
-sd-p2p = { path = "../crates/p2p", features = ["specta", "serde"] }
+sd-p2p2 = { path = "../crates/p2p2", features = ["specta"] }
+sd-p2p-block = { path = "../crates/p2p-block" }
+sd-p2p-proto = { path = "../crates/p2p-proto" }
+sd-p2p-tunnel = { path = "../crates/p2p-tunnel" }
 sd-prisma = { path = "../crates/prisma" }
 sd-ai = { path = "../crates/ai", optional = true }
 sd-sync = { path = "../crates/sync" }
@@ -46,6 +49,7 @@ sd-cloud-api = { version = "0.1.0", path = "../crates/cloud-api" }
 
 # Workspace dependencies
 async-channel = { workspace = true }
+async-trait = { workspace = true }
 axum = { workspace = true }
 base64 = { workspace = true }
 blake3 = { workspace = true }
@@ -61,6 +65,7 @@ regex = { workspace = true }
 reqwest = { workspace = true, features = ["json", "native-tls-vendored"] }
 rmp-serde = { workspace = true }
 rspc = { workspace = true, features = [
+	"axum",
 	"uuid",
 	"chrono",
 	"tracing",
@@ -94,7 +99,6 @@ webp = { workspace = true }
 # Specific Core dependencies
 async-recursion = "1.0.5"
 async-stream = "0.3.5"
-async-trait = "^0.1.74"
 bytes = "1.5.0"
 ctor = "0.2.5"
 directories = "5.0.1"
@@ -122,6 +126,8 @@ aws-config = "1.0.3"
 aws-credential-types = "1.0.3"
 base91 = "0.1.0"
 sd-actors = { version = "0.1.0", path = "../crates/actors" }
+tower-service = "0.3.2"
+hyper = { version = "=0.14.28", features = ["http1", "server", "client"] }
 
 # Override features of transitive dependencies
 [dependencies.openssl]

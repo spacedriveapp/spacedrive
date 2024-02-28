@@ -2,7 +2,7 @@ import { createMemoryHistory } from '@remix-run/router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { listen } from '@tauri-apps/api/event';
 import { appWindow } from '@tauri-apps/api/window';
-import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
+import { PropsWithChildren, startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CacheProvider, createCache, RspcProvider } from '@sd/client';
 import {
@@ -18,10 +18,13 @@ import { RouteTitleContext } from '@sd/interface/hooks/useRouteTitle';
 
 import '@sd/ui/style/style.scss';
 
+import { useLocale } from '@sd/interface/hooks';
+
 import { commands, events } from './commands';
 import { platform } from './platform';
 import { queryClient } from './query';
 import { createMemoryRouterWithHistory } from './router';
+import { createUpdater } from './updater';
 
 // TODO: Bring this back once upstream is fixed up.
 // const client = hooks.createClient({
@@ -53,20 +56,18 @@ export default function App() {
 
 	return (
 		<RspcProvider queryClient={queryClient}>
-			<PlatformProvider platform={platform}>
-				<QueryClientProvider client={queryClient}>
-					<CacheProvider cache={cache}>
-						{startupError ? (
-							<ErrorPage
-								message={startupError}
-								submessage="Error occurred starting up the Spacedrive core"
-							/>
-						) : (
-							<AppInner />
-						)}
-					</CacheProvider>
-				</QueryClientProvider>
-			</PlatformProvider>
+			<QueryClientProvider client={queryClient}>
+				<CacheProvider cache={cache}>
+					{startupError ? (
+						<ErrorPage
+							message={startupError}
+							submessage="Error occurred starting up the Spacedrive core"
+						/>
+					) : (
+						<AppInner />
+					)}
+				</CacheProvider>
+			</QueryClientProvider>
 		</RspcProvider>
 	);
 }
@@ -203,25 +204,45 @@ function AppInner() {
 				}}
 			>
 				<SpacedriveInterfaceRoot>
-					{tabs.map((tab, index) =>
-						createPortal(
-							<SpacedriveRouterProvider
-								key={tab.id}
-								routing={{
-									routes,
-									visible: selectedTabIndex === tabs.indexOf(tab),
-									router: tab.router,
-									currentIndex: tab.currentIndex,
-									tabId: tab.id,
-									maxIndex: tab.maxIndex
-								}}
-							/>,
-							tab.element
-						)
-					)}
-					<div ref={ref} />
+					<PlatformUpdaterProvider>
+						{tabs.map((tab, index) =>
+							createPortal(
+								<SpacedriveRouterProvider
+									key={tab.id}
+									routing={{
+										routes,
+										visible: selectedTabIndex === tabs.indexOf(tab),
+										router: tab.router,
+										currentIndex: tab.currentIndex,
+										tabId: tab.id,
+										maxIndex: tab.maxIndex
+									}}
+								/>,
+								tab.element
+							)
+						)}
+						<div ref={ref} />
+					</PlatformUpdaterProvider>
 				</SpacedriveInterfaceRoot>
 			</TabsContext.Provider>
 		</RouteTitleContext.Provider>
+	);
+}
+
+function PlatformUpdaterProvider(props: PropsWithChildren) {
+	const { t } = useLocale();
+
+	return (
+		<PlatformProvider
+			platform={useMemo(
+				() => ({
+					...platform,
+					updater: window.__SD_UPDATER__ ? createUpdater(t) : undefined
+				}),
+				[]
+			)}
+		>
+			{props.children}
+		</PlatformProvider>
 	);
 }

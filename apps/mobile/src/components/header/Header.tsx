@@ -2,7 +2,8 @@ import { useNavigation } from '@react-navigation/native';
 import { StackHeaderProps } from '@react-navigation/stack';
 import { ArrowLeft, DotsThreeOutline, MagnifyingGlass } from 'phosphor-react-native';
 import { lazy } from 'react';
-import { Platform, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getExplorerStore, useExplorerStore } from '~/stores/explorerStore';
 
@@ -43,17 +44,18 @@ export default function Header({
 	const navigation = useNavigation();
 	const explorerStore = useExplorerStore();
 	const routeParams = route?.route.params as any;
+	const headerHeight = useSafeAreaInsets().top;
 
 	return (
 		<View
 			style={twStyle(
 				'relative h-auto w-full border-b border-app-line/50 bg-mobile-header',
-				Platform.OS === 'android' ? 'pt-5' : 'pt-10'
+				{ paddingTop: headerHeight }
 			)}
 		>
-			<View style={tw`mx-auto mt-5 h-auto w-full justify-center px-7 pb-5`}>
+			<View style={tw`mx-auto h-auto w-full justify-center px-5 pb-4`}>
 				<View style={tw`w-full flex-row items-center justify-between`}>
-					<View style={tw`flex-row items-center gap-5`}>
+					<View style={tw`flex-row items-center gap-3`}>
 						{navBack && (
 							<Pressable
 								onPress={() => {
@@ -67,7 +69,7 @@ export default function Header({
 							<HeaderIconKind headerKind={headerKind} routeParams={routeParams} />
 							<Text
 								numberOfLines={1}
-								style={tw`max-w-[190px] text-[22px] font-bold text-white`}
+								style={tw`max-w-[200px] text-xl font-bold text-white`}
 							>
 								{title || (routeTitle && route?.options.title)}
 							</Text>
@@ -128,11 +130,11 @@ interface HeaderIconKindProps {
 const HeaderIconKind = ({ headerKind, routeParams }: HeaderIconKindProps) => {
 	switch (headerKind) {
 		case 'location':
-			return <Icon size={32} name="Folder" />;
+			return <Icon size={30} name="Folder" />;
 		case 'tag':
 			return (
 				<View
-					style={twStyle('h-6 w-6 rounded-full', {
+					style={twStyle('h-[30px] w-[30px] rounded-full', {
 						backgroundColor: routeParams.color
 					})}
 				/>

@@ -9,7 +9,7 @@ use crate::{
 use futures::StreamExt;
 use sd_cache::{Model, Normalise, NormalisedResult, NormalisedResults};
 use sd_file_ext::kind::ObjectKind;
-use sd_p2p::spacetunnel::RemoteIdentity;
+use sd_p2p2::RemoteIdentity;
 use sd_prisma::prisma::{indexer_rule, object, statistics};
 use tokio_stream::wrappers::IntervalStream;
 
@@ -338,7 +338,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				 }: EditLibraryArgs| async move {
 					Ok(node
 						.libraries
-						.edit(id, name, description, MaybeUndefined::Undefined)
+						.edit(id, name, description, MaybeUndefined::Undefined, None)
 						.await?)
 				},
 			)
