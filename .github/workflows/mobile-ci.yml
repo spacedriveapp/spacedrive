@@ -134,7 +134,7 @@ jobs:
   #         script: |
   #           adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
   #           adb wait-for-device
-  #           bash ./apps/mobile/scripts/run-maestro-tests android
+  #           bash ./apps/mobile/scripts/run-maestro-tests.sh android
 
   ios:
     name: iOS
@@ -205,8 +205,8 @@ jobs:
 
       - name: Run Tests
         env:
-          # https://maestro.mobile.dev/advanced/configuring-maestro-driver-timeout
-          MAESTRO_DRIVER_STARTUP_TIMEOUT: 60000
+          # https://github.com/expo/expo/blob/339fa68/apps/bare-expo/scripts/start-ios-e2e-test.ts#L12
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 120000
         run: |
           xcrun simctl install booted apps/mobile/ios/build/Build/Products/Release-iphonesimulator/Spacedrive.app
-          bash ./apps/mobile/scripts/run-maestro-tests ios
+          bash ./apps/mobile/scripts/run-maestro-tests.sh ios
