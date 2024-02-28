@@ -45,8 +45,8 @@ export default ({ tag, onDelete }: Props) => {
 
 	return (
 		<Form form={form}>
-			<div className="flex justify-between">
-				<div className="mb-10 flex flex-row space-x-3">
+			<div className="mb-10 flex items-end justify-between ">
+				<div className="flex flex-row space-x-3">
 					<InputField
 						label={t('color')}
 						maxLength={7}
@@ -59,7 +59,7 @@ export default ({ tag, onDelete }: Props) => {
 				</div>
 				<Button
 					variant="gray"
-					className="mt-[22px] h-[38px]"
+					className="flex size-[30px] items-center justify-center"
 					onClick={() =>
 						dialogManager.create((dp) => (
 							<DeleteDialog {...dp} tagId={tag.id} onSuccess={onDelete} />
