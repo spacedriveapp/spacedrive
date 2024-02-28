@@ -5,6 +5,7 @@ import { memo, useEffect, useRef, useState } from 'react';
 import { languageMapping } from './prism';
 
 const prismaLazy = import('./prism-lazy');
+prismaLazy.catch((e) => console.error('Failed to load prism-lazy', e));
 
 export interface TextViewerProps {
 	src: string;
@@ -104,29 +105,28 @@ function TextRow({
 	const contentRef = useRef<HTMLSpanElement>(null);
 
 	useEffect(() => {
-		if (contentRef.current) {
-			const cb: IntersectionObserverCallback = async (events) => {
+		const ref = contentRef.current;
+		if (ref == null) return;
+
+		prismaLazy.then(({ highlightElement }) => {
+			new IntersectionObserver((events) => {
 				for (const event of events) {
-					if (
-						!event.isIntersecting ||
-						contentRef.current?.getAttribute('data-highlighted') === 'true'
-					)
+					if (!event.isIntersecting || ref.getAttribute('data-highlighted') === 'true')
 						continue;
-					contentRef.current?.setAttribute('data-highlighted', 'true');
-					(await prismaLazy).highlightElement(event.target, false); // Prism's async seems to be broken
+
+					ref.setAttribute('data-highlighted', 'true');
+					highlightElement(event.target, false); // Prism's async seems to be broken
 
 					// With this class present TOML headers are broken Eg. `[dependencies]` will format over multiple lines
-					const children = contentRef.current?.children;
+					const children = ref.children;
 					if (children) {
 						for (const elem of children) {
 							elem.classList.remove('table');
 						}
 					}
 				}
-			};
-
-			new IntersectionObserver(cb).observe(contentRef.current);
-		}
+			}).observe(ref);
+		});
 	}, []);
 
 	return (
