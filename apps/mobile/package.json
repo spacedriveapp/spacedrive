@@ -12,7 +12,7 @@
 		"xcode": "open ios/Spacedrive.xcworkspace",
 		"android-studio": "open -a '/Applications/Android Studio.app' ./android",
 		"lint": "eslint src --cache",
-		"test": "cd ../.. && ./apps/mobile/scripts/run-maestro-tests ios",
+		"test": "./apps/mobile/scripts/run-maestro-tests.sh ios",
 		"export": "expo export",
 		"typecheck": "tsc -b",
 		"format": "prettier --write ."
@@ -73,13 +73,13 @@
 		"zod": "~3.22.4"
 	},
 	"devDependencies": {
-		"@babel/core": "^7.23.2",
-		"@rnx-kit/metro-config": "^1.3.12",
+		"@babel/core": "^7.23.9",
+		"@rnx-kit/metro-config": "^1.3.14",
 		"@sd/config": "workspace:*",
-		"@types/react": "^18.2.52",
+		"@types/react": "^18.2.60",
 		"babel-plugin-module-resolver": "^5.0.0",
 		"eslint-plugin-react-native": "^4.1.0",
-		"react-native-svg-transformer": "^1.1.0",
+		"react-native-svg-transformer": "^1.3.0",
 		"typescript": "^5.3.3"
 	}
 }
