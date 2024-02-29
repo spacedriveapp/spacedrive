@@ -80,19 +80,6 @@ macro_rules! err_break {
 }
 pub(crate) use err_break;
 
-macro_rules! err_return {
-	($e:expr) => {
-		match $e {
-			Ok(d) => d,
-			Err(e) => {
-				tracing::error!("{e}");
-				return;
-			}
-		}
-	};
-}
-pub(crate) use err_return;
-
 pub type CompressedCRDTOperationsForModel = Vec<(Value, Vec<CompressedCRDTOperation>)>;
 
 #[derive(Serialize, Deserialize)]
