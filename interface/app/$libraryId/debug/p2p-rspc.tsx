@@ -14,9 +14,6 @@ export const Component = () => {
 function PeerSelector() {
 	const peers = useDiscoveredPeers();
 	const navigate = useNavigate();
-	const result = useLibraryQuery(['locations.list']);
-	useNodes(result.data?.nodes);
-	const locations = useCache(result.data?.items);
 
 	return (
 		<>
@@ -35,17 +32,6 @@ function PeerSelector() {
 					))}
 				</ul>
 			)}
-
-			<h1>Local:</h1>
-			{locations?.map((l) => (
-				<Button
-					key={l.id}
-					variant="accent"
-					onClick={() => navigate(`/local/${l.id}/browse`)}
-				>
-					{l.name}
-				</Button>
-			))}
 		</>
 	);
 }
