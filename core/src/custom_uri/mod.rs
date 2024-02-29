@@ -11,7 +11,6 @@ use hyper::{header, upgrade::OnUpgrade};
 use sd_file_ext::text::is_text;
 use sd_file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData};
 use sd_p2p2::{IdentityOrRemoteIdentity, RemoteIdentity};
-use sd_p2p_block::Range;
 use sd_prisma::prisma::{file_path, location};
 use sd_utils::db::maybe_missing;
 
@@ -22,12 +21,11 @@ use std::{
 	fs::Metadata,
 	path::{Path, PathBuf},
 	str::FromStr,
-	sync::{atomic::Ordering, Arc},
+	sync::Arc,
 };
 
-use async_stream::stream;
 use axum::{
-	body::{self, Body, BoxBody, Full, StreamBody},
+	body::{self, Body, BoxBody, Full},
 	extract::{self, State},
 	http::{HeaderMap, HeaderValue, Request, Response, StatusCode},
 	middleware,
@@ -35,17 +33,15 @@ use axum::{
 	routing::get,
 	Router,
 };
-use bytes::Bytes;
 use mini_moka::sync::Cache;
 use tokio::{
 	fs::{self, File},
 	io::{self, copy_bidirectional, AsyncReadExt, AsyncSeekExt, SeekFrom},
 };
-use tokio_util::sync::PollSender;
 use tracing::{error, warn};
 use uuid::Uuid;
 
-use self::{mpsc_to_async_write::MpscToAsyncWrite, serve_file::serve_file, utils::*};
+use self::{serve_file::serve_file, utils::*};
 
 mod async_read_body;
 mod mpsc_to_async_write;
@@ -236,49 +232,8 @@ pub fn base_router() -> Router<LocalState> {
 
 							serve_file(file, Ok(metadata), request.into_parts().0, resp).await
 						}
-						ServeFrom::Remote(identity) => {
-							if !state.node.files_over_p2p_flag.load(Ordering::Relaxed) {
-								return Ok(not_found(()));
-							}
-
-							// TODO: Support `Range` requests and `ETag` headers
-							let stream = state
-								.node
-								.p2p
-								.get_instance(&library.id, identity)
-								.ok_or_else(|| {
-									not_found(format!("Error connecting to {identity}: no connection method available"))
-								})?
-								.new_stream()
-								.await
-								.map_err(|err| {
-									not_found(format!("Error connecting to {identity}: {err:?}"))
-								})?;
-
-							let (tx, mut rx) = tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
-							// TODO: We only start a thread because of stupid `ManagerStreamAction2` and libp2p's `!Send/!Sync` bounds on a stream.
-							tokio::spawn(async move {
-								let Ok(()) = operations::request_file(
-									stream,
-									&library,
-									file_path_pub_id,
-									Range::Full,
-									MpscToAsyncWrite::new(PollSender::new(tx)),
-								)
-								.await
-								else {
-									return;
-								};
-							});
-
-							// TODO: Content Type
-							Ok(InfallibleResponse::builder().status(StatusCode::OK).body(
-								body::boxed(StreamBody::new(stream! {
-									while let Some(item) = rx.recv().await {
-										yield item;
-									}
-								})),
-							))
+						ServeFrom::Remote(_identity) => {
+							return Err(not_implemented("Can't serve file from remote node")); // TODO: Reimplement this
 						}
 					}
 				},
