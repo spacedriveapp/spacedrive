@@ -366,7 +366,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub location_id: location::id::Type,
 				pub reidentify_objects: bool,
 			}
-
 			R.with2(library()).mutation(
 				|(node, library),
 				 FullRescanArgs {
