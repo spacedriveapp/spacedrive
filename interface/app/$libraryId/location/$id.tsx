@@ -178,18 +178,15 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 	);
 };
 
-function LocationOfflineInfo() {
+function LocationOfflineInfo({ location }: { location: Location }) {
 	const onlineLocations = useOnlineLocations();
 
-	const locationOnline = useMemo(() => {
-		const pub_id = location.pub_id;
-		if (!pub_id) return false;
-		return onlineLocations.some((l) => arraysEqual(pub_id, l));
-	}, [location.pub_id, onlineLocations]);
+	const locationOnline = useMemo(
+		() => onlineLocations.some((l) => arraysEqual(location.pub_id, l)),
+		[location.pub_id, onlineLocations]
+	);
 
 	const { t } = useLocale();
-
-	console.log('info rerender');
 
 	return (
 		<>
