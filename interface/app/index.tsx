@@ -145,7 +145,7 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 									<ClientContextProvider currentLibraryId={params.libraryId}>
 										<LibraryContextProvider library={library}>
 											<div className="w-full bg-orange-500 text-center text-white">
-												YOUR ON A REMOTE NODE
+												YOUR ON A REMOTE NODE <Link to="/">Go Back</Link>
 											</div>
 											<Outlet />
 										</LibraryContextProvider>
