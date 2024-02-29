@@ -18,6 +18,7 @@ import { tw } from '~/lib/tailwind';
 import { AnimatedHeight } from '../animation/layout';
 import { ProgressBar } from '../animation/ProgressBar';
 import { Button } from '../primitive/Button';
+import { toast } from '../primitive/Toast';
 import Job from './Job';
 import JobContainer from './JobContainer';
 
@@ -142,27 +143,57 @@ export default function ({ group, progress }: JobGroupProps) {
 	);
 }
 
+const toastErrorSuccess = (
+	errorMessage?: string,
+	successMessage?: string,
+	successCallBack?: () => void
+) => {
+	return {
+		onError: () => {
+			errorMessage &&
+				toast({
+					type: 'error',
+					text: errorMessage
+				});
+		},
+		onSuccess: () => {
+			successMessage &&
+				toast({
+					type: 'success',
+					text: successMessage
+				}),
+				successCallBack?.();
+		}
+	};
+};
+
 function Options({ activeJob, group }: { activeJob?: JobReport; group: JobGroup }) {
-	const resumeJob = useLibraryMutation(['jobs.resume'], {
-		onError: () => {
-			// TODO: Toasts
-		}
-	});
-	const pauseJob = useLibraryMutation(['jobs.pause'], {
-		onError: () => {
-			// TODO: Toasts
-		}
-	});
-	const cancelJob = useLibraryMutation(['jobs.cancel'], {
-		onError: () => {
-			// TODO: Toasts
-		}
-	});
+	// const queryClient = useQueryClient();
+
+	const resumeJob = useLibraryMutation(
+		['jobs.resume'],
+		toastErrorSuccess('failed to resume job', 'job has been resumed')
+	);
+	const pauseJob = useLibraryMutation(
+		['jobs.pause'],
+		toastErrorSuccess('failed to pause job', 'job has been paused')
+	);
+	const cancelJob = useLibraryMutation(
+		['jobs.cancel'],
+		toastErrorSuccess('failed to cancel job', 'job has been canceled')
+	);
 
 	const isJobPaused = useMemo(
 		() => group.jobs.some((job) => job.status === 'Paused'),
 		[group.jobs]
 	);
+
+	// const clearJob = useLibraryMutation(
+	// 	['jobs.clear'],
+	// 	toastErrorSuccess('failed_to_remove_job', undefined, () => {
+	// 		queryClient.invalidateQueries(['jobs.reports']);
+	// 	})
+	// );
 
 	return (
 		<>

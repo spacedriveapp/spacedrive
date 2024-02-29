@@ -25,7 +25,10 @@ export const useCachedLibraries = () => {
 
 			return undefined;
 		},
-		onSuccess: (data) => localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(data))
+		onSuccess: (data) => {
+			if (data.items.length > 0 || data.nodes.length > 0)
+				localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(data));
+		}
 	});
 	useNodes(result.data?.nodes);
 
@@ -53,7 +56,8 @@ export async function getCachedLibraries(cache: NormalisedCache) {
 	cache.withNodes(result.nodes);
 	const libraries = cache.withCache(result.items);
 
-	localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(result));
+	if (result.items.length > 0 || result.nodes.length > 0)
+		localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(result));
 
 	return libraries;
 }
