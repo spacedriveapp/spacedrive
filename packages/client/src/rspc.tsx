@@ -1,7 +1,11 @@
-import { ProcedureDef } from '@oscartbeaumont-sd/rspc-client';
+import {
+	inferMutationInput,
+	inferMutationResult,
+	ProcedureDef
+} from '@oscartbeaumont-sd/rspc-client';
 import { AlphaRSPCError, initRspc } from '@oscartbeaumont-sd/rspc-client/v2';
-import { Context, createReactQueryHooks } from '@oscartbeaumont-sd/rspc-react/v2';
-import { QueryClient } from '@tanstack/react-query';
+import { BaseOptions, Context, createReactQueryHooks } from '@oscartbeaumont-sd/rspc-react/v2';
+import { QueryClient, useMutation, UseMutationOptions, useQuery } from '@tanstack/react-query';
 import { createContext, PropsWithChildren, useContext } from 'react';
 import { match, P } from 'ts-pattern';
 
@@ -94,6 +98,73 @@ export const useBridgeSubscription = nonLibraryHooks.useSubscription;
 export const useLibraryQuery = libraryHooks.useQuery;
 export const useLibraryMutation = libraryHooks.useMutation;
 export const useLibrarySubscription = libraryHooks.useSubscription;
+
+// useMutation: <K extends LibraryProceduresDef['mutations']['key'] & string, TContext = unknown>(
+// 	key: K_1 | [K_1],
+// 	opts?:
+// 		| (UseMutationOptions<
+// 				inferMutationResult<P, K_1>,
+// 				AlphaRSPCError,
+// 				inferMutationInput<P, K_1> extends never ? undefined : inferMutationInput<P, K_1>,
+// 				TContext
+// 		  > &
+// 				BaseOptions<P>)
+// 		| undefined
+// ) =>
+// 	UseMutationResult<
+// 		inferMutationResult<P, K_1>,
+// 		AlphaRSPCError,
+// 		inferMutationInput<P, K_1> extends never ? undefined : inferMutationInput<P, K_1>,
+// 		TContext
+// 	>;
+
+// export function useLibraryQuery<
+// 	K extends LibraryProceduresDef['mutations']['key'] & string,
+// 	TContext = unknown
+// >(
+// 	key: K,
+// 	opts?:
+// 		| (UseMutationOptions<
+// 				inferMutationResult<LibraryProceduresDef, K>,
+// 				AlphaRSPCError,
+// 				inferMutationInput<LibraryProceduresDef, K> extends never
+// 					? undefined
+// 					: inferMutationInput<LibraryProceduresDef, K>,
+// 				TContext
+// 		  > &
+// 				BaseOptions<LibraryProceduresDef>)
+// 		| undefined
+// ) {
+// 	return useQuery({
+// 		queryKey: ['abc'],
+// 		mutationFn: () => {},
+// 		...opts
+// 	});
+// }
+
+// export function useLibraryMutation<
+// 	K extends LibraryProceduresDef['mutations']['key'] & string,
+// 	TContext = unknown
+// >(
+// 	key: K,
+// 	opts?:
+// 		| (UseMutationOptions<
+// 				inferMutationResult<LibraryProceduresDef, K>,
+// 				AlphaRSPCError,
+// 				inferMutationInput<LibraryProceduresDef, K> extends never
+// 					? undefined
+// 					: inferMutationInput<LibraryProceduresDef, K>,
+// 				TContext
+// 		  > &
+// 				BaseOptions<LibraryProceduresDef>)
+// 		| undefined
+// ) {
+// 	return useMutation({
+// 		queryKey: ['abc'],
+// 		mutationFn: () => {},
+// 		...opts
+// 	});
+// }
 
 export function useInvalidateQuery() {
 	const context = nonLibraryHooks.useContext();
