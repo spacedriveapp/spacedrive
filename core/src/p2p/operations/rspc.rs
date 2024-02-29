@@ -43,6 +43,12 @@ pub(crate) async fn receiver(
 		stream.remote_identity(),
 	);
 
+	// TODO: Authentication
+	#[allow(clippy::todo)]
+	if true {
+		todo!("You wouldn't download a car!");
+	}
+
 	Http::new()
 		.http1_only(true)
 		.http1_keep_alive(true)

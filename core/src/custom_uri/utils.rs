@@ -61,6 +61,8 @@ pub(crate) async fn cors_middleware<B>(req: Request<B>, next: Next<B>) -> Respon
 			.expect("Invalid static response!");
 	}
 
+	let is_upgrade_request = req.headers().get("Upgrade").is_some();
+
 	let mut response = next.run(req).await;
 
 	{
@@ -73,8 +75,11 @@ pub(crate) async fn cors_middleware<B>(req: Request<B>, next: Next<B>) -> Respon
 			HeaderValue::from_static("*"),
 		);
 
-		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Connection
-		headers.insert("Connection", HeaderValue::from_static("Keep-Alive"));
+		// With websocket requests, setting this causes the browser to loose it's shit.
+		if !is_upgrade_request {
+			// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Connection
+			headers.insert("Connection", HeaderValue::from_static("Keep-Alive"));
+		}
 
 		headers.insert("Server", HeaderValue::from_static("Spacedrive"));
 	}

@@ -166,13 +166,21 @@ impl Node {
 		jobs_actor.start(node.clone());
 		start_p2p(
 			node.clone(),
-			router
-				.clone()
-				.endpoint({
-					let node = node.clone();
-					move |_| node.clone()
-				})
-				.axum::<()>()
+			axum::Router::new()
+				.nest(
+					"/uri",
+					custom_uri::base_router().with_state(custom_uri::with_state(node.clone())),
+				)
+				.nest(
+					"/rspc",
+					router
+						.clone()
+						.endpoint({
+							let node = node.clone();
+							move |_| node.clone()
+						})
+						.axum::<()>(),
+				)
 				.into_make_service(),
 		);
 
