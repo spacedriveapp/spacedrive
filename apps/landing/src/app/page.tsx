@@ -39,8 +39,8 @@ export default async function Page() {
 				<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 				<div className="mt-24 lg:mt-8" />
 				<NewBanner
-					headline="Alpha release is finally here!"
-					href="/blog/october-alpha-release"
+					headline="Alpha 0.2 is here!"
+					href="/blog/drag-and-drop"
 					link="Read post"
 					className="mt-[50px] lg:mt-0"
 				/>
