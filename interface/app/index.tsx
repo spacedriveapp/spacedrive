@@ -27,8 +27,9 @@ import {
 	useCachedLibraries,
 	useFeatureFlag,
 	useNodes,
-	useRspcContext,
-	WithSolid
+	WithSolid,
+	type LibraryProceduresDef,
+	type NonLibraryProceduresDef
 } from '@sd/client';
 import { Button, Dialogs, Toaster, z } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
@@ -194,7 +195,12 @@ function RemoteLayout() {
 	// TODO: The caches should instead be prefixed by the remote node ID, instead of completely being recreated but that's too hard to do right now.
 	const [rspcClient, setRspcClient] =
 		useState<
-			[AlphaClient<Procedures>, AlphaClient<Procedures>, QueryClient, NormalisedCache]
+			[
+				AlphaClient<NonLibraryProceduresDef>,
+				AlphaClient<LibraryProceduresDef>,
+				QueryClient,
+				NormalisedCache
+			]
 		>();
 	useEffect(() => {
 		const endpoint = platform.getRemoteRspcEndpoint(params.node);
@@ -207,9 +213,16 @@ function RemoteLayout() {
 
 		const client = initRspc<Procedures>({
 			links
-		});
+		}).dangerouslyHookIntoInternals<NonLibraryProceduresDef>();
 		const libraryClient = initRspc<Procedures>({
 			links
+		}).dangerouslyHookIntoInternals<LibraryProceduresDef>({
+			mapQueryKey: (keyAndInput) => {
+				const libraryId = currentLibraryCache.id;
+				if (libraryId === null)
+					throw new Error('Attempted to do library operation with no library set!');
+				return [keyAndInput[0], { library_id: libraryId, arg: keyAndInput[1] ?? null }];
+			}
 		});
 		const cache = createCache();
 		setRspcClient([client, libraryClient, new QueryClient(), cache]);
