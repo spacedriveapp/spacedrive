@@ -60,7 +60,7 @@ const NOTICE_ITEMS: { icon: keyof typeof iconNames; name: string }[] = [
 	}
 ];
 
-export const EphemeralNotice = ({ path }: { path: string }) => {
+const EphemeralNotice = ({ path }: { path: string }) => {
 	const { t } = useLocale();
 
 	const isDark = useIsDark();
@@ -159,7 +159,7 @@ export const EphemeralNotice = ({ path }: { path: string }) => {
 	);
 };
 
-export const EphemeralExplorer = memo((props: { args: PathParams }) => {
+const EphemeralExplorer = memo((props: { args: PathParams }) => {
 	const { path } = props.args;
 
 	const os = useOperatingSystem();
