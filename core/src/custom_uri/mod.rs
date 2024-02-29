@@ -192,11 +192,11 @@ pub fn base_router() -> Router<LocalState> {
 						CacheValue {
 							name: file_path_full_path,
 							ext: extension,
-							file_path_pub_id,
+							file_path_pub_id: _file_path_pub_id,
 							serve_from,
 							..
 						},
-						library,
+						_library,
 					) = get_or_init_lru_entry(&state, path).await?;
 
 					match serve_from {
@@ -233,7 +233,7 @@ pub fn base_router() -> Router<LocalState> {
 							serve_file(file, Ok(metadata), request.into_parts().0, resp).await
 						}
 						ServeFrom::Remote(_identity) => {
-							return Err(not_implemented("Can't serve file from remote node")); // TODO: Reimplement this
+							Err(not_implemented("Can't serve file from remote node")) // TODO: Reimplement this
 						}
 					}
 				},
