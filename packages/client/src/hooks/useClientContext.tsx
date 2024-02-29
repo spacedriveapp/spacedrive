@@ -1,7 +1,8 @@
+import { AlphaClient } from '@oscartbeaumont-sd/rspc-client/v2';
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo } from 'react';
 
 import { NormalisedCache, useCache, useNodes } from '../cache';
-import { LibraryConfigWrapped } from '../core';
+import { LibraryConfigWrapped, Procedures } from '../core';
 import { valtioPersist } from '../lib';
 import { nonLibraryClient, useBridgeQuery } from '../rspc';
 
@@ -38,7 +39,7 @@ export const useCachedLibraries = () => {
 	};
 };
 
-export async function getCachedLibraries(cache: NormalisedCache) {
+export async function getCachedLibraries(cache: NormalisedCache, client: AlphaClient<Procedures>) {
 	const cachedData = localStorage.getItem(libraryCacheLocalStorageKey);
 
 	if (cachedData) {
@@ -52,7 +53,7 @@ export async function getCachedLibraries(cache: NormalisedCache) {
 		}
 	}
 
-	const result = await nonLibraryClient.query(['library.list']);
+	const result = await client.query(['library.list']);
 	cache.withNodes(result.nodes);
 	const libraries = cache.withCache(result.items);
 

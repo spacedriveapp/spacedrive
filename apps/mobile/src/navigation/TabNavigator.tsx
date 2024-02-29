@@ -28,71 +28,71 @@ export default function TabNavigator() {
 		labelStyle: Style;
 		testID: string;
 	}[] = [
-		{
-			name: 'OverviewStack',
-			component: OverviewStack,
-			icon: (
-				<TabBarButton
-					resourceName="tabs"
-					animationName="animate"
-					artboardName="overview"
-					style={{ width: 28 }}
-					active={activeIndex === 0}
-				/>
-			),
-			label: 'Overview',
-			labelStyle: tw`text-[10px] font-semibold`,
-			testID: 'overview-tab'
-		},
-		{
-			name: 'NetworkStack',
-			component: NetworkStack,
-			icon: (
-				<TabBarButton
-					resourceName="tabs"
-					animationName="animate"
-					artboardName="network"
-					style={{ width: 18, maxHeight: 23 }}
-					active={activeIndex === 1}
-				/>
-			),
-			label: 'Network',
-			labelStyle: tw`text-[10px] font-semibold`,
-			testID: 'network-tab'
-		},
-		{
-			name: 'BrowseStack',
-			component: BrowseStack,
-			icon: (
-				<TabBarButton
-					resourceName="tabs"
-					animationName="animate"
-					artboardName="browse"
-					style={{ width: 20 }}
-					active={activeIndex === 2}
-				/>
-			),
-			label: 'Browse',
-			labelStyle: tw`text-[10px] font-semibold`,
-			testID: 'browse-tab'
-		},
-		{
-			name: 'SettingsStack',
-			component: SettingsStack,
-			icon: (
-				<TabBarButton
-					resourceName="tabs"
-					animationName="animate"
-					artboardName="settings"
-					style={{ width: 19 }}
-					active={activeIndex === 3}
-				/>
-			),
-			label: 'Settings',
-			labelStyle: tw`text-[10px] font-semibold`,
-			testID: 'settings-tab'
-		}
-	];
+			{
+				name: 'OverviewStack',
+				component: OverviewStack,
+				icon: (
+					<TabBarButton
+						resourceName="tabs"
+						animationName="animate"
+						artboardName="overview"
+						style={{ width: 28 }}
+						active={activeIndex === 0}
+					/>
+				),
+				label: 'Overview',
+				labelStyle: tw`text-[10px] font-semibold`,
+				testID: 'overview-tab'
+			},
+			{
+				name: 'NetworkStack',
+				component: NetworkStack,
+				icon: (
+					<TabBarButton
+						resourceName="tabs"
+						animationName="animate"
+						artboardName="network"
+						style={{ width: 18, maxHeight: 23 }}
+						active={activeIndex === 1}
+					/>
+				),
+				label: 'Network',
+				labelStyle: tw`text-[10px] font-semibold`,
+				testID: 'network-tab'
+			},
+			{
+				name: 'BrowseStack',
+				component: BrowseStack,
+				icon: (
+					<TabBarButton
+						resourceName="tabs"
+						animationName="animate"
+						artboardName="browse"
+						style={{ width: 20 }}
+						active={activeIndex === 2}
+					/>
+				),
+				label: 'Browse',
+				labelStyle: tw`text-[10px] font-semibold`,
+				testID: 'browse-tab'
+			},
+			{
+				name: 'SettingsStack',
+				component: SettingsStack,
+				icon: (
+					<TabBarButton
+						resourceName="tabs"
+						animationName="animate"
+						artboardName="settings"
+						style={{ width: 19 }}
+						active={activeIndex === 3}
+					/>
+				),
+				label: 'Settings',
+				labelStyle: tw`text-[10px] font-semibold`,
+				testID: 'settings-tab'
+			}
+		];
 	return (
 		<Tab.Navigator
 			id="tab"

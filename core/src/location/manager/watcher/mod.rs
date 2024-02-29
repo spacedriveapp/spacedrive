@@ -24,6 +24,8 @@ use uuid::Uuid;
 
 use super::LocationManagerError;
 
+mod android;
+mod ios;
 mod linux;
 mod macos;
 mod windows;
@@ -40,6 +42,12 @@ type Handler<'lib> = macos::MacOsEventHandler<'lib>;
 
 #[cfg(target_os = "windows")]
 type Handler<'lib> = windows::WindowsEventHandler<'lib>;
+
+#[cfg(target_os = "android")]
+type Handler<'lib> = android::AndroidEventHandler<'lib>;
+
+#[cfg(target_os = "ios")]
+type Handler<'lib> = ios::IosEventHandler<'lib>;
 
 pub(super) type IgnorePath = (PathBuf, bool);
 
@@ -142,12 +150,12 @@ impl LocationWatcher {
 		let mut handler_interval = interval_at(Instant::now() + HUNDRED_MILLIS, HUNDRED_MILLIS);
 		// In case of doubt check: https://docs.rs/tokio/latest/tokio/time/enum.MissedTickBehavior.html
 		handler_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
-
 		loop {
 			select! {
 				Some(event) = events_rx.recv() => {
 					match event {
 						Ok(event) => {
+							debug!("[Debug - handle_watch_events] Received event: {:#?}", event);
 							if let Err(e) = Self::handle_single_event(
 								location_id,
 								location_pub_id,
@@ -197,6 +205,7 @@ impl LocationWatcher {
 		_library: &'lib Library,
 		ignore_paths: &HashSet<PathBuf>,
 	) -> Result<(), LocationManagerError> {
+		debug!("Event: {:#?}", event);
 		if !check_event(&event, ignore_paths) {
 			return Ok(());
 		}
@@ -215,6 +224,8 @@ impl LocationWatcher {
 			return Ok(());
 		}
 
+		// debug!("Handling event: {:#?}", event);
+
 		event_handler.handle_event(event).await
 	}
 
@@ -232,6 +243,7 @@ impl LocationWatcher {
 
 	pub(super) fn watch(&mut self) {
 		let path = &self.path;
+		debug!("Start watching location: (path: {path})");
 
 		if let Err(e) = self
 			.watcher
@@ -368,7 +380,7 @@ mod tests {
 	use tracing::{debug, error};
 	// use tracing_test::traced_test;
 
-	#[cfg(target_os = "macos")]
+	#[cfg(any(target_os = "macos", target_os = "ios"))]
 	use notify::event::DataChange;
 
 	#[cfg(target_os = "linux")]
@@ -447,7 +459,7 @@ mod tests {
 		#[cfg(target_os = "windows")]
 		expect_event(events_rx, &file_path, EventKind::Modify(ModifyKind::Any)).await;
 
-		#[cfg(target_os = "macos")]
+		#[cfg(any(target_os = "macos", target_os = "ios"))]
 		expect_event(
 			events_rx,
 			&file_path,
@@ -487,7 +499,7 @@ mod tests {
 		#[cfg(target_os = "windows")]
 		expect_event(events_rx, &dir_path, EventKind::Create(CreateKind::Any)).await;
 
-		#[cfg(target_os = "macos")]
+		#[cfg(any(target_os = "macos", target_os = "ios"))]
 		expect_event(events_rx, &dir_path, EventKind::Create(CreateKind::Folder)).await;
 
 		#[cfg(target_os = "linux")]
@@ -528,7 +540,7 @@ mod tests {
 		#[cfg(target_os = "windows")]
 		expect_event(events_rx, &file_path, EventKind::Modify(ModifyKind::Any)).await;
 
-		#[cfg(target_os = "macos")]
+		#[cfg(any(target_os = "macos", target_os = "ios"))]
 		expect_event(
 			events_rx,
 			&file_path,
@@ -577,7 +589,7 @@ mod tests {
 		)
 		.await;
 
-		#[cfg(target_os = "macos")]
+		#[cfg(any(target_os = "macos", target_os = "ios"))]
 		expect_event(
 			events_rx,
 			&file_path,
@@ -628,7 +640,7 @@ mod tests {
 		)
 		.await;
 
-		#[cfg(target_os = "macos")]
+		#[cfg(any(target_os = "macos", target_os = "ios"))]
 		expect_event(
 			events_rx,
 			&dir_path,
@@ -676,6 +688,14 @@ mod tests {
 		#[cfg(target_os = "linux")]
 		expect_event(events_rx, &file_path, EventKind::Remove(RemoveKind::File)).await;
 
+		#[cfg(target_os = "ios")]
+		expect_event(
+			events_rx,
+			&file_path,
+			EventKind::Modify(ModifyKind::Metadata(MetadataKind::Any)),
+		)
+		.await;
+
 		debug!("Unwatching root directory: {}", root_dir.path().display());
 		if let Err(e) = watcher.unwatch(root_dir.path()) {
 			error!("Failed to unwatch root directory: {e:#?}");
@@ -722,6 +742,14 @@ mod tests {
 
 		#[cfg(target_os = "linux")]
 		expect_event(events_rx, &dir_path, EventKind::Remove(RemoveKind::Folder)).await;
+
+		#[cfg(target_os = "ios")]
+		expect_event(
+			events_rx,
+			&file_path,
+			EventKind::Modify(ModifyKind::Metadata(MetadataKind::Any)),
+		)
+		.await;
 
 		debug!("Unwatching root directory: {}", root_dir.path().display());
 		if let Err(e) = watcher.unwatch(root_dir.path()) {
