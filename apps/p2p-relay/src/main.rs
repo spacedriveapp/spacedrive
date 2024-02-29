@@ -13,7 +13,9 @@ mod utils;
 
 #[tokio::main]
 async fn main() {
-	tracing_subscriber::fmt::init();
+	tracing_subscriber::fmt()
+		// .with_env_filter(EnvFilter::from_default_env()) // TODO: ???
+		.init();
 
 	// let config_path = std::env::var("CONFIG_PATH").unwrap_or("./config.toml".to_string());
 	// println!("{:?}", config_path);

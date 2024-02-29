@@ -8,12 +8,11 @@ use std::{
 
 use flume::{bounded, Receiver, Sender};
 use libp2p::{
-	core::muxing::StreamMuxerBox,
+	core::{muxing::StreamMuxerBox, transport::OrTransport},
 	futures::{AsyncReadExt, AsyncWriteExt, StreamExt},
-	swarm::SwarmEvent,
+	swarm::{NetworkBehaviour, SwarmEvent},
 	StreamProtocol, Swarm, SwarmBuilder, Transport,
 };
-use libp2p_stream::Behaviour;
 use tokio::{
 	net::TcpListener,
 	sync::{mpsc, oneshot},
@@ -51,6 +50,13 @@ enum InternalEvent {
 	},
 }
 
+#[derive(NetworkBehaviour)]
+struct MyBehaviour {
+	stream: libp2p_stream::Behaviour,
+	// TODO: Can this be optional?
+	relay: libp2p::relay::client::Behaviour,
+}
+
 /// Transport using Quic to establish a connection between peers.
 /// This uses `libp2p` internally.
 #[derive(Debug)]
@@ -76,18 +82,35 @@ impl QuicTransport {
 			peer.listener_available(listener_id, connect_tx.clone());
 		});
 
-		let swarm = ok(ok(SwarmBuilder::with_existing_identity(keypair)
-			.with_tokio()
-			.with_other_transport(|keypair| {
-				libp2p_quic::GenTransport::<libp2p_quic::tokio::Provider>::new(
-					libp2p_quic::Config::new(keypair),
-				)
-				.map(|(p, c), _| (p, StreamMuxerBox::new(c)))
-				.boxed()
-			}))
-		.with_behaviour(|_| Behaviour::new()))
-		.with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
-		.build();
+		// TODO: Make this optional
+		let (relay_transport, relay_behaviour) =
+			libp2p::relay::client::new(keypair.public().to_peer_id());
+
+		let swarm = todo!();
+		// ok(ok(SwarmBuilder::with_existing_identity(keypair)
+		// 	.with_tokio()
+		// 	.with_other_transport({
+		// 		let peer_id = keypair.public().to_peer_id();
+		// 		move |keypair| {
+		// 			// TODO: Fix `.boxed()`
+		// 			OrTransport::new(
+		// 				libp2p_quic::GenTransport::<libp2p_quic::tokio::Provider>::new(
+		// 					libp2p_quic::Config::new(keypair),
+		// 				)
+		// 				.map(|(p, c), _| (p, StreamMuxerBox::new(c)))
+		// 				.boxed(),
+		// 				relay_transport
+		// 					.map(|c, _| (peer_id, StreamMuxerBox::new(c)))
+		// 					.boxed(),
+		// 			)
+		// 		}
+		// 	}))
+		// .with_behaviour(|keypair| MyBehaviour {
+		// 	stream: libp2p_stream::Behaviour::new(),
+		// 	relay: relay_behaviour,
+		// }))
+		// .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
+		// .build();
 
 		tokio::spawn(start(p2p.clone(), id, swarm, rx, internal_rx, connect_rx));
 
@@ -171,7 +194,7 @@ fn ok<T>(v: Result<T, Infallible>) -> T {
 async fn start(
 	p2p: Arc<P2P>,
 	id: ListenerId,
-	mut swarm: Swarm<Behaviour>,
+	mut swarm: Swarm<MyBehaviour>,
 	rx: Receiver<HookEvent>,
 	internal_rx: Receiver<InternalEvent>,
 	mut connect_rx: mpsc::Receiver<ConnectionRequest>,
@@ -179,7 +202,7 @@ async fn start(
 	let mut ipv4_listener = None;
 	let mut ipv6_listener = None;
 
-	let mut control = swarm.behaviour().new_control();
+	let mut control = swarm.behaviour().stream.new_control();
 	#[allow(clippy::unwrap_used)] // TODO: Error handling
 	let mut incoming = control.accept(PROTOCOL).unwrap();
 	let map = Arc::new(RwLock::new(HashMap::new()));
