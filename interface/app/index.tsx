@@ -1,22 +1,36 @@
 import { initRspc, wsBatchLink, type AlphaClient } from '@oscartbeaumont-sd/rspc-client/v2';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { Navigate, Outlet, redirect, useMatches, type RouteObject } from 'react-router-dom';
 import {
+	Link,
+	Navigate,
+	Outlet,
+	redirect,
+	useMatches,
+	useNavigate,
+	type RouteObject
+} from 'react-router-dom';
+import {
+	CacheProvider,
+	ClientContextProvider,
 	context,
+	context2,
+	createCache,
 	currentLibraryCache,
 	getCachedLibraries,
 	LibraryContextProvider,
 	nonLibraryClient,
 	NormalisedCache,
 	Procedures,
+	useBridgeQuery,
+	useCache,
 	useCachedLibraries,
 	useFeatureFlag,
-	useLibraryContext,
-	useNormalisedCache,
+	useNodes,
 	useRspcContext,
 	WithSolid
 } from '@sd/client';
-import { Dialogs, Toaster, z } from '@sd/ui';
+import { Button, Dialogs, Toaster, z } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
 import { useRoutingContext } from '~/RoutingContext';
 
@@ -34,6 +48,8 @@ import { useZodRouteParams } from '~/hooks';
 // NOTE: all route `Layout`s below should contain
 // the `usePlausiblePageViewMonitor` hook, as early as possible (ideally within the layout itself).
 // the hook should only be included if there's a valid `ClientContext` (so not onboarding)
+
+const LibraryIdParamsSchema = z.object({ libraryId: z.string() });
 
 export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 	[
@@ -97,41 +113,52 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 					children: onboardingRoutes
 				},
 				{
-					path: 'remote/:node/:libraryId',
-					Component: (props) => <RemoteLayout cache={cache} {...props} />,
+					path: 'remote/:node',
+					Component: (props) => <RemoteLayout {...props} />,
 					children: [
 						{
 							path: 'browse',
 							Component: BrowsePage
 						},
 						{
-							// lazy: () => import('./$libraryId/Layout'),
-							loader: async ({ params: { libraryId } }) => {
-								// const libraries = await getCachedLibraries(cache, nonLibraryClient);
+							path: ':libraryId',
+							Component: () => {
+								const params = useZodRouteParams(LibraryIdParamsSchema);
+								const result = useBridgeQuery(['library.list']);
+								useNodes(result.data?.nodes);
+								const libraries = useCache(result.data?.items);
 
-								// console.log('LOADER', libraries); // TODO
+								const library = libraries?.find((l) => l.uuid === params.libraryId);
 
-								// const library = libraries.find((l) => l.uuid === libraryId);
+								useEffect(() => {
+									if (!result.data) return;
 
-								// console.log(libraries, library); // TODO
+									if (!library) {
+										alert('Library not found');
+										// TODO: Redirect
+									}
+								});
 
-								// if (!library) {
-								// 	const firstLibrary = libraries[0];
+								if (!library) return <></>; // TODO: Using suspense for loading
 
-								// 	if (firstLibrary)
-								// 		return redirect(`/${firstLibrary.uuid}`, { replace: true });
-								// 	else return redirect('/onboarding', { replace: true });
-								// }
-
-								return null;
+								return (
+									<ClientContextProvider currentLibraryId={params.libraryId}>
+										<LibraryContextProvider library={library}>
+											<div className="w-full bg-orange-500 text-center text-white">
+												YOUR ON A REMOTE NODE
+											</div>
+											<Outlet />
+										</LibraryContextProvider>
+									</ClientContextProvider>
+								);
 							},
 							children: [
 								{
 									path: '*',
-									Component: () => <h1>TODO</h1>
+									lazy: () => import('./$libraryId/Layout'),
+									children: libraryRoutes(platform)
 								}
 							]
-							// libraryRoutes(platform)
 						}
 					]
 				},
@@ -158,28 +185,34 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 		}
 	] satisfies RouteObject[];
 
-const ParamsSchema = z.object({ node: z.string(), libraryId: z.string() });
+const ParamsSchema = z.object({ node: z.string() });
 
-function RemoteLayout({ cache }: { cache: NormalisedCache }) {
+function RemoteLayout() {
 	const platform = usePlatform();
 	const params = useZodRouteParams(ParamsSchema);
 
-	const [rspcClient, setRspcClient] = useState<AlphaClient<Procedures>>();
+	// TODO: The caches should instead be prefixed by the remote node ID, instead of completely being recreated but that's too hard to do right now.
+	const [rspcClient, setRspcClient] =
+		useState<
+			[AlphaClient<Procedures>, AlphaClient<Procedures>, QueryClient, NormalisedCache]
+		>();
 	useEffect(() => {
 		const endpoint = platform.getRemoteRspcEndpoint(params.node);
-		const client = initRspc<Procedures>({
-			links: [
-				wsBatchLink({
-					url: endpoint.url
-				})
-			]
-		});
-		setRspcClient(client);
 
-		// TODO: use this for the context
-		getCachedLibraries(cache, client).then((data) => {
-			console.log('todo', data);
+		const links = [
+			wsBatchLink({
+				url: endpoint.url
+			})
+		];
+
+		const client = initRspc<Procedures>({
+			links
 		});
+		const libraryClient = initRspc<Procedures>({
+			links
+		});
+		const cache = createCache();
+		setRspcClient([client, libraryClient, new QueryClient(), cache]);
 
 		return () => {
 			// TODO: We *really* need to cleanup `client` so we aren't leaking all the resources.
@@ -189,31 +222,57 @@ function RemoteLayout({ cache }: { cache: NormalisedCache }) {
 	// TODO: Library context injected
 	// TODO: Lazy layout
 
-	const ctx = useRspcContext();
 	return (
 		<>
 			{/* TODO: Maybe library context too? */}
 			{rspcClient && (
-				<context.Provider
-					value={{
-						// @ts-expect-error
-						client: rspcClient,
-						queryClient: ctx.queryClient
-					}}
-				>
-					<Outlet />
-				</context.Provider>
+				<QueryClientProvider client={rspcClient[2]}>
+					<CacheProvider cache={rspcClient[3]}>
+						<context.Provider
+							value={{
+								// @ts-expect-error
+								client: rspcClient[0],
+								queryClient: rspcClient[2]
+							}}
+						>
+							<context2.Provider
+								value={{
+									// @ts-expect-error
+									client: rspcClient[1],
+									queryClient: rspcClient[2]
+								}}
+							>
+								<Outlet />
+							</context2.Provider>
+						</context.Provider>
+					</CacheProvider>
+				</QueryClientProvider>
 			)}
 		</>
 	);
 }
 
 function BrowsePage() {
-	// const libraries = useLibraryContext();
+	const navigate = useNavigate();
+	const result = useBridgeQuery(['library.list']);
+	useNodes(result.data?.nodes);
+	const libraries = useCache(result.data?.items);
 
-	// console.log(libraries); // TODO
-
-	return <h1>Browse</h1>;
+	return (
+		<div className="flex flex-col">
+			<h1>Browse Libraries On Remote Node:</h1>
+			{libraries?.map((l) => (
+				<Button
+					key={l.uuid}
+					variant="accent"
+					// TODO: Take into account Windows vs Mac vs Linux with the default `path`
+					onClick={() => navigate(`../${l.uuid}/ephemeral/0-0?path=/System/Volumes/Data`)}
+				>
+					{l.config.name}
+				</Button>
+			))}
+		</div>
+	);
 }
 
 /**

@@ -1,6 +1,5 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useDiscoveredPeers, useLibraryContext } from '@sd/client';
+import { useCache, useDiscoveredPeers, useLibraryQuery, useNodes } from '@sd/client';
 import { Button } from '@sd/ui';
 
 export const Component = () => {
@@ -15,7 +14,9 @@ export const Component = () => {
 function PeerSelector() {
 	const peers = useDiscoveredPeers();
 	const navigate = useNavigate();
-	const library = useLibraryContext();
+	const result = useLibraryQuery(['locations.list']);
+	useNodes(result.data?.nodes);
+	const locations = useCache(result.data?.items);
 
 	return (
 		<>
@@ -27,19 +28,24 @@ function PeerSelector() {
 					{[...peers.entries()].map(([id, _node]) => (
 						<li key={id}>
 							{id}
-							<Button
-								onClick={() =>
-									navigate(
-										`/${library.library.uuid}/ephemeral/remote/${id}/0-0?path=/System/Volumes/Data`
-									)
-								}
-							>
-								Open Explorer
+							<Button onClick={() => navigate(`/remote/${id}/browse`)}>
+								Open Library Browser
 							</Button>
 						</li>
 					))}
 				</ul>
 			)}
+
+			<h1>Local:</h1>
+			{locations?.map((l) => (
+				<Button
+					key={l.id}
+					variant="accent"
+					onClick={() => navigate(`/local/${l.id}/browse`)}
+				>
+					{l.name}
+				</Button>
+			))}
 		</>
 	);
 }
