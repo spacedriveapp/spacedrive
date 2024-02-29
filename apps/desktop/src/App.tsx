@@ -1,7 +1,6 @@
 import { createMemoryHistory } from '@remix-run/router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { listen } from '@tauri-apps/api/event';
-import { appWindow } from '@tauri-apps/api/window';
 import { PropsWithChildren, startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CacheProvider, createCache, RspcProvider } from '@sd/client';
@@ -20,7 +19,7 @@ import '@sd/ui/style/style.scss';
 
 import { useLocale } from '@sd/interface/hooks';
 
-import { commands, events } from './commands';
+import { commands } from './commands';
 import { platform } from './platform';
 import { queryClient } from './query';
 import { createMemoryRouterWithHistory } from './router';
@@ -203,8 +202,8 @@ function AppInner() {
 					}
 				}}
 			>
-				<SpacedriveInterfaceRoot>
-					<PlatformUpdaterProvider>
+				<PlatformUpdaterProvider>
+					<SpacedriveInterfaceRoot>
 						{tabs.map((tab, index) =>
 							createPortal(
 								<SpacedriveRouterProvider
@@ -222,8 +221,8 @@ function AppInner() {
 							)
 						)}
 						<div ref={ref} />
-					</PlatformUpdaterProvider>
-				</SpacedriveInterfaceRoot>
+					</SpacedriveInterfaceRoot>
+				</PlatformUpdaterProvider>
 			</TabsContext.Provider>
 		</RouteTitleContext.Provider>
 	);
@@ -239,7 +238,7 @@ function PlatformUpdaterProvider(props: PropsWithChildren) {
 					...platform,
 					updater: window.__SD_UPDATER__ ? createUpdater(t) : undefined
 				}),
-				[]
+				[t]
 			)}
 		>
 			{props.children}
