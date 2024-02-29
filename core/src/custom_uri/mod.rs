@@ -73,7 +73,7 @@ pub enum ServeFrom {
 }
 
 #[derive(Clone)]
-struct LocalState {
+pub struct LocalState {
 	node: Arc<Node>,
 
 	// This LRU cache allows us to avoid doing a DB lookup on every request.
@@ -149,8 +149,7 @@ async fn get_or_init_lru_entry(
 	}
 }
 
-// We are using Axum on all platforms because Tauri's custom URI protocols can't be async!
-pub fn router(node: Arc<Node>) -> Router<()> {
+pub fn base_router() -> Router<LocalState> {
 	Router::new()
 		.route(
 			"/thumbnail/*path",
@@ -322,8 +321,45 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 				},
 			),
 		)
+}
+
+pub fn with_state(node: Arc<Node>) -> LocalState {
+	let file_metadata_cache = Arc::new(Cache::new(150));
+
+	tokio::spawn({
+		let file_metadata_cache = file_metadata_cache.clone();
+		let mut tx = node.event_bus.0.subscribe();
+		async move {
+			while let Ok(event) = tx.recv().await {
+				if let CoreEvent::InvalidateOperation(e) = event {
+					match e {
+						InvalidateOperationEvent::Single(event) => {
+							// TODO: This is inefficent as any change will invalidate who cache. We need the new invalidation system!!!
+							// TODO: It's also error prone and a fine-grained resource based invalidation system would avoid that.
+							if event.key == "search.objects" || event.key == "search.paths" {
+								file_metadata_cache.invalidate_all();
+							}
+						}
+						InvalidateOperationEvent::All => {
+							file_metadata_cache.invalidate_all();
+						}
+					}
+				}
+			}
+		}
+	});
+
+	LocalState {
+		node,
+		file_metadata_cache,
+	}
+}
+
+// We are using Axum on all platforms because Tauri's custom URI protocols can't be async!
+pub fn router(node: Arc<Node>) -> Router<()> {
+	Router::new()
 		.route(
-			"/remote/:identity/rspc/*path",
+			"/remote/:identity/*path",
 			get(
 				|State(state): State<LocalState>,
 				 extract::Path((identity, rest)): extract::Path<(String, String)>,
@@ -401,39 +437,9 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 				},
 			),
 		)
+		.merge(base_router())
 		.route_layer(middleware::from_fn(cors_middleware))
-		.with_state({
-			let file_metadata_cache = Arc::new(Cache::new(150));
-
-			tokio::spawn({
-				let file_metadata_cache = file_metadata_cache.clone();
-				let mut tx = node.event_bus.0.subscribe();
-				async move {
-					while let Ok(event) = tx.recv().await {
-						if let CoreEvent::InvalidateOperation(e) = event {
-							match e {
-								InvalidateOperationEvent::Single(event) => {
-									// TODO: This is inefficent as any change will invalidate who cache. We need the new invalidation system!!!
-									// TODO: It's also error prone and a fine-grained resource based invalidation system would avoid that.
-									if event.key == "search.objects" || event.key == "search.paths"
-									{
-										file_metadata_cache.invalidate_all();
-									}
-								}
-								InvalidateOperationEvent::All => {
-									file_metadata_cache.invalidate_all();
-								}
-							}
-						}
-					}
-				}
-			});
-
-			LocalState {
-				node,
-				file_metadata_cache,
-			}
-		})
+		.with_state(with_state(node))
 }
 
 // TODO: This should possibly be determined from magic bytes when the file is indexed and stored it in the DB on the file path

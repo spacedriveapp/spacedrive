@@ -60,6 +60,10 @@ export const platform = {
 			remote_identity
 		)}/rspc/ws?token=${customUriAuthToken}`
 	}),
+	constructRemoteRspcPath: (remote_identity, path) =>
+		constructServerUrl(
+			`/remote/${encodeURIComponent(remote_identity)}/uri/${path}?token=${customUriAuthToken}`
+		),
 	openLink: shell.open,
 	getOs,
 	openDirectoryPickerDialog: (opts) => {

@@ -35,7 +35,7 @@ import { Button, Dialogs, Toaster, z } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
 import { useRoutingContext } from '~/RoutingContext';
 
-import { Platform, usePlatform } from '..';
+import { Platform, PlatformProvider, usePlatform } from '..';
 import libraryRoutes from './$libraryId';
 import { DragAndDropDebug } from './$libraryId/debug/dnd';
 import { Demo, Demo2 } from './demo.solid';
@@ -232,8 +232,35 @@ function RemoteLayout() {
 		};
 	}, [params.node, platform]);
 
+	// TODO: Detect if the remote node if offline and render something to show that
+
+	const newPlatform = useMemo(
+		() =>
+			({
+				...platform,
+				getThumbnailUrlByThumbKey: (thumbKey) =>
+					platform.constructRemoteRspcPath(
+						params.node,
+						`thumbnail/${thumbKey.map((i) => encodeURIComponent(i)).join('/')}.webp`
+					),
+				getFileUrl: (libraryId, locationLocalId, filePathId) =>
+					platform.constructRemoteRspcPath(
+						params.node,
+						`file/${encodeURIComponent(libraryId)}/${encodeURIComponent(
+							locationLocalId
+						)}/${encodeURIComponent(filePathId)}`
+					),
+				getFileUrlByPath: (path) =>
+					platform.constructRemoteRspcPath(
+						params.node,
+						`local-file-by-path/${encodeURIComponent(path)}`
+					)
+			}) satisfies Platform,
+		[platform, params.node]
+	);
+
 	return (
-		<>
+		<PlatformProvider platform={newPlatform}>
 			{/* TODO: Maybe library context too? */}
 			{rspcClient && (
 				<QueryClientProvider client={rspcClient[2]}>
@@ -258,7 +285,7 @@ function RemoteLayout() {
 					</CacheProvider>
 				</QueryClientProvider>
 			)}
-		</>
+		</PlatformProvider>
 	);
 }
 
