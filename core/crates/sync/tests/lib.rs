@@ -4,7 +4,6 @@ use sd_sync::*;
 use sd_utils::uuid_to_bytes;
 
 use prisma_client_rust::chrono::Utc;
-use serde_json::json;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 use uuid::Uuid;
@@ -169,18 +168,9 @@ async fn bruh() -> Result<(), Box<dyn std::error::Error>> {
 
 			use prisma::location;
 
-			macro_rules! item {
-				($name:ident, $value:expr) => {
-					(
-						(location::$name::NAME, json!($value)),
-						location::$name::set(Some($value.to_string())),
-					)
-				};
-			}
-
 			let (sync_ops, db_ops): (Vec<_>, Vec<_>) = [
-				item!(name, "Location 0"),
-				item!(path, "/User/Brendan/Documents"),
+				sync_db_entry!("Location 0".to_string(), location::name),
+				sync_db_entry!("/User/Brendan/Documents".to_string(), location::path),
 			]
 			.into_iter()
 			.unzip();
@@ -208,7 +198,6 @@ async fn bruh() -> Result<(), Box<dyn std::error::Error>> {
 		.await?;
 
 	assert_eq!(out.len(), 3);
-	assert!(matches!(out[0].typ, CRDTOperationType::Shared(_)));
 
 	instance1.teardown().await;
 	instance2.teardown().await;

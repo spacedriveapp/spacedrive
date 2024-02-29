@@ -1,8 +1,7 @@
-use crate::{
-	library::Library,
-	prisma::job,
-	util::db::{maybe_missing, MissingFieldError},
-};
+use crate::library::Library;
+
+use sd_prisma::prisma::job;
+use sd_utils::db::{maybe_missing, MissingFieldError};
 
 use std::{
 	collections::HashMap,
@@ -51,7 +50,6 @@ pub struct JobReport {
 	// TODO(@Oscar): This will be fixed
 	#[specta(type = Option<HashMap<String, serde_json::Value>>)]
 	pub metadata: Option<serde_json::Value>,
-	pub is_background: bool,
 	pub errors_text: Vec<String>,
 
 	pub created_at: Option<DateTime<Utc>>,
@@ -86,7 +84,6 @@ impl TryFrom<job::Data> for JobReport {
 	fn try_from(data: job::Data) -> Result<Self, Self::Error> {
 		Ok(Self {
 			id: Uuid::from_slice(&data.id).expect("corrupted database"),
-			is_background: false, // deprecated
 			name: maybe_missing(data.name, "job.name")?,
 			action: data.action,
 			data: data.data,
@@ -128,7 +125,6 @@ impl TryFrom<job_without_data::Data> for JobReport {
 	fn try_from(data: job_without_data::Data) -> Result<Self, Self::Error> {
 		Ok(Self {
 			id: Uuid::from_slice(&data.id).expect("corrupted database"),
-			is_background: false, // deprecated
 			name: maybe_missing(data.name, "job.name")?,
 			action: data.action,
 			data: None,
@@ -166,7 +162,6 @@ impl JobReport {
 	pub fn new(uuid: Uuid, name: String) -> Self {
 		Self {
 			id: uuid,
-			is_background: false, // deprecated
 			name,
 			action: None,
 			created_at: None,
@@ -317,7 +312,6 @@ impl JobReportBuilder {
 	pub fn build(self) -> JobReport {
 		JobReport {
 			id: self.id,
-			is_background: false, // deprecated
 			name: self.name,
 			action: self.action,
 			created_at: None,

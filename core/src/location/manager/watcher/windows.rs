@@ -7,17 +7,11 @@
 //! a remove event to see if a create event is emitted. If it is, we just update the `file_path`
 //! in the database. If not, we remove the file from the database.
 
-use crate::{
-	invalidate_query,
-	library::Library,
-	location::{
-		file_path_helper::{get_inode_from_path, FilePathError},
-		manager::LocationManagerError,
-	},
-	prisma::location,
-	util::error::FileIOError,
-	Node,
-};
+use crate::{invalidate_query, library::Library, location::manager::LocationManagerError, Node};
+
+use sd_file_path_helper::{get_inode_from_path, FilePathError};
+use sd_prisma::prisma::location;
+use sd_utils::error::FileIOError;
 
 use std::{
 	collections::{BTreeMap, HashMap},

@@ -1,8 +1,8 @@
-import { Image, Package, Trash, TrashSimple } from '@phosphor-icons/react';
+import { Hash, Image, Package, Trash, TrashSimple } from '@phosphor-icons/react';
 import { libraryClient, useLibraryMutation } from '@sd/client';
 import { ContextMenu, dialogManager, ModifierKeys, toast } from '@sd/ui';
 import { Menu } from '~/components/Menu';
-import { useKeysMatcher, useOperatingSystem } from '~/hooks';
+import { useKeysMatcher, useLocale, useOperatingSystem } from '~/hooks';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { useQuickRescan } from '~/hooks/useQuickRescan';
 import { isNonEmpty } from '~/util';
@@ -25,6 +25,7 @@ export const Delete = new ConditionalItem({
 		return { selectedFilePaths, selectedEphemeralPaths };
 	},
 	Component: ({ selectedFilePaths, selectedEphemeralPaths }) => {
+		const { t } = useLocale();
 		const rescan = useQuickRescan();
 		const os = useOperatingSystem();
 		const dirCount =
@@ -53,7 +54,7 @@ export const Delete = new ConditionalItem({
 		return (
 			<Menu.Item
 				icon={Trash}
-				label="Delete"
+				label={t('delete')}
 				variant="danger"
 				keybind={
 					os === 'windows'
@@ -112,10 +113,11 @@ export const Compress = new ConditionalItem({
 	},
 	Component: ({ selectedFilePaths: _ }) => {
 		const keybind = useKeybindFactory();
+		const { t } = useLocale();
 
 		return (
 			<Menu.Item
-				label="Compress"
+				label={t('compress')}
 				icon={Package}
 				keybind={keybind([ModifierKeys.Control], ['B'])}
 				disabled
@@ -197,19 +199,26 @@ export const SecureDelete = new ConditionalItem({
 
 		return { locationId, selectedFilePaths };
 	},
-	Component: ({ locationId, selectedFilePaths }) => (
-		<Menu.Item
-			variant="danger"
-			label="Secure delete"
-			icon={TrashSimple}
-			onClick={() =>
-				dialogManager.create((dp) => (
-					<EraseDialog {...dp} locationId={locationId} filePaths={selectedFilePaths} />
-				))
-			}
-			disabled
-		/>
-	)
+	Component: ({ locationId, selectedFilePaths }) => {
+		const { t } = useLocale();
+		return (
+			<Menu.Item
+				variant="danger"
+				label={t('secure_delete')}
+				icon={TrashSimple}
+				onClick={() =>
+					dialogManager.create((dp) => (
+						<EraseDialog
+							{...dp}
+							locationId={locationId}
+							filePaths={selectedFilePaths}
+						/>
+					))
+				}
+				disabled
+			/>
+		);
+	}
 });
 
 export const ParentFolderActions = new ConditionalItem({
@@ -225,6 +234,9 @@ export const ParentFolderActions = new ConditionalItem({
 
 		const fullRescan = useLibraryMutation('locations.fullRescan');
 		const generateThumbnails = useLibraryMutation('jobs.generateThumbsForLocation');
+		const generateLabels = useLibraryMutation('jobs.generateLabelsForLocation');
+
+		const { t } = useLocale();
 
 		return (
 			<>
@@ -237,12 +249,12 @@ export const ParentFolderActions = new ConditionalItem({
 							});
 						} catch (error) {
 							toast.error({
-								title: `Failed to rescan location`,
+								title: t('failed_to_rescan_location'),
 								body: `Error: ${error}.`
 							});
 						}
 					}}
-					label="Rescan Directory"
+					label={t('rescan_directory')}
 					icon={Package}
 				/>
 				<ContextMenu.Item
@@ -255,13 +267,31 @@ export const ParentFolderActions = new ConditionalItem({
 							});
 						} catch (error) {
 							toast.error({
-								title: `Failed to generate thumbnails`,
+								title: t('failed_to_generate_thumbnails'),
 								body: `Error: ${error}.`
 							});
 						}
 					}}
-					label="Regen Thumbnails"
+					label={t('regen_thumbnails')}
 					icon={Image}
+				/>
+				<ContextMenu.Item
+					onClick={async () => {
+						try {
+							await generateLabels.mutateAsync({
+								id: parent.location.id,
+								path: selectedFilePaths[0]?.materialized_path ?? '/',
+								regenerate: true
+							});
+						} catch (error) {
+							toast.error({
+								title: t('failed_to_generate_labels'),
+								body: `Error: ${error}.`
+							});
+						}
+					}}
+					label={t('regen_labels')}
+					icon={Hash}
 				/>
 			</>
 		);

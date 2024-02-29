@@ -1,18 +1,12 @@
 import { CheckCircle } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { useMotionValueEvent, useScroll } from 'framer-motion';
-import { useEffect, useRef, useState } from 'react';
-import {
-	getThemeStore,
-	getUnitFormatStore,
-	Themes,
-	useThemeStore,
-	useUnitFormatStore,
-	useZodForm
-} from '@sd/client';
+import { useEffect, useState } from 'react';
+import { Themes, unitFormatStore, useThemeStore, useUnitFormatStore, useZodForm } from '@sd/client';
 import { Button, Divider, Form, Select, SelectOption, SwitchField, z } from '@sd/ui';
+import { useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
+import HorizontalScroll from '../../overview/Layout/HorizontalScroll';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
 
@@ -64,18 +58,11 @@ export const Component = () => {
 	const { lockAppTheme } = usePlatform();
 	const themeStore = useThemeStore();
 	const formatStore = useUnitFormatStore();
+	const { t } = useLocale();
 
 	const [selectedTheme, setSelectedTheme] = useState<Theme['themeValue']>(
 		themeStore.syncThemeWithSystem === true ? 'system' : themeStore.theme
 	);
-	const themesRef = useRef<HTMLDivElement>(null);
-	const [themeScroll, setThemeScroll] = useState(0);
-	const { scrollX } = useScroll({
-		container: themesRef
-	});
-	useMotionValueEvent(scrollX, 'change', (latest) => {
-		setThemeScroll(latest);
-	});
 
 	const form = useZodForm({
 		schema
@@ -96,20 +83,20 @@ export const Component = () => {
 		setSelectedTheme(theme);
 		if (theme === 'system') {
 			lockAppTheme?.('Auto');
-			getThemeStore().syncThemeWithSystem = true;
+			themeStore.syncThemeWithSystem = true;
 		} else if (theme === 'vanilla') {
-			getThemeStore().syncThemeWithSystem = false;
-			getThemeStore().theme = theme;
+			themeStore.syncThemeWithSystem = false;
+			themeStore.theme = theme;
 			document.documentElement.classList.add('vanilla-theme');
 		} else if (theme === 'dark') {
-			getThemeStore().syncThemeWithSystem = false;
-			getThemeStore().theme = theme;
+			themeStore.syncThemeWithSystem = false;
+			themeStore.theme = theme;
 			document.documentElement.classList.remove('vanilla-theme');
 		}
 	};
 
 	const hueSliderHandler = (hue: number) => {
-		getThemeStore().hueValue = hue;
+		themeStore.hueValue = hue;
 		if (themeStore.theme === 'vanilla') {
 			document.documentElement.style.setProperty('--light-hue', hue.toString());
 		} else if (themeStore.theme === 'dark') {
@@ -119,10 +106,10 @@ export const Component = () => {
 
 	return (
 		<>
-			<Form form={form} onSubmit={onSubmit}>
+			<Form className="relative" form={form} onSubmit={onSubmit}>
 				<Heading
-					title="Appearance"
-					description="Change the look of your client."
+					title={t('appearance')}
+					description={t('appearance_description')}
 					rightArea={
 						<div>
 							<Button
@@ -134,45 +121,40 @@ export const Component = () => {
 									hueSliderHandler(235);
 								}}
 							>
-								Reset
+								{t('reset')}
 							</Button>
 						</div>
 					}
 				/>
-				<div
-					style={{
-						maskImage: `linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, ${
-							themeScroll > 0 ? '2%' : '200' //Only show fade if scrolled
-						}) 0%, rgba(0, 0, 0, 1) 85%, transparent 100%)`
-					}}
-					ref={themesRef}
-					className="explorer-scroll relative mb-5 mt-8 flex h-[150px] gap-5 overflow-x-scroll pr-[20px] md:w-[300px] lg:w-full"
-				>
-					{themes.map((theme, i) => {
-						return (
-							<div
-								onClick={() => themeSelectHandler(theme.themeValue)}
-								className={clsx(
-									selectedTheme !== theme.themeValue && 'opacity-70',
-									'h-[100px] transition-all duration-200  hover:translate-y-[3.5px] lg:first:ml-0 '
-								)}
-								key={i}
-							>
-								{theme.themeValue === 'system' ? (
-									<SystemTheme
-										{...theme}
-										isSelected={selectedTheme === 'system'}
-									/>
-								) : (
-									<Theme
-										{...theme}
-										isSelected={selectedTheme === theme.themeValue}
-									/>
-								)}
-							</div>
-						);
-					})}
-				</div>
+				<HorizontalScroll className="!mb-5 mt-4 !pl-0">
+					<div className="flex gap-3 md:w-[300px] lg:w-full">
+						{themes.map((theme, i) => {
+							return (
+								<div
+									onClick={() => themeSelectHandler(theme.themeValue)}
+									className={clsx(
+										'shrink-0',
+										selectedTheme !== theme.themeValue &&
+											'opacity-70 transition-all duration-300 hover:opacity-100'
+									)}
+									key={i}
+								>
+									{theme.themeValue === 'system' ? (
+										<SystemTheme
+											{...theme}
+											isSelected={selectedTheme === 'system'}
+										/>
+									) : (
+										<Theme
+											{...theme}
+											isSelected={selectedTheme === theme.themeValue}
+										/>
+									)}
+								</div>
+							);
+						})}
+					</div>
+				</HorizontalScroll>
 
 				{/* {themeStore.theme === 'dark' && (
 					<Setting mini title="Theme hue value" description="Change the hue of the theme">
@@ -186,7 +168,7 @@ export const Component = () => {
 									step={1}
 									defaultValue={[235]}
 								/>
-								<p className="text-center text-xs text-ink-faint">
+								<p className="text-xs text-center text-ink-faint">
 									{themeStore.hueValue}
 								</p>
 							</div>
@@ -197,9 +179,9 @@ export const Component = () => {
 				<div className="flex flex-col gap-4">
 					<Setting
 						mini
-						title="UI Animations"
+						title={t('ui_animations')}
 						className="opacity-30"
-						description="Dialogs and other UI elements will animate when opening and closing."
+						description={t('ui_animations_description')}
 					>
 						<SwitchField
 							disabled
@@ -210,9 +192,9 @@ export const Component = () => {
 
 					<Setting
 						mini
-						title="Blur Effects"
+						title={t('blur_effects')}
 						className="opacity-30"
-						description="Some components will have a blur effect applied to them."
+						description={t('blur_effects_description')}
 					>
 						<SwitchField
 							disabled
@@ -224,11 +206,11 @@ export const Component = () => {
 			</Form>
 			<Divider />
 			<div className="flex flex-col gap-4">
-				<h1 className="mb-3 text-lg font-bold text-ink">Display Formats</h1>
+				<h1 className="mb-3 text-lg font-bold text-ink">{t('display_formats')}</h1>
 
-				<Setting mini title="Coordinates">
+				<Setting mini title={t('coordinates')}>
 					<Select
-						onChange={(e) => (getUnitFormatStore().coordinatesFormat = e)}
+						onChange={(e) => (unitFormatStore.coordinatesFormat = e)}
 						value={formatStore.coordinatesFormat}
 					>
 						<SelectOption value="dms">DMS</SelectOption>
@@ -236,23 +218,23 @@ export const Component = () => {
 					</Select>
 				</Setting>
 
-				<Setting mini title="Distance">
+				<Setting mini title={t('distance')}>
 					<Select
-						onChange={(e) => (getUnitFormatStore().distanceFormat = e)}
+						onChange={(e) => (unitFormatStore.distanceFormat = e)}
 						value={formatStore.distanceFormat}
 					>
-						<SelectOption value="km">Kilometers</SelectOption>
-						<SelectOption value="miles">Miles</SelectOption>
+						<SelectOption value="km">{t('kilometers')}</SelectOption>
+						<SelectOption value="miles">{t('miles')}</SelectOption>
 					</Select>
 				</Setting>
 
-				<Setting mini title="Temperature">
+				<Setting mini title={t('temperature')}>
 					<Select
-						onChange={(e) => (getUnitFormatStore().temperatureFormat = e)}
+						onChange={(e) => (unitFormatStore.temperatureFormat = e)}
 						value={formatStore.temperatureFormat}
 					>
-						<SelectOption value="celsius">Celsius</SelectOption>
-						<SelectOption value="fahrenheit">Fahrenheit</SelectOption>
+						<SelectOption value="celsius">{t('celcius')}</SelectOption>
+						<SelectOption value="fahrenheit">{t('fahrenheit')}</SelectOption>
 					</Select>
 				</Setting>
 			</div>
@@ -262,14 +244,14 @@ export const Component = () => {
 
 function Theme(props: ThemeProps) {
 	return (
-		<div className="h-full">
+		<div className="w-[150px]">
 			<div
 				className={clsx(
 					props.outsideColor,
 					props.border,
 					props.textColor,
 					props.className,
-					'relative h-[90px] w-[150px] overflow-hidden rounded-lg'
+					'relative h-[90px] overflow-hidden rounded-lg'
 				)}
 			>
 				<div
@@ -296,7 +278,7 @@ function Theme(props: ThemeProps) {
 
 function SystemTheme(props: ThemeProps) {
 	return (
-		<div className="h-full w-[150px]">
+		<div className="w-[150px]">
 			<div className="relative flex h-[90px]">
 				<div className="relative h-full w-[50%] grow overflow-hidden rounded-l-lg bg-black">
 					<Theme className="rounded-r-none" {...themes[1]!} />

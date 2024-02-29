@@ -1,11 +1,12 @@
 import clsx from 'clsx';
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import {
 	getEphemeralPath,
 	getExplorerItemData,
 	getIndexedItemFilePath,
 	useLibraryMutation,
 	useRspcLibraryContext,
+	useSelector,
 	type ExplorerItem
 } from '@sd/client';
 import { toast } from '@sd/ui';
@@ -14,7 +15,7 @@ import { useIsDark } from '~/hooks';
 import { useExplorerContext } from '../Context';
 import { RenameTextBox, RenameTextBoxProps } from '../FilePath/RenameTextBox';
 import { useQuickPreviewStore } from '../QuickPreview/store';
-import { useExplorerStore } from '../store';
+import { explorerStore } from '../store';
 
 interface Props extends Pick<RenameTextBoxProps, 'idleClassName' | 'lines'> {
 	item: ExplorerItem;
@@ -24,12 +25,19 @@ interface Props extends Pick<RenameTextBoxProps, 'idleClassName' | 'lines'> {
 	selected?: boolean;
 }
 
+const RENAMABLE_ITEM_TYPES: ExplorerItem['type'][] = [
+	'Path',
+	'NonIndexedPath',
+	'Object',
+	'Location'
+];
+
 export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) => {
 	const isDark = useIsDark();
 	const rspc = useRspcLibraryContext();
 
 	const explorer = useExplorerContext({ suspense: false });
-	const explorerStore = useExplorerStore();
+	const isDragging = useSelector(explorerStore, (s) => s.drag?.type === 'dragging');
 
 	const quickPreviewStore = useQuickPreviewStore();
 
@@ -52,90 +60,93 @@ export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) =>
 		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
 	});
 
-	const reset = () => {
+	const reset = useCallback(() => {
 		if (!ref.current || !itemData.fullName) return;
 		ref.current.innerText = itemData.fullName;
-	};
+	}, [itemData.fullName]);
 
-	const handleRename = async (newName: string) => {
-		try {
-			switch (props.item.type) {
-				case 'Location': {
-					const locationId = props.item.item.id;
-					if (!locationId) throw new Error('Missing location id');
+	const handleRename = useCallback(
+		async (newName: string) => {
+			try {
+				switch (props.item.type) {
+					case 'Location': {
+						const locationId = props.item.item.id;
+						if (!locationId) throw new Error('Missing location id');
 
-					await renameLocation.mutateAsync({
-						id: locationId,
-						path: null,
-						name: newName,
-						generate_preview_media: null,
-						sync_preview_media: null,
-						hidden: null,
-						indexer_rules_ids: []
-					});
+						await renameLocation.mutateAsync({
+							id: locationId,
+							path: null,
+							name: newName,
+							generate_preview_media: null,
+							sync_preview_media: null,
+							hidden: null,
+							indexer_rules_ids: []
+						});
 
-					break;
-				}
+						break;
+					}
 
-				case 'Path':
-				case 'Object': {
-					const filePathData = getIndexedItemFilePath(props.item);
+					case 'Path':
+					case 'Object': {
+						const filePathData = getIndexedItemFilePath(props.item);
 
-					if (!filePathData) throw new Error('Failed to get file path object');
+						if (!filePathData) throw new Error('Failed to get file path object');
 
-					const { id, location_id } = filePathData;
+						const { id, location_id } = filePathData;
 
-					if (!location_id) throw new Error('Missing location id');
+						if (!location_id) throw new Error('Missing location id');
 
-					await renameFile.mutateAsync({
-						location_id: location_id,
-						kind: {
-							One: {
-								from_file_path_id: id,
-								to: newName
+						await renameFile.mutateAsync({
+							location_id: location_id,
+							kind: {
+								One: {
+									from_file_path_id: id,
+									to: newName
+								}
 							}
-						}
-					});
+						});
 
-					break;
-				}
+						break;
+					}
 
-				case 'NonIndexedPath': {
-					const ephemeralFile = getEphemeralPath(props.item);
+					case 'NonIndexedPath': {
+						const ephemeralFile = getEphemeralPath(props.item);
 
-					if (!ephemeralFile) throw new Error('Failed to get ephemeral file object');
+						if (!ephemeralFile) throw new Error('Failed to get ephemeral file object');
 
-					renameEphemeralFile.mutate({
-						kind: {
-							One: {
-								from_path: ephemeralFile.path,
-								to: newName
+						renameEphemeralFile.mutate({
+							kind: {
+								One: {
+									from_path: ephemeralFile.path,
+									to: newName
+								}
 							}
-						}
-					});
+						});
 
-					break;
+						break;
+					}
+
+					default:
+						throw new Error('Invalid explorer item type');
 				}
-
-				default:
-					throw new Error('Invalid explorer item type');
+			} catch (e) {
+				reset();
+				toast.error({
+					title: `Could not rename ${itemData.fullName} to ${newName}`,
+					body: `Error: ${e}.`
+				});
 			}
-		} catch (e) {
-			reset();
-			toast.error({
-				title: `Could not rename ${itemData.fullName} to ${newName}`,
-				body: `Error: ${e}.`
-			});
-		}
-	};
+		},
+		[itemData.fullName, props.item, renameEphemeralFile, renameFile, renameLocation, reset]
+	);
 
 	const disabled =
 		!props.selected ||
-		explorerStore.drag?.type === 'dragging' ||
+		isDragging ||
 		!explorer ||
 		explorer.selectedItems.size > 1 ||
 		quickPreviewStore.open ||
-		props.item.type === 'SpacedropPeer';
+		!RENAMABLE_ITEM_TYPES.includes(props.item.type);
 
 	return (
 		<RenameTextBox

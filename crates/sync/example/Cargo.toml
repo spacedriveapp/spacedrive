@@ -10,12 +10,12 @@ edition = { workspace = true }
 [dependencies]
 serde_json = "1.0.85"
 serde = { version = "1.0.145", features = ["derive"] }
-axum = "0.6.4"
+axum = { workspace = true }
 rspc = { workspace = true, features = ["axum"] }
 tokio = { workspace = true, features = ["full"] }
 prisma-client-rust = { workspace = true }
 dotenv = "0.15.0"
 tower-http = { version = "0.3.4", features = ["cors"] }
 sd-sync = { path = ".." }
-uuid = { version = "1.1.2", features = ["v4"] }
+uuid = { workspace = true, features = ["v4"] }
 http = "0.2.8"

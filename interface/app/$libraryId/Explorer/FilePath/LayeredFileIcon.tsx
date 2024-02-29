@@ -1,6 +1,6 @@
 import { getLayeredIcon } from '@sd/assets/util';
 import clsx from 'clsx';
-import { forwardRef, type ImgHTMLAttributes } from 'react';
+import { forwardRef, Suspense, type ImgHTMLAttributes } from 'react';
 import { type ObjectKindKey } from '@sd/client';
 
 interface LayeredFileIconProps extends ImgHTMLAttributes<HTMLImageElement> {
@@ -37,7 +37,9 @@ const LayeredFileIcon = forwardRef<HTMLImageElement, LayeredFileIconProps>(
 				<div
 					className={clsx('pointer-events-none absolute bottom-0 right-0', positionClass)}
 				>
-					<IconComponent viewBox="0 0 16 16" height="40%" width="40%" />
+					<Suspense>
+						<IconComponent viewBox="0 0 16 16" height="40%" width="40%" />
+					</Suspense>
 				</div>
 			</div>
 		);

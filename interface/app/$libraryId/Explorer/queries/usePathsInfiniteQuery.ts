@@ -12,7 +12,7 @@ import {
 	useRspcLibraryContext
 } from '@sd/client';
 
-import { getExplorerStore } from '../store';
+import { explorerStore } from '../store';
 import { UseExplorerInfiniteQueryArgs } from './useExplorerInfiniteQuery';
 
 export function usePathsInfiniteQuery({
@@ -133,7 +133,7 @@ export function usePathsInfiniteQuery({
 			if (lastPage.items.length < arg.take) return undefined;
 			else return lastPage.nodes[arg.take - 1];
 		},
-		onSuccess: () => getExplorerStore().resetNewThumbnails(),
+		onSuccess: () => explorerStore.resetNewThumbnails(),
 		...args
 	});
 

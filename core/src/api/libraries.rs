@@ -1,31 +1,50 @@
 use crate::{
-	library::{Library, LibraryConfig, LibraryName},
+	invalidate_query,
+	library::{update_library_statistics, Library, LibraryConfig, LibraryName},
 	location::{scan_location, LocationCreateArgs},
 	util::MaybeUndefined,
-	volume::get_volumes,
 	Node,
 };
 
+use futures::StreamExt;
 use sd_cache::{Model, Normalise, NormalisedResult, NormalisedResults};
-use sd_p2p::spacetunnel::RemoteIdentity;
-use sd_prisma::prisma::{indexer_rule, statistics};
+use sd_file_ext::kind::ObjectKind;
+use sd_p2p2::RemoteIdentity;
+use sd_prisma::prisma::{indexer_rule, object, statistics};
+use tokio_stream::wrappers::IntervalStream;
 
-use std::{convert::identity, sync::Arc};
+use std::{
+	collections::{hash_map::Entry, HashMap},
+	convert::identity,
+	pin::pin,
+	sync::Arc,
+	time::Duration,
+};
 
-use chrono::Utc;
+use async_channel as chan;
 use directories::UserDirs;
-use futures_concurrency::future::Join;
+use futures_concurrency::{future::Join, stream::Merge};
+use once_cell::sync::Lazy;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tokio::spawn;
+use strum::IntoEnumIterator;
+use tokio::{
+	spawn,
+	sync::Mutex,
+	time::{interval, Instant},
+};
 use tracing::{debug, error};
 use uuid::Uuid;
 
-use super::{
-	utils::{get_size, library},
-	Ctx, R,
-};
+use super::{utils::library, Ctx, R};
+
+const ONE_MINUTE: Duration = Duration::from_secs(60);
+const TWO_MINUTES: Duration = Duration::from_secs(60 * 2);
+const FIVE_MINUTES: Duration = Duration::from_secs(60 * 5);
+
+static STATISTICS_UPDATERS: Lazy<Mutex<HashMap<Uuid, chan::Sender<Instant>>>> =
+	Lazy::new(|| Mutex::new(HashMap::new()));
 
 // TODO(@Oscar): Replace with `specta::json`
 #[derive(Serialize, Type)]
@@ -80,64 +99,68 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("statistics", {
+			#[derive(Serialize, Deserialize, Type)]
+			pub struct StatisticsResponse {
+				statistics: Option<statistics::Data>,
+			}
 			R.with2(library())
 				.query(|(node, library), _: ()| async move {
-					// TODO: get from database if library is offline
-					// let _statistics = library
-					// 	.db
-					// 	.statistics()
-					// 	.find_unique(statistics::id::equals(library.node_local_id))
-					// 	.exec()
-					// 	.await?;
-
-					let volumes = get_volumes().await;
-					// save_volume(&library).await?;
-
-					let mut total_capacity: u64 = 0;
-					let mut available_capacity: u64 = 0;
-					for volume in volumes {
-						total_capacity += volume.total_capacity;
-						available_capacity += volume.available_capacity;
-					}
-
-					let library_db_size = get_size(
-						node.config
-							.data_directory()
-							.join("libraries")
-							.join(&format!("{}.db", library.id)),
-					)
-					.await
-					.unwrap_or(0);
-
-					let thumbnail_folder_size =
-						get_size(node.config.data_directory().join("thumbnails"))
-							.await
-							.unwrap_or(0);
-
-					use statistics::*;
-					let params = vec![
-						id::set(1), // Each library is a database so only one of these ever exists
-						date_captured::set(Utc::now().into()),
-						total_object_count::set(0),
-						library_db_size::set(library_db_size.to_string()),
-						total_bytes_used::set(0.to_string()),
-						total_bytes_capacity::set(total_capacity.to_string()),
-						total_unique_bytes::set(0.to_string()),
-						total_bytes_free::set(available_capacity.to_string()),
-						preview_media_bytes::set(thumbnail_folder_size.to_string()),
-					];
-
-					Ok(library
+					let statistics = library
 						.db
 						.statistics()
-						.upsert(
-							statistics::id::equals(1), // Each library is a database so only one of these ever exists
-							statistics::create(params.clone()),
-							params,
-						)
+						.find_unique(statistics::id::equals(1))
 						.exec()
-						.await?)
+						.await?;
+
+					match STATISTICS_UPDATERS.lock().await.entry(library.id) {
+						Entry::Occupied(entry) => {
+							if entry.get().send(Instant::now()).await.is_err() {
+								error!("Failed to send statistics update request");
+							}
+						}
+						Entry::Vacant(entry) => {
+							let (tx, rx) = chan::bounded(1);
+							entry.insert(tx);
+
+							spawn(update_statistics_loop(node, library, rx));
+						}
+					}
+
+					Ok(StatisticsResponse { statistics })
 				})
+		})
+		.procedure("kindStatistics", {
+			#[derive(Serialize, Deserialize, Type, Default)]
+			pub struct KindStatistic {
+				kind: i32,
+				name: String,
+				count: i32,
+				total_bytes: String,
+			}
+			#[derive(Serialize, Deserialize, Type, Default)]
+			pub struct KindStatistics {
+				statistics: Vec<KindStatistic>,
+			}
+			R.with2(library()).query(|(_, library), _: ()| async move {
+				let mut statistics: Vec<KindStatistic> = vec![];
+				for kind in ObjectKind::iter() {
+					let count = library
+						.db
+						.object()
+						.count(vec![object::kind::equals(Some(kind as i32))])
+						.exec()
+						.await?;
+
+					statistics.push(KindStatistic {
+						kind: kind as i32,
+						name: kind.to_string(),
+						count: count as i32,
+						total_bytes: "0".to_string(),
+					});
+				}
+
+				Ok(KindStatistics { statistics })
+			})
 		})
 		.procedure("create", {
 			#[derive(Deserialize, Type, Default)]
@@ -313,7 +336,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				     name,
 				     description,
 				 }: EditLibraryArgs| async move {
-					Ok(node.libraries.edit(id, name, description).await?)
+					Ok(node
+						.libraries
+						.edit(id, name, description, MaybeUndefined::Undefined, None)
+						.await?)
 				},
 			)
 		})
@@ -357,4 +383,45 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					Ok(())
 				}),
 		)
+}
+
+async fn update_statistics_loop(
+	node: Arc<Node>,
+	library: Arc<Library>,
+	last_requested_rx: chan::Receiver<Instant>,
+) {
+	let mut last_received_at = Instant::now();
+
+	let tick = interval(ONE_MINUTE);
+
+	enum Message {
+		Tick,
+		Requested(Instant),
+	}
+
+	let mut msg_stream = pin!((
+		IntervalStream::new(tick).map(|_| Message::Tick),
+		last_requested_rx.map(Message::Requested)
+	)
+		.merge());
+
+	while let Some(msg) = msg_stream.next().await {
+		match msg {
+			Message::Tick => {
+				if last_received_at.elapsed() < FIVE_MINUTES {
+					if let Err(e) = update_library_statistics(&node, &library).await {
+						error!("Failed to update library statistics: {e:#?}");
+					} else {
+						invalidate_query!(&library, "library.statistics");
+					}
+				}
+			}
+			Message::Requested(instant) => {
+				if instant - last_received_at > TWO_MINUTES {
+					debug!("Updating last received at");
+					last_received_at = instant;
+				}
+			}
+		}
+	}
 }

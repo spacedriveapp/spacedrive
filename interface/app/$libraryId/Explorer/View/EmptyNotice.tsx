@@ -33,7 +33,7 @@ export const EmptyNotice = (props: {
 					: emptyNoticeIcon(props.icon as Icon)
 				: emptyNoticeIcon()}
 
-			<p className="mt-5 text-sm font-medium">
+			<p className="mt-5">
 				{props.message !== undefined ? props.message : 'This list is empty'}
 			</p>
 		</div>

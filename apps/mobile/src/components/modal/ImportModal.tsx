@@ -1,8 +1,8 @@
+import * as RNFS from '@dr.pogodin/react-native-fs';
 import { forwardRef, useCallback } from 'react';
 import { Alert, Platform, Text, View } from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
-import RNFS from 'react-native-fs';
-import { useLibraryMutation } from '@sd/client';
+import { useLibraryMutation, useRspcLibraryContext } from '@sd/client';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import useForwardedRef from '~/hooks/useForwardedRef';
@@ -16,6 +16,7 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 
 	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
 	const relinkLocation = useLibraryMutation('locations.relink');
+	const rspc = useRspcLibraryContext();
 
 	const createLocation = useLibraryMutation('locations.create', {
 		onError: (error, variables) => {
@@ -31,7 +32,7 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 			}
 		},
 		onSettled: () => {
-			// Close the modal
+			rspc.queryClient.invalidateQueries(['locations.list']);
 			modalRef.current?.close();
 		}
 	});
@@ -174,10 +175,10 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 					<Text>TEST</Text>
 				</Button> */}
 				<Button variant="accent" style={tw`my-2`} onPress={handleFilesButton}>
-					<Text>Import from Files</Text>
+					<Text style={tw`text-sm font-medium text-white`}>Import from Files</Text>
 				</Button>
 				<Button variant="accent" onPress={handlePhotosButton}>
-					<Text>Import from Photos</Text>
+					<Text style={tw`text-sm font-medium text-white`}>Import from Photos</Text>
 				</Button>
 				<Text style={tw`mt-4 text-center text-white`}>TODO</Text>
 			</View>

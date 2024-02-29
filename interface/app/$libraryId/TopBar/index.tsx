@@ -1,21 +1,27 @@
 import { Plus, X } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useLayoutEffect, useRef } from 'react';
-import { useKey } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
+import { useSelector } from '@sd/client';
 import { Tooltip } from '@sd/ui';
-import { useKeyMatcher, useOperatingSystem, useShowControls } from '~/hooks';
+import {
+	useKeyMatcher,
+	useLocale,
+	useOperatingSystem,
+	useShortcut,
+	useShowControls
+} from '~/hooks';
 import { useRoutingContext } from '~/RoutingContext';
 import { useTabsContext } from '~/TabsContext';
-import { usePlatform } from '~/util/Platform';
 
-import { useExplorerStore } from '../Explorer/store';
+import { explorerStore } from '../Explorer/store';
 import { useTopBarContext } from './Layout';
 import { NavigationButtons } from './NavigationButtons';
 
+// million-ignore
 const TopBar = () => {
 	const transparentBg = useShowControls().transparentBg;
-	const { isDragSelecting } = useExplorerStore();
+	const isDragSelecting = useSelector(explorerStore, (s) => s.isDragSelecting);
 	const ref = useRef<HTMLDivElement>(null);
 
 	const tabs = useTabsContext();
@@ -36,8 +42,6 @@ const TopBar = () => {
 		const height = ref.current!.getBoundingClientRect().height;
 		ctx.setTopBarHeight.call(undefined, height);
 	}, [ctx.setTopBarHeight]);
-
-	const platform = usePlatform();
 
 	return (
 		<div
@@ -60,7 +64,7 @@ const TopBar = () => {
 					data-tauri-drag-region
 					className="flex flex-1 items-center gap-3.5 overflow-hidden"
 				>
-					{platform.platform === 'tauri' && <NavigationButtons />}
+					<NavigationButtons />
 					<div ref={ctx.setLeft} className="overflow-hidden" />
 				</div>
 
@@ -81,6 +85,8 @@ export default TopBar;
 function Tabs() {
 	const ctx = useTabsContext()!;
 	const keybind = useKeyMatcher('Meta');
+
+	const { t } = useLocale();
 
 	function addTab() {
 		ctx.createTab();
@@ -133,7 +139,7 @@ function Tabs() {
 				className="flex h-full flex-1 items-center justify-start border-t border-sidebar-divider bg-sidebar/30 px-2"
 				data-tauri-drag-region
 			>
-				<Tooltip keybinds={[keybind.icon, 'T']} label="New Tab">
+				<Tooltip keybinds={[keybind.icon, 'T']} label={t('new_tab')}>
 					<button
 						onClick={addTab}
 						className="duration-[50ms] flex flex-row items-center justify-center rounded p-1.5 transition-colors hover:bg-app/80"
@@ -151,34 +157,35 @@ function useTabKeybinds(props: { addTab(): void; removeTab(index: number): void 
 	const os = useOperatingSystem();
 	const { visible } = useRoutingContext();
 
-	// these keybinds aren't part of the regular shortcuts system as they're desktop-only
-	useKey(['t'], (e) => {
+	useShortcut('newTab', (e) => {
 		if (!visible) return;
-		if ((os === 'macOS' && !e.metaKey) || (os !== 'macOS' && !e.ctrlKey)) return;
 
 		e.stopPropagation();
 
 		props.addTab();
 	});
 
-	useKey(['w'], (e) => {
+	useShortcut('closeTab', (e) => {
 		if (!visible) return;
-		if ((os === 'macOS' && !e.metaKey) || (os !== 'macOS' && !e.ctrlKey)) return;
 
 		e.stopPropagation();
 
 		props.removeTab(ctx.tabIndex);
 	});
 
-	useKey(['ArrowLeft', 'ArrowRight'], (e) => {
+	useShortcut('nextTab', (e) => {
 		if (!visible) return;
-		// TODO: figure out non-macos keybind
-		if ((os === 'macOS' && !(e.metaKey && e.altKey)) || os !== 'macOS') return;
 
 		e.stopPropagation();
 
-		const delta = e.key === 'ArrowLeft' ? -1 : 1;
+		ctx.setTabIndex(Math.min(ctx.tabIndex + 1, ctx.tabs.length - 1));
+	});
 
-		ctx.setTabIndex(Math.min(Math.max(0, ctx.tabIndex + delta), ctx.tabs.length - 1));
+	useShortcut('previousTab', (e) => {
+		if (!visible) return;
+
+		e.stopPropagation();
+
+		ctx.setTabIndex(Math.max(ctx.tabIndex - 1, 0));
 	});
 }

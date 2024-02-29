@@ -47,6 +47,7 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 			title: 'Delete',
 			value: 'Are you sure you want to delete this rule?',
 			label: 'Confirm',
+			cancelBtn: true,
 			onSubmit: async () => {
 				setIsDeleting(true);
 				try {

@@ -6,12 +6,14 @@ use crate::{
 	object::media::thumbnail::actor::Thumbnailer,
 };
 
+#[cfg(feature = "ai")]
+use sd_ai::image_labeler::{DownloadModelError, ImageLabeler, YoloV8};
+
 use api::notifications::{Notification, NotificationData, NotificationId};
 use chrono::{DateTime, Utc};
 use node::config;
 use notifications::Notifications;
 use reqwest::{RequestBuilder, Response};
-pub use sd_prisma::*;
 
 use std::{
 	fmt,
@@ -64,6 +66,8 @@ pub struct Node {
 	pub cloud_sync_flag: Arc<AtomicBool>,
 	pub env: Arc<env::Env>,
 	pub http: reqwest::Client,
+	#[cfg(feature = "ai")]
+	pub image_labeller: Option<ImageLabeler>,
 }
 
 impl fmt::Debug for Node {
@@ -96,31 +100,52 @@ impl Node {
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
 
+		if let Some(url) = config.get().await.sd_api_origin {
+			*env.api_url.lock().await = url;
+		}
+
+		#[cfg(feature = "ai")]
+		let image_labeler_version = {
+			sd_ai::init()?;
+			config.get().await.image_labeler_version
+		};
+
 		let (locations, locations_actor) = location::Locations::new();
 		let (jobs, jobs_actor) = job::Jobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
-		let (p2p, p2p_actor) = p2p::P2PManager::new(config.clone(), libraries.clone()).await?;
-		let node = Arc::new(Node {
-			data_dir: data_dir.to_path_buf(),
-			jobs,
-			locations,
-			notifications: notifications::Notifications::new(),
-			p2p,
-			thumbnailer: Thumbnailer::new(
-				data_dir.to_path_buf(),
-				libraries.clone(),
-				event_bus.0.clone(),
-				config.preferences_watcher(),
-			)
-			.await,
-			config,
-			event_bus,
-			libraries,
-			files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
-			cloud_sync_flag: Arc::new(AtomicBool::new(false)),
-			http: reqwest::Client::new(),
-			env,
-		});
+
+		let (p2p, start_p2p) = p2p::P2PManager::new(config.clone(), libraries.clone())
+			.await
+			.map_err(NodeError::P2PManager)?;
+		let node =
+			Arc::new(Node {
+				data_dir: data_dir.to_path_buf(),
+				jobs,
+				locations,
+				notifications: notifications::Notifications::new(),
+				p2p,
+				thumbnailer: Thumbnailer::new(
+					data_dir,
+					libraries.clone(),
+					event_bus.0.clone(),
+					config.preferences_watcher(),
+				)
+				.await,
+				config,
+				event_bus,
+				libraries,
+				files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
+				cloud_sync_flag: Arc::new(AtomicBool::new(false)),
+				http: reqwest::Client::new(),
+				env,
+				#[cfg(feature = "ai")]
+				image_labeller: ImageLabeler::new(YoloV8::model(image_labeler_version)?, data_dir)
+					.await
+					.map_err(|e| {
+						error!("Failed to initialize image labeller. AI features will be disabled: {e:#?}");
+					})
+					.ok(),
+			});
 
 		// Restore backend feature flags
 		for feature in node.config.get().await.features {
@@ -133,13 +158,23 @@ impl Node {
 			init_data.apply(&node.libraries, &node).await?;
 		}
 
+		let router = api::mount();
+
 		// Be REALLY careful about ordering here or you'll get unreliable deadlock's!
 		locations_actor.start(node.clone());
 		node.libraries.init(&node).await?;
 		jobs_actor.start(node.clone());
-		p2p_actor.start(node.clone());
-
-		let router = api::mount();
+		start_p2p(
+			node.clone(),
+			router
+				.clone()
+				.endpoint({
+					let node = node.clone();
+					move |_| node.clone()
+				})
+				.axum::<()>()
+				.into_make_service(),
+		);
 
 		info!("Spacedrive online.");
 		Ok((node, router))
@@ -165,7 +200,7 @@ impl Node {
 
 			std::env::set_var(
 				"RUST_LOG",
-				format!("info,sd_core={level},sd_core::location::manager=info"),
+				format!("info,sd_core={level},sd_p2p=debug,sd_core::location::manager=info,sd_ai={level}"),
 			);
 		}
 
@@ -207,6 +242,10 @@ impl Node {
 		self.thumbnailer.shutdown().await;
 		self.jobs.shutdown().await;
 		self.p2p.shutdown().await;
+		#[cfg(feature = "ai")]
+		if let Some(image_labeller) = &self.image_labeller {
+			image_labeller.shutdown().await;
+		}
 		info!("Spacedrive Core shutdown successful!");
 	}
 
@@ -276,9 +315,15 @@ impl Node {
 	pub async fn cloud_api_config(&self) -> sd_cloud_api::RequestConfig {
 		sd_cloud_api::RequestConfig {
 			client: self.http.clone(),
-			api_url: self.env.api_url.clone(),
+			api_url: self.env.api_url.lock().await.clone(),
 			auth_token: self.config.get().await.auth_token,
 		}
+	}
+}
+
+impl sd_cloud_api::RequestConfigProvider for Node {
+	async fn get_request_config(self: &Arc<Self>) -> sd_cloud_api::RequestConfig {
+		Node::cloud_api_config(self).await
 	}
 }
 
@@ -292,7 +337,7 @@ pub enum NodeError {
 	#[error("failed to initialize location manager: {0}")]
 	LocationManager(#[from] LocationManagerError),
 	#[error("failed to initialize p2p manager: {0}")]
-	P2PManager(#[from] sd_p2p::ManagerError),
+	P2PManager(String),
 	#[error("invalid platform integer: {0}")]
 	InvalidPlatformInt(u8),
 	#[cfg(debug_assertions)]
@@ -300,4 +345,10 @@ pub enum NodeError {
 	InitConfig(#[from] util::debug_initializer::InitConfigError),
 	#[error("logger error: {0}")]
 	Logger(#[from] FromEnvError),
+	#[cfg(feature = "ai")]
+	#[error("ai error: {0}")]
+	AI(#[from] sd_ai::Error),
+	#[cfg(feature = "ai")]
+	#[error("Failed to download model: {0}")]
+	DownloadModel(#[from] DownloadModelError),
 }

@@ -3,19 +3,19 @@ use crate::{
 	job::JobError,
 	library::Library,
 	location::{
-		file_path_helper::{
-			check_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-			IsolatedFilePathData,
-		},
 		indexer::{
 			execute_indexer_update_step, reverse_update_directories_sizes, IndexerJobUpdateStep,
 		},
 		scan_location_sub_path, update_location_size,
 	},
-	to_remove_db_fetcher_fn,
-	util::db::maybe_missing,
-	Node,
+	to_remove_db_fetcher_fn, Node,
 };
+
+use sd_file_path_helper::{
+	check_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+	IsolatedFilePathData,
+};
+use sd_utils::db::maybe_missing;
 
 use std::{
 	collections::HashSet,
@@ -46,6 +46,7 @@ pub async fn shallow(
 	let location_path = maybe_missing(&location.path, "location.path").map(Path::new)?;
 
 	let db = library.db.clone();
+	let sync = &library.sync;
 
 	let indexer_rules = location
 		.indexer_rules
@@ -103,7 +104,7 @@ pub async fn shallow(
 	errors.into_iter().for_each(|e| error!("{e}"));
 
 	// TODO pass these uuids to sync system
-	remove_non_existing_file_paths(to_remove, &db).await?;
+	remove_non_existing_file_paths(to_remove, &db, sync).await?;
 
 	let mut new_directories_to_scan = HashSet::new();
 
@@ -190,7 +191,7 @@ pub async fn shallow(
 		invalidate_query!(library, "search.objects");
 	}
 
-	library.orphan_remover.invoke().await;
+	// library.orphan_remover.invoke().await;
 
 	Ok(())
 }

@@ -1,16 +1,17 @@
 import { useNavigation } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
-import { Rows, SquaresFour } from 'phosphor-react-native';
+import { AnimatePresence, MotiView } from 'moti';
+import { MonitorPlay, Rows, SlidersHorizontal, SquaresFour } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { isPath, type ExplorerItem } from '@sd/client';
-import SortByMenu from '~/components/menu/SortByMenu';
 import Layout from '~/constants/Layout';
 import { tw } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
-import { getExplorerStore } from '~/stores/explorerStore';
+import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '~/stores/explorerStore';
 import { useActionsModalStore } from '~/stores/modalStore';
 
+import ScreenContainer from '../layout/ScreenContainer';
 import FileItem from './FileItem';
 import FileRow from './FileRow';
 
@@ -20,10 +21,10 @@ type ExplorerProps = {
 
 const Explorer = ({ items }: ExplorerProps) => {
 	const navigation = useNavigation<BrowseStackScreenProps<'Location'>['navigation']>();
+	const explorerStore = useExplorerStore();
+	const [layoutMode, setLayoutMode] = useState<ExplorerLayoutMode>(getExplorerStore().layoutMode);
 
-	const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>(getExplorerStore().layoutMode);
-
-	function changeLayoutMode(kind: 'grid' | 'list') {
+	function changeLayoutMode(kind: ExplorerLayoutMode) {
 		// We need to keep layoutMode as a state to make sure flash-list re-renders.
 		setLayoutMode(kind);
 		getExplorerStore().layoutMode = kind;
@@ -44,13 +45,30 @@ const Explorer = ({ items }: ExplorerProps) => {
 	}
 
 	return (
-		<View style={tw`flex-1`}>
+		<ScreenContainer scrollview={false} style={'gap-0 py-0'}>
 			{/* Header */}
-			<View style={tw`flex flex-row items-center justify-between p-3`}>
+			<View style={tw`flex flex-row items-center justify-between`}>
 				{/* Sort By */}
-				<SortByMenu />
+				{/* <SortByMenu /> */}
+				<AnimatePresence>
+					{explorerStore.toggleMenu && (
+						<MotiView
+							from={{ translateY: -70 }}
+							animate={{ translateY: 0 }}
+							transition={{ type: 'timing', duration: 300 }}
+							exit={{ translateY: -70 }}
+						>
+							<ExplorerMenu
+								changeLayoutMode={(kind: ExplorerLayoutMode) => {
+									changeLayoutMode(kind);
+								}}
+								layoutMode={layoutMode}
+							/>
+						</MotiView>
+					)}
+				</AnimatePresence>
 				{/* Layout (Grid/List) */}
-				{layoutMode === 'grid' ? (
+				{/* {layoutMode === 'grid' ? (
 					<Pressable onPress={() => changeLayoutMode('list')}>
 						<SquaresFour color={tw.color('ink')} size={23} />
 					</Pressable>
@@ -58,7 +76,7 @@ const Explorer = ({ items }: ExplorerProps) => {
 					<Pressable onPress={() => changeLayoutMode('grid')}>
 						<Rows color={tw.color('ink')} size={23} />
 					</Pressable>
-				)}
+				)} */}
 			</View>
 			{/* Items */}
 			{items && (
@@ -82,6 +100,7 @@ const Explorer = ({ items }: ExplorerProps) => {
 							)}
 						</Pressable>
 					)}
+					contentContainerStyle={tw`p-2`}
 					extraData={layoutMode}
 					estimatedItemSize={
 						layoutMode === 'grid'
@@ -90,6 +109,41 @@ const Explorer = ({ items }: ExplorerProps) => {
 					}
 				/>
 			)}
+		</ScreenContainer>
+	);
+};
+
+interface ExplorerMenuProps {
+	layoutMode: ExplorerLayoutMode;
+	changeLayoutMode: (kind: ExplorerLayoutMode) => void;
+}
+
+const ExplorerMenu = ({ layoutMode, changeLayoutMode }: ExplorerMenuProps) => {
+	return (
+		<View
+			style={tw`w-screen flex-row justify-between border-b border-app-line/50 bg-mobile-header px-7 py-4`}
+		>
+			<View style={tw`flex-row gap-3`}>
+				<Pressable onPress={() => changeLayoutMode('grid')}>
+					<SquaresFour
+						color={tw.color(layoutMode === 'grid' ? 'text-accent' : 'text-ink-dull')}
+						size={23}
+					/>
+				</Pressable>
+				<Pressable onPress={() => changeLayoutMode('list')}>
+					<Rows
+						color={tw.color(layoutMode === 'list' ? 'text-accent' : 'text-ink-dull')}
+						size={23}
+					/>
+				</Pressable>
+				<Pressable onPress={() => changeLayoutMode('media')}>
+					<MonitorPlay
+						color={tw.color(layoutMode === 'media' ? 'text-accent' : 'text-ink-dull')}
+						size={23}
+					/>
+				</Pressable>
+			</View>
+			<SlidersHorizontal style={tw`text-ink-dull`} />
 		</View>
 	);
 };

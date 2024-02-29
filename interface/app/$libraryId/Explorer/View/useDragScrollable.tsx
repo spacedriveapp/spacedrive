@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useExplorerContext } from '../Context';
-import { getExplorerStore } from '../store';
+import { explorerStore } from '../store';
 
 /**
  * Custom explorer dnd scroll handler as the default auto-scroll from dnd-kit is presenting issues
@@ -11,8 +11,8 @@ export const useDragScrollable = ({ direction }: { direction: 'up' | 'down' }) =
 
 	const [node, setNode] = useState<HTMLElement | null>(null);
 
-	const timeout = useRef<NodeJS.Timeout | null>(null);
-	const interval = useRef<NodeJS.Timer | null>(null);
+	const timeout = useRef<number | null>(null);
+	const interval = useRef<number | null>(null);
 
 	useEffect(() => {
 		const element = node;
@@ -32,7 +32,7 @@ export const useDragScrollable = ({ direction }: { direction: 'up' | 'down' }) =
 		};
 
 		const handleMouseMove = ({ clientX, clientY }: MouseEvent) => {
-			if (getExplorerStore().drag?.type !== 'dragging') return reset();
+			if (explorerStore.drag?.type !== 'dragging') return reset();
 
 			const rect = element.getBoundingClientRect();
 

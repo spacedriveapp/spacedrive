@@ -1,10 +1,14 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { AppLogo, BloomOne } from '@sd/assets/images';
+import { mobsdintro } from '@sd/assets/videos';
+import { ResizeMode, Video } from 'expo-av';
 import { MotiView } from 'moti';
 import { CaretLeft } from 'phosphor-react-native';
+import { useEffect } from 'react';
 import { Image, KeyboardAvoidingView, Platform, Pressable, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useOnboardingStore } from '@sd/client';
 import { FadeInUpAnimation, LogoAnimation } from '~/components/animation/layout';
 import { AnimatedButton } from '~/components/primitive/Button';
 import { styled, tw, twStyle } from '~/lib/tailwind';
@@ -13,11 +17,30 @@ import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
 export function OnboardingContainer({ children }: React.PropsWithChildren) {
 	const navigation = useNavigation();
 	const route = useRoute();
-
 	const { top, bottom } = useSafeAreaInsets();
-
+	const store = useOnboardingStore();
 	return (
-		<View style={tw`flex-1`}>
+		<View style={tw`relative flex-1`}>
+			{store.showIntro && (
+				<View
+					style={twStyle(
+						'absolute z-50 mx-auto h-full w-full flex-1 items-center justify-center bg-black'
+					)}
+				>
+					<Video
+						style={tw`h-[700px] w-[700px]`}
+						shouldPlay
+						onPlaybackStatusUpdate={(status) => {
+							if (status.isLoaded && status.didJustFinish) {
+								store.showIntro = false;
+							}
+						}}
+						source={mobsdintro}
+						isMuted
+						resizeMode={ResizeMode.CONTAIN}
+					/>
+				</View>
+			)}
 			{route.name !== 'GetStarted' && route.name !== 'CreatingLibrary' && (
 				<Pressable
 					style={twStyle('absolute left-6 z-50', { top: top + 16 })}
@@ -57,6 +80,11 @@ export const OnboardingDescription = styled(
 );
 
 const GetStartedScreen = ({ navigation }: OnboardingStackScreenProps<'GetStarted'>) => {
+	//initial render - reset video intro value
+	const store = useOnboardingStore();
+	useEffect(() => {
+		store.showIntro = true;
+	}, []);
 	return (
 		<OnboardingContainer>
 			{/* Logo */}

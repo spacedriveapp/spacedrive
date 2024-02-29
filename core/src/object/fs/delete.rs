@@ -5,9 +5,14 @@ use crate::{
 	},
 	library::Library,
 	location::get_location_path_from_location_id,
-	prisma::{file_path, location},
-	util::{db::maybe_missing, error::FileIOError},
 };
+
+use sd_prisma::{
+	prisma::{file_path, location},
+	prisma_sync,
+};
+use sd_sync::OperationFactory;
+use sd_utils::{db::maybe_missing, error::FileIOError};
 
 use std::hash::Hash;
 
@@ -69,6 +74,8 @@ impl StatefulJob for FileDeleterJobInit {
 		// need to handle stuff such as querying prisma for all paths of a file, and deleting all of those if requested (with a checkbox in the ui)
 		// maybe a files.countOccurances/and or files.getPath(location_id, path_id) to show how many of these files would be deleted (and where?)
 
+		let Library { db, sync, .. } = ctx.library.as_ref();
+
 		match if maybe_missing(step.file_path.is_dir, "file_path.is_dir")? {
 			fs::remove_dir_all(&step.full_path).await
 		} else {
@@ -80,12 +87,15 @@ impl StatefulJob for FileDeleterJobInit {
 					"File not found in the file system, will remove from database: {}",
 					step.full_path.display()
 				);
-				ctx.library
-					.db
-					.file_path()
-					.delete(file_path::id::equals(step.file_path.id))
-					.exec()
-					.await?;
+				sync.write_op(
+					db,
+					sync.shared_delete(prisma_sync::file_path::SyncId {
+						pub_id: step.file_path.pub_id.clone(),
+					}),
+					db.file_path()
+						.delete(file_path::id::equals(step.file_path.id)),
+				)
+				.await?;
 			}
 			Err(e) => {
 				return Err(JobError::from(FileIOError::from((&step.full_path, e))));
@@ -104,7 +114,7 @@ impl StatefulJob for FileDeleterJobInit {
 		let init = self;
 		invalidate_query!(ctx.library, "search.paths");
 
-		ctx.library.orphan_remover.invoke().await;
+		// ctx.library.orphan_remover.invoke().await;
 
 		Ok(Some(json!({ "init": init })))
 	}

@@ -23,7 +23,6 @@ import {
 	createCache,
 	initPlausible,
 	LibraryContextProvider,
-	NotificationContextProvider,
 	P2PContextProvider,
 	RspcProvider,
 	useBridgeQuery,
@@ -35,6 +34,7 @@ import {
 } from '@sd/client';
 
 import { GlobalModals } from './components/modal/GlobalModals';
+import { Toast, toastConfig } from './components/primitive/Toast';
 import { useTheme } from './hooks/useTheme';
 import { changeTwTheme, tw } from './lib/tailwind';
 import RootNavigator from './navigation';
@@ -69,11 +69,7 @@ function AppNavigation() {
 
 	useEffect(() => {
 		const interval = setInterval(() => {
-			plausibleEvent({
-				event: {
-					type: 'ping'
-				}
-			});
+			plausibleEvent({ event: { type: 'ping' } });
 		}, 270 * 1000);
 
 		return () => clearInterval(interval);
@@ -138,9 +134,8 @@ function AppContainer() {
 						<ClientContextProvider currentLibraryId={id}>
 							<P2PContextProvider>
 								<P2P />
-								<NotificationContextProvider>
-									<AppNavigation />
-								</NotificationContextProvider>
+								<AppNavigation />
+								<Toast config={toastConfig} />
 							</P2PContextProvider>
 						</ClientContextProvider>
 					</BottomSheetModalProvider>

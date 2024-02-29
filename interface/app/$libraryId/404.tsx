@@ -1,8 +1,11 @@
 import { useNavigate } from 'react-router';
 import { Button } from '@sd/ui';
+import { useLocale } from '~/hooks';
 
 export const Component = () => {
 	const navigate = useNavigate();
+
+	const { t } = useLocale();
 
 	return (
 		<div className="w-full bg-app/80">
@@ -17,7 +20,7 @@ export const Component = () => {
 				</p>
 				<div className="flex flex-row space-x-2">
 					<Button variant="outline" className="mt-4" onClick={() => navigate(-1)}>
-						← Go Back
+						← {t('go_back')}
 					</Button>
 				</div>
 			</div>

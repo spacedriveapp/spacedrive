@@ -1,4 +1,4 @@
-use crate::prisma::{object, tag_on_object, PrismaClient};
+use sd_prisma::prisma::{object, tag_on_object, PrismaClient};
 
 use std::{sync::Arc, time::Duration};
 
@@ -90,6 +90,7 @@ impl OrphanRemoverActor {
 				.await
 			{
 				error!("Failed to remove orphaned objects: {e:#?}");
+				break;
 			}
 		}
 	}

@@ -21,7 +21,7 @@ import {
 } from '@sd/ui';
 import ModalLayout from '~/app/$libraryId/settings/ModalLayout';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
-import { useZodRouteParams } from '~/hooks';
+import { useLocale, useZodRouteParams } from '~/hooks';
 
 import DeleteDialog from './DeleteDialog';
 import IndexerRuleEditor from './IndexerRuleEditor';
@@ -31,7 +31,7 @@ const FlexCol = tw.label`flex flex-col flex-1`;
 const ToggleSection = tw.label`flex flex-row w-full`;
 
 const schema = z.object({
-	name: z.string().nullable(),
+	name: z.string().min(1).nullable(),
 	path: z.string().min(1).nullable(),
 	hidden: z.boolean().nullable(),
 	indexerRulesIds: z.array(z.number()),
@@ -75,7 +75,7 @@ const EditLocationForm = () => {
 
 	const updateLocation = useLibraryMutation('locations.update', {
 		onError: () => {
-			toast.error('Failed to update location settings');
+			toast.error(t('failed_to_update_location_settings'));
 		},
 		onSuccess: () => {
 			form.reset(form.getValues());
@@ -95,15 +95,17 @@ const EditLocationForm = () => {
 		})
 	);
 
+	const { t } = useLocale();
+
 	return (
 		<Form form={form} onSubmit={onSubmit} className="h-full w-full">
 			<ModalLayout
-				title="Edit Location"
+				title={t('edit_location')}
 				topRight={
 					<div className="flex flex-row space-x-3">
 						{form.formState.isDirty && (
 							<Button onClick={() => form.reset()} variant="outline" size="sm">
-								Reset
+								{t('reset')}
 							</Button>
 						)}
 						<Button
@@ -112,75 +114,58 @@ const EditLocationForm = () => {
 							variant={form.formState.isDirty ? 'accent' : 'outline'}
 							size="sm"
 						>
-							Save Changes
+							{t('save_changes')}
 						</Button>
 					</div>
 				}
 			>
 				<div className="flex space-x-4">
 					<FlexCol>
-						<InputField label="Display Name" {...form.register('name')} />
-						<InfoText className="mt-2">
-							The name of this Location, this is what will be displayed in the
-							sidebar. Will not rename the actual folder on disk.
-						</InfoText>
+						<InputField label={t('display_name')} {...form.register('name')} />
+						<InfoText className="mt-2">{t('location_display_name_info')}</InfoText>
 					</FlexCol>
 					<FlexCol>
-						<LocationPathInputField label="Path" {...form.register('path')} />
-						<InfoText className="mt-2">
-							The path to this Location, this is where the files will be stored on
-							disk.
-						</InfoText>
+						<LocationPathInputField label={t('path')} {...form.register('path')} />
+						<InfoText className="mt-2">{t('location_path_info')}</InfoText>
 					</FlexCol>
 				</div>
 				<Divider />
 				<div className="space-y-2">
-					<Label className="grow">Location Type</Label>
+					<Label className="grow">{t('location_type')}</Label>
 					<RadioGroupField.Root
 						className="flex flex-row !space-y-0 space-x-2"
 						{...form.register('locationType')}
 					>
 						<RadioGroupField.Item key="normal" value="normal">
-							<h1 className="font-bold">Normal</h1>
-							<p className="text-sm text-ink-faint">
-								Contents will be indexed as-is, new files will not be automatically
-								sorted.
-							</p>
+							<h1 className="font-bold">{t('normal')}</h1>
+							<p className="text-sm text-ink-faint">{t('location_type_normal')}</p>
 						</RadioGroupField.Item>
 
 						<RadioGroupField.Item disabled key="managed" value="managed">
-							<h1 className="font-bold">Managed</h1>
-							<p className="text-sm text-ink-faint">
-								Spacedrive will sort files for you. If Location isn't empty a
-								"spacedrive" folder will be created.
-							</p>
+							<h1 className="font-bold">{t('managed')}</h1>
+							<p className="text-sm text-ink-faint">{t('location_type_managed')}</p>
 						</RadioGroupField.Item>
 
 						<RadioGroupField.Item disabled key="replica" value="replica">
-							<h1 className="font-bold">Replica</h1>
-							<p className="text-sm text-ink-faint ">
-								This Location is a replica of another, its contents will be
-								automatically synchronized.
-							</p>
+							<h1 className="font-bold">{t('replica')}</h1>
+							<p className="text-sm text-ink-faint ">{t('location_type_replica')}</p>
 						</RadioGroupField.Item>
 					</RadioGroupField.Root>
 				</div>
 				<Divider />
 				<div className="space-y-2">
 					<ToggleSection>
-						<Label className="grow">Generate preview media for this Location</Label>
+						<Label className="grow">{t('generatePreviewMedia_label')}</Label>
 						<SwitchField {...form.register('generatePreviewMedia')} size="sm" />
 					</ToggleSection>
 					<ToggleSection>
-						<Label className="grow">
-							Sync preview media for this Location with your devices
-						</Label>
+						<Label className="grow">{t('syncPreviewMedia_label')}</Label>
 						<SwitchField {...form.register('syncPreviewMedia')} size="sm" />
 					</ToggleSection>
 					<ToggleSection>
 						<Label className="grow">
-							Hide location and contents from view{' '}
-							<Tooltip label='Prevents the location and its contents from appearing in summary categories, search and tags unless "Show hidden items" is enabled.'>
+							{t('hide_location_from_view')}{' '}
+							<Tooltip label={t('hidden_label')}>
 								<Info className="inline" />
 							</Tooltip>
 						</Label>
@@ -193,9 +178,9 @@ const EditLocationForm = () => {
 					render={({ field }) => (
 						<IndexerRuleEditor
 							field={field}
-							label="Indexer rules"
+							label={t('indexer_rules')}
 							editable={true}
-							infoText="Indexer rules allow you to specify paths to ignore using globs."
+							infoText={t('indexer_rules_info')}
 							className="flex flex-col rounded-md border border-app-line bg-app-overlay p-5"
 						/>
 					)}
@@ -216,29 +201,23 @@ const EditLocationForm = () => {
 								variant="outline"
 							>
 								<ArrowsClockwise className="-mt-0.5 mr-1.5 inline h-4 w-4" />
-								Full Reindex
+								{t('full_reindex')}
 							</Button>
 						</div>
-						<InfoText className="mt-2">
-							Perform a full rescan of this Location.
-						</InfoText>
+						<InfoText className="mt-2">{t('full_reindex_info')}</InfoText>
 					</FlexCol>
 					<FlexCol>
 						<div>
 							<Button
-								onClick={() => toast.info('Archiving locations is coming soon...')}
+								onClick={() => toast.info(t('archive_coming_soon'))}
 								size="sm"
 								variant="outline"
-								className=""
 							>
 								<Archive className="-mt-0.5 mr-1.5 inline h-4 w-4" />
-								Archive
+								{t('archive')}
 							</Button>
 						</div>
-						<InfoText className="mt-2">
-							Extract data from Library as an archive, useful to preserve Location
-							folder structure.
-						</InfoText>
+						<InfoText className="mt-2">{t('archive_info')}</InfoText>
 					</FlexCol>
 					<FlexCol>
 						<div>
@@ -258,12 +237,10 @@ const EditLocationForm = () => {
 								}}
 							>
 								<Trash className="-mt-0.5 mr-1.5 inline h-4 w-4" />
-								Delete
+								{t('delete')}
 							</Button>
 						</div>
-						<InfoText className="mt-2">
-							This will not delete the actual folder on disk. Preview media will be
-						</InfoText>
+						<InfoText className="mt-2">{t('delete_info')}</InfoText>
 					</FlexCol>
 				</div>
 				<Divider />

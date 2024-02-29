@@ -1,11 +1,12 @@
 import { CompositeScreenProps } from '@react-navigation/native';
 import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
-import { ArrowLeft } from 'phosphor-react-native';
 import Header from '~/components/header/Header';
 import { tw } from '~/lib/tailwind';
 import BrowseScreen from '~/screens/browse';
 import LocationScreen from '~/screens/Location';
+import { Locations } from '~/screens/Locations';
 import TagScreen from '~/screens/Tag';
+import Tags from '~/screens/Tags';
 
 import { TabScreenProps } from '../TabNavigator';
 
@@ -22,23 +23,39 @@ export default function BrowseStack() {
 				headerBackTitleStyle: tw`text-base`
 			}}
 		>
-			<Stack.Screen name="Browse" component={BrowseScreen} options={{ header: Header }} />
+			<Stack.Screen
+				name="Browse"
+				component={BrowseScreen}
+				options={{ header: () => <Header showLibrary title="Browse" /> }}
+			/>
 			<Stack.Screen
 				name="Location"
 				component={LocationScreen}
 				options={{
-					headerBackImage: () => (
-						<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+					header: (route) => (
+						<Header route={route} headerKind="location" routeTitle navBack />
 					)
+				}}
+			/>
+			<Stack.Screen
+				name="Tags"
+				component={Tags}
+				options={{
+					header: () => <Header navBack title="Tags" />
+				}}
+			/>
+			<Stack.Screen
+				name="Locations"
+				component={Locations}
+				options={{
+					header: () => <Header navBack searchType="location" title="Locations" />
 				}}
 			/>
 			<Stack.Screen
 				name="Tag"
 				component={TagScreen}
 				options={{
-					headerBackImage: () => (
-						<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
-					)
+					header: (route) => <Header routeTitle route={route} headerKind="tag" navBack />
 				}}
 			/>
 		</Stack.Navigator>
@@ -48,7 +65,9 @@ export default function BrowseStack() {
 export type BrowseStackParamList = {
 	Browse: undefined;
 	Location: { id: number; path?: string };
-	Tag: { id: number };
+	Locations: undefined;
+	Tag: { id: number; color: string };
+	Tags: undefined;
 };
 
 export type BrowseStackScreenProps<Screen extends keyof BrowseStackParamList> =

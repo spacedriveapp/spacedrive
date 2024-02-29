@@ -4,10 +4,10 @@ import { createContext, useContext } from 'react';
 import { z } from 'zod';
 import {
 	currentLibraryCache,
-	getOnboardingStore,
 	insertLibrary,
+	onboardingStore,
 	resetOnboardingStore,
-	telemetryStore,
+	telemetryState,
 	useBridgeMutation,
 	useCachedLibraries,
 	useMultiZodForm,
@@ -15,6 +15,7 @@ import {
 	useOnboardingStore,
 	usePlausibleEvent
 } from '@sd/client';
+import { toast } from '~/components/primitive/Toast';
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
 import { currentLibraryStore } from '~/utils/nav';
 
@@ -61,7 +62,7 @@ const useFormState = () => {
 				shareTelemetry: 'share-telemetry'
 			}
 		},
-		onData: (data) => (getOnboardingStore().data = data)
+		onData: (data) => (onboardingStore.data = data)
 	});
 
 	const navigation = useNavigation<OnboardingStackScreenProps<any>['navigation']>();
@@ -85,7 +86,7 @@ const useFormState = () => {
 
 			// opted to place this here as users could change their mind before library creation/onboarding finalization
 			// it feels more fitting to configure it here (once)
-			telemetryStore.shareFullTelemetry = data.Privacy.shareTelemetry === 'share-telemetry';
+			telemetryState.shareFullTelemetry = data.Privacy.shareTelemetry === 'share-telemetry';
 
 			try {
 				// show creation screen for a bit for smoothness
@@ -99,7 +100,7 @@ const useFormState = () => {
 				cache.withNodes(libraryRaw.nodes);
 				const library = cache.withCache(libraryRaw.item);
 
-				if (telemetryStore.shareFullTelemetry) {
+				if (telemetryState.shareFullTelemetry) {
 					submitPlausibleEvent({ event: { type: 'libraryCreate' } });
 				}
 
@@ -108,7 +109,7 @@ const useFormState = () => {
 				// Switch to the new library
 				currentLibraryStore.id = library.uuid;
 			} catch (e) {
-				// TODO: Show toast
+				toast({ type: 'error', text: 'Failed to create library' });
 				resetOnboardingStore();
 				navigation.navigate('GetStarted');
 			}

@@ -1,7 +1,13 @@
 import { useCallback, type HTMLAttributes, type PropsWithChildren } from 'react';
-import { createSearchParams, useNavigate } from 'react-router-dom';
 import {
+	createSearchParams,
+	useNavigate,
+	useSearchParams as useRawSearchParams
+} from 'react-router-dom';
+import {
+	FilePathFilterArgs,
 	isPath,
+	SearchFilterArgs,
 	useLibraryContext,
 	useLibraryMutation,
 	type ExplorerItem,
@@ -15,7 +21,7 @@ import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore } from '../QuickPreview/store';
-import { getExplorerStore } from '../store';
+import { explorerStore } from '../store';
 import { uniqueId } from '../util';
 import { useExplorerViewContext } from './Context';
 
@@ -24,6 +30,7 @@ export const useViewItemDoubleClick = () => {
 	const explorer = useExplorerContext();
 	const { library } = useLibraryContext();
 	const { openFilePaths, openEphemeralFiles } = usePlatform();
+	const [_, setSearchParams] = useRawSearchParams();
 
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 
@@ -49,9 +56,9 @@ export const useViewItemDoubleClick = () => {
 							items.non_indexed.splice(sameAsClicked ? 0 : -1, 0, selectedItem.item);
 							break;
 						}
-						case 'SpacedropPeer': {
+						case 'SpacedropPeer':
+						case 'Label':
 							break;
-						}
 						default: {
 							const paths =
 								selectedItem.type === 'Path'
@@ -110,11 +117,14 @@ export const useViewItemDoubleClick = () => {
 			if (items.dirs.length > 0) {
 				const [item] = items.dirs;
 				if (item) {
-					navigate({
-						pathname: `../location/${item.location_id}`,
-						search: createSearchParams({
-							path: `${item.materialized_path}${item.name}/`
-						}).toString()
+					setSearchParams((p) => {
+						const newParams = new URLSearchParams();
+
+						newParams.set('path', `${item.materialized_path}${item.name}/`);
+						const take = p.get('take');
+						if (take !== null) newParams.set('take', take);
+
+						return newParams;
 					});
 					return;
 				}
@@ -158,8 +168,23 @@ export const useViewItemDoubleClick = () => {
 					}
 				}
 			}
+
+			if (!item) return;
+
+			if (item.type === 'Label') {
+				navigate({
+					pathname: '../search',
+					search: createSearchParams({
+						filters: JSON.stringify([
+							{ object: { labels: { in: [item.item.id] } } }
+						] as Array<SearchFilterArgs>)
+					}).toString()
+				});
+				return;
+			}
 		},
 		[
+			setSearchParams,
 			explorer.selectedItems,
 			explorer.settingsStore.openOnDoubleClick,
 			library.uuid,
@@ -189,7 +214,7 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 					{children}
 				</div>
 			}
-			onOpenChange={(open) => (getExplorerStore().isContextMenuOpen = open)}
+			onOpenChange={(open) => (explorerStore.isContextMenuOpen = open)}
 			disabled={explorerView.contextMenu === undefined}
 			onMouseDown={(e) => e.stopPropagation()}
 		>

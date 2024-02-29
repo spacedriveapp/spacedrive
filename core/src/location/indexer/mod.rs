@@ -1,14 +1,14 @@
-use crate::{
-	library::Library,
-	util::{db::inode_to_db, error::FileIOError},
-};
+use crate::library::Library;
 
+use sd_file_path_helper::{
+	file_path_pub_and_cas_ids, FilePathError, IsolatedFilePathData, IsolatedFilePathDataParts,
+};
 use sd_prisma::{
 	prisma::{file_path, location, object as prisma_object, PrismaClient},
 	prisma_sync,
 };
 use sd_sync::*;
-use sd_utils::from_bytes_to_uuid;
+use sd_utils::{db::inode_to_db, error::FileIOError, from_bytes_to_uuid};
 
 use std::{collections::HashMap, path::Path};
 
@@ -22,10 +22,7 @@ use serde_json::json;
 use thiserror::Error;
 use tracing::{trace, warn};
 
-use super::{
-	file_path_helper::{file_path_pub_and_cas_ids, FilePathError, IsolatedFilePathData},
-	location_with_indexer_rules,
-};
+use super::location_with_indexer_rules;
 
 pub mod indexer_job;
 pub mod rules;
@@ -97,13 +94,13 @@ async fn execute_indexer_save_step(
 		.walked
 		.iter()
 		.map(|entry| {
-			let IsolatedFilePathData {
+			let IsolatedFilePathDataParts {
 				materialized_path,
 				is_dir,
 				name,
 				extension,
 				..
-			} = &entry.iso_file_path;
+			} = &entry.iso_file_path.to_parts();
 
 			use file_path::*;
 
@@ -119,45 +116,28 @@ async fn execute_indexer_save_step(
 					),
 					location_id::set(Some(location.id)),
 				),
-				(
-					(materialized_path::NAME, json!(materialized_path)),
-					materialized_path::set(Some(materialized_path.to_string())),
+				sync_db_entry!(materialized_path.to_string(), materialized_path),
+				sync_db_entry!(name.to_string(), name),
+				sync_db_entry!(*is_dir, is_dir),
+				sync_db_entry!(extension.to_string(), extension),
+				sync_db_entry!(
+					entry.metadata.size_in_bytes.to_be_bytes().to_vec(),
+					size_in_bytes_bytes
 				),
-				((name::NAME, json!(name)), name::set(Some(name.to_string()))),
-				((is_dir::NAME, json!(*is_dir)), is_dir::set(Some(*is_dir))),
-				(
-					(extension::NAME, json!(extension)),
-					extension::set(Some(extension.to_string())),
-				),
-				(
-					(
-						size_in_bytes_bytes::NAME,
-						json!(entry.metadata.size_in_bytes.to_be_bytes().to_vec()),
-					),
-					size_in_bytes_bytes::set(Some(
-						entry.metadata.size_in_bytes.to_be_bytes().to_vec(),
-					)),
-				),
-				(
-					(inode::NAME, json!(entry.metadata.inode.to_le_bytes())),
-					inode::set(Some(inode_to_db(entry.metadata.inode))),
-				),
-				(
-					(date_created::NAME, json!(entry.metadata.created_at)),
-					date_created::set(Some(entry.metadata.created_at.into())),
-				),
-				(
-					(date_modified::NAME, json!(entry.metadata.modified_at)),
-					date_modified::set(Some(entry.metadata.modified_at.into())),
-				),
-				(
-					(date_indexed::NAME, json!(Utc::now())),
-					date_indexed::set(Some(Utc::now().into())),
-				),
-				(
-					(hidden::NAME, json!(entry.metadata.hidden)),
-					hidden::set(Some(entry.metadata.hidden)),
-				),
+				sync_db_entry!(inode_to_db(entry.metadata.inode), inode),
+				{
+					let v = entry.metadata.created_at.into();
+					sync_db_entry!(v, date_created)
+				},
+				{
+					let v = entry.metadata.modified_at.into();
+					sync_db_entry!(v, date_modified)
+				},
+				{
+					let v = Utc::now().into();
+					sync_db_entry!(v, date_indexed)
+				},
+				sync_db_entry!(entry.metadata.hidden, hidden),
 			]
 			.into_iter()
 			.unzip();
@@ -197,7 +177,7 @@ async fn execute_indexer_update_step(
 		.to_update
 		.iter()
 		.map(|entry| async move {
-			let IsolatedFilePathData { is_dir, .. } = &entry.iso_file_path;
+			let IsolatedFilePathDataParts { is_dir, .. } = &entry.iso_file_path.to_parts();
 
 			let pub_id = sd_utils::uuid_to_bytes(entry.pub_id);
 
@@ -215,48 +195,29 @@ async fn execute_indexer_update_step(
 			let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 				// As this file was updated while Spacedrive was offline, we mark the object_id and cas_id as null
 				// So this file_path will be updated at file identifier job
-				(
+				should_unlink_object.then_some((
 					(object_id::NAME, serde_json::Value::Null),
-					should_unlink_object.then_some(object::disconnect()),
-				),
-				(
-					(cas_id::NAME, serde_json::Value::Null),
-					Some(cas_id::set(None)),
-				),
-				(
-					(is_dir::NAME, json!(*is_dir)),
-					Some(is_dir::set(Some(*is_dir))),
-				),
-				(
-					(
-						size_in_bytes_bytes::NAME,
-						json!(entry.metadata.size_in_bytes.to_be_bytes().to_vec()),
-					),
-					Some(size_in_bytes_bytes::set(Some(
-						entry.metadata.size_in_bytes.to_be_bytes().to_vec(),
-					))),
-				),
-				(
-					(inode::NAME, json!(entry.metadata.inode.to_le_bytes())),
-					Some(inode::set(Some(inode_to_db(entry.metadata.inode)))),
-				),
-				(
-					(date_created::NAME, json!(entry.metadata.created_at)),
-					Some(date_created::set(Some(entry.metadata.created_at.into()))),
-				),
-				(
-					(date_modified::NAME, json!(entry.metadata.modified_at)),
-					Some(date_modified::set(Some(entry.metadata.modified_at.into()))),
-				),
-				(
-					(hidden::NAME, json!(entry.metadata.hidden)),
-					Some(hidden::set(Some(entry.metadata.hidden))),
-				),
+					object::disconnect(),
+				)),
+				Some(((cas_id::NAME, serde_json::Value::Null), cas_id::set(None))),
+				Some(sync_db_entry!(*is_dir, is_dir)),
+				Some(sync_db_entry!(
+					entry.metadata.size_in_bytes.to_be_bytes().to_vec(),
+					size_in_bytes_bytes
+				)),
+				Some(sync_db_entry!(inode_to_db(entry.metadata.inode), inode)),
+				Some({
+					let v = entry.metadata.created_at.into();
+					sync_db_entry!(v, date_created)
+				}),
+				Some({
+					let v = entry.metadata.modified_at.into();
+					sync_db_entry!(v, date_modified)
+				}),
+				Some(sync_db_entry!(entry.metadata.hidden, hidden)),
 			]
 			.into_iter()
-			.filter_map(|(sync_param, maybe_db_param)| {
-				maybe_db_param.map(|db_param| (sync_param, db_param))
-			})
+			.flatten()
 			.unzip();
 
 			Ok::<_, IndexerError>((
@@ -307,15 +268,29 @@ fn iso_file_path_factory(
 async fn remove_non_existing_file_paths(
 	to_remove: impl IntoIterator<Item = file_path_pub_and_cas_ids::Data>,
 	db: &PrismaClient,
+	sync: &sd_core_sync::Manager,
 ) -> Result<u64, IndexerError> {
-	db.file_path()
-		.delete_many(vec![file_path::pub_id::in_vec(
-			to_remove.into_iter().map(|data| data.pub_id).collect(),
-		)])
-		.exec()
-		.await
-		.map(|count| count as u64)
-		.map_err(Into::into)
+	let (sync_params, db_params): (Vec<_>, Vec<_>) = to_remove
+		.into_iter()
+		.map(|d| {
+			(
+				sync.shared_delete(prisma_sync::file_path::SyncId { pub_id: d.pub_id }),
+				d.id,
+			)
+		})
+		.unzip();
+
+	sync.write_ops(
+		db,
+		(
+			sync_params,
+			db.file_path()
+				.delete_many(vec![file_path::id::in_vec(db_params)]),
+		),
+	)
+	.await?;
+
+	Ok(0)
 }
 
 // TODO: Change this macro to a fn when we're able to return
@@ -338,7 +313,7 @@ macro_rules! file_paths_db_fetcher_fn {
 						.find_many(vec![::prisma_client_rust::operator::or(
 							founds.collect::<Vec<_>>(),
 						)])
-						.select($crate::location::file_path_helper::file_path_walker::select())
+						.select(::sd_file_path_helper::file_path_walker::select())
 				})
 				.collect::<Vec<_>>();
 
@@ -358,13 +333,13 @@ macro_rules! file_paths_db_fetcher_fn {
 macro_rules! to_remove_db_fetcher_fn {
 	($location_id:expr, $db:expr) => {{
 		|parent_iso_file_path, unique_location_id_materialized_path_name_extension_params| async {
-			let location_id: $crate::prisma::location::id::Type = $location_id;
-			let db: &$crate::prisma::PrismaClient = $db;
-			let parent_iso_file_path: $crate::location::file_path_helper::IsolatedFilePathData<
+			let location_id: ::sd_prisma::prisma::location::id::Type = $location_id;
+			let db: &::sd_prisma::prisma::PrismaClient = $db;
+			let parent_iso_file_path: ::sd_file_path_helper::IsolatedFilePathData<
 				'static,
 			> = parent_iso_file_path;
 			let unique_location_id_materialized_path_name_extension_params: ::std::vec::Vec<
-				$crate::prisma::file_path::WhereParam,
+				::sd_prisma::prisma::file_path::WhereParam,
 			> = unique_location_id_materialized_path_name_extension_params;
 
 			// FIXME: Can't pass this chunks variable direct to _batch because of lifetime issues
@@ -377,7 +352,7 @@ macro_rules! to_remove_db_fetcher_fn {
 						.find_many(vec![::prisma_client_rust::operator::or(
 							unique_params.collect(),
 						)])
-						.select($crate::prisma::file_path::select!({ id }))
+						.select(::sd_prisma::prisma::file_path::select!({ id }))
 				})
 				.collect::<::std::vec::Vec<_>>();
 
@@ -398,17 +373,17 @@ macro_rules! to_remove_db_fetcher_fn {
 			loop {
 				let found = $db.file_path()
 					.find_many(vec![
-						$crate::prisma::file_path::location_id::equals(Some(location_id)),
-						$crate::prisma::file_path::materialized_path::equals(Some(
+						::sd_prisma::prisma::file_path::location_id::equals(Some(location_id)),
+						::sd_prisma::prisma::file_path::materialized_path::equals(Some(
 							parent_iso_file_path
 								.materialized_path_for_children()
 								.expect("the received isolated file path must be from a directory"),
 						)),
 					])
-					.order_by($crate::prisma::file_path::id::order($crate::prisma::SortOrder::Asc))
+					.order_by(::sd_prisma::prisma::file_path::id::order(::sd_prisma::prisma::SortOrder::Asc))
 					.take(BATCH_SIZE)
-					.cursor($crate::prisma::file_path::id::equals(cursor))
-					.select($crate::prisma::file_path::select!({ id pub_id cas_id }))
+					.cursor(::sd_prisma::prisma::file_path::id::equals(cursor))
+					.select(::sd_prisma::prisma::file_path::select!({ id pub_id cas_id }))
 					.exec()
 					.await?;
 
@@ -424,7 +399,8 @@ macro_rules! to_remove_db_fetcher_fn {
 					found
 						.into_iter()
 						.filter(|file_path| !founds_ids.contains(&file_path.id))
-						.map(|file_path| $crate::location::file_path_helper::file_path_pub_and_cas_ids::Data {
+						.map(|file_path| ::sd_file_path_helper::file_path_pub_and_cas_ids::Data {
+							id: file_path.id,
 							pub_id: file_path.pub_id,
 							cas_id: file_path.cas_id,
 						}),

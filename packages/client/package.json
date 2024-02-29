@@ -11,21 +11,24 @@
 		"typecheck": "tsc -b"
 	},
 	"dependencies": {
-		"@rspc/client": "=0.0.0-main-799eec5d",
-		"@rspc/react": "=0.0.0-main-799eec5d",
+		"@oscartbeaumont-sd/rspc-client": "=0.0.0-main-dc31e5b2",
+		"@oscartbeaumont-sd/rspc-react": "=0.0.0-main-dc31e5b2",
+		"@solid-primitives/deep": "^0.2.4",
 		"@tanstack/react-query": "^4.36.1",
+		"@tanstack/solid-query": "^5.17.9",
 		"@zxcvbn-ts/core": "^3.0.4",
 		"@zxcvbn-ts/language-common": "^3.0.4",
 		"@zxcvbn-ts/language-en": "^3.0.2",
+		"fast-equals": "^5.0.1",
 		"plausible-tracker": "^0.3.8",
 		"react-hook-form": "^7.47.0",
-		"valtio": "^1.11.2",
+		"solid-js": "^1.8.8",
 		"zod": "~3.22.4"
 	},
 	"devDependencies": {
 		"@sd/config": "workspace:*",
-		"@types/react": "^18.2.34",
-		"typescript": "^5.2.2"
+		"@types/react": "^18.2.60",
+		"typescript": "^5.3.3"
 	},
 	"peerDependencies": {
 		"react": "^18.2"

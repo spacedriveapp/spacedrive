@@ -1,11 +1,8 @@
+use sd_p2p_block::{Range, SpaceblockRequests, SpaceblockRequestsError};
+use sd_p2p_proto::{decode, encode};
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use uuid::Uuid;
-
-use sd_p2p::{
-	proto::{decode, encode},
-	spaceblock::{Range, SpaceblockRequests, SpaceblockRequestsError},
-};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct HeaderFile {
@@ -22,9 +19,10 @@ pub enum Header {
 	// TODO: Split out cause this is a broadcast
 	Ping,
 	Spacedrop(SpaceblockRequests),
-	Pair,
 	Sync(Uuid),
 	File(HeaderFile),
+	// A HTTP server used for rspc requests and streaming files
+	Http,
 }
 
 #[derive(Debug, Error)]
@@ -55,7 +53,6 @@ impl Header {
 				SpaceblockRequests::from_stream(stream).await?,
 			)),
 			1 => Ok(Self::Ping),
-			2 => Ok(Self::Pair),
 			3 => Ok(Self::Sync(
 				decode::uuid(stream)
 					.await
@@ -91,6 +88,7 @@ impl Header {
 					i => return Err(HeaderError::HeaderFileDiscriminatorInvalid(i)),
 				},
 			})),
+			5 => Ok(Self::Http),
 			d => Err(HeaderError::DiscriminatorInvalid(d)),
 		}
 	}
@@ -103,7 +101,6 @@ impl Header {
 				bytes
 			}
 			Self::Ping => vec![1],
-			Self::Pair => vec![2],
 			Self::Sync(uuid) => {
 				let mut bytes = vec![3];
 				encode::uuid(&mut bytes, uuid);
@@ -122,6 +119,7 @@ impl Header {
 				buf.extend_from_slice(&range.to_bytes());
 				buf
 			}
+			Self::Http => vec![5],
 		}
 	}
 }

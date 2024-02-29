@@ -3,7 +3,7 @@
 		"name": "Spacedrive",
 		"slug": "spacedrive",
 		"owner": "spacedrive",
-		"version": "0.0.1",
+		"version": "0.1.0",
 		"orientation": "portrait",
 		"jsEngine": "hermes",
 		"scheme": "spacedrive",
@@ -54,10 +54,18 @@
 					},
 					"ios": {
 						"useFrameworks": "static",
-						"deploymentTarget": "13.0"
+						"deploymentTarget": "14.0"
 					}
 				}
-			]
+			],
+			[
+				"expo-av",
+				{
+					"microphonePermission": "Allow Spacedrive to access your microphone."
+				}
+			],
+			["./scripts/withRiveAssets.js"],
+			["./scripts/withAndroidIntent.js"]
 		]
 	}
 }

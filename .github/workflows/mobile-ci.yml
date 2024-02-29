@@ -18,6 +18,11 @@ on:
 env:
   SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
   SPACEDRIVE_CI: '1'
+  # From: https://github.com/rust-lang/rust-analyzer/blob/master/.github/workflows/ci.yaml
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUST_BACKTRACE: short
+  RUSTUP_MAX_RETRIES: 10
 
 # Cancel previous runs of the same workflow on the same branch.
 concurrency:
@@ -25,13 +30,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  js:
+    name: JS
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js, pnpm and dependencies
+        uses: ./.github/actions/setup-pnpm
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build mobile JS
+        run: pnpm mobile export
+
   # Disabled until I can figure out why our app on x86_64 crashes on startup.
   # android:
   #   name: Android
   #   runs-on: macos-12
   #   steps:
   #     - name: Checkout repository
-  #       uses: actions/checkout@v3
+  #       uses: actions/checkout@v4
   #
   #     - name: Setup Java JDK
   #       uses: actions/setup-java@v3.10.0
@@ -56,11 +76,11 @@ jobs:
   #     - name: Cache NDK
   #       uses: actions/cache@v3
   #       with:
-  #         path: ${{ env.ANDROID_HOME }}/ndk/23.1.7779620
-  #         key: ndk-23.1.7779620
+  #         path: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
+  #         key: ndk-26.1.10909125
   #
   #     - name: Install NDK
-  #       run: echo "y" | sudo ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;23.1.7779620"
+  #       run: echo "y" | sudo ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909125"
   #
   #     - name: Cache Gradle
   #       uses: gradle/gradle-build-action@v2
@@ -85,7 +105,7 @@ jobs:
   #         arch: x86_64
   #         api-level: 30
   #         target: google_apis
-  #         ndk: 23.1.7779620
+  #         ndk: 26.1.10909125
   #         ram-size: 4096M
   #         emulator-boot-timeout: 12000
   #         force-avd-creation: false
@@ -105,7 +125,7 @@ jobs:
   #         arch: x86_64
   #         api-level: 30
   #         target: google_apis
-  #         ndk: 23.1.7779620
+  #         ndk: 26.1.10909125
   #         ram-size: 4096M
   #         emulator-boot-timeout: 12000
   #         force-avd-creation: false
@@ -114,14 +134,14 @@ jobs:
   #         script: |
   #           adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
   #           adb wait-for-device
-  #           bash ./apps/mobile/scripts/run-maestro-tests android
+  #           ./apps/mobile/scripts/run-maestro-tests.sh android
 
   ios:
     name: iOS
-    runs-on: macos-12
+    runs-on: macos-14
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -143,15 +163,22 @@ jobs:
         working-directory: ./apps/mobile
         run: pnpm expo prebuild --platform ios --no-install
 
-      - name: Cache Pods
-        uses: actions/cache@v3
+      # Hermes doesn't work with Cocoapods 1.15.0
+      # https://forums.developer.apple.com/forums/thread/745518
+      - name: Setup Cocoapods
+        uses: maxim-lobanov/setup-cocoapods@v1
         with:
-          path: |
-            ./apps/mobile/ios/Pods
-            ~/Library/Caches/CocoaPods
-            ~/.cocoapods
-          key: pods-${{ hashFiles('./apps/mobile/ios/Podfile.lock') }}
-          restore-keys: pods-
+          version: latest
+
+      # - name: Cache Pods
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: |
+      #       ./apps/mobile/ios/Pods
+      #       ~/Library/Caches/CocoaPods
+      #       ~/.cocoapods
+      #     key: pods-${{ hashFiles('./apps/mobile/ios/Podfile.lock') }}
+      #     restore-keys: pods-
 
       - name: Install Pods
         working-directory: ./apps/mobile/ios
@@ -159,21 +186,27 @@ jobs:
 
       - name: Build iOS
         working-directory: ./apps/mobile/ios
-        run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -configuration Release -sdk iphonesimulator -derivedDataPath build -arch x86_64
+        run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -configuration Release -sdk iphonesimulator -derivedDataPath build -arch "$(uname -m)"
 
       - name: Install Maestro
+        env:
+          # Workaround: https://github.com/mobile-dev-inc/maestro/issues/1585
+          MAESTRO_VERSION: '1.33.1'
         run: |
           curl -Ls "https://get.maestro.mobile.dev" | bash
           brew tap facebook/fb
           brew install facebook/fb/idb-companion
-          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+          echo "${HOME}/.maestro/bin" >> $GITHUB_PATH
 
       - name: Run Simulator
-        uses: futureware-tech/simulator-action@v2
+        uses: futureware-tech/simulator-action@v3
         with:
-          model: 'iPhone 11'
+          model: 'iPhone SE (3rd generation)'
 
       - name: Run Tests
+        env:
+          # https://github.com/expo/expo/blob/339fa68/apps/bare-expo/scripts/start-ios-e2e-test.ts#L12
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 120000
         run: |
           xcrun simctl install booted apps/mobile/ios/build/Build/Products/Release-iphonesimulator/Spacedrive.app
-          bash ./apps/mobile/scripts/run-maestro-tests ios
+          ./apps/mobile/scripts/run-maestro-tests.sh ios

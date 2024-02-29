@@ -159,8 +159,8 @@ const Path = ({ path, onClick, disabled }: PathProps) => {
 			ref={setDroppableRef}
 			className={clsx(
 				'group flex items-center gap-1 rounded px-1 py-0.5',
-				isDroppable && [isDark ? 'bg-app-lightBox' : 'bg-app-darkerBox'],
-				!disabled && [isDark ? 'hover:bg-app-lightBox' : 'hover:bg-app-darkerBox'],
+				isDroppable && [isDark ? 'bg-app-button/70' : 'bg-app-darkerBox'],
+				!disabled && [isDark ? 'hover:bg-app-button/70' : 'hover:bg-app-darkerBox'],
 				className
 			)}
 			disabled={disabled}

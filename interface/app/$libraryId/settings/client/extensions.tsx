@@ -1,4 +1,5 @@
 import { Button, Card, GridLayout, SearchInput } from '@sd/ui';
+import { useLocale } from '~/hooks';
 
 import { Heading } from '../Layout';
 
@@ -42,13 +43,15 @@ const extensions: ExtensionItemData[] = [
 function ExtensionItem(props: { extension: ExtensionItemData }) {
 	const { installed, name, description } = props.extension;
 
+	const { t } = useLocale();
+
 	return (
 		<Card className="flex-col">
 			<h3 className="mt-2 text-sm font-bold">{name}</h3>
 			<p className="my-1 text-xs text-gray-300">{description}</p>
 			<div className="grow" />
 			<Button size="sm" className="my-2" variant={installed ? 'gray' : 'accent'}>
-				{installed ? 'Installed' : 'Install'}
+				{installed ? t('installed') : 'install'}
 			</Button>
 		</Card>
 	);
@@ -57,12 +60,14 @@ function ExtensionItem(props: { extension: ExtensionItemData }) {
 export const Component = () => {
 	// const { data: volumes } = useBridgeQuery('GetVolumes');
 
+	const { t } = useLocale();
+
 	return (
 		<>
 			<Heading
-				title="Extensions"
-				description="Install extensions to extend the functionality of this client."
-				rightArea={<SearchInput className="mt-1.5" placeholder="Search extensions" />}
+				title={t('extensions')}
+				description={t('extensions_description')}
+				rightArea={<SearchInput className="mt-1.5" placeholder={t('search_extensions')} />}
 			/>
 
 			<GridLayout>

@@ -1,11 +1,13 @@
+use crate::p2p::{operations, Header, P2PEvent, PeerMetadata};
+
+use sd_p2p2::RemoteIdentity;
+
 use rspc::{alpha::AlphaRouter, ErrorCode};
-use sd_p2p::spacetunnel::RemoteIdentity;
 use serde::Deserialize;
 use specta::Type;
 use std::path::PathBuf;
+use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
-
-use crate::p2p::{operations, P2PEvent, PairingDecision};
 
 use super::{Ctx, R};
 
@@ -13,26 +15,21 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("events", {
 			R.subscription(|node, _: ()| async move {
-				let mut rx = node.p2p.subscribe();
+				let mut rx = node.p2p.events.subscribe();
 
 				let mut queued = Vec::new();
 
-				// TODO: Don't block subscription start
-				for peer in node.p2p.node.get_discovered() {
-					queued.push(P2PEvent::DiscoveredPeer {
-						identity: peer.identity,
-						metadata: peer.metadata,
-					});
-				}
-
-				// TODO: Don't block subscription start
-				for identity in node.p2p.manager.get_connected_peers().await.map_err(|_| {
-					rspc::Error::new(
-						ErrorCode::InternalServerError,
-						"todo: error getting connected peers".into(),
-					)
-				})? {
-					queued.push(P2PEvent::ConnectedPeer { identity });
+				for (identity, peer, metadata) in
+					node.p2p.p2p.peers().iter().filter_map(|(i, p)| {
+						PeerMetadata::from_hashmap(&p.metadata())
+							.ok()
+							.map(|m| (i, p, m))
+					}) {
+					let identity = *identity;
+					match peer.is_connected() {
+						true => queued.push(P2PEvent::ConnectedPeer { identity }),
+						false => queued.push(P2PEvent::DiscoveredPeer { identity, metadata }),
+					}
 				}
 
 				Ok(async_stream::stream! {
@@ -46,10 +43,39 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 			})
 		})
-		// TODO: This has a potentially invalid map key and Specta don't like that. Can bring back in another PR.
-		// .procedure("state", {
-		// 	R.query(|node, _: ()| async move { Ok(node.p2p.state()) })
-		// })
+		.procedure("state", {
+			R.query(|node, _: ()| async move { Ok(node.p2p.state().await) })
+		})
+		.procedure("debugConnect", {
+			R.mutation(|node, identity: RemoteIdentity| async move {
+				let peer = { node.p2p.p2p.peers().get(&identity).cloned() };
+				let mut stream = peer
+					.ok_or(rspc::Error::new(
+						ErrorCode::InternalServerError,
+						"big man, offline".into(),
+					))?
+					.new_stream()
+					.await
+					.map_err(|err| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							format!("error in peer.new_stream: {:?}", err),
+						)
+					})?;
+
+				stream
+					.write_all(&Header::Ping.to_bytes())
+					.await
+					.map_err(|err| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							format!("error sending ping header: {:?}", err),
+						)
+					})?;
+
+				Ok("connected")
+			})
+		})
 		.procedure("spacedrop", {
 			#[derive(Type, Deserialize)]
 			pub struct SpacedropArgs {
@@ -85,18 +111,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("cancelSpacedrop", {
 			R.mutation(|node, id: Uuid| async move {
 				node.p2p.cancel_spacedrop(id).await;
-
-				Ok(())
-			})
-		})
-		.procedure("pair", {
-			R.mutation(|node, id: RemoteIdentity| async move {
-				Ok(node.p2p.pairing.clone().originator(id, node).await)
-			})
-		})
-		.procedure("pairingResponse", {
-			R.mutation(|node, (pairing_id, decision): (u16, PairingDecision)| {
-				node.p2p.pairing.decision(pairing_id, decision);
 
 				Ok(())
 			})

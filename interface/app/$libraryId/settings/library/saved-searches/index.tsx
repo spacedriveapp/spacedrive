@@ -9,10 +9,10 @@ import {
 	useZodForm
 } from '@sd/client';
 import { Button, Card, Form, InputField, Label, Tooltip, z } from '@sd/ui';
-import { SearchContextProvider, useSearch } from '~/app/$libraryId/Search';
-import { AppliedFilters } from '~/app/$libraryId/Search/AppliedFilters';
+import { SearchContextProvider, useSearch } from '~/app/$libraryId/search';
+import { AppliedFilters } from '~/app/$libraryId/search/AppliedFilters';
 import { Heading } from '~/app/$libraryId/settings/Layout';
-import { useDebouncedFormWatch } from '~/hooks';
+import { useDebouncedFormWatch, useLocale } from '~/hooks';
 
 export const Component = () => {
 	const savedSearches = useLibraryQuery(['search.saved.list'], { suspense: true });
@@ -64,6 +64,8 @@ const schema = z.object({
 });
 
 function EditForm({ savedSearch, onDelete }: { savedSearch: SavedSearch; onDelete: () => void }) {
+	const { t } = useLocale();
+
 	const updateSavedSearch = useLibraryMutation('search.saved.update');
 	const deleteSavedSearch = useLibraryMutation('search.saved.delete');
 
@@ -92,7 +94,7 @@ function EditForm({ savedSearch, onDelete }: { savedSearch: SavedSearch; onDelet
 		<Form form={form}>
 			<div className="flex flex-col gap-4">
 				<div className="flex flex-row items-end gap-2">
-					<InputField label="Name" {...form.register('name')} />
+					<InputField label={t('name')} {...form.register('name')} />
 					<Button
 						variant="gray"
 						className="h-[38px]"
@@ -102,13 +104,13 @@ function EditForm({ savedSearch, onDelete }: { savedSearch: SavedSearch; onDelet
 							onDelete();
 						}}
 					>
-						<Tooltip label="Delete Tag">
+						<Tooltip label={t('delete_tag')}>
 							<Trash className="h-4 w-4" />
 						</Tooltip>
 					</Button>
 				</div>
 				<div className="flex flex-col gap-1">
-					<Label className="font-medium">Filters</Label>
+					<Label className="font-medium">{t('filters')}</Label>
 					<div className="flex flex-col items-start gap-2">
 						<SearchContextProvider search={search}>
 							<AppliedFilters allowRemove={false} />

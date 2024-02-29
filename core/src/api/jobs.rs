@@ -6,8 +6,9 @@ use crate::{
 		file_identifier::file_identifier_job::FileIdentifierJobInit, media::MediaProcessorJobInit,
 		validation::validator_job::ObjectValidatorJobInit,
 	},
-	prisma::{job, location, SortOrder},
 };
+
+use sd_prisma::prisma::{job, location, SortOrder};
 
 use std::{
 	collections::{hash_map::Entry, BTreeMap, HashMap, VecDeque},
@@ -246,6 +247,39 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						location,
 						sub_path: Some(path),
 						regenerate_thumbnails: regenerate,
+						regenerate_labels: false,
+					})
+					.spawn(&node, &library)
+					.await
+					.map_err(Into::into)
+				},
+			)
+		})
+		.procedure("generateLabelsForLocation", {
+			#[derive(Type, Deserialize)]
+			pub struct GenerateLabelsForLocationArgs {
+				pub id: location::id::Type,
+				pub path: PathBuf,
+				#[serde(default)]
+				pub regenerate: bool,
+			}
+
+			R.with2(library()).mutation(
+				|(node, library),
+				 GenerateLabelsForLocationArgs {
+				     id,
+				     path,
+				     regenerate,
+				 }: GenerateLabelsForLocationArgs| async move {
+					let Some(location) = find_location(&library, id).exec().await? else {
+						return Err(LocationError::IdNotFound(id).into());
+					};
+
+					Job::new(MediaProcessorJobInit {
+						location,
+						sub_path: Some(path),
+						regenerate_thumbnails: false,
+						regenerate_labels: regenerate,
 					})
 					.spawn(&node, &library)
 					.await

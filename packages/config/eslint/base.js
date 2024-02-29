@@ -10,20 +10,13 @@ module.exports = {
 	},
 	extends: [
 		'eslint:recommended',
-		'plugin:react/recommended',
-		'plugin:react-hooks/recommended',
 		'plugin:@typescript-eslint/recommended',
 		'turbo',
-		'prettier'
+		'prettier',
+		require.resolve('./react.js'),
+		require.resolve('./solid.js')
 	],
-	plugins: ['react'],
 	rules: {
-		'react/display-name': 'off',
-		'react/prop-types': 'off',
-		'react/no-unescaped-entities': 'off',
-		'react/react-in-jsx-scope': 'off',
-		'react-hooks/rules-of-hooks': 'warn',
-		'react-hooks/exhaustive-deps': 'warn',
 		'@typescript-eslint/no-unused-vars': 'off',
 		'@typescript-eslint/ban-ts-comment': 'off',
 		'@typescript-eslint/no-explicit-any': 'off',
@@ -42,10 +35,5 @@ module.exports = {
 			}
 		]
 	},
-	ignorePatterns: ['dist', '**/*.js', '**/*.json', 'node_modules'],
-	settings: {
-		react: {
-			version: 'detect'
-		}
-	}
+	ignorePatterns: ['dist', '**/*.js', '**/*.json', 'node_modules']
 };

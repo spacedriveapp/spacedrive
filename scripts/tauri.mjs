@@ -10,6 +10,7 @@ import * as toml from '@iarna/toml'
 
 import { waitLockUnlock } from './utils/flock.mjs'
 import { patchTauri } from './utils/patchTauri.mjs'
+import { symlinkSharedLibsLinux } from './utils/shared.mjs'
 import spawn from './utils/spawn.mjs'
 
 if (/^(msys|mingw|cygwin)$/i.test(env.OSTYPE ?? '')) {
@@ -74,14 +75,18 @@ const bundles = args
 	.flatMap(target => target.split(','))
 
 let code = 0
+
+if (process.platform === 'linux' && (args[0] === 'dev' || args[0] === 'build'))
+	await symlinkSharedLibsLinux(__root, nativeDeps)
+
 try {
 	switch (args[0]) {
 		case 'dev': {
 			__cleanup.push(...(await patchTauri(__root, nativeDeps, targets, bundles, args)))
 
 			switch (process.platform) {
-				case 'darwin':
 				case 'linux':
+				case 'darwin':
 					void waitLockUnlock(path.join(__root, 'target', 'debug', '.cargo-lock')).then(
 						() => setTimeout(1000).then(cleanUp),
 						() => {}

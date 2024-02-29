@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { getThemeStore, useThemeStore } from '@sd/client';
+import { useThemeStore } from '@sd/client';
 
 import { usePlatform } from '..';
 
@@ -16,30 +16,30 @@ export function useTheme() {
 					document.documentElement.classList.remove('vanilla-theme');
 					document.documentElement.style.setProperty(
 						'--dark-hue',
-						getThemeStore().hueValue.toString()
+						themeStore.hueValue.toString()
 					);
-					getThemeStore().theme = 'dark';
+					themeStore.theme = 'dark';
 				} else {
 					document.documentElement.classList.add('vanilla-theme');
 					document.documentElement.style.setProperty(
 						'--light-hue',
-						getThemeStore().hueValue.toString()
+						themeStore.hueValue.toString()
 					);
-					getThemeStore().theme = 'vanilla';
+					themeStore.theme = 'vanilla';
 				}
 			} else {
 				if (themeStore.theme === 'dark') {
 					document.documentElement.classList.remove('vanilla-theme');
 					document.documentElement.style.setProperty(
 						'--dark-hue',
-						getThemeStore().hueValue.toString()
+						themeStore.hueValue.toString()
 					);
 					lockAppTheme?.('Dark');
 				} else if (themeStore.theme === 'vanilla') {
 					document.documentElement.classList.add('vanilla-theme');
 					document.documentElement.style.setProperty(
 						'--light-hue',
-						getThemeStore().hueValue.toString()
+						themeStore.hueValue.toString()
 					);
 					lockAppTheme?.('Light');
 				}

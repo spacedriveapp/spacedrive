@@ -382,3 +382,22 @@ body {
 	transition-duration: 300ms;
 	transition-timing-function: cubic-bezier(0.85, 0, 0.15, 1);
 }
+
+.icon-with-shadow {
+	filter: url(#svg-shadow-filter);
+}
+
+@keyframes wiggle {
+	0%,
+	100% {
+		transform: rotate(-1deg);
+	}
+	50% {
+		transform: rotate(1deg);
+	}
+}
+
+.wiggle {
+	animation: wiggle 200ms infinite;
+}
+

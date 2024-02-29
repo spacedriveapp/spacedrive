@@ -1,5 +1,6 @@
-use super::TagCreateArgs;
 use crate::library::Library;
+
+use super::TagCreateArgs;
 
 /// Seeds tags in a new library.
 /// Shouldn't be called more than once!

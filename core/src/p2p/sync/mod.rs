@@ -1,30 +1,31 @@
 #![allow(clippy::panic, clippy::unwrap_used)] // TODO: Finish this
 
-use std::sync::Arc;
-
-use sd_p2p::{
-	proto::{decode, encode},
-	spacetunnel::Tunnel,
+use crate::{
+	library::Library,
+	sync::{self, GetOpsArgs},
 };
+
+use sd_p2p_proto::{decode, encode};
 use sd_sync::CRDTOperation;
-use sync::GetOpsArgs;
+
+use std::sync::Arc;
 
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tracing::*;
 use uuid::Uuid;
 
-use crate::{library::Library, sync};
-
-use super::{Header, P2PManager};
+use super::P2PManager;
 
 mod proto;
 pub use proto::*;
 
 pub use originator::run as originator;
 mod originator {
+	use crate::p2p::Header;
+
 	use super::*;
 	use responder::tx as rx;
-	use sd_p2p::PeerStatus;
+	use sd_p2p_tunnel::Tunnel;
 
 	pub mod tx {
 		use super::*;
@@ -68,11 +69,9 @@ mod originator {
 					instance: Uuid::new_v4(),
 					timestamp: sync::NTP64(0),
 					id: Uuid::new_v4(),
-					typ: sd_sync::CRDTOperationType::Shared(sd_sync::SharedOperation {
-						record_id: serde_json::Value::Null,
-						model: "name".to_string(),
-						data: sd_sync::SharedOperationData::Create,
-					}),
+					record_id: serde_json::Value::Null,
+					model: "name".to_string(),
+					data: sd_sync::CRDTOperationData::Create,
 				}]);
 
 				let mut cursor = std::io::Cursor::new(original.to_bytes());
@@ -84,28 +83,19 @@ mod originator {
 
 	/// REMEMBER: This only syncs one direction!
 	pub async fn run(library_id: Uuid, sync: &Arc<sync::Manager>, p2p: &Arc<super::P2PManager>) {
-		let service = p2p.get_library_service(&library_id).unwrap();
-
-		// TODO: Deduplicate any duplicate peer ids -> This is an edge case but still
-		for (remote_identity, status) in service.get_state() {
-			let PeerStatus::Connected = status else {
+		for (remote_identity, peer) in p2p.get_library_instances(&library_id) {
+			if !peer.is_connected() {
 				continue;
 			};
 
 			let sync = sync.clone();
-			let p2p = p2p.clone();
-			let service = service.clone();
 
 			tokio::spawn(async move {
 				debug!(
 					"Alerting peer '{remote_identity:?}' of new sync events for library '{library_id:?}'"
 				);
 
-				let mut stream = service
-					.connect(p2p.manager.clone(), &remote_identity)
-					.await
-					.map_err(|_| ())
-					.unwrap(); // TODO: handle providing incorrect peer id
+				let mut stream = peer.new_stream().await.unwrap();
 
 				stream
 					.write_all(&Header::Sync(library_id).to_bytes())

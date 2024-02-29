@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router';
 import { auth, useBridgeQuery } from '@sd/client';
 import { Button, ButtonLink, Loader } from '@sd/ui';
 import { LoginButton } from '~/components/LoginButton';
+import { useLocale } from '~/hooks';
 
 import { OnboardingContainer } from './components';
 
 export default function OnboardingLogin() {
+	const { t } = useLocale();
+
 	const authState = auth.useStateSnapshot();
 	const navigate = useNavigate();
 
@@ -40,18 +43,18 @@ export default function OnboardingLogin() {
 							size="md"
 							className="text-center"
 						>
-							Continue
+							{t('continue')}
 						</ButtonLink>
 
 						<div className="space-x-2 text-center text-sm">
-							<span>Not you?</span>
+							<span>{t('not_you')}</span>
 							<Button
 								onClick={auth.logout}
 								variant="bare"
 								size="md"
 								className="border-none !p-0 font-normal text-accent-deep hover:underline"
 							>
-								Log out
+								{t('log_out')}
 							</Button>
 						</div>
 					</div>
@@ -77,11 +80,11 @@ export default function OnboardingLogin() {
 							onLogin={() => navigate('../new-library', { replace: true })}
 							size="md"
 						>
-							Log in with browser
+							{t('log_in_with_browser')}
 						</LoginButton>
 
 						<div className="space-x-2 text-center text-sm">
-							<span>Want to do this later?</span>
+							<span>{t('want_to_do_this_later')}</span>
 							<ButtonLink
 								to="../new-library"
 								variant="bare"
@@ -89,7 +92,7 @@ export default function OnboardingLogin() {
 								className="border-none !p-0 font-normal text-accent-deep hover:underline"
 								replace
 							>
-								Skip login
+								{t('skip_login')}
 							</ButtonLink>
 						</div>
 					</div>

@@ -1,10 +1,8 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
 import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
-import { tw } from '~/lib/tailwind';
 import NotFoundScreen from '~/screens/NotFound';
 import SearchScreen from '~/screens/Search';
 
-import SettingsNavigator, { SettingsStackParamList } from './SettingsNavigator';
 import TabNavigator, { TabParamList } from './TabNavigator';
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -20,21 +18,6 @@ export default function RootNavigator() {
 				component={SearchScreen}
 				options={{ headerShown: false, animationEnabled: false }}
 			/>
-			{/* Modals */}
-			<Stack.Group
-				screenOptions={{
-					headerShown: false,
-					presentation: 'modal',
-					headerBackTitleVisible: false,
-					headerStyle: tw`bg-app`,
-					headerTintColor: tw.color('ink'),
-					headerTitleStyle: tw`text-base`,
-					headerBackTitleStyle: tw`text-base`
-					// headerShadowVisible: false // will disable the white line under
-				}}
-			>
-				<Stack.Screen name="Settings" component={SettingsNavigator} />
-			</Stack.Group>
 		</Stack.Navigator>
 	);
 }
@@ -44,7 +27,6 @@ export type RootStackParamList = {
 	NotFound: undefined;
 	// Modals
 	Search: undefined;
-	Settings: NavigatorScreenParams<SettingsStackParamList>;
 };
 
 export type RootStackScreenProps<Screen extends keyof RootStackParamList> = StackScreenProps<
@@ -56,7 +38,6 @@ export type RootStackScreenProps<Screen extends keyof RootStackParamList> = Stac
 declare global {
 	// eslint-disable-next-line @typescript-eslint/no-namespace
 	namespace ReactNavigation {
-		// eslint-disable-next-line @typescript-eslint/no-empty-interface
 		interface RootParamList extends RootStackParamList {}
 	}
 }

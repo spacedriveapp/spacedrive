@@ -2,7 +2,7 @@ import { useDraggable, UseDraggableArguments } from '@dnd-kit/core';
 import { CSSProperties, HTMLAttributes } from 'react';
 import { ExplorerItem } from '@sd/client';
 
-import { getExplorerStore } from './store';
+import { explorerStore } from './store';
 import { uniqueId } from './util';
 
 export interface UseExplorerDraggableProps extends Omit<UseDraggableArguments, 'id'> {
@@ -21,15 +21,14 @@ export const useExplorerDraggable = (props: UseExplorerDraggableProps) => {
 	});
 
 	const onMouseDown = () => {
-		if (!disabled) getExplorerStore().drag = { type: 'touched' };
+		if (!disabled) explorerStore.drag = { type: 'touched' };
 	};
 
 	const onMouseLeave = () => {
-		const explorerStore = getExplorerStore();
 		if (explorerStore.drag?.type !== 'dragging') explorerStore.drag = null;
 	};
 
-	const onMouseUp = () => (getExplorerStore().drag = null);
+	const onMouseUp = () => (explorerStore.drag = null);
 
 	const style = {
 		cursor: 'default',

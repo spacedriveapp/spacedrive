@@ -5,21 +5,20 @@ use crate::{
 		JobStepOutput, StatefulJob, WorkerContext,
 	},
 	library::Library,
-	location::{
-		file_path_helper::{
-			ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-			IsolatedFilePathData,
-		},
-		location_with_indexer_rules, update_location_size,
-	},
-	prisma::{file_path, location},
+	location::{location_with_indexer_rules, update_location_size},
 	to_remove_db_fetcher_fn,
-	util::db::maybe_missing,
 };
 
-use sd_prisma::prisma_sync;
+use sd_file_path_helper::{
+	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+	IsolatedFilePathData,
+};
+use sd_prisma::{
+	prisma::{file_path, location},
+	prisma_sync,
+};
 use sd_sync::*;
-use sd_utils::from_bytes_to_uuid;
+use sd_utils::{db::maybe_missing, from_bytes_to_uuid};
 
 use std::{
 	collections::HashMap,
@@ -165,6 +164,7 @@ impl StatefulJob for IndexerJobInit {
 		let location_path = maybe_missing(&init.location.path, "location.path").map(Path::new)?;
 
 		let db = Arc::clone(&ctx.library.db);
+		let sync = &ctx.library.sync;
 
 		let indexer_rules = init
 			.location
@@ -236,7 +236,7 @@ impl StatefulJob for IndexerJobInit {
 
 		let db_delete_start = Instant::now();
 		// TODO pass these uuids to sync system
-		let removed_count = remove_non_existing_file_paths(to_remove, &db).await?;
+		let removed_count = remove_non_existing_file_paths(to_remove, &db, sync).await?;
 		let db_delete_time = db_delete_start.elapsed();
 
 		let total_new_paths = &mut 0;
@@ -382,6 +382,7 @@ impl StatefulJob for IndexerJobInit {
 					maybe_missing(&init.location.path, "location.path").map(Path::new)?;
 
 				let db = Arc::clone(&ctx.library.db);
+				let sync = &ctx.library.sync;
 
 				let scan_start = Instant::now();
 
@@ -408,7 +409,8 @@ impl StatefulJob for IndexerJobInit {
 
 				let db_delete_time = Instant::now();
 				// TODO pass these uuids to sync system
-				new_metadata.removed_count = remove_non_existing_file_paths(to_remove, &db).await?;
+				new_metadata.removed_count =
+					remove_non_existing_file_paths(to_remove, &db, sync).await?;
 				new_metadata.db_write_time = db_delete_time.elapsed();
 
 				let to_walk_count = to_walk.len();
@@ -447,8 +449,8 @@ impl StatefulJob for IndexerJobInit {
 					vec![
 						ScanProgress::ChunkCount(more_steps.len() - to_walk_count),
 						ScanProgress::Message(format!(
-							"Scanned more {} files or directories; \
-							{} more directories to scan and more {} entries to update",
+							"Scanned {} more files or directories; \
+							{} more directories to scan and {} more entries to update",
 							new_metadata.total_paths,
 							to_walk_count,
 							new_metadata.total_updated_paths
@@ -498,7 +500,7 @@ impl StatefulJob for IndexerJobInit {
 
 		if run_metadata.total_updated_paths > 0 {
 			// Invoking orphan remover here as we probably have some orphans objects due to updates
-			ctx.library.orphan_remover.invoke().await;
+			// ctx.library.orphan_remover.invoke().await;
 		}
 
 		if run_metadata.indexed_count > 0

@@ -1,10 +1,10 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-import { getDebugState, toggleFeatureFlag, useDebugState, useFeatureFlags } from '@sd/client';
+import { toggleFeatureFlag, useDebugState, useFeatureFlags } from '@sd/client';
 import Card from '~/components/layout/Card';
 import { Button } from '~/components/primitive/Button';
 import { tw } from '~/lib/tailwind';
-import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
+import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
 const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 	const debugState = useDebugState();
@@ -14,10 +14,7 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 		<View style={tw`flex-1 p-4`}>
 			<Card style={tw`gap-y-4 bg-app-box`}>
 				<Text style={tw`font-semibold text-ink`}>Debug</Text>
-				<Button onPress={() => toggleFeatureFlag(['p2pPairing', 'spacedrop'])}>
-					<Text style={tw`text-ink`}>Toggle P2P</Text>
-				</Button>
-				<Button onPress={() => (getDebugState().rspcLogger = !getDebugState().rspcLogger)}>
+				<Button onPress={() => (debugState.rspcLogger = !debugState.rspcLogger)}>
 					<Text style={tw`text-ink`}>Toggle rspc logger</Text>
 				</Button>
 				<Text style={tw`text-ink`}>{JSON.stringify(featureFlags)}</Text>
@@ -25,8 +22,8 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 				<Button
 					onPress={() => {
 						navigation.popToTop();
-						navigation.replace('Home');
-						getDebugState().enabled = false;
+						navigation.replace('Settings');
+						debugState.enabled = false;
 					}}
 				>
 					<Text style={tw`text-ink`}>Disable Debug Mode</Text>

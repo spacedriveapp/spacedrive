@@ -1,16 +1,12 @@
-use std::{
-	path::Path,
-	sync::{
-		atomic::{AtomicBool, Ordering},
-		Arc,
-	},
+use crate::{
+	library::Library,
+	p2p::{Header, HeaderFile},
+	Node,
 };
 
-use sd_p2p::{
-	spaceblock::{BlockSize, Range, SpaceblockRequest, SpaceblockRequests, Transfer},
-	spacetime::UnicastStream,
-	PeerMessageEvent,
-};
+use sd_file_path_helper::{file_path_to_handle_p2p_serve_file, IsolatedFilePathData};
+use sd_p2p2::UnicastStream;
+use sd_p2p_block::{BlockSize, Range, SpaceblockRequest, SpaceblockRequests, Transfer};
 use sd_prisma::prisma::file_path;
 use tokio::{
 	fs::File,
@@ -19,11 +15,12 @@ use tokio::{
 use tracing::{debug, warn};
 use uuid::Uuid;
 
-use crate::{
-	library::Library,
-	location::file_path_helper::{file_path_to_handle_p2p_serve_file, IsolatedFilePathData},
-	p2p::{Header, HeaderFile},
-	Node,
+use std::{
+	path::Path,
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
 };
 
 /// Request a file from the remote machine over P2P. This is used for preview media and quick preview.
@@ -110,9 +107,8 @@ pub(crate) async fn receiver(
 		file_path_id,
 		range,
 	}: HeaderFile,
-	event: PeerMessageEvent,
+	mut stream: UnicastStream,
 ) -> Result<(), ()> {
-	let mut stream = event.stream;
 	#[allow(clippy::panic)] // If you've made it this far that's on you.
 	if !node.files_over_p2p_flag.load(Ordering::Relaxed) {
 		panic!("Files over P2P is disabled!");

@@ -3,11 +3,12 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import { byteSize, useDiscoveredPeers, useLibraryQuery, useNodes } from '@sd/client';
 import { Card } from '@sd/ui';
 import { Icon } from '~/components';
-import { useCounter } from '~/hooks';
+import { useCounter, useLocale } from '~/hooks';
 
 import { Heading } from '../Layout';
 
 export const Component = () => {
+	const { t } = useLocale();
 	const stats = useLibraryQuery(['library.statistics'], {
 		refetchOnWindowFocus: false,
 		initialData: { total_bytes_capacity: '0', library_db_size: '0' }
@@ -21,10 +22,11 @@ export const Component = () => {
 	const discoveredPeers = useDiscoveredPeers();
 	const info = useMemo(() => {
 		if (locations.data && discoveredPeers) {
-			const tb_capacity = byteSize(stats.data?.total_bytes_capacity);
-			const free_space = byteSize(stats.data?.total_bytes_free);
-			const library_db_size = byteSize(stats.data?.library_db_size);
-			const preview_media = byteSize(stats.data?.preview_media_bytes);
+			const statistics = stats.data?.statistics;
+			const tb_capacity = byteSize(statistics?.total_bytes_capacity);
+			const free_space = byteSize(statistics?.total_bytes_free);
+			const library_db_size = byteSize(statistics?.library_db_size);
+			const preview_media = byteSize(statistics?.preview_media_bytes);
 			const data: {
 				icon: keyof typeof iconNames;
 				title?: string;
@@ -77,7 +79,7 @@ export const Component = () => {
 
 	return (
 		<>
-			<Heading title="Usage" description="Your library usage and hardware information" />
+			<Heading title={t('usage')} description={t('usage_description')} />
 			<Card className="flex w-full flex-col justify-center !p-5">
 				<div className="grid grid-cols-1 justify-center gap-2 lg:grid-cols-2 xl:grid-cols-3">
 					{info?.map((i, index) => (

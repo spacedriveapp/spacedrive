@@ -6,13 +6,13 @@ import { useRouteTitle, useZodRouteParams } from '~/hooks';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { useObjectsExplorerQuery } from '../Explorer/queries/useObjectsExplorerQuery';
+import { useObjectsExplorerQuery } from '../Explorer/queries';
 import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { EmptyNotice } from '../Explorer/View/EmptyNotice';
-import SearchOptions, { SearchContextProvider, useSearch } from '../Search';
-import SearchBar from '../Search/SearchBar';
+import { SearchContextProvider, SearchOptions, useSearch } from '../search';
+import SearchBar from '../search/SearchBar';
 import { TopBarPortal } from '../TopBar/Portal';
 
 export function Component() {
@@ -82,6 +82,7 @@ export function Component() {
 					)}
 				</TopBarPortal>
 			</SearchContextProvider>
+
 			<Explorer
 				emptyNotice={
 					<EmptyNotice

@@ -1,10 +1,8 @@
-use crate::{
-	location::file_path_helper::{
-		file_path_pub_and_cas_ids, file_path_walker, FilePathMetadata, IsolatedFilePathData,
-	},
-	prisma::file_path,
-	util::{db::inode_from_db, error::FileIOError},
+use sd_file_path_helper::{
+	file_path_pub_and_cas_ids, file_path_walker, FilePathMetadata, IsolatedFilePathData,
 };
+use sd_prisma::prisma::file_path;
+use sd_utils::{db::inode_from_db, error::FileIOError};
 
 use std::{
 	collections::{HashMap, HashSet, VecDeque},
@@ -388,7 +386,7 @@ where
 							// We ignore the size of directories because it is not reliable, we need to
 							// calculate it ourselves later
 							&& !(
-								entry.iso_file_path.is_dir
+								entry.iso_file_path.to_parts().is_dir
 								&& metadata.size_in_bytes
 									!= file_path
 										.size_in_bytes_bytes

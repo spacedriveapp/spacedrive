@@ -8,13 +8,12 @@ import {
 	useState
 } from 'react';
 
-import { P2PEvent, PairingStatus, PeerMetadata } from '../core';
+import { P2PEvent, PeerMetadata } from '../core';
 import { useBridgeSubscription } from '../rspc';
 
 type Context = {
 	discoveredPeers: Map<string, PeerMetadata>;
 	connectedPeers: Map<string, undefined>;
-	pairingStatus: Map<number, PairingStatus>;
 	spacedropProgresses: Map<string, number>;
 	events: MutableRefObject<EventTarget>;
 };
@@ -25,7 +24,6 @@ export function P2PContextProvider({ children }: PropsWithChildren) {
 	const events = useRef(new EventTarget());
 	const [[discoveredPeers], setDiscoveredPeer] = useState([new Map<string, PeerMetadata>()]);
 	const [[connectedPeers], setConnectedPeers] = useState([new Map<string, undefined>()]);
-	const [[pairingStatus], setPairingStatus] = useState([new Map<number, PairingStatus>()]);
 	const [[spacedropProgresses], setSpacedropProgresses] = useState([new Map<string, number>()]);
 
 	useBridgeSubscription(['p2p.events'], {
@@ -44,8 +42,6 @@ export function P2PContextProvider({ children }: PropsWithChildren) {
 			} else if (data.type === 'DisconnectedPeer') {
 				connectedPeers.delete(data.identity);
 				setConnectedPeers([connectedPeers]);
-			} else if (data.type === 'PairingProgress') {
-				setPairingStatus([pairingStatus.set(data.id, data.status)]);
 			} else if (data.type === 'SpacedropProgress') {
 				spacedropProgresses.set(data.id, data.percent);
 				setSpacedropProgresses([spacedropProgresses]);
@@ -58,7 +54,6 @@ export function P2PContextProvider({ children }: PropsWithChildren) {
 			value={{
 				discoveredPeers,
 				connectedPeers,
-				pairingStatus,
 				spacedropProgresses,
 				events
 			}}
@@ -68,16 +63,16 @@ export function P2PContextProvider({ children }: PropsWithChildren) {
 	);
 }
 
+export function useP2PContextRaw() {
+	return useContext(Context);
+}
+
 export function useDiscoveredPeers() {
 	return useContext(Context).discoveredPeers;
 }
 
 export function useConnectedPeers() {
 	return useContext(Context).connectedPeers;
-}
-
-export function usePairingStatus(pairing_id: number) {
-	return useContext(Context).pairingStatus.get(pairing_id);
 }
 
 export function useSpacedropProgress(id: string) {
