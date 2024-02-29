@@ -1,26 +1,19 @@
-import { httpLink, initRspc, type AlphaClient } from '@oscartbeaumont-sd/rspc-client/v2';
-import { useEffect, useRef, useState } from 'react';
-import { useDiscoveredPeers, type Procedures } from '@sd/client';
+import { useNavigate } from 'react-router';
+import { useCache, useDiscoveredPeers, useLibraryQuery, useNodes } from '@sd/client';
 import { Button } from '@sd/ui';
-import { usePlatform } from '~/util/Platform';
 
 export const Component = () => {
 	// TODO: Handle if P2P is disabled
-	const [activePeer, setActivePeer] = useState<string | null>(null);
-
 	return (
 		<div className="p-4">
-			{activePeer ? (
-				<P2PInfo peer={activePeer} />
-			) : (
-				<PeerSelector setActivePeer={setActivePeer} />
-			)}
+			<PeerSelector />
 		</div>
 	);
 };
 
-function PeerSelector({ setActivePeer }: { setActivePeer: (peer: string) => void }) {
+function PeerSelector() {
 	const peers = useDiscoveredPeers();
+	const navigate = useNavigate();
 
 	return (
 		<>
@@ -32,51 +25,13 @@ function PeerSelector({ setActivePeer }: { setActivePeer: (peer: string) => void
 					{[...peers.entries()].map(([id, _node]) => (
 						<li key={id}>
 							{id}
-							<Button onClick={() => setActivePeer(id)}>Connect</Button>
+							<Button onClick={() => navigate(`/remote/${id}/browse`)}>
+								Open Library Browser
+							</Button>
 						</li>
 					))}
 				</ul>
 			)}
 		</>
-	);
-}
-
-function P2PInfo({ peer }: { peer: string }) {
-	const platform = usePlatform();
-	const ref = useRef<AlphaClient<Procedures>>();
-	const [result, setResult] = useState('');
-	useEffect(() => {
-		// TODO: Cleanup when URL changed
-		const endpoint = platform.getRemoteRspcEndpoint(peer);
-		ref.current = initRspc<Procedures>({
-			links: [
-				httpLink({
-					url: endpoint.url,
-					headers: endpoint.headers
-				})
-			]
-		});
-	}, [peer]);
-
-	useEffect(() => {
-		if (!ref.current) return;
-		ref.current.query(['nodeState']).then((data) => setResult(JSON.stringify(data, null, 2)));
-	}, [ref, result]);
-
-	return (
-		<div className="flex flex-col">
-			<h1>Connected with: {peer}</h1>
-
-			<Button
-				onClick={() => {
-					ref.current
-						?.query(['nodeState'])
-						.then((data) => setResult(JSON.stringify(data, null, 2)));
-				}}
-			>
-				Refetch
-			</Button>
-			<pre>{result}</pre>
-		</div>
 	);
 }

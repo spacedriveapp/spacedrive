@@ -1,7 +1,11 @@
-import { ProcedureDef } from '@oscartbeaumont-sd/rspc-client';
+import {
+	inferMutationInput,
+	inferMutationResult,
+	ProcedureDef
+} from '@oscartbeaumont-sd/rspc-client';
 import { AlphaRSPCError, initRspc } from '@oscartbeaumont-sd/rspc-client/v2';
-import { Context, createReactQueryHooks } from '@oscartbeaumont-sd/rspc-react/v2';
-import { QueryClient } from '@tanstack/react-query';
+import { BaseOptions, Context, createReactQueryHooks } from '@oscartbeaumont-sd/rspc-react/v2';
+import { QueryClient, useMutation, UseMutationOptions, useQuery } from '@tanstack/react-query';
 import { createContext, PropsWithChildren, useContext } from 'react';
 import { match, P } from 'ts-pattern';
 
@@ -26,11 +30,11 @@ type StripLibraryArgsFromInput<
 				key: T['key'];
 				input: NeverOverNull extends true ? (E extends null ? never : E) : E;
 				result: T['result'];
-		  }
+			}
 		: never
 	: never;
 
-type NonLibraryProceduresDef = {
+export type NonLibraryProceduresDef = {
 	queries: NonLibraryProcedure<'queries'>;
 	mutations: NonLibraryProcedure<'mutations'>;
 	subscriptions: NonLibraryProcedure<'subscriptions'>;
@@ -42,8 +46,8 @@ export type LibraryProceduresDef = {
 	subscriptions: StripLibraryArgsFromInput<LibraryProcedures<'subscriptions'>, true>;
 };
 
-const context = createContext<Context<Procedures>>(undefined!);
-const context2 = createContext<Context<LibraryProceduresDef>>(undefined!);
+export const context = createContext<Context<Procedures>>(undefined!);
+export const context2 = createContext<Context<LibraryProceduresDef>>(undefined!);
 
 export const useRspcContext = () => useContext(context);
 export const useRspcLibraryContext = () => useContext(context2);

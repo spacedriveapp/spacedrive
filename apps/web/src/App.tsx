@@ -50,8 +50,12 @@ const platform: Platform = {
 		)}/${encodeURIComponent(filePathId)}`,
 	getFileUrlByPath: (path) => `${spacedriveURL}/local-file-by-path/${encodeURIComponent(path)}`,
 	getRemoteRspcEndpoint: (remote_identity) => ({
-		url: `${spacedriveURL}/remote/${encodeURIComponent(remote_identity)}/rspc`
+		url: `${spacedriveURL
+			.replace('https', 'wss')
+			.replace('http', 'ws')}/remote/${encodeURIComponent(remote_identity)}/rspc/ws`
 	}),
+	constructRemoteRspcPath: (remote_identity, path) =>
+		`${spacedriveURL}/remote/${encodeURIComponent(remote_identity)}/uri/${path}`,
 	openLink: (url) => window.open(url, '_blank')?.focus(),
 	confirm: (message, cb) => cb(window.confirm(message)),
 	auth: {
@@ -151,7 +155,7 @@ function useRouter() {
 						event.historyAction === 'PUSH'
 							? currentIndex
 							: // sometimes the max index is 0 when the current index is > 0, like when reloading the page -_-
-							  Math.max(router.maxIndex, currentIndex)
+								Math.max(router.maxIndex, currentIndex)
 				};
 			});
 		});
