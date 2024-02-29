@@ -1,9 +1,8 @@
-use super::err_return;
-
 use std::sync::Arc;
-
 use tokio::sync::Notify;
 use tracing::info;
+
+use crate::cloud::sync::err_break;
 
 pub async fn run_actor(sync: Arc<sd_core_sync::Manager>, notify: Arc<Notify>) {
 	loop {
@@ -28,7 +27,7 @@ pub async fn run_actor(sync: Arc<sd_core_sync::Manager>, notify: Arc<Notify>) {
 						_ => continue,
 					};
 
-					let ops = err_return!(
+					let ops = err_break!(
 						sync.get_cloud_ops(GetOpsArgs {
 							clocks: timestamps,
 							count: OPS_PER_REQUEST,
@@ -38,7 +37,7 @@ pub async fn run_actor(sync: Arc<sd_core_sync::Manager>, notify: Arc<Notify>) {
 
 					info!("Got {} cloud ops to ingest", ops.len());
 
-					err_return!(
+					err_break!(
 						sync.ingest
 							.event_tx
 							.send(sd_core_sync::Event::Messages(MessagesEvent {
