@@ -206,6 +206,8 @@ impl Node {
 				"info"
 			};
 
+			// let level = "debug"; // Exists for now to debug the location manager
+
 			std::env::set_var(
 				"RUST_LOG",
 				format!("info,sd_core={level},sd_p2p=debug,sd_core::location::manager=info,sd_ai={level}"),
