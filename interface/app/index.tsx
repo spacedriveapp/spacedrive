@@ -219,9 +219,6 @@ function RemoteLayout() {
 		};
 	}, [params.node, platform]);
 
-	// TODO: Library context injected
-	// TODO: Lazy layout
-
 	return (
 		<>
 			{/* TODO: Maybe library context too? */}
