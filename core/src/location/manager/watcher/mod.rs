@@ -19,7 +19,7 @@ use tokio::{
 	task::{block_in_place, JoinHandle},
 	time::{interval_at, Instant, MissedTickBehavior},
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 use uuid::Uuid;
 
 use super::LocationManagerError;

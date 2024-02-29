@@ -26,7 +26,7 @@ use directories::UserDirs;
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tracing::{debug, error, trace};
+use tracing::{debug, error};
 
 use super::{labels::label_with_objects, utils::library, Ctx, R};
 

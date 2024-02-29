@@ -7,7 +7,6 @@ use crate::{
 use sd_file_path_helper::FilePathError;
 use sd_prisma::prisma::location;
 use sd_utils::{db::MissingFieldError, error::FileIOError};
-use tracing_subscriber::field::debug;
 
 use std::{
 	collections::BTreeSet,
@@ -21,7 +20,7 @@ use tokio::sync::{
 	broadcast::{self, Receiver},
 	oneshot, RwLock,
 };
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 
 use tokio::sync::mpsc;
 use uuid::Uuid;

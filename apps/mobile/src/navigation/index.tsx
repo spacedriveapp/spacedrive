@@ -24,7 +24,6 @@ export default function RootNavigator() {
 export type RootStackParamList = {
 	Root: NavigatorScreenParams<TabParamList>;
 	NotFound: undefined;
-	LocationOnboarding: undefined;
 	// Modals
 	Search: undefined;
 };
