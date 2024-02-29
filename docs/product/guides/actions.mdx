@@ -1,0 +1,19 @@
+---
+index: 100
+---
+
+# Actions
+
+<Notice type="warning" text="This feature is a work in progress" />
+
+Actions in Spacedrive signify the user's intention to modify the filesystem, often with the possibility of undoing the change. These actions may result in an immediate operation or queue a job composed of one or more tasks.
+
+Spacedrive allows actions to be executed by remote Nodes, optimizing the process based on available resources. For instance, if an action involves converting a MOV file to MP4 and the file exists on another device, the device containing the file will perform the conversion. This decision also takes into account factors like available CPU power, aiming to select the best option automatically.
+
+While Spacedrive strives to make intelligent _default_ choices for action execution, users retain the flexibility to override these decisions if desired. The system is designed to minimize user intervention while maintaining user control.
+
+## Using natural language
+
+By pressing CMD/CTRL + K, you can describe a desired Spacedrive action using natural language, for example "Move all screenshots from my Desktop onto my NAS". Spacedrive will use all available data sources to best determine a planned sequence of actions based on your query.
+
+"Clean up the screenshots on my Desktop", a more genralized example, this will utilize our Habits feature to assume the best method to clean up your screenshots. In this case your
