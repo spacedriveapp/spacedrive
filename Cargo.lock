@@ -4287,7 +4287,9 @@ dependencies = [
  "libp2p-identity",
  "libp2p-kad",
  "libp2p-mdns",
+ "libp2p-metrics",
  "libp2p-quic 0.10.2 (git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c)",
+ "libp2p-relay",
  "libp2p-swarm",
  "libp2p-tcp",
  "libp2p-upnp",
@@ -4462,6 +4464,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "libp2p-metrics"
+version = "0.14.1"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
+dependencies = [
+ "futures",
+ "instant",
+ "libp2p-core",
+ "libp2p-identity",
+ "libp2p-relay",
+ "libp2p-swarm",
+ "pin-project",
+ "prometheus-client",
+]
+
+[[package]]
 name = "libp2p-quic"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4506,6 +4523,30 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "libp2p-relay"
+version = "0.17.1"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
+dependencies = [
+ "asynchronous-codec",
+ "bytes",
+ "either",
+ "futures",
+ "futures-bounded",
+ "futures-timer",
+ "instant",
+ "libp2p-core",
+ "libp2p-identity",
+ "libp2p-swarm",
+ "quick-protobuf",
+ "quick-protobuf-codec",
+ "rand 0.8.5",
+ "static_assertions",
+ "thiserror",
+ "tracing",
+ "void",
 ]
 
 [[package]]
@@ -8018,6 +8059,18 @@ dependencies = [
  "thiserror",
  "tokio",
  "uuid",
+]
+
+[[package]]
+name = "sd-p2p-relay"
+version = "0.0.1"
+dependencies = [
+ "libp2p",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

@@ -1,0 +1,15 @@
+[package]
+name = "sd-p2p-relay"
+version = "0.0.1"
+publish = false
+license.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+libp2p = { version = "0.53.2", features = ["tokio", "relay", "quic"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tracing.workspace = true
+tracing-subscriber = "0.3.18"
