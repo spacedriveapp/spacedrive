@@ -1,4 +1,4 @@
-import * as artifact from '@actions/artifact';
+import client from '@actions/artifact';
 import * as core from '@actions/core';
 import * as glob from '@actions/glob';
 import * as io from '@actions/io';
@@ -48,8 +48,6 @@ const BUNDLE_DIR = `target/${TARGET}/${PROFILE}/bundle`;
 const ARTIFACTS_DIR = '.artifacts';
 const ARTIFACT_BASE = `Spacedrive-${OS}-${ARCH}`;
 const UPDATER_ARTIFACT_NAME = `Spacedrive-Updater-${OS}-${ARCH}`;
-
-const client = artifact.create();
 
 async function globFiles(pattern: string) {
 	const globber = await glob.create(pattern);

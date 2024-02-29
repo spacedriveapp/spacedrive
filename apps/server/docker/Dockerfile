@@ -5,7 +5,8 @@ ARG REPO_REF=main
 
 FROM debian:bookworm as base
 
-ADD https://gist.githubusercontent.com/HeavenVolkoff/ff7b77b9087f956b8df944772e93c071/raw \
+ADD --chmod=644 --checksum=sha256:8bea540b2cd1a47c94555e746c75fd41a42847a46d8c8c36c7ab6dd9c8526ab4 \
+	https://gist.githubusercontent.com/HeavenVolkoff/ff7b77b9087f956b8df944772e93c071/raw \
 	/etc/apt/apt.conf.d/99docker-apt-config
 
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
@@ -28,6 +29,7 @@ ENV PNPM_HOME="/usr/share/pnpm" \
 	PATH="/usr/share/pnpm:$PATH"
 
 RUN pnpm env use --global latest
+RUN pnpm add -g pnpm@latest-8
 
 WORKDIR /srv
 
@@ -101,7 +103,11 @@ ENV TZ=UTC \
 COPY --from=server --chmod=755 /srv/spacedrive/target/release/sd-server /usr/bin/
 COPY --from=server --chmod=755 /lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/
 COPY --from=server --chmod=755 /srv/spacedrive/apps/.deps/lib /usr/lib/spacedrive
-ADD --chmod=755 https://github.com/spacedriveapp/native-deps/releases/download/yolo-2024-02-07/yolov8s.onnx /usr/share/spacedrive/models/yolov8s.onnx
+
+ADD --chmod=755 --checksum=sha256:a99beabea22571cfad4f77422e5d3ed922d9490232d94cb87cf32956766bc42a \
+	https://github.com/kraj/uClibc/raw/v0.9.33.2/extra/scripts/getent /usr/bin/
+ADD --chmod=755 --checksum=sha256:1d127c69218f2cd14964036f2b057c4b2652cda3996c6908605cc139192f66aa \
+	https://github.com/spacedriveapp/native-deps/releases/download/yolo-2024-02-07/yolov8s.onnx /usr/share/spacedrive/models/yolov8s.onnx
 
 COPY --chmod=755 entrypoint.sh /usr/bin/
 
