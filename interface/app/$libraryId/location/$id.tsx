@@ -134,7 +134,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 						<div className="flex items-center gap-2">
 							<Folder size={22} className="mt-[-1px]" />
 							<span className="truncate text-sm font-medium">{title}</span>
-							<LocationOfflineInfo />
+							<LocationOfflineInfo location={location} />
 							<LocationOptions location={location} path={path || ''} />
 						</div>
 					}
