@@ -40,7 +40,7 @@
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
 		"react-loading-icons": "^1.1.0",
-		"react-router-dom": "6.20.1",
+		"react-router-dom": "^6.20.1",
 		"sonner": "^1.0.3",
 		"use-debounce": "^9.0.4",
 		"zod": "~3.22.4"
@@ -53,7 +53,7 @@
 		"@tailwindcss/forms": "^0.5.7",
 		"@tailwindcss/typography": "^0.5.10",
 		"@types/node": "~18.17.19",
-		"@types/react": "^18.2.60",
+		"@types/react": "^18.2.61",
 		"@types/react-dom": "^18.2.19",
 		"autoprefixer": "^10.4.17",
 		"postcss": "^8.4.35",
