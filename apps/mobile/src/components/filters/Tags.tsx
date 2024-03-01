@@ -1,5 +1,4 @@
 import { MotiView } from 'moti';
-import { useEffect } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { LinearTransition } from 'react-native-reanimated';
