@@ -10,15 +10,7 @@ const Stack = createStackNavigator<NetworkStackParamList>();
 
 export default function NetworkStack() {
 	return (
-		<Stack.Navigator
-			initialRouteName="Network"
-			screenOptions={{
-				headerStyle: { backgroundColor: tw.color('app-box') },
-				headerTintColor: tw.color('ink'),
-				headerTitleStyle: tw`text-base`,
-				headerBackTitleStyle: tw`text-base`
-			}}
-		>
+		<Stack.Navigator initialRouteName="Network">
 			<Stack.Screen
 				name="Network"
 				component={NetworkScreen}
