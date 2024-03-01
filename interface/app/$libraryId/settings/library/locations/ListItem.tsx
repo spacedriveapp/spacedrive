@@ -9,8 +9,8 @@ import {
 	useLibraryMutation,
 	useOnlineLocations
 } from '@sd/client';
-import { Button, Card, dialogManager, Tooltip } from '@sd/ui';
-import { Folder, Icon } from '~/components';
+import { Button, buttonStyles, Card, dialogManager, Tooltip } from '@sd/ui';
+import { Icon } from '~/components';
 import { useLocale } from '~/hooks';
 
 import DeleteDialog from './DeleteDialog';
@@ -39,7 +39,7 @@ export default ({ location }: Props) => {
 				navigate(`${location.id}`);
 			}}
 		>
-			<Icon size={24} name="Folder" className="mr-3 h-10 w-10 self-center"/>
+			<Icon size={24} name="Folder" className="mr-3 h-10 w-10 self-center" />
 			<div className="grid min-w-[110px] grid-cols-1">
 				<h1 className="truncate pt-0.5 text-sm font-semibold">{location.name}</h1>
 
@@ -58,6 +58,7 @@ export default ({ location }: Props) => {
 				{/* This is a fake button, do not add disabled prop pls */}
 				<Tooltip
 					position="top"
+					className="flex"
 					tooltipClassName="max-w-[140px]"
 					label={
 						online
@@ -65,23 +66,22 @@ export default ({ location }: Props) => {
 							: t('location_disconnected_tooltip')
 					}
 				>
-					<Button
-						onClick={(e: { stopPropagation: () => void }) => {
-							e.stopPropagation();
-						}}
-						variant="gray"
-						className="pointer-events-none flex !px-2 !py-1.5"
+					<div
+						className={buttonStyles({
+							variant: 'gray',
+							className: 'pointer-events-none flex !px-2 !py-1.5'
+						})}
 					>
 						<div
 							className={clsx(
-								'h-2 w-2  rounded-full',
+								'h-2 w-2 rounded-full',
 								online ? 'bg-green-500' : 'bg-red-500'
 							)}
 						/>
 						<span className="ml-1.5 text-xs text-ink-dull">
 							{online ? t('connected') : t('disconnected')}
 						</span>
-					</Button>
+					</div>
 				</Tooltip>
 				<Button
 					onClick={(e: { stopPropagation: () => void }) => {

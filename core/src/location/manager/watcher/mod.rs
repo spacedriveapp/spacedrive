@@ -19,7 +19,7 @@ use tokio::{
 	task::{block_in_place, JoinHandle},
 	time::{interval_at, Instant, MissedTickBehavior},
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 use uuid::Uuid;
 
 use super::LocationManagerError;
@@ -132,7 +132,7 @@ impl LocationWatcher {
 			handle: Some(handle),
 			stop_tx: Some(stop_tx),
 		})
-}
+	}
 
 	async fn handle_watch_events(
 		location_id: location::id::Type,
@@ -155,7 +155,7 @@ impl LocationWatcher {
 				Some(event) = events_rx.recv() => {
 					match event {
 						Ok(event) => {
-							info!("[Debug - handle_watch_events] Received event: {:#?}", event);
+							debug!("[Debug - handle_watch_events] Received event: {:#?}", event);
 							if let Err(e) = Self::handle_single_event(
 								location_id,
 								location_pub_id,
@@ -189,7 +189,7 @@ impl LocationWatcher {
 				}
 
 				_ = &mut stop_rx => {
-					info!("Stop Location Manager event handler for location: <id='{}'>", location_id);
+					debug!("Stop Location Manager event handler for location: <id='{}'>", location_id);
 					break
 				}
 			}
@@ -205,7 +205,7 @@ impl LocationWatcher {
 		_library: &'lib Library,
 		ignore_paths: &HashSet<PathBuf>,
 	) -> Result<(), LocationManagerError> {
-		info!("Event: {:#?}", event);
+		debug!("Event: {:#?}", event);
 		if !check_event(&event, ignore_paths) {
 			return Ok(());
 		}
@@ -243,7 +243,7 @@ impl LocationWatcher {
 
 	pub(super) fn watch(&mut self) {
 		let path = &self.path;
-		info!("Start watching location: (path: {path})");
+		debug!("Start watching location: (path: {path})");
 
 		if let Err(e) = self
 			.watcher
@@ -251,7 +251,7 @@ impl LocationWatcher {
 		{
 			error!("Unable to watch location: (path: {path}, error: {e:#?})");
 		} else {
-			info!("Now watching location: (path: {path})");
+			debug!("Now watching location: (path: {path})");
 		}
 	}
 
@@ -265,7 +265,7 @@ impl LocationWatcher {
 			 **************************************************************************************/
 			error!("Unable to unwatch location: (path: {path}, error: {e:#?})",);
 		} else {
-			info!("Stop watching location: (path: {path})");
+			debug!("Stop watching location: (path: {path})");
 		}
 	}
 }
@@ -380,7 +380,7 @@ mod tests {
 	use tracing::{debug, error};
 	// use tracing_test::traced_test;
 
-	#[cfg(target_os = "macos")]
+	#[cfg(any(target_os = "macos", target_os = "ios"))]
 	use notify::event::DataChange;
 
 	#[cfg(target_os = "linux")]
@@ -459,7 +459,7 @@ mod tests {
 		#[cfg(target_os = "windows")]
 		expect_event(events_rx, &file_path, EventKind::Modify(ModifyKind::Any)).await;
 
-		#[cfg(target_os = "macos")]
+		#[cfg(any(target_os = "macos", target_os = "ios"))]
 		expect_event(
 			events_rx,
 			&file_path,
@@ -499,7 +499,7 @@ mod tests {
 		#[cfg(target_os = "windows")]
 		expect_event(events_rx, &dir_path, EventKind::Create(CreateKind::Any)).await;
 
-		#[cfg(target_os = "macos")]
+		#[cfg(any(target_os = "macos", target_os = "ios"))]
 		expect_event(events_rx, &dir_path, EventKind::Create(CreateKind::Folder)).await;
 
 		#[cfg(target_os = "linux")]
@@ -540,7 +540,7 @@ mod tests {
 		#[cfg(target_os = "windows")]
 		expect_event(events_rx, &file_path, EventKind::Modify(ModifyKind::Any)).await;
 
-		#[cfg(target_os = "macos")]
+		#[cfg(any(target_os = "macos", target_os = "ios"))]
 		expect_event(
 			events_rx,
 			&file_path,
@@ -589,7 +589,7 @@ mod tests {
 		)
 		.await;
 
-		#[cfg(target_os = "macos")]
+		#[cfg(any(target_os = "macos", target_os = "ios"))]
 		expect_event(
 			events_rx,
 			&file_path,
@@ -640,7 +640,7 @@ mod tests {
 		)
 		.await;
 
-		#[cfg(target_os = "macos")]
+		#[cfg(any(target_os = "macos", target_os = "ios"))]
 		expect_event(
 			events_rx,
 			&dir_path,
@@ -688,6 +688,14 @@ mod tests {
 		#[cfg(target_os = "linux")]
 		expect_event(events_rx, &file_path, EventKind::Remove(RemoveKind::File)).await;
 
+		#[cfg(target_os = "ios")]
+		expect_event(
+			events_rx,
+			&file_path,
+			EventKind::Modify(ModifyKind::Metadata(MetadataKind::Any)),
+		)
+		.await;
+
 		debug!("Unwatching root directory: {}", root_dir.path().display());
 		if let Err(e) = watcher.unwatch(root_dir.path()) {
 			error!("Failed to unwatch root directory: {e:#?}");
@@ -734,6 +742,14 @@ mod tests {
 
 		#[cfg(target_os = "linux")]
 		expect_event(events_rx, &dir_path, EventKind::Remove(RemoveKind::Folder)).await;
+
+		#[cfg(target_os = "ios")]
+		expect_event(
+			events_rx,
+			&file_path,
+			EventKind::Modify(ModifyKind::Metadata(MetadataKind::Any)),
+		)
+		.await;
 
 		debug!("Unwatching root directory: {}", root_dir.path().display());
 		if let Err(e) = watcher.unwatch(root_dir.path()) {

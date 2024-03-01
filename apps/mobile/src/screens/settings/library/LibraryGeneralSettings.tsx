@@ -8,6 +8,7 @@ import ScreenContainer from '~/components/layout/ScreenContainer';
 import DeleteLibraryModal from '~/components/modal/confirmModals/DeleteLibraryModal';
 import { Button } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
+import { toast } from '~/components/primitive/Toast';
 import SettingsButton from '~/components/settings/SettingsButton';
 import { SettingsTitle } from '~/components/settings/SettingsContainer';
 import SettingsToggle from '~/components/settings/SettingsToggle';
@@ -33,7 +34,7 @@ const LibraryGeneralSettingsScreen = (_: SettingsStackScreenProps<'LibraryGenera
 	useAutoForm(form, (value) => {
 		editLibrary({ description: value.description, name: value.name, id: library.uuid });
 		// console.log('Updated', value);
-		// TODO: Show toast
+		toast({ type: 'success', text: 'Library updated!' });
 	});
 
 	return (

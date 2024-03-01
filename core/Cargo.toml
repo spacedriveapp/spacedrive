@@ -50,7 +50,7 @@ sd-cloud-api = { version = "0.1.0", path = "../crates/cloud-api" }
 # Workspace dependencies
 async-channel = { workspace = true }
 async-trait = { workspace = true }
-axum = { workspace = true }
+axum = { workspace = true, features = ["ws"] }
 base64 = { workspace = true }
 blake3 = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }

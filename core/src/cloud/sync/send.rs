@@ -66,6 +66,8 @@ pub async fn run_actor(
 				let start_time = ops[0].timestamp.0.to_string();
 				let end_time = ops[ops.len() - 1].timestamp.0.to_string();
 
+				let ops_len = ops.len();
+
 				instances.push(do_add::Input {
 					uuid: req_add.instance_uuid,
 					key: req_add.key,
@@ -73,6 +75,7 @@ pub async fn run_actor(
 					end_time,
 					contents: serde_json::to_value(CompressedCRDTOperations::new(ops))
 						.expect("CompressedCRDTOperation should serialize!"),
+					ops_count: ops_len,
 				})
 			}
 

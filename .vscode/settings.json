@@ -79,7 +79,7 @@
 		"*.tsx": "${capture}.ts",
 		".npmrc": ".nvmrc, .yarnrc.yml",
 		".gitignore": ".eslintignore, .prettierignore",
-		"README.md": "CONTRIBUTING.md, CODE_OF_CONDUCT.md",
+		"README.md": "CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md",
 		"Cargo.toml": "Cargo.lock",
 		".eslintrc.js": ".eslintcache",
 		"package.json": "package-lock.json, yarn.lock, pnpm-lock.yaml, pnpm-workspace.yaml, .pnp.cjs, .pnp.loader.mjs",

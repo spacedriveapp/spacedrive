@@ -12,19 +12,70 @@ if [ -n "${1:-}" ] && [ "${1#-}" = "${1}" ] \
 fi
 
 if [ "$(id -u)" -ne 0 ]; then
-  echo "This container requires executing as root for initial setup, privilages are dropped after" 1>&2
+  echo "This container requires executing as root for initial setup, privileges are dropped shortly after" 1>&2
   exit 1
 fi
 
+delpasswd () {
+  deluser "$@"
+}
+
+create () {
+  if [ "$#" -ne 3 ] || ! { [ "$1" = "group" ] || [ "$1" = "passwd" ]; } || [ -z "$2" ] || [ "$3" -le 0 ] ; then
+    echo "Usage: create <group|passwd> <NAME> <ID>" 1>&2
+    echo "  NAME: Group or user name to be created" 1>&2
+    echo "  ID: ID > 1000 to be assigned to the group or user" 1>&2
+    exit 1
+  fi
+
+  if getent "$1" "$2" >/dev/null; then
+    if [ "$(getent "$1" "$2" | cut -d: -f3)" = "$3" ]; then
+      echo "$1 $2 already exists with ID: $3"
+      return
+    else
+      "del${1}" "$2"
+    fi
+  fi
+
+  if getent "$1" "$3" >/dev/null; then
+    # WARNING: This need to be modified if this functions arguments are changed
+    set -- "$1" "$2" "$3" "$(getent "$1" "$3" | cut -d: -f1)"
+    if [ "$2" = "$4" ]; then
+      echo "$1 $2 already exists with ID: $3"
+      return
+    else
+      "del${1}" "$4"
+    fi
+  fi
+
+  case "$1" in
+    group)
+      addgroup --system --gid "$3" "$2"
+      ;;
+    passwd)
+      rm -rf /var/empty
+      adduser \
+        --system \
+        --uid "$3" \
+        --home /var/empty \
+        --shell /bin/nologin \
+        --gecos "$2 system account" \
+        -G nobody \
+        --no-create-home \
+        "$2"
+      passwd -l "$2"
+      ;;
+  esac
+}
+
 echo "Configure unprivileged user"
-addgroup --system --gid "${PGID}" spacedrive
-adduser --system --disabled-password \
-  --uid "${PUID}" \
-  --home /var/empty \
-  --gecos 'Spacedrive system account' \
-  --ingroup spacedrive \
-  spacedrive
-passwd -l spacedrive
+create group spacedrive 1000
+create passwd spacedrive 1000
+
+# Add spacedrive user to spacedrive group, if it is not already in it
+if ! id -Gn spacedrive | tr '[:space:]+' '\n' | grep -x 'spacedrive'; then
+  adduser spacedrive spacedrive
+fi
 
 if [ -n "${TZ:-}" ]; then
   echo "Set Timezone to $TZ"

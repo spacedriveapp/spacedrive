@@ -64,7 +64,6 @@ pub enum CoreEvent {
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum BackendFeature {
-	SyncEmitMessages,
 	FilesOverP2P,
 	CloudSync,
 }
@@ -72,11 +71,6 @@ pub enum BackendFeature {
 impl BackendFeature {
 	pub fn restore(&self, node: &Node) {
 		match self {
-			BackendFeature::SyncEmitMessages => {
-				node.libraries
-					.emit_messages_flag
-					.store(true, Ordering::Relaxed);
-			}
 			BackendFeature::FilesOverP2P => {
 				node.files_over_p2p_flag.store(true, Ordering::Relaxed);
 			}
@@ -187,11 +181,6 @@ pub(crate) fn mount() -> Arc<Router> {
 				.map_err(|err| rspc::Error::new(ErrorCode::InternalServerError, err.to_string()))?;
 
 				match feature {
-					BackendFeature::SyncEmitMessages => {
-						node.libraries
-							.emit_messages_flag
-							.store(enabled, Ordering::Relaxed);
-					}
 					BackendFeature::FilesOverP2P => {
 						node.files_over_p2p_flag.store(enabled, Ordering::Relaxed);
 					}

@@ -1,4 +1,4 @@
-import { redirect } from '@remix-run/router';
+import { redirect } from 'react-router';
 import { type RouteObject } from 'react-router-dom';
 import { Platform } from '~/util/Platform';
 
@@ -43,9 +43,18 @@ export default (platform: Platform) =>
 		{
 			index: true,
 			loader: async () => {
-				if (!platform.userHomeDir) return redirect(`network`);
-				const homeDir = await platform.userHomeDir();
-				return redirect(`ephemeral/0?${new URLSearchParams({ path: homeDir })}`, {
+				try {
+					if (platform.userHomeDir) {
+						const homeDir = await platform.userHomeDir();
+						return redirect(`ephemeral/0?${new URLSearchParams({ path: homeDir })}`, {
+							replace: true
+						});
+					}
+				} catch (e) {
+					console.error('Failed to redirect to user home', e);
+				}
+
+				return redirect(`network`, {
 					replace: true
 				});
 			}
