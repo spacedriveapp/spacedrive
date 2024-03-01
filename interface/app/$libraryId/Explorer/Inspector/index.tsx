@@ -56,6 +56,7 @@ import { FileThumb } from '../FilePath/Thumb';
 import { useQuickPreviewStore } from '../QuickPreview/store';
 import { explorerStore } from '../store';
 import { uniqueId, useExplorerItemData } from '../util';
+import { RenamableItemText } from '../View/RenamableItemText';
 import FavoriteButton from './FavoriteButton';
 import MediaData from './MediaData';
 import Note from './Note';
@@ -209,10 +210,10 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					...new Set(
 						(item.item?.file_paths || []).map((fp) => fp.location_id).filter(Boolean)
 					)
-			  ]
+				]
 			: item.type === 'Path'
-			? [item.item.location_id]
-			: [];
+				? [item.item.location_id]
+				: [];
 	}, [item]);
 
 	const fileLocations =
@@ -270,10 +271,17 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 	return (
 		<>
-			<h3 className="truncate px-3 pb-1 pt-2 text-base font-bold text-ink">
-				{name}
-				{extension && `.${extension}`}
-			</h3>
+			<div className="px-2 pb-1 pt-2">
+				<RenamableItemText
+					item={item}
+					toggleBy="click"
+					lines={2}
+					selected
+					allowHighlight={false}
+					className="!text-base !font-bold !text-ink"
+					style={{ maxHeight: '50px' }}
+				/>
+			</div>
 
 			{objectData && (
 				<div className="mx-3 mb-0.5 mt-1 flex flex-row space-x-0.5 text-ink">

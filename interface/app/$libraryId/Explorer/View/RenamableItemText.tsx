@@ -17,7 +17,8 @@ import { RenameTextBox, RenameTextBoxProps } from '../FilePath/RenameTextBox';
 import { useQuickPreviewStore } from '../QuickPreview/store';
 import { explorerStore } from '../store';
 
-interface Props extends Pick<RenameTextBoxProps, 'idleClassName' | 'lines'> {
+interface Props
+	extends Pick<RenameTextBoxProps, 'idleClassName' | 'lines' | 'toggleBy' | 'className'> {
 	item: ExplorerItem;
 	allowHighlight?: boolean;
 	style?: React.CSSProperties;
@@ -155,12 +156,14 @@ export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) =>
 			onRename={handleRename}
 			className={clsx(
 				'font-medium',
+				props.className,
 				(props.selected || props.highlight) &&
 					allowHighlight && ['bg-accent', !isDark && 'text-white']
 			)}
 			style={props.style}
 			lines={props.lines}
 			idleClassName={props.idleClassName}
+			toggleBy={props.toggleBy}
 		/>
 	);
 };
