@@ -2,7 +2,7 @@ import { createStackNavigator, StackScreenProps } from '@react-navigation/stack'
 import React from 'react';
 import Header from '~/components/header/Header';
 import SearchScreen from '~/screens/search';
-import FiltersScreen from '~/screens/search/filters';
+import FiltersScreen from '~/screens/search/Filters';
 
 const Stack = createStackNavigator<SearchStackParamList>();
 

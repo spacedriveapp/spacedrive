@@ -7,19 +7,16 @@ import { tw, twStyle } from '~/lib/tailwind';
 import Fade from '../layout/Fade';
 import SectionTitle from '../layout/SectionTitle';
 import VirtualizedListWrapper from '../layout/VirtualizedListWrapper';
-import { Filters } from './FiltersList';
+import { LinearTransition } from 'react-native-reanimated';
 
-interface TagsProps {
-	selectedOptions: Partial<Filters[]>;
-}
-
-const Tags = ({ selectedOptions }: TagsProps) => {
+const Tags = () => {
 	const tags = useLibraryQuery(['tags.list']);
 	useNodes(tags.data?.nodes);
 	const tagsData = useCache(tags.data?.items);
 
 	return (
 		<MotiView
+			layout={LinearTransition.duration(300)}
 			from={{ opacity: 0, translateY: 20 }}
 			animate={{ opacity: 1, translateY: 0 }}
 			transition={{ type: 'timing', duration: 300 }}
@@ -39,7 +36,7 @@ const Tags = ({ selectedOptions }: TagsProps) => {
 							contentContainerStyle={tw`pl-6`}
 							numColumns={tagsData && Math.ceil(Number(tagsData.length ?? 0) / 2)}
 							key={tagsData ? 'tagsSearch' : '_'}
-							ItemSeparatorComponent={() => <View style={tw`h-2 w-2`} />}
+							ItemSeparatorComponent={() => <View style={tw`w-2 h-2`} />}
 							keyExtractor={(item) => item.id.toString()}
 							showsHorizontalScrollIndicator={false}
 							style={tw`flex-row`}

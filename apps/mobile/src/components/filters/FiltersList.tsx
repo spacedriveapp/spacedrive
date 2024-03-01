@@ -1,4 +1,4 @@
-import { AnimatePresence, MotiText, MotiView } from 'moti';
+import { AnimatePresence, MotiView } from 'moti';
 import {
 	CircleDashed,
 	Cube,
@@ -16,8 +16,6 @@ import Locations from './Locations';
 import Tags from './Tags';
 
 // Extract option names from filters
-type OptionName<T extends readonly Object[]> = T[number];
-type FcFilterProps = FunctionComponent<{ selectedOptions: Partial<Filters[]> }>;
 export type Filters = 'Locations' | 'Tags' | 'Kind' | 'Name' | 'Extension' | 'Hidden';
 
 const FiltersList = () => {
@@ -26,12 +24,12 @@ const FiltersList = () => {
 		{
 			name: 'Locations',
 			icon: Folder,
-			component: Locations as FcFilterProps
+			component: Locations
 		},
 		{
 			name: 'Tags',
 			icon: CircleDashed,
-			component: Tags as FcFilterProps
+			component: Tags
 		},
 		{ name: 'Kind', icon: Cube, component: () => <></> },
 		{ name: 'Name', icon: Textbox, component: () => <></> },
@@ -107,7 +105,7 @@ const FiltersList = () => {
 				{selectedOptions.map((option) => {
 					const Component = options.find((o) => o.name === option)?.component;
 					if (!Component) return null;
-					return <Component selectedOptions={selectedOptions} key={option} />;
+					return <Component key={option} />;
 				})}
 			</AnimatePresence>
 		</View>

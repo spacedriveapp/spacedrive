@@ -1,30 +1,21 @@
-import { MotiView, useDynamicAnimation } from 'moti';
+import { MotiView } from 'moti';
 import { FlatList, Text, View } from 'react-native';
 import { Location, useCache, useLibraryQuery, useNodes } from '@sd/client';
-import { tw, twStyle } from '~/lib/tailwind';
+import { tw } from '~/lib/tailwind';
 
 import { Icon } from '../icons/Icon';
 import Fade from '../layout/Fade';
 import SectionTitle from '../layout/SectionTitle';
 import VirtualizedListWrapper from '../layout/VirtualizedListWrapper';
-import { Filters } from './FiltersList';
+import {  LinearTransition } from 'react-native-reanimated';
 
-interface LocationsProps {
-	selectedOptions: Partial<Filters[]>;
-}
-
-const Locations = ({ selectedOptions }: LocationsProps) => {
+const Locations = () => {
 	const locationsQuery = useLibraryQuery(['locations.list']);
 	useNodes(locationsQuery.data?.nodes);
 	const locations = useCache(locationsQuery.data?.items);
-	const layoutTransition = useDynamicAnimation(() => {
-		return {
-			translateY: 0
-		};
-	});
 	return (
 		<MotiView
-			state={layoutTransition}
+			layout={LinearTransition.duration(300)}
 			from={{ opacity: 0, translateY: 20 }}
 			animate={{ opacity: 1, translateY: 0 }}
 			transition={{ type: 'timing', duration: 300 }}
@@ -44,7 +35,7 @@ const Locations = ({ selectedOptions }: LocationsProps) => {
 							contentContainerStyle={tw`pl-6`}
 							numColumns={locations && Math.ceil(Number(locations.length) / 2)}
 							key={locations ? 'locationsSearch' : '_'}
-							ItemSeparatorComponent={() => <View style={tw`h-2 w-2`} />}
+							ItemSeparatorComponent={() => <View style={tw`w-2 h-2`} />}
 							keyExtractor={(item) => item.id.toString()}
 							showsHorizontalScrollIndicator={false}
 							style={tw`flex-row`}

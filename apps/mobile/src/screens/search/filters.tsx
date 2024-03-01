@@ -1,6 +1,5 @@
 import FiltersList from '~/components/filters/FiltersList';
 import ScreenContainer from '~/components/layout/ScreenContainer';
-import { tw } from '~/lib/tailwind';
 
 const FiltersScreen = () => {
 	return (
