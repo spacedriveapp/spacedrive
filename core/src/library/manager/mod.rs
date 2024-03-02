@@ -135,7 +135,7 @@ impl Libraries {
 					.await?;
 
 				// FIX-ME: Linux releases crashes with *** stack smashing detected *** if spawn_volume_watcher is enabled
-				// No ideia why, but this will be irrelevant after the UDisk API is implemented, so let's leave it disabled for now
+				// No idea why, but this will be irrelevant after the UDisk API is implemented, so let's leave it disabled for now
 				#[cfg(not(target_os = "linux"))]
 				{
 					use crate::volume::watcher::spawn_volume_watcher;
@@ -522,7 +522,7 @@ impl Libraries {
 			};
 		}
 
-		if let Err(e) = node.jobs.clone().cold_resume(node, &library).await {
+		if let Err(e) = node.old_jobs.clone().cold_resume(node, &library).await {
 			error!("Failed to resume jobs for library. {:#?}", e);
 		}
 

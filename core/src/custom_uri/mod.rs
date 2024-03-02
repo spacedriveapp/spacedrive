@@ -1,7 +1,7 @@
 use crate::{
 	api::{utils::InvalidateOperationEvent, CoreEvent},
 	library::Library,
-	object::media::thumbnail::WEBP_EXTENSION,
+	object::media::old_thumbnail::WEBP_EXTENSION,
 	p2p::operations,
 	util::InfallibleResponse,
 	Node,

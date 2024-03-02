@@ -1,4 +1,4 @@
-use crate::{invalidate_query, library::Library, object::media::thumbnail::get_indexed_thumb_key};
+use crate::{invalidate_query, library::Library, object::media::old_thumbnail::get_indexed_thumb_key};
 
 use sd_prisma::{
 	prisma::{label, label_on_object, object, SortOrder},

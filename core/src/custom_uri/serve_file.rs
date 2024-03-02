@@ -58,7 +58,7 @@ pub(crate) async fn serve_file(
 				r#""{}""#,
 				// The ETag's can be any value so we just use the modified time to make it easy.
 				time.duration_since(UNIX_EPOCH)
-					.expect("are you a time traveller? cause that's the only explanation for this error")
+					.expect("are you a time traveler? cause that's the only explanation for this error")
 					.as_millis()
 			);
 

@@ -1,15 +1,15 @@
 use crate::{
 	invalidate_query,
-	job::StatefulJob,
 	location::{
 		delete_location, find_location,
-		indexer::{rules::IndexerRuleCreateArgs, IndexerJobInit},
+		indexer::{rules::IndexerRuleCreateArgs, OldIndexerJobInit},
 		light_scan_location, location_with_indexer_rules,
 		non_indexed::NonIndexedPathItem,
 		relink_location, scan_location, scan_location_sub_path, LocationCreateArgs, LocationError,
 		LocationUpdateArgs,
 	},
-	object::file_identifier::file_identifier_job::FileIdentifierJobInit,
+	object::old_file_identifier::old_file_identifier_job::OldFileIdentifierJobInit,
+	old_job::StatefulJob,
 	p2p::PeerMetadata,
 	util::AbortOnDrop,
 };
@@ -453,12 +453,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				     sub_path,
 				 }: LightScanArgs| async move {
 					if node
-						.jobs
+						.old_jobs
 						.has_job_running(|job_identity| {
 							job_identity.target_location == location_id
-								&& (job_identity.name == <IndexerJobInit as StatefulJob>::NAME
+								&& (job_identity.name == <OldIndexerJobInit as StatefulJob>::NAME
 									|| job_identity.name
-										== <FileIdentifierJobInit as StatefulJob>::NAME)
+										== <OldFileIdentifierJobInit as StatefulJob>::NAME)
 						})
 						.await
 					{

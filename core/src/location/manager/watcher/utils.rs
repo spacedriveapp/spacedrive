@@ -7,12 +7,12 @@ use crate::{
 		manager::LocationManagerError, scan_location_sub_path, update_location_size,
 	},
 	object::{
-		file_identifier::FileMetadata,
 		media::{
 			media_data_extractor::{can_extract_media_data_for_image, extract_media_data},
 			media_data_image_to_query_params,
-			thumbnail::get_indexed_thumbnail_path,
+			old_thumbnail::get_indexed_thumbnail_path,
 		},
+		old_file_identifier::FileMetadata,
 		validation::hash::file_checksum,
 	},
 	Node,

@@ -50,7 +50,7 @@ impl MediaDate {
 			.map(Clone::clone)
 	}
 
-	/// Returns the amount of non-leap secods since the Unix Epoch (1970-01-01T00:00:00+00:00)
+	/// Returns the amount of non-leap seconds since the Unix Epoch (1970-01-01T00:00:00+00:00)
 	///
 	/// This is for search ordering/sorting
 	#[must_use]

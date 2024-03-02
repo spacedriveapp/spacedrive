@@ -24,7 +24,7 @@ pub enum LibraryManagerError {
 	Uuid(#[from] uuid::Error),
 	#[error("failed to run indexer rules seeder: {0}")]
 	IndexerRulesSeeder(#[from] indexer::rules::seed::SeederError),
-	// #[error("failed to initialise the key manager: {0}")]
+	// #[error("failed to initialize the key manager: {0}")]
 	// KeyManager(#[from] sd_crypto::Error),
 	#[error("error migrating the library: {0}")]
 	MigrationError(#[from] db::MigrationError),

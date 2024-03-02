@@ -48,7 +48,7 @@ where
 
 // Preferences are a set of types that are serialized as a list of key-value pairs,
 // where nested type keys are serialized as a dot-separated path.
-// They are serailized as a list because this allows preferences to be a synchronisation boundary,
+// They are serialized as a list because this allows preferences to be a synchronization boundary,
 // whereas their values (referred to as settings) will be overwritten.
 pub trait Preferences {
 	fn to_kvs(self) -> PreferenceKVs;

@@ -568,8 +568,8 @@ pub mod locations {
 		pub type Response = CloudLocation;
 	}
 
-	pub use authorise::exec as authorise;
-	pub mod authorise {
+	pub use authorize::exec as authorize;
+	pub mod authorize {
 		use super::*;
 
 		pub async fn exec(config: RequestConfig, id: String) -> Result<Response, Error> {
@@ -579,7 +579,7 @@ pub mod locations {
 
 			config
 				.client
-				.post(&format!("{}/api/v1/locations/authorise", config.api_url))
+				.post(&format!("{}/api/v1/locations/authorize", config.api_url))
 				.json(&json!({ "id": id }))
 				.with_auth(auth_token)
 				.send()

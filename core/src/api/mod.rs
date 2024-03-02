@@ -1,6 +1,6 @@
 use crate::{
 	invalidate_query,
-	job::JobProgressEvent,
+	old_job::JobProgressEvent,
 	node::{
 		config::{NodeConfig, NodePreferences, P2PDiscoveryState, Port},
 		get_hardware_model_name, HardwareModel,

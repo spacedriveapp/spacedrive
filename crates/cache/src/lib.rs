@@ -9,7 +9,7 @@ use specta::{Any, DataType, NamedType, Type, TypeMap};
 
 /// A type that can be used to return a group of `Reference<T>` and `CacheNode`'s
 ///
-/// You don't need to use this, it's just a shortcut to avoid having to write out the full type everytime.
+/// You don't need to use this, it's just a shortcut to avoid having to write out the full type every time.
 #[derive(Serialize, Type, Debug)]
 pub struct NormalisedResults<T: Model + Type> {
 	pub items: Vec<Reference<T>>,
@@ -18,7 +18,7 @@ pub struct NormalisedResults<T: Model + Type> {
 
 /// A type that can be used to return a group of `Reference<T>` and `CacheNode`'s
 ///
-/// You don't need to use this, it's just a shortcut to avoid having to write out the full type everytime.
+/// You don't need to use this, it's just a shortcut to avoid having to write out the full type every time.
 #[derive(Serialize, Type, Debug)]
 pub struct NormalisedResult<T: Model + Type> {
 	pub item: Reference<T>,
@@ -150,14 +150,14 @@ impl Serialize for CacheNode {
 			__type: self.0,
 			__id: &self.1,
 			v: self.2.as_ref().map_err(|err| {
-				serde::ser::Error::custom(format!("Failed to serialise node: {}", err))
+				serde::ser::Error::custom(format!("Failed to serialize node: {}", err))
 			})?,
 		}
 		.serialize(serializer)
 	}
 }
 
-/// A helper for easily normalising data.
+/// A helper for easily normalizing data.
 pub trait Normalise {
 	type Item: Model + Type;
 

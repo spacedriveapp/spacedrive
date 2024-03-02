@@ -1,6 +1,6 @@
 use crate::{
 	api::{notifications::Notification, BackendFeature},
-	object::media::thumbnail::preferences::ThumbnailerPreferences,
+	object::media::old_thumbnail::preferences::ThumbnailerPreferences,
 	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 
@@ -80,7 +80,7 @@ pub struct NodeConfig {
 	/// URL of the Spacedrive API
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub sd_api_origin: Option<String>,
-	/// The aggreagation of many different preferences for the node
+	/// The aggregation of many different preferences for the node
 	pub preferences: NodePreferences,
 	// Model version for the image labeler
 	pub image_labeler_version: Option<String>,
@@ -145,7 +145,7 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 		name.truncate(250);
 
 		#[cfg(feature = "ai")]
-		let image_labeler_version = Some(sd_ai::image_labeler::DEFAULT_MODEL_VERSION.to_string());
+		let image_labeler_version = Some(sd_ai::old_image_labeler::DEFAULT_MODEL_VERSION.to_string());
 		#[cfg(not(feature = "ai"))]
 		let image_labeler_version = None;
 
@@ -301,7 +301,7 @@ impl Manager {
 		#[cfg(feature = "ai")]
 		if config.image_labeler_version.is_none() {
 			config.image_labeler_version =
-				Some(sd_ai::image_labeler::DEFAULT_MODEL_VERSION.to_string());
+				Some(sd_ai::old_image_labeler::DEFAULT_MODEL_VERSION.to_string());
 		}
 
 		#[cfg(not(feature = "ai"))]
