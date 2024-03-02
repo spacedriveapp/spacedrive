@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url';
+import ts from '@babel/preset-typescript';
 import react from '@vitejs/plugin-react-swc';
 import million from 'million/compiler';
 import { defineConfig } from 'vite';
@@ -20,7 +21,7 @@ export default defineConfig({
 			namespaceResolution: 'relativePath'
 		}),
 		react(),
-		narrowSolidPlugin({ include: '**/*.solid.tsx' }),
+		narrowSolidPlugin({ include: '**/*.solid.tsx', babel: { presets: [[ts, {}]] } }),
 		svg({ svgrOptions: { icon: true } }),
 		createHtmlPlugin({
 			minify: true

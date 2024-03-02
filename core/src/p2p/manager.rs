@@ -292,14 +292,6 @@ async fn start(
 						}
 					};
 				}
-				Header::File(req) => {
-					let Err(()) = operations::request_file::receiver(&node, req, stream).await
-					else {
-						return;
-					};
-
-					error!("Failed to handle file request");
-				}
 				Header::Http => {
 					let remote = stream.remote_identity();
 					let Err(err) = operations::rspc::receiver(stream, &mut service).await else {

@@ -451,6 +451,7 @@ pub mod library {
 				pub start_time: String,
 				pub end_time: String,
 				pub contents: serde_json::Value,
+				pub ops_count: usize,
 			}
 
 			pub async fn exec(
@@ -465,7 +466,7 @@ pub mod library {
 				config
 					.client
 					.post(&format!(
-						"{}/api/v1/libraries/{}/messageCollections/requestAdd",
+						"{}/api/v1/libraries/{}/messageCollections/doAdd",
 						config.api_url, library_id
 					))
 					.json(&json!({ "instances": instances }))

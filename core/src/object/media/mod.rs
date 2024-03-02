@@ -28,7 +28,6 @@ pub fn media_data_image_to_query(
 	})
 }
 
-#[cfg(feature = "location-watcher")]
 pub fn media_data_image_to_query_params(
 	mdi: ImageMetadata,
 ) -> (Vec<(&'static str, serde_json::Value)>, Vec<SetParam>) {

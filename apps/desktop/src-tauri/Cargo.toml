@@ -1,6 +1,6 @@
 [package]
 name = "sd-desktop"
-version = "0.2.4"
+version = "0.2.5"
 description = "The universal file manager."
 authors = ["Spacedrive Technology Inc <support@spacedrive.com>"]
 default-run = "sd-desktop"
@@ -11,7 +11,6 @@ edition = { workspace = true }
 [dependencies]
 sd-core = { path = "../../../core", features = [
 	"ffmpeg",
-	"location-watcher",
 	"heif",
 ] }
 sd-fda = { path = "../../../crates/fda" }

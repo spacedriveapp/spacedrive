@@ -434,7 +434,7 @@ pub async fn assign_labels(
 				));
 
 				db.label()
-					.create(name, vec![label::date_created::set(date_created)])
+					.create(name, vec![label::date_created::set(Some(date_created))])
 					.select(label::select!({ id name }))
 			})
 			.collect::<Vec<_>>();

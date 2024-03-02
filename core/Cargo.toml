@@ -1,6 +1,6 @@
 [package]
 name = "sd-core"
-version = "0.2.4"
+version = "0.2.5"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc."]
 rust-version = "1.75.0"
@@ -14,7 +14,6 @@ default = []
 mobile = []
 # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
 ffmpeg = ["dep:sd-ffmpeg"]
-location-watcher = ["dep:notify"]
 heif = ["sd-images/heif"]
 ai = ["dep:sd-ai"]
 
@@ -48,11 +47,10 @@ sd-sync = { path = "../crates/sync" }
 sd-utils = { path = "../crates/utils" }
 sd-cloud-api = { version = "0.1.0", path = "../crates/cloud-api" }
 
-
 # Workspace dependencies
 async-channel = { workspace = true }
 async-trait = { workspace = true }
-axum = { workspace = true }
+axum = { workspace = true, features = ["ws"] }
 base64 = { workspace = true }
 blake3 = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
@@ -112,9 +110,9 @@ http-range = "0.1.5"
 int-enum = "0.5.0"
 itertools = "0.12.0"
 mini-moka = "0.10.2"
-notify = { version = "=5.2.0", default-features = false, features = [
-	"macos_fsevent",
-], optional = true }
+notify = { git="https://github.com/notify-rs/notify.git", rev="c3929ed114fbb0bc7457a9a498260461596b00ca", default-features = false, features = [
+  "macos_fsevent",
+] }
 rmpv = "^1.0.1"
 serde-hashkey = "0.4.5"
 serde_repr = "0.1"

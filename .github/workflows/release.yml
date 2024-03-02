@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         settings:
-          - host: macos-14
+          - host: macos-13
             target: x86_64-apple-darwin
             bundles: app,dmg
             os: darwin

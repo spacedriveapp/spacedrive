@@ -85,6 +85,7 @@ mod library {
 								None,
 								MaybeUndefined::Undefined,
 								MaybeUndefined::Value(cloud_library.id),
+								None,
 							)
 							.await?;
 
@@ -127,6 +128,7 @@ mod library {
 							None,
 							MaybeUndefined::Undefined,
 							MaybeUndefined::Value(cloud_library.id),
+							None,
 						)
 						.await?;
 

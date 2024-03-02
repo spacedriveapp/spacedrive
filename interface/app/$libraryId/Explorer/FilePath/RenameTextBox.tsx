@@ -22,10 +22,14 @@ export interface RenameTextBoxProps extends React.HTMLAttributes<HTMLDivElement>
 	lines?: number;
 	// Temporary solution for TruncatedText in list view
 	idleClassName?: string;
+	toggleBy?: 'shortcut' | 'click' | 'all';
 }
 
 export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
-	({ name, onRename, disabled, className, idleClassName, lines, ...props }, _ref) => {
+	(
+		{ name, onRename, disabled, className, idleClassName, lines, toggleBy = 'all', ...props },
+		_ref
+	) => {
 		const os = useOperatingSystem();
 
 		const [isRenaming, drag] = useSelector(explorerStore, (s) => [s.isRenaming, s.drag]);
@@ -34,7 +38,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 		useImperativeHandle<HTMLDivElement | null, HTMLDivElement | null>(_ref, () => ref.current);
 
 		const renamable = useRef<boolean>(false);
-		const timeout = useRef<NodeJS.Timeout | null>(null);
+		const timeout = useRef<number | null>(null);
 
 		const [allowRename, setAllowRename] = useState(false);
 		const [isTruncated, setIsTruncated] = useState(false);
@@ -114,7 +118,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 		};
 
 		useShortcut('renameObject', (e) => {
-			if (dialogManager.isAnyDialogOpen()) return;
+			if (dialogManager.isAnyDialogOpen() || toggleBy === 'click') return;
 			e.preventDefault();
 			if (allowRename) blur();
 			else if (!disabled) setAllowRename(true);
@@ -136,11 +140,12 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 		}, [allowRename, highlightText]);
 
 		useEffect(() => {
+			if (toggleBy === 'click') return;
 			if (!disabled) {
 				if (isRenaming && !allowRename) setAllowRename(true);
 				else explorerStore.isRenaming = allowRename;
 			} else resetState();
-		}, [isRenaming, disabled, allowRename]);
+		}, [isRenaming, disabled, allowRename, toggleBy]);
 
 		useEffect(() => {
 			const onMouseDown = (event: MouseEvent) => {
