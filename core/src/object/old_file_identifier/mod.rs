@@ -1,7 +1,7 @@
 use crate::{
-	old_job::JobError,
 	library::Library,
 	object::{cas::generate_cas_id, object_for_file_identifier},
+	old_job::JobError,
 };
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};

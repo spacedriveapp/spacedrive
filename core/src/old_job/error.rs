@@ -1,8 +1,8 @@
 use crate::{
 	location::{indexer::IndexerError, LocationError},
 	object::{
-		old_file_identifier::FileIdentifierJobError, fs::error::FileSystemJobsError,
-		media::old_media_processor::MediaProcessorError, validation::ValidatorError,
+		fs::error::FileSystemJobsError, media::old_media_processor::MediaProcessorError,
+		old_file_identifier::FileIdentifierJobError, validation::ValidatorError,
 	},
 };
 

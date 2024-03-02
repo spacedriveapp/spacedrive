@@ -7,12 +7,12 @@ use thiserror::Error;
 use tracing::error;
 use uuid::Uuid;
 
-mod old_actor;
 mod model;
+mod old_actor;
 mod process;
 
-pub use old_actor::OldImageLabeler;
 pub use model::{DownloadModelError, Model, YoloV8, DEFAULT_MODEL_VERSION};
+pub use old_actor::OldImageLabeler;
 
 pub type BatchToken = Uuid;
 

@@ -1,10 +1,10 @@
 use crate::{
 	invalidate_query,
-	old_job::JobProgressEvent,
 	node::{
 		config::{NodeConfig, NodePreferences, P2PDiscoveryState, Port},
 		get_hardware_model_name, HardwareModel,
 	},
+	old_job::JobProgressEvent,
 	p2p::{into_listener2, Listener2},
 	Node,
 };

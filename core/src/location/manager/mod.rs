@@ -1,6 +1,6 @@
 use crate::{
-	old_job::JobManagerError,
 	library::{Library, LibraryManagerEvent},
+	old_job::JobManagerError,
 	Node,
 };
 

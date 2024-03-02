@@ -54,7 +54,8 @@ pub(crate) async fn serve_file(
 		// ETag
 		let mut status_code = StatusCode::PARTIAL_CONTENT;
 		if let Ok(time) = metadata.modified() {
-			let etag_header = format!(
+			let etag_header =
+				format!(
 				r#""{}""#,
 				// The ETag's can be any value so we just use the modified time to make it easy.
 				time.duration_since(UNIX_EPOCH)

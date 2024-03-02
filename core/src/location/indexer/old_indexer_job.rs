@@ -37,9 +37,9 @@ use tracing::{debug, info, warn};
 
 use super::{
 	execute_indexer_save_step, execute_indexer_update_step, iso_file_path_factory,
+	old_walk::{keep_walking, walk, ToWalkEntry, WalkResult},
 	remove_non_existing_file_paths, reverse_update_directories_sizes,
 	rules::IndexerRule,
-	old_walk::{keep_walking, walk, ToWalkEntry, WalkResult},
 	IndexerError, OldIndexerJobSaveStep, OldIndexerJobUpdateStep,
 };
 

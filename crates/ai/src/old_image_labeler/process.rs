@@ -23,7 +23,9 @@ use tokio::{
 };
 use tracing::{error, warn};
 
-use super::{old_actor::Batch, model::ModelAndSession, BatchToken, ImageLabelerError, LabelerOutput};
+use super::{
+	model::ModelAndSession, old_actor::Batch, BatchToken, ImageLabelerError, LabelerOutput,
+};
 
 const MAX_FILE_SIZE: u64 = 100 * 1024 * 1024; // 100 MB
 

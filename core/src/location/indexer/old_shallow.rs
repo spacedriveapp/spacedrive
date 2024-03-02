@@ -29,7 +29,7 @@ use tracing::{debug, error};
 
 use super::{
 	execute_indexer_save_step, iso_file_path_factory, location_with_indexer_rules,
-	remove_non_existing_file_paths, rules::IndexerRule, old_walk::walk_single_dir, IndexerError,
+	old_walk::walk_single_dir, remove_non_existing_file_paths, rules::IndexerRule, IndexerError,
 	OldIndexerJobSaveStep,
 };
 

@@ -26,11 +26,11 @@ use super::location_with_indexer_rules;
 
 pub mod old_indexer_job;
 mod old_shallow;
-pub mod rules;
 mod old_walk;
+pub mod rules;
 
-use rules::IndexerRuleError;
 use old_walk::WalkedEntry;
+use rules::IndexerRuleError;
 
 pub use old_indexer_job::OldIndexerJobInit;
 pub use old_shallow::*;
