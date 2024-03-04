@@ -194,7 +194,7 @@ mod locations {
 	}
 
 	#[derive(Debug)]
-	pub struct CredentialsProvider(sd_cloud_api::locations::authorise::Response);
+	pub struct CredentialsProvider(sd_cloud_api::locations::authorize::Response);
 
 	impl ProvideCredentials for CredentialsProvider {
 		fn provide_credentials<'a>(&'a self) -> future::ProvideCredentials<'a>
@@ -219,7 +219,7 @@ mod locations {
 
 	// Reuse the client between procedure calls
 	fn get_aws_s3_client(
-		token: sd_cloud_api::locations::authorise::Response,
+		token: sd_cloud_api::locations::authorize::Response,
 	) -> &'static aws_sdk_s3::Client {
 		AWS_S3_CLIENT.get_or_init(|| {
 			aws_sdk_s3::Client::new(
@@ -259,7 +259,7 @@ mod locations {
 			// TODO: Remove this
 			.procedure("testing", {
 				// // TODO: Move this off a static. This is just for debugging.
-				// static AUTH_TOKEN: Lazy<Mutex<Option<AuthoriseResponse>>> =
+				// static AUTH_TOKEN: Lazy<Mutex<Option<AuthorizeResponse>>> =
 				// 	Lazy::new(|| Mutex::new(None));
 
 				#[derive(Type, Deserialize)]
@@ -273,7 +273,7 @@ mod locations {
 						let token = &mut None; // AUTH_TOKEN.lock().await; // TODO: Caching of the token. For now it's annoying when debugging.
 						if token.is_none() {
 							*token = Some(
-								sd_cloud_api::locations::authorise(
+								sd_cloud_api::locations::authorize(
 									node.cloud_api_config().await,
 									params.id,
 								)

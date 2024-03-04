@@ -1,6 +1,6 @@
 //! Temporary library for easier binary encoding/decoding.
 //!
-//! Eventually these will be deprecated by macros but I can't find one which supports large payloads (basically it needs to write to async stream not in-memory bufffer) -> Binario is my own prototype of a Rust library to do this but it's not prod ready yet.
+//! Eventually these will be deprecated by macros but I can't find one which supports large payloads (basically it needs to write to async stream not in-memory buffer) -> Binario is my own prototype of a Rust library to do this but it's not prod ready yet.
 //!
 
 use thiserror::Error;
@@ -11,7 +11,7 @@ use uuid::Uuid;
 #[error(transparent)]
 pub enum SpaceTunnelIdentityErr {
 	#[error("{0}")]
-	Darlek(#[from] ed25519_dalek::ed25519::Error),
+	Dalek(#[from] ed25519_dalek::ed25519::Error),
 	#[error("Invalid key length")]
 	InvalidKeyLength,
 }

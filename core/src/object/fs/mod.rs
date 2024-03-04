@@ -16,11 +16,11 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-pub mod delete;
-pub mod erase;
+pub mod old_delete;
+pub mod old_erase;
 
-pub mod copy;
-pub mod cut;
+pub mod old_copy;
+pub mod old_cut;
 
 // pub mod decrypt;
 // pub mod encrypt;

@@ -24,25 +24,25 @@ use tracing::{trace, warn};
 
 use super::location_with_indexer_rules;
 
-pub mod indexer_job;
+pub mod old_indexer_job;
+mod old_shallow;
+mod old_walk;
 pub mod rules;
-mod shallow;
-mod walk;
 
+use old_walk::WalkedEntry;
 use rules::IndexerRuleError;
-use walk::WalkedEntry;
 
-pub use indexer_job::IndexerJobInit;
-pub use shallow::*;
+pub use old_indexer_job::OldIndexerJobInit;
+pub use old_shallow::*;
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct IndexerJobSaveStep {
+pub struct OldIndexerJobSaveStep {
 	chunk_idx: usize,
 	walked: Vec<WalkedEntry>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct IndexerJobUpdateStep {
+pub struct OldIndexerJobUpdateStep {
 	chunk_idx: usize,
 	to_update: Vec<WalkedEntry>,
 }
@@ -85,7 +85,7 @@ impl From<IndexerError> for rspc::Error {
 
 async fn execute_indexer_save_step(
 	location: &location_with_indexer_rules::Data,
-	save_step: &IndexerJobSaveStep,
+	save_step: &OldIndexerJobSaveStep,
 	library: &Library,
 ) -> Result<i64, IndexerError> {
 	let Library { sync, db, .. } = library;
@@ -170,7 +170,7 @@ async fn execute_indexer_save_step(
 }
 
 async fn execute_indexer_update_step(
-	update_step: &IndexerJobUpdateStep,
+	update_step: &OldIndexerJobUpdateStep,
 	Library { sync, db, .. }: &Library,
 ) -> Result<i64, IndexerError> {
 	let (sync_stuff, paths_to_update): (Vec<_>, Vec<_>) = update_step
@@ -511,7 +511,7 @@ pub async fn reverse_update_directories_sizes(
 						});
 				}
 			} else {
-				warn!("Corrupt database possesing a file_path entry without materialized_path");
+				warn!("Corrupt database possessing a file_path entry without materialized_path");
 			}
 		});
 
