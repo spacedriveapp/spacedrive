@@ -102,7 +102,6 @@ const BrowseLocations = () => {
 				<Text style={tw`text-lg font-bold text-white`}>Locations</Text>
 				<View style={tw`flex-row gap-3`}>
 					<Pressable
-						disabled={result.data?.nodes.length === 0}
 						onPress={() => {
 							navigation.navigate('Locations');
 						}}
