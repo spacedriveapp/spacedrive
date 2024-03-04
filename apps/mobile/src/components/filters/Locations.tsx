@@ -1,18 +1,20 @@
 import { MotiView } from 'moti';
-import { FlatList, Text, View } from 'react-native';
+import { FlatList, Pressable, Text, View } from 'react-native';
+import { LinearTransition } from 'react-native-reanimated';
 import { Location, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { tw } from '~/lib/tailwind';
+import { getSearchStore, useSearchStore } from '~/stores/searchStore';
 
 import { Icon } from '../icons/Icon';
 import Fade from '../layout/Fade';
 import SectionTitle from '../layout/SectionTitle';
 import VirtualizedListWrapper from '../layout/VirtualizedListWrapper';
-import {  LinearTransition } from 'react-native-reanimated';
 
-const Locations = () => {
+export const Locations = () => {
 	const locationsQuery = useLibraryQuery(['locations.list']);
 	useNodes(locationsQuery.data?.nodes);
 	const locations = useCache(locationsQuery.data?.items);
+
 	return (
 		<MotiView
 			layout={LinearTransition.duration(300)}
@@ -31,10 +33,20 @@ const Locations = () => {
 					<VirtualizedListWrapper horizontal>
 						<FlatList
 							data={locations}
-							renderItem={({ item }) => <LocationFilter data={item} />}
+							renderItem={({ item }) => (
+								<Pressable
+									onPress={() =>
+										getSearchStore().updateFilters('locations', item.id)
+									}
+								>
+									<LocationFilter data={item} />
+								</Pressable>
+							)}
 							contentContainerStyle={tw`pl-6`}
 							numColumns={locations && Math.ceil(Number(locations.length) / 2)}
+							extraData={useSearchStore().filters}
 							key={locations ? 'locationsSearch' : '_'}
+							scrollEnabled={false}
 							ItemSeparatorComponent={() => <View style={tw`w-2 h-2`} />}
 							keyExtractor={(item) => item.id.toString()}
 							showsHorizontalScrollIndicator={false}
@@ -52,13 +64,17 @@ interface Props {
 }
 
 const LocationFilter = ({ data }: Props) => {
+	const isSelected = useSearchStore().isFilterSelected('locations', data.id);
 	return (
-		<View
+		<MotiView
+			animate={{
+				borderColor: isSelected ? tw.color('accent') : tw.color('app-line/50')
+			}}
 			style={tw`mr-2 w-auto flex-row items-center gap-2 rounded-md border border-app-line/50 bg-app-box/50 p-2.5`}
 		>
 			<Icon size={20} name="Folder" />
-			<Text style={tw`text-sm font-medium text-ink-dull`}>{data.name}</Text>
-		</View>
+			<Text style={tw`text-sm font-medium text-ink`}>{data.name}</Text>
+		</MotiView>
 	);
 };
 

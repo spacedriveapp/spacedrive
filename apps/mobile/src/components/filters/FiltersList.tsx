@@ -9,17 +9,15 @@ import {
 } from 'phosphor-react-native';
 import React, { FunctionComponent, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { LinearTransition } from 'react-native-reanimated';
 import { tw, twStyle } from '~/lib/tailwind';
+import { getSearchStore, SearchFilters } from '~/stores/searchStore';
 
 import SectionTitle from '../layout/SectionTitle';
-import Locations from './Locations';
-import Tags from './Tags';
+import { Extension, Locations, Name, Tags } from './index';
 
-// Extract option names from filters
-export type Filters = 'Locations' | 'Tags' | 'Kind' | 'Name' | 'Extension' | 'Hidden';
-
-const FiltersList = () => {
-	const [selectedOptions, setSelectedOptions] = useState<Partial<Filters[]>>([]);
+export const FiltersList = () => {
+	const [selectedOptions, setSelectedOptions] = useState<(typeof options)[number]['name'][]>([]);
 	const options = [
 		{
 			name: 'Locations',
@@ -32,19 +30,27 @@ const FiltersList = () => {
 			component: Tags
 		},
 		{ name: 'Kind', icon: Cube, component: () => <></> },
-		{ name: 'Name', icon: Textbox, component: () => <></> },
-		{ name: 'Extension', icon: Textbox, component: () => <></> },
+		{ name: 'Name', icon: Textbox, component: Name },
+		{ name: 'Extension', icon: Textbox, component: Extension },
 		{ name: 'Hidden', icon: SelectionSlash, component: () => <></> }
 	] as const;
 
-	const selectedHandler = (option: Filters) => {
+	const selectedHandler = (option: (typeof options)[number]['name']) => {
 		setSelectedOptions((p) => {
 			if (p.includes(option)) {
+				//reset the selected options of the filter
+				getSearchStore().resetFilter(
+					option.toLowerCase() as SearchFilters,
+					option === 'Name' || option === 'Extension'
+				);
+				//remove the option from the selected options
 				return p.filter((name) => name !== option);
 			} else {
+				//add the option to the selected options
 				return [...p, option];
 			}
 		});
+		//scroll to the bottom of the screen
 	};
 
 	return (
@@ -53,7 +59,7 @@ const FiltersList = () => {
 				<SectionTitle
 					style={tw`px-6 pb-3`}
 					title="What are you searching for?"
-					sub="Tap the filter(s) you’d like to use as a query"
+					sub="Tap the filters you’d like to use as a query"
 				/>
 				<View style={tw`flex-row justify-between gap-2 px-6`}>
 					{/* 2 column layout */}
@@ -128,11 +134,10 @@ const FilterOption = ({ name, Icon, onPress, isSelected }: FilterOptionProps) =>
 				}}
 				transition={{ type: 'timing', duration: 300 }}
 				style={twStyle(
-					`w-full flex-row items-center justify-center gap-1 rounded-md border py-2.5`,
-					isSelected ? ' bg-app-box' : 'bg-app-box/50'
+					`w-full flex-row items-center justify-center gap-1.5 rounded-md border bg-app-box/50 py-2.5`
 				)}
 			>
-				<Icon size={18} color={tw.color(isSelected ? 'ink' : 'ink-dull')} />
+				<Icon size={18} color={tw.color('ink-dull')} />
 				<Text style={tw`text-sm font-medium text-ink`}>{name}</Text>
 			</MotiView>
 		</Pressable>
