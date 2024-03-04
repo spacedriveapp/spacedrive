@@ -3,7 +3,7 @@ use thiserror::Error;
 use ort::EnvironmentBuilder;
 use tracing::{debug, error};
 
-pub mod image_labeler;
+pub mod old_image_labeler;
 mod utils;
 
 // This path must be relative to the running binary
@@ -82,5 +82,5 @@ pub enum Error {
 	#[error("failed to initialize AI environment: {0}")]
 	Init(#[from] ort::Error),
 	#[error(transparent)]
-	ImageLabeler(#[from] image_labeler::ImageLabelerError),
+	ImageLabeler(#[from] old_image_labeler::ImageLabelerError),
 }

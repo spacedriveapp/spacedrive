@@ -35,7 +35,7 @@ pub enum P2PEvent {
 		id: Uuid,
 		percent: u8,
 	},
-	SpacedropTimedout {
+	SpacedropTimedOut {
 		id: Uuid,
 	},
 	SpacedropRejected {

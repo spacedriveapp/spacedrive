@@ -61,7 +61,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								.map(|node_version| version != *node_version)
 								.unwrap_or(true)
 							{
-								new_model = sd_ai::image_labeler::YoloV8::model(Some(&version))
+								new_model = sd_ai::old_image_labeler::YoloV8::model(Some(&version))
 									.map_err(|e| {
 										error!(
 											"Failed to crate image_detection model: '{}'; Error: {e:#?}",
@@ -97,7 +97,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						let version = model.version().to_string();
 						tokio::spawn(async move {
 							let notification =
-								if let Some(image_labeller) = node.image_labeller.as_ref() {
+								if let Some(image_labeller) = node.old_image_labeller.as_ref() {
 									if let Err(e) = image_labeller.change_model(model).await {
 										NotificationData {
 											title: String::from(

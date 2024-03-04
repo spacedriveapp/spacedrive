@@ -1,8 +1,8 @@
 pub mod media_data_extractor;
-pub mod media_processor;
-pub mod thumbnail;
+pub mod old_media_processor;
+pub mod old_thumbnail;
 
-pub use media_processor::MediaProcessorJobInit;
+pub use old_media_processor::OldMediaProcessorJobInit;
 use sd_media_metadata::ImageMetadata;
 use sd_prisma::prisma::media_data::*;
 
