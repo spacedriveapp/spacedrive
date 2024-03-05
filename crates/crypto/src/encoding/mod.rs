@@ -1,6 +1,5 @@
 mod bincode;
 pub mod file;
-pub mod hex;
 
 pub use self::bincode::{decode, decode_from_reader, encode};
 

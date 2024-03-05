@@ -8094,6 +8094,7 @@ dependencies = [
  "chacha20poly1305",
  "cmov",
  "criterion",
+ "hex",
  "linux-keyutils",
  "paste",
  "rand 0.9.0-alpha.0",

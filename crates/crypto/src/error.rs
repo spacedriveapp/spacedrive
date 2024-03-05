@@ -83,6 +83,9 @@ pub enum Error {
 	#[error("Async task join error: {0}")]
 	JoinError(#[from] tokio::task::JoinError),
 
+	#[error("hex error: {0}")]
+	Hex(#[from] hex::FromHexError),
+
 	// keyring
 	#[cfg(all(target_os = "linux", feature = "keyring"))]
 	#[error("error with the keyutils keyring: {0}")]

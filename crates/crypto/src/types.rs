@@ -2,7 +2,6 @@
 //! in an effort to add additional type safety.
 use crate::{
 	ct::{Choice, ConstantTimeEq, ConstantTimeEqNull},
-	encoding,
 	rng::CryptoRng,
 	utils::ToArray,
 	Error, Protected,
@@ -420,7 +419,7 @@ impl TryFrom<Protected<String>> for SecretKey {
 		s.retain(|c| c.is_ascii_hexdigit());
 
 		// shouldn't fail as `SecretKey::try_from` is (essentially) infallible
-		encoding::hex::decode(&s)
+		hex::decode(&s)
 			.ok()
 			.map_or(Protected::new(vec![]), Protected::new)
 			.try_into()
@@ -430,7 +429,7 @@ impl TryFrom<Protected<String>> for SecretKey {
 
 impl Display for SecretKey {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		let s = encoding::hex::encode(self.expose()).to_uppercase();
+		let s = hex::encode(self.expose()).to_uppercase();
 		let separator_distance = s.len() / 6;
 		s.chars().enumerate().try_for_each(|(i, c)| {
 			f.write_char(c)?;
