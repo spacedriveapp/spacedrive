@@ -28,7 +28,7 @@ sd-crypto = { path = "../crates/crypto", features = [
 	"serde",
 	"keymanager",
 ] }
-sd-file-path-helper = { path = "../crates/file-path-helper" }
+sd-file-path-helper = { path = "./crates/file-path-helper" }
 sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
 sd-file-ext = { path = "../crates/file-ext" }
 sd-images = { path = "../crates/images", features = [

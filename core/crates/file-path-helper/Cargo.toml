@@ -9,8 +9,8 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-sd-prisma = { path = "../prisma" }
-sd-utils = { path = "../utils" }
+sd-prisma = { path = "../../../crates/prisma" }
+sd-utils = { path = "../../../crates/utils" }
 
 chrono = { workspace = true, features = ["serde"] }
 prisma-client-rust = { workspace = true }
