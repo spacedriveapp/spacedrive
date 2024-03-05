@@ -18,3 +18,4 @@ tokio = { workspace = true }
 uuid = { workspace = true }
 tracing = { workspace = true }
 uhlc = { workspace = true }
+rmp-serde = "1.1.2"

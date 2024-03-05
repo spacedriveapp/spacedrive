@@ -1,7 +1,6 @@
 use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use specta::Type;
 use uhlc::NTP64;
 use uuid::Uuid;
@@ -27,7 +26,7 @@ pub enum CRDTOperationData {
 	#[serde(rename = "c")]
 	Create,
 	#[serde(rename = "u")]
-	Update { field: String, value: Value },
+	Update { field: String, value: Vec<u8> },
 	#[serde(rename = "d")]
 	Delete,
 }
@@ -49,7 +48,7 @@ pub struct CRDTOperation {
 	pub timestamp: NTP64,
 	pub id: Uuid,
 	pub model: String,
-	pub record_id: Value,
+	pub record_id: Vec<u8>,
 	pub data: CRDTOperationData,
 }
 

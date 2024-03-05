@@ -129,6 +129,7 @@ base91 = "0.1.0"
 sd-actors = { version = "0.1.0", path = "../crates/actors" }
 tower-service = "0.3.2"
 hyper = { version = "=0.14.28", features = ["http1", "server", "client"] }
+rmp = "0.8.12"
 
 # Override features of transitive dependencies
 [dependencies.openssl]

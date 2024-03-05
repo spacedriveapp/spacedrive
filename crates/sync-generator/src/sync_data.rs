@@ -25,7 +25,7 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 						quote!(#model_name_pascal(#model_name_snake::SyncId, sd_sync::CRDTOperationData)),
 						quote! {
 							prisma::#model_name_snake::NAME =>
-								Self::#model_name_pascal(serde_json::from_value(op.record_id).ok()?, op.data)
+								Self::#model_name_pascal(rmp_serde::from_slice(&op.record_id).ok()?, op.data)
 						},
 					)
 				})

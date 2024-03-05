@@ -1,6 +1,5 @@
 use sd_sync::*;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::sync::{atomic, Arc};
 use tokio::sync::Notify;
 use uuid::Uuid;
@@ -80,7 +79,7 @@ macro_rules! err_break {
 }
 pub(crate) use err_break;
 
-pub type CompressedCRDTOperationsForModel = Vec<(Value, Vec<CompressedCRDTOperation>)>;
+pub type CompressedCRDTOperationsForModel = Vec<(Vec<u8>, Vec<CompressedCRDTOperation>)>;
 
 #[derive(Serialize, Deserialize)]
 pub struct CompressedCRDTOperations(Vec<(Uuid, Vec<(String, CompressedCRDTOperationsForModel)>)>);

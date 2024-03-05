@@ -9,9 +9,14 @@ use sd_prisma::{
 };
 use sd_sync::{option_sync_entry, OperationFactory};
 use sd_utils::chain_optional_iter;
-use serde_json::json;
 
 use crate::crdt_op_unchecked_db;
+
+macro_rules! msgpack {
+	($e:expr) => {
+		::rmp_serde::to_vec_named(&$e).expect("failed to serialize msgpack")
+	}
+}
 
 pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, instance_id: i32) {
 	db._transaction()
@@ -254,12 +259,14 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 										chain_optional_iter(
 											[],
 											[
-												t.name.map(|v| (tag::name::NAME, json!(v))),
-												t.color.map(|v| (tag::color::NAME, json!(v))),
-												t.date_created
-													.map(|v| (tag::date_created::NAME, json!(v))),
-												t.date_modified
-													.map(|v| (tag::date_modified::NAME, json!(v))),
+												t.name.map(|v| (tag::name::NAME, msgpack!(v))),
+												t.color.map(|v| (tag::color::NAME, msgpack!(v))),
+												t.date_created.map(|v| {
+													(tag::date_created::NAME, msgpack!(v))
+												}),
+												t.date_modified.map(|v| {
+													(tag::date_modified::NAME, msgpack!(v))
+												}),
 											],
 										),
 									)
@@ -272,43 +279,53 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 			)
 			.await?;
 
-			let tag_on_objects = db
-				.tag_on_object()
-				.find_many(vec![])
-				.include(tag_on_object::include!({
-					tag: select { pub_id }
-					object: select { pub_id }
-				}))
-				.exec()
-				.await?;
-			db.crdt_operation()
-				.create_many(
-					tag_on_objects
-						.into_iter()
-						.flat_map(|t_o| {
-							sync.relation_create(
-								prisma_sync::tag_on_object::SyncId {
-									tag: prisma_sync::tag::SyncId {
-										pub_id: t_o.tag.pub_id,
-									},
-									object: prisma_sync::object::SyncId {
-										pub_id: t_o.object.pub_id,
-									},
-								},
-								chain_optional_iter(
-									[],
-									[option_sync_entry!(
-										t_o.date_created,
-										tag_on_object::date_created
-									)],
-								),
-							)
-						})
-						.map(|o| crdt_op_unchecked_db(&o, instance_id))
-						.collect(),
-				)
-				.exec()
-				.await?;
+			paginate_relation(
+				|group_id, item_id| {
+					db.tag_on_object()
+						.find_many(vec![
+							tag_on_object::tag_id::gt(group_id),
+							tag_on_object::object_id::gt(item_id),
+						])
+						.order_by(tag_on_object::tag_id::order(SortOrder::Asc))
+						.order_by(tag_on_object::object_id::order(SortOrder::Asc))
+						.include(tag_on_object::include!({
+							tag: select { pub_id }
+							object: select { pub_id }
+						}))
+						.exec()
+				},
+				|t_o| (t_o.tag_id, t_o.object_id),
+				|tag_on_objects| {
+					db.crdt_operation()
+						.create_many(
+							tag_on_objects
+								.into_iter()
+								.flat_map(|t_o| {
+									sync.relation_create(
+										prisma_sync::tag_on_object::SyncId {
+											tag: prisma_sync::tag::SyncId {
+												pub_id: t_o.tag.pub_id,
+											},
+											object: prisma_sync::object::SyncId {
+												pub_id: t_o.object.pub_id,
+											},
+										},
+										chain_optional_iter(
+											[],
+											[option_sync_entry!(
+												t_o.date_created,
+												tag_on_object::date_created
+											)],
+										),
+									)
+								})
+								.map(|o| crdt_op_unchecked_db(&o, instance_id))
+								.collect(),
+						)
+						.exec()
+				},
+			)
+			.await?;
 
 			paginate(
 				|cursor| {
@@ -327,8 +344,8 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 									sync.shared_create(
 										prisma_sync::label::SyncId { name: l.name },
 										[
-											(label::date_created::NAME, json!(l.date_created)),
-											(label::date_modified::NAME, json!(l.date_modified)),
+											(label::date_created::NAME, msgpack!(l.date_created)),
+											(label::date_modified::NAME, msgpack!(l.date_modified)),
 										],
 									)
 								})
@@ -340,39 +357,50 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 			)
 			.await?;
 
-			let label_on_objects = db
-				.label_on_object()
-				.find_many(vec![])
-				.select(label_on_object::select!({
-					object: select { pub_id }
-					label: select { name }
-				}))
-				.exec()
-				.await?;
-			let res = db
-				.crdt_operation()
-				.create_many(
-					label_on_objects
-						.into_iter()
-						.flat_map(|l_o| {
-							sync.relation_create(
-								prisma_sync::label_on_object::SyncId {
-									label: prisma_sync::label::SyncId {
-										name: l_o.label.name,
-									},
-									object: prisma_sync::object::SyncId {
-										pub_id: l_o.object.pub_id,
-									},
-								},
-								[],
-							)
-						})
-						.map(|o| crdt_op_unchecked_db(&o, instance_id))
-						.collect(),
-				)
-				.exec()
-				.await;
+			let res = paginate_relation(
+				|group_id, item_id| {
+					db.label_on_object()
+						.find_many(vec![
+							label_on_object::label_id::gt(group_id),
+							label_on_object::object_id::gt(item_id),
+						])
+						.order_by(label_on_object::label_id::order(SortOrder::Asc))
+						.order_by(label_on_object::object_id::order(SortOrder::Asc))
+						.include(label_on_object::include!({
+							object: select { pub_id }
+							label: select { name }
+						}))
+						.exec()
+				},
+				|l_o| (l_o.label_id, l_o.object_id),
+				|label_on_objects| {
+					db.crdt_operation()
+						.create_many(
+							label_on_objects
+								.into_iter()
+								.flat_map(|l_o| {
+									sync.relation_create(
+										prisma_sync::label_on_object::SyncId {
+											label: prisma_sync::label::SyncId {
+												name: l_o.label.name,
+											},
+											object: prisma_sync::object::SyncId {
+												pub_id: l_o.object.pub_id,
+											},
+										},
+										[],
+									)
+								})
+								.map(|o| crdt_op_unchecked_db(&o, instance_id))
+								.collect(),
+						)
+						.exec()
+				},
+			)
+			.await;
+
 			println!("backfill ended");
+
 			res
 		})
 		.await
@@ -389,13 +417,37 @@ async fn paginate<
 	id: impl Fn(&T) -> i32,
 	operations: impl Fn(Vec<T>) -> TOperations,
 ) -> Result<(), E> {
-	let mut next_cursor = Some(0);
+	let mut next_cursor = Some(-1);
 	loop {
 		let Some(cursor) = next_cursor else {
 			break;
 		};
 
 		let items = getter(cursor).await?;
+		next_cursor = items.last().map(&id);
+		operations(items).await?;
+	}
+
+	Ok(())
+}
+
+async fn paginate_relation<
+	T,
+	E: std::fmt::Debug,
+	TGetter: Future<Output = Result<Vec<T>, E>>,
+	TOperations: Future<Output = Result<i64, E>>,
+>(
+	getter: impl Fn(i32, i32) -> TGetter,
+	id: impl Fn(&T) -> (i32, i32),
+	operations: impl Fn(Vec<T>) -> TOperations,
+) -> Result<(), E> {
+	let mut next_cursor = Some((-1, -1));
+	loop {
+		let Some(cursor) = next_cursor else {
+			break;
+		};
+
+		let items = getter(cursor.0, cursor.1).await?;
 		next_cursor = items.last().map(&id);
 		operations(items).await?;
 	}

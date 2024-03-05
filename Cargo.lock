@@ -7779,6 +7779,7 @@ dependencies = [
  "prisma-client-rust",
  "regex",
  "reqwest",
+ "rmp",
  "rmp-serde",
  "rmpv",
  "rspc",
@@ -7831,6 +7832,7 @@ name = "sd-core-sync"
 version = "0.0.0"
 dependencies = [
  "prisma-client-rust",
+ "rmp-serde",
  "sd-prisma",
  "sd-sync",
  "sd-utils",
@@ -8119,6 +8121,7 @@ name = "sd-prisma"
 version = "0.1.0"
 dependencies = [
  "prisma-client-rust",
+ "rmp-serde",
  "sd-cache",
  "sd-sync",
  "serde",
@@ -8144,6 +8147,9 @@ name = "sd-sync"
 version = "0.1.0"
 dependencies = [
  "prisma-client-rust",
+ "rmp",
+ "rmp-serde",
+ "rmpv",
  "serde",
  "serde_json",
  "specta",
