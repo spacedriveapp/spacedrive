@@ -7353,6 +7353,8 @@ checksum = "2e0e0214a4a2b444ecce41a4025792fc31f77c7bb89c46d253953ea8c65701ec"
 dependencies = [
  "num-traits",
  "rmp",
+ "serde",
+ "serde_bytes",
 ]
 
 [[package]]
@@ -7684,6 +7686,7 @@ dependencies = [
  "prisma-client-rust",
  "reqwest",
  "rmp-serde",
+ "rmpv",
  "sd-core-sync",
  "sd-file-path-helper",
  "sd-prisma",
@@ -7833,6 +7836,7 @@ version = "0.0.0"
 dependencies = [
  "prisma-client-rust",
  "rmp-serde",
+ "rmpv",
  "sd-prisma",
  "sd-sync",
  "sd-utils",
@@ -8122,6 +8126,7 @@ version = "0.1.0"
 dependencies = [
  "prisma-client-rust",
  "rmp-serde",
+ "rmpv",
  "sd-cache",
  "sd-sync",
  "serde",
@@ -8321,6 +8326,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3a1a3341211875ef120e117ea7fd5228530ae7e7036a779fdc9117be6b3282c"
 dependencies = [
  "ordered-float",
+ "serde",
+]
+
+[[package]]
+name = "serde_bytes"
+version = "0.11.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab33ec92f677585af6d88c65593ae2375adde54efdbf16d597f2cbc7a6d368ff"
+dependencies = [
  "serde",
 ]
 

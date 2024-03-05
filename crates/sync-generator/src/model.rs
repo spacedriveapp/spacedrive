@@ -77,7 +77,7 @@ pub fn module((model, sync_type): ModelWithSyncType) -> Module {
 				RefinedFieldWalker::Scalar(scalar_field) => {
 					(!scalar_field.is_in_required_relation()).then(|| {
 						quote! {
-							#model_name_snake::#field_name_snake::set(::rmp_serde::from_slice(&val).unwrap()),
+							#model_name_snake::#field_name_snake::set(::rmpv::ext::from_value(val).unwrap()),
 						}
 					})
 				}
@@ -89,7 +89,7 @@ pub fn module((model, sync_type): ModelWithSyncType) -> Module {
 						Some(i) => {
 							if i.count() == 1 {
 								Some(quote! {{
-									let val: std::collections::HashMap<String, Vec<u8>> = ::rmp_serde::from_slice(&val).unwrap();
+									let val: std::collections::HashMap<String, rmpv::Value> = ::rmpv::ext::from_value(val).unwrap();
 									let val = val.into_iter().next().unwrap();
 
 									#model_name_snake::#field_name_snake::connect(
@@ -111,7 +111,7 @@ pub fn module((model, sync_type): ModelWithSyncType) -> Module {
 			0 => quote!(),
 			_ => quote! {
 				impl #model_name_snake::SetParam {
-					pub fn deserialize(field: &str, val: Vec<u8>) -> Option<Self> {
+					pub fn deserialize(field: &str, val: ::rmpv::Value) -> Option<Self> {
 						Some(match field {
 							#(#field_matches)*
 							_ => return None
@@ -131,7 +131,7 @@ pub fn module((model, sync_type): ModelWithSyncType) -> Module {
 
 					Some(quote!(#model_name_snake::#field_name_snake::NAME =>
 						#model_name_snake::#field_name_snake::equals(
-							::rmp_serde::from_slice(&val).unwrap()
+							::rmpv::ext::from_value(val).unwrap()
 						),
 					))
 				}
@@ -143,7 +143,7 @@ pub fn module((model, sync_type): ModelWithSyncType) -> Module {
 			0 => quote!(),
 			_ => quote! {
 				impl #model_name_snake::UniqueWhereParam {
-					pub fn deserialize(field: &str, val: Vec<u8>) -> Option<Self> {
+					pub fn deserialize(field: &str, val: ::rmpv::Value) -> Option<Self> {
 						Some(match field {
 							#(#field_matches)*
 							_ => return None

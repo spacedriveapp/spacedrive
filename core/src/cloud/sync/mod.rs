@@ -167,7 +167,7 @@ impl CompressedCRDTOperations {
 	}
 }
 
-#[derive(PartialEq, Eq, Serialize, Deserialize, Clone)]
+#[derive(PartialEq, Serialize, Deserialize, Clone)]
 pub struct CompressedCRDTOperation {
 	pub timestamp: NTP64,
 	pub id: Uuid,

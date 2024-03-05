@@ -2,7 +2,6 @@
 	"name": "@sd/monorepo",
 	"private": true,
 	"scripts": {
-		"preprep": "pnpm --filter @sd/scripts -- prep",
 		"prep": "pnpm gen:prisma",
 		"postprep": "pnpm codegen",
 		"build": "turbo run build",

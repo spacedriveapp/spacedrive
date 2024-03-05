@@ -30,9 +30,9 @@ pub fn from_bytes_to_uuid(bytes: &[u8]) -> Uuid {
 #[macro_export]
 macro_rules! msgpack {
 	(null) => {
-		::rmp_serde::to_vec_named(&None::<()>).expect("failed to serialize msgpack")
+		::rmpv::Value::Nil
 	};
 	($e:expr) => {
-		::rmp_serde::to_vec_named(&$e).expect("failed to serialize msgpack")
+		::rmpv::ext::to_value(&$e).expect("failed to serialize msgpack")
 	}
 }

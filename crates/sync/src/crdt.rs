@@ -21,12 +21,16 @@ impl std::fmt::Display for OperationKind<'_> {
 	}
 }
 
-#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Debug, Type)]
+#[derive(PartialEq, Serialize, Deserialize, Clone, Debug, Type)]
 pub enum CRDTOperationData {
 	#[serde(rename = "c")]
 	Create,
 	#[serde(rename = "u")]
-	Update { field: String, value: Vec<u8> },
+	Update {
+		field: String,
+		#[specta(type = serde_json::Value)]
+		value: rmpv::Value,
+	},
 	#[serde(rename = "d")]
 	Delete,
 }
@@ -41,7 +45,7 @@ impl CRDTOperationData {
 	}
 }
 
-#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Type)]
+#[derive(PartialEq, Serialize, Deserialize, Clone, Type)]
 pub struct CRDTOperation {
 	pub instance: Uuid,
 	#[specta(type = u32)]

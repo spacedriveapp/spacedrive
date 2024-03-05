@@ -14,7 +14,7 @@ use crate::crdt_op_unchecked_db;
 
 macro_rules! msgpack {
 	($e:expr) => {
-		::rmp_serde::to_vec_named(&$e).expect("failed to serialize msgpack")
+		::rmpv::ext::to_value($e).expect("failed to serialize msgpack")
 	}
 }
 

@@ -36,7 +36,7 @@ pub trait OperationFactory {
 	fn shared_create<TSyncId: SyncId<Model = TModel>, TModel: SharedSyncModel>(
 		&self,
 		id: TSyncId,
-		values: impl IntoIterator<Item = (&'static str, Vec<u8>)> + 'static,
+		values: impl IntoIterator<Item = (&'static str, rmpv::Value)> + 'static,
 	) -> Vec<CRDTOperation> {
 		[self.new_op(&id, CRDTOperationData::Create)]
 			.into_iter()
@@ -55,7 +55,7 @@ pub trait OperationFactory {
 		&self,
 		id: TSyncId,
 		field: impl Into<String>,
-		value: Vec<u8>,
+		value: rmpv::Value,
 	) -> CRDTOperation {
 		self.new_op(
 			&id,
@@ -75,7 +75,7 @@ pub trait OperationFactory {
 	fn relation_create<TSyncId: RelationSyncId<Model = TModel>, TModel: RelationSyncModel>(
 		&self,
 		id: TSyncId,
-		values: impl IntoIterator<Item = (&'static str, Vec<u8>)> + 'static,
+		values: impl IntoIterator<Item = (&'static str, rmpv::Value)> + 'static,
 	) -> Vec<CRDTOperation> {
 		[self.new_op(&id, CRDTOperationData::Create)]
 			.into_iter()
@@ -94,7 +94,7 @@ pub trait OperationFactory {
 		&self,
 		id: TSyncId,
 		field: impl Into<String>,
-		value: Vec<u8>,
+		value: rmpv::Value,
 	) -> CRDTOperation {
 		self.new_op(
 			&id,
@@ -116,7 +116,7 @@ pub trait OperationFactory {
 macro_rules! sync_entry {
     ($v:expr, $($m:tt)*) => {{
         let v = $v;
-        ($($m)*::NAME, ::rmp_serde::to_vec_named(&v).expect("failed to serialize msgpack"))
+        ($($m)*::NAME, ::rmpv::ext::to_value(&v).expect("failed to serialize msgpack"))
     }}
 }
 

@@ -9,7 +9,7 @@ edition = { workspace = true }
 prisma-client-rust = { workspace = true }
 rmp = "0.8.12"
 rmp-serde = "1.1.2"
-rmpv = "1.0.1"
+rmpv = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 specta = { workspace = true, features = ["uuid", "uhlc"] }

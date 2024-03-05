@@ -30,7 +30,7 @@ pub fn media_data_image_to_query(
 
 pub fn media_data_image_to_query_params(
 	mdi: ImageMetadata,
-) -> (Vec<(&'static str, Vec<u8>)>, Vec<SetParam>) {
+) -> (Vec<(&'static str, rmpv::Value)>, Vec<SetParam>) {
 	use sd_sync::option_sync_db_entry;
 	use sd_utils::chain_optional_iter;
 
