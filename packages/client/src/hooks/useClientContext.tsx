@@ -42,6 +42,15 @@ export const useCachedLibraries = () => {
 export async function getCachedLibraries(cache: NormalisedCache, client: AlphaClient<Procedures>) {
 	const cachedData = localStorage.getItem(libraryCacheLocalStorageKey);
 
+	const libraries =  client.query(['library.list']).then(result => {
+		cache.withNodes(result.nodes);
+		const libraries = cache.withCache(result.items);
+
+		localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(result));
+
+		return libraries;
+	});
+
 	if (cachedData) {
 		// If we fail to load cached data, it's fine
 		try {
@@ -53,14 +62,8 @@ export async function getCachedLibraries(cache: NormalisedCache, client: AlphaCl
 		}
 	}
 
-	const result = await client.query(['library.list']);
-	cache.withNodes(result.nodes);
-	const libraries = cache.withCache(result.items);
 
-	if (result.items.length > 0 || result.nodes.length > 0)
-		localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(result));
-
-	return libraries;
+	return await libraries;
 }
 
 export interface ClientContext {
