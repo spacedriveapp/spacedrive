@@ -1,7 +1,7 @@
 import { BloomOne } from '@sd/assets/images';
-import { introvideobg, sdintro } from '@sd/assets/videos';
+import { introvideobg, introvideobgmp4, sdintro, sdintromp4 } from '@sd/assets/videos';
 import clsx from 'clsx';
-import { useLayoutEffect, useState } from 'react';
+import { useState } from 'react';
 import { Navigate, Outlet } from 'react-router';
 import { useDebugState } from '@sd/client';
 import DragRegion from '~/components/DragRegion';
@@ -25,6 +25,12 @@ export const Component = () => {
 	if (ctx.libraries.isLoading) return null;
 	if (ctx.library?.uuid !== undefined) return <Navigate to={`/${ctx.library.uuid}`} replace />;
 
+	// On production builds - mp4 works with macOS - for windows and others, webm
+	const videoOS = {
+		videobg: os === 'macOS' ? introvideobgmp4 : introvideobg,
+		intro: os === 'macOS' ? sdintromp4 : sdintro
+	};
+
 	return (
 		<OnboardingContext.Provider value={ctx}>
 			<div
@@ -44,7 +50,7 @@ export const Component = () => {
 							fill="none"
 							xmlns="http://www.w3.org/2000/svg"
 						>
-							<rect width="100%" height="100%" fill="#2E2F38" />
+							<rect width="100%" height="100%" fill="#1D1D27" />
 						</svg>
 						<video
 							style={{
@@ -55,7 +61,7 @@ export const Component = () => {
 								zIndex: -1
 							}}
 							preload="auto"
-							src={introvideobg}
+							src={videoOS.videobg}
 							muted
 							controls={false}
 						/>
@@ -67,7 +73,7 @@ export const Component = () => {
 							}}
 							muted
 							controls={false}
-							src={sdintro}
+							src={videoOS.intro}
 						/>
 					</div>
 				)}
@@ -85,7 +91,7 @@ export const Component = () => {
 				</div>
 				<div className="absolute -z-10">
 					<div className="relative h-screen w-screen">
-						<img src={BloomOne} className="absolute h-[2000px] w-[2000px]" />
+						<img src={BloomOne} className="absolute size-[2000px]" />
 						{/* <img src={BloomThree} className="absolute w-[2000px] h-[2000px] -right-[200px]" /> */}
 					</div>
 				</div>
