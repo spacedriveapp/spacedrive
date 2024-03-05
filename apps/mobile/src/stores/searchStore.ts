@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import { proxy, subscribe, useSnapshot } from 'valtio';
+import { proxy, useSnapshot } from 'valtio';
 
 /**
  This is subject to change, but the idea is to have a global store for search
@@ -13,16 +12,18 @@ export type SearchFilters = "locations" | "tags" | "name" | "extension" | "hidde
  const state: {
 	search: string;
 	filters: Record<SearchFilters, (string | number)[]>;
+	showActionButtons: boolean;
  } = {
-	search: '',
-	filters: {
+	search: '', // The search input
+	filters: { // The filters in the filters page of search
 		locations: [],
 		tags: [],
 		name: [''],
 		extension: [''],
 		hidden: [],
 		kind: []
-	}
+	},
+	showActionButtons: false,
  }
 
 const searchStore = proxy({
@@ -55,6 +56,10 @@ const searchStore = proxy({
 	},
 	resetFilters: () => {
 		for (const filter in searchStore.filters) {
+			if (filter === 'name' || filter === 'extension') {
+				searchStore.filters[filter] = [''];
+				continue;
+			}
 			searchStore.filters[filter as SearchFilters] = [];
 		}
 	},
@@ -67,7 +72,7 @@ const searchStore = proxy({
 	},
 	removeInput: (index: number, key: 'name' | 'extension') => {
 		searchStore.filters[key].splice(index, 1);
-	},
+	}
 });
 
 export function useSearchStore() {

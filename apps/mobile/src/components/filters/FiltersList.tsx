@@ -9,7 +9,6 @@ import {
 } from 'phosphor-react-native';
 import React, { FunctionComponent, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { LinearTransition } from 'react-native-reanimated';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getSearchStore, SearchFilters } from '~/stores/searchStore';
 
@@ -50,7 +49,6 @@ export const FiltersList = () => {
 				return [...p, option];
 			}
 		});
-		//scroll to the bottom of the screen
 	};
 
 	return (
