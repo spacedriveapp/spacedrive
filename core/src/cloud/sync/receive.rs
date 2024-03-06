@@ -1,6 +1,6 @@
 use crate::library::{Libraries, Library};
 
-use super::{err_break, err_return, CompressedCRDTOperations};
+use super::{err_break, CompressedCRDTOperations};
 use sd_cloud_api::RequestConfigProvider;
 use sd_core_sync::NTP64;
 use sd_p2p2::{IdentityOrRemoteIdentity, RemoteIdentity};
@@ -36,7 +36,7 @@ pub async fn run_actor(
 			let mut cloud_timestamps = {
 				let timestamps = sync.timestamps.read().await;
 
-				err_return!(
+				err_break!(
 					db._batch(
 						timestamps
 							.keys()

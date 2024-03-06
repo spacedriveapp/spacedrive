@@ -7,6 +7,8 @@ use crate::{
 	Node,
 };
 
+use axum::routing::IntoMakeService;
+
 use sd_p2p2::{
 	flume::{bounded, Receiver},
 	Libp2pPeerId, Listener, Mdns, Peer, QuicTransport, RemoteIdentity, UnicastStream, P2P,
@@ -17,12 +19,15 @@ use serde_json::json;
 use specta::Type;
 use std::{
 	collections::{HashMap, HashSet},
+	convert::Infallible,
 	net::SocketAddr,
 	sync::{atomic::AtomicBool, Arc, Mutex, PoisonError},
 };
+use tower_service::Service;
+use tracing::error;
 
 use tokio::sync::oneshot;
-use tracing::{error, info};
+use tracing::info;
 use uuid::Uuid;
 
 use super::{P2PEvents, PeerMetadata};
@@ -36,7 +41,7 @@ pub struct P2PManager {
 	pub(crate) events: P2PEvents,
 	// connect_hook: ConnectHook,
 	pub(super) spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
-	pub(super) spacedrop_cancelations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
+	pub(super) spacedrop_cancellations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
 	pub(crate) node_config: Arc<config::Manager>,
 }
 
@@ -44,7 +49,13 @@ impl P2PManager {
 	pub async fn new(
 		node_config: Arc<config::Manager>,
 		libraries: Arc<crate::library::Libraries>,
-	) -> Result<(Arc<P2PManager>, impl FnOnce(Arc<Node>)), String> {
+	) -> Result<
+		(
+			Arc<P2PManager>,
+			impl FnOnce(Arc<Node>, IntoMakeService<axum::Router<()>>),
+		),
+		String,
+	> {
 		let (tx, rx) = bounded(25);
 		let p2p = P2P::new(SPACEDRIVE_APP_ID, node_config.get().await.identity, tx);
 		let (quic, lp2p_peer_id) = QuicTransport::spawn(p2p.clone())?;
@@ -56,7 +67,7 @@ impl P2PManager {
 			events: P2PEvents::spawn(p2p.clone()),
 			// connect_hook: ConnectHook::spawn(p2p),
 			spacedrop_pairing_reqs: Default::default(),
-			spacedrop_cancelations: Default::default(),
+			spacedrop_cancellations: Default::default(),
 			node_config,
 		});
 		this.on_node_config_change().await;
@@ -70,8 +81,8 @@ impl P2PManager {
 			this.p2p.listeners()
 		);
 
-		Ok((this.clone(), |node| {
-			tokio::spawn(start(this, node, rx));
+		Ok((this.clone(), |node, router| {
+			tokio::spawn(start(this, node, rx, router));
 		}))
 	}
 
@@ -220,10 +231,13 @@ async fn start(
 	this: Arc<P2PManager>,
 	node: Arc<Node>,
 	rx: Receiver<UnicastStream>,
+	mut service: IntoMakeService<axum::Router<()>>,
 ) -> Result<(), ()> {
 	while let Ok(mut stream) = rx.recv_async().await {
 		let this = this.clone();
 		let node = node.clone();
+		let mut service = unwrap_infallible(service.call(()).await);
+
 		tokio::spawn(async move {
 			println!("APPLICATION GOT STREAM: {:?}", stream); // TODO
 
@@ -234,9 +248,9 @@ async fn start(
 			};
 
 			match header {
-				Header::Ping => operations::ping::reciever(stream).await,
+				Header::Ping => operations::ping::receiver(stream).await,
 				Header::Spacedrop(req) => {
-					let Err(()) = operations::spacedrop::reciever(&this, req, stream).await else {
+					let Err(()) = operations::spacedrop::receiver(&this, req, stream).await else {
 						return;
 					};
 
@@ -278,13 +292,13 @@ async fn start(
 						}
 					};
 				}
-				Header::File(req) => {
-					let Err(()) = operations::request_file::receiver(&node, req, stream).await
-					else {
+				Header::Http => {
+					let remote = stream.remote_identity();
+					let Err(err) = operations::rspc::receiver(stream, &mut service).await else {
 						return;
 					};
 
-					error!("Failed to handle file request");
+					error!("Failed to handling rspc request with '{remote}': {err:?}");
 				}
 			};
 		});
@@ -308,4 +322,11 @@ pub fn into_listener2(l: &[Listener]) -> Vec<Listener2> {
 			addrs: l.addrs.clone(),
 		})
 		.collect()
+}
+
+fn unwrap_infallible<T>(result: Result<T, Infallible>) -> T {
+	match result {
+		Ok(value) => value,
+		Err(err) => match err {},
+	}
 }

@@ -19,9 +19,14 @@ type MessageGroup = {
 export const Component = () => {
 	useRouteTitle('Sync');
 
+	const syncEnabled = useLibraryQuery(['sync.enabled']);
+
 	const messages = useLibraryQuery(['sync.messages']);
-	const backfillSyncMessages = useLibraryMutation(['sync.backfill'], {
-		onSuccess: () => messages.refetch()
+	const enableSync = useLibraryMutation(['sync.enable'], {
+		onSuccess: async () => {
+			await syncEnabled.refetch();
+			await messages.refetch();
+		}
 	});
 
 	useLibrarySubscription(['sync.newMessage'], {
@@ -35,13 +40,15 @@ export const Component = () => {
 
 	return (
 		<ul className="space-y-4 p-4">
-			<Button
-				variant="accent"
-				onClick={() => backfillSyncMessages.mutate(null)}
-				disabled={backfillSyncMessages.isLoading}
-			>
-				Backfill Sync Messages
-			</Button>
+			{!syncEnabled.data && (
+				<Button
+					variant="accent"
+					onClick={() => enableSync.mutate(null)}
+					disabled={enableSync.isLoading}
+				>
+					Enable sync messages
+				</Button>
+			)}
 			{groups?.map((group, index) => <OperationGroup key={index} group={group} />)}
 		</ul>
 	);

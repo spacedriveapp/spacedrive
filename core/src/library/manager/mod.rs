@@ -25,7 +25,10 @@ use std::{
 	collections::HashMap,
 	path::{Path, PathBuf},
 	str::FromStr,
-	sync::{atomic::AtomicBool, Arc},
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
 	time::Duration,
 };
 
@@ -135,7 +138,7 @@ impl Libraries {
 					.await?;
 
 				// FIX-ME: Linux releases crashes with *** stack smashing detected *** if spawn_volume_watcher is enabled
-				// No ideia why, but this will be irrelevant after the UDisk API is implemented, so let's leave it disabled for now
+				// No idea why, but this will be irrelevant after the UDisk API is implemented, so let's leave it disabled for now
 				#[cfg(not(target_os = "linux"))]
 				{
 					use crate::volume::watcher::spawn_volume_watcher;
@@ -246,6 +249,7 @@ impl Libraries {
 		name: Option<LibraryName>,
 		description: MaybeUndefined<String>,
 		cloud_id: MaybeUndefined<String>,
+		enable_sync: Option<bool>,
 	) -> Result<(), LibraryManagerError> {
 		// check library is valid
 		let libraries = self.libraries.read().await;
@@ -273,6 +277,12 @@ impl Libraries {
 						MaybeUndefined::Undefined => {}
 						MaybeUndefined::Null => config.cloud_id = None,
 						MaybeUndefined::Value(cloud_id) => config.cloud_id = Some(cloud_id),
+					}
+					match enable_sync {
+						None => {}
+						Some(value) => config
+							.generate_sync_operations
+							.store(value, Ordering::SeqCst),
 					}
 				},
 				self.libraries_dir.join(format!("{id}.sdlibrary")),
@@ -449,7 +459,7 @@ impl Libraries {
 		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		// seed_keymanager(&db, &key_manager).await?;
 
-		let sync = sync::Manager::new(&db, instance_id, &self.emit_messages_flag, {
+		let sync = sync::Manager::new(&db, instance_id, &config.generate_sync_operations, {
 			db._batch(
 				instances
 					.iter()
@@ -522,7 +532,7 @@ impl Libraries {
 			};
 		}
 
-		if let Err(e) = node.jobs.clone().cold_resume(node, &library).await {
+		if let Err(e) = node.old_jobs.clone().cold_resume(node, &library).await {
 			error!("Failed to resume jobs for library. {:#?}", e);
 		}
 
@@ -621,6 +631,7 @@ impl Libraries {
 											None,
 											MaybeUndefined::Undefined,
 											MaybeUndefined::Null,
+											None,
 										)
 										.await;
 								}

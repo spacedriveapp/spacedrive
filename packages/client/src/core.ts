@@ -19,7 +19,7 @@ export type Procedures = {
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
         { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
         { key: "labels.count", input: LibraryArgs<null>, result: number } | 
-        { key: "labels.get", input: LibraryArgs<number>, result: { id: number; name: string; date_created: string; date_modified: string } | null } | 
+        { key: "labels.get", input: LibraryArgs<number>, result: { id: number; name: string; date_created: string | null; date_modified: string | null } | null } | 
         { key: "labels.getForObject", input: LibraryArgs<number>, result: Label[] } | 
         { key: "labels.getWithObjects", input: LibraryArgs<number[]>, result: { [key in number]: { date_created: string; object: { id: number } }[] } } | 
         { key: "labels.list", input: LibraryArgs<null>, result: Label[] } | 
@@ -48,6 +48,7 @@ export type Procedures = {
         { key: "search.pathsCount", input: LibraryArgs<{ filters?: SearchFilterArgs[] }>, result: number } | 
         { key: "search.saved.get", input: LibraryArgs<number>, result: { id: number; pub_id: number[]; search: string | null; filters: string | null; name: string | null; icon: string | null; description: string | null; date_created: string | null; date_modified: string | null } | null } | 
         { key: "search.saved.list", input: LibraryArgs<null>, result: SavedSearch[] } | 
+        { key: "sync.enabled", input: LibraryArgs<null>, result: boolean } | 
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
         { key: "tags.get", input: LibraryArgs<number>, result: { item: Reference<Tag>; nodes: CacheNode[] } | null } | 
         { key: "tags.getForObject", input: LibraryArgs<number>, result: NormalisedResults<Tag> } | 
@@ -73,11 +74,11 @@ export type Procedures = {
         { key: "ephemeralFiles.deleteFiles", input: LibraryArgs<string[]>, result: null } | 
         { key: "ephemeralFiles.renameFile", input: LibraryArgs<EphemeralRenameFileArgs>, result: null } | 
         { key: "files.convertImage", input: LibraryArgs<ConvertImageArgs>, result: null } | 
-        { key: "files.copyFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
+        { key: "files.copyFiles", input: LibraryArgs<OldFileCopierJobInit>, result: null } | 
         { key: "files.createFolder", input: LibraryArgs<CreateFolderArgs>, result: string } | 
-        { key: "files.cutFiles", input: LibraryArgs<FileCutterJobInit>, result: null } | 
-        { key: "files.deleteFiles", input: LibraryArgs<FileDeleterJobInit>, result: null } | 
-        { key: "files.eraseFiles", input: LibraryArgs<FileEraserJobInit>, result: null } | 
+        { key: "files.cutFiles", input: LibraryArgs<OldFileCutterJobInit>, result: null } | 
+        { key: "files.deleteFiles", input: LibraryArgs<OldFileDeleterJobInit>, result: null } | 
+        { key: "files.eraseFiles", input: LibraryArgs<OldFileEraserJobInit>, result: null } | 
         { key: "files.removeAccessTime", input: LibraryArgs<number[]>, result: null } | 
         { key: "files.renameFile", input: LibraryArgs<RenameFileArgs>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
@@ -118,7 +119,7 @@ export type Procedures = {
         { key: "search.saved.create", input: LibraryArgs<{ name: string; search?: string | null; filters?: string | null; description?: string | null; icon?: string | null }>, result: null } | 
         { key: "search.saved.delete", input: LibraryArgs<number>, result: null } | 
         { key: "search.saved.update", input: LibraryArgs<[number, Args]>, result: null } | 
-        { key: "sync.backfill", input: LibraryArgs<null>, result: null } | 
+        { key: "sync.enable", input: LibraryArgs<null>, result: null } | 
         { key: "tags.assign", input: LibraryArgs<{ targets: Target[]; tag_id: number; unassign: boolean }>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
@@ -147,7 +148,7 @@ export type AudioMetadata = { duration: number | null; audio_codec: string | nul
  * 
  * If you want a variant of this to show up on the frontend it must be added to `backendFeatures` in `useFeatureFlag.tsx`
  */
-export type BackendFeature = "syncEmitMessages" | "filesOverP2P" | "cloudSync"
+export type BackendFeature = "filesOverP2P" | "cloudSync"
 
 export type Backup = ({ id: string; timestamp: string; library_id: string; library_name: string }) & { path: string }
 
@@ -189,9 +190,9 @@ export type Composite =
  */
 "Live"
 
-export type ConvertImageArgs = { location_id: number; file_path_id: number; delete_src: boolean; desired_extension: ConvertableExtension; quality_percentage: number | null }
+export type ConvertImageArgs = { location_id: number; file_path_id: number; delete_src: boolean; desired_extension: ConvertibleExtension; quality_percentage: number | null }
 
-export type ConvertableExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "hif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf" | "webp"
+export type ConvertibleExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "hif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf" | "webp"
 
 export type CreateEphemeralFolderArgs = { path: string; name: string | null }
 
@@ -239,14 +240,6 @@ export type ExplorerLayout = "grid" | "list" | "media"
 export type ExplorerSettings<TOrder> = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; gridGap: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; mediaViewWithDescendants: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; colVisibility: { [key in string]: boolean } | null; colSizes: { [key in string]: number } | null; order?: TOrder | null; showHiddenFiles?: boolean }
 
 export type Feedback = { message: string; emoji: number }
-
-export type FileCopierJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string }
-
-export type FileCutterJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string }
-
-export type FileDeleterJobInit = { location_id: number; file_path_ids: number[] }
-
-export type FileEraserJobInit = { location_id: number; file_path_ids: number[]; passes: string }
 
 export type FilePath = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null }
 
@@ -357,9 +350,9 @@ export type KindStatistic = { kind: number; name: string; count: number; total_b
 
 export type KindStatistics = { statistics: KindStatistic[] }
 
-export type Label = { id: number; name: string; date_created: string; date_modified: string }
+export type Label = { id: number; name: string; date_created: string | null; date_modified: string | null }
 
-export type LabelWithObjects = { id: number; name: string; date_created: string; date_modified: string; label_objects: { object: { id: number; file_paths: FilePath[] } }[] }
+export type LabelWithObjects = { id: number; name: string; date_created: string | null; date_modified: string | null; label_objects: { object: { id: number; file_paths: FilePath[] } }[] }
 
 /**
  * Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
@@ -386,7 +379,7 @@ instance_id: number;
  * cloud_id is the ID of the cloud library this library is linked to.
  * If this is set we can assume the library is synced with the Cloud.
  */
-cloud_id?: string | null; version: LibraryConfigVersion }
+cloud_id?: string | null; generate_sync_operations?: boolean; version: LibraryConfigVersion }
 
 export type LibraryConfigVersion = "V0" | "V1" | "V2" | "V3" | "V4" | "V5" | "V6" | "V7" | "V8" | "V9"
 
@@ -454,14 +447,14 @@ export type NonIndexedPathItem = { path: string; name: string; extension: string
 /**
  * A type that can be used to return a group of `Reference<T>` and `CacheNode`'s
  * 
- * You don't need to use this, it's just a shortcut to avoid having to write out the full type everytime.
+ * You don't need to use this, it's just a shortcut to avoid having to write out the full type every time.
  */
 export type NormalisedResult<T> = { item: Reference<T>; nodes: CacheNode[] }
 
 /**
  * A type that can be used to return a group of `Reference<T>` and `CacheNode`'s
  * 
- * You don't need to use this, it's just a shortcut to avoid having to write out the full type everytime.
+ * You don't need to use this, it's just a shortcut to avoid having to write out the full type every time.
  */
 export type NormalisedResults<T> = { items: Reference<T>[]; nodes: CacheNode[] }
 
@@ -498,6 +491,14 @@ export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number |
 
 export type ObjectWithFilePaths2 = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: Reference<FilePath>[] }
 
+export type OldFileCopierJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string }
+
+export type OldFileCutterJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string }
+
+export type OldFileDeleterJobInit = { location_id: number; file_path_ids: number[] }
+
+export type OldFileEraserJobInit = { location_id: number; file_path_ids: number[]; passes: string }
+
 /**
  * Represents the operating system which the remote peer is running.
  * This is not used internally and predominantly is designed to be used for display purposes by the embedding application.
@@ -513,7 +514,7 @@ export type P2PDiscoveryState = "Everyone" | "ContactsOnly" | "Disabled"
 /**
  * TODO: P2P event for the frontend
  */
-export type P2PEvent = { type: "DiscoveredPeer"; identity: RemoteIdentity; metadata: PeerMetadata } | { type: "ExpiredPeer"; identity: RemoteIdentity } | { type: "ConnectedPeer"; identity: RemoteIdentity } | { type: "DisconnectedPeer"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedout"; id: string } | { type: "SpacedropRejected"; id: string }
+export type P2PEvent = { type: "DiscoveredPeer"; identity: RemoteIdentity; metadata: PeerMetadata } | { type: "ExpiredPeer"; identity: RemoteIdentity } | { type: "ConnectedPeer"; identity: RemoteIdentity } | { type: "DisconnectedPeer"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedOut"; id: string } | { type: "SpacedropRejected"; id: string }
 
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; device_model: HardwareModel | null; version: string | null }
 

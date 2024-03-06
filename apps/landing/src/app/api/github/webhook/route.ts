@@ -7,8 +7,10 @@ import { getLatestRelease, getRecentReleases, getRelease } from '..';
 
 export const runtime = 'edge';
 
+if (env.GITHUB_SECRET == null) console.warn('GITHUB_SECRET is not set, using dummy value');
+
 const webhook = new Webhooks({
-	secret: env.GITHUB_SECRET
+	secret: env.GITHUB_SECRET || '00000000000000000000000000000000000000000'
 });
 
 export async function POST(req: Request) {

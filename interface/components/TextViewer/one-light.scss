@@ -386,7 +386,7 @@ pre > code.diff-highlight .token.token.inserted:not(.prefix) *::selection {
 /* Border around popup */
 .prism-previewer.prism-previewer:before,
 .prism-previewer-gradient.prism-previewer-gradient div {
-	border-color: hsl(0, 0, 95%);
+	border-color: hsl(0, 0%, 95%);
 }
 
 /* Angle and time should remain as circles and are hence not included */
@@ -398,11 +398,11 @@ pre > code.diff-highlight .token.token.inserted:not(.prefix) *::selection {
 
 /* Triangles pointing to the code */
 .prism-previewer.prism-previewer:after {
-	border-top-color: hsl(0, 0, 95%);
+	border-top-color: hsl(0, 0%, 95%);
 }
 
 .prism-previewer-flipped.prism-previewer-flipped.after {
-	border-bottom-color: hsl(0, 0, 95%);
+	border-bottom-color: hsl(0, 0%, 95%);
 }
 
 /* Background colour within the popup */

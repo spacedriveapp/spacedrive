@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
-import Particles from 'react-tsparticles';
+import Particles, { initParticlesEngine } from '@tsparticles/react';
+import { useEffect, useState } from 'react';
 import { loadFull } from 'tsparticles';
 
 const options: NonNullable<React.ComponentProps<typeof Particles>['options']> = {
@@ -10,7 +10,9 @@ const options: NonNullable<React.ComponentProps<typeof Particles>['options']> = 
 				enable: false,
 				mode: 'push'
 			},
-			resize: false
+			resize: {
+				enable: false
+			}
 		}
 	},
 	particles: {
@@ -32,10 +34,9 @@ const options: NonNullable<React.ComponentProps<typeof Particles>['options']> = 
 		},
 		number: {
 			density: {
-				enable: true,
-				area: 900
+				enable: true
 			},
-			value: 100
+			value: 400
 		},
 		opacity: {
 			value: 0.1
@@ -51,19 +52,17 @@ const options: NonNullable<React.ComponentProps<typeof Particles>['options']> = 
 };
 
 export const Bubbles = () => {
-	const particlesInit = useCallback<NonNullable<React.ComponentProps<typeof Particles>['init']>>(
-		async (engine) => {
-			await loadFull(engine);
-		},
-		[]
-	);
+	const [init, setInit] = useState(false);
 
-	return (
-		<Particles
-			id="tsparticles"
-			className="absolute inset-0 z-0"
-			init={particlesInit}
-			options={options}
-		/>
-	);
+	useEffect(() => {
+		// this should be run only once per application lifetime
+		initParticlesEngine(async (engine) => {
+			await loadFull(engine);
+		}).then(() => {
+			setInit(true);
+		}, console.error);
+	}, []);
+
+	if (init)
+		return <Particles id="tsparticles" className="absolute inset-0 z-0" options={options} />;
 };

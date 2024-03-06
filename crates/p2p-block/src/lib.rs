@@ -327,7 +327,7 @@ mod tests {
 		// This is sent out of band of Spaceblock
 		let block_size = 25u32;
 		let data = vec![0u8; block_size as usize];
-		let block_size = BlockSize::dangerously_new(block_size); // TODO: Determine it using proper algo instead of harcoding it
+		let block_size = BlockSize::dangerously_new(block_size); // TODO: Determine it using proper algo instead of hardcoding it
 
 		let req = SpaceblockRequests {
 			id: Uuid::new_v4(),
@@ -369,7 +369,7 @@ mod tests {
 		// This is sent out of band of Spaceblock
 		let block_size = 25u32;
 		let data = vec![0u8; block_size as usize];
-		let block_size = BlockSize::dangerously_new(block_size); // TODO: Determine it using proper algo instead of harcoding it
+		let block_size = BlockSize::dangerously_new(block_size); // TODO: Determine it using proper algo instead of hardcoding it
 
 		let req = SpaceblockRequests {
 			id: Uuid::new_v4(),
@@ -412,7 +412,7 @@ mod tests {
 		// This is sent out of band of Spaceblock
 		let block_size = 25u32;
 		let data = vec![0u8; 0]; // Zero sized file
-		let block_size = BlockSize::dangerously_new(block_size); // TODO: Determine it using proper algo instead of harcoding it
+		let block_size = BlockSize::dangerously_new(block_size); // TODO: Determine it using proper algo instead of hardcoding it
 
 		let req = SpaceblockRequests {
 			id: Uuid::new_v4(),

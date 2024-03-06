@@ -1,19 +1,14 @@
-import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/v2';
-import { UseQueryResult } from '@tanstack/react-query';
 import React from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
-import { formatNumber, KindStatistics } from '@sd/client';
+import { formatNumber, useLibraryQuery } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 
 import { Icon, IconName } from '../icons/Icon';
 import Fade from '../layout/Fade';
 import VirtualizedListWrapper from '../layout/VirtualizedListWrapper';
 
-interface Props {
-	kinds: UseQueryResult<KindStatistics, AlphaRSPCError>;
-}
-
-const Categories = ({ kinds }: Props) => {
+const Categories = () => {
+	const kinds = useLibraryQuery(['library.kindStatistics']);
 	return (
 		<View>
 			<Text style={tw`px-6 pb-3 text-lg font-bold text-white`}>Categories</Text>
@@ -43,14 +38,7 @@ const Categories = ({ kinds }: Props) => {
 										break;
 								}
 								return (
-									<View style={twStyle('w-fit')}>
-										<KindItem
-											kind={kind}
-											name={name}
-											icon={icon}
-											items={count}
-										/>
-									</View>
+									<KindItem kind={kind} name={name} icon={icon} items={count} />
 								);
 							}}
 						/>
@@ -78,7 +66,9 @@ const KindItem = ({ name, icon, items }: KindItemProps) => {
 				//TODO: implement
 			}}
 		>
-			<View style={twStyle('mr-10 shrink-0 flex-row items-center', 'gap-2 rounded-lg text-sm')}>
+			<View
+				style={twStyle('mr-10 shrink-0 flex-row items-center', 'gap-2 rounded-lg text-sm')}
+			>
 				<Icon name={icon} size={40} style={tw`mr-3 h-12 w-12`} />
 				<View>
 					<Text style={tw`text-sm font-medium text-ink`}>{name}</Text>

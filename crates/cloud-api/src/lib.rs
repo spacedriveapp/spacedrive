@@ -451,6 +451,7 @@ pub mod library {
 				pub start_time: String,
 				pub end_time: String,
 				pub contents: serde_json::Value,
+				pub ops_count: usize,
 			}
 
 			pub async fn exec(
@@ -465,7 +466,7 @@ pub mod library {
 				config
 					.client
 					.post(&format!(
-						"{}/api/v1/libraries/{}/messageCollections/requestAdd",
+						"{}/api/v1/libraries/{}/messageCollections/doAdd",
 						config.api_url, library_id
 					))
 					.json(&json!({ "instances": instances }))
@@ -568,8 +569,8 @@ pub mod locations {
 		pub type Response = CloudLocation;
 	}
 
-	pub use authorise::exec as authorise;
-	pub mod authorise {
+	pub use authorize::exec as authorize;
+	pub mod authorize {
 		use super::*;
 
 		pub async fn exec(config: RequestConfig, id: String) -> Result<Response, Error> {
@@ -579,7 +580,7 @@ pub mod locations {
 
 			config
 				.client
-				.post(&format!("{}/api/v1/locations/authorise", config.api_url))
+				.post(&format!("{}/api/v1/locations/authorize", config.api_url))
 				.json(&json!({ "id": id }))
 				.with_auth(auth_token)
 				.send()

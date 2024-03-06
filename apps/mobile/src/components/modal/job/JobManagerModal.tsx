@@ -1,4 +1,3 @@
-import { useQueryClient } from '@tanstack/react-query';
 import { forwardRef } from 'react';
 import { FlatList, Text, View } from 'react-native';
 import { useJobProgress, useLibraryQuery } from '@sd/client';
@@ -11,7 +10,7 @@ import { tw } from '~/lib/tailwind';
 // - Add clear all jobs button
 
 export const JobManagerModal = forwardRef<ModalRef, unknown>((_, ref) => {
-	const queryClient = useQueryClient();
+	// const queryClient = useQueryClient();
 
 	const jobGroups = useLibraryQuery(['jobs.reports']);
 	const progress = useJobProgress(jobGroups.data);

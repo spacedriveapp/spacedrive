@@ -60,7 +60,7 @@ export function Spacedrop({ triggerClose }: { triggerClose: () => void }) {
 	const ref = useRef<HTMLDivElement>(null);
 	const discoveredPeers = useDiscoveredPeers();
 	const doSpacedrop = useBridgeMutation('p2p.spacedrop');
-		const { t } = useLocale();
+	const { t } = useLocale();
 	// We keep track of how many instances of this component is rendering.
 	// This is used by `SpacedropButton` to determine if the animation should stop.
 	useEffect(() => {
@@ -118,9 +118,11 @@ export function Spacedrop({ triggerClose }: { triggerClose: () => void }) {
 								{t("no_nodes_found")}
 							</p>
 			</div>}
+					<div className='flex flex-col space-y-2'>
 					{Array.from(discoveredPeers).map(([id, meta]) => (
 						<Node key={id} id={id} name={meta.name as HardwareModel} onDropped={onDropped} />
 					))}
+					</div>
 				</div>
 			</div>
 		</div>
@@ -148,8 +150,8 @@ function Node({
 		<div
 			ref={ref}
 			className={clsx(
-				'flex items-center justify-center gap-3 rounded-md border border-app-line bg-app-darkBox px-3 py-2 font-medium text-ink',
-				state === 'hovered' ? 'border-solid border-accent-deep' : 'border-dashed'
+				'flex items-center justify-start gap-2 rounded-md border bg-app-darkBox px-3 py-2 font-medium text-ink',
+				state === 'hovered' ? 'border-solid border-accent-deep' : 'border-dashed border-app-line'
 			)}
 			onClick={() => {
 				if (!platform.openFilePickerDialog) {
