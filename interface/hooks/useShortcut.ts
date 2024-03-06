@@ -1,7 +1,7 @@
+import { valtioPersist } from '@sd/client';
 import { useMemo } from 'react';
 import { useKeys } from 'rooks';
 import { useSnapshot } from 'valtio';
-import { valtioPersist } from '@sd/client';
 import { useRoutingContext } from '~/RoutingContext';
 import { OperatingSystem } from '~/util/Platform';
 
@@ -118,6 +118,9 @@ const shortcuts = {
 	quickPreviewOpenNative: {
 		macOS: ['Meta', 'KeyO'],
 		all: ['Enter']
+	},
+	closeQuickPreview: {
+		all: ['Escape']
 	},
 	delItem: {
 		macOS: ['Meta', 'Backspace'],
