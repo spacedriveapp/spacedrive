@@ -41,7 +41,7 @@ export function hardwareModelToIcon(hardwareModel: HardwareModel) {
 const Devices = ({ node, stats }: Props) => {
 	// We don't need the totalSpaceEx and freeSpaceEx fields
 	const [sizeInfo, setSizeInfo] = useState<Omit<RNFS.FSInfoResultT, "totalSpaceEx" | "freeSpaceEx">>({ freeSpace: 0, totalSpace: 0 });
-	const [deviceName, setDeviceName] = useState<string>(node?.name || 'Unknown');
+	const [deviceName, setDeviceName] = useState<string>("");
 
 	useEffect(() => {
 		const getFSInfo = async () => {
@@ -66,8 +66,10 @@ const Devices = ({ node, stats }: Props) => {
 			DeviceInfo.getDeviceName().then((name) => {
 				setDeviceName(name);
 			});
+		} else if (node) {
+			setDeviceName(node.name);
 		}
-	}, []);
+	}, [node]);
 
 	return (
 		<OverviewSection title="Devices" count={node ? 1 : 0}>
