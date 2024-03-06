@@ -15,6 +15,7 @@ use crate::crdt_op_unchecked_db;
 
 pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, instance_id: i32) {
 	db._transaction()
+		.with_timeout(9999999999)
 		.run(|db| async move {
 			println!("backfill started");
 			db.crdt_operation().delete_many(vec![]).exec().await?;
