@@ -7,6 +7,9 @@ mod session;
 use identifier::Identifier;
 use session::SessionKeyring;
 
+#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "linux")))]
+use SessionKeyring as DefaultKeyring;
+
 #[cfg(target_os = "linux")]
 mod linux;
 
