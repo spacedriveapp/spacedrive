@@ -4280,6 +4280,7 @@ dependencies = [
  "getrandom 0.2.12",
  "instant",
  "libp2p-allow-block-list",
+ "libp2p-autonat",
  "libp2p-connection-limits",
  "libp2p-core",
  "libp2p-dns",
@@ -4308,6 +4309,26 @@ dependencies = [
  "libp2p-identity",
  "libp2p-swarm",
  "void",
+]
+
+[[package]]
+name = "libp2p-autonat"
+version = "0.12.0"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
+dependencies = [
+ "async-trait",
+ "asynchronous-codec",
+ "futures",
+ "futures-timer",
+ "instant",
+ "libp2p-core",
+ "libp2p-identity",
+ "libp2p-request-response",
+ "libp2p-swarm",
+ "quick-protobuf",
+ "quick-protobuf-codec",
+ "rand 0.8.5",
+ "tracing",
 ]
 
 [[package]]
@@ -4545,6 +4566,25 @@ dependencies = [
  "rand 0.8.5",
  "static_assertions",
  "thiserror",
+ "tracing",
+ "void",
+]
+
+[[package]]
+name = "libp2p-request-response"
+version = "0.26.2"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
+dependencies = [
+ "async-trait",
+ "futures",
+ "futures-bounded",
+ "futures-timer",
+ "instant",
+ "libp2p-core",
+ "libp2p-identity",
+ "libp2p-swarm",
+ "rand 0.8.5",
+ "smallvec 1.13.1",
  "tracing",
  "void",
 ]

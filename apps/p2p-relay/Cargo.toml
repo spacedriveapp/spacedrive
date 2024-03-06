@@ -7,7 +7,13 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-libp2p = { version = "0.53.2", features = ["tokio", "relay", "quic"] }
+libp2p = { version = "0.53.2", features = [
+	"tokio",
+	"relay",
+	"quic",
+	"autonat",
+	"macros",
+] }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

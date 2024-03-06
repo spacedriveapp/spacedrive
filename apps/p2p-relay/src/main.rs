@@ -1,6 +1,12 @@
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 
-use libp2p::{futures::StreamExt, identity::Keypair, relay, swarm::SwarmEvent};
+use libp2p::{
+	autonat,
+	futures::StreamExt,
+	identity::Keypair,
+	relay,
+	swarm::{NetworkBehaviour, SwarmEvent},
+};
 use tracing::info;
 
 use crate::utils::socketaddr_to_quic_multiaddr;
@@ -10,6 +16,12 @@ mod utils;
 
 // TODO: Authentication with the Spacedrive Cloud
 // TODO: Rate-limit data usage by Spacedrive account.
+
+#[derive(NetworkBehaviour)]
+pub struct Behaviour {
+	relay: relay::Behaviour,
+	autonat: autonat::Behaviour,
+}
 
 #[tokio::main]
 async fn main() {
@@ -31,7 +43,10 @@ async fn main() {
 	let mut swarm = libp2p::SwarmBuilder::with_existing_identity(local_key)
 		.with_tokio()
 		.with_quic()
-		.with_behaviour(|key| relay::Behaviour::new(key.public().to_peer_id(), Default::default()))
+		.with_behaviour(|key| Behaviour {
+			relay: relay::Behaviour::new(key.public().to_peer_id(), Default::default()), // TODO: Proper config
+			autonat: autonat::Behaviour::new(key.public().to_peer_id(), Default::default()), // TODO: Proper config
+		})
 		.unwrap() // TODO: Error handling
 		.build();
 
