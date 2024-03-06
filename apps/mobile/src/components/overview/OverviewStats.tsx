@@ -2,7 +2,7 @@ import * as RNFS from '@dr.pogodin/react-native-fs';
 import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/v2';
 import { UseQueryResult } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import { ClassInput } from 'twrnc/dist/esm/types';
 import { byteSize, Statistics, StatisticsResponse, useLibraryContext } from '@sd/client';
 import useCounter from '~/hooks/useCounter';
@@ -31,7 +31,7 @@ const StatItem = ({ title, bytes, isLoading, style }: StatItemProps) => {
 	return (
 		<View
 			style={twStyle(
-				'flex flex-col items-center justify-center rounded-md border border-app-line/50 bg-app-box/50 p-2',
+				'border-app-line/50 bg-app-box/50 flex flex-col items-center justify-center rounded-md border p-2',
 				style,
 				{
 					hidden: isLoading
@@ -73,6 +73,7 @@ const OverviewStats = ({ stats }: Props) => {
 			return await RNFS.getFSInfo();
 		};
 		getFSInfo().then((size) => {
+			console.log('size', size);
 			setSizeInfo(size);
 		});
 	}, []);
@@ -90,6 +91,8 @@ const OverviewStats = ({ stats }: Props) => {
 				bytes = BigInt(sizeInfo.freeSpace);
 			} else if (key === 'total_bytes_capacity') {
 				bytes = BigInt(sizeInfo.totalSpace);
+			} else if (key === 'total_bytes_used' && Platform.OS === 'android') {
+				bytes = BigInt(sizeInfo.totalSpace - sizeInfo.freeSpace);
 			}
 			return (
 				<StatItem

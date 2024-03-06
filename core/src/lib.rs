@@ -202,11 +202,13 @@ impl Node {
 
 		// Set a default if the user hasn't set an override
 		if std::env::var("RUST_LOG") == Err(std::env::VarError::NotPresent) {
-			let level = if cfg!(debug_assertions) {
-				"debug"
-			} else {
-				"info"
-			};
+			// let level = if cfg!(debug_assertions) {
+			// 	"debug"
+			// } else {
+			// 	"info"
+			// };
+
+			let level = "debug";
 
 			// let level = "debug"; // Exists for now to debug the location manager
 

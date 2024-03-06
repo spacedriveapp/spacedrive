@@ -114,7 +114,7 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 												setSelectedRule(
 													selectedRule === rule ? undefined : rule
 												);
-									  }
+										}
 									: undefined
 							}
 							className={clsx(
