@@ -18,7 +18,7 @@ use sd_prisma::{
 	prisma_sync,
 };
 use sd_sync::*;
-use sd_utils::{db::maybe_missing, from_bytes_to_uuid};
+use sd_utils::{db::maybe_missing, from_bytes_to_uuid, msgpack};
 
 use std::{
 	collections::HashMap,
@@ -599,7 +599,7 @@ async fn update_directories_sizes(
 									pub_id: file_path.pub_id.clone(),
 								},
 								file_path::size_in_bytes_bytes::NAME,
-								json!(size_bytes.clone()),
+								msgpack!(size_bytes.clone()),
 							),
 							db.file_path().update(
 								file_path::pub_id::equals(file_path.pub_id),

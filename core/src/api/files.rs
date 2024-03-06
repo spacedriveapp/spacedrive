@@ -26,8 +26,7 @@ use sd_prisma::{
 	prisma_sync,
 };
 use sd_sync::OperationFactory;
-use sd_utils::{db::maybe_missing, error::FileIOError};
-use serde_json::json;
+use sd_utils::{db::maybe_missing, error::FileIOError, msgpack};
 
 use std::{
 	ffi::OsString,
@@ -204,7 +203,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								pub_id: object.pub_id,
 							},
 							object::note::NAME,
-							json!(&args.note),
+							msgpack!(&args.note),
 						),
 						db.object().update(
 							object::id::equals(args.id),
@@ -250,7 +249,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								pub_id: object.pub_id,
 							},
 							object::favorite::NAME,
-							json!(&args.favorite),
+							msgpack!(&args.favorite),
 						),
 						db.object().update(
 							object::id::equals(args.id),
@@ -316,7 +315,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								sync.shared_update(
 									prisma_sync::object::SyncId { pub_id: d.pub_id },
 									object::date_accessed::NAME,
-									json!(date_accessed),
+									msgpack!(date_accessed),
 								),
 								d.id,
 							)
@@ -359,7 +358,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								sync.shared_update(
 									prisma_sync::object::SyncId { pub_id: d.pub_id },
 									object::date_accessed::NAME,
-									json!(null),
+									msgpack!(null),
 								),
 								d.id,
 							)

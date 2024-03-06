@@ -162,9 +162,7 @@ function LabelItemCount({ data }: { data: Extract<ExplorerItem, { type: 'Label' 
 		{
 			filters: [
 				{
-					object: {
-						labels: {
-							in: [data.item.id]
+					object: {						labels: {							in: [data.item.id]
 						}
 					}
 				}

@@ -450,7 +450,7 @@ pub mod library {
 				pub key: String,
 				pub start_time: String,
 				pub end_time: String,
-				pub contents: serde_json::Value,
+				pub contents: String,
 				pub ops_count: usize,
 			}
 
