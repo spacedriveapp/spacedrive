@@ -1,10 +1,11 @@
 import { MotiView } from 'moti';
-import { Pressable, Text, View } from 'react-native';
+import { MotiPressable } from 'moti/interactions';
+import { Text, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { LinearTransition } from 'react-native-reanimated';
 import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
-import { getSearchStore, useSearchStore } from '~/stores/searchStore';
+import { useSearchStore } from '~/stores/searchStore';
 
 import Fade from '../layout/Fade';
 import SectionTitle from '../layout/SectionTitle';
@@ -33,19 +34,13 @@ export const Tags = () => {
 					<VirtualizedListWrapper horizontal>
 						<FlatList
 							data={tagsData}
-							renderItem={({ item }) => (
-								<Pressable
-									onPress={() => getSearchStore().updateFilters('tags', item.id)}
-								>
-									<TagFilter tag={item} />
-								</Pressable>
-							)}
+							renderItem={({ item }) => <TagFilter tag={item} />}
 							contentContainerStyle={tw`pl-6`}
 							extraData={useSearchStore().filters}
 							numColumns={tagsData && Math.ceil(Number(tagsData.length ?? 0) / 2)}
 							key={tagsData ? 'tagsSearch' : '_'}
 							scrollEnabled={false}
-							ItemSeparatorComponent={() => <View style={tw`w-2 h-2`} />}
+							ItemSeparatorComponent={() => <View style={tw`h-2 w-2`} />}
 							keyExtractor={(item) => item.id.toString()}
 							showsHorizontalScrollIndicator={false}
 							style={tw`flex-row`}
@@ -62,9 +57,16 @@ interface Props {
 }
 
 const TagFilter = ({ tag }: Props) => {
-	const isSelected = useSearchStore().isFilterSelected('tags', tag.id);
+	const searchStore = useSearchStore();
+	const isSelected = searchStore.isFilterSelected('tags', tag.id);
 	return (
-		<MotiView
+		<MotiPressable
+			onPress={() =>
+				searchStore.updateFilters('tags', {
+					id: tag.id,
+					color: tag.color
+				})
+			}
 			animate={{
 				borderColor: isSelected ? tag.color! : tw.color('app-line/50')
 			}}
@@ -76,7 +78,7 @@ const TagFilter = ({ tag }: Props) => {
 				})}
 			/>
 			<Text style={tw`text-sm font-medium text-ink`}>{tag?.name}</Text>
-		</MotiView>
+		</MotiPressable>
 	);
 };
 

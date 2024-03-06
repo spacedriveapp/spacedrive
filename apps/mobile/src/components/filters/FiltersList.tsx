@@ -13,7 +13,7 @@ import { tw, twStyle } from '~/lib/tailwind';
 import { getSearchStore, SearchFilters } from '~/stores/searchStore';
 
 import SectionTitle from '../layout/SectionTitle';
-import { Extension, Locations, Name, Tags } from './index';
+import { Extension, Kind, Locations, Name, Tags } from './index';
 
 export const FiltersList = () => {
 	const [selectedOptions, setSelectedOptions] = useState<(typeof options)[number]['name'][]>([]);
@@ -28,7 +28,7 @@ export const FiltersList = () => {
 			icon: CircleDashed,
 			component: Tags
 		},
-		{ name: 'Kind', icon: Cube, component: () => <></> },
+		{ name: 'Kind', icon: Cube, component: Kind },
 		{ name: 'Name', icon: Textbox, component: Name },
 		{ name: 'Extension', icon: Textbox, component: Extension },
 		{ name: 'Hidden', icon: SelectionSlash, component: () => <></> }

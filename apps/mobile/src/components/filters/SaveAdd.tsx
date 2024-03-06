@@ -1,34 +1,43 @@
-import { AnimatePresence, MotiView } from 'moti';
-import { Text } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { Text, View } from 'react-native';
 import { Button } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
+import { SearchStackScreenProps } from '~/navigation/SearchStack';
 import { useSearchStore } from '~/stores/searchStore';
 
 export const SaveAdd = () => {
 	const searchStore = useSearchStore();
+	const navigation = useNavigation<SearchStackScreenProps<'SearchHome'>['navigation']>();
 	return (
-		<AnimatePresence>
-			{searchStore.showActionButtons && (
-				<MotiView
-					from={{ translateY: 100 }}
-					animate={{ translateY: 0 }}
-					transition={{ type: 'timing', duration: 300 }}
-					exit={{ translateY: 100 }}
-					style={twStyle(
-						`flex-row justify-between gap-2 border-t border-app-line/50 h-[100px] pt-5 px-6 bg-mobile-header`,
-						{
-							position: 'fixed'
-						}
-					)}
-				>
-					<Button style={tw`flex-1 h-10`} variant="dashed">
-						<Text style={tw`font-bold text-ink-dull`}>+ Save search</Text>
-					</Button>
-					<Button style={tw`flex-1 h-10`} variant="accent">
-						<Text style={tw`font-bold text-ink`}>+ Add filters</Text>
-					</Button>
-				</MotiView>
+		<View
+			style={twStyle(
+				`h-[100px] flex-row justify-between gap-2 border-t border-app-line/50 bg-mobile-header px-6 pt-5`,
+				{
+					position: 'fixed'
+				}
 			)}
-		</AnimatePresence>
+		>
+			<Button
+				disabled={searchStore.disableActionButtons}
+				style={twStyle(`h-10 flex-1`, {
+					opacity: searchStore.disableActionButtons ? 0.5 : 1
+				})}
+				variant="dashed"
+			>
+				<Text style={tw`font-medium text-ink-dull`}>+ Save search</Text>
+			</Button>
+			<Button
+				disabled={searchStore.disableActionButtons}
+				style={twStyle(`h-10 flex-1`, {
+					opacity: searchStore.disableActionButtons ? 0.5 : 1
+				})}
+				variant="accent"
+				onPress={() => {
+					navigation.navigate('SearchHome');
+				}}
+			>
+				<Text style={tw`font-medium text-ink`}>+ Add filters</Text>
+			</Button>
+		</View>
 	);
 };

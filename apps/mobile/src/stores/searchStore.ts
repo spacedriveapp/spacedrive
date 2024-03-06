@@ -11,8 +11,8 @@ export type SearchFilters = "locations" | "tags" | "name" | "extension" | "hidde
 
  const state: {
 	search: string;
-	filters: Record<SearchFilters, (string | number)[]>;
-	showActionButtons: boolean;
+	filters: Record<SearchFilters, any[]>;
+	disableActionButtons: boolean;
  } = {
 	search: '', // The search input
 	filters: { // The filters in the filters page of search
@@ -23,12 +23,12 @@ export type SearchFilters = "locations" | "tags" | "name" | "extension" | "hidde
 		hidden: [],
 		kind: []
 	},
-	showActionButtons: false,
+	disableActionButtons: true //save search and add filters button
  }
 
 const searchStore = proxy({
 	...state,
-	updateFilters: (filter: keyof typeof state['filters'], value: string | number) => {
+	updateFilters: (filter: keyof typeof state['filters'], value: any) => {
 		const updatedFilters = [...searchStore.filters[filter]]; // Make a copy of the existing filter values
 		if (updatedFilters.includes(value)) {
 		  // Remove the value if it already exists in the filter
