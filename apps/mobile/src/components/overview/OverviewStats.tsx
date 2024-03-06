@@ -1,7 +1,7 @@
 import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/v2';
 import { UseQueryResult } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import RNFS from 'react-native-fs';
 import { ClassInput } from 'twrnc/dist/esm/types';
 import { byteSize, Statistics, StatisticsResponse, useLibraryContext } from '@sd/client';
@@ -85,6 +85,8 @@ const OverviewStats = ({ stats }: Props) => {
 				bytes = BigInt(sizeInfo.freeSpace);
 			} else if (key === 'total_bytes_capacity') {
 				bytes = BigInt(sizeInfo.totalSpace);
+			} else if (key === 'total_bytes_used' && Platform.OS === 'android') {
+				bytes = BigInt(sizeInfo.totalSpace - sizeInfo.freeSpace);
 			}
 			return (
 				<StatItem

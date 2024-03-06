@@ -421,6 +421,9 @@ importers:
       react-native-circular-progress:
         specifier: ^1.3.9
         version: 1.3.9(react-native-svg@14.1.0)(react-native@0.73.4)(react@18.2.0)
+      react-native-device-info:
+        specifier: ^10.13.1
+        version: 10.13.1(react-native@0.73.4)
       react-native-document-picker:
         specifier: ^9.0.1
         version: 9.0.1(react-native@0.73.4)(react@18.2.0)
@@ -21084,6 +21087,14 @@ packages:
       react: 18.2.0
       react-native: 0.73.4(@babel/core@7.23.2)(@babel/preset-env@7.23.8)(react@18.2.0)
       react-native-svg: 14.1.0(react-native@0.73.4)(react@18.2.0)
+    dev: false
+
+  /react-native-device-info@10.13.1(react-native@0.73.4):
+    resolution: {integrity: sha512-j/7Z+Yl9Cesjp8vKaVzbuJQKJSVs4ojXATt5WjwipZ0Ss0mBJjqtbc4x5dfZLmQ4y55VVa7c0v8KHca1iqY/TQ==}
+    peerDependencies:
+      react-native: '*'
+    dependencies:
+      react-native: 0.73.4(@babel/core@7.23.2)(@babel/preset-env@7.23.8)(react@18.2.0)
     dev: false
 
   /react-native-document-picker@9.0.1(react-native@0.73.4)(react@18.2.0):

@@ -10,11 +10,13 @@ use std::{
 	sync::OnceLock,
 };
 
+#[cfg(target_os = "ios")]
 use icrate::{
 	objc2::runtime::{Class, Object},
 	objc2::{msg_send, sel},
 	Foundation::{self, ns_string, NSFileManager, NSFileSystemSize, NSNumber, NSString},
 };
+
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
@@ -296,6 +298,8 @@ struct HDIUtilInfo {
 	images: Vec<ImageInfo>,
 }
 
+// Android does not work via sysinfo and JNI is a pain to maintain. Therefore, we use React-Native-FS to get the volume data of the device.
+// We leave the function though to be built for Android because otherwise, the build will fail.
 #[cfg(not(any(target_os = "linux", target_os = "ios")))]
 pub async fn get_volumes() -> Vec<Volume> {
 	use futures::future;

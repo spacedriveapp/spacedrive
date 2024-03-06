@@ -1,10 +1,12 @@
 import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/v2';
 import { UseQueryResult } from '@tanstack/react-query';
-import React from 'react';
-import { Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Platform, Text, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { HardwareModel, NodeState, StatisticsResponse } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
+import RNFS from 'react-native-fs';
+import DeviceInfo from 'react-native-device-info';
 
 import Fade from '../layout/Fade';
 import { Button } from '../primitive/Button';
@@ -37,39 +39,64 @@ export function hardwareModelToIcon(hardwareModel: HardwareModel) {
 }
 
 const Devices = ({ node, stats }: Props) => {
+	const [sizeInfo, setSizeInfo] = useState<RNFS.FSInfoResult>({ freeSpace: 0, totalSpace: 0 });
+	const [deviceName, setDeviceName] = useState<string>(node?.name || 'Unknown');
+
+	useEffect(() => {
+		const getFSInfo = async () => {
+			return await RNFS.getFSInfo();
+		};
+		getFSInfo().then((size) => {
+			console.log('size', size);
+			setSizeInfo(size);
+		});
+	}, []);
+
+	const totalSpace = Platform.OS === "android" ? sizeInfo.totalSpace.toString() : stats.data?.statistics?.total_bytes_capacity || '0';
+	const freeSpace = Platform.OS === "android" ? sizeInfo.freeSpace.toString() : stats.data?.statistics?.total_bytes_free || '0';
+
+	useEffect(() => {
+		if (Platform.OS === 'android') {
+			DeviceInfo.getDeviceName().then((name) => {
+				setDeviceName(name);
+			});
+		}
+	}, []);
+
 	return (
-			<OverviewSection title="Devices" count={node ? 1 : 0}>
-				<View>
-					<Fade height={'100%'} width={30} color="mobile-screen">
-						<ScrollView
-							horizontal
-							showsHorizontalScrollIndicator={false}
-							contentContainerStyle={tw`px-6`}
-						>
-							{node && (
-								<StatCard
-									name={node.name}
-									icon={hardwareModelToIcon(node.device_model as any)}
-									totalSpace={stats.data?.statistics?.total_bytes_capacity || '0'}
-									freeSpace={stats.data?.statistics?.total_bytes_free || '0'}
-									color="#0362FF"
-									connectionType={null}
-								/>
-							)}
-							<NewCard
-								icons={['Laptop', 'Server', 'SilverBox', 'Tablet']}
-								text="Spacedrive works best on all your devices."
-								style={twStyle(node ? 'ml-2' : 'ml-0')}
-								button={() => (
-									<Button variant="transparent">
-										<Text style={tw`font-bold text-ink-dull`}>Coming soon</Text>
-									</Button>
-								)}
+		<OverviewSection title="Devices" count={node ? 1 : 0}>
+			<View>
+				<Fade height={'100%'} width={30} color="mobile-screen">
+					<ScrollView
+						horizontal
+						showsHorizontalScrollIndicator={false}
+						contentContainerStyle={tw`px-6`}
+					>
+						{node && (
+							<StatCard
+								name={deviceName}
+								// TODO (Optional): Use Brand Type for Different Android Models/iOS Models using DeviceInfo.getBrand()
+								icon={hardwareModelToIcon(node.device_model as any)}
+								totalSpace={totalSpace}
+								freeSpace={freeSpace}
+								color="#0362FF"
+								connectionType={null}
 							/>
-						</ScrollView>
-					</Fade>
-				</View>
-			</OverviewSection>
+						)}
+						<NewCard
+							icons={['Laptop', 'Server', 'SilverBox', 'Tablet']}
+							text="Spacedrive works best on all your devices."
+							style={twStyle(node ? 'ml-2' : 'ml-0')}
+							button={() => (
+								<Button variant="transparent">
+									<Text style={tw`font-bold text-ink-dull`}>Coming soon</Text>
+								</Button>
+							)}
+						/>
+					</ScrollView>
+				</Fade>
+			</View>
+		</OverviewSection>
 	);
 };
 

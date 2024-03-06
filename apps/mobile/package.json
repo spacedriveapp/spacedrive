@@ -52,6 +52,7 @@
 		"react-hook-form": "^7.47.0",
 		"react-native": "0.73.4",
 		"react-native-circular-progress": "^1.3.9",
+		"react-native-device-info": "^10.13.1",
 		"react-native-document-picker": "^9.0.1",
 		"react-native-file-viewer": "^2.1.5",
 		"react-native-fs": "^2.20.0",
