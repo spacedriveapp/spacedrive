@@ -6,7 +6,7 @@ use sd_prisma::{
 	prisma_sync,
 };
 use sd_sync::OperationFactory;
-use sd_utils::uuid_to_bytes;
+use sd_utils::{msgpack, uuid_to_bytes};
 
 use std::collections::BTreeMap;
 
@@ -14,7 +14,6 @@ use chrono::{DateTime, Utc};
 use itertools::{Either, Itertools};
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use specta::Type;
 use uuid::Uuid;
 
@@ -234,7 +233,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 										pub_id: fp.pub_id.clone(),
 									},
 									file_path::object::NAME,
-									json!(id),
+									msgpack!(id),
 								));
 
 								(
@@ -329,8 +328,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						db,
 						(
 							[
-								args.name.as_ref().map(|v| (tag::name::NAME, json!(v))),
-								args.color.as_ref().map(|v| (tag::color::NAME, json!(v))),
+								args.name.as_ref().map(|v| (tag::name::NAME, msgpack!(v))),
+								args.color.as_ref().map(|v| (tag::color::NAME, msgpack!(v))),
 							]
 							.into_iter()
 							.flatten()
