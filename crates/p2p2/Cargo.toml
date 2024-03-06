@@ -32,7 +32,7 @@ tokio-util = { workspace = true, features = ["compat"] }
 tracing = { workspace = true }
 uuid = { workspace = true }
 
-ed25519-dalek = { version = "2.1.0", features = [] }
+ed25519-dalek = { version = "2.1.1", features = [] }
 flume = "=0.11.0" # Must match version used by `mdns-sd`
 futures-core = "0.3.30"
 if-watch = { version = "=3.2.0", features = [
@@ -43,8 +43,11 @@ libp2p = { version = "0.53.2", features = [
 	"serde",
 	"macros",
 	"relay",
+	"yamux",
+	"noise",
+	"quic",
+	"tls",
 ] }
-libp2p-quic = { version = "0.10.2", features = ["tokio"] }
 libp2p-stream = "0.1.0-alpha"
 mdns-sd = "0.10.3"
 rand_core = { version = "0.6.4" }

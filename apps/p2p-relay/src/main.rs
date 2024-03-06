@@ -16,6 +16,7 @@ mod utils;
 
 // TODO: Authentication with the Spacedrive Cloud
 // TODO: Rate-limit data usage by Spacedrive account.
+// TODO: Expose libp2p metrics like - https://github.com/mxinden/rust-libp2p-server/blob/master/src/behaviour.rs
 
 #[derive(NetworkBehaviour)]
 pub struct Behaviour {

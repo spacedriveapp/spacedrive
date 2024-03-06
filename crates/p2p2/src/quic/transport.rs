@@ -8,10 +8,11 @@ use std::{
 
 use flume::{bounded, Receiver, Sender};
 use libp2p::{
-	core::{muxing::StreamMuxerBox, transport::OrTransport},
+	autonat,
 	futures::{AsyncReadExt, AsyncWriteExt, StreamExt},
+	noise, relay,
 	swarm::{NetworkBehaviour, SwarmEvent},
-	StreamProtocol, Swarm, SwarmBuilder, Transport,
+	tls, yamux, StreamProtocol, Swarm, SwarmBuilder,
 };
 use tokio::{
 	net::TcpListener,
@@ -54,7 +55,9 @@ enum InternalEvent {
 struct MyBehaviour {
 	stream: libp2p_stream::Behaviour,
 	// TODO: Can this be optional?
-	relay: libp2p::relay::client::Behaviour,
+	relay: relay::client::Behaviour,
+	// TODO: Can this be optional?
+	autonat: autonat::Behaviour,
 }
 
 /// Transport using Quic to establish a connection between peers.
@@ -82,35 +85,31 @@ impl QuicTransport {
 			peer.listener_available(listener_id, connect_tx.clone());
 		});
 
-		// TODO: Make this optional
-		let (relay_transport, relay_behaviour) =
-			libp2p::relay::client::new(keypair.public().to_peer_id());
+		let swarm = SwarmBuilder::with_existing_identity(keypair)
+			.with_tokio()
+			.with_quic()
+			.with_relay_client(
+				(tls::Config::new, noise::Config::new),
+				yamux::Config::default,
+			)
+			.unwrap() // TODO: Error handling
+			.with_behaviour(|keypair, relay_behaviour| MyBehaviour {
+				stream: libp2p_stream::Behaviour::new(),
+				relay: relay_behaviour,
+				autonat: libp2p::autonat::Behaviour::new(
+					keypair.public().to_peer_id(),
+					Default::default(),
+				),
+			})
+			.unwrap() // TODO: Error handling
+			.with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
+			.build();
 
-		let swarm = todo!();
-		// ok(ok(SwarmBuilder::with_existing_identity(keypair)
-		// 	.with_tokio()
-		// 	.with_other_transport({
-		// 		let peer_id = keypair.public().to_peer_id();
-		// 		move |keypair| {
-		// 			// TODO: Fix `.boxed()`
-		// 			OrTransport::new(
-		// 				libp2p_quic::GenTransport::<libp2p_quic::tokio::Provider>::new(
-		// 					libp2p_quic::Config::new(keypair),
-		// 				)
-		// 				.map(|(p, c), _| (p, StreamMuxerBox::new(c)))
-		// 				.boxed(),
-		// 				relay_transport
-		// 					.map(|c, _| (peer_id, StreamMuxerBox::new(c)))
-		// 					.boxed(),
-		// 			)
-		// 		}
-		// 	}))
-		// .with_behaviour(|keypair| MyBehaviour {
-		// 	stream: libp2p_stream::Behaviour::new(),
-		// 	relay: relay_behaviour,
-		// }))
-		// .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
-		// .build();
+		// TODO: Pull from config
+		// swarm
+		// 	.behaviour_mut()
+		// 	.autonat
+		// 	.add_server(opt.server_peer_id, Some(opt.server_address));
 
 		tokio::spawn(start(p2p.clone(), id, swarm, rx, internal_rx, connect_rx));
 
@@ -181,13 +180,6 @@ impl QuicTransport {
 
 	pub async fn shutdown(self) {
 		self.p2p.unregister_hook(self.id.into()).await;
-	}
-}
-
-fn ok<T>(v: Result<T, Infallible>) -> T {
-	match v {
-		Ok(v) => v,
-		Err(_) => unreachable!(),
 	}
 }
 
