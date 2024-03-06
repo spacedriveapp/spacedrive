@@ -605,8 +605,8 @@ const RenameInput = ({ name, onRename }: RenameInputProps) => {
 					quickPreview.background
 						? 'border-white/[.12] bg-white/10 backdrop-blur-sm'
 						: isDark
-						? 'border-app-line bg-app-input'
-						: 'border-black/[.075] bg-black/[.075]'
+							? 'border-app-line bg-app-input'
+							: 'border-black/[.075] bg-black/[.075]'
 				)}
 				onKeyDown={handleKeyDown}
 				onFocus={() => highlightName()}
