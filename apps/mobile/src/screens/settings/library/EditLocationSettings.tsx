@@ -9,6 +9,7 @@ import { Input } from '~/components/form/Input';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { AnimatedButton } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
+import { toast } from '~/components/primitive/Toast';
 import SettingsButton from '~/components/settings/SettingsButton';
 import { SettingsInputInfo, SettingsTitle } from '~/components/settings/SettingsContainer';
 import SettingsToggle from '~/components/settings/SettingsToggle';
@@ -41,7 +42,8 @@ const EditLocationSettingsScreen = ({
 		onSuccess: () => {
 			form.reset(form.getValues());
 			queryClient.invalidateQueries(['locations.list']);
-			// TODO: Show toast & navigate back & reset input focus!
+			toast({ type: 'success', text: 'Location updated!' });
+			// TODO: navigate back & reset input focus!
 		}
 	});
 
@@ -109,7 +111,7 @@ const EditLocationSettingsScreen = ({
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 
 	return (
-		<ScreenContainer style={tw`px-7`}>
+		<ScreenContainer style={tw`px-6`}>
 			{/* Inputs */}
 			<View>
 				<SettingsTitle style={tw`mb-1`}>Display Name</SettingsTitle>

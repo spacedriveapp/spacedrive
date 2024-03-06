@@ -74,7 +74,7 @@ To run the landing page:
 
 If you encounter any issues, ensure that you are using the following versions of Rust, Node and Pnpm:
 
-- Rust version: **1.73.0**
+- Rust version: **1.75.0**
 - Node version: **18.17**
 - Pnpm version: **8.0.0**
 

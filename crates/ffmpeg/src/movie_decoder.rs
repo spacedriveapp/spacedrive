@@ -478,7 +478,7 @@ impl MovieDecoder {
 				"thumb_deint",
 				"deint=1",
 				self.filter_graph,
-				"Failed to create deinterlace filter",
+				"Failed to create de-interlace filter",
 			)?;
 		}
 

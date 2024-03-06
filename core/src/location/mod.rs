@@ -1,11 +1,11 @@
 use crate::{
 	invalidate_query,
-	job::{JobBuilder, JobError, JobManagerError},
 	library::Library,
 	object::{
-		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
-		media::{media_processor, MediaProcessorJobInit},
+		media::{old_media_processor, OldMediaProcessorJobInit},
+		old_file_identifier::{self, old_file_identifier_job::OldFileIdentifierJobInit},
 	},
+	old_job::{JobBuilder, JobError, JobManagerError},
 	Node,
 };
 
@@ -21,7 +21,6 @@ use sd_utils::{
 	uuid_to_bytes,
 };
 
-#[cfg(feature = "location-watcher")]
 use sd_file_path_helper::IsolatedFilePathDataParts;
 
 use std::{
@@ -48,7 +47,7 @@ pub mod metadata;
 pub mod non_indexed;
 
 pub use error::LocationError;
-use indexer::IndexerJobInit;
+use indexer::OldIndexerJobInit;
 pub use manager::{LocationManagerError, Locations};
 use metadata::SpacedriveLocationMetadataFile;
 
@@ -452,18 +451,18 @@ pub async fn scan_location(
 
 	let location_base_data = location::Data::from(&location);
 
-	JobBuilder::new(IndexerJobInit {
+	JobBuilder::new(OldIndexerJobInit {
 		location,
 		sub_path: None,
 	})
 	.with_action("scan_location")
 	.with_metadata(json!({"location": location_base_data.clone()}))
 	.build()
-	.queue_next(FileIdentifierJobInit {
+	.queue_next(OldFileIdentifierJobInit {
 		location: location_base_data.clone(),
 		sub_path: None,
 	})
-	.queue_next(MediaProcessorJobInit {
+	.queue_next(OldMediaProcessorJobInit {
 		location: location_base_data,
 		sub_path: None,
 		regenerate_thumbnails: false,
@@ -489,7 +488,7 @@ pub async fn scan_location_sub_path(
 
 	let location_base_data = location::Data::from(&location);
 
-	JobBuilder::new(IndexerJobInit {
+	JobBuilder::new(OldIndexerJobInit {
 		location,
 		sub_path: Some(sub_path.clone()),
 	})
@@ -499,11 +498,11 @@ pub async fn scan_location_sub_path(
 		"sub_path": sub_path.clone(),
 	}))
 	.build()
-	.queue_next(FileIdentifierJobInit {
+	.queue_next(OldFileIdentifierJobInit {
 		location: location_base_data.clone(),
 		sub_path: Some(sub_path.clone()),
 	})
-	.queue_next(MediaProcessorJobInit {
+	.queue_next(OldMediaProcessorJobInit {
 		location: location_base_data,
 		sub_path: Some(sub_path),
 		regenerate_thumbnails: false,
@@ -529,9 +528,9 @@ pub async fn light_scan_location(
 
 	let location_base_data = location::Data::from(&location);
 
-	indexer::shallow(&location, &sub_path, &node, &library).await?;
-	file_identifier::shallow(&location_base_data, &sub_path, &library).await?;
-	media_processor::shallow(
+	indexer::old_shallow(&location, &sub_path, &node, &library).await?;
+	old_file_identifier::old_shallow(&location_base_data, &sub_path, &library).await?;
+	old_media_processor::old_shallow(
 		&location_base_data,
 		&sub_path,
 		&library,
@@ -604,7 +603,7 @@ pub(crate) fn normalize_path(path: impl AsRef<Path>) -> io::Result<(String, Stri
 		.and_then(|normalized_path| {
 			if cfg!(windows) {
 				// Use normalized path as main path on Windows
-				// This ensures we always receive a valid windows formated path
+				// This ensures we always receive a valid windows formatted path
 				// ex: /Users/JohnDoe/Downloads will become C:\Users\JohnDoe\Downloads
 				// Internally `normalize` calls `GetFullPathNameW` on Windows
 				// https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfullpathnamew
@@ -1037,7 +1036,6 @@ pub async fn get_location_path_from_location_id(
 		})
 }
 
-#[cfg(feature = "location-watcher")]
 pub async fn create_file_path(
 	crate::location::Library { db, sync, .. }: &crate::location::Library,
 	IsolatedFilePathDataParts {

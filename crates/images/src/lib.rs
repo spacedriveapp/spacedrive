@@ -34,7 +34,7 @@ mod svg;
 use consts::MAXIMUM_FILE_SIZE;
 
 // Re-exports
-pub use consts::{all_compatible_extensions, ConvertableExtension};
+pub use consts::{all_compatible_extensions, ConvertibleExtension};
 pub use error::{Error, Result};
 pub use handler::{convert_image, format_image};
 pub use image::DynamicImage;

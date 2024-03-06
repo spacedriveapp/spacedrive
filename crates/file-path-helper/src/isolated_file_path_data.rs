@@ -34,7 +34,7 @@ pub struct IsolatedFilePathDataParts<'a> {
 #[non_exhaustive]
 pub struct IsolatedFilePathData<'a> {
 	// WARN! These fields MUST NOT be changed outside the location module, that's why they have this visibility
-	// and are not public. They have some specific logic on them and should not be writen to directly.
+	// and are not public. They have some specific logic on them and should not be written to directly.
 	// If you wanna access one of them outside from location module, write yourself an accessor method
 	// to have read only access to them.
 	pub(super) location_id: location::id::Type,

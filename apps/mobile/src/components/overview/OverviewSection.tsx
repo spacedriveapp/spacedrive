@@ -9,8 +9,9 @@ interface Props extends PropsWithChildren {
 
 const OverviewSection = ({ title, count, children }: Props) => {
 	return (
-		<>
-			<View style={tw`flex-row items-center gap-3 px-7 pb-5`}>
+		<View>
+			{/* The view wrapper is needed to prevent gap spacing from screen container */}
+			<View style={tw`flex-row items-center gap-3 px-6 pb-3`}>
 				<Text style={tw`text-lg font-bold text-white`}>{title}</Text>
 				<View
 					style={tw`flex h-[24px] w-[24px] items-center justify-center rounded-full border border-app-button/40 px-1`}
@@ -19,7 +20,7 @@ const OverviewSection = ({ title, count, children }: Props) => {
 				</View>
 			</View>
 			{children}
-		</>
+		</View>
 	);
 };
 

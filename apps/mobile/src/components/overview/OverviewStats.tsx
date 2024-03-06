@@ -1,8 +1,8 @@
+import * as RNFS from '@dr.pogodin/react-native-fs';
 import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/v2';
 import { UseQueryResult } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
-import RNFS from 'react-native-fs';
 import { ClassInput } from 'twrnc/dist/esm/types';
 import { byteSize, Statistics, StatisticsResponse, useLibraryContext } from '@sd/client';
 import useCounter from '~/hooks/useCounter';
@@ -60,7 +60,13 @@ const OverviewStats = ({ stats }: Props) => {
 
 	// For Demo purposes as we probably wanna save this to database
 	// Sets Total Capacity and Free Space of the device
-	const [sizeInfo, setSizeInfo] = useState<RNFS.FSInfoResult>({ freeSpace: 0, totalSpace: 0 });
+	const [sizeInfo, setSizeInfo] = useState<RNFS.FSInfoResultT>({
+		freeSpace: 0,
+		totalSpace: 0,
+		// external storage (android only) - may not be reliable
+		freeSpaceEx: 0,
+		totalSpaceEx: 0
+	});
 
 	useEffect(() => {
 		const getFSInfo = async () => {
@@ -98,8 +104,8 @@ const OverviewStats = ({ stats }: Props) => {
 	};
 
 	return (
-		<View style={tw`px-7`}>
-			<Text style={tw`pb-5 text-lg font-bold text-white`}>Statistics</Text>
+		<View style={tw`px-6`}>
+			<Text style={tw`pb-3 text-lg font-bold text-white`}>Statistics</Text>
 			<View style={tw`h-[250px] w-full flex-row justify-between gap-2`}>
 				<View style={tw`h-full w-[49%] flex-col justify-between gap-2`}>
 					{renderStatItems()}

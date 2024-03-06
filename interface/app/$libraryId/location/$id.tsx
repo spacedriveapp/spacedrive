@@ -60,15 +60,7 @@ export const Component = () => {
 const LocationExplorer = ({ location }: { location: Location; path?: string }) => {
 	const [{ path, take }] = useExplorerSearchParams();
 
-	const onlineLocations = useOnlineLocations();
-
 	const rescan = useQuickRescan();
-
-	const locationOnline = useMemo(() => {
-		const pub_id = location.pub_id;
-		if (!pub_id) return false;
-		return onlineLocations.some((l) => arraysEqual(pub_id, l));
-	}, [location.pub_id, onlineLocations]);
 
 	const { explorerSettings, preferences } = useLocationExplorerSettings(location);
 
@@ -142,11 +134,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 						<div className="flex items-center gap-2">
 							<Folder size={22} className="mt-[-1px]" />
 							<span className="truncate text-sm font-medium">{title}</span>
-							{!locationOnline && (
-								<Tooltip label={t('location_disconnected_tooltip')}>
-									<Info className="text-ink-faint" />
-								</Tooltip>
-							)}
+							<LocationOfflineInfo location={location} />
 							<LocationOptions location={location} path={path || ''} />
 						</div>
 					}
@@ -189,6 +177,27 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 		</ExplorerContextProvider>
 	);
 };
+
+function LocationOfflineInfo({ location }: { location: Location }) {
+	const onlineLocations = useOnlineLocations();
+
+	const locationOnline = useMemo(
+		() => onlineLocations.some((l) => arraysEqual(location.pub_id, l)),
+		[location.pub_id, onlineLocations]
+	);
+
+	const { t } = useLocale();
+
+	return (
+		<>
+			{!locationOnline && (
+				<Tooltip label={t('location_disconnected_tooltip')}>
+					<Info className="text-ink-faint" />
+				</Tooltip>
+			)}
+		</>
+	);
+}
 
 function getLastSectionOfPath(path: string): string | undefined {
 	if (path.endsWith('/')) {

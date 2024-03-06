@@ -128,7 +128,7 @@ function renderSectionHeader({ section }: { section: { title: string } }) {
 	return (
 		<Text
 			style={twStyle(
-				'mb-4 text-md font-bold text-ink',
+				'mb-3 text-lg font-bold text-ink',
 				section.title === 'Client' ? 'mt-2' : 'mt-5'
 			)}
 		>
@@ -141,7 +141,7 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 	const debugState = useDebugState();
 
 	return (
-		<ScreenContainer tabHeight={false} scrollview={false} style={tw`relative gap-0 px-7 py-0`}>
+		<ScreenContainer tabHeight={false} scrollview={false} style={tw`gap-0 px-6 py-0`}>
 			<SectionList
 				sections={sections(debugState)}
 				contentContainerStyle={tw`h-auto pb-5 pt-3`}

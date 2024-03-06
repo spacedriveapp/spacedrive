@@ -12,7 +12,7 @@ const AboutScreen = () => {
 	const buildInfo = useBridgeQuery(['buildInfo']);
 
 	return (
-		<ScreenContainer style={tw`justify-start gap-0 px-7 py-5`}>
+		<ScreenContainer style={tw`justify-start gap-0 px-6`}>
 			<View style={tw.style('flex flex-row items-center')}>
 				<Image
 					source={require('../../../../assets/icon.png')}
@@ -22,11 +22,10 @@ const AboutScreen = () => {
 				<View style={tw.style('flex flex-col')}>
 					<Text style={tw.style('text-2xl font-bold text-white')}>
 						Spacedrive{' '}
-						{`for ${
-							Platform.OS === 'android'
-								? Platform.OS[0]?.toUpperCase() + Platform.OS.slice(1)
-								: Platform.OS[0] + Platform.OS.slice(1).toUpperCase()
-						}`}
+						{`for ${Platform.OS === 'android'
+							? Platform.OS[0]?.toUpperCase() + Platform.OS.slice(1)
+							: Platform.OS[0] + Platform.OS.slice(1).toUpperCase()
+							}`}
 					</Text>
 					<Text style={tw.style('mt-1 text-sm text-ink-dull')}>
 						The file manager from the future.

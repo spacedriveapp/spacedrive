@@ -28,11 +28,11 @@ const CATEGORIES_LIST = [
 ];
 const Categories = () => {
 	return (
-		<View style={tw`relative gap-5`}>
-			<Text style={tw`px-7 text-lg font-bold text-white`}>Library</Text>
+		<View style={tw`relative gap-3`}>
+			<Text style={tw`px-6 text-lg font-bold text-white`}>Library</Text>
 			<Fade width={30} height="100%" color="mobile-screen">
 				<ScrollView showsHorizontalScrollIndicator={false} horizontal>
-					<View style={tw`flex-row gap-2 px-7`}>
+					<View style={tw`flex-row gap-2 px-6`}>
 						{CATEGORIES_LIST.map((c, i) => {
 							return <Category icon={c.icon} key={i} name={c.name} />;
 						})}

@@ -126,7 +126,7 @@ const AppearanceSettingsScreen = ({
 	// TODO: Hook this up to the theme store once light theme is fixed.
 
 	return (
-		<ScreenContainer scrollview={false} style={tw`gap-2 px-7`}>
+		<ScreenContainer scrollview={false} style={tw`gap-2 px-6`}>
 			<SettingsTitle>Theme</SettingsTitle>
 			<ScrollView
 				horizontal

@@ -1,7 +1,7 @@
+import { DocumentDirectoryPath } from '@dr.pogodin/react-native-fs';
 import { getIcon } from '@sd/assets/util';
 import { useEffect, useLayoutEffect, useMemo, useState, type PropsWithChildren } from 'react';
 import { Image, View } from 'react-native';
-import { DocumentDirectoryPath } from 'react-native-fs';
 import {
 	getExplorerItemData,
 	getItemFilePath,
@@ -13,10 +13,12 @@ import { flattenThumbnailKey, useExplorerStore } from '~/stores/explorerStore';
 
 import { tw } from '../../lib/tailwind';
 
-export const getThumbnailUrlByThumbKey = (thumbKey: string[]) =>
-	`${DocumentDirectoryPath}/thumbnails/${thumbKey
+// NOTE: `file://` is required for Android to load local files!
+export const getThumbnailUrlByThumbKey = (thumbKey: string[]) => {
+	return `file://${DocumentDirectoryPath}/thumbnails/${thumbKey
 		.map((i) => encodeURIComponent(i))
 		.join('/')}.webp`;
+};
 
 const FileThumbWrapper = ({ children, size = 1 }: PropsWithChildren<{ size: number }>) => (
 	<View style={[tw`items-center justify-center`, { width: 80 * size, height: 80 * size }]}>

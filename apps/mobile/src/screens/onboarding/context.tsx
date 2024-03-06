@@ -15,6 +15,7 @@ import {
 	useOnboardingStore,
 	usePlausibleEvent
 } from '@sd/client';
+import { toast } from '~/components/primitive/Toast';
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
 import { currentLibraryStore } from '~/utils/nav';
 
@@ -108,7 +109,7 @@ const useFormState = () => {
 				// Switch to the new library
 				currentLibraryStore.id = library.uuid;
 			} catch (e) {
-				// TODO: Show toast
+				toast({ type: 'error', text: 'Failed to create library' });
 				resetOnboardingStore();
 				navigation.navigate('GetStarted');
 			}

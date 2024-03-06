@@ -39,8 +39,8 @@ export const Locations = ({ redirectToLocationSettings }: Props) => {
 	const [debouncedSearch] = useDebounce(search, 200);
 	const filteredLocations = useMemo(
 		() =>
-			locations?.filter(
-				(location) => location.name?.toLowerCase().includes(debouncedSearch.toLowerCase())
+			locations?.filter((location) =>
+				location.name?.toLowerCase().includes(debouncedSearch.toLowerCase())
 			) ?? [],
 		[debouncedSearch, locations]
 	);
@@ -50,7 +50,7 @@ export const Locations = ({ redirectToLocationSettings }: Props) => {
 			SettingsStackScreenProps<'Settings'>['navigation']
 	>();
 	return (
-		<ScreenContainer scrollview={false} style={tw`relative px-7 py-0`}>
+		<ScreenContainer scrollview={false} style={tw`relative px-6 py-0`}>
 			<Pressable
 				style={tw`absolute bottom-7 right-7 z-10 h-12 w-12 items-center justify-center rounded-full bg-accent`}
 				onPress={() => {
@@ -70,7 +70,7 @@ export const Locations = ({ redirectToLocationSettings }: Props) => {
 				<FlatList
 					data={filteredLocations}
 					contentContainerStyle={twStyle(
-						`py-5`,
+						`py-6`,
 						filteredLocations.length === 0 && 'h-full items-center justify-center'
 					)}
 					keyExtractor={(location) => location.id.toString()}

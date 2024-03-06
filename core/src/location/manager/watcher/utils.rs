@@ -7,12 +7,12 @@ use crate::{
 		manager::LocationManagerError, scan_location_sub_path, update_location_size,
 	},
 	object::{
-		file_identifier::FileMetadata,
 		media::{
 			media_data_extractor::{can_extract_media_data_for_image, extract_media_data},
 			media_data_image_to_query_params,
-			thumbnail::get_indexed_thumbnail_path,
+			old_thumbnail::get_indexed_thumbnail_path,
 		},
+		old_file_identifier::FileMetadata,
 		validation::hash::file_checksum,
 	},
 	Node,
@@ -53,7 +53,6 @@ use std::{
 
 use chrono::{DateTime, FixedOffset, Local, Utc};
 use notify::Event;
-use prisma_client_rust::{raw, PrismaValue};
 use serde_json::json;
 use tokio::{
 	fs,
@@ -799,27 +798,49 @@ pub(super) async fn rename(
 		if is_dir {
 			let old = IsolatedFilePathData::new(location_id, &location_path, old_path, is_dir)?;
 			let old_parts = old.to_parts();
-			// TODO: Fetch all file_paths that will be updated and dispatch sync events
 
-			// This is NOT sync compatible! @brendan
-			let updated = db
-				._execute_raw(raw!(
-					"UPDATE file_path \
-						SET materialized_path = REPLACE(materialized_path, {}, {}) \
-						WHERE location_id = {}",
-					PrismaValue::String(format!(
-						"{}/{}/",
-						old_parts.materialized_path, old_parts.name
-					)),
-					PrismaValue::String(format!(
-						"{}/{}/",
-						new_parts.materialized_path, new_parts.name
-					)),
-					PrismaValue::Int(location_id as i64)
-				))
+			let starts_with = format!("{}/{}/", old_parts.materialized_path, old_parts.name);
+			let paths = db
+				.file_path()
+				.find_many(vec![
+					file_path::location_id::equals(Some(location_id)),
+					file_path::materialized_path::starts_with(starts_with.clone()),
+				])
+				.select(file_path::select!({
+					id
+					pub_id
+					materialized_path
+				}))
 				.exec()
 				.await?;
-			trace!("Updated {updated} file_paths");
+
+			let len = paths.len();
+			let (sync_params, db_params): (Vec<_>, Vec<_>) = paths
+				.into_iter()
+				.filter_map(|path| path.materialized_path.map(|mp| (path.id, path.pub_id, mp)))
+				.map(|(id, pub_id, mp)| {
+					let new_path = mp.replace(
+						&starts_with,
+						&format!("{}/{}/", new_parts.materialized_path, new_parts.name),
+					);
+
+					(
+						sync.shared_update(
+							sd_prisma::prisma_sync::file_path::SyncId { pub_id },
+							file_path::materialized_path::NAME,
+							json!(&new_path),
+						),
+						db.file_path().update(
+							file_path::id::equals(id),
+							vec![file_path::materialized_path::set(Some(new_path))],
+						),
+					)
+				})
+				.unzip();
+
+			sync.write_ops(db, (sync_params, db_params)).await?;
+
+			trace!("Updated {len} file_paths");
 		}
 
 		let is_hidden = path_is_hidden(new_path, &new_path_metadata);

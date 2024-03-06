@@ -19,7 +19,7 @@ pub const REMOTE_IDENTITY_LEN: usize = 32;
 #[error(transparent)]
 pub enum IdentityErr {
 	#[error("{0}")]
-	Darlek(#[from] ed25519_dalek::ed25519::Error),
+	Dalek(#[from] ed25519_dalek::ed25519::Error),
 	#[error("Invalid key length")]
 	InvalidKeyLength,
 }

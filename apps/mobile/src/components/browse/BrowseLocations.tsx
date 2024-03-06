@@ -97,12 +97,11 @@ const BrowseLocations = () => {
 	const locations = useCache(result.data?.items);
 
 	return (
-		<View style={tw`gap-5`}>
-			<View style={tw`w-full flex-row items-center justify-between px-7`}>
+		<View style={tw`gap-3`}>
+			<View style={tw`w-full flex-row items-center justify-between px-6`}>
 				<Text style={tw`text-lg font-bold text-white`}>Locations</Text>
 				<View style={tw`flex-row gap-3`}>
 					<Pressable
-						disabled={result.data?.nodes.length === 0}
 						onPress={() => {
 							navigation.navigate('Locations');
 						}}
@@ -129,7 +128,7 @@ const BrowseLocations = () => {
 					data={locations}
 					ListEmptyComponent={() => (
 						<View
-							style={tw`relative h-auto w-[85.5vw] flex-col items-center justify-center overflow-hidden rounded-md border border-dashed border-sidebar-line  p-4`}
+							style={tw`relative h-auto w-[87.5vw] flex-col items-center justify-center overflow-hidden rounded-md border border-dashed border-sidebar-line  p-4`}
 						>
 							<Icon name="Folder" size={38} />
 							<Text style={tw`mt-2 text-center font-medium text-ink-dull`}>
