@@ -1,7 +1,7 @@
 use std::{
 	collections::{HashMap, HashSet},
-	convert::Infallible,
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr},
+	str::FromStr,
 	sync::{Arc, PoisonError, RwLock},
 	time::Duration,
 };
@@ -12,7 +12,7 @@ use libp2p::{
 	futures::{AsyncReadExt, AsyncWriteExt, StreamExt},
 	noise, relay,
 	swarm::{NetworkBehaviour, SwarmEvent},
-	tls, yamux, StreamProtocol, Swarm, SwarmBuilder,
+	tls, yamux, PeerId, StreamProtocol, Swarm, SwarmBuilder,
 };
 use tokio::{
 	net::TcpListener,
@@ -48,6 +48,10 @@ enum InternalEvent {
 		id: ListenerId,
 		ipv4: bool,
 		result: oneshot::Sender<Result<(), String>>,
+	},
+	CheckAndDialPeer {
+		identity: RemoteIdentity,
+		// result: oneshot::Sender<Result<(), String>>,
 	},
 }
 
@@ -85,7 +89,7 @@ impl QuicTransport {
 			peer.listener_available(listener_id, connect_tx.clone());
 		});
 
-		let swarm = SwarmBuilder::with_existing_identity(keypair)
+		let mut swarm = SwarmBuilder::with_existing_identity(keypair)
 			.with_tokio()
 			.with_quic()
 			.with_relay_client(
@@ -96,20 +100,23 @@ impl QuicTransport {
 			.with_behaviour(|keypair, relay_behaviour| MyBehaviour {
 				stream: libp2p_stream::Behaviour::new(),
 				relay: relay_behaviour,
-				autonat: libp2p::autonat::Behaviour::new(
-					keypair.public().to_peer_id(),
-					Default::default(),
-				),
+				autonat: autonat::Behaviour::new(keypair.public().to_peer_id(), Default::default()),
 			})
 			.unwrap() // TODO: Error handling
 			.with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
 			.build();
 
-		// TODO: Pull from config
-		// swarm
-		// 	.behaviour_mut()
-		// 	.autonat
-		// 	.add_server(opt.server_peer_id, Some(opt.server_address));
+		{
+			// TODO: Pull from config & make optional
+			let addr = socketaddr_to_quic_multiaddr(&(Ipv4Addr::new(13, 57, 219, 49), 7373).into());
+			let peer_id =
+				PeerId::from_str("12D3KooWEJyoU1P611Qa6qdVt63ALMGKubeEwS8FsznLS2UzmYMj").unwrap(); // TODO: This changes on server startup
+
+			swarm
+				.behaviour_mut()
+				.autonat
+				.add_server(peer_id, Some(addr));
+		}
 
 		tokio::spawn(start(p2p.clone(), id, swarm, rx, internal_rx, connect_rx));
 
@@ -121,6 +128,14 @@ impl QuicTransport {
 			},
 			libp2p_peer_id,
 		))
+	}
+
+	pub async fn todo(&self, identity: RemoteIdentity) {
+		self.internal_tx.send(InternalEvent::CheckAndDialPeer {
+			identity,
+			// TODO: Oneshot for result
+			// result: oneshot::channel().1,
+		});
 	}
 
 	// `None` on the port means disabled. Use `0` for random port.
@@ -346,6 +361,35 @@ async fn start(
 						}
 					}
 					let _ = result.send(Ok(()));
+				},
+				InternalEvent::CheckAndDialPeer { identity } => {
+					let peer_id = remote_identity_to_libp2p_peerid(&identity);
+
+					swarm.behaviour().autonat.
+
+					// match control.open_stream(peer_id, PROTOCOL).await {
+					// 	Ok(mut stream) => {
+					// 		map.write().unwrap_or_else(PoisonError::into_inner).insert(peer_id, identity);
+
+					// 		match stream.write_all(&p2p.identity().to_remote_identity().get_bytes()).await {
+					// 			Ok(_) => {
+					// 				debug!("Established outbound stream with '{}'", identity);
+					// 				let _ = p2p.connected_to(
+					// 					id,
+					// 					HashMap::new(),
+					// 					UnicastStream::new(identity, stream.compat()),
+					// 					oneshot::channel().0,
+					// 				);
+					// 			},
+					// 			Err(e) => {
+					// 				warn!("Failed to write remote identity to '{}': {e:?}");
+					// 			},
+					// 		}
+					// 	},
+					// 	Err(e) => {
+					// 		warn!("Failed to open stream with '{}': {e:?}");
+					// 	},
+					// }
 				},
 			},
 			Some(req) = connect_rx.recv() => {

@@ -43,6 +43,7 @@ libp2p = { version = "0.53.2", features = [
 	"serde",
 	"macros",
 	"relay",
+	"autonat",
 	"yamux",
 	"noise",
 	"quic",
