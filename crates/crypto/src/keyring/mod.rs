@@ -13,8 +13,8 @@ mod linux;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 mod apple;
 
-#[cfg(target_os = "windows")]
-mod windows;
+// #[cfg(target_os = "windows")]
+// mod windows;
 
 const MAX_LEN: usize = 128;
 
