@@ -1,12 +1,12 @@
+import * as RNFS from '@dr.pogodin/react-native-fs';
 import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/v2';
 import { UseQueryResult } from '@tanstack/react-query';
 import React, { useEffect, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
+import DeviceInfo from 'react-native-device-info';
 import { ScrollView } from 'react-native-gesture-handler';
 import { HardwareModel, NodeState, StatisticsResponse } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
-import RNFS from 'react-native-fs';
-import DeviceInfo from 'react-native-device-info';
 
 import Fade from '../layout/Fade';
 import { Button } from '../primitive/Button';
@@ -52,8 +52,14 @@ const Devices = ({ node, stats }: Props) => {
 		});
 	}, []);
 
-	const totalSpace = Platform.OS === "android" ? sizeInfo.totalSpace.toString() : stats.data?.statistics?.total_bytes_capacity || '0';
-	const freeSpace = Platform.OS === "android" ? sizeInfo.freeSpace.toString() : stats.data?.statistics?.total_bytes_free || '0';
+	const totalSpace =
+		Platform.OS === 'android'
+			? sizeInfo.totalSpace.toString()
+			: stats.data?.statistics?.total_bytes_capacity || '0';
+	const freeSpace =
+		Platform.OS === 'android'
+			? sizeInfo.freeSpace.toString()
+			: stats.data?.statistics?.total_bytes_free || '0';
 
 	useEffect(() => {
 		if (Platform.OS === 'android') {

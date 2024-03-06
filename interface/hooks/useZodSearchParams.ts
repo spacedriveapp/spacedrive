@@ -106,8 +106,8 @@ function parseParams(o: any, schema: any, key: string, value: any) {
 			shape instanceof z.ZodObject
 				? shape.shape
 				: shape instanceof z.ZodEffects
-				? shape._def.schema
-				: null;
+					? shape._def.schema
+					: null;
 		if (shape === null) {
 			throw new Error(`Could not find shape for key ${key}`);
 		}

@@ -86,7 +86,7 @@ export function Platform({ platform, ...props }: ComponentProps<'a'> & PlatformP
 						href={`${BASE_DL_LINK}/${platform.os}/${links[0].arch}`}
 						{...props}
 					/>
-			  )
+				)
 			: (props: any) => <button {...props} />
 		: (props: any) => <div {...props} />;
 
