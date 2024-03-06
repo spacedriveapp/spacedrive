@@ -80,7 +80,7 @@ const InnerCell = memo(
 					: flexRender(props.cell.column.columnDef.cell, {
 							...props.cell.getContext(),
 							selected: props.selected
-					  })}
+						})}
 			</div>
 		);
 	}

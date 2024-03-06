@@ -89,8 +89,8 @@ const Explorer = ({ items, tabHeight }: ExplorerProps) => {
 						item.type === 'NonIndexedPath'
 							? item.item.path
 							: item.type === 'SpacedropPeer'
-							? item.item.name
-							: item.item.id.toString()
+								? item.item.name
+								: item.item.id.toString()
 					}
 					renderItem={({ item }) => (
 						<Pressable onPress={() => handlePress(item)}>

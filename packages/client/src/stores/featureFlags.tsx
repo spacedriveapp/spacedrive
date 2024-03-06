@@ -77,7 +77,7 @@ export function toggleFeatureFlag(flags: FeatureFlag | FeatureFlag[]) {
 					? true
 					: await confirm(
 							'This feature will render your database broken and it WILL need to be reset! Use at your own risk!'
-					  );
+						);
 
 				if (result) {
 					nonLibraryClient.mutation(['toggleFeatureFlag', f as any]);
