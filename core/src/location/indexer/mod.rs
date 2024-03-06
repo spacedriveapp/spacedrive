@@ -8,7 +8,7 @@ use sd_prisma::{
 	prisma_sync,
 };
 use sd_sync::*;
-use sd_utils::{db::inode_to_db, error::FileIOError, from_bytes_to_uuid};
+use sd_utils::{db::inode_to_db, error::FileIOError, from_bytes_to_uuid, msgpack};
 
 use std::{collections::HashMap, path::Path};
 
@@ -18,7 +18,6 @@ use itertools::Itertools;
 use prisma_client_rust::operator::or;
 use rspc::ErrorCode;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use thiserror::Error;
 use tracing::{trace, warn};
 
@@ -110,7 +109,7 @@ async fn execute_indexer_save_step(
 				(
 					(
 						location::NAME,
-						json!(prisma_sync::location::SyncId {
+						msgpack!(prisma_sync::location::SyncId {
 							pub_id: location.pub_id.clone()
 						}),
 					),
@@ -195,11 +194,9 @@ async fn execute_indexer_update_step(
 			let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 				// As this file was updated while Spacedrive was offline, we mark the object_id and cas_id as null
 				// So this file_path will be updated at file identifier job
-				should_unlink_object.then_some((
-					(object_id::NAME, serde_json::Value::Null),
-					object::disconnect(),
-				)),
-				Some(((cas_id::NAME, serde_json::Value::Null), cas_id::set(None))),
+				should_unlink_object
+					.then_some(((object_id::NAME, msgpack!(null)), object::disconnect())),
+				Some(((cas_id::NAME, msgpack!(null)), cas_id::set(None))),
 				Some(sync_db_entry!(*is_dir, is_dir)),
 				Some(sync_db_entry!(
 					entry.metadata.size_in_bytes.to_be_bytes().to_vec(),
@@ -531,7 +528,7 @@ pub async fn reverse_update_directories_sizes(
 							pub_id: pub_id.clone(),
 						},
 						file_path::size_in_bytes_bytes::NAME,
-						json!(size_bytes.clone()),
+						msgpack!(size_bytes.clone()),
 					),
 					db.file_path().update(
 						file_path::pub_id::equals(pub_id),

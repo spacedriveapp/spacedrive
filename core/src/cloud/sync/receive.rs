@@ -155,10 +155,9 @@ pub async fn run_actor(
 					e.insert(NTP64(0));
 				}
 
-				let compressed_operations: CompressedCRDTOperations =
-					err_break!(serde_json::from_slice(err_break!(
-						&BASE64_STANDARD.decode(collection.contents)
-					)));
+				let compressed_operations: CompressedCRDTOperations = err_break!(
+					rmp_serde::from_slice(err_break!(&BASE64_STANDARD.decode(collection.contents)))
+				);
 
 				err_break!(write_cloud_ops_to_db(compressed_operations.into_ops(), &db).await);
 

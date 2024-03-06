@@ -14,7 +14,7 @@ use sd_prisma::{
 	prisma_sync,
 };
 use sd_sync::OperationFactory;
-use sd_utils::{db::maybe_missing, error::FileIOError};
+use sd_utils::{db::maybe_missing, error::FileIOError, msgpack};
 
 use std::{
 	hash::{Hash, Hasher},
@@ -162,7 +162,7 @@ impl StatefulJob for OldObjectValidatorJobInit {
 						pub_id: file_path.pub_id.clone(),
 					},
 					file_path::integrity_checksum::NAME,
-					json!(&checksum),
+					msgpack!(&checksum),
 				),
 				db.file_path().update(
 					file_path::pub_id::equals(file_path.pub_id.clone()),
