@@ -73,7 +73,7 @@ pub async fn run_actor(
 					key: req_add.key,
 					start_time,
 					end_time,
-					contents: serde_json::to_value(CompressedCRDTOperations::new(ops))
+					contents: rmpv::ext::to_value(CompressedCRDTOperations::new(ops))
 						.expect("CompressedCRDTOperation should serialize!"),
 					ops_count: ops_len,
 				})

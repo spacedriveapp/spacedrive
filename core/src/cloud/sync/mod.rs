@@ -79,7 +79,7 @@ macro_rules! err_break {
 }
 pub(crate) use err_break;
 
-pub type CompressedCRDTOperationsForModel = Vec<(Vec<u8>, Vec<CompressedCRDTOperation>)>;
+pub type CompressedCRDTOperationsForModel = Vec<(rmpv::Value, Vec<CompressedCRDTOperation>)>;
 
 #[derive(Serialize, Deserialize)]
 pub struct CompressedCRDTOperations(Vec<(Uuid, Vec<(String, CompressedCRDTOperationsForModel)>)>);
