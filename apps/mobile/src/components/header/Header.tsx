@@ -48,10 +48,9 @@ export default function Header({
 
 	return (
 		<View
-			style={twStyle(
-				'relative h-auto w-full border-b border-app-line/50 bg-mobile-header',
-				{ paddingTop: headerHeight }
-			)}
+			style={twStyle('relative h-auto w-full border-b border-app-line/50 bg-mobile-header', {
+				paddingTop: headerHeight
+			})}
 		>
 			<View style={tw`mx-auto h-auto w-full justify-center px-5 pb-4`}>
 				<View style={tw`w-full flex-row items-center justify-between`}>

@@ -62,7 +62,7 @@ export const AppliedFilters = ({ allowRemove = true }: { allowRemove?: boolean }
 															return dyanmicFilters;
 														}
 													);
-											  }
+												}
 											: undefined
 									}
 								/>

@@ -25,7 +25,7 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 			take: 100
 		}
 	]);
-  
+
 	const pathsItemsReferences = useMemo(() => paths.data?.items ?? [], [paths.data]);
 	useNodes(paths.data?.nodes);
 	const pathsItems = useCache(pathsItemsReferences);
@@ -52,5 +52,5 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 		getExplorerStore().path = path ?? '';
 	}, [id, path]);
 
-	return <Explorer items={pathsItems} />
+	return <Explorer items={pathsItems} />;
 }

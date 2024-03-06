@@ -105,8 +105,8 @@ export default function LocalSection() {
 						item.mountPoint === '/'
 							? 'Root'
 							: item.index === 0
-							? item.volume.name
-							: item.mountPoint;
+								? item.volume.name
+								: item.mountPoint;
 
 					const toPath =
 						locationId !== undefined
@@ -128,8 +128,8 @@ export default function LocalSection() {
 									item.volume.file_system === 'exfat'
 										? 'SD'
 										: item.volume.name === 'Macintosh HD'
-										? 'HDD'
-										: 'Drive'
+											? 'HDD'
+											: 'Drive'
 								}
 							/>
 							<Name>{name}</Name>

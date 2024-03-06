@@ -312,7 +312,7 @@ export type GenerateThumbsForLocationArgs = { id: number; path: string; regenera
 
 export type GetAll = { backups: Backup[]; directory: string }
 
-export type HardwareModel = "Other" | "MacStudio" | "MacBookAir" | "MacBookPro" | "MacBook" | "MacMini" | "MacPro" | "IMac" | "IMacPro" | "IPad" | "IPhone"
+export type HardwareModel = "Other" | "MacStudio" | "MacBookAir" | "MacBookPro" | "MacBook" | "MacMini" | "MacPro" | "IMac" | "IMacPro" | "IPad" | "IPhone" | "Simulator" | "Android"
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
 
