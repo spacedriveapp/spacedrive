@@ -23,7 +23,7 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 			paginate(
 				|cursor| {
 					db.location()
-						.find_many(vec![location::id::gte(cursor)])
+						.find_many(vec![location::id::gt(cursor)])
 						.order_by(location::id::order(SortOrder::Asc))
 						.take(1000)
 						.exec()
@@ -79,7 +79,7 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 			paginate(
 				|cursor| {
 					db.object()
-						.find_many(vec![object::id::gte(cursor)])
+						.find_many(vec![object::id::gt(cursor)])
 						.order_by(object::id::order(SortOrder::Asc))
 						.take(1000)
 						.exec()
@@ -120,7 +120,7 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 			paginate(
 				|cursor| {
 					db.media_data()
-						.find_many(vec![media_data::id::gte(cursor)])
+						.find_many(vec![media_data::id::gt(cursor)])
 						.order_by(media_data::id::order(SortOrder::Asc))
 						.take(1000)
 						.include(media_data::include!({
@@ -173,7 +173,7 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 			paginate(
 				|cursor| {
 					db.file_path()
-						.find_many(vec![file_path::id::gte(cursor)])
+						.find_many(vec![file_path::id::gt(cursor)])
 						.order_by(file_path::id::order(SortOrder::Asc))
 						.include(file_path::include!({
 							location: select { pub_id }
@@ -239,7 +239,7 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 			paginate(
 				|cursor| {
 					db.tag()
-						.find_many(vec![tag::id::gte(cursor)])
+						.find_many(vec![tag::id::gt(cursor)])
 						.order_by(tag::id::order(SortOrder::Asc))
 						.exec()
 				},
@@ -313,7 +313,7 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 			paginate(
 				|cursor| {
 					db.label()
-						.find_many(vec![label::id::gte(cursor)])
+						.find_many(vec![label::id::gt(cursor)])
 						.order_by(label::id::order(SortOrder::Asc))
 						.exec()
 				},
