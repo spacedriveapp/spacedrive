@@ -22,7 +22,7 @@ use tokio::{
 	fs::{self, OpenOptions},
 	io::AsyncWriteExt,
 };
-use tracing::trace;
+use tracing::{trace, warn};
 
 use super::{
 	error::FileSystemJobsError, get_file_data_from_isolated_file_path, get_many_files_datas,
@@ -159,7 +159,10 @@ impl StatefulJob for OldFileEraserJobInit {
 					init.passes
 				);
 
-				sd_crypto::fs::erase::erase(&mut file, file_len as usize, init.passes).await?;
+				#[cfg(feature = "crypto")]
+				// sd_crypto::fs::erase::erase_async(&mut file, file_len as usize, init.passes).await?;
+				#[cfg(not(feature = "crypto"))]
+				warn!("File not fully erased due to missing crypto module");
 
 				file.set_len(0)
 					.await
