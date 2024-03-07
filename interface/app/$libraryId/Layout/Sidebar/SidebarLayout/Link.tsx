@@ -1,6 +1,6 @@
 import { cva } from 'class-variance-authority';
 import clsx from 'clsx';
-import { forwardRef, PropsWithChildren } from 'react';
+import { forwardRef, PropsWithChildren, useEffect } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
@@ -30,6 +30,17 @@ const Link = forwardRef<
 >(({ className, disabled, ...props }, ref) => {
 	const os = useOperatingSystem();
 	const { platform } = usePlatform();
+
+	//prevents middle click from opening new tab
+	useEffect(() => {
+		const handleClick = (e: MouseEvent) => {
+			if (e.button === 1) e.preventDefault();
+		};
+		document.addEventListener('auxclick', handleClick);
+		return () => {
+			document.removeEventListener('auxclick', handleClick);
+		};
+	}, []);
 
 	return (
 		<NavLink

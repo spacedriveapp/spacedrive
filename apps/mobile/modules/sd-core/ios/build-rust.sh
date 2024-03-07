@@ -28,7 +28,7 @@ mkdir -p "$TARGET_DIRECTORY"
 TARGET_DIRECTORY="$(CDPATH='' cd -- "$TARGET_DIRECTORY" && pwd -P)"
 
 # if [ "${CONFIGURATION:-}" != "Debug" ]; then
-#   CARGO_FLAGS=--debug
+#   CARGO_FLAGS=--release
 #   export CARGO_FLAGS
 # fi
 

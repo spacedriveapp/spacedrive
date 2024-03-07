@@ -79,7 +79,6 @@ impl<'a> ModelSyncType<'a> {
 					group: get_field("group"),
 				}
 			}
-
 			// "owned" => Self::Owned { id },
 			_ => return None,
 		})

@@ -58,7 +58,7 @@ const ScreenshotWrapper = ({
 							margin: '0 auto',
 							position: 'relative',
 							overflow: 'hidden'
-					  }
+						}
 					: {}
 			}
 		>

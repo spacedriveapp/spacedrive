@@ -15,3 +15,4 @@ uuid.workspace = true
 rspc = { workspace = true }
 specta.workspace = true
 base64.workspace = true
+rmpv.workspace = true

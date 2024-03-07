@@ -1,6 +1,6 @@
 [package]
 name = "sd-core"
-version = "0.2.4"
+version = "0.2.5"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc."]
 rust-version = "1.75.0"
@@ -16,19 +16,18 @@ mobile = []
 ffmpeg = ["dep:sd-ffmpeg"]
 heif = ["sd-images/heif"]
 ai = ["dep:sd-ai"]
+crypto = ["dep:sd-crypto"]
 
 [dependencies]
 # Sub-crates
 sd-cache = { path = "../crates/cache" }
 sd-core-sync = { path = "./crates/sync" }
 # sd-cloud-api = { path = "../crates/cloud-api" }
-sd-crypto = { path = "../crates/crypto", features = [
-	"rspc",
-	"specta",
-	"serde",
-	"keymanager",
-] }
 sd-file-path-helper = { path = "../crates/file-path-helper" }
+sd-crypto = { path = "../crates/crypto", features = [
+	"sys",
+	"tokio",
+], optional = true }
 sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
 sd-file-ext = { path = "../crates/file-ext" }
 sd-images = { path = "../crates/images", features = [
@@ -109,11 +108,12 @@ http-body = "0.4.5"
 http-range = "0.1.5"
 int-enum = "0.5.0"
 itertools = "0.12.0"
+libc = "0.2.153"
 mini-moka = "0.10.2"
 notify = { path = "../crates/notify", default-features = false, features = [
   "macos_fsevent",
 ] }
-rmpv = "^1.0.1"
+rmpv = { workspace = true }
 serde-hashkey = "0.4.5"
 serde_repr = "0.1"
 serde_with = "3.4.0"
@@ -128,6 +128,7 @@ base91 = "0.1.0"
 sd-actors = { version = "0.1.0", path = "../crates/actors" }
 tower-service = "0.3.2"
 hyper = { version = "=0.14.28", features = ["http1", "server", "client"] }
+rmp = "0.8.12"
 
 # Override features of transitive dependencies
 [dependencies.openssl]
@@ -140,6 +141,14 @@ features = ["vendored"]
 # Platform-specific dependencies
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"
+
+[target.'cfg(target_os = "ios")'.dependencies]
+icrate = { version = "0.1.0", features = [
+	"Foundation",
+	"Foundation_NSFileManager",
+	"Foundation_NSString",
+	"Foundation_NSNumber",
+] }
 
 [dev-dependencies]
 tracing-test = "^0.2.4"

@@ -7,12 +7,12 @@ use crate::{
 		manager::LocationManagerError, scan_location_sub_path, update_location_size,
 	},
 	object::{
-		file_identifier::FileMetadata,
 		media::{
 			media_data_extractor::{can_extract_media_data_for_image, extract_media_data},
 			media_data_image_to_query_params,
-			thumbnail::get_indexed_thumbnail_path,
+			old_thumbnail::get_indexed_thumbnail_path,
 		},
+		old_file_identifier::FileMetadata,
 		validation::hash::file_checksum,
 	},
 	Node,
@@ -33,7 +33,7 @@ use sd_sync::OperationFactory;
 use sd_utils::{
 	db::{inode_from_db, inode_to_db, maybe_missing},
 	error::FileIOError,
-	uuid_to_bytes,
+	msgpack, uuid_to_bytes,
 };
 
 #[cfg(target_family = "unix")]
@@ -53,7 +53,6 @@ use std::{
 
 use chrono::{DateTime, FixedOffset, Local, Utc};
 use notify::Event;
-use serde_json::json;
 use tokio::{
 	fs,
 	io::{self, ErrorKind},
@@ -273,8 +272,8 @@ async fn inner_create_file(
 						pub_id: pub_id.clone(),
 					},
 					[
-						(object::date_created::NAME, json!(date_created)),
-						(object::kind::NAME, json!(int_kind)),
+						(object::date_created::NAME, msgpack!(date_created)),
+						(object::kind::NAME, msgpack!(int_kind)),
 					],
 				),
 				db.object()
@@ -298,7 +297,7 @@ async fn inner_create_file(
 				pub_id: created_file.pub_id.clone(),
 			},
 			file_path::object::NAME,
-			json!(prisma_sync::object::SyncId {
+			msgpack!(prisma_sync::object::SyncId {
 				pub_id: object_pub_id.clone()
 			}),
 		),
@@ -475,13 +474,13 @@ async fn inner_update_file(
 
 			[
 				(
-					(cas_id::NAME, json!(file_path.cas_id)),
+					(cas_id::NAME, msgpack!(file_path.cas_id)),
 					Some(cas_id::set(file_path.cas_id.clone())),
 				),
 				(
 					(
 						size_in_bytes_bytes::NAME,
-						json!(fs_metadata.len().to_be_bytes().to_vec()),
+						msgpack!(fs_metadata.len().to_be_bytes().to_vec()),
 					),
 					Some(size_in_bytes_bytes::set(Some(
 						fs_metadata.len().to_be_bytes().to_vec(),
@@ -491,7 +490,7 @@ async fn inner_update_file(
 					let date = DateTime::<Utc>::from(fs_metadata.modified_or_now()).into();
 
 					(
-						(date_modified::NAME, json!(date)),
+						(date_modified::NAME, msgpack!(date)),
 						Some(date_modified::set(Some(date))),
 					)
 				},
@@ -509,28 +508,28 @@ async fn inner_update_file(
 					};
 
 					(
-						(integrity_checksum::NAME, json!(checksum)),
+						(integrity_checksum::NAME, msgpack!(checksum)),
 						Some(integrity_checksum::set(checksum)),
 					)
 				},
 				{
 					if current_inode != inode {
 						(
-							(inode::NAME, json!(inode)),
+							(inode::NAME, msgpack!(inode)),
 							Some(inode::set(Some(inode_to_db(inode)))),
 						)
 					} else {
-						((inode::NAME, serde_json::Value::Null), None)
+						((inode::NAME, msgpack!(null)), None)
 					}
 				},
 				{
 					if is_hidden != file_path.hidden.unwrap_or_default() {
 						(
-							(hidden::NAME, json!(inode)),
+							(hidden::NAME, msgpack!(inode)),
 							Some(hidden::set(Some(is_hidden))),
 						)
 					} else {
-						((hidden::NAME, serde_json::Value::Null), None)
+						((hidden::NAME, msgpack!(null)), None)
 					}
 				},
 			]
@@ -582,7 +581,7 @@ async fn inner_update_file(
 								pub_id: object.pub_id.clone(),
 							},
 							object::kind::NAME,
-							json!(int_kind),
+							msgpack!(int_kind),
 						),
 						db.object().update(
 							object::id::equals(object.id),
@@ -604,8 +603,8 @@ async fn inner_update_file(
 								pub_id: pub_id.clone(),
 							},
 							[
-								(object::date_created::NAME, json!(date_created)),
-								(object::kind::NAME, json!(int_kind)),
+								(object::date_created::NAME, msgpack!(date_created)),
+								(object::kind::NAME, msgpack!(int_kind)),
 							],
 						),
 						db.object().create(
@@ -626,7 +625,7 @@ async fn inner_update_file(
 							pub_id: file_path.pub_id.clone(),
 						},
 						file_path::object::NAME,
-						json!(prisma_sync::object::SyncId {
+						msgpack!(prisma_sync::object::SyncId {
 							pub_id: pub_id.clone()
 						}),
 					),
@@ -731,7 +730,7 @@ async fn inner_update_file(
 						pub_id: file_path.pub_id.clone(),
 					},
 					file_path::hidden::NAME,
-					json!(is_hidden),
+					msgpack!(is_hidden),
 				)],
 				db.file_path().update(
 					file_path::pub_id::equals(file_path.pub_id.clone()),
@@ -828,7 +827,7 @@ pub(super) async fn rename(
 						sync.shared_update(
 							sd_prisma::prisma_sync::file_path::SyncId { pub_id },
 							file_path::materialized_path::NAME,
-							json!(&new_path),
+							msgpack!(&new_path),
 						),
 						db.file_path().update(
 							file_path::id::equals(id),
@@ -851,24 +850,24 @@ pub(super) async fn rename(
 			(
 				(
 					file_path::materialized_path::NAME,
-					json!(new_path_materialized_str),
+					msgpack!(new_path_materialized_str),
 				),
 				file_path::materialized_path::set(Some(new_path_materialized_str)),
 			),
 			(
-				(file_path::name::NAME, json!(new_parts.name)),
+				(file_path::name::NAME, msgpack!(new_parts.name)),
 				file_path::name::set(Some(new_parts.name.to_string())),
 			),
 			(
-				(file_path::extension::NAME, json!(new_parts.extension)),
+				(file_path::extension::NAME, msgpack!(new_parts.extension)),
 				file_path::extension::set(Some(new_parts.extension.to_string())),
 			),
 			(
-				(file_path::date_modified::NAME, json!(&date_modified)),
+				(file_path::date_modified::NAME, msgpack!(&date_modified)),
 				file_path::date_modified::set(Some(date_modified)),
 			),
 			(
-				(file_path::hidden::NAME, json!(is_hidden)),
+				(file_path::hidden::NAME, msgpack!(is_hidden)),
 				file_path::hidden::set(Some(is_hidden)),
 			),
 		]

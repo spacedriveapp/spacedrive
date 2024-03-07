@@ -52,5 +52,5 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 		getExplorerStore().path = path ?? '';
 	}, [id, path]);
 
-	return <Explorer items={pathsItems} />
+	return <Explorer items={pathsItems} />;
 }

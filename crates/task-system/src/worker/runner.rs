@@ -25,7 +25,8 @@ use super::{
 		error::{RunError, SystemError},
 		system::SystemComm,
 		task::{
-			ExecStatus, InternalTaskExecStatus, Task, TaskId, TaskOutput, TaskStatus, TaskWorkState,
+			ExecStatus, InternalTaskExecStatus, Interrupter, Task, TaskId, TaskOutput, TaskStatus,
+			TaskWorkState, TaskWorktable,
 		},
 	},
 	RunnerMessage, TaskRunnerOutput, WorkStealer, WorkerId, ONE_SECOND,
@@ -56,7 +57,7 @@ pub(super) enum PendingTaskKind {
 }
 
 impl PendingTaskKind {
-	fn with_priority(has_priority: bool) -> Self {
+	const fn with_priority(has_priority: bool) -> Self {
 		if has_priority {
 			Self::Priority
 		} else {
@@ -92,7 +93,7 @@ enum WaitingSuspendedTask {
 }
 
 impl WaitingSuspendedTask {
-	fn is_waiting(&self) -> bool {
+	const fn is_waiting(&self) -> bool {
 		matches!(self, Self::Task(_))
 	}
 }
@@ -110,7 +111,7 @@ pub(super) struct Runner<E: RunError> {
 	is_idle: bool,
 	waiting_suspension: WaitingSuspendedTask,
 	abort_and_suspend_map: HashMap<TaskId, AbortAndSuspendSignalers>,
-	runner_tx: chan::Sender<RunnerMessage<E>>,
+	msgs_tx: chan::Sender<RunnerMessage<E>>,
 	current_task_handle: Option<RunningTask>,
 	suspend_on_shutdown_rx: chan::Receiver<RunnerMessage<E>>,
 	current_steal_task_handle: Option<JoinHandle<()>>,
@@ -140,7 +141,7 @@ impl<E: RunError> Runner<E> {
 				is_idle: true,
 				waiting_suspension: WaitingSuspendedTask::None,
 				abort_and_suspend_map: HashMap::with_capacity(ABORT_AND_SUSPEND_MAP_INITIAL_SIZE),
-				runner_tx,
+				msgs_tx: runner_tx,
 				current_task_handle: None,
 				suspend_on_shutdown_rx: runner_rx.clone(),
 				current_steal_task_handle: None,
@@ -153,12 +154,8 @@ impl<E: RunError> Runner<E> {
 
 	pub(super) fn total_tasks(&self) -> usize {
 		let priority_tasks_count = self.priority_tasks.len();
-		let current_task_count = if self.current_task_handle.is_some() {
-			1
-		} else {
-			0
-		};
-		let suspended_task_count = if self.suspended_task.is_some() { 1 } else { 0 };
+		let current_task_count = usize::from(self.current_task_handle.is_some());
+		let suspended_task_count = usize::from(self.suspended_task.is_some());
 		let tasks_count = self.tasks.len();
 
 		trace!(
@@ -193,7 +190,7 @@ impl<E: RunError> Runner<E> {
 		let handle = spawn(run_single_task(
 			self.worker_id,
 			task_work_state,
-			self.runner_tx.clone(),
+			self.msgs_tx.clone(),
 			suspend_rx,
 			abort_rx,
 		));
@@ -271,10 +268,7 @@ impl<E: RunError> Runner<E> {
 		}
 	}
 
-	pub(super) async fn pause_not_running_task(
-		&mut self,
-		task_id: TaskId,
-	) -> Result<(), SystemError> {
+	pub(super) fn pause_not_running_task(&mut self, task_id: TaskId) -> Result<(), SystemError> {
 		trace!(
 			"Pause not running task request: <worker_id='{}', task_id='{task_id}'>",
 			self.worker_id
@@ -299,6 +293,14 @@ impl<E: RunError> Runner<E> {
 			}
 		}
 
+		if self.pause_suspended_task(task_id) || self.pause_task_from_queues(task_id) {
+			return Ok(());
+		}
+
+		Err(SystemError::TaskNotFound(task_id))
+	}
+
+	fn pause_suspended_task(&mut self, task_id: TaskId) -> bool {
 		if let Some(suspended_task) = &self.suspended_task {
 			if suspended_task.task.id() == task_id {
 				trace!(
@@ -311,10 +313,14 @@ impl<E: RunError> Runner<E> {
 					self.suspended_task.take().expect("we just checked it"),
 				);
 
-				return Ok(());
+				return true;
 			}
 		}
 
+		false
+	}
+
+	fn pause_task_from_queues(&mut self, task_id: TaskId) -> bool {
 		if let Some(index) = self
 			.priority_tasks
 			.iter()
@@ -327,7 +333,7 @@ impl<E: RunError> Runner<E> {
 					.expect("we just checked it"),
 			);
 
-			return Ok(());
+			return true;
 		}
 
 		if let Some(index) = self
@@ -340,16 +346,13 @@ impl<E: RunError> Runner<E> {
 				self.tasks.remove(index).expect("we just checked it"),
 			);
 
-			return Ok(());
+			return true;
 		}
 
-		Err(SystemError::TaskNotFound(task_id))
+		false
 	}
 
-	pub(super) async fn cancel_not_running_task(
-		&mut self,
-		task_id: TaskId,
-	) -> Result<(), SystemError> {
+	pub(super) fn cancel_not_running_task(&mut self, task_id: TaskId) {
 		trace!(
 			"Cancel not running task request: <worker_id='{}', task_id='{task_id}'>",
 			self.worker_id
@@ -362,7 +365,7 @@ impl<E: RunError> Runner<E> {
 					<worker_id='{}', task_id='{task_id}'>",
 					self.worker_id
 				);
-				return Ok(()); // The task will cancel itself
+				return; // The task will cancel itself
 			}
 		}
 
@@ -379,10 +382,16 @@ impl<E: RunError> Runner<E> {
 					self.suspended_task.take().expect("we just checked it"),
 				);
 
-				return Ok(());
+				return;
 			}
 		}
 
+		self.cancel_task_from_queues(task_id);
+
+		// If the task is not found, then it's possible that the user already canceled it but still have the handle
+	}
+
+	fn cancel_task_from_queues(&mut self, task_id: TaskId) {
 		if let Some(index) = self
 			.priority_tasks
 			.iter()
@@ -396,7 +405,7 @@ impl<E: RunError> Runner<E> {
 					.expect("we just checked it"),
 			);
 
-			return Ok(());
+			return;
 		}
 
 		if let Some(index) = self
@@ -409,15 +418,34 @@ impl<E: RunError> Runner<E> {
 				task_id,
 				self.tasks.remove(index).expect("we just checked it"),
 			);
-
-			return Ok(());
 		}
-
-		// If the task is not found, then it's possible that the user already canceled it but still have the handle
-		Ok(())
 	}
 
-	#[inline(always)]
+	#[inline]
+	fn add_task_when_idle(
+		&mut self,
+		task_id: TaskId,
+		task_kind: PendingTaskKind,
+		task_work_state: TaskWorkState<E>,
+	) {
+		trace!(
+			"Idle worker will process the new task: <worker_id='{}', task_id='{task_id}'>",
+			self.worker_id
+		);
+		let handle = self.spawn_task_runner(task_id, task_work_state);
+
+		self.current_task_handle = Some(RunningTask {
+			task_id,
+			task_kind,
+			handle,
+		});
+
+		// Doesn't need to report working back to system as it already registered
+		// that we're not idle anymore when it dispatched the task to this worker
+		self.is_idle = false;
+	}
+
+	#[inline]
 	pub(super) async fn inner_add_task(
 		&mut self,
 		task_id: TaskId,
@@ -425,22 +453,7 @@ impl<E: RunError> Runner<E> {
 		task_work_state: TaskWorkState<E>,
 	) -> TaskAddStatus {
 		if self.is_idle {
-			trace!(
-				"Idle worker will process the new task: <worker_id='{}', task_id='{task_id}'>",
-				self.worker_id
-			);
-			let handle = self.spawn_task_runner(task_id, task_work_state);
-
-			self.current_task_handle = Some(RunningTask {
-				task_id,
-				task_kind,
-				handle,
-			});
-
-			// Doesn't need to report working back to system as it already registered
-			// that we're not idle anymore when it dispatched the task to this worker
-			self.is_idle = false;
-
+			self.add_task_when_idle(task_id, task_kind, task_work_state);
 			TaskAddStatus::Running
 		} else {
 			let RunningTask {
@@ -470,7 +483,15 @@ impl<E: RunError> Runner<E> {
 					TaskAddStatus::Enqueued
 				}
 				(PendingTaskKind::Priority, PendingTaskKind::Normal) => {
-					if !self.waiting_suspension.is_waiting() {
+					if self.waiting_suspension.is_waiting() {
+						trace!(
+							"Worker is already waiting for a task to be suspended, will enqueue new task: \
+							<worker_id='{}', task_id='{task_id}'>",
+							self.worker_id
+						);
+
+						self.priority_tasks.push_front(task_work_state);
+					} else {
 						trace!(
 							"Old task will be suspended: \
 						<worker_id='{}', new_task_id='{task_id}', old_task_id='{old_task_id}'>",
@@ -496,14 +517,6 @@ impl<E: RunError> Runner<E> {
 						}
 
 						self.waiting_suspension = WaitingSuspendedTask::Task(*old_task_id);
-					} else {
-						trace!(
-							"Worker is already waiting for a task to be suspended, will enqueue new task: \
-							<worker_id='{}', task_id='{task_id}'>",
-							self.worker_id
-						);
-
-						self.priority_tasks.push_front(task_work_state);
 					}
 
 					TaskAddStatus::Running
@@ -656,43 +669,42 @@ impl<E: RunError> Runner<E> {
 
 		self.abort_steal_task();
 
-		let Runner {
+		let Self {
 			worker_id,
 			tasks,
 			paused_tasks,
 			priority_tasks,
 			is_idle,
 			abort_and_suspend_map,
-			runner_tx,
+			msgs_tx: runner_tx,
 			mut current_task_handle,
 			suspend_on_shutdown_rx,
 			..
 		} = self;
 
-		let mut suspend_on_shutdown_rx = pin!(suspend_on_shutdown_rx);
-
-		if !is_idle {
+		if is_idle {
+			trace!("Worker is idle, no tasks to shutdown: <worker_id='{worker_id}'>");
+		} else {
 			trace!("Worker is busy, will shutdown tasks: <worker_id='{worker_id}'>");
 
 			if let Some(RunningTask {
 				task_id, handle, ..
 			}) = current_task_handle.take()
 			{
-				abort_and_suspend_map.into_iter().for_each(
-					|(task_id, AbortAndSuspendSignalers { suspend_tx, .. })| {
-						if suspend_tx.send(()).is_err() {
-							warn!(
-								"Shutdown request channel closed before sending abort signal: \
+				for (task_id, AbortAndSuspendSignalers { suspend_tx, .. }) in abort_and_suspend_map
+				{
+					if suspend_tx.send(()).is_err() {
+						warn!(
+							"Shutdown request channel closed before sending abort signal: \
 								<worker_id='{worker_id}', task_id='{task_id}'>"
-							);
-						} else {
-							trace!(
-								"Sent suspend signal for task on shutdown: \
+						);
+					} else {
+						trace!(
+							"Sent suspend signal for task on shutdown: \
 								<worker_id='{worker_id}', task_id='{task_id}'>"
-							);
-						}
-					},
-				);
+						);
+					}
+				}
 
 				if let Err(e) = handle.await {
 					error!("Task <worker_id='{worker_id}', task_id='{task_id}'> failed to join: {e:#?}");
@@ -700,56 +712,8 @@ impl<E: RunError> Runner<E> {
 
 				runner_tx.close();
 
-				while let Some(runner_msg) = suspend_on_shutdown_rx.next().await {
-					match runner_msg {
-						RunnerMessage::TaskOutput(task_id, res) => match res {
-							Ok(TaskRunnerOutput {
-								task_work_state,
-								status,
-							}) => match status {
-								InternalTaskExecStatus::Done(out) => send_complete_task_response(
-									self.worker_id,
-									task_id,
-									task_work_state,
-									out,
-								),
-
-								InternalTaskExecStatus::Canceled => {
-									send_cancel_task_response(worker_id, task_id, task_work_state)
-								}
-
-								InternalTaskExecStatus::Suspend
-								| InternalTaskExecStatus::Paused => {
-									send_shutdown_task_response(
-										worker_id,
-										task_id,
-										task_work_state,
-									);
-								}
-
-								InternalTaskExecStatus::Error(e) => {
-									send_error_task_response(
-										worker_id,
-										task_id,
-										task_work_state,
-										e,
-									);
-								}
-							},
-							Err(()) => {
-								error!(
-									"Task <worker_id='{worker_id}', task_id='{task_id}'> failed to suspend on shutdown"
-								);
-							}
-						},
-
-						RunnerMessage::StoleTask(Some(task_work_state)) => {
-							send_shutdown_task_response(worker_id, task_id, task_work_state);
-						}
-
-						RunnerMessage::StoleTask(None) => {}
-					}
-				}
+				Self::process_tasks_being_suspended_on_shutdown(worker_id, suspend_on_shutdown_rx)
+					.await;
 			}
 
 			priority_tasks
@@ -762,15 +726,62 @@ impl<E: RunError> Runner<E> {
 						task_work_state.task.id(),
 						task_work_state,
 					);
-				})
-		} else {
-			trace!("Worker is idle, no tasks to shutdown: <worker_id='{worker_id}'>");
+				});
 		}
 
 		trace!("Worker shutdown process completed: <worker_id='{worker_id}'>");
 
 		if tx.send(()).is_err() {
 			warn!("Shutdown request channel closed before sending ack");
+		}
+	}
+
+	async fn process_tasks_being_suspended_on_shutdown(
+		worker_id: WorkerId,
+		suspend_on_shutdown_rx: chan::Receiver<RunnerMessage<E>>,
+	) {
+		let mut suspend_on_shutdown_rx = pin!(suspend_on_shutdown_rx);
+
+		while let Some(runner_msg) = suspend_on_shutdown_rx.next().await {
+			match runner_msg {
+				RunnerMessage::TaskOutput(task_id, res) => match res {
+					Ok(TaskRunnerOutput {
+						task_work_state,
+						status,
+					}) => match status {
+						InternalTaskExecStatus::Done(out) => {
+							send_complete_task_response(worker_id, task_id, task_work_state, out);
+						}
+
+						InternalTaskExecStatus::Canceled => {
+							send_cancel_task_response(worker_id, task_id, task_work_state);
+						}
+
+						InternalTaskExecStatus::Suspend | InternalTaskExecStatus::Paused => {
+							send_shutdown_task_response(worker_id, task_id, task_work_state);
+						}
+
+						InternalTaskExecStatus::Error(e) => {
+							send_error_task_response(worker_id, task_id, task_work_state, e);
+						}
+					},
+					Err(()) => {
+						error!(
+							"Task <worker_id='{worker_id}', task_id='{task_id}'> failed to suspend on shutdown"
+						);
+					}
+				},
+
+				RunnerMessage::StoleTask(Some(task_work_state)) => {
+					send_shutdown_task_response(
+						worker_id,
+						task_work_state.task.id(),
+						task_work_state,
+					);
+				}
+
+				RunnerMessage::StoleTask(None) => {}
+			}
 		}
 	}
 
@@ -792,28 +803,8 @@ impl<E: RunError> Runner<E> {
 
 	pub(super) fn steal_request(&mut self, tx: oneshot::Sender<Option<TaskWorkState<E>>>) {
 		trace!("Steal request: <worker_id='{}'>", self.worker_id);
-		if let Some((kind, task)) = self.get_next_task() {
-			let task_id = task.task.id();
-			self.task_kinds.remove(&task_id);
-
-			trace!(
-				"Stealing task: <worker_id='{}', task_id='{task_id}', kind='{kind:#?}'>",
-				self.worker_id
-			);
-
-			if let Err(Some(task)) = tx.send(Some(task)) {
-				warn!(
-					"Steal request channel closed before sending task: <worker_id='{}'>",
-					self.worker_id
-				);
-				match kind {
-					PendingTaskKind::Normal => self.tasks.push_front(task),
-					PendingTaskKind::Priority => self.priority_tasks.push_front(task),
-					PendingTaskKind::Suspended => self.suspended_task = Some(task),
-				}
-
-				self.task_kinds.insert(task_id, kind);
-			}
+		if let Some((kind, task_work_state)) = self.get_next_task() {
+			self.proceed_with_task_to_be_stolen(kind, task_work_state, tx);
 		} else {
 			trace!("No task to steal: <worker_id='{}'>", self.worker_id);
 			if tx.send(None).is_err() {
@@ -826,7 +817,45 @@ impl<E: RunError> Runner<E> {
 		}
 	}
 
-	pub(super) async fn wake_up(&mut self) {
+	fn proceed_with_task_to_be_stolen(
+		&mut self,
+		kind: PendingTaskKind,
+		task_work_state: TaskWorkState<E>,
+		tx: oneshot::Sender<Option<TaskWorkState<E>>>,
+	) {
+		let task_id = task_work_state.task.id();
+		self.task_kinds.remove(&task_id);
+
+		trace!(
+			"Stealing task: <worker_id='{}', task_id='{task_id}', kind='{kind:#?}'>",
+			self.worker_id
+		);
+
+		if let Err(Some(task_work_state)) = tx.send(Some(task_work_state)) {
+			self.put_back_failed_to_stole_task(task_id, kind, task_work_state);
+		}
+	}
+
+	fn put_back_failed_to_stole_task(
+		&mut self,
+		id: TaskId,
+		kind: PendingTaskKind,
+		task_work_state: TaskWorkState<E>,
+	) {
+		warn!(
+			"Steal request channel closed before sending task: <worker_id='{}'>",
+			self.worker_id
+		);
+		match kind {
+			PendingTaskKind::Normal => self.tasks.push_front(task_work_state),
+			PendingTaskKind::Priority => self.priority_tasks.push_front(task_work_state),
+			PendingTaskKind::Suspended => self.suspended_task = Some(task_work_state),
+		}
+
+		self.task_kinds.insert(id, kind);
+	}
+
+	pub(super) fn wake_up(&mut self) {
 		if self.is_idle {
 			trace!(
 				"Worker is idle, waking up: <worker_id='{}'>",
@@ -837,7 +866,7 @@ impl<E: RunError> Runner<E> {
 				self.current_steal_task_handle = Some(dispatch_steal_request(
 					self.worker_id,
 					self.work_stealer.clone(),
-					self.runner_tx.clone(),
+					self.msgs_tx.clone(),
 				));
 			} else {
 				trace!(
@@ -853,7 +882,7 @@ impl<E: RunError> Runner<E> {
 		}
 	}
 
-	#[inline(always)]
+	#[inline]
 	pub(super) async fn dispatch_next_task(&mut self, finished_task_id: TaskId) {
 		trace!(
 			"Task finished and will try to process a new task: \
@@ -915,7 +944,7 @@ impl<E: RunError> Runner<E> {
 				self.current_steal_task_handle = Some(dispatch_steal_request(
 					self.worker_id,
 					self.work_stealer.clone(),
-					self.runner_tx.clone(),
+					self.msgs_tx.clone(),
 				));
 			} else {
 				trace!(
@@ -936,7 +965,7 @@ impl<E: RunError> Runner<E> {
 	) {
 		match status {
 			InternalTaskExecStatus::Done(out) => {
-				send_complete_task_response(self.worker_id, task_id, task_work_state, out)
+				send_complete_task_response(self.worker_id, task_id, task_work_state, out);
 			}
 
 			InternalTaskExecStatus::Paused => {
@@ -948,11 +977,11 @@ impl<E: RunError> Runner<E> {
 			}
 
 			InternalTaskExecStatus::Canceled => {
-				send_cancel_task_response(self.worker_id, task_id, task_work_state)
+				send_cancel_task_response(self.worker_id, task_id, task_work_state);
 			}
 
 			InternalTaskExecStatus::Error(e) => {
-				send_error_task_response(self.worker_id, task_id, task_work_state, e)
+				send_error_task_response(self.worker_id, task_id, task_work_state, e);
 			}
 
 			InternalTaskExecStatus::Suspend => {
@@ -975,7 +1004,7 @@ impl<E: RunError> Runner<E> {
 		self.dispatch_next_task(task_id).await;
 	}
 
-	pub(super) async fn idle_check(&mut self) {
+	pub(super) fn idle_check(&mut self) {
 		if self.is_idle {
 			trace!(
 				"Worker is idle for some time and will try to steal a task: <worker_id='{}'>",
@@ -983,25 +1012,7 @@ impl<E: RunError> Runner<E> {
 			);
 
 			if self.current_steal_task_handle.is_none() {
-				let elapsed = self.last_steal_attempt_at.elapsed();
-				let required = (TEN_SECONDS * self.steal_attempts_count).min(ONE_MINUTE);
-				trace!(
-					"Steal attempt required cool down: <worker_id='{}', elapsed='{elapsed:?}', required='{required:?}', steal_attempts_count={}>",
-					self.worker_id, self.steal_attempts_count);
-				if elapsed > required {
-					self.current_steal_task_handle = Some(dispatch_steal_request(
-						self.worker_id,
-						self.work_stealer.clone(),
-						self.runner_tx.clone(),
-					));
-					self.last_steal_attempt_at = Instant::now();
-				} else {
-					trace!(
-						"Steal attempt still cooling down: <worker_id='{}', steal_attempts_count={}>",
-						self.worker_id,
-						self.steal_attempts_count
-					);
-				}
+				self.steal_attempt();
 			} else {
 				trace!(
 					"Steal task already running, ignoring on this idle check: <worker_id='{}'>",
@@ -1009,32 +1020,61 @@ impl<E: RunError> Runner<E> {
 				);
 			}
 
-			// As we're idle, let's check if we need to do some memory cleanup
-			if self.tasks.capacity() > TASK_QUEUE_INITIAL_SIZE {
-				assert_eq!(self.tasks.len(), 0);
-				self.tasks.shrink_to(TASK_QUEUE_INITIAL_SIZE);
-			}
+			self.idle_memory_cleanup();
+		}
+	}
 
-			if self.task_kinds.capacity() > TASK_QUEUE_INITIAL_SIZE {
-				assert_eq!(self.task_kinds.len(), 0);
-				self.task_kinds.shrink_to(TASK_QUEUE_INITIAL_SIZE);
-			}
+	fn steal_attempt(&mut self) {
+		let elapsed = self.last_steal_attempt_at.elapsed();
+		let required = (TEN_SECONDS * self.steal_attempts_count).min(ONE_MINUTE);
+		trace!(
+			"Steal attempt required cool down: \
+			<worker_id='{}', elapsed='{elapsed:?}', required='{required:?}', steal_attempts_count={}>",
+			self.worker_id,
+			self.steal_attempts_count
+		);
+		if elapsed > required {
+			self.current_steal_task_handle = Some(dispatch_steal_request(
+				self.worker_id,
+				self.work_stealer.clone(),
+				self.msgs_tx.clone(),
+			));
+			self.last_steal_attempt_at = Instant::now();
+		} else {
+			trace!(
+				"Steal attempt still cooling down: <worker_id='{}', steal_attempts_count={}>",
+				self.worker_id,
+				self.steal_attempts_count
+			);
+		}
+	}
 
-			if self.priority_tasks.capacity() > PRIORITY_TASK_QUEUE_INITIAL_SIZE {
-				assert_eq!(self.priority_tasks.len(), 0);
-				self.priority_tasks
-					.shrink_to(PRIORITY_TASK_QUEUE_INITIAL_SIZE);
-			}
+	fn idle_memory_cleanup(&mut self) {
+		// As we're idle, let's check if we need to do some memory cleanup
+		if self.tasks.capacity() > TASK_QUEUE_INITIAL_SIZE {
+			assert_eq!(self.tasks.len(), 0);
+			self.tasks.shrink_to(TASK_QUEUE_INITIAL_SIZE);
+		}
 
-			if self.paused_tasks.capacity() != self.paused_tasks.len() {
-				self.paused_tasks.shrink_to_fit();
-			}
+		if self.task_kinds.capacity() > TASK_QUEUE_INITIAL_SIZE {
+			assert_eq!(self.task_kinds.len(), 0);
+			self.task_kinds.shrink_to(TASK_QUEUE_INITIAL_SIZE);
+		}
 
-			if self.abort_and_suspend_map.capacity() > ABORT_AND_SUSPEND_MAP_INITIAL_SIZE {
-				assert!(self.abort_and_suspend_map.len() < ABORT_AND_SUSPEND_MAP_INITIAL_SIZE);
-				self.abort_and_suspend_map
-					.shrink_to(ABORT_AND_SUSPEND_MAP_INITIAL_SIZE);
-			}
+		if self.priority_tasks.capacity() > PRIORITY_TASK_QUEUE_INITIAL_SIZE {
+			assert_eq!(self.priority_tasks.len(), 0);
+			self.priority_tasks
+				.shrink_to(PRIORITY_TASK_QUEUE_INITIAL_SIZE);
+		}
+
+		if self.paused_tasks.capacity() != self.paused_tasks.len() {
+			self.paused_tasks.shrink_to_fit();
+		}
+
+		if self.abort_and_suspend_map.capacity() > ABORT_AND_SUSPEND_MAP_INITIAL_SIZE {
+			assert!(self.abort_and_suspend_map.len() < ABORT_AND_SUSPEND_MAP_INITIAL_SIZE);
+			self.abort_and_suspend_map
+				.shrink_to(ABORT_AND_SUSPEND_MAP_INITIAL_SIZE);
 		}
 	}
 
@@ -1088,27 +1128,16 @@ impl<E: RunError> Runner<E> {
 	}
 }
 
-async fn run_single_task<E: RunError>(
+type RunTaskOutput<E> = (Box<dyn Task<E>>, Result<Result<ExecStatus, E>, SystemError>);
+
+fn handle_run_task_attempt<E: RunError>(
 	worker_id: WorkerId,
-	TaskWorkState {
-		mut task,
-		worktable,
-		interrupter,
-		done_tx,
-	}: TaskWorkState<E>,
-	runner_tx: chan::Sender<RunnerMessage<E>>,
-	suspend_rx: oneshot::Receiver<()>,
-	abort_rx: oneshot::Receiver<oneshot::Sender<Result<(), SystemError>>>,
-) {
-	let task_id = task.id();
-
-	worktable.set_started();
-
-	trace!("Running task: <worker_id='{worker_id}', task_id='{task_id}'>");
-
-	let handle = spawn({
-		let interrupter = Arc::clone(&interrupter);
-
+	task_id: TaskId,
+	mut task: Box<dyn Task<E>>,
+	worktable: &TaskWorktable,
+	interrupter: Arc<Interrupter>,
+) -> JoinHandle<RunTaskOutput<E>> {
+	spawn({
 		let already_paused = worktable.is_paused();
 		let already_canceled = worktable.is_canceled();
 		let already_aborted = worktable.is_aborted();
@@ -1140,73 +1169,68 @@ async fn run_single_task<E: RunError>(
 				(task, Ok(res))
 			}
 		}
-	});
+	})
+}
 
-	let task_abort_handle = handle.abort_handle();
+fn handle_task_suspension(
+	worker_id: WorkerId,
+	task_id: TaskId,
+	has_suspended: Arc<AtomicBool>,
+	worktable: Arc<TaskWorktable>,
+	suspend_rx: oneshot::Receiver<()>,
+) -> JoinHandle<()> {
+	spawn(async move {
+		if suspend_rx.await.is_ok() {
+			let (tx, rx) = oneshot::channel();
 
-	let has_suspended = Arc::new(AtomicBool::new(false));
+			trace!("Suspend signal received: <worker_id='{worker_id}', task_id='{task_id}'>");
 
-	let suspender_handle = spawn({
-		let has_suspended = Arc::clone(&has_suspended);
-		let worktable = Arc::clone(&worktable);
-		async move {
-			if suspend_rx.await.is_ok() {
-				let (tx, rx) = oneshot::channel();
+			// The interrupter only knows about Pause and Cancel commands, we use pause as
+			// the suspend task feature should be invisible to the user
+			worktable.pause(tx).await;
 
-				trace!("Suspend signal received: <worker_id='{worker_id}', task_id='{task_id}'>");
-
-				// The interrupter only knows about Pause and Cancel commands, we use pause as
-				// the suspend task feature should be invisible to the user
-				worktable.pause(tx).await;
-
-				match rx.await {
-					Ok(Ok(())) => {
-						trace!("Suspending: <worker_id='{worker_id}', task_id='{task_id}'>");
-						has_suspended.store(true, Ordering::Relaxed);
-					}
-					Ok(Err(e)) => {
-						error!(
+			match rx.await {
+				Ok(Ok(())) => {
+					trace!("Suspending: <worker_id='{worker_id}', task_id='{task_id}'>");
+					has_suspended.store(true, Ordering::Relaxed);
+				}
+				Ok(Err(e)) => {
+					error!(
 							"Task <worker_id='{worker_id}', task_id='{task_id}'> failed to suspend: {e:#?}",
 						);
-					}
-					Err(_) => {
-						// The task probably finished before we could suspend it so the channel was dropped
-						trace!("Suspend channel closed: <worker_id='{worker_id}', task_id='{task_id}'>");
-					}
 				}
-			} else {
-				trace!(
-					"Suspend channel closed, task probably finished before we could suspend it: \
-					<worker_id='{worker_id}', task_id='{task_id}'>"
-				);
+				Err(_) => {
+					// The task probably finished before we could suspend it so the channel was dropped
+					trace!(
+						"Suspend channel closed: <worker_id='{worker_id}', task_id='{task_id}'>"
+					);
+				}
 			}
-		}
-	});
-
-	type SpawnedTaskRunOutput<E> = (Box<dyn Task<E>>, Result<Result<ExecStatus, E>, SystemError>);
-
-	enum RaceOutput<E: RunError> {
-		Completed(Result<SpawnedTaskRunOutput<E>, JoinError>),
-		Abort(oneshot::Sender<Result<(), SystemError>>),
-	}
-
-	match (async { RaceOutput::Completed(handle.await) }, async move {
-		if let Ok(tx) = abort_rx.await {
-			trace!("Aborting task: <worker_id='{worker_id}', task_id='{task_id}'>");
-			RaceOutput::Abort(tx)
 		} else {
-			// If the abort channel is closed, we should just ignore it and keep waiting for the task to finish
-			// as we're being suspended by the worker
 			trace!(
-				"Abort channel closed, will wait for task to finish: <worker_id='{worker_id}', task_id='{task_id}'>"
+				"Suspend channel closed, task probably finished before we could suspend it: \
+					<worker_id='{worker_id}', task_id='{task_id}'>"
 			);
-			pending().await
 		}
 	})
-		.race()
-		.await
-	{
-		RaceOutput::Completed(Ok((task, Ok(res)))) => {
+}
+
+type PartialTaskWorkState<E> = (
+	TaskId,
+	Arc<TaskWorktable>,
+	oneshot::Sender<Result<TaskStatus<E>, SystemError>>,
+	Arc<Interrupter>,
+);
+
+async fn emit_task_completed_message<E: RunError>(
+	worker_id: WorkerId,
+	run_task_output: RunTaskOutput<E>,
+	has_suspended: Arc<AtomicBool>,
+	(task_id, worktable, done_tx, interrupter): PartialTaskWorkState<E>,
+	runner_tx: chan::Sender<RunnerMessage<E>>,
+) {
+	match run_task_output {
+		(task, Ok(res)) => {
 			trace!(
 				"Task completed ok: <worker_id='{worker_id}', task_id='{task_id}', result={res:?}>"
 			);
@@ -1224,8 +1248,8 @@ async fn run_single_task<E: RunError>(
 						task_work_state: TaskWorkState {
 							task,
 							worktable,
-							interrupter,
 							done_tx,
+							interrupter,
 						},
 						status: internal_status,
 					})
@@ -1234,7 +1258,7 @@ async fn run_single_task<E: RunError>(
 				.expect("Task runner channel closed while sending task output");
 		}
 
-		RaceOutput::Completed(Ok((_, Err(e)))) => {
+		(_, Err(e)) => {
 			trace!("Task had an error: <worker_id='{worker_id}', task_id='{task_id}'>");
 
 			if done_tx
@@ -1252,6 +1276,78 @@ async fn run_single_task<E: RunError>(
 				.send(RunnerMessage::TaskOutput(task_id, Err(())))
 				.await
 				.expect("Task runner channel closed while sending task output");
+		}
+	}
+}
+
+async fn run_single_task<E: RunError>(
+	worker_id: WorkerId,
+	TaskWorkState {
+		task,
+		worktable,
+		interrupter,
+		done_tx,
+	}: TaskWorkState<E>,
+	runner_tx: chan::Sender<RunnerMessage<E>>,
+	suspend_rx: oneshot::Receiver<()>,
+	abort_rx: oneshot::Receiver<oneshot::Sender<Result<(), SystemError>>>,
+) {
+	enum RaceOutput<E: RunError> {
+		Completed(Result<RunTaskOutput<E>, JoinError>),
+		Abort(oneshot::Sender<Result<(), SystemError>>),
+	}
+
+	let task_id = task.id();
+
+	worktable.set_started();
+
+	trace!("Running task: <worker_id='{worker_id}', task_id='{task_id}'>");
+
+	let handle = handle_run_task_attempt(
+		worker_id,
+		task_id,
+		task,
+		&worktable,
+		Arc::clone(&interrupter),
+	);
+
+	let task_abort_handle = handle.abort_handle();
+
+	let has_suspended = Arc::new(AtomicBool::new(false));
+
+	let suspender_handle = handle_task_suspension(
+		worker_id,
+		task_id,
+		Arc::clone(&has_suspended),
+		Arc::clone(&worktable),
+		suspend_rx,
+	);
+
+	match (async { RaceOutput::Completed(handle.await) }, async move {
+		if let Ok(tx) = abort_rx.await {
+			trace!("Aborting task: <worker_id='{worker_id}', task_id='{task_id}'>");
+			RaceOutput::Abort(tx)
+		} else {
+			// If the abort channel is closed, we should just ignore it and keep waiting for the task to finish
+			// as we're being suspended by the worker
+			trace!(
+				"Abort channel closed, will wait for task to finish: <worker_id='{worker_id}', task_id='{task_id}'>"
+			);
+			pending().await
+		}
+	})
+		.race()
+		.await
+	{
+		RaceOutput::Completed(Ok(run_task_output)) => {
+			emit_task_completed_message(
+				worker_id,
+				run_task_output,
+				has_suspended,
+				(task_id, worktable, done_tx, interrupter),
+				runner_tx,
+			)
+			.await;
 		}
 
 		RaceOutput::Completed(Err(join_error)) => {

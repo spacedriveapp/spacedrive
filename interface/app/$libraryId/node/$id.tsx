@@ -36,7 +36,7 @@ export const Component = () => {
 			? {
 					type: 'Node',
 					node: nodeState.data
-			  }
+				}
 			: undefined,
 		settings: explorerSettings,
 		showPathBar: false,

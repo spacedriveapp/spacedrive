@@ -18,8 +18,8 @@ export const Component = () => {
 
 	const filteredLocations = useMemo(
 		() =>
-			locations?.filter(
-				(location) => location.name?.toLowerCase().includes(debouncedSearch.toLowerCase())
+			locations?.filter((location) =>
+				location.name?.toLowerCase().includes(debouncedSearch.toLowerCase())
 			) ?? [],
 		[debouncedSearch, locations]
 	);

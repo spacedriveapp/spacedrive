@@ -43,7 +43,7 @@ pub trait IntoAnyTaskOutput {
 	fn into_output(self) -> TaskOutput;
 }
 
-/// Blanket implementation for all types that implements AnyTaskOutput
+/// Blanket implementation for all types that implements [`AnyTaskOutput`]
 impl<T: AnyTaskOutput + 'static> IntoAnyTaskOutput for T {
 	fn into_output(self) -> TaskOutput {
 		TaskOutput::Out(Box::new(self))
@@ -85,7 +85,7 @@ pub enum ExecStatus {
 }
 
 #[derive(Debug)]
-pub(crate) enum InternalTaskExecStatus<E: RunError> {
+pub enum InternalTaskExecStatus<E: RunError> {
 	Done(TaskOutput),
 	Paused,
 	Canceled,
@@ -95,18 +95,16 @@ pub(crate) enum InternalTaskExecStatus<E: RunError> {
 
 impl<E: RunError> From<Result<ExecStatus, E>> for InternalTaskExecStatus<E> {
 	fn from(result: Result<ExecStatus, E>) -> Self {
-		result
-			.map(|status| match status {
-				ExecStatus::Done(out) => Self::Done(out),
-				ExecStatus::Paused => Self::Paused,
-				ExecStatus::Canceled => Self::Canceled,
-			})
-			.unwrap_or_else(|e| Self::Error(e))
+		result.map_or_else(Self::Error, |status| match status {
+			ExecStatus::Done(out) => Self::Done(out),
+			ExecStatus::Paused => Self::Paused,
+			ExecStatus::Canceled => Self::Canceled,
+		})
 	}
 }
 
 /// A helper trait to convert any type that implements [`Task<E>`] into a [`Box<dyn Task<E>>`], boxing it.
-pub trait IntoTask<E> {
+pub trait IntoTask<E>: Send {
 	fn into_task(self) -> Box<dyn Task<E>>;
 }
 
@@ -217,19 +215,22 @@ impl Interrupter {
 	/// Check if the user requested a pause or a cancel, returning the kind of interruption that was requested
 	/// in a non-blocking manner.
 	pub fn try_check_interrupt(&self) -> Option<InterruptionKind> {
-		if let Some(kind) = InterruptionKind::load(&self.has_interrupted) {
-			Some(kind)
-		} else if let Ok(InterruptionRequest { kind, ack }) = self.interrupt_rx.try_recv() {
-			if ack.send(Ok(())).is_err() {
-				warn!("TaskInterrupter ack channel closed");
-			}
+		InterruptionKind::load(&self.has_interrupted).map_or_else(
+			|| {
+				if let Ok(InterruptionRequest { kind, ack }) = self.interrupt_rx.try_recv() {
+					if ack.send(Ok(())).is_err() {
+						warn!("TaskInterrupter ack channel closed");
+					}
 
-			self.has_interrupted.store(kind as u8, Ordering::Relaxed);
+					self.has_interrupted.store(kind as u8, Ordering::Relaxed);
 
-			Some(kind)
-		} else {
-			None
-		}
+					Some(kind)
+				} else {
+					None
+				}
+			},
+			Some,
+		)
 	}
 
 	pub(super) fn reset(&self) {
@@ -263,7 +264,7 @@ impl InterruptionKind {
 }
 
 #[derive(Debug)]
-pub(crate) struct InterruptionRequest {
+pub struct InterruptionRequest {
 	kind: InterruptionKind,
 	ack: oneshot::Sender<Result<(), SystemError>>,
 }
@@ -290,11 +291,16 @@ impl<E: RunError> Future for TaskHandle<E> {
 
 impl<E: RunError> TaskHandle<E> {
 	/// Get the unique identifier of the task
-	pub fn task_id(&self) -> TaskId {
+	#[must_use]
+	pub const fn task_id(&self) -> TaskId {
 		self.task_id
 	}
 
 	/// Gracefully pause the task at a safe point defined by the user using the [`Interrupter`]
+	///
+	/// # Panics
+	///
+	/// Will panic if the worker failed to ack the pause request
 	pub async fn pause(&self) -> Result<(), SystemError> {
 		let is_paused = self.worktable.is_paused.load(Ordering::Relaxed);
 		let is_canceled = self.worktable.is_canceled.load(Ordering::Relaxed);
@@ -328,6 +334,10 @@ impl<E: RunError> TaskHandle<E> {
 	}
 
 	/// Gracefully cancel the task at a safe point defined by the user using the [`Interrupter`]
+	///
+	/// # Panics
+	///
+	/// Will panic if the worker failed to ack the cancel request
 	pub async fn cancel(&self) -> Result<(), SystemError> {
 		let is_canceled = self.worktable.is_canceled.load(Ordering::Relaxed);
 		let is_done = self.worktable.is_done.load(Ordering::Relaxed);
@@ -383,7 +393,7 @@ impl<E: RunError> TaskHandle<E> {
 }
 
 #[derive(Debug)]
-pub(crate) struct TaskWorktable {
+pub struct TaskWorktable {
 	started: AtomicBool,
 	is_running: AtomicBool,
 	is_done: AtomicBool,
@@ -468,7 +478,7 @@ impl TaskWorktable {
 }
 
 #[derive(Debug)]
-pub(crate) struct TaskWorkState<E: RunError> {
+pub struct TaskWorkState<E: RunError> {
 	pub(crate) task: Box<dyn Task<E>>,
 	pub(crate) worktable: Arc<TaskWorktable>,
 	pub(crate) done_tx: oneshot::Sender<Result<TaskStatus<E>, SystemError>>,

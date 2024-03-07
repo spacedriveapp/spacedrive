@@ -75,7 +75,7 @@ impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 		match kind {
 			EventKind::Create(CreateKind::File)
 			| EventKind::Modify(ModifyKind::Data(DataChange::Any)) => {
-				// When we receive a create, modify data or metadata events of the abore kinds
+				// When we receive a create, modify data or metadata events of the above kinds
 				// we just mark the file to be updated in a near future
 				// each consecutive event of these kinds that we receive for the same file
 				// we just store the path again in the map below, with a new instant
@@ -112,7 +112,7 @@ impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 				.await?;
 			}
 			EventKind::Modify(ModifyKind::Name(RenameMode::From)) => {
-				// Just in case we can't garantee that we receive the Rename From event before the
+				// Just in case we can't guarantee that we receive the Rename From event before the
 				// Rename Both event. Just a safeguard
 				if self.recently_renamed_from.remove(&paths[0]).is_none() {
 					self.rename_from.insert(paths.remove(0), Instant::now());

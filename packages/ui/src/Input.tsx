@@ -81,7 +81,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 							: createElement<IconProps>(icon as Icon, {
 									size: 18,
 									className: 'text-gray-350'
-							  })}
+								})}
 					</div>
 				)}
 
