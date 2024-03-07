@@ -28,7 +28,7 @@ use crate::{
 	quic::utils::{
 		identity_to_libp2p_keypair, remote_identity_to_libp2p_peerid, socketaddr_to_quic_multiaddr,
 	},
-	ConnectionRequest, HookEvent, ListenerId, RemoteIdentity, UnicastStream, P2P,
+	ConnectionRequest, HookEvent, ListenerId, Peer, RemoteIdentity, UnicastStream, P2P,
 };
 
 const PROTOCOL: StreamProtocol = StreamProtocol::new("/sdp2p/1");
@@ -72,6 +72,7 @@ pub struct QuicTransport {
 	id: ListenerId,
 	p2p: Arc<P2P>,
 	internal_tx: Sender<InternalEvent>,
+	connect_tx: mpsc::Sender<ConnectionRequest>,
 }
 
 impl QuicTransport {
@@ -85,9 +86,10 @@ impl QuicTransport {
 		let (tx, rx) = bounded(15);
 		let (internal_tx, internal_rx) = bounded(15);
 		let (connect_tx, connect_rx) = mpsc::channel(15);
+		let connect_tx2 = connect_tx.clone();
 		let id = p2p.register_listener("libp2p-quic", tx, move |listener_id, peer, _addrs| {
 			// TODO: I don't love this always being registered. Really it should only show up if the other device is online (do a ping-type thing)???
-			peer.listener_available(listener_id, connect_tx.clone());
+			peer.listener_available(listener_id, connect_tx2.clone());
 		});
 
 		let mut swarm = SwarmBuilder::with_existing_identity(keypair)
@@ -129,6 +131,7 @@ impl QuicTransport {
 				id,
 				p2p,
 				internal_tx,
+				connect_tx,
 			},
 			libp2p_peer_id,
 		))
@@ -140,6 +143,14 @@ impl QuicTransport {
 			// TODO: Oneshot for result
 			// result: oneshot::channel().1,
 		});
+	}
+
+	pub fn connect_me_daddy(&self, peer: Arc<Peer>) {
+		peer.state
+			.write()
+			.unwrap()
+			.connection_methods
+			.insert(self.id, self.connect_tx.clone());
 	}
 
 	// `None` on the port means disabled. Use `0` for random port.
@@ -402,6 +413,8 @@ async fn start(
 				let map = map.clone();
 				tokio::spawn(async move {
 					let peer_id = remote_identity_to_libp2p_peerid(&req.to);
+
+					println!("{:?} {:?}", req.to, req.addrs);
 
 					let addrs = if req.addrs.is_empty() {
 						println!("\n\nNO ADDRS, using Relay\n\n");

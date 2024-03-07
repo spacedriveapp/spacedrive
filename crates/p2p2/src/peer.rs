@@ -62,7 +62,8 @@ impl PartialEq for Peer {
 
 // Internal methods
 impl Peer {
-	pub(crate) fn new(identity: RemoteIdentity, p2p: Arc<P2P>) -> Arc<Self> {
+	// TODO: Make this private
+	pub fn new(identity: RemoteIdentity, p2p: Arc<P2P>) -> Arc<Self> {
 		Arc::new(Self {
 			identity,
 			metadata: Default::default(),

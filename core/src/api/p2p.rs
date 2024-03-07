@@ -1,7 +1,7 @@
 use crate::p2p::{operations, Header, P2PEvent, PeerMetadata};
 
 use futures::future::join_all;
-use sd_p2p2::{IdentityOrRemoteIdentity, RemoteIdentity};
+use sd_p2p2::{IdentityOrRemoteIdentity, Peer, RemoteIdentity};
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
@@ -81,19 +81,22 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("debugConnect", {
 			R.mutation(|node, identity: RemoteIdentity| async move {
 				let peer = { node.p2p.p2p.peers().get(&identity).cloned() };
-				let mut stream = peer
-					.ok_or(rspc::Error::new(
+
+				// TODO: Make this proper
+				// let peer = peer
+				// .ok_or(rspc::Error::new(
+				// 	ErrorCode::InternalServerError,
+				// 	"big man, offline".into(),
+				// ))?;
+				let peer = Peer::new(identity, node.p2p.p2p.clone());
+				node.p2p.quic.connect_me_daddy(peer.clone());
+
+				let mut stream = peer.new_stream().await.map_err(|err| {
+					rspc::Error::new(
 						ErrorCode::InternalServerError,
-						"big man, offline".into(),
-					))?
-					.new_stream()
-					.await
-					.map_err(|err| {
-						rspc::Error::new(
-							ErrorCode::InternalServerError,
-							format!("error in peer.new_stream: {:?}", err),
-						)
-					})?;
+						format!("error in peer.new_stream: {:?}", err),
+					)
+				})?;
 
 				stream
 					.write_all(&Header::Ping.to_bytes())
