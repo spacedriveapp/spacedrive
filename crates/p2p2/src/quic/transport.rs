@@ -9,9 +9,10 @@ use std::{
 use flume::{bounded, Receiver, Sender};
 use libp2p::{
 	autonat,
+	core::upgrade,
 	futures::{AsyncReadExt, AsyncWriteExt, StreamExt},
 	multiaddr::Protocol,
-	noise, relay,
+	noise, quic, relay,
 	swarm::{NetworkBehaviour, SwarmEvent},
 	tls, yamux, Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder,
 };
@@ -95,10 +96,7 @@ impl QuicTransport {
 		let mut swarm = SwarmBuilder::with_existing_identity(keypair)
 			.with_tokio()
 			.with_quic()
-			.with_relay_client(
-				(tls::Config::new, noise::Config::new),
-				yamux::Config::default,
-			)
+			.with_relay_client(noise::Config::new, yamux::Config::default)
 			.unwrap() // TODO: Error handling
 			.with_behaviour(|keypair, relay_behaviour| MyBehaviour {
 				stream: libp2p_stream::Behaviour::new(),
@@ -128,6 +126,7 @@ impl QuicTransport {
 				.with(Protocol::P2p(relay_peer_id))
 				.with(Protocol::P2pCircuit);
 
+			// TODO: Only do this if autonat fails
 			swarm.listen_on(listen_addr).unwrap();
 		}
 
@@ -421,7 +420,12 @@ async fn start(
 				tokio::spawn(async move {
 					let peer_id = remote_identity_to_libp2p_peerid(&req.to);
 
-					println!("{:?} {:?}", req.to, req.addrs);
+
+
+					println!("{:?} {:?} {:?}", req.to, peer_id, req.addrs);
+
+					// TODO: Why is this required, something is wrong with pairing probs???
+					let peer_id = PeerId::from_str("12D3KooWAo7TAghJCW9rFVkM8RPnZqDcGDga1PpDiQyME69AccXN").unwrap();
 
 					let addrs = if req.addrs.is_empty() {
 						println!("\n\nNO ADDRS, using Relay\n\n");
@@ -444,6 +448,10 @@ async fn start(
 
 						addr.push(Protocol::P2pCircuit);
 						addr.push(Protocol::P2p(peer_id));
+
+						// addr.push(Protocol::Tls);
+						// addr.push(Protocol::Noise);
+						// addr.push(Protocol::Yamux);
 
 						vec![addr]
 					} else {
