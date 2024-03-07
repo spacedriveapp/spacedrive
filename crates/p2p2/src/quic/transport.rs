@@ -114,7 +114,7 @@ impl QuicTransport {
 			let addr =
 				socketaddr_to_quic_multiaddr(&(Ipv4Addr::new(54, 176, 132, 155), 7373).into());
 			let peer_id =
-				PeerId::from_str("12D3KooWNFaT4B9irnborvF1cUx2jyi7MoURWVXzVNnCstKYo45J").unwrap(); // TODO: This changes on server startup
+				PeerId::from_str("12D3KooWFoA6tdq3N6nStJ8bwx6KUsNPTmNY8RxGuAHuBV9HYski").unwrap(); // TODO: This changes on server startup
 
 			swarm
 				.behaviour_mut()
@@ -432,7 +432,7 @@ async fn start(
 
 						// TODO: Relay peer ID
 						let relay_peer_id =
-							PeerId::from_str("12D3KooWNFaT4B9irnborvF1cUx2jyi7MoURWVXzVNnCstKYo45J").unwrap(); // TODO: This changes on server startup
+							PeerId::from_str("12D3KooWFoA6tdq3N6nStJ8bwx6KUsNPTmNY8RxGuAHuBV9HYski").unwrap(); // TODO: This changes on server startup
 						addr.push(Protocol::P2p(relay_peer_id));
 
 						addr.push(Protocol::P2pCircuit);

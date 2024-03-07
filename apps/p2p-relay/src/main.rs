@@ -26,6 +26,8 @@ pub struct Behaviour {
 
 #[tokio::main]
 async fn main() {
+	std::env::set_var("RUST_LOG", "debug");
+
 	tracing_subscriber::fmt()
 		// .with_env_filter(EnvFilter::from_default_env()) // TODO: ???
 		.init();
