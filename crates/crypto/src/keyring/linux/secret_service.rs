@@ -48,7 +48,7 @@ impl KeyringInterface for SecretServiceKeyring {
 			.search_items(id.as_sec_ser_identifier())?
 			.first()
 			.map_or(Err(Error::Keyring), |k| {
-				Ok(Protected::new(hex::decode(&k.get_secret()?)?))
+				Ok(Protected::new(hex::decode(k.get_secret()?)?))
 			})
 	}
 
