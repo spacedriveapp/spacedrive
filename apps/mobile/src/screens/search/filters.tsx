@@ -5,12 +5,11 @@ import { getSearchStore, useSearchStore } from '~/stores/searchStore';
 
 const FiltersScreen = () => {
 	const searchStore = useSearchStore();
-
 	// enable action buttons if any filter value is present
 	useEffect(() => {
 		const hasNonEmptyFilter = Object.values(searchStore.filters)
 			.flat()
-			.some((v) => v !== '');
+			.some((v) => v !== '' && v !== false);
 		getSearchStore().disableActionButtons = !hasNonEmptyFilter;
 	}, [searchStore.filters]);
 

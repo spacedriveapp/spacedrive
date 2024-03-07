@@ -58,10 +58,15 @@ interface Props {
 
 const LocationFilter = ({ data }: Props) => {
 	const searchStore = useSearchStore();
-	const isSelected = searchStore.isFilterSelected('locations', data.id);
+	const isSelected = searchStore.filters.locations.some((v) => v.id === data.id);
 	return (
 		<MotiPressable
-			onPress={() => searchStore.updateFilters('locations', data.id)}
+			onPress={() =>
+				searchStore.updateFilters('locations', {
+					id: data.id,
+					name: data.name
+				})
+			}
 			animate={{
 				borderColor: isSelected ? tw.color('accent') : tw.color('app-line/50')
 			}}

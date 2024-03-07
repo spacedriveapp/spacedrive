@@ -58,7 +58,8 @@ interface Props {
 
 const TagFilter = ({ tag }: Props) => {
 	const searchStore = useSearchStore();
-	const isSelected = searchStore.isFilterSelected('tags', tag.id);
+	const isSelected = searchStore.filters.tags.some((v) => v.id === tag.id);
+	console.log(searchStore.filters);
 	return (
 		<MotiPressable
 			onPress={() =>

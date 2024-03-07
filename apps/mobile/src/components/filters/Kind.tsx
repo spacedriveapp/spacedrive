@@ -69,10 +69,15 @@ interface KindFilterProps {
 
 const KindFilter = ({ data }: KindFilterProps) => {
 	const searchStore = useSearchStore();
-	const isSelected = searchStore.isFilterSelected('kind', data.value);
+	const isSelected = searchStore.filters.kind.some((v) => v.name === data.name);
 	return (
 		<MotiPressable
-			onPress={() => searchStore.updateFilters('kind', data.value)}
+			onPress={() =>
+				searchStore.updateFilters('kind', {
+					id: data.value,
+					name: data.name
+				})
+			}
 			animate={{
 				borderColor: isSelected ? tw.color('accent') : tw.color('app-line/50')
 			}}
