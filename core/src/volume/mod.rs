@@ -8,6 +8,16 @@ use std::{
 	sync::OnceLock,
 };
 
+#[cfg(target_family = "unix")]
+use std::os::unix::fs::MetadataExt;
+
+#[cfg(target_os = "ios")]
+use icrate::{
+	objc2::runtime::{Class, Object},
+	objc2::{msg_send, sel},
+	Foundation::{self, ns_string, NSFileManager, NSFileSystemSize, NSNumber, NSString},
+};
+
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
