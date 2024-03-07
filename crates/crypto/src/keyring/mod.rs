@@ -7,9 +7,6 @@ mod session;
 use identifier::Identifier;
 use session::SessionKeyring;
 
-#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "linux")))]
-use SessionKeyring as DefaultKeyring;
-
 #[cfg(target_os = "linux")]
 mod linux;
 
@@ -37,7 +34,6 @@ pub trait KeyringInterface {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum KeyringBackend {
 	Session,
-	// TODO(brxken128): somehow include the default keyring here
 	#[cfg(target_os = "macos")]
 	MacOS,
 	#[cfg(target_os = "ios")]
@@ -92,8 +88,6 @@ impl Keyring {
 				#[cfg(feature = "secret-service")]
 				LinuxKeyring::SecretService => Box::new(linux::SecretServiceKeyring::new()?),
 			},
-			#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "linux")))]
-			_ => Box::new(DefaultKeyring::new()?),
 		};
 
 		Ok(Self { inner })

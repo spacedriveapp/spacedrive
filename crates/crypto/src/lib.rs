@@ -41,7 +41,10 @@ pub mod types;
 pub mod utils;
 pub mod vault;
 
-#[cfg(feature = "keyring")]
+#[cfg(all(
+	feature = "keyring",
+	any(target_os = "macos", target_os = "ios", target_os = "linux")
+))]
 pub mod keyring;
 
 #[cfg(feature = "sys")]
