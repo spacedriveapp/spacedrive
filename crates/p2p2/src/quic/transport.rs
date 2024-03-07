@@ -108,9 +108,10 @@ impl QuicTransport {
 
 		{
 			// TODO: Pull from config & make optional
-			let addr = socketaddr_to_quic_multiaddr(&(Ipv4Addr::new(13, 57, 219, 49), 7373).into());
+			let addr =
+				socketaddr_to_quic_multiaddr(&(Ipv4Addr::new(54, 176, 132, 155), 7373).into());
 			let peer_id =
-				PeerId::from_str("12D3KooWEJyoU1P611Qa6qdVt63ALMGKubeEwS8FsznLS2UzmYMj").unwrap(); // TODO: This changes on server startup
+				PeerId::from_str("12D3KooWNFaT4B9irnborvF1cUx2jyi7MoURWVXzVNnCstKYo45J").unwrap(); // TODO: This changes on server startup
 
 			swarm
 				.behaviour_mut()
@@ -365,7 +366,7 @@ async fn start(
 				InternalEvent::CheckAndDialPeer { identity } => {
 					let peer_id = remote_identity_to_libp2p_peerid(&identity);
 
-					swarm.behaviour().autonat.
+					// swarm.behaviour().autonat.
 
 					// match control.open_stream(peer_id, PROTOCOL).await {
 					// 	Ok(mut stream) => {
