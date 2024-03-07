@@ -14,7 +14,7 @@ sd-prisma = { path = "../prisma" }
 sd-core-sync = { path = "../../core/crates/sync" }
 sd-sync = { path = "../sync" }
 sd-utils = { path = "../utils" }
-sd-file-path-helper = { path = "../file-path-helper" }
+sd-file-path-helper = { path = "../../core/crates/file-path-helper" }
 
 async-channel = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
