@@ -68,13 +68,13 @@ async fn main() {
 
 	loop {
 		match swarm.next().await.expect("Infinite Stream.") {
-			SwarmEvent::Behaviour(event) => {
-				println!("{event:?}")
-			}
+			// SwarmEvent::Behaviour(event) => {
+			// 	println!("{event:?}")
+			// }
 			SwarmEvent::NewListenAddr { address, .. } => {
 				info!("Listening on {address:?}");
 			}
-			_ => {}
+			event => println!("{event:?}"),
 		}
 	}
 }
