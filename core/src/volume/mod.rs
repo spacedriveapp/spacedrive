@@ -2,19 +2,10 @@
 use sd_cache::Model;
 
 use std::{
-	collections::HashMap,
 	fmt::Display,
 	hash::{Hash, Hasher},
-	os::unix::fs::MetadataExt,
 	path::PathBuf,
 	sync::OnceLock,
-};
-
-#[cfg(target_os = "ios")]
-use icrate::{
-	objc2::runtime::{Class, Object},
-	objc2::{msg_send, sel},
-	Foundation::{self, ns_string, NSFileManager, NSFileSystemSize, NSNumber, NSString},
 };
 
 use serde::{Deserialize, Serialize};
@@ -23,7 +14,7 @@ use specta::Type;
 use sysinfo::{DiskExt, System, SystemExt};
 use thiserror::Error;
 use tokio::sync::Mutex;
-use tracing::{error, info};
+use tracing::error;
 
 pub mod watcher;
 
@@ -234,6 +225,14 @@ pub async fn get_volumes() -> Vec<Volume> {
 
 #[cfg(target_os = "ios")]
 pub async fn get_volumes() -> Vec<Volume> {
+	use std::os::unix::fs::MetadataExt;
+
+	use icrate::{
+		objc2::runtime::{Class, Object},
+		objc2::{msg_send, sel},
+		Foundation::{self, ns_string, NSFileManager, NSFileSystemSize, NSNumber, NSString},
+	};
+
 	let mut volumes: Vec<Volume> = Vec::new();
 
 	unsafe {

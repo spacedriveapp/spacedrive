@@ -5,7 +5,6 @@
 use crate::{invalidate_query, library::Library, location::manager::LocationManagerError, Node};
 
 use sd_prisma::prisma::location;
-use sd_utils::error::FileIOError;
 
 use std::{
 	collections::{BTreeMap, HashMap},
@@ -14,15 +13,12 @@ use std::{
 };
 
 use async_trait::async_trait;
-use notify::{
-	event::{CreateKind, DataChange, ModifyKind, RenameMode},
-	Event,
-};
-use tokio::{fs, time::Instant};
+use notify::Event;
+use tokio::time::Instant;
 use tracing::{error, info, trace};
 
 use super::{
-	utils::{create_dir, recalculate_directories_size, remove, rename, update_file},
+	utils::{recalculate_directories_size, remove, update_file},
 	EventHandler, HUNDRED_MILLIS, ONE_SECOND,
 };
 
