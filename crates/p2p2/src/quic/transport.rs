@@ -113,15 +113,22 @@ impl QuicTransport {
 			// TODO: Pull from config & make optional
 			let addr =
 				socketaddr_to_quic_multiaddr(&(Ipv4Addr::new(54, 176, 132, 155), 7373).into());
-			let peer_id =
+			let relay_peer_id =
 				PeerId::from_str("12D3KooWFoA6tdq3N6nStJ8bwx6KUsNPTmNY8RxGuAHuBV9HYski").unwrap(); // TODO: This changes on server startup
 
 			swarm
 				.behaviour_mut()
 				.autonat
-				.add_server(peer_id, Some(addr.clone()));
+				.add_server(relay_peer_id, Some(addr.clone()));
 
-			swarm.add_peer_address(peer_id, addr);
+			swarm.add_peer_address(relay_peer_id, addr);
+
+			let listen_addr = Multiaddr::empty()
+				.with(Protocol::Memory(40)) // TODO: Is this ok
+				.with(Protocol::P2p(relay_peer_id))
+				.with(Protocol::P2pCircuit);
+
+			swarm.listen_on(listen_addr).unwrap();
 		}
 
 		tokio::spawn(start(p2p.clone(), id, swarm, rx, internal_rx, connect_rx));
