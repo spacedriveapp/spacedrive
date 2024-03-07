@@ -20,9 +20,9 @@
 	"devDependencies": {
 		"@sd/config": "workspace:*",
 		"@sd/ui": "workspace:*",
-		"@types/react": "^18.2.61",
-		"@types/react-dom": "^18.2.19",
-		"autoprefixer": "^10.4.17",
+		"@types/react": "^18.2.64",
+		"@types/react-dom": "^18.2.21",
+		"autoprefixer": "^10.4.18",
 		"postcss": "^8.4.35",
 		"postcss-pseudo-companion-classes": "^0.1.1",
 		"prop-types": "^15.8.1",
@@ -30,6 +30,6 @@
 		"storybook": "^7.6.17",
 		"tailwindcss": "^3.4.1",
 		"typescript": "^5.3.3",
-		"vite": "^5.1.4"
+		"vite": "^5.1.5"
 	}
 }

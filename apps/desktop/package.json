@@ -32,11 +32,11 @@
 		"@sd/config": "workspace:*",
 		"@sentry/vite-plugin": "^2.14.2",
 		"@tauri-apps/cli": "^1.5.10",
-		"@types/react": "^18.2.61",
-		"@types/react-dom": "^18.2.19",
+		"@types/react": "^18.2.64",
+		"@types/react-dom": "^18.2.21",
 		"sass": "^1.71.1",
 		"typescript": "^5.3.3",
-		"vite": "^5.1.4",
+		"vite": "^5.1.5",
 		"vite-tsconfig-paths": "^4.3.1"
 	}
 }
