@@ -18,7 +18,6 @@ use icrate::{
 	Foundation::{self, ns_string, NSFileManager, NSFileSystemSize, NSNumber, NSString},
 };
 
-
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
