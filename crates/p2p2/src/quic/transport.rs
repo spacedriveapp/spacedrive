@@ -10,9 +10,10 @@ use flume::{bounded, Receiver, Sender};
 use libp2p::{
 	autonat,
 	futures::{AsyncReadExt, AsyncWriteExt, StreamExt},
+	multiaddr::Protocol,
 	noise, relay,
 	swarm::{NetworkBehaviour, SwarmEvent},
-	tls, yamux, PeerId, StreamProtocol, Swarm, SwarmBuilder,
+	tls, yamux, Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder,
 };
 use tokio::{
 	net::TcpListener,
@@ -116,7 +117,9 @@ impl QuicTransport {
 			swarm
 				.behaviour_mut()
 				.autonat
-				.add_server(peer_id, Some(addr));
+				.add_server(peer_id, Some(addr.clone()));
+
+			swarm.add_peer_address(peer_id, addr);
 		}
 
 		tokio::spawn(start(p2p.clone(), id, swarm, rx, internal_rx, connect_rx));
@@ -399,30 +402,59 @@ async fn start(
 				let map = map.clone();
 				tokio::spawn(async move {
 					let peer_id = remote_identity_to_libp2p_peerid(&req.to);
-					match control.open_stream_with_addrs(
-						peer_id,
-						PROTOCOL,
+
+					let addrs = if req.addrs.is_empty() {
+						println!("\n\nNO ADDRS, using Relay\n\n");
+
+						// let mut addr = Multiaddr::empty();
+						// match m {
+						// 	SocketAddr::V4(ip) => addr.push(Protocol::Ip4(*ip.ip())),
+						// 	SocketAddr::V6(ip) => addr.push(Protocol::Ip6(*ip.ip())),
+						// }
+						// addr.push(Protocol::Udp(m.port()));
+						// addr.push(Protocol::QuicV1);
+
+						// TODO: Relay Socket Address
+						let mut addr = socketaddr_to_quic_multiaddr(&(Ipv4Addr::new(54, 176, 132, 155), 7373).into());
+
+						// TODO: Relay peer ID
+						let relay_peer_id =
+							PeerId::from_str("12D3KooWNFaT4B9irnborvF1cUx2jyi7MoURWVXzVNnCstKYo45J").unwrap(); // TODO: This changes on server startup
+						addr.push(Protocol::P2p(relay_peer_id));
+
+						addr.push(Protocol::P2pCircuit);
+						addr.push(Protocol::P2p(peer_id));
+
+						vec![addr]
+					} else {
 						req.addrs.iter()
 							.map(socketaddr_to_quic_multiaddr)
-							.collect()
-					).await {
-						Ok(mut stream) => {
-							map.write().unwrap_or_else(PoisonError::into_inner).insert(peer_id, req.to);
+							.collect::<Vec<_>>()
+					};
 
-							match stream.write_all(&self_remote_identity.get_bytes()).await {
-								Ok(_) => {
-									debug!("Established outbound stream with '{}'", req.to);
-									let _ = req.tx.send(Ok(UnicastStream::new(req.to, stream.compat())));
-								},
-								Err(e) => {
-									let _ = req.tx.send(Err(e.to_string()));
-								},
-							}
-						},
-						Err(e) => {
-							let _ = req.tx.send(Err(e.to_string()));
-						},
-					}
+						match control.open_stream_with_addrs(
+							peer_id,
+							PROTOCOL,
+							addrs
+						).await {
+							Ok(mut stream) => {
+								map.write().unwrap_or_else(PoisonError::into_inner).insert(peer_id, req.to);
+
+								match stream.write_all(&self_remote_identity.get_bytes()).await {
+									Ok(_) => {
+										debug!("Established outbound stream with '{}'", req.to);
+										let _ = req.tx.send(Ok(UnicastStream::new(req.to, stream.compat())));
+									},
+									Err(e) => {
+										let _ = req.tx.send(Err(e.to_string()));
+									},
+								}
+							},
+							Err(e) => {
+								let _ = req.tx.send(Err(e.to_string()));
+							},
+						}
+
 				});
 			}
 		}

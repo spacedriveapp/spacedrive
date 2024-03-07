@@ -126,50 +126,50 @@ impl P2PManager {
 				.ok();
 		}
 
-		let should_revert = match config.p2p_discovery {
-			P2PDiscoveryState::Everyone
-			// TODO: Make `ContactsOnly` work
-			| P2PDiscoveryState::ContactsOnly => {
-				let mut mdns = self.mdns.lock().unwrap_or_else(PoisonError::into_inner);
-				if mdns.is_none() {
-					match Mdns::spawn(self.p2p.clone()) {
-						Ok(m) => {
-							info!("mDNS started successfully.");
-							*mdns = Some(m);
-							false
-						}
-						Err(err) => {
-							error!("Failed to start mDNS: {err}");
-							true
-						}
-					}
-				} else {
-					false
-				}
-			}
-			P2PDiscoveryState::Disabled => {
-				let mdns = {
-					let mut mdns = self.mdns.lock().unwrap_or_else(PoisonError::into_inner);
-					mdns.take()
-				};
-				if let Some(mdns) = mdns {
-					mdns.shutdown().await;
-					info!("mDNS shutdown successfully.");
-				}
+		// let should_revert = match config.p2p_discovery {
+		// 	P2PDiscoveryState::Everyone
+		// 	// TODO: Make `ContactsOnly` work
+		// 	| P2PDiscoveryState::ContactsOnly => {
+		// 		let mut mdns = self.mdns.lock().unwrap_or_else(PoisonError::into_inner);
+		// 		if mdns.is_none() {
+		// 			match Mdns::spawn(self.p2p.clone()) {
+		// 				Ok(m) => {
+		// 					info!("mDNS started successfully.");
+		// 					*mdns = Some(m);
+		// 					false
+		// 				}
+		// 				Err(err) => {
+		// 					error!("Failed to start mDNS: {err}");
+		// 					true
+		// 				}
+		// 			}
+		// 		} else {
+		// 			false
+		// 		}
+		// 	}
+		// 	P2PDiscoveryState::Disabled => {
+		// 		let mdns = {
+		// 			let mut mdns = self.mdns.lock().unwrap_or_else(PoisonError::into_inner);
+		// 			mdns.take()
+		// 		};
+		// 		if let Some(mdns) = mdns {
+		// 			mdns.shutdown().await;
+		// 			info!("mDNS shutdown successfully.");
+		// 		}
 
-				false
-			},
-		};
+		// 		false
+		// 	},
+		// };
 
-		// The `should_revert` bit is weird but we need this future to stay `Send` as rspc requires.
-		// To make it send we have to drop `quic` (a `!Send` `MutexGuard`).
-		// Doing it within the above scope seems to not work (even when manually calling `drop`).
-		if should_revert {
-			let _ = self
-				.node_config
-				.write(|c| c.p2p_discovery = P2PDiscoveryState::Disabled)
-				.await;
-		}
+		// // The `should_revert` bit is weird but we need this future to stay `Send` as rspc requires.
+		// // To make it send we have to drop `quic` (a `!Send` `MutexGuard`).
+		// // Doing it within the above scope seems to not work (even when manually calling `drop`).
+		// if should_revert {
+		// 	let _ = self
+		// 		.node_config
+		// 		.write(|c| c.p2p_discovery = P2PDiscoveryState::Disabled)
+		// 		.await;
+		// }
 	}
 
 	pub fn get_library_instances(&self, library: &Uuid) -> Vec<(RemoteIdentity, Arc<Peer>)> {

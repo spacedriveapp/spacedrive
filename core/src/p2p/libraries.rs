@@ -20,6 +20,8 @@ pub fn start(p2p: Arc<P2P>, libraries: Arc<Libraries>) {
 								library.id.to_string(),
 								library.identity.to_remote_identity().to_string(),
 							);
+
+							// TODO
 						}
 						LibraryManagerEvent::Edit(_library) => {
 							// TODO: Send changes to all connected nodes or queue sending for when they are online!
