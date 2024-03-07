@@ -10,11 +10,12 @@ use flume::{bounded, Receiver, Sender};
 use libp2p::{
 	autonat,
 	core::upgrade,
+	dcutr,
 	futures::{AsyncReadExt, AsyncWriteExt, StreamExt},
 	multiaddr::Protocol,
 	noise, quic, relay,
 	swarm::{NetworkBehaviour, SwarmEvent},
-	tls, yamux, Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder,
+	yamux, Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder,
 };
 use tokio::{
 	net::TcpListener,
@@ -64,6 +65,8 @@ struct MyBehaviour {
 	relay: relay::client::Behaviour,
 	// TODO: Can this be optional?
 	autonat: autonat::Behaviour,
+	// TODO: Can this be optional?
+	dcutr: dcutr::Behaviour,
 }
 
 /// Transport using Quic to establish a connection between peers.
@@ -102,6 +105,7 @@ impl QuicTransport {
 				stream: libp2p_stream::Behaviour::new(),
 				relay: relay_behaviour,
 				autonat: autonat::Behaviour::new(keypair.public().to_peer_id(), Default::default()),
+				dcutr: dcutr::Behaviour::new(keypair.public().to_peer_id()),
 			})
 			.unwrap() // TODO: Error handling
 			.with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
@@ -448,10 +452,6 @@ async fn start(
 
 						addr.push(Protocol::P2pCircuit);
 						addr.push(Protocol::P2p(peer_id));
-
-						// addr.push(Protocol::Tls);
-						// addr.push(Protocol::Noise);
-						// addr.push(Protocol::Yamux);
 
 						vec![addr]
 					} else {

@@ -42,12 +42,12 @@ libp2p = { version = "0.53.2", features = [
 	"tokio",
 	"serde",
 	"macros",
-	"relay",
+	"quic",
 	"autonat",
+	"relay",
 	"yamux",
 	"noise",
-	"quic",
-	"tls",
+	"dcutr",
 ] }
 libp2p-stream = "0.1.0-alpha"
 mdns-sd = "0.10.3"

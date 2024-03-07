@@ -9,8 +9,8 @@ repository.workspace = true
 [dependencies]
 libp2p = { version = "0.53.2", features = [
 	"tokio",
-	"relay",
 	"quic",
+	"relay",
 	"autonat",
 	"macros",
 ] }

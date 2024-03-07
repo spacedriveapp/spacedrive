@@ -4283,6 +4283,7 @@ dependencies = [
  "libp2p-autonat",
  "libp2p-connection-limits",
  "libp2p-core",
+ "libp2p-dcutr",
  "libp2p-dns",
  "libp2p-gossipsub",
  "libp2p-identity",
@@ -4294,7 +4295,6 @@ dependencies = [
  "libp2p-relay",
  "libp2p-swarm",
  "libp2p-tcp",
- "libp2p-tls",
  "libp2p-upnp",
  "libp2p-yamux",
  "multiaddr",
@@ -4370,6 +4370,28 @@ dependencies = [
  "thiserror",
  "tracing",
  "unsigned-varint 0.8.0",
+ "void",
+]
+
+[[package]]
+name = "libp2p-dcutr"
+version = "0.11.0"
+source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7e82059a0eb2e333ebada4731d23f8c#a005656df7e82059a0eb2e333ebada4731d23f8c"
+dependencies = [
+ "asynchronous-codec",
+ "either",
+ "futures",
+ "futures-bounded",
+ "futures-timer",
+ "instant",
+ "libp2p-core",
+ "libp2p-identity",
+ "libp2p-swarm",
+ "lru 0.12.2",
+ "quick-protobuf",
+ "quick-protobuf-codec",
+ "thiserror",
+ "tracing",
  "void",
 ]
 
@@ -4495,6 +4517,7 @@ dependencies = [
  "futures",
  "instant",
  "libp2p-core",
+ "libp2p-dcutr",
  "libp2p-identity",
  "libp2p-relay",
  "libp2p-swarm",
