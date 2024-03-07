@@ -19,7 +19,6 @@ export const Component = () => {
 	const debugState = useDebugState();
 	// FIX-ME: Intro video breaks onboarding for the web and Linux versions
 	const [showIntro, setShowIntro] = useState(os === 'macOS' || os === 'windows');
-	const [introEnded, setIntroEnded] = useState(false);
 	const windowSize = useWindowSize();
 
 	const ctx = useContextValue();
@@ -79,7 +78,6 @@ export const Component = () => {
 								autoPlay
 								onEnded={() => {
 									setShowIntro(false);
-									setIntroEnded(true);
 								}}
 								muted
 								controls={false}
