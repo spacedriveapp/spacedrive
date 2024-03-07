@@ -5,10 +5,12 @@ use std::{
 	collections::HashMap,
 	fmt::Display,
 	hash::{Hash, Hasher},
-	os::unix::fs::MetadataExt,
 	path::PathBuf,
 	sync::OnceLock,
 };
+
+#[cfg(target_family = "unix")]
+use std::os::unix::fs::MetadataExt;
 
 #[cfg(target_os = "ios")]
 use icrate::{
