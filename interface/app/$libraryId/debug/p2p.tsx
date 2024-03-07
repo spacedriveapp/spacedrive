@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { Outlet, useNavigate } from 'react-router';
 import {
 	useBridgeMutation,
 	useBridgeQuery,
@@ -7,23 +9,39 @@ import {
 	useNodes
 } from '@sd/client';
 import { Button, toast } from '@sd/ui';
+import { useZodRouteParams, useZodSearchParams } from '~/hooks';
 
 export const Component = () => {
-	const node = useBridgeQuery(['nodeState']);
+	const navigate = useNavigate();
+	// TODO: Handle if P2P is disabled
+	// const node = useBridgeQuery(['nodeState']);
+	// {node.data?.p2p_enabled === false ? (
+	// 	<h1 className="text-red-500">P2P is disabled. Please enable it in settings!</h1>
+	// ) : (
+	// 	<Page />
+	// )}
 
 	return (
-		<div className="p-4">
-			{/* {node.data?.p2p_enabled === false ? (
-				<h1 className="text-red-500">P2P is disabled. Please enable it in settings!</h1>
-			) : (
-				<Page />
-			)} */}
-			<Page />
+		<div>
+			<div className="flex space-x-4">
+				<Button variant="accent" onClick={() => navigate('overview')}>
+					Overview
+				</Button>
+				<Button variant="accent" onClick={() => navigate('remote')}>
+					Remote Peers
+				</Button>
+				<Button variant="accent" onClick={() => navigate('instances')}>
+					Instances
+				</Button>
+			</div>
+			<div className="p-4">
+				<Outlet />
+			</div>
 		</div>
 	);
 };
 
-function Page() {
+export function Overview() {
 	const p2pState = useBridgeQuery(['p2p.state'], {
 		refetchInterval: 1000
 	});
@@ -93,3 +111,74 @@ function Page() {
 		</div>
 	);
 }
+
+export function RemotePeers() {
+	const peers = useDiscoveredPeers();
+	const navigate = useNavigate();
+
+	return (
+		<>
+			<h1>Nodes:</h1>
+			{peers.size === 0 ? (
+				<p>No peers found...</p>
+			) : (
+				<ul>
+					{[...peers.entries()].map(([id, _node]) => (
+						<li key={id}>
+							{id}
+							<Button onClick={() => navigate(`/remote/${id}/browse`)}>
+								Open Library Browser
+							</Button>
+						</li>
+					))}
+				</ul>
+			)}
+		</>
+	);
+}
+
+export const Instances = () => {
+	const debugGetLibraryPeers = useBridgeQuery(['p2p.debugGetLibraryPeers']);
+	const debugConnect = useBridgeMutation(['p2p.debugConnect'], {
+		onSuccess: () => {
+			toast.success('Connected!');
+		},
+		onError: (e) => {
+			toast.error(`Error connecting '${e.message}'`);
+		}
+	});
+
+	return (
+		<>
+			<h1>TODO</h1>
+			<div>
+				{!debugGetLibraryPeers.data ? (
+					<p>Loading...</p>
+				) : (
+					<>
+						{debugGetLibraryPeers.data.map(([key, instances]) => (
+							<div key={key}>
+								<p>{key}</p>
+								<div className="pl-2">
+									{instances.map((instanceId) => (
+										<div key={instanceId} className="flex space-x-2 pb-2 pl-3">
+											<p>{instanceId}</p>
+
+											<Button
+												variant="accent"
+												onClick={() => debugConnect.mutate(instanceId)}
+												disabled={debugConnect.isLoading}
+											>
+												Connect
+											</Button>
+										</div>
+									))}
+								</div>
+							</div>
+						))}
+					</>
+				)}
+			</div>
+		</>
+	);
+};

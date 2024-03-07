@@ -1,6 +1,7 @@
 use crate::p2p::{operations, Header, P2PEvent, PeerMetadata};
 
-use sd_p2p2::RemoteIdentity;
+use futures::future::join_all;
+use sd_p2p2::{IdentityOrRemoteIdentity, RemoteIdentity};
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
@@ -45,6 +46,37 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("state", {
 			R.query(|node, _: ()| async move { Ok(node.p2p.state().await) })
+		})
+		.procedure("debugGetLibraryPeers", {
+			R.query(|node, _: ()| async move {
+				Ok(join_all(
+					node.libraries
+						.get_all()
+						.await
+						.into_iter()
+						.map(|l| async move {
+							let library_id = l.id.to_string();
+
+							let instances =
+								l.db.instance()
+									.find_many(vec![])
+									.exec()
+									.await
+									.expect("we don't care")
+									.into_iter()
+									.map(|i| {
+										IdentityOrRemoteIdentity::from_bytes(&i.identity)
+											.expect("lol: invalid DB entry")
+											.remote_identity()
+									})
+									.collect::<Vec<_>>();
+
+							(library_id, instances)
+						})
+						.collect::<Vec<_>>(),
+				)
+				.await)
+			})
 		})
 		.procedure("debugConnect", {
 			R.mutation(|node, identity: RemoteIdentity| async move {
