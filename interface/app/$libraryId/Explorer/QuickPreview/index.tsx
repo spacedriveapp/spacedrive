@@ -192,6 +192,12 @@ export const QuickPreview = () => {
 		getQuickPreviewStore().itemIndex = 0;
 	});
 
+	//close quick preview
+	useShortcut('closeQuickPreview', (e) => {
+		e.preventDefault();
+		getQuickPreviewStore().open = false;
+	});
+
 	// Toggle metadata
 	useShortcut('toggleMetaData', () => setShowMetadata(!showMetadata));
 
@@ -632,7 +638,7 @@ const IconButton = ({
 	return (
 		<button
 			className={clsx(
-				'text-md inline-flex h-[30px] w-[30px] items-center justify-center rounded opacity-80 outline-none',
+				'text-md inline-flex size-[30px] items-center justify-center rounded opacity-80 outline-none',
 				'hover:opacity-100',
 				'focus:opacity-100',
 				'disabled:pointer-events-none disabled:opacity-40',

@@ -1,7 +1,6 @@
 use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use specta::Type;
 use uhlc::NTP64;
 use uuid::Uuid;
@@ -22,12 +21,16 @@ impl std::fmt::Display for OperationKind<'_> {
 	}
 }
 
-#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Debug, Type)]
+#[derive(PartialEq, Serialize, Deserialize, Clone, Debug, Type)]
 pub enum CRDTOperationData {
 	#[serde(rename = "c")]
 	Create,
 	#[serde(rename = "u")]
-	Update { field: String, value: Value },
+	Update {
+		field: String,
+		#[specta(type = serde_json::Value)]
+		value: rmpv::Value,
+	},
 	#[serde(rename = "d")]
 	Delete,
 }
@@ -42,14 +45,15 @@ impl CRDTOperationData {
 	}
 }
 
-#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Type)]
+#[derive(PartialEq, Serialize, Deserialize, Clone, Type)]
 pub struct CRDTOperation {
 	pub instance: Uuid,
 	#[specta(type = u32)]
 	pub timestamp: NTP64,
 	pub id: Uuid,
 	pub model: String,
-	pub record_id: Value,
+	#[specta(type = serde_json::Value)]
+	pub record_id: rmpv::Value,
 	pub data: CRDTOperationData,
 }
 
