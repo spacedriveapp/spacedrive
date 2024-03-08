@@ -7,7 +7,7 @@ type OS = 'darwin' | 'windows' | 'linux';
 type Arch = 'x64' | 'arm64';
 type TargetConfig = { bundle: string; ext: string };
 type BuildTarget = {
-	updater: TargetConfig;
+	updater: { bundle: string; bundleExt: string; archiveExt: string; };
 	standalone: Array<TargetConfig>;
 };
 
@@ -15,21 +15,24 @@ const OS_TARGETS = {
 	darwin: {
 		updater: {
 			bundle: 'macos',
-			ext: 'app.tar.gz'
+			bundleExt: 'app',
+			archiveExt: 'tar.gz'
 		},
 		standalone: [{ ext: 'dmg', bundle: 'dmg' }]
 	},
 	windows: {
 		updater: {
 			bundle: 'msi',
-			ext: 'msi.zip'
+			bundleExt: 'msi',
+			archiveExt: 'zip'
 		},
 		standalone: [{ ext: 'msi', bundle: 'msi' }]
 	},
 	linux: {
 		updater: {
 			bundle: 'appimage',
-			ext: 'AppImage.tar.gz'
+			bundleExt: "AppImage",
+			archiveExt: 'tar.gz'
 		},
 		standalone: [
 			{ ext: 'deb', bundle: 'deb' },
@@ -54,13 +57,14 @@ async function globFiles(pattern: string) {
 	return await globber.glob();
 }
 
-async function uploadUpdater({ bundle, ext }: TargetConfig) {
-	const files = await globFiles(`${BUNDLE_DIR}/${bundle}/*.${ext}*`);
+async function uploadUpdater({ bundle, bundleExt, archiveExt }: BuildTarget["updater"]) {
+	const fullExt = `${bundleExt}.${archiveExt}`
+	const files = await globFiles(`${BUNDLE_DIR}/${bundle}/*.${fullExt}*`);
 
-	const updaterPath = files.find((file) => file.endsWith(ext));
+	const updaterPath = files.find((file) => file.endsWith(fullExt));
 	if (!updaterPath) return console.error(`Updater path not found. Files: ${files}`);
 
-	const artifactPath = `${ARTIFACTS_DIR}/${UPDATER_ARTIFACT_NAME}.${ext}`;
+	const artifactPath = `${ARTIFACTS_DIR}/${UPDATER_ARTIFACT_NAME}.${archiveExt}`;
 
 	// https://tauri.app/v1/guides/distribution/updater#update-artifacts
 	await io.cp(updaterPath, artifactPath);
