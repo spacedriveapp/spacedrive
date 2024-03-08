@@ -96,10 +96,10 @@ function ToolGroup({
 	const roundingCondition = individual
 		? 'both'
 		: index === 0
-		? 'left'
-		: index === group.length - 1
-		? 'right'
-		: 'none';
+			? 'left'
+			: index === group.length - 1
+				? 'right'
+				: 'none';
 
 	const popover = usePopover();
 	const os = useOperatingSystem();
@@ -130,7 +130,7 @@ function ToolGroup({
 									{typeof icon === 'function'
 										? icon({
 												triggerOpen: () => popover.setOpen(true)
-										  })
+											})
 										: icon}
 								</Tooltip>
 							</TopBarButton>

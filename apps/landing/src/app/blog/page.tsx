@@ -27,10 +27,10 @@ export default function Page() {
 							<Image
 								src={post.image}
 								alt={post.imageAlt ?? ''}
-								className="inset-0 -z-10 m-0 w-full rounded-t-xl object-cover md:h-96"
+								className="inset-0 -z-10 m-0 w-full rounded-t-xl object-cover"
 								// NOTE: Ideally we need to follow this specific ratio for our blog images
 								height={400}
-								width={800}
+								width={900}
 							/>
 						)}
 						<div className="p-8">

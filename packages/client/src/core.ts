@@ -75,11 +75,11 @@ export type Procedures = {
         { key: "ephemeralFiles.deleteFiles", input: LibraryArgs<string[]>, result: null } | 
         { key: "ephemeralFiles.renameFile", input: LibraryArgs<EphemeralRenameFileArgs>, result: null } | 
         { key: "files.convertImage", input: LibraryArgs<ConvertImageArgs>, result: null } | 
-        { key: "files.copyFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
+        { key: "files.copyFiles", input: LibraryArgs<OldFileCopierJobInit>, result: null } | 
         { key: "files.createFolder", input: LibraryArgs<CreateFolderArgs>, result: string } | 
-        { key: "files.cutFiles", input: LibraryArgs<FileCutterJobInit>, result: null } | 
-        { key: "files.deleteFiles", input: LibraryArgs<FileDeleterJobInit>, result: null } | 
-        { key: "files.eraseFiles", input: LibraryArgs<FileEraserJobInit>, result: null } | 
+        { key: "files.cutFiles", input: LibraryArgs<OldFileCutterJobInit>, result: null } | 
+        { key: "files.deleteFiles", input: LibraryArgs<OldFileDeleterJobInit>, result: null } | 
+        { key: "files.eraseFiles", input: LibraryArgs<OldFileEraserJobInit>, result: null } | 
         { key: "files.removeAccessTime", input: LibraryArgs<number[]>, result: null } | 
         { key: "files.renameFile", input: LibraryArgs<RenameFileArgs>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
@@ -191,9 +191,9 @@ export type Composite =
  */
 "Live"
 
-export type ConvertImageArgs = { location_id: number; file_path_id: number; delete_src: boolean; desired_extension: ConvertableExtension; quality_percentage: number | null }
+export type ConvertImageArgs = { location_id: number; file_path_id: number; delete_src: boolean; desired_extension: ConvertibleExtension; quality_percentage: number | null }
 
-export type ConvertableExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "hif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf" | "webp"
+export type ConvertibleExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "hif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf" | "webp"
 
 export type CreateEphemeralFolderArgs = { path: string; name: string | null }
 
@@ -241,14 +241,6 @@ export type ExplorerLayout = "grid" | "list" | "media"
 export type ExplorerSettings<TOrder> = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; gridGap: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; mediaViewWithDescendants: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; colVisibility: { [key in string]: boolean } | null; colSizes: { [key in string]: number } | null; order?: TOrder | null; showHiddenFiles?: boolean }
 
 export type Feedback = { message: string; emoji: number }
-
-export type FileCopierJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string }
-
-export type FileCutterJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string }
-
-export type FileDeleterJobInit = { location_id: number; file_path_ids: number[] }
-
-export type FileEraserJobInit = { location_id: number; file_path_ids: number[]; passes: string }
 
 export type FilePath = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null }
 
@@ -321,7 +313,7 @@ export type GenerateThumbsForLocationArgs = { id: number; path: string; regenera
 
 export type GetAll = { backups: Backup[]; directory: string }
 
-export type HardwareModel = "Other" | "MacStudio" | "MacBookAir" | "MacBookPro" | "MacBook" | "MacMini" | "MacPro" | "IMac" | "IMacPro" | "IPad" | "IPhone"
+export type HardwareModel = "Other" | "MacStudio" | "MacBookAir" | "MacBookPro" | "MacBook" | "MacMini" | "MacPro" | "IMac" | "IMacPro" | "IPad" | "IPhone" | "Simulator" | "Android"
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
 
@@ -456,14 +448,14 @@ export type NonIndexedPathItem = { path: string; name: string; extension: string
 /**
  * A type that can be used to return a group of `Reference<T>` and `CacheNode`'s
  * 
- * You don't need to use this, it's just a shortcut to avoid having to write out the full type everytime.
+ * You don't need to use this, it's just a shortcut to avoid having to write out the full type every time.
  */
 export type NormalisedResult<T> = { item: Reference<T>; nodes: CacheNode[] }
 
 /**
  * A type that can be used to return a group of `Reference<T>` and `CacheNode`'s
  * 
- * You don't need to use this, it's just a shortcut to avoid having to write out the full type everytime.
+ * You don't need to use this, it's just a shortcut to avoid having to write out the full type every time.
  */
 export type NormalisedResults<T> = { items: Reference<T>[]; nodes: CacheNode[] }
 
@@ -500,6 +492,14 @@ export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number |
 
 export type ObjectWithFilePaths2 = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: Reference<FilePath>[] }
 
+export type OldFileCopierJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string }
+
+export type OldFileCutterJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string }
+
+export type OldFileDeleterJobInit = { location_id: number; file_path_ids: number[] }
+
+export type OldFileEraserJobInit = { location_id: number; file_path_ids: number[]; passes: string }
+
 /**
  * Represents the operating system which the remote peer is running.
  * This is not used internally and predominantly is designed to be used for display purposes by the embedding application.
@@ -515,7 +515,7 @@ export type P2PDiscoveryState = "Everyone" | "ContactsOnly" | "Disabled"
 /**
  * TODO: P2P event for the frontend
  */
-export type P2PEvent = { type: "DiscoveredPeer"; identity: RemoteIdentity; metadata: PeerMetadata } | { type: "ExpiredPeer"; identity: RemoteIdentity } | { type: "ConnectedPeer"; identity: RemoteIdentity } | { type: "DisconnectedPeer"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedout"; id: string } | { type: "SpacedropRejected"; id: string }
+export type P2PEvent = { type: "DiscoveredPeer"; identity: RemoteIdentity; metadata: PeerMetadata } | { type: "ExpiredPeer"; identity: RemoteIdentity } | { type: "ConnectedPeer"; identity: RemoteIdentity } | { type: "DisconnectedPeer"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedOut"; id: string } | { type: "SpacedropRejected"; id: string }
 
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; device_model: HardwareModel | null; version: string | null }
 

@@ -19,13 +19,13 @@
 		"html2canvas": "^1.4.1",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
-		"react-router-dom": "6.20.1"
+		"react-router-dom": "^6.20.1"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.42.0",
 		"@sd/config": "workspace:*",
 		"@sd/ui": "workspace:*",
-		"@types/react": "^18.2.60",
+		"@types/react": "^18.2.61",
 		"@types/react-dom": "^18.2.19",
 		"autoprefixer": "^10.4.17",
 		"postcss": "^8.4.35",

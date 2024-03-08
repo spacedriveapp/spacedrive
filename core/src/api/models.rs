@@ -14,7 +14,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				#[cfg(feature = "ai")]
 				{
-					use sd_ai::image_labeler::{Model, YoloV8};
+					use sd_ai::old_image_labeler::{Model, YoloV8};
 					Ok(YoloV8::versions())
 				}
 			},

@@ -24,10 +24,10 @@ use run::run;
 
 const ONE_SECOND: Duration = Duration::from_secs(1);
 
-pub(crate) type WorkerId = usize;
-pub(crate) type AtomicWorkerId = AtomicUsize;
+pub type WorkerId = usize;
+pub type AtomicWorkerId = AtomicUsize;
 
-pub(crate) struct WorkerBuilder<E: RunError> {
+pub struct WorkerBuilder<E: RunError> {
 	id: usize,
 	msgs_tx: chan::Sender<WorkerMessage<E>>,
 	msgs_rx: chan::Receiver<WorkerMessage<E>>,
@@ -60,9 +60,7 @@ impl<E: RunError> WorkerBuilder<E> {
 		} = self;
 
 		let handle = spawn({
-			let msgs_rx = msgs_rx.clone();
 			let system_comm = system_comm.clone();
-			let task_stealer = task_stealer.clone();
 
 			async move {
 				trace!("Worker <worker_id='{id}'> message processing task starting...");
@@ -101,7 +99,7 @@ impl<E: RunError> WorkerBuilder<E> {
 }
 
 #[derive(Debug)]
-pub(crate) struct Worker<E: RunError> {
+pub struct Worker<E: RunError> {
 	pub id: usize,
 	system_comm: SystemComm,
 	msgs_tx: chan::Sender<WorkerMessage<E>>,
@@ -231,7 +229,7 @@ impl<E: RunError> Worker<E> {
 unsafe impl<E: RunError> Sync for Worker<E> {}
 
 #[derive(Clone)]
-pub(crate) struct WorkerComm<E: RunError> {
+pub struct WorkerComm<E: RunError> {
 	worker_id: WorkerId,
 	msgs_tx: chan::Sender<WorkerMessage<E>>,
 }
@@ -260,7 +258,7 @@ impl<E: RunError> WorkerComm<E> {
 	}
 }
 
-pub(crate) struct WorkStealer<E: RunError> {
+pub struct WorkStealer<E: RunError> {
 	worker_comms: Arc<Vec<WorkerComm<E>>>,
 }
 
@@ -301,12 +299,12 @@ impl<E: RunError> WorkStealer<E> {
 
 			if let Some(task) = worker_comm.steal_task(worker_id).await {
 				return Some(task);
-			} else {
-				trace!(
-					"Worker <worker_id='{}', stealer_id='{worker_id}'> has no tasks to steal",
-					worker_comm.worker_id
-				);
 			}
+
+			trace!(
+				"Worker <worker_id='{}', stealer_id='{worker_id}'> has no tasks to steal",
+				worker_comm.worker_id
+			);
 		}
 
 		None

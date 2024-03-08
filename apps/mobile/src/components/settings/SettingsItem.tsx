@@ -19,8 +19,8 @@ export function SettingsItem(props: SettingsItemProps) {
 		props.rounded === 'top'
 			? 'border-t border-r border-l border-app-input'
 			: props.rounded === 'bottom'
-			? 'border-b border-app-input border-r border-l'
-			: 'border-app-input border-l border-r';
+				? 'border-b border-app-input border-r border-l'
+				: 'border-app-input border-l border-r';
 	return (
 		<Pressable onPress={props.onPress}>
 			<View style={twStyle(' border-app-line/50 bg-app-box/50', borderRounded, border)}>

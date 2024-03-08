@@ -1,8 +1,8 @@
 pub mod media_data_extractor;
-pub mod media_processor;
-pub mod thumbnail;
+pub mod old_media_processor;
+pub mod old_thumbnail;
 
-pub use media_processor::MediaProcessorJobInit;
+pub use old_media_processor::OldMediaProcessorJobInit;
 use sd_media_metadata::ImageMetadata;
 use sd_prisma::prisma::media_data::*;
 
@@ -28,10 +28,9 @@ pub fn media_data_image_to_query(
 	})
 }
 
-#[cfg(feature = "location-watcher")]
 pub fn media_data_image_to_query_params(
 	mdi: ImageMetadata,
-) -> (Vec<(&'static str, serde_json::Value)>, Vec<SetParam>) {
+) -> (Vec<(&'static str, rmpv::Value)>, Vec<SetParam>) {
 	use sd_sync::option_sync_db_entry;
 	use sd_utils::chain_optional_iter;
 

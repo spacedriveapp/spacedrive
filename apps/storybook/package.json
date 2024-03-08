@@ -20,7 +20,7 @@
 	"devDependencies": {
 		"@sd/config": "workspace:*",
 		"@sd/ui": "workspace:*",
-		"@types/react": "^18.2.60",
+		"@types/react": "^18.2.61",
 		"@types/react-dom": "^18.2.19",
 		"autoprefixer": "^10.4.17",
 		"postcss": "^8.4.35",

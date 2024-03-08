@@ -42,7 +42,7 @@ pub struct P2PManager {
 	pub(crate) events: P2PEvents,
 	// connect_hook: ConnectHook,
 	pub(super) spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
-	pub(super) spacedrop_cancelations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
+	pub(super) spacedrop_cancellations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
 	pub(crate) node_config: Arc<config::Manager>,
 }
 
@@ -68,7 +68,7 @@ impl P2PManager {
 			events: P2PEvents::spawn(p2p.clone()),
 			// connect_hook: ConnectHook::spawn(p2p),
 			spacedrop_pairing_reqs: Default::default(),
-			spacedrop_cancelations: Default::default(),
+			spacedrop_cancellations: Default::default(),
 			node_config,
 		});
 		this.on_node_config_change().await;
@@ -249,9 +249,9 @@ async fn start(
 			};
 
 			match header {
-				Header::Ping => operations::ping::reciever(stream).await,
+				Header::Ping => operations::ping::receiver(stream).await,
 				Header::Spacedrop(req) => {
-					let Err(()) = operations::spacedrop::reciever(&this, req, stream).await else {
+					let Err(()) = operations::spacedrop::receiver(&this, req, stream).await else {
 						return;
 					};
 

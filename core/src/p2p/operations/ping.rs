@@ -7,6 +7,6 @@ pub async fn ping() {
 	todo!();
 }
 
-pub(crate) async fn reciever(stream: UnicastStream) {
+pub(crate) async fn receiver(stream: UnicastStream) {
 	debug!("Received ping from peer '{}'", stream.remote_identity());
 }

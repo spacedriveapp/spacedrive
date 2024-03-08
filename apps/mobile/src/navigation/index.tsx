@@ -6,7 +6,6 @@ import SearchScreen from '~/screens/Search';
 import TabNavigator, { TabParamList } from './TabNavigator';
 
 const Stack = createStackNavigator<RootStackParamList>();
-
 // This is the main navigator we nest everything under.
 export default function RootNavigator() {
 	return (

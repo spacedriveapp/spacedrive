@@ -5,7 +5,7 @@ use crate::{
 	},
 	library::Library,
 	location::{non_indexed, LocationError},
-	object::media::thumbnail::get_indexed_thumb_key,
+	object::media::old_thumbnail::get_indexed_thumb_key,
 	util::{unsafe_streamed_query, BatchedStream},
 };
 
@@ -156,7 +156,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					let mut stream = BatchedStream::new(paths);
 					Ok(unsafe_streamed_query(stream! {
 						while let Some(result) = stream.next().await {
-							// We optimise for the case of no errors because it should be way more common.
+							// We optimize for the case of no errors because it should be way more common.
 							let mut entries = Vec::with_capacity(result.len());
 							let mut errors = Vec::with_capacity(0);
 

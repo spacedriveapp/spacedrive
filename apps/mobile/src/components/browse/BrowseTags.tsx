@@ -1,10 +1,10 @@
 import { useNavigation } from '@react-navigation/native';
-import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { DotsThreeOutlineVertical, Eye, Pen, Plus, Trash } from 'phosphor-react-native';
 import React, { useRef } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
 import { FlatList, Swipeable } from 'react-native-gesture-handler';
 import { ClassInput } from 'twrnc/dist/esm/types';
+import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw, twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
@@ -24,12 +24,7 @@ type TagItemProps = {
 	viewStyle?: 'grid' | 'list';
 };
 
-export const TagItem = ({
-	tag,
-	onPress,
-	tagStyle,
-	viewStyle = 'grid'
-}: TagItemProps) => {
+export const TagItem = ({ tag, onPress, tagStyle, viewStyle = 'grid' }: TagItemProps) => {
 	const modalRef = useRef<ModalRef>(null);
 
 	const renderTagView = () => (
