@@ -8,15 +8,14 @@ use std::{
 
 use flume::{bounded, Receiver, Sender};
 use libp2p::{
-	autonat,
-	core::upgrade,
-	dcutr,
+	autonat, dcutr,
 	futures::{AsyncReadExt, AsyncWriteExt, StreamExt},
 	multiaddr::Protocol,
-	noise, quic, relay,
+	noise, relay,
 	swarm::{NetworkBehaviour, SwarmEvent},
 	yamux, Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder,
 };
+use serde::{Deserialize, Serialize};
 use tokio::{
 	net::TcpListener,
 	sync::{mpsc, oneshot},
@@ -24,6 +23,7 @@ use tokio::{
 };
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tracing::{debug, warn};
+use uuid::Uuid;
 
 use crate::{
 	identity::REMOTE_IDENTITY_LEN,
@@ -52,10 +52,17 @@ enum InternalEvent {
 		ipv4: bool,
 		result: oneshot::Sender<Result<(), String>>,
 	},
-	CheckAndDialPeer {
-		identity: RemoteIdentity,
-		// result: oneshot::Sender<Result<(), String>>,
+	RegisterRelays {
+		relays: Vec<RelayServerEntry>,
+		result: oneshot::Sender<Result<(), String>>,
 	},
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RelayServerEntry {
+	id: Uuid,
+	peer_id: String,
+	addrs: Vec<SocketAddr>,
 }
 
 #[derive(NetworkBehaviour)]
@@ -96,7 +103,7 @@ impl QuicTransport {
 			peer.listener_available(listener_id, connect_tx2.clone());
 		});
 
-		let mut swarm = SwarmBuilder::with_existing_identity(keypair)
+		let swarm = SwarmBuilder::with_existing_identity(keypair)
 			.with_tokio()
 			.with_quic()
 			.with_relay_client(noise::Config::new, yamux::Config::default)
@@ -111,29 +118,6 @@ impl QuicTransport {
 			.with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
 			.build();
 
-		{
-			// TODO: Pull from config & make optional
-			let addr =
-				socketaddr_to_quic_multiaddr(&(Ipv4Addr::new(54, 176, 132, 155), 7373).into());
-			let relay_peer_id =
-				PeerId::from_str("12D3KooWFoA6tdq3N6nStJ8bwx6KUsNPTmNY8RxGuAHuBV9HYski").unwrap(); // TODO: This changes on server startup
-
-			swarm
-				.behaviour_mut()
-				.autonat
-				.add_server(relay_peer_id, Some(addr.clone()));
-
-			swarm.add_peer_address(relay_peer_id, addr);
-
-			let listen_addr = Multiaddr::empty()
-				.with(Protocol::Memory(40)) // TODO: Is this ok
-				.with(Protocol::P2p(relay_peer_id))
-				.with(Protocol::P2pCircuit);
-
-			// TODO: Only do this if autonat fails
-			swarm.listen_on(listen_addr).unwrap();
-		}
-
 		tokio::spawn(start(p2p.clone(), id, swarm, rx, internal_rx, connect_rx));
 
 		Ok((
@@ -147,12 +131,16 @@ impl QuicTransport {
 		))
 	}
 
-	pub async fn todo(&self, identity: RemoteIdentity) {
-		self.internal_tx.send(InternalEvent::CheckAndDialPeer {
-			identity,
-			// TODO: Oneshot for result
-			// result: oneshot::channel().1,
-		});
+	/// Configure the relay servers to use.
+	/// This method will replace any existing relay servers.
+	pub async fn relay_config(&self, relays: Vec<RelayServerEntry>) {
+		let (tx, rx) = oneshot::channel();
+		let event = InternalEvent::RegisterRelays { relays, result: tx };
+
+		let Ok(_) = self.internal_tx.send(event) else {
+			return;
+		};
+		rx.await.unwrap_or_else(|_| Ok(())).unwrap(); // TODO: error handling
 	}
 
 	pub fn connect_me_daddy(&self, peer: Arc<Peer>) {
@@ -387,34 +375,37 @@ async fn start(
 					}
 					let _ = result.send(Ok(()));
 				},
-				InternalEvent::CheckAndDialPeer { identity } => {
-					let peer_id = remote_identity_to_libp2p_peerid(&identity);
+				InternalEvent::RegisterRelays { relays, result } => {
+					// TODO: Replace any existing relays
+					// TODO: Only add some of the relays???
 
-					// swarm.behaviour().autonat.
+					for relay in relays {
+						let peer_id = PeerId::from_str(&relay.peer_id).unwrap(); // TODO: error handling
+						let addrs = relay
+							.addrs
+							.iter()
+							.map(socketaddr_to_quic_multiaddr)
+							.collect::<Vec<_>>();
 
-					// match control.open_stream(peer_id, PROTOCOL).await {
-					// 	Ok(mut stream) => {
-					// 		map.write().unwrap_or_else(PoisonError::into_inner).insert(peer_id, identity);
+						for addr in addrs {
+							swarm
+								.behaviour_mut()
+								.autonat
+								.add_server(peer_id, Some(addr.clone()));
+							swarm.add_peer_address(peer_id, addr);
+						}
 
-					// 		match stream.write_all(&p2p.identity().to_remote_identity().get_bytes()).await {
-					// 			Ok(_) => {
-					// 				debug!("Established outbound stream with '{}'", identity);
-					// 				let _ = p2p.connected_to(
-					// 					id,
-					// 					HashMap::new(),
-					// 					UnicastStream::new(identity, stream.compat()),
-					// 					oneshot::channel().0,
-					// 				);
-					// 			},
-					// 			Err(e) => {
-					// 				warn!("Failed to write remote identity to '{}': {e:?}");
-					// 			},
-					// 		}
-					// 	},
-					// 	Err(e) => {
-					// 		warn!("Failed to open stream with '{}': {e:?}");
-					// 	},
-					// }
+						// TODO: Only do this if autonat fails
+						swarm.listen_on(
+							Multiaddr::empty()
+								.with(Protocol::Memory(40)) // TODO: Is this ok
+								.with(Protocol::P2p(peer_id))
+								.with(Protocol::P2pCircuit)
+						).unwrap(); // TODO: error handling
+					}
+
+					// TODO: Proper error handling
+					result.send(Ok(())).ok();
 				},
 			},
 			Some(req) = connect_rx.recv() => {

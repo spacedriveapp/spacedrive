@@ -6,6 +6,7 @@ use tracing::error;
 use crate::library::{Libraries, LibraryManagerEvent};
 
 pub fn start(p2p: Arc<P2P>, libraries: Arc<Libraries>) {
+	// TODO: Cleanup this thread on p2p shutdown.
 	tokio::spawn(async move {
 		if let Err(err) = libraries
 			.rx

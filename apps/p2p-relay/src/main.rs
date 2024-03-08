@@ -1,6 +1,6 @@
 use std::{
 	io::{stdin, stdout, Write},
-	net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+	net::{Ipv4Addr, Ipv6Addr, SocketAddr},
 	path::PathBuf,
 };
 
@@ -35,8 +35,7 @@ pub struct RelayServerEntry {
 	id: Uuid,
 	// TODO: Try and drop this field cause it's libp2p specific
 	peer_id: String,
-	ips: Vec<IpAddr>,
-	port: u16,
+	addrs: Vec<SocketAddr>,
 }
 
 #[tokio::main]
@@ -124,14 +123,14 @@ async fn main() {
 					.json(&RelayServerEntry {
 						id: config.id.clone(),
 						peer_id: config.keypair.public().to_peer_id().to_base58(),
-						ips: {
-							let mut ips: Vec<IpAddr> = vec![public_ipv4.into()];
+						addrs: {
+							let mut ips: Vec<SocketAddr> =
+								vec![SocketAddr::from((public_ipv4, config.port()))];
 							if let Some(ip) = public_ipv6 {
-								ips.push(ip.into());
+								ips.push(SocketAddr::from((ip, config.port())));
 							}
 							ips
 						},
-						port: config.port(),
 					})
 					.send()
 					.await;

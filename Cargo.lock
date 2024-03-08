@@ -8564,6 +8564,7 @@ dependencies = [
  "mdns-sd",
  "pin-project-lite",
  "rand_core 0.6.4",
+ "reqwest",
  "serde",
  "sha256",
  "specta",

@@ -59,6 +59,7 @@ sha256 = "1.5.0"
 stable-vec = "0.4.0"
 hash_map_diff = "0.2.0"
 sync_wrapper = "0.1.2"
+reqwest.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
