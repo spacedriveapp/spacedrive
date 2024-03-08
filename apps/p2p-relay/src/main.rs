@@ -1,6 +1,6 @@
 use std::{
 	io::{stdin, stdout, Write},
-	net::{Ipv4Addr, Ipv6Addr, SocketAddr},
+	net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
 	path::PathBuf,
 };
 
@@ -10,7 +10,10 @@ use libp2p::{
 	relay,
 	swarm::{NetworkBehaviour, SwarmEvent},
 };
-use tracing::info;
+use reqwest::header::{self, HeaderMap, HeaderValue};
+use serde::{Deserialize, Serialize};
+use tracing::{error, info, warn};
+use uuid::Uuid;
 
 use crate::utils::socketaddr_to_quic_multiaddr;
 
@@ -27,6 +30,15 @@ pub struct Behaviour {
 	autonat: autonat::Behaviour,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RelayServerEntry {
+	id: Uuid,
+	// TODO: Try and drop this field cause it's libp2p specific
+	peer_id: String,
+	ips: Vec<IpAddr>,
+	port: u16,
+}
+
 #[tokio::main]
 async fn main() {
 	tracing_subscriber::fmt()
@@ -40,6 +52,11 @@ async fn main() {
 	args.next(); // Skip binary name
 	if args.next().as_deref() == Some("init") {
 		println!("Initializing config at '{config_path:?}'...");
+
+		if config_path.exists() {
+			panic!("Config already exists at path '{config_path:?}'. Please delete it first!");
+			// TODO: Error handling
+		}
 
 		print!("Please enter the p2p secret: ");
 		let mut p2p_secret = String::new();
@@ -58,13 +75,105 @@ async fn main() {
 	}
 	let config = config::Config::load(&config_path).unwrap(); // TODO: Error handling
 
-	tokio::spawn(async move {
-		loop {
-			// TODO
+	info!("Starting...");
 
-			tokio::time::sleep(std::time::Duration::from_secs(9 * 60)).await;
+	let public_ipv4: Ipv4Addr = reqwest::get("https://api.ipify.org")
+		.await
+		.unwrap() // TODO: Error handling
+		.text()
+		.await
+		.unwrap() // TODO: Error handling
+		.parse()
+		.unwrap(); // TODO: Error handling
+
+	let public_ipv6: Option<Ipv6Addr> = match reqwest::get("https://api6.ipify.org").await {
+		Ok(v) => Some(
+			v.text()
+				.await
+				.unwrap() // TODO: Error handling
+				.parse()
+				.unwrap(), // TODO: Error handling
+		),
+		Err(_) => {
+			warn!("Error getting public IPv6 address. Skipping IPv6 configuration.");
+			None
+		}
+	};
+
+	info!("Determined public addresses of the current relay to be: '{public_ipv4}' and '{public_ipv6:?}'");
+
+	let (first_advertisement_tx, mut first_advertisement_rx) = tokio::sync::mpsc::channel(1);
+	tokio::spawn({
+		let config = config.clone();
+		async move {
+			let client = reqwest::Client::new();
+
+			let mut first_advertisement_tx = Some(first_advertisement_tx);
+			loop {
+				let result = client
+					.post(format!("{}/api/p2p/relays", config.api_url()))
+					.headers({
+						let mut map = HeaderMap::new();
+						map.insert(
+							header::AUTHORIZATION,
+							HeaderValue::from_str(&format!("Bearer {}", config.p2p_secret))
+								.unwrap(),
+						);
+						map
+					})
+					.json(&RelayServerEntry {
+						id: config.id.clone(),
+						peer_id: config.keypair.public().to_peer_id().to_base58(),
+						ips: {
+							let mut ips: Vec<IpAddr> = vec![public_ipv4.into()];
+							if let Some(ip) = public_ipv6 {
+								ips.push(ip.into());
+							}
+							ips
+						},
+						port: config.port(),
+					})
+					.send()
+					.await;
+
+				let mut is_ok = result.is_ok();
+				match result {
+					Ok(result) => {
+						if result.status() != 200 {
+							error!(
+								"Failed to register relay server with cloud status {}: {:?}",
+								result.status(),
+								result.text().await
+							);
+							is_ok = false;
+						} else {
+							info!(
+								"Successfully registered '{}' as relay server with cloud",
+								config.id
+							);
+						}
+					}
+					Err(e) => error!("Failed to register relay server with cloud: {e}"),
+				}
+
+				if let Some(tx) = first_advertisement_tx.take() {
+					tx.send(is_ok).await.ok();
+				}
+
+				tokio::time::sleep(std::time::Duration::from_secs(9 * 60)).await;
+			}
 		}
 	});
+
+	if !first_advertisement_rx
+		.recv()
+		.await
+		.expect("Advertisement task died during startup!")
+	{
+		panic!(
+			"Failed to register relay server with cloud. Please check your config and try again."
+		); // TODO: Error handling
+	}
 
 	// TODO: Setup logging to filesystem with auto-rotation
 

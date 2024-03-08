@@ -2,9 +2,12 @@ use std::{borrow::Cow, path::Path};
 
 use libp2p::identity::Keypair;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
+	// Unique ID of this relay server.
+	pub id: Uuid,
 	// URL of the cloud API.
 	#[serde(skip_serializing_if = "Option::is_none")]
 	api_url: Option<String>,
@@ -24,6 +27,7 @@ impl Config {
 		p2p_secret: String,
 	) -> Result<Self, Box<dyn std::error::Error>> {
 		let config = Self {
+			id: Uuid::new_v4(),
 			api_url: None,
 			p2p_secret,
 			port: None,

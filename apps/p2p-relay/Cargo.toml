@@ -15,8 +15,10 @@ libp2p = { version = "0.53.2", features = [
 	"autonat",
 	"macros",
 ] }
+reqwest = { workspace = true, features = ["json"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing.workspace = true
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+uuid = { workspace = true, features = ["serde", "v4"] }
