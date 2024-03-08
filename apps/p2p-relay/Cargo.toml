@@ -7,6 +7,7 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
+hex.workspace = true
 libp2p = { version = "0.53.2", features = [
 	"tokio",
 	"quic",

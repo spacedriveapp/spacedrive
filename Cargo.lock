@@ -8529,6 +8529,7 @@ dependencies = [
 name = "sd-p2p-relay"
 version = "0.0.1"
 dependencies = [
+ "hex",
  "libp2p",
  "serde",
  "serde_json",

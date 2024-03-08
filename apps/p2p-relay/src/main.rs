@@ -1,9 +1,12 @@
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::{
+	io::{stdin, stdout, Write},
+	net::{Ipv4Addr, Ipv6Addr, SocketAddr},
+	path::PathBuf,
+};
 
 use libp2p::{
 	autonat,
 	futures::StreamExt,
-	identity::Keypair,
 	relay,
 	swarm::{NetworkBehaviour, SwarmEvent},
 };
@@ -26,24 +29,48 @@ pub struct Behaviour {
 
 #[tokio::main]
 async fn main() {
-	std::env::set_var("RUST_LOG", "debug");
-
 	tracing_subscriber::fmt()
 		// .with_env_filter(EnvFilter::from_default_env()) // TODO: ???
 		.init();
 
-	// let config_path = std::env::var("CONFIG_PATH").unwrap_or("./config.toml".to_string());
-	// println!("{:?}", config_path);
-	// TODO: Get port from config
-	let port = 7373; // TODO: Should we use HTTPS port to avoid strict internet filters???
+	let config_path =
+		PathBuf::from(std::env::var("CONFIG_PATH").unwrap_or("./config.json".to_string()));
+
+	let mut args = std::env::args();
+	args.next(); // Skip binary name
+	if args.next().as_deref() == Some("init") {
+		println!("Initializing config at '{config_path:?}'...");
+
+		print!("Please enter the p2p secret: ");
+		let mut p2p_secret = String::new();
+		let _ = stdout().flush();
+		stdin()
+			.read_line(&mut p2p_secret)
+			.expect("Did not enter a correct string");
+
+		config::Config::init(&config_path, p2p_secret.replace("\n", "")).unwrap(); // TODO: Error handling
+		println!("\nSuccessfully initialized config at '{config_path:?}'!");
+		return;
+	}
+
+	if !config_path.exists() {
+		panic!("Unable to find config at path '{config_path:?}'. Please create it!"); // TODO: Error handling
+	}
+	let config = config::Config::load(&config_path).unwrap(); // TODO: Error handling
+
+	tokio::spawn(async move {
+		loop {
+			// TODO
+
+			tokio::time::sleep(std::time::Duration::from_secs(9 * 60)).await;
+		}
+	});
 
 	// TODO: Setup logging to filesystem with auto-rotation
 
-	// TODO: pull this from the config so it's consistent
-	let local_key = Keypair::generate_ed25519();
-	let peer_id = local_key.public().to_peer_id();
+	let peer_id = config.keypair.public().to_peer_id();
 
-	let mut swarm = libp2p::SwarmBuilder::with_existing_identity(local_key)
+	let mut swarm = libp2p::SwarmBuilder::with_existing_identity(config.keypair.clone())
 		.with_tokio()
 		.with_quic()
 		.with_behaviour(|key| Behaviour {
@@ -56,13 +83,13 @@ async fn main() {
 	swarm
 		.listen_on(socketaddr_to_quic_multiaddr(&SocketAddr::from((
 			Ipv6Addr::UNSPECIFIED,
-			port,
+			config.port(),
 		))))
 		.unwrap(); // TODO: Error handling
 	swarm
 		.listen_on(socketaddr_to_quic_multiaddr(&SocketAddr::from((
 			Ipv4Addr::UNSPECIFIED,
-			port,
+			config.port(),
 		))))
 		.unwrap(); // TODO: Error handling
 
