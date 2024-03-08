@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 
 import { KeybindEvent } from '../util/keybind';
 import { useQuickRescan } from './useQuickRescan';
@@ -9,6 +9,10 @@ export const useKeybindEventHandler = (libraryId?: string) => {
 	const navigate = useNavigate();
 	const windowState = getWindowState();
 	const rescan = useQuickRescan();
+	const regex = new RegExp(
+		'/[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}/location/'
+	);
+	const id = parseInt(useLocation().pathname.replace(regex, ''));
 
 	useEffect(() => {
 		const handler = (e: KeybindEvent) => {
@@ -19,7 +23,7 @@ export const useKeybindEventHandler = (libraryId?: string) => {
 					libraryId && navigate(`/${libraryId}/settings/client/general`);
 					break;
 				case 'reload_explorer':
-					rescan();
+					!isNaN(id) && rescan(id);
 					break;
 				// case 'open_overview':
 				// 	libraryId && navigate(`/${libraryId}/overview`);
@@ -38,5 +42,5 @@ export const useKeybindEventHandler = (libraryId?: string) => {
 
 		document.addEventListener('keybindexec', handler);
 		return () => document.removeEventListener('keybindexec', handler);
-	}, [navigate, libraryId, windowState]);
+	}, [navigate, libraryId, windowState, rescan, id]);
 };
