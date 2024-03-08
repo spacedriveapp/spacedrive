@@ -77,7 +77,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 						style={twStyle({ backgroundColor: tagColor }, 'h-6 w-6 rounded-full')}
 					/>
 					<ModalInput
-						testID="create-tag-name"
+						autoFocus
 						style={tw`ml-2 flex-1`}
 						value={tagName}
 						onChangeText={(text) => setTagName(text)}
@@ -100,6 +100,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 					onPress={() => createTag({ color: tagColor, name: tagName })}
 					style={tw`mt-6`}
 					disabled={tagName.length === 0}
+					testID="create-tag-button"
 				>
 					<Text style={tw`text-sm font-medium text-white`}>Create</Text>
 				</Button>

@@ -28,6 +28,7 @@ export default function Tags({ viewStyle = 'list' }: Props) {
 		<ScreenContainer scrollview={false} style={tw`relative px-6 py-0`}>
 			<Pressable
 				style={tw`absolute bottom-7 right-7 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-accent`}
+				testID="create-tag-button"
 				onPress={() => {
 					modalRef.current?.present();
 				}}
