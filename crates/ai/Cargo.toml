@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Ericson Soares <ericson@spacedrive.com>"]
 readme = "README.md"
 description = "A simple library to generate video thumbnails using ffmpeg with the webp format"
-rust-version = "1.73.0"
+rust-version = "1.75.0"
 license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
@@ -37,6 +37,7 @@ uuid = { workspace = true, features = ["v4", "serde"] }
 # Note: Keep same version as used by ort
 ndarray = { version = "0.15.6" }
 half = { version = "2.1", features = ['num-traits'] }
+rmpv.workspace = true
 
 # Microsoft does not provide a release for osx-gpu. See: https://github.com/microsoft/onnxruntime/releases
 # "gpu" means CUDA or TensorRT EP. Thus, the ort crate cannot download them at build time.

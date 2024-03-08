@@ -66,13 +66,20 @@ pub async fn run_actor(
 				let start_time = ops[0].timestamp.0.to_string();
 				let end_time = ops[ops.len() - 1].timestamp.0.to_string();
 
+				let ops_len = ops.len();
+
+				use base64::prelude::*;
+
 				instances.push(do_add::Input {
 					uuid: req_add.instance_uuid,
 					key: req_add.key,
 					start_time,
 					end_time,
-					contents: serde_json::to_value(CompressedCRDTOperations::new(ops))
-						.expect("CompressedCRDTOperation should serialize!"),
+					contents: BASE64_STANDARD.encode(
+						rmp_serde::to_vec_named(&CompressedCRDTOperations::new(ops))
+							.expect("CompressedCRDTOperation should serialize!"),
+					),
+					ops_count: ops_len,
 				})
 			}
 

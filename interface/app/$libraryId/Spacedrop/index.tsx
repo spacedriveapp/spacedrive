@@ -2,10 +2,17 @@ import { Planet } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import { proxy } from 'valtio';
-import { useBridgeMutation, useDiscoveredPeers, useP2PEvents, useSelector } from '@sd/client';
+import {
+	HardwareModel,
+	useBridgeMutation,
+	useDiscoveredPeers,
+	useP2PEvents,
+	useSelector
+} from '@sd/client';
 import { toast } from '@sd/ui';
 import { Icon } from '~/components';
-import { useDropzone, useOnDndLeave } from '~/hooks';
+import { useDropzone, useLocale, useOnDndLeave } from '~/hooks';
+import { hardwareModelToIcon } from '~/util/hardware';
 import { usePlatform } from '~/util/Platform';
 
 import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
@@ -20,6 +27,7 @@ const hackyState = proxy({
 export function SpacedropProvider() {
 	const incomingRequestToast = useIncomingSpacedropToast();
 	const progressToast = useSpacedropProgressToast();
+	const { t } = useLocale();
 
 	useP2PEvents((data) => {
 		if (data.type === 'SpacedropRequest') {
@@ -28,7 +36,7 @@ export function SpacedropProvider() {
 			progressToast(data);
 		} else if (data.type === 'SpacedropRejected') {
 			// TODO: Add more information to this like peer name, etc in future
-			toast.warning('Spacedrop Rejected');
+			toast.warning(t('spacedrop_rejected'));
 		}
 	});
 
@@ -58,7 +66,7 @@ export function Spacedrop({ triggerClose }: { triggerClose: () => void }) {
 	const ref = useRef<HTMLDivElement>(null);
 	const discoveredPeers = useDiscoveredPeers();
 	const doSpacedrop = useBridgeMutation('p2p.spacedrop');
-
+	const { t } = useLocale();
 	// We keep track of how many instances of this component is rendering.
 	// This is used by `SpacedropButton` to determine if the animation should stop.
 	useEffect(() => {
@@ -86,7 +94,7 @@ export function Spacedrop({ triggerClose }: { triggerClose: () => void }) {
 
 	const onDropped = (id: string, files: string[]) => {
 		if (doSpacedrop.isLoading) {
-			toast.warning('Spacedrop already in progress');
+			toast.warning(t('spacedrop_already_progress'));
 			return;
 		}
 
@@ -105,17 +113,26 @@ export function Spacedrop({ triggerClose }: { triggerClose: () => void }) {
 				<span className="text-lg font-bold">Spacedrop</span>
 
 				<div className="flex flex-col space-y-4 pt-2">
+					<p className="text-center text-ink-dull">{t('spacedrop_description')}</p>
 					{discoveredPeers.size === 0 && (
-						<div className="flex flex-col text-center">
-							<span className="text-sm text-gray-400">
-								No Spacedrive nodes were
-								<br /> found on your network
-							</span>
+						<div
+							className={clsx(
+								'flex items-center justify-center gap-3 rounded-md border border-dashed border-app-line bg-app-darkBox px-3 py-2 font-medium text-ink'
+							)}
+						>
+							<p className="text-center text-ink-faint">{t('no_nodes_found')}</p>
 						</div>
 					)}
-					{Array.from(discoveredPeers).map(([id, meta]) => (
-						<Node key={id} id={id} name={meta.name} onDropped={onDropped} />
-					))}
+					<div className="flex flex-col space-y-2">
+						{Array.from(discoveredPeers).map(([id, meta]) => (
+							<Node
+								key={id}
+								id={id}
+								name={meta.name as HardwareModel}
+								onDropped={onDropped}
+							/>
+						))}
+					</div>
 				</div>
 			</div>
 		</div>
@@ -128,7 +145,7 @@ function Node({
 	onDropped
 }: {
 	id: string;
-	name: string;
+	name: HardwareModel;
 	onDropped: (id: string, files: string[]) => void;
 }) {
 	const ref = useRef<HTMLDivElement>(null);
@@ -143,8 +160,10 @@ function Node({
 		<div
 			ref={ref}
 			className={clsx(
-				'border px-4 py-2',
-				state === 'hovered' ? 'border-solid' : 'border-dashed'
+				'flex items-center justify-start gap-2 rounded-md border bg-app-darkBox px-3 py-2 font-medium text-ink',
+				state === 'hovered'
+					? 'border-solid border-accent-deep'
+					: 'border-dashed border-app-line'
 			)}
 			onClick={() => {
 				if (!platform.openFilePickerDialog) {
@@ -159,6 +178,7 @@ function Node({
 				});
 			}}
 		>
+			<Icon name={hardwareModelToIcon(name)} size={20} />
 			<h1>{name}</h1>
 		</div>
 	);

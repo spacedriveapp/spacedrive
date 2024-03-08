@@ -3,7 +3,7 @@ pub mod auth;
 use std::{future::Future, sync::Arc};
 
 use auth::OAuthToken;
-use sd_p2p::spacetunnel::RemoteIdentity;
+use sd_p2p2::RemoteIdentity;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use specta::Type;
@@ -47,8 +47,11 @@ pub struct Instance {
 	pub id: String,
 	pub uuid: Uuid,
 	pub identity: RemoteIdentity,
+	#[serde(rename = "nodeId")]
 	pub node_id: Uuid,
+	#[serde(rename = "nodeName")]
 	pub node_name: String,
+	#[serde(rename = "nodePlatform")]
 	pub node_platform: u8,
 }
 
@@ -197,10 +200,11 @@ pub mod library {
 		use super::*;
 
 		#[derive(Debug, Deserialize)]
-		pub struct Response {
+		pub struct CreateResult {
 			pub id: String,
 		}
 
+		#[allow(clippy::too_many_arguments)]
 		pub async fn exec(
 			config: RequestConfig,
 			library_id: Uuid,
@@ -210,7 +214,7 @@ pub mod library {
 			node_id: Uuid,
 			node_name: &str,
 			node_platform: u8,
-		) -> Result<Response, Error> {
+		) -> Result<CreateResult, Error> {
 			let Some(auth_token) = config.auth_token else {
 				return Err(Error("Authentication required".to_string()));
 			};
@@ -446,7 +450,8 @@ pub mod library {
 				pub key: String,
 				pub start_time: String,
 				pub end_time: String,
-				pub contents: serde_json::Value,
+				pub contents: String,
+				pub ops_count: usize,
 			}
 
 			pub async fn exec(
@@ -461,7 +466,7 @@ pub mod library {
 				config
 					.client
 					.post(&format!(
-						"{}/api/v1/libraries/{}/messageCollections/requestAdd",
+						"{}/api/v1/libraries/{}/messageCollections/doAdd",
 						config.api_url, library_id
 					))
 					.json(&json!({ "instances": instances }))
@@ -564,8 +569,8 @@ pub mod locations {
 		pub type Response = CloudLocation;
 	}
 
-	pub use authorise::exec as authorise;
-	pub mod authorise {
+	pub use authorize::exec as authorize;
+	pub mod authorize {
 		use super::*;
 
 		pub async fn exec(config: RequestConfig, id: String) -> Result<Response, Error> {
@@ -575,7 +580,7 @@ pub mod locations {
 
 			config
 				.client
-				.post(&format!("{}/api/v1/locations/authorise", config.api_url))
+				.post(&format!("{}/api/v1/locations/authorize", config.api_url))
 				.json(&json!({ "id": id }))
 				.with_auth(auth_token)
 				.send()

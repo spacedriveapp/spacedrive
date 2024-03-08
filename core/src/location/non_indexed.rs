@@ -3,7 +3,7 @@ use crate::{
 	library::Library,
 	object::{
 		cas::generate_cas_id,
-		media::thumbnail::{get_ephemeral_thumb_key, BatchToProcess, GenerateThumbnailArgs},
+		media::old_thumbnail::{get_ephemeral_thumb_key, BatchToProcess, GenerateThumbnailArgs},
 	},
 	Node,
 };

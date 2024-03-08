@@ -1,3 +1,4 @@
+import { type AlphaClient } from '@oscartbeaumont-sd/rspc-client/v2';
 import { ArrowLeft, ArrowRight, Info } from '@phosphor-icons/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { iconNames } from '@sd/assets/util';

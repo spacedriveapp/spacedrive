@@ -1,5 +1,8 @@
 import { HTMLAttributes, ReactNode, useMemo } from 'react';
+import { useNavigate } from 'react-router';
 import { useSelector, type ExplorerItem } from '@sd/client';
+import { useOperatingSystem } from '~/hooks';
+import { useRoutingContext } from '~/RoutingContext';
 
 import { useExplorerContext } from '../../Context';
 import { explorerStore, isCut } from '../../store';
@@ -17,6 +20,9 @@ interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
 export const GridItem = ({ children, item, index, ...props }: Props) => {
 	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
+	const { currentIndex, maxIndex } = useRoutingContext();
+	const os = useOperatingSystem();
+	const navigate = useNavigate();
 
 	const dragSelect = useDragSelectContext();
 
@@ -31,6 +37,9 @@ export const GridItem = ({ children, item, index, ...props }: Props) => {
 		[explorer.selectedItems, item]
 	);
 
+	const canGoBack = currentIndex !== 0;
+	const canGoForward = currentIndex !== maxIndex;
+
 	const { attributes } = useDragSelectable({ index, id: uniqueId(item), selected });
 
 	return (
@@ -40,7 +49,17 @@ export const GridItem = ({ children, item, index, ...props }: Props) => {
 			className="h-full w-full"
 			// Prevent explorer view onMouseDown event from
 			// being executed and resetting the selection
-			onMouseDown={(e) => e.stopPropagation()}
+			onMouseDown={(e) => {
+				e.stopPropagation();
+				if (os === 'browser') return;
+				if (e.buttons === 8 || e.buttons === 3) {
+					if (!canGoBack) return;
+					navigate(-1);
+				} else if (e.buttons === 16 || e.buttons === 4) {
+					if (!canGoForward) return;
+					navigate(1);
+				}
+			}}
 			onContextMenu={(e) => {
 				if (!explorerView.selectable || explorer.selectedItems.has(item)) return;
 				explorer.resetSelectedItems([item]);

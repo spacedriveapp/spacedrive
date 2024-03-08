@@ -74,7 +74,7 @@ To run the landing page:
 
 If you encounter any issues, ensure that you are using the following versions of Rust, Node and Pnpm:
 
-- Rust version: **1.73.0**
+- Rust version: **1.75.0**
 - Node version: **18.17**
 - Pnpm version: **8.0.0**
 
@@ -86,6 +86,8 @@ Make sure to read the [guidelines](https://spacedrive.com/docs/developers/prereq
 
 To run the mobile app:
 
+- Install Java JDK <= 17 for Android
+  - Java 21 is not compatible: https://github.com/react-native-async-storage/async-storage/issues/1057#issuecomment-1925963956
 - Install [Android Studio](https://developer.android.com/studio) for Android and [Xcode](https://apps.apple.com/au/app/xcode/id497799835) for iOS development.
 - Run `./scripts/setup.sh mobile`
   - This will set up most of the dependencies required to build the mobile app.

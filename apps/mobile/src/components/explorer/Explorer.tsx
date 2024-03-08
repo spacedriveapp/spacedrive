@@ -11,6 +11,7 @@ import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '~/stores/explorerStore';
 import { useActionsModalStore } from '~/stores/modalStore';
 
+import ScreenContainer from '../layout/ScreenContainer';
 import FileItem from './FileItem';
 import FileRow from './FileRow';
 
@@ -44,7 +45,7 @@ const Explorer = ({ items }: ExplorerProps) => {
 	}
 
 	return (
-		<View style={tw`flex-1 bg-mobile-screen`}>
+		<ScreenContainer scrollview={false} style={'gap-0 py-0'}>
 			{/* Header */}
 			<View style={tw`flex flex-row items-center justify-between`}>
 				{/* Sort By */}
@@ -87,8 +88,8 @@ const Explorer = ({ items }: ExplorerProps) => {
 						item.type === 'NonIndexedPath'
 							? item.item.path
 							: item.type === 'SpacedropPeer'
-							? item.item.name
-							: item.item.id.toString()
+								? item.item.name
+								: item.item.id.toString()
 					}
 					renderItem={({ item }) => (
 						<Pressable onPress={() => handlePress(item)}>
@@ -99,6 +100,7 @@ const Explorer = ({ items }: ExplorerProps) => {
 							)}
 						</Pressable>
 					)}
+					contentContainerStyle={tw`p-2`}
 					extraData={layoutMode}
 					estimatedItemSize={
 						layoutMode === 'grid'
@@ -107,7 +109,7 @@ const Explorer = ({ items }: ExplorerProps) => {
 					}
 				/>
 			)}
-		</View>
+		</ScreenContainer>
 	);
 };
 

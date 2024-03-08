@@ -124,6 +124,30 @@ export default function ({ group, progress }: JobGroupProps) {
 	);
 }
 
+const toastErrorSuccess = (
+	errorMessage?: string,
+	successMessage?: string,
+	successCallBack?: () => void
+) => {
+	return {
+		onError: () => {
+			errorMessage &&
+				toast.error({
+					title: 'Error',
+					body: errorMessage
+				});
+		},
+		onSuccess: () => {
+			successMessage &&
+				toast.success({
+					title: 'Success',
+					body: successMessage
+				}),
+				successCallBack?.();
+		}
+	};
+};
+
 function Options({
 	activeJob,
 	group,
@@ -138,30 +162,6 @@ function Options({
 	const queryClient = useQueryClient();
 
 	const { t } = useLocale();
-
-	const toastErrorSuccess = (
-		errorMessage?: string,
-		successMessage?: string,
-		successCallBack?: () => void
-	) => {
-		return {
-			onError: () => {
-				errorMessage &&
-					toast.error({
-						title: 'Error',
-						body: errorMessage
-					});
-			},
-			onSuccess: () => {
-				successMessage &&
-					toast.success({
-						title: 'Success',
-						body: successMessage
-					}),
-					successCallBack?.();
-			}
-		};
-	};
 
 	const resumeJob = useLibraryMutation(
 		['jobs.resume'],
@@ -251,9 +251,7 @@ function Options({
 					<Tooltip label={t('pause')}>
 						<Button
 							className="cursor-pointer"
-							onClick={() => {
-								pauseJob.mutate(group.id);
-							}}
+							onClick={() => pauseJob.mutate(group.id)}
 							size="icon"
 							variant="outline"
 						>

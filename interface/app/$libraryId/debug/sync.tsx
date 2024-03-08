@@ -3,9 +3,11 @@ import { stringify } from 'uuid';
 import {
 	CRDTOperation,
 	CRDTOperationData,
+	useLibraryMutation,
 	useLibraryQuery,
 	useLibrarySubscription
 } from '@sd/client';
+import { Button } from '@sd/ui';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 
 type MessageGroup = {
@@ -17,7 +19,15 @@ type MessageGroup = {
 export const Component = () => {
 	useRouteTitle('Sync');
 
+	const syncEnabled = useLibraryQuery(['sync.enabled']);
+
 	const messages = useLibraryQuery(['sync.messages']);
+	const enableSync = useLibraryMutation(['sync.enable'], {
+		onSuccess: async () => {
+			await syncEnabled.refetch();
+			await messages.refetch();
+		}
+	});
 
 	useLibrarySubscription(['sync.newMessage'], {
 		onData: () => messages.refetch()
@@ -30,6 +40,15 @@ export const Component = () => {
 
 	return (
 		<ul className="space-y-4 p-4">
+			{!syncEnabled.data && (
+				<Button
+					variant="accent"
+					onClick={() => enableSync.mutate(null)}
+					disabled={enableSync.isLoading}
+				>
+					Enable sync messages
+				</Button>
+			)}
 			{groups?.map((group, index) => <OperationGroup key={index} group={group} />)}
 		</ul>
 	);
@@ -72,7 +91,7 @@ function calculateGroups(messages: CRDTOperation[]) {
 	return messages.reduce<MessageGroup[]>((acc, op) => {
 		const { data } = op;
 
-		const id = stringify((op.record_id as any).pub_id);
+		const id = JSON.stringify(op.record_id);
 
 		const latest = (() => {
 			const latest = acc[acc.length - 1];

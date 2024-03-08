@@ -5,5 +5,6 @@ export const debugRoutes = [
 	{ path: 'cloud', lazy: () => import('./cloud') },
 	{ path: 'sync', lazy: () => import('./sync') },
 	{ path: 'actors', lazy: () => import('./actors') },
-	{ path: 'p2p', lazy: () => import('./p2p') }
+	{ path: 'p2p', lazy: () => import('./p2p') },
+	{ path: 'p2p-rspc', lazy: () => import('./p2p-rspc') }
 ] satisfies RouteObject[];

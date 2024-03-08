@@ -6,7 +6,7 @@ use std::path::Path;
 use thiserror::Error;
 
 pub mod hash;
-pub mod validator_job;
+pub mod old_validator_job;
 
 #[derive(Error, Debug)]
 pub enum ValidatorError {

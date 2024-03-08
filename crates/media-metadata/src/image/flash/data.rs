@@ -57,7 +57,7 @@ impl From<u32> for FlashMode {
 }
 
 impl From<FlashValue> for Option<Flash> {
-	// TODO(brxken128): This can be heavily optimised with bitwise AND
+	// TODO(brxken128): This can be heavily optimized with bitwise AND
 	// e.g. to see if flash was fired, `(value & 1) != 0`
 	// or to see if red eye reduction was enabled, `(value & 64) != 0`
 	// May not be worth it as some states may be invalid according to `https://www.awaresystems.be/imaging/tiff/tifftags/privateifd/exif/flash.html`

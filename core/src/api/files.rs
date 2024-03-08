@@ -1,17 +1,17 @@
 use crate::{
 	api::{locations::object_with_file_paths, utils::library},
 	invalidate_query,
-	job::Job,
 	library::Library,
 	location::{get_location_path_from_location_id, LocationError},
 	object::{
 		fs::{
-			copy::FileCopierJobInit, cut::FileCutterJobInit, delete::FileDeleterJobInit,
-			erase::FileEraserJobInit, error::FileSystemJobsError,
-			find_available_filename_for_duplicate,
+			error::FileSystemJobsError, find_available_filename_for_duplicate,
+			old_copy::OldFileCopierJobInit, old_cut::OldFileCutterJobInit,
+			old_delete::OldFileDeleterJobInit, old_erase::OldFileEraserJobInit,
 		},
 		media::media_data_image_from_prisma_data,
 	},
+	old_job::Job,
 };
 
 use sd_cache::{CacheNode, Model, NormalisedResult, Reference};
@@ -19,15 +19,14 @@ use sd_file_ext::kind::ObjectKind;
 use sd_file_path_helper::{
 	file_path_to_isolate, file_path_to_isolate_with_id, FilePathError, IsolatedFilePathData,
 };
-use sd_images::ConvertableExtension;
+use sd_images::ConvertibleExtension;
 use sd_media_metadata::MediaMetadata;
 use sd_prisma::{
 	prisma::{file_path, location, object},
 	prisma_sync,
 };
 use sd_sync::OperationFactory;
-use sd_utils::{db::maybe_missing, error::FileIOError};
-use serde_json::json;
+use sd_utils::{db::maybe_missing, error::FileIOError, msgpack};
 
 use std::{
 	ffi::OsString,
@@ -204,7 +203,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								pub_id: object.pub_id,
 							},
 							object::note::NAME,
-							json!(&args.note),
+							msgpack!(&args.note),
 						),
 						db.object().update(
 							object::id::equals(args.id),
@@ -250,7 +249,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								pub_id: object.pub_id,
 							},
 							object::favorite::NAME,
-							json!(&args.favorite),
+							msgpack!(&args.favorite),
 						),
 						db.object().update(
 							object::id::equals(args.id),
@@ -316,7 +315,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								sync.shared_update(
 									prisma_sync::object::SyncId { pub_id: d.pub_id },
 									object::date_accessed::NAME,
-									json!(date_accessed),
+									msgpack!(date_accessed),
 								),
 								d.id,
 							)
@@ -359,7 +358,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								sync.shared_update(
 									prisma_sync::object::SyncId { pub_id: d.pub_id },
 									object::date_accessed::NAME,
-									json!(null),
+									msgpack!(null),
 								),
 								d.id,
 							)
@@ -396,7 +395,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		// })
 		.procedure("deleteFiles", {
 			R.with2(library())
-				.mutation(|(node, library), args: FileDeleterJobInit| async move {
+				.mutation(|(node, library), args: OldFileDeleterJobInit| async move {
 					match args.file_path_ids.len() {
 						0 => Ok(()),
 						1 => {
@@ -472,7 +471,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				location_id: location::id::Type,
 				file_path_id: file_path::id::Type,
 				delete_src: bool, // if set, we delete the src image after
-				desired_extension: ConvertableExtension,
+				desired_extension: ConvertibleExtension,
 				quality_percentage: Option<i32>, // 1% - 125%
 			}
 			R.with2(library())
@@ -604,7 +603,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("eraseFiles", {
 			R.with2(library())
-				.mutation(|(node, library), args: FileEraserJobInit| async move {
+				.mutation(|(node, library), args: OldFileEraserJobInit| async move {
 					Job::new(args)
 						.spawn(&node, &library)
 						.await
@@ -613,7 +612,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("copyFiles", {
 			R.with2(library())
-				.mutation(|(node, library), args: FileCopierJobInit| async move {
+				.mutation(|(node, library), args: OldFileCopierJobInit| async move {
 					Job::new(args)
 						.spawn(&node, &library)
 						.await
@@ -622,7 +621,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("cutFiles", {
 			R.with2(library())
-				.mutation(|(node, library), args: FileCutterJobInit| async move {
+				.mutation(|(node, library), args: OldFileCutterJobInit| async move {
 					Job::new(args)
 						.spawn(&node, &library)
 						.await

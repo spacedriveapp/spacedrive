@@ -200,7 +200,7 @@ const Tags = ({ items, parentRef }: Props & { parentRef: RefObject<HTMLDivElemen
 											tag.id,
 											unassign
 												? // use objects that already have tag
-												  items.flatMap((item) => {
+													items.flatMap((item) => {
 														if (
 															item.type === 'Object' ||
 															item.type === 'Path'
@@ -209,18 +209,24 @@ const Tags = ({ items, parentRef }: Props & { parentRef: RefObject<HTMLDivElemen
 														}
 
 														return [];
-												  })
+													})
 												: // use objects that don't have tag
-												  items.flatMap<AssignTagItems[number]>((item) => {
-														if (item.type === 'Object') {
-															if (!objectsWithTag.has(item.item.id))
+													items.flatMap<AssignTagItems[number]>(
+														(item) => {
+															if (item.type === 'Object') {
+																if (
+																	!objectsWithTag.has(
+																		item.item.id
+																	)
+																)
+																	return [item];
+															} else if (item.type === 'Path') {
 																return [item];
-														} else if (item.type === 'Path') {
-															return [item];
-														}
+															}
 
-														return [];
-												  }),
+															return [];
+														}
+													),
 											unassign
 										);
 

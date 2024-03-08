@@ -152,7 +152,7 @@ export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) =
 								? [
 										'min-h-full min-w-full object-cover object-center',
 										_childClassName
-								  ]
+									]
 								: className,
 							props.frame && !(itemData.kind === 'Video' && props.blackBars)
 								? frameClassName

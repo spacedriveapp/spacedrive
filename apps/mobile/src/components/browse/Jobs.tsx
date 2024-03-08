@@ -9,13 +9,13 @@ import Fade from '../layout/Fade';
 
 const Jobs = () => {
 	return (
-		<View style={tw`gap-5`}>
-			<View style={tw`w-full flex-row items-center justify-between px-7`}>
+		<View style={tw`gap-3`}>
+			<View style={tw`w-full flex-row items-center justify-between px-5`}>
 				<Text style={tw`text-lg font-bold text-white`}>Jobs</Text>
 			</View>
 			<Fade color="mobile-screen" height="100%" width={30}>
 				<ScrollView horizontal showsHorizontalScrollIndicator={false}>
-					<View style={tw`flex-row gap-2 px-7`}>
+					<View style={tw`flex-row gap-2 px-5`}>
 						<Job message="Processed 300 of 1431 orphan paths..." progress={55} />
 						<Job message="All tasks have been completed successfully" progress={100} />
 						<Job
@@ -41,8 +41,8 @@ const Job = ({ progress, message, error }: JobProps) => {
 	const progressColor = error
 		? tw.color('red-500')
 		: progress === 100
-		? tw.color('green-500')
-		: tw.color('accent');
+			? tw.color('green-500')
+			: tw.color('accent');
 	return (
 		<View
 			style={tw`h-[170px] w-[310px] flex-col rounded-md border border-app-line/50 bg-app-box/50`}

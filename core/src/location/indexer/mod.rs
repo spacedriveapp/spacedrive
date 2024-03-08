@@ -8,7 +8,7 @@ use sd_prisma::{
 	prisma_sync,
 };
 use sd_sync::*;
-use sd_utils::{db::inode_to_db, error::FileIOError, from_bytes_to_uuid};
+use sd_utils::{db::inode_to_db, error::FileIOError, from_bytes_to_uuid, msgpack};
 
 use std::{collections::HashMap, path::Path};
 
@@ -18,31 +18,30 @@ use itertools::Itertools;
 use prisma_client_rust::operator::or;
 use rspc::ErrorCode;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use thiserror::Error;
 use tracing::{trace, warn};
 
 use super::location_with_indexer_rules;
 
-pub mod indexer_job;
+pub mod old_indexer_job;
+mod old_shallow;
+mod old_walk;
 pub mod rules;
-mod shallow;
-mod walk;
 
+use old_walk::WalkedEntry;
 use rules::IndexerRuleError;
-use walk::WalkedEntry;
 
-pub use indexer_job::IndexerJobInit;
-pub use shallow::*;
+pub use old_indexer_job::OldIndexerJobInit;
+pub use old_shallow::*;
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct IndexerJobSaveStep {
+pub struct OldIndexerJobSaveStep {
 	chunk_idx: usize,
 	walked: Vec<WalkedEntry>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct IndexerJobUpdateStep {
+pub struct OldIndexerJobUpdateStep {
 	chunk_idx: usize,
 	to_update: Vec<WalkedEntry>,
 }
@@ -85,7 +84,7 @@ impl From<IndexerError> for rspc::Error {
 
 async fn execute_indexer_save_step(
 	location: &location_with_indexer_rules::Data,
-	save_step: &IndexerJobSaveStep,
+	save_step: &OldIndexerJobSaveStep,
 	library: &Library,
 ) -> Result<i64, IndexerError> {
 	let Library { sync, db, .. } = library;
@@ -110,51 +109,34 @@ async fn execute_indexer_save_step(
 				(
 					(
 						location::NAME,
-						json!(prisma_sync::location::SyncId {
+						msgpack!(prisma_sync::location::SyncId {
 							pub_id: location.pub_id.clone()
 						}),
 					),
 					location_id::set(Some(location.id)),
 				),
-				(
-					(materialized_path::NAME, json!(materialized_path)),
-					materialized_path::set(Some(materialized_path.to_string())),
+				sync_db_entry!(materialized_path.to_string(), materialized_path),
+				sync_db_entry!(name.to_string(), name),
+				sync_db_entry!(*is_dir, is_dir),
+				sync_db_entry!(extension.to_string(), extension),
+				sync_db_entry!(
+					entry.metadata.size_in_bytes.to_be_bytes().to_vec(),
+					size_in_bytes_bytes
 				),
-				((name::NAME, json!(name)), name::set(Some(name.to_string()))),
-				((is_dir::NAME, json!(*is_dir)), is_dir::set(Some(*is_dir))),
-				(
-					(extension::NAME, json!(extension)),
-					extension::set(Some(extension.to_string())),
-				),
-				(
-					(
-						size_in_bytes_bytes::NAME,
-						json!(entry.metadata.size_in_bytes.to_be_bytes().to_vec()),
-					),
-					size_in_bytes_bytes::set(Some(
-						entry.metadata.size_in_bytes.to_be_bytes().to_vec(),
-					)),
-				),
-				(
-					(inode::NAME, json!(entry.metadata.inode.to_le_bytes())),
-					inode::set(Some(inode_to_db(entry.metadata.inode))),
-				),
-				(
-					(date_created::NAME, json!(entry.metadata.created_at)),
-					date_created::set(Some(entry.metadata.created_at.into())),
-				),
-				(
-					(date_modified::NAME, json!(entry.metadata.modified_at)),
-					date_modified::set(Some(entry.metadata.modified_at.into())),
-				),
-				(
-					(date_indexed::NAME, json!(Utc::now())),
-					date_indexed::set(Some(Utc::now().into())),
-				),
-				(
-					(hidden::NAME, json!(entry.metadata.hidden)),
-					hidden::set(Some(entry.metadata.hidden)),
-				),
+				sync_db_entry!(inode_to_db(entry.metadata.inode), inode),
+				{
+					let v = entry.metadata.created_at.into();
+					sync_db_entry!(v, date_created)
+				},
+				{
+					let v = entry.metadata.modified_at.into();
+					sync_db_entry!(v, date_modified)
+				},
+				{
+					let v = Utc::now().into();
+					sync_db_entry!(v, date_indexed)
+				},
+				sync_db_entry!(entry.metadata.hidden, hidden),
 			]
 			.into_iter()
 			.unzip();
@@ -187,7 +169,7 @@ async fn execute_indexer_save_step(
 }
 
 async fn execute_indexer_update_step(
-	update_step: &IndexerJobUpdateStep,
+	update_step: &OldIndexerJobUpdateStep,
 	Library { sync, db, .. }: &Library,
 ) -> Result<i64, IndexerError> {
 	let (sync_stuff, paths_to_update): (Vec<_>, Vec<_>) = update_step
@@ -212,48 +194,27 @@ async fn execute_indexer_update_step(
 			let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 				// As this file was updated while Spacedrive was offline, we mark the object_id and cas_id as null
 				// So this file_path will be updated at file identifier job
-				(
-					(object_id::NAME, serde_json::Value::Null),
-					should_unlink_object.then_some(object::disconnect()),
-				),
-				(
-					(cas_id::NAME, serde_json::Value::Null),
-					Some(cas_id::set(None)),
-				),
-				(
-					(is_dir::NAME, json!(*is_dir)),
-					Some(is_dir::set(Some(*is_dir))),
-				),
-				(
-					(
-						size_in_bytes_bytes::NAME,
-						json!(entry.metadata.size_in_bytes.to_be_bytes().to_vec()),
-					),
-					Some(size_in_bytes_bytes::set(Some(
-						entry.metadata.size_in_bytes.to_be_bytes().to_vec(),
-					))),
-				),
-				(
-					(inode::NAME, json!(entry.metadata.inode.to_le_bytes())),
-					Some(inode::set(Some(inode_to_db(entry.metadata.inode)))),
-				),
-				(
-					(date_created::NAME, json!(entry.metadata.created_at)),
-					Some(date_created::set(Some(entry.metadata.created_at.into()))),
-				),
-				(
-					(date_modified::NAME, json!(entry.metadata.modified_at)),
-					Some(date_modified::set(Some(entry.metadata.modified_at.into()))),
-				),
-				(
-					(hidden::NAME, json!(entry.metadata.hidden)),
-					Some(hidden::set(Some(entry.metadata.hidden))),
-				),
+				should_unlink_object
+					.then_some(((object_id::NAME, msgpack!(null)), object::disconnect())),
+				Some(((cas_id::NAME, msgpack!(null)), cas_id::set(None))),
+				Some(sync_db_entry!(*is_dir, is_dir)),
+				Some(sync_db_entry!(
+					entry.metadata.size_in_bytes.to_be_bytes().to_vec(),
+					size_in_bytes_bytes
+				)),
+				Some(sync_db_entry!(inode_to_db(entry.metadata.inode), inode)),
+				Some({
+					let v = entry.metadata.created_at.into();
+					sync_db_entry!(v, date_created)
+				}),
+				Some({
+					let v = entry.metadata.modified_at.into();
+					sync_db_entry!(v, date_modified)
+				}),
+				Some(sync_db_entry!(entry.metadata.hidden, hidden)),
 			]
 			.into_iter()
-			.filter_map(|(sync_param, maybe_db_param)| {
-				maybe_db_param.map(|db_param| (sync_param, db_param))
-			})
+			.flatten()
 			.unzip();
 
 			Ok::<_, IndexerError>((
@@ -547,7 +508,7 @@ pub async fn reverse_update_directories_sizes(
 						});
 				}
 			} else {
-				warn!("Corrupt database possesing a file_path entry without materialized_path");
+				warn!("Corrupt database possessing a file_path entry without materialized_path");
 			}
 		});
 
@@ -567,7 +528,7 @@ pub async fn reverse_update_directories_sizes(
 							pub_id: pub_id.clone(),
 						},
 						file_path::size_in_bytes_bytes::NAME,
-						json!(size_bytes.clone()),
+						msgpack!(size_bytes.clone()),
 					),
 					db.file_path().update(
 						file_path::pub_id::equals(pub_id),

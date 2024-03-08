@@ -1,16 +1,17 @@
-import { Trash } from 'phosphor-react-native';
-import React from 'react';
 import { Controller } from 'react-hook-form';
-import { Alert, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import { z } from 'zod';
 import { useBridgeMutation, useLibraryContext, useZodForm } from '@sd/client';
 import { Input } from '~/components/form/Input';
-import { Switch } from '~/components/form/Switch';
+import ScreenContainer from '~/components/layout/ScreenContainer';
 import DeleteLibraryModal from '~/components/modal/confirmModals/DeleteLibraryModal';
-import { FakeButton } from '~/components/primitive/Button';
+import { Button } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
-import { SettingsContainer, SettingsTitle } from '~/components/settings/SettingsContainer';
-import { SettingsItem } from '~/components/settings/SettingsItem';
+import { toast } from '~/components/primitive/Toast';
+import SettingsButton from '~/components/settings/SettingsButton';
+import { SettingsTitle } from '~/components/settings/SettingsContainer';
+import SettingsToggle from '~/components/settings/SettingsToggle';
 import { useAutoForm } from '~/hooks/useAutoForm';
 import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
@@ -33,13 +34,13 @@ const LibraryGeneralSettingsScreen = (_: SettingsStackScreenProps<'LibraryGenera
 	useAutoForm(form, (value) => {
 		editLibrary({ description: value.description, name: value.name, id: library.uuid });
 		// console.log('Updated', value);
-		// TODO: Show toast
+		toast({ type: 'success', text: 'Library updated!' });
 	});
 
 	return (
-		<View style={tw`gap-4`}>
-			<View style={tw`mt-4 px-2`}>
-				<SettingsTitle>Name</SettingsTitle>
+		<ScreenContainer scrollview={false} style={tw`justify-start px-6 py-0`}>
+			<View style={tw`pt-5`}>
+				<SettingsTitle style={tw`mb-1`}>Name</SettingsTitle>
 				<Controller
 					name="name"
 					control={form.control}
@@ -47,8 +48,7 @@ const LibraryGeneralSettingsScreen = (_: SettingsStackScreenProps<'LibraryGenera
 						<Input onBlur={onBlur} onChangeText={onChange} value={value} />
 					)}
 				/>
-				{/* Description */}
-				<SettingsTitle style={tw`mt-4`}>Description</SettingsTitle>
+				<SettingsTitle style={tw`mb-1 mt-4`}>Description</SettingsTitle>
 				<Controller
 					name="description"
 					control={form.control}
@@ -60,15 +60,46 @@ const LibraryGeneralSettingsScreen = (_: SettingsStackScreenProps<'LibraryGenera
 			<Divider />
 			<View style={tw`gap-y-6`}>
 				{/* Encrypt */}
-				<SettingsContainer description="Enable encryption for this library, this will only encrypt the Spacedrive database, not the files themselves.">
-					<SettingsItem title="Encrypt Library" rightArea={<Switch value={true} />} />
-				</SettingsContainer>
+				<SettingsToggle
+					onEnabledChange={(enabled) => {
+						//TODO: Enable encryption
+					}}
+					title="Encrypt Library"
+					description="Enable encryption for this library, this will only encrypt the Spacedrive database, not the files themselves."
+				/>
 				{/* Export */}
-				<SettingsItem title="Export Library" onPress={() => Alert.alert('TODO')} />
+				<SettingsButton
+					description="Export this library to a file."
+					buttonText="Export"
+					buttonPress={() => {
+						//TODO: Export library
+					}}
+					buttonTextStyle="font-bold text-ink-dull"
+					title="Export Library"
+				/>
 				{/* Delete Library */}
-				<DeleteLibraryModal trigger={<Text>Delete</Text>} libraryUuid={library.uuid} />
+				<View style={tw`flex-row items-center justify-between`}>
+					<View style={tw`w-[73%]`}>
+						<Text style={tw`text-sm font-medium text-ink`}>Delete Library</Text>
+						<Text style={tw`mt-1 text-xs text-ink-dull`}>
+							This is permanent, your files not be deleted, only the Spacedrive
+							library.
+						</Text>
+					</View>
+					<DeleteLibraryModal
+						trigger={
+							//Needed to make button work
+							<TouchableOpacity activeOpacity={1}>
+								<Button variant="danger">
+									<Text style={tw`font-bold text-ink`}>Delete</Text>
+								</Button>
+							</TouchableOpacity>
+						}
+						libraryUuid={library.uuid}
+					/>
+				</View>
 			</View>
-		</View>
+		</ScreenContainer>
 	);
 };
 
