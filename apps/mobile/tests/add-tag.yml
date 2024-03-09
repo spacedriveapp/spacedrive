@@ -7,8 +7,8 @@ appId: com.spacedrive.app
 - tapOn:
     id: 'navigate-tags-screen'
 - tapOn:
-    id: 'create-tag-button'
+    id: 'create-tag-modal'
 - inputText: 'MyTag'
 - tapOn:
-    id: 'create-tag-button'
+    text: 'Create'
 - assertVisible: 'MyTag'

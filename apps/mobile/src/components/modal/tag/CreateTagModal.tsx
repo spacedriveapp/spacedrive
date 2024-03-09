@@ -100,7 +100,6 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 					onPress={() => createTag({ color: tagColor, name: tagName })}
 					style={tw`mt-6`}
 					disabled={tagName.length === 0}
-					testID="create-tag-button"
 				>
 					<Text style={tw`text-sm font-medium text-white`}>Create</Text>
 				</Button>
