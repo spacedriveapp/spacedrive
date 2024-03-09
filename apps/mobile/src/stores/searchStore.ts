@@ -22,6 +22,15 @@ interface State {
         hidden: boolean;
         kind: FilterItem[];
     };
+	appliedFilters: Partial<
+	Record<SearchFilters, {
+		locations: FilterItem[];
+		tags: TagItem[];
+		name: string[];
+		extension: string[];
+		hidden: boolean;
+		kind: FilterItem[];
+	}>>,
     disableActionButtons: boolean;
 }
 
@@ -35,6 +44,7 @@ const initialState: State = {
         hidden: false,
         kind: []
     },
+	appliedFilters: {},
     disableActionButtons: true
 };
 
@@ -58,8 +68,9 @@ const searchStore = proxy<State & {
         filter: K,
         value: State['filters'][K] extends Array<infer U> ? U : State['filters'][K]
     ) => void;
+	applyFilters: () => void;
 	setSearch: (search: string) => void;
-    resetFilter: <K extends keyof State['filters']>(filter: K) => void;
+    resetFilter: <K extends keyof State['filters']>(filter: K, apply?: boolean) => void;
     setInput: (index: number, value: string, key: 'name' | 'extension') => void;
     addInput: (key: 'name' | 'extension') => void;
     removeInput: (index: number, key: 'name' | 'extension') => void;
@@ -79,15 +90,32 @@ const searchStore = proxy<State & {
             }
         }
     },
+	applyFilters: () => {
+		// loop through all filters and apply the ones with values
+		searchStore.appliedFilters = Object.entries(searchStore.filters).reduce((acc, [key, value]) => {
+			if (Array.isArray(value)) {
+				if (value.length > 0 && value[0] !== '') {
+					acc[key as SearchFilters] = value;
+				}
+			} else if (typeof value === 'boolean') {
+				// Only apply the hidden filter if it's true
+				if (value) acc[key as SearchFilters] = value;
+			}
+			return acc;
+		}
+		, {} as any);
+	  },
     setSearch: search => {
         searchStore.search = search;
     },
-    resetFilter: filter => {
+    resetFilter: (filter, apply = false) => {
         if (filter === 'name' || filter === 'extension') {
             searchStore.filters[filter as 'name' || 'extension'] = [''];
         } else {
-            searchStore.filters[filter] = initialState.filters[filter];
+            searchStore.filters[filter] = initialState.filters[filter]
         }
+		//instead of a useEffect or subscription - we can call applyFilters directly
+		if (apply) searchStore.applyFilters();
     },
     setInput: (index, value, key) => {
         const newValues = [...searchStore.filters[key]];

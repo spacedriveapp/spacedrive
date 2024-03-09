@@ -1,9 +1,9 @@
 import { MotiView } from 'moti';
-import { MotiPressable } from 'moti/interactions';
-import { FlatList, Text, View } from 'react-native';
+import { memo, useCallback, useMemo } from 'react';
+import { FlatList, Pressable, Text, View } from 'react-native';
 import { LinearTransition } from 'react-native-reanimated';
 import { Location, useCache, useLibraryQuery, useNodes } from '@sd/client';
-import { tw } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { useSearchStore } from '~/stores/searchStore';
 
 import { Icon } from '../icons/Icon';
@@ -15,6 +15,7 @@ export const Locations = () => {
 	const locationsQuery = useLibraryQuery(['locations.list']);
 	useNodes(locationsQuery.data?.nodes);
 	const locations = useCache(locationsQuery.data?.items);
+	const searchStore = useSearchStore();
 
 	return (
 		<MotiView
@@ -37,10 +38,10 @@ export const Locations = () => {
 							renderItem={({ item }) => <LocationFilter data={item} />}
 							contentContainerStyle={tw`pl-6`}
 							numColumns={locations && Math.ceil(Number(locations.length) / 2)}
-							extraData={useSearchStore().filters}
+							extraData={searchStore.filters.locations}
 							key={locations ? 'locationsSearch' : '_'}
 							scrollEnabled={false}
-							ItemSeparatorComponent={() => <View style={tw`h-2 w-2`} />}
+							ItemSeparatorComponent={() => <View style={tw`w-2 h-2`} />}
 							keyExtractor={(item) => item.id.toString()}
 							showsHorizontalScrollIndicator={false}
 							style={tw`flex-row`}
@@ -56,26 +57,32 @@ interface Props {
 	data: Location;
 }
 
-const LocationFilter = ({ data }: Props) => {
+const LocationFilter = memo(({ data }: Props) => {
 	const searchStore = useSearchStore();
-	const isSelected = searchStore.filters.locations.some((v) => v.id === data.id);
+	const isSelected = useMemo(
+		() => searchStore.filters.locations.some((l) => l.id === data.id),
+		[searchStore.filters.locations, data.id]
+	);
+	const onPress = useCallback(() => {
+		searchStore.updateFilters('locations', {
+			id: data.id,
+			name: data.name as string
+		});
+	}, [data.id, data.name, searchStore]);
 	return (
-		<MotiPressable
-			onPress={() =>
-				searchStore.updateFilters('locations', {
-					id: data.id,
-					name: data.name
-				})
-			}
-			animate={{
-				borderColor: isSelected ? tw.color('accent') : tw.color('app-line/50')
-			}}
-			style={tw`mr-2 w-auto flex-row items-center gap-2 rounded-md border border-app-line/50 bg-app-box/50 p-2.5`}
+		<Pressable
+			onPress={onPress}
+			style={twStyle(
+				`mr-2 w-auto flex-row items-center gap-2 rounded-md border border-app-line/50 bg-app-box/50 p-2.5`,
+				{
+					borderColor: isSelected ? tw.color('accent') : tw.color('app-line/50')
+				}
+			)}
 		>
 			<Icon size={20} name="Folder" />
 			<Text style={tw`text-sm font-medium text-ink`}>{data.name}</Text>
-		</MotiPressable>
+		</Pressable>
 	);
-};
+});
 
 export default Locations;

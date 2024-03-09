@@ -33,6 +33,7 @@ export const SaveAdd = () => {
 				})}
 				variant="accent"
 				onPress={() => {
+					searchStore.applyFilters();
 					navigation.navigate('SearchHome');
 				}}
 			>

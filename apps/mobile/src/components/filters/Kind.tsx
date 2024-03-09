@@ -1,10 +1,10 @@
 import { IconTypes } from '@sd/assets/util';
 import { MotiView } from 'moti';
-import { MotiPressable } from 'moti/interactions';
-import { FlatList, Text, View } from 'react-native';
+import { memo, useCallback, useMemo } from 'react';
+import { FlatList, Pressable, Text, View } from 'react-native';
 import { LinearTransition } from 'react-native-reanimated';
 import { ObjectKind } from '@sd/client';
-import { tw } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { useSearchStore } from '~/stores/searchStore';
 
 import { Icon } from '../icons/Icon';
@@ -24,6 +24,7 @@ const kinds = Object.keys(ObjectKind)
 	});
 
 export const Kind = () => {
+	const searchStore = useSearchStore();
 	return (
 		<MotiView
 			layout={LinearTransition.duration(300)}
@@ -47,7 +48,8 @@ export const Kind = () => {
 							numColumns={kinds && Math.ceil(Number(kinds.length) / 2)}
 							key={kinds ? 'kindsSearch' : '_'}
 							scrollEnabled={false}
-							ItemSeparatorComponent={() => <View style={tw`h-2 w-2`} />}
+							extraData={searchStore.filters.kind}
+							ItemSeparatorComponent={() => <View style={tw`w-2 h-2`} />}
 							keyExtractor={(item) => item.value.toString()}
 							showsHorizontalScrollIndicator={false}
 							style={tw`flex-row`}
@@ -67,24 +69,33 @@ interface KindFilterProps {
 	};
 }
 
-const KindFilter = ({ data }: KindFilterProps) => {
+const KindFilter = memo(({ data }: KindFilterProps) => {
 	const searchStore = useSearchStore();
-	const isSelected = searchStore.filters.kind.some((v) => v.name === data.name);
+
+	const isSelected = useMemo(
+		() => searchStore.filters.kind.some((v) => v.name === data.name),
+		[searchStore.filters.kind, data.name]
+	);
+
+	const onPress = useCallback(() => {
+		searchStore.updateFilters('kind', {
+			id: data.value,
+			name: data.name
+		});
+	}, [searchStore, data.value, data.name]);
+
 	return (
-		<MotiPressable
-			onPress={() =>
-				searchStore.updateFilters('kind', {
-					id: data.value,
-					name: data.name
-				})
-			}
-			animate={{
-				borderColor: isSelected ? tw.color('accent') : tw.color('app-line/50')
-			}}
-			style={tw`mr-2 w-auto flex-row items-center gap-2 rounded-md border border-app-line/50 bg-app-box/50 p-2.5`}
+		<Pressable
+			onPress={onPress}
+			style={twStyle(
+				`mr-2 w-auto flex-row items-center gap-2 rounded-md border border-app-line/50 bg-app-box/50 p-2.5`,
+				{
+					borderColor: isSelected ? tw.color('accent') : tw.color('app-line/50')
+				}
+			)}
 		>
 			<Icon name={data.icon} size={20} />
 			<Text style={tw`text-sm text-ink`}>{data.name}</Text>
-		</MotiPressable>
+		</Pressable>
 	);
-};
+});

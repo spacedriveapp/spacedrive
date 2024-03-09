@@ -1,4 +1,4 @@
-import { AnimatePresence, MotiView } from 'moti';
+import { AnimatePresence } from 'moti';
 import { MotiPressable } from 'moti/interactions';
 import {
 	CircleDashed,
@@ -8,7 +8,7 @@ import {
 	SelectionSlash,
 	Textbox
 } from 'phosphor-react-native';
-import React, { FunctionComponent, useState } from 'react';
+import React, { FunctionComponent, useCallback, useState } from 'react';
 import { Text, View } from 'react-native';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SearchFilters, useSearchStore } from '~/stores/searchStore';
@@ -43,25 +43,30 @@ export const FiltersList = () => {
 		component?: FunctionComponent<any>;
 	}[];
 
-	const selectedHandler = (option: Capitalize<SearchFilters>) => {
-		const searchFiltersLowercase = option.toLowerCase() as SearchFilters;
+	const selectedHandler = useCallback(
+		(option: Capitalize<SearchFilters>) => {
+			const searchFiltersLowercase = option.toLowerCase() as SearchFilters; //store values are lowercase
 
-		// Since hidden is a boolean - it does not have a component like the other filters
-		if (searchFiltersLowercase === 'hidden') {
-			searchStore.updateFilters('hidden', !searchStore.filters.hidden);
-		}
-		const isSelected = selectedOptions.includes(option);
+			// Since hidden is a boolean - it does not have a component like the other filters
+			if (searchFiltersLowercase === 'hidden') {
+				searchStore.updateFilters('hidden', !searchStore.filters.hidden);
+			}
+			const isSelected = selectedOptions.includes(option);
 
-		// Update selected options
-		setSelectedOptions(
-			isSelected ? selectedOptions.filter((o) => o !== option) : [...selectedOptions, option]
-		);
+			// Update selected options
+			setSelectedOptions(
+				isSelected
+					? selectedOptions.filter((o) => o !== option)
+					: [...selectedOptions, option]
+			);
 
-		// Only reset the filter if it was previously selected
-		if (isSelected) {
-			searchStore.resetFilter(searchFiltersLowercase);
-		}
-	};
+			// Only reset the filter if it was previously selected
+			if (isSelected) {
+				searchStore.resetFilter(searchFiltersLowercase);
+			}
+		},
+		[selectedOptions, searchStore]
+	);
 
 	return (
 		<View style={tw`gap-10`}>
@@ -136,18 +141,17 @@ interface FilterOptionProps {
 
 const FilterOption = ({ name, Icon, isSelected }: FilterOptionProps) => {
 	return (
-		<MotiView
-			animate={{
-				borderColor: isSelected ? tw.color('accent') : tw.color('app-line/50')
-			}}
-			transition={{ type: 'timing', duration: 300 }}
+		<View
 			style={twStyle(
-				`w-full flex-row items-center justify-center gap-1.5 rounded-md border bg-app-box/50 py-2.5`
+				`w-full flex-row items-center justify-center gap-1.5 rounded-md border bg-app-box/50 py-2.5`,
+				{
+					borderColor: isSelected ? tw.color('accent') : tw.color('app-line/50')
+				}
 			)}
 		>
 			<Icon size={18} color={tw.color('ink-dull')} />
 			<Text style={tw`text-sm font-medium text-ink`}>{name}</Text>
-		</MotiView>
+		</View>
 	);
 };
 

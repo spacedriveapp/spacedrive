@@ -1,6 +1,6 @@
 import { MotiView } from 'moti';
-import { MotiPressable } from 'moti/interactions';
-import { Text, View } from 'react-native';
+import { memo, useCallback, useMemo } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { LinearTransition } from 'react-native-reanimated';
 import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
@@ -15,6 +15,7 @@ export const Tags = () => {
 	const tags = useLibraryQuery(['tags.list']);
 	useNodes(tags.data?.nodes);
 	const tagsData = useCache(tags.data?.items);
+	const searchStore = useSearchStore();
 
 	return (
 		<MotiView
@@ -36,7 +37,7 @@ export const Tags = () => {
 							data={tagsData}
 							renderItem={({ item }) => <TagFilter tag={item} />}
 							contentContainerStyle={tw`pl-6`}
-							extraData={useSearchStore().filters}
+							extraData={searchStore.filters.tags}
 							numColumns={tagsData && Math.ceil(Number(tagsData.length ?? 0) / 2)}
 							key={tagsData ? 'tagsSearch' : '_'}
 							scrollEnabled={false}
@@ -56,22 +57,30 @@ interface Props {
 	tag: Tag;
 }
 
-const TagFilter = ({ tag }: Props) => {
+const TagFilter = memo(({ tag }: Props) => {
 	const searchStore = useSearchStore();
-	const isSelected = searchStore.filters.tags.some((v) => v.id === tag.id);
-	console.log(searchStore.filters);
+	const isSelected = useMemo(
+		() =>
+			searchStore.filters.tags.some(
+				(filter) => filter.id === tag.id && filter.color === tag.color
+			),
+		[searchStore.filters.tags, tag]
+	);
+	const onPress = useCallback(() => {
+		searchStore.updateFilters('tags', {
+			id: tag.id,
+			color: tag.color!
+		});
+	}, [searchStore, tag.id, tag.color]);
 	return (
-		<MotiPressable
-			onPress={() =>
-				searchStore.updateFilters('tags', {
-					id: tag.id,
-					color: tag.color
-				})
-			}
-			animate={{
-				borderColor: isSelected ? tag.color! : tw.color('app-line/50')
-			}}
-			style={tw`mr-2 w-auto flex-row items-center gap-2 rounded-md border border-app-line/50 bg-app-box/50 p-2.5`}
+		<Pressable
+			onPress={onPress}
+			style={twStyle(
+				`mr-2 w-auto flex-row items-center gap-2 rounded-md border border-app-line/50 bg-app-box/50 p-2.5`,
+				{
+					borderColor: isSelected ? tw.color('accent') : tw.color('app-line/50')
+				}
+			)}
 		>
 			<View
 				style={twStyle(`h-5 w-5 rounded-full`, {
@@ -79,8 +88,8 @@ const TagFilter = ({ tag }: Props) => {
 				})}
 			/>
 			<Text style={tw`text-sm font-medium text-ink`}>{tag?.name}</Text>
-		</MotiPressable>
+		</Pressable>
 	);
-};
+});
 
 export default Tags;

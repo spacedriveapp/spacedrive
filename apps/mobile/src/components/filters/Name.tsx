@@ -27,7 +27,7 @@ export const Name = () => {
 			</AnimatePresence>
 			<Pressable onPress={() => searchStore.addInput('name')}>
 				<View
-					style={tw`flex-row items-center justify-center rounded-md border border-app-line/50 bg-app-box/50 py-2`}
+					style={tw`flex-row items-center justify-center py-2 border rounded-md border-app-line/50 bg-app-box/50`}
 				>
 					<Plus size={16} color={tw.color('ink')} />
 				</View>
@@ -44,13 +44,7 @@ const NameInput = ({ index }: NameInputProps) => {
 	const searchStore = useSearchStore();
 	const indexNameSearch = searchStore.filters.name[index];
 	return (
-		<MotiView
-			layout={LinearTransition.duration(300)}
-			from={{ opacity: 0, translateY: 10 }}
-			animate={{ opacity: 1, translateY: 0 }}
-			transition={{ type: 'timing', duration: 300 }}
-			style={tw`mb-2 flex-row gap-2`}
-		>
+		<View style={tw`flex-row gap-2 mb-2`}>
 			<Input
 				variant="default"
 				style={tw`flex-1`}
@@ -62,14 +56,14 @@ const NameInput = ({ index }: NameInputProps) => {
 			{index !== 0 && (
 				<Pressable
 					onPress={() => searchStore.removeInput(index, 'name')}
-					style={tw`items-center justify-center rounded-md border border-app-line bg-app-input p-2`}
+					style={tw`items-center justify-center p-2 border rounded-md border-app-line bg-app-input`}
 				>
 					<View>
 						<Trash size={20} color={tw.color('ink')} />
 					</View>
 				</Pressable>
 			)}
-		</MotiView>
+		</View>
 	);
 };
 
