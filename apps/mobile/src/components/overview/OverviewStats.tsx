@@ -73,7 +73,6 @@ const OverviewStats = ({ stats }: Props) => {
 			return await RNFS.getFSInfo();
 		};
 		getFSInfo().then((size) => {
-			console.log('size', size);
 			setSizeInfo(size);
 		});
 	}, []);
