@@ -1,0 +1,29 @@
+[package]
+name = "sd-indexer-rules"
+version = "0.1.0"
+authors = ["Ericson Soares <ericson@spacedrive.com>"]
+license = { workspace = true }
+repository = { workspace = true }
+edition = { workspace = true }
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+sd-prisma = { path = "../../../crates/prisma" }
+sd-utils = { path = "../../../crates/utils" }
+
+chrono = { workspace = true }
+futures-concurrency = { workspace = true }
+globset = { workspace = true, features = ["serde1"] }
+prisma-client-rust = { workspace = true }
+rmp-serde = { workspace = true }
+rspc = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+specta = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["fs"] }
+tracing = { workspace = true }
+uuid = { workspace = true, features = ["v4", "serde"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }

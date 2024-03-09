@@ -7739,6 +7739,7 @@ dependencies = [
  "sd-file-ext",
  "sd-file-path-helper",
  "sd-images",
+ "sd-indexer-rules",
  "sd-media-metadata",
  "sd-p2p-block",
  "sd-p2p-proto",
@@ -7935,6 +7936,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-heavy-lifting"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "futures-concurrency",
+ "globset",
+ "lending-stream",
+ "rmp-serde",
+ "sd-file-path-helper",
+ "sd-indexer-rules",
+ "sd-prisma",
+ "sd-task-system",
+ "sd-utils",
+ "serde",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tracing-test",
+ "uuid",
+]
+
+[[package]]
 name = "sd-images"
 version = "0.0.0"
 dependencies = [
@@ -7950,6 +7976,27 @@ dependencies = [
  "specta",
  "thiserror",
  "tracing",
+]
+
+[[package]]
+name = "sd-indexer-rules"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "futures-concurrency",
+ "globset",
+ "prisma-client-rust",
+ "rmp-serde",
+ "rspc",
+ "sd-prisma",
+ "sd-utils",
+ "serde",
+ "specta",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

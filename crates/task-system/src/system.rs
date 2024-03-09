@@ -115,7 +115,10 @@ impl<E: RunError> System<E> {
 	}
 
 	/// Dispatches many tasks to the system, the tasks will be assigned to workers and executed as soon as possible.
-	pub async fn dispatch_many(&self, into_tasks: Vec<impl IntoTask<E>>) -> Vec<TaskHandle<E>> {
+	pub async fn dispatch_many(
+		&self,
+		into_tasks: impl IntoIterator<Item = impl IntoTask<E>> + Send,
+	) -> Vec<TaskHandle<E>> {
 		self.dispatcher.dispatch_many(into_tasks).await
 	}
 
@@ -432,7 +435,10 @@ impl<E: RunError> Dispatcher<E> {
 	}
 
 	/// Dispatches many tasks to the system, the tasks will be assigned to workers and executed as soon as possible.
-	pub async fn dispatch_many(&self, into_tasks: Vec<impl IntoTask<E>>) -> Vec<TaskHandle<E>> {
+	pub async fn dispatch_many(
+		&self,
+		into_tasks: impl IntoIterator<Item = impl IntoTask<E>> + Send,
+	) -> Vec<TaskHandle<E>> {
 		let mut workers_task_count = self
 			.workers
 			.iter()

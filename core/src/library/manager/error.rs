@@ -1,8 +1,6 @@
-use crate::{
-	library::LibraryConfigError,
-	location::{indexer, LocationManagerError},
-};
+use crate::{library::LibraryConfigError, location::LocationManagerError};
 
+use sd_indexer_rules::seed::SeederError;
 use sd_p2p2::IdentityOrRemoteIdentityErr;
 use sd_utils::{
 	db::{self, MissingFieldError},
@@ -23,7 +21,7 @@ pub enum LibraryManagerError {
 	#[error("failed to parse uuid: {0}")]
 	Uuid(#[from] uuid::Error),
 	#[error("failed to run indexer rules seeder: {0}")]
-	IndexerRulesSeeder(#[from] indexer::rules::seed::SeederError),
+	IndexerRulesSeeder(#[from] SeederError),
 	// #[error("failed to initialize the key manager: {0}")]
 	// KeyManager(#[from] sd_crypto::Error),
 	#[error("error migrating the library: {0}")]

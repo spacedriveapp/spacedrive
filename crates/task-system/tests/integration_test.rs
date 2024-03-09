@@ -185,7 +185,7 @@ async fn steal_test() {
 	let mut pause_handles = VecDeque::from(system.dispatch_many(pause_tasks).await);
 
 	let ready_handles = system
-		.dispatch_many((0..100).map(|_| ReadyTask::default()).collect())
+		.dispatch_many((0..100).map(|_| ReadyTask::default()))
 		.await;
 
 	pause_begans

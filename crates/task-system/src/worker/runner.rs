@@ -965,6 +965,7 @@ impl<E: RunError> Runner<E> {
 	) {
 		match status {
 			InternalTaskExecStatus::Done(out) => {
+				self.task_kinds.remove(&task_id);
 				send_complete_task_response(self.worker_id, task_id, task_work_state, out);
 			}
 
@@ -977,10 +978,12 @@ impl<E: RunError> Runner<E> {
 			}
 
 			InternalTaskExecStatus::Canceled => {
+				self.task_kinds.remove(&task_id);
 				send_cancel_task_response(self.worker_id, task_id, task_work_state);
 			}
 
 			InternalTaskExecStatus::Error(e) => {
+				self.task_kinds.remove(&task_id);
 				send_error_task_response(self.worker_id, task_id, task_work_state, e);
 			}
 

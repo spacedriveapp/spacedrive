@@ -121,7 +121,7 @@ pub(super) async fn create_dir(
 		library,
 		iso_file_path.to_parts(),
 		None,
-		FilePathMetadata::from_path(&path, metadata).await?,
+		FilePathMetadata::from_path(path, metadata)?,
 	)
 	.await?;
 
@@ -178,7 +178,7 @@ async fn inner_create_file(
 	let iso_file_path_parts = iso_file_path.to_parts();
 	let extension = iso_file_path_parts.extension.to_string();
 
-	let metadata = FilePathMetadata::from_path(&path, metadata).await?;
+	let metadata = FilePathMetadata::from_path(path, metadata)?;
 
 	// First we check if already exist a file with this same inode number
 	// if it does, we just update it

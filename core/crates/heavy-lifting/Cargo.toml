@@ -1,0 +1,35 @@
+[package]
+name = "sd-heavy-lifting"
+version = "0.1.0"
+authors = ["Ericson Soares <ericson@spacedrive.com>"]
+license = { workspace = true }
+repository = { workspace = true }
+edition = { workspace = true }
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+sd-file-path-helper = { path = "../file-path-helper" }
+sd-indexer-rules = { path = "../indexer-rules" }
+sd-prisma = { path = "../../../crates/prisma" }
+sd-task-system = { path = "../../../crates/task-system" }
+sd-utils = { path = "../../../crates/utils" }
+
+
+async-trait = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+futures-concurrency = { workspace = true }
+globset = { workspace = true }
+lending-stream = { workspace = true }
+rmp-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["fs"] }
+tokio-stream = { workspace = true, features = ["fs"] }
+tracing = { workspace = true }
+uuid = { workspace = true, features = ["v4", "serde"] }
+
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tracing-test = { workspace.dev-dependencies = true }

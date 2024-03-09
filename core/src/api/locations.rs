@@ -1,11 +1,9 @@
 use crate::{
 	invalidate_query,
 	location::{
-		delete_location, find_location,
-		indexer::{rules::IndexerRuleCreateArgs, OldIndexerJobInit},
-		light_scan_location, location_with_indexer_rules,
-		non_indexed::NonIndexedPathItem,
-		relink_location, scan_location, scan_location_sub_path, LocationCreateArgs, LocationError,
+		delete_location, find_location, indexer::OldIndexerJobInit, light_scan_location,
+		location_with_indexer_rules, non_indexed::NonIndexedPathItem, relink_location,
+		scan_location, scan_location_sub_path, LocationCreateArgs, LocationError,
 		LocationUpdateArgs,
 	},
 	object::old_file_identifier::old_file_identifier_job::OldFileIdentifierJobInit,
@@ -15,6 +13,7 @@ use crate::{
 };
 
 use sd_cache::{CacheNode, Model, Normalise, NormalisedResult, NormalisedResults, Reference};
+use sd_indexer_rules::IndexerRuleCreateArgs;
 use sd_prisma::prisma::{
 	file_path, indexer_rule, indexer_rules_in_location, location, object, SortOrder,
 };
@@ -518,7 +517,7 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 		.procedure("create", {
 			R.with2(library())
 				.mutation(|(_, library), args: IndexerRuleCreateArgs| async move {
-					if args.create(&library).await?.is_some() {
+					if args.create(&library.db).await?.is_some() {
 						invalidate_query!(library, "locations.indexer_rules.list");
 					}
 

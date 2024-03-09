@@ -245,6 +245,19 @@ impl Interrupter {
 	}
 }
 
+#[macro_export]
+macro_rules! check_interruption {
+	($interrupter:ident) => {
+		let interrupter: &Interrupter = $interrupter;
+
+		match interrupter.try_check_interrupt() {
+			Some($crate::InterruptionKind::Cancel) => return Ok($crate::ExecStatus::Canceled),
+			Some($crate::InterruptionKind::Pause) => return Ok($crate::ExecStatus::Paused),
+			None => { /* Everything is Awesome! */ }
+		}
+	};
+}
+
 /// The kind of interruption that can be requested by the user, a pause or a cancel
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]

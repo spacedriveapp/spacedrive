@@ -1,10 +1,7 @@
 use crate::{
 	api::{utils::InvalidateOperationEvent, CoreEvent},
 	cloud, invalidate_query,
-	location::{
-		indexer,
-		metadata::{LocationMetadataError, SpacedriveLocationMetadataFile},
-	},
+	location::metadata::{LocationMetadataError, SpacedriveLocationMetadataFile},
 	node::Platform,
 	object::tag,
 	p2p, sync,
@@ -224,7 +221,7 @@ impl Libraries {
 
 		if should_seed {
 			tag::seed::new_library(&library).await?;
-			indexer::rules::seed::new_or_existing_library(&library).await?;
+			sd_indexer_rules::seed::new_or_existing_library(&library.db).await?;
 			debug!("Seeded library '{id:?}'");
 		}
 
@@ -514,7 +511,7 @@ impl Libraries {
 
 		if should_seed {
 			// library.orphan_remover.invoke().await;
-			indexer::rules::seed::new_or_existing_library(&library).await?;
+			sd_indexer_rules::seed::new_or_existing_library(&library.db).await?;
 		}
 
 		for location in library
