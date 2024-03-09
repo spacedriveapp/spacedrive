@@ -27,6 +27,7 @@ type TagItemProps = {
 export const TagItem = ({ tag, onPress, tagStyle, viewStyle = 'grid' }: TagItemProps) => {
 	const modalRef = useRef<ModalRef>(null);
 
+	// NOTE: Might wanna move this function to a separate file/component
 	const renderTagView = () => (
 		<View
 			style={twStyle(
@@ -55,6 +56,7 @@ export const TagItem = ({ tag, onPress, tagStyle, viewStyle = 'grid' }: TagItemP
 		</View>
 	);
 
+	// NOTE: Might wanna move this function to a separate file/component
 	const renderRightActions = (
 		progress: Animated.AnimatedInterpolation<number>,
 		_dragX: Animated.AnimatedInterpolation<number>,
@@ -143,7 +145,10 @@ const BrowseTags = () => {
 			<View style={tw`w-full flex-row items-center justify-between px-6`}>
 				<Text style={tw`text-lg font-bold text-white`}>Tags</Text>
 				<View style={tw`flex-row gap-3`}>
-					<Pressable onPress={() => navigation.navigate('Tags')}>
+					<Pressable
+						testID="navigate-tags-screen"
+						onPress={() => navigation.navigate('Tags')}
+					>
 						<View
 							style={tw`h-8 w-8 items-center justify-center rounded-md bg-accent ${
 								tags.data?.nodes.length === 0 ? 'opacity-40' : 'opacity-100'
@@ -152,7 +157,7 @@ const BrowseTags = () => {
 							<Eye weight="bold" size={18} style={tw`text-white`} />
 						</View>
 					</Pressable>
-					<Pressable testID="add-tag" onPress={() => modalRef.current?.present()}>
+					<Pressable onPress={() => modalRef.current?.present()}>
 						<View
 							style={tw`h-8 w-8 items-center justify-center rounded-md border border-dashed border-ink-faint bg-transparent`}
 						>
