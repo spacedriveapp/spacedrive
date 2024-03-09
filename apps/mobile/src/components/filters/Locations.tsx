@@ -11,7 +11,7 @@ import Fade from '../layout/Fade';
 import SectionTitle from '../layout/SectionTitle';
 import VirtualizedListWrapper from '../layout/VirtualizedListWrapper';
 
-export const Locations = () => {
+const Locations = () => {
 	const locationsQuery = useLibraryQuery(['locations.list']);
 	useNodes(locationsQuery.data?.nodes);
 	const locations = useCache(locationsQuery.data?.items);
@@ -41,7 +41,7 @@ export const Locations = () => {
 							extraData={searchStore.filters.locations}
 							key={locations ? 'locationsSearch' : '_'}
 							scrollEnabled={false}
-							ItemSeparatorComponent={() => <View style={tw`w-2 h-2`} />}
+							ItemSeparatorComponent={() => <View style={tw`h-2 w-2`} />}
 							keyExtractor={(item) => item.id.toString()}
 							showsHorizontalScrollIndicator={false}
 							style={tw`flex-row`}

@@ -14,34 +14,39 @@ import { tw, twStyle } from '~/lib/tailwind';
 import { SearchFilters, useSearchStore } from '~/stores/searchStore';
 
 import SectionTitle from '../layout/SectionTitle';
-import { Extension, Kind, Locations, Name, Tags } from './index';
+import Extension from './Extension';
+import Kind from './Kind';
+import Locations from './Locations';
+import Name from './Name';
+import Tags from './Tags';
 
-export const FiltersList = () => {
+const options = [
+	{
+		name: 'Locations',
+		icon: Folder,
+		component: Locations
+	},
+	{
+		name: 'Tags',
+		icon: CircleDashed,
+		component: Tags
+	},
+	{ name: 'Kind', icon: Cube, component: Kind },
+	{ name: 'Name', icon: Textbox, component: Name },
+	{ name: 'Extension', icon: Textbox, component: Extension },
+	{
+		name: 'Hidden',
+		icon: SelectionSlash
+	}
+] satisfies {
+	name: Capitalize<SearchFilters>;
+	icon: FunctionComponent<IconProps>;
+	component?: FunctionComponent<any>;
+}[];
+
+const FiltersList = () => {
 	const [selectedOptions, setSelectedOptions] = useState<(typeof options)[number]['name'][]>([]);
 	const searchStore = useSearchStore();
-	const options = [
-		{
-			name: 'Locations',
-			icon: Folder,
-			component: Locations
-		},
-		{
-			name: 'Tags',
-			icon: CircleDashed,
-			component: Tags
-		},
-		{ name: 'Kind', icon: Cube, component: Kind },
-		{ name: 'Name', icon: Textbox, component: Name },
-		{ name: 'Extension', icon: Textbox, component: Extension },
-		{
-			name: 'Hidden',
-			icon: SelectionSlash
-		}
-	] satisfies {
-		name: Capitalize<SearchFilters>;
-		icon: FunctionComponent<IconProps>;
-		component?: FunctionComponent<any>;
-	}[];
 
 	const selectedHandler = useCallback(
 		(option: Capitalize<SearchFilters>) => {

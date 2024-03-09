@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
-import { FiltersList, SaveAdd } from '~/components/filters';
+import FiltersList from '~/components/filters/FiltersList';
+import SaveAdd from '~/components/filters/SaveAdd';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { getSearchStore, useSearchStore } from '~/stores/searchStore';
 
 const FiltersScreen = () => {
 	const searchStore = useSearchStore();
+
 	// enable action buttons if any filter value is present
 	useEffect(() => {
 		const hasNonEmptyFilter = Object.values(searchStore.filters)
@@ -12,14 +14,6 @@ const FiltersScreen = () => {
 			.some((v) => v !== '' && v !== false);
 		getSearchStore().disableActionButtons = !hasNonEmptyFilter;
 	}, [searchStore.filters]);
-
-	// Reset filters when the screen is unmounted
-	// useEffect(() => {
-	// 	const resetFilters = () => {
-	// 		searchStore.resetFilters();
-	// 	};
-	// 	return resetFilters;
-	// }, []);
 
 	return (
 		<>

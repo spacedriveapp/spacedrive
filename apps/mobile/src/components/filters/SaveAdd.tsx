@@ -1,13 +1,14 @@
 import { useNavigation } from '@react-navigation/native';
+import { Plus } from 'phosphor-react-native';
 import { Text, View } from 'react-native';
 import { Button } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SearchStackScreenProps } from '~/navigation/SearchStack';
 import { useSearchStore } from '~/stores/searchStore';
 
-export const SaveAdd = () => {
+const SaveAdd = () => {
 	const searchStore = useSearchStore();
-	const navigation = useNavigation<SearchStackScreenProps<'SearchHome'>['navigation']>();
+	const navigation = useNavigation<SearchStackScreenProps<'Home'>['navigation']>();
 	return (
 		<View
 			style={twStyle(
@@ -19,26 +20,30 @@ export const SaveAdd = () => {
 		>
 			<Button
 				disabled={searchStore.disableActionButtons}
-				style={twStyle(`h-10 flex-1`, {
+				style={twStyle(`h-10 flex-1 flex-row gap-1`, {
 					opacity: searchStore.disableActionButtons ? 0.5 : 1
 				})}
 				variant="dashed"
 			>
-				<Text style={tw`font-medium text-ink-dull`}>+ Save search</Text>
+				<Plus weight="bold" size={12} color={tw.color('text-ink-dull')} />
+				<Text style={tw`font-medium text-ink-dull`}>Save search</Text>
 			</Button>
 			<Button
 				disabled={searchStore.disableActionButtons}
-				style={twStyle(`h-10 flex-1`, {
+				style={twStyle(`h-10 flex-1 flex-row gap-1`, {
 					opacity: searchStore.disableActionButtons ? 0.5 : 1
 				})}
 				variant="accent"
 				onPress={() => {
 					searchStore.applyFilters();
-					navigation.navigate('SearchHome');
+					navigation.navigate('Home');
 				}}
 			>
-				<Text style={tw`font-medium text-ink`}>+ Add filters</Text>
+				<Plus weight="bold" size={12} color={tw.color('white')} />
+				<Text style={tw`font-medium text-ink`}>Add filters</Text>
 			</Button>
 		</View>
 	);
 };
+
+export default SaveAdd;

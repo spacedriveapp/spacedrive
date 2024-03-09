@@ -8,9 +8,9 @@ const Stack = createStackNavigator<SearchStackParamList>();
 
 export default function SearchStack() {
 	return (
-		<Stack.Navigator initialRouteName="SearchHome">
+		<Stack.Navigator initialRouteName="Home">
 			<Stack.Screen
-				name="SearchHome"
+				name="Home"
 				component={SearchScreen}
 				options={{
 					headerShown: false
@@ -30,7 +30,7 @@ export default function SearchStack() {
 }
 
 export type SearchStackParamList = {
-	SearchHome: undefined;
+	Home: undefined;
 	Filters: undefined;
 };
 

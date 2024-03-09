@@ -11,7 +11,7 @@ import Fade from '../layout/Fade';
 import SectionTitle from '../layout/SectionTitle';
 import VirtualizedListWrapper from '../layout/VirtualizedListWrapper';
 
-export const Tags = () => {
+const Tags = () => {
 	const tags = useLibraryQuery(['tags.list']);
 	useNodes(tags.data?.nodes);
 	const tagsData = useCache(tags.data?.items);

@@ -11,7 +11,7 @@ import { getExplorerStore } from '~/stores/explorerStore';
 
 // TODO: Animations!
 
-const SearchScreen = ({ navigation }: SearchStackScreenProps<'SearchHome'>) => {
+const SearchScreen = ({ navigation }: SearchStackScreenProps<'Home'>) => {
 	const { top } = useSafeAreaInsets();
 	const [loading, setLoading] = useState(false);
 

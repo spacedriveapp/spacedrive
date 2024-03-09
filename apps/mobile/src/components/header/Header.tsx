@@ -79,7 +79,7 @@ export default function Header({
 								<Pressable
 									onPress={() => {
 										navigation.navigate('Search', {
-											screen: 'SearchHome'
+											screen: 'Home'
 										});
 									}}
 								>

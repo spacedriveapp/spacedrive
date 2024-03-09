@@ -23,7 +23,7 @@ const kinds = Object.keys(ObjectKind)
 		};
 	});
 
-export const Kind = () => {
+const Kind = () => {
 	const searchStore = useSearchStore();
 	return (
 		<MotiView
@@ -49,7 +49,7 @@ export const Kind = () => {
 							key={kinds ? 'kindsSearch' : '_'}
 							scrollEnabled={false}
 							extraData={searchStore.filters.kind}
-							ItemSeparatorComponent={() => <View style={tw`w-2 h-2`} />}
+							ItemSeparatorComponent={() => <View style={tw`h-2 w-2`} />}
 							keyExtractor={(item) => item.value.toString()}
 							showsHorizontalScrollIndicator={false}
 							style={tw`flex-row`}
@@ -99,3 +99,5 @@ const KindFilter = memo(({ data }: KindFilterProps) => {
 		</Pressable>
 	);
 });
+
+export default Kind;

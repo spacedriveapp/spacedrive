@@ -8,7 +8,7 @@ import { getSearchStore, useSearchStore } from '~/stores/searchStore';
 import { Input } from '../form/Input';
 import SectionTitle from '../layout/SectionTitle';
 
-export const Extension = () => {
+const Extension = () => {
 	const searchStore = useSearchStore();
 	return (
 		<MotiView
@@ -26,7 +26,7 @@ export const Extension = () => {
 				))}
 			</AnimatePresence>
 			<Pressable
-				style={tw`flex-row items-center justify-center py-2 border rounded-md border-app-line/50 bg-app-box/50`}
+				style={tw`flex-row items-center justify-center rounded-md border border-app-line/50 bg-app-box/50 py-2`}
 				onPress={() => getSearchStore().addInput('extension')}
 			>
 				<Plus size={16} color={tw.color('ink')} />
@@ -42,7 +42,7 @@ interface NameInputProps {
 const ExtensionInput = ({ index }: NameInputProps) => {
 	const indexSearchStore = useSearchStore();
 	return (
-		<View style={tw`flex-row gap-2 mb-2`}>
+		<View style={tw`mb-2 flex-row gap-2`}>
 			<Input
 				variant="default"
 				style={tw`flex-1`}
@@ -54,7 +54,7 @@ const ExtensionInput = ({ index }: NameInputProps) => {
 			{index !== 0 && (
 				<Pressable
 					onPress={() => indexSearchStore.removeInput(index, 'extension')}
-					style={tw`items-center justify-center p-2 border rounded-md border-app-line bg-app-input`}
+					style={tw`items-center justify-center rounded-md border border-app-line bg-app-input p-2`}
 				>
 					<Trash size={20} color={tw.color('ink')} />
 				</Pressable>
@@ -62,3 +62,5 @@ const ExtensionInput = ({ index }: NameInputProps) => {
 		</View>
 	);
 };
+
+export default Extension;
