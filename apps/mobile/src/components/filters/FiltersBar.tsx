@@ -177,7 +177,7 @@ const TagView = ({ tags }: { tags: TagItem[] }) => (
 );
 
 const LocationView = ({ locations }: { locations: FilterItemType[] }) => (
-	<View style={tw`gap- flex-row items-center${locations.length === 1 ? '1' : '1.5'}`}>
+	<View style={tw`gap- flex-row items-center`}>
 		<Icon size={20} name="Folder" />
 		<Text style={tw`text-ink-dull`}>
 			{locations.length > 1 ? `${locations.length} locations` : locations[0]?.name}
