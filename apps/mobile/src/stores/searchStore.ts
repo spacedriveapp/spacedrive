@@ -104,7 +104,7 @@ const searchStore = proxy<State & {
 		searchStore.appliedFilters = Object.entries(searchStore.filters).reduce((acc, [key, value]) => {
 			if (Array.isArray(value)) {
 				if (value.length > 0 && value[0] !== '') {
-					acc[key as SearchFilters] = value;
+					acc[key as SearchFilters] = value.filter(v => v !== ''); // Remove empty values i.e empty inputs
 				}
 			} else if (typeof value === 'boolean') {
 				// Only apply the hidden filter if it's true

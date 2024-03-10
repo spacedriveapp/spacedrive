@@ -12,7 +12,13 @@ import {
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SearchStackScreenProps } from '~/navigation/SearchStack';
-import { KindItem, SearchFilters, TagItem, useSearchStore } from '~/stores/searchStore';
+import {
+	FilterItem as FilterItemType,
+	KindItem,
+	SearchFilters,
+	TagItem,
+	useSearchStore
+} from '~/stores/searchStore';
 
 import { Icon } from '../icons/Icon';
 import Fade from '../layout/Fade';
@@ -116,75 +122,82 @@ interface FilterValueProps {
 const FilterValue = ({ filter, value }: FilterValueProps) => {
 	switch (filter) {
 		case 'tags':
-			return value.map((tag: TagItem) => (
-				<View
-					key={tag.id}
-					style={twStyle(`h-5 w-5 rounded-full`, {
-						backgroundColor: tag.color
-					})}
-				/>
-			));
+			return <TagView tags={value} />;
 		case 'locations':
-			if (value.length === 1) {
-				return (
-					<View style={tw`flex-row items-center gap-1`}>
-						<Icon size={20} name="Folder" />
-						<Text style={tw`text-ink-dull`}>{value[0].name}</Text>
-					</View>
-				);
-			} else {
-				return (
-					<View style={tw`flex-row items-center gap-1.5`}>
-						<Icon size={20} name="Folder" />
-						<Text style={tw`text-ink-dull`}>
-							{value.length > 1 ? `${value.length} locations` : value[0].name}
-						</Text>
-					</View>
-				);
-			}
+			return <LocationView locations={value} />;
 		case 'kind':
-			if (value.length === 1) {
-				return (
-					<View style={tw`flex-row items-center gap-1`}>
-						<Icon name={value[0].icon} size={16} style={tw`text-ink-dull`} />
-						<Text style={tw`text-ink-dull`}>{value[0].name}</Text>
-					</View>
-				);
-			} else {
-				return (
-					<View style={tw`flex-row gap-1.5`}>
-						<View style={tw`flex-row gap-0.5`}>
-							{value.map((k: KindItem) => {
-								return (
-									<View key={k.id} style={tw`flex-row items-center gap-1`}>
-										<Icon name={k.icon} size={16} style={tw`text-ink-dull`} />
-									</View>
-								);
-							})}
-						</View>
-						<Text style={tw`text-ink-dull`}>
-							{value.length > 1 ? `${value.length} kinds` : value[0].name}
-						</Text>
-					</View>
-				);
-			}
+			return <KindView kinds={value} />;
 		case 'name':
 			return (
-				<Text style={tw`text-ink-dull`}>
-					{value.length > 1 ? `${value.length} names` : value[0]}
-				</Text>
+				<NameView
+					names={value.map((v: string) => {
+						return v;
+					})}
+				/>
 			);
 		case 'extension':
 			return (
-				<Text style={tw`text-ink-dull`}>
-					{value.length > 1 ? `${value.length} extensions` : value[0]}
-				</Text>
+				<ExtensionView
+					extensions={value.map((v: string) => {
+						return v;
+					})}
+				/>
 			);
 		case 'hidden':
-			return value && <Text style={tw`text-ink-dull`}>Hidden</Text>;
+			return <HiddenView hidden={value} />;
 		default:
 			return null;
 	}
 };
+
+const HiddenView = ({ hidden }: { hidden: boolean }) =>
+	hidden && <Text style={tw`text-ink-dull`}>Hidden</Text>;
+
+const NameView = ({ names }: { names: string[] }) => (
+	<Text style={tw`text-ink-dull`}>{names.length > 1 ? `${names.length} names` : names[0]}</Text>
+);
+
+const ExtensionView = ({ extensions }: { extensions: string[] }) => (
+	<Text style={tw`text-ink-dull`}>
+		{extensions.length > 1 ? `${extensions.length} extensions` : extensions[0]}
+	</Text>
+);
+
+const TagView = ({ tags }: { tags: TagItem[] }) => (
+	<>
+		{tags.map((tag) => (
+			<View
+				key={tag.id}
+				style={twStyle(`h-5 w-5 rounded-full`, {
+					backgroundColor: tag.color
+				})}
+			/>
+		))}
+	</>
+);
+
+const LocationView = ({ locations }: { locations: FilterItemType[] }) => (
+	<View style={tw`gap- flex-row items-center${locations.length === 1 ? '1' : '1.5'}`}>
+		<Icon size={20} name="Folder" />
+		<Text style={tw`text-ink-dull`}>
+			{locations.length > 1 ? `${locations.length} locations` : locations[0]?.name}
+		</Text>
+	</View>
+);
+
+const KindView = ({ kinds }: { kinds: KindItem[] }) => (
+	<View style={tw`flex-row gap-1.5`}>
+		<View style={tw`flex-row gap-0.5`}>
+			{kinds.map((kind) => (
+				<View key={kind.id} style={tw`flex-row items-center gap-1`}>
+					<Icon name={kind.icon} size={16} style={tw`text-ink-dull`} />
+				</View>
+			))}
+		</View>
+		<Text style={tw`text-ink-dull`}>
+			{kinds.length > 1 ? `${kinds.length} kinds` : kinds[0]?.name}
+		</Text>
+	</View>
+);
 
 export default FiltersBar;
