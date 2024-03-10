@@ -204,9 +204,12 @@ where
 
 					file.write_all(&data_buf[..block.size as usize]).await?;
 
+					let req = self.reqs.requests.get(self.i).ok_or_else(|| {
+						debug!("Vector read out of bounds!");
+						io::ErrorKind::Other
+					})?;
 					// TODO: Should this be `read == 0`
-					// TODO: Out of range protection on indexed access
-					if offset == self.reqs.requests[self.i].size {
+					if offset == req.size {
 						break;
 					}
 
