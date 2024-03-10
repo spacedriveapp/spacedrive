@@ -8,10 +8,10 @@ import {
 	SelectionSlash,
 	Textbox
 } from 'phosphor-react-native';
-import React, { FunctionComponent, useCallback, useState } from 'react';
+import React, { FunctionComponent, useCallback, useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { tw, twStyle } from '~/lib/tailwind';
-import { SearchFilters, useSearchStore } from '~/stores/searchStore';
+import { getSearchStore, SearchFilters, useSearchStore } from '~/stores/searchStore';
 
 import SectionTitle from '../layout/SectionTitle';
 import Extension from './Extension';
@@ -45,24 +45,32 @@ const options = [
 }[];
 
 const FiltersList = () => {
-	const [selectedOptions, setSelectedOptions] = useState<(typeof options)[number]['name'][]>([]);
 	const searchStore = useSearchStore();
+	const [selectedOptions, setSelectedOptions] = useState<SearchFilters[]>(
+		Object.keys(searchStore.appliedFilters) as SearchFilters[]
+	);
+
+	// If any filters are applied - we need to update the store
+	// so the UI can reflect the applied filters
+	useEffect(() => {
+		Object.assign(getSearchStore().filters, getSearchStore().appliedFilters);
+	}, []);
 
 	const selectedHandler = useCallback(
 		(option: Capitalize<SearchFilters>) => {
 			const searchFiltersLowercase = option.toLowerCase() as SearchFilters; //store values are lowercase
+			const isSelected = selectedOptions.includes(searchFiltersLowercase);
 
 			// Since hidden is a boolean - it does not have a component like the other filters
 			if (searchFiltersLowercase === 'hidden') {
 				searchStore.updateFilters('hidden', !searchStore.filters.hidden);
 			}
-			const isSelected = selectedOptions.includes(option);
 
 			// Update selected options
 			setSelectedOptions(
 				isSelected
-					? selectedOptions.filter((o) => o !== option)
-					: [...selectedOptions, option]
+					? selectedOptions.filter((o) => o !== searchFiltersLowercase)
+					: [...selectedOptions, searchFiltersLowercase]
 			);
 
 			// Only reset the filter if it was previously selected
@@ -93,7 +101,9 @@ const FiltersList = () => {
 								key={option.name}
 							>
 								<FilterOption
-									isSelected={selectedOptions.includes(option.name)}
+									isSelected={selectedOptions.includes(
+										option.name.toLowerCase() as SearchFilters
+									)}
 									key={index}
 									name={option.name}
 									Icon={option.icon}
@@ -115,7 +125,9 @@ const FiltersList = () => {
 								key={option.name}
 							>
 								<FilterOption
-									isSelected={selectedOptions.includes(option.name)}
+									isSelected={selectedOptions.includes(
+										option.name.toLowerCase() as SearchFilters
+									)}
 									key={index}
 									name={option.name}
 									Icon={option.icon}
@@ -129,7 +141,8 @@ const FiltersList = () => {
 			by not relying on the index position of the object */}
 			<AnimatePresence>
 				{selectedOptions.map((option) => {
-					const Component = options.find((o) => o.name === option)?.component;
+					const capitilize = option.charAt(0).toUpperCase() + option.slice(1);
+					const Component = options.find((o) => o.name === capitilize)?.component;
 					if (!Component) return null;
 					return <Component key={option} />;
 				})}

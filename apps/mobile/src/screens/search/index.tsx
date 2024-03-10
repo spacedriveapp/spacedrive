@@ -8,12 +8,18 @@ import FiltersBar from '~/components/filters/FiltersBar';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SearchStackScreenProps } from '~/navigation/SearchStack';
 import { getExplorerStore } from '~/stores/explorerStore';
+import { useSearchStore } from '~/stores/searchStore';
 
 // TODO: Animations!
 
 const SearchScreen = ({ navigation }: SearchStackScreenProps<'Home'>) => {
 	const { top } = useSafeAreaInsets();
 	const [loading, setLoading] = useState(false);
+	const searchStore = useSearchStore();
+	const appliedFiltersLength = useMemo(
+		() => Object.keys(searchStore.appliedFilters).length,
+		[searchStore.appliedFilters]
+	);
 
 	const [search, setSearch] = useState('');
 	const deferredSearch = useDeferredValue(search);
@@ -123,7 +129,7 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Home'>) => {
 						</Pressable>
 					</View>
 				</View>
-				<FiltersBar />
+				{appliedFiltersLength > 0 && <FiltersBar />}
 			</View>
 			{/* Content */}
 			<View style={tw`flex-1`}>

@@ -1,15 +1,22 @@
 import { proxy, useSnapshot } from 'valtio';
+import { IconName } from '~/components/icons/Icon';
 
 export type SearchFilters = "locations" | "tags" | "name" | "extension" | "hidden" | "kind";
 
-interface FilterItem {
+export interface FilterItem {
     id: number;
     name: string;
 }
 
-interface TagItem {
+export interface TagItem {
     id: number;
     color: string;
+}
+
+export interface KindItem {
+	id: number;
+	name: string;
+	icon: IconName;
 }
 
 interface State {
@@ -20,7 +27,7 @@ interface State {
         name: string[];
         extension: string[];
         hidden: boolean;
-        kind: FilterItem[];
+        kind: KindItem[];
     };
 	appliedFilters: Partial<
 	Record<SearchFilters, {
@@ -29,7 +36,7 @@ interface State {
 		name: string[];
 		extension: string[];
 		hidden: boolean;
-		kind: FilterItem[];
+		kind: KindItem[];
 	}>>,
     disableActionButtons: boolean;
 }
@@ -76,6 +83,7 @@ const searchStore = proxy<State & {
     removeInput: (index: number, key: 'name' | 'extension') => void;
 }>({
     ...initialState,
+	//for updating the filters upon value selection
 	updateFilters: (filter, value) => {
         if (filter === 'hidden') {
             // Directly assign boolean values without an array operation
@@ -90,6 +98,7 @@ const searchStore = proxy<State & {
             }
         }
     },
+	//for clicking add filters and applying the selection
 	applyFilters: () => {
 		// loop through all filters and apply the ones with values
 		searchStore.appliedFilters = Object.entries(searchStore.filters).reduce((acc, [key, value]) => {
@@ -117,14 +126,17 @@ const searchStore = proxy<State & {
 		//instead of a useEffect or subscription - we can call applyFilters directly
 		if (apply) searchStore.applyFilters();
     },
+
     setInput: (index, value, key) => {
         const newValues = [...searchStore.filters[key]];
         newValues[index] = value;
         searchStore.filters[key] = newValues;
     },
+	//for adding more inputs to the name or extension filters
     addInput: key => {
         searchStore.filters[key] = [...searchStore.filters[key], ''];
     },
+	//for removing inputs from the name or extension filters
     removeInput: (index, key) => {
         const filtered = searchStore.filters[key].filter((_, idx) => idx !== index);
         searchStore.filters[key] = filtered;

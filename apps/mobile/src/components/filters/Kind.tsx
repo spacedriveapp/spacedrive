@@ -12,7 +12,7 @@ import Fade from '../layout/Fade';
 import SectionTitle from '../layout/SectionTitle';
 import VirtualizedListWrapper from '../layout/VirtualizedListWrapper';
 
-const kinds = Object.keys(ObjectKind)
+export const kinds = Object.keys(ObjectKind)
 	.filter((key) => !isNaN(Number(key)) && ObjectKind[Number(key)] !== undefined)
 	.map((key) => {
 		const kind = ObjectKind[Number(key)];
@@ -80,9 +80,10 @@ const KindFilter = memo(({ data }: KindFilterProps) => {
 	const onPress = useCallback(() => {
 		searchStore.updateFilters('kind', {
 			id: data.value,
-			name: data.name
+			name: data.name,
+			icon: data.icon
 		});
-	}, [searchStore, data.value, data.name]);
+	}, [searchStore, data]);
 
 	return (
 		<Pressable
