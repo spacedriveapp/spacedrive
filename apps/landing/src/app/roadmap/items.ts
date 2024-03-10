@@ -100,7 +100,7 @@ export const items = [
 	},
 	{
 		when: '0.3 Alpha',
-		subtext: 'Febuary 2024',
+		subtext: 'Q2 2024',
 		title: 'Connect devices & sync',
 		description: 'Automatically synchronized libraries across all your devices.'
 	},
@@ -124,7 +124,7 @@ export const items = [
 	},
 	{
 		when: '0.4 Alpha',
-		subtext: 'March 2024',
+		subtext: 'Q2 2024',
 		title: 'Third-party cloud integrations',
 		description:
 			'Filesystem integrations with iCloud, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.'
@@ -144,7 +144,7 @@ export const items = [
 	},
 	{
 		when: '0.5 Beta',
-		subtext: 'April 2024',
+		subtext: 'Q3 2024',
 		title: 'Extensions',
 		description:
 			'Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on spacedrive.com/extensions.'

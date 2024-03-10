@@ -145,7 +145,8 @@ const state = {
 	drag: null as null | DragState,
 	isDragSelecting: false,
 	isRenaming: false,
-	isContextMenuOpen: false
+	isContextMenuOpen: false,
+	quickRescanLastRun: Date.now() - 200
 };
 
 export function flattenThumbnailKey(thumbKey: string[]) {
