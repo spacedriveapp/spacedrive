@@ -164,7 +164,7 @@ const EditLocationSettingsScreen = ({
 					title="Reindex"
 					description="Perform a full rescan of this location"
 					buttonPress={() =>
-						fullRescan.mutate({ location_id: id, reidentify_objects: true })
+						fullRescan.mutate({ location_id: id, reidentify_objects: false }) //FIXME: The famous serializing error for fullRescan. Keep this false until it's fixed.
 					}
 					buttonText="Full Reindex"
 					buttonIcon={<ArrowsClockwise color="white" size={20} />}
