@@ -3,10 +3,13 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
+		"dev:api": "cargo run -p sd-server",
 		"dev": "vite",
 		"build": "vite build",
 		"preview": "vite preview",
 		"test": "VITE_SD_DEMO_MODE=true playwright test",
+		"test:e2e": "start-test dev:api http://localhost:8080 dev http://localhost:8002 cy:run",
+		"cy:run": "cypress run",
 		"typecheck": "tsc -b",
 		"lint": "eslint src --cache"
 	},
@@ -32,6 +35,7 @@
 		"eslint-plugin-cypress": "^2.15.1",
 		"postcss": "^8.4.35",
 		"rollup-plugin-visualizer": "^5.12.0",
+		"start-server-and-test": "^2.0.3",
 		"typescript": "^5.3.3",
 		"vite": "^5.1.5",
 		"vite-tsconfig-paths": "^4.3.1"
