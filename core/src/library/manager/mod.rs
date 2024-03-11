@@ -221,7 +221,7 @@ impl Libraries {
 
 		if should_seed {
 			tag::seed::new_library(&library).await?;
-			sd_indexer_rules::seed::new_or_existing_library(&library.db).await?;
+			sd_core_indexer_rules::seed::new_or_existing_library(&library.db).await?;
 			debug!("Seeded library '{id:?}'");
 		}
 
@@ -511,7 +511,7 @@ impl Libraries {
 
 		if should_seed {
 			// library.orphan_remover.invoke().await;
-			sd_indexer_rules::seed::new_or_existing_library(&library.db).await?;
+			sd_core_indexer_rules::seed::new_or_existing_library(&library.db).await?;
 		}
 
 		for location in library

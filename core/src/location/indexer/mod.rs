@@ -1,9 +1,9 @@
 use crate::library::Library;
 
-use sd_file_path_helper::{
+use sd_core_file_path_helper::{
 	file_path_pub_and_cas_ids, FilePathError, IsolatedFilePathData, IsolatedFilePathDataParts,
 };
-use sd_indexer_rules::IndexerRuleError;
+use sd_core_indexer_rules::IndexerRuleError;
 use sd_prisma::{
 	prisma::{file_path, location, object as prisma_object, PrismaClient},
 	prisma_sync,
@@ -312,7 +312,7 @@ macro_rules! file_paths_db_fetcher_fn {
 						.find_many(vec![::prisma_client_rust::operator::or(
 							founds.collect::<Vec<_>>(),
 						)])
-						.select(::sd_file_path_helper::file_path_walker::select())
+						.select(::sd_core_file_path_helper::file_path_walker::select())
 				})
 				.collect::<Vec<_>>();
 
@@ -334,7 +334,7 @@ macro_rules! to_remove_db_fetcher_fn {
 		|parent_iso_file_path, unique_location_id_materialized_path_name_extension_params| async {
 			let location_id: ::sd_prisma::prisma::location::id::Type = $location_id;
 			let db: &::sd_prisma::prisma::PrismaClient = $db;
-			let parent_iso_file_path: ::sd_file_path_helper::IsolatedFilePathData<
+			let parent_iso_file_path: ::sd_core_file_path_helper::IsolatedFilePathData<
 				'static,
 			> = parent_iso_file_path;
 			let unique_location_id_materialized_path_name_extension_params: ::std::vec::Vec<
@@ -398,7 +398,7 @@ macro_rules! to_remove_db_fetcher_fn {
 					found
 						.into_iter()
 						.filter(|file_path| !founds_ids.contains(&file_path.id))
-						.map(|file_path| ::sd_file_path_helper::file_path_pub_and_cas_ids::Data {
+						.map(|file_path| ::sd_core_file_path_helper::file_path_pub_and_cas_ids::Data {
 							id: file_path.id,
 							pub_id: file_path.pub_id,
 							cas_id: file_path.cas_id,

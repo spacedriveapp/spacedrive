@@ -1,5 +1,5 @@
 [package]
-name = "sd-file-path-helper"
+name = "sd-core-file-path-helper"
 version = "0.1.0"
 authors = ["Ericson Soares <ericson@spacedrive.com>"]
 readme = "README.md"

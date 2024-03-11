@@ -1,9 +1,9 @@
 use crate::Error;
 
-use sd_file_path_helper::{
+use sd_core_file_path_helper::{
 	file_path_pub_and_cas_ids, file_path_walker, FilePathMetadata, IsolatedFilePathData,
 };
-use sd_indexer_rules::{IndexerRuler, RuleKind};
+use sd_core_indexer_rules::{IndexerRuler, RuleKind};
 use sd_prisma::prisma::file_path;
 use sd_task_system::{
 	check_interruption, ExecStatus, Interrupter, IntoAnyTaskOutput, Task, TaskDispatcher,
@@ -715,7 +715,7 @@ async fn gather_file_paths_to_remove(
 mod tests {
 	use super::*;
 
-	use sd_indexer_rules::{IndexerRule, RulePerKind};
+	use sd_core_indexer_rules::{IndexerRule, RulePerKind};
 	use sd_task_system::{TaskOutput, TaskStatus, TaskSystem};
 	use tracing::debug;
 

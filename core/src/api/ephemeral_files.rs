@@ -10,8 +10,8 @@ use crate::{
 	},
 };
 
+use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_file_ext::extensions::ImageExtension;
-use sd_file_path_helper::IsolatedFilePathData;
 use sd_media_metadata::MediaMetadata;
 use sd_utils::error::FileIOError;
 

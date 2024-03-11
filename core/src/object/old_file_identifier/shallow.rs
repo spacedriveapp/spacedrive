@@ -1,6 +1,6 @@
 use crate::{invalidate_query, library::Library, old_job::JobError};
 
-use sd_file_path_helper::{
+use sd_core_file_path_helper::{
 	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 	file_path_for_file_identifier, IsolatedFilePathData,
 };

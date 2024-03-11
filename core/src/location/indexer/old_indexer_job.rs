@@ -9,11 +9,11 @@ use crate::{
 	to_remove_db_fetcher_fn,
 };
 
-use sd_file_path_helper::{
+use sd_core_file_path_helper::{
 	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 	IsolatedFilePathData,
 };
-use sd_indexer_rules::IndexerRule;
+use sd_core_indexer_rules::IndexerRule;
 use sd_prisma::{
 	prisma::{file_path, location},
 	prisma_sync,

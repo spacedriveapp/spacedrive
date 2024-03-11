@@ -1,4 +1,4 @@
-use sd_file_path_helper::file_path_for_media_processor;
+use sd_core_file_path_helper::file_path_for_media_processor;
 use sd_prisma::prisma::{location, PrismaClient};
 use sd_utils::error::FileIOError;
 

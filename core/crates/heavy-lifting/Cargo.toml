@@ -1,5 +1,5 @@
 [package]
-name = "sd-heavy-lifting"
+name = "sd-core-heavy-lifting"
 version = "0.1.0"
 authors = ["Ericson Soares <ericson@spacedrive.com>"]
 license = { workspace = true }
@@ -9,8 +9,8 @@ edition = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sd-file-path-helper = { path = "../file-path-helper" }
-sd-indexer-rules = { path = "../indexer-rules" }
+sd-core-file-path-helper = { path = "../file-path-helper" }
+sd-core-indexer-rules = { path = "../indexer-rules" }
 sd-prisma = { path = "../../../crates/prisma" }
 sd-task-system = { path = "../../../crates/task-system" }
 sd-utils = { path = "../../../crates/utils" }

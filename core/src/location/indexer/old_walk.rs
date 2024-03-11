@@ -1,7 +1,7 @@
-use sd_file_path_helper::{
+use sd_core_file_path_helper::{
 	file_path_pub_and_cas_ids, file_path_walker, FilePathMetadata, IsolatedFilePathData,
 };
-use sd_indexer_rules::{IndexerRule, RuleKind};
+use sd_core_indexer_rules::{IndexerRule, RuleKind};
 use sd_prisma::prisma::file_path;
 use sd_utils::{db::inode_from_db, error::FileIOError};
 
@@ -695,7 +695,7 @@ mod tests {
 	use super::*;
 	use chrono::Utc;
 	use globset::{Glob, GlobSetBuilder};
-	use sd_indexer_rules::RulePerKind;
+	use sd_core_indexer_rules::RulePerKind;
 	use tempfile::{tempdir, TempDir};
 	use tokio::fs;
 	// use tracing_test::traced_test;

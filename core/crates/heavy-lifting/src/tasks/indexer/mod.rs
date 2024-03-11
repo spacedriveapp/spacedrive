@@ -1,5 +1,5 @@
-use sd_file_path_helper::FilePathError;
-use sd_indexer_rules::IndexerRuleError;
+use sd_core_file_path_helper::FilePathError;
+use sd_core_indexer_rules::IndexerRuleError;
 use sd_utils::error::{FileIOError, NonUtf8PathError};
 
 pub mod walker;

@@ -7633,8 +7633,8 @@ dependencies = [
  "prisma-client-rust",
  "reqwest",
  "rmp-serde",
+ "sd-core-file-path-helper",
  "sd-core-sync",
- "sd-file-path-helper",
  "sd-prisma",
  "sd-sync",
  "sd-utils",
@@ -7733,13 +7733,14 @@ dependencies = [
  "sd-ai",
  "sd-cache",
  "sd-cloud-api",
+ "sd-core-file-path-helper",
+ "sd-core-heavy-lifting",
+ "sd-core-indexer-rules",
  "sd-core-sync",
  "sd-crypto",
  "sd-ffmpeg",
  "sd-file-ext",
- "sd-file-path-helper",
  "sd-images",
- "sd-indexer-rules",
  "sd-media-metadata",
  "sd-p2p-block",
  "sd-p2p-proto",
@@ -7772,6 +7773,68 @@ dependencies = [
  "tracing-test",
  "uuid",
  "webp",
+]
+
+[[package]]
+name = "sd-core-file-path-helper"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "prisma-client-rust",
+ "regex",
+ "sd-prisma",
+ "sd-utils",
+ "serde",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "winapi-util",
+]
+
+[[package]]
+name = "sd-core-heavy-lifting"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "futures-concurrency",
+ "globset",
+ "lending-stream",
+ "rmp-serde",
+ "sd-core-file-path-helper",
+ "sd-core-indexer-rules",
+ "sd-prisma",
+ "sd-task-system",
+ "sd-utils",
+ "serde",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tracing-test",
+ "uuid",
+]
+
+[[package]]
+name = "sd-core-indexer-rules"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "futures-concurrency",
+ "globset",
+ "prisma-client-rust",
+ "rmp-serde",
+ "rspc",
+ "sd-prisma",
+ "sd-utils",
+ "serde",
+ "specta",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -7920,47 +7983,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sd-file-path-helper"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "prisma-client-rust",
- "regex",
- "sd-prisma",
- "sd-utils",
- "serde",
- "thiserror",
- "tokio",
- "tracing",
- "winapi-util",
-]
-
-[[package]]
-name = "sd-heavy-lifting"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "chrono",
- "futures-concurrency",
- "globset",
- "lending-stream",
- "rmp-serde",
- "sd-file-path-helper",
- "sd-indexer-rules",
- "sd-prisma",
- "sd-task-system",
- "sd-utils",
- "serde",
- "tempfile",
- "thiserror",
- "tokio",
- "tokio-stream",
- "tracing",
- "tracing-test",
- "uuid",
-]
-
-[[package]]
 name = "sd-images"
 version = "0.0.0"
 dependencies = [
@@ -7976,27 +7998,6 @@ dependencies = [
  "specta",
  "thiserror",
  "tracing",
-]
-
-[[package]]
-name = "sd-indexer-rules"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "futures-concurrency",
- "globset",
- "prisma-client-rust",
- "rmp-serde",
- "rspc",
- "sd-prisma",
- "sd-utils",
- "serde",
- "specta",
- "tempfile",
- "thiserror",
- "tokio",
- "tracing",
- "uuid",
 ]
 
 [[package]]

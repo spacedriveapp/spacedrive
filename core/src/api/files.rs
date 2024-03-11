@@ -15,10 +15,10 @@ use crate::{
 };
 
 use sd_cache::{CacheNode, Model, NormalisedResult, Reference};
-use sd_file_ext::kind::ObjectKind;
-use sd_file_path_helper::{
+use sd_core_file_path_helper::{
 	file_path_to_isolate, file_path_to_isolate_with_id, FilePathError, IsolatedFilePathData,
 };
+use sd_file_ext::kind::ObjectKind;
 use sd_images::ConvertibleExtension;
 use sd_media_metadata::MediaMetadata;
 use sd_prisma::{

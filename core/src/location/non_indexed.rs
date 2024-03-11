@@ -10,12 +10,12 @@ use crate::{
 
 use futures::Stream;
 use itertools::Either;
-use sd_file_ext::{extensions::Extension, kind::ObjectKind};
-use sd_file_path_helper::{path_is_hidden, MetadataExt};
-use sd_indexer_rules::{
+use sd_core_file_path_helper::{path_is_hidden, MetadataExt};
+use sd_core_indexer_rules::{
 	seed::{no_hidden, no_os_protected},
 	IndexerRule, RuleKind,
 };
+use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_prisma::prisma::location;
 use sd_utils::{chain_optional_iter, error::FileIOError};
 

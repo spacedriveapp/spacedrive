@@ -9,7 +9,7 @@ use crate::{
 	Node,
 };
 
-use sd_file_path_helper::{filter_existing_file_path_params, IsolatedFilePathData};
+use sd_core_file_path_helper::{filter_existing_file_path_params, IsolatedFilePathData};
 use sd_prisma::{
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
 	prisma_sync,
@@ -21,7 +21,7 @@ use sd_utils::{
 	uuid_to_bytes,
 };
 
-use sd_file_path_helper::IsolatedFilePathDataParts;
+use sd_core_file_path_helper::IsolatedFilePathDataParts;
 
 use std::{
 	collections::HashSet,
@@ -1047,8 +1047,8 @@ pub async fn create_file_path(
 		..
 	}: IsolatedFilePathDataParts<'_>,
 	cas_id: Option<String>,
-	metadata: sd_file_path_helper::FilePathMetadata,
-) -> Result<file_path::Data, sd_file_path_helper::FilePathError> {
+	metadata: sd_core_file_path_helper::FilePathMetadata,
+) -> Result<file_path::Data, sd_core_file_path_helper::FilePathError> {
 	use sd_utils::db::inode_to_db;
 
 	use sd_prisma::prisma;
@@ -1061,7 +1061,7 @@ pub async fn create_file_path(
 		.select(location::select!({ id pub_id }))
 		.exec()
 		.await?
-		.ok_or(sd_file_path_helper::FilePathError::LocationNotFound(
+		.ok_or(sd_core_file_path_helper::FilePathError::LocationNotFound(
 			location_id,
 		))?;
 

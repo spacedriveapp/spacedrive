@@ -20,8 +20,9 @@ ai = ["dep:sd-ai"]
 [dependencies]
 # Inner Core Sub-crates
 sd-core-sync = { path = "./crates/sync" }
-sd-file-path-helper = { path = "./crates/file-path-helper" }
-sd-indexer-rules = { path = "./crates/indexer-rules" }
+sd-core-file-path-helper = { path = "./crates/file-path-helper" }
+sd-core-indexer-rules = { path = "./crates/indexer-rules" }
+sd-core-heavy-lifting = { path = "./crates/heavy-lifting" }
 
 # Sub-crates
 sd-actors = { version = "0.1.0", path = "../crates/actors" }
