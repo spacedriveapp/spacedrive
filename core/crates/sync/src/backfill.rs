@@ -18,6 +18,8 @@ macro_rules! msgpack {
 	}
 }
 
+/// Takes all the syncable data in the database and generates CRDTOperations for it.
+/// This is a requirement before the library can sync.
 pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, instance_id: i32) {
 	db._transaction()
 		.with_timeout(9999999999)
