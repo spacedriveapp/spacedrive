@@ -1,10 +1,14 @@
+use serde::{Deserialize, Serialize};
+use uhlc::NTP64;
+use uuid::Uuid;
+
+use crate::{CRDTOperation, CRDTOperationData};
+
+pub type CompressedCRDTOperationsForModel = Vec<(rmpv::Value, Vec<CompressedCRDTOperation>)>;
+
+/// Stores a bunch of CRDTOperations in a more memory-efficient form for sending to the cloud.
 #[derive(Serialize, Deserialize)]
-pub struct CompressedCRDTOperations(
-	Vec<(
-		Uuid,
-		Vec<(String, Vec<(Value, Vec<CompressedCRDTOperation>)>)>,
-	)>,
-);
+pub struct CompressedCRDTOperations(Vec<(Uuid, Vec<(String, CompressedCRDTOperationsForModel)>)>);
 
 impl CompressedCRDTOperations {
 	pub fn new(ops: Vec<CRDTOperation>) -> Self {
@@ -28,11 +32,11 @@ impl CompressedCRDTOperations {
 		for op in ops_iter {
 			if instance_id != op.instance {
 				model.push((
-					std::mem::replace(&mut record_id, op.record_id),
+					std::mem::replace(&mut record_id, op.record_id.clone()),
 					std::mem::take(&mut record),
 				));
 				instance.push((
-					std::mem::replace(&mut model_str, op.model),
+					std::mem::replace(&mut model_str, op.model.clone()),
 					std::mem::take(&mut model),
 				));
 				compressed.push((
@@ -41,16 +45,16 @@ impl CompressedCRDTOperations {
 				));
 			} else if model_str != op.model {
 				model.push((
-					std::mem::replace(&mut record_id, op.record_id),
+					std::mem::replace(&mut record_id, op.record_id.clone()),
 					std::mem::take(&mut record),
 				));
 				instance.push((
-					std::mem::replace(&mut model_str, op.model),
+					std::mem::replace(&mut model_str, op.model.clone()),
 					std::mem::take(&mut model),
 				));
 			} else if record_id != op.record_id {
 				model.push((
-					std::mem::replace(&mut record_id, op.record_id),
+					std::mem::replace(&mut record_id, op.record_id.clone()),
 					std::mem::take(&mut record),
 				));
 			}
@@ -64,9 +68,32 @@ impl CompressedCRDTOperations {
 
 		Self(compressed)
 	}
+
+	pub fn into_ops(self) -> Vec<CRDTOperation> {
+		let mut ops = vec![];
+
+		for (instance_id, instance) in self.0 {
+			for (model_str, model) in instance {
+				for (record_id, record) in model {
+					for op in record {
+						ops.push(CRDTOperation {
+							instance: instance_id,
+							model: model_str.clone(),
+							record_id: record_id.clone(),
+							timestamp: op.timestamp,
+							id: op.id,
+							data: op.data,
+						})
+					}
+				}
+			}
+		}
+
+		ops
+	}
 }
 
-#[derive(PartialEq, Eq, Serialize, Deserialize, Clone)]
+#[derive(PartialEq, Serialize, Deserialize, Clone)]
 pub struct CompressedCRDTOperation {
 	pub timestamp: NTP64,
 	pub id: Uuid,

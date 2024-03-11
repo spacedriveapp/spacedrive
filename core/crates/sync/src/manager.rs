@@ -18,6 +18,7 @@ use tokio::sync::{broadcast, RwLock};
 use uhlc::{HLCBuilder, HLC};
 use uuid::Uuid;
 
+/// Wrapper that spawns the ingest actor and provides utilities for reading and writing sync operations.
 pub struct Manager {
 	pub tx: broadcast::Sender<SyncMessage>,
 	pub ingest: ingest::Handler,
