@@ -1,5 +1,5 @@
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{BTreeSet, HashMap, HashSet},
 	net::SocketAddr,
 	sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak},
 };
@@ -23,6 +23,35 @@ pub struct Peer {
 	pub(crate) p2p: Weak<P2P>,
 }
 
+#[derive(Debug, Hash, Eq, PartialEq)]
+pub enum PeerConnectionCandidate {
+	Relay,
+	SocketAddr(SocketAddr),
+	Custom(String),
+}
+
+impl PartialOrd for PeerConnectionCandidate {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl Ord for PeerConnectionCandidate {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		match (self, other) {
+			(Self::SocketAddr(_), Self::SocketAddr(_)) => std::cmp::Ordering::Equal,
+			(Self::SocketAddr(_), Self::Relay) => std::cmp::Ordering::Less,
+			(Self::SocketAddr(_), Self::Custom(_)) => std::cmp::Ordering::Greater,
+			(Self::Relay, Self::SocketAddr(_)) => std::cmp::Ordering::Greater,
+			(Self::Relay, Self::Relay) => std::cmp::Ordering::Equal,
+			(Self::Relay, Self::Custom(_)) => std::cmp::Ordering::Greater,
+			(Self::Custom(_), Self::SocketAddr(_)) => std::cmp::Ordering::Less,
+			(Self::Custom(_), Self::Relay) => std::cmp::Ordering::Less,
+			(Self::Custom(_), Self::Custom(_)) => std::cmp::Ordering::Equal,
+		}
+	}
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct State {
 	/// Active connections with the remote
@@ -31,7 +60,7 @@ pub(crate) struct State {
 	/// These should be inject by `Listener::acceptor` which is called when a new peer is discovered.
 	pub(crate) connection_methods: HashMap<ListenerId, mpsc::Sender<ConnectionRequest>>,
 	/// Methods that have discovered this peer.
-	pub(crate) discovered: HashMap<HookId, HashSet<SocketAddr>>,
+	pub(crate) discovered: HashMap<HookId, BTreeSet<PeerConnectionCandidate>>,
 }
 
 /// A request to connect to a client.

@@ -143,13 +143,13 @@ impl QuicTransport {
 		rx.await.unwrap_or_else(|_| Ok(())).unwrap(); // TODO: error handling
 	}
 
-	pub fn connect_me_daddy(&self, peer: Arc<Peer>) {
-		peer.state
-			.write()
-			.unwrap()
-			.connection_methods
-			.insert(self.id, self.connect_tx.clone());
-	}
+	// pub fn connect_me_daddy(&self, peer: Arc<Peer>) {
+	// 	peer.state
+	// 		.write()
+	// 		.unwrap()
+	// 		.connection_methods
+	// 		.insert(self.id, self.connect_tx.clone());
+	// }
 
 	// `None` on the port means disabled. Use `0` for random port.
 	pub async fn set_ipv4_enabled(&self, port: Option<u16>) -> Result<(), String> {
