@@ -5,8 +5,8 @@ import { LinearTransition } from 'react-native-reanimated';
 import { tw } from '~/lib/tailwind';
 import { getSearchStore, useSearchStore } from '~/stores/searchStore';
 
-import { Input } from '../form/Input';
-import SectionTitle from '../layout/SectionTitle';
+import SectionTitle from '../../layout/SectionTitle';
+import { Input } from '../../primitive/Input';
 
 const Extension = () => {
 	const searchStore = useSearchStore();

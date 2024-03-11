@@ -5,10 +5,10 @@ import { Controller } from 'react-hook-form';
 import { Alert, Text, View } from 'react-native';
 import { z } from 'zod';
 import { useLibraryMutation, useLibraryQuery, useNormalisedCache, useZodForm } from '@sd/client';
-import { Input } from '~/components/form/Input';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { AnimatedButton } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
+import { Input } from '~/components/primitive/Input';
 import { toast } from '~/components/primitive/Toast';
 import SettingsButton from '~/components/settings/SettingsButton';
 import { SettingsInputInfo, SettingsTitle } from '~/components/settings/SettingsContainer';
@@ -163,8 +163,8 @@ const EditLocationSettingsScreen = ({
 				<SettingsButton
 					title="Reindex"
 					description="Perform a full rescan of this location"
-					buttonPress={() =>
-						fullRescan.mutate({ location_id: id, reidentify_objects: false }) //FIXME: The famous serializing error for fullRescan. Keep this false until it's fixed.
+					buttonPress={
+						() => fullRescan.mutate({ location_id: id, reidentify_objects: false }) //FIXME: The famous serializing error for fullRescan. Keep this false until it's fixed.
 					}
 					buttonText="Full Reindex"
 					buttonIcon={<ArrowsClockwise color="white" size={20} />}

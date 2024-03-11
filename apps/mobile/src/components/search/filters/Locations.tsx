@@ -6,10 +6,10 @@ import { Location, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 import { useSearchStore } from '~/stores/searchStore';
 
-import { Icon } from '../icons/Icon';
-import Fade from '../layout/Fade';
-import SectionTitle from '../layout/SectionTitle';
-import VirtualizedListWrapper from '../layout/VirtualizedListWrapper';
+import { Icon } from '../../icons/Icon';
+import Fade from '../../layout/Fade';
+import SectionTitle from '../../layout/SectionTitle';
+import VirtualizedListWrapper from '../../layout/VirtualizedListWrapper';
 
 const Locations = () => {
 	const locationsQuery = useLibraryQuery(['locations.list']);

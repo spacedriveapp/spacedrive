@@ -13,7 +13,7 @@ import { Text, View } from 'react-native';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getSearchStore, SearchFilters, useSearchStore } from '~/stores/searchStore';
 
-import SectionTitle from '../layout/SectionTitle';
+import SectionTitle from '../../layout/SectionTitle';
 import Extension from './Extension';
 import Kind from './Kind';
 import Locations from './Locations';

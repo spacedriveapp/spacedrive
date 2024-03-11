@@ -8,7 +8,7 @@ import { getExplorerStore, useExplorerStore } from '~/stores/explorerStore';
 
 import BrowseLibraryManager from '../browse/DrawerLibraryManager';
 import { Icon } from '../icons/Icon';
-import Search from '../inputs/Search';
+import Search from '../search/Search';
 
 type HeaderProps = {
 	title?: string; //title of the page

@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getExplorerItemData, SearchFilterArgs, useCache, useLibraryQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
-import FiltersBar from '~/components/filters/FiltersBar';
+import FiltersBar from '~/components/search/filters/FiltersBar';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SearchStackScreenProps } from '~/navigation/SearchStack';
 import { getExplorerStore } from '~/stores/explorerStore';

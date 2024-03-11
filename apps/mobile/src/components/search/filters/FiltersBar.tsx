@@ -20,9 +20,9 @@ import {
 	useSearchStore
 } from '~/stores/searchStore';
 
-import { Icon } from '../icons/Icon';
-import Fade from '../layout/Fade';
-import { Button } from '../primitive/Button';
+import { Icon } from '../../icons/Icon';
+import Fade from '../../layout/Fade';
+import { Button } from '../../primitive/Button';
 
 const FiltersBar = () => {
 	const { filters, appliedFilters } = useSearchStore();

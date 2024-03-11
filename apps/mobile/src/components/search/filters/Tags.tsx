@@ -7,9 +7,9 @@ import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 import { useSearchStore } from '~/stores/searchStore';
 
-import Fade from '../layout/Fade';
-import SectionTitle from '../layout/SectionTitle';
-import VirtualizedListWrapper from '../layout/VirtualizedListWrapper';
+import Fade from '../../layout/Fade';
+import SectionTitle from '../../layout/SectionTitle';
+import VirtualizedListWrapper from '../../layout/VirtualizedListWrapper';
 
 const Tags = () => {
 	const tags = useLibraryQuery(['tags.list']);
