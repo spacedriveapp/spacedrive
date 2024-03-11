@@ -10,10 +10,10 @@ import {
 } from 'phosphor-react-native';
 import React, { FunctionComponent, useCallback, useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
+import SectionTitle from '~/components/layout/SectionTitle';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getSearchStore, SearchFilters, useSearchStore } from '~/stores/searchStore';
 
-import SectionTitle from '../layout/SectionTitle';
 import Extension from './Extension';
 import Kind from './Kind';
 import Locations from './Locations';

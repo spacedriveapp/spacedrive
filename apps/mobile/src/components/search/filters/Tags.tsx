@@ -1,20 +1,19 @@
 import { MotiView } from 'moti';
 import { memo, useCallback, useMemo } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { FlatList } from 'react-native-gesture-handler';
 import { LinearTransition } from 'react-native-reanimated';
-import { Location, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import Fade from '~/components/layout/Fade';
+import SectionTitle from '~/components/layout/SectionTitle';
+import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';
 import { tw, twStyle } from '~/lib/tailwind';
 import { useSearchStore } from '~/stores/searchStore';
 
-import { Icon } from '../icons/Icon';
-import Fade from '../layout/Fade';
-import SectionTitle from '../layout/SectionTitle';
-import VirtualizedListWrapper from '../layout/VirtualizedListWrapper';
-
-const Locations = () => {
-	const locationsQuery = useLibraryQuery(['locations.list']);
-	useNodes(locationsQuery.data?.nodes);
-	const locations = useCache(locationsQuery.data?.items);
+const Tags = () => {
+	const tags = useLibraryQuery(['tags.list']);
+	useNodes(tags.data?.nodes);
+	const tagsData = useCache(tags.data?.items);
 	const searchStore = useSearchStore();
 
 	return (
@@ -26,20 +25,20 @@ const Locations = () => {
 			exit={{ opacity: 0 }}
 		>
 			<SectionTitle
-				style="px-6 pb-3"
-				title="Locations"
-				sub="What locations should be searched?"
+				style={tw`px-6 pb-3`}
+				title="Tags"
+				sub="What tags would you like to filter by?"
 			/>
 			<View>
 				<Fade color="mobile-screen" width={30} height="100%">
 					<VirtualizedListWrapper horizontal>
 						<FlatList
-							data={locations}
-							renderItem={({ item }) => <LocationFilter data={item} />}
+							data={tagsData}
+							renderItem={({ item }) => <TagFilter tag={item} />}
 							contentContainerStyle={tw`pl-6`}
-							numColumns={locations && Math.ceil(Number(locations.length) / 2)}
-							extraData={searchStore.filters.locations}
-							key={locations ? 'locationsSearch' : '_'}
+							extraData={searchStore.filters.tags}
+							numColumns={tagsData && Math.ceil(Number(tagsData.length ?? 0) / 2)}
+							key={tagsData ? 'tagsSearch' : '_'}
 							scrollEnabled={false}
 							ItemSeparatorComponent={() => <View style={tw`h-2 w-2`} />}
 							keyExtractor={(item) => item.id.toString()}
@@ -54,21 +53,24 @@ const Locations = () => {
 };
 
 interface Props {
-	data: Location;
+	tag: Tag;
 }
 
-const LocationFilter = memo(({ data }: Props) => {
+const TagFilter = memo(({ tag }: Props) => {
 	const searchStore = useSearchStore();
 	const isSelected = useMemo(
-		() => searchStore.filters.locations.some((l) => l.id === data.id),
-		[searchStore.filters.locations, data.id]
+		() =>
+			searchStore.filters.tags.some(
+				(filter) => filter.id === tag.id && filter.color === tag.color
+			),
+		[searchStore.filters.tags, tag]
 	);
 	const onPress = useCallback(() => {
-		searchStore.updateFilters('locations', {
-			id: data.id,
-			name: data.name as string
+		searchStore.updateFilters('tags', {
+			id: tag.id,
+			color: tag.color!
 		});
-	}, [data.id, data.name, searchStore]);
+	}, [searchStore, tag.id, tag.color]);
 	return (
 		<Pressable
 			onPress={onPress}
@@ -79,10 +81,14 @@ const LocationFilter = memo(({ data }: Props) => {
 				}
 			)}
 		>
-			<Icon size={20} name="Folder" />
-			<Text style={tw`text-sm font-medium text-ink`}>{data.name}</Text>
+			<View
+				style={twStyle(`h-5 w-5 rounded-full`, {
+					backgroundColor: tag.color!
+				})}
+			/>
+			<Text style={tw`text-sm font-medium text-ink`}>{tag?.name}</Text>
 		</Pressable>
 	);
 });
 
-export default Locations;
+export default Tags;
