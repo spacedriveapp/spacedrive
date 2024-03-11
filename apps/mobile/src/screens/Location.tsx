@@ -17,8 +17,7 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 			filters: [
 				{
 					filePath: {
-						locations: { in: [id] }
-						// path: {location_id: id, path: path ?? '', include_descendants: true} // FIXME: This is the correct query, but it doesn't work and then provides a deserialization error.
+						path: { location_id: id, path: path ?? '', include_descendants: true }
 					}
 				}
 			],
