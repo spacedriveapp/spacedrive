@@ -4,13 +4,12 @@ import { memo, useCallback, useMemo } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { LinearTransition } from 'react-native-reanimated';
 import { ObjectKind } from '@sd/client';
+import { Icon } from '~/components/icons/Icon';
+import Fade from '~/components/layout/Fade';
+import SectionTitle from '~/components/layout/SectionTitle';
+import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';
 import { tw, twStyle } from '~/lib/tailwind';
 import { useSearchStore } from '~/stores/searchStore';
-
-import { Icon } from '../../icons/Icon';
-import Fade from '../../layout/Fade';
-import SectionTitle from '../../layout/SectionTitle';
-import VirtualizedListWrapper from '../../layout/VirtualizedListWrapper';
 
 export const kinds = Object.keys(ObjectKind)
 	.filter((key) => !isNaN(Number(key)) && ObjectKind[Number(key)] !== undefined)

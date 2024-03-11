@@ -3,13 +3,12 @@ import { memo, useCallback, useMemo } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { LinearTransition } from 'react-native-reanimated';
 import { Location, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { Icon } from '~/components/icons/Icon';
+import Fade from '~/components/layout/Fade';
+import SectionTitle from '~/components/layout/SectionTitle';
+import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';
 import { tw, twStyle } from '~/lib/tailwind';
 import { useSearchStore } from '~/stores/searchStore';
-
-import { Icon } from '../../icons/Icon';
-import Fade from '../../layout/Fade';
-import SectionTitle from '../../layout/SectionTitle';
-import VirtualizedListWrapper from '../../layout/VirtualizedListWrapper';
 
 const Locations = () => {
 	const locationsQuery = useLibraryQuery(['locations.list']);

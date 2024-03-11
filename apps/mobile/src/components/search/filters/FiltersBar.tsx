@@ -10,6 +10,9 @@ import {
 	X
 } from 'phosphor-react-native';
 import { FlatList, Pressable, Text, View } from 'react-native';
+import { Icon } from '~/components/icons/Icon';
+import Fade from '~/components/layout/Fade';
+import { Button } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SearchStackScreenProps } from '~/navigation/SearchStack';
 import {
@@ -19,10 +22,6 @@ import {
 	TagItem,
 	useSearchStore
 } from '~/stores/searchStore';
-
-import { Icon } from '../../icons/Icon';
-import Fade from '../../layout/Fade';
-import { Button } from '../../primitive/Button';
 
 const FiltersBar = () => {
 	const { filters, appliedFilters } = useSearchStore();

@@ -4,12 +4,11 @@ import { Pressable, Text, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { LinearTransition } from 'react-native-reanimated';
 import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import Fade from '~/components/layout/Fade';
+import SectionTitle from '~/components/layout/SectionTitle';
+import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';
 import { tw, twStyle } from '~/lib/tailwind';
 import { useSearchStore } from '~/stores/searchStore';
-
-import Fade from '../../layout/Fade';
-import SectionTitle from '../../layout/SectionTitle';
-import VirtualizedListWrapper from '../../layout/VirtualizedListWrapper';
 
 const Tags = () => {
 	const tags = useLibraryQuery(['tags.list']);
