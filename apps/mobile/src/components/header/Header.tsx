@@ -1,21 +1,19 @@
 import { useNavigation } from '@react-navigation/native';
 import { StackHeaderProps } from '@react-navigation/stack';
 import { ArrowLeft, DotsThreeOutline, MagnifyingGlass } from 'phosphor-react-native';
-import { lazy } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getExplorerStore, useExplorerStore } from '~/stores/explorerStore';
 
+import BrowseLibraryManager from '../browse/DrawerLibraryManager';
 import { Icon } from '../icons/Icon';
-
-//Not all pages use these components - so we lazy load for performance
-const BrowseLibraryManager = lazy(() => import('../browse/DrawerLibraryManager'));
-const Search = lazy(() => import('../inputs/Search'));
+import Search from '../inputs/Search';
 
 type HeaderProps = {
 	title?: string; //title of the page
 	showLibrary?: boolean; //show the library manager
+	showSearch?: boolean; //show the search button
 	searchType?: 'explorer' | 'location'; //Temporary
 	navBack?: boolean; //navigate back to the previous screen
 	headerKind?: 'default' | 'location' | 'tag'; //kind of header
@@ -39,7 +37,8 @@ export default function Header({
 	navBack,
 	route,
 	routeTitle,
-	headerKind = 'default'
+	headerKind = 'default',
+	showSearch = true
 }: Props) {
 	const navigation = useNavigation();
 	const explorerStore = useExplorerStore();
@@ -74,14 +73,24 @@ export default function Header({
 							</Text>
 						</View>
 					</View>
-					<View style={tw`flex-row items-center gap-3`}>
-						<Pressable onPress={() => navigation.navigate('Search')}>
-							<MagnifyingGlass
-								size={20}
-								weight="bold"
-								color={tw.color('text-zinc-300')}
-							/>
-						</Pressable>
+					<View style={tw`relative flex-row items-center gap-1.5`}>
+						{showSearch && (
+							<View style={tw`flex-row items-center gap-2`}>
+								<Pressable
+									onPress={() => {
+										navigation.navigate('Search', {
+											screen: 'Home'
+										});
+									}}
+								>
+									<MagnifyingGlass
+										size={24}
+										weight="bold"
+										color={tw.color('text-zinc-300')}
+									/>
+								</Pressable>
+							</View>
+						)}
 						{(headerKind === 'location' || headerKind === 'tag') && (
 							<Pressable
 								onPress={() => {
