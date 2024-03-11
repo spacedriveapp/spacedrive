@@ -1,9 +1,9 @@
 use crate::Error;
 
-use sd_core_file_path_helper::{
-	file_path_pub_and_cas_ids, file_path_walker, FilePathMetadata, IsolatedFilePathData,
-};
+use sd_core_file_path_helper::{FilePathMetadata, IsolatedFilePathData};
 use sd_core_indexer_rules::{IndexerRuler, RuleKind};
+use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_walker};
+
 use sd_prisma::prisma::file_path;
 use sd_task_system::{
 	check_interruption, ExecStatus, Interrupter, IntoAnyTaskOutput, Task, TaskDispatcher,
@@ -717,7 +717,6 @@ mod tests {
 
 	use sd_core_indexer_rules::{IndexerRule, RulePerKind};
 	use sd_task_system::{TaskOutput, TaskStatus, TaskSystem};
-	use tracing::debug;
 
 	use std::hash::{Hash, Hasher};
 
@@ -727,6 +726,7 @@ mod tests {
 	use lending_stream::{LendingStream, StreamExt};
 	use tempfile::{tempdir, TempDir};
 	use tokio::fs;
+	use tracing::debug;
 	use tracing_test::traced_test;
 
 	impl PartialEq for WalkedEntry {

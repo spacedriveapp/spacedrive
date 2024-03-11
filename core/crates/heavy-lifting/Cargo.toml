@@ -9,8 +9,12 @@ edition = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# Inner Core Sub-crates
 sd-core-file-path-helper = { path = "../file-path-helper" }
 sd-core-indexer-rules = { path = "../indexer-rules" }
+sd-core-prisma-helpers = { path = "../prisma-helpers" }
+
+# Sub-crates
 sd-prisma = { path = "../../../crates/prisma" }
 sd-task-system = { path = "../../../crates/task-system" }
 sd-utils = { path = "../../../crates/utils" }
@@ -21,7 +25,9 @@ chrono = { workspace = true, features = ["serde"] }
 futures-concurrency = { workspace = true }
 globset = { workspace = true }
 lending-stream = { workspace = true }
+prisma-client-rust = { workspace = true }
 rmp-serde = { workspace = true }
+rspc = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }

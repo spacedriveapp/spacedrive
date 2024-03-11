@@ -1,12 +1,8 @@
-use crate::{
-	library::Library,
-	object::{cas::generate_cas_id, object_for_file_identifier},
-	old_job::JobError,
-};
+use crate::{library::Library, object::cas::generate_cas_id, old_job::JobError};
 
-use sd_core_file_path_helper::{
-	file_path_for_file_identifier, FilePathError, IsolatedFilePathData,
-};
+use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
+use sd_core_prisma_helpers::{file_path_for_file_identifier, object_for_file_identifier};
+
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_prisma::{
 	prisma::{file_path, location, object, PrismaClient},

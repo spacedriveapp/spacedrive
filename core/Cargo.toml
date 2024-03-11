@@ -19,12 +19,13 @@ ai = ["dep:sd-ai"]
 
 [dependencies]
 # Inner Core Sub-crates
-sd-core-sync = { path = "./crates/sync" }
 sd-core-file-path-helper = { path = "./crates/file-path-helper" }
-sd-core-indexer-rules = { path = "./crates/indexer-rules" }
 sd-core-heavy-lifting = { path = "./crates/heavy-lifting" }
+sd-core-indexer-rules = { path = "./crates/indexer-rules" }
+sd-core-prisma-helpers = { path = "./crates/prisma-helpers" }
+sd-core-sync = { path = "./crates/sync" }
 
-# Sub-crates
+# Spacedrive Sub-crates
 sd-actors = { version = "0.1.0", path = "../crates/actors" }
 sd-ai = { path = "../crates/ai", optional = true }
 sd-cache = { path = "../crates/cache" }

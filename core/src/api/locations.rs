@@ -2,9 +2,8 @@ use crate::{
 	invalidate_query,
 	location::{
 		delete_location, find_location, indexer::OldIndexerJobInit, light_scan_location,
-		location_with_indexer_rules, non_indexed::NonIndexedPathItem, relink_location,
-		scan_location, scan_location_sub_path, LocationCreateArgs, LocationError,
-		LocationUpdateArgs,
+		non_indexed::NonIndexedPathItem, relink_location, scan_location, scan_location_sub_path,
+		LocationCreateArgs, LocationError, LocationUpdateArgs,
 	},
 	object::old_file_identifier::old_file_identifier_job::OldFileIdentifierJobInit,
 	old_job::StatefulJob,
@@ -12,11 +11,13 @@ use crate::{
 	util::AbortOnDrop,
 };
 
-use sd_cache::{CacheNode, Model, Normalise, NormalisedResult, NormalisedResults, Reference};
 use sd_core_indexer_rules::IndexerRuleCreateArgs;
-use sd_prisma::prisma::{
-	file_path, indexer_rule, indexer_rules_in_location, location, object, SortOrder,
+use sd_core_prisma_helpers::{
+	file_path_with_object, label_with_objects, location_with_indexer_rules, object_with_file_paths,
 };
+
+use sd_cache::{CacheNode, Model, Normalise, NormalisedResult, NormalisedResults, Reference};
+use sd_prisma::prisma::{file_path, indexer_rule, indexer_rules_in_location, location, SortOrder};
 
 use std::path::{Path, PathBuf};
 
@@ -27,7 +28,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tracing::{debug, error};
 
-use super::{labels::label_with_objects, utils::library, Ctx, R};
+use super::{utils::library, Ctx, R};
 
 // it includes the shard hex formatted as ([["f02", "cab34a76fbf3469f"]])
 // Will be None if no thumbnail exists
@@ -195,9 +196,6 @@ impl ExplorerItem {
 		}
 	}
 }
-
-file_path::include!(file_path_with_object { object });
-object::include!(object_with_file_paths { file_paths });
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()

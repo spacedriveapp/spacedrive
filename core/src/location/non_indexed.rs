@@ -8,13 +8,12 @@ use crate::{
 	Node,
 };
 
-use futures::Stream;
-use itertools::Either;
 use sd_core_file_path_helper::{path_is_hidden, MetadataExt};
 use sd_core_indexer_rules::{
 	seed::{no_hidden, no_os_protected},
 	IndexerRule, RuleKind,
 };
+
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_prisma::prisma::location;
 use sd_utils::{chain_optional_iter, error::FileIOError};
@@ -27,6 +26,8 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
+use futures::Stream;
+use itertools::Either;
 use rspc::ErrorCode;
 use serde::Serialize;
 use specta::Type;

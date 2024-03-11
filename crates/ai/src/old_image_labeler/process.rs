@@ -1,4 +1,6 @@
-use sd_core_file_path_helper::{file_path_for_media_processor, IsolatedFilePathData};
+use sd_core_file_path_helper::IsolatedFilePathData;
+use sd_core_prisma_helpers::file_path_for_media_processor;
+
 use sd_prisma::{
 	prisma::{file_path, label, label_on_object, object, PrismaClient},
 	prisma_sync,

@@ -7,8 +7,10 @@ use crate::{
 
 use sd_core_file_path_helper::{
 	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-	file_path_for_object_validator, IsolatedFilePathData,
+	IsolatedFilePathData,
 };
+use sd_core_prisma_helpers::file_path_for_object_validator;
+
 use sd_prisma::{
 	prisma::{file_path, location},
 	prisma_sync,

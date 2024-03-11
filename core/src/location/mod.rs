@@ -9,7 +9,11 @@ use crate::{
 	Node,
 };
 
-use sd_core_file_path_helper::{filter_existing_file_path_params, IsolatedFilePathData};
+use sd_core_file_path_helper::{
+	filter_existing_file_path_params, IsolatedFilePathData, IsolatedFilePathDataParts,
+};
+use sd_core_prisma_helpers::location_with_indexer_rules;
+
 use sd_prisma::{
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
 	prisma_sync,
@@ -20,8 +24,6 @@ use sd_utils::{
 	error::{FileIOError, NonUtf8PathError},
 	uuid_to_bytes,
 };
-
-use sd_core_file_path_helper::IsolatedFilePathDataParts;
 
 use std::{
 	collections::HashSet,
@@ -52,11 +54,6 @@ pub use manager::{LocationManagerError, Locations};
 use metadata::SpacedriveLocationMetadataFile;
 
 pub type LocationPubId = Uuid;
-
-// Location includes!
-location::include!(location_with_indexer_rules {
-	indexer_rules: select { indexer_rule }
-});
 
 /// `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
 /// It has the actual path and a vector of indexer rules ids, to create many-to-many relationships
@@ -863,52 +860,6 @@ pub async fn delete_directory(
 	invalidate_query!(library, "search.objects");
 
 	Ok(())
-}
-
-impl From<location_with_indexer_rules::Data> for location::Data {
-	fn from(data: location_with_indexer_rules::Data) -> Self {
-		Self {
-			id: data.id,
-			pub_id: data.pub_id,
-			path: data.path,
-			instance_id: data.instance_id,
-			name: data.name,
-			total_capacity: data.total_capacity,
-			available_capacity: data.available_capacity,
-			is_archived: data.is_archived,
-			size_in_bytes: data.size_in_bytes,
-			generate_preview_media: data.generate_preview_media,
-			sync_preview_media: data.sync_preview_media,
-			hidden: data.hidden,
-			date_created: data.date_created,
-			file_paths: None,
-			indexer_rules: None,
-			instance: None,
-		}
-	}
-}
-
-impl From<&location_with_indexer_rules::Data> for location::Data {
-	fn from(data: &location_with_indexer_rules::Data) -> Self {
-		Self {
-			id: data.id,
-			pub_id: data.pub_id.clone(),
-			path: data.path.clone(),
-			instance_id: data.instance_id,
-			name: data.name.clone(),
-			total_capacity: data.total_capacity,
-			available_capacity: data.available_capacity,
-			size_in_bytes: data.size_in_bytes.clone(),
-			is_archived: data.is_archived,
-			generate_preview_media: data.generate_preview_media,
-			sync_preview_media: data.sync_preview_media,
-			hidden: data.hidden,
-			date_created: data.date_created,
-			file_paths: None,
-			indexer_rules: None,
-			instance: None,
-		}
-	}
 }
 
 async fn check_nested_location(

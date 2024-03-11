@@ -2,8 +2,10 @@ use crate::{invalidate_query, library::Library, old_job::JobError};
 
 use sd_core_file_path_helper::{
 	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-	file_path_for_file_identifier, IsolatedFilePathData,
+	IsolatedFilePathData,
 };
+use sd_core_prisma_helpers::file_path_for_file_identifier;
+
 use sd_prisma::prisma::{file_path, location, PrismaClient, SortOrder};
 use sd_utils::db::maybe_missing;
 

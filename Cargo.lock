@@ -7634,6 +7634,7 @@ dependencies = [
  "reqwest",
  "rmp-serde",
  "sd-core-file-path-helper",
+ "sd-core-prisma-helpers",
  "sd-core-sync",
  "sd-prisma",
  "sd-sync",
@@ -7736,6 +7737,7 @@ dependencies = [
  "sd-core-file-path-helper",
  "sd-core-heavy-lifting",
  "sd-core-indexer-rules",
+ "sd-core-prisma-helpers",
  "sd-core-sync",
  "sd-crypto",
  "sd-ffmpeg",
@@ -7782,6 +7784,7 @@ dependencies = [
  "chrono",
  "prisma-client-rust",
  "regex",
+ "sd-core-prisma-helpers",
  "sd-prisma",
  "sd-utils",
  "serde",
@@ -7800,9 +7803,12 @@ dependencies = [
  "futures-concurrency",
  "globset",
  "lending-stream",
+ "prisma-client-rust",
  "rmp-serde",
+ "rspc",
  "sd-core-file-path-helper",
  "sd-core-indexer-rules",
+ "sd-core-prisma-helpers",
  "sd-prisma",
  "sd-task-system",
  "sd-utils",
@@ -7835,6 +7841,15 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "sd-core-prisma-helpers"
+version = "0.1.0"
+dependencies = [
+ "prisma-client-rust",
+ "sd-prisma",
+ "serde",
 ]
 
 [[package]]

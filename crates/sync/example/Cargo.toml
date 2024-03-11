@@ -8,14 +8,17 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-serde_json = "1.0.85"
-serde = { version = "1.0.145", features = ["derive"] }
+# Spacedrive Sub-crates
+sd-sync = { path = ".." }
+
 axum = { workspace = true }
 rspc = { workspace = true, features = ["axum"] }
 tokio = { workspace = true, features = ["full"] }
 prisma-client-rust = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+uuid = { workspace = true, features = ["v4"] }
+
 dotenv = "0.15.0"
 tower-http = { version = "0.3.4", features = ["cors"] }
-sd-sync = { path = ".." }
-uuid = { workspace = true, features = ["v4"] }
 http = "0.2.8"

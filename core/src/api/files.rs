@@ -1,5 +1,5 @@
 use crate::{
-	api::{locations::object_with_file_paths, utils::library},
+	api::utils::library,
 	invalidate_query,
 	library::Library,
 	location::{get_location_path_from_location_id, LocationError},
@@ -14,10 +14,12 @@ use crate::{
 	old_job::Job,
 };
 
-use sd_cache::{CacheNode, Model, NormalisedResult, Reference};
-use sd_core_file_path_helper::{
-	file_path_to_isolate, file_path_to_isolate_with_id, FilePathError, IsolatedFilePathData,
+use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
+use sd_core_prisma_helpers::{
+	file_path_to_isolate, file_path_to_isolate_with_id, object_with_file_paths,
 };
+
+use sd_cache::{CacheNode, Model, NormalisedResult, Reference};
 use sd_file_ext::kind::ObjectKind;
 use sd_images::ConvertibleExtension;
 use sd_media_metadata::MediaMetadata;

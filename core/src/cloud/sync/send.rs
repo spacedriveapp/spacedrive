@@ -1,14 +1,13 @@
-use super::CompressedCRDTOperations;
+use sd_core_sync::{GetOpsArgs, SyncMessage, NTP64};
 
 use sd_cloud_api::RequestConfigProvider;
-use sd_core_sync::{GetOpsArgs, SyncMessage, NTP64};
-use uuid::Uuid;
 
 use std::{sync::Arc, time::Duration};
 
 use tokio::time::sleep;
+use uuid::Uuid;
 
-use super::err_break;
+use super::{err_break, CompressedCRDTOperations};
 
 pub async fn run_actor(
 	library_id: Uuid,

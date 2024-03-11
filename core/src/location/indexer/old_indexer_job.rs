@@ -14,6 +14,7 @@ use sd_core_file_path_helper::{
 	IsolatedFilePathData,
 };
 use sd_core_indexer_rules::IndexerRule;
+
 use sd_prisma::{
 	prisma::{file_path, location},
 	prisma_sync,

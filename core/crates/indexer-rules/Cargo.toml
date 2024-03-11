@@ -9,6 +9,7 @@ edition = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# Spacedrive Sub-crates
 sd-prisma = { path = "../../../crates/prisma" }
 sd-utils = { path = "../../../crates/utils" }
 

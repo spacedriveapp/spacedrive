@@ -11,6 +11,7 @@ edition = { workspace = true }
 crate-type = ["cdylib"]
 
 [dependencies]
+# Spacedrive Sub-crates
 sd-mobile-core = { path = "../../core" }
 
 # FFI

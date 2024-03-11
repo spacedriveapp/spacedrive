@@ -1,7 +1,7 @@
-use sd_core_file_path_helper::{
-	file_path_pub_and_cas_ids, file_path_walker, FilePathMetadata, IsolatedFilePathData,
-};
+use sd_core_file_path_helper::{FilePathMetadata, IsolatedFilePathData};
 use sd_core_indexer_rules::{IndexerRule, RuleKind};
+use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_walker};
+
 use sd_prisma::prisma::file_path;
 use sd_utils::{db::inode_from_db, error::FileIOError};
 

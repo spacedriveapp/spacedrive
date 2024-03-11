@@ -7,8 +7,9 @@ use crate::{
 	Node,
 };
 
-use hyper::{header, upgrade::OnUpgrade};
-use sd_core_file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData};
+use sd_core_file_path_helper::IsolatedFilePathData;
+use sd_core_prisma_helpers::file_path_to_handle_custom_uri;
+
 use sd_file_ext::text::is_text;
 use sd_p2p2::{IdentityOrRemoteIdentity, RemoteIdentity};
 use sd_prisma::prisma::{file_path, location};
@@ -33,6 +34,7 @@ use axum::{
 	routing::get,
 	Router,
 };
+use hyper::{header, upgrade::OnUpgrade};
 use mini_moka::sync::Cache;
 use tokio::{
 	fs::{self, File},
