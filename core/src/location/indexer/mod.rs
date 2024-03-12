@@ -84,13 +84,12 @@ impl From<IndexerError> for rspc::Error {
 
 async fn execute_indexer_save_step(
 	location: &location_with_indexer_rules::Data,
-	save_step: &OldIndexerJobSaveStep,
+	OldIndexerJobSaveStep { walked, .. }: &OldIndexerJobSaveStep,
 	library: &Library,
 ) -> Result<i64, IndexerError> {
 	let Library { sync, db, .. } = library;
 
-	let (sync_stuff, paths): (Vec<_>, Vec<_>) = save_step
-		.walked
+	let (sync_stuff, paths): (Vec<_>, Vec<_>) = walked
 		.iter()
 		.map(|entry| {
 			let IsolatedFilePathDataParts {
@@ -181,8 +180,8 @@ async fn execute_indexer_update_step(
 			let pub_id = sd_utils::uuid_to_bytes(entry.pub_id);
 
 			let should_unlink_object = if let Some(object_id) = entry.maybe_object_id {
-				db.object()
-					.count(vec![prisma_object::id::equals(object_id)])
+				db.file_path()
+					.count(vec![file_path::object_id::equals(Some(object_id))])
 					.exec()
 					.await? > 1
 			} else {

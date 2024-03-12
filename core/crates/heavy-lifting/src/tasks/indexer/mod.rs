@@ -8,6 +8,7 @@ use sd_utils::error::{FileIOError, NonUtf8PathError};
 use rspc::ErrorCode;
 
 pub mod saver;
+pub mod updater;
 pub mod walker;
 
 #[derive(thiserror::Error, Debug)]
@@ -19,7 +20,7 @@ pub enum IndexerError {
 	SubPathNotFound(Box<Path>),
 
 	// Internal Errors
-	#[error("Database Error: {}", .0.to_string())]
+	#[error("database Error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),

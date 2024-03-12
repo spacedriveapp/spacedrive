@@ -13,9 +13,11 @@ edition = { workspace = true }
 sd-core-file-path-helper = { path = "../file-path-helper" }
 sd-core-indexer-rules = { path = "../indexer-rules" }
 sd-core-prisma-helpers = { path = "../prisma-helpers" }
+sd-core-sync = { path = "../sync" }
 
 # Sub-crates
 sd-prisma = { path = "../../../crates/prisma" }
+sd-sync = { path = "../../../crates/sync" }
 sd-task-system = { path = "../../../crates/task-system" }
 sd-utils = { path = "../../../crates/utils" }
 
@@ -29,6 +31,7 @@ prisma-client-rust = { workspace = true }
 rmp-serde = { workspace = true }
 rspc = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }
 tokio-stream = { workspace = true, features = ["fs"] }
