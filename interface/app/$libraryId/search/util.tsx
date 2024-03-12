@@ -36,7 +36,7 @@ export const RenderIcon = ({
 	if (typeof icon === 'string' && icon.startsWith('#')) {
 		return (
 			<div
-				className={clsx('mr-0.5 h-[15px] w-[15px] shrink-0 rounded-full border', className)}
+				className={clsx('mr-0.5 size-[15px] shrink-0 rounded-full border', className)}
 				style={{
 					backgroundColor: icon ? icon : 'transparent',
 					borderColor: icon || '#efefef'

@@ -200,7 +200,7 @@ export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) =
 			className={clsx(
 				'relative flex shrink-0 items-center justify-center',
 				// !loaded && 'invisible',
-				!props.size && 'h-full w-full',
+				!props.size && 'size-full',
 				props.cover && 'overflow-hidden',
 				props.className
 			)}

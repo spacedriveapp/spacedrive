@@ -105,7 +105,7 @@ function EditForm({ savedSearch, onDelete }: { savedSearch: SavedSearch; onDelet
 						}}
 					>
 						<Tooltip label={t('delete_tag')}>
-							<Trash className="h-4 w-4" />
+							<Trash className="size-4" />
 						</Tooltip>
 					</Button>
 				</div>

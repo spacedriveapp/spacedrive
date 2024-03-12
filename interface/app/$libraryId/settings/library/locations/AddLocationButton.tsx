@@ -71,7 +71,7 @@ export const AddLocationButton = ({
 				{...props}
 			>
 				{path ? (
-					<div className="flex h-full w-full flex-row items-end whitespace-nowrap font-mono text-sm">
+					<div className="flex size-full flex-row items-end whitespace-nowrap font-mono text-sm">
 						<FolderSimplePlus size={22} className="shrink-0" />
 						<div className="ml-1 overflow-hidden">
 							<motion.span

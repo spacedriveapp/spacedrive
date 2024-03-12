@@ -87,12 +87,12 @@ export function JobManager() {
 						<PopoverClose asChild>
 							<Check
 								onClick={clearAllJobsHandler}
-								className="h-3 w-3 transition-opacity duration-300 hover:opacity-70"
+								className="size-3 transition-opacity duration-300 hover:opacity-70"
 								color={isDark ? 'white' : 'black'}
 							/>
 						</PopoverClose>
 						<X
-							className="h-3 w-3 transition-opacity hover:opacity-70"
+							className="size-3 transition-opacity hover:opacity-70"
 							onClick={() => setToggleConfirmation((t) => !t)}
 						/>
 					</div>
@@ -103,14 +103,14 @@ export function JobManager() {
 						size="icon"
 					>
 						<Tooltip label={t('clear_finished_jobs')}>
-							<Trash className="h-4 w-4" />
+							<Trash className="size-4" />
 						</Tooltip>
 					</Button>
 				)}
 				<PopoverClose asChild>
 					<Button className="opacity-70" size="icon">
 						<Tooltip label={t('close')}>
-							<X className="h-4 w-4" />
+							<X className="size-4" />
 						</Tooltip>
 					</Button>
 				</PopoverClose>

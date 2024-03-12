@@ -55,7 +55,7 @@ export default function LocationOptions({ location, path }: { location: Location
 					popover={usePopover()}
 					trigger={
 						<Button className="!p-[5px]" variant="subtle">
-							<Ellipsis className="h-3 w-3" />
+							<Ellipsis className="size-3" />
 						</Button>
 					}
 				>
