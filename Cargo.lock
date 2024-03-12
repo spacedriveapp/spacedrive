@@ -8592,6 +8592,7 @@ dependencies = [
  "sd-sync",
  "serde",
  "serde_json",
+ "uuid",
 ]
 
 [[package]]
