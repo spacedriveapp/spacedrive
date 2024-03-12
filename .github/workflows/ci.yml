@@ -48,6 +48,37 @@ jobs:
       - name: Perform linting
         run: pnpm lint
 
+  cypress:
+    name: Cypress
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js, pnpm and dependencies
+        uses: ./.github/actions/setup-pnpm
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: E2E test
+        uses: cypress-io/github-action@v6
+        with:
+          install: false
+          command: pnpm test:e2e
+          working-directory: apps/web
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cypress-screenshots
+          path: cypress/screenshots
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cypress-videos
+          path: cypress/videos
+          if-no-files-found: ignore
+
   rustfmt:
     name: Rust Formatting
     runs-on: ubuntu-latest
