@@ -8605,6 +8605,7 @@ dependencies = [
  "mime_guess",
  "rspc",
  "sd-core",
+ "tempfile",
  "tokio",
  "tracing",
 ]
