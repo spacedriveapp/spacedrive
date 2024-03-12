@@ -11,8 +11,9 @@ import type {
 	NodeState,
 	Tag
 } from '@sd/client';
+import { type Ordering, type OrderingKeys } from '@sd/client';
 
-import { createDefaultExplorerSettings, type Ordering, type OrderingKeys } from './store';
+import { createDefaultExplorerSettings } from './store';
 import { uniqueId } from './util';
 
 export type ExplorerParent =

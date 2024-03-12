@@ -1,12 +1,11 @@
-import { ObjectOrder, ObjectSearchArgs, useLibraryQuery } from '@sd/client';
-
-import { UseExplorerSettings } from '../useExplorer';
+import { ObjectOrder, ObjectSearchArgs } from '../core';
+import { useLibraryQuery } from '../rspc';
 import { useExplorerQuery } from './useExplorerQuery';
 import { useObjectsOffsetInfiniteQuery } from './useObjectsOffsetInfiniteQuery';
 
 export function useObjectsExplorerQuery(props: {
 	arg: ObjectSearchArgs;
-	explorerSettings: UseExplorerSettings<ObjectOrder>;
+	order: ObjectOrder | null;
 }) {
 	const query = useObjectsOffsetInfiniteQuery(props);
 
