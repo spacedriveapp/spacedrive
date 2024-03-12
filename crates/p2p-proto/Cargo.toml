@@ -7,7 +7,7 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-ed25519-dalek = "2.1.0"
+ed25519-dalek = "2.1.1"
 thiserror.workspace = true
 tokio = { workspace = true, features = ["io-util"] }
 uuid.workspace = true

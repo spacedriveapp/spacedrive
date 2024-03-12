@@ -16,8 +16,8 @@ pub use identity::{
 };
 pub use mdns::Mdns;
 pub use p2p::{Listener, P2P};
-pub use peer::{ConnectionRequest, Peer};
-pub use quic::{Libp2pPeerId, QuicTransport};
+pub use peer::{ConnectionRequest, Peer, PeerConnectionCandidate};
+pub use quic::{Libp2pPeerId, QuicTransport, RelayServerEntry};
 pub use smart_guards::SmartWriteGuard;
 pub use stream::UnicastStream;
 
