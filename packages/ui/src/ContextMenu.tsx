@@ -156,7 +156,7 @@ const CheckboxItem = ({
 	return (
 		<RadixCM.CheckboxItem className={contextMenuItemClassNames} {...props}>
 			<ContextMenuDivItem variant={variant} className={className}>
-				<span className="flex h-3.5 w-3.5 items-center justify-center">
+				<span className="flex size-3.5 items-center justify-center">
 					<RadixCM.ItemIndicator>
 						<Check weight="bold" />
 					</RadixCM.ItemIndicator>

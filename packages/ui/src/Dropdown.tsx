@@ -28,7 +28,7 @@ const itemStyles = cva(
 	}
 );
 
-const itemIconStyles = cva('mr-2 h-4 w-4', {
+const itemIconStyles = cva('mr-2 size-4', {
 	variants: {}
 });
 

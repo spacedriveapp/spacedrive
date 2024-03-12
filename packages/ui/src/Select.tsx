@@ -87,7 +87,7 @@ export function SelectOption(props: PropsWithChildren<{ value: string; default?:
 		>
 			<RS.ItemText>{props.children}</RS.ItemText>
 			<RS.ItemIndicator className="absolute left-1 inline-flex items-center">
-				<Check className="h-4 w-4" />
+				<Check className="size-4" />
 			</RS.ItemIndicator>
 		</RS.Item>
 	);
