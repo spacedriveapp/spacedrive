@@ -1,6 +1,6 @@
 use crate::node::{HardwareModel, Platform};
 
-use std::{collections::HashMap, env, str::FromStr};
+use std::{collections::HashMap, env, fmt::Display, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -89,20 +89,22 @@ impl OperatingSystem {
 	}
 }
 
-impl ToString for OperatingSystem {
-	fn to_string(&self) -> String {
-		match self {
-			OperatingSystem::Windows => "Windows".into(),
-			OperatingSystem::Linux => "Linux".into(),
-			OperatingSystem::MacOS => "MacOS".into(),
-			OperatingSystem::Ios => "IOS".into(),
-			OperatingSystem::Android => "Android".into(),
+impl Display for OperatingSystem {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		let s = match self {
+			OperatingSystem::Windows => "Windows",
+			OperatingSystem::Linux => "Linux",
+			OperatingSystem::MacOS => "MacOS",
+			OperatingSystem::Ios => "IOS",
+			OperatingSystem::Android => "Android",
 			OperatingSystem::Other(s) => {
 				let mut chars = s.chars();
 				chars.next();
-				chars.as_str().to_string()
+				chars.as_str()
 			}
-		}
+		};
+
+		f.write_str(s)
 	}
 }
 

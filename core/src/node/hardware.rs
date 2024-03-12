@@ -4,7 +4,6 @@ use std::str;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use strum_macros::{Display, EnumIter};
-use sysinfo::SystemExt;
 
 #[repr(i32)]
 #[derive(Debug, Clone, Display, Copy, EnumIter, Type, Serialize, Deserialize, Eq, PartialEq)]

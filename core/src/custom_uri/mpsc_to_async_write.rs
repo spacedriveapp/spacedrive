@@ -11,6 +11,7 @@ use tokio_util::sync::PollSender;
 pub struct MpscToAsyncWrite(PollSender<io::Result<Bytes>>);
 
 impl MpscToAsyncWrite {
+	#[allow(dead_code)]
 	pub fn new(sender: PollSender<io::Result<Bytes>>) -> Self {
 		Self(sender)
 	}
