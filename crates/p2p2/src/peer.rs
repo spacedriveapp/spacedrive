@@ -23,33 +23,13 @@ pub struct Peer {
 	pub(crate) p2p: Weak<P2P>,
 }
 
-#[derive(Debug, Hash, Eq, PartialEq)]
+// The order of this enum is the preference of the connection type.
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub enum PeerConnectionCandidate {
-	Relay,
 	SocketAddr(SocketAddr),
-	Custom(String),
-}
-
-impl PartialOrd for PeerConnectionCandidate {
-	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-		Some(self.cmp(other))
-	}
-}
-
-impl Ord for PeerConnectionCandidate {
-	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-		match (self, other) {
-			(Self::SocketAddr(_), Self::SocketAddr(_)) => std::cmp::Ordering::Equal,
-			(Self::SocketAddr(_), Self::Relay) => std::cmp::Ordering::Less,
-			(Self::SocketAddr(_), Self::Custom(_)) => std::cmp::Ordering::Greater,
-			(Self::Relay, Self::SocketAddr(_)) => std::cmp::Ordering::Greater,
-			(Self::Relay, Self::Relay) => std::cmp::Ordering::Equal,
-			(Self::Relay, Self::Custom(_)) => std::cmp::Ordering::Greater,
-			(Self::Custom(_), Self::SocketAddr(_)) => std::cmp::Ordering::Less,
-			(Self::Custom(_), Self::Relay) => std::cmp::Ordering::Less,
-			(Self::Custom(_), Self::Custom(_)) => std::cmp::Ordering::Equal,
-		}
-	}
+	Relay,
+	// Custom(String),
 }
 
 #[derive(Debug, Default)]
@@ -69,7 +49,7 @@ pub(crate) struct State {
 #[non_exhaustive]
 pub struct ConnectionRequest {
 	pub to: RemoteIdentity,
-	pub addrs: HashSet<SocketAddr>,
+	pub addrs: BTreeSet<PeerConnectionCandidate>,
 	pub tx: oneshot::Sender<Result<UnicastStream, String>>,
 }
 
@@ -174,7 +154,7 @@ impl Peer {
 				.values()
 				.flatten()
 				.cloned()
-				.collect::<HashSet<_>>();
+				.collect::<BTreeSet<_>>();
 
 			let Some((_id, connect_tx)) = state
 				.connection_methods
@@ -214,7 +194,7 @@ impl Peer {
 
 // Hook-facing methods
 impl Peer {
-	pub fn hook_discovered(&self, hook: HookId, addrs: HashSet<SocketAddr>) {
+	pub fn hook_discovered(&self, hook: HookId, addrs: BTreeSet<PeerConnectionCandidate>) {
 		// TODO: Emit event maybe???
 
 		self.state

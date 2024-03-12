@@ -1,5 +1,5 @@
 use std::{
-	collections::{HashMap, HashSet},
+	collections::HashMap,
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr},
 	str::FromStr,
 	sync::{Arc, PoisonError, RwLock},
@@ -22,7 +22,7 @@ use tokio::{
 	time::timeout,
 };
 use tokio_util::compat::FuturesAsyncReadCompatExt;
-use tracing::{debug, warn};
+use tracing::{debug, error, warn};
 use uuid::Uuid;
 
 use crate::{
@@ -30,7 +30,8 @@ use crate::{
 	quic::utils::{
 		identity_to_libp2p_keypair, remote_identity_to_libp2p_peerid, socketaddr_to_quic_multiaddr,
 	},
-	ConnectionRequest, HookEvent, ListenerId, Peer, RemoteIdentity, UnicastStream, P2P,
+	ConnectionRequest, HookEvent, ListenerId, PeerConnectionCandidate, RemoteIdentity,
+	UnicastStream, P2P,
 };
 
 const PROTOCOL: StreamProtocol = StreamProtocol::new("/sdp2p/1");
@@ -143,14 +144,6 @@ impl QuicTransport {
 		rx.await.unwrap_or_else(|_| Ok(())).unwrap(); // TODO: error handling
 	}
 
-	// pub fn connect_me_daddy(&self, peer: Arc<Peer>) {
-	// 	peer.state
-	// 		.write()
-	// 		.unwrap()
-	// 		.connection_methods
-	// 		.insert(self.id, self.connect_tx.clone());
-	// }
-
 	// `None` on the port means disabled. Use `0` for random port.
 	pub async fn set_ipv4_enabled(&self, port: Option<u16>) -> Result<(), String> {
 		self.setup_listener(
@@ -226,6 +219,7 @@ async fn start(
 	#[allow(clippy::unwrap_used)] // TODO: Error handling
 	let mut incoming = control.accept(PROTOCOL).unwrap();
 	let map = Arc::new(RwLock::new(HashMap::new()));
+	let mut relay_config = Vec::new();
 
 	loop {
 		tokio::select! {
@@ -235,27 +229,20 @@ async fn start(
 						continue;
 					};
 
+					let peer_id = remote_identity_to_libp2p_peerid(&identity);
 					let addrs = {
 						let state = peer.state.read().unwrap_or_else(PoisonError::into_inner);
 
-						state
-							.discovered
-							.values()
-							.flatten()
-							.cloned()
-							.collect::<HashSet<_>>()
+						get_addrs(peer_id, &relay_config, state.discovered.values().flatten())
 					};
 
-					let peer_id = remote_identity_to_libp2p_peerid(&identity);
 
 					let mut control = control.clone();
 					tokio::spawn(async move {
 						match timeout(Duration::from_secs(5), control.open_stream_with_addrs(
 							peer_id,
 							PROTOCOL,
-							addrs.iter()
-								.map(socketaddr_to_quic_multiaddr)
-								.collect()
+							addrs
 						)).await {
 							Ok(Ok(_)) => {}
 							Err(_) | Ok(Err(_)) => peer.disconnected_from(id),
@@ -379,7 +366,7 @@ async fn start(
 					// TODO: Replace any existing relays
 					// TODO: Only add some of the relays???
 
-					for relay in relays {
+					for relay in &relays {
 						let peer_id = PeerId::from_str(&relay.peer_id).unwrap(); // TODO: error handling
 						let addrs = relay
 							.addrs
@@ -404,6 +391,8 @@ async fn start(
 						).unwrap(); // TODO: error handling
 					}
 
+					relay_config = relays;
+
 					// TODO: Proper error handling
 					result.send(Ok(())).ok();
 				},
@@ -412,70 +401,65 @@ async fn start(
 				let mut control = control.clone();
 				let self_remote_identity = p2p.identity().to_remote_identity();
 				let map = map.clone();
+				let peer_id = remote_identity_to_libp2p_peerid(&req.to);
+				let addrs = get_addrs(peer_id, &relay_config, req.addrs.iter());
+
 				tokio::spawn(async move {
-					let peer_id = remote_identity_to_libp2p_peerid(&req.to);
+					match control.open_stream_with_addrs(
+						peer_id,
+						PROTOCOL,
+						addrs,
+					).await {
+						Ok(mut stream) => {
+							map.write().unwrap_or_else(PoisonError::into_inner).insert(peer_id, req.to);
 
-
-
-					println!("{:?} {:?} {:?}", req.to, peer_id, req.addrs);
-
-					// TODO: Why is this required, something is wrong with pairing probs???
-					let peer_id = PeerId::from_str("12D3KooWAo7TAghJCW9rFVkM8RPnZqDcGDga1PpDiQyME69AccXN").unwrap();
-
-					let addrs = if req.addrs.is_empty() {
-						println!("\n\nNO ADDRS, using Relay\n\n");
-
-						// let mut addr = Multiaddr::empty();
-						// match m {
-						// 	SocketAddr::V4(ip) => addr.push(Protocol::Ip4(*ip.ip())),
-						// 	SocketAddr::V6(ip) => addr.push(Protocol::Ip6(*ip.ip())),
-						// }
-						// addr.push(Protocol::Udp(m.port()));
-						// addr.push(Protocol::QuicV1);
-
-						// TODO: Relay Socket Address
-						let mut addr = socketaddr_to_quic_multiaddr(&(Ipv4Addr::new(54, 176, 132, 155), 7373).into());
-
-						// TODO: Relay peer ID
-						let relay_peer_id =
-							PeerId::from_str("12D3KooWFoA6tdq3N6nStJ8bwx6KUsNPTmNY8RxGuAHuBV9HYski").unwrap(); // TODO: This changes on server startup
-						addr.push(Protocol::P2p(relay_peer_id));
-
-						addr.push(Protocol::P2pCircuit);
-						addr.push(Protocol::P2p(peer_id));
-
-						vec![addr]
-					} else {
-						req.addrs.iter()
-							.map(socketaddr_to_quic_multiaddr)
-							.collect::<Vec<_>>()
-					};
-
-						match control.open_stream_with_addrs(
-							peer_id,
-							PROTOCOL,
-							addrs
-						).await {
-							Ok(mut stream) => {
-								map.write().unwrap_or_else(PoisonError::into_inner).insert(peer_id, req.to);
-
-								match stream.write_all(&self_remote_identity.get_bytes()).await {
-									Ok(_) => {
-										debug!("Established outbound stream with '{}'", req.to);
-										let _ = req.tx.send(Ok(UnicastStream::new(req.to, stream.compat())));
-									},
-									Err(e) => {
-										let _ = req.tx.send(Err(e.to_string()));
-									},
-								}
-							},
-							Err(e) => {
-								let _ = req.tx.send(Err(e.to_string()));
-							},
-						}
-
+							match stream.write_all(&self_remote_identity.get_bytes()).await {
+								Ok(_) => {
+									debug!("Established outbound stream with '{}'", req.to);
+									let _ = req.tx.send(Ok(UnicastStream::new(req.to, stream.compat())));
+								},
+								Err(e) => {
+									let _ = req.tx.send(Err(e.to_string()));
+								},
+							}
+						},
+						Err(e) => {
+							let _ = req.tx.send(Err(e.to_string()));
+						},
+					}
 				});
 			}
 		}
 	}
+}
+
+fn get_addrs<'a>(
+	peer_id: PeerId,
+	relay_config: &Vec<RelayServerEntry>,
+	addrs: impl Iterator<Item = &'a PeerConnectionCandidate> + 'a,
+) -> Vec<Multiaddr> {
+	addrs
+		.map(|v| match v {
+			PeerConnectionCandidate::SocketAddr(addr) => vec![socketaddr_to_quic_multiaddr(addr)],
+			PeerConnectionCandidate::Relay => relay_config
+				.iter()
+				.filter_map(|e| match PeerId::from_str(&e.peer_id) {
+					Ok(peer_id) => Some(e.addrs.iter().map(move |addr| (peer_id, addr))),
+					Err(err) => {
+						error!("Failed to parse peer ID '{}': {err:?}", e.peer_id);
+						None
+					}
+				})
+				.flatten()
+				.map(|(relay_peer_id, addr)| {
+					let mut addr = socketaddr_to_quic_multiaddr(addr);
+					addr.push(Protocol::P2p(relay_peer_id));
+					addr.push(Protocol::P2pCircuit);
+					addr.push(Protocol::P2p(peer_id));
+					addr
+				})
+				.collect::<Vec<_>>(),
+		})
+		.flatten()
+		.collect::<Vec<_>>()
 }
