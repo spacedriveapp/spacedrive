@@ -16,10 +16,6 @@ export const debugRoutes = [
 			{
 				path: 'remote',
 				lazy: () => import('./p2p').then((m) => ({ Component: m.RemotePeers }))
-			},
-			{
-				path: 'instances',
-				lazy: () => import('./p2p').then((m) => ({ Component: m.Instances }))
 			}
 		]
 	}

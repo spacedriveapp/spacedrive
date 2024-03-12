@@ -30,9 +30,6 @@ export const Component = () => {
 				<Button variant="accent" onClick={() => navigate('remote')}>
 					Remote Peers
 				</Button>
-				<Button variant="accent" onClick={() => navigate('instances')}>
-					Instances
-				</Button>
 			</div>
 			<div className="p-4">
 				<Outlet />
@@ -136,49 +133,3 @@ export function RemotePeers() {
 		</>
 	);
 }
-
-export const Instances = () => {
-	const debugGetLibraryPeers = useBridgeQuery(['p2p.debugGetLibraryPeers']);
-	const debugConnect = useBridgeMutation(['p2p.debugConnect'], {
-		onSuccess: () => {
-			toast.success('Connected!');
-		},
-		onError: (e) => {
-			toast.error(`Error connecting '${e.message}'`);
-		}
-	});
-
-	return (
-		<>
-			<h1>TODO</h1>
-			<div>
-				{!debugGetLibraryPeers.data ? (
-					<p>Loading...</p>
-				) : (
-					<>
-						{debugGetLibraryPeers.data.map(([key, instances]) => (
-							<div key={key}>
-								<p>{key}</p>
-								<div className="pl-2">
-									{instances.map((instanceId) => (
-										<div key={instanceId} className="flex space-x-2 pb-2 pl-3">
-											<p>{instanceId}</p>
-
-											<Button
-												variant="accent"
-												onClick={() => debugConnect.mutate(instanceId)}
-												disabled={debugConnect.isLoading}
-											>
-												Connect
-											</Button>
-										</div>
-									))}
-								</div>
-							</div>
-						))}
-					</>
-				)}
-			</div>
-		</>
-	);
-};
