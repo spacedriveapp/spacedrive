@@ -26,10 +26,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.map(|m| (i, p, m))
 					}) {
 					let identity = *identity;
-					match peer.is_connected() {
-						true => queued.push(P2PEvent::ConnectedPeer { identity }),
-						false => queued.push(P2PEvent::DiscoveredPeer { identity, metadata }),
-					}
+
+					queued.push(P2PEvent::PeerEvent {
+						identity,
+						connection: todo!(),
+						discovery: todo!(),
+						metadata,
+					});
+
+					// match peer.is_connected() {
+					// 	true => queued.push(P2PEvent::ConnectedPeer { identity }),
+					// 	false => queued.push(P2PEvent::DiscoveredPeer { identity, metadata }),
+					// }
 				}
 
 				Ok(async_stream::stream! {

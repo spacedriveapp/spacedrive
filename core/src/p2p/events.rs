@@ -8,21 +8,41 @@ use uuid::Uuid;
 
 use super::PeerMetadata;
 
-/// TODO: P2P event for the frontend
+/// The method used for the connection with this peer.
+/// *Technically* you can have multiple under the hood but this simplifies things for the UX.
+#[derive(Debug, Clone, Serialize, Type)]
+pub enum ConnectionMethod {
+	// Connected via the SD Relay
+	Relay,
+	// Connected directly via an IP address
+	Local,
+	// Not connected
+	Disconnected,
+}
+
+/// The method used for the discovery of this peer.
+/// *Technically* you can have multiple under the hood but this simplifies things for the UX.
+#[derive(Debug, Clone, Serialize, Type)]
+pub enum DiscoveryMethod {
+	// Found via the SD Relay
+	Relay,
+	// Found via mDNS or a manual IP
+	Local,
+}
+
+// This is used for synchronizing events between the backend and the frontend.
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(tag = "type")]
 pub enum P2PEvent {
-	DiscoveredPeer {
+	// An add or update event
+	PeerEvent {
 		identity: RemoteIdentity,
+		connection: ConnectionMethod,
+		discovery: DiscoveryMethod,
 		metadata: PeerMetadata,
 	},
-	ExpiredPeer {
-		identity: RemoteIdentity,
-	},
-	ConnectedPeer {
-		identity: RemoteIdentity,
-	},
-	DisconnectedPeer {
+	// Delete a peer
+	DeleteEvent {
 		identity: RemoteIdentity,
 	},
 	SpacedropRequest {
