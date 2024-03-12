@@ -7,7 +7,7 @@ use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
 use tokio::time::{sleep_until, Instant, Sleep};
 use tracing::{error, trace, warn};
 
-use crate::{HookEvent, HookId, RemoteIdentity, ShutdownGuard, P2P};
+use crate::{HookEvent, HookId, PeerConnectionCandidate, RemoteIdentity, ShutdownGuard, P2P};
 
 /// The time between re-advertising the mDNS service.
 const MDNS_READVERTISEMENT_INTERVAL: Duration = Duration::from_secs(60); // Every minute re-advertise
@@ -134,7 +134,9 @@ fn on_event(state: &State, event: ServiceEvent) {
 					.collect(),
 				info.get_addresses()
 					.iter()
-					.map(|addr| SocketAddr::new(*addr, info.get_port()))
+					.map(|addr| {
+						PeerConnectionCandidate::SocketAddr(SocketAddr::new(*addr, info.get_port()))
+					})
 					.collect(),
 			);
 		}

@@ -1,5 +1,5 @@
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{BTreeSet, HashMap, HashSet},
 	net::SocketAddr,
 	sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak},
 };
@@ -23,6 +23,15 @@ pub struct Peer {
 	pub(crate) p2p: Weak<P2P>,
 }
 
+// The order of this enum is the preference of the connection type.
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
+pub enum PeerConnectionCandidate {
+	SocketAddr(SocketAddr),
+	Relay,
+	// Custom(String),
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct State {
 	/// Active connections with the remote
@@ -31,7 +40,7 @@ pub(crate) struct State {
 	/// These should be inject by `Listener::acceptor` which is called when a new peer is discovered.
 	pub(crate) connection_methods: HashMap<ListenerId, mpsc::Sender<ConnectionRequest>>,
 	/// Methods that have discovered this peer.
-	pub(crate) discovered: HashMap<HookId, HashSet<SocketAddr>>,
+	pub(crate) discovered: HashMap<HookId, BTreeSet<PeerConnectionCandidate>>,
 }
 
 /// A request to connect to a client.
@@ -40,7 +49,7 @@ pub(crate) struct State {
 #[non_exhaustive]
 pub struct ConnectionRequest {
 	pub to: RemoteIdentity,
-	pub addrs: HashSet<SocketAddr>,
+	pub addrs: BTreeSet<PeerConnectionCandidate>,
 	pub tx: oneshot::Sender<Result<UnicastStream, String>>,
 }
 
@@ -62,7 +71,8 @@ impl PartialEq for Peer {
 
 // Internal methods
 impl Peer {
-	pub(crate) fn new(identity: RemoteIdentity, p2p: Arc<P2P>) -> Arc<Self> {
+	// TODO: Make this private
+	pub fn new(identity: RemoteIdentity, p2p: Arc<P2P>) -> Arc<Self> {
 		Arc::new(Self {
 			identity,
 			metadata: Default::default(),
@@ -144,7 +154,7 @@ impl Peer {
 				.values()
 				.flatten()
 				.cloned()
-				.collect::<HashSet<_>>();
+				.collect::<BTreeSet<_>>();
 
 			let Some((_id, connect_tx)) = state
 				.connection_methods
@@ -184,7 +194,7 @@ impl Peer {
 
 // Hook-facing methods
 impl Peer {
-	pub fn hook_discovered(&self, hook: HookId, addrs: HashSet<SocketAddr>) {
+	pub fn hook_discovered(&self, hook: HookId, addrs: BTreeSet<PeerConnectionCandidate>) {
 		// TODO: Emit event maybe???
 
 		self.state
