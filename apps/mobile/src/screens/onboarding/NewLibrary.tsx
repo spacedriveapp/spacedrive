@@ -1,8 +1,8 @@
 import { Controller } from 'react-hook-form';
 import { Alert, Text, View } from 'react-native';
-import { Input } from '~/components/form/Input';
 import { Icon } from '~/components/icons/Icon';
 import { Button } from '~/components/primitive/Button';
+import { Input } from '~/components/primitive/Input';
 import { tw } from '~/lib/tailwind';
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
 

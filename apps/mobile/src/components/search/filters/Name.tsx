@@ -2,11 +2,10 @@ import { AnimatePresence, MotiView } from 'moti';
 import { Plus, Trash } from 'phosphor-react-native';
 import { Pressable, View } from 'react-native';
 import { LinearTransition } from 'react-native-reanimated';
+import SectionTitle from '~/components/layout/SectionTitle';
+import { Input } from '~/components/primitive/Input';
 import { tw } from '~/lib/tailwind';
 import { useSearchStore } from '~/stores/searchStore';
-
-import { Input } from '../form/Input';
-import SectionTitle from '../layout/SectionTitle';
 
 const Name = () => {
 	const searchStore = useSearchStore();

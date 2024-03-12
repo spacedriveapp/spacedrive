@@ -12,6 +12,6 @@ rmp-serde = "1.1.2"
 rmpv = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-specta = { workspace = true, features = ["uuid", "uhlc"] }
+specta = { workspace = true, features = ["uuid", "uhlc", "serde_json"] }
 uhlc = { workspace = true }
 uuid = { workspace = true, features = ["serde", "v4"] }

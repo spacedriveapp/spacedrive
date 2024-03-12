@@ -52,7 +52,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				let mut stream = peer
 					.ok_or(rspc::Error::new(
 						ErrorCode::InternalServerError,
-						"big man, offline".into(),
+						"big man, not found".into(),
 					))?
 					.new_stream()
 					.await
