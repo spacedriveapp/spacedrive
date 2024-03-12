@@ -2,12 +2,11 @@ use crate::api::search;
 
 use sd_prisma::prisma::PrismaClient;
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tracing::error;
-use uuid::Uuid;
 
 use super::*;
 

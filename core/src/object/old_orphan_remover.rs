@@ -14,11 +14,13 @@ const ONE_MINUTE: Duration = Duration::from_secs(60);
 
 // Actor that can be invoked to find and delete objects with no matching file paths
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct OrphanRemoverActor {
 	tx: mpsc::Sender<()>,
 }
 
 impl OrphanRemoverActor {
+	#[allow(dead_code)]
 	pub fn spawn(db: Arc<PrismaClient>) -> Self {
 		let (tx, mut rx) = mpsc::channel(4);
 
@@ -50,10 +52,12 @@ impl OrphanRemoverActor {
 		Self { tx }
 	}
 
+	#[allow(dead_code)]
 	pub async fn invoke(&self) {
 		self.tx.send(()).await.ok();
 	}
 
+	#[allow(dead_code)]
 	async fn process_clean_up(db: &PrismaClient) {
 		loop {
 			let Ok(objects_ids) = db

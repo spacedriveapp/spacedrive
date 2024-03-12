@@ -34,6 +34,7 @@ const PROTOCOL: StreamProtocol = StreamProtocol::new("/sdp2p/1");
 
 /// [libp2p::PeerId] for debugging purposes only.
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Libp2pPeerId(libp2p::PeerId);
 
 #[derive(Debug)]
@@ -188,7 +189,7 @@ async fn start(
 		tokio::select! {
 			Ok(event) = rx.recv_async() => match event {
 				HookEvent::PeerExpiredBy(_, identity) => {
-					let Some(peer) = p2p.peers.read().unwrap_or_else(PoisonError::into_inner).get(&identity).map(Clone::clone) else {
+					let Some(peer) = p2p.peers.read().unwrap_or_else(PoisonError::into_inner).get(&identity).cloned() else {
 						continue;
 					};
 
