@@ -332,8 +332,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 						.parse()
 						.expect("url was validated by Axum");
 
-					let request_upgrade_header =
-						request.headers().get(header::UPGRADE).map(Clone::clone);
+					let request_upgrade_header = request.headers().get(header::UPGRADE).cloned();
 					let maybe_client_upgrade = request.extensions_mut().remove::<OnUpgrade>();
 
 					let mut response = match operations::remote_rspc(
