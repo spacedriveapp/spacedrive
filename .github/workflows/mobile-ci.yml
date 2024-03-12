@@ -188,6 +188,12 @@ jobs:
         working-directory: ./apps/mobile/ios
         run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -configuration Release -sdk iphonesimulator -derivedDataPath build -arch "$(uname -m)"
 
+      - name: Run Simulator
+        uses: futureware-tech/simulator-action@v3
+        with:
+          model: 'iPhone 15'
+          os_version: 17
+
       - name: Install Maestro
         env:
           # Workaround: https://github.com/mobile-dev-inc/maestro/issues/1585
@@ -197,11 +203,6 @@ jobs:
           brew tap facebook/fb
           brew install facebook/fb/idb-companion
           echo "${HOME}/.maestro/bin" >> $GITHUB_PATH
-
-      - name: Run Simulator
-        uses: futureware-tech/simulator-action@v3
-        with:
-          model: 'iPhone SE (3rd generation)'
 
       - name: Run Tests
         env:
