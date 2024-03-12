@@ -9,9 +9,9 @@ import {
 	useRspcLibraryContext
 } from '@sd/client';
 import { FadeInAnimation } from '~/components/animation/layout';
-import { ModalInput } from '~/components/form/Input';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
+import { ModalInput } from '~/components/primitive/Input';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { useKeyboard } from '~/hooks/useKeyboard';
 import { tw, twStyle } from '~/lib/tailwind';
@@ -77,7 +77,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 						style={twStyle({ backgroundColor: tagColor }, 'h-6 w-6 rounded-full')}
 					/>
 					<ModalInput
-						testID="create-tag-name"
+						autoFocus
 						style={tw`ml-2 flex-1`}
 						value={tagName}
 						onChangeText={(text) => setTagName(text)}

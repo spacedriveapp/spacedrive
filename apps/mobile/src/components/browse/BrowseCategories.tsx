@@ -26,7 +26,7 @@ const CATEGORIES_LIST = [
 	{ name: 'Labels', icon: <Tag style={iconStyle} /> },
 	{ name: 'Imports', icon: <ArchiveBox style={iconStyle} /> }
 ];
-const Categories = () => {
+const BrowseCategories = () => {
 	return (
 		<View style={tw`relative gap-3`}>
 			<Text style={tw`px-6 text-lg font-bold text-white`}>Library</Text>
@@ -59,4 +59,4 @@ const Category = ({ name, icon }: CategoryProps) => {
 	);
 };
 
-export default Categories;
+export default BrowseCategories;

@@ -2,9 +2,9 @@ import { CheckCircle } from 'phosphor-react-native';
 import React from 'react';
 import { useLibraryQuery } from '@sd/client';
 import { PulseAnimation } from '~/components/animation/lottie';
+import BrowseCategories from '~/components/browse/BrowseCategories';
 import BrowseLocations from '~/components/browse/BrowseLocations';
 import BrowseTags from '~/components/browse/BrowseTags';
-import Categories from '~/components/browse/Categories';
 import Jobs from '~/components/browse/Jobs';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { tw } from '~/lib/tailwind';
@@ -21,7 +21,7 @@ function JobIcon() {
 export default function BrowseScreen() {
 	return (
 		<ScreenContainer>
-			<Categories />
+			<BrowseCategories />
 			<BrowseLocations />
 			<BrowseTags />
 			<Jobs />

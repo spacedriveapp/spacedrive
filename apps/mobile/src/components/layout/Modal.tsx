@@ -10,7 +10,7 @@ import {
 } from '@gorhom/bottom-sheet';
 import { X } from 'phosphor-react-native';
 import { forwardRef, ReactNode } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -62,6 +62,12 @@ export const Modal = forwardRef<ModalRef, ModalProps>((props, ref) => {
 			backgroundStyle={tw`bg-app`}
 			backdropComponent={ModalBackdrop}
 			handleComponent={(props) => ModalHandle({ modalRef, showCloseButton, ...props })}
+			// Overriding the default value for iOS to fix Maestro issue.
+			// https://github.com/mobile-dev-inc/maestro/issues/1493
+			accessible={Platform.select({
+				// setting it to false on Android seems to cause issues with TalkBack instead
+				ios: false
+			})}
 			{...otherProps}
 		>
 			{title && <Text style={tw`text-center text-base font-medium text-ink`}>{title}</Text>}

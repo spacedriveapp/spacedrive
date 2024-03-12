@@ -21,7 +21,7 @@ export function OnboardingContainer({ children }: React.PropsWithChildren) {
 	const store = useOnboardingStore();
 	return (
 		<View style={tw`relative flex-1`}>
-			{store.showIntro && (
+			{store.showIntro ? (
 				<View
 					style={twStyle(
 						'absolute z-50 mx-auto h-full w-full flex-1 items-center justify-center bg-black'
@@ -40,31 +40,37 @@ export function OnboardingContainer({ children }: React.PropsWithChildren) {
 						resizeMode={ResizeMode.CONTAIN}
 					/>
 				</View>
+			) : (
+				<>
+					{route.name !== 'GetStarted' && route.name !== 'CreatingLibrary' && (
+						<Pressable
+							style={twStyle('absolute left-6 z-50', { top: top + 16 })}
+							onPress={() => navigation.goBack()}
+						>
+							<CaretLeft size={24} weight="bold" color="white" />
+						</Pressable>
+					)}
+					<View style={tw`z-10 flex-1 items-center justify-center`}>
+						<KeyboardAvoidingView
+							behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+							keyboardVerticalOffset={bottom}
+							style={tw`w-full flex-1 items-center justify-center`}
+						>
+							<MotiView style={tw`w-full items-center justify-center px-4`}>
+								{children}
+							</MotiView>
+						</KeyboardAvoidingView>
+						<Text style={tw`absolute bottom-8 text-xs text-ink-dull/50`}>
+							&copy; {new Date().getFullYear()} Spacedrive Technology Inc.
+						</Text>
+					</View>
+					{/* Bloom */}
+					<Image
+						source={BloomOne}
+						style={tw`top-100 absolute h-screen w-screen opacity-20`}
+					/>
+				</>
 			)}
-			{route.name !== 'GetStarted' && route.name !== 'CreatingLibrary' && (
-				<Pressable
-					style={twStyle('absolute left-6 z-50', { top: top + 16 })}
-					onPress={() => navigation.goBack()}
-				>
-					<CaretLeft size={24} weight="bold" color="white" />
-				</Pressable>
-			)}
-			<View style={tw`z-10 flex-1 items-center justify-center`}>
-				<KeyboardAvoidingView
-					behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-					keyboardVerticalOffset={bottom}
-					style={tw`w-full flex-1 items-center justify-center`}
-				>
-					<MotiView style={tw`w-full items-center justify-center px-4`}>
-						{children}
-					</MotiView>
-				</KeyboardAvoidingView>
-				<Text style={tw`absolute bottom-8 text-xs text-ink-dull/50`}>
-					&copy; {new Date().getFullYear()} Spacedrive Technology Inc.
-				</Text>
-			</View>
-			{/* Bloom */}
-			<Image source={BloomOne} style={tw`top-100 absolute h-screen w-screen opacity-20`} />
 		</View>
 	);
 }
@@ -84,6 +90,7 @@ const GetStartedScreen = ({ navigation }: OnboardingStackScreenProps<'GetStarted
 	const store = useOnboardingStore();
 	useEffect(() => {
 		store.showIntro = true;
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 	return (
 		<OnboardingContainer>

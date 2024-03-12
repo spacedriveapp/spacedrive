@@ -39,6 +39,14 @@ pub enum State {
 	Ingesting(MessagesEvent),
 }
 
+/// The single entrypoint for sync operation ingestion.
+/// Requests sync operations in a given timestamp range,
+/// and attempts to write them to the syn coperations table along with
+/// the actual cell that the operation points to.
+///
+/// If this actor stops running, no sync operations will
+/// be applied to the database, independent of whether systems like p2p
+/// or cloud are exchanging messages.
 pub struct Actor {
 	state: Option<State>,
 	shared: Arc<SharedState>,
@@ -239,47 +247,3 @@ fn crdt_op_db(op: &CRDTOperation) -> crdt_operation::Create {
 		_params: vec![],
 	}
 }
-
-// #[must_use]
-// pub struct ReqRes<TReq, TResp> {
-// 	request: TReq,
-// 	response_sender: oneshot::Sender<TResp>,
-// }
-
-// impl<TReq, TResp> ReqRes<TReq, TResp> {
-// 	pub async fn send<TContainer>(
-// 		request: TReq,
-// 		container_fn: impl Fn(Self) -> TContainer,
-// 		sender: &mpsc::Sender<TContainer>,
-// 	) -> TResp {
-// 		let (tx, rx) = oneshot::channel();
-
-// 		let payload = container_fn(Self {
-// 			request,
-// 			response_sender: tx,
-// 		});
-
-// 		sender.send(payload).await.ok();
-
-// 		rx.await.unwrap()
-// 	}
-
-// 	#[must_use]
-// 	pub fn split(self) -> (TReq, impl FnOnce(TResp)) {
-// 		(self.request, |response| {
-// 			self.response_sender.send(response).ok();
-// 		})
-// 	}
-
-// 	pub async fn map<
-// 		TFn: FnOnce(TReq) -> TFut,
-// 		TFut: Future<Output = Result<TResp, TErr>>,
-// 		TErr,
-// 	>(
-// 		self,
-// 		func: TFn,
-// 	) -> Result<(), TErr> {
-// 		self.response_sender.send(func(self.request).await?).ok();
-// 		Ok(())
-// 	}
-// }
