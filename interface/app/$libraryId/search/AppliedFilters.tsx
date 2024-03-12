@@ -24,7 +24,7 @@ export const CloseTab = forwardRef<HTMLDivElement, { onClick: () => void }>(({ o
 			className="flex h-full items-center rounded-r border-l border-app-darkerBox/70 px-1.5 py-0.5 text-sm hover:bg-app-lightBox/30"
 			onClick={onClick}
 		>
-			<RenderIcon className="h-3 w-3" icon={X} />
+			<RenderIcon className="size-3" icon={X} />
 		</div>
 	);
 });
@@ -37,7 +37,7 @@ export const AppliedFilters = ({ allowRemove = true }: { allowRemove?: boolean }
 			{search.search && (
 				<FilterContainer>
 					<StaticSection>
-						<RenderIcon className="h-4 w-4" icon={MagnifyingGlass} />
+						<RenderIcon className="size-4" icon={MagnifyingGlass} />
 						<FilterText>{search.search}</FilterText>
 					</StaticSection>
 					{allowRemove && <CloseTab onClick={() => search.setSearch('')} />}
@@ -89,7 +89,7 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 	return (
 		<FilterContainer>
 			<StaticSection>
-				<RenderIcon className="h-4 w-4" icon={filter.icon} />
+				<RenderIcon className="size-4" icon={filter.icon} />
 				<FilterText>{filter.name}</FilterText>
 			</StaticSection>
 			<InteractiveSection className="border-l">
@@ -103,7 +103,7 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 				{activeOptions && (
 					<>
 						{activeOptions.length === 1 ? (
-							<RenderIcon className="h-4 w-4" icon={activeOptions[0]!.icon} />
+							<RenderIcon className="size-4" icon={activeOptions[0]!.icon} />
 						) : (
 							<div className="relative flex gap-0.5 self-center">
 								{activeOptions.map((option, index) => (
@@ -113,7 +113,7 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 											zIndex: activeOptions.length - index
 										}}
 									>
-										<RenderIcon className="h-4 w-4" icon={option.icon} />
+										<RenderIcon className="size-4" icon={option.icon} />
 									</div>
 								))}
 							</div>

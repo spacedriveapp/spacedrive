@@ -98,7 +98,7 @@ const Image = memo(({ item, active }: { item: ExplorerItem; active: boolean }) =
 			<div
 				onClick={() => explorer.resetSelectedItems([item])}
 				className={clsx(
-					'relative h-full w-full rounded-md border bg-app-lightBox/20',
+					'relative size-full rounded-md border bg-app-lightBox/20',
 					explorer.selectedItems.size > 1 && !selected && 'opacity-25',
 					selected ? 'border-2 border-accent' : 'border-1 border-white/5',
 					selected && !active && 'border-white/5'
