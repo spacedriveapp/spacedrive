@@ -63,8 +63,8 @@ mod keypair {
 		D: Deserializer<'de>,
 	{
 		let s = String::deserialize(deserializer)?;
-		let bytes = hex::decode(&s).map_err(D::Error::custom)?;
-		Keypair::from_protobuf_encoding(&mut bytes.as_slice()).map_err(D::Error::custom)
+		let bytes = hex::decode(s).map_err(D::Error::custom)?;
+		Keypair::from_protobuf_encoding(bytes.as_slice()).map_err(D::Error::custom)
 	}
 
 	pub fn serialize<S: Serializer>(v: &Keypair, serializer: S) -> Result<S::Ok, S::Error> {

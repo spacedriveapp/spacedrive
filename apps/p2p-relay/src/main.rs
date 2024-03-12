@@ -64,7 +64,7 @@ async fn main() {
 			.read_line(&mut p2p_secret)
 			.expect("Did not enter a correct string");
 
-		config::Config::init(&config_path, p2p_secret.replace("\n", "")).unwrap(); // TODO: Error handling
+		config::Config::init(&config_path, p2p_secret.replace('\n', "")).unwrap(); // TODO: Error handling
 		println!("\nSuccessfully initialized config at '{config_path:?}'!");
 		return;
 	}
@@ -121,7 +121,7 @@ async fn main() {
 						map
 					})
 					.json(&RelayServerEntry {
-						id: config.id.clone(),
+						id: config.id,
 						peer_id: config.keypair.public().to_peer_id().to_base58(),
 						addrs: {
 							let mut ips: Vec<SocketAddr> =

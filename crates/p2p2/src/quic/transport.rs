@@ -108,14 +108,14 @@ impl QuicTransport {
 			.with_tokio()
 			.with_quic()
 			.with_relay_client(noise::Config::new, yamux::Config::default)
-			.unwrap() // TODO: Error handling
+			.map_err(|err| err.to_string())?
 			.with_behaviour(|keypair, relay_behaviour| MyBehaviour {
 				stream: libp2p_stream::Behaviour::new(),
 				relay: relay_behaviour,
 				autonat: autonat::Behaviour::new(keypair.public().to_peer_id(), Default::default()),
 				dcutr: dcutr::Behaviour::new(keypair.public().to_peer_id()),
 			})
-			.unwrap() // TODO: Error handling
+			.map_err(|err| err.to_string())?
 			.with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
 			.build();
 
@@ -141,7 +141,10 @@ impl QuicTransport {
 		let Ok(_) = self.internal_tx.send(event) else {
 			return;
 		};
-		rx.await.unwrap_or_else(|_| Ok(())).unwrap(); // TODO: error handling
+		match rx.await.unwrap_or_else(|_| Ok(())) {
+			Ok(_) => {}
+			Err(e) => error!("Failed to register relay config as the event loop has died: {e}"),
+		}
 	}
 
 	// `None` on the port means disabled. Use `0` for random port.
@@ -367,7 +370,13 @@ async fn start(
 					// TODO: Only add some of the relays???
 
 					for relay in &relays {
-						let peer_id = PeerId::from_str(&relay.peer_id).unwrap(); // TODO: error handling
+						let peer_id = match PeerId::from_str(&relay.peer_id) {
+							Ok(peer_id) => peer_id,
+							Err(err) => {
+								error!("Failed to parse Relay peer ID '{}': {err:?}", relay.peer_id);
+								continue;
+							},
+						};
 						let addrs = relay
 							.addrs
 							.iter()
@@ -383,12 +392,19 @@ async fn start(
 						}
 
 						// TODO: Only do this if autonat fails
-						swarm.listen_on(
+						match swarm.listen_on(
 							Multiaddr::empty()
-								.with(Protocol::Memory(40)) // TODO: Is this ok
+								.with(Protocol::Memory(40))
 								.with(Protocol::P2p(peer_id))
 								.with(Protocol::P2pCircuit)
-						).unwrap(); // TODO: error handling
+						) {
+							Ok(_) => {},
+							Err(e) => {
+								error!("Failed to listen on relay server '{}': {e}", relay.id);
+
+								// TODO: Try again if this fails
+							},
+						}
 					}
 
 					relay_config = relays;
