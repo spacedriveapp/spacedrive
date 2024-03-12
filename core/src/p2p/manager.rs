@@ -3,7 +3,7 @@ use crate::{
 		config::{self, P2PDiscoveryState, Port},
 		get_hardware_model_name, HardwareModel,
 	},
-	p2p::{libraries, operations, sync::SyncMessage, Header, OperatingSystem, SPACEDRIVE_APP_ID},
+	p2p::{operations, sync::SyncMessage, Header, OperatingSystem, SPACEDRIVE_APP_ID},
 	Node,
 };
 
@@ -11,7 +11,8 @@ use axum::routing::IntoMakeService;
 
 use sd_p2p2::{
 	flume::{bounded, Receiver},
-	Libp2pPeerId, Listener, Mdns, Peer, QuicTransport, RemoteIdentity, UnicastStream, P2P,
+	Libp2pPeerId, Listener, Mdns, Peer, QuicTransport, RelayServerEntry, RemoteIdentity,
+	UnicastStream, P2P,
 };
 use sd_p2p_tunnel::Tunnel;
 use serde::Serialize;
@@ -22,6 +23,7 @@ use std::{
 	convert::Infallible,
 	net::SocketAddr,
 	sync::{atomic::AtomicBool, Arc, Mutex, PoisonError},
+	time::Duration,
 };
 use tower_service::Service;
 use tracing::error;
@@ -30,16 +32,16 @@ use tokio::sync::oneshot;
 use tracing::info;
 use uuid::Uuid;
 
-use super::{P2PEvents, PeerMetadata};
+use super::{libraries::LibrariesHook, P2PEvents, PeerMetadata};
 
 pub struct P2PManager {
 	pub(crate) p2p: Arc<P2P>,
 	mdns: Mutex<Option<Mdns>>,
-	quic: QuicTransport,
+	// TODO: Make private
+	pub quic: QuicTransport,
 	// The `libp2p::PeerId`. This is for debugging only, use `RemoteIdentity` instead.
 	lp2p_peer_id: Libp2pPeerId,
 	pub(crate) events: P2PEvents,
-	// connect_hook: ConnectHook,
 	pub(super) spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub(super) spacedrop_cancellations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
 	pub(crate) node_config: Arc<config::Manager>,
@@ -65,14 +67,13 @@ impl P2PManager {
 			mdns: Mutex::new(None),
 			quic,
 			events: P2PEvents::spawn(p2p.clone()),
-			// connect_hook: ConnectHook::spawn(p2p),
 			spacedrop_pairing_reqs: Default::default(),
 			spacedrop_cancellations: Default::default(),
 			node_config,
 		});
 		this.on_node_config_change().await;
 
-		libraries::start(this.p2p.clone(), libraries);
+		LibrariesHook::spawn(this.p2p.clone(), libraries);
 
 		info!(
 			"Node RemoteIdentity('{}') libp2p::PeerId('{:?}') is now online listening at addresses: {:?}",
@@ -81,8 +82,43 @@ impl P2PManager {
 			this.p2p.listeners()
 		);
 
-		Ok((this.clone(), |node, router| {
-			tokio::spawn(start(this, node, rx, router));
+		Ok((this.clone(), |node: Arc<Node>, router| {
+			tokio::spawn(start(this.clone(), node.clone(), rx, router));
+
+			// TODO: Cleanup this thread on p2p shutdown.
+			tokio::spawn(async move {
+				let client = reqwest::Client::new();
+				loop {
+					match client
+						.get(format!("{}/api/p2p/relays", node.env.api_url.lock().await))
+						.send()
+						.await
+					{
+						Ok(resp) => {
+							if resp.status() != 200 {
+								error!(
+									"Failed to pull p2p relay configuration: {} {:?}",
+									resp.status(),
+									resp.text().await
+								);
+							} else {
+								match resp.json::<Vec<RelayServerEntry>>().await {
+									Ok(config) => {
+										this.quic.relay_config(config).await;
+										info!("Updated p2p relay configuration successfully.")
+									}
+									Err(err) => {
+										error!("Failed to parse p2p relay configuration: {err:?}")
+									}
+								}
+							}
+						}
+						Err(err) => error!("Error pulling p2p relay configuration: {err:?}"),
+					}
+
+					tokio::time::sleep(Duration::from_secs(11 * 60)).await;
+				}
+			});
 		}))
 	}
 

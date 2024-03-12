@@ -1,9 +1,14 @@
-use std::{collections::HashSet, fmt, net::SocketAddr, sync::Arc};
+use std::{
+	collections::{BTreeSet, HashSet},
+	fmt,
+	net::SocketAddr,
+	sync::Arc,
+};
 
 use flume::Sender;
 use tokio::sync::oneshot;
 
-use crate::{Peer, RemoteIdentity};
+use crate::{Peer, PeerConnectionCandidate, RemoteIdentity};
 
 #[derive(Debug, Clone)]
 pub enum HookEvent {
@@ -100,7 +105,12 @@ impl Hook {
 		let _ = self.tx.send(event);
 	}
 
-	pub fn acceptor(&self, id: ListenerId, peer: &Arc<Peer>, addrs: &HashSet<SocketAddr>) {
+	pub fn acceptor(
+		&self,
+		id: ListenerId,
+		peer: &Arc<Peer>,
+		addrs: &BTreeSet<PeerConnectionCandidate>,
+	) {
 		if let Some(listener) = &self.listener {
 			(listener.acceptor.0)(id, peer, addrs);
 		}
@@ -115,8 +125,9 @@ pub(crate) struct ListenerData {
 	/// This is a function over a channel because we need to ensure the code runs prior to the peer being emitted to the application.
 	/// If not the peer would have no registered way to connect to it initially which would be confusing.
 	#[allow(clippy::type_complexity)]
-	pub acceptor:
-		HandlerFn<Arc<dyn Fn(ListenerId, &Arc<Peer>, &HashSet<SocketAddr>) + Send + Sync>>,
+	pub acceptor: HandlerFn<
+		Arc<dyn Fn(ListenerId, &Arc<Peer>, &BTreeSet<PeerConnectionCandidate>) + Send + Sync>,
+	>,
 }
 
 /// A little wrapper for functions to make them `Debug`.

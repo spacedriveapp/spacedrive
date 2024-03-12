@@ -1,3 +1,5 @@
+#![allow(non_camel_case_types)]
+
 use sd_file_path_helper::{file_path_for_media_processor, IsolatedFilePathData};
 use sd_prisma::{
 	prisma::{file_path, label, label_on_object, object, PrismaClient},
@@ -287,6 +289,7 @@ pub(super) async fn spawned_processing(
 		.expect("critical error: image labeller batch processor unexpectedly closed");
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn spawned_process_single_file(
 	model_and_session: Arc<OwnedRwLockReadGuard<ModelAndSession>>,
 	(file_path_id, object_id): (file_path::id::Type, object::id::Type),

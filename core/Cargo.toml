@@ -59,7 +59,7 @@ image = { workspace = true }
 normpath = { workspace = true, features = ["localization"] }
 once_cell = { workspace = true }
 pin-project-lite = { workspace = true }
-prisma-client-rust = { workspace = true }
+prisma-client-rust = { workspace = true, features = ["rspc"] }
 regex = { workspace = true }
 reqwest = { workspace = true, features = ["json", "native-tls-vendored"] }
 rmp-serde = { workspace = true }

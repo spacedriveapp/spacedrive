@@ -8,7 +8,9 @@ pub type CompressedCRDTOperationsForModel = Vec<(rmpv::Value, Vec<CompressedCRDT
 
 /// Stores a bunch of CRDTOperations in a more memory-efficient form for sending to the cloud.
 #[derive(Serialize, Deserialize)]
-pub struct CompressedCRDTOperations(Vec<(Uuid, Vec<(String, CompressedCRDTOperationsForModel)>)>);
+pub struct CompressedCRDTOperations(
+	pub(self) Vec<(Uuid, Vec<(String, CompressedCRDTOperationsForModel)>)>,
+);
 
 impl CompressedCRDTOperations {
 	pub fn new(ops: Vec<CRDTOperation>) -> Self {
@@ -107,5 +109,159 @@ impl From<CRDTOperation> for CompressedCRDTOperation {
 			id: value.id,
 			data: value.data,
 		}
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn compress() {
+		let instance = Uuid::new_v4();
+
+		let uncompressed = vec![
+			CRDTOperation {
+				instance,
+				timestamp: NTP64(0),
+				id: Uuid::new_v4(),
+				model: "FilePath".to_string(),
+				record_id: rmpv::Value::Nil,
+				data: CRDTOperationData::Create,
+			},
+			CRDTOperation {
+				instance,
+				timestamp: NTP64(0),
+				id: Uuid::new_v4(),
+				model: "FilePath".to_string(),
+				record_id: rmpv::Value::Nil,
+				data: CRDTOperationData::Create,
+			},
+			CRDTOperation {
+				instance,
+				timestamp: NTP64(0),
+				id: Uuid::new_v4(),
+				model: "FilePath".to_string(),
+				record_id: rmpv::Value::Nil,
+				data: CRDTOperationData::Create,
+			},
+			CRDTOperation {
+				instance,
+				timestamp: NTP64(0),
+				id: Uuid::new_v4(),
+				model: "Object".to_string(),
+				record_id: rmpv::Value::Nil,
+				data: CRDTOperationData::Create,
+			},
+			CRDTOperation {
+				instance,
+				timestamp: NTP64(0),
+				id: Uuid::new_v4(),
+				model: "Object".to_string(),
+				record_id: rmpv::Value::Nil,
+				data: CRDTOperationData::Create,
+			},
+			CRDTOperation {
+				instance,
+				timestamp: NTP64(0),
+				id: Uuid::new_v4(),
+				model: "FilePath".to_string(),
+				record_id: rmpv::Value::Nil,
+				data: CRDTOperationData::Create,
+			},
+			CRDTOperation {
+				instance,
+				timestamp: NTP64(0),
+				id: Uuid::new_v4(),
+				model: "FilePath".to_string(),
+				record_id: rmpv::Value::Nil,
+				data: CRDTOperationData::Create,
+			},
+		];
+
+		let CompressedCRDTOperations(compressed) = CompressedCRDTOperations::new(uncompressed);
+
+		assert_eq!(&compressed[0].1[0].0, "FilePath");
+		assert_eq!(&compressed[0].1[1].0, "Object");
+		assert_eq!(&compressed[0].1[2].0, "FilePath");
+
+		assert_eq!(compressed[0].1[0].1[0].1.len(), 3);
+		assert_eq!(compressed[0].1[1].1[0].1.len(), 2);
+		assert_eq!(compressed[0].1[2].1[0].1.len(), 2);
+	}
+
+	#[test]
+	fn into_ops() {
+		let compressed = CompressedCRDTOperations(vec![(
+			Uuid::new_v4(),
+			vec![
+				(
+					"FilePath".to_string(),
+					vec![(
+						rmpv::Value::Nil,
+						vec![
+							CompressedCRDTOperation {
+								id: Uuid::new_v4(),
+								timestamp: NTP64(0),
+								data: CRDTOperationData::Create,
+							},
+							CompressedCRDTOperation {
+								id: Uuid::new_v4(),
+								timestamp: NTP64(0),
+								data: CRDTOperationData::Create,
+							},
+							CompressedCRDTOperation {
+								id: Uuid::new_v4(),
+								timestamp: NTP64(0),
+								data: CRDTOperationData::Create,
+							},
+						],
+					)],
+				),
+				(
+					"Object".to_string(),
+					vec![(
+						rmpv::Value::Nil,
+						vec![
+							CompressedCRDTOperation {
+								id: Uuid::new_v4(),
+								timestamp: NTP64(0),
+								data: CRDTOperationData::Create,
+							},
+							CompressedCRDTOperation {
+								id: Uuid::new_v4(),
+								timestamp: NTP64(0),
+								data: CRDTOperationData::Create,
+							},
+						],
+					)],
+				),
+				(
+					"FilePath".to_string(),
+					vec![(
+						rmpv::Value::Nil,
+						vec![
+							CompressedCRDTOperation {
+								id: Uuid::new_v4(),
+								timestamp: NTP64(0),
+								data: CRDTOperationData::Create,
+							},
+							CompressedCRDTOperation {
+								id: Uuid::new_v4(),
+								timestamp: NTP64(0),
+								data: CRDTOperationData::Create,
+							},
+						],
+					)],
+				),
+			],
+		)]);
+
+		let uncompressed = compressed.into_ops();
+
+		assert_eq!(uncompressed.len(), 7);
+		assert_eq!(uncompressed[2].model, "FilePath");
+		assert_eq!(uncompressed[4].model, "Object");
+		assert_eq!(uncompressed[6].model, "FilePath");
 	}
 }

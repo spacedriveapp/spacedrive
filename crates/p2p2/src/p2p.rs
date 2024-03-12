@@ -1,5 +1,5 @@
 use std::{
-	collections::{hash_map::Entry, HashMap, HashSet},
+	collections::{hash_map::Entry, BTreeSet, HashMap, HashSet},
 	net::SocketAddr,
 	sync::{Arc, PoisonError, RwLock, RwLockReadGuard},
 	time::Duration,
@@ -15,7 +15,7 @@ use tracing::info;
 use crate::{
 	hooks::{HandlerFn, Hook, HookEvent, ListenerData, ListenerId, ShutdownGuard},
 	smart_guards::SmartWriteGuard,
-	HookId, Identity, Peer, RemoteIdentity, UnicastStream,
+	HookId, Identity, Peer, PeerConnectionCandidate, RemoteIdentity, UnicastStream,
 };
 
 /// Manager for the entire P2P system.
@@ -122,7 +122,7 @@ impl P2P {
 		hook_id: HookId,
 		identity: RemoteIdentity,
 		metadata: HashMap<String, String>,
-		addrs: HashSet<SocketAddr>,
+		addrs: BTreeSet<PeerConnectionCandidate>,
 	) -> Arc<Peer> {
 		let mut peers = self.peers.write().unwrap_or_else(PoisonError::into_inner);
 		let peer = peers.entry(identity);
@@ -135,7 +135,8 @@ impl P2P {
 			.clone();
 
 		{
-			let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
+			let mut state: std::sync::RwLockWriteGuard<'_, crate::peer::State> =
+				peer.state.write().unwrap_or_else(PoisonError::into_inner);
 			state.discovered.insert(hook_id, addrs.clone());
 		}
 
@@ -231,7 +232,10 @@ impl P2P {
 		&self,
 		name: &'static str,
 		tx: Sender<HookEvent>,
-		acceptor: impl Fn(ListenerId, &Arc<Peer>, &HashSet<SocketAddr>) + Send + Sync + 'static,
+		acceptor: impl Fn(ListenerId, &Arc<Peer>, &BTreeSet<PeerConnectionCandidate>)
+			+ Send
+			+ Sync
+			+ 'static,
 	) -> ListenerId {
 		let mut hooks = self.hooks.write().unwrap_or_else(PoisonError::into_inner);
 		let hook_id = hooks.push(Hook {

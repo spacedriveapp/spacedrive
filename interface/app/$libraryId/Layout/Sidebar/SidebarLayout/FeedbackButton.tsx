@@ -8,7 +8,7 @@ import { useLocale } from '~/hooks';
 
 const schema = z.object({
 	message: z.string().min(1, { message: i18n.t('feedback_is_required') }),
-	emoji: z.number().min(0).max(3)
+	emoji: z.number().min(0).max(3, { message: 'Please select an emoji' })
 });
 
 const EMOJIS = ['🤩', '😀', '🙁', '😭'];
@@ -32,8 +32,9 @@ export default function () {
 			message: ''
 		}
 	});
-	const popover = usePopover();
 
+	const emojiError = form.formState.errors.emoji?.message;
+	const popover = usePopover();
 	const authState = auth.useStateSnapshot();
 
 	return (
@@ -69,30 +70,42 @@ export default function () {
 						placeholder={t('feedback_placeholder')}
 						className="!h-36 w-full flex-1"
 					/>
-					<div className="flex flex-row justify-between">
+					<div className="flex flex-row items-center justify-between">
 						<Controller
 							control={form.control}
 							name="emoji"
 							render={({ field }) => (
-								<div className="flex items-center justify-center gap-1 text-lg">
-									{EMOJIS.map((emoji, i) => (
-										<button
-											type="button"
-											onClick={() => field.onChange(i)}
-											key={i}
-											className={clsx(
-												field.value === i ? 'bg-accent' : 'bg-app-input',
-												'flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-app-line transition-all duration-200 hover:scale-125'
-											)}
-										>
-											{emoji}
-										</button>
-									))}
+								<div className="flex flex-col items-center">
+									<div className="flex items-center gap-1 text-lg">
+										{EMOJIS.map((emoji, i) => (
+											<button
+												type="button"
+												onClick={() => field.onChange(i)}
+												key={i}
+												className={clsx(
+													field.value === i
+														? 'bg-accent'
+														: 'bg-app-input',
+													'flex size-7 cursor-pointer items-center justify-center rounded-full border transition-all duration-200 hover:scale-125',
+													emojiError
+														? 'border-red-500'
+														: 'border-app-line'
+												)}
+											>
+												{emoji}
+											</button>
+										))}
+									</div>
+									{emojiError && (
+										<p className="pt-1 text-xs text-red-500">
+											Please select an emoji
+										</p>
+									)}
 								</div>
 							)}
 						/>
 
-						<Button type="submit" variant="accent" disabled={!form.formState.isValid}>
+						<Button type="submit" variant="accent">
 							{t('send')}
 						</Button>
 					</div>

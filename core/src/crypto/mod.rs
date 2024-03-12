@@ -21,7 +21,7 @@
 
 // use sd_crypto::types::{DerivationContext, MagicBytes};
 
-pub mod error;
+// pub mod error;
 // pub use error::{KeyManagerError, Result};
 
 // pub mod keymanager;
