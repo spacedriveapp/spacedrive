@@ -1,5 +1,5 @@
 import { BloomOne } from '@sd/assets/images';
-import { introvideobg, introvideobgmp4, sdintro, sdintromp4 } from '@sd/assets/videos';
+import { sdintro } from '@sd/assets/videos';
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState } from 'react';
@@ -26,12 +26,6 @@ export const Component = () => {
 	if (ctx.libraries.isLoading) return null;
 	if (ctx.library?.uuid !== undefined) return <Navigate to={`/${ctx.library.uuid}`} replace />;
 
-	// On production builds - mp4 works with macOS - for windows and others, webm
-	const videoOS = {
-		videobg: os === 'macOS' ? introvideobgmp4 : introvideobg,
-		intro: os === 'macOS' ? sdintromp4 : sdintro
-	};
-
 	return (
 		<OnboardingContext.Provider value={ctx}>
 			<div
@@ -47,7 +41,7 @@ export const Component = () => {
 							animate={{ opacity: 1 }}
 							transition={{ duration: 0.5 }}
 							exit={{ opacity: 0 }}
-							className="absolute left-0 top-0 z-50 flex h-screen w-screen items-center justify-center"
+							className="absolute top-0 left-0 z-50 flex items-center justify-center w-screen h-screen"
 						>
 							{/*This makes sure on initial render a BG is visible before video loads*/}
 							<svg
@@ -58,48 +52,35 @@ export const Component = () => {
 								fill="none"
 								xmlns="http://www.w3.org/2000/svg"
 							>
-								<rect width="100%" height="100%" fill="#1D1D27" />
+								<rect width="100%" height="100%" fill="#13151A" />
 							</svg>
 							<video
-								style={{
-									position: 'absolute',
-									objectFit: 'cover',
-									width: '100vw',
-									height: '100vh',
-									zIndex: -1
-								}}
-								preload="auto"
-								src={videoOS.videobg}
-								muted
-								controls={false}
-							/>
-							<video
-								className="mx-auto w-[700px]"
+								className="relative z-10 mx-auto brightness-100"
 								autoPlay
 								onEnded={() => {
 									setShowIntro(false);
 								}}
 								muted
 								controls={false}
-								src={videoOS.intro}
+								src={sdintro}
 							/>
 						</motion.div>
 					)}
 				</AnimatePresence>
 				<DragRegion className="z-50 h-9" />
-				<div className="-mt-5 flex grow flex-col gap-8 p-10">
-					<div className="flex grow flex-col items-center justify-center">
+				<div className="flex flex-col gap-8 p-10 -mt-5 grow">
+					<div className="flex flex-col items-center justify-center grow">
 						<Outlet />
 					</div>
 					<Progress />
 				</div>
 				<div className="flex justify-center p-4">
-					<p className="text-xs text-ink-dull opacity-50">
+					<p className="text-xs opacity-50 text-ink-dull">
 						&copy; {new Date().getFullYear()} Spacedrive Technology Inc.
 					</p>
 				</div>
 				<div className="absolute -z-10">
-					<div className="relative h-screen w-screen">
+					<div className="relative w-screen h-screen">
 						<img src={BloomOne} className="absolute size-[2000px]" />
 						{/* <img src={BloomThree} className="absolute w-[2000px] h-[2000px] -right-[200px]" /> */}
 					</div>

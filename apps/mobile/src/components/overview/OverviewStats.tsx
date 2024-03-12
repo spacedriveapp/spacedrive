@@ -31,7 +31,7 @@ const StatItem = ({ title, bytes, isLoading, style }: StatItemProps) => {
 	return (
 		<View
 			style={twStyle(
-				'border-app-line/50 bg-app-box/50 flex flex-col items-center justify-center rounded-md border p-2',
+				'flex flex-col items-center justify-center rounded-md border border-app-line/50 bg-app-box/50 p-2',
 				style,
 				{
 					hidden: isLoading
