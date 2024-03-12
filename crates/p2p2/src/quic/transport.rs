@@ -84,7 +84,6 @@ pub struct QuicTransport {
 	id: ListenerId,
 	p2p: Arc<P2P>,
 	internal_tx: Sender<InternalEvent>,
-	connect_tx: mpsc::Sender<ConnectionRequest>,
 }
 
 impl QuicTransport {
@@ -98,10 +97,9 @@ impl QuicTransport {
 		let (tx, rx) = bounded(15);
 		let (internal_tx, internal_rx) = bounded(15);
 		let (connect_tx, connect_rx) = mpsc::channel(15);
-		let connect_tx2 = connect_tx.clone();
 		let id = p2p.register_listener("libp2p-quic", tx, move |listener_id, peer, _addrs| {
 			// TODO: I don't love this always being registered. Really it should only show up if the other device is online (do a ping-type thing)???
-			peer.listener_available(listener_id, connect_tx2.clone());
+			peer.listener_available(listener_id, connect_tx.clone());
 		});
 
 		let swarm = SwarmBuilder::with_existing_identity(keypair)
@@ -126,7 +124,6 @@ impl QuicTransport {
 				id,
 				p2p,
 				internal_tx,
-				connect_tx,
 			},
 			libp2p_peer_id,
 		))

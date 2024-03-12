@@ -1,7 +1,6 @@
 use crate::p2p::{operations, Header, P2PEvent, PeerMetadata};
 
-use futures::future::join_all;
-use sd_p2p2::{IdentityOrRemoteIdentity, Peer, RemoteIdentity};
+use sd_p2p2::RemoteIdentity;
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
@@ -47,56 +46,22 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("state", {
 			R.query(|node, _: ()| async move { Ok(node.p2p.state().await) })
 		})
-		.procedure("debugGetLibraryPeers", {
-			R.query(|node, _: ()| async move {
-				Ok(join_all(
-					node.libraries
-						.get_all()
-						.await
-						.into_iter()
-						.map(|l| async move {
-							let library_id = l.id.to_string();
-
-							let instances =
-								l.db.instance()
-									.find_many(vec![])
-									.exec()
-									.await
-									.expect("we don't care")
-									.into_iter()
-									.map(|i| {
-										IdentityOrRemoteIdentity::from_bytes(&i.identity)
-											.expect("lol: invalid DB entry")
-											.remote_identity()
-									})
-									.collect::<Vec<_>>();
-
-							(library_id, instances)
-						})
-						.collect::<Vec<_>>(),
-				)
-				.await)
-			})
-		})
 		.procedure("debugConnect", {
 			R.mutation(|node, identity: RemoteIdentity| async move {
 				let peer = { node.p2p.p2p.peers().get(&identity).cloned() };
-
-				// TODO: Make this proper
-				// let peer = peer
-				// .ok_or(rspc::Error::new(
-				// 	ErrorCode::InternalServerError,
-				// 	"big man, offline".into(),
-				// ))?;
-				let peer = Peer::new(identity, node.p2p.p2p.clone());
-				node.p2p.quic.connect_me_daddy(peer.clone());
-
-				let mut stream = peer.new_stream().await.map_err(|err| {
-					rspc::Error::new(
+				let mut stream = peer
+					.ok_or(rspc::Error::new(
 						ErrorCode::InternalServerError,
-						format!("error in peer.new_stream: {:?}", err),
-					)
-				})?;
+						"big man, not found".into(),
+					))?
+					.new_stream()
+					.await
+					.map_err(|err| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							format!("error in peer.new_stream: {:?}", err),
+						)
+					})?;
 
 				stream
 					.write_all(&Header::Ping.to_bytes())

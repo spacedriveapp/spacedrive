@@ -3,7 +3,7 @@ use crate::{
 		config::{self, P2PDiscoveryState, Port},
 		get_hardware_model_name, HardwareModel,
 	},
-	p2p::{libraries, operations, sync::SyncMessage, Header, OperatingSystem, SPACEDRIVE_APP_ID},
+	p2p::{operations, sync::SyncMessage, Header, OperatingSystem, SPACEDRIVE_APP_ID},
 	Node,
 };
 
@@ -32,7 +32,7 @@ use tokio::sync::oneshot;
 use tracing::info;
 use uuid::Uuid;
 
-use super::{P2PEvents, PeerMetadata};
+use super::{libraries::LibrariesHook, P2PEvents, PeerMetadata};
 
 pub struct P2PManager {
 	pub(crate) p2p: Arc<P2P>,
@@ -42,7 +42,6 @@ pub struct P2PManager {
 	// The `libp2p::PeerId`. This is for debugging only, use `RemoteIdentity` instead.
 	lp2p_peer_id: Libp2pPeerId,
 	pub(crate) events: P2PEvents,
-	// connect_hook: ConnectHook,
 	pub(super) spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub(super) spacedrop_cancellations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
 	pub(crate) node_config: Arc<config::Manager>,
@@ -68,14 +67,13 @@ impl P2PManager {
 			mdns: Mutex::new(None),
 			quic,
 			events: P2PEvents::spawn(p2p.clone()),
-			// connect_hook: ConnectHook::spawn(p2p),
 			spacedrop_pairing_reqs: Default::default(),
 			spacedrop_cancellations: Default::default(),
 			node_config,
 		});
 		this.on_node_config_change().await;
 
-		libraries::start(this.p2p.clone(), libraries);
+		LibrariesHook::spawn(this.p2p.clone(), libraries);
 
 		info!(
 			"Node RemoteIdentity('{}') libp2p::PeerId('{:?}') is now online listening at addresses: {:?}",
@@ -88,11 +86,9 @@ impl P2PManager {
 			tokio::spawn(start(this.clone(), node.clone(), rx, router));
 
 			// TODO: Cleanup this thread on p2p shutdown.
-
 			tokio::spawn(async move {
 				let client = reqwest::Client::new();
 				loop {
-					println!("{:?}", node.env.api_url.lock().await);
 					match client
 						.get(format!("{}/api/p2p/relays", node.env.api_url.lock().await))
 						.send()
