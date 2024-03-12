@@ -57,8 +57,6 @@ jobs:
 
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
-        env:
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           target: aarch64-apple-darwin
