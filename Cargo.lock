@@ -3068,16 +3068,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfc6580bb841c5a68e9ef15c77ccc837b40a7504914d52e47b8b0e9bbda25a1d"
 
 [[package]]
-name = "futures-either"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8aaedeb874b715674e8e2b4d17b69c708984d2dfe5246fc65af3a29e08f6ac4"
-dependencies = [
- "either",
- "fastrand 1.9.0",
-]
-
-[[package]]
 name = "futures-executor"
 version = "0.3.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8209,7 +8199,6 @@ dependencies = [
  "flate2",
  "futures",
  "futures-concurrency",
- "futures-either",
  "globset",
  "hostname",
  "http-body",

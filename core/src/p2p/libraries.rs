@@ -44,7 +44,7 @@ impl LibrariesHook {
 											.expect("lol: invalid DB entry")
 											.remote_identity();
 
-									p2p.discover_peer(
+									p2p.clone().discover_peer(
 										hook_id,
 										identity,
 										HashMap::new(), // TODO: We should probs cache this so we have something
