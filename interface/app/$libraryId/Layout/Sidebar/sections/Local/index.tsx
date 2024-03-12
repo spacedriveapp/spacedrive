@@ -22,7 +22,7 @@ const EjectButton = ({ className }: { className?: string }) => (
 		variant="subtle"
 		onClick={() => toast.info('Eject button coming soon')}
 	>
-		<EjectSimple weight="fill" size={18} className="h-3 w-3 opacity-70" />
+		<EjectSimple weight="fill" size={18} className="size-3 opacity-70" />
 	</Button>
 );
 

@@ -15,7 +15,7 @@ export function Loader({ className }: Props) {
 			strokeOpacity={4}
 			strokeWidth={5}
 			speed={1}
-			className={clsx('h-7 w-7', className)}
+			className={clsx('size-7', className)}
 		/>
 	);
 }

@@ -35,7 +35,7 @@ export const GridViewItem = memo((props: GridViewItemProps) => {
 
 	return (
 		<GridViewItemContext.Provider value={props}>
-			<ViewItem data={props.data} className={clsx('h-full w-full', isHidden && 'opacity-50')}>
+			<ViewItem data={props.data} className={clsx('size-full', isHidden && 'opacity-50')}>
 				<ExplorerDroppable
 					droppable={{
 						data: { type: 'explorer-item', data: props.data },

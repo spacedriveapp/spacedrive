@@ -66,7 +66,7 @@ export function Component() {
 					left={
 						<div className="flex flex-row items-center gap-2">
 							<div
-								className="h-[14px] w-[14px] shrink-0 rounded-full"
+								className="size-[14px] shrink-0 rounded-full"
 								style={{ backgroundColor: tag!.color || '#efefef' }}
 							/>
 							<span className="truncate text-sm font-medium">{tag?.name}</span>

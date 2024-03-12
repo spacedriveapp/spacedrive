@@ -57,7 +57,7 @@ export default () => {
 							label={t('settings')}
 							keybinds={[symbols.Shift.icon, symbols.Meta.icon, 'T']}
 						>
-							<Gear className="h-5 w-5" />
+							<Gear className="size-5" />
 						</Tooltip>
 					</ButtonLink>
 					<JobManagerContextProvider>

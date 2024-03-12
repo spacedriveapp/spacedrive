@@ -92,7 +92,7 @@ export const Component = () => {
 			<Explorer
 				emptyNotice={
 					<EmptyNotice
-						icon={<img className="h-32 w-32" src={getIcon(iconNames.FolderNoSpace)} />}
+						icon={<img className="size-32" src={getIcon(iconNames.FolderNoSpace)} />}
 						message={
 							search.search
 								? `No results found for "${search.search}"`

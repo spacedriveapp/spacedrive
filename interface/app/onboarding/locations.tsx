@@ -36,7 +36,7 @@ const LocationIcon = (props: { location: SystemLocation; active?: boolean }) => 
 	const LocationIcon = icons[props.location];
 
 	return (
-		<div className="absolute -bottom-9 -right-9 h-28 w-28">
+		<div className="absolute -bottom-9 -right-9 size-28">
 			<Icon name="Folder" />
 			<LocationIcon
 				weight="fill"
