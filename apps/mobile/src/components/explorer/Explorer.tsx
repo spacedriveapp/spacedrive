@@ -88,7 +88,7 @@ const Explorer = (props: ExplorerProps) => {
 			<FlashList
 				key={layoutMode}
 				numColumns={layoutMode === 'grid' ? getExplorerStore().gridNumColumns : 1}
-				data={props.items}
+				data={props.items ?? []}
 				keyExtractor={(item) =>
 					item.type === 'NonIndexedPath'
 						? item.item.path
