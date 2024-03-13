@@ -1,4 +1,4 @@
-use std::{ops::Deref, sync::Arc, time::Duration};
+use std::{ops::Deref, sync::Arc};
 
 use sd_prisma::{
 	prisma::{crdt_operation, SortOrder},
@@ -84,16 +84,10 @@ impl Actor {
 				loop {
 					tokio::select! {
 						res = &mut rx => {
-							match res {
-								Err(_) => break State::WaitingForNotification,
-								Ok(_) => {}
-							}
+							if let Err(_) = res { break State::WaitingForNotification }
 						},
 						res = self.io.event_rx.recv() => {
-							match res {
-								Some(Event::Messages(event)) => break State::Ingesting(event),
-								_ => {}
-							}
+							if let Some(Event::Messages(event)) = res { break State::Ingesting(event) }
 						}
 					}
 				}
