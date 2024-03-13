@@ -84,16 +84,10 @@ impl Actor {
 				loop {
 					tokio::select! {
 						res = &mut rx => {
-							match res {
-								Err(_) => break State::WaitingForNotification,
-								Ok(_) => {}
-							}
+							if let Err(_) = res { break State::WaitingForNotification }
 						},
 						res = self.io.event_rx.recv() => {
-							match res {
-								Some(Event::Messages(event)) => break State::Ingesting(event),
-								_ => {}
-							}
+							if let Some(Event::Messages(event)) = res { break State::Ingesting(event) }
 						}
 					}
 				}
@@ -266,6 +260,31 @@ mod test {
 		});
 
 		(Actor::spawn(shared.clone()), shared)
+	}
+
+	/// If messages tx is dropped, actor should reset and assume no further messages
+	/// will be sent
+	#[tokio::test]
+	async fn messages_request_drop() -> Result<(), ()> {
+		let (ingest, _) = new_actor().await;
+
+		for _ in [(), ()] {
+			let mut rx = ingest.req_rx.lock().await;
+
+			println!("lock acquired");
+
+			ingest.event_tx.send(Event::Notification).await.unwrap();
+
+			println!("notificaton sent");
+
+			let Some(Request::Messages { .. }) = rx.recv().await else {
+				panic!("bruh")
+			};
+
+			println!("message received")
+		}
+
+		Ok(())
 	}
 
 	// /// If messages tx is dropped, actor should reset and assume no further messages
