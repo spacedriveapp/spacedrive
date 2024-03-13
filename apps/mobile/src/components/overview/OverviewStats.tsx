@@ -95,11 +95,11 @@ const OverviewStats = ({ stats }: Props) => {
 			}
 			return (
 				<StatItem
-					key={`${library.uuid} ${key}`}
+					key={`${library.uuid}_${key}`}
 					title={StatItemNames[key as keyof Statistics]!}
 					bytes={bytes}
 					isLoading={stats.isLoading}
-					style={tw`${isTotalStat ? 'h-[101px] w-full' : 'w-full'} flex-1`}
+					style={twStyle(isTotalStat && 'h-[101px]', 'w-full flex-1')}
 				/>
 			);
 		});
