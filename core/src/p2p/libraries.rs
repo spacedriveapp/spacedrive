@@ -42,6 +42,11 @@ pub fn libraries_hook(p2p: Arc<P2P>, libraries: Arc<Libraries>) -> HookId {
 									.expect("lol: invalid DB entry")
 									.remote_identity();
 
+								// Skip self
+								if identity == library.identity {
+									continue;
+								}
+
 								p2p.clone().discover_peer(
 									hook_id,
 									identity,
