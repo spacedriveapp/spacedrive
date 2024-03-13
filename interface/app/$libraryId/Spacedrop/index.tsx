@@ -128,7 +128,8 @@ export function Spacedrop({ triggerClose }: { triggerClose: () => void }) {
 							<Node
 								key={id}
 								id={id}
-								name={meta.name as HardwareModel}
+								name={meta.metadata.name}
+								model={meta.metadata.device_model ?? 'Other'}
 								onDropped={onDropped}
 							/>
 						))}
@@ -142,10 +143,12 @@ export function Spacedrop({ triggerClose }: { triggerClose: () => void }) {
 function Node({
 	id,
 	name,
+	model,
 	onDropped
 }: {
 	id: string;
-	name: HardwareModel;
+	name: string;
+	model: HardwareModel;
 	onDropped: (id: string, files: string[]) => void;
 }) {
 	const ref = useRef<HTMLDivElement>(null);
@@ -178,7 +181,7 @@ function Node({
 				});
 			}}
 		>
-			<Icon name={hardwareModelToIcon(name)} size={20} />
+			<Icon name={hardwareModelToIcon(model)} size={20} />
 			<h1>{name}</h1>
 		</div>
 	);

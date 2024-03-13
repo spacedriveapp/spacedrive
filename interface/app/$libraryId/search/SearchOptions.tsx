@@ -163,7 +163,7 @@ const SearchResults = memo(
 							<div className="mr-4 flex flex-row items-center gap-2.5">
 								<div className="flex items-center gap-1">
 									<RenderIcon
-										className="h-[13px] w-[13px] opacity-80"
+										className="size-[13px] opacity-80"
 										icon={filter.icon}
 									/>
 									<span className="text-xs text-ink-dull opacity-80">

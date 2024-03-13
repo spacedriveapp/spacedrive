@@ -26,7 +26,7 @@ pub async fn run_actor(sync: Arc<sd_core_sync::Manager>, notify: Arc<Notify>) {
 
 					let timestamps = match req {
 						Request::FinishedIngesting => break,
-						Request::Messages { timestamps } => timestamps,
+						Request::Messages { timestamps, .. } => timestamps,
 						_ => continue,
 					};
 

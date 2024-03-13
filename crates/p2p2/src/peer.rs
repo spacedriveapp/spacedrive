@@ -24,7 +24,6 @@ pub struct Peer {
 }
 
 // The order of this enum is the preference of the connection type.
-
 #[derive(Debug, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub enum PeerConnectionCandidate {
 	SocketAddr(SocketAddr),
@@ -107,6 +106,25 @@ impl Peer {
 			.is_empty()
 	}
 
+	pub fn can_connect_with(&self, hook_id: HookId) -> bool {
+		self.state
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.discovered
+			.contains_key(&hook_id)
+	}
+
+	pub fn connection_candidates(&self) -> BTreeSet<PeerConnectionCandidate> {
+		self.state
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.discovered
+			.values()
+			.cloned()
+			.flatten()
+			.collect()
+	}
+
 	pub fn is_connected(&self) -> bool {
 		!self
 			.state
@@ -122,6 +140,23 @@ impl Peer {
 			.unwrap_or_else(PoisonError::into_inner)
 			.active_connections
 			.len()
+	}
+
+	// TODO: Possibly remove this, it's not great???
+	pub fn is_connected_with_hook(&self, hook_id: HookId) -> bool {
+		self.state
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.active_connections
+			.contains_key(&ListenerId(hook_id.0))
+	}
+
+	pub fn is_connected_with(&self, listener_id: ListenerId) -> bool {
+		self.state
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.active_connections
+			.contains_key(&listener_id)
 	}
 
 	pub fn connection_methods(&self) -> HashSet<ListenerId> {
