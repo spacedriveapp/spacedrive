@@ -41,7 +41,7 @@ export const Component = () => {
 							animate={{ opacity: 1 }}
 							transition={{ duration: 0.5 }}
 							exit={{ opacity: 0 }}
-							className="absolute top-0 left-0 z-50 flex items-center justify-center w-screen h-screen"
+							className="absolute left-0 top-0 z-50 flex h-screen w-screen items-center justify-center"
 						>
 							{/*This makes sure on initial render a BG is visible before video loads*/}
 							<svg
@@ -68,19 +68,19 @@ export const Component = () => {
 					)}
 				</AnimatePresence>
 				<DragRegion className="z-50 h-9" />
-				<div className="flex flex-col gap-8 p-10 -mt-5 grow">
-					<div className="flex flex-col items-center justify-center grow">
+				<div className="-mt-5 flex grow flex-col gap-8 p-10">
+					<div className="flex grow flex-col items-center justify-center">
 						<Outlet />
 					</div>
 					<Progress />
 				</div>
 				<div className="flex justify-center p-4">
-					<p className="text-xs opacity-50 text-ink-dull">
+					<p className="text-xs text-ink-dull opacity-50">
 						&copy; {new Date().getFullYear()} Spacedrive Technology Inc.
 					</p>
 				</div>
 				<div className="absolute -z-10">
-					<div className="relative w-screen h-screen">
+					<div className="relative h-screen w-screen">
 						<img src={BloomOne} className="absolute size-[2000px]" />
 						{/* <img src={BloomThree} className="absolute w-[2000px] h-[2000px] -right-[200px]" /> */}
 					</div>

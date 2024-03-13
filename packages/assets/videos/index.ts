@@ -4,8 +4,7 @@
  */
 
 import fda from './fda.mp4';
-import mobsdintro from './mobsdintro.mp4';
 import sdintro from './sdintro.mp4';
 import sdmobintro from './sdmobintro.mp4';
 
-export { fda, mobsdintro, sdintro, sdmobintro };
+export { fda, sdintro, sdmobintro };
