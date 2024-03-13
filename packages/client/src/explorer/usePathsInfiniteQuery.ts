@@ -1,32 +1,30 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
+
+import { useNodes, useNormalisedCache } from '../cache';
 import {
 	ExplorerItem,
 	FilePathCursorVariant,
 	FilePathObjectCursor,
 	FilePathOrder,
-	FilePathSearchArgs,
-	useLibraryContext,
-	useNodes,
-	useNormalisedCache,
-	useRspcLibraryContext
-} from '@sd/client';
-
-import { explorerStore } from '../store';
+	FilePathSearchArgs
+} from '../core';
+import { useLibraryContext } from '../hooks';
+import { useRspcLibraryContext } from '../rspc';
 import { UseExplorerInfiniteQueryArgs } from './useExplorerInfiniteQuery';
 
 export function usePathsInfiniteQuery({
 	arg,
-	explorerSettings,
+	order,
+	onSuccess,
 	...args
 }: UseExplorerInfiniteQueryArgs<FilePathSearchArgs, FilePathOrder>) {
 	const { library } = useLibraryContext();
 	const ctx = useRspcLibraryContext();
-	const settings = explorerSettings.useSettingsSnapshot();
 	const cache = useNormalisedCache();
 
-	if (settings.order) {
-		arg.orderAndPagination = { orderOnly: settings.order };
+	if (order) {
+		arg.orderAndPagination = { orderOnly: order };
 		if (arg.orderAndPagination.orderOnly.field === 'sizeInBytes') delete arg.take;
 	}
 
@@ -34,7 +32,6 @@ export function usePathsInfiniteQuery({
 		queryKey: ['search.paths', { library_id: library.uuid, arg }] as const,
 		queryFn: async ({ pageParam, queryKey: [_, { arg }] }) => {
 			const cItem: Extract<ExplorerItem, { type: 'Path' }> = pageParam;
-			const { order } = settings;
 
 			let orderAndPagination: (typeof arg)['orderAndPagination'];
 
@@ -133,7 +130,7 @@ export function usePathsInfiniteQuery({
 			if (lastPage.items.length < arg.take) return undefined;
 			else return lastPage.nodes[arg.take - 1];
 		},
-		onSuccess: () => explorerStore.resetNewThumbnails(),
+		onSuccess,
 		...args
 	});
 

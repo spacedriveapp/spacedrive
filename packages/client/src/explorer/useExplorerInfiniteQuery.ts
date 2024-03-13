@@ -1,10 +1,10 @@
 import { UseInfiniteQueryOptions } from '@tanstack/react-query';
-import { ExplorerItem, SearchData } from '@sd/client';
 
-import { Ordering } from '../store';
-import { UseExplorerSettings } from '../useExplorer';
+import { ExplorerItem, SearchData } from '../core';
+import { Ordering } from './index';
 
 export type UseExplorerInfiniteQueryArgs<TArg, TOrder extends Ordering> = {
 	arg: TArg;
-	explorerSettings: UseExplorerSettings<TOrder>;
+	order: TOrder | null;
+	onSuccess?: () => void;
 } & Pick<UseInfiniteQueryOptions<SearchData<ExplorerItem>>, 'enabled' | 'suspense'>;

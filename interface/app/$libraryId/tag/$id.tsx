@@ -1,12 +1,18 @@
 import { useMemo } from 'react';
-import { ObjectKindEnum, ObjectOrder, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import {
+	ObjectKindEnum,
+	ObjectOrder,
+	useCache,
+	useLibraryQuery,
+	useNodes,
+	useObjectsExplorerQuery
+} from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
 import { useRouteTitle, useZodRouteParams } from '~/hooks';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { useObjectsExplorerQuery } from '../Explorer/queries';
 import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
@@ -48,7 +54,7 @@ export function Component() {
 
 	const objects = useObjectsExplorerQuery({
 		arg: { take: 100, filters: search.allFilters },
-		explorerSettings
+		order: explorerSettings.useSettingsSnapshot().order
 	});
 
 	const explorer = useExplorer({

@@ -14,6 +14,7 @@ import {
 	useLibrarySubscription,
 	useNodes,
 	useOnlineLocations,
+	usePathsExplorerQuery,
 	useRspcLibraryContext
 } from '@sd/client';
 import { Loader, Tooltip } from '@sd/ui';
@@ -31,8 +32,11 @@ import { useQuickRescan } from '~/hooks/useQuickRescan';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { usePathsExplorerQuery } from '../Explorer/queries';
-import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Explorer/store';
+import {
+	createDefaultExplorerSettings,
+	explorerStore,
+	filePathOrderingKeysSchema
+} from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
 import { useExplorerSearchParams } from '../Explorer/util';
@@ -89,7 +93,8 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 			].filter(Boolean) as any,
 			take
 		},
-		explorerSettings
+		order: explorerSettings.useSettingsSnapshot().order,
+		onSuccess: () => explorerStore.resetNewThumbnails()
 	});
 
 	const explorer = useExplorer({

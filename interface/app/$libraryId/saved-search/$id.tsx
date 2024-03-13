@@ -4,9 +4,9 @@ import { useMemo } from 'react';
 import {
 	FilePathOrder,
 	SearchFilterArgs,
-	useCache,
 	useLibraryMutation,
-	useLibraryQuery
+	useLibraryQuery,
+	usePathsExplorerQuery
 } from '@sd/client';
 import { Button } from '@sd/ui';
 import { SearchIdParamsSchema } from '~/app/route-schemas';
@@ -14,8 +14,11 @@ import { useRouteTitle, useZodRouteParams } from '~/hooks';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { usePathsExplorerQuery } from '../Explorer/queries';
-import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Explorer/store';
+import {
+	createDefaultExplorerSettings,
+	explorerStore,
+	filePathOrderingKeysSchema
+} from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { EmptyNotice } from '../Explorer/View/EmptyNotice';
@@ -55,7 +58,8 @@ export const Component = () => {
 
 	const paths = usePathsExplorerQuery({
 		arg: { filters: search.allFilters, take: 50 },
-		explorerSettings
+		order: explorerSettings.useSettingsSnapshot().order,
+		onSuccess: () => explorerStore.resetNewThumbnails()
 	});
 
 	const explorer = useExplorer({

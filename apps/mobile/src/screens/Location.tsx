@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from 'react';
-import { useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { useEffect } from 'react';
+import { useCache, useLibraryQuery, useNodes, usePathsExplorerQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { getExplorerStore } from '~/stores/explorerStore';
@@ -11,25 +11,31 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 	useNodes(location.data?.nodes);
 	const locationData = useCache(location.data?.item);
 
-	// FIXME: This is the correct query, but it doesn't work and then provides a deserialization error.
-	const paths = useLibraryQuery([
-		'search.paths',
-		{
+	const paths = usePathsExplorerQuery({
+		arg: {
 			filters: [
+				// ...search.allFilters,
+				{ filePath: { locations: { in: [id] } } },
 				{
 					filePath: {
-						// locations: { in: [Number(id)] }, // temporarlily disabled to navigate into folders. Note: This makes the query return all locations in the library.
-						path: { location_id: id, path: path ?? '', include_descendants: true }
+						path: {
+							location_id: id,
+							path: path ?? '',
+							include_descendants: false
+							// include_descendants:
+							// 	search.search !== '' ||
+							// 	search.dynamicFilters.length > 0 ||
+							// 	(layoutMode === 'media' && mediaViewWithDescendants)
+						}
 					}
 				}
-			],
-			take: 100
-		}
-	]);
-
-	const pathsItemsReferences = useMemo(() => paths.data?.items ?? [], [paths.data]);
-	useNodes(paths.data?.nodes);
-	const pathsItems = useCache(pathsItemsReferences);
+				// !showHiddenFiles && { filePath: { hidden: false } }
+			].filter(Boolean) as any,
+			take: 30
+		},
+		order: null,
+		onSuccess: () => getExplorerStore().resetNewThumbnails()
+	});
 
 	useEffect(() => {
 		// Set screen title to location.
@@ -53,5 +59,5 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 		getExplorerStore().path = path ?? '';
 	}, [id, path]);
 
-	return <Explorer items={pathsItems} />;
+	return <Explorer {...paths} />;
 }
