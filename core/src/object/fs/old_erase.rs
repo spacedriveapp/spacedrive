@@ -22,7 +22,7 @@ use tokio::{
 	fs::{self, OpenOptions},
 	io::AsyncWriteExt,
 };
-use tracing::{trace, warn};
+use tracing::trace;
 
 use super::{
 	error::FileSystemJobsError, get_file_data_from_isolated_file_path, get_many_files_datas,
@@ -147,11 +147,11 @@ impl StatefulJob for OldFileEraserJobInit {
 					.open(&step.full_path)
 					.await
 					.map_err(|e| FileIOError::from((&step.full_path, e)))?;
-				let file_len = file
-					.metadata()
-					.await
-					.map_err(|e| FileIOError::from((&step.full_path, e)))?
-					.len();
+				// let file_len = file
+				// 	.metadata()
+				// 	.await
+				// 	.map_err(|e| FileIOError::from((&step.full_path, e)))?
+				// 	.len();
 
 				trace!(
 					"Overwriting file: {} with {} passes",

@@ -4,8 +4,8 @@ use tracing::info;
 
 use crate::cloud::sync::err_break;
 
-//// Responsible for taking sync operations received from the cloud,
-//// and applying them to the local database via the sync system's ingest actor.
+// Responsible for taking sync operations received from the cloud,
+// and applying them to the local database via the sync system's ingest actor.
 
 pub async fn run_actor(sync: Arc<sd_core_sync::Manager>, notify: Arc<Notify>) {
 	loop {
@@ -26,7 +26,7 @@ pub async fn run_actor(sync: Arc<sd_core_sync::Manager>, notify: Arc<Notify>) {
 
 					let timestamps = match req {
 						Request::FinishedIngesting => break,
-						Request::Messages { timestamps } => timestamps,
+						Request::Messages { timestamps, .. } => timestamps,
 						_ => continue,
 					};
 

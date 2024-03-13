@@ -2,15 +2,13 @@ import { ArrowLeft, FunnelSimple, MagnifyingGlass } from 'phosphor-react-native'
 import { Suspense, useDeferredValue, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getExplorerItemData, SearchFilterArgs, useCache, useLibraryQuery } from '@sd/client';
+import { SearchFilterArgs, useObjectsExplorerQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import FiltersBar from '~/components/search/filters/FiltersBar';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SearchStackScreenProps } from '~/navigation/SearchStack';
 import { getExplorerStore } from '~/stores/explorerStore';
 import { useSearchStore } from '~/stores/searchStore';
-
-// TODO: Animations!
 
 const SearchScreen = ({ navigation }: SearchStackScreenProps<'Home'>) => {
 	const { top } = useSafeAreaInsets();
@@ -35,36 +33,16 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Home'>) => {
 		return filters;
 	}, [deferredSearch]);
 
-	const query = useLibraryQuery(
-		[
-			'search.paths',
-			{
-				// ...args,
-				filters,
-				take: 100
-			}
-		],
-		{
-			suspense: true,
-			enabled: !!deferredSearch,
-			onSuccess: () => getExplorerStore().resetNewThumbnails()
-		}
-	);
-
-	const pathsItemsReferences = useMemo(() => query.data?.items ?? [], [query.data]);
-	const pathsItems = useCache(pathsItemsReferences);
-
-	const items = useMemo(() => {
-		// Mobile does not thave media layout
-		// if (explorerStore.layoutMode !== 'media') return pathsItems;
-
-		return (
-			pathsItems?.filter((item) => {
-				const { kind } = getExplorerItemData(item);
-				return kind === 'Video' || kind === 'Image';
-			}) ?? []
-		);
-	}, [pathsItems]);
+	const objects = useObjectsExplorerQuery({
+		arg: {
+			take: 30,
+			filters
+		},
+		order: null,
+		suspense: true,
+		enabled: !!deferredSearch,
+		onSuccess: () => getExplorerStore().resetNewThumbnails()
+	});
 
 	return (
 		<View
@@ -74,7 +52,7 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Home'>) => {
 		>
 			{/* Header */}
 			<View style={tw`border-b border-app-line/50`}>
-				{/* Search area input container*/}
+				{/* Search area input container */}
 				<View style={tw`flex-row items-center gap-4 px-5 pb-3`}>
 					{/* Back Button */}
 					<Pressable
@@ -116,11 +94,7 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Home'>) => {
 								/>
 							</View>
 						</View>
-						<Pressable
-							onPress={() => {
-								navigation.navigate('Filters');
-							}}
-						>
+						<Pressable onPress={() => navigation.navigate('Filters')}>
 							<View
 								style={tw`h-10 w-10 items-center justify-center rounded-md border border-app-line/50 bg-app-box/50`}
 							>
@@ -134,7 +108,7 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Home'>) => {
 			{/* Content */}
 			<View style={tw`flex-1`}>
 				<Suspense fallback={<ActivityIndicator />}>
-					<Explorer tabHeight={false} items={items} />
+					<Explorer {...objects} tabHeight={false} />
 				</Suspense>
 			</View>
 		</View>

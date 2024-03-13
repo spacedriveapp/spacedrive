@@ -18,7 +18,7 @@ pub use ingest::*;
 pub use manager::*;
 pub use uhlc::NTP64;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum SyncMessage {
 	Ingested,
 	Created,
@@ -41,9 +41,9 @@ pub fn crdt_op_db(op: &CRDTOperation) -> crdt_operation::Create {
 		timestamp: op.timestamp.0 as i64,
 		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
 		kind: op.kind().to_string(),
-		data: serde_json::to_vec(&op.data).unwrap(),
+		data: rmp_serde::to_vec(&op.data).unwrap(),
 		model: op.model.to_string(),
-		record_id: serde_json::to_vec(&op.record_id).unwrap(),
+		record_id: rmp_serde::to_vec(&op.record_id).unwrap(),
 		_params: vec![],
 	}
 }
@@ -58,9 +58,9 @@ pub fn crdt_op_unchecked_db(
 		timestamp: op.timestamp.0 as i64,
 		instance_id,
 		kind: op.kind().to_string(),
-		data: serde_json::to_vec(&op.data).unwrap(),
+		data: rmp_serde::to_vec(&op.data).unwrap(),
 		model: op.model.to_string(),
-		record_id: serde_json::to_vec(&op.record_id).unwrap(),
+		record_id: rmp_serde::to_vec(&op.record_id).unwrap(),
 		_params: vec![],
 	}
 }

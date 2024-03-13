@@ -1,6 +1,6 @@
 import { ContextType, createContext, PropsWithChildren, useContext } from 'react';
+import { type Ordering } from '@sd/client';
 
-import { Ordering } from './store';
 import { UseExplorer } from './useExplorer';
 
 /**

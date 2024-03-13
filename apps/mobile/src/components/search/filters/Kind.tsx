@@ -24,6 +24,7 @@ export const kinds = Object.keys(ObjectKind)
 
 const Kind = () => {
 	const searchStore = useSearchStore();
+
 	return (
 		<MotiView
 			layout={LinearTransition.duration(300)}

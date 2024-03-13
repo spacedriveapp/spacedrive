@@ -1,6 +1,8 @@
 import { UseInfiniteQueryResult, UseQueryResult } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
-import { SearchData, useCache } from '@sd/client';
+
+import { useCache } from '../cache';
+import { SearchData } from '../core';
 
 export function useExplorerQuery<Q>(
 	query: UseInfiniteQueryResult<SearchData<Q>>,

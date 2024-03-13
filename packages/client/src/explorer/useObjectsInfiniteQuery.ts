@@ -1,35 +1,28 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import {
-	ExplorerItem,
-	ObjectCursor,
-	ObjectOrder,
-	ObjectSearchArgs,
-	useLibraryContext,
-	useNodes,
-	useRspcLibraryContext
-} from '@sd/client';
 
+import { useNodes } from '../cache';
+import { ExplorerItem, ObjectCursor, ObjectOrder, ObjectSearchArgs } from '../core';
+import { useLibraryContext } from '../hooks';
+import { useRspcLibraryContext } from '../rspc';
 import { UseExplorerInfiniteQueryArgs } from './useExplorerInfiniteQuery';
 
 export function useObjectsInfiniteQuery({
 	arg,
-	explorerSettings,
+	order,
 	...args
 }: UseExplorerInfiniteQueryArgs<ObjectSearchArgs, ObjectOrder>) {
 	const { library } = useLibraryContext();
 	const ctx = useRspcLibraryContext();
-	const settings = explorerSettings.useSettingsSnapshot();
 
-	if (settings.order) {
-		arg.orderAndPagination = { orderOnly: settings.order };
+	if (order) {
+		arg.orderAndPagination = { orderOnly: order };
 	}
 
 	const query = useInfiniteQuery({
 		queryKey: ['search.objects', { library_id: library.uuid, arg }] as const,
 		queryFn: ({ pageParam, queryKey: [_, { arg }] }) => {
 			const cItem: Extract<ExplorerItem, { type: 'Object' }> = pageParam;
-			const { order } = settings;
 
 			let orderAndPagination: (typeof arg)['orderAndPagination'];
 

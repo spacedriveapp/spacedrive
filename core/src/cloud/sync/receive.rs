@@ -21,8 +21,9 @@ use serde_json::to_vec;
 use tokio::{sync::Notify, time::sleep};
 use uuid::Uuid;
 
-//// Responsible for downloading sync operations from the cloud to be processed by the ingester
+// Responsible for downloading sync operations from the cloud to be processed by the ingester
 
+#[allow(clippy::too_many_arguments)]
 pub async fn run_actor(
 	library: Arc<Library>,
 	libraries: Arc<Libraries>,
@@ -200,7 +201,7 @@ fn crdt_op_db(op: &CRDTOperation) -> cloud_crdt_operation::Create {
 		kind: op.data.as_kind().to_string(),
 		data: to_vec(&op.data).expect("unable to serialize data"),
 		model: op.model.to_string(),
-		record_id: to_vec(&op.record_id).expect("unable to serialize record id"),
+		record_id: rmp_serde::to_vec(&op.record_id).expect("unable to serialize record id"),
 		_params: vec![],
 	}
 }

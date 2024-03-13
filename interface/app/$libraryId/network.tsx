@@ -39,7 +39,7 @@ export const Component = () => {
 			has_local_thumbnail: false,
 			thumbnail: null,
 			item: {
-				...peer,
+				...peer.metadata,
 				pub_id: []
 			}
 		})),

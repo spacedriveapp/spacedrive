@@ -98,7 +98,7 @@ const EditLocationForm = () => {
 	const { t } = useLocale();
 
 	return (
-		<Form form={form} onSubmit={onSubmit} className="h-full w-full">
+		<Form form={form} onSubmit={onSubmit} className="size-full">
 			<ModalLayout
 				title={t('edit_location')}
 				topRight={
@@ -200,7 +200,7 @@ const EditLocationForm = () => {
 								size="sm"
 								variant="outline"
 							>
-								<ArrowsClockwise className="-mt-0.5 mr-1.5 inline h-4 w-4" />
+								<ArrowsClockwise className="-mt-0.5 mr-1.5 inline size-4" />
 								{t('full_reindex')}
 							</Button>
 						</div>
@@ -213,7 +213,7 @@ const EditLocationForm = () => {
 								size="sm"
 								variant="outline"
 							>
-								<Archive className="-mt-0.5 mr-1.5 inline h-4 w-4" />
+								<Archive className="-mt-0.5 mr-1.5 inline size-4" />
 								{t('archive')}
 							</Button>
 						</div>
@@ -236,7 +236,7 @@ const EditLocationForm = () => {
 									));
 								}}
 							>
-								<Trash className="-mt-0.5 mr-1.5 inline h-4 w-4" />
+								<Trash className="-mt-0.5 mr-1.5 inline size-4" />
 								{t('delete')}
 							</Button>
 						</div>

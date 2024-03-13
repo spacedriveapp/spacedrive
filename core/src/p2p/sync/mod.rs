@@ -217,7 +217,7 @@ mod responder {
 
 			let timestamps = match req {
 				Request::FinishedIngesting => break,
-				Request::Messages { timestamps } => timestamps,
+				Request::Messages { timestamps, .. } => timestamps,
 				_ => continue,
 			};
 
