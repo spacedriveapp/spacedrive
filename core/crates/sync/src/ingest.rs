@@ -1,4 +1,4 @@
-use std::{ops::Deref, sync::Arc};
+use std::{ops::Deref, sync::Arc, time::Duration};
 
 use sd_prisma::{
 	prisma::{crdt_operation, SortOrder},
@@ -268,22 +268,28 @@ mod test {
 		(Actor::spawn(shared.clone()), shared)
 	}
 
-	// /// If messages tx is dropped, actor should reset and assume no further messages
-	// /// will be sent
-	// #[tokio::test]
-	// async fn retrieve_wait() -> Result<(), ()> {
-	// 	let (ingest, _) = new_actor().await;
+	/// If messages tx is dropped, actor should reset and assume no further messages
+	/// will be sent
+	#[tokio::test]
+	async fn messages_request_drop() -> Result<(), ()> {
+		let (ingest, _) = new_actor().await;
 
-	// 	for _ in [(), ()] {
-	// 		let mut rx = ingest.req_rx.lock().await;
+		for _ in [(), ()] {
+			let mut rx = ingest.req_rx.lock().await;
 
-	// 		ingest.event_tx.send(Event::Notification).await.unwrap();
+			println!("lock acquired");
 
-	// 		let Some(Request::Messages { .. }) = rx.recv().await else {
-	// 			panic!("bruh")
-	// 		};
-	// 	}
+			ingest.event_tx.send(Event::Notification).await.unwrap();
 
-	// 	Ok(())
-	// }
+			println!("notificaton sent");
+
+			let Some(Request::Messages { .. }) = rx.recv().await else {
+				panic!("bruh")
+			};
+
+			println!("message received")
+		}
+
+		Ok(())
+	}
 }
