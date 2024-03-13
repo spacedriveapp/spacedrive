@@ -256,8 +256,8 @@ impl P2PManager {
 				"p2p_ipv4_port": node_config.p2p_ipv4_port,
 				"p2p_ipv6_port": node_config.p2p_ipv6_port,
 				"p2p_discovery": node_config.p2p_discovery,
-			})
-
+			}),
+			"relay_config": self.quic.get_relay_config(),
 		})
 	}
 

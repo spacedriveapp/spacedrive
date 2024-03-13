@@ -2,7 +2,7 @@ use std::{
 	collections::HashMap,
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr},
 	str::FromStr,
-	sync::{Arc, PoisonError, RwLock},
+	sync::{Arc, Mutex, PoisonError, RwLock},
 	time::Duration,
 };
 
@@ -60,7 +60,7 @@ enum InternalEvent {
 	},
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RelayServerEntry {
 	id: Uuid,
 	peer_id: String,
@@ -85,6 +85,7 @@ pub struct QuicTransport {
 	id: ListenerId,
 	p2p: Arc<P2P>,
 	internal_tx: Sender<InternalEvent>,
+	relay_config: Mutex<Vec<RelayServerEntry>>,
 }
 
 impl QuicTransport {
@@ -125,6 +126,7 @@ impl QuicTransport {
 				id,
 				p2p,
 				internal_tx,
+				relay_config: Mutex::new(Vec::new()),
 			},
 			libp2p_peer_id,
 		))
@@ -134,15 +136,30 @@ impl QuicTransport {
 	/// This method will replace any existing relay servers.
 	pub async fn relay_config(&self, relays: Vec<RelayServerEntry>) {
 		let (tx, rx) = oneshot::channel();
-		let event = InternalEvent::RegisterRelays { relays, result: tx };
+		let event = InternalEvent::RegisterRelays {
+			relays: relays.clone(),
+			result: tx,
+		};
 
 		let Ok(_) = self.internal_tx.send(event) else {
 			return;
 		};
 		match rx.await.unwrap_or_else(|_| Ok(())) {
-			Ok(_) => {}
+			Ok(_) => {
+				*self
+					.relay_config
+					.lock()
+					.unwrap_or_else(PoisonError::into_inner) = relays;
+			}
 			Err(e) => error!("Failed to register relay config as the event loop has died: {e}"),
 		}
+	}
+
+	pub fn get_relay_config(&self) -> Vec<RelayServerEntry> {
+		self.relay_config
+			.lock()
+			.unwrap_or_else(PoisonError::into_inner)
+			.clone()
 	}
 
 	// `None` on the port means disabled. Use `0` for random port.

@@ -19,14 +19,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				let mut queued = Vec::new();
 
-				for (identity, peer, metadata) in
-					node.p2p.p2p.peers().iter().filter_map(|(i, p)| {
-						PeerMetadata::from_hashmap(&p.metadata())
-							.ok()
-							.map(|m| (i, p, m))
-					}) {
-					let identity = *identity;
-
+				for (_, peer, metadata) in node.p2p.p2p.peers().iter().filter_map(|(i, p)| {
+					PeerMetadata::from_hashmap(&p.metadata())
+						.ok()
+						.map(|m| (i, p, m))
+				}) {
 					queued.push(P2PEvent::PeerChange {
 						identity: peer.identity(),
 						connection: if peer.is_connected_with_hook(node.p2p.libraries_hook_id) {
