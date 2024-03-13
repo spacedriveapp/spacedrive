@@ -51,7 +51,7 @@ model Node {
 // represents a single `.db` file (SQLite DB) that is paired to the current library.
 // A `LibraryInstance` is always owned by a single `Node` but it's possible for that node to change (or two to be owned by a single node).
 model Instance {
-  id       Int   @id @default(autoincrement()) // This is is NOT globally unique
+  id       Int   @id @default(autoincrement()) // This is NOT globally unique
   pub_id   Bytes @unique // This UUID is meaningless and exists soley cause the `uhlc::ID` must be 16-bit. Really this should be derived from the `identity` field.
   // Enum: sd_core::p2p::IdentityOrRemoteIdentity
   identity Bytes
