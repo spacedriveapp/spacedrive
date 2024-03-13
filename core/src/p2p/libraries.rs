@@ -43,7 +43,7 @@ pub fn libraries_hook(p2p: Arc<P2P>, libraries: Arc<Libraries>) -> HookId {
 									.remote_identity();
 
 								// Skip self
-								if identity == *library.identity {
+								if identity == library.identity.to_remote_identity() {
 									continue;
 								}
 
