@@ -1,6 +1,6 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { AppLogo, BloomOne } from '@sd/assets/images';
-import { sdmobintro } from '@sd/assets/videos';
+import { SdMobIntro } from '@sd/assets/videos';
 import { useOnboardingStore } from '@sd/client';
 import { ResizeMode, Video } from 'expo-av';
 import { MotiView } from 'moti';
@@ -35,7 +35,7 @@ export function OnboardingContainer({ children }: React.PropsWithChildren) {
 								store.showIntro = false;
 							}
 						}}
-						source={sdmobintro}
+						source={SdMobIntro}
 						isMuted
 						resizeMode={ResizeMode.CONTAIN}
 					/>
@@ -50,24 +50,24 @@ export function OnboardingContainer({ children }: React.PropsWithChildren) {
 							<CaretLeft size={24} weight="bold" color="white" />
 						</Pressable>
 					)}
-					<View style={tw`z-10 flex-1 items-center justify-center`}>
+					<View style={tw`z-10 items-center justify-center flex-1`}>
 						<KeyboardAvoidingView
 							behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
 							keyboardVerticalOffset={bottom}
-							style={tw`w-full flex-1 items-center justify-center`}
+							style={tw`items-center justify-center flex-1 w-full`}
 						>
-							<MotiView style={tw`w-full items-center justify-center px-4`}>
+							<MotiView style={tw`items-center justify-center w-full px-4`}>
 								{children}
 							</MotiView>
 						</KeyboardAvoidingView>
-						<Text style={tw`absolute bottom-8 text-xs text-ink-dull/50`}>
+						<Text style={tw`absolute text-xs bottom-8 text-ink-dull/50`}>
 							&copy; {new Date().getFullYear()} Spacedrive Technology Inc.
 						</Text>
 					</View>
 					{/* Bloom */}
 					<Image
 						source={BloomOne}
-						style={tw`top-100 absolute h-screen w-screen opacity-20`}
+						style={tw`absolute w-screen h-screen top-100 opacity-20`}
 					/>
 				</>
 			)}
@@ -111,7 +111,7 @@ const GetStartedScreen = ({ navigation }: OnboardingStackScreenProps<'GetStarted
 			{/* Get Started Button */}
 			<FadeInUpAnimation delay={1200} style={tw`mt-8`}>
 				<AnimatedButton variant="accent" onPress={() => navigation.push('NewLibrary')}>
-					<Text style={tw`text-center text-base font-medium text-ink`}>Get Started</Text>
+					<Text style={tw`text-base font-medium text-center text-ink`}>Get Started</Text>
 				</AnimatedButton>
 			</FadeInUpAnimation>
 		</OnboardingContainer>

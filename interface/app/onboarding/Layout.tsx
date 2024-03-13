@@ -1,5 +1,5 @@
 import { BloomOne } from '@sd/assets/images';
-import { sdintro } from '@sd/assets/videos';
+import { SdIntro } from '@sd/assets/videos';
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState } from 'react';
@@ -41,7 +41,7 @@ export const Component = () => {
 							animate={{ opacity: 1 }}
 							transition={{ duration: 0.5 }}
 							exit={{ opacity: 0 }}
-							className="absolute left-0 top-0 z-50 flex h-screen w-screen items-center justify-center"
+							className="absolute top-0 left-0 z-50 flex items-center justify-center w-screen h-screen"
 						>
 							{/*This makes sure on initial render a BG is visible before video loads*/}
 							<svg
@@ -62,25 +62,25 @@ export const Component = () => {
 								}}
 								muted
 								controls={false}
-								src={sdintro}
+								src={SdIntro}
 							/>
 						</motion.div>
 					)}
 				</AnimatePresence>
 				<DragRegion className="z-50 h-9" />
-				<div className="-mt-5 flex grow flex-col gap-8 p-10">
-					<div className="flex grow flex-col items-center justify-center">
+				<div className="flex flex-col gap-8 p-10 -mt-5 grow">
+					<div className="flex flex-col items-center justify-center grow">
 						<Outlet />
 					</div>
 					<Progress />
 				</div>
 				<div className="flex justify-center p-4">
-					<p className="text-xs text-ink-dull opacity-50">
+					<p className="text-xs opacity-50 text-ink-dull">
 						&copy; {new Date().getFullYear()} Spacedrive Technology Inc.
 					</p>
 				</div>
 				<div className="absolute -z-10">
-					<div className="relative h-screen w-screen">
+					<div className="relative w-screen h-screen">
 						<img src={BloomOne} className="absolute size-[2000px]" />
 						{/* <img src={BloomThree} className="absolute w-[2000px] h-[2000px] -right-[200px]" /> */}
 					</div>
