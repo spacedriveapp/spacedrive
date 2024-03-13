@@ -1,9 +1,8 @@
 import { LoadMoreTrigger, useGrid, useScrollMargin, useVirtualizer } from '@virtual-grid/react';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { getExplorerItemData } from '@sd/client';
+import { getExplorerItemData, getOrderingDirection, orderingKey } from '@sd/client';
 
 import { useExplorerContext } from '../../Context';
-import { getOrderingDirection, orderingKey } from '../../store';
 import { getItemData, getItemId, uniqueId } from '../../util';
 import { useExplorerViewContext } from '../Context';
 import { DragSelect } from '../Grid/DragSelect';

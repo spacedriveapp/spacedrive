@@ -1,36 +1,38 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import {
-	ExplorerItem,
-	ObjectOrder,
-	ObjectSearchArgs,
-	useLibraryContext,
-	useNodes,
-	useNormalisedCache,
-	useRspcLibraryContext
-} from '@sd/client';
 
+import { useNodes, useNormalisedCache } from '../cache';
+import { FilePathOrder, FilePathSearchArgs } from '../core';
+import { useLibraryContext } from '../hooks';
+import { useRspcLibraryContext } from '../rspc';
 import { UseExplorerInfiniteQueryArgs } from './useExplorerInfiniteQuery';
 
-export function useObjectsOffsetInfiniteQuery({
+export function usePathsOffsetInfiniteQuery({
 	arg,
-	explorerSettings,
+	order,
+	onSuccess,
 	...args
-}: UseExplorerInfiniteQueryArgs<ObjectSearchArgs, ObjectOrder>) {
+}: UseExplorerInfiniteQueryArgs<FilePathSearchArgs, FilePathOrder>) {
+	const take = arg.take ?? 100;
+
 	const { library } = useLibraryContext();
 	const ctx = useRspcLibraryContext();
-	const settings = explorerSettings.useSettingsSnapshot();
 	const cache = useNormalisedCache();
 
-	if (settings.order) {
-		arg.orderAndPagination = { orderOnly: settings.order };
+	if (order) {
+		arg.orderAndPagination = { orderOnly: order };
+		if (arg.orderAndPagination.orderOnly.field === 'sizeInBytes') delete arg.take;
 	}
 
 	const query = useInfiniteQuery({
-		queryKey: ['search.objects', { library_id: library.uuid, arg }] as const,
+		queryKey: [
+			'search.paths',
+			{
+				library_id: library.uuid,
+				arg: { ...arg, take }
+			}
+		] satisfies [any, any],
 		queryFn: async ({ pageParam, queryKey: [_, { arg }] }) => {
-			const { order } = settings;
-
 			let orderAndPagination: (typeof arg)['orderAndPagination'];
 
 			if (!pageParam) {
@@ -46,7 +48,7 @@ export function useObjectsOffsetInfiniteQuery({
 
 			arg.orderAndPagination = orderAndPagination;
 
-			const result = await ctx.client.query(['search.objects', arg]);
+			const result = await ctx.client.query(['search.paths', arg]);
 			cache.withNodes(result.nodes);
 
 			return { ...result, offset: pageParam, arg };
@@ -54,6 +56,7 @@ export function useObjectsOffsetInfiniteQuery({
 		getNextPageParam: ({ nodes, offset, arg }) => {
 			if (nodes.length >= arg.take) return (offset ?? 0) + 1;
 		},
+		onSuccess,
 		...args
 	});
 

@@ -201,7 +201,9 @@ jobs:
       - name: Run Simulator
         uses: futureware-tech/simulator-action@v3
         with:
-          model: 'iPhone SE (3rd generation)'
+          model: 'iPhone 15'
+          os_version: 17
+          erase_before_boot: false
 
       - name: Run Tests
         env:
