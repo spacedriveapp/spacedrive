@@ -292,4 +292,23 @@ mod test {
 
 		Ok(())
 	}
+
+	// /// If messages tx is dropped, actor should reset and assume no further messages
+	// /// will be sent
+	// #[tokio::test]
+	// async fn retrieve_wait() -> Result<(), ()> {
+	// 	let (ingest, _) = new_actor().await;
+
+	// 	for _ in [(), ()] {
+	// 		let mut rx = ingest.req_rx.lock().await;
+
+	// 		ingest.event_tx.send(Event::Notification).await.unwrap();
+
+	// 		let Some(Request::Messages { .. }) = rx.recv().await else {
+	// 			panic!("bruh")
+	// 		};
+	// 	}
+
+	// 	Ok(())
+	// }
 }
