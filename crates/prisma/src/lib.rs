@@ -3,32 +3,28 @@ pub mod prisma;
 #[allow(warnings, unused)]
 pub mod prisma_sync;
 
-impl sd_cache::Model for prisma::tag::Data {
-	fn name() -> &'static str {
-		"Tag"
-	}
+macro_rules! impl_model {
+	($module:ident) => {
+		impl sd_cache::Model for prisma::$module::Data {
+			fn name() -> &'static str {
+				prisma::$module::NAME
+			}
+		}
+	};
 }
 
-impl sd_cache::Model for prisma::object::Data {
-	fn name() -> &'static str {
-		"Object"
-	}
-}
+impl_model!(tag);
+impl_model!(object);
+impl_model!(location);
+impl_model!(indexer_rule);
+impl_model!(file_path);
 
-impl sd_cache::Model for prisma::location::Data {
-	fn name() -> &'static str {
-		"Location"
-	}
-}
-
-impl sd_cache::Model for prisma::indexer_rule::Data {
-	fn name() -> &'static str {
-		"IndexerRule"
-	}
-}
-
-impl sd_cache::Model for prisma::file_path::Data {
-	fn name() -> &'static str {
-		"FilePath"
-	}
+pub async fn test_db() -> std::sync::Arc<prisma::PrismaClient> {
+	std::sync::Arc::new(
+		prisma::PrismaClient::_builder()
+			.with_url(format!("file:/tmp/test-db-{}", uuid::Uuid::new_v4()))
+			.build()
+			.await
+			.unwrap(),
+	)
 }

@@ -119,6 +119,8 @@ impl Manager {
 	) -> prisma_client_rust::Result<Vec<CRDTOperation>> {
 		let db = &self.db;
 
+		dbg!(&args);
+
 		macro_rules! db_args {
 			($args:ident, $op:ident) => {
 				vec![prisma_client_rust::operator::or(
