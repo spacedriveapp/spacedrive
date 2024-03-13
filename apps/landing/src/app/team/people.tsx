@@ -42,7 +42,7 @@ export const teamMembers: Array<TeamMemberProps> = [
 	},
 	{
 		name: 'Utku Bakır',
-		role: 'React Native Engineer',
+		role: 'Staff Software Engineer',
 		imageUrl: '/images/team/utku.jpg',
 		socials: {
 			github: 'https://github.com/utkubakir'
@@ -50,7 +50,7 @@ export const teamMembers: Array<TeamMemberProps> = [
 	},
 	{
 		name: 'Jake Robinson',
-		role: 'Rust Engineer',
+		role: 'Rust Engineer & Cryptographer',
 		imageUrl: '/images/team/jake.jpg',
 		socials: {
 			github: 'https://github.com/brxken128'
