@@ -7,7 +7,7 @@ use sd_utils::{
 
 use std::path::Path;
 
-use rspc::{self, ErrorCode};
+use rspc::ErrorCode;
 use thiserror::Error;
 use uuid::Uuid;
 

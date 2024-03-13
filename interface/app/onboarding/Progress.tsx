@@ -40,7 +40,7 @@ export default function OnboardingProgress() {
 							disabled={!obStore.unlockedScreens.includes(path)}
 							onClick={() => navigate(path, { replace: true })}
 							className={clsx(
-								'h-2 w-2 rounded-full transition hover:bg-ink disabled:opacity-10',
+								'size-2 rounded-full transition hover:bg-ink disabled:opacity-10',
 								currentScreen === path ? 'bg-ink' : 'bg-ink-faint'
 							)}
 						/>

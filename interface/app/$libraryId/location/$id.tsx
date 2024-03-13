@@ -161,7 +161,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 				</TopBarPortal>
 			</SearchContextProvider>
 			{isLocationIndexing ? (
-				<div className="flex h-full w-full items-center justify-center">
+				<div className="flex size-full items-center justify-center">
 					<Loader />
 				</div>
 			) : !preferences.isLoading ? (

@@ -13,7 +13,7 @@ const button = cva(['items-center justify-center rounded-md border shadow-sm'], 
 			accent: ['border-accent-deep bg-accent shadow-md shadow-app-shade/10'],
 			outline: ['border-sidebar-line/60 bg-mobile-screen'],
 			transparent: ['border-0 bg-mobile-screen shadow-none'],
-			dashed: ['border-dashed border border-app-line bg-transparent']
+			dashed: ['border border-dashed border-app-line bg-transparent']
 		},
 		size: {
 			default: ['py-1.5', 'px-3'],

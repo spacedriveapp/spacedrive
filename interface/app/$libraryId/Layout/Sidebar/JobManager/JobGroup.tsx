@@ -207,7 +207,7 @@ function Options({
 					variant="outline"
 				>
 					<Tooltip label={t('resume')}>
-						<Play className="h-4 w-4 cursor-pointer" />
+						<Play className="size-4 cursor-pointer" />
 					</Tooltip>
 				</Button>
 			)}
@@ -218,7 +218,7 @@ function Options({
 					button={
 						<Tooltip label={t('actions')}>
 							<Button className="!px-1" variant="outline">
-								<DotsThreeVertical className="h-4 w-4 cursor-pointer" />
+								<DotsThreeVertical className="size-4 cursor-pointer" />
 							</Button>
 						</Tooltip>
 					}
@@ -255,7 +255,7 @@ function Options({
 							size="icon"
 							variant="outline"
 						>
-							<Pause className="h-4 w-4 cursor-pointer" />
+							<Pause className="size-4 cursor-pointer" />
 						</Button>
 					</Tooltip>
 					<Tooltip label={t('stop')}>
@@ -267,7 +267,7 @@ function Options({
 							size="icon"
 							variant="outline"
 						>
-							<Stop className="h-4 w-4 cursor-pointer" />
+							<Stop className="size-4 cursor-pointer" />
 						</Button>
 					</Tooltip>
 				</>

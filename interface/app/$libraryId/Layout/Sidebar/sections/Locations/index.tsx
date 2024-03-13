@@ -77,7 +77,7 @@ const Location = ({ location, online }: { location: LocationType; online: boolea
 					<Icon name="Folder" size={18} />
 					<div
 						className={clsx(
-							'absolute bottom-0.5 right-0 h-1.5 w-1.5 rounded-full',
+							'absolute bottom-0.5 right-0 size-1.5 rounded-full',
 							online ? 'bg-green-500' : 'bg-red-500'
 						)}
 					/>

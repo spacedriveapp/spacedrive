@@ -21,8 +21,9 @@ use serde_json::to_vec;
 use tokio::{sync::Notify, time::sleep};
 use uuid::Uuid;
 
-//// Responsible for downloading sync operations from the cloud to be processed by the ingester
+// Responsible for downloading sync operations from the cloud to be processed by the ingester
 
+#[allow(clippy::too_many_arguments)]
 pub async fn run_actor(
 	library: Arc<Library>,
 	libraries: Arc<Libraries>,

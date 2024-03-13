@@ -63,8 +63,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							MaybeUndefined::Undefined,
 							Some(true),
 						)
-						.await
-						.unwrap();
+						.await?;
 
 					Ok(())
 				})

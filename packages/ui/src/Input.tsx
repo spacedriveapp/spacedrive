@@ -175,7 +175,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, Props>((props, ref) =>
 					size="icon"
 					className={clsx(props.buttonClassnames)}
 				>
-					<CurrentEyeIcon className="!pointer-events-none h-4 w-4" />
+					<CurrentEyeIcon className="!pointer-events-none size-4" />
 				</Button>
 			}
 		/>
