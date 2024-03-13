@@ -108,7 +108,7 @@ impl P2PManager {
 							} else {
 								match resp.json::<Vec<RelayServerEntry>>().await {
 									Ok(config) => {
-										this.quic.relay_config(config).await;
+										this.quic.set_relay_config(config).await;
 										info!("Updated p2p relay configuration successfully.")
 									}
 									Err(err) => {

@@ -134,7 +134,7 @@ impl QuicTransport {
 
 	/// Configure the relay servers to use.
 	/// This method will replace any existing relay servers.
-	pub async fn relay_config(&self, relays: Vec<RelayServerEntry>) {
+	pub async fn set_relay_config(&self, relays: Vec<RelayServerEntry>) {
 		let (tx, rx) = oneshot::channel();
 		let event = InternalEvent::RegisterRelays {
 			relays: relays.clone(),
