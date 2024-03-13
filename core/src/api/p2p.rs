@@ -1,6 +1,6 @@
-use crate::p2p::{operations, Header, P2PEvent, PeerMetadata};
+use crate::p2p::{operations, ConnectionMethod, DiscoveryMethod, Header, P2PEvent, PeerMetadata};
 
-use sd_p2p2::RemoteIdentity;
+use sd_p2p2::{PeerConnectionCandidate, RemoteIdentity};
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
@@ -27,17 +27,24 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					}) {
 					let identity = *identity;
 
-					queued.push(P2PEvent::PeerEvent {
-						identity,
-						connection: todo!(),
-						discovery: todo!(),
+					queued.push(P2PEvent::PeerChange {
+						identity: peer.identity(),
+						connection: if peer.is_connected_with_hook(node.p2p.libraries_hook_id) {
+							ConnectionMethod::Relay
+						} else if peer.is_connected() {
+							ConnectionMethod::Local
+						} else {
+							ConnectionMethod::Disconnected
+						},
+						discovery: match peer
+							.connection_candidates()
+							.contains(&PeerConnectionCandidate::Relay)
+						{
+							true => DiscoveryMethod::Relay,
+							false => DiscoveryMethod::Local,
+						},
 						metadata,
 					});
-
-					// match peer.is_connected() {
-					// 	true => queued.push(P2PEvent::ConnectedPeer { identity }),
-					// 	false => queued.push(P2PEvent::DiscoveredPeer { identity, metadata }),
-					// }
 				}
 
 				Ok(async_stream::stream! {

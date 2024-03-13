@@ -3,7 +3,10 @@ use crate::{
 		config::{self, P2PDiscoveryState, Port},
 		get_hardware_model_name, HardwareModel,
 	},
-	p2p::{operations, sync::SyncMessage, Header, OperatingSystem, SPACEDRIVE_APP_ID},
+	p2p::{
+		libraries::libraries_hook, operations, sync::SyncMessage, Header, OperatingSystem,
+		SPACEDRIVE_APP_ID,
+	},
 	Node,
 };
 
@@ -11,7 +14,7 @@ use axum::routing::IntoMakeService;
 
 use sd_p2p2::{
 	flume::{bounded, Receiver},
-	Libp2pPeerId, Listener, Mdns, Peer, QuicTransport, RelayServerEntry, RemoteIdentity,
+	HookId, Libp2pPeerId, Listener, Mdns, Peer, QuicTransport, RelayServerEntry, RemoteIdentity,
 	UnicastStream, P2P,
 };
 use sd_p2p_tunnel::Tunnel;
@@ -32,7 +35,7 @@ use tokio::sync::oneshot;
 use tracing::info;
 use uuid::Uuid;
 
-use super::{libraries::LibrariesHook, P2PEvents, PeerMetadata};
+use super::{P2PEvents, PeerMetadata};
 
 pub struct P2PManager {
 	pub(crate) p2p: Arc<P2P>,
@@ -45,6 +48,7 @@ pub struct P2PManager {
 	pub(super) spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub(super) spacedrop_cancellations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
 	pub(crate) node_config: Arc<config::Manager>,
+	pub libraries_hook_id: HookId,
 }
 
 impl P2PManager {
@@ -61,19 +65,19 @@ impl P2PManager {
 		let (tx, rx) = bounded(25);
 		let p2p = P2P::new(SPACEDRIVE_APP_ID, node_config.get().await.identity, tx);
 		let (quic, lp2p_peer_id) = QuicTransport::spawn(p2p.clone())?;
+		let libraries_hook_id = libraries_hook(p2p.clone(), libraries);
 		let this = Arc::new(Self {
 			p2p: p2p.clone(),
 			lp2p_peer_id,
 			mdns: Mutex::new(None),
 			quic,
-			events: P2PEvents::spawn(p2p.clone()),
+			events: P2PEvents::spawn(p2p.clone(), libraries_hook_id),
 			spacedrop_pairing_reqs: Default::default(),
 			spacedrop_cancellations: Default::default(),
 			node_config,
+			libraries_hook_id,
 		});
 		this.on_node_config_change().await;
-
-		LibrariesHook::spawn(this.p2p.clone(), libraries);
 
 		info!(
 			"Node RemoteIdentity('{}') libp2p::PeerId('{:?}') is now online listening at addresses: {:?}",
