@@ -126,6 +126,10 @@ impl P2PManager {
 		}))
 	}
 
+	pub fn peer_metadata(&self) -> HashMap<String, String> {
+		self.p2p.metadata().clone()
+	}
+
 	// TODO: Remove this and add a subscription system to `config::Manager`
 	pub async fn on_node_config_change(&self) {
 		let config = self.node_config.get().await;

@@ -144,7 +144,7 @@ impl QuicTransport {
 		let Ok(_) = self.internal_tx.send(event) else {
 			return;
 		};
-		match rx.await.unwrap_or_else(|_| Ok(())) {
+		match rx.await {
 			Ok(_) => {
 				*self
 					.relay_config
@@ -466,11 +466,11 @@ async fn start(
 
 fn get_addrs<'a>(
 	peer_id: PeerId,
-	relay_config: &Vec<RelayServerEntry>,
+	relay_config: &[RelayServerEntry],
 	addrs: impl Iterator<Item = &'a PeerConnectionCandidate> + 'a,
 ) -> Vec<Multiaddr> {
 	addrs
-		.map(|v| match v {
+		.flat_map(|v| match v {
 			PeerConnectionCandidate::SocketAddr(addr) => vec![socketaddr_to_quic_multiaddr(addr)],
 			PeerConnectionCandidate::Relay => relay_config
 				.iter()
@@ -491,6 +491,5 @@ fn get_addrs<'a>(
 				})
 				.collect::<Vec<_>>(),
 		})
-		.flatten()
 		.collect::<Vec<_>>()
 }

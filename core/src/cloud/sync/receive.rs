@@ -1,4 +1,7 @@
-use crate::library::{Libraries, Library};
+use crate::{
+	library::{Libraries, Library},
+	Node,
+};
 
 use super::{err_break, CompressedCRDTOperations};
 use sd_cloud_api::RequestConfigProvider;
@@ -33,6 +36,7 @@ pub async fn run_actor(
 	sync: Arc<sd_core_sync::Manager>,
 	cloud_api_config_provider: Arc<impl RequestConfigProvider>,
 	ingest_notify: Arc<Notify>,
+	node: Arc<Node>,
 ) {
 	loop {
 		loop {
@@ -149,8 +153,7 @@ pub async fn run_actor(
 							collection.instance_uuid,
 							instance.identity,
 							instance.node_id,
-							instance.node_name.clone(),
-							instance.node_platform,
+							node.p2p.peer_metadata(),
 						)
 						.await
 					);
@@ -212,8 +215,7 @@ pub async fn create_instance(
 	uuid: Uuid,
 	identity: RemoteIdentity,
 	node_id: Uuid,
-	node_name: String,
-	node_platform: u8,
+	metadata: HashMap<String, String>,
 ) -> prisma_client_rust::Result<()> {
 	library
 		.db
@@ -224,11 +226,11 @@ pub async fn create_instance(
 				uuid_to_bytes(uuid),
 				IdentityOrRemoteIdentity::RemoteIdentity(identity).to_bytes(),
 				node_id.as_bytes().to_vec(),
-				node_name,
-				node_platform as i32,
 				Utc::now().into(),
 				Utc::now().into(),
-				vec![],
+				vec![instance::metadata::set(Some(
+					serde_json::to_vec(&metadata).expect("unable to serialize metadata"),
+				))],
 			),
 			vec![],
 		)
