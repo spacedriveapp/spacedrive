@@ -61,7 +61,7 @@ pub enum TaskOutput {
 #[derive(Debug)]
 pub enum TaskStatus<E: RunError> {
 	/// The task has finished successfully and maybe has some output for the user.
-	Done(TaskOutput),
+	Done((TaskId, TaskOutput)),
 	/// Task was gracefully cancelled by the user.
 	Canceled,
 	/// Task was forcefully aborted by the user.
@@ -164,7 +164,7 @@ impl Future for InterrupterFuture<'_> {
 
 		match this.fut.poll(cx) {
 			Poll::Ready(Ok(InterruptionRequest { kind, ack })) => {
-				if ack.send(Ok(())).is_err() {
+				if ack.send(()).is_err() {
 					warn!("TaskInterrupter ack channel closed");
 				}
 				this.has_interrupted.store(kind as u8, Ordering::Relaxed);
@@ -218,7 +218,7 @@ impl Interrupter {
 		InterruptionKind::load(&self.has_interrupted).map_or_else(
 			|| {
 				if let Ok(InterruptionRequest { kind, ack }) = self.interrupt_rx.try_recv() {
-					if ack.send(Ok(())).is_err() {
+					if ack.send(()).is_err() {
 						warn!("TaskInterrupter ack channel closed");
 					}
 
@@ -279,30 +279,18 @@ impl InterruptionKind {
 #[derive(Debug)]
 pub struct InterruptionRequest {
 	kind: InterruptionKind,
-	ack: oneshot::Sender<Result<(), SystemError>>,
+	ack: oneshot::Sender<()>,
 }
 
-/// A handle returned when a task is dispatched to the task system, it can be used to pause, cancel, resume, or wait
-/// until the task gets completed.
-#[derive(Debug)]
-pub struct TaskHandle<E: RunError> {
+/// A remote controller of a task that can be used to pause, cancel, resume, or force abortion.
+#[derive(Debug, Clone)]
+pub struct TaskRemoteController {
 	pub(crate) worktable: Arc<TaskWorktable>,
-	pub(crate) done_rx: oneshot::Receiver<Result<TaskStatus<E>, SystemError>>,
 	pub(crate) system_comm: SystemComm,
 	pub(crate) task_id: TaskId,
 }
 
-impl<E: RunError> Future for TaskHandle<E> {
-	type Output = Result<TaskStatus<E>, SystemError>;
-
-	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-		Pin::new(&mut self.done_rx)
-			.poll(cx)
-			.map(|res| res.expect("TaskHandle done channel unexpectedly closed"))
-	}
-}
-
-impl<E: RunError> TaskHandle<E> {
+impl TaskRemoteController {
 	/// Get the unique identifier of the task
 	#[must_use]
 	pub const fn task_id(&self) -> TaskId {
@@ -329,7 +317,7 @@ impl<E: RunError> TaskHandle<E> {
 
 				self.worktable.pause(tx).await;
 
-				rx.await.expect("Worker failed to ack pause request")?;
+				rx.await.expect("Worker failed to ack pause request");
 			} else {
 				trace!("Task is not running, setting is_paused flag");
 				self.worktable.is_paused.store(true, Ordering::Relaxed);
@@ -351,7 +339,7 @@ impl<E: RunError> TaskHandle<E> {
 	/// # Panics
 	///
 	/// Will panic if the worker failed to ack the cancel request
-	pub async fn cancel(&self) -> Result<(), SystemError> {
+	pub async fn cancel(&self) {
 		let is_canceled = self.worktable.is_canceled.load(Ordering::Relaxed);
 		let is_done = self.worktable.is_done.load(Ordering::Relaxed);
 
@@ -365,12 +353,11 @@ impl<E: RunError> TaskHandle<E> {
 
 				self.worktable.cancel(tx).await;
 
-				rx.await.expect("Worker failed to ack cancel request")?;
+				rx.await.expect("Worker failed to ack cancel request");
 			} else {
 				trace!("Task is not running, setting is_canceled flag");
 				self.worktable.is_canceled.store(true, Ordering::Relaxed);
-				return self
-					.system_comm
+				self.system_comm
 					.cancel_not_running_task(
 						self.task_id,
 						self.worktable.current_worker_id.load(Ordering::Relaxed),
@@ -378,8 +365,6 @@ impl<E: RunError> TaskHandle<E> {
 					.await;
 			}
 		}
-
-		Ok(())
 	}
 
 	/// Forcefully abort the task, this can lead to corrupted data or inconsistent states, so use it with caution.
@@ -402,6 +387,74 @@ impl<E: RunError> TaskHandle<E> {
 				self.worktable.current_worker_id.load(Ordering::Relaxed),
 			)
 			.await
+	}
+
+	/// Verify if the task was already completed
+	#[must_use]
+	pub fn is_done(&self) -> bool {
+		self.worktable.is_done.load(Ordering::Relaxed)
+	}
+}
+
+/// A handle returned when a task is dispatched to the task system, it can be used to pause, cancel, resume, or wait
+/// until the task gets completed.
+#[derive(Debug)]
+pub struct TaskHandle<E: RunError> {
+	pub(crate) done_rx: oneshot::Receiver<Result<TaskStatus<E>, SystemError>>,
+	pub(crate) controller: TaskRemoteController,
+}
+
+impl<E: RunError> Future for TaskHandle<E> {
+	type Output = Result<TaskStatus<E>, SystemError>;
+
+	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+		Pin::new(&mut self.done_rx)
+			.poll(cx)
+			.map(|res| res.expect("TaskHandle done channel unexpectedly closed"))
+	}
+}
+
+impl<E: RunError> TaskHandle<E> {
+	/// Get the unique identifier of the task
+	#[must_use]
+	pub const fn task_id(&self) -> TaskId {
+		self.controller.task_id
+	}
+
+	/// Gracefully pause the task at a safe point defined by the user using the [`Interrupter`]
+	///
+	/// # Panics
+	///
+	/// Will panic if the worker failed to ack the pause request
+	pub async fn pause(&self) -> Result<(), SystemError> {
+		self.controller.pause().await
+	}
+
+	/// Gracefully cancel the task at a safe point defined by the user using the [`Interrupter`]
+	///
+	/// # Panics
+	///
+	/// Will panic if the worker failed to ack the cancel request
+	pub async fn cancel(&self) {
+		self.controller.cancel().await;
+	}
+
+	/// Forcefully abort the task, this can lead to corrupted data or inconsistent states, so use it with caution.
+	pub async fn force_abortion(&self) -> Result<(), SystemError> {
+		self.controller.force_abortion().await
+	}
+
+	/// Marks the task to be resumed by the task system, the worker will start processing it if there is a slot
+	/// available or will be enqueued otherwise.
+	pub async fn resume(&self) -> Result<(), SystemError> {
+		self.controller.resume().await
+	}
+
+	/// Gets the [`TaskRemoteController`] object that can be used to control the task remotely, to
+	/// pause, cancel, resume, or force abortion.
+	#[must_use]
+	pub fn remote_controller(&self) -> TaskRemoteController {
+		self.controller.clone()
 	}
 }
 
@@ -449,7 +502,7 @@ impl TaskWorktable {
 		self.is_aborted.store(true, Ordering::Relaxed);
 	}
 
-	pub async fn pause(&self, tx: oneshot::Sender<Result<(), SystemError>>) {
+	pub async fn pause(&self, tx: oneshot::Sender<()>) {
 		self.is_paused.store(true, Ordering::Relaxed);
 		self.is_running.store(false, Ordering::Relaxed);
 
@@ -464,7 +517,7 @@ impl TaskWorktable {
 			.expect("Worker channel closed trying to pause task");
 	}
 
-	pub async fn cancel(&self, tx: oneshot::Sender<Result<(), SystemError>>) {
+	pub async fn cancel(&self, tx: oneshot::Sender<()>) {
 		self.is_canceled.store(true, Ordering::Relaxed);
 		self.is_running.store(false, Ordering::Relaxed);
 

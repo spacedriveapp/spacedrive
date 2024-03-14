@@ -162,7 +162,7 @@ impl SampleActor {
 				async {
 					if let Some(out) = handles.next().await {
 						match out {
-							Ok(TaskStatus::Done(maybe_out)) => {
+							Ok(TaskStatus::Done((_task_id, maybe_out))) => {
 								if let TaskOutput::Out(out) = maybe_out {
 									info!(
 										"Task completed: {:?}",
@@ -226,7 +226,7 @@ impl SampleActor {
 					)
 					.chain(handles.filter_map(|handle| async move {
 						match handle {
-							Ok(TaskStatus::Done(maybe_out)) => {
+							Ok(TaskStatus::Done((_task_id, maybe_out))) => {
 								if let TaskOutput::Out(out) = maybe_out {
 									info!(
 										"Task completed: {:?}",

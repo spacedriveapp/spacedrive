@@ -47,7 +47,7 @@ impl SampleJob {
 
 		while let Some((group, res)) = group.next().await {
 			match res.unwrap() {
-				TaskStatus::Done(TaskOutput::Out(out)) => {
+				TaskStatus::Done((_task_id, TaskOutput::Out(out))) => {
 					group.insert(
 						out.downcast::<Output>()
 							.expect("we know the output type")
@@ -55,7 +55,7 @@ impl SampleJob {
 					);
 					trace!("Received more tasks to wait for ({} left)", group.len());
 				}
-				TaskStatus::Done(TaskOutput::Empty) => {
+				TaskStatus::Done((_task_id, TaskOutput::Empty)) => {
 					trace!(
 						"Step done, waiting for all children to finish ({} left)",
 						group.len()

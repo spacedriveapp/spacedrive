@@ -1,3 +1,6 @@
-use sd_task_system::TaskDispatcher;
+use uuid::Uuid;
 
-struct JobSystem {}
+pub mod indexer;
+pub mod job_system;
+
+pub type JobId = Uuid;

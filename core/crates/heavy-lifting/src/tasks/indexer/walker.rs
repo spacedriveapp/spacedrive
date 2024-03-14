@@ -97,13 +97,13 @@ pub trait IsoFilePathFactory: Send + Sync + fmt::Debug + 'static {
 pub trait WalkerDBProxy: Send + Sync + fmt::Debug + 'static {
 	fn fetch_file_paths(
 		&self,
-		params: Vec<file_path::WhereParam>,
+		found_paths: Vec<file_path::WhereParam>,
 	) -> impl Future<Output = Result<Vec<file_path_walker::Data>, IndexerError>> + Send;
 
 	fn fetch_file_paths_to_remove(
 		&self,
-		iso_file_path: &IsolatedFilePathData<'_>,
-		params: Vec<file_path::WhereParam>,
+		parent_iso_file_path: &IsolatedFilePathData<'_>,
+		unique_location_id_materialized_path_name_extension_params: Vec<file_path::WhereParam>,
 	) -> impl Future<Output = Result<Vec<file_path_pub_and_cas_ids::Data>, IndexerError>> + Send;
 }
 
@@ -125,7 +125,7 @@ impl From<PathBuf> for ToWalkEntry {
 }
 
 #[derive(Debug)]
-struct WalkDirTask<DBProxy, IsoPathFactory>
+pub(crate) struct WalkDirTask<DBProxy, IsoPathFactory>
 where
 	DBProxy: WalkerDBProxy,
 	IsoPathFactory: IsoFilePathFactory,
@@ -911,7 +911,7 @@ mod tests {
 		let mut ancestors = HashSet::new();
 
 		while let Some((group, task_result)) = group.next().await {
-			let TaskStatus::Done(TaskOutput::Out(output)) = task_result.unwrap() else {
+			let TaskStatus::Done((_task_id, TaskOutput::Out(output))) = task_result.unwrap() else {
 				panic!("unexpected task output")
 			};
 

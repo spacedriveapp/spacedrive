@@ -22,18 +22,22 @@ sd-task-system = { path = "../../../crates/task-system" }
 sd-utils = { path = "../../../crates/utils" }
 
 
+async-channel = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
+futures = { workspace = true }
 futures-concurrency = { workspace = true }
 globset = { workspace = true }
+itertools = { workspace = true }
 lending-stream = { workspace = true }
 prisma-client-rust = { workspace = true }
 rmp-serde = { workspace = true }
 rspc = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+specta = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["fs"] }
+tokio = { workspace = true, features = ["fs", "sync", "parking_lot"] }
 tokio-stream = { workspace = true, features = ["fs"] }
 tracing = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }

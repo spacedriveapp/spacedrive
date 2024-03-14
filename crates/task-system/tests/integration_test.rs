@@ -72,7 +72,7 @@ async fn cancel_test() {
 	let handle = system.dispatch(NeverTask::default()).await;
 
 	info!("issuing cancel");
-	handle.cancel().await.unwrap();
+	handle.cancel().await;
 
 	assert!(matches!(handle.await, Ok(TaskStatus::Canceled)));
 
@@ -88,7 +88,7 @@ async fn done_test() {
 
 	assert!(matches!(
 		handle.await,
-		Ok(TaskStatus::Done(TaskOutput::Empty))
+		Ok(TaskStatus::Done((_task_id, TaskOutput::Empty)))
 	));
 
 	system.shutdown().await;
@@ -150,7 +150,7 @@ async fn pause_test() {
 
 	assert!(matches!(
 		handle.await,
-		Ok(TaskStatus::Done(TaskOutput::Empty))
+		Ok(TaskStatus::Done((_task_id, TaskOutput::Empty)))
 	));
 
 	system.shutdown().await;

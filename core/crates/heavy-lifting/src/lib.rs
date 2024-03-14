@@ -34,15 +34,19 @@ pub mod actors;
 pub mod jobs;
 pub mod tasks;
 
+use jobs::job_system::report::ReportError;
 use tasks::indexer::IndexerError;
 
 #[derive(Error, Debug)]
 pub enum Error {
 	#[error(transparent)]
 	Indexer(#[from] IndexerError),
+
+	#[error(transparent)]
+	Report(#[from] ReportError),
 }
 
-pub enum ReportUpdate {
+pub enum ProgressUpdate {
 	TaskCount(usize),
 	CompletedTaskCount(usize),
 	Message(String),
@@ -50,9 +54,9 @@ pub enum ReportUpdate {
 }
 
 pub trait ProgressReporter: Send + Sync + fmt::Debug + 'static {
-	fn progress(&self, updates: Vec<ReportUpdate>);
+	fn progress(&self, updates: Vec<ProgressUpdate>);
 
 	fn progress_msg(&self, msg: impl Into<String>) {
-		self.progress(vec![ReportUpdate::Message(msg.into())]);
+		self.progress(vec![ProgressUpdate::Message(msg.into())]);
 	}
 }

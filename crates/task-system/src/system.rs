@@ -317,11 +317,7 @@ impl SystemComm {
 			.expect("System channel closed trying receive pause not running task response")
 	}
 
-	pub async fn cancel_not_running_task(
-		&self,
-		task_id: TaskId,
-		worker_id: WorkerId,
-	) -> Result<(), SystemError> {
+	pub async fn cancel_not_running_task(&self, task_id: TaskId, worker_id: WorkerId) {
 		let (tx, rx) = oneshot::channel();
 
 		self.0
@@ -334,7 +330,7 @@ impl SystemComm {
 			.expect("System channel closed trying to cancel a not running task");
 
 		rx.await
-			.expect("System channel closed trying receive cancel a not running task response")
+			.expect("System channel closed trying receive cancel a not running task response");
 	}
 
 	pub async fn request_help(&self, worker_id: WorkerId, task_count: usize) {

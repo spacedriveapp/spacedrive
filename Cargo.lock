@@ -7798,10 +7798,13 @@ dependencies = [
 name = "sd-core-heavy-lifting"
 version = "0.1.0"
 dependencies = [
+ "async-channel",
  "async-trait",
  "chrono",
+ "futures",
  "futures-concurrency",
  "globset",
+ "itertools 0.12.0",
  "lending-stream",
  "prisma-client-rust",
  "rmp-serde",
@@ -7816,6 +7819,7 @@ dependencies = [
  "sd-utils",
  "serde",
  "serde_json",
+ "specta",
  "tempfile",
  "thiserror",
  "tokio",
