@@ -109,7 +109,17 @@ export const teamMembers: Array<TeamMemberProps> = [
 		role: 'TypeScript Engineer - Intern',
 		imageUrl: '/images/team/matthew.jpg',
 		socials: {
-			github: 'https://myung03.github.io'
+			website: 'https://myung03.github.io'
+		}
+	},
+	{
+		name: 'Arnab Chakraborty',
+		location: 'New York, United States',
+		role: 'Full Stack Engineer - Intern',
+		imageUrl: '/images/team/arnab.jpg',
+		socials: {
+			website: 'https://rocky43007.vercel.app',
+			github: 'https://github.com/Rocky43007'
 		}
 	}
 ];

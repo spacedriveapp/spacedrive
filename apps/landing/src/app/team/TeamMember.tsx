@@ -1,4 +1,4 @@
-import { Dribbble, Github, Gitlab, Twitch, Twitter } from '@sd/assets/svgs/brands';
+import { Dribbble, Github, Gitlab, Twitch, Twitter, Website } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
 import Image from 'next/image';
 import NextLink from 'next/link';
@@ -24,6 +24,7 @@ export interface TeamMemberProps {
 		github?: string;
 		gitlab?: string;
 		dribbble?: string;
+		website?: string;
 	};
 
 	// Which round an investor joined at
@@ -96,6 +97,11 @@ export function TeamMember(props: TeamMemberProps) {
 				{props.socials?.dribbble && (
 					<Link href={props.socials.dribbble}>
 						<Dribbble className="h-[20px] w-[20px]" />
+					</Link>
+				)}
+				{props.socials?.website && (
+					<Link href={props.socials.website}>
+						<Website className="h-[20px] w-[20px]" />
 					</Link>
 				)}
 			</div>
