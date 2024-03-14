@@ -47,9 +47,20 @@ module.exports = {
 			faint: `hsla(${DARK_HUE}, 10%, 55%, ${ALPHA})`
 		},
 		mobile: {
-			header: `hsla(${DARK_HUE}, 15%, 10%, ${ALPHA})`,
+			//BG colors for elements
+			header: `hsla(${DARK_HUE}, 10%, 6%, ${ALPHA})`,
 			screen: `hsla(${DARK_HUE}, 15%, 12%, ${ALPHA})`,
-			navtab: `hsla(${DARK_HUE}, 15%, 8%, ${ALPHA})`
+			navtab: `hsla(${DARK_HUE}, 10%, 6%, ${ALPHA})`,
+			card: `hsla(${DARK_HUE}, 10%, 5%, ${ALPHA})`,
+			divider: `hsla(${DARK_HUE}, 10%, 20%, ${ALPHA})`,
+			input: `hsla(${DARK_HUE}, 10%, 4%, ${ALPHA})`,
+			boxLight: `hsla(${DARK_HUE}, 10%, 10%, ${ALPHA})`,
+			//Borders
+			cardborder: `hsla(${DARK_HUE}, 10%, 10%, ${ALPHA})`,
+			dropdown: `hsla(${DARK_HUE}, 10%, 10%, ${ALPHA})`,
+			dropdownborder: `hsla(${DARK_HUE}, 10%, 16%, ${ALPHA})`,
+			lightborder: `hsla(${DARK_HUE}, 10%, 20%, ${ALPHA})`,
+			iconborder: `hsla(${DARK_HUE}, 10%, 100%, ${ALPHA})`,
 		},
 		app: {
 			DEFAULT: `hsla(${DARK_HUE}, 15%, 13%, ${ALPHA})`,

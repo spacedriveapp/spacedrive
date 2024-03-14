@@ -6,6 +6,7 @@ import { tw } from '~/lib/tailwind';
 
 import FolderIcon from '../icons/FolderIcon';
 import Fade from '../layout/Fade';
+import Card from '../layout/Card';
 
 const Jobs = () => {
 	return (
@@ -13,7 +14,7 @@ const Jobs = () => {
 			<View style={tw`w-full flex-row items-center justify-between px-5`}>
 				<Text style={tw`text-lg font-bold text-white`}>Jobs</Text>
 			</View>
-			<Fade color="mobile-screen" height="100%" width={30}>
+			<Fade color="black" height="100%" width={30}>
 				<ScrollView horizontal showsHorizontalScrollIndicator={false}>
 					<View style={tw`flex-row gap-2 px-5`}>
 						<Job message="Processed 300 of 1431 orphan paths..." progress={55} />
@@ -44,11 +45,11 @@ const Job = ({ progress, message, error }: JobProps) => {
 			? tw.color('green-500')
 			: tw.color('accent');
 	return (
-		<View
-			style={tw`h-[170px] w-[310px] flex-col rounded-md border border-app-line/50 bg-app-box/50`}
+		<Card
+			style={tw`h-[170px] w-[310px] flex-col p-0`}
 		>
 			<View
-				style={tw`w-full flex-row items-center justify-between rounded-t-md border-b border-sidebar-line/80 bg-mobile-header/50 px-5 py-2`}
+				style={tw`w-full flex-row items-center justify-between rounded-t-md border-b border-mobile-cardborder px-5 py-2`}
 			>
 				<View style={tw`flex-row items-center gap-2`}>
 					<FolderIcon size={36} />
@@ -82,7 +83,7 @@ const Job = ({ progress, message, error }: JobProps) => {
 				</AnimatedCircularProgress>
 				<Text style={tw`w-[60%] text-sm leading-5 text-ink-dull`}>{message}</Text>
 			</View>
-		</View>
+		</Card>
 	);
 };
 

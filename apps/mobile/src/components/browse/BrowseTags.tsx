@@ -1,134 +1,19 @@
 import { useNavigation } from '@react-navigation/native';
-import { DotsThreeOutlineVertical, Eye, Pen, Plus, Trash } from 'phosphor-react-native';
+import {  Eye, Plus } from 'phosphor-react-native';
 import React, { useRef } from 'react';
-import { Animated, Pressable, Text, View } from 'react-native';
-import { FlatList, Swipeable } from 'react-native-gesture-handler';
-import { ClassInput } from 'twrnc/dist/esm/types';
-import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { Pressable, Text, View } from 'react-native';
+import { FlatList} from 'react-native-gesture-handler';
+import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
-import { tw, twStyle } from '~/lib/tailwind';
+import { tw} from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 
 import { Icon } from '../icons/Icon';
 import Fade from '../layout/Fade';
-import DeleteTagModal from '../modal/confirmModals/DeleteTagModal';
 import CreateTagModal from '../modal/tag/CreateTagModal';
-import { TagModal } from '../modal/tag/TagModal';
-import UpdateTagModal from '../modal/tag/UpdateTagModal';
-import { AnimatedButton, FakeButton } from '../primitive/Button';
+import { TagItem } from '../tags/TagItem';
 
-type TagItemProps = {
-	tag: Tag;
-	onPress: () => void;
-	tagStyle?: ClassInput;
-	viewStyle?: 'grid' | 'list';
-};
 
-export const TagItem = ({ tag, onPress, tagStyle, viewStyle = 'grid' }: TagItemProps) => {
-	const modalRef = useRef<ModalRef>(null);
-
-	// NOTE: Might wanna move this function to a separate file/component
-	const renderTagView = () => (
-		<View
-			style={twStyle(
-				`h-auto flex-col justify-center gap-2.5 rounded-md border border-app-line/50 bg-app-box/50 p-2`,
-				viewStyle === 'grid' ? 'w-[90px]' : 'w-full',
-				tagStyle
-			)}
-		>
-			<View style={tw`flex-row items-center justify-between`}>
-				<View
-					style={twStyle('h-[28px] w-[28px] rounded-full', {
-						backgroundColor: tag.color!
-					})}
-				/>
-				<Pressable onPress={() => modalRef.current?.present()}>
-					<DotsThreeOutlineVertical
-						weight="fill"
-						size={20}
-						color={tw.color('ink-faint')}
-					/>
-				</Pressable>
-			</View>
-			<Text style={tw`w-full max-w-[75px] text-xs font-bold text-white`} numberOfLines={1}>
-				{tag.name}
-			</Text>
-		</View>
-	);
-
-	// NOTE: Might wanna move this function to a separate file/component
-	const renderRightActions = (
-		progress: Animated.AnimatedInterpolation<number>,
-		_dragX: Animated.AnimatedInterpolation<number>,
-		swipeable: Swipeable
-	) => {
-		const translate = progress.interpolate({
-			inputRange: [0, 1],
-			outputRange: [100, 0],
-			extrapolate: 'clamp'
-		});
-
-		return (
-			<Animated.View
-				style={[
-					tw`ml-0 flex flex-row items-center`,
-					{ transform: [{ translateX: translate }] }
-				]}
-			>
-				<UpdateTagModal tag={tag} ref={modalRef} onSubmit={() => swipeable.close()} />
-				<AnimatedButton onPress={() => modalRef.current?.present()}>
-					<Pen size={18} color="white" />
-				</AnimatedButton>
-				<DeleteTagModal
-					tagId={tag.id}
-					trigger={
-						<FakeButton style={tw`mx-2`}>
-							<Trash size={18} color="white" />
-						</FakeButton>
-					}
-				/>
-			</Animated.View>
-		);
-	};
-
-	return (
-		<Pressable onPress={onPress} testID="browse-tag">
-			{viewStyle === 'grid' ? (
-				renderTagView()
-			) : (
-				<Swipeable
-					containerStyle={tw`rounded-md border border-app-line/50 bg-app-box/50 p-3`}
-					enableTrackpadTwoFingerGesture
-					renderRightActions={renderRightActions}
-				>
-					<View style={twStyle('h-auto flex-row items-center justify-between', tagStyle)}>
-						<View style={tw`flex-1 flex-row items-center gap-2`}>
-							<View
-								style={twStyle('h-[28px] w-[28px] rounded-full', {
-									backgroundColor: tag.color!
-								})}
-							/>
-							<Text
-								style={tw`w-full max-w-[75px] text-xs font-bold text-white`}
-								numberOfLines={1}
-							>
-								{tag.name}
-							</Text>
-						</View>
-						<Pressable onPress={() => modalRef.current?.present()}>
-							<DotsThreeOutlineVertical
-								weight="fill"
-								size={20}
-								color={tw.color('ink-faint')}
-							/>
-						</Pressable>
-					</View>
-				</Swipeable>
-			)}
-			<TagModal ref={modalRef} tag={tag} />
-		</Pressable>
-	);
-};
 
 const BrowseTags = () => {
 	const navigation = useNavigation<BrowseStackScreenProps<'Browse'>['navigation']>();
@@ -159,14 +44,14 @@ const BrowseTags = () => {
 					</Pressable>
 					<Pressable onPress={() => modalRef.current?.present()}>
 						<View
-							style={tw`h-8 w-8 items-center justify-center rounded-md border border-dashed border-ink-faint bg-transparent`}
+							style={tw`h-8 w-8 items-center justify-center rounded-md border border-dashed border-mobile-iconborder bg-transparent`}
 						>
-							<Plus weight="bold" size={18} style={tw`text-ink-faint`} />
+							<Plus weight="bold" size={18} style={tw`text-ink`} />
 						</View>
 					</Pressable>
 				</View>
 			</View>
-			<Fade color="mobile-screen" width={30} height="100%">
+			<Fade color="black" width={30} height="100%">
 				<FlatList
 					data={tagData}
 					ListEmptyComponent={() => (

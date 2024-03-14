@@ -63,7 +63,7 @@ export const Locations = ({ redirectToLocationSettings }: Props) => {
 			<Fade
 				fadeSides="top-bottom"
 				orientation="vertical"
-				color="mobile-screen"
+				color="black"
 				width={30}
 				height="100%"
 			>

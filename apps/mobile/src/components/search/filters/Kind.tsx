@@ -10,6 +10,7 @@ import SectionTitle from '~/components/layout/SectionTitle';
 import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';
 import { tw, twStyle } from '~/lib/tailwind';
 import { useSearchStore } from '~/stores/searchStore';
+import Card from '~/components/layout/Card';
 
 export const kinds = Object.keys(ObjectKind)
 	.filter((key) => !isNaN(Number(key)) && ObjectKind[Number(key)] !== undefined)
@@ -39,7 +40,7 @@ const Kind = () => {
 				sub="What kind of objects should be searched?"
 			/>
 			<View>
-				<Fade color="mobile-screen" width={30} height="100%">
+				<Fade color="black" width={30} height="100%">
 					<VirtualizedListWrapper horizontal>
 						<FlatList
 							data={kinds}
@@ -88,15 +89,13 @@ const KindFilter = memo(({ data }: KindFilterProps) => {
 	return (
 		<Pressable
 			onPress={onPress}
-			style={twStyle(
-				`mr-2 w-auto flex-row items-center gap-2 rounded-md border border-app-line/50 bg-app-box/50 p-2.5`,
-				{
-					borderColor: isSelected ? tw.color('accent') : tw.color('app-line/50')
-				}
-			)}
 		>
+			<Card style={twStyle(`mr-2 w-auto flex-row items-center gap-2 p-2.5`, {
+				borderColor: isSelected ? tw.color('accent') : tw.color('mobile-cardborder')
+			})}>
 			<Icon name={data.icon} size={20} />
 			<Text style={tw`text-sm text-ink`}>{data.name}</Text>
+			</Card>
 		</Pressable>
 	);
 });

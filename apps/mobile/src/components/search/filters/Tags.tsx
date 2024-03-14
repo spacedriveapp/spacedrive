@@ -9,6 +9,7 @@ import SectionTitle from '~/components/layout/SectionTitle';
 import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';
 import { tw, twStyle } from '~/lib/tailwind';
 import { useSearchStore } from '~/stores/searchStore';
+import Card from '~/components/layout/Card';
 
 const Tags = () => {
 	const tags = useLibraryQuery(['tags.list']);
@@ -30,7 +31,7 @@ const Tags = () => {
 				sub="What tags would you like to filter by?"
 			/>
 			<View>
-				<Fade color="mobile-screen" width={30} height="100%">
+				<Fade color="black" width={30} height="100%">
 					<VirtualizedListWrapper horizontal>
 						<FlatList
 							data={tagsData}
@@ -74,19 +75,17 @@ const TagFilter = memo(({ tag }: Props) => {
 	return (
 		<Pressable
 			onPress={onPress}
-			style={twStyle(
-				`mr-2 w-auto flex-row items-center gap-2 rounded-md border border-app-line/50 bg-app-box/50 p-2.5`,
-				{
-					borderColor: isSelected ? tw.color('accent') : tw.color('app-line/50')
-				}
-			)}
 		>
+				<Card style={twStyle(`mr-2 w-auto flex-row items-center gap-2 p-2.5`, {
+				borderColor: isSelected ? tw.color('accent') : tw.color('mobile-cardborder')
+			})}>
 			<View
 				style={twStyle(`h-5 w-5 rounded-full`, {
 					backgroundColor: tag.color!
 				})}
 			/>
 			<Text style={tw`text-sm font-medium text-ink`}>{tag?.name}</Text>
+			</Card>
 		</Pressable>
 	);
 });

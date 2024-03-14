@@ -24,7 +24,7 @@ export default function BrowseStack() {
 				component={LocationScreen}
 				options={{
 					header: (route) => (
-						<Header route={route} headerKind="location" routeTitle navBack />
+						<Header route={route} headerKind="location" routeTitle navBack navBackHome />
 					)
 				}}
 			/>

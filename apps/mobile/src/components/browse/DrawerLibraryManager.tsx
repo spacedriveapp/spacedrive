@@ -31,10 +31,10 @@ const BrowseLibraryManager = ({ style }: Props) => {
 			<Pressable onPress={() => setDropdownClosed((v) => !v)}>
 				<View
 					style={twStyle(
-						'flex h-11 w-full flex-row items-center justify-between border bg-sidebar-box px-3 shadow-sm',
+						'flex h-11 w-full flex-row items-center justify-between border bg-mobile-dropdown px-3 shadow-sm',
 						dropdownClosed
-							? 'rounded-md border-sidebar-line/50'
-							: 'rounded-t-md border-sidebar-line border-b-app-box bg-sidebar-button'
+							? 'rounded-md border-mobile-dropdownborder'
+							: 'rounded-t-md border-mobile-dropdownborder border-b-mobile-dropdownborder'
 					)}
 				>
 					<Text style={tw`text-md font-semibold text-ink`}>
@@ -50,7 +50,7 @@ const BrowseLibraryManager = ({ style }: Props) => {
 			</Pressable>
 			<AnimatedHeight style={tw`absolute top-10 z-10 w-full`} hide={dropdownClosed}>
 				<View
-					style={tw`w-full rounded-b-md border border-sidebar-line bg-sidebar-button p-2`}
+					style={tw`w-full rounded-b-md border border-zinc-800 bg-zinc-900 p-2`}
 				>
 					{/* Libraries */}
 					{libraries.data?.map((library) => {

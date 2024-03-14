@@ -1,4 +1,4 @@
-import { useNavigation } from '@react-navigation/native';
+import { StackActions, useNavigation } from '@react-navigation/native';
 import { StackHeaderProps } from '@react-navigation/stack';
 import { ArrowLeft, DotsThreeOutline, MagnifyingGlass } from 'phosphor-react-native';
 import { Pressable, Text, View } from 'react-native';
@@ -10,24 +10,40 @@ import BrowseLibraryManager from '../browse/DrawerLibraryManager';
 import { Icon } from '../icons/Icon';
 import Search from '../search/Search';
 
-type HeaderProps = {
+interface HeaderProps {
 	title?: string; //title of the page
 	showLibrary?: boolean; //show the library manager
 	showSearch?: boolean; //show the search button
 	searchType?: 'explorer' | 'location'; //Temporary
-	navBack?: boolean; //navigate back to the previous screen
 	headerKind?: 'default' | 'location' | 'tag'; //kind of header
-	route?: never;
-	routeTitle?: never;
 };
 
-//you can pass in a routeTitle only if route is passed in
-type Props =
-	| HeaderProps
-	| ({
-			route: StackHeaderProps;
-			routeTitle?: boolean;
-	  } & Omit<HeaderProps, 'route' | 'routeTitle'>);
+// Props for the header with route
+interface HeaderPropsWithRoute extends HeaderProps {
+	route: StackHeaderProps;
+	routeTitle?: boolean; // Use the title from the route
+}
+
+// Props for the header with navigation
+interface HeaderPropsWithNav extends HeaderProps {
+	navBack: boolean; //navigate back to the previous screen
+	navBackHome?: boolean; //navigate back to the home screen of the stack
+}
+
+// Optional versions of the Route and Nav props
+interface OptionalRouteProps {
+	route?: StackHeaderProps;
+	routeTitle?: never; // Prevents using routeTitle without route
+  }
+
+  interface OptionalNavProps {
+	navBack?: boolean;
+	navBackHome?: never; // Prevents using navBackHome without navBack
+  }
+
+  // Union types to allow all combinations
+  type CombinedProps = HeaderProps & (HeaderPropsWithRoute | OptionalRouteProps) & (HeaderPropsWithNav | OptionalNavProps);
+
 
 // Default header with search bar and button to open drawer
 export default function Header({
@@ -35,11 +51,12 @@ export default function Header({
 	showLibrary,
 	searchType,
 	navBack,
+	navBackHome,
 	route,
 	routeTitle,
 	headerKind = 'default',
 	showSearch = true
-}: Props) {
+}: CombinedProps) {
 	const navigation = useNavigation();
 	const explorerStore = useExplorerStore();
 	const routeParams = route?.route.params as any;
@@ -47,7 +64,7 @@ export default function Header({
 
 	return (
 		<View
-			style={twStyle('relative h-auto w-full border-b border-app-line/50 bg-mobile-header', {
+			style={twStyle('relative h-auto w-full border-b border-mobile-cardborder bg-mobile-header', {
 				paddingTop: headerHeight
 			})}
 		>
@@ -57,6 +74,10 @@ export default function Header({
 						{navBack && (
 							<Pressable
 								onPress={() => {
+									if (navBackHome) {
+										//navigate to the home screen of the stack
+										return navigation.dispatch(StackActions.popToTop());
+									}
 									navigation.goBack();
 								}}
 							>

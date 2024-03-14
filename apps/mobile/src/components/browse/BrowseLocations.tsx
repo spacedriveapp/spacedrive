@@ -22,6 +22,7 @@ import { Icon } from '../icons/Icon';
 import Fade from '../layout/Fade';
 import ImportModal from '../modal/ImportModal';
 import { LocationModal } from '../modal/location/LocationModal';
+import Card from '../layout/Card';
 
 interface BrowseLocationItemProps {
 	location: Location;
@@ -39,9 +40,7 @@ const BrowseLocationItem: React.FC<BrowseLocationItemProps> = ({
 	const modalRef = useRef<ModalRef>(null);
 	return (
 		<Pressable onPress={onPress}>
-			<View
-				style={tw`h-auto w-[110px] flex-col justify-center gap-3 rounded-md border border-app-line/50 bg-app-box/50 p-2`}
-			>
+			<Card style={"h-auto w-[110px] flex-col justify-center gap-3"}>
 				<View style={tw`w-full flex-col justify-between gap-1`}>
 					<View style={tw`flex-row items-center justify-between`}>
 						<View style={tw`relative`}>
@@ -71,7 +70,7 @@ const BrowseLocationItem: React.FC<BrowseLocationItemProps> = ({
 				<Text style={tw`text-left text-[13px] font-bold text-ink-dull`} numberOfLines={1}>
 					{`${byteSize(location.size_in_bytes)}`}
 				</Text>
-			</View>
+			</Card>
 			<LocationModal
 				editLocation={() => {
 					editLocation();
@@ -107,28 +106,26 @@ const BrowseLocations = () => {
 						}}
 					>
 						<View
-							style={tw`h-8 w-8 items-center justify-center rounded-md bg-accent  ${
-								result.data?.nodes.length === 0 ? 'opacity-40' : 'opacity-100'
-							}`}
+							style={tw`h-8 w-8 items-center justify-center rounded-md bg-accent`}
 						>
 							<Eye weight="bold" size={18} style={tw`text-white`} />
 						</View>
 					</Pressable>
 					<Pressable onPress={() => modalRef.current?.present()}>
 						<View
-							style={tw`h-8 w-8 items-center justify-center rounded-md border border-dashed border-ink-faint bg-transparent`}
+							style={tw`h-8 w-8 items-center justify-center rounded-md border border-dashed border-mobile-iconborder bg-transparent`}
 						>
-							<Plus weight="bold" size={18} style={tw`text-ink-faint`} />
+							<Plus weight="bold" size={18} style={tw`text-ink`} />
 						</View>
 					</Pressable>
 				</View>
 			</View>
-			<Fade color="mobile-screen" width={30} height="100%">
+			<Fade color="black" width={30} height="100%">
 				<FlatList
 					data={locations}
 					ListEmptyComponent={() => (
 						<View
-							style={tw`relative h-auto w-[87.5vw] flex-col items-center justify-center overflow-hidden rounded-md border border-dashed border-sidebar-line  p-4`}
+							style={tw`relative h-auto w-[87.5vw] flex-col items-center justify-center overflow-hidden rounded-md border border-dashed border-mobile-lightborder p-4`}
 						>
 							<Icon name="Folder" size={38} />
 							<Text style={tw`mt-2 text-center font-medium text-ink-dull`}>

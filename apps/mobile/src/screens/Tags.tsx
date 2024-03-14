@@ -4,7 +4,6 @@ import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { useCache, useLibraryQuery, useNodes } from '@sd/client';
-import { TagItem } from '~/components/browse/BrowseTags';
 import { Icon } from '~/components/icons/Icon';
 import Fade from '~/components/layout/Fade';
 import { ModalRef } from '~/components/layout/Modal';
@@ -12,6 +11,7 @@ import ScreenContainer from '~/components/layout/ScreenContainer';
 import CreateTagModal from '~/components/modal/tag/CreateTagModal';
 import { tw, twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
+import { TagItem } from '~/components/tags/TagItem';
 
 interface Props {
 	viewStyle?: 'grid' | 'list';
@@ -35,11 +35,10 @@ export default function Tags({ viewStyle = 'list' }: Props) {
 			>
 				<Plus size={20} weight="bold" style={tw`text-ink`} />
 			</Pressable>
-
 			<Fade
 				fadeSides="top-bottom"
 				orientation="vertical"
-				color="mobile-screen"
+				color="black"
 				width={30}
 				height="100%"
 			>

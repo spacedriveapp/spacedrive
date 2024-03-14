@@ -19,6 +19,7 @@ import Kind from './Kind';
 import Locations from './Locations';
 import Name from './Name';
 import Tags from './Tags';
+import Card from '~/components/layout/Card';
 
 const options = [
 	{
@@ -159,17 +160,17 @@ interface FilterOptionProps {
 
 const FilterOption = ({ name, Icon, isSelected }: FilterOptionProps) => {
 	return (
-		<View
+		<Card
 			style={twStyle(
-				`w-full flex-row items-center justify-center gap-1.5 rounded-md border bg-app-box/50 py-2.5`,
+				`w-full flex-row items-center justify-center gap-1.5 py-2.5`,
 				{
-					borderColor: isSelected ? tw.color('accent') : tw.color('app-line/50')
+					borderColor: isSelected ? tw.color('accent') : tw.color('mobile-cardborder')
 				}
 			)}
 		>
 			<Icon size={18} color={tw.color('ink-dull')} />
 			<Text style={tw`text-sm font-medium text-ink`}>{name}</Text>
-		</View>
+		</Card>
 	);
 };
 

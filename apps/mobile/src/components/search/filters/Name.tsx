@@ -55,11 +55,9 @@ const NameInput = ({ index }: NameInputProps) => {
 			{index !== 0 && (
 				<Pressable
 					onPress={() => searchStore.removeInput(index, 'name')}
-					style={tw`items-center justify-center rounded-md border border-app-line bg-app-input p-2`}
+					style={tw`items-center justify-center rounded-md border border-mobile-cardborder bg-mobile-boxLight p-2`}
 				>
-					<View>
 						<Trash size={20} color={tw.color('ink')} />
-					</View>
 				</Pressable>
 			)}
 		</View>
