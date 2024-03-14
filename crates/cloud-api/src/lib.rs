@@ -291,7 +291,7 @@ pub mod library {
 				))
 				.json(&json!({
 					"nodeId": node_id,
-					"metadata": serde_json::to_string(&metadata).map_err(|e| Error(e.to_string()))?,
+					"metadata": metadata,
 				}))
 				.with_auth(auth_token)
 				.send()
@@ -326,7 +326,7 @@ pub mod library {
 				.json(&json!({
 					"instanceIdentity": instance_identity,
 					"nodeId": node_id,
-					"metadata": serde_json::to_string(&metadata).map_err(|e| Error(e.to_string()))?,
+					"metadata": metadata,
 				}))
 				.with_auth(auth_token)
 				.send()
