@@ -55,11 +55,7 @@ model Instance {
   pub_id   Bytes @unique // This UUID is meaningless and exists soley cause the `uhlc::ID` must be 16-bit. Really this should be derived from the `identity` field.
   // Enum: sd_core::p2p::IdentityOrRemoteIdentity
   identity Bytes
-
-  node_id       Bytes
-  node_name     String
-  // Enum: sd_core::node::Platform
-  node_platform Int
+  metadata Bytes
 
   last_seen    DateTime // Time core started for owner, last P2P message for P2P node
   date_created DateTime
@@ -67,10 +63,7 @@ model Instance {
   // clock timestamp for sync
   timestamp BigInt?
 
-  // attestation Bytes
-
-  locations Location[]
-
+  locations          Location[]
   CRDTOperation      CRDTOperation[]
   CloudCRDTOperation CloudCRDTOperation[]
 
@@ -346,8 +339,8 @@ model TagOnObject {
 
 /// @shared(id: name)
 model Label {
-  id            Int      @id @default(autoincrement())
-  name          String   @unique
+  id            Int       @id @default(autoincrement())
+  name          String    @unique
   date_created  DateTime?
   date_modified DateTime?
 
