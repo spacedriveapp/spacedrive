@@ -1,10 +1,11 @@
 import { useNavigation } from '@react-navigation/native';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, FlashListProps } from '@shopify/flash-list';
+import { UseInfiniteQueryResult } from '@tanstack/react-query';
 import { AnimatePresence, MotiView } from 'moti';
 import { MonitorPlay, Rows, SlidersHorizontal, SquaresFour } from 'phosphor-react-native';
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
-import { isPath, type ExplorerItem } from '@sd/client';
+import { ActivityIndicator, Pressable, View } from 'react-native';
+import { isPath, SearchData, type ExplorerItem } from '@sd/client';
 import Layout from '~/constants/Layout';
 import { tw } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
@@ -16,10 +17,15 @@ import FileItem from './FileItem';
 import FileRow from './FileRow';
 
 type ExplorerProps = {
-	items?: ExplorerItem[];
+	tabHeight?: boolean;
+	items: ExplorerItem[] | null;
+	/** Function to fetch next page of items. */
+	loadMore: () => void;
+	query: UseInfiniteQueryResult<SearchData<ExplorerItem>>;
+	count?: number;
 };
 
-const Explorer = ({ items }: ExplorerProps) => {
+const Explorer = (props: ExplorerProps) => {
 	const navigation = useNavigation<BrowseStackScreenProps<'Location'>['navigation']>();
 	const explorerStore = useExplorerStore();
 	const [layoutMode, setLayoutMode] = useState<ExplorerLayoutMode>(getExplorerStore().layoutMode);
@@ -45,7 +51,7 @@ const Explorer = ({ items }: ExplorerProps) => {
 	}
 
 	return (
-		<ScreenContainer scrollview={false} style={'gap-0 py-0'}>
+		<ScreenContainer tabHeight={props.tabHeight} scrollview={false} style={'gap-0 py-0'}>
 			{/* Header */}
 			<View style={tw`flex flex-row items-center justify-between`}>
 				{/* Sort By */}
@@ -79,36 +85,33 @@ const Explorer = ({ items }: ExplorerProps) => {
 				)} */}
 			</View>
 			{/* Items */}
-			{items && (
-				<FlashList
-					key={layoutMode}
-					numColumns={layoutMode === 'grid' ? getExplorerStore().gridNumColumns : 1}
-					data={items}
-					keyExtractor={(item) =>
-						item.type === 'NonIndexedPath'
-							? item.item.path
-							: item.type === 'SpacedropPeer'
-								? item.item.name
-								: item.item.id.toString()
-					}
-					renderItem={({ item }) => (
-						<Pressable onPress={() => handlePress(item)}>
-							{layoutMode === 'grid' ? (
-								<FileItem data={item} />
-							) : (
-								<FileRow data={item} />
-							)}
-						</Pressable>
-					)}
-					contentContainerStyle={tw`p-2`}
-					extraData={layoutMode}
-					estimatedItemSize={
-						layoutMode === 'grid'
-							? Layout.window.width / getExplorerStore().gridNumColumns
-							: getExplorerStore().listItemSize
-					}
-				/>
-			)}
+			<FlashList
+				key={layoutMode}
+				numColumns={layoutMode === 'grid' ? getExplorerStore().gridNumColumns : 1}
+				data={props.items ?? []}
+				keyExtractor={(item) =>
+					item.type === 'NonIndexedPath'
+						? item.item.path
+						: item.type === 'SpacedropPeer'
+							? item.item.name
+							: item.item.id.toString()
+				}
+				renderItem={({ item }) => (
+					<Pressable onPress={() => handlePress(item)}>
+						{layoutMode === 'grid' ? <FileItem data={item} /> : <FileRow data={item} />}
+					</Pressable>
+				)}
+				contentContainerStyle={tw`p-2`}
+				extraData={layoutMode}
+				estimatedItemSize={
+					layoutMode === 'grid'
+						? Layout.window.width / getExplorerStore().gridNumColumns
+						: getExplorerStore().listItemSize
+				}
+				onEndReached={() => props.loadMore?.()}
+				onEndReachedThreshold={0.6}
+				ListFooterComponent={props.query.isFetchingNextPage ? <ActivityIndicator /> : null}
+			/>
 		</ScreenContainer>
 	);
 };

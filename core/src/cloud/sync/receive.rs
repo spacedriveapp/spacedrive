@@ -1,9 +1,12 @@
-use crate::library::{Libraries, Library};
+use crate::{
+	library::{Libraries, Library},
+	Node,
+};
 
 use super::{err_break, CompressedCRDTOperations};
 use sd_cloud_api::RequestConfigProvider;
 use sd_core_sync::NTP64;
-use sd_p2p2::{IdentityOrRemoteIdentity, RemoteIdentity};
+use sd_p2p::{IdentityOrRemoteIdentity, RemoteIdentity};
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
 use sd_sync::CRDTOperation;
 use sd_utils::uuid_to_bytes;
@@ -21,6 +24,9 @@ use serde_json::to_vec;
 use tokio::{sync::Notify, time::sleep};
 use uuid::Uuid;
 
+// Responsible for downloading sync operations from the cloud to be processed by the ingester
+
+#[allow(clippy::too_many_arguments)]
 pub async fn run_actor(
 	library: Arc<Library>,
 	libraries: Arc<Libraries>,
@@ -30,6 +36,7 @@ pub async fn run_actor(
 	sync: Arc<sd_core_sync::Manager>,
 	cloud_api_config_provider: Arc<impl RequestConfigProvider>,
 	ingest_notify: Arc<Notify>,
+	node: Arc<Node>,
 ) {
 	loop {
 		loop {
@@ -146,8 +153,7 @@ pub async fn run_actor(
 							collection.instance_uuid,
 							instance.identity,
 							instance.node_id,
-							instance.node_name.clone(),
-							instance.node_platform,
+							node.p2p.peer_metadata(),
 						)
 						.await
 					);
@@ -198,7 +204,7 @@ fn crdt_op_db(op: &CRDTOperation) -> cloud_crdt_operation::Create {
 		kind: op.data.as_kind().to_string(),
 		data: to_vec(&op.data).expect("unable to serialize data"),
 		model: op.model.to_string(),
-		record_id: to_vec(&op.record_id).expect("unable to serialize record id"),
+		record_id: rmp_serde::to_vec(&op.record_id).expect("unable to serialize record id"),
 		_params: vec![],
 	}
 }
@@ -209,8 +215,7 @@ pub async fn create_instance(
 	uuid: Uuid,
 	identity: RemoteIdentity,
 	node_id: Uuid,
-	node_name: String,
-	node_platform: u8,
+	metadata: HashMap<String, String>,
 ) -> prisma_client_rust::Result<()> {
 	library
 		.db
@@ -221,11 +226,11 @@ pub async fn create_instance(
 				uuid_to_bytes(uuid),
 				IdentityOrRemoteIdentity::RemoteIdentity(identity).to_bytes(),
 				node_id.as_bytes().to_vec(),
-				node_name,
-				node_platform as i32,
 				Utc::now().into(),
 				Utc::now().into(),
-				vec![],
+				vec![instance::metadata::set(Some(
+					serde_json::to_vec(&metadata).expect("unable to serialize metadata"),
+				))],
 			),
 			vec![],
 		)

@@ -5,7 +5,6 @@ use crate::{
 		indexer,
 		metadata::{LocationMetadataError, SpacedriveLocationMetadataFile},
 	},
-	node::Platform,
 	object::tag,
 	p2p, sync,
 	util::{mpscrr, MaybeUndefined},
@@ -13,7 +12,7 @@ use crate::{
 };
 
 use sd_core_sync::SyncMessage;
-use sd_p2p2::{Identity, IdentityOrRemoteIdentity};
+use sd_p2p::{Identity, IdentityOrRemoteIdentity};
 use sd_prisma::prisma::{crdt_operation, instance, location, SortOrder};
 use sd_utils::{
 	db,
@@ -206,11 +205,12 @@ impl Libraries {
 						pub_id: Uuid::new_v4().as_bytes().to_vec(),
 						identity: IdentityOrRemoteIdentity::Identity(Identity::new()).to_bytes(),
 						node_id: node_cfg.id.as_bytes().to_vec(),
-						node_name: node_cfg.name.clone(),
-						node_platform: Platform::current() as i32,
 						last_seen: now,
 						date_created: now,
-						_params: vec![],
+						_params: vec![instance::metadata::set(Some(
+							serde_json::to_vec(&node.p2p.peer_metadata())
+								.expect("invalid node metadata"),
+						))],
 					});
 					create._params.push(instance::id::set(config.instance_id));
 					create
@@ -418,7 +418,8 @@ impl Libraries {
 			.find(|i| i.id == config.instance_id)
 			.ok_or_else(|| {
 				LibraryManagerError::CurrentInstanceNotFound(config.instance_id.to_string())
-			})?;
+			})?
+			.clone();
 
 		let identity = Arc::new(
 			match IdentityOrRemoteIdentity::from_bytes(&instance.identity)? {
@@ -430,12 +431,12 @@ impl Libraries {
 		);
 
 		let instance_id = Uuid::from_slice(&instance.pub_id)?;
-		let curr_platform = Platform::current() as i32;
+		let curr_metadata: Option<HashMap<String, String>> = instance
+			.metadata
+			.as_ref()
+			.map(|metadata| serde_json::from_slice(metadata).expect("invalid metadata"));
 		let instance_node_id = Uuid::from_slice(&instance.node_id)?;
-		if instance_node_id != node_config.id
-			|| instance.node_platform != curr_platform
-			|| instance.node_name != node_config.name
-		{
+		if instance_node_id != node_config.id || curr_metadata != Some(node.p2p.peer_metadata()) {
 			info!(
 				"Detected that the library '{}' has changed node from '{}' to '{}'. Reconciling node data...",
 				id, instance_node_id, node_config.id
@@ -446,8 +447,10 @@ impl Libraries {
 					instance::id::equals(instance.id),
 					vec![
 						instance::node_id::set(node_config.id.as_bytes().to_vec()),
-						instance::node_platform::set(curr_platform),
-						instance::node_name::set(node_config.name),
+						instance::metadata::set(Some(
+							serde_json::to_vec(&node.p2p.peer_metadata())
+								.expect("invalid peer metdata"),
+						)),
 					],
 				)
 				.exec()
@@ -557,10 +560,13 @@ impl Libraries {
 										.find(|i| i.uuid == library.instance_uuid)
 									{
 										let node_config = node.config.get().await;
+										let curr_metadata: Option<HashMap<String, String>> =
+											instance.metadata.as_ref().map(|metadata| {
+												serde_json::from_slice(metadata)
+													.expect("invalid metadata")
+											});
 										let should_update = this_instance.node_id != node_config.id
-											|| this_instance.node_platform
-												!= (Platform::current() as u8)
-											|| this_instance.node_name != node_config.name;
+											|| curr_metadata != Some(node.p2p.peer_metadata());
 
 										if should_update {
 											warn!("Library instance on cloud is outdated. Updating...");
@@ -571,8 +577,7 @@ impl Libraries {
 													library.id,
 													this_instance.uuid,
 													Some(node_config.id),
-													Some(node_config.name),
-													Some(Platform::current() as u8),
+													Some(node.p2p.peer_metadata()),
 												)
 												.await
 											{
@@ -608,8 +613,7 @@ impl Libraries {
 											instance.uuid,
 											instance.identity,
 											instance.node_id,
-											instance.node_name,
-											instance.node_platform,
+											instance.metadata,
 										)
 										.await
 										{

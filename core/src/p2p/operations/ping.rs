@@ -1,4 +1,4 @@
-use sd_p2p2::UnicastStream;
+use sd_p2p::UnicastStream;
 use tracing::debug;
 
 /// Send a ping to all peers we are connected to

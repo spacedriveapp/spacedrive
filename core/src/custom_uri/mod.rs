@@ -10,7 +10,7 @@ use crate::{
 use hyper::{header, upgrade::OnUpgrade};
 use sd_file_ext::text::is_text;
 use sd_file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData};
-use sd_p2p2::{IdentityOrRemoteIdentity, RemoteIdentity};
+use sd_p2p::{IdentityOrRemoteIdentity, RemoteIdentity};
 use sd_prisma::prisma::{file_path, location};
 use sd_utils::db::maybe_missing;
 
@@ -332,8 +332,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 						.parse()
 						.expect("url was validated by Axum");
 
-					let request_upgrade_header =
-						request.headers().get(header::UPGRADE).map(Clone::clone);
+					let request_upgrade_header = request.headers().get(header::UPGRADE).cloned();
 					let maybe_client_upgrade = request.extensions_mut().remove::<OnUpgrade>();
 
 					let mut response = match operations::remote_rspc(

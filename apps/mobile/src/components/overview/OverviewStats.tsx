@@ -31,7 +31,7 @@ const StatItem = ({ title, bytes, isLoading, style }: StatItemProps) => {
 	return (
 		<View
 			style={twStyle(
-				'border-app-line/50 bg-app-box/50 flex flex-col items-center justify-center rounded-md border p-2',
+				'flex flex-col items-center justify-center rounded-md border border-app-line/50 bg-app-box/50 p-2',
 				style,
 				{
 					hidden: isLoading
@@ -95,11 +95,11 @@ const OverviewStats = ({ stats }: Props) => {
 			}
 			return (
 				<StatItem
-					key={`${library.uuid} ${key}`}
+					key={`${library.uuid}_${key}`}
 					title={StatItemNames[key as keyof Statistics]!}
 					bytes={bytes}
 					isLoading={stats.isLoading}
-					style={tw`${isTotalStat ? 'h-[101px] w-full' : 'w-full'} flex-1`}
+					style={twStyle(isTotalStat && 'h-[101px]', 'w-full flex-1')}
 				/>
 			);
 		});

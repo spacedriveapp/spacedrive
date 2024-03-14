@@ -1,7 +1,6 @@
 import { CompositeScreenProps } from '@react-navigation/native';
 import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
 import Header from '~/components/header/Header';
-import { tw } from '~/lib/tailwind';
 import AppearanceSettingsScreen from '~/screens/settings/client/AppearanceSettings';
 import ExtensionsSettingsScreen from '~/screens/settings/client/ExtensionsSettings';
 import GeneralSettingsScreen from '~/screens/settings/client/GeneralSettings';
@@ -25,15 +24,7 @@ const Stack = createStackNavigator<SettingsStackParamList>();
 
 export default function SettingsStack() {
 	return (
-		<Stack.Navigator
-			initialRouteName="Settings"
-			screenOptions={{
-				headerStyle: { backgroundColor: tw.color('app-box') },
-				headerTintColor: tw.color('ink'),
-				headerTitleStyle: tw`text-base`,
-				headerBackTitleStyle: tw`text-base`
-			}}
-		>
+		<Stack.Navigator initialRouteName="Settings">
 			<Stack.Screen
 				name="Settings"
 				component={SettingsScreen}

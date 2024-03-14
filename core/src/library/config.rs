@@ -1,9 +1,9 @@
 use crate::{
-	node::{config::NodeConfig, Platform},
+	node::config::NodeConfig,
 	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 
-use sd_p2p2::{Identity, IdentityOrRemoteIdentity};
+use sd_p2p::{Identity, IdentityOrRemoteIdentity};
 use sd_prisma::prisma::{file_path, indexer_rule, instance, location, node, PrismaClient};
 use sd_utils::{db::maybe_missing, error::FileIOError};
 
@@ -268,8 +268,6 @@ impl LibraryConfig {
 								.and_then(|n| n.identity.clone())
 								.unwrap_or_else(|| Identity::new().to_bytes()),
 							node_id: node_config.id.as_bytes().to_vec(),
-							node_name: node_config.name.clone(),
-							node_platform: Platform::current() as i32,
 							last_seen: now,
 							date_created: node.map(|n| n.date_created).unwrap_or_else(|| now),
 							_params: vec![],

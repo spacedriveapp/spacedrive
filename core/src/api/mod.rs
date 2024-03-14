@@ -10,7 +10,7 @@ use crate::{
 };
 
 use sd_cache::patch_typedef;
-use sd_p2p2::RemoteIdentity;
+use sd_p2p::RemoteIdentity;
 use std::sync::{atomic::Ordering, Arc};
 
 use itertools::Itertools;

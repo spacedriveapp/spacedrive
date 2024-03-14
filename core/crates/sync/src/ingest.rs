@@ -1,17 +1,17 @@
 use std::{ops::Deref, sync::Arc};
 
 use sd_prisma::{
-	prisma::{crdt_operation, instance, PrismaClient, SortOrder},
+	prisma::{crdt_operation, SortOrder},
 	prisma_sync::ModelSyncData,
 };
 use sd_sync::CRDTOperation;
-use serde_json::to_vec;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{mpsc, oneshot, Mutex};
 use uhlc::{Timestamp, NTP64};
 use uuid::Uuid;
 
 use crate::{
 	actor::{create_actor_io, ActorIO, ActorTypes},
+	db_operation::write_crdt_op_to_db,
 	wait, SharedState,
 };
 
@@ -19,7 +19,10 @@ use crate::{
 #[must_use]
 /// Stuff that can be handled outside the actor
 pub enum Request {
-	Messages { timestamps: Vec<(Uuid, NTP64)> },
+	Messages {
+		timestamps: Vec<(Uuid, NTP64)>,
+		tx: oneshot::Sender<()>,
+	},
 	Ingested,
 	FinishedIngesting,
 }
@@ -39,6 +42,14 @@ pub enum State {
 	Ingesting(MessagesEvent),
 }
 
+/// The single entrypoint for sync operation ingestion.
+/// Requests sync operations in a given timestamp range,
+/// and attempts to write them to the syn coperations table along with
+/// the actual cell that the operation points to.
+///
+/// If this actor stops running, no sync operations will
+/// be applied to the database, independent of whether systems like p2p
+/// or cloud are exchanging messages.
 pub struct Actor {
 	state: Option<State>,
 	shared: Arc<SharedState>,
@@ -54,6 +65,8 @@ impl Actor {
 				State::RetrievingMessages
 			}
 			State::RetrievingMessages => {
+				let (tx, mut rx) = oneshot::channel::<()>();
+
 				self.io
 					.send(Request::Messages {
 						timestamps: self
@@ -63,11 +76,21 @@ impl Actor {
 							.iter()
 							.map(|(&k, &v)| (k, v))
 							.collect(),
+						tx,
 					})
 					.await
 					.ok();
 
-				State::Ingesting(wait!(self.io.event_rx, Event::Messages(event) => event))
+				loop {
+					tokio::select! {
+						res = &mut rx => {
+							if let Err(_) = res { break State::WaitingForNotification }
+						},
+						res = self.io.event_rx.recv() => {
+							if let Some(Event::Messages(event)) = res { break State::Ingesting(event) }
+						}
+					}
+				}
 			}
 			State::Ingesting(event) => {
 				for op in event.messages {
@@ -218,68 +241,68 @@ impl ActorTypes for Actor {
 	type Handler = Handler;
 }
 
-async fn write_crdt_op_to_db(
-	op: &CRDTOperation,
-	db: &PrismaClient,
-) -> Result<(), prisma_client_rust::QueryError> {
-	crdt_op_db(op).to_query(db).exec().await?;
+#[cfg(test)]
+mod test {
+	use std::sync::atomic::AtomicBool;
 
-	Ok(())
-}
+	use uhlc::HLCBuilder;
 
-fn crdt_op_db(op: &CRDTOperation) -> crdt_operation::Create {
-	crdt_operation::Create {
-		id: op.id.as_bytes().to_vec(),
-		timestamp: op.timestamp.0 as i64,
-		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
-		kind: op.kind().to_string(),
-		data: to_vec(&op.data).unwrap(),
-		model: op.model.to_string(),
-		record_id: to_vec(&op.record_id).unwrap(),
-		_params: vec![],
+	use super::*;
+
+	async fn new_actor() -> (Handler, Arc<SharedState>) {
+		let instance = uuid::Uuid::new_v4();
+		let shared = Arc::new(SharedState {
+			db: sd_prisma::test_db().await,
+			instance,
+			clock: HLCBuilder::new().with_id(instance.into()).build(),
+			timestamps: Default::default(),
+			emit_messages_flag: Arc::new(AtomicBool::new(true)),
+		});
+
+		(Actor::spawn(shared.clone()), shared)
 	}
+
+	/// If messages tx is dropped, actor should reset and assume no further messages
+	/// will be sent
+	#[tokio::test]
+	async fn messages_request_drop() -> Result<(), ()> {
+		let (ingest, _) = new_actor().await;
+
+		for _ in [(), ()] {
+			let mut rx = ingest.req_rx.lock().await;
+
+			println!("lock acquired");
+
+			ingest.event_tx.send(Event::Notification).await.unwrap();
+
+			println!("notificaton sent");
+
+			let Some(Request::Messages { .. }) = rx.recv().await else {
+				panic!("bruh")
+			};
+
+			println!("message received")
+		}
+
+		Ok(())
+	}
+
+	// /// If messages tx is dropped, actor should reset and assume no further messages
+	// /// will be sent
+	// #[tokio::test]
+	// async fn retrieve_wait() -> Result<(), ()> {
+	// 	let (ingest, _) = new_actor().await;
+
+	// 	for _ in [(), ()] {
+	// 		let mut rx = ingest.req_rx.lock().await;
+
+	// 		ingest.event_tx.send(Event::Notification).await.unwrap();
+
+	// 		let Some(Request::Messages { .. }) = rx.recv().await else {
+	// 			panic!("bruh")
+	// 		};
+	// 	}
+
+	// 	Ok(())
+	// }
 }
-
-// #[must_use]
-// pub struct ReqRes<TReq, TResp> {
-// 	request: TReq,
-// 	response_sender: oneshot::Sender<TResp>,
-// }
-
-// impl<TReq, TResp> ReqRes<TReq, TResp> {
-// 	pub async fn send<TContainer>(
-// 		request: TReq,
-// 		container_fn: impl Fn(Self) -> TContainer,
-// 		sender: &mpsc::Sender<TContainer>,
-// 	) -> TResp {
-// 		let (tx, rx) = oneshot::channel();
-
-// 		let payload = container_fn(Self {
-// 			request,
-// 			response_sender: tx,
-// 		});
-
-// 		sender.send(payload).await.ok();
-
-// 		rx.await.unwrap()
-// 	}
-
-// 	#[must_use]
-// 	pub fn split(self) -> (TReq, impl FnOnce(TResp)) {
-// 		(self.request, |response| {
-// 			self.response_sender.send(response).ok();
-// 		})
-// 	}
-
-// 	pub async fn map<
-// 		TFn: FnOnce(TReq) -> TFut,
-// 		TFut: Future<Output = Result<TResp, TErr>>,
-// 		TErr,
-// 	>(
-// 		self,
-// 		func: TFn,
-// 	) -> Result<(), TErr> {
-// 		self.response_sender.send(func(self.request).await?).ok();
-// 		Ok(())
-// 	}
-// }

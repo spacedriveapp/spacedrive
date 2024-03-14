@@ -88,7 +88,7 @@ export const ErrorMessage = ({ name, variant, className }: ErrorMessageProps) =>
 				const message = error?.message;
 				return typeof message === 'string' ? (
 					<animated.div style={styles} className={errorStyles({ variant, className })}>
-						<Warning className="h-4 w-4" />
+						<Warning className="size-4" />
 						<p>{message}</p>
 					</animated.div>
 				) : null;

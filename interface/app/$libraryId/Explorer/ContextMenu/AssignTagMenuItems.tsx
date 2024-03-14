@@ -155,7 +155,7 @@ const Tags = ({ items, parentRef }: Props & { parentRef: RefObject<HTMLDivElemen
 			{sortedTags.length > 0 ? (
 				<div
 					ref={parentRef}
-					className="h-full w-full overflow-auto"
+					className="size-full overflow-auto"
 					style={{ maxHeight: `400px` }}
 				>
 					<div
@@ -234,7 +234,7 @@ const Tags = ({ items, parentRef }: Props & { parentRef: RefObject<HTMLDivElemen
 									}}
 								>
 									<div
-										className="mr-0.5 h-[15px] w-[15px] shrink-0 rounded-full border"
+										className="mr-0.5 size-[15px] shrink-0 rounded-full border"
 										style={{
 											backgroundColor:
 												objectsWithTag &&

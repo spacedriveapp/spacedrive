@@ -18,6 +18,7 @@ use tokio::sync::{broadcast, RwLock};
 use uhlc::{HLCBuilder, HLC};
 use uuid::Uuid;
 
+/// Wrapper that spawns the ingest actor and provides utilities for reading and writing sync operations.
 pub struct Manager {
 	pub tx: broadcast::Sender<SyncMessage>,
 	pub ingest: ingest::Handler,
@@ -117,6 +118,8 @@ impl Manager {
 		args: GetOpsArgs,
 	) -> prisma_client_rust::Result<Vec<CRDTOperation>> {
 		let db = &self.db;
+
+		dbg!(&args);
 
 		macro_rules! db_args {
 			($args:ident, $op:ident) => {

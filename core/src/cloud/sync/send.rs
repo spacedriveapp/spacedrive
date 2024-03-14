@@ -10,6 +10,8 @@ use tokio::time::sleep;
 
 use super::err_break;
 
+// Responsible for sending its instance's sync operations to the cloud.
+
 pub async fn run_actor(
 	library_id: Uuid,
 	sync: Arc<sd_core_sync::Manager>,

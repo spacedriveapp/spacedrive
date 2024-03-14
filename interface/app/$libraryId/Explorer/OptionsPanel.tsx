@@ -1,11 +1,16 @@
+import {
+	createOrdering,
+	explorerLayout,
+	getOrderingDirection,
+	orderingKey,
+	useExplorerLayoutStore
+} from '@sd/client';
 import { RadixCheckbox, Select, SelectOption, Slider, tw, z } from '@sd/ui';
-import { explorerLayout, useExplorerLayoutStore } from '~/../packages/client/src';
 import i18n from '~/app/I18n';
 import { SortOrderSchema } from '~/app/route-schemas';
 import { useLocale } from '~/hooks';
 
 import { useExplorerContext } from './Context';
-import { createOrdering, getOrderingDirection, orderingKey } from './store';
 
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
 

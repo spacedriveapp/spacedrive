@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, FixedOffset, Utc};
 use directories::UserDirs;
-use rspc::{self, alpha::AlphaRouter, ErrorCode};
+use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tracing::{debug, error, trace};

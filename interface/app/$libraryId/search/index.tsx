@@ -1,13 +1,12 @@
 import { useEffect, useMemo } from 'react';
 import { useSearchParams as useRawSearchParams } from 'react-router-dom';
-import { ObjectKindEnum, ObjectOrder } from '@sd/client';
+import { ObjectKindEnum, ObjectOrder, useObjectsExplorerQuery } from '@sd/client';
 import { Icon } from '~/components';
 import { useRouteTitle } from '~/hooks';
 
 import { SearchContextProvider, SearchOptions, useSearch } from '.';
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { useObjectsExplorerQuery } from '../Explorer/queries/useObjectsExplorerQuery';
 import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
@@ -36,7 +35,7 @@ export function Component() {
 			take: 100,
 			filters: search.allFilters
 		},
-		explorerSettings
+		order: explorerSettings.useSettingsSnapshot().order
 	});
 
 	const explorer = useExplorer({

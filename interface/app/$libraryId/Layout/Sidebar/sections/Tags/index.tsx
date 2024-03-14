@@ -61,7 +61,7 @@ const Tag = ({ tag }: { tag: Tag }) => {
 				)}
 			>
 				<div
-					className="h-[12px] w-[12px] shrink-0 rounded-full"
+					className="size-[12px] shrink-0 rounded-full"
 					style={{ backgroundColor: tag.color || '#efefef' }}
 				/>
 				<span className="ml-1.5 truncate text-sm">{tag.name}</span>

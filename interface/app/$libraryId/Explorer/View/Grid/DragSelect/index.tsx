@@ -524,6 +524,10 @@ export const DragSelect = ({ grid, children, onActiveItemChange }: Props) => {
 					top: false,
 					bottom: false
 				}}
+				//Prevent mouse side-buttons from drag
+				dragCondition={(e) => {
+					return e.inputEvent.buttons === 1;
+				}}
 				scrollOptions={{
 					container: { current: explorer.scrollRef.current },
 					throttleTime: isChrome ? 30 : 10000

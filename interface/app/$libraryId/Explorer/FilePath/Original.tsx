@@ -82,7 +82,7 @@ const TEXT_RENDERER: OriginalRenderer = (props) => (
 		onLoad={props.onLoad}
 		onError={props.onError}
 		className={clsx(
-			'textviewer-scroll h-full w-full overflow-y-auto whitespace-pre-wrap break-words px-4 font-mono',
+			'textviewer-scroll size-full overflow-y-auto whitespace-pre-wrap break-words px-4 font-mono',
 			!props.mediaControls ? 'overflow-hidden' : 'overflow-auto',
 			props.className,
 			props.frame && [props.frameClassName, '!bg-none p-2']
@@ -112,7 +112,7 @@ const ORIGINAL_RENDERERS: {
 			src={props.src}
 			onLoad={props.onLoad}
 			onError={props.onError}
-			className={clsx('h-full w-full', props.className, props.frame && props.frameClassName)}
+			className={clsx('size-full', props.className, props.frame && props.frameClassName)}
 			crossOrigin="anonymous" // Here it is ok, because it is not a react attr
 		/>
 	),

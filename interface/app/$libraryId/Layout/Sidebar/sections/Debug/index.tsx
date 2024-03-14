@@ -29,13 +29,9 @@ export default function DebugSection() {
 					<Icon component={Factory} />
 					Actors
 				</SidebarLink>
-				<SidebarLink to="debug/p2p">
+				<SidebarLink to="debug/p2p/overview">
 					<Icon component={ShareNetwork} />
 					P2P
-				</SidebarLink>
-				<SidebarLink to="debug/p2p-rspc">
-					<Icon component={ShareNetwork} />
-					P2P (rspc)
 				</SidebarLink>
 			</div>
 		</Section>

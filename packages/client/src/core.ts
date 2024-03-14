@@ -164,7 +164,7 @@ export type CameraData = { device_make: string | null; device_model: string | nu
 
 export type ChangeNodeNameArgs = { name: string | null; p2p_ipv4_port: Port | null; p2p_ipv6_port: Port | null; p2p_discovery: P2PDiscoveryState | null; image_labeler_version: string | null }
 
-export type CloudInstance = { id: string; uuid: string; identity: RemoteIdentity; nodeId: string; nodeName: string; nodePlatform: number }
+export type CloudInstance = { id: string; uuid: string; identity: RemoteIdentity; nodeId: string; metadata: { [key in string]: string } }
 
 export type CloudLibrary = { id: string; uuid: string; name: string; instances: CloudInstance[]; ownerId: string }
 
@@ -190,6 +190,12 @@ export type Composite =
  */
 "Live"
 
+/**
+ * The method used for the connection with this peer.
+ * *Technically* you can have multiple under the hood but this simplifies things for the UX.
+ */
+export type ConnectionMethod = "Relay" | "Local" | "Disconnected"
+
 export type ConvertImageArgs = { location_id: number; file_path_id: number; delete_src: boolean; desired_extension: ConvertibleExtension; quality_percentage: number | null }
 
 export type ConvertibleExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "hif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf" | "webp"
@@ -203,6 +209,12 @@ export type CreateLibraryArgs = { name: LibraryName; default_locations: DefaultL
 export type CursorOrderItem<T> = { order: SortOrder; data: T }
 
 export type DefaultLocations = { desktop: boolean; documents: boolean; downloads: boolean; pictures: boolean; music: boolean; videos: boolean }
+
+/**
+ * The method used for the discovery of this peer.
+ * *Technically* you can have multiple under the hood but this simplifies things for the UX.
+ */
+export type DiscoveryMethod = "Relay" | "Local"
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 
@@ -511,10 +523,7 @@ export type Orientation = "Normal" | "CW90" | "CW180" | "CW270" | "MirroredVerti
 
 export type P2PDiscoveryState = "Everyone" | "ContactsOnly" | "Disabled"
 
-/**
- * TODO: P2P event for the frontend
- */
-export type P2PEvent = { type: "DiscoveredPeer"; identity: RemoteIdentity; metadata: PeerMetadata } | { type: "ExpiredPeer"; identity: RemoteIdentity } | { type: "ConnectedPeer"; identity: RemoteIdentity } | { type: "DisconnectedPeer"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedOut"; id: string } | { type: "SpacedropRejected"; id: string }
+export type P2PEvent = { type: "PeerChange"; identity: RemoteIdentity; connection: ConnectionMethod; discovery: DiscoveryMethod; metadata: PeerMetadata } | { type: "PeerDelete"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedOut"; id: string } | { type: "SpacedropRejected"; id: string }
 
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; device_model: HardwareModel | null; version: string | null }
 
