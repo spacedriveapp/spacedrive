@@ -176,8 +176,9 @@ impl LocationCreateArgs {
 			})
 			.await
 			{
-				delete_location(node, library, location.data.id).await?;
-				Err(err)?;
+				// DISABLED TO FAIL SILENTLY - HOTFIX FOR LACK OF WRITE PERMISSION PREVENTING LOCATION CREATION
+				// delete_location(node, library, location.data.id).await?;
+				// Err(err)?;
 			}
 
 			info!("Created location: {:?}", &location.data);
