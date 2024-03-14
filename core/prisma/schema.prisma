@@ -55,7 +55,9 @@ model Instance {
   pub_id   Bytes @unique // This UUID is meaningless and exists soley cause the `uhlc::ID` must be 16-bit. Really this should be derived from the `identity` field.
   // Enum: sd_core::p2p::IdentityOrRemoteIdentity
   identity Bytes
-  metadata Bytes
+
+  node_id  Bytes
+  metadata Bytes? // TODO: This should not be optional
 
   last_seen    DateTime // Time core started for owner, last P2P message for P2P node
   date_created DateTime

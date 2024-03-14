@@ -1,6 +1,6 @@
 pub mod auth;
 
-use std::{future::Future, sync::Arc};
+use std::{collections::HashMap, future::Future, sync::Arc};
 
 use auth::OAuthToken;
 use sd_p2p2::RemoteIdentity;
@@ -49,10 +49,34 @@ pub struct Instance {
 	pub identity: RemoteIdentity,
 	#[serde(rename = "nodeId")]
 	pub node_id: Uuid,
-	#[serde(rename = "nodeName")]
-	pub node_name: String,
-	#[serde(rename = "nodePlatform")]
-	pub node_platform: u8,
+	#[serde(with = "serde_from_string")]
+	pub metadata: HashMap<String, String>,
+}
+
+mod serde_from_string {
+	use serde::{
+		de::{self, DeserializeOwned},
+		ser, Deserialize, Serialize,
+	};
+
+	pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: ser::Serializer,
+		T: Serialize,
+	{
+		serde_json::to_string(value)
+			.map_err(ser::Error::custom)?
+			.serialize(serializer)
+	}
+
+	pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+	where
+		D: de::Deserializer<'de>,
+		T: DeserializeOwned,
+	{
+		let s = String::deserialize(deserializer)?;
+		serde_json::from_str(&s).map_err(de::Error::custom)
+	}
 }
 
 #[derive(Serialize, Deserialize, Debug, Type)]
@@ -212,8 +236,7 @@ pub mod library {
 			instance_uuid: Uuid,
 			instance_identity: RemoteIdentity,
 			node_id: Uuid,
-			node_name: &str,
-			node_platform: u8,
+			metadata: HashMap<String, String>,
 		) -> Result<CreateResult, Error> {
 			let Some(auth_token) = config.auth_token else {
 				return Err(Error("Authentication required".to_string()));
@@ -230,8 +253,7 @@ pub mod library {
 					"instanceUuid": instance_uuid,
 					"instanceIdentity": instance_identity,
 					"nodeId": node_id,
-					"nodeName": node_name,
-					"nodePlatform": node_platform
+					"metadata": serde_json::to_string(&metadata).map_err(|e| Error(e.to_string()))?,
 				}))
 				.with_auth(auth_token)
 				.send()
@@ -282,8 +304,7 @@ pub mod library {
 			library_id: Uuid,
 			instance_id: Uuid,
 			node_id: Option<Uuid>,
-			node_name: Option<String>,
-			node_platform: Option<u8>,
+			metadata: Option<HashMap<String, String>>,
 		) -> Result<(), Error> {
 			let Some(auth_token) = config.auth_token else {
 				return Err(Error("Authentication required".to_string()));
@@ -297,8 +318,7 @@ pub mod library {
 				))
 				.json(&json!({
 					"nodeId": node_id,
-					"nodeName": node_name,
-					"nodePlatform": node_platform
+					"metadata": serde_json::to_string(&metadata).map_err(|e| Error(e.to_string()))?,
 				}))
 				.with_auth(auth_token)
 				.send()
@@ -318,8 +338,7 @@ pub mod library {
 			instance_uuid: Uuid,
 			instance_identity: RemoteIdentity,
 			node_id: Uuid,
-			node_name: &str,
-			node_platform: u8,
+			metadata: HashMap<String, String>,
 		) -> Result<Vec<Instance>, Error> {
 			let Some(auth_token) = config.auth_token else {
 				return Err(Error("Authentication required".to_string()));
@@ -334,8 +353,7 @@ pub mod library {
 				.json(&json!({
 					"instanceIdentity": instance_identity,
 					"nodeId": node_id,
-					"nodeName": node_name,
-					"nodePlatform": node_platform
+					"metadata": serde_json::to_string(&metadata).map_err(|e| Error(e.to_string()))?,
 				}))
 				.with_auth(auth_token)
 				.send()
