@@ -24,7 +24,7 @@ use tokio::{
 };
 use tracing::debug;
 
-use sd_p2p2::UnicastStream;
+use sd_p2p::UnicastStream;
 use sd_p2p_proto::{decode, encode};
 
 mod block;
