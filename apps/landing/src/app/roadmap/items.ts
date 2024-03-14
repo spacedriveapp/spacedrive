@@ -101,8 +101,7 @@ export const items = [
 	},
 	{
 		title: 'Command Palette',
-		description:
-			'Quickly navigate to any file or folder from anywhere in the app, along with AI search!'
+		description: 'Quickly navigate to any file or folder from anywhere in the app.'
 	},
 	{
 		title: 'Video thumbstrips',
