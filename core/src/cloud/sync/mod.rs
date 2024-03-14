@@ -45,6 +45,7 @@ pub async fn declare_actors(library: &Arc<Library>, node: &Arc<Node>) {
 						library.sync.clone(),
 						node.clone(),
 						ingest_notify,
+						node.clone(),
 					)
 				}
 			},
