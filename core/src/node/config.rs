@@ -4,7 +4,7 @@ use crate::{
 	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 
-use sd_p2p2::Identity;
+use sd_p2p::Identity;
 use sd_utils::error::FileIOError;
 
 use std::{
@@ -89,7 +89,7 @@ pub struct NodeConfig {
 }
 
 mod identity_serde {
-	use sd_p2p2::Identity;
+	use sd_p2p::Identity;
 	use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 	pub fn serialize<S>(identity: &Identity, serializer: S) -> Result<S::Ok, S::Error>

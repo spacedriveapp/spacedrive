@@ -8168,7 +8168,7 @@ dependencies = [
  "reqwest",
  "rmpv",
  "rspc",
- "sd-p2p2",
+ "sd-p2p",
  "serde",
  "serde_json",
  "specta",
@@ -8235,10 +8235,10 @@ dependencies = [
  "sd-file-path-helper",
  "sd-images",
  "sd-media-metadata",
+ "sd-p2p",
  "sd-p2p-block",
  "sd-p2p-proto",
  "sd-p2p-tunnel",
- "sd-p2p2",
  "sd-prisma",
  "sd-sync",
  "sd-utils",
@@ -8504,11 +8504,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-p2p"
+version = "0.2.0"
+dependencies = [
+ "base64 0.21.7",
+ "base91",
+ "ed25519-dalek",
+ "flume 0.11.0",
+ "futures-core",
+ "hash_map_diff",
+ "if-watch",
+ "libp2p",
+ "libp2p-stream",
+ "mdns-sd",
+ "pin-project-lite",
+ "rand_core 0.6.4",
+ "reqwest",
+ "serde",
+ "sha256",
+ "specta",
+ "stable-vec",
+ "streamunordered",
+ "sync_wrapper",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+ "zeroize",
+]
+
+[[package]]
 name = "sd-p2p-block"
 version = "0.1.0"
 dependencies = [
+ "sd-p2p",
  "sd-p2p-proto",
- "sd-p2p2",
  "thiserror",
  "tokio",
  "tracing",
@@ -8544,41 +8577,8 @@ dependencies = [
 name = "sd-p2p-tunnel"
 version = "0.1.0"
 dependencies = [
- "sd-p2p2",
+ "sd-p2p",
  "tokio",
-]
-
-[[package]]
-name = "sd-p2p2"
-version = "0.2.0"
-dependencies = [
- "base64 0.21.7",
- "base91",
- "ed25519-dalek",
- "flume 0.11.0",
- "futures-core",
- "hash_map_diff",
- "if-watch",
- "libp2p",
- "libp2p-stream",
- "mdns-sd",
- "pin-project-lite",
- "rand_core 0.6.4",
- "reqwest",
- "serde",
- "sha256",
- "specta",
- "stable-vec",
- "streamunordered",
- "sync_wrapper",
- "thiserror",
- "tokio",
- "tokio-stream",
- "tokio-util",
- "tracing",
- "tracing-subscriber",
- "uuid",
- "zeroize",
 ]
 
 [[package]]

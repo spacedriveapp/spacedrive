@@ -1,5 +1,5 @@
 [package]
-name = "sd-p2p2"
+name = "sd-p2p"
 version = "0.2.0"
 description = "Rust Peer to Peer Networking Library"
 authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
