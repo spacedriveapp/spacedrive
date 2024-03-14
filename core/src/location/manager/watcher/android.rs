@@ -4,6 +4,7 @@
 
 use crate::{invalidate_query, library::Library, location::manager::LocationManagerError, Node};
 
+use sd_android_fs_watcher::WatcherEvent;
 use sd_prisma::prisma::location;
 
 use std::{
@@ -57,7 +58,7 @@ impl<'lib> EventHandler<'lib> for AndroidEventHandler<'lib> {
 		}
 	}
 
-	async fn handle_event(&mut self, event: Event) -> Result<(), LocationManagerError> {
+	async fn handle_event(&mut self, event: WatcherEvent) -> Result<(), LocationManagerError> {
 		info!("Received Android event: {:#?}", event);
 
 		// let Event {

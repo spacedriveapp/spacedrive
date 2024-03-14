@@ -1,8 +1,8 @@
 use crate::{library::Library, Node};
 
+use sd_android_fs_watcher::{AndroidWatcher, WatcherEvent};
 use sd_prisma::prisma::location;
 use sd_utils::db::maybe_missing;
-use sd_android_fs_watcher::AndroidWatcher;
 
 use std::{
 	collections::HashSet,
@@ -26,29 +26,29 @@ use uuid::Uuid;
 use super::LocationManagerError;
 
 mod android;
-mod ios;
-mod linux;
-mod macos;
-mod windows;
+// mod ios;
+// mod linux;
+// mod macos;
+// mod windows;
 
 mod utils;
 
-use utils::check_event;
+// use utils::check_event;
 
-#[cfg(target_os = "linux")]
-type Handler<'lib> = linux::LinuxEventHandler<'lib>;
+// #[cfg(target_os = "linux")]
+// type Handler<'lib> = linux::LinuxEventHandler<'lib>;
 
-#[cfg(target_os = "macos")]
-type Handler<'lib> = macos::MacOsEventHandler<'lib>;
+// #[cfg(target_os = "macos")]
+// type Handler<'lib> = macos::MacOsEventHandler<'lib>;
 
-#[cfg(target_os = "windows")]
-type Handler<'lib> = windows::WindowsEventHandler<'lib>;
+// #[cfg(target_os = "windows")]
+// type Handler<'lib> = windows::WindowsEventHandler<'lib>;
 
-#[cfg(target_os = "android")]
+// #[cfg(target_os = "android")]
 type Handler<'lib> = android::AndroidEventHandler<'lib>;
 
-#[cfg(target_os = "ios")]
-type Handler<'lib> = ios::IosEventHandler<'lib>;
+// #[cfg(target_os = "ios")]
+// type Handler<'lib> = ios::IosEventHandler<'lib>;
 
 pub(super) type IgnorePath = (PathBuf, bool);
 
@@ -69,7 +69,8 @@ trait EventHandler<'lib> {
 		Self: Sized;
 
 	/// Handle a file system event.
-	async fn handle_event(&mut self, event: Event) -> Result<(), LocationManagerError>;
+	// async fn handle_event(&mut self, event: Event) -> Result<(), LocationManagerError>;
+	async fn handle_event(&mut self, event: WatcherEvent) -> Result<(), LocationManagerError>;
 
 	/// As Event Handlers have some inner state, from time to time we need to call this tick method
 	/// so the event handler can update its state.
@@ -115,7 +116,22 @@ impl LocationWatcher {
 		// 	Config::default(),
 		// )?;
 
-		let android_watcher = AndroidWatcher::init();
+		let android_watcher = AndroidWatcher::init(move |result| {
+			if !events_tx.is_closed() {
+				if events_tx.send(result).is_err() {
+					error!(
+						"Unable to send watcher event to location manager for location: <id='{}'>",
+						location.id
+					);
+				}
+			} else {
+				error!(
+					"Tried to send location file system events to a closed channel: <id='{}'",
+					location.id
+				);
+			}
+		})
+		.expect("Failed to initialize AndroidWatcher");
 
 		let handle = tokio::spawn(Self::handle_watch_events(
 			location.id,
@@ -142,7 +158,8 @@ impl LocationWatcher {
 		location_pub_id: Uuid,
 		node: Arc<Node>,
 		library: Arc<Library>,
-		mut events_rx: mpsc::UnboundedReceiver<notify::Result<Event>>,
+		// mut events_rx: mpsc::UnboundedReceiver<notify::Result<Event>>,
+		mut events_rx: mpsc::UnboundedReceiver<Result<WatcherEvent, std::io::Error>>,
 		mut ignore_path_rx: mpsc::UnboundedReceiver<IgnorePath>,
 		mut stop_rx: oneshot::Receiver<()>,
 	) {
@@ -202,16 +219,17 @@ impl LocationWatcher {
 	async fn handle_single_event<'lib>(
 		location_id: location::id::Type,
 		location_pub_id: Uuid,
-		event: Event,
+		// event: Event,
+		event: WatcherEvent,
 		event_handler: &mut impl EventHandler<'lib>,
 		node: &'lib Node,
 		_library: &'lib Library,
 		ignore_paths: &HashSet<PathBuf>,
 	) -> Result<(), LocationManagerError> {
 		debug!("Event: {:#?}", event);
-		if !check_event(&event, ignore_paths) {
-			return Ok(());
-		}
+		// if !check_event(&event, ignore_paths) {
+		// 	return Ok(());
+		// }
 
 		// let Some(location) = find_location(library, location_id)
 		// 	.include(location_with_indexer_rules::include())
@@ -257,14 +275,10 @@ impl LocationWatcher {
 		// 	debug!("Now watching location: (path: {path})");
 		// }
 
-		if let Err(e) = self
-			.watcher
-			.watch(Path::new(path))
-		{
+		if let Err(e) = self.watcher.watch(Path::new(path)) {
 			error!("Unable to watch location: (path: {path}, error: {e:#?})");
 		} else {
 			debug!("Now watching location: (path: {path})");
-			debug!("Watchers: {:#?}", self.watcher.debug_watches());
 		}
 	}
 
@@ -279,7 +293,6 @@ impl LocationWatcher {
 			error!("Unable to unwatch location: (path: {path}, error: {e:#?})",);
 		} else {
 			debug!("Stop watching location: (path: {path})");
-			debug!("Watchers: {:#?}", self.watcher.debug_watches());
 		}
 	}
 }

@@ -1,18 +1,49 @@
 use std::{
-	borrow::Borrow, collections::HashMap, path::{Path, PathBuf}
+	borrow::Borrow,
+	collections::HashMap,
+	fmt,
+	path::{Path, PathBuf},
+	sync::{Arc, Mutex},
 };
 
 use inotify::{Inotify, WatchDescriptor, WatchMask};
 use tokio::sync::mpsc::{self, Sender};
 use tracing::info;
 
-type Watchers = HashMap<PathBuf, WatchDescriptor>;
-#[derive(Debug)]
+type _Watchers = HashMap<PathBuf, WatchDescriptor>;
+type Watchers = Arc<Mutex<_Watchers>>;
+
+pub trait EventHandler: Send + 'static {
+	/// Handles an event.
+	fn handle_event(&mut self, event: Result<WatcherEvent, std::io::Error>);
+}
+
+impl<F> EventHandler for F
+where
+	F: FnMut(Result<WatcherEvent, std::io::Error>) + Send + 'static,
+{
+	fn handle_event(&mut self, event: Result<WatcherEvent, std::io::Error>) {
+		(self)(event);
+	}
+}
+
 pub struct AndroidWatcher {
 	inotify: Inotify,
 	internal_handle: InternalHandle,
+	event_handler: Arc<Mutex<dyn EventHandler>>,
 }
 
+impl fmt::Debug for AndroidWatcher {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("AndroidWatcher")
+			.field("inotify", &self.inotify)
+			.field("internal_handle", &self.internal_handle)
+			.field("event_handler", &Arc::as_ptr(&self.event_handler))
+			.finish()
+	}
+}
+
+#[derive(Debug)]
 pub enum WatcherEvent {
 	Modify,
 	Create,
@@ -25,13 +56,18 @@ pub enum InternalEvent {
 }
 
 impl AndroidWatcher {
-	pub fn init() -> Self {
+	pub fn init<F: EventHandler>(event_handler: F) -> Result<Self, std::io::Error> {
+		Self::new(Arc::new(Mutex::new(event_handler)))
+	}
+
+	fn new(event_handler: Arc<Mutex<dyn EventHandler>>) -> Result<Self, std::io::Error> {
 		let internal_handle = InternalHandle::new();
 
-		Self {
+		Ok(Self {
 			inotify: Inotify::init().expect("Failed to initialize inotify"),
 			internal_handle,
-		}
+			event_handler,
+		})
 	}
 
 	pub fn watch(&mut self, path: &Path) -> Result<(), std::io::Error> {
@@ -55,7 +91,8 @@ impl AndroidWatcher {
 			.internal_handle
 			.get_watchers()
 			.get(&path.to_path_buf().clone())
-			.expect("Failed to get watch descriptor").clone();
+			.expect("Failed to get watch descriptor")
+			.clone();
 
 		self.inotify
 			.watches()
@@ -66,9 +103,6 @@ impl AndroidWatcher {
 			.send_internal_event(InternalEvent::RemoveWatch(path.to_path_buf().clone()));
 
 		Ok(())
-	}
-	pub fn debug_watches(&self) -> Watchers {
-		self.internal_handle.get_watchers()
 	}
 }
 
@@ -115,11 +149,18 @@ impl InternalHandle {
 		let actor = InternalActor::new(receiver);
 		let join = tokio::spawn(run_internal_actor(actor));
 
-		Self { sender, watchers: HashMap::new(), join }
+		Self {
+			sender,
+			watchers: Arc::new(Mutex::new(HashMap::new())),
+			join,
+		}
 	}
 
 	async fn _send(sender: Sender<InternalEvent>, event: InternalEvent) {
-		sender.send(event).await.expect("Failed to send event. Task Killed.");
+		sender
+			.send(event)
+			.await
+			.expect("Failed to send event. Task Killed.");
 	}
 
 	pub fn send_internal_event(&self, event: InternalEvent) {
@@ -131,8 +172,7 @@ impl InternalHandle {
 		info!("Join: {:?}", t);
 	}
 
-
-	pub fn get_watchers(&self) -> Watchers {
-		self.watchers.clone()
+	pub fn get_watchers(&self) -> _Watchers {
+		self.watchers.lock().unwrap().clone()
 	}
 }
