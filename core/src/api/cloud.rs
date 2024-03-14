@@ -75,7 +75,7 @@ mod library {
 							library.instance_uuid,
 							library.identity.to_remote_identity(),
 							node_config.id,
-							node.p2p.peer_metadata(),
+							&node.p2p.peer_metadata(),
 						)
 						.await?;
 						node.libraries

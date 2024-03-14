@@ -49,34 +49,7 @@ pub struct Instance {
 	pub identity: RemoteIdentity,
 	#[serde(rename = "nodeId")]
 	pub node_id: Uuid,
-	#[serde(with = "serde_from_string")]
 	pub metadata: HashMap<String, String>,
-}
-
-mod serde_from_string {
-	use serde::{
-		de::{self, DeserializeOwned},
-		ser, Deserialize, Serialize,
-	};
-
-	pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: ser::Serializer,
-		T: Serialize,
-	{
-		serde_json::to_string(value)
-			.map_err(ser::Error::custom)?
-			.serialize(serializer)
-	}
-
-	pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
-	where
-		D: de::Deserializer<'de>,
-		T: DeserializeOwned,
-	{
-		let s = String::deserialize(deserializer)?;
-		serde_json::from_str(&s).map_err(de::Error::custom)
-	}
 }
 
 #[derive(Serialize, Deserialize, Debug, Type)]
@@ -236,7 +209,7 @@ pub mod library {
 			instance_uuid: Uuid,
 			instance_identity: RemoteIdentity,
 			node_id: Uuid,
-			metadata: HashMap<String, String>,
+			metadata: &HashMap<String, String>,
 		) -> Result<CreateResult, Error> {
 			let Some(auth_token) = config.auth_token else {
 				return Err(Error("Authentication required".to_string()));
@@ -253,7 +226,7 @@ pub mod library {
 					"instanceUuid": instance_uuid,
 					"instanceIdentity": instance_identity,
 					"nodeId": node_id,
-					"metadata": serde_json::to_string(&metadata).map_err(|e| Error(e.to_string()))?,
+					"metadata": metadata,
 				}))
 				.with_auth(auth_token)
 				.send()
