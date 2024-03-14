@@ -120,8 +120,8 @@ impl Peer {
 			.unwrap_or_else(PoisonError::into_inner)
 			.discovered
 			.values()
-			.cloned()
 			.flatten()
+			.cloned()
 			.collect()
 	}
 

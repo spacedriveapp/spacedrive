@@ -208,7 +208,8 @@ impl Libraries {
 						last_seen: now,
 						date_created: now,
 						_params: vec![instance::metadata::set(Some(
-							serde_json::to_vec(&node.p2p.peer_metadata()).unwrap(),
+							serde_json::to_vec(&node.p2p.peer_metadata())
+								.expect("invalid node metadata"),
 						))],
 					});
 					create._params.push(instance::id::set(config.instance_id));
@@ -433,7 +434,7 @@ impl Libraries {
 		let curr_metadata: Option<HashMap<String, String>> = instance
 			.metadata
 			.as_ref()
-			.map(|metadata| serde_json::from_slice(&metadata).expect("invalid metadata"));
+			.map(|metadata| serde_json::from_slice(metadata).expect("invalid metadata"));
 		let instance_node_id = Uuid::from_slice(&instance.node_id)?;
 		if instance_node_id != node_config.id || curr_metadata != Some(node.p2p.peer_metadata()) {
 			info!(
@@ -561,7 +562,7 @@ impl Libraries {
 										let node_config = node.config.get().await;
 										let curr_metadata: Option<HashMap<String, String>> =
 											instance.metadata.as_ref().map(|metadata| {
-												serde_json::from_slice(&metadata)
+												serde_json::from_slice(metadata)
 													.expect("invalid metadata")
 											});
 										let should_update = this_instance.node_id != node_config.id
