@@ -11,6 +11,9 @@ export interface TeamMemberProps {
 	// Member's role
 	role: string;
 
+	// Member's location
+	location?: string;
+
 	// Member's avatar
 	imageUrl: string;
 
@@ -60,18 +63,16 @@ export function TeamMember(props: TeamMemberProps) {
 					'lg:h-28 lg:w-28': props.investmentRound
 				})}
 			/>
-			<h3 className="mb-0 mt-4 text-base">{props.name}</h3>
-			<p
-				className={clsx('text-xs', {
-					'mb-0': props.investmentRound
-				})}
-			>
-				{props.role}
-			</p>
-			{props.investmentRound && (
-				<p className="my-0 text-sm font-semibold text-gray-450">{props.investmentRound}</p>
+			<h3 className="mb-0 mt-2 text-base">{props.name}</h3>
+
+			{props.location && (
+				<p className="m-0 text-sm font-semibold text-gray-450">{props.location}</p>
 			)}
-			<div className="mt-auto flex flex-row space-x-2">
+			<p className="m-0 text-xs">{props.role}</p>
+			{props.investmentRound && (
+				<p className="m-0 text-sm font-semibold text-gray-450">{props.investmentRound}</p>
+			)}
+			<div className="mt-3 flex flex-row space-x-2">
 				{props.socials?.twitter && (
 					<Link href={props.socials.twitter}>
 						<Twitter className="h-[20px] w-[20px]" />
