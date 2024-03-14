@@ -109,7 +109,7 @@ export const teamMembers: Array<TeamMemberProps> = [
 		role: 'TypeScript Engineer - Intern',
 		imageUrl: '/images/team/matthew.jpg',
 		socials: {
-			github: 'https://github.com/matthewyung'
+			github: 'https://myung03.github.io'
 		}
 	}
 ];
