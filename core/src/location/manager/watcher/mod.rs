@@ -2,6 +2,7 @@ use crate::{library::Library, Node};
 
 use sd_prisma::prisma::location;
 use sd_utils::db::maybe_missing;
+use sd_android_fs_watcher::AndroidWatcher;
 
 use std::{
 	collections::HashSet,
@@ -79,7 +80,7 @@ trait EventHandler<'lib> {
 pub(super) struct LocationWatcher {
 	id: i32,
 	path: String,
-	watcher: RecommendedWatcher,
+	watcher: AndroidWatcher,
 	ignore_path_tx: mpsc::UnboundedSender<IgnorePath>,
 	handle: Option<JoinHandle<()>>,
 	stop_tx: Option<oneshot::Sender<()>>,
@@ -95,24 +96,26 @@ impl LocationWatcher {
 		let (ignore_path_tx, ignore_path_rx) = mpsc::unbounded_channel();
 		let (stop_tx, stop_rx) = oneshot::channel();
 
-		let watcher = RecommendedWatcher::new(
-			move |result| {
-				if !events_tx.is_closed() {
-					if events_tx.send(result).is_err() {
-						error!(
-						"Unable to send watcher event to location manager for location: <id='{}'>",
-						location.id
-					);
-					}
-				} else {
-					error!(
-						"Tried to send location file system events to a closed channel: <id='{}'",
-						location.id
-					);
-				}
-			},
-			Config::default(),
-		)?;
+		// let watcher = RecommendedWatcher::new(
+		// 	move |result| {
+		// 		if !events_tx.is_closed() {
+		// 			if events_tx.send(result).is_err() {
+		// 				error!(
+		// 				"Unable to send watcher event to location manager for location: <id='{}'>",
+		// 				location.id
+		// 			);
+		// 			}
+		// 		} else {
+		// 			error!(
+		// 				"Tried to send location file system events to a closed channel: <id='{}'",
+		// 				location.id
+		// 			);
+		// 		}
+		// 	},
+		// 	Config::default(),
+		// )?;
+
+		let android_watcher = AndroidWatcher::init();
 
 		let handle = tokio::spawn(Self::handle_watch_events(
 			location.id,
@@ -127,7 +130,7 @@ impl LocationWatcher {
 		Ok(Self {
 			id: location.id,
 			path: maybe_missing(location.path, "location.path")?,
-			watcher,
+			watcher: android_watcher,
 			ignore_path_tx,
 			handle: Some(handle),
 			stop_tx: Some(stop_tx),
@@ -245,13 +248,23 @@ impl LocationWatcher {
 		let path = &self.path;
 		debug!("Start watching location: (path: {path})");
 
+		// if let Err(e) = self
+		// 	.watcher
+		// 	.watch(Path::new(path), RecursiveMode::Recursive)
+		// {
+		// 	error!("Unable to watch location: (path: {path}, error: {e:#?})");
+		// } else {
+		// 	debug!("Now watching location: (path: {path})");
+		// }
+
 		if let Err(e) = self
 			.watcher
-			.watch(Path::new(path), RecursiveMode::Recursive)
+			.watch(Path::new(path))
 		{
 			error!("Unable to watch location: (path: {path}, error: {e:#?})");
 		} else {
 			debug!("Now watching location: (path: {path})");
+			debug!("Watchers: {:#?}", self.watcher.debug_watches());
 		}
 	}
 
@@ -266,6 +279,7 @@ impl LocationWatcher {
 			error!("Unable to unwatch location: (path: {path}, error: {e:#?})",);
 		} else {
 			debug!("Stop watching location: (path: {path})");
+			debug!("Watchers: {:#?}", self.watcher.debug_watches());
 		}
 	}
 }

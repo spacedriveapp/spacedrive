@@ -45,6 +45,7 @@ sd-ai = { path = "../crates/ai", optional = true }
 sd-sync = { path = "../crates/sync" }
 sd-utils = { path = "../crates/utils" }
 sd-cloud-api = { version = "0.1.0", path = "../crates/cloud-api" }
+sd-android-fs-watcher = { path = "../crates/android-fs-watcher" }
 
 # Workspace dependencies
 async-channel = { workspace = true }
