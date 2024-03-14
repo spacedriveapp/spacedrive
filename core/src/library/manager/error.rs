@@ -3,7 +3,7 @@ use crate::{
 	location::{indexer, LocationManagerError},
 };
 
-use sd_p2p2::IdentityOrRemoteIdentityErr;
+use sd_p2p::IdentityOrRemoteIdentityErr;
 use sd_utils::{
 	db::{self, MissingFieldError},
 	error::{FileIOError, NonUtf8PathError},

@@ -7,5 +7,5 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-sd-p2p2 = { path = "../p2p2" }
+sd-p2p = { path = "../p2p" }
 tokio = { workspace = true, features = ["io-util"] }

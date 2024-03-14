@@ -3,7 +3,7 @@ use crate::library::{Libraries, Library};
 use super::{err_break, CompressedCRDTOperations};
 use sd_cloud_api::RequestConfigProvider;
 use sd_core_sync::NTP64;
-use sd_p2p2::{IdentityOrRemoteIdentity, RemoteIdentity};
+use sd_p2p::{IdentityOrRemoteIdentity, RemoteIdentity};
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
 use sd_sync::CRDTOperation;
 use sd_utils::uuid_to_bytes;

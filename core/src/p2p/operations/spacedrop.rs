@@ -10,7 +10,7 @@ use std::{
 
 use crate::p2p::{Header, P2PEvent, P2PManager};
 use futures::future::join_all;
-use sd_p2p2::{RemoteIdentity, UnicastStream};
+use sd_p2p::{RemoteIdentity, UnicastStream};
 use sd_p2p_block::{BlockSize, Range, SpaceblockRequest, SpaceblockRequests, Transfer};
 use tokio::{
 	fs::{create_dir_all, File},
