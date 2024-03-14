@@ -5,7 +5,40 @@ index: 0
 
 # Setup
 
-<Notice
-	type="note"
-	text="Spacedrive is not yet released, these docs are a work in progress. Check out our [roadmap](/roadmap) to see a timeline leading to release!"
-/>
+You can install Spacedrive on your computer, mobile device or server by following the instructions below.
+
+## Install
+
+### Desktop Installer
+
+You can download the Spacedrive desktop app from the links below.
+
+- <a href="https://www.spacedrive.com/api/releases/desktop/stable/darwin/aarch64">Apple Silicon</a>
+- <a href="https://www.spacedrive.com/api/releases/desktop/stable/darwin/x86_64">macOS Intel</a>
+- <a href="https://www.spacedrive.com/api/releases/desktop/stable/windows/x86_64">Windows</a>
+- <a href="https://www.spacedrive.com/api/releases/desktop/stable/linux/x86_64">Linux</a>
+
+### Homebrew
+
+Homebrew is a package manager for macOS and Linux. You can install Spacedrive using the following command.
+
+```bash
+brew install --cask spacedrive
+```
+
+### Docker
+
+You can run Spacedrive in a Docker container using the following command.
+
+```bash
+docker run -d --name spacedrive -p 8080:8080 -v /var/spacedrive:/var/spacedrive spacedrive/spacedrive
+```
+
+### Mobile (Preview)
+
+Take your Spacedrive library on the go with our mobile apps. You can join the betas by following the links below.
+
+- **iOS**: [testflight.apple.com/join/3z3z3z3z](https://testflight.apple.com/join/3z3z3z3z) <br/>
+  _Our iOS app is currently in development and the above link does not work._
+- **Android**: [play.google.com/store/apps/details?id=com.spacedrive](https://play.google.com/store/apps/details?id=com.spacedrive)<br/>
+  _Our Android app is currently in development and the above link does not work._
