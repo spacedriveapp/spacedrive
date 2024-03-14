@@ -2,7 +2,7 @@ use std::{error::Error, sync::Arc};
 
 use axum::{body::Body, http, Router};
 use hyper::{server::conn::Http, Response};
-use sd_p2p2::{RemoteIdentity, UnicastStream, P2P};
+use sd_p2p::{RemoteIdentity, UnicastStream, P2P};
 use tokio::io::AsyncWriteExt;
 use tracing::debug;
 

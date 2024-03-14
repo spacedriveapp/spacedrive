@@ -3,7 +3,7 @@ pub mod auth;
 use std::{collections::HashMap, future::Future, sync::Arc};
 
 use auth::OAuthToken;
-use sd_p2p2::RemoteIdentity;
+use sd_p2p::RemoteIdentity;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use specta::Type;

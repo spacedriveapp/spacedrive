@@ -12,7 +12,7 @@ use crate::{
 
 use axum::routing::IntoMakeService;
 
-use sd_p2p2::{
+use sd_p2p::{
 	flume::{bounded, Receiver},
 	HookId, Libp2pPeerId, Listener, Mdns, Peer, QuicTransport, RelayServerEntry, RemoteIdentity,
 	UnicastStream, P2P,

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use sd_p2p2::{
+use sd_p2p::{
 	flume::bounded, HookEvent, HookId, IdentityOrRemoteIdentity, PeerConnectionCandidate, P2P,
 };
 use tracing::error;

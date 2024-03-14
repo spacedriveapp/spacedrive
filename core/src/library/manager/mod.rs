@@ -12,7 +12,7 @@ use crate::{
 };
 
 use sd_core_sync::SyncMessage;
-use sd_p2p2::{Identity, IdentityOrRemoteIdentity};
+use sd_p2p::{Identity, IdentityOrRemoteIdentity};
 use sd_prisma::prisma::{crdt_operation, instance, location, SortOrder};
 use sd_utils::{
 	db,
