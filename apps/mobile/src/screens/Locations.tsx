@@ -14,8 +14,8 @@ import {
 	useOnlineLocations
 } from '@sd/client';
 import FolderIcon from '~/components/icons/FolderIcon';
-import { Icon } from '~/components/icons/Icon';
 import Card from '~/components/layout/Card';
+import Empty from '~/components/layout/Empty';
 import Fade from '~/components/layout/Fade';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
@@ -78,14 +78,15 @@ export const Locations = ({ redirectToLocationSettings }: Props) => {
 					ItemSeparatorComponent={() => <View style={tw`h-2`} />}
 					showsVerticalScrollIndicator={false}
 					scrollEnabled={filteredLocations.length > 0}
-					ListEmptyComponent={() => (
-						<View style={tw`h-auto w-[85.5vw] flex-col items-center justify-center`}>
-							<Icon name="Folder" size={90} />
-							<Text style={tw`text-lg font-medium text-center text-ink-dull`}>
-								You have no locations
-							</Text>
-						</View>
-					)}
+					ListEmptyComponent={
+						<Empty
+							icon="Folder"
+							style={'border-0'}
+							textSize="text-md"
+							iconSize={84}
+							description="You have not added any locations"
+						/>
+					}
 					renderItem={({ item }) => (
 						<LocationItem
 							navigation={navigation}

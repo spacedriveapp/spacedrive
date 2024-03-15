@@ -24,7 +24,7 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 					<View style={tw`flex flex-row`}>
 						{/* Peers */}
 						<View
-							style={tw`bg-mobile-highlight mr-2 self-start rounded px-1.5 py-[2px]`}
+							style={tw`mr-2 self-start rounded bg-mobile-highlight px-1.5 py-[2px]`}
 						>
 							<Text style={tw`text-xs font-semibold text-ink`}>0 Peers</Text>
 						</View>
@@ -35,7 +35,7 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 					</View>
 				</View>
 				{/* Divider */}
-				<Divider style={tw`mt-2 mb-4`} />
+				<Divider style={tw`mb-4 mt-2`} />
 				{/* Node Name and Port */}
 				<SettingsTitle style={tw`mb-1`}>Node Name</SettingsTitle>
 				<Input value={node.name} />
@@ -48,7 +48,7 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 					{/* Card Header */}
 					<Text style={tw`font-semibold text-ink`}>Debug</Text>
 					{/* Divider */}
-					<Divider style={tw`mt-2 mb-4`} />
+					<Divider style={tw`mb-4 mt-2`} />
 					<SettingsTitle style={tw`mb-1`}>Data Folder</SettingsTitle>
 					{/* Useful for simulator, not so for real devices. */}
 					<Input value={node.data_path} />

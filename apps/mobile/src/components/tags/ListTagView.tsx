@@ -19,7 +19,7 @@ const ListTagView = ({ tag, tagStyle, modalRef }: TagViewProps) => {
 	return (
 		<>
 			<Swipeable
-				containerStyle={tw`p-3 border rounded-md border-mobile-cardborder bg-mobile-card`}
+				containerStyle={tw`rounded-md border border-mobile-cardborder bg-mobile-card p-3`}
 				enableTrackpadTwoFingerGesture
 				renderRightActions={(progress, _, swipeable) => (
 					<>
@@ -28,7 +28,7 @@ const ListTagView = ({ tag, tagStyle, modalRef }: TagViewProps) => {
 				)}
 			>
 				<View style={twStyle('h-auto flex-row items-center justify-between', tagStyle)}>
-					<View style={tw`flex-row items-center flex-1 gap-2`}>
+					<View style={tw`flex-1 flex-row items-center gap-2`}>
 						<View
 							style={twStyle('h-[28px] w-[28px] rounded-full', {
 								backgroundColor: tag.color!

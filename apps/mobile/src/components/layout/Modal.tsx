@@ -28,13 +28,13 @@ interface ModalHandle extends BottomSheetHandleProps {
 const ModalHandle = (props: ModalHandle) => (
 	<BottomSheetHandle
 		{...props}
-		style={tw`items-end bg-mobile-modal rounded-t-2xl`}
+		style={tw`items-end rounded-t-2xl bg-mobile-modal`}
 		indicatorStyle={tw`bg-mobile-lightborder`}
 	>
 		{props.showCloseButton && (
 			<Pressable
 				onPress={() => props.modalRef.current?.close()}
-				style={tw`absolute items-center justify-center rounded-full right-4 top-5 h-7 w-7 bg-app-button`}
+				style={tw`absolute right-4 top-5 h-7 w-7 items-center justify-center rounded-full bg-app-button`}
 			>
 				<X size={16} color="white" weight="bold" />
 			</Pressable>
@@ -70,7 +70,7 @@ export const Modal = forwardRef<ModalRef, ModalProps>((props, ref) => {
 			})}
 			{...otherProps}
 		>
-			{title && <Text style={tw`text-base font-medium text-center text-ink`}>{title}</Text>}
+			{title && <Text style={tw`text-center text-base font-medium text-ink`}>{title}</Text>}
 			{props.description && (
 				<Text style={tw`px-4 py-3 text-sm text-ink-dull`}>{props.description}</Text>
 			)}
@@ -133,11 +133,11 @@ export const ConfirmModal = forwardRef<ModalRef, ConfirmModalProps>((props, ref)
 			>
 				{/* Title */}
 				{props.title && (
-					<Text style={tw`text-base font-medium text-center text-ink`}>
+					<Text style={tw`text-center text-base font-medium text-ink`}>
 						{props.title}
 					</Text>
 				)}
-				<View style={tw`px-6 mt-4`}>
+				<View style={tw`mt-4 px-6`}>
 					{/* Description */}
 					{props.description && (
 						<Text style={tw`text-sm text-ink-dull`}>{props.description}</Text>
@@ -157,7 +157,7 @@ export const ConfirmModal = forwardRef<ModalRef, ConfirmModalProps>((props, ref)
 						</Button>
 						{props.ctaAction && (
 							<Button
-								style={tw`flex-1 ml-4`}
+								style={tw`ml-4 flex-1`}
 								variant={props.ctaDanger ? 'danger' : 'accent'}
 								size="lg"
 								onPress={props.ctaAction}

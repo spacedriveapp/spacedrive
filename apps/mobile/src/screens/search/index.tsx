@@ -65,7 +65,7 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Home'>) => {
 					{/* Search Input */}
 					<View style={tw`flex-row items-center flex-1 gap-2`}>
 						<View
-							style={tw`flex-wrap flex-1 h-10 border rounded-md border-mobile-dropdownborder bg-mobile-input`}
+							style={tw`flex-wrap flex-1 h-10 border rounded-md border-mobile-inputborder bg-mobile-input`}
 						>
 							<View style={tw`flex flex-row items-center h-full px-3`}>
 								<View style={tw`mr-3`}>
@@ -96,7 +96,7 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Home'>) => {
 						</View>
 						<Pressable onPress={() => navigation.navigate('Filters')}>
 							<View
-								style={tw`items-center justify-center w-10 h-10 border rounded-md bg-mobile-button border-mobile-dropdownborder`}
+								style={tw`items-center justify-center w-10 h-10 border rounded-md border-mobile-inputborder bg-mobile-input`}
 							>
 								<FunnelSimple size={20} color={tw.color('text-zinc-300')} />
 							</View>

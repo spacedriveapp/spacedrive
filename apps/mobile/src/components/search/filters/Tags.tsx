@@ -4,12 +4,13 @@ import { Pressable, Text, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { LinearTransition } from 'react-native-reanimated';
 import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import Card from '~/components/layout/Card';
+import Empty from '~/components/layout/Empty';
 import Fade from '~/components/layout/Fade';
 import SectionTitle from '~/components/layout/SectionTitle';
 import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';
 import { tw, twStyle } from '~/lib/tailwind';
 import { useSearchStore } from '~/stores/searchStore';
-import Card from '~/components/layout/Card';
 
 const Tags = () => {
 	const tags = useLibraryQuery(['tags.list']);
@@ -32,16 +33,19 @@ const Tags = () => {
 			/>
 			<View>
 				<Fade color="black" width={30} height="100%">
-					<VirtualizedListWrapper horizontal>
+					<VirtualizedListWrapper contentContainerStyle={tw`w-full px-6`} horizontal>
 						<FlatList
 							data={tagsData}
 							renderItem={({ item }) => <TagFilter tag={item} />}
-							contentContainerStyle={tw`pl-6`}
 							extraData={searchStore.filters.tags}
 							numColumns={tagsData && Math.ceil(Number(tagsData.length ?? 0) / 2)}
 							key={tagsData ? 'tagsSearch' : '_'}
+							contentContainerStyle={tw`w-full`}
+							ListEmptyComponent={
+								<Empty icon="Tags" description="You have not created any tags" />
+							}
 							scrollEnabled={false}
-							ItemSeparatorComponent={() => <View style={tw`h-2 w-2`} />}
+							ItemSeparatorComponent={() => <View style={tw`w-2 h-2`} />}
 							keyExtractor={(item) => item.id.toString()}
 							showsHorizontalScrollIndicator={false}
 							style={tw`flex-row`}
@@ -73,18 +77,18 @@ const TagFilter = memo(({ tag }: Props) => {
 		});
 	}, [searchStore, tag.id, tag.color]);
 	return (
-		<Pressable
-			onPress={onPress}
-		>
-				<Card style={twStyle(`mr-2 w-auto flex-row items-center gap-2 p-2.5`, {
-				borderColor: isSelected ? tw.color('accent') : tw.color('mobile-cardborder')
-			})}>
-			<View
-				style={twStyle(`h-5 w-5 rounded-full`, {
-					backgroundColor: tag.color!
+		<Pressable onPress={onPress}>
+			<Card
+				style={twStyle(`mr-2 w-auto flex-row items-center gap-2 p-2.5`, {
+					borderColor: isSelected ? tw.color('accent') : tw.color('mobile-cardborder')
 				})}
-			/>
-			<Text style={tw`text-sm font-medium text-ink`}>{tag?.name}</Text>
+			>
+				<View
+					style={twStyle(`h-5 w-5 rounded-full`, {
+						backgroundColor: tag.color!
+					})}
+				/>
+				<Text style={tw`text-sm font-medium text-ink`}>{tag?.name}</Text>
 			</Card>
 		</Pressable>
 	);

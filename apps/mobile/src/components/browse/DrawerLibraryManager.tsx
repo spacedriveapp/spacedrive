@@ -31,13 +31,13 @@ const BrowseLibraryManager = ({ style }: Props) => {
 			<Pressable onPress={() => setDropdownClosed((v) => !v)}>
 				<View
 					style={twStyle(
-						'flex h-11 w-full flex-row items-center justify-between border bg-mobile-dropdown px-3 shadow-sm',
+						'flex h-11 w-full flex-row items-center justify-between border bg-mobile-input px-3 shadow-sm',
 						dropdownClosed
-							? 'rounded-md border-mobile-dropdownborder'
-							: 'rounded-t-md border-mobile-dropdownborder border-b-mobile-dropdownborder'
+							? 'border-mobile-inputborder rounded-md'
+							: 'border-mobile-inputborder border-b-mobile-inputborder rounded-t-md'
 					)}
 				>
-					<Text style={tw`text-md font-semibold text-ink`}>
+					<Text style={tw`font-semibold text-md text-ink`}>
 						{currentLibrary?.config.name}
 					</Text>
 					<MotiView
@@ -48,10 +48,8 @@ const BrowseLibraryManager = ({ style }: Props) => {
 					</MotiView>
 				</View>
 			</Pressable>
-			<AnimatedHeight style={tw`absolute top-10 z-10 w-full`} hide={dropdownClosed}>
-				<View
-					style={tw`w-full rounded-b-md border border-zinc-800 bg-zinc-900 p-2`}
-				>
+			<AnimatedHeight style={tw`absolute z-10 w-full top-10`} hide={dropdownClosed}>
+				<View style={tw`w-full p-2 border rounded-b-md border-zinc-800 bg-zinc-900`}>
 					{/* Libraries */}
 					{libraries.data?.map((library) => {
 						return (

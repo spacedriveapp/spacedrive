@@ -18,8 +18,8 @@ import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
 import FolderIcon from '../icons/FolderIcon';
-import { Icon } from '../icons/Icon';
 import Card from '../layout/Card';
+import Empty from '../layout/Empty';
 import Fade from '../layout/Fade';
 import ImportModal from '../modal/ImportModal';
 import { LocationModal } from '../modal/location/LocationModal';
@@ -121,17 +121,10 @@ const BrowseLocations = () => {
 			<Fade color="black" width={30} height="100%">
 				<FlatList
 					data={locations}
-					ListEmptyComponent={() => (
-						<View
-							style={tw`relative h-auto w-[87.5vw] flex-col items-center justify-center overflow-hidden rounded-md border border-dashed border-mobile-lightborder p-4`}
-						>
-							<Icon name="Folder" size={38} />
-							<Text style={tw`mt-2 font-medium text-center text-ink-dull`}>
-								You have no locations
-							</Text>
-						</View>
-					)}
-					contentContainerStyle={tw`px-7`}
+					ListEmptyComponent={
+						<Empty description="You have not added any locations" icon="Folder" />
+					}
+					contentContainerStyle={tw`w-full px-6`}
 					showsHorizontalScrollIndicator={false}
 					ItemSeparatorComponent={() => <View style={tw`w-2`} />}
 					renderItem={({ item }) => (

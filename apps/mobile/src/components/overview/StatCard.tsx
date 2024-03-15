@@ -57,7 +57,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 								<View
 									style={tw`absolute flex-row items-end gap-0.5 text-lg font-semibold`}
 								>
-									<Text style={tw`mx-auto font-semibold text-md text-ink`}>
+									<Text style={tw`mx-auto text-md font-semibold text-ink`}>
 										{fill.toFixed(0)}
 									</Text>
 									<Text style={tw`text-xs font-bold text-ink-dull opacity-60`}>
@@ -84,7 +84,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 				style={tw`flex h-10 flex-row items-center gap-1.5  border-t border-mobile-cardborder px-2`}
 			>
 				<View
-					style={tw`bg-mobile-highlight rounded border border-mobile-lightborder px-1.5 py-[1px]`}
+					style={tw`rounded border border-mobile-lightborder bg-mobile-highlight px-1.5 py-[1px]`}
 				>
 					<Text style={tw`text-xs font-medium uppercase text-ink-dull`}>
 						{connectionType || 'Local'}

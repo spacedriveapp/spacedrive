@@ -27,7 +27,7 @@ const RightActions = ({ progress, swipeable, tag }: Props) => {
 	return (
 		<Animated.View
 			style={[
-				tw`flex flex-row items-center ml-0`,
+				tw`ml-0 flex flex-row items-center`,
 				{ transform: [{ translateX: translate }] }
 			]}
 		>
@@ -38,7 +38,7 @@ const RightActions = ({ progress, swipeable, tag }: Props) => {
 			<DeleteTagModal
 				tagId={tag.id}
 				trigger={
-					<FakeButton style={tw`mx-2 bg-mobile-button border-mobile-lightborder`}>
+					<FakeButton style={tw`mx-2 border-mobile-lightborder bg-mobile-button`}>
 						<Trash size={18} color="white" />
 					</FakeButton>
 				}

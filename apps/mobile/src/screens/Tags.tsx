@@ -1,17 +1,17 @@
 import { useNavigation } from '@react-navigation/native';
 import { Plus } from 'phosphor-react-native';
 import { useRef } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { useCache, useLibraryQuery, useNodes } from '@sd/client';
-import { Icon } from '~/components/icons/Icon';
+import Empty from '~/components/layout/Empty';
 import Fade from '~/components/layout/Fade';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import CreateTagModal from '~/components/modal/tag/CreateTagModal';
+import { TagItem } from '~/components/tags/TagItem';
 import { tw, twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
-import { TagItem } from '~/components/tags/TagItem';
 
 interface Props {
 	viewStyle?: 'grid' | 'list';
@@ -27,7 +27,7 @@ export default function Tags({ viewStyle = 'list' }: Props) {
 	return (
 		<ScreenContainer scrollview={false} style={tw`relative px-6 py-0`}>
 			<Pressable
-				style={tw`absolute bottom-7 right-7 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-accent`}
+				style={tw`absolute z-10 flex items-center justify-center w-12 h-12 rounded-full bottom-7 right-7 bg-accent`}
 				testID="create-tag-modal"
 				onPress={() => {
 					modalRef.current?.present();
@@ -57,14 +57,15 @@ export default function Tags({ viewStyle = 'list' }: Props) {
 							}}
 						/>
 					)}
-					ListEmptyComponent={() => (
-						<View style={tw`h-auto w-[85.5vw] flex-col items-center justify-center`}>
-							<Icon name="Tags" size={90} />
-							<Text style={tw`mt-2 text-center text-lg font-medium text-ink-dull`}>
-								You have no tags
-							</Text>
-						</View>
-					)}
+					ListEmptyComponent={
+						<Empty
+							icon="Tags"
+							style={'border-0'}
+							textSize="text-md"
+							iconSize={84}
+							description="You have not created any tags"
+						/>
+					}
 					numColumns={viewStyle === 'grid' ? 3 : 1}
 					columnWrapperStyle={viewStyle === 'grid' && tw`justify-between`}
 					horizontal={false}

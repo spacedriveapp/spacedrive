@@ -8,7 +8,7 @@ const button = cva(['items-center justify-center rounded-md border shadow-sm'], 
 	variants: {
 		variant: {
 			danger: ['border-red-800 bg-red-600'],
-			gray: ['bg-mobile-button border-mobile-dropdownborder'],
+			gray: ['border-mobile-inputborder bg-mobile-button'],
 			darkGray: ['border-app-box bg-app'],
 			accent: ['border-accent-deep bg-accent shadow-md shadow-app-shade/10'],
 			outline: ['border-sidebar-line/60 bg-black'],

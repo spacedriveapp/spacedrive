@@ -16,7 +16,7 @@ interface HeaderProps {
 	showSearch?: boolean; //show the search button
 	searchType?: 'explorer' | 'location'; //Temporary
 	headerKind?: 'default' | 'location' | 'tag'; //kind of header
-};
+}
 
 // Props for the header with route
 interface HeaderPropsWithRoute extends HeaderProps {
@@ -34,16 +34,17 @@ interface HeaderPropsWithNav extends HeaderProps {
 interface OptionalRouteProps {
 	route?: StackHeaderProps;
 	routeTitle?: never; // Prevents using routeTitle without route
-  }
+}
 
-  interface OptionalNavProps {
+interface OptionalNavProps {
 	navBack?: boolean;
 	navBackHome?: never; // Prevents using navBackHome without navBack
-  }
+}
 
-  // Union types to allow all combinations
-  type CombinedProps = HeaderProps & (HeaderPropsWithRoute | OptionalRouteProps) & (HeaderPropsWithNav | OptionalNavProps);
-
+// Union types to allow all combinations
+type CombinedProps = HeaderProps &
+	(HeaderPropsWithRoute | OptionalRouteProps) &
+	(HeaderPropsWithNav | OptionalNavProps);
 
 // Default header with search bar and button to open drawer
 export default function Header({
@@ -64,9 +65,12 @@ export default function Header({
 
 	return (
 		<View
-			style={twStyle('relative h-auto w-full border-b border-mobile-cardborder bg-mobile-header', {
-				paddingTop: headerHeight
-			})}
+			style={twStyle(
+				'relative h-auto w-full border-b border-mobile-cardborder bg-mobile-header',
+				{
+					paddingTop: headerHeight
+				}
+			)}
 		>
 			<View style={tw`mx-auto h-auto w-full justify-center px-5 pb-4`}>
 				<View style={tw`w-full flex-row items-center justify-between`}>
@@ -76,9 +80,10 @@ export default function Header({
 								onPress={() => {
 									if (navBackHome) {
 										//navigate to the home screen of the stack
-										return navigation.dispatch(StackActions.popToTop());
+										navigation.dispatch(StackActions.popToTop());
+									} else {
+										navigation.goBack();
 									}
-									navigation.goBack();
 								}}
 							>
 								<ArrowLeft size={23} color={tw.color('ink')} />
