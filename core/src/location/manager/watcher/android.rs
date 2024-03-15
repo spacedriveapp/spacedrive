@@ -13,7 +13,7 @@ use std::{
 use async_trait::async_trait;
 use notify::{event::{CreateKind, DataChange, ModifyKind, RenameMode}, Event, EventKind};
 use tokio::{fs, time::Instant};
-use tracing::{error, info, trace};
+use tracing::{error, trace};
 
 use super::{
 	utils::{create_dir, rename, recalculate_directories_size, remove, update_file},
@@ -56,7 +56,7 @@ impl<'lib> EventHandler<'lib> for AndroidEventHandler<'lib> {
 	}
 
 	async fn handle_event(&mut self, event: Event) -> Result<(), LocationManagerError> {
-		info!("Received Android event: {:#?}", event);
+		debug!("Received Android event: {:#?}", event);
 
 		let Event {
 			kind, mut paths, ..
