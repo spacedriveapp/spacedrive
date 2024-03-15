@@ -1,5 +1,5 @@
-import { StackActions, useNavigation } from '@react-navigation/native';
-import { StackHeaderProps } from '@react-navigation/stack';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackHeaderProps } from '@react-navigation/native-stack';
 import { ArrowLeft, DotsThreeOutline, MagnifyingGlass } from 'phosphor-react-native';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,7 +20,7 @@ interface HeaderProps {
 
 // Props for the header with route
 interface HeaderPropsWithRoute extends HeaderProps {
-	route: StackHeaderProps;
+	route: NativeStackHeaderProps;
 	routeTitle?: boolean; // Use the title from the route
 }
 
@@ -32,7 +32,7 @@ interface HeaderPropsWithNav extends HeaderProps {
 
 // Optional versions of the Route and Nav props
 interface OptionalRouteProps {
-	route?: StackHeaderProps;
+	route?: NativeStackHeaderProps;
 	routeTitle?: never; // Prevents using routeTitle without route
 }
 

@@ -1,6 +1,6 @@
 import { BottomTabScreenProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
-import { StackScreenProps } from '@react-navigation/stack';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { BlurView } from 'expo-blur';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, ViewStyle } from 'react-native';
@@ -198,5 +198,5 @@ export type TabParamList = {
 
 export type TabScreenProps<Screen extends keyof TabParamList> = CompositeScreenProps<
 	BottomTabScreenProps<TabParamList, Screen>,
-	StackScreenProps<RootStackParamList, 'Root'>
+	NativeStackScreenProps<RootStackParamList, 'Root'>
 >;
