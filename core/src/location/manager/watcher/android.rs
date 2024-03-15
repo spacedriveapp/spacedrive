@@ -7,16 +7,21 @@ use sd_prisma::prisma::location;
 use sd_utils::error::FileIOError;
 
 use std::{
-	collections::{BTreeMap, HashMap}, path::{Path, PathBuf}, sync::Arc
+	collections::{BTreeMap, HashMap},
+	path::{Path, PathBuf},
+	sync::Arc,
 };
 
 use async_trait::async_trait;
-use notify::{event::{CreateKind, DataChange, ModifyKind, RenameMode}, Event, EventKind};
+use notify::{
+	event::{CreateKind, DataChange, ModifyKind, RenameMode},
+	Event, EventKind,
+};
 use tokio::{fs, time::Instant};
-use tracing::{error, trace, debug};
+use tracing::{debug, error, trace};
 
 use super::{
-	utils::{create_dir, rename, recalculate_directories_size, remove, update_file},
+	utils::{create_dir, recalculate_directories_size, remove, rename, update_file},
 	EventHandler, HUNDRED_MILLIS, ONE_SECOND,
 };
 
@@ -90,7 +95,7 @@ impl<'lib> EventHandler<'lib> for AndroidEventHandler<'lib> {
 				// Don't need to dispatch a recalculate directory event as `create_dir` dispatches
 				// a `scan_location_sub_path` function, which recalculates the size already
 
-				create_dir (
+				create_dir(
 					self.location_id,
 					path,
 					&fs::metadata(path)
