@@ -346,8 +346,8 @@ model TagOnObject {
 
 /// @shared(id: name)
 model Label {
-  id            Int      @id @default(autoincrement())
-  name          String   @unique
+  id            Int       @id @default(autoincrement())
+  name          String    @unique
   date_created  DateTime?
   date_modified DateTime?
 
@@ -408,9 +408,11 @@ model Job {
   status Int? // 0 = Queued
 
   // List of errors, separated by "\n\n" in case of failed jobs or completed with errors
-  errors_text String?
+  errors_text         String? // Deprecated, use `critical_error` or `non_critical_errors` instead
+  critical_error      String? // Serialized error field with info about the failed job after completion
+  non_critical_errors Bytes? // Serialized non-critical errors field with info about the completed job with errors after completion
 
-  data     Bytes? // Serialized data to be used on pause/resume
+  data     Bytes? // Deprecated
   metadata Bytes? // Serialized metadata field with info about the job after completion
 
   parent_id Bytes?

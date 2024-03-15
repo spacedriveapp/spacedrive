@@ -1,15 +1,11 @@
 use crate::jobs::JobId;
 
 use prisma_client_rust::QueryError;
-use sd_core_prisma_helpers::job_without_data;
 
 use sd_prisma::prisma::{job, PrismaClient};
 use sd_utils::db::{maybe_missing, MissingFieldError};
 
-use std::{
-	collections::HashMap,
-	fmt::{Display, Formatter},
-};
+use std::fmt;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -24,19 +20,45 @@ pub enum ReportError {
 	Update(QueryError),
 	#[error("invalid job status integer: {0}")]
 	InvalidJobStatusInt(i32),
+	#[error("serialization error: {0}")]
+	Serialization(#[from] rmp_serde::encode::Error),
+	#[error("deserialization error: {0}")]
+	Deserialization(#[from] rmp_serde::decode::Error),
+}
+
+impl From<ReportError> for rspc::Error {
+	fn from(e: ReportError) -> Self {
+		Self::with_cause(rspc::ErrorCode::BadRequest, e.to_string(), e)
+	}
 }
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
+pub enum ReportMetadata {
+	Input(ReportInputMetadata),
+	Output(ReportOutputMetadata),
+}
+
+#[derive(Debug, Serialize, Deserialize, Type, Clone)]
+pub enum ReportInputMetadata {
+	Placeholder,
+	// TODO: Add more types
+}
+
+#[derive(Debug, Serialize, Deserialize, Type, Clone)]
+pub enum ReportOutputMetadata {
+	Placeholder,
+	// TODO: Add more types
+}
+
+#[derive(Debug, Serialize, Type, Clone)]
 pub struct Report {
 	pub id: JobId,
 	pub name: String,
 	pub action: Option<String>,
-	pub data: Option<Vec<u8>>,
-	// In Typescript `any | null` is just `any` so we don't get prompted for null checks
-	// TODO(@Oscar): This will be fixed
-	#[specta(type = Option<HashMap<String, serde_json::Value>>)]
-	pub metadata: Option<serde_json::Value>,
-	pub errors_text: Vec<String>,
+
+	pub metadata: Vec<ReportMetadata>,
+	pub critical_error: Option<String>,
+	pub non_critical_errors: Vec<String>,
 
 	pub created_at: Option<DateTime<Utc>>,
 	pub started_at: Option<DateTime<Utc>>,
@@ -53,8 +75,8 @@ pub struct Report {
 	pub estimated_completion: DateTime<Utc>,
 }
 
-impl Display for Report {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for Report {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		write!(
 			f,
 			"Job <name='{}', uuid='{}'> {:#?}",
@@ -72,17 +94,26 @@ impl TryFrom<job::Data> for Report {
 			id: JobId::from_slice(&data.id).expect("corrupted database"),
 			name: maybe_missing(data.name, "job.name")?,
 			action: data.action,
-			data: data.data,
-			metadata: data.metadata.and_then(|m| {
-				serde_json::from_slice(&m).unwrap_or_else(|e| -> Option<serde_json::Value> {
-					error!("Failed to deserialize job metadata: {}", e);
-					None
+
+			metadata: data
+				.metadata
+				.map(|m| {
+					rmp_serde::from_slice(&m).unwrap_or_else(|e| {
+						error!("Failed to deserialize job metadata: {e:#?}");
+						vec![]
+					})
 				})
-			}),
-			errors_text: data
-				.errors_text
-				.map(|errors_str| errors_str.split("\n\n").map(str::to_string).collect())
 				.unwrap_or_default(),
+			critical_error: data.critical_error,
+			non_critical_errors: data.non_critical_errors.map_or_else(
+				Default::default,
+				|non_critical_errors| {
+					serde_json::from_slice(&non_critical_errors).unwrap_or_else(|e| {
+						error!("Failed to deserialize job non-critical errors: {e:#?}");
+						vec![]
+					})
+				},
+			),
 			created_at: data.date_created.map(DateTime::into),
 			started_at: data.date_started.map(DateTime::into),
 			completed_at: data.date_completed.map(DateTime::into),
@@ -97,49 +128,7 @@ impl TryFrom<job::Data> for Report {
 			message: String::new(),
 			estimated_completion: data
 				.date_estimated_completion
-				.map_or(Utc::now(), DateTime::into),
-		})
-	}
-}
-
-// I despise having to write this twice, but it seems to be the only way to
-// remove the data field from the struct
-// would love to get this DRY'd up
-impl TryFrom<job_without_data::Data> for Report {
-	type Error = MissingFieldError;
-
-	fn try_from(data: job_without_data::Data) -> Result<Self, Self::Error> {
-		Ok(Self {
-			id: JobId::from_slice(&data.id).expect("corrupted database"),
-			name: maybe_missing(data.name, "job.name")?,
-			action: data.action,
-			data: None,
-			metadata: data.metadata.and_then(|m| {
-				serde_json::from_slice(&m).unwrap_or_else(|e| -> Option<serde_json::Value> {
-					error!("Failed to deserialize job metadata: {}", e);
-					None
-				})
-			}),
-			errors_text: data
-				.errors_text
-				.map(|errors_str| errors_str.split("\n\n").map(str::to_string).collect())
-				.unwrap_or_default(),
-			created_at: data.date_created.map(DateTime::into),
-			started_at: data.date_started.map(DateTime::into),
-			completed_at: data.date_completed.map(DateTime::into),
-			parent_id: data
-				.parent_id
-				.map(|id| JobId::from_slice(&id).expect("corrupted database")),
-			status: Status::try_from(maybe_missing(data.status, "job.status")?)
-				.expect("corrupted database"),
-			task_count: data.task_count.unwrap_or(0),
-			completed_task_count: data.completed_task_count.unwrap_or(0),
-
-			phase: String::new(),
-			message: String::new(),
-			estimated_completion: data
-				.date_estimated_completion
-				.map_or(Utc::now(), DateTime::into),
+				.map_or_else(Utc::now, DateTime::into),
 		})
 	}
 }
@@ -154,10 +143,10 @@ impl Report {
 			started_at: None,
 			completed_at: None,
 			status: Status::Queued,
-			errors_text: vec![],
+			critical_error: None,
+			non_critical_errors: vec![],
 			task_count: 0,
-			data: None,
-			metadata: None,
+			metadata: vec![],
 			parent_id: None,
 			completed_task_count: 0,
 			phase: String::new(),
@@ -179,8 +168,8 @@ impl Report {
 		};
 		// create a unique group_key, EG: "added_location-<location_id>"
 		let group_key = self.parent_id.map_or_else(
-			|| format!("{}-{}", action_name, &self.id),
-			|parent_id| format!("{}-{}", action_name, parent_id),
+			|| format!("{action_name}-{}", self.id),
+			|parent_id| format!("{action_name}-{parent_id}"),
 		);
 
 		(action_name, Some(group_key))
@@ -196,10 +185,10 @@ impl Report {
 					[
 						job::name::set(Some(self.name.clone())),
 						job::action::set(self.action.clone()),
-						job::data::set(self.data.clone()),
 						job::date_created::set(Some(now.into())),
+						job::metadata::set(Some(rmp_serde::to_vec(&self.metadata)?)),
 						job::status::set(Some(self.status as i32)),
-						job::date_started::set(self.started_at.map(|d| d.into())),
+						job::date_started::set(self.started_at.map(Into::into)),
 						job::task_count::set(Some(1)),
 						job::completed_task_count::set(Some(0)),
 					],
@@ -224,11 +213,11 @@ impl Report {
 				job::id::equals(self.id.as_bytes().to_vec()),
 				vec![
 					job::status::set(Some(self.status as i32)),
-					job::errors_text::set(
-						(!self.errors_text.is_empty()).then(|| self.errors_text.join("\n\n")),
-					),
-					job::data::set(self.data.clone()),
-					job::metadata::set(serde_json::to_vec(&self.metadata).ok()),
+					job::critical_error::set(self.critical_error.clone()),
+					job::non_critical_errors::set(Some(rmp_serde::to_vec(
+						&self.non_critical_errors,
+					)?)),
+					job::metadata::set(Some(rmp_serde::to_vec(&self.metadata)?)),
 					job::task_count::set(Some(self.task_count)),
 					job::completed_task_count::set(Some(self.completed_task_count)),
 					job::date_started::set(self.started_at.map(Into::into)),
@@ -256,7 +245,7 @@ pub enum Status {
 }
 
 impl Status {
-	pub fn is_finished(self) -> bool {
+	pub const fn is_finished(self) -> bool {
 		matches!(
 			self,
 			Self::Completed
@@ -289,7 +278,7 @@ pub struct ReportBuilder {
 	pub id: JobId,
 	pub name: String,
 	pub action: Option<String>,
-	pub metadata: Option<serde_json::Value>,
+	pub metadata: Vec<ReportMetadata>,
 	pub parent_id: Option<JobId>,
 }
 
@@ -303,9 +292,9 @@ impl ReportBuilder {
 			started_at: None,
 			completed_at: None,
 			status: Status::Queued,
-			errors_text: vec![],
+			critical_error: None,
 			task_count: 0,
-			data: None,
+			non_critical_errors: vec![],
 			metadata: self.metadata,
 			parent_id: self.parent_id,
 			completed_task_count: 0,
@@ -320,7 +309,7 @@ impl ReportBuilder {
 			id,
 			name: name.into(),
 			action: None,
-			metadata: None,
+			metadata: vec![],
 			parent_id: None,
 		}
 	}
@@ -330,12 +319,12 @@ impl ReportBuilder {
 		self
 	}
 
-	pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
-		self.metadata = Some(metadata);
+	pub fn with_metadata(mut self, metadata: ReportInputMetadata) -> Self {
+		self.metadata.push(ReportMetadata::Input(metadata));
 		self
 	}
 
-	pub fn with_parent_id(mut self, parent_id: JobId) -> Self {
+	pub const fn with_parent_id(mut self, parent_id: JobId) -> Self {
 		self.parent_id = Some(parent_id);
 		self
 	}

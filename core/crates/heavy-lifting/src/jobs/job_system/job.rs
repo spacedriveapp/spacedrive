@@ -1,23 +1,30 @@
 use crate::{jobs::JobId, Error};
 
-use futures::{stream, StreamExt};
-use futures_concurrency::stream::Merge;
+use sd_prisma::prisma::PrismaClient;
 use sd_task_system::{IntoTask, Task, TaskHandle, TaskRemoteController, TaskSystemError};
-use tokio::spawn;
-use tokio::task::JoinHandle;
-use tracing::warn;
 
-use std::collections::VecDeque;
-use std::hash::Hash;
-use std::pin::pin;
+use std::{
+	collections::VecDeque,
+	hash::{DefaultHasher, Hash, Hasher},
+	pin::pin,
+};
 
 use async_channel as chan;
-use futures_concurrency::future::{Join, TryJoin};
+use chrono::{DateTime, Utc};
+use futures::{stream, StreamExt};
+use futures_concurrency::{
+	future::{Join, TryJoin},
+	stream::Merge,
+};
 use serde::Serialize;
 use specta::Type;
+use tokio::spawn;
+use tracing::warn;
 
-use super::report::{Report, ReportBuilder};
-use super::Command;
+use super::{
+	report::{Report, ReportBuilder, ReportInputMetadata, ReportOutputMetadata, Status},
+	Command, JobSystemError,
+};
 
 pub struct TaskDispatcher {
 	dispatcher: sd_task_system::TaskDispatcher<Error>,
@@ -75,7 +82,7 @@ impl TaskDispatcher {
 	}
 }
 
-pub(crate) enum ReturnStatus {
+pub enum ReturnStatus {
 	Completed(JobOutput),
 	Failed(Error),
 	Shutdown(Vec<Box<dyn Task<Error>>>),
@@ -83,35 +90,42 @@ pub(crate) enum ReturnStatus {
 }
 
 #[async_trait::async_trait]
-pub(crate) trait Job: Send + Hash + 'static {
+pub trait Job: Send + Sync + Hash + 'static {
 	const NAME: &'static str;
 
 	async fn run(mut self, dispatcher: TaskDispatcher) -> ReturnStatus;
 }
 
-pub(crate) trait IntoJob<J: Job> {
-	fn into_job(self) -> JobHolder<J>;
+pub trait IntoJob<J: Job> {
+	fn into_job(self) -> Box<dyn DynJob>;
 }
 
 impl<J: Job> IntoJob<J> for J {
-	fn into_job(self) -> JobHolder<J> {
+	fn into_job(self) -> Box<dyn DynJob> {
 		let id = JobId::new_v4();
 
-		JobHolder {
+		Box::new(JobHolder {
 			id,
 			job: self,
 			report: ReportBuilder::new(id, J::NAME.to_string()).build(),
 			next_jobs: VecDeque::new(),
-		}
+		})
+	}
+}
+
+impl<J: Job> IntoJob<J> for JobBuilder<J> {
+	fn into_job(self) -> Box<dyn DynJob> {
+		self.build()
 	}
 }
 
 #[derive(Serialize, Type)]
 pub struct JobOutput {
-	id: JobId,
-	job_type: String,
-	data: JobOutputData,
-	non_critical_errors: Vec<rspc::Error>,
+	pub id: JobId,
+	pub job_type: String,
+	pub data: JobOutputData,
+	pub metadata: ReportOutputMetadata,
+	pub non_critical_errors: Vec<rspc::Error>,
 }
 
 #[derive(Serialize, Type)]
@@ -124,6 +138,7 @@ pub struct JobBuilder<J: Job> {
 	id: JobId,
 	job: J,
 	report_builder: ReportBuilder,
+	next_jobs: VecDeque<Box<dyn DynJob>>,
 }
 
 impl<J: Job> JobBuilder<J> {
@@ -142,6 +157,7 @@ impl<J: Job> JobBuilder<J> {
 			id,
 			job,
 			report_builder: ReportBuilder::new(id, J::NAME.to_string()),
+			next_jobs: VecDeque::new(),
 		}
 	}
 
@@ -155,55 +171,186 @@ impl<J: Job> JobBuilder<J> {
 		self
 	}
 
-	pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
+	pub fn with_metadata(mut self, metadata: ReportInputMetadata) -> Self {
 		self.report_builder = self.report_builder.with_metadata(metadata);
+		self
+	}
+
+	pub fn enqueue_next(mut self, next: impl Job) -> Self {
+		let next_job_order = self.next_jobs.len() + 1;
+
+		let mut child_job_builder = JobBuilder::new(next).with_parent_id(self.id);
+
+		if let Some(parent_action) = &self.report_builder.action {
+			child_job_builder =
+				child_job_builder.with_action(format!("{parent_action}-{next_job_order}"));
+		}
+
+		self.next_jobs.push_back(child_job_builder.build());
+
 		self
 	}
 }
 
 pub struct JobHolder<J: Job> {
-	id: JobId,
+	pub(super) id: JobId,
 	job: J,
 	next_jobs: VecDeque<Box<dyn DynJob>>,
 	report: Report,
 }
 
-struct JobHandle {
-	id: JobId,
-	next_jobs: VecDeque<Box<dyn DynJob>>,
-	report: Report,
-	commands_tx: chan::Sender<Command>,
+pub struct JobHandle {
+	pub(crate) next_jobs: VecDeque<Box<dyn DynJob>>,
+	pub(crate) report: Report,
+	pub(crate) commands_tx: chan::Sender<Command>,
 }
 
-trait DynJob: Send + 'static {
+impl JobHandle {
+	pub async fn send_command(
+		&mut self,
+		command: Command,
+		db: &PrismaClient,
+	) -> Result<(), JobSystemError> {
+		if self.commands_tx.send(command).await.is_err() {
+			warn!("Tried to send a {command:?} to a job that was already completed");
+
+			Ok(())
+		} else {
+			let new_status = match command {
+				Command::Pause => Status::Paused,
+				Command::Resume => return Ok(()),
+				Command::Cancel => Status::Canceled,
+			};
+
+			self.next_jobs
+				.iter_mut()
+				.map(|dyn_job| dyn_job.report_mut())
+				.map(|next_job_report| async {
+					next_job_report.status = new_status;
+					next_job_report.update(db).await
+				})
+				.collect::<Vec<_>>()
+				.try_join()
+				.await
+				.map(|_| ())
+				.map_err(Into::into)
+		}
+	}
+
+	pub async fn register_start(
+		&mut self,
+		start_time: DateTime<Utc>,
+		db: &PrismaClient,
+	) -> Result<(), JobSystemError> {
+		let Self {
+			next_jobs, report, ..
+		} = self;
+
+		report.status = Status::Running;
+		if report.started_at.is_none() {
+			report.started_at = Some(start_time);
+		}
+
+		// If the report doesn't have a created_at date, it's a new report
+		if report.created_at.is_none() {
+			report.create(db).await?;
+		} else {
+			// Otherwise it can be a job being resumed or a children job that was already been created
+			report.update(db).await?;
+		}
+
+		// Registering children jobs
+		next_jobs
+			.iter_mut()
+			.map(|dyn_job| dyn_job.report_mut())
+			.map(|next_job_report| async {
+				if next_job_report.created_at.is_none() {
+					next_job_report.create(db).await
+				} else {
+					Ok(())
+				}
+			})
+			.collect::<Vec<_>>()
+			.try_join()
+			.await
+			.map(|_| ())
+			.map_err(Into::into)
+	}
+
+	pub async fn complete(
+		&mut self,
+		output: &JobOutput,
+		db: &PrismaClient,
+	) -> Result<(), JobSystemError> {
+		let Self { report, .. } = self;
+
+		let status = if output.non_critical_errors.is_empty() {
+			Status::Completed
+		} else {
+			Status::CompletedWithErrors
+		};
+
+		// TODO: Update the report with the output data
+		// report.metadata
+
+		Ok(())
+	}
+}
+
+pub trait DynJob: Send + Sync + 'static {
+	fn id(&self) -> JobId;
+
+	fn job_name(&self) -> &'static str;
+
+	fn hash(&self) -> u64;
+
+	fn report_mut(&mut self) -> &mut Report;
+
 	fn dispatch(
-		self,
+		self: Box<Self>,
 		dispatcher: sd_task_system::TaskDispatcher<Error>,
 		done_tx: chan::Sender<(JobId, ReturnStatus)>,
 	) -> JobHandle;
 }
 
 impl<J: Job> DynJob for JobHolder<J> {
+	fn id(&self) -> JobId {
+		self.id
+	}
+
+	fn job_name(&self) -> &'static str {
+		J::NAME
+	}
+
+	fn hash(&self) -> u64 {
+		let mut hasher = DefaultHasher::new();
+		J::NAME.hash(&mut hasher);
+		self.job.hash(&mut hasher);
+		hasher.finish()
+	}
+
+	fn report_mut(&mut self) -> &mut Report {
+		&mut self.report
+	}
+
 	fn dispatch(
-		self,
+		self: Box<Self>,
 		dispatcher: sd_task_system::TaskDispatcher<Error>,
 		done_tx: chan::Sender<(JobId, ReturnStatus)>,
 	) -> JobHandle {
 		let (commands_tx, commands_rx) = chan::bounded(8);
 
-		let JobHolder {
-			id,
-			job,
-			report,
-			next_jobs,
-		} = self;
-
-		spawn(to_spawn_job(id, job, dispatcher, commands_rx, done_tx));
+		spawn(to_spawn_job(
+			self.id,
+			self.job,
+			dispatcher,
+			commands_rx,
+			done_tx,
+		));
 
 		JobHandle {
-			id,
-			next_jobs,
-			report,
+			next_jobs: self.next_jobs,
+			report: self.report,
 			commands_tx,
 		}
 	}
@@ -245,7 +392,7 @@ async fn to_spawn_job(
 					Command::Pause => {
 						remote_controllers
 							.iter()
-							.map(|controller| controller.pause())
+							.map(TaskRemoteController::pause)
 							.collect::<Vec<_>>()
 							.join()
 							.await
@@ -261,7 +408,7 @@ async fn to_spawn_job(
 					Command::Resume => {
 						remote_controllers
 							.iter()
-							.map(|controller| controller.resume())
+							.map(TaskRemoteController::resume)
 							.collect::<Vec<_>>()
 							.join()
 							.await
@@ -277,7 +424,7 @@ async fn to_spawn_job(
 					Command::Cancel => {
 						remote_controllers
 							.iter()
-							.map(|controller| controller.cancel())
+							.map(TaskRemoteController::cancel)
 							.collect::<Vec<_>>()
 							.join()
 							.await;

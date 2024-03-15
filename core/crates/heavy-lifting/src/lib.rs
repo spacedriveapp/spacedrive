@@ -28,22 +28,32 @@
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
 use std::fmt;
+
 use thiserror::Error;
 
 pub mod actors;
 pub mod jobs;
 pub mod tasks;
 
-use jobs::job_system::report::ReportError;
 use tasks::indexer::IndexerError;
 
 #[derive(Error, Debug)]
 pub enum Error {
 	#[error(transparent)]
 	Indexer(#[from] IndexerError),
+}
 
-	#[error(transparent)]
-	Report(#[from] ReportError),
+impl From<Error> for rspc::Error {
+	fn from(e: Error) -> Self {
+		match e {
+			Error::Indexer(e) => e.into(),
+		}
+	}
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum NonCriticalJobErrors {
+	// TODO: Add variants as needed
 }
 
 pub enum ProgressUpdate {
