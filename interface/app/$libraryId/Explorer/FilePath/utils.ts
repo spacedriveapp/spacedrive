@@ -4,7 +4,7 @@ import { useCallbackToWatchResize } from '~/hooks';
 import { useExplorerContext } from '../Context';
 
 export function useSize(ref: RefObject<Element>) {
-	const explorerSettings = useExplorerContext().useSettingsSnapshot();
+	const explorerSettings = useExplorerContext({ suspense: false })?.useSettingsSnapshot();
 
 	const initialized = useRef(false);
 
@@ -12,7 +12,7 @@ export function useSize(ref: RefObject<Element>) {
 
 	useEffect(() => {
 		initialized.current = false;
-	}, [explorerSettings.gridItemSize]);
+	}, [explorerSettings?.gridItemSize]);
 
 	useCallbackToWatchResize(
 		({ width, height }) => {

@@ -1,4 +1,4 @@
-import { useBridgeQuery } from '@sd/client';
+import { useBridgeQuery, usePeers } from '@sd/client';
 import { Button, toast, Tooltip } from '@sd/ui';
 import { Icon } from '~/components';
 import { useLocale } from '~/hooks';
@@ -10,6 +10,7 @@ export default function DevicesSection() {
 	const { data: node } = useBridgeQuery(['nodeState']);
 
 	const { t } = useLocale();
+	const peers = usePeers();
 
 	return (
 		<Section name={t('devices')}>
@@ -19,7 +20,12 @@ export default function DevicesSection() {
 					<span className="truncate">{node.name}</span>
 				</SidebarLink>
 			)}
-
+			{Array.from(peers).map(([id, node]) => (
+				<SidebarLink className="group relative w-full" to={`todo`} key={id} disabled>
+					<Icon name="Laptop" className="mr-1 size-5" />
+					<span className="truncate">{node.metadata.name}</span>
+				</SidebarLink>
+			))}
 			<Tooltip label={t('devices_coming_soon_tooltip')} position="right">
 				<Button
 					onClick={() => {
