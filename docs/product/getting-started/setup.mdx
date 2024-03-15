@@ -30,6 +30,11 @@ brew install --cask spacedrive
 
 You can run Spacedrive in a Docker container using the following command.
 
+<Notice
+	type="note"
+	text="For the best performance of the docker container, we recommend to run on Linux (linux/amd64). The container is not yet optimized for other platforms."
+/>
+
 ```bash
 docker run -d --name spacedrive -p 8080:8080 -v /var/spacedrive:/var/spacedrive ghcr.io/spacedriveapp/spacedrive/server
 ```
@@ -37,6 +42,11 @@ docker run -d --name spacedrive -p 8080:8080 -v /var/spacedrive:/var/spacedrive 
 ### Mobile (Preview)
 
 Take your Spacedrive library on the go with our mobile apps. You can join the betas by following the links below.
+
+<Notice
+	type="warning"
+	text="Spacedrive is not yet released on mobile platforms. Check out our [roadmap](/roadmap) to see a timeline leading to release!"
+/>
 
 - **iOS**: [testflight.apple.com/join/3z3z3z3z](https://testflight.apple.com/join/3z3z3z3z) <br/>
   _Our iOS app is currently in development and the above link does not work._
