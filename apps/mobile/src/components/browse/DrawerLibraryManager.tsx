@@ -33,11 +33,11 @@ const BrowseLibraryManager = ({ style }: Props) => {
 					style={twStyle(
 						'flex h-11 w-full flex-row items-center justify-between border bg-mobile-input px-3 shadow-sm',
 						dropdownClosed
-							? 'border-mobile-inputborder rounded-md'
-							: 'border-mobile-inputborder border-b-mobile-inputborder rounded-t-md'
+							? 'rounded-md border-mobile-inputborder'
+							: 'rounded-t-md border-mobile-inputborder border-b-mobile-inputborder'
 					)}
 				>
-					<Text style={tw`font-semibold text-md text-ink`}>
+					<Text style={tw`text-md font-semibold text-ink`}>
 						{currentLibrary?.config.name}
 					</Text>
 					<MotiView
@@ -48,8 +48,8 @@ const BrowseLibraryManager = ({ style }: Props) => {
 					</MotiView>
 				</View>
 			</Pressable>
-			<AnimatedHeight style={tw`absolute z-10 w-full top-10`} hide={dropdownClosed}>
-				<View style={tw`w-full p-2 border rounded-b-md border-zinc-800 bg-zinc-900`}>
+			<AnimatedHeight style={tw`absolute top-10 z-10 w-full`} hide={dropdownClosed}>
+				<View style={tw`w-full rounded-b-md border border-zinc-800 bg-zinc-900 p-2`}>
 					{/* Libraries */}
 					{libraries.data?.map((library) => {
 						return (

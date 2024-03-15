@@ -48,7 +48,7 @@ const Locations = () => {
 							extraData={searchStore.filters.locations}
 							key={locations ? 'locationsSearch' : '_'}
 							scrollEnabled={false}
-							ItemSeparatorComponent={() => <View style={tw`w-2 h-2`} />}
+							ItemSeparatorComponent={() => <View style={tw`h-2 w-2`} />}
 							keyExtractor={(item) => item.id.toString()}
 							showsHorizontalScrollIndicator={false}
 							style={tw`flex-row`}

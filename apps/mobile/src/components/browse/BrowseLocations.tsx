@@ -41,7 +41,7 @@ const BrowseLocationItem: React.FC<BrowseLocationItemProps> = ({
 	return (
 		<Pressable onPress={onPress}>
 			<Card style={'h-auto w-[110px] flex-col justify-center gap-3'}>
-				<View style={tw`flex-col justify-between w-full gap-1`}>
+				<View style={tw`w-full flex-col justify-between gap-1`}>
 					<View style={tw`flex-row items-center justify-between`}>
 						<View style={tw`relative`}>
 							<FolderIcon size={42} />
@@ -97,7 +97,7 @@ const BrowseLocations = () => {
 
 	return (
 		<View style={tw`gap-3`}>
-			<View style={tw`flex-row items-center justify-between w-full px-6`}>
+			<View style={tw`w-full flex-row items-center justify-between px-6`}>
 				<Text style={tw`text-lg font-bold text-white`}>Locations</Text>
 				<View style={tw`flex-row gap-3`}>
 					<Pressable
@@ -105,13 +105,13 @@ const BrowseLocations = () => {
 							navigation.navigate('Locations');
 						}}
 					>
-						<View style={tw`items-center justify-center w-8 h-8 rounded-md bg-accent`}>
+						<View style={tw`h-8 w-8 items-center justify-center rounded-md bg-accent`}>
 							<Eye weight="bold" size={18} style={tw`text-white`} />
 						</View>
 					</Pressable>
 					<Pressable onPress={() => modalRef.current?.present()}>
 						<View
-							style={tw`items-center justify-center w-8 h-8 bg-transparent border border-dashed rounded-md border-mobile-iconborder`}
+							style={tw`h-8 w-8 items-center justify-center rounded-md border border-dashed border-mobile-iconborder bg-transparent`}
 						>
 							<Plus weight="bold" size={18} style={tw`text-ink`} />
 						</View>

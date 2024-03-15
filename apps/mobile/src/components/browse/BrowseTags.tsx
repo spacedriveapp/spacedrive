@@ -25,20 +25,20 @@ const BrowseTags = () => {
 
 	return (
 		<View style={tw`gap-3`}>
-			<View style={tw`flex-row items-center justify-between w-full px-6`}>
+			<View style={tw`w-full flex-row items-center justify-between px-6`}>
 				<Text style={tw`text-lg font-bold text-white`}>Tags</Text>
 				<View style={tw`flex-row gap-3`}>
 					<Pressable
 						testID="navigate-tags-screen"
 						onPress={() => navigation.navigate('Tags')}
 					>
-						<View style={tw`items-center justify-center w-8 h-8 rounded-md bg-accent`}>
+						<View style={tw`h-8 w-8 items-center justify-center rounded-md bg-accent`}>
 							<Eye weight="bold" size={18} style={tw`text-white`} />
 						</View>
 					</Pressable>
 					<Pressable onPress={() => modalRef.current?.present()}>
 						<View
-							style={tw`items-center justify-center w-8 h-8 bg-transparent border border-dashed rounded-md border-mobile-iconborder`}
+							style={tw`h-8 w-8 items-center justify-center rounded-md border border-dashed border-mobile-iconborder bg-transparent`}
 						>
 							<Plus weight="bold" size={18} style={tw`text-ink`} />
 						</View>

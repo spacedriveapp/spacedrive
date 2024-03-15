@@ -53,7 +53,7 @@ export const Locations = ({ redirectToLocationSettings }: Props) => {
 	return (
 		<ScreenContainer scrollview={false} style={tw`relative px-6 py-0`}>
 			<Pressable
-				style={tw`absolute z-10 items-center justify-center w-12 h-12 rounded-full bottom-7 right-7 bg-accent`}
+				style={tw`absolute bottom-7 right-7 z-10 h-12 w-12 items-center justify-center rounded-full bg-accent`}
 				onPress={() => {
 					modalRef.current?.present();
 				}}
@@ -150,12 +150,12 @@ export const LocationItem = ({
 		return (
 			<Animated.View
 				style={[
-					tw`flex flex-row items-center gap-2 mr-3`,
+					tw`mr-3 flex flex-row items-center gap-2`,
 					{ transform: [{ translateX: translate }] }
 				]}
 			>
 				<Pressable
-					style={tw`bg-mobile-button items-center justify-center rounded-md border border-mobile-lightborder px-3 py-1.5 shadow-sm`}
+					style={tw`items-center justify-center rounded-md border border-mobile-lightborder bg-mobile-button px-3 py-1.5 shadow-sm`}
 					onPress={() => {
 						navigation.navigate('EditLocationSettings', { id: location.id });
 						swipeable.close();
@@ -167,7 +167,7 @@ export const LocationItem = ({
 					locationId={location.id}
 					trigger={
 						<View
-							style={tw`bg-mobile-button items-center justify-center rounded-md border border-mobile-lightborder px-3 py-1.5 shadow-sm`}
+							style={tw`items-center justify-center rounded-md border border-mobile-lightborder bg-mobile-button px-3 py-1.5 shadow-sm`}
 						>
 							<Trash size={18} color="white" />
 						</View>
@@ -180,11 +180,11 @@ export const LocationItem = ({
 	return (
 		<Pressable onPress={onPress}>
 			<Swipeable
-				containerStyle={tw`border rounded-md border-mobile-cardborder bg-mobile-card`}
+				containerStyle={tw`rounded-md border border-mobile-cardborder bg-mobile-card`}
 				enableTrackpadTwoFingerGesture
 				renderRightActions={renderRightActions}
 			>
-				<Card style={tw`flex-row justify-between h-auto gap-3 p-3 border-0`}>
+				<Card style={tw`h-auto flex-row justify-between gap-3 border-0 p-3`}>
 					<View style={tw`w-[50%] flex-row items-center gap-2`}>
 						<View style={tw`relative`}>
 							<FolderIcon size={38} />
@@ -208,9 +208,9 @@ export const LocationItem = ({
 						</View>
 					</View>
 					<View style={tw`flex-row items-center gap-3`}>
-						<View style={tw`bg-mobile-highlight rounded-md p-1.5`}>
+						<View style={tw`rounded-md bg-mobile-highlight p-1.5`}>
 							<Text
-								style={tw`text-xs font-bold text-left text-ink-dull`}
+								style={tw`text-left text-xs font-bold text-ink-dull`}
 								numberOfLines={1}
 							>
 								{`${byteSize(location.size_in_bytes)}`}
