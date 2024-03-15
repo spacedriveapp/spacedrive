@@ -66,6 +66,12 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Setup Cypress
+        uses: cypress-io/github-action@v6
+        with:
+          runTests: false
+          working-directory: .
+
       - name: E2E test
         uses: cypress-io/github-action@v6
         with:

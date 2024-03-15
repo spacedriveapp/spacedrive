@@ -30,13 +30,13 @@
 	},
 	"devDependencies": {
 		"@sd/config": "workspace:*",
-		"@sentry/vite-plugin": "^2.14.2",
-		"@tauri-apps/cli": "^1.5.10",
-		"@types/react": "^18.2.64",
-		"@types/react-dom": "^18.2.21",
-		"sass": "^1.71.1",
+		"@sentry/vite-plugin": "^2.15.0",
+		"@tauri-apps/cli": "^1.5.11",
+		"@types/react": "^18.2.66",
+		"@types/react-dom": "^18.2.22",
+		"sass": "^1.72.0",
 		"typescript": "^5.3.3",
-		"vite": "^5.1.5",
-		"vite-tsconfig-paths": "^4.3.1"
+		"vite": "^5.1.6",
+		"vite-tsconfig-paths": "^4.3.2"
 	}
 }
