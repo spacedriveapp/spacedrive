@@ -58,8 +58,7 @@ if [ "${CI:-}" = "true" ]; then
       ;;
   esac
 else
-  # ANDROID_BUILD_TARGET_LIST="arm64-v8a armeabi-v7a x86_64"
-  ANDROID_BUILD_TARGET_LIST="arm64-v8a"
+  ANDROID_BUILD_TARGET_LIST="arm64-v8a armeabi-v7a x86_64"
 fi
 
 # Configure build targets CLI arg for `cargo ndk`

@@ -4108,10 +4108,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fdd168d97690d0b8c412d6b6c10360277f4d7ee495c5d0d5d5fe0854923255cc"
 dependencies = [
  "bitflags 1.3.2",
- "futures-core",
  "inotify-sys",
  "libc",
- "tokio",
 ]
 
 [[package]]
@@ -5776,6 +5774,23 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tracing",
+ "walkdir",
+ "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "notify"
+version = "6.1.1"
+source = "git+https://github.com/notify-rs/notify.git?rev=c3929ed114fbb0bc7457a9a498260461596b00ca#c3929ed114fbb0bc7457a9a498260461596b00ca"
+dependencies = [
+ "bitflags 2.4.1",
+ "filetime",
+ "fsevent-sys",
+ "inotify",
+ "kqueue",
+ "libc",
+ "log",
+ "mio",
  "walkdir",
  "windows-sys 0.48.0",
 ]
@@ -8169,22 +8184,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sd-android-fs-watcher"
-version = "0.1.0"
-dependencies = [
- "base64 0.21.7",
- "inotify",
- "rspc",
- "serde",
- "serde_json",
- "specta",
- "thiserror",
- "tokio",
- "tracing",
- "uuid",
-]
-
-[[package]]
 name = "sd-cache"
 version = "0.0.0"
 dependencies = [
@@ -8256,7 +8255,7 @@ dependencies = [
  "libc",
  "mini-moka",
  "normpath",
- "notify",
+ "notify 6.1.1 (git+https://github.com/notify-rs/notify.git?rev=c3929ed114fbb0bc7457a9a498260461596b00ca)",
  "once_cell",
  "openssl",
  "openssl-sys",
@@ -8271,7 +8270,6 @@ dependencies = [
  "rspc",
  "sd-actors",
  "sd-ai",
- "sd-android-fs-watcher",
  "sd-cache",
  "sd-cloud-api",
  "sd-core-sync",
