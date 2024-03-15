@@ -10,6 +10,7 @@ import {
 } from 'phosphor-react-native';
 import React, { FunctionComponent, useCallback, useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
+import Card from '~/components/layout/Card';
 import SectionTitle from '~/components/layout/SectionTitle';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getSearchStore, SearchFilters, useSearchStore } from '~/stores/searchStore';
@@ -19,7 +20,6 @@ import Kind from './Kind';
 import Locations from './Locations';
 import Name from './Name';
 import Tags from './Tags';
-import Card from '~/components/layout/Card';
 
 const options = [
 	{
@@ -161,12 +161,9 @@ interface FilterOptionProps {
 const FilterOption = ({ name, Icon, isSelected }: FilterOptionProps) => {
 	return (
 		<Card
-			style={twStyle(
-				`w-full flex-row items-center justify-center gap-1.5 py-2.5`,
-				{
-					borderColor: isSelected ? tw.color('accent') : tw.color('mobile-cardborder')
-				}
-			)}
+			style={twStyle(`w-full flex-row items-center justify-center gap-1.5 py-2.5`, {
+				borderColor: isSelected ? tw.color('accent') : tw.color('app-cardborder')
+			})}
 		>
 			<Icon size={18} color={tw.color('ink-dull')} />
 			<Text style={tw`text-sm font-medium text-ink`}>{name}</Text>

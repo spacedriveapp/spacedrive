@@ -38,7 +38,7 @@ const BrowseTags = () => {
 					</Pressable>
 					<Pressable onPress={() => modalRef.current?.present()}>
 						<View
-							style={tw`h-8 w-8 items-center justify-center rounded-md border border-dashed border-mobile-iconborder bg-transparent`}
+							style={tw`h-8 w-8 items-center justify-center rounded-md border border-dashed border-app-iconborder bg-transparent`}
 						>
 							<Plus weight="bold" size={18} style={tw`text-ink`} />
 						</View>

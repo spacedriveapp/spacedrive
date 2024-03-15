@@ -31,10 +31,10 @@ const BrowseLibraryManager = ({ style }: Props) => {
 			<Pressable onPress={() => setDropdownClosed((v) => !v)}>
 				<View
 					style={twStyle(
-						'flex h-11 w-full flex-row items-center justify-between border bg-mobile-input px-3 shadow-sm',
+						'flex h-11 w-full flex-row items-center justify-between border bg-app-input px-3 shadow-sm',
 						dropdownClosed
-							? 'rounded-md border-mobile-inputborder'
-							: 'rounded-t-md border-mobile-inputborder border-b-mobile-inputborder'
+							? 'rounded-md border-app-inputborder'
+							: 'rounded-t-md border-app-inputborder border-b-app-inputborder'
 					)}
 				>
 					<Text style={tw`text-md font-semibold text-ink`}>

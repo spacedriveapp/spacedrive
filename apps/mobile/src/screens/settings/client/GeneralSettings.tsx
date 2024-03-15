@@ -23,9 +23,7 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 					<Text style={tw`font-semibold text-ink`}>Connected Node</Text>
 					<View style={tw`flex flex-row`}>
 						{/* Peers */}
-						<View
-							style={tw`mr-2 self-start rounded bg-mobile-highlight px-1.5 py-[2px]`}
-						>
+						<View style={tw`mr-2 self-start rounded bg-app-highlight px-1.5 py-[2px]`}>
 							<Text style={tw`text-xs font-semibold text-ink`}>0 Peers</Text>
 						</View>
 						{/* Status */}

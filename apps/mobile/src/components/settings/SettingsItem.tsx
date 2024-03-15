@@ -23,13 +23,11 @@ export function SettingsItem(props: SettingsItemProps) {
 				: 'border-l border-r';
 	return (
 		<Pressable onPress={props.onPress}>
-			<View
-				style={twStyle(' border-mobile-cardborder bg-mobile-card', borderRounded, border)}
-			>
+			<View style={twStyle(' border-app-cardborder bg-app-card', borderRounded, border)}>
 				<View style={tw`h-auto flex-row items-center`}>
 					{props.leftIcon && (
 						<View
-							style={tw`ml-4 mr-5 h-8 w-8 items-center justify-center rounded-full border border-mobile-lightborder bg-mobile-button`}
+							style={tw`ml-4 mr-5 h-8 w-8 items-center justify-center rounded-full border border-app-lightborder bg-app-button`}
 						>
 							{props.leftIcon({ size: 20, color: tw.color('ink-dull') })}
 						</View>
@@ -38,7 +36,7 @@ export function SettingsItem(props: SettingsItemProps) {
 						style={twStyle(
 							`flex-1 flex-row items-center justify-between border-b py-4`,
 							borderRounded !== 'rounded-b-md'
-								? 'border-mobile-cardborder'
+								? 'border-app-cardborder'
 								: 'border-transparent'
 						)}
 					>

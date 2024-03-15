@@ -11,11 +11,8 @@ interface CardProps extends Omit<ViewProps, 'style'> {
 const Card = ({ children, style, ...props }: CardProps) => {
 	return (
 		<View
-		{...props}
-		style={twStyle(
-			'rounded-lg border border-mobile-cardborder bg-mobile-card p-2',
-			style
-		)}
+			{...props}
+			style={twStyle('rounded-lg border border-app-cardborder bg-app-card p-2', style)}
 		>
 			{children}
 		</View>

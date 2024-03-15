@@ -5,8 +5,8 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { tw } from '~/lib/tailwind';
 
 import FolderIcon from '../icons/FolderIcon';
-import Fade from '../layout/Fade';
 import Card from '../layout/Card';
+import Fade from '../layout/Fade';
 
 const Jobs = () => {
 	return (
@@ -45,11 +45,9 @@ const Job = ({ progress, message, error }: JobProps) => {
 			? tw.color('green-500')
 			: tw.color('accent');
 	return (
-		<Card
-			style={tw`h-[170px] w-[310px] flex-col p-0`}
-		>
+		<Card style={tw`h-[170px] w-[310px] flex-col p-0`}>
 			<View
-				style={tw`w-full flex-row items-center justify-between rounded-t-md border-b border-mobile-cardborder px-5 py-2`}
+				style={tw`w-full flex-row items-center justify-between rounded-t-md border-b border-app-cardborder px-5 py-2`}
 			>
 				<View style={tw`flex-row items-center gap-2`}>
 					<FolderIcon size={36} />

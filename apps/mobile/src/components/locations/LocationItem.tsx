@@ -27,7 +27,7 @@ const LocationItem = ({ location, editLocation, onPress, navigation }: LocationI
 	return (
 		<Pressable onPress={onPress}>
 			<Swipeable
-				containerStyle={tw`rounded-md border border-mobile-cardborder bg-mobile-card`}
+				containerStyle={tw`rounded-md border border-app-cardborder bg-app-card`}
 				enableTrackpadTwoFingerGesture
 				renderRightActions={(progress, _, swipeable) => (
 					<>
@@ -64,7 +64,7 @@ const LocationItem = ({ location, editLocation, onPress, navigation }: LocationI
 						</View>
 					</View>
 					<View style={tw`flex-row items-center gap-3`}>
-						<View style={tw`rounded-md bg-mobile-highlight p-1.5`}>
+						<View style={tw`rounded-md bg-app-highlight p-1.5`}>
 							<Text
 								style={tw`text-left text-xs font-bold text-ink-dull`}
 								numberOfLines={1}

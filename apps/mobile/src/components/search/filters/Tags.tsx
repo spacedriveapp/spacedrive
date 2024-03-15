@@ -80,7 +80,7 @@ const TagFilter = memo(({ tag }: Props) => {
 		<Pressable onPress={onPress}>
 			<Card
 				style={twStyle(`mr-2 w-auto flex-row items-center gap-2 p-2.5`, {
-					borderColor: isSelected ? tw.color('accent') : tw.color('mobile-cardborder')
+					borderColor: isSelected ? tw.color('accent') : tw.color('app-cardborder')
 				})}
 			>
 				<View

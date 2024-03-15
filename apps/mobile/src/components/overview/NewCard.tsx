@@ -35,7 +35,7 @@ export default function NewCard({
 	return (
 		<View
 			style={twStyle(
-				'flex w-[280px] shrink-0 flex-col justify-between rounded border border-dashed border-mobile-lightborder p-4',
+				'flex w-[280px] shrink-0 flex-col justify-between rounded border border-dashed border-app-lightborder p-4',
 				style
 			)}
 		>

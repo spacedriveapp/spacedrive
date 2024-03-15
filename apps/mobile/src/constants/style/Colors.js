@@ -46,7 +46,8 @@ module.exports = {
 			dull: `hsla(${DARK_HUE}, 10%, 70%, ${ALPHA})`,
 			faint: `hsla(${DARK_HUE}, 10%, 55%, ${ALPHA})`
 		},
-		mobile: {
+		app: {
+			DEFAULT: `hsla(${DARK_HUE}, 15%, 13%, ${ALPHA})`,
 			//BG colors for elements
 			header: `hsla(${DARK_HUE}, 10%, 6%, ${ALPHA})`,
 			screen: `hsla(${DARK_HUE}, 15%, 12%, ${ALPHA})`,
@@ -54,18 +55,19 @@ module.exports = {
 			card: `hsla(${DARK_HUE}, 10%, 5%, ${ALPHA})`,
 			divider: `hsla(${DARK_HUE}, 10%, 16%, ${ALPHA})`,
 			input: `hsla(${DARK_HUE}, 10%, 10%, ${ALPHA})`,
+			//a lighter version of card bg
 			boxLight: `hsla(${DARK_HUE}, 10%, 10%, ${ALPHA})`,
+			//default button variant
 			button: `hsla(${DARK_HUE}, 10%, 14%, ${ALPHA})`,
+			//used with 'pills'
 			highlight: `hsla(${DARK_HUE}, 10%, 18%, ${ALPHA})`,
+			//Modal background color
 			modal: `hsla(${DARK_HUE}, 10%, 6%, ${ALPHA})`,
 			//Borders
 			cardborder: `hsla(${DARK_HUE}, 10%, 10%, ${ALPHA})`,
 			inputborder: `hsla(${DARK_HUE}, 10%, 16%, ${ALPHA})`,
 			lightborder: `hsla(${DARK_HUE}, 10%, 20%, ${ALPHA})`,
-			iconborder: `hsla(${DARK_HUE}, 10%, 100%, ${ALPHA})`
-		},
-		app: {
-			DEFAULT: `hsla(${DARK_HUE}, 15%, 13%, ${ALPHA})`,
+			iconborder: `hsla(${DARK_HUE}, 10%, 100%, ${ALPHA})`,
 			// background (dark)
 			box: `hsla(${DARK_HUE}, 15%, 18%, ${ALPHA})`,
 			darkBox: `hsla(${DARK_HUE}, 15%, 7%, ${ALPHA})`,
@@ -74,16 +76,10 @@ module.exports = {
 			// border
 			line: `hsla(${DARK_HUE}, 15%, 25%, ${ALPHA})`,
 			darkLine: `hsla(${DARK_HUE}, 15%, 7%, ${ALPHA})`,
-			// `selected` on desktop
-			highlight: `hsla(${DARK_HUE}, 15%, 26%, ${ALPHA})`,
 			// shadow
 			shade: `hsla(${DARK_HUE}, 15%, 0%, ${ALPHA})`,
-			// button
-			button: `hsla(${DARK_HUE}, 15%, 23%, ${ALPHA})`,
 			// menu
-			menu: `hsla(${DARK_HUE}, 25%, 5%, ${ALPHA})`,
-			// input
-			input: `hsla(${DARK_HUE}, 15%, 20%, ${ALPHA})`
+			menu: `hsla(${DARK_HUE}, 25%, 5%, ${ALPHA})`
 		},
 		sidebar: {
 			box: `hsla(${DARK_HUE}, 15%, 16%, ${ALPHA})`,

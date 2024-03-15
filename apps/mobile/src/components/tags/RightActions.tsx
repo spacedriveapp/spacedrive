@@ -38,7 +38,7 @@ const RightActions = ({ progress, swipeable, tag }: Props) => {
 			<DeleteTagModal
 				tagId={tag.id}
 				trigger={
-					<FakeButton style={tw`mx-2 border-mobile-lightborder bg-mobile-button`}>
+					<FakeButton style={tw`mx-2 border-app-lightborder bg-app-button`}>
 						<Trash size={18} color="white" />
 					</FakeButton>
 				}

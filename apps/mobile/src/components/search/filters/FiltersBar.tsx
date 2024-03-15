@@ -28,7 +28,7 @@ const FiltersBar = () => {
 	const navigation = useNavigation<SearchStackScreenProps<'Filters'>['navigation']>();
 	return (
 		<View
-			style={tw`relative h-16 w-full flex-row items-center gap-4 border-t border-mobile-cardborder bg-black px-5 py-3`}
+			style={tw`relative h-16 w-full flex-row items-center gap-4 border-t border-app-cardborder bg-black px-5 py-3`}
 		>
 			<Button
 				onPress={() => navigation.navigate('Filters')}
@@ -63,7 +63,7 @@ interface FilterItemProps {
 
 const FilterItem = ({ filter, value }: FilterItemProps) => {
 	const iconStyle = tw`text-ink-dull`;
-	const boxStyle = tw`w-auto flex-row items-center gap-1.5 border border-mobile-cardborder bg-mobile-card p-2`;
+	const boxStyle = tw`w-auto flex-row items-center gap-1.5 border border-app-cardborder bg-app-card p-2`;
 	const filterCapital = filter.charAt(0).toUpperCase() + filter.slice(1);
 	const searchStore = useSearchStore();
 	return (

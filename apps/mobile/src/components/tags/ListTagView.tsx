@@ -19,7 +19,7 @@ const ListTagView = ({ tag, tagStyle, modalRef }: TagViewProps) => {
 	return (
 		<>
 			<Swipeable
-				containerStyle={tw`rounded-md border border-mobile-cardborder bg-mobile-card p-3`}
+				containerStyle={tw`rounded-md border border-app-cardborder bg-app-card p-3`}
 				enableTrackpadTwoFingerGesture
 				renderRightActions={(progress, _, swipeable) => (
 					<>

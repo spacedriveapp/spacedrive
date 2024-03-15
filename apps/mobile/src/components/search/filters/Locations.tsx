@@ -1,8 +1,8 @@
-import { Location, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { MotiView } from 'moti';
 import { memo, useCallback, useMemo } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { LinearTransition } from 'react-native-reanimated';
+import { Location, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { Icon } from '~/components/icons/Icon';
 import Card from '~/components/layout/Card';
 import Empty from '~/components/layout/Empty';
@@ -80,7 +80,7 @@ const LocationFilter = memo(({ data }: Props) => {
 		<Pressable onPress={onPress}>
 			<Card
 				style={twStyle(`mr-2 w-auto flex-row items-center gap-2 p-2.5`, {
-					borderColor: isSelected ? tw.color('accent') : tw.color('mobile-cardborder')
+					borderColor: isSelected ? tw.color('accent') : tw.color('app-cardborder')
 				})}
 			>
 				<Icon size={20} name="Folder" />

@@ -29,7 +29,7 @@ const RightActions = ({ progress, swipeable, location, navigation }: Props) => {
 			]}
 		>
 			<Pressable
-				style={tw`items-center justify-center rounded-md border border-mobile-lightborder bg-mobile-button px-3 py-1.5 shadow-sm`}
+				style={tw`items-center justify-center rounded-md border border-app-lightborder bg-app-button px-3 py-1.5 shadow-sm`}
 				onPress={() => {
 					navigation.navigate('EditLocationSettings', { id: location.id });
 					swipeable.close();
@@ -41,7 +41,7 @@ const RightActions = ({ progress, swipeable, location, navigation }: Props) => {
 				locationId={location.id}
 				trigger={
 					<View
-						style={tw`items-center justify-center rounded-md border border-mobile-lightborder bg-mobile-button px-3 py-1.5 shadow-sm`}
+						style={tw`items-center justify-center rounded-md border border-app-lightborder bg-app-button px-3 py-1.5 shadow-sm`}
 					>
 						<Trash size={18} color="white" />
 					</View>

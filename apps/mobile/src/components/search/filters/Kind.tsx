@@ -5,12 +5,12 @@ import { FlatList, Pressable, Text, View } from 'react-native';
 import { LinearTransition } from 'react-native-reanimated';
 import { ObjectKind } from '@sd/client';
 import { Icon } from '~/components/icons/Icon';
+import Card from '~/components/layout/Card';
 import Fade from '~/components/layout/Fade';
 import SectionTitle from '~/components/layout/SectionTitle';
 import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';
 import { tw, twStyle } from '~/lib/tailwind';
 import { useSearchStore } from '~/stores/searchStore';
-import Card from '~/components/layout/Card';
 
 export const kinds = Object.keys(ObjectKind)
 	.filter((key) => !isNaN(Number(key)) && ObjectKind[Number(key)] !== undefined)
@@ -87,14 +87,14 @@ const KindFilter = memo(({ data }: KindFilterProps) => {
 	}, [searchStore, data]);
 
 	return (
-		<Pressable
-			onPress={onPress}
-		>
-			<Card style={twStyle(`mr-2 w-auto flex-row items-center gap-2 p-2.5`, {
-				borderColor: isSelected ? tw.color('accent') : tw.color('mobile-cardborder')
-			})}>
-			<Icon name={data.icon} size={20} />
-			<Text style={tw`text-sm text-ink`}>{data.name}</Text>
+		<Pressable onPress={onPress}>
+			<Card
+				style={twStyle(`mr-2 w-auto flex-row items-center gap-2 p-2.5`, {
+					borderColor: isSelected ? tw.color('accent') : tw.color('app-cardborder')
+				})}
+			>
+				<Icon name={data.icon} size={20} />
+				<Text style={tw`text-sm text-ink`}>{data.name}</Text>
 			</Card>
 		</Pressable>
 	);

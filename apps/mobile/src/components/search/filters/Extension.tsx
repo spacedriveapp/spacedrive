@@ -25,7 +25,7 @@ const Extension = () => {
 				))}
 			</AnimatePresence>
 			<Pressable
-				style={tw`flex-row items-center justify-center rounded-md border border-mobile-cardborder bg-mobile-boxLight py-2`}
+				style={tw`flex-row items-center justify-center rounded-md border border-app-cardborder bg-app-boxLight py-2`}
 				onPress={() => getSearchStore().addInput('extension')}
 			>
 				<Plus size={16} color={tw.color('ink')} />
@@ -53,7 +53,7 @@ const ExtensionInput = ({ index }: NameInputProps) => {
 			{index !== 0 && (
 				<Pressable
 					onPress={() => indexSearchStore.removeInput(index, 'extension')}
-					style={tw`items-center justify-center rounded-md border border-mobile-cardborder bg-mobile-boxLight p-2`}
+					style={tw`items-center justify-center rounded-md border border-app-cardborder bg-app-boxLight p-2`}
 				>
 					<Trash size={20} color={tw.color('ink')} />
 				</Pressable>

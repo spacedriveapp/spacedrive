@@ -53,7 +53,7 @@ function LibraryItem({
 		<Swipeable
 			containerStyle={twStyle(
 				index !== 0 && 'mt-2',
-				'rounded-lg border border-mobile-cardborder bg-mobile-card px-4 py-3'
+				'rounded-lg border border-app-cardborder bg-app-card px-4 py-3'
 			)}
 			enableTrackpadTwoFingerGesture
 			renderRightActions={renderRightActions}

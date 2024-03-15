@@ -24,7 +24,7 @@ const SaveAdd = () => {
 	return (
 		<View
 			style={twStyle(
-				`h-[100px] flex-row justify-between gap-2 border-t border-app-line/50 bg-mobile-header px-6 pt-5`,
+				`h-[100px] flex-row justify-between gap-2 border-t border-app-line/50 bg-app-header px-6 pt-5`,
 				{
 					position: 'fixed'
 				}
