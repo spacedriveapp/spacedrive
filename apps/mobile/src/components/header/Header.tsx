@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import { StackHeaderProps } from '@react-navigation/stack';
+import { NativeStackHeaderProps } from '@react-navigation/native-stack';
 import { ArrowLeft, DotsThreeOutline, MagnifyingGlass } from 'phosphor-react-native';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,7 +25,7 @@ type HeaderProps = {
 type Props =
 	| HeaderProps
 	| ({
-			route: StackHeaderProps;
+			route: NativeStackHeaderProps;
 			routeTitle?: boolean;
 	  } & Omit<HeaderProps, 'route' | 'routeTitle'>);
 

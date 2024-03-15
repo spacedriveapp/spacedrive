@@ -1,11 +1,12 @@
 import { CompositeScreenProps } from '@react-navigation/native';
-import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { StackScreenProps } from '@react-navigation/stack';
 import Header from '~/components/header/Header';
 
 import OverviewScreen from '../../screens/Overview';
 import { TabScreenProps } from '../TabNavigator';
 
-const Stack = createStackNavigator<OverviewStackParamList>();
+const Stack = createNativeStackNavigator<OverviewStackParamList>();
 
 export default function OverviewStack() {
 	return (

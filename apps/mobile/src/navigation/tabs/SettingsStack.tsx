@@ -1,5 +1,8 @@
 import { CompositeScreenProps } from '@react-navigation/native';
-import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
+// import KeysSettingsScreen from '~/screens/settings/library/KeysSettings';
+
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { StackScreenProps } from '@react-navigation/stack';
 import Header from '~/components/header/Header';
 import AppearanceSettingsScreen from '~/screens/settings/client/AppearanceSettings';
 import ExtensionsSettingsScreen from '~/screens/settings/client/ExtensionsSettings';
@@ -16,11 +19,9 @@ import NodesSettingsScreen from '~/screens/settings/library/NodesSettings';
 import TagsSettingsScreen from '~/screens/settings/library/TagsSettings';
 import SettingsScreen from '~/screens/settings/Settings';
 
-// import KeysSettingsScreen from '~/screens/settings/library/KeysSettings';
-
 import { TabScreenProps } from '../TabNavigator';
 
-const Stack = createStackNavigator<SettingsStackParamList>();
+const Stack = createNativeStackNavigator<SettingsStackParamList>();
 
 export default function SettingsStack() {
 	return (

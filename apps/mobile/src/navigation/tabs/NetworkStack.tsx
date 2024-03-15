@@ -1,12 +1,12 @@
 import { CompositeScreenProps } from '@react-navigation/native';
-import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { StackScreenProps } from '@react-navigation/stack';
 import Header from '~/components/header/Header';
-import { tw } from '~/lib/tailwind';
 import NetworkScreen from '~/screens/network';
 
 import { TabScreenProps } from '../TabNavigator';
 
-const Stack = createStackNavigator<NetworkStackParamList>();
+const Stack = createNativeStackNavigator<NetworkStackParamList>();
 
 export default function NetworkStack() {
 	return (

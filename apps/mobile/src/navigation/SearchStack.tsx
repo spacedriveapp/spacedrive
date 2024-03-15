@@ -1,10 +1,11 @@
-import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { StackScreenProps } from '@react-navigation/stack';
 import React from 'react';
 import Header from '~/components/header/Header';
 import SearchScreen from '~/screens/search';
 import FiltersScreen from '~/screens/search/Filters';
 
-const Stack = createStackNavigator<SearchStackParamList>();
+const Stack = createNativeStackNavigator<SearchStackParamList>();
 
 export default function SearchStack() {
 	return (
