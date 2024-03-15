@@ -53,7 +53,7 @@ where
 }
 
 pub struct AndroidWatcher {
-	inotify: Inotify,
+	// inotify: Inotify,
 	internal_handle: InternalHandle,
 	event_handler: Arc<Mutex<dyn EventHandler>>,
 }
@@ -61,7 +61,7 @@ pub struct AndroidWatcher {
 impl fmt::Debug for AndroidWatcher {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.debug_struct("AndroidWatcher")
-			.field("inotify", &self.inotify)
+			// .field("inotify", &self.inotify)
 			.field("internal_handle", &self.internal_handle)
 			.field("event_handler", &Arc::as_ptr(&self.event_handler))
 			.finish()
@@ -76,7 +76,7 @@ pub enum WatcherEvent {
 }
 
 pub enum InternalEvent {
-	AddWatch(PathBuf, WatchDescriptor),
+	AddWatch(PathBuf),
 	RemoveWatch(PathBuf),
 }
 
@@ -89,43 +89,25 @@ impl AndroidWatcher {
 		let internal_handle = InternalHandle::new();
 
 		Self {
-			inotify: Inotify::init().expect("Failed to initialize inotify"),
+			// inotify: Inotify::init().expect("Failed to initialize inotify"),
 			internal_handle,
 			event_handler,
 		}
 	}
 
+	#[allow(clippy::expect_used, clippy::pedantic)]
 	pub fn watch(&mut self, path: &Path) -> Result<(), std::io::Error> {
-		let wd = self
-			.inotify
-			.watches()
-			.add(
-				path.to_path_buf().clone(),
-				WatchMask::MODIFY | WatchMask::CREATE | WatchMask::DELETE,
-			)
-			.expect("Failed to add watch");
-
 		self.internal_handle
-			.send_internal_event(InternalEvent::AddWatch(path.to_path_buf().clone(), wd));
+			.send_internal_event(InternalEvent::AddWatch(path.to_path_buf()));
 
 		Ok(())
 	}
 
+
+	#[allow(clippy::expect_used, clippy::pedantic)]
 	pub fn unwatch(&mut self, path: &Path) -> Result<(), std::io::Error> {
-		let wd = self
-			.internal_handle
-			.get_watchers()
-			.get(&path.to_path_buf().clone())
-			.expect("Failed to get watch descriptor")
-			.clone();
-
-		self.inotify
-			.watches()
-			.remove(wd)
-			.expect("Failed to remove watch");
-
 		self.internal_handle
-			.send_internal_event(InternalEvent::RemoveWatch(path.to_path_buf().clone()));
+			.send_internal_event(InternalEvent::RemoveWatch(path.to_path_buf()));
 
 		Ok(())
 	}
@@ -134,20 +116,32 @@ impl AndroidWatcher {
 #[derive(Debug)]
 struct InternalActor {
 	receiver: mpsc::Receiver<InternalEvent>,
+	inotify: Inotify,
+	watches: Watchers,
 }
 
 impl InternalActor {
+
+	#[allow(clippy::nursery, clippy::expect_used, clippy::unwrap_used)]
 	fn new(receiver: mpsc::Receiver<InternalEvent>) -> Self {
-		Self { receiver }
+		let inotify = Inotify::init().expect("Failed to initialize inotify");
+		Self { receiver, inotify, watches: Arc::new(Mutex::new(HashMap::new()))}
 	}
 
+	#[allow(clippy::nursery, clippy::expect_used)]
 	fn handle_internal_msg(&mut self, msg: InternalEvent) {
 		match msg {
-			InternalEvent::AddWatch(path, _) => {
+			InternalEvent::AddWatch(path) => {
 				info!("Adding watch for {:?}", path);
+				let wd = self.inotify.watches().add(path.clone(), WatchMask::MODIFY | WatchMask::CREATE | WatchMask::DELETE).expect("Failed to add watch");
+				self.watches.lock().unwrap().insert(path.clone(), wd);
+				info!("Watches: {:?}", self.watches.lock().unwrap());
 			}
 			InternalEvent::RemoveWatch(path) => {
 				info!("Removing watch for {:?}", path);
+				let wd = self.watches.lock().unwrap().get(&path).expect("Failed to get watch descriptor").clone();
+				self.inotify.watches().remove(wd).expect("Failed to remove watch");
+				info!("Watches: {:?}", self.watches.lock().unwrap());
 			}
 		}
 	}
@@ -164,7 +158,6 @@ async fn run_internal_actor(mut actor: InternalActor) {
 #[derive(Debug)]
 pub struct InternalHandle {
 	sender: mpsc::Sender<InternalEvent>,
-	watchers: Watchers,
 	join: tokio::task::JoinHandle<()>,
 }
 
@@ -176,7 +169,6 @@ impl InternalHandle {
 
 		Self {
 			sender,
-			watchers: Arc::new(Mutex::new(HashMap::new())),
 			join,
 		}
 	}
@@ -195,9 +187,5 @@ impl InternalHandle {
 		});
 		let t = self.join.borrow();
 		info!("Join: {:?}", t);
-	}
-
-	pub fn get_watchers(&self) -> _Watchers {
-		self.watchers.lock().unwrap().clone()
 	}
 }
