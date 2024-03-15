@@ -1,10 +1,10 @@
 //! Android file system watcher implementation.
-//! TODO: Still being worked on by @Rocky43007 on Branch Rocky43007:location-watcher-test-3
-//! DO NOT TOUCH FOR NOW
+//! Just basically linux.rs
 
 use crate::{invalidate_query, library::Library, location::manager::LocationManagerError, Node};
 
 use sd_prisma::prisma::location;
+use sd_utils::error::FileIOError;
 
 use std::{
 	collections::{BTreeMap, HashMap},
@@ -13,12 +13,15 @@ use std::{
 };
 
 use async_trait::async_trait;
-use notify::Event;
-use tokio::time::Instant;
-use tracing::{error, info, trace};
+use notify::{
+	event::{CreateKind, DataChange, ModifyKind, RenameMode},
+	Event, EventKind,
+};
+use tokio::{fs, time::Instant};
+use tracing::{debug, error, trace};
 
 use super::{
-	utils::{recalculate_directories_size, remove, update_file},
+	utils::{create_dir, recalculate_directories_size, remove, rename, update_file},
 	EventHandler, HUNDRED_MILLIS, ONE_SECOND,
 };
 
@@ -58,92 +61,92 @@ impl<'lib> EventHandler<'lib> for AndroidEventHandler<'lib> {
 	}
 
 	async fn handle_event(&mut self, event: Event) -> Result<(), LocationManagerError> {
-		info!("Received Android event: {:#?}", event);
+		debug!("Received Android event: {:#?}", event);
 
-		// let Event {
-		// 	kind, mut paths, ..
-		// } = event;
+		let Event {
+			kind, mut paths, ..
+		} = event;
 
-		// match kind {
-		// 	EventKind::Create(CreateKind::File)
-		// 	| EventKind::Modify(ModifyKind::Data(DataChange::Any)) => {
-		// 		// When we receive a create, modify data or metadata events of the abore kinds
-		// 		// we just mark the file to be updated in a near future
-		// 		// each consecutive event of these kinds that we receive for the same file
-		// 		// we just store the path again in the map below, with a new instant
-		// 		// that effectively resets the timer for the file to be updated
-		// 		let path = paths.remove(0);
-		// 		if self.files_to_update.contains_key(&path) {
-		// 			if let Some(old_instant) =
-		// 				self.files_to_update.insert(path.clone(), Instant::now())
-		// 			{
-		// 				self.reincident_to_update_files
-		// 					.entry(path)
-		// 					.or_insert(old_instant);
-		// 			}
-		// 		} else {
-		// 			self.files_to_update.insert(path, Instant::now());
-		// 		}
-		// 	}
+		match kind {
+			EventKind::Create(CreateKind::File)
+			| EventKind::Modify(ModifyKind::Data(DataChange::Any)) => {
+				// When we receive a create, modify data or metadata events of the abore kinds
+				// we just mark the file to be updated in a near future
+				// each consecutive event of these kinds that we receive for the same file
+				// we just store the path again in the map below, with a new instant
+				// that effectively resets the timer for the file to be updated
+				let path = paths.remove(0);
+				if self.files_to_update.contains_key(&path) {
+					if let Some(old_instant) =
+						self.files_to_update.insert(path.clone(), Instant::now())
+					{
+						self.reincident_to_update_files
+							.entry(path)
+							.or_insert(old_instant);
+					}
+				} else {
+					self.files_to_update.insert(path, Instant::now());
+				}
+			}
 
-		// 	EventKind::Create(CreateKind::Folder) => {
-		// 		let path = &paths[0];
+			EventKind::Create(CreateKind::Folder) => {
+				let path = &paths[0];
 
-		// 		// Don't need to dispatch a recalculate directory event as `create_dir` dispatches
-		// 		// a `scan_location_sub_path` function, which recalculates the size already
+				// Don't need to dispatch a recalculate directory event as `create_dir` dispatches
+				// a `scan_location_sub_path` function, which recalculates the size already
 
-		// 		create_dir(
-		// 			self.location_id,
-		// 			path,
-		// 			&fs::metadata(path)
-		// 				.await
-		// 				.map_err(|e| FileIOError::from((path, e)))?,
-		// 			self.node,
-		// 			self.library,
-		// 		)
-		// 		.await?;
-		// 	}
-		// 	EventKind::Modify(ModifyKind::Name(RenameMode::From)) => {
-		// 		// Just in case we can't garantee that we receive the Rename From event before the
-		// 		// Rename Both event. Just a safeguard
-		// 		if self.recently_renamed_from.remove(&paths[0]).is_none() {
-		// 			self.rename_from.insert(paths.remove(0), Instant::now());
-		// 		}
-		// 	}
+				create_dir(
+					self.location_id,
+					path,
+					&fs::metadata(path)
+						.await
+						.map_err(|e| FileIOError::from((path, e)))?,
+					self.node,
+					self.library,
+				)
+				.await?;
+			}
+			EventKind::Modify(ModifyKind::Name(RenameMode::From)) => {
+				// Just in case we can't garantee that we receive the Rename From event before the
+				// Rename Both event. Just a safeguard
+				if self.recently_renamed_from.remove(&paths[0]).is_none() {
+					self.rename_from.insert(paths.remove(0), Instant::now());
+				}
+			}
 
-		// 	EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
-		// 		let from_path = &paths[0];
-		// 		let to_path = &paths[1];
+			EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
+				let from_path = &paths[0];
+				let to_path = &paths[1];
 
-		// 		self.rename_from.remove(from_path);
-		// 		rename(
-		// 			self.location_id,
-		// 			to_path,
-		// 			from_path,
-		// 			fs::metadata(to_path)
-		// 				.await
-		// 				.map_err(|e| FileIOError::from((to_path, e)))?,
-		// 			self.library,
-		// 		)
-		// 		.await?;
-		// 		self.recently_renamed_from
-		// 			.insert(paths.swap_remove(0), Instant::now());
-		// 	}
-		// 	EventKind::Remove(_) => {
-		// 		let path = paths.remove(0);
-		// 		if let Some(parent) = path.parent() {
-		// 			if parent != Path::new("") {
-		// 				self.to_recalculate_size
-		// 					.insert(parent.to_path_buf(), Instant::now());
-		// 			}
-		// 		}
+				self.rename_from.remove(from_path);
+				rename(
+					self.location_id,
+					to_path,
+					from_path,
+					fs::metadata(to_path)
+						.await
+						.map_err(|e| FileIOError::from((to_path, e)))?,
+					self.library,
+				)
+				.await?;
+				self.recently_renamed_from
+					.insert(paths.swap_remove(0), Instant::now());
+			}
+			EventKind::Remove(_) => {
+				let path = paths.remove(0);
+				if let Some(parent) = path.parent() {
+					if parent != Path::new("") {
+						self.to_recalculate_size
+							.insert(parent.to_path_buf(), Instant::now());
+					}
+				}
 
-		// 		remove(self.location_id, &path, self.library).await?;
-		// 	}
-		// 	other_event_kind => {
-		// 		trace!("Other Linux event that we don't handle for now: {other_event_kind:#?}");
-		// 	}
-		// }
+				remove(self.location_id, &path, self.library).await?;
+			}
+			other_event_kind => {
+				trace!("Other Linux event that we don't handle for now: {other_event_kind:#?}");
+			}
+		}
 
 		Ok(())
 	}
