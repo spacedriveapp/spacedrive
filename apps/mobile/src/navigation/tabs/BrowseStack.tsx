@@ -1,5 +1,5 @@
 import { CompositeScreenProps } from '@react-navigation/native';
-import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
+import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import Header from '~/components/header/Header';
 import BrowseScreen from '~/screens/browse';
 import LocationScreen from '~/screens/Location';
@@ -9,7 +9,7 @@ import Tags from '~/screens/Tags';
 
 import { TabScreenProps } from '../TabNavigator';
 
-const Stack = createStackNavigator<BrowseStackParamList>();
+const Stack = createNativeStackNavigator<BrowseStackParamList>();
 
 export default function BrowseStack() {
 	return (
@@ -63,6 +63,6 @@ export type BrowseStackParamList = {
 
 export type BrowseStackScreenProps<Screen extends keyof BrowseStackParamList> =
 	CompositeScreenProps<
-		StackScreenProps<BrowseStackParamList, Screen>,
+		NativeStackScreenProps<BrowseStackParamList, Screen>,
 		TabScreenProps<'BrowseStack'>
 	>;

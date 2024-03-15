@@ -1,11 +1,11 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
-import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
+import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import NotFoundScreen from '~/screens/NotFound';
 
 import SearchStack, { SearchStackParamList } from './SearchStack';
 import TabNavigator, { TabParamList } from './TabNavigator';
 
-const Stack = createStackNavigator<RootStackParamList>();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 // This is the main navigator we nest everything under.
 export default function RootNavigator() {
 	return (
@@ -23,7 +23,7 @@ export type RootStackParamList = {
 	NotFound: undefined;
 };
 
-export type RootStackScreenProps<Screen extends keyof RootStackParamList> = StackScreenProps<
+export type RootStackScreenProps<Screen extends keyof RootStackParamList> = NativeStackScreenProps<
 	RootStackParamList,
 	Screen
 >;
