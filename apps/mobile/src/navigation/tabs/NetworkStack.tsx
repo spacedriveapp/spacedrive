@@ -1,6 +1,5 @@
 import { CompositeScreenProps } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { StackScreenProps } from '@react-navigation/stack';
+import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import Header from '~/components/header/Header';
 import NetworkScreen from '~/screens/network';
 
@@ -26,6 +25,6 @@ export type NetworkStackParamList = {
 
 export type NetworkStackScreenProps<Screen extends keyof NetworkStackParamList> =
 	CompositeScreenProps<
-		StackScreenProps<NetworkStackParamList, Screen>,
+		NativeStackScreenProps<NetworkStackParamList, Screen>,
 		TabScreenProps<'NetworkStack'>
 	>;

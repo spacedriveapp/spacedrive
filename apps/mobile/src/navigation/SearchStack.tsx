@@ -1,5 +1,4 @@
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { StackScreenProps } from '@react-navigation/stack';
+import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import React from 'react';
 import Header from '~/components/header/Header';
 import SearchScreen from '~/screens/search';
@@ -35,7 +34,5 @@ export type SearchStackParamList = {
 	Filters: undefined;
 };
 
-export type SearchStackScreenProps<Screen extends keyof SearchStackParamList> = StackScreenProps<
-	SearchStackParamList,
-	Screen
->;
+export type SearchStackScreenProps<Screen extends keyof SearchStackParamList> =
+	NativeStackScreenProps<SearchStackParamList, Screen>;

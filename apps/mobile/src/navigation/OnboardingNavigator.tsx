@@ -1,5 +1,4 @@
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { StackScreenProps } from '@react-navigation/stack';
+import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { OnboardingContext, useContextValue } from '~/screens/onboarding/context';
 import CreatingLibraryScreen from '~/screens/onboarding/CreatingLibrary';
 import GetStartedScreen from '~/screens/onboarding/GetStarted';
@@ -40,4 +39,4 @@ export type OnboardingStackParamList = {
 };
 
 export type OnboardingStackScreenProps<Screen extends keyof OnboardingStackParamList> =
-	StackScreenProps<OnboardingStackParamList, Screen>;
+	NativeStackScreenProps<OnboardingStackParamList, Screen>;

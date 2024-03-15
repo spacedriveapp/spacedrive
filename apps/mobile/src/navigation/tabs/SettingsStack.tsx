@@ -1,8 +1,7 @@
 import { CompositeScreenProps } from '@react-navigation/native';
 // import KeysSettingsScreen from '~/screens/settings/library/KeysSettings';
 
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { StackScreenProps } from '@react-navigation/stack';
+import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import Header from '~/components/header/Header';
 import AppearanceSettingsScreen from '~/screens/settings/client/AppearanceSettings';
 import ExtensionsSettingsScreen from '~/screens/settings/client/ExtensionsSettings';
@@ -137,6 +136,6 @@ export type SettingsStackParamList = {
 
 export type SettingsStackScreenProps<Screen extends keyof SettingsStackParamList> =
 	CompositeScreenProps<
-		StackScreenProps<SettingsStackParamList, Screen>,
+		NativeStackScreenProps<SettingsStackParamList, Screen>,
 		TabScreenProps<'SettingsStack'>
 	>;
