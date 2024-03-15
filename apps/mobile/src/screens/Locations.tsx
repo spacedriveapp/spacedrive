@@ -15,6 +15,7 @@ import {
 } from '@sd/client';
 import FolderIcon from '~/components/icons/FolderIcon';
 import { Icon } from '~/components/icons/Icon';
+import Card from '~/components/layout/Card';
 import Fade from '~/components/layout/Fade';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
@@ -52,7 +53,7 @@ export const Locations = ({ redirectToLocationSettings }: Props) => {
 	return (
 		<ScreenContainer scrollview={false} style={tw`relative px-6 py-0`}>
 			<Pressable
-				style={tw`absolute bottom-7 right-7 z-10 h-12 w-12 items-center justify-center rounded-full bg-accent`}
+				style={tw`absolute z-10 items-center justify-center w-12 h-12 rounded-full bottom-7 right-7 bg-accent`}
 				onPress={() => {
 					modalRef.current?.present();
 				}}
@@ -80,7 +81,7 @@ export const Locations = ({ redirectToLocationSettings }: Props) => {
 					ListEmptyComponent={() => (
 						<View style={tw`h-auto w-[85.5vw] flex-col items-center justify-center`}>
 							<Icon name="Folder" size={90} />
-							<Text style={tw`text-center text-lg font-medium text-ink-dull`}>
+							<Text style={tw`text-lg font-medium text-center text-ink-dull`}>
 								You have no locations
 							</Text>
 						</View>
@@ -148,12 +149,12 @@ export const LocationItem = ({
 		return (
 			<Animated.View
 				style={[
-					tw`mr-3 flex flex-row items-center gap-2`,
+					tw`flex flex-row items-center gap-2 mr-3`,
 					{ transform: [{ translateX: translate }] }
 				]}
 			>
 				<Pressable
-					style={tw`items-center justify-center rounded-md border border-app-line bg-app-button px-3 py-1.5 shadow-sm`}
+					style={tw`bg-mobile-button items-center justify-center rounded-md border border-mobile-lightborder px-3 py-1.5 shadow-sm`}
 					onPress={() => {
 						navigation.navigate('EditLocationSettings', { id: location.id });
 						swipeable.close();
@@ -165,7 +166,7 @@ export const LocationItem = ({
 					locationId={location.id}
 					trigger={
 						<View
-							style={tw`items-center justify-center rounded-md border border-app-line bg-app-button px-3 py-1.5 shadow-sm`}
+							style={tw`bg-mobile-button items-center justify-center rounded-md border border-mobile-lightborder px-3 py-1.5 shadow-sm`}
 						>
 							<Trash size={18} color="white" />
 						</View>
@@ -178,14 +179,14 @@ export const LocationItem = ({
 	return (
 		<Pressable onPress={onPress}>
 			<Swipeable
-				containerStyle={tw`rounded-md border border-sidebar-line/50 bg-sidebar-box`}
+				containerStyle={tw`border rounded-md border-mobile-cardborder bg-mobile-card`}
 				enableTrackpadTwoFingerGesture
 				renderRightActions={renderRightActions}
 			>
-				<View style={tw`h-auto flex-row justify-between gap-3 p-2`}>
+				<Card style={tw`flex-row justify-between h-auto gap-3 p-3 border-0`}>
 					<View style={tw`w-[50%] flex-row items-center gap-2`}>
 						<View style={tw`relative`}>
-							<FolderIcon size={42} />
+							<FolderIcon size={38} />
 							<View
 								style={twStyle(
 									'z-5 absolute bottom-[6px] right-[2px] h-2 w-2 rounded-full',
@@ -206,9 +207,9 @@ export const LocationItem = ({
 						</View>
 					</View>
 					<View style={tw`flex-row items-center gap-3`}>
-						<View style={tw`rounded-md bg-app-input p-1.5`}>
+						<View style={tw`bg-mobile-highlight rounded-md p-1.5`}>
 							<Text
-								style={tw`text-left text-xs font-bold text-ink-dull`}
+								style={tw`text-xs font-bold text-left text-ink-dull`}
 								numberOfLines={1}
 							>
 								{`${byteSize(location.size_in_bytes)}`}
@@ -218,11 +219,11 @@ export const LocationItem = ({
 							<DotsThreeOutlineVertical
 								weight="fill"
 								size={20}
-								color={tw.color('ink-faint')}
+								color={tw.color('ink-dull')}
 							/>
 						</Pressable>
 					</View>
-				</View>
+				</Card>
 			</Swipeable>
 			<LocationModal
 				editLocation={() => {

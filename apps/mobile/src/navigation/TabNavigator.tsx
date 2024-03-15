@@ -114,7 +114,7 @@ export default function TabNavigator() {
 				),
 				headerShown: false,
 				tabBarActiveTintColor: tw.color('accent'),
-				tabBarInactiveTintColor: tw.color('ink-faint')
+				tabBarInactiveTintColor: tw.color('ink/50')
 			}}
 		>
 			{TabScreens.map((screen, index) => (

@@ -19,10 +19,10 @@ import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
 import FolderIcon from '../icons/FolderIcon';
 import { Icon } from '../icons/Icon';
+import Card from '../layout/Card';
 import Fade from '../layout/Fade';
 import ImportModal from '../modal/ImportModal';
 import { LocationModal } from '../modal/location/LocationModal';
-import Card from '../layout/Card';
 
 interface BrowseLocationItemProps {
 	location: Location;
@@ -40,8 +40,8 @@ const BrowseLocationItem: React.FC<BrowseLocationItemProps> = ({
 	const modalRef = useRef<ModalRef>(null);
 	return (
 		<Pressable onPress={onPress}>
-			<Card style={"h-auto w-[110px] flex-col justify-center gap-3"}>
-				<View style={tw`w-full flex-col justify-between gap-1`}>
+			<Card style={'h-auto w-[110px] flex-col justify-center gap-3'}>
+				<View style={tw`flex-col justify-between w-full gap-1`}>
 					<View style={tw`flex-row items-center justify-between`}>
 						<View style={tw`relative`}>
 							<FolderIcon size={42} />
@@ -97,7 +97,7 @@ const BrowseLocations = () => {
 
 	return (
 		<View style={tw`gap-3`}>
-			<View style={tw`w-full flex-row items-center justify-between px-6`}>
+			<View style={tw`flex-row items-center justify-between w-full px-6`}>
 				<Text style={tw`text-lg font-bold text-white`}>Locations</Text>
 				<View style={tw`flex-row gap-3`}>
 					<Pressable
@@ -105,15 +105,13 @@ const BrowseLocations = () => {
 							navigation.navigate('Locations');
 						}}
 					>
-						<View
-							style={tw`h-8 w-8 items-center justify-center rounded-md bg-accent`}
-						>
+						<View style={tw`items-center justify-center w-8 h-8 rounded-md bg-accent`}>
 							<Eye weight="bold" size={18} style={tw`text-white`} />
 						</View>
 					</Pressable>
 					<Pressable onPress={() => modalRef.current?.present()}>
 						<View
-							style={tw`h-8 w-8 items-center justify-center rounded-md border border-dashed border-mobile-iconborder bg-transparent`}
+							style={tw`items-center justify-center w-8 h-8 bg-transparent border border-dashed rounded-md border-mobile-iconborder`}
 						>
 							<Plus weight="bold" size={18} style={tw`text-ink`} />
 						</View>
@@ -128,7 +126,7 @@ const BrowseLocations = () => {
 							style={tw`relative h-auto w-[87.5vw] flex-col items-center justify-center overflow-hidden rounded-md border border-dashed border-mobile-lightborder p-4`}
 						>
 							<Icon name="Folder" size={38} />
-							<Text style={tw`mt-2 text-center font-medium text-ink-dull`}>
+							<Text style={tw`mt-2 font-medium text-center text-ink-dull`}>
 								You have no locations
 							</Text>
 						</View>

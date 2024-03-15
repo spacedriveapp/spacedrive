@@ -1,28 +1,24 @@
 import { Pen, Trash } from 'phosphor-react-native';
+import { useRef } from 'react';
+import { Animated } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { tw} from '~/lib/tailwind';
+import { Tag } from '@sd/client';
+import { tw } from '~/lib/tailwind';
+
+import { ModalRef } from '../layout/Modal';
 import DeleteTagModal from '../modal/confirmModals/DeleteTagModal';
 import UpdateTagModal from '../modal/tag/UpdateTagModal';
 import { AnimatedButton, FakeButton } from '../primitive/Button';
-import { useRef } from 'react';
-import { ModalRef } from '../layout/Modal';
-import { Tag } from '@sd/client';
-import { Animated } from 'react-native';
 
 interface Props {
 	progress: Animated.AnimatedInterpolation<number>;
 	swipeable: Swipeable;
 	tag: Tag;
-
 }
 
-const RightActions = ({
-	progress,
-	swipeable,
-	tag
-}: Props) => {
-		const modalRef = useRef<ModalRef>(null);
-		const translate = progress.interpolate({
+const RightActions = ({ progress, swipeable, tag }: Props) => {
+	const modalRef = useRef<ModalRef>(null);
+	const translate = progress.interpolate({
 		inputRange: [0, 1],
 		outputRange: [100, 0],
 		extrapolate: 'clamp'
@@ -31,7 +27,7 @@ const RightActions = ({
 	return (
 		<Animated.View
 			style={[
-				tw`ml-0 flex flex-row items-center`,
+				tw`flex flex-row items-center ml-0`,
 				{ transform: [{ translateX: translate }] }
 			]}
 		>
@@ -42,7 +38,7 @@ const RightActions = ({
 			<DeleteTagModal
 				tagId={tag.id}
 				trigger={
-					<FakeButton style={tw`mx-2 border-mobile-lightborder bg-mobile-boxLight`}>
+					<FakeButton style={tw`mx-2 bg-mobile-button border-mobile-lightborder`}>
 						<Trash size={18} color="white" />
 					</FakeButton>
 				}

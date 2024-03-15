@@ -23,11 +23,13 @@ export function SettingsItem(props: SettingsItemProps) {
 				: 'border-l border-r';
 	return (
 		<Pressable onPress={props.onPress}>
-			<View style={twStyle(' border-mobile-cardborder bg-mobile-card', borderRounded, border)}>
-				<View style={tw`h-auto flex-row items-center`}>
+			<View
+				style={twStyle(' border-mobile-cardborder bg-mobile-card', borderRounded, border)}
+			>
+				<View style={tw`flex-row items-center h-auto`}>
 					{props.leftIcon && (
 						<View
-							style={tw`ml-4 mr-5 h-8 w-8 items-center justify-center rounded-full border border-mobile-iconborder/10 bg-mobile-card`}
+							style={tw`items-center justify-center w-8 h-8 ml-4 mr-5 border rounded-full bg-mobile-button border-mobile-lightborder`}
 						>
 							{props.leftIcon({ size: 20, color: tw.color('ink-dull') })}
 						</View>
