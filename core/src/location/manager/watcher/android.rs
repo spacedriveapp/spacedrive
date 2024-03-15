@@ -13,7 +13,7 @@ use std::{
 use async_trait::async_trait;
 use notify::{event::{CreateKind, DataChange, ModifyKind, RenameMode}, Event, EventKind};
 use tokio::{fs, time::Instant};
-use tracing::{error, trace};
+use tracing::{error, trace, debug};
 
 use super::{
 	utils::{create_dir, rename, recalculate_directories_size, remove, update_file},
