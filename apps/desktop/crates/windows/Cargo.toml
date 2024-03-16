@@ -9,7 +9,6 @@ edition = { workspace = true }
 normpath = { workspace = true }
 thiserror = { workspace = true }
 libc = "0.2"
-winapi = "0.3.9"
 
 [target.'cfg(target_os = "windows")'.dependencies.windows]
 version = "0.51"
