@@ -13,7 +13,7 @@ const Categories = () => {
 		<View>
 			<Text style={tw`px-6 pb-3 text-lg font-bold text-white`}>Categories</Text>
 			<View>
-				<Fade color="mobile-screen" width={30} height="100%">
+				<Fade color="black" width={30} height="100%">
 					<VirtualizedListWrapper horizontal>
 						<FlatList
 							data={kinds.data?.statistics

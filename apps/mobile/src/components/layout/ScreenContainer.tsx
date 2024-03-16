@@ -32,7 +32,7 @@ const ScreenContainer = ({
 			}}
 			contentContainerStyle={twStyle('justify-between gap-10 py-6', style)}
 			style={twStyle(
-				'flex-1 bg-mobile-screen',
+				'flex-1 bg-black',
 				tabHeight && { marginBottom: BottomTabBarHeight }
 			)}
 		>
@@ -41,7 +41,7 @@ const ScreenContainer = ({
 	) : (
 		<View
 			style={twStyle(
-				'flex-1 justify-between gap-10 bg-mobile-screen py-6',
+				'flex-1 justify-between gap-10 bg-black py-6',
 				style,
 				tabHeight && { marginBottom: BottomTabBarHeight }
 			)}

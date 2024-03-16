@@ -5,6 +5,7 @@ import { FlatList, Pressable, Text, View } from 'react-native';
 import { LinearTransition } from 'react-native-reanimated';
 import { ObjectKind } from '@sd/client';
 import { Icon } from '~/components/icons/Icon';
+import Card from '~/components/layout/Card';
 import Fade from '~/components/layout/Fade';
 import SectionTitle from '~/components/layout/SectionTitle';
 import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';
@@ -39,7 +40,7 @@ const Kind = () => {
 				sub="What kind of objects should be searched?"
 			/>
 			<View>
-				<Fade color="mobile-screen" width={30} height="100%">
+				<Fade color="black" width={30} height="100%">
 					<VirtualizedListWrapper horizontal>
 						<FlatList
 							data={kinds}
@@ -86,17 +87,15 @@ const KindFilter = memo(({ data }: KindFilterProps) => {
 	}, [searchStore, data]);
 
 	return (
-		<Pressable
-			onPress={onPress}
-			style={twStyle(
-				`mr-2 w-auto flex-row items-center gap-2 rounded-md border border-app-line/50 bg-app-box/50 p-2.5`,
-				{
-					borderColor: isSelected ? tw.color('accent') : tw.color('app-line/50')
-				}
-			)}
-		>
-			<Icon name={data.icon} size={20} />
-			<Text style={tw`text-sm text-ink`}>{data.name}</Text>
+		<Pressable onPress={onPress}>
+			<Card
+				style={twStyle(`mr-2 w-auto flex-row items-center gap-2 p-2.5`, {
+					borderColor: isSelected ? tw.color('accent') : tw.color('app-cardborder')
+				})}
+			>
+				<Icon name={data.icon} size={20} />
+				<Text style={tw`text-sm text-ink`}>{data.name}</Text>
+			</Card>
 		</Pressable>
 	);
 });

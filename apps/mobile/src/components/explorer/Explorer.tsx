@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import { FlashList, FlashListProps } from '@shopify/flash-list';
+import { FlashList } from '@shopify/flash-list';
 import { UseInfiniteQueryResult } from '@tanstack/react-query';
 import { AnimatePresence, MotiView } from 'moti';
 import { MonitorPlay, Rows, SlidersHorizontal, SquaresFour } from 'phosphor-react-native';
@@ -124,7 +124,7 @@ interface ExplorerMenuProps {
 const ExplorerMenu = ({ layoutMode, changeLayoutMode }: ExplorerMenuProps) => {
 	return (
 		<View
-			style={tw`w-screen flex-row justify-between border-b border-app-line/50 bg-mobile-header px-7 py-4`}
+			style={tw`w-screen flex-row justify-between border-b border-app-line/50 bg-app-header px-7 py-4`}
 		>
 			<View style={tw`flex-row gap-3`}>
 				<Pressable onPress={() => changeLayoutMode('grid')}>
