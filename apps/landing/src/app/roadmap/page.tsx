@@ -20,6 +20,9 @@ export default function Page() {
 					Here is a list of the features we are working on, and the progress we have made
 					so far.
 				</p>
+				<p>
+					Last updated: <span className="font-bold text-white">March 13, 2024</span>
+				</p>
 			</section>
 			<section className="grid auto-cols-auto grid-flow-row grid-cols-[auto_1fr] gap-x-4">
 				{items.map((item, i) => (
