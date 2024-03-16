@@ -28,7 +28,7 @@ const FiltersBar = () => {
 	const navigation = useNavigation<SearchStackScreenProps<'Filters'>['navigation']>();
 	return (
 		<View
-			style={tw`relative h-16 w-full flex-row items-center gap-4 border-t border-app-line/50 bg-mobile-screen px-5 py-3`}
+			style={tw`relative h-16 w-full flex-row items-center gap-4 border-t border-app-cardborder bg-black px-5 py-3`}
 		>
 			<Button
 				onPress={() => navigation.navigate('Filters')}
@@ -38,7 +38,7 @@ const FiltersBar = () => {
 				<Plus weight="bold" size={20} color={tw.color('text-ink-dull')} />
 			</Button>
 			<View style={tw`flex-1`}>
-				<Fade height={'100%'} width={30} color="mobile-screen">
+				<Fade height={'100%'} width={30} color="black">
 					<FlatList
 						showsHorizontalScrollIndicator={false}
 						horizontal
@@ -63,7 +63,7 @@ interface FilterItemProps {
 
 const FilterItem = ({ filter, value }: FilterItemProps) => {
 	const iconStyle = tw`text-ink-dull`;
-	const boxStyle = tw`w-auto flex-row items-center gap-1.5 border border-app-line/50 bg-app-box/50 p-2`;
+	const boxStyle = tw`w-auto flex-row items-center gap-1.5 border border-app-cardborder bg-app-card p-2`;
 	const filterCapital = filter.charAt(0).toUpperCase() + filter.slice(1);
 	const searchStore = useSearchStore();
 	return (

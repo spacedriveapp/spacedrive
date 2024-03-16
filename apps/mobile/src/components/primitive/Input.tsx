@@ -8,7 +8,7 @@ import { tw, twStyle } from '~/lib/tailwind';
 const input = cva(['rounded-md border text-sm leading-tight shadow-sm'], {
 	variants: {
 		variant: {
-			default: 'border-app-line bg-app-input text-ink'
+			default: 'border-app-inputborder bg-app-input text-ink'
 		},
 		size: {
 			default: ['py-2', 'px-3'],

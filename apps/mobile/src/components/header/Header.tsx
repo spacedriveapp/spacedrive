@@ -47,7 +47,7 @@ export default function Header({
 
 	return (
 		<View
-			style={twStyle('relative h-auto w-full border-b border-app-line/50 bg-mobile-header', {
+			style={twStyle('relative h-auto w-full border-b border-app-cardborder bg-app-header', {
 				paddingTop: headerHeight
 			})}
 		>

@@ -11,7 +11,7 @@ export default function Search({ placeholder }: Props) {
 	const searchStore = getSearchStore();
 	return (
 		<View
-			style={tw`mt-4 flex h-11 w-full flex-row items-center justify-between rounded-md border border-sidebar-line bg-sidebar-button px-3 shadow-sm`}
+			style={tw`mt-4 flex h-11 w-full flex-row items-center justify-between rounded-md border border-app-inputborder bg-app-input px-3 shadow-sm`}
 		>
 			<TextInput
 				onChangeText={(text) => searchStore.setSearch(text)}

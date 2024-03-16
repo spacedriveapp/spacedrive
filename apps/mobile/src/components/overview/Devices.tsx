@@ -76,7 +76,7 @@ const Devices = ({ node, stats }: Props) => {
 	return (
 		<OverviewSection title="Devices" count={node ? 1 : 0}>
 			<View>
-				<Fade height={'100%'} width={30} color="mobile-screen">
+				<Fade height={'100%'} width={30} color="black">
 					<ScrollView
 						horizontal
 						showsHorizontalScrollIndicator={false}

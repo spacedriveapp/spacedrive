@@ -14,6 +14,7 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { tw } from '~/lib/tailwind';
 
 import Fade from '../layout/Fade';
+import Card from '../layout/Card';
 
 const iconStyle = tw`text-[17px] text-ink-dull`;
 const CATEGORIES_LIST = [
@@ -30,7 +31,7 @@ const BrowseCategories = () => {
 	return (
 		<View style={tw`relative gap-3`}>
 			<Text style={tw`px-6 text-lg font-bold text-white`}>Library</Text>
-			<Fade width={30} height="100%" color="mobile-screen">
+			<Fade width={30} height="100%" color="black">
 				<ScrollView showsHorizontalScrollIndicator={false} horizontal>
 					<View style={tw`flex-row gap-2 px-6`}>
 						{CATEGORIES_LIST.map((c, i) => {
@@ -50,12 +51,10 @@ interface CategoryProps {
 
 const Category = ({ name, icon }: CategoryProps) => {
 	return (
-		<View
-			style={tw`h-[70px] w-[70px] flex-col items-center justify-center rounded-md border border-app-line/50 bg-app-box/50`}
-		>
+		<Card style="h-[70px] w-[70px] items-center justify-center">
 			{icon}
 			<Text style={tw`mt-2 text-xs text-white`}>{name}</Text>
-		</View>
+		</Card>
 	);
 };
 

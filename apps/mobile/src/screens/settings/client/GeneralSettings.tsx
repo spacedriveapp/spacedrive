@@ -17,7 +17,7 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 
 	return (
 		<ScreenContainer style={tw`justify-start gap-0 px-6`} scrollview={false}>
-			<Card style={tw`bg-app-box`}>
+			<Card>
 				{/* Card Header */}
 				<View style={tw`flex flex-row justify-between`}>
 					<Text style={tw`font-semibold text-ink`}>Connected Node</Text>
