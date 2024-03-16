@@ -268,9 +268,7 @@ impl SpacedriveLocationMetadataFile {
 		file_options
 			.open(&self.path)
 			.await
-			.map_err(|e| LocationMetadataError::Write(e, self.path.clone()))
-			// TODO: replace unwrap() with proper checks!!!
-			.unwrap()
+			.map_err(|e| LocationMetadataError::Write(e, self.path.clone()))?
 			.write_all(&metadata_contents)
 			.await
 			.map_err(|e| LocationMetadataError::Write(e, self.path.clone()))
