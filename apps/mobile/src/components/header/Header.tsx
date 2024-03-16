@@ -10,41 +10,24 @@ import BrowseLibraryManager from '../browse/DrawerLibraryManager';
 import { Icon } from '../icons/Icon';
 import Search from '../search/Search';
 
-interface HeaderProps {
+type HeaderProps = {
 	title?: string; //title of the page
 	showLibrary?: boolean; //show the library manager
 	showSearch?: boolean; //show the search button
 	searchType?: 'explorer' | 'location'; //Temporary
+	navBack?: boolean; //navigate back to the previous screen
 	headerKind?: 'default' | 'location' | 'tag'; //kind of header
-}
+	route?: never;
+	routeTitle?: never;
+};
 
-// Props for the header with route
-interface HeaderPropsWithRoute extends HeaderProps {
-	route: NativeStackHeaderProps;
-	routeTitle?: boolean; // Use the title from the route
-}
-
-// Props for the header with navigation
-interface HeaderPropsWithNav extends HeaderProps {
-	navBack: boolean; //navigate back to the previous screen
-	navBackHome?: boolean; //navigate back to the home screen of the stack
-}
-
-// Optional versions of the Route and Nav props
-interface OptionalRouteProps {
-	route?: NativeStackHeaderProps;
-	routeTitle?: never; // Prevents using routeTitle without route
-}
-
-interface OptionalNavProps {
-	navBack?: boolean;
-	navBackHome?: never; // Prevents using navBackHome without navBack
-}
-
-// Union types to allow all combinations
-type CombinedProps = HeaderProps &
-	(HeaderPropsWithRoute | OptionalRouteProps) &
-	(HeaderPropsWithNav | OptionalNavProps);
+//you can pass in a routeTitle only if route is passed in
+type Props =
+	| HeaderProps
+	| ({
+			route: NativeStackHeaderProps;
+			routeTitle?: boolean;
+	  } & Omit<HeaderProps, 'route' | 'routeTitle'>);
 
 // Default header with search bar and button to open drawer
 export default function Header({
@@ -52,12 +35,11 @@ export default function Header({
 	showLibrary,
 	searchType,
 	navBack,
-	navBackHome,
 	route,
 	routeTitle,
 	headerKind = 'default',
 	showSearch = true
-}: CombinedProps) {
+}: Props) {
 	const navigation = useNavigation();
 	const explorerStore = useExplorerStore();
 	const routeParams = route?.route.params as any;
@@ -75,12 +57,7 @@ export default function Header({
 						{navBack && (
 							<Pressable
 								onPress={() => {
-									if (navBackHome) {
-										//navigate to the home screen of the stack
-										navigation.dispatch(StackActions.popToTop());
-									} else {
-										navigation.goBack();
-									}
+									navigation.goBack();
 								}}
 							>
 								<ArrowLeft size={23} color={tw.color('ink')} />
