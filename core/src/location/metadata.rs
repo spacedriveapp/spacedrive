@@ -8,7 +8,10 @@ use std::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::{fs, io};
+use tokio::{
+	fs::{self, OpenOptions},
+	io::{self, AsyncWriteExt},
+};
 use tracing::error;
 use uuid::Uuid;
 
@@ -247,13 +250,29 @@ impl SpacedriveLocationMetadataFile {
 	}
 
 	async fn write_metadata(&self) -> Result<(), LocationMetadataError> {
-		fs::write(
-			&self.path,
-			serde_json::to_vec(&self.metadata)
-				.map_err(|e| LocationMetadataError::Serialize(e, self.path.clone()))?,
-		)
-		.await
-		.map_err(|e| LocationMetadataError::Write(e, self.path.clone()))
+		let mut file_options = OpenOptions::new();
+
+		// we want to write the file if it exists, otherwise create it
+		file_options.create(true).write(true);
+
+		#[cfg(target_os = "windows")]
+		{
+			use std::os::windows::fs::OpenOptionsExt;
+			file_options.attributes(winapi::FILE_ATTRIBUTES_HIDDEN);
+		}
+
+		let metadata_contents = serde_json::to_vec(&self.metadata)
+			.map_err(|e| LocationMetadataError::Serialize(e, self.path.clone()))?;
+
+		file_options
+			.open(&self.path)
+			.await
+			.map_err(|e| LocationMetadataError::Write(e, self.path.clone()))
+			// TODO: replace unwrap() with proper checks!!!
+			.unwrap()
+			.write_all(&metadata_contents)
+			.await
+			.map_err(|e| LocationMetadataError::Write(e, self.path.clone()))
 	}
 }
 

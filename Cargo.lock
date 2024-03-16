@@ -7884,6 +7884,7 @@ dependencies = [
  "libc",
  "normpath",
  "thiserror",
+ "winapi",
  "windows 0.51.1",
 ]
 
