@@ -257,8 +257,9 @@ impl SpacedriveLocationMetadataFile {
 
 		#[cfg(target_os = "windows")]
 		{
+			let FILE_ATTRIBUTE_HIDDEN = 0x00000002; // Windows file attribute byte indicating hidden file
 			use std::os::windows::fs::OpenOptionsExt;
-			file_options.attributes(winapi::FILE_ATTRIBUTES_HIDDEN);
+			file_options.attributes(FILE_ATTRIBUTE_HIDDEN);
 		}
 
 		let metadata_contents = serde_json::to_vec(&self.metadata)
