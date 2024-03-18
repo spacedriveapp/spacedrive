@@ -127,7 +127,7 @@ impl InitConfig {
 				lib
 			} else {
 				let library = library_manager
-					.create_with_uuid(lib.id, lib.name, lib.description, true, None, node)
+					.create_with_uuid(lib.id, lib.name, lib.description, true, None, node, false)
 					.await?;
 
 				let Some(lib) = library_manager.get_library(&library.id).await else {

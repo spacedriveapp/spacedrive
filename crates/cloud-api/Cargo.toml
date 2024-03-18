@@ -16,3 +16,4 @@ rspc = { workspace = true }
 specta.workspace = true
 base64.workspace = true
 rmpv.workspace = true
+tracing.workspace = true

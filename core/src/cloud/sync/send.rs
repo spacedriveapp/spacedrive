@@ -2,6 +2,7 @@ use super::CompressedCRDTOperations;
 
 use sd_cloud_api::RequestConfigProvider;
 use sd_core_sync::{GetOpsArgs, SyncMessage, NTP64};
+use tracing::debug;
 use uuid::Uuid;
 
 use std::{sync::Arc, time::Duration};
@@ -42,22 +43,25 @@ pub async fn run_actor(
 
 			use sd_cloud_api::library::message_collections::do_add;
 
+			debug!(
+				"Preparing to send {} instances' operations to cloud",
+				req_adds.len()
+			);
+
 			// gets new operations for each instance to send to cloud
 			for req_add in req_adds {
 				let ops = err_break!(
-					sync.get_ops(GetOpsArgs {
-						count: 1000,
-						clocks: vec![(
-							req_add.instance_uuid,
-							NTP64(
-								req_add
-									.from_time
-									.unwrap_or_else(|| "0".to_string())
-									.parse()
-									.expect("couldn't parse ntp64 value"),
-							),
-						)],
-					})
+					sync.get_instance_ops(
+						1000,
+						req_add.instance_uuid,
+						NTP64(
+							req_add
+								.from_time
+								.unwrap_or_else(|| "0".to_string())
+								.parse()
+								.expect("couldn't parse ntp64 value"),
+						)
+					)
 					.await
 				);
 
@@ -71,6 +75,11 @@ pub async fn run_actor(
 				let ops_len = ops.len();
 
 				use base64::prelude::*;
+
+				debug!(
+					"Instance {}: {} to {}",
+					req_add.instance_uuid, start_time, end_time
+				);
 
 				instances.push(do_add::Input {
 					uuid: req_add.instance_uuid,

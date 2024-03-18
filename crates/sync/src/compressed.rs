@@ -83,7 +83,6 @@ impl CompressedCRDTOperations {
 							model: model_str.clone(),
 							record_id: record_id.clone(),
 							timestamp: op.timestamp,
-							id: op.id,
 							data: op.data,
 						})
 					}
@@ -98,7 +97,6 @@ impl CompressedCRDTOperations {
 #[derive(PartialEq, Serialize, Deserialize, Clone)]
 pub struct CompressedCRDTOperation {
 	pub timestamp: NTP64,
-	pub id: Uuid,
 	pub data: CRDTOperationData,
 }
 
@@ -106,7 +104,6 @@ impl From<CRDTOperation> for CompressedCRDTOperation {
 	fn from(value: CRDTOperation) -> Self {
 		Self {
 			timestamp: value.timestamp,
-			id: value.id,
 			data: value.data,
 		}
 	}
@@ -124,7 +121,6 @@ mod test {
 			CRDTOperation {
 				instance,
 				timestamp: NTP64(0),
-				id: Uuid::new_v4(),
 				model: "FilePath".to_string(),
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::Create,
@@ -132,7 +128,6 @@ mod test {
 			CRDTOperation {
 				instance,
 				timestamp: NTP64(0),
-				id: Uuid::new_v4(),
 				model: "FilePath".to_string(),
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::Create,
@@ -140,7 +135,6 @@ mod test {
 			CRDTOperation {
 				instance,
 				timestamp: NTP64(0),
-				id: Uuid::new_v4(),
 				model: "FilePath".to_string(),
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::Create,
@@ -148,7 +142,6 @@ mod test {
 			CRDTOperation {
 				instance,
 				timestamp: NTP64(0),
-				id: Uuid::new_v4(),
 				model: "Object".to_string(),
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::Create,
@@ -156,7 +149,6 @@ mod test {
 			CRDTOperation {
 				instance,
 				timestamp: NTP64(0),
-				id: Uuid::new_v4(),
 				model: "Object".to_string(),
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::Create,
@@ -164,7 +156,6 @@ mod test {
 			CRDTOperation {
 				instance,
 				timestamp: NTP64(0),
-				id: Uuid::new_v4(),
 				model: "FilePath".to_string(),
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::Create,
@@ -172,7 +163,6 @@ mod test {
 			CRDTOperation {
 				instance,
 				timestamp: NTP64(0),
-				id: Uuid::new_v4(),
 				model: "FilePath".to_string(),
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::Create,
@@ -201,17 +191,14 @@ mod test {
 						rmpv::Value::Nil,
 						vec![
 							CompressedCRDTOperation {
-								id: Uuid::new_v4(),
 								timestamp: NTP64(0),
 								data: CRDTOperationData::Create,
 							},
 							CompressedCRDTOperation {
-								id: Uuid::new_v4(),
 								timestamp: NTP64(0),
 								data: CRDTOperationData::Create,
 							},
 							CompressedCRDTOperation {
-								id: Uuid::new_v4(),
 								timestamp: NTP64(0),
 								data: CRDTOperationData::Create,
 							},
@@ -224,12 +211,10 @@ mod test {
 						rmpv::Value::Nil,
 						vec![
 							CompressedCRDTOperation {
-								id: Uuid::new_v4(),
 								timestamp: NTP64(0),
 								data: CRDTOperationData::Create,
 							},
 							CompressedCRDTOperation {
-								id: Uuid::new_v4(),
 								timestamp: NTP64(0),
 								data: CRDTOperationData::Create,
 							},
@@ -242,12 +227,10 @@ mod test {
 						rmpv::Value::Nil,
 						vec![
 							CompressedCRDTOperation {
-								id: Uuid::new_v4(),
 								timestamp: NTP64(0),
 								data: CRDTOperationData::Create,
 							},
 							CompressedCRDTOperation {
-								id: Uuid::new_v4(),
 								timestamp: NTP64(0),
 								data: CRDTOperationData::Create,
 							},

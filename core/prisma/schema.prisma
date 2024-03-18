@@ -17,7 +17,8 @@ generator sync {
 }
 
 model CRDTOperation {
-  id        Bytes  @id
+  id Int @id @default(autoincrement())
+
   timestamp BigInt
   model     String
 
@@ -28,8 +29,6 @@ model CRDTOperation {
 
   instance_id Int
   instance    Instance @relation(fields: [instance_id], references: [id])
-
-  // attestation Bytes
 
   @@map("crdt_operation")
 }
@@ -533,7 +532,8 @@ model SavedSearch {
 
 /// @local(id: id)
 model CloudCRDTOperation {
-  id        Bytes  @id
+  id Int @id @default(autoincrement())
+
   timestamp BigInt
   model     String
 
