@@ -195,8 +195,8 @@ async fn execute_indexer_update_step(
 				// As this file was updated while Spacedrive was offline, we mark the object_id and cas_id as null
 				// So this file_path will be updated at file identifier job
 				should_unlink_object
-					.then_some(((object_id::NAME, msgpack!(null)), object::disconnect())),
-				Some(((cas_id::NAME, msgpack!(null)), cas_id::set(None))),
+					.then_some(((object_id::NAME, msgpack!(nil)), object::disconnect())),
+				Some(((cas_id::NAME, msgpack!(nil)), cas_id::set(None))),
 				Some(sync_db_entry!(*is_dir, is_dir)),
 				Some(sync_db_entry!(
 					entry.metadata.size_in_bytes.to_be_bytes().to_vec(),

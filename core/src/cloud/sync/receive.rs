@@ -10,7 +10,7 @@ use sd_p2p::{IdentityOrRemoteIdentity, RemoteIdentity};
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
 use sd_sync::CRDTOperation;
 use sd_utils::uuid_to_bytes;
-use tracing::info;
+use tracing::{debug, info};
 
 use std::{
 	collections::{hash_map::Entry, HashMap},
@@ -40,10 +40,12 @@ pub async fn run_actor(
 ) {
 	loop {
 		loop {
+			// We need to know the lastest operations we should be retrieving
 			let mut cloud_timestamps = {
 				let timestamps = sync.timestamps.read().await;
 
-				err_break!(
+				// looks up the most recent operation we've received (not ingested!) for each instance
+				let db_timestamps = err_break!(
 					db._batch(
 						timestamps
 							.keys()
@@ -59,23 +61,31 @@ pub async fn run_actor(
 							.collect::<Vec<_>>()
 					)
 					.await
-				)
-				.into_iter()
-				.zip(timestamps.iter())
-				.map(|(d, (id, sync_timestamp))| {
-					let cloud_timestamp = NTP64(d.map(|d| d.timestamp).unwrap_or_default() as u64);
+				);
 
-					let max_timestamp = Ord::max(cloud_timestamp, *sync_timestamp);
+				// compares the latest ingested timestamp with the latest received timestamp
+				// and picks the highest one for each instance
+				let mut cloud_timestamps = db_timestamps
+					.into_iter()
+					.zip(timestamps.iter())
+					.map(|(d, (id, sync_timestamp))| {
+						let cloud_timestamp = d.map(|d| d.timestamp).unwrap_or_default() as u64;
 
-					(*id, max_timestamp)
-				})
-				.collect::<HashMap<_, _>>()
+						debug!(
+							"Instance {id}, Sync Timestamp {}, Cloud Timestamp {cloud_timestamp}",
+							sync_timestamp.as_u64()
+						);
+
+						let max_timestamp = Ord::max(cloud_timestamp, sync_timestamp.as_u64());
+
+						(*id, max_timestamp)
+					})
+					.collect::<HashMap<_, _>>();
+
+				cloud_timestamps.remove(&instance_uuid);
+
+				cloud_timestamps
 			};
-
-			info!(
-				"Fetched timestamps for {} local instances",
-				cloud_timestamps.len()
-			);
 
 			let instance_timestamps = sync
 				.timestamps
@@ -87,9 +97,8 @@ pub async fn run_actor(
 						instance_uuid: *uuid,
 						from_time: cloud_timestamps
 							.get(uuid)
-							.cloned()
+							.copied()
 							.unwrap_or_default()
-							.as_u64()
 							.to_string(),
 					},
 				)
@@ -158,17 +167,26 @@ pub async fn run_actor(
 						.await
 					);
 
-					e.insert(NTP64(0));
+					e.insert(0);
 				}
 
 				let compressed_operations: CompressedCRDTOperations = err_break!(
 					rmp_serde::from_slice(err_break!(&BASE64_STANDARD.decode(collection.contents)))
 				);
 
-				err_break!(write_cloud_ops_to_db(compressed_operations.into_ops(), &db).await);
+				let operations = compressed_operations.into_ops();
 
-				let collection_timestamp =
-					NTP64(collection.end_time.parse().expect("unable to parse time"));
+				debug!(
+					"Processing collection. Instance {}, Start {}, End {}",
+					&collection.instance_uuid,
+					operations.first().unwrap().timestamp.as_u64(),
+					operations.last().unwrap().timestamp.as_u64(),
+				);
+
+				err_break!(write_cloud_ops_to_db(operations, &db).await);
+
+				let collection_timestamp: u64 =
+					collection.end_time.parse().expect("unable to parse time");
 
 				let timestamp = cloud_timestamps
 					.entry(collection.instance_uuid)
@@ -198,7 +216,6 @@ async fn write_cloud_ops_to_db(
 
 fn crdt_op_db(op: &CRDTOperation) -> cloud_crdt_operation::Create {
 	cloud_crdt_operation::Create {
-		id: op.id.as_bytes().to_vec(),
 		timestamp: op.timestamp.0 as i64,
 		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
 		kind: op.data.as_kind().to_string(),

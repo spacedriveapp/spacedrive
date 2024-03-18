@@ -119,6 +119,7 @@ mod library {
 							false,
 							None,
 							&node,
+							true,
 						)
 						.await?;
 					node.libraries
