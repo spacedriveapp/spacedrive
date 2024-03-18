@@ -86,6 +86,7 @@ impl LibraryConfig {
 		description: Option<String>,
 		instance_id: i32,
 		path: impl AsRef<Path>,
+		generate_sync_operations: bool,
 	) -> Result<Self, LibraryConfigError> {
 		let this = Self {
 			name,
@@ -94,7 +95,7 @@ impl LibraryConfig {
 			version: Self::LATEST_VERSION,
 			cloud_id: None,
 			// will always be `true` eventually
-			generate_sync_operations: Arc::new(AtomicBool::new(false)),
+			generate_sync_operations: Arc::new(AtomicBool::new(generate_sync_operations)),
 		};
 
 		this.save(path).await.map(|()| this)

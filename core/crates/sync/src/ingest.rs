@@ -6,6 +6,7 @@ use sd_prisma::{
 };
 use sd_sync::CRDTOperation;
 use tokio::sync::{mpsc, oneshot, Mutex};
+use tracing::debug;
 use uhlc::{Timestamp, NTP64};
 use uuid::Uuid;
 
@@ -83,19 +84,31 @@ impl Actor {
 
 				loop {
 					tokio::select! {
-						res = &mut rx => {
-							if let Err(_) = res { break State::WaitingForNotification }
-						},
+						biased;
 						res = self.io.event_rx.recv() => {
 							if let Some(Event::Messages(event)) = res { break State::Ingesting(event) }
 						}
+						res = &mut rx => {
+							if let Err(_) = res {
+								debug!("messages request ignored");
+								break State::WaitingForNotification
+							 }
+						},
 					}
 				}
 			}
 			State::Ingesting(event) => {
-				for op in event.messages {
-					let fut = self.receive_crdt_operation(op);
-					fut.await;
+				if event.messages.len() > 0 {
+					debug!(
+						"ingesting {} operations: {} to {}",
+						event.messages.len(),
+						event.messages.first().unwrap().timestamp.as_u64(),
+						event.messages.last().unwrap().timestamp.as_u64(),
+					);
+
+					for op in event.messages {
+						self.receive_crdt_operation(op).await;
+					}
 				}
 
 				match event.has_more {
@@ -148,7 +161,7 @@ impl Actor {
 			.expect("timestamp has too much drift!");
 
 		// read the timestamp for the operation's instance, or insert one if it doesn't exist
-		let timestamp = self.timestamps.write().await.get(&op.instance).cloned();
+		let timestamp = self.timestamps.read().await.get(&op.instance).cloned();
 
 		// copy some fields bc rust ownership
 		let op_instance = op.instance;
@@ -169,12 +182,12 @@ impl Actor {
 	async fn apply_op(&mut self, op: CRDTOperation) -> prisma_client_rust::Result<()> {
 		self.db
 			._transaction()
+			.with_timeout(30 * 1000)
 			.run(|db| async move {
 				// apply the operation to the actual record
-				ModelSyncData::from_op(op.clone())
-					.unwrap()
-					.exec(&db)
-					.await?;
+				let sync_data = ModelSyncData::from_op(op.clone());
+
+				sync_data.unwrap().exec(&db).await?;
 
 				// write the operation to the operations table
 				write_crdt_op_to_db(&op, &db).await?;
