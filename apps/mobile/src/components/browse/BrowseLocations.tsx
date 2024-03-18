@@ -1,28 +1,17 @@
 import { useNavigation } from '@react-navigation/native';
-import { DotsThreeOutlineVertical, Eye, Plus } from 'phosphor-react-native';
+import { Plus } from 'phosphor-react-native';
 import { useRef } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import { FlatList } from 'react-native-gesture-handler';
-import {
-	arraysEqual,
-	byteSize,
-	Location,
-	useCache,
-	useLibraryQuery,
-	useNodes,
-	useOnlineLocations
-} from '@sd/client';
+import { Text, View } from 'react-native';
+import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
-import { tw, twStyle } from '~/lib/tailwind';
+import { tw } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
-import FolderIcon from '../icons/FolderIcon';
-import Card from '../layout/Card';
 import Empty from '../layout/Empty';
-import Fade from '../layout/Fade';
+import { LocationItem } from '../locations/LocationItem';
 import ImportModal from '../modal/ImportModal';
-import { LocationModal } from '../modal/location/LocationModal';
+import { Button } from '../primitive/Button';
 
 const BrowseLocations = () => {
 	const navigation = useNavigation<
@@ -37,114 +26,53 @@ const BrowseLocations = () => {
 	const locations = useCache(result.data?.items);
 
 	return (
-		<View style={tw`gap-3`}>
-			<View style={tw`w-full flex-row items-center justify-between px-6`}>
+		<View style={tw`gap-5 px-6`}>
+			<View style={tw`w-full flex-row items-center justify-between`}>
 				<Text style={tw`text-lg font-bold text-white`}>Locations</Text>
 				<View style={tw`flex-row gap-3`}>
-					<Pressable
+					<Button
 						onPress={() => {
 							navigation.navigate('Locations');
 						}}
+						style={tw`rounded-full`}
+						variant="accent"
 					>
-						<View style={tw`h-8 w-8 items-center justify-center rounded-md bg-accent`}>
-							<Eye weight="bold" size={18} style={tw`text-white`} />
-						</View>
-					</Pressable>
-					<Pressable onPress={() => modalRef.current?.present()}>
-						<View
-							style={tw`h-8 w-8 items-center justify-center rounded-md border border-dashed border-app-iconborder bg-transparent`}
-						>
-							<Plus weight="bold" size={18} style={tw`text-ink`} />
-						</View>
-					</Pressable>
+						<Text style={tw`text-xs font-medium text-ink`}>See all</Text>
+					</Button>
+					<Button
+						style={tw`h-8 flex-row gap-1 rounded-full`}
+						variant="dashed"
+						onPress={() => modalRef.current?.present()}
+					>
+						<Plus weight="bold" size={14} style={tw`text-ink`} />
+						<Text style={tw`text-xs font-medium text-ink`}>New</Text>
+					</Button>
 				</View>
 			</View>
-			<Fade color="black" width={30} height="100%">
-				<FlatList
-					data={locations}
-					ListEmptyComponent={
-						<Empty description="You have not added any locations" icon="Folder" />
-					}
-					contentContainerStyle={tw`w-full px-6`}
-					showsHorizontalScrollIndicator={false}
-					ItemSeparatorComponent={() => <View style={tw`w-2`} />}
-					renderItem={({ item }) => (
-						<BrowseLocationItem
-							location={item}
-							editLocation={() =>
-								navigation.navigate('SettingsStack', {
-									screen: 'EditLocationSettings',
-									params: { id: item.id }
-								})
-							}
-							onPress={() => navigation.navigate('Location', { id: item.id })}
-						/>
-					)}
-					keyExtractor={(location) => location.id.toString()}
-					horizontal
-				/>
-			</Fade>
+			<View style={tw`flex-row flex-wrap gap-2`}>
+				{locations?.length === 0 ? (
+					<Empty description="You have not added any locations" icon="Folder" />
+				) : (
+					<>
+						{locations?.slice(0, 3).map((location) => (
+							<LocationItem
+								modalRef={modalRef}
+								key={location.id}
+								location={location}
+								editLocation={() =>
+									navigation.navigate('SettingsStack', {
+										screen: 'EditLocationSettings',
+										params: { id: location.id }
+									})
+								}
+								onPress={() => navigation.navigate('Location', { id: location.id })}
+							/>
+						))}
+					</>
+				)}
+			</View>
 			<ImportModal ref={modalRef} />
 		</View>
-	);
-};
-
-interface BrowseLocationItemProps {
-	location: Location;
-	onPress: () => void;
-	editLocation: () => void;
-}
-
-const BrowseLocationItem: React.FC<BrowseLocationItemProps> = ({
-	location,
-	editLocation,
-	onPress
-}: BrowseLocationItemProps) => {
-	const onlineLocations = useOnlineLocations();
-	const online = onlineLocations.some((l) => arraysEqual(location.pub_id, l));
-	const modalRef = useRef<ModalRef>(null);
-	return (
-		<Pressable onPress={onPress}>
-			<Card style={'h-auto w-[110px] flex-col justify-center gap-3'}>
-				<View style={tw`w-full flex-col justify-between gap-1`}>
-					<View style={tw`flex-row items-center justify-between`}>
-						<View style={tw`relative`}>
-							<FolderIcon size={42} />
-							<View
-								style={twStyle(
-									'z-5 absolute bottom-[6px] right-[2px] h-2 w-2 rounded-full',
-									online ? 'bg-green-500' : 'bg-red-500'
-								)}
-							/>
-						</View>
-						<Pressable onPress={() => modalRef.current?.present()}>
-							<DotsThreeOutlineVertical
-								weight="fill"
-								size={20}
-								color={tw.color('ink-faint')}
-							/>
-						</Pressable>
-					</View>
-					<Text
-						style={tw`w-full max-w-[100px] text-xs font-bold text-white`}
-						numberOfLines={1}
-					>
-						{location.name}
-					</Text>
-				</View>
-				<Text style={tw`text-left text-[13px] font-bold text-ink-dull`} numberOfLines={1}>
-					{`${byteSize(location.size_in_bytes)}`}
-				</Text>
-			</Card>
-			<LocationModal
-				editLocation={() => {
-					editLocation();
-					modalRef.current?.close();
-				}}
-				locationId={location.id}
-				ref={modalRef}
-			/>
-		</Pressable>
 	);
 };
 

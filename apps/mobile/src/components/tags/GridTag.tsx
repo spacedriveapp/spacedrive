@@ -1,25 +1,21 @@
-import { DotsThreeOutlineVertical } from "phosphor-react-native";
-import { View, Pressable, Text } from "react-native";
-import { twStyle, tw } from "~/lib/tailwind";
-import Card from "../layout/Card";
-import { ClassInput } from "twrnc";
-import { ModalRef } from "../layout/Modal";
-import { Tag } from "@sd/client";
+import { DotsThreeOutlineVertical } from 'phosphor-react-native';
+import { Pressable, Text, View } from 'react-native';
+import { ClassInput } from 'twrnc';
+import { Tag } from '@sd/client';
+import { tw, twStyle } from '~/lib/tailwind';
 
-interface TagViewProps {
-	tag: Tag
+import Card from '../layout/Card';
+import { ModalRef } from '../layout/Modal';
+
+interface GridTagProps {
+	tag: Tag;
 	tagStyle?: ClassInput;
 	modalRef: React.RefObject<ModalRef>;
 }
 
-const GridTagView = ({tag, tagStyle, modalRef}: TagViewProps) => {
+const GridTag = ({ tag, tagStyle, modalRef }: GridTagProps) => {
 	return (
-		<Card
-			style={twStyle(
-				`h-auto w-[90px] flex-col justify-center gap-3`,
-				tagStyle
-			)}
-		>
+		<Card style={twStyle(`h-auto flex-col justify-center gap-3`, tagStyle)}>
 			<View style={tw`flex-row items-center justify-between`}>
 				<View
 					style={twStyle('h-[28px] w-[28px] rounded-full', {
@@ -39,6 +35,6 @@ const GridTagView = ({tag, tagStyle, modalRef}: TagViewProps) => {
 			</Text>
 		</Card>
 	);
-}
+};
 
-export default GridTagView;
+export default GridTag;

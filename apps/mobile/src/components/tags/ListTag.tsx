@@ -9,13 +9,13 @@ import { ModalRef } from '../layout/Modal';
 import { TagModal } from '../modal/tag/TagModal';
 import RightActions from './RightActions';
 
-interface TagViewProps {
+interface ListTagProps {
 	tag: Tag;
 	tagStyle?: ClassInput;
 	modalRef: React.RefObject<ModalRef>;
 }
 
-const ListTagView = ({ tag, tagStyle, modalRef }: TagViewProps) => {
+const ListTag = ({ tag, tagStyle, modalRef }: ListTagProps) => {
 	return (
 		<>
 			<Swipeable
@@ -55,4 +55,4 @@ const ListTagView = ({ tag, tagStyle, modalRef }: TagViewProps) => {
 	);
 };
 
-export default ListTagView;
+export default ListTag;

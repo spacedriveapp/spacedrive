@@ -10,6 +10,7 @@ interface Props {
 	style?: string; // tailwind style
 	orientation?: 'horizontal' | 'vertical'; // orientation of fade
 	fadeSides?: 'left-right' | 'top-bottom'; // which sides to fade
+	screenFade?: boolean; // if true, the fade will consider the bottom tab bar height
 }
 
 const Fade = ({
@@ -18,6 +19,7 @@ const Fade = ({
 	color,
 	width,
 	height,
+	screenFade = false,
 	fadeSides = 'left-right',
 	orientation = 'horizontal'
 }: Props) => {
@@ -51,7 +53,7 @@ const Fade = ({
 					position: 'absolute',
 					alignSelf: 'center',
 					top: fadeSides === 'left-right' ? 0 : undefined,
-					bottom: fadeSides === 'top-bottom' ? 0 : undefined,
+					bottom: fadeSides === 'top-bottom' && !screenFade ? 0 : screenFade ? 80 : 0,
 					right: fadeSides === 'left-right' ? 0 : undefined,
 					transform: fadeSides === 'top-bottom' ? undefined : [{ rotate: '180deg' }],
 					zIndex: 10,

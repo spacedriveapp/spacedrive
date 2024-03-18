@@ -14,7 +14,7 @@ type HeaderProps = {
 	title?: string; //title of the page
 	showLibrary?: boolean; //show the library manager
 	showSearch?: boolean; //show the search button
-	searchType?: 'explorer' | 'location'; //Temporary
+	searchType?: 'explorer' | 'location' | 'categories'; //Temporary
 	navBack?: boolean; //navigate back to the previous screen
 	headerKind?: 'default' | 'location' | 'tag'; //kind of header
 	route?: never;
@@ -125,6 +125,8 @@ const HeaderSearchType = ({ searchType }: HeaderSearchTypeProps) => {
 			return 'Explorer'; //TODO
 		case 'location':
 			return <Search placeholder="Location name..." />;
+		case 'categories':
+			return <Search placeholder="Category name..." />;
 		default:
 			return null;
 	}
