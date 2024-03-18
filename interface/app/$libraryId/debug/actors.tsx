@@ -1,9 +1,10 @@
-import { inferSubscriptionResult } from '@rspc/client';
+import { inferSubscriptionResult } from '@oscartbeaumont-sd/rspc-client';
 import { useMemo, useState } from 'react';
 import { Procedures, useLibraryMutation, useLibrarySubscription } from '@sd/client';
 import { Button } from '@sd/ui';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 
+// @million-ignore
 export const Component = () => {
 	useRouteTitle('Actors');
 
@@ -17,7 +18,7 @@ export const Component = () => {
 	}, [data]);
 
 	return (
-		<div className="h-full w-full">
+		<div className="size-full">
 			<table>
 				<tr>
 					<th>Name</th>

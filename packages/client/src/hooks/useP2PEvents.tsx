@@ -8,13 +8,17 @@ import {
 	useState
 } from 'react';
 
-import { P2PEvent, PairingStatus, PeerMetadata } from '../core';
+import { ConnectionMethod, DiscoveryMethod, P2PEvent, PeerMetadata } from '../core';
 import { useBridgeSubscription } from '../rspc';
 
+type Peer = {
+	connection: ConnectionMethod;
+	discovery: DiscoveryMethod;
+	metadata: PeerMetadata;
+};
+
 type Context = {
-	discoveredPeers: Map<string, PeerMetadata>;
-	connectedPeers: Map<string, undefined>;
-	pairingStatus: Map<number, PairingStatus>;
+	peers: Map<string, Peer>;
 	spacedropProgresses: Map<string, number>;
 	events: MutableRefObject<EventTarget>;
 };
@@ -23,29 +27,23 @@ const Context = createContext<Context>(null as any);
 
 export function P2PContextProvider({ children }: PropsWithChildren) {
 	const events = useRef(new EventTarget());
-	const [[discoveredPeers], setDiscoveredPeer] = useState([new Map<string, PeerMetadata>()]);
-	const [[connectedPeers], setConnectedPeers] = useState([new Map<string, undefined>()]);
-	const [[pairingStatus], setPairingStatus] = useState([new Map<number, PairingStatus>()]);
+	const [[peers], setPeers] = useState([new Map<string, Peer>()]);
 	const [[spacedropProgresses], setSpacedropProgresses] = useState([new Map<string, number>()]);
 
 	useBridgeSubscription(['p2p.events'], {
 		onData(data) {
 			events.current.dispatchEvent(new CustomEvent('p2p-event', { detail: data }));
 
-			if (data.type === 'DiscoveredPeer') {
-				discoveredPeers.set(data.identity, data.metadata);
-				setDiscoveredPeer([discoveredPeers]);
-			} else if (data.type === 'ExpiredPeer') {
-				discoveredPeers.delete(data.identity);
-				setDiscoveredPeer([discoveredPeers]);
-			} else if (data.type === 'ConnectedPeer') {
-				connectedPeers.set(data.identity, undefined);
-				setConnectedPeers([connectedPeers]);
-			} else if (data.type === 'DisconnectedPeer') {
-				connectedPeers.delete(data.identity);
-				setConnectedPeers([connectedPeers]);
-			} else if (data.type === 'PairingProgress') {
-				setPairingStatus([pairingStatus.set(data.id, data.status)]);
+			if (data.type === 'PeerChange') {
+				peers.set(data.identity, {
+					connection: data.connection,
+					discovery: data.discovery,
+					metadata: data.metadata
+				});
+				setPeers([peers]);
+			} else if (data.type === 'PeerDelete') {
+				peers.delete(data.identity);
+				setPeers([peers]);
 			} else if (data.type === 'SpacedropProgress') {
 				spacedropProgresses.set(data.id, data.percent);
 				setSpacedropProgresses([spacedropProgresses]);
@@ -56,9 +54,7 @@ export function P2PContextProvider({ children }: PropsWithChildren) {
 	return (
 		<Context.Provider
 			value={{
-				discoveredPeers,
-				connectedPeers,
-				pairingStatus,
+				peers,
 				spacedropProgresses,
 				events
 			}}
@@ -68,16 +64,20 @@ export function P2PContextProvider({ children }: PropsWithChildren) {
 	);
 }
 
+export function useP2PContextRaw() {
+	return useContext(Context);
+}
+
+export function usePeers() {
+	return useContext(Context).peers;
+}
+
 export function useDiscoveredPeers() {
-	return useContext(Context).discoveredPeers;
+	return new Map([...usePeers()].filter(([, peer]) => peer.connection === 'Disconnected'));
 }
 
 export function useConnectedPeers() {
-	return useContext(Context).connectedPeers;
-}
-
-export function usePairingStatus(pairing_id: number) {
-	return useContext(Context).pairingStatus.get(pairing_id);
+	return new Map([...usePeers()].filter(([, peer]) => peer.connection !== 'Disconnected'));
 }
 
 export function useSpacedropProgress(id: string) {

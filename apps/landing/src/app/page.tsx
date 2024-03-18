@@ -39,8 +39,8 @@ export default async function Page() {
 				<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 				<div className="mt-24 lg:mt-8" />
 				<NewBanner
-					headline="Alpha release is finally here!"
-					href="/blog/october-alpha-release"
+					headline="Alpha 0.2 is here!"
+					href="/blog/alpha-zero-two-release"
 					link="Read post"
 					className="mt-[50px] lg:mt-0"
 				/>
@@ -56,7 +56,10 @@ export default async function Page() {
 					</span>
 				</p>
 				<Downloads
-					latestVersion={[toTitleCase(frontmatter.category), `v${release.tag_name}`]
+					latestVersion={[
+						frontmatter.category && toTitleCase(frontmatter.category),
+						`v${release.tag_name}`
+					]
 						.filter(Boolean)
 						.join(' ')}
 				/>

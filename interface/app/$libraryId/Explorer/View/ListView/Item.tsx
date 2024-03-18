@@ -1,11 +1,12 @@
 import { flexRender, type Cell } from '@tanstack/react-table';
 import clsx from 'clsx';
 import { memo, useMemo } from 'react';
-import { getItemFilePath, type ExplorerItem } from '@sd/client';
+import { getItemFilePath, useSelector, type ExplorerItem } from '@sd/client';
 
 import { TABLE_PADDING_X } from '.';
 import { ExplorerDraggable } from '../../ExplorerDraggable';
 import { ExplorerDroppable, useExplorerDroppableContext } from '../../ExplorerDroppable';
+import { explorerStore } from '../../store';
 import { ViewItem } from '../ViewItem';
 import { useTableContext } from './context';
 
@@ -17,6 +18,8 @@ interface Props {
 
 export const ListViewItem = memo(({ data, selected, cells }: Props) => {
 	const filePath = getItemFilePath(data);
+
+	const isRenaming = useSelector(explorerStore, (s) => s.isRenaming && selected);
 
 	return (
 		<ViewItem
@@ -33,7 +36,7 @@ export const ListViewItem = memo(({ data, selected, cells }: Props) => {
 			>
 				<DroppableOverlay />
 				<ExplorerDraggable
-					draggable={{ data }}
+					draggable={{ data, disabled: isRenaming }}
 					className={clsx('flex h-full items-center', filePath?.hidden && 'opacity-50')}
 				>
 					{cells.map((cell) => (
@@ -77,7 +80,7 @@ const InnerCell = memo(
 					: flexRender(props.cell.column.columnDef.cell, {
 							...props.cell.getContext(),
 							selected: props.selected
-					  })}
+						})}
 			</div>
 		);
 	}

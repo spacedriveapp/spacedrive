@@ -43,33 +43,36 @@ export default function Page({ params }: Props) {
 	const MDXContent = useMDXComponent(post.body.code);
 
 	return (
-		<div className="lg:prose-xs container prose m-auto mb-20 max-w-4xl p-4 pt-14 dark:prose-invert">
+		<div className="lg:prose-xs container prose m-auto mb-20 max-w-4xl p-5 pt-14 dark:prose-invert">
 			<>
 				<figure>
 					<Image
 						src={post.image}
 						alt={post.imageAlt ?? ''}
-						className="mt-8 rounded-xl"
+						className=" mt-8 rounded-xl will-change-transform fade-in"
 						height={400}
 						width={900}
 					/>
 				</figure>
-				<section className="-mx-8 flex flex-wrap gap-4 rounded-xl px-8">
+				<section className="flex flex-wrap gap-4 rounded-xl px-4 ">
 					<div className="w-full grow">
-						<h1 className="m-0 text-2xl leading-snug sm:text-4xl sm:leading-normal">
+						<h1 className="animation-delay-1 m-0 text-2xl leading-snug will-change-transform fade-in sm:text-4xl sm:leading-normal">
 							{post.title}
 						</h1>
-						<p className="m-0 mt-2">
+						<p className="animation-delay-2 m-0 mt-2 will-change-transform fade-in">
 							by <b>{post.author}</b> &middot; {dayjs(post.date).format('MM/DD/YYYY')}
 						</p>
 					</div>
-					<div className="flex flex-wrap gap-2">
+					<div className="animation-delay-3 flex flex-wrap gap-2 will-change-transform fade-in">
 						{post.tags.map((tag) => (
 							<BlogTag key={tag} name={tag} />
 						))}
 					</div>
 				</section>
-				<article id="content" className="text-lg">
+				<article
+					id="content"
+					className="animation-delay-4 px-4 text-lg will-change-transform fade-in"
+				>
 					<MDXContent components={BlogMDXComponents} />
 				</article>
 			</>

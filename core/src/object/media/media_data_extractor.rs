@@ -1,12 +1,10 @@
-use crate::{
-	job::JobRunErrors,
-	location::file_path_helper::{file_path_for_media_processor, IsolatedFilePathData},
-	prisma::{location, media_data, PrismaClient},
-	util::error::FileIOError,
-};
+use crate::old_job::JobRunErrors;
 
 use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
+use sd_file_path_helper::{file_path_for_media_processor, IsolatedFilePathData};
 use sd_media_metadata::ImageMetadata;
+use sd_prisma::prisma::{location, media_data, PrismaClient};
+use sd_utils::error::FileIOError;
 
 use std::{collections::HashSet, path::Path};
 
@@ -33,7 +31,7 @@ pub enum MediaDataError {
 }
 
 #[derive(Serialize, Deserialize, Default, Debug)]
-pub struct MediaDataExtractorMetadata {
+pub struct OldMediaDataExtractorMetadata {
 	pub extracted: u32,
 	pub skipped: u32,
 }
@@ -70,8 +68,8 @@ pub async fn process(
 	location_path: impl AsRef<Path>,
 	db: &PrismaClient,
 	ctx_update_fn: &impl Fn(usize),
-) -> Result<(MediaDataExtractorMetadata, JobRunErrors), MediaDataError> {
-	let mut run_metadata = MediaDataExtractorMetadata::default();
+) -> Result<(OldMediaDataExtractorMetadata, JobRunErrors), MediaDataError> {
+	let mut run_metadata = OldMediaDataExtractorMetadata::default();
 	if files_paths.is_empty() {
 		return Ok((run_metadata, JobRunErrors::default()));
 	}

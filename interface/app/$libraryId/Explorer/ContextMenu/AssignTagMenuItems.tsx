@@ -11,7 +11,7 @@ import CreateDialog, {
 	useAssignItemsToTag
 } from '~/app/$libraryId/settings/library/tags/CreateDialog';
 import { Menu } from '~/components/Menu';
-import { useOperatingSystem } from '~/hooks';
+import { useLocale, useOperatingSystem } from '~/hooks';
 import { useScrolled } from '~/hooks/useScrolled';
 import { keybindForOs } from '~/util/keybinds';
 
@@ -52,6 +52,8 @@ export default (props: Props) => {
 	const ref = useRef<HTMLDivElement>(null);
 	const { isScrolled } = useScrolled(ref, 10);
 
+	const { t } = useLocale();
+
 	const os = useOperatingSystem();
 	const keybind = keybindForOs(os);
 
@@ -61,7 +63,7 @@ export default (props: Props) => {
 		<>
 			<Menu.Item
 				className="tag-menu"
-				label="New tag"
+				label={t('new_tag')}
 				icon={Plus}
 				iconProps={{ size: 15 }}
 				keybind={keybind([ModifierKeys.Control], ['N'])}
@@ -74,8 +76,8 @@ export default (props: Props) => {
 				onReset={() => queryClient.invalidateQueries()}
 				fallbackRender={(props) => (
 					<EmptyContainer>
-						Failed to load tags
-						<Button onClick={() => props.resetErrorBoundary()}>Retry</Button>
+						{t('failed_to_load_tags')}
+						<Button onClick={() => props.resetErrorBoundary()}>{t('retry')}</Button>
 					</EmptyContainer>
 				)}
 			>
@@ -87,6 +89,8 @@ export default (props: Props) => {
 
 const Tags = ({ items, parentRef }: Props & { parentRef: RefObject<HTMLDivElement> }) => {
 	const { tags, tagsWithObjects } = useData({ items });
+
+	const { t } = useLocale();
 
 	// tags are sorted by assignment, and assigned tags are sorted by most recently assigned
 	const sortedTags = useMemo(() => {
@@ -151,7 +155,7 @@ const Tags = ({ items, parentRef }: Props & { parentRef: RefObject<HTMLDivElemen
 			{sortedTags.length > 0 ? (
 				<div
 					ref={parentRef}
-					className="h-full w-full overflow-auto"
+					className="size-full overflow-auto"
 					style={{ maxHeight: `400px` }}
 				>
 					<div
@@ -196,7 +200,7 @@ const Tags = ({ items, parentRef }: Props & { parentRef: RefObject<HTMLDivElemen
 											tag.id,
 											unassign
 												? // use objects that already have tag
-												  items.flatMap((item) => {
+													items.flatMap((item) => {
 														if (
 															item.type === 'Object' ||
 															item.type === 'Path'
@@ -205,18 +209,24 @@ const Tags = ({ items, parentRef }: Props & { parentRef: RefObject<HTMLDivElemen
 														}
 
 														return [];
-												  })
+													})
 												: // use objects that don't have tag
-												  items.flatMap<AssignTagItems[number]>((item) => {
-														if (item.type === 'Object') {
-															if (!objectsWithTag.has(item.item.id))
+													items.flatMap<AssignTagItems[number]>(
+														(item) => {
+															if (item.type === 'Object') {
+																if (
+																	!objectsWithTag.has(
+																		item.item.id
+																	)
+																)
+																	return [item];
+															} else if (item.type === 'Path') {
 																return [item];
-														} else if (item.type === 'Path') {
-															return [item];
-														}
+															}
 
-														return [];
-												  }),
+															return [];
+														}
+													),
 											unassign
 										);
 
@@ -224,7 +234,7 @@ const Tags = ({ items, parentRef }: Props & { parentRef: RefObject<HTMLDivElemen
 									}}
 								>
 									<div
-										className="mr-0.5 h-[15px] w-[15px] shrink-0 rounded-full border"
+										className="mr-0.5 size-[15px] shrink-0 rounded-full border"
 										style={{
 											backgroundColor:
 												objectsWithTag &&
@@ -242,7 +252,7 @@ const Tags = ({ items, parentRef }: Props & { parentRef: RefObject<HTMLDivElemen
 					</div>
 				</div>
 			) : (
-				<EmptyContainer>No tags</EmptyContainer>
+				<EmptyContainer>{t('no_tags')}</EmptyContainer>
 			)}
 		</>
 	);

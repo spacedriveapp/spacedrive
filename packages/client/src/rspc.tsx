@@ -1,7 +1,11 @@
-import { ProcedureDef } from '@rspc/client';
-import { AlphaRSPCError, initRspc } from '@rspc/client/v2';
-import { Context, createReactQueryHooks } from '@rspc/react/v2';
-import { QueryClient } from '@tanstack/react-query';
+import {
+	inferMutationInput,
+	inferMutationResult,
+	ProcedureDef
+} from '@oscartbeaumont-sd/rspc-client';
+import { AlphaRSPCError, initRspc } from '@oscartbeaumont-sd/rspc-client/v2';
+import { BaseOptions, Context, createReactQueryHooks } from '@oscartbeaumont-sd/rspc-react/v2';
+import { QueryClient, useMutation, UseMutationOptions, useQuery } from '@tanstack/react-query';
 import { createContext, PropsWithChildren, useContext } from 'react';
 import { match, P } from 'ts-pattern';
 
@@ -26,11 +30,11 @@ type StripLibraryArgsFromInput<
 				key: T['key'];
 				input: NeverOverNull extends true ? (E extends null ? never : E) : E;
 				result: T['result'];
-		  }
+			}
 		: never
 	: never;
 
-type NonLibraryProceduresDef = {
+export type NonLibraryProceduresDef = {
 	queries: NonLibraryProcedure<'queries'>;
 	mutations: NonLibraryProcedure<'mutations'>;
 	subscriptions: NonLibraryProcedure<'subscriptions'>;
@@ -42,9 +46,11 @@ export type LibraryProceduresDef = {
 	subscriptions: StripLibraryArgsFromInput<LibraryProcedures<'subscriptions'>, true>;
 };
 
-const context = createContext<Context<LibraryProceduresDef>>(undefined!);
+export const context = createContext<Context<Procedures>>(undefined!);
+export const context2 = createContext<Context<LibraryProceduresDef>>(undefined!);
 
-export const useRspcLibraryContext = () => useContext(context);
+export const useRspcContext = () => useContext(context);
+export const useRspcLibraryContext = () => useContext(context2);
 
 export const rspc = initRspc<Procedures>({
 	links: globalThis.rspcLinks
@@ -56,7 +62,7 @@ export const rspc2 = initRspc<Procedures>({
 export const nonLibraryClient = rspc.dangerouslyHookIntoInternals<NonLibraryProceduresDef>();
 // @ts-expect-error // TODO: Fix
 const nonLibraryHooks = createReactQueryHooks<NonLibraryProceduresDef>(nonLibraryClient, {
-	// context // TODO: Shared context
+	context // TODO: Shared context
 });
 
 export const libraryClient = rspc2.dangerouslyHookIntoInternals<LibraryProceduresDef>({
@@ -69,7 +75,7 @@ export const libraryClient = rspc2.dangerouslyHookIntoInternals<LibraryProcedure
 });
 // @ts-expect-error // TODO: idk
 const libraryHooks = createReactQueryHooks<LibraryProceduresDef>(libraryClient, {
-	context
+	context: context2
 });
 
 // TODO: Allow both hooks to use a unified context -> Right now they override each others local state

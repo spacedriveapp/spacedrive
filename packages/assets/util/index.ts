@@ -13,8 +13,7 @@ export const iconNames = Object.fromEntries(
 ) as Record<IconTypes, string>;
 
 export const getIconByName = (name: IconTypes, isDark?: boolean) => {
-	let _name = name;
-	if (!isDark) _name = (name + '_Light') as IconTypes;
+	if (!isDark) name = (name + '_Light') as IconTypes;
 	return icons[name];
 };
 
@@ -53,13 +52,13 @@ export const getIcon = (
 		(extension && extension in icons
 			? extension
 			: // 2. If in light mode, check if the specific kind in light exists.
-			!isDark && lightKind in icons
-			? lightKind
-			: // 3. Check if a general kind icon exists.
-			kind in icons
-			? kind
-			: // 4. Default to the document (or document light) icon.
-			  document) as keyof typeof icons
+				!isDark && lightKind in icons
+				? lightKind
+				: // 3. Check if a general kind icon exists.
+					kind in icons
+					? kind
+					: // 4. Default to the document (or document light) icon.
+						document) as keyof typeof icons
 	];
 };
 

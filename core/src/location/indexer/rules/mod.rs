@@ -1,12 +1,9 @@
-pub mod seed;
+use crate::library::Library;
 
-use crate::{
-	library::Library,
-	prisma::indexer_rule,
-	util::{
-		db::{maybe_missing, MissingFieldError},
-		error::{FileIOError, NonUtf8PathError},
-	},
+use sd_prisma::prisma::indexer_rule;
+use sd_utils::{
+	db::{maybe_missing, MissingFieldError},
+	error::{FileIOError, NonUtf8PathError},
 };
 
 use std::{
@@ -18,7 +15,7 @@ use std::{
 use chrono::{DateTime, Utc};
 use futures::future::try_join_all;
 use globset::{Glob, GlobSet, GlobSetBuilder};
-use rmp_serde::{self, decode, encode};
+use rmp_serde::{decode, encode};
 use rspc::ErrorCode;
 use serde::{de, ser, Deserialize, Serialize};
 use specta::Type;
@@ -26,6 +23,8 @@ use thiserror::Error;
 use tokio::fs;
 use tracing::debug;
 use uuid::Uuid;
+
+pub mod seed;
 
 #[derive(Error, Debug)]
 pub enum IndexerRuleError {
@@ -623,7 +622,6 @@ pub fn generate_pub_id() -> Uuid {
 mod tests {
 	use super::*;
 	use tempfile::tempdir;
-	use tokio::fs;
 
 	impl IndexerRule {
 		pub fn new(name: String, default: bool, rules: Vec<RulePerKind>) -> Self {

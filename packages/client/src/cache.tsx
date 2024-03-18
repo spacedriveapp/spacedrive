@@ -12,6 +12,7 @@ import {
 import { proxy, snapshot, subscribe } from 'valtio';
 
 import { type CacheNode } from './core';
+import { getPermits } from './rspc-cursed';
 
 declare global {
 	interface Window {
@@ -33,11 +34,11 @@ export function createCache() {
 	const cache = proxy(defaultStore());
 	return {
 		cache,
-		withNodes(data: CacheNode[] | undefined) {
-			updateNodes(cache, data);
+		withNodes(data: CacheNode[] | undefined, suffix?: string) {
+			updateNodes(cache, data, suffix);
 		},
-		withCache<T>(data: T | undefined): UseCacheResult<T> {
-			return restore(cache, new Map(), data) as any;
+		withCache<T>(data: T | undefined, suffix?: string): UseCacheResult<T> {
+			return restore(cache, new Map(), data, suffix) as any;
 		}
 	};
 }
@@ -65,6 +66,12 @@ export function CacheProvider({ cache, children }: PropsWithChildren<{ cache: No
 	const queryClient = useQueryClient();
 	useEffect(() => {
 		const interval = setInterval(() => {
+			const permits = getPermits();
+			if (permits !== 0) {
+				console.warn('Not safe to cleanup cache. ${permits} permits currently held.');
+				return;
+			}
+
 			const requiredKeys = new StableSet<[string, string]>();
 			for (const query of queryClient.getQueryCache().getAll()) {
 				if (query.state.data) scanDataForKeys(cache.cache, requiredKeys, query.state.data);
@@ -116,7 +123,12 @@ function scanDataForKeys(cache: Store, keys: StableSet<[string, string]>, item: 
 	}
 }
 
-function restore(cache: Store, subscribed: Map<string, Set<unknown>>, item: unknown): unknown {
+function restore(
+	cache: Store,
+	subscribed: Map<string, Set<unknown>>,
+	item: unknown,
+	suffix?: string
+): unknown {
 	if (item === undefined || item === null) {
 		return item;
 	} else if (Array.isArray(item)) {
@@ -125,18 +137,25 @@ function restore(cache: Store, subscribed: Map<string, Set<unknown>>, item: unkn
 		if ('__type' in item && '__id' in item) {
 			if (typeof item.__type !== 'string') throw new Error('Invalid `__type`');
 			if (typeof item.__id !== 'string') throw new Error('Invalid `__id`');
-			const result = cache.nodes?.[item.__type]?.[item.__id];
-			if (!result)
-				throw new Error(`Missing node for id '${item.__id}' of type '${item.__type}'`);
+			const ty = suffix ? `${suffix}:${item.__type}` : item.__type;
 
-			const v = subscribed.get(item.__type);
+			const result = cache.nodes?.[ty]?.[item.__id];
+			if (!result) throw new Error(`Missing node for id '${item.__id}' of type '${ty}'`);
+
+			const v = subscribed.get(ty);
 			if (v) {
 				v.add(item.__id);
 			} else {
-				subscribed.set(item.__type, new Set([item.__id]));
+				subscribed.set(ty, new Set([item.__id]));
 			}
 
-			return result;
+			// We call restore again for arrays and objects to deal with nested relations.
+			return Object.fromEntries(
+				Object.entries(result).map(([key, value]) => [
+					key,
+					restore(cache, subscribed, value)
+				])
+			);
 		}
 
 		return Object.fromEntries(
@@ -167,31 +186,60 @@ export function useNormalisedCache() {
 	};
 }
 
-function updateNodes(cache: Store, data: CacheNode[] | undefined) {
+function updateNodes(cache: Store, data: CacheNode[] | undefined, suffix?: string) {
 	if (!data) return;
 
 	for (const item of data) {
 		if (!('__type' in item && '__id' in item)) throw new Error('Missing `__type` or `__id`');
 		if (typeof item.__type !== 'string') throw new Error('Invalid `__type`');
 		if (typeof item.__id !== 'string') throw new Error('Invalid `__id`');
+		const ty = suffix ? `${suffix}:${item.__type}` : item.__type;
 
 		const copy = { ...item } as any;
 		delete copy.__type;
 		delete copy.__id;
 
-		if (!cache.nodes[item.__type]) cache.nodes[item.__type] = {};
+		const original = cache.nodes?.[ty]?.[item.__id];
+		specialMerge(copy, original);
+
+		if (!cache.nodes[ty]) cache.nodes[ty] = {};
 		// TODO: This should be a deepmerge but that would break stuff like `size_in_bytes` or `inode` as the arrays are joined.
-		cache.nodes[item.__type]![item.__id] = copy;
+		cache.nodes[ty]![item.__id] = copy;
+	}
+}
+
+// When using PCR's data structure if you don't fetch a relation `null` is returned.
+// If two queries return a single entity but one fetches relations and the other doesn't that null might "win" over the actual data.
+// Once it "wins" the normalised cache is updated causing all `useCache`'s to rerun.
+//
+// The `useCache` hook derives the type from  the specific React Query operation.
+// Due to this the result of a `useCache` might end up as `null` even when TS says it's `T` causing crashes due to no-null checks.
+//
+// So this merge function causes the `null` to be replaced with the original value.
+function specialMerge(copy: Record<any, any>, original: unknown) {
+	if (
+		original &&
+		typeof original === 'object' &&
+		typeof copy === 'object' &&
+		!Array.isArray(original) &&
+		!Array.isArray(copy)
+	) {
+		for (const [property, value] of Object.entries(original)) {
+			copy[property] = copy[property] || value;
+
+			if (typeof copy[property] === 'object' && !Array.isArray(copy[property]))
+				specialMerge(copy[property], value);
+		}
 	}
 }
 
 export type UseCacheResult<T> = T extends (infer A)[]
 	? UseCacheResult<A>[]
 	: T extends object
-	? T extends { '__type': any; '__id': string; '#type': infer U }
-		? UseCacheResult<U>
-		: { [K in keyof T]: UseCacheResult<T[K]> }
-	: { [K in keyof T]: UseCacheResult<T[K]> };
+		? T extends { '__type': any; '__id': string; '#type': infer U }
+			? UseCacheResult<U>
+			: { [K in keyof T]: UseCacheResult<T[K]> }
+		: { [K in keyof T]: UseCacheResult<T[K]> };
 
 export function useCache<T>(data: T | undefined) {
 	const cache = useCacheContext();

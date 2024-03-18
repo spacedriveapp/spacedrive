@@ -4,17 +4,23 @@ on:
   workflow_dispatch:
 # NOTE: For Linux builds, we can only build with Ubuntu. It should be the oldest base system we intend to support. See PR-759 & https://tauri.app/v1/guides/building/linux for reference.
 
+# From: https://github.com/rust-lang/rust-analyzer/blob/master/.github/workflows/release.yaml#L13-L21
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+
 jobs:
   desktop-main:
     strategy:
       matrix:
         settings:
-          - host: macos-latest
+          - host: macos-13
             target: x86_64-apple-darwin
             bundles: app,dmg
             os: darwin
             arch: x86_64
-          - host: macos-latest
+          - host: macos-14
             target: aarch64-apple-darwin
             bundles: app,dmg
             os: darwin
@@ -28,14 +34,14 @@ jobs:
           #   target: aarch64-pc-windows-msvc
           - host: ubuntu-20.04
             target: x86_64-unknown-linux-gnu
-            bundles: deb,appimage
+            bundles: deb
             os: linux
             arch: x86_64
           # - host: ubuntu-20.04
           #   target: x86_64-unknown-linux-musl
           # - host: ubuntu-20.04
           #   target: aarch64-unknown-linux-gnu
-          #   bundles: deb # no appimage for now unfortunetly
+          #   bundles: deb
           # - host: ubuntu-20.04
           #   target: aarch64-unknown-linux-musl
     name: Desktop - Main ${{ matrix.settings.target }}
@@ -52,15 +58,15 @@ jobs:
           remove-haskell: 'true'
           remove-docker-images: 'true'
 
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
       - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path C:\spacedrive_target
           New-Item -Path target -ItemType Junction -Value C:\spacedrive_target
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Remove 32-bit libs
         if: ${{ runner.os == 'Linux' }}
@@ -75,7 +81,7 @@ jobs:
           mkdir -p ~/.appstoreconnect/private_keys/
           cd ~/.appstoreconnect/private_keys/
           echo ${{ secrets.APPLE_API_KEY_BASE64 }} >> AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64
-          base64 --decode AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64 -o AuthKey_${{ secrets.APPLE_API_KEY }}.p8
+          base64 --decode -i AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64 -o AuthKey_${{ secrets.APPLE_API_KEY }}.p8
           rm AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64
 
       - name: Install Codesigning Certificate
@@ -113,6 +119,16 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
+      - name: Build AppImage in Docker
+        if: ${{ runner.os == 'Linux' && ( matrix.settings.target == 'x86_64-unknown-linux-gnu' || matrix.settings.target == 'aarch64-unknown-linux-gnu' ) }}
+        run: |
+          set -euxo pipefail
+          docker run --rm -v $(pwd):/srv -e 'CI=true' -e 'TARGET=${{ matrix.settings.target }}' -w /srv debian:bookworm scripts/appimage/build_appimage.sh
+          cd 'target/${{ matrix.settings.target }}/release/bundle/appimage'
+          sudo chown "$(id -u):$(id -g)" -R .
+          tar -czf Updater.AppImage.tar.gz *.AppImage
+          pnpm tauri signer sign -k '${{ secrets.TAURI_PRIVATE_KEY }}' -p '${{ secrets.TAURI_KEY_PASSWORD }}' "$(pwd)/Updater.AppImage.tar.gz"
+
       - name: Publish Artifacts
         uses: ./.github/actions/publish-artifacts
         with:
@@ -130,10 +146,11 @@ jobs:
       contents: write
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        # TODO: Change to stable version when available
+        uses: softprops/action-gh-release@4634c16e79c963813287e889244c50009e7f0981
         with:
           draft: true
           files: '*/**'

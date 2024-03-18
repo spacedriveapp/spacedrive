@@ -1,11 +1,12 @@
 use crate::api::search;
-use crate::prisma::PrismaClient;
+
+use sd_prisma::prisma::PrismaClient;
+
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::collections::BTreeMap;
-use std::collections::HashMap;
 use tracing::error;
-use uuid::Uuid;
 
 use super::*;
 

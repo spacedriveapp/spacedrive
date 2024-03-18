@@ -1,4 +1,5 @@
 use crate::NodeError;
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -51,5 +52,11 @@ impl TryFrom<u8> for Platform {
 		};
 
 		Ok(s)
+	}
+}
+
+impl From<Platform> for u8 {
+	fn from(platform: Platform) -> Self {
+		platform as u8
 	}
 }

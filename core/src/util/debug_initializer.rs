@@ -1,16 +1,18 @@
 // ! A system for loading a default set of data on startup. This is ONLY enabled in development builds.
 
 use crate::{
-	job::JobManagerError,
 	library::Libraries,
 	library::{LibraryManagerError, LibraryName},
 	location::{
 		delete_location, scan_location, LocationCreateArgs, LocationError, LocationManagerError,
 	},
-	prisma::location,
+	old_job::JobManagerError,
 	util::AbortOnDrop,
 	Node,
 };
+
+use sd_prisma::prisma::location;
+use sd_utils::error::FileIOError;
 
 use std::{
 	io,
@@ -28,8 +30,6 @@ use tokio::{
 };
 use tracing::{info, warn};
 use uuid::Uuid;
-
-use super::error::FileIOError;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -1,11 +1,12 @@
-use crate::{location::file_path_helper::FilePathError, util::error::FileIOError};
+use sd_file_path_helper::FilePathError;
+use sd_utils::error::FileIOError;
 
 use std::path::Path;
 
 use thiserror::Error;
 
 pub mod hash;
-pub mod validator_job;
+pub mod old_validator_job;
 
 #[derive(Error, Debug)]
 pub enum ValidatorError {

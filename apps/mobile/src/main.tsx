@@ -4,7 +4,7 @@ import 'event-target-polyfill';
 
 import * as SplashScreen from 'expo-splash-screen';
 import { lazy, Suspense } from 'react';
-import { Dimensions, Platform } from 'react-native';
+import { Dimensions } from 'react-native';
 
 import { reactNativeLink } from '../modules/sd-core/src';
 
@@ -93,20 +93,6 @@ window.screen = {
 	width,
 	height
 };
-
-/*
-	https://github.com/facebook/hermes/issues/23
-
-	We are using "Hermes" on Android & IOS, which for the current version (0.11),
-	IOS does not support the Intl fully so we need polyfill it.
-
-	NOTE: We can be picky about what we "polyfill" to optimize but for now this works.
-*/
-
-if (Platform.OS === 'ios') {
-	require('intl'); // import intl object
-	require('intl/locale-data/jsonp/en');
-}
 
 // This is insane. We load all data from `AsyncStorage` into the `_localStorage` global and then once complete we import the app.
 // This way the polyfilled `localStorage` implementation has its data populated before the global stores within `@sd/client` are initialized (as they are initialized on import).

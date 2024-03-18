@@ -8,10 +8,12 @@ const button = cva(['items-center justify-center rounded-md border shadow-sm'], 
 	variants: {
 		variant: {
 			danger: ['border-red-800 bg-red-600'],
-			gray: ['border-app-line bg-app-button'],
+			gray: ['border-app-inputborder bg-app-button'],
 			darkGray: ['border-app-box bg-app'],
 			accent: ['border-accent-deep bg-accent shadow-md shadow-app-shade/10'],
-			outline: ['border-sidebar-line/60 ']
+			outline: ['border-sidebar-line/60 bg-black'],
+			transparent: ['border-0 bg-black shadow-none'],
+			dashed: ['border border-dashed border-app-line bg-transparent']
 		},
 		size: {
 			default: ['py-1.5', 'px-3'],
@@ -29,6 +31,7 @@ const button = cva(['items-center justify-center rounded-md border shadow-sm'], 
 });
 
 type ButtonProps = VariantProps<typeof button> & PressableProps;
+export type ButtonVariants = ButtonProps['variant'];
 
 export const Button: FC<ButtonProps> = ({ variant, size, disabled, ...props }) => {
 	const { style, ...otherProps } = props;

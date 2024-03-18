@@ -1,34 +1,34 @@
 use crate::{
 	api::{utils::InvalidateOperationEvent, CoreEvent},
-	invalidate_query,
+	cloud, invalidate_query,
 	location::{
 		indexer,
 		metadata::{LocationMetadataError, SpacedriveLocationMetadataFile},
 	},
-	node::Platform,
 	object::tag,
-	p2p::{self, IdentityOrRemoteIdentity},
-	prisma::location,
-	sync,
-	util::{
-		db,
-		error::{FileIOError, NonUtf8PathError},
-		mpscrr, MaybeUndefined,
-	},
-	volume::watcher::spawn_volume_watcher,
+	p2p, sync,
+	util::{mpscrr, MaybeUndefined},
 	Node,
 };
 
 use sd_core_sync::SyncMessage;
-use sd_p2p::spacetunnel::Identity;
-use sd_prisma::prisma::{instance, shared_operation};
-use sd_utils::from_bytes_to_uuid;
+use sd_p2p::{Identity, IdentityOrRemoteIdentity};
+use sd_prisma::prisma::{crdt_operation, instance, location, SortOrder};
+use sd_utils::{
+	db,
+	error::{FileIOError, NonUtf8PathError},
+	from_bytes_to_uuid,
+};
 
 use std::{
 	collections::HashMap,
 	path::{Path, PathBuf},
 	str::FromStr,
-	sync::{atomic::AtomicBool, Arc},
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
+	time::Duration,
 };
 
 use chrono::Utc;
@@ -36,6 +36,7 @@ use futures_concurrency::future::{Join, TryJoin};
 use tokio::{
 	fs, io,
 	sync::{broadcast, RwLock},
+	time::sleep,
 };
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
@@ -131,11 +132,17 @@ impl Libraries {
 					Err(e) => return Err(FileIOError::from((db_path, e)).into()),
 				}
 
-				let library_arc = self
+				let _library_arc = self
 					.load(library_id, &db_path, config_path, None, true, node)
 					.await?;
 
-				spawn_volume_watcher(library_arc.clone());
+				// FIX-ME: Linux releases crashes with *** stack smashing detected *** if spawn_volume_watcher is enabled
+				// No idea why, but this will be irrelevant after the UDisk API is implemented, so let's leave it disabled for now
+				#[cfg(not(target_os = "linux"))]
+				{
+					use crate::volume::watcher::spawn_volume_watcher;
+					spawn_volume_watcher(_library_arc.clone());
+				}
 			}
 		}
 
@@ -143,7 +150,7 @@ impl Libraries {
 	}
 
 	/// create creates a new library with the given config and mounts it into the running [LibraryManager].
-	pub(crate) async fn create(
+	pub async fn create(
 		self: &Arc<Self>,
 		name: LibraryName,
 		description: Option<String>,
@@ -198,11 +205,12 @@ impl Libraries {
 						pub_id: Uuid::new_v4().as_bytes().to_vec(),
 						identity: IdentityOrRemoteIdentity::Identity(Identity::new()).to_bytes(),
 						node_id: node_cfg.id.as_bytes().to_vec(),
-						node_name: node_cfg.name.clone(),
-						node_platform: Platform::current() as i32,
 						last_seen: now,
 						date_created: now,
-						_params: vec![],
+						_params: vec![instance::metadata::set(Some(
+							serde_json::to_vec(&node.p2p.peer_metadata())
+								.expect("invalid node metadata"),
+						))],
 					});
 					create._params.push(instance::id::set(config.instance_id));
 					create
@@ -240,6 +248,8 @@ impl Libraries {
 		id: Uuid,
 		name: Option<LibraryName>,
 		description: MaybeUndefined<String>,
+		cloud_id: MaybeUndefined<String>,
+		enable_sync: Option<bool>,
 	) -> Result<(), LibraryManagerError> {
 		// check library is valid
 		let libraries = self.libraries.read().await;
@@ -262,6 +272,17 @@ impl Libraries {
 						MaybeUndefined::Value(description) => {
 							config.description = Some(description)
 						}
+					}
+					match cloud_id {
+						MaybeUndefined::Undefined => {}
+						MaybeUndefined::Null => config.cloud_id = None,
+						MaybeUndefined::Value(cloud_id) => config.cloud_id = Some(cloud_id),
+					}
+					match enable_sync {
+						None => {}
+						Some(value) => config
+							.generate_sync_operations
+							.store(value, Ordering::SeqCst),
 					}
 				},
 				self.libraries_dir.join(format!("{id}.sdlibrary")),
@@ -397,7 +418,8 @@ impl Libraries {
 			.find(|i| i.id == config.instance_id)
 			.ok_or_else(|| {
 				LibraryManagerError::CurrentInstanceNotFound(config.instance_id.to_string())
-			})?;
+			})?
+			.clone();
 
 		let identity = Arc::new(
 			match IdentityOrRemoteIdentity::from_bytes(&instance.identity)? {
@@ -409,12 +431,12 @@ impl Libraries {
 		);
 
 		let instance_id = Uuid::from_slice(&instance.pub_id)?;
-		let curr_platform = Platform::current() as i32;
+		let curr_metadata: Option<HashMap<String, String>> = instance
+			.metadata
+			.as_ref()
+			.map(|metadata| serde_json::from_slice(metadata).expect("invalid metadata"));
 		let instance_node_id = Uuid::from_slice(&instance.node_id)?;
-		if instance_node_id != node_config.id
-			|| instance.node_platform != curr_platform
-			|| instance.node_name != node_config.name
-		{
+		if instance_node_id != node_config.id || curr_metadata != Some(node.p2p.peer_metadata()) {
 			info!(
 				"Detected that the library '{}' has changed node from '{}' to '{}'. Reconciling node data...",
 				id, instance_node_id, node_config.id
@@ -425,8 +447,10 @@ impl Libraries {
 					instance::id::equals(instance.id),
 					vec![
 						instance::node_id::set(node_config.id.as_bytes().to_vec()),
-						instance::node_platform::set(curr_platform),
-						instance::node_name::set(node_config.name),
+						instance::metadata::set(Some(
+							serde_json::to_vec(&node.p2p.peer_metadata())
+								.expect("invalid peer metdata"),
+						)),
 					],
 				)
 				.exec()
@@ -438,15 +462,16 @@ impl Libraries {
 		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		// seed_keymanager(&db, &key_manager).await?;
 
-		let timestamps = db
-			._batch(
+		let sync = sync::Manager::new(&db, instance_id, &config.generate_sync_operations, {
+			db._batch(
 				instances
 					.iter()
 					.map(|i| {
-						db.shared_operation()
-							.find_first(vec![shared_operation::instance::is(vec![
+						db.crdt_operation()
+							.find_first(vec![crdt_operation::instance::is(vec![
 								instance::id::equals(i.id),
 							])])
+							.order_by(crdt_operation::timestamp::order(SortOrder::Desc))
 					})
 					.collect::<Vec<_>>(),
 			)
@@ -459,10 +484,10 @@ impl Libraries {
 					sd_sync::NTP64(op.map(|o| o.timestamp).unwrap_or_default() as u64),
 				)
 			})
-			.collect::<HashMap<_, _>>();
+			.collect()
+		});
 
-		let sync = sync::Manager::new(&db, instance_id, &self.emit_messages_flag, timestamps);
-
+		let (tx, mut rx) = broadcast::channel(10);
 		let library = Library::new(
 			id,
 			config,
@@ -472,6 +497,7 @@ impl Libraries {
 			db,
 			node,
 			Arc::new(sync.manager),
+			tx,
 		)
 		.await;
 
@@ -490,7 +516,7 @@ impl Libraries {
 			.insert(library.id, Arc::clone(&library));
 
 		if should_seed {
-			library.orphan_remover.invoke().await;
+			// library.orphan_remover.invoke().await;
 			indexer::rules::seed::new_or_existing_library(&library).await?;
 		}
 
@@ -509,9 +535,123 @@ impl Libraries {
 			};
 		}
 
-		if let Err(e) = node.jobs.clone().cold_resume(node, &library).await {
+		if let Err(e) = node.old_jobs.clone().cold_resume(node, &library).await {
 			error!("Failed to resume jobs for library. {:#?}", e);
 		}
+
+		tokio::spawn({
+			let this = self.clone();
+			let node = node.clone();
+			let library = library.clone();
+			async move {
+				loop {
+					debug!("Syncing library with cloud!");
+
+					if library.config().await.cloud_id.is_some() {
+						if let Ok(lib) =
+							sd_cloud_api::library::get(node.cloud_api_config().await, library.id)
+								.await
+						{
+							match lib {
+								Some(lib) => {
+									if let Some(this_instance) = lib
+										.instances
+										.iter()
+										.find(|i| i.uuid == library.instance_uuid)
+									{
+										let node_config = node.config.get().await;
+										let curr_metadata: Option<HashMap<String, String>> =
+											instance.metadata.as_ref().map(|metadata| {
+												serde_json::from_slice(metadata)
+													.expect("invalid metadata")
+											});
+										let should_update = this_instance.node_id != node_config.id
+											|| curr_metadata != Some(node.p2p.peer_metadata());
+
+										if should_update {
+											warn!("Library instance on cloud is outdated. Updating...");
+
+											if let Err(err) =
+												sd_cloud_api::library::update_instance(
+													node.cloud_api_config().await,
+													library.id,
+													this_instance.uuid,
+													Some(node_config.id),
+													Some(node.p2p.peer_metadata()),
+												)
+												.await
+											{
+												error!(
+													"Failed to updating instance '{}' on cloud: {:#?}",
+													this_instance.uuid, err
+												);
+											}
+										}
+									}
+
+									if lib.name != *library.config().await.name {
+										warn!("Library name on cloud is outdated. Updating...");
+
+										if let Err(err) = sd_cloud_api::library::update(
+											node.cloud_api_config().await,
+											library.id,
+											Some(lib.name),
+										)
+										.await
+										{
+											error!(
+												"Failed to update library name on cloud: {:#?}",
+												err
+											);
+										}
+									}
+
+									for instance in lib.instances {
+										if let Err(err) = cloud::sync::receive::create_instance(
+											&library,
+											&node.libraries,
+											instance.uuid,
+											instance.identity,
+											instance.node_id,
+											instance.metadata,
+										)
+										.await
+										{
+											error!(
+												"Failed to create instance from cloud: {:#?}",
+												err
+											);
+										}
+									}
+								}
+								None => {
+									warn!(
+										"Library not found on cloud. Removing from local node..."
+									);
+
+									let _ = this
+										.edit(
+											library.id,
+											None,
+											MaybeUndefined::Undefined,
+											MaybeUndefined::Null,
+											None,
+										)
+										.await;
+								}
+							}
+						}
+					}
+
+					tokio::select! {
+						// Update instances every 2 minutes
+						_ = sleep(Duration::from_secs(120)) => {}
+						// Or when asked by user
+						Ok(_) = rx.recv() => {}
+					};
+				}
+			}
+		});
 
 		Ok(library)
 	}

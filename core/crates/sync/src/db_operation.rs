@@ -1,51 +1,28 @@
-use sd_prisma::prisma::{
-	cloud_relation_operation, cloud_shared_operation, relation_operation, shared_operation,
-};
-use sd_sync::{CRDTOperation, CRDTOperationType, RelationOperation, SharedOperation};
+use rmp_serde::to_vec;
+use sd_prisma::prisma::{cloud_crdt_operation, crdt_operation, instance, PrismaClient};
+use sd_sync::CRDTOperation;
 use uhlc::NTP64;
 use uuid::Uuid;
 
-shared_operation::include!(shared_include {
-	instance: select { pub_id }
-});
-relation_operation::include!(relation_include {
+crdt_operation::include!(crdt_include {
 	instance: select { pub_id }
 });
 
-cloud_shared_operation::include!(cloud_shared_include {
-	instance: select { pub_id }
-});
-cloud_relation_operation::include!(cloud_relation_include {
+cloud_crdt_operation::include!(cloud_crdt_include {
 	instance: select { pub_id }
 });
 
-pub enum DbOperation {
-	Shared(shared_include::Data),
-	Relation(relation_include::Data),
-}
-
-impl DbOperation {
+impl crdt_include::Data {
 	pub fn timestamp(&self) -> NTP64 {
-		NTP64(match self {
-			Self::Shared(op) => op.timestamp,
-			Self::Relation(op) => op.timestamp,
-		} as u64)
+		NTP64(self.timestamp as u64)
 	}
 
 	pub fn id(&self) -> Uuid {
-		Uuid::from_slice(match self {
-			Self::Shared(op) => &op.id,
-			Self::Relation(op) => &op.id,
-		})
-		.unwrap()
+		Uuid::from_slice(&self.id).unwrap()
 	}
 
 	pub fn instance(&self) -> Uuid {
-		Uuid::from_slice(match self {
-			Self::Shared(op) => &op.instance.pub_id,
-			Self::Relation(op) => &op.instance.pub_id,
-		})
-		.unwrap()
+		Uuid::from_slice(&self.instance.pub_id).unwrap()
 	}
 
 	pub fn into_operation(self) -> CRDTOperation {
@@ -53,50 +30,37 @@ impl DbOperation {
 			id: self.id(),
 			instance: self.instance(),
 			timestamp: self.timestamp(),
-			typ: match self {
-				Self::Shared(op) => CRDTOperationType::Shared(SharedOperation {
-					record_id: serde_json::from_slice(&op.record_id).unwrap(),
-					model: op.model,
-					data: serde_json::from_slice(&op.data).unwrap(),
-				}),
-				Self::Relation(op) => CRDTOperationType::Relation(RelationOperation {
-					relation: op.relation,
-					data: serde_json::from_slice(&op.data).unwrap(),
-					relation_item: serde_json::from_slice(&op.item_id).unwrap(),
-					relation_group: serde_json::from_slice(&op.group_id).unwrap(),
-				}),
-			},
+			record_id: rmp_serde::from_slice(&self.record_id).unwrap(),
+			model: self.model,
+			data: rmp_serde::from_slice(&self.data).unwrap(),
+			// match self {
+			// 	Self::Shared(op) => CRDTOperationType::Shared(SharedOperation {
+			// 		record_id: serde_json::from_slice(&op.record_id).unwrap(),
+			// 		model: op.model,
+			// 		data: serde_json::from_slice(&op.data).unwrap(),
+			// 	}),
+			// 	Self::Relation(op) => CRDTOperationType::Relation(RelationOperation {
+			// 		relation: op.relation,
+			// 		data: serde_json::from_slice(&op.data).unwrap(),
+			// 		relation_item: serde_json::from_slice(&op.item_id).unwrap(),
+			// 		relation_group: serde_json::from_slice(&op.group_id).unwrap(),
+			// 	}),
+			// },
 		}
 	}
 }
 
-pub enum CloudDbOperation {
-	Shared(cloud_shared_include::Data),
-	Relation(cloud_relation_include::Data),
-}
-
-impl CloudDbOperation {
+impl cloud_crdt_include::Data {
 	pub fn timestamp(&self) -> NTP64 {
-		NTP64(match self {
-			Self::Shared(op) => op.timestamp,
-			Self::Relation(op) => op.timestamp,
-		} as u64)
+		NTP64(self.timestamp as u64)
 	}
 
 	pub fn id(&self) -> Uuid {
-		Uuid::from_slice(match self {
-			Self::Shared(op) => &op.id,
-			Self::Relation(op) => &op.id,
-		})
-		.unwrap()
+		Uuid::from_slice(&self.id).unwrap()
 	}
 
 	pub fn instance(&self) -> Uuid {
-		Uuid::from_slice(match self {
-			Self::Shared(op) => &op.instance.pub_id,
-			Self::Relation(op) => &op.instance.pub_id,
-		})
-		.unwrap()
+		Uuid::from_slice(&self.instance.pub_id).unwrap()
 	}
 
 	pub fn into_operation(self) -> CRDTOperation {
@@ -104,19 +68,40 @@ impl CloudDbOperation {
 			id: self.id(),
 			instance: self.instance(),
 			timestamp: self.timestamp(),
-			typ: match self {
-				Self::Shared(op) => CRDTOperationType::Shared(SharedOperation {
-					record_id: serde_json::from_slice(&op.record_id).unwrap(),
-					model: op.model,
-					data: serde_json::from_slice(&op.data).unwrap(),
-				}),
-				Self::Relation(op) => CRDTOperationType::Relation(RelationOperation {
-					relation: op.relation,
-					data: serde_json::from_slice(&op.data).unwrap(),
-					relation_item: serde_json::from_slice(&op.item_id).unwrap(),
-					relation_group: serde_json::from_slice(&op.group_id).unwrap(),
-				}),
-			},
+			record_id: rmp_serde::from_slice(&self.record_id).unwrap(),
+			model: self.model,
+			data: serde_json::from_slice(&self.data).unwrap(),
+			// match self {
+			// 	Self::Shared(op) => ,
+			// 	Self::Relation(op) => CRDTOperationType::Relation(RelationOperation {
+			// 		relation: op.relation,
+			// 		data: serde_json::from_slice(&op.data).unwrap(),
+			// 		relation_item: serde_json::from_slice(&op.item_id).unwrap(),
+			// 		relation_group: serde_json::from_slice(&op.group_id).unwrap(),
+			// 	}),
+			// },
 		}
+	}
+}
+
+pub async fn write_crdt_op_to_db(
+	op: &CRDTOperation,
+	db: &PrismaClient,
+) -> Result<(), prisma_client_rust::QueryError> {
+	crdt_op_db(op).to_query(db).exec().await?;
+
+	Ok(())
+}
+
+fn crdt_op_db(op: &CRDTOperation) -> crdt_operation::Create {
+	crdt_operation::Create {
+		id: op.id.as_bytes().to_vec(),
+		timestamp: op.timestamp.0 as i64,
+		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
+		kind: op.kind().to_string(),
+		data: to_vec(&op.data).unwrap(),
+		model: op.model.to_string(),
+		record_id: rmp_serde::to_vec(&op.record_id).unwrap(),
+		_params: vec![],
 	}
 }

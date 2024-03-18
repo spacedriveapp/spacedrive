@@ -88,6 +88,12 @@ impl InvalidRequests {
 
 			let queries = r.queries();
 			for req in &invalidate_requests.queries {
+				// This is a subscription in Rust but is query in React where it needs revalidation.
+				// We also don't check it's arguments are valid because we can't, lol.
+				if req.key == "search.ephemeralPaths" {
+					continue;
+				}
+
 				if let Some(query_ty) = queries.get(req.key) {
 					if let Some(arg) = &req.arg_ty {
 						if &query_ty.ty.input != arg {

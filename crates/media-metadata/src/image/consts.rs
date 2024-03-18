@@ -14,7 +14,7 @@ pub const DMS_DIVISION: [f64; 3] = [1_f64, 60_f64, 3600_f64];
 
 /// The amount of significant figures we wish to retain after the decimal point.
 ///
-/// This is currrently 8 digits (after the integer) as that is precise enough for most
+/// This is currently 8 digits (after the integer) as that is precise enough for most
 /// applications.
 ///
 /// This is calculated with `10^n`, where `n` is the desired amount of SFs.

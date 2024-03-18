@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
-
+use specta::Type;
+use strum_macros::{Display, EnumIter};
 // Note: The order of this enum should never change, and always be kept in sync with `packages/client/src/utils/objectKind.ts`
 #[repr(i32)]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Display, Copy, EnumIter, Type, Serialize, Deserialize, Eq, PartialEq)]
 pub enum ObjectKind {
 	/// A file that can not be identified by the indexer
 	Unknown = 0,
@@ -56,4 +57,6 @@ pub enum ObjectKind {
 	Dotfile = 24,
 	/// Screenshot
 	Screenshot = 25,
+	/// Label
+	Label = 26,
 }

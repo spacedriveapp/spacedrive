@@ -51,11 +51,11 @@ export function useJobInfo(job: JobReport, realtimeUpdate: JobProgressEvent | nu
 							text: isPaused
 								? job.message
 								: isRunning && realtimeUpdate?.message
-								? realtimeUpdate.message
-								: `${formatNumber(output?.total_paths)} ${plural(
-										output?.total_paths,
-										'path'
-								  )} discovered`
+									? realtimeUpdate.message
+									: `${formatNumber(output?.total_paths)} ${plural(
+											output?.total_paths,
+											'path'
+										)} discovered`
 						}
 					]
 				]
@@ -93,6 +93,18 @@ export function useJobInfo(job: JobReport, realtimeUpdate: JobProgressEvent | nu
 						];
 					}
 
+					case 'labels': {
+						return [
+							{
+								text: `Labeled ${
+									completedTaskCount
+										? formatNumber(completedTaskCount || 0)
+										: formatNumber(output?.labels_extracted)
+								} of ${formatNumber(taskCount)} ${plural(taskCount, 'file')}`
+							}
+						];
+					}
+
 					default: {
 						// If we don't have a phase set, then we're done
 
@@ -115,7 +127,7 @@ export function useJobInfo(job: JobReport, realtimeUpdate: JobProgressEvent | nu
 											'thumb'
 										)}`
 									}
-							  ];
+								];
 					}
 				}
 			};
@@ -157,7 +169,7 @@ export function useJobInfo(job: JobReport, realtimeUpdate: JobProgressEvent | nu
 											output?.total_objects_linked
 										)} ${plural(output?.total_objects_linked, 'Object')} linked`
 									}
-							  ]
+								]
 						: [{ text: addCommasToNumbersInMessage(realtimeUpdate?.message) }]
 				]
 			};

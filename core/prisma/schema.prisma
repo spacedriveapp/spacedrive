@@ -16,9 +16,7 @@ generator sync {
   client_format = "folder"
 }
 
-//// Sync ////
-
-model SharedOperation {
+model CRDTOperation {
   id        Bytes  @id
   timestamp BigInt
   model     String
@@ -33,24 +31,7 @@ model SharedOperation {
 
   // attestation Bytes
 
-  @@map("shared_operation")
-}
-
-model RelationOperation {
-  id        Bytes  @id
-  timestamp BigInt
-  relation  String
-
-  item_id  Bytes
-  group_id Bytes
-
-  kind String
-  data Bytes
-
-  instance_id Int
-  instance    Instance @relation(fields: [instance_id], references: [id])
-
-  @@map("relation_operation")
+  @@map("crdt_operation")
 }
 
 /// @deprecated: This model has to exist solely for backwards compatibility.
@@ -62,7 +43,6 @@ model Node {
   platform     Int
   date_created DateTime
   identity     Bytes? // TODO: Change to required field in future
-  node_peer_id String? // TODO: Remove as part of - https://linear.app/spacedriveapp/issue/ENG-757/p2p-library-portability
 
   @@map("node")
 }
@@ -76,10 +56,8 @@ model Instance {
   // Enum: sd_core::p2p::IdentityOrRemoteIdentity
   identity Bytes
 
-  node_id       Bytes
-  node_name     String
-  // Enum: sd_core::node::Platform
-  node_platform Int
+  node_id  Bytes
+  metadata Bytes? // TODO: This should not be optional
 
   last_seen    DateTime // Time core started for owner, last P2P message for P2P node
   date_created DateTime
@@ -87,14 +65,9 @@ model Instance {
   // clock timestamp for sync
   timestamp BigInt?
 
-  // attestation Bytes
-
-  locations Location[]
-
-  SharedOperation        SharedOperation[]
-  RelationOperation      RelationOperation[]
-  CloudSharedOperation   CloudSharedOperation[]
-  CloudRelationOperation CloudRelationOperation[]
+  locations          Location[]
+  CRDTOperation      CRDTOperation[]
+  CloudCRDTOperation CloudCRDTOperation[]
 
   @@map("instance")
 }
@@ -145,6 +118,8 @@ model Location {
   hidden                 Boolean?
   date_created           DateTime?
 
+  /// @local
+  // this is just a client side cache which is annoying but oh well (@brendan)
   instance_id Int?
   instance    Instance? @relation(fields: [instance_id], references: [id], onDelete: SetNull)
 
@@ -298,6 +273,7 @@ model Object {
 //     @@map("key")
 // }
 
+/// @shared(id: object)
 model MediaData {
   id Int @id @default(autoincrement())
 
@@ -337,8 +313,7 @@ model Tag {
   name   String?
   color  String?
 
-  // Enum: ??
-  redundancy_goal Int?
+  is_hidden Boolean? // user hidden entire tag
 
   date_created  DateTime?
   date_modified DateTime?
@@ -348,13 +323,13 @@ model Tag {
   @@map("tag")
 }
 
-/// @relation(item: tag, group: object)
+/// @relation(item: object, group: tag)
 model TagOnObject {
-  tag_id Int
-  tag    Tag @relation(fields: [tag_id], references: [id], onDelete: Restrict)
-
   object_id Int
   object    Object @relation(fields: [object_id], references: [id], onDelete: Restrict)
+
+  tag_id Int
+  tag    Tag @relation(fields: [tag_id], references: [id], onDelete: Restrict)
 
   date_created DateTime?
 
@@ -364,26 +339,27 @@ model TagOnObject {
 
 //// Label ////
 
+/// @shared(id: name)
 model Label {
-  id            Int      @id @default(autoincrement())
-  pub_id        Bytes    @unique
-  name          String?
-  date_created  DateTime @default(now())
-  date_modified DateTime @default(now())
+  id            Int       @id @default(autoincrement())
+  name          String    @unique
+  date_created  DateTime?
+  date_modified DateTime?
 
   label_objects LabelOnObject[]
 
   @@map("label")
 }
 
+/// @relation(item: object, group: label)
 model LabelOnObject {
   date_created DateTime @default(now())
 
-  label_id Int
-  label    Label @relation(fields: [label_id], references: [id], onDelete: Restrict)
-
   object_id Int
   object    Object @relation(fields: [object_id], references: [id], onDelete: Restrict)
+
+  label_id Int
+  label    Label @relation(fields: [label_id], references: [id], onDelete: Restrict)
 
   @@id([label_id, object_id])
   @@map("label_on_object")
@@ -536,6 +512,7 @@ model Notification {
   @@map("notification")
 }
 
+/// @shared(id: pub_id)
 model SavedSearch {
   id     Int   @id @default(autoincrement())
   pub_id Bytes @unique
@@ -554,7 +531,8 @@ model SavedSearch {
   @@map("saved_search")
 }
 
-model CloudSharedOperation {
+/// @local(id: id)
+model CloudCRDTOperation {
   id        Bytes  @id
   timestamp BigInt
   model     String
@@ -567,22 +545,5 @@ model CloudSharedOperation {
   instance_id Int
   instance    Instance @relation(fields: [instance_id], references: [id])
 
-  @@map("cloud_shared_operation")
-}
-
-model CloudRelationOperation {
-  id        Bytes  @id
-  timestamp BigInt
-  relation  String
-
-  item_id  Bytes
-  group_id Bytes
-
-  kind String
-  data Bytes
-
-  instance_id Int
-  instance    Instance @relation(fields: [instance_id], references: [id])
-
-  @@map("cloud_relation_operation")
+  @@map("cloud_crdt_operation")
 }

@@ -53,6 +53,10 @@ class DialogManager {
 		return this.state[id];
 	}
 
+	isAnyDialogOpen() {
+		return Object.values(this.state).some((s) => s.open);
+	}
+
 	remove(id: number) {
 		const state = this.getState(id);
 
@@ -142,7 +146,6 @@ export function Dialog<S extends FieldValues>({
 	...props
 }: DialogProps<S>) {
 	const stateSnap = useSnapshot(dialog.state);
-
 	const transitions = useTransition(stateSnap.open, {
 		from: {
 			opacity: 0,
@@ -182,9 +185,9 @@ export function Dialog<S extends FieldValues>({
 	);
 	const disableCheck = props.errorMessageException
 		? !form.formState.isValid &&
-		  !form.formState.errors.root?.serverError?.message?.startsWith(
+			!form.formState.errors.root?.serverError?.message?.startsWith(
 				props.errorMessageException as string
-		  )
+			)
 		: !form.formState.isValid;
 
 	const submitButton = (

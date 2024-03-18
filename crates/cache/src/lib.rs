@@ -1,11 +1,15 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::{
+	hash::{Hash, Hasher},
+	marker::PhantomData,
+	sync::Arc,
+};
 
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use specta::{Any, DataType, NamedType, Type, TypeMap};
 
 /// A type that can be used to return a group of `Reference<T>` and `CacheNode`'s
 ///
-/// You don't need to use this, it's just a shortcut to avoid having to write out the full type everytime.
+/// You don't need to use this, it's just a shortcut to avoid having to write out the full type every time.
 #[derive(Serialize, Type, Debug)]
 pub struct NormalisedResults<T: Model + Type> {
 	pub items: Vec<Reference<T>>,
@@ -14,7 +18,7 @@ pub struct NormalisedResults<T: Model + Type> {
 
 /// A type that can be used to return a group of `Reference<T>` and `CacheNode`'s
 ///
-/// You don't need to use this, it's just a shortcut to avoid having to write out the full type everytime.
+/// You don't need to use this, it's just a shortcut to avoid having to write out the full type every time.
 #[derive(Serialize, Type, Debug)]
 pub struct NormalisedResult<T: Model + Type> {
 	pub item: Reference<T>,
@@ -75,7 +79,7 @@ impl<T: Model> Serialize for Reference<T> {
 
 /// A node in the cache.
 /// This holds the data and is identified by it's type and id.
-#[derive(Debug, Clone)] // TODO: `Hash, PartialEq, Eq`
+#[derive(Debug, Clone)]
 pub struct CacheNode(
 	&'static str,
 	serde_json::Value,
@@ -89,6 +93,33 @@ impl CacheNode {
 			key.into(),
 			serde_json::to_value(value).map_err(Arc::new),
 		)
+	}
+}
+
+impl PartialEq for CacheNode {
+	fn eq(&self, other: &Self) -> bool {
+		self.0 == other.0
+			&& self.1 == other.1
+			&& match (&self.2, &other.2) {
+				(Ok(v0), Ok(v1)) => v0 == v1,
+				// Compares the values in the Arcs, not the Arc objects themselves.
+				(Err(e0), Err(e1)) => {
+					(*e0).classify() == (*e1).classify()
+						&& (*e0).column() == (*e1).column()
+						&& (*e0).line() == (*e1).line()
+				}
+				_ => false,
+			}
+	}
+}
+
+impl Eq for CacheNode {}
+
+impl Hash for CacheNode {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.0.hash(state);
+		self.1.as_str().hash(state);
+		self.1.as_str().hash(state);
 	}
 }
 
@@ -119,14 +150,14 @@ impl Serialize for CacheNode {
 			__type: self.0,
 			__id: &self.1,
 			v: self.2.as_ref().map_err(|err| {
-				serde::ser::Error::custom(format!("Failed to serialise node: {}", err))
+				serde::ser::Error::custom(format!("Failed to serialize node: {}", err))
 			})?,
 		}
 		.serialize(serializer)
 	}
 }
 
-/// A helper for easily normalising data.
+/// A helper for easily normalizing data.
 pub trait Normalise {
 	type Item: Model + Type;
 

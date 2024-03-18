@@ -9,15 +9,17 @@ export const Component = () => {
 
 	const authState = auth.useStateSnapshot();
 
-	if (authState.status === 'loggedIn') return <Authenticated />;
-	if (authState.status === 'notLoggedIn' || authState.status === 'loggingIn')
-		return (
-			<div className="flex flex-row p-4">
-				<LoginButton />
-			</div>
-		);
+	const authSensitiveChild = () => {
+		if (authState.status === 'loggedIn') return <Authenticated />;
+		if (authState.status === 'notLoggedIn' || authState.status === 'loggingIn')
+			return <LoginButton />;
 
-	return null;
+		return null;
+	};
+
+	return (
+		<div className="flex size-full flex-col items-start p-4">{authSensitiveChild()}</div>
+	);
 };
 
 function Authenticated() {
@@ -26,19 +28,30 @@ function Authenticated() {
 	const cloudLibrary = useLibraryQuery(['cloud.library.get'], { suspense: true, retry: false });
 
 	const createLibrary = useLibraryMutation(['cloud.library.create']);
+	const syncLibrary = useLibraryMutation(['cloud.library.sync']);
 
 	const thisInstance = cloudLibrary.data?.instances.find(
 		(instance) => instance.uuid === library.instance_id
 	);
 
 	return (
-		<div className="flex flex-row p-4">
+		<>
 			{cloudLibrary.data ? (
 				<div className="flex flex-col items-start space-y-2">
 					<div>
 						<p>Library</p>
 						<p>Name: {cloudLibrary.data.name}</p>
 					</div>
+
+					<Button
+						disabled={syncLibrary.isLoading}
+						onClick={() => {
+							syncLibrary.mutateAsync(null);
+						}}
+					>
+						Sync Library
+					</Button>
+
 					{thisInstance && (
 						<div>
 							<p>This Instance</p>
@@ -77,6 +90,6 @@ function Authenticated() {
 					</Button>
 				</div>
 			)}
-		</div>
+		</>
 	);
 }

@@ -1,20 +1,17 @@
-use crate::{
-	prisma::location,
-	util::{
-		db::MissingFieldError,
-		error::{FileIOError, NonUtf8PathError},
-	},
+use sd_file_path_helper::FilePathError;
+use sd_prisma::prisma::location;
+use sd_utils::{
+	db::MissingFieldError,
+	error::{FileIOError, NonUtf8PathError},
 };
 
 use std::path::Path;
 
-use rspc::{self, ErrorCode};
+use rspc::ErrorCode;
 use thiserror::Error;
 use uuid::Uuid;
 
-use super::{
-	file_path_helper::FilePathError, manager::LocationManagerError, metadata::LocationMetadataError,
-};
+use super::{manager::LocationManagerError, metadata::LocationMetadataError};
 
 /// Error type for location related errors
 #[derive(Error, Debug)]
@@ -98,7 +95,7 @@ impl From<LocationError> for rspc::Error {
 				Self::with_cause(ErrorCode::BadRequest, err.to_string(), err)
 			}
 
-			// Custom error message is used to differenciate these errors in the frontend
+			// Custom error message is used to differentiate these errors in the frontend
 			// TODO: A better solution would be for rspc to support sending custom data alongside errors
 			NeedRelink { .. } => {
 				Self::with_cause(ErrorCode::Conflict, "NEED_RELINK".to_owned(), err)

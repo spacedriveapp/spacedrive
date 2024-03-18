@@ -2,6 +2,9 @@ appId: com.spacedrive.app
 ---
 - launchApp:
     clearState: true
+# Wait onboarding screen
+- waitForAnimationToEnd:
+    timeout: 5000
 - tapOn: 'Get Started'
 - tapOn:
     id: 'library-name'
@@ -10,6 +13,3 @@ appId: com.spacedrive.app
 - tapOn:
     id: 'share-minimal'
 - tapOn: 'Continue'
-- tapOn:
-    id: 'browse-tab'
-- assertVisible: 'TestLib'

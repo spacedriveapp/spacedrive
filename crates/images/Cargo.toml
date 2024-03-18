@@ -13,18 +13,19 @@ edition = { workspace = true }
 heif = ["dep:libheif-rs", "dep:libheif-sys"]
 
 [dependencies]
-image = "0.24.7"
-thiserror = "1.0.50"
-resvg = "0.36.0"
-rspc = { workspace = true, optional = true } # error conversion
+image = { workspace = true }
+once_cell = { workspace = true }
+rspc = { workspace = true, optional = true }                         # error conversion
 specta = { workspace = true, optional = true }
 serde = { workspace = true, optional = true, features = ["derive"] }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
 bincode = { version = "2.0.0-rc.3", features = [
 	"derive",
 	"alloc",
 ], optional = true }
-once_cell = "1.18.0"
-tracing = { workspace = true }
+resvg = "0.40.0"
 
 # both of these added *default* bindgen features in 0.22.0 and 2.0.0 respectively
 # this broke builds as we build our own liibheif, so i disabled their default features

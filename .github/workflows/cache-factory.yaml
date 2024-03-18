@@ -9,11 +9,22 @@ on:
       - main
   schedule:
     - cron: '0 0 * * *'
+  pull_request:
+    paths:
+      - '.github/workflows/cache-factory.yaml'
+  workflow_dispatch:
 
 # Cancel previous runs of the same workflow on the same branch.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+# From: https://github.com/rust-lang/rust-analyzer/blob/master/.github/workflows/ci.yaml
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUST_BACKTRACE: short
+  RUSTUP_MAX_RETRIES: 10
 
 jobs:
   make_cache:
@@ -21,9 +32,9 @@ jobs:
       fail-fast: true
       matrix:
         settings:
-          - host: macos-latest
+          - host: macos-13
             target: x86_64-apple-darwin
-          - host: macos-latest
+          - host: macos-14
             target: aarch64-apple-darwin
           - host: windows-latest
             target: x86_64-pc-windows-msvc
@@ -46,7 +57,7 @@ jobs:
         if: ${{ runner.os == 'Linux' }}
         uses: easimon/maximize-build-space@master
         with:
-          swap-size-mb: 3072
+          swap-size-mb: 4096
           root-reserve-mb: 6144
           remove-dotnet: 'true'
           remove-codeql: 'true'
@@ -54,7 +65,7 @@ jobs:
           remove-docker-images: 'true'
 
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
@@ -70,11 +81,18 @@ jobs:
           target: ${{ matrix.settings.target }}
           save-cache: 'true'
 
-      - name: Clippy
-        run: cargo clippy --workspace --all-features --target ${{ matrix.settings.target }}
+      - name: Compile tests (debug)
+        run: cargo test --workspace --all-features --no-run --locked --target ${{ matrix.settings.target }}
 
+      - name: Compile tests (release)
+        run: cargo test --workspace --all-features --no-run --locked --release --target ${{ matrix.settings.target }}
+
+      # It's faster to `test` before `build` ¯\_(ツ)_/¯
       - name: Compile (debug)
-        run: cargo test --workspace --all-features --no-run --target ${{ matrix.settings.target }}
+        run: cargo build --quiet --workspace --all-features --target ${{ matrix.settings.target }}
 
       - name: Compile (release)
-        run: cargo test --workspace --all-features --no-run --release --target ${{ matrix.settings.target }}
+        run: cargo build --quiet --workspace --all-features --release --target ${{ matrix.settings.target }}
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-features --target ${{ matrix.settings.target }}

@@ -24,6 +24,7 @@ import {
 	tw,
 	usePopover
 } from '@sd/ui';
+import { useLocale } from '~/hooks';
 
 import TopBarButton from '../TopBar/TopBarButton';
 
@@ -31,6 +32,8 @@ const OptionButton = tw(TopBarButton)`w-full gap-1 !px-1.5 !py-1`;
 
 export default function LocationOptions({ location, path }: { location: Location; path: string }) {
 	const navigate = useNavigate();
+
+	const { t } = useLocale();
 
 	const [copied, setCopied] = useState(false);
 
@@ -52,7 +55,7 @@ export default function LocationOptions({ location, path }: { location: Location
 					popover={usePopover()}
 					trigger={
 						<Button className="!p-[5px]" variant="subtle">
-							<Ellipsis className="h-3 w-3" />
+							<Ellipsis className="size-3" />
 						</Button>
 					}
 				>
@@ -64,7 +67,7 @@ export default function LocationOptions({ location, path }: { location: Location
 								value={currentPath ?? ''}
 								right={
 									<Tooltip
-										label={copied ? 'Copied' : 'Copy path to clipboard'}
+										label={copied ? t('copied') : t('copy_path_to_clipboard')}
 										className="flex"
 									>
 										<Button
@@ -76,8 +79,11 @@ export default function LocationOptions({ location, path }: { location: Location
 												navigator.clipboard.writeText(currentPath);
 
 												toast.info({
-													title: 'Path copied to clipboard',
-													body: `Path for location "${location.name}" copied to clipboard.`
+													title: t('path_copied_to_clipboard_title'),
+													body: t(
+														'path_copied_to_clipboard_description',
+														{ location: location.name }
+													)
 												});
 
 												setCopied(true);
@@ -99,7 +105,7 @@ export default function LocationOptions({ location, path }: { location: Location
 								}
 							>
 								<Gear />
-								Configure Location
+								{t('configure_location')}
 							</OptionButton>
 						</PopoverSection>
 						<PopoverDivider />
@@ -113,20 +119,20 @@ export default function LocationOptions({ location, path }: { location: Location
 								}
 							>
 								<FolderDotted />
-								Re-index
+								{t('reindex')}
 							</OptionButton>
 							<OptionButton
 								onClick={() => regenThumbs.mutate({ id: location.id, path })}
 							>
 								<Image />
-								Regenerate Thumbs
+								{t('regenerate_thumbs')}
 							</OptionButton>
 						</PopoverSection>
 						<PopoverDivider />
 						<PopoverSection>
 							<OptionButton onClick={archiveLocation}>
 								<Archive />
-								Archive
+								{t('archive')}
 							</OptionButton>
 						</PopoverSection>
 					</PopoverContainer>

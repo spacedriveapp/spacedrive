@@ -1,22 +1,24 @@
 import { useRef } from 'react';
-import { useLibraryMutation, usePlausibleEvent } from '@sd/client';
+import { useLibraryMutation, usePlausibleEvent, useRspcLibraryContext } from '@sd/client';
 import { ConfirmModal, ModalRef } from '~/components/layout/Modal';
 
 type Props = {
 	tagId: number;
 	onSubmit?: () => void;
 	trigger: React.ReactNode;
+	triggerStyle?: string;
 };
 
-const DeleteTagModal = ({ trigger, onSubmit, tagId }: Props) => {
+const DeleteTagModal = ({ trigger, onSubmit, tagId, triggerStyle }: Props) => {
 	const modalRef = useRef<ModalRef>(null);
-
+	const rspc = useRspcLibraryContext();
 	const submitPlausibleEvent = usePlausibleEvent();
 
 	const { mutate: deleteTag, isLoading: deleteTagLoading } = useLibraryMutation('tags.delete', {
 		onSuccess: () => {
 			submitPlausibleEvent({ event: { type: 'tagDelete' } });
 			onSubmit?.();
+			rspc.queryClient.invalidateQueries(['tags.list']);
 		},
 		onSettled: () => {
 			modalRef.current?.close();
@@ -32,6 +34,7 @@ const DeleteTagModal = ({ trigger, onSubmit, tagId }: Props) => {
 			ctaAction={() => deleteTag(tagId)}
 			loading={deleteTagLoading}
 			trigger={trigger}
+			triggerStyle={triggerStyle}
 			ctaDanger
 		/>
 	);

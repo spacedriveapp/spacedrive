@@ -1,17 +1,16 @@
 use crate::util::InfallibleResponse;
 
-use std::{
-	fs::Metadata,
-	io::{self, SeekFrom},
-	time::UNIX_EPOCH,
-};
+use std::{fs::Metadata, time::UNIX_EPOCH};
 
 use axum::{
 	body::{self, BoxBody, Full, StreamBody},
 	http::{header, request, HeaderValue, Method, Response, StatusCode},
 };
 use http_range::HttpRange;
-use tokio::{fs::File, io::AsyncSeekExt};
+use tokio::{
+	fs::File,
+	io::{self, AsyncSeekExt, SeekFrom},
+};
 use tokio_util::io::ReaderStream;
 use tracing::error;
 
@@ -55,11 +54,12 @@ pub(crate) async fn serve_file(
 		// ETag
 		let mut status_code = StatusCode::PARTIAL_CONTENT;
 		if let Ok(time) = metadata.modified() {
-			let etag_header = format!(
+			let etag_header =
+				format!(
 				r#""{}""#,
 				// The ETag's can be any value so we just use the modified time to make it easy.
 				time.duration_since(UNIX_EPOCH)
-					.expect("are you a time traveller? cause that's the only explanation for this error")
+					.expect("are you a time traveler? cause that's the only explanation for this error")
 					.as_millis()
 			);
 

@@ -3,6 +3,7 @@ import { AppLogo } from '@sd/assets/images';
 import { Discord, Github } from '@sd/assets/svgs/brands';
 import { useBridgeQuery, useDebugStateEnabler } from '@sd/client';
 import { Button, Divider } from '@sd/ui';
+import { useLocale } from '~/hooks';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
 
@@ -14,12 +15,14 @@ export const Component = () => {
 		os === 'browser' ? 'Web' : os == 'macOS' ? os : os.charAt(0).toUpperCase() + os.slice(1);
 	const onClick = useDebugStateEnabler();
 
+	const { t } = useLocale();
+
 	return (
 		<div className="h-auto">
 			<div className="flex flex-row items-center">
 				<img
 					src={AppLogo}
-					className="mr-8 h-[88px] w-[88px]"
+					className="mr-8 size-[88px]"
 					draggable="false"
 					onClick={onClick}
 				/>
@@ -43,8 +46,8 @@ export const Component = () => {
 					className="flex w-fit gap-2"
 					variant="gray"
 				>
-					<Discord className="h-4 w-4 fill-ink" />
-					Join Discord
+					<Discord className="size-4 fill-ink" />
+					{t('join_discord')}
 				</Button>
 				<Button
 					href="https://github.com/spacedriveapp/spacedrive"
@@ -52,8 +55,8 @@ export const Component = () => {
 					className="flex w-fit gap-2"
 					variant="accent"
 				>
-					<Github className="h-4 w-4 fill-white" />
-					Star on GitHub
+					<Github className="size-4 fill-white" />
+					{t('star_on_github')}
 				</Button>
 				<Button
 					onClick={() => {
@@ -62,28 +65,19 @@ export const Component = () => {
 					className="flex w-fit gap-1"
 					variant="accent"
 				>
-					<Globe className="h-4 w-4" />
-					Website
+					<Globe className="size-4" />
+					{t('website')}
 				</Button>
 			</div>
 			<Divider />
 			<div className="my-5">
-				<h1 className="mb-3 text-lg font-bold text-ink">Vision</h1>
-				<p className="w-full text-sm text-ink-faint">
-					Many of us have multiple cloud accounts, drives that aren’t backed up and data
-					at risk of loss. We depend on cloud services like Google Photos and iCloud, but
-					are locked in with limited capacity and almost zero interoperability between
-					services and operating systems. Photo albums shouldn’t be stuck in a device
-					ecosystem, or harvested for advertising data. They should be OS agnostic,
-					permanent and personally owned. Data we create is our legacy, that will long
-					outlive us—open source technology is the only way to ensure we retain absolute
-					control over the data that defines our lives, at unlimited scale.
-				</p>
+				<h1 className="mb-3 text-lg font-bold text-ink">{t('about_vision_title')}</h1>
+				<p className="w-full text-sm text-ink-faint">{t('about_vision_text')}</p>
 			</div>
 			<Divider />
 			<div>
 				<h1 className="my-5 text-lg font-bold text-ink">
-					Meet the contributors behind Spacedrive
+					{t('meet_contributors_behind_spacedrive')}
 				</h1>
 				<img
 					src="https://contrib.rocks/image?repo=spacedriveapp/spacedrive&columns=12&anon=1"

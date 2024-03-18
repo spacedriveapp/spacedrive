@@ -2,18 +2,18 @@ use crate::{
 	api::utils::library,
 	invalidate_query,
 	library::Library,
-	location::file_path_helper::IsolatedFilePathData,
 	object::{
 		fs::{error::FileSystemJobsError, find_available_filename_for_duplicate},
 		media::media_data_extractor::{
 			can_extract_media_data_for_image, extract_media_data, MediaDataError,
 		},
 	},
-	util::error::FileIOError,
 };
 
 use sd_file_ext::extensions::ImageExtension;
+use sd_file_path_helper::IsolatedFilePathData;
 use sd_media_metadata::MediaMetadata;
+use sd_utils::error::FileIOError;
 
 use std::{ffi::OsStr, path::PathBuf, str::FromStr};
 

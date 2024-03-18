@@ -1,25 +1,56 @@
-import { useMemo } from 'react';
-import { Navigate, Outlet, redirect, useMatches, type RouteObject } from 'react-router-dom';
+import { initRspc, wsBatchLink, type AlphaClient } from '@oscartbeaumont-sd/rspc-client/v2';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
 import {
+	Link,
+	Navigate,
+	Outlet,
+	redirect,
+	useMatches,
+	useNavigate,
+	type RouteObject
+} from 'react-router-dom';
+import {
+	CacheProvider,
+	ClientContextProvider,
+	context,
+	context2,
+	createCache,
 	currentLibraryCache,
 	getCachedLibraries,
+	LibraryContextProvider,
+	nonLibraryClient,
 	NormalisedCache,
-	useCachedLibraries
+	Procedures,
+	useBridgeQuery,
+	useCache,
+	useCachedLibraries,
+	useFeatureFlag,
+	useNodes,
+	WithSolid,
+	type LibraryProceduresDef,
+	type NonLibraryProceduresDef
 } from '@sd/client';
-import { Dialogs, Toaster } from '@sd/ui';
+import { Button, Dialogs, Toaster, z } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
 import { useRoutingContext } from '~/RoutingContext';
 
-import { Platform } from '..';
+import { Platform, PlatformProvider, usePlatform } from '..';
 import libraryRoutes from './$libraryId';
+import { DragAndDropDebug } from './$libraryId/debug/dnd';
+import { Demo, Demo2 } from './demo.solid';
 import onboardingRoutes from './onboarding';
 import { RootContext } from './RootContext';
 
 import './style.scss';
 
+import { useZodRouteParams } from '~/hooks';
+
 // NOTE: all route `Layout`s below should contain
 // the `usePlausiblePageViewMonitor` hook, as early as possible (ideally within the layout itself).
 // the hook should only be included if there's a valid `ClientContext` (so not onboarding)
+
+const LibraryIdParamsSchema = z.object({ libraryId: z.string() });
 
 export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 	[
@@ -29,9 +60,14 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 
 				return (
 					<RootContext.Provider value={{ rawPath }}>
+						{useFeatureFlag('debugDragAndDrop') ? <DragAndDropDebug /> : null}
+						{useFeatureFlag('solidJsDemo') ? (
+							<WithSolid root={Demo} demo="123" />
+						) : null}
+						{useFeatureFlag('solidJsDemo') ? <WithSolid root={Demo2} /> : null}
 						<Outlet />
 						<Dialogs />
-						<Toaster position="bottom-right" expand={true} />
+						<Toaster position="bottom-right" expand={true} offset={18} />
 					</RootContext.Provider>
 				);
 			},
@@ -58,7 +94,7 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 						return <Navigate to={`${libraryId}`} replace />;
 					},
 					loader: async () => {
-						const libraries = await getCachedLibraries(cache);
+						const libraries = await getCachedLibraries(cache, nonLibraryClient);
 
 						const currentLibrary = libraries.find(
 							(l) => l.uuid === currentLibraryCache.id
@@ -78,10 +114,60 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 					children: onboardingRoutes
 				},
 				{
+					path: 'remote/:node',
+					Component: (props) => <RemoteLayout {...props} />,
+					children: [
+						{
+							path: 'browse',
+							Component: BrowsePage
+						},
+						{
+							path: ':libraryId',
+							Component: () => {
+								const params = useZodRouteParams(LibraryIdParamsSchema);
+								const result = useBridgeQuery(['library.list']);
+								useNodes(result.data?.nodes);
+								const libraries = useCache(result.data?.items);
+
+								const library = libraries?.find((l) => l.uuid === params.libraryId);
+
+								useEffect(() => {
+									if (!result.data) return;
+
+									if (!library) {
+										alert('Library not found');
+										// TODO: Redirect
+									}
+								});
+
+								if (!library) return <></>; // TODO: Using suspense for loading
+
+								return (
+									<ClientContextProvider currentLibraryId={params.libraryId}>
+										<LibraryContextProvider library={library}>
+											<div className="w-full bg-orange-500 text-center text-white">
+												YOUR ON A REMOTE NODE <Link to="/">Go Back</Link>
+											</div>
+											<Outlet />
+										</LibraryContextProvider>
+									</ClientContextProvider>
+								);
+							},
+							children: [
+								{
+									path: '*',
+									lazy: () => import('./$libraryId/Layout'),
+									children: libraryRoutes(platform)
+								}
+							]
+						}
+					]
+				},
+				{
 					path: ':libraryId',
 					lazy: () => import('./$libraryId/Layout'),
 					loader: async ({ params: { libraryId } }) => {
-						const libraries = await getCachedLibraries(cache);
+						const libraries = await getCachedLibraries(cache, nonLibraryClient);
 						const library = libraries.find((l) => l.uuid === libraryId);
 
 						if (!library) {
@@ -99,6 +185,132 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 			]
 		}
 	] satisfies RouteObject[];
+
+const ParamsSchema = z.object({ node: z.string() });
+
+function RemoteLayout() {
+	const platform = usePlatform();
+	const params = useZodRouteParams(ParamsSchema);
+
+	// TODO: The caches should instead be prefixed by the remote node ID, instead of completely being recreated but that's too hard to do right now.
+	const [rspcClient, setRspcClient] =
+		useState<
+			[
+				AlphaClient<NonLibraryProceduresDef>,
+				AlphaClient<LibraryProceduresDef>,
+				QueryClient,
+				NormalisedCache
+			]
+		>();
+	useEffect(() => {
+		const endpoint = platform.getRemoteRspcEndpoint(params.node);
+
+		const links = [
+			wsBatchLink({
+				url: endpoint.url
+			})
+		];
+
+		const client = initRspc<Procedures>({
+			links
+		}).dangerouslyHookIntoInternals<NonLibraryProceduresDef>();
+		const libraryClient = initRspc<Procedures>({
+			links
+		}).dangerouslyHookIntoInternals<LibraryProceduresDef>({
+			mapQueryKey: (keyAndInput) => {
+				const libraryId = currentLibraryCache.id;
+				if (libraryId === null)
+					throw new Error('Attempted to do library operation with no library set!');
+				return [keyAndInput[0], { library_id: libraryId, arg: keyAndInput[1] ?? null }];
+			}
+		});
+		const cache = createCache();
+		setRspcClient([client, libraryClient, new QueryClient(), cache]);
+
+		return () => {
+			// TODO: We *really* need to cleanup `client` so we aren't leaking all the resources.
+		};
+	}, [params.node, platform]);
+
+	// TODO: Detect if the remote node if offline and render something to show that
+
+	const newPlatform = useMemo(
+		() =>
+			({
+				...platform,
+				getThumbnailUrlByThumbKey: (thumbKey) =>
+					platform.constructRemoteRspcPath(
+						params.node,
+						`thumbnail/${thumbKey.map((i) => encodeURIComponent(i)).join('/')}.webp`
+					),
+				getFileUrl: (libraryId, locationLocalId, filePathId) =>
+					platform.constructRemoteRspcPath(
+						params.node,
+						`file/${encodeURIComponent(libraryId)}/${encodeURIComponent(
+							locationLocalId
+						)}/${encodeURIComponent(filePathId)}`
+					),
+				getFileUrlByPath: (path) =>
+					platform.constructRemoteRspcPath(
+						params.node,
+						`local-file-by-path/${encodeURIComponent(path)}`
+					)
+			}) satisfies Platform,
+		[platform, params.node]
+	);
+
+	return (
+		<PlatformProvider platform={newPlatform}>
+			{/* TODO: Maybe library context too? */}
+			{rspcClient && (
+				<QueryClientProvider client={rspcClient[2]}>
+					<CacheProvider cache={rspcClient[3]}>
+						<context.Provider
+							value={{
+								// @ts-expect-error
+								client: rspcClient[0],
+								queryClient: rspcClient[2]
+							}}
+						>
+							<context2.Provider
+								value={{
+									// @ts-expect-error
+									client: rspcClient[1],
+									queryClient: rspcClient[2]
+								}}
+							>
+								<Outlet />
+							</context2.Provider>
+						</context.Provider>
+					</CacheProvider>
+				</QueryClientProvider>
+			)}
+		</PlatformProvider>
+	);
+}
+
+function BrowsePage() {
+	const navigate = useNavigate();
+	const result = useBridgeQuery(['library.list']);
+	useNodes(result.data?.nodes);
+	const libraries = useCache(result.data?.items);
+
+	return (
+		<div className="flex flex-col">
+			<h1>Browse Libraries On Remote Node:</h1>
+			{libraries?.map((l) => (
+				<Button
+					key={l.uuid}
+					variant="accent"
+					// TODO: Take into account Windows vs Mac vs Linux with the default `path`
+					onClick={() => navigate(`../${l.uuid}/ephemeral/0-0?path=/System/Volumes/Data`)}
+				>
+					{l.config.name}
+				</Button>
+			))}
+		</div>
+	);
+}
 
 /**
  * Combines the `path` segments of the current route into a single string.

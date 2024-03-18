@@ -1,17 +1,17 @@
 use std::{ops::Deref, sync::Arc};
 
 use sd_prisma::{
-	prisma::{instance, relation_operation, shared_operation, PrismaClient, SortOrder},
+	prisma::{crdt_operation, SortOrder},
 	prisma_sync::ModelSyncData,
 };
-use sd_sync::{CRDTOperation, CRDTOperationType, RelationOperation, SharedOperation};
-use serde_json::to_vec;
-use tokio::sync::{mpsc, Mutex};
+use sd_sync::CRDTOperation;
+use tokio::sync::{mpsc, oneshot, Mutex};
 use uhlc::{Timestamp, NTP64};
 use uuid::Uuid;
 
 use crate::{
 	actor::{create_actor_io, ActorIO, ActorTypes},
+	db_operation::write_crdt_op_to_db,
 	wait, SharedState,
 };
 
@@ -19,7 +19,10 @@ use crate::{
 #[must_use]
 /// Stuff that can be handled outside the actor
 pub enum Request {
-	Messages { timestamps: Vec<(Uuid, NTP64)> },
+	Messages {
+		timestamps: Vec<(Uuid, NTP64)>,
+		tx: oneshot::Sender<()>,
+	},
 	Ingested,
 	FinishedIngesting,
 }
@@ -39,6 +42,14 @@ pub enum State {
 	Ingesting(MessagesEvent),
 }
 
+/// The single entrypoint for sync operation ingestion.
+/// Requests sync operations in a given timestamp range,
+/// and attempts to write them to the syn coperations table along with
+/// the actual cell that the operation points to.
+///
+/// If this actor stops running, no sync operations will
+/// be applied to the database, independent of whether systems like p2p
+/// or cloud are exchanging messages.
 pub struct Actor {
 	state: Option<State>,
 	shared: Arc<SharedState>,
@@ -54,6 +65,8 @@ impl Actor {
 				State::RetrievingMessages
 			}
 			State::RetrievingMessages => {
+				let (tx, mut rx) = oneshot::channel::<()>();
+
 				self.io
 					.send(Request::Messages {
 						timestamps: self
@@ -63,11 +76,21 @@ impl Actor {
 							.iter()
 							.map(|(&k, &v)| (k, v))
 							.collect(),
+						tx,
 					})
 					.await
 					.ok();
 
-				State::Ingesting(wait!(self.io.event_rx, Event::Messages(event) => event))
+				loop {
+					tokio::select! {
+						res = &mut rx => {
+							if let Err(_) = res { break State::WaitingForNotification }
+						},
+						res = self.io.event_rx.recv() => {
+							if let Some(Event::Messages(event)) = res { break State::Ingesting(event) }
+						}
+					}
+				}
 			}
 			State::Ingesting(event) => {
 				for op in event.messages {
@@ -116,107 +139,74 @@ impl Actor {
 		}
 	}
 
+	// where the magic happens
 	async fn receive_crdt_operation(&mut self, op: CRDTOperation) {
+		// first, we update the HLC's timestamp with the incoming one.
+		// this involves a drift check + sets the last time of the clock
 		self.clock
 			.update_with_timestamp(&Timestamp::new(op.timestamp, op.instance.into()))
-			.ok();
+			.expect("timestamp has too much drift!");
 
-		let mut timestamp = {
-			let mut clocks = self.timestamps.write().await;
-			*clocks.entry(op.instance).or_insert_with(|| op.timestamp)
-		};
+		// read the timestamp for the operation's instance, or insert one if it doesn't exist
+		let timestamp = self.timestamps.write().await.get(&op.instance).cloned();
 
-		if timestamp < op.timestamp {
-			timestamp = op.timestamp;
-		}
-
+		// copy some fields bc rust ownership
 		let op_instance = op.instance;
+		let op_timestamp = op.timestamp;
 
-		let is_old = self.compare_message(&op).await;
-
-		if !is_old {
+		if !self.is_operation_old(&op).await {
+			// actually go and apply the operation in the db
 			self.apply_op(op).await.ok();
-		}
 
-		// self.db
-		// 	._transaction()
-		// 	.run({
-		// 		let timestamps = self.timestamps.clone();
-		// 		|db| async move {
-		// 			match db
-		// 				.instance()
-		// 				.update(
-		// 					instance::pub_id::equals(uuid_to_bytes(op_instance)),
-		// 					vec![instance::timestamp::set(Some(timestamp.as_u64() as i64))],
-		// 				)
-		// 				.exec()
-		// 				.await
-		// 			{
-		// 				Ok(_) => {
-		self.timestamps.write().await.insert(op_instance, timestamp);
-		// 				Ok(())
-		// 			}
-		// 			Err(e) => Err(e),
-		// 		}
-		// 	}
-		// })
-		// .await
-		// .unwrap();
+			// update the stored timestamp for this instance - will be derived from the crdt operations table on restart
+			self.timestamps.write().await.insert(
+				op_instance,
+				NTP64::max(timestamp.unwrap_or_default(), op_timestamp),
+			);
+		}
 	}
 
 	async fn apply_op(&mut self, op: CRDTOperation) -> prisma_client_rust::Result<()> {
-		ModelSyncData::from_op(op.typ.clone())
-			.unwrap()
-			.exec(&self.db)
-			.await?;
+		self.db
+			._transaction()
+			.run(|db| async move {
+				// apply the operation to the actual record
+				ModelSyncData::from_op(op.clone())
+					.unwrap()
+					.exec(&db)
+					.await?;
 
-		write_crdt_op_to_db(&op, &self.db).await?;
+				// write the operation to the operations table
+				write_crdt_op_to_db(&op, &db).await?;
+
+				Ok(())
+			})
+			.await?;
 
 		self.io.req_tx.send(Request::Ingested).await.ok();
 
 		Ok(())
 	}
 
-	async fn compare_message(&mut self, op: &CRDTOperation) -> bool {
-		let old_timestamp = match &op.typ {
-			CRDTOperationType::Shared(shared_op) => {
-				let newer_op = self
-					.db
-					.shared_operation()
-					.find_first(vec![
-						shared_operation::timestamp::gte(op.timestamp.as_u64() as i64),
-						shared_operation::model::equals(shared_op.model.to_string()),
-						shared_operation::record_id::equals(
-							serde_json::to_vec(&shared_op.record_id).unwrap(),
-						),
-						shared_operation::kind::equals(shared_op.kind().to_string()),
-					])
-					.order_by(shared_operation::timestamp::order(SortOrder::Desc))
-					.exec()
-					.await
-					.unwrap();
+	// determines if an operation is old and shouldn't be applied
+	async fn is_operation_old(&mut self, op: &CRDTOperation) -> bool {
+		let db = &self.db;
 
-				newer_op.map(|newer_op| newer_op.timestamp)
-			}
-			CRDTOperationType::Relation(relation_op) => {
-				let newer_op = self
-					.db
-					.relation_operation()
-					.find_first(vec![
-						relation_operation::timestamp::gte(op.timestamp.as_u64() as i64),
-						relation_operation::relation::equals(relation_op.relation.to_string()),
-						relation_operation::item_id::equals(
-							serde_json::to_vec(&relation_op.relation_item).unwrap(),
-						),
-						relation_operation::kind::equals(relation_op.kind().to_string()),
-					])
-					.order_by(relation_operation::timestamp::order(SortOrder::Desc))
-					.exec()
-					.await
-					.unwrap();
+		let old_timestamp = {
+			let newer_op = db
+				.crdt_operation()
+				.find_first(vec![
+					crdt_operation::timestamp::gte(op.timestamp.as_u64() as i64),
+					crdt_operation::model::equals(op.model.to_string()),
+					crdt_operation::record_id::equals(serde_json::to_vec(&op.record_id).unwrap()),
+					crdt_operation::kind::equals(op.kind().to_string()),
+				])
+				.order_by(crdt_operation::timestamp::order(SortOrder::Desc))
+				.exec()
+				.await
+				.unwrap();
 
-				newer_op.map(|newer_op| newer_op.timestamp)
-			}
+			newer_op.map(|newer_op| newer_op.timestamp)
 		};
 
 		old_timestamp
@@ -251,92 +241,68 @@ impl ActorTypes for Actor {
 	type Handler = Handler;
 }
 
-async fn write_crdt_op_to_db(
-	op: &CRDTOperation,
-	db: &PrismaClient,
-) -> Result<(), prisma_client_rust::QueryError> {
-	match &op.typ {
-		CRDTOperationType::Shared(shared_op) => {
-			shared_op_db(op, shared_op).to_query(db).exec().await?;
+#[cfg(test)]
+mod test {
+	use std::sync::atomic::AtomicBool;
+
+	use uhlc::HLCBuilder;
+
+	use super::*;
+
+	async fn new_actor() -> (Handler, Arc<SharedState>) {
+		let instance = uuid::Uuid::new_v4();
+		let shared = Arc::new(SharedState {
+			db: sd_prisma::test_db().await,
+			instance,
+			clock: HLCBuilder::new().with_id(instance.into()).build(),
+			timestamps: Default::default(),
+			emit_messages_flag: Arc::new(AtomicBool::new(true)),
+		});
+
+		(Actor::spawn(shared.clone()), shared)
+	}
+
+	/// If messages tx is dropped, actor should reset and assume no further messages
+	/// will be sent
+	#[tokio::test]
+	async fn messages_request_drop() -> Result<(), ()> {
+		let (ingest, _) = new_actor().await;
+
+		for _ in [(), ()] {
+			let mut rx = ingest.req_rx.lock().await;
+
+			println!("lock acquired");
+
+			ingest.event_tx.send(Event::Notification).await.unwrap();
+
+			println!("notificaton sent");
+
+			let Some(Request::Messages { .. }) = rx.recv().await else {
+				panic!("bruh")
+			};
+
+			println!("message received")
 		}
-		CRDTOperationType::Relation(relation_op) => {
-			relation_op_db(op, relation_op).to_query(db).exec().await?;
-		}
+
+		Ok(())
 	}
 
-	Ok(())
+	// /// If messages tx is dropped, actor should reset and assume no further messages
+	// /// will be sent
+	// #[tokio::test]
+	// async fn retrieve_wait() -> Result<(), ()> {
+	// 	let (ingest, _) = new_actor().await;
+
+	// 	for _ in [(), ()] {
+	// 		let mut rx = ingest.req_rx.lock().await;
+
+	// 		ingest.event_tx.send(Event::Notification).await.unwrap();
+
+	// 		let Some(Request::Messages { .. }) = rx.recv().await else {
+	// 			panic!("bruh")
+	// 		};
+	// 	}
+
+	// 	Ok(())
+	// }
 }
-
-fn shared_op_db(op: &CRDTOperation, shared_op: &SharedOperation) -> shared_operation::Create {
-	shared_operation::Create {
-		id: op.id.as_bytes().to_vec(),
-		timestamp: op.timestamp.0 as i64,
-		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
-		kind: shared_op.kind().to_string(),
-		data: to_vec(&shared_op.data).unwrap(),
-		model: shared_op.model.to_string(),
-		record_id: to_vec(&shared_op.record_id).unwrap(),
-		_params: vec![],
-	}
-}
-
-fn relation_op_db(
-	op: &CRDTOperation,
-	relation_op: &RelationOperation,
-) -> relation_operation::Create {
-	relation_operation::Create {
-		id: op.id.as_bytes().to_vec(),
-		timestamp: op.timestamp.0 as i64,
-		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
-		kind: relation_op.kind().to_string(),
-		data: to_vec(&relation_op.data).unwrap(),
-		relation: relation_op.relation.to_string(),
-		item_id: to_vec(&relation_op.relation_item).unwrap(),
-		group_id: to_vec(&relation_op.relation_group).unwrap(),
-		_params: vec![],
-	}
-}
-
-// #[must_use]
-// pub struct ReqRes<TReq, TResp> {
-// 	request: TReq,
-// 	response_sender: oneshot::Sender<TResp>,
-// }
-
-// impl<TReq, TResp> ReqRes<TReq, TResp> {
-// 	pub async fn send<TContainer>(
-// 		request: TReq,
-// 		container_fn: impl Fn(Self) -> TContainer,
-// 		sender: &mpsc::Sender<TContainer>,
-// 	) -> TResp {
-// 		let (tx, rx) = oneshot::channel();
-
-// 		let payload = container_fn(Self {
-// 			request,
-// 			response_sender: tx,
-// 		});
-
-// 		sender.send(payload).await.ok();
-
-// 		rx.await.unwrap()
-// 	}
-
-// 	#[must_use]
-// 	pub fn split(self) -> (TReq, impl FnOnce(TResp)) {
-// 		(self.request, |response| {
-// 			self.response_sender.send(response).ok();
-// 		})
-// 	}
-
-// 	pub async fn map<
-// 		TFn: FnOnce(TReq) -> TFut,
-// 		TFut: Future<Output = Result<TResp, TErr>>,
-// 		TErr,
-// 	>(
-// 		self,
-// 		func: TFn,
-// 	) -> Result<(), TErr> {
-// 		self.response_sender.send(func(self.request).await?).ok();
-// 		Ok(())
-// 	}
-// }

@@ -2,42 +2,45 @@ use crate::{
 	invalidate_query,
 	library::Library,
 	location::{
-		delete_directory,
-		file_path_helper::{
-			check_file_path_exists, create_file_path, file_path_with_object,
-			filter_existing_file_path_params,
-			isolated_file_path_data::extract_normalized_materialized_path_str,
-			loose_find_existing_file_path_params, path_is_hidden, FilePathError, FilePathMetadata,
-			IsolatedFilePathData, MetadataExt,
-		},
-		find_location,
-		indexer::reverse_update_directories_sizes,
-		location_with_indexer_rules,
-		manager::LocationManagerError,
-		scan_location_sub_path, update_location_size,
+		create_file_path, delete_directory, find_location,
+		indexer::reverse_update_directories_sizes, location_with_indexer_rules,
+		manager::LocationManagerError, scan_location_sub_path, update_location_size,
 	},
 	object::{
-		file_identifier::FileMetadata,
 		media::{
 			media_data_extractor::{can_extract_media_data_for_image, extract_media_data},
 			media_data_image_to_query_params,
-			thumbnail::get_indexed_thumbnail_path,
+			old_thumbnail::get_indexed_thumbnail_path,
 		},
+		old_file_identifier::FileMetadata,
 		validation::hash::file_checksum,
-	},
-	prisma::{file_path, location, object},
-	util::{
-		db::{inode_from_db, inode_to_db, maybe_missing},
-		error::FileIOError,
 	},
 	Node,
 };
 
+use sd_file_ext::{extensions::ImageExtension, kind::ObjectKind};
+use sd_file_path_helper::{
+	check_file_path_exists, file_path_with_object, filter_existing_file_path_params,
+	isolated_file_path_data::extract_normalized_materialized_path_str,
+	loose_find_existing_file_path_params, path_is_hidden, FilePathError, FilePathMetadata,
+	IsolatedFilePathData, MetadataExt,
+};
+use sd_prisma::{
+	prisma::{file_path, location, media_data, object},
+	prisma_sync,
+};
+use sd_sync::OperationFactory;
+use sd_utils::{
+	db::{inode_from_db, inode_to_db, maybe_missing},
+	error::FileIOError,
+	msgpack, uuid_to_bytes,
+};
+
 #[cfg(target_family = "unix")]
-use crate::location::file_path_helper::get_inode;
+use sd_file_path_helper::get_inode;
 
 #[cfg(target_family = "windows")]
-use crate::location::file_path_helper::get_inode_from_path;
+use sd_file_path_helper::get_inode_from_path;
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -48,15 +51,8 @@ use std::{
 	sync::Arc,
 };
 
-use sd_file_ext::{extensions::ImageExtension, kind::ObjectKind};
-
 use chrono::{DateTime, FixedOffset, Local, Utc};
 use notify::Event;
-use prisma_client_rust::{raw, PrismaValue};
-use sd_prisma::{prisma::media_data, prisma_sync};
-use sd_sync::OperationFactory;
-use sd_utils::uuid_to_bytes;
-use serde_json::json;
 use tokio::{
 	fs,
 	io::{self, ErrorKind},
@@ -122,7 +118,7 @@ pub(super) async fn create_dir(
 
 	create_file_path(
 		library,
-		iso_file_path,
+		iso_file_path.to_parts(),
 		None,
 		FilePathMetadata::from_path(&path, metadata).await?,
 	)
@@ -178,7 +174,8 @@ async fn inner_create_file(
 	);
 
 	let iso_file_path = IsolatedFilePathData::new(location_id, location_path, path, false)?;
-	let extension = iso_file_path.extension.to_string();
+	let iso_file_path_parts = iso_file_path.to_parts();
+	let extension = iso_file_path_parts.extension.to_string();
 
 	let metadata = FilePathMetadata::from_path(&path, metadata).await?;
 
@@ -202,9 +199,9 @@ async fn inner_create_file(
 		.file_path()
 		.find_unique(file_path::location_id_materialized_path_name_extension(
 			location_id,
-			iso_file_path.materialized_path.to_string(),
-			iso_file_path.name.to_string(),
-			iso_file_path.extension.to_string(),
+			iso_file_path_parts.materialized_path.to_string(),
+			iso_file_path_parts.name.to_string(),
+			iso_file_path_parts.extension.to_string(),
 		))
 		.include(file_path_with_object::include())
 		.exec()
@@ -242,7 +239,8 @@ async fn inner_create_file(
 
 	debug!("Creating path: {}", iso_file_path);
 
-	let created_file = create_file_path(library, iso_file_path, cas_id.clone(), metadata).await?;
+	let created_file =
+		create_file_path(library, iso_file_path_parts, cas_id.clone(), metadata).await?;
 
 	object::select!(object_ids { id pub_id });
 
@@ -274,8 +272,8 @@ async fn inner_create_file(
 						pub_id: pub_id.clone(),
 					},
 					[
-						(object::date_created::NAME, json!(date_created)),
-						(object::kind::NAME, json!(int_kind)),
+						(object::date_created::NAME, msgpack!(date_created)),
+						(object::kind::NAME, msgpack!(int_kind)),
 					],
 				),
 				db.object()
@@ -299,14 +297,14 @@ async fn inner_create_file(
 				pub_id: created_file.pub_id.clone(),
 			},
 			file_path::object::NAME,
-			json!(prisma_sync::object::SyncId {
+			msgpack!(prisma_sync::object::SyncId {
 				pub_id: object_pub_id.clone()
 			}),
 		),
 		db.file_path().update(
 			file_path::pub_id::equals(created_file.pub_id.clone()),
 			vec![file_path::object::connect(object::pub_id::equals(
-				object_pub_id,
+				object_pub_id.clone(),
 			))],
 		),
 	)
@@ -342,22 +340,30 @@ async fn inner_create_file(
 						.await
 						.map_err(|e| error!("Failed to extract media data: {e:#?}"))
 					{
-						if let Ok(media_data_params) = media_data_image_to_query_params(media_data)
-							.map_err(|e| {
-								error!("Failed to prepare media data create params: {e:#?}")
-							}) {
-							db.media_data()
-								.upsert(
+						let (sync_params, db_params) = media_data_image_to_query_params(media_data);
+
+						sync.write_ops(
+							db,
+							(
+								sync.shared_create(
+									prisma_sync::media_data::SyncId {
+										object: prisma_sync::object::SyncId {
+											pub_id: object_pub_id.clone(),
+										},
+									},
+									sync_params,
+								),
+								db.media_data().upsert(
 									media_data::object_id::equals(object_id),
 									media_data::create(
 										object::id::equals(object_id),
-										media_data_params.clone(),
+										db_params.clone(),
 									),
-									media_data_params,
-								)
-								.exec()
-								.await?;
-						}
+									db_params,
+								),
+							),
+						)
+						.await?;
 					}
 				}
 			}
@@ -468,13 +474,13 @@ async fn inner_update_file(
 
 			[
 				(
-					(cas_id::NAME, json!(file_path.cas_id)),
+					(cas_id::NAME, msgpack!(file_path.cas_id)),
 					Some(cas_id::set(file_path.cas_id.clone())),
 				),
 				(
 					(
 						size_in_bytes_bytes::NAME,
-						json!(fs_metadata.len().to_be_bytes().to_vec()),
+						msgpack!(fs_metadata.len().to_be_bytes().to_vec()),
 					),
 					Some(size_in_bytes_bytes::set(Some(
 						fs_metadata.len().to_be_bytes().to_vec(),
@@ -484,7 +490,7 @@ async fn inner_update_file(
 					let date = DateTime::<Utc>::from(fs_metadata.modified_or_now()).into();
 
 					(
-						(date_modified::NAME, json!(date)),
+						(date_modified::NAME, msgpack!(date)),
 						Some(date_modified::set(Some(date))),
 					)
 				},
@@ -502,28 +508,28 @@ async fn inner_update_file(
 					};
 
 					(
-						(integrity_checksum::NAME, json!(checksum)),
+						(integrity_checksum::NAME, msgpack!(checksum)),
 						Some(integrity_checksum::set(checksum)),
 					)
 				},
 				{
 					if current_inode != inode {
 						(
-							(inode::NAME, json!(inode)),
+							(inode::NAME, msgpack!(inode)),
 							Some(inode::set(Some(inode_to_db(inode)))),
 						)
 					} else {
-						((inode::NAME, serde_json::Value::Null), None)
+						((inode::NAME, msgpack!(null)), None)
 					}
 				},
 				{
 					if is_hidden != file_path.hidden.unwrap_or_default() {
 						(
-							(hidden::NAME, json!(inode)),
+							(hidden::NAME, msgpack!(inode)),
 							Some(hidden::set(Some(is_hidden))),
 						)
 					} else {
-						((hidden::NAME, serde_json::Value::Null), None)
+						((hidden::NAME, msgpack!(null)), None)
 					}
 				},
 			]
@@ -575,7 +581,7 @@ async fn inner_update_file(
 								pub_id: object.pub_id.clone(),
 							},
 							object::kind::NAME,
-							json!(int_kind),
+							msgpack!(int_kind),
 						),
 						db.object().update(
 							object::id::equals(object.id),
@@ -597,8 +603,8 @@ async fn inner_update_file(
 								pub_id: pub_id.clone(),
 							},
 							[
-								(object::date_created::NAME, json!(date_created)),
-								(object::kind::NAME, json!(int_kind)),
+								(object::date_created::NAME, msgpack!(date_created)),
+								(object::kind::NAME, msgpack!(int_kind)),
 							],
 						),
 						db.object().create(
@@ -619,7 +625,7 @@ async fn inner_update_file(
 							pub_id: file_path.pub_id.clone(),
 						},
 						file_path::object::NAME,
-						json!(prisma_sync::object::SyncId {
+						msgpack!(prisma_sync::object::SyncId {
 							pub_id: pub_id.clone()
 						}),
 					),
@@ -682,22 +688,31 @@ async fn inner_update_file(
 							.await
 							.map_err(|e| error!("Failed to extract media data: {e:#?}"))
 						{
-							if let Ok(media_data_params) =
-								media_data_image_to_query_params(media_data).map_err(|e| {
-									error!("Failed to prepare media data create params: {e:#?}")
-								}) {
-								db.media_data()
-									.upsert(
+							let (sync_params, db_params) =
+								media_data_image_to_query_params(media_data);
+
+							sync.write_ops(
+								db,
+								(
+									sync.shared_create(
+										prisma_sync::media_data::SyncId {
+											object: prisma_sync::object::SyncId {
+												pub_id: object.pub_id.clone(),
+											},
+										},
+										sync_params,
+									),
+									db.media_data().upsert(
 										media_data::object_id::equals(object.id),
 										media_data::create(
 											object::id::equals(object.id),
-											media_data_params.clone(),
+											db_params.clone(),
 										),
-										media_data_params,
-									)
-									.exec()
-									.await?;
-							}
+										db_params,
+									),
+								),
+							)
+							.await?;
 						}
 					}
 				}
@@ -715,7 +730,7 @@ async fn inner_update_file(
 						pub_id: file_path.pub_id.clone(),
 					},
 					file_path::hidden::NAME,
-					json!(is_hidden),
+					msgpack!(is_hidden),
 				)],
 				db.file_path().update(
 					file_path::pub_id::equals(file_path.pub_id.clone()),
@@ -741,7 +756,7 @@ pub(super) async fn rename(
 	let location_path = extract_location_path(location_id, library).await?;
 	let old_path = old_path.as_ref();
 	let new_path = new_path.as_ref();
-	let Library { db, .. } = library;
+	let Library { db, sync, .. } = library;
 
 	let old_path_materialized_str =
 		extract_normalized_materialized_path_str(location_id, &location_path, old_path)?;
@@ -776,46 +791,109 @@ pub(super) async fn rename(
 		let is_dir = maybe_missing(file_path.is_dir, "file_path.is_dir")?;
 
 		let new = IsolatedFilePathData::new(location_id, &location_path, new_path, is_dir)?;
+		let new_parts = new.to_parts();
 
 		// If the renamed path is a directory, we have to update every successor
 		if is_dir {
 			let old = IsolatedFilePathData::new(location_id, &location_path, old_path, is_dir)?;
-			// TODO: Fetch all file_paths that will be updated and dispatch sync events
+			let old_parts = old.to_parts();
 
-			let updated = library
-				.db
-				._execute_raw(raw!(
-					"UPDATE file_path \
-						SET materialized_path = REPLACE(materialized_path, {}, {}) \
-						WHERE location_id = {}",
-					PrismaValue::String(format!("{}/{}/", old.materialized_path, old.name)),
-					PrismaValue::String(format!("{}/{}/", new.materialized_path, new.name)),
-					PrismaValue::Int(location_id as i64)
-				))
+			let starts_with = format!("{}/{}/", old_parts.materialized_path, old_parts.name);
+			let paths = db
+				.file_path()
+				.find_many(vec![
+					file_path::location_id::equals(Some(location_id)),
+					file_path::materialized_path::starts_with(starts_with.clone()),
+				])
+				.select(file_path::select!({
+					id
+					pub_id
+					materialized_path
+				}))
 				.exec()
 				.await?;
-			trace!("Updated {updated} file_paths");
+
+			let len = paths.len();
+			let (sync_params, db_params): (Vec<_>, Vec<_>) = paths
+				.into_iter()
+				.filter_map(|path| path.materialized_path.map(|mp| (path.id, path.pub_id, mp)))
+				.map(|(id, pub_id, mp)| {
+					let new_path = mp.replace(
+						&starts_with,
+						&format!("{}/{}/", new_parts.materialized_path, new_parts.name),
+					);
+
+					(
+						sync.shared_update(
+							sd_prisma::prisma_sync::file_path::SyncId { pub_id },
+							file_path::materialized_path::NAME,
+							msgpack!(&new_path),
+						),
+						db.file_path().update(
+							file_path::id::equals(id),
+							vec![file_path::materialized_path::set(Some(new_path))],
+						),
+					)
+				})
+				.unzip();
+
+			sync.write_ops(db, (sync_params, db_params)).await?;
+
+			trace!("Updated {len} file_paths");
 		}
 
 		let is_hidden = path_is_hidden(new_path, &new_path_metadata);
 
-		library
-			.db
-			.file_path()
-			.update(
-				file_path::pub_id::equals(file_path.pub_id),
-				vec![
-					file_path::materialized_path::set(Some(new_path_materialized_str)),
-					file_path::name::set(Some(new.name.to_string())),
-					file_path::extension::set(Some(new.extension.to_string())),
-					file_path::date_modified::set(Some(
-						DateTime::<Utc>::from(new_path_metadata.modified_or_now()).into(),
-					)),
-					file_path::hidden::set(Some(is_hidden)),
-				],
-			)
-			.exec()
-			.await?;
+		let date_modified = DateTime::<Utc>::from(new_path_metadata.modified_or_now()).into();
+
+		let (sync_params, db_params): (Vec<_>, Vec<_>) = [
+			(
+				(
+					file_path::materialized_path::NAME,
+					msgpack!(new_path_materialized_str),
+				),
+				file_path::materialized_path::set(Some(new_path_materialized_str)),
+			),
+			(
+				(file_path::name::NAME, msgpack!(new_parts.name)),
+				file_path::name::set(Some(new_parts.name.to_string())),
+			),
+			(
+				(file_path::extension::NAME, msgpack!(new_parts.extension)),
+				file_path::extension::set(Some(new_parts.extension.to_string())),
+			),
+			(
+				(file_path::date_modified::NAME, msgpack!(&date_modified)),
+				file_path::date_modified::set(Some(date_modified)),
+			),
+			(
+				(file_path::hidden::NAME, msgpack!(is_hidden)),
+				file_path::hidden::set(Some(is_hidden)),
+			),
+		]
+		.into_iter()
+		.unzip();
+
+		sync.write_ops(
+			db,
+			(
+				sync_params
+					.into_iter()
+					.map(|(k, v)| {
+						sync.shared_update(
+							prisma_sync::file_path::SyncId {
+								pub_id: file_path.pub_id.clone(),
+							},
+							k,
+							v,
+						)
+					})
+					.collect(),
+				db.file_path()
+					.update(file_path::pub_id::equals(file_path.pub_id), db_params),
+			),
+		)
+		.await?;
 
 		invalidate_query!(library, "search.paths");
 		invalidate_query!(library, "search.objects");
@@ -862,7 +940,7 @@ pub(super) async fn remove_by_file_path(
 			todo!("file has changed in some way, re-identify it")
 		}
 		Err(e) if e.kind() == ErrorKind::NotFound => {
-			let db = &library.db;
+			let Library { sync, db, .. } = library;
 
 			let is_dir = maybe_missing(file_path.is_dir, "file_path.is_dir")?;
 
@@ -875,10 +953,14 @@ pub(super) async fn remove_by_file_path(
 				)
 				.await?;
 			} else {
-				db.file_path()
-					.delete(file_path::pub_id::equals(file_path.pub_id.clone()))
-					.exec()
-					.await?;
+				sync.write_op(
+					db,
+					sync.shared_delete(prisma_sync::file_path::SyncId {
+						pub_id: file_path.pub_id.clone(),
+					}),
+					db.file_path().delete(file_path::id::equals(file_path.id)),
+				)
+				.await?;
 
 				if let Some(object_id) = file_path.object_id {
 					db.object()

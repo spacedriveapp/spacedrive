@@ -6,9 +6,12 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-specta = { workspace = true, features = ["uuid", "uhlc"] }
-serde = "1.0.190"
-serde_json = { workspace = true }
-uhlc = "=0.5.2"
-uuid = { version = "1.5.0", features = ["serde", "v4"] }
 prisma-client-rust = { workspace = true }
+rmp = "0.8.12"
+rmp-serde = "1.1.2"
+rmpv = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+specta = { workspace = true, features = ["uuid", "uhlc", "serde_json"] }
+uhlc = { workspace = true }
+uuid = { workspace = true, features = ["serde", "v4"] }

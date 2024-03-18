@@ -1,7 +1,11 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { AppLogo, BloomOne } from '@sd/assets/images';
+import { SdMobIntro } from '@sd/assets/videos';
+import { useOnboardingStore } from '@sd/client';
+import { ResizeMode, Video } from 'expo-av';
 import { MotiView } from 'moti';
 import { CaretLeft } from 'phosphor-react-native';
+import { useEffect } from 'react';
 import { Image, KeyboardAvoidingView, Platform, Pressable, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,35 +17,60 @@ import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
 export function OnboardingContainer({ children }: React.PropsWithChildren) {
 	const navigation = useNavigation();
 	const route = useRoute();
-
 	const { top, bottom } = useSafeAreaInsets();
-
+	const store = useOnboardingStore();
 	return (
-		<View style={tw`flex-1`}>
-			{route.name !== 'GetStarted' && route.name !== 'CreatingLibrary' && (
-				<Pressable
-					style={twStyle('absolute left-6 z-50', { top: top + 16 })}
-					onPress={() => navigation.goBack()}
+		<View style={tw`relative flex-1`}>
+			{store.showIntro ? (
+				<View
+					style={twStyle(
+						'absolute z-50 mx-auto h-full w-full flex-1 items-center justify-center bg-black'
+					)}
 				>
-					<CaretLeft size={24} weight="bold" color="white" />
-				</Pressable>
+					<Video
+						style={tw`h-full w-[900px]`}
+						shouldPlay
+						onPlaybackStatusUpdate={(status) => {
+							if (status.isLoaded && status.didJustFinish) {
+								store.showIntro = false;
+							}
+						}}
+						source={SdMobIntro}
+						isMuted
+						resizeMode={ResizeMode.CONTAIN}
+					/>
+				</View>
+			) : (
+				<>
+					{route.name !== 'GetStarted' && route.name !== 'CreatingLibrary' && (
+						<Pressable
+							style={twStyle('absolute left-6 z-50', { top: top + 16 })}
+							onPress={() => navigation.goBack()}
+						>
+							<CaretLeft size={24} weight="bold" color="white" />
+						</Pressable>
+					)}
+					<View style={tw`z-10 flex-1 items-center justify-center`}>
+						<KeyboardAvoidingView
+							behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+							keyboardVerticalOffset={bottom}
+							style={tw`w-full flex-1 items-center justify-center`}
+						>
+							<MotiView style={tw`w-full items-center justify-center px-4`}>
+								{children}
+							</MotiView>
+						</KeyboardAvoidingView>
+						<Text style={tw`absolute bottom-8 text-xs text-ink-dull/50`}>
+							&copy; {new Date().getFullYear()} Spacedrive Technology Inc.
+						</Text>
+					</View>
+					{/* Bloom */}
+					<Image
+						source={BloomOne}
+						style={tw`top-100 absolute h-screen w-screen opacity-20`}
+					/>
+				</>
 			)}
-			<View style={tw`z-10 flex-1 items-center justify-center`}>
-				<KeyboardAvoidingView
-					behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-					keyboardVerticalOffset={bottom}
-					style={tw`w-full flex-1 items-center justify-center`}
-				>
-					<MotiView style={tw`w-full items-center justify-center px-4`}>
-						{children}
-					</MotiView>
-				</KeyboardAvoidingView>
-				<Text style={tw`absolute bottom-8 text-xs text-ink-dull/50`}>
-					&copy; {new Date().getFullYear()} Spacedrive Technology Inc.
-				</Text>
-			</View>
-			{/* Bloom */}
-			<Image source={BloomOne} style={tw`top-100 absolute h-screen w-screen opacity-20`} />
 		</View>
 	);
 }
@@ -57,6 +86,12 @@ export const OnboardingDescription = styled(
 );
 
 const GetStartedScreen = ({ navigation }: OnboardingStackScreenProps<'GetStarted'>) => {
+	//initial render - reset video intro value
+	const store = useOnboardingStore();
+	useEffect(() => {
+		store.showIntro = true;
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 	return (
 		<OnboardingContainer>
 			{/* Logo */}

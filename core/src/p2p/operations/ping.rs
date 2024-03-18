@@ -1,16 +1,12 @@
-use std::sync::Arc;
-
-use sd_p2p::PeerMessageEvent;
+use sd_p2p::UnicastStream;
 use tracing::debug;
-
-use crate::p2p::P2PManager;
 
 /// Send a ping to all peers we are connected to
 #[allow(unused)]
-pub async fn ping(_p2p: Arc<P2PManager>) {
+pub async fn ping() {
 	todo!();
 }
 
-pub(crate) async fn reciever(event: PeerMessageEvent) {
-	debug!("Received ping from peer '{}'", event.identity);
+pub(crate) async fn receiver(stream: UnicastStream) {
+	debug!("Received ping from peer '{}'", stream.remote_identity());
 }

@@ -33,7 +33,7 @@ export const items = [
 		completed: true,
 		title: 'Self hosting',
 		description:
-			'Spacedrive can be deployed as a service, behaving as just another device powering your personal cloud.'
+			'Spacedrive can be deployed as a service via Docker, behaving as just another device powering your personal cloud.'
 	},
 	{
 		completed: true,
@@ -44,71 +44,149 @@ export const items = [
 	{
 		completed: true,
 		title: 'Search',
-		description: 'Deep search into your filesystem with a keybind, including offline locations.'
+		description:
+			'Instantly search your library, including offline locations. Use advanced filters to refine and save searches for later.'
 	},
 	{
 		completed: true,
-		title: 'Media View',
+		title: 'Quick view',
+		description:
+			'View images, videos and documents in a full screen modal with nested inspector and context switcher.'
+	},
+	{
+		completed: true,
+		title: 'Media view',
 		description: 'Turn any directory into a camera roll including media from subdirectories'
 	},
 	{
-		when: '0.1.0 Alpha',
-		subtext: 'Oct 2023',
+		completed: true,
+		title: 'Spacedrop',
+		description: 'Drop files between devices and contacts on a keybind like AirDrop.'
+	},
+	{
+		completed: true,
+		title: 'AI labeling for images',
+		description:
+			'Automatically label images with objects, with a model loader to support future models and upgrading to more powerful models for various jobs.'
+	},
+	{
+		title: 'Drag & drop',
+		completed: true,
+		description: 'Drag and drop files between devices and drives.'
+	},
+	{
+		title: 'Language support',
+		completed: true,
+		description: 'Support for 12+ languages, with a community-driven translation via i18n.'
+	},
+	{
+		when: '0.2 Alpha',
+		subtext: 'February 2024',
+		title: 'Column view',
+		description: 'View files in the beloved column layout with a nested inspector, with trees!'
+	},
+	{
+		title: 'Improved file transfers',
+		description:
+			'Instant copy for files on the same device. An improved progress bar and speed indicator. Pause, resume and prioritize transfers.'
+	},
+	{
+		title: 'Folder sync',
+		description:
+			'Configure replication or bidirectional sync between folders on any device or drive.'
+	},
+	{
+		title: 'File converter',
+		description: 'Convert image and video between common formats from the context menu.'
+	},
+	{
+		title: 'Command Palette',
+		description: 'Quickly navigate to any file or folder from anywhere in the app.'
+	},
+	{
+		title: 'Video thumbstrips',
+		description:
+			'Generate and display thumbstrips for videos, with a scrubber to preview the video.'
+	},
+	{
+		when: '0.3 Alpha',
+		subtext: 'April 2024',
+		title: 'Connect devices & Library sync',
+		description: 'Automatically synchronized libraries across all your devices.'
+	},
+	{
 		title: 'Key manager',
 		description:
 			'View, mount, unmount and hide keys. Mounted keys can be used to instantly encrypt and decrypt any files on your node.'
 	},
 	{
-		when: '0.2.0',
-		title: 'Spacedrop',
-		description: 'Drop files between devices and contacts on a keybind like AirDrop.'
-	},
-	{
-		title: 'Realtime library synchronization',
-		description: 'Automatically synchronized libraries across devices via P2P connections.'
-	},
-	{
-		when: '0.3.0',
-		title: 'Cloud integration',
+		title: 'Mobile app TestFlight',
 		description:
-			'Index & backup to Apple Photos, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.'
+			'Access your library on the go, with a mobile app for iOS and Android in alpha via TestFlight and Play Store.'
 	},
 	{
-		title: 'Media encoder',
+		title: 'Advanced media analysis',
+		description: 'Transcribe audio, identify faces, video scenes and more.'
+	},
+	{
+		title: 'Third-party cloud integrations',
 		description:
-			'Encode video and audio into various formats, use Tags to automate. Built with FFmpeg.'
+			'Filesystem integrations with iCloud, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.'
 	},
 	{
-		title: 'Hosted Spaces',
-		description: 'Host select Spaces on our cloud to share with friends or publish on the web.'
-	},
-	{
-		when: '0.6.0 Beta',
-		subtext: 'Q3 2023',
-		title: 'Extensions',
+		title: 'Comments',
 		description:
-			'Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on spacedrive.com/extensions.'
+			'Add comments to files and folders, with support for XY coordinates for photos and timestamp for videos.'
 	},
 	{
+		when: '0.4 Alpha',
+		subtext: 'May 2024',
+		title: 'AI search',
+		description:
+			'Search the contents of your files, including images, audio and video with a deep understanding of context and content.'
+	},
+
+	{
+		title: 'Spaces',
+		description:
+			'Create and manage Spaces, hosted locally or on the cloud, to share with friends or publish on the web. Spaces are AI native, with a custom local language model that can converse with the user and puppeteer the Explorer view.'
+	},
+	{
+		title: 'Spacedrive Cloud',
+		description:
+			'Backup and sync from anywhere with a Spacedrive Cloud account. Paid plans for additional storage and cloud features.'
+	},
+	{
+		title: 'Web portal',
+		description:
+			'Access the web interface via the browser, remotely access your library and manage your devices and Spaces.'
+	},
+	{
+		title: 'iOS & Android release',
+		description: 'Spacedrive will be available on the App Store and Google Play Store.'
+	},
+	{
+		title: 'File versioning',
+		description:
+			'Automatically save versions of files when they change, with a timeline view and the ability to restore.'
+	},
+	{
+		when: '0.5 Beta',
+		subtext: 'June 2024',
 		title: 'Encrypted vault(s)',
 		description:
 			'Effortlessly manage & encrypt sensitive files. Encrypt individual files or create flexible-size vaults.'
 	},
 	{
-		when: 'Release',
-		subtext: 'Q4 2023',
-		title: 'Timeline',
+		title: 'Extensions',
 		description:
-			'View a linear timeline of content, travel to any time and see media represented visually.'
+			'Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on spacedrive.com/extensions.'
 	},
 	{
-		title: 'Redundancy',
+		when: '1.0 Release',
+		subtext: '2025',
+		title: 'Security audit',
 		description:
-			'Ensure a specific amount of copies exist for your important data, discover at-risk files and monitor device/drive health.'
-	},
-	{
-		title: 'Workers',
-		description:
-			'Utilize the compute power of your devices in unison to encode and perform tasks at increased speeds.'
+			'We will hire a third party security firm to audit the codebase and ensure the highest level of security.'
 	}
 ];

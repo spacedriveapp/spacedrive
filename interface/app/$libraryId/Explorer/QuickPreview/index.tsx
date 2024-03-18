@@ -20,13 +20,11 @@ import {
 	useRef,
 	useState
 } from 'react';
-import { ErrorBoundary } from 'react-error-boundary';
 import { useKey } from 'rooks';
 import {
 	ExplorerItem,
 	getEphemeralPath,
 	getExplorerItemData,
-	getExplorerLayoutStore,
 	getIndexedItemFilePath,
 	ObjectKindKey,
 	useExplorerLayoutStore,
@@ -36,7 +34,7 @@ import {
 	useZodForm
 } from '@sd/client';
 import { DropdownMenu, Form, toast, ToastMessage, Tooltip, z } from '@sd/ui';
-import { useIsDark, useOperatingSystem, useShortcut } from '~/hooks';
+import { useIsDark, useLocale, useOperatingSystem, useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
@@ -47,7 +45,6 @@ import ExplorerContextMenu, {
 	SharedItems
 } from '../ContextMenu';
 import { Conditional } from '../ContextMenu/ConditionalItem';
-import { Original } from '../FilePath/Original';
 import { FileThumb } from '../FilePath/Thumb';
 import { SingleItemMetadata } from '../Inspector';
 import { ImageSlider } from './ImageSlider';
@@ -84,6 +81,8 @@ export const QuickPreview = () => {
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
 	const [newName, setNewName] = useState<string | null>(null);
+
+	const { t } = useLocale();
 
 	const items = useMemo(() => {
 		if (!open || !explorer.items || explorer.selectedItems.size === 0) return [];
@@ -163,7 +162,7 @@ export const QuickPreview = () => {
 		}
 
 		if (!activeItem || !explorer.items) return;
-		if (items.length > 1 && !getExplorerLayoutStore().showImageSlider) return;
+		if (items.length > 1 && !explorerLayoutStore.showImageSlider) return;
 
 		const newSelectedItem =
 			items.length > 1 &&
@@ -191,6 +190,12 @@ export const QuickPreview = () => {
 		if (items.length < 2 || !activeItem) return;
 		explorer.resetSelectedItems([activeItem.item]);
 		getQuickPreviewStore().itemIndex = 0;
+	});
+
+	//close quick preview
+	useShortcut('closeQuickPreview', (e) => {
+		e.preventDefault();
+		getQuickPreviewStore().open = false;
 	});
 
 	// Toggle metadata
@@ -278,7 +283,7 @@ export const QuickPreview = () => {
 									)}
 								>
 									<div className="flex flex-1">
-										<Tooltip label="Close">
+										<Tooltip label={t('close')}>
 											<Dialog.Close asChild>
 												<IconButton>
 													<X weight="bold" />
@@ -288,7 +293,7 @@ export const QuickPreview = () => {
 
 										{items.length > 1 && (
 											<div className="ml-2 flex">
-												<Tooltip label="Back">
+												<Tooltip label={t('back')}>
 													<IconButton
 														disabled={!items[itemIndex - 1]}
 														onClick={() =>
@@ -300,7 +305,7 @@ export const QuickPreview = () => {
 													</IconButton>
 												</Tooltip>
 
-												<Tooltip label="Forward">
+												<Tooltip label={t('forward')}>
 													<IconButton
 														disabled={!items[itemIndex + 1]}
 														onClick={() =>
@@ -409,7 +414,7 @@ export const QuickPreview = () => {
 										<DropdownMenu.Root
 											trigger={
 												<div className="flex">
-													<Tooltip label="More">
+													<Tooltip label={t('more')}>
 														<IconButton>
 															<DotsThree size={20} weight="bold" />
 														</IconButton>
@@ -429,7 +434,7 @@ export const QuickPreview = () => {
 												/>
 
 												<DropdownMenu.Item
-													label="Rename"
+													label={t('rename')}
 													onClick={() => name && setIsRenaming(true)}
 												/>
 
@@ -442,13 +447,13 @@ export const QuickPreview = () => {
 														FilePathItems.CopyAsPath,
 														FilePathItems.Crypto,
 														FilePathItems.Compress,
-														ObjectItems.ConvertObject,
-														FilePathItems.SecureDelete
+														ObjectItems.ConvertObject
+														// FilePathItems.SecureDelete
 													]}
 												>
 													{(items) => (
 														<DropdownMenu.SubMenu
-															label="More actions..."
+															label={t('more_actions')}
 															icon={Plus}
 														>
 															{items}
@@ -462,10 +467,10 @@ export const QuickPreview = () => {
 											</ExplorerContextMenu>
 										</DropdownMenu.Root>
 
-										<Tooltip label="Show slider">
+										<Tooltip label={t('show_slider')}>
 											<IconButton
 												onClick={() =>
-													(getExplorerLayoutStore().showImageSlider =
+													(explorerLayoutStore.showImageSlider =
 														!explorerLayoutStore.showImageSlider)
 												}
 												className="w-fit px-2 text-[10px]"
@@ -481,7 +486,7 @@ export const QuickPreview = () => {
 											</IconButton>
 										</Tooltip>
 
-										<Tooltip label="Show details">
+										<Tooltip label={t('show_details')}>
 											<IconButton
 												onClick={() => setShowMetadata(!showMetadata)}
 												active={showMetadata}
@@ -503,11 +508,12 @@ export const QuickPreview = () => {
 									onError={(type, error) =>
 										type.variant === 'original' &&
 										setThumbErrorToast({
-											title: 'Error loading original file',
+											title: t('error_loading_original_file'),
 											body: error.message
 										})
 									}
 									loadOriginal
+									frameClassName="!border-0"
 									mediaControls
 									className={clsx(
 										'm-3 !w-auto flex-1 !overflow-hidden rounded',
@@ -605,8 +611,8 @@ const RenameInput = ({ name, onRename }: RenameInputProps) => {
 					quickPreview.background
 						? 'border-white/[.12] bg-white/10 backdrop-blur-sm'
 						: isDark
-						? 'border-app-line bg-app-input'
-						: 'border-black/[.075] bg-black/[.075]'
+							? 'border-app-line bg-app-input'
+							: 'border-black/[.075] bg-black/[.075]'
 				)}
 				onKeyDown={handleKeyDown}
 				onFocus={() => highlightName()}
@@ -632,7 +638,7 @@ const IconButton = ({
 	return (
 		<button
 			className={clsx(
-				'text-md inline-flex h-[30px] w-[30px] items-center justify-center rounded opacity-80 outline-none',
+				'text-md inline-flex size-[30px] items-center justify-center rounded opacity-80 outline-none',
 				'hover:opacity-100',
 				'focus:opacity-100',
 				'disabled:pointer-events-none disabled:opacity-40',

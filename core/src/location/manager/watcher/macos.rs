@@ -1,5 +1,5 @@
 //! On MacOS, we use the FSEvents backend of notify-rs and Rename events are pretty complicated;
-//! There are just (ModifyKind::Name(RenameMode::Any) events and nothing else.
+//! There are just ModifyKind::Name(RenameMode::Any) events and nothing else.
 //! This means that we have to link the old path with the new path to know which file was renamed.
 //! But you can't forget that renames events aren't always the case that I file name was modified,
 //! but its path was modified. So we have to check if the file was moved. When a file is moved
@@ -9,19 +9,11 @@
 //! current location from anywhere else, we just receive the new path rename event, which means a
 //! creation.
 
-use crate::{
-	invalidate_query,
-	library::Library,
-	location::{
-		file_path_helper::{
-			check_file_path_exists, get_inode, FilePathError, IsolatedFilePathData,
-		},
-		manager::LocationManagerError,
-	},
-	prisma::location,
-	util::error::FileIOError,
-	Node,
-};
+use crate::{invalidate_query, library::Library, location::manager::LocationManagerError, Node};
+
+use sd_file_path_helper::{check_file_path_exists, get_inode, FilePathError, IsolatedFilePathData};
+use sd_prisma::prisma::location;
+use sd_utils::error::FileIOError;
 
 use std::{
 	collections::HashMap,
@@ -102,7 +94,7 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 						// NOTE: This is a MacOS specific event that happens when a folder is created
 						// trough Finder. It creates a folder but 2 events are triggered in
 						// FSEvents. So we store and check the latest created folder to avoid
-						// hiting a unique constraint in the database
+						// hitting a unique constraint in the database
 						return Ok(());
 					}
 				}
@@ -127,7 +119,7 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 			| EventKind::Modify(ModifyKind::Metadata(
 				MetadataKind::WriteTime | MetadataKind::Extended,
 			)) => {
-				// When we receive a create, modify data or metadata events of the abore kinds
+				// When we receive a create, modify data or metadata events of the above kinds
 				// we just mark the file to be updated in a near future
 				// each consecutive event of these kinds that we receive for the same file
 				// we just store the path again in the map below, with a new instant

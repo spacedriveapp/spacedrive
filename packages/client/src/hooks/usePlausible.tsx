@@ -2,8 +2,8 @@ import Plausible, { PlausibleOptions as PlausibleTrackerOptions } from 'plausibl
 import { useCallback, useEffect, useRef } from 'react';
 
 import { BuildInfo } from '../core';
-import { useDebugState } from './useDebugState';
-import { PlausiblePlatformType, telemetryStore, useTelemetryState } from './useTelemetryState';
+import { useDebugState } from '../stores/debugState';
+import { PlausiblePlatformType, telemetryState, useTelemetryState } from '../stores/telemetryState';
 
 /**
  * This should be in sync with the Core's version.
@@ -213,7 +213,7 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 			? () => {
 					const { callback: _, ...event } = fullEvent;
 					console.log(event);
-			  }
+				}
 			: undefined
 	};
 
@@ -373,7 +373,7 @@ export const initPlausible = ({
 	platformType: PlausiblePlatformType;
 	buildInfo: BuildInfo | undefined;
 }) => {
-	telemetryStore.platform = platformType;
-	telemetryStore.buildInfo = buildInfo;
+	telemetryState.platform = platformType;
+	telemetryState.buildInfo = buildInfo;
 	return;
 };

@@ -1,16 +1,16 @@
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { CheckCircle, Gear } from 'phosphor-react-native';
-import React, { useRef } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { CheckCircle } from 'phosphor-react-native';
+import React from 'react';
+import { Pressable, View } from 'react-native';
 import { JobManagerContextProvider, useLibraryQuery } from '@sd/client';
 import { PulseAnimation } from '~/components/animation/lottie';
+import BrowseCategories from '~/components/browse/BrowseCategories';
 import BrowseLocations from '~/components/browse/BrowseLocations';
 import BrowseTags from '~/components/browse/BrowseTags';
-import BrowseLibraryManager from '~/components/browse/DrawerLibraryManager';
+import Jobs from '~/components/browse/Jobs';
 import { ModalRef } from '~/components/layout/Modal';
+import ScreenContainer from '~/components/layout/ScreenContainer';
 import { JobManagerModal } from '~/components/modal/job/JobManagerModal';
-import { tw, twStyle } from '~/lib/tailwind';
-import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
+import { tw } from '~/lib/tailwind';
 
 function JobIcon() {
 	const { data: isActive } = useLibraryQuery(['jobs.isActive']);
@@ -21,36 +21,24 @@ function JobIcon() {
 	);
 }
 
-export default function BrowseScreen({ navigation, route }: BrowseStackScreenProps<'Browse'>) {
-	const modalRef = useRef<ModalRef>(null);
-
-	const height = useBottomTabBarHeight();
+export default function BrowseScreen() {
+	const modalRef = React.useRef<ModalRef>(null);
 
 	return (
-		<ScrollView style={twStyle('flex-1 px-3', { marginBottom: height })}>
-			<View style={twStyle('justify-between')}>
-				<View style={tw`mt-6`} />
-				{/* Library Manager */}
-				<BrowseLibraryManager />
-				{/* Locations */}
-				<BrowseLocations />
-				{/* Tags */}
-				<BrowseTags />
-
-				<View style={tw`flex w-full flex-row items-center gap-x-4`}>
-					{/* Settings */}
-					<Pressable onPress={() => navigation.navigate('Settings', { screen: 'Home' })}>
-						<Gear color="white" size={24} />
+		<ScreenContainer>
+			<BrowseCategories />
+			<BrowseLocations />
+			<BrowseTags />
+			<Jobs />
+			{/* TODO: Remove this when the new job manager is live, this is here for debugging purposes. */}
+			<View style={tw`w-full flex-row items-center gap-x-4`}>
+				<JobManagerContextProvider>
+					<Pressable onPress={() => modalRef.current?.present()}>
+						<JobIcon />
 					</Pressable>
-					{/* Job Manager */}
-					<JobManagerContextProvider>
-						<Pressable onPress={() => modalRef.current?.present()}>
-							<JobIcon />
-						</Pressable>
-						<JobManagerModal ref={modalRef} />
-					</JobManagerContextProvider>
-				</View>
+					<JobManagerModal ref={modalRef} />
+				</JobManagerContextProvider>
 			</View>
-		</ScrollView>
+		</ScreenContainer>
 	);
 }

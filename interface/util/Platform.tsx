@@ -3,6 +3,13 @@ import { auth } from '@sd/client';
 
 export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unknown';
 
+// This is copied from the Tauri Specta output.
+// It will only exist on desktop
+export type DragAndDropEvent =
+	| { type: 'Hovered'; paths: string[]; x: number; y: number }
+	| { type: 'Dropped'; paths: string[]; x: number; y: number }
+	| { type: 'Cancelled' };
+
 // Platform represents the underlying native layer the app is running on.
 // This could be Tauri or web.
 export type Platform = {
@@ -10,6 +17,11 @@ export type Platform = {
 	getThumbnailUrlByThumbKey: (thumbKey: string[]) => string;
 	getFileUrl: (libraryId: string, locationLocalId: number, filePathId: number) => string;
 	getFileUrlByPath: (path: string) => string;
+	getRemoteRspcEndpoint: (remote_identity: string) => {
+		url: string;
+		headers?: Record<string, string>;
+	};
+	constructRemoteRspcPath: (remote_identity: string, path: string) => string;
 	openLink: (url: string) => void;
 	// Tauri patches `window.confirm` to return `Promise` not `bool`
 	confirm(msg: string, cb: (result: boolean) => void): void;
@@ -45,6 +57,7 @@ export type Platform = {
 	refreshMenuBar?(): Promise<unknown>;
 	setMenuBarItemState?(id: string, enabled: boolean): Promise<unknown>;
 	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;
+	subscribeToDragAndDropEvents?(callback: (event: DragAndDropEvent) => void): Promise<() => void>;
 	updater?: {
 		useSnapshot: () => UpdateStore;
 		checkForUpdate(): Promise<Update | null>;

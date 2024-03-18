@@ -1,72 +1,145 @@
 [package]
 name = "sd-crypto"
+rust-version = "1.72.0"
 version = "0.0.0"
 authors = ["Jake Robinson <jake@spacedrive.com>"]
+description = """
+A cryptographic library that provides safe and high-level
+encryption, hashing, and encoding interfaces.
+"""
 readme = "README.md"
-description = "A library to handle cryptographic functions within Spacedrive"
-rust-version = "1.67.0"
+keywords = ["crypto"]
+edition = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
-edition = { workspace = true }
 
 [features]
-rspc = ["dep:rspc", "dep:specta"]
-specta = ["dep:specta"]
-serde = ["dep:serde", "dep:serde_json", "dep:serde-big-array", "uuid/serde"]
-keymanager = ["dep:dashmap", "os-keyrings"]
-os-keyrings = ["dep:secret-service", "dep:security-framework"]
+sys = []
+serde = [
+	"dep:serde",
+	"dep:serde_json",
+	"dep:serde-big-array",
+	"dep:serdect",
+	"bincode/serde",
+]
+keyring = ["dep:linux-keyutils", "dep:security-framework"]
+secret-service = [
+	"keyring",
+	"dep:secret-service",
+	"dep:zbus",
+] # explicit enabling required as the secret service api requires `zbus` and is messy
+experimental = []
 
 [dependencies]
 # rng
-rand = "0.8.5"
-rand_chacha = "0.3.1"
+rand_core = "0.9.0-alpha.0"
+rand = "0.9.0-alpha.0"
+rand_chacha = "0.9.0-alpha.0"
 
 # hashing
-argon2 = "0.5.0"
-balloon-hash = "0.4.0"
-blake3 = { version = "1.3.3", features = ["traits-preview"] }
+argon2 = { version = "0.6.0-pre.0", default_features = false, features = [
+	"alloc",
+	"zeroize",
+] }
+balloon-hash = { version = "0.5.0-pre.0", default_features = false, features = [
+	"alloc",
+	"zeroize",
+] }
+blake3 = { version = "1.5.0", features = ["traits-preview", "zeroize"] }
+
+# constant time
+cmov = "0.3.1"
 
 # aeads
-aes-gcm = "0.10.1"
+aes-gcm-siv = "0.11.1"
 chacha20poly1305 = "0.10.1"
-aead = { version = "0.5.1", features = ["stream"] }
+thiserror = "1.0.57"
+aead = { version = "0.5.2", default-features = false, features = ["stream"] }
+bincode = { version = "2.0.0-rc.3", features = ["derive", "alloc"] }
 
-# cryptographic hygiene
-zeroize = "1.5.7"
+zeroize = { version = "1.7.0", features = ["derive", "aarch64"] }
 
-# error handling
-thiserror = "1.0.37"
-
-# metadata de/serialization
-serde = { version = "1.0", features = ["derive"], optional = true }
-serde_json = { version = "1.0", optional = true }
+serde = { version = "1.0.197", features = ["derive"], optional = true }
+serde_json = { version = "1.0.114", optional = true }
 serde-big-array = { version = "0.5.1", optional = true }
+serdect = { version = "0.3.0-pre.0", optional = true }
 
-# for storedkey organisation and handling
-uuid = { version = "1.1.2", features = ["v4"] }
-
-# better concurrency for the keymanager
-dashmap = { version = "5.4.0", optional = true }
-
-# optional, for support with rspc
-rspc = { workspace = true, features = [], optional = true }
-specta = { workspace = true, features = ["uuid"], optional = true }
+specta = { workspace = true, optional = true }
 
 # for asynchronous crypto
-tokio = { workspace = true, features = ["io-util", "rt-multi-thread", "sync"] }
+tokio = { workspace = true, features = [
+	"io-util",
+	"rt-multi-thread",
+	"macros",
+	"sync",
+], optional = true }
+
+redb = "1.5.0"
 
 hex = "0.4.3"
 
-# linux OS keyring - using `v2.0.2` as newer versions broke a lot due to async/lifetimes
-[target.'cfg(target_os = "linux")'.dependencies]
-secret-service = { version = "2.0.2", optional = true }
+uuid = { version = "1.7.0", features = ["v4"] }
 
-# macos/ios OS keyring
+# ed25519-dalek = { version = "2.1.1", feature = ["std", "zeroize"] }
+# x25519-dalek = { version = "2.0.1", feature = [
+# 	"std",
+# 	"zeroize",
+# ] } # ReusableSecrets feature may have to come out for X3DH
+
+# linux OS keyring
+[target.'cfg(target_os = "linux")'.dependencies]
+linux-keyutils = { version = "0.2.4", features = ["std"], optional = true }
+secret-service = { version = "3.0.1", features = [
+	"crypto-rust",
+], optional = true }
+
+# this needs to remain at versions < 4, as they made some changes and i can't get it
+# to compile for the time being
+zbus = { version = "3.15.2", default_features = false, features = [
+	"tokio",
+	"blocking",
+], optional = true }
+
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
-security-framework = { version = "2.8.1", optional = true }
+security-framework = { version = "2.9.2", optional = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = [
-	"fs",
-	"macros",
-] } # features needed for examples
+criterion = "0.5.1"
+paste = "1.0.14"
+tempfile = "3.10.1"
+
+[[bench]]
+path = "benches/crypto/aes-256-gcm-siv.rs"
+name = "aes-256-gcm-siv"
+harness = false
+
+[[bench]]
+path = "benches/crypto/xchacha20-poly1305.rs"
+name = "xchacha20-poly1305"
+harness = false
+
+[[bench]]
+path = "benches/hashing/argon2id.rs"
+name = "argon2id"
+bench = false
+harness = false
+
+[[bench]]
+path = "benches/hashing/blake3-balloon.rs"
+name = "blake3-balloon"
+bench = false
+harness = false
+
+[[bench]]
+path = "benches/hashing/blake3.rs"
+name = "blake3"
+harness = false
+
+[[bench]]
+path = "benches/hashing/blake3-kdf.rs"
+name = "blake3-kdf"
+harness = false
+
+[[example]]
+path = "examples/file_encryption.rs"
+name = "file_encryption"

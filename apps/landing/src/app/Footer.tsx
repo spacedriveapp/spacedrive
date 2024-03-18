@@ -10,9 +10,12 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { PropsWithChildren } from 'react';
 
+import { getLatestRelease } from './docs/changelog/data';
 import Logo from './logo.png';
 
-export function Footer() {
+export async function Footer() {
+	const latestRelease = await getLatestRelease();
+
 	return (
 		<footer id="footer" className="relative z-50 w-screen overflow-hidden pt-3 backdrop-blur">
 			<Image
@@ -25,7 +28,7 @@ export function Footer() {
 				style={{ width: '100%', height: '400px' }}
 				sizes="100vw"
 			/>
-			<div className="min-h-64 m-auto grid max-w-[100rem] grid-cols-2 gap-6 p-8 pb-20 pt-10 text-white sm:grid-cols-2 lg:grid-cols-6">
+			<div className="m-auto grid min-h-64 max-w-[100rem] grid-cols-2 gap-6 p-8 pb-20 pt-10 text-white sm:grid-cols-2 lg:grid-cols-6">
 				<div className="col-span-2">
 					<Image alt="Spacedrive logo" src={Logo} className="mb-5 h-10 w-10" />
 
@@ -70,7 +73,13 @@ export function Footer() {
 					<FooterLink link="/team">Team</FooterLink>
 					<FooterLink link="/docs/product/resources/faq">FAQ</FooterLink>
 					<FooterLink link="/careers">Careers</FooterLink>
-					<FooterLink link="/docs/changelog/beta/0.1.0">Changelog</FooterLink>
+					{latestRelease && (
+						<FooterLink
+							link={`/docs/changelog/${latestRelease.category}/${latestRelease.tag}`}
+						>
+							Changelog
+						</FooterLink>
+					)}
 					<FooterLink link="/blog">Blog</FooterLink>
 				</div>
 				<div className="col-span-1 flex flex-col space-y-2">

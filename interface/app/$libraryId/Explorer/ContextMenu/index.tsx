@@ -2,6 +2,7 @@ import { Plus } from '@phosphor-icons/react';
 import { useMemo, type PropsWithChildren } from 'react';
 import { ExplorerItem } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
+import { useLocale } from '~/hooks';
 import { isNonEmpty } from '~/util';
 
 import { useExplorerContext } from '../Context';
@@ -15,49 +16,52 @@ export * as FilePathItems from './FilePath/Items';
 export * as ObjectItems from './Object/Items';
 export * as SharedItems from './SharedItems';
 
-const Items = ({ children }: PropsWithChildren) => (
-	<>
-		<Conditional items={[SharedItems.OpenOrDownload]} />
-		<SharedItems.OpenQuickView />
+const Items = ({ children }: PropsWithChildren) => {
+	const { t } = useLocale();
+	return (
+		<>
+			<Conditional items={[SharedItems.OpenOrDownload]} />
+			<SharedItems.OpenQuickView />
 
-		<SeparatedConditional items={[SharedItems.Details]} />
+			<SeparatedConditional items={[SharedItems.Details]} />
 
-		<SeparatedConditional
-			items={[
-				SharedItems.RevealInNativeExplorer,
-				SharedItems.Rename,
-				FilePathItems.CutCopyItems,
-				SharedItems.Deselect
-			]}
-		/>
+			<SeparatedConditional
+				items={[
+					SharedItems.RevealInNativeExplorer,
+					SharedItems.Rename,
+					FilePathItems.CutCopyItems,
+					SharedItems.Deselect
+				]}
+			/>
 
-		{children}
+			{children}
 
-		<ContextMenu.Separator />
-		<SharedItems.Share />
+			<ContextMenu.Separator />
+			<SharedItems.Share />
 
-		<SeparatedConditional items={[ObjectItems.AssignTag]} />
+			<SeparatedConditional items={[ObjectItems.AssignTag]} />
 
-		<Conditional
-			items={[
-				FilePathItems.CopyAsPath,
-				FilePathItems.Crypto,
-				FilePathItems.Compress,
-				ObjectItems.ConvertObject,
-				FilePathItems.ParentFolderActions,
-				FilePathItems.SecureDelete
-			]}
-		>
-			{(items) => (
-				<ContextMenu.SubMenu label="More actions..." icon={Plus}>
-					{items}
-				</ContextMenu.SubMenu>
-			)}
-		</Conditional>
+			<Conditional
+				items={[
+					FilePathItems.CopyAsPath,
+					FilePathItems.Crypto,
+					FilePathItems.Compress,
+					ObjectItems.ConvertObject,
+					FilePathItems.ParentFolderActions
+					// FilePathItems.SecureDelete
+				]}
+			>
+				{(items) => (
+					<ContextMenu.SubMenu label={t('more_actions')} icon={Plus}>
+						{items}
+					</ContextMenu.SubMenu>
+				)}
+			</Conditional>
 
-		<SeparatedConditional items={[FilePathItems.Delete]} />
-	</>
-);
+			<SeparatedConditional items={[FilePathItems.Delete]} />
+		</>
+	);
+};
 
 export default (props: PropsWithChildren<{ items?: ExplorerItem[]; custom?: boolean }>) => {
 	const explorer = useExplorerContext();

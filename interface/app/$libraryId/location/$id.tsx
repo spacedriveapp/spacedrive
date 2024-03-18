@@ -1,5 +1,5 @@
 import { ArrowClockwise, Info } from '@phosphor-icons/react';
-import { memo, useEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useSearchParams as useRawSearchParams } from 'react-router-dom';
 import { stringify } from 'uuid';
 import {
@@ -14,6 +14,7 @@ import {
 	useLibrarySubscription,
 	useNodes,
 	useOnlineLocations,
+	usePathsExplorerQuery,
 	useRspcLibraryContext
 } from '@sd/client';
 import { Loader, Tooltip } from '@sd/ui';
@@ -22,6 +23,7 @@ import { Folder, Icon } from '~/components';
 import {
 	useIsLocationIndexing,
 	useKeyDeleteFile,
+	useLocale,
 	useRouteTitle,
 	useShortcut,
 	useZodRouteParams
@@ -30,14 +32,17 @@ import { useQuickRescan } from '~/hooks/useQuickRescan';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { usePathsExplorerQuery } from '../Explorer/queries';
-import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Explorer/store';
+import {
+	createDefaultExplorerSettings,
+	explorerStore,
+	filePathOrderingKeysSchema
+} from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
 import { useExplorerSearchParams } from '../Explorer/util';
 import { EmptyNotice } from '../Explorer/View/EmptyNotice';
-import SearchOptions, { SearchContextProvider, useSearch } from '../Search';
-import SearchBar from '../Search/SearchBar';
+import { SearchContextProvider, SearchOptions, useSearch } from '../search';
+import SearchBar from '../search/SearchBar';
 import { TopBarPortal } from '../TopBar/Portal';
 import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import LocationOptions from './LocationOptions';
@@ -59,15 +64,7 @@ export const Component = () => {
 const LocationExplorer = ({ location }: { location: Location; path?: string }) => {
 	const [{ path, take }] = useExplorerSearchParams();
 
-	const onlineLocations = useOnlineLocations();
-
 	const rescan = useQuickRescan();
-
-	const locationOnline = useMemo(() => {
-		const pub_id = location.pub_id;
-		if (!pub_id) return false;
-		return onlineLocations.some((l) => arraysEqual(pub_id, l));
-	}, [location.pub_id, onlineLocations]);
 
 	const { explorerSettings, preferences } = useLocationExplorerSettings(location);
 
@@ -96,7 +93,8 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 			].filter(Boolean) as any,
 			take
 		},
-		explorerSettings
+		order: explorerSettings.useSettingsSnapshot().order,
+		onSuccess: () => explorerStore.resetNewThumbnails()
 	});
 
 	const explorer = useExplorer({
@@ -130,6 +128,8 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 
 	const isLocationIndexing = useIsLocationIndexing(location.id);
 
+	const { t } = useLocale();
+
 	return (
 		<ExplorerContextProvider explorer={explorer}>
 			<SearchContextProvider search={search}>
@@ -139,11 +139,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 						<div className="flex items-center gap-2">
 							<Folder size={22} className="mt-[-1px]" />
 							<span className="truncate text-sm font-medium">{title}</span>
-							{!locationOnline && (
-								<Tooltip label="Location is offline, you can still browse and organize.">
-									<Info className="text-ink-faint" />
-								</Tooltip>
-							)}
+							<LocationOfflineInfo location={location} />
 							<LocationOptions location={location} path={path || ''} />
 						</div>
 					}
@@ -151,7 +147,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 						<DefaultTopBarOptions
 							options={[
 								{
-									toolTipLabel: 'Reload',
+									toolTipLabel: t('reload'),
 									onClick: () => rescan(location.id),
 									icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
 									individual: true,
@@ -170,7 +166,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 				</TopBarPortal>
 			</SearchContextProvider>
 			{isLocationIndexing ? (
-				<div className="flex h-full w-full items-center justify-center">
+				<div className="flex size-full items-center justify-center">
 					<Loader />
 				</div>
 			) : !preferences.isLoading ? (
@@ -178,7 +174,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 					emptyNotice={
 						<EmptyNotice
 							icon={<Icon name="FolderNoSpace" size={128} />}
-							message="No files found here"
+							message={t('no_files_found_here')}
 						/>
 					}
 				/>
@@ -186,6 +182,27 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 		</ExplorerContextProvider>
 	);
 };
+
+function LocationOfflineInfo({ location }: { location: Location }) {
+	const onlineLocations = useOnlineLocations();
+
+	const locationOnline = useMemo(
+		() => onlineLocations.some((l) => arraysEqual(location.pub_id, l)),
+		[location.pub_id, onlineLocations]
+	);
+
+	const { t } = useLocale();
+
+	return (
+		<>
+			{!locationOnline && (
+				<Tooltip label={t('location_disconnected_tooltip')}>
+					<Info className="text-ink-faint" />
+				</Tooltip>
+			)}
+		</>
+	);
+}
 
 function getLastSectionOfPath(path: string): string | undefined {
 	if (path.endsWith('/')) {

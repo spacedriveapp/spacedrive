@@ -1,10 +1,12 @@
+use sd_sync::*;
 use std::sync::{atomic, Arc};
+use tokio::sync::Notify;
 
 use crate::{library::Library, Node};
 
-mod ingest;
-mod receive;
-mod send;
+pub mod ingest;
+pub mod receive;
+pub mod send;
 
 pub async fn declare_actors(library: &Arc<Library>, node: &Arc<Node>) {
 	let ingest_notify = Arc::new(Notify::new());
@@ -12,25 +14,52 @@ pub async fn declare_actors(library: &Arc<Library>, node: &Arc<Node>) {
 
 	let autorun = node.cloud_sync_flag.load(atomic::Ordering::Relaxed);
 
-	let args = (library.clone(), node.clone());
-	actors
-		.declare("Cloud Sync Sender", move || send::run_actor(args), autorun)
-		.await;
-
-	let args = (library.clone(), node.clone(), ingest_notify.clone());
 	actors
 		.declare(
-			"Cloud Sync Receiver",
-			move || receive::run_actor(args),
+			"Cloud Sync Sender",
+			{
+				let library = library.clone();
+				let node = node.clone();
+
+				move || send::run_actor(library.id, library.sync.clone(), node.clone())
+			},
 			autorun,
 		)
 		.await;
 
-	let args = (library.clone(), ingest_notify);
+	actors
+		.declare(
+			"Cloud Sync Receiver",
+			{
+				let library = library.clone();
+				let node = node.clone();
+				let ingest_notify = ingest_notify.clone();
+
+				move || {
+					receive::run_actor(
+						library.clone(),
+						node.libraries.clone(),
+						library.db.clone(),
+						library.id,
+						library.instance_uuid,
+						library.sync.clone(),
+						node.clone(),
+						ingest_notify,
+						node.clone(),
+					)
+				}
+			},
+			autorun,
+		)
+		.await;
+
 	actors
 		.declare(
 			"Cloud Sync Ingest",
-			move || ingest::run_actor(args),
+			{
+				let library = library.clone();
+				move || ingest::run_actor(library.sync.clone(), ingest_notify)
+			},
 			autorun,
 		)
 		.await;
@@ -48,18 +77,3 @@ macro_rules! err_break {
 	};
 }
 pub(crate) use err_break;
-
-macro_rules! err_return {
-	($e:expr) => {
-		match $e {
-			Ok(d) => d,
-			Err(e) => {
-				tracing::error!("{e}");
-				return;
-			}
-		}
-	};
-}
-
-pub(crate) use err_return;
-use tokio::sync::Notify;

@@ -4,7 +4,6 @@ import { Object as SDObject, useLibraryMutation } from '@sd/client';
 import { Divider, TextArea } from '@sd/ui';
 
 import { MetaContainer, MetaTitle } from '../Inspector';
-import { useExplorerStore } from '../store';
 
 interface Props {
 	data: SDObject;

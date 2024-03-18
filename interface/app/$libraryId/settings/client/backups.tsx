@@ -2,6 +2,7 @@ import dayjs from 'dayjs';
 import { useBridgeMutation, useBridgeQuery, useLibraryMutation } from '@sd/client';
 import { Button, Card } from '@sd/ui';
 import { Database } from '~/components';
+import { useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { Heading } from '../Layout';
@@ -12,6 +13,7 @@ import { Heading } from '../Layout';
 
 export const Component = () => {
 	const platform = usePlatform();
+	const { t } = useLocale();
 	const backups = useBridgeQuery(['backups.getAll']);
 	const doBackup = useLibraryMutation('backups.backup');
 	const doRestore = useBridgeMutation('backups.restore');
@@ -20,8 +22,8 @@ export const Component = () => {
 	return (
 		<>
 			<Heading
-				title="Backups"
-				description="Manage your Spacedrive database backups."
+				title={t('backups')}
+				description={t('backups_description')}
 				rightArea={
 					<div className="flex flex-row items-center space-x-5">
 						<Button
@@ -51,7 +53,7 @@ export const Component = () => {
 
 			{backups.data?.backups.map((backup) => (
 				<Card key={backup.id} className="hover:bg-app-box/70">
-					<Database className="mr-3 h-10 w-10 self-center" />
+					<Database className="mr-3 size-10 self-center" />
 					<div className="grid min-w-[110px] grid-cols-1">
 						<h1 className="truncate pt-0.5 text-sm font-semibold">
 							{dayjs(backup.timestamp).toString()}
@@ -67,7 +69,7 @@ export const Component = () => {
 							onClick={() => doRestore.mutate(backup.path)}
 							variant="gray"
 						>
-							Restore
+							{t('restore')}
 						</Button>
 						<Button
 							disabled={doDelete.isLoading}
@@ -76,7 +78,7 @@ export const Component = () => {
 							variant="colored"
 							className="border-red-500 bg-red-500"
 						>
-							Delete
+							{t('delete')}
 						</Button>
 					</div>
 				</Card>

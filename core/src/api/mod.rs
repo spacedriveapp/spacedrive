@@ -1,13 +1,17 @@
-use std::sync::{atomic::Ordering, Arc};
-
 use crate::{
 	invalidate_query,
-	job::JobProgressEvent,
-	node::config::{NodeConfig, NodePreferences},
+	node::{
+		config::{NodeConfig, NodePreferences, P2PDiscoveryState, Port},
+		get_hardware_model_name, HardwareModel,
+	},
+	old_job::JobProgressEvent,
+	p2p::{into_listener2, Listener2},
 	Node,
 };
+
 use sd_cache::patch_typedef;
-use sd_p2p::P2PStatus;
+use sd_p2p::RemoteIdentity;
+use std::sync::{atomic::Ordering, Arc};
 
 use itertools::Itertools;
 use rspc::{alpha::Rspc, Config, ErrorCode};
@@ -23,8 +27,10 @@ mod ephemeral_files;
 mod files;
 mod jobs;
 mod keys;
+mod labels;
 mod libraries;
 pub mod locations;
+mod models;
 mod nodes;
 pub mod notifications;
 mod p2p;
@@ -58,7 +64,6 @@ pub enum CoreEvent {
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum BackendFeature {
-	SyncEmitMessages,
 	FilesOverP2P,
 	CloudSync,
 }
@@ -66,11 +71,6 @@ pub enum BackendFeature {
 impl BackendFeature {
 	pub fn restore(&self, node: &Node) {
 		match self {
-			BackendFeature::SyncEmitMessages => {
-				node.libraries
-					.emit_messages_flag
-					.store(true, Ordering::Relaxed);
-			}
 			BackendFeature::FilesOverP2P => {
 				node.files_over_p2p_flag.store(true, Ordering::Relaxed);
 			}
@@ -88,10 +88,13 @@ pub struct SanitisedNodeConfig {
 	pub id: Uuid,
 	/// name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
 	pub name: String,
-	pub p2p_enabled: bool,
-	pub p2p_port: Option<u16>,
+	pub identity: RemoteIdentity,
+	pub p2p_ipv4_port: Port,
+	pub p2p_ipv6_port: Port,
+	pub p2p_discovery: P2PDiscoveryState,
 	pub features: Vec<BackendFeature>,
 	pub preferences: NodePreferences,
+	pub image_labeler_version: Option<String>,
 }
 
 impl From<NodeConfig> for SanitisedNodeConfig {
@@ -99,10 +102,13 @@ impl From<NodeConfig> for SanitisedNodeConfig {
 		Self {
 			id: value.id,
 			name: value.name,
-			p2p_enabled: value.p2p.enabled,
-			p2p_port: value.p2p.port,
+			identity: value.identity.to_remote_identity(),
+			p2p_ipv4_port: value.p2p_ipv4_port,
+			p2p_ipv6_port: value.p2p_ipv6_port,
+			p2p_discovery: value.p2p_discovery,
 			features: value.features,
 			preferences: value.preferences,
+			image_labeler_version: value.image_labeler_version,
 		}
 	}
 }
@@ -112,7 +118,8 @@ struct NodeState {
 	#[serde(flatten)]
 	config: SanitisedNodeConfig,
 	data_path: String,
-	p2p: P2PStatus,
+	listeners: Vec<Listener2>,
+	device_model: Option<String>,
 }
 
 pub(crate) fn mount() -> Arc<Router> {
@@ -134,6 +141,10 @@ pub(crate) fn mount() -> Arc<Router> {
 		})
 		.procedure("nodeState", {
 			R.query(|node, _: ()| async move {
+				let device_model = get_hardware_model_name()
+					.unwrap_or(HardwareModel::Other)
+					.to_string();
+
 				Ok(NodeState {
 					config: node.config.get().await.into(),
 					// We are taking the assumption here that this value is only used on the frontend for display purposes
@@ -143,7 +154,8 @@ pub(crate) fn mount() -> Arc<Router> {
 						.to_str()
 						.expect("Found non-UTF-8 path")
 						.to_string(),
-					p2p: node.p2p.manager.status(),
+					listeners: into_listener2(&node.p2p.p2p.listeners()),
+					device_model: Some(device_model),
 				})
 			})
 		})
@@ -169,11 +181,6 @@ pub(crate) fn mount() -> Arc<Router> {
 				.map_err(|err| rspc::Error::new(ErrorCode::InternalServerError, err.to_string()))?;
 
 				match feature {
-					BackendFeature::SyncEmitMessages => {
-						node.libraries
-							.emit_messages_flag
-							.store(enabled, Ordering::Relaxed);
-					}
 					BackendFeature::FilesOverP2P => {
 						node.files_over_p2p_flag.store(enabled, Ordering::Relaxed);
 					}
@@ -194,6 +201,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("library.", libraries::mount())
 		.merge("volumes.", volumes::mount())
 		.merge("tags.", tags::mount())
+		.merge("labels.", labels::mount())
 		// .merge("categories.", categories::mount())
 		// .merge("keys.", keys::mount())
 		.merge("locations.", locations::mount())
@@ -201,6 +209,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("files.", files::mount())
 		.merge("jobs.", jobs::mount())
 		.merge("p2p.", p2p::mount())
+		.merge("models.", models::mount())
 		.merge("nodes.", nodes::mount())
 		.merge("sync.", sync::mount())
 		.merge("preferences.", preferences::mount())
@@ -218,7 +227,9 @@ pub(crate) fn mount() -> Arc<Router> {
 				<sd_prisma::prisma::object::Data as specta::NamedType>::SID,
 				def,
 			);
-		})
+		});
+
+	let r = r
 		.build(
 			#[allow(clippy::let_and_return)]
 			{

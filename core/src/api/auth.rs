@@ -1,22 +1,11 @@
 use std::time::Duration;
 
-use reqwest::{Response, StatusCode};
+use reqwest::StatusCode;
 use rspc::alpha::AlphaRouter;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use crate::util::http::ensure_response;
-
 use super::{Ctx, R};
-
-async fn parse_json_body<T: DeserializeOwned>(response: Response) -> Result<T, rspc::Error> {
-	response.json().await.map_err(|_| {
-		rspc::Error::new(
-			rspc::ErrorCode::InternalServerError,
-			"JSON conversion failed".to_string(),
-		)
-	})
-}
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -30,30 +19,42 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					verification_url_complete: String,
 				},
 				Complete,
-				Error,
+				Error(String),
 			}
 
 			R.subscription(|node, _: ()| async move {
-				async_stream::stream! {
-					#[derive(Deserialize, Type)]
-					struct DeviceAuthorizationResponse {
-						device_code: String,
-						user_code: String,
-						verification_url: String,
-						verification_uri_complete: String,
-					}
+				#[derive(Deserialize, Type)]
+				struct DeviceAuthorizationResponse {
+					device_code: String,
+					user_code: String,
+					verification_url: String,
+					verification_uri_complete: String,
+				}
 
-					let Ok(auth_response) =	(match node.http
-						.post(&format!("{}/login/device/code", &node.env.api_url))
+				async_stream::stream! {
+					let auth_response = match match node
+						.http
+						.post(&format!(
+							"{}/login/device/code",
+							&node.env.api_url.lock().await
+						))
 						.form(&[("client_id", &node.env.client_id)])
 						.send()
-						.await {
-							Ok(r) => r.json::<DeviceAuthorizationResponse>().await,
-							Err(e) => Err(e)
-						}) else {
-							yield Response::Error;
-							return;
-						};
+						.await
+						.map_err(|e| e.to_string())
+					{
+						Ok(r) => r.json::<DeviceAuthorizationResponse>().await.map_err(|e| e.to_string()),
+						Err(e) => {
+							yield Response::Error(e.to_string());
+							return
+						},
+					} {
+						Ok(v) => v,
+						Err(e) => {
+							yield Response::Error(e.to_string());
+							return
+						},
+					};
 
 					yield Response::Start {
 						user_code: auth_response.user_code.clone(),
@@ -64,28 +65,30 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					yield loop {
 						tokio::time::sleep(Duration::from_secs(5)).await;
 
-						let Ok(token_resp) = node.http
-							.post(&format!("{}/login/oauth/access_token", &node.env.api_url))
+						let token_resp = match node.http
+							.post(&format!("{}/login/oauth/access_token", &node.env.api_url.lock().await))
 							.form(&[
 								("grant_type", sd_cloud_api::auth::DEVICE_CODE_URN),
 								("device_code", &auth_response.device_code),
 								("client_id", &node.env.client_id)
 							])
 							.send()
-							.await else {
-								break Response::Error;
+							.await {
+								Ok(v) => v,
+								Err(e) => break Response::Error(e.to_string())
 							};
 
 						match token_resp.status() {
 							StatusCode::OK => {
-								let Ok(token) = token_resp.json().await else {
-									break Response::Error;
+								let token = match token_resp.json().await {
+									Ok(v) => v,
+									Err(e) => break Response::Error(e.to_string())
 								};
 
-								if node.config
+								if let Err(e) = node.config
 									.write(|c| c.auth_token = Some(token))
-									.await.is_err() {
-										break Response::Error;
+									.await {
+										break Response::Error(e.to_string());
 									};
 
 
@@ -97,19 +100,20 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									error: String
 								}
 
-								let Ok(resp) = token_resp.json::<OAuth400>().await else {
-									break Response::Error;
+								let resp = match token_resp.json::<OAuth400>().await {
+									Ok(v) => v,
+									Err(e) => break Response::Error(e.to_string())
 								};
 
 								match resp.error.as_str() {
 									"authorization_pending" => continue,
-									_ => {
-										break Response::Error;
+									e => {
+										break Response::Error(e.to_string())
 									}
 								}
 							},
-							_ => {
-								break Response::Error;
+							s => {
+								break Response::Error(s.to_string());
 							}
 						}
 					}
@@ -133,21 +137,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		)
 		.procedure("me", {
 			R.query(|node, _: ()| async move {
-				#[derive(Serialize, Deserialize, Type)]
-				#[specta(inline)]
-				struct Response {
-					id: String,
-					email: String,
-				}
+				let resp = sd_cloud_api::user::me(node.cloud_api_config().await).await?;
 
-				node.authed_api_request(
-					node.http
-						.get(&format!("{}/api/v1/user/me", &node.env.api_url)),
-				)
-				.await
-				.and_then(ensure_response)
-				.map(parse_json_body::<Response>)?
-				.await
+				Ok(resp)
 			})
 		})
 }

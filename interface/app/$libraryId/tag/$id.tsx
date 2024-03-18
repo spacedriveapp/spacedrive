@@ -1,18 +1,24 @@
-import { memo, useMemo } from 'react';
-import { ObjectKindEnum, ObjectOrder, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { useMemo } from 'react';
+import {
+	ObjectKindEnum,
+	ObjectOrder,
+	useCache,
+	useLibraryQuery,
+	useNodes,
+	useObjectsExplorerQuery
+} from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
 import { useRouteTitle, useZodRouteParams } from '~/hooks';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { useObjectsExplorerQuery } from '../Explorer/queries/useObjectsExplorerQuery';
 import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { EmptyNotice } from '../Explorer/View/EmptyNotice';
-import SearchOptions, { SearchContextProvider, useSearch } from '../Search';
-import SearchBar from '../Search/SearchBar';
+import { SearchContextProvider, SearchOptions, useSearch } from '../search';
+import SearchBar from '../search/SearchBar';
 import { TopBarPortal } from '../TopBar/Portal';
 
 export function Component() {
@@ -48,7 +54,7 @@ export function Component() {
 
 	const objects = useObjectsExplorerQuery({
 		arg: { take: 100, filters: search.allFilters },
-		explorerSettings
+		order: explorerSettings.useSettingsSnapshot().order
 	});
 
 	const explorer = useExplorer({
@@ -66,7 +72,7 @@ export function Component() {
 					left={
 						<div className="flex flex-row items-center gap-2">
 							<div
-								className="h-[14px] w-[14px] shrink-0 rounded-full"
+								className="size-[14px] shrink-0 rounded-full"
 								style={{ backgroundColor: tag!.color || '#efefef' }}
 							/>
 							<span className="truncate text-sm font-medium">{tag?.name}</span>

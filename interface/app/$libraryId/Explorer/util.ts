@@ -1,21 +1,23 @@
 import { useMemo } from 'react';
-import { getExplorerItemData, type ExplorerItem } from '@sd/client';
+import { getExplorerItemData, useSelector, type ExplorerItem } from '@sd/client';
 import { ExplorerParamsSchema } from '~/app/route-schemas';
 import { useZodSearchParams } from '~/hooks';
 
-import { flattenThumbnailKey, useExplorerStore } from './store';
+import { explorerStore, flattenThumbnailKey } from './store';
 
 export function useExplorerSearchParams() {
 	return useZodSearchParams(ExplorerParamsSchema);
 }
 
 export function useExplorerItemData(explorerItem: ExplorerItem) {
-	const explorerStore = useExplorerStore();
+	const newThumbnail = useSelector(explorerStore, (s) => {
+		const firstThumbnail =
+			explorerItem.type === 'Label'
+				? explorerItem.thumbnails?.[0]
+				: 'thumbnail' in explorerItem && explorerItem.thumbnail;
 
-	const newThumbnail = !!(
-		explorerItem.thumbnail_key &&
-		explorerStore.newThumbnails.has(flattenThumbnailKey(explorerItem.thumbnail_key))
-	);
+		return !!(firstThumbnail && s.newThumbnails.has(flattenThumbnailKey(firstThumbnail)));
+	});
 
 	return useMemo(() => {
 		const itemData = getExplorerItemData(explorerItem);
@@ -42,8 +44,18 @@ export const uniqueId = (item: ExplorerItem | { pub_id: number[] }) => {
 		case 'NonIndexedPath':
 			return item.item.path;
 		case 'SpacedropPeer':
+		case 'Label':
 			return item.item.name;
 		default:
 			return pubIdToString(item.item.pub_id);
 	}
 };
+
+export function getItemId(index: number, items: ExplorerItem[]) {
+	const item = items[index];
+	return item ? uniqueId(item) : undefined;
+}
+
+export function getItemData(index: number, items: ExplorerItem[]) {
+	return items[index];
+}

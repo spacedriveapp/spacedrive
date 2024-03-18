@@ -1,5 +1,7 @@
 import { ScreenHeading } from '@sd/ui';
+import { useLocale } from '~/hooks';
 
 export const Component = () => {
-	return <ScreenHeading>People</ScreenHeading>;
+	const { t } = useLocale();
+	return <ScreenHeading>{t('people')}</ScreenHeading>;
 };

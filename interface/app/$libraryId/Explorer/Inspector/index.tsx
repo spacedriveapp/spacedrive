@@ -41,20 +41,22 @@ import {
 	useItemsAsObjects,
 	useLibraryQuery,
 	useNodes,
+	useSelector,
 	type ExplorerItem
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, toast, Tooltip, tw } from '@sd/ui';
 import { LibraryIdParamsSchema } from '~/app/route-schemas';
 import { Folder, Icon } from '~/components';
-import { useZodRouteParams } from '~/hooks';
+import { useLocale, useZodRouteParams } from '~/hooks';
 import { isNonEmpty } from '~/util';
 
 import { useExplorerContext } from '../Context';
 import AssignTagMenuItems from '../ContextMenu/AssignTagMenuItems';
 import { FileThumb } from '../FilePath/Thumb';
 import { useQuickPreviewStore } from '../QuickPreview/store';
-import { getExplorerStore, useExplorerStore } from '../store';
+import { explorerStore } from '../store';
 import { uniqueId, useExplorerItemData } from '../util';
+import { RenamableItemText } from '../View/RenamableItemText';
 import FavoriteButton from './FavoriteButton';
 import MediaData from './MediaData';
 import Note from './Note';
@@ -97,7 +99,7 @@ export const Inspector = forwardRef<HTMLDivElement, Props>(
 		const selectedItems = useMemo(() => [...explorer.selectedItems], [explorer.selectedItems]);
 
 		useEffect(() => {
-			getExplorerStore().showMoreInfo = false;
+			explorerStore.showMoreInfo = false;
 		}, [pathname]);
 
 		return (
@@ -174,6 +176,8 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	let filePathData: FilePath | FilePathWithObject | null = null;
 	let ephemeralPathData: NonIndexedPathItem | null = null;
 
+	const { t } = useLocale();
+
 	const result = useLibraryQuery(['locations.list']);
 	useNodes(result.data?.nodes);
 	const locations = useCache(result.data?.items);
@@ -206,21 +210,26 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					...new Set(
 						(item.item?.file_paths || []).map((fp) => fp.location_id).filter(Boolean)
 					)
-			  ]
+				]
 			: item.type === 'Path'
-			? [item.item.location_id]
-			: [];
+				? [item.item.location_id]
+				: [];
 	}, [item]);
 
 	const fileLocations =
 		locations?.filter((location) => uniqueLocationIds.includes(location.id)) || [];
 
 	const readyToFetch = useIsFetchReady(item);
+
 	const tagsQuery = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
 		enabled: objectData != null && readyToFetch
 	});
 	useNodes(tagsQuery.data?.nodes);
 	const tags = useCache(tagsQuery.data?.items);
+
+	const labels = useLibraryQuery(['labels.getForObject', objectData?.id ?? -1], {
+		enabled: objectData != null && readyToFetch
+	});
 
 	const { libraryId } = useZodRouteParams(LibraryIdParamsSchema);
 
@@ -262,25 +271,32 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 	return (
 		<>
-			<h3 className="truncate px-3 pb-1 pt-2 text-base font-bold text-ink">
-				{name}
-				{extension && `.${extension}`}
-			</h3>
+			<div className="px-2 pb-1 pt-2">
+				<RenamableItemText
+					item={item}
+					toggleBy="click"
+					lines={2}
+					selected
+					allowHighlight={false}
+					className="!text-base !font-bold !text-ink"
+					style={{ maxHeight: '50px' }}
+				/>
+			</div>
 
 			{objectData && (
 				<div className="mx-3 mb-0.5 mt-1 flex flex-row space-x-0.5 text-ink">
-					<Tooltip label="Favorite">
+					<Tooltip label={t('favorite')}>
 						<FavoriteButton data={objectData} />
 					</Tooltip>
 
-					<Tooltip label="Encrypt">
+					<Tooltip label={t('encrypt')}>
 						<Button size="icon">
-							<Lock className="h-[18px] w-[18px]" />
+							<Lock className="size-[18px]" />
 						</Button>
 					</Tooltip>
-					<Tooltip label="Share">
+					<Tooltip label={t('share')}>
 						<Button size="icon">
-							<Link className="h-[18px] w-[18px]" />
+							<Link className="size-[18px]" />
 						</Button>
 					</Tooltip>
 				</div>
@@ -289,23 +305,31 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 			<Divider />
 
 			<MetaContainer>
-				<MetaData icon={Cube} label="Size" value={`${size}`} />
+				<MetaData
+					icon={Cube}
+					label={t('size')}
+					value={!!ephemeralPathData && ephemeralPathData.is_dir ? null : `${size}`}
+				/>
 
-				<MetaData icon={Clock} label="Created" value={formatDate(dateCreated)} />
+				<MetaData icon={Clock} label={t('created')} value={formatDate(dateCreated)} />
 
-				<MetaData icon={Eraser} label="Modified" value={formatDate(dateModified)} />
+				<MetaData icon={Eraser} label={t('modified')} value={formatDate(dateModified)} />
 
 				{ephemeralPathData != null || (
-					<MetaData icon={Barcode} label="Indexed" value={formatDate(dateIndexed)} />
+					<MetaData icon={Barcode} label={t('indexed')} value={formatDate(dateIndexed)} />
 				)}
 
 				{ephemeralPathData != null || (
-					<MetaData icon={FolderOpen} label="Accessed" value={formatDate(dateAccessed)} />
+					<MetaData
+						icon={FolderOpen}
+						label={t('accessed')}
+						value={formatDate(dateAccessed)}
+					/>
 				)}
 
 				<MetaData
 					icon={Path}
-					label="Path"
+					label={t('path')}
 					value={fullPath}
 					onClick={() => {
 						if (fullPath) {
@@ -318,7 +342,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 			{fileLocations.length > 0 && (
 				<MetaContainer>
-					<MetaTitle>Locations</MetaTitle>
+					<MetaTitle>{t('locations')}</MetaTitle>
 					<div className="flex flex-wrap gap-2">
 						{fileLocations.map((location) => (
 							<NavLink to={`/${libraryId}/location/${location.id}`} key={location.id}>
@@ -339,6 +363,12 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 				{extension && <InfoPill>{extension}</InfoPill>}
 
+				{labels.data?.map((label) => (
+					<InfoPill key={label.id} className="truncate !text-white">
+						{label.name}
+					</InfoPill>
+				))}
+
 				{tags?.map((tag) => (
 					<NavLink key={tag.id} to={`/${libraryId}/tag/${tag.id}`}>
 						<Tooltip label={tag.name || ''} className="flex overflow-hidden">
@@ -355,7 +385,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 				{item.type === 'Object' ||
 					(item.type === 'Path' && (
 						<DropdownMenu.Root
-							trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
+							trigger={<PlaceholderPill>{t('add_tag')}</PlaceholderPill>}
 							side="left"
 							sideOffset={5}
 							alignOffset={-10}
@@ -372,17 +402,17 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					<Divider />
 
 					<MetaContainer>
-						<MetaData icon={Snowflake} label="Content ID" value={casId} />
+						<MetaData icon={Snowflake} label={t('content_id')} value={casId} />
 
 						{integrityChecksum && (
 							<MetaData
 								icon={CircleWavyCheck}
-								label="Checksum"
+								label={t('checksum')}
 								value={integrityChecksum}
 							/>
 						)}
 
-						<MetaData icon={Hash} label="Object ID" value={pubId} />
+						<MetaData icon={Hash} label={t('object_id')} value={pubId} />
 					</MetaContainer>
 				</>
 			)}
@@ -391,7 +421,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 };
 
 const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
-	const explorerStore = useExplorerStore();
+	const isDragSelecting = useSelector(explorerStore, (s) => s.isDragSelecting);
 
 	const selectedObjects = useItemsAsObjects(items);
 
@@ -400,15 +430,25 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 	const { libraryId } = useZodRouteParams(LibraryIdParamsSchema);
 
 	const tagsQuery = useLibraryQuery(['tags.list'], {
-		enabled: readyToFetch && !explorerStore.isDragSelecting,
+		enabled: readyToFetch && !isDragSelecting,
 		suspense: true
 	});
 	useNodes(tagsQuery.data?.nodes);
 	const tags = useCache(tagsQuery.data?.items);
 
+	const labels = useLibraryQuery(['labels.list'], {
+		enabled: readyToFetch && !isDragSelecting,
+		suspense: true
+	});
+
 	const tagsWithObjects = useLibraryQuery(
 		['tags.getWithObjects', selectedObjects.map(({ id }) => id)],
-		{ enabled: readyToFetch && !explorerStore.isDragSelecting }
+		{ enabled: readyToFetch && !isDragSelecting }
+	);
+
+	const labelsWithObjects = useLibraryQuery(
+		['labels.getWithObjects', selectedObjects.map(({ id }) => id)],
+		{ enabled: readyToFetch && !isDragSelecting }
 	);
 
 	const getDate = useCallback((metadataDate: MetadataDate, date: Date) => {
@@ -434,7 +474,9 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 					const { kind, size, dateCreated, dateAccessed, dateModified, dateIndexed } =
 						getExplorerItemData(item);
 
-					metadata.size += size.original;
+					if (item.type !== 'NonIndexedPath' || !item.item.is_dir) {
+						metadata.size = (metadata.size ?? BigInt(0)) + size.original;
+					}
 
 					if (dateCreated)
 						metadata.created = getDate(metadata.created, new Date(dateCreated));
@@ -456,8 +498,8 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 
 					return metadata;
 				},
-				{ size: BigInt(0), indexed: null, types: new Set(), kinds: new Map() } as {
-					size: bigint;
+				{ size: null, indexed: null, types: new Set(), kinds: new Map() } as {
+					size: bigint | null;
 					created: MetadataDate;
 					modified: MetadataDate;
 					indexed: MetadataDate;
@@ -469,21 +511,35 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 		[items, getDate]
 	);
 
+	const { t } = useLocale();
+
 	const onlyNonIndexed = metadata.types.has('NonIndexedPath') && metadata.types.size === 1;
 
 	return (
 		<>
 			<MetaContainer>
-				<MetaData icon={Cube} label="Size" value={`${byteSize(metadata.size)}`} />
-				<MetaData icon={Clock} label="Created" value={formatDate(metadata.created)} />
-				<MetaData icon={Eraser} label="Modified" value={formatDate(metadata.modified)} />
+				<MetaData
+					icon={Cube}
+					label={t('size')}
+					value={metadata.size !== null ? `${byteSize(metadata.size)}` : null}
+				/>
+				<MetaData icon={Clock} label={t('created')} value={formatDate(metadata.created)} />
+				<MetaData
+					icon={Eraser}
+					label={t('modified')}
+					value={formatDate(metadata.modified)}
+				/>
 				{onlyNonIndexed || (
-					<MetaData icon={Barcode} label="Indexed" value={formatDate(metadata.indexed)} />
+					<MetaData
+						icon={Barcode}
+						label={t('indexed')}
+						value={formatDate(metadata.indexed)}
+					/>
 				)}
 				{onlyNonIndexed || (
 					<MetaData
 						icon={FolderOpen}
-						label="Accessed"
+						label={t('accessed')}
 						value={formatDate(metadata.accessed)}
 					/>
 				)}
@@ -496,14 +552,33 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 					<InfoPill key={kind}>{`${kind} (${items.length})`}</InfoPill>
 				))}
 
+				{labels.data?.map((label) => {
+					const objectsWithLabel = labelsWithObjects.data?.[label.id] ?? [];
+
+					if (objectsWithLabel.length === 0) return null;
+
+					return (
+						<InfoPill
+							key={label.id}
+							className="!text-white"
+							style={{
+								opacity:
+									objectsWithLabel.length === selectedObjects.length ? 1 : 0.5
+							}}
+						>
+							{label.name} ({objectsWithLabel.length})
+						</InfoPill>
+					);
+				})}
+
 				{tags?.map((tag) => {
-					const objectsWithTag = tagsWithObjects.data?.[tag.id] || [];
+					const objectsWithTag = tagsWithObjects.data?.[tag.id] ?? [];
 
 					if (objectsWithTag.length === 0) return null;
 
 					return (
 						<NavLink key={tag.id} to={`/${libraryId}/tag/${tag.id}`}>
-							<Tooltip key={tag.id} label={tag.name} className="flex overflow-hidden">
+							<Tooltip label={tag.name} className="flex overflow-hidden">
 								<InfoPill
 									className="cursor-pointer truncate !text-white"
 									style={{
@@ -523,7 +598,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 
 				{isNonEmpty(selectedObjects) && (
 					<DropdownMenu.Root
-						trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
+						trigger={<PlaceholderPill>{t('add_tag')}</PlaceholderPill>}
 						side="left"
 						sideOffset={5}
 						alignOffset={-10}
@@ -554,8 +629,12 @@ export const MetaData = ({ icon: Icon, label, value, tooltipValue, onClick }: Me
 		<div className="flex items-center text-xs text-ink-dull" onClick={onClick}>
 			{Icon && <Icon weight="bold" className="mr-2 shrink-0" />}
 			<span className="mr-2 flex-1 whitespace-nowrap">{label}</span>
-			<Tooltip label={tooltipValue || value} asChild>
-				<span className="truncate break-all text-ink">{value ?? '--'}</span>
+			<Tooltip
+				label={tooltipValue || value}
+				className="truncate text-ink"
+				tooltipClassName="max-w-none"
+			>
+				{value ?? '--'}
 			</Tooltip>
 		</div>
 	);

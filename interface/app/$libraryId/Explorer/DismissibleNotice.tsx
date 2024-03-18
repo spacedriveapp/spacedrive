@@ -1,21 +1,23 @@
 import { ReactNode } from 'react';
 import { ExplorerLayout } from '@sd/client';
+import i18n from '~/app/I18n';
 import { Icon } from '~/components';
 import DismissibleNotice from '~/components/DismissibleNotice';
+import { useLocale } from '~/hooks';
 import { dismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
 
 import { useExplorerContext } from './Context';
 
 const MediaViewIcon = () => {
 	return (
-		<div className="relative ml-3 mr-10 h-14 w-14 shrink-0">
+		<div className="relative ml-3 mr-10 size-14 shrink-0">
 			<Icon
 				name="Image"
-				className="absolute -top-1 left-6 h-14 w-14 rotate-6 overflow-hidden"
+				className="absolute -top-1 left-6 size-14 rotate-6 overflow-hidden"
 			/>
 			<Icon
 				name="Video"
-				className="absolute top-2 z-10 h-14 w-14 -rotate-6 overflow-hidden"
+				className="absolute top-2 z-10 size-14 -rotate-6 overflow-hidden"
 			/>
 		</div>
 	);
@@ -23,7 +25,7 @@ const MediaViewIcon = () => {
 
 const CollectionIcon = () => {
 	return (
-		<div className="ml-3 mr-4 h-14 w-14 shrink-0">
+		<div className="ml-3 mr-4 size-14 shrink-0">
 			<Icon name="Collection" />
 		</div>
 	);
@@ -39,29 +41,28 @@ interface Notice {
 const notices = {
 	grid: {
 		key: 'gridView',
-		title: 'Grid View',
-		description:
-			"Get a visual overview of your files with Grid View. This view displays your files and folders as thumbnail images, making it easy to quickly identify the file you're looking for.",
+		title: i18n.t('grid_view'),
+		description: i18n.t('grid_view_notice_description'),
 		icon: <CollectionIcon />
 	},
 	list: {
 		key: 'listView',
-		title: 'List View',
-		description:
-			'Easily navigate through your files and folders with List View. This view displays your files in a simple, organized list format, allowing you to quickly locate and access the files you need.',
+		title: i18n.t('list_view'),
+		description: i18n.t('list_view_notice_description'),
 		icon: <CollectionIcon />
 	},
 	media: {
 		key: 'mediaView',
 		title: 'Media View',
-		description:
-			'Discover photos and videos easily, Media View will show results starting at the current location including sub directories.',
+		description: i18n.t('media_view_notice_description'),
 		icon: <MediaViewIcon />
 	}
 	// columns: undefined
 } satisfies Record<ExplorerLayout, Notice | undefined>;
 
 export default () => {
+	const { t } = useLocale();
+
 	const settings = useExplorerContext().useSettingsSnapshot();
 
 	const notice = notices[settings.layoutMode];
@@ -70,11 +71,7 @@ export default () => {
 
 	return (
 		<DismissibleNotice
-			title={
-				<>
-					<span className="font-normal">Meet</span> {notice.title}
-				</>
-			}
+			title={<span className="font-normal">{t('meet_title', { title: notice.title })}</span>}
 			icon={notice.icon}
 			description={notice.description}
 			className="m-5"

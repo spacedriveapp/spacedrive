@@ -37,6 +37,7 @@ narkhede
 naveen
 neha
 noco
+Normalised
 OSSC
 poonen
 rauch
@@ -56,6 +57,7 @@ spacetunnel
 specta
 storedkey
 stringly
+thumbstrips
 tobiaslutke
 typecheck
 vdfs

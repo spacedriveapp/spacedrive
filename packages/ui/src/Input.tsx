@@ -28,7 +28,7 @@ export const inputSizes = {
 export const inputStyles = cva(
 	[
 		'rounded-md border text-sm leading-4',
-		'shadow-sm outline-none transition-all focus-within:ring-2',
+		'outline-none transition-all focus-within:ring-2',
 		'text-ink'
 	],
 	{
@@ -81,13 +81,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 							: createElement<IconProps>(icon as Icon, {
 									size: 18,
 									className: 'text-gray-350'
-							  })}
+								})}
 					</div>
 				)}
 
 				<input
 					className={clsx(
-						'flex-1 truncate border-none bg-transparent px-3 text-sm outline-none placeholder:text-ink-faint',
+						'flex-1 truncate border-none bg-transparent px-3 text-sm outline-none placeholder:text-ink-faint focus:!ring-0',
 						(right || (icon && iconPosition === 'right')) && 'pr-0',
 						icon && iconPosition === 'left' && 'pl-0',
 						size === 'xs' && '!py-0',
@@ -175,7 +175,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, Props>((props, ref) =>
 					size="icon"
 					className={clsx(props.buttonClassnames)}
 				>
-					<CurrentEyeIcon className="!pointer-events-none h-4 w-4" />
+					<CurrentEyeIcon className="!pointer-events-none size-4" />
 				</Button>
 			}
 		/>

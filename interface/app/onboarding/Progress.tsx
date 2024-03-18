@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { useEffect } from 'react';
 import { useMatch, useNavigate } from 'react-router';
-import { getOnboardingStore, unlockOnboardingScreen, useOnboardingStore } from '@sd/client';
+import { onboardingStore, unlockOnboardingScreen, useOnboardingStore } from '@sd/client';
 import { useOperatingSystem } from '~/hooks';
 
 export default function OnboardingProgress() {
@@ -16,7 +16,7 @@ export default function OnboardingProgress() {
 	useEffect(() => {
 		if (!currentScreen) return;
 
-		unlockOnboardingScreen(currentScreen, getOnboardingStore().unlockedScreens);
+		unlockOnboardingScreen(currentScreen, onboardingStore.unlockedScreens);
 	}, [currentScreen]);
 
 	const routes = [
@@ -40,7 +40,7 @@ export default function OnboardingProgress() {
 							disabled={!obStore.unlockedScreens.includes(path)}
 							onClick={() => navigate(path, { replace: true })}
 							className={clsx(
-								'h-2 w-2 rounded-full transition hover:bg-ink disabled:opacity-10',
+								'size-2 rounded-full transition hover:bg-ink disabled:opacity-10',
 								currentScreen === path ? 'bg-ink' : 'bg-ink-faint'
 							)}
 						/>

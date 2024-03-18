@@ -45,7 +45,7 @@ export default forwardRef<HTMLButtonElement, TopBarButtonProps>(
 			>
 				{props.children}
 				{checkIcon && active && (
-					<Check className="absolute right-2 m-0.5 h-5 w-5 text-ink-dull" />
+					<Check className="absolute right-2 m-0.5 size-5 text-ink-dull" />
 				)}
 			</Button>
 		);

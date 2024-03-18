@@ -1,4 +1,5 @@
 import { getIcon, iconNames } from '@sd/assets/util';
+import clsx from 'clsx';
 import { ImgHTMLAttributes } from 'react';
 import { useIsDark } from '~/hooks';
 
@@ -18,6 +19,7 @@ export const Icon = ({ name, size, theme, ...props }: Props) => {
 			width={size}
 			height={size}
 			{...props}
+			className={clsx('pointer-events-none', props.className)}
 		/>
 	);
 };

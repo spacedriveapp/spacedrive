@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useDiscoveredPeers } from '@sd/client';
 import { Icon } from '~/components';
+import { useLocale } from '~/hooks';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 
 import Explorer from './Explorer';
@@ -12,6 +13,8 @@ import { TopBarPortal } from './TopBar/Portal';
 
 export const Component = () => {
 	const title = useRouteTitle('Network');
+
+	const { t } = useLocale();
 
 	const discoveredPeers = useDiscoveredPeers();
 	const peers = useMemo(() => Array.from(discoveredPeers.values()), [discoveredPeers]);
@@ -32,11 +35,11 @@ export const Component = () => {
 
 	const explorer = useExplorer({
 		items: peers.map((peer) => ({
-			type: 'SpacedropPeer',
+			type: 'SpacedropPeer' as const,
 			has_local_thumbnail: false,
-			thumbnail_key: null,
+			thumbnail: null,
 			item: {
-				...peer,
+				...peer.metadata,
 				pub_id: []
 			}
 		})),
@@ -59,10 +62,9 @@ export const Component = () => {
 				emptyNotice={
 					<div className="flex h-full flex-col items-center justify-center text-white">
 						<Icon name="Globe" size={128} />
-						<h1 className="mt-4 text-lg font-bold">Your Local Network</h1>
+						<h1 className="mt-4 text-lg font-bold">{t('your_local_network')}</h1>
 						<p className="mt-1 max-w-sm text-center text-sm text-ink-dull">
-							Other Spacedrive nodes on your LAN will appear here, along with your
-							default OS network mounts.
+							{t('network_page_description')}
 						</p>
 					</div>
 				}

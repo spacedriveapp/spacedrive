@@ -1,13 +1,15 @@
 use crate::{
 	invalidate_query,
-	job::{job_without_data, Job, JobReport, JobStatus, Jobs},
 	location::{find_location, LocationError},
 	object::{
-		file_identifier::file_identifier_job::FileIdentifierJobInit, media::MediaProcessorJobInit,
-		validation::validator_job::ObjectValidatorJobInit,
+		media::OldMediaProcessorJobInit,
+		old_file_identifier::old_file_identifier_job::OldFileIdentifierJobInit,
+		validation::old_validator_job::OldObjectValidatorJobInit,
 	},
-	prisma::{job, location, SortOrder},
+	old_job::{job_without_data, Job, JobReport, JobStatus, OldJobs},
 };
+
+use sd_prisma::prisma::{job, location, SortOrder};
 
 use std::{
 	collections::{hash_map::Entry, BTreeMap, HashMap, VecDeque},
@@ -95,7 +97,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.flat_map(JobReport::try_from)
 						.collect();
 
-					let active_reports_by_id = node.jobs.get_active_reports_with_id().await;
+					let active_reports_by_id = node.old_jobs.get_active_reports_with_id().await;
 
 					for job in job_reports {
 						// action name and group key are computed from the job data
@@ -160,7 +162,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("isActive", {
 			R.with2(library())
 				.query(|(node, library), _: ()| async move {
-					Ok(node.jobs.has_active_workers(library.id).await)
+					Ok(node.old_jobs.has_active_workers(library.id).await)
 				})
 		})
 		.procedure("clear", {
@@ -201,7 +203,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("pause", {
 			R.with2(library())
 				.mutation(|(node, library), id: Uuid| async move {
-					let ret = Jobs::pause(&node.jobs, id).await.map_err(Into::into);
+					let ret = OldJobs::pause(&node.old_jobs, id).await.map_err(Into::into);
 					invalidate_query!(library, "jobs.reports");
 					ret
 				})
@@ -209,7 +211,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("resume", {
 			R.with2(library())
 				.mutation(|(node, library), id: Uuid| async move {
-					let ret = Jobs::resume(&node.jobs, id).await.map_err(Into::into);
+					let ret = OldJobs::resume(&node.old_jobs, id)
+						.await
+						.map_err(Into::into);
 					invalidate_query!(library, "jobs.reports");
 					ret
 				})
@@ -217,7 +221,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("cancel", {
 			R.with2(library())
 				.mutation(|(node, library), id: Uuid| async move {
-					let ret = Jobs::cancel(&node.jobs, id).await.map_err(Into::into);
+					let ret = OldJobs::cancel(&node.old_jobs, id)
+						.await
+						.map_err(Into::into);
 					invalidate_query!(library, "jobs.reports");
 					ret
 				})
@@ -242,10 +248,43 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						return Err(LocationError::IdNotFound(id).into());
 					};
 
-					Job::new(MediaProcessorJobInit {
+					Job::new(OldMediaProcessorJobInit {
 						location,
 						sub_path: Some(path),
 						regenerate_thumbnails: regenerate,
+						regenerate_labels: false,
+					})
+					.spawn(&node, &library)
+					.await
+					.map_err(Into::into)
+				},
+			)
+		})
+		.procedure("generateLabelsForLocation", {
+			#[derive(Type, Deserialize)]
+			pub struct GenerateLabelsForLocationArgs {
+				pub id: location::id::Type,
+				pub path: PathBuf,
+				#[serde(default)]
+				pub regenerate: bool,
+			}
+
+			R.with2(library()).mutation(
+				|(node, library),
+				 GenerateLabelsForLocationArgs {
+				     id,
+				     path,
+				     regenerate,
+				 }: GenerateLabelsForLocationArgs| async move {
+					let Some(location) = find_location(&library, id).exec().await? else {
+						return Err(LocationError::IdNotFound(id).into());
+					};
+
+					Job::new(OldMediaProcessorJobInit {
+						location,
+						sub_path: Some(path),
+						regenerate_thumbnails: false,
+						regenerate_labels: regenerate,
 					})
 					.spawn(&node, &library)
 					.await
@@ -266,7 +305,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						return Err(LocationError::IdNotFound(args.id).into());
 					};
 
-					Job::new(ObjectValidatorJobInit {
+					Job::new(OldObjectValidatorJobInit {
 						location,
 						sub_path: Some(args.path),
 					})
@@ -288,7 +327,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						return Err(LocationError::IdNotFound(args.id).into());
 					};
 
-					Job::new(FileIdentifierJobInit {
+					Job::new(OldFileIdentifierJobInit {
 						location,
 						sub_path: Some(args.path),
 					})

@@ -1,10 +1,10 @@
 import { FolderSimplePlus } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
-import { useRef, useState } from 'react';
+import { ComponentProps, useRef, useState } from 'react';
 import { useLibraryContext } from '@sd/client';
 import { Button, dialogManager, type ButtonProps } from '@sd/ui';
-import { useCallbackToWatchResize } from '~/hooks';
+import { useCallbackToWatchResize, useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { AddLocationDialog } from './AddLocationDialog';
@@ -13,11 +13,20 @@ import { openDirectoryPickerDialog } from './openDirectoryPickerDialog';
 interface AddLocationButton extends ButtonProps {
 	path?: string;
 	onClick?: () => void;
+	buttonVariant?: ComponentProps<typeof Button>['variant'];
 }
 
-export const AddLocationButton = ({ path, className, onClick, ...props }: AddLocationButton) => {
+export const AddLocationButton = ({
+	path,
+	className,
+	onClick,
+	buttonVariant = 'dotted',
+	...props
+}: AddLocationButton) => {
 	const platform = usePlatform();
 	const libraryId = useLibraryContext().library.uuid;
+
+	const { t } = useLocale();
 
 	const transition = {
 		type: 'keyframes',
@@ -53,7 +62,7 @@ export const AddLocationButton = ({ path, className, onClick, ...props }: AddLoc
 	return (
 		<>
 			<Button
-				variant="dotted"
+				variant={buttonVariant}
 				className={clsx('w-full', className)}
 				onClick={async () => {
 					await locationDialogHandler();
@@ -62,7 +71,7 @@ export const AddLocationButton = ({ path, className, onClick, ...props }: AddLoc
 				{...props}
 			>
 				{path ? (
-					<div className="flex h-full w-full flex-row items-end whitespace-nowrap font-mono text-sm">
+					<div className="flex size-full flex-row items-end whitespace-nowrap font-mono text-sm">
 						<FolderSimplePlus size={22} className="shrink-0" />
 						<div className="ml-1 overflow-hidden">
 							<motion.span
@@ -83,7 +92,7 @@ export const AddLocationButton = ({ path, className, onClick, ...props }: AddLoc
 						</div>
 					</div>
 				) : (
-					'Add Location'
+					t('add_location')
 				)}
 			</Button>
 		</>

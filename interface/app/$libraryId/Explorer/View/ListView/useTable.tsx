@@ -16,6 +16,7 @@ import {
 	getIndexedItemFilePath,
 	getItemFilePath,
 	getItemObject,
+	useSelector,
 	type ExplorerItem
 } from '@sd/client';
 import { isNonEmptyObject } from '~/util';
@@ -23,12 +24,12 @@ import { isNonEmptyObject } from '~/util';
 import { useExplorerContext } from '../../Context';
 import { FileThumb } from '../../FilePath/Thumb';
 import { InfoPill } from '../../Inspector';
-import { CutCopyState, isCut, useExplorerStore } from '../../store';
+import { CutCopyState, explorerStore, isCut } from '../../store';
 import { uniqueId } from '../../util';
 import { RenamableItemText } from '../RenamableItemText';
 
 const NameCell = memo(({ item, selected }: { item: ExplorerItem; selected: boolean }) => {
-	const { cutCopyState } = useExplorerStore();
+	const cutCopyState = useSelector(explorerStore, (s) => s.cutCopyState);
 
 	const cut = useMemo(() => isCut(item, cutCopyState as CutCopyState), [cutCopyState, item]);
 
@@ -37,7 +38,7 @@ const NameCell = memo(({ item, selected }: { item: ExplorerItem; selected: boole
 			<FileThumb
 				data={item}
 				frame
-				frameClassName="!border"
+				frameClassName={clsx('!border', item.type === 'Label' && '!rounded-lg')}
 				blackBars
 				size={35}
 				className={clsx('mr-2.5', cut && 'opacity-60')}
