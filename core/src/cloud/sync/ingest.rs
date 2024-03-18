@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use tokio::sync::Notify;
-use tracing::{debug, info};
+use tracing::debug;
 
 use crate::cloud::sync::err_break;
 
@@ -11,8 +11,6 @@ pub async fn run_actor(sync: Arc<sd_core_sync::Manager>, notify: Arc<Notify>) {
 	loop {
 		{
 			let mut rx = sync.ingest.req_rx.lock().await;
-
-			debug!("Ingest lock obtained");
 
 			if sync
 				.ingest
@@ -42,7 +40,7 @@ pub async fn run_actor(sync: Arc<sd_core_sync::Manager>, notify: Arc<Notify>) {
 						.await
 					);
 
-					if (ops.len() == 0) {
+					if ops.is_empty() {
 						break;
 					}
 

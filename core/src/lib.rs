@@ -214,7 +214,7 @@ impl Node {
 
 			std::env::set_var(
 				"RUST_LOG",
-				format!("info,sd_core={level},sd_p2p=debug,sd_core::location::manager=info,sd_ai={level},sd_core_sync={level}"),
+				format!("info,sd_core={level},sd_p2p=debug,sd_core::location::manager=info,sd_ai={level}"),
 			);
 		}
 
