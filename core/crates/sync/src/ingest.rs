@@ -109,8 +109,6 @@ impl Actor {
 					for op in event.messages {
 						self.receive_crdt_operation(op).await;
 					}
-
-					debug!("done ingesting");
 				}
 
 				match event.has_more {
@@ -123,8 +121,6 @@ impl Actor {
 				}
 			}
 		};
-
-		debug!("new ingest actor state: {state:#?}");
 
 		Some(Self {
 			state: Some(state),
@@ -158,70 +154,49 @@ impl Actor {
 
 	// where the magic happens
 	async fn receive_crdt_operation(&mut self, op: CRDTOperation) {
-		debug!("receiving operation {}", op.timestamp.as_u64());
 		// first, we update the HLC's timestamp with the incoming one.
 		// this involves a drift check + sets the last time of the clock
 		self.clock
 			.update_with_timestamp(&Timestamp::new(op.timestamp, op.instance.into()))
 			.expect("timestamp has too much drift!");
 
-		debug!("clock updateed");
 		// read the timestamp for the operation's instance, or insert one if it doesn't exist
 		let timestamp = self.timestamps.read().await.get(&op.instance).cloned();
-		debug!("timestamp retrieved");
 
 		// copy some fields bc rust ownership
 		let op_instance = op.instance;
 		let op_timestamp = op.timestamp;
 
 		if !self.is_operation_old(&op).await {
-			debug!("operation not old");
 			// actually go and apply the operation in the db
 			self.apply_op(op).await.ok();
-
-			debug!("apply_op done");
 
 			// update the stored timestamp for this instance - will be derived from the crdt operations table on restart
 			self.timestamps.write().await.insert(
 				op_instance,
 				NTP64::max(timestamp.unwrap_or_default(), op_timestamp),
 			);
-			debug!("timestamp inserted	");
 		}
-
-		debug!("doen ingesting operation");
 	}
 
 	async fn apply_op(&mut self, op: CRDTOperation) -> prisma_client_rust::Result<()> {
-		// self.db
-		// 	._transaction()
-		// 	.with_timeout(30 * 1000)
-		// 	.run(|db| async move {
-		debug!("transaction start");
+		self.db
+			._transaction()
+			.with_timeout(30 * 1000)
+			.run(|db| async move {
+				// apply the operation to the actual record
+				let sync_data = ModelSyncData::from_op(op.clone());
 
-		// apply the operation to the actual record
-		let sync_data = ModelSyncData::from_op(op.clone());
+				sync_data.unwrap().exec(&db).await?;
 
-		debug!("model sync data exists: {}", sync_data.is_some());
+				// write the operation to the operations table
+				write_crdt_op_to_db(&op, &db).await?;
 
-		sync_data.unwrap().exec(&self.db).await?;
-
-		debug!("operation applied");
-
-		// write the operation to the operations table
-		write_crdt_op_to_db(&op, &self.db).await?;
-
-		debug!("operation written");
-
-		// Ok(())
-		// })
-		// .await?;
-
-		debug!("transaction done");
+				Ok(())
+			})
+			.await?;
 
 		self.io.req_tx.send(Request::Ingested).await.ok();
-
-		debug!("notification sent");
 
 		Ok(())
 	}

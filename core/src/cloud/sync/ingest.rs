@@ -28,7 +28,6 @@ pub async fn run_actor(sync: Arc<sd_core_sync::Manager>, notify: Arc<Notify>) {
 
 					let timestamps = match req {
 						Request::FinishedIngesting => {
-							debug!("Finished ingesting, breaking loop");
 							break;
 						}
 						Request::Messages { timestamps, .. } => timestamps,
@@ -44,7 +43,6 @@ pub async fn run_actor(sync: Arc<sd_core_sync::Manager>, notify: Arc<Notify>) {
 					);
 
 					if (ops.len() == 0) {
-						debug!("No more messages to ingest, breaking loop");
 						break;
 					}
 
@@ -65,16 +63,10 @@ pub async fn run_actor(sync: Arc<sd_core_sync::Manager>, notify: Arc<Notify>) {
 							}))
 							.await
 					);
-
-					debug!("Cloud ingest messages sent to actor")
 				}
 			}
-
-			debug!("Ingest lock released")
 		}
 
 		notify.notified().await;
-
-		debug!("Cloud ingest notified")
 	}
 }
