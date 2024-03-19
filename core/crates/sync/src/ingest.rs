@@ -89,7 +89,7 @@ impl Actor {
 							if let Some(Event::Messages(event)) = res { break State::Ingesting(event) }
 						}
 						res = &mut rx => {
-							if let Err(_) = res {
+							if res.is_err() {
 								debug!("messages request ignored");
 								break State::WaitingForNotification
 							 }
@@ -98,7 +98,7 @@ impl Actor {
 				}
 			}
 			State::Ingesting(event) => {
-				if event.messages.len() > 0 {
+				if !event.messages.is_empty() {
 					debug!(
 						"ingesting {} operations: {} to {}",
 						event.messages.len(),
