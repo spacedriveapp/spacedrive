@@ -69,6 +69,7 @@ export default function OnboardingLocations() {
 			}),
 			{} as Record<SystemLocation, string>
 		);
+
 		return Object.keys(locations).length > 0 ? locations : null;
 	}, [data]);
 
@@ -131,7 +132,10 @@ export default function OnboardingLocations() {
 							}}
 						/>
 
-						<div className="grid grid-cols-2 gap-2">
+						<div
+							className="grid grid-cols-2 gap-2"
+							data-locations={JSON.stringify(Object.keys(systemLocations))}
+						>
 							{(Object.keys(systemLocations) as SystemLocation[]).map((location) => (
 								<Controller
 									key={location}

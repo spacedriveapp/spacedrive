@@ -1,21 +1,10 @@
-// https://stackoverflow.com/q/47773525#answer-76378213
-const ifElementExists = <E extends Node = HTMLElement>(
-	selector: string,
-	attempt = 0
-): Cypress.Chainable<JQuery<E>> => {
-	if (attempt === 10) return null; // no appearance, return null
-	if (Cypress.$(selector).length === 0) {
-		cy.wait(25, { log: false }); // wait in small chunks
-		ifElementExists(selector, ++attempt); // try again
-	}
-	return cy.get(selector, { log: false }); // done, exit with the element
-};
+import { discord, libraryName } from '../fixtures/onboarding.json';
+
+const capitalize = (s) => (s && s[0].toUpperCase() + s.slice(1)) || '';
 
 describe('Onboarding', () => {
 	// TODO: Create debug flag to bypass auto language detection
 	it('Alpha onboarding', () => {
-		const libraryName = 'Test Library';
-
 		cy.visit('/', {
 			onBeforeLoad(win) {
 				cy.stub(win, 'open').as('winOpen');
@@ -39,7 +28,7 @@ describe('Onboarding', () => {
 
 		// Check Join Discord button exists and point to a valid discord invite
 		cy.get('button').contains('Join Discord').click();
-		cy.get('@winOpen').should('be.calledWith', 'https://discord.gg/ukRnWSnAbG');
+		cy.get('@winOpen').should('be.calledWith', discord);
 
 		// Check we have a button to continue to the Library creation
 		cy.get('a')
@@ -82,43 +71,36 @@ describe('Onboarding', () => {
 		// Check we have a Toggle All button
 		cy.get('#toggle-all').as('toggleAllButton');
 
-		// Check that default location checkboxes work
-		for (const state of ['unchecked', 'checked']) {
-			if (state === 'checked') {
-				// Check if @toggleAllButton has data-state == checked
-				cy.get('@toggleAllButton').should('have.attr', 'data-state', 'checked');
-				// Uncheck all locations
-				cy.get('@toggleAllButton').click();
-			}
+		cy.get('[data-locations]').then((locationsElem) => {
+			const locations = locationsElem.data('locations');
+			if (!Array.isArray(locations)) throw new Error('Invalid locations data');
 
-			// Check we have all the default locations available
-			for (const location of [
-				'Desktop',
-				'Downloads',
-				'Documents',
-				'Pictures',
-				'Music',
-				'Videos'
-			]) {
-				ifElementExists(`label:contains("${location}")`).then(($el) => {
-					if ($el?.length < 1) return;
+			// Check that default location checkboxes work
+			for (const state of ['unchecked', 'checked']) {
+				if (state === 'checked') {
+					// Check if @toggleAllButton has data-state == checked
+					cy.get('@toggleAllButton').should('have.attr', 'data-state', 'checked');
+					// Uncheck all locations
+					cy.get('@toggleAllButton').click();
+				}
+
+				// Check we have all the default locations available
+				for (const location of locations) {
+					let newState: typeof state;
 					if (state === 'unchecked') {
-						$el.click();
-						cy.get(`button[id="locations.${location.toLowerCase()}"]`).should(
-							'have.attr',
-							'data-state',
-							'checked'
-						);
+						cy.get('label').contains(capitalize(location)).click();
+						newState = 'checked';
 					} else {
-						cy.get(`button[id="locations.${location.toLowerCase()}"]`).should(
-							'have.attr',
-							'data-state',
-							'unchecked'
-						);
+						newState = 'unchecked';
 					}
-				});
+					cy.get(`button[id="locations.${location.toLowerCase()}"]`).should(
+						'have.attr',
+						'data-state',
+						newState
+					);
+				}
 			}
-		}
+		});
 
 		// Check we have a button to continue to the privacy screen
 		cy.get('button').contains('Continue').click();
