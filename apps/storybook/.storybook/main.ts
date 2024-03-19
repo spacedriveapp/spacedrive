@@ -14,13 +14,11 @@ const config: StorybookConfig = {
 		}
 	],
 	addons: [
-		'@storybook/addon-links',
-		'@storybook/addon-essentials',
-		'@storybook/addon-interactions',
-		{
-			name: '@storybook/addon-styling'
-		}
-	],
+        '@storybook/addon-links',
+        '@storybook/addon-essentials',
+        '@storybook/addon-interactions',
+        '@storybook/addon-styling-webpack'
+    ],
 	framework: {
 		name: '@storybook/react-vite',
 		options: {}

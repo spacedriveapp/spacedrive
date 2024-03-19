@@ -22,5 +22,7 @@ rspc = { workspace = true, features = ["axum"] }
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "signal"] }
 tracing = { workspace = true }
 
+tempfile = "3.10.1"
+
 include_dir = "0.7.3"
 mime_guess = "2.0.4"

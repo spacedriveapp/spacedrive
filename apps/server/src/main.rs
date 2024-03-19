@@ -21,7 +21,13 @@ async fn main() {
 			}
 			#[cfg(debug_assertions)]
 			{
-				Path::new(env!("CARGO_MANIFEST_DIR")).join("sdserver_data")
+				if env::var("E2E_TEST").is_ok() {
+					let temp_dir =
+						tempfile::tempdir().expect("Tempdir for e2e test must be created!");
+					temp_dir.into_path()
+				} else {
+					Path::new(env!("CARGO_MANIFEST_DIR")).join("sdserver_data")
+				}
 			}
 		}
 	};

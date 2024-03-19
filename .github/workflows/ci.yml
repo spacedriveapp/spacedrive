@@ -48,6 +48,51 @@ jobs:
       - name: Perform linting
         run: pnpm lint
 
+  cypress:
+    name: Cypress
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup System and Rust
+        uses: ./.github/actions/setup-system
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          target: aarch64-apple-darwin
+
+      - name: Setup Node.js, pnpm and dependencies
+        uses: ./.github/actions/setup-pnpm
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Cypress
+        uses: cypress-io/github-action@v6
+        with:
+          runTests: false
+          working-directory: .
+
+      - name: E2E test
+        uses: cypress-io/github-action@v6
+        with:
+          install: false
+          command: pnpm test:e2e
+          working-directory: apps/web
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cypress-screenshots
+          path: apps/web/cypress/screenshots
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cypress-videos
+          path: apps/web/cypress/videos
+          if-no-files-found: ignore
+
   rustfmt:
     name: Rust Formatting
     runs-on: ubuntu-latest
