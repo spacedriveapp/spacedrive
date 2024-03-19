@@ -49,13 +49,13 @@
 		"@babel/plugin-syntax-import-assertions": "^7.23.3",
 		"@cspell/dict-rust": "^4.0.2",
 		"@cspell/dict-typescript": "^3.1.2",
-		"@ianvs/prettier-plugin-sort-imports": "^4.2.0",
+		"@ianvs/prettier-plugin-sort-imports": "^4.2.1",
 		"cspell": "^8.6.0",
 		"prettier": "^3.2.5",
 		"prettier-plugin-tailwindcss": "^0.5.12",
 		"turbo": "^1.12.5",
 		"turbo-ignore": "^1.12.5",
-		"typescript": "^5.3.3",
+		"typescript": "^5.4.2",
 		"vite": "^5.1.6"
 	},
 	"engines": {

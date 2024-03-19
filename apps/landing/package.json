@@ -56,15 +56,15 @@
 		"@octokit/openapi-types": "^20.0.0",
 		"@sd/config": "workspace:*",
 		"@svgr/webpack": "^8.1.0",
-		"@types/node": "~18.19.22",
-		"@types/react": "^18.2.66",
+		"@types/node": ">18.x",
+		"@types/react": "^18.2.67",
 		"@types/react-burger-menu": "^2.8.7",
 		"@types/react-dom": "^18.2.22",
 		"@types/three": "^0.162.0",
 		"autoprefixer": "^10.4.18",
-		"postcss": "^8.4.35",
+		"postcss": "^8.4.36",
 		"sharp": "^0.33.2",
 		"tailwindcss": "^3.4.1",
-		"typescript": "^5.3.3"
+		"typescript": "^5.4.2"
 	}
 }

@@ -24,21 +24,21 @@
 		"html2canvas": "^1.4.1",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
-		"react-router-dom": "^6.20.1"
+		"react-router-dom": "=6.20.1"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.42.1",
 		"@sd/config": "workspace:*",
 		"@sd/ui": "workspace:*",
-		"@types/react": "^18.2.66",
+		"@types/react": "^18.2.67",
 		"@types/react-dom": "^18.2.22",
 		"autoprefixer": "^10.4.18",
 		"cypress": "^13.7.0",
 		"eslint-plugin-cypress": "^2.15.1",
-		"postcss": "^8.4.35",
+		"postcss": "^8.4.36",
 		"rollup-plugin-visualizer": "^5.12.0",
 		"start-server-and-test": "^2.0.3",
-		"typescript": "^5.3.3",
+		"typescript": "^5.4.2",
 		"vite": "^5.1.6",
 		"vite-tsconfig-paths": "^4.3.2"
 	}
