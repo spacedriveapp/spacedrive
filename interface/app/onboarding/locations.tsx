@@ -134,7 +134,7 @@ export default function OnboardingLocations() {
 
 						<div
 							className="grid grid-cols-2 gap-2"
-							data-locations={JSON.stringify(Object.keys(systemLocations))}
+							data-locations={JSON.stringify(systemLocations)}
 						>
 							{(Object.keys(systemLocations) as SystemLocation[]).map((location) => (
 								<Controller

@@ -1,7 +1,5 @@
 import { discord, libraryName } from '../fixtures/onboarding.json';
 
-const capitalize = (s) => (s && s[0].toUpperCase() + s.slice(1)) || '';
-
 describe('Onboarding', () => {
 	// TODO: Create debug flag to bypass auto language detection
 	it('Alpha onboarding', () => {
@@ -73,7 +71,8 @@ describe('Onboarding', () => {
 
 		cy.get('[data-locations]').then((locationsElem) => {
 			const locations = locationsElem.data('locations');
-			if (!Array.isArray(locations)) throw new Error('Invalid locations data');
+			if (locations == null || typeof locations !== 'object')
+				throw new Error('Invalid locations data');
 
 			// Check that default location checkboxes work
 			for (const state of ['unchecked', 'checked']) {
@@ -85,15 +84,17 @@ describe('Onboarding', () => {
 				}
 
 				// Check we have all the default locations available
-				for (const location of locations) {
+				for (const [location, locationName] of Object.entries(locations)) {
+					if (typeof locationName !== 'string') throw new Error('Invalid location name');
+
 					let newState: typeof state;
 					if (state === 'unchecked') {
-						cy.get('label').contains(capitalize(location)).click();
+						cy.get('label').contains(locationName).click();
 						newState = 'checked';
 					} else {
 						newState = 'unchecked';
 					}
-					cy.get(`button[id="locations.${location.toLowerCase()}"]`).should(
+					cy.get(`button[id="locations.${location}"]`).should(
 						'have.attr',
 						'data-state',
 						newState
