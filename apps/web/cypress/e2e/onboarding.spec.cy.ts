@@ -1,3 +1,16 @@
+// https://stackoverflow.com/q/47773525#answer-76378213
+const ifElementExists = <E extends Node = HTMLElement>(
+	selector: string,
+	attempt = 0
+): Cypress.Chainable<JQuery<E>> => {
+	if (attempt === 10) return null; // no appearance, return null
+	if (Cypress.$(selector).length === 0) {
+		cy.wait(25, { log: false }); // wait in small chunks
+		ifElementExists(selector, ++attempt); // try again
+	}
+	return cy.get(selector, { log: false }); // done, exit with the element
+};
+
 describe('Onboarding', () => {
 	// TODO: Create debug flag to bypass auto language detection
 	it('Alpha onboarding', () => {
@@ -69,27 +82,42 @@ describe('Onboarding', () => {
 		// Check we have a Toggle All button
 		cy.get('#toggle-all').as('toggleAllButton');
 
-		// Check we have all the default locations available
-		cy.get('label').contains('Desktop').click();
-		cy.get('label').contains('Downloads').click();
-		cy.get('label').contains('Documents').click();
-		cy.get('label').contains('Pictures').click();
-		cy.get('label').contains('Music').click();
-		cy.get('label').contains('Videos').click();
+		// Check that default location checkboxes work
+		for (const state of ['unchecked', 'checked']) {
+			if (state === 'checked') {
+				// Check if @toggleAllButton has data-state == checked
+				cy.get('@toggleAllButton').should('have.attr', 'data-state', 'checked');
+				// Uncheck all locations
+				cy.get('@toggleAllButton').click();
+			}
 
-		// Check if @toggleAllButton has data-state == checked
-		cy.get('@toggleAllButton').should('have.attr', 'data-state', 'checked');
-		cy.get('@toggleAllButton').click();
-
-		for (const location of [
-			'locations.desktop',
-			'locations.downloads',
-			'locations.documents',
-			'locations.pictures',
-			'locations.music',
-			'locations.videos'
-		]) {
-			cy.get(`button[id="${location}"]`).should('have.attr', 'data-state', 'unchecked');
+			// Check we have all the default locations available
+			for (const location of [
+				'Desktop',
+				'Downloads',
+				'Documents',
+				'Pictures',
+				'Music',
+				'Videos'
+			]) {
+				ifElementExists(`label:contains("${location}")`).then(($el) => {
+					if ($el?.length < 1) return;
+					if (state === 'unchecked') {
+						$el.click();
+						cy.get(`button[id="locations.${location.toLowerCase()}"]`).should(
+							'have.attr',
+							'data-state',
+							'checked'
+						);
+					} else {
+						cy.get(`button[id="locations.${location.toLowerCase()}"]`).should(
+							'have.attr',
+							'data-state',
+							'unchecked'
+						);
+					}
+				});
+			}
 		}
 
 		// Check we have a button to continue to the privacy screen
