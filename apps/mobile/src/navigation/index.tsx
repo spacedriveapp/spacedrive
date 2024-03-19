@@ -11,7 +11,11 @@ export default function RootNavigator() {
 	return (
 		<Stack.Navigator initialRouteName="Root">
 			<Stack.Screen name="Root" component={TabNavigator} options={{ headerShown: false }} />
-			<Stack.Screen name="Search" component={SearchStack} options={{ headerShown: false }} />
+			<Stack.Screen
+				name="ExplorerSearch"
+				component={SearchStack}
+				options={{ headerShown: false }}
+			/>
 			<Stack.Screen name="NotFound" component={NotFoundScreen} options={{ title: 'Oops!' }} />
 		</Stack.Navigator>
 	);
@@ -19,7 +23,7 @@ export default function RootNavigator() {
 
 export type RootStackParamList = {
 	Root: NavigatorScreenParams<TabParamList>;
-	Search: NavigatorScreenParams<SearchStackParamList>;
+	ExplorerSearch: NavigatorScreenParams<SearchStackParamList>;
 	NotFound: undefined;
 };
 

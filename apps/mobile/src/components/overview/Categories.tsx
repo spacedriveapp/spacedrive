@@ -1,4 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
+import { Eye } from 'phosphor-react-native';
 import React from 'react';
 import { Text, View } from 'react-native';
 import { useLibraryQuery } from '@sd/client';
@@ -20,10 +21,10 @@ export default function CategoriesScreen() {
 					onPress={() => {
 						navigation.navigate('Categories');
 					}}
-					style={tw`rounded-full`}
+					style={tw`h-9 w-9 rounded-full`}
 					variant="accent"
 				>
-					<Text style={tw`text-xs font-medium text-ink`}>See all</Text>
+					<Eye weight="bold" size={16} style={tw`text-white`} />
 				</Button>
 			</View>
 			<View style={tw`flex-row flex-wrap gap-2`}>

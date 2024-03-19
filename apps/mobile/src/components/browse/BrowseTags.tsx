@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import { Plus } from 'phosphor-react-native';
+import { Eye, Plus } from 'phosphor-react-native';
 import React, { useRef } from 'react';
 import { Text, View } from 'react-native';
 import { useCache, useLibraryQuery, useNodes } from '@sd/client';
@@ -31,18 +31,17 @@ const BrowseTags = () => {
 						onPress={() => {
 							navigation.navigate('Tags');
 						}}
-						style={tw`rounded-full`}
+						style={tw`w-9 rounded-full`}
 						variant="accent"
 					>
-						<Text style={tw`text-xs font-medium text-ink`}>See all</Text>
+						<Eye weight="bold" size={16} style={tw`text-white`} />
 					</Button>
 					<Button
-						style={tw`h-8 flex-row gap-1 rounded-full`}
+						style={tw`h-9 w-9 rounded-full`}
 						variant="dashed"
 						onPress={() => modalRef.current?.present()}
 					>
-						<Plus weight="bold" size={14} style={tw`text-ink`} />
-						<Text style={tw`text-xs font-medium text-ink`}>New</Text>
+						<Plus weight="bold" size={16} style={tw`text-ink`} />
 					</Button>
 				</View>
 			</View>

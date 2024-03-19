@@ -1,4 +1,3 @@
-import { useQueryClient } from '@tanstack/react-query';
 import { forwardRef, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import ColorPicker from 'react-native-wheel-color-picker';

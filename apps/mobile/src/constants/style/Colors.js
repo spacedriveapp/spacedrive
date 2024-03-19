@@ -62,7 +62,7 @@ module.exports = {
 			//used with 'pills'
 			highlight: `hsla(${DARK_HUE}, 10%, 18%, ${ALPHA})`,
 			//Modal background color
-			modal: `hsla(${DARK_HUE}, 10%, 6%, ${ALPHA})`,
+			modal: `hsla(${DARK_HUE}, 10%, 7%, ${ALPHA})`,
 			//Borders
 			cardborder: `hsla(${DARK_HUE}, 10%, 10%, ${ALPHA})`,
 			inputborder: `hsla(${DARK_HUE}, 10%, 16%, ${ALPHA})`,
