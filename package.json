@@ -62,7 +62,7 @@
 		"pnpm": ">=8.0.0",
 		"npm": "pnpm",
 		"yarn": "pnpm",
-		"node": ">=18.17 <19 || >=20.1"
+		"node": ">=18.18 <19 || >=20.1"
 	},
 	"eslintConfig": {
 		"root": true
