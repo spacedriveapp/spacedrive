@@ -6,7 +6,7 @@ use crate::{
 use super::{err_break, CompressedCRDTOperations};
 use sd_cloud_api::RequestConfigProvider;
 use sd_core_sync::NTP64;
-use sd_p2p::{IdentityOrRemoteIdentity, RemoteIdentity};
+use sd_p2p::RemoteIdentity;
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
 use sd_sync::CRDTOperation;
 use sd_utils::uuid_to_bytes;
@@ -241,13 +241,16 @@ pub async fn create_instance(
 			instance::pub_id::equals(uuid_to_bytes(uuid)),
 			instance::create(
 				uuid_to_bytes(uuid),
-				IdentityOrRemoteIdentity::RemoteIdentity(identity).to_bytes(),
+				todo!(), // IdentityOrRemoteIdentity::RemoteIdentity(identity).to_bytes(),
 				node_id.as_bytes().to_vec(),
 				Utc::now().into(),
 				Utc::now().into(),
-				vec![instance::metadata::set(Some(
-					serde_json::to_vec(&metadata).expect("unable to serialize metadata"),
-				))],
+				vec![
+					instance::remote_identity::set(todo!()),
+					instance::metadata::set(Some(
+						serde_json::to_vec(&metadata).expect("unable to serialize metadata"),
+					)),
+				],
 			),
 			vec![],
 		)

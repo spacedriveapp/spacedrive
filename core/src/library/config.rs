@@ -3,7 +3,7 @@ use crate::{
 	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 
-use sd_p2p::{Identity, IdentityOrRemoteIdentity};
+use sd_p2p::Identity;
 use sd_prisma::prisma::{file_path, indexer_rule, instance, location, node, PrismaClient};
 use sd_utils::{db::maybe_missing, error::FileIOError};
 
@@ -265,13 +265,14 @@ impl LibraryConfig {
 
 						instance::Create {
 							pub_id: instance_id.as_bytes().to_vec(),
-							identity: node
-								.and_then(|n| n.identity.clone())
-								.unwrap_or_else(|| Identity::new().to_bytes()),
+							// identity: node
+							// 	.and_then(|n| n.identity.clone())
+							// 	.unwrap_or_else(|| Identity::new().to_bytes()),
+							remote_identity: todo!(),
 							node_id: node_config.id.as_bytes().to_vec(),
 							last_seen: now,
 							date_created: node.map(|n| n.date_created).unwrap_or_else(|| now),
-							_params: vec![],
+							_params: vec![instance::identity::set(todo!())],
 						}
 						.to_query(db)
 						.exec()
@@ -374,16 +375,20 @@ impl LibraryConfig {
 								.map(|i| {
 									db.instance().update(
 										instance::id::equals(i.id),
-										vec![instance::identity::set(
-									// This code is assuming you only have the current node.
-									// If you've paired your node with another node, reset your db.
-									IdentityOrRemoteIdentity::Identity(
-										Identity::from_bytes(&i.identity).expect(
-											"Invalid identity detected in DB during migrations",
-										),
-									)
-									.to_bytes(),
-								)],
+										vec![
+											instance::identity::set(
+												// This code is assuming you only have the current node.
+												// If you've paired your node with another node, reset your db.
+												// IdentityOrRemoteIdentity::Identity(
+												// 	Identity::from_bytes(&i.identity).expect(
+												// 		"Invalid identity detected in DB during migrations",
+												// 	),
+												// )
+												// .to_bytes(),
+												todo!(),
+											),
+											instance::remote_identity::set(todo!()),
+										],
 									)
 								})
 								.collect::<Vec<_>>(),

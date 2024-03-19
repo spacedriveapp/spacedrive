@@ -11,7 +11,7 @@ use http_body::combinators::UnsyncBoxBody;
 use hyper::{header, upgrade::OnUpgrade};
 use sd_file_ext::text::is_text;
 use sd_file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData};
-use sd_p2p::{IdentityOrRemoteIdentity, RemoteIdentity, P2P};
+use sd_p2p::{RemoteIdentity, P2P};
 use sd_prisma::prisma::{file_path, location};
 use sd_utils::db::maybe_missing;
 
@@ -174,9 +174,8 @@ async fn get_or_init_lru_entry(
 		let path = Path::new(path)
 			.join(IsolatedFilePathData::try_from((location_id, &file_path)).map_err(not_found)?);
 
-		let identity = IdentityOrRemoteIdentity::from_bytes(&instance.identity)
-			.map_err(internal_server_error)?
-			.remote_identity();
+		let identity =
+			RemoteIdentity::from_bytes(&instance.remote_identity).map_err(internal_server_error)?;
 
 		let lru_entry = CacheValue {
 			name: path,
