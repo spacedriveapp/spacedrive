@@ -38,7 +38,7 @@ const Tags = () => {
 							data={tagsData}
 							renderItem={({ item }) => <TagFilter tag={item} />}
 							extraData={searchStore.filters.tags}
-							numColumns={tagsData && Math.ceil(Number(tagsData.length ?? 0) / 2)}
+							numColumns={tagsData.length === 1 ? 2 : Math.ceil(tagsData.length / 2)}
 							key={tagsData ? 'tagsSearch' : '_'}
 							contentContainerStyle={tw`w-full`}
 							ListEmptyComponent={

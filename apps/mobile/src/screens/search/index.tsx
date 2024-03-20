@@ -58,6 +58,7 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 				<View style={tw`flex-row items-center justify-between gap-4 px-5 pb-3`}>
 					{/* Back Button */}
 					<Pressable
+						hitSlop={24}
 						onPress={() => {
 							navigation.goBack();
 						}}

@@ -19,7 +19,7 @@
 	},
 	"dependencies": {
 		"@dr.pogodin/react-native-fs": "^2.24.1",
-		"@gorhom/bottom-sheet": "^4.4.7",
+		"@gorhom/bottom-sheet": "^4.6.1",
 		"@hookform/resolvers": "^3.1.0",
 		"@oscartbeaumont-sd/rspc-client": "=0.0.0-main-dc31e5b2",
 		"@oscartbeaumont-sd/rspc-react": "=0.0.0-main-dc31e5b2",

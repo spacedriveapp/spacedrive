@@ -14,7 +14,11 @@ import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 import { useSearchStore } from '~/stores/searchStore';
 
-export const Locations = () => {
+interface Props {
+	viewStyle?: 'grid' | 'list';
+}
+
+export const Locations = ({ viewStyle }: Props) => {
 	const locationsQuery = useLibraryQuery(['locations.list']);
 	useNodes(locationsQuery.data?.nodes);
 	const locations = useCache(locationsQuery.data?.items);
@@ -52,7 +56,6 @@ export const Locations = () => {
 				keyExtractor={(location) => location.id.toString()}
 				ItemSeparatorComponent={() => <View style={tw`h-2`} />}
 				showsVerticalScrollIndicator={false}
-				scrollEnabled={filteredLocations.length > 0}
 				ListEmptyComponent={
 					<Empty
 						icon="Folder"
@@ -62,6 +65,7 @@ export const Locations = () => {
 						description="You have not added any locations"
 					/>
 				}
+				numColumns={viewStyle === 'grid' ? 3 : 1}
 				renderItem={({ item }) => (
 					<LocationItem
 						onPress={() =>
@@ -76,7 +80,6 @@ export const Locations = () => {
 								params: { id: item.id }
 							})
 						}
-						modalRef={modalRef}
 						viewStyle="list"
 						location={item}
 					/>

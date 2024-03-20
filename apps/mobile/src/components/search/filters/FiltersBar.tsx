@@ -8,6 +8,7 @@ import {
 	Textbox,
 	X
 } from 'phosphor-react-native';
+import { useEffect, useRef } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { Icon } from '~/components/icons/Icon';
 import Fade from '~/components/layout/Fade';
@@ -25,6 +26,15 @@ import {
 const FiltersBar = () => {
 	const { filters, appliedFilters } = useSearchStore();
 	const navigation = useNavigation<SearchStackScreenProps<'Filters'>['navigation']>();
+	const flatListRef = useRef<FlatList>(null);
+
+	// Scroll to start when there are less than 2 filters.
+	useEffect(() => {
+		if (Object.entries(appliedFilters).length < 2) {
+			flatListRef.current?.scrollToOffset({ animated: true, offset: 0 });
+		}
+	}, [appliedFilters]);
+
 	return (
 		<View
 			style={tw`h-16 w-full flex-row items-center gap-4 border-t border-app-cardborder bg-app-header px-5 py-3`}
@@ -39,9 +49,9 @@ const FiltersBar = () => {
 			<View style={tw`relative flex-1`}>
 				<Fade noConditions height={'100%'} width={30} color="app-header">
 					<FlatList
+						ref={flatListRef}
 						showsHorizontalScrollIndicator={false}
 						horizontal
-						scrollEnabled={Object.keys(appliedFilters).length > 0}
 						data={Object.entries(appliedFilters)}
 						extraData={filters}
 						keyExtractor={(item) => item[0]}
@@ -75,6 +85,7 @@ const FilterItem = ({ filter, value }: FilterItemProps) => {
 				<FilterValue filter={filter} value={value} />
 			</View>
 			<Pressable
+				hitSlop={24}
 				onPress={() => searchStore.resetFilter(filter, true)}
 				style={twStyle(boxStyle, 'rounded-br-md rounded-tr-md')}
 			>

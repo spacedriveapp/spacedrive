@@ -1,6 +1,7 @@
+import { useRef } from 'react';
 import { Pressable } from 'react-native';
 import { Location } from '@sd/client';
-import { tw } from '~/lib/tailwind';
+import { twStyle } from '~/lib/tailwind';
 
 import { ModalRef } from '../layout/Modal';
 import { LocationModal } from '../modal/location/LocationModal';
@@ -11,24 +12,28 @@ type LocationItemProps = {
 	location: Location;
 	onPress: () => void;
 	viewStyle?: 'grid' | 'list';
-	modalRef: React.RefObject<ModalRef>;
 	editLocation: () => void;
 };
 
 export const LocationItem = ({
 	location,
 	onPress,
-	modalRef,
 	editLocation,
 	viewStyle = 'grid'
 }: LocationItemProps) => {
+	const modalRef = useRef<ModalRef>(null);
 	return (
-		<Pressable style={tw`flex-1`} onPress={onPress}>
-			{viewStyle === 'grid' ? (
-				<GridLocation onPress={onPress} location={location} modalRef={modalRef} />
-			) : (
-				<ListLocation onPress={onPress} location={location} modalRef={modalRef} />
-			)}
+		<>
+			<Pressable
+				style={twStyle(viewStyle === 'grid' ? `w-[31.5%]` : `flex-1`)}
+				onPress={onPress}
+			>
+				{viewStyle === 'grid' ? (
+					<GridLocation location={location} modalRef={modalRef} />
+				) : (
+					<ListLocation location={location} modalRef={modalRef} />
+				)}
+			</Pressable>
 			<LocationModal
 				editLocation={() => {
 					editLocation();
@@ -37,6 +42,6 @@ export const LocationItem = ({
 				locationId={location.id}
 				ref={modalRef}
 			/>
-		</Pressable>
+		</>
 	);
 };

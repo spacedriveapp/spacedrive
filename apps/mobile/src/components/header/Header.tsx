@@ -57,6 +57,7 @@ export default function Header({
 					<View style={tw`flex-row items-center gap-3`}>
 						{navBack && (
 							<Pressable
+								hitSlop={24}
 								onPress={() => {
 									navigation.goBack();
 								}}

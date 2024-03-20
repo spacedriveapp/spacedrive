@@ -14,19 +14,19 @@ const Menu = ({ layoutMode, changeLayoutMode }: MenuProps) => {
 			style={tw`w-screen flex-row justify-between border-b border-app-cardborder bg-app-header px-7 py-4`}
 		>
 			<View style={tw`flex-row gap-3`}>
-				<Pressable onPress={() => changeLayoutMode('grid')}>
+				<Pressable hitSlop={24} onPress={() => changeLayoutMode('grid')}>
 					<SquaresFour
 						color={tw.color(layoutMode === 'grid' ? 'text-accent' : 'text-ink-dull')}
 						size={23}
 					/>
 				</Pressable>
-				<Pressable onPress={() => changeLayoutMode('list')}>
+				<Pressable hitSlop={24} onPress={() => changeLayoutMode('list')}>
 					<Rows
 						color={tw.color(layoutMode === 'list' ? 'text-accent' : 'text-ink-dull')}
 						size={23}
 					/>
 				</Pressable>
-				<Pressable onPress={() => changeLayoutMode('media')}>
+				<Pressable hitSlop={24} onPress={() => changeLayoutMode('media')}>
 					<MonitorPlay
 						color={tw.color(layoutMode === 'media' ? 'text-accent' : 'text-ink-dull')}
 						size={23}
