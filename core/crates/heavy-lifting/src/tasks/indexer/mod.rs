@@ -6,6 +6,8 @@ use sd_core_indexer_rules::IndexerRuleError;
 use sd_utils::error::{FileIOError, NonUtf8PathError};
 
 use rspc::ErrorCode;
+use serde::{Deserialize, Serialize};
+use specta::Type;
 
 pub mod saver;
 pub mod updater;
@@ -46,4 +48,24 @@ impl From<IndexerError> for rspc::Error {
 			_ => Self::with_cause(ErrorCode::InternalServerError, err.to_string(), err),
 		}
 	}
+}
+
+#[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
+pub enum NonCriticalIndexerError {
+	#[error("failed to read directory entry: {0}")]
+	FailedDirectoryEntry(String),
+	#[error("failed to fetch metadata: {0}")]
+	Metadata(String),
+	#[error("error applying indexer rule: {0}")]
+	IndexerRule(String),
+	#[error("error trying to extract file path metadata from a file: {0}")]
+	FilePathMetadata(String),
+	#[error("failed to fetch file paths ids from existing files on database: {0}")]
+	FetchAlreadyExistingFilePathIds(String),
+	#[error("failed to fetch file paths to be removed from database: {0}")]
+	FetchFilePathsToRemove(String),
+	#[error("error constructing isolated file path: {0}")]
+	IsoFilePath(String),
+	#[error("failed to dispatch new task to keep walking a directory: {0}")]
+	DispatchKeepWalking(String),
 }

@@ -31,6 +31,7 @@ use super::JobId;
 
 pub(crate) mod job;
 pub(crate) mod report;
+pub(crate) mod store;
 
 use job::{DynJob, IntoJob, Job, JobHandle, JobOutput, ReturnStatus};
 
@@ -343,7 +344,7 @@ impl JobSystemRunner {
 		let mut handle = handles.remove(&job_id).expect("it must be here");
 
 		let res = match status {
-			ReturnStatus::Completed(output) => {
+			ReturnStatus::Completed(job_return) => {
 				if let Some(next) = handle.next_jobs.pop_front() {
 					let next_id = next.id();
 					let next_hash = next.hash();
@@ -367,23 +368,18 @@ impl JobSystemRunner {
 					}
 				}
 
-				handle.complete(&output, db).await.map(|()| output)
+				handle.complete_job(job_return, db).await
 			}
-			ReturnStatus::Failed(e) => {
-				// TODO: update report on db
-
-				Err(e.into())
-			}
+			ReturnStatus::Failed(e) => handle.failed_job(&e, db).await.and_then(|()| Err(e.into())),
 			ReturnStatus::Shutdown(_) => {
 				// TODO
 
 				return;
 			}
-			ReturnStatus::Canceled => {
-				// TODO: update report on db
-
-				Err(JobSystemError::Canceled(job_id))
-			}
+			ReturnStatus::Canceled => handle
+				.cancel_job(db)
+				.await
+				.and_then(|()| Err(JobSystemError::Canceled(job_id))),
 		};
 
 		job_outputs_tx

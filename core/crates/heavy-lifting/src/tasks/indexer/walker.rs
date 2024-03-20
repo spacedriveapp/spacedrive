@@ -1,6 +1,6 @@
-use crate::Error;
+use crate::{tasks::indexer::NonCriticalIndexerError, Error, NonCriticalJobError};
 
-use sd_core_file_path_helper::{FilePathMetadata, IsolatedFilePathData};
+use sd_core_file_path_helper::{FilePathError, FilePathMetadata, IsolatedFilePathData};
 use sd_core_indexer_rules::{IndexerRuler, RuleKind};
 use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_walker};
 
@@ -40,7 +40,7 @@ pub struct WalkedEntry {
 	pub metadata: FilePathMetadata,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 struct WalkingEntry {
 	iso_file_path: IsolatedFilePathData<'static>,
 	metadata: FilePathMetadata,
@@ -91,7 +91,7 @@ pub trait IsoFilePathFactory: Send + Sync + fmt::Debug + 'static {
 		&self,
 		path: impl AsRef<Path>,
 		is_dir: bool,
-	) -> Result<IsolatedFilePathData<'static>, IndexerError>;
+	) -> Result<IsolatedFilePathData<'static>, FilePathError>;
 }
 
 pub trait WalkerDBProxy: Send + Sync + fmt::Debug + 'static {
@@ -104,7 +104,7 @@ pub trait WalkerDBProxy: Send + Sync + fmt::Debug + 'static {
 		&self,
 		parent_iso_file_path: &IsolatedFilePathData<'_>,
 		unique_location_id_materialized_path_name_extension_params: Vec<file_path::WhereParam>,
-	) -> impl Future<Output = Result<Vec<file_path_pub_and_cas_ids::Data>, IndexerError>> + Send;
+	) -> impl Future<Output = Result<Vec<file_path_pub_and_cas_ids::Data>, NonCriticalIndexerError>> + Send;
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -124,6 +124,52 @@ impl From<PathBuf> for ToWalkEntry {
 	}
 }
 
+// #[derive(Serialize, Deserialize)]
+// struct WalkDirSaveState {
+// 	id: TaskId,
+// 	entry: ToWalkEntry,
+// 	root: Arc<PathBuf>,
+// 	entry_iso_file_path: IsolatedFilePathData<'static>,
+// 	found_paths: Vec<PathBuf>,
+// 	paths_and_metadatas: HashMap<PathBuf, Metadata>,
+// 	paths_metadatas_and_acceptance: HashMap<PathBuf, (Metadata, HashMap<RuleKind, Vec<bool>>)>,
+// 	accepted_paths: HashMap<PathBuf, Metadata>,
+// 	accepted_ancestors: HashSet<PathBuf>,
+// 	walking_entries: Vec<WalkingEntry>,
+// 	to_remove_entries: Vec<file_path_pub_and_cas_ids::Data>,
+// 	maybe_to_keep_walking: Option<Vec<ToWalkEntry>>,
+// 	errors: Vec<NonCriticalJobError>,
+// }
+
+#[derive(Debug)]
+enum WalkerStage {
+	Start,
+	Walking {
+		read_dir_stream: ReadDirStream,
+		found_paths: Vec<PathBuf>,
+	},
+	CollectingMetadata {
+		found_paths: Vec<PathBuf>,
+	},
+	CheckingIndexerRules {
+		paths_and_metadatas: HashMap<PathBuf, Metadata>,
+	},
+	ProcessingRulesResults {
+		paths_metadatas_and_acceptance: HashMap<PathBuf, (Metadata, HashMap<RuleKind, Vec<bool>>)>,
+	},
+	GatheringFilePathsToRemove {
+		accepted_paths: HashMap<PathBuf, Metadata>,
+		maybe_to_keep_walking: Option<Vec<ToWalkEntry>>,
+		accepted_ancestors: HashSet<PathBuf>,
+	},
+	Finalize {
+		walking_entries: Vec<WalkingEntry>,
+		accepted_ancestors: HashSet<PathBuf>,
+		to_remove_entries: Vec<file_path_pub_and_cas_ids::Data>,
+		maybe_to_keep_walking: Option<Vec<ToWalkEntry>>,
+	},
+}
+
 #[derive(Debug)]
 pub(crate) struct WalkDirTask<DBProxy, IsoPathFactory>
 where
@@ -137,17 +183,18 @@ where
 	indexer_ruler: IndexerRuler,
 	iso_file_path_factory: Arc<IsoPathFactory>,
 	db_proxy: Arc<DBProxy>,
-	read_dir_stream: ReadDirStream,
-	found_paths: Vec<PathBuf>,
-	paths_and_metadatas: HashMap<PathBuf, Metadata>,
-	paths_metadatas_and_acceptance: HashMap<PathBuf, (Metadata, HashMap<RuleKind, Vec<bool>>)>,
-	accepted_paths: HashMap<PathBuf, Metadata>,
-	accepted_ancestors: HashSet<PathBuf>,
-	walking_entries: Vec<WalkingEntry>,
-	to_remove_entries: Vec<file_path_pub_and_cas_ids::Data>,
-	maybe_to_keep_walking: Option<Vec<ToWalkEntry>>,
+	stage: WalkerStage,
+	// maybe_read_dir_stream: Option<ReadDirStream>,
+	// found_paths: Vec<PathBuf>,
+	// paths_and_metadatas: HashMap<PathBuf, Metadata>,
+	// paths_metadatas_and_acceptance: HashMap<PathBuf, (Metadata, HashMap<RuleKind, Vec<bool>>)>,
+	// accepted_paths: HashMap<PathBuf, Metadata>,
+	// accepted_ancestors: HashSet<PathBuf>,
+	// walking_entries: Vec<WalkingEntry>,
+	// to_remove_entries: Vec<file_path_pub_and_cas_ids::Data>,
+	// maybe_to_keep_walking: Option<Vec<ToWalkEntry>>,
 	maybe_dispatcher: Option<TaskDispatcher<Error>>,
-	errors: Vec<IndexerError>,
+	errors: Vec<NonCriticalJobError>,
 }
 
 impl<DBProxy, IsoPathFactory> WalkDirTask<DBProxy, IsoPathFactory>
@@ -155,7 +202,7 @@ where
 	DBProxy: WalkerDBProxy,
 	IsoPathFactory: IsoFilePathFactory,
 {
-	pub async fn new(
+	pub fn new(
 		entry: impl Into<ToWalkEntry> + Send,
 		root: Arc<PathBuf>,
 		indexer_ruler: IndexerRuler,
@@ -171,20 +218,8 @@ where
 			entry_iso_file_path: iso_file_path_factory.build(&entry.path, true)?,
 			iso_file_path_factory,
 			db_proxy,
-			read_dir_stream: ReadDirStream::new(
-				fs::read_dir(&entry.path)
-					.await
-					.map_err(|e| FileIOError::from((&entry.path, e)))?,
-			),
+			stage: WalkerStage::Start,
 			entry,
-			found_paths: Vec::new(),
-			paths_and_metadatas: HashMap::new(),
-			paths_metadatas_and_acceptance: HashMap::new(),
-			accepted_paths: HashMap::new(),
-			accepted_ancestors: HashSet::new(),
-			walking_entries: Vec::new(),
-			to_remove_entries: Vec::new(),
-			maybe_to_keep_walking: maybe_dispatcher.is_some().then(Vec::new),
 			maybe_dispatcher,
 			errors: Vec::new(),
 		})
@@ -201,6 +236,7 @@ where
 		self.id
 	}
 
+	#[allow(clippy::too_many_lines)]
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {
 		let Self {
 			root,
@@ -214,96 +250,164 @@ where
 			iso_file_path_factory,
 			indexer_ruler,
 			db_proxy,
-			found_paths,
-			paths_and_metadatas,
-			paths_metadatas_and_acceptance,
-			accepted_paths,
-			accepted_ancestors,
-			walking_entries,
-			to_remove_entries,
-			maybe_to_keep_walking,
+			stage,
 			maybe_dispatcher,
 			errors,
 			..
 		} = self;
 
-		while let Some(res) = self.read_dir_stream.next().await {
-			match res {
-				Ok(dir_entry) => {
-					found_paths.push(dir_entry.path());
+		let (to_create, to_update, total_size, to_remove, accepted_ancestors, handles) = loop {
+			match stage {
+				WalkerStage::Start => {
+					*stage = WalkerStage::Walking {
+						read_dir_stream: ReadDirStream::new(fs::read_dir(&path).await.map_err(
+							|e| {
+								IndexerError::FileIO(
+									(&path, e, "Failed to open directory to read its entries")
+										.into(),
+								)
+							},
+						)?),
+						found_paths: Vec::new(),
+					};
 				}
-				Err(e) => {
-					errors.push(IndexerError::FileIO(FileIOError::from((&path, e))));
+
+				WalkerStage::Walking {
+					read_dir_stream,
+					found_paths,
+				} => {
+					while let Some(res) = read_dir_stream.next().await {
+						match res {
+							Ok(dir_entry) => {
+								found_paths.push(dir_entry.path());
+							}
+							Err(e) => {
+								errors.push(NonCriticalJobError::Indexer(
+									NonCriticalIndexerError::FailedDirectoryEntry(
+										FileIOError::from((&path, e)).to_string(),
+									),
+								));
+							}
+						}
+
+						check_interruption!(interrupter);
+					}
+
+					*stage = WalkerStage::CollectingMetadata {
+						found_paths: mem::take(found_paths),
+					};
+
+					check_interruption!(interrupter);
+				}
+
+				WalkerStage::CollectingMetadata { found_paths } => {
+					*stage = WalkerStage::CheckingIndexerRules {
+						paths_and_metadatas: collect_metadata(found_paths, errors).await,
+					};
+
+					check_interruption!(interrupter);
+				}
+
+				WalkerStage::CheckingIndexerRules {
+					paths_and_metadatas,
+				} => {
+					*stage = WalkerStage::ProcessingRulesResults {
+						paths_metadatas_and_acceptance: apply_indexer_rules(
+							paths_and_metadatas,
+							indexer_ruler,
+							errors,
+						)
+						.await,
+					};
+
+					check_interruption!(interrupter);
+				}
+
+				WalkerStage::ProcessingRulesResults {
+					paths_metadatas_and_acceptance,
+				} => {
+					let mut maybe_to_keep_walking = maybe_dispatcher.is_some().then(Vec::new);
+					let (accepted_paths, accepted_ancestors) = process_rules_results(
+						&path,
+						root,
+						*parent_dir_accepted_by_its_children,
+						paths_metadatas_and_acceptance,
+						&mut maybe_to_keep_walking,
+					);
+
+					*stage = WalkerStage::GatheringFilePathsToRemove {
+						accepted_paths,
+						maybe_to_keep_walking,
+						accepted_ancestors,
+					};
+
+					check_interruption!(interrupter);
+				}
+
+				WalkerStage::GatheringFilePathsToRemove {
+					accepted_paths,
+					maybe_to_keep_walking,
+					accepted_ancestors,
+				} => {
+					let (walking_entries, to_remove_entries) = gather_file_paths_to_remove(
+						accepted_paths,
+						entry_iso_file_path,
+						iso_file_path_factory.as_ref(),
+						db_proxy.as_ref(),
+						errors,
+					)
+					.await;
+
+					*stage = WalkerStage::Finalize {
+						walking_entries,
+						to_remove_entries,
+						maybe_to_keep_walking: mem::take(maybe_to_keep_walking),
+						accepted_ancestors: mem::take(accepted_ancestors),
+					};
+
+					check_interruption!(interrupter);
+				}
+
+				// From this points onwards, we will not allow to be interrupted anymore
+				WalkerStage::Finalize {
+					walking_entries,
+					to_remove_entries,
+					maybe_to_keep_walking,
+					accepted_ancestors,
+				} => {
+					let (to_create, to_update, total_size) =
+						segregate_creates_and_updates(walking_entries, db_proxy.as_ref()).await?;
+
+					let handles = keep_walking(
+						root,
+						indexer_ruler,
+						iso_file_path_factory,
+						db_proxy,
+						maybe_to_keep_walking,
+						maybe_dispatcher,
+						errors,
+					)
+					.await;
+
+					break (
+						to_create,
+						to_update,
+						total_size,
+						mem::take(to_remove_entries),
+						mem::take(accepted_ancestors),
+						handles,
+					);
 				}
 			}
-
-			check_interruption!(interrupter);
-		}
-
-		check_interruption!(interrupter);
-
-		collect_metadata(found_paths, paths_and_metadatas, errors).await;
-
-		check_interruption!(interrupter);
-
-		apply_indexer_rules(
-			paths_and_metadatas,
-			indexer_ruler,
-			paths_metadatas_and_acceptance,
-			errors,
-		)
-		.await;
-
-		check_interruption!(interrupter);
-
-		process_rules_results(
-			&path,
-			root,
-			*parent_dir_accepted_by_its_children,
-			paths_metadatas_and_acceptance,
-			accepted_paths,
-			accepted_ancestors,
-			maybe_to_keep_walking,
-		);
-
-		check_interruption!(interrupter);
-
-		gather_file_paths_to_remove(
-			accepted_paths,
-			walking_entries,
-			to_remove_entries,
-			entry_iso_file_path,
-			iso_file_path_factory.as_ref(),
-			db_proxy.as_ref(),
-			errors,
-		)
-		.await;
-
-		check_interruption!(interrupter);
-
-		// From this points onwards, we will not allow to be interrupted anymore
-
-		let (to_create, to_update, total_size) =
-			segregate_creates_and_updates(walking_entries, db_proxy.as_ref()).await?;
-
-		let handles = keep_walking(
-			root,
-			indexer_ruler,
-			iso_file_path_factory,
-			db_proxy,
-			maybe_to_keep_walking,
-			maybe_dispatcher,
-			errors,
-		)
-		.await;
+		};
 
 		// Taking out some data as the task is finally complete
 		Ok(ExecStatus::Done(
 			WalkOutput {
 				to_create,
 				to_update,
-				to_remove: mem::take(to_remove_entries),
-				accepted_ancestors: mem::take(accepted_ancestors),
+				to_remove,
+				accepted_ancestors,
 				errors: mem::take(errors),
 				directory: mem::take(path),
 				total_size,
@@ -400,14 +504,14 @@ async fn keep_walking(
 	db_proxy: &Arc<impl WalkerDBProxy>,
 	maybe_to_keep_walking: &mut Option<Vec<ToWalkEntry>>,
 	dispatcher: &Option<TaskDispatcher<Error>>,
-	errors: &mut Vec<IndexerError>,
+	errors: &mut Vec<NonCriticalJobError>,
 ) -> Vec<TaskHandle<Error>> {
 	if let (Some(dispatcher), Some(to_keep_walking)) = (dispatcher, maybe_to_keep_walking) {
 		dispatcher
 			.dispatch_many(
 				to_keep_walking
 					.drain(..)
-					.map(|entry| async {
+					.map(|entry| {
 						WalkDirTask::new(
 							entry,
 							Arc::clone(root),
@@ -416,13 +520,9 @@ async fn keep_walking(
 							Arc::clone(db_proxy),
 							Some(dispatcher.clone()),
 						)
-						.await
+						.map_err(|e| NonCriticalIndexerError::DispatchKeepWalking(e.to_string()))
 					})
-					.collect::<Vec<_>>()
-					.join()
-					.await
-					.into_iter()
-					.filter_map(|res| res.map_err(|e| errors.push(e)).ok()),
+					.filter_map(|res| res.map_err(|e| errors.push(e.into())).ok()),
 			)
 			.await
 	} else {
@@ -436,7 +536,7 @@ pub(crate) struct WalkOutput {
 	to_update: Vec<WalkedEntry>,
 	to_remove: Vec<file_path_pub_and_cas_ids::Data>,
 	accepted_ancestors: HashSet<PathBuf>,
-	errors: Vec<IndexerError>,
+	errors: Vec<NonCriticalJobError>,
 	directory: PathBuf,
 	total_size: u64,
 	maybe_parent: Option<PathBuf>,
@@ -445,50 +545,52 @@ pub(crate) struct WalkOutput {
 
 async fn collect_metadata(
 	found_paths: &mut Vec<PathBuf>,
-	paths_and_metadatas: &mut HashMap<PathBuf, Metadata>,
-	errors: &mut Vec<IndexerError>,
-) {
-	if !found_paths.is_empty() && paths_and_metadatas.is_empty() {
-		*paths_and_metadatas = found_paths
-			.drain(..)
-			.map(|current_path| async move {
-				fs::metadata(&current_path)
-					.await
-					.map_err(|e| FileIOError::from((&current_path, e)))
-					.map(|metadata| (current_path, metadata))
-			})
-			.collect::<Vec<_>>()
-			.join()
-			.await
-			.into_iter()
-			.filter_map(|res| res.map_err(|e| errors.push(e.into())).ok())
-			.collect::<HashMap<_, _>>();
-	}
+	errors: &mut Vec<NonCriticalJobError>,
+) -> HashMap<PathBuf, Metadata> {
+	found_paths
+		.drain(..)
+		.map(|current_path| async move {
+			fs::metadata(&current_path)
+				.await
+				.map_err(|e| {
+					NonCriticalIndexerError::Metadata(
+						FileIOError::from((&current_path, e)).to_string(),
+					)
+				})
+				.map(|metadata| (current_path, metadata))
+		})
+		.collect::<Vec<_>>()
+		.join()
+		.await
+		.into_iter()
+		.filter_map(|res| res.map_err(|e| errors.push(e.into())).ok())
+		.collect()
 }
 
 async fn apply_indexer_rules(
 	paths_and_metadatas: &mut HashMap<PathBuf, Metadata>,
 	indexer_ruler: &IndexerRuler,
-	paths_metadatas_and_acceptance: &mut HashMap<PathBuf, (Metadata, HashMap<RuleKind, Vec<bool>>)>,
-	errors: &mut Vec<IndexerError>,
-) {
-	if !paths_and_metadatas.is_empty() && paths_metadatas_and_acceptance.is_empty() {
-		*paths_metadatas_and_acceptance = paths_and_metadatas
-			.drain()
-			// TODO: Hard ignoring symlinks for now, but this should be configurable
-			.filter(|(_, metadata)| !metadata.is_symlink())
-			.map(|(current_path, metadata)| async {
-				indexer_ruler.apply_all(&current_path, &metadata).await.map(
-					|acceptance_per_rule_kind| (current_path, (metadata, acceptance_per_rule_kind)),
-				)
-			})
-			.collect::<Vec<_>>()
-			.join()
-			.await
-			.into_iter()
-			.filter_map(|res| res.map_err(|e| errors.push(e.into())).ok())
-			.collect();
-	}
+	errors: &mut Vec<NonCriticalJobError>,
+) -> HashMap<PathBuf, (Metadata, HashMap<RuleKind, Vec<bool>>)> {
+	paths_and_metadatas
+		.drain()
+		// TODO: Hard ignoring symlinks for now, but this should be configurable
+		.filter(|(_, metadata)| !metadata.is_symlink())
+		.map(|(current_path, metadata)| async {
+			indexer_ruler
+				.apply_all(&current_path, &metadata)
+				.await
+				.map(|acceptance_per_rule_kind| {
+					(current_path, (metadata, acceptance_per_rule_kind))
+				})
+				.map_err(|e| NonCriticalIndexerError::IndexerRule(e.to_string()))
+		})
+		.collect::<Vec<_>>()
+		.join()
+		.await
+		.into_iter()
+		.filter_map(|res| res.map_err(|e| errors.push(e.into())).ok())
+		.collect()
 }
 
 fn process_rules_results(
@@ -496,76 +598,69 @@ fn process_rules_results(
 	root: &Arc<PathBuf>,
 	parent_dir_accepted_by_its_children: Option<bool>,
 	paths_metadatas_and_acceptance: &mut HashMap<PathBuf, (Metadata, HashMap<RuleKind, Vec<bool>>)>,
-	accepted_paths: &mut HashMap<PathBuf, Metadata>,
-	accepted_ancestors: &mut HashSet<PathBuf>,
 	maybe_to_keep_walking: &mut Option<Vec<ToWalkEntry>>,
-) {
+) -> (HashMap<PathBuf, Metadata>, HashSet<PathBuf>) {
 	let source_directory = source_directory.as_ref();
 	let root = root.as_ref();
 
-	if !paths_metadatas_and_acceptance.is_empty()
-		&& accepted_paths.is_empty()
-		&& accepted_ancestors.is_empty()
-	{
-		(*accepted_paths, *accepted_ancestors) = paths_metadatas_and_acceptance.drain().fold(
-			(HashMap::new(), HashSet::new()),
-			|(mut accepted, mut accepted_ancestors),
-			 (current_path, (metadata, acceptance_per_rule_kind))| {
-				// Accept by children has three states,
-				// None if we don't now yet or if this check doesn't apply
-				// Some(true) if this check applies and it passes
-				// Some(false) if this check applies and it was rejected
-				// and we pass the current parent state to its children
-				let mut accept_by_children_dir = parent_dir_accepted_by_its_children;
+	paths_metadatas_and_acceptance.drain().fold(
+		(HashMap::new(), HashSet::new()),
+		|(mut accepted, mut accepted_ancestors),
+		 (current_path, (metadata, acceptance_per_rule_kind))| {
+			// Accept by children has three states,
+			// None if we don't now yet or if this check doesn't apply
+			// Some(true) if this check applies and it passes
+			// Some(false) if this check applies and it was rejected
+			// and we pass the current parent state to its children
+			let mut accept_by_children_dir = parent_dir_accepted_by_its_children;
 
-				if rejected_by_reject_glob(&acceptance_per_rule_kind) {
-					trace!(
-						"Path {} rejected by `RuleKind::RejectFilesByGlob`",
-						current_path.display()
-					);
+			if rejected_by_reject_glob(&acceptance_per_rule_kind) {
+				trace!(
+					"Path {} rejected by `RuleKind::RejectFilesByGlob`",
+					current_path.display()
+				);
 
-					return (accepted, accepted_ancestors);
-				}
+				return (accepted, accepted_ancestors);
+			}
 
-				let is_dir = metadata.is_dir();
+			let is_dir = metadata.is_dir();
 
-				if is_dir
-					&& process_and_maybe_reject_by_directory_rules(
-						&current_path,
-						source_directory,
-						&acceptance_per_rule_kind,
-						&mut accept_by_children_dir,
-						maybe_to_keep_walking,
-					) {
-					trace!(
-						"Path {} rejected by rule `RuleKind::RejectIfChildrenDirectoriesArePresent`",
-						current_path.display(),
-					);
-					return (accepted, accepted_ancestors);
-				}
+			if is_dir
+				&& process_and_maybe_reject_by_directory_rules(
+					&current_path,
+					source_directory,
+					&acceptance_per_rule_kind,
+					&mut accept_by_children_dir,
+					maybe_to_keep_walking,
+				) {
+				trace!(
+					"Path {} rejected by rule `RuleKind::RejectIfChildrenDirectoriesArePresent`",
+					current_path.display(),
+				);
+				return (accepted, accepted_ancestors);
+			}
 
-				if rejected_by_accept_glob(&acceptance_per_rule_kind) {
-					trace!(
-						"Path {} reject because it didn't passed in any AcceptFilesByGlob rules",
-						current_path.display()
-					);
-					return (accepted, accepted_ancestors);
-				}
+			if rejected_by_accept_glob(&acceptance_per_rule_kind) {
+				trace!(
+					"Path {} reject because it didn't passed in any AcceptFilesByGlob rules",
+					current_path.display()
+				);
+				return (accepted, accepted_ancestors);
+			}
 
-				if accept_by_children_dir.unwrap_or(true) {
-					accept_ancestors(
-						current_path,
-						metadata,
-						root,
-						&mut accepted,
-						&mut accepted_ancestors,
-					);
-				}
+			if accept_by_children_dir.unwrap_or(true) {
+				accept_ancestors(
+					current_path,
+					metadata,
+					root,
+					&mut accepted,
+					&mut accepted_ancestors,
+				);
+			}
 
-				(accepted, accepted_ancestors)
-			},
-		);
-	}
+			(accepted, accepted_ancestors)
+		},
+	)
 }
 
 fn process_and_maybe_reject_by_directory_rules(
@@ -663,52 +758,47 @@ fn rejected_by_reject_glob(acceptance_per_rule_kind: &HashMap<RuleKind, Vec<bool
 
 async fn gather_file_paths_to_remove(
 	accepted_paths: &mut HashMap<PathBuf, Metadata>,
-	walking_entries: &mut Vec<WalkingEntry>,
-	to_remove_entries: &mut Vec<file_path_pub_and_cas_ids::Data>,
 	entry_iso_file_path: &IsolatedFilePathData<'_>,
 	iso_file_path_factory: &impl IsoFilePathFactory,
 	db_proxy: &impl WalkerDBProxy,
-	errors: &mut Vec<IndexerError>,
-) {
-	if !accepted_paths.is_empty() && walking_entries.is_empty() && to_remove_entries.is_empty() {
-		let (walking, to_delete_params) = accepted_paths
-			.drain()
-			.filter_map(|(path, metadata)| {
-				iso_file_path_factory
-					.build(&path, metadata.is_dir())
-					.and_then(|iso_file_path| {
-						FilePathMetadata::from_path(path, &metadata)
-							.map(|metadata| {
-								let params = file_path::WhereParam::from(&iso_file_path);
+	errors: &mut Vec<NonCriticalJobError>,
+) -> (Vec<WalkingEntry>, Vec<file_path_pub_and_cas_ids::Data>) {
+	let (walking, to_delete_params) = accepted_paths
+		.drain()
+		.filter_map(|(path, metadata)| {
+			iso_file_path_factory
+				.build(&path, metadata.is_dir())
+				.map_err(|e| NonCriticalIndexerError::IsoFilePath(e.to_string()))
+				.and_then(|iso_file_path| {
+					FilePathMetadata::from_path(path, &metadata)
+						.map(|metadata| {
+							let params = file_path::WhereParam::from(&iso_file_path);
 
-								(
-									WalkingEntry {
-										iso_file_path,
-										metadata,
-									},
-									params,
-								)
-							})
-							.map_err(Into::into)
-					})
-					.map_err(|e| errors.push(e))
-					.ok()
-			})
-			.unzip::<_, _, Vec<_>, Vec<_>>();
+							(
+								WalkingEntry {
+									iso_file_path,
+									metadata,
+								},
+								params,
+							)
+						})
+						.map_err(|e| NonCriticalIndexerError::FilePathMetadata(e.to_string()))
+				})
+				.map_err(|e| errors.push(e.into()))
+				.ok()
+		})
+		.unzip::<_, _, Vec<_>, Vec<_>>();
 
-		*walking_entries = walking;
+	// We continue the function even if we fail to fetch `file_path`s to remove,
+	// the DB will have old `file_path`s but at least this is better than
+	// don't adding the newly indexed paths
+	let to_remove_entries = db_proxy
+		.fetch_file_paths_to_remove(entry_iso_file_path, to_delete_params)
+		.await
+		.map_err(|e| errors.push(e.into()))
+		.unwrap_or_default();
 
-		// We continue the function even if we fail to fetch `file_path`s to remove,
-		// the DB will have old `file_path`s but at least this is better than
-		// don't adding the newly indexed paths
-		if let Ok(entries) = db_proxy
-			.fetch_file_paths_to_remove(entry_iso_file_path, to_delete_params)
-			.await
-			.map_err(|e| errors.push(e))
-		{
-			*to_remove_entries = entries;
-		}
-	}
+	(walking, to_remove_entries)
 }
 
 #[cfg(test)]
@@ -753,7 +843,7 @@ mod tests {
 			&self,
 			path: impl AsRef<Path>,
 			is_dir: bool,
-		) -> Result<IsolatedFilePathData<'static>, IndexerError> {
+		) -> Result<IsolatedFilePathData<'static>, FilePathError> {
 			IsolatedFilePathData::new(0, &self.root_path, path, is_dir).map_err(Into::into)
 		}
 	}
@@ -773,7 +863,7 @@ mod tests {
 			&self,
 			_: &IsolatedFilePathData<'_>,
 			_: Vec<file_path::WhereParam>,
-		) -> Result<Vec<file_path_pub_and_cas_ids::Data>, IndexerError> {
+		) -> Result<Vec<file_path_pub_and_cas_ids::Data>, NonCriticalIndexerError> {
 			Ok(vec![])
 		}
 	}
@@ -895,7 +985,6 @@ mod tests {
 					Arc::new(DummyDBProxy),
 					Some(system.get_dispatcher()),
 				)
-				.await
 				.unwrap(),
 			)
 			.await;

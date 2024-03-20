@@ -29,13 +29,15 @@
 
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use thiserror::Error;
 
 pub mod actors;
 pub mod jobs;
 pub mod tasks;
 
-use tasks::indexer::IndexerError;
+use tasks::indexer::{IndexerError, NonCriticalIndexerError};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -51,9 +53,11 @@ impl From<Error> for rspc::Error {
 	}
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum NonCriticalJobErrors {
+#[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
+pub enum NonCriticalJobError {
 	// TODO: Add variants as needed
+	#[error(transparent)]
+	Indexer(#[from] NonCriticalIndexerError),
 }
 
 pub enum ProgressUpdate {

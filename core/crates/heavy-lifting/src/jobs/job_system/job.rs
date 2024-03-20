@@ -1,7 +1,7 @@
-use crate::{jobs::JobId, Error};
+use crate::{jobs::JobId, Error, NonCriticalJobError};
 
 use sd_prisma::prisma::PrismaClient;
-use sd_task_system::{IntoTask, Task, TaskHandle, TaskRemoteController, TaskSystemError};
+use sd_task_system::{IntoTask, TaskHandle, TaskRemoteController, TaskSystemError};
 
 use std::{
 	collections::VecDeque,
@@ -11,7 +11,7 @@ use std::{
 
 use async_channel as chan;
 use chrono::{DateTime, Utc};
-use futures::{stream, StreamExt};
+use futures::{stream, Future, StreamExt};
 use futures_concurrency::{
 	future::{Join, TryJoin},
 	stream::Merge,
@@ -19,10 +19,12 @@ use futures_concurrency::{
 use serde::Serialize;
 use specta::Type;
 use tokio::spawn;
-use tracing::warn;
+use tracing::{debug, error, info, warn};
 
 use super::{
-	report::{Report, ReportBuilder, ReportInputMetadata, ReportOutputMetadata, Status},
+	report::{
+		Report, ReportBuilder, ReportInputMetadata, ReportMetadata, ReportOutputMetadata, Status,
+	},
 	Command, JobSystemError,
 };
 
@@ -83,17 +85,16 @@ impl TaskDispatcher {
 }
 
 pub enum ReturnStatus {
-	Completed(JobOutput),
+	Completed(JobReturn),
 	Failed(Error),
-	Shutdown(Vec<Box<dyn Task<Error>>>),
+	Shutdown(Option<Vec<u8>>),
 	Canceled,
 }
 
-#[async_trait::async_trait]
 pub trait Job: Send + Sync + Hash + 'static {
 	const NAME: &'static str;
 
-	async fn run(mut self, dispatcher: TaskDispatcher) -> ReturnStatus;
+	fn run(self, dispatcher: TaskDispatcher) -> impl Future<Output = ReturnStatus> + Send;
 }
 
 pub trait IntoJob<J: Job> {
@@ -119,13 +120,72 @@ impl<J: Job> IntoJob<J> for JobBuilder<J> {
 	}
 }
 
+pub struct JobReturn {
+	data: JobOutputData,
+	metadata: Option<ReportOutputMetadata>,
+	non_critical_errors: Vec<NonCriticalJobError>,
+}
+
+impl Default for JobReturn {
+	fn default() -> Self {
+		Self {
+			data: JobOutputData::Empty,
+			metadata: None,
+			non_critical_errors: vec![],
+		}
+	}
+}
+
 #[derive(Serialize, Type)]
 pub struct JobOutput {
-	pub id: JobId,
-	pub job_type: String,
-	pub data: JobOutputData,
-	pub metadata: ReportOutputMetadata,
-	pub non_critical_errors: Vec<rspc::Error>,
+	id: JobId,
+	status: Status,
+	job_name: String,
+	data: JobOutputData,
+	metadata: Vec<ReportMetadata>,
+	non_critical_errors: Vec<NonCriticalJobError>,
+}
+
+impl JobOutput {
+	pub fn prepare_output_and_report(
+		JobReturn {
+			data,
+			metadata,
+			non_critical_errors,
+		}: JobReturn,
+		report: &mut Report,
+	) -> Self {
+		if non_critical_errors.is_empty() {
+			report.status = Status::Completed;
+			debug!("Job<id='{}', name='{}'> completed", report.id, report.name);
+		} else {
+			report.status = Status::CompletedWithErrors;
+			report.non_critical_errors = non_critical_errors
+				.iter()
+				.map(ToString::to_string)
+				.collect();
+
+			warn!(
+				"Job<id='{}', name='{}'> completed with errors: {non_critical_errors:#?}",
+				report.id, report.name
+			);
+		}
+
+		if let Some(metadata) = metadata {
+			report.metadata.push(ReportMetadata::Output(metadata));
+		}
+
+		report.completed_at = Some(Utc::now());
+
+		Self {
+			id: report.id,
+			status: report.status,
+			job_name: report.name.clone(),
+			data,
+			metadata: report.metadata.clone(),
+			non_critical_errors,
+		}
+	}
 }
 
 #[derive(Serialize, Type)]
@@ -216,25 +276,35 @@ impl JobHandle {
 
 			Ok(())
 		} else {
-			let new_status = match command {
-				Command::Pause => Status::Paused,
-				Command::Resume => return Ok(()),
-				Command::Cancel => Status::Canceled,
-			};
-
-			self.next_jobs
-				.iter_mut()
-				.map(|dyn_job| dyn_job.report_mut())
-				.map(|next_job_report| async {
-					next_job_report.status = new_status;
-					next_job_report.update(db).await
-				})
-				.collect::<Vec<_>>()
-				.try_join()
-				.await
-				.map(|_| ())
-				.map_err(Into::into)
+			self.command_children(command, db).await
 		}
+	}
+
+	pub async fn command_children(
+		&mut self,
+		command: Command,
+		db: &PrismaClient,
+	) -> Result<(), JobSystemError> {
+		let (new_status, completed_at) = match command {
+			Command::Pause => (Status::Paused, None),
+			Command::Resume => return Ok(()),
+			Command::Cancel => (Status::Canceled, Some(Utc::now())),
+		};
+
+		self.next_jobs
+			.iter_mut()
+			.map(|dyn_job| dyn_job.report_mut())
+			.map(|next_job_report| async {
+				next_job_report.status = new_status;
+				next_job_report.completed_at = completed_at;
+
+				next_job_report.update(db).await
+			})
+			.collect::<Vec<_>>()
+			.try_join()
+			.await
+			.map(|_| ())
+			.map_err(Into::into)
 	}
 
 	pub async fn register_start(
@@ -277,23 +347,63 @@ impl JobHandle {
 			.map_err(Into::into)
 	}
 
-	pub async fn complete(
+	pub async fn complete_job(
 		&mut self,
-		output: &JobOutput,
+		job_return: JobReturn,
 		db: &PrismaClient,
-	) -> Result<(), JobSystemError> {
+	) -> Result<JobOutput, JobSystemError> {
 		let Self { report, .. } = self;
 
-		let status = if output.non_critical_errors.is_empty() {
-			Status::Completed
-		} else {
-			Status::CompletedWithErrors
-		};
+		let output = JobOutput::prepare_output_and_report(job_return, report);
 
-		// TODO: Update the report with the output data
-		// report.metadata
+		report.update(db).await?;
 
-		Ok(())
+		Ok(output)
+	}
+
+	pub async fn failed_job(&mut self, e: &Error, db: &PrismaClient) -> Result<(), JobSystemError> {
+		let Self { report, .. } = self;
+		error!(
+			"Job<id='{}', name='{}'> failed with a critical error: {e:#?};",
+			report.id, report.name
+		);
+
+		report.status = Status::Failed;
+		report.critical_error = Some(e.to_string());
+		report.completed_at = Some(Utc::now());
+
+		report.update(db).await?;
+
+		self.command_children(Command::Cancel, db).await
+	}
+
+	pub async fn shutdown_pause_job(&mut self, db: &PrismaClient) -> Result<(), JobSystemError> {
+		let Self { report, .. } = self;
+		info!(
+			"Job<id='{}', name='{}'> paused due to system shutdown, we will pause all children jobs",
+			report.id, report.name
+		);
+
+		report.status = Status::Paused;
+
+		report.update(db).await?;
+
+		self.command_children(Command::Pause, db).await
+	}
+
+	pub async fn cancel_job(&mut self, db: &PrismaClient) -> Result<(), JobSystemError> {
+		let Self { report, .. } = self;
+		info!(
+			"Job<id='{}', name='{}'> canceled, we will cancel all children jobs",
+			report.id, report.name
+		);
+
+		report.status = Status::Canceled;
+		report.completed_at = Some(Utc::now());
+
+		report.update(db).await?;
+
+		self.command_children(Command::Cancel, db).await
 	}
 }
 

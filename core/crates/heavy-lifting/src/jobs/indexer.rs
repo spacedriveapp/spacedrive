@@ -1,9 +1,6 @@
-use crate::tasks::indexer::{
-	walker::{self, WalkDirTask, WalkedEntry},
-	IndexerError,
-};
+use crate::tasks::indexer::{walker, IndexerError, NonCriticalIndexerError};
 
-use sd_core_file_path_helper::IsolatedFilePathData;
+use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
 use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_walker};
 
 use sd_prisma::prisma::{file_path, location, PrismaClient, SortOrder};
@@ -28,9 +25,8 @@ impl walker::IsoFilePathFactory for IsoFilePathFactory {
 		&self,
 		path: impl AsRef<Path>,
 		is_dir: bool,
-	) -> Result<IsolatedFilePathData<'static>, IndexerError> {
+	) -> Result<IsolatedFilePathData<'static>, FilePathError> {
 		IsolatedFilePathData::new(self.location_id, &self.location_path, path, is_dir)
-			.map_err(Into::into)
 	}
 }
 
@@ -70,7 +66,7 @@ impl walker::WalkerDBProxy for WalkerDBProxy {
 		&self,
 		parent_iso_file_path: &IsolatedFilePathData<'_>,
 		unique_location_id_materialized_path_name_extension_params: Vec<file_path::WhereParam>,
-	) -> Result<Vec<file_path_pub_and_cas_ids::Data>, IndexerError> {
+	) -> Result<Vec<file_path_pub_and_cas_ids::Data>, NonCriticalIndexerError> {
 		// NOTE: This batch size can be increased if we wish to trade memory for more performance
 		const BATCH_SIZE: i64 = 1000;
 
@@ -95,7 +91,8 @@ impl walker::WalkerDBProxy for WalkerDBProxy {
 					.into_iter()
 					.flat_map(|file_paths| file_paths.into_iter().map(|file_path| file_path.id))
 					.collect::<HashSet<_>>()
-			})?;
+			})
+			.map_err(|e| NonCriticalIndexerError::FetchAlreadyExistingFilePathIds(e.to_string()))?;
 
 		let mut to_remove = vec![];
 		let mut cursor = 1;
@@ -117,7 +114,8 @@ impl walker::WalkerDBProxy for WalkerDBProxy {
 				.cursor(file_path::id::equals(cursor))
 				.select(file_path::select!({ id pub_id cas_id }))
 				.exec()
-				.await?;
+				.await
+				.map_err(|e| NonCriticalIndexerError::FetchFilePathsToRemove(e.to_string()))?;
 
 			#[allow(clippy::cast_possible_truncation)] // Safe because we are using a constant
 			let should_stop = found.len() < BATCH_SIZE as usize;

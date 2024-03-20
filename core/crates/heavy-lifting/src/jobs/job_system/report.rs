@@ -5,6 +5,7 @@ use prisma_client_rust::QueryError;
 use sd_prisma::prisma::{job, PrismaClient};
 use sd_utils::db::{maybe_missing, MissingFieldError};
 
+use std::collections::HashMap;
 use std::fmt;
 
 use chrono::{DateTime, Utc};
@@ -46,7 +47,7 @@ pub enum ReportInputMetadata {
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
 pub enum ReportOutputMetadata {
-	Placeholder,
+	Metrics(HashMap<String, u64>),
 	// TODO: Add more types
 }
 
