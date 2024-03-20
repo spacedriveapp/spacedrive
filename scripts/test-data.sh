@@ -65,8 +65,7 @@ else
     | tar -xzf - -C "${_test_data_dir}/chromium-pdf"
 fi
 
-shopt -s globstar
-for _test_file in "$_test_data_dir"/**; do
+while IFS= read -r -d '' _test_file; do
   _mime_type="$(file -b --mime-type "$_test_file")"
   case "$_mime_type" in
     image/* | audio/* | video/*)
@@ -82,6 +81,6 @@ for _test_file in "$_test_data_dir"/**; do
 
   mkdir -p "$_type_dir"
   mv "$_test_file" "$_type_dir"
-done
+done < <(find "$_test_data_dir" -type f -print0)
 
 rm -rf "${_test_data_dir}"/{wpt-master,heif_conformance-master,libwebp-test-data-main,png-test-suite,image-main,chromium-media,chromium-pdf}
