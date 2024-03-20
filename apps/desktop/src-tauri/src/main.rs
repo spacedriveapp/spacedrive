@@ -315,81 +315,81 @@ async fn main() -> tauri::Result<()> {
 					.expect("Window should hide on macOS");
 				api.prevent_close();
 			}
-			WindowEvent::FileDrop(drop) => {
-				let window = event.window();
-				let mut file_drop_status = file_drop_status
-					.lock()
-					.unwrap_or_else(PoisonError::into_inner);
+			// WindowEvent::FileDrop(drop) => {
+			// 	let window = event.window();
+			// 	let mut file_drop_status = file_drop_status
+			// 		.lock()
+			// 		.unwrap_or_else(PoisonError::into_inner);
 
-				match drop {
-					FileDropEvent::Hovered(paths) => {
-						// Look this shouldn't happen but let's be sure we don't leak threads.
-						if file_drop_status.windows.contains_key(window) {
-							return;
-						}
+			// 	match drop {
+			// 		FileDropEvent::Hovered(paths) => {
+			// 			// Look this shouldn't happen but let's be sure we don't leak threads.
+			// 			if file_drop_status.windows.contains_key(window) {
+			// 				return;
+			// 			}
 
-						// We setup a thread to keep emitting the updated position of the cursor
-						// It will be killed when the `FileDropEvent` is finished or cancelled.
-						let paths = paths.clone();
-						file_drop_status.windows.insert(window.clone(), {
-							let window = window.clone();
-							tokio::spawn(async move {
-								let (mut last_x, mut last_y) = (0.0, 0.0);
-								loop {
-									let (x, y) = mouse_position(&window);
+			// 			// We setup a thread to keep emitting the updated position of the cursor
+			// 			// It will be killed when the `FileDropEvent` is finished or cancelled.
+			// 			let paths = paths.clone();
+			// 			file_drop_status.windows.insert(window.clone(), {
+			// 				let window = window.clone();
+			// 				tokio::spawn(async move {
+			// 					let (mut last_x, mut last_y) = (0.0, 0.0);
+			// 					loop {
+			// 						let (x, y) = mouse_position(&window);
 
-									let x_diff = difference(x, last_x);
-									let y_diff = difference(y, last_y);
+			// 						let x_diff = difference(x, last_x);
+			// 						let y_diff = difference(y, last_y);
 
-									// If the mouse hasn't moved much we will "debounce" the event
-									if x_diff > 28.0 || y_diff > 28.0 {
-										last_x = x;
-										last_y = y;
+			// 						// If the mouse hasn't moved much we will "debounce" the event
+			// 						if x_diff > 28.0 || y_diff > 28.0 {
+			// 							last_x = x;
+			// 							last_y = y;
 
-										DragAndDropEvent::Hovered {
-											paths: paths
-												.iter()
-												.filter_map(|x| x.to_str().map(|x| x.to_string()))
-												.collect(),
-											x,
-											y,
-										}
-										.emit(&window)
-										.ok();
-									}
+			// 							DragAndDropEvent::Hovered {
+			// 								paths: paths
+			// 									.iter()
+			// 									.filter_map(|x| x.to_str().map(|x| x.to_string()))
+			// 									.collect(),
+			// 								x,
+			// 								y,
+			// 							}
+			// 							.emit(&window)
+			// 							.ok();
+			// 						}
 
-									sleep(Duration::from_millis(125)).await;
-								}
-							})
-						});
-					}
-					FileDropEvent::Dropped(paths) => {
-						if let Some(handle) = file_drop_status.windows.remove(window) {
-							handle.abort();
-						}
+			// 						sleep(Duration::from_millis(125)).await;
+			// 					}
+			// 				})
+			// 			});
+			// 		}
+			// 		FileDropEvent::Dropped(paths) => {
+			// 			if let Some(handle) = file_drop_status.windows.remove(window) {
+			// 				handle.abort();
+			// 			}
 
-						let (x, y) = mouse_position(window);
-						DragAndDropEvent::Dropped {
-							paths: paths
-								.iter()
-								.filter_map(|x| x.to_str().map(|x| x.to_string()))
-								.collect(),
-							x,
-							y,
-						}
-						.emit(window)
-						.ok();
-					}
-					FileDropEvent::Cancelled => {
-						if let Some(handle) = file_drop_status.windows.remove(window) {
-							handle.abort();
-						}
+			// 			let (x, y) = mouse_position(window);
+			// 			DragAndDropEvent::Dropped {
+			// 				paths: paths
+			// 					.iter()
+			// 					.filter_map(|x| x.to_str().map(|x| x.to_string()))
+			// 					.collect(),
+			// 				x,
+			// 				y,
+			// 			}
+			// 			.emit(window)
+			// 			.ok();
+			// 		}
+			// 		FileDropEvent::Cancelled => {
+			// 			if let Some(handle) = file_drop_status.windows.remove(window) {
+			// 				handle.abort();
+			// 			}
 
-						DragAndDropEvent::Cancelled.emit(window).ok();
-					}
-					_ => unreachable!(),
-				}
-			}
+			// 			DragAndDropEvent::Cancelled.emit(window).ok();
+			// 		}
+			// 		_ => unreachable!(),
+			// 	}
+			// }
 			WindowEvent::Resized(_) => {
 				let (_state, command) = if event
 					.window()
@@ -422,28 +422,28 @@ async fn main() -> tauri::Result<()> {
 	Ok(())
 }
 
-// Get the mouse position relative to the window
-fn mouse_position(window: &Window) -> (f64, f64) {
-	// We apply the OS scaling factor.
-	// Tauri/Webkit *should* be responsible for this but it would seem it is bugged on the current webkit/tauri/wry/tao version.
-	// Using newer Webkit did fix this automatically but I can't for the life of me work out how to get the right glibc versions in CI so we can't ship it.
-	let scale_factor = window.scale_factor().unwrap();
+// // Get the mouse position relative to the window
+// fn mouse_position(window: &Window) -> (f64, f64) {
+// 	// We apply the OS scaling factor.
+// 	// Tauri/Webkit *should* be responsible for this but it would seem it is bugged on the current webkit/tauri/wry/tao version.
+// 	// Using newer Webkit did fix this automatically but I can't for the life of me work out how to get the right glibc versions in CI so we can't ship it.
+// 	let scale_factor = window.scale_factor().unwrap();
 
-	let window_pos = window.outer_position().unwrap();
-	let cursor_pos = window.cursor_position().unwrap();
+// 	let window_pos = window.outer_position().unwrap();
+// 	let cursor_pos = window.cursor_position().unwrap();
 
-	(
-		(cursor_pos.x - window_pos.x as f64) / scale_factor,
-		(cursor_pos.y - window_pos.y as f64) / scale_factor,
-	)
-}
+// 	(
+// 		(cursor_pos.x - window_pos.x as f64) / scale_factor,
+// 		(cursor_pos.y - window_pos.y as f64) / scale_factor,
+// 	)
+// }
 
-// The distance between two numbers as a positive integer.
-fn difference(a: f64, b: f64) -> f64 {
-	let x = a - b;
-	if x < 0.0 {
-		x * -1.0
-	} else {
-		x
-	}
-}
+// // The distance between two numbers as a positive integer.
+// fn difference(a: f64, b: f64) -> f64 {
+// 	let x = a - b;
+// 	if x < 0.0 {
+// 		x * -1.0
+// 	} else {
+// 		x
+// 	}
+// }

@@ -3258,6 +3258,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "gdkwayland-sys"
+version = "0.15.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cca49a59ad8cfdf36ef7330fe7bdfbe1d34323220cc16a0de2679ee773aee2c2"
+dependencies = [
+ "gdk-sys",
+ "glib-sys",
+ "gobject-sys",
+ "libc",
+ "pkg-config",
+ "system-deps 6.2.0",
+]
+
+[[package]]
 name = "gdkx11-sys"
 version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9626,8 +9640,9 @@ checksum = "7b2093cf4c8eb1e67749a6762251bc9cd836b6fc171623bd0a9d324d37af2417"
 
 [[package]]
 name = "tao"
-version = "0.16.5"
-source = "git+https://github.com/spacedriveapp/tao?rev=7880adbc090402c44fbcf006669458fa82623403#7880adbc090402c44fbcf006669458fa82623403"
+version = "0.16.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d22205b267a679ca1c590b9f178488d50981fc3e48a1b91641ae31593db875ce"
 dependencies = [
  "bitflags 1.3.2",
  "cairo-rs",
@@ -9640,6 +9655,7 @@ dependencies = [
  "gdk",
  "gdk-pixbuf",
  "gdk-sys",
+ "gdkwayland-sys",
  "gdkx11-sys",
  "gio",
  "glib",
@@ -9671,8 +9687,9 @@ dependencies = [
 
 [[package]]
 name = "tao-macros"
-version = "0.1.0"
-source = "git+https://github.com/spacedriveapp/tao?rev=7880adbc090402c44fbcf006669458fa82623403#7880adbc090402c44fbcf006669458fa82623403"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec114582505d158b669b136e6851f85840c109819d77c42bb7c0709f727d18c2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -9705,7 +9722,8 @@ checksum = "14c39fd04924ca3a864207c66fc2cd7d22d7c016007f9ce846cbb9326331930a"
 [[package]]
 name = "tauri"
 version = "1.5.3"
-source = "git+https://github.com/spacedriveapp/tauri.git?rev=8409af71a83d631ff9d1cd876c441a57511a1cbd#8409af71a83d631ff9d1cd876c441a57511a1cbd"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32d563b672acde8d0cc4c1b1f5b855976923f67e8d6fe1eba51df0211e197be2"
 dependencies = [
  "anyhow",
  "base64 0.21.7",
@@ -9746,7 +9764,7 @@ dependencies = [
  "tauri-macros",
  "tauri-runtime",
  "tauri-runtime-wry",
- "tauri-utils 1.5.1",
+ "tauri-utils",
  "tempfile",
  "thiserror",
  "time",
@@ -9774,15 +9792,16 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "tauri-utils 1.5.2",
+ "tauri-utils",
  "tauri-winres",
  "walkdir",
 ]
 
 [[package]]
 name = "tauri-codegen"
-version = "1.4.1"
-source = "git+https://github.com/spacedriveapp/tauri.git?rev=8409af71a83d631ff9d1cd876c441a57511a1cbd#8409af71a83d631ff9d1cd876c441a57511a1cbd"
+version = "1.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1554c5857f65dbc377cefb6b97c8ac77b1cb2a90d30d3448114d5d6b48a77fc"
 dependencies = [
  "base64 0.21.7",
  "brotli",
@@ -9797,7 +9816,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.8",
- "tauri-utils 1.5.1",
+ "tauri-utils",
  "thiserror",
  "time",
  "uuid",
@@ -9806,15 +9825,16 @@ dependencies = [
 
 [[package]]
 name = "tauri-macros"
-version = "1.4.2"
-source = "git+https://github.com/spacedriveapp/tauri.git?rev=8409af71a83d631ff9d1cd876c441a57511a1cbd#8409af71a83d631ff9d1cd876c441a57511a1cbd"
+version = "1.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "277abf361a3a6993ec16bcbb179de0d6518009b851090a01adfea12ac89fa875"
 dependencies = [
  "heck 0.4.1",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
  "tauri-codegen",
- "tauri-utils 1.5.1",
+ "tauri-utils",
 ]
 
 [[package]]
@@ -9832,8 +9852,9 @@ dependencies = [
 
 [[package]]
 name = "tauri-runtime"
-version = "0.14.1"
-source = "git+https://github.com/spacedriveapp/tauri.git?rev=8409af71a83d631ff9d1cd876c441a57511a1cbd#8409af71a83d631ff9d1cd876c441a57511a1cbd"
+version = "0.14.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf2d0652aa2891ff3e9caa2401405257ea29ab8372cce01f186a5825f1bd0e76"
 dependencies = [
  "gtk",
  "http",
@@ -9842,7 +9863,7 @@ dependencies = [
  "raw-window-handle",
  "serde",
  "serde_json",
- "tauri-utils 1.5.1",
+ "tauri-utils",
  "thiserror",
  "url",
  "uuid",
@@ -9852,8 +9873,9 @@ dependencies = [
 
 [[package]]
 name = "tauri-runtime-wry"
-version = "0.14.2"
-source = "git+https://github.com/spacedriveapp/tauri.git?rev=8409af71a83d631ff9d1cd876c441a57511a1cbd#8409af71a83d631ff9d1cd876c441a57511a1cbd"
+version = "0.14.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a561ae38c6b27510c77a3ab4cf65bebe18fba51ca4569e023fb9e194ff4995fb"
 dependencies = [
  "cocoa",
  "gtk",
@@ -9861,7 +9883,7 @@ dependencies = [
  "rand 0.8.5",
  "raw-window-handle",
  "tauri-runtime",
- "tauri-utils 1.5.1",
+ "tauri-utils",
  "tracing",
  "uuid",
  "webkit2gtk",
@@ -9900,39 +9922,11 @@ dependencies = [
 
 [[package]]
 name = "tauri-utils"
-version = "1.5.1"
-source = "git+https://github.com/spacedriveapp/tauri.git?rev=8409af71a83d631ff9d1cd876c441a57511a1cbd#8409af71a83d631ff9d1cd876c441a57511a1cbd"
-dependencies = [
- "brotli",
- "ctor",
- "dunce",
- "glob",
- "heck 0.4.1",
- "html5ever",
- "infer",
- "json-patch",
- "kuchikiki",
- "log",
- "memchr",
- "phf 0.11.2",
- "proc-macro2",
- "quote",
- "semver",
- "serde",
- "serde_json",
- "serde_with",
- "thiserror",
- "url",
- "walkdir",
- "windows-version",
-]
-
-[[package]]
-name = "tauri-utils"
 version = "1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ece74810b1d3d44f29f732a7ae09a63183d63949bbdd59c61f8ed2a1b70150db"
 dependencies = [
+ "brotli",
  "ctor",
  "dunce",
  "glob",
