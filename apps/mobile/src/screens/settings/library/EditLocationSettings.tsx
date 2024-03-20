@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { Controller } from 'react-hook-form';
 import { Alert, Text, View } from 'react-native';
 import { z } from 'zod';
-import { useLibraryMutation, useLibraryQuery, useNormalisedCache, useZodForm } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery, useNormalisedCache, usePlausibleEvent, useZodForm } from '@sd/client';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { AnimatedButton } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
@@ -34,6 +34,7 @@ const EditLocationSettingsScreen = ({
 
 	const queryClient = useQueryClient();
 	const cache = useNormalisedCache();
+	const submitPlausibleEvent = usePlausibleEvent();
 
 	const form = useZodForm({ schema });
 
@@ -47,6 +48,19 @@ const EditLocationSettingsScreen = ({
 		}
 	});
 
+
+	const deleteLocation = useLibraryMutation(
+		'locations.delete',
+		{
+			onSuccess: () => {
+				submitPlausibleEvent({ event: { type: 'locationDelete' } });
+				queryClient.invalidateQueries(['locations.list']);
+				toast({ type: 'success', text: 'Location deleted!' });
+				navigation.goBack();
+			},
+		}
+	);
+
 	const onSubmit = form.handleSubmit((data) =>
 		updateLocation.mutateAsync({
 			id: Number(id),
@@ -58,6 +72,10 @@ const EditLocationSettingsScreen = ({
 			indexer_rules_ids: []
 		})
 	);
+
+	const onDeleteSubmit = () => {
+		deleteLocation.mutate(Number(id));
+	}
 
 	useEffect(() => {
 		navigation.setOptions({
@@ -187,7 +205,7 @@ const EditLocationSettingsScreen = ({
 					description="This will not delete the actual folder on disk. Preview media will be...???"
 					buttonText="Delete"
 					buttonIcon={<Trash color="white" size={20} />}
-					buttonPress={() => Alert.alert('Deleting locations is coming soon...')}
+					buttonPress={onDeleteSubmit}
 					buttonVariant="danger"
 					buttonTextStyle="text-white font-bold"
 					infoContainerStyle={'w-[60%]'}
