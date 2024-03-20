@@ -1,7 +1,7 @@
 use super::CompressedCRDTOperations;
 
 use sd_cloud_api::RequestConfigProvider;
-use sd_core_sync::{GetOpsArgs, SyncMessage, NTP64};
+use sd_core_sync::{SyncMessage, NTP64};
 use tracing::debug;
 use uuid::Uuid;
 
