@@ -4,6 +4,7 @@
 	"type": "module",
 	"scripts": {
 		"dev:api": "env E2E_TEST=1 cargo run -p sd-server",
+		"dev:web": "env WAIT_ON_TIMEOUT=1800000 start-test dev:api http://localhost:8080 dev",
 		"dev": "vite",
 		"build": "vite build",
 		"preview": "vite preview",

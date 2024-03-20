@@ -22,14 +22,15 @@
 		"client": "pnpm --filter @sd/client -- ",
 		"storybook": "pnpm --filter @sd/storybook -- ",
 		"prisma": "cd core && cargo prisma",
-		"dev:web": "turbo run dev --filter @sd/web --filter @sd/server",
+		"dev:web": "pnpm --filter @sd/web dev:web",
 		"dev:desktop": "pnpm run --filter @sd/desktop tauri dev",
 		"bootstrap:desktop": "cargo clean && ./scripts/setup.sh && pnpm i && pnpm prep && pnpm tauri dev",
 		"codegen": "cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
 		"typecheck": "pnpm -r typecheck",
 		"lint": "turbo run lint",
 		"lint:fix": "turbo run lint -- --fix",
-		"clean": "cargo clean; git clean -qfX ."
+		"clean": "cargo clean; git clean -qfX .",
+		"test-data": "./scripts/test-data.sh"
 	},
 	"pnpm": {
 		"patchedDependencies": {
@@ -37,16 +38,15 @@
 			"@contentlayer/cli@0.3.4": "patches/@contentlayer__cli@0.3.4.patch"
 		},
 		"overrides": {
-			"@types/node": ">18.x",
+			"@types/node": ">18.18.x",
 			"react-router": "=6.20.1",
 			"react-router-dom": "=6.20.1",
 			"@remix-run/router": "=1.13.1",
-			"@contentlayer/cli": "=0.3.4",
-			"@typescript-eslint/parser": "^7.1.1"
+			"@contentlayer/cli": "=0.3.4"
 		}
 	},
 	"devDependencies": {
-		"@babel/plugin-syntax-import-assertions": "^7.23.3",
+		"@babel/plugin-syntax-import-assertions": "^7.24.1",
 		"@cspell/dict-rust": "^4.0.2",
 		"@cspell/dict-typescript": "^3.1.2",
 		"@ianvs/prettier-plugin-sort-imports": "^4.2.1",

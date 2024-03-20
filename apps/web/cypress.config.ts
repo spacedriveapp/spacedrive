@@ -1,4 +1,8 @@
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'cypress';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const ci_specific = {
 	// Double all the default timeouts
@@ -15,7 +19,11 @@ export default defineConfig({
 	e2e: {
 		baseUrl: 'http://localhost:8002',
 		setupNodeEvents(on, config) {
-			// implement node event listeners here
+			on('task', {
+				repoRoot: () => {
+					return resolve(join(__dirname, '../../'));
+				}
+			});
 		}
 	},
 	video: true,

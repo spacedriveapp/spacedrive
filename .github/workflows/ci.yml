@@ -72,6 +72,9 @@ jobs:
           runTests: false
           working-directory: .
 
+      - name: Download test data
+        run: pnpm test-data
+
       - name: E2E test
         uses: cypress-io/github-action@v6
         with:
