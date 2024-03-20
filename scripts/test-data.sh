@@ -20,7 +20,6 @@ fi
 rm -rf "$_test_data_dir"
 mkdir "$_test_data_dir"
 
-# Check if first argument is complete or small
 if [ "${1:-}" == "small" ]; then
   echo "Downloading WPT test resources..."
   curl -L# 'https://github.com/web-platform-tests/wpt/archive/refs/heads/master.tar.gz' \
