@@ -204,13 +204,13 @@ impl Node {
 
 		// Set a default if the user hasn't set an override
 		if std::env::var("RUST_LOG") == Err(std::env::VarError::NotPresent) {
-			let level = if cfg!(debug_assertions) {
-				"debug"
-			} else {
-				"info"
-			};
+			// let level = if cfg!(debug_assertions) {
+			// 	"debug"
+			// } else {
+			// 	"info"
+			// };
 
-			// let level = "debug"; // Exists for now to debug the location manager
+			let level = "debug"; // Exists for now to debug the location manager
 
 			std::env::set_var(
 				"RUST_LOG",
@@ -359,10 +359,10 @@ pub enum NodeError {
 	InitConfig(#[from] util::debug_initializer::InitConfigError),
 	#[error("logger error: {0}")]
 	Logger(#[from] FromEnvError),
-	#[cfg(feature = "ai")]
-	#[error("ai error: {0}")]
-	AI(#[from] sd_ai::Error),
-	#[cfg(feature = "ai")]
-	#[error("Failed to download model: {0}")]
-	DownloadModel(#[from] DownloadModelError),
+	// #[cfg(feature = "ai")]
+	// #[error("ai error: {0}")]
+	// AI(#[from] sd_ai::Error),
+	// #[cfg(feature = "ai")]
+	// #[error("Failed to download model: {0}")]
+	// DownloadModel(#[from] DownloadModelError),
 }
