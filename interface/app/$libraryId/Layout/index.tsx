@@ -26,6 +26,7 @@ import { usePlatform } from '~/util/Platform';
 
 import { DragOverlay } from '../Explorer/DragOverlay';
 import { QuickPreviewContextProvider } from '../Explorer/QuickPreview/Context';
+import CMDK from './CMDK';
 import { LayoutContext } from './Context';
 import { DndContext } from './DndContext';
 import Sidebar from './Sidebar';
@@ -87,6 +88,7 @@ const Layout = () => {
 										<Suspense
 											fallback={<div className="h-screen w-screen bg-app" />}
 										>
+											<CMDK />
 											<Outlet />
 											<DragOverlay />
 										</Suspense>
