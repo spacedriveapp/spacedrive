@@ -241,16 +241,13 @@ pub async fn create_instance(
 			instance::pub_id::equals(uuid_to_bytes(uuid)),
 			instance::create(
 				uuid_to_bytes(uuid),
-				todo!(), // IdentityOrRemoteIdentity::RemoteIdentity(identity).to_bytes(),
+				identity.get_bytes().to_vec(),
 				node_id.as_bytes().to_vec(),
 				Utc::now().into(),
 				Utc::now().into(),
-				vec![
-					instance::remote_identity::set(todo!()),
-					instance::metadata::set(Some(
-						serde_json::to_vec(&metadata).expect("unable to serialize metadata"),
-					)),
-				],
+				vec![instance::metadata::set(Some(
+					serde_json::to_vec(&metadata).expect("unable to serialize metadata"),
+				))],
 			),
 			vec![],
 		)
