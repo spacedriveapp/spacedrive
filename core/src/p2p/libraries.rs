@@ -57,6 +57,8 @@ pub fn libraries_hook(p2p: Arc<P2P>, libraries: Arc<Libraries>) -> HookId {
 						}
 						LibraryManagerEvent::Edit(_library) => {
 							// TODO: Send changes to all connected nodes or queue sending for when they are online!
+
+							// TODO: Also trigger the relay to send an update
 						}
 						LibraryManagerEvent::Delete(library) => {
 							p2p.metadata_mut().remove(&library.id.to_string());
