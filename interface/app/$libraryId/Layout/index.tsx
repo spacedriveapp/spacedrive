@@ -88,8 +88,8 @@ const Layout = () => {
 										<Suspense
 											fallback={<div className="h-screen w-screen bg-app" />}
 										>
-											<CMDK />
 											<Outlet />
+											<CMDK />
 											<DragOverlay />
 										</Suspense>
 									</LibraryContextProvider>
@@ -152,11 +152,7 @@ function usePlausible() {
 
 	useEffect(() => {
 		const interval = setInterval(() => {
-			plausibleEvent({
-				event: {
-					type: 'ping'
-				}
-			});
+			plausibleEvent({ event: { type: 'ping' } });
 		}, 270 * 1000);
 
 		return () => clearInterval(interval);

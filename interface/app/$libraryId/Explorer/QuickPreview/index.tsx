@@ -47,6 +47,7 @@ import ExplorerContextMenu, {
 import { Conditional } from '../ContextMenu/ConditionalItem';
 import { FileThumb } from '../FilePath/Thumb';
 import { SingleItemMetadata } from '../Inspector';
+import { explorerStore } from '../store';
 import { ImageSlider } from './ImageSlider';
 import { getQuickPreviewStore, useQuickPreviewStore } from './store';
 
@@ -194,6 +195,7 @@ export const QuickPreview = () => {
 
 	//close quick preview
 	useShortcut('closeQuickPreview', (e) => {
+		if (explorerStore.isCMDPOpen) return;
 		e.preventDefault();
 		getQuickPreviewStore().open = false;
 	});

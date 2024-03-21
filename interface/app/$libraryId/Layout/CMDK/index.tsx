@@ -2,7 +2,7 @@ import './CMDK.css';
 import './CMDK.scss';
 
 import clsx from 'clsx';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import CommandPalette, { filterItems, getItemIndex, useHandleOpenCommandPalette } from 'react-cmdk';
 import { useNavigate } from 'react-router';
 import { arraysEqual, useCache, useLibraryQuery, useNodes, useOnlineLocations } from '@sd/client';
@@ -10,9 +10,29 @@ import { CheckBox } from '@sd/ui';
 import { Icon } from '~/components';
 import Sparkles from '~/components/Sparkles';
 
+import { explorerStore } from '../../Explorer/store';
+
 const CMDK = () => {
 	const [isOpen, setIsOpen] = useState<boolean>(false);
-	useHandleOpenCommandPalette(setIsOpen);
+
+	useEffect(() => {
+		function handleKeyDown(e: KeyboardEvent) {
+			if (
+				(navigator?.platform?.toLowerCase().includes('mac') ? e.metaKey : e.ctrlKey) &&
+				e.key === 'k'
+			) {
+				e.preventDefault();
+				e.stopPropagation();
+
+				setIsOpen((v) => {
+					explorerStore.isCMDPOpen = !v;
+					return !v;
+				});
+			}
+		}
+		document.addEventListener('keydown', handleKeyDown);
+		return () => document.removeEventListener('keydown', handleKeyDown);
+	}, []);
 
 	const [page, setPage] = useState<'root' | 'actions'>('root');
 	const [search, setSearch] = useState('');
@@ -61,6 +81,7 @@ const CMDK = () => {
 						id: 'go-settings',
 						children: 'Go to settings',
 						icon: 'ArrowRightIcon',
+						closeOnSelect: true,
 						onClick: () => navigate('settings/client/general')
 					}
 					// {
