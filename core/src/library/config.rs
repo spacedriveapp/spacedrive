@@ -409,13 +409,13 @@ impl LibraryConfig {
 										return None;
 									};
 
-									let (identity, remote_identity) = if identity[0] == b'I' {
+									let (remote_identity, identity) = if identity[0] == b'I' {
 										// We have an `IdentityOrRemoteIdentity::Identity`
 										let identity = Identity::from_bytes(&identity[1..]).expect(
 											"Invalid identity detected in DB during migrations - 1",
 										);
 
-										(Some(identity), identity.to_remote_identity())
+										(identity.to_remote_identity(), Some(identity))
 									} else if identity[0] == b'R' {
 										// We have an `IdentityOrRemoteIdentity::RemoteIdentity`
 										let identity = RemoteIdentity::from_bytes(&identity[1..])
@@ -423,14 +423,14 @@ impl LibraryConfig {
 											"Invalid identity detected in DB during migrations - 2",
 										);
 
-										(None, identity)
+										(identity, None)
 									} else {
 										// We have an `Identity` or an invalid column.
 										let identity = Identity::from_bytes(&identity).expect(
 											"Invalid identity detected in DB during migrations - 3",
 										);
 
-										(Some(identity), identity.to_remote_identity())
+										(identity.to_remote_identity(), Some(identity))
 									};
 
 									Some(db.instance().update(
