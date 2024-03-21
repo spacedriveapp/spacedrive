@@ -214,7 +214,7 @@ impl Node {
 
 			std::env::set_var(
 				"RUST_LOG",
-				format!("info,sd_core={level},sd_p2p=debug,sd_core::location::manager=info,sd_ai={level}"),
+				format!("info,sd_core={level},sd_p2p=debug,sd_core::location::manager={level},sd_ai={level}"),
 			);
 		}
 
@@ -359,10 +359,10 @@ pub enum NodeError {
 	InitConfig(#[from] util::debug_initializer::InitConfigError),
 	#[error("logger error: {0}")]
 	Logger(#[from] FromEnvError),
-	// #[cfg(feature = "ai")]
-	// #[error("ai error: {0}")]
-	// AI(#[from] sd_ai::Error),
-	// #[cfg(feature = "ai")]
-	// #[error("Failed to download model: {0}")]
-	// DownloadModel(#[from] DownloadModelError),
+	#[cfg(feature = "ai")]
+	#[error("ai error: {0}")]
+	AI(#[from] sd_ai::Error),
+	#[cfg(feature = "ai")]
+	#[error("Failed to download model: {0}")]
+	DownloadModel(#[from] DownloadModelError),
 }

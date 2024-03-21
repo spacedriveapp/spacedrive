@@ -1,17 +1,9 @@
 //! iOS file system watcher implementation.
 
-use crate::{
-	invalidate_query,
-	library::Library,
-	location::{get_location_path_from_location_id, manager::LocationManagerError},
-	Node,
-};
+use crate::{invalidate_query, library::Library, location::manager::LocationManagerError, Node};
 
 use sd_file_path_helper::{check_file_path_exists, get_inode, FilePathError, IsolatedFilePathData};
-use sd_prisma::prisma::{
-	file_path::{self, location_id_inode},
-	location,
-};
+use sd_prisma::prisma::{file_path, location};
 use sd_utils::{db::inode_to_db, error::FileIOError};
 
 use std::{
@@ -108,20 +100,16 @@ impl<'lib> EventHandler<'lib> for IosEventHandler<'lib> {
 				self.latest_created_dir = Some(paths[0].clone());
 			}
 			EventKind::Modify(ModifyKind::Name(RenameMode::Any)) => {
-				// Check if this modify event corresponds to a folder rename
-				// A folder rename will have a parent directory different from the root directory
-				if let Some(parent) = paths[0].parent() {
-					if parent != Path::new("") {
-						// Treat this as a folder rename event
-						info!("Received folder rename event: {:#?}", paths);
-						// Handle the folder rename event
-						self.handle_folder_rename_event(paths[0].clone()).await?;
-					}
+				// Check if the path is a directory
+				let path = &paths[0];
+				let metadata = fs::metadata(path)
+					.await;
+
+				if metadata.is_err() {
+					self.handle_folder_rename_event(path.clone()).await?;
+				} else {
+					self.handle_single_rename_event(path.clone()).await?;
 				}
-			}
-			_ => {
-				info!("Received rename event: {:#?}", paths);
-				self.handle_single_rename_event(paths.remove(0)).await?;
 			}
 
 			EventKind::Create(CreateKind::File)
@@ -435,66 +423,28 @@ impl IosEventHandler<'_> {
 
 		info!("Fetched inode: {}", inode);
 
-		let pre_location = match self
-			.library
-			.db
-			.file_path()
-			.find_unique(file_path::location_id_inode(
-				self.location_id,
-				inode_to_db(inode),
-			))
-			.exec()
-			.await
-		{
-			Ok(location) => location.unwrap(),
-			Err(e) => {
-				error!("Failed to find location: {e:#?}");
-				return Err(e.into());
-			}
-		};
-
-		info!("Fetched original location: {:#?}", pre_location);
-
 		if let Some((key, _)) = self.rename_event_queue.iter().nth(0) {
 			let new_path_name = Path::new(key).file_name().unwrap();
 			let new_path_name_string = Some(new_path_name.to_str().unwrap().to_string());
 
-			// Update the inode of the location with the new name
-			let _ = self
-				.library
-				.db
-				.file_path()
-				.update(
-					file_path::location_id_inode(self.location_id, inode_to_db(inode)),
-					vec![file_path::name::set(new_path_name_string.clone())],
-				)
-				.exec()
-				.await;
+			rename(
+				self.location_id,
+				&key,
+				&path,
+				fs::metadata(&key)
+					.await
+					.map_err(|e| FileIOError::from((&key, e)))?,
+				self.library,
+			)
+			.await?;
+
+			// Remove the path from the rename event queue
+			self.rename_event_queue.remove(&key.clone());
 
 			info!("Updated location name: {:#?}", new_path_name_string.clone());
 		} else {
 			error!("HashMap is empty or index out of bounds");
 		}
-
-		let post_location = match self
-			.library
-			.db
-			.file_path()
-			.find_unique(file_path::location_id_inode(
-				self.location_id,
-				inode_to_db(inode),
-			))
-			.exec()
-			.await
-		{
-			Ok(location) => location.unwrap(),
-			Err(e) => {
-				error!("Failed to find location: {e:#?}");
-				return Err(e.into());
-			}
-		};
-
-		info!("Fetched updated location: {:#?}", post_location);
 
 		Ok(())
 	}
