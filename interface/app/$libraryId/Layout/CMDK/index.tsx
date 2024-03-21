@@ -3,12 +3,8 @@ import './CMDK.scss';
 
 import clsx from 'clsx';
 import { useState } from 'react';
-import CommandPalette, {
-	filterItems,
-	getItemIndex,
-	JsonStructure,
-	useHandleOpenCommandPalette
-} from 'react-cmdk';
+import CommandPalette, { filterItems, getItemIndex, useHandleOpenCommandPalette } from 'react-cmdk';
+import { useNavigate } from 'react-router';
 import { arraysEqual, useCache, useLibraryQuery, useNodes, useOnlineLocations } from '@sd/client';
 import { CheckBox } from '@sd/ui';
 import { Icon } from '~/components';
@@ -33,14 +29,16 @@ const CMDK = () => {
 		setPage('root');
 	}
 
+	const navigate = useNavigate();
+
 	const filteredItems = filterItems(
 		[
 			{
-				// heading: 'Home',
+				heading: 'Coming soon',
 				id: 'top',
 				items: [
 					{
-						id: 'ask-anything',
+						id: 'ask-spacedrive',
 						children: (
 							<Sparkles>
 								<span>Ask Spacedrive</span>
@@ -58,7 +56,20 @@ const CMDK = () => {
 			{
 				heading: 'Navigation',
 				id: 'navigation',
-				items: []
+				items: [
+					{
+						id: 'go-settings',
+						children: 'Go to settings',
+						icon: 'ArrowRightIcon',
+						onClick: () => navigate('settings/client/general')
+					}
+					// {
+					// 	id: 'go-to-settings',
+					// 	children: 'Go to settings',
+					// 	icon: 'SettingsIcon',
+					// 	onClick: () => {}
+					// }
+				]
 			},
 			{
 				heading: 'Locations',
@@ -119,7 +130,6 @@ const CMDK = () => {
 			// footer
 		>
 			<CommandPalette.Page id="root">
-				<div>hello world</div>
 				{filteredItems.length ? (
 					filteredItems.map((list) => (
 						<CommandPalette.List key={list.id} heading={list.heading}>
