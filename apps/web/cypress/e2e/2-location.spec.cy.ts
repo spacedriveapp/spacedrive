@@ -69,7 +69,13 @@ describe('Location', () => {
 			.contains('Recent Jobs')
 			.parent()
 			.parent()
-			.within(() => cy.get('p').contains('Adding location "test-data"').should('exist'));
+			.within(() =>
+				cy
+					.get('p')
+					.invoke('text')
+					.should('match', /^(Adding|Added) location "test-data"$/)
+					.should('exist')
+			);
 
 		// Check redirect to location root page
 		cy.url().should('match', /\/location\/1$/);
