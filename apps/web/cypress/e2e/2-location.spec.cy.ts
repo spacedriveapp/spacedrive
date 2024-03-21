@@ -69,9 +69,7 @@ describe('Location', () => {
 			.contains('Recent Jobs')
 			.parent()
 			.parent()
-			.within(() => {
-				cy.get('p').contains('Adding location "spacedrive"').should('exist');
-			});
+			.within(() => cy.get('p').contains('Adding location "test-data"').should('exist'));
 
 		// Check redirect to location root page
 		cy.url().should('match', /\/location\/1$/);
