@@ -19,7 +19,7 @@ use tokio::{
 	task::{block_in_place, JoinHandle},
 	time::{interval_at, Instant, MissedTickBehavior},
 };
-use tracing::{debug, error, warn, info};
+use tracing::{debug, error, warn};
 use uuid::Uuid;
 
 use super::LocationManagerError;
@@ -208,7 +208,6 @@ impl LocationWatcher {
 		if !check_event(&event, ignore_paths) {
 			return Ok(());
 		}
-		info!("Passed check_event");
 
 		// let Some(location) = find_location(library, location_id)
 		// 	.include(location_with_indexer_rules::include())

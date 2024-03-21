@@ -2,9 +2,8 @@
 
 use crate::{invalidate_query, library::Library, location::manager::LocationManagerError, Node};
 
-use sd_file_path_helper::{check_file_path_exists, get_inode, FilePathError, IsolatedFilePathData};
-use sd_prisma::prisma::{file_path, location};
-use sd_utils::{db::inode_to_db, error::FileIOError};
+use sd_prisma::prisma::location;
+use sd_utils::error::FileIOError;
 
 use std::{
 	collections::HashMap,
@@ -17,14 +16,11 @@ use notify::{
 	event::{CreateKind, DataChange, MetadataKind, ModifyKind, RenameMode},
 	Event, EventKind,
 };
-use tokio::{fs, io, time::Instant};
-use tracing::{debug, error, info, trace, warn};
+use tokio::{fs, time::Instant};
+use tracing::{debug, error, trace};
 
 use super::{
-	utils::{
-		create_dir, create_file, extract_inode_from_path, extract_location_path,
-		recalculate_directories_size, remove, rename, update_file,
-	},
+	utils::{create_dir, create_file, recalculate_directories_size, remove, rename, update_file},
 	EventHandler, INode, InstantAndPath, HUNDRED_MILLIS, ONE_SECOND,
 };
 
@@ -76,8 +72,6 @@ impl<'lib> EventHandler<'lib> for IosEventHandler<'lib> {
 		let Event {
 			kind, mut paths, ..
 		} = event;
-		info!("Received event: {:#?}", kind);
-		info!("Received paths: {:#?}", paths);
 
 		match kind {
 			EventKind::Create(CreateKind::Folder) => {
@@ -115,7 +109,7 @@ impl<'lib> EventHandler<'lib> for IosEventHandler<'lib> {
 				// we just store the path again in the map below, with a new instant
 				// that effectively resets the timer for the file to be updated <- Copied from macos.rs
 				let path = paths.remove(0);
-				self.rename_event_queue.insert(path.clone(), Instant::now()); // Note: Do we need this anymore? Help please
+				self.rename_event_queue.insert(path.clone(), Instant::now());
 				if self.files_to_update.contains_key(&path) {
 					if let Some(old_instant) =
 						self.files_to_update.insert(path.clone(), Instant::now())
@@ -322,17 +316,6 @@ impl IosEventHandler<'_> {
 		&mut self,
 		path: PathBuf,
 	) -> Result<(), LocationManagerError> {
-		let inode = match extract_inode_from_path(self.location_id, &path, self.library).await {
-			Ok(inode) => inode,
-			Err(LocationManagerError::FilePath(FilePathError::NotFound(_))) => {
-				// temporary file, we can ignore it
-				return Ok(());
-			}
-			Err(e) => return Err(e),
-		};
-
-		info!("Fetched inode: {}", inode);
-
 		if let Some((key, _)) = self.rename_event_queue.iter().nth(0) {
 			let new_path_name = Path::new(key).file_name().unwrap();
 			let new_path_name_string = Some(new_path_name.to_str().unwrap().to_string());
@@ -351,7 +334,7 @@ impl IosEventHandler<'_> {
 			// Remove the path from the rename event queue
 			self.rename_event_queue.remove(&key.clone());
 
-			info!("Updated location name: {:#?}", new_path_name_string.clone());
+			debug!("Updated location name: {:#?}", new_path_name_string.clone());
 		} else {
 			error!("HashMap is empty or index out of bounds");
 		}
