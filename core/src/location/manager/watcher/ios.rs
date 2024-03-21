@@ -82,34 +82,26 @@ impl<'lib> EventHandler<'lib> for IosEventHandler<'lib> {
 		match kind {
 			EventKind::Create(CreateKind::Folder) => {
 				// If a folder creation event is received, handle it as usual
-				let path = &paths[0];
+				let path = paths.remove(0);
 
-				// Store the path in rename event queue with timestamp
 				self.rename_event_queue.insert(path.clone(), Instant::now());
 
 				create_dir(
 					self.location_id,
-					path,
-					&fs::metadata(path)
-						.await
-						.map_err(|e| FileIOError::from((path, e)))?,
+					&path,
+					&fs::metadata(&path).await.map_err(|e| {
+						FileIOError::from((
+							&path,
+							e,
+							"Failed to extract metadata of newly create directory in the watcher",
+						))
+					})?,
 					self.node,
 					self.library,
 				)
 				.await?;
-				self.latest_created_dir = Some(paths[0].clone());
-			}
-			EventKind::Modify(ModifyKind::Name(RenameMode::Any)) => {
-				// Check if the path is a directory
-				let path = &paths[0];
-				let metadata = fs::metadata(path)
-					.await;
 
-				if metadata.is_err() {
-					self.handle_folder_rename_event(path.clone()).await?;
-				} else {
-					self.handle_single_rename_event(path.clone()).await?;
-				}
+				self.latest_created_dir = Some(path);
 			}
 
 			EventKind::Create(CreateKind::File)
@@ -123,6 +115,7 @@ impl<'lib> EventHandler<'lib> for IosEventHandler<'lib> {
 				// we just store the path again in the map below, with a new instant
 				// that effectively resets the timer for the file to be updated <- Copied from macos.rs
 				let path = paths.remove(0);
+				self.rename_event_queue.insert(path.clone(), Instant::now()); // Note: Do we need this anymore? Help please
 				if self.files_to_update.contains_key(&path) {
 					if let Some(old_instant) =
 						self.files_to_update.insert(path.clone(), Instant::now())
@@ -135,6 +128,11 @@ impl<'lib> EventHandler<'lib> for IosEventHandler<'lib> {
 					self.files_to_update.insert(path, Instant::now());
 				}
 			}
+
+			EventKind::Modify(ModifyKind::Name(RenameMode::Any)) => {
+				self.handle_single_rename_event(paths.remove(0)).await?;
+			}
+
 			// For some reason, iOS doesn't have a Delete Event, so the vent type comes up as this.
 			// Delete Event
 			EventKind::Modify(ModifyKind::Metadata(MetadataKind::Any)) => {
@@ -319,96 +317,8 @@ impl IosEventHandler<'_> {
 		Ok(())
 	}
 
+	// Thanks iOS for having fun event types that we have to handle in a special way
 	async fn handle_single_rename_event(
-		&mut self,
-		path: PathBuf, // this is used internally only once, so we can use just PathBuf
-	) -> Result<(), LocationManagerError> {
-		match fs::metadata(&path).await {
-			Ok(meta) => {
-				// File or directory exists, so this can be a "new path" to an actual rename/move or a creation
-				info!("Path exists: {}", path.display());
-
-				let inode = get_inode(&meta);
-				let location_path = extract_location_path(self.location_id, self.library).await?;
-
-				if !check_file_path_exists::<FilePathError>(
-					&IsolatedFilePathData::new(
-						self.location_id,
-						&location_path,
-						&path,
-						meta.is_dir(),
-					)?,
-					&self.library.db,
-				)
-				.await?
-				{
-					if let Some((_, old_path)) = self.old_paths_map.remove(&inode) {
-						info!(
-							"Got a match new -> old: {} -> {}",
-							path.display(),
-							old_path.display()
-						);
-
-						// We found a new path for this old path, so we can rename it
-						rename(self.location_id, &path, &old_path, meta, self.library).await?;
-					} else {
-						info!("No match for new path yet: {}", path.display());
-						self.new_paths_map.insert(inode, (Instant::now(), path));
-					}
-				} else {
-					warn!(
-						"Received rename event for a file that already exists in the database: {}",
-						path.display()
-					);
-				}
-			}
-			Err(e) if e.kind() == io::ErrorKind::NotFound => {
-				// File or directory does not exist in the filesystem, if it exists in the database,
-				// then we try pairing it with the old path from our map
-
-				info!("Path doesn't exists: {}", path.display());
-
-				let inode =
-					match extract_inode_from_path(self.location_id, &path, self.library).await {
-						Ok(inode) => inode,
-						Err(LocationManagerError::FilePath(FilePathError::NotFound(_))) => {
-							// temporary file, we can ignore it
-							return Ok(());
-						}
-						Err(e) => return Err(e),
-					};
-
-				if let Some((_, new_path)) = self.new_paths_map.remove(&inode) {
-					info!(
-						"Got a match old -> new: {} -> {}",
-						path.display(),
-						new_path.display()
-					);
-
-					// We found a new path for this old path, so we can rename it
-					rename(
-						self.location_id,
-						&new_path,
-						&path,
-						fs::metadata(&new_path)
-							.await
-							.map_err(|e| FileIOError::from((&new_path, e)))?,
-						self.library,
-					)
-					.await?;
-				} else {
-					info!("No match for old path yet: {}", path.display());
-					// We didn't find a new path for this old path, so we store it for later
-					self.old_paths_map.insert(inode, (Instant::now(), path));
-				}
-			}
-			Err(e) => return Err(FileIOError::from((path, e)).into()),
-		}
-
-		Ok(())
-	}
-
-	async fn handle_folder_rename_event(
 		&mut self,
 		path: PathBuf,
 	) -> Result<(), LocationManagerError> {
