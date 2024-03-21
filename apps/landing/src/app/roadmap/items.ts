@@ -110,9 +110,17 @@ export const items = [
 	},
 	{
 		when: '0.3 Alpha',
-		subtext: 'April 2024',
-		title: 'Connect devices & Library sync',
+		subtext: 'March 2024',
+		title: 'Connect devices & sync',
 		description: 'Automatically synchronized libraries across all your devices.'
+	},
+	{
+		title: 'Mobile app TestFlight & Play Store Beta',
+		description: 'Access your library on the go, with a mobile app for iOS and Android.'
+	},
+	{
+		title: 'Spacedrive in every language, i18n',
+		description: 'Spacedrive will be available in every language.'
 	},
 	{
 		title: 'Key manager',
@@ -180,7 +188,7 @@ export const items = [
 	{
 		title: 'Extensions',
 		description:
-			'Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on spacedrive.com/extensions.'
+			'Build tools on top of Spacedrive, extend functionality and integrate third party services.'
 	},
 	{
 		when: '1.0 Release',
