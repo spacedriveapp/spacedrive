@@ -6,7 +6,7 @@ use crate::{
 use super::{err_break, CompressedCRDTOperations};
 use sd_cloud_api::RequestConfigProvider;
 use sd_core_sync::NTP64;
-use sd_p2p::{IdentityOrRemoteIdentity, RemoteIdentity};
+use sd_p2p::RemoteIdentity;
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
 use sd_sync::CRDTOperation;
 use sd_utils::uuid_to_bytes;
@@ -156,7 +156,7 @@ pub async fn run_actor(
 					};
 
 					err_break!(
-						create_instance(
+						upsert_instance(
 							&library,
 							&libraries,
 							collection.instance_uuid,
@@ -226,7 +226,7 @@ fn crdt_op_db(op: &CRDTOperation) -> cloud_crdt_operation::Create {
 	}
 }
 
-pub async fn create_instance(
+pub async fn upsert_instance(
 	library: &Arc<Library>,
 	libraries: &Libraries,
 	uuid: Uuid,
@@ -241,7 +241,7 @@ pub async fn create_instance(
 			instance::pub_id::equals(uuid_to_bytes(uuid)),
 			instance::create(
 				uuid_to_bytes(uuid),
-				IdentityOrRemoteIdentity::RemoteIdentity(identity).to_bytes(),
+				identity.get_bytes().to_vec(),
 				node_id.as_bytes().to_vec(),
 				Utc::now().into(),
 				Utc::now().into(),
@@ -254,7 +254,13 @@ pub async fn create_instance(
 		.exec()
 		.await?;
 
-	library.sync.timestamps.write().await.insert(uuid, NTP64(0));
+	library
+		.sync
+		.timestamps
+		.write()
+		.await
+		.entry(uuid)
+		.or_default();
 
 	// Called again so the new instances are picked up
 	libraries.update_instances(library.clone()).await;

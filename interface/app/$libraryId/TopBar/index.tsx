@@ -15,7 +15,7 @@ import { useRoutingContext } from '~/RoutingContext';
 import { useTabsContext } from '~/TabsContext';
 
 import { explorerStore } from '../Explorer/store';
-import { useTopBarContext } from './Layout';
+import { useTopBarContext } from './Context';
 import { NavigationButtons } from './NavigationButtons';
 
 // million-ignore
