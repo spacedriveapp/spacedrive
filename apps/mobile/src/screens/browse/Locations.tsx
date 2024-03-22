@@ -5,10 +5,9 @@ import { FlatList, Pressable, View } from 'react-native';
 import { useDebounce } from 'use-debounce';
 import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import Empty from '~/components/layout/Empty';
-import Fade from '~/components/layout/Fade';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
-import LocationItem from '~/components/locations/LocationItem';
+import { LocationItem } from '~/components/locations/LocationItem';
 import ImportModal from '~/components/modal/ImportModal';
 import { tw, twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
@@ -16,10 +15,10 @@ import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 import { useSearchStore } from '~/stores/searchStore';
 
 interface Props {
-	redirectToLocationSettings?: boolean;
+	viewStyle?: 'grid' | 'list';
 }
 
-export const Locations = ({ redirectToLocationSettings }: Props) => {
+export default function LocationsScreen({ viewStyle }: Props) {
 	const locationsQuery = useLibraryQuery(['locations.list']);
 	useNodes(locationsQuery.data?.nodes);
 	const locations = useCache(locationsQuery.data?.items);
@@ -41,68 +40,52 @@ export const Locations = ({ redirectToLocationSettings }: Props) => {
 	return (
 		<ScreenContainer scrollview={false} style={tw`relative px-6 py-0`}>
 			<Pressable
-				style={tw`absolute bottom-7 right-7 z-10 h-12 w-12 items-center justify-center rounded-full bg-accent`}
+				style={tw`absolute z-10 items-center justify-center w-12 h-12 rounded-full bottom-7 right-7 bg-accent`}
 				onPress={() => {
 					modalRef.current?.present();
 				}}
 			>
 				<Plus size={20} weight="bold" style={tw`text-ink`} />
 			</Pressable>
-
-			<Fade
-				fadeSides="top-bottom"
-				orientation="vertical"
-				color="black"
-				width={30}
-				height="100%"
-			>
-				<FlatList
-					data={filteredLocations}
-					contentContainerStyle={twStyle(
-						`py-6`,
-						filteredLocations.length === 0 && 'h-full items-center justify-center'
-					)}
-					keyExtractor={(location) => location.id.toString()}
-					ItemSeparatorComponent={() => <View style={tw`h-2`} />}
-					showsVerticalScrollIndicator={false}
-					scrollEnabled={filteredLocations.length > 0}
-					ListEmptyComponent={
-						<Empty
-							icon="Folder"
-							style={'border-0'}
-							textSize="text-md"
-							iconSize={84}
-							description="You have not added any locations"
-						/>
-					}
-					renderItem={({ item }) => (
-						<LocationItem
-							navigation={navigation}
-							editLocation={() =>
-								navigation.navigate('SettingsStack', {
-									screen: 'EditLocationSettings',
-									params: { id: item.id }
-								})
-							}
-							onPress={() => {
-								if (redirectToLocationSettings) {
-									navigation.navigate('SettingsStack', {
-										screen: 'EditLocationSettings',
-										params: { id: item.id }
-									});
-								} else {
-									navigation.navigate('BrowseStack', {
-										screen: 'Location',
-										params: { id: item.id }
-									});
-								}
-							}}
-							location={item}
-						/>
-					)}
-				/>
-			</Fade>
+			<FlatList
+				data={filteredLocations}
+				contentContainerStyle={twStyle(
+					`py-6`,
+					filteredLocations.length === 0 && 'h-full items-center justify-center'
+				)}
+				keyExtractor={(location) => location.id.toString()}
+				ItemSeparatorComponent={() => <View style={tw`h-2`} />}
+				showsVerticalScrollIndicator={false}
+				ListEmptyComponent={
+					<Empty
+						icon="Folder"
+						style={'border-0'}
+						textSize="text-md"
+						iconSize={84}
+						description="You have not added any locations"
+					/>
+				}
+				numColumns={viewStyle === 'grid' ? 3 : 1}
+				renderItem={({ item }) => (
+					<LocationItem
+						onPress={() =>
+							navigation.navigate('BrowseStack', {
+								screen: 'Location',
+								params: { id: item.id }
+							})
+						}
+						editLocation={() =>
+							navigation.navigate('SettingsStack', {
+								screen: 'EditLocationSettings',
+								params: { id: item.id }
+							})
+						}
+						viewStyle="list"
+						location={item}
+					/>
+				)}
+			/>
 			<ImportModal ref={modalRef} />
 		</ScreenContainer>
 	);
-};
+}
