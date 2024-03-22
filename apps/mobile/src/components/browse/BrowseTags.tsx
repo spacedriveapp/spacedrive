@@ -28,6 +28,7 @@ const BrowseTags = () => {
 				<Text style={tw`text-lg font-bold text-white`}>Tags</Text>
 				<View style={tw`flex-row gap-3`}>
 					<Button
+						testID="navigate-tags-screen"
 						onPress={() => {
 							navigation.navigate('Tags');
 						}}
