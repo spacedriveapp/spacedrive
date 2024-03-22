@@ -254,7 +254,13 @@ pub async fn create_instance(
 		.exec()
 		.await?;
 
-	library.sync.timestamps.write().await.insert(uuid, NTP64(0));
+	library
+		.sync
+		.timestamps
+		.write()
+		.await
+		.entry(uuid)
+		.or_default();
 
 	// Called again so the new instances are picked up
 	libraries.update_instances(library.clone()).await;
