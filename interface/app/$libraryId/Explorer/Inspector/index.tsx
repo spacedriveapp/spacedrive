@@ -276,10 +276,10 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					item={item}
 					toggleBy="click"
 					lines={2}
+					editLines={2}
 					selected
 					allowHighlight={false}
 					className="!text-base !font-bold !text-ink"
-					style={{ maxHeight: '50px' }}
 				/>
 			</div>
 

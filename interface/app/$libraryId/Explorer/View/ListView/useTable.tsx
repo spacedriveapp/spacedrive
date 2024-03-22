@@ -28,32 +28,64 @@ import { CutCopyState, explorerStore, isCut } from '../../store';
 import { uniqueId } from '../../util';
 import { RenamableItemText } from '../RenamableItemText';
 
+export const LIST_VIEW_ICON_SIZES = {
+	sm: 24,
+	md: 36,
+	lg: 48
+};
+
+export const LIST_VIEW_TEXT_SIZES = {
+	sm: 12,
+	md: 14,
+	lg: 16
+};
+
 const NameCell = memo(({ item, selected }: { item: ExplorerItem; selected: boolean }) => {
 	const cutCopyState = useSelector(explorerStore, (s) => s.cutCopyState);
-
 	const cut = useMemo(() => isCut(item, cutCopyState as CutCopyState), [cutCopyState, item]);
 
+	const explorer = useExplorerContext();
+	const explorerSettings = explorer.useSettingsSnapshot();
+
 	return (
-		<div className="relative flex items-center">
+		<div className="flex">
 			<FileThumb
 				data={item}
 				frame
 				frameClassName={clsx('!border', item.type === 'Label' && '!rounded-lg')}
 				blackBars
-				size={35}
-				className={clsx('mr-2.5', cut && 'opacity-60')}
+				size={LIST_VIEW_ICON_SIZES[explorerSettings.listViewIconSize]}
+				className={clsx('mr-2.5 transition-[height_width]', cut && 'opacity-60')}
 			/>
 
-			<RenamableItemText
-				item={item}
-				selected={selected}
-				allowHighlight={false}
-				style={{ maxHeight: 36 }}
-				idleClassName="w-full !max-h-5"
-			/>
+			<div className="relative flex-1">
+				<RenamableItemText
+					item={item}
+					selected={selected}
+					allowHighlight={false}
+					style={{ fontSize: LIST_VIEW_TEXT_SIZES[explorerSettings.listViewTextSize] }}
+					className="absolute top-1/2 z-10 max-w-full -translate-y-1/2"
+					idleClassName="!w-full"
+					editLines={3}
+				/>
+			</div>
 		</div>
 	);
 });
+
+const KindCell = ({ kind }: { kind: string }) => {
+	const explorer = useExplorerContext();
+	const explorerSettings = explorer.useSettingsSnapshot();
+
+	return (
+		<InfoPill
+			className="bg-app-button/50"
+			style={{ fontSize: LIST_VIEW_TEXT_SIZES[explorerSettings.listViewTextSize] }}
+		>
+			{kind}
+		</InfoPill>
+	);
+};
 
 type Cell = CellContext<ExplorerItem, unknown> & { selected?: boolean };
 
@@ -77,11 +109,7 @@ export const useTable = () => {
 			{
 				id: 'kind',
 				header: 'Type',
-				cell: ({ row }) => (
-					<InfoPill className="bg-app-button/50">
-						{getExplorerItemData(row.original).kind}
-					</InfoPill>
-				)
+				cell: ({ row }) => <KindCell kind={getExplorerItemData(row.original).kind} />
 			},
 			{
 				id: 'sizeInBytes',

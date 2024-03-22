@@ -17,13 +17,16 @@ import { RenameTextBox, RenameTextBoxProps } from '../FilePath/RenameTextBox';
 import { useQuickPreviewStore } from '../QuickPreview/store';
 import { explorerStore } from '../store';
 
-interface Props
-	extends Pick<RenameTextBoxProps, 'idleClassName' | 'lines' | 'toggleBy' | 'className'> {
+type TextBoxProps = Pick<
+	RenameTextBoxProps,
+	'toggleBy' | 'lines' | 'editLines' | 'className' | 'idleClassName' | 'activeClassName' | 'style'
+>;
+
+interface Props extends TextBoxProps {
 	item: ExplorerItem;
-	allowHighlight?: boolean;
-	style?: React.CSSProperties;
-	highlight?: boolean;
 	selected?: boolean;
+	highlight?: boolean;
+	allowHighlight?: boolean;
 }
 
 const RENAMABLE_ITEM_TYPES: ExplorerItem['type'][] = [
@@ -33,7 +36,14 @@ const RENAMABLE_ITEM_TYPES: ExplorerItem['type'][] = [
 	'Location'
 ];
 
-export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) => {
+export const RenamableItemText = ({
+	item,
+	selected,
+	highlight,
+	className,
+	allowHighlight = true,
+	...props
+}: Props) => {
 	const isDark = useIsDark();
 	const rspc = useRspcLibraryContext();
 
@@ -42,7 +52,7 @@ export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) =>
 
 	const quickPreviewStore = useQuickPreviewStore();
 
-	const itemData = getExplorerItemData(props.item);
+	const itemData = getExplorerItemData(item);
 
 	const ref = useRef<HTMLDivElement>(null);
 
@@ -69,9 +79,9 @@ export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) =>
 	const handleRename = useCallback(
 		async (newName: string) => {
 			try {
-				switch (props.item.type) {
+				switch (item.type) {
 					case 'Location': {
-						const locationId = props.item.item.id;
+						const locationId = item.item.id;
 						if (!locationId) throw new Error('Missing location id');
 
 						await renameLocation.mutateAsync({
@@ -89,7 +99,7 @@ export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) =>
 
 					case 'Path':
 					case 'Object': {
-						const filePathData = getIndexedItemFilePath(props.item);
+						const filePathData = getIndexedItemFilePath(item);
 
 						if (!filePathData) throw new Error('Failed to get file path object');
 
@@ -111,7 +121,7 @@ export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) =>
 					}
 
 					case 'NonIndexedPath': {
-						const ephemeralFile = getEphemeralPath(props.item);
+						const ephemeralFile = getEphemeralPath(item);
 
 						if (!ephemeralFile) throw new Error('Failed to get ephemeral file object');
 
@@ -138,16 +148,16 @@ export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) =>
 				});
 			}
 		},
-		[itemData.fullName, props.item, renameEphemeralFile, renameFile, renameLocation, reset]
+		[itemData.fullName, item, renameEphemeralFile, renameFile, renameLocation, reset]
 	);
 
 	const disabled =
-		!props.selected ||
+		!selected ||
 		isDragging ||
 		!explorer ||
 		explorer.selectedItems.size > 1 ||
 		quickPreviewStore.open ||
-		!RENAMABLE_ITEM_TYPES.includes(props.item.type);
+		!RENAMABLE_ITEM_TYPES.includes(item.type);
 
 	return (
 		<RenameTextBox
@@ -156,14 +166,10 @@ export const RenamableItemText = ({ allowHighlight = true, ...props }: Props) =>
 			onRename={handleRename}
 			className={clsx(
 				'font-medium',
-				props.className,
-				(props.selected || props.highlight) &&
-					allowHighlight && ['bg-accent', !isDark && 'text-white']
+				className,
+				(selected || highlight) && allowHighlight && ['bg-accent', !isDark && 'text-white']
 			)}
-			style={props.style}
-			lines={props.lines}
-			idleClassName={props.idleClassName}
-			toggleBy={props.toggleBy}
+			{...props}
 		/>
 	);
 };

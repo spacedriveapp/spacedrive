@@ -201,6 +201,8 @@
 	"install_update": "Устанавіць абнаўленне",
 	"installed": "Устаноўлена",
 	"item_size": "Памер элемента",
+	"icon_size": "Памер значкаў",
+	"text_size": "Памер тэксту",
 	"item_with_count_one": "{{count}} элемент",
 	"item_with_count_other": "{{count}} элементаў",
 	"job_has_been_canceled": "Заданне скасавана.",

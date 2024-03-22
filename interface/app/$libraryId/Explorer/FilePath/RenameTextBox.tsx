@@ -5,6 +5,7 @@ import {
 	useCallback,
 	useEffect,
 	useImperativeHandle,
+	useLayoutEffect,
 	useRef,
 	useState
 } from 'react';
@@ -19,15 +20,45 @@ export interface RenameTextBoxProps extends React.HTMLAttributes<HTMLDivElement>
 	name: string;
 	onRename: (newName: string) => void;
 	disabled?: boolean;
+	/**
+	 * Number of text lines to display in idle.
+	 *
+	 * @defaultValue `1`
+	 */
 	lines?: number;
-	// Temporary solution for TruncatedText in list view
-	idleClassName?: string;
+	/**
+	 * Number of text lines to display when renaming.
+	 */
+	editLines?: number;
+	/**
+	 * Determines how the rename text box is toggled.
+	 *
+	 * - `shortcut`: Toggled by the `renameObject` shortcut and `explorerStore.isRenaming` value.
+	 * - `click`: Toggled by clicking on the text box.
+	 * - `all`: Toggled by both shortcut and click.
+	 *
+	 * @defaultValue `all`
+	 */
 	toggleBy?: 'shortcut' | 'click' | 'all';
+	idleClassName?: string;
+	activeClassName?: string;
 }
 
 export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 	(
-		{ name, onRename, disabled, className, idleClassName, lines, toggleBy = 'all', ...props },
+		{
+			name,
+			onRename,
+			disabled,
+			lines = 1,
+			editLines,
+			toggleBy = 'all',
+			className,
+			idleClassName,
+			activeClassName,
+			style,
+			...props
+		},
 		_ref
 	) => {
 		const os = useOperatingSystem();
@@ -37,11 +68,22 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 		const ref = useRef<HTMLDivElement>(null);
 		useImperativeHandle<HTMLDivElement | null, HTMLDivElement | null>(_ref, () => ref.current);
 
+		const truncateMarkup = useRef<TruncateMarkup>(null);
+
 		const renamable = useRef<boolean>(false);
 		const timeout = useRef<number | null>(null);
 
 		const [allowRename, setAllowRename] = useState(false);
 		const [isTruncated, setIsTruncated] = useState(false);
+
+		// Height of a single line of text
+		// Used to set the max height of the text box
+		const [lineHeight, setLineHeight] = useState(0);
+
+		// Padding of the text box
+		// Included in the max height calculation
+		const [paddingTop, setPaddingTop] = useState(0);
+		const [paddingBottom, setPaddingBottom] = useState(0);
 
 		// Highlight file name up to extension or
 		// fully if it's a directory, hidden file or has no extension
@@ -156,6 +198,49 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 			return () => document.removeEventListener('mousedown', onMouseDown, true);
 		}, [blur]);
 
+		useLayoutEffect(() => {
+			const node = ref.current;
+			if (!node) return;
+
+			const observer = new ResizeObserver(() => {
+				const { paddingTop, paddingBottom } = getComputedStyle(node);
+
+				setPaddingTop(parseFloat(paddingTop));
+				setPaddingBottom(parseFloat(paddingBottom));
+			});
+
+			observer.observe(node);
+
+			return () => observer.disconnect();
+		}, []);
+
+		useLayoutEffect(() => {
+			if (allowRename) return;
+
+			const markup = truncateMarkup.current;
+			if (!markup) return;
+
+			// @ts-ignore
+			// Passing ref to TruncateMarkup child doesn't work, so we have
+			// to access the element directly from the markup instance
+			const textNode = markup.el as HTMLElement;
+
+			const observer = new ResizeObserver(() => {
+				const { lineHeight } = getComputedStyle(textNode);
+
+				const textLines =
+					lines !== 1
+						? Math.round(textNode.clientHeight / parseFloat(lineHeight))
+						: lines;
+
+				setLineHeight(textNode.clientHeight / textLines);
+			});
+
+			observer.observe(textNode);
+
+			return () => observer.disconnect();
+		}, [allowRename, lines]);
+
 		return (
 			<Tooltip
 				labelClassName="break-all"
@@ -171,10 +256,24 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 					suppressContentEditableWarning
 					className={clsx(
 						'cursor-default overflow-hidden rounded-md px-1.5 py-px text-xs text-ink outline-none',
-						allowRename && 'whitespace-normal bg-app !text-ink ring-2 ring-accent-deep',
-						!allowRename && idleClassName,
+						allowRename
+							? [
+									'whitespace-normal bg-app !text-ink ring-2 ring-accent-deep',
+									activeClassName
+								]
+							: [idleClassName],
+
 						className
 					)}
+					style={{
+						maxHeight:
+							!allowRename && lines === 1
+								? '1lh' // limit height to 1 line as TruncateMarkup likes to wrap text on resize - needs to be fixed
+								: allowRename && lineHeight && editLines
+									? editLines * lineHeight + paddingTop + paddingBottom
+									: undefined,
+						...style
+					}}
 					onDoubleClick={(e) => {
 						if (allowRename) e.stopPropagation();
 						renamable.current = false;
@@ -202,7 +301,12 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 					{allowRename ? (
 						name
 					) : (
-						<TruncatedText text={name} lines={lines} onTruncate={setIsTruncated} />
+						<TruncatedText
+							ref={truncateMarkup}
+							text={name}
+							lines={lines}
+							onTruncate={setIsTruncated}
+						/>
 					)}
 				</div>
 			</Tooltip>
@@ -218,18 +322,20 @@ interface TruncatedTextProps {
 	onTruncate: (wasTruncated: boolean) => void;
 }
 
-const TruncatedText = memo(({ text, lines, onTruncate }: TruncatedTextProps) => {
-	const ellipsis = useCallback(() => {
-		const extension = text.lastIndexOf('.');
-		if (extension !== -1) return `...${text.slice(-(text.length - extension + 2))}`;
-		return `...${text.slice(-8)}`;
-	}, [text]);
+const TruncatedText = memo(
+	forwardRef<TruncateMarkup, TruncatedTextProps>(({ text, lines, onTruncate }, ref) => {
+		const ellipsis = useCallback(() => {
+			const extension = text.lastIndexOf('.');
+			if (extension !== -1) return `...${text.slice(-(text.length - extension + 2))}`;
+			return `...${text.slice(-8)}`;
+		}, [text]);
 
-	return (
-		<TruncateMarkup lines={lines} ellipsis={ellipsis} onTruncate={onTruncate}>
-			<div>{text}</div>
-		</TruncateMarkup>
-	);
-});
+		return (
+			<TruncateMarkup ref={ref} lines={lines} ellipsis={ellipsis} onTruncate={onTruncate}>
+				<div>{text}</div>
+			</TruncateMarkup>
+		);
+	})
+);
 
 TruncatedText.displayName = 'TruncatedText';

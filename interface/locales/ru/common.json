@@ -201,6 +201,8 @@
 	"install_update": "Установить обновление",
 	"installed": "Установлено",
 	"item_size": "Размер элемента",
+	"icon_size": "Размер значков",
+	"text_size": "Размер текста",
 	"item_with_count_one": "{{count}} элемент",
 	"item_with_count_other": "{{count}} элементов",
 	"job_has_been_canceled": "Задача отменена.",

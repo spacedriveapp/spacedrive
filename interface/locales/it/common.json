@@ -198,6 +198,8 @@
 	"install_update": "Installa Aggiornamento",
 	"installed": "Installato",
 	"item_size": "Dimensione dell'elemento",
+	"icon_size": "Dimensione dell'icona",
+	"text_size": "Dimensione del testo",
 	"item_with_count_one": "{{count}} elemento",
 	"item_with_count_many": "{{count}} elementi",
 	"item_with_count_other": "{{count}} elementi",

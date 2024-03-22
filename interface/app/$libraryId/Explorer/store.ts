@@ -16,6 +16,8 @@ export enum ExplorerKind {
 	Space
 }
 
+type ListViewSizes = 'sm' | 'md' | 'lg';
+
 export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
 	order?: TOrder | null;
 }) =>
@@ -30,6 +32,8 @@ export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
 		mediaAspectSquare: false as boolean,
 		mediaViewWithDescendants: true as boolean,
 		openOnDoubleClick: 'openFile' as DoubleClickAction,
+		listViewIconSize: 'md' as ListViewSizes,
+		listViewTextSize: 'sm' as ListViewSizes,
 		colVisibility: {
 			name: true,
 			kind: true,
