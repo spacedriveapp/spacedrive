@@ -317,8 +317,8 @@ impl IosEventHandler<'_> {
 		path: PathBuf,
 	) -> Result<(), LocationManagerError> {
 		if let Some((key, _)) = self.rename_event_queue.iter().nth(0) {
-			let new_path_name = Path::new(key).file_name().unwrap();
-			let new_path_name_string = Some(new_path_name.to_str().unwrap().to_string());
+			let new_path_name = key.file_name().expect("Failed to extract file name");
+			let new_path_name_string = Some(new_path_name.to_str().expect("Failed to convert OsStr to str").to_string());
 
 			rename(
 				self.location_id,
