@@ -31,6 +31,13 @@ const BrowseLocations = () => {
 				<Text style={tw`text-lg font-bold text-white`}>Locations</Text>
 				<View style={tw`flex-row gap-3`}>
 					<Button
+						style={tw`h-9 w-9 rounded-full`}
+						variant="dashed"
+						onPress={() => modalRef.current?.present()}
+					>
+						<Plus weight="bold" size={16} style={tw`text-ink`} />
+					</Button>
+					<Button
 						onPress={() => {
 							navigation.navigate('Locations');
 						}}
@@ -38,13 +45,6 @@ const BrowseLocations = () => {
 						variant="gray"
 					>
 						<DotsThreeOutline weight="fill" size={16} color={'white'} />
-					</Button>
-					<Button
-						style={tw`h-9 w-9 rounded-full`}
-						variant="dashed"
-						onPress={() => modalRef.current?.present()}
-					>
-						<Plus weight="bold" size={16} style={tw`text-ink`} />
 					</Button>
 				</View>
 			</View>
