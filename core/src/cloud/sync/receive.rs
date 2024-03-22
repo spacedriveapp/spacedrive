@@ -156,7 +156,7 @@ pub async fn run_actor(
 					};
 
 					err_break!(
-						create_instance(
+						upsert_instance(
 							&library,
 							&libraries,
 							collection.instance_uuid,
@@ -226,7 +226,7 @@ fn crdt_op_db(op: &CRDTOperation) -> cloud_crdt_operation::Create {
 	}
 }
 
-pub async fn create_instance(
+pub async fn upsert_instance(
 	library: &Arc<Library>,
 	libraries: &Libraries,
 	uuid: Uuid,

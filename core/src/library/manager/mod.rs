@@ -614,7 +614,7 @@ impl Libraries {
 											&library,
 											&node.libraries,
 											instance.uuid,
-											instance.identity,
+											instance.identity,upsert_instnace
 											instance.node_id,
 											instance.metadata,
 										)
