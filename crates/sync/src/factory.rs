@@ -7,9 +7,15 @@ use crate::{
 };
 
 macro_rules! msgpack {
-	($e:expr) => {
-		::rmpv::ext::to_value($e).expect("failed to serialize msgpack")
-	}
+	(nil) => {
+		::rmpv::Value::Nil
+	};
+	($e:expr) => {{
+		let bytes = rmp_serde::to_vec_named(&$e).expect("failed to serialize msgpack");
+		let value: rmpv::Value = rmp_serde::from_slice(&bytes).expect("failed to deserialize msgpack");
+
+		value
+	}}
 }
 
 pub trait OperationFactory {
@@ -26,7 +32,6 @@ pub trait OperationFactory {
 		CRDTOperation {
 			instance: self.get_instance(),
 			timestamp: *timestamp.get_time(),
-			id: Uuid::new_v4(),
 			model: TModel::MODEL.to_string(),
 			record_id: msgpack!(id),
 			data,
@@ -114,10 +119,9 @@ pub trait OperationFactory {
 
 #[macro_export]
 macro_rules! sync_entry {
-    ($v:expr, $($m:tt)*) => {{
-        let v = $v;
-        ($($m)*::NAME, ::rmpv::ext::to_value(&v).expect("failed to serialize msgpack"))
-    }}
+    ($v:expr, $($m:tt)*) => {
+        ($($m)*::NAME, ::sd_utils::msgpack!($v))
+    }
 }
 
 #[macro_export]

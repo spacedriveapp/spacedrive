@@ -50,7 +50,6 @@ pub struct CRDTOperation {
 	pub instance: Uuid,
 	#[specta(type = u32)]
 	pub timestamp: NTP64,
-	pub id: Uuid,
 	pub model: String,
 	#[specta(type = serde_json::Value)]
 	pub record_id: rmpv::Value,

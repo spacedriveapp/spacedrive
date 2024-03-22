@@ -358,7 +358,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								sync.shared_update(
 									prisma_sync::object::SyncId { pub_id: d.pub_id },
 									object::date_accessed::NAME,
-									msgpack!(null),
+									msgpack!(nil),
 								),
 								d.id,
 							)

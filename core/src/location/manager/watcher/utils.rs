@@ -519,7 +519,7 @@ async fn inner_update_file(
 							Some(inode::set(Some(inode_to_db(inode)))),
 						)
 					} else {
-						((inode::NAME, msgpack!(null)), None)
+						((inode::NAME, msgpack!(nil)), None)
 					}
 				},
 				{
@@ -529,7 +529,7 @@ async fn inner_update_file(
 							Some(hidden::set(Some(is_hidden))),
 						)
 					} else {
-						((hidden::NAME, msgpack!(null)), None)
+						((hidden::NAME, msgpack!(nil)), None)
 					}
 				},
 			]

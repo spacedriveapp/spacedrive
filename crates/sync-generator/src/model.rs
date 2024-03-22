@@ -56,7 +56,7 @@ pub fn module((model, sync_type): ModelWithSyncType) -> Module {
 		};
 
 		quote! {
-			#[derive(serde::Serialize, serde::Deserialize, Clone)]
+			#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 			pub struct SyncId {
 				#(#fields),*
 			}

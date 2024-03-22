@@ -133,14 +133,18 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 						let item_model_name_snake = snake_ident(item.related_model().name());
 						let item_field_name_snake = snake_ident(item.name());
 
-						quote!(db.#item_model_name_snake().find_unique(
-							prisma::#item_model_name_snake::#item_model_sync_id_field_name_snake::equals(
-								id.#item_field_name_snake.#item_model_sync_id_field_name_snake.clone()
-							)
-						))
+						quote! {
+							db.#item_model_name_snake()
+								.find_unique(
+									prisma::#item_model_name_snake::#item_model_sync_id_field_name_snake::equals(
+										id.#item_field_name_snake.#item_model_sync_id_field_name_snake.clone()
+									)
+								)
+								.select(prisma::#item_model_name_snake::select!({ id }))
+						}
 					};
 
-					[batch_item(item), batch_item(group)]
+					[batch_item(group), batch_item(item)]
 				};
 
 				let create_items = {
@@ -159,18 +163,22 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 				};
 
 				quote! {
-					let (Some(item), Some(group)) =
-						db._batch((#(#db_batch_items),*)).await? else {
+					let (Some(group), Some(item)) =
+						(#(#db_batch_items.exec().await?),*) else {
 							panic!("item and group not found!");
 					};
 
-					let id = prisma::#model_name_snake::#compound_id(item.id, group.id);
+					let id = prisma::#model_name_snake::#compound_id(group.id, item.id);
 
 					match data {
 						sd_sync::CRDTOperationData::Create => {
 							db.#model_name_snake()
-								.create(
-									#(#create_items),*,
+								.upsert(
+									id,
+									prisma::#model_name_snake::create(
+										#(#create_items),*,
+										vec![]
+									),
 									vec![],
 								)
 								.exec()

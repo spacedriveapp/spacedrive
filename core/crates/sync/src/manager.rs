@@ -113,13 +113,37 @@ impl Manager {
 		Ok(ret)
 	}
 
+	pub async fn get_instance_ops(
+		&self,
+		count: u32,
+		instance_uuid: Uuid,
+		timestamp: NTP64,
+	) -> prisma_client_rust::Result<Vec<CRDTOperation>> {
+		let db = &self.db;
+
+		Ok(db
+			.crdt_operation()
+			.find_many(vec![
+				crdt_operation::instance::is(vec![instance::pub_id::equals(uuid_to_bytes(
+					instance_uuid,
+				))]),
+				crdt_operation::timestamp::gt(timestamp.as_u64() as i64),
+			])
+			.take(i64::from(count))
+			.order_by(crdt_operation::timestamp::order(SortOrder::Asc))
+			.include(crdt_include::include())
+			.exec()
+			.await?
+			.into_iter()
+			.map(|o| o.into_operation())
+			.collect())
+	}
+
 	pub async fn get_ops(
 		&self,
 		args: GetOpsArgs,
 	) -> prisma_client_rust::Result<Vec<CRDTOperation>> {
 		let db = &self.db;
-
-		dbg!(&args);
 
 		macro_rules! db_args {
 			($args:ident, $op:ident) => {
