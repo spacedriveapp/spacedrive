@@ -124,22 +124,21 @@ impl From<PathBuf> for ToWalkEntry {
 	}
 }
 
-// #[derive(Serialize, Deserialize)]
-// struct WalkDirSaveState {
-// 	id: TaskId,
-// 	entry: ToWalkEntry,
-// 	root: Arc<PathBuf>,
-// 	entry_iso_file_path: IsolatedFilePathData<'static>,
-// 	found_paths: Vec<PathBuf>,
-// 	paths_and_metadatas: HashMap<PathBuf, Metadata>,
-// 	paths_metadatas_and_acceptance: HashMap<PathBuf, (Metadata, HashMap<RuleKind, Vec<bool>>)>,
-// 	accepted_paths: HashMap<PathBuf, Metadata>,
-// 	accepted_ancestors: HashSet<PathBuf>,
-// 	walking_entries: Vec<WalkingEntry>,
-// 	to_remove_entries: Vec<file_path_pub_and_cas_ids::Data>,
-// 	maybe_to_keep_walking: Option<Vec<ToWalkEntry>>,
-// 	errors: Vec<NonCriticalJobError>,
-// }
+struct WalkDirSaveState {
+	id: TaskId,
+	entry: ToWalkEntry,
+	root: Arc<PathBuf>,
+	entry_iso_file_path: IsolatedFilePathData<'static>,
+	found_paths: Vec<PathBuf>,
+	paths_and_metadatas: HashMap<PathBuf, Metadata>,
+	paths_metadatas_and_acceptance: HashMap<PathBuf, (Metadata, HashMap<RuleKind, Vec<bool>>)>,
+	accepted_paths: HashMap<PathBuf, Metadata>,
+	accepted_ancestors: HashSet<PathBuf>,
+	walking_entries: Vec<WalkingEntry>,
+	to_remove_entries: Vec<file_path_pub_and_cas_ids::Data>,
+	maybe_to_keep_walking: Option<Vec<ToWalkEntry>>,
+	errors: Vec<NonCriticalJobError>,
+}
 
 #[derive(Debug)]
 enum WalkerStage {
@@ -184,15 +183,6 @@ where
 	iso_file_path_factory: Arc<IsoPathFactory>,
 	db_proxy: Arc<DBProxy>,
 	stage: WalkerStage,
-	// maybe_read_dir_stream: Option<ReadDirStream>,
-	// found_paths: Vec<PathBuf>,
-	// paths_and_metadatas: HashMap<PathBuf, Metadata>,
-	// paths_metadatas_and_acceptance: HashMap<PathBuf, (Metadata, HashMap<RuleKind, Vec<bool>>)>,
-	// accepted_paths: HashMap<PathBuf, Metadata>,
-	// accepted_ancestors: HashSet<PathBuf>,
-	// walking_entries: Vec<WalkingEntry>,
-	// to_remove_entries: Vec<file_path_pub_and_cas_ids::Data>,
-	// maybe_to_keep_walking: Option<Vec<ToWalkEntry>>,
 	maybe_dispatcher: Option<TaskDispatcher<Error>>,
 	errors: Vec<NonCriticalJobError>,
 }

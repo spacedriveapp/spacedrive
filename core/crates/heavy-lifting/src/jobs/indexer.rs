@@ -1,18 +1,28 @@
-use crate::tasks::indexer::{walker, IndexerError, NonCriticalIndexerError};
+use crate::{
+	tasks::indexer::{walker, IndexerError, NonCriticalIndexerError},
+	Error,
+};
 
 use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
 use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_walker};
 
 use sd_prisma::prisma::{file_path, location, PrismaClient, SortOrder};
+use sd_task_system::{Task, TaskHandle};
 
 use std::{
 	collections::HashSet,
+	hash::{Hash, Hasher},
 	path::{Path, PathBuf},
 	sync::Arc,
 };
 
 use itertools::Itertools;
 use prisma_client_rust::operator::or;
+
+use super::job_system::{
+	job::{Job, JobName, ReturnStatus, TaskDispatcher},
+	SerializableJob,
+};
 
 #[derive(Debug)]
 struct IsoFilePathFactory {
@@ -143,5 +153,58 @@ impl walker::WalkerDBProxy for WalkerDBProxy {
 		}
 
 		Ok(to_remove)
+	}
+}
+
+#[derive(Debug)]
+pub struct IndexerJob {
+	location_id: location::id::Type,
+	location_path: PathBuf,
+	db: Arc<PrismaClient>,
+}
+
+impl SerializableJob for IndexerJob {
+	fn serialize(&self) -> Option<Result<(JobName, Vec<u8>), rmp_serde::encode::Error>> {
+		todo!("Implement serialization")
+	}
+
+	fn deserialize(
+		serialized_job: Vec<u8>,
+	) -> Result<(Self, Vec<Box<dyn Task<Error>>>), rmp_serde::decode::Error> {
+		todo!("Implement deserialization")
+	}
+}
+
+impl Hash for IndexerJob {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.location_id.hash(state);
+		self.location_path.hash(state);
+	}
+}
+
+impl IndexerJob {
+	#[must_use]
+	pub fn new(
+		location_id: location::id::Type,
+		location_path: PathBuf,
+		db: Arc<PrismaClient>,
+	) -> Self {
+		Self {
+			location_id,
+			location_path,
+			db,
+		}
+	}
+}
+
+impl Job for IndexerJob {
+	const NAME: JobName = JobName::Indexer;
+
+	async fn run(mut self, dispatcher: TaskDispatcher) -> ReturnStatus {
+		todo!()
+	}
+
+	fn resume(&mut self, dispatched_tasks: Vec<TaskHandle<Error>>) {
+		todo!()
 	}
 }

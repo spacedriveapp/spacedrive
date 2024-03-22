@@ -16,6 +16,7 @@ use async_channel as chan;
 use chrono::Utc;
 use futures::{Stream, StreamExt};
 use futures_concurrency::{future::TryJoin, stream::Merge};
+use prisma_client_rust::QueryError;
 use tokio::{
 	spawn,
 	sync::oneshot,
@@ -25,15 +26,16 @@ use tokio::{
 use tokio_stream::wrappers::IntervalStream;
 use tracing::{error, info, trace, warn};
 
-use self::report::ReportError;
-
 use super::JobId;
 
 pub(crate) mod job;
 pub(crate) mod report;
 pub(crate) mod store;
 
-use job::{DynJob, IntoJob, Job, JobHandle, JobOutput, ReturnStatus};
+use job::{DynJob, IntoJob, Job, JobHandle, JobName, JobOutput, ReturnStatus};
+use report::ReportError;
+
+pub use store::SerializableJob;
 
 const JOBS_INITIAL_CAPACITY: usize = 32;
 const FIVE_MINUTES: Duration = Duration::from_secs(5 * 60);
@@ -45,12 +47,24 @@ pub enum JobSystemError {
 	#[error("job already running: <new_id='{new_id}', name='{job_name}', already_running_id='{already_running_id}'>")]
 	AlreadyRunning {
 		new_id: JobId,
-		job_name: &'static str,
+		job_name: JobName,
 		already_running_id: JobId,
 	},
 
 	#[error("job canceled: <id='{0}'>")]
 	Canceled(JobId),
+
+	#[error("failed to load job reports from database to resume jobs: {0}")]
+	LoadReportsForResume(#[from] QueryError),
+
+	#[error("failed to serialize job to be saved and resumed later: {0}")]
+	Serialize(#[from] rmp_serde::encode::Error),
+
+	#[error("failed to deserialize job to be resumed: {0}")]
+	Deserialize(#[from] rmp_serde::decode::Error),
+
+	#[error("job not found in database: <id='{0}'>")]
+	MissingReport(JobId),
 
 	#[error(transparent)]
 	Report(#[from] ReportError),
@@ -74,6 +88,8 @@ impl From<JobSystemError> for rspc::Error {
 			}
 			JobSystemError::Processing(e) => e.into(),
 			JobSystemError::Report(e) => e.into(),
+
+			_ => Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e),
 		}
 	}
 }

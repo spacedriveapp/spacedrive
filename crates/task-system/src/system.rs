@@ -408,26 +408,29 @@ impl<E: RunError> Clone for Dispatcher<E> {
 impl<E: RunError> Dispatcher<E> {
 	/// Dispatches a task to the system, the task will be assigned to a worker and executed as soon as possible.
 	pub async fn dispatch(&self, into_task: impl IntoTask<E>) -> TaskHandle<E> {
-		async fn inner<E: RunError>(this: &Dispatcher<E>, task: Box<dyn Task<E>>) -> TaskHandle<E> {
-			let worker_id = this
+		self.dispatch_boxed(into_task.into_task()).await
+	}
+
+	/// Dispatches an already boxed task to the system, the task will be assigned to a worker and executed as
+	/// soon as possible.
+	#[allow(clippy::missing_panics_doc)]
+	pub async fn dispatch_boxed(&self, task: Box<dyn Task<E>>) -> TaskHandle<E> {
+		let worker_id = self
 				.last_worker_id
 				.fetch_update(Ordering::Release, Ordering::Acquire, |last_worker_id| {
-					Some((last_worker_id + 1) % this.workers.len())
+					Some((last_worker_id + 1) % self.workers.len())
 				})
 				.expect("we hardcoded the update function to always return Some(next_worker_id) through dispatcher");
 
-			trace!(
-				"Dispatching task to worker: <worker_id='{worker_id}', task_id='{}'>",
-				task.id()
-			);
-			let handle = this.workers[worker_id].add_task(task).await;
+		trace!(
+			"Dispatching task to worker: <worker_id='{worker_id}', task_id='{}'>",
+			task.id()
+		);
+		let handle = self.workers[worker_id].add_task(task).await;
 
-			this.idle_workers[worker_id].store(false, Ordering::Relaxed);
+		self.idle_workers[worker_id].store(false, Ordering::Relaxed);
 
-			handle
-		}
-
-		inner(self, into_task.into_task()).await
+		handle
 	}
 
 	/// Dispatches many tasks to the system, the tasks will be assigned to workers and executed as soon as possible.

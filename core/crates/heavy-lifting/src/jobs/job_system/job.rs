@@ -1,7 +1,8 @@
 use crate::{jobs::JobId, Error, NonCriticalJobError};
 
 use sd_prisma::prisma::PrismaClient;
-use sd_task_system::{IntoTask, TaskHandle, TaskRemoteController, TaskSystemError};
+use sd_task_system::{IntoTask, Task, TaskHandle, TaskRemoteController, TaskSystemError};
+use strum::{Display, EnumString};
 
 use std::{
 	collections::VecDeque,
@@ -16,7 +17,7 @@ use futures_concurrency::{
 	future::{Join, TryJoin},
 	stream::Merge,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::spawn;
 use tracing::{debug, error, info, warn};
@@ -28,60 +29,11 @@ use super::{
 	Command, JobSystemError,
 };
 
-pub struct TaskDispatcher {
-	dispatcher: sd_task_system::TaskDispatcher<Error>,
-	remote_controllers_tx: chan::Sender<TaskRemoteController>,
-}
-
-impl TaskDispatcher {
-	fn new(
-		dispatcher: sd_task_system::TaskDispatcher<Error>,
-	) -> (Self, chan::Receiver<TaskRemoteController>) {
-		let (remote_controllers_tx, remote_controllers_rx) = chan::unbounded();
-
-		(
-			Self {
-				dispatcher,
-				remote_controllers_tx,
-			},
-			remote_controllers_rx,
-		)
-	}
-
-	pub async fn dispatch(&self, into_task: impl IntoTask<Error>) -> TaskHandle<Error> {
-		let handle = self.dispatcher.dispatch(into_task).await;
-
-		self.remote_controllers_tx
-			.send(handle.remote_controller())
-			.await
-			.expect("remote controllers tx closed");
-
-		handle
-	}
-
-	pub async fn dispatch_many(
-		&self,
-		into_tasks: Vec<impl IntoTask<Error>>,
-	) -> Vec<TaskHandle<Error>> {
-		let handles = self.dispatcher.dispatch_many(into_tasks).await;
-
-		for handle in &handles {
-			self.remote_controllers_tx
-				.send(handle.remote_controller())
-				.await
-				.expect("remote controllers tx closed");
-		}
-
-		handles
-			.iter()
-			.map(|handle| self.remote_controllers_tx.send(handle.remote_controller()))
-			.collect::<Vec<_>>()
-			.try_join()
-			.await
-			.expect("remote controllers tx closed");
-
-		handles
-	}
+#[derive(Debug, Serialize, Deserialize, EnumString, Display, Clone, Copy, Type, Hash)]
+#[strum(use_phf, serialize_all = "snake_case")]
+pub enum JobName {
+	Indexer,
+	// TODO: Add more job names as needed
 }
 
 pub enum ReturnStatus {
@@ -92,7 +44,9 @@ pub enum ReturnStatus {
 }
 
 pub trait Job: Send + Sync + Hash + 'static {
-	const NAME: &'static str;
+	const NAME: JobName;
+
+	fn resume(&mut self, dispatched_tasks: Vec<TaskHandle<Error>>);
 
 	fn run(self, dispatcher: TaskDispatcher) -> impl Future<Output = ReturnStatus> + Send;
 }
@@ -108,7 +62,7 @@ impl<J: Job> IntoJob<J> for J {
 		Box::new(JobHolder {
 			id,
 			job: self,
-			report: ReportBuilder::new(id, J::NAME.to_string()).build(),
+			report: ReportBuilder::new(id, J::NAME).build(),
 			next_jobs: VecDeque::new(),
 		})
 	}
@@ -140,7 +94,7 @@ impl Default for JobReturn {
 pub struct JobOutput {
 	id: JobId,
 	status: Status,
-	job_name: String,
+	job_name: JobName,
 	data: JobOutputData,
 	metadata: Vec<ReportMetadata>,
 	non_critical_errors: Vec<NonCriticalJobError>,
@@ -180,7 +134,7 @@ impl JobOutput {
 		Self {
 			id: report.id,
 			status: report.status,
-			job_name: report.name.clone(),
+			job_name: report.name,
 			data,
 			metadata: report.metadata.clone(),
 			non_critical_errors,
@@ -216,7 +170,7 @@ impl<J: Job> JobBuilder<J> {
 		Self {
 			id,
 			job,
-			report_builder: ReportBuilder::new(id, J::NAME.to_string()),
+			report_builder: ReportBuilder::new(id, J::NAME),
 			next_jobs: VecDeque::new(),
 		}
 	}
@@ -254,9 +208,9 @@ impl<J: Job> JobBuilder<J> {
 
 pub struct JobHolder<J: Job> {
 	pub(super) id: JobId,
-	job: J,
-	next_jobs: VecDeque<Box<dyn DynJob>>,
-	report: Report,
+	pub(super) job: J,
+	pub(super) report: Report,
+	pub(super) next_jobs: VecDeque<Box<dyn DynJob>>,
 }
 
 pub struct JobHandle {
@@ -410,15 +364,26 @@ impl JobHandle {
 pub trait DynJob: Send + Sync + 'static {
 	fn id(&self) -> JobId;
 
-	fn job_name(&self) -> &'static str;
+	fn job_name(&self) -> JobName;
 
 	fn hash(&self) -> u64;
 
 	fn report_mut(&mut self) -> &mut Report;
 
+	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob>>);
+
+	fn next_jobs(&self) -> &VecDeque<Box<dyn DynJob>>;
+
 	fn dispatch(
 		self: Box<Self>,
 		dispatcher: sd_task_system::TaskDispatcher<Error>,
+		done_tx: chan::Sender<(JobId, ReturnStatus)>,
+	) -> JobHandle;
+
+	fn resume(
+		self: Box<Self>,
+		dispatcher: sd_task_system::TaskDispatcher<Error>,
+		existing_tasks: Vec<Box<dyn Task<Error>>>,
 		done_tx: chan::Sender<(JobId, ReturnStatus)>,
 	) -> JobHandle;
 }
@@ -428,7 +393,7 @@ impl<J: Job> DynJob for JobHolder<J> {
 		self.id
 	}
 
-	fn job_name(&self) -> &'static str {
+	fn job_name(&self) -> JobName {
 		J::NAME
 	}
 
@@ -443,6 +408,14 @@ impl<J: Job> DynJob for JobHolder<J> {
 		&mut self.report
 	}
 
+	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob>>) {
+		self.next_jobs = next_jobs;
+	}
+
+	fn next_jobs(&self) -> &VecDeque<Box<dyn DynJob>> {
+		&self.next_jobs
+	}
+
 	fn dispatch(
 		self: Box<Self>,
 		dispatcher: sd_task_system::TaskDispatcher<Error>,
@@ -453,6 +426,31 @@ impl<J: Job> DynJob for JobHolder<J> {
 		spawn(to_spawn_job(
 			self.id,
 			self.job,
+			None,
+			dispatcher,
+			commands_rx,
+			done_tx,
+		));
+
+		JobHandle {
+			next_jobs: self.next_jobs,
+			report: self.report,
+			commands_tx,
+		}
+	}
+
+	fn resume(
+		self: Box<Self>,
+		dispatcher: sd_task_system::TaskDispatcher<Error>,
+		existing_tasks: Vec<Box<dyn Task<Error>>>,
+		done_tx: chan::Sender<(JobId, ReturnStatus)>,
+	) -> JobHandle {
+		let (commands_tx, commands_rx) = chan::bounded(8);
+
+		spawn(to_spawn_job(
+			self.id,
+			self.job,
+			Some(existing_tasks),
 			dispatcher,
 			commands_rx,
 			done_tx,
@@ -468,7 +466,8 @@ impl<J: Job> DynJob for JobHolder<J> {
 
 async fn to_spawn_job(
 	id: JobId,
-	job: impl Job,
+	mut job: impl Job,
+	existing_tasks: Option<Vec<Box<dyn Task<Error>>>>,
 	dispatcher: sd_task_system::TaskDispatcher<Error>,
 	commands_rx: chan::Receiver<Command>,
 	done_tx: chan::Sender<(JobId, ReturnStatus)>,
@@ -482,6 +481,17 @@ async fn to_spawn_job(
 	let mut remote_controllers = vec![];
 
 	let (dispatcher, remote_controllers_rx) = TaskDispatcher::new(dispatcher);
+
+	if let Some(existing_tasks) = existing_tasks {
+		job.resume(
+			existing_tasks
+				.into_iter()
+				.map(|task| dispatcher.dispatch_boxed(task))
+				.collect::<Vec<_>>()
+				.join()
+				.await,
+		);
+	}
 
 	let mut msgs_stream = pin!((
 		commands_rx.map(StreamMessage::Commands),
@@ -559,5 +569,65 @@ async fn to_spawn_job(
 				return done_tx.send((id, res)).await.expect("jobs done tx closed");
 			}
 		}
+	}
+}
+
+pub struct TaskDispatcher {
+	dispatcher: sd_task_system::TaskDispatcher<Error>,
+	remote_controllers_tx: chan::Sender<TaskRemoteController>,
+}
+
+impl TaskDispatcher {
+	fn new(
+		dispatcher: sd_task_system::TaskDispatcher<Error>,
+	) -> (Self, chan::Receiver<TaskRemoteController>) {
+		let (remote_controllers_tx, remote_controllers_rx) = chan::unbounded();
+
+		(
+			Self {
+				dispatcher,
+				remote_controllers_tx,
+			},
+			remote_controllers_rx,
+		)
+	}
+
+	pub async fn dispatch(&self, into_task: impl IntoTask<Error>) -> TaskHandle<Error> {
+		self.dispatch_boxed(into_task.into_task()).await
+	}
+
+	pub async fn dispatch_boxed(&self, task: Box<dyn Task<Error>>) -> TaskHandle<Error> {
+		let handle = self.dispatcher.dispatch_boxed(task).await;
+
+		self.remote_controllers_tx
+			.send(handle.remote_controller())
+			.await
+			.expect("remote controllers tx closed");
+
+		handle
+	}
+
+	pub async fn dispatch_many(
+		&self,
+		into_tasks: Vec<impl IntoTask<Error>>,
+	) -> Vec<TaskHandle<Error>> {
+		let handles = self.dispatcher.dispatch_many(into_tasks).await;
+
+		for handle in &handles {
+			self.remote_controllers_tx
+				.send(handle.remote_controller())
+				.await
+				.expect("remote controllers tx closed");
+		}
+
+		handles
+			.iter()
+			.map(|handle| self.remote_controllers_tx.send(handle.remote_controller()))
+			.collect::<Vec<_>>()
+			.try_join()
+			.await
+			.expect("remote controllers tx closed");
+
+		handles
 	}
 }

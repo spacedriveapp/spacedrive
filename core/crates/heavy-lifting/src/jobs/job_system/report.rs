@@ -7,11 +7,15 @@ use sd_utils::db::{maybe_missing, MissingFieldError};
 
 use std::collections::HashMap;
 use std::fmt;
+use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use strum::ParseError;
 use tracing::error;
+
+use super::job::JobName;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ReportError {
@@ -25,6 +29,10 @@ pub enum ReportError {
 	Serialization(#[from] rmp_serde::encode::Error),
 	#[error("deserialization error: {0}")]
 	Deserialization(#[from] rmp_serde::decode::Error),
+	#[error(transparent)]
+	MissingField(#[from] MissingFieldError),
+	#[error("failed to parse job name from database: {0}")]
+	JobNameParse(#[from] ParseError),
 }
 
 impl From<ReportError> for rspc::Error {
@@ -54,7 +62,7 @@ pub enum ReportOutputMetadata {
 #[derive(Debug, Serialize, Type, Clone)]
 pub struct Report {
 	pub id: JobId,
-	pub name: String,
+	pub name: JobName,
 	pub action: Option<String>,
 
 	pub metadata: Vec<ReportMetadata>,
@@ -88,12 +96,12 @@ impl fmt::Display for Report {
 
 // convert database struct into a resource struct
 impl TryFrom<job::Data> for Report {
-	type Error = MissingFieldError;
+	type Error = ReportError;
 
 	fn try_from(data: job::Data) -> Result<Self, Self::Error> {
 		Ok(Self {
 			id: JobId::from_slice(&data.id).expect("corrupted database"),
-			name: maybe_missing(data.name, "job.name")?,
+			name: JobName::from_str(&maybe_missing(data.name, "job.name")?)?,
 			action: data.action,
 
 			metadata: data
@@ -135,7 +143,7 @@ impl TryFrom<job::Data> for Report {
 }
 
 impl Report {
-	pub fn new(uuid: JobId, name: String) -> Self {
+	pub fn new(uuid: JobId, name: JobName) -> Self {
 		Self {
 			id: uuid,
 			name,
@@ -184,7 +192,7 @@ impl Report {
 				self.id.as_bytes().to_vec(),
 				sd_utils::chain_optional_iter(
 					[
-						job::name::set(Some(self.name.clone())),
+						job::name::set(Some(self.name.to_string())),
 						job::action::set(self.action.clone()),
 						job::date_created::set(Some(now.into())),
 						job::metadata::set(Some(rmp_serde::to_vec(&self.metadata)?)),
@@ -277,7 +285,7 @@ impl TryFrom<i32> for Status {
 
 pub struct ReportBuilder {
 	pub id: JobId,
-	pub name: String,
+	pub name: JobName,
 	pub action: Option<String>,
 	pub metadata: Vec<ReportMetadata>,
 	pub parent_id: Option<JobId>,
@@ -305,7 +313,7 @@ impl ReportBuilder {
 		}
 	}
 
-	pub fn new(id: JobId, name: impl Into<String>) -> Self {
+	pub fn new(id: JobId, name: JobName) -> Self {
 		Self {
 			id,
 			name: name.into(),
