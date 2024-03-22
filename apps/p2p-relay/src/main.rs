@@ -40,9 +40,7 @@ pub struct RelayServerEntry {
 
 #[tokio::main]
 async fn main() {
-	tracing_subscriber::fmt()
-		// .with_env_filter(EnvFilter::from_default_env()) // TODO: ???
-		.init();
+	tracing_subscriber::fmt().init();
 
 	let config_path =
 		PathBuf::from(std::env::var("CONFIG_PATH").unwrap_or("./config.json".to_string()));
