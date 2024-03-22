@@ -1,15 +1,12 @@
 use crate::jobs::JobId;
 
-use prisma_client_rust::QueryError;
-
 use sd_prisma::prisma::{job, PrismaClient};
 use sd_utils::db::{maybe_missing, MissingFieldError};
 
-use std::collections::HashMap;
-use std::fmt;
-use std::str::FromStr;
+use std::{collections::HashMap, fmt, str::FromStr};
 
 use chrono::{DateTime, Utc};
+use prisma_client_rust::QueryError;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use strum::ParseError;
@@ -25,6 +22,8 @@ pub enum ReportError {
 	Update(QueryError),
 	#[error("invalid job status integer: {0}")]
 	InvalidJobStatusInt(i32),
+	#[error("job not found in database: <id='{0}'>")]
+	MissingReport(JobId),
 	#[error("serialization error: {0}")]
 	Serialization(#[from] rmp_serde::encode::Error),
 	#[error("deserialization error: {0}")]
@@ -37,7 +36,23 @@ pub enum ReportError {
 
 impl From<ReportError> for rspc::Error {
 	fn from(e: ReportError) -> Self {
-		Self::with_cause(rspc::ErrorCode::BadRequest, e.to_string(), e)
+		match e {
+			ReportError::Create(_)
+			| ReportError::Update(_)
+			| ReportError::InvalidJobStatusInt(_) => {
+				Self::with_cause(rspc::ErrorCode::BadRequest, e.to_string(), e)
+			}
+
+			ReportError::MissingReport(_) => {
+				Self::with_cause(rspc::ErrorCode::NotFound, e.to_string(), e)
+			}
+			ReportError::Serialization(_)
+			| ReportError::Deserialization(_)
+			| ReportError::MissingField(_)
+			| ReportError::JobNameParse(_) => {
+				Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
+			}
+		}
 	}
 }
 
@@ -143,6 +158,7 @@ impl TryFrom<job::Data> for Report {
 }
 
 impl Report {
+	#[must_use]
 	pub fn new(uuid: JobId, name: JobName) -> Self {
 		Self {
 			id: uuid,
@@ -164,15 +180,14 @@ impl Report {
 		}
 	}
 
-	pub fn get_meta(&self) -> (String, Option<String>) {
+	#[must_use]
+	pub fn get_action_name_and_group_key(&self) -> (String, Option<String>) {
 		// actions are formatted like "added_location" or "added_location-1"
-		let Some(action_name) = self.action.as_ref().map(|action| {
-			action
-				.split('-')
-				.next()
-				.map(str::to_string)
-				.unwrap_or_default()
-		}) else {
+		let Some(action_name) = self
+			.action
+			.as_ref()
+			.and_then(|action| action.split('-').next().map(str::to_string))
+		else {
 			return (self.id.to_string(), None);
 		};
 		// create a unique group_key, EG: "added_location-<location_id>"
@@ -316,7 +331,7 @@ impl ReportBuilder {
 	pub fn new(id: JobId, name: JobName) -> Self {
 		Self {
 			id,
-			name: name.into(),
+			name,
 			action: None,
 			metadata: vec![],
 			parent_id: None,

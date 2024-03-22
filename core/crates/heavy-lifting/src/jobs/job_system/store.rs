@@ -1,8 +1,3 @@
-use std::{
-	collections::{HashMap, VecDeque},
-	iter,
-};
-
 use crate::{
 	jobs::{indexer::IndexerJob, JobId},
 	Error,
@@ -10,13 +5,18 @@ use crate::{
 
 use sd_prisma::prisma::{job, PrismaClient};
 use sd_task_system::Task;
-
 use sd_utils::uuid_to_bytes;
+
+use std::{
+	collections::{HashMap, VecDeque},
+	iter,
+};
+
 use serde::{Deserialize, Serialize};
 
 use super::{
 	job::{DynJob, JobHolder, JobName},
-	report::Report,
+	report::{Report, ReportError},
 	JobSystemError,
 };
 
@@ -26,7 +26,7 @@ pub trait SerializableJob: 'static
 where
 	Self: Sized,
 {
-	fn serialize(&self) -> Option<Result<(JobName, Vec<u8>), rmp_serde::encode::Error>>;
+	fn serialize(&self) -> Option<Result<Vec<u8>, rmp_serde::encode::Error>>;
 	fn deserialize(serialized_job: Vec<u8>) -> Result<(Self, DynTasks), rmp_serde::decode::Error>;
 }
 
@@ -34,15 +34,15 @@ pub type DynJobAndTasks = (Box<dyn DynJob>, DynTasks);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StoredJob {
-	id: JobId,
-	name: JobName,
-	serialized_job: Vec<u8>,
+	pub(super) id: JobId,
+	pub(super) name: JobName,
+	pub(super) serialized_job: Vec<u8>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StoredJobEntry {
-	root_job: StoredJob,
-	pub next_jobs: Vec<StoredJob>,
+	pub(super) root_job: StoredJob,
+	pub(super) next_jobs: Vec<StoredJob>,
 }
 
 pub async fn load_jobs(
@@ -80,7 +80,7 @@ pub async fn load_jobs(
 			 }| {
 				let report = reports
 					.remove(&root_job.id)
-					.ok_or(JobSystemError::MissingReport(root_job.id))?;
+					.ok_or(ReportError::MissingReport(root_job.id))?;
 				let (mut dyn_job, tasks) = load_job(root_job, report)?;
 
 				dyn_job.set_next_jobs(
@@ -89,7 +89,7 @@ pub async fn load_jobs(
 						.map(|next_job| {
 							let next_job_report = reports
 								.remove(&next_job.id)
-								.ok_or(JobSystemError::MissingReport(next_job.id))?;
+								.ok_or(ReportError::MissingReport(next_job.id))?;
 
 							let (next_dyn_job, next_tasks) = load_job(next_job, next_job_report)?;
 

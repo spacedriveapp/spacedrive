@@ -2,116 +2,39 @@ use crate::Error;
 
 use sd_prisma::prisma::PrismaClient;
 use sd_task_system::TaskDispatcher;
+use sd_utils::error::FileIOError;
 
-use std::{
-	cell::RefCell,
-	collections::hash_map::{Entry, HashMap},
-	mem,
-	pin::pin,
-	sync::Arc,
-	time::Duration,
-};
+use std::{cell::RefCell, collections::hash_map::HashMap, path::Path, sync::Arc};
 
 use async_channel as chan;
-use chrono::Utc;
-use futures::{Stream, StreamExt};
-use futures_concurrency::{future::TryJoin, stream::Merge};
-use prisma_client_rust::QueryError;
-use tokio::{
-	spawn,
-	sync::oneshot,
-	task::JoinHandle,
-	time::{interval_at, Instant},
-};
-use tokio_stream::wrappers::IntervalStream;
+use futures::Stream;
+use futures_concurrency::future::{Join, TryJoin};
+use tokio::{fs, spawn, sync::oneshot, task::JoinHandle};
 use tracing::{error, info, trace, warn};
+use uuid::Uuid;
 
 use super::JobId;
 
-pub(crate) mod job;
-pub(crate) mod report;
-pub(crate) mod store;
+pub(super) mod error;
+pub(super) mod job;
+pub(super) mod report;
+mod runner;
+mod store;
 
-use job::{DynJob, IntoJob, Job, JobHandle, JobName, JobOutput, ReturnStatus};
-use report::ReportError;
+use error::JobSystemError;
+use job::{IntoJob, Job, JobOutput};
+use runner::{run, JobSystemRunner, RunnerMessage};
+use store::{load_jobs, StoredJobEntry};
 
 pub use store::SerializableJob;
 
-const JOBS_INITIAL_CAPACITY: usize = 32;
-const FIVE_MINUTES: Duration = Duration::from_secs(5 * 60);
-
-#[derive(thiserror::Error, Debug)]
-pub enum JobSystemError {
-	#[error("job not found: <id='{0}'>")]
-	NotFound(JobId),
-	#[error("job already running: <new_id='{new_id}', name='{job_name}', already_running_id='{already_running_id}'>")]
-	AlreadyRunning {
-		new_id: JobId,
-		job_name: JobName,
-		already_running_id: JobId,
-	},
-
-	#[error("job canceled: <id='{0}'>")]
-	Canceled(JobId),
-
-	#[error("failed to load job reports from database to resume jobs: {0}")]
-	LoadReportsForResume(#[from] QueryError),
-
-	#[error("failed to serialize job to be saved and resumed later: {0}")]
-	Serialize(#[from] rmp_serde::encode::Error),
-
-	#[error("failed to deserialize job to be resumed: {0}")]
-	Deserialize(#[from] rmp_serde::decode::Error),
-
-	#[error("job not found in database: <id='{0}'>")]
-	MissingReport(JobId),
-
-	#[error(transparent)]
-	Report(#[from] ReportError),
-
-	#[error(transparent)]
-	Processing(#[from] Error),
-}
-
-impl From<JobSystemError> for rspc::Error {
-	fn from(e: JobSystemError) -> Self {
-		match e {
-			JobSystemError::NotFound(_) => {
-				Self::with_cause(rspc::ErrorCode::NotFound, e.to_string(), e)
-			}
-			JobSystemError::AlreadyRunning { .. } => {
-				Self::with_cause(rspc::ErrorCode::Conflict, e.to_string(), e)
-			}
-
-			JobSystemError::Canceled(_) => {
-				Self::with_cause(rspc::ErrorCode::ClientClosedRequest, e.to_string(), e)
-			}
-			JobSystemError::Processing(e) => e.into(),
-			JobSystemError::Report(e) => e.into(),
-
-			_ => Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e),
-		}
-	}
-}
+const PENDING_JOBS_FILE: &str = "pending_jobs.bin";
 
 #[derive(Debug, Clone, Copy)]
 pub enum Command {
 	Pause,
 	Resume,
 	Cancel,
-}
-
-pub(crate) enum RunnerMessage {
-	NewJob {
-		id: JobId,
-		dyn_job: Box<dyn DynJob>,
-		ack_tx: oneshot::Sender<Result<(), JobSystemError>>,
-	},
-	Command {
-		id: JobId,
-		command: Command,
-		ack_tx: oneshot::Sender<Result<(), JobSystemError>>,
-	},
 }
 
 pub struct JobSystem {
@@ -121,45 +44,66 @@ pub struct JobSystem {
 }
 
 impl JobSystem {
-	#[must_use]
-	pub fn new(dispatcher: TaskDispatcher<Error>, db: Arc<PrismaClient>) -> Self {
+	pub async fn new(
+		dispatcher: TaskDispatcher<Error>,
+		data_directory: impl AsRef<Path> + Send,
+		dbs: &HashMap<Uuid, Arc<PrismaClient>>,
+	) -> Result<Self, JobSystemError> {
 		let (job_outputs_tx, job_outputs_rx) = chan::unbounded();
 		let (job_return_status_tx, job_return_status_rx) = chan::bounded(16);
 		let (msgs_tx, msgs_rx) = chan::bounded(8);
 
-		let runner_handle = RefCell::new(Some(spawn(async move {
-			trace!("Job System Runner starting...");
-			while let Err(e) = spawn(run(
-				JobSystemRunner::new(
-					dispatcher.clone(),
-					Arc::clone(&db),
-					job_return_status_tx.clone(),
-					job_outputs_tx.clone(),
-				),
-				msgs_rx.clone(),
-				job_return_status_rx.clone(),
-			))
-			.await
-			{
-				if e.is_panic() {
-					error!("Job system panicked: {e:#?}");
-				} else {
-					trace!("JobSystemRunner received shutdown signal and will exit...");
-					break;
-				}
-				trace!("Restarting JobSystemRunner processing task...");
-			}
+		let store_jobs_file = Arc::new(data_directory.as_ref().join(PENDING_JOBS_FILE));
 
-			info!("JobSystemRunner gracefully shutdown");
+		let runner_handle = RefCell::new(Some(spawn({
+			let store_jobs_file = Arc::clone(&store_jobs_file);
+			async move {
+				trace!("Job System Runner starting...");
+				while let Err(e) = spawn({
+					let store_jobs_file = Arc::clone(&store_jobs_file);
+					let dispatcher = dispatcher.clone();
+					let job_return_status_tx = job_return_status_tx.clone();
+					let job_return_status_rx = job_return_status_rx.clone();
+					let job_outputs_tx = job_outputs_tx.clone();
+					let msgs_rx = msgs_rx.clone();
+
+					async move {
+						run(
+							JobSystemRunner::new(dispatcher, job_return_status_tx, job_outputs_tx),
+							store_jobs_file.as_ref(),
+							msgs_rx,
+							job_return_status_rx,
+						)
+						.await;
+					}
+				})
+				.await
+				{
+					if e.is_panic() {
+						error!("Job system panicked: {e:#?}");
+					} else {
+						trace!("JobSystemRunner received shutdown signal and will exit...");
+						break;
+					}
+					trace!("Restarting JobSystemRunner processing task...");
+				}
+
+				info!("JobSystemRunner gracefully shutdown");
+			}
 		})));
 
-		Self {
+		load_stored_job_entries(store_jobs_file.as_ref(), dbs, &msgs_tx).await?;
+
+		Ok(Self {
 			msgs_tx,
 			job_outputs_rx,
 			runner_handle,
-		}
+		})
 	}
 
+	/// Shutdown the job system
+	/// # Panics
+	/// Panics only happen if internal channels are unexpectedly closed
 	pub async fn shutdown(&self) {
 		if let Some(handle) = self
 			.runner_handle
@@ -167,6 +111,11 @@ impl JobSystem {
 			.ok()
 			.and_then(|mut maybe_handle| maybe_handle.take())
 		{
+			self.msgs_tx
+				.send(RunnerMessage::Shutdown)
+				.await
+				.expect("runner msgs channel unexpectedly closed on shutdown request");
+
 			if let Err(e) = handle.await {
 				if e.is_panic() {
 					error!("JobSystem panicked: {e:#?}");
@@ -181,9 +130,10 @@ impl JobSystem {
 	/// Dispatch a new job to the system
 	/// # Panics
 	/// Panics only happen if internal channels are unexpectedly closed
-	pub async fn dispatch<J: Job>(
+	pub async fn dispatch<J: Job + SerializableJob>(
 		&mut self,
 		job: impl IntoJob<J> + Send,
+		(db_id, db): (Uuid, Arc<PrismaClient>),
 	) -> Result<JobId, JobSystemError> {
 		let dyn_job = job.into_job();
 		let id = dyn_job.id();
@@ -193,6 +143,8 @@ impl JobSystem {
 			.send(RunnerMessage::NewJob {
 				id,
 				dyn_job,
+				db_id,
+				db,
 				ack_tx,
 			})
 			.await
@@ -245,239 +197,79 @@ impl JobSystem {
 /// receiving `&self` which is called once, and we also use `try_borrow_mut` so we never panic
 unsafe impl Sync for JobSystem {}
 
-pub(crate) struct JobSystemRunner {
-	dispatcher: TaskDispatcher<Error>,
-	db: Arc<PrismaClient>,
-	handles: HashMap<JobId, JobHandle>,
-	job_hashes: HashMap<u64, JobId>,
-	job_hashes_by_id: HashMap<JobId, u64>,
-	job_return_status_tx: chan::Sender<(JobId, ReturnStatus)>,
-	job_outputs_tx: chan::Sender<(JobId, Result<JobOutput, JobSystemError>)>,
-}
+async fn load_stored_job_entries(
+	store_jobs_file: impl AsRef<Path> + Send,
+	dbs: &HashMap<Uuid, Arc<PrismaClient>>,
+	msgs_tx: &chan::Sender<RunnerMessage>,
+) -> Result<(), JobSystemError> {
+	let store_jobs_file = store_jobs_file.as_ref();
 
-impl JobSystemRunner {
-	pub(crate) fn new(
-		dispatcher: TaskDispatcher<Error>,
-		db: Arc<PrismaClient>,
-		job_return_status_tx: chan::Sender<(JobId, ReturnStatus)>,
-		job_outputs_tx: chan::Sender<(JobId, Result<JobOutput, JobSystemError>)>,
-	) -> Self {
-		Self {
-			dispatcher,
-			db,
-			handles: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
-			job_hashes: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
-			job_hashes_by_id: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
-			job_return_status_tx,
-			job_outputs_tx,
-		}
-	}
+	let stores_jobs_by_db = rmp_serde::from_slice::<HashMap<Uuid, Vec<StoredJobEntry>>>(
+		&fs::read(store_jobs_file).await.map_err(|e| {
+			JobSystemError::StoredJobs(FileIOError::from((
+				store_jobs_file,
+				e,
+				"Failed to load jobs from disk",
+			)))
+		})?,
+	)?;
 
-	async fn new_job(&mut self, id: JobId, dyn_job: Box<dyn DynJob>) -> Result<(), JobSystemError> {
-		let Self {
-			dispatcher,
-			db,
-			handles,
-			job_hashes,
-			job_hashes_by_id,
-			job_return_status_tx,
-			..
-		} = self;
+	stores_jobs_by_db
+		.into_iter()
+		.filter_map(|(db_id, entries)| {
+			dbs.get(&db_id).map_or_else(
+				|| {
+					warn!("Found stored jobs for a database that doesn't exist anymore: <db_id='{db_id}'>");
+					None
+				},
+				|db| Some((entries, db_id, Arc::clone(db))),
+			)
+		})
+		.map(|(entries, db_id, db)| async move {
+			load_jobs(entries, &db)
+				.await
+				.map(|stored_jobs| (stored_jobs, db_id, db))
+		})
+		.collect::<Vec<_>>()
+		.join()
+		.await
+		.into_iter()
+		.filter_map(|res| {
+			res.map_err(|e| error!("Failed to load stored jobs: {e:#?}"))
+				.ok()
+		})
+		.flat_map(|(stored_jobs, db_id, db)| {
+			stored_jobs.into_iter().map(move |(dyn_job, dyn_tasks)| {
+				let db = Arc::clone(&db);
+				async move {
+					let (ack_tx, ack_rx) = oneshot::channel();
+					msgs_tx
+						.send(RunnerMessage::ResumeStoredJob {
+							id: dyn_job.id(),
+							dyn_job,
+							dyn_tasks,
+							db_id,
+							db,
+							ack_tx,
+						})
+						.await
+						.expect("runner msgs channel unexpectedly closed on stored job resume");
 
-		let job_hash = dyn_job.hash();
-		if let Some(&already_running_id) = job_hashes.get(&job_hash) {
-			return Err(JobSystemError::AlreadyRunning {
-				new_id: id,
-				already_running_id,
-				job_name: dyn_job.job_name(),
-			});
-		}
-
-		job_hashes.insert(job_hash, id);
-		job_hashes_by_id.insert(id, job_hash);
-
-		let start_time = Utc::now();
-
-		let mut handle = dyn_job.dispatch(dispatcher.clone(), job_return_status_tx.clone());
-
-		handle.report.status = report::Status::Running;
-		if handle.report.started_at.is_none() {
-			handle.report.started_at = Some(start_time);
-		}
-
-		// If the report doesn't have a created_at date, it's a new report
-		if handle.report.created_at.is_none() {
-			handle.report.create(db).await?;
-		} else {
-			// Otherwise it can be a job being resumed or a children job that was already been created
-			handle.report.update(db).await?;
-		}
-
-		// Registering children jobs
-		handle
-			.next_jobs
-			.iter_mut()
-			.map(|dyn_job| dyn_job.report_mut())
-			.map(|next_job_report| async {
-				if next_job_report.created_at.is_none() {
-					next_job_report.create(db).await
-				} else {
-					Ok(())
+					ack_rx
+						.await
+						.expect("ack channel closed before receiving stored job resume response")
 				}
 			})
-			.collect::<Vec<_>>()
-			.try_join()
-			.await?;
+		})
+		.collect::<Vec<_>>()
+		.try_join()
+		.await?;
 
-		handles.insert(id, handle);
-
-		Ok(())
-	}
-
-	async fn process_command(&mut self, id: JobId, command: Command) -> Result<(), JobSystemError> {
-		if let Some(handle) = self.handles.get_mut(&id) {
-			handle.send_command(command, &self.db).await?;
-			Ok(())
-		} else {
-			Err(JobSystemError::NotFound(id))
-		}
-	}
-
-	async fn process_return_status(&mut self, job_id: uuid::Uuid, status: ReturnStatus) {
-		let Self {
-			db,
-			handles,
-			job_hashes,
-			job_hashes_by_id,
-			job_outputs_tx,
-			job_return_status_tx,
-			dispatcher,
-			..
-		} = self;
-
-		let job_hash = job_hashes_by_id.remove(&job_id).expect("it must be here");
-		assert!(job_hashes.remove(&job_hash).is_some());
-		let mut handle = handles.remove(&job_id).expect("it must be here");
-
-		let res = match status {
-			ReturnStatus::Completed(job_return) => {
-				if let Some(next) = handle.next_jobs.pop_front() {
-					let next_id = next.id();
-					let next_hash = next.hash();
-					if let Entry::Vacant(e) = job_hashes.entry(next_hash) {
-						e.insert(next_id);
-						job_hashes_by_id.insert(next_id, next_hash);
-						let mut next_handle =
-							next.dispatch(dispatcher.clone(), job_return_status_tx.clone());
-
-						assert!(
-							next_handle.next_jobs.is_empty(),
-							"Only the root job will have next jobs, the rest will be empty and \
-							we will swap with remaining ones from the previous job"
-						);
-
-						next_handle.next_jobs = mem::take(&mut handle.next_jobs);
-
-						handles.insert(next_id, next_handle);
-					} else {
-						warn!("Unexpectedly found a job with the same hash as the next job: <id='{next_id}', name='{}'>", next.job_name());
-					}
-				}
-
-				handle.complete_job(job_return, db).await
-			}
-			ReturnStatus::Failed(e) => handle.failed_job(&e, db).await.and_then(|()| Err(e.into())),
-			ReturnStatus::Shutdown(_) => {
-				// TODO
-
-				return;
-			}
-			ReturnStatus::Canceled => handle
-				.cancel_job(db)
-				.await
-				.and_then(|()| Err(JobSystemError::Canceled(job_id))),
-		};
-
-		job_outputs_tx
-			.send((job_id, res))
-			.await
-			.expect("job outputs channel unexpectedly closed on job completion");
-	}
-
-	fn clean_memory(&mut self) {
-		if self.handles.capacity() > JOBS_INITIAL_CAPACITY
-			&& self.handles.len() < JOBS_INITIAL_CAPACITY
-		{
-			self.handles.shrink_to(JOBS_INITIAL_CAPACITY);
-		}
-
-		if self.job_hashes.capacity() > JOBS_INITIAL_CAPACITY
-			&& self.job_hashes.len() < JOBS_INITIAL_CAPACITY
-		{
-			self.job_hashes.shrink_to(JOBS_INITIAL_CAPACITY);
-		}
-
-		if self.job_hashes_by_id.capacity() > JOBS_INITIAL_CAPACITY
-			&& self.job_hashes_by_id.len() < JOBS_INITIAL_CAPACITY
-		{
-			self.job_hashes_by_id.shrink_to(JOBS_INITIAL_CAPACITY);
-		}
-	}
-}
-
-async fn run(
-	mut runner: JobSystemRunner,
-	msgs_rx: chan::Receiver<RunnerMessage>,
-	job_return_status_rx: chan::Receiver<(JobId, ReturnStatus)>,
-) {
-	enum StreamMessage {
-		ReturnStatus((JobId, ReturnStatus)),
-		RunnerMessage(RunnerMessage),
-		CleanMemoryTick,
-	}
-
-	let memory_cleanup_interval = interval_at(Instant::now() + FIVE_MINUTES, FIVE_MINUTES);
-
-	let mut msg_stream = pin!((
-		msgs_rx.map(StreamMessage::RunnerMessage),
-		job_return_status_rx.map(StreamMessage::ReturnStatus),
-		IntervalStream::new(memory_cleanup_interval).map(|_| StreamMessage::CleanMemoryTick),
-	)
-		.merge());
-
-	while let Some(msg) = msg_stream.next().await {
-		match msg {
-			// Job return status messages
-			StreamMessage::ReturnStatus((job_id, status)) => {
-				runner.process_return_status(job_id, status).await;
-			}
-
-			// Runner messages
-			StreamMessage::RunnerMessage(RunnerMessage::NewJob {
-				id,
-				dyn_job,
-				ack_tx: ack,
-			}) => {
-				ack.send(runner.new_job(id, dyn_job).await)
-					.expect("ack channel closed before sending new job response");
-			}
-
-			StreamMessage::RunnerMessage(RunnerMessage::Command {
-				id,
-				command,
-				ack_tx,
-			}) => {
-				ack_tx
-					.send(runner.process_command(id, command).await)
-					.unwrap_or_else(|_| {
-						panic!("ack channel closed before sending {command:?} response")
-					});
-			}
-
-			// Memory cleanup tick
-			StreamMessage::CleanMemoryTick => {
-				runner.clean_memory();
-			}
-		}
-	}
+	fs::remove_file(store_jobs_file).await.map_err(|e| {
+		JobSystemError::StoredJobs(FileIOError::from((
+			store_jobs_file,
+			e,
+			"Failed to clean stored jobs file",
+		)))
+	})
 }

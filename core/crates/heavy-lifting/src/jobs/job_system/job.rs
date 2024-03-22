@@ -2,7 +2,6 @@ use crate::{jobs::JobId, Error, NonCriticalJobError};
 
 use sd_prisma::prisma::PrismaClient;
 use sd_task_system::{IntoTask, Task, TaskHandle, TaskRemoteController, TaskSystemError};
-use strum::{Display, EnumString};
 
 use std::{
 	collections::VecDeque,
@@ -19,6 +18,7 @@ use futures_concurrency::{
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use strum::{Display, EnumString};
 use tokio::spawn;
 use tracing::{debug, error, info, warn};
 
@@ -26,7 +26,7 @@ use super::{
 	report::{
 		Report, ReportBuilder, ReportInputMetadata, ReportMetadata, ReportOutputMetadata, Status,
 	},
-	Command, JobSystemError,
+	Command, JobSystemError, SerializableJob,
 };
 
 #[derive(Debug, Serialize, Deserialize, EnumString, Display, Clone, Copy, Type, Hash)]
@@ -39,7 +39,7 @@ pub enum JobName {
 pub enum ReturnStatus {
 	Completed(JobReturn),
 	Failed(Error),
-	Shutdown(Option<Vec<u8>>),
+	Shutdown(Option<Result<Vec<u8>, rmp_serde::encode::Error>>),
 	Canceled,
 }
 
@@ -51,11 +51,11 @@ pub trait Job: Send + Sync + Hash + 'static {
 	fn run(self, dispatcher: TaskDispatcher) -> impl Future<Output = ReturnStatus> + Send;
 }
 
-pub trait IntoJob<J: Job> {
+pub trait IntoJob<J: Job + SerializableJob> {
 	fn into_job(self) -> Box<dyn DynJob>;
 }
 
-impl<J: Job> IntoJob<J> for J {
+impl<J: Job + SerializableJob> IntoJob<J> for J {
 	fn into_job(self) -> Box<dyn DynJob> {
 		let id = JobId::new_v4();
 
@@ -68,7 +68,7 @@ impl<J: Job> IntoJob<J> for J {
 	}
 }
 
-impl<J: Job> IntoJob<J> for JobBuilder<J> {
+impl<J: Job + SerializableJob> IntoJob<J> for JobBuilder<J> {
 	fn into_job(self) -> Box<dyn DynJob> {
 		self.build()
 	}
@@ -148,14 +148,14 @@ pub enum JobOutputData {
 	// TODO: Add more types
 }
 
-pub struct JobBuilder<J: Job> {
+pub struct JobBuilder<J: Job + SerializableJob> {
 	id: JobId,
 	job: J,
 	report_builder: ReportBuilder,
 	next_jobs: VecDeque<Box<dyn DynJob>>,
 }
 
-impl<J: Job> JobBuilder<J> {
+impl<J: Job + SerializableJob> JobBuilder<J> {
 	pub fn build(self) -> Box<JobHolder<J>> {
 		Box::new(JobHolder::<J> {
 			id: self.id,
@@ -175,22 +175,26 @@ impl<J: Job> JobBuilder<J> {
 		}
 	}
 
+	#[must_use]
 	pub fn with_action(mut self, action: impl Into<String>) -> Self {
 		self.report_builder = self.report_builder.with_action(action);
 		self
 	}
 
+	#[must_use]
 	pub fn with_parent_id(mut self, parent_id: JobId) -> Self {
 		self.report_builder = self.report_builder.with_parent_id(parent_id);
 		self
 	}
 
+	#[must_use]
 	pub fn with_metadata(mut self, metadata: ReportInputMetadata) -> Self {
 		self.report_builder = self.report_builder.with_metadata(metadata);
 		self
 	}
 
-	pub fn enqueue_next(mut self, next: impl Job) -> Self {
+	#[must_use]
+	pub fn enqueue_next(mut self, next: impl Job + SerializableJob) -> Self {
 		let next_job_order = self.next_jobs.len() + 1;
 
 		let mut child_job_builder = JobBuilder::new(next).with_parent_id(self.id);
@@ -206,7 +210,7 @@ impl<J: Job> JobBuilder<J> {
 	}
 }
 
-pub struct JobHolder<J: Job> {
+pub struct JobHolder<J: Job + SerializableJob> {
 	pub(super) id: JobId,
 	pub(super) job: J,
 	pub(super) report: Report,
@@ -374,6 +378,8 @@ pub trait DynJob: Send + Sync + 'static {
 
 	fn next_jobs(&self) -> &VecDeque<Box<dyn DynJob>>;
 
+	fn serialize(&self) -> Option<Result<Vec<u8>, rmp_serde::encode::Error>>;
+
 	fn dispatch(
 		self: Box<Self>,
 		dispatcher: sd_task_system::TaskDispatcher<Error>,
@@ -388,7 +394,7 @@ pub trait DynJob: Send + Sync + 'static {
 	) -> JobHandle;
 }
 
-impl<J: Job> DynJob for JobHolder<J> {
+impl<J: Job + SerializableJob> DynJob for JobHolder<J> {
 	fn id(&self) -> JobId {
 		self.id
 	}
@@ -414,6 +420,10 @@ impl<J: Job> DynJob for JobHolder<J> {
 
 	fn next_jobs(&self) -> &VecDeque<Box<dyn DynJob>> {
 		&self.next_jobs
+	}
+
+	fn serialize(&self) -> Option<Result<Vec<u8>, rmp_serde::encode::Error>> {
+		self.job.serialize()
 	}
 
 	fn dispatch(

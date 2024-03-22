@@ -164,7 +164,7 @@ pub struct IndexerJob {
 }
 
 impl SerializableJob for IndexerJob {
-	fn serialize(&self) -> Option<Result<(JobName, Vec<u8>), rmp_serde::encode::Error>> {
+	fn serialize(&self) -> Option<Result<Vec<u8>, rmp_serde::encode::Error>> {
 		todo!("Implement serialization")
 	}
 
