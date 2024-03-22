@@ -1,60 +1,56 @@
+import { useNavigation } from '@react-navigation/native';
 import {
 	ArchiveBox,
 	Briefcase,
 	Clock,
+	DotsThreeOutline,
 	Heart,
 	Images,
 	MapPin,
 	Tag,
 	UserFocus
 } from 'phosphor-react-native';
-import { ReactElement } from 'react';
 import { Text, View } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
 import { tw } from '~/lib/tailwind';
+import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 
-import Fade from '../layout/Fade';
-import Card from '../layout/Card';
+import { Button } from '../primitive/Button';
+import LibraryItem from './LibraryItem';
 
-const iconStyle = tw`text-[17px] text-ink-dull`;
-const CATEGORIES_LIST = [
-	{ name: 'Albums', icon: <Images style={iconStyle} /> },
-	{ name: 'Places', icon: <MapPin style={iconStyle} /> },
-	{ name: 'People', icon: <UserFocus style={iconStyle} /> },
-	{ name: 'Projects', icon: <Briefcase style={iconStyle} /> },
-	{ name: 'Favorites', icon: <Heart style={iconStyle} /> },
-	{ name: 'Recents', icon: <Clock style={iconStyle} /> },
-	{ name: 'Labels', icon: <Tag style={iconStyle} /> },
-	{ name: 'Imports', icon: <ArchiveBox style={iconStyle} /> }
+const iconStyle = tw`text-ink-faint`;
+const iconSize = 28;
+export const CATEGORIES_LIST = [
+	{ name: 'Albums', icon: <Images size={iconSize} style={iconStyle} /> },
+	{ name: 'Places', icon: <MapPin size={iconSize} style={iconStyle} /> },
+	{ name: 'People', icon: <UserFocus size={iconSize} style={iconStyle} /> },
+	{ name: 'Projects', icon: <Briefcase size={iconSize} style={iconStyle} /> },
+	{ name: 'Favorites', icon: <Heart size={iconSize} style={iconStyle} /> },
+	{ name: 'Recents', icon: <Clock size={iconSize} style={iconStyle} /> },
+	{ name: 'Labels', icon: <Tag size={iconSize} style={iconStyle} /> },
+	{ name: 'Imports', icon: <ArchiveBox size={iconSize} style={iconStyle} /> }
 ];
 const BrowseCategories = () => {
+	const navigation = useNavigation<BrowseStackScreenProps<'Browse'>['navigation']>();
 	return (
-		<View style={tw`relative gap-3`}>
-			<Text style={tw`px-6 text-lg font-bold text-white`}>Library</Text>
-			<Fade width={30} height="100%" color="black">
-				<ScrollView showsHorizontalScrollIndicator={false} horizontal>
-					<View style={tw`flex-row gap-2 px-6`}>
-						{CATEGORIES_LIST.map((c, i) => {
-							return <Category icon={c.icon} key={i} name={c.name} />;
-						})}
-					</View>
-				</ScrollView>
-			</Fade>
+		<View style={tw`gap-5 px-6`}>
+			<View style={tw`flex-row items-center justify-between`}>
+				<Text style={tw`text-lg font-bold text-white`}>Library</Text>
+				<Button
+					onPress={() => {
+						navigation.navigate('Library');
+					}}
+					style={tw`h-9 w-9 rounded-full`}
+					variant="gray"
+				>
+					<DotsThreeOutline weight="fill" size={16} color={'white'} />
+				</Button>
+			</View>
+			<View style={tw`flex-row flex-wrap gap-2`}>
+				{CATEGORIES_LIST.slice(0, 4).map((c) => {
+					return <LibraryItem key={c.name} icon={c.icon} name={c.name} />;
+				})}
+			</View>
 		</View>
-	);
-};
-
-interface CategoryProps {
-	name: string;
-	icon: ReactElement;
-}
-
-const Category = ({ name, icon }: CategoryProps) => {
-	return (
-		<Card style="h-[70px] w-[70px] items-center justify-center">
-			{icon}
-			<Text style={tw`mt-2 text-xs text-white`}>{name}</Text>
-		</Card>
 	);
 };
 
