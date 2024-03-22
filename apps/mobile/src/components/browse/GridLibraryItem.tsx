@@ -11,9 +11,9 @@ interface CategoryProps {
 
 const GridLibraryItem = ({ name, icon }: CategoryProps) => {
 	return (
-		<Card style={tw`h-[70px] items-center justify-center`}>
+		<Card style={tw`items-center justify-center py-2`}>
 			{icon}
-			<Text style={tw`mt-2 text-xs text-white`}>{name}</Text>
+			<Text style={tw`mt-1 text-xs text-white`}>{name}</Text>
 		</Card>
 	);
 };
