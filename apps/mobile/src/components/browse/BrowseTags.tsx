@@ -35,6 +35,7 @@ const BrowseTags = () => {
 						<Plus weight="bold" size={16} style={tw`text-ink`} />
 					</Button>
 					<Button
+						testID="navigate-tags-screen"
 						onPress={() => {
 							navigation.navigate('Tags');
 						}}
