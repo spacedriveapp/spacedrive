@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import { Eye, Plus } from 'phosphor-react-native';
+import { DotsThreeOutline, Plus } from 'phosphor-react-native';
 import { useRef } from 'react';
 import { Text, View } from 'react-native';
 import { useCache, useLibraryQuery, useNodes } from '@sd/client';
@@ -35,9 +35,9 @@ const BrowseLocations = () => {
 							navigation.navigate('Locations');
 						}}
 						style={tw`h-9 w-9 rounded-full`}
-						variant="accent"
+						variant="gray"
 					>
-						<Eye weight="bold" size={16} style={tw`text-white`} />
+						<DotsThreeOutline weight="fill" size={16} color={'white'} />
 					</Button>
 					<Button
 						style={tw`h-9 w-9 rounded-full`}
@@ -60,7 +60,8 @@ const BrowseLocations = () => {
 								editLocation={() =>
 									navigation.navigate('SettingsStack', {
 										screen: 'EditLocationSettings',
-										params: { id: location.id }
+										params: { id: location.id },
+										initial: false
 									})
 								}
 								onPress={() => navigation.navigate('Location', { id: location.id })}

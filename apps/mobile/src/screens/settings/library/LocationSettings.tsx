@@ -1,4 +1,4 @@
-import { Locations } from '~/screens/Locations';
+import { Locations } from '~/screens/browse/Locations';
 
 const LocationSettingsScreen = () => {
 	return <Locations viewStyle="list" />;

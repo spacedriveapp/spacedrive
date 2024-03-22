@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import { Eye, Plus } from 'phosphor-react-native';
+import { DotsThreeOutline, Plus } from 'phosphor-react-native';
 import React, { useRef } from 'react';
 import { Text, View } from 'react-native';
 import { useCache, useLibraryQuery, useNodes } from '@sd/client';
@@ -32,9 +32,9 @@ const BrowseTags = () => {
 							navigation.navigate('Tags');
 						}}
 						style={tw`w-9 rounded-full`}
-						variant="accent"
+						variant="gray"
 					>
-						<Eye weight="bold" size={16} style={tw`text-white`} />
+						<DotsThreeOutline weight="fill" size={16} color={'white'} />
 					</Button>
 					<Button
 						style={tw`h-9 w-9 rounded-full`}

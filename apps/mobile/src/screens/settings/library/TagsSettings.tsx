@@ -1,4 +1,4 @@
-import Tags from '~/screens/Tags';
+import Tags from '~/screens/browse/Tags';
 
 const TagsSettingsScreen = () => {
 	return <Tags viewStyle="list" />;

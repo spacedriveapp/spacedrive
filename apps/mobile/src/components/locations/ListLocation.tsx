@@ -1,6 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
 import { DotsThreeOutlineVertical } from 'phosphor-react-native';
-import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { arraysEqual, byteSize, Location, useOnlineLocations } from '@sd/client';
@@ -17,12 +16,10 @@ interface ListLocationProps {
 	modalRef: React.RefObject<ModalRef>;
 }
 
-const ListLocation = ({ location }: ListLocationProps) => {
+const ListLocation = ({ location, modalRef }: ListLocationProps) => {
 	const navigation = useNavigation<SettingsStackScreenProps<'LocationSettings'>['navigation']>();
 	const onlineLocations = useOnlineLocations();
 	const online = onlineLocations.some((l) => arraysEqual(location.pub_id, l));
-	const modalRef = useRef<ModalRef>(null);
-
 	return (
 		<Swipeable
 			containerStyle={tw`rounded-md border border-app-cardborder bg-app-card`}
@@ -62,7 +59,9 @@ const ListLocation = ({ location }: ListLocationProps) => {
 					</View>
 				</View>
 				<View style={tw`flex-row items-center gap-3`}>
-					<View style={tw`rounded-md bg-app-highlight p-1.5`}>
+					<View
+						style={tw`rounded-md border border-app-lightborder bg-app-highlight p-1.5`}
+					>
 						<Text
 							style={tw`text-left text-xs font-bold text-ink-dull`}
 							numberOfLines={1}

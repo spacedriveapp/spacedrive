@@ -38,7 +38,9 @@ const Locations = () => {
 							data={locations}
 							renderItem={({ item }) => <LocationFilter data={item} />}
 							numColumns={
-								locations.length === 1 ? 2 : Math.ceil(locations.length / 2)
+								(locations && locations.length < 3
+									? 2
+									: Math.ceil(locations.length / 2)) ?? 1
 							}
 							contentContainerStyle={tw`w-full`}
 							ListEmptyComponent={

@@ -17,7 +17,7 @@ interface Props {
 	viewStyle?: 'grid' | 'list';
 }
 
-export default function Tags({ viewStyle = 'list' }: Props) {
+export default function TagsScreen({ viewStyle = 'list' }: Props) {
 	const tags = useLibraryQuery(['tags.list']);
 	const navigation = useNavigation<BrowseStackScreenProps<'Browse'>['navigation']>();
 	const modalRef = useRef<ModalRef>(null);

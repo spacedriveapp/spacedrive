@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import { Eye } from 'phosphor-react-native';
+import { DotsThreeOutline } from 'phosphor-react-native';
 import React from 'react';
 import { Text, View } from 'react-native';
 import { useLibraryQuery } from '@sd/client';
@@ -22,9 +22,9 @@ export default function CategoriesScreen() {
 						navigation.navigate('Categories');
 					}}
 					style={tw`h-9 w-9 rounded-full`}
-					variant="accent"
+					variant="gray"
 				>
-					<Eye weight="bold" size={16} style={tw`text-white`} />
+					<DotsThreeOutline weight="fill" size={16} color={'white'} />
 				</Button>
 			</View>
 			<View style={tw`flex-row flex-wrap gap-2`}>

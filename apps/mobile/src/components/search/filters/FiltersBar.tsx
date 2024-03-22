@@ -194,7 +194,7 @@ const KindView = ({ kinds }: { kinds: KindItem[] }) => (
 		<View style={tw`flex-row gap-0.5`}>
 			{kinds.map((kind) => (
 				<View key={kind.id} style={tw`flex-row items-center gap-1`}>
-					<Icon name={kind.icon} size={16} style={tw`text-ink-dull`} />
+					<Icon name={kind.icon} size={16} />
 				</View>
 			))}
 		</View>

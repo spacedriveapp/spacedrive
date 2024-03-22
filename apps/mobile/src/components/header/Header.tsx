@@ -16,6 +16,7 @@ type HeaderProps = {
 	showSearch?: boolean; //show the search button
 	searchType?: 'explorer' | 'location' | 'categories'; //Temporary
 	navBack?: boolean; //navigate back to the previous screen
+	navBackHome?: boolean; //navigate back to the home screen of the stack
 	headerKind?: 'default' | 'location' | 'tag'; //kind of header
 	route?: never;
 	routeTitle?: never;
@@ -37,6 +38,7 @@ export default function Header({
 	navBack,
 	route,
 	routeTitle,
+	navBackHome = false,
 	headerKind = 'default',
 	showSearch = true
 }: Props) {
