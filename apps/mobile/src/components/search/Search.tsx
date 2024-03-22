@@ -1,4 +1,5 @@
 import { MagnifyingGlass } from 'phosphor-react-native';
+import { useEffect } from 'react';
 import { TextInput, View } from 'react-native';
 import { tw } from '~/lib/tailwind';
 import { getSearchStore } from '~/stores/searchStore';
@@ -9,6 +10,12 @@ interface Props {
 
 export default function Search({ placeholder }: Props) {
 	const searchStore = getSearchStore();
+	// Clear search when unmounting
+	useEffect(() => {
+		return () => {
+			searchStore.setSearch('');
+		};
+	}, [searchStore]);
 	return (
 		<View
 			style={tw`mt-4 flex h-11 w-full flex-row items-center justify-between rounded-md border border-app-inputborder bg-app-input px-3 shadow-sm`}

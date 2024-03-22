@@ -1,7 +1,7 @@
 import { useExplorerLayoutStore } from '@sd/client';
 import { tw } from '@sd/ui';
 
-import { useTopBarContext } from '../../TopBar/Layout';
+import { useTopBarContext } from '../../TopBar/Context';
 import { useExplorerContext } from '../Context';
 import { PATH_BAR_HEIGHT } from '../ExplorerPath';
 import { useDragScrollable } from './useDragScrollable';

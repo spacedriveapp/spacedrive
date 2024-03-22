@@ -12,8 +12,8 @@ interface Props {
 const SectionTitle = ({ title, sub, style }: Props) => {
 	return (
 		<View style={twStyle(style)}>
-			<Text style={tw`leading-0 pb-1 text-lg font-bold text-white`}>{title}</Text>
-			<Text style={tw`leading-0 text-sm text-ink-dull`}>{sub}</Text>
+			<Text style={tw`leading-1 pb-1 text-lg font-bold text-white`}>{title}</Text>
+			<Text style={tw`text-sm text-ink-dull`}>{sub}</Text>
 		</View>
 	);
 };

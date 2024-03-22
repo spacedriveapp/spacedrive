@@ -100,7 +100,7 @@ export default function TabNavigator() {
 			screenOptions={{
 				tabBarStyle: {
 					position: 'absolute',
-					backgroundColor: tw.color('app-navtab/50'),
+					backgroundColor: tw.color('app-navtab'),
 					borderTopWidth: 1,
 					borderTopColor: tw.color('app-cardborder'),
 					height: Platform.OS === 'android' ? 60 : 80,
