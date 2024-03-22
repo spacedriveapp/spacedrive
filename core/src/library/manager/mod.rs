@@ -610,7 +610,7 @@ impl Libraries {
 									}
 
 									for instance in lib.instances {
-										if let Err(err) = cloud::sync::receive::create_instance(
+										if let Err(err) = cloud::sync::receive::upsert_instance(
 											&library,
 											&node.libraries,
 											instance.uuid,
