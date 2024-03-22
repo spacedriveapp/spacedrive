@@ -21,7 +21,7 @@
 }
 
 .command-palette-content ul button {
-	@apply bg-app-darkBox #{!important};
+	@apply hover:bg-app-darkBox #{!important};
 }
 
 .command-palette-content ul a span {
@@ -38,13 +38,17 @@
 
 // overlay
 .command-palette .bg-gray-900 {
-	@apply bg-app/50  #{!important} ;
+	@apply bg-app/50 #{!important};
+}
+
+.command-palette .bg-gray-200\/50 {
+	@apply bg-app-darkBox #{!important};
 }
 
 // container background
 
-.command-palette  .dark\:bg-gray-900 {
-	@apply bg-app-darkerBox/90 backdrop-blur-lg border border-app-darkBox  #{!important};
+.command-palette .dark\:bg-gray-900 {
+	@apply border border-app-darkBox bg-app-darkerBox/90 backdrop-blur-lg  #{!important};
 }
 
 .command-palette .dark\:divide-gray-800 {

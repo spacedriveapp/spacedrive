@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { usePrefersReducedMotion, useRandomInterval } from '~/hooks';
 
@@ -62,6 +64,7 @@ const Sparkles = ({ color = DEFAULT_COLOR, children, ...props }: SparklesProps) 
 			{sparkles.map((sparkle) => (
 				<span
 					key={sparkle.id}
+					className="z-10"
 					style={{
 						position: 'absolute',
 						display: 'block',

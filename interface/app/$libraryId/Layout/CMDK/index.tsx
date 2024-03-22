@@ -1,16 +1,15 @@
 import './CMDK.css';
 import './CMDK.scss';
 
-import clsx from 'clsx';
 import { useEffect, useState } from 'react';
-import CommandPalette, { filterItems, getItemIndex, useHandleOpenCommandPalette } from 'react-cmdk';
+import CommandPalette, { filterItems, getItemIndex } from 'react-cmdk';
 import { useNavigate } from 'react-router';
-import { arraysEqual, useCache, useLibraryQuery, useNodes, useOnlineLocations } from '@sd/client';
-import { CheckBox } from '@sd/ui';
-import { Icon } from '~/components';
+import { createSearchParams } from 'react-router-dom';
 import Sparkles from '~/components/Sparkles';
 
 import { explorerStore } from '../../Explorer/store';
+import CMDKLocations from './pages/CMDKLocations';
+import CMDKTags from './pages/CMDKTags';
 
 const CMDK = () => {
 	const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -34,19 +33,20 @@ const CMDK = () => {
 		return () => document.removeEventListener('keydown', handleKeyDown);
 	}, []);
 
-	const [page, setPage] = useState<'root' | 'actions'>('root');
+	const [page, setPage] = useState<'root' | 'locations' | 'tags'>('root');
 	const [search, setSearch] = useState('');
 
-	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
-	useNodes(locationsQuery.data?.nodes);
-	const locations = useCache(locationsQuery.data?.items);
+	// const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	// useNodes(locationsQuery.data?.nodes);
+	// const locations = useCache(locationsQuery.data?.items);
 
-	const onlineLocations = useOnlineLocations();
+	// const onlineLocations = useOnlineLocations();
 
 	function handleClose(open: boolean) {
 		setIsOpen(open);
-		// Reset page after closing
+		// Reset page and search
 		setPage('root');
+		setSearch('');
 	}
 
 	const navigate = useNavigate();
@@ -66,12 +66,10 @@ const CMDK = () => {
 						),
 						icon: 'SparklesIcon',
 						closeOnSelect: false,
-						disabled: true, // Disable for now
-						onClick: () => setPage('actions')
+						disabled: true // Disable for now
 					}
 				]
 			},
-			// Create new tag
 			// Navigation
 			{
 				heading: 'Navigation',
@@ -83,7 +81,43 @@ const CMDK = () => {
 						icon: 'ArrowRightIcon',
 						closeOnSelect: true,
 						onClick: () => navigate('settings/client/general')
+					},
+					{
+						id: 'go-overview',
+						children: 'Go to overview',
+						icon: 'ArrowRightIcon',
+						closeOnSelect: true,
+						onClick: () => navigate('overview')
+					},
+					{
+						id: 'go-recents',
+						children: 'Go to recents',
+						icon: 'ArrowRightIcon',
+						closeOnSelect: true,
+						onClick: () => navigate('recents')
+					},
+					{
+						id: 'go-labels',
+						children: 'Go to labels',
+						icon: 'ArrowRightIcon',
+						closeOnSelect: true,
+						onClick: () => navigate('labels')
+					},
+					{
+						id: 'go-location',
+						children: 'Go to location',
+						icon: 'ArrowRightIcon',
+						closeOnSelect: false,
+						onClick: () => setPage('locations')
+					},
+					{
+						id: 'go-tag',
+						children: 'Go to tag',
+						icon: 'ArrowRightIcon',
+						closeOnSelect: false,
+						onClick: () => setPage('tags')
 					}
+
 					// {
 					// 	id: 'go-to-settings',
 					// 	children: 'Go to settings',
@@ -91,51 +125,72 @@ const CMDK = () => {
 					// 	onClick: () => {}
 					// }
 				]
-			},
-			{
-				heading: 'Locations',
-				id: 'locations',
-				items: locations
-					? locations.map((location) => ({
-							id: location.id,
-							children: location.name,
-							icon: () => (
-								<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">
-									<Icon name="Folder" size={22} />
-									<div
-										className={clsx(
-											'absolute bottom-0.5 right-0 size-1.5 rounded-full',
-											onlineLocations.some((l) =>
-												arraysEqual(location.pub_id, l)
-											)
-												? 'bg-green-500'
-												: 'bg-red-500'
-										)}
-									/>
-								</div>
-							),
-							href: `#`
-						}))
-					: ([] as any)
-			},
-			{
-				heading: 'Actions',
-				id: 'actions',
-				items: [
-					{
-						id: 'new-folder',
-						children: 'New folder',
-						icon: 'FolderPlusIcon',
-						onClick: () => {}
-					},
-					{
-						id: 'new-tag',
-						children: 'New tag',
-						icon: 'TagIcon',
-						onClick: () => {}
-					}
-				]
 			}
+			// TODO: Might look nice if we showed some items and maybe saved searches
+			// {
+			// 	heading: `Searching for "${search}"`,
+			// 	id: 'search',
+			// 	items: [
+			// 		// objects.items
+			// 		// 	? (objects.items.map((object, index) => {
+			// 		// 			const item = isPath(object);
+			// 		// 			return {
+			// 		// 				id: index,
+			// 		// 				children: isPath(object) && object.item.name,
+			// 		// 				icon: () => (
+			// 		// 					<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">
+			// 		// 						<Icon name="Location" size={22} />
+			// 		// 					</div>
+			// 		// 				)
+			// 		// 			};
+			// 		// 		}) as any)
+			// 		// 	: ([] as any)
+			// 	]
+			// }
+			// {
+			// 	heading: 'Locations',
+			// 	id: 'locations',
+			// 	items: locations
+			// 		? locations.map((location) => ({
+			// 				id: location.id,
+			// 				children: location.name,
+			// 				icon: () => (
+			// 					<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">
+			// 						<Icon name="Folder" size={22} />
+			// 						<div
+			// 							className={clsx(
+			// 								'absolute bottom-0.5 right-0 size-1.5 rounded-full',
+			// 								onlineLocations.some((l) =>
+			// 									arraysEqual(location.pub_id, l)
+			// 								)
+			// 									? 'bg-green-500'
+			// 									: 'bg-red-500'
+			// 							)}
+			// 						/>
+			// 					</div>
+			// 				),
+			// 				href: `#`
+			// 			}))
+			// 		: ([] as any)
+			// },
+			// {
+			// 	heading: 'Actions',
+			// 	id: 'actions',
+			// 	items: [
+			// 		{
+			// 			id: 'new-folder',
+			// 			children: 'New folder',
+			// 			icon: 'FolderPlusIcon',
+			// 			onClick: () => {}
+			// 		},
+			// 		{
+			// 			id: 'new-tag',
+			// 			children: 'New tag',
+			// 			icon: 'TagIcon',
+			// 			onClick: () => {}
+			// 		}
+			// 	]
+			// }
 		],
 		search
 	);
@@ -150,7 +205,7 @@ const CMDK = () => {
 			placeholder="Search for files and actions..."
 			// footer
 		>
-			<CommandPalette.Page id="root">
+			<CommandPalette.Page id="root" onEscape={() => setSearch('')}>
 				{filteredItems.length ? (
 					filteredItems.map((list) => (
 						<CommandPalette.List key={list.id} heading={list.heading}>
@@ -164,32 +219,21 @@ const CMDK = () => {
 						</CommandPalette.List>
 					))
 				) : (
-					<CommandPalette.FreeSearchAction />
+					<CommandPalette.FreeSearchAction
+						onClick={(v) =>
+							navigate(
+								{
+									pathname: 'search',
+									search: createSearchParams({ search }).toString()
+								},
+								{ replace: true }
+							)
+						}
+					/>
 				)}
 			</CommandPalette.Page>
-
-			<CommandPalette.Page id="actions">
-				<CommandPalette.List>
-					<div className="space-y-4 p-4">
-						<div className="flex items-center space-x-2 pt-2">
-							<CheckBox className="!mt-0" />
-							<p className="text-sm text-ink">Enable Action A</p>
-						</div>
-						<div className="flex items-center space-x-2 pt-2">
-							<CheckBox className="!mt-0" />
-							<p className="text-sm text-ink">Enable Action B</p>
-						</div>
-						<div className="flex items-center space-x-2 pt-2">
-							<CheckBox className="!mt-0" />
-							<p className="text-sm text-ink">Enable Action C</p>
-						</div>
-						<div className="flex items-center space-x-2 pt-2">
-							<CheckBox className="!mt-0" />
-							<p className="text-sm text-ink">Enable Action D</p>
-						</div>
-					</div>
-				</CommandPalette.List>
-			</CommandPalette.Page>
+			{page === 'locations' && <CMDKLocations />}
+			{page === 'tags' && <CMDKTags />}
 		</CommandPalette>
 	);
 };
