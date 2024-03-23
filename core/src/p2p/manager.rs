@@ -40,8 +40,7 @@ use super::{P2PEvents, PeerMetadata};
 pub struct P2PManager {
 	pub(crate) p2p: Arc<P2P>,
 	mdns: Mutex<Option<Mdns>>,
-	// TODO: Make private
-	pub quic: QuicTransport,
+	quic: QuicTransport,
 	// The `libp2p::PeerId`. This is for debugging only, use `RemoteIdentity` instead.
 	lp2p_peer_id: Libp2pPeerId,
 	pub(crate) events: P2PEvents,
