@@ -72,11 +72,15 @@ jobs:
           runTests: false
           working-directory: .
 
+      - name: Download test data
+        run: pnpm test-data small
+
       - name: E2E test
         uses: cypress-io/github-action@v6
         with:
+          build: npx cypress info
           install: false
-          command: pnpm test:e2e
+          command: env CI=true pnpm test:e2e
           working-directory: apps/web
 
       - uses: actions/upload-artifact@v4
