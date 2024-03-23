@@ -2,10 +2,6 @@
 
 set -eEuo pipefail
 
-if [ "${CI:-}" = "true" ]; then
-  set -x
-fi
-
 # Script root
 _root="$(CDPATH='' cd -- "$(dirname "$0")" && pwd -P)"
 _test_dir="$(CDPATH='' cd -- "${_root}/../tests" && pwd -P)"
