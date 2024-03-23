@@ -42,6 +42,10 @@ runs:
         key: ${{ steps.cache-llvm-restore.outputs.cache-primary-key }}
         path: C:/Program Files/LLVM
 
+    - name: Install current Bash on macOS
+      if: runner.os == 'macOS'
+      run: brew install bash
+
     - name: Install Nasm
       if: ${{ runner.os != 'Linux' }}
       uses: ilammy/setup-nasm@v1

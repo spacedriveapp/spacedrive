@@ -19,6 +19,24 @@ case $PLATFORM in
     ;;
 esac
 
+# https://stackoverflow.com/q/11027679#answer-59592881
+# SYNTAX:
+#   catch STDOUT_VARIABLE STDERR_VARIABLE COMMAND [ARG1[ ARG2[ ...[ ARGN]]]]
+catch() {
+  {
+    IFS=$'\n' read -r -d '' "${1}"
+    IFS=$'\n' read -r -d '' "${2}"
+    (
+      IFS=$'\n' read -r -d '' _ERRNO_
+      return "$_ERRNO_"
+    )
+  } < <((printf '\0%s\0%d\0' "$( ( ( ({
+    shift 2
+    "${@}"
+    echo "${?}" 1>&3-
+  } | tr -d '\0' 1>&4-) 4>&2- 2>&1- | tr -d '\0' 1>&4-) 3>&1- | exit "$(cat)") 4>&1-)" "${?}" 1>&2) 2>&1)
+}
+
 run_maestro_test() {
   if [ $# -ne 1 ]; then
     echo "Usage: run_maestro_test <test_file>" >&2
@@ -28,13 +46,28 @@ run_maestro_test() {
   local i
   local retry_seconds
   for i in {1..6}; do
-    if maestro test "$1"; then
+    _maestro_out=''
+    _maestro_err=''
+    if catch _maestro_out _maestro_err maestro test "$1"; then
       # Test succeeded
+      printf '%s' "$_maestro_out"
+      printf '%s' "$_maestro_err" >&2
       return
     else
-      retry_seconds=$((20 * i))
-      echo "Test $1 failed. Retrying in $retry_seconds seconds..."
-      sleep $retry_seconds
+      if echo "$_maestro_err" | grep 'java.util.concurrent.TimeoutException'; then
+        # Test timed out
+        # Kill maestro processes
+        pgrep -fi maestro | xargs kill -sKILL
+        # Retry
+        retry_seconds=$((5 * i))
+        echo "Test $1 timed out. Retrying in $retry_seconds seconds..."
+        sleep $retry_seconds
+      else
+        # Test failed
+        printf '%s' "$_maestro_out"
+        printf '%s' "$_maestro_err" >&2
+        return 1
+      fi
     fi
   done
 
