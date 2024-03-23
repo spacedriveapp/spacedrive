@@ -65,6 +65,7 @@ export default () => {
 							popover={jobManagerPopover}
 							trigger={
 								<Button
+									id="job-manager-button"
 									size="icon"
 									variant="subtle"
 									className="text-sidebar-inkFaint ring-offset-sidebar radix-state-open:bg-sidebar-selected/50"
