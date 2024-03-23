@@ -43,6 +43,7 @@ runs:
         path: C:/Program Files/LLVM
 
     - name: Install current Bash on macOS
+      shell: bash
       if: runner.os == 'macOS'
       run: brew install bash
 
