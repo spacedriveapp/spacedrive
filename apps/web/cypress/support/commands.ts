@@ -19,10 +19,8 @@ declare global {
 	}
 }
 
-const checkUrlIsLibrary = (url: string) => libraryRegex.test(url);
-
 Cypress.Commands.add('checkUrlIsLibrary', () =>
-	cy.url().should((url) => expect(checkUrlIsLibrary(url)).to.be.true)
+	cy.url().should((url) => expect(libraryRegex.test(url)).to.be.true)
 );
 
 Cypress.Commands.add('fastOnboarding', (libraryName: string) => {
