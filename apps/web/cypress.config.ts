@@ -32,6 +32,7 @@ const config = defineConfig({
 		}
 	},
 	video: true,
+	experimentalWebKitSupport: true,
 	...(process.env.CI === 'true' ? ci_specific : {})
 });
 
