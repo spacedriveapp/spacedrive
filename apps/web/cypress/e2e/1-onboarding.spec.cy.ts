@@ -1,4 +1,5 @@
 import { discordUrl, libraryName, privacyUrl } from '../fixtures/onboarding.json';
+import { libraryRegex, onboardingRegex } from '../fixtures/routes';
 
 describe('Onboarding', () => {
 	// TODO: Create debug flag to bypass auto language detection
@@ -8,6 +9,11 @@ describe('Onboarding', () => {
 				cy.stub(win, 'open').as('winOpen');
 			}
 		});
+
+		// Delete previous library if it exists
+		cy.url()
+			.should('match', new RegExp(`${libraryRegex.source}|${onboardingRegex.source}`))
+			.then((url) => (onboardingRegex.test(url) ? url : cy.deleteLibrary(libraryName)));
 
 		// Check redirect to initial alpha onboarding screen
 		cy.url().should('match', /\/onboarding\/alpha$/);

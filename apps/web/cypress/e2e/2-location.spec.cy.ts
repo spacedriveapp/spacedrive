@@ -1,4 +1,6 @@
+import { locationName } from '../fixtures/location.json';
 import { libraryName } from '../fixtures/onboarding.json';
+import { locationRegex } from '../fixtures/routes';
 
 describe('Location', () => {
 	before(() => {
@@ -56,12 +58,15 @@ describe('Location', () => {
 			cy.get('@addLocationButton').should('be.disabled');
 			cy.get('div > p').contains("location not found <path='nonExisting/path/I/hope'>");
 
-			// Get test-data location and add it as a new location
+			// Get location and add it as a new location
 			cy.task<string>('repoRoot').then((repoRoot) => {
-				cy.get('@newLocationInput').clear().type(`${repoRoot}/test-data`);
+				cy.get('@newLocationInput').clear().type(`${repoRoot}/${locationName}`);
 				cy.get('@addLocationButton').click();
 			});
 		});
+
+		// Check if location was added to sidebar
+		cy.get('div.group').children('div:contains("Locations") + a').contains(locationName);
 
 		// Check if location is being scanned
 		cy.get('button[id="job-manager-button"]').click();
@@ -73,11 +78,11 @@ describe('Location', () => {
 				cy
 					.get('p')
 					.invoke('text')
-					.should('match', /^(Adding|Added) location "test-data"$/)
+					.should('match', new RegExp(`^(Adding|Added) location "${locationName}"$`))
 					.should('exist')
 			);
 
 		// Check redirect to location root page
-		cy.url().should('match', /\/location\/1$/);
+		cy.url().should('match', locationRegex);
 	});
 });
