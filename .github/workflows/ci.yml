@@ -78,10 +78,9 @@ jobs:
       - name: E2E test
         uses: cypress-io/github-action@v6
         with:
-          env: CI=true
           build: npx cypress info
           install: false
-          command: pnpm test:e2e
+          command: env CI=true pnpm test:e2e
           working-directory: apps/web
 
       - uses: actions/upload-artifact@v4
