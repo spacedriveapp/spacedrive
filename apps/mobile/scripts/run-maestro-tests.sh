@@ -53,7 +53,7 @@ run_maestro_test() {
       if echo "$_maestro_err" | grep 'java.util.concurrent.TimeoutException'; then
         # Test timed out
         # Kill maestro processes
-        pgrep -fi maestro | xargs kill -sKILL
+        pgrep -fi maestro | xargs kill -KILL
         # Retry
         retry_seconds=$((5 * i))
         echo "Test $1 timed out. Retrying in $retry_seconds seconds..."
