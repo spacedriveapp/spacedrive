@@ -1,16 +1,10 @@
 import { Plus, X } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import useResizeObserver from 'use-resize-observer';
 import { useSelector } from '@sd/client';
 import { Tooltip } from '@sd/ui';
-import {
-	useKeyMatcher,
-	useLocale,
-	useOperatingSystem,
-	useShortcut,
-	useShowControls
-} from '~/hooks';
+import { useKeyMatcher, useLocale, useShortcut, useShowControls } from '~/hooks';
 import { useRoutingContext } from '~/RoutingContext';
 import { useTabsContext } from '~/TabsContext';
 
@@ -35,6 +29,15 @@ const TopBar = () => {
 			ctx.setTopBarHeight(bounds.height);
 		}
 	});
+
+	//prevent default search from opening
+	useEffect(() => {
+		document.body.addEventListener('keydown', (e) => {
+			if (e.key === 'f' && e.ctrlKey) {
+				e.preventDefault();
+			}
+		});
+	}, []);
 
 	// when the component mounts + crucial state changes, we need to update the height _before_ the browser paints
 	// in order to avoid jank. resize observer doesn't fire early enought to account for this.
@@ -154,7 +157,6 @@ function Tabs() {
 
 function useTabKeybinds(props: { addTab(): void; removeTab(index: number): void }) {
 	const ctx = useTabsContext()!;
-	const os = useOperatingSystem();
 	const { visible } = useRoutingContext();
 
 	useShortcut('newTab', (e) => {
