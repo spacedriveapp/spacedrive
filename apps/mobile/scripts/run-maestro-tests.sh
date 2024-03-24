@@ -6,14 +6,45 @@ set -eEuo pipefail
 _root="$(CDPATH='' cd -- "$(dirname "$0")" && pwd -P)"
 _test_dir="$(CDPATH='' cd -- "${_root}/../tests" && pwd -P)"
 
-PLATFORM=${1:-}
+PLATFORM="${1:-}"
+DEVICE_ID=""
+IOS_APP_BIN_PATH="${_root}/../ios/build/Build/Products/Release-iphonesimulator/Spacedrive.app"
 case $PLATFORM in
-  ios | android) ;;
+  ios)
+    DEVICE_ID="${2:-}"
+    if [ -z "$DEVICE_ID" ]; then
+      echo "Empty IOS emulator UUID" >&2
+      exit 1
+    fi
+
+    if ! [ -e "$IOS_APP_BIN_PATH" ]; then
+      echo "Invalid IOS app binary path" >&2
+      exit 1
+    fi
+    ;;
+  android)
+    echo 'Android tests are not implemented yet' >&2
+    exit 1
+    ;;
   *)
     echo "Usage: run-maestro-tests.sh <android|ios>" >&2
     exit 1
     ;;
 esac
+
+start_app() {
+  case $PLATFORM in
+    ios)
+      xcrun simctl bootstatus "$DEVICE_ID" -b
+      open -a Simulator --args -CurrentDeviceUDID "$DEVICE_ID"
+      xcrun simctl install "$DEVICE_ID" "${_root}/../ios/build/Build/Products/Release-iphonesimulator/Spacedrive.app"
+      ;;
+    android)
+      echo 'Android tests are not implemented yet' >&2
+      exit 1
+      ;;
+  esac
+}
 
 # https://stackoverflow.com/q/11027679#answer-59592881
 # SYNTAX:
@@ -44,26 +75,41 @@ run_maestro_test() {
   for i in {1..6}; do
     _maestro_out=''
     _maestro_err=''
-    if catch _maestro_out _maestro_err maestro test "$1"; then
+
+    # https://github.com/expo/expo/blob/339fa68/apps/bare-expo/scripts/start-ios-e2e-test.ts#L12
+    if catch _maestro_out _maestro_err \
+      env MAESTRO_DRIVER_STARTUP_TIMEOUT=120000 maestro --device "$DEVICE_ID" test "$1"; then
       # Test succeeded
       printf '%s' "$_maestro_out"
       printf '%s' "$_maestro_err" >&2
       return
+    elif echo "$_maestro_err" | grep 'java.util.concurrent.TimeoutException'; then
+      # Test timed out
+      # Kill maestro processes
+      pgrep -fi maestro | xargs kill -KILL
+
+      # Restart app if necessary
+      case $PLATFORM in
+        ios)
+          if ! { xcrun simctl listapps booted | grep CFBundleIdentifier | grep Spacedrive; }; then
+            start_app
+          fi
+          ;;
+        android)
+          echo 'Android tests are not implemented yet' >&2
+          exit 1
+          ;;
+      esac
+
+      # Retry
+      retry_seconds=$((5 * i))
+      echo "Test $1 timed out. Retrying in $retry_seconds seconds..."
+      sleep $retry_seconds
     else
-      if echo "$_maestro_err" | grep 'java.util.concurrent.TimeoutException'; then
-        # Test timed out
-        # Kill maestro processes
-        pgrep -fi maestro | xargs kill -KILL
-        # Retry
-        retry_seconds=$((5 * i))
-        echo "Test $1 timed out. Retrying in $retry_seconds seconds..."
-        sleep $retry_seconds
-      else
-        # Test failed
-        printf '%s' "$_maestro_out"
-        printf '%s' "$_maestro_err" >&2
-        return 1
-      fi
+      # Test failed
+      printf '%s' "$_maestro_out"
+      printf '%s' "$_maestro_err" >&2
+      return 1
     fi
   done
 
@@ -85,6 +131,9 @@ else
     find "${_test_dir}/android-only" -name '*.yml' -o -name '*.yaml'
   )
 fi
+
+# Start Spacedrive in the device emulator
+start_app
 
 # Run onboarding first
 onboardingFile="${_test_dir}/onboarding.yml"
