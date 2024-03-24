@@ -30,13 +30,17 @@ const TopBar = () => {
 		}
 	});
 
-	//prevent default search from opening
+	//prevent default search from opening from edge webview
 	useEffect(() => {
-		document.body.addEventListener('keydown', (e) => {
+		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.key === 'f' && e.ctrlKey) {
 				e.preventDefault();
 			}
-		});
+		};
+		document.body.addEventListener('keydown', handleKeyDown);
+		return () => {
+			document.body.removeEventListener('keydown', handleKeyDown);
+		};
 	}, []);
 
 	// when the component mounts + crucial state changes, we need to update the height _before_ the browser paints
