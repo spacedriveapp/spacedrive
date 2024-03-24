@@ -34,15 +34,17 @@ export default () => {
 			className="mt-1 shadow-none data-[side=bottom]:slide-in-from-top-2 dark:divide-menu-selected/30 dark:border-sidebar-line dark:bg-sidebar-box"
 			alignToTrigger
 		>
-			{libraries.data?.map((lib) => (
-				<DropdownMenu.Item
-					to={`/${lib.uuid}`}
-					key={lib.uuid}
-					selected={lib.uuid === currentLibraryId}
-				>
-					<p className="truncate">{lib.config.name}</p>
-				</DropdownMenu.Item>
-			))}
+			{libraries.data
+				?.map((lib) => (
+					<DropdownMenu.Item
+						to={`/${lib.uuid}`}
+						key={lib.uuid}
+						selected={lib.uuid === currentLibraryId}
+					>
+						<p className="truncate">{lib.config.name}</p>
+					</DropdownMenu.Item>
+				))
+				.sort((a, b) => (a.props.selected ? -1 : 1))}
 			<DropdownMenu.Separator className="mx-0" />
 			<DropdownMenu.Item
 				label={t('new_library')}

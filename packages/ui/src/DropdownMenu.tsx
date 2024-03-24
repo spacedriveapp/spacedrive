@@ -144,7 +144,7 @@ const Item = ({
 	const renderInner = (
 		// to style this, pass in variant
 		<ContextMenuDivItem
-			// className={clsx(selected && 'bg-accent text-white')}
+			className={clsx(selected && 'bg-accent text-white')}
 			{...{ icon, iconProps, label, keybind, variant, children }}
 		/>
 	);
