@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -eEuxo pipefail
+set -eEuo pipefail
 
 # Script root
 _root="$(CDPATH='' cd -- "$(dirname "$0")" && pwd -P)"
@@ -83,7 +83,7 @@ run_maestro_test() {
       printf '%s' "$_maestro_out"
       printf '%s' "$_maestro_err" >&2
       return
-    elif echo "$_maestro_err" | grep 'java.util.concurrent.TimeoutException'; then
+    elif echo "$_maestro_err" | grep 'TimeoutException'; then
       # Test timed out
       # Kill maestro processes
       pgrep -fi maestro | xargs kill -KILL
