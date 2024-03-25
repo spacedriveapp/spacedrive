@@ -28,7 +28,6 @@ export default ({ redirectToSearch }: Props) => {
 				event.key.toUpperCase() === 'F' &&
 				event.getModifierState(os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control)
 			) {
-				event.preventDefault();
 				searchRef.current?.focus();
 			}
 		},
@@ -36,10 +35,13 @@ export default ({ redirectToSearch }: Props) => {
 	);
 
 	const blurHandler = useCallback((event: KeyboardEvent) => {
-		if (event.key === 'Escape' && document.activeElement === searchRef.current) {
-			// Check if element is in focus, then remove it
+		//condition prevents default search of webview
+		if (document.activeElement === searchRef.current) {
 			event.preventDefault();
-			searchRef.current?.blur();
+			if (event.key === 'Escape') {
+				// Check if element is in focus, then remove it
+				searchRef.current?.blur();
+			}
 		}
 	}, []);
 
