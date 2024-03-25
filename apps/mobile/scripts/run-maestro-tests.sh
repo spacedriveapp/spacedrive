@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -eEuo pipefail
+set -eEuxo pipefail
 
 # Script root
 _root="$(CDPATH='' cd -- "$(dirname "$0")" && pwd -P)"
@@ -83,35 +83,33 @@ run_maestro_test() {
       printf '%s' "$_maestro_out"
       printf '%s' "$_maestro_err" >&2
       return
+    elif echo "$_maestro_err" | grep 'java.util.concurrent.TimeoutException'; then
+      # Test timed out
+      # Kill maestro processes
+      pgrep -fi maestro | xargs kill -KILL
+
+      # Restart app if necessary
+      case $PLATFORM in
+        ios)
+          if ! { xcrun simctl listapps booted | grep CFBundleIdentifier | grep Spacedrive; }; then
+            start_app
+          fi
+          ;;
+        android)
+          echo 'Android tests are not implemented yet' >&2
+          exit 1
+          ;;
+      esac
+
+      # Retry
+      retry_seconds=$((5 * i))
+      echo "Test $1 timed out. Retrying in $retry_seconds seconds..."
+      sleep $retry_seconds
     else
-      if echo "$_maestro_err" | grep 'java.util.concurrent.TimeoutException'; then
-        # Test timed out
-        # Kill maestro processes
-        pgrep -fi maestro | xargs kill -KILL
-
-        # Restart app if necessary
-        case $PLATFORM in
-          ios)
-            if ! { xcrun simctl listapps booted | grep CFBundleIdentifier | grep Spacedrive; }; then
-              start_app
-            fi
-            ;;
-          android)
-            echo 'Android tests are not implemented yet' >&2
-            exit 1
-            ;;
-        esac
-
-        # Retry
-        retry_seconds=$((5 * i))
-        echo "Test $1 timed out. Retrying in $retry_seconds seconds..."
-        sleep $retry_seconds
-      else
-        # Test failed
-        printf '%s' "$_maestro_out"
-        printf '%s' "$_maestro_err" >&2
-        return 1
-      fi
+      # Test failed
+      printf '%s' "$_maestro_out"
+      printf '%s' "$_maestro_err" >&2
+      return 1
     fi
   done
 
