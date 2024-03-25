@@ -23,15 +23,30 @@ const CMDK = () => {
 				e.preventDefault();
 				e.stopPropagation();
 
-				setIsOpen((v) => {
-					explorerStore.isCMDPOpen = !v;
-					return !v;
-				});
+				setIsOpen((v) => !v);
 			}
 		}
 		document.addEventListener('keydown', handleKeyDown);
 		return () => document.removeEventListener('keydown', handleKeyDown);
 	}, []);
+
+	useEffect(() => {
+		function handleEscape(e: KeyboardEvent) {
+			if (isOpen === true && e.key === 'Escape') {
+				e.preventDefault();
+				e.stopPropagation();
+				// console.log('CMDK: Escape');
+				setIsOpen(false);
+			}
+		}
+		document.addEventListener('keydown', handleEscape);
+		return () => document.removeEventListener('keydown', handleEscape);
+	}, [isOpen]);
+
+	useEffect(() => {
+		// console.log('CMDP is open', isOpen);
+		explorerStore.isCMDPOpen = isOpen;
+	}, [isOpen]);
 
 	const [page, setPage] = useState<'root' | 'locations' | 'tags'>('root');
 	const [search, setSearch] = useState('');
@@ -66,7 +81,7 @@ const CMDK = () => {
 						),
 						icon: 'SparklesIcon',
 						closeOnSelect: false,
-						disabled: true // Disable for now
+						disabled: true // Disabled for now
 					}
 				]
 			},
