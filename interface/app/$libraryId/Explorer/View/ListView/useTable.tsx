@@ -27,16 +27,19 @@ import { uniqueId } from '../../util';
 import { RenamableItemText } from '../RenamableItemText';
 
 export const LIST_VIEW_ICON_SIZES = {
-	sm: 24,
-	md: 36,
-	lg: 48
+	'0': 24,
+	'1': 36,
+	'2': 48
 };
 
 export const LIST_VIEW_TEXT_SIZES = {
-	sm: 12,
-	md: 14,
-	lg: 16
+	'0': 12,
+	'1': 14,
+	'2': 16
 };
+
+export const DEFAULT_LIST_VIEW_ICON_SIZE = '1' satisfies keyof typeof LIST_VIEW_ICON_SIZES;
+export const DEFAULT_LIST_VIEW_TEXT_SIZE = '0' satisfies keyof typeof LIST_VIEW_TEXT_SIZES;
 
 const NameCell = memo(({ item, selected }: { item: ExplorerItem; selected: boolean }) => {
 	const cutCopyState = useSelector(explorerStore, (s) => s.cutCopyState);

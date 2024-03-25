@@ -4,10 +4,8 @@ import { useLocale } from '~/hooks';
 import { Subheading } from '..';
 import { useExplorerContext } from '../../Context';
 import { LIST_VIEW_ICON_SIZES } from '../../View/ListView/useTable';
-import { getSizeOptions } from './util';
 
 const sizes = Object.keys(LIST_VIEW_ICON_SIZES) as (keyof typeof LIST_VIEW_ICON_SIZES)[];
-const options = getSizeOptions(sizes);
 
 export const IconSize = () => {
 	const { t } = useLocale();
@@ -21,7 +19,7 @@ export const IconSize = () => {
 			<Slider
 				step={1}
 				max={sizes.length - 1}
-				defaultValue={[options[settings.listViewIconSize]]}
+				defaultValue={[parseInt(settings.listViewIconSize)]}
 				onValueChange={([value]) => {
 					const size = value !== undefined && sizes[value];
 					if (size) explorer.settingsStore.listViewIconSize = size;

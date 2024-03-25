@@ -21,7 +21,13 @@ import { useDragScrollable } from '../useDragScrollable';
 import { TableContext } from './context';
 import { TableRow } from './TableRow';
 import { getRangeDirection, Range, useRanges } from './useRanges';
-import { useTable } from './useTable';
+import {
+	DEFAULT_LIST_VIEW_ICON_SIZE,
+	DEFAULT_LIST_VIEW_TEXT_SIZE,
+	LIST_VIEW_ICON_SIZES,
+	LIST_VIEW_TEXT_SIZES,
+	useTable
+} from './useTable';
 
 const ESTIMATE_ROW_HEIGHT = 37;
 const TABLE_HEADER_HEIGHT = 35;
@@ -507,6 +513,22 @@ export const ListView = memo(() => {
 	};
 
 	useEffect(() => setRanges([]), [explorerSettings.order]);
+
+	useEffect(() => {
+		// Reset icon size if it's not a valid size
+		if (!LIST_VIEW_ICON_SIZES[explorerSettings.listViewIconSize]) {
+			explorer.settingsStore.listViewIconSize = DEFAULT_LIST_VIEW_ICON_SIZE;
+		}
+
+		// Reset text size if it's not a valid size
+		if (!LIST_VIEW_TEXT_SIZES[explorerSettings.listViewTextSize]) {
+			explorer.settingsStore.listViewTextSize = DEFAULT_LIST_VIEW_TEXT_SIZE;
+		}
+	}, [
+		explorer.settingsStore,
+		explorerSettings.listViewIconSize,
+		explorerSettings.listViewTextSize
+	]);
 
 	useEffect(() => {
 		if (!getQuickPreviewStore().open || explorer.selectedItems.size !== 1) return;
