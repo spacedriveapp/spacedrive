@@ -10,13 +10,13 @@ import {
 	type Ordering
 } from '@sd/client';
 
+import { LIST_VIEW_ICON_SIZES, LIST_VIEW_TEXT_SIZES } from './View/ListView/useTable';
+
 export enum ExplorerKind {
 	Location,
 	Tag,
 	Space
 }
-
-type ListViewSizes = 'sm' | 'md' | 'lg';
 
 export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
 	order?: TOrder | null;
@@ -32,8 +32,8 @@ export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
 		mediaAspectSquare: false as boolean,
 		mediaViewWithDescendants: true as boolean,
 		openOnDoubleClick: 'openFile' as DoubleClickAction,
-		listViewIconSize: 'md' as ListViewSizes,
-		listViewTextSize: 'sm' as ListViewSizes,
+		listViewIconSize: 'md' as keyof typeof LIST_VIEW_ICON_SIZES,
+		listViewTextSize: 'sm' as keyof typeof LIST_VIEW_TEXT_SIZES,
 		colVisibility: {
 			name: true,
 			kind: true,
