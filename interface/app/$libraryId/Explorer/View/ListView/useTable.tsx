@@ -1,14 +1,13 @@
 import {
 	CellContext,
+	functionalUpdate,
 	getCoreRowModel,
 	useReactTable,
-	type ColumnDef,
-	type ColumnSizingState,
-	type VisibilityState
+	type ColumnDef
 } from '@tanstack/react-table';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useMemo } from 'react';
 import { stringify } from 'uuid';
 import {
 	byteSize,
@@ -19,7 +18,6 @@ import {
 	useSelector,
 	type ExplorerItem
 } from '@sd/client';
-import { isNonEmptyObject } from '~/util';
 
 import { useExplorerContext } from '../../Context';
 import { FileThumb } from '../../FilePath/Thumb';
@@ -91,9 +89,7 @@ type Cell = CellContext<ExplorerItem, unknown> & { selected?: boolean };
 
 export const useTable = () => {
 	const explorer = useExplorerContext();
-
-	const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
-	const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+	const explorerSettings = explorer.useSettingsSnapshot();
 
 	const columns = useMemo<ColumnDef<ExplorerItem>[]>(
 		() => [
@@ -177,40 +173,28 @@ export const useTable = () => {
 		data: useMemo(() => explorer.items ?? [], [explorer.items]),
 		columns,
 		defaultColumn: { minSize: 100, maxSize: 250 },
-		state: { columnSizing, columnVisibility },
-		onColumnVisibilityChange: setColumnVisibility,
-		onColumnSizingChange: setColumnSizing,
+		state: {
+			columnSizing: explorerSettings.colSizes,
+			columnVisibility: explorerSettings.colVisibility
+		},
+		onColumnVisibilityChange: (updater) => {
+			const visibility = functionalUpdate(updater, explorerSettings.colVisibility);
+			explorer.settingsStore.colVisibility = {
+				...explorerSettings.colVisibility,
+				...visibility
+			};
+		},
+		onColumnSizingChange: (updater) => {
+			const sizing = functionalUpdate(updater, explorerSettings.colSizes);
+			explorer.settingsStore.colSizes = {
+				...explorerSettings.colSizes,
+				...sizing
+			};
+		},
 		columnResizeMode: 'onChange',
 		getCoreRowModel: useMemo(() => getCoreRowModel(), []),
 		getRowId: uniqueId
 	});
-
-	// Initialize column visibility from explorer settings
-	useEffect(() => {
-		if (isNonEmptyObject(columnVisibility)) return;
-		table.setColumnVisibility(explorer.settingsStore.colVisibility);
-	}, [columnVisibility, explorer.settingsStore.colVisibility, table]);
-
-	// Update column visibility in explorer settings
-	// We don't update directly because it takes too long to get the updated values
-	useEffect(() => {
-		if (!isNonEmptyObject(columnVisibility)) return;
-		explorer.settingsStore.colVisibility =
-			columnVisibility as typeof explorer.settingsStore.colVisibility;
-	}, [columnVisibility, explorer]);
-
-	// Initialize column sizes from explorer settings
-	useEffect(() => {
-		if (isNonEmptyObject(columnSizing)) return;
-		table.setColumnSizing(explorer.settingsStore.colSizes);
-	}, [columnSizing, explorer.settingsStore.colSizes, table]);
-
-	// Update column sizing in explorer settings
-	// We don't update directly because it takes too long to get the updated values
-	useEffect(() => {
-		if (!isNonEmptyObject(columnSizing)) return;
-		explorer.settingsStore.colSizes = columnSizing as typeof explorer.settingsStore.colSizes;
-	}, [columnSizing, explorer]);
 
 	return { table };
 };
