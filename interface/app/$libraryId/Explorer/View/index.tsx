@@ -61,24 +61,25 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	// Can stay here until we add columns view
 	// Once added, the provided parent related logic should move to useExplorerDroppable
 	// that way we don't have to re-use the same logic for each view
+	const { parent } = explorer;
 	const { setDroppableRef } = useExplorerDroppable({
-		...(explorer.parent?.type === 'Location' && {
+		...(parent?.type === 'Location' && {
 			allow: ['Path', 'NonIndexedPath'],
-			data: { type: 'location', path: path ?? '/', data: explorer.parent.location },
+			data: { type: 'location', path: path ?? '/', data: parent.location },
 			disabled:
 				drag?.type === 'dragging' &&
-				explorer.parent.location.id === drag.sourceLocationId &&
+				parent.location.id === drag.sourceLocationId &&
 				(path ?? '/') === drag.sourcePath
 		}),
-		...(explorer.parent?.type === 'Ephemeral' && {
+		...(parent?.type === 'Ephemeral' && {
 			allow: ['Path', 'NonIndexedPath'],
-			data: { type: 'location', path: explorer.parent.path },
-			disabled: drag?.type === 'dragging' && explorer.parent.path === drag.sourcePath
+			data: { type: 'location', path: parent.path },
+			disabled: drag?.type === 'dragging' && parent.path === drag.sourcePath
 		}),
-		...(explorer.parent?.type === 'Tag' && {
+		...(parent?.type === 'Tag' && {
 			allow: 'Path',
-			data: { type: 'tag', data: explorer.parent.tag },
-			disabled: drag?.type === 'dragging' && explorer.parent.tag.id === drag.sourceTagId
+			data: { type: 'tag', data: parent.tag },
+			disabled: drag?.type === 'dragging' && parent.tag.id === drag.sourceTagId
 		})
 	});
 

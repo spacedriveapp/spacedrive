@@ -8,12 +8,14 @@ import { Button } from '~/components/primitive/Button';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';
 
+import { Icon } from '../icons/Icon';
+
 // import * as ML from 'expo-media-library';
 
 // WIP component
 const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	const modalRef = useForwardedRef(ref);
-
+	const isAndroid = Platform.OS === 'android';
 	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
 	const relinkLocation = useLibraryMutation('locations.relink');
 	const rspc = useRspcLibraryContext();
@@ -169,18 +171,27 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	// }, []);
 
 	return (
-		<Modal ref={modalRef} snapPoints={['25']}>
-			<View style={tw`flex-1 px-8 pb-2 pt-8`}>
+		<Modal ref={modalRef} snapPoints={['20']}>
+			<View style={tw`flex-1 flex-row justify-evenly gap-2 px-8 pt-6`}>
 				{/* <Button variant="accent" style={tw`my-2`} onPress={testFN}>
 					<Text>TEST</Text>
 				</Button> */}
-				<Button variant="accent" style={tw`my-2`} onPress={handleFilesButton}>
+				<Button
+					variant="darkgray"
+					style={tw`h-20 w-40 items-center justify-center gap-1`}
+					onPress={handleFilesButton}
+				>
+					<Icon name="Folder" size={36} />
 					<Text style={tw`text-sm font-medium text-white`}>Import from Files</Text>
 				</Button>
-				<Button variant="accent" onPress={handlePhotosButton}>
+				<Button
+					variant="darkgray"
+					style={tw`h-20 w-40 items-center justify-center gap-1`}
+					onPress={handlePhotosButton}
+				>
+					<Icon name={isAndroid ? 'AndroidPhotos' : 'ApplePhotos'} size={32} />
 					<Text style={tw`text-sm font-medium text-white`}>Import from Photos</Text>
 				</Button>
-				<Text style={tw`mt-4 text-center text-white`}>TODO</Text>
 			</View>
 		</Modal>
 	);

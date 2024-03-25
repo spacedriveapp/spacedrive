@@ -12,7 +12,7 @@ use crate::{
 };
 
 use sd_core_sync::SyncMessage;
-use sd_p2p::{Identity, IdentityOrRemoteIdentity};
+use sd_p2p::Identity;
 use sd_prisma::prisma::{crdt_operation, instance, location, SortOrder};
 use sd_utils::{
 	db,
@@ -203,16 +203,20 @@ impl Libraries {
 				self.libraries_dir.join(format!("{id}.db")),
 				config_path,
 				Some({
+					let identity = Identity::new();
 					let mut create = instance.unwrap_or_else(|| instance::Create {
 						pub_id: Uuid::new_v4().as_bytes().to_vec(),
-						identity: IdentityOrRemoteIdentity::Identity(Identity::new()).to_bytes(),
+						remote_identity: identity.to_remote_identity().get_bytes().to_vec(),
 						node_id: node_cfg.id.as_bytes().to_vec(),
 						last_seen: now,
 						date_created: now,
-						_params: vec![instance::metadata::set(Some(
-							serde_json::to_vec(&node.p2p.peer_metadata())
-								.expect("invalid node metadata"),
-						))],
+						_params: vec![
+							instance::identity::set(Some(identity.to_bytes())),
+							instance::metadata::set(Some(
+								serde_json::to_vec(&node.p2p.peer_metadata())
+									.expect("invalid node metadata"),
+							)),
+						],
 					});
 					create._params.push(instance::id::set(config.instance_id));
 					create
@@ -423,14 +427,11 @@ impl Libraries {
 			})?
 			.clone();
 
-		let identity = Arc::new(
-			match IdentityOrRemoteIdentity::from_bytes(&instance.identity)? {
-				IdentityOrRemoteIdentity::Identity(identity) => identity,
-				IdentityOrRemoteIdentity::RemoteIdentity(_) => {
-					return Err(LibraryManagerError::InvalidIdentity)
-				}
-			},
-		);
+		let identity = match instance.identity.as_ref() {
+			Some(b) => Arc::new(Identity::from_bytes(&b)?),
+			// We are not this instance, so we don't have the private key.
+			None => return Err(LibraryManagerError::InvalidIdentity),
+		};
 
 		let instance_id = Uuid::from_slice(&instance.pub_id)?;
 		let curr_metadata: Option<HashMap<String, String>> = instance
@@ -609,7 +610,7 @@ impl Libraries {
 									}
 
 									for instance in lib.instances {
-										if let Err(err) = cloud::sync::receive::create_instance(
+										if let Err(err) = cloud::sync::receive::upsert_instance(
 											&library,
 											&node.libraries,
 											instance.uuid,

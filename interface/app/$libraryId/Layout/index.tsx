@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { Suspense, useEffect, useMemo, useRef } from 'react';
-import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, Outlet, useNavigate } from 'react-router-dom';
 import {
 	ClientContextProvider,
 	initPlausible,
@@ -32,6 +32,8 @@ import { DndContext } from './DndContext';
 import Sidebar from './Sidebar';
 
 const Layout = () => {
+	useRedirectToNewLocation();
+
 	const { libraries, library } = useClientContext();
 	const os = useOperatingSystem();
 	const showControls = useShowControls();
@@ -40,8 +42,6 @@ const Layout = () => {
 	useKeybindEventHandler(library?.uuid);
 
 	const layoutRef = useRef<HTMLDivElement>(null);
-
-	useRedirectToNewLocation();
 
 	const ctxValue = useMemo(() => ({ ref: layoutRef }), [layoutRef]);
 

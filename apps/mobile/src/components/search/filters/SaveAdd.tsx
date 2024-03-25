@@ -1,7 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import { Plus } from 'phosphor-react-native';
 import { useEffect } from 'react';
-import { Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import { Button } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SearchStackScreenProps } from '~/navigation/SearchStack';
@@ -9,9 +9,10 @@ import { getSearchStore, useSearchStore } from '~/stores/searchStore';
 
 const SaveAdd = () => {
 	const searchStore = useSearchStore();
-	const navigation = useNavigation<SearchStackScreenProps<'Home'>['navigation']>();
+	const navigation = useNavigation<SearchStackScreenProps<'Search'>['navigation']>();
 	const filtersApplied = Object.keys(searchStore.appliedFilters).length > 0;
 	const buttonDisable = !filtersApplied && searchStore.disableActionButtons;
+	const isAndroid = Platform.OS === 'android';
 
 	// enable action buttons if any filter value is present
 	useEffect(() => {
@@ -24,9 +25,10 @@ const SaveAdd = () => {
 	return (
 		<View
 			style={twStyle(
-				`h-[100px] flex-row justify-between gap-2 border-t border-app-line/50 bg-app-header px-6 pt-5`,
+				`flex-row items-center justify-between gap-2 border-t border-app-cardborder bg-app-header px-6`,
+				isAndroid ? 'py-6' : 'pb-10 pt-7',
 				{
-					position: 'fixed'
+					position: 'fixed' // tw doesn't support fixed
 				}
 			)}
 		>
@@ -48,7 +50,7 @@ const SaveAdd = () => {
 				variant="accent"
 				onPress={() => {
 					searchStore.applyFilters();
-					navigation.navigate('Home');
+					navigation.navigate('Search');
 				}}
 			>
 				<Plus weight="bold" size={12} color={tw.color('white')} />
