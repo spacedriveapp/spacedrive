@@ -36,12 +36,10 @@ export default ({ redirectToSearch }: Props) => {
 
 	const blurHandler = useCallback((event: KeyboardEvent) => {
 		//condition prevents default search of webview
-		if (document.activeElement === searchRef.current) {
+		if (event.key === 'Escape' && document.activeElement === searchRef.current) {
 			event.preventDefault();
-			if (event.key === 'Escape') {
-				// Check if element is in focus, then remove it
-				searchRef.current?.blur();
-			}
+			// Check if element is in focus, then remove it
+			searchRef.current?.blur();
 		}
 	}, []);
 
