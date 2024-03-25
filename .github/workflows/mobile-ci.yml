@@ -138,15 +138,15 @@ jobs:
 
   ios:
     name: iOS
-    runs-on: macos-14
+    runs-on: macos-12
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
+      # - name: Install Xcode
+      #   uses: maxim-lobanov/setup-xcode@v1
+      #   with:
+      #     xcode-version: latest-stable
 
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
@@ -199,8 +199,8 @@ jobs:
         id: run_simulator
         uses: futureware-tech/simulator-action@v3
         with:
-          model: 'iPhone 15'
-          os_version: 17
+          model: 'iPhone 14'
+          os_version: 16
           erase_before_boot: false
 
       - name: Run Tests
