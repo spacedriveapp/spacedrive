@@ -38,6 +38,8 @@ start_app() {
       xcrun simctl bootstatus "$DEVICE_ID" -b
       open -a Simulator --args -CurrentDeviceUDID "$DEVICE_ID"
       xcrun simctl install "$DEVICE_ID" "${_root}/../ios/build/Build/Products/Release-iphonesimulator/Spacedrive.app"
+      # ¯\_(ツ)_/¯
+      sleep 10
       ;;
     android)
       echo 'Android tests are not implemented yet' >&2
@@ -102,7 +104,7 @@ run_maestro_test() {
       esac
 
       # Retry
-      retry_seconds=$((5 * i))
+      retry_seconds=$((20 * i))
       echo "Test $1 timed out. Retrying in $retry_seconds seconds..."
       sleep $retry_seconds
     else
