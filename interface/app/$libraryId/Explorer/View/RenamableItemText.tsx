@@ -29,12 +29,12 @@ interface Props extends TextBoxProps {
 	allowHighlight?: boolean;
 }
 
-const RENAMABLE_ITEM_TYPES: ExplorerItem['type'][] = [
-	'Path',
-	'NonIndexedPath',
-	'Object',
-	'Location'
-];
+const RENAMABLE_ITEM_TYPES: Partial<Record<ExplorerItem['type'], boolean>> = {
+	Location: true,
+	Path: true,
+	NonIndexedPath: true,
+	Object: true
+};
 
 export const RenamableItemText = ({
 	item,
@@ -157,7 +157,7 @@ export const RenamableItemText = ({
 		!explorer ||
 		explorer.selectedItems.size > 1 ||
 		quickPreviewStore.open ||
-		!RENAMABLE_ITEM_TYPES.includes(item.type);
+		!RENAMABLE_ITEM_TYPES[item.type];
 
 	return (
 		<RenameTextBox

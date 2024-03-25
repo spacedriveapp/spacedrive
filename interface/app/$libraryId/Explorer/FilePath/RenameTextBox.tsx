@@ -5,7 +5,6 @@ import {
 	useCallback,
 	useEffect,
 	useImperativeHandle,
-	useLayoutEffect,
 	useRef,
 	useState
 } from 'react';
@@ -159,11 +158,30 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 			}
 		};
 
+		const toggleRename = useCallback(() => {
+			setAllowRename(true);
+
+			const markup = truncateMarkup.current;
+			if (!markup) return;
+
+			// @ts-ignore
+			// Passing ref to TruncateMarkup child doesn't work, so we have
+			// to access the element directly from the markup instance
+			const textNode = markup.el as HTMLElement;
+
+			const { lineHeight } = getComputedStyle(textNode);
+
+			const textLines =
+				lines !== 1 ? Math.round(textNode.clientHeight / parseFloat(lineHeight)) : lines;
+
+			setLineHeight(textNode.clientHeight / textLines);
+		}, [lines]);
+
 		useShortcut('renameObject', (e) => {
 			if (dialogManager.isAnyDialogOpen() || toggleBy === 'click') return;
 			e.preventDefault();
 			if (allowRename) blur();
-			else if (!disabled) setAllowRename(true);
+			else if (!disabled) toggleRename();
 		});
 
 		useEffect(() => {
@@ -184,10 +202,10 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 		useEffect(() => {
 			if (toggleBy === 'click') return;
 			if (!disabled) {
-				if (isRenaming && !allowRename) setAllowRename(true);
+				if (isRenaming && !allowRename) toggleRename();
 				else explorerStore.isRenaming = allowRename;
 			} else resetState();
-		}, [isRenaming, disabled, allowRename, toggleBy]);
+		}, [isRenaming, disabled, allowRename, toggleBy, toggleRename]);
 
 		useEffect(() => {
 			const onMouseDown = (event: MouseEvent) => {
@@ -198,7 +216,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 			return () => document.removeEventListener('mousedown', onMouseDown, true);
 		}, [blur]);
 
-		useLayoutEffect(() => {
+		useEffect(() => {
 			const node = ref.current;
 			if (!node) return;
 
@@ -213,33 +231,6 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 
 			return () => observer.disconnect();
 		}, []);
-
-		useLayoutEffect(() => {
-			if (allowRename) return;
-
-			const markup = truncateMarkup.current;
-			if (!markup) return;
-
-			// @ts-ignore
-			// Passing ref to TruncateMarkup child doesn't work, so we have
-			// to access the element directly from the markup instance
-			const textNode = markup.el as HTMLElement;
-
-			const observer = new ResizeObserver(() => {
-				const { lineHeight } = getComputedStyle(textNode);
-
-				const textLines =
-					lines !== 1
-						? Math.round(textNode.clientHeight / parseFloat(lineHeight))
-						: lines;
-
-				setLineHeight(textNode.clientHeight / textLines);
-			});
-
-			observer.observe(textNode);
-
-			return () => observer.disconnect();
-		}, [allowRename, lines]);
 
 		return (
 			<Tooltip
@@ -285,7 +276,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 					onMouseUp={(e) => {
 						if (e.button === 0 || renamable.current || !allowRename) {
 							timeout.current = setTimeout(
-								() => renamable.current && setAllowRename(true),
+								() => renamable.current && toggleRename(),
 								350
 							);
 						}
