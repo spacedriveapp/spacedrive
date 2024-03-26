@@ -145,7 +145,9 @@ mod library {
 
 					for instance in instances {
 						crate::cloud::sync::receive::upsert_instance(
-							&library,
+							library.id,
+							&library.db,
+							&library.sync,
 							&node.libraries,
 							instance.uuid,
 							instance.identity,

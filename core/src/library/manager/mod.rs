@@ -489,6 +489,11 @@ impl Libraries {
 			})
 			.collect()
 		});
+		let sync_manager = Arc::new(sync.manager);
+
+		let actors = Default::default();
+
+		let cloud = crate::cloud::start(node, &actors, id, instance_id, &sync_manager, &db).await;
 
 		let (tx, mut rx) = broadcast::channel(10);
 		let library = Library::new(
@@ -499,15 +504,15 @@ impl Libraries {
 			// key_manager,
 			db,
 			node,
-			Arc::new(sync.manager),
+			sync_manager,
+			cloud,
 			tx,
+			actors,
 		)
 		.await;
 
 		// This is an exception. Generally subscribe to this by `self.tx.subscribe`.
 		tokio::spawn(sync_rx_actor(library.clone(), node.clone(), sync.rx));
-
-		crate::cloud::sync::declare_actors(&library, node).await;
 
 		self.tx
 			.emit(LibraryManagerEvent::Load(library.clone()))
@@ -611,7 +616,9 @@ impl Libraries {
 
 									for instance in lib.instances {
 										if let Err(err) = cloud::sync::receive::upsert_instance(
-											&library,
+											library.id,
+											&library.db,
+											&library.sync,
 											&node.libraries,
 											instance.uuid,
 											instance.identity,
@@ -660,6 +667,17 @@ impl Libraries {
 	}
 
 	pub async fn update_instances(&self, library: Arc<Library>) {
+		self.tx
+			.emit(LibraryManagerEvent::InstancesModified(library))
+			.await;
+	}
+
+	pub async fn update_instances_by_id(&self, library_id: Uuid) {
+		let Some(library) = self.libraries.read().await.get(&library_id).cloned() else {
+			warn!("Failed to find instance to update by id");
+			return;
+		};
+
 		self.tx
 			.emit(LibraryManagerEvent::InstancesModified(library))
 			.await;

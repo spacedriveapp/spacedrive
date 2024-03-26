@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::sync::{
+	atomic::{AtomicBool, Ordering},
+	Arc,
+};
 use tokio::sync::Notify;
 use tracing::debug;
 
@@ -7,8 +10,16 @@ use crate::cloud::sync::err_break;
 // Responsible for taking sync operations received from the cloud,
 // and applying them to the local database via the sync system's ingest actor.
 
-pub async fn run_actor(sync: Arc<sd_core_sync::Manager>, notify: Arc<Notify>) {
+pub async fn run_actor(
+	sync: Arc<sd_core_sync::Manager>,
+	notify: Arc<Notify>,
+	state: Arc<AtomicBool>,
+	state_notify: Arc<Notify>,
+) {
 	loop {
+		state.store(true, Ordering::Relaxed);
+		state_notify.notify_waiters();
+
 		{
 			let mut rx = sync.ingest.req_rx.lock().await;
 
@@ -64,6 +75,9 @@ pub async fn run_actor(sync: Arc<sd_core_sync::Manager>, notify: Arc<Notify>) {
 				}
 			}
 		}
+
+		state.store(false, Ordering::Relaxed);
+		state_notify.notify_waiters();
 
 		notify.notified().await;
 	}

@@ -1,4 +1,7 @@
-use std::{ops::Deref, sync::Arc};
+use std::{
+	ops::Deref,
+	sync::{atomic::Ordering, Arc},
+};
 
 use sd_prisma::{
 	prisma::{crdt_operation, SortOrder},
@@ -61,7 +64,13 @@ impl Actor {
 	async fn tick(mut self) -> Option<Self> {
 		let state = match self.state.take()? {
 			State::WaitingForNotification => {
+				self.shared.active.store(false, Ordering::Relaxed);
+				self.shared.active_notify.notify_waiters();
+
 				wait!(self.io.event_rx, Event::Notification);
+
+				self.shared.active.store(true, Ordering::Relaxed);
+				self.shared.active_notify.notify_waiters();
 
 				State::RetrievingMessages
 			}
@@ -270,6 +279,8 @@ mod test {
 			clock: HLCBuilder::new().with_id(instance.into()).build(),
 			timestamps: Default::default(),
 			emit_messages_flag: Arc::new(AtomicBool::new(true)),
+			active: Default::default(),
+			active_notify: Default::default(),
 		});
 
 		(Actor::spawn(shared.clone()), shared)
