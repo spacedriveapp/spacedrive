@@ -22,6 +22,13 @@ const shortcuts = {
 		macOS: ['Meta', 'Alt', 'ArrowRight'],
 		all: ['Control', 'Alt', 'ArrowRight']
 	},
+	cmdk: {
+		macOS: ['Meta', 'KeyK'],
+		all: ['Control', 'KeyK']
+	},
+	closeCmdk: {
+		all: ['Escape']
+	},
 	previousTab: {
 		macOS: ['Meta', 'Alt', 'ArrowLeft'],
 		all: ['Control', 'Alt', 'ArrowLeft']

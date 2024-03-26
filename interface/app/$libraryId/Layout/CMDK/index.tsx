@@ -17,6 +17,7 @@ import {
 import { dialogManager } from '@sd/ui';
 import { Icon } from '~/components';
 import Sparkles from '~/components/Sparkles';
+import { useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { explorerStore } from '../../Explorer/store';
@@ -32,37 +33,21 @@ const CMDK = () => {
 	const platform = usePlatform();
 	const libraryId = useLibraryContext().library.uuid;
 
-	useEffect(() => {
-		function handleKeyDown(e: KeyboardEvent) {
-			if (
-				(navigator?.platform?.toLowerCase().includes('mac') ? e.metaKey : e.ctrlKey) &&
-				e.key === 'k'
-			) {
-				e.preventDefault();
-				e.stopPropagation();
+	useShortcut('cmdk', (e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		setIsOpen((v) => !v);
+	});
 
-				setIsOpen((v) => !v);
-			}
+	useShortcut('closeCmdk', (e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		if (isOpen) {
+			setIsOpen(false);
 		}
-		document.addEventListener('keydown', handleKeyDown);
-		return () => document.removeEventListener('keydown', handleKeyDown);
-	}, []);
+	});
 
 	useEffect(() => {
-		function handleEscape(e: KeyboardEvent) {
-			if (isOpen === true && e.key === 'Escape') {
-				e.preventDefault();
-				e.stopPropagation();
-				// console.log('CMDK: Escape');
-				setIsOpen(false);
-			}
-		}
-		document.addEventListener('keydown', handleEscape);
-		return () => document.removeEventListener('keydown', handleEscape);
-	}, [isOpen]);
-
-	useEffect(() => {
-		// console.log('CMDP is open', isOpen);
 		explorerStore.isCMDPOpen = isOpen;
 	}, [isOpen]);
 
