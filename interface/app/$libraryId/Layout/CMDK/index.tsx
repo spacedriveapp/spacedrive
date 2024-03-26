@@ -15,6 +15,7 @@ import {
 	useOnlineLocations
 } from '@sd/client';
 import { dialogManager } from '@sd/ui';
+import i18n from '~/app/I18n';
 import { Icon } from '~/components';
 import Sparkles from '~/components/Sparkles';
 import { useShortcut } from '~/hooks';
@@ -33,13 +34,13 @@ const CMDK = () => {
 	const platform = usePlatform();
 	const libraryId = useLibraryContext().library.uuid;
 
-	useShortcut('cmdk', (e) => {
+	useShortcut('toggleCommandPalette', (e) => {
 		e.preventDefault();
 		e.stopPropagation();
 		setIsOpen((v) => !v);
 	});
 
-	useShortcut('closeCmdk', (e) => {
+	useShortcut('closeCommandPalette', (e) => {
 		e.preventDefault();
 		e.stopPropagation();
 		if (isOpen) {
@@ -72,7 +73,7 @@ const CMDK = () => {
 	const filteredItems = filterItems(
 		[
 			{
-				heading: 'Coming soon',
+				heading: i18n.t('coming_soon'),
 				id: 'top',
 				items: [
 					{

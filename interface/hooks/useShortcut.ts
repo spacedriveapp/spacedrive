@@ -22,11 +22,11 @@ const shortcuts = {
 		macOS: ['Meta', 'Alt', 'ArrowRight'],
 		all: ['Control', 'Alt', 'ArrowRight']
 	},
-	cmdk: {
+	toggleCommandPalette: {
 		macOS: ['Meta', 'KeyK'],
 		all: ['Control', 'KeyK']
 	},
-	closeCmdk: {
+	closeCommandPalette: {
 		all: ['Escape']
 	},
 	previousTab: {
