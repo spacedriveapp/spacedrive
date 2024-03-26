@@ -7,7 +7,7 @@ type OS = 'darwin' | 'windows' | 'linux';
 type Arch = 'x64' | 'arm64';
 type TargetConfig = { bundle: string; ext: string };
 type BuildTarget = {
-	updater: { bundle: string; bundleExt: string; archiveExt: string; };
+	updater: { bundle: string; bundleExt: string; archiveExt: string };
 	standalone: Array<TargetConfig>;
 };
 
@@ -31,7 +31,7 @@ const OS_TARGETS = {
 	linux: {
 		updater: {
 			bundle: 'appimage',
-			bundleExt: "AppImage",
+			bundleExt: 'AppImage',
 			archiveExt: 'tar.gz'
 		},
 		standalone: [
@@ -57,8 +57,8 @@ async function globFiles(pattern: string) {
 	return await globber.glob();
 }
 
-async function uploadUpdater({ bundle, bundleExt, archiveExt }: BuildTarget["updater"]) {
-	const fullExt = `${bundleExt}.${archiveExt}`
+async function uploadUpdater({ bundle, bundleExt, archiveExt }: BuildTarget['updater']) {
+	const fullExt = `${bundleExt}.${archiveExt}`;
 	const files = await globFiles(`${BUNDLE_DIR}/${bundle}/*.${fullExt}*`);
 
 	const updaterPath = files.find((file) => file.endsWith(fullExt));
