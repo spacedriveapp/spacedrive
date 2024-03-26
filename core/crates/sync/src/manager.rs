@@ -22,7 +22,7 @@ use uuid::Uuid;
 pub struct Manager {
 	pub tx: broadcast::Sender<SyncMessage>,
 	pub ingest: ingest::Handler,
-	shared: Arc<SharedState>,
+	pub shared: Arc<SharedState>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq)]
@@ -54,6 +54,8 @@ impl Manager {
 			clock,
 			timestamps: Arc::new(RwLock::new(timestamps)),
 			emit_messages_flag: emit_messages_flag.clone(),
+			active: Default::default(),
+			active_notify: Default::default(),
 		});
 
 		let ingest = ingest::Actor::spawn(shared.clone());
