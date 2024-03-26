@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { ObjectOrder, useLibraryQuery } from '@sd/client';
 import { Icon } from '~/components';
-import { useRouteTitle } from '~/hooks';
+import { useLocale, useRouteTitle } from '~/hooks';
 
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
@@ -53,6 +53,8 @@ export function Component() {
 		layouts: { media: false, list: false }
 	});
 
+	const { t } = useLocale();
+
 	return (
 		<ExplorerContextProvider explorer={explorer}>
 			<SearchContextProvider search={search}>
@@ -60,7 +62,7 @@ export function Component() {
 					center={<SearchBar />}
 					left={
 						<div className="flex flex-row items-center gap-2">
-							<span className="truncate text-sm font-medium">Labels</span>
+							<span className="truncate text-sm font-medium">{t('labels')}</span>
 						</div>
 					}
 					right={<DefaultTopBarOptions />}
@@ -78,7 +80,7 @@ export function Component() {
 				emptyNotice={
 					<EmptyNotice
 						icon={<Icon name="CollectionSparkle" size={128} />}
-						message="No labels"
+						message={t('no_labels')}
 					/>
 				}
 			/>

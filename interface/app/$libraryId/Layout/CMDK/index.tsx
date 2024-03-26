@@ -18,7 +18,7 @@ import { dialogManager } from '@sd/ui';
 import i18n from '~/app/I18n';
 import { Icon } from '~/components';
 import Sparkles from '~/components/Sparkles';
-import { useShortcut } from '~/hooks';
+import { useLocale, useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { explorerStore } from '../../Explorer/store';
@@ -70,6 +70,8 @@ const CMDK = () => {
 
 	const navigate = useNavigate();
 
+	const { t } = useLocale();
+
 	const filteredItems = filterItems(
 		[
 			{
@@ -80,7 +82,7 @@ const CMDK = () => {
 						id: 'ask-spacedrive',
 						children: (
 							<Sparkles>
-								<span>Ask Spacedrive</span>
+								<span>{t('ask_spacedrive')}</span>
 							</Sparkles>
 						),
 						icon: 'SparklesIcon',
@@ -96,42 +98,42 @@ const CMDK = () => {
 				items: [
 					{
 						id: 'go-settings',
-						children: 'Go to settings',
+						children: t('go_to_settings'),
 						icon: 'ArrowRightIcon',
 						closeOnSelect: true,
 						onClick: () => navigate('settings/client/general')
 					},
 					{
 						id: 'go-overview',
-						children: 'Go to overview',
+						children: t('go_to_overview'),
 						icon: 'ArrowRightIcon',
 						closeOnSelect: true,
 						onClick: () => navigate('overview')
 					},
 					{
 						id: 'go-recents',
-						children: 'Go to recents',
+						children: t('go_to_recents'),
 						icon: 'ArrowRightIcon',
 						closeOnSelect: true,
 						onClick: () => navigate('recents')
 					},
 					{
 						id: 'go-labels',
-						children: 'Go to labels',
+						children: t('go_to_labels'),
 						icon: 'ArrowRightIcon',
 						closeOnSelect: true,
 						onClick: () => navigate('labels')
 					},
 					{
 						id: 'go-location',
-						children: 'Go to location',
+						children: t('go_to_location'),
 						icon: 'ArrowRightIcon',
 						closeOnSelect: false,
 						onClick: () => setPage('locations')
 					},
 					{
 						id: 'go-tag',
-						children: 'Go to tag',
+						children: t('go_to_tag'),
 						icon: 'ArrowRightIcon',
 						closeOnSelect: false,
 						onClick: () => setPage('tags')
@@ -157,7 +159,7 @@ const CMDK = () => {
 					// },
 					{
 						id: 'create-tag',
-						children: 'Create tag',
+						children: t('create_tag'),
 						icon: 'TagIcon',
 						onClick: () => {
 							dialogManager.create((dp) => <CreateDialog {...dp} />);
@@ -165,7 +167,7 @@ const CMDK = () => {
 					},
 					{
 						id: 'add-location',
-						children: 'Add location',
+						children: t('add_location'),
 						icon: 'FolderIcon',
 						onClick: async () => {
 							const path = await openDirectoryPickerDialog(platform);
@@ -205,7 +207,7 @@ const CMDK = () => {
 			// }
 			// This is technically a duplicate of "Go to Location", but it looks cool.
 			{
-				heading: 'Locations',
+				heading: t('locations'),
 				id: 'locations',
 				items: locations
 					? locations.map((location) => ({
@@ -241,7 +243,7 @@ const CMDK = () => {
 			search={search}
 			isOpen={isOpen}
 			page={page}
-			placeholder="Search for files and actions..."
+			placeholder={t('search_for_files_and_actions')}
 			// footer
 		>
 			<CommandPalette.Page id="root" onEscape={() => setSearch('')}>
