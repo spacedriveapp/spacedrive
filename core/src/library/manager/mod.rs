@@ -493,7 +493,7 @@ impl Libraries {
 
 		let actors = Default::default();
 
-		let cloud = crate::cloud::start(&node, &actors, id, instance_id, &sync_manager, &db).await;
+		let cloud = crate::cloud::start(node, &actors, id, instance_id, &sync_manager, &db).await;
 
 		let (tx, mut rx) = broadcast::channel(10);
 		let library = Library::new(
