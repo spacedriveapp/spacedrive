@@ -14,7 +14,7 @@ export default function CMDKTags() {
 			<CommandPalette.List>
 				{tags.map((tag, i) => (
 					<CommandPalette.ListItem
-						key={i}
+						key={tag.id}
 						index={i}
 						onClick={() => navigate(`tag/${tag.id}`)}
 						closeOnSelect={true}
