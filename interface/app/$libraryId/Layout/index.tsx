@@ -26,6 +26,7 @@ import { usePlatform } from '~/util/Platform';
 
 import { DragOverlay } from '../Explorer/DragOverlay';
 import { QuickPreviewContextProvider } from '../Explorer/QuickPreview/Context';
+import CMDK from './CMDK';
 import { LayoutContext } from './Context';
 import { DndContext } from './DndContext';
 import Sidebar from './Sidebar';
@@ -88,6 +89,7 @@ const Layout = () => {
 											fallback={<div className="h-screen w-screen bg-app" />}
 										>
 											<Outlet />
+											<CMDK />
 											<DragOverlay />
 										</Suspense>
 									</LibraryContextProvider>
@@ -150,11 +152,7 @@ function usePlausible() {
 
 	useEffect(() => {
 		const interval = setInterval(() => {
-			plausibleEvent({
-				event: {
-					type: 'ping'
-				}
-			});
+			plausibleEvent({ event: { type: 'ping' } });
 		}, 270 * 1000);
 
 		return () => clearInterval(interval);
