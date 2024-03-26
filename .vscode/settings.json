@@ -88,5 +88,17 @@
 	"rust-analyzer.linkedProjects": [],
 	"rust-analyzer.cargo.extraEnv": {},
 	"rust-analyzer.check.targets": null,
-	"rust-analyzer.showUnlinkedFileNotification": false
+	"rust-analyzer.showUnlinkedFileNotification": false,
+	"i18n-ally.localesPaths": [
+		"interface/locales",
+		"apps/mobile/ios/Pods/RCT-Folly/folly/lang",
+		"apps/mobile/ios/Pods/boost/boost/locale",
+		"apps/mobile/ios/Pods/boost/boost/predef/language"
+	],
+	"i18n-ally.enabledParsers": ["ts", "json"],
+	"i18n-ally.sortKeys": true,
+	"i18n-ally.namespace": true,
+	"i18n-ally.pathMatcher": "{locale}/common.json",
+	"i18n-ally.enabledFrameworks": ["react"],
+	"i18n-ally.keystyle": "flat"
 }
