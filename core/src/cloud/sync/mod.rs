@@ -1,16 +1,35 @@
 use sd_sync::*;
-use std::sync::{atomic, Arc};
+use std::sync::{
+	atomic::{self, AtomicBool},
+	Arc,
+};
 use tokio::sync::Notify;
+use uuid::Uuid;
 
-use crate::{library::Library, Node};
+use crate::Node;
 
 pub mod ingest;
 pub mod receive;
 pub mod send;
 
-pub async fn declare_actors(library: &Arc<Library>, node: &Arc<Node>) {
+#[derive(Default)]
+pub struct State {
+	pub send_active: Arc<AtomicBool>,
+	pub receive_active: Arc<AtomicBool>,
+	pub ingest_active: Arc<AtomicBool>,
+	pub notifier: Arc<Notify>,
+}
+
+pub async fn declare_actors(
+	node: &Arc<Node>,
+	actors: &Arc<sd_actors::Actors>,
+	library_id: Uuid,
+	instance_uuid: Uuid,
+	sync: Arc<sd_core_sync::Manager>,
+	db: Arc<sd_prisma::prisma::PrismaClient>,
+) -> State {
 	let ingest_notify = Arc::new(Notify::new());
-	let actors = &library.actors;
+	let state = State::default();
 
 	let autorun = node.cloud_sync_flag.load(atomic::Ordering::Relaxed);
 
@@ -18,10 +37,12 @@ pub async fn declare_actors(library: &Arc<Library>, node: &Arc<Node>) {
 		.declare(
 			"Cloud Sync Sender",
 			{
-				let library = library.clone();
+				let sync = sync.clone();
 				let node = node.clone();
+				let active = state.send_active.clone();
+				let active_notifier = state.notifier.clone();
 
-				move || send::run_actor(library.id, library.sync.clone(), node.clone())
+				move || send::run_actor(library_id, sync, node, active, active_notifier)
 			},
 			autorun,
 		)
@@ -31,21 +52,23 @@ pub async fn declare_actors(library: &Arc<Library>, node: &Arc<Node>) {
 		.declare(
 			"Cloud Sync Receiver",
 			{
-				let library = library.clone();
+				let sync = sync.clone();
 				let node = node.clone();
 				let ingest_notify = ingest_notify.clone();
+				let active_notifier = state.notifier.clone();
+				let active = state.receive_active.clone();
 
 				move || {
 					receive::run_actor(
-						library.clone(),
 						node.libraries.clone(),
-						library.db.clone(),
-						library.id,
-						library.instance_uuid,
-						library.sync.clone(),
-						node.clone(),
+						db.clone(),
+						library_id,
+						instance_uuid,
+						sync,
 						ingest_notify,
-						node.clone(),
+						node,
+						active,
+						active_notifier,
 					)
 				}
 			},
@@ -57,12 +80,16 @@ pub async fn declare_actors(library: &Arc<Library>, node: &Arc<Node>) {
 		.declare(
 			"Cloud Sync Ingest",
 			{
-				let library = library.clone();
-				move || ingest::run_actor(library.sync.clone(), ingest_notify)
+				let active = state.ingest_active.clone();
+				let active_notifier = state.notifier.clone();
+
+				move || ingest::run_actor(sync.clone(), ingest_notify, active, active_notifier)
 			},
 			autorun,
 		)
 		.await;
+
+	state
 }
 
 macro_rules! err_break {

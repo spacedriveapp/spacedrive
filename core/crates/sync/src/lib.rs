@@ -32,6 +32,8 @@ pub struct SharedState {
 	pub instance: uuid::Uuid,
 	pub timestamps: Timestamps,
 	pub clock: uhlc::HLC,
+	pub active: AtomicBool,
+	pub active_notify: tokio::sync::Notify,
 }
 
 #[must_use]
