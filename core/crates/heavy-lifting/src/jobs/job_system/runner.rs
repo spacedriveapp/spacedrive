@@ -1,6 +1,5 @@
 use crate::{jobs::JobId, Error};
 
-use sd_prisma::prisma::PrismaClient;
 use sd_task_system::{Task, TaskDispatcher};
 use sd_utils::error::FileIOError;
 
@@ -9,7 +8,6 @@ use std::{
 	mem,
 	path::Path,
 	pin::pin,
-	sync::Arc,
 	time::Duration,
 };
 
@@ -27,7 +25,7 @@ use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use super::{
-	job::{DynJob, JobHandle, JobOutput, ReturnStatus},
+	job::{DynJob, JobContext, JobHandle, JobOutput, ReturnStatus},
 	report,
 	store::{StoredJob, StoredJobEntry},
 	Command, JobSystemError,
@@ -36,20 +34,18 @@ use super::{
 const JOBS_INITIAL_CAPACITY: usize = 32;
 const FIVE_MINUTES: Duration = Duration::from_secs(5 * 60);
 
-pub(super) enum RunnerMessage {
+pub(super) enum RunnerMessage<Ctx: JobContext> {
 	NewJob {
 		id: JobId,
-		dyn_job: Box<dyn DynJob>,
-		db_id: Uuid,
-		db: Arc<PrismaClient>,
+		dyn_job: Box<dyn DynJob<Ctx>>,
+		job_ctx: Ctx,
 		ack_tx: oneshot::Sender<Result<(), JobSystemError>>,
 	},
 	ResumeStoredJob {
 		id: JobId,
-		dyn_job: Box<dyn DynJob>,
+		dyn_job: Box<dyn DynJob<Ctx>>,
+		job_ctx: Ctx,
 		dyn_tasks: Vec<Box<dyn Task<Error>>>,
-		db_id: Uuid,
-		db: Arc<PrismaClient>,
 		ack_tx: oneshot::Sender<Result<(), JobSystemError>>,
 	},
 	Command {
@@ -60,21 +56,20 @@ pub(super) enum RunnerMessage {
 	Shutdown,
 }
 
-pub(super) struct JobSystemRunner {
+pub(super) struct JobSystemRunner<Ctx: JobContext> {
 	dispatcher: TaskDispatcher<Error>,
-	handles: HashMap<JobId, JobHandle>,
+	handles: HashMap<JobId, JobHandle<Ctx>>,
 	job_hashes: HashMap<u64, JobId>,
 	job_hashes_by_id: HashMap<JobId, u64>,
-	dbs_by_job_id: HashMap<JobId, (Uuid, Arc<PrismaClient>)>,
-	jobs_to_store_by_db_id: HashMap<Uuid, Vec<StoredJobEntry>>,
-	job_return_status_tx: chan::Sender<(JobId, ReturnStatus)>,
+	jobs_to_store_by_ctx_id: HashMap<Uuid, Vec<StoredJobEntry>>,
+	job_return_status_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
 	job_outputs_tx: chan::Sender<(JobId, Result<JobOutput, JobSystemError>)>,
 }
 
-impl JobSystemRunner {
+impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 	pub(super) fn new(
 		dispatcher: TaskDispatcher<Error>,
-		job_return_status_tx: chan::Sender<(JobId, ReturnStatus)>,
+		job_return_status_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
 		job_outputs_tx: chan::Sender<(JobId, Result<JobOutput, JobSystemError>)>,
 	) -> Self {
 		Self {
@@ -82,8 +77,7 @@ impl JobSystemRunner {
 			handles: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
 			job_hashes: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
 			job_hashes_by_id: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
-			dbs_by_job_id: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
-			jobs_to_store_by_db_id: HashMap::new(),
+			jobs_to_store_by_ctx_id: HashMap::new(),
 			job_return_status_tx,
 			job_outputs_tx,
 		}
@@ -92,19 +86,20 @@ impl JobSystemRunner {
 	async fn new_job(
 		&mut self,
 		id: JobId,
-		dyn_job: Box<dyn DynJob>,
+		dyn_job: Box<dyn DynJob<Ctx>>,
+		job_ctx: Ctx,
 		maybe_existing_tasks: Option<Vec<Box<dyn Task<Error>>>>,
-		(db_id, db): (Uuid, Arc<PrismaClient>),
 	) -> Result<(), JobSystemError> {
 		let Self {
 			dispatcher,
 			handles,
 			job_hashes,
 			job_hashes_by_id,
-			dbs_by_job_id,
 			job_return_status_tx,
 			..
 		} = self;
+
+		let db = job_ctx.db();
 
 		let job_hash = dyn_job.hash();
 		if let Some(&already_running_id) = job_hashes.get(&job_hash) {
@@ -123,11 +118,16 @@ impl JobSystemRunner {
 		let mut handle = if let Some(existing_tasks) = maybe_existing_tasks {
 			dyn_job.resume(
 				dispatcher.clone(),
+				job_ctx.clone(),
 				existing_tasks,
 				job_return_status_tx.clone(),
 			)
 		} else {
-			dyn_job.dispatch(dispatcher.clone(), job_return_status_tx.clone())
+			dyn_job.dispatch(
+				dispatcher.clone(),
+				job_ctx.clone(),
+				job_return_status_tx.clone(),
+			)
 		};
 
 		handle.report.status = report::Status::Running;
@@ -137,10 +137,10 @@ impl JobSystemRunner {
 
 		// If the report doesn't have a created_at date, it's a new report
 		if handle.report.created_at.is_none() {
-			handle.report.create(&db).await?;
+			handle.report.create(db).await?;
 		} else {
 			// Otherwise it can be a job being resumed or a children job that was already been created
-			handle.report.update(&db).await?;
+			handle.report.update(db).await?;
 		}
 
 		// Registering children jobs
@@ -150,7 +150,7 @@ impl JobSystemRunner {
 			.map(|dyn_job| dyn_job.report_mut())
 			.map(|next_job_report| async {
 				if next_job_report.created_at.is_none() {
-					next_job_report.create(&db).await
+					next_job_report.create(job_ctx.db()).await
 				} else {
 					Ok(())
 				}
@@ -160,16 +160,13 @@ impl JobSystemRunner {
 			.await?;
 
 		handles.insert(id, handle);
-		dbs_by_job_id.insert(id, (db_id, db));
 
 		Ok(())
 	}
 
 	async fn process_command(&mut self, id: JobId, command: Command) -> Result<(), JobSystemError> {
-		if let (Some(handle), Some((_, db))) =
-			(self.handles.get_mut(&id), self.dbs_by_job_id.get(&id))
-		{
-			handle.send_command(command, db).await?;
+		if let Some(handle) = self.handles.get_mut(&id) {
+			handle.send_command(command).await?;
 			Ok(())
 		} else {
 			Err(JobSystemError::NotFound(id))
@@ -177,18 +174,14 @@ impl JobSystemRunner {
 	}
 
 	fn is_empty(&self) -> bool {
-		self.handles.is_empty()
-			&& self.job_hashes.is_empty()
-			&& self.job_hashes_by_id.is_empty()
-			&& self.dbs_by_job_id.is_empty()
+		self.handles.is_empty() && self.job_hashes.is_empty() && self.job_hashes_by_id.is_empty()
 	}
 
-	async fn process_return_status(&mut self, job_id: JobId, status: ReturnStatus) {
+	async fn process_return_status(&mut self, job_id: JobId, status: Result<ReturnStatus, Error>) {
 		let Self {
 			handles,
 			job_hashes,
 			job_hashes_by_id,
-			dbs_by_job_id,
 			job_outputs_tx,
 			job_return_status_tx,
 			dispatcher,
@@ -196,30 +189,24 @@ impl JobSystemRunner {
 		} = self;
 
 		let job_hash = job_hashes_by_id.remove(&job_id).expect("it must be here");
-		let (db_id, db) = dbs_by_job_id.remove(&job_id).expect("it must be here");
+
 		assert!(job_hashes.remove(&job_hash).is_some());
 		let mut handle = handles.remove(&job_id).expect("it must be here");
 
 		let res = match status {
-			ReturnStatus::Completed(job_return) => {
+			Ok(ReturnStatus::Completed(job_return)) => {
 				try_dispatch_next_job(
 					&mut handle,
 					dispatcher.clone(),
 					(job_hashes, job_hashes_by_id),
 					handles,
 					job_return_status_tx.clone(),
-					(db_id, &db, dbs_by_job_id),
 				);
 
-				handle.complete_job(job_return, &db).await
+				handle.complete_job(job_return).await
 			}
 
-			ReturnStatus::Failed(e) => handle
-				.failed_job(&e, &db)
-				.await
-				.and_then(|()| Err(e.into())),
-
-			ReturnStatus::Shutdown(Some(res)) => {
+			Ok(ReturnStatus::Shutdown(Some(res))) => {
 				let Ok(serialized_job) = res.map_err(|e| error!("Failed to serialize job: {e:#?}"))
 				else {
 					return;
@@ -253,8 +240,8 @@ impl JobSystemRunner {
 					return;
 				};
 
-				self.jobs_to_store_by_db_id
-					.entry(db_id)
+				self.jobs_to_store_by_ctx_id
+					.entry(handle.job_ctx.id())
 					.or_default()
 					.push(StoredJobEntry {
 						root_job: StoredJob {
@@ -268,7 +255,7 @@ impl JobSystemRunner {
 				return;
 			}
 
-			ReturnStatus::Shutdown(None) => {
+			Ok(ReturnStatus::Shutdown(None)) => {
 				debug!(
 					"Job was shutdown but didn't returned any serialized data, \
 					probably it isn't resumable job: <id='{job_id}'>"
@@ -277,10 +264,12 @@ impl JobSystemRunner {
 				return;
 			}
 
-			ReturnStatus::Canceled => handle
-				.cancel_job(&db)
+			Ok(ReturnStatus::Canceled) => handle
+				.cancel_job()
 				.await
 				.and_then(|()| Err(JobSystemError::Canceled(job_id))),
+
+			Err(e) => handle.failed_job(&e).await.and_then(|()| Err(e.into())),
 		};
 
 		job_outputs_tx
@@ -307,12 +296,6 @@ impl JobSystemRunner {
 		{
 			self.job_hashes_by_id.shrink_to(JOBS_INITIAL_CAPACITY);
 		}
-
-		if self.dbs_by_job_id.capacity() > JOBS_INITIAL_CAPACITY
-			&& self.dbs_by_job_id.len() < JOBS_INITIAL_CAPACITY
-		{
-			self.dbs_by_job_id.shrink_to(JOBS_INITIAL_CAPACITY);
-		}
 	}
 
 	async fn save_jobs(
@@ -325,16 +308,12 @@ impl JobSystemRunner {
 			handles,
 			job_hashes,
 			job_hashes_by_id,
-			dbs_by_job_id,
-			jobs_to_store_by_db_id,
+			jobs_to_store_by_ctx_id: jobs_to_store_by_db_id,
 			..
 		} = self;
 
 		assert!(
-			handles.is_empty()
-				&& job_hashes.is_empty()
-				&& job_hashes_by_id.is_empty()
-				&& dbs_by_job_id.is_empty(),
+			handles.is_empty() && job_hashes.is_empty() && job_hashes_by_id.is_empty(),
 			"All jobs must be completed before saving"
 		);
 
@@ -352,19 +331,12 @@ impl JobSystemRunner {
 	}
 }
 
-type DbData<'db, 'dbs_by_job_id> = (
-	Uuid,
-	&'db Arc<PrismaClient>,
-	&'dbs_by_job_id mut HashMap<JobId, (Uuid, Arc<PrismaClient>)>,
-);
-
-fn try_dispatch_next_job(
-	handle: &mut JobHandle,
+fn try_dispatch_next_job<Ctx: JobContext>(
+	handle: &mut JobHandle<Ctx>,
 	dispatcher: TaskDispatcher<Error>,
 	(job_hashes, job_hashes_by_id): (&mut HashMap<u64, JobId>, &mut HashMap<JobId, u64>),
-	handles: &mut HashMap<JobId, JobHandle>,
-	job_return_status_tx: chan::Sender<(JobId, ReturnStatus)>,
-	(db_id, db, dbs_by_job_id): DbData<'_, '_>,
+	handles: &mut HashMap<JobId, JobHandle<Ctx>>,
+	job_return_status_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
 ) {
 	if let Some(next) = handle.next_jobs.pop_front() {
 		let next_id = next.id();
@@ -372,33 +344,33 @@ fn try_dispatch_next_job(
 		if let Entry::Vacant(e) = job_hashes.entry(next_hash) {
 			e.insert(next_id);
 			job_hashes_by_id.insert(next_id, next_hash);
-			let mut next_handle = next.dispatch(dispatcher, job_return_status_tx);
+			let mut next_handle =
+				next.dispatch(dispatcher, handle.job_ctx.clone(), job_return_status_tx);
 
 			assert!(
 				next_handle.next_jobs.is_empty(),
 				"Only the root job will have next jobs, the rest will be empty and \
-							we will swap with remaining ones from the previous job"
+				we will swap with remaining ones from the previous job"
 			);
 
 			next_handle.next_jobs = mem::take(&mut handle.next_jobs);
 
 			handles.insert(next_id, next_handle);
-			dbs_by_job_id.insert(next_id, (db_id, Arc::clone(db)));
 		} else {
 			warn!("Unexpectedly found a job with the same hash as the next job: <id='{next_id}', name='{}'>", next.job_name());
 		}
 	}
 }
 
-pub(super) async fn run(
-	mut runner: JobSystemRunner,
+pub(super) async fn run<Ctx: JobContext>(
+	mut runner: JobSystemRunner<Ctx>,
 	store_jobs_file: impl AsRef<Path> + Send,
-	msgs_rx: chan::Receiver<RunnerMessage>,
-	job_return_status_rx: chan::Receiver<(JobId, ReturnStatus)>,
+	msgs_rx: chan::Receiver<RunnerMessage<Ctx>>,
+	job_return_status_rx: chan::Receiver<(JobId, Result<ReturnStatus, Error>)>,
 ) {
-	enum StreamMessage {
-		ReturnStatus((JobId, ReturnStatus)),
-		RunnerMessage(RunnerMessage),
+	enum StreamMessage<Ctx: JobContext> {
+		ReturnStatus((JobId, Result<ReturnStatus, Error>)),
+		RunnerMessage(RunnerMessage<Ctx>),
 		CleanMemoryTick,
 	}
 
@@ -424,29 +396,23 @@ pub(super) async fn run(
 			StreamMessage::RunnerMessage(RunnerMessage::NewJob {
 				id,
 				dyn_job,
-				db_id,
-				db,
+				job_ctx,
 				ack_tx,
 			}) => {
 				ack_tx
-					.send(runner.new_job(id, dyn_job, None, (db_id, db)).await)
+					.send(runner.new_job(id, dyn_job, job_ctx, None).await)
 					.expect("ack channel closed before sending new job response");
 			}
 
 			StreamMessage::RunnerMessage(RunnerMessage::ResumeStoredJob {
 				id,
 				dyn_job,
+				job_ctx,
 				dyn_tasks,
-				db_id,
-				db,
 				ack_tx,
 			}) => {
 				ack_tx
-					.send(
-						runner
-							.new_job(id, dyn_job, Some(dyn_tasks), (db_id, db))
-							.await,
-					)
+					.send(runner.new_job(id, dyn_job, job_ctx, Some(dyn_tasks)).await)
 					.expect("ack channel closed before sending resume job response");
 			}
 

@@ -1,11 +1,14 @@
 use crate::{jobs::JobId, Error, NonCriticalJobError};
 
+use sd_core_sync::Manager as SyncManager;
+
 use sd_prisma::prisma::PrismaClient;
 use sd_task_system::{IntoTask, Task, TaskHandle, TaskRemoteController, TaskSystemError};
 
 use std::{
 	collections::VecDeque,
 	hash::{DefaultHasher, Hash, Hasher},
+	marker::PhantomData,
 	pin::pin,
 };
 
@@ -21,6 +24,7 @@ use specta::Type;
 use strum::{Display, EnumString};
 use tokio::spawn;
 use tracing::{debug, error, info, warn};
+use uuid::Uuid;
 
 use super::{
 	report::{
@@ -29,7 +33,9 @@ use super::{
 	Command, JobSystemError, SerializableJob,
 };
 
-#[derive(Debug, Serialize, Deserialize, EnumString, Display, Clone, Copy, Type, Hash)]
+#[derive(
+	Debug, Serialize, Deserialize, EnumString, Display, Clone, Copy, Type, Hash, PartialEq, Eq,
+)]
 #[strum(use_phf, serialize_all = "snake_case")]
 pub enum JobName {
 	Indexer,
@@ -38,25 +44,42 @@ pub enum JobName {
 
 pub enum ReturnStatus {
 	Completed(JobReturn),
-	Failed(Error),
 	Shutdown(Option<Result<Vec<u8>, rmp_serde::encode::Error>>),
 	Canceled,
 }
 
-pub trait Job: Send + Sync + Hash + 'static {
+pub trait JobContext: Send + Sync + Clone + 'static {
+	fn id(&self) -> Uuid;
+	fn db(&self) -> &PrismaClient;
+	fn sync(&self) -> &SyncManager;
+}
+
+pub trait Job<Ctx: JobContext>: Send + Sync + Hash + 'static {
 	const NAME: JobName;
 
 	fn resume(&mut self, dispatched_tasks: Vec<TaskHandle<Error>>);
 
-	fn run(self, dispatcher: TaskDispatcher) -> impl Future<Output = ReturnStatus> + Send;
+	fn run(
+		self,
+		dispatcher: TaskDispatcher,
+		ctx: Ctx,
+	) -> impl Future<Output = Result<ReturnStatus, Error>> + Send;
 }
 
-pub trait IntoJob<J: Job + SerializableJob> {
-	fn into_job(self) -> Box<dyn DynJob>;
+pub trait IntoJob<J, Ctx>
+where
+	J: Job<Ctx> + SerializableJob<Ctx>,
+	Ctx: JobContext,
+{
+	fn into_job(self) -> Box<dyn DynJob<Ctx>>;
 }
 
-impl<J: Job + SerializableJob> IntoJob<J> for J {
-	fn into_job(self) -> Box<dyn DynJob> {
+impl<J, Ctx> IntoJob<J, Ctx> for J
+where
+	J: Job<Ctx> + SerializableJob<Ctx>,
+	Ctx: JobContext,
+{
+	fn into_job(self) -> Box<dyn DynJob<Ctx>> {
 		let id = JobId::new_v4();
 
 		Box::new(JobHolder {
@@ -64,12 +87,17 @@ impl<J: Job + SerializableJob> IntoJob<J> for J {
 			job: self,
 			report: ReportBuilder::new(id, J::NAME).build(),
 			next_jobs: VecDeque::new(),
+			_ctx: PhantomData,
 		})
 	}
 }
 
-impl<J: Job + SerializableJob> IntoJob<J> for JobBuilder<J> {
-	fn into_job(self) -> Box<dyn DynJob> {
+impl<J, Ctx> IntoJob<J, Ctx> for JobBuilder<J, Ctx>
+where
+	J: Job<Ctx> + SerializableJob<Ctx>,
+	Ctx: JobContext,
+{
+	fn into_job(self) -> Box<dyn DynJob<Ctx>> {
 		self.build()
 	}
 }
@@ -148,20 +176,30 @@ pub enum JobOutputData {
 	// TODO: Add more types
 }
 
-pub struct JobBuilder<J: Job + SerializableJob> {
+pub struct JobBuilder<J, Ctx>
+where
+	J: Job<Ctx> + SerializableJob<Ctx>,
+	Ctx: JobContext,
+{
 	id: JobId,
 	job: J,
 	report_builder: ReportBuilder,
-	next_jobs: VecDeque<Box<dyn DynJob>>,
+	next_jobs: VecDeque<Box<dyn DynJob<Ctx>>>,
+	_ctx: PhantomData<Ctx>,
 }
 
-impl<J: Job + SerializableJob> JobBuilder<J> {
-	pub fn build(self) -> Box<JobHolder<J>> {
-		Box::new(JobHolder::<J> {
+impl<J, Ctx> JobBuilder<J, Ctx>
+where
+	J: Job<Ctx> + SerializableJob<Ctx>,
+	Ctx: JobContext,
+{
+	pub fn build(self) -> Box<JobHolder<J, Ctx>> {
+		Box::new(JobHolder {
 			id: self.id,
 			job: self.job,
 			report: self.report_builder.build(),
 			next_jobs: VecDeque::new(),
+			_ctx: PhantomData,
 		})
 	}
 
@@ -172,6 +210,7 @@ impl<J: Job + SerializableJob> JobBuilder<J> {
 			job,
 			report_builder: ReportBuilder::new(id, J::NAME),
 			next_jobs: VecDeque::new(),
+			_ctx: PhantomData,
 		}
 	}
 
@@ -194,7 +233,7 @@ impl<J: Job + SerializableJob> JobBuilder<J> {
 	}
 
 	#[must_use]
-	pub fn enqueue_next(mut self, next: impl Job + SerializableJob) -> Self {
+	pub fn enqueue_next(mut self, next: impl Job<Ctx> + SerializableJob<Ctx>) -> Self {
 		let next_job_order = self.next_jobs.len() + 1;
 
 		let mut child_job_builder = JobBuilder::new(next).with_parent_id(self.id);
@@ -210,39 +249,37 @@ impl<J: Job + SerializableJob> JobBuilder<J> {
 	}
 }
 
-pub struct JobHolder<J: Job + SerializableJob> {
+pub struct JobHolder<J, Ctx>
+where
+	J: Job<Ctx> + SerializableJob<Ctx>,
+	Ctx: JobContext,
+{
 	pub(super) id: JobId,
 	pub(super) job: J,
 	pub(super) report: Report,
-	pub(super) next_jobs: VecDeque<Box<dyn DynJob>>,
+	pub(super) next_jobs: VecDeque<Box<dyn DynJob<Ctx>>>,
+	pub(super) _ctx: PhantomData<Ctx>,
 }
 
-pub struct JobHandle {
-	pub(crate) next_jobs: VecDeque<Box<dyn DynJob>>,
+pub struct JobHandle<Ctx: JobContext> {
+	pub(crate) next_jobs: VecDeque<Box<dyn DynJob<Ctx>>>,
+	pub(crate) job_ctx: Ctx,
 	pub(crate) report: Report,
 	pub(crate) commands_tx: chan::Sender<Command>,
 }
 
-impl JobHandle {
-	pub async fn send_command(
-		&mut self,
-		command: Command,
-		db: &PrismaClient,
-	) -> Result<(), JobSystemError> {
+impl<Ctx: JobContext> JobHandle<Ctx> {
+	pub async fn send_command(&mut self, command: Command) -> Result<(), JobSystemError> {
 		if self.commands_tx.send(command).await.is_err() {
 			warn!("Tried to send a {command:?} to a job that was already completed");
 
 			Ok(())
 		} else {
-			self.command_children(command, db).await
+			self.command_children(command).await
 		}
 	}
 
-	pub async fn command_children(
-		&mut self,
-		command: Command,
-		db: &PrismaClient,
-	) -> Result<(), JobSystemError> {
+	pub async fn command_children(&mut self, command: Command) -> Result<(), JobSystemError> {
 		let (new_status, completed_at) = match command {
 			Command::Pause => (Status::Paused, None),
 			Command::Resume => return Ok(()),
@@ -256,7 +293,7 @@ impl JobHandle {
 				next_job_report.status = new_status;
 				next_job_report.completed_at = completed_at;
 
-				next_job_report.update(db).await
+				next_job_report.update(self.job_ctx.db()).await
 			})
 			.collect::<Vec<_>>()
 			.try_join()
@@ -268,16 +305,20 @@ impl JobHandle {
 	pub async fn register_start(
 		&mut self,
 		start_time: DateTime<Utc>,
-		db: &PrismaClient,
 	) -> Result<(), JobSystemError> {
 		let Self {
-			next_jobs, report, ..
+			next_jobs,
+			report,
+			job_ctx,
+			..
 		} = self;
 
 		report.status = Status::Running;
 		if report.started_at.is_none() {
 			report.started_at = Some(start_time);
 		}
+
+		let db = job_ctx.db();
 
 		// If the report doesn't have a created_at date, it's a new report
 		if report.created_at.is_none() {
@@ -308,19 +349,22 @@ impl JobHandle {
 	pub async fn complete_job(
 		&mut self,
 		job_return: JobReturn,
-		db: &PrismaClient,
 	) -> Result<JobOutput, JobSystemError> {
-		let Self { report, .. } = self;
+		let Self {
+			report, job_ctx, ..
+		} = self;
 
 		let output = JobOutput::prepare_output_and_report(job_return, report);
 
-		report.update(db).await?;
+		report.update(job_ctx.db()).await?;
 
 		Ok(output)
 	}
 
-	pub async fn failed_job(&mut self, e: &Error, db: &PrismaClient) -> Result<(), JobSystemError> {
-		let Self { report, .. } = self;
+	pub async fn failed_job(&mut self, e: &Error) -> Result<(), JobSystemError> {
+		let Self {
+			report, job_ctx, ..
+		} = self;
 		error!(
 			"Job<id='{}', name='{}'> failed with a critical error: {e:#?};",
 			report.id, report.name
@@ -330,13 +374,15 @@ impl JobHandle {
 		report.critical_error = Some(e.to_string());
 		report.completed_at = Some(Utc::now());
 
-		report.update(db).await?;
+		report.update(job_ctx.db()).await?;
 
-		self.command_children(Command::Cancel, db).await
+		self.command_children(Command::Cancel).await
 	}
 
-	pub async fn shutdown_pause_job(&mut self, db: &PrismaClient) -> Result<(), JobSystemError> {
-		let Self { report, .. } = self;
+	pub async fn shutdown_pause_job(&mut self) -> Result<(), JobSystemError> {
+		let Self {
+			report, job_ctx, ..
+		} = self;
 		info!(
 			"Job<id='{}', name='{}'> paused due to system shutdown, we will pause all children jobs",
 			report.id, report.name
@@ -344,13 +390,15 @@ impl JobHandle {
 
 		report.status = Status::Paused;
 
-		report.update(db).await?;
+		report.update(job_ctx.db()).await?;
 
-		self.command_children(Command::Pause, db).await
+		self.command_children(Command::Pause).await
 	}
 
-	pub async fn cancel_job(&mut self, db: &PrismaClient) -> Result<(), JobSystemError> {
-		let Self { report, .. } = self;
+	pub async fn cancel_job(&mut self) -> Result<(), JobSystemError> {
+		let Self {
+			report, job_ctx, ..
+		} = self;
 		info!(
 			"Job<id='{}', name='{}'> canceled, we will cancel all children jobs",
 			report.id, report.name
@@ -359,13 +407,13 @@ impl JobHandle {
 		report.status = Status::Canceled;
 		report.completed_at = Some(Utc::now());
 
-		report.update(db).await?;
+		report.update(job_ctx.db()).await?;
 
-		self.command_children(Command::Cancel, db).await
+		self.command_children(Command::Cancel).await
 	}
 }
 
-pub trait DynJob: Send + Sync + 'static {
+pub trait DynJob<Ctx: JobContext>: Send + Sync + 'static {
 	fn id(&self) -> JobId;
 
 	fn job_name(&self) -> JobName;
@@ -374,27 +422,33 @@ pub trait DynJob: Send + Sync + 'static {
 
 	fn report_mut(&mut self) -> &mut Report;
 
-	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob>>);
+	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob<Ctx>>>);
 
-	fn next_jobs(&self) -> &VecDeque<Box<dyn DynJob>>;
+	fn next_jobs(&self) -> &VecDeque<Box<dyn DynJob<Ctx>>>;
 
 	fn serialize(&self) -> Option<Result<Vec<u8>, rmp_serde::encode::Error>>;
 
 	fn dispatch(
 		self: Box<Self>,
 		dispatcher: sd_task_system::TaskDispatcher<Error>,
-		done_tx: chan::Sender<(JobId, ReturnStatus)>,
-	) -> JobHandle;
+		job_ctx: Ctx,
+		done_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
+	) -> JobHandle<Ctx>;
 
 	fn resume(
 		self: Box<Self>,
 		dispatcher: sd_task_system::TaskDispatcher<Error>,
+		job_ctx: Ctx,
 		existing_tasks: Vec<Box<dyn Task<Error>>>,
-		done_tx: chan::Sender<(JobId, ReturnStatus)>,
-	) -> JobHandle;
+		done_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
+	) -> JobHandle<Ctx>;
 }
 
-impl<J: Job + SerializableJob> DynJob for JobHolder<J> {
+impl<J, Ctx> DynJob<Ctx> for JobHolder<J, Ctx>
+where
+	J: Job<Ctx> + SerializableJob<Ctx>,
+	Ctx: JobContext,
+{
 	fn id(&self) -> JobId {
 		self.id
 	}
@@ -414,11 +468,11 @@ impl<J: Job + SerializableJob> DynJob for JobHolder<J> {
 		&mut self.report
 	}
 
-	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob>>) {
+	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob<Ctx>>>) {
 		self.next_jobs = next_jobs;
 	}
 
-	fn next_jobs(&self) -> &VecDeque<Box<dyn DynJob>> {
+	fn next_jobs(&self) -> &VecDeque<Box<dyn DynJob<Ctx>>> {
 		&self.next_jobs
 	}
 
@@ -429,13 +483,15 @@ impl<J: Job + SerializableJob> DynJob for JobHolder<J> {
 	fn dispatch(
 		self: Box<Self>,
 		dispatcher: sd_task_system::TaskDispatcher<Error>,
-		done_tx: chan::Sender<(JobId, ReturnStatus)>,
-	) -> JobHandle {
+		job_ctx: Ctx,
+		done_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
+	) -> JobHandle<Ctx> {
 		let (commands_tx, commands_rx) = chan::bounded(8);
 
 		spawn(to_spawn_job(
 			self.id,
 			self.job,
+			job_ctx.clone(),
 			None,
 			dispatcher,
 			commands_rx,
@@ -444,6 +500,7 @@ impl<J: Job + SerializableJob> DynJob for JobHolder<J> {
 
 		JobHandle {
 			next_jobs: self.next_jobs,
+			job_ctx,
 			report: self.report,
 			commands_tx,
 		}
@@ -452,14 +509,16 @@ impl<J: Job + SerializableJob> DynJob for JobHolder<J> {
 	fn resume(
 		self: Box<Self>,
 		dispatcher: sd_task_system::TaskDispatcher<Error>,
+		job_ctx: Ctx,
 		existing_tasks: Vec<Box<dyn Task<Error>>>,
-		done_tx: chan::Sender<(JobId, ReturnStatus)>,
-	) -> JobHandle {
+		done_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
+	) -> JobHandle<Ctx> {
 		let (commands_tx, commands_rx) = chan::bounded(8);
 
 		spawn(to_spawn_job(
 			self.id,
 			self.job,
+			job_ctx.clone(),
 			Some(existing_tasks),
 			dispatcher,
 			commands_rx,
@@ -468,24 +527,26 @@ impl<J: Job + SerializableJob> DynJob for JobHolder<J> {
 
 		JobHandle {
 			next_jobs: self.next_jobs,
+			job_ctx,
 			report: self.report,
 			commands_tx,
 		}
 	}
 }
 
-async fn to_spawn_job(
+async fn to_spawn_job<Ctx: JobContext>(
 	id: JobId,
-	mut job: impl Job,
+	mut job: impl Job<Ctx>,
+	job_ctx: Ctx,
 	existing_tasks: Option<Vec<Box<dyn Task<Error>>>>,
 	dispatcher: sd_task_system::TaskDispatcher<Error>,
 	commands_rx: chan::Receiver<Command>,
-	done_tx: chan::Sender<(JobId, ReturnStatus)>,
+	done_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
 ) {
 	enum StreamMessage {
 		Commands(Command),
 		NewRemoteController(TaskRemoteController),
-		Done(ReturnStatus),
+		Done(Result<ReturnStatus, Error>),
 	}
 
 	let mut remote_controllers = vec![];
@@ -506,7 +567,7 @@ async fn to_spawn_job(
 	let mut msgs_stream = pin!((
 		commands_rx.map(StreamMessage::Commands),
 		remote_controllers_rx.map(StreamMessage::NewRemoteController),
-		stream::once(job.run(dispatcher)).map(StreamMessage::Done),
+		stream::once(job.run(dispatcher, job_ctx)).map(StreamMessage::Done),
 	)
 		.merge());
 
@@ -560,7 +621,7 @@ async fn to_spawn_job(
 							.await;
 
 						return done_tx
-							.send((id, ReturnStatus::Canceled))
+							.send((id, Ok(ReturnStatus::Canceled)))
 							.await
 							.expect("jobs done tx closed");
 					}

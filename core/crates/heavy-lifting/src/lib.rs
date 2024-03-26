@@ -29,6 +29,7 @@
 
 use std::fmt;
 
+use sd_task_system::TaskSystemError;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
@@ -43,12 +44,18 @@ use tasks::indexer::{IndexerError, NonCriticalIndexerError};
 pub enum Error {
 	#[error(transparent)]
 	Indexer(#[from] IndexerError),
+
+	#[error(transparent)]
+	TaskSystem(#[from] TaskSystemError),
 }
 
 impl From<Error> for rspc::Error {
 	fn from(e: Error) -> Self {
 		match e {
 			Error::Indexer(e) => e.into(),
+			Error::TaskSystem(e) => {
+				Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
+			}
 		}
 	}
 }

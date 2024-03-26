@@ -3,34 +3,38 @@ use crate::{
 	Error,
 };
 
-use sd_prisma::prisma::{job, PrismaClient};
+use sd_prisma::prisma::job;
 use sd_task_system::Task;
 use sd_utils::uuid_to_bytes;
 
 use std::{
 	collections::{HashMap, VecDeque},
 	iter,
+	marker::PhantomData,
 };
 
 use serde::{Deserialize, Serialize};
 
 use super::{
-	job::{DynJob, JobHolder, JobName},
+	job::{DynJob, Job, JobContext, JobHolder, JobName},
 	report::{Report, ReportError},
 	JobSystemError,
 };
 
 type DynTasks = Vec<Box<dyn Task<Error>>>;
 
-pub trait SerializableJob: 'static
+pub trait SerializableJob<Ctx: JobContext>: 'static
 where
 	Self: Sized,
 {
 	fn serialize(&self) -> Option<Result<Vec<u8>, rmp_serde::encode::Error>>;
-	fn deserialize(serialized_job: Vec<u8>) -> Result<(Self, DynTasks), rmp_serde::decode::Error>;
+	fn deserialize(
+		serialized_job: Vec<u8>,
+		ctx: &Ctx,
+	) -> Result<(Self, DynTasks), rmp_serde::decode::Error>;
 }
 
-pub type DynJobAndTasks = (Box<dyn DynJob>, DynTasks);
+pub type DynJobAndTasks<Ctx> = (Box<dyn DynJob<Ctx>>, DynTasks);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StoredJob {
@@ -45,11 +49,12 @@ pub struct StoredJobEntry {
 	pub(super) next_jobs: Vec<StoredJob>,
 }
 
-pub async fn load_jobs(
+pub async fn load_jobs<Ctx: JobContext>(
 	entries: Vec<StoredJobEntry>,
-	db: &PrismaClient,
-) -> Result<Vec<DynJobAndTasks>, JobSystemError> {
-	let mut reports = db
+	job_ctx: &Ctx,
+) -> Result<Vec<DynJobAndTasks<Ctx>>, JobSystemError> {
+	let mut reports = job_ctx
+		.db()
 		.job()
 		.find_many(vec![job::id::in_vec(
 			entries
@@ -81,7 +86,7 @@ pub async fn load_jobs(
 				let report = reports
 					.remove(&root_job.id)
 					.ok_or(ReportError::MissingReport(root_job.id))?;
-				let (mut dyn_job, tasks) = load_job(root_job, report)?;
+				let (mut dyn_job, tasks) = load_job(root_job, report, job_ctx)?;
 
 				dyn_job.set_next_jobs(
 					next_jobs
@@ -91,7 +96,8 @@ pub async fn load_jobs(
 								.remove(&next_job.id)
 								.ok_or(ReportError::MissingReport(next_job.id))?;
 
-							let (next_dyn_job, next_tasks) = load_job(next_job, next_job_report)?;
+							let (next_dyn_job, next_tasks) =
+								load_job(next_job, next_job_report, job_ctx)?;
 
 							assert!(next_tasks.is_empty(), "Next jobs must not have tasks");
 							assert!(
@@ -111,41 +117,49 @@ pub async fn load_jobs(
 }
 
 macro_rules! match_deserialize_job {
-	($stored_job:ident, $report:ident, [$(($job_name:pat, $job:ty)),+ $(,)?]) => {{
+	($stored_job:ident, $report:ident, $job_ctx:ident, $ctx_type:ty, [$($job_type:ty),+ $(,)?]) => {{
 		let StoredJob {
 			id,
 			name,
 			serialized_job,
 		} = $stored_job;
 
-		let report: Report = $report;
-
 		match name {
-			$($job_name => <$job as SerializableJob>::deserialize(serialized_job)
-				.map(|(job, tasks)| -> DynJobAndTasks {
-					(
-						Box::new(JobHolder {
-							id,
-							job,
-							report,
-							next_jobs: VecDeque::new(),
-						}),
-						tasks,
-					)
-				})
-				.map_err(Into::into),)+
+			$(<$job_type as Job<$ctx_type>>::NAME => <$job_type as SerializableJob<$ctx_type>>::deserialize(
+					serialized_job,
+					$job_ctx
+				)
+					.map(|(job, tasks)| -> DynJobAndTasks<$ctx_type> {
+						(
+							Box::new(JobHolder {
+								id,
+								job,
+								report: $report,
+								next_jobs: VecDeque::new(),
+								_ctx: PhantomData,
+							}),
+							tasks,
+						)
+					})
+					.map_err(Into::into),)+
 		}
 	}};
 }
 
-fn load_job(stored_job: StoredJob, report: Report) -> Result<DynJobAndTasks, JobSystemError> {
+fn load_job<Ctx: JobContext>(
+	stored_job: StoredJob,
+	report: Report,
+	job_ctx: &Ctx,
+) -> Result<DynJobAndTasks<Ctx>, JobSystemError> {
 	match_deserialize_job!(
 		stored_job,
 		report,
+		job_ctx,
+		Ctx,
 		[
-			(JobName::Indexer, IndexerJob),
+			IndexerJob,
 			// TODO: Add more jobs here
-			// e.g.: (JobName::FileIdentifier, FileIdentifierJob),
+			// e.g.: FileIdentifierJob, MediaProcessorJob, etc.,
 		]
 	)
 }

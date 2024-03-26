@@ -3,7 +3,10 @@ use std::path::Path;
 use sd_core_file_path_helper::FilePathError;
 use sd_core_indexer_rules::IndexerRuleError;
 
-use sd_utils::error::{FileIOError, NonUtf8PathError};
+use sd_utils::{
+	db::MissingFieldError,
+	error::{FileIOError, NonUtf8PathError},
+};
 
 use rspc::ErrorCode;
 use serde::{Deserialize, Serialize};
@@ -30,6 +33,8 @@ pub enum IndexerError {
 	NonUtf8Path(#[from] NonUtf8PathError),
 	#[error(transparent)]
 	IsoFilePath(#[from] FilePathError),
+	#[error("missing field on database: {0}")]
+	MissingField(#[from] MissingFieldError),
 
 	// Mixed errors
 	#[error(transparent)]

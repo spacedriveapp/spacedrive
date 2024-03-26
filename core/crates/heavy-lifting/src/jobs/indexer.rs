@@ -3,26 +3,179 @@ use crate::{
 	Error,
 };
 
-use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
-use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_walker};
+use sd_core_file_path_helper::{
+	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+	FilePathError, IsolatedFilePathData,
+};
+use sd_core_indexer_rules::{IndexerRule, IndexerRuler};
+use sd_core_prisma_helpers::{
+	file_path_pub_and_cas_ids, file_path_walker, location_with_indexer_rules,
+};
 
 use sd_prisma::prisma::{file_path, location, PrismaClient, SortOrder};
-use sd_task_system::{Task, TaskHandle};
+use sd_task_system::{Task, TaskHandle, TaskStatus};
+use sd_utils::db::maybe_missing;
 
 use std::{
 	collections::HashSet,
 	hash::{Hash, Hasher},
+	mem,
 	path::{Path, PathBuf},
 	sync::Arc,
 };
 
+use futures::{stream::FuturesUnordered, StreamExt};
 use itertools::Itertools;
 use prisma_client_rust::operator::or;
 
-use super::job_system::{
-	job::{Job, JobName, ReturnStatus, TaskDispatcher},
-	SerializableJob,
+use super::{
+	cancel_pending_tasks,
+	job_system::{
+		job::{Job, JobContext, JobName, JobReturn, ReturnStatus, TaskDispatcher},
+		SerializableJob,
+	},
 };
+
+/// BATCH_SIZE is the number of files to index at each step, writing the chunk of files metadata in the database.
+const BATCH_SIZE: usize = 1000;
+
+#[derive(Debug)]
+pub struct IndexerJob {
+	location: location_with_indexer_rules::Data,
+	location_path: PathBuf,
+	sub_path: Option<PathBuf>,
+	indexer_ruler: IndexerRuler,
+
+	pending_tasks_on_resume: Vec<TaskHandle<Error>>,
+	tasks_for_shutdown: Vec<Vec<u8>>,
+}
+
+impl<Ctx: JobContext> SerializableJob<Ctx> for IndexerJob {
+	fn serialize(&self) -> Option<Result<Vec<u8>, rmp_serde::encode::Error>> {
+		todo!("Implement serialization")
+	}
+
+	fn deserialize(
+		serialized_job: Vec<u8>,
+		ctx: &Ctx,
+	) -> Result<(Self, Vec<Box<dyn Task<Error>>>), rmp_serde::decode::Error> {
+		todo!("Implement deserialization")
+	}
+}
+
+impl Hash for IndexerJob {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.location.id.hash(state);
+		if let Some(ref sub_path) = self.sub_path {
+			sub_path.hash(state);
+		}
+	}
+}
+
+impl IndexerJob {
+	pub fn new(
+		location: location_with_indexer_rules::Data,
+		sub_path: Option<PathBuf>,
+	) -> Result<Self, IndexerError> {
+		Ok(Self {
+			indexer_ruler: location
+				.indexer_rules
+				.iter()
+				.map(|rule| IndexerRule::try_from(&rule.indexer_rule))
+				.collect::<Result<Vec<_>, _>>()
+				.map(IndexerRuler::new)?,
+			location_path: maybe_missing(&location.path, "location.path").map(PathBuf::from)?,
+			location,
+			sub_path,
+
+			pending_tasks_on_resume: Vec::new(),
+			tasks_for_shutdown: Vec::new(),
+		})
+	}
+}
+
+impl<Ctx: JobContext> Job<Ctx> for IndexerJob {
+	const NAME: JobName = JobName::Indexer;
+
+	async fn run(mut self, dispatcher: TaskDispatcher, ctx: Ctx) -> Result<ReturnStatus, Error> {
+		let mut pending_running_tasks = FuturesUnordered::new();
+
+		// if we don't have any pending task, then this is a fresh job
+		if self.pending_tasks_on_resume.is_empty() {
+			let to_walk = determine_initial_walk_path(
+				self.location.id,
+				&self.sub_path,
+				&self.location_path,
+				ctx.db(),
+			)
+			.await?;
+		} else {
+			pending_running_tasks.extend(mem::take(&mut self.pending_tasks_on_resume));
+		}
+
+		while let Some(task) = pending_running_tasks.next().await {
+			match task {
+				Ok(TaskStatus::Done((_, out))) => {}
+
+				Ok(TaskStatus::Shutdown(task)) => {}
+
+				Ok(TaskStatus::Error(e)) => {
+					cancel_pending_tasks(&pending_running_tasks).await;
+
+					return Err(e);
+				}
+
+				Ok(TaskStatus::Canceled | TaskStatus::ForcedAbortion) => {
+					cancel_pending_tasks(&pending_running_tasks).await;
+
+					return Ok(ReturnStatus::Canceled);
+				}
+
+				Err(e) => {
+					cancel_pending_tasks(&pending_running_tasks).await;
+
+					return Err(e.into());
+				}
+			}
+		}
+
+		Ok(ReturnStatus::Completed(JobReturn::default()))
+	}
+
+	fn resume(&mut self, dispatched_tasks: Vec<TaskHandle<Error>>) {
+		self.pending_tasks_on_resume = dispatched_tasks;
+	}
+}
+
+async fn determine_initial_walk_path(
+	location_id: location::id::Type,
+	sub_path: &Option<PathBuf>,
+	location_path: &Path,
+	db: &PrismaClient,
+) -> Result<PathBuf, IndexerError> {
+	match sub_path {
+		Some(sub_path) if sub_path != Path::new("") => {
+			let full_path = ensure_sub_path_is_in_location(location_path, sub_path)
+				.await
+				.map_err(IndexerError::from)?;
+			ensure_sub_path_is_directory(location_path, sub_path)
+				.await
+				.map_err(IndexerError::from)?;
+
+			ensure_file_path_exists(
+				sub_path,
+				&IsolatedFilePathData::new(location_id, location_path, &full_path, true)
+					.map_err(IndexerError::from)?,
+				db,
+				IndexerError::SubPathNotFound,
+			)
+			.await?;
+
+			Ok(full_path)
+		}
+		_ => Ok(location_path.to_path_buf()),
+	}
+}
 
 #[derive(Debug)]
 struct IsoFilePathFactory {
@@ -153,58 +306,5 @@ impl walker::WalkerDBProxy for WalkerDBProxy {
 		}
 
 		Ok(to_remove)
-	}
-}
-
-#[derive(Debug)]
-pub struct IndexerJob {
-	location_id: location::id::Type,
-	location_path: PathBuf,
-	db: Arc<PrismaClient>,
-}
-
-impl SerializableJob for IndexerJob {
-	fn serialize(&self) -> Option<Result<Vec<u8>, rmp_serde::encode::Error>> {
-		todo!("Implement serialization")
-	}
-
-	fn deserialize(
-		serialized_job: Vec<u8>,
-	) -> Result<(Self, Vec<Box<dyn Task<Error>>>), rmp_serde::decode::Error> {
-		todo!("Implement deserialization")
-	}
-}
-
-impl Hash for IndexerJob {
-	fn hash<H: Hasher>(&self, state: &mut H) {
-		self.location_id.hash(state);
-		self.location_path.hash(state);
-	}
-}
-
-impl IndexerJob {
-	#[must_use]
-	pub fn new(
-		location_id: location::id::Type,
-		location_path: PathBuf,
-		db: Arc<PrismaClient>,
-	) -> Self {
-		Self {
-			location_id,
-			location_path,
-			db,
-		}
-	}
-}
-
-impl Job for IndexerJob {
-	const NAME: JobName = JobName::Indexer;
-
-	async fn run(mut self, dispatcher: TaskDispatcher) -> ReturnStatus {
-		todo!()
-	}
-
-	fn resume(&mut self, dispatched_tasks: Vec<TaskHandle<Error>>) {
-		todo!()
 	}
 }

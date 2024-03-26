@@ -1,6 +1,5 @@
 use crate::Error;
 
-use sd_prisma::prisma::PrismaClient;
 use sd_task_system::TaskDispatcher;
 use sd_utils::error::FileIOError;
 
@@ -22,7 +21,7 @@ mod runner;
 mod store;
 
 use error::JobSystemError;
-use job::{IntoJob, Job, JobOutput};
+use job::{IntoJob, Job, JobContext, JobOutput};
 use runner::{run, JobSystemRunner, RunnerMessage};
 use store::{load_jobs, StoredJobEntry};
 
@@ -37,17 +36,17 @@ pub enum Command {
 	Cancel,
 }
 
-pub struct JobSystem {
-	msgs_tx: chan::Sender<RunnerMessage>,
+pub struct JobSystem<Ctx: JobContext> {
+	msgs_tx: chan::Sender<RunnerMessage<Ctx>>,
 	job_outputs_rx: chan::Receiver<(JobId, Result<JobOutput, JobSystemError>)>,
 	runner_handle: RefCell<Option<JoinHandle<()>>>,
 }
 
-impl JobSystem {
+impl<Ctx: JobContext> JobSystem<Ctx> {
 	pub async fn new(
 		dispatcher: TaskDispatcher<Error>,
 		data_directory: impl AsRef<Path> + Send,
-		dbs: &HashMap<Uuid, Arc<PrismaClient>>,
+		previously_existing_contexts: &HashMap<Uuid, Ctx>,
 	) -> Result<Self, JobSystemError> {
 		let (job_outputs_tx, job_outputs_rx) = chan::unbounded();
 		let (job_return_status_tx, job_return_status_rx) = chan::bounded(16);
@@ -92,7 +91,12 @@ impl JobSystem {
 			}
 		})));
 
-		load_stored_job_entries(store_jobs_file.as_ref(), dbs, &msgs_tx).await?;
+		load_stored_job_entries(
+			store_jobs_file.as_ref(),
+			previously_existing_contexts,
+			&msgs_tx,
+		)
+		.await?;
 
 		Ok(Self {
 			msgs_tx,
@@ -130,10 +134,10 @@ impl JobSystem {
 	/// Dispatch a new job to the system
 	/// # Panics
 	/// Panics only happen if internal channels are unexpectedly closed
-	pub async fn dispatch<J: Job + SerializableJob>(
+	pub async fn dispatch<J: Job<Ctx> + SerializableJob<Ctx>>(
 		&mut self,
-		job: impl IntoJob<J> + Send,
-		(db_id, db): (Uuid, Arc<PrismaClient>),
+		job: impl IntoJob<J, Ctx> + Send,
+		job_ctx: Ctx,
 	) -> Result<JobId, JobSystemError> {
 		let dyn_job = job.into_job();
 		let id = dyn_job.id();
@@ -143,8 +147,7 @@ impl JobSystem {
 			.send(RunnerMessage::NewJob {
 				id,
 				dyn_job,
-				db_id,
-				db,
+				job_ctx,
 				ack_tx,
 			})
 			.await
@@ -195,12 +198,12 @@ impl JobSystem {
 
 /// SAFETY: Due to usage of refcell we lost `Sync` impl, but we only use it to have a shutdown method
 /// receiving `&self` which is called once, and we also use `try_borrow_mut` so we never panic
-unsafe impl Sync for JobSystem {}
+unsafe impl<Ctx: JobContext> Sync for JobSystem<Ctx> {}
 
-async fn load_stored_job_entries(
+async fn load_stored_job_entries<Ctx: JobContext>(
 	store_jobs_file: impl AsRef<Path> + Send,
-	dbs: &HashMap<Uuid, Arc<PrismaClient>>,
-	msgs_tx: &chan::Sender<RunnerMessage>,
+	previously_existing_job_contexts: &HashMap<Uuid, Ctx>,
+	msgs_tx: &chan::Sender<RunnerMessage<Ctx>>,
 ) -> Result<(), JobSystemError> {
 	let store_jobs_file = store_jobs_file.as_ref();
 
@@ -216,19 +219,19 @@ async fn load_stored_job_entries(
 
 	stores_jobs_by_db
 		.into_iter()
-		.filter_map(|(db_id, entries)| {
-			dbs.get(&db_id).map_or_else(
+		.filter_map(|(ctx_id, entries)| {
+			previously_existing_job_contexts.get(&ctx_id).map_or_else(
 				|| {
-					warn!("Found stored jobs for a database that doesn't exist anymore: <db_id='{db_id}'>");
+					warn!("Found stored jobs for a database that doesn't exist anymore: <ctx_id='{ctx_id}'>");
 					None
 				},
-				|db| Some((entries, db_id, Arc::clone(db))),
+				|ctx| Some((entries, ctx.clone())),
 			)
 		})
-		.map(|(entries, db_id, db)| async move {
-			load_jobs(entries, &db)
+		.map(|(entries, ctx)| async move {
+			load_jobs(entries, &ctx)
 				.await
-				.map(|stored_jobs| (stored_jobs, db_id, db))
+				.map(|stored_jobs| (stored_jobs, ctx))
 		})
 		.collect::<Vec<_>>()
 		.join()
@@ -238,18 +241,17 @@ async fn load_stored_job_entries(
 			res.map_err(|e| error!("Failed to load stored jobs: {e:#?}"))
 				.ok()
 		})
-		.flat_map(|(stored_jobs, db_id, db)| {
+		.flat_map(|(stored_jobs, job_ctx)| {
 			stored_jobs.into_iter().map(move |(dyn_job, dyn_tasks)| {
-				let db = Arc::clone(&db);
+				let job_ctx = job_ctx.clone();
 				async move {
 					let (ack_tx, ack_rx) = oneshot::channel();
 					msgs_tx
 						.send(RunnerMessage::ResumeStoredJob {
 							id: dyn_job.id(),
 							dyn_job,
+							job_ctx,
 							dyn_tasks,
-							db_id,
-							db,
 							ack_tx,
 						})
 						.await
