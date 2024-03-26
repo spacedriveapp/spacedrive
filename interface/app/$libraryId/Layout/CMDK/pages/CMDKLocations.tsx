@@ -18,7 +18,7 @@ export default function CMDKLocations() {
 			<CommandPalette.List>
 				{locations?.map((location, index) => (
 					<CommandPalette.ListItem
-						key={index}
+						key={location.id}
 						index={index}
 						onClick={() => navigate(`location/${location.id}`)}
 						closeOnSelect
