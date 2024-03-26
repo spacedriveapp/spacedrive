@@ -121,7 +121,7 @@ function Tabs() {
 						else if (e.button === 1) removeTab(index);
 					}}
 					className={clsx(
-						'duration-[50ms] group relative flex h-full min-w-[10rem] shrink-0 flex-row items-center justify-center px-8 text-center',
+						'duration-[50ms] group relative flex h-full min-w-40 shrink-0 flex-row items-center justify-center px-8 text-center',
 						ctx.tabIndex === index
 							? 'text-ink'
 							: 'top-bar-blur border-t border-sidebar-divider bg-sidebar/30 text-ink-faint/60 transition-colors hover:bg-app/50'

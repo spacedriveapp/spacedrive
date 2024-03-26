@@ -24,7 +24,7 @@ const NewBanner: React.FC<NewBannerProps> = (props) => {
 				<Newspaper weight="fill" className="text-white " size={20} />
 				<p className="font-regular truncate text-white">{headline}</p>
 			</div>
-			<div role="separator" className="h-22 mx-4 w-[1px] bg-zinc-700/70" />
+			<div role="separator" className="h-22 mx-4 w-px bg-zinc-700/70" />
 			<Link
 				href={href}
 				className="font-regular shrink-0 bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent decoration-primary-600"

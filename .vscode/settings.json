@@ -88,5 +88,11 @@
 	"rust-analyzer.linkedProjects": [],
 	"rust-analyzer.cargo.extraEnv": {},
 	"rust-analyzer.check.targets": null,
-	"rust-analyzer.showUnlinkedFileNotification": false
+	"rust-analyzer.showUnlinkedFileNotification": false,
+	"i18n-ally.localesPaths": [
+		"interface/locales",
+		"apps/mobile/ios/Pods/RCT-Folly/folly/lang",
+		"apps/mobile/ios/Pods/boost/boost/locale",
+		"apps/mobile/ios/Pods/boost/boost/predef/language"
+	]
 }
