@@ -136,6 +136,7 @@ export type Procedures = {
         { key: "notifications.listen", input: never, result: Notification } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
         { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: EphemeralPathsResultItem } | 
+        { key: "sync.active", input: LibraryArgs<null>, result: boolean } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
 
