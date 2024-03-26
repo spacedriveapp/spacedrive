@@ -17,11 +17,11 @@
 }
 
 [id^='headlessui-dialog-panel-'] > div.flex-1.overflow-y-auto::-webkit-scrollbar {
-	@apply  w-1 #{!important};
+	@apply w-1 #{!important};
 }
 
 [id^='headlessui-dialog-panel-'] > div.flex-1.overflow-y-auto::-webkit-scrollbar-thumb {
-	@apply bg-app-explorerScrollbar w-10 rounded-full #{!important};
+	@apply w-10 rounded-full bg-app-explorerScrollbar #{!important};
 }
 
 .command-palette-content ul a {

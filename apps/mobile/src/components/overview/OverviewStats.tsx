@@ -7,6 +7,7 @@ import { ClassInput } from 'twrnc/dist/esm/types';
 import { byteSize, Statistics, StatisticsResponse, useLibraryContext } from '@sd/client';
 import useCounter from '~/hooks/useCounter';
 import { tw, twStyle } from '~/lib/tailwind';
+
 import Card from '../layout/Card';
 
 const StatItemNames: Partial<Record<keyof Statistics, string>> = {
@@ -31,13 +32,9 @@ const StatItem = ({ title, bytes, isLoading, style }: StatItemProps) => {
 
 	return (
 		<Card
-			style={twStyle(
-				'flex flex-col items-center justify-center  p-2',
-				style,
-				{
-					hidden: isLoading
-				}
-			)}
+			style={twStyle('flex flex-col items-center justify-center  p-2', style, {
+				hidden: isLoading
+			})}
 		>
 			<Text style={tw`text-sm font-bold text-zinc-400`}>{title}</Text>
 			<View style={tw`mt-1 flex-row items-baseline`}>

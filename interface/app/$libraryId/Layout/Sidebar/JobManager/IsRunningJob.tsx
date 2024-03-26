@@ -4,9 +4,5 @@ import { useLibraryQuery } from '~/../packages/client/src';
 
 export default () => {
 	const { data: isActive } = useLibraryQuery(['jobs.isActive']);
-	return isActive ? (
-		<Loader className="size-[20px]" />
-	) : (
-		<CheckCircle className="size-5" />
-	);
+	return isActive ? <Loader className="size-[20px]" /> : <CheckCircle className="size-5" />;
 };
