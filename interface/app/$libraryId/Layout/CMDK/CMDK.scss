@@ -16,6 +16,14 @@
 	@apply text-sm text-ink-faint #{!important};
 }
 
+[id^='headlessui-dialog-panel-'] > div.flex-1.overflow-y-auto::-webkit-scrollbar {
+	@apply  w-1 #{!important};
+}
+
+[id^='headlessui-dialog-panel-'] > div.flex-1.overflow-y-auto::-webkit-scrollbar-thumb {
+	@apply bg-app-explorerScrollbar w-10 rounded-full #{!important};
+}
+
 .command-palette-content ul a {
 	@apply hover:bg-app-darkBox #{!important};
 }
@@ -28,8 +36,12 @@
 	@apply text-sm #{!important};
 }
 
+.command-palette-content #headlessui-dialog-panel div:nth-child(2) {
+	@apply bg-red-500 #{!important};
+}
+
 .command-palette-content ul button div > span {
-	@apply text-white  #{!important};
+	@apply text-ink  #{!important};
 }
 
 .command-palette-content ul button span {
