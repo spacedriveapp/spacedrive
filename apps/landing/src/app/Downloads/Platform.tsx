@@ -96,7 +96,7 @@ export function Platform({ platform, ...props }: ComponentProps<'a'> & PlatformP
 		<Tooltip label={platform.name}>
 			<Outer {...props}>
 				<Icon
-					className={`h-[24px] w-[24px] text-white ${
+					className={`size-[24px] text-white ${
 						platform.disabled ? 'opacity-20' : 'opacity-90'
 					}`}
 					weight="fill"

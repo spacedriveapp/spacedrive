@@ -1,6 +1,13 @@
 import { Gear } from '@phosphor-icons/react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { JobManagerContextProvider, useClientContext, useDebugState } from '@sd/client';
+import {
+	JobManagerContextProvider,
+	LibraryContextProvider,
+	useClientContext,
+	useDebugState,
+	useLibrarySubscription
+} from '@sd/client';
 import { Button, ButtonLink, Popover, Tooltip, usePopover } from '@sd/ui';
 import { useKeysMatcher, useLocale, useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -43,6 +50,11 @@ export default () => {
 						</Button>
 					)}
 				</>
+			)}
+			{library && (
+				<LibraryContextProvider library={library}>
+					<SyncStatusIndicator />
+				</LibraryContextProvider>
 			)}
 			<div className="flex w-full items-center justify-between">
 				<div className="flex">
@@ -95,3 +107,13 @@ export default () => {
 		</div>
 	);
 };
+
+function SyncStatusIndicator() {
+	const [syncing, setSyncing] = useState(false);
+
+	useLibrarySubscription(['sync.active'], {
+		onData: setSyncing
+	});
+
+	return null;
+}

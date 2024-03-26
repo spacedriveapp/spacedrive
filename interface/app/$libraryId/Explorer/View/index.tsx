@@ -87,6 +87,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 
 	useShortcut('explorerEscape', () => {
 		if (!selectable || explorer.selectedItems.size === 0) return;
+		if (explorerStore.isCMDPOpen) return;
 		explorer.resetSelectedItems([]);
 	});
 
@@ -188,6 +189,7 @@ const useShortcuts = () => {
 
 	useShortcut('toggleQuickPreview', (e) => {
 		if (isRenaming || dialogManager.isAnyDialogOpen()) return;
+		if (explorerStore.isCMDPOpen) return;
 		e.preventDefault();
 		getQuickPreviewStore().open = !quickPreviewStore.open;
 	});

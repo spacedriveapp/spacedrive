@@ -435,5 +435,18 @@
 	"failed_to_download_update": "Échec du téléchargement de la mise à jour",
 	"updated_successfully": "Mise à jour réussie, vous êtes en version {{version}}",
 	"view_changes": "Voir les changements",
-	"update": "Mettre à jour"
+	"update": "Mettre à jour",
+	"ask_spacedrive": "Demandez à Spacedrive",
+	"close_command_palette": "Fermer la palette de commandes",
+	"disconnected": "Débranché",
+	"failed_to_rescan_location": "Échec de la nouvelle analyse de l'emplacement",
+	"go_to_labels": "Aller aux étiquettes",
+	"go_to_location": "Aller à l'emplacement",
+	"go_to_overview": "Aller à l'aperçu",
+	"go_to_recents": "Aller aux récents",
+	"go_to_settings": "Aller aux paramètres",
+	"go_to_tag": "Aller au tag",
+	"no_labels": "Pas d'étiquettes",
+	"search_for_files_and_actions": "Rechercher des fichiers et des actions...",
+	"toggle_command_palette": "Basculer la palette de commandes"
 }

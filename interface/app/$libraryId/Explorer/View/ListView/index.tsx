@@ -15,6 +15,7 @@ import { isNonEmptyObject } from '~/util';
 import { useLayoutContext } from '../../../Layout/Context';
 import { useExplorerContext } from '../../Context';
 import { getQuickPreviewStore, useQuickPreviewStore } from '../../QuickPreview/store';
+import { explorerStore } from '../../store';
 import { uniqueId } from '../../util';
 import { useExplorerViewContext } from '../Context';
 import { useDragScrollable } from '../useDragScrollable';
@@ -663,6 +664,7 @@ export const ListView = memo(() => {
 
 	useShortcut('explorerEscape', () => {
 		if (!explorerView.selectable || explorer.selectedItems.size === 0) return;
+		if (explorerStore.isCMDPOpen) return;
 		explorer.resetSelectedItems([]);
 		setRanges([]);
 	});

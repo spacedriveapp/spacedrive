@@ -1,11 +1,7 @@
-use crate::{
-	library::{Libraries, Library},
-	Node,
-};
+use crate::{library::Libraries, Node};
 
 use super::{err_break, CompressedCRDTOperations};
 use sd_cloud_api::RequestConfigProvider;
-use sd_core_sync::NTP64;
 use sd_p2p::RemoteIdentity;
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
 use sd_sync::CRDTOperation;
@@ -14,7 +10,10 @@ use tracing::{debug, info};
 
 use std::{
 	collections::{hash_map::Entry, HashMap},
-	sync::Arc,
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
 	time::Duration,
 };
 
@@ -28,17 +27,20 @@ use uuid::Uuid;
 
 #[allow(clippy::too_many_arguments)]
 pub async fn run_actor(
-	library: Arc<Library>,
 	libraries: Arc<Libraries>,
 	db: Arc<PrismaClient>,
 	library_id: Uuid,
 	instance_uuid: Uuid,
 	sync: Arc<sd_core_sync::Manager>,
-	cloud_api_config_provider: Arc<impl RequestConfigProvider>,
 	ingest_notify: Arc<Notify>,
 	node: Arc<Node>,
+	active: Arc<AtomicBool>,
+	active_notify: Arc<Notify>,
 ) {
 	loop {
+		active.store(true, Ordering::Relaxed);
+		active_notify.notify_waiters();
+
 		loop {
 			// We need to know the lastest operations we should be retrieving
 			let mut cloud_timestamps = {
@@ -106,7 +108,7 @@ pub async fn run_actor(
 
 			let collections = err_break!(
 				sd_cloud_api::library::message_collections::get(
-					cloud_api_config_provider.get_request_config().await,
+					node.get_request_config().await,
 					library_id,
 					instance_uuid,
 					instance_timestamps,
@@ -128,7 +130,7 @@ pub async fn run_actor(
 						None => {
 							let Some(fetched_library) = err_break!(
 								sd_cloud_api::library::get(
-									cloud_api_config_provider.get_request_config().await,
+									node.get_request_config().await,
 									library_id
 								)
 								.await
@@ -157,7 +159,9 @@ pub async fn run_actor(
 
 					err_break!(
 						upsert_instance(
-							&library,
+							library_id,
+							&db,
+							&sync,
 							&libraries,
 							collection.instance_uuid,
 							instance.identity,
@@ -200,6 +204,9 @@ pub async fn run_actor(
 			ingest_notify.notify_waiters();
 		}
 
+		active.store(false, Ordering::Relaxed);
+		active_notify.notify_waiters();
+
 		sleep(Duration::from_secs(60)).await;
 	}
 }
@@ -227,16 +234,16 @@ fn crdt_op_db(op: &CRDTOperation) -> cloud_crdt_operation::Create {
 }
 
 pub async fn upsert_instance(
-	library: &Arc<Library>,
+	library_id: Uuid,
+	db: &PrismaClient,
+	sync: &sd_core_sync::Manager,
 	libraries: &Libraries,
 	uuid: Uuid,
 	identity: RemoteIdentity,
 	node_id: Uuid,
 	metadata: HashMap<String, String>,
 ) -> prisma_client_rust::Result<()> {
-	library
-		.db
-		.instance()
+	db.instance()
 		.upsert(
 			instance::pub_id::equals(uuid_to_bytes(uuid)),
 			instance::create(
@@ -254,16 +261,10 @@ pub async fn upsert_instance(
 		.exec()
 		.await?;
 
-	library
-		.sync
-		.timestamps
-		.write()
-		.await
-		.entry(uuid)
-		.or_default();
+	sync.timestamps.write().await.entry(uuid).or_default();
 
 	// Called again so the new instances are picked up
-	libraries.update_instances(library.clone()).await;
+	libraries.update_instances_by_id(library_id).await;
 
 	Ok(())
 }

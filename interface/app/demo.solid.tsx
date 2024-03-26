@@ -1,3 +1,4 @@
+/* eslint-disable solid/reactivity */
 /** @jsxImportSource solid-js */
 
 import { createSignal } from 'solid-js';

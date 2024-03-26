@@ -436,5 +436,17 @@
 	"failed_to_download_update": "Error al descargar la actualización",
 	"updated_successfully": "Actualizado correctamente, estás en la versión {{version}}",
 	"view_changes": "Ver cambios",
-	"update": "Actualizar"
+	"update": "Actualizar",
+	"ask_spacedrive": "Pregúntale a SpaceDrive",
+	"close_command_palette": "Cerrar paleta de comandos",
+	"disconnected": "Desconectado",
+	"go_to_labels": "Ir a etiquetas",
+	"go_to_location": "Ir a la ubicación",
+	"go_to_overview": "Ir a la descripción general",
+	"go_to_recents": "Ir a recientes",
+	"go_to_settings": "Ir a la configuración",
+	"go_to_tag": "Ir a la etiqueta",
+	"no_labels": "Sin etiquetas",
+	"search_for_files_and_actions": "Buscar archivos y acciones...",
+	"toggle_command_palette": "Alternar paleta de comandos"
 }

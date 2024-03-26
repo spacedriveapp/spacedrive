@@ -103,7 +103,7 @@ export default function OnboardingLocations() {
 					<Icon
 						name="Folder"
 						size={46}
-						className="relative left-[-25px] z-[0] brightness-[0.6]"
+						className="relative left-[-25px] z-0 brightness-[0.6]"
 					/>
 				</div>
 				<OnboardingTitle>{t('add_locations')}</OnboardingTitle>

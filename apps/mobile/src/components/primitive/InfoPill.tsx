@@ -12,7 +12,7 @@ export const InfoPill = (props: Props) => {
 	return (
 		<View
 			style={twStyle(
-				'rounded-md border border-transparent bg-app-highlight px-[6px] py-[1px] shadow shadow-app-shade/5',
+				'rounded-md border border-transparent bg-app-highlight px-[6px] py-px shadow shadow-app-shade/5',
 				props.containerStyle
 			)}
 		>
@@ -27,7 +27,7 @@ export function PlaceholderPill(props: Props) {
 	return (
 		<View
 			style={twStyle(
-				'rounded-md border border-dashed border-app-highlight bg-transparent px-[6px] py-[1px] shadow shadow-app-shade/10',
+				'rounded-md border border-dashed border-app-highlight bg-transparent px-[6px] py-px shadow shadow-app-shade/10',
 				props.containerStyle
 			)}
 		>
