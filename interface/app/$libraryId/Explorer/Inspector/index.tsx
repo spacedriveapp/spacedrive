@@ -156,7 +156,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 					className={clsx(
 						thumbs.length > 1 && '!absolute',
 						i === 0 && thumbs.length > 1 && 'z-30 !h-[76%] !w-[76%]',
-						i === 1 && 'z-20 !h-[80%] !w-[80%] rotate-[-5deg]',
+						i === 1 && 'z-20 !h-4/5 !w-4/5 rotate-[-5deg]',
 						i === 2 && 'z-10 !h-[84%] !w-[84%] rotate-[7deg]'
 					)}
 					childClassName={(type) =>

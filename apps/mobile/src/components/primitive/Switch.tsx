@@ -16,7 +16,7 @@ type SwitchContainerProps = { title: string; description?: string } & SwitchProp
 export const SwitchContainer: FC<SwitchContainerProps> = ({ title, description, ...props }) => {
 	return (
 		<View style={tw`flex flex-row items-center justify-between pb-6`}>
-			<View style={tw`w-[80%]`}>
+			<View style={tw`w-4/5`}>
 				<Text style={tw`text-sm font-medium text-ink`}>{title}</Text>
 				{description && <Text style={tw`mt-2 text-sm text-ink-dull`}>{description}</Text>}
 			</View>

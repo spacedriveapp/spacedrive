@@ -58,7 +58,7 @@ export const Popover = ({ popover, trigger, children, disabled, className, ...pr
 					onCloseAutoFocus={(event) => event.preventDefault()}
 					className={clsx(
 						'flex flex-col',
-						'z-50 m-2 min-w-[11rem]',
+						'z-50 m-2 min-w-44',
 						'cursor-default select-none rounded-lg',
 						'text-left text-sm text-ink',
 						'bg-app-overlay',
