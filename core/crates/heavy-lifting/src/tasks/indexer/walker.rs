@@ -86,7 +86,7 @@ pub enum IndexerRulerAcceptKind {
 	AcceptAncestors,
 }
 
-pub trait IsoFilePathFactory: Send + Sync + fmt::Debug + 'static {
+pub trait IsoFilePathFactory: Clone + Send + Sync + fmt::Debug + 'static {
 	fn build(
 		&self,
 		path: impl AsRef<Path>,
@@ -94,7 +94,7 @@ pub trait IsoFilePathFactory: Send + Sync + fmt::Debug + 'static {
 	) -> Result<IsolatedFilePathData<'static>, FilePathError>;
 }
 
-pub trait WalkerDBProxy: Send + Sync + fmt::Debug + 'static {
+pub trait WalkerDBProxy: Clone + Send + Sync + fmt::Debug + 'static {
 	fn fetch_file_paths(
 		&self,
 		found_paths: Vec<file_path::WhereParam>,
@@ -114,10 +114,10 @@ pub struct ToWalkEntry {
 	maybe_parent: Option<PathBuf>,
 }
 
-impl From<PathBuf> for ToWalkEntry {
-	fn from(path: PathBuf) -> Self {
+impl<P: AsRef<Path>> From<P> for ToWalkEntry {
+	fn from(path: P) -> Self {
 		Self {
-			path,
+			path: path.as_ref().into(),
 			parent_dir_accepted_by_its_children: None,
 			maybe_parent: None,
 		}
@@ -170,35 +170,37 @@ enum WalkerStage {
 }
 
 #[derive(Debug)]
-pub(crate) struct WalkDirTask<DBProxy, IsoPathFactory>
+pub(crate) struct WalkDirTask<DBProxy, IsoPathFactory, Dispatcher>
 where
 	DBProxy: WalkerDBProxy,
 	IsoPathFactory: IsoFilePathFactory,
+	Dispatcher: TaskDispatcher<Error>,
 {
 	id: TaskId,
 	entry: ToWalkEntry,
 	root: Arc<PathBuf>,
 	entry_iso_file_path: IsolatedFilePathData<'static>,
 	indexer_ruler: IndexerRuler,
-	iso_file_path_factory: Arc<IsoPathFactory>,
-	db_proxy: Arc<DBProxy>,
+	iso_file_path_factory: IsoPathFactory,
+	db_proxy: DBProxy,
 	stage: WalkerStage,
-	maybe_dispatcher: Option<TaskDispatcher<Error>>,
+	maybe_dispatcher: Option<Dispatcher>,
 	errors: Vec<NonCriticalJobError>,
 }
 
-impl<DBProxy, IsoPathFactory> WalkDirTask<DBProxy, IsoPathFactory>
+impl<DBProxy, IsoPathFactory, Dispatcher> WalkDirTask<DBProxy, IsoPathFactory, Dispatcher>
 where
 	DBProxy: WalkerDBProxy,
 	IsoPathFactory: IsoFilePathFactory,
+	Dispatcher: TaskDispatcher<Error>,
 {
 	pub fn new(
 		entry: impl Into<ToWalkEntry> + Send,
 		root: Arc<PathBuf>,
 		indexer_ruler: IndexerRuler,
-		iso_file_path_factory: Arc<IsoPathFactory>,
-		db_proxy: Arc<DBProxy>,
-		maybe_dispatcher: Option<TaskDispatcher<Error>>,
+		iso_file_path_factory: IsoPathFactory,
+		db_proxy: DBProxy,
+		maybe_dispatcher: Option<Dispatcher>,
 	) -> Result<Self, IndexerError> {
 		let entry = entry.into();
 		Ok(Self {
@@ -217,10 +219,12 @@ where
 }
 
 #[async_trait::async_trait]
-impl<DBProxy, IsoPathFactory> Task<Error> for WalkDirTask<DBProxy, IsoPathFactory>
+impl<DBProxy, IsoPathFactory, Dispatcher> Task<Error>
+	for WalkDirTask<DBProxy, IsoPathFactory, Dispatcher>
 where
 	DBProxy: WalkerDBProxy,
 	IsoPathFactory: IsoFilePathFactory,
+	Dispatcher: TaskDispatcher<Error>,
 {
 	fn id(&self) -> TaskId {
 		self.id
@@ -342,8 +346,8 @@ where
 					let (walking_entries, to_remove_entries) = gather_file_paths_to_remove(
 						accepted_paths,
 						entry_iso_file_path,
-						iso_file_path_factory.as_ref(),
-						db_proxy.as_ref(),
+						iso_file_path_factory,
+						db_proxy,
 						errors,
 					)
 					.await;
@@ -366,7 +370,7 @@ where
 					accepted_ancestors,
 				} => {
 					let (to_create, to_update, total_size) =
-						segregate_creates_and_updates(walking_entries, db_proxy.as_ref()).await?;
+						segregate_creates_and_updates(walking_entries, db_proxy).await?;
 
 					let handles = keep_walking(
 						root,
@@ -490,10 +494,10 @@ async fn segregate_creates_and_updates(
 async fn keep_walking(
 	root: &Arc<PathBuf>,
 	indexer_ruler: &IndexerRuler,
-	iso_file_path_factory: &Arc<impl IsoFilePathFactory>,
-	db_proxy: &Arc<impl WalkerDBProxy>,
+	iso_file_path_factory: &impl IsoFilePathFactory,
+	db_proxy: &impl WalkerDBProxy,
 	maybe_to_keep_walking: &mut Option<Vec<ToWalkEntry>>,
-	dispatcher: &Option<TaskDispatcher<Error>>,
+	dispatcher: &Option<impl TaskDispatcher<Error>>,
 	errors: &mut Vec<NonCriticalJobError>,
 ) -> Vec<TaskHandle<Error>> {
 	if let (Some(dispatcher), Some(to_keep_walking)) = (dispatcher, maybe_to_keep_walking) {
@@ -506,8 +510,8 @@ async fn keep_walking(
 							entry,
 							Arc::clone(root),
 							indexer_ruler.clone(),
-							Arc::clone(iso_file_path_factory),
-							Arc::clone(db_proxy),
+							iso_file_path_factory.clone(),
+							db_proxy.clone(),
 							Some(dispatcher.clone()),
 						)
 						.map_err(|e| NonCriticalIndexerError::DispatchKeepWalking(e.to_string()))
@@ -823,9 +827,9 @@ mod tests {
 		}
 	}
 
-	#[derive(Debug)]
+	#[derive(Debug, Clone)]
 	struct DummyIsoPathFactory {
-		root_path: PathBuf,
+		root_path: Arc<PathBuf>,
 	}
 
 	impl IsoFilePathFactory for DummyIsoPathFactory {
@@ -834,11 +838,11 @@ mod tests {
 			path: impl AsRef<Path>,
 			is_dir: bool,
 		) -> Result<IsolatedFilePathData<'static>, FilePathError> {
-			IsolatedFilePathData::new(0, &self.root_path, path, is_dir).map_err(Into::into)
+			IsolatedFilePathData::new(0, self.root_path.as_ref(), path, is_dir).map_err(Into::into)
 		}
 	}
 
-	#[derive(Debug)]
+	#[derive(Debug, Clone)]
 	struct DummyDBProxy;
 
 	impl WalkerDBProxy for DummyDBProxy {
@@ -969,10 +973,10 @@ mod tests {
 					root_path.to_path_buf(),
 					Arc::new(root_path.to_path_buf()),
 					indexer_ruler,
-					Arc::new(DummyIsoPathFactory {
-						root_path: root_path.to_path_buf(),
-					}),
-					Arc::new(DummyDBProxy),
+					DummyIsoPathFactory {
+						root_path: Arc::new(root_path.to_path_buf()),
+					},
+					DummyDBProxy,
 					Some(system.get_dispatcher()),
 				)
 				.unwrap(),

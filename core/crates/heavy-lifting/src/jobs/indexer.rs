@@ -1,5 +1,8 @@
 use crate::{
-	tasks::indexer::{walker, IndexerError, NonCriticalIndexerError},
+	tasks::indexer::{
+		walker::{self, WalkDirTask},
+		IndexerError, NonCriticalIndexerError,
+	},
 	Error,
 };
 
@@ -15,6 +18,8 @@ use sd_core_prisma_helpers::{
 use sd_prisma::prisma::{file_path, location, PrismaClient, SortOrder};
 use sd_task_system::{Task, TaskHandle, TaskStatus};
 use sd_utils::db::maybe_missing;
+use serde::{Deserialize, Serialize};
+use tokio::time::Instant;
 
 use std::{
 	collections::HashSet,
@@ -31,7 +36,7 @@ use prisma_client_rust::operator::or;
 use super::{
 	cancel_pending_tasks,
 	job_system::{
-		job::{Job, JobContext, JobName, JobReturn, ReturnStatus, TaskDispatcher},
+		job::{Job, JobContext, JobName, JobReturn, JobTaskDispatcher, ReturnStatus},
 		SerializableJob,
 	},
 };
@@ -42,9 +47,11 @@ const BATCH_SIZE: usize = 1000;
 #[derive(Debug)]
 pub struct IndexerJob {
 	location: location_with_indexer_rules::Data,
-	location_path: PathBuf,
 	sub_path: Option<PathBuf>,
+
+	iso_file_path_factory: IsoFilePathFactory,
 	indexer_ruler: IndexerRuler,
+	walker_root_path: Option<Arc<PathBuf>>,
 
 	pending_tasks_on_resume: Vec<TaskHandle<Error>>,
 	tasks_for_shutdown: Vec<Vec<u8>>,
@@ -84,7 +91,13 @@ impl IndexerJob {
 				.map(|rule| IndexerRule::try_from(&rule.indexer_rule))
 				.collect::<Result<Vec<_>, _>>()
 				.map(IndexerRuler::new)?,
-			location_path: maybe_missing(&location.path, "location.path").map(PathBuf::from)?,
+			iso_file_path_factory: IsoFilePathFactory {
+				location_id: location.id,
+				location_path: maybe_missing(&location.path, "location.path")
+					.map(PathBuf::from)
+					.map(Arc::new)?,
+			},
+			walker_root_path: None,
 			location,
 			sub_path,
 
@@ -97,18 +110,36 @@ impl IndexerJob {
 impl<Ctx: JobContext> Job<Ctx> for IndexerJob {
 	const NAME: JobName = JobName::Indexer;
 
-	async fn run(mut self, dispatcher: TaskDispatcher, ctx: Ctx) -> Result<ReturnStatus, Error> {
+	async fn run(mut self, dispatcher: JobTaskDispatcher, ctx: Ctx) -> Result<ReturnStatus, Error> {
 		let mut pending_running_tasks = FuturesUnordered::new();
 
 		// if we don't have any pending task, then this is a fresh job
 		if self.pending_tasks_on_resume.is_empty() {
-			let to_walk = determine_initial_walk_path(
-				self.location.id,
-				&self.sub_path,
-				&self.location_path,
-				ctx.db(),
-			)
-			.await?;
+			let walker_root_path = Arc::new(
+				determine_initial_walk_path(
+					self.location.id,
+					&self.sub_path,
+					&self.iso_file_path_factory.location_path,
+					ctx.db(),
+				)
+				.await?,
+			);
+
+			let scan_start = Instant::now();
+
+			WalkDirTask::new(
+				walker_root_path.as_ref(),
+				Arc::clone(&walker_root_path),
+				self.indexer_ruler.clone(),
+				self.iso_file_path_factory.clone(),
+				WalkerDBProxy {
+					location_id: self.location.id,
+					db: Arc::clone(ctx.db()),
+				},
+				Some(dispatcher.clone()),
+			)?;
+
+			self.walker_root_path = Some(walker_root_path);
 		} else {
 			pending_running_tasks.extend(mem::take(&mut self.pending_tasks_on_resume));
 		}
@@ -177,10 +208,10 @@ async fn determine_initial_walk_path(
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct IsoFilePathFactory {
-	location_id: location::id::Type,
-	location_path: PathBuf,
+	pub location_id: location::id::Type,
+	pub location_path: Arc<PathBuf>,
 }
 
 impl walker::IsoFilePathFactory for IsoFilePathFactory {
@@ -189,11 +220,11 @@ impl walker::IsoFilePathFactory for IsoFilePathFactory {
 		path: impl AsRef<Path>,
 		is_dir: bool,
 	) -> Result<IsolatedFilePathData<'static>, FilePathError> {
-		IsolatedFilePathData::new(self.location_id, &self.location_path, path, is_dir)
+		IsolatedFilePathData::new(self.location_id, self.location_path.as_ref(), path, is_dir)
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct WalkerDBProxy {
 	location_id: location::id::Type,
 	db: Arc<PrismaClient>,

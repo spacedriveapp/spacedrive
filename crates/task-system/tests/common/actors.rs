@@ -1,5 +1,6 @@
 use sd_task_system::{
-	ExecStatus, Interrupter, Task, TaskDispatcher, TaskHandle, TaskId, TaskOutput, TaskStatus,
+	BaseTaskDispatcher, ExecStatus, Interrupter, Task, TaskDispatcher, TaskHandle, TaskId,
+	TaskOutput, TaskStatus,
 };
 
 use std::{
@@ -24,7 +25,7 @@ const SAMPLE_ACTOR_SAVE_STATE_FILE_NAME: &str = "sample_actor_save_state.bin";
 
 pub struct SampleActor {
 	data: Arc<String>, // Can hold any kind of actor data, like an AI model
-	task_dispatcher: TaskDispatcher<SampleError>,
+	task_dispatcher: BaseTaskDispatcher<SampleError>,
 	task_handles_tx: chan::Sender<TaskHandle<SampleError>>,
 }
 
@@ -32,7 +33,7 @@ impl SampleActor {
 	pub async fn new(
 		data_directory: impl AsRef<Path>,
 		data: String,
-		task_dispatcher: TaskDispatcher<SampleError>,
+		task_dispatcher: BaseTaskDispatcher<SampleError>,
 	) -> (Self, broadcast::Receiver<()>) {
 		let (task_handles_tx, task_handles_rx) = chan::bounded(8);
 

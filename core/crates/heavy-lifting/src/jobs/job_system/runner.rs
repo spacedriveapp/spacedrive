@@ -1,6 +1,6 @@
 use crate::{jobs::JobId, Error};
 
-use sd_task_system::{Task, TaskDispatcher};
+use sd_task_system::{BaseTaskDispatcher, Task};
 use sd_utils::error::FileIOError;
 
 use std::{
@@ -57,7 +57,7 @@ pub(super) enum RunnerMessage<Ctx: JobContext> {
 }
 
 pub(super) struct JobSystemRunner<Ctx: JobContext> {
-	dispatcher: TaskDispatcher<Error>,
+	base_dispatcher: BaseTaskDispatcher<Error>,
 	handles: HashMap<JobId, JobHandle<Ctx>>,
 	job_hashes: HashMap<u64, JobId>,
 	job_hashes_by_id: HashMap<JobId, u64>,
@@ -68,12 +68,12 @@ pub(super) struct JobSystemRunner<Ctx: JobContext> {
 
 impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 	pub(super) fn new(
-		dispatcher: TaskDispatcher<Error>,
+		base_dispatcher: BaseTaskDispatcher<Error>,
 		job_return_status_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
 		job_outputs_tx: chan::Sender<(JobId, Result<JobOutput, JobSystemError>)>,
 	) -> Self {
 		Self {
-			dispatcher,
+			base_dispatcher,
 			handles: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
 			job_hashes: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
 			job_hashes_by_id: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
@@ -91,7 +91,7 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 		maybe_existing_tasks: Option<Vec<Box<dyn Task<Error>>>>,
 	) -> Result<(), JobSystemError> {
 		let Self {
-			dispatcher,
+			base_dispatcher,
 			handles,
 			job_hashes,
 			job_hashes_by_id,
@@ -117,14 +117,14 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 
 		let mut handle = if let Some(existing_tasks) = maybe_existing_tasks {
 			dyn_job.resume(
-				dispatcher.clone(),
+				base_dispatcher.clone(),
 				job_ctx.clone(),
 				existing_tasks,
 				job_return_status_tx.clone(),
 			)
 		} else {
 			dyn_job.dispatch(
-				dispatcher.clone(),
+				base_dispatcher.clone(),
 				job_ctx.clone(),
 				job_return_status_tx.clone(),
 			)
@@ -184,7 +184,7 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 			job_hashes_by_id,
 			job_outputs_tx,
 			job_return_status_tx,
-			dispatcher,
+			base_dispatcher,
 			..
 		} = self;
 
@@ -197,7 +197,7 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 			Ok(ReturnStatus::Completed(job_return)) => {
 				try_dispatch_next_job(
 					&mut handle,
-					dispatcher.clone(),
+					base_dispatcher.clone(),
 					(job_hashes, job_hashes_by_id),
 					handles,
 					job_return_status_tx.clone(),
@@ -333,7 +333,7 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 
 fn try_dispatch_next_job<Ctx: JobContext>(
 	handle: &mut JobHandle<Ctx>,
-	dispatcher: TaskDispatcher<Error>,
+	base_dispatcher: BaseTaskDispatcher<Error>,
 	(job_hashes, job_hashes_by_id): (&mut HashMap<u64, JobId>, &mut HashMap<JobId, u64>),
 	handles: &mut HashMap<JobId, JobHandle<Ctx>>,
 	job_return_status_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
@@ -344,8 +344,11 @@ fn try_dispatch_next_job<Ctx: JobContext>(
 		if let Entry::Vacant(e) = job_hashes.entry(next_hash) {
 			e.insert(next_id);
 			job_hashes_by_id.insert(next_id, next_hash);
-			let mut next_handle =
-				next.dispatch(dispatcher, handle.job_ctx.clone(), job_return_status_tx);
+			let mut next_handle = next.dispatch(
+				base_dispatcher,
+				handle.job_ctx.clone(),
+				job_return_status_tx,
+			);
 
 			assert!(
 				next_handle.next_jobs.is_empty(),

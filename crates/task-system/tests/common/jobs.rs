@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use futures_concurrency::future::FutureGroup;
 use lending_stream::{LendingStream, StreamExt};
 use sd_task_system::{
-	ExecStatus, Interrupter, IntoAnyTaskOutput, Task, TaskDispatcher, TaskHandle, TaskId,
-	TaskOutput, TaskStatus,
+	BaseTaskDispatcher, ExecStatus, Interrupter, IntoAnyTaskOutput, Task, TaskDispatcher,
+	TaskHandle, TaskId, TaskOutput, TaskStatus,
 };
 use tracing::trace;
 
@@ -12,11 +12,11 @@ use super::tasks::SampleError;
 #[derive(Debug)]
 pub struct SampleJob {
 	total_steps: u32,
-	task_dispatcher: TaskDispatcher<SampleError>,
+	task_dispatcher: BaseTaskDispatcher<SampleError>,
 }
 
 impl SampleJob {
-	pub fn new(total_steps: u32, task_dispatcher: TaskDispatcher<SampleError>) -> Self {
+	pub fn new(total_steps: u32, task_dispatcher: BaseTaskDispatcher<SampleError>) -> Self {
 		Self {
 			total_steps,
 			task_dispatcher,
@@ -83,7 +83,7 @@ impl SampleJob {
 struct SampleJobTask {
 	id: TaskId,
 	expected_children: u32,
-	task_dispatcher: TaskDispatcher<SampleError>,
+	task_dispatcher: BaseTaskDispatcher<SampleError>,
 }
 
 #[derive(Debug)]

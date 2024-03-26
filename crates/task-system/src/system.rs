@@ -1,6 +1,8 @@
 use std::{
 	cell::RefCell,
 	collections::HashSet,
+	fmt,
+	future::Future,
 	num::NonZeroUsize,
 	pin::pin,
 	sync::{
@@ -30,7 +32,7 @@ use super::{
 pub struct System<E: RunError> {
 	workers: Arc<Vec<Worker<E>>>,
 	msgs_tx: chan::Sender<SystemMessage>,
-	dispatcher: Dispatcher<E>,
+	dispatcher: BaseDispatcher<E>,
 	handle: RefCell<Option<JoinHandle<()>>>,
 }
 
@@ -94,7 +96,7 @@ impl<E: RunError> System<E> {
 		Self {
 			workers: Arc::clone(&workers),
 			msgs_tx,
-			dispatcher: Dispatcher {
+			dispatcher: BaseDispatcher {
 				workers,
 				idle_workers,
 				last_worker_id: Arc::new(AtomicWorkerId::new(0)),
@@ -123,7 +125,7 @@ impl<E: RunError> System<E> {
 	}
 
 	/// Returns a dispatcher that can be used to remotely dispatch tasks to the system.
-	pub fn get_dispatcher(&self) -> Dispatcher<E> {
+	pub fn get_dispatcher(&self) -> BaseDispatcher<E> {
 		self.dispatcher.clone()
 	}
 
@@ -389,13 +391,30 @@ impl SystemComm {
 /// It can be used to dispatch tasks to the system from other threads or tasks.
 /// It uses [`Arc`] internally so it can be cheaply cloned and put inside tasks so tasks can dispatch other tasks.
 #[derive(Debug)]
-pub struct Dispatcher<E: RunError> {
+pub struct BaseDispatcher<E: RunError> {
 	workers: Arc<Vec<Worker<E>>>,
 	idle_workers: Arc<Vec<AtomicBool>>,
 	last_worker_id: Arc<AtomicWorkerId>,
 }
 
-impl<E: RunError> Clone for Dispatcher<E> {
+pub trait Dispatcher<E: RunError>: fmt::Debug + Clone + Send + Sync + 'static {
+	/// Dispatches a task to the system, the task will be assigned to a worker and executed as soon as possible.
+	fn dispatch(&self, into_task: impl IntoTask<E>) -> impl Future<Output = TaskHandle<E>> + Send {
+		self.dispatch_boxed(into_task.into_task())
+	}
+
+	/// Dispatches an already boxed task to the system, the task will be assigned to a worker and executed as
+	/// soon as possible.
+	fn dispatch_boxed(&self, task: Box<dyn Task<E>>) -> impl Future<Output = TaskHandle<E>> + Send;
+
+	/// Dispatches many tasks to the system, the tasks will be assigned to workers and executed as soon as possible.
+	fn dispatch_many(
+		&self,
+		into_tasks: impl IntoIterator<Item = impl IntoTask<E>> + Send,
+	) -> impl Future<Output = Vec<TaskHandle<E>>> + Send;
+}
+
+impl<E: RunError> Clone for BaseDispatcher<E> {
 	fn clone(&self) -> Self {
 		Self {
 			workers: Arc::clone(&self.workers),
@@ -405,16 +424,13 @@ impl<E: RunError> Clone for Dispatcher<E> {
 	}
 }
 
-impl<E: RunError> Dispatcher<E> {
-	/// Dispatches a task to the system, the task will be assigned to a worker and executed as soon as possible.
-	pub async fn dispatch(&self, into_task: impl IntoTask<E>) -> TaskHandle<E> {
+impl<E: RunError> Dispatcher<E> for BaseDispatcher<E> {
+	async fn dispatch(&self, into_task: impl IntoTask<E>) -> TaskHandle<E> {
 		self.dispatch_boxed(into_task.into_task()).await
 	}
 
-	/// Dispatches an already boxed task to the system, the task will be assigned to a worker and executed as
-	/// soon as possible.
 	#[allow(clippy::missing_panics_doc)]
-	pub async fn dispatch_boxed(&self, task: Box<dyn Task<E>>) -> TaskHandle<E> {
+	async fn dispatch_boxed(&self, task: Box<dyn Task<E>>) -> TaskHandle<E> {
 		let worker_id = self
 				.last_worker_id
 				.fetch_update(Ordering::Release, Ordering::Acquire, |last_worker_id| {
@@ -433,8 +449,7 @@ impl<E: RunError> Dispatcher<E> {
 		handle
 	}
 
-	/// Dispatches many tasks to the system, the tasks will be assigned to workers and executed as soon as possible.
-	pub async fn dispatch_many(
+	async fn dispatch_many(
 		&self,
 		into_tasks: impl IntoIterator<Item = impl IntoTask<E>> + Send,
 	) -> Vec<TaskHandle<E>> {
@@ -467,7 +482,9 @@ impl<E: RunError> Dispatcher<E> {
 
 		handles
 	}
+}
 
+impl<E: RunError> BaseDispatcher<E> {
 	/// Returns the number of workers in the system.
 	#[must_use]
 	pub fn workers_count(&self) -> usize {

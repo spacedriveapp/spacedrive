@@ -1,6 +1,6 @@
 use crate::Error;
 
-use sd_task_system::TaskDispatcher;
+use sd_task_system::BaseTaskDispatcher;
 use sd_utils::error::FileIOError;
 
 use std::{cell::RefCell, collections::hash_map::HashMap, path::Path, sync::Arc};
@@ -44,7 +44,7 @@ pub struct JobSystem<Ctx: JobContext> {
 
 impl<Ctx: JobContext> JobSystem<Ctx> {
 	pub async fn new(
-		dispatcher: TaskDispatcher<Error>,
+		base_dispatcher: BaseTaskDispatcher<Error>,
 		data_directory: impl AsRef<Path> + Send,
 		previously_existing_contexts: &HashMap<Uuid, Ctx>,
 	) -> Result<Self, JobSystemError> {
@@ -60,7 +60,7 @@ impl<Ctx: JobContext> JobSystem<Ctx> {
 				trace!("Job System Runner starting...");
 				while let Err(e) = spawn({
 					let store_jobs_file = Arc::clone(&store_jobs_file);
-					let dispatcher = dispatcher.clone();
+					let base_dispatcher = base_dispatcher.clone();
 					let job_return_status_tx = job_return_status_tx.clone();
 					let job_return_status_rx = job_return_status_rx.clone();
 					let job_outputs_tx = job_outputs_tx.clone();
@@ -68,7 +68,11 @@ impl<Ctx: JobContext> JobSystem<Ctx> {
 
 					async move {
 						run(
-							JobSystemRunner::new(dispatcher, job_return_status_tx, job_outputs_tx),
+							JobSystemRunner::new(
+								base_dispatcher,
+								job_return_status_tx,
+								job_outputs_tx,
+							),
 							store_jobs_file.as_ref(),
 							msgs_rx,
 							job_return_status_rx,

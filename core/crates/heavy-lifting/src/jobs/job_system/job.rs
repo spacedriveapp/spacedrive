@@ -3,13 +3,17 @@ use crate::{jobs::JobId, Error, NonCriticalJobError};
 use sd_core_sync::Manager as SyncManager;
 
 use sd_prisma::prisma::PrismaClient;
-use sd_task_system::{IntoTask, Task, TaskHandle, TaskRemoteController, TaskSystemError};
+use sd_task_system::{
+	BaseTaskDispatcher, IntoTask, Task, TaskDispatcher, TaskHandle, TaskRemoteController,
+	TaskSystemError,
+};
 
 use std::{
 	collections::VecDeque,
 	hash::{DefaultHasher, Hash, Hasher},
 	marker::PhantomData,
 	pin::pin,
+	sync::Arc,
 };
 
 use async_channel as chan;
@@ -50,8 +54,8 @@ pub enum ReturnStatus {
 
 pub trait JobContext: Send + Sync + Clone + 'static {
 	fn id(&self) -> Uuid;
-	fn db(&self) -> &PrismaClient;
-	fn sync(&self) -> &SyncManager;
+	fn db(&self) -> &Arc<PrismaClient>;
+	fn sync(&self) -> &Arc<SyncManager>;
 }
 
 pub trait Job<Ctx: JobContext>: Send + Sync + Hash + 'static {
@@ -61,7 +65,7 @@ pub trait Job<Ctx: JobContext>: Send + Sync + Hash + 'static {
 
 	fn run(
 		self,
-		dispatcher: TaskDispatcher,
+		dispatcher: JobTaskDispatcher,
 		ctx: Ctx,
 	) -> impl Future<Output = Result<ReturnStatus, Error>> + Send;
 }
@@ -430,14 +434,14 @@ pub trait DynJob<Ctx: JobContext>: Send + Sync + 'static {
 
 	fn dispatch(
 		self: Box<Self>,
-		dispatcher: sd_task_system::TaskDispatcher<Error>,
+		dispatcher: BaseTaskDispatcher<Error>,
 		job_ctx: Ctx,
 		done_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
 	) -> JobHandle<Ctx>;
 
 	fn resume(
 		self: Box<Self>,
-		dispatcher: sd_task_system::TaskDispatcher<Error>,
+		dispatcher: BaseTaskDispatcher<Error>,
 		job_ctx: Ctx,
 		existing_tasks: Vec<Box<dyn Task<Error>>>,
 		done_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
@@ -482,7 +486,7 @@ where
 
 	fn dispatch(
 		self: Box<Self>,
-		dispatcher: sd_task_system::TaskDispatcher<Error>,
+		base_dispatcher: BaseTaskDispatcher<Error>,
 		job_ctx: Ctx,
 		done_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
 	) -> JobHandle<Ctx> {
@@ -493,7 +497,7 @@ where
 			self.job,
 			job_ctx.clone(),
 			None,
-			dispatcher,
+			base_dispatcher,
 			commands_rx,
 			done_tx,
 		));
@@ -508,7 +512,7 @@ where
 
 	fn resume(
 		self: Box<Self>,
-		dispatcher: sd_task_system::TaskDispatcher<Error>,
+		dispatcher: BaseTaskDispatcher<Error>,
 		job_ctx: Ctx,
 		existing_tasks: Vec<Box<dyn Task<Error>>>,
 		done_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
@@ -539,7 +543,7 @@ async fn to_spawn_job<Ctx: JobContext>(
 	mut job: impl Job<Ctx>,
 	job_ctx: Ctx,
 	existing_tasks: Option<Vec<Box<dyn Task<Error>>>>,
-	dispatcher: sd_task_system::TaskDispatcher<Error>,
+	base_dispatcher: BaseTaskDispatcher<Error>,
 	commands_rx: chan::Receiver<Command>,
 	done_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
 ) {
@@ -551,7 +555,7 @@ async fn to_spawn_job<Ctx: JobContext>(
 
 	let mut remote_controllers = vec![];
 
-	let (dispatcher, remote_controllers_rx) = TaskDispatcher::new(dispatcher);
+	let (dispatcher, remote_controllers_rx) = JobTaskDispatcher::new(base_dispatcher);
 
 	if let Some(existing_tasks) = existing_tasks {
 		job.resume(
@@ -643,31 +647,14 @@ async fn to_spawn_job<Ctx: JobContext>(
 	}
 }
 
-pub struct TaskDispatcher {
-	dispatcher: sd_task_system::TaskDispatcher<Error>,
+#[derive(Debug, Clone)]
+pub struct JobTaskDispatcher {
+	dispatcher: BaseTaskDispatcher<Error>,
 	remote_controllers_tx: chan::Sender<TaskRemoteController>,
 }
 
-impl TaskDispatcher {
-	fn new(
-		dispatcher: sd_task_system::TaskDispatcher<Error>,
-	) -> (Self, chan::Receiver<TaskRemoteController>) {
-		let (remote_controllers_tx, remote_controllers_rx) = chan::unbounded();
-
-		(
-			Self {
-				dispatcher,
-				remote_controllers_tx,
-			},
-			remote_controllers_rx,
-		)
-	}
-
-	pub async fn dispatch(&self, into_task: impl IntoTask<Error>) -> TaskHandle<Error> {
-		self.dispatch_boxed(into_task.into_task()).await
-	}
-
-	pub async fn dispatch_boxed(&self, task: Box<dyn Task<Error>>) -> TaskHandle<Error> {
+impl TaskDispatcher<Error> for JobTaskDispatcher {
+	async fn dispatch_boxed(&self, task: Box<dyn Task<Error>>) -> TaskHandle<Error> {
 		let handle = self.dispatcher.dispatch_boxed(task).await;
 
 		self.remote_controllers_tx
@@ -678,9 +665,9 @@ impl TaskDispatcher {
 		handle
 	}
 
-	pub async fn dispatch_many(
+	async fn dispatch_many(
 		&self,
-		into_tasks: Vec<impl IntoTask<Error>>,
+		into_tasks: impl IntoIterator<Item = impl IntoTask<Error>> + Send,
 	) -> Vec<TaskHandle<Error>> {
 		let handles = self.dispatcher.dispatch_many(into_tasks).await;
 
@@ -700,5 +687,19 @@ impl TaskDispatcher {
 			.expect("remote controllers tx closed");
 
 		handles
+	}
+}
+
+impl JobTaskDispatcher {
+	fn new(dispatcher: BaseTaskDispatcher<Error>) -> (Self, chan::Receiver<TaskRemoteController>) {
+		let (remote_controllers_tx, remote_controllers_rx) = chan::unbounded();
+
+		(
+			Self {
+				dispatcher,
+				remote_controllers_tx,
+			},
+			remote_controllers_rx,
+		)
 	}
 }
