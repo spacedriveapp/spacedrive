@@ -1,28 +1,27 @@
 import { CompositeScreenProps } from '@react-navigation/native';
-import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
+import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import Header from '~/components/header/Header';
-import { tw } from '~/lib/tailwind';
+import CategoriesScreen from '~/screens/overview/Categories';
+import OverviewScreen from '~/screens/overview/index';
 
-import OverviewScreen from '../../screens/Overview';
 import { TabScreenProps } from '../TabNavigator';
 
-const Stack = createStackNavigator<OverviewStackParamList>();
+const Stack = createNativeStackNavigator<OverviewStackParamList>();
 
 export default function OverviewStack() {
 	return (
-		<Stack.Navigator
-			initialRouteName="Overview"
-			screenOptions={{
-				headerStyle: { backgroundColor: tw.color('app-box') },
-				headerTintColor: tw.color('ink'),
-				headerTitleStyle: tw`text-base`,
-				headerBackTitleStyle: tw`text-base`
-			}}
-		>
+		<Stack.Navigator initialRouteName="Overview">
 			<Stack.Screen
 				name="Overview"
 				component={OverviewScreen}
 				options={{ header: () => <Header title="Overview" /> }}
+			/>
+			<Stack.Screen
+				name="Categories"
+				component={CategoriesScreen}
+				options={{
+					header: () => <Header searchType="categories" navBack title="Categories" />
+				}}
 			/>
 		</Stack.Navigator>
 	);
@@ -30,10 +29,11 @@ export default function OverviewStack() {
 
 export type OverviewStackParamList = {
 	Overview: undefined;
+	Categories: undefined;
 };
 
 export type OverviewStackScreenProps<Screen extends keyof OverviewStackParamList> =
 	CompositeScreenProps<
-		StackScreenProps<OverviewStackParamList, Screen>,
+		NativeStackScreenProps<OverviewStackParamList, Screen>,
 		TabScreenProps<'OverviewStack'>
 	>;

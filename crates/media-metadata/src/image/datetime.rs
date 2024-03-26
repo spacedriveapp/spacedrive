@@ -24,6 +24,7 @@ impl MediaDate {
 	/// This iterates over all 3 pairs of time/offset tags in an attempt to create a UTC time.
 	///
 	/// If the above fails, we fall back to Naive time - if that's not present this is `Undefined`.
+	#[must_use]
 	pub fn from_reader(reader: &ExifReader) -> Option<Self> {
 		let z = TIME_TAGS
 			.into_iter()
@@ -47,10 +48,10 @@ impl MediaDate {
 
 		z.iter()
 			.find(|x| matches!(x, Self::Utc(_) | Self::Naive(_)))
-			.map(Clone::clone)
+			.cloned()
 	}
 
-	/// Returns the amount of non-leap secods since the Unix Epoch (1970-01-01T00:00:00+00:00)
+	/// Returns the amount of non-leap seconds since the Unix Epoch (1970-01-01T00:00:00+00:00)
 	///
 	/// This is for search ordering/sorting
 	#[must_use]

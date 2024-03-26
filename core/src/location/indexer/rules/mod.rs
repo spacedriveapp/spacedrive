@@ -15,7 +15,7 @@ use std::{
 use chrono::{DateTime, Utc};
 use futures::future::try_join_all;
 use globset::{Glob, GlobSet, GlobSetBuilder};
-use rmp_serde::{self, decode, encode};
+use rmp_serde::{decode, encode};
 use rspc::ErrorCode;
 use serde::{de, ser, Deserialize, Serialize};
 use specta::Type;
@@ -622,7 +622,6 @@ pub fn generate_pub_id() -> Uuid {
 mod tests {
 	use super::*;
 	use tempfile::tempdir;
-	use tokio::fs;
 
 	impl IndexerRule {
 		pub fn new(name: String, default: bool, rules: Vec<RulePerKind>) -> Self {

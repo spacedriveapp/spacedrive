@@ -43,7 +43,7 @@ pub const PDF_LANDSCAPE_RENDER_WIDTH: pdfium_render::prelude::Pixels = 1123;
 #[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "serde", serde(rename_all = "lowercase"))]
 #[derive(Debug, Clone, Copy)]
-pub enum ConvertableExtension {
+pub enum ConvertibleExtension {
 	Bmp,
 	Dib,
 	Ff,
@@ -74,7 +74,7 @@ pub enum ConvertableExtension {
 	Webp,
 }
 
-impl ConvertableExtension {
+impl ConvertibleExtension {
 	#[must_use]
 	pub const fn should_rotate(self) -> bool {
 		!matches!(
@@ -88,13 +88,13 @@ impl ConvertableExtension {
 	}
 }
 
-impl Display for ConvertableExtension {
+impl Display for ConvertibleExtension {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{self:?}")
 	}
 }
 
-impl TryFrom<String> for ConvertableExtension {
+impl TryFrom<String> for ConvertibleExtension {
 	type Error = crate::Error;
 
 	fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -133,7 +133,7 @@ impl TryFrom<String> for ConvertableExtension {
 	}
 }
 
-impl TryFrom<&Path> for ConvertableExtension {
+impl TryFrom<&Path> for ConvertibleExtension {
 	type Error = crate::Error;
 
 	fn try_from(value: &Path) -> Result<Self, Self::Error> {
@@ -146,7 +146,7 @@ impl TryFrom<&Path> for ConvertableExtension {
 }
 
 #[cfg(feature = "serde")]
-impl serde::Serialize for ConvertableExtension {
+impl serde::Serialize for ConvertibleExtension {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: serde::Serializer,
@@ -160,7 +160,7 @@ struct ExtensionVisitor;
 
 #[cfg(feature = "serde")]
 impl<'de> serde::de::Visitor<'de> for ExtensionVisitor {
-	type Value = ConvertableExtension;
+	type Value = ConvertibleExtension;
 
 	fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		formatter.write_str("A valid extension string`")
@@ -175,7 +175,7 @@ impl<'de> serde::de::Visitor<'de> for ExtensionVisitor {
 }
 
 #[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for ConvertableExtension {
+impl<'de> serde::Deserialize<'de> for ConvertibleExtension {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
 		D: serde::Deserializer<'de>,

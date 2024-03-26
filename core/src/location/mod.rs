@@ -1,11 +1,11 @@
 use crate::{
 	invalidate_query,
-	job::{JobBuilder, JobError, JobManagerError},
 	library::Library,
 	object::{
-		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
-		media::{media_processor, MediaProcessorJobInit},
+		media::{old_media_processor, OldMediaProcessorJobInit},
+		old_file_identifier::{self, old_file_identifier_job::OldFileIdentifierJobInit},
 	},
+	old_job::{JobBuilder, JobError, JobManagerError},
 	Node,
 };
 
@@ -18,10 +18,9 @@ use sd_sync::*;
 use sd_utils::{
 	db::{maybe_missing, MissingFieldError},
 	error::{FileIOError, NonUtf8PathError},
-	uuid_to_bytes,
+	msgpack, uuid_to_bytes,
 };
 
-#[cfg(feature = "location-watcher")]
 use sd_file_path_helper::IsolatedFilePathDataParts;
 
 use std::{
@@ -38,7 +37,7 @@ use serde::Deserialize;
 use serde_json::json;
 use specta::Type;
 use tokio::{fs, io, time::Instant};
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 mod error;
@@ -48,7 +47,7 @@ pub mod metadata;
 pub mod non_indexed;
 
 pub use error::LocationError;
-use indexer::IndexerJobInit;
+use indexer::OldIndexerJobInit;
 pub use manager::{LocationManagerError, Locations};
 use metadata::SpacedriveLocationMetadataFile;
 
@@ -177,8 +176,10 @@ impl LocationCreateArgs {
 			})
 			.await
 			{
-				delete_location(node, library, location.data.id).await?;
-				Err(err)?;
+				// DISABLED TO FAIL SILENTLY - HOTFIX FOR LACK OF WRITE PERMISSION PREVENTING LOCATION CREATION
+				error!("Failed to write .spacedrive file: {:?}", err);
+				// delete_location(node, library, location.data.id).await?;
+				// Err(err)?;
 			}
 
 			info!("Created location: {:?}", &location.data);
@@ -297,31 +298,31 @@ impl LocationUpdateArgs {
 				.filter(|name| location.name.as_ref() != Some(name))
 				.map(|v| {
 					(
-						(location::name::NAME, json!(v)),
+						(location::name::NAME, msgpack!(v)),
 						location::name::set(Some(v)),
 					)
 				}),
 			self.generate_preview_media.map(|v| {
 				(
-					(location::generate_preview_media::NAME, json!(v)),
+					(location::generate_preview_media::NAME, msgpack!(v)),
 					location::generate_preview_media::set(Some(v)),
 				)
 			}),
 			self.sync_preview_media.map(|v| {
 				(
-					(location::sync_preview_media::NAME, json!(v)),
+					(location::sync_preview_media::NAME, msgpack!(v)),
 					location::sync_preview_media::set(Some(v)),
 				)
 			}),
 			self.hidden.map(|v| {
 				(
-					(location::hidden::NAME, json!(v)),
+					(location::hidden::NAME, msgpack!(v)),
 					location::hidden::set(Some(v)),
 				)
 			}),
 			self.path.clone().map(|v| {
 				(
-					(location::path::NAME, json!(v)),
+					(location::path::NAME, msgpack!(v)),
 					location::path::set(Some(v)),
 				)
 			}),
@@ -452,18 +453,18 @@ pub async fn scan_location(
 
 	let location_base_data = location::Data::from(&location);
 
-	JobBuilder::new(IndexerJobInit {
+	JobBuilder::new(OldIndexerJobInit {
 		location,
 		sub_path: None,
 	})
 	.with_action("scan_location")
 	.with_metadata(json!({"location": location_base_data.clone()}))
 	.build()
-	.queue_next(FileIdentifierJobInit {
+	.queue_next(OldFileIdentifierJobInit {
 		location: location_base_data.clone(),
 		sub_path: None,
 	})
-	.queue_next(MediaProcessorJobInit {
+	.queue_next(OldMediaProcessorJobInit {
 		location: location_base_data,
 		sub_path: None,
 		regenerate_thumbnails: false,
@@ -489,7 +490,7 @@ pub async fn scan_location_sub_path(
 
 	let location_base_data = location::Data::from(&location);
 
-	JobBuilder::new(IndexerJobInit {
+	JobBuilder::new(OldIndexerJobInit {
 		location,
 		sub_path: Some(sub_path.clone()),
 	})
@@ -499,11 +500,11 @@ pub async fn scan_location_sub_path(
 		"sub_path": sub_path.clone(),
 	}))
 	.build()
-	.queue_next(FileIdentifierJobInit {
+	.queue_next(OldFileIdentifierJobInit {
 		location: location_base_data.clone(),
 		sub_path: Some(sub_path.clone()),
 	})
-	.queue_next(MediaProcessorJobInit {
+	.queue_next(OldMediaProcessorJobInit {
 		location: location_base_data,
 		sub_path: Some(sub_path),
 		regenerate_thumbnails: false,
@@ -529,9 +530,9 @@ pub async fn light_scan_location(
 
 	let location_base_data = location::Data::from(&location);
 
-	indexer::shallow(&location, &sub_path, &node, &library).await?;
-	file_identifier::shallow(&location_base_data, &sub_path, &library).await?;
-	media_processor::shallow(
+	indexer::old_shallow(&location, &sub_path, &node, &library).await?;
+	old_file_identifier::old_shallow(&location_base_data, &sub_path, &library).await?;
+	old_media_processor::old_shallow(
 		&location_base_data,
 		&sub_path,
 		&library,
@@ -568,7 +569,7 @@ pub async fn relink_location(
 				pub_id: pub_id.clone(),
 			},
 			location::path::NAME,
-			json!(path),
+			msgpack!(path),
 		),
 		db.location().update(
 			location::pub_id::equals(pub_id.clone()),
@@ -604,7 +605,7 @@ pub(crate) fn normalize_path(path: impl AsRef<Path>) -> io::Result<(String, Stri
 		.and_then(|normalized_path| {
 			if cfg!(windows) {
 				// Use normalized path as main path on Windows
-				// This ensures we always receive a valid windows formated path
+				// This ensures we always receive a valid windows formatted path
 				// ex: /Users/JohnDoe/Downloads will become C:\Users\JohnDoe\Downloads
 				// Internally `normalize` calls `GetFullPathNameW` on Windows
 				// https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfullpathnamew
@@ -686,12 +687,12 @@ async fn create_location(
 						pub_id: location_pub_id.as_bytes().to_vec(),
 					},
 					[
-						(location::name::NAME, json!(&name)),
-						(location::path::NAME, json!(&path)),
-						(location::date_created::NAME, json!(date_created)),
+						(location::name::NAME, msgpack!(&name)),
+						(location::path::NAME, msgpack!(&path)),
+						(location::date_created::NAME, msgpack!(date_created)),
 						(
 							location::instance::NAME,
-							json!(prisma_sync::instance::SyncId {
+							msgpack!(prisma_sync::instance::SyncId {
 								pub_id: uuid_to_bytes(sync.instance)
 							}),
 						),
@@ -741,6 +742,8 @@ pub async fn delete_location(
 	library: &Arc<Library>,
 	location_id: location::id::Type,
 ) -> Result<(), LocationError> {
+	let Library { db, sync, .. } = library.as_ref();
+
 	let start = Instant::now();
 	node.locations.remove(location_id, library.clone()).await?;
 	debug!(
@@ -808,12 +811,14 @@ pub async fn delete_location(
 
 	let start = Instant::now();
 
-	library
-		.db
-		.location()
-		.delete(location::id::equals(location_id))
-		.exec()
-		.await?;
+	sync.write_op(
+		db,
+		sync.shared_delete(prisma_sync::location::SyncId {
+			pub_id: location.pub_id,
+		}),
+		db.location().delete(location::id::equals(location_id)),
+	)
+	.await?;
 
 	debug!(
 		"Elapsed time to delete location from db: {:?}",
@@ -836,6 +841,8 @@ pub async fn delete_directory(
 ) -> Result<(), QueryError> {
 	let Library { db, .. } = library;
 
+	// This is NOT sync-compatible!
+	// Sync requires having sync ids available.
 	let children_params = sd_utils::chain_optional_iter(
 		[file_path::location_id::equals(Some(location_id))],
 		[parent_iso_file_path.and_then(|parent| {
@@ -1031,7 +1038,6 @@ pub async fn get_location_path_from_location_id(
 		})
 }
 
-#[cfg(feature = "location-watcher")]
 pub async fn create_file_path(
 	crate::location::Library { db, sync, .. }: &crate::location::Library,
 	IsolatedFilePathDataParts {
@@ -1061,30 +1067,60 @@ pub async fn create_file_path(
 			location_id,
 		))?;
 
-	let params = {
+	let (sync_params, db_params): (Vec<_>, Vec<_>) = {
 		use file_path::*;
 
-		vec![
+		[
 			(
-				location::NAME,
-				json!(prisma_sync::location::SyncId {
-					pub_id: location.pub_id
-				}),
+				(
+					location::NAME,
+					msgpack!(prisma_sync::location::SyncId {
+						pub_id: location.pub_id
+					}),
+				),
+				location::connect(prisma::location::id::equals(location.id)),
 			),
-			(cas_id::NAME, json!(cas_id)),
-			(materialized_path::NAME, json!(materialized_path)),
-			(name::NAME, json!(name)),
-			(extension::NAME, json!(extension)),
+			((cas_id::NAME, msgpack!(cas_id)), cas_id::set(cas_id)),
 			(
-				size_in_bytes_bytes::NAME,
-				json!(metadata.size_in_bytes.to_be_bytes().to_vec()),
+				(materialized_path::NAME, msgpack!(materialized_path)),
+				materialized_path::set(Some(materialized_path.into())),
 			),
-			(inode::NAME, json!(metadata.inode.to_le_bytes())),
-			(is_dir::NAME, json!(is_dir)),
-			(date_created::NAME, json!(metadata.created_at)),
-			(date_modified::NAME, json!(metadata.modified_at)),
-			(date_indexed::NAME, json!(indexed_at)),
+			((name::NAME, msgpack!(name)), name::set(Some(name.into()))),
+			(
+				(extension::NAME, msgpack!(extension)),
+				extension::set(Some(extension.into())),
+			),
+			(
+				(
+					size_in_bytes_bytes::NAME,
+					msgpack!(metadata.size_in_bytes.to_be_bytes().to_vec()),
+				),
+				size_in_bytes_bytes::set(Some(metadata.size_in_bytes.to_be_bytes().to_vec())),
+			),
+			(
+				(inode::NAME, msgpack!(metadata.inode.to_le_bytes())),
+				inode::set(Some(inode_to_db(metadata.inode))),
+			),
+			((is_dir::NAME, msgpack!(is_dir)), is_dir::set(Some(is_dir))),
+			(
+				(date_created::NAME, msgpack!(metadata.created_at)),
+				date_created::set(Some(metadata.created_at.into())),
+			),
+			(
+				(date_modified::NAME, msgpack!(metadata.modified_at)),
+				date_modified::set(Some(metadata.modified_at.into())),
+			),
+			(
+				(date_indexed::NAME, msgpack!(indexed_at)),
+				date_indexed::set(Some(indexed_at.into())),
+			),
+			(
+				(hidden::NAME, msgpack!(metadata.hidden)),
+				hidden::set(Some(metadata.hidden)),
+			),
 		]
+		.into_iter()
+		.unzip()
 	};
 
 	let pub_id = sd_utils::uuid_to_bytes(Uuid::new_v4());
@@ -1097,27 +1133,9 @@ pub async fn create_file_path(
 					prisma_sync::file_path::SyncId {
 						pub_id: pub_id.clone(),
 					},
-					params,
+					sync_params,
 				),
-				db.file_path().create(pub_id, {
-					use file_path::*;
-					vec![
-						location::connect(prisma::location::id::equals(location.id)),
-						materialized_path::set(Some(materialized_path.into())),
-						name::set(Some(name.into())),
-						extension::set(Some(extension.into())),
-						inode::set(Some(inode_to_db(metadata.inode))),
-						cas_id::set(cas_id),
-						is_dir::set(Some(is_dir)),
-						size_in_bytes_bytes::set(Some(
-							metadata.size_in_bytes.to_be_bytes().to_vec(),
-						)),
-						date_created::set(Some(metadata.created_at.into())),
-						date_modified::set(Some(metadata.modified_at.into())),
-						date_indexed::set(Some(indexed_at.into())),
-						hidden::set(Some(metadata.hidden)),
-					]
-				}),
+				db.file_path().create(pub_id, db_params),
 			),
 		)
 		.await?;

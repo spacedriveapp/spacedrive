@@ -1,10 +1,9 @@
-// We keep these out of the `prism.tsx` as that stuff is lazy-loaded, and this stuff is not.
+// We keep these out of the `prism-lazy.ts` as that stuff is lazy-loaded, and this stuff is not.
 
+import { useThemeStore } from '@sd/client';
 
-import { useThemeStore } from "@sd/client";
-import oneDarkCss from "./one-dark.scss?url";
-import oneLightCss from "./one-light.scss?url";
-
+import oneDarkCss from './one-dark.scss?url';
+import oneLightCss from './one-light.scss?url';
 
 // Mapping between extensions and prismjs language identifier
 // Only for those that are not already internally resolved by prismjs
@@ -35,11 +34,9 @@ export const languageMapping = Object.entries({
 
 export function WithPrismTheme() {
 	const theme = useThemeStore();
-	return (
-		theme.theme === "dark" ? (
-			<link rel="stylesheet" href={oneDarkCss} />
-		) : (
-			<link rel="stylesheet" href={oneLightCss} />
-		)
-	)
+	return theme.theme === 'dark' ? (
+		<link rel="stylesheet" href={oneDarkCss} />
+	) : (
+		<link rel="stylesheet" href={oneLightCss} />
+	);
 }

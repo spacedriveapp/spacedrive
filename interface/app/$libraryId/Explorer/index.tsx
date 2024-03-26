@@ -8,7 +8,7 @@ import {
 } from '@sd/client';
 import { useShortcut } from '~/hooks';
 
-import { useTopBarContext } from '../TopBar/Layout';
+import { useTopBarContext } from '../TopBar/Context';
 import { useExplorerContext } from './Context';
 import ContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
@@ -104,7 +104,10 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 							)
 						}
 						listViewOptions={{ hideHeaderBorder: true }}
-						bottom={showPathBar ? PATH_BAR_HEIGHT : undefined}
+						scrollPadding={{
+							top: topBar.topBarHeight,
+							bottom: showPathBar ? PATH_BAR_HEIGHT : undefined
+						}}
 					/>
 				</div>
 			</ExplorerContextMenu>

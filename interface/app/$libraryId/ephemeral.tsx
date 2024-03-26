@@ -1,3 +1,4 @@
+import { type AlphaClient } from '@oscartbeaumont-sd/rspc-client/v2';
 import { ArrowLeft, ArrowRight, Info } from '@phosphor-icons/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { iconNames } from '@sd/assets/util';
@@ -36,7 +37,7 @@ import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { EmptyNotice } from './Explorer/View/EmptyNotice';
 import { AddLocationButton } from './settings/library/locations/AddLocationButton';
-import { useTopBarContext } from './TopBar/Layout';
+import { useTopBarContext } from './TopBar/Context';
 import { TopBarPortal } from './TopBar/Portal';
 import TopBarButton from './TopBar/TopBarButton';
 

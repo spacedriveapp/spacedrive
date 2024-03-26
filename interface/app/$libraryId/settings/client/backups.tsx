@@ -23,7 +23,7 @@ export const Component = () => {
 		<>
 			<Heading
 				title={t('backups')}
-				description={t("backups_description")}
+				description={t('backups_description')}
 				rightArea={
 					<div className="flex flex-row items-center space-x-5">
 						<Button
@@ -53,7 +53,7 @@ export const Component = () => {
 
 			{backups.data?.backups.map((backup) => (
 				<Card key={backup.id} className="hover:bg-app-box/70">
-					<Database className="mr-3 h-10 w-10 self-center" />
+					<Database className="mr-3 size-10 self-center" />
 					<div className="grid min-w-[110px] grid-cols-1">
 						<h1 className="truncate pt-0.5 text-sm font-semibold">
 							{dayjs(backup.timestamp).toString()}

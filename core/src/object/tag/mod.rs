@@ -5,8 +5,8 @@ use sd_sync::*;
 
 use chrono::{DateTime, FixedOffset, Utc};
 
+use sd_utils::msgpack;
 use serde::Deserialize;
-use serde_json::json;
 use specta::Type;
 use uuid::Uuid;
 
@@ -34,10 +34,13 @@ impl TagCreateArgs {
 						pub_id: pub_id.clone(),
 					},
 					[
-						(tag::name::NAME, json!(&self.name)),
-						(tag::color::NAME, json!(&self.color)),
-						(tag::is_hidden::NAME, json!(false)),
-						(tag::date_created::NAME, json!(&date_created.to_rfc3339())),
+						(tag::name::NAME, msgpack!(&self.name)),
+						(tag::color::NAME, msgpack!(&self.color)),
+						(tag::is_hidden::NAME, msgpack!(false)),
+						(
+							tag::date_created::NAME,
+							msgpack!(&date_created.to_rfc3339()),
+						),
 					],
 				),
 				db.tag().create(

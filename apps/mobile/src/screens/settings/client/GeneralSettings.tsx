@@ -1,8 +1,9 @@
 import { Text, View } from 'react-native';
 import { useBridgeQuery, useDebugState } from '@sd/client';
-import { Input } from '~/components/form/Input';
 import Card from '~/components/layout/Card';
+import ScreenContainer from '~/components/layout/ScreenContainer';
 import { Divider } from '~/components/primitive/Divider';
+import { Input } from '~/components/primitive/Input';
 import { SettingsTitle } from '~/components/settings/SettingsContainer';
 import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
@@ -15,14 +16,16 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 	if (!node) return null;
 
 	return (
-		<View style={tw`flex-1 p-4`}>
-			<Card style={tw`bg-app-box`}>
+		<ScreenContainer style={tw`justify-start gap-0 px-6`} scrollview={false}>
+			<Card>
 				{/* Card Header */}
 				<View style={tw`flex flex-row justify-between`}>
 					<Text style={tw`font-semibold text-ink`}>Connected Node</Text>
 					<View style={tw`flex flex-row`}>
 						{/* Peers */}
-						<View style={tw`mr-2 self-start rounded bg-app-highlight px-1.5 py-[2px]`}>
+						<View
+							style={tw`mr-2 self-start rounded border border-app-lightborder bg-app-highlight px-1.5 py-[2px]`}
+						>
 							<Text style={tw`text-xs font-semibold text-ink`}>0 Peers</Text>
 						</View>
 						{/* Status */}
@@ -34,10 +37,11 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 				{/* Divider */}
 				<Divider style={tw`mb-4 mt-2`} />
 				{/* Node Name and Port */}
-				<SettingsTitle>Node Name</SettingsTitle>
+				<SettingsTitle style={tw`mb-1`}>Node Name</SettingsTitle>
 				<Input value={node.name} />
-				<SettingsTitle style={tw`mt-3`}>Node Port</SettingsTitle>
-				<Input value={node.p2p_port?.toString() ?? '5795'} keyboardType="numeric" />
+				{/* // TODO: Bring this back */}
+				{/* <SettingsTitle style={tw`mt-3 mb-1`}>Node Port</SettingsTitle> */}
+				{/* <Input value={node.p2p_port?.toString() ?? '5795'} keyboardType="numeric" /> */}
 			</Card>
 			{debugState.enabled && (
 				<Card style={tw`mt-4`}>
@@ -45,12 +49,12 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 					<Text style={tw`font-semibold text-ink`}>Debug</Text>
 					{/* Divider */}
 					<Divider style={tw`mb-4 mt-2`} />
-					<SettingsTitle>Data Folder</SettingsTitle>
+					<SettingsTitle style={tw`mb-1`}>Data Folder</SettingsTitle>
 					{/* Useful for simulator, not so for real devices. */}
 					<Input value={node.data_path} />
 				</Card>
 			)}
-		</View>
+		</ScreenContainer>
 	);
 };
 

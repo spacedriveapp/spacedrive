@@ -1,18 +1,17 @@
 [workspace]
 resolver = "2"
 members = [
-	"core",
-	"core/crates/*",
-	"crates/*",
-	# "crates/p2p/tunnel",
-	# "crates/p2p/tunnel/utils",
-	"apps/cli",
-	"apps/desktop/src-tauri",
-	"apps/desktop/crates/*",
-	"apps/mobile/modules/sd-core/core",
-	"apps/mobile/modules/sd-core/android/crate",
-	"apps/mobile/modules/sd-core/ios/crate",
-	"apps/server",
+    "core",
+    "core/crates/*",
+    "crates/*",
+    "apps/cli",
+    "apps/p2p-relay",
+    "apps/desktop/src-tauri",
+    "apps/desktop/crates/*",
+    "apps/mobile/modules/sd-core/core",
+    "apps/mobile/modules/sd-core/android/crate",
+    "apps/mobile/modules/sd-core/ios/crate",
+    "apps/server",
 ]
 
 [workspace.package]
@@ -23,19 +22,19 @@ repository = "https://github.com/spacedriveapp/spacedrive"
 [workspace.dependencies]
 # First party dependencies
 prisma-client-rust = { git = "https://github.com/spacedriveapp/prisma-client-rust", rev = "f99d6f5566570f3ab1edecb7a172ad25b03d95af", features = [
-	"rspc",
-	"sqlite-create-many",
-	"migrations",
-	"sqlite",
+    "specta",
+    "sqlite-create-many",
+    "migrations",
+    "sqlite",
 ], default-features = false }
 prisma-client-rust-cli = { git = "https://github.com/spacedriveapp/prisma-client-rust", rev = "f99d6f5566570f3ab1edecb7a172ad25b03d95af", features = [
-	"rspc",
-	"sqlite-create-many",
-	"migrations",
-	"sqlite",
+    "specta",
+    "sqlite-create-many",
+    "migrations",
+    "sqlite",
 ], default-features = false }
 prisma-client-rust-sdk = { git = "https://github.com/spacedriveapp/prisma-client-rust", rev = "f99d6f5566570f3ab1edecb7a172ad25b03d95af", features = [
-	"sqlite",
+    "sqlite",
 ], default-features = false }
 
 tracing = "0.1.40"
@@ -52,12 +51,13 @@ swift-rs = { version = "1.0.6" }
 # Third party dependencies used by one or more of our crates
 anyhow = "1.0.75"
 async-channel = "2.0.0"
-axum = "0.6.20"
+async-trait = "0.1.77"
+axum = "=0.6.20"
 base64 = "0.21.5"
 blake3 = "1.5.0"
 chrono = "0.4.31"
 clap = "4.4.7"
-futures = "0.3.29"
+futures = "0.3.30"
 futures-concurrency = "7.4.3"
 hex = "0.4.3"
 http = "0.2.9"
@@ -70,13 +70,14 @@ rand_chacha = "0.3.1"
 regex = "1.10.2"
 reqwest = "0.11.22"
 rmp-serde = "1.1.2"
+rmpv = { version = "^1.0.1", features = ["with-serde"] }
 serde = "1.0"
 serde_json = "1.0"
 strum = "0.25"
 strum_macros = "0.25"
 tempfile = "3.8.1"
 thiserror = "1.0.50"
-tokio = "1.34.0"
+tokio = "1.36.0"
 tokio-stream = "0.1.14"
 tokio-util = "0.7.10"
 uhlc = "=0.5.2"
@@ -87,12 +88,26 @@ webp = "0.2.6"
 # Proper IOS Support
 if-watch = { git = "https://github.com/oscartbeaumont/if-watch.git", rev = "a92c17d3f85c1c6fb0afeeaf6c2b24d0b147e8c3" }
 
-# Beta features
+# We hack it to the high heavens
 rspc = { git = "https://github.com/spacedriveapp/rspc.git", rev = "f3347e2e8bfe3f37bfacc437ca329fe71cdcb048" }
 
 # `cursor_position` method
 tauri = { git = "https://github.com/spacedriveapp/tauri.git", rev = "8409af71a83d631ff9d1cd876c441a57511a1cbd" }
 tao = { git = "https://github.com/spacedriveapp/tao", rev = "7880adbc090402c44fbcf006669458fa82623403" }
+
+# Add `Control::open_stream_with_addrs`
+libp2p = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev = "a005656df7e82059a0eb2e333ebada4731d23f8c" }
+libp2p-core = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev = "a005656df7e82059a0eb2e333ebada4731d23f8c" }
+libp2p-swarm = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev = "a005656df7e82059a0eb2e333ebada4731d23f8c" }
+libp2p-stream = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev = "a005656df7e82059a0eb2e333ebada4731d23f8c" }
+
+# aes = { git = "https://github.com/RustCrypto/block-ciphers", rev = "5837233f86419dbe75b8e3824349e30f6bc40b22" }
+
+blake3 = { git = "https://github.com/brxken128/blake3", rev = "d3aab416c12a75c2bfabce33bcd594e428a79069" }
+
+[profile.dev]
+# Make compilation faster on macOS
+split-debuginfo = "unpacked"
 
 # Set the settings for build scripts and proc-macros.
 [profile.dev.build-override]

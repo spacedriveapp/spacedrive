@@ -1,10 +1,10 @@
 use crate::{
 	api::{notifications::Notification, BackendFeature},
-	object::media::thumbnail::preferences::ThumbnailerPreferences,
+	object::media::old_thumbnail::preferences::ThumbnailerPreferences,
 	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 
-use sd_p2p::{Keypair, ManagerConfig};
+use sd_p2p::Identity;
 use sd_utils::error::FileIOError;
 
 use std::{
@@ -28,6 +28,29 @@ use uuid::Uuid;
 /// NODE_STATE_CONFIG_NAME is the name of the file which stores the NodeState
 pub const NODE_STATE_CONFIG_NAME: &str = "node_state.sdconfig";
 
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Type)]
+pub enum P2PDiscoveryState {
+	#[default]
+	Everyone,
+	ContactsOnly,
+	Disabled,
+}
+
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case", untagged)]
+pub enum Port {
+	Disabled,
+	#[default]
+	Random,
+	Discrete(u16),
+}
+
+impl Port {
+	pub fn is_random(&self) -> bool {
+		matches!(self, Port::Random)
+	}
+}
+
 /// NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
 #[derive(Debug, Clone, Serialize, Deserialize)] // If you are adding `specta::Type` on this your probably about to leak the P2P private key
 pub struct NodeConfig {
@@ -40,10 +63,15 @@ pub struct NodeConfig {
 	pub notifications: Vec<Notification>,
 	/// The p2p identity keypair for this node. This is used to identify the node on the network.
 	/// This keypair does effectively nothing except for provide libp2p with a stable peer_id.
-	pub keypair: Keypair,
+	#[serde(with = "identity_serde")]
+	pub identity: Identity,
 	/// P2P config
+	#[serde(default, skip_serializing_if = "Port::is_random")]
+	pub p2p_ipv4_port: Port,
+	#[serde(default, skip_serializing_if = "Port::is_random")]
+	pub p2p_ipv6_port: Port,
 	#[serde(default)]
-	pub p2p: ManagerConfig,
+	pub p2p_discovery: P2PDiscoveryState,
 	/// Feature flags enabled on the node
 	#[serde(default)]
 	pub features: Vec<BackendFeature>,
@@ -52,12 +80,36 @@ pub struct NodeConfig {
 	/// URL of the Spacedrive API
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub sd_api_origin: Option<String>,
-	/// The aggreagation of many different preferences for the node
+	/// The aggregation of many different preferences for the node
 	pub preferences: NodePreferences,
 	// Model version for the image labeler
 	pub image_labeler_version: Option<String>,
 
 	version: NodeConfigVersion,
+}
+
+mod identity_serde {
+	use sd_p2p::Identity;
+	use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+	pub fn serialize<S>(identity: &Identity, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		to_string(identity).serialize(serializer)
+	}
+
+	pub fn deserialize<'de, D>(deserializer: D) -> Result<Identity, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		let s = String::deserialize(deserializer)?;
+		Identity::from_bytes(&base91::slice_decode(s.as_bytes())).map_err(serde::de::Error::custom)
+	}
+
+	pub fn to_string(identity: &Identity) -> String {
+		String::from_utf8_lossy(&base91::slice_encode(&identity.to_bytes())).to_string()
+	}
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, Type)]
@@ -73,10 +125,11 @@ pub enum NodeConfigVersion {
 	V0 = 0,
 	V1 = 1,
 	V2 = 2,
+	V3 = 3,
 }
 
 impl ManagedVersion<NodeConfigVersion> for NodeConfig {
-	const LATEST_VERSION: NodeConfigVersion = NodeConfigVersion::V2;
+	const LATEST_VERSION: NodeConfigVersion = NodeConfigVersion::V3;
 	const KIND: Kind = Kind::Json("version");
 	type MigrationError = NodeConfigError;
 
@@ -92,16 +145,18 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 		name.truncate(250);
 
 		#[cfg(feature = "ai")]
-		let image_labeler_version = Some(sd_ai::image_labeler::DEFAULT_MODEL_VERSION.to_string());
+		let image_labeler_version = Some(sd_ai::old_image_labeler::DEFAULT_MODEL_VERSION.to_string());
 		#[cfg(not(feature = "ai"))]
 		let image_labeler_version = None;
 
 		Some(Self {
 			id: Uuid::new_v4(),
 			name,
-			keypair: Keypair::generate(),
+			identity: Identity::default(),
+			p2p_ipv4_port: Port::Random,
+			p2p_ipv6_port: Port::Random,
+			p2p_discovery: P2PDiscoveryState::Everyone,
 			version: Self::LATEST_VERSION,
-			p2p: ManagerConfig::default(),
 			features: vec![],
 			notifications: vec![],
 			auth_token: None,
@@ -173,6 +228,33 @@ impl NodeConfig {
 							.map_err(|e| FileIOError::from((path, e)))?;
 					}
 
+					(NodeConfigVersion::V2, NodeConfigVersion::V3) => {
+						let mut config: Map<String, Value> =
+							serde_json::from_slice(&fs::read(path).await.map_err(|e| {
+								FileIOError::from((
+									path,
+									e,
+									"Failed to read node config file for migration",
+								))
+							})?)
+							.map_err(VersionManagerError::SerdeJson)?;
+
+						config.remove("keypair");
+						config.remove("p2p");
+
+						config.insert(
+							String::from("identity"),
+							json!(identity_serde::to_string(&Default::default())),
+						);
+
+						let a =
+							serde_json::to_vec(&config).map_err(VersionManagerError::SerdeJson)?;
+
+						fs::write(path, a)
+							.await
+							.map_err(|e| FileIOError::from((path, e)))?;
+					}
+
 					_ => {
 						error!("Node config version is not handled: {:?}", current);
 						return Err(VersionManagerError::UnexpectedMigration {
@@ -219,7 +301,7 @@ impl Manager {
 		#[cfg(feature = "ai")]
 		if config.image_labeler_version.is_none() {
 			config.image_labeler_version =
-				Some(sd_ai::image_labeler::DEFAULT_MODEL_VERSION.to_string());
+				Some(sd_ai::old_image_labeler::DEFAULT_MODEL_VERSION.to_string());
 		}
 
 		#[cfg(not(feature = "ai"))]

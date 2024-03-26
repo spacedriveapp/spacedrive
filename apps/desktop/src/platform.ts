@@ -1,11 +1,10 @@
-import { OperatingSystem, Platform } from '@sd/interface';
 import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { confirm } from '@tauri-apps/api/dialog';
 import { homeDir } from '@tauri-apps/api/path';
 import { open } from '@tauri-apps/api/shell';
-
 // @ts-expect-error: Doesn't have a types package.
 import ConsistentHash from 'consistent-hash';
+import { OperatingSystem, Platform } from '@sd/interface';
 
 import { commands, events } from './commands';
 import { env } from './env';
@@ -36,7 +35,6 @@ function constructServerUrl(urlSuffix: string) {
 		if (!customUriServerUrl)
 			throw new Error("'window.__SD_CUSTOM_URI_SERVER__' was not injected correctly!");
 
-
 		hr = new ConsistentHash();
 		customUriServerUrl.forEach((url) => hr.add(url));
 	}
@@ -55,6 +53,17 @@ export const platform = {
 		constructServerUrl(`/file/${libraryId}/${locationLocalId}/${filePathId}`),
 	getFileUrlByPath: (path) =>
 		constructServerUrl(`/local-file-by-path/${encodeURIComponent(path)}`),
+	getRemoteRspcEndpoint: (remote_identity) => ({
+		url: `${customUriServerUrl?.[0]
+			?.replace('https', 'wss')
+			?.replace('http', 'ws')}/remote/${encodeURIComponent(
+			remote_identity
+		)}/rspc/ws?token=${customUriAuthToken}`
+	}),
+	constructRemoteRspcPath: (remote_identity, path) =>
+		constructServerUrl(
+			`/remote/${encodeURIComponent(remote_identity)}/uri/${path}?token=${customUriAuthToken}`
+		),
 	openLink: shell.open,
 	getOs,
 	openDirectoryPickerDialog: (opts) => {
@@ -71,7 +80,6 @@ export const platform = {
 			cb(e.payload);
 		}),
 	userHomeDir: homeDir,
-	updater: window.__SD_UPDATER__ ? createUpdater() : undefined,
 	auth: {
 		start(url) {
 			open(url);
@@ -79,4 +87,4 @@ export const platform = {
 	},
 	...commands,
 	landingApiOrigin: env.VITE_LANDING_ORIGIN
-} satisfies Platform;
+} satisfies Omit<Platform, 'updater'>;

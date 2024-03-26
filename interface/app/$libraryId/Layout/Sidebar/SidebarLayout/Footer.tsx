@@ -25,6 +25,10 @@ export default () => {
 	const updater = usePlatform().updater;
 	const updaterState = updater?.useSnapshot();
 
+	const jobManagerPopover = usePopover();
+
+	useShortcut('toggleJobManager', () => jobManagerPopover.setOpen((open) => !open));
+
 	return (
 		<div className="space-y-2">
 			{updater && updaterState && (
@@ -53,15 +57,15 @@ export default () => {
 							label={t('settings')}
 							keybinds={[symbols.Shift.icon, symbols.Meta.icon, 'T']}
 						>
-							<Gear className="h-5 w-5" />
+							<Gear className="size-5" />
 						</Tooltip>
 					</ButtonLink>
 					<JobManagerContextProvider>
 						<Popover
-							popover={usePopover()}
-							keybind={[symbols.Meta.key, 'j']}
+							popover={jobManagerPopover}
 							trigger={
 								<Button
+									id="job-manager-button"
 									size="icon"
 									variant="subtle"
 									className="text-sidebar-inkFaint ring-offset-sidebar radix-state-open:bg-sidebar-selected/50"

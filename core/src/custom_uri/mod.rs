@@ -1,18 +1,17 @@
 use crate::{
 	api::{utils::InvalidateOperationEvent, CoreEvent},
 	library::Library,
-	object::media::thumbnail::WEBP_EXTENSION,
+	object::media::old_thumbnail::WEBP_EXTENSION,
 	p2p::operations,
 	util::InfallibleResponse,
 	Node,
 };
 
+use http_body::combinators::UnsyncBoxBody;
+use hyper::{header, upgrade::OnUpgrade};
 use sd_file_ext::text::is_text;
 use sd_file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData};
-use sd_p2p::{
-	spaceblock::Range,
-	spacetunnel::{IdentityOrRemoteIdentity, RemoteIdentity},
-};
+use sd_p2p::{RemoteIdentity, P2P};
 use sd_prisma::prisma::{file_path, location};
 use sd_utils::db::maybe_missing;
 
@@ -23,29 +22,27 @@ use std::{
 	fs::Metadata,
 	path::{Path, PathBuf},
 	str::FromStr,
-	sync::{atomic::Ordering, Arc},
+	sync::Arc,
 };
 
-use async_stream::stream;
 use axum::{
-	body::{self, Body, BoxBody, Full, StreamBody},
+	body::{self, Body, BoxBody, Full},
 	extract::{self, State},
-	http::{HeaderValue, Request, Response, StatusCode},
+	http::{HeaderMap, HeaderValue, Request, Response, StatusCode},
 	middleware,
+	response::IntoResponse,
 	routing::get,
 	Router,
 };
-use bytes::Bytes;
 use mini_moka::sync::Cache;
 use tokio::{
 	fs::{self, File},
-	io::{self, AsyncReadExt, AsyncSeekExt, SeekFrom},
+	io::{self, copy_bidirectional, AsyncReadExt, AsyncSeekExt, SeekFrom},
 };
-use tokio_util::sync::PollSender;
-use tracing::error;
+use tracing::{error, warn};
 use uuid::Uuid;
 
-use self::{mpsc_to_async_write::MpscToAsyncWrite, serve_file::serve_file, utils::*};
+use self::{serve_file::serve_file, utils::*};
 
 mod async_read_body;
 mod mpsc_to_async_write;
@@ -73,7 +70,7 @@ pub enum ServeFrom {
 }
 
 #[derive(Clone)]
-struct LocalState {
+pub struct LocalState {
 	node: Arc<Node>,
 
 	// This LRU cache allows us to avoid doing a DB lookup on every request.
@@ -83,6 +80,57 @@ struct LocalState {
 }
 
 type ExtractedPath = extract::Path<(String, String, String)>;
+
+async fn request_to_remote_node(
+	p2p: Arc<P2P>,
+	identity: RemoteIdentity,
+	mut request: Request<Body>,
+) -> Response<UnsyncBoxBody<bytes::Bytes, axum::Error>> {
+	let request_upgrade_header = request.headers().get(header::UPGRADE).cloned();
+	let maybe_client_upgrade = request.extensions_mut().remove::<OnUpgrade>();
+
+	let mut response = match operations::remote_rspc(p2p.clone(), identity, request).await {
+		Ok(v) => v,
+		Err(err) => {
+			warn!("Error doing remote rspc query with '{identity}': {err:?}");
+			return StatusCode::BAD_GATEWAY.into_response();
+		}
+	};
+	if response.status() == StatusCode::SWITCHING_PROTOCOLS {
+		if response.headers().get(header::UPGRADE) != request_upgrade_header.as_ref() {
+			return StatusCode::BAD_REQUEST.into_response();
+		}
+
+		let Some(request_upgraded) = maybe_client_upgrade else {
+			return StatusCode::BAD_REQUEST.into_response();
+		};
+		let Some(response_upgraded) = response.extensions_mut().remove::<OnUpgrade>() else {
+			return StatusCode::BAD_REQUEST.into_response();
+		};
+
+		tokio::spawn(async move {
+			let Ok(mut request_upgraded) = request_upgraded.await.map_err(|err| {
+				warn!("Error upgrading websocket request: {err}");
+			}) else {
+				return;
+			};
+			let Ok(mut response_upgraded) = response_upgraded.await.map_err(|err| {
+				warn!("Error upgrading websocket response: {err}");
+			}) else {
+				return;
+			};
+
+			copy_bidirectional(&mut request_upgraded, &mut response_upgraded)
+				.await
+				.map_err(|err| {
+					warn!("Error upgrading websocket response: {err}");
+				})
+				.ok();
+		});
+	}
+
+	response.into_response()
+}
 
 async fn get_or_init_lru_entry(
 	state: &LocalState,
@@ -126,9 +174,8 @@ async fn get_or_init_lru_entry(
 		let path = Path::new(path)
 			.join(IsolatedFilePathData::try_from((location_id, &file_path)).map_err(not_found)?);
 
-		let identity = IdentityOrRemoteIdentity::from_bytes(&instance.identity)
-			.map_err(internal_server_error)?
-			.remote_identity();
+		let identity =
+			RemoteIdentity::from_bytes(&instance.remote_identity).map_err(internal_server_error)?;
 
 		let lru_entry = CacheValue {
 			name: path,
@@ -149,8 +196,7 @@ async fn get_or_init_lru_entry(
 	}
 }
 
-// We are using Axum on all platforms because Tauri's custom URI protocols can't be async!
-pub fn router(node: Arc<Node>) -> Router<()> {
+pub fn base_router() -> Router<LocalState> {
 	Router::new()
 		.route(
 			"/thumbnail/*path",
@@ -192,16 +238,19 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 		.route(
 			"/file/:lib_id/:loc_id/:path_id",
 			get(
-				|State(state): State<LocalState>, path: ExtractedPath, request: Request<Body>| async move {
+				|State(state): State<LocalState>,
+				 path: ExtractedPath,
+				 mut request: Request<Body>| async move {
+					let part_parts = path.0.clone();
 					let (
 						CacheValue {
 							name: file_path_full_path,
 							ext: extension,
-							file_path_pub_id,
+							file_path_pub_id: _file_path_pub_id,
 							serve_from,
 							..
 						},
-						library,
+						_library,
 					) = get_or_init_lru_entry(&state, path).await?;
 
 					match serve_from {
@@ -238,50 +287,17 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							serve_file(file, Ok(metadata), request.into_parts().0, resp).await
 						}
 						ServeFrom::Remote(identity) => {
-							if !state.node.files_over_p2p_flag.load(Ordering::Relaxed) {
-								return Ok(not_found(()));
-							}
+							*request.uri_mut() =
+								format!("/file/{}/{}/{}", part_parts.0, part_parts.1, part_parts.2)
+									.parse()
+									.expect("url was validated by Axum");
 
-							// TODO: Support `Range` requests and `ETag` headers
-							match state.node.p2p.get_library_service(&library.id) {
-								Some(service) => {
-									let stream = service
-										.connect(state.node.p2p.manager.clone(), &identity)
-										.await
-										.map_err(|err| {
-											not_found(format!(
-												"Error connecting to {identity}: {err:?}"
-											))
-										})?;
-
-									let (tx, mut rx) =
-										tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
-									// TODO: We only start a thread because of stupid `ManagerStreamAction2` and libp2p's `!Send/!Sync` bounds on a stream.
-									tokio::spawn(async move {
-										let Ok(()) = operations::request_file(
-											stream,
-											&library,
-											file_path_pub_id,
-											Range::Full,
-											MpscToAsyncWrite::new(PollSender::new(tx)),
-										)
-										.await
-										else {
-											return;
-										};
-									});
-
-									// TODO: Content Type
-									Ok(InfallibleResponse::builder().status(StatusCode::OK).body(
-										body::boxed(StreamBody::new(stream! {
-											while let Some(item) = rx.recv().await {
-												yield item;
-											}
-										})),
-									))
-								}
-								None => Ok(not_found(())),
-							}
+							Ok(request_to_remote_node(
+								state.node.p2p.p2p.clone(),
+								identity,
+								request,
+							)
+							.await)
 						}
 					}
 				},
@@ -324,39 +340,69 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 				},
 			),
 		)
-		.route_layer(middleware::from_fn(cors_middleware))
-		.with_state({
-			let file_metadata_cache = Arc::new(Cache::new(150));
+}
 
-			tokio::spawn({
-				let file_metadata_cache = file_metadata_cache.clone();
-				let mut tx = node.event_bus.0.subscribe();
-				async move {
-					while let Ok(event) = tx.recv().await {
-						if let CoreEvent::InvalidateOperation(e) = event {
-							match e {
-								InvalidateOperationEvent::Single(event) => {
-									// TODO: This is inefficent as any change will invalidate who cache. We need the new invalidation system!!!
-									// TODO: It's also error prone and a fine-grained resource based invalidation system would avoid that.
-									if event.key == "search.objects" || event.key == "search.paths"
-									{
-										file_metadata_cache.invalidate_all();
-									}
-								}
-								InvalidateOperationEvent::All => {
-									file_metadata_cache.invalidate_all();
-								}
+pub fn with_state(node: Arc<Node>) -> LocalState {
+	let file_metadata_cache = Arc::new(Cache::new(150));
+
+	tokio::spawn({
+		let file_metadata_cache = file_metadata_cache.clone();
+		let mut tx = node.event_bus.0.subscribe();
+		async move {
+			while let Ok(event) = tx.recv().await {
+				if let CoreEvent::InvalidateOperation(e) = event {
+					match e {
+						InvalidateOperationEvent::Single(event) => {
+							// TODO: This is inefficent as any change will invalidate who cache. We need the new invalidation system!!!
+							// TODO: It's also error prone and a fine-grained resource based invalidation system would avoid that.
+							if event.key == "search.objects" || event.key == "search.paths" {
+								file_metadata_cache.invalidate_all();
 							}
+						}
+						InvalidateOperationEvent::All => {
+							file_metadata_cache.invalidate_all();
 						}
 					}
 				}
-			});
-
-			LocalState {
-				node,
-				file_metadata_cache,
 			}
-		})
+		}
+	});
+
+	LocalState {
+		node,
+		file_metadata_cache,
+	}
+}
+
+// We are using Axum on all platforms because Tauri's custom URI protocols can't be async!
+pub fn router(node: Arc<Node>) -> Router<()> {
+	Router::new()
+		.route(
+			"/remote/:identity/*path",
+			get(
+				|State(state): State<LocalState>,
+				 extract::Path((identity, rest)): extract::Path<(String, String)>,
+				 mut request: Request<Body>| async move {
+					let identity = match RemoteIdentity::from_str(&identity) {
+						Ok(identity) => identity,
+						Err(err) => {
+							warn!("Error parsing identity '{}': {}", identity, err);
+							return (StatusCode::BAD_REQUEST, HeaderMap::new(), vec![])
+								.into_response();
+						}
+					};
+
+					*request.uri_mut() = format!("/{rest}")
+						.parse()
+						.expect("url was validated by Axum");
+
+					request_to_remote_node(state.node.p2p.p2p.clone(), identity, request).await
+				},
+			),
+		)
+		.merge(base_router())
+		.route_layer(middleware::from_fn(cors_middleware))
+		.with_state(with_state(node))
 }
 
 // TODO: This should possibly be determined from magic bytes when the file is indexed and stored it in the DB on the file path

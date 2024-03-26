@@ -13,6 +13,7 @@ use axum::{
 	response::Response,
 	RequestPartsExt,
 };
+use http::Method;
 use hyper::server::{accept::Accept, conn::AddrIncoming};
 use rand::{distributions::Alphanumeric, Rng};
 use sd_core::{custom_uri, Node, NodeError};
@@ -116,7 +117,7 @@ pub async fn sd_server_plugin<R: Runtime>(
 
 #[derive(Deserialize)]
 struct QueryParams {
-	token: String,
+	token: Option<String>,
 }
 
 async fn auth_middleware<B>(
@@ -128,16 +129,19 @@ async fn auth_middleware<B>(
 where
 	B: Send,
 {
-	let req = if query.token != auth_token {
+	let req = if query.token.as_ref() != Some(&auth_token) {
 		let (mut parts, body) = request.into_parts();
 
-		let auth: TypedHeader<Authorization<Bearer>> = parts
-			.extract()
-			.await
-			.map_err(|_| StatusCode::UNAUTHORIZED)?;
+		// We don't check auth for OPTIONS requests cause the CORS middleware will handle it
+		if parts.method != Method::OPTIONS {
+			let auth: TypedHeader<Authorization<Bearer>> = parts
+				.extract()
+				.await
+				.map_err(|_| StatusCode::UNAUTHORIZED)?;
 
-		if auth.token() != auth_token {
-			return Err(StatusCode::UNAUTHORIZED);
+			if auth.token() != auth_token {
+				return Err(StatusCode::UNAUTHORIZED);
+			}
 		}
 
 		Request::from_parts(parts, body)

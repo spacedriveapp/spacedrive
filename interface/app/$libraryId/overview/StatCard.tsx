@@ -22,8 +22,8 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 	const isDark = useIsDark();
 
 	const { totalSpace, freeSpace, usedSpaceSpace } = useMemo(() => {
-		const totalSpace = byteSize(stats.totalSpace)
-		const freeSpace = stats.freeSpace == null ? totalSpace : byteSize(stats.freeSpace)
+		const totalSpace = byteSize(stats.totalSpace);
+		const freeSpace = stats.freeSpace == null ? totalSpace : byteSize(stats.freeSpace);
 		return {
 			totalSpace,
 			freeSpace,
@@ -42,7 +42,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 
 	return (
 		<Card className="flex w-[280px] shrink-0 flex-col  bg-app-box/50 !p-0 ">
-			<div className="flex flex-row items-center gap-5 p-4 px-6 ">
+			<div className="flex flex-row items-center gap-5 p-4 px-6">
 				{stats.freeSpace && (
 					<CircularProgress
 						radius={40}
@@ -78,7 +78,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 				<Pill className="uppercase">{connectionType || 'Local'}</Pill>
 				<div className="grow" />
 				{/* <Button size="icon" variant="outline">
-					<Ellipsis className="h-3 w-3 opacity-50" />
+					<Ellipsis className="w-3 h-3 opacity-50" />
 				</Button> */}
 			</div>
 		</Card>

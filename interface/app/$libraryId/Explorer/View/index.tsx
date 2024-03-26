@@ -10,12 +10,13 @@ import {
 } from '@sd/client';
 import { dialogManager } from '@sd/ui';
 import { Loader } from '~/components';
-import { useKeyCopyCutPaste, useKeyMatcher, useShortcut } from '~/hooks';
+import { useKeyMatcher, useShortcut } from '~/hooks';
 import { useRoutingContext } from '~/RoutingContext';
 import { isNonEmpty } from '~/util';
 
 import CreateDialog from '../../settings/library/tags/CreateDialog';
 import { useExplorerContext } from '../Context';
+import { useExplorerCopyPaste } from '../hooks/useExplorerCopyPaste';
 import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
 import { getQuickPreviewStore, useQuickPreviewStore } from '../QuickPreview/store';
@@ -60,28 +61,34 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	// Can stay here until we add columns view
 	// Once added, the provided parent related logic should move to useExplorerDroppable
 	// that way we don't have to re-use the same logic for each view
+	const { parent } = explorer;
 	const { setDroppableRef } = useExplorerDroppable({
-		...(explorer.parent?.type === 'Location' && {
+		...(parent?.type === 'Location' && {
 			allow: ['Path', 'NonIndexedPath'],
-			data: { type: 'location', path: path ?? '/', data: explorer.parent.location },
+			data: { type: 'location', path: path ?? '/', data: parent.location },
 			disabled:
 				drag?.type === 'dragging' &&
-				explorer.parent.location.id === drag.sourceLocationId &&
+				parent.location.id === drag.sourceLocationId &&
 				(path ?? '/') === drag.sourcePath
 		}),
-		...(explorer.parent?.type === 'Ephemeral' && {
+		...(parent?.type === 'Ephemeral' && {
 			allow: ['Path', 'NonIndexedPath'],
-			data: { type: 'location', path: explorer.parent.path },
-			disabled: drag?.type === 'dragging' && explorer.parent.path === drag.sourcePath
+			data: { type: 'location', path: parent.path },
+			disabled: drag?.type === 'dragging' && parent.path === drag.sourcePath
 		}),
-		...(explorer.parent?.type === 'Tag' && {
+		...(parent?.type === 'Tag' && {
 			allow: 'Path',
-			data: { type: 'tag', data: explorer.parent.tag },
-			disabled: drag?.type === 'dragging' && explorer.parent.tag.id === drag.sourceTagId
+			data: { type: 'tag', data: parent.tag },
+			disabled: drag?.type === 'dragging' && parent.tag.id === drag.sourceTagId
 		})
 	});
 
 	useShortcuts();
+
+	useShortcut('explorerEscape', () => {
+		if (!selectable || explorer.selectedItems.size === 0) return;
+		explorer.resetSelectedItems([]);
+	});
 
 	useEffect(() => {
 		if (!visible || !isContextMenuOpen || explorer.selectedItems.size !== 0) return;
@@ -140,7 +147,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 					explorer.selectedItems.size !== 0 && explorer.resetSelectedItems();
 				}}
 			>
-				<div ref={setDroppableRef} className="h-full w-full">
+				<div ref={setDroppableRef} className="size-full">
 					{explorer.items === null || (explorer.items && explorer.items.length > 0) ? (
 						<>
 							{layoutMode === 'grid' && <GridView />}
@@ -172,7 +179,12 @@ const useShortcuts = () => {
 	const meta = useKeyMatcher('Meta');
 	const { doubleClick } = useViewItemDoubleClick();
 
-	useKeyCopyCutPaste();
+	const { copy, cut, duplicate, paste } = useExplorerCopyPaste();
+
+	useShortcut('copyObject', copy);
+	useShortcut('cutObject', cut);
+	useShortcut('duplicateObject', duplicate);
+	useShortcut('pasteObject', paste);
 
 	useShortcut('toggleQuickPreview', (e) => {
 		if (isRenaming || dialogManager.isAnyDialogOpen()) return;

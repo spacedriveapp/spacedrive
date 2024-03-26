@@ -10,10 +10,10 @@ import { Link } from 'react-router-dom';
 import * as UI from '.';
 import { tw } from './utils';
 
-export const Section = tw.div`px-1 py-1 space-y-[2px]`;
+export const Section = tw.div`px-1 py-1 space-y-0.5`;
 
 const itemStyles = cva(
-	'group mb-[3px] flex w-full shrink-0 grow items-center whitespace-nowrap rounded px-2 py-1 text-sm font-medium disabled:opacity-50',
+	'group flex w-full shrink-0 grow items-center whitespace-nowrap rounded px-2 py-1 text-sm font-medium disabled:opacity-50',
 	{
 		variants: {
 			selected: {
@@ -28,7 +28,7 @@ const itemStyles = cva(
 	}
 );
 
-const itemIconStyles = cva('mr-2 h-4 w-4', {
+const itemIconStyles = cva('mr-2 size-4', {
 	variants: {}
 });
 
@@ -110,7 +110,7 @@ export const Root = (props: PropsWithChildren<DropdownRootProps>) => {
 				>
 					<Menu.Items
 						className={clsx(
-							'absolute top-full z-50 w-full min-w-fit divide-y divide-menu-line rounded-md border border-menu-line bg-menu text-menu-ink shadow-xl shadow-menu-shade/30 focus:outline-none',
+							'absolute top-full z-50 w-full min-w-fit space-y-0.5 divide-y divide-menu-line rounded-md border border-menu-line bg-menu text-menu-ink shadow-xl shadow-menu-shade/30 focus:outline-none',
 							props.itemsClassName,
 							{ 'left-0': props.align === 'left' },
 							{ 'right-0': props.align === 'right' }

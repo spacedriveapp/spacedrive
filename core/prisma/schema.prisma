@@ -17,7 +17,8 @@ generator sync {
 }
 
 model CRDTOperation {
-  id        Bytes  @id
+  id Int @id @default(autoincrement())
+
   timestamp BigInt
   model     String
 
@@ -28,8 +29,6 @@ model CRDTOperation {
 
   instance_id Int
   instance    Instance @relation(fields: [instance_id], references: [id])
-
-  // attestation Bytes
 
   @@map("crdt_operation")
 }
@@ -43,7 +42,6 @@ model Node {
   platform     Int
   date_created DateTime
   identity     Bytes? // TODO: Change to required field in future
-  node_peer_id String? // TODO: Remove as part of - https://linear.app/spacedriveapp/issue/ENG-757/p2p-library-portability
 
   @@map("node")
 }
@@ -52,15 +50,15 @@ model Node {
 // represents a single `.db` file (SQLite DB) that is paired to the current library.
 // A `LibraryInstance` is always owned by a single `Node` but it's possible for that node to change (or two to be owned by a single node).
 model Instance {
-  id       Int   @id @default(autoincrement()) // This is is NOT globally unique
-  pub_id   Bytes @unique // This UUID is meaningless and exists soley cause the `uhlc::ID` must be 16-bit. Really this should be derived from the `identity` field.
-  // Enum: sd_core::p2p::IdentityOrRemoteIdentity
-  identity Bytes
+  id              Int    @id @default(autoincrement()) // This is is NOT globally unique
+  pub_id          Bytes  @unique // This UUID is meaningless and exists soley cause the `uhlc::ID` must be 16-bit. Really this should be derived from the `identity` field.
+  // Enum: sd_p2p::Identity (or sd_core::p2p::IdentityOrRemoteIdentity in early versions)
+  identity        Bytes?
+  // Enum: sd_core::node::RemoteIdentity
+  remote_identity Bytes
 
-  node_id       Bytes
-  node_name     String
-  // Enum: sd_core::node::Platform
-  node_platform Int
+  node_id  Bytes
+  metadata Bytes? // TODO: This should not be optional
 
   last_seen    DateTime // Time core started for owner, last P2P message for P2P node
   date_created DateTime
@@ -68,12 +66,9 @@ model Instance {
   // clock timestamp for sync
   timestamp BigInt?
 
-  // attestation Bytes
-
-  locations Location[]
-
-  CRDTOperation        CRDTOperation[]
-  CloudCRDTOperation   CloudCRDTOperation[]
+  locations          Location[]
+  CRDTOperation      CRDTOperation[]
+  CloudCRDTOperation CloudCRDTOperation[]
 
   @@map("instance")
 }
@@ -124,6 +119,8 @@ model Location {
   hidden                 Boolean?
   date_created           DateTime?
 
+  /// @local
+  // this is just a client side cache which is annoying but oh well (@brendan)
   instance_id Int?
   instance    Instance? @relation(fields: [instance_id], references: [id], onDelete: SetNull)
 
@@ -277,6 +274,7 @@ model Object {
 //     @@map("key")
 // }
 
+/// @shared(id: object)
 model MediaData {
   id Int @id @default(autoincrement())
 
@@ -326,13 +324,13 @@ model Tag {
   @@map("tag")
 }
 
-/// @relation(item: tag, group: object)
+/// @relation(item: object, group: tag)
 model TagOnObject {
-  tag_id Int
-  tag    Tag @relation(fields: [tag_id], references: [id], onDelete: Restrict)
-
   object_id Int
   object    Object @relation(fields: [object_id], references: [id], onDelete: Restrict)
+
+  tag_id Int
+  tag    Tag @relation(fields: [tag_id], references: [id], onDelete: Restrict)
 
   date_created DateTime?
 
@@ -342,26 +340,27 @@ model TagOnObject {
 
 //// Label ////
 
+/// @shared(id: name)
 model Label {
-  id            Int      @id @default(autoincrement())
-  pub_id        Bytes    @unique
-  name          String   @unique
-  date_created  DateTime @default(now())
-  date_modified DateTime @default(now())
+  id            Int       @id @default(autoincrement())
+  name          String    @unique
+  date_created  DateTime?
+  date_modified DateTime?
 
   label_objects LabelOnObject[]
 
   @@map("label")
 }
 
+/// @relation(item: object, group: label)
 model LabelOnObject {
   date_created DateTime @default(now())
 
-  label_id     Int
-  label        Label    @relation(fields: [label_id], references: [id], onDelete: Restrict)
+  object_id Int
+  object    Object @relation(fields: [object_id], references: [id], onDelete: Restrict)
 
-  object_id    Int
-  object       Object   @relation(fields: [object_id], references: [id], onDelete: Restrict)
+  label_id Int
+  label    Label @relation(fields: [label_id], references: [id], onDelete: Restrict)
 
   @@id([label_id, object_id])
   @@map("label_on_object")
@@ -514,6 +513,7 @@ model Notification {
   @@map("notification")
 }
 
+/// @shared(id: pub_id)
 model SavedSearch {
   id     Int   @id @default(autoincrement())
   pub_id Bytes @unique
@@ -532,8 +532,10 @@ model SavedSearch {
   @@map("saved_search")
 }
 
+/// @local(id: id)
 model CloudCRDTOperation {
-  id        Bytes  @id
+  id Int @id @default(autoincrement())
+
   timestamp BigInt
   model     String
 

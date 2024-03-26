@@ -24,7 +24,7 @@ import { useObserverWithOwner } from './useObserver';
 type AllowReactiveScope<T> = T extends object
 	? {
 			[P in keyof T]: AllowReactiveScope<T[P]>;
-	  }
+		}
 	: T | (() => T);
 
 type Props<T> =

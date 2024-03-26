@@ -41,7 +41,7 @@ export default (props: Props) => {
 					variant="gray"
 				>
 					<Tooltip label={t('edit_library')}>
-						<Pencil className="h-4 w-4" />
+						<Pencil className="size-4" />
 					</Tooltip>
 				</ButtonLink>
 				<Button
@@ -54,7 +54,7 @@ export default (props: Props) => {
 					}}
 				>
 					<Tooltip label={t('delete_library')}>
-						<Trash className="h-4 w-4" />
+						<Trash className="size-4" />
 					</Tooltip>
 				</Button>
 			</div>

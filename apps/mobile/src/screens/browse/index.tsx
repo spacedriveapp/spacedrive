@@ -1,14 +1,16 @@
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { CheckCircle } from 'phosphor-react-native';
 import React from 'react';
-import { ScrollView, View } from 'react-native';
-import { useLibraryQuery } from '@sd/client';
+import { Pressable, View } from 'react-native';
+import { JobManagerContextProvider, useLibraryQuery } from '@sd/client';
 import { PulseAnimation } from '~/components/animation/lottie';
+import BrowseCategories from '~/components/browse/BrowseCategories';
 import BrowseLocations from '~/components/browse/BrowseLocations';
 import BrowseTags from '~/components/browse/BrowseTags';
-import Categories from '~/components/browse/Categories';
 import Jobs from '~/components/browse/Jobs';
-import { tw, twStyle } from '~/lib/tailwind';
+import { ModalRef } from '~/components/layout/Modal';
+import ScreenContainer from '~/components/layout/ScreenContainer';
+import { JobManagerModal } from '~/components/modal/job/JobManagerModal';
+import { tw } from '~/lib/tailwind';
 
 function JobIcon() {
 	const { data: isActive } = useLibraryQuery(['jobs.isActive']);
@@ -20,27 +22,23 @@ function JobIcon() {
 }
 
 export default function BrowseScreen() {
-	const height = useBottomTabBarHeight();
+	const modalRef = React.useRef<ModalRef>(null);
+
 	return (
-		<ScrollView style={twStyle('flex-1 bg-mobile-screen', { marginBottom: height })}>
-			<View style={twStyle('justify-between gap-6 py-5')}>
-				{/*Categories*/}
-				<Categories />
-				{/* Locations */}
-				<BrowseLocations />
-				{/* Tags */}
-				<BrowseTags />
-				{/* Jobs */}
-				<Jobs />
-				{/* <View style={tw`flex-row items-center w-full gap-x-4`}>
-					<JobManagerContextProvider>
-						<Pressable onPress={() => modalRef.current?.present()}>
-							<JobIcon />
-						</Pressable>
-						<JobManagerModal ref={modalRef} />
-					</JobManagerContextProvider>
-				</View> */}
+		<ScreenContainer>
+			<BrowseCategories />
+			<BrowseLocations />
+			<BrowseTags />
+			<Jobs />
+			{/* TODO: Remove this when the new job manager is live, this is here for debugging purposes. */}
+			<View style={tw`w-full flex-row items-center gap-x-4`}>
+				<JobManagerContextProvider>
+					<Pressable onPress={() => modalRef.current?.present()}>
+						<JobIcon />
+					</Pressable>
+					<JobManagerModal ref={modalRef} />
+				</JobManagerContextProvider>
 			</View>
-		</ScrollView>
+		</ScreenContainer>
 	);
 }

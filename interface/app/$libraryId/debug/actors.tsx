@@ -4,6 +4,7 @@ import { Procedures, useLibraryMutation, useLibrarySubscription } from '@sd/clie
 import { Button } from '@sd/ui';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 
+// @million-ignore
 export const Component = () => {
 	useRouteTitle('Actors');
 
@@ -17,7 +18,7 @@ export const Component = () => {
 	}, [data]);
 
 	return (
-		<div className="h-full w-full">
+		<div className="size-full">
 			<table>
 				<tr>
 					<th>Name</th>

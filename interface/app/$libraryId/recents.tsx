@@ -1,11 +1,10 @@
 import { useMemo } from 'react';
-import { ObjectKindEnum, ObjectOrder, SearchFilterArgs } from '@sd/client';
+import { ObjectKindEnum, ObjectOrder, SearchFilterArgs, useObjectsExplorerQuery } from '@sd/client';
 import { Icon } from '~/components';
 import { useRouteTitle } from '~/hooks';
 
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
-import { useObjectsExplorerQuery } from './Explorer/queries/useObjectsExplorerQuery';
 import { createDefaultExplorerSettings, objectOrderingKeysSchema } from './Explorer/store';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
@@ -49,7 +48,7 @@ export function Component() {
 				{ object: { dateAccessed: { from: new Date(0).toISOString() } } }
 			]
 		},
-		explorerSettings
+		order: explorerSettings.useSettingsSnapshot().order
 	});
 
 	const explorer = useExplorer({
@@ -65,7 +64,7 @@ export function Component() {
 					center={<SearchBar />}
 					left={
 						<div className="flex flex-row items-center gap-2">
-							<span className="text-sm font-medium truncate">Recents</span>
+							<span className="truncate text-sm font-medium">Recents</span>
 						</div>
 					}
 					right={<DefaultTopBarOptions />}

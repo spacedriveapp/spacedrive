@@ -4,8 +4,7 @@ use sd_sync::*;
 use sd_utils::uuid_to_bytes;
 
 use prisma_client_rust::chrono::Utc;
-use serde_json::json;
-use std::sync::Arc;
+use std::sync::{atomic::AtomicBool, Arc};
 use tokio::sync::broadcast;
 use uuid::Uuid;
 
@@ -22,23 +21,29 @@ struct Instance {
 
 impl Instance {
 	async fn new(id: Uuid) -> (Arc<Self>, broadcast::Receiver<SyncMessage>) {
+		let url = format!("file:{}", db_path(id));
+
+		println!("new -1: {url}");
+
 		let db = Arc::new(
 			prisma::PrismaClient::_builder()
-				.with_url(format!("file:{}", db_path(id)))
+				.with_url(url.to_string())
 				.build()
 				.await
 				.unwrap(),
 		);
 
+		println!("new 0: {url}");
+
 		db._db_push().await.unwrap();
+
+		println!("new 1");
 
 		db.instance()
 			.create(
 				uuid_to_bytes(id),
 				vec![],
 				vec![],
-				format!("Instace {id}"),
-				0,
 				Utc::now().into(),
 				Utc::now().into(),
 				vec![],
@@ -47,7 +52,14 @@ impl Instance {
 			.await
 			.unwrap();
 
-		let sync = sd_core_sync::Manager::new(&db, id, &Default::default(), Default::default());
+		println!("new 2");
+
+		let sync = sd_core_sync::Manager::new(
+			&db,
+			id,
+			&Arc::new(AtomicBool::new(true)),
+			Default::default(),
+		);
 
 		(
 			Arc::new(Self {
@@ -70,8 +82,6 @@ impl Instance {
 				uuid_to_bytes(right.id),
 				vec![],
 				vec![],
-				String::new(),
-				0,
 				Utc::now().into(),
 				Utc::now().into(),
 				vec![],
@@ -87,8 +97,6 @@ impl Instance {
 				uuid_to_bytes(left.id),
 				vec![],
 				vec![],
-				String::new(),
-				0,
 				Utc::now().into(),
 				Utc::now().into(),
 				vec![],
@@ -106,7 +114,7 @@ async fn bruh() -> Result<(), Box<dyn std::error::Error>> {
 
 	Instance::pair(&instance1, &instance2).await;
 
-	tokio::spawn({
+	let task_1 = tokio::spawn({
 		let _instance1 = instance1.clone();
 		let instance2 = instance2.clone();
 
@@ -125,7 +133,7 @@ async fn bruh() -> Result<(), Box<dyn std::error::Error>> {
 		}
 	});
 
-	tokio::spawn({
+	let task_2 = tokio::spawn({
 		let instance1 = instance1.clone();
 		let instance2 = instance2.clone();
 
@@ -143,6 +151,7 @@ async fn bruh() -> Result<(), Box<dyn std::error::Error>> {
 							.unwrap();
 
 						let ingest = &instance2.sync.ingest;
+
 						ingest
 							.event_tx
 							.send(ingest::Event::Messages(ingest::MessagesEvent {
@@ -169,18 +178,9 @@ async fn bruh() -> Result<(), Box<dyn std::error::Error>> {
 
 			use prisma::location;
 
-			macro_rules! item {
-				($name:ident, $value:expr) => {
-					(
-						(location::$name::NAME, json!($value)),
-						location::$name::set(Some($value.to_string())),
-					)
-				};
-			}
-
 			let (sync_ops, db_ops): (Vec<_>, Vec<_>) = [
-				item!(name, "Location 0"),
-				item!(path, "/User/Brendan/Documents"),
+				sync_db_entry!("Location 0".to_string(), location::name),
+				sync_db_entry!("/User/Brendan/Documents".to_string(), location::path),
 			]
 			.into_iter()
 			.unzip();
@@ -211,6 +211,9 @@ async fn bruh() -> Result<(), Box<dyn std::error::Error>> {
 
 	instance1.teardown().await;
 	instance2.teardown().await;
+
+	task_1.abort();
+	task_2.abort();
 
 	Ok(())
 }

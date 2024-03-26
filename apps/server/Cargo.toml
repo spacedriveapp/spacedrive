@@ -13,7 +13,6 @@ ai-models = ["sd-core/ai"]
 [dependencies]
 sd-core = { path = "../../core", features = [
 	"ffmpeg",
-	"location-watcher",
 	"heif",
 ] }
 
@@ -22,6 +21,8 @@ http = { workspace = true }
 rspc = { workspace = true, features = ["axum"] }
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "signal"] }
 tracing = { workspace = true }
+
+tempfile = "3.10.1"
 
 include_dir = "0.7.3"
 mime_guess = "2.0.4"

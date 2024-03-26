@@ -124,6 +124,30 @@ export default function ({ group, progress }: JobGroupProps) {
 	);
 }
 
+const toastErrorSuccess = (
+	errorMessage?: string,
+	successMessage?: string,
+	successCallBack?: () => void
+) => {
+	return {
+		onError: () => {
+			errorMessage &&
+				toast.error({
+					title: 'Error',
+					body: errorMessage
+				});
+		},
+		onSuccess: () => {
+			successMessage &&
+				toast.success({
+					title: 'Success',
+					body: successMessage
+				}),
+				successCallBack?.();
+		}
+	};
+};
+
 function Options({
 	activeJob,
 	group,
@@ -138,30 +162,6 @@ function Options({
 	const queryClient = useQueryClient();
 
 	const { t } = useLocale();
-
-	const toastErrorSuccess = (
-		errorMessage?: string,
-		successMessage?: string,
-		successCallBack?: () => void
-	) => {
-		return {
-			onError: () => {
-				errorMessage &&
-					toast.error({
-						title: 'Error',
-						body: errorMessage
-					});
-			},
-			onSuccess: () => {
-				successMessage &&
-					toast.success({
-						title: 'Success',
-						body: successMessage
-					}),
-					successCallBack?.();
-			}
-		};
-	};
 
 	const resumeJob = useLibraryMutation(
 		['jobs.resume'],
@@ -207,7 +207,7 @@ function Options({
 					variant="outline"
 				>
 					<Tooltip label={t('resume')}>
-						<Play className="h-4 w-4 cursor-pointer" />
+						<Play className="size-4 cursor-pointer" />
 					</Tooltip>
 				</Button>
 			)}
@@ -218,7 +218,7 @@ function Options({
 					button={
 						<Tooltip label={t('actions')}>
 							<Button className="!px-1" variant="outline">
-								<DotsThreeVertical className="h-4 w-4 cursor-pointer" />
+								<DotsThreeVertical className="size-4 cursor-pointer" />
 							</Button>
 						</Tooltip>
 					}
@@ -251,13 +251,11 @@ function Options({
 					<Tooltip label={t('pause')}>
 						<Button
 							className="cursor-pointer"
-							onClick={() => {
-								pauseJob.mutate(group.id);
-							}}
+							onClick={() => pauseJob.mutate(group.id)}
 							size="icon"
 							variant="outline"
 						>
-							<Pause className="h-4 w-4 cursor-pointer" />
+							<Pause className="size-4 cursor-pointer" />
 						</Button>
 					</Tooltip>
 					<Tooltip label={t('stop')}>
@@ -269,7 +267,7 @@ function Options({
 							size="icon"
 							variant="outline"
 						>
-							<Stop className="h-4 w-4 cursor-pointer" />
+							<Stop className="size-4 cursor-pointer" />
 						</Button>
 					</Tooltip>
 				</>

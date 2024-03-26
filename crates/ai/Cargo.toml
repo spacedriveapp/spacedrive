@@ -4,13 +4,15 @@ version = "0.1.0"
 authors = ["Ericson Soares <ericson@spacedrive.com>"]
 readme = "README.md"
 description = "A simple library to generate video thumbnails using ffmpeg with the webp format"
-rust-version = "1.73.0"
+rust-version = "1.75.0"
 license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
 sd-prisma = { path = "../prisma" }
+sd-core-sync = { path = "../../core/crates/sync" }
+sd-sync = { path = "../sync" }
 sd-utils = { path = "../utils" }
 sd-file-path-helper = { path = "../file-path-helper" }
 
@@ -24,6 +26,7 @@ prisma-client-rust = { workspace = true }
 reqwest = { workspace = true, features = ["stream", "native-tls-vendored"] }
 rmp-serde = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }
 tokio-stream = { workspace = true }
@@ -34,26 +37,26 @@ uuid = { workspace = true, features = ["v4", "serde"] }
 # Note: Keep same version as used by ort
 ndarray = { version = "0.15.6" }
 half = { version = "2.1", features = ['num-traits'] }
+rmpv.workspace = true
 
 # Microsoft does not provide a release for osx-gpu. See: https://github.com/microsoft/onnxruntime/releases
 # "gpu" means CUDA or TensorRT EP. Thus, the ort crate cannot download them at build time.
 # Ref: https://github.com/pykeio/ort/blob/d7defd1862969b4b44f7f3f4b9c72263690bd67b/build.rs#L148
 [target.'cfg(target_os = "windows")'.dependencies]
-ort = { version = "=2.0.0-alpha.2", default-features = false, features = [
+ort = { version = "=2.0.0-rc.0", default-features = false, features = [
 	"ndarray",
 	"half",
 	"load-dynamic",
 	"directml",
 ] }
 [target.'cfg(target_os = "linux")'.dependencies]
-ort = { version = "=2.0.0-alpha.2", default-features = false, features = [
+ort = { version = "=2.0.0-rc.0", default-features = false, features = [
 	"ndarray",
 	"half",
-	"load-dynamic",
 	"xnnpack",
 ] }
 # [target.'cfg(target_os = "android")'.dependencies]
-# ort = { version = "2.0.0-alpha.2", default-features = false, features = [
+# ort = { version = "=2.0.0-rc.0", default-features = false, features = [
 # 	"half",
 # 	"load-dynamic",
 # 	"qnn",
@@ -63,7 +66,7 @@ ort = { version = "=2.0.0-alpha.2", default-features = false, features = [
 # 	"armnn",
 # ] }
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
-ort = { version = "=2.0.0-alpha.2", features = [
+ort = { version = "=2.0.0-rc.0", features = [
 	"ndarray",
 	"half",
 	"load-dynamic",

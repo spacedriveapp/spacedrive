@@ -1,7 +1,8 @@
 use super::CompressedCRDTOperations;
 
 use sd_cloud_api::RequestConfigProvider;
-use sd_core_sync::{GetOpsArgs, SyncMessage, NTP64};
+use sd_core_sync::{SyncMessage, NTP64};
+use tracing::debug;
 use uuid::Uuid;
 
 use std::{sync::Arc, time::Duration};
@@ -9,6 +10,8 @@ use std::{sync::Arc, time::Duration};
 use tokio::time::sleep;
 
 use super::err_break;
+
+// Responsible for sending its instance's sync operations to the cloud.
 
 pub async fn run_actor(
 	library_id: Uuid,
@@ -40,22 +43,25 @@ pub async fn run_actor(
 
 			use sd_cloud_api::library::message_collections::do_add;
 
+			debug!(
+				"Preparing to send {} instances' operations to cloud",
+				req_adds.len()
+			);
+
 			// gets new operations for each instance to send to cloud
 			for req_add in req_adds {
 				let ops = err_break!(
-					sync.get_ops(GetOpsArgs {
-						count: 1000,
-						clocks: vec![(
-							req_add.instance_uuid,
-							NTP64(
-								req_add
-									.from_time
-									.unwrap_or_else(|| "0".to_string())
-									.parse()
-									.expect("couldn't parse ntp64 value"),
-							),
-						)],
-					})
+					sync.get_instance_ops(
+						1000,
+						req_add.instance_uuid,
+						NTP64(
+							req_add
+								.from_time
+								.unwrap_or_else(|| "0".to_string())
+								.parse()
+								.expect("couldn't parse ntp64 value"),
+						)
+					)
 					.await
 				);
 
@@ -66,13 +72,25 @@ pub async fn run_actor(
 				let start_time = ops[0].timestamp.0.to_string();
 				let end_time = ops[ops.len() - 1].timestamp.0.to_string();
 
+				let ops_len = ops.len();
+
+				use base64::prelude::*;
+
+				debug!(
+					"Instance {}: {} to {}",
+					req_add.instance_uuid, start_time, end_time
+				);
+
 				instances.push(do_add::Input {
 					uuid: req_add.instance_uuid,
 					key: req_add.key,
 					start_time,
 					end_time,
-					contents: serde_json::to_value(CompressedCRDTOperations::new(ops))
-						.expect("CompressedCRDTOperation should serialize!"),
+					contents: BASE64_STANDARD.encode(
+						rmp_serde::to_vec_named(&CompressedCRDTOperations::new(ops))
+							.expect("CompressedCRDTOperation should serialize!"),
+					),
+					ops_count: ops_len,
 				})
 			}
 

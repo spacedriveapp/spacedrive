@@ -1,26 +1,22 @@
 //! Rust Peer to Peer Networking Library
 #![warn(clippy::all, clippy::unwrap_used, clippy::panic)]
 
-mod discovery;
-mod event;
-mod manager;
-mod manager_stream;
+pub(crate) mod hooks;
+mod identity;
+mod mdns;
+mod p2p;
 mod peer;
-pub mod proto;
-pub mod spaceblock;
-pub mod spacetime;
-pub mod spacetunnel;
-mod utils;
+mod quic;
+mod smart_guards;
+mod stream;
 
-pub use discovery::*;
-pub use event::*;
-pub use manager::*;
-pub use manager_stream::*;
-pub use peer::*;
-pub use utils::*;
+pub use hooks::{HookEvent, HookId, ListenerId, ShutdownGuard};
+pub use identity::{Identity, IdentityErr, RemoteIdentity};
+pub use mdns::Mdns;
+pub use p2p::{Listener, P2P};
+pub use peer::{ConnectionRequest, Peer, PeerConnectionCandidate};
+pub use quic::{Libp2pPeerId, QuicTransport, RelayServerEntry};
+pub use smart_guards::SmartWriteGuard;
+pub use stream::UnicastStream;
 
-// TODO: Remove this
-#[doc(hidden)]
-pub mod internal {
-	pub use libp2p::PeerId;
-}
+pub use flume;

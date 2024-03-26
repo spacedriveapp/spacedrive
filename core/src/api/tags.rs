@@ -1,13 +1,12 @@
 use crate::{invalidate_query, library::Library, object::tag::TagCreateArgs};
 
 use sd_cache::{CacheNode, Normalise, NormalisedResult, NormalisedResults, Reference};
-use sd_file_ext::kind::ObjectKind;
 use sd_prisma::{
 	prisma::{file_path, object, tag, tag_on_object},
 	prisma_sync,
 };
 use sd_sync::OperationFactory;
-use sd_utils::uuid_to_bytes;
+use sd_utils::{msgpack, uuid_to_bytes};
 
 use std::collections::BTreeMap;
 
@@ -15,7 +14,6 @@ use chrono::{DateTime, Utc};
 use itertools::{Either, Itertools};
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use specta::Type;
 use uuid::Uuid;
 
@@ -165,6 +163,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									.select(file_path::select!({
 										id
 										pub_id
+										is_dir
 										object: select { id pub_id }
 									})),
 							)
@@ -216,37 +215,40 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						)
 						.await?;
 					} else {
-						let (new_objects, _) = db
-							._batch({
-								let (left, right): (Vec<_>, Vec<_>) = file_paths
-									.iter()
-									.filter(|fp| fp.object.is_none())
-									.map(|fp| {
-										let id = uuid_to_bytes(Uuid::new_v4());
+						let mut sync_params = vec![];
 
-										(
-											db.object().create(
-												id.clone(),
-												vec![
-													object::date_created::set(None),
-													object::kind::set(Some(
-														ObjectKind::Folder as i32,
-													)),
-												],
-											),
-											db.file_path().update(
-												file_path::id::equals(fp.id),
-												vec![file_path::object::connect(
-													object::pub_id::equals(id),
-												)],
-											),
-										)
-									})
-									.unzip();
+						let db_params: (Vec<_>, Vec<_>) = file_paths
+							.iter()
+							.filter(|fp| fp.is_dir.unwrap_or_default() && fp.object.is_none())
+							.map(|fp| {
+								let id = uuid_to_bytes(Uuid::new_v4());
 
-								(left, right)
+								sync_params.extend(sync.shared_create(
+									prisma_sync::object::SyncId { pub_id: id.clone() },
+									[],
+								));
+
+								sync_params.push(sync.shared_update(
+									prisma_sync::file_path::SyncId {
+										pub_id: fp.pub_id.clone(),
+									},
+									file_path::object::NAME,
+									msgpack!(id),
+								));
+
+								(
+									db.object().create(id.clone(), vec![]),
+									db.file_path().update(
+										file_path::id::equals(fp.id),
+										vec![file_path::object::connect(object::pub_id::equals(
+											id,
+										))],
+									),
+								)
 							})
-							.await?;
+							.unzip();
+
+						let (new_objects, _) = sync.write_ops(db, (sync_params, db_params)).await?;
 
 						let (sync_ops, db_creates) = objects
 							.into_iter()
@@ -326,8 +328,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						db,
 						(
 							[
-								args.name.as_ref().map(|v| (tag::name::NAME, json!(v))),
-								args.color.as_ref().map(|v| (tag::color::NAME, json!(v))),
+								args.name.as_ref().map(|v| (tag::name::NAME, msgpack!(v))),
+								args.color.as_ref().map(|v| (tag::color::NAME, msgpack!(v))),
 							]
 							.into_iter()
 							.flatten()

@@ -1,9 +1,8 @@
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { byteSize } from '@sd/client';
-import { Button, Card, CircularProgress, tw } from '@sd/ui';
+import { Button, Card, tw } from '@sd/ui';
 import { Icon } from '~/components';
-import { useIsDark } from '~/hooks';
 
 type LocationCardProps = {
 	name: string;
@@ -38,7 +37,7 @@ const LocationCard = ({ icon, name, connectionType, ...stats }: LocationCardProp
 				<Pill className="uppercase">{connectionType || 'Local'}</Pill>
 				<div className="grow" />
 				<Button size="icon" variant="outline">
-					<Ellipsis className="h-3 w-3 opacity-50" />
+					<Ellipsis className="size-3 opacity-50" />
 				</Button>
 			</div>
 		</Card>

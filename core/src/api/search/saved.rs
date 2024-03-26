@@ -1,6 +1,7 @@
-use crate::{api::utils::library, invalidate_query};
+use crate::{api::utils::library, invalidate_query, library::Library};
 
-use sd_prisma::prisma::saved_search;
+use sd_prisma::{prisma::saved_search, prisma_sync};
+use sd_sync::{option_sync_db_entry, sync_db_entry, OperationFactory};
 use sd_utils::chain_optional_iter;
 
 use chrono::{DateTime, FixedOffset, Utc};
@@ -31,42 +32,51 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 
 				|(_, library), args: Args| async move {
+					let Library { db, sync, .. } = library.as_ref();
 					let pub_id = Uuid::new_v4().as_bytes().to_vec();
 					let date_created: DateTime<FixedOffset> = Utc::now().into();
 
-					library
-						.db
-						.saved_search()
-						.create(
-							pub_id,
-							chain_optional_iter(
-								[
-									saved_search::date_created::set(Some(date_created)),
-									saved_search::name::set(Some(args.name)),
-								],
-								[
-									args.filters
-										.map(|s| {
-											// https://github.com/serde-rs/json/issues/579
-											// https://docs.rs/serde/latest/serde/de/struct.IgnoredAny.html
-											if let Err(e) = serde_json::from_str::<IgnoredAny>(&s) {
-												error!("failed to parse filters: {e:#?}");
-												None
-											} else {
-												Some(s)
-											}
-										})
-										.map(saved_search::filters::set),
-									args.search.map(Some).map(saved_search::search::set),
-									args.description
-										.map(Some)
-										.map(saved_search::description::set),
-									args.icon.map(Some).map(saved_search::icon::set),
-								],
+					let (sync_params, db_params): (Vec<_>, Vec<_>) = chain_optional_iter(
+						[
+							sync_db_entry!(date_created, saved_search::date_created),
+							sync_db_entry!(args.name, saved_search::name),
+						],
+						[
+							option_sync_db_entry!(
+								args.filters.and_then(|s| {
+									// https://github.com/serde-rs/json/issues/579
+									// https://docs.rs/serde/latest/serde/de/struct.IgnoredAny.html
+
+									if let Err(e) = serde_json::from_str::<IgnoredAny>(&s) {
+										error!("failed to parse filters: {e:#?}");
+										None
+									} else {
+										Some(s)
+									}
+								}),
+								saved_search::filters
 							),
-						)
-						.exec()
-						.await?;
+							option_sync_db_entry!(args.search, saved_search::search),
+							option_sync_db_entry!(args.description, saved_search::description),
+							option_sync_db_entry!(args.icon, saved_search::icon),
+						],
+					)
+					.into_iter()
+					.unzip();
+
+					sync.write_ops(
+						db,
+						(
+							sync.shared_create(
+								prisma_sync::saved_search::SyncId {
+									pub_id: pub_id.clone(),
+								},
+								sync_params,
+							),
+							db.saved_search().create(pub_id, db_params),
+						),
+					)
+					.await?;
 
 					invalidate_query!(library, "search.saved.list");
 
@@ -107,15 +117,53 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				});
 
 				|(_, library), (id, args): (saved_search::id::Type, Args)| async move {
-					let mut params = args.to_params();
-					params.push(saved_search::date_modified::set(Some(Utc::now().into())));
+					let Library { db, sync, .. } = library.as_ref();
+					let updated_at = Utc::now().into();
 
-					library
-						.db
+					let search = db
 						.saved_search()
-						.update_unchecked(saved_search::id::equals(id), params)
+						.find_unique(saved_search::id::equals(id))
+						.select(saved_search::select!({ pub_id }))
 						.exec()
-						.await?;
+						.await?
+						.ok_or_else(|| {
+							rspc::Error::new(rspc::ErrorCode::NotFound, "search not found".into())
+						})?;
+
+					let (sync_params, db_params): (Vec<_>, Vec<_>) = chain_optional_iter(
+						[sync_db_entry!(updated_at, saved_search::date_modified)],
+						[
+							option_sync_db_entry!(args.name.flatten(), saved_search::name),
+							option_sync_db_entry!(args.description.flatten(), saved_search::name),
+							option_sync_db_entry!(args.icon.flatten(), saved_search::icon),
+							option_sync_db_entry!(args.search.flatten(), saved_search::search),
+							option_sync_db_entry!(args.filters.flatten(), saved_search::filters),
+						],
+					)
+					.into_iter()
+					.map(|((k, v), p)| {
+						(
+							sync.shared_update(
+								prisma_sync::saved_search::SyncId {
+									pub_id: search.pub_id.clone(),
+								},
+								k,
+								v,
+							),
+							p,
+						)
+					})
+					.unzip();
+
+					sync.write_ops(
+						db,
+						(
+							sync_params,
+							db.saved_search()
+								.update_unchecked(saved_search::id::equals(id), db_params),
+						),
+					)
+					.await?;
 
 					invalidate_query!(library, "search.saved.list");
 					invalidate_query!(library, "search.saved.get");
@@ -127,12 +175,27 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("delete", {
 			R.with2(library())
 				.mutation(|(_, library), search_id: i32| async move {
-					library
-						.db
+					let Library { db, sync, .. } = library.as_ref();
+
+					let search = db
 						.saved_search()
-						.delete(saved_search::id::equals(search_id))
+						.find_unique(saved_search::id::equals(search_id))
+						.select(saved_search::select!({ pub_id }))
 						.exec()
-						.await?;
+						.await?
+						.ok_or_else(|| {
+							rspc::Error::new(rspc::ErrorCode::NotFound, "search not found".into())
+						})?;
+
+					sync.write_op(
+						db,
+						sync.shared_delete(prisma_sync::saved_search::SyncId {
+							pub_id: search.pub_id,
+						}),
+						db.saved_search()
+							.delete(saved_search::id::equals(search_id)),
+					)
+					.await?;
 
 					invalidate_query!(library, "search.saved.list");
 					// disabled as it's messing with pre-delete navigation

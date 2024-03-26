@@ -18,7 +18,7 @@ export const Component = () => {
 	};
 
 	return (
-		<div className="flex h-full w-full flex-col items-start p-4">{authSensitiveChild()}</div>
+		<div className="flex size-full flex-col items-start p-4">{authSensitiveChild()}</div>
 	);
 };
 

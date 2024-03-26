@@ -13,7 +13,6 @@ use std::{
 
 use sd_core::{Node, NodeError};
 
-use clear_localstorage::clear_localstorage;
 use sd_fda::DiskAccess;
 use serde::{Deserialize, Serialize};
 use tauri::{
@@ -25,7 +24,6 @@ use tauri_specta::{collect_events, ts, Event};
 use tokio::time::sleep;
 use tracing::error;
 
-mod clear_localstorage;
 mod file;
 mod menu;
 mod tauri_plugins;
@@ -209,18 +207,6 @@ async fn main() -> tauri::Result<()> {
 		.plugin(sd_server_plugin(node.clone()).await.unwrap()) // TODO: Handle `unwrap`
 		.manage(node.clone());
 
-	// macOS expected behavior is for the app to not exit when the main window is closed.
-	// Instead, the window is hidden and the dock icon remains so that on user click it should show the window again.
-	#[cfg(target_os = "macos")]
-	let app = app.on_window_event(|event| {
-		if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
-			if event.window().label() == "main" {
-				AppHandle::hide(&event.window().app_handle()).expect("Window should hide on macOS");
-				api.prevent_close();
-			}
-		}
-	});
-
 	let specta_builder = {
 		let specta_builder = ts::builder()
 			.events(collect_events![DragAndDropEvent])
@@ -317,6 +303,18 @@ async fn main() -> tauri::Result<()> {
 		})
 		.on_menu_event(menu::handle_menu_event)
 		.on_window_event(move |event| match event.event() {
+			// macOS expected behavior is for the app to not exit when the main window is closed.
+			// Instead, the window is hidden and the dock icon remains so that on user click it should show the window again.
+			#[cfg(target_os = "macos")]
+			WindowEvent::CloseRequested { api, .. } => {
+				// TODO: make this multi-window compatible in the future
+				event
+					.window()
+					.app_handle()
+					.hide()
+					.expect("Window should hide on macOS");
+				api.prevent_close();
+			}
 			WindowEvent::FileDrop(drop) => {
 				let window = event.window();
 				let mut file_drop_status = file_drop_status

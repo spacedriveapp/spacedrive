@@ -1,9 +1,9 @@
 import { BottomTabScreenProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
-import { StackScreenProps } from '@react-navigation/stack';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { BlurView } from 'expo-blur';
 import { useEffect, useRef, useState } from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet, ViewStyle } from 'react-native';
 import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
 import Rive, { RiveRef } from 'rive-react-native';
 import { Style } from 'twrnc/dist/esm/types';
@@ -17,13 +17,9 @@ import SettingsStack, { SettingsStackParamList } from './tabs/SettingsStack';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
-//TouchableWithoutFeedback is used to prevent Android ripple effect
-//State is being used to control the animation and make Rive work
-//Tab.Screen listeners are needed because if a user taps on the tab text only, the animation won't play
-//This may be revisted in the future to update accordingly
-
 export default function TabNavigator() {
 	const [activeIndex, setActiveIndex] = useState(0);
+
 	const TabScreens: {
 		name: keyof TabParamList;
 		component: () => React.JSX.Element;
@@ -104,9 +100,9 @@ export default function TabNavigator() {
 			screenOptions={{
 				tabBarStyle: {
 					position: 'absolute',
-					backgroundColor: tw.color('mobile-navtab'),
+					backgroundColor: tw.color('app-navtab'),
 					borderTopWidth: 1,
-					borderTopColor: tw.color('app-line/50'),
+					borderTopColor: tw.color('app-cardborder'),
 					height: Platform.OS === 'android' ? 60 : 80,
 					paddingVertical: 5
 				},
@@ -118,7 +114,7 @@ export default function TabNavigator() {
 				),
 				headerShown: false,
 				tabBarActiveTintColor: tw.color('accent'),
-				tabBarInactiveTintColor: tw.color('ink-faint')
+				tabBarInactiveTintColor: tw.color('ink/50')
 			}}
 		>
 			{TabScreens.map((screen, index) => (
@@ -129,6 +125,12 @@ export default function TabNavigator() {
 					options={({ navigation }) => ({
 						tabBarLabel: screen.label,
 						tabBarLabelStyle: screen.labelStyle,
+						/**
+						 * TouchableWithoutFeedback is used to prevent Android ripple effect
+						 * State is being used to control the animation and make Rive work
+						 * Tab.Screen listeners are needed because if a user taps on the tab text only, the animation won't play
+						 * This may be revisted in the future to update accordingly
+						 */
 						tabBarIcon: () => (
 							<TouchableWithoutFeedback
 								onPress={() => {
@@ -142,7 +144,7 @@ export default function TabNavigator() {
 						tabBarTestID: screen.testID
 					})}
 					listeners={() => ({
-						tabPress: () => {
+						focus: () => {
 							setActiveIndex(index);
 						}
 					})}
@@ -157,7 +159,7 @@ interface TabBarButtonProps {
 	resourceName: string;
 	animationName: string;
 	artboardName: string;
-	style?: any;
+	style?: ViewStyle;
 }
 
 const TabBarButton = ({
@@ -196,5 +198,5 @@ export type TabParamList = {
 
 export type TabScreenProps<Screen extends keyof TabParamList> = CompositeScreenProps<
 	BottomTabScreenProps<TabParamList, Screen>,
-	StackScreenProps<RootStackParamList, 'Root'>
+	NativeStackScreenProps<RootStackParamList, 'Root'>
 >;

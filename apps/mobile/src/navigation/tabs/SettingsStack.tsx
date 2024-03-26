@@ -1,7 +1,8 @@
 import { CompositeScreenProps } from '@react-navigation/native';
-import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
+// import KeysSettingsScreen from '~/screens/settings/library/KeysSettings';
+
+import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import Header from '~/components/header/Header';
-import { tw } from '~/lib/tailwind';
 import AppearanceSettingsScreen from '~/screens/settings/client/AppearanceSettings';
 import ExtensionsSettingsScreen from '~/screens/settings/client/ExtensionsSettings';
 import GeneralSettingsScreen from '~/screens/settings/client/GeneralSettings';
@@ -17,23 +18,13 @@ import NodesSettingsScreen from '~/screens/settings/library/NodesSettings';
 import TagsSettingsScreen from '~/screens/settings/library/TagsSettings';
 import SettingsScreen from '~/screens/settings/Settings';
 
-// import KeysSettingsScreen from '~/screens/settings/library/KeysSettings';
-
 import { TabScreenProps } from '../TabNavigator';
 
-const Stack = createStackNavigator<SettingsStackParamList>();
+const Stack = createNativeStackNavigator<SettingsStackParamList>();
 
 export default function SettingsStack() {
 	return (
-		<Stack.Navigator
-			initialRouteName="Settings"
-			screenOptions={{
-				headerStyle: { backgroundColor: tw.color('app-box') },
-				headerTintColor: tw.color('ink'),
-				headerTitleStyle: tw`text-base`,
-				headerBackTitleStyle: tw`text-base`
-			}}
-		>
+		<Stack.Navigator initialRouteName="Settings">
 			<Stack.Screen
 				name="Settings"
 				component={SettingsScreen}
@@ -43,55 +34,55 @@ export default function SettingsStack() {
 			<Stack.Screen
 				name="GeneralSettings"
 				component={GeneralSettingsScreen}
-				options={{ headerTitle: 'General Settings' }}
+				options={{ header: () => <Header navBack navBackHome title="General" /> }}
 			/>
 			<Stack.Screen
 				name="LibrarySettings"
 				component={LibrarySettingsScreen}
-				options={{ headerTitle: 'Libraries' }}
+				options={{ header: () => <Header navBack navBackHome title="Libraries" /> }}
 			/>
 			<Stack.Screen
 				name="AppearanceSettings"
 				component={AppearanceSettingsScreen}
-				options={{ headerTitle: 'Appearance' }}
+				options={{ header: () => <Header navBack navBackHome title="Appearance" /> }}
 			/>
 			<Stack.Screen
 				name="PrivacySettings"
 				component={PrivacySettingsScreen}
-				options={{ headerTitle: 'Privacy' }}
+				options={{ header: () => <Header navBack navBackHome title="Privacy" /> }}
 			/>
 			<Stack.Screen
 				name="ExtensionsSettings"
 				component={ExtensionsSettingsScreen}
-				options={{ headerTitle: 'Extensions' }}
+				options={{ header: () => <Header navBack navBackHome title="Extensions" /> }}
 			/>
 			{/* Library */}
 			<Stack.Screen
 				name="LibraryGeneralSettings"
 				component={LibraryGeneralSettingsScreen}
-				options={{ headerTitle: 'Library Settings' }}
+				options={{ header: () => <Header navBack navBackHome title="Library Settings" /> }}
 			/>
 			<Stack.Screen
 				name="LocationSettings"
 				component={LocationSettingsScreen}
-				options={{ headerTitle: 'Locations' }}
+				options={{
+					header: () => <Header searchType="location" navBack title="Locations" />
+				}}
 			/>
 			<Stack.Screen
 				name="EditLocationSettings"
 				component={EditLocationSettingsScreen}
-				options={{ headerTitle: 'Edit Location' }}
+				options={{ header: () => <Header navBack navBackHome title="Edit Location" /> }}
 			/>
 			<Stack.Screen
 				name="NodesSettings"
 				component={NodesSettingsScreen}
-				options={{
-					headerTitle: 'Nodes'
-				}}
+				options={{ header: () => <Header navBack navBackHome title="Nodes" /> }}
 			/>
 			<Stack.Screen
 				name="TagsSettings"
 				component={TagsSettingsScreen}
-				options={{ headerTitle: 'Tags' }}
+				options={{ header: () => <Header navBack navBackHome title="Tags" /> }}
 			/>
 			{/* <Stack.Screen
 				name="KeysSettings"
@@ -99,13 +90,21 @@ export default function SettingsStack() {
 				options={{ headerTitle: 'Keys' }}
 			/> */}
 			{/* Info */}
-			<Stack.Screen name="About" component={AboutScreen} options={{ headerTitle: 'About' }} />
+			<Stack.Screen
+				name="About"
+				component={AboutScreen}
+				options={{ header: () => <Header navBack navBackHome title="About" /> }}
+			/>
 			<Stack.Screen
 				name="Support"
 				component={SupportScreen}
-				options={{ headerTitle: 'Support' }}
+				options={{ header: () => <Header navBack navBackHome title="Support" /> }}
 			/>
-			<Stack.Screen name="Debug" component={DebugScreen} options={{ headerTitle: 'Debug' }} />
+			<Stack.Screen
+				name="Debug"
+				component={DebugScreen}
+				options={{ header: () => <Header navBack navBackHome title="Debug" /> }}
+			/>
 		</Stack.Navigator>
 	);
 }
@@ -137,6 +136,6 @@ export type SettingsStackParamList = {
 
 export type SettingsStackScreenProps<Screen extends keyof SettingsStackParamList> =
 	CompositeScreenProps<
-		StackScreenProps<SettingsStackParamList, Screen>,
+		NativeStackScreenProps<SettingsStackParamList, Screen>,
 		TabScreenProps<'SettingsStack'>
 	>;

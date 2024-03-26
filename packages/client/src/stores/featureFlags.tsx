@@ -15,7 +15,7 @@ export const features = [
 
 // This defines which backend feature flags show up in the UI.
 // This is kinda a hack to not having the runtime array of possible features as Specta only exports the types.
-export const backendFeatures: BackendFeature[] = ['syncEmitMessages', 'filesOverP2P', 'cloudSync'];
+export const backendFeatures: BackendFeature[] = ['filesOverP2P', 'cloudSync'];
 
 export type FeatureFlag = (typeof features)[number] | BackendFeature;
 
@@ -77,7 +77,7 @@ export function toggleFeatureFlag(flags: FeatureFlag | FeatureFlag[]) {
 					? true
 					: await confirm(
 							'This feature will render your database broken and it WILL need to be reset! Use at your own risk!'
-					  );
+						);
 
 				if (result) {
 					nonLibraryClient.mutation(['toggleFeatureFlag', f as any]);

@@ -2,6 +2,11 @@
 target/
 dist/
 
+# Mobile build artifacts
+apps/mobile/.expo
+apps/mobile/android/app/build
+apps/mobile/modules/sd-core/android/build
+
 # macOS/iOS product/cache
 .build/
 Pods/
@@ -20,7 +25,7 @@ apps/desktop/src/index.tsx
 apps/desktop/src/commands.ts
 
 # Import only file, which order is relevant
-interface/components/TextViewer/prism.tsx
+interface/components/TextViewer/prism-lazy.ts
 
 .next/
 .contentlayer/

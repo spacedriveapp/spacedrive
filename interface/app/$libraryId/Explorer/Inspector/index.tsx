@@ -56,6 +56,7 @@ import { FileThumb } from '../FilePath/Thumb';
 import { useQuickPreviewStore } from '../QuickPreview/store';
 import { explorerStore } from '../store';
 import { uniqueId, useExplorerItemData } from '../util';
+import { RenamableItemText } from '../View/RenamableItemText';
 import FavoriteButton from './FavoriteButton';
 import MediaData from './MediaData';
 import Note from './Note';
@@ -209,10 +210,10 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					...new Set(
 						(item.item?.file_paths || []).map((fp) => fp.location_id).filter(Boolean)
 					)
-			  ]
+				]
 			: item.type === 'Path'
-			? [item.item.location_id]
-			: [];
+				? [item.item.location_id]
+				: [];
 	}, [item]);
 
 	const fileLocations =
@@ -270,10 +271,17 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 	return (
 		<>
-			<h3 className="truncate px-3 pb-1 pt-2 text-base font-bold text-ink">
-				{name}
-				{extension && `.${extension}`}
-			</h3>
+			<div className="px-2 pb-1 pt-2">
+				<RenamableItemText
+					item={item}
+					toggleBy="click"
+					lines={2}
+					selected
+					allowHighlight={false}
+					className="!text-base !font-bold !text-ink"
+					style={{ maxHeight: '50px' }}
+				/>
+			</div>
 
 			{objectData && (
 				<div className="mx-3 mb-0.5 mt-1 flex flex-row space-x-0.5 text-ink">
@@ -283,12 +291,12 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 					<Tooltip label={t('encrypt')}>
 						<Button size="icon">
-							<Lock className="h-[18px] w-[18px]" />
+							<Lock className="size-[18px]" />
 						</Button>
 					</Tooltip>
 					<Tooltip label={t('share')}>
 						<Button size="icon">
-							<Link className="h-[18px] w-[18px]" />
+							<Link className="size-[18px]" />
 						</Button>
 					</Tooltip>
 				</div>
@@ -297,7 +305,11 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 			<Divider />
 
 			<MetaContainer>
-				<MetaData icon={Cube} label={t('size')} value={`${size}`} />
+				<MetaData
+					icon={Cube}
+					label={t('size')}
+					value={!!ephemeralPathData && ephemeralPathData.is_dir ? null : `${size}`}
+				/>
 
 				<MetaData icon={Clock} label={t('created')} value={formatDate(dateCreated)} />
 
@@ -462,7 +474,9 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 					const { kind, size, dateCreated, dateAccessed, dateModified, dateIndexed } =
 						getExplorerItemData(item);
 
-					metadata.size += size.original;
+					if (item.type !== 'NonIndexedPath' || !item.item.is_dir) {
+						metadata.size = (metadata.size ?? BigInt(0)) + size.original;
+					}
 
 					if (dateCreated)
 						metadata.created = getDate(metadata.created, new Date(dateCreated));
@@ -484,8 +498,8 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 
 					return metadata;
 				},
-				{ size: BigInt(0), indexed: null, types: new Set(), kinds: new Map() } as {
-					size: bigint;
+				{ size: null, indexed: null, types: new Set(), kinds: new Map() } as {
+					size: bigint | null;
 					created: MetadataDate;
 					modified: MetadataDate;
 					indexed: MetadataDate;
@@ -504,7 +518,11 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 	return (
 		<>
 			<MetaContainer>
-				<MetaData icon={Cube} label={t('size')} value={`${byteSize(metadata.size)}`} />
+				<MetaData
+					icon={Cube}
+					label={t('size')}
+					value={metadata.size !== null ? `${byteSize(metadata.size)}` : null}
+				/>
 				<MetaData icon={Clock} label={t('created')} value={formatDate(metadata.created)} />
 				<MetaData
 					icon={Eraser}
@@ -611,8 +629,12 @@ export const MetaData = ({ icon: Icon, label, value, tooltipValue, onClick }: Me
 		<div className="flex items-center text-xs text-ink-dull" onClick={onClick}>
 			{Icon && <Icon weight="bold" className="mr-2 shrink-0" />}
 			<span className="mr-2 flex-1 whitespace-nowrap">{label}</span>
-			<Tooltip label={tooltipValue || value} asChild>
-				<span className="truncate break-all text-ink">{value ?? '--'}</span>
+			<Tooltip
+				label={tooltipValue || value}
+				className="truncate text-ink"
+				tooltipClassName="max-w-none"
+			>
+				{value ?? '--'}
 			</Tooltip>
 		</div>
 	);

@@ -138,7 +138,7 @@ const FilterOptionList = ({
 								{option.name}
 							</SearchOptionItem>
 						);
-				  })}
+					})}
 		</SearchOptionSubMenu>
 	);
 };

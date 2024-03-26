@@ -103,7 +103,6 @@ body {
 
 .custom-scroll {
 	-ms-overflow-style: none; /* for Internet Explorer, Edge */
-	scrollbar-width: none; /* for Firefox */
 	overflow-y: scroll;
 }
 
@@ -388,10 +387,15 @@ body {
 }
 
 @keyframes wiggle {
-	0%, 100% { transform: rotate(-1deg); }
-	50% { transform: rotate(1deg); }
+	0%,
+	100% {
+		transform: rotate(-1deg);
+	}
+	50% {
+		transform: rotate(1deg);
+	}
 }
 
 .wiggle {
-  animation: wiggle 200ms infinite;
+	animation: wiggle 200ms infinite;
 }

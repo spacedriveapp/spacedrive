@@ -22,7 +22,7 @@ runs:
     - name: Restore cached LLVM and Clang
       if: ${{ runner.os == 'Windows' }}
       id: cache-llvm-restore
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         key: llvm-15
         path: C:/Program Files/LLVM
@@ -37,14 +37,26 @@ runs:
     - name: Save LLVM and Clang
       if: ${{ runner.os == 'Windows' && inputs.save-cache == 'true' }}
       id: cache-llvm-save
-      uses: actions/cache/save@v3
+      uses: actions/cache/save@v4
       with:
         key: ${{ steps.cache-llvm-restore.outputs.cache-primary-key }}
         path: C:/Program Files/LLVM
 
+    - name: Install current Bash on macOS
+      shell: bash
+      if: runner.os == 'macOS'
+      run: brew install bash
+
     - name: Install Nasm
       if: ${{ runner.os != 'Linux' }}
       uses: ilammy/setup-nasm@v1
+
+    - name: Install Mold (linker)
+      shell: bash
+      if: ${{ runner.os == 'Linux' }}
+      run: |
+        curl -L# 'https://github.com/rui314/mold/releases/download/v2.4.0/mold-2.4.0-x86_64-linux.tar.gz' \
+        | sudo tar -xzf- -C /usr/local
 
     - name: Setup Rust and Dependencies
       uses: ./.github/actions/setup-rust

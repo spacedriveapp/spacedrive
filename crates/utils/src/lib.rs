@@ -26,3 +26,16 @@ pub fn uuid_to_bytes(uuid: Uuid) -> Vec<u8> {
 pub fn from_bytes_to_uuid(bytes: &[u8]) -> Uuid {
 	Uuid::from_slice(bytes).expect("corrupted uuid in database")
 }
+
+#[macro_export]
+macro_rules! msgpack {
+	(nil) => {
+		::rmpv::Value::Nil
+	};
+	($e:expr) => {{
+		let bytes = rmp_serde::to_vec_named(&$e).expect("failed to serialize msgpack");
+		let value: rmpv::Value = rmp_serde::from_slice(&bytes).expect("failed to deserialize msgpack");
+
+		value
+	}}
+}

@@ -1,26 +1,34 @@
-import { HTMLAttributes, useEffect, useMemo } from 'react';
+import { HTMLAttributes, ReactNode, useMemo } from 'react';
+import { useNavigate } from 'react-router';
 import { useSelector, type ExplorerItem } from '@sd/client';
+import { useOperatingSystem } from '~/hooks';
+import { useRoutingContext } from '~/RoutingContext';
 
-import { RenderItem } from '.';
 import { useExplorerContext } from '../../Context';
 import { explorerStore, isCut } from '../../store';
 import { uniqueId } from '../../util';
 import { useExplorerViewContext } from '../Context';
-import { useGridContext } from './context';
+import { useDragSelectContext } from './DragSelect/context';
+import { useDragSelectable } from './DragSelect/useDragSelectable';
 
 interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
 	index: number;
 	item: ExplorerItem;
-	children: RenderItem;
+	children: (state: { selected: boolean; cut: boolean }) => ReactNode;
 }
 
-export const GridItem = ({ children, item, ...props }: Props) => {
-	const grid = useGridContext();
+export const GridItem = ({ children, item, index, ...props }: Props) => {
 	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
+	const { currentIndex, maxIndex } = useRoutingContext();
+	const os = useOperatingSystem();
+	const navigate = useNavigate();
+
+	const dragSelect = useDragSelectContext();
+
 	const cutCopyState = useSelector(explorerStore, (s) => s.cutCopyState);
 
-	const itemId = useMemo(() => uniqueId(item), [item]);
+	const cut = useMemo(() => isCut(item, cutCopyState), [cutCopyState, item]);
 
 	const selected = useMemo(
 		// Even though this checks object equality, it should still be safe since `selectedItems`
@@ -29,55 +37,36 @@ export const GridItem = ({ children, item, ...props }: Props) => {
 		[explorer.selectedItems, item]
 	);
 
-	const cut = useMemo(() => isCut(item, cutCopyState), [cutCopyState, item]);
+	const canGoBack = currentIndex !== 0;
+	const canGoForward = currentIndex !== maxIndex;
 
-	useEffect(() => {
-		if (!grid.selecto?.current || !grid.selectoUnselected.current.has(itemId)) return;
-
-		if (!selected) {
-			grid.selectoUnselected.current.delete(itemId);
-			return;
-		}
-
-		const element = grid.getElementById(itemId);
-
-		if (!element) return;
-
-		grid.selectoUnselected.current.delete(itemId);
-		grid.selecto.current.setSelectedTargets([
-			...grid.selecto.current.getSelectedTargets(),
-			element as HTMLElement
-		]);
-
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
-
-	useEffect(() => {
-		if (!grid.selecto) return;
-
-		return () => {
-			const element = grid.getElementById(itemId);
-			if (selected && !element) grid.selectoUnselected.current.add(itemId);
-		};
-
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [selected]);
+	const { attributes } = useDragSelectable({ index, id: uniqueId(item), selected });
 
 	return (
 		<div
 			{...props}
-			className="h-full w-full"
-			data-selectable=""
-			data-selectable-index={props.index}
-			data-selectable-id={itemId}
-			onContextMenu={(e) => {
-				if (explorerView.selectable && !explorer.selectedItems.has(item)) {
-					explorer.resetSelectedItems([item]);
-					grid.selecto?.current?.setSelectedTargets([e.currentTarget]);
+			{...attributes}
+			className="size-full"
+			// Prevent explorer view onMouseDown event from
+			// being executed and resetting the selection
+			onMouseDown={(e) => {
+				e.stopPropagation();
+				if (os === 'browser') return;
+				if (e.buttons === 8 || e.buttons === 3) {
+					if (!canGoBack) return;
+					navigate(-1);
+				} else if (e.buttons === 16 || e.buttons === 4) {
+					if (!canGoForward) return;
+					navigate(1);
 				}
 			}}
+			onContextMenu={(e) => {
+				if (!explorerView.selectable || explorer.selectedItems.has(item)) return;
+				explorer.resetSelectedItems([item]);
+				dragSelect.resetSelectedTargets([{ id: uniqueId(item), node: e.currentTarget }]);
+			}}
 		>
-			{children({ item: item, selected, cut })}
+			{children({ selected, cut })}
 		</div>
 	);
 };

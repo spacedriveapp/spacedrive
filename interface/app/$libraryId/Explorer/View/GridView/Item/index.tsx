@@ -1,8 +1,14 @@
 import clsx from 'clsx';
 import { memo, useMemo } from 'react';
-import { byteSize, getItemFilePath, useSelector, type ExplorerItem, useLibraryQuery } from '@sd/client';
-
+import {
+	byteSize,
+	getItemFilePath,
+	useLibraryQuery,
+	useSelector,
+	type ExplorerItem
+} from '@sd/client';
 import { useLocale } from '~/hooks';
+
 import { useExplorerContext } from '../../../Context';
 import { ExplorerDraggable } from '../../../ExplorerDraggable';
 import { ExplorerDroppable, useExplorerDroppableContext } from '../../../ExplorerDroppable';
@@ -29,7 +35,7 @@ export const GridViewItem = memo((props: GridViewItemProps) => {
 
 	return (
 		<GridViewItemContext.Provider value={props}>
-			<ViewItem data={props.data} className={clsx('h-full w-full', isHidden && 'opacity-50')}>
+			<ViewItem data={props.data} className={clsx('size-full', isHidden && 'opacity-50')}>
 				<ExplorerDroppable
 					droppable={{
 						data: { type: 'explorer-item', data: props.data },
@@ -110,7 +116,7 @@ const ItemMetadata = () => {
 				selected={item.selected}
 			/>
 			<ItemSize />
-			{item.data.type === "Label" && <LabelItemCount data={item.data} />}
+			{item.data.type === 'Label' && <LabelItemCount data={item.data} />}
 		</ExplorerDraggable>
 	);
 };
@@ -148,23 +154,27 @@ const ItemSize = () => {
 	);
 };
 
-function LabelItemCount({data}: {data: Extract<ExplorerItem, {type: "Label"}>}) {
+function LabelItemCount({ data }: { data: Extract<ExplorerItem, { type: 'Label' }> }) {
 	const { t } = useLocale();
 
-	const count = useLibraryQuery(["search.objectsCount", {
-		filters: [{
-			object: {
-				labels: {
-					in: [data.item.id]
+	const count = useLibraryQuery([
+		'search.objectsCount',
+		{
+			filters: [
+				{
+					object: {						labels: {							in: [data.item.id]
+						}
+					}
 				}
-			}
-		}]
-	}])
+			]
+		}
+	]);
 
-	if(count.data === undefined) return
+	if (count.data === undefined) return;
 
-	return <div className="truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull">
-		{t("item_with_count", {count: count.data})}
-	</div>
-
+	return (
+		<div className="truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull">
+			{t('item_with_count', { count: count.data })}
+		</div>
+	);
 }
