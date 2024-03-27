@@ -20,7 +20,7 @@ const Pre: FC<{ children: React.ReactNode }> = ({ children }) => {
 			<button
 				aria-label="Copy code"
 				type="button"
-				className="absolute right-2 top-2 z-10 rounded-md bg-app-box p-[0.75rem] text-white/60 transition-colors duration-200 ease-in-out hover:bg-app-darkBox"
+				className="absolute right-2 top-2 z-10 rounded-md bg-app-box p-3 text-white/60 transition-colors duration-200 ease-in-out hover:bg-app-darkBox"
 				onClick={onCopy}
 			>
 				{copied ?
