@@ -91,4 +91,4 @@ runs:
         pushd scripts
         npm i --production
         popd
-        node scripts/preprep.mjs
+        env NODE_ENV=debug node scripts/preprep.mjs
