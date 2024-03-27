@@ -201,6 +201,8 @@
 	"install_update": "アップデートをインストールする",
 	"installed": "インストール完了",
 	"item_size": "アイテムの表示サイズ",
+	"icon_size": "アイコンサイズ",
+	"text_size": "テキストサイズ",
 	"item_with_count_one": "{{count}} item",
 	"item_with_count_other": "{{count}} items",
 	"job_has_been_canceled": "ジョブが中止されました。",

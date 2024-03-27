@@ -200,6 +200,8 @@
 	"install_update": "安装更新",
 	"installed": "已安装",
 	"item_size": "项目大小",
+	"icon_size": "图标大小",
+	"text_size": "文字大小",
 	"item_with_count_one": "{{count}} 项目",
 	"item_with_count_other": "{{count}} 项目",
 	"job_has_been_canceled": "作业已取消。",

@@ -110,8 +110,9 @@ const ItemMetadata = () => {
 		<ExplorerDraggable draggable={{ data: item.data, disabled: isRenaming }}>
 			<RenamableItemText
 				item={item.data}
-				style={{ maxHeight: 40, textAlign: 'center' }}
+				style={{ textAlign: 'center' }}
 				lines={2}
+				editLines={3}
 				highlight={isDroppable}
 				selected={item.selected}
 			/>

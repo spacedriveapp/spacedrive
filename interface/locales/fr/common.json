@@ -199,6 +199,8 @@
 	"install_update": "Installer la mise à jour",
 	"installed": "Installé",
 	"item_size": "Taille de l'élément",
+	"icon_size": "Taille de l'icône",
+	"text_size": "Taille du texte",
 	"item_with_count_one": "{{count}} article",
 	"item_with_count_other": "{{count}} articles",
 	"job_has_been_canceled": "Le travail a été annulé.",

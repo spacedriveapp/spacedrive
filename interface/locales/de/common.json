@@ -200,6 +200,8 @@
 	"install_update": "Update installieren",
 	"installed": "Installiert",
 	"item_size": "Elementgröße",
+	"icon_size": "Symbolgröße",
+	"text_size": "Textgröße",
 	"item_with_count_one": "{{count}} artikel",
 	"item_with_count_other": "{{count}} artikel",
 	"job_has_been_canceled": "Der Job wurde abgebrochen.",
