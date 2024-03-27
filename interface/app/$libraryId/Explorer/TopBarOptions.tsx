@@ -89,7 +89,7 @@ export const useExplorerTopBarOptions = () => {
 			icon: (
 				<SidebarSimple
 					weight={showInspector ? 'fill' : 'regular'}
-					className={clsx(TOP_BAR_ICON_STYLE, 'scale-x-[-1]')}
+					className={clsx(TOP_BAR_ICON_STYLE, '-scale-x-100')}
 				/>
 			),
 			individual: true,

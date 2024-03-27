@@ -106,6 +106,8 @@ const state = {
 	drag: null as null | DragState,
 	isDragSelecting: false,
 	isRenaming: false,
+	// Used for disabling certain keyboard shortcuts when command palette is open
+	isCMDPOpen: false,
 	isContextMenuOpen: false,
 	quickRescanLastRun: Date.now() - 200
 };

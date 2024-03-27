@@ -1,6 +1,13 @@
 import { Gear } from '@phosphor-icons/react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { JobManagerContextProvider, LibraryContextProvider, useClientContext, useDebugState, useLibrarySubscription } from '@sd/client';
+import {
+	JobManagerContextProvider,
+	LibraryContextProvider,
+	useClientContext,
+	useDebugState,
+	useLibrarySubscription
+} from '@sd/client';
 import { Button, ButtonLink, Popover, Tooltip, usePopover } from '@sd/ui';
 import { useKeysMatcher, useLocale, useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -8,7 +15,6 @@ import { usePlatform } from '~/util/Platform';
 import DebugPopover from '../DebugPopover';
 import { IsRunningJob, JobManager } from '../JobManager';
 import FeedbackButton from './FeedbackButton';
-import { useState } from 'react';
 
 export default () => {
 	const { library } = useClientContext();
@@ -45,7 +51,11 @@ export default () => {
 					)}
 				</>
 			)}
-			{library && <LibraryContextProvider library={library}><SyncStatusIndicator/></LibraryContextProvider>}
+			{library && (
+				<LibraryContextProvider library={library}>
+					<SyncStatusIndicator />
+				</LibraryContextProvider>
+			)}
 			<div className="flex w-full items-center justify-between">
 				<div className="flex">
 					<ButtonLink
@@ -101,9 +111,9 @@ export default () => {
 function SyncStatusIndicator() {
 	const [syncing, setSyncing] = useState(false);
 
-	useLibrarySubscription(["sync.active"], {
+	useLibrarySubscription(['sync.active'], {
 		onData: setSyncing
-	})
+	});
 
-	return null
+	return null;
 }

@@ -439,5 +439,16 @@
 	"failed_to_download_update": "アップデートのダウンロードに失敗",
 	"updated_successfully": "バージョン {{version}} へのアップデートが完了しました。",
 	"view_changes": "変更履歴を見る",
-	"update": "アップデート"
+	"update": "アップデート",
+	"ask_spacedrive": "スペースドライブに聞いてください",
+	"close_command_palette": "コマンドパレットを閉じる",
+	"go_to_labels": "ラベルに移動",
+	"go_to_location": "場所に行く",
+	"go_to_overview": "概要に移動",
+	"go_to_recents": "最近の履歴に移動",
+	"go_to_settings": "設定に移動",
+	"go_to_tag": "タグに移動",
+	"no_labels": "ラベルなし",
+	"search_for_files_and_actions": "ファイルとアクションを検索します...",
+	"toggle_command_palette": "コマンドパレットの切り替え"
 }

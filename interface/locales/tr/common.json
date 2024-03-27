@@ -438,5 +438,17 @@
 	"failed_to_download_update": "Güncelleme indirme başarısız",
 	"updated_successfully": "Başarıyla güncellendi, şu anda {{version}} sürümündesiniz",
 	"view_changes": "Değişiklikleri Görüntüle",
-	"update": "Güncelleme"
+	"update": "Güncelleme",
+	"ask_spacedrive": "Spacedrive'a sor",
+	"close_command_palette": "Komut paletini kapat",
+	"disconnected": "Bağlantı kesildi",
+	"go_to_labels": "Etiketlere git",
+	"go_to_location": "Konuma git",
+	"go_to_overview": "Genel bakışa git",
+	"go_to_recents": "Son aramalara git",
+	"go_to_settings": "Ayarlara git",
+	"go_to_tag": "Etikete git",
+	"no_labels": "Etiket yok",
+	"search_for_files_and_actions": "Dosyaları ve eylemleri arayın...",
+	"toggle_command_palette": "Komut paletini değiştir"
 }

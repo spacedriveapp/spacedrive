@@ -439,5 +439,16 @@
 	"failed_to_download_update": "Не ўдалося загрузіць абнаўленне",
 	"updated_successfully": "Паспяхова абнавіліся, вы на версіі {{version}}",
 	"view_changes": "Праглядзець змены",
-	"update": "Абнаўленне"
+	"update": "Абнаўленне",
+	"ask_spacedrive": "Pergunte ao Spacedrive",
+	"close_command_palette": "Fechar paleta de comandos",
+	"go_to_labels": "Ir para etiquetas",
+	"go_to_location": "Ir para localização",
+	"go_to_overview": "Ir para visão geral",
+	"go_to_recents": "Ir para mensagens recentes",
+	"go_to_settings": "Ir para configurações",
+	"go_to_tag": "Ir para marcação",
+	"no_labels": "Sem etiquetas",
+	"search_for_files_and_actions": "Pesquisar por arquivos e ações...",
+	"toggle_command_palette": "Alternar paleta de comandos"
 }

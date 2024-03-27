@@ -36,7 +36,7 @@ const ListLocation = ({ location, modalRef }: ListLocationProps) => {
 			)}
 		>
 			<Card style={tw`h-auto flex-row justify-between gap-3 border-0 p-3`}>
-				<View style={tw`w-[50%] flex-row items-center gap-2`}>
+				<View style={tw`w-1/2 flex-row items-center gap-2`}>
 					<View style={tw`relative`}>
 						<FolderIcon size={38} />
 						<View

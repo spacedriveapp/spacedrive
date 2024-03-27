@@ -76,32 +76,32 @@ export function TeamMember(props: TeamMemberProps) {
 			<div className="mt-3 flex flex-row space-x-2">
 				{props.socials?.twitter && (
 					<Link href={props.socials.twitter}>
-						<Twitter className="h-[20px] w-[20px]" />
+						<Twitter className="size-[20px]" />
 					</Link>
 				)}
 				{props.socials?.github && (
 					<Link href={props.socials.github}>
-						<Github className="h-[20px] w-[20px]" />
+						<Github className="size-[20px]" />
 					</Link>
 				)}
 				{props.socials?.gitlab && (
 					<Link href={props.socials.gitlab}>
-						<Gitlab className="h-[20px] w-[20px]" />
+						<Gitlab className="size-[20px]" />
 					</Link>
 				)}
 				{props.socials?.twitch && (
 					<Link href={props.socials.twitch}>
-						<Twitch className="h-[20px] w-[20px]" />
+						<Twitch className="size-[20px]" />
 					</Link>
 				)}
 				{props.socials?.dribbble && (
 					<Link href={props.socials.dribbble}>
-						<Dribbble className="h-[20px] w-[20px]" />
+						<Dribbble className="size-[20px]" />
 					</Link>
 				)}
 				{props.socials?.website && (
 					<Link href={props.socials.website}>
-						<Website className="h-[20px] w-[20px]" />
+						<Website className="size-[20px]" />
 					</Link>
 				)}
 			</div>

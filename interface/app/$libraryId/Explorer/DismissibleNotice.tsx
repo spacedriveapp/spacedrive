@@ -15,10 +15,7 @@ const MediaViewIcon = () => {
 				name="Image"
 				className="absolute -top-1 left-6 size-14 rotate-6 overflow-hidden"
 			/>
-			<Icon
-				name="Video"
-				className="absolute top-2 z-10 size-14 -rotate-6 overflow-hidden"
-			/>
+			<Icon name="Video" className="absolute top-2 z-10 size-14 -rotate-6 overflow-hidden" />
 		</div>
 	);
 };

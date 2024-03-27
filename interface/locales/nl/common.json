@@ -438,5 +438,17 @@
 	"failed_to_download_update": "Update kon niet worden gedownload",
 	"updated_successfully": "Succesvol bijgewerkt, je gebruikt nu versie {{version}}",
 	"view_changes": "Bekijk wijzigingen",
-	"update": "Bijwerken"
+	"update": "Bijwerken",
+	"ask_spacedrive": "Vraag het aan Space Drive",
+	"close_command_palette": "Sluit het opdrachtpalet",
+	"disconnected": "Losgekoppeld",
+	"go_to_labels": "Ga naar etiketten",
+	"go_to_location": "Ga naar locatie",
+	"go_to_overview": "Ga naar overzicht",
+	"go_to_recents": "Ga naar recent",
+	"go_to_settings": "Ga naar Instellingen",
+	"go_to_tag": "Ga naar taggen",
+	"no_labels": "Geen etiketten",
+	"search_for_files_and_actions": "Zoeken naar bestanden en acties...",
+	"toggle_command_palette": "Schakel het opdrachtpalet in of uit"
 }

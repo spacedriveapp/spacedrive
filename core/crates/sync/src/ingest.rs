@@ -265,7 +265,7 @@ impl ActorTypes for Actor {
 
 #[cfg(test)]
 mod test {
-	use std::sync::atomic::AtomicBool;
+	use std::{sync::atomic::AtomicBool, time::Duration};
 
 	use uhlc::HLCBuilder;
 
@@ -292,7 +292,7 @@ mod test {
 	async fn messages_request_drop() -> Result<(), ()> {
 		let (ingest, _) = new_actor().await;
 
-		for _ in [(), ()] {
+		for _ in 0..10 {
 			let mut rx = ingest.req_rx.lock().await;
 
 			println!("lock acquired");
@@ -305,28 +305,12 @@ mod test {
 				panic!("bruh")
 			};
 
-			println!("message received")
+			println!("message received");
+
+			// without this the test hangs, idk
+			tokio::time::sleep(Duration::from_millis(0)).await;
 		}
 
 		Ok(())
 	}
-
-	// /// If messages tx is dropped, actor should reset and assume no further messages
-	// /// will be sent
-	// #[tokio::test]
-	// async fn retrieve_wait() -> Result<(), ()> {
-	// 	let (ingest, _) = new_actor().await;
-
-	// 	for _ in [(), ()] {
-	// 		let mut rx = ingest.req_rx.lock().await;
-
-	// 		ingest.event_tx.send(Event::Notification).await.unwrap();
-
-	// 		let Some(Request::Messages { .. }) = rx.recv().await else {
-	// 			panic!("bruh")
-	// 		};
-	// 	}
-
-	// 	Ok(())
-	// }
 }

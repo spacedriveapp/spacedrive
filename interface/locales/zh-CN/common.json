@@ -438,5 +438,17 @@
 	"failed_to_download_update": "无法下载更新",
 	"updated_successfully": "成功更新，您当前使用的是版本 {{version}}",
 	"view_changes": "查看更改",
-	"update": "更新"
+	"update": "更新",
+	"ask_spacedrive": "询问 Spacedrive",
+	"close_command_palette": "关闭命令面板",
+	"disconnected": "已断开连接",
+	"go_to_labels": "转到标签",
+	"go_to_location": "前往地点",
+	"go_to_overview": "前往概览",
+	"go_to_recents": "转到最近的内容",
+	"go_to_settings": "前往设置",
+	"go_to_tag": "转到标签",
+	"no_labels": "无标签",
+	"search_for_files_and_actions": "搜索文件和操作...",
+	"toggle_command_palette": "切换命令面板"
 }

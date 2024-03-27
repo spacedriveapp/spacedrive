@@ -31,7 +31,7 @@ export const Component = () => {
 		<>
 			<Heading title="Saved Searches" description="Manage your saved searches." />
 			<div className="flex flex-col gap-4 lg:flex-row">
-				<Card className="flex min-w-[14rem] flex-col gap-2 !px-2">
+				<Card className="flex min-w-56 flex-col gap-2 !px-2">
 					{savedSearches.data?.map((search) => (
 						<button
 							onClick={() => setSelectedSearchId(search.id)}

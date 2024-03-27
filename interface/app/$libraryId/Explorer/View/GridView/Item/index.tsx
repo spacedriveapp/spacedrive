@@ -149,7 +149,7 @@ const ItemSize = () => {
 	if (!showSize) return null;
 
 	return (
-		<div className="truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull">
+		<div className="truncate rounded-md px-1.5 py-px text-center text-tiny text-ink-dull">
 			{`${bytes}`}
 		</div>
 	);
@@ -172,7 +172,7 @@ function LabelItemCount({ data }: { data: Extract<ExplorerItem, { type: 'Label' 
 	if (count.data === undefined) return;
 
 	return (
-		<div className="truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull">
+		<div className="truncate rounded-md px-1.5 py-px text-center text-tiny text-ink-dull">
 			{t('item_with_count', { count: count.data })}
 		</div>
 	);

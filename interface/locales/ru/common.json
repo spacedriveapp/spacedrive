@@ -439,5 +439,16 @@
 	"failed_to_download_update": "Не удалось загрузить обновление",
 	"updated_successfully": "Успешно обновлено, вы используете версию {{version}}",
 	"view_changes": "Просмотреть изменения",
-	"update": "Обновить"
+	"update": "Обновить",
+	"ask_spacedrive": "Спросите Спейсдрайв",
+	"close_command_palette": "Закрыть палитру команд",
+	"go_to_labels": "Перейти к ярлыкам",
+	"go_to_location": "Перейти к месту",
+	"go_to_overview": "Перейти к обзору",
+	"go_to_recents": "Перейти к недавним",
+	"go_to_settings": "Перейдите в настройки",
+	"go_to_tag": "Перейти к тегу",
+	"no_labels": "Нет ярлыков",
+	"search_for_files_and_actions": "Поиск файлов и действий...",
+	"toggle_command_palette": "Переключить палитру команд"
 }

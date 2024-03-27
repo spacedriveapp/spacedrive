@@ -36,7 +36,7 @@ export function OpenMobileSidebarButton() {
 
 	return (
 		<Button className="ml-1 !border-none !px-2" onClick={() => menu.setOpen((o) => !o)}>
-			<List weight="bold" className="h-6 w-6" />
+			<List weight="bold" className="size-6" />
 		</Button>
 	);
 }
@@ -57,7 +57,7 @@ export function MobileSidebarWrapper({ children }: PropsWithChildren) {
 					onClick={() => menu.setOpen((o) => !o)}
 					className="-ml-0.5 mb-3 !border-none !px-1"
 				>
-					<X weight="bold" className="h-6 w-6" />
+					<X weight="bold" className="size-6" />
 				</Button>
 				{children}
 			</div>
