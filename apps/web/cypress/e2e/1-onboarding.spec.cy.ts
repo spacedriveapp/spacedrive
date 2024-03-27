@@ -80,6 +80,11 @@ describe('Onboarding', () => {
 			if (locations == null || typeof locations !== 'object')
 				throw new Error('Invalid locations data');
 
+			const locationsEntries = Object.entries(locations)
+
+			// When there is no default locations, the UI doesn't show any buttons
+			if (locationsEntries.length <= 0) return
+
 			// Check that default location checkboxes work
 			for (const state of ['unchecked', 'checked']) {
 				if (state === 'checked') {
@@ -90,7 +95,7 @@ describe('Onboarding', () => {
 				}
 
 				// Check we have all the default locations available
-				for (const [location, locationName] of Object.entries(locations)) {
+				for (const [location, locationName] of locationsEntries) {
 					if (typeof locationName !== 'string') throw new Error('Invalid location name');
 
 					let newState: typeof state;
@@ -133,7 +138,7 @@ describe('Onboarding', () => {
 		// Check we have a button to finish onboarding
 		cy.get('button[type="submit"]').contains('Continue').click();
 
-		// Check redirect to privacy screen
+		// Check redirect to create library screen
 		cy.url().should('match', /\/onboarding\/creating-library$/);
 
 		// FIX-ME: This fails a lot, due to the creating library screen only being show for a short time

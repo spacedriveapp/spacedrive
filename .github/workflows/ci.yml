@@ -50,19 +50,8 @@ jobs:
 
   cypress:
     name: Cypress
-    runs-on: ubuntu-20.04
+    runs-on: macos-13
     steps:
-      - name: Maximize build space
-        if: ${{ runner.os == 'Linux' }}
-        uses: easimon/maximize-build-space@master
-        with:
-          swap-size-mb: 3072
-          root-reserve-mb: 6144
-          remove-dotnet: 'true'
-          remove-codeql: 'true'
-          remove-haskell: 'true'
-          remove-docker-images: 'true'
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -70,10 +59,7 @@ jobs:
         uses: ./.github/actions/setup-system
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          target: x86_64-unknown-linux-gnu
-
-      - name: Install playwright native deps
-        run: sudo apt-get install libflite1 libevdev2 
+          target: x86_64-apple-darwin
 
       - name: Setup Node.js, pnpm and dependencies
         uses: ./.github/actions/setup-pnpm

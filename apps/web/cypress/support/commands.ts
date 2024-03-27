@@ -47,6 +47,9 @@ Cypress.Commands.add('fastOnboarding', (libraryName: string) => {
 	cy.url().should('match', onboardingPrivacyRegex);
 	cy.get('button[type="submit"]').contains('Continue').click();
 
+	// Check redirect to create library screen
+	cy.url().should('match', /\/onboarding\/creating-library$/);
+
 	// Check redirect to Library
 	cy.checkUrlIsLibrary();
 });
