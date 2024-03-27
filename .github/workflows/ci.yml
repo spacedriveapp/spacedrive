@@ -50,7 +50,7 @@ jobs:
 
   cypress:
     name: Cypress
-    runs-on: macos-14
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -153,7 +153,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     strategy:
       matrix:
-        platform: [ubuntu-20.04, macos-14, windows-latest]
+        platform: [ubuntu-20.04, macos-13, windows-latest]
     steps:
       - name: Maximize build space
         if: ${{ runner.os == 'Linux' }}
