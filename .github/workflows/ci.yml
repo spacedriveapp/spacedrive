@@ -52,8 +52,26 @@ jobs:
     name: Cypress
     runs-on: ubuntu-20.04
     steps:
+      - name: Maximize build space
+        if: ${{ runner.os == 'Linux' }}
+        uses: easimon/maximize-build-space@master
+        with:
+          swap-size-mb: 3072
+          root-reserve-mb: 6144
+          remove-dotnet: 'true'
+          remove-codeql: 'true'
+          remove-haskell: 'true'
+          remove-docker-images: 'true'
+
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Remove 32-bit libs
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          dpkg -l | grep i386
+          sudo apt-get purge --allow-remove-essential libc6-i386 ".*:i386"
+          sudo dpkg --remove-architecture i386
 
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
