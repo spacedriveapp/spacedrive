@@ -58,6 +58,14 @@ runs:
         curl -L# 'https://github.com/rui314/mold/releases/download/v2.4.0/mold-2.4.0-x86_64-linux.tar.gz' \
         | sudo tar -xzf- -C /usr/local
 
+    - name: Remove 32-bit libs
+      shell: bash
+      if: ${{ runner.os == 'Linux' }}
+      run: |
+        dpkg -l | grep i386
+        sudo apt-get purge --allow-remove-essential libc6-i386 ".*:i386"
+        sudo dpkg --remove-architecture i386
+
     - name: Setup Rust and Dependencies
       uses: ./.github/actions/setup-rust
       with:
