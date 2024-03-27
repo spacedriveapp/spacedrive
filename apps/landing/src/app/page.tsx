@@ -109,7 +109,7 @@ export default async function Page() {
 									/>
 								</div>
 								<ArrowUp className='invisible size-7 pt-2 text-white/40 md:visible' />
-								<p className='invisible pt-2 text-xs text-white/40 md:visible'>Hover on the image above to see how the app works!</p>
+								<p className='invisible pt-2 text-xs text-white/40 md:visible'>Hover to see more</p>
 							</div>
 						</div>
 					</div>
