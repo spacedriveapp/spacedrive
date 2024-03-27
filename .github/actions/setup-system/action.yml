@@ -64,6 +64,14 @@ runs:
         target: ${{ inputs.target }}
         save-cache: ${{ inputs.save-cache }}
 
+    # https://github.com/actions/runner-images/issues/9546#issuecomment-2014940361
+    - name: Remove incompatible pre-installed pkgs from Runner
+      shell: bash
+      if: ${{ runner.os == 'Linux' }}
+      run: | 
+            sudo apt-get -y update
+            sudo apt-get remove libunwind-*
+
     - name: Run setup.sh script
       shell: bash
       if: ${{ runner.os == 'Linux' || runner.os == 'macOS' }}
