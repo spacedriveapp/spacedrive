@@ -200,6 +200,8 @@
 	"install_update": "Güncellemeyi Yükle",
 	"installed": "Yüklendi",
 	"item_size": "Öğe Boyutu",
+	"icon_size": "Simge boyutu",
+	"text_size": "Metin boyutu",
 	"item_with_count_one": "{{count}} madde",
 	"item_with_count_other": "{{count}} maddeler",
 	"job_has_been_canceled": "İş iptal edildi.",

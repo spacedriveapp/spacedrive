@@ -200,6 +200,8 @@
 	"install_update": "Installeer Update",
 	"installed": "Geïnstalleerd",
 	"item_size": "Item grootte",
+	"icon_size": "Pictogramgrootte",
+	"text_size": "Tekstgrootte",
 	"item_with_count_one": "{{count}} item",
 	"item_with_count_other": "{{count}} items",
 	"job_has_been_canceled": "Taak is geannuleerd.",

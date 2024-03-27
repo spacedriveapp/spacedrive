@@ -211,6 +211,8 @@
 	"install_update": "Install Update",
 	"installed": "Installed",
 	"item_size": "Item size",
+	"icon_size": "Icon size",
+	"text_size": "Text size",
 	"item_with_count_one": "{{count}} item",
 	"item_with_count_other": "{{count}} items",
 	"job_has_been_canceled": "Job has been canceled.",
