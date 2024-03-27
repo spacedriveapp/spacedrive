@@ -1,4 +1,6 @@
 import { CaretDown, CaretUp } from '@phosphor-icons/react';
+import { createOrdering, getOrderingDirection, orderingKey, type ExplorerItem } from '@sd/client';
+import { ContextMenu } from '@sd/ui';
 import { flexRender, type ColumnSizingState, type Row } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
@@ -6,8 +8,6 @@ import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState 
 import BasicSticky from 'react-sticky-el';
 import { useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
-import { createOrdering, getOrderingDirection, orderingKey, type ExplorerItem } from '@sd/client';
-import { ContextMenu } from '@sd/ui';
 import { TruncatedText } from '~/components';
 import { useShortcut } from '~/hooks';
 import { isNonEmptyObject } from '~/util';
@@ -30,7 +30,7 @@ import {
 	useTable
 } from './useTable';
 
-const ESTIMATE_ROW_HEIGHT = 37;
+const ROW_HEIGHT = 37;
 const TABLE_HEADER_HEIGHT = 35;
 export const TABLE_PADDING_X = 16;
 export const TABLE_PADDING_Y = 12;
@@ -68,8 +68,8 @@ export const ListView = memo(() => {
 
 	const rowVirtualizer = useVirtualizer({
 		count: !explorer.count ? rows.length : Math.max(rows.length, explorer.count),
-		getScrollElement: () => explorer.scrollRef.current,
-		estimateSize: () => ESTIMATE_ROW_HEIGHT,
+		getScrollElement: useCallback(() => explorer.scrollRef.current, [explorer.scrollRef]),
+		estimateSize: useCallback(() => ROW_HEIGHT, []),
 		paddingStart: TABLE_PADDING_Y,
 		paddingEnd: TABLE_PADDING_Y + (explorerView.scrollPadding?.bottom ?? 0),
 		scrollMargin: listOffset,

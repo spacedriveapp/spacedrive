@@ -161,6 +161,14 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 		const toggleRename = useCallback(() => {
 			setAllowRename(true);
 
+			const textBoxNode = ref.current;
+			if (!textBoxNode) return;
+
+			const { paddingTop, paddingBottom } = getComputedStyle(textBoxNode);
+
+			setPaddingTop(parseFloat(paddingTop));
+			setPaddingBottom(parseFloat(paddingBottom));
+
 			const markup = truncateMarkup.current;
 			if (!markup) return;
 
@@ -215,22 +223,6 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 			document.addEventListener('mousedown', onMouseDown, true);
 			return () => document.removeEventListener('mousedown', onMouseDown, true);
 		}, [blur]);
-
-		useEffect(() => {
-			const node = ref.current;
-			if (!node) return;
-
-			const observer = new ResizeObserver(() => {
-				const { paddingTop, paddingBottom } = getComputedStyle(node);
-
-				setPaddingTop(parseFloat(paddingTop));
-				setPaddingBottom(parseFloat(paddingBottom));
-			});
-
-			observer.observe(node);
-
-			return () => observer.disconnect();
-		}, []);
 
 		return (
 			<Tooltip
