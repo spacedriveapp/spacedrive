@@ -66,18 +66,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Remove 32-bit libs
-        if: ${{ runner.os == 'Linux' }}
-        run: |
-          dpkg -l | grep i386
-          sudo apt-get purge --allow-remove-essential libc6-i386 ".*:i386"
-          sudo dpkg --remove-architecture i386
-
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           target: x86_64-unknown-linux-gnu
+
+      - name: Install playwright native deps
+        run: sudo apt-get install libflite1 libevdev2 
 
       - name: Setup Node.js, pnpm and dependencies
         uses: ./.github/actions/setup-pnpm
