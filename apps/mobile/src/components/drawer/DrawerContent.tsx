@@ -53,11 +53,11 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 				</View>
 				<View style={tw`flex w-full flex-row items-center gap-x-4`}>
 					{/* Settings */}
-					<Pressable
+					{/* <Pressable
 						onPress={() => navigation.navigate('SettingsStack', { screen: 'Settings' })}
 					>
 						<Gear color="white" size={24} />
-					</Pressable>
+					</Pressable> */}
 					{/* Job Manager */}
 					<JobManagerContextProvider>
 						<Pressable onPress={() => modalRef.current?.present()}>
