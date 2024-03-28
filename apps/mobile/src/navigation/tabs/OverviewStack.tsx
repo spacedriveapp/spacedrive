@@ -2,7 +2,7 @@ import { CompositeScreenProps } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import Header from '~/components/header/Header';
 import CategoriesScreen from '~/screens/overview/Categories';
-import OverviewScreen from '~/screens/overview/index';
+import OverviewScreen from '~/screens/overview/Overview';
 
 import { TabScreenProps } from '../TabNavigator';
 

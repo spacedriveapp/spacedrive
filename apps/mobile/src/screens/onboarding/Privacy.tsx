@@ -2,11 +2,10 @@ import { ArrowRight } from 'phosphor-react-native';
 import React from 'react';
 import { Controller } from 'react-hook-form';
 import { Linking, Pressable, Text, View, ViewStyle } from 'react-native';
+import { useOnboardingContext } from '~/components/context/OnboardingContext';
 import { Button } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
-import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
 
-import { useOnboardingContext } from './context';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './GetStarted';
 
 type RadioButtonProps = {

@@ -83,7 +83,7 @@ export default function Header({
 								<Pressable
 									hitSlop={24}
 									onPress={() => {
-										navigation.navigate('ExplorerSearch', {
+										navigation.navigate('SearchStack', {
 											screen: 'Search'
 										});
 									}}

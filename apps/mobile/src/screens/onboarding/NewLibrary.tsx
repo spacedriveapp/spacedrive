@@ -1,12 +1,12 @@
 import { Controller } from 'react-hook-form';
 import { Alert, Text, View } from 'react-native';
+import { useOnboardingContext } from '~/components/context/OnboardingContext';
 import { Icon } from '~/components/icons/Icon';
 import { Button } from '~/components/primitive/Button';
 import { Input } from '~/components/primitive/Input';
 import { tw } from '~/lib/tailwind';
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
 
-import { useOnboardingContext } from './context';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './GetStarted';
 
 const NewLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'NewLibrary'>) => {

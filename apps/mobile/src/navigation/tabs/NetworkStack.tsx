@@ -1,7 +1,7 @@
 import { CompositeScreenProps } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import Header from '~/components/header/Header';
-import NetworkScreen from '~/screens/network';
+import NetworkScreen from '~/screens/network/Network';
 
 import { TabScreenProps } from '../TabNavigator';
 

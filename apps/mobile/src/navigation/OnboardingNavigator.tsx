@@ -1,5 +1,5 @@
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
-import { OnboardingContext, useContextValue } from '~/screens/onboarding/context';
+import { OnboardingContext, useContextValue } from '~/components/context/OnboardingContext';
 import CreatingLibraryScreen from '~/screens/onboarding/CreatingLibrary';
 import GetStartedScreen from '~/screens/onboarding/GetStarted';
 import NewLibraryScreen from '~/screens/onboarding/NewLibrary';

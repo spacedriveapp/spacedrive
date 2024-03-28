@@ -24,12 +24,14 @@ export const TagItem = ({ tag, onPress, viewStyle = 'grid' }: TagItemProps) => {
 				testID="browse-tag"
 			>
 				{viewStyle === 'grid' ? (
-					<GridTag tag={tag} modalRef={modalRef} />
+					<>
+						<GridTag tag={tag} modalRef={modalRef} />
+						<TagModal ref={modalRef} tag={tag} />
+					</>
 				) : (
-					<ListTag tag={tag} modalRef={modalRef} />
+					<ListTag tag={tag} />
 				)}
 			</Pressable>
-			<TagModal ref={modalRef} tag={tag} />
 		</>
 	);
 };
