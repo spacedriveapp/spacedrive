@@ -16,7 +16,7 @@ export function useSize(ref: RefObject<Element>) {
 
 	useCallbackToWatchResize(
 		({ width, height }) => {
-			if (initialized.current) return;
+			if (initialized.current || (!width && !height)) return;
 			setSize({ width, height });
 			initialized.current = true;
 		},
