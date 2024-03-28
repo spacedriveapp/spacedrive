@@ -1,5 +1,5 @@
 import { Gear } from '@phosphor-icons/react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
 	JobManagerContextProvider,
@@ -10,10 +10,12 @@ import {
 } from '@sd/client';
 import { Button, ButtonLink, Popover, Tooltip, usePopover } from '@sd/ui';
 import { useKeysMatcher, useLocale, useShortcut } from '~/hooks';
+import { useRoutingContext } from '~/RoutingContext';
 import { usePlatform } from '~/util/Platform';
 
 import DebugPopover from '../DebugPopover';
 import { IsRunningJob, JobManager } from '../JobManager';
+import { useSidebarStore } from '../store';
 import FeedbackButton from './FeedbackButton';
 
 export default () => {
@@ -21,7 +23,8 @@ export default () => {
 	const debugState = useDebugState();
 	const navigate = useNavigate();
 	const symbols = useKeysMatcher(['Meta', 'Shift']);
-
+	const store = useSidebarStore();
+	const { visible } = useRoutingContext();
 	const { t } = useLocale();
 
 	useShortcut('navToSettings', (e) => {
@@ -56,7 +59,7 @@ export default () => {
 					<SyncStatusIndicator />
 				</LibraryContextProvider>
 			)}
-			<div className="flex w-full items-center justify-between">
+			<div className="flex items-center justify-between w-full">
 				<div className="flex">
 					<ButtonLink
 						to="settings/client/general"
@@ -75,6 +78,7 @@ export default () => {
 					<JobManagerContextProvider>
 						<Popover
 							popover={jobManagerPopover}
+							pinned={store.pinJobManager && visible}
 							trigger={
 								<Button
 									id="job-manager-button"
