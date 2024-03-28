@@ -746,6 +746,14 @@ async fn inner_update_file(
 	Ok(())
 }
 
+fn rename_starts_with(path1: &str, path2: &str) -> String {
+	if cfg!(target_os = "ios") {
+		format!("{}{}/", path1, path2)
+	} else {
+		format!("{}/{}/", path1, path2) // Somehow this works, when it shouldn't. I'm not sure why, but I'm not going to question it.
+	}
+}
+
 pub(super) async fn rename(
 	location_id: location::id::Type,
 	new_path: impl AsRef<Path>,
@@ -778,6 +786,13 @@ pub(super) async fn rename(
 		});
 	}
 
+	debug!(
+		"Location: <root_path ='{}'> renaming file: {} to {}",
+		location_path.display(),
+		old_path.display(),
+		new_path.display()
+	);
+
 	if let Some(file_path) = db
 		.file_path()
 		.find_first(loose_find_existing_file_path_params(
@@ -789,6 +804,7 @@ pub(super) async fn rename(
 		.await?
 	{
 		let is_dir = maybe_missing(file_path.is_dir, "file_path.is_dir")?;
+		debug!("Is dir: {}", is_dir);
 
 		let new = IsolatedFilePathData::new(location_id, &location_path, new_path, is_dir)?;
 		let new_parts = new.to_parts();
@@ -798,7 +814,11 @@ pub(super) async fn rename(
 			let old = IsolatedFilePathData::new(location_id, &location_path, old_path, is_dir)?;
 			let old_parts = old.to_parts();
 
-			let starts_with = format!("{}/{}/", old_parts.materialized_path, old_parts.name);
+			debug!("Old: {:#?}", old_parts);
+
+			let starts_with = rename_starts_with(old_parts.materialized_path, old_parts.name);
+
+			debug!("Starts with: {}", starts_with);
 			let paths = db
 				.file_path()
 				.find_many(vec![
@@ -813,6 +833,9 @@ pub(super) async fn rename(
 				.exec()
 				.await?;
 
+			debug!("Paths: {:#?}", paths);
+			debug!("Updating {len} file_paths", len = paths.len());
+
 			let len = paths.len();
 			let (sync_params, db_params): (Vec<_>, Vec<_>) = paths
 				.into_iter()
@@ -820,8 +843,9 @@ pub(super) async fn rename(
 				.map(|(id, pub_id, mp)| {
 					let new_path = mp.replace(
 						&starts_with,
-						&format!("{}/{}/", new_parts.materialized_path, new_parts.name),
+						&rename_starts_with(new_parts.materialized_path, new_parts.name),
 					);
+					debug!("New path: {}", new_path);
 
 					(
 						sync.shared_update(
@@ -839,7 +863,7 @@ pub(super) async fn rename(
 
 			sync.write_ops(db, (sync_params, db_params)).await?;
 
-			trace!("Updated {len} file_paths");
+			debug!("Updated {len} file_paths");
 		}
 
 		let is_hidden = path_is_hidden(new_path, &new_path_metadata);
