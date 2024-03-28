@@ -95,7 +95,6 @@ export default ({ redirectToSearch }: Props) => {
 				updateValue(e.target.value);
 			}}
 			onBlur={() => {
-				console.log('');
 				if (search.rawSearch === '' && !searchStore.interactingWithSearchOptions) {
 					clearValue();
 					search.setSearchBarFocused(false);
