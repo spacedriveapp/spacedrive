@@ -3,12 +3,12 @@ import {
 	CircleDashed,
 	Cube,
 	Folder,
-	IconProps,
 	Plus,
 	SelectionSlash,
 	Textbox,
 	X
 } from 'phosphor-react-native';
+import { useEffect, useRef } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { Icon } from '~/components/icons/Icon';
 import Fade from '~/components/layout/Fade';
@@ -26,20 +26,30 @@ import {
 const FiltersBar = () => {
 	const { filters, appliedFilters } = useSearchStore();
 	const navigation = useNavigation<SearchStackScreenProps<'Filters'>['navigation']>();
+	const flatListRef = useRef<FlatList>(null);
+
+	// Scroll to start when there are less than 2 filters.
+	useEffect(() => {
+		if (Object.entries(appliedFilters).length < 2) {
+			flatListRef.current?.scrollToOffset({ animated: true, offset: 0 });
+		}
+	}, [appliedFilters]);
+
 	return (
 		<View
-			style={tw`relative h-16 w-full flex-row items-center gap-4 border-t border-app-cardborder bg-black px-5 py-3`}
+			style={tw`h-16 w-full flex-row items-center gap-4 border-t border-app-cardborder bg-app-header px-5 py-3`}
 		>
 			<Button
 				onPress={() => navigation.navigate('Filters')}
-				style={tw`border-2 p-1.5`}
+				style={tw`border p-1.5`}
 				variant="dashed"
 			>
 				<Plus weight="bold" size={20} color={tw.color('text-ink-dull')} />
 			</Button>
-			<View style={tw`flex-1`}>
-				<Fade height={'100%'} width={30} color="black">
+			<View style={tw`relative flex-1`}>
+				<Fade noConditions height={'100%'} width={30} color="app-header">
 					<FlatList
+						ref={flatListRef}
 						showsHorizontalScrollIndicator={false}
 						horizontal
 						data={Object.entries(appliedFilters)}
@@ -62,26 +72,20 @@ interface FilterItemProps {
 }
 
 const FilterItem = ({ filter, value }: FilterItemProps) => {
-	const iconStyle = tw`text-ink-dull`;
 	const boxStyle = tw`w-auto flex-row items-center gap-1.5 border border-app-cardborder bg-app-card p-2`;
 	const filterCapital = filter.charAt(0).toUpperCase() + filter.slice(1);
 	const searchStore = useSearchStore();
 	return (
 		<View style={tw`flex-row gap-0.5`}>
 			<View style={twStyle(boxStyle, 'rounded-bl-md rounded-tl-md')}>
-				<FilterIcon
-					filter={filter}
-					iconProps={{
-						size: 16,
-						style: iconStyle
-					}}
-				/>
+				<FilterIcon filter={filter} size={16} color={tw.color('text-ink-dull') as string} />
 				<Text style={tw`text-sm text-ink`}>{filterCapital}</Text>
 			</View>
 			<View style={twStyle(boxStyle, 'rounded-none')}>
 				<FilterValue filter={filter} value={value} />
 			</View>
 			<Pressable
+				hitSlop={24}
 				onPress={() => searchStore.resetFilter(filter, true)}
 				style={twStyle(boxStyle, 'rounded-br-md rounded-tr-md')}
 			>
@@ -93,23 +97,24 @@ const FilterItem = ({ filter, value }: FilterItemProps) => {
 
 interface FilterIconProps {
 	filter: SearchFilters;
-	iconProps?: IconProps;
+	color: string;
+	size: number;
 }
 
-const FilterIcon = ({ filter, iconProps }: FilterIconProps) => {
+const FilterIcon = ({ filter, size, color }: FilterIconProps) => {
 	switch (filter) {
 		case 'tags':
-			return <CircleDashed {...iconProps} />;
+			return <CircleDashed size={size} color={color} />;
 		case 'kind':
-			return <Cube {...iconProps} />;
+			return <Cube size={size} color={color} />;
 		case 'name':
-			return <Textbox {...iconProps} />;
+			return <Textbox size={size} color={color} />;
 		case 'extension':
-			return <Textbox {...iconProps} />;
+			return <Textbox size={size} color={color} />;
 		case 'hidden':
-			return <SelectionSlash {...iconProps} />;
+			return <SelectionSlash size={size} color={color} />;
 		default:
-			return <Folder {...iconProps} />;
+			return <Folder size={size} color={color} />;
 	}
 };
 
@@ -189,7 +194,7 @@ const KindView = ({ kinds }: { kinds: KindItem[] }) => (
 		<View style={tw`flex-row gap-0.5`}>
 			{kinds.map((kind) => (
 				<View key={kind.id} style={tw`flex-row items-center gap-1`}>
-					<Icon name={kind.icon} size={16} style={tw`text-ink-dull`} />
+					<Icon name={kind.icon} size={16} />
 				</View>
 			))}
 		</View>

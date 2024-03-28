@@ -199,6 +199,8 @@
 	"install_update": "安裝更新",
 	"installed": "已安裝",
 	"item_size": "項目大小",
+	"icon_size": "圖示大小",
+	"text_size": "文字大小",
 	"item_with_count_one": "{{count}} 项目",
 	"item_with_count_other": "{{count}} 项目",
 	"job_has_been_canceled": "工作已取消。",
@@ -435,5 +437,18 @@
 	"failed_to_download_update": "無法下載更新",
 	"updated_successfully": "成功更新，您目前使用的是版本 {{version}}",
 	"view_changes": "檢視變更",
-	"update": "更新"
+	"update": "更新",
+	"ask_spacedrive": "詢問 Spacedrive",
+	"close_command_palette": "關閉命令面板",
+	"disconnected": "已斷開連接",
+	"failed_to_rescan_location": "重新掃描位置失敗",
+	"go_to_labels": "轉到標籤",
+	"go_to_location": "前往地點",
+	"go_to_overview": "前往概覽",
+	"go_to_recents": "前往最近的內容",
+	"go_to_settings": "前往設定",
+	"go_to_tag": "轉到標籤",
+	"no_labels": "無標籤",
+	"search_for_files_and_actions": "搜尋文件和操作...",
+	"toggle_command_palette": "切換命令面板"
 }

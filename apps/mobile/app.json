@@ -30,6 +30,7 @@
 			}
 		},
 		"android": {
+			"softwareKeyboardLayoutMode": "pan",
 			"permissions": [
 				"android.permission.MANAGE_EXTERNAL_STORAGE",
 				"android.permission.READ_MEDIA_AUDIO",

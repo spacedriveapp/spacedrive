@@ -136,6 +136,7 @@ export type Procedures = {
         { key: "notifications.listen", input: never, result: Notification } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
         { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: EphemeralPathsResultItem } | 
+        { key: "sync.active", input: LibraryArgs<null>, result: boolean } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
 
@@ -249,7 +250,7 @@ export type ExplorerItem = { type: "Path"; thumbnail: string[] | null; item: Fil
 
 export type ExplorerLayout = "grid" | "list" | "media"
 
-export type ExplorerSettings<TOrder> = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; gridGap: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; mediaViewWithDescendants: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; colVisibility: { [key in string]: boolean } | null; colSizes: { [key in string]: number } | null; order?: TOrder | null; showHiddenFiles?: boolean }
+export type ExplorerSettings<TOrder> = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; gridGap: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; mediaViewWithDescendants: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; colVisibility: { [key in string]: boolean } | null; colSizes: { [key in string]: number } | null; listViewIconSize: string | null; listViewTextSize: string | null; order?: TOrder | null; showHiddenFiles?: boolean }
 
 export type Feedback = { message: string; emoji: number }
 
@@ -393,7 +394,7 @@ instance_id: number;
  */
 cloud_id?: string | null; generate_sync_operations?: boolean; version: LibraryConfigVersion }
 
-export type LibraryConfigVersion = "V0" | "V1" | "V2" | "V3" | "V4" | "V5" | "V6" | "V7" | "V8" | "V9"
+export type LibraryConfigVersion = "V0" | "V1" | "V2" | "V3" | "V4" | "V5" | "V6" | "V7" | "V8" | "V9" | "V10"
 
 export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance_public_key: RemoteIdentity; config: LibraryConfig }
 

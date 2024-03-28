@@ -10,9 +10,10 @@ import i18n from '~/app/I18n';
 import { SortOrderSchema } from '~/app/route-schemas';
 import { useLocale } from '~/hooks';
 
-import { useExplorerContext } from './Context';
+import { useExplorerContext } from '../Context';
+import { ListViewOptions } from './ListView';
 
-const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
+export const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
 
 export default () => {
 	const { t } = useLocale();
@@ -23,6 +24,8 @@ export default () => {
 
 	return (
 		<div className="flex w-80 flex-col gap-4 p-4">
+			{settings.layoutMode === 'list' && <ListViewOptions />}
+
 			{(settings.layoutMode === 'grid' || settings.layoutMode === 'media') && (
 				<div>
 					<Subheading>{t('item_size')}</Subheading>

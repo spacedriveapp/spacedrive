@@ -280,10 +280,10 @@ function SystemTheme(props: ThemeProps) {
 	return (
 		<div className="w-[150px]">
 			<div className="relative flex h-[90px]">
-				<div className="relative h-full w-[50%] grow overflow-hidden rounded-l-lg bg-black">
+				<div className="relative h-full w-1/2 grow overflow-hidden rounded-l-lg bg-black">
 					<Theme className="rounded-r-none" {...themes[1]!} />
 				</div>
-				<div className={clsx('relative h-full w-[50%] grow overflow-hidden rounded-r-lg')}>
+				<div className={clsx('relative h-full w-1/2 grow overflow-hidden rounded-r-lg')}>
 					<Theme className="rounded-l-none" {...themes[0]!} />
 				</div>
 				{props.isSelected && (
