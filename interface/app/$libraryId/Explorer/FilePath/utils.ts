@@ -12,7 +12,7 @@ export function useSize(ref: RefObject<Element>) {
 
 	useEffect(() => {
 		initialized.current = false;
-	}, [explorerSettings?.gridItemSize]);
+	}, [explorerSettings?.gridItemSize, explorerSettings?.listViewIconSize]);
 
 	useCallbackToWatchResize(
 		({ width, height }) => {
