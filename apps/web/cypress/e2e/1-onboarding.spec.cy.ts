@@ -1,5 +1,12 @@
 import { discordUrl, libraryName, privacyUrl } from '../fixtures/onboarding.json';
-import { libraryRegex, onboardingRegex } from '../fixtures/routes';
+import {
+	libraryRegex,
+	newLibraryRegex,
+	onboardingCreatingLibraryRegex,
+	onboardingLocationRegex,
+	onboardingPrivacyRegex,
+	onboardingRegex
+} from '../fixtures/routes';
 
 describe('Onboarding', () => {
 	// TODO: Create debug flag to bypass auto language detection
@@ -16,7 +23,7 @@ describe('Onboarding', () => {
 			.then((url) => (onboardingRegex.test(url) ? url : cy.deleteLibrary(libraryName)));
 
 		// Check redirect to initial alpha onboarding screen
-		cy.url().should('match', /\/onboarding\/alpha$/);
+		cy.url().should('match', onboardingRegex);
 
 		// Check application name is present
 		cy.get('h1').should('contain', 'Spacedrive');
@@ -41,7 +48,7 @@ describe('Onboarding', () => {
 			.click();
 
 		// Check we were redirect to Library creation screen
-		cy.url().should('match', /\/onboarding\/new-library$/);
+		cy.url().should('match', newLibraryRegex);
 
 		// Check create library screen title
 		cy.get('h2').should('contain', 'Create a Library');
@@ -70,7 +77,7 @@ describe('Onboarding', () => {
 		cy.get('@newLibraryButton').click();
 
 		// Check redirect to add default locations
-		cy.url().should('match', /\/onboarding\/locations$/);
+		cy.url().should('match', onboardingLocationRegex);
 
 		// Check we have a Toggle All button
 		cy.get('#toggle-all').as('toggleAllButton');
@@ -80,10 +87,10 @@ describe('Onboarding', () => {
 			if (locations == null || typeof locations !== 'object')
 				throw new Error('Invalid locations data');
 
-			const locationsEntries = Object.entries(locations)
+			const locationsEntries = Object.entries(locations);
 
 			// When there is no default locations, the UI doesn't show any buttons
-			if (locationsEntries.length <= 0) return
+			if (locationsEntries.length <= 0) return;
 
 			// Check that default location checkboxes work
 			for (const state of ['unchecked', 'checked']) {
@@ -118,7 +125,7 @@ describe('Onboarding', () => {
 		cy.get('button').contains('Continue').click();
 
 		// Check redirect to privacy screen
-		cy.url().should('match', /\/onboarding\/privacy$/);
+		cy.url().should('match', onboardingPrivacyRegex);
 
 		// Check privacy screen title
 		cy.get('h2').should('contain', 'Your Privacy');
@@ -139,7 +146,7 @@ describe('Onboarding', () => {
 		cy.get('button[type="submit"]').contains('Continue').click();
 
 		// Check redirect to create library screen
-		cy.url().should('match', /\/onboarding\/creating-library$/);
+		cy.url().should('match', onboardingCreatingLibraryRegex);
 
 		// FIX-ME: This fails a lot, due to the creating library screen only being show for a short time
 		// Check creating library screen title
