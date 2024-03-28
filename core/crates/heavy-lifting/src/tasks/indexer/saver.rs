@@ -14,9 +14,10 @@ use sd_task_system::{ExecStatus, Interrupter, IntoAnyTaskOutput, Task, TaskId};
 
 use sd_utils::db::inode_to_db;
 use serde_json::json;
+use tokio::time::Instant;
 use tracing::trace;
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use super::{walker::WalkedEntry, IndexerError};
 
@@ -48,8 +49,9 @@ impl SaveTask {
 }
 
 #[derive(Debug)]
-pub struct SaveBatchTaskOutput {
-	pub saved_count: i64,
+pub struct SaveTaskOutput {
+	pub saved_count: u64,
+	pub save_duration: Duration,
 }
 
 #[async_trait::async_trait]
@@ -63,6 +65,8 @@ impl Task<Error> for SaveTask {
 			create_unchecked, date_created, date_indexed, date_modified, extension, hidden, inode,
 			is_dir, location, location_id, materialized_path, name, size_in_bytes_bytes,
 		};
+
+		let start_time = Instant::now();
 
 		let Self {
 			location,
@@ -133,6 +137,7 @@ impl Task<Error> for SaveTask {
 			})
 			.unzip();
 
+		#[allow(clippy::cast_sign_loss)]
 		let saved_count = sync
 			.write_ops(
 				db,
@@ -142,12 +147,16 @@ impl Task<Error> for SaveTask {
 				),
 			)
 			.await
-			.map_err(IndexerError::from)?;
+			.map_err(IndexerError::from)? as u64;
 
 		trace!("Inserted {saved_count} records");
 
 		Ok(ExecStatus::Done(
-			SaveBatchTaskOutput { saved_count }.into_output(),
+			SaveTaskOutput {
+				saved_count,
+				save_duration: start_time.elapsed(),
+			}
+			.into_output(),
 		))
 	}
 }

@@ -19,12 +19,13 @@ use std::{
 	mem,
 	path::{Path, PathBuf},
 	sync::Arc,
+	time::Duration,
 };
 
-use chrono::{DateTime, Duration, FixedOffset};
+use chrono::{DateTime, Duration as ChronoDuration, FixedOffset};
 use futures_concurrency::future::Join;
 use serde::{Deserialize, Serialize};
-use tokio::fs;
+use tokio::{fs, time::Instant};
 use tokio_stream::{wrappers::ReadDirStream, StreamExt};
 use tracing::trace;
 use uuid::Uuid;
@@ -186,6 +187,7 @@ where
 	stage: WalkerStage,
 	maybe_dispatcher: Option<Dispatcher>,
 	errors: Vec<NonCriticalJobError>,
+	scan_time: Duration,
 }
 
 impl<DBProxy, IsoPathFactory, Dispatcher> WalkDirTask<DBProxy, IsoPathFactory, Dispatcher>
@@ -214,6 +216,7 @@ where
 			entry,
 			maybe_dispatcher,
 			errors: Vec::new(),
+			scan_time: Duration::ZERO,
 		})
 	}
 }
@@ -247,8 +250,11 @@ where
 			stage,
 			maybe_dispatcher,
 			errors,
+			scan_time,
 			..
 		} = self;
+
+		let start_time = Instant::now();
 
 		let (to_create, to_update, total_size, to_remove, accepted_ancestors, handles) = loop {
 			match stage {
@@ -284,14 +290,14 @@ where
 							}
 						}
 
-						check_interruption!(interrupter);
+						check_interruption!(interrupter, start_time, scan_time);
 					}
 
 					*stage = WalkerStage::CollectingMetadata {
 						found_paths: mem::take(found_paths),
 					};
 
-					check_interruption!(interrupter);
+					check_interruption!(interrupter, start_time, scan_time);
 				}
 
 				WalkerStage::CollectingMetadata { found_paths } => {
@@ -299,7 +305,7 @@ where
 						paths_and_metadatas: collect_metadata(found_paths, errors).await,
 					};
 
-					check_interruption!(interrupter);
+					check_interruption!(interrupter, start_time, scan_time);
 				}
 
 				WalkerStage::CheckingIndexerRules {
@@ -314,7 +320,7 @@ where
 						.await,
 					};
 
-					check_interruption!(interrupter);
+					check_interruption!(interrupter, start_time, scan_time);
 				}
 
 				WalkerStage::ProcessingRulesResults {
@@ -335,7 +341,7 @@ where
 						accepted_ancestors,
 					};
 
-					check_interruption!(interrupter);
+					check_interruption!(interrupter, start_time, scan_time);
 				}
 
 				WalkerStage::GatheringFilePathsToRemove {
@@ -359,7 +365,7 @@ where
 						accepted_ancestors: mem::take(accepted_ancestors),
 					};
 
-					check_interruption!(interrupter);
+					check_interruption!(interrupter, start_time, scan_time);
 				}
 
 				// From this points onwards, we will not allow to be interrupted anymore
@@ -395,9 +401,11 @@ where
 			}
 		};
 
+		*scan_time += start_time.elapsed();
+
 		// Taking out some data as the task is finally complete
 		Ok(ExecStatus::Done(
-			WalkOutput {
+			WalkTaskOutput {
 				to_create,
 				to_update,
 				to_remove,
@@ -407,6 +415,7 @@ where
 				total_size,
 				maybe_parent: mem::take(maybe_parent),
 				handles,
+				scan_time: *scan_time,
 			}
 			.into_output(),
 		))
@@ -452,7 +461,7 @@ async fn segregate_creates_and_updates(
 								// Datetimes stored in DB loses a bit of precision, so we need to check against a delta
 								// instead of using != operator
 								|| DateTime::<FixedOffset>::from(entry.metadata.modified_at) - *date_modified
-									> Duration::milliseconds(1) || file_path.hidden.is_none() || metadata.hidden != file_path.hidden.unwrap_or_default()
+									> ChronoDuration::milliseconds(1) || file_path.hidden.is_none() || metadata.hidden != file_path.hidden.unwrap_or_default()
 							)
 							// We ignore the size of directories because it is not reliable, we need to
 							// calculate it ourselves later
@@ -525,16 +534,17 @@ async fn keep_walking(
 }
 
 #[derive(Debug)]
-pub(crate) struct WalkOutput {
-	to_create: Vec<WalkedEntry>,
-	to_update: Vec<WalkedEntry>,
-	to_remove: Vec<file_path_pub_and_cas_ids::Data>,
-	accepted_ancestors: HashSet<PathBuf>,
-	errors: Vec<NonCriticalJobError>,
-	directory: PathBuf,
-	total_size: u64,
-	maybe_parent: Option<PathBuf>,
-	handles: Vec<TaskHandle<Error>>,
+pub(crate) struct WalkTaskOutput {
+	pub to_create: Vec<WalkedEntry>,
+	pub to_update: Vec<WalkedEntry>,
+	pub to_remove: Vec<file_path_pub_and_cas_ids::Data>,
+	pub accepted_ancestors: HashSet<PathBuf>,
+	pub errors: Vec<NonCriticalJobError>,
+	pub directory: PathBuf,
+	pub total_size: u64,
+	pub maybe_parent: Option<PathBuf>,
+	pub handles: Vec<TaskHandle<Error>>,
+	pub scan_time: Duration,
 }
 
 async fn collect_metadata(
@@ -998,7 +1008,7 @@ mod tests {
 				panic!("unexpected task output")
 			};
 
-			let walk_result = output.downcast::<WalkOutput>().unwrap();
+			let walk_result = output.downcast::<WalkTaskOutput>().unwrap();
 
 			debug!("{walk_result:#?}");
 

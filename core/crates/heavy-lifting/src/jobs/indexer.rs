@@ -1,9 +1,11 @@
 use crate::{
 	tasks::indexer::{
-		walker::{self, WalkDirTask},
+		saver::{SaveTask, SaveTaskOutput},
+		updater::{UpdateTask, UpdateTaskOutput},
+		walker::{self, WalkDirTask, WalkTaskOutput},
 		IndexerError, NonCriticalIndexerError,
 	},
-	Error,
+	Error, NonCriticalJobError,
 };
 
 use sd_core_file_path_helper::{
@@ -15,23 +17,30 @@ use sd_core_prisma_helpers::{
 	file_path_pub_and_cas_ids, file_path_walker, location_with_indexer_rules,
 };
 
-use sd_prisma::prisma::{file_path, location, PrismaClient, SortOrder};
-use sd_task_system::{Task, TaskHandle, TaskStatus};
+use sd_prisma::{
+	prisma::{file_path, location, PrismaClient, SortOrder},
+	prisma_sync,
+};
+use sd_task_system::{
+	AnyTaskOutput, Task, TaskDispatcher, TaskHandle, TaskId, TaskOutput, TaskStatus,
+};
 use sd_utils::db::maybe_missing;
-use serde::{Deserialize, Serialize};
-use tokio::time::Instant;
 
 use std::{
-	collections::HashSet,
+	collections::{HashMap, HashSet},
 	hash::{Hash, Hasher},
 	mem,
 	path::{Path, PathBuf},
 	sync::Arc,
+	time::Duration,
 };
 
 use futures::{stream::FuturesUnordered, StreamExt};
 use itertools::Itertools;
 use prisma_client_rust::operator::or;
+use serde::{Deserialize, Serialize};
+use tokio::time::Instant;
+use tracing::warn;
 
 use super::{
 	cancel_pending_tasks,
@@ -41,30 +50,60 @@ use super::{
 	},
 };
 
-/// BATCH_SIZE is the number of files to index at each step, writing the chunk of files metadata in the database.
+/// `BATCH_SIZE` is the number of files to index at each task, writing the chunk of files metadata in the database.
 const BATCH_SIZE: usize = 1000;
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct Metadata {
+	db_write_time: Duration,
+	scan_read_time: Duration,
+	total_paths: u64,
+	total_updated_paths: u64,
+	total_save_steps: u64,
+	total_update_steps: u64,
+	indexed_count: u64,
+	updated_count: u64,
+	removed_count: u64,
+	paths_and_sizes: HashMap<PathBuf, u64>,
+}
 
 #[derive(Debug)]
 pub struct IndexerJob {
-	location: location_with_indexer_rules::Data,
+	location: Arc<location_with_indexer_rules::Data>,
 	sub_path: Option<PathBuf>,
+	metadata: Metadata,
 
 	iso_file_path_factory: IsoFilePathFactory,
 	indexer_ruler: IndexerRuler,
 	walker_root_path: Option<Arc<PathBuf>>,
 
+	errors: Vec<NonCriticalJobError>,
+
 	pending_tasks_on_resume: Vec<TaskHandle<Error>>,
+	tasks_for_shutdown: Vec<Box<dyn Task<Error>>>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct SaveState {
+	location: location_with_indexer_rules::Data,
+	sub_path: Option<PathBuf>,
+	metadata: Metadata,
+
+	iso_file_path_factory: IsoFilePathFactory,
+	indexer_ruler_bytes: Vec<u8>,
+	walker_root_path: Option<Arc<PathBuf>>,
+
 	tasks_for_shutdown: Vec<Vec<u8>>,
 }
 
-impl<Ctx: JobContext> SerializableJob<Ctx> for IndexerJob {
+impl SerializableJob for IndexerJob {
 	fn serialize(&self) -> Option<Result<Vec<u8>, rmp_serde::encode::Error>> {
 		todo!("Implement serialization")
 	}
 
 	fn deserialize(
 		serialized_job: Vec<u8>,
-		ctx: &Ctx,
+		ctx: &impl JobContext,
 	) -> Result<(Self, Vec<Box<dyn Task<Error>>>), rmp_serde::decode::Error> {
 		todo!("Implement deserialization")
 	}
@@ -98,12 +137,157 @@ impl IndexerJob {
 					.map(Arc::new)?,
 			},
 			walker_root_path: None,
-			location,
+			location: Arc::new(location),
 			sub_path,
+			metadata: Metadata::default(),
+			errors: Vec::new(),
 
 			pending_tasks_on_resume: Vec::new(),
 			tasks_for_shutdown: Vec::new(),
 		})
+	}
+
+	/// Process output of tasks, according to the downcasted output type
+	///
+	/// # Panics
+	/// Will panic if another task type is added in the job, but this function wasn't updated to handle it
+	///
+	async fn process_task_output(
+		&mut self,
+		task_id: TaskId,
+		any_task_output: Box<dyn AnyTaskOutput>,
+		job_ctx: &impl JobContext,
+		dispatcher: &JobTaskDispatcher,
+	) -> Result<Vec<TaskHandle<Error>>, IndexerError> {
+		if any_task_output.is::<WalkTaskOutput>() {
+			return self
+				.process_walk_output(
+					*any_task_output
+						.downcast::<WalkTaskOutput>()
+						.expect("just checked"),
+					job_ctx,
+					dispatcher,
+				)
+				.await;
+		} else if any_task_output.is::<SaveTaskOutput>() {
+			self.process_save_output(
+				*any_task_output
+					.downcast::<SaveTaskOutput>()
+					.expect("just checked"),
+			);
+		} else if any_task_output.is::<UpdateTaskOutput>() {
+			self.process_update_output(
+				*any_task_output
+					.downcast::<UpdateTaskOutput>()
+					.expect("just checked"),
+			);
+		} else {
+			unreachable!("Unexpected task output type: <id='{task_id}'>");
+		}
+
+		Ok(Vec::new())
+	}
+
+	async fn process_walk_output(
+		&mut self,
+		WalkTaskOutput {
+			to_create,
+			to_update,
+			to_remove,
+			accepted_ancestors,
+			errors,
+			directory,
+			total_size,
+			maybe_parent,
+			mut handles,
+			scan_time,
+		}: WalkTaskOutput,
+		job_ctx: &impl JobContext,
+		dispatcher: &JobTaskDispatcher,
+	) -> Result<Vec<TaskHandle<Error>>, IndexerError> {
+		self.metadata.scan_read_time += scan_time;
+
+		*self.metadata.paths_and_sizes.entry(directory).or_default() += total_size;
+		if let Some(parent) = maybe_parent {
+			*self.metadata.paths_and_sizes.entry(parent).or_default() += total_size;
+		}
+
+		self.errors.extend(errors);
+
+		// TODO: Figure out how to handle the accepted ancestors
+
+		let db_delete_time = Instant::now();
+		self.metadata.removed_count +=
+			remove_non_existing_file_paths(to_remove, job_ctx.db(), job_ctx.sync()).await?;
+		self.metadata.db_write_time += db_delete_time.elapsed();
+
+		let save_tasks = to_create
+			.into_iter()
+			.chunks(BATCH_SIZE)
+			.into_iter()
+			.map(|chunk| {
+				let chunked_saves = chunk.collect::<Vec<_>>();
+				self.metadata.total_paths += chunked_saves.len() as u64;
+				self.metadata.total_save_steps += 1;
+
+				SaveTask::new(
+					Arc::clone(&self.location),
+					chunked_saves,
+					Arc::clone(job_ctx.db()),
+					Arc::clone(job_ctx.sync()),
+				)
+			})
+			.collect::<Vec<_>>();
+
+		let update_tasks = to_update
+			.into_iter()
+			.chunks(BATCH_SIZE)
+			.into_iter()
+			.map(|chunk| {
+				let chunked_updates = chunk.collect::<Vec<_>>();
+				self.metadata.total_updated_paths += chunked_updates.len() as u64;
+				self.metadata.total_update_steps += 1;
+
+				UpdateTask::new(
+					chunked_updates,
+					Arc::clone(job_ctx.db()),
+					Arc::clone(job_ctx.sync()),
+				)
+			})
+			.collect::<Vec<_>>();
+
+		handles.extend(dispatcher.dispatch_many(save_tasks).await);
+		handles.extend(dispatcher.dispatch_many(update_tasks).await);
+
+		// TODO: Report progress
+
+		Ok(handles)
+	}
+
+	fn process_save_output(
+		&mut self,
+		SaveTaskOutput {
+			saved_count,
+			save_duration,
+		}: SaveTaskOutput,
+	) {
+		self.metadata.indexed_count += saved_count;
+		self.metadata.db_write_time += save_duration;
+
+		// TODO: Report progress
+	}
+
+	fn process_update_output(
+		&mut self,
+		UpdateTaskOutput {
+			updated_count,
+			update_duration,
+		}: UpdateTaskOutput,
+	) {
+		self.metadata.updated_count += updated_count;
+		self.metadata.db_write_time += update_duration;
+
+		// TODO: Report progress
 	}
 }
 
@@ -125,19 +309,21 @@ impl<Ctx: JobContext> Job<Ctx> for IndexerJob {
 				.await?,
 			);
 
-			let scan_start = Instant::now();
-
-			WalkDirTask::new(
-				walker_root_path.as_ref(),
-				Arc::clone(&walker_root_path),
-				self.indexer_ruler.clone(),
-				self.iso_file_path_factory.clone(),
-				WalkerDBProxy {
-					location_id: self.location.id,
-					db: Arc::clone(ctx.db()),
-				},
-				Some(dispatcher.clone()),
-			)?;
+			pending_running_tasks.push(
+				dispatcher
+					.dispatch(WalkDirTask::new(
+						walker_root_path.as_ref(),
+						Arc::clone(&walker_root_path),
+						self.indexer_ruler.clone(),
+						self.iso_file_path_factory.clone(),
+						WalkerDBProxy {
+							location_id: self.location.id,
+							db: Arc::clone(ctx.db()),
+						},
+						Some(dispatcher.clone()),
+					)?)
+					.await,
+			);
 
 			self.walker_root_path = Some(walker_root_path);
 		} else {
@@ -146,9 +332,29 @@ impl<Ctx: JobContext> Job<Ctx> for IndexerJob {
 
 		while let Some(task) = pending_running_tasks.next().await {
 			match task {
-				Ok(TaskStatus::Done((_, out))) => {}
+				Ok(TaskStatus::Done((task_id, TaskOutput::Out(out)))) => {
+					let more_handles = match self
+						.process_task_output(task_id, out, &ctx, &dispatcher)
+						.await
+					{
+						Ok(more_handles) => more_handles,
+						Err(e) => {
+							cancel_pending_tasks(&pending_running_tasks).await;
 
-				Ok(TaskStatus::Shutdown(task)) => {}
+							return Err(e.into());
+						}
+					};
+
+					pending_running_tasks.extend(more_handles);
+				}
+
+				Ok(TaskStatus::Done((task_id, TaskOutput::Empty))) => {
+					warn!("Task <id='{task_id}'> returned an empty output");
+				}
+
+				Ok(TaskStatus::Shutdown(task)) => {
+					self.tasks_for_shutdown.push(task);
+				}
 
 				Ok(TaskStatus::Error(e)) => {
 					cancel_pending_tasks(&pending_running_tasks).await;
@@ -170,7 +376,11 @@ impl<Ctx: JobContext> Job<Ctx> for IndexerJob {
 			}
 		}
 
-		Ok(ReturnStatus::Completed(JobReturn::default()))
+		if self.tasks_for_shutdown.is_empty() {
+			Ok(ReturnStatus::Completed(JobReturn::default()))
+		} else {
+			Ok(ReturnStatus::Shutdown(self.serialize()))
+		}
 	}
 
 	fn resume(&mut self, dispatched_tasks: Vec<TaskHandle<Error>>) {
@@ -338,4 +548,39 @@ impl walker::WalkerDBProxy for WalkerDBProxy {
 
 		Ok(to_remove)
 	}
+}
+
+async fn remove_non_existing_file_paths(
+	to_remove: Vec<file_path_pub_and_cas_ids::Data>,
+	db: &PrismaClient,
+	sync: &sd_core_sync::Manager,
+) -> Result<u64, IndexerError> {
+	use sd_sync::OperationFactory;
+	#[allow(clippy::cast_sign_loss)]
+	let (sync_params, db_params): (Vec<_>, Vec<_>) = to_remove
+		.into_iter()
+		.map(|file_path| {
+			(
+				sync.shared_delete(prisma_sync::file_path::SyncId {
+					pub_id: file_path.pub_id,
+				}),
+				file_path.id,
+			)
+		})
+		.unzip();
+
+	sync.write_ops(
+		db,
+		(
+			sync_params,
+			db.file_path()
+				.delete_many(vec![file_path::id::in_vec(db_params)]),
+		),
+	)
+	.await
+	.map(
+		#[allow(clippy::cast_sign_loss)]
+		|count| count as u64,
+	)
+	.map_err(Into::into)
 }

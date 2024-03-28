@@ -11,11 +11,12 @@ use sd_sync::{sync_db_entry, OperationFactory};
 use sd_task_system::{
 	check_interruption, ExecStatus, Interrupter, IntoAnyTaskOutput, Task, TaskId,
 };
-
 use sd_utils::{chain_optional_iter, db::inode_to_db};
-use tracing::trace;
 
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, sync::Arc, time::Duration};
+
+use tokio::time::Instant;
+use tracing::trace;
 
 use super::{walker::WalkedEntry, IndexerError};
 
@@ -48,6 +49,7 @@ impl UpdateTask {
 #[derive(Debug)]
 pub struct UpdateTaskOutput {
 	pub updated_count: u64,
+	pub update_duration: Duration,
 }
 
 #[async_trait::async_trait]
@@ -61,6 +63,8 @@ impl Task<Error> for UpdateTask {
 			cas_id, date_created, date_modified, hidden, inode, is_dir, object, object_id,
 			size_in_bytes_bytes,
 		};
+
+		let start_time = Instant::now();
 
 		let Self {
 			walked_entries,
@@ -149,6 +153,7 @@ impl Task<Error> for UpdateTask {
 		Ok(ExecStatus::Done(
 			UpdateTaskOutput {
 				updated_count: updated.len() as u64,
+				update_duration: start_time.elapsed(),
 			}
 			.into_output(),
 		))

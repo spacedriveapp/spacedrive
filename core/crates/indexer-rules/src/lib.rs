@@ -596,6 +596,16 @@ impl IndexerRuler {
 		}
 	}
 
+	pub async fn serialize(&self) -> Result<Vec<u8>, IndexerRuleError> {
+		rmp_serde::to_vec_named(&*self.rules.read().await).map_err(Into::into)
+	}
+
+	pub fn deserialize(data: &[u8]) -> Result<Self, IndexerRuleError> {
+		rmp_serde::from_slice(data)
+			.map(Self::new)
+			.map_err(Into::into)
+	}
+
 	pub async fn apply_all(
 		&self,
 		source: impl AsRef<Path> + Send,

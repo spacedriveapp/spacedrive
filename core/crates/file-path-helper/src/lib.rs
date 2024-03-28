@@ -50,8 +50,6 @@ pub use isolated_file_path_data::{
 	IsolatedFilePathDataParts,
 };
 
-
-
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct FilePathMetadata {
 	pub inode: u64,
@@ -70,8 +68,7 @@ pub fn path_is_hidden(path: impl AsRef<Path>, metadata: &Metadata) -> bool {
 			.as_ref()
 			.file_name()
 			.and_then(OsStr::to_str)
-			.map(|s| s.starts_with('.'))
-			.unwrap_or_default()
+			.is_some_and(|s| s.starts_with('.'))
 		{
 			return true;
 		}

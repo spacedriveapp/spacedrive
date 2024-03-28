@@ -72,7 +72,7 @@ pub trait Job<Ctx: JobContext>: Send + Sync + Hash + 'static {
 
 pub trait IntoJob<J, Ctx>
 where
-	J: Job<Ctx> + SerializableJob<Ctx>,
+	J: Job<Ctx> + SerializableJob,
 	Ctx: JobContext,
 {
 	fn into_job(self) -> Box<dyn DynJob<Ctx>>;
@@ -80,7 +80,7 @@ where
 
 impl<J, Ctx> IntoJob<J, Ctx> for J
 where
-	J: Job<Ctx> + SerializableJob<Ctx>,
+	J: Job<Ctx> + SerializableJob,
 	Ctx: JobContext,
 {
 	fn into_job(self) -> Box<dyn DynJob<Ctx>> {
@@ -98,7 +98,7 @@ where
 
 impl<J, Ctx> IntoJob<J, Ctx> for JobBuilder<J, Ctx>
 where
-	J: Job<Ctx> + SerializableJob<Ctx>,
+	J: Job<Ctx> + SerializableJob,
 	Ctx: JobContext,
 {
 	fn into_job(self) -> Box<dyn DynJob<Ctx>> {
@@ -182,7 +182,7 @@ pub enum JobOutputData {
 
 pub struct JobBuilder<J, Ctx>
 where
-	J: Job<Ctx> + SerializableJob<Ctx>,
+	J: Job<Ctx> + SerializableJob,
 	Ctx: JobContext,
 {
 	id: JobId,
@@ -194,7 +194,7 @@ where
 
 impl<J, Ctx> JobBuilder<J, Ctx>
 where
-	J: Job<Ctx> + SerializableJob<Ctx>,
+	J: Job<Ctx> + SerializableJob,
 	Ctx: JobContext,
 {
 	pub fn build(self) -> Box<JobHolder<J, Ctx>> {
@@ -237,7 +237,7 @@ where
 	}
 
 	#[must_use]
-	pub fn enqueue_next(mut self, next: impl Job<Ctx> + SerializableJob<Ctx>) -> Self {
+	pub fn enqueue_next(mut self, next: impl Job<Ctx> + SerializableJob) -> Self {
 		let next_job_order = self.next_jobs.len() + 1;
 
 		let mut child_job_builder = JobBuilder::new(next).with_parent_id(self.id);
@@ -255,7 +255,7 @@ where
 
 pub struct JobHolder<J, Ctx>
 where
-	J: Job<Ctx> + SerializableJob<Ctx>,
+	J: Job<Ctx> + SerializableJob,
 	Ctx: JobContext,
 {
 	pub(super) id: JobId,
@@ -450,7 +450,7 @@ pub trait DynJob<Ctx: JobContext>: Send + Sync + 'static {
 
 impl<J, Ctx> DynJob<Ctx> for JobHolder<J, Ctx>
 where
-	J: Job<Ctx> + SerializableJob<Ctx>,
+	J: Job<Ctx> + SerializableJob,
 	Ctx: JobContext,
 {
 	fn id(&self) -> JobId {

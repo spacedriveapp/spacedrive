@@ -123,7 +123,7 @@ impl<T: Task<E> + 'static, E: RunError> IntoTask<E> for T {
 /// We're currently using the [`async_trait`](https://docs.rs/async-trait) crate to allow dyn async traits,
 /// due to a limitation in the Rust language.
 #[async_trait]
-pub trait Task<E: RunError>: fmt::Debug + Downcast + Send + 'static {
+pub trait Task<E: RunError>: fmt::Debug + Downcast + Send + Sync + 'static {
 	/// This method represent the work that should be done by the worker, it will be called by the
 	/// worker when there is a slot available in its internal queue.
 	/// We receive a `&mut self` so any internal data can be mutated on each `run` invocation.
@@ -253,6 +253,26 @@ macro_rules! check_interruption {
 		match interrupter.try_check_interrupt() {
 			Some($crate::InterruptionKind::Cancel) => return Ok($crate::ExecStatus::Canceled),
 			Some($crate::InterruptionKind::Pause) => return Ok($crate::ExecStatus::Paused),
+			None => { /* Everything is Awesome! */ }
+		}
+	};
+
+	($interrupter:ident, $instant:ident, $duration_accumulator:ident) => {
+		let interrupter: &Interrupter = $interrupter;
+		let instant: Instant = $instant;
+		let duration_accumulator: &mut Duration = $duration_accumulator;
+
+		match interrupter.try_check_interrupt() {
+			Some($crate::InterruptionKind::Cancel) => {
+				*duration_accumulator += instant.elapsed();
+
+				return Ok($crate::ExecStatus::Canceled);
+			}
+			Some($crate::InterruptionKind::Pause) => {
+				*duration_accumulator += instant.elapsed();
+
+				return Ok($crate::ExecStatus::Paused);
+			}
 			None => { /* Everything is Awesome! */ }
 		}
 	};

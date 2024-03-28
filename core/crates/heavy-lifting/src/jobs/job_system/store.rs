@@ -23,14 +23,14 @@ use super::{
 
 type DynTasks = Vec<Box<dyn Task<Error>>>;
 
-pub trait SerializableJob<Ctx: JobContext>: 'static
+pub trait SerializableJob: 'static
 where
 	Self: Sized,
 {
 	fn serialize(&self) -> Option<Result<Vec<u8>, rmp_serde::encode::Error>>;
 	fn deserialize(
 		serialized_job: Vec<u8>,
-		ctx: &Ctx,
+		ctx: &impl JobContext,
 	) -> Result<(Self, DynTasks), rmp_serde::decode::Error>;
 }
 
@@ -125,7 +125,7 @@ macro_rules! match_deserialize_job {
 		} = $stored_job;
 
 		match name {
-			$(<$job_type as Job<$ctx_type>>::NAME => <$job_type as SerializableJob<$ctx_type>>::deserialize(
+			$(<$job_type as Job<$ctx_type>>::NAME => <$job_type as SerializableJob>::deserialize(
 					serialized_job,
 					$job_ctx
 				)
