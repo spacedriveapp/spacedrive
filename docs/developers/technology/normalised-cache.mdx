@@ -1,0 +1,44 @@
+---
+title: Normalised Cache
+index: 12
+---
+
+We use a normalised cache for our frontend to ensure the UI will always contain consistent data.
+
+<Notice
+	type="note"
+	text="If you've used a normalised cache before be aware we do not currently merge cache nodes due to it causing issues with our data model."
+/>
+
+## Rust usage
+
+The Rust helpers are defined [here](https://github.com/spacedriveapp/spacedrive/blob/main/crates/cache/src/lib.rs).
+
+```rust
+pub struct Demo {
+	id: String,
+}
+
+impl sd_cache::Model for Demo {
+	// The name + the ID *must* refer to a unique node.
+	// If your using an enum, the variant should probaly show up in the ID
+	fn name() -> &'static str {
+		"Demo"
+	}
+}
+
+let data: Vec<Demo> = vec![];
+
+// We normalised the data but splitting it into a group of reference and a group of `CacheNode`'s.
+let (nodes, items) = libraries.normalise(|i| i.id);
+
+// `NormalisedResults` or `NormalisedResult` are optional wrapped types to hold a one or multiple items and their cache nodes.
+// You don't have to use them, but they save declaring a bunch of identical structs.
+return sd_cache::NormalisedResults { nodes, items };
+```
+
+## Typescript usage
+
+The Typescript helpers are defined [here](https://github.com/spacedriveapp/spacedrive/blob/main/packages/client/src/cache.tsx).
+
+Don’t use `cache.withNodes` within React Query. It's not reactive.
