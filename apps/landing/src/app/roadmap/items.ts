@@ -171,7 +171,7 @@ export const items = [
 			'Automatically save versions of files when they change, with a timeline view and the ability to restore.'
 	},
 	{
-		title: 'Server Authentication',
+		title: 'Local Server Protection',
 		description:
 			'Protect local instances of Spacedrive\'s server from other clients on your network.'
 	},
