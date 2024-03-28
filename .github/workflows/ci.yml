@@ -70,7 +70,7 @@ jobs:
         uses: ./.github/actions/setup-system
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          target: x86_64-apple-darwin
+          target: x86_64-unknown-linux-gnu
 
       - name: Setup Node.js, pnpm and dependencies
         uses: ./.github/actions/setup-pnpm
