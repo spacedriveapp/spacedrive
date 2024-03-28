@@ -46,14 +46,14 @@ export const Component = () => {
 
 	const rawFilters = savedSearch.data?.filters;
 
-	const dynamicFilters = useMemo(() => {
+	const filters = useMemo(() => {
 		if (rawFilters) return JSON.parse(rawFilters) as SearchFilterArgs[];
 	}, [rawFilters]);
 
 	const search = useSearch({
 		open: true,
 		search: savedSearch.data?.search ?? undefined,
-		dynamicFilters
+		filters: filters
 	});
 
 	const paths = usePathsExplorerQuery({
@@ -85,7 +85,7 @@ export const Component = () => {
 				>
 					<hr className="w-full border-t border-sidebar-divider bg-sidebar-divider" />
 					<SearchOptions>
-						{(search.dynamicFilters !== dynamicFilters ||
+						{(search.filters !== filters ||
 							search.search !== savedSearch.data?.search) && (
 							<SaveButton searchId={id} />
 						)}
@@ -123,7 +123,7 @@ function SaveButton({ searchId }: { searchId: number }) {
 				updateSavedSearch.mutate([
 					searchId,
 					{
-						filters: JSON.stringify(search.dynamicFilters),
+						filters: JSON.stringify(search.filters),
 						search: search.search
 					}
 				]);

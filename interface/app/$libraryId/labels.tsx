@@ -27,7 +27,7 @@ export function Component() {
 
 	// const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
 
-	// const fixedFilters = useMemo<SearchFilterArgs[]>(
+	// const filters = useMemo<SearchFilterArgs[]>(
 	// 	() => [
 	// 		...(explorerSettingsSnapshot.layoutMode === 'media'
 	// 			? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
@@ -36,7 +36,7 @@ export function Component() {
 	// 	[explorerSettingsSnapshot.layoutMode]
 	// );
 
-	const search = useSearch({});
+	const search = useSearch();
 
 	// const objects = useObjectsExplorerQuery({
 	// 	arg: {

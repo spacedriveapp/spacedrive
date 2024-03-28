@@ -71,7 +71,9 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 	const { layoutMode, mediaViewWithDescendants, showHiddenFiles } =
 		explorerSettings.useSettingsSnapshot();
 
-	const search = useLocationSearch(explorerSettings, location);
+	const search = useLocationSearch(location);
+
+	const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
 
 	const paths = usePathsExplorerQuery({
 		arg: {
@@ -84,12 +86,15 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 							path: path ?? '',
 							include_descendants:
 								search.search !== '' ||
-								search.dynamicFilters.length > 0 ||
+								search.filters.length > 0 ||
 								(layoutMode === 'media' && mediaViewWithDescendants)
 						}
 					}
 				},
-				!showHiddenFiles && { filePath: { hidden: false } }
+				!showHiddenFiles && { filePath: { hidden: false } },
+				explorerSettingsSnapshot.layoutMode === 'media' && [
+					{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }
+				]
 			].filter(Boolean) as any,
 			take
 		},
@@ -268,47 +273,32 @@ function useLocationExplorerSettings(location: Location) {
 	};
 }
 
-function useLocationSearch(
-	explorerSettings: UseExplorerSettings<FilePathOrder>,
-	location: Location
-) {
+function useLocationSearch(location: Location) {
 	const [searchParams, setSearchParams] = useRawSearchParams();
-	const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
-
-	const fixedFilters = useMemo(
-		() => [
-			{ filePath: { locations: { in: [location.id] } } },
-			...(explorerSettingsSnapshot.layoutMode === 'media'
-				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
-				: [])
-		],
-		[location.id, explorerSettingsSnapshot.layoutMode]
-	);
 
 	const filtersParam = searchParams.get('filters');
-	const dynamicFilters = useMemo(() => JSON.parse(filtersParam ?? '[]'), [filtersParam]);
+	const filters = useMemo(() => JSON.parse(filtersParam ?? '[]'), [filtersParam]);
 
 	const searchQueryParam = searchParams.get('search');
 
 	const search = useSearch({
-		open: !!searchQueryParam || dynamicFilters.length > 0 || undefined,
+		open: !!searchQueryParam || filters.length > 0 || undefined,
 		search: searchParams.get('search') ?? undefined,
-		fixedFilters,
-		dynamicFilters
+		defaultFilters: [{ filePath: { locations: { in: [location.id] } } }],
+		filters: filters
 	});
 
 	useEffect(() => {
 		setSearchParams(
 			(p) => {
-				if (search.dynamicFilters.length > 0)
-					p.set('filters', JSON.stringify(search.dynamicFilters));
+				if (search.filters.length > 0) p.set('filters', JSON.stringify(search.filters));
 				else p.delete('filters');
 
 				return p;
 			},
 			{ replace: true }
 		);
-	}, [search.dynamicFilters, setSearchParams]);
+	}, [search.filters, setSearchParams]);
 
 	const searchQuery = search.search;
 

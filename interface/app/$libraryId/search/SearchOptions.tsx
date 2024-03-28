@@ -124,9 +124,7 @@ export const SearchOptions = ({
 
 			{children ?? (
 				<>
-					{(search.dynamicFilters.length > 0 || search.search !== '') && (
-						<SaveSearchButton />
-					)}
+					{(search.filters.length > 0 || search.search !== '') && <SaveSearchButton />}
 
 					<EscapeButton />
 				</>
