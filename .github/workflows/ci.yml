@@ -72,6 +72,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           target: x86_64-unknown-linux-gnu
 
+      - name: Install playwright native deps
+        run: sudo apt-get install libflite1 libevdev2
+
       - name: Setup Node.js, pnpm and dependencies
         uses: ./.github/actions/setup-pnpm
         with:
