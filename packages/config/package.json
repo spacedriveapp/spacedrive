@@ -32,6 +32,6 @@
 		"vite-plugin-svgr": "^3.3.0"
 	},
 	"dependencies": {
-		"million": "^2.6.4"
+		"million": "^3.0.2"
 	}
 }

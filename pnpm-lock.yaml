@@ -933,8 +933,8 @@ importers:
   packages/config:
     dependencies:
       million:
-        specifier: ^2.6.4
-        version: 2.6.4
+        specifier: ^3.0.2
+        version: 3.0.2
     devDependencies:
       '@typescript-eslint/eslint-plugin':
         specifier: ^7.3.1
@@ -19039,19 +19039,18 @@ packages:
       brorand: 1.1.0
     dev: true
 
-  /million@2.6.4:
-    resolution: {integrity: sha512-voUkdd/jHWrG+7NS+mX49Pat+POKdgGW78V7pYMSrTaOjUitR6ySEcAci8hn17Rsx1IMI3+5w41dkADM1J1ZEg==}
+  /million@3.0.2:
+    resolution: {integrity: sha512-qOYPx2M+zxDn3oq4oVubiRtD9KL9cMad/f6Vs8V03FfocKfV6AV8fIYzD8I2vvNc2h9jIbVnUIU7QspbYrzTsw==}
     hasBin: true
     dependencies:
       '@babel/core': 7.24.0
-      '@babel/generator': 7.23.6
-      '@babel/plugin-syntax-jsx': 7.23.3(@babel/core@7.24.0)
-      '@babel/plugin-syntax-typescript': 7.23.3(@babel/core@7.24.0)
       '@babel/types': 7.24.0
+      '@rollup/pluginutils': 5.1.0
       kleur: 4.1.5
-      rollup: 3.29.4
+      undici: 6.9.0
       unplugin: 1.10.0
     transitivePeerDependencies:
+      - rollup
       - supports-color
     dev: false
 
@@ -22022,6 +22021,7 @@ packages:
     hasBin: true
     optionalDependencies:
       fsevents: 2.3.3
+    dev: true
 
   /rollup@4.13.0:
     resolution: {integrity: sha512-3YegKemjoQnYKmsBlOHfMLVPPA5xLkQ8MHLLSw/fBrFaVkEayL51DilPpNNLq1exr98F2B1TzrV0FUlN3gWRPg==}
