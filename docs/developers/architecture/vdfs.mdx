@@ -15,3 +15,5 @@ Spacedrive defines a VDFS under the following data model; A Library, Nodes, Volu
 A node is a single machine running the VDFS software, it syncronizes a CRDT based database, called the Library, with other nodes in the network. The library consists of Locations, found on Volumes, which contain Paths to files on the underlying filesystem.
 
 Objects are unique represenations of files sorted by a sampled hash called a "cas_id" which stands for "Content Addressable Storage Identifier". Additional metadata like tags and comments are tied to the Objects. Folders are not assigned to objects by default, but if a tag is assigned then an Object is created to accomedate.
+
+It mirrors the functionalities of most filesystems, with

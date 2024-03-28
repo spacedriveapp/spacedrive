@@ -27,8 +27,8 @@
 	-webkit-backdrop-filter: blur(18px);
 }
 .navbar-blur {
-	backdrop-filter: blur(28px);
-	-webkit-backdrop-filter: blur(28px);
+	backdrop-filter: saturate(180%) blur(5px);
+	-webkit-backdrop-filter: saturate(180%) blur(5px);
 }
 
 .top-bar-blur {
