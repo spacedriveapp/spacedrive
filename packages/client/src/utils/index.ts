@@ -83,8 +83,8 @@ export function getIndexedItemFilePath(data: ExplorerItem) {
 	return data.type === 'Path'
 		? data.item
 		: data.type === 'Object'
-		? data.item.file_paths[0] ?? null
-		: null;
+			? data.item.file_paths[0] ?? null
+			: null;
 }
 
 export function getItemLocation(data: ExplorerItem) {
@@ -118,11 +118,10 @@ export type UnionToIntersection<U> = (U extends never ? never : (arg: U) => neve
 	? I
 	: never;
 
-export type UnionToTuple<T> = UnionToIntersection<T extends never ? never : (t: T) => T> extends (
-	_: never
-) => infer W
-	? [...UnionToTuple<Exclude<T, W>>, W]
-	: [];
+export type UnionToTuple<T> =
+	UnionToIntersection<T extends never ? never : (t: T) => T> extends (_: never) => infer W
+		? [...UnionToTuple<Exclude<T, W>>, W]
+		: [];
 
 export function formatNumber(n: number) {
 	if (!n) return '0';

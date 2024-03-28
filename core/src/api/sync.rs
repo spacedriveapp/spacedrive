@@ -1,8 +1,6 @@
-use std::sync::atomic::Ordering;
-
-use sd_core_sync::GetOpsArgs;
-
 use rspc::alpha::AlphaRouter;
+use sd_core_sync::GetOpsArgs;
+use std::sync::atomic::Ordering;
 
 use crate::util::MaybeUndefined;
 
@@ -63,8 +61,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							MaybeUndefined::Undefined,
 							Some(true),
 						)
-						.await
-						.unwrap();
+						.await?;
 
 					Ok(())
 				})
@@ -77,5 +74,26 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.generate_sync_operations
 					.load(Ordering::Relaxed))
 			})
+		})
+		.procedure("active", {
+			R.with2(library())
+				.subscription(|(_, library), _: ()| async move {
+					async_stream::stream! {
+						let cloud_sync = &library.cloud.sync;
+						let sync = &library.sync.shared;
+
+						loop {
+							yield sync.active.load(Ordering::Relaxed)
+								|| cloud_sync.send_active.load(Ordering::Relaxed)
+								|| cloud_sync.receive_active.load(Ordering::Relaxed)
+								|| cloud_sync.ingest_active.load(Ordering::Relaxed);
+
+							tokio::select! {
+								_ = cloud_sync.notifier.notified() => {},
+								_ = sync.active_notify.notified() => {}
+							}
+						}
+					}
+				})
 		})
 }

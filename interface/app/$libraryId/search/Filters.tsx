@@ -138,7 +138,7 @@ const FilterOptionList = ({
 								{option.name}
 							</SearchOptionItem>
 						);
-				  })}
+					})}
 		</SearchOptionSubMenu>
 	);
 };
@@ -170,11 +170,7 @@ const FilterOptionText = ({ filter, search }: { filter: SearchFilterCRUD; search
 					});
 				}}
 			>
-				<Input
-					className="w-[75%]"
-					value={value}
-					onChange={(e) => setValue(e.target.value)}
-				/>
+				<Input className="w-3/4" value={value} onChange={(e) => setValue(e.target.value)} />
 				<Button
 					disabled={value.length === 0 || allFiltersKeys.has(key)}
 					variant="accent"
@@ -490,7 +486,7 @@ export const filterRegistry = [
 					empty={() => (
 						<div className="flex flex-col items-center justify-center gap-2 p-2">
 							<SDIcon name="Tags" size={32} />
-							<p className="w-[80%] text-center text-xs text-ink-dull">
+							<p className="w-4/5 text-center text-xs text-ink-dull">
 								You have not created any tags
 							</p>
 						</div>

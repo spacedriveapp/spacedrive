@@ -3,15 +3,19 @@ use crate::{
 		config::{self, P2PDiscoveryState, Port},
 		get_hardware_model_name, HardwareModel,
 	},
-	p2p::{libraries, operations, sync::SyncMessage, Header, OperatingSystem, SPACEDRIVE_APP_ID},
+	p2p::{
+		libraries::libraries_hook, operations, sync::SyncMessage, Header, OperatingSystem,
+		SPACEDRIVE_APP_ID,
+	},
 	Node,
 };
 
 use axum::routing::IntoMakeService;
 
-use sd_p2p2::{
+use sd_p2p::{
 	flume::{bounded, Receiver},
-	Libp2pPeerId, Listener, Mdns, Peer, QuicTransport, RemoteIdentity, UnicastStream, P2P,
+	HookId, Libp2pPeerId, Listener, Mdns, Peer, QuicTransport, RelayServerEntry, RemoteIdentity,
+	UnicastStream, P2P,
 };
 use sd_p2p_tunnel::Tunnel;
 use serde::Serialize;
@@ -22,6 +26,7 @@ use std::{
 	convert::Infallible,
 	net::SocketAddr,
 	sync::{atomic::AtomicBool, Arc, Mutex, PoisonError},
+	time::Duration,
 };
 use tower_service::Service;
 use tracing::error;
@@ -39,10 +44,10 @@ pub struct P2PManager {
 	// The `libp2p::PeerId`. This is for debugging only, use `RemoteIdentity` instead.
 	lp2p_peer_id: Libp2pPeerId,
 	pub(crate) events: P2PEvents,
-	// connect_hook: ConnectHook,
 	pub(super) spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
-	pub(super) spacedrop_cancelations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
+	pub(super) spacedrop_cancellations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
 	pub(crate) node_config: Arc<config::Manager>,
+	pub libraries_hook_id: HookId,
 }
 
 impl P2PManager {
@@ -59,20 +64,19 @@ impl P2PManager {
 		let (tx, rx) = bounded(25);
 		let p2p = P2P::new(SPACEDRIVE_APP_ID, node_config.get().await.identity, tx);
 		let (quic, lp2p_peer_id) = QuicTransport::spawn(p2p.clone())?;
+		let libraries_hook_id = libraries_hook(p2p.clone(), libraries);
 		let this = Arc::new(Self {
 			p2p: p2p.clone(),
 			lp2p_peer_id,
 			mdns: Mutex::new(None),
 			quic,
-			events: P2PEvents::spawn(p2p.clone()),
-			// connect_hook: ConnectHook::spawn(p2p),
+			events: P2PEvents::spawn(p2p.clone(), libraries_hook_id),
 			spacedrop_pairing_reqs: Default::default(),
-			spacedrop_cancelations: Default::default(),
+			spacedrop_cancellations: Default::default(),
 			node_config,
+			libraries_hook_id,
 		});
 		this.on_node_config_change().await;
-
-		libraries::start(this.p2p.clone(), libraries);
 
 		info!(
 			"Node RemoteIdentity('{}') libp2p::PeerId('{:?}') is now online listening at addresses: {:?}",
@@ -81,9 +85,48 @@ impl P2PManager {
 			this.p2p.listeners()
 		);
 
-		Ok((this.clone(), |node, router| {
-			tokio::spawn(start(this, node, rx, router));
+		Ok((this.clone(), |node: Arc<Node>, router| {
+			tokio::spawn(start(this.clone(), node.clone(), rx, router));
+
+			// TODO: Cleanup this thread on p2p shutdown.
+			tokio::spawn(async move {
+				let client = reqwest::Client::new();
+				loop {
+					match client
+						.get(format!("{}/api/p2p/relays", node.env.api_url.lock().await))
+						.send()
+						.await
+					{
+						Ok(resp) => {
+							if resp.status() != 200 {
+								error!(
+									"Failed to pull p2p relay configuration: {} {:?}",
+									resp.status(),
+									resp.text().await
+								);
+							} else {
+								match resp.json::<Vec<RelayServerEntry>>().await {
+									Ok(config) => {
+										this.quic.set_relay_config(config).await;
+										info!("Updated p2p relay configuration successfully.")
+									}
+									Err(err) => {
+										error!("Failed to parse p2p relay configuration: {err:?}")
+									}
+								}
+							}
+						}
+						Err(err) => error!("Error pulling p2p relay configuration: {err:?}"),
+					}
+
+					tokio::time::sleep(Duration::from_secs(11 * 60)).await;
+				}
+			});
 		}))
+	}
+
+	pub fn peer_metadata(&self) -> HashMap<String, String> {
+		self.p2p.metadata().clone()
 	}
 
 	// TODO: Remove this and add a subscription system to `config::Manager`
@@ -216,8 +259,8 @@ impl P2PManager {
 				"p2p_ipv4_port": node_config.p2p_ipv4_port,
 				"p2p_ipv6_port": node_config.p2p_ipv6_port,
 				"p2p_discovery": node_config.p2p_discovery,
-			})
-
+			}),
+			"relay_config": self.quic.get_relay_config(),
 		})
 	}
 
@@ -248,9 +291,9 @@ async fn start(
 			};
 
 			match header {
-				Header::Ping => operations::ping::reciever(stream).await,
+				Header::Ping => operations::ping::receiver(stream).await,
 				Header::Spacedrop(req) => {
-					let Err(()) = operations::spacedrop::reciever(&this, req, stream).await else {
+					let Err(()) = operations::spacedrop::receiver(&this, req, stream).await else {
 						return;
 					};
 

@@ -1,7 +1,6 @@
 #![warn(clippy::all, clippy::unwrap_used, clippy::panic)]
 #![allow(clippy::unnecessary_cast)] // Yeah they aren't necessary on this arch, but they are on others
 
-mod connect_hook;
 mod events;
 pub(super) mod libraries;
 mod manager;
@@ -10,7 +9,6 @@ pub mod operations;
 mod protocol;
 pub mod sync;
 
-// pub use connect_hook::*;
 pub use events::*;
 pub use manager::*;
 pub use metadata::*;

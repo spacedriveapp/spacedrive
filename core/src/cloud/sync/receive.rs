@@ -1,17 +1,19 @@
-use crate::library::{Libraries, Library};
+use crate::{library::Libraries, Node};
 
 use super::{err_break, CompressedCRDTOperations};
 use sd_cloud_api::RequestConfigProvider;
-use sd_core_sync::NTP64;
-use sd_p2p2::{IdentityOrRemoteIdentity, RemoteIdentity};
+use sd_p2p::RemoteIdentity;
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
 use sd_sync::CRDTOperation;
 use sd_utils::uuid_to_bytes;
-use tracing::info;
+use tracing::{debug, info};
 
 use std::{
 	collections::{hash_map::Entry, HashMap},
-	sync::Arc,
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
 	time::Duration,
 };
 
@@ -21,22 +23,31 @@ use serde_json::to_vec;
 use tokio::{sync::Notify, time::sleep};
 use uuid::Uuid;
 
+// Responsible for downloading sync operations from the cloud to be processed by the ingester
+
+#[allow(clippy::too_many_arguments)]
 pub async fn run_actor(
-	library: Arc<Library>,
 	libraries: Arc<Libraries>,
 	db: Arc<PrismaClient>,
 	library_id: Uuid,
 	instance_uuid: Uuid,
 	sync: Arc<sd_core_sync::Manager>,
-	cloud_api_config_provider: Arc<impl RequestConfigProvider>,
 	ingest_notify: Arc<Notify>,
+	node: Arc<Node>,
+	active: Arc<AtomicBool>,
+	active_notify: Arc<Notify>,
 ) {
 	loop {
+		active.store(true, Ordering::Relaxed);
+		active_notify.notify_waiters();
+
 		loop {
+			// We need to know the lastest operations we should be retrieving
 			let mut cloud_timestamps = {
 				let timestamps = sync.timestamps.read().await;
 
-				err_break!(
+				// looks up the most recent operation we've received (not ingested!) for each instance
+				let db_timestamps = err_break!(
 					db._batch(
 						timestamps
 							.keys()
@@ -52,23 +63,31 @@ pub async fn run_actor(
 							.collect::<Vec<_>>()
 					)
 					.await
-				)
-				.into_iter()
-				.zip(timestamps.iter())
-				.map(|(d, (id, sync_timestamp))| {
-					let cloud_timestamp = NTP64(d.map(|d| d.timestamp).unwrap_or_default() as u64);
+				);
 
-					let max_timestamp = Ord::max(cloud_timestamp, *sync_timestamp);
+				// compares the latest ingested timestamp with the latest received timestamp
+				// and picks the highest one for each instance
+				let mut cloud_timestamps = db_timestamps
+					.into_iter()
+					.zip(timestamps.iter())
+					.map(|(d, (id, sync_timestamp))| {
+						let cloud_timestamp = d.map(|d| d.timestamp).unwrap_or_default() as u64;
 
-					(*id, max_timestamp)
-				})
-				.collect::<HashMap<_, _>>()
+						debug!(
+							"Instance {id}, Sync Timestamp {}, Cloud Timestamp {cloud_timestamp}",
+							sync_timestamp.as_u64()
+						);
+
+						let max_timestamp = Ord::max(cloud_timestamp, sync_timestamp.as_u64());
+
+						(*id, max_timestamp)
+					})
+					.collect::<HashMap<_, _>>();
+
+				cloud_timestamps.remove(&instance_uuid);
+
+				cloud_timestamps
 			};
-
-			info!(
-				"Fetched timestamps for {} local instances",
-				cloud_timestamps.len()
-			);
 
 			let instance_timestamps = sync
 				.timestamps
@@ -80,9 +99,8 @@ pub async fn run_actor(
 						instance_uuid: *uuid,
 						from_time: cloud_timestamps
 							.get(uuid)
-							.cloned()
+							.copied()
 							.unwrap_or_default()
-							.as_u64()
 							.to_string(),
 					},
 				)
@@ -90,7 +108,7 @@ pub async fn run_actor(
 
 			let collections = err_break!(
 				sd_cloud_api::library::message_collections::get(
-					cloud_api_config_provider.get_request_config().await,
+					node.get_request_config().await,
 					library_id,
 					instance_uuid,
 					instance_timestamps,
@@ -112,7 +130,7 @@ pub async fn run_actor(
 						None => {
 							let Some(fetched_library) = err_break!(
 								sd_cloud_api::library::get(
-									cloud_api_config_provider.get_request_config().await,
+									node.get_request_config().await,
 									library_id
 								)
 								.await
@@ -140,30 +158,39 @@ pub async fn run_actor(
 					};
 
 					err_break!(
-						create_instance(
-							&library,
+						upsert_instance(
+							library_id,
+							&db,
+							&sync,
 							&libraries,
 							collection.instance_uuid,
 							instance.identity,
 							instance.node_id,
-							instance.node_name.clone(),
-							instance.node_platform,
+							node.p2p.peer_metadata(),
 						)
 						.await
 					);
 
-					e.insert(NTP64(0));
+					e.insert(0);
 				}
 
-				let compressed_operations: CompressedCRDTOperations =
-					err_break!(serde_json::from_slice(err_break!(
-						&BASE64_STANDARD.decode(collection.contents)
-					)));
+				let compressed_operations: CompressedCRDTOperations = err_break!(
+					rmp_serde::from_slice(err_break!(&BASE64_STANDARD.decode(collection.contents)))
+				);
 
-				err_break!(write_cloud_ops_to_db(compressed_operations.into_ops(), &db).await);
+				let operations = compressed_operations.into_ops();
 
-				let collection_timestamp =
-					NTP64(collection.end_time.parse().expect("unable to parse time"));
+				debug!(
+					"Processing collection. Instance {}, Start {}, End {}",
+					&collection.instance_uuid,
+					operations.first().unwrap().timestamp.as_u64(),
+					operations.last().unwrap().timestamp.as_u64(),
+				);
+
+				err_break!(write_cloud_ops_to_db(operations, &db).await);
+
+				let collection_timestamp: u64 =
+					collection.end_time.parse().expect("unable to parse time");
 
 				let timestamp = cloud_timestamps
 					.entry(collection.instance_uuid)
@@ -176,6 +203,9 @@ pub async fn run_actor(
 
 			ingest_notify.notify_waiters();
 		}
+
+		active.store(false, Ordering::Relaxed);
+		active_notify.notify_waiters();
 
 		sleep(Duration::from_secs(60)).await;
 	}
@@ -193,50 +223,48 @@ async fn write_cloud_ops_to_db(
 
 fn crdt_op_db(op: &CRDTOperation) -> cloud_crdt_operation::Create {
 	cloud_crdt_operation::Create {
-		id: op.id.as_bytes().to_vec(),
 		timestamp: op.timestamp.0 as i64,
 		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
 		kind: op.data.as_kind().to_string(),
 		data: to_vec(&op.data).expect("unable to serialize data"),
 		model: op.model.to_string(),
-		record_id: to_vec(&op.record_id).expect("unable to serialize record id"),
+		record_id: rmp_serde::to_vec(&op.record_id).expect("unable to serialize record id"),
 		_params: vec![],
 	}
 }
 
-pub async fn create_instance(
-	library: &Arc<Library>,
+pub async fn upsert_instance(
+	library_id: Uuid,
+	db: &PrismaClient,
+	sync: &sd_core_sync::Manager,
 	libraries: &Libraries,
 	uuid: Uuid,
 	identity: RemoteIdentity,
 	node_id: Uuid,
-	node_name: String,
-	node_platform: u8,
+	metadata: HashMap<String, String>,
 ) -> prisma_client_rust::Result<()> {
-	library
-		.db
-		.instance()
+	db.instance()
 		.upsert(
 			instance::pub_id::equals(uuid_to_bytes(uuid)),
 			instance::create(
 				uuid_to_bytes(uuid),
-				IdentityOrRemoteIdentity::RemoteIdentity(identity).to_bytes(),
+				identity.get_bytes().to_vec(),
 				node_id.as_bytes().to_vec(),
-				node_name,
-				node_platform as i32,
 				Utc::now().into(),
 				Utc::now().into(),
-				vec![],
+				vec![instance::metadata::set(Some(
+					serde_json::to_vec(&metadata).expect("unable to serialize metadata"),
+				))],
 			),
 			vec![],
 		)
 		.exec()
 		.await?;
 
-	library.sync.timestamps.write().await.insert(uuid, NTP64(0));
+	sync.timestamps.write().await.entry(uuid).or_default();
 
 	// Called again so the new instances are picked up
-	libraries.update_instances(library.clone()).await;
+	libraries.update_instances_by_id(library_id).await;
 
 	Ok(())
 }

@@ -34,8 +34,8 @@ export async function which(progName) {
 				Array.from(new Set(env.PATH?.split(':'))).map(dir =>
 					fs.access(path.join(dir, progName), fs.constants.X_OK)
 				)
-		  ).then(
+			).then(
 				() => true,
 				() => false
-		  )
+			)
 }

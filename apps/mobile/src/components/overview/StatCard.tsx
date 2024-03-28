@@ -5,6 +5,7 @@ import { byteSize } from '@sd/client';
 import { tw } from '~/lib/tailwind';
 
 import { Icon, IconName } from '../icons/Icon';
+import Card from '../layout/Card';
 
 type StatCardProps = {
 	name: string;
@@ -38,9 +39,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 	}, [mounted, totalSpace, usedSpaceSpace]);
 
 	return (
-		<View
-			style={tw`flex w-[300px] shrink-0 flex-col rounded-md border border-app-line/50 bg-app-box/50`}
-		>
+		<Card style={tw`w-[300px] shrink-0 flex-col p-0`}>
 			<View style={tw`flex flex-row items-center gap-5 p-4 px-6`}>
 				{stats.freeSpace && (
 					<>
@@ -82,16 +81,18 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 				</View>
 			</View>
 			<View
-				style={tw`flex h-10 flex-row items-center gap-1.5  border-t border-app-line px-2`}
+				style={tw`flex h-10 flex-row items-center gap-1.5  border-t border-app-cardborder px-2`}
 			>
-				<View style={tw`rounded border border-app-line bg-app-box px-1.5 py-[1px]`}>
+				<View
+					style={tw`rounded border border-app-lightborder bg-app-highlight px-1.5 py-px`}
+				>
 					<Text style={tw`text-xs font-medium uppercase text-ink-dull`}>
 						{connectionType || 'Local'}
 					</Text>
 				</View>
 				<View style={tw`grow`} />
 			</View>
-		</View>
+		</Card>
 	);
 };
 

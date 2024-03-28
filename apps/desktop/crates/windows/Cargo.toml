@@ -8,7 +8,6 @@ edition = { workspace = true }
 [dependencies]
 normpath = { workspace = true }
 thiserror = { workspace = true }
-
 libc = "0.2"
 
 [target.'cfg(target_os = "windows")'.dependencies.windows]

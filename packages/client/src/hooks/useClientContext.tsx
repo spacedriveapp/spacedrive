@@ -4,7 +4,7 @@ import { createContext, PropsWithChildren, useContext, useEffect, useMemo } from
 import { NormalisedCache, useCache, useNodes } from '../cache';
 import { LibraryConfigWrapped, Procedures } from '../core';
 import { valtioPersist } from '../lib';
-import { nonLibraryClient, useBridgeQuery } from '../rspc';
+import { useBridgeQuery } from '../rspc';
 
 // The name of the localStorage key for caching library data
 const libraryCacheLocalStorageKey = 'sd-library-list2'; // `2` is because the format of this underwent a breaking change when introducing normalised caching
@@ -42,6 +42,15 @@ export const useCachedLibraries = () => {
 export async function getCachedLibraries(cache: NormalisedCache, client: AlphaClient<Procedures>) {
 	const cachedData = localStorage.getItem(libraryCacheLocalStorageKey);
 
+	const libraries = client.query(['library.list']).then((result) => {
+		cache.withNodes(result.nodes);
+		const libraries = cache.withCache(result.items);
+
+		localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(result));
+
+		return libraries;
+	});
+
 	if (cachedData) {
 		// If we fail to load cached data, it's fine
 		try {
@@ -53,14 +62,7 @@ export async function getCachedLibraries(cache: NormalisedCache, client: AlphaCl
 		}
 	}
 
-	const result = await client.query(['library.list']);
-	cache.withNodes(result.nodes);
-	const libraries = cache.withCache(result.items);
-
-	if (result.items.length > 0 || result.nodes.length > 0)
-		localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(result));
-
-	return libraries;
+	return await libraries;
 }
 
 export interface ClientContext {
@@ -102,6 +104,7 @@ export const ClientContextProvider = ({
 	);
 };
 
+// million-ignore
 export const useClientContext = () => {
 	const ctx = useContext(ClientContext);
 

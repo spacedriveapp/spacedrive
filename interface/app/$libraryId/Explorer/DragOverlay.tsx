@@ -83,7 +83,7 @@ export const DragOverlay = memo(() => {
 								size={32}
 								frame
 								frameClassName={clsx(
-									'!border-[1px] shadow-md',
+									'!border-DEFAULT shadow-md',
 									isDark ? 'shadow-app-shade/50' : 'shadow-app-shade/25'
 								)}
 							/>

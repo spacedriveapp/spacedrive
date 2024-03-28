@@ -12,6 +12,7 @@ module.exports = {
 			}
 		],
 		'tailwindcss/no-contradicting-classname': 'warn',
+		'tailwindcss/enforces-shorthand': 'off',
 		'no-restricted-imports': [
 			'error',
 			{

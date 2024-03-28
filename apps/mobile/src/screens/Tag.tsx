@@ -1,24 +1,19 @@
 import { useEffect } from 'react';
-import { useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { useCache, useLibraryQuery, useNodes, useObjectsExplorerQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 
 export default function TagScreen({ navigation, route }: BrowseStackScreenProps<'Tag'>) {
 	const { id } = route.params;
 
-	const search = useLibraryQuery([
-		'search.objects',
-		{
-			filters: [{ object: { tags: { in: [id] } } }],
-			take: 100
-		}
-	]);
-	useNodes(search.data?.nodes);
-	const searchData = useCache(search.data?.items);
-
 	const tag = useLibraryQuery(['tags.get', id]);
 	useNodes(tag.data?.nodes);
 	const tagData = useCache(tag.data?.item);
+
+	const objects = useObjectsExplorerQuery({
+		arg: { filters: [{ object: { tags: { in: [id] } } }], take: 30 },
+		order: null
+	});
 
 	useEffect(() => {
 		// Set screen title to tag name.
@@ -27,5 +22,5 @@ export default function TagScreen({ navigation, route }: BrowseStackScreenProps<
 		});
 	}, [tagData?.name, navigation]);
 
-	return <Explorer items={searchData} />;
+	return <Explorer {...objects} />;
 }

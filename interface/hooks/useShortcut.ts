@@ -22,6 +22,13 @@ const shortcuts = {
 		macOS: ['Meta', 'Alt', 'ArrowRight'],
 		all: ['Control', 'Alt', 'ArrowRight']
 	},
+	toggleCommandPalette: {
+		macOS: ['Meta', 'KeyK'],
+		all: ['Control', 'KeyK']
+	},
+	closeCommandPalette: {
+		all: ['Escape']
+	},
 	previousTab: {
 		macOS: ['Meta', 'Alt', 'ArrowLeft'],
 		all: ['Control', 'Alt', 'ArrowLeft']
@@ -118,6 +125,9 @@ const shortcuts = {
 	quickPreviewOpenNative: {
 		macOS: ['Meta', 'KeyO'],
 		all: ['Enter']
+	},
+	closeQuickPreview: {
+		all: ['Escape']
 	},
 	delItem: {
 		macOS: ['Meta', 'Backspace'],

@@ -1,5 +1,4 @@
 // Adapted from: https://github.com/kimlimjustin/xplorer/blob/f4f3590d06783d64949766cc2975205a3b689a56/src-tauri/src/drives.rs
-
 use sd_cache::Model;
 
 use std::{
@@ -224,6 +223,59 @@ pub async fn get_volumes() -> Vec<Volume> {
 	volumes
 }
 
+#[cfg(target_os = "ios")]
+pub async fn get_volumes() -> Vec<Volume> {
+	use std::os::unix::fs::MetadataExt;
+
+	use icrate::{
+		objc2::runtime::{Class, Object},
+		objc2::{msg_send, sel},
+		Foundation::{self, ns_string, NSFileManager, NSFileSystemSize, NSNumber, NSString},
+	};
+
+	let mut volumes: Vec<Volume> = Vec::new();
+
+	unsafe {
+		let file_manager = NSFileManager::defaultManager();
+
+		let root_dir = NSString::from_str("/");
+
+		let root_dir_ref = root_dir.as_ref();
+
+		let attributes = file_manager
+			.attributesOfFileSystemForPath_error(root_dir_ref)
+			.unwrap();
+
+		let attributes_ref = attributes.as_ref();
+
+		// Total space
+		let key = NSString::from_str("NSFileSystemSize");
+		let key_ref = key.as_ref();
+
+		let t = attributes_ref.get(key_ref).unwrap();
+		let total_space: u64 = msg_send![t, unsignedLongLongValue];
+
+		// Used space
+		let key = NSString::from_str("NSFileSystemFreeSize");
+		let key_ref = key.as_ref();
+
+		let t = attributes_ref.get(key_ref).unwrap();
+		let free_space: u64 = msg_send![t, unsignedLongLongValue];
+
+		volumes.push(Volume {
+			name: "Root".to_string(),
+			disk_type: DiskType::SSD,
+			file_system: Some("APFS".to_string()),
+			mount_points: vec![PathBuf::from("/")],
+			total_capacity: total_space,
+			available_capacity: free_space,
+			is_root_filesystem: true,
+		});
+	}
+
+	volumes
+}
+
 #[cfg(target_os = "macos")]
 #[derive(Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -245,7 +297,9 @@ struct HDIUtilInfo {
 	images: Vec<ImageInfo>,
 }
 
-#[cfg(not(target_os = "linux"))]
+// Android does not work via sysinfo and JNI is a pain to maintain. Therefore, we use React-Native-FS to get the volume data of the device.
+// We leave the function though to be built for Android because otherwise, the build will fail.
+#[cfg(not(any(target_os = "linux", target_os = "ios")))]
 pub async fn get_volumes() -> Vec<Volume> {
 	use futures::future;
 	use tokio::process::Command;

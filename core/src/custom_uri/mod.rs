@@ -1,16 +1,17 @@
 use crate::{
 	api::{utils::InvalidateOperationEvent, CoreEvent},
 	library::Library,
-	object::media::thumbnail::WEBP_EXTENSION,
+	object::media::old_thumbnail::WEBP_EXTENSION,
 	p2p::operations,
 	util::InfallibleResponse,
 	Node,
 };
 
+use http_body::combinators::UnsyncBoxBody;
 use hyper::{header, upgrade::OnUpgrade};
 use sd_file_ext::text::is_text;
 use sd_file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData};
-use sd_p2p2::{IdentityOrRemoteIdentity, RemoteIdentity};
+use sd_p2p::{RemoteIdentity, P2P};
 use sd_prisma::prisma::{file_path, location};
 use sd_utils::db::maybe_missing;
 
@@ -80,6 +81,57 @@ pub struct LocalState {
 
 type ExtractedPath = extract::Path<(String, String, String)>;
 
+async fn request_to_remote_node(
+	p2p: Arc<P2P>,
+	identity: RemoteIdentity,
+	mut request: Request<Body>,
+) -> Response<UnsyncBoxBody<bytes::Bytes, axum::Error>> {
+	let request_upgrade_header = request.headers().get(header::UPGRADE).cloned();
+	let maybe_client_upgrade = request.extensions_mut().remove::<OnUpgrade>();
+
+	let mut response = match operations::remote_rspc(p2p.clone(), identity, request).await {
+		Ok(v) => v,
+		Err(err) => {
+			warn!("Error doing remote rspc query with '{identity}': {err:?}");
+			return StatusCode::BAD_GATEWAY.into_response();
+		}
+	};
+	if response.status() == StatusCode::SWITCHING_PROTOCOLS {
+		if response.headers().get(header::UPGRADE) != request_upgrade_header.as_ref() {
+			return StatusCode::BAD_REQUEST.into_response();
+		}
+
+		let Some(request_upgraded) = maybe_client_upgrade else {
+			return StatusCode::BAD_REQUEST.into_response();
+		};
+		let Some(response_upgraded) = response.extensions_mut().remove::<OnUpgrade>() else {
+			return StatusCode::BAD_REQUEST.into_response();
+		};
+
+		tokio::spawn(async move {
+			let Ok(mut request_upgraded) = request_upgraded.await.map_err(|err| {
+				warn!("Error upgrading websocket request: {err}");
+			}) else {
+				return;
+			};
+			let Ok(mut response_upgraded) = response_upgraded.await.map_err(|err| {
+				warn!("Error upgrading websocket response: {err}");
+			}) else {
+				return;
+			};
+
+			copy_bidirectional(&mut request_upgraded, &mut response_upgraded)
+				.await
+				.map_err(|err| {
+					warn!("Error upgrading websocket response: {err}");
+				})
+				.ok();
+		});
+	}
+
+	response.into_response()
+}
+
 async fn get_or_init_lru_entry(
 	state: &LocalState,
 	extract::Path((lib_id, loc_id, path_id)): ExtractedPath,
@@ -122,9 +174,8 @@ async fn get_or_init_lru_entry(
 		let path = Path::new(path)
 			.join(IsolatedFilePathData::try_from((location_id, &file_path)).map_err(not_found)?);
 
-		let identity = IdentityOrRemoteIdentity::from_bytes(&instance.identity)
-			.map_err(internal_server_error)?
-			.remote_identity();
+		let identity =
+			RemoteIdentity::from_bytes(&instance.remote_identity).map_err(internal_server_error)?;
 
 		let lru_entry = CacheValue {
 			name: path,
@@ -187,7 +238,10 @@ pub fn base_router() -> Router<LocalState> {
 		.route(
 			"/file/:lib_id/:loc_id/:path_id",
 			get(
-				|State(state): State<LocalState>, path: ExtractedPath, request: Request<Body>| async move {
+				|State(state): State<LocalState>,
+				 path: ExtractedPath,
+				 mut request: Request<Body>| async move {
+					let part_parts = path.0.clone();
 					let (
 						CacheValue {
 							name: file_path_full_path,
@@ -232,8 +286,18 @@ pub fn base_router() -> Router<LocalState> {
 
 							serve_file(file, Ok(metadata), request.into_parts().0, resp).await
 						}
-						ServeFrom::Remote(_identity) => {
-							Err(not_implemented("Can't serve file from remote node")) // TODO: Reimplement this
+						ServeFrom::Remote(identity) => {
+							*request.uri_mut() =
+								format!("/file/{}/{}/{}", part_parts.0, part_parts.1, part_parts.2)
+									.parse()
+									.expect("url was validated by Axum");
+
+							Ok(request_to_remote_node(
+								state.node.p2p.p2p.clone(),
+								identity,
+								request,
+							)
+							.await)
 						}
 					}
 				},
@@ -332,63 +396,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 						.parse()
 						.expect("url was validated by Axum");
 
-					let request_upgrade_header =
-						request.headers().get(header::UPGRADE).map(Clone::clone);
-					let maybe_client_upgrade = request.extensions_mut().remove::<OnUpgrade>();
-
-					let mut response = match operations::remote_rspc(
-						state.node.p2p.p2p.clone(),
-						identity,
-						request,
-					)
-					.await
-					{
-						Ok(v) => v,
-						Err(err) => {
-							warn!("Error doing remote rspc query with '{identity}': {err:?}");
-							return StatusCode::BAD_GATEWAY.into_response();
-						}
-					};
-					if response.status() == StatusCode::SWITCHING_PROTOCOLS {
-						if response.headers().get(header::UPGRADE)
-							!= request_upgrade_header.as_ref()
-						{
-							return StatusCode::BAD_REQUEST.into_response();
-						}
-
-						let Some(request_upgraded) = maybe_client_upgrade else {
-							return StatusCode::BAD_REQUEST.into_response();
-						};
-						let Some(response_upgraded) =
-							response.extensions_mut().remove::<OnUpgrade>()
-						else {
-							return StatusCode::BAD_REQUEST.into_response();
-						};
-
-						tokio::spawn(async move {
-							let Ok(mut request_upgraded) = request_upgraded.await.map_err(|err| {
-								warn!("Error upgrading websocket request: {err}");
-							}) else {
-								return;
-							};
-							let Ok(mut response_upgraded) =
-								response_upgraded.await.map_err(|err| {
-									warn!("Error upgrading websocket response: {err}");
-								})
-							else {
-								return;
-							};
-
-							copy_bidirectional(&mut request_upgraded, &mut response_upgraded)
-								.await
-								.map_err(|err| {
-									warn!("Error upgrading websocket response: {err}");
-								})
-								.ok();
-						});
-					}
-
-					response.into_response()
+					request_to_remote_node(state.node.p2p.p2p.clone(), identity, request).await
 				},
 			),
 		)

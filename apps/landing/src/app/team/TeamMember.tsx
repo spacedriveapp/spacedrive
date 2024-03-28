@@ -1,4 +1,4 @@
-import { Dribbble, Github, Gitlab, Twitch, Twitter } from '@sd/assets/svgs/brands';
+import { Dribbble, Github, Gitlab, Twitch, Twitter, Website } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
 import Image from 'next/image';
 import NextLink from 'next/link';
@@ -11,6 +11,9 @@ export interface TeamMemberProps {
 	// Member's role
 	role: string;
 
+	// Member's location
+	location?: string;
+
 	// Member's avatar
 	imageUrl: string;
 
@@ -21,6 +24,7 @@ export interface TeamMemberProps {
 		github?: string;
 		gitlab?: string;
 		dribbble?: string;
+		website?: string;
 	};
 
 	// Which round an investor joined at
@@ -60,41 +64,44 @@ export function TeamMember(props: TeamMemberProps) {
 					'lg:h-28 lg:w-28': props.investmentRound
 				})}
 			/>
-			<h3 className="mb-0 mt-4 text-base">{props.name}</h3>
-			<p
-				className={clsx('text-xs', {
-					'mb-0': props.investmentRound
-				})}
-			>
-				{props.role}
-			</p>
-			{props.investmentRound && (
-				<p className="my-0 text-sm font-semibold text-gray-450">{props.investmentRound}</p>
+			<h3 className="mb-0 mt-2 text-base">{props.name}</h3>
+
+			{props.location && (
+				<p className="m-0 text-sm font-semibold text-gray-450">{props.location}</p>
 			)}
-			<div className="mt-auto flex flex-row space-x-2">
+			<p className="m-0 text-xs">{props.role}</p>
+			{props.investmentRound && (
+				<p className="m-0 text-sm font-semibold text-gray-450">{props.investmentRound}</p>
+			)}
+			<div className="mt-3 flex flex-row space-x-2">
 				{props.socials?.twitter && (
 					<Link href={props.socials.twitter}>
-						<Twitter className="h-[20px] w-[20px]" />
+						<Twitter className="size-[20px]" />
 					</Link>
 				)}
 				{props.socials?.github && (
 					<Link href={props.socials.github}>
-						<Github className="h-[20px] w-[20px]" />
+						<Github className="size-[20px]" />
 					</Link>
 				)}
 				{props.socials?.gitlab && (
 					<Link href={props.socials.gitlab}>
-						<Gitlab className="h-[20px] w-[20px]" />
+						<Gitlab className="size-[20px]" />
 					</Link>
 				)}
 				{props.socials?.twitch && (
 					<Link href={props.socials.twitch}>
-						<Twitch className="h-[20px] w-[20px]" />
+						<Twitch className="size-[20px]" />
 					</Link>
 				)}
 				{props.socials?.dribbble && (
 					<Link href={props.socials.dribbble}>
-						<Dribbble className="h-[20px] w-[20px]" />
+						<Dribbble className="size-[20px]" />
+					</Link>
+				)}
+				{props.socials?.website && (
+					<Link href={props.socials.website}>
+						<Website className="size-[20px]" />
 					</Link>
 				)}
 			</div>

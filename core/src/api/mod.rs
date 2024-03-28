@@ -1,16 +1,16 @@
 use crate::{
 	invalidate_query,
-	job::JobProgressEvent,
 	node::{
 		config::{NodeConfig, NodePreferences, P2PDiscoveryState, Port},
 		get_hardware_model_name, HardwareModel,
 	},
+	old_job::JobProgressEvent,
 	p2p::{into_listener2, Listener2},
 	Node,
 };
 
 use sd_cache::patch_typedef;
-use sd_p2p2::RemoteIdentity;
+use sd_p2p::RemoteIdentity;
 use std::sync::{atomic::Ordering, Arc};
 
 use itertools::Itertools;

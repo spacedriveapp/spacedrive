@@ -23,7 +23,7 @@ const FileItem = ({ data }: FileItemProps) => {
 			})}
 		>
 			<FileThumb data={data} />
-			<View style={tw`mt-1 px-1.5 py-[1px]`}>
+			<View style={tw`mt-1 px-1.5 py-px`}>
 				<Text numberOfLines={1} style={tw`text-center text-xs font-medium text-white`}>
 					{filePath?.name}
 					{filePath?.extension && `.${filePath.extension}`}

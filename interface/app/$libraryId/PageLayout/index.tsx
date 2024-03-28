@@ -3,7 +3,7 @@ import { useRef } from 'react';
 import { Outlet } from 'react-router';
 
 import { useShowControls } from '../../../hooks';
-import { useTopBarContext } from '../TopBar/Layout';
+import { useTopBarContext } from '../TopBar/Context';
 import { PageLayoutContext } from './Context';
 
 export const Component = () => {

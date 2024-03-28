@@ -53,7 +53,7 @@ function LibraryItem({
 		<Swipeable
 			containerStyle={twStyle(
 				index !== 0 && 'mt-2',
-				'rounded-lg border border-app-line bg-app-overlay px-4 py-3'
+				'rounded-lg border border-app-cardborder bg-app-card px-4 py-3'
 			)}
 			enableTrackpadTwoFingerGesture
 			renderRightActions={renderRightActions}
@@ -96,7 +96,7 @@ const LibrarySettingsScreen = ({ navigation }: SettingsStackScreenProps<'Library
 			<Fade
 				fadeSides="top-bottom"
 				orientation="vertical"
-				color="mobile-screen"
+				color="black"
 				width={30}
 				height="100%"
 			>

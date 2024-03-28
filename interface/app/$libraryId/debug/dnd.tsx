@@ -30,5 +30,5 @@ export function DragAndDropDebug() {
 		};
 	}, [platform, ref]);
 
-	return <div ref={ref} className="absolute z-[500] hidden h-10 w-10 bg-red-500"></div>;
+	return <div ref={ref} className="absolute z-[500] hidden size-10 bg-red-500"></div>;
 }

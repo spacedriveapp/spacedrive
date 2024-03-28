@@ -7,7 +7,7 @@ use sd_utils::{
 
 use std::path::Path;
 
-use rspc::{self, ErrorCode};
+use rspc::ErrorCode;
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -95,7 +95,7 @@ impl From<LocationError> for rspc::Error {
 				Self::with_cause(ErrorCode::BadRequest, err.to_string(), err)
 			}
 
-			// Custom error message is used to differenciate these errors in the frontend
+			// Custom error message is used to differentiate these errors in the frontend
 			// TODO: A better solution would be for rspc to support sending custom data alongside errors
 			NeedRelink { .. } => {
 				Self::with_cause(ErrorCode::Conflict, "NEED_RELINK".to_owned(), err)

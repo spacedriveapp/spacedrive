@@ -44,7 +44,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 }
 
 mod library {
-	use crate::{node::Platform, util::MaybeUndefined};
+	use crate::util::MaybeUndefined;
 
 	use super::*;
 
@@ -75,8 +75,7 @@ mod library {
 							library.instance_uuid,
 							library.identity.to_remote_identity(),
 							node_config.id,
-							&node_config.name,
-							Platform::current().into(),
+							&node.p2p.peer_metadata(),
 						)
 						.await?;
 						node.libraries
@@ -120,6 +119,7 @@ mod library {
 							false,
 							None,
 							&node,
+							true,
 						)
 						.await?;
 					node.libraries
@@ -139,20 +139,20 @@ mod library {
 						library.instance_uuid,
 						library.identity.to_remote_identity(),
 						node_config.id,
-						&node_config.name,
-						Platform::current().into(),
+						node.p2p.peer_metadata(),
 					)
 					.await?;
 
 					for instance in instances {
-						crate::cloud::sync::receive::create_instance(
-							&library,
+						crate::cloud::sync::receive::upsert_instance(
+							library.id,
+							&library.db,
+							&library.sync,
 							&node.libraries,
 							instance.uuid,
 							instance.identity,
 							instance.node_id,
-							instance.node_name,
-							instance.node_platform,
+							node.p2p.peer_metadata(),
 						)
 						.await?;
 					}
@@ -194,7 +194,7 @@ mod locations {
 	}
 
 	#[derive(Debug)]
-	pub struct CredentialsProvider(sd_cloud_api::locations::authorise::Response);
+	pub struct CredentialsProvider(sd_cloud_api::locations::authorize::Response);
 
 	impl ProvideCredentials for CredentialsProvider {
 		fn provide_credentials<'a>(&'a self) -> future::ProvideCredentials<'a>
@@ -219,7 +219,7 @@ mod locations {
 
 	// Reuse the client between procedure calls
 	fn get_aws_s3_client(
-		token: sd_cloud_api::locations::authorise::Response,
+		token: sd_cloud_api::locations::authorize::Response,
 	) -> &'static aws_sdk_s3::Client {
 		AWS_S3_CLIENT.get_or_init(|| {
 			aws_sdk_s3::Client::new(
@@ -259,7 +259,7 @@ mod locations {
 			// TODO: Remove this
 			.procedure("testing", {
 				// // TODO: Move this off a static. This is just for debugging.
-				// static AUTH_TOKEN: Lazy<Mutex<Option<AuthoriseResponse>>> =
+				// static AUTH_TOKEN: Lazy<Mutex<Option<AuthorizeResponse>>> =
 				// 	Lazy::new(|| Mutex::new(None));
 
 				#[derive(Type, Deserialize)]
@@ -273,7 +273,7 @@ mod locations {
 						let token = &mut None; // AUTH_TOKEN.lock().await; // TODO: Caching of the token. For now it's annoying when debugging.
 						if token.is_none() {
 							*token = Some(
-								sd_cloud_api::locations::authorise(
+								sd_cloud_api::locations::authorize(
 									node.cloud_api_config().await,
 									params.id,
 								)

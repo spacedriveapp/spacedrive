@@ -24,8 +24,8 @@ impl Notifications {
 	}
 
 	/// DO NOT USE THIS. Use `Node::emit_notification` or `Library::emit_notification` instead.
-	pub fn _internal_send(&self, notif: Notification) {
-		self.0.send(notif).ok();
+	pub fn _internal_send(&self, notification: Notification) {
+		self.0.send(notification).ok();
 	}
 
 	pub fn _internal_next_id(&self) -> u32 {

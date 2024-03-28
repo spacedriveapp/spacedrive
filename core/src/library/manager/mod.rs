@@ -5,7 +5,6 @@ use crate::{
 		indexer,
 		metadata::{LocationMetadataError, SpacedriveLocationMetadataFile},
 	},
-	node::Platform,
 	object::tag,
 	p2p, sync,
 	util::{mpscrr, MaybeUndefined},
@@ -13,7 +12,7 @@ use crate::{
 };
 
 use sd_core_sync::SyncMessage;
-use sd_p2p2::{Identity, IdentityOrRemoteIdentity};
+use sd_p2p::Identity;
 use sd_prisma::prisma::{crdt_operation, instance, location, SortOrder};
 use sd_utils::{
 	db,
@@ -138,7 +137,7 @@ impl Libraries {
 					.await?;
 
 				// FIX-ME: Linux releases crashes with *** stack smashing detected *** if spawn_volume_watcher is enabled
-				// No ideia why, but this will be irrelevant after the UDisk API is implemented, so let's leave it disabled for now
+				// No idea why, but this will be irrelevant after the UDisk API is implemented, so let's leave it disabled for now
 				#[cfg(not(target_os = "linux"))]
 				{
 					use crate::volume::watcher::spawn_volume_watcher;
@@ -157,7 +156,7 @@ impl Libraries {
 		description: Option<String>,
 		node: &Arc<Node>,
 	) -> Result<Arc<Library>, LibraryManagerError> {
-		self.create_with_uuid(Uuid::new_v4(), name, description, true, None, node)
+		self.create_with_uuid(Uuid::new_v4(), name, description, true, None, node, false)
 			.await
 	}
 
@@ -170,6 +169,7 @@ impl Libraries {
 		// `None` will fallback to default as library must be created with at least one instance
 		instance: Option<instance::Create>,
 		node: &Arc<Node>,
+		generate_sync_operations: bool,
 	) -> Result<Arc<Library>, LibraryManagerError> {
 		if name.as_ref().is_empty() || name.as_ref().chars().all(|x| x.is_whitespace()) {
 			return Err(LibraryManagerError::InvalidConfig(
@@ -185,6 +185,7 @@ impl Libraries {
 			// First instance will be zero
 			0,
 			&config_path,
+			generate_sync_operations,
 		)
 		.await?;
 
@@ -202,15 +203,20 @@ impl Libraries {
 				self.libraries_dir.join(format!("{id}.db")),
 				config_path,
 				Some({
+					let identity = Identity::new();
 					let mut create = instance.unwrap_or_else(|| instance::Create {
 						pub_id: Uuid::new_v4().as_bytes().to_vec(),
-						identity: IdentityOrRemoteIdentity::Identity(Identity::new()).to_bytes(),
+						remote_identity: identity.to_remote_identity().get_bytes().to_vec(),
 						node_id: node_cfg.id.as_bytes().to_vec(),
-						node_name: node_cfg.name.clone(),
-						node_platform: Platform::current() as i32,
 						last_seen: now,
 						date_created: now,
-						_params: vec![],
+						_params: vec![
+							instance::identity::set(Some(identity.to_bytes())),
+							instance::metadata::set(Some(
+								serde_json::to_vec(&node.p2p.peer_metadata())
+									.expect("invalid node metadata"),
+							)),
+						],
 					});
 					create._params.push(instance::id::set(config.instance_id));
 					create
@@ -418,24 +424,22 @@ impl Libraries {
 			.find(|i| i.id == config.instance_id)
 			.ok_or_else(|| {
 				LibraryManagerError::CurrentInstanceNotFound(config.instance_id.to_string())
-			})?;
+			})?
+			.clone();
 
-		let identity = Arc::new(
-			match IdentityOrRemoteIdentity::from_bytes(&instance.identity)? {
-				IdentityOrRemoteIdentity::Identity(identity) => identity,
-				IdentityOrRemoteIdentity::RemoteIdentity(_) => {
-					return Err(LibraryManagerError::InvalidIdentity)
-				}
-			},
-		);
+		let identity = match instance.identity.as_ref() {
+			Some(b) => Arc::new(Identity::from_bytes(&b)?),
+			// We are not this instance, so we don't have the private key.
+			None => return Err(LibraryManagerError::InvalidIdentity),
+		};
 
 		let instance_id = Uuid::from_slice(&instance.pub_id)?;
-		let curr_platform = Platform::current() as i32;
+		let curr_metadata: Option<HashMap<String, String>> = instance
+			.metadata
+			.as_ref()
+			.map(|metadata| serde_json::from_slice(metadata).expect("invalid metadata"));
 		let instance_node_id = Uuid::from_slice(&instance.node_id)?;
-		if instance_node_id != node_config.id
-			|| instance.node_platform != curr_platform
-			|| instance.node_name != node_config.name
-		{
+		if instance_node_id != node_config.id || curr_metadata != Some(node.p2p.peer_metadata()) {
 			info!(
 				"Detected that the library '{}' has changed node from '{}' to '{}'. Reconciling node data...",
 				id, instance_node_id, node_config.id
@@ -446,8 +450,10 @@ impl Libraries {
 					instance::id::equals(instance.id),
 					vec![
 						instance::node_id::set(node_config.id.as_bytes().to_vec()),
-						instance::node_platform::set(curr_platform),
-						instance::node_name::set(node_config.name),
+						instance::metadata::set(Some(
+							serde_json::to_vec(&node.p2p.peer_metadata())
+								.expect("invalid peer metdata"),
+						)),
 					],
 				)
 				.exec()
@@ -483,6 +489,11 @@ impl Libraries {
 			})
 			.collect()
 		});
+		let sync_manager = Arc::new(sync.manager);
+
+		let actors = Default::default();
+
+		let cloud = crate::cloud::start(node, &actors, id, instance_id, &sync_manager, &db).await;
 
 		let (tx, mut rx) = broadcast::channel(10);
 		let library = Library::new(
@@ -493,15 +504,15 @@ impl Libraries {
 			// key_manager,
 			db,
 			node,
-			Arc::new(sync.manager),
+			sync_manager,
+			cloud,
 			tx,
+			actors,
 		)
 		.await;
 
 		// This is an exception. Generally subscribe to this by `self.tx.subscribe`.
 		tokio::spawn(sync_rx_actor(library.clone(), node.clone(), sync.rx));
-
-		crate::cloud::sync::declare_actors(&library, node).await;
 
 		self.tx
 			.emit(LibraryManagerEvent::Load(library.clone()))
@@ -532,7 +543,7 @@ impl Libraries {
 			};
 		}
 
-		if let Err(e) = node.jobs.clone().cold_resume(node, &library).await {
+		if let Err(e) = node.old_jobs.clone().cold_resume(node, &library).await {
 			error!("Failed to resume jobs for library. {:#?}", e);
 		}
 
@@ -557,10 +568,13 @@ impl Libraries {
 										.find(|i| i.uuid == library.instance_uuid)
 									{
 										let node_config = node.config.get().await;
+										let curr_metadata: Option<HashMap<String, String>> =
+											instance.metadata.as_ref().map(|metadata| {
+												serde_json::from_slice(metadata)
+													.expect("invalid metadata")
+											});
 										let should_update = this_instance.node_id != node_config.id
-											|| this_instance.node_platform
-												!= (Platform::current() as u8)
-											|| this_instance.node_name != node_config.name;
+											|| curr_metadata != Some(node.p2p.peer_metadata());
 
 										if should_update {
 											warn!("Library instance on cloud is outdated. Updating...");
@@ -571,8 +585,7 @@ impl Libraries {
 													library.id,
 													this_instance.uuid,
 													Some(node_config.id),
-													Some(node_config.name),
-													Some(Platform::current() as u8),
+													Some(node.p2p.peer_metadata()),
 												)
 												.await
 											{
@@ -602,14 +615,15 @@ impl Libraries {
 									}
 
 									for instance in lib.instances {
-										if let Err(err) = cloud::sync::receive::create_instance(
-											&library,
+										if let Err(err) = cloud::sync::receive::upsert_instance(
+											library.id,
+											&library.db,
+											&library.sync,
 											&node.libraries,
 											instance.uuid,
 											instance.identity,
 											instance.node_id,
-											instance.node_name,
-											instance.node_platform,
+											instance.metadata,
 										)
 										.await
 										{
@@ -653,6 +667,17 @@ impl Libraries {
 	}
 
 	pub async fn update_instances(&self, library: Arc<Library>) {
+		self.tx
+			.emit(LibraryManagerEvent::InstancesModified(library))
+			.await;
+	}
+
+	pub async fn update_instances_by_id(&self, library_id: Uuid) {
+		let Some(library) = self.libraries.read().await.get(&library_id).cloned() else {
+			warn!("Failed to find instance to update by id");
+			return;
+		};
+
 		self.tx
 			.emit(LibraryManagerEvent::InstancesModified(library))
 			.await;

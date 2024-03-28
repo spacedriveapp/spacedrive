@@ -1,6 +1,6 @@
-use crate::p2p::{operations, Header, P2PEvent, PeerMetadata};
+use crate::p2p::{operations, ConnectionMethod, DiscoveryMethod, Header, P2PEvent, PeerMetadata};
 
-use sd_p2p2::RemoteIdentity;
+use sd_p2p::{PeerConnectionCandidate, RemoteIdentity};
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
@@ -19,17 +19,29 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				let mut queued = Vec::new();
 
-				for (identity, peer, metadata) in
-					node.p2p.p2p.peers().iter().filter_map(|(i, p)| {
-						PeerMetadata::from_hashmap(&p.metadata())
-							.ok()
-							.map(|m| (i, p, m))
-					}) {
-					let identity = *identity;
-					match peer.is_connected() {
-						true => queued.push(P2PEvent::ConnectedPeer { identity }),
-						false => queued.push(P2PEvent::DiscoveredPeer { identity, metadata }),
-					}
+				for (_, peer, metadata) in node.p2p.p2p.peers().iter().filter_map(|(i, p)| {
+					PeerMetadata::from_hashmap(&p.metadata())
+						.ok()
+						.map(|m| (i, p, m))
+				}) {
+					queued.push(P2PEvent::PeerChange {
+						identity: peer.identity(),
+						connection: if peer.is_connected_with_hook(node.p2p.libraries_hook_id) {
+							ConnectionMethod::Relay
+						} else if peer.is_connected() {
+							ConnectionMethod::Local
+						} else {
+							ConnectionMethod::Disconnected
+						},
+						discovery: match peer
+							.connection_candidates()
+							.contains(&PeerConnectionCandidate::Relay)
+						{
+							true => DiscoveryMethod::Relay,
+							false => DiscoveryMethod::Local,
+						},
+						metadata,
+					});
 				}
 
 				Ok(async_stream::stream! {
@@ -52,7 +64,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				let mut stream = peer
 					.ok_or(rspc::Error::new(
 						ErrorCode::InternalServerError,
-						"big man, offline".into(),
+						"big man, not found".into(),
 					))?
 					.new_stream()
 					.await

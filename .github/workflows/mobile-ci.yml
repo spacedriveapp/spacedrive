@@ -138,15 +138,15 @@ jobs:
 
   ios:
     name: iOS
-    runs-on: macos-14
+    runs-on: macos-12
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
+      # - name: Install Xcode
+      #   uses: maxim-lobanov/setup-xcode@v1
+      #   with:
+      #     xcode-version: latest-stable
 
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
@@ -189,9 +189,6 @@ jobs:
         run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -configuration Release -sdk iphonesimulator -derivedDataPath build -arch "$(uname -m)"
 
       - name: Install Maestro
-        env:
-          # Workaround: https://github.com/mobile-dev-inc/maestro/issues/1585
-          MAESTRO_VERSION: '1.33.1'
         run: |
           curl -Ls "https://get.maestro.mobile.dev" | bash
           brew tap facebook/fb
@@ -199,14 +196,12 @@ jobs:
           echo "${HOME}/.maestro/bin" >> $GITHUB_PATH
 
       - name: Run Simulator
+        id: run_simulator
         uses: futureware-tech/simulator-action@v3
         with:
-          model: 'iPhone SE (3rd generation)'
+          model: 'iPhone 14'
+          os_version: 16
+          erase_before_boot: false
 
       - name: Run Tests
-        env:
-          # https://github.com/expo/expo/blob/339fa68/apps/bare-expo/scripts/start-ios-e2e-test.ts#L12
-          MAESTRO_DRIVER_STARTUP_TIMEOUT: 120000
-        run: |
-          xcrun simctl install booted apps/mobile/ios/build/Build/Products/Release-iphonesimulator/Spacedrive.app
-          ./apps/mobile/scripts/run-maestro-tests.sh ios
+        run: ./apps/mobile/scripts/run-maestro-tests.sh ios ${{ steps.run_simulator.outputs.udid }}

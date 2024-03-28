@@ -1,10 +1,28 @@
-import { useMemo, useState, type CSSProperties, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { useCallbackToWatchResize } from '~/hooks';
 
+import { useExplorerContext } from '../Context';
+
 export function useSize(ref: RefObject<Element>) {
+	const explorerSettings = useExplorerContext({ suspense: false })?.useSettingsSnapshot();
+
+	const initialized = useRef(false);
+
 	const [size, setSize] = useState({ width: 0, height: 0 });
 
-	useCallbackToWatchResize(({ width, height }) => setSize({ width, height }), [], ref);
+	useEffect(() => {
+		initialized.current = false;
+	}, [explorerSettings?.gridItemSize]);
+
+	useCallbackToWatchResize(
+		({ width, height }) => {
+			if (initialized.current) return;
+			setSize({ width, height });
+			initialized.current = true;
+		},
+		[],
+		ref
+	);
 
 	return size;
 }

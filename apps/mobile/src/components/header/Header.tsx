@@ -1,23 +1,22 @@
 import { useNavigation } from '@react-navigation/native';
-import { StackHeaderProps } from '@react-navigation/stack';
+import { NativeStackHeaderProps } from '@react-navigation/native-stack';
 import { ArrowLeft, DotsThreeOutline, MagnifyingGlass } from 'phosphor-react-native';
-import { lazy } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getExplorerStore, useExplorerStore } from '~/stores/explorerStore';
 
+import BrowseLibraryManager from '../browse/DrawerLibraryManager';
 import { Icon } from '../icons/Icon';
-
-//Not all pages use these components - so we lazy load for performance
-const BrowseLibraryManager = lazy(() => import('../browse/DrawerLibraryManager'));
-const Search = lazy(() => import('../inputs/Search'));
+import Search from '../search/Search';
 
 type HeaderProps = {
 	title?: string; //title of the page
 	showLibrary?: boolean; //show the library manager
-	searchType?: 'explorer' | 'location'; //Temporary
+	showSearch?: boolean; //show the search button
+	searchType?: 'explorer' | 'location' | 'categories'; //Temporary
 	navBack?: boolean; //navigate back to the previous screen
+	navBackHome?: boolean; //navigate back to the home screen of the stack
 	headerKind?: 'default' | 'location' | 'tag'; //kind of header
 	route?: never;
 	routeTitle?: never;
@@ -27,7 +26,7 @@ type HeaderProps = {
 type Props =
 	| HeaderProps
 	| ({
-			route: StackHeaderProps;
+			route: NativeStackHeaderProps;
 			routeTitle?: boolean;
 	  } & Omit<HeaderProps, 'route' | 'routeTitle'>);
 
@@ -39,25 +38,28 @@ export default function Header({
 	navBack,
 	route,
 	routeTitle,
-	headerKind = 'default'
+	navBackHome = false,
+	headerKind = 'default',
+	showSearch = true
 }: Props) {
 	const navigation = useNavigation();
 	const explorerStore = useExplorerStore();
 	const routeParams = route?.route.params as any;
 	const headerHeight = useSafeAreaInsets().top;
+	const isAndroid = Platform.OS === 'android';
 
 	return (
 		<View
-			style={twStyle(
-				'relative h-auto w-full border-b border-app-line/50 bg-mobile-header',
-				{ paddingTop: headerHeight }
-			)}
+			style={twStyle('relative h-auto w-full border-b border-app-cardborder bg-app-header', {
+				paddingTop: headerHeight + (isAndroid ? 15 : 0)
+			})}
 		>
 			<View style={tw`mx-auto h-auto w-full justify-center px-5 pb-4`}>
 				<View style={tw`w-full flex-row items-center justify-between`}>
 					<View style={tw`flex-row items-center gap-3`}>
 						{navBack && (
 							<Pressable
+								hitSlop={24}
 								onPress={() => {
 									navigation.goBack();
 								}}
@@ -75,16 +77,28 @@ export default function Header({
 							</Text>
 						</View>
 					</View>
-					<View style={tw`flex-row items-center gap-3`}>
-						<Pressable onPress={() => navigation.navigate('Search')}>
-							<MagnifyingGlass
-								size={20}
-								weight="bold"
-								color={tw.color('text-zinc-300')}
-							/>
-						</Pressable>
+					<View style={tw`relative flex-row items-center gap-3`}>
+						{showSearch && (
+							<View style={tw`flex-row items-center gap-2`}>
+								<Pressable
+									hitSlop={24}
+									onPress={() => {
+										navigation.navigate('ExplorerSearch', {
+											screen: 'Search'
+										});
+									}}
+								>
+									<MagnifyingGlass
+										size={24}
+										weight="bold"
+										color={tw.color('text-zinc-300')}
+									/>
+								</Pressable>
+							</View>
+						)}
 						{(headerKind === 'location' || headerKind === 'tag') && (
 							<Pressable
+								hitSlop={24}
 								onPress={() => {
 									getExplorerStore().toggleMenu = !explorerStore.toggleMenu;
 								}}
@@ -117,6 +131,8 @@ const HeaderSearchType = ({ searchType }: HeaderSearchTypeProps) => {
 			return 'Explorer'; //TODO
 		case 'location':
 			return <Search placeholder="Location name..." />;
+		case 'categories':
+			return <Search placeholder="Category name..." />;
 		default:
 			return null;
 	}

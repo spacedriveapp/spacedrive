@@ -66,7 +66,7 @@ const HorizontalScroll = ({ children, className }: { children: ReactNode; classN
 				onClick={() => handleArrowOnClick('right')}
 				className={clsx('left-3', scroll === 0 && 'pointer-events-none opacity-0')}
 			>
-				<ArrowLeft weight="bold" className="h-4 w-4 text-ink" />
+				<ArrowLeft weight="bold" className="size-4 text-ink" />
 			</ArrowButton>
 			<div
 				ref={ref}
@@ -88,7 +88,7 @@ const HorizontalScroll = ({ children, className }: { children: ReactNode; classN
 					onClick={() => handleArrowOnClick('left')}
 					className={clsx('right-3', lastItemVisible && 'pointer-events-none opacity-0')}
 				>
-					<ArrowRight weight="bold" className="h-4 w-4 text-ink" />
+					<ArrowRight weight="bold" className="size-4 text-ink" />
 				</ArrowButton>
 			)}
 		</div>

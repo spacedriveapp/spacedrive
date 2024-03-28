@@ -24,7 +24,7 @@ use tokio::{
 };
 use tracing::debug;
 
-use sd_p2p2::UnicastStream;
+use sd_p2p::UnicastStream;
 use sd_p2p_proto::{decode, encode};
 
 mod block;
@@ -204,9 +204,12 @@ where
 
 					file.write_all(&data_buf[..block.size as usize]).await?;
 
+					let req = self.reqs.requests.get(self.i).ok_or_else(|| {
+						debug!("Vector read out of bounds!");
+						io::ErrorKind::Other
+					})?;
 					// TODO: Should this be `read == 0`
-					// TODO: Out of range protection on indexed access
-					if offset == self.reqs.requests[self.i].size {
+					if offset == req.size {
 						break;
 					}
 
@@ -327,7 +330,7 @@ mod tests {
 		// This is sent out of band of Spaceblock
 		let block_size = 25u32;
 		let data = vec![0u8; block_size as usize];
-		let block_size = BlockSize::dangerously_new(block_size); // TODO: Determine it using proper algo instead of harcoding it
+		let block_size = BlockSize::dangerously_new(block_size); // TODO: Determine it using proper algo instead of hardcoding it
 
 		let req = SpaceblockRequests {
 			id: Uuid::new_v4(),
@@ -369,7 +372,7 @@ mod tests {
 		// This is sent out of band of Spaceblock
 		let block_size = 25u32;
 		let data = vec![0u8; block_size as usize];
-		let block_size = BlockSize::dangerously_new(block_size); // TODO: Determine it using proper algo instead of harcoding it
+		let block_size = BlockSize::dangerously_new(block_size); // TODO: Determine it using proper algo instead of hardcoding it
 
 		let req = SpaceblockRequests {
 			id: Uuid::new_v4(),
@@ -412,7 +415,7 @@ mod tests {
 		// This is sent out of band of Spaceblock
 		let block_size = 25u32;
 		let data = vec![0u8; 0]; // Zero sized file
-		let block_size = BlockSize::dangerously_new(block_size); // TODO: Determine it using proper algo instead of harcoding it
+		let block_size = BlockSize::dangerously_new(block_size); // TODO: Determine it using proper algo instead of hardcoding it
 
 		let req = SpaceblockRequests {
 			id: Uuid::new_v4(),

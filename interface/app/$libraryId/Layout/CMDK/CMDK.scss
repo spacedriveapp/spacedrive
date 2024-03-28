@@ -1,0 +1,68 @@
+// This is bad but we need to override predefined styles, use "cmdk" for the full version
+
+.command-palette-list-item {
+	@apply text-ink focus:ring-app-focus dark:hover:bg-app-hover #{!important};
+}
+
+.command-palette {
+	@apply bg-app-button text-sm text-ink #{!important};
+}
+
+.command-palette-list-item span:nth-child(1) {
+	@apply text-sm  #{!important};
+}
+
+.command-palette-content h4 {
+	@apply text-sm text-ink-faint #{!important};
+}
+
+[id^='headlessui-dialog-panel-'] > div.flex-1.overflow-y-auto::-webkit-scrollbar {
+	@apply w-1 #{!important};
+}
+
+[id^='headlessui-dialog-panel-'] > div.flex-1.overflow-y-auto::-webkit-scrollbar-thumb {
+	@apply w-10 rounded-full bg-app-explorerScrollbar #{!important};
+}
+
+.command-palette-content ul a {
+	@apply hover:bg-app-darkBox #{!important};
+}
+
+.command-palette-content ul button {
+	@apply hover:bg-app-darkBox #{!important};
+}
+
+.command-palette-content ul a span {
+	@apply text-sm #{!important};
+}
+
+.command-palette-content #headlessui-dialog-panel div:nth-child(2) {
+	@apply bg-red-500 #{!important};
+}
+
+.command-palette-content ul button div > span {
+	@apply text-ink  #{!important};
+}
+
+.command-palette-content ul button span {
+	@apply text-[12px] text-ink-faint #{!important};
+}
+
+// overlay
+.command-palette .bg-gray-900 {
+	@apply bg-app/50 #{!important};
+}
+
+.command-palette .bg-gray-200\/50 {
+	@apply bg-app-darkBox #{!important};
+}
+
+// container background
+
+.command-palette .dark\:bg-gray-900 {
+	@apply border border-app-darkBox bg-app-darkerBox/90 backdrop-blur-lg  #{!important};
+}
+
+.command-palette .dark\:divide-gray-800 {
+	@apply divide-app-darkBox #{!important};
+}

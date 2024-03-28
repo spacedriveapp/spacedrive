@@ -1,9 +1,9 @@
 pub mod auth;
 
-use std::{future::Future, sync::Arc};
+use std::{collections::HashMap, future::Future, sync::Arc};
 
 use auth::OAuthToken;
-use sd_p2p2::RemoteIdentity;
+use sd_p2p::RemoteIdentity;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use specta::Type;
@@ -49,10 +49,7 @@ pub struct Instance {
 	pub identity: RemoteIdentity,
 	#[serde(rename = "nodeId")]
 	pub node_id: Uuid,
-	#[serde(rename = "nodeName")]
-	pub node_name: String,
-	#[serde(rename = "nodePlatform")]
-	pub node_platform: u8,
+	pub metadata: HashMap<String, String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Type)]
@@ -212,8 +209,7 @@ pub mod library {
 			instance_uuid: Uuid,
 			instance_identity: RemoteIdentity,
 			node_id: Uuid,
-			node_name: &str,
-			node_platform: u8,
+			metadata: &HashMap<String, String>,
 		) -> Result<CreateResult, Error> {
 			let Some(auth_token) = config.auth_token else {
 				return Err(Error("Authentication required".to_string()));
@@ -230,8 +226,7 @@ pub mod library {
 					"instanceUuid": instance_uuid,
 					"instanceIdentity": instance_identity,
 					"nodeId": node_id,
-					"nodeName": node_name,
-					"nodePlatform": node_platform
+					"metadata": metadata,
 				}))
 				.with_auth(auth_token)
 				.send()
@@ -282,8 +277,7 @@ pub mod library {
 			library_id: Uuid,
 			instance_id: Uuid,
 			node_id: Option<Uuid>,
-			node_name: Option<String>,
-			node_platform: Option<u8>,
+			metadata: Option<HashMap<String, String>>,
 		) -> Result<(), Error> {
 			let Some(auth_token) = config.auth_token else {
 				return Err(Error("Authentication required".to_string()));
@@ -297,8 +291,7 @@ pub mod library {
 				))
 				.json(&json!({
 					"nodeId": node_id,
-					"nodeName": node_name,
-					"nodePlatform": node_platform
+					"metadata": metadata,
 				}))
 				.with_auth(auth_token)
 				.send()
@@ -318,8 +311,7 @@ pub mod library {
 			instance_uuid: Uuid,
 			instance_identity: RemoteIdentity,
 			node_id: Uuid,
-			node_name: &str,
-			node_platform: u8,
+			metadata: HashMap<String, String>,
 		) -> Result<Vec<Instance>, Error> {
 			let Some(auth_token) = config.auth_token else {
 				return Err(Error("Authentication required".to_string()));
@@ -334,8 +326,7 @@ pub mod library {
 				.json(&json!({
 					"instanceIdentity": instance_identity,
 					"nodeId": node_id,
-					"nodeName": node_name,
-					"nodePlatform": node_platform
+					"metadata": metadata,
 				}))
 				.with_auth(auth_token)
 				.send()
@@ -450,7 +441,7 @@ pub mod library {
 				pub key: String,
 				pub start_time: String,
 				pub end_time: String,
-				pub contents: serde_json::Value,
+				pub contents: String,
 				pub ops_count: usize,
 			}
 
@@ -569,8 +560,8 @@ pub mod locations {
 		pub type Response = CloudLocation;
 	}
 
-	pub use authorise::exec as authorise;
-	pub mod authorise {
+	pub use authorize::exec as authorize;
+	pub mod authorize {
 		use super::*;
 
 		pub async fn exec(config: RequestConfig, id: String) -> Result<Response, Error> {
@@ -580,7 +571,7 @@ pub mod locations {
 
 			config
 				.client
-				.post(&format!("{}/api/v1/locations/authorise", config.api_url))
+				.post(&format!("{}/api/v1/locations/authorize", config.api_url))
 				.json(&json!({ "id": id }))
 				.with_auth(auth_token)
 				.send()

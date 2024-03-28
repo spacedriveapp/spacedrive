@@ -118,7 +118,7 @@ const sections: (debugState: DebugState) => SectionType[] = (debugState) => [
 							title: 'Debug',
 							rounded: 'bottom'
 						}
-				  ] as const)
+					] as const)
 				: [])
 		]
 	}

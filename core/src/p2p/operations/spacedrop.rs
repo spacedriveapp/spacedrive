@@ -10,7 +10,7 @@ use std::{
 
 use crate::p2p::{Header, P2PEvent, P2PManager};
 use futures::future::join_all;
-use sd_p2p2::{RemoteIdentity, UnicastStream};
+use sd_p2p::{RemoteIdentity, UnicastStream};
 use sd_p2p_block::{BlockSize, Range, SpaceblockRequest, SpaceblockRequests, Transfer};
 use tokio::{
 	fs::{create_dir_all, File},
@@ -102,7 +102,7 @@ pub async fn spacedrop(
 		  // Add 5 seconds incase the user responded on the deadline and slow network
 		   _ = sleep(SPACEDROP_TIMEOUT + Duration::from_secs(5)) => {
 				debug!("({id}): timed out, cancelling");
-				p2p.events.send(P2PEvent::SpacedropTimedout { id }).ok();
+				p2p.events.send(P2PEvent::SpacedropTimedOut { id }).ok();
 				return;
 			},
 		};
@@ -119,7 +119,7 @@ pub async fn spacedrop(
 		}
 
 		let cancelled = Arc::new(AtomicBool::new(false));
-		p2p.spacedrop_cancelations
+		p2p.spacedrop_cancellations
 			.lock()
 			.unwrap_or_else(PoisonError::into_inner)
 			.insert(id, cancelled.clone());
@@ -190,7 +190,7 @@ impl P2PManager {
 
 	pub async fn cancel_spacedrop(&self, id: Uuid) {
 		if let Some(cancelled) = self
-			.spacedrop_cancelations
+			.spacedrop_cancellations
 			.lock()
 			.unwrap_or_else(PoisonError::into_inner)
 			.remove(&id)
@@ -200,7 +200,7 @@ impl P2PManager {
 	}
 }
 
-pub(crate) async fn reciever(
+pub(crate) async fn receiver(
 	this: &Arc<P2PManager>,
 	req: SpaceblockRequests,
 	mut stream: UnicastStream,
@@ -264,7 +264,7 @@ pub(crate) async fn reciever(
 					info!("({id}): accepted saving to '{:?}'", file_path);
 
 					let cancelled = Arc::new(AtomicBool::new(false));
-					this.spacedrop_cancelations
+					this.spacedrop_cancellations
 						.lock()
 						.unwrap_or_else(PoisonError::into_inner)
 						.insert(id, cancelled.clone());

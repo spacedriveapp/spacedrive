@@ -36,7 +36,7 @@ const LocationIcon = (props: { location: SystemLocation; active?: boolean }) => 
 	const LocationIcon = icons[props.location];
 
 	return (
-		<div className="absolute -bottom-9 -right-9 h-28 w-28">
+		<div className="absolute -bottom-9 -right-9 size-28">
 			<Icon name="Folder" />
 			<LocationIcon
 				weight="fill"
@@ -69,6 +69,7 @@ export default function OnboardingLocations() {
 			}),
 			{} as Record<SystemLocation, string>
 		);
+
 		return Object.keys(locations).length > 0 ? locations : null;
 	}, [data]);
 
@@ -102,7 +103,7 @@ export default function OnboardingLocations() {
 					<Icon
 						name="Folder"
 						size={46}
-						className="relative left-[-25px] z-[0] brightness-[0.6]"
+						className="relative left-[-25px] z-0 brightness-[0.6]"
 					/>
 				</div>
 				<OnboardingTitle>{t('add_locations')}</OnboardingTitle>
@@ -131,7 +132,10 @@ export default function OnboardingLocations() {
 							}}
 						/>
 
-						<div className="grid grid-cols-2 gap-2">
+						<div
+							className="grid grid-cols-2 gap-2"
+							data-locations={JSON.stringify(systemLocations)}
+						>
 							{(Object.keys(systemLocations) as SystemLocation[]).map((location) => (
 								<Controller
 									key={location}

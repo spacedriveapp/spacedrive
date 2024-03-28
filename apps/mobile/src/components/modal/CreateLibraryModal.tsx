@@ -7,9 +7,9 @@ import {
 	useNormalisedCache,
 	usePlausibleEvent
 } from '@sd/client';
-import { ModalInput } from '~/components/form/Input';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
+import { ModalInput } from '~/components/primitive/Input';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';
 import { currentLibraryStore } from '~/utils/nav';

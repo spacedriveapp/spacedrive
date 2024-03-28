@@ -1,4 +1,6 @@
 import { CaretDown, CaretUp } from '@phosphor-icons/react';
+import { createOrdering, getOrderingDirection, orderingKey, type ExplorerItem } from '@sd/client';
+import { ContextMenu } from '@sd/ui';
 import { flexRender, type ColumnSizingState, type Row } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
@@ -6,8 +8,6 @@ import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState 
 import BasicSticky from 'react-sticky-el';
 import { useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
-import { type ExplorerItem } from '@sd/client';
-import { ContextMenu } from '@sd/ui';
 import { TruncatedText } from '~/components';
 import { useShortcut } from '~/hooks';
 import { isNonEmptyObject } from '~/util';
@@ -15,16 +15,23 @@ import { isNonEmptyObject } from '~/util';
 import { useLayoutContext } from '../../../Layout/Context';
 import { useExplorerContext } from '../../Context';
 import { getQuickPreviewStore, useQuickPreviewStore } from '../../QuickPreview/store';
-import { createOrdering, getOrderingDirection, orderingKey } from '../../store';
+import { explorerStore } from '../../store';
 import { uniqueId } from '../../util';
 import { useExplorerViewContext } from '../Context';
 import { useDragScrollable } from '../useDragScrollable';
 import { TableContext } from './context';
 import { TableRow } from './TableRow';
 import { getRangeDirection, Range, useRanges } from './useRanges';
-import { useTable } from './useTable';
+import {
+	DEFAULT_LIST_VIEW_ICON_SIZE,
+	DEFAULT_LIST_VIEW_TEXT_SIZE,
+	LIST_VIEW_ICON_SIZES,
+	LIST_VIEW_TEXT_SIZES,
+	useTable
+} from './useTable';
 
-const ROW_HEIGHT = 45;
+const ROW_HEIGHT = 37;
+const TABLE_HEADER_HEIGHT = 35;
 export const TABLE_PADDING_X = 16;
 export const TABLE_PADDING_Y = 12;
 
@@ -66,7 +73,9 @@ export const ListView = memo(() => {
 		paddingStart: TABLE_PADDING_Y,
 		paddingEnd: TABLE_PADDING_Y + (explorerView.scrollPadding?.bottom ?? 0),
 		scrollMargin: listOffset,
-		overscan: explorer.overscan ?? 10
+		overscan: explorer.overscan ?? 10,
+		scrollPaddingStart: explorerView.scrollPadding?.top,
+		scrollPaddingEnd: TABLE_HEADER_HEIGHT + (explorerView.scrollPadding?.bottom ?? 0)
 	});
 
 	const virtualRows = rowVirtualizer.getVirtualItems();
@@ -353,45 +362,11 @@ export const ListView = memo(() => {
 
 	const scrollToRow = useCallback(
 		(row: Row<ExplorerItem>) => {
-			if (!explorer.scrollRef.current || !tableBodyRef.current) return;
-
-			const scrollRect = explorer.scrollRef.current.getBoundingClientRect();
-
-			const tableTop =
-				scrollRect.top +
-				(explorerView.scrollPadding?.top ??
-					parseInt(getComputedStyle(explorer.scrollRef.current).paddingTop)) +
-				(explorer.scrollRef.current.scrollTop > top ? 36 : 0);
-
-			const rowTop =
-				scrollRect.top +
-				row.index * ROW_HEIGHT +
-				rowVirtualizer.options.paddingStart +
-				tableBodyRef.current.getBoundingClientRect().top;
-
-			const rowBottom = rowTop + ROW_HEIGHT;
-
-			if (rowTop < tableTop) {
-				const scrollBy = rowTop - tableTop - (row.index === 0 ? TABLE_PADDING_Y : 0);
-				explorer.scrollRef.current.scrollBy({ top: scrollBy });
-			} else if (rowBottom > scrollRect.height - (explorerView.scrollPadding?.bottom ?? 0)) {
-				const scrollBy =
-					rowBottom -
-					scrollRect.height +
-					(explorerView.scrollPadding?.bottom ?? 0) +
-					(row.index === rows.length - 1 ? TABLE_PADDING_Y : 0);
-
-				explorer.scrollRef.current.scrollBy({ top: scrollBy });
-			}
+			rowVirtualizer.scrollToIndex(row.index, {
+				align: row.index === 0 ? 'end' : row.index === rows.length - 1 ? 'start' : 'auto'
+			});
 		},
-		[
-			explorer.scrollRef,
-			explorerView.scrollPadding?.bottom,
-			explorerView.scrollPadding?.top,
-			rowVirtualizer.options.paddingStart,
-			rows.length,
-			top
-		]
+		[rowVirtualizer, rows.length]
 	);
 
 	const keyboardHandler = (e: KeyboardEvent, direction: 'ArrowDown' | 'ArrowUp') => {
@@ -429,7 +404,7 @@ export const ListView = memo(() => {
 				range.direction
 					? keyDirection !== range.direction
 					: backRange?.direction &&
-					  (backRange.sorted.start.index === frontRange?.sorted.start.index ||
+						(backRange.sorted.start.index === frontRange?.sorted.start.index ||
 							backRange.sorted.end.index === frontRange?.sorted.end.index)
 			) {
 				explorer.removeSelectedItem(range.end.original);
@@ -539,6 +514,22 @@ export const ListView = memo(() => {
 	};
 
 	useEffect(() => setRanges([]), [explorerSettings.order]);
+
+	useEffect(() => {
+		// Reset icon size if it's not a valid size
+		if (!LIST_VIEW_ICON_SIZES[explorerSettings.listViewIconSize]) {
+			explorer.settingsStore.listViewIconSize = DEFAULT_LIST_VIEW_ICON_SIZE;
+		}
+
+		// Reset text size if it's not a valid size
+		if (!LIST_VIEW_TEXT_SIZES[explorerSettings.listViewTextSize]) {
+			explorer.settingsStore.listViewTextSize = DEFAULT_LIST_VIEW_TEXT_SIZE;
+		}
+	}, [
+		explorer.settingsStore,
+		explorerSettings.listViewIconSize,
+		explorerSettings.listViewTextSize
+	]);
 
 	useEffect(() => {
 		if (!getQuickPreviewStore().open || explorer.selectedItems.size !== 1) return;
@@ -664,6 +655,7 @@ export const ListView = memo(() => {
 
 	useShortcut('explorerEscape', () => {
 		if (!explorerView.selectable || explorer.selectedItems.size === 0) return;
+		if (explorerStore.isCMDPOpen) return;
 		explorer.resetSelectedItems([]);
 		setRanges([]);
 	});
@@ -782,6 +774,7 @@ export const ListView = memo(() => {
 												? 'overflow-hidden'
 												: 'no-scrollbar overflow-x-auto overscroll-x-none'
 										)}
+										style={{ height: TABLE_HEADER_HEIGHT }}
 									>
 										{table.getHeaderGroups().map((headerGroup) => (
 											<div key={headerGroup.id} className="flex w-fit">
@@ -797,11 +790,11 @@ export const ListView = memo(() => {
 														explorerSettings.order &&
 														(orderKey.startsWith('object.')
 															? orderKey.split('object.')[1] ===
-															  header.id
+																header.id
 															: orderKey === header.id)
 															? getOrderingDirection(
 																	explorerSettings.order
-															  )
+																)
 															: null;
 
 													const cellContent = flexRender(
@@ -849,7 +842,8 @@ export const ListView = memo(() => {
 																			)
 																				? value.split(
 																						'object.'
-																				  )[1] === header.id
+																					)[1] ===
+																						header.id
 																				: value ===
 																						header.id;
 																		}
@@ -942,35 +936,40 @@ export const ListView = memo(() => {
 								className="relative"
 								style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
 							>
-								{virtualRows.map((virtualRow) => {
-									const row = rows[virtualRow.index];
-									if (!row) return null;
+								<div
+									className="absolute left-0 top-0 min-w-full"
+									style={{
+										transform: `translateY(${
+											(virtualRows[0]?.start ?? 0) -
+											rowVirtualizer.options.scrollMargin
+										}px)`
+									}}
+								>
+									{virtualRows.map((virtualRow) => {
+										const row = rows[virtualRow.index];
+										if (!row) return null;
 
-									const previousRow = rows[virtualRow.index - 1];
-									const nextRow = rows[virtualRow.index + 1];
+										const previousRow = rows[virtualRow.index - 1];
+										const nextRow = rows[virtualRow.index + 1];
 
-									return (
-										<div
-											key={row.id}
-											className="absolute left-0 top-0 min-w-full"
-											style={{
-												height: virtualRow.size,
-												transform: `translateY(${
-													virtualRow.start -
-													rowVirtualizer.options.scrollMargin
-												}px)`
-											}}
-											onMouseDown={(e) => handleRowClick(e, row)}
-											onContextMenu={() => handleRowContextMenu(row)}
-										>
-											<TableRow
-												row={row}
-												previousRow={previousRow}
-												nextRow={nextRow}
-											/>
-										</div>
-									);
-								})}
+										return (
+											<div
+												key={virtualRow.key}
+												data-index={virtualRow.index}
+												ref={rowVirtualizer.measureElement}
+												className="relative"
+												onMouseDown={(e) => handleRowClick(e, row)}
+												onContextMenu={() => handleRowContextMenu(row)}
+											>
+												<TableRow
+													row={row}
+													previousRow={previousRow}
+													nextRow={nextRow}
+												/>
+											</div>
+										);
+									})}
+								</div>
 							</div>
 						</div>
 					</>
