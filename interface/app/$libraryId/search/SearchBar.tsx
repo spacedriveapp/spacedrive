@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { createSearchParams } from 'react-router-dom';
 import { useDebouncedCallback } from 'use-debounce';
+import { SearchFilterArgs } from '@sd/client';
 import { Input, ModifierKeys, Shortcut } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
@@ -11,9 +12,10 @@ import { useSearchStore } from './store';
 
 interface Props {
 	redirectToSearch?: boolean;
+	defaultFilters?: SearchFilterArgs[];
 }
 
-export default ({ redirectToSearch }: Props) => {
+export default ({ redirectToSearch, defaultFilters }: Props) => {
 	const search = useSearchContext();
 	const searchRef = useRef<HTMLInputElement>(null);
 	const navigate = useNavigate();
@@ -59,11 +61,11 @@ export default ({ redirectToSearch }: Props) => {
 	const [value, setValue] = useState('');
 
 	useEffect(() => {
-		setValue(search.rawSearch);
+		if (search.rawSearch !== undefined) setValue(search.rawSearch);
 	}, [search.rawSearch]);
 
 	const updateDebounce = useDebouncedCallback((value: string) => {
-		search.setSearch(value);
+		search.setSearch?.(value);
 		if (redirectToSearch) {
 			navigate({
 				pathname: '../search',
@@ -80,8 +82,8 @@ export default ({ redirectToSearch }: Props) => {
 	}
 
 	function clearValue() {
-		search.setSearch('');
-		search.setFilters([]);
+		search.setSearch?.('');
+		search.setFilters?.(undefined);
 	}
 
 	return (
@@ -102,7 +104,7 @@ export default ({ redirectToSearch }: Props) => {
 			}}
 			onFocus={() => {
 				search.setSearchBarFocused(true);
-				if (search.defaultFilters) search.setFilters(search.defaultFilters);
+				search.setFilters?.((f) => defaultFilters ?? f);
 			}}
 			right={
 				<div className="pointer-events-none flex h-7 items-center space-x-1 opacity-70 group-focus-within:hidden">

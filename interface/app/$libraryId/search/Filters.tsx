@@ -71,7 +71,7 @@ export function useToggleOptionSelected({ search }: { search: UseSearch }) {
 		option: FilterOption;
 		select: boolean;
 	}) => {
-		search.updateFilters((filters) => {
+		search.setFilters?.((filters = []) => {
 			const rawArg = filters.find((arg) => filter.extract(arg));
 
 			if (!rawArg) {
@@ -156,11 +156,11 @@ const FilterOptionText = ({ filter, search }: { filter: SearchFilterCRUD; search
 				className="flex gap-1.5"
 				onSubmit={(e) => {
 					e.preventDefault();
-					search.updateFilters((filters) => {
+					search.setFilters?.((filters) => {
 						if (allFiltersKeys.has(key)) return filters;
 
 						const arg = filter.create(value);
-						filters.push(arg);
+						filters?.push(arg);
 						setValue('');
 
 						return filters;
@@ -201,7 +201,7 @@ const FilterOptionBoolean = ({
 			icon={filter.icon}
 			selected={allFiltersKeys?.has(key)}
 			setSelected={() => {
-				search.updateFilters((filters) => {
+				search.setFilters?.((filters = []) => {
 					const index = filters.findIndex((f) => filter.extract(f) !== undefined);
 
 					if (index !== -1) {

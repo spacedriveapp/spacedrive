@@ -1,37 +1,103 @@
 import { produce } from 'immer';
 import { useCallback, useMemo, useState } from 'react';
+import { useSearchParams as useRawSearchParams } from 'react-router-dom';
 import { useDebouncedValue } from 'rooks';
 import { SearchFilterArgs } from '@sd/client';
 
-import { filterRegistry } from './Filters';
 import { argsToOptions, getKey, useSearchStore } from './store';
 
-export interface UseSearchProps {
-	open?: boolean;
-	search?: string;
-	/**
-	 * Filters that can be removed.
-	 * When this value changes dynamic filters stored internally will reset.
-	 */
+export interface UseSearchSource {
 	filters?: SearchFilterArgs[];
-	defaultFilters?: SearchFilterArgs[];
+	setFilters?: (cb?: (filters?: SearchFilterArgs[]) => SearchFilterArgs[] | undefined) => void;
+	search?: string;
+	setSearch?: (search?: string) => void;
+	open?: boolean;
 }
 
-export function useSearch(props?: UseSearchProps) {
+export interface UseSearchProps {
+	source: UseSearchSource;
+}
+
+export function useSearchParamsSource(): UseSearchSource {
+	const [searchParams, setSearchParams] = useRawSearchParams();
+
+	const filtersSearchParam = searchParams.get('filters');
+	const filters = useMemo<SearchFilterArgs[] | undefined>(
+		() => (filtersSearchParam ? JSON.parse(filtersSearchParam) : undefined),
+		[filtersSearchParam]
+	);
+
+	const searchSearchParam = searchParams.get('search');
+
+	const setFilters = useCallback(
+		(cb?: (args?: SearchFilterArgs[]) => SearchFilterArgs[] | undefined) => {
+			setSearchParams(
+				(p) => {
+					if (cb === undefined) p.delete('filters');
+					else p.set('filters', JSON.stringify(produce(filters, cb)));
+
+					return p;
+				},
+				{ replace: true }
+			);
+		},
+		[filters, setSearchParams]
+	);
+
+	function setSearch(search?: string) {
+		setSearchParams(
+			(p) => {
+				if (search && search !== '') p.set('search', search);
+				else p.delete('search');
+
+				return p;
+			},
+			{ replace: true }
+		);
+	}
+
+	return {
+		filters,
+		setFilters,
+		search: searchSearchParam ?? '',
+		setSearch,
+		open: searchSearchParam !== null || filtersSearchParam !== null
+	};
+}
+
+export function useStaticSource(
+	props: Pick<UseSearchSource, 'filters' | 'search'>
+): UseSearchSource {
+	return props;
+}
+
+export function useMemorySource(props: {
+	initialFilters?: SearchFilterArgs[];
+	initialSearch?: string;
+}): UseSearchSource {
+	const [filters, setFilters] = useState(props.initialFilters);
+	const [search, setSearch] = useState(props.initialSearch);
+
+	return {
+		filters,
+		setFilters: (s) => {
+			if (s === undefined) setFilters(undefined);
+			else setFilters((f) => produce(f, s));
+		},
+		search,
+		setSearch
+	};
+}
+
+export function useSearch(props: UseSearchProps) {
+	const { filters, setFilters, search: rawSearch, setSearch, open } = props.source;
+
 	const [searchBarFocused, setSearchBarFocused] = useState(false);
 
 	const searchState = useSearchStore();
 
-	const [filters, setFilters] = useState(props?.filters ?? []);
-	const [filtersFromProps, setFiltersFromProps] = useState(props?.filters);
-
-	if (filtersFromProps !== props?.filters) {
-		setFiltersFromProps(props?.filters);
-		setFilters(props?.filters ?? []);
-	}
-
 	const filtersAsOptions = useMemo(
-		() => argsToOptions(filters, searchState.filterOptions),
+		() => argsToOptions(filters ?? [], searchState.filterOptions),
 		[filters, searchState.filterOptions]
 	);
 
@@ -47,45 +113,17 @@ export function useSearch(props?: UseSearchProps) {
 		);
 	}, [filtersAsOptions]);
 
-	const updateFilters = useCallback(
-		(cb: (args: SearchFilterArgs[]) => SearchFilterArgs[]) =>
-			setFilters((filters) => produce(filters, cb)),
-		[]
-	);
-
 	// Merging of filters that should be ORed
 
-	const mergedFilters = useMemo(() => {
-		const value: { arg: SearchFilterArgs; removalIndex: number | null }[] = [];
-
-		for (const [index, arg] of filters.entries()) {
-			const filter = filterRegistry.find((f) => f.extract(arg));
-			if (!filter) continue;
-
-			value.push({
-				arg,
-				removalIndex: index
-			});
-		}
-
-		return value;
-	}, [filters]);
-
-	// Filters generated from the search query
-
-	// rawSearch should only ever be read by the search input
-	const [rawSearch, setRawSearch] = useState(props?.search ?? '');
-	const [searchFromProps, setSearchFromProps] = useState(props?.search);
-
-	if (searchFromProps !== props?.search) {
-		setSearchFromProps(props?.search);
-		setRawSearch(props?.search ?? '');
-	}
+	const mergedFilters = useMemo(
+		() => filters?.map((arg, removalIndex) => ({ arg, removalIndex })),
+		[filters]
+	);
 
 	const [search] = useDebouncedValue(rawSearch, 300);
 
 	const searchFilters = useMemo(() => {
-		const [name, ext] = search.split('.') ?? [];
+		const [name, ext] = search?.split('.') ?? [];
 
 		const filters: SearchFilterArgs[] = [];
 
@@ -97,8 +135,8 @@ export function useSearch(props?: UseSearchProps) {
 
 	// All filters combined together
 	const allFilters = useMemo(
-		() => [...mergedFilters.map((v) => v.arg), ...searchFilters],
-		[mergedFilters, searchFilters]
+		() => [...(filters ?? []), ...searchFilters],
+		[filters, searchFilters]
 	);
 
 	const allFiltersAsOptions = useMemo(
@@ -119,21 +157,26 @@ export function useSearch(props?: UseSearchProps) {
 	}, [allFiltersAsOptions]);
 
 	return {
-		open: props?.open || searchBarFocused,
+		open: open || searchBarFocused,
 		search,
+		// rawSearch should only ever be read by the search input
 		rawSearch,
-		setSearch: setRawSearch,
+		setSearch,
 		searchBarFocused,
 		setSearchBarFocused,
-		defaultFilters: props?.defaultFilters,
 		filters,
 		setFilters,
-		updateFilters,
 		filtersKeys,
 		mergedFilters,
 		allFilters,
 		allFiltersKeys
 	};
+}
+
+export function useSearchFromSearchParams() {
+	return useSearch({
+		source: useSearchParamsSource()
+	});
 }
 
 export type UseSearch = ReturnType<typeof useSearch>;

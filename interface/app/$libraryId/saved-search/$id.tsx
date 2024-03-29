@@ -22,7 +22,15 @@ import {
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { EmptyNotice } from '../Explorer/View/EmptyNotice';
-import { SearchContextProvider, SearchOptions, useSearch, useSearchContext } from '../search';
+import {
+	SearchContextProvider,
+	SearchOptions,
+	useMemorySource,
+	useSearch,
+	useSearchContext,
+	useSearchFromSearchParams,
+	useSearchParamsSource
+} from '../search';
 import SearchBar from '../search/SearchBar';
 import { TopBarPortal } from '../TopBar/Portal';
 
@@ -51,9 +59,10 @@ export const Component = () => {
 	}, [rawFilters]);
 
 	const search = useSearch({
-		open: true,
-		search: savedSearch.data?.search ?? undefined,
-		filters: filters
+		source: useMemorySource({
+			initialFilters: filters ?? [],
+			initialSearch: savedSearch.data?.search ?? ''
+		})
 	});
 
 	const paths = usePathsExplorerQuery({

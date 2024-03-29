@@ -1,5 +1,4 @@
-import { useEffect, useMemo } from 'react';
-import { useSearchParams as useRawSearchParams } from 'react-router-dom';
+import { useMemo } from 'react';
 import { ObjectKindEnum, ObjectOrder, useObjectsExplorerQuery } from '@sd/client';
 import { Icon } from '~/components';
 import { useRouteTitle } from '~/hooks';
@@ -9,10 +8,11 @@ import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
 import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
-import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
+import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { EmptyNotice } from '../Explorer/View/EmptyNotice';
 import { TopBarPortal } from '../TopBar/Portal';
 import SearchBar from './SearchBar';
+import { useSearchFromSearchParams } from './useSearch';
 
 export * from './context';
 export * from './SearchOptions';
@@ -29,7 +29,7 @@ export function Component() {
 	});
 	const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
 
-	const search = useSearchWithFilters();
+	const search = useSearchFromSearchParams();
 
 	const objects = useObjectsExplorerQuery({
 		arg: {
@@ -81,49 +81,4 @@ export function Component() {
 			/>
 		</ExplorerContextProvider>
 	);
-}
-
-function useSearchWithFilters() {
-	const [searchParams, setSearchParams] = useRawSearchParams();
-
-	const filtersParam = searchParams.get('filters');
-	const filters = useMemo(() => JSON.parse(filtersParam ?? '[]'), [filtersParam]);
-
-	const searchQueryParam = searchParams.get('search');
-
-	const search = useSearch({
-		open: !!searchQueryParam || filters.length > 0 || undefined,
-		search: searchParams.get('search') ?? undefined,
-		filters
-	});
-
-	useEffect(() => {
-		setSearchParams(
-			(p) => {
-				if (search.filters.length > 0) p.set('filters', JSON.stringify(search.filters));
-				else p.delete('filters');
-
-				return p;
-			},
-			{ replace: true }
-		);
-	}, [search.filters, setSearchParams]);
-
-	const searchQuery = search.search;
-
-	useEffect(() => {
-		setSearchParams(
-			(p) => {
-				if (searchQuery !== '') p.set('search', searchQuery);
-				else p.delete('search');
-
-				return p;
-			},
-			{ replace: true }
-		);
-		// Do not add setSearchParams to the dependencies array, it will cause CMDK to not navigate to search page (multiple times)
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [searchQuery]);
-
-	return search;
 }

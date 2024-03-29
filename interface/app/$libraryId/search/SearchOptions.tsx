@@ -124,7 +124,9 @@ export const SearchOptions = ({
 
 			{children ?? (
 				<>
-					{(search.filters.length > 0 || search.search !== '') && <SaveSearchButton />}
+					{((search.filters && search.filters.length > 0) || search.search !== '') && (
+						<SaveSearchButton />
+					)}
 
 					<EscapeButton />
 				</>
@@ -274,7 +276,9 @@ function SaveSearchButton() {
 					saveSearch.mutate({
 						name,
 						search: search.search,
-						filters: JSON.stringify(search.mergedFilters.map((f) => f.arg)),
+						filters: search.mergedFilters
+							? JSON.stringify(search.mergedFilters.map((f) => f.arg))
+							: undefined,
 						description: null,
 						icon: null
 					});
@@ -306,17 +310,17 @@ function SaveSearchButton() {
 function EscapeButton() {
 	const search = useSearchContext();
 
-	useKeybind(['Escape'], () => {
-		search.setSearch('');
+	function escape() {
+		search.setSearch?.(undefined);
+		search.setFilters?.(undefined);
 		search.setSearchBarFocused(false);
-	});
+	}
+
+	useKeybind(['Escape'], escape);
 
 	return (
 		<kbd
-			onClick={() => {
-				search.setSearch('');
-				search.setSearchBarFocused(false);
-			}}
+			onClick={escape}
 			className="ml-2 rounded-lg border border-app-line bg-app-box px-2 py-1 text-[10.5px] tracking-widest shadow"
 		>
 			ESC

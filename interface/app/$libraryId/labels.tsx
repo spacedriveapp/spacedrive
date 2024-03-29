@@ -9,7 +9,12 @@ import { createDefaultExplorerSettings, objectOrderingKeysSchema } from './Explo
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { EmptyNotice } from './Explorer/View/EmptyNotice';
-import { SearchContextProvider, SearchOptions, useSearch } from './search';
+import {
+	SearchContextProvider,
+	SearchOptions,
+	useSearch,
+	useSearchFromSearchParams
+} from './search';
 import SearchBar from './search/SearchBar';
 import { TopBarPortal } from './TopBar/Portal';
 
@@ -36,7 +41,7 @@ export function Component() {
 	// 	[explorerSettingsSnapshot.layoutMode]
 	// );
 
-	const search = useSearch();
+	const search = useSearchFromSearchParams();
 
 	// const objects = useObjectsExplorerQuery({
 	// 	arg: {

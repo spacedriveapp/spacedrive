@@ -29,7 +29,7 @@ export const CloseTab = forwardRef<HTMLDivElement, { onClick: () => void }>(({ o
 	);
 });
 
-export const AppliedFilters = ({ allowRemove = true }: { allowRemove?: boolean }) => {
+export const AppliedFilters = () => {
 	const search = useSearchContext();
 
 	return (
@@ -40,12 +40,12 @@ export const AppliedFilters = ({ allowRemove = true }: { allowRemove?: boolean }
 						<RenderIcon className="size-4" icon={MagnifyingGlass} />
 						<FilterText>{search.search}</FilterText>
 					</StaticSection>
-					{allowRemove && <CloseTab onClick={() => search.setSearch('')} />}
+					{search.setSearch && <CloseTab onClick={() => search.setSearch?.('')} />}
 				</FilterContainer>
 			)}
 			<div className="group w-full">
 				<HorizontalScroll className="!mb-0 !pl-0">
-					{search.mergedFilters.map(({ arg, removalIndex }, index) => {
+					{search.mergedFilters?.map(({ arg, removalIndex }, index) => {
 						const filter = filterRegistry.find((f) => f.extract(arg));
 						if (!filter) return;
 						return (
@@ -53,12 +53,12 @@ export const AppliedFilters = ({ allowRemove = true }: { allowRemove?: boolean }
 								<FilterArg
 									arg={arg}
 									onDelete={
-										removalIndex !== null && allowRemove
+										removalIndex !== null && search.setFilters
 											? () => {
-													search.updateFilters((dyanmicFilters) => {
-														dyanmicFilters.splice(removalIndex, 1);
+													search.setFilters?.((filters) => {
+														filters?.splice(removalIndex, 1);
 
-														return dyanmicFilters;
+														return filters;
 													});
 												}
 											: undefined

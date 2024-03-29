@@ -1,6 +1,5 @@
 import { ArrowClockwise, Info } from '@phosphor-icons/react';
 import { useEffect, useMemo } from 'react';
-import { useSearchParams as useRawSearchParams } from 'react-router-dom';
 import { stringify } from 'uuid';
 import {
 	arraysEqual,
@@ -38,10 +37,10 @@ import {
 	filePathOrderingKeysSchema
 } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
-import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
+import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { useExplorerSearchParams } from '../Explorer/util';
 import { EmptyNotice } from '../Explorer/View/EmptyNotice';
-import { SearchContextProvider, SearchOptions, useSearch } from '../search';
+import { SearchContextProvider, SearchOptions, useSearchFromSearchParams } from '../search';
 import SearchBar from '../search/SearchBar';
 import { TopBarPortal } from '../TopBar/Portal';
 import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
@@ -71,14 +70,19 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 	const { layoutMode, mediaViewWithDescendants, showHiddenFiles } =
 		explorerSettings.useSettingsSnapshot();
 
-	const search = useLocationSearch(location);
+	const defaultFilters = useMemo(
+		() => [{ filePath: { locations: { in: [location.id] } } }],
+		[location.id]
+	);
+
+	const search = useSearchFromSearchParams();
 
 	const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
 
 	const paths = usePathsExplorerQuery({
 		arg: {
 			filters: [
-				...search.allFilters,
+				...(search.allFilters.length > 0 ? search.allFilters : defaultFilters),
 				{
 					filePath: {
 						path: {
@@ -86,7 +90,10 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 							path: path ?? '',
 							include_descendants:
 								search.search !== '' ||
-								search.filters.length > 0 ||
+								(search.filters &&
+									search.filters.length > 0 &&
+									JSON.stringify(defaultFilters) !==
+										JSON.stringify(search.filters)) ||
 								(layoutMode === 'media' && mediaViewWithDescendants)
 						}
 					}
@@ -139,7 +146,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 		<ExplorerContextProvider explorer={explorer}>
 			<SearchContextProvider search={search}>
 				<TopBarPortal
-					center={<SearchBar />}
+					center={<SearchBar defaultFilters={defaultFilters} />}
 					left={
 						<div className="flex items-center gap-2">
 							<Folder size={22} className="-mt-px" />
@@ -271,48 +278,4 @@ function useLocationExplorerSettings(location: Location) {
 		}),
 		preferences
 	};
-}
-
-function useLocationSearch(location: Location) {
-	const [searchParams, setSearchParams] = useRawSearchParams();
-
-	const filtersParam = searchParams.get('filters');
-	const filters = useMemo(() => JSON.parse(filtersParam ?? '[]'), [filtersParam]);
-
-	const searchQueryParam = searchParams.get('search');
-
-	const search = useSearch({
-		open: !!searchQueryParam || filters.length > 0 || undefined,
-		search: searchParams.get('search') ?? undefined,
-		defaultFilters: [{ filePath: { locations: { in: [location.id] } } }],
-		filters: filters
-	});
-
-	useEffect(() => {
-		setSearchParams(
-			(p) => {
-				if (search.filters.length > 0) p.set('filters', JSON.stringify(search.filters));
-				else p.delete('filters');
-
-				return p;
-			},
-			{ replace: true }
-		);
-	}, [search.filters, setSearchParams]);
-
-	const searchQuery = search.search;
-
-	useEffect(() => {
-		setSearchParams(
-			(p) => {
-				if (searchQuery !== '') p.set('search', searchQuery);
-				else p.delete('search');
-
-				return p;
-			},
-			{ replace: true }
-		);
-	}, [searchQuery, setSearchParams]);
-
-	return search;
 }
