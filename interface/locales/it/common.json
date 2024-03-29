@@ -450,5 +450,6 @@
 	"update_downloaded": "Aggiornamento scaricato. Riavvia Spacedrive per eseguire l'installazione",
 	"updated_successfully": "Aggiornato con successo, sei sulla versione {{version}}",
 	"version": "Versione {{versione}}",
-	"view_changes": "Visualizza modifiche"
+	"view_changes": "Visualizza modifiche",
+	"pin": "Spillo"
 }
