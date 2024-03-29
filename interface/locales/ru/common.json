@@ -450,5 +450,6 @@
 	"go_to_tag": "Перейти к тегу",
 	"no_labels": "Нет ярлыков",
 	"search_for_files_and_actions": "Поиск файлов и действий...",
-	"toggle_command_palette": "Переключить палитру команд"
+	"toggle_command_palette": "Переключить палитру команд",
+	"pin": "приколоть"
 }

@@ -10,19 +10,22 @@ import {
 } from '@sd/client';
 import { Button, ButtonLink, Popover, Tooltip, usePopover } from '@sd/ui';
 import { useKeysMatcher, useLocale, useShortcut } from '~/hooks';
+import { useRoutingContext } from '~/RoutingContext';
 import { usePlatform } from '~/util/Platform';
 
 import DebugPopover from '../DebugPopover';
 import { IsRunningJob, JobManager } from '../JobManager';
+import { useSidebarStore } from '../store';
 import FeedbackButton from './FeedbackButton';
 
 export default () => {
 	const { library } = useClientContext();
+	const { visible } = useRoutingContext();
+	const { t } = useLocale();
 	const debugState = useDebugState();
 	const navigate = useNavigate();
 	const symbols = useKeysMatcher(['Meta', 'Shift']);
-
-	const { t } = useLocale();
+	const store = useSidebarStore();
 
 	useShortcut('navToSettings', (e) => {
 		e.stopPropagation();
@@ -74,7 +77,10 @@ export default () => {
 					</ButtonLink>
 					<JobManagerContextProvider>
 						<Popover
-							popover={jobManagerPopover}
+							popover={{
+								...jobManagerPopover,
+								open: jobManagerPopover.open || (store.pinJobManager && visible)
+							}}
 							trigger={
 								<Button
 									id="job-manager-button"

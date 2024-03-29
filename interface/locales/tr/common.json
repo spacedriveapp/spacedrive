@@ -450,5 +450,6 @@
 	"go_to_tag": "Etikete git",
 	"no_labels": "Etiket yok",
 	"search_for_files_and_actions": "Dosyaları ve eylemleri arayın...",
-	"toggle_command_palette": "Komut paletini değiştir"
+	"toggle_command_palette": "Komut paletini değiştir",
+	"pin": "Toplu iğne"
 }

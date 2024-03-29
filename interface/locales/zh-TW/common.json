@@ -450,5 +450,6 @@
 	"go_to_tag": "轉到標籤",
 	"no_labels": "無標籤",
 	"search_for_files_and_actions": "搜尋文件和操作...",
-	"toggle_command_palette": "切換命令面板"
+	"toggle_command_palette": "切換命令面板",
+	"pin": "別針"
 }

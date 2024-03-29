@@ -450,5 +450,6 @@
 	"go_to_tag": "Gehe zum Markieren",
 	"no_labels": "Keine Etiketten",
 	"search_for_files_and_actions": "Nach Dateien und Aktionen suchen...",
-	"toggle_command_palette": "Befehlspalette umschalten"
+	"toggle_command_palette": "Befehlspalette umschalten",
+	"pin": "Stift"
 }
