@@ -117,10 +117,13 @@ impl<E: RunError> System<E> {
 	}
 
 	/// Dispatches many tasks to the system, the tasks will be assigned to workers and executed as soon as possible.
-	pub async fn dispatch_many(
+	pub async fn dispatch_many<I: IntoIterator<Item = impl IntoTask<E>> + Send>(
 		&self,
-		into_tasks: impl IntoIterator<Item = impl IntoTask<E>> + Send,
-	) -> Vec<TaskHandle<E>> {
+		into_tasks: I,
+	) -> Vec<TaskHandle<E>>
+	where
+		<I as IntoIterator>::IntoIter: Send,
+	{
 		self.dispatcher.dispatch_many(into_tasks).await
 	}
 
@@ -405,12 +408,27 @@ pub trait Dispatcher<E: RunError>: fmt::Debug + Clone + Send + Sync + 'static {
 
 	/// Dispatches an already boxed task to the system, the task will be assigned to a worker and executed as
 	/// soon as possible.
-	fn dispatch_boxed(&self, task: Box<dyn Task<E>>) -> impl Future<Output = TaskHandle<E>> + Send;
+	fn dispatch_boxed(
+		&self,
+		boxed_task: Box<dyn Task<E>>,
+	) -> impl Future<Output = TaskHandle<E>> + Send;
 
 	/// Dispatches many tasks to the system, the tasks will be assigned to workers and executed as soon as possible.
-	fn dispatch_many(
+	fn dispatch_many<I: IntoIterator<Item = impl IntoTask<E>> + Send>(
 		&self,
-		into_tasks: impl IntoIterator<Item = impl IntoTask<E>> + Send,
+		into_tasks: I,
+	) -> impl Future<Output = Vec<TaskHandle<E>>> + Send
+	where
+		<I as IntoIterator>::IntoIter: Send,
+	{
+		self.dispatch_many_boxed(into_tasks.into_iter().map(IntoTask::into_task))
+	}
+
+	/// Dispatches many already boxed tasks to the system, the tasks will be assigned to workers and executed as
+	/// soon as possible.
+	fn dispatch_many_boxed(
+		&self,
+		boxed_tasks: impl IntoIterator<Item = Box<dyn Task<E>>> + Send,
 	) -> impl Future<Output = Vec<TaskHandle<E>>> + Send;
 }
 
@@ -449,9 +467,9 @@ impl<E: RunError> Dispatcher<E> for BaseDispatcher<E> {
 		handle
 	}
 
-	async fn dispatch_many(
+	async fn dispatch_many_boxed(
 		&self,
-		into_tasks: impl IntoIterator<Item = impl IntoTask<E>> + Send,
+		into_tasks: impl IntoIterator<Item = Box<dyn Task<E>>> + Send,
 	) -> Vec<TaskHandle<E>> {
 		let mut workers_task_count = self
 			.workers
@@ -465,7 +483,6 @@ impl<E: RunError> Dispatcher<E> for BaseDispatcher<E> {
 
 		let (handles, workers_ids_set) = into_tasks
 			.into_iter()
-			.map(IntoTask::into_task)
 			.zip(workers_task_count.into_iter().cycle())
 			.map(|(task, (worker_id, _))| async move {
 				(self.workers[worker_id].add_task(task).await, worker_id)

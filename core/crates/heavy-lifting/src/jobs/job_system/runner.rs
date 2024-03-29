@@ -1,6 +1,6 @@
 use crate::{jobs::JobId, Error};
 
-use sd_task_system::{BaseTaskDispatcher, Task};
+use sd_task_system::BaseTaskDispatcher;
 use sd_utils::error::FileIOError;
 
 use std::{
@@ -28,7 +28,7 @@ use super::{
 	job::{DynJob, JobContext, JobHandle, JobOutput, ReturnStatus},
 	report,
 	store::{StoredJob, StoredJobEntry},
-	Command, JobSystemError,
+	Command, JobSystemError, SerializedTasks,
 };
 
 const JOBS_INITIAL_CAPACITY: usize = 32;
@@ -45,7 +45,7 @@ pub(super) enum RunnerMessage<Ctx: JobContext> {
 		id: JobId,
 		dyn_job: Box<dyn DynJob<Ctx>>,
 		job_ctx: Ctx,
-		dyn_tasks: Vec<Box<dyn Task<Error>>>,
+		serialized_tasks: Option<SerializedTasks>,
 		ack_tx: oneshot::Sender<Result<(), JobSystemError>>,
 	},
 	Command {
@@ -88,7 +88,7 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 		id: JobId,
 		dyn_job: Box<dyn DynJob<Ctx>>,
 		job_ctx: Ctx,
-		maybe_existing_tasks: Option<Vec<Box<dyn Task<Error>>>>,
+		maybe_existing_tasks: Option<SerializedTasks>,
 	) -> Result<(), JobSystemError> {
 		let Self {
 			base_dispatcher,
@@ -115,11 +115,11 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 
 		let start_time = Utc::now();
 
-		let mut handle = if let Some(existing_tasks) = maybe_existing_tasks {
+		let mut handle = if maybe_existing_tasks.is_some() {
 			dyn_job.resume(
 				base_dispatcher.clone(),
 				job_ctx.clone(),
-				existing_tasks,
+				maybe_existing_tasks,
 				job_return_status_tx.clone(),
 			)
 		} else {
@@ -206,25 +206,24 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 				handle.complete_job(job_return).await
 			}
 
-			Ok(ReturnStatus::Shutdown(Some(res))) => {
-				let Ok(serialized_job) = res.map_err(|e| error!("Failed to serialize job: {e:#?}"))
-				else {
-					return;
-				};
-
+			Ok(ReturnStatus::Shutdown(Ok(Some(serialized_job)))) => {
 				let name = handle.report.name;
 
 				let Ok(next_jobs) = handle
 					.next_jobs
 					.into_iter()
-					.filter_map(|next_job| {
+					.map(|next_job| async move {
 						let next_id = next_job.id();
 						let next_name = next_job.job_name();
-						next_job.serialize().map(|res| {
-							res.map(|serialized_job| StoredJob {
-								id: next_job.id(),
-								name: next_job.job_name(),
-								serialized_job,
+						next_job
+							.serialize()
+							.await
+							.map(|maybe_serialized_job| {
+								maybe_serialized_job.map(|serialized_job| StoredJob {
+									id: next_id,
+									name: next_name,
+									serialized_job,
+								})
 							})
 							.map_err(|e| {
 								error!(
@@ -233,9 +232,10 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 									next_id='{next_id}', next_name='{next_name}'>: {e:#?}"
 								);
 							})
-						})
 					})
-					.collect::<Result<Vec<_>, _>>()
+					.collect::<Vec<_>>()
+					.try_join()
+					.await
 				else {
 					return;
 				};
@@ -249,18 +249,23 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 							name,
 							serialized_job,
 						},
-						next_jobs,
+						next_jobs: next_jobs.into_iter().flatten().collect(),
 					});
 
 				return;
 			}
 
-			Ok(ReturnStatus::Shutdown(None)) => {
+			Ok(ReturnStatus::Shutdown(Ok(None))) => {
 				debug!(
 					"Job was shutdown but didn't returned any serialized data, \
 					probably it isn't resumable job: <id='{job_id}'>"
 				);
 
+				return;
+			}
+
+			Ok(ReturnStatus::Shutdown(Err(e))) => {
+				error!("Failed to serialize job: {e:#?}");
 				return;
 			}
 
@@ -411,11 +416,11 @@ pub(super) async fn run<Ctx: JobContext>(
 				id,
 				dyn_job,
 				job_ctx,
-				dyn_tasks,
+				serialized_tasks,
 				ack_tx,
 			}) => {
 				ack_tx
-					.send(runner.new_job(id, dyn_job, job_ctx, Some(dyn_tasks)).await)
+					.send(runner.new_job(id, dyn_job, job_ctx, serialized_tasks).await)
 					.expect("ack channel closed before sending resume job response");
 			}
 

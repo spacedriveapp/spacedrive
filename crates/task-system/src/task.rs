@@ -147,6 +147,21 @@ pub trait Task<E: RunError>: fmt::Debug + Downcast + Send + Sync + 'static {
 
 impl_downcast!(Task<E> where E: RunError);
 
+pub trait SerializableTask<E: RunError>: Task<E>
+where
+	Self: Sized,
+{
+	type SerializeError: std::error::Error + 'static;
+	type DeserializeError: std::error::Error + 'static;
+	type DeserializeCtx: 'static;
+
+	fn serialize(self) -> impl Future<Output = Result<Vec<u8>, Self::SerializeError>> + Send;
+	fn deserialize(
+		data: &[u8],
+		ctx: Self::DeserializeCtx,
+	) -> impl Future<Output = Result<Self, Self::DeserializeError>> + Send;
+}
+
 /// Intermediate struct to wait until a pause or a cancel commands are sent by the user.
 #[must_use = "`InterrupterFuture` does nothing unless polled"]
 #[pin_project::pin_project]

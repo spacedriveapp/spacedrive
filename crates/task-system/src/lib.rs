@@ -99,5 +99,6 @@ pub use system::{
 };
 pub use task::{
 	AnyTaskOutput, ExecStatus, Interrupter, InterrupterFuture, InterruptionKind, IntoAnyTaskOutput,
-	IntoTask, Task, TaskHandle, TaskId, TaskOutput, TaskRemoteController, TaskStatus,
+	IntoTask, SerializableTask, Task, TaskHandle, TaskId, TaskOutput, TaskRemoteController,
+	TaskStatus,
 };

@@ -15,8 +15,6 @@ pub mod validation;
 // Some Objects are purely virtual, unless they have one or more associated Paths, which refer to a file found in a Location
 // Objects are what can be added to Spaces
 
-
-
 // The response to provide the Explorer when looking at Objects
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct ObjectsForExplorer {

@@ -4,8 +4,7 @@ use sd_core_sync::Manager as SyncManager;
 
 use sd_prisma::prisma::PrismaClient;
 use sd_task_system::{
-	BaseTaskDispatcher, IntoTask, Task, TaskDispatcher, TaskHandle, TaskRemoteController,
-	TaskSystemError,
+	BaseTaskDispatcher, Task, TaskDispatcher, TaskHandle, TaskRemoteController, TaskSystemError,
 };
 
 use std::{
@@ -34,7 +33,7 @@ use super::{
 	report::{
 		Report, ReportBuilder, ReportInputMetadata, ReportMetadata, ReportOutputMetadata, Status,
 	},
-	Command, JobSystemError, SerializableJob,
+	Command, JobSystemError, SerializableJob, SerializedTasks,
 };
 
 #[derive(
@@ -48,7 +47,7 @@ pub enum JobName {
 
 pub enum ReturnStatus {
 	Completed(JobReturn),
-	Shutdown(Option<Result<Vec<u8>, rmp_serde::encode::Error>>),
+	Shutdown(Result<Option<Vec<u8>>, rmp_serde::encode::Error>),
 	Canceled,
 }
 
@@ -58,21 +57,29 @@ pub trait JobContext: Send + Sync + Clone + 'static {
 	fn sync(&self) -> &Arc<SyncManager>;
 }
 
-pub trait Job<Ctx: JobContext>: Send + Sync + Hash + 'static {
+pub trait Job: Send + Sync + Hash + 'static {
 	const NAME: JobName;
 
-	fn resume(&mut self, dispatched_tasks: Vec<TaskHandle<Error>>);
+	#[allow(unused_variables)]
+	fn resume_tasks(
+		&mut self,
+		dispatcher: &JobTaskDispatcher,
+		ctx: &impl JobContext,
+		serialized_tasks: SerializedTasks,
+	) -> impl Future<Output = Result<(), Error>> + Send {
+		async move { Ok(()) }
+	}
 
 	fn run(
 		self,
 		dispatcher: JobTaskDispatcher,
-		ctx: Ctx,
+		ctx: impl JobContext,
 	) -> impl Future<Output = Result<ReturnStatus, Error>> + Send;
 }
 
 pub trait IntoJob<J, Ctx>
 where
-	J: Job<Ctx> + SerializableJob,
+	J: Job + SerializableJob,
 	Ctx: JobContext,
 {
 	fn into_job(self) -> Box<dyn DynJob<Ctx>>;
@@ -80,7 +87,7 @@ where
 
 impl<J, Ctx> IntoJob<J, Ctx> for J
 where
-	J: Job<Ctx> + SerializableJob,
+	J: Job + SerializableJob,
 	Ctx: JobContext,
 {
 	fn into_job(self) -> Box<dyn DynJob<Ctx>> {
@@ -98,7 +105,7 @@ where
 
 impl<J, Ctx> IntoJob<J, Ctx> for JobBuilder<J, Ctx>
 where
-	J: Job<Ctx> + SerializableJob,
+	J: Job + SerializableJob,
 	Ctx: JobContext,
 {
 	fn into_job(self) -> Box<dyn DynJob<Ctx>> {
@@ -182,7 +189,7 @@ pub enum JobOutputData {
 
 pub struct JobBuilder<J, Ctx>
 where
-	J: Job<Ctx> + SerializableJob,
+	J: Job + SerializableJob,
 	Ctx: JobContext,
 {
 	id: JobId,
@@ -194,7 +201,7 @@ where
 
 impl<J, Ctx> JobBuilder<J, Ctx>
 where
-	J: Job<Ctx> + SerializableJob,
+	J: Job + SerializableJob,
 	Ctx: JobContext,
 {
 	pub fn build(self) -> Box<JobHolder<J, Ctx>> {
@@ -237,7 +244,7 @@ where
 	}
 
 	#[must_use]
-	pub fn enqueue_next(mut self, next: impl Job<Ctx> + SerializableJob) -> Self {
+	pub fn enqueue_next(mut self, next: impl Job + SerializableJob) -> Self {
 		let next_job_order = self.next_jobs.len() + 1;
 
 		let mut child_job_builder = JobBuilder::new(next).with_parent_id(self.id);
@@ -255,7 +262,7 @@ where
 
 pub struct JobHolder<J, Ctx>
 where
-	J: Job<Ctx> + SerializableJob,
+	J: Job + SerializableJob,
 	Ctx: JobContext,
 {
 	pub(super) id: JobId,
@@ -417,6 +424,7 @@ impl<Ctx: JobContext> JobHandle<Ctx> {
 	}
 }
 
+#[async_trait::async_trait]
 pub trait DynJob<Ctx: JobContext>: Send + Sync + 'static {
 	fn id(&self) -> JobId;
 
@@ -430,27 +438,28 @@ pub trait DynJob<Ctx: JobContext>: Send + Sync + 'static {
 
 	fn next_jobs(&self) -> &VecDeque<Box<dyn DynJob<Ctx>>>;
 
-	fn serialize(&self) -> Option<Result<Vec<u8>, rmp_serde::encode::Error>>;
+	async fn serialize(self: Box<Self>) -> Result<Option<Vec<u8>>, rmp_serde::encode::Error>;
 
 	fn dispatch(
 		self: Box<Self>,
-		dispatcher: BaseTaskDispatcher<Error>,
+		base_dispatcher: BaseTaskDispatcher<Error>,
 		job_ctx: Ctx,
 		done_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
 	) -> JobHandle<Ctx>;
 
 	fn resume(
 		self: Box<Self>,
-		dispatcher: BaseTaskDispatcher<Error>,
+		base_dispatcher: BaseTaskDispatcher<Error>,
 		job_ctx: Ctx,
-		existing_tasks: Vec<Box<dyn Task<Error>>>,
+		serialized_tasks: Option<SerializedTasks>,
 		done_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
 	) -> JobHandle<Ctx>;
 }
 
+#[async_trait::async_trait]
 impl<J, Ctx> DynJob<Ctx> for JobHolder<J, Ctx>
 where
-	J: Job<Ctx> + SerializableJob,
+	J: Job + SerializableJob,
 	Ctx: JobContext,
 {
 	fn id(&self) -> JobId {
@@ -480,8 +489,8 @@ where
 		&self.next_jobs
 	}
 
-	fn serialize(&self) -> Option<Result<Vec<u8>, rmp_serde::encode::Error>> {
-		self.job.serialize()
+	async fn serialize(self: Box<Self>) -> Result<Option<Vec<u8>>, rmp_serde::encode::Error> {
+		self.job.serialize().await
 	}
 
 	fn dispatch(
@@ -512,9 +521,9 @@ where
 
 	fn resume(
 		self: Box<Self>,
-		dispatcher: BaseTaskDispatcher<Error>,
+		base_dispatcher: BaseTaskDispatcher<Error>,
 		job_ctx: Ctx,
-		existing_tasks: Vec<Box<dyn Task<Error>>>,
+		serialized_tasks: Option<SerializedTasks>,
 		done_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
 	) -> JobHandle<Ctx> {
 		let (commands_tx, commands_rx) = chan::bounded(8);
@@ -523,8 +532,8 @@ where
 			self.id,
 			self.job,
 			job_ctx.clone(),
-			Some(existing_tasks),
-			dispatcher,
+			serialized_tasks,
+			base_dispatcher,
 			commands_rx,
 			done_tx,
 		));
@@ -540,9 +549,9 @@ where
 
 async fn to_spawn_job<Ctx: JobContext>(
 	id: JobId,
-	mut job: impl Job<Ctx>,
+	mut job: impl Job,
 	job_ctx: Ctx,
-	existing_tasks: Option<Vec<Box<dyn Task<Error>>>>,
+	existing_tasks: Option<SerializedTasks>,
 	base_dispatcher: BaseTaskDispatcher<Error>,
 	commands_rx: chan::Receiver<Command>,
 	done_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
@@ -558,14 +567,17 @@ async fn to_spawn_job<Ctx: JobContext>(
 	let (dispatcher, remote_controllers_rx) = JobTaskDispatcher::new(base_dispatcher);
 
 	if let Some(existing_tasks) = existing_tasks {
-		job.resume(
-			existing_tasks
-				.into_iter()
-				.map(|task| dispatcher.dispatch_boxed(task))
-				.collect::<Vec<_>>()
-				.join()
-				.await,
-		);
+		if let Err(e) = job
+			.resume_tasks(&dispatcher, &job_ctx, existing_tasks)
+			.await
+		{
+			done_tx
+				.send((id, Err(e)))
+				.await
+				.expect("jobs done tx closed on error at resume_tasks");
+
+			return;
+		}
 	}
 
 	let mut msgs_stream = pin!((
@@ -654,8 +666,8 @@ pub struct JobTaskDispatcher {
 }
 
 impl TaskDispatcher<Error> for JobTaskDispatcher {
-	async fn dispatch_boxed(&self, task: Box<dyn Task<Error>>) -> TaskHandle<Error> {
-		let handle = self.dispatcher.dispatch_boxed(task).await;
+	async fn dispatch_boxed(&self, boxed_task: Box<dyn Task<Error>>) -> TaskHandle<Error> {
+		let handle = self.dispatcher.dispatch_boxed(boxed_task).await;
 
 		self.remote_controllers_tx
 			.send(handle.remote_controller())
@@ -665,11 +677,11 @@ impl TaskDispatcher<Error> for JobTaskDispatcher {
 		handle
 	}
 
-	async fn dispatch_many(
+	async fn dispatch_many_boxed(
 		&self,
-		into_tasks: impl IntoIterator<Item = impl IntoTask<Error>> + Send,
+		boxed_tasks: impl IntoIterator<Item = Box<dyn Task<Error>>> + Send,
 	) -> Vec<TaskHandle<Error>> {
-		let handles = self.dispatcher.dispatch_many(into_tasks).await;
+		let handles = self.dispatcher.dispatch_many_boxed(boxed_tasks).await;
 
 		for handle in &handles {
 			self.remote_controllers_tx

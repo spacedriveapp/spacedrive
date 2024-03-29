@@ -25,7 +25,7 @@ use job::{IntoJob, Job, JobContext, JobOutput};
 use runner::{run, JobSystemRunner, RunnerMessage};
 use store::{load_jobs, StoredJobEntry};
 
-pub use store::SerializableJob;
+pub use store::{SerializableJob, SerializedTasks};
 
 const PENDING_JOBS_FILE: &str = "pending_jobs.bin";
 
@@ -138,7 +138,7 @@ impl<Ctx: JobContext> JobSystem<Ctx> {
 	/// Dispatch a new job to the system
 	/// # Panics
 	/// Panics only happen if internal channels are unexpectedly closed
-	pub async fn dispatch<J: Job<Ctx> + SerializableJob>(
+	pub async fn dispatch<J: Job + SerializableJob>(
 		&mut self,
 		job: impl IntoJob<J, Ctx> + Send,
 		job_ctx: Ctx,
@@ -246,26 +246,29 @@ async fn load_stored_job_entries<Ctx: JobContext>(
 				.ok()
 		})
 		.flat_map(|(stored_jobs, job_ctx)| {
-			stored_jobs.into_iter().map(move |(dyn_job, dyn_tasks)| {
-				let job_ctx = job_ctx.clone();
-				async move {
-					let (ack_tx, ack_rx) = oneshot::channel();
-					msgs_tx
-						.send(RunnerMessage::ResumeStoredJob {
-							id: dyn_job.id(),
-							dyn_job,
-							job_ctx,
-							dyn_tasks,
-							ack_tx,
-						})
-						.await
-						.expect("runner msgs channel unexpectedly closed on stored job resume");
+			stored_jobs
+				.into_iter()
+				.map(move |(dyn_job, serialized_tasks)| {
+					let job_ctx = job_ctx.clone();
+					async move {
+						let (ack_tx, ack_rx) = oneshot::channel();
 
-					ack_rx
-						.await
-						.expect("ack channel closed before receiving stored job resume response")
-				}
-			})
+						msgs_tx
+							.send(RunnerMessage::ResumeStoredJob {
+								id: dyn_job.id(),
+								dyn_job,
+								job_ctx,
+								serialized_tasks,
+								ack_tx,
+							})
+							.await
+							.expect("runner msgs channel unexpectedly closed on stored job resume");
+
+						ack_rx.await.expect(
+							"ack channel closed before receiving stored job resume response",
+						)
+					}
+				})
 		})
 		.collect::<Vec<_>>()
 		.try_join()

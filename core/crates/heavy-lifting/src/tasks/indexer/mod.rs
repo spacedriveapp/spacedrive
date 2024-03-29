@@ -35,6 +35,8 @@ pub enum IndexerError {
 	IsoFilePath(#[from] FilePathError),
 	#[error("missing field on database: {0}")]
 	MissingField(#[from] MissingFieldError),
+	#[error("failed to deserialized stored tasks for job resume: {0}")]
+	DeserializeTasks(#[from] rmp_serde::decode::Error),
 
 	// Mixed errors
 	#[error(transparent)]

@@ -22,7 +22,8 @@ use sd_prisma::{
 	prisma_sync,
 };
 use sd_task_system::{
-	AnyTaskOutput, Task, TaskDispatcher, TaskHandle, TaskId, TaskOutput, TaskStatus,
+	AnyTaskOutput, IntoTask, SerializableTask, Task, TaskDispatcher, TaskHandle, TaskId,
+	TaskOutput, TaskStatus,
 };
 use sd_utils::db::maybe_missing;
 
@@ -36,6 +37,7 @@ use std::{
 };
 
 use futures::{stream::FuturesUnordered, StreamExt};
+use futures_concurrency::future::TryJoin;
 use itertools::Itertools;
 use prisma_client_rust::operator::or;
 use serde::{Deserialize, Serialize};
@@ -46,7 +48,7 @@ use super::{
 	cancel_pending_tasks,
 	job_system::{
 		job::{Job, JobContext, JobName, JobReturn, JobTaskDispatcher, ReturnStatus},
-		SerializableJob,
+		SerializableJob, SerializedTasks,
 	},
 };
 
@@ -83,9 +85,16 @@ pub struct IndexerJob {
 	tasks_for_shutdown: Vec<Box<dyn Task<Error>>>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+enum TaskKind {
+	Walk,
+	Save,
+	Update,
+}
+
 #[derive(Serialize, Deserialize)]
 struct SaveState {
-	location: location_with_indexer_rules::Data,
+	location: Arc<location_with_indexer_rules::Data>,
 	sub_path: Option<PathBuf>,
 	metadata: Metadata,
 
@@ -93,19 +102,91 @@ struct SaveState {
 	indexer_ruler_bytes: Vec<u8>,
 	walker_root_path: Option<Arc<PathBuf>>,
 
-	tasks_for_shutdown: Vec<Vec<u8>>,
+	errors: Vec<NonCriticalJobError>,
+
+	tasks_for_shutdown_bytes: Option<SerializedTasks>,
 }
 
 impl SerializableJob for IndexerJob {
-	fn serialize(&self) -> Option<Result<Vec<u8>, rmp_serde::encode::Error>> {
-		todo!("Implement serialization")
+	async fn serialize(self) -> Result<Option<Vec<u8>>, rmp_serde::encode::Error> {
+		rmp_serde::to_vec_named(&SaveState {
+			location: self.location,
+			sub_path: self.sub_path,
+			metadata: self.metadata,
+			iso_file_path_factory: self.iso_file_path_factory,
+			indexer_ruler_bytes: self.indexer_ruler.serialize().await?,
+			walker_root_path: self.walker_root_path,
+			tasks_for_shutdown_bytes: Some(SerializedTasks(rmp_serde::to_vec_named(
+				&self
+					.tasks_for_shutdown
+					.into_iter()
+					.map(|task| async move {
+						if task
+							.is::<WalkDirTask<WalkerDBProxy, IsoFilePathFactory, JobTaskDispatcher>>(
+							) {
+							task
+							.downcast::<WalkDirTask<WalkerDBProxy, IsoFilePathFactory, JobTaskDispatcher>>(
+							)
+							.expect("just checked")
+							.serialize()
+							.await
+							.map(|bytes| (TaskKind::Walk, bytes))
+						} else if task.is::<SaveTask>() {
+							task.downcast::<SaveTask>()
+								.expect("just checked")
+								.serialize()
+								.await
+								.map(|bytes| (TaskKind::Save, bytes))
+						} else if task.is::<UpdateTask>() {
+							task.downcast::<UpdateTask>()
+								.expect("just checked")
+								.serialize()
+								.await
+								.map(|bytes| (TaskKind::Update, bytes))
+						} else {
+							unreachable!("Unexpected task type")
+						}
+					})
+					.collect::<Vec<_>>()
+					.try_join()
+					.await?,
+			)?)),
+			errors: self.errors,
+		})
+		.map(Some)
 	}
 
-	fn deserialize(
-		serialized_job: Vec<u8>,
-		ctx: &impl JobContext,
-	) -> Result<(Self, Vec<Box<dyn Task<Error>>>), rmp_serde::decode::Error> {
-		todo!("Implement deserialization")
+	async fn deserialize(
+		serialized_job: &[u8],
+		_: &impl JobContext,
+	) -> Result<Option<(Self, Option<SerializedTasks>)>, rmp_serde::decode::Error> {
+		let SaveState {
+			location,
+			sub_path,
+			metadata,
+			iso_file_path_factory,
+			indexer_ruler_bytes,
+			walker_root_path,
+			errors,
+			tasks_for_shutdown_bytes,
+		} = rmp_serde::from_slice::<SaveState>(serialized_job)?;
+
+		let indexer_ruler = IndexerRuler::deserialize(&indexer_ruler_bytes)?;
+
+		Ok(Some((
+			Self {
+				location,
+				sub_path,
+				metadata,
+				iso_file_path_factory,
+				indexer_ruler,
+				walker_root_path,
+				errors,
+				pending_tasks_on_resume: Vec::new(),
+				tasks_for_shutdown: Vec::new(),
+			},
+			tasks_for_shutdown_bytes,
+		)))
 	}
 }
 
@@ -291,10 +372,14 @@ impl IndexerJob {
 	}
 }
 
-impl<Ctx: JobContext> Job<Ctx> for IndexerJob {
+impl Job for IndexerJob {
 	const NAME: JobName = JobName::Indexer;
 
-	async fn run(mut self, dispatcher: JobTaskDispatcher, ctx: Ctx) -> Result<ReturnStatus, Error> {
+	async fn run(
+		mut self,
+		dispatcher: JobTaskDispatcher,
+		ctx: impl JobContext,
+	) -> Result<ReturnStatus, Error> {
 		let mut pending_running_tasks = FuturesUnordered::new();
 
 		// if we don't have any pending task, then this is a fresh job
@@ -379,12 +464,66 @@ impl<Ctx: JobContext> Job<Ctx> for IndexerJob {
 		if self.tasks_for_shutdown.is_empty() {
 			Ok(ReturnStatus::Completed(JobReturn::default()))
 		} else {
-			Ok(ReturnStatus::Shutdown(self.serialize()))
+			Ok(ReturnStatus::Shutdown(self.serialize().await))
 		}
 	}
 
-	fn resume(&mut self, dispatched_tasks: Vec<TaskHandle<Error>>) {
-		self.pending_tasks_on_resume = dispatched_tasks;
+	async fn resume_tasks(
+		&mut self,
+		dispatcher: &JobTaskDispatcher,
+		ctx: &impl JobContext,
+		SerializedTasks(serialized_tasks): SerializedTasks,
+	) -> Result<(), Error> {
+		let location_id = self.location.id;
+
+		self.pending_tasks_on_resume = dispatcher
+			.dispatch_many_boxed(
+				rmp_serde::from_slice::<Vec<(TaskKind, Vec<u8>)>>(&serialized_tasks)
+					.map_err(IndexerError::from)?
+					.into_iter()
+					.map(|(task_kind, task_bytes)| {
+						let indexer_ruler = self.indexer_ruler.clone();
+						let iso_file_path_factory = self.iso_file_path_factory.clone();
+						async move {
+							match task_kind {
+								TaskKind::Walk => WalkDirTask::deserialize(
+									&task_bytes,
+									(
+										indexer_ruler.clone(),
+										WalkerDBProxy {
+											location_id,
+											db: Arc::clone(ctx.db()),
+										},
+										iso_file_path_factory.clone(),
+										dispatcher.clone(),
+									),
+								)
+								.await
+								.map(IntoTask::into_task),
+
+								TaskKind::Save => SaveTask::deserialize(
+									&task_bytes,
+									(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
+								)
+								.await
+								.map(IntoTask::into_task),
+								TaskKind::Update => UpdateTask::deserialize(
+									&task_bytes,
+									(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
+								)
+								.await
+								.map(IntoTask::into_task),
+							}
+						}
+					})
+					.collect::<Vec<_>>()
+					.try_join()
+					.await
+					.map_err(IndexerError::from)?,
+			)
+			.await;
+
+		Ok(())
 	}
 }
 

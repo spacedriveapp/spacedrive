@@ -10,9 +10,10 @@ use sd_prisma::{
 	prisma_sync,
 };
 use sd_sync::{sync_db_entry, OperationFactory};
-use sd_task_system::{ExecStatus, Interrupter, IntoAnyTaskOutput, Task, TaskId};
+use sd_task_system::{ExecStatus, Interrupter, IntoAnyTaskOutput, SerializableTask, Task, TaskId};
 
 use sd_utils::db::inode_to_db;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::time::Instant;
 use tracing::trace;
@@ -45,6 +46,48 @@ impl SaveTask {
 			db,
 			sync,
 		}
+	}
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct SaveTaskSaveState {
+	id: TaskId,
+	location: Arc<location_with_indexer_rules::Data>,
+	walked_entries: Vec<WalkedEntry>,
+}
+
+impl SerializableTask<Error> for SaveTask {
+	type SerializeError = rmp_serde::encode::Error;
+
+	type DeserializeError = rmp_serde::decode::Error;
+
+	type DeserializeCtx = (Arc<PrismaClient>, Arc<SyncManager>);
+
+	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
+		rmp_serde::to_vec_named(&SaveTaskSaveState {
+			id: self.id,
+			location: self.location,
+			walked_entries: self.walked_entries,
+		})
+	}
+
+	async fn deserialize(
+		data: &[u8],
+		(db, sync): Self::DeserializeCtx,
+	) -> Result<Self, Self::DeserializeError> {
+		rmp_serde::from_slice(data).map(
+			|SaveTaskSaveState {
+			     id,
+			     location,
+			     walked_entries,
+			 }| Self {
+				id,
+				location,
+				walked_entries,
+				db,
+				sync,
+			},
+		)
 	}
 }
 

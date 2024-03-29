@@ -1,18 +1,16 @@
-use crate::{
-	jobs::{indexer::IndexerJob, JobId},
-	Error,
-};
+use crate::jobs::{indexer::IndexerJob, JobId};
 
 use sd_prisma::prisma::job;
-use sd_task_system::Task;
 use sd_utils::uuid_to_bytes;
 
 use std::{
 	collections::{HashMap, VecDeque},
+	future::Future,
 	iter,
 	marker::PhantomData,
 };
 
+use futures_concurrency::future::TryJoin;
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -21,20 +19,29 @@ use super::{
 	JobSystemError,
 };
 
-type DynTasks = Vec<Box<dyn Task<Error>>>;
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SerializedTasks(pub Vec<u8>);
 
 pub trait SerializableJob: 'static
 where
 	Self: Sized,
 {
-	fn serialize(&self) -> Option<Result<Vec<u8>, rmp_serde::encode::Error>>;
-	fn deserialize(
-		serialized_job: Vec<u8>,
-		ctx: &impl JobContext,
-	) -> Result<(Self, DynTasks), rmp_serde::decode::Error>;
-}
+	fn serialize(
+		self,
+	) -> impl Future<Output = Result<Option<Vec<u8>>, rmp_serde::encode::Error>> + Send {
+		async move { Ok(None) }
+	}
 
-pub type DynJobAndTasks<Ctx> = (Box<dyn DynJob<Ctx>>, DynTasks);
+	#[allow(unused_variables)]
+	fn deserialize(
+		serialized_job: &[u8],
+		ctx: &impl JobContext,
+	) -> impl Future<
+		Output = Result<Option<(Self, Option<SerializedTasks>)>, rmp_serde::decode::Error>,
+	> + Send {
+		async move { Ok(None) }
+	}
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StoredJob {
@@ -52,7 +59,7 @@ pub struct StoredJobEntry {
 pub async fn load_jobs<Ctx: JobContext>(
 	entries: Vec<StoredJobEntry>,
 	job_ctx: &Ctx,
-) -> Result<Vec<DynJobAndTasks<Ctx>>, JobSystemError> {
+) -> Result<Vec<(Box<dyn DynJob<Ctx>>, Option<SerializedTasks>)>, JobSystemError> {
 	let mut reports = job_ctx
 		.db()
 		.job()
@@ -86,34 +93,65 @@ pub async fn load_jobs<Ctx: JobContext>(
 				let report = reports
 					.remove(&root_job.id)
 					.ok_or(ReportError::MissingReport(root_job.id))?;
-				let (mut dyn_job, tasks) = load_job(root_job, report, job_ctx)?;
 
-				dyn_job.set_next_jobs(
-					next_jobs
-						.into_iter()
-						.map(|next_job| {
-							let next_job_report = reports
-								.remove(&next_job.id)
-								.ok_or(ReportError::MissingReport(next_job.id))?;
-
-							let (next_dyn_job, next_tasks) =
-								load_job(next_job, next_job_report, job_ctx)?;
-
-							assert!(next_tasks.is_empty(), "Next jobs must not have tasks");
-							assert!(
-								next_dyn_job.next_jobs().is_empty(),
-								"Next jobs must not have next jobs"
-							);
-
-							Ok(next_dyn_job)
+				Ok(async move {
+					load_job(root_job, report, job_ctx)
+						.await
+						.map(|maybe_loaded_job| {
+							maybe_loaded_job.map(|(dyn_job, tasks)| (dyn_job, tasks, next_jobs))
 						})
-						.collect::<Result<VecDeque<_>, JobSystemError>>()?,
-				);
-
-				Ok((dyn_job, tasks))
+				})
 			},
 		)
-		.collect::<Result<Vec<_>, _>>()
+		.collect::<Result<Vec<_>, JobSystemError>>()?
+		.try_join()
+		.await?
+		.into_iter()
+		.flatten()
+		.map(|(mut dyn_job, tasks, next_jobs)| {
+			let next_jobs_and_reports = next_jobs
+				.into_iter()
+				.map(|next_job| {
+					let next_job_id = next_job.id;
+					reports
+						.remove(&next_job.id)
+						.map(|report| (next_job, report))
+						.ok_or(ReportError::MissingReport(next_job_id))
+				})
+				.collect::<Result<Vec<_>, _>>()?;
+
+			Ok(async move {
+				next_jobs_and_reports
+					.into_iter()
+					.map(|(next_job, report)| async move {
+						load_job(next_job, report, job_ctx)
+							.await
+							.map(|maybe_loaded_next_job| {
+								maybe_loaded_next_job.map(|(next_dyn_job, next_tasks)| {
+									assert!(
+										next_tasks.is_none(),
+										"Next jobs must not have tasks as they haven't run yet"
+									);
+									assert!(
+										next_dyn_job.next_jobs().is_empty(),
+										"Next jobs must not have next jobs"
+									);
+									next_dyn_job
+								})
+							})
+					})
+					.collect::<Vec<_>>()
+					.try_join()
+					.await
+					.map(|maybe_next_dyn_jobs| {
+						dyn_job.set_next_jobs(maybe_next_dyn_jobs.into_iter().flatten().collect());
+						(dyn_job, tasks)
+					})
+			})
+		})
+		.collect::<Result<Vec<_>, JobSystemError>>()?
+		.try_join()
+		.await
 }
 
 macro_rules! match_deserialize_job {
@@ -124,33 +162,38 @@ macro_rules! match_deserialize_job {
 			serialized_job,
 		} = $stored_job;
 
+
 		match name {
-			$(<$job_type as Job<$ctx_type>>::NAME => <$job_type as SerializableJob>::deserialize(
-					serialized_job,
-					$job_ctx
-				)
-					.map(|(job, tasks)| -> DynJobAndTasks<$ctx_type> {
-						(
-							Box::new(JobHolder {
-								id,
-								job,
-								report: $report,
-								next_jobs: VecDeque::new(),
-								_ctx: PhantomData,
-							}),
-							tasks,
-						)
-					})
+			$(<$job_type as Job>::NAME => <$job_type as SerializableJob>::deserialize(
+					&serialized_job,
+					$job_ctx,
+				).await
+					.map(|maybe_job| maybe_job.map(|(job, tasks)| -> (
+							Box<dyn DynJob<$ctx_type>>,
+							Option<SerializedTasks>
+						) {
+							(
+								Box::new(JobHolder {
+									id,
+									job,
+									report: $report,
+									next_jobs: VecDeque::new(),
+									_ctx: PhantomData,
+								}),
+								tasks,
+							)
+						}
+					))
 					.map_err(Into::into),)+
 		}
 	}};
 }
 
-fn load_job<Ctx: JobContext>(
+async fn load_job<Ctx: JobContext>(
 	stored_job: StoredJob,
 	report: Report,
 	job_ctx: &Ctx,
-) -> Result<DynJobAndTasks<Ctx>, JobSystemError> {
+) -> Result<Option<(Box<dyn DynJob<Ctx>>, Option<SerializedTasks>)>, JobSystemError> {
 	match_deserialize_job!(
 		stored_job,
 		report,

@@ -9,9 +9,10 @@ use sd_prisma::{
 };
 use sd_sync::{sync_db_entry, OperationFactory};
 use sd_task_system::{
-	check_interruption, ExecStatus, Interrupter, IntoAnyTaskOutput, Task, TaskId,
+	check_interruption, ExecStatus, Interrupter, IntoAnyTaskOutput, SerializableTask, Task, TaskId,
 };
 use sd_utils::{chain_optional_iter, db::inode_to_db};
+use serde::{Deserialize, Serialize};
 
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
@@ -24,9 +25,9 @@ use super::{walker::WalkedEntry, IndexerError};
 pub struct UpdateTask {
 	id: TaskId,
 	walked_entries: Vec<WalkedEntry>,
+	object_ids_that_should_be_unlinked: HashSet<object::id::Type>,
 	db: Arc<PrismaClient>,
 	sync: Arc<SyncManager>,
-	object_ids_that_should_be_unlinked: HashSet<object::id::Type>,
 }
 
 impl UpdateTask {
@@ -43,6 +44,48 @@ impl UpdateTask {
 			sync,
 			object_ids_that_should_be_unlinked: HashSet::new(),
 		}
+	}
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct UpdateTaskSaveState {
+	id: TaskId,
+	walked_entries: Vec<WalkedEntry>,
+	object_ids_that_should_be_unlinked: HashSet<object::id::Type>,
+}
+
+impl SerializableTask<Error> for UpdateTask {
+	type SerializeError = rmp_serde::encode::Error;
+
+	type DeserializeError = rmp_serde::decode::Error;
+
+	type DeserializeCtx = (Arc<PrismaClient>, Arc<SyncManager>);
+
+	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
+		rmp_serde::to_vec_named(&UpdateTaskSaveState {
+			id: self.id,
+			walked_entries: self.walked_entries,
+			object_ids_that_should_be_unlinked: self.object_ids_that_should_be_unlinked,
+		})
+	}
+
+	async fn deserialize(
+		data: &[u8],
+		(db, sync): Self::DeserializeCtx,
+	) -> Result<Self, Self::DeserializeError> {
+		rmp_serde::from_slice(data).map(
+			|UpdateTaskSaveState {
+			     id,
+			     walked_entries,
+			     object_ids_that_should_be_unlinked,
+			 }| Self {
+				id,
+				walked_entries,
+				object_ids_that_should_be_unlinked,
+				db,
+				sync,
+			},
+		)
 	}
 }
 
