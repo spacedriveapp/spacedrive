@@ -10,11 +10,14 @@ export interface UseSearchProps {
 	open?: boolean;
 	search?: string;
 	/**
+	 * Filters that cannot be removed
+	 */
+	fixedFilters?: SearchFilterArgs[];
+	/**
 	 * Filters that can be removed.
 	 * When this value changes dynamic filters stored internally will reset.
 	 */
-	filters?: SearchFilterArgs[];
-	defaultFilters?: SearchFilterArgs[];
+	dynamicFilters?: SearchFilterArgs[];
 }
 
 export function useSearch(props?: UseSearchProps) {
@@ -22,22 +25,18 @@ export function useSearch(props?: UseSearchProps) {
 
 	const searchState = useSearchStore();
 
-	const [filters, setFilters] = useState(props?.filters ?? []);
-	const [filtersFromProps, setFiltersFromProps] = useState(props?.filters);
+	// Filters that can't be removed
 
-	if (filtersFromProps !== props?.filters) {
-		setFiltersFromProps(props?.filters);
-		setFilters(props?.filters ?? []);
-	}
+	const fixedFilters = useMemo(() => props?.fixedFilters ?? [], [props?.fixedFilters]);
 
-	const filtersAsOptions = useMemo(
-		() => argsToOptions(filters, searchState.filterOptions),
-		[filters, searchState.filterOptions]
+	const fixedFiltersAsOptions = useMemo(
+		() => argsToOptions(fixedFilters, searchState.filterOptions),
+		[fixedFilters, searchState.filterOptions]
 	);
 
-	const filtersKeys: Set<string> = useMemo(() => {
+	const fixedFiltersKeys: Set<string> = useMemo(() => {
 		return new Set(
-			filtersAsOptions.map(({ arg, filter }) =>
+			fixedFiltersAsOptions.map(({ arg, filter }) =>
 				getKey({
 					type: filter.name,
 					name: arg.name,
@@ -45,31 +44,79 @@ export function useSearch(props?: UseSearchProps) {
 				})
 			)
 		);
-	}, [filtersAsOptions]);
+	}, [fixedFiltersAsOptions]);
 
-	const updateFilters = useCallback(
+	// Filters that can be removed
+
+	const [dynamicFilters, setDynamicFilters] = useState(props?.dynamicFilters ?? []);
+	const [dynamicFiltersFromProps, setDynamicFiltersFromProps] = useState(props?.dynamicFilters);
+
+	if (dynamicFiltersFromProps !== props?.dynamicFilters) {
+		setDynamicFiltersFromProps(props?.dynamicFilters);
+		setDynamicFilters(props?.dynamicFilters ?? []);
+	}
+
+	const dynamicFiltersAsOptions = useMemo(
+		() => argsToOptions(dynamicFilters, searchState.filterOptions),
+		[dynamicFilters, searchState.filterOptions]
+	);
+
+	const dynamicFiltersKeys: Set<string> = useMemo(() => {
+		return new Set(
+			dynamicFiltersAsOptions.map(({ arg, filter }) =>
+				getKey({
+					type: filter.name,
+					name: arg.name,
+					value: arg.value
+				})
+			)
+		);
+	}, [dynamicFiltersAsOptions]);
+
+	const updateDynamicFilters = useCallback(
 		(cb: (args: SearchFilterArgs[]) => SearchFilterArgs[]) =>
-			setFilters((filters) => produce(filters, cb)),
+			setDynamicFilters((filters) => produce(filters, cb)),
 		[]
 	);
 
 	// Merging of filters that should be ORed
 
 	const mergedFilters = useMemo(() => {
-		const value: { arg: SearchFilterArgs; removalIndex: number | null }[] = [];
+		const value: { arg: SearchFilterArgs; removalIndex: number | null }[] = fixedFilters.map(
+			(arg) => ({
+				arg,
+				removalIndex: null
+			})
+		);
 
-		for (const [index, arg] of filters.entries()) {
+		for (const [index, arg] of dynamicFilters.entries()) {
 			const filter = filterRegistry.find((f) => f.extract(arg));
 			if (!filter) continue;
 
-			value.push({
-				arg,
-				removalIndex: index
-			});
+			const fixedEquivalentIndex = fixedFilters.findIndex(
+				(a) => filter.extract(a) !== undefined
+			);
+
+			if (fixedEquivalentIndex !== -1) {
+				const merged = filter.merge(
+					filter.extract(fixedFilters[fixedEquivalentIndex]!)! as any,
+					filter.extract(arg)! as any
+				);
+
+				value[fixedEquivalentIndex] = {
+					arg: filter.create(merged),
+					removalIndex: fixedEquivalentIndex
+				};
+			} else {
+				value.push({
+					arg,
+					removalIndex: index
+				});
+			}
 		}
 
 		return value;
-	}, [filters]);
+	}, [fixedFilters, dynamicFilters]);
 
 	// Filters generated from the search query
 
@@ -120,16 +167,17 @@ export function useSearch(props?: UseSearchProps) {
 
 	return {
 		open: props?.open || searchBarFocused,
+		fixedFilters,
+		fixedFiltersKeys,
 		search,
 		rawSearch,
 		setSearch: setRawSearch,
 		searchBarFocused,
 		setSearchBarFocused,
-		defaultFilters: props?.defaultFilters,
-		filters,
-		setFilters,
-		updateFilters,
-		filtersKeys,
+		dynamicFilters,
+		setDynamicFilters,
+		updateDynamicFilters,
+		dynamicFiltersKeys,
 		mergedFilters,
 		allFilters,
 		allFiltersKeys

@@ -38,20 +38,22 @@ export function Component() {
 
 	const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
 
+	const fixedFilters = useMemo(
+		() => [
+			{ object: { tags: { in: [tag!.id] } } },
+			...(explorerSettingsSnapshot.layoutMode === 'media'
+				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
+				: [])
+		],
+		[tag, explorerSettingsSnapshot.layoutMode]
+	);
+
 	const search = useSearch({
-		defaultFilters: [{ object: { tags: { in: [tag!.id] } } }]
+		fixedFilters
 	});
 
 	const objects = useObjectsExplorerQuery({
-		arg: {
-			take: 100,
-			filters: [
-				...search.allFilters,
-				...(explorerSettingsSnapshot.layoutMode === 'media'
-					? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
-					: [])
-			]
-		},
+		arg: { take: 100, filters: search.allFilters },
 		order: explorerSettings.useSettingsSnapshot().order
 	});
 

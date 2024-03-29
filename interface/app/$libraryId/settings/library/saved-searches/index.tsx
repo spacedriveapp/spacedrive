@@ -82,13 +82,13 @@ function EditForm({ savedSearch, onDelete }: { savedSearch: SavedSearch; onDelet
 		updateSavedSearch.mutate([savedSearch.id, { name: data.name ?? '' }]);
 	});
 
-	const filters = useMemo(() => {
+	const fixedFilters = useMemo(() => {
 		if (savedSearch.filters === null) return [];
 
 		return JSON.parse(savedSearch.filters) as SearchFilterArgs[];
 	}, [savedSearch.filters]);
 
-	const search = useSearch({ search: savedSearch.search ?? undefined, filters });
+	const search = useSearch({ search: savedSearch.search ?? undefined, fixedFilters });
 
 	return (
 		<Form form={form}>

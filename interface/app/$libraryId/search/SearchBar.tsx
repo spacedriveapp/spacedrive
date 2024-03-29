@@ -81,7 +81,6 @@ export default ({ redirectToSearch }: Props) => {
 
 	function clearValue() {
 		search.setSearch('');
-		search.setFilters([]);
 	}
 
 	return (
@@ -100,10 +99,7 @@ export default ({ redirectToSearch }: Props) => {
 					search.setSearchBarFocused(false);
 				}
 			}}
-			onFocus={() => {
-				search.setSearchBarFocused(true);
-				if (search.defaultFilters) search.setFilters(search.defaultFilters);
-			}}
+			onFocus={() => search.setSearchBarFocused(true)}
 			right={
 				<div className="pointer-events-none flex h-7 items-center space-x-1 opacity-70 group-focus-within:hidden">
 					{
