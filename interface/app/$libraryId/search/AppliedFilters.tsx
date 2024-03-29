@@ -55,11 +55,13 @@ export const AppliedFilters = ({ allowRemove = true }: { allowRemove?: boolean }
 									onDelete={
 										removalIndex !== null && allowRemove
 											? () => {
-													search.updateFilters((dyanmicFilters) => {
-														dyanmicFilters.splice(removalIndex, 1);
+													search.updateDynamicFilters(
+														(dyanmicFilters) => {
+															dyanmicFilters.splice(removalIndex, 1);
 
-														return dyanmicFilters;
-													});
+															return dyanmicFilters;
+														}
+													);
 												}
 											: undefined
 									}
