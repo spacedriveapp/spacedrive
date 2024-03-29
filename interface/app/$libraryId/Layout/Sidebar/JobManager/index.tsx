@@ -1,7 +1,7 @@
 import { Check, PushPin, Trash, X } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
 	JobGroup as IJobGroup,
 	useJobProgress,
@@ -10,7 +10,6 @@ import {
 } from '@sd/client';
 import { Button, PopoverClose, toast, Tooltip } from '@sd/ui';
 import { useIsDark, useLocale } from '~/hooks';
-import { useTabsContext } from '~/TabsContext';
 
 import { getSidebarStore, useSidebarStore } from '../store';
 import IsRunningJob from './IsRunningJob';
@@ -48,7 +47,6 @@ function sortJobData(jobs: IJobGroup[]) {
 export function JobManager() {
 	const queryClient = useQueryClient();
 	const [toggleConfirmation, setToggleConfirmation] = useState(false);
-	const tabs = useTabsContext();
 	const store = useSidebarStore();
 
 	const jobGroups = useLibraryQuery(['jobs.reports']);

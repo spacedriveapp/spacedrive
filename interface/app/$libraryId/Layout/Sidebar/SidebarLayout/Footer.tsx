@@ -1,5 +1,5 @@
 import { Gear } from '@phosphor-icons/react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
 	JobManagerContextProvider,
@@ -20,12 +20,12 @@ import FeedbackButton from './FeedbackButton';
 
 export default () => {
 	const { library } = useClientContext();
+	const { visible } = useRoutingContext();
+	const { t } = useLocale();
 	const debugState = useDebugState();
 	const navigate = useNavigate();
 	const symbols = useKeysMatcher(['Meta', 'Shift']);
 	const store = useSidebarStore();
-	const { visible } = useRoutingContext();
-	const { t } = useLocale();
 
 	useShortcut('navToSettings', (e) => {
 		e.stopPropagation();
@@ -59,7 +59,7 @@ export default () => {
 					<SyncStatusIndicator />
 				</LibraryContextProvider>
 			)}
-			<div className="flex items-center justify-between w-full">
+			<div className="flex w-full items-center justify-between">
 				<div className="flex">
 					<ButtonLink
 						to="settings/client/general"

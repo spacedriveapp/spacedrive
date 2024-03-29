@@ -112,7 +112,7 @@ function Tabs() {
 	return (
 		<div
 			data-tauri-drag-region
-			className="flex flex-row items-center w-full overflow-x-auto text-xs divide-x no-scrollbar h-9 divide-sidebar-divider text-ink-dull"
+			className="no-scrollbar flex h-9 w-full flex-row items-center divide-x divide-sidebar-divider overflow-x-auto text-xs text-ink-dull"
 		>
 			{ctx.tabs.map(({ title }, index) => (
 				<button
@@ -135,7 +135,7 @@ function Tabs() {
 								e.stopPropagation();
 								removeTab(index);
 							}}
-							className="absolute p-1 transition-opacity rounded opacity-0 right-2 text-ink hover:bg-app-selected group-hover:opacity-100"
+							className="absolute right-2 rounded p-1 text-ink opacity-0 transition-opacity hover:bg-app-selected group-hover:opacity-100"
 						>
 							<X />
 						</div>
@@ -143,7 +143,7 @@ function Tabs() {
 				</button>
 			))}
 			<div
-				className="flex items-center justify-start flex-1 h-full px-2 border-t border-sidebar-divider bg-sidebar/30"
+				className="flex h-full flex-1 items-center justify-start border-t border-sidebar-divider bg-sidebar/30 px-2"
 				data-tauri-drag-region
 			>
 				<Tooltip keybinds={[keybind.icon, 'T']} label={t('new_tab')}>
