@@ -73,7 +73,7 @@ export const Popover = ({
 						'bg-app-overlay',
 						'border border-app-line',
 						'shadow-2xl',
-						'animate-in fade-in',
+						'radix-state-closed:animate-out radix-state-closed:fade-out-0',
 						className
 					)}
 					{...props}
