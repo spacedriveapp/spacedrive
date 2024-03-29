@@ -25,19 +25,7 @@ export function Component() {
 
 	const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
 
-	const fixedFilters = useMemo<SearchFilterArgs[]>(
-		() => [
-			// { object: { favorite: true } },
-			...(explorerSettingsSnapshot.layoutMode === 'media'
-				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
-				: [])
-		],
-		[explorerSettingsSnapshot.layoutMode]
-	);
-
-	const search = useSearch({
-		fixedFilters
-	});
+	const search = useSearch();
 
 	const objects = useObjectsExplorerQuery({
 		arg: {
@@ -45,7 +33,10 @@ export function Component() {
 			filters: [
 				...search.allFilters,
 				// TODO: Add filter to search options
-				{ object: { favorite: true } }
+				{ object: { favorite: true } },
+				...(explorerSettingsSnapshot.layoutMode === 'media'
+					? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
+					: [])
 			]
 		},
 		order: explorerSettings.useSettingsSnapshot().order

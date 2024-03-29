@@ -27,13 +27,19 @@ export function Component() {
 		}, []),
 		orderingKeys: objectOrderingKeysSchema
 	});
+	const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
 
-	const search = useSearchWithFilters(explorerSettings);
+	const search = useSearchWithFilters();
 
 	const objects = useObjectsExplorerQuery({
 		arg: {
 			take: 100,
-			filters: search.allFilters
+			filters: [
+				...search.allFilters,
+				...(explorerSettingsSnapshot.layoutMode === 'media'
+					? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
+					: [])
+			]
 		},
 		order: explorerSettings.useSettingsSnapshot().order
 	});
@@ -77,43 +83,31 @@ export function Component() {
 	);
 }
 
-function useSearchWithFilters(explorerSettings: UseExplorerSettings<ObjectOrder>) {
+function useSearchWithFilters() {
 	const [searchParams, setSearchParams] = useRawSearchParams();
-	const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
-
-	const fixedFilters = useMemo(
-		() => [
-			...(explorerSettingsSnapshot.layoutMode === 'media'
-				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
-				: [])
-		],
-		[explorerSettingsSnapshot.layoutMode]
-	);
 
 	const filtersParam = searchParams.get('filters');
-	const dynamicFilters = useMemo(() => JSON.parse(filtersParam ?? '[]'), [filtersParam]);
+	const filters = useMemo(() => JSON.parse(filtersParam ?? '[]'), [filtersParam]);
 
 	const searchQueryParam = searchParams.get('search');
 
 	const search = useSearch({
-		open: !!searchQueryParam || dynamicFilters.length > 0 || undefined,
+		open: !!searchQueryParam || filters.length > 0 || undefined,
 		search: searchParams.get('search') ?? undefined,
-		fixedFilters,
-		dynamicFilters
+		filters
 	});
 
 	useEffect(() => {
 		setSearchParams(
 			(p) => {
-				if (search.dynamicFilters.length > 0)
-					p.set('filters', JSON.stringify(search.dynamicFilters));
+				if (search.filters.length > 0) p.set('filters', JSON.stringify(search.filters));
 				else p.delete('filters');
 
 				return p;
 			},
 			{ replace: true }
 		);
-	}, [search.dynamicFilters, setSearchParams]);
+	}, [search.filters, setSearchParams]);
 
 	const searchQuery = search.search;
 
