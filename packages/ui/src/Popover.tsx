@@ -12,7 +12,6 @@ interface Props extends Radix.PopoverContentProps {
 	disabled?: boolean;
 	keybind?: string[];
 	popover: ReturnType<typeof usePopover>;
-	pinned?: boolean;
 }
 
 export const PopoverContainer = tw.div`flex flex-col p-1.5`;
@@ -25,15 +24,7 @@ export function usePopover() {
 	return { open, setOpen };
 }
 
-export const Popover = ({
-	popover,
-	trigger,
-	children,
-	disabled,
-	pinned,
-	className,
-	...props
-}: Props) => {
+export const Popover = ({ popover, trigger, children, disabled, className, ...props }: Props) => {
 	const triggerRef = useRef<HTMLButtonElement>(null);
 
 	const { setOpen } = popover;
@@ -56,7 +47,7 @@ export const Popover = ({
 	}, [setOpen]);
 
 	return (
-		<Radix.Root open={pinned || popover.open} onOpenChange={setOpen}>
+		<Radix.Root open={popover.open} onOpenChange={setOpen}>
 			<Radix.Trigger ref={triggerRef} disabled={disabled} asChild>
 				{trigger}
 			</Radix.Trigger>

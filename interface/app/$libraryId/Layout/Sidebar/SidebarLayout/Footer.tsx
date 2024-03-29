@@ -77,8 +77,10 @@ export default () => {
 					</ButtonLink>
 					<JobManagerContextProvider>
 						<Popover
-							popover={jobManagerPopover}
-							pinned={store.pinJobManager && visible}
+							popover={{
+								...jobManagerPopover,
+								open: jobManagerPopover.open || (store.pinJobManager && visible)
+							}}
 							trigger={
 								<Button
 									id="job-manager-button"
