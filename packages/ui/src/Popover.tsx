@@ -47,7 +47,7 @@ export const Popover = ({ popover, trigger, children, disabled, className, ...pr
 	}, [setOpen]);
 
 	return (
-		<Radix.Root open={popover.open} onOpenChange={popover.setOpen}>
+		<Radix.Root open={popover.open} onOpenChange={setOpen}>
 			<Radix.Trigger ref={triggerRef} disabled={disabled} asChild>
 				{trigger}
 			</Radix.Trigger>
@@ -64,7 +64,7 @@ export const Popover = ({ popover, trigger, children, disabled, className, ...pr
 						'bg-app-overlay',
 						'border border-app-line',
 						'shadow-2xl',
-						'animate-in fade-in',
+						'radix-state-closed:animate-out radix-state-closed:fade-out-0',
 						className
 					)}
 					{...props}

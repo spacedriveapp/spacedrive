@@ -68,7 +68,7 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 					{/* Search Input */}
 					<View style={tw`flex-1 flex-row items-center gap-2`}>
 						<View
-							style={tw`h-10 w-full max-w-[80%] flex-wrap rounded-md border border-app-inputborder bg-app-input`}
+							style={tw`h-10 w-4/5 flex-wrap rounded-md border border-app-inputborder bg-app-input`}
 						>
 							<View style={tw`flex h-full flex-row items-center px-3`}>
 								<View style={tw`mr-3`}>

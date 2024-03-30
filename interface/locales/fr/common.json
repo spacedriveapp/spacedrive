@@ -450,5 +450,6 @@
 	"go_to_tag": "Aller au tag",
 	"no_labels": "Pas d'étiquettes",
 	"search_for_files_and_actions": "Rechercher des fichiers et des actions...",
-	"toggle_command_palette": "Basculer la palette de commandes"
+	"toggle_command_palette": "Basculer la palette de commandes",
+	"pin": "Épingle"
 }

@@ -165,9 +165,7 @@ function useTabKeybinds(props: { addTab(): void; removeTab(index: number): void 
 
 	useShortcut('newTab', (e) => {
 		if (!visible) return;
-
 		e.stopPropagation();
-
 		props.addTab();
 	});
 
