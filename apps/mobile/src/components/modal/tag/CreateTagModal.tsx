@@ -28,9 +28,6 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	const submitPlausibleEvent = usePlausibleEvent();
 
 	const { mutate: createTag } = useLibraryMutation('tags.create', {
-		onMutate: () => {
-			console.log('Creating tag');
-		},
 		onSuccess: () => {
 			// Reset form
 			setTagName('');
