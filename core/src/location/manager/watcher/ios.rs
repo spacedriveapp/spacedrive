@@ -2,8 +2,13 @@
 
 use crate::{invalidate_query, library::Library, location::manager::LocationManagerError, Node};
 
-use sd_prisma::prisma::location;
-use sd_utils::error::FileIOError;
+use sd_file_path_helper::{
+	check_file_path_exists, file_path_with_object, get_inode, get_inode_from_path, FilePathError,
+	IsolatedFilePathData,
+};
+use sd_prisma::prisma::{file_path, location};
+use sd_utils::{db::inode_to_db, error::FileIOError};
+use tracing_subscriber::field::debug;
 
 use std::{
 	collections::HashMap,
@@ -20,9 +25,18 @@ use tokio::{fs, time::Instant};
 use tracing::{debug, error, trace};
 
 use super::{
-	utils::{create_dir, create_file, recalculate_directories_size, remove, rename, update_file},
+	utils::{
+		create_dir, create_file, extract_inode_from_path, extract_location_path,
+		recalculate_directories_size, remove, rename, update_file,
+	},
 	EventHandler, INode, InstantAndPath, HUNDRED_MILLIS, ONE_SECOND,
 };
+
+#[derive(Debug)]
+enum InodeBufferTypes {
+	Old,
+	New,
+}
 
 #[derive(Debug)]
 pub(super) struct IosEventHandler<'lib> {
@@ -39,6 +53,7 @@ pub(super) struct IosEventHandler<'lib> {
 	to_recalculate_size: HashMap<PathBuf, Instant>,
 	path_and_instant_buffer: Vec<(PathBuf, Instant)>,
 	rename_event_queue: HashMap<PathBuf, Instant>,
+	rename_buffer: Vec<(INode, PathBuf, InodeBufferTypes)>,
 }
 
 #[async_trait]
@@ -65,6 +80,7 @@ impl<'lib> EventHandler<'lib> for IosEventHandler<'lib> {
 			paths_map_buffer: Vec::new(),
 			to_recalculate_size: HashMap::new(),
 			path_and_instant_buffer: Vec::new(),
+			rename_buffer: Vec::new(),
 		}
 	}
 
@@ -80,22 +96,59 @@ impl<'lib> EventHandler<'lib> for IosEventHandler<'lib> {
 
 				self.rename_event_queue.insert(path.clone(), Instant::now());
 
-				create_dir(
-					self.location_id,
-					&path,
-					&fs::metadata(&path).await.map_err(|e| {
-						FileIOError::from((
+				// Get metadata of the newly created directory
+				// and create the directory in the database
+				match fs::metadata(&path).await {
+					Ok(meta) => {
+						let inode = get_inode(&meta);
+
+						if let Some(file_path) = self
+							.library
+							.db
+							.file_path()
+							.find_unique(file_path::location_id_inode(
+								self.location_id,
+								inode_to_db(inode),
+							))
+							.include(file_path_with_object::include())
+							.exec()
+							.await?
+						{
+							let root_location_path =
+								extract_location_path(self.location_id, self.library).await?;
+							debug!("Root location path: {:#?}", root_location_path);
+							let old_path = match IsolatedFilePathData::try_from(&file_path) {
+								Ok(data) => root_location_path.join(data),
+								Err(e) => {
+									error!("Failed to extract old path data: {:#?}", e);
+									return Ok(());
+								}
+							};
+
+							debug!(
+									"Directory exists in DB with path: {:#?} -> So it must be a rename event",
+									old_path
+								);
+
+							rename(self.location_id, &path, &old_path, meta, self.library).await?;
+
+							invalidate_query!(self.library, "search.paths");
+							invalidate_query!(self.library, "search.objects");
+						} else {
+							debug!("Directory does not exist in DB, creating it: {:#?}", path);
+							create_dir(self.location_id, &path, &meta, self.node, self.library)
+								.await?;
+						}
+					}
+					Err(e) => {
+						return Err(FileIOError::from((
 							&path,
 							e,
 							"Failed to extract metadata of newly create directory in the watcher",
 						))
-					})?,
-					self.node,
-					self.library,
-				)
-				.await?;
-
-				self.latest_created_dir = Some(path);
+						.into())
+					}
+				};
 			}
 
 			EventKind::Create(CreateKind::File)
@@ -110,6 +163,60 @@ impl<'lib> EventHandler<'lib> for IosEventHandler<'lib> {
 				// that effectively resets the timer for the file to be updated <- Copied from macos.rs
 				let path = paths.remove(0);
 				self.rename_event_queue.insert(path.clone(), Instant::now());
+
+				match fs::metadata(&path).await {
+					Ok(meta) => {
+						let inode = get_inode(&meta);
+
+						debug!(
+							"File exists in DB with inode: {:#?} -> So it must be a rename event",
+							inode
+						);
+
+						if let Some(file_path) = self
+							.library
+							.db
+							.file_path()
+							.find_unique(file_path::location_id_inode(
+								self.location_id,
+								inode_to_db(inode),
+							))
+							.include(file_path_with_object::include())
+							.exec()
+							.await?
+						{
+							let root_location_path =
+								extract_location_path(self.location_id, self.library).await?;
+							debug!("Root location path: {:#?}", root_location_path);
+							let old_path = match IsolatedFilePathData::try_from(&file_path) {
+								Ok(data) => root_location_path.join(&data),
+								Err(e) => {
+									error!("Failed to extract old path data: {:#?}", e);
+									return Ok(());
+								}
+							};
+
+							debug!(
+									"File exists in DB with path: {:#?} -> So it must be a rename event",
+									old_path
+								);
+
+							rename(self.location_id, &path, &old_path, meta, self.library).await?;
+
+							invalidate_query!(self.library, "search.paths");
+							invalidate_query!(self.library, "search.objects");
+						}
+					}
+					Err(e) => {
+						return Err(FileIOError::from((
+							&path,
+							e,
+							"Failed to extract metadata of newly create directory in the watcher",
+						))
+						.into())
+					}
+				};
+
 				if self.files_to_update.contains_key(&path) {
 					if let Some(old_instant) =
 						self.files_to_update.insert(path.clone(), Instant::now())
@@ -123,9 +230,23 @@ impl<'lib> EventHandler<'lib> for IosEventHandler<'lib> {
 				}
 			}
 
-			EventKind::Modify(ModifyKind::Name(RenameMode::Any)) => {
-				self.handle_single_rename_event(paths.remove(0)).await?;
-			}
+			// EventKind::Modify(ModifyKind::Name(RenameMode::Any)) => {
+			// 	// Check if inode exists in DB
+			// 	let path = paths.remove(0);
+			// 	let _ = match extract_inode_from_path(self.location_id, &path, self.library).await {
+			// 		Ok(inode) => {
+			// 			debug!(
+			// 				"[MODIFY EVENT] Inode {:#?} exists in DB for Path {:#?}",
+			// 				inode, path
+			// 			);
+			// 			self.rename_buffer
+			// 				.push((inode, path.clone(), InodeBufferTypes::Old));
+			// 		}
+			// 		Err(_) => return Ok(()),
+			// 	};
+
+			// 	self.handle_single_rename_event(path).await?;
+			// }
 
 			// For some reason, iOS doesn't have a Delete Event, so the vent type comes up as this.
 			// Delete Event
@@ -162,6 +283,11 @@ impl<'lib> EventHandler<'lib> for IosEventHandler<'lib> {
 			if let Err(e) = self.handle_rename_remove_eviction().await {
 				error!("Failed to remove file_path: {e:#?}");
 			}
+
+			// Always invalidate the search.paths query because iOS events are fun.
+			debug!("Invalidating search.paths query");
+			invalidate_query!(self.library, "search.paths");
+			invalidate_query!(self.library, "search.objects");
 
 			if !self.to_recalculate_size.is_empty() {
 				if let Err(e) = recalculate_directories_size(
@@ -342,6 +468,54 @@ impl IosEventHandler<'_> {
 			debug!("Updated location name: {:#?}", new_path_name_string.clone());
 		} else {
 			error!("HashMap is empty or index out of bounds");
+		}
+
+		Ok(())
+	}
+
+	async fn handle_rename_buffer(&mut self) -> Result<(), LocationManagerError> {
+		// Handle the rename events
+		// Get all elements with matching inodes
+		let mut old_paths_map = HashMap::new();
+		let mut new_paths_map = HashMap::new();
+		let mut should_invalidate = false;
+
+		for (inode, path, buffer_type) in self.rename_buffer.drain(..) {
+			match buffer_type {
+				InodeBufferTypes::Old => {
+					old_paths_map.insert(inode, (Instant::now(), path));
+				}
+				InodeBufferTypes::New => {
+					new_paths_map.insert(inode, (Instant::now(), path));
+				}
+			}
+		}
+
+		// Edit all database entries with the new paths
+		for (inode, (instant, path)) in new_paths_map.iter() {
+			if let Some((_, old_path)) = old_paths_map.get(inode) {
+				debug!("Renaming file_path: {:#?} to {:#?}", old_path, path);
+				debug!("Both are at the inode: {:#?}", inode);
+				rename(
+					self.location_id,
+					old_path,
+					path,
+					fs::metadata(&old_path)
+						.await
+						.map_err(|e| FileIOError::from((&old_path, e)))?,
+					self.library,
+				)
+				.await?;
+				should_invalidate = true;
+			}
+		}
+
+		// Clear maps and buffers once done
+		self.old_paths_map = old_paths_map;
+		self.new_paths_map = new_paths_map;
+
+		if should_invalidate {
+			invalidate_query!(self.library, "search.paths");
 		}
 
 		Ok(())
