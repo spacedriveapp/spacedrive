@@ -5,7 +5,6 @@ import useResizeObserver from 'use-resize-observer';
 import { useSelector } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { useKeyMatcher, useLocale, useShortcut, useShowControls } from '~/hooks';
-import { useRoutingContext } from '~/RoutingContext';
 import { useTabsContext } from '~/TabsContext';
 
 import { explorerStore } from '../Explorer/store';
@@ -161,35 +160,25 @@ function Tabs() {
 
 function useTabKeybinds(props: { addTab(): void; removeTab(index: number): void }) {
 	const ctx = useTabsContext()!;
-	const { visible } = useRoutingContext();
 
 	useShortcut('newTab', (e) => {
-		if (!visible) return;
 		e.stopPropagation();
+		if (e.shiftKey) return; //to prevent colliding with 'navToSettings' shortcut
 		props.addTab();
 	});
 
 	useShortcut('closeTab', (e) => {
-		if (!visible) return;
-
 		e.stopPropagation();
-
 		props.removeTab(ctx.tabIndex);
 	});
 
 	useShortcut('nextTab', (e) => {
-		if (!visible) return;
-
 		e.stopPropagation();
-
 		ctx.setTabIndex(Math.min(ctx.tabIndex + 1, ctx.tabs.length - 1));
 	});
 
 	useShortcut('previousTab', (e) => {
-		if (!visible) return;
-
 		e.stopPropagation();
-
 		ctx.setTabIndex(Math.max(ctx.tabIndex - 1, 0));
 	});
 }
