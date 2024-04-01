@@ -1,6 +1,6 @@
 import { Repeat, Trash } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
 	arraysEqual,
@@ -11,7 +11,7 @@ import {
 } from '@sd/client';
 import { Button, buttonStyles, Card, dialogManager, Tooltip } from '@sd/ui';
 import { Icon } from '~/components';
-import { useLocale } from '~/hooks';
+import { useIsTextTruncated, useLocale } from '~/hooks';
 
 import DeleteDialog from './DeleteDialog';
 
@@ -22,6 +22,8 @@ interface Props {
 export default ({ location }: Props) => {
 	const navigate = useNavigate();
 	const [hide, setHide] = useState(false);
+	const sizeRef = useRef<HTMLSpanElement>(null);
+	const isSizeTruncated = useIsTextTruncated(sizeRef);
 
 	const { t } = useLocale();
 
@@ -55,46 +57,6 @@ export default ({ location }: Props) => {
 			</div>
 			<div className="flex grow" />
 			<div className="flex h-[45px] w-full max-w-fit space-x-2 p-2">
-				{/* This is a fake button, do not add disabled prop pls */}
-				<Tooltip
-					position="top"
-					className="flex"
-					tooltipClassName="max-w-[140px]"
-					label={
-						online
-							? t('location_connected_tooltip')
-							: t('location_disconnected_tooltip')
-					}
-				>
-					<div
-						className={buttonStyles({
-							variant: 'gray',
-							className: 'pointer-events-none flex !px-2 !py-1.5'
-						})}
-					>
-						<div
-							className={clsx(
-								'size-2 rounded-full',
-								online ? 'bg-green-500' : 'bg-red-500'
-							)}
-						/>
-						<span className="ml-1.5 text-xs text-ink-dull">
-							{online ? t('connected') : t('disconnected')}
-						</span>
-					</div>
-				</Tooltip>
-				<Button
-					onClick={(e: { stopPropagation: () => void }) => {
-						e.stopPropagation();
-					}}
-					variant="gray"
-					className="pointer-events-none flex !px-2 !py-1.5"
-				>
-					<p className="text-ink-dull">{t('size')}:</p>
-					<span className="ml-1.5 text-xs text-ink-dull">{`${byteSize(
-						location.size_in_bytes
-					)}`}</span>
-				</Button>
 				<Button
 					variant="gray"
 					className="!p-1.5"
@@ -126,6 +88,59 @@ export default ({ location }: Props) => {
 						<Repeat className="size-4" />
 					</Tooltip>
 				</Button>
+				<Tooltip
+					position="top"
+					label={
+						isSizeTruncated
+							? `${byteSize(location.size_in_bytes).value}
+							${byteSize(location.size_in_bytes).unit}`
+							: null
+					}
+				>
+					<Button
+						onClick={(e: { stopPropagation: () => void }) => {
+							e.stopPropagation();
+						}}
+						variant="gray"
+						className="pointer-events-none flex w-[66px]"
+					>
+						<span ref={sizeRef} className="max-w-[34px] truncate text-xs text-ink-dull">
+							{byteSize(location.size_in_bytes).value}
+						</span>
+						<span className="ml-px text-[10px] text-ink-dull/60">
+							{byteSize(location.size_in_bytes).unit}
+						</span>
+					</Button>
+				</Tooltip>
+
+				{/* This is a fake button, do not add disabled prop pls */}
+				<Tooltip
+					position="top"
+					className="flex"
+					tooltipClassName="max-w-[140px]"
+					label={
+						online
+							? t('location_connected_tooltip')
+							: t('location_disconnected_tooltip')
+					}
+				>
+					<div
+						className={buttonStyles({
+							variant: 'gray',
+							className: 'pointer-events-none flex !px-2 !py-1.5'
+						})}
+					>
+						<div
+							className={clsx(
+								'size-2 rounded-full',
+								online ? 'bg-green-500' : 'bg-red-500'
+							)}
+						/>
+						<span className="ml-1.5 truncate text-xs text-ink-dull">
+							{online ? t('connected') : t('disconnected')}
+						</span>
+					</div>
+				</Tooltip>
 				{/* <Button variant="gray" className="!p-1.5">
 					<CogIcon className="w-4 h-4" />
 				</Button> */}
