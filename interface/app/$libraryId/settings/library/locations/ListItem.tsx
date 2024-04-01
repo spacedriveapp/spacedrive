@@ -22,8 +22,6 @@ interface Props {
 export default ({ location }: Props) => {
 	const navigate = useNavigate();
 	const [hide, setHide] = useState(false);
-	const sizeRef = useRef<HTMLSpanElement>(null);
-	const isSizeTruncated = useIsTextTruncated(sizeRef);
 
 	const { t } = useLocale();
 
@@ -57,62 +55,24 @@ export default ({ location }: Props) => {
 			</div>
 			<div className="flex grow" />
 			<div className="flex h-[45px] w-full max-w-fit space-x-2 p-2">
-				<Button
-					variant="gray"
-					className="!p-1.5"
-					onClick={(e: { stopPropagation: () => void }) => {
-						e.stopPropagation();
-						dialogManager.create((dp) => (
-							<DeleteDialog
-								{...dp}
-								onSuccess={() => setHide(true)}
-								locationId={location.id}
-							/>
-						));
-					}}
-				>
-					<Tooltip label={t('delete_location')}>
-						<Trash className="size-4" />
-					</Tooltip>
-				</Button>
-				<Button
-					variant="gray"
-					className="!p-1.5"
-					onClick={(e: { stopPropagation: () => void }) => {
-						e.stopPropagation();
-						// this should cause a lite directory rescan, but this will do for now, so the button does something useful
-						fullRescan.mutate({ location_id: location.id, reidentify_objects: false });
-					}}
-				>
-					<Tooltip label={t('rescan_location')}>
-						<Repeat className="size-4" />
-					</Tooltip>
-				</Button>
-				<Tooltip
-					position="top"
-					label={
-						isSizeTruncated
-							? `${byteSize(location.size_in_bytes).value}
-							${byteSize(location.size_in_bytes).unit}`
-							: null
-					}
-				>
-					<Button
+				<Tooltip position="top" label={t('size')}>
+					<div
+						className={buttonStyles({
+							variant: 'gray',
+							className: 'pointer-events-none'
+						})}
 						onClick={(e: { stopPropagation: () => void }) => {
 							e.stopPropagation();
 						}}
-						variant="gray"
-						className="pointer-events-none flex w-[66px]"
 					>
-						<span ref={sizeRef} className="max-w-[34px] truncate text-xs text-ink-dull">
+						<span className="max-w-[34px] truncate text-xs text-ink-dull">
 							{byteSize(location.size_in_bytes).value}
 						</span>
 						<span className="ml-px text-[10px] text-ink-dull/60">
 							{byteSize(location.size_in_bytes).unit}
 						</span>
-					</Button>
+					</div>
 				</Tooltip>
-
 				{/* This is a fake button, do not add disabled prop pls */}
 				<Tooltip
 					position="top"
@@ -127,7 +87,7 @@ export default ({ location }: Props) => {
 					<div
 						className={buttonStyles({
 							variant: 'gray',
-							className: 'pointer-events-none flex !px-2 !py-1.5'
+							className: 'pointer-events-none flex'
 						})}
 					>
 						<div
@@ -140,6 +100,40 @@ export default ({ location }: Props) => {
 							{online ? t('connected') : t('disconnected')}
 						</span>
 					</div>
+				</Tooltip>
+				<Tooltip position="top" label={t('delete')}>
+					<Button
+						variant="gray"
+						className="h-full !p-1.5"
+						onClick={(e: { stopPropagation: () => void }) => {
+							e.stopPropagation();
+							dialogManager.create((dp) => (
+								<DeleteDialog
+									{...dp}
+									onSuccess={() => setHide(true)}
+									locationId={location.id}
+								/>
+							));
+						}}
+					>
+						<Trash className="size-4" />
+					</Button>
+				</Tooltip>
+				<Tooltip position="top" label={t('rescan')}>
+					<Button
+						variant="gray"
+						className="h-full !p-1.5"
+						onClick={(e: { stopPropagation: () => void }) => {
+							e.stopPropagation();
+							// this should cause a lite directory rescan, but this will do for now, so the button does something useful
+							fullRescan.mutate({
+								location_id: location.id,
+								reidentify_objects: false
+							});
+						}}
+					>
+						<Repeat className="size-4" />
+					</Button>
 				</Tooltip>
 				{/* <Button variant="gray" className="!p-1.5">
 					<CogIcon className="w-4 h-4" />
