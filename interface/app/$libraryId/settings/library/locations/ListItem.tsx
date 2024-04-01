@@ -1,6 +1,6 @@
 import { Repeat, Trash } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
 	arraysEqual,
@@ -11,7 +11,7 @@ import {
 } from '@sd/client';
 import { Button, buttonStyles, Card, dialogManager, Tooltip } from '@sd/ui';
 import { Icon } from '~/components';
-import { useIsTextTruncated, useLocale } from '~/hooks';
+import { useLocale } from '~/hooks';
 
 import DeleteDialog from './DeleteDialog';
 
