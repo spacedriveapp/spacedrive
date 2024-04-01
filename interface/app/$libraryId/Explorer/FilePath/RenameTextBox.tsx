@@ -2,6 +2,8 @@ import clsx from 'clsx';
 import {
 	forwardRef,
 	memo,
+	ReactElement,
+	ReactNode,
 	useCallback,
 	useEffect,
 	useImperativeHandle,
@@ -306,12 +308,14 @@ interface TruncatedTextProps {
 }
 
 const TruncatedText = memo(
-	forwardRef<TruncateMarkup, TruncatedTextProps>(({ text, lines, onTruncate }, ref) => {
-		const ellipsis = useCallback(() => {
-			const extension = text.lastIndexOf('.');
-			if (extension !== -1) return `...${text.slice(-(text.length - extension + 2))}`;
-			return `...${text.slice(-8)}`;
-		}, [text]);
+	forwardRef<TruncateMarkup, TruncatedTextProps>(({ text, lines = 1, onTruncate }, ref) => {
+		const ellipsis = useCallback(
+			(rootEl: ReactNode) => {
+				const truncatedText = (rootEl as ReactElement<{ children: string }>).props.children;
+				return `...${text.slice(-(truncatedText.length / lines))}`;
+			},
+			[text, lines]
+		);
 
 		return (
 			<TruncateMarkup ref={ref} lines={lines} ellipsis={ellipsis} onTruncate={onTruncate}>
