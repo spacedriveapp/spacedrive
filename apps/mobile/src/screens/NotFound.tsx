@@ -9,8 +9,8 @@ export default function NotFoundScreen({ navigation }: RootStackScreenProps<'Not
 			<TouchableOpacity
 				onPress={() =>
 					navigation.replace('Root', {
-						screen: 'BrowseStack',
-						params: { screen: 'Browse' }
+						screen: 'Home',
+						params: { screen: 'BrowseStack', params: { screen: 'Browse' } }
 					})
 				}
 				style={tw`mt-4 py-4`}
