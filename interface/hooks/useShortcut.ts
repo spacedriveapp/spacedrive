@@ -169,8 +169,9 @@ export const useShortcut = (shortcut: Shortcuts, func: (e: KeyboardEvent) => voi
 
 	// useKeys doesn't like readonly
 	useKeys(keys as string[], (e) => {
-		if (!visible) return;
 		if (!import.meta.env.DEV) e.preventDefault();
 		return func(e);
+	}, {
+		when: visible
 	});
 };

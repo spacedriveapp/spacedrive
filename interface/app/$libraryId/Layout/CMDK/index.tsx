@@ -21,6 +21,7 @@ import Sparkles from '~/components/Sparkles';
 import { useLocale, useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
+import { useQuickPreviewStore } from '../../Explorer/QuickPreview/store';
 import { explorerStore } from '../../Explorer/store';
 import { AddLocationDialog } from '../../settings/library/locations/AddLocationDialog';
 import { openDirectoryPickerDialog } from '../../settings/library/locations/openDirectoryPickerDialog';
@@ -30,13 +31,14 @@ import CMDKTags from './pages/CMDKTags';
 
 const CMDK = () => {
 	const [isOpen, setIsOpen] = useState<boolean>(false);
-
+	const quickPreviewStore = useQuickPreviewStore();
 	const platform = usePlatform();
 	const libraryId = useLibraryContext().library.uuid;
 
 	useShortcut('toggleCommandPalette', (e) => {
 		e.preventDefault();
 		e.stopPropagation();
+		if (quickPreviewStore.open) return;
 		setIsOpen((v) => !v);
 	});
 
