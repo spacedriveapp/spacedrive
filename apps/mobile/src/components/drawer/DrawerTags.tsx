@@ -2,7 +2,7 @@ import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript
 import { useNavigation } from '@react-navigation/native';
 import { useRef } from 'react';
 import { ColorValue, Pressable, Text, View } from 'react-native';
-import { useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -18,10 +18,14 @@ type DrawerTagItemProps = {
 const DrawerTagItem: React.FC<DrawerTagItemProps> = (props) => {
 	const { tagName, tagColor, onPress } = props;
 	return (
-		<Pressable onPress={onPress} testID="drawer-tag">
-			<View style={twStyle('mb-[4px] flex flex-row items-center rounded px-1 py-2')}>
-				<View style={twStyle('h-3.5 w-3.5 rounded-full', { backgroundColor: tagColor })} />
-				<Text style={twStyle('ml-2 text-sm font-medium text-gray-300')} numberOfLines={1}>
+		<Pressable style={tw`flex-1`} onPress={onPress} testID="drawer-tag">
+			<View
+				style={twStyle(
+					'bg-app-darkBox border border-app-inputborder/50 rounded-full h-auto flex-row items-center gap-2 rounded p-2'
+				)}
+			>
+				<View style={twStyle('h-4 w-4 rounded-full', { backgroundColor: tagColor })} />
+				<Text style={twStyle('text-xs font-medium text-gray-300')} numberOfLines={1}>
 					{tagName}
 				</Text>
 			</View>
@@ -30,8 +34,6 @@ const DrawerTagItem: React.FC<DrawerTagItemProps> = (props) => {
 };
 
 const DrawerTags = () => {
-	const navigation = useNavigation<DrawerNavigationHelpers>();
-
 	const tags = useLibraryQuery(['tags.list']);
 	useNodes(tags.data?.nodes);
 	const tagData = useCache(tags.data?.items);
@@ -41,32 +43,47 @@ const DrawerTags = () => {
 	return (
 		<CollapsibleView
 			title="Tags"
-			titleStyle={tw`text-sm font-semibold text-gray-300`}
-			containerStyle={tw`mb-3 ml-1 mt-6`}
+			titleStyle={tw`text-sm font-semibold text-ink`}
+			containerStyle={tw`mt-6 mb-3 ml-1`}
 		>
-			<View style={tw`mt-2`}>
-				{tagData?.map((tag) => (
-					<DrawerTagItem
-						key={tag.id}
-						tagName={tag.name!}
-						onPress={() =>
-							navigation.navigate('BrowseStack', {
-								screen: 'Tag',
-								params: { id: tag.id }
-							})
-						}
-						tagColor={tag.color as ColorValue}
-					/>
-				))}
+			<View style={tw`flex-row flex-wrap justify-between gap-1 mt-2`}>
+				<TagColumn tags={tagData} dataAmount={[0, 2]} />
+				<TagColumn tags={tagData} dataAmount={[2, 4]} />
 			</View>
 			{/* Add Tag */}
 			<Pressable onPress={() => modalRef.current?.present()}>
-				<View style={tw`mt-1 rounded border border-dashed border-app-line/80`}>
-					<Text style={tw`p-2 text-center text-xs font-bold text-gray-400`}>Add Tag</Text>
+				<View style={tw`mt-2 border border-dashed rounded border-app-line/80`}>
+					<Text style={tw`p-2 text-xs font-bold text-center text-gray-400`}>Add Tag</Text>
 				</View>
 			</Pressable>
 			<CreateTagModal ref={modalRef} />
 		</CollapsibleView>
+	);
+};
+
+interface TagColumnProps {
+	tags?: Tag[];
+	dataAmount: [start: number, end: number];
+}
+
+const TagColumn = ({ tags, dataAmount }: TagColumnProps) => {
+	const navigation = useNavigation<DrawerNavigationHelpers>();
+	return (
+		<View style={tw`flex-col flex-1 gap-1`}>
+			{tags?.slice(dataAmount[0], dataAmount[1]).map((tag: any) => (
+				<DrawerTagItem
+					key={tag.id}
+					tagName={tag.name!}
+					onPress={() =>
+						navigation.navigate('BrowseStack', {
+							screen: 'Tag',
+							params: { id: tag.id }
+						})
+					}
+					tagColor={tag.color as ColorValue}
+				/>
+			))}
+		</View>
 	);
 };
 
