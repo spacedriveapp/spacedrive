@@ -104,7 +104,10 @@ export default ({ redirectToSearch, defaultFilters }: Props) => {
 			}}
 			onFocus={() => {
 				search.setSearchBarFocused(true);
-				search.setFilters?.((f) => defaultFilters ?? f);
+				search.setFilters?.((f) => {
+					if (!f) return defaultFilters;
+					else return f;
+				});
 			}}
 			right={
 				<div className="pointer-events-none flex h-7 items-center space-x-1 opacity-70 group-focus-within:hidden">
