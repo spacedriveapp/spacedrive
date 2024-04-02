@@ -36,7 +36,7 @@ const DrawerLibraryManager = () => {
 						'flex h-10 w-full flex-row items-center justify-between border bg-app-input px-3 shadow-sm',
 						dropdownClosed
 							? 'rounded-md border-app-inputborder'
-							: 'rounded-t-md border-app-inputborder border-b-0'
+							: 'rounded-t-md border-b-0 border-app-inputborder'
 					)}
 				>
 					<Text style={tw`text-sm font-semibold text-ink`}>
@@ -52,7 +52,7 @@ const DrawerLibraryManager = () => {
 			</Pressable>
 			<AnimatedHeight hide={dropdownClosed}>
 				<View
-					style={tw`w-full p-2 border rounded-b-md border-app-inputborder bg-app-input`}
+					style={tw`w-full rounded-b-md border border-app-inputborder bg-app-input p-2`}
 				>
 					{/* Libraries */}
 					{libraries.data?.map((library) => {

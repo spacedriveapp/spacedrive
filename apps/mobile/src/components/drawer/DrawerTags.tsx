@@ -21,7 +21,7 @@ const DrawerTagItem: React.FC<DrawerTagItemProps> = (props) => {
 		<Pressable style={tw`flex-1`} onPress={onPress} testID="drawer-tag">
 			<View
 				style={twStyle(
-					'bg-app-darkBox border border-app-inputborder/50 rounded-full h-auto flex-row items-center gap-2 rounded p-2'
+					'h-auto flex-row items-center gap-2 rounded border border-app-inputborder/50 bg-app-darkBox p-2'
 				)}
 			>
 				<View style={twStyle('h-4 w-4 rounded-full', { backgroundColor: tagColor })} />
@@ -44,16 +44,16 @@ const DrawerTags = () => {
 		<CollapsibleView
 			title="Tags"
 			titleStyle={tw`text-sm font-semibold text-ink`}
-			containerStyle={tw`mt-6 mb-3 ml-1`}
+			containerStyle={tw`mb-3 ml-1 mt-6`}
 		>
-			<View style={tw`flex-row flex-wrap justify-between gap-1 mt-2`}>
+			<View style={tw`mt-2 flex-row flex-wrap justify-between gap-1`}>
 				<TagColumn tags={tagData} dataAmount={[0, 2]} />
 				<TagColumn tags={tagData} dataAmount={[2, 4]} />
 			</View>
 			{/* Add Tag */}
 			<Pressable onPress={() => modalRef.current?.present()}>
-				<View style={tw`mt-2 border border-dashed rounded border-app-line/80`}>
-					<Text style={tw`p-2 text-xs font-bold text-center text-gray-400`}>Add Tag</Text>
+				<View style={tw`mt-2 rounded border border-dashed border-app-line/80`}>
+					<Text style={tw`p-2 text-center text-xs font-bold text-gray-400`}>Add Tag</Text>
 				</View>
 			</Pressable>
 			<CreateTagModal ref={modalRef} />
@@ -69,7 +69,7 @@ interface TagColumnProps {
 const TagColumn = ({ tags, dataAmount }: TagColumnProps) => {
 	const navigation = useNavigation<DrawerNavigationHelpers>();
 	return (
-		<View style={tw`flex-col flex-1 gap-1`}>
+		<View style={tw`flex-1 flex-col gap-1`}>
 			{tags?.slice(dataAmount[0], dataAmount[1]).map((tag: any) => (
 				<DrawerTagItem
 					key={tag.id}

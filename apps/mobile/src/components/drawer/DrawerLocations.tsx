@@ -25,16 +25,16 @@ const DrawerLocationItem: React.FC<DrawerLocationItemProps> = ({
 		<Pressable onPress={onPress}>
 			<View
 				style={twStyle(
-					'bg-app-darkBox border border-app-inputborder/50 rounded-full w-full h-auto justify-between flex-row items-center rounded p-2'
+					'h-auto w-full flex-row items-center justify-between rounded border border-app-inputborder/50 bg-app-darkBox p-2'
 				)}
 			>
 				<View style={tw`flex-row items-center gap-1`}>
 					<FolderIcon size={24} />
-					<Text style={twStyle('font-medium text-xs text-ink')} numberOfLines={1}>
+					<Text style={twStyle('text-xs font-medium text-ink')} numberOfLines={1}>
 						{folderName}
 					</Text>
 				</View>
-				<View style={tw`py-0.5 px-1 border rounded-md border-app-lightborder bg-app-box`}>
+				<View style={tw`rounded-md border border-app-lightborder bg-app-box px-1 py-0.5`}>
 					<Text style={tw`text-[11px] font-medium text-ink-dull`} numberOfLines={1}>
 						{`${byteSize(size)}`}
 					</Text>
@@ -58,9 +58,9 @@ const DrawerLocations = () => {
 			<CollapsibleView
 				title="Locations"
 				titleStyle={tw`text-sm font-semibold text-ink`}
-				containerStyle={tw`mt-6 mb-3 ml-1`}
+				containerStyle={tw`mb-3 ml-1 mt-6`}
 			>
-				<View style={tw`flex-col justify-between gap-1 mt-2`}>
+				<View style={tw`mt-2 flex-col justify-between gap-1`}>
 					{locations?.slice(0, 4).map((location) => (
 						<DrawerLocationItem
 							key={location.id}
@@ -78,8 +78,8 @@ const DrawerLocations = () => {
 				</View>
 				{/* Add Location */}
 				<Pressable onPress={() => modalRef.current?.present()}>
-					<View style={tw`mt-2 border border-dashed rounded border-app-line/80`}>
-						<Text style={tw`p-2 text-xs font-bold text-center text-ink-dull`}>
+					<View style={tw`mt-2 rounded border border-dashed border-app-line/80`}>
+						<Text style={tw`p-2 text-center text-xs font-bold text-ink-dull`}>
 							Add Location
 						</Text>
 					</View>

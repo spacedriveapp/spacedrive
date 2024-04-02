@@ -52,7 +52,7 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 					{/* Tags */}
 					<DrawerTags />
 				</View>
-				<View style={tw`flex flex-row items-center w-full gap-x-4`}>
+				<View style={tw`flex w-full flex-row items-center gap-x-4`}>
 					{/* Job Manager */}
 					<JobManagerContextProvider>
 						<Pressable onPress={() => modalRef.current?.present()}>

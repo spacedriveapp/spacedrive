@@ -52,8 +52,8 @@ export default function Header({
 				paddingTop: headerHeight + (isAndroid ? 15 : 0)
 			})}
 		>
-			<View style={tw`justify-center w-full h-auto px-5 pb-4 mx-auto`}>
-				<View style={tw`flex-row items-center justify-between w-full`}>
+			<View style={tw`mx-auto h-auto w-full justify-center px-5 pb-4`}>
+				<View style={tw`w-full flex-row items-center justify-between`}>
 					<View style={tw`flex-row items-center gap-3`}>
 						{navBack && (
 							<Pressable

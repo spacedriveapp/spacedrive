@@ -17,7 +17,7 @@ const ListLibraryItem = ({ name, icon }: CategoryProps) => {
 				<Text style={twStyle(`mt-0 text-sm text-white`)}>{name}</Text>
 			</View>
 			<View
-				style={tw`flex-row items-center justify-center w-10 h-10 px-2 border rounded-full border-app-lightborder/70`}
+				style={tw`h-10 w-10 flex-row items-center justify-center rounded-full border border-app-lightborder/70 px-2`}
 			>
 				<Text style={tw`text-xs font-medium text-ink-dull`}>
 					{Math.floor(Math.random() * 200)}
