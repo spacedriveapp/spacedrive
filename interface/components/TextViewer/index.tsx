@@ -50,7 +50,7 @@ export const TextViewer = memo(
 						if (done) return;
 
 						const chunks = value.split('\n');
-						setLines((lines) => [...lines, ...chunks]);
+						setLines([...chunks]);
 
 						if (isSidebarPreview) return;
 
@@ -73,7 +73,7 @@ export const TextViewer = memo(
 					className={clsx(
 						'relative w-full whitespace-pre text-sm text-ink',
 						codeExtension &&
-							`language-${languageMapping.get(codeExtension) ?? codeExtension}`
+						`language-${languageMapping.get(codeExtension) ?? codeExtension}`
 					)}
 					style={{
 						height: `${rowVirtualizer.getTotalSize()}px`
