@@ -52,7 +52,7 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 					{/* Tags */}
 					<DrawerTags />
 				</View>
-				<View style={tw`flex w-full flex-row items-center gap-x-4`}>
+				<View style={tw`mt-3 flex w-full flex-row items-center gap-x-4`}>
 					{/* Job Manager */}
 					<JobManagerContextProvider>
 						<Pressable onPress={() => modalRef.current?.present()}>
@@ -66,7 +66,7 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 						}}
 						variant="gray"
 					>
-						<Text style={tw`font-medium text-white`}>Feedback</Text>
+						<Text style={tw`text-xs font-medium text-white`}>Feedback</Text>
 					</Button>
 				</View>
 			</View>

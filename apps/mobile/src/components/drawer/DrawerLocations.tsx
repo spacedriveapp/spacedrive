@@ -9,6 +9,7 @@ import { tw, twStyle } from '~/lib/tailwind';
 import FolderIcon from '../icons/FolderIcon';
 import CollapsibleView from '../layout/CollapsibleView';
 import ImportModal from '../modal/ImportModal';
+import { Button } from '../primitive/Button';
 
 type DrawerLocationItemProps = {
 	folderName: string;
@@ -61,7 +62,7 @@ const DrawerLocations = () => {
 				containerStyle={tw`mb-3 ml-1 mt-6`}
 			>
 				<View style={tw`mt-2 flex-col justify-between gap-1`}>
-					{locations?.slice(0, 4).map((location) => (
+					{locations?.slice(0, 3).map((location) => (
 						<DrawerLocationItem
 							key={location.id}
 							size={location.size_in_bytes}
@@ -76,14 +77,35 @@ const DrawerLocations = () => {
 						/>
 					))}
 				</View>
-				{/* Add Location */}
-				<Pressable onPress={() => modalRef.current?.present()}>
-					<View style={tw`mt-2 rounded border border-dashed border-app-line/80`}>
-						<Text style={tw`p-2 text-center text-xs font-bold text-ink-dull`}>
-							Add Location
+				<View style={tw`mt-2 flex-row gap-2`}>
+					{/* Add Location */}
+					<Button
+						style={tw`flex-1 py-0`}
+						onPress={() => modalRef.current?.present()}
+						variant="dashed"
+					>
+						<Text style={tw`p-2 text-center text-xs font-medium text-ink-dull`}>
+							+ Location
 						</Text>
-					</View>
-				</Pressable>
+					</Button>
+					{/* See all locations */}
+					{locations?.length > 3 && (
+						<Button
+							onPress={() => {
+								navigation.navigate('BrowseStack', {
+									screen: 'Locations',
+									initial: false
+								});
+							}}
+							style={tw`flex-1 py-0`}
+							variant="gray"
+						>
+							<Text style={tw`p-2 text-center text-xs font-medium text-ink`}>
+								View all
+							</Text>
+						</Button>
+					)}
+				</View>
 			</CollapsibleView>
 			<ImportModal ref={modalRef} />
 		</>

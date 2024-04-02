@@ -8,6 +8,7 @@ import { tw, twStyle } from '~/lib/tailwind';
 
 import CollapsibleView from '../layout/CollapsibleView';
 import CreateTagModal from '../modal/tag/CreateTagModal';
+import { Button } from '../primitive/Button';
 
 type DrawerTagItemProps = {
 	tagName: string;
@@ -35,6 +36,8 @@ const DrawerTagItem: React.FC<DrawerTagItemProps> = (props) => {
 
 const DrawerTags = () => {
 	const tags = useLibraryQuery(['tags.list']);
+	const navigation = useNavigation<DrawerNavigationHelpers>();
+
 	useNodes(tags.data?.nodes);
 	const tagData = useCache(tags.data?.items);
 
@@ -50,12 +53,33 @@ const DrawerTags = () => {
 				<TagColumn tags={tagData} dataAmount={[0, 2]} />
 				<TagColumn tags={tagData} dataAmount={[2, 4]} />
 			</View>
-			{/* Add Tag */}
-			<Pressable onPress={() => modalRef.current?.present()}>
-				<View style={tw`mt-2 rounded border border-dashed border-app-line/80`}>
-					<Text style={tw`p-2 text-center text-xs font-bold text-gray-400`}>Add Tag</Text>
-				</View>
-			</Pressable>
+			<View style={tw`mt-2 flex-row gap-2`}>
+				{/* Add Tag */}
+				<Button
+					style={tw`flex-1 py-0`}
+					onPress={() => modalRef.current?.present()}
+					variant="dashed"
+				>
+					<Text style={tw`p-2 text-center text-xs font-medium text-ink-dull`}>+ Tag</Text>
+				</Button>
+				{/* See all tags */}
+				{tagData?.length > 4 && (
+					<Button
+						onPress={() => {
+							navigation.navigate('BrowseStack', {
+								screen: 'Tags',
+								initial: false
+							});
+						}}
+						style={tw`flex-1 py-0`}
+						variant="gray"
+					>
+						<Text style={tw`p-2 text-center text-xs font-medium text-ink`}>
+							View all
+						</Text>
+					</Button>
+				)}
+			</View>
 			<CreateTagModal ref={modalRef} />
 		</CollapsibleView>
 	);
@@ -77,7 +101,7 @@ const TagColumn = ({ tags, dataAmount }: TagColumnProps) => {
 					onPress={() =>
 						navigation.navigate('BrowseStack', {
 							screen: 'Tag',
-							params: { id: tag.id }
+							params: { id: tag.id, color: tag.color }
 						})
 					}
 					tagColor={tag.color as ColorValue}
