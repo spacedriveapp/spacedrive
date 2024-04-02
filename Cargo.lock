@@ -1108,15 +1108,6 @@ dependencies = [
 
 [[package]]
 name = "bincode"
-version = "1.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "bincode"
 version = "2.0.0-rc.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f11ea1a0346b94ef188834a65c068a03aec181c94896d481d7a0a40d85b0ce95"
@@ -8295,7 +8286,7 @@ dependencies = [
  "aes-gcm-siv",
  "argon2",
  "balloon-hash",
- "bincode 2.0.0-rc.3",
+ "bincode",
  "blake3",
  "chacha20poly1305",
  "cmov",
@@ -8357,7 +8348,6 @@ dependencies = [
  "specta",
  "tauri",
  "tauri-build",
- "tauri-plugin-window-state",
  "tauri-specta",
  "thiserror",
  "tokio",
@@ -8444,7 +8434,7 @@ dependencies = [
 name = "sd-images"
 version = "0.0.0"
 dependencies = [
- "bincode 2.0.0-rc.3",
+ "bincode",
  "image",
  "libheif-rs",
  "libheif-sys",
@@ -9815,21 +9805,6 @@ dependencies = [
  "syn 1.0.109",
  "tauri-codegen",
  "tauri-utils 1.5.1",
-]
-
-[[package]]
-name = "tauri-plugin-window-state"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa47eaa4047a7b51064caff32f0c6282e2c5adc6ceacdd493ecf1b01fa4b0eaa"
-dependencies = [
- "bincode 1.3.3",
- "bitflags 2.4.1",
- "log",
- "serde",
- "serde_json",
- "tauri",
- "thiserror",
 ]
 
 [[package]]
