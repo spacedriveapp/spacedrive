@@ -18,7 +18,7 @@ export default function BrowseStack() {
 			<Stack.Screen
 				name="Browse"
 				component={BrowseScreen}
-				options={{ header: () => <Header showLibrary title="Browse" /> }}
+				options={{ header: () => <Header showDrawer title="Browse" /> }}
 			/>
 			<Stack.Screen
 				name="Location"

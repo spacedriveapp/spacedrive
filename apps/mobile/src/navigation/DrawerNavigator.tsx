@@ -17,7 +17,12 @@ export default function DrawerNavigator() {
 			initialRouteName="Home"
 			screenOptions={{
 				headerShown: false,
-				drawerStyle: { backgroundColor: tw.color('app-darkBox'), width: '70%' },
+				drawerStyle: {
+					backgroundColor: tw.color('app-darkBox'),
+					width: '70%',
+					borderRightWidth: 1.5,
+					borderRightColor: tw.color('app-cardborder')
+				},
 				overlayColor: 'transparent',
 				drawerType: 'slide',
 				swipeEdgeWidth: 50

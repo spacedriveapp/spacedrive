@@ -6,7 +6,6 @@ import BrowseCategories from '~/components/browse/BrowseCategories';
 import BrowseLocations from '~/components/browse/BrowseLocations';
 import BrowseTags from '~/components/browse/BrowseTags';
 import Jobs from '~/components/browse/Jobs';
-import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { tw } from '~/lib/tailwind';
 
@@ -20,8 +19,6 @@ function JobIcon() {
 }
 
 export default function BrowseScreen() {
-	const modalRef = React.useRef<ModalRef>(null);
-
 	return (
 		<ScreenContainer>
 			<BrowseCategories />
