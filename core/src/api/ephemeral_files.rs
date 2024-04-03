@@ -96,13 +96,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				     name,
 				     context,
 				 }: CreateEphemeralFileArgs| async move {
-					if (context != "empty") || (context != "text") {
+					if (context != *"empty".to_string()) || (context != *"text".to_string()) {
 						return Err(rspc::Error::new(
 							ErrorCode::BadRequest,
 							"Invalid file context".to_string(),
 						));
 					}
-					if context == "empty" {
+					if context == *"empty".to_string() {
 						path.push(name.as_deref().unwrap_or(UNTITLED_FILE_STR));
 					} else {
 						path.push(name.as_deref().unwrap_or(UNTITLED_TEXT_FILE_STR));
