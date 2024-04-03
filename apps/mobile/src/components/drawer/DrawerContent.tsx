@@ -11,6 +11,7 @@ import { tw, twStyle } from '~/lib/tailwind';
 import { PulseAnimation } from '../animation/lottie';
 import { ModalRef } from '../layout/Modal';
 import { JobManagerModal } from '../modal/job/JobManagerModal';
+import { Button } from '../primitive/Button';
 import DrawerLibraryManager from './DrawerLibraryManager';
 import DrawerLocations from './DrawerLocations';
 import DrawerTags from './DrawerTags';
@@ -51,13 +52,7 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 					{/* Tags */}
 					<DrawerTags />
 				</View>
-				<View style={tw`flex w-full flex-row items-center gap-x-4`}>
-					{/* Settings */}
-					{/* <Pressable
-						onPress={() => navigation.navigate('SettingsStack', { screen: 'Settings' })}
-					>
-						<Gear color="white" size={24} />
-					</Pressable> */}
+				<View style={tw`mt-3 flex w-full flex-row items-center gap-x-4`}>
 					{/* Job Manager */}
 					<JobManagerContextProvider>
 						<Pressable onPress={() => modalRef.current?.present()}>
@@ -65,6 +60,14 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 						</Pressable>
 						<JobManagerModal ref={modalRef} />
 					</JobManagerContextProvider>
+					<Button
+						onPress={() => {
+							alert('Todo');
+						}}
+						variant="gray"
+					>
+						<Text style={tw`text-xs font-medium text-white`}>Feedback</Text>
+					</Button>
 				</View>
 			</View>
 		</DrawerContentScrollView>

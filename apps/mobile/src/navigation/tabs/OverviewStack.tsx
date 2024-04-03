@@ -14,7 +14,7 @@ export default function OverviewStack() {
 			<Stack.Screen
 				name="Overview"
 				component={OverviewScreen}
-				options={{ header: () => <Header title="Overview" /> }}
+				options={{ header: () => <Header showDrawer title="Overview" /> }}
 			/>
 			<Stack.Screen
 				name="Categories"

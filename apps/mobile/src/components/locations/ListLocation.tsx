@@ -66,7 +66,7 @@ const ListLocation = ({ location }: ListLocationProps) => {
 						style={tw`rounded-md border border-app-lightborder bg-app-highlight p-1.5`}
 					>
 						<Text
-							style={tw`text-left text-xs font-bold text-ink-dull`}
+							style={tw`text-left text-xs font-medium text-ink-dull`}
 							numberOfLines={1}
 						>
 							{`${byteSize(location.size_in_bytes)}`}
