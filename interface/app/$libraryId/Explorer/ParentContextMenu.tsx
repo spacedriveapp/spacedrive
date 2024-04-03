@@ -42,41 +42,57 @@ export default (props: PropsWithChildren) => {
 	const cutEphemeralFiles = useLibraryMutation('ephemeralFiles.cutFiles');
 	const createFolder = useLibraryMutation(['files.createFolder'], {
 		onError: (e) => {
-			toast.error({ title: 'Error creating folder', body: `Error: ${e}.` });
+			toast.error({ title: t('create_folder_error'), body: `Error: ${e}.` });
 			console.error(e);
 		},
 		onSuccess: (folder) => {
-			toast.success({ title: `Created new folder "${folder}"` });
+			toast.success({
+				title: t("create_folder_success", {
+					name: folder
+				})
+			});
 			rescan();
 		}
 	});
 	const createFile = useLibraryMutation(['files.createFile'], {
 		onError: (e) => {
-			toast.error({ title: 'Error creating file', body: `${e}.` });
+			toast.error({ title: t('create_file_error'), body: `${e}.` });
 			console.error(e);
 		},
 		onSuccess: (file) => {
-			toast.success({ title: `Created new file "${file}"` });
+			toast.success({
+				title: t("create_file_success", {
+					name: file
+				})
+			});
 			rescan();
 		}
 	});
 	const createEphemeralFolder = useLibraryMutation(['ephemeralFiles.createFolder'], {
 		onError: (e) => {
-			toast.error({ title: 'Error creating folder', body: `Error: ${e}.` });
+			toast.error({ title: t('create_folder_error'), body: `Error: ${e}.` });
 			console.error(e);
 		},
 		onSuccess: (folder) => {
-			toast.success({ title: `Created new folder "${folder}"` });
+			toast.success({
+				title: t("create_folder_success", {
+					name: folder
+				})
+			});
 			rescan();
 		}
 	});
 	const createEphemeralFile = useLibraryMutation(['ephemeralFiles.createFile'], {
 		onError: (e) => {
-			toast.error({ title: 'Error creating file', body: `${e}.` });
+			toast.error({ title: t('create_file_error'), body: `${e}.` });
 			console.error(e);
 		},
 		onSuccess: (file) => {
-			toast.success({ title: `Created new file "${file}"` });
+			toast.success({
+				title: t("create_file_success", {
+					name: file
+				})
+			});
 			rescan();
 		}
 	});
