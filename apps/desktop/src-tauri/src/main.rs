@@ -241,7 +241,7 @@ async fn main() -> tauri::Result<()> {
 	let file_drop_status = Arc::new(Mutex::new(DragAndDropState::default()));
 	let app = app
 		.plugin(updater::plugin())
-		.plugin(tauri_plugin_window_state::Builder::default().build())
+		// .plugin(tauri_plugin_window_state::Builder::default().build())
 		.plugin(specta_builder)
 		.setup(move |app| {
 			let app = app.handle();
