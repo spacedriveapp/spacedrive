@@ -33,10 +33,10 @@ const DrawerLibraryManager = () => {
 			<Pressable onPress={() => setDropdownClosed((v) => !v)}>
 				<View
 					style={twStyle(
-						'flex h-10 w-full flex-row items-center justify-between border bg-sidebar-box px-3 shadow-sm',
+						'flex h-10 w-full flex-row items-center justify-between border bg-app-input px-3 shadow-sm',
 						dropdownClosed
-							? 'rounded-md border-sidebar-line/50'
-							: 'rounded-t-md border-sidebar-line border-b-app-box bg-sidebar-button'
+							? 'rounded-md border-app-inputborder'
+							: 'rounded-t-md border-b-0 border-app-inputborder'
 					)}
 				>
 					<Text style={tw`text-sm font-semibold text-ink`}>
@@ -51,7 +51,9 @@ const DrawerLibraryManager = () => {
 				</View>
 			</Pressable>
 			<AnimatedHeight hide={dropdownClosed}>
-				<View style={tw`rounded-b-md border-sidebar-line bg-sidebar-button p-2`}>
+				<View
+					style={tw`w-full rounded-b-md border border-app-inputborder bg-app-input p-2`}
+				>
 					{/* Libraries */}
 					{libraries.data?.map((library) => {
 						// console.log('library', library);
