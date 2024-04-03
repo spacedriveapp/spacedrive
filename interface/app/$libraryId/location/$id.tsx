@@ -46,8 +46,6 @@ import { TopBarPortal } from '../TopBar/Portal';
 import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import LocationOptions from './LocationOptions';
 
-import '@total-typescript/ts-reset/filter-boolean';
-
 export const Component = () => {
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
 	const [{ path }] = useExplorerSearchParams();
