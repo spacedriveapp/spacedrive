@@ -15,7 +15,7 @@ import {
 } from '@sd/ui';
 import { useIsDark, useKeybind } from '~/hooks';
 
-import { AppliedFilters } from './AppliedFilters';
+import { AppliedFilters, FilterContainer, InteractiveSection } from './AppliedFilters';
 import { useSearchContext } from './context';
 import { filterRegistry, SearchFilterCRUD, useToggleOptionSelected } from './Filters';
 import {
@@ -93,6 +93,7 @@ export const SearchOptions = ({
 }: { allowExit?: boolean } & PropsWithChildren) => {
 	const search = useSearchContext();
 	const isDark = useIsDark();
+
 	return (
 		<div
 			onMouseEnter={() => {
@@ -107,11 +108,24 @@ export const SearchOptions = ({
 				isDark ? 'bg-black/10' : 'bg-black/5'
 			)}
 		>
-			{/* <OptionContainer className="flex flex-row items-center">
-				<FilterContainer>
-					<InteractiveSection>Paths</InteractiveSection>
-				</FilterContainer>
-			</OptionContainer> */}
+			<OptionContainer className="flex flex-row items-center overflow-hidden rounded">
+				<InteractiveSection
+					onClick={() => search.setTarget?.('paths')}
+					className={clsx(
+						search.target === 'paths' ? 'bg-app-box' : 'hover:bg-app-box/50'
+					)}
+				>
+					Paths
+				</InteractiveSection>
+				<InteractiveSection
+					onClick={() => search.setTarget?.('objects')}
+					className={clsx(
+						search.target === 'objects' ? 'bg-app-box' : 'hover:bg-app-box/50'
+					)}
+				>
+					Objects
+				</InteractiveSection>
+			</OptionContainer>
 
 			<AddFilterButton />
 
@@ -136,7 +150,7 @@ export const SearchOptions = ({
 };
 
 const SearchResults = memo(
-	({ searchQuery, search }: { searchQuery: string; search: UseSearch }) => {
+	({ searchQuery, search }: { searchQuery: string; search: UseSearch<any> }) => {
 		const { allFiltersKeys } = search;
 		const searchResults = useSearchRegisteredFilters(searchQuery);
 
@@ -275,6 +289,7 @@ function SaveSearchButton() {
 
 					saveSearch.mutate({
 						name,
+						target: search.target,
 						search: search.search,
 						filters: search.mergedFilters
 							? JSON.stringify(search.mergedFilters.map((f) => f.arg))

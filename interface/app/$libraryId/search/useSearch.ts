@@ -6,7 +6,11 @@ import { SearchFilterArgs } from '@sd/client';
 
 import { argsToOptions, getKey, useSearchStore } from './store';
 
+export type SearchTarget = 'paths' | 'objects';
+
 export interface UseSearchSource {
+	target: SearchTarget;
+	setTarget?: (target?: SearchTarget) => void;
 	filters?: SearchFilterArgs[];
 	setFilters?: (cb?: (filters?: SearchFilterArgs[]) => SearchFilterArgs[] | undefined) => void;
 	search?: string;
@@ -56,25 +60,39 @@ export function useSearchParamsSource() {
 		);
 	}
 
+	const target = (searchParams.get('target') ?? 'paths') as SearchTarget;
+
 	return {
 		filters,
 		setFilters,
 		search: searchSearchParam ?? '',
 		setSearch,
-		open: searchSearchParam !== null || filtersSearchParam !== null
+		open: searchSearchParam !== null || filtersSearchParam !== null,
+		target,
+		setTarget: (target) =>
+			setSearchParams(
+				(p) => {
+					if (target) p.set('target', target);
+					else p.delete('target');
+					return p;
+				},
+				{ replace: true }
+			)
 	} satisfies UseSearchSource;
 }
 
-export function useStaticSource(props: Pick<UseSearchSource, 'filters' | 'search'>) {
+export function useStaticSource(props: Pick<UseSearchSource, 'filters' | 'search' | 'target'>) {
 	return props satisfies UseSearchSource;
 }
 
 export function useMemorySource(props: {
 	initialFilters?: SearchFilterArgs[];
 	initialSearch?: string;
+	initialTarget?: SearchTarget;
 }) {
 	const [filters, setFilters] = useState(props.initialFilters);
 	const [search, setSearch] = useState(props.initialSearch);
+	const [target, setTarget] = useState(props.initialTarget ?? 'paths');
 
 	return {
 		filters,
@@ -83,12 +101,22 @@ export function useMemorySource(props: {
 			else setFilters((f) => produce(f, s));
 		},
 		search,
-		setSearch
+		setSearch,
+		target,
+		setTarget: (t) => setTarget(t ?? 'paths')
 	} satisfies UseSearchSource;
 }
 
 export function useSearch<TSource extends UseSearchSource>(props: UseSearchProps<TSource>) {
-	const { filters, setFilters, search: rawSearch, setSearch, open } = props.source;
+	const {
+		filters,
+		setFilters,
+		search: rawSearch,
+		setSearch,
+		open,
+		target,
+		setTarget
+	} = props.source;
 
 	const [searchBarFocused, setSearchBarFocused] = useState(false);
 
@@ -167,7 +195,9 @@ export function useSearch<TSource extends UseSearchSource>(props: UseSearchProps
 		filtersKeys,
 		mergedFilters,
 		allFilters,
-		allFiltersKeys
+		allFiltersKeys,
+		target,
+		setTarget
 	};
 }
 
@@ -177,4 +207,4 @@ export function useSearchFromSearchParams() {
 	});
 }
 
-export type UseSearch = ReturnType<typeof useSearch>;
+export type UseSearch<TSource extends UseSearchSource> = ReturnType<typeof useSearch<TSource>>;

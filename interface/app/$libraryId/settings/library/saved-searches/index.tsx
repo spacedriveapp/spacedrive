@@ -91,7 +91,8 @@ function EditForm({ savedSearch, onDelete }: { savedSearch: SavedSearch; onDelet
 	const search = useSearch({
 		source: useStaticSource({
 			search: savedSearch.search ?? '',
-			filters
+			filters,
+			target: 'paths'
 		})
 	});
 

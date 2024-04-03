@@ -9,13 +9,15 @@ import { keybindForOs } from '~/util/keybinds';
 
 import { useSearchContext } from './context';
 import { useSearchStore } from './store';
+import { SearchTarget } from './useSearch';
 
 interface Props {
 	redirectToSearch?: boolean;
 	defaultFilters?: SearchFilterArgs[];
+	defaultTarget?: SearchTarget;
 }
 
-export default ({ redirectToSearch, defaultFilters }: Props) => {
+export default ({ redirectToSearch, defaultFilters, defaultTarget }: Props) => {
 	const search = useSearchContext();
 	const searchRef = useRef<HTMLInputElement>(null);
 	const navigate = useNavigate();
@@ -82,8 +84,9 @@ export default ({ redirectToSearch, defaultFilters }: Props) => {
 	}
 
 	function clearValue() {
-		search.setSearch?.('');
+		search.setSearch?.(undefined);
 		search.setFilters?.(undefined);
+		search.setTarget?.(undefined);
 	}
 
 	return (
@@ -108,6 +111,7 @@ export default ({ redirectToSearch, defaultFilters }: Props) => {
 					if (!f) return defaultFilters;
 					else return f;
 				});
+				search.setTarget?.(search.target ?? defaultTarget);
 			}}
 			right={
 				<div className="pointer-events-none flex h-7 items-center space-x-1 opacity-70 group-focus-within:hidden">

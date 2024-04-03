@@ -1,11 +1,5 @@
 import { useMemo } from 'react';
-import {
-	ObjectOrder,
-	useCache,
-	useLibraryQuery,
-	useNodes,
-	useObjectsExplorerQuery
-} from '@sd/client';
+import { ObjectOrder, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
 import { useRouteTitle, useZodRouteParams } from '~/hooks';
@@ -18,6 +12,7 @@ import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { EmptyNotice } from '../Explorer/View/EmptyNotice';
 import { SearchContextProvider, SearchOptions, useSearchFromSearchParams } from '../search';
 import SearchBar from '../search/SearchBar';
+import { useSearchExplorerQuery } from '../search/useSearchExplorerQuery';
 import { TopBarPortal } from '../TopBar/Portal';
 
 export function Component() {
@@ -37,22 +32,19 @@ export function Component() {
 
 	const search = useSearchFromSearchParams();
 
-	const objects = useObjectsExplorerQuery({
-		arg: {
-			take: 100,
-			filters: [
-				...(search.allFilters.length > 0
-					? search.allFilters
-					: [{ object: { tags: { in: [tag!.id] } } }]),
-				...explorerSettings.useLayoutSearchFilters()
-			]
-		},
-		order: explorerSettings.useSettingsSnapshot().order
+	const defaultFilters = useMemo(() => [{ object: { tags: { in: [tag.id] } } }], [tag.id]);
+
+	const items = useSearchExplorerQuery({
+		search,
+		explorerSettings,
+		filters: search.allFilters.length > 0 ? search.allFilters : defaultFilters,
+		take: 100,
+		objects: { order: explorerSettings.useSettingsSnapshot().order }
 	});
 
 	const explorer = useExplorer({
-		...objects,
-		isFetchingNextPage: objects.query.isFetchingNextPage,
+		...items,
+		isFetchingNextPage: items.query.isFetchingNextPage,
 		settings: explorerSettings,
 		parent: { type: 'Tag', tag: tag! }
 	});
@@ -61,7 +53,7 @@ export function Component() {
 		<ExplorerContextProvider explorer={explorer}>
 			<SearchContextProvider search={search}>
 				<TopBarPortal
-					center={<SearchBar />}
+					center={<SearchBar defaultFilters={defaultFilters} defaultTarget="objects" />}
 					left={
 						<div className="flex flex-row items-center gap-2">
 							<div

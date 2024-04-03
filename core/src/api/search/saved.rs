@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use crate::{api::utils::library, invalidate_query, library::Library};
 
 use sd_prisma::{prisma::saved_search, prisma_sync};
@@ -6,21 +8,52 @@ use sd_utils::chain_optional_iter;
 
 use chrono::{DateTime, FixedOffset, Utc};
 use rspc::alpha::AlphaRouter;
-use serde::{de::IgnoredAny, Deserialize, Serialize};
+use serde::{de::IgnoredAny, Deserialize};
 use specta::Type;
 use tracing::error;
 use uuid::Uuid;
 
 use super::{Ctx, R};
 
+#[derive(Type, Deserialize, Clone, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+enum SearchTarget {
+	#[default]
+	Paths,
+	Objects,
+}
+
+impl std::fmt::Display for SearchTarget {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			SearchTarget::Paths => write!(f, "paths"),
+			SearchTarget::Objects => write!(f, "objects"),
+		}
+	}
+}
+
+impl FromStr for SearchTarget {
+	type Err = String;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		match s {
+			"paths" => Ok(SearchTarget::Paths),
+			"objects" => Ok(SearchTarget::Objects),
+			_ => Err(format!("invalid search target: {s}")),
+		}
+	}
+}
+
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("create", {
 			R.with2(library()).mutation({
-				#[derive(Serialize, Type, Deserialize, Clone, Debug)]
+				#[derive(Type, Deserialize, Clone, Debug)]
 				#[specta(inline)]
 				pub struct Args {
 					pub name: String,
+					#[serde(default)]
+					pub target: SearchTarget,
 					#[specta(optional)]
 					pub search: Option<String>,
 					#[specta(optional)]
@@ -40,6 +73,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						[
 							sync_db_entry!(date_created, saved_search::date_created),
 							sync_db_entry!(args.name, saved_search::name),
+							sync_db_entry!(args.target.to_string(), saved_search::target),
 						],
 						[
 							option_sync_db_entry!(

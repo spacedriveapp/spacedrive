@@ -1,12 +1,12 @@
 import { MagnifyingGlass } from '@phosphor-icons/react';
 import { getIcon, iconNames } from '@sd/assets/util';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
 	FilePathOrder,
 	SearchFilterArgs,
+	SearchTarget,
 	useLibraryMutation,
-	useLibraryQuery,
-	usePathsExplorerQuery
+	useLibraryQuery
 } from '@sd/client';
 import { Button } from '@sd/ui';
 import { SearchIdParamsSchema } from '~/app/route-schemas';
@@ -30,6 +30,7 @@ import {
 	useSearchContext
 } from '../search';
 import SearchBar from '../search/SearchBar';
+import { useSearchExplorerQuery } from '../search/useSearchExplorerQuery';
 import { TopBarPortal } from '../TopBar/Portal';
 
 export const Component = () => {
@@ -64,19 +65,23 @@ function Inner({ id }: { id: number }) {
 	const search = useSearch({
 		source: useMemorySource({
 			initialFilters: filters ?? [],
-			initialSearch: savedSearch.data?.search ?? ''
+			initialSearch: savedSearch.data?.search ?? '',
+			initialTarget: (savedSearch.data?.target as SearchTarget) ?? undefined
 		})
 	});
 
-	const paths = usePathsExplorerQuery({
-		arg: { filters: search.allFilters, take: 50 },
-		order: explorerSettings.useSettingsSnapshot().order,
+	const items = useSearchExplorerQuery({
+		search,
+		explorerSettings,
+		filters: search.allFilters,
+		take: 50,
+		paths: { order: explorerSettings.useSettingsSnapshot().order },
 		onSuccess: () => explorerStore.resetNewThumbnails()
 	});
 
 	const explorer = useExplorer({
-		...paths,
-		isFetchingNextPage: paths.query.isFetchingNextPage,
+		...items,
+		isFetchingNextPage: items.query.isFetchingNextPage,
 		settings: explorerSettings
 	});
 
