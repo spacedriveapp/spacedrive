@@ -56,7 +56,7 @@ const DrawerTags = () => {
 			<View style={tw`mt-2 flex-row flex-wrap gap-1`}>
 				{/* Add Tag */}
 				<Button
-					style={tw`flex-1 py-0`}
+					style={tw`w-[49%] py-0`}
 					onPress={() => modalRef.current?.present()}
 					variant="dashed"
 				>
@@ -71,7 +71,7 @@ const DrawerTags = () => {
 								initial: false
 							});
 						}}
-						style={tw`w-1/2 py-0`}
+						style={tw`w-[49%] py-0`}
 						variant="gray"
 					>
 						<Text style={tw`p-2 text-center text-xs font-medium text-ink`}>
@@ -93,7 +93,7 @@ interface TagColumnProps {
 const TagColumn = ({ tags, dataAmount }: TagColumnProps) => {
 	const navigation = useNavigation<DrawerNavigationHelpers>();
 	return (
-		<View style={tw`flex-1 flex-col gap-1`}>
+		<View style={tw`w-[49%] flex-col gap-1`}>
 			{tags?.slice(dataAmount[0], dataAmount[1]).map((tag: any) => (
 				<DrawerTagItem
 					key={tag.id}

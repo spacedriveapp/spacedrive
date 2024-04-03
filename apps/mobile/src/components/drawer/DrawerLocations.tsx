@@ -95,7 +95,7 @@ const DrawerLocations = () => {
 				<View style={tw`mt-2 flex-row flex-wrap gap-1`}>
 					{/* Add Location */}
 					<Button
-						style={tw`flex-1 py-0`}
+						style={twStyle(`py-0`, locations?.length > 3 ? 'w-[49%]' : 'w-full')}
 						onPress={() => modalRef.current?.present()}
 						variant="dashed"
 					>
@@ -112,7 +112,7 @@ const DrawerLocations = () => {
 									initial: false
 								});
 							}}
-							style={tw`w-1/2 py-0`}
+							style={tw`w-[49%] py-0`}
 							variant="gray"
 						>
 							<Text style={tw`p-2 text-center text-xs font-medium text-ink`}>
