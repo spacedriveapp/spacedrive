@@ -127,7 +127,9 @@ function useSearchWithFilters(explorerSettings: UseExplorerSettings<ObjectOrder>
 			},
 			{ replace: true }
 		);
-	}, [searchQuery, setSearchParams]);
+		// Do not add setSearchParams to the dependencies array, it will cause CMDK to not navigate to search page (multiple times)
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [searchQuery]);
 
 	return search;
 }

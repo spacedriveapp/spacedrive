@@ -100,7 +100,7 @@ export default function TabNavigator() {
 			screenOptions={{
 				tabBarStyle: {
 					position: 'absolute',
-					backgroundColor: tw.color('app-navtab/50'),
+					backgroundColor: tw.color('app-navtab'),
 					borderTopWidth: 1,
 					borderTopColor: tw.color('app-cardborder'),
 					height: Platform.OS === 'android' ? 60 : 80,
@@ -129,7 +129,7 @@ export default function TabNavigator() {
 						 * TouchableWithoutFeedback is used to prevent Android ripple effect
 						 * State is being used to control the animation and make Rive work
 						 * Tab.Screen listeners are needed because if a user taps on the tab text only, the animation won't play
-						 * This may be revisted in the future to update accordingly
+						 * This may be revisited in the future to update accordingly
 						 */
 						tabBarIcon: () => (
 							<TouchableWithoutFeedback

@@ -28,7 +28,7 @@ export default function Page() {
 				{items.map((item, i) => (
 					<Fragment key={i}>
 						{/* Using span so i can use the group-last-of-type selector */}
-						<span className="group flex max-w-[10rem] items-start justify-end gap-4 first:items-start">
+						<span className="group flex max-w-40 items-start justify-end gap-4 first:items-start">
 							<div
 								className={clsx(
 									'flex flex-col items-end',

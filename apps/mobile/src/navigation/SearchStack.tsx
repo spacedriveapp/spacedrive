@@ -1,16 +1,16 @@
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import React from 'react';
 import Header from '~/components/header/Header';
-import SearchScreen from '~/screens/search';
 import FiltersScreen from '~/screens/search/Filters';
+import SearchScreen from '~/screens/search/Search';
 
 const Stack = createNativeStackNavigator<SearchStackParamList>();
 
 export default function SearchStack() {
 	return (
-		<Stack.Navigator initialRouteName="Home">
+		<Stack.Navigator initialRouteName="Search">
 			<Stack.Screen
-				name="Home"
+				name="Search"
 				component={SearchScreen}
 				options={{
 					headerShown: false
@@ -30,7 +30,7 @@ export default function SearchStack() {
 }
 
 export type SearchStackParamList = {
-	Home: undefined;
+	Search: undefined;
 	Filters: undefined;
 };
 

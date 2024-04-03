@@ -21,7 +21,7 @@ export default function Notice({ text, type, title }: NoticeProps) {
 			)}
 		>
 			<div className="flex flex-row items-center gap-x-1">
-				<Icon className="my-0 h-5 w-5 text-white" />
+				<Icon className="my-0 size-5 text-white" />
 				<h5 className="m-0 text-sm font-bold uppercase text-white">{title || type}</h5>
 			</div>
 			<p className="mx-0 my-1 mb-0 text-white">

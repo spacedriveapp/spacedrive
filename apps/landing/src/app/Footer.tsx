@@ -30,7 +30,7 @@ export async function Footer() {
 			/>
 			<div className="m-auto grid min-h-64 max-w-[100rem] grid-cols-2 gap-6 p-8 pb-20 pt-10 text-white sm:grid-cols-2 lg:grid-cols-6">
 				<div className="col-span-2">
-					<Image alt="Spacedrive logo" src={Logo} className="mb-5 h-10 w-10" />
+					<Image alt="Spacedrive logo" src={Logo} className="mb-5 size-10" />
 
 					<h1 className="mb-1 text-xl font-bold">Spacedrive</h1>
 					<p className="text-sm text-gray-350 opacity-50">
@@ -38,31 +38,31 @@ export async function Footer() {
 					</p>
 					<div className="mb-10 mt-12 flex flex-row space-x-3">
 						<FooterLink link="https://x.com/spacedriveapp">
-							<Twitter className="h-6 w-6" />
+							<Twitter className="size-6" />
 						</FooterLink>
 						<FooterLink aria-label="discord" link="https://discord.gg/gTaF2Z44f5">
-							<Discord className="h-6 w-6" />
+							<Discord className="size-6" />
 						</FooterLink>
 						<FooterLink
 							aria-label="instagram"
 							link="https://instagram.com/spacedriveapp"
 						>
-							<Instagram className="h-6 w-6" />
+							<Instagram className="size-6" />
 						</FooterLink>
 						<FooterLink aria-label="github" link="https://github.com/spacedriveapp">
-							<Github className="h-6 w-6" />
+							<Github className="size-6" />
 						</FooterLink>
 						<FooterLink
 							aria-label="open collective"
 							link="https://opencollective.com/spacedrive"
 						>
-							<Opencollective className="h-6 w-6" />
+							<Opencollective className="size-6" />
 						</FooterLink>
 						<FooterLink
 							aria-label="twitch stream"
 							link="https://twitch.tv/jamiepinelive"
 						>
-							<Twitch className="h-6 w-6" />
+							<Twitch className="size-6" />
 						</FooterLink>
 					</div>
 				</div>
@@ -141,8 +141,8 @@ export async function Footer() {
 				</div>
 			</div>
 			<div className="absolute top-0 flex h-1 w-full flex-row items-center justify-center opacity-100">
-				<div className="h-[1px] w-1/2 bg-gradient-to-r from-transparent to-white/10"></div>
-				<div className="h-[1px] w-1/2 bg-gradient-to-l from-transparent to-white/10"></div>
+				<div className="h-px w-1/2 bg-gradient-to-r from-transparent to-white/10"></div>
+				<div className="h-px w-1/2 bg-gradient-to-l from-transparent to-white/10"></div>
 			</div>
 		</footer>
 	);

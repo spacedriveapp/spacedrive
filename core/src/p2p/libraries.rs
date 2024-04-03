@@ -1,8 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use sd_p2p::{
-	flume::bounded, HookEvent, HookId, IdentityOrRemoteIdentity, PeerConnectionCandidate, P2P,
-};
+use sd_p2p::{flume::bounded, HookEvent, HookId, PeerConnectionCandidate, RemoteIdentity, P2P};
 use tracing::error;
 
 use crate::library::{Libraries, LibraryManagerEvent};
@@ -38,9 +36,8 @@ pub fn libraries_hook(p2p: Arc<P2P>, libraries: Arc<Libraries>) -> HookId {
 							};
 
 							for i in instances.iter() {
-								let identity = IdentityOrRemoteIdentity::from_bytes(&i.identity)
-									.expect("lol: invalid DB entry")
-									.remote_identity();
+								let identity = RemoteIdentity::from_bytes(&i.remote_identity)
+									.expect("lol: invalid DB entry");
 
 								// Skip self
 								if identity == library.identity.to_remote_identity() {
@@ -70,9 +67,8 @@ pub fn libraries_hook(p2p: Arc<P2P>, libraries: Arc<Libraries>) -> HookId {
 							};
 
 							for i in instances.iter() {
-								let identity = IdentityOrRemoteIdentity::from_bytes(&i.identity)
-									.expect("lol: invalid DB entry")
-									.remote_identity();
+								let identity = RemoteIdentity::from_bytes(&i.remote_identity)
+									.expect("lol: invalid DB entry");
 
 								let peers = p2p.peers();
 								let Some(peer) = peers.get(&identity) else {

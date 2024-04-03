@@ -1,7 +1,7 @@
-import { valtioPersist } from '@sd/client';
 import { useMemo } from 'react';
 import { useKeys } from 'rooks';
 import { useSnapshot } from 'valtio';
+import { valtioPersist } from '@sd/client';
 import { useRoutingContext } from '~/RoutingContext';
 import { OperatingSystem } from '~/util/Platform';
 
@@ -21,6 +21,13 @@ const shortcuts = {
 	nextTab: {
 		macOS: ['Meta', 'Alt', 'ArrowRight'],
 		all: ['Control', 'Alt', 'ArrowRight']
+	},
+	toggleCommandPalette: {
+		macOS: ['Meta', 'KeyK'],
+		all: ['Control', 'KeyK']
+	},
+	closeCommandPalette: {
+		all: ['Escape']
 	},
 	previousTab: {
 		macOS: ['Meta', 'Alt', 'ArrowLeft'],
@@ -162,8 +169,9 @@ export const useShortcut = (shortcut: Shortcuts, func: (e: KeyboardEvent) => voi
 
 	// useKeys doesn't like readonly
 	useKeys(keys as string[], (e) => {
-		if (!visible) return;
 		if (!import.meta.env.DEV) e.preventDefault();
 		return func(e);
+	}, {
+		when: visible
 	});
 };

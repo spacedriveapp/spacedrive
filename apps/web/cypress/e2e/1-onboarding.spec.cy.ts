@@ -1,4 +1,12 @@
-import { discord, libraryName } from '../fixtures/onboarding.json';
+import { discordUrl, libraryName, privacyUrl } from '../fixtures/onboarding.json';
+import {
+	libraryRegex,
+	newLibraryRegex,
+	onboardingCreatingLibraryRegex,
+	onboardingLocationRegex,
+	onboardingPrivacyRegex,
+	onboardingRegex
+} from '../fixtures/routes';
 
 describe('Onboarding', () => {
 	// TODO: Create debug flag to bypass auto language detection
@@ -9,8 +17,13 @@ describe('Onboarding', () => {
 			}
 		});
 
+		// Delete previous library if it exists
+		cy.url()
+			.should('match', new RegExp(`${libraryRegex.source}|${onboardingRegex.source}`))
+			.then((url) => (onboardingRegex.test(url) ? url : cy.deleteLibrary(libraryName)));
+
 		// Check redirect to initial alpha onboarding screen
-		cy.url().should('contain', '/onboarding/alpha');
+		cy.url().should('match', onboardingRegex);
 
 		// Check application name is present
 		cy.get('h1').should('contain', 'Spacedrive');
@@ -26,7 +39,7 @@ describe('Onboarding', () => {
 
 		// Check Join Discord button exists and point to a valid discord invite
 		cy.get('button').contains('Join Discord').click();
-		cy.get('@winOpen').should('be.calledWith', discord);
+		cy.get('@winOpen').should('be.calledWith', discordUrl);
 
 		// Check we have a button to continue to the Library creation
 		cy.get('a')
@@ -35,7 +48,7 @@ describe('Onboarding', () => {
 			.click();
 
 		// Check we were redirect to Library creation screen
-		cy.url().should('contain', '/onboarding/new-library');
+		cy.url().should('match', newLibraryRegex);
 
 		// Check create library screen title
 		cy.get('h2').should('contain', 'Create a Library');
@@ -61,10 +74,10 @@ describe('Onboarding', () => {
 		cy.get('@libraryNameInput').type(libraryName);
 
 		// Check we have a button to continue to the add default locations screen
-		cy.get('button').contains('New library').click();
+		cy.get('@newLibraryButton').click();
 
 		// Check redirect to add default locations
-		cy.url().should('contain', '/onboarding/locations');
+		cy.url().should('match', onboardingLocationRegex);
 
 		// Check we have a Toggle All button
 		cy.get('#toggle-all').as('toggleAllButton');
@@ -73,6 +86,11 @@ describe('Onboarding', () => {
 			const locations = locationsElem.data('locations');
 			if (locations == null || typeof locations !== 'object')
 				throw new Error('Invalid locations data');
+
+			const locationsEntries = Object.entries(locations);
+
+			// When there is no default locations, the UI doesn't show any buttons
+			if (locationsEntries.length <= 0) return;
 
 			// Check that default location checkboxes work
 			for (const state of ['unchecked', 'checked']) {
@@ -84,7 +102,7 @@ describe('Onboarding', () => {
 				}
 
 				// Check we have all the default locations available
-				for (const [location, locationName] of Object.entries(locations)) {
+				for (const [location, locationName] of locationsEntries) {
 					if (typeof locationName !== 'string') throw new Error('Invalid location name');
 
 					let newState: typeof state;
@@ -107,7 +125,7 @@ describe('Onboarding', () => {
 		cy.get('button').contains('Continue').click();
 
 		// Check redirect to privacy screen
-		cy.url().should('contain', '/onboarding/privacy');
+		cy.url().should('match', onboardingPrivacyRegex);
 
 		// Check privacy screen title
 		cy.get('h2').should('contain', 'Your Privacy');
@@ -122,56 +140,22 @@ describe('Onboarding', () => {
 
 		// Check More info button exists and point to the valid pravacy policy
 		cy.get('button').contains('More info').click();
-		cy.get('@winOpen').should(
-			'be.calledWith',
-			'https://www.spacedrive.com/docs/product/resources/privacy'
-		);
+		cy.get('@winOpen').should('be.calledWith', privacyUrl);
 
 		// Check we have a button to finish onboarding
 		cy.get('button[type="submit"]').contains('Continue').click();
 
-		// Check redirect to privacy screen
-		cy.url().should('contain', '/onboarding/creating-library');
+		// Check redirect to create library screen
+		cy.url().should('match', onboardingCreatingLibraryRegex);
 
 		// FIX-ME: This fails a lot, due to the creating library screen only being show for a short time
 		// Check creating library screen title
 		// cy.get('h2').should('contain', 'Creating your library');
 
 		// Check redirect to Library
-		cy.url().should((url) => {
-			expect(/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\//.test(url)).to
-				.be.true;
-		});
+		cy.checkUrlIsLibrary();
 
-		// Click on the library submenu
-		cy.get('button[aria-haspopup="menu"]').contains(libraryName).click();
-		cy.get('a').contains('Manage Library').click();
-
-		// Check redirect to Library settings
-		cy.url().should('contain', '/settings/library/general');
-
-		// Check Library seetings screen title
-		cy.get('h1').should('contain', 'Library Settings');
-
-		// Check Library name is correct
-		cy.get('label')
-			.contains('Name')
-			.parent()
-			.find('input')
-			.should((input) => {
-				expect(input.val()).to.eq(libraryName);
-			});
-
-		// Delete Library
-		cy.get('button').contains('Delete').click();
-
-		// Check confirmation modal for deleting appears
-		cy.get('body > div[role="dialog"]').as('deleteModal');
-
-		// Check modal title
-		cy.get('@deleteModal').find('h2').should('contain', 'Delete Library');
-
-		// Confirm delete
-		cy.get('@deleteModal').find('button').contains('Delete').click();
+		// Delete library
+		cy.deleteLibrary(libraryName);
 	});
 });

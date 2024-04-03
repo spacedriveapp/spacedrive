@@ -19,6 +19,7 @@ import Extension from './Extension';
 import Kind from './Kind';
 import Locations from './Locations';
 import Name from './Name';
+import SavedSearches from './SavedSearches';
 import Tags from './Tags';
 
 const options = [
@@ -84,6 +85,7 @@ const FiltersList = () => {
 
 	return (
 		<View style={tw`gap-10`}>
+			<SavedSearches />
 			<View>
 				<SectionTitle
 					style={tw`px-6 pb-3`}

@@ -3,7 +3,7 @@ use crate::{
 	location::{indexer, LocationManagerError},
 };
 
-use sd_p2p::IdentityOrRemoteIdentityErr;
+use sd_p2p::IdentityErr;
 use sd_utils::{
 	db::{self, MissingFieldError},
 	error::{FileIOError, NonUtf8PathError},
@@ -35,7 +35,7 @@ pub enum LibraryManagerError {
 	#[error("failed to watch locations: {0}")]
 	LocationWatcher(#[from] LocationManagerError),
 	#[error("failed to parse library p2p identity: {0}")]
-	Identity(#[from] IdentityOrRemoteIdentityErr),
+	Identity(#[from] IdentityErr),
 	#[error("failed to load private key for instance p2p identity")]
 	InvalidIdentity,
 	#[error("current instance with id '{0}' was not found in the database")]

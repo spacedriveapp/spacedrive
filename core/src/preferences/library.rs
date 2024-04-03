@@ -69,6 +69,8 @@ pub struct ExplorerSettings<TOrder> {
 	show_bytes_in_grid_view: Option<bool>,
 	col_visibility: Option<BTreeMap<String, bool>>,
 	col_sizes: Option<BTreeMap<String, i32>>,
+	list_view_icon_size: Option<String>,
+	list_view_text_size: Option<String>,
 	// temporary
 	#[serde(skip_serializing_if = "Option::is_none")]
 	order: Option<Option<TOrder>>,

@@ -5,9 +5,15 @@ use sd_core_sync::{SyncMessage, NTP64};
 use tracing::debug;
 use uuid::Uuid;
 
-use std::{sync::Arc, time::Duration};
+use std::{
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
+	time::Duration,
+};
 
-use tokio::time::sleep;
+use tokio::{sync::Notify, time::sleep};
 
 use super::err_break;
 
@@ -17,8 +23,13 @@ pub async fn run_actor(
 	library_id: Uuid,
 	sync: Arc<sd_core_sync::Manager>,
 	cloud_api_config_provider: Arc<impl RequestConfigProvider>,
+	state: Arc<AtomicBool>,
+	state_notify: Arc<Notify>,
 ) {
 	loop {
+		state.store(true, Ordering::Relaxed);
+		state_notify.notify_waiters();
+
 		loop {
 			// all available instances will have a default timestamp from create_instance
 			let instances = sync
@@ -108,6 +119,9 @@ pub async fn run_actor(
 				.await
 			);
 		}
+
+		state.store(false, Ordering::Relaxed);
+		state_notify.notify_waiters();
 
 		{
 			// recreate subscription each time so that existing messages are dropped

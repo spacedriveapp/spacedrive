@@ -72,11 +72,15 @@ jobs:
           runTests: false
           working-directory: .
 
+      - name: Download test data
+        run: pnpm test-data small
+
       - name: E2E test
         uses: cypress-io/github-action@v6
         with:
+          build: npx cypress info
           install: false
-          command: pnpm test:e2e
+          command: env CI=true pnpm test:e2e
           working-directory: apps/web
 
       - uses: actions/upload-artifact@v4
@@ -119,6 +123,7 @@ jobs:
         uses: actions/checkout@v4
 
       - uses: dorny/paths-filter@v3
+        continue-on-error: true
         id: filter
         with:
           filters: |
@@ -135,13 +140,13 @@ jobs:
               - 'Cargo.lock'
 
       - name: Setup Rust and Prisma
-        if: steps.filter.outputs.changes == 'true'
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
         uses: ./.github/actions/setup-rust
         with:
           restore-cache: 'false'
 
       - name: Run rustfmt
-        if: steps.filter.outputs.changes == 'true'
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
         run: cargo fmt --all -- --check
 
   clippy:
@@ -173,6 +178,7 @@ jobs:
         uses: actions/checkout@v4
 
       - uses: dorny/paths-filter@v3
+        continue-on-error: true
         id: filter
         with:
           filters: |
@@ -191,13 +197,13 @@ jobs:
               - 'Cargo.lock'
 
       - name: Setup System and Rust
-        if: steps.filter.outputs.changes == 'true'
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
         uses: ./.github/actions/setup-system
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Clippy
-        if: steps.filter.outputs.changes == 'true'
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
         uses: actions-rs-plus/clippy-check@v2
         with:
           args: --workspace --all-features

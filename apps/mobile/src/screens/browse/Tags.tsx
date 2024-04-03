@@ -17,7 +17,7 @@ interface Props {
 	viewStyle?: 'grid' | 'list';
 }
 
-export default function Tags({ viewStyle = 'list' }: Props) {
+export default function TagsScreen({ viewStyle = 'list' }: Props) {
 	const tags = useLibraryQuery(['tags.list']);
 	const navigation = useNavigation<BrowseStackScreenProps<'Browse'>['navigation']>();
 	const modalRef = useRef<ModalRef>(null);
@@ -46,7 +46,6 @@ export default function Tags({ viewStyle = 'list' }: Props) {
 					data={tagData}
 					renderItem={({ item }) => (
 						<TagItem
-							tagStyle={twStyle(viewStyle === 'grid' ? 'w-[105px]' : 'w-full')}
 							viewStyle={viewStyle}
 							tag={item}
 							onPress={() => {
@@ -66,12 +65,11 @@ export default function Tags({ viewStyle = 'list' }: Props) {
 							description="You have not created any tags"
 						/>
 					}
-					numColumns={viewStyle === 'grid' ? 3 : 1}
-					columnWrapperStyle={viewStyle === 'grid' && tw`justify-between`}
 					horizontal={false}
+					numColumns={viewStyle === 'grid' ? 3 : 1}
 					keyExtractor={(item) => item.id.toString()}
 					showsHorizontalScrollIndicator={false}
-					ItemSeparatorComponent={() => <View style={tw`h-2.5`} />}
+					ItemSeparatorComponent={() => <View style={tw`h-2`} />}
 					contentContainerStyle={twStyle(
 						`py-6`,
 						tagData.length === 0 && 'h-full items-center justify-center'

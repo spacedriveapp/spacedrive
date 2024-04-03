@@ -47,7 +47,7 @@ export const Popover = ({ popover, trigger, children, disabled, className, ...pr
 	}, [setOpen]);
 
 	return (
-		<Radix.Root open={popover.open} onOpenChange={popover.setOpen}>
+		<Radix.Root open={popover.open} onOpenChange={setOpen}>
 			<Radix.Trigger ref={triggerRef} disabled={disabled} asChild>
 				{trigger}
 			</Radix.Trigger>
@@ -58,13 +58,13 @@ export const Popover = ({ popover, trigger, children, disabled, className, ...pr
 					onCloseAutoFocus={(event) => event.preventDefault()}
 					className={clsx(
 						'flex flex-col',
-						'z-50 m-2 min-w-[11rem]',
+						'z-50 m-2 min-w-44',
 						'cursor-default select-none rounded-lg',
 						'text-left text-sm text-ink',
 						'bg-app-overlay',
 						'border border-app-line',
 						'shadow-2xl',
-						'animate-in fade-in',
+						'radix-state-closed:animate-out radix-state-closed:fade-out-0',
 						className
 					)}
 					{...props}

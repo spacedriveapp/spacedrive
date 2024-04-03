@@ -1,4 +1,7 @@
-use std::{ops::Deref, sync::Arc};
+use std::{
+	ops::Deref,
+	sync::{atomic::Ordering, Arc},
+};
 
 use sd_prisma::{
 	prisma::{crdt_operation, SortOrder},
@@ -61,7 +64,13 @@ impl Actor {
 	async fn tick(mut self) -> Option<Self> {
 		let state = match self.state.take()? {
 			State::WaitingForNotification => {
+				self.shared.active.store(false, Ordering::Relaxed);
+				self.shared.active_notify.notify_waiters();
+
 				wait!(self.io.event_rx, Event::Notification);
+
+				self.shared.active.store(true, Ordering::Relaxed);
+				self.shared.active_notify.notify_waiters();
 
 				State::RetrievingMessages
 			}
@@ -256,7 +265,7 @@ impl ActorTypes for Actor {
 
 #[cfg(test)]
 mod test {
-	use std::sync::atomic::AtomicBool;
+	use std::{sync::atomic::AtomicBool, time::Duration};
 
 	use uhlc::HLCBuilder;
 
@@ -270,6 +279,8 @@ mod test {
 			clock: HLCBuilder::new().with_id(instance.into()).build(),
 			timestamps: Default::default(),
 			emit_messages_flag: Arc::new(AtomicBool::new(true)),
+			active: Default::default(),
+			active_notify: Default::default(),
 		});
 
 		(Actor::spawn(shared.clone()), shared)
@@ -281,7 +292,7 @@ mod test {
 	async fn messages_request_drop() -> Result<(), ()> {
 		let (ingest, _) = new_actor().await;
 
-		for _ in [(), ()] {
+		for _ in 0..10 {
 			let mut rx = ingest.req_rx.lock().await;
 
 			println!("lock acquired");
@@ -294,28 +305,12 @@ mod test {
 				panic!("bruh")
 			};
 
-			println!("message received")
+			println!("message received");
+
+			// without this the test hangs, idk
+			tokio::time::sleep(Duration::from_millis(0)).await;
 		}
 
 		Ok(())
 	}
-
-	// /// If messages tx is dropped, actor should reset and assume no further messages
-	// /// will be sent
-	// #[tokio::test]
-	// async fn retrieve_wait() -> Result<(), ()> {
-	// 	let (ingest, _) = new_actor().await;
-
-	// 	for _ in [(), ()] {
-	// 		let mut rx = ingest.req_rx.lock().await;
-
-	// 		ingest.event_tx.send(Event::Notification).await.unwrap();
-
-	// 		let Some(Request::Messages { .. }) = rx.recv().await else {
-	// 			panic!("bruh")
-	// 		};
-	// 	}
-
-	// 	Ok(())
-	// }
 }

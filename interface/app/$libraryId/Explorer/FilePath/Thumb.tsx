@@ -259,10 +259,7 @@ const Thumbnail = forwardRef<HTMLImageElement, ThumbnailProps>(
 				<Image
 					{...props}
 					{...{
-						className: clsx(
-							className,
-							blackBarsStyle && size.width === 0 && 'invisible'
-						),
+						className: clsx(className, blackBars && size.width === 0 && 'invisible'),
 						style: { ...style, ...(blackBars ? blackBarsStyle : undefined) },
 						size,
 						ref
