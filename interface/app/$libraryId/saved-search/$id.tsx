@@ -1,6 +1,6 @@
 import { MagnifyingGlass } from '@phosphor-icons/react';
 import { getIcon, iconNames } from '@sd/assets/util';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
 	FilePathOrder,
 	SearchFilterArgs,
@@ -27,9 +27,7 @@ import {
 	SearchOptions,
 	useMemorySource,
 	useSearch,
-	useSearchContext,
-	useSearchFromSearchParams,
-	useSearchParamsSource
+	useSearchContext
 } from '../search';
 import SearchBar from '../search/SearchBar';
 import { TopBarPortal } from '../TopBar/Portal';
@@ -37,6 +35,10 @@ import { TopBarPortal } from '../TopBar/Portal';
 export const Component = () => {
 	const { id } = useZodRouteParams(SearchIdParamsSchema);
 
+	return <Inner key={id} id={id} />;
+};
+
+function Inner({ id }: { id: number }) {
 	const savedSearch = useLibraryQuery(['search.saved.get', id], {
 		suspense: true
 	});
@@ -116,7 +118,7 @@ export const Component = () => {
 			/>
 		</ExplorerContextProvider>
 	);
-};
+}
 
 function SaveButton({ searchId }: { searchId: number }) {
 	const updateSavedSearch = useLibraryMutation(['search.saved.update']);

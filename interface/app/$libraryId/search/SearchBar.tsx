@@ -58,7 +58,7 @@ export default ({ redirectToSearch, defaultFilters }: Props) => {
 		};
 	}, [blurHandler, focusHandler]);
 
-	const [value, setValue] = useState('');
+	const [value, setValue] = useState(search.rawSearch);
 
 	useEffect(() => {
 		if (search.rawSearch !== undefined) setValue(search.rawSearch);
