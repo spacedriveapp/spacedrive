@@ -52,7 +52,7 @@ export default (props: PropsWithChildren) => {
 	});
 	const createFile = useLibraryMutation(['files.createFile'], {
 		onError: (e) => {
-			toast.error({ title: 'Error creating file', body: `Error: ${e}.` });
+			toast.error({ title: 'Error creating file', body: `${e}.` });
 			console.error(e);
 		},
 		onSuccess: (file) => {
@@ -72,11 +72,11 @@ export default (props: PropsWithChildren) => {
 	});
 	const createEphemeralFile = useLibraryMutation(['ephemeralFiles.createFile'], {
 		onError: (e) => {
-			toast.error({ title: 'Error creating file', body: `Error: ${e}.` });
+			toast.error({ title: 'Error creating file', body: `${e}.` });
 			console.error(e);
 		},
-		onSuccess: (folder) => {
-			toast.success({ title: `Created new file "${folder}"` });
+		onSuccess: (file) => {
+			toast.success({ title: `Created new file "${file}"` });
 			rescan();
 		}
 	});
@@ -132,7 +132,7 @@ export default (props: PropsWithChildren) => {
 						/>
 						<CM.Separator />
 						<CM.Item
-							label={t('new_file')}
+							label={t('text_file')}
 							icon={Notepad}
 							onClick={() => {
 								if (parent?.type === 'Location') {

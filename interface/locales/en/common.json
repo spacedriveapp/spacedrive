@@ -296,7 +296,7 @@
   "networking_port_description": "The port for Spacedrive's Peer-to-peer networking to communicate on. You should leave this disabled unless you have a restrictive firewall. Do not expose to the internet!",
   "new": "New",
   "new_folder": "Folder",
-  "new_file": "Text File",
+  "text_file": "Text File",
   "empty_file": "Empty file",
   "new_library": "New library",
   "new_location": "New location",
