@@ -203,11 +203,11 @@ export type ConvertImageArgs = { location_id: number; file_path_id: number; dele
 
 export type ConvertibleExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "hif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf" | "webp"
 
-export type CreateEphemeralFileArgs = { path: string; name: string | null }
+export type CreateEphemeralFileArgs = { path: string; context: string; name: string | null }
 
 export type CreateEphemeralFolderArgs = { path: string; name: string | null }
 
-export type CreateFileArgs = { location_id: number; sub_path: string | null; name: string | null }
+export type CreateFileArgs = { location_id: number; sub_path: string | null; name: string | null; context: string }
 
 export type CreateFolderArgs = { location_id: number; sub_path: string | null; name: string | null }
 

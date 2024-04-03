@@ -5,6 +5,7 @@ import {
 	FolderPlus,
 	Hash,
 	Image,
+	Notepad,
 	Repeat,
 	Share,
 	ShieldCheck
@@ -110,43 +111,67 @@ export default (props: PropsWithChildren) => {
 							<CM.Separator />
 						</>
 					)}
-
-					<CM.Item
-						label={t('new_folder')}
-						icon={FolderPlus}
-						onClick={() => {
-							if (parent?.type === 'Location') {
-								createFolder.mutate({
-									location_id: parent.location.id,
-									sub_path: currentPath || null,
-									name: null
-								});
-							} else if (parent?.type === 'Ephemeral') {
-								createEphemeralFolder.mutate({
-									path: parent?.path,
-									name: null
-								});
-							}
-						}}
-					/>
-					<CM.Item
-						label={t('new_file')}
-						icon={FilePlus}
-						onClick={() => {
-							if (parent?.type === 'Location') {
-								createFile.mutate({
-									location_id: parent.location.id,
-									sub_path: currentPath || null,
-									name: null
-								});
-							} else if (parent?.type === 'Ephemeral') {
-								createEphemeralFile.mutate({
-									path: parent?.path,
-									name: null
-								});
-							}
-						}}
-					/>
+					<CM.SubMenu label={t('new')}>
+						<CM.Item
+							label={t('new_folder')}
+							icon={FolderPlus}
+							onClick={() => {
+								if (parent?.type === 'Location') {
+									createFolder.mutate({
+										location_id: parent.location.id,
+										sub_path: currentPath || null,
+										name: null
+									});
+								} else if (parent?.type === 'Ephemeral') {
+									createEphemeralFolder.mutate({
+										path: parent?.path,
+										name: null
+									});
+								}
+							}}
+						/>
+						<CM.Separator />
+						<CM.Item
+							label={t('new_file')}
+							icon={Notepad}
+							onClick={() => {
+								if (parent?.type === 'Location') {
+									createFile.mutate({
+										location_id: parent.location.id,
+										sub_path: currentPath || null,
+										name: null,
+										context: 'text'
+									});
+								} else if (parent?.type === 'Ephemeral') {
+									createEphemeralFile.mutate({
+										path: parent?.path,
+										context: 'text',
+										name: null
+									});
+								}
+							}}
+						/>
+						<CM.Item
+							label={t('empty_file')}
+							icon={FilePlus}
+							onClick={() => {
+								if (parent?.type === 'Location') {
+									createFile.mutate({
+										location_id: parent.location.id,
+										sub_path: currentPath || null,
+										name: null,
+										context: 'empty'
+									});
+								} else if (parent?.type === 'Ephemeral') {
+									createEphemeralFile.mutate({
+										path: parent?.path,
+										context: 'empty',
+										name: null
+									});
+								}
+							}}
+						/>
+					</CM.SubMenu>
 				</>
 			)}
 

@@ -34,6 +34,7 @@ use super::{
 
 const UNTITLED_FOLDER_STR: &str = "Untitled Folder";
 const UNTITLED_FILE_STR: &str = "Untitled";
+const UNTITLED_TEXT_FILE_STR: &str = "Untitled.txt";
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -85,12 +86,23 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Type, Deserialize)]
 			pub struct CreateEphemeralFileArgs {
 				pub path: PathBuf,
+				pub context: String,
 				pub name: Option<String>,
 			}
 			R.with2(library()).mutation(
 				|(_, library),
-				 CreateEphemeralFileArgs { mut path, name }: CreateEphemeralFileArgs| async move {
-					path.push(name.as_deref().unwrap_or(UNTITLED_FILE_STR));
+				 CreateEphemeralFileArgs { mut path, name, context }: CreateEphemeralFileArgs| async move {
+					if (context != "empty") || (context != "text") {
+						return Err(rspc::Error::new(
+							ErrorCode::BadRequest,
+							"Invalid file context".to_string(),
+						));
+					}
+					if context == "empty" {
+						path.push(name.as_deref().unwrap_or(UNTITLED_FILE_STR));
+					} else {
+						path.push(name.as_deref().unwrap_or(UNTITLED_TEXT_FILE_STR));
+					}
 
 					create_file(path, &library).await
 				},

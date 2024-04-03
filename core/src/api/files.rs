@@ -47,6 +47,7 @@ use super::{Ctx, R};
 
 const UNTITLED_FOLDER_STR: &str = "Untitled Folder";
 const UNTITLED_FILE_STR: &str = "Untitled";
+const UNTITLED_TEXT_FILE_STR: &str = "Untitled.txt";
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -301,14 +302,23 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub location_id: location::id::Type,
 				pub sub_path: Option<PathBuf>,
 				pub name: Option<String>,
+				pub context: String,
 			}
 			R.with2(library()).mutation(
 				|(_, library),
 				 CreateFileArgs {
 				     location_id,
 				     sub_path,
+				     context,
 				     name,
 				 }: CreateFileArgs| async move {
+					if (context != "empty") || (context != "text") {
+						return Err(rspc::Error::new(
+							ErrorCode::BadRequest,
+							"Invalid file context".to_string(),
+						));
+					}
+
 					let mut path =
 						get_location_path_from_location_id(&library.db, location_id).await?;
 
@@ -319,7 +329,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						path.push(sub_path);
 					}
 
-					path.push(name.as_deref().unwrap_or(UNTITLED_FILE_STR));
+					if context == "empty" {
+						path.push(name.as_deref().unwrap_or(UNTITLED_FILE_STR));
+					} else {
+						path.push(name.as_deref().unwrap_or(UNTITLED_TEXT_FILE_STR));
+					}
 
 					create_file(path, &library).await
 				},
