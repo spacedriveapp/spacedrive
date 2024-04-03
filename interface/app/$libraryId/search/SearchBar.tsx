@@ -108,7 +108,7 @@ export default ({ redirectToSearch, defaultFilters, defaultTarget }: Props) => {
 			onFocus={() => {
 				search.setSearchBarFocused(true);
 				search.setFilters?.((f) => {
-					if (!f) return defaultFilters;
+					if (!f) return defaultFilters ?? [];
 					else return f;
 				});
 				search.setTarget?.(search.target ?? defaultTarget);

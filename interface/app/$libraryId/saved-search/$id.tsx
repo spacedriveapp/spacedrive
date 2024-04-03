@@ -1,6 +1,6 @@
 import { MagnifyingGlass } from '@phosphor-icons/react';
 import { getIcon, iconNames } from '@sd/assets/util';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
 	FilePathOrder,
 	SearchFilterArgs,

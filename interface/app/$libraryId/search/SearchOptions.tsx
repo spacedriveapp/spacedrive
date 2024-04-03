@@ -2,7 +2,7 @@ import { FunnelSimple, Icon, Plus } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
 import { memo, PropsWithChildren, useDeferredValue, useMemo, useState } from 'react';
-import { useLibraryMutation } from '@sd/client';
+import { useFeatureFlag, useLibraryMutation } from '@sd/client';
 import {
 	Button,
 	ContextMenuDivItem,
@@ -94,6 +94,8 @@ export const SearchOptions = ({
 	const search = useSearchContext();
 	const isDark = useIsDark();
 
+	const showSearchTargets = useFeatureFlag('searchTargetSwitcher');
+
 	return (
 		<div
 			onMouseEnter={() => {
@@ -108,24 +110,26 @@ export const SearchOptions = ({
 				isDark ? 'bg-black/10' : 'bg-black/5'
 			)}
 		>
-			<OptionContainer className="flex flex-row items-center overflow-hidden rounded">
-				<InteractiveSection
-					onClick={() => search.setTarget?.('paths')}
-					className={clsx(
-						search.target === 'paths' ? 'bg-app-box' : 'hover:bg-app-box/50'
-					)}
-				>
-					Paths
-				</InteractiveSection>
-				<InteractiveSection
-					onClick={() => search.setTarget?.('objects')}
-					className={clsx(
-						search.target === 'objects' ? 'bg-app-box' : 'hover:bg-app-box/50'
-					)}
-				>
-					Objects
-				</InteractiveSection>
-			</OptionContainer>
+			{showSearchTargets && (
+				<OptionContainer className="flex flex-row items-center overflow-hidden rounded">
+					<InteractiveSection
+						onClick={() => search.setTarget?.('paths')}
+						className={clsx(
+							search.target === 'paths' ? 'bg-app-box' : 'hover:bg-app-box/50'
+						)}
+					>
+						Paths
+					</InteractiveSection>
+					<InteractiveSection
+						onClick={() => search.setTarget?.('objects')}
+						className={clsx(
+							search.target === 'objects' ? 'bg-app-box' : 'hover:bg-app-box/50'
+						)}
+					>
+						Objects
+					</InteractiveSection>
+				</OptionContainer>
+			)}
 
 			<AddFilterButton />
 
