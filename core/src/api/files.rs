@@ -312,13 +312,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				     context,
 				     name,
 				 }: CreateFileArgs| async move {
-					if (context != *"empty".to_string()) || (context != *"text".to_string()) {
-						return Err(rspc::Error::new(
-							ErrorCode::BadRequest,
-							"Invalid file context".to_string(),
-						));
-					}
-
 					let mut path =
 						get_location_path_from_location_id(&library.db, location_id).await?;
 
@@ -329,7 +322,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						path.push(sub_path);
 					}
 
-					if context == *"empty".to_string() {
+					if context.contains("empty") {
 						path.push(name.as_deref().unwrap_or(UNTITLED_FILE_STR));
 					} else {
 						path.push(name.as_deref().unwrap_or(UNTITLED_TEXT_FILE_STR));
