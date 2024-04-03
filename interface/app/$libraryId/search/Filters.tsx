@@ -55,13 +55,13 @@ export interface RenderSearchFilter<
 	Render: (props: {
 		filter: SearchFilterCRUD<TConditions>;
 		options: (FilterOption & { type: string })[];
-		search: UseSearch;
+		search: UseSearch<any>;
 	}) => JSX.Element;
 	// Apply is responsible for applying the filter to the search args
 	useOptions: (props: { search: string }) => FilterOption[];
 }
 
-export function useToggleOptionSelected({ search }: { search: UseSearch }) {
+export function useToggleOptionSelected({ search }: { search: UseSearch<any> }) {
 	return ({
 		filter,
 		option,
@@ -102,7 +102,7 @@ const FilterOptionList = ({
 }: {
 	filter: SearchFilterCRUD;
 	options: FilterOption[];
-	search: UseSearch;
+	search: UseSearch<any>;
 	empty?: () => JSX.Element;
 }) => {
 	const { allFiltersKeys } = search;
@@ -140,7 +140,13 @@ const FilterOptionList = ({
 	);
 };
 
-const FilterOptionText = ({ filter, search }: { filter: SearchFilterCRUD; search: UseSearch }) => {
+const FilterOptionText = ({
+	filter,
+	search
+}: {
+	filter: SearchFilterCRUD;
+	search: UseSearch<any>;
+}) => {
 	const [value, setValue] = useState('');
 
 	const { allFiltersKeys } = search;
@@ -186,7 +192,7 @@ const FilterOptionBoolean = ({
 	search
 }: {
 	filter: SearchFilterCRUD;
-	search: UseSearch;
+	search: UseSearch<any>;
 }) => {
 	const { allFiltersKeys } = search;
 

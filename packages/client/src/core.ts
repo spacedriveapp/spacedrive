@@ -46,7 +46,7 @@ export type Procedures = {
         { key: "search.objectsCount", input: LibraryArgs<{ filters?: SearchFilterArgs[] }>, result: number } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.pathsCount", input: LibraryArgs<{ filters?: SearchFilterArgs[] }>, result: number } | 
-        { key: "search.saved.get", input: LibraryArgs<number>, result: { id: number; pub_id: number[]; search: string | null; filters: string | null; name: string | null; icon: string | null; description: string | null; date_created: string | null; date_modified: string | null } | null } | 
+        { key: "search.saved.get", input: LibraryArgs<number>, result: { id: number; pub_id: number[]; target: string | null; search: string | null; filters: string | null; name: string | null; icon: string | null; description: string | null; date_created: string | null; date_modified: string | null } | null } | 
         { key: "search.saved.list", input: LibraryArgs<null>, result: SavedSearch[] } | 
         { key: "sync.enabled", input: LibraryArgs<null>, result: boolean } | 
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
@@ -116,7 +116,7 @@ export type Procedures = {
         { key: "p2p.debugConnect", input: RemoteIdentity, result: string } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: string } | 
         { key: "preferences.update", input: LibraryArgs<LibraryPreferences>, result: null } | 
-        { key: "search.saved.create", input: LibraryArgs<{ name: string; search?: string | null; filters?: string | null; description?: string | null; icon?: string | null }>, result: null } | 
+        { key: "search.saved.create", input: LibraryArgs<{ name: string; target?: SearchTarget; search?: string | null; filters?: string | null; description?: string | null; icon?: string | null }>, result: null } | 
         { key: "search.saved.delete", input: LibraryArgs<number>, result: null } | 
         { key: "search.saved.update", input: LibraryArgs<[number, Args]>, result: null } | 
         { key: "sync.enable", input: LibraryArgs<null>, result: null } | 
@@ -562,11 +562,13 @@ export type Response = { Start: { user_code: string; verification_url: string; v
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
-export type SavedSearch = { id: number; pub_id: number[]; search: string | null; filters: string | null; name: string | null; icon: string | null; description: string | null; date_created: string | null; date_modified: string | null }
+export type SavedSearch = { id: number; pub_id: number[]; target: string | null; search: string | null; filters: string | null; name: string | null; icon: string | null; description: string | null; date_created: string | null; date_modified: string | null }
 
 export type SearchData<T> = { cursor: number[] | null; items: Reference<T>[]; nodes: CacheNode[] }
 
 export type SearchFilterArgs = { filePath: FilePathFilterArgs } | { object: ObjectFilterArgs }
+
+export type SearchTarget = "paths" | "objects"
 
 export type SetFavoriteArgs = { id: number; favorite: boolean }
 

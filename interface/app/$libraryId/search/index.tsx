@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ObjectOrder, useObjectsExplorerQuery } from '@sd/client';
+import { ObjectOrder } from '@sd/client';
 import { Icon } from '~/components';
 import { useRouteTitle } from '~/hooks';
 
@@ -13,6 +13,7 @@ import { EmptyNotice } from '../Explorer/View/EmptyNotice';
 import { TopBarPortal } from '../TopBar/Portal';
 import SearchBar from './SearchBar';
 import { useSearchFromSearchParams } from './useSearch';
+import { useSearchExplorerQuery } from './useSearchExplorerQuery';
 
 export * from './context';
 export * from './SearchOptions';
@@ -30,17 +31,17 @@ export function Component() {
 
 	const search = useSearchFromSearchParams();
 
-	const objects = useObjectsExplorerQuery({
-		arg: {
-			take: 100,
-			filters: [...search.allFilters, ...explorerSettings.useLayoutSearchFilters()]
-		},
-		order: explorerSettings.useSettingsSnapshot().order
+	const items = useSearchExplorerQuery({
+		search,
+		explorerSettings,
+		filters: search.allFilters,
+		take: 100,
+		objects: { order: explorerSettings.useSettingsSnapshot().order }
 	});
 
 	const explorer = useExplorer({
-		...objects,
-		isFetchingNextPage: objects.query.isFetchingNextPage,
+		...items,
+		isFetchingNextPage: items.query.isFetchingNextPage,
 		settings: explorerSettings
 	});
 

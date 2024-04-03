@@ -12,7 +12,6 @@ import {
 	useLibrarySubscription,
 	useNodes,
 	useOnlineLocations,
-	usePathsExplorerQuery,
 	useRspcLibraryContext
 } from '@sd/client';
 import { Loader, Tooltip } from '@sd/ui';
@@ -41,6 +40,7 @@ import { useExplorerSearchParams } from '../Explorer/util';
 import { EmptyNotice } from '../Explorer/View/EmptyNotice';
 import { SearchContextProvider, SearchOptions, useSearchFromSearchParams } from '../search';
 import SearchBar from '../search/SearchBar';
+import { useSearchExplorerQuery } from '../search/useSearchExplorerQuery';
 import { TopBarPortal } from '../TopBar/Portal';
 import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import LocationOptions from './LocationOptions';
@@ -81,36 +81,35 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 		[defaultFilters, search.filters]
 	);
 
-	const paths = usePathsExplorerQuery({
-		arg: {
-			filters: [
-				...(search.allFilters.length > 0 ? search.allFilters : defaultFilters),
-				{
-					filePath: {
-						path: {
-							location_id: location.id,
-							path: path ?? '',
-							include_descendants:
-								search.search !== '' ||
-								(search.filters &&
-									search.filters.length > 0 &&
-									searchFiltersAreDefault) ||
-								(layoutMode === 'media' && mediaViewWithDescendants)
-						}
+	const items = useSearchExplorerQuery({
+		search,
+		explorerSettings,
+		filters: [
+			...(search.allFilters.length > 0 ? search.allFilters : defaultFilters),
+			{
+				filePath: {
+					path: {
+						location_id: location.id,
+						path: path ?? '',
+						include_descendants:
+							search.search !== '' ||
+							(search.filters &&
+								search.filters.length > 0 &&
+								searchFiltersAreDefault) ||
+							(layoutMode === 'media' && mediaViewWithDescendants)
 					}
-				},
-				...(!showHiddenFiles ? [{ filePath: { hidden: false } }] : []),
-				...explorerSettings.useLayoutSearchFilters()
-			],
-			take
-		},
-		order: explorerSettings.useSettingsSnapshot().order,
+				}
+			},
+			...(!showHiddenFiles ? [{ filePath: { hidden: false } }] : [])
+		],
+		take,
+		paths: { order: explorerSettings.useSettingsSnapshot().order },
 		onSuccess: () => explorerStore.resetNewThumbnails()
 	});
 
 	const explorer = useExplorer({
-		...paths,
-		isFetchingNextPage: paths.query.isFetchingNextPage,
+		...items,
+		isFetchingNextPage: items.query.isFetchingNextPage,
 		isLoadingPreferences: preferences.isLoading,
 		settings: explorerSettings,
 		parent: { type: 'Location', location }
