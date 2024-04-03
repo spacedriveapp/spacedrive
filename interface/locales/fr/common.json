@@ -212,7 +212,6 @@
   "join_library": "Rejoindre une bibliothèque",
   "join_library_description": "Les bibliothèques sont une base de données sécurisée, sur l'appareil. Vos fichiers restent où ils sont, la bibliothèque les catalogue et stocke toutes les données liées à Spacedrive.",
   "key": "Clé",
-  "kb": "Ko",
   "key_manager": "Gestionnaire de clés",
   "key_manager_description": "Créez des clés de chiffrement, montez et démontez vos clés pour voir les fichiers déchiffrés à la volée.",
   "keybinds": "Raccourcis clavier",
