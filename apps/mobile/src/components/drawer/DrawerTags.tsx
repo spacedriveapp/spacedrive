@@ -19,14 +19,14 @@ type DrawerTagItemProps = {
 const DrawerTagItem: React.FC<DrawerTagItemProps> = (props) => {
 	const { tagName, tagColor, onPress } = props;
 	return (
-		<Pressable style={tw`flex-1`} onPress={onPress} testID="drawer-tag">
+		<Pressable onPress={onPress} testID="drawer-tag">
 			<View
 				style={twStyle(
-					'h-auto flex-row items-center gap-2 rounded border border-app-inputborder/50 bg-app-darkBox p-2'
+					'h-auto flex-row items-center gap-2 rounded-md border border-app-inputborder/50 bg-app-darkBox p-2'
 				)}
 			>
 				<View style={twStyle('h-4 w-4 rounded-full', { backgroundColor: tagColor })} />
-				<Text style={twStyle('text-xs font-medium text-gray-300')} numberOfLines={1}>
+				<Text style={twStyle('text-xs font-medium text-ink')} numberOfLines={1}>
 					{tagName}
 				</Text>
 			</View>
@@ -47,13 +47,13 @@ const DrawerTags = () => {
 		<CollapsibleView
 			title="Tags"
 			titleStyle={tw`text-sm font-semibold text-ink`}
-			containerStyle={tw`mb-3 ml-1 mt-6`}
+			containerStyle={tw`mb-3 mt-6`}
 		>
-			<View style={tw`mt-2 flex-row flex-wrap justify-between gap-1`}>
+			<View style={tw`mt-2 flex-row justify-between gap-1`}>
 				<TagColumn tags={tagData} dataAmount={[0, 2]} />
 				<TagColumn tags={tagData} dataAmount={[2, 4]} />
 			</View>
-			<View style={tw`mt-2 flex-row gap-2`}>
+			<View style={tw`mt-2 flex-row flex-wrap gap-1`}>
 				{/* Add Tag */}
 				<Button
 					style={tw`flex-1 py-0`}
@@ -71,7 +71,7 @@ const DrawerTags = () => {
 								initial: false
 							});
 						}}
-						style={tw`flex-1 py-0`}
+						style={tw`w-1/2 py-0`}
 						variant="gray"
 					>
 						<Text style={tw`p-2 text-center text-xs font-medium text-ink`}>
