@@ -8,6 +8,7 @@ repository.workspace = true
 
 [dependencies]
 hex.workspace = true
+kafka = "0.10.0"
 libp2p = { version = "0.53.2", features = [
 	"tokio",
 	"quic",
