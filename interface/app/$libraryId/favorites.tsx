@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ObjectKindEnum, ObjectOrder, SearchFilterArgs, useObjectsExplorerQuery } from '@sd/client';
+import { ObjectOrder, useObjectsExplorerQuery } from '@sd/client';
 import { Icon } from '~/components';
 import { useRouteTitle } from '~/hooks';
 

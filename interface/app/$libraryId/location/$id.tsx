@@ -6,7 +6,6 @@ import {
 	ExplorerSettings,
 	FilePathOrder,
 	Location,
-	ObjectKindEnum,
 	useCache,
 	useLibraryMutation,
 	useLibraryQuery,
