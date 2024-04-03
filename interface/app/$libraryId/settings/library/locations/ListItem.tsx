@@ -69,7 +69,7 @@ export default ({ location }: Props) => {
 							{byteSize(location.size_in_bytes).value}
 						</span>
 						<span className="ml-px text-[10px] text-ink-dull/60">
-							{t(`size_${byteSize(location.size_in_bytes).unit}`)}
+							{t(`size_${byteSize(location.size_in_bytes).unit.toLowerCase()}`)}
 						</span>
 					</div>
 				</Tooltip>
