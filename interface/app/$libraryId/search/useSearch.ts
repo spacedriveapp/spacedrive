@@ -14,11 +14,11 @@ export interface UseSearchSource {
 	open?: boolean;
 }
 
-export interface UseSearchProps {
-	source: UseSearchSource;
+export interface UseSearchProps<TSource extends UseSearchSource> {
+	source: TSource;
 }
 
-export function useSearchParamsSource(): UseSearchSource {
+export function useSearchParamsSource() {
 	const [searchParams, setSearchParams] = useRawSearchParams();
 
 	const filtersSearchParam = searchParams.get('filters');
@@ -62,19 +62,17 @@ export function useSearchParamsSource(): UseSearchSource {
 		search: searchSearchParam ?? '',
 		setSearch,
 		open: searchSearchParam !== null || filtersSearchParam !== null
-	};
+	} satisfies UseSearchSource;
 }
 
-export function useStaticSource(
-	props: Pick<UseSearchSource, 'filters' | 'search'>
-): UseSearchSource {
-	return props;
+export function useStaticSource(props: Pick<UseSearchSource, 'filters' | 'search'>) {
+	return props satisfies UseSearchSource;
 }
 
 export function useMemorySource(props: {
 	initialFilters?: SearchFilterArgs[];
 	initialSearch?: string;
-}): UseSearchSource {
+}) {
 	const [filters, setFilters] = useState(props.initialFilters);
 	const [search, setSearch] = useState(props.initialSearch);
 
@@ -86,10 +84,10 @@ export function useMemorySource(props: {
 		},
 		search,
 		setSearch
-	};
+	} satisfies UseSearchSource;
 }
 
-export function useSearch(props: UseSearchProps) {
+export function useSearch<TSource extends UseSearchSource>(props: UseSearchProps<TSource>) {
 	const { filters, setFilters, search: rawSearch, setSearch, open } = props.source;
 
 	const [searchBarFocused, setSearchBarFocused] = useState(false);
