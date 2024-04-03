@@ -27,19 +27,13 @@ export function Component() {
 		}, []),
 		orderingKeys: objectOrderingKeysSchema
 	});
-	const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
 
 	const search = useSearchFromSearchParams();
 
 	const objects = useObjectsExplorerQuery({
 		arg: {
 			take: 100,
-			filters: [
-				...search.allFilters,
-				...(explorerSettingsSnapshot.layoutMode === 'media'
-					? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
-					: [])
-			]
+			filters: [...search.allFilters, ...explorerSettings.useLayoutSearchFilters()]
 		},
 		order: explorerSettings.useSettingsSnapshot().order
 	});

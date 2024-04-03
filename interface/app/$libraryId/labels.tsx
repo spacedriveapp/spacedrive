@@ -30,26 +30,7 @@ export function Component() {
 		orderingKeys: objectOrderingKeysSchema
 	});
 
-	// const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
-
-	// const filters = useMemo<SearchFilterArgs[]>(
-	// 	() => [
-	// 		...(explorerSettingsSnapshot.layoutMode === 'media'
-	// 			? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
-	// 			: [])
-	// 	],
-	// 	[explorerSettingsSnapshot.layoutMode]
-	// );
-
 	const search = useSearchFromSearchParams();
-
-	// const objects = useObjectsExplorerQuery({
-	// 	arg: {
-	// 		take: 100,
-	// 		filters: [...search.allFilters, { object: { tags: { in: [3] } } }]
-	// 	},
-	// 	explorerSettings
-	// });
 
 	const explorer = useExplorer({
 		items: labels.data || null,

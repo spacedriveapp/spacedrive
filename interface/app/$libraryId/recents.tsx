@@ -28,8 +28,6 @@ export function Component() {
 		orderingKeys: objectOrderingKeysSchema
 	});
 
-	const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
-
 	const search = useSearchFromSearchParams();
 
 	const objects = useObjectsExplorerQuery({
@@ -39,9 +37,7 @@ export function Component() {
 				...search.allFilters,
 				// TODO: Add fil ter to search options
 				{ object: { dateAccessed: { from: new Date(0).toISOString() } } },
-				...(explorerSettingsSnapshot.layoutMode === 'media'
-					? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
-					: [])
+				...explorerSettings.useLayoutSearchFilters()
 			]
 		},
 		order: explorerSettings.useSettingsSnapshot().order

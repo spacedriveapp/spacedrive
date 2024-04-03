@@ -46,6 +46,8 @@ import { TopBarPortal } from '../TopBar/Portal';
 import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import LocationOptions from './LocationOptions';
 
+import '@total-typescript/ts-reset/filter-boolean';
+
 export const Component = () => {
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
 	const [{ path }] = useExplorerSearchParams();
@@ -77,7 +79,10 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 
 	const search = useSearchFromSearchParams();
 
-	const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
+	const searchFiltersAreDefault = useMemo(
+		() => JSON.stringify(defaultFilters) !== JSON.stringify(search.filters),
+		[defaultFilters, search.filters]
+	);
 
 	const paths = usePathsExplorerQuery({
 		arg: {
@@ -92,17 +97,14 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 								search.search !== '' ||
 								(search.filters &&
 									search.filters.length > 0 &&
-									JSON.stringify(defaultFilters) !==
-										JSON.stringify(search.filters)) ||
+									searchFiltersAreDefault) ||
 								(layoutMode === 'media' && mediaViewWithDescendants)
 						}
 					}
 				},
-				!showHiddenFiles && { filePath: { hidden: false } },
-				explorerSettingsSnapshot.layoutMode === 'media' && [
-					{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }
-				]
-			].filter(Boolean) as any,
+				...(!showHiddenFiles ? [{ filePath: { hidden: false } }] : []),
+				...explorerSettings.useLayoutSearchFilters()
+			],
 			take
 		},
 		order: explorerSettings.useSettingsSnapshot().order,
