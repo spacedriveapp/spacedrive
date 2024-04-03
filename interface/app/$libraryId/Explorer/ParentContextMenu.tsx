@@ -1,5 +1,6 @@
 import {
 	Clipboard,
+	FilePlus,
 	FileX,
 	FolderPlus,
 	Hash,
@@ -48,6 +49,16 @@ export default (props: PropsWithChildren) => {
 			rescan();
 		}
 	});
+	const createFile = useLibraryMutation(['files.createFile'], {
+		onError: (e) => {
+			toast.error({ title: 'Error creating file', body: `Error: ${e}.` });
+			console.error(e);
+		},
+		onSuccess: (file) => {
+			toast.success({ title: `Created new file "${file}"` });
+			rescan();
+		}
+	});
 	const createEphemeralFolder = useLibraryMutation(['ephemeralFiles.createFolder'], {
 		onError: (e) => {
 			toast.error({ title: 'Error creating folder', body: `Error: ${e}.` });
@@ -55,6 +66,16 @@ export default (props: PropsWithChildren) => {
 		},
 		onSuccess: (folder) => {
 			toast.success({ title: `Created new folder "${folder}"` });
+			rescan();
+		}
+	});
+	const createEphemeralFile = useLibraryMutation(['ephemeralFiles.createFile'], {
+		onError: (e) => {
+			toast.error({ title: 'Error creating file', body: `Error: ${e}.` });
+			console.error(e);
+		},
+		onSuccess: (folder) => {
+			toast.success({ title: `Created new file "${folder}"` });
 			rescan();
 		}
 	});
@@ -102,6 +123,24 @@ export default (props: PropsWithChildren) => {
 								});
 							} else if (parent?.type === 'Ephemeral') {
 								createEphemeralFolder.mutate({
+									path: parent?.path,
+									name: null
+								});
+							}
+						}}
+					/>
+					<CM.Item
+						label={t('new_file')}
+						icon={FilePlus}
+						onClick={() => {
+							if (parent?.type === 'Location') {
+								createFile.mutate({
+									location_id: parent.location.id,
+									sub_path: currentPath || null,
+									name: null
+								});
+							} else if (parent?.type === 'Ephemeral') {
+								createEphemeralFile.mutate({
 									path: parent?.path,
 									name: null
 								});

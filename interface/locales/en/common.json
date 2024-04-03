@@ -295,6 +295,7 @@
   "networking_port": "Networking Port",
   "networking_port_description": "The port for Spacedrive's Peer-to-peer networking to communicate on. You should leave this disabled unless you have a restrictive firewall. Do not expose to the internet!",
   "new_folder": "New folder",
+  "new_file": "New file",
   "new_library": "New library",
   "new_location": "New location",
   "new_location_web_description": "As you are using the browser version of Spacedrive you will (for now) need to specify an absolute URL of a directory local to the remote node.",
