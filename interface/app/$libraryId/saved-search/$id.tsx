@@ -35,6 +35,7 @@ import { TopBarPortal } from '../TopBar/Portal';
 export const Component = () => {
 	const { id } = useZodRouteParams(SearchIdParamsSchema);
 
+	// This forces the search to throw away all data + modified search state when id changes
 	return <Inner key={id} id={id} />;
 };
 
