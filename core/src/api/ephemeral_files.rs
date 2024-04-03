@@ -91,7 +91,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 			R.with2(library()).mutation(
 				|(_, library),
-				 CreateEphemeralFileArgs { mut path, name, context }: CreateEphemeralFileArgs| async move {
+				 CreateEphemeralFileArgs {
+				     mut path,
+				     name,
+				     context,
+				 }: CreateEphemeralFileArgs| async move {
 					if (context != "empty") || (context != "text") {
 						return Err(rspc::Error::new(
 							ErrorCode::BadRequest,
