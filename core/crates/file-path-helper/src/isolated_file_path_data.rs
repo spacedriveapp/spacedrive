@@ -31,7 +31,7 @@ pub struct IsolatedFilePathDataParts<'a> {
 	relative_path: &'a str,
 }
 
-#[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq, Clone)]
 #[non_exhaustive]
 pub struct IsolatedFilePathData<'a> {
 	// WARN! These fields MUST NOT be changed outside the location module, that's why they have this visibility
@@ -97,6 +97,11 @@ impl<'a> IsolatedFilePathData<'a> {
 	#[must_use]
 	pub fn extension(&self) -> &str {
 		self.extension.as_ref()
+	}
+
+	#[must_use]
+	pub const fn is_dir(&self) -> bool {
+		self.is_dir
 	}
 
 	#[must_use]

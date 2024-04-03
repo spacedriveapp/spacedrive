@@ -12,10 +12,11 @@ use sd_task_system::{
 use sd_utils::{db::inode_from_db, error::FileIOError};
 
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{hash_map::Entry, HashMap, HashSet},
 	fmt,
 	fs::Metadata,
 	future::Future,
+	hash::{Hash, Hasher},
 	mem,
 	path::{Path, PathBuf},
 	sync::Arc,
@@ -41,6 +42,20 @@ pub struct WalkedEntry {
 	pub metadata: FilePathMetadata,
 }
 
+impl PartialEq for WalkedEntry {
+	fn eq(&self, other: &Self) -> bool {
+		self.iso_file_path == other.iso_file_path
+	}
+}
+
+impl Eq for WalkedEntry {}
+
+impl Hash for WalkedEntry {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.iso_file_path.hash(state);
+	}
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct WalkingEntry {
 	iso_file_path: IsolatedFilePathData<'static>,
@@ -48,12 +63,12 @@ struct WalkingEntry {
 }
 
 impl From<WalkingEntry> for WalkedEntry {
-	fn from(walking_entry: WalkingEntry) -> Self {
-		let WalkingEntry {
+	fn from(
+		WalkingEntry {
 			iso_file_path,
 			metadata,
-		} = walking_entry;
-
+		}: WalkingEntry,
+	) -> Self {
 		Self {
 			pub_id: Uuid::new_v4(),
 			maybe_object_id: None,
@@ -65,13 +80,15 @@ impl From<WalkingEntry> for WalkedEntry {
 
 impl From<(Uuid, file_path::object_id::Type, WalkingEntry)> for WalkedEntry {
 	fn from(
-		(pub_id, maybe_object_id, walking_entry): (Uuid, file_path::object_id::Type, WalkingEntry),
+		(
+			pub_id,
+			maybe_object_id,
+			WalkingEntry {
+				iso_file_path,
+				metadata,
+			},
+		): (Uuid, file_path::object_id::Type, WalkingEntry),
 	) -> Self {
-		let WalkingEntry {
-			iso_file_path,
-			metadata,
-		} = walking_entry;
-
 		Self {
 			pub_id,
 			maybe_object_id,
@@ -79,12 +96,6 @@ impl From<(Uuid, file_path::object_id::Type, WalkingEntry)> for WalkedEntry {
 			metadata,
 		}
 	}
-}
-
-pub enum IndexerRulerAcceptKind {
-	Accept,
-	Reject,
-	AcceptAncestors,
 }
 
 pub trait IsoFilePathFactory: Clone + Send + Sync + fmt::Debug + 'static {
@@ -130,7 +141,7 @@ pub(crate) struct WalkTaskOutput {
 	pub to_create: Vec<WalkedEntry>,
 	pub to_update: Vec<WalkedEntry>,
 	pub to_remove: Vec<file_path_pub_and_cas_ids::Data>,
-	pub accepted_ancestors: HashSet<PathBuf>,
+	pub accepted_ancestors: HashSet<WalkedEntry>,
 	pub errors: Vec<NonCriticalJobError>,
 	pub directory: PathBuf,
 	pub total_size: u64,
@@ -211,11 +222,11 @@ enum WalkerStage {
 	GatheringFilePathsToRemove {
 		accepted_paths: HashMap<PathBuf, InnerMetadata>,
 		maybe_to_keep_walking: Option<Vec<ToWalkEntry>>,
-		accepted_ancestors: HashSet<PathBuf>,
+		accepted_ancestors: HashSet<WalkedEntry>,
 	},
 	Finalize {
 		walking_entries: Vec<WalkingEntry>,
-		accepted_ancestors: HashSet<PathBuf>,
+		accepted_ancestors: HashSet<WalkedEntry>,
 		to_remove_entries: Vec<file_path_pub_and_cas_ids::Data>,
 		maybe_to_keep_walking: Option<Vec<ToWalkEntry>>,
 	},
@@ -248,11 +259,11 @@ enum WalkerStageSaveState {
 	GatheringFilePathsToRemove {
 		accepted_paths: HashMap<PathBuf, InnerMetadata>,
 		maybe_to_keep_walking: Option<Vec<ToWalkEntry>>,
-		accepted_ancestors: HashSet<PathBuf>,
+		accepted_ancestors: HashSet<WalkedEntry>,
 	},
 	Finalize {
 		walking_entries: Vec<WalkingEntry>,
-		accepted_ancestors: HashSet<PathBuf>,
+		accepted_ancestors: HashSet<WalkedEntry>,
 		to_remove_entries: Vec<file_path_pub_and_cas_ids::Data>,
 		maybe_to_keep_walking: Option<Vec<ToWalkEntry>>,
 	},
@@ -554,10 +565,13 @@ where
 					let (accepted_paths, accepted_ancestors) = process_rules_results(
 						&path,
 						root,
+						iso_file_path_factory,
 						*parent_dir_accepted_by_its_children,
 						paths_metadatas_and_acceptance,
 						&mut maybe_to_keep_walking,
-					);
+						errors,
+					)
+					.await;
 
 					*stage = WalkerStage::GatheringFilePathsToRemove {
 						accepted_paths,
@@ -681,16 +695,16 @@ async fn segregate_creates_and_updates(
 						&file_path.date_modified,
 					) {
 						if (
-								inode_from_db(&inode[0..8]) != entry.metadata.inode
+								inode_from_db(&inode[0..8]) != metadata.inode
 								// Datetimes stored in DB loses a bit of precision, so we need to check against a delta
 								// instead of using != operator
-								|| DateTime::<FixedOffset>::from(entry.metadata.modified_at) - *date_modified
+								|| DateTime::<FixedOffset>::from(metadata.modified_at) - *date_modified
 									> ChronoDuration::milliseconds(1) || file_path.hidden.is_none() || metadata.hidden != file_path.hidden.unwrap_or_default()
 							)
 							// We ignore the size of directories because it is not reliable, we need to
 							// calculate it ourselves later
 							&& !(
-								entry.iso_file_path.to_parts().is_dir
+								iso_file_path.to_parts().is_dir
 								&& metadata.size_in_bytes
 									!= file_path
 										.size_in_bytes_bytes
@@ -810,21 +824,23 @@ async fn apply_indexer_rules(
 		.collect()
 }
 
-fn process_rules_results(
-	source_directory: impl AsRef<Path>,
+async fn process_rules_results(
+	source_directory: impl AsRef<Path> + Send,
 	root: &Arc<PathBuf>,
+	iso_file_path_factory: &impl IsoFilePathFactory,
 	parent_dir_accepted_by_its_children: Option<bool>,
 	paths_metadatas_and_acceptance: &mut HashMap<
 		PathBuf,
 		(InnerMetadata, HashMap<RuleKind, Vec<bool>>),
 	>,
 	maybe_to_keep_walking: &mut Option<Vec<ToWalkEntry>>,
-) -> (HashMap<PathBuf, InnerMetadata>, HashSet<PathBuf>) {
+	errors: &mut Vec<NonCriticalJobError>,
+) -> (HashMap<PathBuf, InnerMetadata>, HashSet<WalkedEntry>) {
 	let source_directory = source_directory.as_ref();
 	let root = root.as_ref();
 
-	paths_metadatas_and_acceptance.drain().fold(
-		(HashMap::new(), HashSet::new()),
+	let (accepted, accepted_ancestors) = paths_metadatas_and_acceptance.drain().fold(
+		(HashMap::new(), HashMap::new()),
 		|(mut accepted, mut accepted_ancestors),
 		 (current_path, (metadata, acceptance_per_rule_kind))| {
 			// Accept by children has three states,
@@ -874,12 +890,46 @@ fn process_rules_results(
 					metadata,
 					root,
 					&mut accepted,
+					iso_file_path_factory,
 					&mut accepted_ancestors,
+					errors,
 				);
 			}
 
 			(accepted, accepted_ancestors)
 		},
+	);
+
+	(
+		accepted,
+		accepted_ancestors
+			.into_iter()
+			.map(|(ancestor_iso_file_path, ancestor_path)| async move {
+				fs::metadata(&ancestor_path)
+					.await
+					.map_err(|e| {
+						NonCriticalIndexerError::Metadata(
+							FileIOError::from((&ancestor_path, e)).to_string(),
+						)
+					})
+					.and_then(|metadata| {
+						FilePathMetadata::from_path(&ancestor_path, &metadata)
+							.map(|metadata| {
+								WalkingEntry {
+									iso_file_path: ancestor_iso_file_path,
+									metadata,
+								}
+								.into()
+							})
+							.map_err(|e| NonCriticalIndexerError::FilePathMetadata(e.to_string()))
+					})
+			})
+			.collect::<Vec<_>>()
+			.join()
+			.await
+			.into_iter()
+			.filter_map(|res| res.map_err(|e| errors.push(e.into())).ok())
+			.collect(),
 	)
 }
 
@@ -906,9 +956,9 @@ fn process_and_maybe_reject_by_directory_rules(
 		// If it wasn't accepted then we mark as rejected
 		if accept_by_children_dir.is_none() {
 			trace!(
-								"Path {} rejected because it didn't passed in any AcceptIfChildrenDirectoriesArePresent rule",
-								current_path.display()
-							);
+				"Path {} rejected because it didn't passed in any AcceptIfChildrenDirectoriesArePresent rule",
+				current_path.display()
+			);
 			*accept_by_children_dir = Some(false);
 		}
 	}
@@ -930,7 +980,9 @@ fn accept_ancestors(
 	metadata: InnerMetadata,
 	root: &Path,
 	accepted: &mut HashMap<PathBuf, InnerMetadata>,
-	accepted_ancestors: &mut HashSet<PathBuf>,
+	iso_file_path_factory: &impl IsoFilePathFactory,
+	accepted_ancestors: &mut HashMap<IsolatedFilePathData<'static>, PathBuf>,
+	errors: &mut Vec<NonCriticalJobError>,
 ) {
 	// If the ancestors directories wasn't indexed before, now we do
 	for ancestor in current_path
@@ -938,12 +990,21 @@ fn accept_ancestors(
 		.skip(1) // Skip the current directory as it was already indexed
 		.take_while(|&ancestor| ancestor != root)
 	{
-		if accepted_ancestors.insert(ancestor.to_path_buf()) {
-			trace!("Accepted ancestor {}", ancestor.display());
-		} else {
-			// If we already accepted this ancestor, then it will contain
-			// also all if its ancestors too, so we can stop here
-			break;
+		if let Ok(iso_file_path) = iso_file_path_factory
+			.build(ancestor, true)
+			.map_err(|e| errors.push(NonCriticalIndexerError::IsoFilePath(e.to_string()).into()))
+		{
+			match accepted_ancestors.entry(iso_file_path) {
+				Entry::Occupied(_) => {
+					// If we already accepted this ancestor, then it will contain
+					// also all if its ancestors too, so we can stop here
+					break;
+				}
+				Entry::Vacant(entry) => {
+					trace!("Accepted ancestor {}", ancestor.display());
+					entry.insert(ancestor.to_path_buf());
+				}
+			}
 		}
 	}
 
@@ -1025,8 +1086,6 @@ mod tests {
 	use sd_core_indexer_rules::{IndexerRule, RulePerKind};
 	use sd_task_system::{TaskOutput, TaskStatus, TaskSystem};
 
-	use std::hash::{Hash, Hasher};
-
 	use chrono::Utc;
 	use futures_concurrency::future::FutureGroup;
 	use globset::{Glob, GlobSetBuilder};
@@ -1035,20 +1094,6 @@ mod tests {
 	use tokio::fs;
 	use tracing::debug;
 	use tracing_test::traced_test;
-
-	impl PartialEq for WalkedEntry {
-		fn eq(&self, other: &Self) -> bool {
-			self.iso_file_path == other.iso_file_path
-		}
-	}
-
-	impl Eq for WalkedEntry {}
-
-	impl Hash for WalkedEntry {
-		fn hash<H: Hasher>(&self, state: &mut H) {
-			self.iso_file_path.hash(state);
-		}
-	}
 
 	#[derive(Debug, Clone)]
 	struct DummyIsoPathFactory {
@@ -1212,7 +1257,7 @@ mod tests {
 
 		let mut group = group.lend_mut();
 
-		let mut actual = HashSet::new();
+		let mut actual_set = HashSet::new();
 
 		let mut ancestors = HashSet::new();
 
@@ -1221,50 +1266,39 @@ mod tests {
 				panic!("unexpected task output")
 			};
 
-			let walk_result = output.downcast::<WalkTaskOutput>().unwrap();
+			let WalkTaskOutput {
+				to_create,
+				accepted_ancestors,
+				errors,
+				handles,
+				..
+			} = *output.downcast::<WalkTaskOutput>().unwrap();
 
-			debug!("{walk_result:#?}");
+			assert!(errors.is_empty(), "errors: {errors:#?}");
 
-			assert!(
-				walk_result.errors.is_empty(),
-				"errors: {:#?}",
-				walk_result.errors
-			);
+			actual_set.extend(to_create);
+			ancestors.extend(accepted_ancestors);
 
-			actual.extend(walk_result.to_create);
-			ancestors.extend(walk_result.accepted_ancestors);
-
-			for handle in walk_result.handles {
+			for handle in handles {
 				group.insert(handle);
 			}
 		}
 
-		for WalkedEntry { iso_file_path, .. } in &actual {
-			ancestors.remove(&root_path.join(iso_file_path));
+		for actual in &actual_set {
+			ancestors.remove(actual);
 		}
 
 		if !ancestors.is_empty() {
 			debug!("Adding ancestors to actual: {:#?}", ancestors);
-			actual.extend(ancestors.into_iter().map(|path| WalkedEntry {
-				pub_id: Uuid::new_v4(),
-				maybe_object_id: None,
-				iso_file_path: IsolatedFilePathData::new(0, root_path, path, true).unwrap(),
-				metadata: FilePathMetadata {
-					inode: 0,
-					size_in_bytes: 0,
-					created_at: Utc::now(),
-					modified_at: Utc::now(),
-					hidden: false,
-				},
-			}));
+			actual_set.extend(ancestors);
 		}
 
 		assert_eq!(
-			actual,
+			actual_set,
 			expected,
 			"Expected \\ Actual: {:#?};\n Actual \\ Expected: {:#?}",
-			expected.difference(&actual),
-			actual.difference(&expected)
+			expected.difference(&actual_set),
+			actual_set.difference(&expected)
 		);
 	}
 

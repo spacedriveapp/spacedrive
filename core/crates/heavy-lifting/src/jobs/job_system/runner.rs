@@ -185,6 +185,7 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 			job_outputs_tx,
 			job_return_status_tx,
 			base_dispatcher,
+			jobs_to_store_by_ctx_id,
 			..
 		} = self;
 
@@ -240,7 +241,7 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 					return;
 				};
 
-				self.jobs_to_store_by_ctx_id
+				jobs_to_store_by_ctx_id
 					.entry(handle.job_ctx.id())
 					.or_default()
 					.push(StoredJobEntry {
@@ -313,7 +314,7 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 			handles,
 			job_hashes,
 			job_hashes_by_id,
-			jobs_to_store_by_ctx_id: jobs_to_store_by_db_id,
+			jobs_to_store_by_ctx_id,
 			..
 		} = self;
 
@@ -322,14 +323,14 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 			"All jobs must be completed before saving"
 		);
 
-		if jobs_to_store_by_db_id.is_empty() {
+		if jobs_to_store_by_ctx_id.is_empty() {
 			info!("No jobs to store in disk for job system shutdown!");
 			return Ok(());
 		}
 
 		fs::write(
 			store_jobs_file,
-			rmp_serde::to_vec_named(&jobs_to_store_by_db_id)?,
+			rmp_serde::to_vec_named(&jobs_to_store_by_ctx_id)?,
 		)
 		.await
 		.map_err(|e| JobSystemError::StoredJobs(FileIOError::from((store_jobs_file, e))))

@@ -2,7 +2,7 @@ use crate::{
 	tasks::indexer::{
 		saver::{SaveTask, SaveTaskOutput},
 		updater::{UpdateTask, UpdateTaskOutput},
-		walker::{self, WalkDirTask, WalkTaskOutput},
+		walker::{self, WalkDirTask, WalkTaskOutput, WalkedEntry},
 		IndexerError, NonCriticalIndexerError,
 	},
 	Error, NonCriticalJobError,
@@ -78,6 +78,8 @@ pub struct IndexerJob {
 	iso_file_path_factory: IsoFilePathFactory,
 	indexer_ruler: IndexerRuler,
 	walker_root_path: Option<Arc<PathBuf>>,
+	ancestors_needing_indexing: HashSet<WalkedEntry>,
+	ancestors_already_indexed: HashSet<IsolatedFilePathData<'static>>,
 
 	errors: Vec<NonCriticalJobError>,
 
@@ -101,6 +103,8 @@ struct SaveState {
 	iso_file_path_factory: IsoFilePathFactory,
 	indexer_ruler_bytes: Vec<u8>,
 	walker_root_path: Option<Arc<PathBuf>>,
+	ancestors_needing_indexing: HashSet<WalkedEntry>,
+	ancestors_already_indexed: HashSet<IsolatedFilePathData<'static>>,
 
 	errors: Vec<NonCriticalJobError>,
 
@@ -109,16 +113,31 @@ struct SaveState {
 
 impl SerializableJob for IndexerJob {
 	async fn serialize(self) -> Result<Option<Vec<u8>>, rmp_serde::encode::Error> {
+		let Self {
+			location,
+			sub_path,
+			metadata,
+			iso_file_path_factory,
+			indexer_ruler,
+			walker_root_path,
+			ancestors_needing_indexing,
+			ancestors_already_indexed: indexed_paths,
+			errors,
+			tasks_for_shutdown,
+			..
+		} = self;
+
 		rmp_serde::to_vec_named(&SaveState {
-			location: self.location,
-			sub_path: self.sub_path,
-			metadata: self.metadata,
-			iso_file_path_factory: self.iso_file_path_factory,
-			indexer_ruler_bytes: self.indexer_ruler.serialize().await?,
-			walker_root_path: self.walker_root_path,
+			location,
+			sub_path,
+			metadata,
+			iso_file_path_factory,
+			indexer_ruler_bytes: indexer_ruler.serialize().await?,
+			walker_root_path,
+			ancestors_needing_indexing,
+			ancestors_already_indexed: indexed_paths,
 			tasks_for_shutdown_bytes: Some(SerializedTasks(rmp_serde::to_vec_named(
-				&self
-					.tasks_for_shutdown
+				&tasks_for_shutdown
 					.into_iter()
 					.map(|task| async move {
 						if task
@@ -151,7 +170,7 @@ impl SerializableJob for IndexerJob {
 					.try_join()
 					.await?,
 			)?)),
-			errors: self.errors,
+			errors,
 		})
 		.map(Some)
 	}
@@ -167,6 +186,8 @@ impl SerializableJob for IndexerJob {
 			iso_file_path_factory,
 			indexer_ruler_bytes,
 			walker_root_path,
+			ancestors_needing_indexing,
+			ancestors_already_indexed,
 			errors,
 			tasks_for_shutdown_bytes,
 		} = rmp_serde::from_slice::<SaveState>(serialized_job)?;
@@ -181,6 +202,8 @@ impl SerializableJob for IndexerJob {
 				iso_file_path_factory,
 				indexer_ruler,
 				walker_root_path,
+				ancestors_needing_indexing,
+				ancestors_already_indexed,
 				errors,
 				pending_tasks_on_resume: Vec::new(),
 				tasks_for_shutdown: Vec::new(),
@@ -218,6 +241,8 @@ impl IndexerJob {
 					.map(Arc::new)?,
 			},
 			walker_root_path: None,
+			ancestors_needing_indexing: HashSet::new(),
+			ancestors_already_indexed: HashSet::new(),
 			location: Arc::new(location),
 			sub_path,
 			metadata: Metadata::default(),
@@ -290,12 +315,46 @@ impl IndexerJob {
 
 		*self.metadata.paths_and_sizes.entry(directory).or_default() += total_size;
 		if let Some(parent) = maybe_parent {
+			use walker::IsoFilePathFactory;
+
+			let parent_iso_file_path = self.iso_file_path_factory.build(&parent, true)?;
+
 			*self.metadata.paths_and_sizes.entry(parent).or_default() += total_size;
+
+			for ancestor_path in accepted_ancestors
+				.iter()
+				// Already summed the size for the parent above so we can skip it
+				.filter(|ancestor_entry| parent_iso_file_path != ancestor_entry.iso_file_path)
+				.map(|ancestor_entry| {
+					self.iso_file_path_factory
+						.location_path
+						.join(&ancestor_entry.iso_file_path)
+				}) {
+				*self
+					.metadata
+					.paths_and_sizes
+					.entry(ancestor_path)
+					.or_default() += total_size;
+			}
 		}
 
-		self.errors.extend(errors);
+		// First we add ancestors, filtering out ancestors already indexed in previous iterations
+		self.ancestors_needing_indexing
+			.extend(accepted_ancestors.into_iter().filter(|ancestor_entry| {
+				!self
+					.ancestors_already_indexed
+					.contains(&ancestor_entry.iso_file_path)
+			}));
 
-		// TODO: Figure out how to handle the accepted ancestors
+		// Then we add new directories to be indexed as they can be received as ancestors in coming iterations
+		self.ancestors_already_indexed.extend(
+			to_create
+				.iter()
+				.filter(|&WalkedEntry { iso_file_path, .. }| iso_file_path.is_dir())
+				.map(|WalkedEntry { iso_file_path, .. }| iso_file_path.clone()),
+		);
+
+		self.errors.extend(errors);
 
 		let db_delete_time = Instant::now();
 		self.metadata.removed_count +=
@@ -370,6 +429,61 @@ impl IndexerJob {
 
 		// TODO: Report progress
 	}
+
+	async fn process_handles(
+		&mut self,
+		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
+		job_ctx: &impl JobContext,
+		dispatcher: &JobTaskDispatcher,
+	) -> Option<Result<ReturnStatus, Error>> {
+		while let Some(task) = pending_running_tasks.next().await {
+			match task {
+				Ok(TaskStatus::Done((task_id, TaskOutput::Out(out)))) => {
+					let more_handles = match self
+						.process_task_output(task_id, out, job_ctx, dispatcher)
+						.await
+					{
+						Ok(more_handles) => more_handles,
+						Err(e) => {
+							cancel_pending_tasks(&*pending_running_tasks).await;
+
+							return Some(Err(e.into()));
+						}
+					};
+
+					pending_running_tasks.extend(more_handles);
+				}
+
+				Ok(TaskStatus::Done((task_id, TaskOutput::Empty))) => {
+					warn!("Task <id='{task_id}'> returned an empty output");
+				}
+
+				Ok(TaskStatus::Shutdown(task)) => {
+					self.tasks_for_shutdown.push(task);
+				}
+
+				Ok(TaskStatus::Error(e)) => {
+					cancel_pending_tasks(&*pending_running_tasks).await;
+
+					return Some(Err(e));
+				}
+
+				Ok(TaskStatus::Canceled | TaskStatus::ForcedAbortion) => {
+					cancel_pending_tasks(&*pending_running_tasks).await;
+
+					return Some(Ok(ReturnStatus::Canceled));
+				}
+
+				Err(e) => {
+					cancel_pending_tasks(&*pending_running_tasks).await;
+
+					return Some(Err(e.into()));
+				}
+			}
+		}
+
+		None
+	}
 }
 
 impl Job for IndexerJob {
@@ -415,51 +529,44 @@ impl Job for IndexerJob {
 			pending_running_tasks.extend(mem::take(&mut self.pending_tasks_on_resume));
 		}
 
-		while let Some(task) = pending_running_tasks.next().await {
-			match task {
-				Ok(TaskStatus::Done((task_id, TaskOutput::Out(out)))) => {
-					let more_handles = match self
-						.process_task_output(task_id, out, &ctx, &dispatcher)
-						.await
-					{
-						Ok(more_handles) => more_handles,
-						Err(e) => {
-							cancel_pending_tasks(&pending_running_tasks).await;
+		if let Some(res) = self
+			.process_handles(&mut pending_running_tasks, &ctx, &dispatcher)
+			.await
+		{
+			return res;
+		}
 
-							return Err(e.into());
-						}
-					};
+		if !self.ancestors_needing_indexing.is_empty() {
+			let save_tasks = self
+				.ancestors_needing_indexing
+				.drain()
+				.chunks(BATCH_SIZE)
+				.into_iter()
+				.map(|chunk| {
+					let chunked_saves = chunk.collect::<Vec<_>>();
+					self.metadata.total_paths += chunked_saves.len() as u64;
+					self.metadata.total_save_steps += 1;
 
-					pending_running_tasks.extend(more_handles);
-				}
+					SaveTask::new(
+						Arc::clone(&self.location),
+						chunked_saves,
+						Arc::clone(ctx.db()),
+						Arc::clone(ctx.sync()),
+					)
+				})
+				.collect::<Vec<_>>();
 
-				Ok(TaskStatus::Done((task_id, TaskOutput::Empty))) => {
-					warn!("Task <id='{task_id}'> returned an empty output");
-				}
+			pending_running_tasks.extend(dispatcher.dispatch_many(save_tasks).await);
 
-				Ok(TaskStatus::Shutdown(task)) => {
-					self.tasks_for_shutdown.push(task);
-				}
-
-				Ok(TaskStatus::Error(e)) => {
-					cancel_pending_tasks(&pending_running_tasks).await;
-
-					return Err(e);
-				}
-
-				Ok(TaskStatus::Canceled | TaskStatus::ForcedAbortion) => {
-					cancel_pending_tasks(&pending_running_tasks).await;
-
-					return Ok(ReturnStatus::Canceled);
-				}
-
-				Err(e) => {
-					cancel_pending_tasks(&pending_running_tasks).await;
-
-					return Err(e.into());
-				}
+			if let Some(res) = self
+				.process_handles(&mut pending_running_tasks, &ctx, &dispatcher)
+				.await
+			{
+				return res;
 			}
 		}
+
+		// TODO: Update directory sizes and location size
 
 		if self.tasks_for_shutdown.is_empty() {
 			Ok(ReturnStatus::Completed(JobReturn::default()))
