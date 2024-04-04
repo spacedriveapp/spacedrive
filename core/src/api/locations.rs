@@ -3,10 +3,8 @@ use crate::{
 	location::{
 		delete_location, find_location,
 		indexer::{rules::IndexerRuleCreateArgs, OldIndexerJobInit},
-		light_scan_location, location_with_indexer_rules,
-		non_indexed::NonIndexedPathItem,
-		relink_location, scan_location, scan_location_sub_path, LocationCreateArgs, LocationError,
-		LocationUpdateArgs,
+		light_scan_location, location_with_indexer_rules, relink_location, scan_location,
+		scan_location_sub_path, LocationCreateArgs, LocationError, LocationUpdateArgs,
 	},
 	object::old_file_identifier::old_file_identifier_job::OldFileIdentifierJobInit,
 	old_job::StatefulJob,
@@ -15,6 +13,7 @@ use crate::{
 };
 
 use sd_cache::{CacheNode, Model, Normalise, NormalisedResult, NormalisedResults, Reference};
+use sd_indexer::NonIndexedPathItem;
 use sd_prisma::prisma::{
 	file_path, indexer_rule, indexer_rules_in_location, location, object, SortOrder,
 };

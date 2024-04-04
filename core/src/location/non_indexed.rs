@@ -12,7 +12,10 @@ use futures::Stream;
 use itertools::Either;
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_file_path_helper::{path_is_hidden, MetadataExt};
-use sd_indexer::rules::{IndexerRule, RuleKind};
+use sd_indexer::{
+	rules::{IndexerRule, RuleKind},
+	NonIndexedPathItem,
+};
 use sd_prisma::prisma::location;
 use sd_utils::{chain_optional_iter, error::FileIOError};
 
@@ -80,19 +83,6 @@ impl<P: AsRef<Path>> From<(P, io::Error)> for NonIndexedLocationError {
 			Self::FileIO(FileIOError::from((path, source)))
 		}
 	}
-}
-
-#[derive(Serialize, Type, Debug)]
-pub struct NonIndexedPathItem {
-	pub path: String,
-	pub name: String,
-	pub extension: String,
-	pub kind: i32,
-	pub is_dir: bool,
-	pub date_created: DateTime<Utc>,
-	pub date_modified: DateTime<Utc>,
-	pub size_in_bytes_bytes: Vec<u8>,
-	pub hidden: bool,
 }
 
 // #[instrument(name = "non_indexed::walk", skip(sort_fn))]

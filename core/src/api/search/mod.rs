@@ -98,15 +98,16 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 			#[derive(Deserialize, Type, Debug)]
 			#[serde(rename_all = "camelCase")]
-			enum LocationPath {
-				Path(PathBuf),
+			enum PathFrom {
+				Path,
 				// TODO: FTP + S3 + GDrive
 			}
 
 			#[derive(Deserialize, Type, Debug)]
 			#[serde(rename_all = "camelCase")]
 			struct EphemeralPathSearchArgs {
-				path: LocationPath,
+				from: PathFrom,
+				path: PathBuf,
 				with_hidden_files: bool,
 				#[specta(optional)]
 				order: Option<EphemeralPathOrder>,
@@ -122,73 +123,81 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			R.with2(library()).subscription(
 				|(node, library),
 				 EphemeralPathSearchArgs {
+				     from,
 				     path,
 				     with_hidden_files,
 				     order,
 				 }| async move {
 					// TODO: Error handling
 
-					let (service, path) = match path {
-						LocationPath::Path(path) => {
-							let mut builder = Fs::default();
-							builder.root(&path.to_str().unwrap());
-							(Operator::new(builder).unwrap().finish(), path)
+					let service = match from {
+						PathFrom::Path => {
+							let mut fs = Fs::default();
+							fs.root("/");
+							Operator::new(fs).unwrap().finish()
 						}
 					};
 
-					let todo = sd_indexer::ephemeral(service).await;
+					let stream = sd_indexer::ephemeral(service, path).await;
 
-					let paths =
-						non_indexed::walk(path, with_hidden_files, node, library, |entries| {
-							macro_rules! order_match {
-								($order:ident, [$(($variant:ident, |$i:ident| $func:expr)),+]) => {{
-									match $order {
-										$(EphemeralPathOrder::$variant(order) => {
-											entries.sort_unstable_by(|path1, path2| {
-												let func = |$i: &non_indexed::Entry| $func;
+					// let paths =
+					// 	non_indexed::walk(path, with_hidden_files, node, library, |entries| {
+					// 		macro_rules! order_match {
+					// 			($order:ident, [$(($variant:ident, |$i:ident| $func:expr)),+]) => {{
+					// 				match $order {
+					// 					$(EphemeralPathOrder::$variant(order) => {
+					// 						entries.sort_unstable_by(|path1, path2| {
+					// 							let func = |$i: &non_indexed::Entry| $func;
 
-												let one = func(path1);
-												let two = func(path2);
+					// 							let one = func(path1);
+					// 							let two = func(path2);
 
-												match order {
-													SortOrder::Desc => two.cmp(&one),
-													SortOrder::Asc => one.cmp(&two),
-												}
-											});
-										})+
-									}
-								}};
-							}
+					// 							match order {
+					// 								SortOrder::Desc => two.cmp(&one),
+					// 								SortOrder::Asc => one.cmp(&two),
+					// 							}
+					// 						});
+					// 					})+
+					// 				}
+					// 			}};
+					// 		}
 
-							if let Some(order) = order {
-								order_match!(
-									order,
-									[
-										(Name, |p| p.name().to_lowercase()),
-										(SizeInBytes, |p| p.size_in_bytes()),
-										(DateCreated, |p| p.date_created()),
-										(DateModified, |p| p.date_modified())
-									]
-								)
-							}
-						})
-						.await?;
+					// 		if let Some(order) = order {
+					// 			order_match!(
+					// 				order,
+					// 				[
+					// 					(Name, |p| p.name().to_lowercase()),
+					// 					(SizeInBytes, |p| p.size_in_bytes()),
+					// 					(DateCreated, |p| p.date_created()),
+					// 					(DateModified, |p| p.date_modified())
+					// 				]
+					// 			)
+					// 		}
+					// 	})
+					// 	.await?;
 
-					let mut stream = BatchedStream::new(paths);
+					let mut stream = BatchedStream::new(stream);
 					Ok(unsafe_streamed_query(stream! {
 						while let Some(result) = stream.next().await {
-							// We optimize for the case of no errors because it should be way more common.
+							// TODO: Bring back errors
+							// // We optimize for the case of no errors because it should be way more common.
 							let mut entries = Vec::with_capacity(result.len());
 							let mut errors = Vec::with_capacity(0);
 
 							for item in result {
-								match item {
-									Ok(item) => entries.push(item),
-									Err(e) => match e {
-										Either::Left(e) => errors.push(e),
-										Either::Right(e) => errors.push(e.into()),
-									},
-								}
+								entries.push(ExplorerItem::NonIndexedPath {
+									thumbnail: None,
+									item
+								})
+
+								// match item {
+								// 	Ok(item) => todo!(),
+								// 	Err(e) => unreachable!(),
+								// 	// Err(e) => match e {
+								// 	// 	Either::Left(e) => errors.push(e),
+								// 	// 	Either::Right(e) => errors.push(e.into()),
+								// 	// },
+								// }
 							}
 
 							let (nodes, entries) = entries.normalise(|item: &ExplorerItem| item.id());

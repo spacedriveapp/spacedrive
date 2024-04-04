@@ -235,7 +235,7 @@ export type EphemeralFileSystemOps = { sources: string[]; target_dir: string }
 
 export type EphemeralPathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder }
 
-export type EphemeralPathSearchArgs = { path: LocationPath; withHiddenFiles: boolean; order?: EphemeralPathOrder | null }
+export type EphemeralPathSearchArgs = { from: PathFrom; path: string; withHiddenFiles: boolean; order?: EphemeralPathOrder | null }
 
 export type EphemeralPathsResultItem = { entries: Reference<ExplorerItem>[]; errors: Error[]; nodes: CacheNode[] }
 
@@ -425,8 +425,6 @@ export type Location = { id: number; pub_id: number[]; name: string | null; path
  */
 export type LocationCreateArgs = { path: string; dry_run: boolean; indexer_rules_ids: number[] }
 
-export type LocationPath = { path: string }
-
 export type LocationSettings = { explorer: ExplorerSettings<FilePathOrder> }
 
 /**
@@ -537,6 +535,8 @@ export type Orientation = "Normal" | "CW90" | "CW180" | "CW270" | "MirroredVerti
 export type P2PDiscoveryState = "Everyone" | "ContactsOnly" | "Disabled"
 
 export type P2PEvent = { type: "PeerChange"; identity: RemoteIdentity; connection: ConnectionMethod; discovery: DiscoveryMethod; metadata: PeerMetadata } | { type: "PeerDelete"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedOut"; id: string } | { type: "SpacedropRejected"; id: string }
+
+export type PathFrom = "path"
 
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; device_model: HardwareModel | null; version: string | null }
 

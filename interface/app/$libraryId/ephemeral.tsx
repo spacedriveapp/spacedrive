@@ -188,6 +188,7 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 			{
 				library_id: libraryCtx.library.uuid,
 				arg: {
+					from: 'path',
 					path: path ?? (os === 'windows' ? 'C:\\' : '/'),
 					withHiddenFiles: settingsSnapshot.showHiddenFiles,
 					order: settingsSnapshot.order
