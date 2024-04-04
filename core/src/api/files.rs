@@ -46,6 +46,14 @@ use tracing::{error, warn};
 use super::{Ctx, R};
 
 const UNTITLED_FOLDER_STR: &str = "Untitled Folder";
+const UNTITLED_FILE_STR: &str = "Untitled";
+const UNTITLED_TEXT_FILE_STR: &str = "Untitled.txt";
+
+#[derive(Type, Deserialize)]
+enum FileCreateContextTypes {
+	empty,
+	text,
+}
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -291,6 +299,45 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					path.push(name.as_deref().unwrap_or(UNTITLED_FOLDER_STR));
 
 					create_directory(path, &library).await
+				},
+			)
+		})
+		.procedure("createFile", {
+			#[derive(Type, Deserialize)]
+			pub struct CreateFileArgs {
+				pub location_id: location::id::Type,
+				pub sub_path: Option<PathBuf>,
+				pub name: Option<String>,
+				pub context: FileCreateContextTypes,
+			}
+			R.with2(library()).mutation(
+				|(_, library),
+				 CreateFileArgs {
+				     location_id,
+				     sub_path,
+				     context,
+				     name,
+				 }: CreateFileArgs| async move {
+					let mut path =
+						get_location_path_from_location_id(&library.db, location_id).await?;
+
+					if let Some(sub_path) = sub_path
+						.as_ref()
+						.and_then(|sub_path| sub_path.strip_prefix("/").ok())
+					{
+						path.push(sub_path);
+					}
+
+					match context {
+						FileCreateContextTypes::empty => {
+							path.push(name.as_deref().unwrap_or(UNTITLED_FILE_STR))
+						}
+						FileCreateContextTypes::text => {
+							path.push(name.as_deref().unwrap_or(UNTITLED_TEXT_FILE_STR))
+						}
+					}
+
+					create_file(path, &library).await
 				},
 			)
 		})
@@ -860,6 +907,45 @@ pub(super) async fn create_directory(
 	fs::create_dir(&target_path)
 		.await
 		.map_err(|e| FileIOError::from((&target_path, e, "Failed to create directory")))?;
+
+	invalidate_query!(library, "search.objects");
+	invalidate_query!(library, "search.paths");
+	invalidate_query!(library, "search.ephemeralPaths");
+
+	Ok(target_path
+		.file_name()
+		.expect("Failed to get file name")
+		.to_string_lossy()
+		.to_string())
+}
+
+pub(super) async fn create_file(
+	mut target_path: PathBuf,
+	library: &Library,
+) -> Result<String, rspc::Error> {
+	match fs::metadata(&target_path).await {
+		Ok(metadata) if metadata.is_file() => {
+			target_path = find_available_filename_for_duplicate(&target_path).await?;
+		}
+		Ok(_) => {
+			return Err(FileSystemJobsError::WouldOverwrite(target_path.into_boxed_path()).into())
+		}
+		Err(e) if e.kind() == io::ErrorKind::NotFound => {
+			// Everything is awesome!
+		}
+		Err(e) => {
+			return Err(FileIOError::from((
+				target_path,
+				e,
+				"Failed to access file system and get metadata on file to be created",
+			))
+			.into())
+		}
+	};
+
+	fs::File::create(&target_path)
+		.await
+		.map_err(|e| FileIOError::from((&target_path, e, "Failed to create file")))?;
 
 	invalidate_query!(library, "search.objects");
 	invalidate_query!(library, "search.paths");

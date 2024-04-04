@@ -1,5 +1,5 @@
 use crate::{
-	api::utils::library,
+	api::{files::create_file, utils::library},
 	invalidate_query,
 	library::Library,
 	object::{
@@ -33,6 +33,14 @@ use super::{
 };
 
 const UNTITLED_FOLDER_STR: &str = "Untitled Folder";
+const UNTITLED_FILE_STR: &str = "Untitled";
+const UNTITLED_TEXT_FILE_STR: &str = "Untitled.txt";
+
+#[derive(Type, Deserialize)]
+enum EphemeralFileCreateContextTypes {
+	empty,
+	text,
+}
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -77,6 +85,33 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					path.push(name.as_deref().unwrap_or(UNTITLED_FOLDER_STR));
 
 					create_directory(path, &library).await
+				},
+			)
+		})
+		.procedure("createFile", {
+			#[derive(Type, Deserialize)]
+			pub struct CreateEphemeralFileArgs {
+				pub path: PathBuf,
+				pub context: EphemeralFileCreateContextTypes,
+				pub name: Option<String>,
+			}
+			R.with2(library()).mutation(
+				|(_, library),
+				 CreateEphemeralFileArgs {
+				     mut path,
+				     name,
+				     context,
+				 }: CreateEphemeralFileArgs| async move {
+					match context {
+						EphemeralFileCreateContextTypes::empty => {
+							path.push(name.as_deref().unwrap_or(UNTITLED_FILE_STR));
+						}
+						EphemeralFileCreateContextTypes::text => {
+							path.push(name.as_deref().unwrap_or(UNTITLED_TEXT_FILE_STR));
+						}
+					}
+
+					create_file(path, &library).await
 				},
 			)
 		})

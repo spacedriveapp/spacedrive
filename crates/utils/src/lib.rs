@@ -39,3 +39,10 @@ macro_rules! msgpack {
 		value
 	}}
 }
+
+// Only used for testing purposes. Do not use in production code.
+use std::any::type_name;
+
+pub fn test_type_of<T>(_: T) -> &'static str {
+	type_name::<T>()
+}
