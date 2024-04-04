@@ -1,6 +1,6 @@
 use crate::jobs::{indexer::IndexerJob, JobId};
 
-use sd_prisma::prisma::job;
+use sd_prisma::prisma::{job, location};
 use sd_utils::uuid_to_bytes;
 
 use std::{
@@ -52,6 +52,7 @@ pub struct StoredJob {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StoredJobEntry {
+	pub(super) location_id: location::id::Type,
 	pub(super) root_job: StoredJob,
 	pub(super) next_jobs: Vec<StoredJob>,
 }
@@ -59,7 +60,14 @@ pub struct StoredJobEntry {
 pub async fn load_jobs<Ctx: JobContext>(
 	entries: Vec<StoredJobEntry>,
 	job_ctx: &Ctx,
-) -> Result<Vec<(Box<dyn DynJob<Ctx>>, Option<SerializedTasks>)>, JobSystemError> {
+) -> Result<
+	Vec<(
+		location::id::Type,
+		Box<dyn DynJob<Ctx>>,
+		Option<SerializedTasks>,
+	)>,
+	JobSystemError,
+> {
 	let mut reports = job_ctx
 		.db()
 		.job()
@@ -70,6 +78,7 @@ pub async fn load_jobs<Ctx: JobContext>(
 					|StoredJobEntry {
 					     root_job: StoredJob { id, .. },
 					     next_jobs,
+					     ..
 					 }| { iter::once(*id).chain(next_jobs.iter().map(|StoredJob { id, .. }| *id)) },
 				)
 				.map(uuid_to_bytes)
@@ -87,6 +96,7 @@ pub async fn load_jobs<Ctx: JobContext>(
 		.into_iter()
 		.map(
 			|StoredJobEntry {
+			     location_id,
 			     root_job,
 			     next_jobs,
 			 }| {
@@ -98,7 +108,8 @@ pub async fn load_jobs<Ctx: JobContext>(
 					load_job(root_job, report, job_ctx)
 						.await
 						.map(|maybe_loaded_job| {
-							maybe_loaded_job.map(|(dyn_job, tasks)| (dyn_job, tasks, next_jobs))
+							maybe_loaded_job
+								.map(|(dyn_job, tasks)| (location_id, dyn_job, tasks, next_jobs))
 						})
 				})
 			},
@@ -108,7 +119,7 @@ pub async fn load_jobs<Ctx: JobContext>(
 		.await?
 		.into_iter()
 		.flatten()
-		.map(|(mut dyn_job, tasks, next_jobs)| {
+		.map(|(location_id, mut dyn_job, tasks, next_jobs)| {
 			let next_jobs_and_reports = next_jobs
 				.into_iter()
 				.map(|next_job| {
@@ -145,7 +156,7 @@ pub async fn load_jobs<Ctx: JobContext>(
 					.await
 					.map(|maybe_next_dyn_jobs| {
 						dyn_job.set_next_jobs(maybe_next_dyn_jobs.into_iter().flatten().collect());
-						(dyn_job, tasks)
+						(location_id, dyn_job, tasks)
 					})
 			})
 		})

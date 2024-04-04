@@ -1,5 +1,6 @@
 use crate::Error;
 
+use sd_prisma::prisma::location;
 use sd_task_system::BaseTaskDispatcher;
 use sd_utils::error::FileIOError;
 
@@ -21,7 +22,7 @@ mod runner;
 mod store;
 
 use error::JobSystemError;
-use job::{IntoJob, Job, JobContext, JobOutput};
+use job::{IntoJob, Job, JobContext, JobName, JobOutput};
 use runner::{run, JobSystemRunner, RunnerMessage};
 use store::{load_jobs, StoredJobEntry};
 
@@ -109,6 +110,30 @@ impl<Ctx: JobContext> JobSystem<Ctx> {
 		})
 	}
 
+	/// Checks if *any* of the desired jobs is running for the desired location
+	/// # Panics
+	/// Panics only happen if internal channels are unexpectedly closed
+	pub async fn check_running_jobs(
+		&self,
+		job_names: Vec<JobName>,
+		location_id: location::id::Type,
+	) -> bool {
+		let (ack_tx, ack_rx) = oneshot::channel();
+
+		self.msgs_tx
+			.send(RunnerMessage::CheckIfJobAreRunning {
+				job_names,
+				location_id,
+				ack_tx,
+			})
+			.await
+			.expect("runner msgs channel unexpectedly closed on check running job request");
+
+		ack_rx
+			.await
+			.expect("ack channel closed before receiving check running job response")
+	}
+
 	/// Shutdown the job system
 	/// # Panics
 	/// Panics only happen if internal channels are unexpectedly closed
@@ -141,6 +166,7 @@ impl<Ctx: JobContext> JobSystem<Ctx> {
 	pub async fn dispatch<J: Job + SerializableJob>(
 		&mut self,
 		job: impl IntoJob<J, Ctx> + Send,
+		location_id: location::id::Type,
 		job_ctx: Ctx,
 	) -> Result<JobId, JobSystemError> {
 		let dyn_job = job.into_job();
@@ -150,6 +176,7 @@ impl<Ctx: JobContext> JobSystem<Ctx> {
 		self.msgs_tx
 			.send(RunnerMessage::NewJob {
 				id,
+				location_id,
 				dyn_job,
 				job_ctx,
 				ack_tx,
@@ -248,7 +275,7 @@ async fn load_stored_job_entries<Ctx: JobContext>(
 		.flat_map(|(stored_jobs, job_ctx)| {
 			stored_jobs
 				.into_iter()
-				.map(move |(dyn_job, serialized_tasks)| {
+				.map(move |(location_id, dyn_job, serialized_tasks)| {
 					let job_ctx = job_ctx.clone();
 					async move {
 						let (ack_tx, ack_rx) = oneshot::channel();
@@ -256,6 +283,7 @@ async fn load_stored_job_entries<Ctx: JobContext>(
 						msgs_tx
 							.send(RunnerMessage::ResumeStoredJob {
 								id: dyn_job.id(),
+								location_id,
 								dyn_job,
 								job_ctx,
 								serialized_tasks,

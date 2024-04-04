@@ -1,10 +1,11 @@
 use crate::{jobs::JobId, Error};
 
+use sd_prisma::prisma::location;
 use sd_task_system::BaseTaskDispatcher;
 use sd_utils::error::FileIOError;
 
 use std::{
-	collections::{hash_map::Entry, HashMap},
+	collections::{hash_map::Entry, HashMap, HashSet},
 	mem,
 	path::Path,
 	pin::pin,
@@ -25,7 +26,7 @@ use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use super::{
-	job::{DynJob, JobContext, JobHandle, JobOutput, ReturnStatus},
+	job::{DynJob, JobContext, JobHandle, JobName, JobOutput, ReturnStatus},
 	report,
 	store::{StoredJob, StoredJobEntry},
 	Command, JobSystemError, SerializedTasks,
@@ -37,12 +38,14 @@ const FIVE_MINUTES: Duration = Duration::from_secs(5 * 60);
 pub(super) enum RunnerMessage<Ctx: JobContext> {
 	NewJob {
 		id: JobId,
+		location_id: location::id::Type,
 		dyn_job: Box<dyn DynJob<Ctx>>,
 		job_ctx: Ctx,
 		ack_tx: oneshot::Sender<Result<(), JobSystemError>>,
 	},
 	ResumeStoredJob {
 		id: JobId,
+		location_id: location::id::Type,
 		dyn_job: Box<dyn DynJob<Ctx>>,
 		job_ctx: Ctx,
 		serialized_tasks: Option<SerializedTasks>,
@@ -53,6 +56,11 @@ pub(super) enum RunnerMessage<Ctx: JobContext> {
 		command: Command,
 		ack_tx: oneshot::Sender<Result<(), JobSystemError>>,
 	},
+	CheckIfJobAreRunning {
+		job_names: Vec<JobName>,
+		location_id: location::id::Type,
+		ack_tx: oneshot::Sender<bool>,
+	},
 	Shutdown,
 }
 
@@ -61,6 +69,8 @@ pub(super) struct JobSystemRunner<Ctx: JobContext> {
 	handles: HashMap<JobId, JobHandle<Ctx>>,
 	job_hashes: HashMap<u64, JobId>,
 	job_hashes_by_id: HashMap<JobId, u64>,
+	running_jobs_by_job_id: HashMap<JobId, (JobName, location::id::Type)>,
+	running_jobs_set: HashSet<(JobName, location::id::Type)>,
 	jobs_to_store_by_ctx_id: HashMap<Uuid, Vec<StoredJobEntry>>,
 	job_return_status_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
 	job_outputs_tx: chan::Sender<(JobId, Result<JobOutput, JobSystemError>)>,
@@ -77,6 +87,8 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 			handles: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
 			job_hashes: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
 			job_hashes_by_id: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
+			running_jobs_by_job_id: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
+			running_jobs_set: HashSet::with_capacity(JOBS_INITIAL_CAPACITY),
 			jobs_to_store_by_ctx_id: HashMap::new(),
 			job_return_status_tx,
 			job_outputs_tx,
@@ -86,6 +98,7 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 	async fn new_job(
 		&mut self,
 		id: JobId,
+		location_id: location::id::Type,
 		dyn_job: Box<dyn DynJob<Ctx>>,
 		job_ctx: Ctx,
 		maybe_existing_tasks: Option<SerializedTasks>,
@@ -96,19 +109,25 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 			job_hashes,
 			job_hashes_by_id,
 			job_return_status_tx,
+			running_jobs_by_job_id,
+			running_jobs_set,
 			..
 		} = self;
 
 		let db = job_ctx.db();
+		let job_name = dyn_job.job_name();
 
 		let job_hash = dyn_job.hash();
 		if let Some(&already_running_id) = job_hashes.get(&job_hash) {
 			return Err(JobSystemError::AlreadyRunning {
 				new_id: id,
 				already_running_id,
-				job_name: dyn_job.job_name(),
+				job_name,
 			});
 		}
+
+		running_jobs_by_job_id.insert(id, (job_name, location_id));
+		running_jobs_set.insert((job_name, location_id));
 
 		job_hashes.insert(job_hash, id);
 		job_hashes_by_id.insert(id, job_hash);
@@ -177,6 +196,16 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 		self.handles.is_empty() && self.job_hashes.is_empty() && self.job_hashes_by_id.is_empty()
 	}
 
+	fn check_if_job_are_running(
+		&self,
+		job_names: Vec<JobName>,
+		location_id: location::id::Type,
+	) -> bool {
+		job_names
+			.into_iter()
+			.any(|job_name| self.running_jobs_set.contains(&(job_name, location_id)))
+	}
+
 	async fn process_return_status(&mut self, job_id: JobId, status: Result<ReturnStatus, Error>) {
 		let Self {
 			handles,
@@ -186,10 +215,16 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 			job_return_status_tx,
 			base_dispatcher,
 			jobs_to_store_by_ctx_id,
+			running_jobs_by_job_id,
+			running_jobs_set,
 			..
 		} = self;
 
 		let job_hash = job_hashes_by_id.remove(&job_id).expect("it must be here");
+		let (job_name, location_id) = running_jobs_by_job_id
+			.remove(&job_id)
+			.expect("a JobName and location_id must've been inserted in the map with the job id");
+		assert!(running_jobs_set.remove(&(job_name, location_id)));
 
 		assert!(job_hashes.remove(&job_hash).is_some());
 		let mut handle = handles.remove(&job_id).expect("it must be here");
@@ -245,6 +280,7 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 					.entry(handle.job_ctx.id())
 					.or_default()
 					.push(StoredJobEntry {
+						location_id,
 						root_job: StoredJob {
 							id: job_id,
 							name,
@@ -261,7 +297,6 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 					"Job was shutdown but didn't returned any serialized data, \
 					probably it isn't resumable job: <id='{job_id}'>"
 				);
-
 				return;
 			}
 
@@ -301,6 +336,18 @@ impl<Ctx: JobContext> JobSystemRunner<Ctx> {
 			&& self.job_hashes_by_id.len() < JOBS_INITIAL_CAPACITY
 		{
 			self.job_hashes_by_id.shrink_to(JOBS_INITIAL_CAPACITY);
+		}
+
+		if self.running_jobs_by_job_id.capacity() > JOBS_INITIAL_CAPACITY
+			&& self.running_jobs_by_job_id.len() < JOBS_INITIAL_CAPACITY
+		{
+			self.running_jobs_by_job_id.shrink_to(JOBS_INITIAL_CAPACITY);
+		}
+
+		if self.running_jobs_set.capacity() > JOBS_INITIAL_CAPACITY
+			&& self.running_jobs_set.len() < JOBS_INITIAL_CAPACITY
+		{
+			self.running_jobs_set.shrink_to(JOBS_INITIAL_CAPACITY);
 		}
 	}
 
@@ -404,24 +451,34 @@ pub(super) async fn run<Ctx: JobContext>(
 			// Runner messages
 			StreamMessage::RunnerMessage(RunnerMessage::NewJob {
 				id,
+				location_id,
 				dyn_job,
 				job_ctx,
 				ack_tx,
 			}) => {
 				ack_tx
-					.send(runner.new_job(id, dyn_job, job_ctx, None).await)
+					.send(
+						runner
+							.new_job(id, location_id, dyn_job, job_ctx, None)
+							.await,
+					)
 					.expect("ack channel closed before sending new job response");
 			}
 
 			StreamMessage::RunnerMessage(RunnerMessage::ResumeStoredJob {
 				id,
+				location_id,
 				dyn_job,
 				job_ctx,
 				serialized_tasks,
 				ack_tx,
 			}) => {
 				ack_tx
-					.send(runner.new_job(id, dyn_job, job_ctx, serialized_tasks).await)
+					.send(
+						runner
+							.new_job(id, location_id, dyn_job, job_ctx, serialized_tasks)
+							.await,
+					)
 					.expect("ack channel closed before sending resume job response");
 			}
 
@@ -457,6 +514,16 @@ pub(super) async fn run<Ctx: JobContext>(
 				}
 
 				return;
+			}
+
+			StreamMessage::RunnerMessage(RunnerMessage::CheckIfJobAreRunning {
+				job_names,
+				location_id,
+				ack_tx,
+			}) => {
+				ack_tx
+					.send(runner.check_if_job_are_running(job_names, location_id))
+					.expect("ack channel closed before sending resume job response");
 			}
 
 			// Memory cleanup tick
