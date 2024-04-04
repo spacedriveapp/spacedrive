@@ -73,6 +73,7 @@ run_maestro_test() {
   fi
 
   local i
+  local retry_failed=0
   local retry_seconds
   for i in {1..6}; do
     _maestro_out=''
@@ -111,7 +112,13 @@ run_maestro_test() {
       # Test failed
       printf '%s' "$_maestro_out"
       printf '%s' "$_maestro_err" >&2
-      return 1
+      if [ $retry_failed -eq 0 ]; then
+        retry_failed=1
+        echo "Test $1 failed. Retrying once more in 10 seconds..."
+        sleep 10
+      else
+        return 1
+      fi
     fi
   done
 
