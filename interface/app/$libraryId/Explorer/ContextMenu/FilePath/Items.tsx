@@ -38,16 +38,16 @@ export const Delete = new ConditionalItem({
 		const indexedArgs =
 			isNonEmpty(selectedFilePaths) && selectedFilePaths[0].location_id
 				? {
-						locationId: selectedFilePaths[0].location_id,
-						rescan,
-						pathIds: selectedFilePaths.map((p) => p.id)
-					}
+					locationId: selectedFilePaths[0].location_id,
+					rescan,
+					pathIds: selectedFilePaths.map((p) => p.id)
+				}
 				: undefined;
 
 		const ephemeralArgs = isNonEmpty(selectedEphemeralPaths)
 			? {
-					paths: selectedEphemeralPaths.map((p) => p.path)
-				}
+				paths: selectedEphemeralPaths.map((p) => p.path)
+			}
 			: undefined;
 		const deleteKeybind = useKeysMatcher(['Meta', 'Backspace']);
 
@@ -234,7 +234,7 @@ export const ParentFolderActions = new ConditionalItem({
 
 		const fullRescan = useLibraryMutation('locations.fullRescan');
 		const generateThumbnails = useLibraryMutation('jobs.generateThumbsForLocation');
-		const generateLabels = useLibraryMutation('jobs.generateLabelsForLocation');
+		// const generateLabels = useLibraryMutation('jobs.generateLabelsForLocation');
 
 		const { t } = useLocale();
 
@@ -275,7 +275,7 @@ export const ParentFolderActions = new ConditionalItem({
 					label={t('regen_thumbnails')}
 					icon={Image}
 				/>
-				<ContextMenu.Item
+				{/* <ContextMenu.Item
 					onClick={async () => {
 						try {
 							await generateLabels.mutateAsync({
@@ -292,7 +292,7 @@ export const ParentFolderActions = new ConditionalItem({
 					}}
 					label={t('regen_labels')}
 					icon={Hash}
-				/>
+				/> */}
 			</>
 		);
 	}

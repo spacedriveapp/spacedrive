@@ -33,7 +33,7 @@ export default (props: PropsWithChildren) => {
 	const { parent } = useExplorerContext();
 
 	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
-	const generateLabelsForLocation = useLibraryMutation('jobs.generateLabelsForLocation');
+	// const generateLabelsForLocation = useLibraryMutation('jobs.generateLabelsForLocation');
 	const objectValidator = useLibraryMutation('jobs.objectValidator');
 	const rescanLocation = useLibraryMutation('locations.subPathRescan');
 	const copyFiles = useLibraryMutation('files.copyFiles');
@@ -251,7 +251,7 @@ export default (props: PropsWithChildren) => {
 							icon={Image}
 						/>
 
-						<CM.Item
+						{/* <CM.Item
 							onClick={async () => {
 								try {
 									await generateLabelsForLocation.mutateAsync({
@@ -268,7 +268,7 @@ export default (props: PropsWithChildren) => {
 							}}
 							label={t('regen_labels')}
 							icon={Hash}
-						/>
+						/> */}
 
 						<CM.Item
 							onClick={async () => {

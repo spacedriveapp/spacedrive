@@ -171,17 +171,17 @@ export const useViewItemDoubleClick = () => {
 
 			if (!item) return;
 
-			if (item.type === 'Label') {
-				navigate({
-					pathname: '../search',
-					search: createSearchParams({
-						filters: JSON.stringify([
-							{ object: { labels: { in: [item.item.id] } } }
-						] as Array<SearchFilterArgs>)
-					}).toString()
-				});
-				return;
-			}
+			// if (item.type === 'Label') {
+			// 	navigate({
+			// 		pathname: '../search',
+			// 		search: createSearchParams({
+			// 			filters: JSON.stringify([
+			// 				{ object: { labels: { in: [item.item.id] } } }
+			// 			] as Array<SearchFilterArgs>)
+			// 		}).toString()
+			// 	});
+			// 	return;
+			// }
 		},
 		[
 			setSearchParams,

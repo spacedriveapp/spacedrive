@@ -119,13 +119,13 @@ const CMDK = () => {
 						closeOnSelect: true,
 						onClick: () => navigate('recents')
 					},
-					{
-						id: 'go-labels',
-						children: t('go_to_labels'),
-						icon: 'ArrowRightIcon',
-						closeOnSelect: true,
-						onClick: () => navigate('labels')
-					},
+					// {
+					// 	id: 'go-labels',
+					// 	children: t('go_to_labels'),
+					// 	icon: 'ArrowRightIcon',
+					// 	closeOnSelect: true,
+					// 	onClick: () => navigate('labels')
+					// },
 					{
 						id: 'go-location',
 						children: t('go_to_location'),
@@ -213,25 +213,25 @@ const CMDK = () => {
 				id: 'locations',
 				items: locations
 					? locations.map((location) => ({
-							id: location.id,
-							children: location.name,
-							icon: () => (
-								<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">
-									<Icon name="Folder" size={22} />
-									<div
-										className={clsx(
-											'absolute bottom-0.5 right-0 size-1.5 rounded-full',
-											onlineLocations.some((l) =>
-												arraysEqual(location.pub_id, l)
-											)
-												? 'bg-green-500'
-												: 'bg-red-500'
-										)}
-									/>
-								</div>
-							),
-							onClick: () => navigate(`location/${location.id}`)
-						}))
+						id: location.id,
+						children: location.name,
+						icon: () => (
+							<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">
+								<Icon name="Folder" size={22} />
+								<div
+									className={clsx(
+										'absolute bottom-0.5 right-0 size-1.5 rounded-full',
+										onlineLocations.some((l) =>
+											arraysEqual(location.pub_id, l)
+										)
+											? 'bg-green-500'
+											: 'bg-red-500'
+									)}
+								/>
+							</div>
+						),
+						onClick: () => navigate(`location/${location.id}`)
+					}))
 					: ([] as any)
 			}
 		],
@@ -246,7 +246,7 @@ const CMDK = () => {
 			isOpen={isOpen}
 			page={page}
 			placeholder={t('search_for_files_and_actions')}
-			// footer
+		// footer
 		>
 			<CommandPalette.Page id="root" onEscape={() => setSearch('')}>
 				{filteredItems.length ? (
