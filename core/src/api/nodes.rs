@@ -89,42 +89,42 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				invalidate_query!(node; node, "nodeState");
 
-				#[cfg(feature = "ai")]
-				{
-					use super::notifications::{NotificationData, NotificationKind};
+				// #[cfg(feature = "ai")]
+				// {
+				// 	use super::notifications::{NotificationData, NotificationKind};
 
-					if let Some(model) = new_model {
-						let version = model.version().to_string();
-						tokio::spawn(async move {
-							let notification =
-								if let Some(image_labeller) = node.old_image_labeller.as_ref() {
-									if let Err(e) = image_labeller.change_model(model).await {
-										NotificationData {
-											title: String::from(
-												"Failed to change image detection model",
-											),
-											content: format!("Error: {e}"),
-											kind: NotificationKind::Error,
-										}
-									} else {
-										NotificationData {
-											title: String::from("Model download completed"),
-											content: format!("Sucessfuly loaded model: {version}"),
-											kind: NotificationKind::Success,
-										}
-									}
-								} else {
-									NotificationData {
-									title: String::from("Failed to change image detection model"),
-									content: "The AI system is disabled due to a previous error. Contact support for help.".to_string(),
-									kind: NotificationKind::Success,
-								}
-								};
+				// 	if let Some(model) = new_model {
+				// 		let version = model.version().to_string();
+				// 		tokio::spawn(async move {
+				// 			let notification =
+				// 				if let Some(image_labeller) = node.old_image_labeller.as_ref() {
+				// 					if let Err(e) = image_labeller.change_model(model).await {
+				// 						NotificationData {
+				// 							title: String::from(
+				// 								"Failed to change image detection model",
+				// 							),
+				// 							content: format!("Error: {e}"),
+				// 							kind: NotificationKind::Error,
+				// 						}
+				// 					} else {
+				// 						NotificationData {
+				// 							title: String::from("Model download completed"),
+				// 							content: format!("Sucessfuly loaded model: {version}"),
+				// 							kind: NotificationKind::Success,
+				// 						}
+				// 					}
+				// 				} else {
+				// 					NotificationData {
+				// 					title: String::from("Failed to change image detection model"),
+				// 					content: "The AI system is disabled due to a previous error. Contact support for help.".to_string(),
+				// 					kind: NotificationKind::Success,
+				// 				}
+				// 				};
 
-							node.emit_notification(notification, None).await;
-						});
-					}
-				}
+				// 			node.emit_notification(notification, None).await;
+				// 		});
+				// 	}
+				// }
 
 				Ok(())
 			})

@@ -248,15 +248,17 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						return Err(LocationError::IdNotFound(id).into());
 					};
 
-					Job::new(OldMediaProcessorJobInit {
-						location,
-						sub_path: Some(path),
-						regenerate_thumbnails: regenerate,
-						regenerate_labels: false,
-					})
-					.spawn(&node, &library)
-					.await
-					.map_err(Into::into)
+					Ok(("Currently disabled".to_string(), 0))
+
+					// Job::new(OldMediaProcessorJobInit {
+					// 	location,
+					// 	sub_path: Some(path),
+					// 	regenerate_thumbnails: regenerate,
+					// 	// regenerate_labels: false,
+					// })
+					// .spawn(&node, &library)
+					// .await
+					// .map_err(Into::into)
 				},
 			)
 		})

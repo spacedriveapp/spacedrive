@@ -113,19 +113,19 @@ pub async fn old_shallow(
 		chunked_files.len()
 	);
 
-	#[cfg(feature = "ai")]
-	// Check if we have an image labeller and has_labels then enqueue a new batch
-	let labels_rx = node.old_image_labeller.as_ref().and_then(|image_labeller| {
-		has_labels.then(|| {
-			image_labeller.new_batch(
-				location_id,
-				location_path.clone(),
-				file_paths_for_labelling,
-				Arc::clone(db),
-				sync.clone(),
-			)
-		})
-	});
+	// #[cfg(feature = "ai")]
+	// // Check if we have an image labeller and has_labels then enqueue a new batch
+	// let labels_rx = node.old_image_labeller.as_ref().and_then(|image_labeller| {
+	// 	has_labels.then(|| {
+	// 		image_labeller.new_batch(
+	// 			location_id,
+	// 			location_path.clone(),
+	// 			file_paths_for_labelling,
+	// 			Arc::clone(db),
+	// 			sync.clone(),
+	// 		)
+	// 	})
+	// });
 
 	let mut run_metadata = OldMediaProcessorMetadata::default();
 
@@ -148,35 +148,35 @@ pub async fn old_shallow(
 		invalidate_query!(library, "search.objects");
 	}
 
-	#[cfg(feature = "ai")]
-	{
-		if has_labels {
-			if let Some(labels_rx) = labels_rx {
-				labels_rx
-					.await
-					.for_each(
-						|LabelerOutput {
-						     file_path_id,
-						     has_new_labels,
-						     result,
-						 }| async move {
-							if let Err(e) = result {
-								error!(
-								"Failed to generate labels <file_path_id='{file_path_id}'>: {e:#?}"
-							);
-							} else if has_new_labels {
-								// invalidate_query!(library, "labels.count"); // TODO: This query doesn't exist on main yet
-							}
-						},
-					)
-					.await;
+	// #[cfg(feature = "ai")]
+	// {
+	// 	if has_labels {
+	// 		if let Some(labels_rx) = labels_rx {
+	// 			labels_rx
+	// 				.await
+	// 				.for_each(
+	// 					|LabelerOutput {
+	// 					     file_path_id,
+	// 					     has_new_labels,
+	// 					     result,
+	// 					 }| async move {
+	// 						if let Err(e) = result {
+	// 							error!(
+	// 							"Failed to generate labels <file_path_id='{file_path_id}'>: {e:#?}"
+	// 						);
+	// 						} else if has_new_labels {
+	// 							// invalidate_query!(library, "labels.count"); // TODO: This query doesn't exist on main yet
+	// 						}
+	// 					},
+	// 				)
+	// 				.await;
 
-				invalidate_query!(library, "labels.list");
-				invalidate_query!(library, "labels.getForObject");
-				invalidate_query!(library, "labels.getWithObjects");
-			}
-		}
-	}
+	// 			invalidate_query!(library, "labels.list");
+	// 			invalidate_query!(library, "labels.getForObject");
+	// 			invalidate_query!(library, "labels.getWithObjects");
+	// 		}
+	// 	}
+	// }
 
 	Ok(())
 }

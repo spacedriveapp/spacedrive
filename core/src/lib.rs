@@ -6,8 +6,8 @@ use crate::{
 	object::media::old_thumbnail::old_actor::OldThumbnailer,
 };
 
-#[cfg(feature = "ai")]
-use sd_ai::old_image_labeler::{DownloadModelError, OldImageLabeler, YoloV8};
+// #[cfg(feature = "ai")]
+// use sd_ai::old_image_labeler::{DownloadModelError, OldImageLabeler, YoloV8};
 
 use api::notifications::{Notification, NotificationData, NotificationId};
 use chrono::{DateTime, Utc};
@@ -68,8 +68,8 @@ pub struct Node {
 	pub cloud_sync_flag: Arc<AtomicBool>,
 	pub env: Arc<env::Env>,
 	pub http: reqwest::Client,
-	#[cfg(feature = "ai")]
-	pub old_image_labeller: Option<OldImageLabeler>,
+	// #[cfg(feature = "ai")]
+	// pub old_image_labeller: Option<OldImageLabeler>,
 }
 
 impl fmt::Debug for Node {
@@ -106,11 +106,11 @@ impl Node {
 			*env.api_url.lock().await = url;
 		}
 
-		#[cfg(feature = "ai")]
-		let image_labeler_version = {
-			sd_ai::init()?;
-			config.get().await.image_labeler_version
-		};
+		// #[cfg(feature = "ai")]
+		// let image_labeler_version = {
+		// 	sd_ai::init()?;
+		// 	config.get().await.image_labeler_version
+		// };
 
 		let (locations, locations_actor) = location::Locations::new();
 		let (old_jobs, jobs_actor) = old_job::OldJobs::new();
@@ -139,16 +139,16 @@ impl Node {
 			cloud_sync_flag: Arc::new(AtomicBool::new(false)),
 			http: reqwest::Client::new(),
 			env,
-			#[cfg(feature = "ai")]
-			old_image_labeller: OldImageLabeler::new(
-				YoloV8::model(image_labeler_version)?,
-				data_dir,
-			)
-			.await
-			.map_err(|e| {
-				error!("Failed to initialize image labeller. AI features will be disabled: {e:#?}");
-			})
-			.ok(),
+			// #[cfg(feature = "ai")]
+			// old_image_labeller: OldImageLabeler::new(
+			// 	YoloV8::model(image_labeler_version)?,
+			// 	data_dir,
+			// )
+			// .await
+			// .map_err(|e| {
+			// 	error!("Failed to initialize image labeller. AI features will be disabled: {e:#?}");
+			// })
+			// .ok(),
 		});
 
 		// Restore backend feature flags
@@ -256,10 +256,10 @@ impl Node {
 		self.thumbnailer.shutdown().await;
 		self.old_jobs.shutdown().await;
 		self.p2p.shutdown().await;
-		#[cfg(feature = "ai")]
-		if let Some(image_labeller) = &self.old_image_labeller {
-			image_labeller.shutdown().await;
-		}
+		// #[cfg(feature = "ai")]
+		// if let Some(image_labeller) = &self.old_image_labeller {
+		// 	image_labeller.shutdown().await;
+		// }
 		info!("Spacedrive Core shutdown successful!");
 	}
 
@@ -359,10 +359,10 @@ pub enum NodeError {
 	InitConfig(#[from] util::debug_initializer::InitConfigError),
 	#[error("logger error: {0}")]
 	Logger(#[from] FromEnvError),
-	#[cfg(feature = "ai")]
-	#[error("ai error: {0}")]
-	AI(#[from] sd_ai::Error),
-	#[cfg(feature = "ai")]
-	#[error("Failed to download model: {0}")]
-	DownloadModel(#[from] DownloadModelError),
+	// #[cfg(feature = "ai")]
+	// #[error("ai error: {0}")]
+	// AI(#[from] sd_ai::Error),
+	// #[cfg(feature = "ai")]
+	// #[error("Failed to download model: {0}")]
+	// DownloadModel(#[from] DownloadModelError),
 }

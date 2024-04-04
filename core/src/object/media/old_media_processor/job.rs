@@ -8,8 +8,8 @@ use crate::{
 	Node,
 };
 
-#[cfg(feature = "ai")]
-use crate::old_job::JobRunErrors;
+// #[cfg(feature = "ai")]
+// use crate::old_job::JobRunErrors;
 
 use sd_file_ext::extensions::Extension;
 use sd_file_path_helper::{
@@ -19,8 +19,8 @@ use sd_file_path_helper::{
 use sd_prisma::prisma::{location, PrismaClient};
 use sd_utils::db::maybe_missing;
 
-#[cfg(feature = "ai")]
-use sd_ai::old_image_labeler::{BatchToken as ImageLabelerBatchToken, LabelerOutput};
+// #[cfg(feature = "ai")]
+// use sd_ai::old_image_labeler::{BatchToken as ImageLabelerBatchToken, LabelerOutput};
 
 #[cfg(feature = "ai")]
 use std::sync::Arc;
@@ -72,19 +72,19 @@ pub struct OldMediaProcessorJobData {
 	to_process_path: PathBuf,
 	#[serde(skip, default)]
 	maybe_thumbnailer_progress_rx: Option<chan::Receiver<(u32, u32)>>,
-	#[cfg(feature = "ai")]
-	labeler_batch_token: ImageLabelerBatchToken,
-	#[cfg(feature = "ai")]
-	#[serde(skip, default)]
-	maybe_labels_rx: Option<chan::Receiver<LabelerOutput>>,
+	// #[cfg(feature = "ai")]
+	// labeler_batch_token: ImageLabelerBatchToken,
+	// #[cfg(feature = "ai")]
+	// #[serde(skip, default)]
+	// maybe_labels_rx: Option<chan::Receiver<LabelerOutput>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum OldMediaProcessorJobStep {
 	ExtractMediaData(Vec<file_path_for_media_processor::Data>),
 	WaitThumbnails(usize),
-	#[cfg(feature = "ai")]
-	WaitLabels(usize),
+	// #[cfg(feature = "ai")]
+	// WaitLabels(usize),
 }
 
 #[async_trait::async_trait]
@@ -245,10 +245,10 @@ impl StatefulJob for OldMediaProcessorJobInit {
 			location_path,
 			to_process_path,
 			maybe_thumbnailer_progress_rx,
-			#[cfg(feature = "ai")]
-			labeler_batch_token,
-			#[cfg(feature = "ai")]
-			maybe_labels_rx: labels_rx,
+			// #[cfg(feature = "ai")]
+			// labeler_batch_token,
+			// #[cfg(feature = "ai")]
+			// maybe_labels_rx: labels_rx,
 		});
 
 		Ok((
@@ -329,73 +329,73 @@ impl StatefulJob for OldMediaProcessorJobInit {
 				Ok(None.into())
 			}
 
-			#[cfg(feature = "ai")]
-			OldMediaProcessorJobStep::WaitLabels(total_labels) => {
-				let Some(image_labeller) = ctx.node.old_image_labeller.as_ref() else {
-					let err = "AI system is disabled due to a previous error, skipping labels job";
-					error!(err);
-					return Ok(JobRunErrors(vec![err.to_string()]).into());
-				};
+			// #[cfg(feature = "ai")]
+			// OldMediaProcessorJobStep::WaitLabels(total_labels) => {
+			// 	let Some(image_labeller) = ctx.node.old_image_labeller.as_ref() else {
+			// 		let err = "AI system is disabled due to a previous error, skipping labels job";
+			// 		error!(err);
+			// 		return Ok(JobRunErrors(vec![err.to_string()]).into());
+			// 	};
 
-				ctx.progress(vec![
-					JobReportUpdate::TaskCount(*total_labels),
-					JobReportUpdate::Phase("labels".to_string()),
-					JobReportUpdate::Message(
-						format!("Extracting labels for {total_labels} files",),
-					),
-				]);
+			// 	ctx.progress(vec![
+			// 		JobReportUpdate::TaskCount(*total_labels),
+			// 		JobReportUpdate::Phase("labels".to_string()),
+			// 		JobReportUpdate::Message(
+			// 			format!("Extracting labels for {total_labels} files",),
+			// 		),
+			// 	]);
 
-				let mut labels_rx = pin!(if let Some(labels_rx) = data.maybe_labels_rx.clone() {
-					labels_rx
-				} else {
-					match image_labeller
-						.resume_batch(
-							data.labeler_batch_token,
-							Arc::clone(&ctx.library.db),
-							ctx.library.sync.clone(),
-						)
-						.await
-					{
-						Ok(labels_rx) => labels_rx,
-						Err(e) => return Ok(JobRunErrors(vec![e.to_string()]).into()),
-					}
-				});
+			// 	let mut labels_rx = pin!(if let Some(labels_rx) = data.maybe_labels_rx.clone() {
+			// 		labels_rx
+			// 	} else {
+			// 		match image_labeller
+			// 			.resume_batch(
+			// 				data.labeler_batch_token,
+			// 				Arc::clone(&ctx.library.db),
+			// 				ctx.library.sync.clone(),
+			// 			)
+			// 			.await
+			// 		{
+			// 			Ok(labels_rx) => labels_rx,
+			// 			Err(e) => return Ok(JobRunErrors(vec![e.to_string()]).into()),
+			// 		}
+			// 	});
 
-				let mut total_labeled = 0;
+			// 	let mut total_labeled = 0;
 
-				let mut errors = Vec::new();
+			// 	let mut errors = Vec::new();
 
-				while let Some(LabelerOutput {
-					file_path_id,
-					has_new_labels,
-					result,
-				}) = labels_rx.next().await
-				{
-					total_labeled += 1;
-					ctx.progress(vec![JobReportUpdate::CompletedTaskCount(total_labeled)]);
+			// 	while let Some(LabelerOutput {
+			// 		file_path_id,
+			// 		has_new_labels,
+			// 		result,
+			// 	}) = labels_rx.next().await
+			// 	{
+			// 		total_labeled += 1;
+			// 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(total_labeled)]);
 
-					if let Err(e) = result {
-						error!(
-							"Failed to generate labels <file_path_id='{}'>: {e:#?}",
-							file_path_id
-						);
+			// 		if let Err(e) = result {
+			// 			error!(
+			// 				"Failed to generate labels <file_path_id='{}'>: {e:#?}",
+			// 				file_path_id
+			// 			);
 
-						errors.push(e.to_string());
-					} else if has_new_labels {
-						// invalidate_query!(&ctx.library, "labels.count"); // TODO: This query doesn't exist on main yet
-					}
-				}
+			// 			errors.push(e.to_string());
+			// 		} else if has_new_labels {
+			// 			// invalidate_query!(&ctx.library, "labels.count"); // TODO: This query doesn't exist on main yet
+			// 		}
+			// 	}
 
-				invalidate_query!(&ctx.library, "labels.list");
-				invalidate_query!(&ctx.library, "labels.getForObject");
-				invalidate_query!(&ctx.library, "labels.getWithObjects");
+			// 	invalidate_query!(&ctx.library, "labels.list");
+			// 	invalidate_query!(&ctx.library, "labels.getForObject");
+			// 	invalidate_query!(&ctx.library, "labels.getWithObjects");
 
-				if !errors.is_empty() {
-					Ok(JobRunErrors(errors).into())
-				} else {
-					Ok(None.into())
-				}
-			}
+			// 	if !errors.is_empty() {
+			// 		Ok(JobRunErrors(errors).into())
+			// 	} else {
+			// 		Ok(None.into())
+			// 	}
+			// }
 		}
 	}
 
