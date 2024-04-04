@@ -3,8 +3,8 @@ import NextImage, { ImageProps } from 'next/image';
 import { env } from '~/env';
 
 import Notice from './Notice';
-import Video from './Video';
 import Pre from './Pre';
+import Video from './Video';
 
 const Image = (props: ImageProps) => (
 	<NextImage

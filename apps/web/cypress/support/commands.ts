@@ -3,10 +3,10 @@
 import {
 	libraryRegex,
 	librarySettingsRegex,
+	onboardingCreatingLibraryRegex,
 	onboardingLibraryRegex,
 	onboardingLocationRegex,
 	onboardingPrivacyRegex,
-	onboardingCreatingLibraryRegex,
 	onboardingRegex
 } from '../fixtures/routes';
 
