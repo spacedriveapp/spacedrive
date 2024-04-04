@@ -457,5 +457,12 @@
   "search_for_files_and_actions": "ファイルとアクションを検索します...",
   "toggle_command_palette": "コマンドパレットの切り替え",
   "pin": "ピン",
-  "rescan": "再スキャン"
+  "rescan": "再スキャン",
+  "create_file_error": "ファイル作成エラー",
+  "create_file_success": "新しいファイルを作成しました: {{name}}",
+  "create_folder_error": "フォルダー作成エラー",
+  "create_folder_success": "新しいフォルダーを作成しました: {{name}}",
+  "empty_file": "空のファイル",
+  "new": "新しい",
+  "text_file": "テキストファイル"
 }

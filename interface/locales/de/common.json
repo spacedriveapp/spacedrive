@@ -452,5 +452,17 @@
   "search_for_files_and_actions": "Nach Dateien und Aktionen suchen...",
   "toggle_command_palette": "Befehlspalette umschalten",
   "pin": "Stift",
-  "rescan": "Erneut scannen"
+  "rescan": "Erneut scannen",
+  "create_file_error": "Fehler beim Erstellen der Datei",
+  "create_file_success": "Neue Datei erstellt: {{name}}",
+  "create_folder_error": "Fehler beim Erstellen des Ordners",
+  "create_folder_success": "Neuer Ordner erstellt: {{name}}",
+  "empty_file": "Leere Akte",
+  "new": "Neu",
+  "size_b": "B",
+  "size_gb": "GB",
+  "size_kb": "kB",
+  "size_mb": "MB",
+  "size_tb": "TB",
+  "text_file": "Textdatei"
 }

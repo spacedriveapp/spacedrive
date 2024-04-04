@@ -452,5 +452,17 @@
   "search_for_files_and_actions": "Buscar archivos y acciones...",
   "toggle_command_palette": "Alternar paleta de comandos",
   "pin": "Alfiler",
-  "rescan": "Volver a escanear"
+  "rescan": "Volver a escanear",
+  "create_file_error": "Error al crear el archivo",
+  "create_file_success": "Nuevo archivo creado: {{name}}",
+  "create_folder_error": "Error al crear la carpeta",
+  "create_folder_success": "Nueva carpeta creada: {{name}}",
+  "empty_file": "Archivo vacío",
+  "new": "Nuevo",
+  "size_b": "B",
+  "size_gb": "ES",
+  "size_kb": "kB",
+  "size_mb": "MEGABYTE",
+  "size_tb": "tuberculosis",
+  "text_file": "Archivo de texto"
 }
