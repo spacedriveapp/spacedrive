@@ -36,6 +36,12 @@ const UNTITLED_FOLDER_STR: &str = "Untitled Folder";
 const UNTITLED_FILE_STR: &str = "Untitled";
 const UNTITLED_TEXT_FILE_STR: &str = "Untitled.txt";
 
+#[derive(Type, Deserialize)]
+pub enum FileCreateContextTypes {
+    empty,
+    text,
+}
+
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("getMediaData", {
@@ -86,7 +92,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Type, Deserialize)]
 			pub struct CreateEphemeralFileArgs {
 				pub path: PathBuf,
-				pub context: String,
+				pub context: FileCreateContextTypes,
 				pub name: Option<String>,
 			}
 			R.with2(library()).mutation(
@@ -96,10 +102,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				     name,
 				     context,
 				 }: CreateEphemeralFileArgs| async move {
-					if context.contains("empty") {
-						path.push(name.as_deref().unwrap_or(UNTITLED_FILE_STR));
-					} else {
-						path.push(name.as_deref().unwrap_or(UNTITLED_TEXT_FILE_STR));
+					match context {
+						FileCreateContextTypes::empty => {
+							path.push(name.as_deref().unwrap_or(UNTITLED_FILE_STR));
+						}
+						FileCreateContextTypes::text => {
+							path.push(name.as_deref().unwrap_or(UNTITLED_TEXT_FILE_STR));
+						}
 					}
 
 					create_file(path, &library).await

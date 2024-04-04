@@ -49,6 +49,12 @@ const UNTITLED_FOLDER_STR: &str = "Untitled Folder";
 const UNTITLED_FILE_STR: &str = "Untitled";
 const UNTITLED_TEXT_FILE_STR: &str = "Untitled.txt";
 
+#[derive(Type, Deserialize)]
+pub enum FileCreateContextTypes {
+	empty,
+	text,
+}
+
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("get", {
@@ -302,7 +308,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub location_id: location::id::Type,
 				pub sub_path: Option<PathBuf>,
 				pub name: Option<String>,
-				pub context: String,
+				pub context: FileCreateContextTypes,
 			}
 			R.with2(library()).mutation(
 				|(_, library),
@@ -322,10 +328,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						path.push(sub_path);
 					}
 
-					if context.contains("empty") {
-						path.push(name.as_deref().unwrap_or(UNTITLED_FILE_STR));
-					} else {
-						path.push(name.as_deref().unwrap_or(UNTITLED_TEXT_FILE_STR));
+					match context {
+						FileCreateContextTypes::empty => {
+							path.push(name.as_deref().unwrap_or(UNTITLED_FILE_STR))
+						}
+						FileCreateContextTypes::text => {
+							path.push(name.as_deref().unwrap_or(UNTITLED_TEXT_FILE_STR))
+						}
 					}
 
 					create_file(path, &library).await
