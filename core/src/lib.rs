@@ -138,7 +138,8 @@ impl Node {
 			)
 			.await,
 			config,
-			event_bus,
+			core_event_bus,
+			thumbnails_event_bus,
 			libraries,
 			files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
 			cloud_sync_flag: Arc::new(AtomicBool::new(false)),
