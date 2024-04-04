@@ -1,7 +1,7 @@
 #![warn(clippy::unwrap_used, clippy::panic)]
 
 use crate::{
-	api::{CoreEvent, Router},
+	api::{CoreEvent, Router, ThumbnailEvent},
 	location::LocationManagerError,
 	object::media::old_thumbnail::old_actor::OldThumbnailer,
 };
@@ -61,7 +61,11 @@ pub struct Node {
 	pub old_jobs: Arc<old_job::OldJobs>,
 	pub locations: location::Locations,
 	pub p2p: Arc<p2p::P2PManager>,
-	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
+	pub core_event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
+	pub thumbnails_event_bus: (
+		broadcast::Sender<ThumbnailEvent>,
+		broadcast::Receiver<ThumbnailEvent>,
+	),
 	pub notifications: Notifications,
 	pub thumbnailer: OldThumbnailer,
 	pub files_over_p2p_flag: Arc<AtomicBool>,
@@ -97,7 +101,8 @@ impl Node {
 		// This error is ignored because it's throwing on mobile despite the folder existing.
 		let _ = fs::create_dir_all(&data_dir).await;
 
-		let event_bus = broadcast::channel(1024);
+		let core_event_bus = broadcast::channel(1024);
+		let thumbnails_event_bus = broadcast::channel(1024);
 		let config = config::Manager::new(data_dir.to_path_buf())
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
@@ -128,7 +133,7 @@ impl Node {
 			thumbnailer: OldThumbnailer::new(
 				data_dir,
 				libraries.clone(),
-				event_bus.0.clone(),
+				thumbnails_event_bus.0.clone(),
 				config.preferences_watcher(),
 			)
 			.await,
@@ -264,7 +269,7 @@ impl Node {
 	}
 
 	pub(crate) fn emit(&self, event: CoreEvent) {
-		if let Err(e) = self.event_bus.0.send(event) {
+		if let Err(e) = self.core_event_bus.0.send(event) {
 			warn!("Error sending event to event bus: {e:?}");
 		}
 	}

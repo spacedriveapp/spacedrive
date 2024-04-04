@@ -185,7 +185,7 @@ macro_rules! invalidate_query {
 		::tracing::trace!(target: "sd_core::invalidate-query", "invalidate_query!(\"{}\") at {}", $key, concat!(file!(), ":", line!()));
 
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
-		ctx.event_bus.0.send($crate::api::CoreEvent::InvalidateOperation(
+		ctx.core_event_bus.0.send($crate::api::CoreEvent::InvalidateOperation(
 			$crate::api::utils::InvalidateOperationEvent::dangerously_create($key, serde_json::Value::Null, None)
 		)).ok();
 	}};
@@ -307,14 +307,14 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 			// Their is only ever one of these management threads per Node but we spawn it like this so we can steal the event bus from the rspc context.
 			// Batching is important because when refetching data on the frontend rspc can fetch all invalidated queries in a single round trip.
 			if !manager_thread_active.swap(true, Ordering::Relaxed) {
-				let mut event_bus_rx = ctx.event_bus.0.subscribe();
+				let mut core_event_bus_rx = ctx.core_event_bus.0.subscribe();
 				let tx = tx.clone();
 				let manager_thread_active = manager_thread_active.clone();
 
 				tokio::spawn(async move {
 					loop {
 						let Ok(CoreEvent::InvalidateOperation(first_event)) =
-							event_bus_rx.recv().await
+							core_event_bus_rx.recv().await
 						else {
 							continue;
 						};
@@ -346,7 +346,7 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 								_ = tokio::time::sleep_until(batch_time) => {
 									break;
 								}
-								event = event_bus_rx.recv() => {
+								event = core_event_bus_rx.recv() => {
 									let Ok(event) = event else {
 										warn!("Shutting down invalidation manager thread due to the core event bus being dropped!");
 										break;

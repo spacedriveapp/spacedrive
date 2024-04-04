@@ -26,7 +26,7 @@ use tokio::time::Duration;
 use tracing::{info, trace};
 use uuid::Uuid;
 
-use super::{utils::library, CoreEvent, Ctx, R};
+use super::{utils::library, CoreEvent, Ctx, ThumbnailEvent, R};
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -37,7 +37,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			// - this should be used with the ephemeral sync engine
 			R.with2(library())
 				.subscription(|(node, _), _: ()| async move {
-					let mut event_bus_rx = node.event_bus.0.subscribe();
+					let mut event_bus_rx = node.core_event_bus.0.subscribe();
 					// debounce per-job
 					let mut intervals = BTreeMap::<Uuid, Instant>::new();
 
@@ -342,13 +342,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				.subscription(|(node, _), _: ()| async move {
 					// TODO: Only return event for the library that was subscribed to
 
-					let mut event_bus_rx = node.event_bus.0.subscribe();
+					let mut event_bus_rx = node.thumbnails_event_bus.0.subscribe();
 					async_stream::stream! {
-						while let Ok(event) = event_bus_rx.recv().await {
-							match event {
-								CoreEvent::NewThumbnail { thumb_key } => yield thumb_key,
-								_ => {}
-							}
+						while let Ok(ThumbnailEvent::NewThumbnail { thumb_key }) = event_bus_rx.recv().await {
+							yield thumb_key;
 						}
 					}
 				})

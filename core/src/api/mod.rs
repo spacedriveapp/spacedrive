@@ -53,9 +53,14 @@ pub type Router = rspc::Router<Ctx>;
 /// Represents an internal core event, these are exposed to client via a rspc subscription.
 #[derive(Debug, Clone, Serialize, Type)]
 pub enum CoreEvent {
-	NewThumbnail { thumb_key: Vec<String> },
 	JobProgress(JobProgressEvent),
 	InvalidateOperation(InvalidateOperationEvent),
+}
+
+/// Represents an internal thumbnails event, these are exposed to client via a rspc subscription.
+#[derive(Debug, Clone, Serialize, Type)]
+pub enum ThumbnailEvent {
+	NewThumbnail { thumb_key: Vec<String> },
 }
 
 /// All of the feature flags provided by the core itself. The frontend has it's own set of feature flags!

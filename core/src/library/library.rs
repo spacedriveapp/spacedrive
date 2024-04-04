@@ -95,7 +95,7 @@ impl Library {
 			instance_uuid,
 			do_cloud_sync,
 			env: node.env.clone(),
-			event_bus_tx: node.event_bus.0.clone(),
+			event_bus_tx: node.core_event_bus.0.clone(),
 			actors,
 		})
 	}

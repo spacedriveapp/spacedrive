@@ -1,4 +1,4 @@
-use crate::api::CoreEvent;
+use crate::api::ThumbnailEvent;
 
 use sd_file_ext::extensions::{DocumentExtension, ImageExtension};
 use sd_images::{format_image, scale_dimensions, ConvertibleExtension};
@@ -99,7 +99,7 @@ pub(super) async fn batch_processor(
 		batch_report_progress_tx,
 	}: ProcessorControlChannels,
 	leftovers_tx: chan::Sender<(BatchToProcess, ThumbnailKind)>,
-	reporter: broadcast::Sender<CoreEvent>,
+	reporter: broadcast::Sender<ThumbnailEvent>,
 	(available_parallelism, thumbnailer_preferences): (usize, ThumbnailerPreferences),
 ) {
 	let in_parallel_count = if !in_background {
@@ -323,7 +323,7 @@ pub(super) async fn generate_thumbnail(
 		should_regenerate,
 		kind,
 	}: ThumbData<'_, impl AsRef<Path>>,
-	reporter: broadcast::Sender<CoreEvent>,
+	reporter: broadcast::Sender<ThumbnailEvent>,
 ) -> Result<String, ThumbnailerError> {
 	let path = path.as_ref();
 	trace!("Generating thumbnail for {}", path.display());
@@ -377,7 +377,7 @@ pub(super) async fn generate_thumbnail(
 	if !in_background {
 		trace!("Emitting new thumbnail event");
 		if reporter
-			.send(CoreEvent::NewThumbnail {
+			.send(ThumbnailEvent::NewThumbnail {
 				thumb_key: get_thumb_key(&cas_id, kind),
 			})
 			.is_err()

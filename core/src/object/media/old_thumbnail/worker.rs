@@ -1,4 +1,4 @@
-use crate::{api::CoreEvent, node::config::NodePreferences};
+use crate::{api::ThumbnailEvent, node::config::NodePreferences};
 
 use sd_prisma::prisma::location;
 
@@ -38,7 +38,7 @@ pub(super) struct WorkerChannels {
 pub(super) async fn old_worker(
 	available_parallelism: usize,
 	node_preferences_rx: watch::Receiver<NodePreferences>,
-	reporter: broadcast::Sender<CoreEvent>,
+	reporter: broadcast::Sender<ThumbnailEvent>,
 	thumbnails_directory: Arc<PathBuf>,
 	WorkerChannels {
 		progress_management_rx,

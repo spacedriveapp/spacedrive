@@ -1,5 +1,5 @@
 use crate::{
-	api::CoreEvent,
+	api::ThumbnailEvent,
 	library::{Libraries, LibraryId, LibraryManagerEvent},
 	node::config::NodePreferences,
 };
@@ -66,7 +66,7 @@ pub struct OldThumbnailer {
 	thumbnails_to_generate_tx: chan::Sender<(BatchToProcess, ThumbnailKind)>,
 	progress_reporter_tx: chan::Sender<RegisterReporter>,
 	last_single_thumb_generated: Mutex<Instant>,
-	reporter: broadcast::Sender<CoreEvent>,
+	reporter: broadcast::Sender<ThumbnailEvent>,
 	cancel_tx: chan::Sender<oneshot::Sender<()>>,
 }
 
@@ -74,7 +74,7 @@ impl OldThumbnailer {
 	pub async fn new(
 		data_dir: impl AsRef<Path>,
 		libraries_manager: Arc<Libraries>,
-		reporter: broadcast::Sender<CoreEvent>,
+		reporter: broadcast::Sender<ThumbnailEvent>,
 		node_preferences_rx: watch::Receiver<NodePreferences>,
 	) -> Self {
 		let data_dir = data_dir.as_ref();

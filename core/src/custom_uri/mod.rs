@@ -347,7 +347,7 @@ pub fn with_state(node: Arc<Node>) -> LocalState {
 
 	tokio::spawn({
 		let file_metadata_cache = file_metadata_cache.clone();
-		let mut tx = node.event_bus.0.subscribe();
+		let mut tx = node.core_event_bus.0.subscribe();
 		async move {
 			while let Ok(event) = tx.recv().await {
 				if let CoreEvent::InvalidateOperation(e) = event {
