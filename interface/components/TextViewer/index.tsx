@@ -73,7 +73,7 @@ export const TextViewer = memo(
 					className={clsx(
 						'relative w-full whitespace-pre text-sm text-ink',
 						codeExtension &&
-						`language-${languageMapping.get(codeExtension) ?? codeExtension}`
+							`language-${languageMapping.get(codeExtension) ?? codeExtension}`
 					)}
 					style={{
 						height: `${rowVirtualizer.getTotalSize()}px`

@@ -1,6 +1,4 @@
 import { CaretDown, CaretUp } from '@phosphor-icons/react';
-import { createOrdering, getOrderingDirection, orderingKey, type ExplorerItem } from '@sd/client';
-import { ContextMenu } from '@sd/ui';
 import { flexRender, type ColumnSizingState, type Row } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
@@ -8,6 +6,8 @@ import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState 
 import BasicSticky from 'react-sticky-el';
 import { useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
+import { createOrdering, getOrderingDirection, orderingKey, type ExplorerItem } from '@sd/client';
+import { ContextMenu } from '@sd/ui';
 import { TruncatedText } from '~/components';
 import { useShortcut } from '~/hooks';
 import { isNonEmptyObject } from '~/util';
