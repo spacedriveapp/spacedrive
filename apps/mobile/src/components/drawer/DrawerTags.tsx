@@ -56,7 +56,7 @@ const DrawerTags = () => {
 			<View style={tw`mt-2 flex-row flex-wrap gap-1`}>
 				{/* Add Tag */}
 				<Button
-					style={tw`w-[49%] py-0`}
+					style={twStyle(`py-0`, tagData?.length > 4 ? 'w-[49%]' : 'w-full')}
 					onPress={() => modalRef.current?.present()}
 					variant="dashed"
 				>
