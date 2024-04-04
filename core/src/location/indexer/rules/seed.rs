@@ -1,8 +1,9 @@
 use crate::{
 	library::Library,
-	location::indexer::rules::{IndexerRule, IndexerRuleError, RulePerKind},
+	location::indexer::rules::{IndexerRuleError, RulePerKind},
 };
 
+use sd_indexer::rules::IndexerRule;
 use sd_prisma::prisma::indexer_rule;
 
 use chrono::Utc;

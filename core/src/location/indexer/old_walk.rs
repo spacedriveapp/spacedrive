@@ -1,6 +1,7 @@
 use sd_file_path_helper::{
 	file_path_pub_and_cas_ids, file_path_walker, FilePathMetadata, IsolatedFilePathData,
 };
+use sd_indexer::rules::{IndexerRule, RuleKind};
 use sd_prisma::prisma::file_path;
 use sd_utils::{db::inode_from_db, error::FileIOError};
 
@@ -17,10 +18,7 @@ use tokio::fs;
 use tracing::trace;
 use uuid::Uuid;
 
-use super::{
-	rules::{IndexerRule, RuleKind},
-	IndexerError,
-};
+use super::IndexerError;
 
 const TO_WALK_QUEUE_INITIAL_CAPACITY: usize = 32;
 const WALKER_PATHS_BUFFER_INITIAL_CAPACITY: usize = 256;
@@ -696,10 +694,10 @@ where
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::panic)]
 mod tests {
-	use super::super::rules::RulePerKind;
 	use super::*;
 	use chrono::Utc;
 	use globset::{Glob, GlobSetBuilder};
+	use sd_indexer::rules::RulePerKind;
 	use tempfile::{tempdir, TempDir};
 	// use tracing_test::traced_test;
 

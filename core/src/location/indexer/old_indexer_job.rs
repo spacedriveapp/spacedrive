@@ -13,6 +13,7 @@ use sd_file_path_helper::{
 	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 	IsolatedFilePathData,
 };
+use sd_indexer::rules::IndexerRule;
 use sd_prisma::{
 	prisma::{file_path, location},
 	prisma_sync,
@@ -38,9 +39,8 @@ use tracing::{debug, info, warn};
 use super::{
 	execute_indexer_save_step, execute_indexer_update_step, iso_file_path_factory,
 	old_walk::{keep_walking, walk, ToWalkEntry, WalkResult},
-	remove_non_existing_file_paths, reverse_update_directories_sizes,
-	rules::IndexerRule,
-	IndexerError, OldIndexerJobSaveStep, OldIndexerJobUpdateStep,
+	remove_non_existing_file_paths, reverse_update_directories_sizes, IndexerError,
+	OldIndexerJobSaveStep, OldIndexerJobUpdateStep,
 };
 
 /// BATCH_SIZE is the number of files to index at each step, writing the chunk of files metadata in the database.

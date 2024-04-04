@@ -9,6 +9,7 @@ use crate::{
 	util::{unsafe_streamed_query, BatchedStream},
 };
 
+use opendal::{services::Fs, Operator};
 use sd_cache::{CacheNode, Model, Normalise, Reference};
 use sd_prisma::prisma::{self, PrismaClient};
 
@@ -97,12 +98,20 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 			#[derive(Deserialize, Type, Debug)]
 			#[serde(rename_all = "camelCase")]
+			enum LocationPath {
+				Path(PathBuf),
+				// TODO: FTP + S3 + GDrive
+			}
+
+			#[derive(Deserialize, Type, Debug)]
+			#[serde(rename_all = "camelCase")]
 			struct EphemeralPathSearchArgs {
-				path: PathBuf,
+				path: LocationPath,
 				with_hidden_files: bool,
 				#[specta(optional)]
 				order: Option<EphemeralPathOrder>,
 			}
+
 			#[derive(Serialize, Type, Debug)]
 			struct EphemeralPathsResultItem {
 				pub entries: Vec<Reference<ExplorerItem>>,
@@ -117,6 +126,18 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				     with_hidden_files,
 				     order,
 				 }| async move {
+					// TODO: Error handling
+
+					let (service, path) = match path {
+						LocationPath::Path(path) => {
+							let mut builder = Fs::default();
+							builder.root(&path.to_str().unwrap());
+							(Operator::new(builder).unwrap().finish(), path)
+						}
+					};
+
+					let todo = sd_indexer::ephemeral(service).await;
+
 					let paths =
 						non_indexed::walk(path, with_hidden_files, node, library, |entries| {
 							macro_rules! order_match {

@@ -235,7 +235,7 @@ export type EphemeralFileSystemOps = { sources: string[]; target_dir: string }
 
 export type EphemeralPathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder }
 
-export type EphemeralPathSearchArgs = { path: string; withHiddenFiles: boolean; order?: EphemeralPathOrder | null }
+export type EphemeralPathSearchArgs = { path: LocationPath; withHiddenFiles: boolean; order?: EphemeralPathOrder | null }
 
 export type EphemeralPathsResultItem = { entries: Reference<ExplorerItem>[]; errors: Error[]; nodes: CacheNode[] }
 
@@ -424,6 +424,8 @@ export type Location = { id: number; pub_id: number[]; name: string | null; path
  * between the location and indexer rules.
  */
 export type LocationCreateArgs = { path: string; dry_run: boolean; indexer_rules_ids: number[] }
+
+export type LocationPath = { path: string }
 
 export type LocationSettings = { explorer: ExplorerSettings<FilePathOrder> }
 

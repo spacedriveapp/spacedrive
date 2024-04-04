@@ -45,6 +45,7 @@ sd-ai = { path = "../crates/ai", optional = true }
 sd-sync = { path = "../crates/sync" }
 sd-utils = { path = "../crates/utils" }
 sd-cloud-api = { version = "0.1.0", path = "../crates/cloud-api" }
+sd-indexer = { path = "../crates/sd-indexer" }
 
 # Workspace dependencies
 async-channel = { workspace = true }
@@ -129,6 +130,11 @@ sd-actors = { version = "0.1.0", path = "../crates/actors" }
 tower-service = "0.3.2"
 hyper = { version = "=0.14.28", features = ["http1", "server", "client"] }
 rmp = "0.8.12"
+opendal = { version = "0.45.1", features = [
+	"services-gdrive",
+	"services-s3",
+	"services-fs",
+] }
 
 # Override features of transitive dependencies
 [dependencies.openssl]

@@ -3,6 +3,7 @@ use crate::library::Library;
 use sd_file_path_helper::{
 	file_path_pub_and_cas_ids, FilePathError, IsolatedFilePathData, IsolatedFilePathDataParts,
 };
+use sd_indexer::rules::IndexerRuleError;
 use sd_prisma::{
 	prisma::{file_path, location, object as prisma_object, PrismaClient},
 	prisma_sync,
@@ -29,7 +30,6 @@ mod old_walk;
 pub mod rules;
 
 use old_walk::WalkedEntry;
-use rules::IndexerRuleError;
 
 pub use old_indexer_job::OldIndexerJobInit;
 pub use old_shallow::*;
