@@ -37,7 +37,7 @@ const UNTITLED_FILE_STR: &str = "Untitled";
 const UNTITLED_TEXT_FILE_STR: &str = "Untitled.txt";
 
 #[derive(Type, Deserialize)]
-pub enum FileCreateContextTypes {
+enum EphemeralFileCreateContextTypes {
     empty,
     text,
 }
@@ -92,7 +92,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Type, Deserialize)]
 			pub struct CreateEphemeralFileArgs {
 				pub path: PathBuf,
-				pub context: FileCreateContextTypes,
+				pub context: EphemeralFileCreateContextTypes,
 				pub name: Option<String>,
 			}
 			R.with2(library()).mutation(
@@ -103,10 +103,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				     context,
 				 }: CreateEphemeralFileArgs| async move {
 					match context {
-						FileCreateContextTypes::empty => {
+						EphemeralFileCreateContextTypes::empty => {
 							path.push(name.as_deref().unwrap_or(UNTITLED_FILE_STR));
 						}
-						FileCreateContextTypes::text => {
+						EphemeralFileCreateContextTypes::text => {
 							path.push(name.as_deref().unwrap_or(UNTITLED_TEXT_FILE_STR));
 						}
 					}

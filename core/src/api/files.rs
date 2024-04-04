@@ -50,7 +50,7 @@ const UNTITLED_FILE_STR: &str = "Untitled";
 const UNTITLED_TEXT_FILE_STR: &str = "Untitled.txt";
 
 #[derive(Type, Deserialize)]
-pub enum FileCreateContextTypes {
+enum FileCreateContextTypes {
 	empty,
 	text,
 }
