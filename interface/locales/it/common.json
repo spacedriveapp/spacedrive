@@ -452,5 +452,17 @@
   "version": "Versione {{versione}}",
   "view_changes": "Visualizza modifiche",
   "pin": "Spillo",
-  "rescan": "Nuova scansione"
+  "rescan": "Nuova scansione",
+  "create_file_error": "Errore durante la creazione del file",
+  "create_file_success": "Nuovo file creato: {{name}}",
+  "create_folder_error": "Errore durante la creazione della cartella",
+  "create_folder_success": "Creata una nuova cartella: {{name}}",
+  "empty_file": "File vuoto",
+  "new": "Nuovo",
+  "size_b": "B",
+  "size_gb": "GB",
+  "size_kb": "kB",
+  "size_mb": "MB",
+  "size_tb": "TBC",
+  "text_file": "File di testo"
 }
