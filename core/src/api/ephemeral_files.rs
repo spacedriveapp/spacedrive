@@ -38,8 +38,8 @@ const UNTITLED_TEXT_FILE_STR: &str = "Untitled.txt";
 
 #[derive(Type, Deserialize)]
 enum EphemeralFileCreateContextTypes {
-    empty,
-    text,
+	empty,
+	text,
 }
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
