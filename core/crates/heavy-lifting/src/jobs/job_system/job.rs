@@ -55,6 +55,8 @@ pub trait JobContext: Send + Sync + Clone + 'static {
 	fn id(&self) -> Uuid;
 	fn db(&self) -> &Arc<PrismaClient>;
 	fn sync(&self) -> &Arc<SyncManager>;
+	fn invalidate_query(&self, query: &'static str);
+	fn query_invalidator(&self) -> impl Fn(&'static str) + Send;
 }
 
 pub trait Job: Send + Sync + Hash + 'static {
@@ -113,10 +115,19 @@ where
 	}
 }
 
+#[derive(Debug)]
 pub struct JobReturn {
 	data: JobOutputData,
 	metadata: Option<ReportOutputMetadata>,
 	non_critical_errors: Vec<NonCriticalJobError>,
+}
+
+impl JobReturn {
+	pub fn builder() -> JobReturnBuilder {
+		JobReturnBuilder {
+			job_return: Self::default(),
+		}
+	}
 }
 
 impl Default for JobReturn {
@@ -126,6 +137,36 @@ impl Default for JobReturn {
 			metadata: None,
 			non_critical_errors: vec![],
 		}
+	}
+}
+
+#[derive(Debug, Default)]
+pub struct JobReturnBuilder {
+	job_return: JobReturn,
+}
+
+impl JobReturnBuilder {
+	pub const fn with_data(mut self, data: JobOutputData) -> Self {
+		self.job_return.data = data;
+		self
+	}
+
+	pub fn with_metadata(mut self, metadata: impl Into<ReportOutputMetadata>) -> Self {
+		self.job_return.metadata = Some(metadata.into());
+		self
+	}
+
+	pub fn with_non_critical_errors(mut self, errors: Vec<NonCriticalJobError>) -> Self {
+		if self.job_return.non_critical_errors.is_empty() {
+			self.job_return.non_critical_errors = errors;
+		} else {
+			self.job_return.non_critical_errors.extend(errors);
+		}
+		self
+	}
+
+	pub fn build(self) -> JobReturn {
+		self.job_return
 	}
 }
 
@@ -181,7 +222,7 @@ impl JobOutput {
 	}
 }
 
-#[derive(Serialize, Type)]
+#[derive(Debug, Serialize, Type)]
 pub enum JobOutputData {
 	Empty,
 	// TODO: Add more types

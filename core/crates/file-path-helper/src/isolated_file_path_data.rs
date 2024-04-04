@@ -1,7 +1,8 @@
 use sd_core_prisma_helpers::{
 	file_path_for_file_identifier, file_path_for_media_processor, file_path_for_object_validator,
 	file_path_to_full_path, file_path_to_handle_custom_uri, file_path_to_handle_p2p_serve_file,
-	file_path_to_isolate, file_path_to_isolate_with_id, file_path_walker, file_path_with_object,
+	file_path_to_isolate, file_path_to_isolate_with_id, file_path_to_isolate_with_pub_id,
+	file_path_walker, file_path_with_object,
 };
 
 use sd_prisma::prisma::{file_path, location};
@@ -31,7 +32,7 @@ pub struct IsolatedFilePathDataParts<'a> {
 	relative_path: &'a str,
 }
 
-#[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq, Clone, Default)]
 #[non_exhaustive]
 pub struct IsolatedFilePathData<'a> {
 	// WARN! These fields MUST NOT be changed outside the location module, that's why they have this visibility
@@ -490,6 +491,7 @@ mod macros {
 impl_from_db!(
 	file_path,
 	file_path_to_isolate,
+	file_path_to_isolate_with_pub_id,
 	file_path_walker,
 	file_path_to_isolate_with_id,
 	file_path_with_object

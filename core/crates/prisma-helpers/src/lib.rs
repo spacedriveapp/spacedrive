@@ -69,6 +69,14 @@ file_path::select!(file_path_to_isolate {
 	name
 	extension
 });
+file_path::select!(file_path_to_isolate_with_pub_id {
+	pub_id
+	location_id
+	materialized_path
+	is_dir
+	name
+	extension
+});
 file_path::select!(file_path_to_isolate_with_id {
 	id
 	location_id

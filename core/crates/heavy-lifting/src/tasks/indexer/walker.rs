@@ -123,7 +123,6 @@ pub trait WalkerDBProxy: Clone + Send + Sync + fmt::Debug + 'static {
 pub struct ToWalkEntry {
 	path: PathBuf,
 	parent_dir_accepted_by_its_children: Option<bool>,
-	maybe_parent: Option<PathBuf>,
 }
 
 impl<P: AsRef<Path>> From<P> for ToWalkEntry {
@@ -131,7 +130,6 @@ impl<P: AsRef<Path>> From<P> for ToWalkEntry {
 		Self {
 			path: path.as_ref().into(),
 			parent_dir_accepted_by_its_children: None,
-			maybe_parent: None,
 		}
 	}
 }
@@ -143,9 +141,8 @@ pub(crate) struct WalkTaskOutput {
 	pub to_remove: Vec<file_path_pub_and_cas_ids::Data>,
 	pub accepted_ancestors: HashSet<WalkedEntry>,
 	pub errors: Vec<NonCriticalJobError>,
-	pub directory: PathBuf,
+	pub directory_iso_file_path: IsolatedFilePathData<'static>,
 	pub total_size: u64,
-	pub maybe_parent: Option<PathBuf>,
 	pub handles: Vec<TaskHandle<Error>>,
 	pub scan_time: Duration,
 }
@@ -472,12 +469,10 @@ where
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {
 		let Self {
 			root,
-			entry:
-				ToWalkEntry {
-					path,
-					parent_dir_accepted_by_its_children,
-					maybe_parent,
-				},
+			entry: ToWalkEntry {
+				path,
+				parent_dir_accepted_by_its_children,
+			},
 			entry_iso_file_path,
 			iso_file_path_factory,
 			indexer_ruler,
@@ -563,7 +558,6 @@ where
 				} => {
 					let mut maybe_to_keep_walking = maybe_dispatcher.is_some().then(Vec::new);
 					let (accepted_paths, accepted_ancestors) = process_rules_results(
-						&path,
 						root,
 						iso_file_path_factory,
 						*parent_dir_accepted_by_its_children,
@@ -649,9 +643,8 @@ where
 				to_remove,
 				accepted_ancestors,
 				errors: mem::take(errors),
-				directory: mem::take(path),
+				directory_iso_file_path: mem::take(entry_iso_file_path),
 				total_size,
-				maybe_parent: mem::take(maybe_parent),
 				handles,
 				scan_time: *scan_time,
 			}
@@ -825,7 +818,6 @@ async fn apply_indexer_rules(
 }
 
 async fn process_rules_results(
-	source_directory: impl AsRef<Path> + Send,
 	root: &Arc<PathBuf>,
 	iso_file_path_factory: &impl IsoFilePathFactory,
 	parent_dir_accepted_by_its_children: Option<bool>,
@@ -836,7 +828,6 @@ async fn process_rules_results(
 	maybe_to_keep_walking: &mut Option<Vec<ToWalkEntry>>,
 	errors: &mut Vec<NonCriticalJobError>,
 ) -> (HashMap<PathBuf, InnerMetadata>, HashSet<WalkedEntry>) {
-	let source_directory = source_directory.as_ref();
 	let root = root.as_ref();
 
 	let (accepted, accepted_ancestors) = paths_metadatas_and_acceptance.drain().fold(
@@ -864,7 +855,6 @@ async fn process_rules_results(
 			if is_dir
 				&& process_and_maybe_reject_by_directory_rules(
 					&current_path,
-					source_directory,
 					&acceptance_per_rule_kind,
 					&mut accept_by_children_dir,
 					maybe_to_keep_walking,
@@ -935,7 +925,6 @@ async fn process_rules_results(
 
 fn process_and_maybe_reject_by_directory_rules(
 	current_path: &Path,
-	parent: &Path,
 	acceptance_per_rule_kind: &HashMap<RuleKind, Vec<bool>>,
 	accept_by_children_dir: &mut Option<bool>,
 	maybe_to_keep_walking: &mut Option<Vec<ToWalkEntry>>,
@@ -968,7 +957,6 @@ fn process_and_maybe_reject_by_directory_rules(
 		to_keep_walking.push(ToWalkEntry {
 			path: current_path.to_path_buf(),
 			parent_dir_accepted_by_its_children: *accept_by_children_dir,
-			maybe_parent: Some(parent.to_path_buf()),
 		});
 	}
 

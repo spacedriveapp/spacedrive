@@ -70,7 +70,7 @@ pub enum ReportInputMetadata {
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
 pub enum ReportOutputMetadata {
-	Metrics(HashMap<String, u64>),
+	Metrics(HashMap<String, serde_json::Value>),
 	// TODO: Add more types
 }
 
