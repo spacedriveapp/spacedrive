@@ -45,7 +45,9 @@ use tracing::warn;
 use super::{
 	cancel_pending_tasks,
 	job_system::{
-		job::{Job, JobContext, JobName, JobReturn, JobTaskDispatcher, ReturnStatus},
+		job::{
+			Job, JobContext, JobName, JobReturn, JobTaskDispatcher, ProgressUpdate, ReturnStatus,
+		},
 		report::ReportOutputMetadata,
 		SerializableJob, SerializedTasks,
 	},
@@ -302,16 +304,24 @@ impl IndexerJob {
 				*any_task_output
 					.downcast::<SaveTaskOutput>()
 					.expect("just checked"),
+				job_ctx,
 			);
 		} else if any_task_output.is::<UpdateTaskOutput>() {
 			self.process_update_output(
 				*any_task_output
 					.downcast::<UpdateTaskOutput>()
 					.expect("just checked"),
+				job_ctx,
 			);
 		} else {
 			unreachable!("Unexpected task output type: <id='{task_id}'>");
 		}
+
+		self.metadata.completed_tasks += 1;
+
+		job_ctx.progress(vec![ProgressUpdate::CompletedTaskCount(
+			self.metadata.completed_tasks,
+		)]);
 
 		Ok(Vec::new())
 	}
@@ -333,6 +343,8 @@ impl IndexerJob {
 		dispatcher: &JobTaskDispatcher,
 	) -> Result<Vec<TaskHandle<Error>>, IndexerError> {
 		self.metadata.scan_read_time += scan_time;
+
+		let (to_create_count, to_update_count) = (to_create.len(), to_update.len());
 
 		*self
 			.iso_paths_and_sizes
@@ -418,7 +430,14 @@ impl IndexerJob {
 		handles.extend(dispatcher.dispatch_many(save_tasks).await);
 		handles.extend(dispatcher.dispatch_many(update_tasks).await);
 
-		// TODO: Report progress
+		self.metadata.total_tasks += handles.len() as u64;
+
+		job_ctx.progress(vec![
+			ProgressUpdate::TaskCount(handles.len() as u64),
+			ProgressUpdate::message(format!(
+				"Found {to_create_count} new files and {to_update_count} to update"
+			)),
+		]);
 
 		Ok(handles)
 	}
@@ -429,11 +448,12 @@ impl IndexerJob {
 			saved_count,
 			save_duration,
 		}: SaveTaskOutput,
+		job_ctx: &impl JobContext,
 	) {
 		self.metadata.indexed_count += saved_count;
 		self.metadata.db_write_time += save_duration;
 
-		// TODO: Report progress
+		job_ctx.progress_msg(format!("Saved {saved_count} files"));
 	}
 
 	fn process_update_output(
@@ -442,11 +462,12 @@ impl IndexerJob {
 			updated_count,
 			update_duration,
 		}: UpdateTaskOutput,
+		job_ctx: &impl JobContext,
 	) {
 		self.metadata.updated_count += updated_count;
 		self.metadata.db_write_time += update_duration;
 
-		// TODO: Report progress
+		job_ctx.progress_msg(format!("Updated {updated_count} files"));
 	}
 
 	async fn process_handles(
@@ -551,6 +572,8 @@ impl IndexerJob {
 pub struct Metadata {
 	db_write_time: Duration,
 	scan_read_time: Duration,
+	total_tasks: u64,
+	completed_tasks: u64,
 	total_paths: u64,
 	total_updated_paths: u64,
 	total_save_steps: u64,
@@ -565,6 +588,7 @@ impl From<Metadata> for ReportOutputMetadata {
 		Self::Metrics(HashMap::from([
 			("db_write_time".into(), json!(value.db_write_time)),
 			("scan_read_time".into(), json!(value.scan_read_time)),
+			("total_tasks".into(), json!(value.total_tasks)),
 			("total_paths".into(), json!(value.total_paths)),
 			(
 				"total_updated_paths".into(),

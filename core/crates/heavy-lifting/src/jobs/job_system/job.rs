@@ -51,12 +51,33 @@ pub enum ReturnStatus {
 	Canceled,
 }
 
+pub enum ProgressUpdate {
+	TaskCount(u64),
+	CompletedTaskCount(u64),
+	Message(String),
+	Phase(String),
+}
+
+impl ProgressUpdate {
+	pub fn message(message: impl Into<String>) -> Self {
+		Self::Message(message.into())
+	}
+
+	pub fn phase(phase: impl Into<String>) -> Self {
+		Self::Phase(phase.into())
+	}
+}
+
 pub trait JobContext: Send + Sync + Clone + 'static {
 	fn id(&self) -> Uuid;
 	fn db(&self) -> &Arc<PrismaClient>;
 	fn sync(&self) -> &Arc<SyncManager>;
 	fn invalidate_query(&self, query: &'static str);
 	fn query_invalidator(&self) -> impl Fn(&'static str) + Send;
+	fn progress(&self, updates: Vec<ProgressUpdate>);
+	fn progress_msg(&self, msg: impl Into<String>) {
+		self.progress(vec![ProgressUpdate::Message(msg.into())]);
+	}
 }
 
 pub trait Job: Send + Sync + Hash + 'static {

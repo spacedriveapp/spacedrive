@@ -27,9 +27,8 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-use std::fmt;
-
 use sd_task_system::TaskSystemError;
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
@@ -65,19 +64,4 @@ pub enum NonCriticalJobError {
 	// TODO: Add variants as needed
 	#[error(transparent)]
 	Indexer(#[from] NonCriticalIndexerError),
-}
-
-pub enum ProgressUpdate {
-	TaskCount(usize),
-	CompletedTaskCount(usize),
-	Message(String),
-	Phase(String),
-}
-
-pub trait ProgressReporter: Send + Sync + fmt::Debug + 'static {
-	fn progress(&self, updates: Vec<ProgressUpdate>);
-
-	fn progress_msg(&self, msg: impl Into<String>) {
-		self.progress(vec![ProgressUpdate::Message(msg.into())]);
-	}
 }
