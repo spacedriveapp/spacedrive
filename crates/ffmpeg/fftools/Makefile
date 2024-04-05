@@ -1,20 +1,14 @@
-# Makefile for compiling ffprobe
+# Makefile for compiling simple_ffprobe
+TARGET = simple_ffprobe
+SRCS   = $(TARGET).c
+OBJS   = $(SRCS:.c=.o)
 
-# Compiler and flags
+# Compiler flags
 CC = clang
 CFLAGS = -std=c17 -Wall -I../../../apps/.deps/include
 
-# Source files
-SRCS = cmdutils.c opt_common.c ffprobe.c
-
-# Object files
-OBJS = $(SRCS:.c=.o)
-
-# Output binary
-TARGET = ffprobe
-
-# Linker flags for system libraries
-LDFLAGS = -L../../../apps/.deps/libs -lm -lswresample -lavformat -lavutil -lswscale -lavcodec -lavfilter -lavdevice
+# Linker flags
+LDFLAGS = -L../../../apps/.deps/libs -lm -lavformat -lavutil -lavcodec
 
 all: $(TARGET)
 
