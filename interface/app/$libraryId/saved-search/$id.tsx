@@ -1,6 +1,7 @@
 import { MagnifyingGlass } from '@phosphor-icons/react';
 import { getIcon, iconNames } from '@sd/assets/util';
 import { useEffect, useMemo } from 'react';
+import { useParams } from 'react-router';
 import {
 	FilePathOrder,
 	SearchFilterArgs,
@@ -10,7 +11,7 @@ import {
 } from '@sd/client';
 import { Button } from '@sd/ui';
 import { SearchIdParamsSchema } from '~/app/route-schemas';
-import { useRouteTitle, useZodRouteParams } from '~/hooks';
+import { useRouteTitle, useZodParams } from '~/hooks';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
@@ -34,7 +35,7 @@ import { useSearchExplorerQuery } from '../search/useSearchExplorerQuery';
 import { TopBarPortal } from '../TopBar/Portal';
 
 export const Component = () => {
-	const { id } = useZodRouteParams(SearchIdParamsSchema);
+	const { id } = useZodParams(SearchIdParamsSchema);
 
 	// This forces the search to throw away all data + modified search state when id changes
 	return <Inner key={id} id={id} />;
