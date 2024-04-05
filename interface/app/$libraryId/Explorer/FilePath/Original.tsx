@@ -220,7 +220,7 @@ const Video = ({ paused, blackBars, blackBarsSize, className, ...props }: VideoP
 			}}
 			playsInline
 			draggable={false}
-			style={{ ...(blackBars ? blackBarsStyle : {}) }}
+			style={{ ...blackBarsStyle }}
 			className={clsx(blackBars && size.width === 0 && 'invisible', className)}
 			{...props}
 			key={props.src}
