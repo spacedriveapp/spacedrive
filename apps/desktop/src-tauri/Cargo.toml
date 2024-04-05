@@ -1,6 +1,6 @@
 [package]
 name = "sd-desktop"
-version = "0.2.10"
+version = "0.3.0"
 description = "The universal file manager."
 authors = ["Spacedrive Technology Inc <support@spacedrive.com>"]
 default-run = "sd-desktop"
