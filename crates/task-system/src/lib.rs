@@ -98,7 +98,7 @@ pub use system::{
 	BaseDispatcher as BaseTaskDispatcher, Dispatcher as TaskDispatcher, System as TaskSystem,
 };
 pub use task::{
-	AnyTaskOutput, ExecStatus, Interrupter, InterrupterFuture, InterruptionKind, IntoAnyTaskOutput,
-	IntoTask, SerializableTask, Task, TaskHandle, TaskId, TaskOutput, TaskRemoteController,
-	TaskStatus,
+	AnyTaskOutput, CancelTaskOnDrop, ExecStatus, Interrupter, InterrupterFuture, InterruptionKind,
+	IntoAnyTaskOutput, IntoTask, SerializableTask, Task, TaskHandle, TaskId, TaskOutput,
+	TaskRemoteController, TaskStatus,
 };

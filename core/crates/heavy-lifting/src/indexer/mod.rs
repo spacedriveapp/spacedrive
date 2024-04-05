@@ -5,11 +5,13 @@ use sd_core_file_path_helper::{
 	FilePathError, IsolatedFilePathData,
 };
 use sd_core_indexer_rules::IndexerRuleError;
-use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_to_isolate_with_pub_id};
+use sd_core_prisma_helpers::{
+	file_path_pub_and_cas_ids, file_path_to_isolate_with_pub_id, file_path_walker,
+};
 use sd_core_sync::Manager as SyncManager;
 
 use sd_prisma::{
-	prisma::{file_path, location, PrismaClient},
+	prisma::{file_path, location, PrismaClient, SortOrder},
 	prisma_sync,
 };
 use sd_sync::OperationFactory;
@@ -20,10 +22,11 @@ use sd_utils::{
 };
 
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	hash::BuildHasher,
 	mem,
 	path::{Path, PathBuf},
+	sync::Arc,
 };
 
 use itertools::Itertools;
@@ -35,9 +38,16 @@ use specta::Type;
 use tracing::warn;
 
 mod job;
+mod shallow;
 mod tasks;
 
 pub use job::IndexerJob;
+pub use shallow::shallow;
+
+use tasks::walker;
+
+/// `BATCH_SIZE` is the number of files to index at each task, writing the chunk of files metadata in the database.
+const BATCH_SIZE: usize = 1000;
 
 #[derive(thiserror::Error, Debug)]
 pub enum IndexerError {
@@ -102,20 +112,20 @@ pub enum NonCriticalIndexerError {
 	MissingFilePathData(String),
 }
 
-pub async fn determine_initial_walk_path(
+async fn determine_initial_walk_path(
 	location_id: location::id::Type,
-	sub_path: &Option<PathBuf>,
-	location_path: &Path,
+	sub_path: &Option<impl AsRef<Path> + Send + Sync>,
+	location_path: impl AsRef<Path> + Send,
 	db: &PrismaClient,
 ) -> Result<PathBuf, IndexerError> {
+	let location_path = location_path.as_ref();
+
 	match sub_path {
-		Some(sub_path) if sub_path != Path::new("") => {
-			let full_path = ensure_sub_path_is_in_location(location_path, sub_path)
-				.await
-				.map_err(IndexerError::from)?;
-			ensure_sub_path_is_directory(location_path, sub_path)
-				.await
-				.map_err(IndexerError::from)?;
+		Some(sub_path) if sub_path.as_ref() != Path::new("") => {
+			let sub_path = sub_path.as_ref();
+			let full_path = ensure_sub_path_is_in_location(location_path, sub_path).await?;
+
+			ensure_sub_path_is_directory(location_path, sub_path).await?;
 
 			ensure_file_path_exists(
 				sub_path,
@@ -152,7 +162,7 @@ fn chunk_db_queries<'db, 'iso>(
 }
 
 #[allow(clippy::missing_panics_doc)] // Can't actually panic as we use the hashmap to fetch entries from db
-pub async fn update_directory_sizes(
+async fn update_directory_sizes(
 	iso_paths_and_sizes: HashMap<IsolatedFilePathData<'_>, u64, impl BuildHasher + Send>,
 	db: &PrismaClient,
 	sync: &SyncManager,
@@ -191,10 +201,10 @@ pub async fn update_directory_sizes(
 	Ok(())
 }
 
-pub async fn update_location_size(
+async fn update_location_size<InvalidateQuery: Fn(&'static str) + Send + Sync>(
 	location_id: location::id::Type,
 	db: &PrismaClient,
-	invalidate_query_fn: impl Fn(&'static str) + Send,
+	invalidate_query: &InvalidateQuery,
 ) -> Result<(), IndexerError> {
 	let total_size = db
 		.file_path()
@@ -223,13 +233,13 @@ pub async fn update_location_size(
 		.exec()
 		.await?;
 
-	invalidate_query_fn("locations.list");
-	invalidate_query_fn("locations.get");
+	invalidate_query("locations.list");
+	invalidate_query("locations.get");
 
 	Ok(())
 }
 
-pub async fn remove_non_existing_file_paths(
+async fn remove_non_existing_file_paths(
 	to_remove: Vec<file_path_pub_and_cas_ids::Data>,
 	db: &PrismaClient,
 	sync: &sd_core_sync::Manager,
@@ -264,7 +274,7 @@ pub async fn remove_non_existing_file_paths(
 }
 
 #[allow(clippy::missing_panics_doc)] // Can't actually panic as we only deal with directories
-pub async fn reverse_update_directories_sizes(
+async fn reverse_update_directories_sizes(
 	base_path: impl AsRef<Path> + Send,
 	location_id: location::id::Type,
 	location_path: impl AsRef<Path> + Send,
@@ -403,4 +413,131 @@ async fn compute_sizes(
 		});
 
 	Ok(())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct IsoFilePathFactory {
+	pub location_id: location::id::Type,
+	pub location_path: Arc<PathBuf>,
+}
+
+impl walker::IsoFilePathFactory for IsoFilePathFactory {
+	fn build(
+		&self,
+		path: impl AsRef<Path>,
+		is_dir: bool,
+	) -> Result<IsolatedFilePathData<'static>, FilePathError> {
+		IsolatedFilePathData::new(self.location_id, self.location_path.as_ref(), path, is_dir)
+	}
+}
+
+#[derive(Debug, Clone)]
+struct WalkerDBProxy {
+	location_id: location::id::Type,
+	db: Arc<PrismaClient>,
+}
+
+impl walker::WalkerDBProxy for WalkerDBProxy {
+	async fn fetch_file_paths(
+		&self,
+		found_paths: Vec<file_path::WhereParam>,
+	) -> Result<Vec<file_path_walker::Data>, IndexerError> {
+		// Each found path is a AND with 4 terms, and SQLite has a expression tree limit of 1000 terms
+		// so we will use chunks of 200 just to be safe
+		self.db
+			._batch(
+				found_paths
+					.into_iter()
+					.chunks(200)
+					.into_iter()
+					.map(|founds| {
+						self.db
+							.file_path()
+							.find_many(vec![or(founds.collect::<Vec<_>>())])
+							.select(file_path_walker::select())
+					})
+					.collect::<Vec<_>>(),
+			)
+			.await
+			.map(|fetched| fetched.into_iter().flatten().collect::<Vec<_>>())
+			.map_err(Into::into)
+	}
+
+	async fn fetch_file_paths_to_remove(
+		&self,
+		parent_iso_file_path: &IsolatedFilePathData<'_>,
+		unique_location_id_materialized_path_name_extension_params: Vec<file_path::WhereParam>,
+	) -> Result<Vec<file_path_pub_and_cas_ids::Data>, NonCriticalIndexerError> {
+		// NOTE: This batch size can be increased if we wish to trade memory for more performance
+		const BATCH_SIZE: i64 = 1000;
+
+		let founds_ids = self
+			.db
+			._batch(
+				unique_location_id_materialized_path_name_extension_params
+					.into_iter()
+					.chunks(200)
+					.into_iter()
+					.map(|unique_params| {
+						self.db
+							.file_path()
+							.find_many(vec![or(unique_params.collect())])
+							.select(file_path::select!({ id }))
+					})
+					.collect::<Vec<_>>(),
+			)
+			.await
+			.map(|founds_chunk| {
+				founds_chunk
+					.into_iter()
+					.flat_map(|file_paths| file_paths.into_iter().map(|file_path| file_path.id))
+					.collect::<HashSet<_>>()
+			})
+			.map_err(|e| NonCriticalIndexerError::FetchAlreadyExistingFilePathIds(e.to_string()))?;
+
+		let mut to_remove = vec![];
+		let mut cursor = 1;
+
+		loop {
+			let found = self
+				.db
+				.file_path()
+				.find_many(vec![
+					file_path::location_id::equals(Some(self.location_id)),
+					file_path::materialized_path::equals(Some(
+						parent_iso_file_path
+							.materialized_path_for_children()
+							.expect("the received isolated file path must be from a directory"),
+					)),
+				])
+				.order_by(file_path::id::order(SortOrder::Asc))
+				.take(BATCH_SIZE)
+				.cursor(file_path::id::equals(cursor))
+				.select(file_path_pub_and_cas_ids::select())
+				.exec()
+				.await
+				.map_err(|e| NonCriticalIndexerError::FetchFilePathsToRemove(e.to_string()))?;
+
+			#[allow(clippy::cast_possible_truncation)] // Safe because we are using a constant
+			let should_stop = found.len() < BATCH_SIZE as usize;
+
+			if let Some(last) = found.last() {
+				cursor = last.id;
+			} else {
+				break;
+			}
+
+			to_remove.extend(
+				found
+					.into_iter()
+					.filter(|file_path| !founds_ids.contains(&file_path.id)),
+			);
+
+			if should_stop {
+				break;
+			}
+		}
+
+		Ok(to_remove)
+	}
 }

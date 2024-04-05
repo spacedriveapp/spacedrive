@@ -1,4 +1,5 @@
 use crate::{
+	indexer::BATCH_SIZE,
 	job_system::{
 		job::{
 			Job, JobContext, JobName, JobReturn, JobTaskDispatcher, ProgressUpdate, ReturnStatus,
@@ -10,13 +11,10 @@ use crate::{
 	Error, NonCriticalJobError,
 };
 
-use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
+use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_indexer_rules::{IndexerRule, IndexerRuler};
-use sd_core_prisma_helpers::{
-	file_path_pub_and_cas_ids, file_path_walker, location_with_indexer_rules,
-};
+use sd_core_prisma_helpers::location_with_indexer_rules;
 
-use sd_prisma::prisma::{file_path, location, PrismaClient, SortOrder};
 use sd_task_system::{
 	AnyTaskOutput, IntoTask, SerializableTask, Task, TaskDispatcher, TaskHandle, TaskId,
 	TaskOutput, TaskStatus,
@@ -27,7 +25,7 @@ use std::{
 	collections::{HashMap, HashSet},
 	hash::{Hash, Hasher},
 	mem,
-	path::{Path, PathBuf},
+	path::PathBuf,
 	sync::Arc,
 	time::Duration,
 };
@@ -35,7 +33,6 @@ use std::{
 use futures::{stream::FuturesUnordered, StreamExt};
 use futures_concurrency::future::TryJoin;
 use itertools::Itertools;
-use prisma_client_rust::operator::or;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::time::Instant;
@@ -46,17 +43,14 @@ use super::{
 	tasks::{
 		saver::{SaveTask, SaveTaskOutput},
 		updater::{UpdateTask, UpdateTaskOutput},
-		walker::{self, WalkDirTask, WalkTaskOutput, WalkedEntry},
+		walker::{WalkDirTask, WalkTaskOutput, WalkedEntry},
 	},
-	update_directory_sizes, update_location_size, IndexerError, NonCriticalIndexerError,
+	update_directory_sizes, update_location_size, IndexerError, IsoFilePathFactory, WalkerDBProxy,
 };
-
-/// `BATCH_SIZE` is the number of files to index at each task, writing the chunk of files metadata in the database.
-const BATCH_SIZE: usize = 1000;
 
 #[derive(Debug)]
 pub struct IndexerJob {
-	location: Arc<location_with_indexer_rules::Data>,
+	location: location_with_indexer_rules::Data,
 	sub_path: Option<PathBuf>,
 	metadata: Metadata,
 
@@ -109,7 +103,8 @@ impl Job for IndexerJob {
 					self.metadata.total_save_steps += 1;
 
 					SaveTask::new(
-						Arc::clone(&self.location),
+						self.location.id,
+						self.location.pub_id.clone(),
 						chunked_saves,
 						Arc::clone(ctx.db()),
 						Arc::clone(ctx.sync()),
@@ -162,7 +157,7 @@ impl Job for IndexerJob {
 				.await?;
 			}
 
-			update_location_size(location.id, ctx.db(), ctx.query_invalidator()).await?;
+			update_location_size(location.id, ctx.db(), &ctx.query_invalidator()).await?;
 
 			metadata.db_write_time += start_size_update_time.elapsed();
 		}
@@ -265,7 +260,7 @@ impl IndexerJob {
 			ancestors_needing_indexing: HashSet::new(),
 			ancestors_already_indexed: HashSet::new(),
 			iso_paths_and_sizes: HashMap::new(),
-			location: Arc::new(location),
+			location,
 			sub_path,
 			metadata: Metadata::default(),
 			errors: Vec::new(),
@@ -400,7 +395,8 @@ impl IndexerJob {
 				self.metadata.total_save_steps += 1;
 
 				SaveTask::new(
-					Arc::clone(&self.location),
+					self.location.id,
+					self.location.pub_id.clone(),
 					chunked_saves,
 					Arc::clone(job_ctx.db()),
 					Arc::clone(job_ctx.sync()),
@@ -535,7 +531,7 @@ impl IndexerJob {
 				determine_initial_walk_path(
 					self.location.id,
 					&self.sub_path,
-					&self.iso_file_path_factory.location_path,
+					&*self.iso_file_path_factory.location_path,
 					job_ctx.db(),
 				)
 				.await?,
@@ -610,7 +606,7 @@ enum TaskKind {
 
 #[derive(Serialize, Deserialize)]
 struct SaveState {
-	location: Arc<location_with_indexer_rules::Data>,
+	location: location_with_indexer_rules::Data,
 	sub_path: Option<PathBuf>,
 	metadata: Metadata,
 
@@ -738,132 +734,5 @@ impl Hash for IndexerJob {
 		if let Some(ref sub_path) = self.sub_path {
 			sub_path.hash(state);
 		}
-	}
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct IsoFilePathFactory {
-	pub location_id: location::id::Type,
-	pub location_path: Arc<PathBuf>,
-}
-
-impl walker::IsoFilePathFactory for IsoFilePathFactory {
-	fn build(
-		&self,
-		path: impl AsRef<Path>,
-		is_dir: bool,
-	) -> Result<IsolatedFilePathData<'static>, FilePathError> {
-		IsolatedFilePathData::new(self.location_id, self.location_path.as_ref(), path, is_dir)
-	}
-}
-
-#[derive(Debug, Clone)]
-struct WalkerDBProxy {
-	location_id: location::id::Type,
-	db: Arc<PrismaClient>,
-}
-
-impl walker::WalkerDBProxy for WalkerDBProxy {
-	async fn fetch_file_paths(
-		&self,
-		found_paths: Vec<file_path::WhereParam>,
-	) -> Result<Vec<file_path_walker::Data>, IndexerError> {
-		// Each found path is a AND with 4 terms, and SQLite has a expression tree limit of 1000 terms
-		// so we will use chunks of 200 just to be safe
-		self.db
-			._batch(
-				found_paths
-					.into_iter()
-					.chunks(200)
-					.into_iter()
-					.map(|founds| {
-						self.db
-							.file_path()
-							.find_many(vec![or(founds.collect::<Vec<_>>())])
-							.select(file_path_walker::select())
-					})
-					.collect::<Vec<_>>(),
-			)
-			.await
-			.map(|fetched| fetched.into_iter().flatten().collect::<Vec<_>>())
-			.map_err(Into::into)
-	}
-
-	async fn fetch_file_paths_to_remove(
-		&self,
-		parent_iso_file_path: &IsolatedFilePathData<'_>,
-		unique_location_id_materialized_path_name_extension_params: Vec<file_path::WhereParam>,
-	) -> Result<Vec<file_path_pub_and_cas_ids::Data>, NonCriticalIndexerError> {
-		// NOTE: This batch size can be increased if we wish to trade memory for more performance
-		const BATCH_SIZE: i64 = 1000;
-
-		let founds_ids = self
-			.db
-			._batch(
-				unique_location_id_materialized_path_name_extension_params
-					.into_iter()
-					.chunks(200)
-					.into_iter()
-					.map(|unique_params| {
-						self.db
-							.file_path()
-							.find_many(vec![or(unique_params.collect())])
-							.select(file_path::select!({ id }))
-					})
-					.collect::<Vec<_>>(),
-			)
-			.await
-			.map(|founds_chunk| {
-				founds_chunk
-					.into_iter()
-					.flat_map(|file_paths| file_paths.into_iter().map(|file_path| file_path.id))
-					.collect::<HashSet<_>>()
-			})
-			.map_err(|e| NonCriticalIndexerError::FetchAlreadyExistingFilePathIds(e.to_string()))?;
-
-		let mut to_remove = vec![];
-		let mut cursor = 1;
-
-		loop {
-			let found = self
-				.db
-				.file_path()
-				.find_many(vec![
-					file_path::location_id::equals(Some(self.location_id)),
-					file_path::materialized_path::equals(Some(
-						parent_iso_file_path
-							.materialized_path_for_children()
-							.expect("the received isolated file path must be from a directory"),
-					)),
-				])
-				.order_by(file_path::id::order(SortOrder::Asc))
-				.take(BATCH_SIZE)
-				.cursor(file_path::id::equals(cursor))
-				.select(file_path_pub_and_cas_ids::select())
-				.exec()
-				.await
-				.map_err(|e| NonCriticalIndexerError::FetchFilePathsToRemove(e.to_string()))?;
-
-			#[allow(clippy::cast_possible_truncation)] // Safe because we are using a constant
-			let should_stop = found.len() < BATCH_SIZE as usize;
-
-			if let Some(last) = found.last() {
-				cursor = last.id;
-			} else {
-				break;
-			}
-
-			to_remove.extend(
-				found
-					.into_iter()
-					.filter(|file_path| !founds_ids.contains(&file_path.id)),
-			);
-
-			if should_stop {
-				break;
-			}
-		}
-
-		Ok(to_remove)
 	}
 }

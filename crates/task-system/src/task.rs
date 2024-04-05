@@ -13,6 +13,7 @@ use async_channel as chan;
 use async_trait::async_trait;
 use chan::{Recv, RecvError};
 use downcast_rs::{impl_downcast, Downcast};
+use futures::executor::block_on;
 use tokio::sync::oneshot;
 use tracing::{trace, warn};
 use uuid::Uuid;
@@ -490,6 +491,24 @@ impl<E: RunError> TaskHandle<E> {
 	#[must_use]
 	pub fn remote_controller(&self) -> TaskRemoteController {
 		self.controller.clone()
+	}
+}
+
+/// A helper struct when you just want to cancel a task if its `TaskHandle` gets dropped.
+pub struct CancelTaskOnDrop<E: RunError>(pub TaskHandle<E>);
+
+impl<E: RunError> Future for CancelTaskOnDrop<E> {
+	type Output = Result<TaskStatus<E>, SystemError>;
+
+	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+		Pin::new(&mut self.0).poll(cx)
+	}
+}
+
+impl<E: RunError> Drop for CancelTaskOnDrop<E> {
+	fn drop(&mut self) {
+		// FIXME: We should use async drop when it becomes stable
+		block_on(self.0.cancel());
 	}
 }
 

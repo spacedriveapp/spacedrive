@@ -73,7 +73,7 @@ pub trait JobContext: Send + Sync + Clone + 'static {
 	fn db(&self) -> &Arc<PrismaClient>;
 	fn sync(&self) -> &Arc<SyncManager>;
 	fn invalidate_query(&self, query: &'static str);
-	fn query_invalidator(&self) -> impl Fn(&'static str) + Send;
+	fn query_invalidator(&self) -> impl Fn(&'static str) + Send + Sync;
 	fn progress(&self, updates: Vec<ProgressUpdate>);
 	fn progress_msg(&self, msg: impl Into<String>) {
 		self.progress(vec![ProgressUpdate::Message(msg.into())]);

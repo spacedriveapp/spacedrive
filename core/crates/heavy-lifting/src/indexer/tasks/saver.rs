@@ -1,11 +1,10 @@
 use crate::{indexer::IndexerError, Error};
 
 use sd_core_file_path_helper::IsolatedFilePathDataParts;
-use sd_core_prisma_helpers::location_with_indexer_rules;
 use sd_core_sync::Manager as SyncManager;
 
 use sd_prisma::{
-	prisma::{file_path, PrismaClient},
+	prisma::{file_path, location, PrismaClient},
 	prisma_sync,
 };
 use sd_sync::{sync_db_entry, OperationFactory};
@@ -25,7 +24,8 @@ use super::walker::WalkedEntry;
 #[derive(Debug)]
 pub struct SaveTask {
 	id: TaskId,
-	location: Arc<location_with_indexer_rules::Data>,
+	location_id: location::id::Type,
+	location_pub_id: location::pub_id::Type,
 	walked_entries: Vec<WalkedEntry>,
 	db: Arc<PrismaClient>,
 	sync: Arc<SyncManager>,
@@ -34,14 +34,16 @@ pub struct SaveTask {
 impl SaveTask {
 	#[must_use]
 	pub fn new(
-		location: Arc<location_with_indexer_rules::Data>,
+		location_id: location::id::Type,
+		location_pub_id: location::pub_id::Type,
 		walked_entries: Vec<WalkedEntry>,
 		db: Arc<PrismaClient>,
 		sync: Arc<SyncManager>,
 	) -> Self {
 		Self {
 			id: TaskId::new_v4(),
-			location,
+			location_id,
+			location_pub_id,
 			walked_entries,
 			db,
 			sync,
@@ -52,7 +54,8 @@ impl SaveTask {
 #[derive(Debug, Serialize, Deserialize)]
 struct SaveTaskSaveState {
 	id: TaskId,
-	location: Arc<location_with_indexer_rules::Data>,
+	location_id: location::id::Type,
+	location_pub_id: location::pub_id::Type,
 	walked_entries: Vec<WalkedEntry>,
 }
 
@@ -64,10 +67,18 @@ impl SerializableTask<Error> for SaveTask {
 	type DeserializeCtx = (Arc<PrismaClient>, Arc<SyncManager>);
 
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
+		let Self {
+			id,
+			location_id,
+			location_pub_id,
+			walked_entries,
+			..
+		} = self;
 		rmp_serde::to_vec_named(&SaveTaskSaveState {
-			id: self.id,
-			location: self.location,
-			walked_entries: self.walked_entries,
+			id,
+			location_id,
+			location_pub_id,
+			walked_entries,
 		})
 	}
 
@@ -78,11 +89,13 @@ impl SerializableTask<Error> for SaveTask {
 		rmp_serde::from_slice(data).map(
 			|SaveTaskSaveState {
 			     id,
-			     location,
+			     location_id,
+			     location_pub_id,
 			     walked_entries,
 			 }| Self {
 				id,
-				location,
+				location_id,
+				location_pub_id,
 				walked_entries,
 				db,
 				sync,
@@ -112,7 +125,8 @@ impl Task<Error> for SaveTask {
 		let start_time = Instant::now();
 
 		let Self {
-			location,
+			location_id,
+			location_pub_id,
 			walked_entries,
 			db,
 			sync,
@@ -137,10 +151,10 @@ impl Task<Error> for SaveTask {
 						(
 							location::NAME,
 							json!(prisma_sync::location::SyncId {
-								pub_id: location.pub_id.clone()
+								pub_id: location_pub_id.clone()
 							}),
 						),
-						location_id::set(Some(location.id)),
+						location_id::set(Some(*location_id)),
 					),
 					sync_db_entry!(materialized_path.to_string(), materialized_path),
 					sync_db_entry!(name.to_string(), name),
