@@ -8,7 +8,7 @@ import SidebarLink from '../../SidebarLayout/Link';
 export const COUNT_STYLE = `absolute right-1 min-w-[20px] top-1 flex h-[19px] px-1 items-center justify-center rounded-full border border-app-button/40 text-[9px]`;
 
 export default function LibrarySection() {
-	const labelCount = useLibraryQuery(['labels.count']);
+	// const labelCount = useLibraryQuery(['labels.count']);
 
 	const { t } = useLocale();
 

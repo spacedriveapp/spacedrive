@@ -265,7 +265,7 @@ export const Component = () => {
 				</div>
 			</Setting>
 			{/* Image Labeler */}
-			<Setting
+			{/* <Setting
 				mini
 				title={t('image_labeler_ai_model')}
 				description={t('image_labeler_ai_model_description')}
@@ -287,7 +287,7 @@ export const Component = () => {
 						)}
 					/>
 				</div>
-			</Setting>
+			</Setting> */}
 			<div className="flex flex-col gap-4">
 				<h1 className="mb-3 text-lg font-bold text-ink">{t('networking')}</h1>
 

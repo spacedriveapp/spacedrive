@@ -234,7 +234,7 @@ export const ParentFolderActions = new ConditionalItem({
 
 		const fullRescan = useLibraryMutation('locations.fullRescan');
 		const generateThumbnails = useLibraryMutation('jobs.generateThumbsForLocation');
-		const generateLabels = useLibraryMutation('jobs.generateLabelsForLocation');
+		// const generateLabels = useLibraryMutation('jobs.generateLabelsForLocation');
 
 		const { t } = useLocale();
 
