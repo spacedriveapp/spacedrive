@@ -184,10 +184,16 @@ interface VideoProps extends VideoHTMLAttributes<HTMLVideoElement> {
 }
 
 const Video = ({ paused, blackBars, blackBarsSize, className, ...props }: VideoProps) => {
-	const ref = useRef<HTMLVideoElement>(null);
-	const size = useSize(ref);
-	const { style: blackBarsStyle } = useBlackBars(size, blackBarsSize);
 	const { t } = useLocale();
+
+	const ref = useRef<HTMLVideoElement>(null);
+
+	const size = useSize(ref);
+
+	const { style: blackBarsStyle } = useBlackBars(ref, size, {
+		size: blackBarsSize,
+		disabled: !blackBars
+	});
 
 	useEffect(() => {
 		if (!ref.current) return;
