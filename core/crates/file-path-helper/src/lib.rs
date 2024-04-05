@@ -117,8 +117,8 @@ impl FilePathMetadata {
 				let info = tokio::task::block_in_place(|| {
 					Handle::from_path_any(path.as_ref())
 						.and_then(|ref handle| information(handle))
-						.map_err(|e| FileIOError::from((path, e)))?
-				});
+						.map_err(|e| FileIOError::from((path, e)))
+				})?;
 
 				info.file_index()
 			}
