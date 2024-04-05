@@ -1,6 +1,6 @@
 CompileFlags:
   Add: [-xc, -std=c17, -Wall] # treat all files as C, enable all warnings
-  Remove: -W*									# strip all other specific warning flags
+  Remove: -W*                 # strip all other specific warning flags
   Compiler: clang
 Diagnostics:
   UnusedIncludes: Strict
