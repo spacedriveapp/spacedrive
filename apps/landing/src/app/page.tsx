@@ -1,3 +1,4 @@
+import { ArrowUp } from '@phosphor-icons/react/dist/ssr';
 import Image from 'next/image';
 import CyclingImage from '~/components/CyclingImage';
 import { toTitleCase } from '~/utils/util';
@@ -6,7 +7,6 @@ import { getLatestRelease, getReleaseFrontmatter, githubFetch } from './api/gith
 import { Background } from './Background';
 import { Downloads } from './Downloads';
 import { NewBanner } from './NewBanner';
-import { ArrowUp } from '@phosphor-icons/react/dist/ssr';
 
 export const metadata = {
 	title: 'Spacedrive — A file manager from the future.',
@@ -78,7 +78,7 @@ export default async function Page() {
 							src="/images/app/gradient.webp"
 						/>
 						<div className="relative m-auto mt-10 flex w-full max-w-7xl overflow-hidden rounded-lg transition-transform duration-700 ease-in-out hover:-translate-y-4 hover:scale-[1.02] md:mt-0">
-							<div className='flex flex-col items-center justify-center'>
+							<div className="flex flex-col items-center justify-center">
 								<div className="z-30 flex w-full rounded-lg border-t border-app-line/50 backdrop-blur">
 									<CyclingImage
 										loading="eager"
@@ -108,8 +108,10 @@ export default async function Page() {
 										src="/images/app/gradient-overlay.png"
 									/>
 								</div>
-								<ArrowUp className='invisible size-7 pt-2 text-white/40 md:visible' />
-								<p className='invisible pt-2 text-xs text-white/40 md:visible'>Hover to see more</p>
+								<ArrowUp className="invisible size-7 pt-2 text-white/40 md:visible" />
+								<p className="invisible pt-2 text-xs text-white/40 md:visible">
+									Hover to see more
+								</p>
 							</div>
 						</div>
 					</div>

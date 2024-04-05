@@ -173,7 +173,7 @@ export const items = [
 	{
 		title: 'Local Server Protection',
 		description:
-			'Protect local instances of Spacedrive\'s server from other clients on your network.'
+			"Protect local instances of Spacedrive's server from other clients on your network."
 	},
 	{
 		when: '0.5 Beta',
