@@ -275,7 +275,7 @@ export const ParentFolderActions = new ConditionalItem({
 					label={t('regen_thumbnails')}
 					icon={Image}
 				/>
-				<ContextMenu.Item
+				{/* <ContextMenu.Item
 					onClick={async () => {
 						try {
 							await generateLabels.mutateAsync({
@@ -292,7 +292,7 @@ export const ParentFolderActions = new ConditionalItem({
 					}}
 					label={t('regen_labels')}
 					icon={Hash}
-				/>
+				/> */}
 			</>
 		);
 	}
