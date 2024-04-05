@@ -1,4 +1,4 @@
-use crate::jobs::{indexer::IndexerJob, JobId};
+use crate::indexer::IndexerJob;
 
 use sd_prisma::prisma::{job, location};
 use sd_utils::uuid_to_bytes;
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use super::{
 	job::{DynJob, Job, JobContext, JobHolder, JobName},
 	report::{Report, ReportError},
-	JobSystemError,
+	JobId, JobSystemError,
 };
 
 #[derive(Debug, Serialize, Deserialize)]

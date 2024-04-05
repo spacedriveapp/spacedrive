@@ -1,5 +1,3 @@
-use crate::jobs::JobId;
-
 use sd_prisma::prisma::{job, PrismaClient};
 use sd_utils::db::{maybe_missing, MissingFieldError};
 
@@ -12,7 +10,7 @@ use specta::Type;
 use strum::ParseError;
 use tracing::error;
 
-use super::job::JobName;
+use super::{job::JobName, JobId};
 
 #[derive(thiserror::Error, Debug)]
 pub enum ReportError {
@@ -269,6 +267,7 @@ pub enum Status {
 }
 
 impl Status {
+	#[must_use]
 	pub const fn is_finished(self) -> bool {
 		matches!(
 			self,
@@ -307,6 +306,7 @@ pub struct ReportBuilder {
 }
 
 impl ReportBuilder {
+	#[must_use]
 	pub fn build(self) -> Report {
 		Report {
 			id: self.id,
@@ -328,6 +328,7 @@ impl ReportBuilder {
 		}
 	}
 
+	#[must_use]
 	pub fn new(id: JobId, name: JobName) -> Self {
 		Self {
 			id,
@@ -338,16 +339,19 @@ impl ReportBuilder {
 		}
 	}
 
+	#[must_use]
 	pub fn with_action(mut self, action: impl Into<String>) -> Self {
 		self.action = Some(action.into());
 		self
 	}
 
+	#[must_use]
 	pub fn with_metadata(mut self, metadata: ReportInputMetadata) -> Self {
 		self.metadata.push(ReportMetadata::Input(metadata));
 		self
 	}
 
+	#[must_use]
 	pub const fn with_parent_id(mut self, parent_id: JobId) -> Self {
 		self.parent_id = Some(parent_id);
 		self

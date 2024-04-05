@@ -1,4 +1,4 @@
-use crate::{jobs::JobId, Error, NonCriticalJobError};
+use crate::{Error, NonCriticalJobError};
 
 use sd_core_sync::Manager as SyncManager;
 
@@ -33,7 +33,7 @@ use super::{
 	report::{
 		Report, ReportBuilder, ReportInputMetadata, ReportMetadata, ReportOutputMetadata, Status,
 	},
-	Command, JobSystemError, SerializableJob, SerializedTasks,
+	Command, JobId, JobSystemError, SerializableJob, SerializedTasks,
 };
 
 #[derive(
@@ -144,6 +144,7 @@ pub struct JobReturn {
 }
 
 impl JobReturn {
+	#[must_use]
 	pub fn builder() -> JobReturnBuilder {
 		JobReturnBuilder {
 			job_return: Self::default(),
@@ -167,16 +168,19 @@ pub struct JobReturnBuilder {
 }
 
 impl JobReturnBuilder {
+	#[must_use]
 	pub const fn with_data(mut self, data: JobOutputData) -> Self {
 		self.job_return.data = data;
 		self
 	}
 
+	#[must_use]
 	pub fn with_metadata(mut self, metadata: impl Into<ReportOutputMetadata>) -> Self {
 		self.job_return.metadata = Some(metadata.into());
 		self
 	}
 
+	#[must_use]
 	pub fn with_non_critical_errors(mut self, errors: Vec<NonCriticalJobError>) -> Self {
 		if self.job_return.non_critical_errors.is_empty() {
 			self.job_return.non_critical_errors = errors;
@@ -186,6 +190,7 @@ impl JobReturnBuilder {
 		self
 	}
 
+	#[must_use]
 	pub fn build(self) -> JobReturn {
 		self.job_return
 	}

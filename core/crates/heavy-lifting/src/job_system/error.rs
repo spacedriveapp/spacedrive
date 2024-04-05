@@ -1,9 +1,10 @@
-use crate::{jobs::JobId, Error};
+use crate::Error;
 
-use prisma_client_rust::QueryError;
 use sd_utils::error::FileIOError;
 
-use super::{job::JobName, report::ReportError};
+use prisma_client_rust::QueryError;
+
+use super::{job::JobName, report::ReportError, JobId};
 
 #[derive(thiserror::Error, Debug)]
 pub enum JobSystemError {

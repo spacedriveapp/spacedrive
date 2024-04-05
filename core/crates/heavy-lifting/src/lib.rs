@@ -33,11 +33,15 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
 
-pub mod actors;
-pub mod jobs;
-pub mod tasks;
+pub mod indexer;
+pub mod job_system;
 
-use tasks::indexer::{IndexerError, NonCriticalIndexerError};
+use indexer::{IndexerError, NonCriticalIndexerError};
+
+pub use job_system::{
+	job::{IntoJob, JobBuilder, JobContext, JobName, JobOutput, JobOutputData, ProgressUpdate},
+	JobId, JobSystem,
+};
 
 #[derive(Error, Debug)]
 pub enum Error {

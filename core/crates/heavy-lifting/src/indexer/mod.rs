@@ -1,9 +1,4 @@
-use std::{
-	collections::HashMap,
-	hash::BuildHasher,
-	mem,
-	path::{Path, PathBuf},
-};
+use crate::NonCriticalJobError;
 
 use sd_core_file_path_helper::{
 	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
@@ -24,6 +19,13 @@ use sd_utils::{
 	from_bytes_to_uuid,
 };
 
+use std::{
+	collections::HashMap,
+	hash::BuildHasher,
+	mem,
+	path::{Path, PathBuf},
+};
+
 use itertools::Itertools;
 use prisma_client_rust::{operator::or, Select};
 use rspc::ErrorCode;
@@ -32,11 +34,10 @@ use serde_json::json;
 use specta::Type;
 use tracing::warn;
 
-use crate::NonCriticalJobError;
+mod job;
+mod tasks;
 
-pub mod saver;
-pub mod updater;
-pub mod walker;
+pub use job::IndexerJob;
 
 #[derive(thiserror::Error, Debug)]
 pub enum IndexerError {

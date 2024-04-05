@@ -1,6 +1,5 @@
-use crate::Error;
+use crate::{indexer::IndexerError, Error};
 
-use chrono::Utc;
 use sd_core_file_path_helper::IsolatedFilePathDataParts;
 use sd_core_prisma_helpers::location_with_indexer_rules;
 use sd_core_sync::Manager as SyncManager;
@@ -11,16 +10,17 @@ use sd_prisma::{
 };
 use sd_sync::{sync_db_entry, OperationFactory};
 use sd_task_system::{ExecStatus, Interrupter, IntoAnyTaskOutput, SerializableTask, Task, TaskId};
-
 use sd_utils::db::inode_to_db;
+
+use std::{sync::Arc, time::Duration};
+
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::time::Instant;
 use tracing::trace;
 
-use std::{sync::Arc, time::Duration};
-
-use super::{walker::WalkedEntry, IndexerError};
+use super::walker::WalkedEntry;
 
 #[derive(Debug)]
 pub struct SaveTask {

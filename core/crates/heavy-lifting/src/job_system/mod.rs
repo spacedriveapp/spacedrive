@@ -13,13 +13,12 @@ use tokio::{fs, spawn, sync::oneshot, task::JoinHandle};
 use tracing::{error, info, trace, warn};
 use uuid::Uuid;
 
-use super::JobId;
-
-pub(super) mod error;
-pub(super) mod job;
-pub(super) mod report;
+mod error;
+pub mod job;
+pub mod report;
 mod runner;
 mod store;
+pub mod utils;
 
 use error::JobSystemError;
 use job::{IntoJob, Job, JobContext, JobName, JobOutput};
@@ -29,6 +28,8 @@ use store::{load_jobs, StoredJobEntry};
 pub use store::{SerializableJob, SerializedTasks};
 
 const PENDING_JOBS_FILE: &str = "pending_jobs.bin";
+
+pub type JobId = Uuid;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Command {

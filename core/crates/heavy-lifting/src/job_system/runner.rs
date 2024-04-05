@@ -1,4 +1,4 @@
-use crate::{jobs::JobId, Error};
+use crate::Error;
 
 use sd_prisma::prisma::location;
 use sd_task_system::BaseTaskDispatcher;
@@ -29,7 +29,7 @@ use super::{
 	job::{DynJob, JobContext, JobHandle, JobName, JobOutput, ReturnStatus},
 	report,
 	store::{StoredJob, StoredJobEntry},
-	Command, JobSystemError, SerializedTasks,
+	Command, JobId, JobSystemError, SerializedTasks,
 };
 
 const JOBS_INITIAL_CAPACITY: usize = 32;

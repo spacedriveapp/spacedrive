@@ -1,4 +1,7 @@
-use crate::{tasks::indexer::NonCriticalIndexerError, Error, NonCriticalJobError};
+use crate::{
+	indexer::{IndexerError, NonCriticalIndexerError},
+	Error, NonCriticalJobError,
+};
 
 use sd_core_file_path_helper::{FilePathError, FilePathMetadata, IsolatedFilePathData};
 use sd_core_indexer_rules::{IndexerRuler, MetadataForIndexerRules, RuleKind};
@@ -30,8 +33,6 @@ use tokio::{fs, time::Instant};
 use tokio_stream::{wrappers::ReadDirStream, StreamExt};
 use tracing::trace;
 use uuid::Uuid;
-
-use super::IndexerError;
 
 /// `WalkedEntry` represents a single path in the filesystem
 #[derive(Debug, Serialize, Deserialize)]
@@ -135,7 +136,7 @@ impl<P: AsRef<Path>> From<P> for ToWalkEntry {
 }
 
 #[derive(Debug)]
-pub(crate) struct WalkTaskOutput {
+pub struct WalkTaskOutput {
 	pub to_create: Vec<WalkedEntry>,
 	pub to_update: Vec<WalkedEntry>,
 	pub to_remove: Vec<file_path_pub_and_cas_ids::Data>,
@@ -350,7 +351,7 @@ impl From<WalkerStageSaveState> for WalkerStage {
 }
 
 #[derive(Debug)]
-pub(crate) struct WalkDirTask<DBProxy, IsoPathFactory, Dispatcher>
+pub struct WalkDirTask<DBProxy, IsoPathFactory, Dispatcher>
 where
 	DBProxy: WalkerDBProxy,
 	IsoPathFactory: IsoFilePathFactory,

@@ -1,4 +1,4 @@
-use crate::Error;
+use crate::{indexer::IndexerError, Error};
 
 use sd_core_file_path_helper::IsolatedFilePathDataParts;
 use sd_core_sync::Manager as SyncManager;
@@ -12,14 +12,14 @@ use sd_task_system::{
 	check_interruption, ExecStatus, Interrupter, IntoAnyTaskOutput, SerializableTask, Task, TaskId,
 };
 use sd_utils::{chain_optional_iter, db::inode_to_db};
-use serde::{Deserialize, Serialize};
 
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
+use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
 use tracing::trace;
 
-use super::{walker::WalkedEntry, IndexerError};
+use super::walker::WalkedEntry;
 
 #[derive(Debug)]
 pub struct UpdateTask {

@@ -1,12 +1,11 @@
 use crate::{
-	tasks::indexer::{
-		determine_initial_walk_path, remove_non_existing_file_paths,
-		reverse_update_directories_sizes,
-		saver::{SaveTask, SaveTaskOutput},
-		update_directory_sizes, update_location_size,
-		updater::{UpdateTask, UpdateTaskOutput},
-		walker::{self, WalkDirTask, WalkTaskOutput, WalkedEntry},
-		IndexerError, NonCriticalIndexerError,
+	job_system::{
+		job::{
+			Job, JobContext, JobName, JobReturn, JobTaskDispatcher, ProgressUpdate, ReturnStatus,
+		},
+		report::ReportOutputMetadata,
+		utils::cancel_pending_tasks,
+		SerializableJob, SerializedTasks,
 	},
 	Error, NonCriticalJobError,
 };
@@ -43,14 +42,13 @@ use tokio::time::Instant;
 use tracing::warn;
 
 use super::{
-	cancel_pending_tasks,
-	job_system::{
-		job::{
-			Job, JobContext, JobName, JobReturn, JobTaskDispatcher, ProgressUpdate, ReturnStatus,
-		},
-		report::ReportOutputMetadata,
-		SerializableJob, SerializedTasks,
+	determine_initial_walk_path, remove_non_existing_file_paths, reverse_update_directories_sizes,
+	tasks::{
+		saver::{SaveTask, SaveTaskOutput},
+		updater::{UpdateTask, UpdateTaskOutput},
+		walker::{self, WalkDirTask, WalkTaskOutput, WalkedEntry},
 	},
+	update_directory_sizes, update_location_size, IndexerError, NonCriticalIndexerError,
 };
 
 /// `BATCH_SIZE` is the number of files to index at each task, writing the chunk of files metadata in the database.
