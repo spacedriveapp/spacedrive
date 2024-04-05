@@ -579,40 +579,40 @@ export const filterRegistry = [
 			];
 		},
 		Render: ({ filter, search }) => <FilterOptionBoolean filter={filter} search={search} />
-	}),
-	createInOrNotInFilter({
-		name: 'Label',
-		icon: Tag,
-		extract: (arg) => {
-			if ('object' in arg && 'labels' in arg.object) return arg.object.labels;
-		},
-		create: (labels) => ({ object: { labels } }),
-		argsToOptions(values, options) {
-			return values
-				.map((value) => {
-					const option = options.get(this.name)?.find((o) => o.value === value);
-
-					if (!option) return;
-
-					return {
-						...option,
-						type: this.name
-					};
-				})
-				.filter(Boolean) as any;
-		},
-		useOptions: () => {
-			const query = useLibraryQuery(['labels.list']);
-
-			return (query.data ?? []).map((label) => ({
-				name: label.name!,
-				value: label.id
-			}));
-		},
-		Render: ({ filter, options, search }) => (
-			<FilterOptionList filter={filter} options={options} search={search} />
-		)
 	})
+	// createInOrNotInFilter({
+	// 	name: 'Label',
+	// 	icon: Tag,
+	// 	extract: (arg) => {
+	// 		if ('object' in arg && 'labels' in arg.object) return arg.object.labels;
+	// 	},
+	// 	create: (labels) => ({ object: { labels } }),
+	// 	argsToOptions(values, options) {
+	// 		return values
+	// 			.map((value) => {
+	// 				const option = options.get(this.name)?.find((o) => o.value === value);
+
+	// 				if (!option) return;
+
+	// 				return {
+	// 					...option,
+	// 					type: this.name
+	// 				};
+	// 			})
+	// 			.filter(Boolean) as any;
+	// 	},
+	// 	useOptions: () => {
+	// 		const query = useLibraryQuery(['labels.list']);
+
+	// 		return (query.data ?? []).map((label) => ({
+	// 			name: label.name!,
+	// 			value: label.id
+	// 		}));
+	// 	},
+	// 	Render: ({ filter, options, search }) => (
+	// 		<FilterOptionList filter={filter} options={options} search={search} />
+	// 	)
+	// })
 	// idk how to handle this rn since include_descendants is part of 'path' now
 	//
 	// createFilter({
