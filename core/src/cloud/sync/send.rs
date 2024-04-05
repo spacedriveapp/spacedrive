@@ -2,7 +2,6 @@ use sd_core_sync::{SyncMessage, NTP64};
 
 use sd_cloud_api::RequestConfigProvider;
 
-
 use std::{
 	sync::{
 		atomic::{AtomicBool, Ordering},
