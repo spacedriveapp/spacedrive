@@ -118,7 +118,7 @@ export const SearchOptions = ({
 			{/* We're keeping AppliedOptions to the right of the "Add Filter" button because
 				its not worth rebuilding the dropdown with custom logic to lock the position
 				as the trigger will move if to the right of the applied options and that is bad UX. */}
-			<div className="relative flex h-full flex-1 cursor-default items-center overflow-hidden">
+			<div className="relative flex items-center flex-1 h-full overflow-hidden cursor-default">
 				<AppliedFilters />
 			</div>
 
@@ -256,12 +256,14 @@ function SaveSearchButton() {
 
 	const saveSearch = useLibraryMutation('search.saved.create');
 
+	console.log(search.search, 'search search');
+
 	return (
 		<Popover
 			popover={popover}
 			className={MENU_STYLES}
 			trigger={
-				<Button className="flex shrink-0 flex-row" size="xs" variant="dotted">
+				<Button className="flex flex-row shrink-0" size="xs" variant="dotted">
 					<Plus weight="bold" className="mr-1" />
 					Save Search
 				</Button>

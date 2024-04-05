@@ -1,7 +1,10 @@
 import { useNavigation } from '@react-navigation/native';
 import { Plus } from 'phosphor-react-native';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Platform, Text, View } from 'react-native';
+import { useLibraryMutation } from '@sd/client';
+import { ModalRef } from '~/components/layout/Modal';
+import SaveModal from '~/components/modal/search/SaveModal';
 import { Button } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SearchStackScreenProps } from '~/navigation/SearchStack';
@@ -10,6 +13,9 @@ import { getSearchStore, useSearchStore } from '~/stores/searchStore';
 const SaveAdd = () => {
 	const searchStore = useSearchStore();
 	const navigation = useNavigation<SearchStackScreenProps<'Search'>['navigation']>();
+	const saveSearch = useLibraryMutation('search.saved.create');
+	const modalRef = useRef<ModalRef>(null);
+
 	const filtersApplied = Object.keys(searchStore.appliedFilters).length > 0;
 	const buttonDisable = !filtersApplied && searchStore.disableActionButtons;
 	const isAndroid = Platform.OS === 'android';
@@ -38,6 +44,9 @@ const SaveAdd = () => {
 					opacity: buttonDisable ? 0.5 : 1
 				})}
 				variant="dashed"
+				onPress={() => {
+					modalRef.current?.present();
+				}}
 			>
 				<Plus weight="bold" size={12} color={tw.color('text-ink-dull')} />
 				<Text style={tw`font-medium text-ink-dull`}>Save search</Text>
@@ -58,6 +67,7 @@ const SaveAdd = () => {
 					{filtersApplied ? 'Update filters' : 'Add filters'}
 				</Text>
 			</Button>
+			<SaveModal ref={modalRef} />
 		</View>
 	);
 };

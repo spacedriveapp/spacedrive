@@ -42,6 +42,7 @@ interface State {
 			}
 		>
 	>;
+	mergedFilters: null | {};
 	disableActionButtons: boolean;
 }
 
@@ -56,28 +57,9 @@ const initialState: State = {
 		kind: []
 	},
 	appliedFilters: {},
+	mergedFilters: null,
 	disableActionButtons: true
 };
-
-// Utility function to safely update filter arrays or objects
-function updateArrayOrObject<T>(
-	array: T[],
-	item: any,
-	filterByKey: string = 'id',
-	isObject: boolean = false
-): T[] {
-	if (isObject) {
-		const index = (array as any).findIndex((i: any) => i.id === item[filterByKey]);
-		if (index >= 0) {
-			return array.filter((_, idx) => idx !== index);
-		}
-	} else {
-		if (array.includes(item)) {
-			return array.filter((i) => i !== item);
-		}
-	}
-	return [...array, item];
-}
 
 const searchStore = proxy<
 	State & {
@@ -88,6 +70,7 @@ const searchStore = proxy<
 		applyFilters: () => void;
 		setSearch: (search: string) => void;
 		resetFilter: <K extends keyof State['filters']>(filter: K, apply?: boolean) => void;
+		resetFilters: () => void;
 		setInput: (index: number, value: string, key: 'name' | 'extension') => void;
 		addInput: (key: 'name' | 'extension') => void;
 		removeInput: (index: number, key: 'name' | 'extension') => void;
@@ -144,7 +127,9 @@ const searchStore = proxy<
 		//instead of a useEffect or subscription - we can call applyFilters directly
 		if (apply) searchStore.applyFilters();
 	},
-
+	resetFilters: () => {
+		searchStore.filters = { ...initialState.filters };
+	},
 	setInput: (index, value, key) => {
 		const newValues = [...searchStore.filters[key]];
 		newValues[index] = value;
@@ -167,4 +152,24 @@ export function useSearchStore() {
 
 export function getSearchStore() {
 	return searchStore;
+}
+
+// Utility function to safely update filter arrays or objects
+function updateArrayOrObject<T>(
+	array: T[],
+	item: any,
+	filterByKey: string = 'id',
+	isObject: boolean = false
+): T[] {
+	if (isObject) {
+		const index = (array as any).findIndex((i: any) => i.id === item[filterByKey]);
+		if (index >= 0) {
+			return array.filter((_, idx) => idx !== index);
+		}
+	} else {
+		if (array.includes(item)) {
+			return array.filter((i) => i !== item);
+		}
+	}
+	return [...array, item];
 }

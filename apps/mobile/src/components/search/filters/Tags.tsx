@@ -45,7 +45,7 @@ const Tags = () => {
 								<Empty icon="Tags" description="You have not created any tags" />
 							}
 							scrollEnabled={false}
-							ItemSeparatorComponent={() => <View style={tw`h-2 w-2`} />}
+							ItemSeparatorComponent={() => <View style={tw`w-2 h-2`} />}
 							keyExtractor={(item) => item.id.toString()}
 							showsHorizontalScrollIndicator={false}
 							style={tw`flex-row`}
@@ -64,10 +64,7 @@ interface Props {
 const TagFilter = memo(({ tag }: Props) => {
 	const searchStore = useSearchStore();
 	const isSelected = useMemo(
-		() =>
-			searchStore.filters.tags.some(
-				(filter) => filter.id === tag.id && filter.color === tag.color
-			),
+		() => searchStore.filters.tags.some((filter) => filter.id === tag.id),
 		[searchStore.filters.tags, tag]
 	);
 	const onPress = useCallback(() => {
@@ -75,7 +72,8 @@ const TagFilter = memo(({ tag }: Props) => {
 			id: tag.id,
 			color: tag.color!
 		});
-	}, [searchStore, tag.id, tag.color]);
+	}, [searchStore, tag]);
+
 	return (
 		<Pressable onPress={onPress}>
 			<Card
