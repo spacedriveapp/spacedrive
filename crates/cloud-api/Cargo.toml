@@ -7,14 +7,17 @@ repository.workspace = true
 
 [dependencies]
 # Spacedrive Sub-crates
-sd-p2p2 = { path = "../p2p2" }
+sd-p2p = { path = "../p2p" }
 
 base64 = { workspace = true }
+rmpv = { workspace = true }
 rspc = { workspace = true }
+
 serde = { workspace = true }
 serde_json = { workspace = true }
 specta = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 uuid = { workspace = true }
 
 reqwest = "0.11.22"

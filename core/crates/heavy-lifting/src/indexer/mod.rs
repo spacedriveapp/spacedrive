@@ -18,7 +18,7 @@ use sd_sync::OperationFactory;
 use sd_utils::{
 	db::{size_in_bytes_from_db, size_in_bytes_to_db, MissingFieldError},
 	error::{FileIOError, NonUtf8PathError},
-	from_bytes_to_uuid,
+	from_bytes_to_uuid, msgpack,
 };
 
 use std::{
@@ -33,7 +33,6 @@ use itertools::Itertools;
 use prisma_client_rust::{operator::or, Select};
 use rspc::ErrorCode;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use specta::Type;
 use tracing::warn;
 
@@ -184,7 +183,7 @@ async fn update_directory_sizes(
 						pub_id: file_path.pub_id.clone(),
 					},
 					file_path::size_in_bytes_bytes::NAME,
-					json!(size_bytes.clone()),
+					msgpack!(size_bytes),
 				),
 				db.file_path().update(
 					file_path::pub_id::equals(file_path.pub_id),
@@ -353,7 +352,7 @@ async fn reverse_update_directories_sizes(
 							pub_id: pub_id.clone(),
 						},
 						file_path::size_in_bytes_bytes::NAME,
-						json!(size_bytes.clone()),
+						msgpack!(size_bytes),
 					),
 					db.file_path().update(
 						file_path::pub_id::equals(pub_id),

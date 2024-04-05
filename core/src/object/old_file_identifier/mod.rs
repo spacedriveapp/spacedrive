@@ -9,7 +9,7 @@ use sd_prisma::{
 	prisma_sync,
 };
 use sd_sync::{CRDTOperation, OperationFactory};
-use sd_utils::{db::maybe_missing, error::FileIOError, uuid_to_bytes};
+use sd_utils::{db::maybe_missing, error::FileIOError, msgpack, uuid_to_bytes};
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -18,7 +18,6 @@ use std::{
 };
 
 use futures::future::join_all;
-use serde_json::json;
 use tokio::fs;
 use tracing::{error, trace};
 use uuid::Uuid;
@@ -163,7 +162,7 @@ async fn identifier_job_step(
 							pub_id: sd_utils::uuid_to_bytes(*pub_id),
 						},
 						file_path::cas_id::NAME,
-						json!(&metadata.cas_id),
+						msgpack!(&metadata.cas_id),
 					),
 					db.file_path().update(
 						file_path::pub_id::equals(sd_utils::uuid_to_bytes(*pub_id)),
@@ -277,11 +276,11 @@ async fn identifier_job_step(
 
 						let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 							(
-								(object::date_created::NAME, json!(date_created)),
+								(object::date_created::NAME, msgpack!(date_created)),
 								object::date_created::set(*date_created),
 							),
 							(
-								(object::kind::NAME, json!(kind)),
+								(object::kind::NAME, msgpack!(kind)),
 								object::kind::set(Some(kind)),
 							),
 						]
@@ -364,7 +363,7 @@ fn connect_file_path_to_object<'db>(
 				pub_id: sd_utils::uuid_to_bytes(file_path_id),
 			},
 			file_path::object::NAME,
-			json!(prisma_sync::object::SyncId {
+			msgpack!(prisma_sync::object::SyncId {
 				pub_id: vec_id.clone()
 			}),
 		),

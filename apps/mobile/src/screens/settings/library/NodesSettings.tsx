@@ -14,7 +14,7 @@ const NodesSettingsScreen = ({ navigation }: SettingsStackScreenProps<'NodesSett
 
 			{[...onlineNodes.entries()].map(([id, node]) => (
 				<View key={id} style={tw`flex`}>
-					<Text style={tw`text-ink`}>{node.name}</Text>
+					<Text style={tw`text-ink`}>{node.metadata.name}</Text>
 				</View>
 			))}
 		</ScreenContainer>

@@ -1,9 +1,11 @@
-use crate::{api::CoreEvent, object::media::old_thumbnail::get_indexed_thumbnail_path, sync, Node};
+use crate::{
+	api::CoreEvent, cloud, object::media::old_thumbnail::get_indexed_thumbnail_path, sync, Node,
+};
 
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::file_path_to_full_path;
 
-use sd_p2p2::Identity;
+use sd_p2p::Identity;
 use sd_prisma::prisma::{file_path, location, PrismaClient};
 use sd_utils::{db::maybe_missing, error::FileIOError};
 
@@ -37,6 +39,7 @@ pub struct Library {
 	/// db holds the database client for the current library.
 	pub db: Arc<PrismaClient>,
 	pub sync: Arc<sync::Manager>,
+	pub cloud: cloud::State,
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
 	/// p2p identity
@@ -78,12 +81,15 @@ impl Library {
 		db: Arc<PrismaClient>,
 		node: &Arc<Node>,
 		sync: Arc<sync::Manager>,
+		cloud: cloud::State,
 		do_cloud_sync: broadcast::Sender<()>,
+		actors: Arc<sd_actors::Actors>,
 	) -> Arc<Self> {
 		Arc::new(Self {
 			id,
 			config: RwLock::new(config),
 			sync,
+			cloud,
 			db: db.clone(),
 			// key_manager,
 			identity,
@@ -92,7 +98,7 @@ impl Library {
 			do_cloud_sync,
 			env: node.env.clone(),
 			event_bus_tx: node.event_bus.0.clone(),
-			actors: Default::default(),
+			actors,
 		})
 	}
 

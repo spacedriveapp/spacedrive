@@ -11,3 +11,6 @@ sd-sync = { path = "../sync" }
 prisma-client-rust = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+rmp-serde = "1.1.2"
+rmpv.workspace = true
+uuid = { workspace = true }

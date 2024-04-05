@@ -3,9 +3,8 @@
  * To regenerate this file, run: pnpm assets gen
  */
 
-import fda from './fda.mp4';
-import introvideobg from './introvideobg.webm';
-import mobsdintro from './mobsdintro.mp4';
-import sdintro from './sdintro.webm';
+import Fda from './Fda.mp4';
+import SdIntro from './SdIntro.mp4';
+import SdMobIntro from './SdMobIntro.mp4';
 
-export { fda, introvideobg, mobsdintro, sdintro };
+export { Fda, SdIntro, SdMobIntro };

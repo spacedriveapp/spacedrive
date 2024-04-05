@@ -213,7 +213,7 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 			? () => {
 					const { callback: _, ...event } = fullEvent;
 					console.log(event);
-			  }
+				}
 			: undefined
 	};
 

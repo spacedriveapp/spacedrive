@@ -22,6 +22,13 @@ const shortcuts = {
 		macOS: ['Meta', 'Alt', 'ArrowRight'],
 		all: ['Control', 'Alt', 'ArrowRight']
 	},
+	toggleCommandPalette: {
+		macOS: ['Meta', 'KeyK'],
+		all: ['Control', 'KeyK']
+	},
+	closeCommandPalette: {
+		all: ['Escape']
+	},
 	previousTab: {
 		macOS: ['Meta', 'Alt', 'ArrowLeft'],
 		all: ['Control', 'Alt', 'ArrowLeft']
@@ -119,6 +126,9 @@ const shortcuts = {
 		macOS: ['Meta', 'KeyO'],
 		all: ['Enter']
 	},
+	closeQuickPreview: {
+		all: ['Escape']
+	},
 	delItem: {
 		macOS: ['Meta', 'Backspace'],
 		all: ['Delete']
@@ -158,9 +168,14 @@ export const useShortcut = (shortcut: Shortcuts, func: (e: KeyboardEvent) => voi
 	}, [os, shortcut, shortcuts, visible]);
 
 	// useKeys doesn't like readonly
-	useKeys(keys as string[], (e) => {
-		if (!visible) return;
-		if (!import.meta.env.DEV) e.preventDefault();
-		return func(e);
-	});
+	useKeys(
+		keys as string[],
+		(e) => {
+			if (!import.meta.env.DEV) e.preventDefault();
+			return func(e);
+		},
+		{
+			when: visible
+		}
+	);
 };

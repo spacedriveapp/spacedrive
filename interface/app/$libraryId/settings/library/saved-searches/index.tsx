@@ -31,7 +31,7 @@ export const Component = () => {
 		<>
 			<Heading title="Saved Searches" description="Manage your saved searches." />
 			<div className="flex flex-col gap-4 lg:flex-row">
-				<Card className="flex min-w-[14rem] flex-col gap-2 !px-2">
+				<Card className="flex min-w-56 flex-col gap-2 !px-2">
 					{savedSearches.data?.map((search) => (
 						<button
 							onClick={() => setSelectedSearchId(search.id)}
@@ -105,7 +105,7 @@ function EditForm({ savedSearch, onDelete }: { savedSearch: SavedSearch; onDelet
 						}}
 					>
 						<Tooltip label={t('delete_tag')}>
-							<Trash className="h-4 w-4" />
+							<Trash className="size-4" />
 						</Tooltip>
 					</Button>
 				</div>

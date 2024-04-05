@@ -50,7 +50,7 @@ export const TextViewer = memo(
 						if (done) return;
 
 						const chunks = value.split('\n');
-						setLines((lines) => [...lines, ...chunks]);
+						setLines([...chunks]);
 
 						if (isSidebarPreview) return;
 

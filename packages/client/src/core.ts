@@ -12,7 +12,7 @@ export type Procedures = {
         { key: "cloud.locations.list", input: never, result: CloudLocation[] } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata) | null } | 
         { key: "files.get", input: LibraryArgs<number>, result: { item: Reference<ObjectWithFilePaths2>; nodes: CacheNode[] } | null } | 
-        { key: "files.getConvertableImageExtensions", input: never, result: string[] } | 
+        { key: "files.getConvertibleImageExtensions", input: never, result: string[] } | 
         { key: "files.getMediaData", input: LibraryArgs<number>, result: MediaMetadata } | 
         { key: "files.getPath", input: LibraryArgs<number>, result: string | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
@@ -69,12 +69,14 @@ export type Procedures = {
         { key: "cloud.locations.testing", input: TestingParams, result: null } | 
         { key: "cloud.setApiOrigin", input: string, result: null } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
+        { key: "ephemeralFiles.createFile", input: LibraryArgs<CreateEphemeralFileArgs>, result: string } | 
         { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
         { key: "ephemeralFiles.cutFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.deleteFiles", input: LibraryArgs<string[]>, result: null } | 
         { key: "ephemeralFiles.renameFile", input: LibraryArgs<EphemeralRenameFileArgs>, result: null } | 
         { key: "files.convertImage", input: LibraryArgs<ConvertImageArgs>, result: null } | 
         { key: "files.copyFiles", input: LibraryArgs<OldFileCopierJobInit>, result: null } | 
+        { key: "files.createFile", input: LibraryArgs<CreateFileArgs>, result: string } | 
         { key: "files.createFolder", input: LibraryArgs<CreateFolderArgs>, result: string } | 
         { key: "files.cutFiles", input: LibraryArgs<OldFileCutterJobInit>, result: null } | 
         { key: "files.deleteFiles", input: LibraryArgs<OldFileDeleterJobInit>, result: null } | 
@@ -136,6 +138,7 @@ export type Procedures = {
         { key: "notifications.listen", input: never, result: Notification } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
         { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: EphemeralPathsResultItem } | 
+        { key: "sync.active", input: LibraryArgs<null>, result: boolean } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
 
@@ -154,7 +157,7 @@ export type Backup = ({ id: string; timestamp: string; library_id: string; libra
 
 export type BuildInfo = { version: string; commit: string }
 
-export type CRDTOperation = { instance: string; timestamp: number; id: string; model: string; record_id: JsonValue; data: CRDTOperationData }
+export type CRDTOperation = { instance: string; timestamp: number; model: string; record_id: JsonValue; data: CRDTOperationData }
 
 export type CRDTOperationData = "c" | { u: { field: string; value: JsonValue } } | "d"
 
@@ -164,7 +167,7 @@ export type CameraData = { device_make: string | null; device_model: string | nu
 
 export type ChangeNodeNameArgs = { name: string | null; p2p_ipv4_port: Port | null; p2p_ipv6_port: Port | null; p2p_discovery: P2PDiscoveryState | null; image_labeler_version: string | null }
 
-export type CloudInstance = { id: string; uuid: string; identity: RemoteIdentity; nodeId: string; nodeName: string; nodePlatform: number }
+export type CloudInstance = { id: string; uuid: string; identity: RemoteIdentity; nodeId: string; metadata: { [key in string]: string } }
 
 export type CloudLibrary = { id: string; uuid: string; name: string; instances: CloudInstance[]; ownerId: string }
 
@@ -190,11 +193,21 @@ export type Composite =
  */
 "Live"
 
+/**
+ * The method used for the connection with this peer.
+ * *Technically* you can have multiple under the hood but this simplifies things for the UX.
+ */
+export type ConnectionMethod = "Relay" | "Local" | "Disconnected"
+
 export type ConvertImageArgs = { location_id: number; file_path_id: number; delete_src: boolean; desired_extension: ConvertibleExtension; quality_percentage: number | null }
 
 export type ConvertibleExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "hif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf" | "webp"
 
+export type CreateEphemeralFileArgs = { path: string; context: EphemeralFileCreateContextTypes; name: string | null }
+
 export type CreateEphemeralFolderArgs = { path: string; name: string | null }
+
+export type CreateFileArgs = { location_id: number; sub_path: string | null; name: string | null; context: FileCreateContextTypes }
 
 export type CreateFolderArgs = { location_id: number; sub_path: string | null; name: string | null }
 
@@ -204,11 +217,19 @@ export type CursorOrderItem<T> = { order: SortOrder; data: T }
 
 export type DefaultLocations = { desktop: boolean; documents: boolean; downloads: boolean; pictures: boolean; music: boolean; videos: boolean }
 
+/**
+ * The method used for the discovery of this peer.
+ * *Technically* you can have multiple under the hood but this simplifies things for the UX.
+ */
+export type DiscoveryMethod = "Relay" | "Local"
+
 export type DiskType = "SSD" | "HDD" | "Removable"
 
 export type DoubleClickAction = "openFile" | "quickPreview"
 
 export type EditLibraryArgs = { id: string; name: LibraryName | null; description: MaybeUndefined<string> }
+
+export type EphemeralFileCreateContextTypes = "empty" | "text"
 
 export type EphemeralFileSystemOps = { sources: string[]; target_dir: string }
 
@@ -237,9 +258,11 @@ export type ExplorerItem = { type: "Path"; thumbnail: string[] | null; item: Fil
 
 export type ExplorerLayout = "grid" | "list" | "media"
 
-export type ExplorerSettings<TOrder> = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; gridGap: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; mediaViewWithDescendants: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; colVisibility: { [key in string]: boolean } | null; colSizes: { [key in string]: number } | null; order?: TOrder | null; showHiddenFiles?: boolean }
+export type ExplorerSettings<TOrder> = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; gridGap: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; mediaViewWithDescendants: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; colVisibility: { [key in string]: boolean } | null; colSizes: { [key in string]: number } | null; listViewIconSize: string | null; listViewTextSize: string | null; order?: TOrder | null; showHiddenFiles?: boolean }
 
 export type Feedback = { message: string; emoji: number }
+
+export type FileCreateContextTypes = "empty" | "text"
 
 export type FilePath = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null }
 
@@ -312,7 +335,7 @@ export type GenerateThumbsForLocationArgs = { id: number; path: string; regenera
 
 export type GetAll = { backups: Backup[]; directory: string }
 
-export type HardwareModel = "Other" | "MacStudio" | "MacBookAir" | "MacBookPro" | "MacBook" | "MacMini" | "MacPro" | "IMac" | "IMacPro" | "IPad" | "IPhone"
+export type HardwareModel = "Other" | "MacStudio" | "MacBookAir" | "MacBookPro" | "MacBook" | "MacMini" | "MacPro" | "IMac" | "IMacPro" | "IPad" | "IPhone" | "Simulator" | "Android"
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
 
@@ -381,7 +404,7 @@ instance_id: number;
  */
 cloud_id?: string | null; generate_sync_operations?: boolean; version: LibraryConfigVersion }
 
-export type LibraryConfigVersion = "V0" | "V1" | "V2" | "V3" | "V4" | "V5" | "V6" | "V7" | "V8" | "V9"
+export type LibraryConfigVersion = "V0" | "V1" | "V2" | "V3" | "V4" | "V5" | "V6" | "V7" | "V8" | "V9" | "V10"
 
 export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance_public_key: RemoteIdentity; config: LibraryConfig }
 
@@ -511,10 +534,7 @@ export type Orientation = "Normal" | "CW90" | "CW180" | "CW270" | "MirroredVerti
 
 export type P2PDiscoveryState = "Everyone" | "ContactsOnly" | "Disabled"
 
-/**
- * TODO: P2P event for the frontend
- */
-export type P2PEvent = { type: "DiscoveredPeer"; identity: RemoteIdentity; metadata: PeerMetadata } | { type: "ExpiredPeer"; identity: RemoteIdentity } | { type: "ConnectedPeer"; identity: RemoteIdentity } | { type: "DisconnectedPeer"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedOut"; id: string } | { type: "SpacedropRejected"; id: string }
+export type P2PEvent = { type: "PeerChange"; identity: RemoteIdentity; connection: ConnectionMethod; discovery: DiscoveryMethod; metadata: PeerMetadata } | { type: "PeerDelete"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedOut"; id: string } | { type: "SpacedropRejected"; id: string }
 
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; device_model: HardwareModel | null; version: string | null }
 

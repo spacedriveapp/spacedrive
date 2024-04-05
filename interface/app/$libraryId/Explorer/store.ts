@@ -7,61 +7,20 @@ import {
 	type ExplorerItem,
 	type ExplorerLayout,
 	type ExplorerSettings,
-	type SortOrder
+	type Ordering
 } from '@sd/client';
+
+import {
+	DEFAULT_LIST_VIEW_ICON_SIZE,
+	DEFAULT_LIST_VIEW_TEXT_SIZE,
+	LIST_VIEW_ICON_SIZES,
+	LIST_VIEW_TEXT_SIZES
+} from './View/ListView/useTable';
 
 export enum ExplorerKind {
 	Location,
 	Tag,
 	Space
-}
-
-export type Ordering = { field: string; value: SortOrder | Ordering };
-// branded type for added type-safety
-export type OrderingKey = string & {};
-
-type OrderingValue<T extends Ordering, K extends string> = Extract<T, { field: K }>['value'];
-
-export type OrderingKeys<T extends Ordering> = T extends Ordering
-	? {
-			[K in T['field']]: OrderingValue<T, K> extends SortOrder
-				? K
-				: OrderingValue<T, K> extends Ordering
-				? `${K}.${OrderingKeys<OrderingValue<T, K>>}`
-				: never;
-	  }[T['field']]
-	: never;
-
-export function orderingKey(ordering: Ordering): OrderingKey {
-	let base = ordering.field;
-
-	if (typeof ordering.value === 'object') {
-		base += `.${orderingKey(ordering.value)}`;
-	}
-
-	return base;
-}
-
-export function createOrdering<TOrdering extends Ordering = Ordering>(
-	key: OrderingKey,
-	value: SortOrder
-): TOrdering {
-	return key
-		.split('.')
-		.reverse()
-		.reduce((acc, field, i) => {
-			if (i === 0)
-				return {
-					field,
-					value
-				};
-			else return { field, value: acc };
-		}, {} as any);
-}
-
-export function getOrderingDirection(ordering: Ordering): SortOrder {
-	if (typeof ordering.value === 'object') return getOrderingDirection(ordering.value);
-	else return ordering.value;
 }
 
 export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
@@ -78,6 +37,8 @@ export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
 		mediaAspectSquare: false as boolean,
 		mediaViewWithDescendants: true as boolean,
 		openOnDoubleClick: 'openFile' as DoubleClickAction,
+		listViewIconSize: DEFAULT_LIST_VIEW_ICON_SIZE as keyof typeof LIST_VIEW_ICON_SIZES,
+		listViewTextSize: DEFAULT_LIST_VIEW_TEXT_SIZE as keyof typeof LIST_VIEW_TEXT_SIZES,
 		colVisibility: {
 			name: true,
 			kind: true,
@@ -145,7 +106,10 @@ const state = {
 	drag: null as null | DragState,
 	isDragSelecting: false,
 	isRenaming: false,
-	isContextMenuOpen: false
+	// Used for disabling certain keyboard shortcuts when command palette is open
+	isCMDPOpen: false,
+	isContextMenuOpen: false,
+	quickRescanLastRun: Date.now() - 200
 };
 
 export function flattenThumbnailKey(thumbKey: string[]) {

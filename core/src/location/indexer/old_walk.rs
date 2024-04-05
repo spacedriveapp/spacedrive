@@ -697,7 +697,6 @@ mod tests {
 	use globset::{Glob, GlobSetBuilder};
 	use sd_core_indexer_rules::RulePerKind;
 	use tempfile::{tempdir, TempDir};
-	use tokio::fs;
 	// use tracing_test::traced_test;
 
 	impl PartialEq for WalkedEntry {

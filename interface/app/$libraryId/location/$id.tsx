@@ -14,6 +14,7 @@ import {
 	useLibrarySubscription,
 	useNodes,
 	useOnlineLocations,
+	usePathsExplorerQuery,
 	useRspcLibraryContext
 } from '@sd/client';
 import { Loader, Tooltip } from '@sd/ui';
@@ -31,8 +32,11 @@ import { useQuickRescan } from '~/hooks/useQuickRescan';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { usePathsExplorerQuery } from '../Explorer/queries';
-import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Explorer/store';
+import {
+	createDefaultExplorerSettings,
+	explorerStore,
+	filePathOrderingKeysSchema
+} from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
 import { useExplorerSearchParams } from '../Explorer/util';
@@ -89,7 +93,8 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 			].filter(Boolean) as any,
 			take
 		},
-		explorerSettings
+		order: explorerSettings.useSettingsSnapshot().order,
+		onSuccess: () => explorerStore.resetNewThumbnails()
 	});
 
 	const explorer = useExplorer({
@@ -132,7 +137,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 					center={<SearchBar />}
 					left={
 						<div className="flex items-center gap-2">
-							<Folder size={22} className="mt-[-1px]" />
+							<Folder size={22} className="-mt-px" />
 							<span className="truncate text-sm font-medium">{title}</span>
 							<LocationOfflineInfo location={location} />
 							<LocationOptions location={location} path={path || ''} />
@@ -161,7 +166,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 				</TopBarPortal>
 			</SearchContextProvider>
 			{isLocationIndexing ? (
-				<div className="flex h-full w-full items-center justify-center">
+				<div className="flex size-full items-center justify-center">
 					<Loader />
 				</div>
 			) : !preferences.isLoading ? (

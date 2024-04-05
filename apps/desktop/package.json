@@ -14,7 +14,7 @@
 	"dependencies": {
 		"@oscartbeaumont-sd/rspc-client": "=0.0.0-main-dc31e5b2",
 		"@oscartbeaumont-sd/rspc-tauri": "=0.0.0-main-dc31e5b2",
-		"@remix-run/router": "^1.13.1",
+		"@remix-run/router": "=1.13.1",
 		"@sd/client": "workspace:*",
 		"@sd/interface": "workspace:*",
 		"@sd/ui": "workspace:*",
@@ -25,18 +25,18 @@
 		"immer": "^10.0.3",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
-		"react-router-dom": "^6.20.1",
+		"react-router-dom": "=6.20.1",
 		"sonner": "^1.0.3"
 	},
 	"devDependencies": {
 		"@sd/config": "workspace:*",
-		"@sentry/vite-plugin": "^2.14.2",
-		"@tauri-apps/cli": "^1.5.10",
-		"@types/react": "^18.2.61",
-		"@types/react-dom": "^18.2.19",
-		"sass": "^1.71.1",
-		"typescript": "^5.3.3",
-		"vite": "^5.1.4",
-		"vite-tsconfig-paths": "^4.3.1"
+		"@sentry/vite-plugin": "^2.16.0",
+		"@tauri-apps/cli": "^1.5.11",
+		"@types/react": "^18.2.67",
+		"@types/react-dom": "^18.2.22",
+		"sass": "^1.72.0",
+		"typescript": "^5.4.2",
+		"vite": "^5.1.6",
+		"vite-tsconfig-paths": "^4.3.2"
 	}
 }

@@ -28,8 +28,7 @@ use sd_prisma::{
 	prisma_sync,
 };
 use sd_sync::OperationFactory;
-use sd_utils::{db::maybe_missing, error::FileIOError};
-use serde_json::json;
+use sd_utils::{db::maybe_missing, error::FileIOError, msgpack};
 
 use std::{
 	ffi::OsString,
@@ -49,6 +48,15 @@ use tracing::{error, warn};
 use super::{Ctx, R};
 
 const UNTITLED_FOLDER_STR: &str = "Untitled Folder";
+const UNTITLED_FILE_STR: &str = "Untitled";
+const UNTITLED_TEXT_FILE_STR: &str = "Untitled.txt";
+
+#[derive(Type, Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum FileCreateContextTypes {
+	Empty,
+	Text,
+}
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -206,7 +214,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								pub_id: object.pub_id,
 							},
 							object::note::NAME,
-							json!(&args.note),
+							msgpack!(&args.note),
 						),
 						db.object().update(
 							object::id::equals(args.id),
@@ -252,7 +260,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								pub_id: object.pub_id,
 							},
 							object::favorite::NAME,
-							json!(&args.favorite),
+							msgpack!(&args.favorite),
 						),
 						db.object().update(
 							object::id::equals(args.id),
@@ -297,6 +305,45 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				},
 			)
 		})
+		.procedure("createFile", {
+			#[derive(Type, Deserialize)]
+			pub struct CreateFileArgs {
+				pub location_id: location::id::Type,
+				pub sub_path: Option<PathBuf>,
+				pub name: Option<String>,
+				pub context: FileCreateContextTypes,
+			}
+			R.with2(library()).mutation(
+				|(_, library),
+				 CreateFileArgs {
+				     location_id,
+				     sub_path,
+				     context,
+				     name,
+				 }: CreateFileArgs| async move {
+					let mut path =
+						get_location_path_from_location_id(&library.db, location_id).await?;
+
+					if let Some(sub_path) = sub_path
+						.as_ref()
+						.and_then(|sub_path| sub_path.strip_prefix("/").ok())
+					{
+						path.push(sub_path);
+					}
+
+					match context {
+						FileCreateContextTypes::Empty => {
+							path.push(name.as_deref().unwrap_or(UNTITLED_FILE_STR))
+						}
+						FileCreateContextTypes::Text => {
+							path.push(name.as_deref().unwrap_or(UNTITLED_TEXT_FILE_STR))
+						}
+					}
+
+					create_file(path, &library).await
+				},
+			)
+		})
 		.procedure("updateAccessTime", {
 			R.with2(library())
 				.mutation(|(_, library), ids: Vec<i32>| async move {
@@ -318,7 +365,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								sync.shared_update(
 									prisma_sync::object::SyncId { pub_id: d.pub_id },
 									object::date_accessed::NAME,
-									json!(date_accessed),
+									msgpack!(date_accessed),
 								),
 								d.id,
 							)
@@ -361,7 +408,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								sync.shared_update(
 									prisma_sync::object::SyncId { pub_id: d.pub_id },
 									object::date_accessed::NAME,
-									json!(null),
+									msgpack!(nil),
 								),
 								d.id,
 							)
@@ -601,7 +648,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					Ok(())
 				})
 		})
-		.procedure("getConvertableImageExtensions", {
+		.procedure("getConvertibleImageExtensions", {
 			R.query(|_, _: ()| async move { Ok(sd_images::all_compatible_extensions()) })
 		})
 		.procedure("eraseFiles", {
@@ -863,6 +910,45 @@ pub(super) async fn create_directory(
 	fs::create_dir(&target_path)
 		.await
 		.map_err(|e| FileIOError::from((&target_path, e, "Failed to create directory")))?;
+
+	invalidate_query!(library, "search.objects");
+	invalidate_query!(library, "search.paths");
+	invalidate_query!(library, "search.ephemeralPaths");
+
+	Ok(target_path
+		.file_name()
+		.expect("Failed to get file name")
+		.to_string_lossy()
+		.to_string())
+}
+
+pub(super) async fn create_file(
+	mut target_path: PathBuf,
+	library: &Library,
+) -> Result<String, rspc::Error> {
+	match fs::metadata(&target_path).await {
+		Ok(metadata) if metadata.is_file() => {
+			target_path = find_available_filename_for_duplicate(&target_path).await?;
+		}
+		Ok(_) => {
+			return Err(FileSystemJobsError::WouldOverwrite(target_path.into_boxed_path()).into())
+		}
+		Err(e) if e.kind() == io::ErrorKind::NotFound => {
+			// Everything is awesome!
+		}
+		Err(e) => {
+			return Err(FileIOError::from((
+				target_path,
+				e,
+				"Failed to access file system and get metadata on file to be created",
+			))
+			.into())
+		}
+	};
+
+	fs::File::create(&target_path)
+		.await
+		.map_err(|e| FileIOError::from((&target_path, e, "Failed to create file")))?;
 
 	invalidate_query!(library, "search.objects");
 	invalidate_query!(library, "search.paths");

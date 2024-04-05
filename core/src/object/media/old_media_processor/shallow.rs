@@ -42,7 +42,12 @@ const BATCH_SIZE: usize = 10;
 pub async fn old_shallow(
 	location: &location::Data,
 	sub_path: &PathBuf,
-	library @ Library { db, sync, .. }: &Library,
+	library @ Library {
+		db,
+		#[cfg(feature = "ai")]
+		sync,
+		..
+	}: &Library,
 	#[cfg(feature = "ai")] regenerate_labels: bool,
 	node: &Node,
 ) -> Result<(), JobError> {

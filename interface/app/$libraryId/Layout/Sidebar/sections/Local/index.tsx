@@ -22,7 +22,7 @@ const EjectButton = ({ className }: { className?: string }) => (
 		variant="subtle"
 		onClick={() => toast.info('Eject button coming soon')}
 	>
-		<EjectSimple weight="fill" size={18} className="h-3 w-3 opacity-70" />
+		<EjectSimple weight="fill" size={18} className="size-3 opacity-70" />
 	</Button>
 );
 
@@ -105,8 +105,8 @@ export default function LocalSection() {
 						item.mountPoint === '/'
 							? 'Root'
 							: item.index === 0
-							? item.volume.name
-							: item.mountPoint;
+								? item.volume.name
+								: item.mountPoint;
 
 					const toPath =
 						locationId !== undefined
@@ -128,8 +128,8 @@ export default function LocalSection() {
 									item.volume.file_system === 'exfat'
 										? 'SD'
 										: item.volume.name === 'Macintosh HD'
-										? 'HDD'
-										: 'Drive'
+											? 'HDD'
+											: 'Drive'
 								}
 							/>
 							<Name>{name}</Name>

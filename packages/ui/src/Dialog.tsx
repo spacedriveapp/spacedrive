@@ -185,9 +185,9 @@ export function Dialog<S extends FieldValues>({
 	);
 	const disableCheck = props.errorMessageException
 		? !form.formState.isValid &&
-		  !form.formState.errors.root?.serverError?.message?.startsWith(
+			!form.formState.errors.root?.serverError?.message?.startsWith(
 				props.errorMessageException as string
-		  )
+			)
 		: !form.formState.isValid;
 
 	const submitButton = (
@@ -212,7 +212,7 @@ export function Dialog<S extends FieldValues>({
 				show ? (
 					<RDialog.Portal forceMount>
 						<AnimatedDialogOverlay
-							className="z-49 fixed inset-0 m-[1px] grid place-items-center overflow-y-auto rounded-xl bg-app/50"
+							className="z-49 fixed inset-0 m-px grid place-items-center overflow-y-auto rounded-xl bg-app/50"
 							style={{
 								opacity: styles.opacity
 							}}

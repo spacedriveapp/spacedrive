@@ -7,12 +7,11 @@ use thiserror::Error;
 pub enum MigrationError {
 	#[error("An error occurred while initialising a new database connection: {0}")]
 	NewClient(#[from] Box<NewClientError>),
-	#[cfg(debug_assertions)]
-	#[error("An error occurred during migration: {0}")]
-	MigrateFailed(#[from] DbPushError),
-	#[cfg(not(debug_assertions))]
 	#[error("An error occurred during migration: {0}")]
 	MigrateFailed(#[from] MigrateDeployError),
+	#[cfg(debug_assertions)]
+	#[error("An error occurred during migration: {0}")]
+	DbPushFailed(#[from] DbPushError),
 }
 
 /// load_and_migrate will load the database from the given path and migrate it to the latest version of the schema.
@@ -20,6 +19,8 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 	let client = prisma::new_client_with_url(db_url)
 		.await
 		.map_err(Box::new)?;
+
+	client._migrate_deploy().await?;
 
 	#[cfg(debug_assertions)]
 	{
@@ -50,9 +51,6 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 			Err(e) => Err(e)?,
 		}
 	}
-
-	#[cfg(not(debug_assertions))]
-	client._migrate_deploy().await?;
 
 	Ok(client)
 }

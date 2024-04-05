@@ -19,6 +19,8 @@ pub enum HardwareModel {
 	IMacPro,
 	IPad,
 	IPhone,
+	Simulator,
+	Android,
 }
 
 impl HardwareModel {
@@ -62,7 +64,83 @@ pub fn get_hardware_model_name() -> Result<HardwareModel, Error> {
 			))
 		}
 	}
-	#[cfg(not(target_os = "macos"))]
+	#[cfg(target_os = "ios")]
+	{
+		use std::ffi::CString;
+		use std::ptr;
+
+		extern "C" {
+			fn sysctlbyname(
+				name: *const libc::c_char,
+				oldp: *mut libc::c_void,
+				oldlenp: *mut usize,
+				newp: *mut libc::c_void,
+				newlen: usize,
+			) -> libc::c_int;
+		}
+
+		fn get_device_type() -> Option<String> {
+			let mut size: usize = 0;
+			let name = CString::new("hw.machine").expect("CString::new failed");
+
+			// First, get the size of the buffer needed
+			unsafe {
+				sysctlbyname(
+					name.as_ptr(),
+					ptr::null_mut(),
+					&mut size,
+					ptr::null_mut(),
+					0,
+				);
+			}
+
+			// Allocate a buffer with the correct size
+			let mut buffer: Vec<u8> = vec![0; size];
+
+			// Get the actual machine type
+			unsafe {
+				sysctlbyname(
+					name.as_ptr(),
+					buffer.as_mut_ptr() as *mut libc::c_void,
+					&mut size,
+					ptr::null_mut(),
+					0,
+				);
+			}
+
+			// Convert the buffer to a String
+			let machine_type = String::from_utf8_lossy(&buffer).trim().to_string();
+
+			// Check if the device is an iPad or iPhone
+			if machine_type.starts_with("iPad") {
+				Some("iPad".to_string())
+			} else if machine_type.starts_with("iPhone") {
+				Some("iPhone".to_string())
+			} else if machine_type.starts_with("arm") {
+				Some("Simulator".to_string())
+			} else {
+				None
+			}
+		}
+
+		if let Some(device_type) = get_device_type() {
+			let hardware_model = HardwareModel::from_display_name(&device_type.as_str());
+
+			Ok(hardware_model)
+		} else {
+			Err(Error::new(
+				std::io::ErrorKind::Other,
+				"Failed to get hardware model name",
+			))
+		}
+	}
+
+	#[cfg(target_os = "android")]
+	{
+		Ok(HardwareModel::Android)
+	}
+
+	#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
 	{
 		Err(Error::new(
 			std::io::ErrorKind::Unsupported,

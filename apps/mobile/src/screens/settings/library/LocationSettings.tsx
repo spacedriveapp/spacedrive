@@ -1,7 +1,7 @@
-import { Locations } from '~/screens/Locations';
+import LocationsScreen from '~/screens/browse/Locations';
 
 const LocationSettingsScreen = () => {
-	return <Locations redirectToLocationSettings />;
+	return <LocationsScreen viewStyle="list" />;
 };
 
 export default LocationSettingsScreen;

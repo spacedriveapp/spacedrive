@@ -6,7 +6,7 @@ use sd_prisma::{
 	prisma_sync,
 };
 use sd_sync::OperationFactory;
-use sd_utils::{db::MissingFieldError, error::FileIOError};
+use sd_utils::{db::MissingFieldError, error::FileIOError, msgpack};
 
 use std::{
 	collections::{BTreeMap, HashMap, HashSet, VecDeque},
@@ -18,7 +18,6 @@ use async_channel as chan;
 use chrono::{DateTime, FixedOffset, Utc};
 use futures_concurrency::future::{Join, Race};
 use image::ImageFormat;
-use serde_json::json;
 use tokio::{
 	fs, spawn,
 	sync::{oneshot, OwnedRwLockReadGuard, OwnedSemaphorePermit, RwLock, Semaphore},
@@ -290,6 +289,7 @@ pub(super) async fn spawned_processing(
 		.expect("critical error: image labeller batch processor unexpectedly closed");
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn spawned_process_single_file(
 	model_and_session: Arc<OwnedRwLockReadGuard<ModelAndSession>>,
 	(file_path_id, object_id): (file_path::id::Type, object::id::Type),
@@ -434,7 +434,7 @@ pub async fn assign_labels(
 			.map(|name| {
 				sync_params.extend(sync.shared_create(
 					prisma_sync::label::SyncId { name: name.clone() },
-					[(label::date_created::NAME, json!(&date_created))],
+					[(label::date_created::NAME, msgpack!(&date_created))],
 				));
 
 				db.label()

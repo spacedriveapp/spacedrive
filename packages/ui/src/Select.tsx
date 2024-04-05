@@ -9,7 +9,7 @@ import { forwardRef, PropsWithChildren } from 'react';
 
 export const selectStyles = cva(
 	[
-		'flex items-center justify-between rounded-md border py-0.5 pl-3 pr-[10px] text-sm',
+		'flex items-center justify-between whitespace-nowrap rounded-md border py-0.5 pl-3 pr-[10px] text-sm',
 		'shadow-sm outline-none transition-all focus:ring-2',
 		'text-ink radix-placeholder:text-ink-faint'
 	],
@@ -56,7 +56,9 @@ export const Select = forwardRef(
 				<RS.Trigger
 					className={selectStyles({ size: props.size, className: props.className })}
 				>
-					<RS.Value placeholder={props.placeholder} />
+					<span className="truncate">
+						<RS.Value placeholder={props.placeholder} />
+					</span>
 					<RS.Icon className="ml-2">
 						<ChevronDouble className="text-ink-dull" />
 					</RS.Icon>
@@ -87,7 +89,7 @@ export function SelectOption(props: PropsWithChildren<{ value: string; default?:
 		>
 			<RS.ItemText>{props.children}</RS.ItemText>
 			<RS.ItemIndicator className="absolute left-1 inline-flex items-center">
-				<Check className="h-4 w-4" />
+				<Check className="size-4" />
 			</RS.ItemIndicator>
 		</RS.Item>
 	);

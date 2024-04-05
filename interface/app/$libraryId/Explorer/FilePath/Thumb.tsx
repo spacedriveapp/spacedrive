@@ -152,7 +152,7 @@ export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) =
 								? [
 										'min-h-full min-w-full object-cover object-center',
 										_childClassName
-								  ]
+									]
 								: className,
 							props.frame && !(itemData.kind === 'Video' && props.blackBars)
 								? frameClassName
@@ -200,7 +200,7 @@ export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) =
 			className={clsx(
 				'relative flex shrink-0 items-center justify-center',
 				// !loaded && 'invisible',
-				!props.size && 'h-full w-full',
+				!props.size && 'size-full',
 				props.cover && 'overflow-hidden',
 				props.className
 			)}
@@ -259,10 +259,7 @@ const Thumbnail = forwardRef<HTMLImageElement, ThumbnailProps>(
 				<Image
 					{...props}
 					{...{
-						className: clsx(
-							className,
-							blackBarsStyle && size.width === 0 && 'invisible'
-						),
+						className: clsx(className, blackBars && size.width === 0 && 'invisible'),
 						style: { ...style, ...(blackBars ? blackBarsStyle : undefined) },
 						size,
 						ref

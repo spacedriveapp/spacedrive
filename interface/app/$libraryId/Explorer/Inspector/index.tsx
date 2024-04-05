@@ -156,7 +156,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 					className={clsx(
 						thumbs.length > 1 && '!absolute',
 						i === 0 && thumbs.length > 1 && 'z-30 !h-[76%] !w-[76%]',
-						i === 1 && 'z-20 !h-[80%] !w-[80%] rotate-[-5deg]',
+						i === 1 && 'z-20 !h-4/5 !w-4/5 rotate-[-5deg]',
 						i === 2 && 'z-10 !h-[84%] !w-[84%] rotate-[7deg]'
 					)}
 					childClassName={(type) =>
@@ -276,10 +276,10 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					item={item}
 					toggleBy="click"
 					lines={2}
+					editLines={2}
 					selected
 					allowHighlight={false}
 					className="!text-base !font-bold !text-ink"
-					style={{ maxHeight: '50px' }}
 				/>
 			</div>
 
@@ -291,12 +291,12 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 					<Tooltip label={t('encrypt')}>
 						<Button size="icon">
-							<Lock className="h-[18px] w-[18px]" />
+							<Lock className="size-[18px]" />
 						</Button>
 					</Tooltip>
 					<Tooltip label={t('share')}>
 						<Button size="icon">
-							<Link className="h-[18px] w-[18px]" />
+							<Link className="size-[18px]" />
 						</Button>
 					</Tooltip>
 				</div>

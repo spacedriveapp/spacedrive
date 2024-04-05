@@ -2,11 +2,13 @@ import * as RNFS from '@dr.pogodin/react-native-fs';
 import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/v2';
 import { UseQueryResult } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import { ClassInput } from 'twrnc/dist/esm/types';
 import { byteSize, Statistics, StatisticsResponse, useLibraryContext } from '@sd/client';
 import useCounter from '~/hooks/useCounter';
 import { tw, twStyle } from '~/lib/tailwind';
+
+import Card from '../layout/Card';
 
 const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 	total_bytes_capacity: 'Total capacity',
@@ -29,21 +31,17 @@ const StatItem = ({ title, bytes, isLoading, style }: StatItemProps) => {
 	const count = useCounter({ name: title, end: value });
 
 	return (
-		<View
-			style={twStyle(
-				'flex flex-col items-center justify-center rounded-md border border-app-line/50 bg-app-box/50 p-2',
-				style,
-				{
-					hidden: isLoading
-				}
-			)}
+		<Card
+			style={twStyle('flex flex-col items-center justify-center  p-2', style, {
+				hidden: isLoading
+			})}
 		>
-			<Text style={tw`text-sm font-bold text-gray-400`}>{title}</Text>
+			<Text style={tw`text-sm font-bold text-zinc-400`}>{title}</Text>
 			<View style={tw`mt-1 flex-row items-baseline`}>
 				<Text style={twStyle('text-xl font-bold tabular-nums text-white')}>{count}</Text>
-				<Text style={tw`ml-1 text-sm text-gray-400`}>{unit}</Text>
+				<Text style={tw`ml-1 text-sm text-zinc-400`}>{unit}</Text>
 			</View>
-		</View>
+		</Card>
 	);
 };
 
@@ -90,14 +88,16 @@ const OverviewStats = ({ stats }: Props) => {
 				bytes = BigInt(sizeInfo.freeSpace);
 			} else if (key === 'total_bytes_capacity') {
 				bytes = BigInt(sizeInfo.totalSpace);
+			} else if (key === 'total_bytes_used' && Platform.OS === 'android') {
+				bytes = BigInt(sizeInfo.totalSpace - sizeInfo.freeSpace);
 			}
 			return (
 				<StatItem
-					key={`${library.uuid} ${key}`}
+					key={`${library.uuid}_${key}`}
 					title={StatItemNames[key as keyof Statistics]!}
 					bytes={bytes}
 					isLoading={stats.isLoading}
-					style={tw`${isTotalStat ? 'h-[101px] w-full' : 'w-full'} flex-1`}
+					style={twStyle(isTotalStat && 'h-[101px]', 'w-full flex-1')}
 				/>
 			);
 		});

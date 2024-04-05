@@ -17,7 +17,7 @@ use std::{
 
 use async_channel as chan;
 use futures_concurrency::future::{Join, Race};
-use image::{self, imageops, DynamicImage, GenericImageView};
+use image::{imageops, DynamicImage, GenericImageView};
 use serde::{Deserialize, Serialize};
 use tokio::{
 	fs, io,

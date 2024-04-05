@@ -42,6 +42,11 @@ runs:
         key: ${{ steps.cache-llvm-restore.outputs.cache-primary-key }}
         path: C:/Program Files/LLVM
 
+    - name: Install current Bash on macOS
+      shell: bash
+      if: runner.os == 'macOS'
+      run: brew install bash
+
     - name: Install Nasm
       if: ${{ runner.os != 'Linux' }}
       uses: ilammy/setup-nasm@v1
@@ -52,6 +57,17 @@ runs:
       run: |
         curl -L# 'https://github.com/rui314/mold/releases/download/v2.4.0/mold-2.4.0-x86_64-linux.tar.gz' \
         | sudo tar -xzf- -C /usr/local
+
+    - name: Remove 32-bit libs and incompatible pre-installed pkgs from Runner
+      shell: bash
+      if: ${{ runner.os == 'Linux' }}
+      run: |
+        dpkg -l | grep i386
+        sudo apt-get purge --allow-remove-essential libc6-i386 ".*:i386"
+        sudo dpkg --remove-architecture i386
+
+        # https://github.com/actions/runner-images/issues/9546#issuecomment-2014940361
+        sudo apt-get remove libunwind-*
 
     - name: Setup Rust and Dependencies
       uses: ./.github/actions/setup-rust
@@ -78,4 +94,4 @@ runs:
         pushd scripts
         npm i --production
         popd
-        node scripts/preprep.mjs
+        env NODE_ENV=debug node scripts/preprep.mjs

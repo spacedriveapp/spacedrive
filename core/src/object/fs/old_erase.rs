@@ -148,11 +148,11 @@ impl StatefulJob for OldFileEraserJobInit {
 					.open(&step.full_path)
 					.await
 					.map_err(|e| FileIOError::from((&step.full_path, e)))?;
-				let file_len = file
-					.metadata()
-					.await
-					.map_err(|e| FileIOError::from((&step.full_path, e)))?
-					.len();
+				// let file_len = file
+				// 	.metadata()
+				// 	.await
+				// 	.map_err(|e| FileIOError::from((&step.full_path, e)))?
+				// 	.len();
 
 				trace!(
 					"Overwriting file: {} with {} passes",
@@ -160,7 +160,10 @@ impl StatefulJob for OldFileEraserJobInit {
 					init.passes
 				);
 
-				sd_crypto::fs::erase::erase(&mut file, file_len as usize, init.passes).await?;
+				#[cfg(feature = "crypto")]
+				// sd_crypto::fs::erase::erase_async(&mut file, file_len as usize, init.passes).await?;
+				#[cfg(not(feature = "crypto"))]
+				warn!("File not fully erased due to missing crypto module");
 
 				file.set_len(0)
 					.await

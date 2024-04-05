@@ -44,7 +44,7 @@ use std::{
 use chrono::{DateTime, Utc};
 use futures_concurrency::future::TryJoin;
 use globset::{Glob, GlobSet, GlobSetBuilder};
-use rmp_serde::{self, decode, encode};
+use rmp_serde::{decode, encode};
 use rspc::ErrorCode;
 
 use specta::Type;
@@ -655,7 +655,6 @@ pub fn generate_pub_id() -> Uuid {
 mod tests {
 	use super::*;
 	use tempfile::tempdir;
-	use tokio::fs;
 
 	impl IndexerRule {
 		#[must_use]

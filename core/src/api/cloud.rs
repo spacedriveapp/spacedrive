@@ -44,7 +44,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 }
 
 mod library {
-	use crate::{node::Platform, util::MaybeUndefined};
+	use crate::util::MaybeUndefined;
 
 	use super::*;
 
@@ -75,8 +75,7 @@ mod library {
 							library.instance_uuid,
 							library.identity.to_remote_identity(),
 							node_config.id,
-							&node_config.name,
-							Platform::current().into(),
+							&node.p2p.peer_metadata(),
 						)
 						.await?;
 						node.libraries
@@ -120,6 +119,7 @@ mod library {
 							false,
 							None,
 							&node,
+							true,
 						)
 						.await?;
 					node.libraries
@@ -139,20 +139,20 @@ mod library {
 						library.instance_uuid,
 						library.identity.to_remote_identity(),
 						node_config.id,
-						&node_config.name,
-						Platform::current().into(),
+						node.p2p.peer_metadata(),
 					)
 					.await?;
 
 					for instance in instances {
-						crate::cloud::sync::receive::create_instance(
-							&library,
+						crate::cloud::sync::receive::upsert_instance(
+							library.id,
+							&library.db,
+							&library.sync,
 							&node.libraries,
 							instance.uuid,
 							instance.identity,
 							instance.node_id,
-							instance.node_name,
-							instance.node_platform,
+							node.p2p.peer_metadata(),
 						)
 						.await?;
 					}

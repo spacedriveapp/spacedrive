@@ -47,6 +47,7 @@ import ExplorerContextMenu, {
 import { Conditional } from '../ContextMenu/ConditionalItem';
 import { FileThumb } from '../FilePath/Thumb';
 import { SingleItemMetadata } from '../Inspector';
+import { explorerStore } from '../store';
 import { ImageSlider } from './ImageSlider';
 import { getQuickPreviewStore, useQuickPreviewStore } from './store';
 
@@ -190,6 +191,13 @@ export const QuickPreview = () => {
 		if (items.length < 2 || !activeItem) return;
 		explorer.resetSelectedItems([activeItem.item]);
 		getQuickPreviewStore().itemIndex = 0;
+	});
+
+	//close quick preview
+	useShortcut('closeQuickPreview', (e) => {
+		if (explorerStore.isCMDPOpen) return;
+		e.preventDefault();
+		getQuickPreviewStore().open = false;
 	});
 
 	// Toggle metadata
@@ -441,8 +449,8 @@ export const QuickPreview = () => {
 														FilePathItems.CopyAsPath,
 														FilePathItems.Crypto,
 														FilePathItems.Compress,
-														ObjectItems.ConvertObject,
-														FilePathItems.SecureDelete
+														ObjectItems.ConvertObject
+														// FilePathItems.SecureDelete
 													]}
 												>
 													{(items) => (
@@ -605,8 +613,8 @@ const RenameInput = ({ name, onRename }: RenameInputProps) => {
 					quickPreview.background
 						? 'border-white/[.12] bg-white/10 backdrop-blur-sm'
 						: isDark
-						? 'border-app-line bg-app-input'
-						: 'border-black/[.075] bg-black/[.075]'
+							? 'border-app-line bg-app-input'
+							: 'border-black/[.075] bg-black/[.075]'
 				)}
 				onKeyDown={handleKeyDown}
 				onFocus={() => highlightName()}
@@ -632,7 +640,7 @@ const IconButton = ({
 	return (
 		<button
 			className={clsx(
-				'text-md inline-flex h-[30px] w-[30px] items-center justify-center rounded opacity-80 outline-none',
+				'text-md inline-flex size-[30px] items-center justify-center rounded opacity-80 outline-none',
 				'hover:opacity-100',
 				'focus:opacity-100',
 				'disabled:pointer-events-none disabled:opacity-40',

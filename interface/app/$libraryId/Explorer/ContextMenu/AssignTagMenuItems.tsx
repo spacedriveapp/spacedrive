@@ -155,7 +155,7 @@ const Tags = ({ items, parentRef }: Props & { parentRef: RefObject<HTMLDivElemen
 			{sortedTags.length > 0 ? (
 				<div
 					ref={parentRef}
-					className="h-full w-full overflow-auto"
+					className="size-full overflow-auto"
 					style={{ maxHeight: `400px` }}
 				>
 					<div
@@ -200,7 +200,7 @@ const Tags = ({ items, parentRef }: Props & { parentRef: RefObject<HTMLDivElemen
 											tag.id,
 											unassign
 												? // use objects that already have tag
-												  items.flatMap((item) => {
+													items.flatMap((item) => {
 														if (
 															item.type === 'Object' ||
 															item.type === 'Path'
@@ -209,18 +209,24 @@ const Tags = ({ items, parentRef }: Props & { parentRef: RefObject<HTMLDivElemen
 														}
 
 														return [];
-												  })
+													})
 												: // use objects that don't have tag
-												  items.flatMap<AssignTagItems[number]>((item) => {
-														if (item.type === 'Object') {
-															if (!objectsWithTag.has(item.item.id))
+													items.flatMap<AssignTagItems[number]>(
+														(item) => {
+															if (item.type === 'Object') {
+																if (
+																	!objectsWithTag.has(
+																		item.item.id
+																	)
+																)
+																	return [item];
+															} else if (item.type === 'Path') {
 																return [item];
-														} else if (item.type === 'Path') {
-															return [item];
-														}
+															}
 
-														return [];
-												  }),
+															return [];
+														}
+													),
 											unassign
 										);
 
@@ -228,7 +234,7 @@ const Tags = ({ items, parentRef }: Props & { parentRef: RefObject<HTMLDivElemen
 									}}
 								>
 									<div
-										className="mr-0.5 h-[15px] w-[15px] shrink-0 rounded-full border"
+										className="mr-0.5 size-[15px] shrink-0 rounded-full border"
 										style={{
 											backgroundColor:
 												objectsWithTag &&

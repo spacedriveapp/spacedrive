@@ -1,7 +1,8 @@
 import { CompositeScreenProps } from '@react-navigation/native';
-import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
+// import KeysSettingsScreen from '~/screens/settings/library/KeysSettings';
+
+import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import Header from '~/components/header/Header';
-import { tw } from '~/lib/tailwind';
 import AppearanceSettingsScreen from '~/screens/settings/client/AppearanceSettings';
 import ExtensionsSettingsScreen from '~/screens/settings/client/ExtensionsSettings';
 import GeneralSettingsScreen from '~/screens/settings/client/GeneralSettings';
@@ -17,27 +18,17 @@ import NodesSettingsScreen from '~/screens/settings/library/NodesSettings';
 import TagsSettingsScreen from '~/screens/settings/library/TagsSettings';
 import SettingsScreen from '~/screens/settings/Settings';
 
-// import KeysSettingsScreen from '~/screens/settings/library/KeysSettings';
-
 import { TabScreenProps } from '../TabNavigator';
 
-const Stack = createStackNavigator<SettingsStackParamList>();
+const Stack = createNativeStackNavigator<SettingsStackParamList>();
 
 export default function SettingsStack() {
 	return (
-		<Stack.Navigator
-			initialRouteName="Settings"
-			screenOptions={{
-				headerStyle: { backgroundColor: tw.color('app-box') },
-				headerTintColor: tw.color('ink'),
-				headerTitleStyle: tw`text-base`,
-				headerBackTitleStyle: tw`text-base`
-			}}
-		>
+		<Stack.Navigator initialRouteName="Settings">
 			<Stack.Screen
 				name="Settings"
 				component={SettingsScreen}
-				options={{ header: () => <Header title="Settings" /> }}
+				options={{ header: () => <Header showDrawer title="Settings" /> }}
 			/>
 			{/* Client */}
 			<Stack.Screen
@@ -145,6 +136,6 @@ export type SettingsStackParamList = {
 
 export type SettingsStackScreenProps<Screen extends keyof SettingsStackParamList> =
 	CompositeScreenProps<
-		StackScreenProps<SettingsStackParamList, Screen>,
+		NativeStackScreenProps<SettingsStackParamList, Screen>,
 		TabScreenProps<'SettingsStack'>
 	>;

@@ -223,7 +223,7 @@ const SpacedropNodes = () => {
 	return Array.from(discoveredPeers).map(([id, peer]) => (
 		<Menu.Item
 			key={id}
-			label={peer.name}
+			label={peer.metadata.name}
 			disabled={spacedrop.isLoading}
 			onClick={async () => {
 				spacedrop.mutateAsync({

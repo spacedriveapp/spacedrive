@@ -14,7 +14,7 @@ export interface TopBarButtonProps {
 }
 
 const topBarButtonStyle = cva(
-	'text-md relative mr-[1px] flex border-none !p-0.5 font-medium text-ink outline-none transition-colors duration-100 hover:bg-app-selected hover:text-ink radix-state-open:bg-app-selected',
+	'text-md relative mr-px flex border-none !p-0.5 font-medium text-ink outline-none transition-colors duration-100 hover:bg-app-selected hover:text-ink radix-state-open:bg-app-selected',
 	{
 		variants: {
 			active: {
@@ -45,7 +45,7 @@ export default forwardRef<HTMLButtonElement, TopBarButtonProps>(
 			>
 				{props.children}
 				{checkIcon && active && (
-					<Check className="absolute right-2 m-0.5 h-5 w-5 text-ink-dull" />
+					<Check className="absolute right-2 m-0.5 size-5 text-ink-dull" />
 				)}
 			</Button>
 		);

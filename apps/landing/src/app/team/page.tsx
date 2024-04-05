@@ -14,10 +14,6 @@ export default function Page() {
 	return (
 		<Markdown articleClassNames="mx-auto mt-32 prose-a:text-white">
 			<div className="team-page relative mx-auto">
-				<div
-					className="bloom subtle egg-bloom-one -top-60 right-[-400px]"
-					style={{ transform: 'scale(2)' }}
-				/>
 				<div className="relative z-10">
 					<h1 className="fade-in-heading text-5xl leading-tight sm:leading-snug ">
 						We believe file management should be{' '}

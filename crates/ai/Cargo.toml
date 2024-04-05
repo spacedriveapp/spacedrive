@@ -41,6 +41,7 @@ uuid = { workspace = true, features = ["v4", "serde"] }
 # Note: Keep same version as used by ort
 ndarray = { version = "0.15.6" }
 half = { version = "2.1", features = ['num-traits'] }
+rmpv.workspace = true
 
 # Microsoft does not provide a release for osx-gpu. See: https://github.com/microsoft/onnxruntime/releases
 # "gpu" means CUDA or TensorRT EP. Thus, the ort crate cannot download them at build time.
