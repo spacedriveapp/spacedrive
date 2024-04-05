@@ -2,22 +2,26 @@ use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
 use futures_util::{Stream, StreamExt};
-use opendal::Operator;
+use opendal::{raw::normalize_path, Operator, Scheme};
 use serde::Serialize;
 use specta::Type;
+use thiserror::Error;
 
-use crate::stream::TaskStream;
+use crate::{rules::IndexerRule, stream::TaskStream};
 
 // TODO: Error handling
 // TODO: Tracing
 
 // TODO: Sorting -> Probs frontend now
-// TODO: IndexerRule's
 // TODO: Thumbnailer
 
 // TODO: Do in within the app but if it's a location lookup thing
 
-pub async fn ephemeral(opendal: Operator, path: PathBuf) -> impl Stream<Item = NonIndexedPathItem> {
+pub async fn ephemeral(
+	opendal: Operator,
+	rules: Vec<IndexerRule>,
+	path: PathBuf,
+) -> impl Stream<Item = NonIndexedPathItem> {
 	let path = path.to_str().unwrap().to_string();
 	let mut lister = opendal.lister(&path).await.unwrap();
 
@@ -26,20 +30,59 @@ pub async fn ephemeral(opendal: Operator, path: PathBuf) -> impl Stream<Item = N
 			let entry = entry.unwrap();
 			let path = PathBuf::from(entry.path());
 
+			// Only Windows supports normalised files without FS access.
+			// For now we'll just do normalisation for local files.
+			let (name, path) = if opendal.info().scheme() == Scheme::Fs {
+				crate::path::normalize_path(path).unwrap()
+
+				todo!();
+			} else {
+				(
+					path.file_name()
+						.unwrap()
+						.to_str()
+						.unwrap()
+						// .ok_or_else(|| {
+						// 	(
+						// 		path,
+						// 		io::Error::new(ErrorKind::Other, "error non UTF-8 path"),
+						// 	)
+						// })?
+						.to_string(),
+					path,
+				)
+			};
+
+			// let (entry_path, name) = match normalize_path(entry.path) {
+			// 	Ok(v) => v,
+			// 	Err(e) => {
+			// 		tx.send(Err(Either::Left(
+			// 			NonIndexedLocationError::from((path, e)).into(),
+			// 		)))
+			// 		.await?;
+			// 		continue;
+			// 	}
+			// };
+
+			// match IndexerRule::apply_all(&rules, &entry_path).await {
+			// 	Ok(rule_results) => {
+			// 		// No OS Protected and No Hidden rules, must always be from this kind, should panic otherwise
+			// 		if rule_results[&RuleKind::RejectFilesByGlob]
+			// 			.iter()
+			// 			.any(|reject| !reject)
+			// 		{
+			// 			continue;
+			// 		}
+			// 	}
+			// 	Err(e) => {
+			// 		tx.send(Err(Either::Left(e.into()))).await?;
+			// 		continue;
+			// 	}
+			// };
+
 			tx.send(NonIndexedPathItem {
 				path: entry.path().to_string(),
-				name: path
-					.file_name()
-					.unwrap()
-					.to_str()
-					.unwrap()
-					// .ok_or_else(|| {
-					// 	(
-					// 		path,
-					// 		io::Error::new(ErrorKind::Other, "error non UTF-8 path"),
-					// 	)
-					// })?
-					.to_string(),
+				name,
 				extension: path
 					.extension()
 					.and_then(|s| s.to_str().map(str::to_string))
@@ -69,3 +112,6 @@ pub struct NonIndexedPathItem {
 	pub size_in_bytes_bytes: Vec<u8>,
 	pub hidden: bool,
 }
+
+#[derive(Error, Debug)]
+pub enum EphemeralIndexerError {}

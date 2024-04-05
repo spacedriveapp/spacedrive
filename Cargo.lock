@@ -8784,6 +8784,7 @@ dependencies = [
  "chrono",
  "futures-util",
  "globset",
+ "normpath",
  "opendal",
  "rmp-serde",
  "rspc",

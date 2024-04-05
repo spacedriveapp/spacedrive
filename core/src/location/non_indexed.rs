@@ -13,6 +13,7 @@ use itertools::Either;
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_file_path_helper::{path_is_hidden, MetadataExt};
 use sd_indexer::{
+	path::normalize_path,
 	rules::{IndexerRule, RuleKind},
 	NonIndexedPathItem,
 };
@@ -35,10 +36,7 @@ use tokio::{io, sync::mpsc, task::JoinError};
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{error, span, warn, Level};
 
-use super::{
-	indexer::rules::seed::{no_hidden, no_os_protected},
-	normalize_path,
-};
+use super::indexer::rules::seed::{no_hidden, no_os_protected};
 
 #[derive(Debug, Error)]
 pub enum NonIndexedLocationError {

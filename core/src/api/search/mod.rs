@@ -4,14 +4,19 @@ use crate::{
 		utils::library,
 	},
 	library::Library,
-	location::{non_indexed, LocationError},
+	location::{
+		indexer::rules::seed::{no_hidden, no_os_protected},
+		non_indexed, LocationError,
+	},
 	object::media::old_thumbnail::get_indexed_thumb_key,
 	util::{unsafe_streamed_query, BatchedStream},
 };
 
 use opendal::{services::Fs, Operator};
 use sd_cache::{CacheNode, Model, Normalise, Reference};
+use sd_indexer::rules::IndexerRule;
 use sd_prisma::prisma::{self, PrismaClient};
+use sd_utils::chain_optional_iter;
 
 use std::path::PathBuf;
 
@@ -138,7 +143,12 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						}
 					};
 
-					let stream = sd_indexer::ephemeral(service, path).await;
+					let rules = chain_optional_iter(
+						[IndexerRule::from(no_os_protected())],
+						[(!with_hidden_files).then(|| IndexerRule::from(no_hidden()))],
+					);
+
+					let stream = sd_indexer::ephemeral(service, rules, path).await;
 
 					// let paths =
 					// 	non_indexed::walk(path, with_hidden_files, node, library, |entries| {
