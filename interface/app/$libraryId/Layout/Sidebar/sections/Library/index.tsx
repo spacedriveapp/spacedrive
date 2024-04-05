@@ -28,11 +28,11 @@ export default function LibrarySection() {
 				{t('favorites')}
 				{/* <div className={COUNT_STYLE}>2</div> */}
 			</SidebarLink>
-			<SidebarLink to="labels">
+			{/* <SidebarLink to="labels">
 				<Icon component={Tag} />
 				{t('labels')}
 				<div className={COUNT_STYLE}>{labelCount.data || 0}</div>
-			</SidebarLink>
+			</SidebarLink> */}
 		</div>
 	);
 }
