@@ -388,8 +388,8 @@ pub async fn get_inode_from_path(path: impl AsRef<Path> + Send) -> Result<u64, F
 		let info = tokio::task::block_in_place(|| {
 			Handle::from_path_any(path.as_ref())
 				.and_then(|ref handle| information(handle))
-				.map_err(|e| FileIOError::from((path, e)))?
-		});
+				.map_err(|e| FileIOError::from((path, e)))
+		})?;
 
 		Ok(info.file_index())
 	}
