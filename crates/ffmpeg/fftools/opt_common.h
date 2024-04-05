@@ -21,8 +21,6 @@
 #ifndef FFTOOLS_OPT_COMMON_H
 #define FFTOOLS_OPT_COMMON_H
 
-// #include "config.h"
-
 #include "cmdutils.h"
 
 /**
@@ -37,11 +35,11 @@ int show_sinks(void *optctx, const char *opt, const char *arg);
  */
 int show_sources(void *optctx, const char *opt, const char *arg);
 
+// clang-format off
 #define CMDUTILS_COMMON_OPTIONS_AVDEVICE                                                                                \
-    { "sources"    , OPT_EXIT | HAS_ARG, { .func_arg = show_sources },                                                  \
-      "list sources of the input device", "device" },                                                                   \
-    { "sinks"      , OPT_EXIT | HAS_ARG, { .func_arg = show_sinks },                                                    \
-      "list sinks of the output device", "device" },                                                                    \
+    { "sources"    , OPT_EXIT | HAS_ARG, { .func_arg = show_sources }, "list sources of the input device", "device" },  \
+    { "sinks"      , OPT_EXIT | HAS_ARG, { .func_arg = show_sinks },   "list sinks of the output device",  "device" },
+// clang-format on
 
 /**
  * Generic -h handler common to all fftools.
@@ -167,6 +165,7 @@ int opt_cpuflags(void *optctx, const char *opt, const char *arg);
  */
 int opt_cpucount(void *optctx, const char *opt, const char *arg);
 
+// clang-format off
 #define CMDUTILS_COMMON_OPTIONS                                                                                         \
     { "h",           OPT_EXIT,             { .func_arg = show_help },        "show help", "topic" },                    \
     { "?",           OPT_EXIT,             { .func_arg = show_help },        "show help", "topic" },                    \
@@ -194,6 +193,7 @@ int opt_cpucount(void *optctx, const char *opt, const char *arg);
     { "cpuflags",    HAS_ARG | OPT_EXPERT, { .func_arg = opt_cpuflags },     "force specific cpu flags", "flags" },     \
     { "cpucount",    HAS_ARG | OPT_EXPERT, { .func_arg = opt_cpucount },     "force specific cpu count", "count" },     \
     { "hide_banner", OPT_BOOL | OPT_EXPERT, {&hide_banner},     "do not show program banner", "hide_banner" },          \
-    CMDUTILS_COMMON_OPTIONS_AVDEVICE                                                                                    \
+    CMDUTILS_COMMON_OPTIONS_AVDEVICE
+// clang-format on
 
 #endif /* FFTOOLS_OPT_COMMON_H */

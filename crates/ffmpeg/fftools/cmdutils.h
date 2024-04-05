@@ -23,6 +23,7 @@
 #define FFTOOLS_CMDUTILS_H
 
 #include <stdint.h>
+
 #include "libavformat/avformat.h"
 
 /**
@@ -55,7 +56,7 @@ void uninit_opts(void);
  * Trivial log callback.
  * Only suitable for opt_help and similar since it lacks prefix handling.
  */
-void log_callback_help(void* ptr, int level, const char* fmt, va_list vl);
+void log_callback_help(void *ptr, int level, const char *fmt, va_list vl);
 
 /**
  * Fallback for options that are not explicitly handled, these will be
@@ -79,53 +80,55 @@ int opt_timelimit(void *optctx, const char *opt, const char *arg);
  * @param min the minimum valid accepted value
  * @param max the maximum valid accepted value
  */
-int parse_number(const char *context, const char *numstr, int type,
-                 double min, double max, double *dst);
+int parse_number(const char *context, const char *numstr, int type, double min,
+                 double max, double *dst);
 
 typedef struct SpecifierOpt {
-    char *specifier;    /**< stream/chapter/program/... specifier */
-    union {
-        uint8_t *str;
-        int        i;
-        int64_t  i64;
-        uint64_t ui64;
-        float      f;
-        double   dbl;
-    } u;
+  char *specifier; /**< stream/chapter/program/... specifier */
+  union {
+    uint8_t *str;
+    int i;
+    int64_t i64;
+    uint64_t ui64;
+    float f;
+    double dbl;
+  } u;
 } SpecifierOpt;
 
 typedef struct OptionDef {
-    const char *name;
-    int flags;
-#define HAS_ARG    0x0001
-#define OPT_BOOL   0x0002
+  const char *name;
+  int flags;
+#define HAS_ARG 0x0001
+#define OPT_BOOL 0x0002
 #define OPT_EXPERT 0x0004
 #define OPT_STRING 0x0008
-#define OPT_VIDEO  0x0010
-#define OPT_AUDIO  0x0020
-#define OPT_INT    0x0080
-#define OPT_FLOAT  0x0100
+#define OPT_VIDEO 0x0010
+#define OPT_AUDIO 0x0020
+#define OPT_INT 0x0080
+#define OPT_FLOAT 0x0100
 #define OPT_SUBTITLE 0x0200
-#define OPT_INT64  0x0400
-#define OPT_EXIT   0x0800
-#define OPT_DATA   0x1000
-#define OPT_PERFILE  0x2000     /* the option is per-file (currently ffmpeg-only).
-                                   implied by OPT_OFFSET or OPT_SPEC */
-#define OPT_OFFSET 0x4000       /* option is specified as an offset in a passed optctx */
-#define OPT_SPEC   0x8000       /* option is to be stored in an array of SpecifierOpt.
-                                   Implies OPT_OFFSET. Next element after the offset is
-                                   an int containing element count in the array. */
-#define OPT_TIME  0x10000
+#define OPT_INT64 0x0400
+#define OPT_EXIT 0x0800
+#define OPT_DATA 0x1000
+/* the option is per-file (currently ffmpeg-only). implied by OPT_OFFSET or
+ * OPT_SPEC */
+#define OPT_PERFILE 0x2000
+/* option is specified as an offset in a passed optctx */
+#define OPT_OFFSET 0x4000
+/* option is to be stored in an array of SpecifierOpt. Implies OPT_OFFSET. Next
+ * element after the offset is an int containing element count in the array. */
+#define OPT_SPEC 0x8000
+#define OPT_TIME 0x10000
 #define OPT_DOUBLE 0x20000
-#define OPT_INPUT  0x40000
+#define OPT_INPUT 0x40000
 #define OPT_OUTPUT 0x80000
-     union {
-        void *dst_ptr;
-        int (*func_arg)(void *, const char *, const char *);
-        size_t off;
-    } u;
-    const char *help;
-    const char *argname;
+  union {
+    void *dst_ptr;
+    int (*func_arg)(void *, const char *, const char *);
+    size_t off;
+  } u;
+  const char *help;
+  const char *argname;
 } OptionDef;
 
 /**
@@ -165,12 +168,13 @@ void show_help_default(const char *opt, const char *arg);
  * not have to be processed.
  */
 int parse_options(void *optctx, int argc, char **argv, const OptionDef *options,
-                  int (* parse_arg_function)(void *optctx, const char*));
+                  int (*parse_arg_function)(void *optctx, const char *));
 
 /**
  * Parse one given option.
  *
- * @return on success 1 if arg was consumed, 0 otherwise; negative number on error
+ * @return on success 1 if arg was consumed, 0 otherwise; negative number on
+ * error
  */
 int parse_option(void *optctx, const char *opt, const char *arg,
                  const OptionDef *options);
@@ -181,37 +185,37 @@ int parse_option(void *optctx, const char *opt, const char *arg,
  * used multiple times.
  */
 typedef struct Option {
-    const OptionDef  *opt;
-    const char       *key;
-    const char       *val;
+  const OptionDef *opt;
+  const char *key;
+  const char *val;
 } Option;
 
 typedef struct OptionGroupDef {
-    /**< group name */
-    const char *name;
-    /**
-     * Option to be used as group separator. Can be NULL for groups which
-     * are terminated by a non-option argument (e.g. ffmpeg output files)
-     */
-    const char *sep;
-    /**
-     * Option flags that must be set on each option that is
-     * applied to this group
-     */
-    int flags;
+  /**< group name */
+  const char *name;
+  /**
+   * Option to be used as group separator. Can be NULL for groups which
+   * are terminated by a non-option argument (e.g. ffmpeg output files)
+   */
+  const char *sep;
+  /**
+   * Option flags that must be set on each option that is
+   * applied to this group
+   */
+  int flags;
 } OptionGroupDef;
 
 typedef struct OptionGroup {
-    const OptionGroupDef *group_def;
-    const char *arg;
+  const OptionGroupDef *group_def;
+  const char *arg;
 
-    Option *opts;
-    int  nb_opts;
+  Option *opts;
+  int nb_opts;
 
-    AVDictionary *codec_opts;
-    AVDictionary *format_opts;
-    AVDictionary *sws_dict;
-    AVDictionary *swr_opts;
+  AVDictionary *codec_opts;
+  AVDictionary *format_opts;
+  AVDictionary *sws_dict;
+  AVDictionary *swr_opts;
 } OptionGroup;
 
 /**
@@ -219,20 +223,20 @@ typedef struct OptionGroup {
  * (e.g. input files or output files)
  */
 typedef struct OptionGroupList {
-    const OptionGroupDef *group_def;
+  const OptionGroupDef *group_def;
 
-    OptionGroup *groups;
-    int       nb_groups;
+  OptionGroup *groups;
+  int nb_groups;
 } OptionGroupList;
 
 typedef struct OptionParseContext {
-    OptionGroup global_opts;
+  OptionGroup global_opts;
 
-    OptionGroupList *groups;
-    int           nb_groups;
+  OptionGroupList *groups;
+  int nb_groups;
 
-    /* parsing state */
-    OptionGroup cur_group;
+  /* parsing state */
+  OptionGroup cur_group;
 } OptionParseContext;
 
 /**
@@ -261,8 +265,8 @@ int parse_optgroup(void *optctx, OptionGroup *g);
  * same as the order of group definitions.
  */
 int split_commandline(OptionParseContext *octx, int argc, char *argv[],
-                      const OptionDef *options,
-                      const OptionGroupDef *groups, int nb_groups);
+                      const OptionDef *options, const OptionGroupDef *groups,
+                      int nb_groups);
 
 /**
  * Free all allocated memory in an OptionParseContext.
@@ -318,8 +322,7 @@ int filter_codec_opts(const AVDictionary *opts, enum AVCodecID codec_id,
  * Each dictionary will contain the options from codec_opts which can
  * be applied to the corresponding stream codec context.
  */
-int setup_find_stream_info_opts(AVFormatContext *s,
-                                AVDictionary *codec_opts,
+int setup_find_stream_info_opts(AVFormatContext *s, AVDictionary *codec_opts,
                                 AVDictionary ***dst);
 
 /**
@@ -358,7 +361,8 @@ int read_yesno(void);
  * preset, may be NULL
  */
 FILE *get_preset_file(char *filename, size_t filename_size,
-                      const char *preset_name, int is_path, const char *codec_name);
+                      const char *preset_name, int is_path,
+                      const char *codec_name);
 
 /**
  * Realloc array to hold new_size elements of elem_size.
@@ -385,21 +389,20 @@ int grow_array(void **array, int elem_size, int *size, int new_size);
  */
 void *allocate_array_elem(void *array, size_t elem_size, int *nb_elems);
 
-#define GROW_ARRAY(array, nb_elems)\
-    grow_array((void**)&array, sizeof(*array), &nb_elems, nb_elems + 1)
+#define GROW_ARRAY(array, nb_elems)                                            \
+  grow_array((void **)&array, sizeof(*array), &nb_elems, nb_elems + 1)
 
-#define GET_PIX_FMT_NAME(pix_fmt)\
-    const char *name = av_get_pix_fmt_name(pix_fmt);
+#define GET_PIX_FMT_NAME(pix_fmt)                                              \
+  const char *name = av_get_pix_fmt_name(pix_fmt);
 
-#define GET_CODEC_NAME(id)\
-    const char *name = avcodec_descriptor_get(id)->name;
+#define GET_CODEC_NAME(id) const char *name = avcodec_descriptor_get(id)->name;
 
-#define GET_SAMPLE_FMT_NAME(sample_fmt)\
-    const char *name = av_get_sample_fmt_name(sample_fmt)
+#define GET_SAMPLE_FMT_NAME(sample_fmt)                                        \
+  const char *name = av_get_sample_fmt_name(sample_fmt)
 
-#define GET_SAMPLE_RATE_NAME(rate)\
-    char name[16];\
-    snprintf(name, sizeof(name), "%d", rate);
+#define GET_SAMPLE_RATE_NAME(rate)                                             \
+  char name[16];                                                               \
+  snprintf(name, sizeof(name), "%d", rate);
 
 double get_rotation(const int32_t *displaymatrix);
 
