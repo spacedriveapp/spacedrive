@@ -47,7 +47,7 @@ export default (props: PropsWithChildren) => {
 		},
 		onSuccess: (folder) => {
 			toast.success({
-				title: t("create_folder_success", {
+				title: t('create_folder_success', {
 					name: folder
 				})
 			});
@@ -61,7 +61,7 @@ export default (props: PropsWithChildren) => {
 		},
 		onSuccess: (file) => {
 			toast.success({
-				title: t("create_file_success", {
+				title: t('create_file_success', {
 					name: file
 				})
 			});
@@ -75,7 +75,7 @@ export default (props: PropsWithChildren) => {
 		},
 		onSuccess: (folder) => {
 			toast.success({
-				title: t("create_folder_success", {
+				title: t('create_folder_success', {
 					name: folder
 				})
 			});
@@ -89,7 +89,7 @@ export default (props: PropsWithChildren) => {
 		},
 		onSuccess: (file) => {
 			toast.success({
-				title: t("create_file_success", {
+				title: t('create_file_success', {
 					name: file
 				})
 			});

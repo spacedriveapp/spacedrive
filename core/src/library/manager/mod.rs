@@ -428,7 +428,7 @@ impl Libraries {
 			.clone();
 
 		let identity = match instance.identity.as_ref() {
-			Some(b) => Arc::new(Identity::from_bytes(&b)?),
+			Some(b) => Arc::new(Identity::from_bytes(b)?),
 			// We are not this instance, so we don't have the private key.
 			None => return Err(LibraryManagerError::InvalidIdentity),
 		};
