@@ -104,6 +104,7 @@ pub fn path_is_hidden(path: impl AsRef<Path>, metadata: &Metadata) -> bool {
 
 impl FilePathMetadata {
 	pub fn from_path(path: impl AsRef<Path>, metadata: &Metadata) -> Result<Self, FilePathError> {
+		let path = path.as_ref();
 		let inode = {
 			#[cfg(target_family = "unix")]
 			{
@@ -115,7 +116,7 @@ impl FilePathMetadata {
 				use winapi_util::{file::information, Handle};
 
 				let info = tokio::task::block_in_place(|| {
-					Handle::from_path_any(path.as_ref())
+					Handle::from_path_any(path)
 						.and_then(|ref handle| information(handle))
 						.map_err(|e| FileIOError::from((path, e)))
 				})?;
@@ -126,7 +127,7 @@ impl FilePathMetadata {
 
 		Ok(Self {
 			inode,
-			hidden: path_is_hidden(path.as_ref(), metadata),
+			hidden: path_is_hidden(path, metadata),
 			size_in_bytes: metadata.len(),
 			created_at: metadata.created_or_now().into(),
 			modified_at: metadata.modified_or_now().into(),
