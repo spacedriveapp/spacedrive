@@ -1,11 +1,18 @@
-import { CaretRight } from '@phosphor-icons/react';
+import { AppWindow, CaretRight, ClipboardText } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { createSearchParams } from 'react-router-dom';
-import { getExplorerItemData, getIndexedItemFilePath, useLibraryQuery } from '@sd/client';
+import {
+	getExplorerItemData,
+	getIndexedItemFilePath,
+	useLibraryContext,
+	useLibraryQuery
+} from '@sd/client';
+import { ContextMenu } from '@sd/ui';
 import { Icon } from '~/components';
 import { useIsDark, useOperatingSystem } from '~/hooks';
+import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from './Context';
 import { FileThumb } from './FilePath/Thumb';
@@ -17,7 +24,6 @@ export const PATH_BAR_HEIGHT = 32;
 export const ExplorerPath = memo(() => {
 	const os = useOperatingSystem(true);
 	const navigate = useNavigate();
-
 	const [{ path: searchPath }] = useExplorerSearchParams();
 	const { parent: explorerParent, selectedItems } = useExplorerContext();
 
@@ -142,7 +148,11 @@ interface PathProps {
 
 const Path = ({ path, onClick, disabled }: PathProps) => {
 	const isDark = useIsDark();
-
+	const { revealItems } = usePlatform();
+	const { library } = useLibraryContext();
+	const [contextMenuOpen, setContextMenuOpen] = useState(false);
+	const os = useOperatingSystem(true);
+	const isSlashAtEnd = path.pathname.endsWith(os == 'windows' ? '\\' : '/'); // Checks if the path is ephemeral or not
 	const { setDroppableRef, className, isDroppable } = useExplorerDroppable({
 		data: {
 			type: 'location',
@@ -155,21 +165,54 @@ const Path = ({ path, onClick, disabled }: PathProps) => {
 	});
 
 	return (
-		<button
-			ref={setDroppableRef}
-			className={clsx(
-				'group flex items-center gap-1 rounded px-1 py-0.5',
-				isDroppable && [isDark ? 'bg-app-button/70' : 'bg-app-darkerBox'],
-				!disabled && [isDark ? 'hover:bg-app-button/70' : 'hover:bg-app-darkerBox'],
-				className
-			)}
-			disabled={disabled}
-			onClick={onClick}
-			tabIndex={-1}
+		<ContextMenu.Root
+			onOpenChange={setContextMenuOpen}
+			trigger={
+				<button
+					ref={setDroppableRef}
+					className={clsx(
+						'group flex items-center gap-1 rounded px-1 py-0.5',
+						(isDroppable || contextMenuOpen) && [
+							isDark ? 'bg-app-button/70' : 'bg-app-darkerBox'
+						],
+						!disabled && [isDark ? 'hover:bg-app-button/70' : 'hover:bg-app-darkerBox'],
+						className
+					)}
+					disabled={disabled}
+					onClick={onClick}
+					tabIndex={-1}
+				>
+					<Icon name="Folder" size={16} alt="Folder" />
+					<span className="max-w-xs truncate text-ink-dull">{path.name}</span>
+					<CaretRight
+						weight="bold"
+						className="text-ink-dull group-last:hidden"
+						size={10}
+					/>
+				</button>
+			}
 		>
-			<Icon name="Folder" size={16} alt="Folder" />
-			<span className="max-w-xs truncate text-ink-dull">{path.name}</span>
-			<CaretRight weight="bold" className="text-ink-dull group-last:hidden" size={10} />
-		</button>
+			<ContextMenu.Item
+				onClick={() => {
+					if (!revealItems) return null;
+					revealItems(library.uuid, [
+						isSlashAtEnd
+							? {
+									Location: { id: path.locationId! }
+								}
+							: {
+									Ephemeral: { path: path.pathname }
+								}
+					]);
+				}}
+				label="Open in Finder"
+				icon={AppWindow}
+			/>
+			<ContextMenu.Item
+				onClick={() => navigator.clipboard.writeText(path.pathname)}
+				icon={ClipboardText}
+				label={`Copy "${path.name}" as path`}
+			/>
+		</ContextMenu.Root>
 	);
 };

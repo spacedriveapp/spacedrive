@@ -36,10 +36,6 @@ export default (props: PropsWithChildren) => {
 	const generateLabelsForLocation = useLibraryMutation('jobs.generateLabelsForLocation');
 	const objectValidator = useLibraryMutation('jobs.objectValidator');
 	const rescanLocation = useLibraryMutation('locations.subPathRescan');
-	const copyFiles = useLibraryMutation('files.copyFiles');
-	const copyEphemeralFiles = useLibraryMutation('ephemeralFiles.copyFiles');
-	const cutFiles = useLibraryMutation('files.cutFiles');
-	const cutEphemeralFiles = useLibraryMutation('ephemeralFiles.cutFiles');
 	const createFolder = useLibraryMutation(['files.createFolder'], {
 		onError: (e) => {
 			toast.error({ title: t('create_folder_error'), body: `Error: ${e}.` });
@@ -47,7 +43,7 @@ export default (props: PropsWithChildren) => {
 		},
 		onSuccess: (folder) => {
 			toast.success({
-				title: t("create_folder_success", {
+				title: t('create_folder_success', {
 					name: folder
 				})
 			});
@@ -61,7 +57,7 @@ export default (props: PropsWithChildren) => {
 		},
 		onSuccess: (file) => {
 			toast.success({
-				title: t("create_file_success", {
+				title: t('create_file_success', {
 					name: file
 				})
 			});
@@ -75,7 +71,7 @@ export default (props: PropsWithChildren) => {
 		},
 		onSuccess: (folder) => {
 			toast.success({
-				title: t("create_folder_success", {
+				title: t('create_folder_success', {
 					name: folder
 				})
 			});
@@ -89,7 +85,7 @@ export default (props: PropsWithChildren) => {
 		},
 		onSuccess: (file) => {
 			toast.success({
-				title: t("create_file_success", {
+				title: t('create_file_success', {
 					name: file
 				})
 			});
