@@ -52,8 +52,6 @@ enum show_muxdemuxers {
 static FILE *report_file;
 static int report_file_level = AV_LOG_DEBUG;
 
-static int warned_cfg = 0;
-
 #define INDENT 1
 #define SHOW_VERSION 2
 #define SHOW_CONFIG 4
@@ -726,7 +724,7 @@ int show_colors(void *optctx, const char *opt, const char *arg) {
 
   printf("%-32s #RRGGBB\n", "name");
 
-  for (i = 0; name = av_get_known_color_name(i, &rgb); i++)
+  for (i = 0; (name = av_get_known_color_name(i, &rgb)); i++)
     printf("%-32s #%02x%02x%02x\n", name, rgb[0], rgb[1], rgb[2]);
 
   return 0;
@@ -779,7 +777,7 @@ int show_layouts(void *optctx, const char *opt, const char *arg) {
   }
   printf("\nStandard channel layouts:\n"
          "NAME           DECOMPOSITION\n");
-  while (ch_layout = av_channel_layout_standard(&iter)) {
+  while ((ch_layout = av_channel_layout_standard(&iter))) {
     av_channel_layout_describe(ch_layout, buf, sizeof(buf));
     printf("%-14s ", buf);
     for (i = 0; i < 63; i++) {

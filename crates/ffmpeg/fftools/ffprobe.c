@@ -89,7 +89,6 @@ static int do_show_programs = 0;
 static int do_show_streams = 0;
 static int do_show_stream_disposition = 0;
 static int do_show_data = 0;
-static int do_show_pixel_formats = 0;
 static int do_show_pixel_format_flags = 0;
 static int do_show_pixel_format_components = 0;
 static int do_show_log = 0;
@@ -1493,7 +1492,7 @@ static char *ini_escape_str(AVBPrint *dst, const char *src) {
   int i = 0;
   char c = 0;
 
-  while (c = src[i++]) {
+  while ((c = src[i++])) {
     switch (c) {
     case '\b':
       av_bprintf(dst, "%s", "\\b");
@@ -2455,7 +2454,7 @@ static void print_pkt_side_data(WriterContext *w, AVCodecParameters *par,
 
 static void print_private_data(WriterContext *w, void *priv_data) {
   const AVOption *opt = NULL;
-  while (opt = av_opt_next(priv_data, opt)) {
+  while ((opt = av_opt_next(priv_data, opt))) {
     uint8_t *str;
     if (!(opt->flags & AV_OPT_FLAG_EXPORT))
       continue;
@@ -3091,7 +3090,7 @@ static int show_stream(WriterContext *w, AVFormatContext *fmt_ctx,
 
   par = stream->codecpar;
   dec_ctx = ist->dec_ctx;
-  if (cd = avcodec_descriptor_get(par->codec_id)) {
+  if ((cd = avcodec_descriptor_get(par->codec_id))) {
     print_str("codec_name", cd->name);
     if (!do_bitexact) {
       print_str("codec_long_name", cd->long_name ? cd->long_name : "unknown");
@@ -3678,54 +3677,6 @@ static void show_usage(void) {
     print_int(name, !!(pixdesc->flags & AV_PIX_FMT_FLAG_##flagname));          \
   } while (0)
 
-static void ffprobe_show_pixel_formats(WriterContext *w) {
-  const AVPixFmtDescriptor *pixdesc = NULL;
-  int i, n;
-
-  writer_print_section_header(w, NULL, SECTION_ID_PIXEL_FORMATS);
-  while (pixdesc = av_pix_fmt_desc_next(pixdesc)) {
-    writer_print_section_header(w, NULL, SECTION_ID_PIXEL_FORMAT);
-    print_str("name", pixdesc->name);
-    print_int("nb_components", pixdesc->nb_components);
-    if ((pixdesc->nb_components >= 3) &&
-        !(pixdesc->flags & AV_PIX_FMT_FLAG_RGB)) {
-      print_int("log2_chroma_w", pixdesc->log2_chroma_w);
-      print_int("log2_chroma_h", pixdesc->log2_chroma_h);
-    } else {
-      print_str_opt("log2_chroma_w", "N/A");
-      print_str_opt("log2_chroma_h", "N/A");
-    }
-    n = av_get_bits_per_pixel(pixdesc);
-    if (n)
-      print_int("bits_per_pixel", n);
-    else
-      print_str_opt("bits_per_pixel", "N/A");
-    if (do_show_pixel_format_flags) {
-      writer_print_section_header(w, NULL, SECTION_ID_PIXEL_FORMAT_FLAGS);
-      PRINT_PIX_FMT_FLAG(BE, "big_endian");
-      PRINT_PIX_FMT_FLAG(PAL, "palette");
-      PRINT_PIX_FMT_FLAG(BITSTREAM, "bitstream");
-      PRINT_PIX_FMT_FLAG(HWACCEL, "hwaccel");
-      PRINT_PIX_FMT_FLAG(PLANAR, "planar");
-      PRINT_PIX_FMT_FLAG(RGB, "rgb");
-      PRINT_PIX_FMT_FLAG(ALPHA, "alpha");
-      writer_print_section_footer(w);
-    }
-    if (do_show_pixel_format_components && (pixdesc->nb_components > 0)) {
-      writer_print_section_header(w, NULL, SECTION_ID_PIXEL_FORMAT_COMPONENTS);
-      for (i = 0; i < pixdesc->nb_components; i++) {
-        writer_print_section_header(w, NULL, SECTION_ID_PIXEL_FORMAT_COMPONENT);
-        print_int("index", i + 1);
-        print_int("bit_depth", pixdesc->comp[i].depth);
-        writer_print_section_footer(w);
-      }
-      writer_print_section_footer(w);
-    }
-    writer_print_section_footer(w);
-  }
-  writer_print_section_footer(w);
-}
-
 static int opt_show_optional_fields(void *optctx, const char *opt,
                                     const char *arg) {
   if (!av_strcasecmp(arg, "always"))
@@ -4084,7 +4035,6 @@ DEFINE_OPT_SHOW_SECTION(format, FORMAT)
 DEFINE_OPT_SHOW_SECTION(frames, FRAMES)
 DEFINE_OPT_SHOW_SECTION(library_versions, LIBRARY_VERSIONS)
 DEFINE_OPT_SHOW_SECTION(packets, PACKETS)
-DEFINE_OPT_SHOW_SECTION(pixel_formats, PIXEL_FORMATS)
 DEFINE_OPT_SHOW_SECTION(program_version, PROGRAM_VERSION)
 DEFINE_OPT_SHOW_SECTION(streams, STREAMS)
 DEFINE_OPT_SHOW_SECTION(programs, PROGRAMS)
@@ -4118,7 +4068,6 @@ static const OptionDef real_options[] = {
     { "show_program_version",  0, { .func_arg = &opt_show_program_version },  "show ffprobe version" },
     { "show_library_versions", 0, { .func_arg = &opt_show_library_versions }, "show library versions" },
     { "show_versions",         0, { .func_arg = &opt_show_versions }, "show program and library versions" },
-    { "show_pixel_formats", 0, { .func_arg = &opt_show_pixel_formats }, "show pixel format descriptions" },
     { "show_optional_fields", HAS_ARG, { .func_arg = &opt_show_optional_fields }, "show optional fields" },
     { "show_private_data", OPT_BOOL, { &show_private_data }, "show private data" },
     { "private",           OPT_BOOL, { &show_private_data }, "same as show_private_data" },
@@ -4178,7 +4127,6 @@ int main(int argc, char **argv) {
   SET_DO_SHOW(FORMAT, format);
   SET_DO_SHOW(FRAMES, frames);
   SET_DO_SHOW(PACKETS, packets);
-  SET_DO_SHOW(PIXEL_FORMATS, pixel_formats);
   SET_DO_SHOW(PIXEL_FORMAT_FLAGS, pixel_format_flags);
   SET_DO_SHOW(PIXEL_FORMAT_COMPONENTS, pixel_format_components);
   SET_DO_SHOW(PROGRAMS, programs);
@@ -4193,14 +4141,6 @@ int main(int argc, char **argv) {
   SET_DO_SHOW(STREAM_TAGS, stream_tags);
   SET_DO_SHOW(PROGRAM_STREAM_TAGS, stream_tags);
   SET_DO_SHOW(PACKET_TAGS, packet_tags);
-
-  if (do_bitexact) {
-    av_log(NULL, AV_LOG_ERROR,
-           "-bitexact and -show_program_version or -show_library_versions "
-           "options are incompatible\n");
-    ret = AVERROR(EINVAL);
-    goto end;
-  }
 
   writer_register_all();
 
@@ -4249,13 +4189,9 @@ int main(int argc, char **argv) {
 
     writer_print_section_header(wctx, NULL, SECTION_ID_ROOT);
 
-    if (do_show_pixel_formats)
-      ffprobe_show_pixel_formats(wctx);
-
     if (!input_filename &&
         (do_show_format || do_show_programs || do_show_streams ||
-         do_show_chapters || do_show_packets || do_show_error ||
-         !do_show_pixel_formats)) {
+         do_show_chapters || do_show_packets || do_show_error)) {
       show_usage();
       av_log(NULL, AV_LOG_ERROR, "You have to specify one input file.\n");
       av_log(NULL, AV_LOG_ERROR,
