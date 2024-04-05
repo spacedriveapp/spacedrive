@@ -11,7 +11,7 @@ import type {
 	NodeState,
 	Tag
 } from '@sd/client';
-import { type Ordering, type OrderingKeys } from '@sd/client';
+import { ObjectKindEnum, type Ordering, type OrderingKeys } from '@sd/client';
 
 import { createDefaultExplorerSettings } from './store';
 import { uniqueId } from './util';
@@ -128,6 +128,12 @@ export function useExplorerSettings<TOrder extends Ordering>({
 
 	return {
 		useSettingsSnapshot: () => useSnapshot(store),
+		useLayoutSearchFilters: () => {
+			const explorerSettingsSnapshot = useSnapshot(store);
+			return explorerSettingsSnapshot.layoutMode === 'media'
+				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
+				: [];
+		},
 		settingsStore: store,
 		orderingKeys
 	};
