@@ -4049,7 +4049,6 @@ static const OptionDef real_options[] = {
     { "sexagesimal", OPT_BOOL,  {&use_value_sexagesimal_format}, "use sexagesimal format HOURS:MM:SS.MICROSECONDS for time units" },
     { "pretty", 0, {.func_arg = opt_pretty}, "prettify the format of displayed values, make it more human readable" },
     { "output_format", OPT_STRING | HAS_ARG, { &output_format }, "set the output printing format (available formats are: default, compact, csv, flat, ini, json, xml)", "format" },
-    { "print_format", OPT_STRING | HAS_ARG, { &output_format }, "alias for -output_format (deprecated)" },
     { "of", OPT_STRING | HAS_ARG, { &output_format }, "alias for -output_format", "format" },
     { "select_streams", OPT_STRING | HAS_ARG, { &stream_specifier }, "select the specified streams", "stream_specifier" },
     { "sections", OPT_EXIT, {.func_arg = opt_sections}, "print sections structure and section information, and exit" },

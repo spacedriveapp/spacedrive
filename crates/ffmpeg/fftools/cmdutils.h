@@ -25,6 +25,7 @@
 #include <stdint.h>
 
 #include "libavformat/avformat.h"
+#include "libavutil/pixdesc.h" // Must be included due to GET_PIX_FMT_NAME macro
 
 /**
  * program name, defined by the program for show_version().
