@@ -3,13 +3,17 @@ import { dirname, join as joinPath } from 'node:path'
 import { env } from 'node:process'
 import { fileURLToPath } from 'node:url'
 
-import { fetch, Headers } from 'undici'
+import { fetch, Headers, Agent } from 'undici'
 
 const __debug = env.NODE_ENV === 'debug'
 const __offline = env.OFFLINE === 'true'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const cacheDir = joinPath(__dirname, '.tmp')
+const dispatcher = new Agent({
+	allowH2: true,
+	autoSelectFamily: true,
+})
 await fs.mkdir(cacheDir, { recursive: true, mode: 0o751 })
 
 /**
@@ -124,7 +128,7 @@ export async function get(resource, headers, preferCache) {
 
 	if (cache?.header) headers.append(...cache.header)
 
-	const response = await fetch(resource, { headers })
+	const response = await fetch(resource, { dispatcher, headers })
 
 	if (!response.ok) {
 		if (cache?.data) {
