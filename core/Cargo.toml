@@ -1,6 +1,6 @@
 [package]
 name = "sd-core"
-version = "0.2.10"
+version = "0.3.0"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc."]
 rust-version = "1.75.0"
@@ -25,15 +25,15 @@ sd-core-sync = { path = "./crates/sync" }
 # sd-cloud-api = { path = "../crates/cloud-api" }
 sd-file-path-helper = { path = "../crates/file-path-helper" }
 sd-crypto = { path = "../crates/crypto", features = [
-	"sys",
-	"tokio",
+    "sys",
+    "tokio",
 ], optional = true }
 sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
 sd-file-ext = { path = "../crates/file-ext" }
 sd-images = { path = "../crates/images", features = [
-	"rspc",
-	"serde",
-	"specta",
+    "rspc",
+    "serde",
+    "specta",
 ] }
 sd-media-metadata = { path = "../crates/media-metadata" }
 sd-p2p = { path = "../crates/p2p", features = ["specta"] }
@@ -64,12 +64,12 @@ regex = { workspace = true }
 reqwest = { workspace = true, features = ["json", "native-tls-vendored"] }
 rmp-serde = { workspace = true }
 rspc = { workspace = true, features = [
-	"axum",
-	"uuid",
-	"chrono",
-	"tracing",
-	"alpha",
-	"unstable",
+    "axum",
+    "uuid",
+    "chrono",
+    "tracing",
+    "alpha",
+    "unstable",
 ] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
@@ -79,12 +79,12 @@ strum_macros = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = [
-	"sync",
-	"rt-multi-thread",
-	"io-util",
-	"macros",
-	"time",
-	"process",
+    "sync",
+    "rt-multi-thread",
+    "io-util",
+    "macros",
+    "time",
+    "process",
 ] }
 tokio-stream = { workspace = true, features = ["fs"] }
 tokio-util = { workspace = true, features = ["io"] }
@@ -111,7 +111,7 @@ itertools = "0.12.0"
 libc = "0.2.153"
 mini-moka = "0.10.2"
 notify = { git = "https://github.com/notify-rs/notify.git", rev = "c3929ed114fbb0bc7457a9a498260461596b00ca", default-features = false, features = [
-	"macos_fsevent",
+    "macos_fsevent",
 ] }
 rmpv = { workspace = true }
 serde-hashkey = "0.4.5"
@@ -144,10 +144,10 @@ plist = "1"
 
 [target.'cfg(target_os = "ios")'.dependencies]
 icrate = { version = "0.1.0", features = [
-	"Foundation",
-	"Foundation_NSFileManager",
-	"Foundation_NSString",
-	"Foundation_NSNumber",
+    "Foundation",
+    "Foundation_NSFileManager",
+    "Foundation_NSString",
+    "Foundation_NSNumber",
 ] }
 
 [dev-dependencies]

@@ -10,7 +10,8 @@ export const features = [
 	'debugRoutes',
 	'solidJsDemo',
 	'hostedLocations',
-	'debugDragAndDrop'
+	'debugDragAndDrop',
+	'searchTargetSwitcher'
 ] as const;
 
 // This defines which backend feature flags show up in the UI.

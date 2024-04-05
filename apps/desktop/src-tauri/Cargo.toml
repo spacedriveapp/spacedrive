@@ -1,6 +1,6 @@
 [package]
 name = "sd-desktop"
-version = "0.2.10"
+version = "0.3.0"
 description = "The universal file manager."
 authors = ["Spacedrive Technology Inc <support@spacedrive.com>"]
 default-run = "sd-desktop"
@@ -30,17 +30,17 @@ thiserror.workspace = true
 
 opener = { version = "0.6.1", features = ["reveal"] }
 tauri = { version = "=1.5.3", features = [
-	"macos-private-api",
-	"path-all",
-	"protocol-all",
-	"os-all",
-	"shell-all",
-	"dialog-all",
-	"linux-protocol-headers",
-	"updater",
-	"window-all",
-	"native-tls-vendored",
-	"tracing",
+    "macos-private-api",
+    "path-all",
+    "protocol-all",
+    "os-all",
+    "shell-all",
+    "dialog-all",
+    "linux-protocol-headers",
+    "updater",
+    "window-all",
+    "native-tls-vendored",
+    "tracing",
 ] }
 directories = "5.0.1"
 

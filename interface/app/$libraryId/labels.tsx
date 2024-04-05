@@ -9,7 +9,12 @@ import { createDefaultExplorerSettings, objectOrderingKeysSchema } from './Explo
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { EmptyNotice } from './Explorer/View/EmptyNotice';
-import { SearchContextProvider, SearchOptions, useSearch } from './search';
+import {
+	SearchContextProvider,
+	SearchOptions,
+	useSearch,
+	useSearchFromSearchParams
+} from './search';
 import SearchBar from './search/SearchBar';
 import { TopBarPortal } from './TopBar/Portal';
 
@@ -25,26 +30,7 @@ export function Component() {
 		orderingKeys: objectOrderingKeysSchema
 	});
 
-	// const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
-
-	// const fixedFilters = useMemo<SearchFilterArgs[]>(
-	// 	() => [
-	// 		...(explorerSettingsSnapshot.layoutMode === 'media'
-	// 			? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
-	// 			: [])
-	// 	],
-	// 	[explorerSettingsSnapshot.layoutMode]
-	// );
-
-	const search = useSearch({});
-
-	// const objects = useObjectsExplorerQuery({
-	// 	arg: {
-	// 		take: 100,
-	// 		filters: [...search.allFilters, { object: { tags: { in: [3] } } }]
-	// 	},
-	// 	explorerSettings
-	// });
+	const search = useSearchFromSearchParams();
 
 	const explorer = useExplorer({
 		items: labels.data || null,
