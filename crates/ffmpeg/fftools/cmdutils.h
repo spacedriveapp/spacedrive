@@ -23,16 +23,7 @@
 #define FFTOOLS_CMDUTILS_H
 
 #include <stdint.h>
-
-// #include "config.h"
-#include "libavcodec/avcodec.h"
-#include "libavfilter/avfilter.h"
 #include "libavformat/avformat.h"
-#include "libswscale/swscale.h"
-
-#ifdef _WIN32
-#undef main /* We don't want SDL to override our main() */
-#endif
 
 /**
  * program name, defined by the program for show_version().
@@ -49,10 +40,10 @@ extern AVDictionary *swr_opts;
 extern AVDictionary *format_opts, *codec_opts;
 extern int hide_banner;
 
-/**
- * Initialize dynamic library loading
- */
-void init_dynload(void);
+// /**
+//  * Initialize dynamic library loading
+//  */
+// void init_dynload(void);
 
 /**
  * Uninitialize the cmdutils option system, in particular
@@ -341,13 +332,6 @@ int setup_find_stream_info_opts(AVFormatContext *s,
  * @see av_strerror()
  */
 void print_error(const char *filename, int err);
-
-/**
- * Print the program banner to stderr. The banner contents depend on the
- * current version of the repository and of the libav* libraries used by
- * the program.
- */
-void show_banner(int argc, char **argv, const OptionDef *options);
 
 /**
  * Return a positive value if a line read from standard input

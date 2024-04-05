@@ -23,16 +23,11 @@
  * simple media prober based on the FFmpeg libraries
  */
 
-// #include "config.h"
-#include "libavutil/ffversion.h"
-
 #include <string.h>
 #include <math.h>
 
 #include "libavformat/avformat.h"
-#include "libavformat/version.h"
 #include "libavcodec/avcodec.h"
-#include "libavcodec/version.h"
 #include "libavutil/ambient_viewing_environment.h"
 #include "libavutil/avassert.h"
 #include "libavutil/avstring.h"
@@ -50,34 +45,12 @@
 #include "libavutil/stereo3d.h"
 #include "libavutil/dict.h"
 #include "libavutil/intreadwrite.h"
-#include "libm.h"
 #include "libavutil/parseutils.h"
 #include "libavutil/timecode.h"
 #include "libavutil/timestamp.h"
 #include "libavdevice/avdevice.h"
-#include "libavdevice/version.h"
-#include "libswscale/swscale.h"
-#include "libswscale/version.h"
-#include "libswresample/swresample.h"
-#include "libswresample/version.h"
-#include "libpostproc/postprocess.h"
-#include "libpostproc/version.h"
-#include "libavfilter/version.h"
 #include "cmdutils.h"
 #include "opt_common.h"
-
-// #include "libavutil/thread.h"
-
-#if !HAVE_THREADS
-#  ifdef pthread_mutex_lock
-#    undef pthread_mutex_lock
-#  endif
-#  define pthread_mutex_lock(a) do{}while(0)
-#  ifdef pthread_mutex_unlock
-#    undef pthread_mutex_unlock
-#  endif
-#  define pthread_mutex_unlock(a) do{}while(0)
-#endif
 
 // attached as opaque_ref to packets/frames
 typedef struct FrameData {
@@ -115,8 +88,6 @@ static int do_show_programs = 0;
 static int do_show_streams = 0;
 static int do_show_stream_disposition = 0;
 static int do_show_data    = 0;
-static int do_show_program_version  = 0;
-static int do_show_library_versions = 0;
 static int do_show_pixel_formats = 0;
 static int do_show_pixel_format_flags = 0;
 static int do_show_pixel_format_components = 0;
@@ -330,9 +301,6 @@ static uint64_t *nb_streams_packets;
 static uint64_t *nb_streams_frames;
 static int *selected_streams;
 
-#if HAVE_THREADS
-pthread_mutex_t log_mutex;
-#endif
 typedef struct LogBuffer {
     char *context_name;
     int log_level;
@@ -347,51 +315,14 @@ static int log_buffer_size;
 
 static void log_callback(void *ptr, int level, const char *fmt, va_list vl)
 {
-    AVClass* avc = ptr ? *(AVClass **) ptr : NULL;
     va_list vl2;
     char line[1024];
     static int print_prefix = 1;
-    void *new_log_buffer;
 
     va_copy(vl2, vl);
     av_log_default_callback(ptr, level, fmt, vl);
     av_log_format_line(ptr, level, fmt, vl2, line, sizeof(line), &print_prefix);
     va_end(vl2);
-
-#if HAVE_THREADS
-    pthread_mutex_lock(&log_mutex);
-
-    new_log_buffer = av_realloc_array(log_buffer, log_buffer_size + 1, sizeof(*log_buffer));
-    if (new_log_buffer) {
-        char *msg;
-        int i;
-
-        log_buffer = new_log_buffer;
-        memset(&log_buffer[log_buffer_size], 0, sizeof(log_buffer[log_buffer_size]));
-        log_buffer[log_buffer_size].context_name= avc ? av_strdup(avc->item_name(ptr)) : NULL;
-        if (avc) {
-            if (avc->get_category) log_buffer[log_buffer_size].category = avc->get_category(ptr);
-            else                   log_buffer[log_buffer_size].category = avc->category;
-        }
-        log_buffer[log_buffer_size].log_level   = level;
-        msg = log_buffer[log_buffer_size].log_message = av_strdup(line);
-        for (i=strlen(msg) - 1; i>=0 && msg[i] == '\n'; i--) {
-            msg[i] = 0;
-        }
-        if (avc && avc->parent_log_context_offset) {
-            AVClass** parent = *(AVClass ***) (((uint8_t *) ptr) +
-                                   avc->parent_log_context_offset);
-            if (parent && *parent) {
-                log_buffer[log_buffer_size].parent_name = av_strdup((*parent)->item_name(parent));
-                log_buffer[log_buffer_size].parent_category =
-                    (*parent)->get_category ? (*parent)->get_category(parent) :(*parent)->category;
-            }
-        }
-        log_buffer_size ++;
-    }
-
-    pthread_mutex_unlock(&log_mutex);
-#endif
 }
 
 struct unit_value {
@@ -2494,26 +2425,19 @@ static void clear_log(int need_lock)
 {
     int i;
 
-    if (need_lock)
-        pthread_mutex_lock(&log_mutex);
     for (i=0; i<log_buffer_size; i++) {
         av_freep(&log_buffer[i].context_name);
         av_freep(&log_buffer[i].parent_name);
         av_freep(&log_buffer[i].log_message);
     }
     log_buffer_size = 0;
-    if(need_lock)
-        pthread_mutex_unlock(&log_mutex);
 }
 
 static int show_log(WriterContext *w, int section_ids, int section_id, int log_level)
 {
     int i;
-    pthread_mutex_lock(&log_mutex);
-    if (!log_buffer_size) {
-        pthread_mutex_unlock(&log_mutex);
+    if (!log_buffer_size)
         return 0;
-    }
     writer_print_section_header(w, NULL, section_ids);
 
     for (i=0; i<log_buffer_size; i++) {
@@ -2534,7 +2458,6 @@ static int show_log(WriterContext *w, int section_ids, int section_id, int log_l
         }
     }
     clear_log(0);
-    pthread_mutex_unlock(&log_mutex);
 
     writer_print_section_footer(w);
 
@@ -3612,51 +3535,6 @@ static void show_usage(void)
     av_log(NULL, AV_LOG_INFO, "\n");
 }
 
-static void ffprobe_show_program_version(WriterContext *w)
-{
-    AVBPrint pbuf;
-    av_bprint_init(&pbuf, 1, AV_BPRINT_SIZE_UNLIMITED);
-
-    writer_print_section_header(w, NULL, SECTION_ID_PROGRAM_VERSION);
-    print_str("version", FFMPEG_VERSION);
-    print_fmt("copyright", "Copyright (c) %d-%d the FFmpeg developers",
-              program_birth_year, CONFIG_THIS_YEAR);
-    print_str("compiler_ident", CC_IDENT);
-    print_str("configuration", FFMPEG_CONFIGURATION);
-    writer_print_section_footer(w);
-
-    av_bprint_finalize(&pbuf, NULL);
-}
-
-#define SHOW_LIB_VERSION(libname, LIBNAME)                              \
-    do {                                                                \
-        if (CONFIG_##LIBNAME) {                                         \
-            unsigned int version = libname##_version();                 \
-            writer_print_section_header(w, NULL, SECTION_ID_LIBRARY_VERSION); \
-            print_str("name",    "lib" #libname);                       \
-            print_int("major",   LIB##LIBNAME##_VERSION_MAJOR);         \
-            print_int("minor",   LIB##LIBNAME##_VERSION_MINOR);         \
-            print_int("micro",   LIB##LIBNAME##_VERSION_MICRO);         \
-            print_int("version", version);                              \
-            print_str("ident",   LIB##LIBNAME##_IDENT);                 \
-            writer_print_section_footer(w);                             \
-        }                                                               \
-    } while (0)
-
-static void ffprobe_show_library_versions(WriterContext *w)
-{
-    writer_print_section_header(w, NULL, SECTION_ID_LIBRARY_VERSIONS);
-    SHOW_LIB_VERSION(avutil,     AVUTIL);
-    SHOW_LIB_VERSION(avcodec,    AVCODEC);
-    SHOW_LIB_VERSION(avformat,   AVFORMAT);
-    SHOW_LIB_VERSION(avdevice,   AVDEVICE);
-    SHOW_LIB_VERSION(avfilter,   AVFILTER);
-    SHOW_LIB_VERSION(swscale,    SWSCALE);
-    SHOW_LIB_VERSION(swresample, SWRESAMPLE);
-    SHOW_LIB_VERSION(postproc,   POSTPROC);
-    writer_print_section_footer(w);
-}
-
 #define PRINT_PIX_FMT_FLAG(flagname, name)                                \
     do {                                                                  \
         print_int(name, !!(pixdesc->flags & AV_PIX_FMT_FLAG_##flagname)); \
@@ -4100,9 +3978,6 @@ static const OptionDef real_options[] = {
     { "show_frames",  0, { .func_arg = &opt_show_frames }, "show frames info" },
     { "show_entries", HAS_ARG, {.func_arg = opt_show_entries},
       "show a set of specified entries", "entry_list" },
-#if HAVE_THREADS
-    { "show_log", OPT_INT|HAS_ARG, { &do_show_log }, "show log" },
-#endif
     { "show_packets", 0, { .func_arg = &opt_show_packets }, "show packets info" },
     { "show_programs", 0, { .func_arg = &opt_show_programs }, "show programs info" },
     { "show_streams", 0, { .func_arg = &opt_show_streams }, "show streams info" },
@@ -4150,24 +4025,13 @@ int main(int argc, char **argv)
     char *w_name = NULL, *w_args = NULL;
     int ret, input_ret, i;
 
-    init_dynload();
-
-#if HAVE_THREADS
-    ret = pthread_mutex_init(&log_mutex, NULL);
-    if (ret != 0) {
-        goto end;
-    }
-#endif
     av_log_set_flags(AV_LOG_SKIP_REPEATED);
 
     options = real_options;
     parse_loglevel(argc, argv, options);
     avformat_network_init();
-#if CONFIG_AVDEVICE
     avdevice_register_all();
-#endif
 
-    show_banner(argc, argv, options);
     ret = parse_options(NULL, argc, argv, options, opt_input_file);
     if (ret < 0) {
         ret = (ret == AVERROR_EXIT) ? 0 : ret;
@@ -4182,12 +4046,10 @@ int main(int argc, char **argv)
     SET_DO_SHOW(ERROR, error);
     SET_DO_SHOW(FORMAT, format);
     SET_DO_SHOW(FRAMES, frames);
-    SET_DO_SHOW(LIBRARY_VERSIONS, library_versions);
     SET_DO_SHOW(PACKETS, packets);
     SET_DO_SHOW(PIXEL_FORMATS, pixel_formats);
     SET_DO_SHOW(PIXEL_FORMAT_FLAGS, pixel_format_flags);
     SET_DO_SHOW(PIXEL_FORMAT_COMPONENTS, pixel_format_components);
-    SET_DO_SHOW(PROGRAM_VERSION, program_version);
     SET_DO_SHOW(PROGRAMS, programs);
     SET_DO_SHOW(STREAMS, streams);
     SET_DO_SHOW(STREAM_DISPOSITION, stream_disposition);
@@ -4201,7 +4063,7 @@ int main(int argc, char **argv)
     SET_DO_SHOW(PROGRAM_STREAM_TAGS, stream_tags);
     SET_DO_SHOW(PACKET_TAGS, packet_tags);
 
-    if (do_bitexact && (do_show_program_version || do_show_library_versions)) {
+    if (do_bitexact) {
         av_log(NULL, AV_LOG_ERROR,
                "-bitexact and -show_program_version or -show_library_versions "
                "options are incompatible\n");
@@ -4255,16 +4117,11 @@ int main(int argc, char **argv)
 
         writer_print_section_header(wctx, NULL, SECTION_ID_ROOT);
 
-        if (do_show_program_version)
-            ffprobe_show_program_version(wctx);
-        if (do_show_library_versions)
-            ffprobe_show_library_versions(wctx);
         if (do_show_pixel_formats)
             ffprobe_show_pixel_formats(wctx);
 
         if (!input_filename &&
-            ((do_show_format || do_show_programs || do_show_streams || do_show_chapters || do_show_packets || do_show_error) ||
-             (!do_show_program_version && !do_show_library_versions && !do_show_pixel_formats))) {
+            (do_show_format || do_show_programs || do_show_streams || do_show_chapters || do_show_packets || do_show_error || !do_show_pixel_formats)) {
             show_usage();
             av_log(NULL, AV_LOG_ERROR, "You have to specify one input file.\n");
             av_log(NULL, AV_LOG_ERROR, "Use -h to get full help or, even better, run 'man %s'.\n", program_name);
@@ -4295,10 +4152,6 @@ end:
         av_dict_free(&(sections[i].entries_to_show));
 
     avformat_network_deinit();
-
-#if HAVE_THREADS
-    pthread_mutex_destroy(&log_mutex);
-#endif
 
     return ret < 0;
 }

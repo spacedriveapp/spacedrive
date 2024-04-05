@@ -25,7 +25,6 @@
 
 #include "cmdutils.h"
 
-#if CONFIG_AVDEVICE
 /**
  * Print a listing containing autodetected sinks of the output device.
  * Device name with options may be passed as an argument to limit results.
@@ -37,45 +36,17 @@ int show_sinks(void *optctx, const char *opt, const char *arg);
  * Device name with options may be passed as an argument to limit results.
  */
 int show_sources(void *optctx, const char *opt, const char *arg);
-#endif
 
-#if CONFIG_AVDEVICE
 #define CMDUTILS_COMMON_OPTIONS_AVDEVICE                                                                                \
     { "sources"    , OPT_EXIT | HAS_ARG, { .func_arg = show_sources },                                                  \
       "list sources of the input device", "device" },                                                                   \
     { "sinks"      , OPT_EXIT | HAS_ARG, { .func_arg = show_sinks },                                                    \
       "list sinks of the output device", "device" },                                                                    \
 
-#else
-#define CMDUTILS_COMMON_OPTIONS_AVDEVICE
-#endif
-
-/**
- * Print the license of the program to stdout. The license depends on
- * the license of the libraries compiled into the program.
- * This option processing function does not utilize the arguments.
- */
-int show_license(void *optctx, const char *opt, const char *arg);
-
 /**
  * Generic -h handler common to all fftools.
  */
 int show_help(void *optctx, const char *opt, const char *arg);
-
-/**
- * Print the version of the program to stdout. The version message
- * depends on the current versions of the repository and of the libav*
- * libraries.
- * This option processing function does not utilize the arguments.
- */
-int show_version(void *optctx, const char *opt, const char *arg);
-
-/**
- * Print the build configuration of the program to stdout. The contents
- * depend on the definition of FFMPEG_CONFIGURATION.
- * This option processing function does not utilize the arguments.
- */
-int show_buildconf(void *optctx, const char *opt, const char *arg);
 
 /**
  * Print a listing containing all the formats supported by the
@@ -197,13 +168,10 @@ int opt_cpuflags(void *optctx, const char *opt, const char *arg);
 int opt_cpucount(void *optctx, const char *opt, const char *arg);
 
 #define CMDUTILS_COMMON_OPTIONS                                                                                         \
-    { "L",           OPT_EXIT,             { .func_arg = show_license },     "show license" },                          \
     { "h",           OPT_EXIT,             { .func_arg = show_help },        "show help", "topic" },                    \
     { "?",           OPT_EXIT,             { .func_arg = show_help },        "show help", "topic" },                    \
     { "help",        OPT_EXIT,             { .func_arg = show_help },        "show help", "topic" },                    \
     { "-help",       OPT_EXIT,             { .func_arg = show_help },        "show help", "topic" },                    \
-    { "version",     OPT_EXIT,             { .func_arg = show_version },     "show version" },                          \
-    { "buildconf",   OPT_EXIT,             { .func_arg = show_buildconf },   "show build configuration" },              \
     { "formats",     OPT_EXIT,             { .func_arg = show_formats },     "show available formats" },                \
     { "muxers",      OPT_EXIT,             { .func_arg = show_muxers },      "show available muxers" },                 \
     { "demuxers",    OPT_EXIT,             { .func_arg = show_demuxers },    "show available demuxers" },               \

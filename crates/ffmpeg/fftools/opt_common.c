@@ -18,8 +18,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-// #include "config.h"
-
 #include <stdio.h>
 
 #include "cmdutils.h"
@@ -30,38 +28,20 @@
 #include "libavutil/bprint.h"
 #include "libavutil/channel_layout.h"
 #include "libavutil/cpu.h"
-#include "libavutil/dict.h"
 #include "libavutil/error.h"
-#include "libavutil/ffversion.h"
 #include "libavutil/log.h"
 #include "libavutil/mem.h"
+#include "libavutil/opt.h"
 #include "libavutil/parseutils.h"
 #include "libavutil/pixdesc.h"
 #include "libavutil/version.h"
-
-#include "libavcodec/avcodec.h"
 #include "libavcodec/bsf.h"
 #include "libavcodec/codec.h"
 #include "libavcodec/codec_desc.h"
-#include "libavcodec/version.h"
-
 #include "libavformat/avformat.h"
-#include "libavformat/version.h"
-
 #include "libavdevice/avdevice.h"
-#include "libavdevice/version.h"
-
 #include "libavfilter/avfilter.h"
-#include "libavfilter/version.h"
-
 #include "libswscale/swscale.h"
-#include "libswscale/version.h"
-
-#include "libswresample/swresample.h"
-#include "libswresample/version.h"
-
-#include "libpostproc/postprocess.h"
-#include "libpostproc/version.h"
 
 enum show_muxdemuxers {
     SHOW_DEFAULT,
@@ -72,195 +52,12 @@ enum show_muxdemuxers {
 static FILE *report_file;
 static int report_file_level = AV_LOG_DEBUG;
 
-int show_license(void *optctx, const char *opt, const char *arg)
-{
-#if CONFIG_NONFREE
-    printf(
-    "This version of %s has nonfree parts compiled in.\n"
-    "Therefore it is not legally redistributable.\n",
-    program_name );
-#elif CONFIG_GPLV3
-    printf(
-    "%s is free software; you can redistribute it and/or modify\n"
-    "it under the terms of the GNU General Public License as published by\n"
-    "the Free Software Foundation; either version 3 of the License, or\n"
-    "(at your option) any later version.\n"
-    "\n"
-    "%s is distributed in the hope that it will be useful,\n"
-    "but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
-    "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
-    "GNU General Public License for more details.\n"
-    "\n"
-    "You should have received a copy of the GNU General Public License\n"
-    "along with %s.  If not, see <http://www.gnu.org/licenses/>.\n",
-    program_name, program_name, program_name );
-#elif CONFIG_GPL
-    printf(
-    "%s is free software; you can redistribute it and/or modify\n"
-    "it under the terms of the GNU General Public License as published by\n"
-    "the Free Software Foundation; either version 2 of the License, or\n"
-    "(at your option) any later version.\n"
-    "\n"
-    "%s is distributed in the hope that it will be useful,\n"
-    "but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
-    "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
-    "GNU General Public License for more details.\n"
-    "\n"
-    "You should have received a copy of the GNU General Public License\n"
-    "along with %s; if not, write to the Free Software\n"
-    "Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA\n",
-    program_name, program_name, program_name );
-#elif CONFIG_LGPLV3
-    printf(
-    "%s is free software; you can redistribute it and/or modify\n"
-    "it under the terms of the GNU Lesser General Public License as published by\n"
-    "the Free Software Foundation; either version 3 of the License, or\n"
-    "(at your option) any later version.\n"
-    "\n"
-    "%s is distributed in the hope that it will be useful,\n"
-    "but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
-    "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
-    "GNU Lesser General Public License for more details.\n"
-    "\n"
-    "You should have received a copy of the GNU Lesser General Public License\n"
-    "along with %s.  If not, see <http://www.gnu.org/licenses/>.\n",
-    program_name, program_name, program_name );
-#else
-    printf(
-    "%s is free software; you can redistribute it and/or\n"
-    "modify it under the terms of the GNU Lesser General Public\n"
-    "License as published by the Free Software Foundation; either\n"
-    "version 2.1 of the License, or (at your option) any later version.\n"
-    "\n"
-    "%s is distributed in the hope that it will be useful,\n"
-    "but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
-    "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU\n"
-    "Lesser General Public License for more details.\n"
-    "\n"
-    "You should have received a copy of the GNU Lesser General Public\n"
-    "License along with %s; if not, write to the Free Software\n"
-    "Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA\n",
-    program_name, program_name, program_name );
-#endif
-
-    return 0;
-}
-
 static int warned_cfg = 0;
 
 #define INDENT        1
 #define SHOW_VERSION  2
 #define SHOW_CONFIG   4
 #define SHOW_COPYRIGHT 8
-
-#define PRINT_LIB_INFO(libname, LIBNAME, flags, level)                  \
-    if (CONFIG_##LIBNAME) {                                             \
-        const char *indent = flags & INDENT? "  " : "";                 \
-        if (flags & SHOW_VERSION) {                                     \
-            unsigned int version = libname##_version();                 \
-            av_log(NULL, level,                                         \
-                   "%slib%-11s %2d.%3d.%3d / %2d.%3d.%3d\n",            \
-                   indent, #libname,                                    \
-                   LIB##LIBNAME##_VERSION_MAJOR,                        \
-                   LIB##LIBNAME##_VERSION_MINOR,                        \
-                   LIB##LIBNAME##_VERSION_MICRO,                        \
-                   AV_VERSION_MAJOR(version), AV_VERSION_MINOR(version),\
-                   AV_VERSION_MICRO(version));                          \
-        }                                                               \
-        if (flags & SHOW_CONFIG) {                                      \
-            const char *cfg = libname##_configuration();                \
-            if (strcmp(FFMPEG_CONFIGURATION, cfg)) {                    \
-                if (!warned_cfg) {                                      \
-                    av_log(NULL, level,                                 \
-                            "%sWARNING: library configuration mismatch\n", \
-                            indent);                                    \
-                    warned_cfg = 1;                                     \
-                }                                                       \
-                av_log(NULL, level, "%s%-11s configuration: %s\n",      \
-                        indent, #libname, cfg);                         \
-            }                                                           \
-        }                                                               \
-    }                                                                   \
-
-static void print_all_libs_info(int flags, int level)
-{
-    PRINT_LIB_INFO(avutil,     AVUTIL,     flags, level);
-    PRINT_LIB_INFO(avcodec,    AVCODEC,    flags, level);
-    PRINT_LIB_INFO(avformat,   AVFORMAT,   flags, level);
-    PRINT_LIB_INFO(avdevice,   AVDEVICE,   flags, level);
-    PRINT_LIB_INFO(avfilter,   AVFILTER,   flags, level);
-    PRINT_LIB_INFO(swscale,    SWSCALE,    flags, level);
-    PRINT_LIB_INFO(swresample, SWRESAMPLE, flags, level);
-    PRINT_LIB_INFO(postproc,   POSTPROC,   flags, level);
-}
-
-static void print_program_info(int flags, int level)
-{
-    const char *indent = flags & INDENT? "  " : "";
-
-    av_log(NULL, level, "%s version " FFMPEG_VERSION, program_name);
-    if (flags & SHOW_COPYRIGHT)
-        av_log(NULL, level, " Copyright (c) %d-%d the FFmpeg developers",
-               program_birth_year, CONFIG_THIS_YEAR);
-    av_log(NULL, level, "\n");
-    av_log(NULL, level, "%sbuilt with %s\n", indent, CC_IDENT);
-
-    av_log(NULL, level, "%sconfiguration: " FFMPEG_CONFIGURATION "\n", indent);
-}
-
-static void print_buildconf(int flags, int level)
-{
-    const char *indent = flags & INDENT ? "  " : "";
-    char str[] = { FFMPEG_CONFIGURATION };
-    char *conflist, *remove_tilde, *splitconf;
-
-    // Change all the ' --' strings to '~--' so that
-    // they can be identified as tokens.
-    while ((conflist = strstr(str, " --")) != NULL) {
-        conflist[0] = '~';
-    }
-
-    // Compensate for the weirdness this would cause
-    // when passing 'pkg-config --static'.
-    while ((remove_tilde = strstr(str, "pkg-config~")) != NULL) {
-        remove_tilde[sizeof("pkg-config~") - 2] = ' ';
-    }
-
-    splitconf = strtok(str, "~");
-    av_log(NULL, level, "\n%sconfiguration:\n", indent);
-    while (splitconf != NULL) {
-        av_log(NULL, level, "%s%s%s\n", indent, indent, splitconf);
-        splitconf = strtok(NULL, "~");
-    }
-}
-
-void show_banner(int argc, char **argv, const OptionDef *options)
-{
-    int idx = locate_option(argc, argv, options, "version");
-    if (hide_banner || idx)
-        return;
-
-    print_program_info (INDENT|SHOW_COPYRIGHT, AV_LOG_INFO);
-    print_all_libs_info(INDENT|SHOW_CONFIG,  AV_LOG_INFO);
-    print_all_libs_info(INDENT|SHOW_VERSION, AV_LOG_INFO);
-}
-
-int show_version(void *optctx, const char *opt, const char *arg)
-{
-    av_log_set_callback(log_callback_help);
-    print_program_info (SHOW_COPYRIGHT, AV_LOG_INFO);
-    print_all_libs_info(SHOW_VERSION, AV_LOG_INFO);
-
-    return 0;
-}
-
-int show_buildconf(void *optctx, const char *opt, const char *arg)
-{
-    av_log_set_callback(log_callback_help);
-    print_buildconf      (INDENT|0, AV_LOG_INFO);
-
-    return 0;
-}
 
 #define PRINT_CODEC_SUPPORTED(codec, field, type, list_name, term, get_name) \
     if (codec->field) {                                                      \
@@ -497,10 +294,8 @@ static void show_help_muxer(const char *name)
         show_help_children(fmt->priv_class, AV_OPT_FLAG_ENCODING_PARAM);
 }
 
-#if CONFIG_AVFILTER
 static void show_help_filter(const char *name)
 {
-#if CONFIG_AVFILTER
     const AVFilter *f = avfilter_get_by_name(name);
     int i, count;
 
@@ -546,12 +341,7 @@ static void show_help_filter(const char *name)
                                           AV_OPT_FLAG_AUDIO_PARAM);
     if (f->flags & AVFILTER_FLAG_SUPPORT_TIMELINE)
         printf("This filter has support for timeline through the 'enable' option.\n");
-#else
-    av_log(NULL, AV_LOG_ERROR, "Build without libavfilter; "
-           "can not to satisfy request\n");
-#endif
 }
-#endif
 
 static void show_help_bsf(const char *name)
 {
@@ -596,10 +386,8 @@ int show_help(void *optctx, const char *opt, const char *arg)
         show_help_muxer(par);
     } else if (!strcmp(topic, "protocol")) {
         show_help_protocol(par);
-#if CONFIG_AVFILTER
     } else if (!strcmp(topic, "filter")) {
         show_help_filter(par);
-#endif
     } else if (!strcmp(topic, "bsf")) {
         show_help_bsf(par);
     } else {
@@ -790,7 +578,6 @@ int show_bsfs(void *optctx, const char *opt, const char *arg)
 
 int show_filters(void *optctx, const char *opt, const char *arg)
 {
-#if CONFIG_AVFILTER
     const AVFilter *filter = NULL;
     char descr[64], *descr_cur;
     void *opaque = NULL;
@@ -831,9 +618,6 @@ int show_filters(void *optctx, const char *opt, const char *arg)
                filter->process_command                        ? 'C' : '.',
                filter->name, descr, filter->description);
     }
-#else
-    printf("No filters available: libavfilter disabled\n");
-#endif
     return 0;
 }
 
@@ -968,11 +752,6 @@ int show_pix_fmts(void *optctx, const char *opt, const char *arg)
            "....B = Bitstream format\n"
            "FLAGS NAME            NB_COMPONENTS BITS_PER_PIXEL BIT_DEPTHS\n"
            "-----\n");
-
-#if !CONFIG_SWSCALE
-#   define sws_isSupportedInput(x)  0
-#   define sws_isSupportedOutput(x) 0
-#endif
 
     while ((pix_desc = av_pix_fmt_desc_next(pix_desc))) {
         enum AVPixelFormat av_unused pix_fmt = av_pix_fmt_desc_get_id(pix_desc);
@@ -1309,7 +1088,6 @@ end:
     return 0;
 }
 
-#if CONFIG_AVDEVICE
 static void print_device_list(const AVDeviceInfoList *device_list)
 {
     // print devices
@@ -1468,4 +1246,3 @@ int show_sinks(void *optctx, const char *opt, const char *arg)
     av_log_set_level(error_level);
     return ret;
 }
-#endif /* CONFIG_AVDEVICE */

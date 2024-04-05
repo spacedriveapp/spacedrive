@@ -25,35 +25,20 @@
 #include <errno.h>
 #include <math.h>
 
-/* Include only the enabled headers since some compilers (namely, Sun
-   Studio) will not omit unused inline functions and create undefined
-   references to libraries that are not being built. */
-
-// #include "config.h"
-#include "compat/va_copy.h"
 #include "libavformat/avformat.h"
+#include "libavcodec/avcodec.h"
 #include "libswscale/swscale.h"
-#include "libswscale/version.h"
 #include "libswresample/swresample.h"
 #include "libavutil/avassert.h"
 #include "libavutil/avstring.h"
-#include "libavutil/channel_layout.h"
 #include "libavutil/display.h"
-#include "getenv_utf8.h"
-#include "libavutil/mathematics.h"
-#include "libavutil/imgutils.h"
-#include "libm.h"
 #include "libavutil/parseutils.h"
 #include "libavutil/eval.h"
 #include "libavutil/dict.h"
 #include "libavutil/opt.h"
+
 #include "cmdutils.h"
-#include "fopen_utf8.h"
 #include "opt_common.h"
-#ifdef _WIN32
-#include <windows.h>
-#include "compat/w32dlfcn.h"
-#endif
 
 AVDictionary *sws_dict;
 AVDictionary *swr_opts;
@@ -72,15 +57,6 @@ void uninit_opts(void)
 void log_callback_help(void *ptr, int level, const char *fmt, va_list vl)
 {
     vfprintf(stdout, fmt, vl);
-}
-
-void init_dynload(void)
-{
-#if HAVE_SETDLLDIRECTORY && defined(_WIN32)
-    /* Calling SetDllDirectory with the empty string (but not NULL) removes the
-     * current working directory from the DLL search path as a security pre-caution. */
-    SetDllDirectory("");
-#endif
 }
 
 int parse_number(const char *context, const char *numstr, int type,
@@ -158,70 +134,6 @@ static const OptionDef *find_option(const OptionDef *po, const char *name)
     }
     return po;
 }
-
-/* _WIN32 means using the windows libc - cygwin doesn't define that
- * by default. HAVE_COMMANDLINETOARGVW is true on cygwin, while
- * it doesn't provide the actual command line via GetCommandLineW(). */
-#if HAVE_COMMANDLINETOARGVW && defined(_WIN32)
-#include <shellapi.h>
-/* Will be leaked on exit */
-static char** win32_argv_utf8 = NULL;
-static int win32_argc = 0;
-
-/**
- * Prepare command line arguments for executable.
- * For Windows - perform wide-char to UTF-8 conversion.
- * Input arguments should be main() function arguments.
- * @param argc_ptr Arguments number (including executable)
- * @param argv_ptr Arguments list.
- */
-static void prepare_app_arguments(int *argc_ptr, char ***argv_ptr)
-{
-    char *argstr_flat;
-    wchar_t **argv_w;
-    int i, buffsize = 0, offset = 0;
-
-    if (win32_argv_utf8) {
-        *argc_ptr = win32_argc;
-        *argv_ptr = win32_argv_utf8;
-        return;
-    }
-
-    win32_argc = 0;
-    argv_w = CommandLineToArgvW(GetCommandLineW(), &win32_argc);
-    if (win32_argc <= 0 || !argv_w)
-        return;
-
-    /* determine the UTF-8 buffer size (including NULL-termination symbols) */
-    for (i = 0; i < win32_argc; i++)
-        buffsize += WideCharToMultiByte(CP_UTF8, 0, argv_w[i], -1,
-                                        NULL, 0, NULL, NULL);
-
-    win32_argv_utf8 = av_mallocz(sizeof(char *) * (win32_argc + 1) + buffsize);
-    argstr_flat     = (char *)win32_argv_utf8 + sizeof(char *) * (win32_argc + 1);
-    if (!win32_argv_utf8) {
-        LocalFree(argv_w);
-        return;
-    }
-
-    for (i = 0; i < win32_argc; i++) {
-        win32_argv_utf8[i] = &argstr_flat[offset];
-        offset += WideCharToMultiByte(CP_UTF8, 0, argv_w[i], -1,
-                                      &argstr_flat[offset],
-                                      buffsize - offset, NULL, NULL);
-    }
-    win32_argv_utf8[i] = NULL;
-    LocalFree(argv_w);
-
-    *argc_ptr = win32_argc;
-    *argv_ptr = win32_argv_utf8;
-}
-#else
-static inline void prepare_app_arguments(int *argc_ptr, char ***argv_ptr)
-{
-    /* nothing to do */
-}
-#endif /* HAVE_COMMANDLINETOARGVW */
 
 static int write_option(void *optctx, const OptionDef *po, const char *opt,
                         const char *arg)
@@ -348,9 +260,6 @@ int parse_options(void *optctx, int argc, char **argv, const OptionDef *options,
 {
     const char *opt;
     int optindex, handleoptions = 1, ret;
-
-    /* perform system-dependent conversions for arguments list */
-    prepare_app_arguments(&argc, &argv);
 
     /* parse options */
     optindex = 1;
@@ -483,7 +392,7 @@ void parse_loglevel(int argc, char **argv, const OptionDef *options)
     if (idx && argv[idx + 1])
         opt_loglevel(NULL, "loglevel", argv[idx + 1]);
     idx = locate_option(argc, argv, options, "report");
-    env = getenv_utf8("FFREPORT");
+    env = getenv("FFREPORT");
     if (env || idx) {
         FILE *report_file = NULL;
         init_report(env, &report_file);
@@ -497,7 +406,6 @@ void parse_loglevel(int argc, char **argv, const OptionDef *options)
             fflush(report_file);
         }
     }
-    freeenv_utf8(env);
     idx = locate_option(argc, argv, options, "hide_banner");
     if (idx)
         hide_banner = 1;
@@ -520,12 +428,8 @@ int opt_default(void *optctx, const char *opt, const char *arg)
     char opt_stripped[128];
     const char *p;
     const AVClass *cc = avcodec_get_class(), *fc = avformat_get_class();
-#if CONFIG_SWSCALE
     const AVClass *sc = sws_get_class();
-#endif
-#if CONFIG_SWRESAMPLE
     const AVClass *swr_class = swr_get_class();
-#endif
 
     if (!strcmp(opt, "debug") || !strcmp(opt, "fdebug"))
         av_log_set_level(AV_LOG_DEBUG);
@@ -548,7 +452,6 @@ int opt_default(void *optctx, const char *opt, const char *arg)
             av_log(NULL, AV_LOG_VERBOSE, "Routing option %s to both codec and muxer layer\n", opt);
         consumed = 1;
     }
-#if CONFIG_SWSCALE
     if (!consumed && (o = opt_find(&sc, opt, NULL, 0,
                          AV_OPT_SEARCH_CHILDREN | AV_OPT_SEARCH_FAKE_OBJ))) {
         if (!strcmp(opt, "srcw") || !strcmp(opt, "srch") ||
@@ -561,19 +464,11 @@ int opt_default(void *optctx, const char *opt, const char *arg)
 
         consumed = 1;
     }
-#else
-    if (!consumed && !strcmp(opt, "sws_flags")) {
-        av_log(NULL, AV_LOG_WARNING, "Ignoring %s %s, due to disabled swscale\n", opt, arg);
-        consumed = 1;
-    }
-#endif
-#if CONFIG_SWRESAMPLE
     if (!consumed && (o=opt_find(&swr_class, opt, NULL, 0,
                                     AV_OPT_SEARCH_CHILDREN | AV_OPT_SEARCH_FAKE_OBJ))) {
         av_dict_set(&swr_opts, opt, arg, FLAGS);
         consumed = 1;
     }
-#endif
 
     if (consumed)
         return 0;
@@ -712,9 +607,6 @@ int split_commandline(OptionParseContext *octx, int argc, char *argv[],
     int optindex = 1;
     int dashdash = -2;
 
-    /* perform system-dependent conversions for arguments list */
-    prepare_app_arguments(&argc, &argv);
-
     ret = init_parse_context(octx, groups, nb_groups);
     if (ret < 0)
         return ret;
@@ -848,69 +740,32 @@ FILE *get_preset_file(char *filename, size_t filename_size,
 {
     FILE *f = NULL;
     int i;
-#if HAVE_GETMODULEHANDLE && defined(_WIN32)
-    char *datadir = NULL;
-#endif
-    char *env_home = getenv_utf8("HOME");
-    char *env_ffmpeg_datadir = getenv_utf8("FFMPEG_DATADIR");
+    char *env_home = getenv("HOME");
+    char *env_ffmpeg_datadir = getenv("FFMPEG_DATADIR");
     const char *base[3] = { env_ffmpeg_datadir,
                             env_home,   /* index=1(HOME) is special: search in a .ffmpeg subfolder */
-                            FFMPEG_DATADIR, };
+                            "/usr/share/ffmpeg", };
 
     if (is_path) {
         av_strlcpy(filename, preset_name, filename_size);
-        f = fopen_utf8(filename, "r");
+        f = fopen(filename, "r");
     } else {
-#if HAVE_GETMODULEHANDLE && defined(_WIN32)
-        wchar_t *datadir_w = get_module_filename(NULL);
-        base[2] = NULL;
-
-        if (wchartoutf8(datadir_w, &datadir))
-            datadir = NULL;
-        av_free(datadir_w);
-
-        if (datadir)
-        {
-            char *ls;
-            for (ls = datadir; *ls; ls++)
-                if (*ls == '\\') *ls = '/';
-
-            if (ls = strrchr(datadir, '/'))
-            {
-                ptrdiff_t datadir_len = ls - datadir;
-                size_t desired_size = datadir_len + strlen("/ffpresets") + 1;
-                char *new_datadir = av_realloc_array(
-                    datadir, desired_size, sizeof *datadir);
-                if (new_datadir) {
-                    datadir = new_datadir;
-                    datadir[datadir_len] = 0;
-                    strncat(datadir, "/ffpresets",  desired_size - 1 - datadir_len);
-                    base[2] = datadir;
-                }
-            }
-        }
-#endif
         for (i = 0; i < 3 && !f; i++) {
             if (!base[i])
                 continue;
             snprintf(filename, filename_size, "%s%s/%s.ffpreset", base[i],
                      i != 1 ? "" : "/.ffmpeg", preset_name);
-            f = fopen_utf8(filename, "r");
+            f = fopen(filename, "r");
             if (!f && codec_name) {
                 snprintf(filename, filename_size,
                          "%s%s/%s-%s.ffpreset",
                          base[i], i != 1 ? "" : "/.ffmpeg", codec_name,
                          preset_name);
-                f = fopen_utf8(filename, "r");
+                f = fopen(filename, "r");
             }
         }
     }
 
-#if HAVE_GETMODULEHANDLE && defined(_WIN32)
-    av_free(datadir);
-#endif
-    freeenv_utf8(env_ffmpeg_datadir);
-    freeenv_utf8(env_home);
     return f;
 }
 

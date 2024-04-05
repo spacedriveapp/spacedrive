@@ -1,62 +1,28 @@
-AVPROGS-$(CONFIG_FFMPEG)   += ffmpeg
-AVPROGS-$(CONFIG_FFPLAY)   += ffplay
-AVPROGS-$(CONFIG_FFPROBE)  += ffprobe
+# Makefile for compiling ffprobe
 
-AVPROGS     := $(AVPROGS-yes:%=%$(PROGSSUF)$(EXESUF))
-PROGS       += $(AVPROGS)
+# Compiler and flags
+CC = clang
+CFLAGS = -std=c17 -Wall -I../../../apps/.deps/include
 
-AVBASENAMES  = ffmpeg ffplay ffprobe
-ALLAVPROGS   = $(AVBASENAMES:%=%$(PROGSSUF)$(EXESUF))
-ALLAVPROGS_G = $(AVBASENAMES:%=%$(PROGSSUF)_g$(EXESUF))
+# Source files
+SRCS = cmdutils.c opt_common.c ffprobe.c
 
-OBJS-ffmpeg +=                  \
-    fftools/ffmpeg_dec.o        \
-    fftools/ffmpeg_demux.o      \
-    fftools/ffmpeg_enc.o        \
-    fftools/ffmpeg_filter.o     \
-    fftools/ffmpeg_hw.o         \
-    fftools/ffmpeg_mux.o        \
-    fftools/ffmpeg_mux_init.o   \
-    fftools/ffmpeg_opt.o        \
-    fftools/objpool.o           \
-    fftools/sync_queue.o        \
-    fftools/thread_queue.o      \
+# Object files
+OBJS = $(SRCS:.c=.o)
 
-define DOFFTOOL
-OBJS-$(1) += fftools/cmdutils.o fftools/opt_common.o fftools/$(1).o $(OBJS-$(1)-yes)
-ifdef HAVE_GNU_WINDRES
-OBJS-$(1) += fftools/fftoolsres.o
-endif
-$(1)$(PROGSSUF)_g$(EXESUF): $$(OBJS-$(1))
-$$(OBJS-$(1)): | fftools
-$$(OBJS-$(1)): CFLAGS  += $(CFLAGS-$(1))
-$(1)$(PROGSSUF)_g$(EXESUF): LDFLAGS += $(LDFLAGS-$(1))
-$(1)$(PROGSSUF)_g$(EXESUF): FF_EXTRALIBS += $(EXTRALIBS-$(1))
--include $$(OBJS-$(1):.o=.d)
-endef
+# Output binary
+TARGET = ffprobe
 
-$(foreach P,$(AVPROGS-yes),$(eval $(call DOFFTOOL,$(P))))
+# Linker flags for system libraries
+LDFLAGS = -L../../../apps/.deps/libs -lm -lswresample -lavformat -lavutil -lswscale -lavcodec -lavfilter -lavdevice
 
-all: $(AVPROGS)
+all: $(TARGET)
 
-fftools/ffprobe.o fftools/cmdutils.o: libavutil/ffversion.h | fftools
-OUTDIRS += fftools
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) $(OBJS) -o $(TARGET) $(LDFLAGS)
 
-ifdef AVPROGS
-install: install-progs install-data
-endif
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
-install-progs-yes:
-install-progs-$(CONFIG_SHARED): install-libs
-
-install-progs: install-progs-yes $(AVPROGS)
-	$(Q)mkdir -p "$(BINDIR)"
-	$(INSTALL) -c -m 755 $(AVPROGS) "$(BINDIR)"
-
-uninstall: uninstall-progs
-
-uninstall-progs:
-	$(RM) $(addprefix "$(BINDIR)/", $(ALLAVPROGS))
-
-clean::
-	$(RM) $(ALLAVPROGS) $(ALLAVPROGS_G) $(CLEANSUFFIXES:%=fftools/%)
+clean:
+	rm -f $(OBJS) $(TARGET)
