@@ -39,6 +39,7 @@ model Node {
     pub_id       Bytes    @unique
     name         String
     // Enum: sd_core::node::Platform
+    platform     Int
     date_created DateTime
     identity     Bytes? // TODO: Change to required field in future
 
