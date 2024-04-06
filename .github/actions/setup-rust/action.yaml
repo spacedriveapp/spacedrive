@@ -7,20 +7,20 @@ inputs:
   save-cache:
     description: Whether to save the Rust cache
     required: false
-    default: "false"
+    default: 'false'
   restore-cache:
     description: Whether to restore the Rust cache
     required: false
-    default: "true"
+    default: 'true'
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     - name: Install Rust
       id: toolchain
       uses: dtolnay/rust-toolchain@stable
       with:
         target: ${{ inputs.target }}
-        toolchain: "1.75"
+        toolchain: '1.75'
         components: clippy, rustfmt
 
     - name: Cache Rust Dependencies
@@ -83,7 +83,7 @@ runs:
 
     - name: Save Prisma codegen
       id: cache-prisma-save
-      if: ${{ steps.cache-prisma-restore.outputs.cache-hit != 'true' }}
+      if: ${{ steps.cache-prisma-restore.outputs.cache-hit != 'true' && (github.ref == 'refs/heads/main' || inputs.save-cache == 'true') }}
       uses: actions/cache/save@v4
       with:
         key: ${{ steps.cache-prisma-restore.outputs.cache-primary-key }}
