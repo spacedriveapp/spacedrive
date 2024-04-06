@@ -68,6 +68,7 @@ runs:
       if: ${{ steps.cache-prisma-restore.outputs.cache-hit != 'true' }}
       shell: bash
       run: |
+        set -euxo pipefail
         cargo prisma generate
 
         # Check if a new migration should be created due to changes in the schema
