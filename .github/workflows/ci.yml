@@ -223,3 +223,58 @@ jobs:
   #
   #     - name: Test
   #       run: cargo test --workspace --all-features
+  migrations:
+    name: Check migrations
+    runs-on: ubuntu-latest
+    steps:
+      - name: Maximize build space
+        if: ${{ runner.os == 'Linux' }}
+        uses: easimon/maximize-build-space@master
+        with:
+          swap-size-mb: 3072
+          root-reserve-mb: 6144
+          remove-dotnet: 'true'
+          remove-codeql: 'true'
+          remove-haskell: 'true'
+          remove-docker-images: 'true'
+
+      - name: Symlink target to C:\
+        if: ${{ runner.os == 'Windows' }}
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path C:\spacedrive_target
+          New-Item -Path target -ItemType Junction -Value C:\spacedrive_target
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        continue-on-error: true
+        id: filter
+        with:
+          filters: |
+            changes:
+              - 'core/prisma/schema.prisma'
+
+      - name: Setup Rust and Prisma
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
+        uses: ./.github/actions/setup-rust
+        with:
+          restore-cache: 'false'
+
+      - name: Generate migrations diff
+        id: generate-diff
+        working-directory: core/prisma
+        run: |
+          cargo prisma migrate diff --from-schema-datamodel=schema.prisma --to-migrations=migrations --script > diff.sql
+          echo "diff=$(cat diff.sql)" >> "$GITHUB_OUTPUT"
+
+      - name: Check diff
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const diff = "${{ steps.generate-diff.outputs.diff }}"
+
+            if(!diff.startsWith("-- This is an empty migration.")) return;
+
+            core.setFailed('Schema is missing migrations')
