@@ -257,7 +257,6 @@ jobs:
               - 'core/prisma/schema.prisma'
 
       - name: Setup Rust and Prisma
-        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
         uses: ./.github/actions/setup-rust
         with:
           restore-cache: 'false'
