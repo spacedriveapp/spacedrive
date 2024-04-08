@@ -153,11 +153,12 @@ where
 	let mut to_remove = vec![];
 
 	while let Some(entry) = to_walk.pop_front() {
+		let last_indexed_count = indexed_paths.len();
+
 		let (entry_size, current_to_remove) = inner_walk_single_dir(
 			root,
 			&entry,
 			indexer_rules,
-			&mut update_notifier,
 			&to_remove_db_fetcher,
 			&iso_file_path_factory,
 			WorkingTable {
@@ -169,6 +170,8 @@ where
 		)
 		.await;
 		to_remove.push(current_to_remove);
+
+		update_notifier(&entry.path, indexed_paths.len() - last_indexed_count);
 
 		// Saving the size of current entry
 		paths_and_sizes.insert(entry.path, entry_size);
@@ -227,7 +230,6 @@ where
 		to_walk_entry.path.clone(),
 		to_walk_entry,
 		indexer_rules,
-		&mut update_notifier,
 		&to_remove_db_fetcher,
 		&iso_file_path_factory,
 		WorkingTable {
@@ -238,6 +240,8 @@ where
 		},
 	)
 	.await;
+
+	update_notifier(&to_walk_entry.path, indexed_paths.len());
 
 	let (walked, to_update) = filter_existing_paths(indexed_paths, file_paths_db_fetcher).await?;
 
@@ -263,7 +267,6 @@ where
 pub(super) async fn walk_single_dir<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 	root: impl AsRef<Path>,
 	indexer_rules: &[IndexerRule],
-	mut update_notifier: impl FnMut(&Path, usize) + '_,
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> FilePathDBFetcherFut,
 	to_remove_db_fetcher: impl Fn(
 		IsolatedFilePathData<'static>,
@@ -312,7 +315,6 @@ where
 			maybe_parent: None,
 		},
 		indexer_rules,
-		&mut update_notifier,
 		&to_remove_db_fetcher,
 		&iso_file_path_factory,
 		WorkingTable {
@@ -435,7 +437,6 @@ async fn inner_walk_single_dir<ToRemoveDbFetcherFut>(
 		..
 	}: &ToWalkEntry,
 	indexer_rules: &[IndexerRule],
-	update_notifier: &mut impl FnMut(&Path, usize),
 	to_remove_db_fetcher: impl Fn(
 		IsolatedFilePathData<'static>,
 		Vec<file_path::WhereParam>,
@@ -469,8 +470,6 @@ where
 	// Just to make sure...
 	paths_buffer.clear();
 
-	let mut found_paths_counts = 0;
-
 	// Marking with a loop label here in case of rejection or errors, to continue with next entry
 	'entries: loop {
 		let entry = match read_dir.next_entry().await {
@@ -490,16 +489,6 @@ where
 		let mut accept_by_children_dir = *parent_dir_accepted_by_its_children;
 
 		let current_path = entry.path();
-
-		// Just sending updates if we found more paths since the last loop
-		let current_found_paths_count = paths_buffer.len();
-		if found_paths_counts != current_found_paths_count {
-			update_notifier(
-				&current_path,
-				indexed_paths.len() + current_found_paths_count,
-			);
-			found_paths_counts = current_found_paths_count;
-		}
 
 		trace!(
 			"Current filesystem path: {}, accept_by_children_dir: {:#?}",

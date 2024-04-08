@@ -1,6 +1,7 @@
 use crate::{
 	invalidate_query,
 	library::Library,
+	location::ScanState,
 	old_job::{
 		CurrentStep, JobError, JobInitOutput, JobReportUpdate, JobResult, JobStepOutput,
 		StatefulJob, WorkerContext,
@@ -419,6 +420,17 @@ impl StatefulJob for OldMediaProcessorJobInit {
 		if run_metadata.media_data.extracted > 0 {
 			invalidate_query!(ctx.library, "search.paths");
 		}
+
+		ctx.library
+			.db
+			.location()
+			.update(
+				location::id::equals(self.location.id),
+				vec![location::scan_state::set(ScanState::Completed as i32)],
+			)
+			.exec()
+			.await
+			.map_err(MediaProcessorError::from)?;
 
 		Ok(Some(json!({"init: ": self, "run_metadata": run_metadata})))
 	}
