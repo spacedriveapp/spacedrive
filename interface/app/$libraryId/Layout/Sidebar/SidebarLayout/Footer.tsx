@@ -1,12 +1,15 @@
+import { inferSubscriptionResult } from '@oscartbeaumont-sd/rspc-client';
 import { Gear } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
 	JobManagerContextProvider,
 	LibraryContextProvider,
+	Procedures,
 	useClientContext,
 	useDebugState,
-	useLibrarySubscription
+	useLibrarySubscription,
+	useUnsafeStreamedQuery
 } from '@sd/client';
 import { Button, ButtonLink, Popover, Tooltip, usePopover } from '@sd/ui';
 import { useKeysMatcher, useLocale, useShortcut } from '~/hooks';
@@ -115,10 +118,10 @@ export default () => {
 };
 
 function SyncStatusIndicator() {
-	const [syncing, setSyncing] = useState(false);
+	const [status, setStatus] = useState<inferSubscriptionResult<Procedures, 'sync.active'>>();
 
 	useLibrarySubscription(['sync.active'], {
-		onData: setSyncing
+		onData: setStatus
 	});
 
 	return null;
