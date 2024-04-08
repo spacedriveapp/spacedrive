@@ -10,8 +10,9 @@ use crate::{
 	},
 };
 
+use sd_core_file_path_helper::IsolatedFilePathData;
+
 use sd_file_ext::extensions::ImageExtension;
-use sd_file_path_helper::IsolatedFilePathData;
 use sd_media_metadata::MediaMetadata;
 use sd_utils::error::FileIOError;
 
@@ -37,9 +38,10 @@ const UNTITLED_FILE_STR: &str = "Untitled";
 const UNTITLED_TEXT_FILE_STR: &str = "Untitled.txt";
 
 #[derive(Type, Deserialize)]
+#[serde(rename_all = "camelCase")]
 enum EphemeralFileCreateContextTypes {
-	empty,
-	text,
+	Empty,
+	Text,
 }
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
@@ -103,10 +105,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				     context,
 				 }: CreateEphemeralFileArgs| async move {
 					match context {
-						EphemeralFileCreateContextTypes::empty => {
+						EphemeralFileCreateContextTypes::Empty => {
 							path.push(name.as_deref().unwrap_or(UNTITLED_FILE_STR));
 						}
-						EphemeralFileCreateContextTypes::text => {
+						EphemeralFileCreateContextTypes::Text => {
 							path.push(name.as_deref().unwrap_or(UNTITLED_TEXT_FILE_STR));
 						}
 					}

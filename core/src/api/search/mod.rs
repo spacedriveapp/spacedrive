@@ -1,13 +1,12 @@
 use crate::{
-	api::{
-		locations::{file_path_with_object, object_with_file_paths, ExplorerItem},
-		utils::library,
-	},
+	api::{locations::ExplorerItem, utils::library},
 	library::Library,
 	location::{non_indexed, LocationError},
 	object::media::old_thumbnail::get_indexed_thumb_key,
 	util::{unsafe_streamed_query, BatchedStream},
 };
+
+use sd_core_prisma_helpers::{file_path_with_object, object_with_file_paths};
 
 use sd_cache::{CacheNode, Model, Normalise, Reference};
 use sd_prisma::prisma::{self, PrismaClient};

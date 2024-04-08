@@ -1,7 +1,9 @@
 use crate::old_job::JobRunErrors;
 
+use sd_core_file_path_helper::IsolatedFilePathData;
+use sd_core_prisma_helpers::file_path_for_media_processor;
+
 use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
-use sd_file_path_helper::{file_path_for_media_processor, IsolatedFilePathData};
 use sd_media_metadata::ImageMetadata;
 use sd_prisma::prisma::{location, media_data, PrismaClient};
 use sd_utils::error::FileIOError;

@@ -1,5 +1,7 @@
 use crate::library::Library;
 
+use sd_core_prisma_helpers::job_without_data;
+
 use sd_prisma::prisma::job;
 use sd_utils::db::{maybe_missing, MissingFieldError};
 
@@ -23,22 +25,6 @@ pub enum JobReportUpdate {
 	Message(String),
 	Phase(String),
 }
-
-job::select!(job_without_data {
-	id
-	name
-	action
-	status
-	parent_id
-	errors_text
-	metadata
-	date_created
-	date_started
-	date_completed
-	task_count
-	completed_task_count
-	date_estimated_completion
-});
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
 pub struct JobReport {

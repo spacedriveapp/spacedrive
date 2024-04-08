@@ -34,9 +34,11 @@ pin-project = "1.1.4"
 tokio = { workspace = true, features = ["macros", "test-util", "fs"] }
 tempfile = { workspace = true }
 rand = "0.8.5"
-tracing-test = { version = "^0.2.4", features = ["no-env-filter"] }
+tracing-test = { workspace.dev-dependencies = true, features = [
+	"no-env-filter",
+] }
 thiserror = { workspace = true }
-lending-stream = "1.0.0"
+lending-stream = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 rmp-serde = { workspace = true }
 uuid = { workspace = true, features = ["serde"] }

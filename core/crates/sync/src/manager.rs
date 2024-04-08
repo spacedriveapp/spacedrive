@@ -7,6 +7,7 @@ use sd_utils::uuid_to_bytes;
 use std::{
 	cmp::Ordering,
 	collections::HashMap,
+	fmt,
 	ops::Deref,
 	sync::{
 		atomic::{self, AtomicBool},
@@ -23,6 +24,12 @@ pub struct Manager {
 	pub tx: broadcast::Sender<SyncMessage>,
 	pub ingest: ingest::Handler,
 	pub shared: Arc<SharedState>,
+}
+
+impl fmt::Debug for Manager {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("SyncManager").finish()
+	}
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq)]
