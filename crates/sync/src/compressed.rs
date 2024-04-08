@@ -9,7 +9,7 @@ pub type CompressedCRDTOperationsForModel = Vec<(rmpv::Value, Vec<CompressedCRDT
 /// Stores a bunch of CRDTOperations in a more memory-efficient form for sending to the cloud.
 #[derive(Serialize, Deserialize)]
 pub struct CompressedCRDTOperations(
-	pub(self) Vec<(Uuid, Vec<(String, CompressedCRDTOperationsForModel)>)>,
+	pub(self) Vec<(Uuid, Vec<(u16, CompressedCRDTOperationsForModel)>)>,
 );
 
 impl CompressedCRDTOperations {
