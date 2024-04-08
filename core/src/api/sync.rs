@@ -92,14 +92,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						let sync = &library.sync.shared;
 
 						loop {
-							let data = Data {
+							yield Data {
 							  ingest: sync.active.load(Ordering::Relaxed),
 								cloud_send: cloud_sync.send_active.load(Ordering::Relaxed),
 								cloud_receive: cloud_sync.receive_active.load(Ordering::Relaxed),
 								cloud_ingest: cloud_sync.ingest_active.load(Ordering::Relaxed),
 							};
-
-							yield data;
 
 							tokio::select! {
 								_ = cloud_sync.notifier.notified() => {},
