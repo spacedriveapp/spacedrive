@@ -465,7 +465,7 @@ id: string;
  */
 name: string; identity: RemoteIdentity; p2p_ipv4_port: Port; p2p_ipv6_port: Port; p2p_discovery: P2PDiscoveryState; features: BackendFeature[]; preferences: NodePreferences; image_labeler_version: string | null }) & { data_path: string; listeners: Listener2[]; device_model: string | null }
 
-export type NonIndexedPathItem = { path: string; name: string; extension: string; kind: number; is_dir: boolean; date_created: string; date_modified: string; size_in_bytes_bytes: number[]; hidden: boolean }
+export type NonIndexedPathItem = { path: string; name: string; extension: string; kind: number; date_created: string; date_modified: string; size_in_bytes_bytes: number[]; hidden: boolean }
 
 /**
  * A type that can be used to return a group of `Reference<T>` and `CacheNode`'s

@@ -26,13 +26,12 @@ use sd_file_path_helper::IsolatedFilePathDataParts;
 
 use std::{
 	collections::HashSet,
-	path::{Component, Path, PathBuf},
+	path::{Path, PathBuf},
 	sync::Arc,
 };
 
 use chrono::Utc;
 use futures::future::TryFutureExt;
-use normpath::PathExt;
 use prisma_client_rust::{operator::and, or, QueryError};
 use serde::Deserialize;
 use serde_json::json;
@@ -45,7 +44,6 @@ mod error;
 pub mod indexer;
 mod manager;
 pub mod metadata;
-pub mod non_indexed;
 
 pub use error::LocationError;
 use indexer::OldIndexerJobInit;

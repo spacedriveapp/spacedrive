@@ -6,7 +6,7 @@ use crate::{
 	library::Library,
 	location::{
 		indexer::rules::seed::{no_hidden, no_os_protected},
-		non_indexed, LocationError,
+		LocationError,
 	},
 	object::media::old_thumbnail::get_indexed_thumb_key,
 	util::{unsafe_streamed_query, BatchedStream},
@@ -112,7 +112,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			#[serde(rename_all = "camelCase")]
 			struct EphemeralPathSearchArgs {
 				from: PathFrom,
-				path: PathBuf,
+				path: String,
 				with_hidden_files: bool,
 				#[specta(optional)]
 				order: Option<EphemeralPathOrder>,
@@ -148,7 +148,77 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						[(!with_hidden_files).then(|| IndexerRule::from(no_hidden()))],
 					);
 
-					let stream = sd_indexer::ephemeral(service, rules, path).await;
+					let stream =
+						sd_indexer::ephemeral(service, rules, &path)
+							.await
+							.map_err(|err| {
+								rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
+							})?;
+
+					// TODO: Sorting on the frontend
+					// {
+					// 	let span = span!(Level::INFO, "sort_fn");
+					// 	let _enter = span.enter();
+
+					// 	sort_fn(&mut entries);
+					// }
+
+					// TODO: Thumbnailer (but scoped to procedure so it's auto killed)
+					// thumbnails_to_generate.extend(document_thumbnails_to_generate);
+					//
+					// node.thumbnailer
+					// 	.new_ephemeral_thumbnails_batch(BatchToProcess::new(
+					// 		thumbnails_to_generate,
+					// 		false,
+					// 		false,
+					// 	))
+					// 	.await;
+					//
+					// let thumbnail_key = if should_generate_thumbnail {
+					// 	if let Ok(cas_id) =
+					// 		generate_cas_id(&path, entry.metadata.len())
+					// 			.await
+					// 			.map_err(|e| {
+					// 				tx.send(Err(Either::Left(
+					// 					NonIndexedLocationError::from((path, e)).into(),
+					// 				)))
+					// 			}) {
+					// 		if kind == ObjectKind::Document {
+					// 			document_thumbnails_to_generate.push(GenerateThumbnailArgs::new(
+					// 				extension.clone(),
+					// 				cas_id.clone(),
+					// 				path.to_path_buf(),
+					// 			));
+					// 		} else {
+					// 			thumbnails_to_generate.push(GenerateThumbnailArgs::new(
+					// 				extension.clone(),
+					// 				cas_id.clone(),
+					// 				path.to_path_buf(),
+					// 			));
+					// 		}
+
+					// 		Some(get_ephemeral_thumb_key(&cas_id))
+					// 	} else {
+					// 		None
+					// 	}
+					// } else {
+					// 	None
+					// };
+					//
+					// let should_generate_thumbnail = {
+					// 	#[cfg(feature = "ffmpeg")]
+					// 	{
+					// 		matches!(
+					// 			kind,
+					// 			ObjectKind::Image | ObjectKind::Video | ObjectKind::Document
+					// 		)
+					// 	}
+
+					// 	#[cfg(not(feature = "ffmpeg"))]
+					// 	{
+					// 		matches!(kind, ObjectKind::Image | ObjectKind::Document)
+					// 	}
+					// };
 
 					// let paths =
 					// 	non_indexed::walk(path, with_hidden_files, node, library, |entries| {
@@ -195,10 +265,32 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							let mut errors = Vec::with_capacity(0);
 
 							for item in result {
-								entries.push(ExplorerItem::NonIndexedPath {
-									thumbnail: None,
-									item
-								})
+								// TODO: For each directory returned, check if it's got a Prisma location (doing this in batches)
+								// TODO: Then replace with `ExplorerItem::Location`
+								// let mut locations = library
+								// 	.db
+								// 	.location()
+								// 	.find_many(vec![location::path::in_vec(
+								// 		directories
+								// 			.iter()
+								// 			.map(|(path, _, _)| path.clone())
+								// 			.collect(),
+								// 	)])
+								// 	.exec()
+								// 	.await?
+								// 	.into_iter()
+								// 	.flat_map(|location| {
+								// 		location
+								// 			.path
+								// 			.clone()
+								// 			.map(|location_path| (location_path, location))
+								// 	})
+								// 	.collect::<HashMap<_, _>>();
+
+								// entries.push(ExplorerItem::NonIndexedPath {
+								// 	thumbnail: None,
+								// 	item
+								// })
 
 								// match item {
 								// 	Ok(item) => todo!(),

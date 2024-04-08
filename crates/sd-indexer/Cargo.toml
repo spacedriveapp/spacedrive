@@ -8,6 +8,8 @@ publish = false
 
 [dependencies]
 sd-utils = { path = "../utils" }
+sd-file-path-helper = { path = "../file-path-helper" }
+sd-file-ext = { path = "../file-ext" }
 
 chrono.workspace = true
 futures-util = "0.3.30"

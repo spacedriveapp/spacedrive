@@ -8788,6 +8788,8 @@ dependencies = [
  "opendal",
  "rmp-serde",
  "rspc",
+ "sd-file-ext",
+ "sd-file-path-helper",
  "sd-prisma",
  "sd-utils",
  "serde",
