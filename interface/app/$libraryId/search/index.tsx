@@ -1,6 +1,5 @@
-import { useEffect, useMemo } from 'react';
-import { useSearchParams as useRawSearchParams } from 'react-router-dom';
-import { ObjectKindEnum, ObjectOrder, useObjectsExplorerQuery } from '@sd/client';
+import { useMemo } from 'react';
+import { ObjectOrder } from '@sd/client';
 import { Icon } from '~/components';
 import { useRouteTitle } from '~/hooks';
 
@@ -9,10 +8,12 @@ import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
 import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
-import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
+import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { EmptyNotice } from '../Explorer/View/EmptyNotice';
 import { TopBarPortal } from '../TopBar/Portal';
 import SearchBar from './SearchBar';
+import { useSearchFromSearchParams } from './useSearch';
+import { useSearchExplorerQuery } from './useSearchExplorerQuery';
 
 export * from './context';
 export * from './SearchOptions';
@@ -28,19 +29,19 @@ export function Component() {
 		orderingKeys: objectOrderingKeysSchema
 	});
 
-	const search = useSearchWithFilters(explorerSettings);
+	const search = useSearchFromSearchParams();
 
-	const objects = useObjectsExplorerQuery({
-		arg: {
-			take: 100,
-			filters: search.allFilters
-		},
-		order: explorerSettings.useSettingsSnapshot().order
+	const items = useSearchExplorerQuery({
+		search,
+		explorerSettings,
+		filters: search.allFilters,
+		take: 100,
+		objects: { order: explorerSettings.useSettingsSnapshot().order }
 	});
 
 	const explorer = useExplorer({
-		...objects,
-		isFetchingNextPage: objects.query.isFetchingNextPage,
+		...items,
+		isFetchingNextPage: items.query.isFetchingNextPage,
 		settings: explorerSettings
 	});
 
@@ -75,61 +76,4 @@ export function Component() {
 			/>
 		</ExplorerContextProvider>
 	);
-}
-
-function useSearchWithFilters(explorerSettings: UseExplorerSettings<ObjectOrder>) {
-	const [searchParams, setSearchParams] = useRawSearchParams();
-	const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
-
-	const fixedFilters = useMemo(
-		() => [
-			...(explorerSettingsSnapshot.layoutMode === 'media'
-				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
-				: [])
-		],
-		[explorerSettingsSnapshot.layoutMode]
-	);
-
-	const filtersParam = searchParams.get('filters');
-	const dynamicFilters = useMemo(() => JSON.parse(filtersParam ?? '[]'), [filtersParam]);
-
-	const searchQueryParam = searchParams.get('search');
-
-	const search = useSearch({
-		open: !!searchQueryParam || dynamicFilters.length > 0 || undefined,
-		search: searchParams.get('search') ?? undefined,
-		fixedFilters,
-		dynamicFilters
-	});
-
-	useEffect(() => {
-		setSearchParams(
-			(p) => {
-				if (search.dynamicFilters.length > 0)
-					p.set('filters', JSON.stringify(search.dynamicFilters));
-				else p.delete('filters');
-
-				return p;
-			},
-			{ replace: true }
-		);
-	}, [search.dynamicFilters, setSearchParams]);
-
-	const searchQuery = search.search;
-
-	useEffect(() => {
-		setSearchParams(
-			(p) => {
-				if (searchQuery !== '') p.set('search', searchQuery);
-				else p.delete('search');
-
-				return p;
-			},
-			{ replace: true }
-		);
-		// Do not add setSearchParams to the dependencies array, it will cause CMDK to not navigate to search page (multiple times)
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [searchQuery]);
-
-	return search;
 }

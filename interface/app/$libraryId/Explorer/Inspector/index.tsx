@@ -227,9 +227,9 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	useNodes(tagsQuery.data?.nodes);
 	const tags = useCache(tagsQuery.data?.items);
 
-	const labels = useLibraryQuery(['labels.getForObject', objectData?.id ?? -1], {
-		enabled: objectData != null && readyToFetch
-	});
+	// const labels = useLibraryQuery(['labels.getForObject', objectData?.id ?? -1], {
+	// 	enabled: objectData != null && readyToFetch
+	// });
 
 	const { libraryId } = useZodRouteParams(LibraryIdParamsSchema);
 
@@ -363,11 +363,11 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 				{extension && <InfoPill>{extension}</InfoPill>}
 
-				{labels.data?.map((label) => (
+				{/* {labels.data?.map((label) => (
 					<InfoPill key={label.id} className="truncate !text-white">
 						{label.name}
 					</InfoPill>
-				))}
+				))} */}
 
 				{tags?.map((tag) => (
 					<NavLink key={tag.id} to={`/${libraryId}/tag/${tag.id}`}>
@@ -436,20 +436,20 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 	useNodes(tagsQuery.data?.nodes);
 	const tags = useCache(tagsQuery.data?.items);
 
-	const labels = useLibraryQuery(['labels.list'], {
-		enabled: readyToFetch && !isDragSelecting,
-		suspense: true
-	});
+	// const labels = useLibraryQuery(['labels.list'], {
+	// 	enabled: readyToFetch && !isDragSelecting,
+	// 	suspense: true
+	// });
 
 	const tagsWithObjects = useLibraryQuery(
 		['tags.getWithObjects', selectedObjects.map(({ id }) => id)],
 		{ enabled: readyToFetch && !isDragSelecting }
 	);
 
-	const labelsWithObjects = useLibraryQuery(
-		['labels.getWithObjects', selectedObjects.map(({ id }) => id)],
-		{ enabled: readyToFetch && !isDragSelecting }
-	);
+	// const labelsWithObjects = useLibraryQuery(
+	// 	['labels.getWithObjects', selectedObjects.map(({ id }) => id)],
+	// 	{ enabled: readyToFetch && !isDragSelecting }
+	// );
 
 	const getDate = useCallback((metadataDate: MetadataDate, date: Date) => {
 		date.setHours(0, 0, 0, 0);
@@ -552,7 +552,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 					<InfoPill key={kind}>{`${kind} (${items.length})`}</InfoPill>
 				))}
 
-				{labels.data?.map((label) => {
+				{/* {labels.data?.map((label) => {
 					const objectsWithLabel = labelsWithObjects.data?.[label.id] ?? [];
 
 					if (objectsWithLabel.length === 0) return null;
@@ -569,7 +569,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 							{label.name} ({objectsWithLabel.length})
 						</InfoPill>
 					);
-				})}
+				})} */}
 
 				{tags?.map((tag) => {
 					const objectsWithTag = tagsWithObjects.data?.[tag.id] ?? [];

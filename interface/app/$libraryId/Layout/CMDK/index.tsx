@@ -119,13 +119,13 @@ const CMDK = () => {
 						closeOnSelect: true,
 						onClick: () => navigate('recents')
 					},
-					{
-						id: 'go-labels',
-						children: t('go_to_labels'),
-						icon: 'ArrowRightIcon',
-						closeOnSelect: true,
-						onClick: () => navigate('labels')
-					},
+					// {
+					// 	id: 'go-labels',
+					// 	children: t('go_to_labels'),
+					// 	icon: 'ArrowRightIcon',
+					// 	closeOnSelect: true,
+					// 	onClick: () => navigate('labels')
+					// },
 					{
 						id: 'go-location',
 						children: t('go_to_location'),
