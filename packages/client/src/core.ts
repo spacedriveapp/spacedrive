@@ -12,7 +12,7 @@ export type Procedures = {
         { key: "cloud.locations.list", input: never, result: CloudLocation[] } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata) | null } | 
         { key: "files.get", input: LibraryArgs<number>, result: { item: Reference<ObjectWithFilePaths2>; nodes: CacheNode[] } | null } | 
-        { key: "files.getConvertableImageExtensions", input: never, result: string[] } | 
+        { key: "files.getConvertibleImageExtensions", input: never, result: string[] } | 
         { key: "files.getMediaData", input: LibraryArgs<number>, result: MediaMetadata } | 
         { key: "files.getPath", input: LibraryArgs<number>, result: string | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 

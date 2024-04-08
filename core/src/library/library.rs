@@ -2,7 +2,9 @@ use crate::{
 	api::CoreEvent, cloud, object::media::old_thumbnail::get_indexed_thumbnail_path, sync, Node,
 };
 
-use sd_file_path_helper::{file_path_to_full_path, IsolatedFilePathData};
+use sd_core_file_path_helper::IsolatedFilePathData;
+use sd_core_prisma_helpers::file_path_to_full_path;
+
 use sd_p2p::Identity;
 use sd_prisma::prisma::{file_path, location, PrismaClient};
 use sd_utils::{db::maybe_missing, error::FileIOError};
