@@ -1,6 +1,7 @@
+import { Image } from 'expo-image';
 import { Globe } from 'phosphor-react-native';
 import React from 'react';
-import { Image, Linking, Platform, Text, View } from 'react-native';
+import { Linking, Platform, Text, View } from 'react-native';
 import { useBridgeQuery } from '@sd/client';
 import { DiscordIcon, GitHubIcon } from '~/components/icons/Brands';
 import ScreenContainer from '~/components/layout/ScreenContainer';
