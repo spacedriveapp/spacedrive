@@ -392,6 +392,9 @@ importers:
       expo-build-properties:
         specifier: ~0.11.1
         version: 0.11.1(expo@50.0.13)
+      expo-image:
+        specifier: ^1.10.6
+        version: 1.10.6(expo@50.0.13)
       expo-linking:
         specifier: ~6.2.2
         version: 6.2.2(expo@50.0.13)
@@ -3092,10 +3095,6 @@ packages:
     peerDependencies:
       '@effect-ts/otel-node': '*'
     peerDependenciesMeta:
-      '@effect-ts/core':
-        optional: true
-      '@effect-ts/otel':
-        optional: true
       '@effect-ts/otel-node':
         optional: true
     dependencies:
@@ -14728,6 +14727,15 @@ packages:
       fontfaceobserver: 2.3.0
     dev: false
 
+  /expo-image@1.10.6(expo@50.0.13):
+    resolution: {integrity: sha512-vcnAIym1eU8vQgV1re1E7rVQZStJimBa4aPDhjFfzMzbddAF7heJuagyewiUkTzbZUwYzPaZAie6VJPyWx9Ueg==}
+    peerDependencies:
+      expo: '*'
+    dependencies:
+      '@react-native/assets-registry': 0.73.1
+      expo: 50.0.13(@babel/core@7.24.0)(@react-native/babel-preset@0.73.21)
+    dev: false
+
   /expo-keep-awake@12.8.2(expo@50.0.13):
     resolution: {integrity: sha512-uiQdGbSX24Pt8nGbnmBtrKq6xL/Tm3+DuDRGBk/3ZE/HlizzNosGRIufIMJ/4B4FRw4dw8KU81h2RLuTjbay6g==}
     peerDependencies:
@@ -24486,7 +24494,7 @@ packages:
     engines: {node: ^14.18.0 || >=16.0.0}
     hasBin: true
     peerDependencies:
-      '@types/node': '>= 14'
+      '@types/node': '>18.18.x'
       less: '*'
       lightningcss: ^1.21.0
       sass: '*'
@@ -24521,7 +24529,7 @@ packages:
     engines: {node: ^18.0.0 || >=20.0.0}
     hasBin: true
     peerDependencies:
-      '@types/node': ^18.0.0 || >=20.0.0
+      '@types/node': '>18.18.x'
       less: '*'
       lightningcss: ^1.21.0
       sass: '*'
@@ -24556,7 +24564,7 @@ packages:
     engines: {node: ^18.0.0 || >=20.0.0}
     hasBin: true
     peerDependencies:
-      '@types/node': ^18.0.0 || >=20.0.0
+      '@types/node': '>18.18.x'
       less: '*'
       lightningcss: ^1.21.0
       sass: '*'
