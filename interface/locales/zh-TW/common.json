@@ -464,5 +464,6 @@
   "size_kb": "千位元組",
   "size_mb": "MB",
   "size_tb": "結核病",
-  "text_file": "文字檔案"
+  "text_file": "文字檔案",
+  "open_in_new_tab": "在新分頁中開啟"
 }

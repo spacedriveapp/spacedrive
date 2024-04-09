@@ -464,5 +464,6 @@
   "create_folder_success": "Nouveau dossier créé : {{name}}",
   "empty_file": "Fichier vide",
   "new": "Nouveau",
-  "text_file": "Fichier texte"
+  "text_file": "Fichier texte",
+  "open_in_new_tab": "Ouvrir dans un nouvel onglet"
 }

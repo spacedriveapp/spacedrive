@@ -157,6 +157,7 @@ const Path = ({ path, onClick, disabled, locationPath }: PathProps) => {
 	const { t } = useLocale();
 	const os = useOperatingSystem();
 	const tabs = useTabsContext();
+	const [contextMenuOpen, setContextMenuOpen] = useState(false);
 
 	const osFileBrowserName = lookup[os] ?? 'file manager';
 	const pathValue = path.pathname.endsWith('/')
@@ -172,8 +173,6 @@ const Path = ({ path, onClick, disabled, locationPath }: PathProps) => {
 		pathname: `${library.uuid}/${basePath}`,
 		search: searchParam ? `${searchParam}` : undefined
 	};
-
-	const [contextMenuOpen, setContextMenuOpen] = useState(false);
 
 	const { setDroppableRef, className, isDroppable } = useExplorerDroppable({
 		data: {
@@ -217,12 +216,9 @@ const Path = ({ path, onClick, disabled, locationPath }: PathProps) => {
 			<ContextMenu.Item
 				onClick={() => {
 					if (!tabs) return null;
-					tabs.createTab({
-						pathname: redirect.pathname,
-						search: redirect.search
-					});
+					tabs.createTab(redirect);
 				}}
-				label={'Open in new tab'}
+				label={t('open_in_new_tab')}
 				icon={ArrowSquareOut}
 			/>
 			<ContextMenu.Item

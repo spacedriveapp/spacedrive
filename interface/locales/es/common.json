@@ -464,5 +464,6 @@
   "size_kb": "kB",
   "size_mb": "MEGABYTE",
   "size_tb": "tuberculosis",
-  "text_file": "Archivo de texto"
+  "text_file": "Archivo de texto",
+  "open_in_new_tab": "Abrir en una pestaña nueva"
 }
