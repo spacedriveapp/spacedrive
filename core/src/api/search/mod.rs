@@ -8,7 +8,7 @@ use crate::{
 		indexer::rules::seed::{no_hidden, no_os_protected},
 		LocationError,
 	},
-	object::media::old_thumbnail::get_indexed_thumb_key,
+	object::media::old_thumbnail::{self, get_indexed_thumb_key},
 	util::{unsafe_streamed_query, BatchedStream},
 };
 
@@ -133,13 +133,18 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				     with_hidden_files,
 				     order,
 				 }| async move {
-					// TODO: Error handling
-
 					let service = match from {
 						PathFrom::Path => {
 							let mut fs = Fs::default();
 							fs.root("/");
-							Operator::new(fs).unwrap().finish()
+							Operator::new(fs)
+								.map_err(|err| {
+									rspc::Error::new(
+										ErrorCode::InternalServerError,
+										err.to_string(),
+									)
+								})?
+								.finish()
 						}
 					};
 
@@ -155,108 +160,13 @@ pub fn mount() -> AlphaRouter<Ctx> {
 								rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
 							})?;
 
-					// TODO: Sorting on the frontend
-					// {
-					// 	let span = span!(Level::INFO, "sort_fn");
-					// 	let _enter = span.enter();
+					let stream = old_thumbnail::old_actor::thumbnailer(&node.thumbnailer, stream);
+					// let stream = std::pin::pin!(stream);
 
-					// 	sort_fn(&mut entries);
-					// }
+					let mut stream = BatchedStream::new(std::pin::pin!(stream));
 
-					// TODO: Thumbnailer (but scoped to procedure so it's auto killed)
-					// thumbnails_to_generate.extend(document_thumbnails_to_generate);
-					//
-					// node.thumbnailer
-					// 	.new_ephemeral_thumbnails_batch(BatchToProcess::new(
-					// 		thumbnails_to_generate,
-					// 		false,
-					// 		false,
-					// 	))
-					// 	.await;
-					//
-					// let thumbnail_key = if should_generate_thumbnail {
-					// 	if let Ok(cas_id) =
-					// 		generate_cas_id(&path, entry.metadata.len())
-					// 			.await
-					// 			.map_err(|e| {
-					// 				tx.send(Err(Either::Left(
-					// 					NonIndexedLocationError::from((path, e)).into(),
-					// 				)))
-					// 			}) {
-					// 		if kind == ObjectKind::Document {
-					// 			document_thumbnails_to_generate.push(GenerateThumbnailArgs::new(
-					// 				extension.clone(),
-					// 				cas_id.clone(),
-					// 				path.to_path_buf(),
-					// 			));
-					// 		} else {
-					// 			thumbnails_to_generate.push(GenerateThumbnailArgs::new(
-					// 				extension.clone(),
-					// 				cas_id.clone(),
-					// 				path.to_path_buf(),
-					// 			));
-					// 		}
+					// TODO: Location lookups
 
-					// 		Some(get_ephemeral_thumb_key(&cas_id))
-					// 	} else {
-					// 		None
-					// 	}
-					// } else {
-					// 	None
-					// };
-					//
-					// let should_generate_thumbnail = {
-					// 	#[cfg(feature = "ffmpeg")]
-					// 	{
-					// 		matches!(
-					// 			kind,
-					// 			ObjectKind::Image | ObjectKind::Video | ObjectKind::Document
-					// 		)
-					// 	}
-
-					// 	#[cfg(not(feature = "ffmpeg"))]
-					// 	{
-					// 		matches!(kind, ObjectKind::Image | ObjectKind::Document)
-					// 	}
-					// };
-
-					// let paths =
-					// 	non_indexed::walk(path, with_hidden_files, node, library, |entries| {
-					// 		macro_rules! order_match {
-					// 			($order:ident, [$(($variant:ident, |$i:ident| $func:expr)),+]) => {{
-					// 				match $order {
-					// 					$(EphemeralPathOrder::$variant(order) => {
-					// 						entries.sort_unstable_by(|path1, path2| {
-					// 							let func = |$i: &non_indexed::Entry| $func;
-
-					// 							let one = func(path1);
-					// 							let two = func(path2);
-
-					// 							match order {
-					// 								SortOrder::Desc => two.cmp(&one),
-					// 								SortOrder::Asc => one.cmp(&two),
-					// 							}
-					// 						});
-					// 					})+
-					// 				}
-					// 			}};
-					// 		}
-
-					// 		if let Some(order) = order {
-					// 			order_match!(
-					// 				order,
-					// 				[
-					// 					(Name, |p| p.name().to_lowercase()),
-					// 					(SizeInBytes, |p| p.size_in_bytes()),
-					// 					(DateCreated, |p| p.date_created()),
-					// 					(DateModified, |p| p.date_modified())
-					// 				]
-					// 			)
-					// 		}
-					// 	})
-					// 	.await?;
-
-					let mut stream = BatchedStream::new(stream);
 					Ok(unsafe_streamed_query(stream! {
 						while let Some(result) = stream.next().await {
 							// TODO: Bring back errors
