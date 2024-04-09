@@ -138,7 +138,7 @@ export type Procedures = {
         { key: "notifications.listen", input: never, result: Notification } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
         { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: EphemeralPathsResultItem } | 
-        { key: "sync.active", input: LibraryArgs<null>, result: boolean } | 
+        { key: "sync.active", input: LibraryArgs<null>, result: SyncStatus } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
 
@@ -597,6 +597,8 @@ export type SpacedropArgs = { identity: RemoteIdentity; file_path: string[] }
 export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
 
 export type StatisticsResponse = { statistics: Statistics | null }
+
+export type SyncStatus = { ingest: boolean; cloud_send: boolean; cloud_receive: boolean; cloud_ingest: boolean }
 
 export type SystemLocations = { desktop: string | null; documents: string | null; downloads: string | null; pictures: string | null; music: string | null; videos: string | null }
 
