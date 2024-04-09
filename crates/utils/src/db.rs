@@ -63,6 +63,23 @@ pub fn inode_to_db(inode: u64) -> Vec<u8> {
 	inode.to_le_bytes().to_vec()
 }
 
+pub fn size_in_bytes_from_db(db_size_in_bytes: &[u8]) -> u64 {
+	u64::from_be_bytes([
+		db_size_in_bytes[0],
+		db_size_in_bytes[1],
+		db_size_in_bytes[2],
+		db_size_in_bytes[3],
+		db_size_in_bytes[4],
+		db_size_in_bytes[5],
+		db_size_in_bytes[6],
+		db_size_in_bytes[7],
+	])
+}
+
+pub fn size_in_bytes_to_db(size: u64) -> Vec<u8> {
+	size.to_be_bytes().to_vec()
+}
+
 #[derive(Error, Debug)]
 #[error("Missing field {0}")]
 pub struct MissingFieldError(&'static str);

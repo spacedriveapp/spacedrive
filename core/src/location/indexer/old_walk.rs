@@ -1,6 +1,7 @@
-use sd_file_path_helper::{
-	file_path_pub_and_cas_ids, file_path_walker, FilePathMetadata, IsolatedFilePathData,
-};
+use sd_core_file_path_helper::{FilePathMetadata, IsolatedFilePathData};
+use sd_core_indexer_rules::{IndexerRule, RuleKind};
+use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_walker};
+
 use sd_prisma::prisma::file_path;
 use sd_utils::{db::inode_from_db, error::FileIOError};
 
@@ -17,10 +18,7 @@ use tokio::fs;
 use tracing::trace;
 use uuid::Uuid;
 
-use super::{
-	rules::{IndexerRule, RuleKind},
-	IndexerError,
-};
+use super::IndexerError;
 
 const TO_WALK_QUEUE_INITIAL_CAPACITY: usize = 32;
 const WALKER_PATHS_BUFFER_INITIAL_CAPACITY: usize = 256;
@@ -299,7 +297,7 @@ where
 
 		indexed_paths.insert(WalkingEntry {
 			iso_file_path: iso_file_path_factory(root, true)?,
-			maybe_metadata: Some(FilePathMetadata::from_path(&root, &metadata).await?),
+			maybe_metadata: Some(FilePathMetadata::from_path(root, &metadata)?),
 		});
 	}
 
@@ -605,7 +603,6 @@ where
 			};
 
 			let Ok(metadata) = FilePathMetadata::from_path(&current_path, &metadata)
-				.await
 				.map_err(|e| errors.push(e.into()))
 			else {
 				continue;
@@ -643,8 +640,7 @@ where
 						continue;
 					};
 
-					let Ok(metadata) = FilePathMetadata::from_path(&ancestor, &metadata)
-						.await
+					let Ok(metadata) = FilePathMetadata::from_path(ancestor, &metadata)
 						.map_err(|e| errors.push(e.into()))
 					else {
 						continue;
@@ -696,10 +692,10 @@ where
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::panic)]
 mod tests {
-	use super::super::rules::RulePerKind;
 	use super::*;
 	use chrono::Utc;
 	use globset::{Glob, GlobSetBuilder};
+	use sd_core_indexer_rules::RulePerKind;
 	use tempfile::{tempdir, TempDir};
 	// use tracing_test::traced_test;
 
@@ -714,6 +710,21 @@ mod tests {
 	impl Hash for WalkedEntry {
 		fn hash<H: Hasher>(&self, state: &mut H) {
 			self.iso_file_path.hash(state);
+		}
+	}
+
+	fn new_indexer_rule(
+		name: impl Into<String>,
+		default: bool,
+		rules: Vec<RulePerKind>,
+	) -> IndexerRule {
+		IndexerRule {
+			id: None,
+			name: name.into(),
+			default,
+			rules,
+			date_created: Utc::now(),
+			date_modified: Utc::now(),
 		}
 	}
 
@@ -872,7 +883,7 @@ mod tests {
 		.into_iter()
 		.collect::<HashSet<_>>();
 
-		let only_photos_rule = &[IndexerRule::new(
+		let only_photos_rule = &[new_indexer_rule(
 			"only photos".to_string(),
 			false,
 			vec![RulePerKind::AcceptFilesByGlob(
@@ -950,7 +961,7 @@ mod tests {
 		.into_iter()
 		.collect::<HashSet<_>>();
 
-		let git_repos = &[IndexerRule::new(
+		let git_repos = &[new_indexer_rule(
 			"git repos".to_string(),
 			false,
 			vec![RulePerKind::AcceptIfChildrenDirectoriesArePresent(
@@ -1019,14 +1030,14 @@ mod tests {
 		.collect::<HashSet<_>>();
 
 		let git_repos_no_deps_no_build_dirs = &[
-			IndexerRule::new(
+			new_indexer_rule(
 				"git repos".to_string(),
 				false,
 				vec![RulePerKind::AcceptIfChildrenDirectoriesArePresent(
 					[".git".to_string()].into_iter().collect(),
 				)],
 			),
-			IndexerRule::new(
+			new_indexer_rule(
 				"reject node_modules".to_string(),
 				false,
 				vec![RulePerKind::RejectFilesByGlob(
@@ -1037,7 +1048,7 @@ mod tests {
 						.unwrap(),
 				)],
 			),
-			IndexerRule::new(
+			new_indexer_rule(
 				"reject rust build dir".to_string(),
 				false,
 				vec![RulePerKind::RejectFilesByGlob(
