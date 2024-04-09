@@ -7,15 +7,13 @@ use std::{
 use chrono::{DateTime, Utc};
 use futures_util::{Stream, StreamExt, TryFutureExt};
 use opendal::{Operator, Scheme};
+use sd_core_file_path_helper::path_is_hidden;
+use sd_core_indexer_rules::{IndexerRule, RuleKind};
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
-use sd_file_path_helper::path_is_hidden;
 use serde::Serialize;
 use specta::Type;
 
-use crate::{
-	rules::{IndexerRule, RuleKind},
-	stream::TaskStream,
-};
+use crate::stream::TaskStream;
 
 #[derive(Serialize, Type, Debug)]
 pub struct NonIndexedPathItem {

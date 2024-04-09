@@ -171,8 +171,7 @@ impl IndexerRuleCreateArgs {
 					],
 				)
 				.exec()
-				.await
-				.map_err(|err| format!("database error: {err:#?}"))?,
+				.await?,
 		))
 	}
 }

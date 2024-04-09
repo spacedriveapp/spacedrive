@@ -2,6 +2,7 @@ use crate::{
 	api::CoreEvent,
 	library::{Libraries, LibraryId, LibraryManagerEvent},
 	node::config::NodePreferences,
+	Node,
 };
 
 use futures::{Stream, StreamExt};
@@ -338,13 +339,13 @@ impl OldThumbnailer {
 }
 
 pub fn thumbnailer<'a>(
-	thumbnailer: &'a OldThumbnailer,
+	node: Arc<Node>,
 	mut stream: impl Stream<Item = io::Result<NonIndexedPathItem>> + Unpin + 'a,
 ) -> impl Stream<Item = io::Result<NonIndexedPathItem>> + 'a {
 	async_stream::stream! {
 		let thumbnails_to_generate = vec![];
 
-		for item in stream.next().await {
+		while let Some(item) = stream.next().await {
 			// let thumbnail_key = if should_generate_thumbnail {
 			// 	if let Ok(cas_id) =
 			// 		generate_cas_id(&path, entry.metadata.len())
@@ -398,7 +399,7 @@ pub fn thumbnailer<'a>(
 		// TODO: This requires all paths to be loaded before thumbnailing starts.
 		// TODO: This copies the existing functionality but will not fly with Cloud locations (as loading paths will be *way* slower)
 		// TODO: https://linear.app/spacedriveapp/issue/ENG-1719/cloud-thumbnailer
-		thumbnailer
+		node.thumbnailer
 			.new_ephemeral_thumbnails_batch(BatchToProcess::new(
 				thumbnails_to_generate,
 				false,

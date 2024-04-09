@@ -1,27 +1,23 @@
 use crate::{
 	api::{locations::ExplorerItem, utils::library},
 	library::Library,
-	location::{
-		indexer::rules::seed::{no_hidden, no_os_protected},
-		LocationError,
-	},
+	location::LocationError,
 	object::media::old_thumbnail::{self, get_indexed_thumb_key},
 	util::{unsafe_streamed_query, BatchedStream},
 };
 
 use opendal::{services::Fs, Operator};
-use sd_core_prisma_helpers::{file_path_with_object, object_with_file_paths};
 
 use sd_cache::{CacheNode, Model, Normalise, Reference};
-use sd_indexer::rules::IndexerRule;
+use sd_core_indexer_rules::seed::{no_hidden, no_os_protected};
+use sd_core_indexer_rules::IndexerRule;
+use sd_core_prisma_helpers::{file_path_with_object, object_with_file_paths};
+use sd_indexer::path::normalize_path;
 use sd_prisma::prisma::{self, PrismaClient};
 use sd_utils::chain_optional_iter;
 
-use std::path::PathBuf;
-
 use async_stream::stream;
 use futures::StreamExt;
-use itertools::Either;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -159,10 +155,9 @@ pub fn mount() -> AlphaRouter<Ctx> {
 								rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
 							})?;
 
-					let stream = old_thumbnail::old_actor::thumbnailer(&node.thumbnailer, stream);
-					// let stream = std::pin::pin!(stream);
-
-					let mut stream = BatchedStream::new(std::pin::pin!(stream));
+					let stream = old_thumbnail::old_actor::thumbnailer(node.clone(), stream);
+					let stream = Box::pin(stream);
+					let mut stream = BatchedStream::new(stream);
 
 					// TODO: Location lookups
 

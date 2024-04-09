@@ -8,8 +8,9 @@ publish = false
 
 [dependencies]
 sd-utils = { path = "../utils" }
-# sd-file-path-helper = { path = "../../core/crates/file-path-helper" }
 sd-file-ext = { path = "../file-ext" }
+sd-core-file-path-helper = { path = "../../core/crates/file-path-helper" }
+sd-core-indexer-rules = { path = "../../core/crates/indexer-rules" }
 
 chrono.workspace = true
 futures-util = "0.3.30"

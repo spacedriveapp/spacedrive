@@ -2,8 +2,8 @@ use crate::{
 	invalidate_query,
 	location::{
 		delete_location, find_location, indexer::OldIndexerJobInit, light_scan_location,
-		non_indexed::NonIndexedPathItem, relink_location, scan_location, scan_location_sub_path,
-		LocationCreateArgs, LocationError, LocationUpdateArgs,
+		relink_location, scan_location, scan_location_sub_path, LocationCreateArgs, LocationError,
+		LocationUpdateArgs,
 	},
 	object::old_file_identifier::old_file_identifier_job::OldFileIdentifierJobInit,
 	old_job::StatefulJob,
@@ -17,6 +17,7 @@ use sd_core_prisma_helpers::{
 };
 
 use sd_cache::{CacheNode, Model, Normalise, NormalisedResult, NormalisedResults, Reference};
+use sd_indexer::NonIndexedPathItem;
 use sd_prisma::prisma::{file_path, indexer_rule, indexer_rules_in_location, location, SortOrder};
 
 use std::path::{Path, PathBuf};

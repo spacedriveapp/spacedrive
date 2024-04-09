@@ -14,6 +14,7 @@ use sd_core_file_path_helper::{
 };
 use sd_core_prisma_helpers::location_with_indexer_rules;
 
+use sd_indexer::path::normalize_path;
 use sd_prisma::{
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
 	prisma_sync,

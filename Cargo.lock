@@ -8876,6 +8876,8 @@ dependencies = [
  "opendal",
  "rmp-serde",
  "rspc",
+ "sd-core-file-path-helper",
+ "sd-core-indexer-rules",
  "sd-file-ext",
  "sd-prisma",
  "sd-utils",
