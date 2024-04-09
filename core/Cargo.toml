@@ -137,6 +137,7 @@ opendal = { version = "0.45.1", features = [
 	"services-s3",
 	"services-fs",
 ] }
+sync_wrapper = { version = "1.0.1", features = ["futures"] }
 # Override features of transitive dependencies
 [dependencies.openssl]
 version = "=0.10.61"

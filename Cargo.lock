@@ -961,7 +961,7 @@ dependencies = [
  "serde_path_to_error",
  "serde_urlencoded",
  "sha1",
- "sync_wrapper",
+ "sync_wrapper 0.1.2",
  "tokio",
  "tokio-tungstenite",
  "tower",
@@ -8593,6 +8593,7 @@ dependencies = [
  "static_assertions",
  "strum",
  "strum_macros",
+ "sync_wrapper 1.0.1",
  "sysinfo",
  "tar",
  "tempfile",
@@ -8957,7 +8958,7 @@ dependencies = [
  "specta",
  "stable-vec",
  "streamunordered",
- "sync_wrapper",
+ "sync_wrapper 0.1.2",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -9975,6 +9976,15 @@ name = "sync_wrapper"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2047c6ded9c721764247e62cd3b03c09ffc529b2ba5b10ec482ae507a4a70160"
+
+[[package]]
+name = "sync_wrapper"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7065abeca94b6a8a577f9bd45aa0867a2238b74e8eb67cf10d492bc39351394"
+dependencies = [
+ "futures-core",
+]
 
 [[package]]
 name = "synstructure"

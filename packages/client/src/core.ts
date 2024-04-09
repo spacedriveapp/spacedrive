@@ -237,7 +237,7 @@ export type EphemeralPathOrder = { field: "name"; value: SortOrder } | { field: 
 
 export type EphemeralPathSearchArgs = { from: PathFrom; path: string; withHiddenFiles: boolean; order?: EphemeralPathOrder | null }
 
-export type EphemeralPathsResultItem = { entries: Reference<ExplorerItem>[]; errors: Error[]; nodes: CacheNode[] }
+export type EphemeralPathsResultItem = { entries: Reference<ExplorerItem>[]; errors: string[]; nodes: CacheNode[] }
 
 export type EphemeralRenameFileArgs = { kind: EphemeralRenameKind }
 
@@ -246,13 +246,6 @@ export type EphemeralRenameKind = { One: EphemeralRenameOne } | { Many: Ephemera
 export type EphemeralRenameMany = { from_pattern: FromPattern; to_pattern: string; from_paths: string[] }
 
 export type EphemeralRenameOne = { from_path: string; to: string }
-
-export type Error = { code: ErrorCode; message: string }
-
-/**
- * TODO
- */
-export type ErrorCode = "BadRequest" | "Unauthorized" | "Forbidden" | "NotFound" | "Timeout" | "Conflict" | "PreconditionFailed" | "PayloadTooLarge" | "MethodNotSupported" | "ClientClosedRequest" | "InternalServerError"
 
 export type ExplorerItem = { type: "Path"; thumbnail: string[] | null; item: FilePathWithObject } | { type: "Object"; thumbnail: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; item: Location } | { type: "NonIndexedPath"; thumbnail: string[] | null; item: NonIndexedPathItem } | { type: "SpacedropPeer"; item: PeerMetadata } | { type: "Label"; thumbnails: string[][]; item: LabelWithObjects }
 
@@ -465,7 +458,7 @@ id: string;
  */
 name: string; identity: RemoteIdentity; p2p_ipv4_port: Port; p2p_ipv6_port: Port; p2p_discovery: P2PDiscoveryState; features: BackendFeature[]; preferences: NodePreferences; image_labeler_version: string | null }) & { data_path: string; listeners: Listener2[]; device_model: string | null }
 
-export type NonIndexedPathItem = { path: string; name: string; extension: string; kind: number; date_created: string; date_modified: string; size_in_bytes_bytes: number[]; hidden: boolean }
+export type NonIndexedPathItem = { path: string; name: string; extension: string; kind: ObjectKind; date_created: string; date_modified: string; size_in_bytes: number[]; hidden: boolean }
 
 /**
  * A type that can be used to return a group of `Reference<T>` and `CacheNode`'s
@@ -503,6 +496,116 @@ export type ObjectCursor = "none" | { dateAccessed: CursorOrderItem<string> } | 
 export type ObjectFilterArgs = { favorite: boolean } | { hidden: ObjectHiddenFilter } | { kind: InOrNotIn<number> } | { tags: InOrNotIn<number> } | { labels: InOrNotIn<number> } | { dateAccessed: Range<string> }
 
 export type ObjectHiddenFilter = "exclude" | "include"
+
+export type ObjectKind = 
+/**
+ * A file that can not be identified by the indexer
+ */
+"Unknown" | 
+/**
+ * A known filetype, but without specific support
+ */
+"Document" | 
+/**
+ * A virtual filesystem directory
+ */
+"Folder" | 
+/**
+ * A file that contains human-readable text
+ */
+"Text" | 
+/**
+ * A virtual directory int
+ */
+"Package" | 
+/**
+ * An image file
+ */
+"Image" | 
+/**
+ * An audio file
+ */
+"Audio" | 
+/**
+ * A video file
+ */
+"Video" | 
+/**
+ * A compressed archive of data
+ */
+"Archive" | 
+/**
+ * An executable, program or application
+ */
+"Executable" | 
+/**
+ * A link to another object
+ */
+"Alias" | 
+/**
+ * Raw bytes encrypted by Spacedrive with self contained metadata
+ */
+"Encrypted" | 
+/**
+ * A key or certificate file
+ */
+"Key" | 
+/**
+ * A link can open web pages, apps or Spaces
+ */
+"Link" | 
+/**
+ * A special filetype that represents a preserved webpage
+ */
+"WebPageArchive" | 
+/**
+ * A widget is a mini app that can be placed in a Space at various sizes, associated Widget struct required
+ */
+"Widget" | 
+/**
+ * Albums can only have one level of children, and are associated with the Album struct
+ */
+"Album" | 
+/**
+ * Its like a folder, but appears like a stack of files, designed for burst photos / associated groups of files
+ */
+"Collection" | 
+/**
+ * You know, text init
+ */
+"Font" | 
+/**
+ * 3D Object
+ */
+"Mesh" | 
+/**
+ * Editable source code file
+ */
+"Code" | 
+/**
+ * Database file
+ */
+"Database" | 
+/**
+ * E-book file
+ */
+"Book" | 
+/**
+ * Config file
+ */
+"Config" | 
+/**
+ * Dotfile
+ */
+"Dotfile" | 
+/**
+ * Screenshot
+ */
+"Screenshot" | 
+/**
+ * Label
+ */
+"Label"
 
 export type ObjectOrder = { field: "dateAccessed"; value: SortOrder } | { field: "kind"; value: SortOrder } | { field: "mediaData"; value: MediaDataOrder }
 

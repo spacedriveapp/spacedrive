@@ -1,4 +1,4 @@
-use std::{convert::Infallible, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
 	api::{locations::ExplorerItem, utils::library},
@@ -20,7 +20,7 @@ use sd_core_indexer_rules::seed::{no_hidden, no_os_protected};
 use sd_core_indexer_rules::IndexerRule;
 use sd_core_prisma_helpers::{file_path_with_object, object_with_file_paths};
 use sd_file_ext::kind::ObjectKind;
-use sd_prisma::prisma::{self, PrismaClient};
+use sd_prisma::prisma::{self, location, PrismaClient};
 use sd_utils::chain_optional_iter;
 
 use async_stream::stream;
@@ -28,7 +28,7 @@ use futures::StreamExt;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tracing::warn;
+use tracing::{error, warn};
 
 pub mod file_path;
 pub mod media_data;
@@ -172,6 +172,26 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							let mut entries = Vec::with_capacity(result.len());
 							let mut errors = Vec::with_capacity(0);
 
+							// For this batch we check if any directories are actually locations, so the UI can link directly to them
+							let locations = library
+								.db
+								.location()
+								.find_many(vec![location::path::in_vec(
+									result.iter().filter_map(|e| match e {
+										Ok(e) if e.kind == ObjectKind::Folder => Some(e.path.clone()),
+										_ => None
+									}).collect::<Vec<_>>()
+								)])
+								.exec()
+								.await
+								.and_then(|l| {
+									Ok(l.into_iter()
+										.filter_map(|item| item.path.clone().map(|l| (l, item)))
+										.collect::<HashMap<_, _>>())
+								})
+								.map_err(|err| error!("Looking up locations failed: {err:?}"))
+								.unwrap_or_default();
+
 							for item in result {
 								match item {
 									Ok(item) => {
@@ -225,9 +245,15 @@ pub fn mount() -> AlphaRouter<Ctx> {
 											None
 										};
 
-										entries.push(ExplorerItem::NonIndexedPath {
-											thumbnail,
-											item,
+										entries.push(if let Some(item) = locations.get(&item.path) {
+											ExplorerItem::Location {
+												item: item.clone(),
+											}
+										} else {
+											ExplorerItem::NonIndexedPath {
+												thumbnail,
+												item,
+											}
 										});
 									},
 									Err(e) => errors.push(e.to_string()),
