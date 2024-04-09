@@ -1,9 +1,6 @@
-use super::CompressedCRDTOperations;
+use sd_core_sync::{SyncMessage, NTP64};
 
 use sd_cloud_api::RequestConfigProvider;
-use sd_core_sync::{SyncMessage, NTP64};
-use tracing::debug;
-use uuid::Uuid;
 
 use std::{
 	sync::{
@@ -14,10 +11,10 @@ use std::{
 };
 
 use tokio::{sync::Notify, time::sleep};
+use tracing::debug;
+use uuid::Uuid;
 
-use super::err_break;
-
-// Responsible for sending its instance's sync operations to the cloud.
+use super::{err_break, CompressedCRDTOperations};
 
 pub async fn run_actor(
 	library_id: Uuid,

@@ -1,3 +1,10 @@
+use sd_core_prisma_helpers::{
+	file_path_for_file_identifier, file_path_for_media_processor, file_path_for_object_validator,
+	file_path_to_full_path, file_path_to_handle_custom_uri, file_path_to_handle_p2p_serve_file,
+	file_path_to_isolate, file_path_to_isolate_with_id, file_path_to_isolate_with_pub_id,
+	file_path_walker, file_path_with_object,
+};
+
 use sd_prisma::prisma::{file_path, location};
 use sd_utils::error::NonUtf8PathError;
 
@@ -11,12 +18,7 @@ use std::{
 use regex::RegexSet;
 use serde::{Deserialize, Serialize};
 
-use super::{
-	file_path_for_file_identifier, file_path_for_media_processor, file_path_for_object_validator,
-	file_path_to_full_path, file_path_to_handle_custom_uri, file_path_to_handle_p2p_serve_file,
-	file_path_to_isolate, file_path_to_isolate_with_id, file_path_walker, file_path_with_object,
-	FilePathError,
-};
+use super::FilePathError;
 
 static FORBIDDEN_FILE_NAMES: OnceLock<RegexSet> = OnceLock::new();
 
@@ -30,7 +32,7 @@ pub struct IsolatedFilePathDataParts<'a> {
 	relative_path: &'a str,
 }
 
-#[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq, Clone, Default)]
 #[non_exhaustive]
 pub struct IsolatedFilePathData<'a> {
 	// WARN! These fields MUST NOT be changed outside the location module, that's why they have this visibility
@@ -88,14 +90,22 @@ impl IsolatedFilePathData<'static> {
 }
 
 impl<'a> IsolatedFilePathData<'a> {
-	pub fn location_id(&self) -> location::id::Type {
+	#[must_use]
+	pub const fn location_id(&self) -> location::id::Type {
 		self.location_id
 	}
 
+	#[must_use]
 	pub fn extension(&self) -> &str {
 		self.extension.as_ref()
 	}
 
+	#[must_use]
+	pub const fn is_dir(&self) -> bool {
+		self.is_dir
+	}
+
+	#[must_use]
 	pub fn is_root(&self) -> bool {
 		self.is_dir
 			&& self.materialized_path == "/"
@@ -103,6 +113,7 @@ impl<'a> IsolatedFilePathData<'a> {
 			&& self.relative_path.is_empty()
 	}
 
+	#[must_use]
 	pub fn to_parts(&self) -> IsolatedFilePathDataParts<'_> {
 		IsolatedFilePathDataParts {
 			location_id: self.location_id,
@@ -114,6 +125,12 @@ impl<'a> IsolatedFilePathData<'a> {
 		}
 	}
 
+	/// Return the `IsolatedFilePath` for the parent of the current file or directory.
+	///
+	/// # Panics
+	/// May panic if the materialized path was malformed, without a slash for the parent directory.
+	/// Considering that the parent can be just `/` for the root directory.
+	#[must_use]
 	pub fn parent(&'a self) -> Self {
 		let (parent_path_str, name, relative_path) = if self.materialized_path == "/" {
 			("/", "", "")
@@ -124,7 +141,7 @@ impl<'a> IsolatedFilePathData<'a> {
 				.expect("malformed materialized path at `parent` method");
 
 			(
-				&self.materialized_path[..last_slash_idx + 1],
+				&self.materialized_path[..=last_slash_idx],
 				&self.materialized_path[last_slash_idx + 1..trailing_slash_idx],
 				&self.materialized_path[1..trailing_slash_idx],
 			)
@@ -159,6 +176,7 @@ impl<'a> IsolatedFilePathData<'a> {
 		}
 	}
 
+	#[must_use]
 	pub fn full_name(&self) -> String {
 		if self.extension.is_empty() {
 			self.name.to_string()
@@ -167,6 +185,7 @@ impl<'a> IsolatedFilePathData<'a> {
 		}
 	}
 
+	#[must_use]
 	pub fn materialized_path_for_children(&self) -> Option<String> {
 		if self.materialized_path == "/" && self.name.is_empty() && self.is_dir {
 			// We're at the root file_path
@@ -186,19 +205,21 @@ impl<'a> IsolatedFilePathData<'a> {
 			));
 		}
 
-		if let Some(last_dot_idx) = source.rfind('.') {
-			if last_dot_idx == 0 {
-				// The dot is the first character, so it's a hidden file
-				Ok((source, ""))
-			} else {
-				Ok((&source[..last_dot_idx], &source[last_dot_idx + 1..]))
-			}
-		} else {
-			// It's a file without extension
-			Ok((source, ""))
-		}
+		source.rfind('.').map_or_else(
+			|| Ok((source, "")), // It's a file without extension
+			|last_dot_idx| {
+				if last_dot_idx == 0 {
+					// The dot is the first character, so it's a hidden file
+					Ok((source, ""))
+				} else {
+					Ok((&source[..last_dot_idx], &source[last_dot_idx + 1..]))
+				}
+			},
+		)
 	}
 
+	#[allow(clippy::missing_panics_doc)] // Don't actually panic as the regexes are hardcoded
+	#[must_use]
 	pub fn accept_file_name(name: &str) -> bool {
 		let reg = {
 			// Maybe we should enforce windows more restrictive rules on all platforms?
@@ -224,6 +245,7 @@ impl<'a> IsolatedFilePathData<'a> {
 		!reg.is_match(name)
 	}
 
+	#[must_use]
 	pub fn separate_path_name_and_extension_from_str(
 		source: &'a str,
 		is_dir: bool,
@@ -253,20 +275,23 @@ impl<'a> IsolatedFilePathData<'a> {
 		} else {
 			let first_name_char_idx = source.rfind('/').unwrap_or(0) + 1;
 			let end_idx = first_name_char_idx - 1;
-			if let Some(last_dot_relative_idx) = source[first_name_char_idx..].rfind('.') {
-				let last_dot_idx = first_name_char_idx + last_dot_relative_idx;
-				(
-					&source[..end_idx],
-					Some(&source[first_name_char_idx..last_dot_idx]),
-					Some(&source[last_dot_idx + 1..]),
-				)
-			} else {
-				(
-					&source[..end_idx],
-					Some(&source[first_name_char_idx..]),
-					None,
-				)
-			}
+			source[first_name_char_idx..].rfind('.').map_or_else(
+				|| {
+					(
+						&source[..end_idx],
+						Some(&source[first_name_char_idx..]),
+						None,
+					)
+				},
+				|last_dot_relative_idx| {
+					let last_dot_idx = first_name_char_idx + last_dot_relative_idx;
+					(
+						&source[..end_idx],
+						Some(&source[first_name_char_idx..last_dot_idx]),
+						Some(&source[last_dot_idx + 1..]),
+					)
+				},
+			)
 		}
 	}
 
@@ -282,6 +307,7 @@ impl<'a> IsolatedFilePathData<'a> {
 		.unwrap_or_default()
 	}
 
+	#[must_use]
 	pub fn from_db_data(
 		location_id: location::id::Type,
 		is_dir: bool,
@@ -465,6 +491,7 @@ mod macros {
 impl_from_db!(
 	file_path,
 	file_path_to_isolate,
+	file_path_to_isolate_with_pub_id,
 	file_path_walker,
 	file_path_to_isolate_with_id,
 	file_path_with_object
@@ -514,19 +541,21 @@ pub fn extract_normalized_materialized_path_str(
 			path: path.into(),
 		})?
 		.parent()
-		.map(|materialized_path| {
-			materialized_path
-				.to_str()
-				.map(|materialized_path_str| {
-					if !materialized_path_str.is_empty() {
-						format!("/{}/", materialized_path_str.replace('\\', "/"))
-					} else {
-						"/".to_string()
-					}
-				})
-				.ok_or_else(|| NonUtf8PathError(path.into()))
-		})
-		.unwrap_or_else(|| Ok("/".to_string()))
+		.map_or_else(
+			|| Ok("/".to_string()),
+			|materialized_path| {
+				materialized_path
+					.to_str()
+					.map(|materialized_path_str| {
+						if materialized_path_str.is_empty() {
+							"/".to_string()
+						} else {
+							format!("/{}/", materialized_path_str.replace('\\', "/"))
+						}
+					})
+					.ok_or_else(|| NonUtf8PathError(path.into()))
+			},
+		)
 		.map_err(Into::into)
 }
 
@@ -544,6 +573,7 @@ fn assemble_relative_path(
 	}
 }
 
+#[allow(clippy::missing_panics_doc)] // Don't actually panic as we check before `expect`
 pub fn join_location_relative_path(
 	location_path: impl AsRef<Path>,
 	relative_path: impl AsRef<Path>,
@@ -561,6 +591,7 @@ pub fn join_location_relative_path(
 		})
 }
 
+#[allow(clippy::missing_panics_doc)] // Don't actually panic as we check before `expect`
 pub fn push_location_relative_path(
 	mut location_path: PathBuf,
 	relative_path: impl AsRef<Path>,

@@ -11,6 +11,7 @@ assets = []
 ai-models = ["sd-core/ai"]
 
 [dependencies]
+# Spacedrive Sub-crates
 sd-core = { path = "../../core", features = [
 	"ffmpeg",
 	"heif",

@@ -2,6 +2,8 @@ use crate::{
 	invalidate_query, library::Library, object::media::old_thumbnail::get_indexed_thumb_key,
 };
 
+use sd_core_prisma_helpers::label_with_objects;
+
 use sd_prisma::{
 	prisma::{label, label_on_object, object, SortOrder},
 	prisma_sync,
@@ -13,15 +15,6 @@ use std::collections::BTreeMap;
 use rspc::alpha::AlphaRouter;
 
 use super::{locations::ExplorerItem, utils::library, Ctx, R};
-
-label::include!((take: i64) => label_with_objects {
-	label_objects(vec![]).take(take): select {
-		object: select {
-			id
-			file_paths(vec![]).take(1)
-		}
-	}
-});
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()

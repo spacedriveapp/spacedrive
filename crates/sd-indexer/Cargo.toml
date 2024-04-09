@@ -8,7 +8,7 @@ publish = false
 
 [dependencies]
 sd-utils = { path = "../utils" }
-sd-file-path-helper = { path = "../file-path-helper" }
+# sd-file-path-helper = { path = "../../core/crates/file-path-helper" }
 sd-file-ext = { path = "../file-ext" }
 
 chrono.workspace = true

@@ -1,14 +1,10 @@
-use crate::{
-	library::Library,
-	location::indexer::rules::{IndexerRuleError, RulePerKind},
-};
-
-use sd_indexer::rules::IndexerRule;
-use sd_prisma::prisma::indexer_rule;
+use sd_prisma::prisma::{indexer_rule, PrismaClient};
 
 use chrono::Utc;
 use thiserror::Error;
 use uuid::Uuid;
+
+use super::{IndexerRule, IndexerRuleError, RulePerKind};
 
 #[derive(Error, Debug)]
 pub enum SeederError {
@@ -38,7 +34,9 @@ impl From<SystemIndexerRule> for IndexerRule {
 }
 
 /// Seeds system indexer rules into a new or existing library,
-pub async fn new_or_existing_library(library: &Library) -> Result<(), SeederError> {
+pub async fn new_or_existing_library(db: &PrismaClient) -> Result<(), SeederError> {
+	use indexer_rule::{date_created, date_modified, default, name, rules_per_kind};
+
 	// DO NOT REORDER THIS ARRAY!
 	for (i, rule) in [no_os_protected(), no_hidden(), no_git(), only_images()]
 		.into_iter()
@@ -46,8 +44,6 @@ pub async fn new_or_existing_library(library: &Library) -> Result<(), SeederErro
 	{
 		let pub_id = sd_utils::uuid_to_bytes(Uuid::from_u128(i as u128));
 		let rules = rmp_serde::to_vec_named(&rule.rules).map_err(IndexerRuleError::from)?;
-
-		use indexer_rule::*;
 
 		let data = vec![
 			name::set(Some(rule.name.to_string())),
@@ -57,9 +53,7 @@ pub async fn new_or_existing_library(library: &Library) -> Result<(), SeederErro
 			date_modified::set(Some(Utc::now().into())),
 		];
 
-		library
-			.db
-			.indexer_rule()
+		db.indexer_rule()
 			.upsert(
 				indexer_rule::pub_id::equals(pub_id.clone()),
 				indexer_rule::create(pub_id.clone(), data.clone()),
@@ -72,6 +66,8 @@ pub async fn new_or_existing_library(library: &Library) -> Result<(), SeederErro
 	Ok(())
 }
 
+#[must_use]
+#[allow(clippy::missing_panics_doc)]
 pub fn no_os_protected() -> SystemIndexerRule {
 	SystemIndexerRule {
         // TODO: On windows, beside the listed files, any file with the FILE_ATTRIBUTE_SYSTEM should be considered a system file
@@ -106,7 +102,7 @@ pub fn no_os_protected() -> SystemIndexerRule {
                         "C:/Users/*/NTUSER.DAT*",
                         "C:/Users/*/ntuser.dat*",
                         "C:/Users/*/{ntuser.ini,ntuser.dat,NTUSER.DAT}",
-                        // User special folders (most of these the user dont even have permission to access)
+                        // User special folders (most of these the user don't even have permission to access)
                         "C:/Users/*/{Cookies,AppData,NetHood,Recent,PrintHood,SendTo,Templates,Start Menu,Application Data,Local Settings,My Documents}",
                         // System special folders
                         "C:/{$Recycle.Bin,$WinREAgent,Documents and Settings,Program Files,Program Files (x86),ProgramData,Recovery,PerfLogs,Windows,Windows.old}",
@@ -178,6 +174,8 @@ pub fn no_os_protected() -> SystemIndexerRule {
     }
 }
 
+#[must_use]
+#[allow(clippy::missing_panics_doc)]
 pub fn no_hidden() -> SystemIndexerRule {
 	SystemIndexerRule {
 		name: "No Hidden",
@@ -187,6 +185,8 @@ pub fn no_hidden() -> SystemIndexerRule {
 	}
 }
 
+#[must_use]
+#[allow(clippy::missing_panics_doc)]
 fn no_git() -> SystemIndexerRule {
 	SystemIndexerRule {
 		name: "No Git",
@@ -198,6 +198,8 @@ fn no_git() -> SystemIndexerRule {
 	}
 }
 
+#[must_use]
+#[allow(clippy::missing_panics_doc)]
 fn only_images() -> SystemIndexerRule {
 	SystemIndexerRule {
 		name: "Only Images",
