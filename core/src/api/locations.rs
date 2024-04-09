@@ -148,20 +148,17 @@ impl ExplorerItem {
 				.unwrap_or(0),
 
 			ExplorerItem::NonIndexedPath {
-				item: NonIndexedPathItem {
-					size_in_bytes_bytes,
-					..
-				},
+				item: NonIndexedPathItem { size_in_bytes, .. },
 				..
 			} => u64::from_be_bytes([
-				size_in_bytes_bytes[0],
-				size_in_bytes_bytes[1],
-				size_in_bytes_bytes[2],
-				size_in_bytes_bytes[3],
-				size_in_bytes_bytes[4],
-				size_in_bytes_bytes[5],
-				size_in_bytes_bytes[6],
-				size_in_bytes_bytes[7],
+				size_in_bytes[0],
+				size_in_bytes[1],
+				size_in_bytes[2],
+				size_in_bytes[3],
+				size_in_bytes[4],
+				size_in_bytes[5],
+				size_in_bytes[6],
+				size_in_bytes[7],
 			]),
 			_ => 0,
 		}

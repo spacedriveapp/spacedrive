@@ -1,8 +1,15 @@
+use std::{convert::Infallible, path::PathBuf};
+
 use crate::{
 	api::{locations::ExplorerItem, utils::library},
 	library::Library,
 	location::LocationError,
-	object::media::old_thumbnail::{self, get_indexed_thumb_key},
+	object::{
+		cas::generate_cas_id,
+		media::old_thumbnail::{
+			get_ephemeral_thumb_key, get_indexed_thumb_key, BatchToProcess, GenerateThumbnailArgs,
+		},
+	},
 	util::{unsafe_streamed_query, BatchedStream},
 };
 
@@ -12,7 +19,7 @@ use sd_cache::{CacheNode, Model, Normalise, Reference};
 use sd_core_indexer_rules::seed::{no_hidden, no_os_protected};
 use sd_core_indexer_rules::IndexerRule;
 use sd_core_prisma_helpers::{file_path_with_object, object_with_file_paths};
-use sd_indexer::path::normalize_path;
+use sd_file_ext::kind::ObjectKind;
 use sd_prisma::prisma::{self, PrismaClient};
 use sd_utils::chain_optional_iter;
 
@@ -21,6 +28,7 @@ use futures::StreamExt;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use tracing::warn;
 
 pub mod file_path;
 pub mod media_data;
@@ -96,7 +104,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				DateModified(SortOrder),
 			}
 
-			#[derive(Deserialize, Type, Debug)]
+			#[derive(Deserialize, Type, Debug, PartialEq, Eq)]
 			#[serde(rename_all = "camelCase")]
 			enum PathFrom {
 				Path,
@@ -116,7 +124,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Serialize, Type, Debug)]
 			struct EphemeralPathsResultItem {
 				pub entries: Vec<Reference<ExplorerItem>>,
-				pub errors: Vec<rspc::Error>,
+				pub errors: Vec<String>,
 				pub nodes: Vec<CacheNode>,
 			}
 
@@ -155,55 +163,75 @@ pub fn mount() -> AlphaRouter<Ctx> {
 								rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
 							})?;
 
-					let stream = old_thumbnail::old_actor::thumbnailer(node.clone(), stream);
-					let stream = Box::pin(stream);
 					let mut stream = BatchedStream::new(stream);
-
-					// TODO: Location lookups
-
 					Ok(unsafe_streamed_query(stream! {
+						let mut to_generate = vec![];
+
 						while let Some(result) = stream.next().await {
-							// TODO: Bring back errors
-							// // We optimize for the case of no errors because it should be way more common.
+							// We optimize for the case of no errors because it should be way more common.
 							let mut entries = Vec::with_capacity(result.len());
 							let mut errors = Vec::with_capacity(0);
 
 							for item in result {
-								// TODO: For each directory returned, check if it's got a Prisma location (doing this in batches)
-								// TODO: Then replace with `ExplorerItem::Location`
-								// let mut locations = library
-								// 	.db
-								// 	.location()
-								// 	.find_many(vec![location::path::in_vec(
-								// 		directories
-								// 			.iter()
-								// 			.map(|(path, _, _)| path.clone())
-								// 			.collect(),
-								// 	)])
-								// 	.exec()
-								// 	.await?
-								// 	.into_iter()
-								// 	.flat_map(|location| {
-								// 		location
-								// 			.path
-								// 			.clone()
-								// 			.map(|location_path| (location_path, location))
-								// 	})
-								// 	.collect::<HashMap<_, _>>();
+								match item {
+									Ok(item) => {
+										let should_generate_thumbnail = {
+											#[cfg(feature = "ffmpeg")]
+											{
+												matches!(
+													item.kind,
+													ObjectKind::Image | ObjectKind::Video | ObjectKind::Document
+												)
+											}
 
-								// entries.push(ExplorerItem::NonIndexedPath {
-								// 	thumbnail: None,
-								// 	item
-								// })
+											#[cfg(not(feature = "ffmpeg"))]
+											{
+												matches!(item.kind, ObjectKind::Image | ObjectKind::Document)
+											}
+										};
 
-								// match item {
-								// 	Ok(item) => todo!(),
-								// 	Err(e) => unreachable!(),
-								// 	// Err(e) => match e {
-								// 	// 	Either::Left(e) => errors.push(e),
-								// 	// 	Either::Right(e) => errors.push(e.into()),
-								// 	// },
-								// }
+										// TODO: This requires all paths to be loaded before thumbnailing starts.
+										// TODO: This copies the existing functionality but will not fly with Cloud locations (as loading paths will be *way* slower)
+										// TODO: https://linear.app/spacedriveapp/issue/ENG-1719/cloud-thumbnailer
+										let thumbnail = if should_generate_thumbnail {
+											if from == PathFrom::Path {
+												let size = u64::from_be_bytes((&*item.size_in_bytes).try_into().expect("Invalid size"));
+												if let Ok(cas_id) =
+													generate_cas_id(&path, size)
+														.await {
+													if item.kind == ObjectKind::Document {
+														to_generate.push(GenerateThumbnailArgs::new(
+															item.extension.clone(),
+															cas_id.clone(),
+															PathBuf::from(&item.path),
+														));
+													} else {
+														to_generate.push(GenerateThumbnailArgs::new(
+															item.extension.clone(),
+															cas_id.clone(),
+															PathBuf::from(&item.path),
+														));
+													}
+
+													Some(get_ephemeral_thumb_key(&cas_id))
+												} else {
+													None
+												}
+											} else {
+												warn!("Thumbnailer not supported for cloud locations");
+												None
+											}
+										} else {
+											None
+										};
+
+										entries.push(ExplorerItem::NonIndexedPath {
+											thumbnail,
+											item,
+										});
+									},
+									Err(e) => errors.push(e.to_string()),
+								}
 							}
 
 							let (nodes, entries) = entries.normalise(|item: &ExplorerItem| item.id());
@@ -213,6 +241,16 @@ pub fn mount() -> AlphaRouter<Ctx> {
 								errors,
 								nodes,
 							};
+						}
+
+						if to_generate.len() > 0 {
+							node.thumbnailer
+								.new_ephemeral_thumbnails_batch(BatchToProcess::new(
+									to_generate,
+									false,
+									false,
+								))
+								.await;
 						}
 					}))
 				},

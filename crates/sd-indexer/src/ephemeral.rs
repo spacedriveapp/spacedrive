@@ -20,10 +20,10 @@ pub struct NonIndexedPathItem {
 	pub path: String,
 	pub name: String,
 	pub extension: String,
-	pub kind: i32,
+	pub kind: ObjectKind,
 	pub date_created: DateTime<Utc>,
 	pub date_modified: DateTime<Utc>,
-	pub size_in_bytes_bytes: Vec<u8>,
+	pub size_in_bytes: Vec<u8>,
 	pub hidden: bool,
 }
 
@@ -139,14 +139,10 @@ pub async fn ephemeral(
 						path: entry.path().to_string(),
 						name,
 						extension,
-						kind: kind as i32,
+						kind,
 						date_created,
 						date_modified,
-						size_in_bytes_bytes: entry
-							.metadata()
-							.content_length()
-							.to_be_bytes()
-							.to_vec(),
+						size_in_bytes: entry.metadata().content_length().to_be_bytes().to_vec(),
 						hidden,
 					}))
 				})
