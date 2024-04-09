@@ -460,9 +460,9 @@
   "empty_file": "Boş dosya",
   "new": "Yeni",
   "size_b": "B",
-  "size_gb": "Büyük Britanya",
+  "size_gb": "GB",
   "size_kb": "kB",
   "size_mb": "MB",
-  "size_tb": "verem",
+  "size_tb": "TB",
   "text_file": "Metin dosyası"
 }

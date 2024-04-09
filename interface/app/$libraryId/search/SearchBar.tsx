@@ -2,18 +2,22 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { createSearchParams } from 'react-router-dom';
 import { useDebouncedCallback } from 'use-debounce';
+import { SearchFilterArgs } from '@sd/client';
 import { Input, ModifierKeys, Shortcut } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 
 import { useSearchContext } from './context';
 import { useSearchStore } from './store';
+import { SearchTarget } from './useSearch';
 
 interface Props {
 	redirectToSearch?: boolean;
+	defaultFilters?: SearchFilterArgs[];
+	defaultTarget?: SearchTarget;
 }
 
-export default ({ redirectToSearch }: Props) => {
+export default ({ redirectToSearch, defaultFilters, defaultTarget }: Props) => {
 	const search = useSearchContext();
 	const searchRef = useRef<HTMLInputElement>(null);
 	const navigate = useNavigate();
@@ -56,14 +60,14 @@ export default ({ redirectToSearch }: Props) => {
 		};
 	}, [blurHandler, focusHandler]);
 
-	const [value, setValue] = useState('');
+	const [value, setValue] = useState(search.rawSearch);
 
 	useEffect(() => {
-		setValue(search.rawSearch);
+		if (search.rawSearch !== undefined) setValue(search.rawSearch);
 	}, [search.rawSearch]);
 
 	const updateDebounce = useDebouncedCallback((value: string) => {
-		search.setSearch(value);
+		search.setSearch?.(value);
 		if (redirectToSearch) {
 			navigate({
 				pathname: '../search',
@@ -80,7 +84,9 @@ export default ({ redirectToSearch }: Props) => {
 	}
 
 	function clearValue() {
-		search.setSearch('');
+		search.setSearch?.(undefined);
+		search.setFilters?.(undefined);
+		search.setTarget?.(undefined);
 	}
 
 	return (
@@ -99,7 +105,14 @@ export default ({ redirectToSearch }: Props) => {
 					search.setSearchBarFocused(false);
 				}
 			}}
-			onFocus={() => search.setSearchBarFocused(true)}
+			onFocus={() => {
+				search.setSearchBarFocused(true);
+				search.setFilters?.((f) => {
+					if (!f) return defaultFilters ?? [];
+					else return f;
+				});
+				search.setTarget?.(search.target ?? defaultTarget);
+			}}
 			right={
 				<div className="pointer-events-none flex h-7 items-center space-x-1 opacity-70 group-focus-within:hidden">
 					{

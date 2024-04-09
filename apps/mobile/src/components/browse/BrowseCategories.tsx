@@ -26,7 +26,7 @@ export const CATEGORIES_LIST = [
 	{ name: 'Projects', icon: <Briefcase size={iconSize} style={iconStyle} /> },
 	{ name: 'Favorites', icon: <Heart size={iconSize} style={iconStyle} /> },
 	{ name: 'Recents', icon: <Clock size={iconSize} style={iconStyle} /> },
-	{ name: 'Labels', icon: <Tag size={iconSize} style={iconStyle} /> },
+	// { name: 'Labels', icon: <Tag size={iconSize} style={iconStyle} /> },
 	{ name: 'Imports', icon: <ArchiveBox size={iconSize} style={iconStyle} /> }
 ];
 const BrowseCategories = () => {

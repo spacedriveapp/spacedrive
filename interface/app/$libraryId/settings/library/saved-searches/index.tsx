@@ -9,7 +9,7 @@ import {
 	useZodForm
 } from '@sd/client';
 import { Button, Card, Form, InputField, Label, Tooltip, z } from '@sd/ui';
-import { SearchContextProvider, useSearch } from '~/app/$libraryId/search';
+import { SearchContextProvider, useSearch, useStaticSource } from '~/app/$libraryId/search';
 import { AppliedFilters } from '~/app/$libraryId/search/AppliedFilters';
 import { Heading } from '~/app/$libraryId/settings/Layout';
 import { useDebouncedFormWatch, useLocale } from '~/hooks';
@@ -82,13 +82,19 @@ function EditForm({ savedSearch, onDelete }: { savedSearch: SavedSearch; onDelet
 		updateSavedSearch.mutate([savedSearch.id, { name: data.name ?? '' }]);
 	});
 
-	const fixedFilters = useMemo(() => {
+	const filters = useMemo(() => {
 		if (savedSearch.filters === null) return [];
 
 		return JSON.parse(savedSearch.filters) as SearchFilterArgs[];
 	}, [savedSearch.filters]);
 
-	const search = useSearch({ search: savedSearch.search ?? undefined, fixedFilters });
+	const search = useSearch({
+		source: useStaticSource({
+			search: savedSearch.search ?? '',
+			filters,
+			target: 'paths'
+		})
+	});
 
 	return (
 		<Form form={form}>
@@ -113,7 +119,7 @@ function EditForm({ savedSearch, onDelete }: { savedSearch: SavedSearch; onDelet
 					<Label className="font-medium">{t('filters')}</Label>
 					<div className="flex flex-col items-start gap-2">
 						<SearchContextProvider search={search}>
-							<AppliedFilters allowRemove={false} />
+							<AppliedFilters />
 						</SearchContextProvider>
 					</div>
 				</div>

@@ -4,7 +4,7 @@ import { useLocale } from '~/hooks';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 import { hardwareModelToIcon } from '~/util/hardware';
 
-import { SearchContextProvider, useSearch } from '../search';
+import { SearchContextProvider, useSearch, useSearchFromSearchParams } from '../search';
 import SearchBar from '../search/SearchBar';
 import { AddLocationButton } from '../settings/library/locations/AddLocationButton';
 import { TopBarPortal } from '../TopBar/Portal';
@@ -25,7 +25,7 @@ export const Component = () => {
 
 	const { data: node } = useBridgeQuery(['nodeState']);
 
-	const search = useSearch();
+	const search = useSearchFromSearchParams();
 
 	const stats = useLibraryQuery(['library.statistics']);
 

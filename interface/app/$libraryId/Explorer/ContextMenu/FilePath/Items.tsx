@@ -234,7 +234,7 @@ export const ParentFolderActions = new ConditionalItem({
 
 		const fullRescan = useLibraryMutation('locations.fullRescan');
 		const generateThumbnails = useLibraryMutation('jobs.generateThumbsForLocation');
-		const generateLabels = useLibraryMutation('jobs.generateLabelsForLocation');
+		// const generateLabels = useLibraryMutation('jobs.generateLabelsForLocation');
 
 		const { t } = useLocale();
 
@@ -275,7 +275,7 @@ export const ParentFolderActions = new ConditionalItem({
 					label={t('regen_thumbnails')}
 					icon={Image}
 				/>
-				<ContextMenu.Item
+				{/* <ContextMenu.Item
 					onClick={async () => {
 						try {
 							await generateLabels.mutateAsync({
@@ -292,7 +292,7 @@ export const ParentFolderActions = new ConditionalItem({
 					}}
 					label={t('regen_labels')}
 					icon={Hash}
-				/>
+				/> */}
 			</>
 		);
 	}

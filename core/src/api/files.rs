@@ -1,5 +1,5 @@
 use crate::{
-	api::{locations::object_with_file_paths, utils::library},
+	api::utils::library,
 	invalidate_query,
 	library::Library,
 	location::{get_location_path_from_location_id, LocationError},
@@ -14,11 +14,13 @@ use crate::{
 	old_job::Job,
 };
 
+use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
+use sd_core_prisma_helpers::{
+	file_path_to_isolate, file_path_to_isolate_with_id, object_with_file_paths,
+};
+
 use sd_cache::{CacheNode, Model, NormalisedResult, Reference};
 use sd_file_ext::kind::ObjectKind;
-use sd_file_path_helper::{
-	file_path_to_isolate, file_path_to_isolate_with_id, FilePathError, IsolatedFilePathData,
-};
 use sd_images::ConvertibleExtension;
 use sd_media_metadata::MediaMetadata;
 use sd_prisma::{
@@ -50,9 +52,10 @@ const UNTITLED_FILE_STR: &str = "Untitled";
 const UNTITLED_TEXT_FILE_STR: &str = "Untitled.txt";
 
 #[derive(Type, Deserialize)]
+#[serde(rename_all = "camelCase")]
 enum FileCreateContextTypes {
-	empty,
-	text,
+	Empty,
+	Text,
 }
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
@@ -329,10 +332,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					}
 
 					match context {
-						FileCreateContextTypes::empty => {
+						FileCreateContextTypes::Empty => {
 							path.push(name.as_deref().unwrap_or(UNTITLED_FILE_STR))
 						}
-						FileCreateContextTypes::text => {
+						FileCreateContextTypes::Text => {
 							path.push(name.as_deref().unwrap_or(UNTITLED_TEXT_FILE_STR))
 						}
 					}
@@ -645,7 +648,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					Ok(())
 				})
 		})
-		.procedure("getConvertableImageExtensions", {
+		.procedure("getConvertibleImageExtensions", {
 			R.query(|_, _: ()| async move { Ok(sd_images::all_compatible_extensions()) })
 		})
 		.procedure("eraseFiles", {
