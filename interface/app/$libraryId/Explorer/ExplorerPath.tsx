@@ -1,4 +1,4 @@
-import { AppWindow, CaretRight, ClipboardText } from '@phosphor-icons/react';
+import { AppWindow, ArrowSquareOut, CaretRight, ClipboardText } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { memo, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -11,11 +11,13 @@ import {
 } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
 import { Icon } from '~/components';
-import { useIsDark, useOperatingSystem } from '~/hooks';
+import { useIsDark, useLocale, useOperatingSystem } from '~/hooks';
+import { useTabsContext } from '~/TabsContext';
 import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from './Context';
 import { FileThumb } from './FilePath/Thumb';
+import { lookup } from './RevealInNativeExplorer';
 import { useExplorerDroppable } from './useExplorerDroppable';
 import { useExplorerSearchParams } from './util';
 
@@ -123,6 +125,7 @@ export const ExplorerPath = memo(() => {
 				<Path
 					key={path.pathname}
 					path={path}
+					locationPath={location?.path ?? ''}
 					onClick={() => handleOnClick(path)}
 					disabled={path.pathname === (searchPath ?? (location && '/'))}
 				/>
@@ -144,15 +147,34 @@ interface PathProps {
 	path: { name: string; pathname: string; locationId?: number };
 	onClick: () => void;
 	disabled: boolean;
+	locationPath: string;
 }
 
-const Path = ({ path, onClick, disabled }: PathProps) => {
+const Path = ({ path, onClick, disabled, locationPath }: PathProps) => {
 	const isDark = useIsDark();
 	const { revealItems } = usePlatform();
 	const { library } = useLibraryContext();
+	const { t } = useLocale();
+	const os = useOperatingSystem();
+	const tabs = useTabsContext();
+
+	const osFileBrowserName = lookup[os] ?? 'file manager';
+	const pathValue = path.pathname.endsWith('/')
+		? locationPath + path.pathname.substring(0, path.pathname.length - 1)
+		: path.pathname;
+	const osPath = os === 'windows' ? pathValue?.replace(/\//g, '\\') : pathValue;
+
+	// "Open in new tab" redirect
+	const basePath = path.locationId ? `location/${path.locationId}` : `ephemeral/0-0`;
+	const searchParam =
+		path.pathname === '/' ? undefined : createSearchParams({ path: path.pathname });
+	const redirect = {
+		pathname: `${library.uuid}/${basePath}`,
+		search: searchParam ? `${searchParam}` : undefined
+	};
+
 	const [contextMenuOpen, setContextMenuOpen] = useState(false);
-	const os = useOperatingSystem(true);
-	const isSlashAtEnd = path.pathname.endsWith(os == 'windows' ? '\\' : '/'); // Checks if the path is ephemeral or not
+
 	const { setDroppableRef, className, isDroppable } = useExplorerDroppable({
 		data: {
 			type: 'location',
@@ -194,22 +216,33 @@ const Path = ({ path, onClick, disabled }: PathProps) => {
 		>
 			<ContextMenu.Item
 				onClick={() => {
+					if (!tabs) return null;
+					tabs.createTab({
+						pathname: redirect.pathname,
+						search: redirect.search
+					});
+				}}
+				label={'Open in new tab'}
+				icon={ArrowSquareOut}
+			/>
+			<ContextMenu.Item
+				onClick={() => {
 					if (!revealItems) return null;
 					revealItems(library.uuid, [
-						isSlashAtEnd
+						path.locationId
 							? {
-									Location: { id: path.locationId! }
+									Location: { id: path.locationId }
 								}
 							: {
 									Ephemeral: { path: path.pathname }
 								}
 					]);
 				}}
-				label="Open in Finder"
+				label={t('revel_in_browser', { browser: osFileBrowserName })}
 				icon={AppWindow}
 			/>
 			<ContextMenu.Item
-				onClick={() => navigator.clipboard.writeText(path.pathname)}
+				onClick={() => navigator.clipboard.writeText(osPath)}
 				icon={ClipboardText}
 				label={`Copy "${path.name}" as path`}
 			/>
