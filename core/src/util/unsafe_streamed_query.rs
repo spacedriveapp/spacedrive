@@ -26,14 +26,18 @@ impl<T: Type> Type for Output<T> {
 }
 
 // Marked as unsafe as the types are a lie and this should always be used with `useUnsafeStreamedQuery`
-pub fn unsafe_streamed_query<S: Stream>(stream: S) -> impl Stream<Item = Output<S::Item>> {
-	stream! {
-		// let mut stream = SyncStream::new(stream);
-		// let mut stream = std::pin::pin!(stream);
+pub fn unsafe_streamed_query<S: Stream + Send>(
+	stream: S,
+) -> impl Stream<Item = Output<S::Item>> + Send + Sync
+where
+	S::Item: Send,
+{
+	SyncStream::new(stream! {
+		let mut stream = std::pin::pin!(stream);
 		while let Some(v) = stream.next().await {
 			yield Output::Data(v);
 		}
 
 		yield Output::Complete { __stream_complete: () };
-	}
+	})
 }
