@@ -35,15 +35,17 @@ pub async fn ephemeral(
 	path: &str,
 ) -> opendal::Result<impl Stream<Item = io::Result<NonIndexedPathItem>>> {
 	let is_fs = opendal.info().scheme() == Scheme::Fs;
+	let base_path = PathBuf::from(opendal.info().root());
 	let mut lister = opendal.lister(&path).await?;
 
 	Ok(TaskStream::new(move |tx| async move {
 		let rules = &*rules;
 		while let Some(entry) = lister.next().await {
+			let base_path = base_path.clone();
 			let result = ready(entry)
 				.map_err(|err| io::Error::new(ErrorKind::Other, format!("OpenDAL: {err:?}")))
 				.and_then(|entry| async move {
-					let path = PathBuf::from(entry.path());
+					let path = base_path.join(entry.path());
 
 					let extension = (!path.is_dir())
 						.then(|| {
@@ -55,7 +57,7 @@ pub async fn ephemeral(
 
 					// Only Windows supports normalised files without FS access.
 					// For now we only do normalisation for local files.
-					let (name, path) = if is_fs {
+					let (relative_path, name) = if is_fs {
 						crate::path::normalize_path(&path).map_err(|err| {
 							io::Error::new(
 								ErrorKind::Other,
@@ -73,7 +75,9 @@ pub async fn ephemeral(
 									)
 								})?
 								.to_string(),
-							entry.path().to_string(),
+							path.to_str()
+								.expect("non UTF-8 path - is unreachable")
+								.to_string(),
 						)
 					};
 
@@ -106,7 +110,17 @@ pub async fn ephemeral(
 
 					// TODO: OpenDAL last modified time - https://linear.app/spacedriveapp/issue/ENG-1717/fix-modified-time
 					// TODO: OpenDAL hidden files - https://linear.app/spacedriveapp/issue/ENG-1720/fix-hidden-files
-					let (hidden, date_created) = if is_fs {
+					let (hidden, date_created, date_modified, size) = if is_fs {
+						let mut path = path
+							.to_str()
+							.expect("comes from string so this is impossible")
+							.to_string();
+
+						// OpenDAL will *always* end in a `/` for directories, we strip it here so we can give the path to Tokio.
+						if path.ends_with("/") {
+							path.pop();
+						}
+
 						let metadata = tokio::fs::metadata(&path).await.map_err(|err| {
 							io::Error::new(
 								ErrorKind::Other,
@@ -125,31 +139,46 @@ pub async fn ephemeral(
 								)
 								})?
 								.into(),
+							metadata
+								.modified()
+								.map_err(|err| {
+									io::Error::new(
+									ErrorKind::Other,
+									format!("Error determining modified time for '{path:?}': {err:?}"),
+								)
+								})?
+								.into(),
+							metadata.len(),
 						)
 					} else {
-						(false, Default::default())
+						(false, Default::default(), Default::default(), 0)
 					};
 
-					let date_modified = entry.metadata().last_modified().ok_or_else(|| {
-						io::Error::new(
-							ErrorKind::Other,
-							format!("Error getting modified time for '{path:?}'"),
-						)
-					})?;
+					// TODO: Fix this - https://linear.app/spacedriveapp/issue/ENG-1725/fix-last-modified
+					let date_modified = date_modified;
+					// entry.metadata().last_modified().ok_or_else(|| {
+					// 	io::Error::new(
+					// 		ErrorKind::Other,
+					// 		format!("Error getting modified time for '{path:?}'"),
+					// 	)
+					// })?;
+
+					// TODO: Fix this - https://linear.app/spacedriveapp/issue/ENG-1726/fix-file-size
+					let size = size;
 
 					Ok(Some(NonIndexedPathItem {
-						path: entry.path().to_string(),
+						path: relative_path,
 						name,
 						extension,
 						kind: kind as i32,
 						is_dir: kind == ObjectKind::Folder,
 						date_created,
 						date_modified,
-						size_in_bytes_bytes: entry
-							.metadata()
-							.content_length()
-							.to_be_bytes()
-							.to_vec(),
+						// TODO
+						// entry
+						// 	.metadata()
+						// 	.content_length()
+						size_in_bytes_bytes: size.to_be_bytes().to_vec(),
 						hidden,
 					}))
 				})

@@ -1,12 +1,13 @@
-import { type AlphaClient } from '@oscartbeaumont-sd/rspc-client/v2';
 import { ArrowLeft, ArrowRight, Info } from '@phosphor-icons/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import { memo, Suspense, useDeferredValue, useMemo } from 'react';
+import { match } from 'ts-pattern';
 import {
 	ExplorerItem,
 	getExplorerItemData,
+	ItemData,
 	SortOrder,
 	useLibraryContext,
 	useNormalisedCache,
@@ -231,8 +232,52 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 			}
 		}
 
+		// We sort on the frontend, as the backend streams in entries from cloud locations out of order
+		const order = settingsSnapshot.order;
+		if (order !== null) {
+			const getValue = match(order.field)
+				.with('name', () => (a: ItemData) => a.name)
+				.with('sizeInBytes', () => (a: ItemData) => a.size.original)
+				.with(
+					'dateCreated',
+					() => (a: ItemData) => (a.dateCreated !== null ? new Date(a.dateCreated) : null)
+				)
+				.with(
+					'dateModified',
+					() => (a: ItemData) =>
+						a.dateModified !== null ? new Date(a.dateModified) : null
+				)
+				.exhaustive();
+
+			return ret.sort((a, b) => {
+				const aData = getExplorerItemData(a);
+				const bData = getExplorerItemData(b);
+
+				let result = 0;
+
+				// Put hidden files first (if the files have a hidden property)
+				if (
+					'hidden' in a.item &&
+					'hidden' in b.item &&
+					a.item.hidden !== null &&
+					b.item.hidden !== null
+				)
+					result = +b.item.hidden - +a.item.hidden;
+
+				// Group files before folders (within the hidden groups)
+				result = result || +(aData.kind === 'Folder') - +(bData.kind === 'Folder');
+
+				// Finally sort by the user defined property & flip the result for descending order if needed
+				const valueA = getValue(aData);
+				const valueB = getValue(bData);
+				result = result || compare(valueA, valueB) * (order.value === 'Asc' ? 1 : -1);
+
+				return result;
+			});
+		}
+
 		return ret;
-	}, [entries, settingsSnapshot.layoutMode]);
+	}, [entries, settingsSnapshot.layoutMode, settingsSnapshot.order]);
 
 	const explorer = useExplorer({
 		items,
@@ -282,3 +327,20 @@ export const Component = () => {
 		</Suspense>
 	);
 };
+
+// Compare two values and return a number based on their relative order
+function compare<T extends string | number | Date | BigInt | null>(a: T, b: T) {
+	if (a !== null && b !== null) {
+		if (typeof a === 'string') {
+			return a.localeCompare(b as string);
+		} else {
+			// We must avoid equality as Date doesn't support them but if a > b & b > a then a === b
+			return a < b ? -1 : a > b ? 1 : 0;
+		}
+	}
+
+	if (a === null && b !== null) return -1;
+	if (a !== null && b === null) return 1;
+
+	return 0;
+}
