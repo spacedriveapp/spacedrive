@@ -74,10 +74,11 @@ runs:
         # Check if a new migration should be created due to changes in the schema
         cargo prisma migrate dev -n test --create-only --skip-generate
         _new_migrations="$(
-            git ls-files --others --exclude-standard \
-                | { grep '^prisma/migrations/' || true; } \
-                | xargs sh -euxc '[ "$#" -lt 2 ] || grep -L "$@" || true' sh 'This is an empty migration' \
-                | wc -l
+          git ls-files --others --exclude-standard \
+            | { grep '^prisma/migrations/' || true; } \
+            | xargs sh -euxc '[ "$#" -lt 2 ] || grep -L "$@" || true' sh 'This is an empty migration' \
+            | wc -l \
+            | awk '{$1=$1};1'
         )"
         if [ "$_new_migrations" -gt 0 ]; then
             echo "::error file=core/prisma/schema.prisma,title=Missing migration::New migration should be generated due to changes in prisma schema"
