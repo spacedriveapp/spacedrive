@@ -464,5 +464,6 @@
   "create_folder_success": "Created new folder: {{name}}",
   "empty_file": "Empty file",
   "new": "New",
-  "text_file": "Text File"
+  "text_file": "Text File",
+  "open_in_new_tab": "Адкрыць у новай укладцы"
 }
