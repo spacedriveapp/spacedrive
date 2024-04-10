@@ -210,9 +210,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 										let thumbnail = if should_generate_thumbnail {
 											if from == PathFrom::Path {
 												let size = u64::from_be_bytes((&*item.size_in_bytes_bytes).try_into().expect("Invalid size"));
-												if let Ok(cas_id) =
-													generate_cas_id(&path, size)
-														.await {
+												if let Ok(cas_id) = generate_cas_id(&item.path, size).await.map_err(|err| error!("Error generating cas id for '{:?}': {err:?}", item.path)) {
 													if ObjectKind::from_i32(item.kind) == ObjectKind::Document {
 														to_generate.push(GenerateThumbnailArgs::new(
 															item.extension.clone(),
