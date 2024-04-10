@@ -7,20 +7,20 @@ inputs:
   save-cache:
     description: Whether to save the Rust cache
     required: false
-    default: 'false'
+    default: "false"
   restore-cache:
     description: Whether to restore the Rust cache
     required: false
-    default: 'true'
+    default: "true"
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Install Rust
       id: toolchain
       uses: dtolnay/rust-toolchain@stable
       with:
         target: ${{ inputs.target }}
-        toolchain: '1.75'
+        toolchain: "1.75"
         components: clippy, rustfmt
 
     - name: Cache Rust Dependencies
@@ -76,7 +76,7 @@ runs:
         _new_migrations="$(
             git ls-files --others --exclude-standard \
                 | { grep '^prisma/migrations/' || true; } \
-                | xargs -r grep -L 'This is an empty migration' \
+                | xargs sh -euxc '[ "$#" -lt 2 ] || grep -L "$@" || true' sh 'This is an empty migration' \
                 | wc -l
         )"
         if [ "$_new_migrations" -gt 0 ]; then
