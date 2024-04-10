@@ -67,13 +67,7 @@ export const useItemsAsEphemeralPaths = (items: ExplorerItem[]) => {
 };
 
 export function getItemObject(data: ExplorerItem) {
-	return data.type === 'Object'
-		? data.item
-		: data.type === 'Path'
-			? data.item.object
-			: data.type === 'NonIndexedPath'
-				? data.item
-				: null;
+	return data.type === 'Object' ? data.item : data.type === 'Path' ? data.item.object : null;
 }
 
 export function getItemFilePath(data: ExplorerItem) {
