@@ -118,7 +118,7 @@ static const char *unknown_if_null(const char *str) {
   return str ? str : "unknown";
 }
 
-void print_codec(char *buf, int buf_size, AVCodecContext *enc, int encode) {
+void print_codec(AVCodecContext *enc) {
   const char *codec_type;
   const char *codec_name;
   const char *profile = NULL;
@@ -129,16 +129,12 @@ void print_codec(char *buf, int buf_size, AVCodecContext *enc, int encode) {
       enc->dump_separator ? (const char *)enc->dump_separator : ", ";
   const char *str;
 
-  if (!buf || buf_size <= 0)
-    return;
-
   codec_type = av_get_media_type_string(enc->codec_type);
   codec_name = avcodec_get_name(enc->codec_id);
   profile = avcodec_profile_name(enc->codec_id, enc->profile);
 
   av_log(NULL, AV_LOG_INFO, "%s: %s", codec_type ? codec_type : "unknown",
          codec_name);
-  buf[0] ^= 'a' ^ 'A'; /* first letter in uppercase */
 
   if (enc->codec && strcmp(enc->codec->name, codec_name))
     av_log(NULL, AV_LOG_INFO, " (%s)", enc->codec->name);
@@ -160,15 +156,6 @@ void print_codec(char *buf, int buf_size, AVCodecContext *enc, int encode) {
            enc->pix_fmt == AV_PIX_FMT_NONE
                ? "none"
                : unknown_if_null(av_get_pix_fmt_name(enc->pix_fmt)));
-
-    // av_bprint_chars(&bprint, '(', 1);
-    // len = bprint.len;
-
-    // /* The following check ensures that '(' has been written
-    //  * and therefore allows us to erase it if it turns out
-    //  * to be unnecessary. */
-    // if (!av_bprint_is_complete(&bprint))
-    //   return;
 
     if (enc->bits_per_raw_sample && enc->pix_fmt != AV_PIX_FMT_NONE &&
         enc->bits_per_raw_sample <
@@ -210,18 +197,6 @@ void print_codec(char *buf, int buf_size, AVCodecContext *enc, int encode) {
         enc->chroma_sample_location != AVCHROMA_LOC_UNSPECIFIED &&
         (str = av_chroma_location_name(enc->chroma_sample_location)))
       av_log(NULL, AV_LOG_INFO, "%s, ", str);
-
-    // if (len == bprint.len) {
-    //   bprint.str[len - 1] = '\0';
-    //   bprint.len--;
-    // } else {
-    //   if (bprint.len - 2 < bprint.size) {
-    //     /* Erase the last ", " */
-    //     bprint.len -= 2;
-    //     bprint.str[bprint.len] = '\0';
-    //   }
-    //   av_bprint_chars(&bprint, ')', 1);
-    // }
   }
 
     if (enc->width) {
@@ -249,16 +224,14 @@ void print_codec(char *buf, int buf_size, AVCodecContext *enc, int encode) {
                enc->time_base.den / g);
       }
     }
-    if (encode) {
-      av_log(NULL, AV_LOG_INFO, ", q=%d-%d", enc->qmin, enc->qmax);
-    } else {
-      if (enc->properties & FF_CODEC_PROPERTY_CLOSED_CAPTIONS)
-        av_log(NULL, AV_LOG_INFO, ", Closed Captions");
-      if (enc->properties & FF_CODEC_PROPERTY_FILM_GRAIN)
-        av_log(NULL, AV_LOG_INFO, ", Film Grain");
-      if (enc->properties & FF_CODEC_PROPERTY_LOSSLESS)
-        av_log(NULL, AV_LOG_INFO, ", lossless");
-    }
+
+    if (enc->properties & FF_CODEC_PROPERTY_CLOSED_CAPTIONS)
+      av_log(NULL, AV_LOG_INFO, ", Closed Captions");
+    if (enc->properties & FF_CODEC_PROPERTY_FILM_GRAIN)
+      av_log(NULL, AV_LOG_INFO, ", Film Grain");
+    if (enc->properties & FF_CODEC_PROPERTY_LOSSLESS)
+      av_log(NULL, AV_LOG_INFO, ", lossless");
+
     break;
   case AVMEDIA_TYPE_AUDIO:
     av_log(NULL, AV_LOG_INFO, "%s", separator);
@@ -304,12 +277,7 @@ void print_codec(char *buf, int buf_size, AVCodecContext *enc, int encode) {
   default:
     return;
   }
-  if (encode) {
-    if (enc->flags & AV_CODEC_FLAG_PASS1)
-      av_log(NULL, AV_LOG_INFO, ", pass 1");
-    if (enc->flags & AV_CODEC_FLAG_PASS2)
-      av_log(NULL, AV_LOG_INFO, ", pass 2");
-  }
+
   bitrate = get_bit_rate(enc);
   if (bitrate != 0) {
     av_log(NULL, AV_LOG_INFO, ", %" PRId64 " kb/s", bitrate / 1000);
@@ -321,10 +289,7 @@ void print_codec(char *buf, int buf_size, AVCodecContext *enc, int encode) {
 
 /** Extract a stream info and print it */
 static void dump_stream_format(const AVFormatContext *ic, int i, int index) {
-  char buf[256];
   const AVStream *st = ic->streams[i];
-  const AVDictionaryEntry *lang =
-      av_dict_get(st->metadata, "language", NULL, 0);
   const char *separator = (const char *)ic->dump_separator;
   AVCodecContext *avctx;
   int ret;
@@ -333,15 +298,15 @@ static void dump_stream_format(const AVFormatContext *ic, int i, int index) {
   avctx = avcodec_alloc_context3(NULL);
   if (!avctx)
     return;
+
   ret = avcodec_parameters_to_context(avctx, st->codecpar);
   if (ret < 0) {
     avcodec_free_context(&avctx);
     return;
   }
+
   if (separator)
     av_opt_set(avctx, "dump_separator", separator, 0);
-  avcodec_string(buf, sizeof(buf), avctx, 0);
-  avcodec_free_context(&avctx);
 
   // Stream header
   av_log(NULL, AV_LOG_INFO, "  Stream #%d:%d", index, i);
@@ -349,12 +314,10 @@ static void dump_stream_format(const AVFormatContext *ic, int i, int index) {
   // Stream id
   av_log(NULL, AV_LOG_INFO, "[0x%x]", st->id);
 
-  // Print language
-  if (lang)
-    av_log(NULL, AV_LOG_INFO, "(%s)", lang->value);
-
   // Stream codec type/info
-  av_log(NULL, AV_LOG_INFO, ": %s", buf);
+  av_log(NULL, AV_LOG_INFO, ": ");
+  print_codec(avctx);
+  avcodec_free_context(&avctx);
 
   // Stream Sample Aspect Ratio (SAR) and Display Aspect Ratio (DAR)
   if (st->sample_aspect_ratio.num &&
@@ -428,7 +391,7 @@ static void dump_stream_format(const AVFormatContext *ic, int i, int index) {
   // Stream metadata
   dump_metadata(NULL, st->metadata, "    ");
 
-  // Side data is kind of irelevant rn
+  // Side data is kind of irelevant
   // Check here to see what it includes:
   //  https://github.com/FFmpeg/FFmpeg/blob/n6.1.1/libavformat/dump.c#L430-L508
   // dump_sidedata(NULL, st, "    ");
