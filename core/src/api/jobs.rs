@@ -6,8 +6,10 @@ use crate::{
 		old_file_identifier::old_file_identifier_job::OldFileIdentifierJobInit,
 		validation::old_validator_job::OldObjectValidatorJobInit,
 	},
-	old_job::{job_without_data, Job, JobReport, JobStatus, OldJobs},
+	old_job::{Job, JobReport, JobStatus, OldJobs},
 };
+
+use sd_core_prisma_helpers::job_without_data;
 
 use sd_prisma::prisma::{job, location, SortOrder};
 

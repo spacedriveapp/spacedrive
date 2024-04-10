@@ -405,9 +405,7 @@ impl LibraryConfig {
 								.await?
 								.into_iter()
 								.filter_map(|i| {
-									let Some(identity) = i.identity else {
-										return None;
-									};
+									let identity = i.identity?;
 
 									let (remote_identity, identity) = if identity[0] == b'I' {
 										// We have an `IdentityOrRemoteIdentity::Identity`

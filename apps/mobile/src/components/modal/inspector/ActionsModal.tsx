@@ -102,7 +102,10 @@ export const ActionsModal = () => {
 					<View style={tw`flex-1 px-4`}>
 						<View style={tw`flex flex-row items-center`}>
 							{/* Thumbnail/Icon */}
-							<Pressable onPress={() => fileInfoRef.current?.present()}>
+							<Pressable
+								onPress={handleOpen}
+								onLongPress={() => fileInfoRef.current?.present()}
+							>
 								<FileThumb data={data} size={1} />
 							</Pressable>
 							<View style={tw`ml-2 flex-1`}>

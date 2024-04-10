@@ -1,5 +1,5 @@
 import { getIcon, iconNames } from '@sd/assets/util';
-import { Image, ImageProps } from 'react-native';
+import { Image, ImageProps } from 'expo-image';
 import { ClassInput } from 'twrnc';
 import { isDarkTheme } from '@sd/client';
 import { twStyle } from '~/lib/tailwind';

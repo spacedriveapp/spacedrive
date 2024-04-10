@@ -1,3 +1,32 @@
+#![warn(
+	clippy::all,
+	clippy::pedantic,
+	clippy::correctness,
+	clippy::perf,
+	clippy::style,
+	clippy::suspicious,
+	clippy::complexity,
+	clippy::nursery,
+	clippy::unwrap_used,
+	unused_qualifications,
+	rust_2018_idioms,
+	trivial_casts,
+	trivial_numeric_casts,
+	unused_allocation,
+	clippy::unnecessary_cast,
+	clippy::cast_lossless,
+	clippy::cast_possible_truncation,
+	clippy::cast_possible_wrap,
+	clippy::cast_precision_loss,
+	clippy::cast_sign_loss,
+	clippy::dbg_macro,
+	clippy::deprecated_cfg_attr,
+	clippy::separated_literal_suffix,
+	deprecated
+)]
+#![forbid(deprecated_in_future)]
+#![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
+
 use sd_prisma::prisma::{file_path, location, PrismaClient};
 use sd_utils::error::{FileIOError, NonUtf8PathError};
 
@@ -21,107 +50,6 @@ pub use isolated_file_path_data::{
 	IsolatedFilePathDataParts,
 };
 
-// File Path selectables!
-file_path::select!(file_path_pub_and_cas_ids { id pub_id cas_id });
-file_path::select!(file_path_just_pub_id_materialized_path {
-	pub_id
-	materialized_path
-});
-file_path::select!(file_path_for_file_identifier {
-	id
-	pub_id
-	materialized_path
-	date_created
-	is_dir
-	name
-	extension
-	object_id
-});
-file_path::select!(file_path_for_object_validator {
-	pub_id
-	materialized_path
-	is_dir
-	name
-	extension
-	integrity_checksum
-});
-file_path::select!(file_path_for_media_processor {
-	id
-	materialized_path
-	is_dir
-	name
-	extension
-	cas_id
-	object_id
-});
-file_path::select!(file_path_to_isolate {
-	location_id
-	materialized_path
-	is_dir
-	name
-	extension
-});
-file_path::select!(file_path_to_isolate_with_id {
-	id
-	location_id
-	materialized_path
-	is_dir
-	name
-	extension
-});
-file_path::select!(file_path_walker {
-	pub_id
-	location_id
-	object_id
-	materialized_path
-	is_dir
-	name
-	extension
-	date_modified
-	inode
-	size_in_bytes_bytes
-	hidden
-});
-file_path::select!(file_path_to_handle_custom_uri {
-	pub_id
-	materialized_path
-	is_dir
-	name
-	extension
-	location: select {
-		id
-		path
-		instance: select {
-			identity
-			remote_identity
-		}
-	}
-});
-file_path::select!(file_path_to_handle_p2p_serve_file {
-	materialized_path
-	name
-	extension
-	is_dir // For isolated file path
-	location: select {
-		id
-		path
-	}
-});
-file_path::select!(file_path_to_full_path {
-	id
-	materialized_path
-	is_dir
-	name
-	extension
-	location: select {
-		id
-		path
-	}
-});
-
-// File Path includes!
-file_path::include!(file_path_with_object { object });
-
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct FilePathMetadata {
 	pub inode: u64,
@@ -140,8 +68,7 @@ pub fn path_is_hidden(path: impl AsRef<Path>, metadata: &Metadata) -> bool {
 			.as_ref()
 			.file_name()
 			.and_then(OsStr::to_str)
-			.map(|s| s.starts_with('.'))
-			.unwrap_or_default()
+			.is_some_and(|s| s.starts_with('.'))
 		{
 			return true;
 		}
@@ -176,10 +103,8 @@ pub fn path_is_hidden(path: impl AsRef<Path>, metadata: &Metadata) -> bool {
 }
 
 impl FilePathMetadata {
-	pub async fn from_path(
-		path: impl AsRef<Path>,
-		metadata: &Metadata,
-	) -> Result<Self, FilePathError> {
+	pub fn from_path(path: impl AsRef<Path>, metadata: &Metadata) -> Result<Self, FilePathError> {
+		let path = path.as_ref();
 		let inode = {
 			#[cfg(target_family = "unix")]
 			{
@@ -188,13 +113,21 @@ impl FilePathMetadata {
 
 			#[cfg(target_family = "windows")]
 			{
-				get_inode_from_path(path.as_ref()).await?
+				use winapi_util::{file::information, Handle};
+
+				let info = tokio::task::block_in_place(|| {
+					Handle::from_path_any(path)
+						.and_then(|ref handle| information(handle))
+						.map_err(|e| FileIOError::from((path, e)))
+				})?;
+
+				info.file_index()
 			}
 		};
 
 		Ok(Self {
 			inode,
-			hidden: path_is_hidden(path.as_ref(), metadata),
+			hidden: path_is_hidden(path, metadata),
 			size_in_bytes: metadata.len(),
 			created_at: metadata.created_or_now().into(),
 			modified_at: metadata.modified_or_now().into(),
@@ -242,6 +175,7 @@ pub enum FilePathError {
 	InvalidFilenameAndExtension(String),
 }
 
+#[must_use]
 pub fn filter_existing_file_path_params(
 	IsolatedFilePathData {
 		materialized_path,
@@ -250,7 +184,7 @@ pub fn filter_existing_file_path_params(
 		name,
 		extension,
 		..
-	}: &IsolatedFilePathData,
+	}: &IsolatedFilePathData<'_>,
 ) -> Vec<file_path::WhereParam> {
 	vec![
 		file_path::location_id::equals(Some(*location_id)),
@@ -294,9 +228,10 @@ pub fn loose_find_existing_file_path_params(
 	])
 }
 
+#[allow(clippy::missing_panics_doc)] // Don't actually panic
 pub async fn ensure_sub_path_is_in_location(
-	location_path: impl AsRef<Path>,
-	sub_path: impl AsRef<Path>,
+	location_path: impl AsRef<Path> + Send,
+	sub_path: impl AsRef<Path> + Send,
 ) -> Result<PathBuf, FilePathError> {
 	let mut sub_path = sub_path.as_ref();
 	let location_path = location_path.as_ref();
@@ -311,7 +246,9 @@ pub async fn ensure_sub_path_is_in_location(
 			.expect("we just checked that it starts with the separator");
 	}
 
-	if !sub_path.starts_with(location_path) {
+	if sub_path.starts_with(location_path) {
+		Ok(sub_path.to_path_buf())
+	} else {
 		// If the sub_path doesn't start with the location_path, we have to check if it's a
 		// materialized path received from the frontend, then we check if the full path exists
 		let full_path = location_path.join(sub_path);
@@ -324,24 +261,22 @@ pub async fn ensure_sub_path_is_in_location(
 			}),
 			Err(e) => Err(FileIOError::from((full_path, e)).into()),
 		}
-	} else {
-		Ok(sub_path.to_path_buf())
 	}
 }
 
 pub async fn ensure_file_path_exists<E>(
-	sub_path: impl AsRef<Path>,
+	sub_path: impl AsRef<Path> + Send,
 	iso_file_path: &IsolatedFilePathData<'_>,
 	db: &PrismaClient,
-	error_fn: impl FnOnce(Box<Path>) -> E,
+	error_fn: impl FnOnce(Box<Path>) -> E + Send,
 ) -> Result<(), E>
 where
 	E: From<QueryError>,
 {
-	if !check_file_path_exists(iso_file_path, db).await? {
-		Err(error_fn(sub_path.as_ref().into()))
-	} else {
+	if check_file_path_exists(iso_file_path, db).await? {
 		Ok(())
+	} else {
+		Err(error_fn(sub_path.as_ref().into()))
 	}
 }
 
@@ -360,9 +295,10 @@ where
 			.await? > 0)
 }
 
+#[allow(clippy::missing_panics_doc)] // Don't actually panic
 pub async fn ensure_sub_path_is_directory(
-	location_path: impl AsRef<Path>,
-	sub_path: impl AsRef<Path>,
+	location_path: impl AsRef<Path> + Send,
+	sub_path: impl AsRef<Path> + Send,
 ) -> Result<(), FilePathError> {
 	let mut sub_path = sub_path.as_ref();
 
@@ -410,7 +346,7 @@ pub async fn ensure_sub_path_is_directory(
 	}
 }
 
-#[allow(unused)] // TODO remove this annotation when we can use it on windows
+#[must_use]
 pub fn get_inode(metadata: &Metadata) -> u64 {
 	#[cfg(target_family = "unix")]
 	{
@@ -435,8 +371,7 @@ pub fn get_inode(metadata: &Metadata) -> u64 {
 	}
 }
 
-#[allow(unused)]
-pub async fn get_inode_from_path(path: impl AsRef<Path>) -> Result<u64, FilePathError> {
+pub async fn get_inode_from_path(path: impl AsRef<Path> + Send) -> Result<u64, FilePathError> {
 	#[cfg(target_family = "unix")]
 	{
 		// TODO use this when it's stable and remove winapi-utils dependency
@@ -451,9 +386,11 @@ pub async fn get_inode_from_path(path: impl AsRef<Path>) -> Result<u64, FilePath
 	{
 		use winapi_util::{file::information, Handle};
 
-		let info = Handle::from_path_any(path.as_ref())
-			.and_then(|ref handle| information(handle))
-			.map_err(|e| FileIOError::from((path, e)))?;
+		let info = tokio::task::block_in_place(|| {
+			Handle::from_path_any(path.as_ref())
+				.and_then(|ref handle| information(handle))
+				.map_err(|e| FileIOError::from((path, e)))
+		})?;
 
 		Ok(info.file_index())
 	}

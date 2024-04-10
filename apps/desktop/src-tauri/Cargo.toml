@@ -9,7 +9,11 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-sd-core = { path = "../../../core", features = ["ffmpeg", "heif"] }
+# Spacedrive Sub-crates
+sd-core = { path = "../../../core", features = [
+	"ffmpeg",
+	"heif",
+] }
 sd-fda = { path = "../../../crates/fda" }
 sd-prisma = { path = "../../../crates/prisma" }
 

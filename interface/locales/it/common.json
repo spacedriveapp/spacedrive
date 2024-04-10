@@ -464,5 +464,6 @@
   "size_kb": "kB",
   "size_mb": "MB",
   "size_tb": "TBC",
-  "text_file": "File di testo"
+  "text_file": "File di testo",
+  "open_in_new_tab": "Apri in una nuova scheda"
 }

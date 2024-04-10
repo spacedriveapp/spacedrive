@@ -56,10 +56,10 @@ pub async fn run_actor(
 					}
 
 					debug!(
-						"Sending {} messages ({} to {}) to ingester",
+						"Sending {} messages ({:?} to {:?}) to ingester",
 						ops.len(),
-						ops.first().unwrap().timestamp.as_u64(),
-						ops.last().unwrap().timestamp.as_u64(),
+						ops.first().map(|operation| operation.timestamp.as_u64()),
+						ops.last().map(|operation| operation.timestamp.as_u64()),
 					);
 
 					err_break!(

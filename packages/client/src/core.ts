@@ -12,7 +12,7 @@ export type Procedures = {
         { key: "cloud.locations.list", input: never, result: CloudLocation[] } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata) | null } | 
         { key: "files.get", input: LibraryArgs<number>, result: { item: Reference<ObjectWithFilePaths2>; nodes: CacheNode[] } | null } | 
-        { key: "files.getConvertableImageExtensions", input: never, result: string[] } | 
+        { key: "files.getConvertibleImageExtensions", input: never, result: string[] } | 
         { key: "files.getMediaData", input: LibraryArgs<number>, result: MediaMetadata } | 
         { key: "files.getPath", input: LibraryArgs<number>, result: string | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
@@ -138,7 +138,7 @@ export type Procedures = {
         { key: "notifications.listen", input: never, result: Notification } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
         { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: EphemeralPathsResultItem } | 
-        { key: "sync.active", input: LibraryArgs<null>, result: boolean } | 
+        { key: "sync.active", input: LibraryArgs<null>, result: SyncStatus } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
 
@@ -416,7 +416,7 @@ export type LightScanArgs = { location_id: number; sub_path: string }
 
 export type Listener2 = { id: string; name: string; addrs: string[] }
 
-export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null }
+export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; scan_state: number; instance_id: number | null }
 
 /**
  * `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
@@ -597,6 +597,8 @@ export type SpacedropArgs = { identity: RemoteIdentity; file_path: string[] }
 export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
 
 export type StatisticsResponse = { statistics: Statistics | null }
+
+export type SyncStatus = { ingest: boolean; cloud_send: boolean; cloud_receive: boolean; cloud_ingest: boolean }
 
 export type SystemLocations = { desktop: string | null; documents: string | null; downloads: string | null; pictures: string | null; music: string | null; videos: string | null }
 
