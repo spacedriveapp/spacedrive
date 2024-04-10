@@ -65,20 +65,21 @@ pub async fn ephemeral(
 							)
 						})?
 					} else {
-						(
-							path.file_stem()
-								.and_then(|s| s.to_str().map(str::to_string))
-								.ok_or_else(|| {
-									io::Error::new(
-										ErrorKind::Other,
-										"error on file '{path:?}: non UTF-8",
-									)
-								})?
-								.to_string(),
-							path.to_str()
-								.expect("non UTF-8 path - is unreachable")
-								.to_string(),
-						)
+						unreachable!();
+						// (
+						// 	path.file_stem()
+						// 		.and_then(|s| s.to_str().map(str::to_string))
+						// 		.ok_or_else(|| {
+						// 			io::Error::new(
+						// 				ErrorKind::Other,
+						// 				"error on file '{path:?}: non UTF-8",
+						// 			)
+						// 		})?
+						// 		.to_string(),
+						// 	path.to_str()
+						// 		.expect("non UTF-8 path - is unreachable")
+						// 		.to_string(),
+						// )
 					};
 
 					let kind = if entry.metadata().is_dir() {
@@ -165,6 +166,14 @@ pub async fn ephemeral(
 
 					// TODO: Fix this - https://linear.app/spacedriveapp/issue/ENG-1726/fix-file-size
 					let size = size;
+
+					let name = (kind != ObjectKind::Folder)
+						.then(|| {
+							path.file_stem()
+								.and_then(|s| s.to_str().map(str::to_string))
+						})
+						.flatten()
+						.unwrap_or(name);
 
 					Ok(Some(NonIndexedPathItem {
 						path: relative_path,
