@@ -36,7 +36,7 @@ pub async fn ephemeral(
 ) -> opendal::Result<impl Stream<Item = io::Result<NonIndexedPathItem>>> {
 	let is_fs = opendal.info().scheme() == Scheme::Fs;
 	let base_path = PathBuf::from(opendal.info().root());
-	let mut lister = opendal.lister(&path).await?;
+	let mut lister = opendal.lister(path).await?;
 
 	Ok(TaskStream::new(move |tx| async move {
 		let rules = &*rules;
@@ -118,7 +118,7 @@ pub async fn ephemeral(
 							.to_string();
 
 						// OpenDAL will *always* end in a `/` for directories, we strip it here so we can give the path to Tokio.
-						if path.ends_with("/") {
+						if path.ends_with('/') {
 							path.pop();
 						}
 
@@ -156,6 +156,7 @@ pub async fn ephemeral(
 					};
 
 					// TODO: Fix this - https://linear.app/spacedriveapp/issue/ENG-1725/fix-last-modified
+					#[allow(clippy::redundant_locals)]
 					let date_modified = date_modified;
 					// entry.metadata().last_modified().ok_or_else(|| {
 					// 	io::Error::new(
@@ -164,6 +165,7 @@ pub async fn ephemeral(
 					// 	)
 					// })?;
 
+					#[allow(clippy::redundant_locals)]
 					// TODO: Fix this - https://linear.app/spacedriveapp/issue/ENG-1726/fix-file-size
 					let size = size;
 
