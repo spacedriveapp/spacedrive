@@ -1,17 +1,17 @@
-pub mod media_data_extractor;
+pub mod exif_data_extractor;
 pub mod old_media_processor;
 pub mod old_thumbnail;
 
 pub use old_media_processor::OldMediaProcessorJobInit;
 use sd_media_metadata::ImageMetadata;
-use sd_prisma::prisma::media_data::*;
+use sd_prisma::prisma::exif_data::*;
 
-use self::media_data_extractor::MediaDataError;
+use self::exif_data_extractor::ExifDataError;
 
-pub fn media_data_image_to_query(
+pub fn exif_data_image_to_query(
 	mdi: ImageMetadata,
 	object_id: object_id::Type,
-) -> Result<CreateUnchecked, MediaDataError> {
+) -> Result<CreateUnchecked, ExifDataError> {
 	Ok(CreateUnchecked {
 		object_id,
 		_params: vec![
@@ -28,7 +28,7 @@ pub fn media_data_image_to_query(
 	})
 }
 
-pub fn media_data_image_to_query_params(
+pub fn exif_data_image_to_query_params(
 	mdi: ImageMetadata,
 ) -> (Vec<(&'static str, rmpv::Value)>, Vec<SetParam>) {
 	use sd_sync::option_sync_db_entry;
@@ -50,9 +50,9 @@ pub fn media_data_image_to_query_params(
 	.unzip()
 }
 
-pub fn media_data_image_from_prisma_data(
-	data: sd_prisma::prisma::media_data::Data,
-) -> Result<ImageMetadata, MediaDataError> {
+pub fn exif_data_image_from_prisma_data(
+	data: sd_prisma::prisma::exif_data::Data,
+) -> Result<ImageMetadata, ExifDataError> {
 	Ok(ImageMetadata {
 		camera_data: from_slice_option_to_option(data.camera_data).unwrap_or_default(),
 		date_taken: from_slice_option_to_option(data.media_date).unwrap_or_default(),

@@ -8493,6 +8493,7 @@ name = "sd-ffmpeg"
 version = "0.1.0"
 dependencies = [
  "ffmpeg-sys-next",
+ "libc",
  "tempfile",
  "thiserror",
  "tokio",

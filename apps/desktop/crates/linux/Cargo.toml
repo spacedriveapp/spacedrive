@@ -7,7 +7,7 @@ edition = { workspace = true }
 
 [dependencies]
 tokio = { workspace = true, features = ["fs"] }
-libc = "0.2"
+libc =  { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # WARNING: gtk should follow the same version used by tauri

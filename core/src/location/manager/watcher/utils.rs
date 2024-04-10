@@ -8,8 +8,8 @@ use crate::{
 	},
 	object::{
 		media::{
-			media_data_extractor::{can_extract_media_data_for_image, extract_media_data},
-			media_data_image_to_query_params,
+			exif_data_extractor::{can_extract_exif_data_for_image, extract_exif_data},
+			exif_data_image_to_query_params,
 			old_thumbnail::get_indexed_thumbnail_path,
 		},
 		old_file_identifier::FileMetadata,
@@ -28,7 +28,7 @@ use sd_core_prisma_helpers::file_path_with_object;
 
 use sd_file_ext::{extensions::ImageExtension, kind::ObjectKind};
 use sd_prisma::{
-	prisma::{file_path, location, media_data, object},
+	prisma::{exif_data, file_path, location, object},
 	prisma_sync,
 };
 use sd_sync::OperationFactory;
@@ -337,27 +337,27 @@ async fn inner_create_file(
 		// TODO: Currently we only extract media data for images, remove this if later
 		if matches!(kind, ObjectKind::Image) {
 			if let Ok(image_extension) = ImageExtension::from_str(&extension) {
-				if can_extract_media_data_for_image(&image_extension) {
-					if let Ok(media_data) = extract_media_data(path)
+				if can_extract_exif_data_for_image(&image_extension) {
+					if let Ok(exif_data) = extract_exif_data(path)
 						.await
 						.map_err(|e| error!("Failed to extract media data: {e:#?}"))
 					{
-						let (sync_params, db_params) = media_data_image_to_query_params(media_data);
+						let (sync_params, db_params) = exif_data_image_to_query_params(exif_data);
 
 						sync.write_ops(
 							db,
 							(
 								sync.shared_create(
-									prisma_sync::media_data::SyncId {
+									prisma_sync::exif_data::SyncId {
 										object: prisma_sync::object::SyncId {
 											pub_id: object_pub_id.clone(),
 										},
 									},
 									sync_params,
 								),
-								db.media_data().upsert(
-									media_data::object_id::equals(object_id),
-									media_data::create(
+								db.exif_data().upsert(
+									exif_data::object_id::equals(object_id),
+									exif_data::create(
 										object::id::equals(object_id),
 										db_params.clone(),
 									),
@@ -683,30 +683,30 @@ async fn inner_update_file(
 			// TODO: Change this if to include ObjectKind::Video in the future
 			if let Some(ext) = &file_path.extension {
 				if let Ok(image_extension) = ImageExtension::from_str(ext) {
-					if can_extract_media_data_for_image(&image_extension)
+					if can_extract_exif_data_for_image(&image_extension)
 						&& matches!(kind, ObjectKind::Image)
 					{
-						if let Ok(media_data) = extract_media_data(full_path)
+						if let Ok(exif_data) = extract_exif_data(full_path)
 							.await
 							.map_err(|e| error!("Failed to extract media data: {e:#?}"))
 						{
 							let (sync_params, db_params) =
-								media_data_image_to_query_params(media_data);
+								exif_data_image_to_query_params(exif_data);
 
 							sync.write_ops(
 								db,
 								(
 									sync.shared_create(
-										prisma_sync::media_data::SyncId {
+										prisma_sync::exif_data::SyncId {
 											object: prisma_sync::object::SyncId {
 												pub_id: object.pub_id.clone(),
 											},
 										},
 										sync_params,
 									),
-									db.media_data().upsert(
-										media_data::object_id::equals(object.id),
-										media_data::create(
+									db.exif_data().upsert(
+										exif_data::object_id::equals(object.id),
+										exif_data::create(
 											object::id::equals(object.id),
 											db_params.clone(),
 										),

@@ -1,7 +1,7 @@
 use crate::{
-	error::{Error, FfmpegError},
-	utils::from_path,
-	video_frame::{FfmpegFrame, FrameSource, VideoFrame},
+	error::{Error, FFmpegError},
+	utils::{check_error, from_path, CSTRING_ERROR_MSG},
+	video_frame::{FFmpegFrame, FrameSource, VideoFrame},
 };
 
 use ffmpeg_sys_next::{
@@ -17,6 +17,7 @@ use ffmpeg_sys_next::{
 	AVPacketSideDataType, AVRational, AVStream, AVERROR, AVERROR_EOF, AVPROBE_SCORE_MAX,
 	AV_DICT_IGNORE_SUFFIX, AV_LOG_FATAL, AV_TIME_BASE, EAGAIN,
 };
+
 use std::{
 	ffi::{CStr, CString},
 	fmt::Write,
@@ -93,8 +94,8 @@ impl MovieDecoder {
 					)?;
 				}
 				e => {
-					return Err(Error::FfmpegWithReason(
-						FfmpegError::from(e),
+					return Err(Error::FFmpegWithReason(
+						FFmpegError::from(e),
 						"Failed to open input".to_string(),
 					))
 				}
@@ -113,7 +114,7 @@ impl MovieDecoder {
 
 		decoder.frame = unsafe { av_frame_alloc() };
 		if decoder.frame.is_null() {
-			return Err(FfmpegError::FrameAllocation.into());
+			return Err(FFmpegError::FrameAllocation.into());
 		}
 
 		Ok(decoder)
@@ -201,7 +202,7 @@ impl MovieDecoder {
 			"Failed to write frame to filter graph",
 		)?;
 
-		let mut new_frame = FfmpegFrame::new()?;
+		let mut new_frame = FFmpegFrame::new()?;
 		let mut attempts = 0;
 		let mut ret = unsafe { av_buffersink_get_frame(self.filter_sink, new_frame.as_mut_ptr()) };
 		while ret == AVERROR(EAGAIN) && attempts < 10 {
@@ -214,8 +215,8 @@ impl MovieDecoder {
 			attempts += 1;
 		}
 		if ret < 0 {
-			return Err(Error::FfmpegWithReason(
-				FfmpegError::from(ret),
+			return Err(Error::FFmpegWithReason(
+				FFmpegError::from(ret),
 				"Failed to get buffer from filter".to_string(),
 			));
 		}
@@ -280,12 +281,12 @@ impl MovieDecoder {
 		self.video_codec =
 			unsafe { avcodec_find_decoder((*(*self.video_stream).codecpar).codec_id) };
 		if self.video_codec.is_null() {
-			return Err(FfmpegError::DecoderNotFound.into());
+			return Err(FFmpegError::DecoderNotFound.into());
 		}
 
 		self.video_codec_context = unsafe { avcodec_alloc_context3(self.video_codec) };
 		if self.video_codec_context.is_null() {
-			return Err(FfmpegError::VideoCodecAllocation.into());
+			return Err(FFmpegError::VideoCodecAllocation.into());
 		}
 
 		check_error(
@@ -315,7 +316,7 @@ impl MovieDecoder {
 	fn find_preferred_video_stream(&mut self, prefer_embedded_metadata: bool) -> Result<(), Error> {
 		let mut video_streams = vec![];
 		let mut embedded_data_streams = vec![];
-		let empty_cstring = CString::new("").unwrap();
+		let empty_cstring = CString::new("").expect(CSTRING_ERROR_MSG);
 
 		for stream_idx in 0..(unsafe { (*self.format_context).nb_streams.try_into()? }) {
 			let stream = unsafe { *(*self.format_context).streams.offset(stream_idx as isize) };
@@ -374,7 +375,7 @@ impl MovieDecoder {
 			self.video_stream_index = video_streams[0];
 			Ok(())
 		} else {
-			Err(FfmpegError::StreamNotFound.into())
+			Err(FFmpegError::StreamNotFound.into())
 		}
 	}
 
@@ -414,8 +415,8 @@ impl MovieDecoder {
 			if ret == AVERROR_EOF {
 				return Ok(false);
 			} else if ret < 0 {
-				return Err(Error::FfmpegWithReason(
-					FfmpegError::from(ret),
+				return Err(Error::FFmpegWithReason(
+					FFmpegError::from(ret),
 					"Failed to send packet to decoder".to_string(),
 				));
 			}
@@ -423,8 +424,8 @@ impl MovieDecoder {
 
 		match unsafe { avcodec_receive_frame(self.video_codec_context, self.frame) } {
 			0 => Ok(true),
-			e if e != AVERROR(EAGAIN) => Err(Error::FfmpegWithReason(
-				FfmpegError::from(e),
+			e if e != AVERROR(EAGAIN) => Err(Error::FFmpegWithReason(
+				FFmpegError::from(e),
 				"Failed to receive frame from decoder".to_string(),
 			)),
 			_ => Ok(false),
@@ -440,7 +441,7 @@ impl MovieDecoder {
 	) -> Result<(), Error> {
 		unsafe { self.filter_graph = avfilter_graph_alloc() };
 		if self.filter_graph.is_null() {
-			return Err(FfmpegError::FilterGraphAllocation.into());
+			return Err(FFmpegError::FilterGraphAllocation.into());
 		}
 
 		let args = unsafe {
@@ -458,17 +459,17 @@ impl MovieDecoder {
 
 		setup_filter(
 			&mut self.filter_source,
-			"buffer",
-			"thumb_buffer",
-			&args,
+			CString::new("buffer").expect(CSTRING_ERROR_MSG),
+			CString::new("thumb_buffer").expect(CSTRING_ERROR_MSG),
+			CString::new(args)?,
 			self.filter_graph,
 			"Failed to create filter source",
 		)?;
 
 		setup_filter_without_args(
 			&mut self.filter_sink,
-			"buffersink",
-			"thumb_buffersink",
+			CString::new("buffersink").expect(CSTRING_ERROR_MSG),
+			CString::new("thumb_buffersink").expect(CSTRING_ERROR_MSG),
 			self.filter_graph,
 			"Failed to create filter sink",
 		)?;
@@ -477,9 +478,9 @@ impl MovieDecoder {
 		if unsafe { (*self.frame).interlaced_frame } != 0 {
 			setup_filter(
 				&mut yadif_filter,
-				"yadif",
-				"thumb_deint",
-				"deint=1",
+				CString::new("yadif").expect(CSTRING_ERROR_MSG),
+				CString::new("thumb_deint").expect(CSTRING_ERROR_MSG),
+				CString::new("deint=1").expect(CSTRING_ERROR_MSG),
 				self.filter_graph,
 				"Failed to create de-interlace filter",
 			)?;
@@ -488,9 +489,12 @@ impl MovieDecoder {
 		let mut scale_filter = std::ptr::null_mut();
 		setup_filter(
 			&mut scale_filter,
-			"scale",
-			"thumb_scale",
-			&Self::create_scale_string(scaled_size, maintain_aspect_ratio),
+			CString::new("scale").expect(CSTRING_ERROR_MSG),
+			CString::new("thumb_scale").expect(CSTRING_ERROR_MSG),
+			CString::new(Self::create_scale_string(
+				scaled_size,
+				maintain_aspect_ratio,
+			))?,
 			self.filter_graph,
 			"Failed to create scale filter",
 		)?;
@@ -498,9 +502,9 @@ impl MovieDecoder {
 		let mut format_filter = std::ptr::null_mut();
 		setup_filter(
 			&mut format_filter,
-			"format",
-			"thumb_format",
-			"pix_fmts=rgb24",
+			CString::new("format").expect(CSTRING_ERROR_MSG),
+			CString::new("thumb_format").expect(CSTRING_ERROR_MSG),
+			CString::new("pix_fmts=rgb24").expect(CSTRING_ERROR_MSG),
 			self.filter_graph,
 			"Failed to create format filter",
 		)?;
@@ -510,18 +514,18 @@ impl MovieDecoder {
 		if rotation == 3 {
 			setup_filter(
 				&mut rotate_filter,
-				"rotate",
-				"thumb_rotate",
-				"PI",
+				CString::new("rotate").expect(CSTRING_ERROR_MSG),
+				CString::new("thumb_rotate").expect(CSTRING_ERROR_MSG),
+				CString::new("PI").expect(CSTRING_ERROR_MSG),
 				self.filter_graph,
 				"Failed to create rotate filter",
 			)?;
 		} else if rotation != -1 {
 			setup_filter(
 				&mut rotate_filter,
-				"transpose",
-				"thumb_transpose",
-				&rotation.to_string(),
+				CString::new("transpose").expect(CSTRING_ERROR_MSG),
+				CString::new("thumb_transpose").expect(CSTRING_ERROR_MSG),
+				CString::new(rotation.to_string())?,
 				self.filter_graph,
 				"Failed to create transpose filter",
 			)?;
@@ -689,36 +693,21 @@ impl Drop for MovieDecoder {
 	}
 }
 
-fn check_error(return_code: i32, error_message: &str) -> Result<(), Error> {
-	if return_code < 0 {
-		Err(Error::FfmpegWithReason(
-			FfmpegError::from(return_code),
-			error_message.to_string(),
-		))
-	} else {
-		Ok(())
-	}
-}
-
 fn setup_filter(
 	filter_ctx: *mut *mut AVFilterContext,
-	filter_name: &str,
-	filter_setup_name: &str,
-	args: &str,
+	filter_name: CString,
+	filter_setup_name: CString,
+	args: CString,
 	graph_ctx: *mut AVFilterGraph,
 	error_message: &str,
 ) -> Result<(), Error> {
-	let filter_name_cstr = CString::new(filter_name).expect("CString from str");
-	let filter_setup_name_cstr = CString::new(filter_setup_name).expect("CString from str");
-	let args_cstr = CString::new(args).expect("CString from str");
-
 	check_error(
 		unsafe {
 			avfilter_graph_create_filter(
 				filter_ctx,
-				avfilter_get_by_name(filter_name_cstr.as_ptr()),
-				filter_setup_name_cstr.as_ptr(),
-				args_cstr.as_ptr(),
+				avfilter_get_by_name(filter_name.as_ptr()),
+				filter_setup_name.as_ptr(),
+				args.as_ptr(),
 				std::ptr::null_mut(),
 				graph_ctx,
 			)
@@ -729,20 +718,17 @@ fn setup_filter(
 
 fn setup_filter_without_args(
 	filter_ctx: *mut *mut AVFilterContext,
-	filter_name: &str,
-	filter_setup_name: &str,
+	filter_name: CString,
+	filter_setup_name: CString,
 	graph_ctx: *mut AVFilterGraph,
 	error_message: &str,
 ) -> Result<(), Error> {
-	let filter_name_cstr = CString::new(filter_name).unwrap();
-	let filter_setup_name_cstr = CString::new(filter_setup_name).unwrap();
-
 	check_error(
 		unsafe {
 			avfilter_graph_create_filter(
 				filter_ctx,
-				avfilter_get_by_name(filter_name_cstr.as_ptr()),
-				filter_setup_name_cstr.as_ptr(),
+				avfilter_get_by_name(filter_name.as_ptr()),
+				filter_setup_name.as_ptr(),
 				std::ptr::null_mut(),
 				std::ptr::null_mut(),
 				graph_ctx,

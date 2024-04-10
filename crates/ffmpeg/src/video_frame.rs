@@ -1,14 +1,14 @@
-use crate::error::FfmpegError;
+use crate::error::FFmpegError;
 use ffmpeg_sys_next::{av_frame_alloc, av_frame_free, AVFrame};
 
 #[derive(Debug)]
-pub enum FrameSource {
+pub(crate) enum FrameSource {
 	VideoStream,
 	Metadata,
 }
 
 #[derive(Debug, Default)]
-pub struct VideoFrame {
+pub(crate) struct VideoFrame {
 	pub width: u32,
 	pub height: u32,
 	pub line_size: u32,
@@ -16,25 +16,25 @@ pub struct VideoFrame {
 	pub source: Option<FrameSource>,
 }
 
-pub struct FfmpegFrame {
+pub(crate) struct FFmpegFrame {
 	data: *mut AVFrame,
 }
 
-impl FfmpegFrame {
-	pub fn new() -> Result<Self, FfmpegError> {
+impl FFmpegFrame {
+	pub(crate) fn new() -> Result<Self, FFmpegError> {
 		let data = unsafe { av_frame_alloc() };
 		if data.is_null() {
-			return Err(FfmpegError::FrameAllocation);
+			return Err(FFmpegError::FrameAllocation);
 		}
 		Ok(Self { data })
 	}
 
-	pub fn as_mut_ptr(&mut self) -> *mut AVFrame {
+	pub(crate) fn as_mut_ptr(&mut self) -> *mut AVFrame {
 		self.data
 	}
 }
 
-impl Drop for FfmpegFrame {
+impl Drop for FFmpegFrame {
 	fn drop(&mut self) {
 		if !self.data.is_null() {
 			unsafe { av_frame_free(&mut self.data) };

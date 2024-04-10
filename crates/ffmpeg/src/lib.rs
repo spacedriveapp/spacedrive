@@ -6,9 +6,12 @@ use crate::{
 
 use std::path::Path;
 
+mod dict;
 mod error;
 mod film_strip;
+mod format_ctx;
 mod movie_decoder;
+mod probe;
 mod thumbnailer;
 mod utils;
 mod video_frame;

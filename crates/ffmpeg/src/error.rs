@@ -1,5 +1,8 @@
-use std::path::PathBuf;
-use std::{ffi::c_int, num::TryFromIntError};
+use std::{
+	ffi::{c_int, NulError},
+	num::TryFromIntError,
+	path::PathBuf,
+};
 use thiserror::Error;
 use tokio::task::JoinError;
 
@@ -18,12 +21,14 @@ use ffmpeg_sys_next::{
 pub enum Error {
 	#[error("I/O Error: {0}")]
 	Io(#[from] std::io::Error),
+	#[error("Fail to create CString: {0}")]
+	NulError(#[from] NulError),
 	#[error("Path conversion error: Path: {0:#?}")]
 	PathConversion(PathBuf),
 	#[error("FFmpeg internal error: {0}")]
-	Ffmpeg(#[from] FfmpegError),
+	FFmpeg(#[from] FFmpegError),
 	#[error("FFmpeg internal error: {0}; Reason: {1}")]
-	FfmpegWithReason(FfmpegError, String),
+	FFmpegWithReason(FFmpegError, String),
 	#[error("Failed to decode video frame")]
 	FrameDecodeError,
 	#[error("Failed to seek video")]
@@ -46,13 +51,13 @@ pub enum Error {
 ///
 /// Extracted from <https://ffmpeg.org/doxygen/trunk/group__lavu__error.html>
 #[derive(Error, Debug)]
-pub enum FfmpegError {
+pub enum FFmpegError {
 	#[error("Bitstream filter not found")]
 	BitstreamFilterNotFound,
-	#[error("Internal bug, also see AVERROR_BUG2")]
-	InternalBug,
 	#[error("Buffer too small")]
 	BufferTooSmall,
+	#[error("Context allocation error")]
+	ContextAllocation,
 	#[error("Decoder not found")]
 	DecoderNotFound,
 	#[error("Demuxer not found")]
@@ -69,6 +74,8 @@ pub enum FfmpegError {
 	FilterNotFound,
 	#[error("Invalid data found when processing input")]
 	InvalidData,
+	#[error("Internal bug, also see AVERROR_BUG2")]
+	InternalBug,
 	#[error("Muxer not found")]
 	MuxerNotFound,
 	#[error("Option not found")]
@@ -113,7 +120,7 @@ pub enum FfmpegError {
 	CodecOpen,
 }
 
-impl From<c_int> for FfmpegError {
+impl From<c_int> for FFmpegError {
 	fn from(code: c_int) -> Self {
 		match code {
 			AVERROR_BSF_NOT_FOUND => Self::BitstreamFilterNotFound,

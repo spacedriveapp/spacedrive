@@ -4,8 +4,8 @@ use crate::{
 	library::Library,
 	object::{
 		fs::{error::FileSystemJobsError, find_available_filename_for_duplicate},
-		media::media_data_extractor::{
-			can_extract_media_data_for_image, extract_media_data, MediaDataError,
+		media::exif_data_extractor::{
+			can_extract_exif_data_for_image, extract_exif_data, ExifDataError,
 		},
 	},
 };
@@ -60,13 +60,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					rspc::Error::new(ErrorCode::BadRequest, "Invalid image extension".to_string())
 				})?;
 
-				if !can_extract_media_data_for_image(&image_extension) {
+				if !can_extract_exif_data_for_image(&image_extension) {
 					return Ok(None);
 				}
 
-				match extract_media_data(full_path.clone()).await {
+				match extract_exif_data(full_path.clone()).await {
 					Ok(img_media_data) => Ok(Some(MediaMetadata::Image(Box::new(img_media_data)))),
-					Err(MediaDataError::MediaData(sd_media_metadata::Error::NoExifDataOnPath(
+					Err(ExifDataError::MediaData(sd_media_metadata::Error::NoExifDataOnPath(
 						_,
 					))) => Ok(None),
 					Err(e) => Err(rspc::Error::with_cause(

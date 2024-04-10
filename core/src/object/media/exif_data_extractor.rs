@@ -5,7 +5,7 @@ use sd_core_prisma_helpers::file_path_for_media_processor;
 
 use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
 use sd_media_metadata::ImageMetadata;
-use sd_prisma::prisma::{location, media_data, PrismaClient};
+use sd_prisma::prisma::{exif_data, location, PrismaClient};
 use sd_utils::error::FileIOError;
 
 use std::{collections::HashSet, path::Path};
@@ -17,10 +17,10 @@ use thiserror::Error;
 use tokio::task::spawn_blocking;
 use tracing::error;
 
-use super::media_data_image_to_query;
+use super::exif_data_image_to_query;
 
 #[derive(Error, Debug)]
-pub enum MediaDataError {
+pub enum ExifDataError {
 	// Internal errors
 	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
@@ -33,7 +33,7 @@ pub enum MediaDataError {
 }
 
 #[derive(Serialize, Deserialize, Default, Debug)]
-pub struct OldMediaDataExtractorMetadata {
+pub struct OldExifDataExtractorMetadata {
 	pub extracted: u32,
 	pub skipped: u32,
 }
@@ -42,12 +42,12 @@ pub(super) static FILTERED_IMAGE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(||
 	ALL_IMAGE_EXTENSIONS
 		.iter()
 		.cloned()
-		.filter(can_extract_media_data_for_image)
+		.filter(can_extract_exif_data_for_image)
 		.map(Extension::Image)
 		.collect()
 });
 
-pub const fn can_extract_media_data_for_image(image_extension: &ImageExtension) -> bool {
+pub const fn can_extract_exif_data_for_image(image_extension: &ImageExtension) -> bool {
 	use ImageExtension::*;
 	matches!(
 		image_extension,
@@ -55,7 +55,7 @@ pub const fn can_extract_media_data_for_image(image_extension: &ImageExtension) 
 	)
 }
 
-pub async fn extract_media_data(path: impl AsRef<Path>) -> Result<ImageMetadata, MediaDataError> {
+pub async fn extract_exif_data(path: impl AsRef<Path>) -> Result<ImageMetadata, ExifDataError> {
 	let path = path.as_ref().to_path_buf();
 
 	// Running in a separated blocking thread due to MediaData blocking behavior (due to sync exif lib)
@@ -70,46 +70,46 @@ pub async fn process(
 	location_path: impl AsRef<Path>,
 	db: &PrismaClient,
 	ctx_update_fn: &impl Fn(usize),
-) -> Result<(OldMediaDataExtractorMetadata, JobRunErrors), MediaDataError> {
-	let mut run_metadata = OldMediaDataExtractorMetadata::default();
+) -> Result<(OldExifDataExtractorMetadata, JobRunErrors), ExifDataError> {
+	let mut run_metadata = OldExifDataExtractorMetadata::default();
 	if files_paths.is_empty() {
 		return Ok((run_metadata, JobRunErrors::default()));
 	}
 
 	let location_path = location_path.as_ref();
 
-	let objects_already_with_media_data = db
-		.media_data()
-		.find_many(vec![media_data::object_id::in_vec(
+	let objects_already_with_exif_data = db
+		.exif_data()
+		.find_many(vec![exif_data::object_id::in_vec(
 			files_paths
 				.iter()
 				.filter_map(|file_path| file_path.object_id)
 				.collect(),
 		)])
-		.select(media_data::select!({ object_id }))
+		.select(exif_data::select!({ object_id }))
 		.exec()
 		.await?;
 
-	if files_paths.len() == objects_already_with_media_data.len() {
+	if files_paths.len() == objects_already_with_exif_data.len() {
 		// All files already have media data, skipping
 		run_metadata.skipped = files_paths.len() as u32;
 		return Ok((run_metadata, JobRunErrors::default()));
 	}
 
-	let objects_already_with_media_data = objects_already_with_media_data
+	let objects_already_with_exif_data = objects_already_with_exif_data
 		.into_iter()
-		.map(|media_data| media_data.object_id)
+		.map(|exif_data| exif_data.object_id)
 		.collect::<HashSet<_>>();
 
-	run_metadata.skipped = objects_already_with_media_data.len() as u32;
+	run_metadata.skipped = objects_already_with_exif_data.len() as u32;
 
-	let (media_datas, errors) = {
-		let maybe_media_data = files_paths
+	let (exif_datas, errors) = {
+		let maybe_exif_data = files_paths
 			.iter()
 			.enumerate()
 			.filter_map(|(idx, file_path)| {
 				file_path.object_id.and_then(|object_id| {
-					(!objects_already_with_media_data.contains(&object_id))
+					(!objects_already_with_exif_data.contains(&object_id))
 						.then_some((idx, file_path, object_id))
 				})
 			})
@@ -120,7 +120,7 @@ pub async fn process(
 					.map(|iso_file_path| (idx, location_path.join(iso_file_path), object_id))
 			})
 			.map(|(idx, path, object_id)| async move {
-				let res = extract_media_data(&path).await;
+				let res = extract_exif_data(&path).await;
 				ctx_update_fn(idx + 1);
 				(res, path, object_id)
 			})
@@ -128,15 +128,15 @@ pub async fn process(
 			.join()
 			.await;
 
-		let total_media_data = maybe_media_data.len();
+		let total_exif_data = maybe_exif_data.len();
 
-		maybe_media_data.into_iter().fold(
-			// In the good case, all media data were extracted
-			(Vec::with_capacity(total_media_data), Vec::new()),
-			|(mut media_datas, mut errors), (maybe_media_data, path, object_id)| {
-				match maybe_media_data {
-					Ok(media_data) => media_datas.push((media_data, object_id)),
-					Err(MediaDataError::MediaData(sd_media_metadata::Error::NoExifDataOnPath(
+		maybe_exif_data.into_iter().fold(
+			// In the good case, all exif data were extracted
+			(Vec::with_capacity(total_exif_data), Vec::new()),
+			|(mut exif_datas, mut errors), (maybe_exif_data, path, object_id)| {
+				match maybe_exif_data {
+					Ok(exif_data) => exif_datas.push((exif_data, object_id)),
+					Err(ExifDataError::MediaData(sd_media_metadata::Error::NoExifDataOnPath(
 						_,
 					))) => {
 						// No exif data on path, skipping
@@ -144,18 +144,18 @@ pub async fn process(
 					}
 					Err(e) => errors.push((e, path)),
 				}
-				(media_datas, errors)
+				(exif_datas, errors)
 			},
 		)
 	};
 
 	let created = db
-		.media_data()
+		.exif_data()
 		.create_many(
-			media_datas
+			exif_datas
 				.into_iter()
-				.filter_map(|(media_data, object_id)| {
-					media_data_image_to_query(media_data, object_id)
+				.filter_map(|(exif_data, object_id)| {
+					exif_data_image_to_query(exif_data, object_id)
 						.map_err(|e| error!("{e:#?}"))
 						.ok()
 				})

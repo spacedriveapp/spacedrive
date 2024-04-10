@@ -231,74 +231,21 @@ model Object {
   date_created  DateTime?
   date_accessed DateTime?
 
-  tags       TagOnObject[]
-  labels     LabelOnObject[]
-  albums     ObjectInAlbum[]
-  spaces     ObjectInSpace[]
-  file_paths FilePath[]
-  // comments   Comment[]
-  media_data MediaData?
+    tags       TagOnObject[]
+    labels     LabelOnObject[]
+    albums     ObjectInAlbum[]
+    spaces     ObjectInSpace[]
+    file_paths FilePath[]
+    // comments   Comment[]
+    exif_data  ExifData?
 
   // key Key? @relation(fields: [key_id], references: [id])
 
   @@map("object")
 }
 
-// if there is a conflicting cas_id, the conficting file should be updated to have a larger cas_id as
-//the field is unique, however this record is kept to tell the indexer (upon discovering this CAS) that
-//there is alternate versions of the file and to check by a full integrity hash to define for which to associate with.
-// @brendan: nah this probably won't fly
-// model FileConflict {
-//     original_object_id   Int @unique
-//     detactched_object_id Int @unique
-
-//     @@map("file_conflict")
-// }
-
-// keys allow us to know exactly which files can be decrypted with a given key
-// they can be "mounted" to a client, and then used to decrypt files automatically
-/// @shared(id: uuid)
-// model Key {
-//     id                Int       @id @default(autoincrement())
-//     // uuid to identify the key
-//     uuid              String    @unique
-//     version           String
-//     key_type          String
-//     // the name that the user sets
-//     name              String?
-//     // is this key the default for encryption?
-//     // was not tagged as unique as i'm not too sure if PCR will handle it
-//     // can always be tagged as unique, the keys API will need updating to use `find_unique()`
-//     default           Boolean   @default(false)
-//     // nullable if concealed for security
-//     date_created      DateTime? @default(now())
-//     // encryption algorithm used to encrypt the key
-//     algorithm         String
-//     // hashing algorithm used for hashing the key with the content salt
-//     hashing_algorithm String
-//     // salt used for encrypting data with this key
-//     content_salt      Bytes
-//     // the *encrypted* master key (48 bytes)
-//     master_key        Bytes
-//     // the nonce used for encrypting the master key
-//     master_key_nonce  Bytes
-//     // the nonce used for encrypting the key
-//     key_nonce         Bytes
-//     // the *encrypted* key
-//     key               Bytes
-//     // the salt used for deriving the KEK (used for encrypting the master key) from the root key
-//     salt              Bytes
-
-//     automount Boolean @default(false)
-
-//     objects    Object[]
-//     file_paths FilePath[]
-
-//     @@map("key")
-// }
-
 /// @shared(id: object, modelId: 4)
-model MediaData {
+model ExifData {
   id Int @id @default(autoincrement())
 
   resolution     Bytes?
@@ -322,10 +269,98 @@ model MediaData {
   // video_codec   String? // eg: "h264, h265, av1"
   // audio_codec String? // eg: "opus"
 
-  object_id Int    @unique
-  object    Object @relation(fields: [object_id], references: [id], onDelete: Cascade)
+    object_id Int    @unique
+    object    Object @relation(fields: [object_id], references: [id], onDelete: Cascade)
+
+    @@map("exif_data")
+}
+
+/// @shared(id: object)
+model MediaData {
+    id Int @id @default(autoincrement())
+
+    // Internal FFmpeg properties
+    format     String?
+    duration   BigInt?
+    start_time BigInt?
+    bitrate    BigInt?
+
+    chapters MediaChapter[]
+
+    metadata    MediaMetadata @relation(fields: [metadata_id], references: [id])
+    metadata_id Int           @unique
 
   @@map("media_data")
+}
+
+/// @shared(id: object)
+model MediaChapter {
+    id Int @id @default(autoincrement())
+
+    start BigInt?
+    end   BigInt?
+
+    metadata    MediaMetadata @relation(fields: [metadata_id], references: [id])
+    metadata_id Int           @unique
+
+    media_data  MediaData? @relation(fields: [mediaDataId], references: [id])
+    mediaDataId Int?
+
+    @@map("media_chapter")
+}
+
+/// @shared(id: object)
+model MediaMetadata {
+    id Int @id @default(autoincrement())
+
+    // FFmpeg Metadata API
+    // https://ffmpeg.org/doxygen/trunk/group__metadata__api.html
+    album            String? // -- name of the set this work belongs to
+    album_artist     String? // -- main creator of the set/album, if different from artist.
+    //                             e.g. "Various Artists" for compilation albums.
+    artist           String? // -- main creator of the work
+    comment          String? // -- any additional description of the file.
+    composer         String? // -- who composed the work, if different from artist.
+    copyright        String? // -- name of copyright holder.
+    creation_time    DateTime? // -- date when the file was created, preferably in ISO 8601.
+    date             DateTime? // -- date when the work was created, preferably in ISO 8601.
+    disc             Int? // -- number of a subset, e.g. disc in a multi-disc collection.
+    encoder          String? // -- name/settings of the software/hardware that produced the file.
+    encoded_by       String? // -- person/group who created the file.
+    filename         String? // -- original name of the file.
+    genre            String?
+    language         String? // -- main language in which the work is performed, preferably
+    //                             in ISO 639-2 format. Multiple languages can be specified by
+    //                             separating them with commas.
+    performer        String? // -- artist who performed the work, if different from artist.
+    //                             E.g for "Also sprach Zarathustra", artist would be "Richard
+    //                             Strauss" and performer "London Philharmonic Orchestra".
+    publisher        String? // -- name of the label/publisher.
+    service_name     String? // -- name of the service in broadcasting (channel name).
+    service_provider String? // -- name of the service provider in broadcasting.
+    title            String? // -- name of the work.
+    track            Int? // -- number of this work in the set, can be in form current/total.
+    variant_bitrate  Int? // -- the total bitrate of the bitrate variant that the current stream is part of
+
+    custom CustomMetadata[]
+
+    media_data    MediaData?
+    media_chapter MediaChapter?
+
+    @@map("media_metadata")
+}
+
+/// @shared(id: object)
+model CustomMetadata {
+    id Int @id @default(autoincrement())
+
+    key   String?
+    value String?
+
+    media_metadata    MediaMetadata @relation(fields: [media_metadata_id], references: [id])
+    media_metadata_id Int           @unique
+
+    @@map("custom_metadata")
 }
 
 //// Tag ////
@@ -477,20 +512,6 @@ model ObjectInAlbum {
   @@id([album_id, object_id])
   @@map("object_in_album")
 }
-
-//// Comment ////
-
-// model Comment {
-//     id            Int      @id @default(autoincrement())
-//     pub_id        Bytes    @unique
-//     content       String
-//     date_created  DateTime @default(now())
-//     date_modified DateTime @default(now())
-//     object_id     Int?
-//     object        Object?  @relation(fields: [object_id], references: [id])
-
-//     @@map("comment")
-// }
 
 //// Indexer Rules ////
 

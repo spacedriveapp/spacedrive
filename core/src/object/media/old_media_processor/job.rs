@@ -45,7 +45,7 @@ use tokio::time::sleep;
 use tracing::{debug, error, info, trace, warn};
 
 use super::{
-	media_data_extractor,
+	exif_data_extractor,
 	old_thumbnail::{self, GenerateThumbnailArgs},
 	process, BatchToProcess, MediaProcessorError, OldMediaProcessorMetadata,
 };
@@ -237,7 +237,7 @@ impl StatefulJob for OldMediaProcessorJobInit {
 
 		ctx.progress(vec![
 			JobReportUpdate::TaskCount(total_files),
-			JobReportUpdate::Phase("media_data".to_string()),
+			JobReportUpdate::Phase("exif_data".to_string()),
 			JobReportUpdate::Message(format!(
 				"Preparing to process {total_files} files in {} chunks",
 				chunked_files.len()
@@ -417,7 +417,7 @@ impl StatefulJob for OldMediaProcessorJobInit {
 				.display()
 		);
 
-		if run_metadata.media_data.extracted > 0 {
+		if run_metadata.exif_data.extracted > 0 {
 			invalidate_query!(ctx.library, "search.paths");
 		}
 
@@ -519,7 +519,7 @@ async fn get_files_for_media_data_extraction(
 	get_all_children_files_by_extensions(
 		db,
 		parent_iso_file_path,
-		&media_data_extractor::FILTERED_IMAGE_EXTENSIONS,
+		&exif_data_extractor::FILTERED_IMAGE_EXTENSIONS,
 	)
 	.await
 	.map_err(Into::into)
@@ -546,7 +546,7 @@ async fn get_files_for_labeling(
 			ORDER BY materialized_path ASC",
 			// Ordering by materialized_path so we can prioritize processing the first files
 			// in the above part of the directories tree
-			&media_data_extractor::FILTERED_IMAGE_EXTENSIONS
+			&exif_data_extractor::FILTERED_IMAGE_EXTENSIONS
 				.iter()
 				.map(|ext| format!("LOWER('{ext}')"))
 				.collect::<Vec<_>>()

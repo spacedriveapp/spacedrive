@@ -6,10 +6,11 @@ use sd_prisma::prisma::PrismaClient;
 use sd_task_system::{
 	BaseTaskDispatcher, Task, TaskDispatcher, TaskHandle, TaskRemoteController, TaskSystemError,
 };
+use tokio_stream::StreamExt;
 
 use std::{
-	collections::VecDeque,
-	hash::{DefaultHasher, Hash, Hasher},
+	collections::{hash_map::DefaultHasher, VecDeque},
+	hash::{Hash, Hasher},
 	marker::PhantomData,
 	pin::pin,
 	sync::Arc,
@@ -17,7 +18,7 @@ use std::{
 
 use async_channel as chan;
 use chrono::{DateTime, Utc};
-use futures::{stream, Future, StreamExt};
+use futures::{stream, Future};
 use futures_concurrency::{
 	future::{Join, TryJoin},
 	stream::Merge,

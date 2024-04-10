@@ -4,3 +4,4 @@ CompileFlags:
   Compiler: clang
 Diagnostics:
   UnusedIncludes: Strict
+  MissingIncludes: Strict

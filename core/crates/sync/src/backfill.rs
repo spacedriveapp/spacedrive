@@ -2,7 +2,7 @@ use std::future::Future;
 
 use sd_prisma::{
 	prisma::{
-		crdt_operation, file_path, label, label_on_object, location, media_data, object, tag,
+		crdt_operation, exif_data, file_path, label, label_on_object, location, object, tag,
 		tag_on_object, PrismaClient, SortOrder,
 	},
 	prisma_sync,
@@ -163,11 +163,11 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 
 			paginate(
 				|cursor| {
-					db.media_data()
-						.find_many(vec![media_data::id::gt(cursor)])
-						.order_by(media_data::id::order(SortOrder::Asc))
+					db.exif_data()
+						.find_many(vec![exif_data::id::gt(cursor)])
+						.order_by(exif_data::id::order(SortOrder::Asc))
 						.take(1000)
-						.include(media_data::include!({
+						.include(exif_data::include!({
 							object: select { pub_id }
 						}))
 						.exec()
@@ -179,10 +179,10 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 							media_datas
 								.into_iter()
 								.flat_map(|md| {
-									use media_data::*;
+									use exif_data::*;
 
 									sync.shared_create(
-										prisma_sync::media_data::SyncId {
+										prisma_sync::exif_data::SyncId {
 											object: prisma_sync::object::SyncId {
 												pub_id: md.object.pub_id,
 											},

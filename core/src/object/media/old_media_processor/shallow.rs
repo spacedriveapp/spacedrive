@@ -32,7 +32,7 @@ use tracing::{debug, error};
 use futures::StreamExt;
 
 use super::{
-	media_data_extractor::{self, process},
+	exif_data_extractor::{self, process},
 	old_thumbnail::{self, BatchToProcess},
 	MediaProcessorError, OldMediaProcessorMetadata,
 };
@@ -145,7 +145,7 @@ pub async fn old_shallow(
 
 	debug!("Media shallow processor run metadata: {run_metadata:?}");
 
-	if run_metadata.media_data.extracted > 0 {
+	if run_metadata.exif_data.extracted > 0 {
 		invalidate_query!(library, "search.paths");
 		invalidate_query!(library, "search.objects");
 	}
@@ -190,7 +190,7 @@ async fn get_files_for_media_data_extraction(
 	get_files_by_extensions(
 		db,
 		parent_iso_file_path,
-		&media_data_extractor::FILTERED_IMAGE_EXTENSIONS,
+		&exif_data_extractor::FILTERED_IMAGE_EXTENSIONS,
 	)
 	.await
 	.map_err(Into::into)
@@ -214,7 +214,7 @@ async fn get_files_for_labeling(
 				AND LOWER(extension) IN ({})
 				AND materialized_path = {{}}
 				{}",
-			&media_data_extractor::FILTERED_IMAGE_EXTENSIONS
+			&exif_data_extractor::FILTERED_IMAGE_EXTENSIONS
 				.iter()
 				.map(|ext| format!("LOWER('{ext}')"))
 				.collect::<Vec<_>>()

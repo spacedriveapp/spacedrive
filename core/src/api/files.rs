@@ -9,7 +9,7 @@ use crate::{
 			old_copy::OldFileCopierJobInit, old_cut::OldFileCutterJobInit,
 			old_delete::OldFileDeleterJobInit, old_erase::OldFileEraserJobInit,
 		},
-		media::media_data_image_from_prisma_data,
+		media::exif_data_image_from_prisma_data,
 	},
 	old_job::Job,
 };
@@ -114,14 +114,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.db
 						.object()
 						.find_unique(object::id::equals(args))
-						.select(object::select!({ id kind media_data }))
+						.select(object::select!({ id kind exif_data }))
 						.exec()
 						.await?
 						.and_then(|obj| {
 							Some(match obj.kind {
 								Some(v) if v == ObjectKind::Image as i32 => {
 									MediaMetadata::Image(Box::new(
-										media_data_image_from_prisma_data(obj.media_data?).ok()?,
+										exif_data_image_from_prisma_data(obj.exif_data?).ok()?,
 									))
 								}
 								_ => return None, // TODO(brxken128): audio and video
