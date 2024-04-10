@@ -410,7 +410,7 @@ export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance
 
 export type LibraryName = string
 
-export type LibraryPreferences = { location?: { [key in string]: LocationSettings } }
+export type LibraryPreferences = { location?: { [key in string]: LocationSettings }; tag?: { [key in string]: TagSettings } }
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
@@ -605,6 +605,8 @@ export type SystemLocations = { desktop: string | null; documents: string | null
 export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; is_hidden: boolean | null; date_created: string | null; date_modified: string | null }
 
 export type TagCreateArgs = { name: string; color: string }
+
+export type TagSettings = { explorer: ExplorerSettings<ObjectOrder> }
 
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
 

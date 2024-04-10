@@ -1,8 +1,18 @@
 import { useMemo } from 'react';
-import { ObjectOrder, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import {
+	ExplorerSettings,
+	ObjectOrder,
+	Tag,
+	useCache,
+	useLibraryMutation,
+	useLibraryQuery,
+	useNodes,
+	useRspcLibraryContext
+} from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
 import { useLocale, useRouteTitle, useZodRouteParams } from '~/hooks';
+import { stringify } from '~/util/uuid';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
@@ -25,12 +35,7 @@ export function Component() {
 
 	useRouteTitle(tag!.name ?? 'Tag');
 
-	const explorerSettings = useExplorerSettings({
-		settings: useMemo(() => {
-			return createDefaultExplorerSettings<ObjectOrder>({ order: null });
-		}, []),
-		orderingKeys: objectOrderingKeysSchema
-	});
+	const { explorerSettings, preferences } = useTagExplorerSettings(tag);
 
 	const search = useSearchFromSearchParams();
 
@@ -47,6 +52,7 @@ export function Component() {
 	const explorer = useExplorer({
 		...items,
 		isFetchingNextPage: items.query.isFetchingNextPage,
+		isLoadingPreferences: preferences.isLoading,
 		settings: explorerSettings,
 		parent: { type: 'Tag', tag: tag! }
 	});
@@ -76,14 +82,66 @@ export function Component() {
 				</TopBarPortal>
 			</SearchContextProvider>
 
-			<Explorer
-				emptyNotice={
-					<EmptyNotice
-						icon={<Icon name="Tags" size={128} />}
-						message={t('tags_notice_message')}
-					/>
-				}
-			/>
+			{!preferences.isLoading && (
+				<Explorer
+					emptyNotice={
+						<EmptyNotice
+							icon={<Icon name="Tags" size={128} />}
+							message={t('tags_notice_message')}
+						/>
+					}
+				/>
+			)}
 		</ExplorerContextProvider>
 	);
+}
+
+function useTagExplorerSettings(tag: Tag) {
+	const rspc = useRspcLibraryContext();
+
+	const preferences = useLibraryQuery(['preferences.get']);
+	const updatePreferences = useLibraryMutation('preferences.update');
+
+	const settings = useMemo(() => {
+		const defaults = createDefaultExplorerSettings<ObjectOrder>({ order: null });
+
+		if (!location) return defaults;
+
+		const pubId = stringify(tag.pub_id);
+
+		const settings = preferences.data?.location?.[pubId]?.explorer;
+
+		if (!settings) return defaults;
+
+		for (const [key, value] of Object.entries(settings)) {
+			if (value !== null) Object.assign(defaults, { [key]: value });
+		}
+
+		return defaults;
+	}, [tag, preferences.data?.location]);
+
+	const onSettingsChanged = async (settings: ExplorerSettings<ObjectOrder>, changedTag: Tag) => {
+		if (changedTag.id === tag.id && preferences.isLoading) return;
+
+		const pubId = stringify(changedTag.pub_id);
+
+		try {
+			await updatePreferences.mutateAsync({
+				tag: { [pubId]: { explorer: settings } }
+			});
+			rspc.queryClient.invalidateQueries(['preferences.get']);
+		} catch (e) {
+			alert('An error has occurred while updating your preferences.');
+		}
+	};
+
+	return {
+		explorerSettings: useExplorerSettings({
+			settings,
+			onSettingsChanged,
+			orderingKeys: objectOrderingKeysSchema,
+			data: tag
+		}),
+		preferences
+	};
 }
