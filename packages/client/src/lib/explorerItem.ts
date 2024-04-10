@@ -44,7 +44,8 @@ export function getExplorerItemData(data?: ExplorerItem | null): ItemData {
 
 			// Objects only have dateCreated and dateAccessed
 			itemData.dateCreated = object?.date_created ?? null;
-			itemData.dateAccessed = object?.date_accessed ?? null;
+			itemData.dateAccessed =
+				object && 'date_accessed' in object ? object.date_accessed : null;
 			// handle thumbnail based on provided key
 			// This could be better, but for now we're mapping the backend property to two different local properties (thumbnailKey, thumbnailKeys) for backward compatibility
 			if (data.thumbnail) {
