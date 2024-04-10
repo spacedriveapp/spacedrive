@@ -1,5 +1,6 @@
 use crate::{
 	library::Library,
+	location::ScanState,
 	old_job::{
 		CurrentStep, JobError, JobInitOutput, JobReportUpdate, JobResult, JobRunMetadata,
 		JobStepOutput, StatefulJob, WorkerContext,
@@ -239,12 +240,23 @@ impl StatefulJob for OldFileIdentifierJobInit {
 
 	async fn finalize(
 		&self,
-		_: &WorkerContext,
+		ctx: &WorkerContext,
 		_data: &Option<Self::Data>,
 		run_metadata: &Self::RunMetadata,
 	) -> JobResult {
 		let init = self;
 		info!("Finalizing identifier job: {:?}", &run_metadata);
+
+		ctx.library
+			.db
+			.location()
+			.update(
+				location::id::equals(init.location.id),
+				vec![location::scan_state::set(ScanState::FilesIdentified as i32)],
+			)
+			.exec()
+			.await
+			.map_err(FileIdentifierJobError::from)?;
 
 		Ok(Some(json!({"init: ": init, "run_metadata": run_metadata})))
 	}

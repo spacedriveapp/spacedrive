@@ -1,10 +1,10 @@
 // ! A system for loading a default set of data on startup. This is ONLY enabled in development builds.
 
 use crate::{
-	library::Libraries,
-	library::{LibraryManagerError, LibraryName},
+	library::{Libraries, LibraryManagerError, LibraryName},
 	location::{
 		delete_location, scan_location, LocationCreateArgs, LocationError, LocationManagerError,
+		ScanState,
 	},
 	old_job::JobManagerError,
 	util::AbortOnDrop,
@@ -178,7 +178,7 @@ impl InitConfig {
 				.create(node, &library)
 				.await?
 				{
-					scan_location(node, &library, location).await?;
+					scan_location(node, &library, location, ScanState::Pending).await?;
 				} else {
 					warn!(
 						"Debug init error: location '{}' was not found after being created!",

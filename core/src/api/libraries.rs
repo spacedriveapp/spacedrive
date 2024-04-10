@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	library::{update_library_statistics, Library, LibraryConfig, LibraryName},
-	location::{scan_location, LocationCreateArgs},
+	location::{scan_location, LocationCreateArgs, ScanState},
 	util::MaybeUndefined,
 	Node,
 };
@@ -254,7 +254,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								return Ok(());
 							};
 
-							scan_location(&node, &library, location)
+							let scan_state = ScanState::try_from(location.scan_state)?;
+
+							scan_location(&node, &library, location, scan_state)
 								.await
 								.map_err(rspc::Error::from)
 						}))
