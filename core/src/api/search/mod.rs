@@ -95,15 +95,6 @@ impl SearchFilterArgs {
 pub fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("ephemeralPaths", {
-			#[derive(Serialize, Deserialize, Type, Debug, Clone)]
-			#[serde(rename_all = "camelCase", tag = "field", content = "value")]
-			enum EphemeralPathOrder {
-				Name(SortOrder),
-				SizeInBytes(SortOrder),
-				DateCreated(SortOrder),
-				DateModified(SortOrder),
-			}
-
 			#[derive(Deserialize, Type, Debug, PartialEq, Eq)]
 			#[serde(rename_all = "camelCase")]
 			enum PathFrom {
@@ -117,8 +108,6 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				from: PathFrom,
 				path: String,
 				with_hidden_files: bool,
-				#[specta(optional)]
-				order: Option<EphemeralPathOrder>,
 			}
 
 			#[derive(Serialize, Type, Debug)]
@@ -134,7 +123,6 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				     from,
 				     path,
 				     with_hidden_files,
-				     order,
 				 }| async move {
 					let service = match from {
 						PathFrom::Path => {
@@ -178,7 +166,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 								.location()
 								.find_many(vec![location::path::in_vec(
 									result.iter().filter_map(|e| match e {
-										Ok(e) if e.kind == ObjectKind::Folder => Some(e.path.clone()),
+										Ok(e) if ObjectKind::from_i32(e.kind) == ObjectKind::Folder => Some(e.path.clone()),
 										_ => None
 									}).collect::<Vec<_>>()
 								)])
@@ -195,18 +183,19 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							for item in result {
 								match item {
 									Ok(item) => {
+										let kind = ObjectKind::from_i32(item.kind);
 										let should_generate_thumbnail = {
 											#[cfg(feature = "ffmpeg")]
 											{
 												matches!(
-													item.kind,
+													kind,
 													ObjectKind::Image | ObjectKind::Video | ObjectKind::Document
 												)
 											}
 
 											#[cfg(not(feature = "ffmpeg"))]
 											{
-												matches!(item.kind, ObjectKind::Image | ObjectKind::Document)
+												matches!(kind, ObjectKind::Image | ObjectKind::Document)
 											}
 										};
 
@@ -215,11 +204,11 @@ pub fn mount() -> AlphaRouter<Ctx> {
 										// TODO: https://linear.app/spacedriveapp/issue/ENG-1719/cloud-thumbnailer
 										let thumbnail = if should_generate_thumbnail {
 											if from == PathFrom::Path {
-												let size = u64::from_be_bytes((&*item.size_in_bytes).try_into().expect("Invalid size"));
+												let size = u64::from_be_bytes((&*item.size_in_bytes_bytes).try_into().expect("Invalid size"));
 												if let Ok(cas_id) =
 													generate_cas_id(&path, size)
 														.await {
-													if item.kind == ObjectKind::Document {
+													if ObjectKind::from_i32(item.kind) == ObjectKind::Document {
 														to_generate.push(GenerateThumbnailArgs::new(
 															item.extension.clone(),
 															cas_id.clone(),

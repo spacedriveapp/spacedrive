@@ -7,10 +7,10 @@ import { memo, Suspense, useDeferredValue, useMemo } from 'react';
 import {
 	ExplorerItem,
 	getExplorerItemData,
+	SortOrder,
 	useLibraryContext,
 	useNormalisedCache,
-	useUnsafeStreamedQuery,
-	type EphemeralPathOrder
+	useUnsafeStreamedQuery
 } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
 import { PathParamsSchema, type PathParams } from '~/app/route-schemas';
@@ -40,6 +40,12 @@ import { AddLocationButton } from './settings/library/locations/AddLocationButto
 import { useTopBarContext } from './TopBar/Context';
 import { TopBarPortal } from './TopBar/Portal';
 import TopBarButton from './TopBar/TopBarButton';
+
+export type EphemeralPathOrder =
+	| { field: 'name'; value: SortOrder }
+	| { field: 'sizeInBytes'; value: SortOrder }
+	| { field: 'dateCreated'; value: SortOrder }
+	| { field: 'dateModified'; value: SortOrder };
 
 const NOTICE_ITEMS: { icon: keyof typeof iconNames; name: string }[] = [
 	{
@@ -190,8 +196,7 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 				arg: {
 					from: 'path',
 					path: path ?? (os === 'windows' ? 'C:\\' : '/'),
-					withHiddenFiles: settingsSnapshot.showHiddenFiles,
-					order: settingsSnapshot.order
+					withHiddenFiles: settingsSnapshot.showHiddenFiles
 				}
 			}
 		],

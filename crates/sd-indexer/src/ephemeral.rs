@@ -20,10 +20,12 @@ pub struct NonIndexedPathItem {
 	pub path: String,
 	pub name: String,
 	pub extension: String,
-	pub kind: ObjectKind,
+	pub kind: i32, // TODO: Use `ObjectKind` instead
+	// TODO: Use `kind` instead and drop this
+	pub is_dir: bool,
 	pub date_created: DateTime<Utc>,
 	pub date_modified: DateTime<Utc>,
-	pub size_in_bytes: Vec<u8>,
+	pub size_in_bytes_bytes: Vec<u8>,
 	pub hidden: bool,
 }
 
@@ -139,10 +141,15 @@ pub async fn ephemeral(
 						path: entry.path().to_string(),
 						name,
 						extension,
-						kind,
+						kind: kind as i32,
+						is_dir: kind == ObjectKind::Folder,
 						date_created,
 						date_modified,
-						size_in_bytes: entry.metadata().content_length().to_be_bytes().to_vec(),
+						size_in_bytes_bytes: entry
+							.metadata()
+							.content_length()
+							.to_be_bytes()
+							.to_vec(),
 						hidden,
 					}))
 				})
