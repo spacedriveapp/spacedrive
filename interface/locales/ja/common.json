@@ -464,5 +464,6 @@
   "create_folder_success": "新しいフォルダーを作成しました: {{name}}",
   "empty_file": "空のファイル",
   "new": "新しい",
-  "text_file": "テキストファイル"
+  "text_file": "テキストファイル",
+  "open_in_new_tab": "新しいタブで開く"
 }

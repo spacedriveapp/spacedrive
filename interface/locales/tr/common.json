@@ -464,5 +464,6 @@
   "size_kb": "kB",
   "size_mb": "MB",
   "size_tb": "TB",
-  "text_file": "Metin dosyası"
+  "text_file": "Metin dosyası",
+  "open_in_new_tab": "Yeni sekmede aç"
 }

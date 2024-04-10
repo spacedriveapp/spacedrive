@@ -24,7 +24,7 @@ import {
 	tw,
 	usePopover
 } from '@sd/ui';
-import { useLocale } from '~/hooks';
+import { useLocale, useOperatingSystem } from '~/hooks';
 
 import TopBarButton from '../TopBar/TopBarButton';
 
@@ -34,6 +34,7 @@ export default function LocationOptions({ location, path }: { location: Location
 	const navigate = useNavigate();
 
 	const { t } = useLocale();
+	const os = useOperatingSystem();
 
 	const [copied, setCopied] = useState(false);
 
@@ -47,6 +48,8 @@ export default function LocationOptions({ location, path }: { location: Location
 	currentPath = currentPath?.endsWith('/')
 		? currentPath.substring(0, currentPath.length - 1)
 		: currentPath;
+
+	const osPath = os === 'windows' ? currentPath?.replace(/\//g, '\\') : currentPath;
 
 	return (
 		<div className="opacity-30 group-hover:opacity-70">
@@ -64,7 +67,7 @@ export default function LocationOptions({ location, path }: { location: Location
 							<Input
 								readOnly
 								className="mb-2"
-								value={currentPath ?? ''}
+								value={osPath ?? ''}
 								right={
 									<Tooltip
 										label={copied ? t('copied') : t('copy_path_to_clipboard')}
