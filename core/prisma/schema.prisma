@@ -119,6 +119,8 @@ model Location {
     hidden                 Boolean?
     date_created           DateTime?
 
+    scan_state Int @default(0) // Enum: sd_core::location::ScanState
+
     /// @local
     // this is just a client side cache which is annoying but oh well (@brendan)
     instance_id Int?
