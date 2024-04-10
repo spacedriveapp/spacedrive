@@ -21,6 +21,7 @@
 		"@iarna/toml": "^2.2.5",
 		"archive-wasm": "^1.6.1",
 		"mustache": "^4.2.0",
+		"os-proxy-config": "^1.1.1",
 		"semver": "^7.6.0",
 		"undici": "^6.9.0"
 	},
