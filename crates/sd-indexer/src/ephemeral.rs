@@ -94,6 +94,24 @@ pub async fn ephemeral(
 						ObjectKind::Unknown
 					};
 
+					let name = (kind != ObjectKind::Folder)
+						.then(|| {
+							path.file_stem()
+								.and_then(|s| s.to_str().map(str::to_string))
+						})
+						.flatten()
+						.unwrap_or(name);
+
+					let mut path = path
+						.to_str()
+						.expect("comes from string so this is impossible")
+						.to_string();
+
+					// OpenDAL will *always* end in a `/` for directories, we strip it here so we can give the path to Tokio.
+					if path.ends_with('/') && path.len() > 1 {
+						path.pop();
+					}
+
 					let result = IndexerRule::apply_all(rules, &path).await.map_err(|err| {
 						io::Error::new(
 							ErrorKind::Other,
@@ -112,16 +130,6 @@ pub async fn ephemeral(
 					// TODO: OpenDAL last modified time - https://linear.app/spacedriveapp/issue/ENG-1717/fix-modified-time
 					// TODO: OpenDAL hidden files - https://linear.app/spacedriveapp/issue/ENG-1720/fix-hidden-files
 					let (hidden, date_created, date_modified, size) = if is_fs {
-						let mut path = path
-							.to_str()
-							.expect("comes from string so this is impossible")
-							.to_string();
-
-						// OpenDAL will *always* end in a `/` for directories, we strip it here so we can give the path to Tokio.
-						if path.ends_with('/') {
-							path.pop();
-						}
-
 						let metadata = tokio::fs::metadata(&path).await.map_err(|err| {
 							io::Error::new(
 								ErrorKind::Other,
@@ -168,14 +176,6 @@ pub async fn ephemeral(
 					#[allow(clippy::redundant_locals)]
 					// TODO: Fix this - https://linear.app/spacedriveapp/issue/ENG-1726/fix-file-size
 					let size = size;
-
-					let name = (kind != ObjectKind::Folder)
-						.then(|| {
-							path.file_stem()
-								.and_then(|s| s.to_str().map(str::to_string))
-						})
-						.flatten()
-						.unwrap_or(name);
 
 					Ok(Some(NonIndexedPathItem {
 						path: relative_path,
