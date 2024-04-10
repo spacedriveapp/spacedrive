@@ -121,7 +121,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				|(node, library),
 				 EphemeralPathSearchArgs {
 				     from,
-				     path,
+				     mut path,
 				     with_hidden_files,
 				 }| async move {
 					let service = match from {
@@ -143,6 +143,11 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						[IndexerRule::from(no_os_protected())],
 						[(!with_hidden_files).then(|| IndexerRule::from(no_hidden()))],
 					);
+
+					// OpenDAL is specific about paths (and the rest of Spacedrive is not)
+					if !path.ends_with('/') {
+						path.push('/');
+					}
 
 					let stream =
 						sd_indexer::ephemeral(service, rules, &path)
