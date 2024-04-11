@@ -35,7 +35,7 @@ use std::{
 use chrono::Utc;
 use futures::future::TryFutureExt;
 use prisma_client_rust::{operator::and, or, QueryError};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use specta::Type;
 use tokio::{fs, io, time::Instant};
@@ -53,6 +53,29 @@ pub use manager::{LocationManagerError, Locations};
 use metadata::SpacedriveLocationMetadataFile;
 
 pub type LocationPubId = Uuid;
+
+#[repr(i32)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Eq, PartialEq)]
+pub enum ScanState {
+	Pending = 0,
+	Indexed = 1,
+	FilesIdentified = 2,
+	Completed = 3,
+}
+
+impl TryFrom<i32> for ScanState {
+	type Error = LocationError;
+
+	fn try_from(value: i32) -> Result<Self, Self::Error> {
+		Ok(match value {
+			0 => Self::Pending,
+			1 => Self::Indexed,
+			2 => Self::FilesIdentified,
+			3 => Self::Completed,
+			_ => return Err(LocationError::InvalidScanStateValue(value)),
+		})
+	}
+}
 
 /// `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
 /// It has the actual path and a vector of indexer rules ids, to create many-to-many relationships
@@ -441,6 +464,7 @@ pub async fn scan_location(
 	node: &Arc<Node>,
 	library: &Arc<Library>,
 	location: location_with_indexer_rules::Data,
+	location_scan_state: ScanState,
 ) -> Result<(), JobManagerError> {
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
 	if location.instance_id != Some(library.config().await.instance_id) {
@@ -449,25 +473,61 @@ pub async fn scan_location(
 
 	let location_base_data = location::Data::from(&location);
 
-	JobBuilder::new(OldIndexerJobInit {
-		location,
-		sub_path: None,
-	})
-	.with_action("scan_location")
-	.with_metadata(json!({"location": location_base_data.clone()}))
-	.build()
-	.queue_next(OldFileIdentifierJobInit {
-		location: location_base_data.clone(),
-		sub_path: None,
-	})
-	.queue_next(OldMediaProcessorJobInit {
-		location: location_base_data,
-		sub_path: None,
-		regenerate_thumbnails: false,
-		regenerate_labels: false,
-	})
-	.spawn(node, library)
-	.await
+	debug!("Scanning location with state: {location_scan_state:?}");
+
+	match location_scan_state {
+		ScanState::Pending | ScanState::Completed => {
+			JobBuilder::new(OldIndexerJobInit {
+				location,
+				sub_path: None,
+			})
+			.with_action("scan_location")
+			.with_metadata(json!({"location": location_base_data.clone()}))
+			.build()
+			.queue_next(OldFileIdentifierJobInit {
+				location: location_base_data.clone(),
+				sub_path: None,
+			})
+			.queue_next(OldMediaProcessorJobInit {
+				location: location_base_data,
+				sub_path: None,
+				regenerate_thumbnails: false,
+				regenerate_labels: false,
+			})
+			.spawn(node, library)
+			.await
+		}
+		ScanState::Indexed => {
+			JobBuilder::new(OldFileIdentifierJobInit {
+				location: location_base_data.clone(),
+				sub_path: None,
+			})
+			.with_action("scan_location_already_indexed")
+			.with_metadata(json!({"location": location_base_data.clone()}))
+			.build()
+			.queue_next(OldMediaProcessorJobInit {
+				location: location_base_data,
+				sub_path: None,
+				regenerate_thumbnails: false,
+				regenerate_labels: false,
+			})
+			.spawn(node, library)
+			.await
+		}
+		ScanState::FilesIdentified => {
+			JobBuilder::new(OldMediaProcessorJobInit {
+				location: location_base_data.clone(),
+				sub_path: None,
+				regenerate_thumbnails: false,
+				regenerate_labels: false,
+			})
+			.with_action("scan_location_files_already_identified")
+			.with_metadata(json!({"location": location_base_data}))
+			.build()
+			.spawn(node, library)
+			.await
+		}
+	}
 	.map_err(Into::into)
 }
 

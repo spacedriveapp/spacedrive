@@ -1,7 +1,8 @@
 import { DocumentDirectoryPath } from '@dr.pogodin/react-native-fs';
 import { getIcon } from '@sd/assets/util';
+import { Image } from 'expo-image';
 import { useEffect, useLayoutEffect, useMemo, useState, type PropsWithChildren } from 'react';
-import { Image, View } from 'react-native';
+import { View } from 'react-native';
 import {
 	getExplorerItemData,
 	getItemFilePath,
