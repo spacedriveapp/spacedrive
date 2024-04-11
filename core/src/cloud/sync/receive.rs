@@ -232,7 +232,7 @@ fn crdt_op_db(op: &CRDTOperation) -> cloud_crdt_operation::Create {
 		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
 		kind: op.data.as_kind().to_string(),
 		data: to_vec(&op.data).expect("unable to serialize data"),
-		model: op.model.to_string(),
+		model: op.model as i32,
 		record_id: rmp_serde::to_vec(&op.record_id).expect("unable to serialize record id"),
 		_params: vec![],
 	}

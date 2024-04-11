@@ -219,7 +219,7 @@ impl Actor {
 				.crdt_operation()
 				.find_first(vec![
 					crdt_operation::timestamp::gte(op.timestamp.as_u64() as i64),
-					crdt_operation::model::equals(op.model.to_string()),
+					crdt_operation::model::equals(op.model as i32),
 					crdt_operation::record_id::equals(serde_json::to_vec(&op.record_id).unwrap()),
 					crdt_operation::kind::equals(op.kind().to_string()),
 				])
