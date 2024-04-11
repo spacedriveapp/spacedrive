@@ -308,7 +308,7 @@
   "new_tab": "New Tab",
   "new_tag": "New tag",
   "new_update_available": "New Update Available!",
-  "no_files_found_here": "No files found here",
+  "location_empty_notice_message": "No files found here",
   "no_jobs": "No jobs.",
   "no_labels": "No labels",
   "no_nodes_found": "No Spacedrive nodes were found.",
@@ -465,5 +465,18 @@
   "your_privacy": "Your Privacy",
   "pin": "Pin",
   "rescan": "Rescan",
-  "open_in_new_tab": "Open in new tab"
+  "open_in_new_tab": "Open in new tab",
+  "enable_networking_description": "Allow your node to communicate with other Spacedrive nodes around you.",
+  "enable_networking_description_required": "Required for library sync or Spacedrop!",
+  "log_in": "Log in",
+  "logging_in": "Logging in...",
+  "no_favorite_items": "No favorite items",
+  "tags_notice_message": "No items assigned to this tag.",
+  "recents_notice_message": "Recents are created when you open a file.",
+  "no_items_found": "No items found",
+  "search": "Search",
+  "date_created": "Date Created",
+  "date_modified": "Date Modified",
+  "date_indexed": "Date Indexed",
+  "date_accessed": "Date Accessed"
 }

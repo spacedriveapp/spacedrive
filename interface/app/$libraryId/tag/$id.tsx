@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { ObjectOrder, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
-import { useRouteTitle, useZodRouteParams } from '~/hooks';
+import { useLocale, useRouteTitle, useZodRouteParams } from '~/hooks';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
@@ -20,6 +20,8 @@ export function Component() {
 	const result = useLibraryQuery(['tags.get', tagId], { suspense: true });
 	useNodes(result.data?.nodes);
 	const tag = useCache(result.data?.item);
+
+	const { t } = useLocale();
 
 	useRouteTitle(tag!.name ?? 'Tag');
 
@@ -78,7 +80,7 @@ export function Component() {
 				emptyNotice={
 					<EmptyNotice
 						icon={<Icon name="Tags" size={128} />}
-						message="No items assigned to this tag."
+						message={t('tags_notice_message')}
 					/>
 				}
 			/>

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { ObjectOrder } from '@sd/client';
 import { Icon } from '~/components';
-import { useRouteTitle } from '~/hooks';
+import { useLocale, useRouteTitle } from '~/hooks';
 
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
@@ -25,6 +25,8 @@ export function Component() {
 	});
 
 	const search = useSearchFromSearchParams();
+
+	const { t } = useLocale();
 
 	const defaultFilters = { object: { dateAccessed: { from: new Date(0).toISOString() } } };
 
@@ -53,7 +55,7 @@ export function Component() {
 					center={<SearchBar defaultFilters={[defaultFilters]} />}
 					left={
 						<div className="flex flex-row items-center gap-2">
-							<span className="truncate text-sm font-medium">Recents</span>
+							<span className="truncate text-sm font-medium">{t('recents')}</span>
 						</div>
 					}
 					right={<DefaultTopBarOptions />}
@@ -71,7 +73,7 @@ export function Component() {
 				emptyNotice={
 					<EmptyNotice
 						icon={<Icon name="Collection" size={128} />}
-						message="Recents are created when you open a file."
+						message={t('recents_notice_message')}
 					/>
 				}
 			/>
