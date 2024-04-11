@@ -254,7 +254,7 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 					<EmptyNotice
 						loading={query.isFetching}
 						icon={<Icon name="FolderNoSpace" size={128} />}
-						message={t('no_files_found_here')}
+						message={t('location_empty_notice_message')}
 					/>
 				}
 			/>

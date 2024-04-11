@@ -1,5 +1,4 @@
 import clsx from 'clsx';
-import { t } from 'i18next';
 import { NavLink, useMatch } from 'react-router-dom';
 import { useCache, useLibraryQuery, useNodes, type Tag } from '@sd/client';
 import { useExplorerDroppable } from '~/app/$libraryId/Explorer/useExplorerDroppable';
