@@ -22,6 +22,7 @@ import { useQuickPreviewContext } from '../QuickPreview/Context';
 import { getQuickPreviewStore, useQuickPreviewStore } from '../QuickPreview/store';
 import { explorerStore } from '../store';
 import { useExplorerDroppable } from '../useExplorerDroppable';
+import { useExplorerOperatingSystem } from '../useExplorerOperatingSystem';
 import { useExplorerSearchParams } from '../util';
 import { ViewContext, type ExplorerViewContext } from './Context';
 import { DragScrollable } from './DragScrollable';
@@ -36,6 +37,8 @@ export interface ExplorerViewProps
 }
 
 export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
+	const { explorerOperatingSystem, matchingOperatingSystem } = useExplorerOperatingSystem();
+
 	const explorer = useExplorerContext();
 	const [isContextMenuOpen, isRenaming, drag] = useSelector(explorerStore, (s) => [
 		s.isContextMenuOpen,
@@ -144,7 +147,15 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 				ref={ref}
 				className="flex flex-1"
 				onMouseDown={(e) => {
-					if (e.button === 2 || (e.button === 0 && e.shiftKey)) return;
+					if (e.button !== 0) return;
+
+					const isWindowsExplorer =
+						explorerOperatingSystem === 'windows' && matchingOperatingSystem;
+
+					// Prevent selection reset when holding shift or ctrl/cmd
+					// This is to allow drag multi-selection
+					if (e.shiftKey || (isWindowsExplorer ? e.ctrlKey : e.metaKey)) return;
+
 					explorer.selectedItems.size !== 0 && explorer.resetSelectedItems();
 				}}
 			>

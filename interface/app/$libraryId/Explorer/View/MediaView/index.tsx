@@ -175,7 +175,7 @@ export const MediaView = () => {
 		orderDirection
 	]);
 
-	const { activeItem } = useKeySelection(grid);
+	const { updateActiveItem } = useKeySelection(grid);
 
 	return (
 		<div
@@ -188,7 +188,7 @@ export const MediaView = () => {
 		>
 			{isSortingByDate && <DateHeader date={date ?? ''} />}
 
-			<DragSelect grid={grid} onActiveItemChange={(item) => (activeItem.current = item)}>
+			<DragSelect grid={grid} onActiveItemChange={updateActiveItem}>
 				{virtualRows.map((virtualRow) => (
 					<React.Fragment key={virtualRow.key}>
 						{columnVirtualizer.getVirtualItems().map((virtualColumn) => {

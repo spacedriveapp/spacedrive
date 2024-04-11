@@ -43,10 +43,10 @@ export const GridView = () => {
 		)
 	});
 
-	const { activeItem } = useKeySelection(grid, { scrollToEnd: true });
+	const { updateActiveItem } = useKeySelection(grid, { scrollToEnd: true });
 
 	return (
-		<DragSelect grid={grid} onActiveItemChange={(item) => (activeItem.current = item)}>
+		<DragSelect grid={grid} onActiveItemChange={updateActiveItem}>
 			<Grid grid={grid}>
 				{(index) => {
 					const item = explorer.items?.[index];

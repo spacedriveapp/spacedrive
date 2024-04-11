@@ -1,5 +1,5 @@
 import { Folder, Folder_Light } from '@sd/assets/icons';
-import { Image } from 'react-native';
+import { Image } from 'expo-image';
 
 type FolderProps = {
 	/**

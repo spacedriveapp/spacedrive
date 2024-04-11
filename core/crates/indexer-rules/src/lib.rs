@@ -260,7 +260,7 @@ impl MetadataForIndexerRules for Metadata {
 }
 
 impl RulePerKind {
-	#[deprecated]
+	#[deprecated = "Use `[apply_with_metadata]` instead"]
 	async fn apply(
 		&self,
 		source: impl AsRef<Path> + Send,
@@ -328,7 +328,7 @@ pub struct IndexerRule {
 }
 
 impl IndexerRule {
-	#[deprecated]
+	#[deprecated = "Use `[apply_with_metadata]` instead"]
 	pub async fn apply(
 		&self,
 		source: impl AsRef<Path> + Send,
@@ -362,7 +362,7 @@ impl IndexerRule {
 		inner(&self.rules, source.as_ref(), metadata).await
 	}
 
-	#[deprecated]
+	#[deprecated = "Use `[IndexerRuler::apply_all]` instead"]
 	pub async fn apply_all(
 		rules: &[Self],
 		source: impl AsRef<Path> + Send,
@@ -472,7 +472,7 @@ fn reject_by_glob(source: impl AsRef<Path>, reject_glob_set: &GlobSet) -> bool {
 	!accept_by_glob(source.as_ref(), reject_glob_set)
 }
 
-#[deprecated]
+#[deprecated = "Use `[accept_dir_for_its_children_with_metadata]` instead"]
 async fn accept_dir_for_its_children(
 	source: impl AsRef<Path> + Send,
 	children: &HashSet<String>,
@@ -558,7 +558,7 @@ async fn accept_dir_for_its_children_with_metadata(
 	Ok(false)
 }
 
-#[deprecated]
+#[deprecated = "Use `[reject_dir_for_its_children_with_metadata]` instead"]
 async fn reject_dir_for_its_children(
 	source: impl AsRef<Path> + Send,
 	children: &HashSet<String>,

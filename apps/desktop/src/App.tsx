@@ -78,17 +78,27 @@ const cache = createCache();
 
 const routes = createRoutes(platform, cache);
 
+type redirect = { pathname: string; search: string | undefined };
+
 function AppInner() {
 	const [tabs, setTabs] = useState(() => [createTab()]);
 	const [selectedTabIndex, setSelectedTabIndex] = useState(0);
 
 	const selectedTab = tabs[selectedTabIndex]!;
 
-	function createTab() {
+	function createTab(redirect?: redirect) {
 		const history = createMemoryHistory();
 		const router = createMemoryRouterWithHistory({ routes, history });
 
 		const id = Math.random().toString();
+
+		// for "Open in new tab"
+		if (redirect) {
+			router.navigate({
+				pathname: redirect.pathname,
+				search: redirect.search
+			});
+		}
 
 		const dispose = router.subscribe((event) => {
 			// we don't care about non-idle events as those are artifacts of form mutations + suspense
@@ -165,13 +175,13 @@ function AppInner() {
 					tabIndex: selectedTabIndex,
 					setTabIndex: setSelectedTabIndex,
 					tabs: tabs.map(({ router, title }) => ({ router, title })),
-					createTab() {
+					createTab(redirect?: redirect) {
 						createTabPromise.current = createTabPromise.current.then(
 							() =>
 								new Promise((res) => {
 									startTransition(() => {
 										setTabs((tabs) => {
-											const newTab = createTab();
+											const newTab = createTab(redirect);
 											const newTabs = [...tabs, newTab];
 
 											setSelectedTabIndex(newTabs.length - 1);

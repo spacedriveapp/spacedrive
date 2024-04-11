@@ -76,6 +76,8 @@ pub enum LocationError {
 	MissingPath(location::id::Type),
 	#[error("missing-field: {0}")]
 	MissingField(#[from] MissingFieldError),
+	#[error("invalid location scan state value: {0}")]
+	InvalidScanStateValue(i32),
 }
 
 impl From<LocationError> for rspc::Error {
