@@ -24,59 +24,57 @@ export default () => {
 
 	return (
 		<div className="flex w-80 flex-col gap-4 p-4">
-			{(settings.layoutMode === 'grid' || settings.layoutMode === 'media') && (
-				<div className="grid grid-cols-2 gap-2">
-					<div className="flex flex-col">
-						<Subheading>{t('sort_by')}</Subheading>
-						<Select
-							value={settings.order ? orderingKey(settings.order) : 'none'}
-							size="sm"
-							className="w-full"
-							onChange={(key) => {
-								if (key === 'none') explorer.settingsStore.order = null;
-								else
-									explorer.settingsStore.order = createOrdering(
-										key,
-										explorer.settingsStore.order
-											? getOrderingDirection(explorer.settingsStore.order)
-											: 'Asc'
-									);
-							}}
-						>
-							<SelectOption value="none">{t('none')}</SelectOption>
-							{explorer.orderingKeys?.options.map((option) => (
-								<SelectOption key={option.value} value={option.value}>
-									{option.description}
-								</SelectOption>
-							))}
-						</Select>
-					</div>
-
-					<div className="flex flex-col">
-						<Subheading>{t('direction')}</Subheading>
-						<Select
-							value={settings.order ? getOrderingDirection(settings.order) : 'Asc'}
-							size="sm"
-							className="w-full"
-							disabled={explorer.settingsStore.order === null}
-							onChange={(order) => {
-								if (explorer.settingsStore.order === null) return;
-
+			<div className="grid grid-cols-2 gap-2">
+				<div className="flex flex-col">
+					<Subheading>{t('sort_by')}</Subheading>
+					<Select
+						value={settings.order ? orderingKey(settings.order) : 'none'}
+						size="sm"
+						className="w-full"
+						onChange={(key) => {
+							if (key === 'none') explorer.settingsStore.order = null;
+							else
 								explorer.settingsStore.order = createOrdering(
-									orderingKey(explorer.settingsStore.order),
-									order
+									key,
+									explorer.settingsStore.order
+										? getOrderingDirection(explorer.settingsStore.order)
+										: 'Asc'
 								);
-							}}
-						>
-							{SortOrderSchema.options.map((o) => (
-								<SelectOption key={o.value} value={o.value}>
-									{o.value}
-								</SelectOption>
-							))}
-						</Select>
-					</div>
+						}}
+					>
+						<SelectOption value="none">{t('none')}</SelectOption>
+						{explorer.orderingKeys?.options.map((option) => (
+							<SelectOption key={option.value} value={option.value}>
+								{option.description}
+							</SelectOption>
+						))}
+					</Select>
 				</div>
-			)}
+
+				<div className="flex flex-col">
+					<Subheading>{t('direction')}</Subheading>
+					<Select
+						value={settings.order ? getOrderingDirection(settings.order) : 'Asc'}
+						size="sm"
+						className="w-full"
+						disabled={explorer.settingsStore.order === null}
+						onChange={(order) => {
+							if (explorer.settingsStore.order === null) return;
+
+							explorer.settingsStore.order = createOrdering(
+								orderingKey(explorer.settingsStore.order),
+								order
+							);
+						}}
+					>
+						{SortOrderSchema.options.map((o) => (
+							<SelectOption key={o.value} value={o.value}>
+								{o.value}
+							</SelectOption>
+						))}
+					</Select>
+				</div>
+			</div>
 
 			{settings.layoutMode === 'media' && (
 				<div>
