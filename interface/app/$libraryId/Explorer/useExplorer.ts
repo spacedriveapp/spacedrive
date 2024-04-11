@@ -180,30 +180,46 @@ function useSelectedItems(items: ExplorerItem[] | null) {
 		[itemsMap, selectedItemHashes]
 	);
 
+	const getItemUniqueId = useCallback(
+		(item: ExplorerItem) => itemHashesWeakMap.current.get(item) ?? uniqueId(item),
+		[]
+	);
+
 	return {
 		selectedItems,
 		selectedItemHashes,
+		getItemUniqueId,
 		addSelectedItem: useCallback(
-			(item: ExplorerItem) => {
-				selectedItemHashes.value.add(uniqueId(item));
+			(item: ExplorerItem | ExplorerItem[]) => {
+				const items = Array.isArray(item) ? item : [item];
+
+				for (let i = 0; i < items.length; i++) {
+					selectedItemHashes.value.add(getItemUniqueId(items[i]!));
+				}
+
 				updateHashes();
 			},
-			[selectedItemHashes.value, updateHashes]
+			[getItemUniqueId, selectedItemHashes.value, updateHashes]
 		),
 		removeSelectedItem: useCallback(
-			(item: ExplorerItem) => {
-				selectedItemHashes.value.delete(uniqueId(item));
+			(item: ExplorerItem | ExplorerItem[]) => {
+				const items = Array.isArray(item) ? item : [item];
+
+				for (let i = 0; i < items.length; i++) {
+					selectedItemHashes.value.delete(getItemUniqueId(items[i]!));
+				}
+
 				updateHashes();
 			},
-			[selectedItemHashes.value, updateHashes]
+			[getItemUniqueId, selectedItemHashes.value, updateHashes]
 		),
 		resetSelectedItems: useCallback(
 			(items?: ExplorerItem[]) => {
 				selectedItemHashes.value.clear();
-				items?.forEach((item) => selectedItemHashes.value.add(uniqueId(item)));
+				items?.forEach((item) => selectedItemHashes.value.add(getItemUniqueId(item)));
 				updateHashes();
 			},
-			[selectedItemHashes.value, updateHashes]
+			[getItemUniqueId, selectedItemHashes.value, updateHashes]
 		),
 		isItemSelected: useCallback(
 			(item: ExplorerItem) => selectedItems.has(item),
