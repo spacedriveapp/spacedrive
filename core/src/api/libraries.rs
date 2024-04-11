@@ -10,6 +10,8 @@ use futures::StreamExt;
 use sd_cache::{Model, Normalise, NormalisedResult, NormalisedResults};
 use sd_file_ext::kind::ObjectKind;
 use sd_p2p::RemoteIdentity;
+use prisma_client_rust::raw;
+use tracing::info;
 use sd_prisma::prisma::{indexer_rule, object, statistics};
 use tokio_stream::wrappers::IntervalStream;
 
@@ -382,6 +384,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				.mutation(|(_, library), name: String| async move {
 					library.actors.stop(&name).await;
 
+					Ok(())
+				}),
+		)
+		.procedure(
+			"vaccumDb",
+			R.with2(library())
+				.mutation(|(_, library), _: ()| async move {
+					library.db._execute_raw(raw!("VACUUM;")).exec().await?;
+					info!("Successfully vacuumed DB for library '{}'", library.id);
 					Ok(())
 				}),
 		)

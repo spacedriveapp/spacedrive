@@ -1,4 +1,10 @@
-import { MaybeUndefined, useBridgeMutation, useLibraryContext, useZodForm } from '@sd/client';
+import {
+	MaybeUndefined,
+	useBridgeMutation,
+	useLibraryContext,
+	useLibraryMutation,
+	useZodForm
+} from '@sd/client';
 import { Button, dialogManager, Form, InputField, Switch, Tooltip, z } from '@sd/ui';
 import { useDebouncedFormWatch, useLocale } from '~/hooks';
 
@@ -20,6 +26,7 @@ function toMaybeUndefined<T>(v: T | null | undefined): MaybeUndefined<T> {
 export const Component = () => {
 	const { library } = useLibraryContext();
 	const editLibrary = useBridgeMutation('library.edit');
+	const vaccumLibrary = useLibraryMutation('library.vaccumDb');
 
 	const { t } = useLocale();
 
@@ -91,6 +98,24 @@ export const Component = () => {
 								{t('export')}
 							</Button>
 						</Tooltip>
+					</div>
+				</Setting>
+
+				<Setting
+					mini
+					title={t('vaccum_library')}
+					description={t('vaccum_library_description')}
+				>
+					<div className="mt-2">
+						<Button
+							onClick={() => vaccumLibrary.mutate(null)}
+							disabled={vaccumLibrary.isLoading}
+							size="sm"
+							variant="gray"
+							className="whitespace-nowrap"
+						>
+							{t('vaccum')}
+						</Button>
 					</div>
 				</Setting>
 

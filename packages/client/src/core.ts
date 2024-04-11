@@ -102,6 +102,7 @@ export type Procedures = {
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
         { key: "library.startActor", input: LibraryArgs<string>, result: null } | 
         { key: "library.stopActor", input: LibraryArgs<string>, result: null } | 
+        { key: "library.vaccumDb", input: LibraryArgs<null>, result: null } | 
         { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
         { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
         { key: "locations.delete", input: LibraryArgs<number>, result: null } | 
@@ -157,7 +158,7 @@ export type Backup = ({ id: string; timestamp: string; library_id: string; libra
 
 export type BuildInfo = { version: string; commit: string }
 
-export type CRDTOperation = { instance: string; timestamp: number; model: string; record_id: JsonValue; data: CRDTOperationData }
+export type CRDTOperation = { instance: string; timestamp: number; model: number; record_id: JsonValue; data: CRDTOperationData }
 
 export type CRDTOperationData = "c" | { u: { field: string; value: JsonValue } } | "d"
 
