@@ -24,51 +24,6 @@ export default () => {
 
 	return (
 		<div className="flex w-80 flex-col gap-4 p-4">
-			{settings.layoutMode === 'list' && <ListViewOptions />}
-
-			{(settings.layoutMode === 'grid' || settings.layoutMode === 'media') && (
-				<div>
-					<Subheading>{t('item_size')}</Subheading>
-					{settings.layoutMode === 'grid' ? (
-						<Slider
-							onValueChange={(value) => {
-								explorer.settingsStore.gridItemSize = value[0] || 100;
-							}}
-							defaultValue={[settings.gridItemSize]}
-							max={200}
-							step={10}
-							min={60}
-						/>
-					) : (
-						<Slider
-							defaultValue={[10 - settings.mediaColumns]}
-							min={0}
-							max={6}
-							step={1}
-							onValueChange={([val]) => {
-								if (val !== undefined)
-									explorer.settingsStore.mediaColumns = 10 - val;
-							}}
-						/>
-					)}
-				</div>
-			)}
-
-			{settings.layoutMode === 'grid' && (
-				<div>
-					<Subheading>{t('grid_gap')}</Subheading>
-					<Slider
-						onValueChange={([val]) => {
-							if (val) explorer.settingsStore.gridGap = val;
-						}}
-						defaultValue={[settings.gridGap]}
-						max={16}
-						min={4}
-						step={4}
-					/>
-				</div>
-			)}
-
 			{(settings.layoutMode === 'grid' || settings.layoutMode === 'media') && (
 				<div className="grid grid-cols-2 gap-2">
 					<div className="flex flex-col">
@@ -123,6 +78,92 @@ export default () => {
 				</div>
 			)}
 
+			{settings.layoutMode === 'media' && (
+				<div>
+					<Subheading>{t('media_view_context')}</Subheading>
+					<Select
+						className="w-full"
+						value={
+							explorer.settingsStore.mediaViewWithDescendants
+								? 'withDescendants'
+								: 'withoutDescendants'
+						}
+						onChange={(value) => {
+							explorer.settingsStore.mediaViewWithDescendants =
+								value === 'withDescendants';
+						}}
+					>
+						{mediaViewContextActions.options.map((option) => (
+							<SelectOption key={option.value} value={option.value}>
+								{option.description}
+							</SelectOption>
+						))}
+					</Select>
+				</div>
+			)}
+
+			{(settings.layoutMode === 'grid' || settings.layoutMode === 'media') && (
+				<div>
+					<Subheading>{t('item_size')}</Subheading>
+					{settings.layoutMode === 'grid' ? (
+						<Slider
+							onValueChange={(value) => {
+								explorer.settingsStore.gridItemSize = value[0] || 100;
+							}}
+							defaultValue={[settings.gridItemSize]}
+							max={200}
+							step={10}
+							min={60}
+						/>
+					) : (
+						<Slider
+							defaultValue={[10 - settings.mediaColumns]}
+							min={0}
+							max={6}
+							step={1}
+							onValueChange={([val]) => {
+								if (val !== undefined)
+									explorer.settingsStore.mediaColumns = 10 - val;
+							}}
+						/>
+					)}
+				</div>
+			)}
+
+			{settings.layoutMode === 'grid' && (
+				<div>
+					<Subheading>{t('grid_gap')}</Subheading>
+					<Slider
+						onValueChange={([val]) => {
+							if (val) explorer.settingsStore.gridGap = val;
+						}}
+						defaultValue={[settings.gridGap]}
+						max={16}
+						min={4}
+						step={4}
+					/>
+				</div>
+			)}
+
+			{settings.layoutMode === 'list' && <ListViewOptions />}
+
+			<div>
+				<Subheading>{t('double_click_action')}</Subheading>
+				<Select
+					className="w-full"
+					value={settings.openOnDoubleClick}
+					onChange={(value) => {
+						explorer.settingsStore.openOnDoubleClick = value;
+					}}
+				>
+					{doubleClickActions.options.map((option) => (
+						<SelectOption key={option.value} value={option.value}>
+							{option.description}
+						</SelectOption>
+					))}
+				</Select>
+			</div>
+
 			<div>
 				<Subheading>{t('explorer')}</Subheading>
 				<div className="grid grid-cols-2 gap-y-1">
@@ -172,47 +213,6 @@ export default () => {
 						/>
 					)}
 				</div>
-			</div>
-
-			{settings.layoutMode === 'media' && (
-				<div>
-					<Subheading>{t('media_view_context')}</Subheading>
-					<Select
-						className="w-full"
-						value={
-							explorer.settingsStore.mediaViewWithDescendants
-								? 'withDescendants'
-								: 'withoutDescendants'
-						}
-						onChange={(value) => {
-							explorer.settingsStore.mediaViewWithDescendants =
-								value === 'withDescendants';
-						}}
-					>
-						{mediaViewContextActions.options.map((option) => (
-							<SelectOption key={option.value} value={option.value}>
-								{option.description}
-							</SelectOption>
-						))}
-					</Select>
-				</div>
-			)}
-
-			<div>
-				<Subheading>{t('double_click_action')}</Subheading>
-				<Select
-					className="w-full"
-					value={settings.openOnDoubleClick}
-					onChange={(value) => {
-						explorer.settingsStore.openOnDoubleClick = value;
-					}}
-				>
-					{doubleClickActions.options.map((option) => (
-						<SelectOption key={option.value} value={option.value}>
-							{option.description}
-						</SelectOption>
-					))}
-				</Select>
 			</div>
 		</div>
 	);
