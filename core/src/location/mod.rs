@@ -747,12 +747,12 @@ async fn create_location(
 						(location::name::NAME, msgpack!(&name)),
 						(location::path::NAME, msgpack!(&path)),
 						(location::date_created::NAME, msgpack!(date_created)),
-						(
-							location::instance::NAME,
-							msgpack!(prisma_sync::instance::SyncId {
-								pub_id: uuid_to_bytes(sync.instance)
-							}),
-						),
+						// (
+						// 	location::instance::NAME,
+						// 	msgpack!(prisma_sync::instance::SyncId {
+						// 		pub_id: uuid_to_bytes(sync.instance)
+						// 	}),
+						// ),
 					],
 				),
 				db.location()

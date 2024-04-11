@@ -1,4 +1,3 @@
-use prisma_client_rust::ModelTypes;
 use uhlc::HLC;
 use uuid::Uuid;
 
@@ -22,17 +21,13 @@ pub trait OperationFactory {
 	fn get_clock(&self) -> &HLC;
 	fn get_instance(&self) -> Uuid;
 
-	fn new_op<TSyncId: SyncId<Model = TModel>, TModel: ModelTypes>(
-		&self,
-		id: &TSyncId,
-		data: CRDTOperationData,
-	) -> CRDTOperation {
+	fn new_op<TSyncId: SyncId>(&self, id: &TSyncId, data: CRDTOperationData) -> CRDTOperation {
 		let timestamp = self.get_clock().new_timestamp();
 
 		CRDTOperation {
 			instance: self.get_instance(),
 			timestamp: *timestamp.get_time(),
-			model: TModel::MODEL.to_string(),
+			model: <TSyncId::Model as crate::SyncModel>::MODEL_ID,
 			record_id: msgpack!(id),
 			data,
 		}
