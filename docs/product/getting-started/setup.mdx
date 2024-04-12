@@ -34,14 +34,19 @@ You can run Spacedrive in a Docker container using the following command.
 	type="note"
 	text="For the best performance of the docker container, we recommend to run on Linux (linux/amd64). The container is not yet optimized for other platforms."
 />
-<Notice
-	type="warning"
-	text="Currently, Spacedrive's Docker Server does not support authentication methods. Use at your own risk as your data will not be protected from other devices (or users) on your network. The feature is under active development and you can check when it will launch on the [roadmap](/roadmap)."
-/>
 
 ```bash
-docker run -d --name spacedrive -p 8080:8080 -v /var/spacedrive:/var/spacedrive ghcr.io/spacedriveapp/spacedrive/server
+docker run -d --name spacedrive -p 8080:8080 -e SD_AUTH=admin,spacedrive -v /var/spacedrive:/var/spacedrive ghcr.io/spacedriveapp/spacedrive/server
 ```
+
+#### Authentication
+
+When using the Spacedrive server you can use the `SD_AUTH` environment variable to configure authentication.
+
+Valid values:
+ - `SD_AUTH=disabled` - Disables authentication.
+ - `SD_AUTH=username:password` - Enables authentication for a single user.
+ - `SD_AUTH=username:password,username1:password1` - Enables authentication with multiple users (you can add as many users as you want).
 
 ### Mobile (Preview)
 
