@@ -157,7 +157,7 @@ export type Backup = ({ id: string; timestamp: string; library_id: string; libra
 
 export type BuildInfo = { version: string; commit: string }
 
-export type CRDTOperation = { instance: string; timestamp: number; model: string; record_id: JsonValue; data: CRDTOperationData }
+export type CRDTOperation = { instance: string; timestamp: number; model: number; record_id: JsonValue; data: CRDTOperationData }
 
 export type CRDTOperationData = "c" | { u: { field: string; value: JsonValue } } | "d"
 
