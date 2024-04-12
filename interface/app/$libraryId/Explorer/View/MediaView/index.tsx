@@ -137,12 +137,11 @@ export const MediaView = () => {
 				break;
 			}
 
-			// TODO: Uncomment when we add sorting by date taken
-			// case 'object.mediaData.epochTime': {
-			// 	firstFilePathDate = firstFilePath.dateTaken;
-			// 	lastFilePathDate = lastFilePath.dateTaken;
-			// 	break;
-			// }
+			case 'object.mediaData.epochTime': {
+				firstFilePathDate = firstFilePath.dateTaken;
+				lastFilePathDate = lastFilePath.dateTaken;
+				break;
+			}
 		}
 
 		const firstDate = firstFilePathDate
