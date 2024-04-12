@@ -125,14 +125,8 @@ impl<T: Task<E> + 'static, E: RunError> IntoTask<E> for T {
 /// due to a limitation in the Rust language.
 #[async_trait]
 pub trait Task<E: RunError>: fmt::Debug + Downcast + Send + Sync + 'static {
-	/// This method represent the work that should be done by the worker, it will be called by the
-	/// worker when there is a slot available in its internal queue.
-	/// We receive a `&mut self` so any internal data can be mutated on each `run` invocation.
-	///
-	/// The [`interrupter`](Interrupter) is a helper object that can be used to check if the user requested a pause or a cancel,
-	/// so the user can decide the appropriated moment to pause or cancel the task. Avoiding corrupted data or
-	/// inconsistent states.
-	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, E>;
+	/// An unique identifier for the task, it will be used to identify the task on the system and also to the user.
+	fn id(&self) -> TaskId;
 
 	/// This method defines whether a task should run with priority or not. The task system has a mechanism
 	/// to suspend non-priority tasks on any worker and run priority tasks ASAP. This is useful for tasks that
@@ -142,8 +136,14 @@ pub trait Task<E: RunError>: fmt::Debug + Downcast + Send + Sync + 'static {
 		false
 	}
 
-	/// An unique identifier for the task, it will be used to identify the task on the system and also to the user.
-	fn id(&self) -> TaskId;
+	/// This method represent the work that should be done by the worker, it will be called by the
+	/// worker when there is a slot available in its internal queue.
+	/// We receive a `&mut self` so any internal data can be mutated on each `run` invocation.
+	///
+	/// The [`interrupter`](Interrupter) is a helper object that can be used to check if the user requested a pause or a cancel,
+	/// so the user can decide the appropriated moment to pause or cancel the task. Avoiding corrupted data or
+	/// inconsistent states.
+	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, E>;
 }
 
 impl_downcast!(Task<E> where E: RunError);

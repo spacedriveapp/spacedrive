@@ -124,7 +124,7 @@ async fn walk(
 	dispatcher: &BaseTaskDispatcher<Error>,
 ) -> Result<Option<WalkTaskOutput>, Error> {
 	match dispatcher
-		.dispatch(WalkDirTask::new(
+		.dispatch(WalkDirTask::new_shallow(
 			ToWalkEntry::from(&*to_walk_path),
 			to_walk_path,
 			location
@@ -142,7 +142,6 @@ async fn walk(
 				location_id: location.id,
 				db,
 			},
-			None::<BaseTaskDispatcher<Error>>,
 		)?)
 		.await
 		.await?
@@ -186,7 +185,7 @@ async fn save_and_update(
 		.chunks(BATCH_SIZE)
 		.into_iter()
 		.map(|chunk| {
-			SaveTask::new(
+			SaveTask::new_shallow(
 				location.id,
 				location.pub_id.clone(),
 				chunk.collect::<Vec<_>>(),
@@ -201,7 +200,7 @@ async fn save_and_update(
 				.chunks(BATCH_SIZE)
 				.into_iter()
 				.map(|chunk| {
-					UpdateTask::new(
+					UpdateTask::new_shallow(
 						chunk.collect::<Vec<_>>(),
 						Arc::clone(&db),
 						Arc::clone(&sync),

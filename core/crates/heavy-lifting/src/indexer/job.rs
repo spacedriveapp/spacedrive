@@ -102,7 +102,7 @@ impl Job for IndexerJob {
 					self.metadata.total_paths += chunked_saves.len() as u64;
 					self.metadata.total_save_steps += 1;
 
-					SaveTask::new(
+					SaveTask::new_deep(
 						self.location.id,
 						self.location.pub_id.clone(),
 						chunked_saves,
@@ -394,7 +394,7 @@ impl IndexerJob {
 				self.metadata.total_paths += chunked_saves.len() as u64;
 				self.metadata.total_save_steps += 1;
 
-				SaveTask::new(
+				SaveTask::new_deep(
 					self.location.id,
 					self.location.pub_id.clone(),
 					chunked_saves,
@@ -413,7 +413,7 @@ impl IndexerJob {
 				self.metadata.total_updated_paths += chunked_updates.len() as u64;
 				self.metadata.total_update_steps += 1;
 
-				UpdateTask::new(
+				UpdateTask::new_deep(
 					chunked_updates,
 					Arc::clone(job_ctx.db()),
 					Arc::clone(job_ctx.sync()),
@@ -539,7 +539,7 @@ impl IndexerJob {
 
 			pending_running_tasks.push(
 				dispatcher
-					.dispatch(WalkDirTask::new(
+					.dispatch(WalkDirTask::new_deep(
 						walker_root_path.as_ref(),
 						Arc::clone(&walker_root_path),
 						self.indexer_ruler.clone(),
@@ -548,7 +548,7 @@ impl IndexerJob {
 							location_id: self.location.id,
 							db: Arc::clone(job_ctx.db()),
 						},
-						Some(dispatcher.clone()),
+						dispatcher.clone(),
 					)?)
 					.await,
 			);
