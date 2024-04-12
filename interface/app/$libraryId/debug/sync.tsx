@@ -89,30 +89,32 @@ const OperationGroup = ({ group }: { group: MessageGroup }) => {
 
 function calculateGroups(messages: CRDTOperation[]) {
 	return messages.reduce<MessageGroup[]>((acc, op) => {
-		const { data } = op;
+		// TODO: Fix Typescript
 
-		const id = JSON.stringify(op.record_id);
+		// const { data } = op;
 
-		const latest = (() => {
-			const latest = acc[acc.length - 1];
+		// const id = JSON.stringify(op.record_id);
 
-			if (!latest || latest.model !== op.model || latest.id !== id) {
-				const group: MessageGroup = {
-					model: op.model,
-					id,
-					messages: []
-				};
+		// const latest = (() => {
+		// 	const latest = acc[acc.length - 1];
 
-				acc.push(group);
+		// 	if (!latest || latest.model !== op.model || latest.id !== id) {
+		// 		const group: MessageGroup = {
+		// 			model: op.model,
+		// 			id,
+		// 			messages: []
+		// 		};
 
-				return group;
-			} else return latest;
-		})();
+		// 		acc.push(group);
 
-		latest.messages.push({
-			data,
-			timestamp: op.timestamp
-		});
+		// 		return group;
+		// 	} else return latest;
+		// })();
+
+		// latest.messages.push({
+		// 	data,
+		// 	timestamp: op.timestamp
+		// });
 
 		return acc;
 	}, []);
