@@ -27,6 +27,7 @@ use specta::Type;
 use tokio::{fs, io};
 use tokio_stream::{wrappers::ReadDirStream, StreamExt};
 use tracing::{error, warn};
+use trash;
 
 use super::{
 	files::{create_directory, FromPattern},
@@ -130,6 +131,35 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									fs::remove_file(&path).await
 								}
 								.map_err(|e| FileIOError::from((path, e, "Failed to delete file"))),
+								Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+								Err(e) => Err(FileIOError::from((
+									path,
+									e,
+									"Failed to get file metadata for deletion",
+								))),
+							}
+						})
+						.collect::<Vec<_>>()
+						.try_join()
+						.await?;
+
+					invalidate_query!(library, "search.ephemeralPaths");
+
+					Ok(())
+				})
+		})
+		.procedure("moveToTrash", {
+			R.with2(library())
+				.mutation(|(_, library), paths: Vec<PathBuf>| async move {
+					paths
+						.into_iter()
+						.map(|path| async move {
+							match fs::metadata(&path).await {
+								Ok(_) => {
+									trash::delete(&path).unwrap();
+
+									Ok(())
+								}
 								Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
 								Err(e) => Err(FileIOError::from((
 									path,

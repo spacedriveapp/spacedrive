@@ -115,13 +115,15 @@ const AnimatedDialogOverlay = animated(RDialog.Overlay);
 
 export interface DialogProps<S extends FieldValues>
 	extends RDialog.DialogProps,
-		Omit<FormProps<S>, 'onSubmit'> {
+	Omit<FormProps<S>, 'onSubmit'> {
 	title?: string;
 	dialog: ReturnType<typeof useDialog>;
 	loading?: boolean;
 	trigger?: ReactNode;
 	ctaLabel?: string;
+	ctaSecondLabel?: string;
 	onSubmit?: ReturnType<UseFormHandleSubmit<S>>;
+	onSubmitSecond?: ReturnType<UseFormHandleSubmit<S>>;
 	children?: ReactNode;
 	ctaDanger?: boolean;
 	closeLabel?: string;
@@ -141,6 +143,7 @@ export function Dialog<S extends FieldValues>({
 	form,
 	dialog,
 	onSubmit,
+	onSubmitSecond,
 	onCancelled = true,
 	invertButtonFocus,
 	...props
@@ -185,12 +188,12 @@ export function Dialog<S extends FieldValues>({
 	);
 	const disableCheck = props.errorMessageException
 		? !form.formState.isValid &&
-			!form.formState.errors.root?.serverError?.message?.startsWith(
-				props.errorMessageException as string
-			)
+		!form.formState.errors.root?.serverError?.message?.startsWith(
+			props.errorMessageException as string
+		)
 		: !form.formState.isValid;
 
-	const submitButton = (
+	const submitButton = !props.ctaSecondLabel ? (
 		<Button
 			type="submit"
 			size="sm"
@@ -198,12 +201,57 @@ export function Dialog<S extends FieldValues>({
 			variant={props.ctaDanger ? 'colored' : 'accent'}
 			className={clsx(
 				props.ctaDanger &&
-					'border-red-500 bg-red-500 focus:ring-1 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-app-selected'
+				'border-red-500 bg-red-500 focus:ring-1 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-app-selected'
 			)}
+			onClick={async (e: React.MouseEvent<HTMLElement>) => {
+				e.preventDefault();
+				await onSubmit?.(e);
+				dialog.onSubmit?.();
+				setOpen(false);
+			}}
 		>
 			{props.ctaLabel}
 		</Button>
-	);
+	) : (
+		<div className='flex flex-row gap-x-2'>
+			<Button
+				type="submit"
+				size="sm"
+				disabled={form.formState.isSubmitting || props.submitDisabled || disableCheck}
+				variant={props.ctaDanger ? 'colored' : 'accent'}
+				className={clsx(
+					props.ctaDanger &&
+					'border-red-500 bg-red-500 focus:ring-1 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-app-selected'
+				)}
+				onClick={async (e: React.MouseEvent<HTMLElement>) => {
+					e.preventDefault();
+					await onSubmit?.(e);
+					dialog.onSubmit?.();
+					setOpen(false);
+				}}
+			>
+				{props.ctaLabel}
+			</Button>
+			<Button
+				type="submit"
+				size="sm"
+				disabled={form.formState.isSubmitting || props.submitDisabled || disableCheck}
+				variant={props.ctaDanger ? 'colored' : 'accent'}
+				className={clsx(
+					props.ctaDanger &&
+					'border-primary-500 bg-primary-500 focus:ring-1 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-app-selected'
+				)}
+				onClick={async (e: React.MouseEvent<HTMLElement>) => {
+					e.preventDefault();
+					await onSubmitSecond?.(e);
+					dialog.onSubmit?.();
+					setOpen(false);
+				}}
+			>
+				{props.ctaSecondLabel}
+			</Button>
+		</div>
+	)
 
 	return (
 		<RDialog.Root open={stateSnap.open} onOpenChange={setOpen}>
@@ -226,8 +274,6 @@ export function Dialog<S extends FieldValues>({
 								form={form}
 								onSubmit={async (e) => {
 									e?.preventDefault();
-									await onSubmit?.(e);
-									dialog.onSubmit?.();
 									setOpen(false);
 								}}
 								className={clsx(

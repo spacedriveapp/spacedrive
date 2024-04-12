@@ -47,6 +47,8 @@ export default (props: Props) => {
 	const { t } = useLocale();
 	const deleteFile = useLibraryMutation('files.deleteFiles');
 	const deleteEphemeralFile = useLibraryMutation('ephemeralFiles.deleteFiles');
+	const moveToTrashFile = useLibraryMutation('files.moveToTrash');
+	const moveToTrashEphemeralFile = useLibraryMutation('ephemeralFiles.moveToTrash');
 
 	const form = useZodForm();
 	const { dirCount = 0, fileCount = 0, indexedArgs, ephemeralArgs } = props;
@@ -76,12 +78,31 @@ export default (props: Props) => {
 					await deleteEphemeralFile.mutateAsync(paths);
 				}
 			})}
-			icon={<Icon theme="light" name={icon} size={28} />}
+			onSubmitSecond={form.handleSubmit(async () => {
+				if (indexedArgs != undefined) {
+					console.log('DEBUG: DeleteDialog.tsx: onSubmitSecond (Move to Trash) -> Indexed Files');
+					const { locationId, rescan, pathIds } = indexedArgs;
+					await moveToTrashFile.mutateAsync({
+						location_id: locationId,
+						file_path_ids: pathIds
+					});
+
+					rescan?.();
+				}
+
+				if (ephemeralArgs != undefined) {
+					console.log('DEBUG: DeleteDialog.tsx: onSubmitSecond (Move to Trash) -> Ephemeral Files');
+					const { paths } = ephemeralArgs;
+					await moveToTrashEphemeralFile.mutateAsync(paths);
+				}
+			})}
+			icon={< Icon theme="light" name={icon} size={28} />}
 			dialog={useDialog(props)}
 			title={t('delete_dialog_title', { prefix, type })}
 			description={description}
 			loading={deleteFile.isLoading}
-			ctaLabel={t('delete')}
+			ctaLabel={t('delete_forever')}
+			ctaSecondLabel={t('delete_move_to_trash')}
 			ctaDanger
 			className="w-[200px]"
 		>
@@ -93,6 +114,6 @@ export default (props: Props) => {
 					</p>
 				</div>
 			</Tooltip>
-		</Dialog>
+		</Dialog >
 	);
 };
