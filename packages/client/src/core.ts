@@ -104,6 +104,7 @@ export type Procedures = {
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
         { key: "library.startActor", input: LibraryArgs<string>, result: null } | 
         { key: "library.stopActor", input: LibraryArgs<string>, result: null } | 
+        { key: "library.vaccumDb", input: LibraryArgs<null>, result: null } | 
         { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
         { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
         { key: "locations.delete", input: LibraryArgs<number>, result: null } | 
