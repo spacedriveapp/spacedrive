@@ -11,6 +11,7 @@ env:
   CARGO_NET_RETRY: 10
   RUST_BACKTRACE: short
   RUSTUP_MAX_RETRIES: 10
+  SD_AUTH: disabled
 
 # Cancel previous runs of the same workflow on the same branch.
 concurrency:
@@ -206,7 +207,7 @@ jobs:
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
         uses: actions-rs-plus/clippy-check@v2
         with:
-          args: --workspace --all-features
+          args: --workspace --all-features --locked
 
   # test:
   #   name: Test (${{ matrix.platform }})

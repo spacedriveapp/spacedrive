@@ -18,6 +18,7 @@ import {
 	useSelector,
 	type ExplorerItem
 } from '@sd/client';
+import { useLocale } from '~/hooks';
 
 import { useExplorerContext } from '../../Context';
 import { FileThumb } from '../../FilePath/Thumb';
@@ -94,11 +95,13 @@ export const useTable = () => {
 	const explorer = useExplorerContext();
 	const explorerSettings = explorer.useSettingsSnapshot();
 
+	const { t } = useLocale();
+
 	const columns = useMemo<ColumnDef<ExplorerItem>[]>(
 		() => [
 			{
 				id: 'name',
-				header: 'Name',
+				header: t('name'),
 				minSize: 200,
 				maxSize: undefined,
 				cell: ({ row, selected }: Cell) => (
@@ -107,12 +110,12 @@ export const useTable = () => {
 			},
 			{
 				id: 'kind',
-				header: 'Type',
+				header: t('type'),
 				cell: ({ row }) => <KindCell kind={getExplorerItemData(row.original).kind} />
 			},
 			{
 				id: 'sizeInBytes',
-				header: 'Size',
+				header: t('size'),
 				accessorFn: (item) => {
 					const filePath = getItemFilePath(item);
 					return !filePath ||
@@ -124,7 +127,7 @@ export const useTable = () => {
 			},
 			{
 				id: 'dateCreated',
-				header: 'Date Created',
+				header: t('date_created'),
 				accessorFn: (item) => {
 					if (item.type === 'SpacedropPeer') return;
 					return dayjs(item.item.date_created).format('MMM Do YYYY');
@@ -132,7 +135,7 @@ export const useTable = () => {
 			},
 			{
 				id: 'dateModified',
-				header: 'Date Modified',
+				header: t('date_modified'),
 				accessorFn: (item) => {
 					const filePath = getItemFilePath(item);
 					if (filePath) return dayjs(filePath.date_modified).format('MMM Do YYYY');
@@ -140,7 +143,7 @@ export const useTable = () => {
 			},
 			{
 				id: 'dateIndexed',
-				header: 'Date Indexed',
+				header: t('date_indexed'),
 				accessorFn: (item) => {
 					const filePath = getIndexedItemFilePath(item);
 					if (filePath) return dayjs(filePath.date_indexed).format('MMM Do YYYY');
@@ -148,7 +151,7 @@ export const useTable = () => {
 			},
 			{
 				id: 'dateAccessed',
-				header: 'Date Accessed',
+				header: t('date_accessed'),
 				accessorFn: (item) => {
 					const object = getItemObject(item);
 					if (!object || !object.date_accessed) return;
@@ -157,18 +160,19 @@ export const useTable = () => {
 			},
 			{
 				id: 'contentId',
-				header: 'Content ID',
+				header: t('content_id'),
 				accessorFn: (item) => getExplorerItemData(item).casId
 			},
 			{
 				id: 'objectId',
-				header: 'Object ID',
+				header: t('object_id'),
 				accessorFn: (item) => {
 					const object = getItemObject(item);
 					if (object) return stringify(object.pub_id);
 				}
 			}
 		],
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 		[]
 	);
 

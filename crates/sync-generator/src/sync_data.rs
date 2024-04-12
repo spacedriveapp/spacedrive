@@ -24,7 +24,7 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 					(
 						quote!(#model_name_pascal(#model_name_snake::SyncId, sd_sync::CRDTOperationData)),
 						quote! {
-							prisma::#model_name_snake::NAME =>
+							#model_name_snake::MODEL_ID =>
 								Self::#model_name_pascal(rmpv::ext::from_value(op.record_id).ok()?, op.data)
 						},
 					)
@@ -37,7 +37,7 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 		let model_name_snake = snake_ident(model.name());
 
 		let match_arms = match sync_type.as_ref()? {
-			ModelSyncType::Shared { id } => {
+			ModelSyncType::Shared { id, .. } => {
 				let (get_id, equals_value, id_name_snake, create_id) = match id.refine() {
 					RefinedFieldWalker::Relation(rel) => {
 						let scalar_field = rel.referenced_fields().unwrap().next().unwrap();
@@ -110,7 +110,7 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 					}
 				}
 			}
-			ModelSyncType::Relation { item, group } => {
+			ModelSyncType::Relation { item, group, .. } => {
 				let compound_id = format_ident!(
 					"{}",
 					group
@@ -228,7 +228,7 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 
 		impl ModelSyncData {
 			pub fn from_op(op: sd_sync::CRDTOperation) -> Option<Self> {
-				Some(match op.model.as_str() {
+				Some(match op.model {
 					#(#matches),*,
 					_ => return None
 				})

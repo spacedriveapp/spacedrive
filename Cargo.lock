@@ -9033,11 +9033,13 @@ name = "sd-server"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64 0.21.7",
  "http",
  "include_dir",
  "mime_guess",
  "rspc",
  "sd-core",
+ "secstr",
  "tempfile",
  "tokio",
  "tracing",
@@ -9133,6 +9135,15 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "zbus",
+]
+
+[[package]]
+name = "secstr"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e04f657244f605c4cf38f6de5993e8bd050c8a303f86aeabff142d5c7c113e12"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

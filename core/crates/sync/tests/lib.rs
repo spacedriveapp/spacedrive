@@ -55,7 +55,7 @@ async fn writes_operations_and_rows_together() -> Result<(), Box<dyn std::error:
 
 	// 1 create, 2 update
 	assert_eq!(operations.len(), 3);
-	assert_eq!(operations[0].model, prisma::location::NAME);
+	assert_eq!(operations[0].model, prisma_sync::location::MODEL_ID as i32);
 
 	let locations = instance.db.location().find_many(vec![]).exec().await?;
 

@@ -1,4 +1,4 @@
-import { Controller, FormProvider } from 'react-hook-form';
+import { FormProvider } from 'react-hook-form';
 import {
 	useBridgeMutation,
 	useBridgeQuery,
@@ -6,7 +6,7 @@ import {
 	useDebugState,
 	useZodForm
 } from '@sd/client';
-import { Button, Card, Input, Select, SelectOption, Slider, Switch, tw, z } from '@sd/ui';
+import { Button, Card, Input, Select, SelectOption, Slider, Switch, toast, tw, z } from '@sd/ui';
 import i18n from '~/app/I18n';
 import { Icon } from '~/components';
 import { useDebouncedFormWatch, useLocale } from '~/hooks';
@@ -43,7 +43,7 @@ export const Component = () => {
 	const debugState = useDebugState();
 	const editNode = useBridgeMutation('nodes.edit');
 	const connectedPeers = useConnectedPeers();
-	const image_labeler_versions = useBridgeQuery(['models.image_detection.list']);
+	// const image_labeler_versions = useBridgeQuery(['models.image_detection.list']);
 	const updateThumbnailerPreferences = useBridgeMutation('nodes.updateThumbnailerPreferences');
 
 	const form = useZodForm({
@@ -304,16 +304,13 @@ export const Component = () => {
 				<Setting
 					mini
 					title={t('enable_networking')}
-					// TODO: i18n
 					description={
 						<>
 							<p className="text-sm text-gray-400">
-								Allow your node to communicate with other Spacedrive nodes around
-								you
+								{t('enable_networking_description')}
 							</p>
 							<p className="mb-2 text-sm text-gray-400">
-								<span className="font-bold">Required</span> for library sync or
-								Spacedrop!
+								{t('enable_networking_description_required')}
 							</p>
 						</>
 					}
@@ -323,7 +320,8 @@ export const Component = () => {
 						size="md"
 						// checked={watchP2pEnabled || false}
 						// onClick={() => form.setValue('p2p_enabled', !form.getValues('p2p_enabled'))}
-						disabled
+						// disabled
+						onClick={() => toast.info(t('coming_soon'))}
 					/>
 				</Setting>
 				{/* <Setting
