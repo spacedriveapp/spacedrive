@@ -104,7 +104,7 @@
   "delete_rule": "Verwijder regel",
   "delete_tag": "Verwijder Tag",
   "delete_tag_description": "Weet je zeker dat je deze tag wilt verwijderen? Dit kan niet ongedaan worden gemaakt en ge-tagde bestanden worden ontkoppeld.",
-  "delete_warning": "Waarschuwing: hiermee wordt je {{type}} permanent verwijderd, we hebben nog geen prullenbak...",
+  "delete_warning": "hiermee wordt je {{type}} permanent verwijderd, we hebben nog geen prullenbak...",
   "description": "Omschrijving",
   "deselect": "Deselecteer",
   "details": "Details",

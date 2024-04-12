@@ -115,7 +115,7 @@ const AnimatedDialogOverlay = animated(RDialog.Overlay);
 
 export interface DialogProps<S extends FieldValues>
 	extends RDialog.DialogProps,
-	Omit<FormProps<S>, 'onSubmit'> {
+		Omit<FormProps<S>, 'onSubmit'> {
 	title?: string;
 	dialog: ReturnType<typeof useDialog>;
 	loading?: boolean;
@@ -188,9 +188,9 @@ export function Dialog<S extends FieldValues>({
 	);
 	const disableCheck = props.errorMessageException
 		? !form.formState.isValid &&
-		!form.formState.errors.root?.serverError?.message?.startsWith(
-			props.errorMessageException as string
-		)
+			!form.formState.errors.root?.serverError?.message?.startsWith(
+				props.errorMessageException as string
+			)
 		: !form.formState.isValid;
 
 	const submitButton = !props.ctaSecondLabel ? (
@@ -201,7 +201,7 @@ export function Dialog<S extends FieldValues>({
 			variant={props.ctaDanger ? 'colored' : 'accent'}
 			className={clsx(
 				props.ctaDanger &&
-				'border-red-500 bg-red-500 focus:ring-1 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-app-selected'
+					'border-red-500 bg-red-500 focus:ring-1 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-app-selected'
 			)}
 			onClick={async (e: React.MouseEvent<HTMLElement>) => {
 				e.preventDefault();
@@ -213,7 +213,7 @@ export function Dialog<S extends FieldValues>({
 			{props.ctaLabel}
 		</Button>
 	) : (
-		<div className='flex flex-row gap-x-2'>
+		<div className="flex flex-row gap-x-2">
 			<Button
 				type="submit"
 				size="sm"
@@ -221,7 +221,7 @@ export function Dialog<S extends FieldValues>({
 				variant={props.ctaDanger ? 'colored' : 'accent'}
 				className={clsx(
 					props.ctaDanger &&
-					'border-red-500 bg-red-500 focus:ring-1 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-app-selected'
+						'border-red-500 bg-red-500 focus:ring-1 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-app-selected'
 				)}
 				onClick={async (e: React.MouseEvent<HTMLElement>) => {
 					e.preventDefault();
@@ -239,7 +239,7 @@ export function Dialog<S extends FieldValues>({
 				variant={props.ctaDanger ? 'colored' : 'accent'}
 				className={clsx(
 					props.ctaDanger &&
-					'border-primary-500 bg-primary-500 focus:ring-1 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-app-selected'
+						'border-primary-500 bg-primary-500 focus:ring-1 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-app-selected'
 				)}
 				onClick={async (e: React.MouseEvent<HTMLElement>) => {
 					e.preventDefault();
@@ -251,7 +251,7 @@ export function Dialog<S extends FieldValues>({
 				{props.ctaSecondLabel}
 			</Button>
 		</div>
-	)
+	);
 
 	return (
 		<RDialog.Root open={stateSnap.open} onOpenChange={setOpen}>

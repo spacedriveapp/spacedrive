@@ -104,7 +104,7 @@
   "delete_rule": "Elimina regola",
   "delete_tag": "Elimina Tag",
   "delete_tag_description": "Sei sicuro di voler cancellare questa etichetta? Questa operazione non può essere annullata e i file etichettati verranno scollegati.",
-  "delete_warning": "Attenzione: stai per eliminare il tuo {{type}} per sempre, non abbiamo ancora un cestino...",
+  "delete_warning": "stai per eliminare il tuo {{type}} per sempre, non abbiamo ancora un cestino...",
   "description": "Descrizione",
   "deselect": "Deseleziona",
   "details": "Dettagli",

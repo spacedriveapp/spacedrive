@@ -80,7 +80,9 @@ export default (props: Props) => {
 			})}
 			onSubmitSecond={form.handleSubmit(async () => {
 				if (indexedArgs != undefined) {
-					console.log('DEBUG: DeleteDialog.tsx: onSubmitSecond (Move to Trash) -> Indexed Files');
+					console.log(
+						'DEBUG: DeleteDialog.tsx: onSubmitSecond (Move to Trash) -> Indexed Files'
+					);
 					const { locationId, rescan, pathIds } = indexedArgs;
 					await moveToTrashFile.mutateAsync({
 						location_id: locationId,
@@ -91,29 +93,31 @@ export default (props: Props) => {
 				}
 
 				if (ephemeralArgs != undefined) {
-					console.log('DEBUG: DeleteDialog.tsx: onSubmitSecond (Move to Trash) -> Ephemeral Files');
+					console.log(
+						'DEBUG: DeleteDialog.tsx: onSubmitSecond (Move to Trash) -> Ephemeral Files'
+					);
 					const { paths } = ephemeralArgs;
 					await moveToTrashEphemeralFile.mutateAsync(paths);
 				}
 			})}
-			icon={< Icon theme="light" name={icon} size={28} />}
+			icon={<Icon theme="light" name={icon} size={28} />}
 			dialog={useDialog(props)}
 			title={t('delete_dialog_title', { prefix, type })}
 			description={description}
 			loading={deleteFile.isLoading}
 			ctaLabel={t('delete_forever')}
-			ctaSecondLabel={t('delete_move_to_trash')}
+			ctaSecondLabel={t('move_to_trash')}
 			ctaDanger
 			className="w-[200px]"
 		>
-			<Tooltip label={t('coming_soon')}>
+			{/* <Tooltip label={t('coming_soon')}>
 				<div className="flex items-center pt-2 opacity-50">
 					<CheckBox disabled className="!mt-0" />
 					<p className="text-sm text-ink-dull">
 						Delete all matching {type.endsWith('s') ? type : type + 's'}
 					</p>
 				</div>
-			</Tooltip>
-		</Dialog >
+			</Tooltip> */}
+		</Dialog>
 	);
 };

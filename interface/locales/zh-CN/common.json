@@ -104,7 +104,7 @@
   "delete_rule": "删除规则",
   "delete_tag": "删除标签",
   "delete_tag_description": "您确定要删除这个标签吗？这不能被撤销，打过标签的文件将会被取消链接。",
-  "delete_warning": "警告：这将永久删除您的{{type}}，我们目前还没有回收站…",
+  "delete_warning": "这将永久删除您的{{type}}，我们目前还没有回收站…",
   "description": "描述",
   "deselect": "取消选择",
   "details": "详情",
