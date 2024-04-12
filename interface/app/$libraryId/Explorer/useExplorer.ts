@@ -48,7 +48,7 @@ export interface UseExplorerProps<TOrder extends Ordering> {
 	 * @defaultValue `true`
 	 */
 	selectable?: boolean;
-	settings: ReturnType<typeof useExplorerSettings<TOrder>>;
+	settings: ReturnType<typeof useExplorerSettings<TOrder, any>>;
 	/**
 	 * @defaultValue `true`
 	 */

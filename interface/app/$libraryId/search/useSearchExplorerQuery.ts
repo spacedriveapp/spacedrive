@@ -13,7 +13,7 @@ import { UseSearch, UseSearchSource } from './useSearch';
 
 export function useSearchExplorerQuery<TSource extends UseSearchSource>(props: {
 	search: UseSearch<TSource>;
-	explorerSettings: UseExplorerSettings<any>;
+	explorerSettings: UseExplorerSettings<any, any>;
 	filters: SearchFilterArgs[];
 	take: number;
 	paths?: { arg?: Omit<FilePathSearchArgs, 'filters' | 'take'>; order?: FilePathOrder | null };
