@@ -104,7 +104,7 @@
   "delete_rule": "Regel löschen",
   "delete_tag": "Tag löschen",
   "delete_tag_description": "Sind Sie sicher, dass Sie diesen Tag löschen möchten? Dies kann nicht rückgängig gemacht werden, und getaggte Dateien werden nicht mehr verlinkt.",
-  "delete_warning": "Warnung: Dies wird Ihre {{type}} für immer löschen, wir haben noch keinen Papierkorb...",
+  "delete_warning": "Dies wird Ihre {{type}} für immer löschen, wir haben noch keinen Papierkorb...",
   "description": "Beschreibung",
   "deselect": "Abwählen",
   "details": "Details",

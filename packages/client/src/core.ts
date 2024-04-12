@@ -73,6 +73,7 @@ export type Procedures = {
         { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
         { key: "ephemeralFiles.cutFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.deleteFiles", input: LibraryArgs<string[]>, result: null } | 
+        { key: "ephemeralFiles.moveToTrash", input: LibraryArgs<string[]>, result: null } | 
         { key: "ephemeralFiles.renameFile", input: LibraryArgs<EphemeralRenameFileArgs>, result: null } | 
         { key: "files.convertImage", input: LibraryArgs<ConvertImageArgs>, result: null } | 
         { key: "files.copyFiles", input: LibraryArgs<OldFileCopierJobInit>, result: null } | 
@@ -81,6 +82,7 @@ export type Procedures = {
         { key: "files.cutFiles", input: LibraryArgs<OldFileCutterJobInit>, result: null } | 
         { key: "files.deleteFiles", input: LibraryArgs<OldFileDeleterJobInit>, result: null } | 
         { key: "files.eraseFiles", input: LibraryArgs<OldFileEraserJobInit>, result: null } | 
+        { key: "files.moveToTrash", input: LibraryArgs<OldFileDeleterJobInit>, result: null } | 
         { key: "files.removeAccessTime", input: LibraryArgs<number[]>, result: null } | 
         { key: "files.renameFile", input: LibraryArgs<RenameFileArgs>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 

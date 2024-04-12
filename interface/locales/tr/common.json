@@ -104,7 +104,7 @@
   "delete_rule": "Kuralı Sil",
   "delete_tag": "Etiketi Sil",
   "delete_tag_description": "Bu etiketi silmek istediğinizden emin misiniz? Bu geri alınamaz ve etiketli dosyalar bağlantısız kalacak.",
-  "delete_warning": "Uyarı: Bu, {{type}}'ınızı sonsuza dek silecek, henüz çöp kutumuz yok...",
+  "delete_warning": "Bu, {{type}}'ınızı sonsuza dek silecek, henüz çöp kutumuz yok...",
   "description": "Açıklama",
   "deselect": "Seçimi Kaldır",
   "details": "Detaylar",

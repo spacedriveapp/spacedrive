@@ -104,7 +104,7 @@
   "delete_rule": "Eliminar regla",
   "delete_tag": "Eliminar Etiqueta",
   "delete_tag_description": "¿Estás seguro de que quieres eliminar esta etiqueta? Esto no se puede deshacer y los archivos etiquetados serán desvinculados.",
-  "delete_warning": "Advertencia: Esto eliminará tu {{type}} para siempre, aún no tenemos papelera...",
+  "delete_warning": "Esto eliminará tu {{type}} para siempre, aún no tenemos papelera...",
   "description": "Descripción",
   "deselect": "Deseleccionar",
   "details": "Detalles",

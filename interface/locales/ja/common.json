@@ -104,7 +104,7 @@
   "delete_rule": "ルールを削除",
   "delete_tag": "タグを削除",
   "delete_tag_description": "本当にこのタグを削除しますか？これを元に戻すことはできず、タグ付けされたファイル間の結びつきは失われます。",
-  "delete_warning": "【警告】これはあなたの {{type}} を完全に削除します。",
+  "delete_warning": "これはあなたの {{type}} を完全に削除します。",
   "description": "説明",
   "deselect": "クリップボードを空にする",
   "details": "詳細",
