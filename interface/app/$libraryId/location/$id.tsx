@@ -272,7 +272,7 @@ function useLocationExplorerSettings(location: Location) {
 			settings,
 			onSettingsChanged,
 			orderingKeys: filePathOrderingKeysSchema,
-			location
+			data: location
 		}),
 		preferences
 	};
