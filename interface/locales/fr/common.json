@@ -104,7 +104,7 @@
   "delete_rule": "Supprimer la règle",
   "delete_tag": "Supprimer l'étiquette",
   "delete_tag_description": "Êtes-vous sûr de vouloir supprimer cette étiquette ? Cela ne peut pas être annulé et les fichiers étiquetés seront dissociés.",
-  "delete_warning": "Attention : Ceci supprimera votre {{type}} pour toujours, nous n'avons pas encore de corbeille...",
+  "delete_warning": "Ceci supprimera votre {{type}} pour toujours, nous n'avons pas encore de corbeille...",
   "description": "Description",
   "deselect": "Désélectionner",
   "details": "Détails",

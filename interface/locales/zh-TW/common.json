@@ -104,7 +104,7 @@
   "delete_rule": "刪除規則",
   "delete_tag": "刪除標籤",
   "delete_tag_description": "您確定要刪除這個標籤嗎？這不能撤銷，並且帶有標籤的文件將被取消鏈接。",
-  "delete_warning": "警告：這將永遠刪除您的{{type}}，我們還沒有垃圾箱...",
+  "delete_warning": "這將永遠刪除您的{{type}}，我們還沒有垃圾箱...",
   "description": "描述",
   "deselect": "取消選擇",
   "details": "詳情",

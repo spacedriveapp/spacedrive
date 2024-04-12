@@ -44,6 +44,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::{fs, io, task::spawn_blocking};
 use tracing::{error, warn};
+use trash;
 
 use super::{Ctx, R};
 
@@ -507,6 +508,53 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 										.into())
 								}
 							}
+						}
+						_ => Job::new(args)
+							.spawn(&node, &library)
+							.await
+							.map_err(Into::into),
+					}
+				})
+		})
+		.procedure("moveToTrash", {
+			R.with2(library())
+				.mutation(|(node, library), args: OldFileDeleterJobInit| async move {
+					match args.file_path_ids.len() {
+						0 => Ok(()),
+						1 => {
+							let (maybe_location, maybe_file_path) = library
+								.db
+								._batch((
+									library
+										.db
+										.location()
+										.find_unique(location::id::equals(args.location_id))
+										.select(location::select!({ path })),
+									library
+										.db
+										.file_path()
+										.find_unique(file_path::id::equals(args.file_path_ids[0]))
+										.select(file_path_to_isolate::select()),
+								))
+								.await?;
+
+							let location_path = maybe_location
+								.ok_or(LocationError::IdNotFound(args.location_id))?
+								.path
+								.ok_or(LocationError::MissingPath(args.location_id))?;
+
+							let file_path = maybe_file_path.ok_or(LocationError::FilePath(
+								FilePathError::IdNotFound(args.file_path_ids[0]),
+							))?;
+
+							let full_path = Path::new(&location_path).join(
+								IsolatedFilePathData::try_from(&file_path)
+									.map_err(LocationError::MissingField)?,
+							);
+
+							trash::delete(&full_path).unwrap();
+
+							Ok(())
 						}
 						_ => Job::new(args)
 							.spawn(&node, &library)

@@ -172,6 +172,7 @@ Also ensure that Rosetta is installed, as a few of our dependencies require it. 
 #### `ModuleNotFoundError: No module named 'distutils'`
 
 If you run into this issue, or some other error involving `node-gyp`:
+
 ```
 File "pnpm@8.15.6/node_modules/pnpm/dist/node_modules/node-gyp/gyp/gyp_main.py", line 42, in <module>
   import gyp  # noqa: E402
