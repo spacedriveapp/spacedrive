@@ -11,6 +11,7 @@ env:
   CARGO_NET_RETRY: 10
   RUST_BACKTRACE: short
   RUSTUP_MAX_RETRIES: 10
+  SD_AUTH: disabled
 
 # Cancel previous runs of the same workflow on the same branch.
 concurrency:
@@ -107,10 +108,10 @@ jobs:
         with:
           swap-size-mb: 3072
           root-reserve-mb: 6144
-          remove-dotnet: "true"
-          remove-codeql: "true"
-          remove-haskell: "true"
-          remove-docker-images: "true"
+          remove-dotnet: 'true'
+          remove-codeql: 'true'
+          remove-haskell: 'true'
+          remove-docker-images: 'true'
 
       - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
@@ -143,7 +144,7 @@ jobs:
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
         uses: ./.github/actions/setup-rust
         with:
-          restore-cache: "false"
+          restore-cache: 'false'
 
       - name: Run rustfmt
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
@@ -162,10 +163,10 @@ jobs:
         with:
           swap-size-mb: 3072
           root-reserve-mb: 6144
-          remove-dotnet: "true"
-          remove-codeql: "true"
-          remove-haskell: "true"
-          remove-docker-images: "true"
+          remove-dotnet: 'true'
+          remove-codeql: 'true'
+          remove-haskell: 'true'
+          remove-docker-images: 'true'
 
       - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
