@@ -23,11 +23,10 @@ export default function LibrarySection() {
 				{t('recents')}
 				{/* <div className={COUNT_STYLE}>34</div> */}
 			</SidebarLink>
-			<SidebarLink to="applications">
+			{/* <SidebarLink to="applications">
 				<Icon component={AppStoreLogo} />
 				{t('Applications')}
-				{/* <div className={COUNT_STYLE}>34</div> */}
-			</SidebarLink>
+			</SidebarLink> */}
 			<SidebarLink to="favorites">
 				<Icon component={Heart} />
 				{t('favorites')}
