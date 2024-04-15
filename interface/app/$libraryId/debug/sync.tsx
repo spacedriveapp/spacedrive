@@ -66,9 +66,11 @@ const OperationGroup = ({ group }: { group: MessageGroup }) => {
 				{group.messages.map((message, index) => (
 					<li key={index} className="flex flex-row justify-between px-2">
 						{typeof message.data === 'string' ? (
-							<p>{message.data === 'c' ? 'Create' : 'Delete'}</p>
-						) : (
+							<p>Delete</p>
+						) : 'u' in message.data ? (
 							<p>Update - {message.data.u.field}</p>
+						) : (
+							<p>Create</p>
 						)}
 						<p className="text-gray-400">{message.timestamp}</p>
 					</li>
