@@ -96,7 +96,7 @@
 		"apps/mobile/ios/Pods/boost/boost/predef/language"
 	],
 	"i18n-ally.enabledParsers": ["ts", "json"],
-	// "i18n-ally.sortKeys": true,
+	"i18n-ally.sortKeys": true,
 	"i18n-ally.namespace": true,
 	"i18n-ally.pathMatcher": "{locale}/common.json",
 	"i18n-ally.enabledFrameworks": ["react"],

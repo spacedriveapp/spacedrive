@@ -1,17 +1,19 @@
 use crate::{
 	invalidate_query,
 	library::{update_library_statistics, Library, LibraryConfig, LibraryName},
-	location::{scan_location, LocationCreateArgs},
+	location::{scan_location, LocationCreateArgs, ScanState},
 	util::MaybeUndefined,
 	Node,
 };
 
 use futures::StreamExt;
+use prisma_client_rust::raw;
 use sd_cache::{Model, Normalise, NormalisedResult, NormalisedResults};
 use sd_file_ext::kind::ObjectKind;
 use sd_p2p::RemoteIdentity;
 use sd_prisma::prisma::{indexer_rule, object, statistics};
 use tokio_stream::wrappers::IntervalStream;
+use tracing::{info, warn};
 
 use std::{
 	collections::{hash_map::Entry, HashMap},
@@ -254,7 +256,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								return Ok(());
 							};
 
-							scan_location(&node, &library, location)
+							let scan_state = ScanState::try_from(location.scan_state)?;
+
+							scan_location(&node, &library, location, scan_state)
 								.await
 								.map_err(rspc::Error::from)
 						}))
@@ -380,6 +384,27 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				.mutation(|(_, library), name: String| async move {
 					library.actors.stop(&name).await;
 
+					Ok(())
+				}),
+		)
+		.procedure(
+			"vaccumDb",
+			R.with2(library())
+				.mutation(|(_, library), _: ()| async move {
+					// We retry a few times because if the DB is being actively used, the vacuum will fail
+					for _ in 0..5 {
+						match library.db._execute_raw(raw!("VACUUM;")).exec().await {
+							Ok(_) => break,
+							Err(err) => {
+								warn!(
+									"Failed to vacuum DB for library '{}', retrying...: {err:#?}",
+									library.id
+								);
+								tokio::time::sleep(Duration::from_millis(500)).await;
+							}
+						}
+					}
+					info!("Successfully vacuumed DB for library '{}'", library.id);
 					Ok(())
 				}),
 		)

@@ -73,6 +73,7 @@ export type Procedures = {
         { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
         { key: "ephemeralFiles.cutFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.deleteFiles", input: LibraryArgs<string[]>, result: null } | 
+        { key: "ephemeralFiles.moveToTrash", input: LibraryArgs<string[]>, result: null } | 
         { key: "ephemeralFiles.renameFile", input: LibraryArgs<EphemeralRenameFileArgs>, result: null } | 
         { key: "files.convertImage", input: LibraryArgs<ConvertImageArgs>, result: null } | 
         { key: "files.copyFiles", input: LibraryArgs<OldFileCopierJobInit>, result: null } | 
@@ -81,6 +82,7 @@ export type Procedures = {
         { key: "files.cutFiles", input: LibraryArgs<OldFileCutterJobInit>, result: null } | 
         { key: "files.deleteFiles", input: LibraryArgs<OldFileDeleterJobInit>, result: null } | 
         { key: "files.eraseFiles", input: LibraryArgs<OldFileEraserJobInit>, result: null } | 
+        { key: "files.moveToTrash", input: LibraryArgs<OldFileDeleterJobInit>, result: null } | 
         { key: "files.removeAccessTime", input: LibraryArgs<number[]>, result: null } | 
         { key: "files.renameFile", input: LibraryArgs<RenameFileArgs>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
@@ -102,6 +104,7 @@ export type Procedures = {
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
         { key: "library.startActor", input: LibraryArgs<string>, result: null } | 
         { key: "library.stopActor", input: LibraryArgs<string>, result: null } | 
+        { key: "library.vaccumDb", input: LibraryArgs<null>, result: null } | 
         { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
         { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
         { key: "locations.delete", input: LibraryArgs<number>, result: null } | 
@@ -157,7 +160,7 @@ export type Backup = ({ id: string; timestamp: string; library_id: string; libra
 
 export type BuildInfo = { version: string; commit: string }
 
-export type CRDTOperation = { instance: string; timestamp: number; model: string; record_id: JsonValue; data: CRDTOperationData }
+export type CRDTOperation = { instance: string; timestamp: number; model: number; record_id: JsonValue; data: CRDTOperationData }
 
 export type CRDTOperationData = "c" | { u: { field: string; value: JsonValue } } | "d"
 
@@ -233,11 +236,9 @@ export type EphemeralFileCreateContextTypes = "empty" | "text"
 
 export type EphemeralFileSystemOps = { sources: string[]; target_dir: string }
 
-export type EphemeralPathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder }
+export type EphemeralPathSearchArgs = { from: PathFrom; path: string; withHiddenFiles: boolean }
 
-export type EphemeralPathSearchArgs = { path: string; withHiddenFiles: boolean; order?: EphemeralPathOrder | null }
-
-export type EphemeralPathsResultItem = { entries: Reference<ExplorerItem>[]; errors: Error[]; nodes: CacheNode[] }
+export type EphemeralPathsResultItem = { entries: Reference<ExplorerItem>[]; errors: string[]; nodes: CacheNode[] }
 
 export type EphemeralRenameFileArgs = { kind: EphemeralRenameKind }
 
@@ -246,13 +247,6 @@ export type EphemeralRenameKind = { One: EphemeralRenameOne } | { Many: Ephemera
 export type EphemeralRenameMany = { from_pattern: FromPattern; to_pattern: string; from_paths: string[] }
 
 export type EphemeralRenameOne = { from_path: string; to: string }
-
-export type Error = { code: ErrorCode; message: string }
-
-/**
- * TODO
- */
-export type ErrorCode = "BadRequest" | "Unauthorized" | "Forbidden" | "NotFound" | "Timeout" | "Conflict" | "PreconditionFailed" | "PayloadTooLarge" | "MethodNotSupported" | "ClientClosedRequest" | "InternalServerError"
 
 export type ExplorerItem = { type: "Path"; thumbnail: string[] | null; item: FilePathWithObject } | { type: "Object"; thumbnail: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; item: Location } | { type: "NonIndexedPath"; thumbnail: string[] | null; item: NonIndexedPathItem } | { type: "SpacedropPeer"; item: PeerMetadata } | { type: "Label"; thumbnails: string[][]; item: LabelWithObjects }
 
@@ -410,13 +404,13 @@ export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance
 
 export type LibraryName = string
 
-export type LibraryPreferences = { location?: { [key in string]: LocationSettings } }
+export type LibraryPreferences = { location?: { [key in string]: LocationSettings }; tag?: { [key in string]: TagSettings } }
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
 export type Listener2 = { id: string; name: string; addrs: string[] }
 
-export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null }
+export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; scan_state: number; instance_id: number | null }
 
 /**
  * `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
@@ -536,6 +530,8 @@ export type P2PDiscoveryState = "Everyone" | "ContactsOnly" | "Disabled"
 
 export type P2PEvent = { type: "PeerChange"; identity: RemoteIdentity; connection: ConnectionMethod; discovery: DiscoveryMethod; metadata: PeerMetadata } | { type: "PeerDelete"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedOut"; id: string } | { type: "SpacedropRejected"; id: string }
 
+export type PathFrom = "path"
+
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; device_model: HardwareModel | null; version: string | null }
 
 export type PlusCode = string
@@ -605,6 +601,8 @@ export type SystemLocations = { desktop: string | null; documents: string | null
 export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; is_hidden: boolean | null; date_created: string | null; date_modified: string | null }
 
 export type TagCreateArgs = { name: string; color: string }
+
+export type TagSettings = { explorer: ExplorerSettings<ObjectOrder> }
 
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
 

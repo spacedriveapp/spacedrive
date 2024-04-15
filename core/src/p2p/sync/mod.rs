@@ -69,7 +69,7 @@ mod originator {
 					instance: Uuid::new_v4(),
 					timestamp: sync::NTP64(0),
 					record_id: rmpv::Value::Nil,
-					model: "name".to_string(),
+					model: 0,
 					data: sd_sync::CRDTOperationData::Create,
 				}]);
 

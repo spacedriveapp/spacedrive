@@ -3,17 +3,26 @@ import { dirname, join as joinPath } from 'node:path'
 import { env } from 'node:process'
 import { fileURLToPath } from 'node:url'
 
-import { fetch, Headers, Agent } from 'undici'
+import { getSystemProxy } from 'os-proxy-config'
+import { fetch, Headers, Agent, ProxyAgent } from 'undici'
 
 const __debug = env.NODE_ENV === 'debug'
 const __offline = env.OFFLINE === 'true'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const cacheDir = joinPath(__dirname, '.tmp')
-const dispatcher = new Agent({
+
+/** @type {Agent.Options} */
+const agentOpts = {
 	allowH2: true,
 	autoSelectFamily: true,
-})
+}
+
+const { proxyUrl } = (await getSystemProxy()) ?? {}
+const dispatcher = proxyUrl
+	? new ProxyAgent({ ...agentOpts, uri: proxyUrl })
+	: new Agent(agentOpts)
+
 await fs.mkdir(cacheDir, { recursive: true, mode: 0o751 })
 
 /**

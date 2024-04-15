@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { ObjectOrder } from '@sd/client';
 import { Icon } from '~/components';
-import { useRouteTitle } from '~/hooks';
+import { useLocale, useRouteTitle } from '~/hooks';
 
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
@@ -16,6 +16,8 @@ import { TopBarPortal } from './TopBar/Portal';
 
 export function Component() {
 	useRouteTitle('Favorites');
+
+	const { t } = useLocale();
 
 	const explorerSettings = useExplorerSettings({
 		settings: useMemo(() => {
@@ -53,7 +55,7 @@ export function Component() {
 					center={<SearchBar defaultFilters={[defaultFilter]} />}
 					left={
 						<div className="flex flex-row items-center gap-2">
-							<span className="truncate text-sm font-medium">Favorites</span>
+							<span className="truncate text-sm font-medium">{t('favorites')}</span>
 						</div>
 					}
 					right={<DefaultTopBarOptions />}
@@ -71,7 +73,7 @@ export function Component() {
 				emptyNotice={
 					<EmptyNotice
 						icon={<Icon name="Heart" size={128} />}
-						message="No favorite items"
+						message={t('no_favorite_items')}
 					/>
 				}
 			/>

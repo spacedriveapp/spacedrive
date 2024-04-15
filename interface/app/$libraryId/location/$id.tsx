@@ -184,7 +184,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 					emptyNotice={
 						<EmptyNotice
 							icon={<Icon name="FolderNoSpace" size={128} />}
-							message={t('no_files_found_here')}
+							message={t('location_empty_notice_message')}
 						/>
 					}
 				/>
@@ -272,7 +272,7 @@ function useLocationExplorerSettings(location: Location) {
 			settings,
 			onSettingsChanged,
 			orderingKeys: filePathOrderingKeysSchema,
-			location
+			data: location
 		}),
 		preferences
 	};

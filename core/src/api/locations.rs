@@ -2,8 +2,8 @@ use crate::{
 	invalidate_query,
 	location::{
 		delete_location, find_location, indexer::OldIndexerJobInit, light_scan_location,
-		non_indexed::NonIndexedPathItem, relink_location, scan_location, scan_location_sub_path,
-		LocationCreateArgs, LocationError, LocationUpdateArgs,
+		relink_location, scan_location, scan_location_sub_path, LocationCreateArgs, LocationError,
+		LocationUpdateArgs, ScanState,
 	},
 	object::old_file_identifier::old_file_identifier_job::OldFileIdentifierJobInit,
 	old_job::StatefulJob,
@@ -17,6 +17,7 @@ use sd_core_prisma_helpers::{
 };
 
 use sd_cache::{CacheNode, Model, Normalise, NormalisedResult, NormalisedResults, Reference};
+use sd_indexer::NonIndexedPathItem;
 use sd_prisma::prisma::{file_path, indexer_rule, indexer_rules_in_location, location, SortOrder};
 
 use std::path::{Path, PathBuf};
@@ -311,7 +312,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				.mutation(|(node, library), args: LocationCreateArgs| async move {
 					if let Some(location) = args.create(&node, &library).await? {
 						let id = Some(location.id);
-						scan_location(&node, &library, location).await?;
+						scan_location(&node, &library, location, ScanState::Pending).await?;
 						invalidate_query!(library, "locations.list");
 						Ok(id)
 					} else {
@@ -349,7 +350,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				.mutation(|(node, library), args: LocationCreateArgs| async move {
 					if let Some(location) = args.add_library(&node, &library).await? {
 						let id = location.id;
-						scan_location(&node, &library, location).await?;
+						let location_scan_state = ScanState::try_from(location.scan_state)?;
+						scan_location(&node, &library, location, location_scan_state).await?;
 						invalidate_query!(library, "locations.list");
 						Ok(Some(id))
 					} else {
@@ -392,18 +394,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						// library.orphan_remover.invoke().await;
 					}
 
+					let location = find_location(&library, location_id)
+						.include(location_with_indexer_rules::include())
+						.exec()
+						.await?
+						.ok_or(LocationError::IdNotFound(location_id))?;
+
+					let location_scan_state = ScanState::try_from(location.scan_state)?;
+
 					// rescan location
-					scan_location(
-						&node,
-						&library,
-						find_location(&library, location_id)
-							.include(location_with_indexer_rules::include())
-							.exec()
-							.await?
-							.ok_or(LocationError::IdNotFound(location_id))?,
-					)
-					.await
-					.map_err(Into::into)
+					scan_location(&node, &library, location, location_scan_state)
+						.await
+						.map_err(Into::into)
 				},
 			)
 		})

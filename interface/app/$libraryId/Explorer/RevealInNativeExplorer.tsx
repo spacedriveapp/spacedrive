@@ -6,7 +6,7 @@ import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { NonEmptyArray } from '~/util';
 import { Platform, usePlatform } from '~/util/Platform';
 
-const lookup: Record<string, string> = {
+export const lookup: Record<string, string> = {
 	macOS: 'Finder',
 	windows: 'Explorer'
 };

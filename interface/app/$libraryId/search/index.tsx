@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { ObjectOrder } from '@sd/client';
 import { Icon } from '~/components';
-import { useRouteTitle } from '~/hooks';
+import { useLocale, useRouteTitle } from '~/hooks';
 
 import { SearchContextProvider, SearchOptions, useSearch } from '.';
 import Explorer from '../Explorer';
@@ -29,6 +29,8 @@ export function Component() {
 		orderingKeys: objectOrderingKeysSchema
 	});
 
+	const { t } = useLocale();
+
 	const search = useSearchFromSearchParams();
 
 	const items = useSearchExplorerQuery({
@@ -52,7 +54,7 @@ export function Component() {
 					center={<SearchBar />}
 					left={
 						<div className="flex flex-row items-center gap-2">
-							<span className="truncate text-sm font-medium">Search</span>
+							<span className="truncate text-sm font-medium">{t('search')}</span>
 						</div>
 					}
 					right={<DefaultTopBarOptions />}
@@ -70,7 +72,7 @@ export function Component() {
 				emptyNotice={
 					<EmptyNotice
 						icon={<Icon name="Search" size={128} />}
-						message="No items found"
+						message={t('no_items_found')}
 					/>
 				}
 			/>

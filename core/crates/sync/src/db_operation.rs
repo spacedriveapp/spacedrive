@@ -26,7 +26,7 @@ impl crdt_include::Data {
 			instance: self.instance(),
 			timestamp: self.timestamp(),
 			record_id: rmp_serde::from_slice(&self.record_id).unwrap(),
-			model: self.model,
+			model: self.model as u16,
 			data: rmp_serde::from_slice(&self.data).unwrap(),
 		}
 	}
@@ -46,7 +46,7 @@ impl cloud_crdt_include::Data {
 			instance: self.instance(),
 			timestamp: self.timestamp(),
 			record_id: rmp_serde::from_slice(&self.record_id).unwrap(),
-			model: self.model,
+			model: self.model as u16,
 			data: serde_json::from_slice(&self.data).unwrap(),
 		}
 	}
@@ -67,7 +67,7 @@ fn crdt_op_db(op: &CRDTOperation) -> crdt_operation::Create {
 		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
 		kind: op.kind().to_string(),
 		data: to_vec(&op.data).unwrap(),
-		model: op.model.to_string(),
+		model: op.model as i32,
 		record_id: rmp_serde::to_vec(&op.record_id).unwrap(),
 		_params: vec![],
 	}

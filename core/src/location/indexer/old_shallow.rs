@@ -81,7 +81,6 @@ pub async fn old_shallow(
 		walk_single_dir(
 			&to_walk_path,
 			&indexer_rules,
-			|_, _| {},
 			file_paths_db_fetcher_fn!(&db),
 			to_remove_db_fetcher_fn!(location_id, &db),
 			iso_file_path_factory(location_id, location_path),
@@ -104,7 +103,6 @@ pub async fn old_shallow(
 
 	errors.into_iter().for_each(|e| error!("{e}"));
 
-	// TODO pass these uuids to sync system
 	remove_non_existing_file_paths(to_remove, &db, sync).await?;
 
 	let mut new_directories_to_scan = HashSet::new();

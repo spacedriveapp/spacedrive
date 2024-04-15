@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import { auth } from '@sd/client';
 import { Button, ButtonProps } from '@sd/ui';
+import { useLocale } from '~/hooks';
 
 import { usePlatform } from '..';
 
@@ -11,6 +12,8 @@ export function LoginButton({
 }: { onLogin?(): void; cancelPosition?: 'bottom' | 'left' } & ButtonProps) {
 	const authState = auth.useStateSnapshot();
 	const platform = usePlatform();
+
+	const { t } = useLocale();
 
 	return (
 		<div
@@ -28,7 +31,7 @@ export function LoginButton({
 				}}
 				{...props}
 			>
-				{authState.status !== 'loggingIn' ? children || 'Log in' : 'Logging in...'}
+				{authState.status !== 'loggingIn' ? children || t('log_in') : t('logging_in')}
 			</Button>
 			{authState.status === 'loggingIn' && (
 				<button
@@ -38,7 +41,7 @@ export function LoginButton({
 					}}
 					className="text-sm text-ink-faint"
 				>
-					Cancel
+					{t('cancel')}
 				</button>
 			)}
 		</div>
