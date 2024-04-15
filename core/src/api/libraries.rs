@@ -7,11 +7,13 @@ use crate::{
 };
 
 use futures::StreamExt;
+use prisma_client_rust::raw;
 use sd_cache::{Model, Normalise, NormalisedResult, NormalisedResults};
 use sd_file_ext::kind::ObjectKind;
 use sd_p2p::RemoteIdentity;
 use sd_prisma::prisma::{indexer_rule, object, statistics};
 use tokio_stream::wrappers::IntervalStream;
+use tracing::{info, warn};
 
 use std::{
 	collections::{hash_map::Entry, HashMap},
@@ -382,6 +384,27 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				.mutation(|(_, library), name: String| async move {
 					library.actors.stop(&name).await;
 
+					Ok(())
+				}),
+		)
+		.procedure(
+			"vaccumDb",
+			R.with2(library())
+				.mutation(|(_, library), _: ()| async move {
+					// We retry a few times because if the DB is being actively used, the vacuum will fail
+					for _ in 0..5 {
+						match library.db._execute_raw(raw!("VACUUM;")).exec().await {
+							Ok(_) => break,
+							Err(err) => {
+								warn!(
+									"Failed to vacuum DB for library '{}', retrying...: {err:#?}",
+									library.id
+								);
+								tokio::time::sleep(Duration::from_millis(500)).await;
+							}
+						}
+					}
+					info!("Successfully vacuumed DB for library '{}'", library.id);
 					Ok(())
 				}),
 		)
