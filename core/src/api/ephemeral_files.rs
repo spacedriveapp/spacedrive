@@ -27,6 +27,7 @@ use specta::Type;
 use tokio::{fs, io};
 use tokio_stream::{wrappers::ReadDirStream, StreamExt};
 use tracing::{error, warn};
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 use trash;
 
 use super::{
@@ -151,11 +152,19 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("moveToTrash", {
 			R.with2(library())
 				.mutation(|(_, library), paths: Vec<PathBuf>| async move {
+					if cfg!(target_os = "ios") || cfg!(target_os = "android") {
+						return Err(rspc::Error::new(
+							ErrorCode::MethodNotSupported,
+							"Moving to trash is not supported on this platform".to_string(),
+						));
+					}
+
 					paths
 						.into_iter()
 						.map(|path| async move {
 							match fs::metadata(&path).await {
 								Ok(_) => {
+									#[cfg(not(any(target_os = "ios", target_os = "android")))]
 									trash::delete(&path).unwrap();
 
 									Ok(())
