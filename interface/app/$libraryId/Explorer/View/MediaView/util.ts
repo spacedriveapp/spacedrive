@@ -36,11 +36,8 @@ export function getDate(item: ExplorerItem, orderBy: OrderingKey) {
 			return filePath.dateAccessed;
 		}
 
-		// TODO: Uncomment when we add sorting by date taken
-		// case 'object.mediaData.epochTime': {
-		// 	firstFilePathDate = firstFilePath.dateTaken;
-		// 	lastFilePathDate = lastFilePath.dateTaken;
-		// 	break;
-		// }
+		case 'object.mediaData.epochTime': {
+			return filePath.dateTaken;
+		}
 	}
 }
