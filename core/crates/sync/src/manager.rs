@@ -80,17 +80,23 @@ impl Manager {
 	pub async fn write_ops<'item, I: prisma_client_rust::BatchItem<'item>>(
 		&self,
 		tx: &PrismaClient,
-		(_ops, queries): (Vec<CRDTOperation>, I),
+		(ops, queries): (Vec<CRDTOperation>, I),
 	) -> prisma_client_rust::Result<<I as prisma_client_rust::BatchItemParent>::ReturnValue> {
 		let ret = if self.emit_messages_flag.load(atomic::Ordering::Relaxed) {
 			let (res, _) = tx
 				._batch((
 					queries,
-					_ops.iter()
+					ops.iter()
 						.map(|op| crdt_op_db(op).to_query(tx))
 						.collect::<Vec<_>>(),
 				))
 				.await?;
+
+			self.shared
+				.timestamps
+				.write()
+				.await
+				.insert(self.instance, ops.last().unwrap().timestamp);
 
 			self.tx.send(SyncMessage::Created).ok();
 
@@ -118,6 +124,12 @@ impl Manager {
 		} else {
 			tx._batch(vec![query]).await?.remove(0)
 		};
+
+		self.shared
+			.timestamps
+			.write()
+			.await
+			.insert(self.instance, op.timestamp);
 
 		Ok(ret)
 	}

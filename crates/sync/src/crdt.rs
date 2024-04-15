@@ -66,9 +66,9 @@ impl CRDTOperation {
 impl Debug for CRDTOperation {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("CRDTOperation")
-			.field("instance", &self.instance.to_string())
-			.field("timestamp", &self.timestamp.to_string())
-			// .field("typ", &self.typ)
+			.field("data", &self.data)
+			.field("model", &self.model)
+			.field("record_id", &self.record_id.to_string())
 			.finish()
 	}
 }
