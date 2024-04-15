@@ -37,7 +37,7 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 		let model_name_snake = snake_ident(model.name());
 
 		let match_arms = match sync_type.as_ref()? {
-			ModelSyncType::Shared { id, .. } => {
+			ModelSyncType::Shared { id, model_id } => {
 				let (get_id, equals_value, id_name_snake, create_id) = match id.refine() {
 					RefinedFieldWalker::Relation(rel) => {
 						let scalar_field = rel.fields().unwrap().next().unwrap();
@@ -77,12 +77,14 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 					#get_id
 
 					match data {
-						sd_sync::CRDTOperationData::Create => {
+						sd_sync::CRDTOperationData::Create(data) => {
+							let data = data.into_iter().map(|field, value| {}).collect();
+
 							db.#model_name_snake()
 								.upsert(
 									prisma::#model_name_snake::#id_name_snake::equals(#equals_value),
-									prisma::#model_name_snake::create(#create_id, vec![]),
-									vec![]
+									prisma::#model_name_snake::create(#create_id, data),
+									data
 								)
 								.exec()
 								.await?;
@@ -106,6 +108,15 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 									.delete(prisma::#model_name_snake::#id_name_snake::equals(#equals_value))
 									.exec()
 									.await?;
+
+							db.crdt_operation()
+								.delete_many(vec![
+									prisma::crdt_operation::model::equals(#model_id as i32),
+									prisma::crdt_operation::record_id::equals(rmp_serde::to_vec(&id).unwrap()),
+									prisma::crdt_operation::kind::equals(sd_sync::OperationKind::Create.to_string())
+								])
+								.exec()
+								.await?;
 						},
 					}
 				}
@@ -171,7 +182,7 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 					let id = prisma::#model_name_snake::#compound_id(group.id, item.id);
 
 					match data {
-						sd_sync::CRDTOperationData::Create => {
+						sd_sync::CRDTOperationData::Create(_) => {
 							db.#model_name_snake()
 								.upsert(
 									id,

@@ -162,7 +162,7 @@ export type BuildInfo = { version: string; commit: string }
 
 export type CRDTOperation = { instance: string; timestamp: number; model: number; record_id: JsonValue; data: CRDTOperationData }
 
-export type CRDTOperationData = "c" | { u: { field: string; value: JsonValue } } | "d"
+export type CRDTOperationData = { c: { [key in string]: JsonValue } } | { u: { field: string; value: JsonValue } } | "d"
 
 export type CacheNode = { __type: string; __id: string; "#node": any }
 

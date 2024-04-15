@@ -87,8 +87,10 @@ impl SearchFilterArgs {
 		self,
 		db: &PrismaClient,
 	) -> Result<Vec<prisma::object::WhereParam>, rspc::Error> {
-		self.into_params(db, |v| vec![prisma::object::file_paths::some(v)], |v| v)
-			.await
+		dbg!(
+			self.into_params(db, |v| vec![prisma::object::file_paths::some(v)], |v| v)
+				.await
+		)
 	}
 }
 
@@ -312,7 +314,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						params
 					};
 
-					let mut query = db.file_path().find_many(params);
+					let mut query = db.file_path().find_many(dbg!(params));
 
 					if let Some(take) = take {
 						query = query.take(take as i64);

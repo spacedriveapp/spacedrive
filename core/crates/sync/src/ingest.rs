@@ -163,7 +163,7 @@ impl Actor {
 	// where the magic happens
 	async fn receive_crdt_operation(
 		&mut self,
-		op: CRDTOperation,
+		mut op: CRDTOperation,
 	) -> prisma_client_rust::Result<()> {
 		let db = &self.db;
 
@@ -182,8 +182,9 @@ impl Actor {
 
 		// resolve conflicts
 		// this can be outside the transaction as there's only ever one ingester
-		match op.kind() {
-			sd_sync::OperationKind::Create => {
+		match &mut op.data {
+			// don't apply Create operations if the record has been deleted
+			sd_sync::CRDTOperationData::Create(_) => {
 				let delete = db
 					.crdt_operation()
 					.find_first(vec![
@@ -201,7 +202,8 @@ impl Actor {
 					return Ok(());
 				}
 			}
-			sd_sync::OperationKind::Update(field) => {
+			// don't apply Update operations if the record hasn't been created, or a newer Update for the same field has been applied
+			sd_sync::CRDTOperationData::Update { field, .. } => {
 				let (create, update) = db
 					._batch((
 						db.crdt_operation()
@@ -228,11 +230,14 @@ impl Actor {
 					))
 					.await?;
 
+				// we don't care about the contents of the create operation, just that it exists
+				// - all update operations come after creates, no check is necessary
 				if create.is_none() || update.is_some() {
 					return Ok(());
 				}
 			}
-			_ => {}
+			// deletes are the be all and end all, no need to check anything
+			sd_sync::CRDTOperationData::Delete => {}
 		};
 
 		// we don't want these writes to not apply together!
@@ -255,7 +260,6 @@ impl Actor {
 		// update the stored timestamp for this instance - will be derived from the crdt operations table on restart
 		let new_ts = NTP64::max(timestamp.unwrap_or_default(), op_timestamp);
 		self.timestamps.write().await.insert(op_instance, new_ts);
-		// dbg!(self.instance, op_instance);
 
 		self.io.req_tx.send(Request::Ingested).await.ok();
 
