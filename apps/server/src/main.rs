@@ -29,19 +29,20 @@ async fn basic_auth<B>(
 	request: Request<B>,
 	next: Next<B>,
 ) -> Response {
-	let (mut parts, body) = request.into_parts();
-	let Ok(TypedHeader(Authorization(hdr))) =
-		TypedHeader::<Authorization<Basic>>::from_request_parts(&mut parts, &()).await
-	else {
-		return Response::builder()
-			.status(401)
-			.header("WWW-Authenticate", "Basic realm=\"Spacedrive\"")
-			.body("Unauthorized".into_response().into_body())
-			.expect("hardcoded response will be valid");
-	};
-	let request = Request::from_parts(parts, body);
+	let request = if state.auth.len() != 0 {
+		let (mut parts, body) = request.into_parts();
 
-	if state.auth.len() != 0 {
+		let Ok(TypedHeader(Authorization(hdr))) =
+			TypedHeader::<Authorization<Basic>>::from_request_parts(&mut parts, &()).await
+		else {
+			return Response::builder()
+				.status(401)
+				.header("WWW-Authenticate", "Basic realm=\"Spacedrive\"")
+				.body("Unauthorized".into_response().into_body())
+				.expect("hardcoded response will be valid");
+		};
+		let request = Request::from_parts(parts, body);
+
 		if state
 			.auth
 			.get(hdr.username())
@@ -54,7 +55,11 @@ async fn basic_auth<B>(
 				.body("Unauthorized".into_response().into_body())
 				.expect("hardcoded response will be valid");
 		}
-	}
+
+		request
+	} else {
+		request
+	};
 
 	next.run(request).await
 }
