@@ -75,7 +75,10 @@ export const useKeySelection = (grid: Grid, options: Options = { scrollToEnd: fa
 	}, [explorer.items]);
 
 	const updateFirstActiveItem = useCallback(
-		(item: ExplorerItem | null, options: UpdateActiveItemOptions = {}) => {
+		(
+			item: ExplorerItem | null,
+			options: Omit<UpdateActiveItemOptions, 'updateFirstItem'> = {}
+		) => {
 			if (explorerOperatingSystem !== 'windows') return;
 
 			firstActiveItem.current = item;
