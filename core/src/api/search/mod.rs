@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf, process::Command};
 
 use crate::{
 	api::{locations::ExplorerItem, utils::library},
@@ -28,7 +28,7 @@ use futures::StreamExt;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
 pub mod file_path;
 pub mod media_data;
@@ -147,6 +147,56 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					// OpenDAL is specific about paths (and the rest of Spacedrive is not)
 					if !path.ends_with('/') {
 						path.push('/');
+					}
+
+					#[cfg(target_os = "macos")]
+					if path == "/.Trash/" {
+						info!("[Debug] Opening Trash Folder on macOS");
+
+						let full_path = format!("{}/.Trash/", std::env::var("HOME").unwrap());
+
+						Command::new("open")
+							.arg(full_path)
+							.spawn()
+							.map_err(|err| {
+								rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
+							})?
+							.wait()
+							.map_err(|err| {
+								rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
+							})?;
+					}
+
+					#[cfg(target_os = "windows")]
+					if path == "/$Recycle.Bin/" {
+						info!("[Debug] Opening Recycle Bin on Windows");
+
+						Command::new("explorer")
+							.arg("shell:RecycleBinFolder")
+							.spawn()
+							.map_err(|err| {
+								rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
+							})?
+							.wait()
+							.map_err(|err| {
+								rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
+							})?;
+					}
+
+					#[cfg(target_os = "linux")]
+					if path == "/.Trash/" {
+						info!("[Debug] Opening Trash Folder on Linux");
+
+						Command::new("xdg-open")
+							.arg("~/.local/share/Trash/")
+							.spawn()
+							.map_err(|err| {
+								rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
+							})?
+							.wait()
+							.map_err(|err| {
+								rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
+							})?;
 					}
 
 					let stream =

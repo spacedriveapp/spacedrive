@@ -4,7 +4,7 @@ import { PropsWithChildren, useMemo } from 'react';
 import { useBridgeQuery, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { Button, toast, tw } from '@sd/ui';
 import { Icon, IconName } from '~/components';
-import { useLocale } from '~/hooks';
+import { useLocale, useOperatingSystem } from '~/hooks';
 import { useHomeDir } from '~/hooks/useHomeDir';
 
 import { useExplorerDroppable } from '../../../../Explorer/useExplorerDroppable';
@@ -76,6 +76,10 @@ export default function LocalSection() {
 		)
 	);
 
+	const os = useOperatingSystem();
+
+	const trashPath = ['macOS', 'linux'].includes(os) ? '/.Trash/' : '/$Recycle.Bin/';
+
 	return (
 		<Section name={t('local')}>
 			<SeeMore>
@@ -93,6 +97,13 @@ export default function LocalSection() {
 						<Name>{t('home')}</Name>
 					</EphemeralLocation>
 				)}
+				<EphemeralLocation
+					navigateTo={`ephemeral/0?path=${trashPath}`}
+					path={'Trash'}
+				>
+					<SidebarIcon name="Trash" />
+					<Name>{t('trash')}</Name>
+				</EphemeralLocation>
 
 				{mountPoints.map((item) => {
 					if (!item) return;
