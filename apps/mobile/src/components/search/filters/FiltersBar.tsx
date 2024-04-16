@@ -37,7 +37,7 @@ const FiltersBar = () => {
 
 	return (
 		<View
-			style={tw`h-16 w-full flex-row items-center gap-4 border-t border-app-cardborder bg-app-header px-5 py-3`}
+			style={tw`flex-row items-center w-full h-16 gap-4 px-5 py-3 border-t border-app-cardborder bg-app-header`}
 		>
 			<Button
 				onPress={() => navigation.navigate('Filters')}
@@ -75,6 +75,10 @@ const FilterItem = ({ filter, value }: FilterItemProps) => {
 	const boxStyle = tw`w-auto flex-row items-center gap-1.5 border border-app-cardborder bg-app-card p-2`;
 	const filterCapital = filter.charAt(0).toUpperCase() + filter.slice(1);
 	const searchStore = useSearchStore();
+
+	// if the filter value is false or empty, return null i.e "Hidden"
+	if (!value) return null;
+
 	return (
 		<View style={tw`flex-row gap-0.5`}>
 			<View style={twStyle(boxStyle, 'rounded-bl-md rounded-tl-md')}>

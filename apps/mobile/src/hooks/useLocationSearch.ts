@@ -1,6 +1,12 @@
 import { useEffect } from 'react';
 import { getSearchStore, SearchFilters, useSearchStore } from '~/stores/searchStore';
 
+/**
+ * This hook merges the selected filters from Filters page in order
+ * to call the "saved.search.create" mutation query
+ * the data structure has been designed to match the desktop app
+ */
+
 export const useLocationSearch = () => {
 	const searchStore = useSearchStore();
 
@@ -10,7 +16,7 @@ export const useLocationSearch = () => {
 		return data.map((item: any) => (keyValue === 'id' ? item.id : item));
 	}
 
-	// this is a helper function createing the filter object for the search query
+	// this is a helper function creating the filter object for the search query
 	function createFilter(
 		filter: SearchFilters,
 		arg: 'filePath' | 'object',
@@ -33,34 +39,35 @@ export const useLocationSearch = () => {
 		const object = ['tags', 'kind'];
 		return Object.entries(searchStore.filters)
 			.map(([key, value]) => {
+				const searchFilterKey = key as SearchFilters;
 				if (Array.isArray(value)) {
 					if (value.length === 0 || value[0] === '') return;
 				}
-				if (filePath.includes(key as SearchFilters)) {
-					if (key === 'name' || key === 'extension') {
+				if (filePath.includes(searchFilterKey)) {
+					if (searchFilterKey === 'name' || searchFilterKey === 'extension') {
 						return createFilter(
-							key as SearchFilters,
+							searchFilterKey,
 							'filePath',
 							'contains',
 							getDataFromFilter(value, 'none')
 						);
-					} else if (key === 'hidden') {
+					} else if (searchFilterKey === 'hidden') {
 						return {
 							filePath: {
-								[key]: value
+								[searchFilterKey]: value
 							}
 						};
 					} else {
 						return createFilter(
-							key as SearchFilters,
+							searchFilterKey,
 							'filePath',
 							'in',
 							getDataFromFilter(value, 'id')
 						);
 					}
-				} else if (object.includes(key as SearchFilters)) {
+				} else if (object.includes(searchFilterKey)) {
 					return createFilter(
-						key as SearchFilters,
+						searchFilterKey,
 						'object',
 						'in',
 						getDataFromFilter(value, 'id')
@@ -69,8 +76,6 @@ export const useLocationSearch = () => {
 			})
 			.filter((filter) => filter !== undefined);
 	};
-
-	console.log(getSearchStore().mergedFilters, 'merged filters');
 
 	useEffect(() => {
 		getSearchStore().mergedFilters = mergedFilters();

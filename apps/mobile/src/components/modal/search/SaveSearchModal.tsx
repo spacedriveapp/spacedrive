@@ -1,3 +1,4 @@
+import { useNavigation } from '@react-navigation/native';
 import { forwardRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import { useLibraryMutation } from '@sd/client';
@@ -7,8 +8,9 @@ import { ModalInput } from '~/components/primitive/Input';
 import { tw } from '~/lib/tailwind';
 import { useSearchStore } from '~/stores/searchStore';
 
-const SaveModal = forwardRef<ModalRef>((_, ref) => {
+const SaveSearchModal = forwardRef<ModalRef>((_, ref) => {
 	const [searchName, setSearchName] = useState('');
+	const navigation = useNavigation();
 	const searchStore = useSearchStore();
 	const saveSearch = useLibraryMutation('search.saved.create');
 
@@ -26,13 +28,22 @@ const SaveModal = forwardRef<ModalRef>((_, ref) => {
 					style={tw`mt-2`}
 					variant="accent"
 					onPress={() => {
-						saveSearch.mutate({
-							name: searchName,
-							filters: JSON.stringify(searchStore.mergedFilters),
-							description: null,
-							icon: null,
-							search: null
-						});
+						saveSearch.mutate(
+							{
+								name: searchName,
+								filters: JSON.stringify(searchStore.mergedFilters),
+								description: null,
+								icon: null,
+								search: null
+							},
+							{
+								onSuccess: () => {
+									navigation.navigate('SearchStack', {
+										screen: 'Search'
+									});
+								}
+							}
+						);
 						setSearchName('');
 					}}
 				>
@@ -43,4 +54,4 @@ const SaveModal = forwardRef<ModalRef>((_, ref) => {
 	);
 });
 
-export default SaveModal;
+export default SaveSearchModal;

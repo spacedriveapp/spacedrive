@@ -1,15 +1,26 @@
+import { useNavigation } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { MotiPressable } from 'moti/interactions';
-import { FlatList, Text, View } from 'react-native';
+import { X } from 'phosphor-react-native';
+import { FlatList, Pressable, Text, View } from 'react-native';
+import {
+	SavedSearch as ISavedSearch,
+	useLibraryMutation,
+	useLibraryQuery,
+	useRspcLibraryContext
+} from '@sd/client';
 import { Icon } from '~/components/icons/Icon';
 import Card from '~/components/layout/Card';
 import Fade from '~/components/layout/Fade';
 import SectionTitle from '~/components/layout/SectionTitle';
 import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';
 import DottedDivider from '~/components/primitive/DottedDivider';
+import { useSearchOptions } from '~/hooks/useSearchOptions';
 import { tw } from '~/lib/tailwind';
+import { getSearchStore } from '~/stores/searchStore';
 
 const SavedSearches = () => {
+	const { data: savedSearches } = useLibraryQuery(['search.saved.list']);
 	return (
 		<Fade color="black" width={30} height="100%">
 			<MotiView
@@ -24,15 +35,15 @@ const SavedSearches = () => {
 				/>
 				<VirtualizedListWrapper contentContainerStyle={tw`px-6`} horizontal>
 					<FlatList
-						data={Array.from({ length: 6 })}
-						renderItem={() => <SavedSearch />}
+						data={savedSearches}
+						renderItem={({ item }) => <SavedSearch search={item} />}
 						keyExtractor={(_, index) => index.toString()}
 						numColumns={Math.ceil(6 / 2)}
 						scrollEnabled={false}
 						contentContainerStyle={tw`w-full`}
 						showsHorizontalScrollIndicator={false}
 						style={tw`flex-row`}
-						ItemSeparatorComponent={() => <View style={tw`h-2 w-2`} />}
+						ItemSeparatorComponent={() => <View style={tw`w-2 h-2`} />}
 					/>
 				</VirtualizedListWrapper>
 				<DottedDivider style={'mt-6'} />
@@ -41,16 +52,41 @@ const SavedSearches = () => {
 	);
 };
 
-const SavedSearch = () => {
+interface Props {
+	search: ISavedSearch;
+}
+
+const SavedSearch = ({ search }: Props) => {
+	const navigation = useNavigation();
+	const dataForSearch = useSearchOptions(search);
+	const deleteSearch = useLibraryMutation('search.saved.delete');
+	const rspsc = useRspcLibraryContext();
 	return (
 		<MotiPressable
 			from={{ opacity: 0, translateY: 20 }}
 			animate={{ opacity: 1, translateY: 0 }}
 			transition={{ type: 'timing', duration: 300 }}
+			onPress={() => {
+				getSearchStore().appliedFilters = dataForSearch;
+				navigation.navigate('SearchStack', {
+					screen: 'Search'
+				});
+			}}
 		>
-			<Card style={tw`mr-2 w-auto flex-row gap-2 p-2.5`}>
+			<Card style={tw`mr-2 w-auto flex-row gap-2 p-2.5 items-center`}>
+				<Pressable
+					onPress={async () =>
+						await deleteSearch.mutateAsync(search.id, {
+							onSuccess: () => {
+								rspsc.queryClient.invalidateQueries(['search.saved.list']);
+							}
+						})
+					}
+				>
+					<X size={14} color={tw.color('text-ink-dull')} />
+				</Pressable>
 				<Icon name="Folder" size={20} />
-				<Text style={tw`text-sm font-medium text-ink`}>Saved search</Text>
+				<Text style={tw`text-sm font-medium text-ink`}>{search.name}</Text>
 			</Card>
 		</MotiPressable>
 	);
