@@ -8303,6 +8303,7 @@ version = "0.1.0"
 dependencies = [
  "async-channel",
  "async-trait",
+ "blake3",
  "chrono",
  "futures",
  "futures-concurrency",
@@ -8317,6 +8318,7 @@ dependencies = [
  "sd-core-indexer-rules",
  "sd-core-prisma-helpers",
  "sd-core-sync",
+ "sd-file-ext",
  "sd-prisma",
  "sd-sync",
  "sd-task-system",
@@ -8324,6 +8326,7 @@ dependencies = [
  "serde",
  "serde_json",
  "specta",
+ "static_assertions",
  "strum",
  "tempfile",
  "thiserror",

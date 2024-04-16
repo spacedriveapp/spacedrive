@@ -58,6 +58,12 @@ pub enum TaskOutput {
 	Empty,
 }
 
+impl From<()> for TaskOutput {
+	fn from((): ()) -> Self {
+		Self::Empty
+	}
+}
+
 /// An enum representing all possible outcomes for a task.
 #[derive(Debug)]
 pub enum TaskStatus<E: RunError> {

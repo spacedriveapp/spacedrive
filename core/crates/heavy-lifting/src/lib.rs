@@ -33,9 +33,11 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
 
+pub mod file_identifier;
 pub mod indexer;
 pub mod job_system;
 
+use file_identifier::NonCriticalFileIdentifierError;
 use indexer::{IndexerError, NonCriticalIndexerError};
 
 pub use job_system::{
@@ -68,4 +70,6 @@ pub enum NonCriticalJobError {
 	// TODO: Add variants as needed
 	#[error(transparent)]
 	Indexer(#[from] NonCriticalIndexerError),
+	#[error(transparent)]
+	FileIdentifier(#[from] NonCriticalFileIdentifierError),
 }
