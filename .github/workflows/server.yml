@@ -38,9 +38,10 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
+          sudo mkdir -p /usr/local/lib/podman
           sudo wget -O- 'https://github.com/containers/netavark/releases/latest/download/netavark.gz' \
-          | gunzip | sudo dd status=none of=/usr/bin/netavark
-          sudo chmod +x /usr/bin/netavark
+          | gunzip | sudo dd status=none of=/usr/local/lib/podman/netavark
+          sudo chmod +x /usr/local/lib/podman/netavark
 
       - name: Determine image name & tag
         id: image_info
