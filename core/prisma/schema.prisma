@@ -282,7 +282,7 @@ model MediaInfo {
   id Int @id @default(autoincrement())
 
   // Internal FFmpeg properties
-  format     String?
+  formats    String?
   duration   BigInt?
   start_time BigInt?
   bitrate    BigInt?

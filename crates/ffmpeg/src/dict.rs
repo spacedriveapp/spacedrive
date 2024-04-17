@@ -73,19 +73,18 @@ impl<'a> Iterator for FFmpegDictIter<'a> {
 	type Item = (String, String);
 
 	fn next(&mut self) -> Option<(String, String)> {
-		while unsafe {
+		unsafe {
 			self.prev = av_dict_iterate(self.dict, self.prev);
-			self.prev
-		} != ptr::null()
-		{
-			let key = unsafe { CStr::from_ptr((*self.prev).key) };
-			let value = unsafe { CStr::from_ptr((*self.prev).value) };
-			return Some((
-				key.to_string_lossy().into_owned(),
-				value.to_string_lossy().into_owned(),
-			));
+		}
+		if self.prev.is_null() {
+			return None;
 		}
 
-		None
+		let key = unsafe { CStr::from_ptr((*self.prev).key) };
+		let value = unsafe { CStr::from_ptr((*self.prev).value) };
+		return Some((
+			key.to_string_lossy().into_owned(),
+			value.to_string_lossy().into_owned(),
+		));
 	}
 }

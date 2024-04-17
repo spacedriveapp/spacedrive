@@ -10,6 +10,7 @@ mod dict;
 mod error;
 mod film_strip;
 mod format_ctx;
+mod model;
 mod movie_decoder;
 mod probe;
 mod thumbnailer;

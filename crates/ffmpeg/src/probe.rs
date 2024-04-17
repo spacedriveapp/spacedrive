@@ -2,9 +2,12 @@ use crate::{
 	dict::FFmpegDict,
 	error::Error,
 	format_ctx::FFmpegFormatContext,
+	model::MediaInfo,
 	utils::{from_path, CSTRING_ERROR_MSG},
 };
+
 use ffmpeg_sys_next::{av_log_set_level, AV_LOG_FATAL};
+
 use std::{ffi::CString, path::Path};
 
 pub fn probe(filename: impl AsRef<Path>) -> Result<(), Error> {
@@ -15,7 +18,7 @@ pub fn probe(filename: impl AsRef<Path>) -> Result<(), Error> {
 
 	// Dictionary to store format options
 	let mut format_opts = FFmpegDict::new(None);
-	// Some MPEGTS specific option (copied and pasted from ffprobe)
+	// Some MPEGTS specific option (copied from ffprobe)
 	let scan_all_pmts = CString::new("scan_all_pmts").expect(CSTRING_ERROR_MSG);
 	format_opts.set(
 		scan_all_pmts.to_owned(),
@@ -28,8 +31,18 @@ pub fn probe(filename: impl AsRef<Path>) -> Result<(), Error> {
 	// Reset MPEGTS specific option
 	format_opts.reset(scan_all_pmts)?;
 
-	// Read packets of a media file to get stream information.
+	// Read packets of media file to get stream information.
 	fmt_ctx.find_stream_info()?;
+
+	let media_info = MediaInfo {
+		formats: fmt_ctx.formats(),
+		duration: "" , // Option<i64>
+		start_time: "" , // Option<i64>
+		bitrate: "" , // Option<i64>
+		chapters: "" , // Vec<MediaChapter>
+		programs: "" , // Vec<MediaProgram>
+		metadata: fmt_ctx.metadata(), // MediaMetadata
+	 };
 
 	Ok(())
 }

@@ -8492,6 +8492,7 @@ dependencies = [
 name = "sd-ffmpeg"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "ffmpeg-sys-next",
  "libc",
  "tempfile",
