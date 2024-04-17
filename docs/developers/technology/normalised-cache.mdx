@@ -3,16 +3,35 @@ title: Normalised Cache
 index: 12
 ---
 
+# Normalised Cache
+
 We use a normalised cache for our frontend to ensure the UI will always contain consistent data.
 
-<Notice
-	type="note"
-	text="If you've used a normalised cache before be aware we do not currently merge cache nodes due to it causing issues with our data modelling."
-/>
+## What this system does?
+
+By normalising the data it's impossible to get "state tearing".
+
+Each time `useNodes` or `cache.withNodes` is called all `useCache` hooks will reexecute if they depend on a node that has changed.
+
+This means the queries will always render the newest version of the model.
+
+## Terminology
+
+ - `CacheNode`: A node in the cache - this contains the data and can be identified by the model's name and unique ID within the data (eg. database primary key).
+ - `Reference<T>`: A reference to a node in the cache - This contains the model's name and unique ID.
+
+## High level overview
+
+We turn the data on the backend into a list of `CacheNode`'s and a list of `Reference<T>`'s and then return it to the frontend.
+
+We insert the `CacheNode`'s into a global cache on the frontend and then use the `Reference<T>`'s to reconstruct the data by looking up the `CacheNode`'s.
+
+When the cache changes (from another query, invalidation, etc), we can reconstruct *all* queries using their `Reference<T>`'s to reflect the updated data.
+
 
 ## Rust usage
 
-The Rust helpers are defined [here](https://github.com/spacedriveapp/spacedrive/blob/main/crates/cache/src/lib.rs).
+The Rust helpers are defined [here](https://github.com/spacedriveapp/spacedrive/blob/main/crates/cache/src/lib.rs) and can be used like the following:
 
 ```rust
 pub struct Demo {
@@ -32,7 +51,7 @@ let data: Vec<Demo> = vec![];
 // We normalised the data but splitting it into a group of reference and a group of `CacheNode`'s.
 let (nodes, items) = libraries.normalise(|i| i.id);
 
-// `NormalisedResults` or `NormalisedResult` are optional wrapped types to hold a one or multiple items and their cache nodes.
+// `NormalisedResults` or `NormalisedResult` are optional wrapper types to hold a one or multiple items and their cache nodes.
 // You don't have to use them, but they save declaring a bunch of identical structs.
 //
 // Alternatively add `nodes: Vec<CacheNode>` and `items: Vec<Reference<T>>` to your existing return type.
@@ -62,7 +81,7 @@ console.log(data);
 
 ### Vanilla JS
 
-These API's are really useful for special cases. In general aim to avoid the React API's unless you have a good reason.
+These API's are really useful for special cases. In general aim to use the React API's unless you have a good reason for these.
 
 ```ts
 const cache = useNormalisedCache(); // Get the cache within the react context
@@ -75,7 +94,9 @@ const data = ...;
 cache.withNodes(data.nodes)
 
 // This will reconstruct the data from the cache
+//
 // *WARNING* This is not reactive. So any changes to the nodes will not be reflected.
+// Using this is fine if you need to quickly check the data but don't hold onto it.
 const data = useCache(query.data?.item);
 
 console.log(data);
@@ -85,9 +106,9 @@ console.log(data);
 
 ### Why `useNodes` and `useCache`?
 
-This is primarily for flexability in the data you can return from the backend. This system doesn't prescribe the data it returned as `{ references: ..., nodes: ... }`, you can do whatever you want.
+This was done to make the system super flexible with what data you can return from your backend.
 
-For example the backend could return:
+For example the backend doesn't just have to return `NormalisedResults` or `NormalisedResult`, it could return:
 
 ```rust
 pub struct AllTheData {
@@ -106,16 +127,18 @@ const locations = useCache(query.data?.locations);
 const filePaths = useCache(query.data?.file_paths);
 ```
 
-This is only possible because `useNodes` and `useCache` don't prescribe the layout of the return type.
+This is only possible because `useNodes` and `useCache` take in a specific key, instead of the whole `data` object, so you can tell it where to look.
 
-## What this system does?
 
-By normalising the data it's impossible to get "state tearing".
+## Known issues
 
-Each time `useNodes` or `cache.withNodes` is called all `useCache` hooks will reexecute if they depend on a node that has changed.
+### Specta support
 
-This means the queries will always render the newest version of the model.
+Expressing `Reference<T>` in Specta is really hard so we [surgically update](https://github.com/spacedriveapp/spacedrive/blob/a315dd632da8175b47f9e0713d3c7fc470329352/core/src/api/mod.rs#L219) it's [type definition](https://github.com/spacedriveapp/spacedrive/blob/a315dd632da8175b47f9e0713d3c7fc470329352/crates/cache/src/lib.rs#L215).
 
-### Invalidation system integration?
+This is done using `rspc::Router::sd_patch_types_dangerously` which is a method specific to our fork [spacedrive/rspc](https://github.com/spacedriveapp/rspc).
 
-The idea when it was originally developed is for us to extend the normalised cache into the invalidation system, however due to time constraints this hasn't been done yet.
+### Invalidation system integration
+
+The initial implementation of this idea with an MVP. It works with the existing invalidation system like regular queries, but the invalidation system isn't aware of the normalised cache like a better implementation would be.
+
