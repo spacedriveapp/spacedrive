@@ -8,10 +8,6 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-
     - name: Install pnpm
       uses: pnpm/action-setup@v3
       with:
