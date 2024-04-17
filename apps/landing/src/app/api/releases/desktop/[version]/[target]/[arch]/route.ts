@@ -7,7 +7,7 @@ const tauriTarget = z.union([z.literal('linux'), z.literal('windows'), z.literal
 const tauriArch = z.union([z.literal('x86_64'), z.literal('aarch64')]);
 
 const extensions = {
-	linux: 'AppImage',
+	linux: 'deb',
 	windows: 'msi',
 	darwin: 'dmg'
 } as const satisfies Record<z.infer<typeof tauriTarget>, string>;
