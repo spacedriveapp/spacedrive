@@ -29,7 +29,7 @@ ENV PNPM_HOME="/usr/share/pnpm" \
 	PATH="/usr/share/pnpm:$PATH"
 
 RUN pnpm env use --global latest
-RUN pnpm add -g pnpm@latest-8
+RUN pnpm add -g pnpm@latest-9
 
 WORKDIR /srv
 

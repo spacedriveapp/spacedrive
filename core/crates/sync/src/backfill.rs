@@ -15,6 +15,8 @@ use crate::crdt_op_unchecked_db;
 /// Takes all the syncable data in the database and generates CRDTOperations for it.
 /// This is a requirement before the library can sync.
 pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, instance_id: i32) {
+	let lock = sync.timestamp_lock.acquire().await;
+
 	db._transaction()
 		.with_timeout(9999999999)
 		.run(|db| async move {
@@ -412,6 +414,8 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 		})
 		.await
 		.unwrap();
+
+	drop(lock);
 }
 
 async fn paginate<

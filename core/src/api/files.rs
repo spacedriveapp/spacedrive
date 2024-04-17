@@ -44,6 +44,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::{fs, io, task::spawn_blocking};
 use tracing::{error, warn};
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 use trash;
 
 use super::{Ctx, R};
@@ -519,6 +520,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("moveToTrash", {
 			R.with2(library())
 				.mutation(|(node, library), args: OldFileDeleterJobInit| async move {
+					if cfg!(target_os = "ios") || cfg!(target_os = "android") {
+						return Err(rspc::Error::new(
+							ErrorCode::MethodNotSupported,
+							"Moving to trash is not supported on this platform".to_string(),
+						));
+					}
+
 					match args.file_path_ids.len() {
 						0 => Ok(()),
 						1 => {
@@ -552,6 +560,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									.map_err(LocationError::MissingField)?,
 							);
 
+							#[cfg(not(any(target_os = "ios", target_os = "android")))]
 							trash::delete(&full_path).unwrap();
 
 							Ok(())
