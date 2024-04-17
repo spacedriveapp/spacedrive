@@ -43,6 +43,12 @@ jobs:
           | gunzip | sudo dd status=none of=/usr/local/lib/podman/netavark
           sudo chmod +x /usr/local/lib/podman/netavark
 
+      - name: Install passt
+        shell: bash
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y passt
+
       - name: Determine image name & tag
         id: image_info
         shell: bash
