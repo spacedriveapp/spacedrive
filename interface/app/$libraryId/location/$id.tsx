@@ -7,6 +7,7 @@ import {
 	FilePathOrder,
 	Location,
 	useCache,
+	useExplorerLayoutStore,
 	useLibraryMutation,
 	useLibraryQuery,
 	useLibrarySubscription,
@@ -228,6 +229,7 @@ function useLocationExplorerSettings(location: Location) {
 
 	const preferences = useLibraryQuery(['preferences.get']);
 	const updatePreferences = useLibraryMutation('preferences.update');
+	const explorerLayout = useExplorerLayoutStore();
 
 	const settings = useMemo(() => {
 		const defaults = createDefaultExplorerSettings<FilePathOrder>({
@@ -240,6 +242,9 @@ function useLocationExplorerSettings(location: Location) {
 
 		const settings = preferences.data?.location?.[pubId]?.explorer;
 
+		// Overwrite the default layout with the user's preference
+		Object.assign(defaults, { layoutMode: explorerLayout.defaultView });
+
 		if (!settings) return defaults;
 
 		for (const [key, value] of Object.entries(settings)) {
@@ -247,7 +252,7 @@ function useLocationExplorerSettings(location: Location) {
 		}
 
 		return defaults;
-	}, [location, preferences.data?.location]);
+	}, [explorerLayout.defaultView, location, preferences.data?.location]);
 
 	const onSettingsChanged = async (
 		settings: ExplorerSettings<FilePathOrder>,

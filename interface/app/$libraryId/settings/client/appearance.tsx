@@ -1,7 +1,14 @@
 import { CheckCircle } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
-import { Themes, unitFormatStore, useThemeStore, useUnitFormatStore, useZodForm } from '@sd/client';
+import {
+	Themes,
+	unitFormatStore,
+	useExplorerLayoutStore,
+	useThemeStore,
+	useUnitFormatStore,
+	useZodForm
+} from '@sd/client';
 import { Button, Divider, Form, Select, SelectOption, SwitchField, z } from '@sd/ui';
 import { useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -58,6 +65,7 @@ export const Component = () => {
 	const { lockAppTheme } = usePlatform();
 	const themeStore = useThemeStore();
 	const formatStore = useUnitFormatStore();
+	const explorerLayout = useExplorerLayoutStore();
 	const { t } = useLocale();
 
 	const [selectedTheme, setSelectedTheme] = useState<Theme['themeValue']>(
@@ -204,6 +212,24 @@ export const Component = () => {
 					</Setting>
 				</div>
 			</Form>
+			<Divider />
+			<div className="flex flex-col gap-4">
+				<h1 className="mb-3 text-lg font-bold text-ink">{t('default_settings')}</h1>
+				<Setting
+					mini
+					title={t('explorer_view')}
+					description={t('change_view_setting_description')}
+				>
+					<Select
+						onChange={(v) => (explorerLayout.defaultView = v)}
+						value={explorerLayout.defaultView}
+					>
+						<SelectOption value="grid">{t('grid_view')}</SelectOption>
+						<SelectOption value="list">{t('list_view')}</SelectOption>
+						<SelectOption value="media">{t('media_view')}</SelectOption>
+					</Select>
+				</Setting>
+			</div>
 			<Divider />
 			<div className="flex flex-col gap-4">
 				<h1 className="mb-3 text-lg font-bold text-ink">{t('display_formats')}</h1>
