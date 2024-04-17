@@ -46,8 +46,9 @@ jobs:
       - name: Install passt
         shell: bash
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y passt
+          set -euxo pipefail
+          curl -SsJLO https://passt.top/builds/latest/x86_64/passt_954589b-1_all.deb
+          dpkg -i passt_954589b-1_all.deb
 
       - name: Determine image name & tag
         id: image_info
