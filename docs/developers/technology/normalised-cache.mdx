@@ -7,7 +7,7 @@ We use a normalised cache for our frontend to ensure the UI will always contain 
 
 <Notice
 	type="note"
-	text="If you've used a normalised cache before be aware we do not currently merge cache nodes due to it causing issues with our data model."
+	text="If you've used a normalised cache before be aware we do not currently merge cache nodes due to it causing issues with our data modelling."
 />
 
 ## Rust usage
@@ -21,7 +21,7 @@ pub struct Demo {
 
 impl sd_cache::Model for Demo {
 	// The name + the ID *must* refer to a unique node.
-	// If your using an enum, the variant should probaly show up in the ID
+	// If your using an enum, the variant should show up in the ID (although this isn't possible right now)
 	fn name() -> &'static str {
 		"Demo"
 	}
@@ -34,6 +34,9 @@ let (nodes, items) = libraries.normalise(|i| i.id);
 
 // `NormalisedResults` or `NormalisedResult` are optional wrapped types to hold a one or multiple items and their cache nodes.
 // You don't have to use them, but they save declaring a bunch of identical structs.
+//
+// Alternatively add `nodes: Vec<CacheNode>` and `items: Vec<Reference<T>>` to your existing return type.
+//
 return sd_cache::NormalisedResults { nodes, items };
 ```
 
@@ -41,4 +44,78 @@ return sd_cache::NormalisedResults { nodes, items };
 
 The Typescript helpers are defined [here](https://github.com/spacedriveapp/spacedrive/blob/main/packages/client/src/cache.tsx).
 
-Don’t use `cache.withNodes` within React Query. It's not reactive.
+### Usage with React
+
+We have helpers designed for easy usage within React's lifecycle.
+
+```ts
+const query = useLibraryQuery([...]);
+
+// This will inject all the models into the cache
+useNodes(query.data?.nodes);
+
+// This will reconstruct the data from the cache
+const data = useCache(query.data?.item);
+
+console.log(data);
+```
+
+### Vanilla JS
+
+These API's are really useful for special cases. In general aim to avoid the React API's unless you have a good reason.
+
+```ts
+const cache = useNormalisedCache(); // Get the cache within the react context
+
+// Pass `cache` outside React (Eg. `useEffect`, `onSuccess`, etc)
+
+const data = ...;
+
+// This will inject all the models into the cache
+cache.withNodes(data.nodes)
+
+// This will reconstruct the data from the cache
+// *WARNING* This is not reactive. So any changes to the nodes will not be reflected.
+const data = useCache(query.data?.item);
+
+console.log(data);
+```
+
+## Design decisions
+
+### Why `useNodes` and `useCache`?
+
+This is primarily for flexability in the data you can return from the backend. This system doesn't prescribe the data it returned as `{ references: ..., nodes: ... }`, you can do whatever you want.
+
+For example the backend could return:
+
+```rust
+pub struct AllTheData {
+	file_paths: Vec<Reference<FilePath>>,
+	locations: Vec<Reference<Location>>,
+	nodes: Vec<CacheNode>
+}
+```
+
+and then on the frontend you could do the following:
+
+```ts
+const query = useQuery([...]);
+useNodes(query.data?.nodes);
+const locations = useCache(query.data?.locations);
+const filePaths = useCache(query.data?.file_paths);
+```
+
+This is only possible because `useNodes` and `useCache` don't prescribe the layout of the return type.
+
+## What this system does?
+
+By normalising the data it's impossible to get "state tearing".
+
+Each time `useNodes` or `cache.withNodes` is called all `useCache` hooks will reexecute if they depend on a node that has changed.
+
+This means the queries will always render the newest version of the model.
+
+### Invalidation system integration?
+
+The idea when it was originally developed is for us to extend the normalised cache into the invalidation system, however due to time constraints this hasn't been done yet.
