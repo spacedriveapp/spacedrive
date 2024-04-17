@@ -288,11 +288,11 @@ export const Component = () => {
 					/>
 				</div>
 			</Setting> */}
-			<div className="flex flex-col gap-4">
-				<h1 className="mb-3 text-lg font-bold text-ink">{t('networking')}</h1>
+			{/* <div className="flex flex-col gap-4">
+				<h1 className="mb-3 text-lg font-bold text-ink">{t('networking')}</h1> */}
 
-				{/* TODO: Add some UI for this stuff */}
-				{/* {node.data?.p2p.ipv4.status === 'Listening' ||
+			{/* TODO: Add some UI for this stuff */}
+			{/* {node.data?.p2p.ipv4.status === 'Listening' ||
 				node.data?.p2p.ipv4.status === 'Enabling'
 					? `0.0.0.0:${node.data?.p2p.ipv4?.port || 0}`
 					: ''}
@@ -301,7 +301,7 @@ export const Component = () => {
 					? `[::1]:${node.data?.p2p.ipv6?.port || 0}`
 					: ''} */}
 
-				<Setting
+			{/* <Setting
 					mini
 					title={t('enable_networking')}
 					description={
@@ -315,7 +315,6 @@ export const Component = () => {
 						</>
 					}
 				>
-					{/* TODO: Switch doesn't handle optional fields correctly */}
 					<Switch
 						size="md"
 						// checked={watchP2pEnabled || false}
@@ -323,8 +322,8 @@ export const Component = () => {
 						// disabled
 						onClick={() => toast.info(t('coming_soon'))}
 					/>
-				</Setting>
-				{/* <Setting
+				</Setting> */}
+			{/* <Setting
 					mini
 					title={t('networking_port')}
 					description={t('networking_port_description')}
@@ -367,7 +366,7 @@ export const Component = () => {
 						/>
 					</div>
 				</Setting> */}
-			</div>
+			{/* </div> */}
 		</FormProvider>
 	);
 };
