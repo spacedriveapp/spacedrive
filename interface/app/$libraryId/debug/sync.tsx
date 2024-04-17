@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { UNSAFE_useScrollRestoration } from 'react-router-dom';
 import {
 	CRDTOperation,
 	CRDTOperationData,
@@ -75,7 +74,7 @@ const OperationGroup = ({ group }: { group: MessageGroup }) => {
 								<p>Create</p>
 								<ul>
 									{Object.entries(message.data.c).map(([key, value]) => (
-										<li class="pl-2" key={key}>
+										<li className="pl-2" key={key}>
 											{key}: {JSON.stringify(value)}
 										</li>
 									))}
