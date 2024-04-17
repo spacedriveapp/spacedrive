@@ -1,5 +1,4 @@
-import clsx from 'clsx';
-import { Controller, FormProvider } from 'react-hook-form';
+import { FormProvider } from 'react-hook-form';
 import {
 	useBridgeMutation,
 	useBridgeQuery,
@@ -7,7 +6,7 @@ import {
 	useDebugState,
 	useZodForm
 } from '@sd/client';
-import { Button, Card, Input, Select, SelectOption, Slider, Switch, tw, z } from '@sd/ui';
+import { Button, Card, Input, Select, SelectOption, Slider, Switch, toast, tw, z } from '@sd/ui';
 import i18n from '~/app/I18n';
 import { Icon } from '~/components';
 import { useDebouncedFormWatch, useLocale } from '~/hooks';
@@ -19,11 +18,7 @@ import Setting from '../Setting';
 const NodePill = tw.div`px-1.5 py-[2px] rounded text-xs font-medium bg-app-selected`;
 const NodeSettingLabel = tw.div`mb-1 text-xs font-medium`;
 
-// https://doc.rust-lang.org/std/u16/index.html
-const u16 = z.number().min(0).max(65_535);
-
 // Unsorted list of languages available in the app.
-// Make sure to add new languages to this list and to `project.inlang/settings.json`
 const LANGUAGE_OPTIONS = [
 	{ value: 'en', label: 'English' },
 	{ value: 'de', label: 'Deutsch' },
@@ -33,8 +28,8 @@ const LANGUAGE_OPTIONS = [
 	{ value: 'nl', label: 'Nederlands' },
 	{ value: 'by', label: 'Беларуская' },
 	{ value: 'ru', label: 'Русский' },
-	{ value: 'zh-CN', label: '中文（简体）' },
-	{ value: 'zh-TW', label: '中文（繁體）' },
+	{ value: 'zh_CN', label: '中文（简体）' },
+	{ value: 'zh_TW', label: '中文（繁體）' },
 	{ value: 'it', label: 'Italiano' },
 	{ value: 'ja', label: '日本語' }
 ];
@@ -48,7 +43,7 @@ export const Component = () => {
 	const debugState = useDebugState();
 	const editNode = useBridgeMutation('nodes.edit');
 	const connectedPeers = useConnectedPeers();
-	const image_labeler_versions = useBridgeQuery(['models.image_detection.list']);
+	// const image_labeler_versions = useBridgeQuery(['models.image_detection.list']);
 	const updateThumbnailerPreferences = useBridgeMutation('nodes.updateThumbnailerPreferences');
 
 	const form = useZodForm({
@@ -214,9 +209,9 @@ export const Component = () => {
 					<Select
 						value={i18n.resolvedLanguage || i18n.language || 'en'}
 						onChange={(e) => {
-							i18n.changeLanguage(e);
 							// add "i18nextLng" key to localStorage and set it to the selected language
 							localStorage.setItem('i18nextLng', e);
+							i18n.changeLanguage(e);
 						}}
 						containerClassName="h-[30px] whitespace-nowrap"
 					>
@@ -270,7 +265,7 @@ export const Component = () => {
 				</div>
 			</Setting>
 			{/* Image Labeler */}
-			<Setting
+			{/* <Setting
 				mini
 				title={t('image_labeler_ai_model')}
 				description={t('image_labeler_ai_model_description')}
@@ -292,12 +287,12 @@ export const Component = () => {
 						)}
 					/>
 				</div>
-			</Setting>
-			<div className="flex flex-col gap-4">
-				<h1 className="mb-3 text-lg font-bold text-ink">{t('networking')}</h1>
+			</Setting> */}
+			{/* <div className="flex flex-col gap-4">
+				<h1 className="mb-3 text-lg font-bold text-ink">{t('networking')}</h1> */}
 
-				{/* TODO: Add some UI for this stuff */}
-				{/* {node.data?.p2p.ipv4.status === 'Listening' ||
+			{/* TODO: Add some UI for this stuff */}
+			{/* {node.data?.p2p.ipv4.status === 'Listening' ||
 				node.data?.p2p.ipv4.status === 'Enabling'
 					? `0.0.0.0:${node.data?.p2p.ipv4?.port || 0}`
 					: ''}
@@ -306,32 +301,29 @@ export const Component = () => {
 					? `[::1]:${node.data?.p2p.ipv6?.port || 0}`
 					: ''} */}
 
-				<Setting
+			{/* <Setting
 					mini
 					title={t('enable_networking')}
-					// TODO: i18n
 					description={
 						<>
 							<p className="text-sm text-gray-400">
-								Allow your node to communicate with other Spacedrive nodes around
-								you
+								{t('enable_networking_description')}
 							</p>
 							<p className="mb-2 text-sm text-gray-400">
-								<span className="font-bold">Required</span> for library sync or
-								Spacedrop!
+								{t('enable_networking_description_required')}
 							</p>
 						</>
 					}
 				>
-					{/* TODO: Switch doesn't handle optional fields correctly */}
 					<Switch
 						size="md"
 						// checked={watchP2pEnabled || false}
 						// onClick={() => form.setValue('p2p_enabled', !form.getValues('p2p_enabled'))}
-						disabled
+						// disabled
+						onClick={() => toast.info(t('coming_soon'))}
 					/>
-				</Setting>
-				{/* <Setting
+				</Setting> */}
+			{/* <Setting
 					mini
 					title={t('networking_port')}
 					description={t('networking_port_description')}
@@ -374,7 +366,7 @@ export const Component = () => {
 						/>
 					</div>
 				</Setting> */}
-			</div>
+			{/* </div> */}
 		</FormProvider>
 	);
 };

@@ -37,7 +37,9 @@ const Locations = () => {
 						<FlatList
 							data={locations}
 							renderItem={({ item }) => <LocationFilter data={item} />}
-							numColumns={locations && Math.ceil(Number(locations.length) / 2)}
+							numColumns={
+								locations ? Math.max(Math.ceil(locations.length / 2), 2) : 1
+							}
 							contentContainerStyle={tw`w-full`}
 							ListEmptyComponent={
 								<Empty

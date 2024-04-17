@@ -1,10 +1,11 @@
 use crate::library::Library;
 
-use sd_file_path_helper::{
-	file_path_pub_and_cas_ids, FilePathError, IsolatedFilePathData, IsolatedFilePathDataParts,
-};
+use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData, IsolatedFilePathDataParts};
+use sd_core_indexer_rules::IndexerRuleError;
+use sd_core_prisma_helpers::file_path_pub_and_cas_ids;
+
 use sd_prisma::{
-	prisma::{file_path, location, object as prisma_object, PrismaClient},
+	prisma::{file_path, location, PrismaClient},
 	prisma_sync,
 };
 use sd_sync::*;
@@ -26,10 +27,8 @@ use super::location_with_indexer_rules;
 pub mod old_indexer_job;
 mod old_shallow;
 mod old_walk;
-pub mod rules;
 
 use old_walk::WalkedEntry;
-use rules::IndexerRuleError;
 
 pub use old_indexer_job::OldIndexerJobInit;
 pub use old_shallow::*;
@@ -84,13 +83,12 @@ impl From<IndexerError> for rspc::Error {
 
 async fn execute_indexer_save_step(
 	location: &location_with_indexer_rules::Data,
-	save_step: &OldIndexerJobSaveStep,
+	OldIndexerJobSaveStep { walked, .. }: &OldIndexerJobSaveStep,
 	library: &Library,
 ) -> Result<i64, IndexerError> {
 	let Library { sync, db, .. } = library;
 
-	let (sync_stuff, paths): (Vec<_>, Vec<_>) = save_step
-		.walked
+	let (sync_stuff, paths): (Vec<_>, Vec<_>) = walked
 		.iter()
 		.map(|entry| {
 			let IsolatedFilePathDataParts {
@@ -181,8 +179,8 @@ async fn execute_indexer_update_step(
 			let pub_id = sd_utils::uuid_to_bytes(entry.pub_id);
 
 			let should_unlink_object = if let Some(object_id) = entry.maybe_object_id {
-				db.object()
-					.count(vec![prisma_object::id::equals(object_id)])
+				db.file_path()
+					.count(vec![file_path::object_id::equals(Some(object_id))])
 					.exec()
 					.await? > 1
 			} else {
@@ -195,8 +193,8 @@ async fn execute_indexer_update_step(
 				// As this file was updated while Spacedrive was offline, we mark the object_id and cas_id as null
 				// So this file_path will be updated at file identifier job
 				should_unlink_object
-					.then_some(((object_id::NAME, msgpack!(null)), object::disconnect())),
-				Some(((cas_id::NAME, msgpack!(null)), cas_id::set(None))),
+					.then_some(((object_id::NAME, msgpack!(nil)), object::disconnect())),
+				Some(((cas_id::NAME, msgpack!(nil)), cas_id::set(None))),
 				Some(sync_db_entry!(*is_dir, is_dir)),
 				Some(sync_db_entry!(
 					entry.metadata.size_in_bytes.to_be_bytes().to_vec(),
@@ -310,7 +308,7 @@ macro_rules! file_paths_db_fetcher_fn {
 						.find_many(vec![::prisma_client_rust::operator::or(
 							founds.collect::<Vec<_>>(),
 						)])
-						.select(::sd_file_path_helper::file_path_walker::select())
+						.select(::sd_core_prisma_helpers::file_path_walker::select())
 				})
 				.collect::<Vec<_>>();
 
@@ -332,7 +330,7 @@ macro_rules! to_remove_db_fetcher_fn {
 		|parent_iso_file_path, unique_location_id_materialized_path_name_extension_params| async {
 			let location_id: ::sd_prisma::prisma::location::id::Type = $location_id;
 			let db: &::sd_prisma::prisma::PrismaClient = $db;
-			let parent_iso_file_path: ::sd_file_path_helper::IsolatedFilePathData<
+			let parent_iso_file_path: ::sd_core_file_path_helper::IsolatedFilePathData<
 				'static,
 			> = parent_iso_file_path;
 			let unique_location_id_materialized_path_name_extension_params: ::std::vec::Vec<
@@ -396,7 +394,7 @@ macro_rules! to_remove_db_fetcher_fn {
 					found
 						.into_iter()
 						.filter(|file_path| !founds_ids.contains(&file_path.id))
-						.map(|file_path| ::sd_file_path_helper::file_path_pub_and_cas_ids::Data {
+						.map(|file_path| ::sd_core_prisma_helpers::file_path_pub_and_cas_ids::Data {
 							id: file_path.id,
 							pub_id: file_path.pub_id,
 							cas_id: file_path.cas_id,

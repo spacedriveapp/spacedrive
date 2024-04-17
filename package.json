@@ -22,14 +22,15 @@
 		"client": "pnpm --filter @sd/client -- ",
 		"storybook": "pnpm --filter @sd/storybook -- ",
 		"prisma": "cd core && cargo prisma",
-		"dev:web": "turbo run dev --filter @sd/web --filter @sd/server",
+		"dev:web": "pnpm --filter @sd/web dev:web",
 		"dev:desktop": "pnpm run --filter @sd/desktop tauri dev",
 		"bootstrap:desktop": "cargo clean && ./scripts/setup.sh && pnpm i && pnpm prep && pnpm tauri dev",
 		"codegen": "cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
 		"typecheck": "pnpm -r typecheck",
 		"lint": "turbo run lint",
 		"lint:fix": "turbo run lint -- --fix",
-		"clean": "git clean -qfX ."
+		"clean": "cargo clean; git clean -qfX .",
+		"test-data": "./scripts/test-data.sh"
 	},
 	"pnpm": {
 		"patchedDependencies": {
@@ -37,34 +38,34 @@
 			"@contentlayer/cli@0.3.4": "patches/@contentlayer__cli@0.3.4.patch"
 		},
 		"overrides": {
-			"@types/node": "~18.19.21",
+			"@types/node": ">18.18.x",
 			"react-router": "=6.20.1",
 			"react-router-dom": "=6.20.1",
 			"@remix-run/router": "=1.13.1",
-			"@contentlayer/cli": "=0.3.4",
-			"@typescript-eslint/parser": "^7.1.0"
+			"@contentlayer/cli": "=0.3.4"
 		}
 	},
 	"devDependencies": {
-		"@babel/plugin-syntax-import-assertions": "^7.23.3",
+		"@babel/plugin-syntax-import-assertions": "^7.24.1",
 		"@cspell/dict-rust": "^4.0.2",
 		"@cspell/dict-typescript": "^3.1.2",
-		"@ianvs/prettier-plugin-sort-imports": "^4.1.1",
-		"cspell": "^8.4.1",
+		"@ianvs/prettier-plugin-sort-imports": "^4.2.1",
+		"cspell": "^8.6.0",
 		"prettier": "^3.2.5",
-		"prettier-plugin-tailwindcss": "^0.5.11",
-		"turbo": "^1.12.4",
-		"turbo-ignore": "^1.12.4",
-		"typescript": "^5.3.3",
-		"vite": "^5.1.4"
+		"prettier-plugin-tailwindcss": "^0.5.12",
+		"turbo": "^1.12.5",
+		"turbo-ignore": "^1.12.5",
+		"typescript": "^5.4.2",
+		"vite": "^5.1.6"
 	},
 	"engines": {
 		"pnpm": ">=8.0.0",
 		"npm": "pnpm",
 		"yarn": "pnpm",
-		"node": ">=18.17 <19 || >=20.1"
+		"node": ">=18.18 <19 || >=20.1"
 	},
 	"eslintConfig": {
 		"root": true
-	}
+	},
+	"packageManager": "pnpm@8.15.6+sha256.01c01eeb990e379b31ef19c03e9d06a14afa5250b82e81303f88721c99ff2e6f"
 }

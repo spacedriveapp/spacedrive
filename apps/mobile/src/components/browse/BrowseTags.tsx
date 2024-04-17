@@ -1,16 +1,15 @@
 import { useNavigation } from '@react-navigation/native';
-import { Eye, Plus } from 'phosphor-react-native';
+import { DotsThreeOutline, Plus } from 'phosphor-react-native';
 import React, { useRef } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import { FlatList } from 'react-native-gesture-handler';
+import { Text, View } from 'react-native';
 import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 
 import Empty from '../layout/Empty';
-import Fade from '../layout/Fade';
 import CreateTagModal from '../modal/tag/CreateTagModal';
+import { Button } from '../primitive/Button';
 import { TagItem } from '../tags/TagItem';
 
 const BrowseTags = () => {
@@ -24,48 +23,46 @@ const BrowseTags = () => {
 	const modalRef = useRef<ModalRef>(null);
 
 	return (
-		<View style={tw`gap-3`}>
-			<View style={tw`w-full flex-row items-center justify-between px-6`}>
+		<View style={tw`gap-5 px-6`}>
+			<View style={tw`w-full flex-row items-center justify-between`}>
 				<Text style={tw`text-lg font-bold text-white`}>Tags</Text>
 				<View style={tw`flex-row gap-3`}>
-					<Pressable
-						testID="navigate-tags-screen"
-						onPress={() => navigation.navigate('Tags')}
+					<Button
+						style={tw`h-9 w-9 rounded-full`}
+						variant="dashed"
+						onPress={() => modalRef.current?.present()}
 					>
-						<View style={tw`h-8 w-8 items-center justify-center rounded-md bg-accent`}>
-							<Eye weight="bold" size={18} style={tw`text-white`} />
-						</View>
-					</Pressable>
-					<Pressable onPress={() => modalRef.current?.present()}>
-						<View
-							style={tw`h-8 w-8 items-center justify-center rounded-md border border-dashed border-app-iconborder bg-transparent`}
-						>
-							<Plus weight="bold" size={18} style={tw`text-ink`} />
-						</View>
-					</Pressable>
+						<Plus weight="bold" size={16} style={tw`text-ink`} />
+					</Button>
+					<Button
+						testID="navigate-tags-screen"
+						onPress={() => {
+							navigation.navigate('Tags');
+						}}
+						style={tw`w-9 rounded-full`}
+						variant="gray"
+					>
+						<DotsThreeOutline weight="fill" size={16} color={'white'} />
+					</Button>
 				</View>
 			</View>
-			<Fade color="black" width={30} height="100%">
-				<FlatList
-					data={tagData}
-					ListEmptyComponent={
-						<Empty description="You have not created any tags" icon="Tags" />
-					}
-					renderItem={({ item }) => (
-						<TagItem
-							tag={item}
-							onPress={() =>
-								navigation.navigate('Tag', { id: item.id, color: item.color! })
-							}
-						/>
-					)}
-					keyExtractor={(item) => item.id.toString()}
-					horizontal
-					showsHorizontalScrollIndicator={false}
-					contentContainerStyle={tw`w-full px-6`}
-					ItemSeparatorComponent={() => <View style={tw`w-2`} />}
-				/>
-			</Fade>
+			<View style={tw`flex-row flex-wrap gap-2`}>
+				{tagData?.length === 0 ? (
+					<Empty description="You have not created any tags" icon="Tags" />
+				) : (
+					tagData
+						?.slice(0, 3)
+						.map((tag) => (
+							<TagItem
+								key={tag.id}
+								tag={tag}
+								onPress={() =>
+									navigation.navigate('Tag', { id: tag.id, color: tag.color! })
+								}
+							/>
+						))
+				)}
+			</View>
 			<CreateTagModal ref={modalRef} />
 		</View>
 	);

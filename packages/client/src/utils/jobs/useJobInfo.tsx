@@ -93,17 +93,17 @@ export function useJobInfo(job: JobReport, realtimeUpdate: JobProgressEvent | nu
 						];
 					}
 
-					case 'labels': {
-						return [
-							{
-								text: `Labeled ${
-									completedTaskCount
-										? formatNumber(completedTaskCount || 0)
-										: formatNumber(output?.labels_extracted)
-								} of ${formatNumber(taskCount)} ${plural(taskCount, 'file')}`
-							}
-						];
-					}
+					// case 'labels': {
+					// 	return [
+					// 		{
+					// 			text: `Labeled ${
+					// 				completedTaskCount
+					// 					? formatNumber(completedTaskCount || 0)
+					// 					: formatNumber(output?.labels_extracted)
+					// 			} of ${formatNumber(taskCount)} ${plural(taskCount, 'file')}`
+					// 		}
+					// 	];
+					// }
 
 					default: {
 						// If we don't have a phase set, then we're done

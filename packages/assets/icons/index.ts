@@ -10,6 +10,9 @@ import Alias_Light from './Alias_Light.png';
 import Alias20 from './Alias-20.png';
 import Alias from './Alias.png';
 import AmazonS3 from './AmazonS3.png';
+import AndroidPhotos from './AndroidPhotos.png';
+import AppleFiles from './AppleFiles.png';
+import ApplePhotos from './ApplePhotos.png';
 import Application_Light from './Application_Light.png';
 import Application from './Application.png';
 import Archive_Light from './Archive_Light.png';
@@ -193,6 +196,9 @@ export {
 	Alias,
 	Alias_Light,
 	AmazonS3,
+	AndroidPhotos,
+	AppleFiles,
+	ApplePhotos,
 	Application,
 	Application_Light,
 	Archive20,

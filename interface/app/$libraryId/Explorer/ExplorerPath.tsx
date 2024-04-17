@@ -1,14 +1,23 @@
-import { CaretRight } from '@phosphor-icons/react';
+import { AppWindow, ArrowSquareOut, CaretRight, ClipboardText } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { createSearchParams } from 'react-router-dom';
-import { getExplorerItemData, getIndexedItemFilePath, useLibraryQuery } from '@sd/client';
+import {
+	getExplorerItemData,
+	getIndexedItemFilePath,
+	useLibraryContext,
+	useLibraryQuery
+} from '@sd/client';
+import { ContextMenu } from '@sd/ui';
 import { Icon } from '~/components';
-import { useIsDark, useOperatingSystem } from '~/hooks';
+import { useIsDark, useLocale, useOperatingSystem } from '~/hooks';
+import { useTabsContext } from '~/TabsContext';
+import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from './Context';
 import { FileThumb } from './FilePath/Thumb';
+import { lookup } from './RevealInNativeExplorer';
 import { useExplorerDroppable } from './useExplorerDroppable';
 import { useExplorerSearchParams } from './util';
 
@@ -17,7 +26,6 @@ export const PATH_BAR_HEIGHT = 32;
 export const ExplorerPath = memo(() => {
 	const os = useOperatingSystem(true);
 	const navigate = useNavigate();
-
 	const [{ path: searchPath }] = useExplorerSearchParams();
 	const { parent: explorerParent, selectedItems } = useExplorerContext();
 
@@ -117,6 +125,7 @@ export const ExplorerPath = memo(() => {
 				<Path
 					key={path.pathname}
 					path={path}
+					locationPath={location?.path ?? ''}
 					onClick={() => handleOnClick(path)}
 					disabled={path.pathname === (searchPath ?? (location && '/'))}
 				/>
@@ -138,10 +147,32 @@ interface PathProps {
 	path: { name: string; pathname: string; locationId?: number };
 	onClick: () => void;
 	disabled: boolean;
+	locationPath: string;
 }
 
-const Path = ({ path, onClick, disabled }: PathProps) => {
+const Path = ({ path, onClick, disabled, locationPath }: PathProps) => {
 	const isDark = useIsDark();
+	const { revealItems } = usePlatform();
+	const { library } = useLibraryContext();
+	const { t } = useLocale();
+	const os = useOperatingSystem();
+	const tabs = useTabsContext();
+	const [contextMenuOpen, setContextMenuOpen] = useState(false);
+
+	const osFileBrowserName = lookup[os] ?? 'file manager';
+	const pathValue = path.pathname.endsWith('/')
+		? locationPath + path.pathname.substring(0, path.pathname.length - 1)
+		: path.pathname;
+	const osPath = os === 'windows' ? pathValue?.replace(/\//g, '\\') : pathValue;
+
+	// "Open in new tab" redirect
+	const basePath = path.locationId ? `location/${path.locationId}` : `ephemeral/0-0`;
+	const searchParam =
+		path.pathname === '/' ? undefined : createSearchParams({ path: path.pathname });
+	const redirect = {
+		pathname: `${library.uuid}/${basePath}`,
+		search: searchParam ? `${searchParam}` : undefined
+	};
 
 	const { setDroppableRef, className, isDroppable } = useExplorerDroppable({
 		data: {
@@ -155,21 +186,62 @@ const Path = ({ path, onClick, disabled }: PathProps) => {
 	});
 
 	return (
-		<button
-			ref={setDroppableRef}
-			className={clsx(
-				'group flex items-center gap-1 rounded px-1 py-0.5',
-				isDroppable && [isDark ? 'bg-app-button/70' : 'bg-app-darkerBox'],
-				!disabled && [isDark ? 'hover:bg-app-button/70' : 'hover:bg-app-darkerBox'],
-				className
-			)}
-			disabled={disabled}
-			onClick={onClick}
-			tabIndex={-1}
+		<ContextMenu.Root
+			onOpenChange={setContextMenuOpen}
+			trigger={
+				<button
+					ref={setDroppableRef}
+					className={clsx(
+						'group flex items-center gap-1 rounded px-1 py-0.5',
+						(isDroppable || contextMenuOpen) && [
+							isDark ? 'bg-app-button/70' : 'bg-app-darkerBox'
+						],
+						!disabled && [isDark ? 'hover:bg-app-button/70' : 'hover:bg-app-darkerBox'],
+						className
+					)}
+					disabled={disabled}
+					onClick={onClick}
+					tabIndex={-1}
+				>
+					<Icon name="Folder" size={16} alt="Folder" />
+					<span className="max-w-xs truncate text-ink-dull">{path.name}</span>
+					<CaretRight
+						weight="bold"
+						className="text-ink-dull group-last:hidden"
+						size={10}
+					/>
+				</button>
+			}
 		>
-			<Icon name="Folder" size={16} alt="Folder" />
-			<span className="max-w-xs truncate text-ink-dull">{path.name}</span>
-			<CaretRight weight="bold" className="text-ink-dull group-last:hidden" size={10} />
-		</button>
+			<ContextMenu.Item
+				onClick={() => {
+					if (!tabs) return null;
+					tabs.createTab(redirect);
+				}}
+				label={t('open_in_new_tab')}
+				icon={ArrowSquareOut}
+			/>
+			<ContextMenu.Item
+				onClick={() => {
+					if (!revealItems) return null;
+					revealItems(library.uuid, [
+						path.locationId
+							? {
+									Location: { id: path.locationId }
+								}
+							: {
+									Ephemeral: { path: path.pathname }
+								}
+					]);
+				}}
+				label={t('revel_in_browser', { browser: osFileBrowserName })}
+				icon={AppWindow}
+			/>
+			<ContextMenu.Item
+				onClick={() => navigator.clipboard.writeText(osPath)}
+				icon={ClipboardText}
+				label={t('copy_as_path')}
+			/>
+		</ContextMenu.Root>
 	);
 };

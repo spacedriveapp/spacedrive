@@ -3,7 +3,7 @@ use crate::{
 	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 
-use sd_p2p::{Identity, IdentityOrRemoteIdentity};
+use sd_p2p::{Identity, RemoteIdentity};
 use sd_prisma::prisma::{file_path, indexer_rule, instance, location, node, PrismaClient};
 use sd_utils::{db::maybe_missing, error::FileIOError};
 
@@ -70,10 +70,11 @@ pub enum LibraryConfigVersion {
 	V7 = 7,
 	V8 = 8,
 	V9 = 9,
+	V10 = 10,
 }
 
 impl ManagedVersion<LibraryConfigVersion> for LibraryConfig {
-	const LATEST_VERSION: LibraryConfigVersion = LibraryConfigVersion::V9;
+	const LATEST_VERSION: LibraryConfigVersion = LibraryConfigVersion::V10;
 
 	const KIND: Kind = Kind::Json("version");
 
@@ -86,6 +87,7 @@ impl LibraryConfig {
 		description: Option<String>,
 		instance_id: i32,
 		path: impl AsRef<Path>,
+		generate_sync_operations: bool,
 	) -> Result<Self, LibraryConfigError> {
 		let this = Self {
 			name,
@@ -94,7 +96,7 @@ impl LibraryConfig {
 			version: Self::LATEST_VERSION,
 			cloud_id: None,
 			// will always be `true` eventually
-			generate_sync_operations: Arc::new(AtomicBool::new(false)),
+			generate_sync_operations: Arc::new(AtomicBool::new(generate_sync_operations)),
 		};
 
 		this.save(path).await.map(|()| this)
@@ -264,7 +266,8 @@ impl LibraryConfig {
 
 						instance::Create {
 							pub_id: instance_id.as_bytes().to_vec(),
-							identity: node
+							// WARNING: At this stage in the migration this field *should* be an `Identity` not a `RemoteIdentityOrIdentity` (as that was introduced later on).
+							remote_identity: node
 								.and_then(|n| n.identity.clone())
 								.unwrap_or_else(|| Identity::new().to_bytes()),
 							node_id: node_config.id.as_bytes().to_vec(),
@@ -373,17 +376,70 @@ impl LibraryConfig {
 								.map(|i| {
 									db.instance().update(
 										instance::id::equals(i.id),
-										vec![instance::identity::set(
-									// This code is assuming you only have the current node.
-									// If you've paired your node with another node, reset your db.
-									IdentityOrRemoteIdentity::Identity(
-										Identity::from_bytes(&i.identity).expect(
-											"Invalid identity detected in DB during migrations",
-										),
+										vec![
+											// In earlier versions of the app this migration would convert an `Identity` in the `identity` column to a `IdentityOrRemoteIdentity::Identity`.
+											// We have removed the `IdentityOrRemoteIdentity` type so we have disabled this change and the V9 -> V10 will take care of it.
+											// instance::identity::set(
+											// 	// This code is assuming you only have the current node.
+											// 	// If you've paired your node with another node, reset your db.
+											// 	IdentityOrRemoteIdentity::Identity(
+											// 		Identity::from_bytes(&i.identity).expect(
+											// 			"Invalid identity detected in DB during migrations",
+											// 		),
+											// 	)
+											// 	.to_bytes(),
+											// ),
+										],
 									)
-									.to_bytes(),
-								)],
-									)
+								})
+								.collect::<Vec<_>>(),
+						)
+						.await?;
+					}
+
+					(LibraryConfigVersion::V9, LibraryConfigVersion::V10) => {
+						db._batch(
+							db.instance()
+								.find_many(vec![])
+								.exec()
+								.await?
+								.into_iter()
+								.filter_map(|i| {
+									let identity = i.identity?;
+
+									let (remote_identity, identity) = if identity[0] == b'I' {
+										// We have an `IdentityOrRemoteIdentity::Identity`
+										let identity = Identity::from_bytes(&identity[1..]).expect(
+											"Invalid identity detected in DB during migrations - 1",
+										);
+
+										(identity.to_remote_identity(), Some(identity))
+									} else if identity[0] == b'R' {
+										// We have an `IdentityOrRemoteIdentity::RemoteIdentity`
+										let identity = RemoteIdentity::from_bytes(&identity[1..])
+											.expect(
+											"Invalid identity detected in DB during migrations - 2",
+										);
+
+										(identity, None)
+									} else {
+										// We have an `Identity` or an invalid column.
+										let identity = Identity::from_bytes(&identity).expect(
+											"Invalid identity detected in DB during migrations - 3",
+										);
+
+										(identity.to_remote_identity(), Some(identity))
+									};
+
+									Some(db.instance().update(
+										instance::id::equals(i.id),
+										vec![
+											instance::identity::set(identity.map(|i| i.to_bytes())),
+											instance::remote_identity::set(
+												remote_identity.get_bytes().to_vec(),
+											),
+										],
+									))
 								})
 								.collect::<Vec<_>>(),
 						)

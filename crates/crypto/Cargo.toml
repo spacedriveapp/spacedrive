@@ -108,6 +108,9 @@ criterion = "0.5.1"
 paste = "1.0.14"
 tempfile = "3.10.1"
 
+[clippy]
+allow = ["unwrap_in_tests"]
+
 [[bench]]
 path = "benches/crypto/aes-256-gcm-siv.rs"
 name = "aes-256-gcm-siv"

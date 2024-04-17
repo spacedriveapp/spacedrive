@@ -2,24 +2,32 @@ import { NavigatorScreenParams } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import NotFoundScreen from '~/screens/NotFound';
 
+import DrawerNavigator, { DrawerNavParamList } from './DrawerNavigator';
 import SearchStack, { SearchStackParamList } from './SearchStack';
-import TabNavigator, { TabParamList } from './TabNavigator';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 // This is the main navigator we nest everything under.
 export default function RootNavigator() {
 	return (
 		<Stack.Navigator initialRouteName="Root">
-			<Stack.Screen name="Root" component={TabNavigator} options={{ headerShown: false }} />
-			<Stack.Screen name="Search" component={SearchStack} options={{ headerShown: false }} />
+			<Stack.Screen
+				name="Root"
+				component={DrawerNavigator}
+				options={{ headerShown: false }}
+			/>
+			<Stack.Screen
+				name="SearchStack"
+				component={SearchStack}
+				options={{ headerShown: false }}
+			/>
 			<Stack.Screen name="NotFound" component={NotFoundScreen} options={{ title: 'Oops!' }} />
 		</Stack.Navigator>
 	);
 }
 
 export type RootStackParamList = {
-	Root: NavigatorScreenParams<TabParamList>;
-	Search: NavigatorScreenParams<SearchStackParamList>;
+	Root: NavigatorScreenParams<DrawerNavParamList>;
+	SearchStack: NavigatorScreenParams<SearchStackParamList>;
 	NotFound: undefined;
 };
 

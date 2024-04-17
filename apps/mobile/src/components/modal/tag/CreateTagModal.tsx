@@ -1,4 +1,3 @@
-import { useQueryClient } from '@tanstack/react-query';
 import { forwardRef, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import ColorPicker from 'react-native-wheel-color-picker';
@@ -29,9 +28,6 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	const submitPlausibleEvent = usePlausibleEvent();
 
 	const { mutate: createTag } = useLibraryMutation('tags.create', {
-		onMutate: () => {
-			console.log('Creating tag');
-		},
 		onSuccess: () => {
 			// Reset form
 			setTagName('');

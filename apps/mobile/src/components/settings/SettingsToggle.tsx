@@ -24,7 +24,7 @@ const SettingsToggle = ({ title, description, onEnabledChange, control, name }: 
 
 	return (
 		<View style={tw`flex-row items-center justify-between`}>
-			<View style={tw`w-[75%]`}>
+			<View style={tw`w-3/4`}>
 				<Text style={tw`text-sm font-medium text-ink`}>{title}</Text>
 				{description && <Text style={tw`mt-1 text-xs text-ink-dull`}>{description}</Text>}
 			</View>

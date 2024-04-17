@@ -29,10 +29,20 @@ pub fn from_bytes_to_uuid(bytes: &[u8]) -> Uuid {
 
 #[macro_export]
 macro_rules! msgpack {
-	(null) => {
+	(nil) => {
 		::rmpv::Value::Nil
 	};
-	($e:expr) => {
-		::rmpv::ext::to_value(&$e).expect("failed to serialize msgpack")
-	}
+	($e:expr) => {{
+		let bytes = rmp_serde::to_vec_named(&$e).expect("failed to serialize msgpack");
+		let value: rmpv::Value = rmp_serde::from_slice(&bytes).expect("failed to deserialize msgpack");
+
+		value
+	}}
+}
+
+// Only used for testing purposes. Do not use in production code.
+use std::any::type_name;
+
+pub fn test_type_of<T>(_: T) -> &'static str {
+	type_name::<T>()
 }

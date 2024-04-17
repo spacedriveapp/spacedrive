@@ -24,6 +24,8 @@ export const Component = () => {
 				name: t('general'),
 				description: t('general_shortcut_description'),
 				shortcuts: [
+					{ shortcut: 'toggleCommandPalette', description: t('toggle_command_palette') },
+					{ shortcut: 'closeCommandPalette', description: t('close_command_palette') },
 					{ shortcut: 'newTab', description: t('open_new_tab') },
 					{ shortcut: 'closeTab', description: t('close_current_tab') },
 					{ shortcut: 'newTab', description: t('switch_to_next_tab') },

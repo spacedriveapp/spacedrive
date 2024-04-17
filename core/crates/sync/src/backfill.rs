@@ -2,30 +2,67 @@ use std::future::Future;
 
 use sd_prisma::{
 	prisma::{
-		file_path, label, label_on_object, location, media_data, object, tag, tag_on_object,
-		PrismaClient, SortOrder,
+		crdt_operation, file_path, label, label_on_object, location, media_data, object, tag,
+		tag_on_object, PrismaClient, SortOrder,
 	},
 	prisma_sync,
 };
 use sd_sync::{option_sync_entry, OperationFactory};
-use sd_utils::chain_optional_iter;
+use sd_utils::{chain_optional_iter, msgpack};
 
 use crate::crdt_op_unchecked_db;
-
-macro_rules! msgpack {
-	($e:expr) => {
-		::rmpv::ext::to_value($e).expect("failed to serialize msgpack")
-	}
-}
 
 /// Takes all the syncable data in the database and generates CRDTOperations for it.
 /// This is a requirement before the library can sync.
 pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, instance_id: i32) {
+	let lock = sync.timestamp_lock.acquire().await;
+
 	db._transaction()
 		.with_timeout(9999999999)
 		.run(|db| async move {
 			println!("backfill started");
-			db.crdt_operation().delete_many(vec![]).exec().await?;
+			db.crdt_operation()
+				.delete_many(vec![crdt_operation::instance_id::equals(instance_id)])
+				.exec()
+				.await?;
+
+			paginate(
+				|cursor| {
+					db.tag()
+						.find_many(vec![tag::id::gt(cursor)])
+						.order_by(tag::id::order(SortOrder::Asc))
+						.exec()
+				},
+				|tag| tag.id,
+				|tags| {
+					db.crdt_operation()
+						.create_many(
+							tags.into_iter()
+								.flat_map(|t| {
+									sync.shared_create(
+										prisma_sync::tag::SyncId { pub_id: t.pub_id },
+										chain_optional_iter(
+											[],
+											[
+												t.name.map(|v| (tag::name::NAME, msgpack!(v))),
+												t.color.map(|v| (tag::color::NAME, msgpack!(v))),
+												t.date_created.map(|v| {
+													(tag::date_created::NAME, msgpack!(v))
+												}),
+												t.date_modified.map(|v| {
+													(tag::date_modified::NAME, msgpack!(v))
+												}),
+											],
+										),
+									)
+								})
+								.map(|o| crdt_op_unchecked_db(&o, instance_id))
+								.collect(),
+						)
+						.exec()
+				},
+			)
+			.await?;
 
 			paginate(
 				|cursor| {
@@ -217,6 +254,14 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 													location
 												),
 												option_sync_entry!(
+													fp.object.map(|o| {
+														prisma_sync::object::SyncId {
+															pub_id: o.pub_id,
+														}
+													}),
+													object
+												),
+												option_sync_entry!(
 													fp.materialized_path,
 													materialized_path
 												),
@@ -231,44 +276,6 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 												option_sync_entry!(fp.date_created, date_created),
 												option_sync_entry!(fp.date_modified, date_modified),
 												option_sync_entry!(fp.date_indexed, date_indexed),
-											],
-										),
-									)
-								})
-								.map(|o| crdt_op_unchecked_db(&o, instance_id))
-								.collect(),
-						)
-						.exec()
-				},
-			)
-			.await?;
-
-			paginate(
-				|cursor| {
-					db.tag()
-						.find_many(vec![tag::id::gt(cursor)])
-						.order_by(tag::id::order(SortOrder::Asc))
-						.exec()
-				},
-				|tag| tag.id,
-				|tags| {
-					db.crdt_operation()
-						.create_many(
-							tags.into_iter()
-								.flat_map(|t| {
-									sync.shared_create(
-										prisma_sync::tag::SyncId { pub_id: t.pub_id },
-										chain_optional_iter(
-											[],
-											[
-												t.name.map(|v| (tag::name::NAME, msgpack!(v))),
-												t.color.map(|v| (tag::color::NAME, msgpack!(v))),
-												t.date_created.map(|v| {
-													(tag::date_created::NAME, msgpack!(v))
-												}),
-												t.date_modified.map(|v| {
-													(tag::date_modified::NAME, msgpack!(v))
-												}),
 											],
 										),
 									)
@@ -407,6 +414,8 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 		})
 		.await
 		.unwrap();
+
+	drop(lock);
 }
 
 async fn paginate<

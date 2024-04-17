@@ -8,7 +8,7 @@ import {
 } from '@sd/client';
 import { useShortcut } from '~/hooks';
 
-import { useTopBarContext } from '../TopBar/Layout';
+import { useTopBarContext } from '../TopBar/Context';
 import { useExplorerContext } from './Context';
 import ContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';

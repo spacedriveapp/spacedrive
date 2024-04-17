@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { stringify } from 'uuid';
 import {
 	CRDTOperation,
 	CRDTOperationData,
@@ -11,7 +10,7 @@ import { Button } from '@sd/ui';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 
 type MessageGroup = {
-	model: string;
+	model: number;
 	id: string;
 	messages: { data: CRDTOperationData; timestamp: number }[];
 };

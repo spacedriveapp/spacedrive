@@ -68,9 +68,8 @@ mod originator {
 				let original = Operations(vec![CRDTOperation {
 					instance: Uuid::new_v4(),
 					timestamp: sync::NTP64(0),
-					id: Uuid::new_v4(),
 					record_id: rmpv::Value::Nil,
-					model: "name".to_string(),
+					model: 0,
 					data: sd_sync::CRDTOperationData::Create,
 				}]);
 

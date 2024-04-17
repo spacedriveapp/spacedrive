@@ -10,6 +10,13 @@ import {
 	type Ordering
 } from '@sd/client';
 
+import {
+	DEFAULT_LIST_VIEW_ICON_SIZE,
+	DEFAULT_LIST_VIEW_TEXT_SIZE,
+	LIST_VIEW_ICON_SIZES,
+	LIST_VIEW_TEXT_SIZES
+} from './View/ListView/useTable';
+
 export enum ExplorerKind {
 	Location,
 	Tag,
@@ -30,6 +37,8 @@ export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
 		mediaAspectSquare: false as boolean,
 		mediaViewWithDescendants: true as boolean,
 		openOnDoubleClick: 'openFile' as DoubleClickAction,
+		listViewIconSize: DEFAULT_LIST_VIEW_ICON_SIZE as keyof typeof LIST_VIEW_ICON_SIZES,
+		listViewTextSize: DEFAULT_LIST_VIEW_TEXT_SIZE as keyof typeof LIST_VIEW_TEXT_SIZES,
 		colVisibility: {
 			name: true,
 			kind: true,
@@ -97,6 +106,8 @@ const state = {
 	drag: null as null | DragState,
 	isDragSelecting: false,
 	isRenaming: false,
+	// Used for disabling certain keyboard shortcuts when command palette is open
+	isCMDPOpen: false,
 	isContextMenuOpen: false,
 	quickRescanLastRun: Date.now() - 200
 };
@@ -157,7 +168,7 @@ export const objectOrderingKeysSchema = z.union([
 
 export const nonIndexedPathOrderingSchema = z.union([
 	z.literal('name').describe('Name'),
-	// z.literal('sizeInBytes').describe('Size'),
+	z.literal('sizeInBytes').describe('Size'),
 	z.literal('dateCreated').describe('Date Created'),
 	z.literal('dateModified').describe('Date Modified')
 ]);

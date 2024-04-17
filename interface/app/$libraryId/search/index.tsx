@@ -1,18 +1,19 @@
-import { useEffect, useMemo } from 'react';
-import { useSearchParams as useRawSearchParams } from 'react-router-dom';
-import { ObjectKindEnum, ObjectOrder, useObjectsExplorerQuery } from '@sd/client';
+import { useMemo } from 'react';
+import { ObjectOrder } from '@sd/client';
 import { Icon } from '~/components';
-import { useRouteTitle } from '~/hooks';
+import { useLocale, useRouteTitle } from '~/hooks';
 
 import { SearchContextProvider, SearchOptions, useSearch } from '.';
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
 import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
-import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
+import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { EmptyNotice } from '../Explorer/View/EmptyNotice';
 import { TopBarPortal } from '../TopBar/Portal';
 import SearchBar from './SearchBar';
+import { useSearchFromSearchParams } from './useSearch';
+import { useSearchExplorerQuery } from './useSearchExplorerQuery';
 
 export * from './context';
 export * from './SearchOptions';
@@ -28,19 +29,21 @@ export function Component() {
 		orderingKeys: objectOrderingKeysSchema
 	});
 
-	const search = useSearchWithFilters(explorerSettings);
+	const { t } = useLocale();
 
-	const objects = useObjectsExplorerQuery({
-		arg: {
-			take: 100,
-			filters: search.allFilters
-		},
-		order: explorerSettings.useSettingsSnapshot().order
+	const search = useSearchFromSearchParams();
+
+	const items = useSearchExplorerQuery({
+		search,
+		explorerSettings,
+		filters: search.allFilters,
+		take: 100,
+		objects: { order: explorerSettings.useSettingsSnapshot().order }
 	});
 
 	const explorer = useExplorer({
-		...objects,
-		isFetchingNextPage: objects.query.isFetchingNextPage,
+		...items,
+		isFetchingNextPage: items.query.isFetchingNextPage,
 		settings: explorerSettings
 	});
 
@@ -51,7 +54,7 @@ export function Component() {
 					center={<SearchBar />}
 					left={
 						<div className="flex flex-row items-center gap-2">
-							<span className="truncate text-sm font-medium">Search</span>
+							<span className="truncate text-sm font-medium">{t('search')}</span>
 						</div>
 					}
 					right={<DefaultTopBarOptions />}
@@ -69,65 +72,10 @@ export function Component() {
 				emptyNotice={
 					<EmptyNotice
 						icon={<Icon name="Search" size={128} />}
-						message="No items found"
+						message={t('no_items_found')}
 					/>
 				}
 			/>
 		</ExplorerContextProvider>
 	);
-}
-
-function useSearchWithFilters(explorerSettings: UseExplorerSettings<ObjectOrder>) {
-	const [searchParams, setSearchParams] = useRawSearchParams();
-	const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
-
-	const fixedFilters = useMemo(
-		() => [
-			...(explorerSettingsSnapshot.layoutMode === 'media'
-				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
-				: [])
-		],
-		[explorerSettingsSnapshot.layoutMode]
-	);
-
-	const filtersParam = searchParams.get('filters');
-	const dynamicFilters = useMemo(() => JSON.parse(filtersParam ?? '[]'), [filtersParam]);
-
-	const searchQueryParam = searchParams.get('search');
-
-	const search = useSearch({
-		open: !!searchQueryParam || dynamicFilters.length > 0 || undefined,
-		search: searchParams.get('search') ?? undefined,
-		fixedFilters,
-		dynamicFilters
-	});
-
-	useEffect(() => {
-		setSearchParams(
-			(p) => {
-				if (search.dynamicFilters.length > 0)
-					p.set('filters', JSON.stringify(search.dynamicFilters));
-				else p.delete('filters');
-
-				return p;
-			},
-			{ replace: true }
-		);
-	}, [search.dynamicFilters, setSearchParams]);
-
-	const searchQuery = search.search;
-
-	useEffect(() => {
-		setSearchParams(
-			(p) => {
-				if (searchQuery !== '') p.set('search', searchQuery);
-				else p.delete('search');
-
-				return p;
-			},
-			{ replace: true }
-		);
-	}, [searchQuery, setSearchParams]);
-
-	return search;
 }

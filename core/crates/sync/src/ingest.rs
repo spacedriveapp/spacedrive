@@ -1,4 +1,7 @@
-use std::{ops::Deref, sync::Arc};
+use std::{
+	ops::Deref,
+	sync::{atomic::Ordering, Arc},
+};
 
 use sd_prisma::{
 	prisma::{crdt_operation, SortOrder},
@@ -6,6 +9,7 @@ use sd_prisma::{
 };
 use sd_sync::CRDTOperation;
 use tokio::sync::{mpsc, oneshot, Mutex};
+use tracing::debug;
 use uhlc::{Timestamp, NTP64};
 use uuid::Uuid;
 
@@ -60,7 +64,13 @@ impl Actor {
 	async fn tick(mut self) -> Option<Self> {
 		let state = match self.state.take()? {
 			State::WaitingForNotification => {
+				self.shared.active.store(false, Ordering::Relaxed);
+				self.shared.active_notify.notify_waiters();
+
 				wait!(self.io.event_rx, Event::Notification);
+
+				self.shared.active.store(true, Ordering::Relaxed);
+				self.shared.active_notify.notify_waiters();
 
 				State::RetrievingMessages
 			}
@@ -83,19 +93,31 @@ impl Actor {
 
 				loop {
 					tokio::select! {
-						res = &mut rx => {
-							if let Err(_) = res { break State::WaitingForNotification }
-						},
+						biased;
 						res = self.io.event_rx.recv() => {
 							if let Some(Event::Messages(event)) = res { break State::Ingesting(event) }
 						}
+						res = &mut rx => {
+							if res.is_err() {
+								debug!("messages request ignored");
+								break State::WaitingForNotification
+							 }
+						},
 					}
 				}
 			}
 			State::Ingesting(event) => {
-				for op in event.messages {
-					let fut = self.receive_crdt_operation(op);
-					fut.await;
+				if !event.messages.is_empty() {
+					debug!(
+						"ingesting {} operations: {} to {}",
+						event.messages.len(),
+						event.messages.first().unwrap().timestamp.as_u64(),
+						event.messages.last().unwrap().timestamp.as_u64(),
+					);
+
+					for op in event.messages {
+						self.receive_crdt_operation(op).await;
+					}
 				}
 
 				match event.has_more {
@@ -148,7 +170,7 @@ impl Actor {
 			.expect("timestamp has too much drift!");
 
 		// read the timestamp for the operation's instance, or insert one if it doesn't exist
-		let timestamp = self.timestamps.write().await.get(&op.instance).cloned();
+		let timestamp = self.timestamps.read().await.get(&op.instance).cloned();
 
 		// copy some fields bc rust ownership
 		let op_instance = op.instance;
@@ -169,12 +191,12 @@ impl Actor {
 	async fn apply_op(&mut self, op: CRDTOperation) -> prisma_client_rust::Result<()> {
 		self.db
 			._transaction()
+			.with_timeout(30 * 1000)
 			.run(|db| async move {
 				// apply the operation to the actual record
-				ModelSyncData::from_op(op.clone())
-					.unwrap()
-					.exec(&db)
-					.await?;
+				let sync_data = ModelSyncData::from_op(op.clone());
+
+				sync_data.unwrap().exec(&db).await?;
 
 				// write the operation to the operations table
 				write_crdt_op_to_db(&op, &db).await?;
@@ -197,7 +219,7 @@ impl Actor {
 				.crdt_operation()
 				.find_first(vec![
 					crdt_operation::timestamp::gte(op.timestamp.as_u64() as i64),
-					crdt_operation::model::equals(op.model.to_string()),
+					crdt_operation::model::equals(op.model as i32),
 					crdt_operation::record_id::equals(serde_json::to_vec(&op.record_id).unwrap()),
 					crdt_operation::kind::equals(op.kind().to_string()),
 				])
@@ -243,7 +265,7 @@ impl ActorTypes for Actor {
 
 #[cfg(test)]
 mod test {
-	use std::sync::atomic::AtomicBool;
+	use std::{sync::atomic::AtomicBool, time::Duration};
 
 	use uhlc::HLCBuilder;
 
@@ -257,6 +279,8 @@ mod test {
 			clock: HLCBuilder::new().with_id(instance.into()).build(),
 			timestamps: Default::default(),
 			emit_messages_flag: Arc::new(AtomicBool::new(true)),
+			active: Default::default(),
+			active_notify: Default::default(),
 		});
 
 		(Actor::spawn(shared.clone()), shared)
@@ -268,7 +292,7 @@ mod test {
 	async fn messages_request_drop() -> Result<(), ()> {
 		let (ingest, _) = new_actor().await;
 
-		for _ in [(), ()] {
+		for _ in 0..10 {
 			let mut rx = ingest.req_rx.lock().await;
 
 			println!("lock acquired");
@@ -281,28 +305,12 @@ mod test {
 				panic!("bruh")
 			};
 
-			println!("message received")
+			println!("message received");
+
+			// without this the test hangs, idk
+			tokio::time::sleep(Duration::from_millis(0)).await;
 		}
 
 		Ok(())
 	}
-
-	// /// If messages tx is dropped, actor should reset and assume no further messages
-	// /// will be sent
-	// #[tokio::test]
-	// async fn retrieve_wait() -> Result<(), ()> {
-	// 	let (ingest, _) = new_actor().await;
-
-	// 	for _ in [(), ()] {
-	// 		let mut rx = ingest.req_rx.lock().await;
-
-	// 		ingest.event_tx.send(Event::Notification).await.unwrap();
-
-	// 		let Some(Request::Messages { .. }) = rx.recv().await else {
-	// 			panic!("bruh")
-	// 		};
-	// 	}
-
-	// 	Ok(())
-	// }
 }

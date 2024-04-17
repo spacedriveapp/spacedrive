@@ -11,6 +11,7 @@ env:
   CARGO_NET_RETRY: 10
   RUST_BACKTRACE: short
   RUSTUP_MAX_RETRIES: 10
+  SD_AUTH: disabled
 
 # Cancel previous runs of the same workflow on the same branch.
 concurrency:
@@ -48,6 +49,55 @@ jobs:
       - name: Perform linting
         run: pnpm lint
 
+  cypress:
+    name: Cypress
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup System and Rust
+        uses: ./.github/actions/setup-system
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          target: aarch64-apple-darwin
+
+      - name: Setup Node.js, pnpm and dependencies
+        uses: ./.github/actions/setup-pnpm
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Cypress
+        uses: cypress-io/github-action@v6
+        with:
+          runTests: false
+          working-directory: .
+
+      - name: Download test data
+        run: pnpm test-data small
+
+      - name: E2E test
+        uses: cypress-io/github-action@v6
+        with:
+          build: npx cypress info
+          install: false
+          command: env CI=true pnpm test:e2e
+          working-directory: apps/web
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cypress-screenshots
+          path: apps/web/cypress/screenshots
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cypress-videos
+          path: apps/web/cypress/videos
+          if-no-files-found: ignore
+
   rustfmt:
     name: Rust Formatting
     runs-on: ubuntu-latest
@@ -74,6 +124,7 @@ jobs:
         uses: actions/checkout@v4
 
       - uses: dorny/paths-filter@v3
+        continue-on-error: true
         id: filter
         with:
           filters: |
@@ -90,13 +141,13 @@ jobs:
               - 'Cargo.lock'
 
       - name: Setup Rust and Prisma
-        if: steps.filter.outputs.changes == 'true'
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
         uses: ./.github/actions/setup-rust
         with:
           restore-cache: 'false'
 
       - name: Run rustfmt
-        if: steps.filter.outputs.changes == 'true'
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
         run: cargo fmt --all -- --check
 
   clippy:
@@ -128,6 +179,7 @@ jobs:
         uses: actions/checkout@v4
 
       - uses: dorny/paths-filter@v3
+        continue-on-error: true
         id: filter
         with:
           filters: |
@@ -146,16 +198,16 @@ jobs:
               - 'Cargo.lock'
 
       - name: Setup System and Rust
-        if: steps.filter.outputs.changes == 'true'
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
         uses: ./.github/actions/setup-system
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Clippy
-        if: steps.filter.outputs.changes == 'true'
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
         uses: actions-rs-plus/clippy-check@v2
         with:
-          args: --workspace --all-features
+          args: --workspace --all-features --locked
 
   # test:
   #   name: Test (${{ matrix.platform }})

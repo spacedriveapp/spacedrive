@@ -11,7 +11,7 @@ import type {
 	NodeState,
 	Tag
 } from '@sd/client';
-import { type Ordering, type OrderingKeys } from '@sd/client';
+import { ObjectKindEnum, type Ordering, type OrderingKeys } from '@sd/client';
 
 import { createDefaultExplorerSettings } from './store';
 import { uniqueId } from './util';
@@ -48,7 +48,7 @@ export interface UseExplorerProps<TOrder extends Ordering> {
 	 * @defaultValue `true`
 	 */
 	selectable?: boolean;
-	settings: ReturnType<typeof useExplorerSettings<TOrder>>;
+	settings: ReturnType<typeof useExplorerSettings<TOrder, any>>;
 	/**
 	 * @defaultValue `true`
 	 */
@@ -89,29 +89,26 @@ export function useExplorer<TOrder extends Ordering>({
 
 export type UseExplorer<TOrder extends Ordering> = ReturnType<typeof useExplorer<TOrder>>;
 
-export function useExplorerSettings<TOrder extends Ordering>({
+export function useExplorerSettings<TOrder extends Ordering, T>({
 	settings,
 	onSettingsChanged,
 	orderingKeys,
-	location
+	data
 }: {
 	settings: ReturnType<typeof createDefaultExplorerSettings<TOrder>>;
-	onSettingsChanged?: (settings: ExplorerSettings<TOrder>, location: Location) => void;
+	onSettingsChanged?: (settings: ExplorerSettings<TOrder>, data: T) => void;
 	orderingKeys?: z.ZodUnion<
 		[z.ZodLiteral<OrderingKeys<TOrder>>, ...z.ZodLiteral<OrderingKeys<TOrder>>[]]
 	>;
-	location?: Location | null;
+	data?: T | null;
 }) {
 	const [store] = useState(() => proxy(settings));
 
-	const updateSettings = useDebouncedCallback(
-		(settings: ExplorerSettings<TOrder>, location: Location) => {
-			onSettingsChanged?.(settings, location);
-		},
-		500
-	);
+	const updateSettings = useDebouncedCallback((settings: ExplorerSettings<TOrder>, data: T) => {
+		onSettingsChanged?.(settings, data);
+	}, 500);
 
-	useEffect(() => updateSettings.flush(), [location, updateSettings]);
+	useEffect(() => updateSettings.flush(), [data, updateSettings]);
 
 	useEffect(() => {
 		if (updateSettings.isPending()) return;
@@ -119,22 +116,28 @@ export function useExplorerSettings<TOrder extends Ordering>({
 	}, [settings, store, updateSettings]);
 
 	useEffect(() => {
-		if (!onSettingsChanged || !location) return;
+		if (!onSettingsChanged || !data) return;
 		const unsubscribe = subscribe(store, () => {
-			updateSettings(snapshot(store) as ExplorerSettings<TOrder>, location);
+			updateSettings(snapshot(store) as ExplorerSettings<TOrder>, data);
 		});
 		return () => unsubscribe();
-	}, [store, updateSettings, location, onSettingsChanged]);
+	}, [store, updateSettings, data, onSettingsChanged]);
 
 	return {
 		useSettingsSnapshot: () => useSnapshot(store),
+		useLayoutSearchFilters: () => {
+			const explorerSettingsSnapshot = useSnapshot(store);
+			return explorerSettingsSnapshot.layoutMode === 'media'
+				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
+				: [];
+		},
 		settingsStore: store,
 		orderingKeys
 	};
 }
 
-export type UseExplorerSettings<TOrder extends Ordering> = ReturnType<
-	typeof useExplorerSettings<TOrder>
+export type UseExplorerSettings<TOrder extends Ordering, T> = ReturnType<
+	typeof useExplorerSettings<TOrder, T>
 >;
 
 function useSelectedItems(items: ExplorerItem[] | null) {
@@ -174,30 +177,46 @@ function useSelectedItems(items: ExplorerItem[] | null) {
 		[itemsMap, selectedItemHashes]
 	);
 
+	const getItemUniqueId = useCallback(
+		(item: ExplorerItem) => itemHashesWeakMap.current.get(item) ?? uniqueId(item),
+		[]
+	);
+
 	return {
 		selectedItems,
 		selectedItemHashes,
+		getItemUniqueId,
 		addSelectedItem: useCallback(
-			(item: ExplorerItem) => {
-				selectedItemHashes.value.add(uniqueId(item));
+			(item: ExplorerItem | ExplorerItem[]) => {
+				const items = Array.isArray(item) ? item : [item];
+
+				for (let i = 0; i < items.length; i++) {
+					selectedItemHashes.value.add(getItemUniqueId(items[i]!));
+				}
+
 				updateHashes();
 			},
-			[selectedItemHashes.value, updateHashes]
+			[getItemUniqueId, selectedItemHashes.value, updateHashes]
 		),
 		removeSelectedItem: useCallback(
-			(item: ExplorerItem) => {
-				selectedItemHashes.value.delete(uniqueId(item));
+			(item: ExplorerItem | ExplorerItem[]) => {
+				const items = Array.isArray(item) ? item : [item];
+
+				for (let i = 0; i < items.length; i++) {
+					selectedItemHashes.value.delete(getItemUniqueId(items[i]!));
+				}
+
 				updateHashes();
 			},
-			[selectedItemHashes.value, updateHashes]
+			[getItemUniqueId, selectedItemHashes.value, updateHashes]
 		),
 		resetSelectedItems: useCallback(
 			(items?: ExplorerItem[]) => {
 				selectedItemHashes.value.clear();
-				items?.forEach((item) => selectedItemHashes.value.add(uniqueId(item)));
+				items?.forEach((item) => selectedItemHashes.value.add(getItemUniqueId(item)));
 				updateHashes();
 			},
-			[selectedItemHashes.value, updateHashes]
+			[getItemUniqueId, selectedItemHashes.value, updateHashes]
 		),
 		isItemSelected: useCallback(
 			(item: ExplorerItem) => selectedItems.has(item),

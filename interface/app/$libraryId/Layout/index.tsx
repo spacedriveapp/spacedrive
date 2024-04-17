@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { Suspense, useEffect, useMemo, useRef } from 'react';
-import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, Outlet, useNavigate } from 'react-router-dom';
 import {
 	ClientContextProvider,
 	initPlausible,
@@ -26,11 +26,14 @@ import { usePlatform } from '~/util/Platform';
 
 import { DragOverlay } from '../Explorer/DragOverlay';
 import { QuickPreviewContextProvider } from '../Explorer/QuickPreview/Context';
+import CMDK from './CMDK';
 import { LayoutContext } from './Context';
 import { DndContext } from './DndContext';
 import Sidebar from './Sidebar';
 
 const Layout = () => {
+	useRedirectToNewLocation();
+
 	const { libraries, library } = useClientContext();
 	const os = useOperatingSystem();
 	const showControls = useShowControls();
@@ -39,8 +42,6 @@ const Layout = () => {
 	useKeybindEventHandler(library?.uuid);
 
 	const layoutRef = useRef<HTMLDivElement>(null);
-
-	useRedirectToNewLocation();
 
 	const ctxValue = useMemo(() => ({ ref: layoutRef }), [layoutRef]);
 
@@ -88,6 +89,7 @@ const Layout = () => {
 											fallback={<div className="h-screen w-screen bg-app" />}
 										>
 											<Outlet />
+											<CMDK />
 											<DragOverlay />
 										</Suspense>
 									</LibraryContextProvider>
@@ -150,11 +152,7 @@ function usePlausible() {
 
 	useEffect(() => {
 		const interval = setInterval(() => {
-			plausibleEvent({
-				event: {
-					type: 'ping'
-				}
-			});
+			plausibleEvent({ event: { type: 'ping' } });
 		}, 270 * 1000);
 
 		return () => clearInterval(interval);

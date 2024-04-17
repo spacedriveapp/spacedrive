@@ -9,7 +9,7 @@ pub type CompressedCRDTOperationsForModel = Vec<(rmpv::Value, Vec<CompressedCRDT
 /// Stores a bunch of CRDTOperations in a more memory-efficient form for sending to the cloud.
 #[derive(Serialize, Deserialize)]
 pub struct CompressedCRDTOperations(
-	pub(self) Vec<(Uuid, Vec<(String, CompressedCRDTOperationsForModel)>)>,
+	pub(self) Vec<(Uuid, Vec<(u16, CompressedCRDTOperationsForModel)>)>,
 );
 
 impl CompressedCRDTOperations {
@@ -83,7 +83,6 @@ impl CompressedCRDTOperations {
 							model: model_str.clone(),
 							record_id: record_id.clone(),
 							timestamp: op.timestamp,
-							id: op.id,
 							data: op.data,
 						})
 					}
@@ -98,7 +97,6 @@ impl CompressedCRDTOperations {
 #[derive(PartialEq, Serialize, Deserialize, Clone)]
 pub struct CompressedCRDTOperation {
 	pub timestamp: NTP64,
-	pub id: Uuid,
 	pub data: CRDTOperationData,
 }
 
@@ -106,7 +104,6 @@ impl From<CRDTOperation> for CompressedCRDTOperation {
 	fn from(value: CRDTOperation) -> Self {
 		Self {
 			timestamp: value.timestamp,
-			id: value.id,
 			data: value.data,
 		}
 	}
@@ -124,56 +121,49 @@ mod test {
 			CRDTOperation {
 				instance,
 				timestamp: NTP64(0),
-				id: Uuid::new_v4(),
-				model: "FilePath".to_string(),
+				model: 0,
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::Create,
 			},
 			CRDTOperation {
 				instance,
 				timestamp: NTP64(0),
-				id: Uuid::new_v4(),
-				model: "FilePath".to_string(),
+				model: 0,
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::Create,
 			},
 			CRDTOperation {
 				instance,
 				timestamp: NTP64(0),
-				id: Uuid::new_v4(),
-				model: "FilePath".to_string(),
+				model: 0,
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::Create,
 			},
 			CRDTOperation {
 				instance,
 				timestamp: NTP64(0),
-				id: Uuid::new_v4(),
-				model: "Object".to_string(),
+				model: 1,
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::Create,
 			},
 			CRDTOperation {
 				instance,
 				timestamp: NTP64(0),
-				id: Uuid::new_v4(),
-				model: "Object".to_string(),
+				model: 1,
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::Create,
 			},
 			CRDTOperation {
 				instance,
 				timestamp: NTP64(0),
-				id: Uuid::new_v4(),
-				model: "FilePath".to_string(),
+				model: 0,
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::Create,
 			},
 			CRDTOperation {
 				instance,
 				timestamp: NTP64(0),
-				id: Uuid::new_v4(),
-				model: "FilePath".to_string(),
+				model: 0,
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::Create,
 			},
@@ -181,9 +171,9 @@ mod test {
 
 		let CompressedCRDTOperations(compressed) = CompressedCRDTOperations::new(uncompressed);
 
-		assert_eq!(&compressed[0].1[0].0, "FilePath");
-		assert_eq!(&compressed[0].1[1].0, "Object");
-		assert_eq!(&compressed[0].1[2].0, "FilePath");
+		assert_eq!(compressed[0].1[0].0, 0);
+		assert_eq!(compressed[0].1[1].0, 1);
+		assert_eq!(compressed[0].1[2].0, 0);
 
 		assert_eq!(compressed[0].1[0].1[0].1.len(), 3);
 		assert_eq!(compressed[0].1[1].1[0].1.len(), 2);
@@ -196,22 +186,19 @@ mod test {
 			Uuid::new_v4(),
 			vec![
 				(
-					"FilePath".to_string(),
+					0,
 					vec![(
 						rmpv::Value::Nil,
 						vec![
 							CompressedCRDTOperation {
-								id: Uuid::new_v4(),
 								timestamp: NTP64(0),
 								data: CRDTOperationData::Create,
 							},
 							CompressedCRDTOperation {
-								id: Uuid::new_v4(),
 								timestamp: NTP64(0),
 								data: CRDTOperationData::Create,
 							},
 							CompressedCRDTOperation {
-								id: Uuid::new_v4(),
 								timestamp: NTP64(0),
 								data: CRDTOperationData::Create,
 							},
@@ -219,17 +206,15 @@ mod test {
 					)],
 				),
 				(
-					"Object".to_string(),
+					1,
 					vec![(
 						rmpv::Value::Nil,
 						vec![
 							CompressedCRDTOperation {
-								id: Uuid::new_v4(),
 								timestamp: NTP64(0),
 								data: CRDTOperationData::Create,
 							},
 							CompressedCRDTOperation {
-								id: Uuid::new_v4(),
 								timestamp: NTP64(0),
 								data: CRDTOperationData::Create,
 							},
@@ -237,17 +222,15 @@ mod test {
 					)],
 				),
 				(
-					"FilePath".to_string(),
+					0,
 					vec![(
 						rmpv::Value::Nil,
 						vec![
 							CompressedCRDTOperation {
-								id: Uuid::new_v4(),
 								timestamp: NTP64(0),
 								data: CRDTOperationData::Create,
 							},
 							CompressedCRDTOperation {
-								id: Uuid::new_v4(),
 								timestamp: NTP64(0),
 								data: CRDTOperationData::Create,
 							},
@@ -260,8 +243,8 @@ mod test {
 		let uncompressed = compressed.into_ops();
 
 		assert_eq!(uncompressed.len(), 7);
-		assert_eq!(uncompressed[2].model, "FilePath");
-		assert_eq!(uncompressed[4].model, "Object");
-		assert_eq!(uncompressed[6].model, "FilePath");
+		assert_eq!(uncompressed[2].model, 0);
+		assert_eq!(uncompressed[4].model, 1);
+		assert_eq!(uncompressed[6].model, 0);
 	}
 }

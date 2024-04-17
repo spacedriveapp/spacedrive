@@ -28,7 +28,7 @@ export default function SettingsStack() {
 			<Stack.Screen
 				name="Settings"
 				component={SettingsScreen}
-				options={{ header: () => <Header title="Settings" /> }}
+				options={{ header: () => <Header showDrawer title="Settings" /> }}
 			/>
 			{/* Client */}
 			<Stack.Screen

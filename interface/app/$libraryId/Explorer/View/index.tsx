@@ -22,6 +22,7 @@ import { useQuickPreviewContext } from '../QuickPreview/Context';
 import { getQuickPreviewStore, useQuickPreviewStore } from '../QuickPreview/store';
 import { explorerStore } from '../store';
 import { useExplorerDroppable } from '../useExplorerDroppable';
+import { useExplorerOperatingSystem } from '../useExplorerOperatingSystem';
 import { useExplorerSearchParams } from '../util';
 import { ViewContext, type ExplorerViewContext } from './Context';
 import { DragScrollable } from './DragScrollable';
@@ -36,6 +37,8 @@ export interface ExplorerViewProps
 }
 
 export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
+	const { explorerOperatingSystem, matchingOperatingSystem } = useExplorerOperatingSystem();
+
 	const explorer = useExplorerContext();
 	const [isContextMenuOpen, isRenaming, drag] = useSelector(explorerStore, (s) => [
 		s.isContextMenuOpen,
@@ -61,24 +64,25 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	// Can stay here until we add columns view
 	// Once added, the provided parent related logic should move to useExplorerDroppable
 	// that way we don't have to re-use the same logic for each view
+	const { parent } = explorer;
 	const { setDroppableRef } = useExplorerDroppable({
-		...(explorer.parent?.type === 'Location' && {
+		...(parent?.type === 'Location' && {
 			allow: ['Path', 'NonIndexedPath'],
-			data: { type: 'location', path: path ?? '/', data: explorer.parent.location },
+			data: { type: 'location', path: path ?? '/', data: parent.location },
 			disabled:
 				drag?.type === 'dragging' &&
-				explorer.parent.location.id === drag.sourceLocationId &&
+				parent.location.id === drag.sourceLocationId &&
 				(path ?? '/') === drag.sourcePath
 		}),
-		...(explorer.parent?.type === 'Ephemeral' && {
+		...(parent?.type === 'Ephemeral' && {
 			allow: ['Path', 'NonIndexedPath'],
-			data: { type: 'location', path: explorer.parent.path },
-			disabled: drag?.type === 'dragging' && explorer.parent.path === drag.sourcePath
+			data: { type: 'location', path: parent.path },
+			disabled: drag?.type === 'dragging' && parent.path === drag.sourcePath
 		}),
-		...(explorer.parent?.type === 'Tag' && {
+		...(parent?.type === 'Tag' && {
 			allow: 'Path',
-			data: { type: 'tag', data: explorer.parent.tag },
-			disabled: drag?.type === 'dragging' && explorer.parent.tag.id === drag.sourceTagId
+			data: { type: 'tag', data: parent.tag },
+			disabled: drag?.type === 'dragging' && parent.tag.id === drag.sourceTagId
 		})
 	});
 
@@ -86,6 +90,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 
 	useShortcut('explorerEscape', () => {
 		if (!selectable || explorer.selectedItems.size === 0) return;
+		if (explorerStore.isCMDPOpen) return;
 		explorer.resetSelectedItems([]);
 	});
 
@@ -142,7 +147,15 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 				ref={ref}
 				className="flex flex-1"
 				onMouseDown={(e) => {
-					if (e.button === 2 || (e.button === 0 && e.shiftKey)) return;
+					if (e.button !== 0) return;
+
+					const isWindowsExplorer =
+						explorerOperatingSystem === 'windows' && matchingOperatingSystem;
+
+					// Prevent selection reset when holding shift or ctrl/cmd
+					// This is to allow drag multi-selection
+					if (e.shiftKey || (isWindowsExplorer ? e.ctrlKey : e.metaKey)) return;
+
 					explorer.selectedItems.size !== 0 && explorer.resetSelectedItems();
 				}}
 			>
@@ -187,6 +200,7 @@ const useShortcuts = () => {
 
 	useShortcut('toggleQuickPreview', (e) => {
 		if (isRenaming || dialogManager.isAnyDialogOpen()) return;
+		if (explorerStore.isCMDPOpen) return;
 		e.preventDefault();
 		getQuickPreviewStore().open = !quickPreviewStore.open;
 	});

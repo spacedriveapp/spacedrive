@@ -60,9 +60,9 @@ module.exports = {
 			//default button variant
 			button: `hsla(${DARK_HUE}, 10%, 14%, ${ALPHA})`,
 			//used with 'pills'
-			highlight: `hsla(${DARK_HUE}, 10%, 18%, ${ALPHA})`,
+			highlight: `hsla(${DARK_HUE}, 10%, 16%, ${ALPHA})`,
 			//Modal background color
-			modal: `hsla(${DARK_HUE}, 10%, 6%, ${ALPHA})`,
+			modal: `hsla(${DARK_HUE}, 10%, 7%, ${ALPHA})`,
 			//Borders
 			cardborder: `hsla(${DARK_HUE}, 10%, 10%, ${ALPHA})`,
 			inputborder: `hsla(${DARK_HUE}, 10%, 16%, ${ALPHA})`,
@@ -70,7 +70,7 @@ module.exports = {
 			iconborder: `hsla(${DARK_HUE}, 10%, 100%, ${ALPHA})`,
 			// background (dark)
 			box: `hsla(${DARK_HUE}, 15%, 18%, ${ALPHA})`,
-			darkBox: `hsla(${DARK_HUE}, 15%, 7%, ${ALPHA})`,
+			darkBox: `hsla(${DARK_HUE}, 10%, 7%, ${ALPHA})`,
 			// foreground (light)
 			overlay: `hsla(${DARK_HUE}, 15%, 17%, ${ALPHA})`,
 			// border

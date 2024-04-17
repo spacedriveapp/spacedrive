@@ -22,7 +22,11 @@ pub fn module((model, sync_type): ModelWithSyncType) -> Module {
 		});
 
 		let model_stuff = match sync_type {
-			ModelSyncType::Relation { item, group } => {
+			ModelSyncType::Relation {
+				item,
+				group,
+				model_id,
+			} => {
 				let item_name_snake = snake_ident(item.name());
 				let item_model_name_snake = snake_ident(item.related_model().name());
 
@@ -42,21 +46,33 @@ pub fn module((model, sync_type): ModelWithSyncType) -> Module {
 						}
 					}
 
+					pub const MODEL_ID: u16 = #model_id;
+
+					impl sd_sync::SyncModel for #model_name_snake::Types {
+						const MODEL_ID: u16 = MODEL_ID;
+					}
+
 					impl sd_sync::RelationSyncModel for #model_name_snake::Types {
 						type SyncId = SyncId;
 					}
 				})
 			}
-			ModelSyncType::Shared { .. } => Some(quote! {
-				   impl sd_sync::SharedSyncModel for #model_name_snake::Types {
-					   type SyncId = SyncId;
-				   }
+			ModelSyncType::Shared { model_id, .. } => Some(quote! {
+					pub const MODEL_ID: u16 = #model_id;
+
+					impl sd_sync::SyncModel for #model_name_snake::Types {
+						const MODEL_ID: u16 = MODEL_ID;
+					}
+
+					impl sd_sync::SharedSyncModel for #model_name_snake::Types {
+					  type SyncId = SyncId;
+					}
 			}),
 			_ => None,
 		};
 
 		quote! {
-			#[derive(serde::Serialize, serde::Deserialize, Clone)]
+			#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 			pub struct SyncId {
 				#(#fields),*
 			}

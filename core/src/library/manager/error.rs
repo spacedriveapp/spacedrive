@@ -1,9 +1,8 @@
-use crate::{
-	library::LibraryConfigError,
-	location::{indexer, LocationManagerError},
-};
+use crate::{library::LibraryConfigError, location::LocationManagerError};
 
-use sd_p2p::IdentityOrRemoteIdentityErr;
+use sd_core_indexer_rules::seed::SeederError;
+
+use sd_p2p::IdentityErr;
 use sd_utils::{
 	db::{self, MissingFieldError},
 	error::{FileIOError, NonUtf8PathError},
@@ -23,7 +22,7 @@ pub enum LibraryManagerError {
 	#[error("failed to parse uuid: {0}")]
 	Uuid(#[from] uuid::Error),
 	#[error("failed to run indexer rules seeder: {0}")]
-	IndexerRulesSeeder(#[from] indexer::rules::seed::SeederError),
+	IndexerRulesSeeder(#[from] SeederError),
 	// #[error("failed to initialize the key manager: {0}")]
 	// KeyManager(#[from] sd_crypto::Error),
 	#[error("error migrating the library: {0}")]
@@ -35,7 +34,7 @@ pub enum LibraryManagerError {
 	#[error("failed to watch locations: {0}")]
 	LocationWatcher(#[from] LocationManagerError),
 	#[error("failed to parse library p2p identity: {0}")]
-	Identity(#[from] IdentityOrRemoteIdentityErr),
+	Identity(#[from] IdentityErr),
 	#[error("failed to load private key for instance p2p identity")]
 	InvalidIdentity,
 	#[error("current instance with id '{0}' was not found in the database")]

@@ -1,11 +1,12 @@
 import { CompositeScreenProps } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import Header from '~/components/header/Header';
-import BrowseScreen from '~/screens/browse';
-import LocationScreen from '~/screens/Location';
-import { Locations } from '~/screens/Locations';
-import TagScreen from '~/screens/Tag';
-import Tags from '~/screens/Tags';
+import BrowseScreen from '~/screens/browse/Browse';
+import LibraryScreen from '~/screens/browse/Library';
+import LocationScreen from '~/screens/browse/Location';
+import LocationsScreen from '~/screens/browse/Locations';
+import TagScreen from '~/screens/browse/Tag';
+import TagsScreen from '~/screens/browse/Tags';
 
 import { TabScreenProps } from '../TabNavigator';
 
@@ -17,7 +18,7 @@ export default function BrowseStack() {
 			<Stack.Screen
 				name="Browse"
 				component={BrowseScreen}
-				options={{ header: () => <Header showLibrary title="Browse" /> }}
+				options={{ header: () => <Header showDrawer title="Browse" /> }}
 			/>
 			<Stack.Screen
 				name="Location"
@@ -30,14 +31,14 @@ export default function BrowseStack() {
 			/>
 			<Stack.Screen
 				name="Tags"
-				component={Tags}
+				component={TagsScreen}
 				options={{
 					header: () => <Header navBack title="Tags" />
 				}}
 			/>
 			<Stack.Screen
 				name="Locations"
-				component={Locations}
+				component={LocationsScreen}
 				options={{
 					header: () => <Header navBack searchType="location" title="Locations" />
 				}}
@@ -46,7 +47,14 @@ export default function BrowseStack() {
 				name="Tag"
 				component={TagScreen}
 				options={{
-					header: (route) => <Header routeTitle route={route} headerKind="tag" navBack />
+					header: (route) => <Header navBack routeTitle route={route} headerKind="tag" />
+				}}
+			/>
+			<Stack.Screen
+				name="Library"
+				component={LibraryScreen}
+				options={{
+					header: () => <Header navBack title="Library" />
 				}}
 			/>
 		</Stack.Navigator>
@@ -59,6 +67,7 @@ export type BrowseStackParamList = {
 	Locations: undefined;
 	Tag: { id: number; color: string };
 	Tags: undefined;
+	Library: undefined;
 };
 
 export type BrowseStackScreenProps<Screen extends keyof BrowseStackParamList> =

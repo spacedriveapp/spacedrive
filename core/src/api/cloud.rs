@@ -119,6 +119,7 @@ mod library {
 							false,
 							None,
 							&node,
+							true,
 						)
 						.await?;
 					node.libraries
@@ -143,8 +144,10 @@ mod library {
 					.await?;
 
 					for instance in instances {
-						crate::cloud::sync::receive::create_instance(
-							&library,
+						crate::cloud::sync::receive::upsert_instance(
+							library.id,
+							&library.db,
+							&library.sync,
 							&node.libraries,
 							instance.uuid,
 							instance.identity,

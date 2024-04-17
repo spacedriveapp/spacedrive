@@ -1,4 +1,4 @@
-import { Check, Trash, X } from '@phosphor-icons/react';
+import { Check, PushPin, Trash, X } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useState } from 'react';
@@ -11,6 +11,7 @@ import {
 import { Button, PopoverClose, toast, Tooltip } from '@sd/ui';
 import { useIsDark, useLocale } from '~/hooks';
 
+import { getSidebarStore, useSidebarStore } from '../store';
 import IsRunningJob from './IsRunningJob';
 import JobGroup from './JobGroup';
 
@@ -46,6 +47,7 @@ function sortJobData(jobs: IJobGroup[]) {
 export function JobManager() {
 	const queryClient = useQueryClient();
 	const [toggleConfirmation, setToggleConfirmation] = useState(false);
+	const store = useSidebarStore();
 
 	const jobGroups = useLibraryQuery(['jobs.reports']);
 
@@ -79,7 +81,17 @@ export function JobManager() {
 	return (
 		<div className="h-full overflow-hidden pb-10">
 			<div className="z-20 flex h-9 w-full items-center rounded-t-md border-b border-app-line/50 bg-app-button/30 px-2">
-				<span className=" ml-1.5 font-medium">{t('recent_jobs')}</span>
+				<Tooltip label={t('pin')}>
+					<Button
+						onClick={() => {
+							getSidebarStore().pinJobManager = !store.pinJobManager;
+						}}
+						size="icon"
+					>
+						<PushPin weight={store.pinJobManager ? 'fill' : 'regular'} size={16} />
+					</Button>
+				</Tooltip>
+				<span className="ml-1 font-medium ">{t('recent_jobs')}</span>
 				<div className="grow" />
 				{toggleConfirmation ? (
 					<div className="flex h-[85%] w-fit items-center justify-center gap-2 rounded-md border border-app-line bg-app/40 px-2">
@@ -103,14 +115,18 @@ export function JobManager() {
 						size="icon"
 					>
 						<Tooltip label={t('clear_finished_jobs')}>
-							<Trash className="size-4" />
+							<Trash size={16} />
 						</Tooltip>
 					</Button>
 				)}
 				<PopoverClose asChild>
-					<Button className="opacity-70" size="icon">
+					<Button
+						onClick={() => (getSidebarStore().pinJobManager = false)}
+						className="opacity-70"
+						size="icon"
+					>
 						<Tooltip label={t('close')}>
-							<X className="size-4" />
+							<X size={16} />
 						</Tooltip>
 					</Button>
 				</PopoverClose>

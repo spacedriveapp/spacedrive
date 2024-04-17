@@ -18,6 +18,7 @@ export interface ItemData {
 	dateCreated: string | null;
 	dateModified: string | null;
 	dateAccessed: string | null;
+	dateTaken: string | null;
 	thumbnailKey: string[]; // default behavior is to render a single thumbnail
 	thumbnailKeys?: string[][]; // if set, we can render multiple thumbnails
 	hasLocalThumbnail: boolean; // this is overwritten when new thumbnails are generated
@@ -33,18 +34,54 @@ export function getExplorerItemData(data?: ExplorerItem | null): ItemData {
 	switch (data.type) {
 		// the getItemObject and getItemFilePath type-guards mean we can handle the following types in one case
 		case 'Object':
-		case 'NonIndexedPath':
 		case 'Path': {
 			// handle object
 			const object = getItemObject(data);
 
-			if (object?.kind) itemData.kind = ObjectKind[object?.kind] ?? 'Unknown';
-			else if (data.type === 'NonIndexedPath')
-				itemData.kind = ObjectKind[data.item.kind] ?? 'Unknown';
+			if (object) {
+				if (object.kind) itemData.kind = ObjectKind[object.kind] ?? 'Unknown';
+				if ('media_data' in object && object.media_data?.media_date) {
+					const byteArray = object.media_data.media_date;
+					const dateString = String.fromCharCode.apply(null, byteArray);
+					const [date, time] = dateString.replace(/"/g, '').split(' ');
+					if (date && time) itemData.dateTaken = `${date}T${time}Z`;
+				}
+			}
 
 			// Objects only have dateCreated and dateAccessed
 			itemData.dateCreated = object?.date_created ?? null;
 			itemData.dateAccessed = object?.date_accessed ?? null;
+			// handle thumbnail based on provided key
+			// This could be better, but for now we're mapping the backend property to two different local properties (thumbnailKey, thumbnailKeys) for backward compatibility
+			if (data.thumbnail) {
+				itemData.thumbnailKey = data.thumbnail;
+				itemData.thumbnailKeys = [data.thumbnail];
+			}
+
+			itemData.hasLocalThumbnail = !!data.thumbnail;
+			// handle file path
+			const filePath = getItemFilePath(data);
+			if (filePath) {
+				itemData.name = filePath.name;
+				itemData.fullName = getFullName(filePath.name, filePath.extension);
+				itemData.size = byteSize(filePath.size_in_bytes_bytes);
+				itemData.isDir = filePath.is_dir ?? false;
+				itemData.extension = filePath.extension?.toLocaleLowerCase() ?? null;
+				//
+				if ('cas_id' in filePath) itemData.casId = filePath.cas_id;
+				if ('location_id' in filePath) itemData.locationId = filePath.location_id;
+				if ('date_indexed' in filePath) itemData.dateIndexed = filePath.date_indexed;
+				if ('date_modified' in filePath) itemData.dateModified = filePath.date_modified;
+			}
+			break;
+		}
+		case 'NonIndexedPath': {
+			if (data.item?.kind) itemData.kind = ObjectKind[data.item?.kind] ?? 'Unknown';
+			else if (data.type === 'NonIndexedPath')
+				itemData.kind = ObjectKind[data.item.kind] ?? 'Unknown';
+
+			// Objects only have dateCreated and dateAccessed
+			itemData.dateCreated = data.item?.date_created ?? null;
 			// handle thumbnail based on provided key
 			// This could be better, but for now we're mapping the backend property to two different local properties (thumbnailKey, thumbnailKeys) for backward compatibility
 			if (data.thumbnail) {
@@ -124,6 +161,7 @@ function getDefaultItemData(kind: ObjectKindKey = 'Unknown'): ItemData {
 		dateCreated: null,
 		dateModified: null,
 		dateAccessed: null,
+		dateTaken: null,
 		thumbnailKey: [],
 		hasLocalThumbnail: false,
 		customIcon: null
