@@ -40,7 +40,7 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 			ModelSyncType::Shared { id, .. } => {
 				let (get_id, equals_value, id_name_snake, create_id) = match id.refine() {
 					RefinedFieldWalker::Relation(rel) => {
-						let scalar_field = rel.referenced_fields().unwrap().next().unwrap();
+						let scalar_field = rel.fields().unwrap().next().unwrap();
 						let id_name_snake = snake_ident(scalar_field.name());
 						let field_name_snake = snake_ident(rel.name());
 						let opposite_model_name_snake =
