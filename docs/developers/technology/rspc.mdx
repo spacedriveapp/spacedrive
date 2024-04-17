@@ -69,15 +69,15 @@ A panic will also take out the entire request which could contain a batch of mul
 
 ### Blocking
 
-##### Batching
+#### Batching
 
 This applies to both Tauri and Axum when using the batch link (**which Spacedrive uses**). Each request within a batch is effectively run in serial. This may or may not make a major difference as the response can't be send until all items are ready but having to run them in parallel would be faster regardless.
 
-##### Tauri
+#### Tauri
 
 Minus batching everything is run in parallel.
 
-##### Axum
+#### Axum
 
 All queries and mutations run within a single websocket connection (**which Spacedrive uses**) are run in serial.
 
