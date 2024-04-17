@@ -27,7 +27,7 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-use sd_prisma::prisma::{file_path, job, label, location, object};
+use sd_prisma::prisma::{self, file_path, job, label, location, object};
 
 // File Path selectables!
 file_path::select!(file_path_pub_and_cas_ids { id pub_id cas_id });
@@ -136,7 +136,20 @@ file_path::select!(file_path_to_full_path {
 });
 
 // File Path includes!
-file_path::include!(file_path_with_object { object });
+file_path::include!(file_path_with_object {
+	object: include {
+		media_data: select {
+			resolution
+			media_date
+			media_location
+			camera_data
+			artist
+			description
+			copyright
+			exif_version
+		}
+	}
+});
 
 // Object selectables!
 object::select!(object_for_file_identifier {
@@ -145,7 +158,29 @@ object::select!(object_for_file_identifier {
 });
 
 // Object includes!
-object::include!(object_with_file_paths { file_paths });
+object::include!(object_with_file_paths {
+	file_paths: include {
+		object: include {
+			media_data: select {
+				resolution
+				media_date
+				media_location
+				camera_data
+				artist
+				description
+				copyright
+				exif_version
+			}
+		}
+	}
+});
+
+impl sd_cache::Model for object_with_file_paths::file_paths::Data {
+	fn name() -> &'static str {
+		// This is okay because it's a superset of the available fields.
+		prisma::file_path::NAME
+	}
+}
 
 // Job selectables!
 job::select!(job_without_data {

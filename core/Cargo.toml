@@ -138,7 +138,6 @@ opendal = { version = "0.45.1", features = [
 	"services-fs",
 ] }
 sync_wrapper = { version = "1.0.1", features = ["futures"] }
-trash = "4.1.0"
 
 # Override features of transitive dependencies
 [dependencies.openssl]
@@ -151,6 +150,13 @@ features = ["vendored"]
 # Platform-specific dependencies
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"
+trash = "4.1.0"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+trash = "4.1.0"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+trash = "4.1.0"
 
 [target.'cfg(target_os = "ios")'.dependencies]
 icrate = { version = "0.1.0", features = [

@@ -18,6 +18,7 @@ export interface ItemData {
 	dateCreated: string | null;
 	dateModified: string | null;
 	dateAccessed: string | null;
+	dateTaken: string | null;
 	thumbnailKey: string[]; // default behavior is to render a single thumbnail
 	thumbnailKeys?: string[][]; // if set, we can render multiple thumbnails
 	hasLocalThumbnail: boolean; // this is overwritten when new thumbnails are generated
@@ -37,7 +38,15 @@ export function getExplorerItemData(data?: ExplorerItem | null): ItemData {
 			// handle object
 			const object = getItemObject(data);
 
-			if (object?.kind) itemData.kind = ObjectKind[object?.kind] ?? 'Unknown';
+			if (object) {
+				if (object.kind) itemData.kind = ObjectKind[object.kind] ?? 'Unknown';
+				if ('media_data' in object && object.media_data?.media_date) {
+					const byteArray = object.media_data.media_date;
+					const dateString = String.fromCharCode.apply(null, byteArray);
+					const [date, time] = dateString.replace(/"/g, '').split(' ');
+					if (date && time) itemData.dateTaken = `${date}T${time}Z`;
+				}
+			}
 
 			// Objects only have dateCreated and dateAccessed
 			itemData.dateCreated = object?.date_created ?? null;
@@ -152,6 +161,7 @@ function getDefaultItemData(kind: ObjectKindKey = 'Unknown'): ItemData {
 		dateCreated: null,
 		dateModified: null,
 		dateAccessed: null,
+		dateTaken: null,
 		thumbnailKey: [],
 		hasLocalThumbnail: false,
 		customIcon: null
