@@ -67,6 +67,13 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install Cypress
+        run: |
+          set -euxo pipefail
+          pnpm exec cypress install
+          rm -rf /Users/runner/.cache/Cypress
+          ln -sf /Users/runner/Library/Caches/Cypress /Users/runner/.cache/Cypress
+
       - name: Setup Cypress
         uses: cypress-io/github-action@v6
         with:
