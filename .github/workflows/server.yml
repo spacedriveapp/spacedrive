@@ -45,10 +45,11 @@ jobs:
 
       - name: Install passt
         shell: bash
+        working-directory: /tmp
         run: |
           set -euxo pipefail
           curl -SsJLO https://passt.top/builds/latest/x86_64/passt_954589b-1_all.deb
-          dpkg -i passt_954589b-1_all.deb
+          sudo dpkg -i passt_954589b-1_all.deb
 
       - name: Determine image name & tag
         id: image_info
