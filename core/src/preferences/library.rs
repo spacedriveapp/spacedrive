@@ -19,9 +19,6 @@ pub struct LibraryPreferences {
 	#[serde(default)]
 	#[specta(optional)]
 	tag: HashMap<Uuid, Settings<TagSettings>>,
-	#[serde(default)]
-	#[specta(optional)]
-	ephemeral: HashMap<String, Settings<()>>,
 }
 
 impl LibraryPreferences {
