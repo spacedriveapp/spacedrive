@@ -38,8 +38,8 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          sudo wget -O /usr/bin/netavark 'https://github.com/containers/netavark/releases/latest/download/netavark.gz'
-          sudo gunzip /usr/bin/netavark
+          sudo wget -O- 'https://github.com/containers/netavark/releases/latest/download/netavark.gz' \
+          | gunzip | sudo dd status=none of=/usr/bin/netavark
           sudo chmod +x /usr/bin/netavark
 
       - name: Determine image name & tag
