@@ -67,6 +67,9 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install Cypress
+        run: pnpm exec cypress install
+
       - name: Setup Cypress
         uses: cypress-io/github-action@v6
         with:
