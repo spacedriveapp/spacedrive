@@ -78,12 +78,14 @@ pub fn r#enum(models: Vec<ModelWithSyncType>) -> TokenStream {
 
 					match data {
 						sd_sync::CRDTOperationData::Create(data) => {
-							let data = data.into_iter().map(|field, value| {}).collect();
+							let data: Vec<_> = data.into_iter().map(|(field, value)| {
+								prisma::#model_name_snake::SetParam::deserialize(&field, value).unwrap()
+							}).collect();
 
 							db.#model_name_snake()
 								.upsert(
 									prisma::#model_name_snake::#id_name_snake::equals(#equals_value),
-									prisma::#model_name_snake::create(#create_id, data),
+									prisma::#model_name_snake::create(#create_id, data.clone()),
 									data
 								)
 								.exec()
