@@ -43,8 +43,8 @@ export function getExplorerItemData(data?: ExplorerItem | null): ItemData {
 			else if (data.type === 'NonIndexedPath')
 				itemData.kind = ObjectKind[data.item.kind] ?? 'Unknown';
 
-			if (object && 'media_data' in object && object.media_data?.media_date) {
-				const byteArray = object.media_data.media_date;
+			if (object && 'exif_data' in object && object.exif_data?.media_date) {
+				const byteArray = object.exif_data.media_date;
 				const dateString = String.fromCharCode.apply(null, byteArray);
 				const [date, time] = dateString.replace(/"/g, '').split(' ');
 				if (date && time) itemData.dateTaken = `${date}T${time}Z`;

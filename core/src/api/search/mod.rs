@@ -25,7 +25,7 @@ pub mod object;
 pub mod saved;
 mod utils;
 
-pub use self::{file_path::*, object::*, utils::*};
+pub use self::{file_path::*, object::*};
 
 use super::{Ctx, R};
 

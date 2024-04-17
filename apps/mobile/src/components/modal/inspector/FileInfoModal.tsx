@@ -85,10 +85,10 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 							value={`${byteSize(filePathData?.size_in_bytes_bytes)}`}
 						/>
 						{/* Duration */}
-						{/* {fullObjectData.data?.media_data?.duration && (
+						{/* {fullObjectData.data?.exif_data?.duration && (
 							<MetaItem
 								title="Duration"
-								value={fullObjectData.data.media_data.duration}
+								value={fullObjectData.data.exif_data.duration}
 								icon={Clock}
 							/>
 						)} */}
