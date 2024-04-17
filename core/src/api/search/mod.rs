@@ -314,7 +314,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						params
 					};
 
-					let mut query = db.file_path().find_many(dbg!(params));
+					let mut query = db.file_path().find_many(params);
 
 					if let Some(take) = take {
 						query = query.take(take as i64);

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { UNSAFE_useScrollRestoration } from 'react-router-dom';
 import {
 	CRDTOperation,
 	CRDTOperationData,
@@ -70,7 +71,16 @@ const OperationGroup = ({ group }: { group: MessageGroup }) => {
 						) : 'u' in message.data ? (
 							<p>Update - {message.data.u.field}</p>
 						) : (
-							<p>Create</p>
+							<div>
+								<p>Create</p>
+								<ul>
+									{Object.entries(message.data.c).map(([key, value]) => (
+										<li class="pl-2" key={key}>
+											{key}: {JSON.stringify(value)}
+										</li>
+									))}
+								</ul>
+							</div>
 						)}
 						<p className="text-gray-400">{message.timestamp}</p>
 					</li>
