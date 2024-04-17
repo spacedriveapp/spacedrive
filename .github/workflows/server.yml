@@ -38,9 +38,9 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          wget -O /usr/bin/netavark 'https://github.com/containers/netavark/releases/latest/download/netavark.gz'
-          gunzip /usr/bin/netavark
-          chmod +x /usr/bin/netavark
+          sudo wget -O /usr/bin/netavark 'https://github.com/containers/netavark/releases/latest/download/netavark.gz'
+          sudo gunzip /usr/bin/netavark
+          sudo chmod +x /usr/bin/netavark
 
       - name: Determine image name & tag
         id: image_info
