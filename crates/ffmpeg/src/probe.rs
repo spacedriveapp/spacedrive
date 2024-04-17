@@ -14,7 +14,7 @@ pub fn probe(filename: impl AsRef<Path>) -> Result<(), Error> {
 	unsafe { av_log_set_level(AV_LOG_FATAL) };
 
 	// Dictionary to store format options
-	let mut format_opts = FFmpegDict::new();
+	let mut format_opts = FFmpegDict::new(None);
 	// Some MPEGTS specific option (copied and pasted from ffprobe)
 	let scan_all_pmts = CString::new("scan_all_pmts").expect(CSTRING_ERROR_MSG);
 	format_opts.set(

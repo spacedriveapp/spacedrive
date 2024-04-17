@@ -193,6 +193,9 @@ model FilePath {
   date_modified DateTime?
   date_indexed  DateTime?
 
+    media_info    MediaInfo? @relation(fields: [media_info_id], references: [id], onDelete: SetNull)
+    media_info_id Int?
+
   // key Key? @relation(fields: [key_id], references: [id])
 
   @@unique([location_id, materialized_path, name, extension])
@@ -275,7 +278,6 @@ model ExifData {
     @@map("exif_data")
 }
 
-/// @shared(id: object)
 model MediaInfo {
     id Int @id @default(autoincrement())
 
@@ -288,47 +290,46 @@ model MediaInfo {
     chapters MediaChapter[]
     programs MediaProgram[]
 
-    metadata    MediaMetadata @relation(fields: [metadata_id], references: [id])
+    metadata    MediaMetadata @relation(fields: [metadata_id], references: [id], onDelete: Cascade)
     metadata_id Int           @unique
+
+    files FilePath[]
 
     @@map("media_info")
 }
 
-/// @shared(id: object)
 model MediaChapter {
     chapter_id Int
 
     start BigInt?
     end   BigInt?
 
-    metadata    MediaMetadata @relation(fields: [metadata_id], references: [id])
+    metadata    MediaMetadata @relation(fields: [metadata_id], references: [id], onDelete: Cascade)
     metadata_id Int           @unique
 
-    media_info    MediaInfo @relation(fields: [media_info_id], references: [id])
+    media_info    MediaInfo @relation(fields: [media_info_id], references: [id], onDelete: Cascade)
     media_info_id Int
 
     @@id(name: "likeId", [media_info_id, chapter_id])
     @@map("media_chapter")
 }
 
-/// @shared(id: object)
 model MediaProgram {
     program_id Int
 
     name    String?
     streams MediaStream[]
 
-    metadata    MediaMetadata @relation(fields: [metadata_id], references: [id])
+    metadata    MediaMetadata @relation(fields: [metadata_id], references: [id], onDelete: Cascade)
     metadata_id Int           @unique
 
-    media_info    MediaInfo @relation(fields: [media_info_id], references: [id])
+    media_info    MediaInfo @relation(fields: [media_info_id], references: [id], onDelete: Cascade)
     media_info_id Int
 
     @@id(name: "likeId", [media_info_id, program_id])
     @@map("media_program")
 }
 
-/// @shared(id: object)
 model MediaStream {
     stream_id Int
 
@@ -340,10 +341,10 @@ model MediaStream {
     time_base_real    Decimal?
     dispositions      String?
 
-    metadata    MediaMetadata @relation(fields: [metadata_id], references: [id])
+    metadata    MediaMetadata @relation(fields: [metadata_id], references: [id], onDelete: Cascade)
     metadata_id Int           @unique
 
-    program       MediaProgram @relation(fields: [media_info_id, program_id], references: [media_info_id, program_id])
+    program       MediaProgram @relation(fields: [media_info_id, program_id], references: [media_info_id, program_id], onDelete: Cascade)
     program_id    Int
     media_info_id Int
 
@@ -352,7 +353,6 @@ model MediaStream {
     @@map("media_stream")
 }
 
-/// @shared(id: object)
 model MediaCodec {
     id Int @id @default(autoincrement())
 
@@ -366,7 +366,7 @@ model MediaCodec {
     audio_props    MediaAudioProps?
     subtitle_props MediaSubtitleProps?
 
-    codec         MediaStream @relation(fields: [media_info_id, program_id, stream_id], references: [media_info_id, program_id, stream_id])
+    codec         MediaStream @relation(fields: [media_info_id, program_id, stream_id], references: [media_info_id, program_id, stream_id], onDelete: Cascade)
     stream_id     Int
     program_id    Int
     media_info_id Int
@@ -375,7 +375,6 @@ model MediaCodec {
     @@map("media_codec")
 }
 
-/// @shared(id: object)
 model MediaVideoProps {
     id Int @id @default(autoincrement())
 
@@ -393,13 +392,12 @@ model MediaVideoProps {
     aspect_ratio_Den Int?
     properties       String
 
-    codec    MediaCodec @relation(fields: [codec_id], references: [id])
+    codec    MediaCodec @relation(fields: [codec_id], references: [id], onDelete: Cascade)
     codec_id Int        @unique
 
     @@map("media_video")
 }
 
-/// @shared(id: object)
 model MediaAudioProps {
     id Int @id @default(autoincrement())
 
@@ -410,26 +408,24 @@ model MediaAudioProps {
     bit_per_sample Int?
     channel_layout String?
 
-    codec    MediaCodec @relation(fields: [codec_id], references: [id])
+    codec    MediaCodec @relation(fields: [codec_id], references: [id], onDelete: Cascade)
     codec_id Int        @unique
 
     @@map("media_audio")
 }
 
-/// @shared(id: object)
 model MediaSubtitleProps {
     id Int @id @default(autoincrement())
 
     width  Int?
     height Int?
 
-    codec    MediaCodec @relation(fields: [codec_id], references: [id])
+    codec    MediaCodec @relation(fields: [codec_id], references: [id], onDelete: Cascade)
     codec_id Int        @unique
 
     @@map("media_subtitle")
 }
 
-/// @shared(id: object)
 model MediaMetadata {
     id Int @id @default(autoincrement())
 
@@ -472,14 +468,13 @@ model MediaMetadata {
     @@map("media_metadata")
 }
 
-/// @shared(id: object)
 model CustomMetadata {
     id Int @id @default(autoincrement())
 
     key   String?
     value String?
 
-    media_metadata    MediaMetadata @relation(fields: [media_metadata_id], references: [id])
+    media_metadata    MediaMetadata @relation(fields: [media_metadata_id], references: [id], onDelete: Cascade)
     media_metadata_id Int           @unique
 
     @@map("custom_metadata")
