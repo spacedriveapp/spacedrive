@@ -5,9 +5,27 @@ index: 12
 
 # Normalised Cache
 
-We use a normalised cache for our frontend to ensure the UI will always contain consistent data.
+We currently make use a normalised cache within Spacedrive. These docs outline it's usage and design.
+
+{/* Normalised caching allows us to ensure the UI state is consistent and although isn't currently used, can be used to build a more powerful invalidation system. */}
 
 ## What this system does?
+
+
+
+The normalised cache currently avoids "state tearing" within the app.
+
+For example if the frontend makes a request for:
+
+```
+GET .../files_paths
+	File path 1 name: "abc"
+
+GET .../search?query=files
+
+```
+
+
 
 By normalising the data it's impossible to get "state tearing".
 

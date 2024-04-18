@@ -1,0 +1,42 @@
+Kinda. With our current implementation we don’t actually deduplicate data much. Lemme explain how it works and the pros and cons:
+
+So instead of the backend returning
+type Response = { id: number; name: string; age: number}[]
+
+with normalised caching the backend will instead return something like this:
+type Id = number | any;
+type Type = 'person' | 'animal' | string;
+type Data = { id: number; name: string; age: number } | any;
+
+type CacheNode = { id: Id; type: Type; data: Data };
+type Reference = { id: number; type: Type };
+
+type Response = {
+	nodes: CacheNode[];
+	references: Reference[];
+}
+
+A CacheNode contains an identifier (Type, Id) and then some data.
+A Reference  contains only an identifier, no data.
+
+Once this data is returned to the frontend, the CacheNode’s will be inserted into the normalised cache which is for all intents and purposes a fancy Map<Type, Map<Id, Data>>.
+
+Then the References ’s can be used to “index” into the cache to reconstruct the original data as it contains the Id and the Type the two “keys” to the actual data. A Reference can be alone, in an array, or in an object, or nested inside another reference, it doesn’t really matter.
+
+Now by itself that’s not particularly useful but if another query were to return a CacheNode for same model the data would get put into the normalised cache at the same key because the Id and Type match. This change of data in the cache at a place referenced by the first query would trigger it to recompute the result of the first query and you will end up with both queries using the newer version of the data.
+
+This is possible because a Reference doesn’t hold data, it’s just a pointer into the cache. So recomputing the data is as easy and following the references into the cache to get the proper value. In practice we use a subscription system kinda like Solid signals to make this work so we don’t need to recompute everything on a single change.
+
+That’s basically where Spacedrive is today.
+
+Given rspc has no special understanding of the normalised cache, we actually may send the data for a single CacheNode back multiple times in a single request or batch. Technically any occurrences of the same CacheNode could be deduplicated on the backend but making this work requires some coordination between independent queries which rspc lacks at the current point in time and I felt was out of scope at the time for how much work it would have taken.
+
+In a more advanced system we could make use of the normalised cache in the invalidation system. The backend could say “person 1 changed” and the frontend would be able to tell if person 1 is within any of the active queries.
+
+The way Spacedrive’s invalidation system works right now is that it will pretty much invalidate all explorer queries when a single item changes. Technically the invalidation system supports more fine-grained invalidation but it’s DX is horrible and we have chosen better DX (which I can’t fault, man the invalidation system was smart at the time but scaled poorly).
+
+Alternatively, we could also just refetch the CacheNode for person 1 without needing to refetch the entire query or queries but pulling this off without GraphQL is really hard. How do you lookup one CacheNode? We would need a separate endpoint (like the nodes query in Relay for example).
+
+The idea of this more advanced invalidation system is why the normalised cache implementation is on the backend and frontend. Many solutions exist for normalised caching on the frontend-only but they would make implementing the backend part of the invalidation system much harder later on.
+
+Personally in hindsight i’m not sure the normalised cache was a good idea because we implemented the core of it and never really pushed it further as was my intention. It also has a decent DX cost to everyone and due to it’s core nature touching it’s code scares me, because a small bug will grind the whole app to a halt (as happened when we introduced it).  I’m not sure it’s worth it for how little we are utilising it at the moment but really whether we should keep it long term will come down to how the next version of the invalidation system will work with is still tbd.
