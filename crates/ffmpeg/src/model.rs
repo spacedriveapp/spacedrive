@@ -1,3 +1,4 @@
+use chrono::TimeDelta;
 use std::collections::HashMap;
 
 #[derive(Default)]
@@ -10,7 +11,7 @@ pub struct MediaMetadata {
 	pub copyright: Option<String>,
 	pub creation_time: Option<chrono::DateTime<chrono::Utc>>,
 	pub date: Option<chrono::DateTime<chrono::Utc>>,
-	pub disc: Option<i32>,
+	pub disc: Option<u32>,
 	pub encoder: Option<String>,
 	pub encoded_by: Option<String>,
 	pub filename: Option<String>,
@@ -21,15 +22,15 @@ pub struct MediaMetadata {
 	pub service_name: Option<String>,
 	pub service_provider: Option<String>,
 	pub title: Option<String>,
-	pub track: Option<i32>,
-	pub variant_bitrate: Option<i32>,
+	pub track: Option<u32>,
+	pub variant_bitrate: Option<u32>,
 	pub custom: HashMap<String, String>,
 }
 
 pub struct MediaChapter {
-	pub id: i32,
-	pub start: Option<i64>,
-	pub end: Option<i64>,
+	pub id: u32,
+	pub start: f64,
+	pub end: f64,
 	pub metadata: MediaMetadata,
 }
 
@@ -93,16 +94,16 @@ pub struct MediaStream {
 }
 
 pub struct MediaProgram {
-	pub id: i32,
+	pub id: u32,
 	pub name: Option<String>,
 	pub streams: Vec<MediaStream>,
 	pub metadata: MediaMetadata,
 }
 
 pub struct MediaInfo {
-	pub formats: Option<Vec<String>>,
-	pub duration: Option<i64>,
-	pub start_time: Option<i64>,
+	pub formats: Vec<String>,
+	pub duration: Option<TimeDelta>,
+	pub start_time: Option<TimeDelta>,
 	pub bitrate: Option<i64>,
 	pub chapters: Vec<MediaChapter>,
 	pub programs: Vec<MediaProgram>,
