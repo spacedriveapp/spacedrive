@@ -109,7 +109,7 @@ function useTagExplorerSettings(tag: Tag) {
 
 		const pubId = stringify(tag.pub_id);
 
-		const settings = preferences.data?.location?.[pubId]?.explorer;
+		const settings = preferences.data?.tag?.[pubId]?.explorer;
 
 		if (!settings) return defaults;
 
@@ -118,7 +118,7 @@ function useTagExplorerSettings(tag: Tag) {
 		}
 
 		return defaults;
-	}, [tag, preferences.data?.location]);
+	}, [tag, preferences.data?.tag]);
 
 	const onSettingsChanged = async (settings: ExplorerSettings<ObjectOrder>, changedTag: Tag) => {
 		if (changedTag.id === tag.id && preferences.isLoading) return;

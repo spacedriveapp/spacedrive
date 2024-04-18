@@ -70,7 +70,7 @@ mod originator {
 					timestamp: sync::NTP64(0),
 					record_id: rmpv::Value::Nil,
 					model: 0,
-					data: sd_sync::CRDTOperationData::Create,
+					data: sd_sync::CRDTOperationData::create(),
 				}]);
 
 				let mut cursor = std::io::Cursor::new(original.to_bytes());

@@ -87,8 +87,10 @@ impl SearchFilterArgs {
 		self,
 		db: &PrismaClient,
 	) -> Result<Vec<prisma::object::WhereParam>, rspc::Error> {
-		self.into_params(db, |v| vec![prisma::object::file_paths::some(v)], |v| v)
-			.await
+		dbg!(
+			self.into_params(db, |v| vec![prisma::object::file_paths::some(v)], |v| v)
+				.await
+		)
 	}
 }
 
