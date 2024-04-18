@@ -80,16 +80,16 @@ pub struct MediaCodec {
 }
 
 pub struct MediaStream {
-	pub id: i32,
+	pub id: u32,
 	pub name: Option<String>,
 	pub codec: Option<MediaCodec>,
-	pub aspect_ratio_num: Option<i32>,
-	pub aspect_ratio_den: Option<i32>,
-	pub frames_per_second_num: Option<i32>,
-	pub frames_per_second_den: Option<i32>,
-	pub time_base_real_den: Option<i32>,
-	pub time_base_real_num: Option<i32>,
-	pub dispositions: Option<String>,
+	pub aspect_ratio_num: i32,
+	pub aspect_ratio_den: i32,
+	pub frames_per_second_num: i32,
+	pub frames_per_second_den: i32,
+	pub time_base_real_den: i32,
+	pub time_base_real_num: i32,
+	pub dispositions: Vec<String>,
 	pub metadata: MediaMetadata,
 }
 
