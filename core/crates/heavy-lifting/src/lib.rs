@@ -73,3 +73,12 @@ pub enum NonCriticalJobError {
 	#[error(transparent)]
 	FileIdentifier(#[from] NonCriticalFileIdentifierError),
 }
+
+#[repr(i32)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Eq, PartialEq)]
+pub enum LocationScanState {
+	Pending = 0,
+	Indexed = 1,
+	FilesIdentified = 2,
+	Completed = 3,
+}

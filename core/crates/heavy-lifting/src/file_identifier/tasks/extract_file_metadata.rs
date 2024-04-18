@@ -17,27 +17,30 @@ use std::{
 
 use futures::stream::{self, FuturesUnordered, StreamExt};
 use futures_concurrency::stream::Merge;
+use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
 use tracing::error;
 use uuid::Uuid;
 
-#[derive(Debug)]
+use super::IdentifiedFile;
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ExtractFileMetadataTask {
 	id: TaskId,
 	location: Arc<location::Data>,
 	location_path: Arc<PathBuf>,
 	file_paths_by_id: HashMap<Uuid, file_path_for_file_identifier::Data>,
-	processed: HashMap<Uuid, (FileMetadata, file_path_for_file_identifier::Data)>,
+	processed: HashMap<Uuid, IdentifiedFile>,
 	read_metadata_time: Duration,
 	errors: Vec<NonCriticalJobError>,
 	is_shallow: bool,
 }
 
 #[derive(Debug)]
-pub struct ExtractFileMetadataTaskOutput {
-	pub processed: HashMap<Uuid, (FileMetadata, file_path_for_file_identifier::Data)>,
-	pub read_metadata_time: Duration,
-	pub errors: Vec<NonCriticalJobError>,
+pub(super) struct ExtractFileMetadataTaskOutput {
+	pub(super) processed: HashMap<Uuid, IdentifiedFile>,
+	pub(super) read_metadata_time: Duration,
+	pub(super) errors: Vec<NonCriticalJobError>,
 }
 
 impl ExtractFileMetadataTask {
@@ -135,46 +138,29 @@ impl Task<Error> for ExtractFileMetadataTask {
 
 			while let Some(msg) = msg_stream.next().await {
 				match msg {
-					StreamMessage::Processed(file_path_id, res) => {
+					StreamMessage::Processed(file_path_pub_id, res) => {
 						let file_path = file_paths_by_id
-							.remove(&file_path_id)
+							.remove(&file_path_pub_id)
 							.expect("file_path must be here");
 
 						match res {
-							Ok(metadata) => {
-								processed.insert(file_path_id, (metadata, file_path));
+							Ok(FileMetadata { cas_id, kind, .. }) => {
+								processed.insert(
+									file_path_pub_id,
+									IdentifiedFile {
+										file_path,
+										cas_id,
+										kind,
+									},
+								);
 							}
 							Err(e) => {
-								error!("Failed to extract file metadata <location_id={}, file_path_pub_id='{file_path_id}'>: {e:#?}", location.id);
-
-								let formatted_error =
-									format!("<file_path_pub_id='{file_path_id:?}', error={e}>");
-
-								#[cfg(target_os = "windows")]
-								{
-									// Handle case where file is on-demand (NTFS only)
-									if e.source.raw_os_error().map_or(false, |code| code == 362) {
-										errors.push(
-											NonCriticalFileIdentifierError::FailedToExtractMetadataFromOnDemandFile(
-												formatted_error
-											).into(),
-										);
-									} else {
-										errors.push(
-											NonCriticalFileIdentifierError::FailedToExtractFileMetadata(
-												formatted_error
-											).into(),
-										);
-									}
-								}
-
-								#[cfg(not(target_os = "windows"))]
-								{
-									errors.push(
-										NonCriticalFileIdentifierError::FailedToExtractFileMetadata(formatted_error)
-											.into(),
-									);
-								}
+								handle_non_critical_errors(
+									location.id,
+									file_path_pub_id,
+									&e,
+									errors,
+								);
 							}
 						}
 
@@ -215,21 +201,56 @@ impl Task<Error> for ExtractFileMetadataTask {
 	}
 }
 
+fn handle_non_critical_errors(
+	location_id: location::id::Type,
+	file_path_pub_id: Uuid,
+	e: &FileIOError,
+	errors: &mut Vec<NonCriticalJobError>,
+) {
+	error!("Failed to extract file metadata <location_id={location_id}, file_path_pub_id='{file_path_pub_id}'>: {e:#?}");
+
+	let formatted_error = format!("<file_path_pub_id='{file_path_pub_id}', error={e}>");
+
+	#[cfg(target_os = "windows")]
+	{
+		// Handle case where file is on-demand (NTFS only)
+		if e.source.raw_os_error().map_or(false, |code| code == 362) {
+			errors.push(
+				NonCriticalFileIdentifierError::FailedToExtractMetadataFromOnDemandFile(
+					formatted_error,
+				)
+				.into(),
+			);
+		} else {
+			errors.push(
+				NonCriticalFileIdentifierError::FailedToExtractFileMetadata(formatted_error).into(),
+			);
+		}
+	}
+
+	#[cfg(not(target_os = "windows"))]
+	{
+		errors.push(
+			NonCriticalFileIdentifierError::FailedToExtractFileMetadata(formatted_error).into(),
+		);
+	}
+}
+
 fn try_iso_file_path_extraction(
 	location_id: location::id::Type,
-	file_path_id: Uuid,
+	file_path_pub_id: Uuid,
 	file_path: &file_path_for_file_identifier::Data,
 	location_path: Arc<PathBuf>,
 	errors: &mut Vec<NonCriticalJobError>,
 ) -> Option<(Uuid, IsolatedFilePathData<'static>, Arc<PathBuf>)> {
 	IsolatedFilePathData::try_from((location_id, file_path))
 		.map(IsolatedFilePathData::to_owned)
-		.map(|iso_file_path| (file_path_id, iso_file_path, location_path))
+		.map(|iso_file_path| (file_path_pub_id, iso_file_path, location_path))
 		.map_err(|e| {
 			error!("Failed to extract isolated file path data: {e:#?}");
 			errors.push(
 				NonCriticalFileIdentifierError::FailedToExtractIsolatedFilePathData(format!(
-					"<file_path_pub_id='{file_path_id:?}', error={e}>"
+					"<file_path_pub_id='{file_path_pub_id}', error={e}>"
 				))
 				.into(),
 			);

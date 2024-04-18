@@ -8,13 +8,14 @@ use crate::{
 		utils::cancel_pending_tasks,
 		SerializableJob, SerializedTasks,
 	},
-	Error, NonCriticalJobError,
+	Error, LocationScanState, NonCriticalJobError,
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_indexer_rules::{IndexerRule, IndexerRuler};
 use sd_core_prisma_helpers::location_with_indexer_rules;
 
+use sd_prisma::prisma::location;
 use sd_task_system::{
 	AnyTaskOutput, IntoTask, SerializableTask, Task, TaskDispatcher, TaskHandle, TaskId,
 	TaskOutput, TaskStatus,
@@ -170,6 +171,16 @@ impl Job for IndexerJob {
 			tasks_for_shutdown.is_empty(),
 			"all tasks must be completed here"
 		);
+
+		ctx.db()
+			.location()
+			.update(
+				location::id::equals(location.id),
+				vec![location::scan_state::set(LocationScanState::Indexed as i32)],
+			)
+			.exec()
+			.await
+			.map_err(IndexerError::from)?;
 
 		Ok(ReturnStatus::Completed(
 			JobReturn::builder()
