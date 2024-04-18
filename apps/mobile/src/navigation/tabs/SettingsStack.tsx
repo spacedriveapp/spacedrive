@@ -2,7 +2,9 @@ import { CompositeScreenProps } from '@react-navigation/native';
 // import KeysSettingsScreen from '~/screens/settings/library/KeysSettings';
 
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useSharedValue } from 'react-native-reanimated';
 import Header from '~/components/header/Header';
+import LocationsScreen from '~/screens/browse/Locations';
 import AppearanceSettingsScreen from '~/screens/settings/client/AppearanceSettings';
 import ExtensionsSettingsScreen from '~/screens/settings/client/ExtensionsSettings';
 import GeneralSettingsScreen from '~/screens/settings/client/GeneralSettings';
@@ -13,7 +15,6 @@ import DebugScreen from '~/screens/settings/info/Debug';
 import SupportScreen from '~/screens/settings/info/Support';
 import EditLocationSettingsScreen from '~/screens/settings/library/EditLocationSettings';
 import LibraryGeneralSettingsScreen from '~/screens/settings/library/LibraryGeneralSettings';
-import LocationSettingsScreen from '~/screens/settings/library/LocationSettings';
 import NodesSettingsScreen from '~/screens/settings/library/NodesSettings';
 import TagsSettingsScreen from '~/screens/settings/library/TagsSettings';
 import SettingsScreen from '~/screens/settings/Settings';
@@ -23,24 +24,32 @@ import { TabScreenProps } from '../TabNavigator';
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
 
 export default function SettingsStack() {
+	const scrollY = useSharedValue(0);
 	return (
 		<Stack.Navigator initialRouteName="Settings">
 			<Stack.Screen
 				name="Settings"
-				component={SettingsScreen}
-				options={{ header: () => <Header showDrawer title="Settings" /> }}
-			/>
+				options={{
+					header: () => (
+						<Header scrollY={scrollY} showSearch showDrawer title="Settings" />
+					)
+				}}
+			>
+				{(props) => <SettingsScreen {...props} scrollY={scrollY} />}
+			</Stack.Screen>
 			{/* Client */}
 			<Stack.Screen
 				name="GeneralSettings"
-				component={GeneralSettingsScreen}
 				options={{ header: () => <Header navBack title="General" /> }}
-			/>
+			>
+				{() => <GeneralSettingsScreen />}
+			</Stack.Screen>
 			<Stack.Screen
 				name="LibrarySettings"
-				component={LibrarySettingsScreen}
-				options={{ header: () => <Header navBack title="Libraries" /> }}
-			/>
+				options={{ header: () => <Header scrollY={scrollY} navBack title="Libraries" /> }}
+			>
+				{(props) => <LibrarySettingsScreen {...props} scrollY={scrollY} />}
+			</Stack.Screen>
 			<Stack.Screen
 				name="AppearanceSettings"
 				component={AppearanceSettingsScreen}
@@ -59,31 +68,41 @@ export default function SettingsStack() {
 			{/* Library */}
 			<Stack.Screen
 				name="LibraryGeneralSettings"
-				component={LibraryGeneralSettingsScreen}
-				options={{ header: () => <Header navBack title="Library Settings" /> }}
-			/>
+				options={{
+					header: () => <Header navBack title="Library Settings" />
+				}}
+			>
+				{() => <LibraryGeneralSettingsScreen />}
+			</Stack.Screen>
 			<Stack.Screen
 				name="LocationSettings"
-				component={LocationSettingsScreen}
 				options={{
-					header: () => <Header searchType="location" navBack title="Locations" />
+					header: () => (
+						<Header scrollY={scrollY} searchType="location" navBack title="Locations" />
+					)
 				}}
-			/>
+			>
+				{() => <LocationsScreen scrollY={scrollY} />}
+			</Stack.Screen>
 			<Stack.Screen
 				name="EditLocationSettings"
-				component={EditLocationSettingsScreen}
-				options={{ header: () => <Header navBack title="Edit Location" /> }}
-			/>
+				options={{
+					header: () => <Header scrollY={scrollY} navBack title="Edit Location" />
+				}}
+			>
+				{(props) => <EditLocationSettingsScreen {...props} scrollY={scrollY} />}
+			</Stack.Screen>
 			<Stack.Screen
 				name="NodesSettings"
 				component={NodesSettingsScreen}
-				options={{ header: () => <Header navBack title="Nodes" /> }}
+				options={{ header: () => <Header scrollY={scrollY} navBack title="Nodes" /> }}
 			/>
 			<Stack.Screen
 				name="TagsSettings"
-				component={TagsSettingsScreen}
-				options={{ header: () => <Header navBack title="Tags" /> }}
-			/>
+				options={{ header: () => <Header scrollY={scrollY} navBack title="Tags" /> }}
+			>
+				{() => <TagsSettingsScreen scrollY={scrollY} />}
+			</Stack.Screen>
 			{/* <Stack.Screen
 				name="KeysSettings"
 				component={KeysSettingsScreen}
@@ -92,18 +111,19 @@ export default function SettingsStack() {
 			{/* Info */}
 			<Stack.Screen
 				name="About"
-				component={AboutScreen}
-				options={{ header: () => <Header navBack title="About" /> }}
-			/>
+				options={{ header: () => <Header scrollY={scrollY} navBack title="About" /> }}
+			>
+				{() => <AboutScreen scrollY={scrollY} />}
+			</Stack.Screen>
 			<Stack.Screen
 				name="Support"
 				component={SupportScreen}
-				options={{ header: () => <Header navBack title="Support" /> }}
+				options={{ header: () => <Header scrollY={scrollY} navBack title="Support" /> }}
 			/>
 			<Stack.Screen
 				name="Debug"
 				component={DebugScreen}
-				options={{ header: () => <Header navBack title="Debug" /> }}
+				options={{ header: () => <Header scrollY={scrollY} navBack title="Debug" /> }}
 			/>
 		</Stack.Navigator>
 	);

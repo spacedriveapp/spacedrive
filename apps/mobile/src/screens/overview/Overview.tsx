@@ -5,6 +5,7 @@ import Cloud from '~/components/overview/Cloud';
 import Devices from '~/components/overview/Devices';
 import Locations from '~/components/overview/Locations';
 import OverviewStats from '~/components/overview/OverviewStats';
+import { ScrollY } from '~/types/shared';
 
 const EMPTY_STATISTICS = {
 	id: 0,
@@ -18,7 +19,7 @@ const EMPTY_STATISTICS = {
 	total_unique_bytes: '0'
 };
 
-export default function OverviewScreen() {
+export default function OverviewScreen({ scrollY }: ScrollY) {
 	const { data: node } = useBridgeQuery(['nodeState']);
 
 	const stats = useLibraryQuery(['library.statistics'], {
@@ -26,7 +27,7 @@ export default function OverviewScreen() {
 	});
 
 	return (
-		<ScreenContainer>
+		<ScreenContainer scrollY={scrollY}>
 			<OverviewStats stats={stats} />
 			<Categories />
 			<Devices stats={stats} node={node} />

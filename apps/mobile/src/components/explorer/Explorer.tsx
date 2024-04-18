@@ -10,6 +10,7 @@ import { tw } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '~/stores/explorerStore';
 import { useActionsModalStore } from '~/stores/modalStore';
+import { ScrollY } from '~/types/shared';
 
 import ScreenContainer from '../layout/ScreenContainer';
 import FileItem from './FileItem';
@@ -23,6 +24,7 @@ type ExplorerProps = {
 	loadMore: () => void;
 	query: UseInfiniteQueryResult<SearchData<ExplorerItem>>;
 	count?: number;
+	scrollY?: ScrollY['scrollY'];
 };
 
 const Explorer = (props: ExplorerProps) => {
@@ -51,7 +53,12 @@ const Explorer = (props: ExplorerProps) => {
 	}
 
 	return (
-		<ScreenContainer tabHeight={props.tabHeight} scrollview={false} style={'gap-0 py-0'}>
+		<ScreenContainer
+			scrollY={props.scrollY}
+			tabHeight={props.tabHeight}
+			scrollview={false}
+			style={'gap-0 py-0'}
+		>
 			{/* Header */}
 			{/* Sort By */}
 			{/* <SortByMenu /> */}

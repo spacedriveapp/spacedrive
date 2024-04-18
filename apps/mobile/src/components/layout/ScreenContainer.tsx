@@ -1,5 +1,8 @@
-import { ReactNode, useRef } from 'react';
-import { Platform, ScrollView, View } from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { ReactNode, useEffect, useRef } from 'react';
+import { Platform, View } from 'react-native';
+import Animated, { SharedValue, useAnimatedScrollHandler } from 'react-native-reanimated';
+import { AnimatedScrollView } from 'react-native-reanimated/lib/typescript/reanimated2/component/ScrollView';
 import { ClassInput } from 'twrnc/dist/esm/types';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -16,6 +19,7 @@ interface Props {
 	/** Styling of both side fades */
 	topFadeStyle?: string;
 	bottomFadeStyle?: string;
+	scrollY?: SharedValue<number>;
 }
 
 const ScreenContainer = ({
@@ -25,10 +29,28 @@ const ScreenContainer = ({
 	bottomFadeStyle,
 	scrollview = true,
 	tabHeight = true,
-	scrollToBottomOnChange = false
+	scrollToBottomOnChange = false,
+	scrollY
 }: Props) => {
-	const ref = useRef<ScrollView>(null);
+	const ref = useRef<AnimatedScrollView>(null);
 	const bottomTabBarHeight = Platform.OS === 'ios' ? 80 : 60;
+	const scrollHandler = useAnimatedScrollHandler((e) => {
+		if (!scrollY) return;
+		scrollY.value = e.contentOffset.y;
+	});
+	const navigation = useNavigation();
+	const route = useRoute();
+
+	//everytime the tab changes we reset the scroll to 0
+	useEffect(() => {
+		const unsubscribe = navigation.addListener('blur', () => {
+			ref.current?.scrollTo({ y: 0, animated: false });
+			if (scrollY) scrollY.value = 0;
+		});
+
+		return unsubscribe;
+	}, [navigation, scrollY]);
+
 	return scrollview ? (
 		<View style={tw`relative flex-1`}>
 			<Fade
@@ -41,12 +63,14 @@ const ScreenContainer = ({
 				width={30}
 				height="100%"
 			>
-				<ScrollView
+				<Animated.ScrollView
 					ref={ref}
 					onContentSizeChange={() => {
 						if (!scrollToBottomOnChange) return;
 						ref.current?.scrollToEnd({ animated: true });
 					}}
+					scrollEventThrottle={1}
+					onScroll={scrollHandler}
 					contentContainerStyle={twStyle('justify-between gap-10 py-6', style)}
 					style={twStyle(
 						'flex-1 bg-black',
@@ -54,7 +78,7 @@ const ScreenContainer = ({
 					)}
 				>
 					{children}
-				</ScrollView>
+				</Animated.ScrollView>
 			</Fade>
 		</View>
 	) : (

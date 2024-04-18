@@ -10,6 +10,7 @@ import DeleteLibraryModal from '~/components/modal/confirmModals/DeleteLibraryMo
 import { AnimatedButton, FakeButton } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
+import { ScrollY } from '~/types/shared';
 
 function LibraryItem({
 	library,
@@ -63,7 +64,7 @@ function LibraryItem({
 		>
 			<View style={tw`flex-row items-center justify-between`}>
 				<View>
-					<Text style={tw`text-md font-semibold text-ink`}>{library.config.name}</Text>
+					<Text style={tw`font-semibold text-md text-ink`}>{library.config.name}</Text>
 					<Text style={tw`mt-1 text-xs text-ink-dull`}>{library.uuid}</Text>
 				</View>
 				<Pressable onPress={() => swipeRef.current?.openRight()}>
@@ -78,7 +79,10 @@ function LibraryItem({
 	);
 }
 
-const LibrarySettingsScreen = ({ navigation }: SettingsStackScreenProps<'LibrarySettings'>) => {
+const LibrarySettingsScreen = ({
+	navigation,
+	scrollY
+}: SettingsStackScreenProps<'LibrarySettings'> & ScrollY) => {
 	const libraryList = useBridgeQuery(['library.list']);
 	useNodes(libraryList.data?.nodes);
 	const libraries = useCache(libraryList.data?.items);
@@ -101,7 +105,7 @@ const LibrarySettingsScreen = ({ navigation }: SettingsStackScreenProps<'Library
 	const modalRef = useRef<ModalRef>(null);
 
 	return (
-		<ScreenContainer style={tw`justify-start gap-0 px-6 py-0`} scrollview={false}>
+		<ScreenContainer style={tw`justify-start gap-0 px-6 py-0`}>
 			<Fade
 				fadeSides="top-bottom"
 				orientation="vertical"

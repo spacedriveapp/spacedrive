@@ -14,11 +14,10 @@ import { SettingsTitle } from '~/components/settings/SettingsContainer';
 import SettingsToggle from '~/components/settings/SettingsToggle';
 import { useAutoForm } from '~/hooks/useAutoForm';
 import { tw } from '~/lib/tailwind';
-import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
 const schema = z.object({ name: z.string(), description: z.string() });
 
-const LibraryGeneralSettingsScreen = (_: SettingsStackScreenProps<'LibraryGeneralSettings'>) => {
+const LibraryGeneralSettingsScreen = () => {
 	const { library } = useLibraryContext();
 
 	const form = useZodForm({
@@ -38,7 +37,7 @@ const LibraryGeneralSettingsScreen = (_: SettingsStackScreenProps<'LibraryGenera
 	});
 
 	return (
-		<ScreenContainer scrollview={false} style={tw`justify-start px-6 py-0`}>
+		<ScreenContainer style={tw`justify-start px-6 py-0`}>
 			<View style={tw`pt-5`}>
 				<SettingsTitle style={tw`mb-1`}>Name</SettingsTitle>
 				<Controller
@@ -48,7 +47,7 @@ const LibraryGeneralSettingsScreen = (_: SettingsStackScreenProps<'LibraryGenera
 						<Input onBlur={onBlur} onChangeText={onChange} value={value} />
 					)}
 				/>
-				<SettingsTitle style={tw`mb-1 mt-4`}>Description</SettingsTitle>
+				<SettingsTitle style={tw`mt-4 mb-1`}>Description</SettingsTitle>
 				<Controller
 					name="description"
 					control={form.control}

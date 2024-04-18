@@ -1,7 +1,8 @@
 import Tags from '~/screens/browse/Tags';
+import { ScrollY } from '~/types/shared';
 
-const TagsSettingsScreen = () => {
-	return <Tags viewStyle="list" />;
+const TagsSettingsScreen = ({ scrollY }: ScrollY) => {
+	return <Tags scrollY={scrollY} viewStyle="list" />;
 };
 
 export default TagsSettingsScreen;

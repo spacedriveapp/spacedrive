@@ -2,8 +2,13 @@ import { useEffect } from 'react';
 import { useCache, useLibraryQuery, useNodes, useObjectsExplorerQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
+import { ScrollY } from '~/types/shared';
 
-export default function TagScreen({ navigation, route }: BrowseStackScreenProps<'Tag'>) {
+export default function TagScreen({
+	navigation,
+	route,
+	scrollY
+}: BrowseStackScreenProps<'Tag'> & ScrollY) {
 	const { id } = route.params;
 
 	const tag = useLibraryQuery(['tags.get', id]);
@@ -22,5 +27,5 @@ export default function TagScreen({ navigation, route }: BrowseStackScreenProps<
 		});
 	}, [tagData?.name, navigation]);
 
-	return <Explorer {...objects} />;
+	return <Explorer scrollY={scrollY} {...objects} />;
 }

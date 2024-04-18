@@ -8,17 +8,18 @@ import ScreenContainer from '~/components/layout/ScreenContainer';
 import { Button } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
 import { tw } from '~/lib/tailwind';
+import { ScrollY } from '~/types/shared';
 
-const AboutScreen = () => {
+const AboutScreen = ({ scrollY }: ScrollY) => {
 	const buildInfo = useBridgeQuery(['buildInfo']);
 
 	return (
-		<ScreenContainer style={tw`justify-start gap-0 px-6`}>
+		<ScreenContainer scrollY={scrollY} style={tw`justify-start gap-0 px-6`}>
 			<View style={tw`flex flex-row items-center`}>
 				<Image
 					source={require('../../../../assets/icon.png')}
 					style={tw`mr-8 h-[88px] w-[88px] rounded-3xl`}
-					resizeMode="contain"
+					contentFit="contain"
 				/>
 				<View style={tw`flex flex-col`}>
 					<Text style={tw`text-2xl font-bold text-white`}>
@@ -38,14 +39,14 @@ const AboutScreen = () => {
 				</View>
 			</View>
 			{/* iOS has buttons falling out of the screen for some reason. So, I made the buttons veritical instead */}
-			<View style={tw`my-5 flex-col justify-between gap-2`}>
+			<View style={tw`flex-col justify-between gap-2 my-5`}>
 				{/* Discord Button */}
 				<Button
 					onPress={() => Linking.openURL('https://discord.gg/ukRnWSnAbG')}
 					style={tw`flex-row items-center`}
 					variant="gray"
 				>
-					<View style={tw`h-4 w-4`}>
+					<View style={tw`w-4 h-4`}>
 						<DiscordIcon fill="white" />
 					</View>
 					<Text style={tw`ml-2 font-bold text-white`}>Join Discord</Text>
@@ -57,7 +58,7 @@ const AboutScreen = () => {
 					style={tw`flex-row items-center font-bold`}
 					variant="accent"
 				>
-					<View style={tw`h-4 w-4`}>
+					<View style={tw`w-4 h-4`}>
 						<GitHubIcon fill="white" />
 					</View>
 					<Text style={tw`ml-2 font-bold text-white`}>Star on GitHub</Text>
@@ -69,7 +70,7 @@ const AboutScreen = () => {
 					style={tw`flex-row items-center`}
 					variant="accent"
 				>
-					<View style={tw`h-4 w-4`}>
+					<View style={tw`w-4 h-4`}>
 						<Globe weight="bold" size={16} color="white" />
 					</View>
 					<Text style={tw`ml-2 font-bold text-white`}>Website</Text>

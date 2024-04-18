@@ -1,5 +1,6 @@
 import { CompositeScreenProps } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useSharedValue } from 'react-native-reanimated';
 import Header from '~/components/header/Header';
 import CategoriesScreen from '~/screens/overview/Categories';
 import OverviewScreen from '~/screens/overview/Overview';
@@ -7,22 +8,35 @@ import OverviewScreen from '~/screens/overview/Overview';
 import { TabScreenProps } from '../TabNavigator';
 
 const Stack = createNativeStackNavigator<OverviewStackParamList>();
-
 export default function OverviewStack() {
+	const scrollY = useSharedValue(0);
 	return (
 		<Stack.Navigator initialRouteName="Overview">
 			<Stack.Screen
 				name="Overview"
-				component={OverviewScreen}
-				options={{ header: () => <Header showDrawer title="Overview" /> }}
-			/>
+				options={{
+					header: () => (
+						<Header scrollY={scrollY} showSearch showDrawer title="Overview" />
+					)
+				}}
+			>
+				{() => <OverviewScreen scrollY={scrollY} />}
+			</Stack.Screen>
 			<Stack.Screen
 				name="Categories"
-				component={CategoriesScreen}
 				options={{
-					header: () => <Header searchType="categories" navBack title="Categories" />
+					header: () => (
+						<Header
+							scrollY={scrollY}
+							searchType="categories"
+							navBack
+							title="Categories"
+						/>
+					)
 				}}
-			/>
+			>
+				{() => <CategoriesScreen scrollY={scrollY} />}
+			</Stack.Screen>
 		</Stack.Navigator>
 	);
 }

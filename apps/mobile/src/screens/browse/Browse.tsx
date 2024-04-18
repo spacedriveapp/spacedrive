@@ -8,6 +8,7 @@ import BrowseTags from '~/components/browse/BrowseTags';
 import Jobs from '~/components/browse/Jobs';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { tw } from '~/lib/tailwind';
+import { ScrollY } from '~/types/shared';
 
 function JobIcon() {
 	const { data: isActive } = useLibraryQuery(['jobs.isActive']);
@@ -18,9 +19,9 @@ function JobIcon() {
 	);
 }
 
-export default function BrowseScreen() {
+export default function BrowseScreen({ scrollY }: ScrollY) {
 	return (
-		<ScreenContainer>
+		<ScreenContainer scrollY={scrollY}>
 			<BrowseCategories />
 			<BrowseLocations />
 			<BrowseTags />

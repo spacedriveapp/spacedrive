@@ -2,7 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Plus } from 'phosphor-react-native';
 import { useRef } from 'react';
 import { Pressable, View } from 'react-native';
-import { FlatList } from 'react-native-gesture-handler';
+import Animated, { useAnimatedScrollHandler } from 'react-native-reanimated';
 import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import Empty from '~/components/layout/Empty';
 import Fade from '~/components/layout/Fade';
@@ -12,22 +12,27 @@ import CreateTagModal from '~/components/modal/tag/CreateTagModal';
 import { TagItem } from '~/components/tags/TagItem';
 import { tw, twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
+import { ScrollY } from '~/types/shared';
 
 interface Props {
 	viewStyle?: 'grid' | 'list';
+	scrollY: ScrollY['scrollY'];
 }
 
-export default function TagsScreen({ viewStyle = 'list' }: Props) {
+export default function TagsScreen({ viewStyle = 'list', scrollY }: Props) {
 	const tags = useLibraryQuery(['tags.list']);
 	const navigation = useNavigation<BrowseStackScreenProps<'Browse'>['navigation']>();
 	const modalRef = useRef<ModalRef>(null);
 
 	useNodes(tags.data?.nodes);
 	const tagData = useCache(tags.data?.items);
+	const scrollHandler = useAnimatedScrollHandler((e) => {
+		scrollY.value = e.contentOffset.y;
+	});
 	return (
 		<ScreenContainer scrollview={false} style={tw`relative px-6 py-0`}>
 			<Pressable
-				style={tw`absolute bottom-7 right-7 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-accent`}
+				style={tw`absolute z-10 flex items-center justify-center w-12 h-12 rounded-full bottom-7 right-7 bg-accent`}
 				testID="create-tag-modal"
 				onPress={() => {
 					modalRef.current?.present();
@@ -42,8 +47,10 @@ export default function TagsScreen({ viewStyle = 'list' }: Props) {
 				width={30}
 				height="100%"
 			>
-				<FlatList
+				<Animated.FlatList
 					data={tagData}
+					onScroll={scrollHandler}
+					scrollEventThrottle={1}
 					renderItem={({ item }) => (
 						<TagItem
 							viewStyle={viewStyle}

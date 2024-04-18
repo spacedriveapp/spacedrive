@@ -6,9 +6,8 @@ import { Divider } from '~/components/primitive/Divider';
 import { Input } from '~/components/primitive/Input';
 import { SettingsTitle } from '~/components/settings/SettingsContainer';
 import { tw } from '~/lib/tailwind';
-import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
-const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'GeneralSettings'>) => {
+const GeneralSettingsScreen = () => {
 	const { data: node } = useBridgeQuery(['nodeState']);
 
 	const debugState = useDebugState();
@@ -35,7 +34,7 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 					</View>
 				</View>
 				{/* Divider */}
-				<Divider style={tw`mb-4 mt-2`} />
+				<Divider style={tw`mt-2 mb-4`} />
 				{/* Node Name and Port */}
 				<SettingsTitle style={tw`mb-1`}>Node Name</SettingsTitle>
 				<Input value={node.name} />
@@ -48,7 +47,7 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 					{/* Card Header */}
 					<Text style={tw`font-semibold text-ink`}>Debug</Text>
 					{/* Divider */}
-					<Divider style={tw`mb-4 mt-2`} />
+					<Divider style={tw`mt-2 mb-4`} />
 					<SettingsTitle style={tw`mb-1`}>Data Folder</SettingsTitle>
 					{/* Useful for simulator, not so for real devices. */}
 					<Input value={node.data_path} />

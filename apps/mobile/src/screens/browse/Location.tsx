@@ -3,8 +3,13 @@ import { useCache, useLibraryQuery, useNodes, usePathsExplorerQuery } from '@sd/
 import Explorer from '~/components/explorer/Explorer';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { getExplorerStore } from '~/stores/explorerStore';
+import { ScrollY } from '~/types/shared';
 
-export default function LocationScreen({ navigation, route }: BrowseStackScreenProps<'Location'>) {
+export default function LocationScreen({
+	navigation,
+	route,
+	scrollY
+}: BrowseStackScreenProps<'Location'> & ScrollY) {
 	const { id, path } = route.params;
 
 	const location = useLibraryQuery(['locations.get', route.params.id]);
@@ -59,5 +64,5 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 		getExplorerStore().path = path ?? '';
 	}, [id, path]);
 
-	return <Explorer {...paths} />;
+	return <Explorer scrollY={scrollY} {...paths} />;
 }
