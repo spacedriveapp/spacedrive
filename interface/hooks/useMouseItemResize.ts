@@ -5,7 +5,7 @@ import { LIST_VIEW_ICON_SIZES } from '~/app/$libraryId/Explorer/View/ListView/us
 import { useOperatingSystem } from './useOperatingSystem';
 
 /**
- * Hook that allows resizing of items in the Explorer view using the mouse wheel.
+ * Hook that allows resizing of items in the Explorer views for GRID and LIST only - using the mouse wheel.
  */
 
 export const useMouseItemResize = () => {
