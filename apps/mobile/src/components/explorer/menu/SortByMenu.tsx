@@ -15,8 +15,8 @@ const sortOptions = {
 
 type SortByType = keyof typeof sortOptions;
 
-const ArrowUpIcon = () => <ArrowUp weight="bold" size={16} color={tw.color('ink')} />;
-const ArrowDownIcon = () => <ArrowDown weight="bold" size={16} color={tw.color('ink')} />;
+const ArrowUpIcon = () => <ArrowUp weight="bold" size={16} color={tw.color('ink-dull')} />;
+const ArrowDownIcon = () => <ArrowDown weight="bold" size={16} color={tw.color('ink-dull')} />;
 
 const SortByMenu = () => {
 	const [sortBy, setSortBy] = useState<SortByType>('name');
@@ -26,7 +26,7 @@ const SortByMenu = () => {
 		<Menu
 			trigger={
 				<View style={tw`flex flex-row items-center`}>
-					<Text style={tw`mr-0.5 font-medium text-ink`}>{sortOptions[sortBy]}</Text>
+					<Text style={tw`mr-0.5 font-medium text-ink-dull`}>{sortOptions[sortBy]}</Text>
 					{sortDirection === 'asc' ? <ArrowUpIcon /> : <ArrowDownIcon />}
 				</View>
 			}
