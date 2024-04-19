@@ -110,7 +110,7 @@ export const items = [
 	},
 	{
 		when: '0.3 Alpha',
-		subtext: 'March 2024',
+		subtext: 'May 2024',
 		title: 'Connect devices & sync',
 		description: 'Automatically synchronized libraries across all your devices.'
 	},
