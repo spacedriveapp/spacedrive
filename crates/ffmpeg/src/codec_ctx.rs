@@ -1,6 +1,6 @@
 use crate::{
 	error::Error,
-	model::{MediaCodec, MediaVideoProps},
+	model::{MediaAudioProps, MediaCodec, MediaSubtitleProps, MediaVideoProps, Props},
 	utils::check_error,
 };
 
@@ -11,13 +11,15 @@ use std::{
 };
 
 use ffmpeg_sys_next::{
-	av_chroma_location_name, av_color_primaries_name, av_color_range_name, av_color_space_name,
-	av_color_transfer_name, av_fourcc_make_string, av_get_bits_per_sample,
-	av_get_media_type_string, av_get_pix_fmt_name, av_pix_fmt_desc_get, av_reduce,
-	avcodec_alloc_context3, avcodec_free_context, avcodec_get_name, avcodec_parameters_to_context,
-	avcodec_profile_name, AVChromaLocation, AVCodecContext, AVCodecParameters, AVColorPrimaries,
-	AVColorRange, AVColorSpace, AVColorTransferCharacteristic, AVFieldOrder, AVMediaType,
-	AVPixelFormat, AVRational, AV_FOURCC_MAX_STRING_SIZE,
+	av_bprint_finalize, av_bprint_init, av_channel_layout_describe_bprint, av_chroma_location_name,
+	av_color_primaries_name, av_color_range_name, av_color_space_name, av_color_transfer_name,
+	av_fourcc_make_string, av_get_bits_per_sample, av_get_bytes_per_sample,
+	av_get_media_type_string, av_get_pix_fmt_name, av_get_sample_fmt_name, av_pix_fmt_desc_get,
+	av_reduce, avcodec_alloc_context3, avcodec_free_context, avcodec_get_name,
+	avcodec_parameters_to_context, avcodec_profile_name, AVBPrint, AVChromaLocation,
+	AVCodecContext, AVCodecParameters, AVColorPrimaries, AVColorRange, AVColorSpace,
+	AVColorTransferCharacteristic, AVFieldOrder, AVMediaType, AVPixelFormat, AVRational,
+	AVSampleFormat, AV_FOURCC_MAX_STRING_SIZE,
 };
 use libc::ENOMEM;
 
@@ -282,6 +284,91 @@ impl FFmpegCodecContext {
 			})
 		})
 	}
+
+	fn audio_props(&self) -> Option<MediaAudioProps> {
+		unsafe { self.as_ref() }.and_then(|ctx| {
+			if ctx.codec_type != AVMediaType::AVMEDIA_TYPE_AUDIO {
+				return None;
+			}
+
+			let sample_rate = if ctx.sample_rate > 0 {
+				Some(ctx.sample_rate)
+			} else {
+				None
+			};
+
+			let mut bprint = AVBPrint {
+				str_: ptr::null_mut(),
+				len: 0,
+				size: 0,
+				size_max: 0,
+				reserved_internal_buffer: [0; 1],
+				reserved_padding: [0; 1000],
+			};
+			unsafe {
+				av_bprint_init(&mut bprint, 0, u32::MAX /* AV_BPRINT_SIZE_UNLIMITED */)
+			};
+			let mut channel_layout = ptr::null_mut();
+			let channel_layout =
+				if unsafe { av_channel_layout_describe_bprint(&ctx.ch_layout, &mut bprint) } < 0
+					|| unsafe { av_bprint_finalize(&mut bprint, &mut channel_layout) } < 0
+					|| channel_layout.is_null()
+				{
+					None
+				} else {
+					let cstr = unsafe { CStr::from_ptr(channel_layout) };
+					Some(String::from_utf8_lossy(cstr.to_bytes()).to_string())
+				};
+
+			let sample_format = if ctx.sample_fmt != AVSampleFormat::AV_SAMPLE_FMT_NONE {
+				unsafe { av_get_sample_fmt_name(ctx.sample_fmt).as_ref() }.map(|sample_fmt| {
+					let cstr = unsafe { CStr::from_ptr(sample_fmt) };
+					String::from_utf8_lossy(cstr.to_bytes()).to_string()
+				})
+			} else {
+				None
+			};
+
+			let bit_per_sample = if ctx.bits_per_raw_sample > 0
+				&& ctx.bits_per_raw_sample != unsafe { av_get_bytes_per_sample(ctx.sample_fmt) } * 8
+			{
+				Some(ctx.bits_per_raw_sample)
+			} else {
+				None
+			};
+
+			Some(MediaAudioProps {
+				delay: ctx.initial_padding,
+				padding: ctx.trailing_padding,
+				sample_rate,
+				sample_format,
+				bit_per_sample,
+				channel_layout,
+			})
+		})
+	}
+
+	fn subtitle_props(&self) -> Option<MediaSubtitleProps> {
+		unsafe { self.as_ref() }.and_then(|ctx| {
+			if ctx.codec_type != AVMediaType::AVMEDIA_TYPE_SUBTITLE {
+				return None;
+			}
+
+			Some(MediaSubtitleProps {
+				width: ctx.width,
+				height: ctx.height,
+			})
+		})
+	}
+
+	fn props(&self) -> Option<Props> {
+		unsafe { self.as_ref() }.and_then(|ctx| match ctx.codec_type {
+			AVMediaType::AVMEDIA_TYPE_VIDEO => self.video_props().map(Props::Video),
+			AVMediaType::AVMEDIA_TYPE_AUDIO => self.audio_props().map(Props::Audio),
+			AVMediaType::AVMEDIA_TYPE_SUBTITLE => self.subtitle_props().map(Props::Subtitle),
+			_ => None,
+		})
+	}
 }
 
 impl Drop for FFmpegCodecContext {
@@ -294,17 +381,17 @@ impl Drop for FFmpegCodecContext {
 }
 
 impl From<FFmpegCodecContext> for MediaCodec {
-	fn from(val: FFmpegCodecContext) -> Self {
-		let (kind, subkind) = val.kind();
+	fn from(ctx: FFmpegCodecContext) -> Self {
+		let (kind, subkind) = ctx.kind();
 
 		MediaCodec {
 			kind,
 			subkind,
-			name: val.name(),
-			profile: val.profile(),
-			tag: val.tag(),
-			bit_rate: val.bit_rate(),
-			props: None,
+			name: ctx.name(),
+			profile: ctx.profile(),
+			tag: ctx.tag(),
+			bit_rate: ctx.bit_rate(),
+			props: ctx.props(),
 		}
 	}
 }

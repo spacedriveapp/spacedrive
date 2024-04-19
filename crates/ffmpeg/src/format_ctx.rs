@@ -314,15 +314,15 @@ impl Drop for FFmpegFormatContext {
 }
 
 impl From<FFmpegFormatContext> for MediaInfo {
-	fn from(val: FFmpegFormatContext) -> Self {
+	fn from(ctx: FFmpegFormatContext) -> Self {
 		MediaInfo {
-			formats: val.formats(),
-			duration: val.duration(),
-			start_time: val.start_time(),
-			bitrate: val.bit_rate(),
-			chapters: val.chapters(),
-			programs: val.programs(),
-			metadata: val.metadata(),
+			formats: ctx.formats(),
+			duration: ctx.duration(),
+			start_time: ctx.start_time(),
+			bitrate: ctx.bit_rate(),
+			chapters: ctx.chapters(),
+			programs: ctx.programs(),
+			metadata: ctx.metadata(),
 		}
 	}
 }

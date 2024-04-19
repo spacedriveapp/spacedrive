@@ -51,8 +51,8 @@ pub struct MediaVideoProps {
 }
 
 pub struct MediaAudioProps {
-	pub delay: Option<i32>,
-	pub padding: Option<i32>,
+	pub delay: i32,
+	pub padding: i32,
 	pub sample_rate: Option<i32>,
 	pub sample_format: Option<String>,
 	pub bit_per_sample: Option<i32>,
@@ -60,14 +60,14 @@ pub struct MediaAudioProps {
 }
 
 pub struct MediaSubtitleProps {
-	pub width: Option<i32>,
-	pub height: Option<i32>,
+	pub width: i32,
+	pub height: i32,
 }
 
 pub enum Props {
-	MediaVideoProps,
-	MediaAudioProps,
-	MediaSubtitleProps,
+	Video(MediaVideoProps),
+	Audio(MediaAudioProps),
+	Subtitle(MediaSubtitleProps),
 }
 
 pub struct MediaCodec {
