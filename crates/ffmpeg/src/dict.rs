@@ -62,7 +62,7 @@ impl FFmpegDict {
 
 impl Drop for FFmpegDict {
 	fn drop(&mut self) {
-		if !self.managed && !self.dict.is_null() {
+		if self.managed && !self.dict.is_null() {
 			unsafe { av_dict_free(&mut self.dict) };
 			self.dict = std::ptr::null_mut();
 		}
