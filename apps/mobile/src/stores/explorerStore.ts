@@ -25,23 +25,20 @@ export function flattenThumbnailKey(thumbKey: string[]) {
 	return thumbKey.join('/');
 }
 
-const explorerStore = proxy({
+const store = proxy({
 	...state,
-	reset: () => resetStore(explorerStore, state),
+	reset: () => resetStore(store, state),
 	addNewThumbnail: (thumbKey: string[]) => {
-		explorerStore.newThumbnails.add(flattenThumbnailKey(thumbKey));
+		store.newThumbnails.add(flattenThumbnailKey(thumbKey));
 	},
 	// this should be done when the explorer query is refreshed
 	// prevents memory leak
 	resetNewThumbnails: () => {
-		explorerStore.newThumbnails.clear();
+		store.newThumbnails.clear();
 	}
 });
 
-export function useExplorerStore() {
-	return useSnapshot(explorerStore);
-}
-
-export function getExplorerStore() {
-	return explorerStore;
-}
+/** for reading */
+export const useExplorerStore = () => useSnapshot(store);
+/** for writing */
+export const getExplorerStore = () => store;
