@@ -40,7 +40,7 @@ export const useMouseItemResize = () => {
 	);
 
 	useEffect(() => {
-		// if (os !== 'windows') return;
+		if (os !== 'windows') return;
 
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.key === 'Control') {
