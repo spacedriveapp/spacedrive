@@ -128,11 +128,6 @@ export const items = [
 			'View, mount, unmount and hide keys. Mounted keys can be used to instantly encrypt and decrypt any files on your node.'
 	},
 	{
-		title: 'Mobile app TestFlight',
-		description:
-			'Access your library on the go, with a mobile app for iOS and Android in alpha via TestFlight and Play Store.'
-	},
-	{
 		title: 'Advanced media analysis',
 		description: 'Transcribe audio, identify faces, video scenes and more.'
 	},
