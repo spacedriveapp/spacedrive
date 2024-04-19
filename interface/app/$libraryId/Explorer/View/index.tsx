@@ -24,15 +24,16 @@ import { explorerStore } from '../store';
 import { useExplorerDroppable } from '../useExplorerDroppable';
 import { useExplorerOperatingSystem } from '../useExplorerOperatingSystem';
 import { useExplorerSearchParams } from '../util';
-import { ViewContext, type ExplorerViewContext } from './Context';
+import { ExplorerViewContext, ExplorerViewContextProps } from './Context';
 import { DragScrollable } from './DragScrollable';
 import { GridView } from './GridView';
 import { ListView } from './ListView';
 import { MediaView } from './MediaView';
+import { useActiveItem } from './useActiveItem';
 import { useViewItemDoubleClick } from './ViewItem';
 
 export interface ExplorerViewProps
-	extends Omit<ExplorerViewContext, 'selectable' | 'ref' | 'padding'> {
+	extends Pick<ExplorerViewContextProps, 'contextMenu' | 'scrollPadding' | 'listViewOptions'> {
 	emptyNotice?: JSX.Element;
 }
 
@@ -85,6 +86,8 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 			disabled: drag?.type === 'dragging' && parent.tag.id === drag.sourceTagId
 		})
 	});
+
+	const activeItem = useActiveItem();
 
 	useShortcuts();
 
@@ -142,7 +145,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	if (!explorer.layouts[layoutMode]) return null;
 
 	return (
-		<ViewContext.Provider value={{ ref, ...contextProps, selectable }}>
+		<ExplorerViewContext.Provider value={{ ref, selectable, ...contextProps, ...activeItem }}>
 			<div
 				ref={ref}
 				className="flex flex-1"
@@ -179,7 +182,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 			<DragScrollable />
 
 			{quickPreview.ref && createPortal(<QuickPreview />, quickPreview.ref)}
-		</ViewContext.Provider>
+		</ExplorerViewContext.Provider>
 	);
 };
 

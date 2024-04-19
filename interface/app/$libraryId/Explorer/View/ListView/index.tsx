@@ -736,6 +736,31 @@ export const ListView = memo(() => {
 	// Set list offset
 	useLayoutEffect(() => setListOffset(tableRef.current?.offsetTop ?? 0), []);
 
+	// Handle active item selection
+	// TODO: This is a temporary solution
+	useEffect(() => {
+		return () => {
+			const firstRange = getRangeByIndex(0);
+			if (!firstRange) return;
+
+			const lastRange = getRangeByIndex(ranges.length - 1);
+			if (!lastRange) return;
+
+			const firstItem = firstRange.start.original;
+			const lastItem = lastRange.end.original;
+
+			explorerView.updateFirstActiveItem(explorer.getItemUniqueId(firstItem));
+			explorerView.updateActiveItem(explorer.getItemUniqueId(lastItem));
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [
+		ranges,
+		getRangeByIndex,
+		explorerView.updateFirstActiveItem,
+		explorerView.updateActiveItem,
+		explorer.getItemUniqueId
+	]);
+
 	return (
 		<TableContext.Provider value={{ columnSizing }}>
 			<div
