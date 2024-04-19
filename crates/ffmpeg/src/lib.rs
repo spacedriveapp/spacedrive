@@ -6,6 +6,7 @@ use crate::{
 
 use std::path::Path;
 
+mod codec_ctx;
 mod dict;
 mod error;
 mod film_strip;

@@ -34,15 +34,5 @@ pub fn probe(filename: impl AsRef<Path>) -> Result<MediaInfo, Error> {
 	// Read packets of media file to get stream information.
 	fmt_ctx.find_stream_info()?;
 
-	let media_info = MediaInfo {
-		formats: fmt_ctx.formats(),
-		duration: fmt_ctx.duration(),
-		start_time: fmt_ctx.start_time(),
-		bitrate: fmt_ctx.bit_rate(),
-		chapters: fmt_ctx.chapters(),
-		programs: fmt_ctx.programs(),
-		metadata: fmt_ctx.metadata(),
-	};
-
-	Ok(media_info)
+	Ok(fmt_ctx.into())
 }

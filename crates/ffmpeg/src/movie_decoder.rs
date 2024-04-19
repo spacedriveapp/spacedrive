@@ -1,5 +1,6 @@
 use crate::{
 	error::{Error, FFmpegError},
+	probe::probe,
 	utils::{check_error, from_path, CSTRING_ERROR_MSG},
 	video_frame::{FFmpegFrame, FrameSource, VideoFrame},
 };
@@ -52,6 +53,9 @@ impl MovieDecoder {
 		prefer_embedded_metadata: bool,
 	) -> Result<Self, Error> {
 		let filename = filename.as_ref();
+
+		// TODO: Remove this, just here to test and so clippy stops complaining about it being unused
+		let _ = probe(filename);
 
 		let input_file = if filename == Path::new("-") {
 			Path::new("pipe:")

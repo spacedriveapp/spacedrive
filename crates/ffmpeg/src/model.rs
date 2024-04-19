@@ -64,7 +64,7 @@ pub struct MediaSubtitleProps {
 	pub height: Option<i32>,
 }
 
-enum Props {
+pub enum Props {
 	MediaVideoProps,
 	MediaAudioProps,
 	MediaSubtitleProps,
@@ -72,9 +72,10 @@ enum Props {
 
 pub struct MediaCodec {
 	pub kind: Option<String>,
-	pub tag: Option<String>,
+	pub subkind: Option<String>,
 	pub name: Option<String>,
 	pub profile: Option<String>,
+	pub tag: Option<String>,
 	pub bit_rate: Option<i64>,
 	pub props: Option<Props>,
 }

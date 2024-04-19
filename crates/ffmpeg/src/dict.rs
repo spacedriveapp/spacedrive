@@ -35,13 +35,10 @@ impl FFmpegDict {
 	}
 
 	pub(crate) fn get(&self, key: CString) -> Option<String> {
-		let entry = unsafe { av_dict_get(self.dict, key.as_ptr(), ptr::null(), 0) };
-		if entry.is_null() {
-			return None;
-		}
-
-		let cstr = unsafe { CStr::from_ptr((*entry).value) };
-		Some(String::from_utf8_lossy(cstr.to_bytes()).to_string())
+		unsafe { av_dict_get(self.dict, key.as_ptr(), ptr::null(), 0).as_ref() }.map(|entry| {
+			let cstr = unsafe { CStr::from_ptr(entry.value) };
+			String::from_utf8_lossy(cstr.to_bytes()).to_string()
+		})
 	}
 
 	pub(crate) fn set(&mut self, key: CString, value: CString) -> Result<(), Error> {
@@ -96,19 +93,14 @@ impl<'a> Iterator for FFmpegDictIter<'a> {
 	type Item = (String, String);
 
 	fn next(&mut self) -> Option<(String, String)> {
-		unsafe {
-			self.prev = av_dict_iterate(self.dict, self.prev);
-		}
-		if self.prev.is_null() {
-			return None;
-		}
-
-		let key = unsafe { CStr::from_ptr((*self.prev).key) };
-		let value = unsafe { CStr::from_ptr((*self.prev).value) };
-		return Some((
-			String::from_utf8_lossy(key.to_bytes()).to_string(),
-			String::from_utf8_lossy(value.to_bytes()).to_string(),
-		));
+		unsafe { av_dict_iterate(self.dict, self.prev).as_ref() }.map(|prev| {
+			let key = unsafe { CStr::from_ptr(prev.key) };
+			let value = unsafe { CStr::from_ptr(prev.value) };
+			(
+				String::from_utf8_lossy(key.to_bytes()).to_string(),
+				String::from_utf8_lossy(value.to_bytes()).to_string(),
+			)
+		})
 	}
 }
 

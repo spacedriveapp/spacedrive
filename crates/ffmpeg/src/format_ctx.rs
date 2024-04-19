@@ -1,7 +1,8 @@
 use crate::{
+	codec_ctx::FFmpegCodecContext,
 	dict::FFmpegDict,
 	error::Error,
-	model::{MediaChapter, MediaMetadata, MediaProgram, MediaStream},
+	model::{MediaChapter, MediaInfo, MediaMetadata, MediaProgram, MediaStream},
 	utils::check_error,
 };
 
@@ -50,11 +51,7 @@ impl FFmpegFormatContext {
 		Ok(ctx)
 	}
 
-	pub(crate) unsafe fn as_mut<'a>(&mut self) -> Option<&'a mut AVFormatContext> {
-		self.data.as_mut()
-	}
-
-	pub(crate) unsafe fn as_ref<'a>(&self) -> Option<&'a AVFormatContext> {
+	unsafe fn as_ref<'a>(&self) -> Option<&'a AVFormatContext> {
 		self.data.as_ref()
 	}
 
@@ -67,7 +64,7 @@ impl FFmpegFormatContext {
 		Ok(())
 	}
 
-	pub fn formats(&self) -> Vec<String> {
+	fn formats(&self) -> Vec<String> {
 		unsafe { self.as_ref() }
 			.and_then(|ctx| {
 				unsafe { ctx.iformat.as_ref() }.and_then(|format| {
@@ -88,7 +85,7 @@ impl FFmpegFormatContext {
 			.unwrap_or(vec![])
 	}
 
-	pub fn duration(&self) -> Option<TimeDelta> {
+	fn duration(&self) -> Option<TimeDelta> {
 		unsafe { self.as_ref() }.and_then(|ctx| {
 			let duration = ctx.duration;
 			if duration == AV_NOPTS_VALUE {
@@ -100,7 +97,7 @@ impl FFmpegFormatContext {
 		})
 	}
 
-	pub fn start_time(&self) -> Option<TimeDelta> {
+	fn start_time(&self) -> Option<TimeDelta> {
 		unsafe { self.as_ref() }.and_then(|ctx| {
 			let start_time = ctx.start_time;
 			if start_time == AV_NOPTS_VALUE {
@@ -114,11 +111,11 @@ impl FFmpegFormatContext {
 		})
 	}
 
-	pub fn bit_rate(&self) -> Option<i64> {
+	fn bit_rate(&self) -> Option<i64> {
 		unsafe { self.as_ref() }.map(|ctx| ctx.bit_rate)
 	}
 
-	pub fn chapters(&self) -> Vec<MediaChapter> {
+	fn chapters(&self) -> Vec<MediaChapter> {
 		unsafe { self.as_ref() }
 			.and_then(
 				|ctx| match (ctx.nb_chapters, unsafe { ctx.chapters.as_ref() }) {
@@ -144,7 +141,7 @@ impl FFmpegFormatContext {
 			.unwrap_or(vec![])
 	}
 
-	pub fn stream(&self, id: u32) -> Option<MediaStream> {
+	fn stream(&self, id: u32) -> Option<MediaStream> {
 		unsafe { self.as_ref() }
 			.and_then(|ctx| unsafe { ctx.streams.as_ref() })
 			.and_then(|streams| unsafe { streams.offset(id as isize).as_ref() })
@@ -219,7 +216,9 @@ impl FFmpegFormatContext {
 				MediaStream {
 					id: stream.id as u32,
 					name,
-					codec: None,
+					codec: FFmpegCodecContext::parameters_to_context(stream.codecpar)
+						.ok()
+						.map(|codec| codec.into()),
 					aspect_ratio_num: aspect_ratio.num,
 					aspect_ratio_den: aspect_ratio.den,
 					frames_per_second_num: stream.avg_frame_rate.num,
@@ -232,7 +231,7 @@ impl FFmpegFormatContext {
 			})
 	}
 
-	pub fn programs(&self) -> Vec<MediaProgram> {
+	fn programs(&self) -> Vec<MediaProgram> {
 		unsafe { self.as_ref() }
 			.map(|ctx| {
 				let mut visited_streams: HashSet<u32> = HashSet::new();
@@ -295,7 +294,7 @@ impl FFmpegFormatContext {
 			.unwrap_or(vec![])
 	}
 
-	pub fn metadata(&self) -> Option<MediaMetadata> {
+	fn metadata(&self) -> Option<MediaMetadata> {
 		if self.data.is_null() {
 			return None;
 		}
@@ -314,6 +313,20 @@ impl Drop for FFmpegFormatContext {
 		if !self.data.is_null() {
 			unsafe { avformat_close_input(&mut self.data) };
 			self.data = std::ptr::null_mut();
+		}
+	}
+}
+
+impl From<FFmpegFormatContext> for MediaInfo {
+	fn from(val: FFmpegFormatContext) -> Self {
+		MediaInfo {
+			formats: val.formats(),
+			duration: val.duration(),
+			start_time: val.start_time(),
+			bitrate: val.bit_rate(),
+			chapters: val.chapters(),
+			programs: val.programs(),
+			metadata: val.metadata(),
 		}
 	}
 }
