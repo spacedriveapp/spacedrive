@@ -109,7 +109,7 @@ const useFormState = () => {
 				// Switch to the new library
 				currentLibraryStore.id = library.uuid;
 			} catch (e) {
-				toast({ type: 'error', text: 'Failed to create library' });
+				toast.error('Failed to create library');
 				resetOnboardingStore();
 				navigation.navigate('GetStarted');
 			}
