@@ -1,3 +1,4 @@
+use rspc::ErrorCode;
 use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
@@ -28,6 +29,18 @@ pub enum FileIdentifierError {
 	FilePathError(#[from] FilePathError),
 	#[error("database error: {0}")]
 	Database(#[from] QueryError),
+}
+
+impl From<FileIdentifierError> for rspc::Error {
+	fn from(err: FileIdentifierError) -> Self {
+		match err {
+			FileIdentifierError::SubPathNotFound(_) => {
+				Self::with_cause(ErrorCode::NotFound, err.to_string(), err)
+			}
+
+			_ => Self::with_cause(ErrorCode::InternalServerError, err.to_string(), err),
+		}
+	}
 }
 
 #[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]

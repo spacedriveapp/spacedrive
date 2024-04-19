@@ -92,6 +92,14 @@ impl ExtractFileMetadataTask {
 
 #[async_trait::async_trait]
 impl Task<Error> for ExtractFileMetadataTask {
+	fn id(&self) -> TaskId {
+		self.id
+	}
+
+	fn with_priority(&self) -> bool {
+		self.is_shallow
+	}
+
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {
 		enum StreamMessage {
 			Processed(Uuid, Result<FileMetadata, FileIOError>),
@@ -190,14 +198,6 @@ impl Task<Error> for ExtractFileMetadataTask {
 			}
 			.into_output(),
 		))
-	}
-
-	fn id(&self) -> TaskId {
-		self.id
-	}
-
-	fn with_priority(&self) -> bool {
-		self.is_shallow
 	}
 }
 

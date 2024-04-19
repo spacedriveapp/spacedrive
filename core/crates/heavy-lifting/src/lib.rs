@@ -37,7 +37,7 @@ pub mod file_identifier;
 pub mod indexer;
 pub mod job_system;
 
-use file_identifier::NonCriticalFileIdentifierError;
+use file_identifier::{FileIdentifierError, NonCriticalFileIdentifierError};
 use indexer::{IndexerError, NonCriticalIndexerError};
 
 pub use job_system::{
@@ -49,6 +49,8 @@ pub use job_system::{
 pub enum Error {
 	#[error(transparent)]
 	Indexer(#[from] IndexerError),
+	#[error(transparent)]
+	FileIdentifier(#[from] FileIdentifierError),
 
 	#[error(transparent)]
 	TaskSystem(#[from] TaskSystemError),
@@ -58,6 +60,7 @@ impl From<Error> for rspc::Error {
 	fn from(e: Error) -> Self {
 		match e {
 			Error::Indexer(e) => e.into(),
+			Error::FileIdentifier(e) => e.into(),
 			Error::TaskSystem(e) => {
 				Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
 			}
