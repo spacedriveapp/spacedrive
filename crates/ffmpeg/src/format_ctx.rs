@@ -67,20 +67,16 @@ impl FFmpegFormatContext {
 	fn formats(&self) -> Vec<String> {
 		unsafe { self.as_ref() }
 			.and_then(|ctx| {
-				unsafe { ctx.iformat.as_ref() }.and_then(|format| {
-					let name = format.name;
-					if name.is_null() {
-						None
-					} else {
-						Some(
-							String::from_utf8_lossy(unsafe { CStr::from_ptr(name) }.to_bytes())
-								.split(',')
-								.map(|entry| entry.trim().to_string())
-								.filter(|entry| !entry.is_empty())
-								.collect(),
-						)
-					}
-				})
+				unsafe { ctx.iformat.as_ref() }
+					.and_then(|format| unsafe { format.name.as_ref() })
+					.map(|name| {
+						let cstr = unsafe { CStr::from_ptr(name) };
+						String::from_utf8_lossy(cstr.to_bytes())
+							.split(',')
+							.map(|entry| entry.trim().to_string())
+							.filter(|entry| !entry.is_empty())
+							.collect()
+					})
 			})
 			.unwrap_or(vec![])
 	}

@@ -43,11 +43,11 @@ pub struct MediaVideoProps {
 	pub color_transfer: Option<String>,
 	pub field_order: Option<String>,
 	pub chroma_location: Option<String>,
-	pub coded_width: Option<i32>,
-	pub coded_height: Option<i32>,
+	pub width: i32,
+	pub height: i32,
 	pub aspect_ratio_num: Option<i32>,
 	pub aspect_ratio_den: Option<i32>,
-	pub properties: Option<String>,
+	pub properties: Vec<String>,
 }
 
 pub struct MediaAudioProps {
