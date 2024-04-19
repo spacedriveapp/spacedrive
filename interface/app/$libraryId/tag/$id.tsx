@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { ObjectOrder, Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
@@ -91,8 +91,11 @@ export function Component() {
 function useTagExplorerSettings(tag: Tag) {
 	const preferences = useExplorerPreferences({
 		data: tag,
-		createDefaultSettings: () => createDefaultExplorerSettings<ObjectOrder>({ order: null }),
-		getSettings: (prefs) => prefs.tag?.[stringify(tag.pub_id)]?.explorer,
+		createDefaultSettings: useCallback(
+			() => createDefaultExplorerSettings<ObjectOrder>({ order: null }),
+			[]
+		),
+		getSettings: useCallback((prefs) => prefs.tag?.[stringify(tag.pub_id)]?.explorer, []),
 		writeSettings: (settings) => ({
 			tag: { [stringify(tag.pub_id)]: { explorer: settings } }
 		})

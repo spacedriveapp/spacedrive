@@ -1,5 +1,5 @@
 import { ArrowClockwise, Info } from '@phosphor-icons/react';
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { stringify } from 'uuid';
 import {
 	arraysEqual,
@@ -226,11 +226,17 @@ function getLastSectionOfPath(path: string): string | undefined {
 function useLocationExplorerSettings(location: Location) {
 	const preferences = useExplorerPreferences({
 		data: location,
-		createDefaultSettings: () =>
-			createDefaultExplorerSettings<FilePathOrder>({
-				order: { field: 'name', value: 'Asc' }
-			}),
-		getSettings: (prefs) => prefs.location?.[stringify(location.pub_id)]?.explorer,
+		createDefaultSettings: useCallback(
+			() =>
+				createDefaultExplorerSettings<FilePathOrder>({
+					order: { field: 'name', value: 'Asc' }
+				}),
+			[]
+		),
+		getSettings: useCallback(
+			(prefs) => prefs.location?.[stringify(location.pub_id)]?.explorer,
+			[location.pub_id]
+		),
 		writeSettings: (settings) => ({
 			location: { [stringify(location.pub_id)]: { explorer: settings } }
 		})
