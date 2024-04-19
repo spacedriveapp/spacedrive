@@ -3,6 +3,7 @@ import { useExplorerContext } from '~/app/$libraryId/Explorer/Context';
 import { LIST_VIEW_ICON_SIZES } from '~/app/$libraryId/Explorer/View/ListView/useTable';
 
 import { useOperatingSystem } from './useOperatingSystem';
+import { getSizes } from '~/app/$libraryId/Explorer/OptionsPanel/ListView/util';
 
 /**
  * Hook that allows resizing of items in the Explorer views for GRID and LIST only - using the mouse wheel.
@@ -18,20 +19,19 @@ export const useMouseItemResize = () => {
 			const isList = layoutMode === 'list';
 			const deltaYModifier = isList ? Math.sign(e.deltaY) : e.deltaY / 10; // Sensitivity adjustment
 			const newSize =
-				Number(
-					isList
-						? explorer.settingsStore.listViewIconSize
-						: explorer.settingsStore.gridItemSize
-				) + deltaYModifier;
+			Number(
+				isList
+				? explorer.settingsStore.listViewIconSize
+				: explorer.settingsStore.gridItemSize
+			) + deltaYModifier;
 
 			const minSize = isList ? 0 : 60;
 			const maxSize = isList ? 2 : 200;
 			const clampedSize = Math.max(minSize, Math.min(maxSize, newSize));
 
 			if (isList) {
-				explorer.settingsStore.listViewIconSize = String(
-					clampedSize
-				) as keyof typeof LIST_VIEW_ICON_SIZES;
+				const listSizes = getSizes(LIST_VIEW_ICON_SIZES);
+				explorer.settingsStore.listViewIconSize = listSizes.sizeMap.get(clampedSize) ?? "0"
 			} else if (layoutMode === 'grid') {
 				explorer.settingsStore.gridItemSize = Number(clampedSize.toFixed(0));
 			}
@@ -40,7 +40,7 @@ export const useMouseItemResize = () => {
 	);
 
 	useEffect(() => {
-		if (os !== 'windows') return;
+		// if (os !== 'windows') return;
 
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.key === 'Control') {
