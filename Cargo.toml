@@ -22,32 +22,24 @@ repository = "https://github.com/spacedriveapp/spacedrive"
 [workspace.dependencies]
 # First party dependencies
 prisma-client-rust = { git = "https://github.com/spacedriveapp/prisma-client-rust", rev = "f99d6f5566570f3ab1edecb7a172ad25b03d95af", features = [
-	"specta",
-	"sqlite-create-many",
 	"migrations",
+	"specta",
 	"sqlite",
+	"sqlite-create-many",
 ], default-features = false }
 prisma-client-rust-cli = { git = "https://github.com/spacedriveapp/prisma-client-rust", rev = "f99d6f5566570f3ab1edecb7a172ad25b03d95af", features = [
-	"specta",
-	"sqlite-create-many",
 	"migrations",
+	"specta",
 	"sqlite",
+	"sqlite-create-many",
 ], default-features = false }
 prisma-client-rust-sdk = { git = "https://github.com/spacedriveapp/prisma-client-rust", rev = "f99d6f5566570f3ab1edecb7a172ad25b03d95af", features = [
 	"sqlite",
 ], default-features = false }
-
-tracing = "0.1.40"
-tracing-subscriber = "0.3.18"
-tracing-appender = "0.2.3"
-
 rspc = { version = "0.1.4" }
 specta = { version = "=2.0.0-rc.7" }
 tauri-specta = { version = "=2.0.0-rc.4" }
-
 swift-rs = { version = "1.0.6" }
-
-
 # Third party dependencies used by one or more of our crates
 anyhow = "1.0.75"
 async-channel = "2.0.0"
@@ -85,12 +77,13 @@ thiserror = "1.0.50"
 tokio = "1.36.0"
 tokio-stream = "0.1.14"
 tokio-util = "0.7.10"
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+tracing-appender = "0.2.3"
+tracing-test = { version = "^0.2.4" }
 uhlc = "=0.5.2"
 uuid = "1.5.0"
 webp = "0.2.6"
-
-[workspace.dev-dependencies]
-tracing-test = { version = "^0.2.4" }
 
 [patch.crates-io]
 # Proper IOS Support
