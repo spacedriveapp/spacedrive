@@ -108,6 +108,7 @@ export default () => {
 							onValueChange={(value) => {
 								explorer.settingsStore.gridItemSize = value[0] || 100;
 							}}
+							value={[settings.gridItemSize]}
 							defaultValue={[settings.gridItemSize]}
 							max={200}
 							step={10}

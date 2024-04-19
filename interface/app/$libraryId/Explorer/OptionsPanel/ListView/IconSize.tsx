@@ -26,6 +26,7 @@ export const IconSize = () => {
 			<Slider
 				step={1}
 				max={sizes.length - 1}
+				value={[defaultValue]}
 				defaultValue={[defaultValue]}
 				onValueChange={([value]) => {
 					const size = value !== undefined && sizes[value];

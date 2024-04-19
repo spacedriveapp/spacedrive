@@ -10,7 +10,7 @@ import {
 } from '@sd/client';
 import { dialogManager } from '@sd/ui';
 import { Loader } from '~/components';
-import { useKeyMatcher, useShortcut } from '~/hooks';
+import { useKeyMatcher, useMouseItemResize, useShortcut } from '~/hooks';
 import { useRoutingContext } from '~/RoutingContext';
 import { isNonEmpty } from '~/util';
 
@@ -138,6 +138,9 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 		element.addEventListener('wheel', handleWheel);
 		return () => element.removeEventListener('wheel', handleWheel);
 	}, [explorer.scrollRef, drag?.type]);
+
+	// Handle resizing of items in the Explorer grid and list view using the mouse wheel
+	useMouseItemResize();
 
 	if (!explorer.layouts[layoutMode]) return null;
 
