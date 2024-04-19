@@ -1,6 +1,6 @@
 use crate::{
 	node::{
-		config::{self, P2PDiscoveryState, Port},
+		config::{self, P2PDiscoveryState},
 		get_hardware_model_name, HardwareModel,
 	},
 	p2p::{
@@ -141,32 +141,26 @@ impl P2PManager {
 		}
 		.update(&mut self.p2p.metadata_mut());
 
-		let port = match config.p2p_ipv4_port {
-			Port::Disabled => None,
-			Port::Random => Some(0),
-			Port::Discrete(port) => Some(port),
-		};
+		let port = config.p2p.port.get();
+
 		info!("Setting quic ipv4 listener to: {port:?}");
-		if let Err(err) = self.quic.set_ipv4_enabled(port).await {
+		if let Err(err) = self
+			.quic
+			.set_ipv4_enabled(config.p2p.ipv4.then(|| port))
+			.await
+		{
 			error!("Failed to enabled quic ipv4 listener: {err}");
-			self.node_config
-				.write(|c| c.p2p_ipv4_port = Port::Disabled)
-				.await
-				.ok();
+			self.node_config.write(|c| c.p2p.ipv4 = false).await.ok();
 		}
 
-		let port = match config.p2p_ipv6_port {
-			Port::Disabled => None,
-			Port::Random => Some(0),
-			Port::Discrete(port) => Some(port),
-		};
-		info!("Setting quic ipv4 listener to: {port:?}");
-		if let Err(err) = self.quic.set_ipv6_enabled(port).await {
+		info!("Setting quic ipv6 listener to: {port:?}");
+		if let Err(err) = self
+			.quic
+			.set_ipv6_enabled(config.p2p.ipv6.then(|| port))
+			.await
+		{
 			error!("Failed to enabled quic ipv6 listener: {err}");
-			self.node_config
-				.write(|c| c.p2p_ipv6_port = Port::Disabled)
-				.await
-				.ok();
+			self.node_config.write(|c| c.p2p.ipv6 = false).await.ok();
 		}
 
 		let should_revert = match config.p2p_discovery {
@@ -255,11 +249,7 @@ impl P2PManager {
 				"name": name,
 				"listener_addrs": listeners.iter().find(|l| l.is_hook_id(*id)).map(|l| l.addrs.clone()),
 			})).collect::<Vec<_>>(),
-			"config": json!({
-				"p2p_ipv4_port": node_config.p2p_ipv4_port,
-				"p2p_ipv6_port": node_config.p2p_ipv6_port,
-				"p2p_discovery": node_config.p2p_discovery,
-			}),
+			"config": node_config.p2p,
 			"relay_config": self.quic.get_relay_config(),
 		})
 	}
