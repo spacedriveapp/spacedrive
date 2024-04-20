@@ -1,8 +1,8 @@
-import { EjectSimple } from '@phosphor-icons/react';
+import { ArrowRight, EjectSimple } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { PropsWithChildren, useMemo } from 'react';
-import { useBridgeQuery, useCache, useLibraryQuery, useNodes } from '@sd/client';
-import { Button, toast, tw } from '@sd/ui';
+import { PropsWithChildren, useEffect, useMemo, useState } from 'react';
+import { useBridgeMutation, useBridgeQuery, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { Button, ButtonLink, toast, tw } from '@sd/ui';
 import { Icon, IconName } from '~/components';
 import { useLocale, useOperatingSystem } from '~/hooks';
 import { useHomeDir } from '~/hooks/useHomeDir';
@@ -26,6 +26,16 @@ const EjectButton = ({ className }: { className?: string }) => (
 	</Button>
 );
 
+const OpenToButton = ({ className, what_is_opening = "" }: { className?: string, what_is_opening?: string }) => (
+	<Button
+		className={clsx('absolute right-[2px] !p-[5px]', className)}
+		variant="subtle"
+		onClick={() => what_is_opening.length === 0 ? toast.info('Opening button coming soon') : toast.info(`Opening ${what_is_opening}`)}
+	>
+		<ArrowRight weight="fill" size={18} className="size-3 opacity-70" />
+	</Button>
+);
+
 const SidebarIcon = ({ name }: { name: IconName }) => {
 	return <Icon name={name} size={20} className="mr-1" />;
 };
@@ -39,6 +49,7 @@ export default function LocalSection() {
 	const result = useBridgeQuery(['volumes.list']);
 	useNodes(result.data?.nodes);
 	const volumes = useCache(result.data?.items);
+	const openTrash = useBridgeMutation(['search.openTrash'], {});
 
 	const { t } = useLocale();
 
@@ -77,9 +88,6 @@ export default function LocalSection() {
 	);
 
 	const os = useOperatingSystem();
-
-	const trashPath = ['macOS', 'linux'].includes(os) ? '/.Trash/' : '/$Recycle.Bin/';
-
 	return (
 		<Section name={t('local')}>
 			<SeeMore>
@@ -97,13 +105,6 @@ export default function LocalSection() {
 						<Name>{t('home')}</Name>
 					</EphemeralLocation>
 				)}
-				<EphemeralLocation
-					navigateTo={`ephemeral/0?path=${trashPath}`}
-					path={'Trash'}
-				>
-					<SidebarIcon name="Trash" />
-					<Name>{t('trash')}</Name>
-				</EphemeralLocation>
 
 				{mountPoints.map((item) => {
 					if (!item) return;
@@ -148,8 +149,17 @@ export default function LocalSection() {
 						</EphemeralLocation>
 					);
 				})}
+				{/* eslint-disable-next-line tailwindcss/migration-from-tailwind-2 */}
+				<div className='py-1'>
+					{/* eslint-disable-next-line tailwindcss/migration-from-tailwind-2 */}
+					<div className={`max-w relative flex grow flex-row items-center gap-0.5 truncate rounded px-2 py-1 text-sm font-medium outline-none ring-0 ring-inset ring-transparent ring-offset-0 focus:ring-1 focus:ring-accent focus:ring-offset-0 ${os === 'macOS' ? "bg-opacity-90" : ""} group relative w-full opacity-50`} onClick={() => openTrash.mutate({})}>
+						<SidebarIcon name="Trash" />
+						<Name>{t('trash')}</Name>
+						<OpenToButton what_is_opening='Trash' />
+					</div>
+				</div>
 			</SeeMore>
-		</Section>
+		</Section >
 	);
 }
 

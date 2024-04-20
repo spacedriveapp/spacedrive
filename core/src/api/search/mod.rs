@@ -149,56 +149,6 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						path.push('/');
 					}
 
-					#[cfg(target_os = "macos")]
-					if path == "/.Trash/" {
-						info!("[Debug] Opening Trash Folder on macOS");
-
-						let full_path = format!("{}/.Trash/", std::env::var("HOME").unwrap());
-
-						Command::new("open")
-							.arg(full_path)
-							.spawn()
-							.map_err(|err| {
-								rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
-							})?
-							.wait()
-							.map_err(|err| {
-								rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
-							})?;
-					}
-
-					#[cfg(target_os = "windows")]
-					if path == "/$Recycle.Bin/" {
-						info!("[Debug] Opening Recycle Bin on Windows");
-
-						Command::new("explorer")
-							.arg("shell:RecycleBinFolder")
-							.spawn()
-							.map_err(|err| {
-								rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
-							})?
-							.wait()
-							.map_err(|err| {
-								rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
-							})?;
-					}
-
-					#[cfg(target_os = "linux")]
-					if path == "/.Trash/" {
-						info!("[Debug] Opening Trash Folder on Linux");
-
-						Command::new("xdg-open")
-							.arg("~/.local/share/Trash/")
-							.spawn()
-							.map_err(|err| {
-								rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
-							})?
-							.wait()
-							.map_err(|err| {
-								rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
-							})?;
-					}
-
 					let stream =
 						sd_indexer::ephemeral(service, rules, &path)
 							.await
@@ -563,6 +513,64 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await? as u32)
 				})
+		})
+		.procedure("openTrash", {
+			#[derive(Deserialize, Type, Debug)]
+			#[serde(rename_all = "camelCase")]
+			#[specta(inline)]
+			struct Args {}
+
+			R.mutation(|_, Args {}| async move {
+				#[cfg(target_os = "macos")]
+				{
+					let full_path = format!("{}/.Trash/", std::env::var("HOME").unwrap());
+
+					Command::new("open")
+						.arg(full_path)
+						.spawn()
+						.map_err(|err| {
+							rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
+						})?
+						.wait()
+						.map_err(|err| {
+							rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
+						})?;
+
+					Ok(())
+				}
+
+				#[cfg(target_os = "windows")]
+				{
+					Command::new("explorer")
+						.arg("shell:RecycleBinFolder")
+						.spawn()
+						.map_err(|err| {
+							rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
+						})?
+						.wait()
+						.map_err(|err| {
+							rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
+						})?;
+
+						Ok(())
+					}
+
+				#[cfg(target_os = "linux")]
+				{
+					Command::new("xdg-open")
+						.arg("~/.local/share/Trash/")
+						.spawn()
+						.map_err(|err| {
+							rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
+						})?
+						.wait()
+						.map_err(|err| {
+							rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
+						})?;
+
+						Ok(())
+				}
+			})
 		})
 		.merge("saved.", saved::mount())
 }
