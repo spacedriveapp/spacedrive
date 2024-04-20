@@ -51,7 +51,7 @@ pub(crate) struct FFmpegFormatContext {
 	ptr: *mut AVFormatContext,
 }
 
-impl<'a> FFmpegFormatContext {
+impl FFmpegFormatContext {
 	pub(crate) fn open_file(filename: CString, options: &mut FFmpegDict) -> Result<Self, Error> {
 		let mut ctx = ptr::null_mut();
 
@@ -68,16 +68,16 @@ impl<'a> FFmpegFormatContext {
 		)?;
 
 		Ok(Self {
-			ref_: *unsafe { ctx.as_mut::<'a>() }.ok_or(FFmpegError::NullError)?,
+			ref_: *unsafe { ctx.as_mut() }.ok_or(FFmpegError::NullError)?,
 			ptr: ctx,
 		})
 	}
 
-	pub(crate) fn as_ref(&'a self) -> &'a AVFormatContext {
+	pub(crate) fn as_ref(&self) -> &AVFormatContext {
 		&self.ref_
 	}
 
-	pub(crate) fn as_mut(&'a mut self) -> &'a mut AVFormatContext {
+	pub(crate) fn as_mut(&mut self) -> &mut AVFormatContext {
 		&mut self.ref_
 	}
 

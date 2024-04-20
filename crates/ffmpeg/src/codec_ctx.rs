@@ -29,7 +29,7 @@ pub(crate) struct FFmpegCodecContext {
 	ptr: *mut AVCodecContext,
 }
 
-impl<'a> FFmpegCodecContext {
+impl FFmpegCodecContext {
 	pub(crate) fn new() -> Result<Self, Error> {
 		let ctx = unsafe { avcodec_alloc_context3(ptr::null_mut()) };
 		if ctx.is_null() {
@@ -37,16 +37,16 @@ impl<'a> FFmpegCodecContext {
 		}
 
 		Ok(Self {
-			ref_: *unsafe { ctx.as_mut::<'a>() }.ok_or(FFmpegError::NullError)?,
+			ref_: *unsafe { ctx.as_mut() }.ok_or(FFmpegError::NullError)?,
 			ptr: ctx,
 		})
 	}
 
-	pub(crate) fn as_ref(&'a self) -> &'a AVCodecContext {
+	pub(crate) fn as_ref(&self) -> &AVCodecContext {
 		&self.ref_
 	}
 
-	pub(crate) fn as_mut(&'a mut self) -> &'a mut AVCodecContext {
+	pub(crate) fn as_mut(&mut self) -> &mut AVCodecContext {
 		&mut self.ref_
 	}
 
