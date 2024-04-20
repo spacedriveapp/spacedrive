@@ -91,11 +91,8 @@ impl MovieDecoder {
 
 		Ok(Self {
 			video_stream_index: -1,
-			format_context: FFmpegFormatContext::open_file(
-				from_path(filename)?,
-				&mut FFmpegDict::new(None),
-			)?,
-			video_codec_context: FFmpegCodecContext::new()?,
+			format_context,
+			video_codec_context,
 			filter_graph: std::ptr::null_mut(),
 			filter_source: std::ptr::null_mut(),
 			filter_sink: std::ptr::null_mut(),
