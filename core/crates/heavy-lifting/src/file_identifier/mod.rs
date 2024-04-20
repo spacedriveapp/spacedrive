@@ -1,16 +1,18 @@
-use rspc::ErrorCode;
+use crate::utils::sub_path::SubPathError;
+
 use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
-use sd_utils::error::FileIOError;
-use serde::{Deserialize, Serialize};
-use specta::Type;
-use tracing::trace;
+use sd_utils::{db::MissingFieldError, error::FileIOError};
 
 use std::{fs::Metadata, path::Path};
 
 use prisma_client_rust::QueryError;
+use rspc::ErrorCode;
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use tokio::fs;
+use tracing::trace;
 
 mod cas_id;
 mod job;
@@ -19,24 +21,31 @@ mod tasks;
 
 use cas_id::generate_cas_id;
 
+pub use job::FileIdentifierJob;
+pub use shallow::shallow;
+
+// we break these tasks into chunks of 100 to improve performance
+const CHUNK_SIZE: usize = 100;
+
 #[derive(thiserror::Error, Debug)]
 pub enum FileIdentifierError {
-	#[error("received sub path not in database: <path='{}'>", .0.display())]
-	SubPathNotFound(Box<Path>),
-
-	// Internal Errors
-	#[error(transparent)]
-	FilePathError(#[from] FilePathError),
+	#[error("missing field on database: {0}")]
+	MissingField(#[from] MissingFieldError),
+	#[error("failed to deserialized stored tasks for job resume: {0}")]
+	DeserializeTasks(#[from] rmp_serde::decode::Error),
 	#[error("database error: {0}")]
 	Database(#[from] QueryError),
+
+	#[error(transparent)]
+	FilePathError(#[from] FilePathError),
+	#[error(transparent)]
+	SubPath(#[from] SubPathError),
 }
 
 impl From<FileIdentifierError> for rspc::Error {
 	fn from(err: FileIdentifierError) -> Self {
 		match err {
-			FileIdentifierError::SubPathNotFound(_) => {
-				Self::with_cause(ErrorCode::NotFound, err.to_string(), err)
-			}
+			FileIdentifierError::SubPath(sub_path_err) => sub_path_err.into(),
 
 			_ => Self::with_cause(ErrorCode::InternalServerError, err.to_string(), err),
 		}

@@ -11,7 +11,7 @@ use sd_prisma::{
 };
 use sd_sync::{CRDTOperation, OperationFactory};
 use sd_task_system::{
-	check_interruption, ExecStatus, Interrupter, IntoAnyTaskOutput, Task, TaskId,
+	check_interruption, ExecStatus, Interrupter, IntoAnyTaskOutput, SerializableTask, Task, TaskId,
 };
 use sd_utils::{msgpack, uuid_to_bytes};
 
@@ -42,7 +42,7 @@ pub struct ObjectProcessorTask {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ObjectProcessorTaskSaveState {
+pub struct SaveState {
 	id: TaskId,
 	identified_files: HashMap<Uuid, IdentifiedFile>,
 	metrics: ObjectProcessorTaskMetrics,
@@ -52,12 +52,12 @@ pub struct ObjectProcessorTaskSaveState {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ObjectProcessorTaskMetrics {
-	assign_cas_ids_time: Duration,
-	fetch_existing_objects_time: Duration,
-	assign_to_existing_object_time: Duration,
-	create_object_time: Duration,
-	created_objects_count: u64,
-	linked_objects_count: u64,
+	pub assign_cas_ids_time: Duration,
+	pub fetch_existing_objects_time: Duration,
+	pub assign_to_existing_object_time: Duration,
+	pub create_object_time: Duration,
+	pub created_objects_count: u64,
+	pub linked_objects_count: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -420,4 +420,54 @@ async fn create_objects(
 
 	#[allow(clippy::cast_sign_loss)] // SAFETY: We're sure the value is positive
 	Ok(total_created_files as u64)
+}
+
+impl SerializableTask<Error> for ObjectProcessorTask {
+	type SerializeError = rmp_serde::encode::Error;
+
+	type DeserializeError = rmp_serde::decode::Error;
+
+	type DeserializeCtx = (Arc<PrismaClient>, Arc<SyncManager>);
+
+	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
+		let Self {
+			id,
+			identified_files,
+			metrics,
+			stage,
+			is_shallow,
+			..
+		} = self;
+
+		rmp_serde::to_vec_named(&SaveState {
+			id,
+			identified_files,
+			metrics,
+			stage,
+			is_shallow,
+		})
+	}
+
+	async fn deserialize(
+		data: &[u8],
+		(db, sync): Self::DeserializeCtx,
+	) -> Result<Self, Self::DeserializeError> {
+		rmp_serde::from_slice(data).map(
+			|SaveState {
+			     id,
+			     identified_files,
+			     metrics,
+			     stage,
+			     is_shallow,
+			 }| Self {
+				id,
+				db,
+				sync,
+				identified_files,
+				metrics,
+				stage,
+				is_shallow,
+			},
+		)
+	}
 }

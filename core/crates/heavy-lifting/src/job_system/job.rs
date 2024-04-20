@@ -45,6 +45,7 @@ use super::{
 #[strum(use_phf, serialize_all = "snake_case")]
 pub enum JobName {
 	Indexer,
+	FileIdentifier,
 	// TODO: Add more job names as needed
 }
 

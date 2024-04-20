@@ -22,7 +22,7 @@ use sd_sync::*;
 use sd_utils::{
 	db::{maybe_missing, MissingFieldError},
 	error::{FileIOError, NonUtf8PathError},
-	msgpack, uuid_to_bytes,
+	msgpack,
 };
 
 use std::{

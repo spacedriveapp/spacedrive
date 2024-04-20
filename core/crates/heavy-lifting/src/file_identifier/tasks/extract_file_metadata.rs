@@ -7,7 +7,9 @@ use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::file_path_for_file_identifier;
 
 use sd_prisma::prisma::location;
-use sd_task_system::{ExecStatus, Interrupter, InterruptionKind, IntoAnyTaskOutput, Task, TaskId};
+use sd_task_system::{
+	ExecStatus, Interrupter, InterruptionKind, IntoAnyTaskOutput, SerializableTask, Task, TaskId,
+};
 use sd_utils::error::FileIOError;
 
 use std::{
@@ -30,17 +32,17 @@ pub struct ExtractFileMetadataTask {
 	location: Arc<location::Data>,
 	location_path: Arc<PathBuf>,
 	file_paths_by_id: HashMap<Uuid, file_path_for_file_identifier::Data>,
-	processed: HashMap<Uuid, IdentifiedFile>,
-	read_metadata_time: Duration,
+	identified_files: HashMap<Uuid, IdentifiedFile>,
+	extract_metadata_time: Duration,
 	errors: Vec<NonCriticalJobError>,
 	is_shallow: bool,
 }
 
 #[derive(Debug)]
-pub(super) struct ExtractFileMetadataTaskOutput {
-	pub(super) processed: HashMap<Uuid, IdentifiedFile>,
-	pub(super) read_metadata_time: Duration,
-	pub(super) errors: Vec<NonCriticalJobError>,
+pub struct ExtractFileMetadataTaskOutput {
+	pub identified_files: HashMap<Uuid, IdentifiedFile>,
+	pub extract_metadata_time: Duration,
+	pub errors: Vec<NonCriticalJobError>,
 }
 
 impl ExtractFileMetadataTask {
@@ -54,7 +56,7 @@ impl ExtractFileMetadataTask {
 			id: TaskId::new_v4(),
 			location,
 			location_path,
-			processed: HashMap::with_capacity(file_paths.len()),
+			identified_files: HashMap::with_capacity(file_paths.len()),
 			file_paths_by_id: file_paths
 				.into_iter()
 				.map(|file_path| {
@@ -65,7 +67,7 @@ impl ExtractFileMetadataTask {
 					)
 				})
 				.collect(),
-			read_metadata_time: Duration::ZERO,
+			extract_metadata_time: Duration::ZERO,
 			errors: Vec::new(),
 			is_shallow,
 		}
@@ -110,8 +112,8 @@ impl Task<Error> for ExtractFileMetadataTask {
 			location,
 			location_path,
 			file_paths_by_id,
-			processed,
-			read_metadata_time,
+			identified_files,
+			extract_metadata_time,
 			errors,
 			..
 		} = self;
@@ -153,7 +155,7 @@ impl Task<Error> for ExtractFileMetadataTask {
 
 						match res {
 							Ok(FileMetadata { cas_id, kind, .. }) => {
-								processed.insert(
+								identified_files.insert(
 									file_path_pub_id,
 									IdentifiedFile {
 										file_path,
@@ -180,7 +182,7 @@ impl Task<Error> for ExtractFileMetadataTask {
 					}
 
 					StreamMessage::Interrupt(kind) => {
-						*read_metadata_time += start_time.elapsed();
+						*extract_metadata_time += start_time.elapsed();
 						return Ok(match kind {
 							InterruptionKind::Pause => ExecStatus::Paused,
 							InterruptionKind::Cancel => ExecStatus::Canceled,
@@ -192,8 +194,8 @@ impl Task<Error> for ExtractFileMetadataTask {
 
 		Ok(ExecStatus::Done(
 			ExtractFileMetadataTaskOutput {
-				processed: mem::take(processed),
-				read_metadata_time: *read_metadata_time + start_time.elapsed(),
+				identified_files: mem::take(identified_files),
+				extract_metadata_time: *extract_metadata_time + start_time.elapsed(),
 				errors: mem::take(errors),
 			}
 			.into_output(),
@@ -256,4 +258,23 @@ fn try_iso_file_path_extraction(
 			);
 		})
 		.ok()
+}
+
+impl SerializableTask<Error> for ExtractFileMetadataTask {
+	type SerializeError = rmp_serde::encode::Error;
+
+	type DeserializeError = rmp_serde::decode::Error;
+
+	type DeserializeCtx = ();
+
+	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
+		rmp_serde::to_vec_named(&self)
+	}
+
+	async fn deserialize(
+		data: &[u8],
+		(): Self::DeserializeCtx,
+	) -> Result<Self, Self::DeserializeError> {
+		rmp_serde::from_slice(data)
+	}
 }

@@ -13,8 +13,7 @@ use async_channel as chan;
 use async_trait::async_trait;
 use chan::{Recv, RecvError};
 use downcast_rs::{impl_downcast, Downcast};
-use futures::executor::block_on;
-use tokio::sync::oneshot;
+use tokio::{runtime::Handle, sync::oneshot};
 use tracing::{trace, warn};
 use uuid::Uuid;
 
@@ -514,7 +513,7 @@ impl<E: RunError> Future for CancelTaskOnDrop<E> {
 impl<E: RunError> Drop for CancelTaskOnDrop<E> {
 	fn drop(&mut self) {
 		// FIXME: We should use async drop when it becomes stable
-		block_on(self.0.cancel());
+		Handle::current().block_on(self.0.cancel());
 	}
 }
 

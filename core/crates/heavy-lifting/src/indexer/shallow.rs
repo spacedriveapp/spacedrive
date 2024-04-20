@@ -1,4 +1,4 @@
-use crate::{Error, NonCriticalJobError};
+use crate::{utils::sub_path::get_full_path_from_sub_path, Error, NonCriticalJobError};
 
 use sd_core_indexer_rules::{IndexerRule, IndexerRuler};
 use sd_core_prisma_helpers::location_with_indexer_rules;
@@ -19,7 +19,7 @@ use itertools::Itertools;
 use tracing::{debug, warn};
 
 use super::{
-	determine_initial_walk_path, remove_non_existing_file_paths, reverse_update_directories_sizes,
+	remove_non_existing_file_paths, reverse_update_directories_sizes,
 	tasks::{
 		saver::{SaveTask, SaveTaskOutput},
 		updater::{UpdateTask, UpdateTaskOutput},
@@ -45,7 +45,9 @@ pub async fn shallow(
 		.map_err(IndexerError::from)?;
 
 	let to_walk_path = Arc::new(
-		determine_initial_walk_path(location.id, &Some(sub_path), &*location_path, &db).await?,
+		get_full_path_from_sub_path(location.id, &Some(sub_path), &*location_path, &db)
+			.await
+			.map_err(IndexerError::from)?,
 	);
 
 	let Some(WalkTaskOutput {

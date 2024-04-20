@@ -7,6 +7,9 @@ use serde::{Deserialize, Serialize};
 mod extract_file_metadata;
 mod object_processor;
 
+pub use extract_file_metadata::{ExtractFileMetadataTask, ExtractFileMetadataTaskOutput};
+pub use object_processor::{ObjectProcessorTask, ObjectProcessorTaskMetrics};
+
 #[derive(Debug, Serialize, Deserialize)]
 pub(super) struct IdentifiedFile {
 	pub(super) file_path: file_path_for_file_identifier::Data,

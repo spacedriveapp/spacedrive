@@ -36,6 +36,7 @@ use thiserror::Error;
 pub mod file_identifier;
 pub mod indexer;
 pub mod job_system;
+pub mod utils;
 
 use file_identifier::{FileIdentifierError, NonCriticalFileIdentifierError};
 use indexer::{IndexerError, NonCriticalIndexerError};
