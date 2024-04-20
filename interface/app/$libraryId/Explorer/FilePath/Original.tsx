@@ -29,6 +29,7 @@ interface OriginalRendererProps {
 	isDark: boolean;
 	childClassName?: string;
 	size?: number;
+	magnification?: number;
 	mediaControls?: boolean;
 	frame?: boolean;
 	isSidebarPreview?: boolean;
@@ -163,16 +164,23 @@ const ORIGINAL_RENDERERS: {
 		const size = useSize(ref);
 
 		return (
-			<Image
-				ref={ref}
-				src={props.src}
-				size={size}
-				onLoad={props.onLoad}
-				onError={props.onError}
-				decoding={props.size ? 'async' : 'sync'}
-				className={clsx(props.className, props.frameClassName)}
-				crossOrigin="anonymous" // Here it is ok, because it is not a react attr
-			/>
+			<div className="custom-scroll quick-preview-images-scroll flex size-full justify-center transition-all">
+				<Image
+					ref={ref}
+					src={props.src}
+					size={size}
+					style={{ transform: `scale(${props.magnification})` }}
+					onLoad={props.onLoad}
+					onError={props.onError}
+					decoding={props.size ? 'async' : 'sync'}
+					className={clsx(
+						props.className,
+						props.frameClassName,
+						'origin-top-left transition-transform'
+					)}
+					crossOrigin="anonymous" // Here it is ok, because it is not a react attr
+				/>
+			</div>
 		);
 	}
 };
