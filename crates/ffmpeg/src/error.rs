@@ -19,8 +19,22 @@ use ffmpeg_sys_next::{
 /// Error type for the library.
 #[derive(Error, Debug)]
 pub enum Error {
+	#[error("Resource temporarily unavailable")]
+	Again,
+	#[error("Background task failed: {0}")]
+	BackgroundTaskFailed(#[from] JoinError),
+	#[error("The video is most likely corrupt and will be skipped")]
+	CorruptVideo,
+	#[error("Received an invalid quality, expected range [0.0, 100.0], received: {0}")]
+	InvalidQuality(f32),
+	#[error("Received an invalid seek percentage: {0}")]
+	InvalidSeekPercentage(f32),
+	#[error("Error while casting an integer to another integer type")]
+	IntCastError(#[from] TryFromIntError),
 	#[error("I/O Error: {0}")]
 	Io(#[from] std::io::Error),
+	#[error("Duration for video stream is unavailable")]
+	NoVideoDuration,
 	#[error("Fail to create CString: {0}")]
 	NulError(#[from] NulError),
 	#[error("Path conversion error: Path: {0:#?}")]
@@ -35,16 +49,6 @@ pub enum Error {
 	SeekError,
 	#[error("Seek not allowed")]
 	SeekNotAllowed,
-	#[error("Received an invalid seek percentage: {0}")]
-	InvalidSeekPercentage(f32),
-	#[error("Received an invalid quality, expected range [0.0, 100.0], received: {0}")]
-	InvalidQuality(f32),
-	#[error("Background task failed: {0}")]
-	BackgroundTaskFailed(#[from] JoinError),
-	#[error("The video is most likely corrupt and will be skipped")]
-	CorruptVideo,
-	#[error("Error while casting an integer to another integer type")]
-	IntCastError(#[from] TryFromIntError),
 }
 
 /// Enum to represent possible errors from `FFmpeg` library
@@ -118,6 +122,8 @@ pub enum FFmpegError {
 	FilterGraphAllocation,
 	#[error("Codec Open Error")]
 	CodecOpen,
+	#[error("Data not found")]
+	NullError,
 }
 
 impl From<c_int> for FFmpegError {

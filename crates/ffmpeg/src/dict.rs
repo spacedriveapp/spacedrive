@@ -17,7 +17,7 @@ pub(crate) struct FFmpegDict {
 }
 
 impl FFmpegDict {
-	pub(crate) fn new(av_dict: Option<*mut AVDictionary>) -> Self {
+	pub(crate) fn new(av_dict: Option<&mut AVDictionary>) -> Self {
 		match av_dict {
 			Some(ptr) => Self {
 				dict: ptr,
@@ -34,7 +34,7 @@ impl FFmpegDict {
 		self.dict
 	}
 
-	pub(crate) fn get(&self, key: CString) -> Option<String> {
+	pub(crate) fn get(&self, key: &CString) -> Option<String> {
 		unsafe { av_dict_get(self.dict, key.as_ptr(), ptr::null(), 0).as_ref() }
 			.and_then(|entry| unsafe { entry.value.as_ref() })
 			.map(|value| {
@@ -43,7 +43,7 @@ impl FFmpegDict {
 			})
 	}
 
-	pub(crate) fn set(&mut self, key: CString, value: CString) -> Result<(), Error> {
+	pub(crate) fn set(&mut self, key: &CString, value: &CString) -> Result<(), Error> {
 		check_error(
 			unsafe { av_dict_set(&mut self.dict, key.as_ptr(), value.as_ptr(), 0) },
 			"Fail to set dictionary key-value pair",
@@ -52,7 +52,7 @@ impl FFmpegDict {
 		Ok(())
 	}
 
-	pub(crate) fn remove(&mut self, key: CString) -> Result<(), Error> {
+	pub(crate) fn remove(&mut self, key: &CString) -> Result<(), Error> {
 		check_error(
 			unsafe { av_dict_set(&mut self.dict, key.as_ptr(), ptr::null(), 0) },
 			"Fail to set dictionary key-value pair",

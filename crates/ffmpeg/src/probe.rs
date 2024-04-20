@@ -20,19 +20,16 @@ pub fn probe(filename: impl AsRef<Path>) -> Result<MediaInfo, Error> {
 	let mut format_opts = FFmpegDict::new(None);
 	// Some MPEGTS specific option (copied from ffprobe)
 	let scan_all_pmts = CString::new("scan_all_pmts").expect(CSTRING_ERROR_MSG);
-	format_opts.set(
-		scan_all_pmts.to_owned(),
-		CString::new("1").expect(CSTRING_ERROR_MSG),
-	)?;
+	format_opts.set(&scan_all_pmts, &CString::new("1").expect(CSTRING_ERROR_MSG))?;
 
 	// Open an input stream, read the header and allocate the format context
-	let fmt_ctx = FFmpegFormatContext::open_file(from_path(filename)?, &mut format_opts)?;
+	let mut fmt_ctx = FFmpegFormatContext::open_file(from_path(filename)?, &mut format_opts)?;
 
 	// Reset MPEGTS specific option
-	format_opts.remove(scan_all_pmts)?;
+	format_opts.remove(&scan_all_pmts)?;
 
 	// Read packets of media file to get stream information.
 	fmt_ctx.find_stream_info()?;
 
-	Ok(fmt_ctx.into())
+	Ok((&fmt_ctx).into())
 }

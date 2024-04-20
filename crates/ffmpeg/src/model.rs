@@ -78,7 +78,7 @@ pub struct MediaCodec {
 	pub tag: Option<String>,
 	pub name: Option<String>,
 	pub profile: Option<String>,
-	pub bit_rate: Option<i64>,
+	pub bit_rate: i64,
 	pub props: Option<Props>,
 }
 
@@ -107,7 +107,7 @@ pub struct MediaInfo {
 	pub formats: Vec<String>,
 	pub duration: Option<TimeDelta>,
 	pub start_time: Option<TimeDelta>,
-	pub bitrate: Option<i64>,
+	pub bitrate: i64,
 	pub chapters: Vec<MediaChapter>,
 	pub programs: Vec<MediaProgram>,
 	pub metadata: Option<MediaMetadata>,

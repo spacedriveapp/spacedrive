@@ -1,6 +1,7 @@
 use crate::{film_strip_filter, Error, MovieDecoder, ThumbnailSize, VideoFrame};
 
 use std::{io, ops::Deref, path::Path};
+
 use tokio::{fs, task::spawn_blocking};
 use tracing::error;
 use webp::Encoder;
@@ -50,22 +51,27 @@ impl Thumbnailer {
 		let quality = self.builder.quality;
 
 		spawn_blocking(move || -> Result<Vec<u8>, Error> {
-			let mut decoder = MovieDecoder::new(video_file_path.clone(), prefer_embedded_metadata)?;
+			// TODO: Allow_seek should be false, for remote files
+			let mut decoder =
+				MovieDecoder::new(video_file_path.clone(), prefer_embedded_metadata, true)?;
 			// We actually have to decode a frame to get some metadata before we can start decoding for real
 			decoder.decode_video_frame()?;
 
-			#[allow(clippy::cast_possible_truncation)]
-			#[allow(clippy::cast_precision_loss)]
 			if !decoder.embedded_metadata_is_available() {
-				let result = decoder.seek(
-					(decoder.get_video_duration().as_secs() as f64 * f64::from(seek_percentage))
-						.round() as i64,
-				);
+				let result = decoder
+					.get_video_duration()
+					.ok_or(Error::NoVideoDuration)
+					.and_then(|duration| {
+						decoder.seek(
+							(duration.num_seconds() as f64 * f64::from(seek_percentage)).round()
+								as i64,
+						)
+					});
 
 				if let Err(err) = result {
 					error!("Failed to seek: {err:#?}");
 					// seeking failed, try the first frame again
-					decoder = MovieDecoder::new(video_file_path, prefer_embedded_metadata)?;
+					decoder = MovieDecoder::new(video_file_path, prefer_embedded_metadata, false)?;
 					decoder.decode_video_frame()?;
 				}
 			}
