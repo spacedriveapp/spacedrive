@@ -176,7 +176,7 @@ const ORIGINAL_RENDERERS: {
 					className={clsx(
 						props.className,
 						props.frameClassName,
-						'origin-top-left transition-transform'
+						'origin-center transition-transform'
 					)}
 					crossOrigin="anonymous" // Here it is ok, because it is not a react attr
 				/>
