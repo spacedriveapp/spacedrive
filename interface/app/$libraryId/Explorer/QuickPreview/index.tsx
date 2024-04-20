@@ -2,6 +2,8 @@ import {
 	ArrowLeft,
 	ArrowRight,
 	DotsThree,
+	MagnifyingGlassMinus,
+	MagnifyingGlassPlus,
 	Plus,
 	SidebarSimple,
 	Slideshow,
@@ -79,6 +81,7 @@ export const QuickPreview = () => {
 	const thumb = createRef<HTMLDivElement>();
 	const [thumbErrorToast, setThumbErrorToast] = useState<ToastMessage>();
 	const [showMetadata, setShowMetadata] = useState<boolean>(false);
+	const [magnification, setMagnification] = useState<number>(1);
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
 	const [newName, setNewName] = useState<string | null>(null);
@@ -413,6 +416,35 @@ export const QuickPreview = () => {
 									</div>
 
 									<div className="flex flex-1 items-center justify-end gap-1">
+										<Tooltip label={t('zoom_in')}>
+											<IconButton
+												onClick={() =>
+													setMagnification(
+														(currentMagnification) =>
+															currentMagnification +
+															currentMagnification * 0.2
+													)
+												}
+												// this is same formula as intrest calculation
+											>
+												<MagnifyingGlassPlus />
+											</IconButton>
+										</Tooltip>
+
+										<Tooltip label={t('zoom_out')}>
+											<IconButton
+												onClick={() =>
+													setMagnification(
+														(currentMagnification) =>
+															currentMagnification / (1 + 0.2)
+													)
+												}
+												// this is same formula as intrest calculation
+											>
+												<MagnifyingGlassMinus />
+											</IconButton>
+										</Tooltip>
+
 										<DropdownMenu.Root
 											trigger={
 												<div className="flex">
@@ -527,6 +559,7 @@ export const QuickPreview = () => {
 										!icon && 'h-full',
 										textKinds.includes(kind) && 'select-text'
 									)}
+									magnification={magnification}
 								/>
 
 								{explorerLayoutStore.showImageSlider && activeItem && (
