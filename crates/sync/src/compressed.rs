@@ -123,49 +123,49 @@ mod test {
 				timestamp: NTP64(0),
 				model: 0,
 				record_id: rmpv::Value::Nil,
-				data: CRDTOperationData::Create,
+				data: CRDTOperationData::create(),
 			},
 			CRDTOperation {
 				instance,
 				timestamp: NTP64(0),
 				model: 0,
 				record_id: rmpv::Value::Nil,
-				data: CRDTOperationData::Create,
+				data: CRDTOperationData::create(),
 			},
 			CRDTOperation {
 				instance,
 				timestamp: NTP64(0),
 				model: 0,
 				record_id: rmpv::Value::Nil,
-				data: CRDTOperationData::Create,
+				data: CRDTOperationData::create(),
 			},
 			CRDTOperation {
 				instance,
 				timestamp: NTP64(0),
 				model: 1,
 				record_id: rmpv::Value::Nil,
-				data: CRDTOperationData::Create,
+				data: CRDTOperationData::create(),
 			},
 			CRDTOperation {
 				instance,
 				timestamp: NTP64(0),
 				model: 1,
 				record_id: rmpv::Value::Nil,
-				data: CRDTOperationData::Create,
+				data: CRDTOperationData::create(),
 			},
 			CRDTOperation {
 				instance,
 				timestamp: NTP64(0),
 				model: 0,
 				record_id: rmpv::Value::Nil,
-				data: CRDTOperationData::Create,
+				data: CRDTOperationData::create(),
 			},
 			CRDTOperation {
 				instance,
 				timestamp: NTP64(0),
 				model: 0,
 				record_id: rmpv::Value::Nil,
-				data: CRDTOperationData::Create,
+				data: CRDTOperationData::create(),
 			},
 		];
 
@@ -192,15 +192,15 @@ mod test {
 						vec![
 							CompressedCRDTOperation {
 								timestamp: NTP64(0),
-								data: CRDTOperationData::Create,
+								data: CRDTOperationData::create(),
 							},
 							CompressedCRDTOperation {
 								timestamp: NTP64(0),
-								data: CRDTOperationData::Create,
+								data: CRDTOperationData::create(),
 							},
 							CompressedCRDTOperation {
 								timestamp: NTP64(0),
-								data: CRDTOperationData::Create,
+								data: CRDTOperationData::create(),
 							},
 						],
 					)],
@@ -212,11 +212,11 @@ mod test {
 						vec![
 							CompressedCRDTOperation {
 								timestamp: NTP64(0),
-								data: CRDTOperationData::Create,
+								data: CRDTOperationData::create(),
 							},
 							CompressedCRDTOperation {
 								timestamp: NTP64(0),
-								data: CRDTOperationData::Create,
+								data: CRDTOperationData::create(),
 							},
 						],
 					)],
@@ -228,11 +228,11 @@ mod test {
 						vec![
 							CompressedCRDTOperation {
 								timestamp: NTP64(0),
-								data: CRDTOperationData::Create,
+								data: CRDTOperationData::create(),
 							},
 							CompressedCRDTOperation {
 								timestamp: NTP64(0),
-								data: CRDTOperationData::Create,
+								data: CRDTOperationData::create(),
 							},
 						],
 					)],

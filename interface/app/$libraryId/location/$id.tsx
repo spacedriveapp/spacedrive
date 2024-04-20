@@ -1,18 +1,17 @@
 import { ArrowClockwise, Info } from '@phosphor-icons/react';
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { stringify } from 'uuid';
 import {
 	arraysEqual,
-	ExplorerSettings,
 	FilePathOrder,
 	Location,
 	useCache,
+	useExplorerLayoutStore,
 	useLibraryMutation,
 	useLibraryQuery,
 	useLibrarySubscription,
 	useNodes,
-	useOnlineLocations,
-	useRspcLibraryContext
+	useOnlineLocations
 } from '@sd/client';
 import { Loader, Tooltip } from '@sd/ui';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
@@ -36,6 +35,7 @@ import {
 } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
+import { useExplorerPreferences } from '../Explorer/useExplorerPreferences';
 import { useExplorerSearchParams } from '../Explorer/util';
 import { EmptyNotice } from '../Explorer/View/EmptyNotice';
 import { SearchContextProvider, SearchOptions, useSearchFromSearchParams } from '../search';
@@ -224,55 +224,28 @@ function getLastSectionOfPath(path: string): string | undefined {
 }
 
 function useLocationExplorerSettings(location: Location) {
-	const rspc = useRspcLibraryContext();
-
-	const preferences = useLibraryQuery(['preferences.get']);
-	const updatePreferences = useLibraryMutation('preferences.update');
-
-	const settings = useMemo(() => {
-		const defaults = createDefaultExplorerSettings<FilePathOrder>({
-			order: { field: 'name', value: 'Asc' }
-		});
-
-		if (!location) return defaults;
-
-		const pubId = stringify(location.pub_id);
-
-		const settings = preferences.data?.location?.[pubId]?.explorer;
-
-		if (!settings) return defaults;
-
-		for (const [key, value] of Object.entries(settings)) {
-			if (value !== null) Object.assign(defaults, { [key]: value });
-		}
-
-		return defaults;
-	}, [location, preferences.data?.location]);
-
-	const onSettingsChanged = async (
-		settings: ExplorerSettings<FilePathOrder>,
-		changedLocation: Location
-	) => {
-		if (changedLocation.id === location.id && preferences.isLoading) return;
-
-		const pubId = stringify(changedLocation.pub_id);
-
-		try {
-			await updatePreferences.mutateAsync({
-				location: { [pubId]: { explorer: settings } }
-			});
-			rspc.queryClient.invalidateQueries(['preferences.get']);
-		} catch (e) {
-			alert('An error has occurred while updating your preferences.');
-		}
-	};
+	const preferences = useExplorerPreferences({
+		data: location,
+		createDefaultSettings: useCallback(
+			() =>
+				createDefaultExplorerSettings<FilePathOrder>({
+					order: { field: 'name', value: 'Asc' }
+				}),
+			[]
+		),
+		getSettings: useCallback(
+			(prefs) => prefs.location?.[stringify(location.pub_id)]?.explorer,
+			[location.pub_id]
+		),
+		writeSettings: (settings) => ({
+			location: { [stringify(location.pub_id)]: { explorer: settings } }
+		})
+	});
 
 	return {
 		explorerSettings: useExplorerSettings({
-			settings,
-			onSettingsChanged,
-			orderingKeys: filePathOrderingKeysSchema,
-			data: location
+			...preferences.explorerSettingsProps,
+			orderingKeys: filePathOrderingKeysSchema
 		}),
 		preferences
 	};
