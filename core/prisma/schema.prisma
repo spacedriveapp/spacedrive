@@ -304,6 +304,9 @@ model MediaChapter {
   start BigInt?
   end   BigInt?
 
+  time_base_den Int
+  time_base_num Int
+
   metadata    MediaMetadata @relation(fields: [metadata_id], references: [id], onDelete: Cascade)
   metadata_id Int           @unique
 
@@ -358,7 +361,8 @@ model MediaStream {
 model MediaCodec {
   id Int @id @default(autoincrement())
 
-  type     String?
+  kind     String?
+  subkind  String?
   tag      String?
   name     String?
   profile  String?
@@ -388,8 +392,8 @@ model MediaVideoProps {
   color_transfer   String?
   field_order      String?
   chroma_location  String?
-  coded_width      Int?
-  coded_height     Int?
+  width            Int?
+  height           Int?
   aspect_ratio_num Int?
   aspect_ratio_Den Int?
   properties       String

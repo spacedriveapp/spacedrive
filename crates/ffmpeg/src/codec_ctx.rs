@@ -19,7 +19,8 @@ use ffmpeg_sys_next::{
 	avcodec_parameters_to_context, avcodec_profile_name, AVBPrint, AVChromaLocation,
 	AVCodecContext, AVCodecParameters, AVColorPrimaries, AVColorRange, AVColorSpace,
 	AVColorTransferCharacteristic, AVFieldOrder, AVMediaType, AVPixelFormat, AVRational,
-	AVSampleFormat, AV_FOURCC_MAX_STRING_SIZE,
+	AVSampleFormat, AV_FOURCC_MAX_STRING_SIZE, FF_CODEC_PROPERTY_CLOSED_CAPTIONS,
+	FF_CODEC_PROPERTY_FILM_GRAIN, FF_CODEC_PROPERTY_LOSSLESS,
 };
 use libc::ENOMEM;
 
@@ -257,13 +258,13 @@ impl FFmpegCodecContext {
 			};
 
 			let mut properties = vec![];
-			if ctx.properties & 0x00000001 /*FF_CODEC_PROPERTY_LOSSLESS*/ != 0 {
+			if ctx.properties & (FF_CODEC_PROPERTY_LOSSLESS as u32) != 0 {
 				properties.push("Closed Captions".to_string());
 			}
-			if ctx.properties & 0x00000002 /*FF_CODEC_PROPERTY_CLOSED_CAPTIONS*/ != 0 {
+			if ctx.properties & (FF_CODEC_PROPERTY_CLOSED_CAPTIONS as u32) != 0 {
 				properties.push("Film Grain".to_string());
 			}
-			if ctx.properties & 0x00000004 /*FF_CODEC_PROPERTY_FILM_GRAIN*/ != 0 {
+			if ctx.properties & (FF_CODEC_PROPERTY_FILM_GRAIN as u32) != 0 {
 				properties.push("lossless".to_string());
 			}
 

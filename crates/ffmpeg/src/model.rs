@@ -29,8 +29,10 @@ pub struct MediaMetadata {
 
 pub struct MediaChapter {
 	pub id: u32,
-	pub start: f64,
-	pub end: f64,
+	pub start: i64,
+	pub end: i64,
+	pub time_base_den: i32,
+	pub time_base_num: i32,
 	pub metadata: MediaMetadata,
 }
 
@@ -73,9 +75,9 @@ pub enum Props {
 pub struct MediaCodec {
 	pub kind: Option<String>,
 	pub subkind: Option<String>,
+	pub tag: Option<String>,
 	pub name: Option<String>,
 	pub profile: Option<String>,
-	pub tag: Option<String>,
 	pub bit_rate: Option<i64>,
 	pub props: Option<Props>,
 }

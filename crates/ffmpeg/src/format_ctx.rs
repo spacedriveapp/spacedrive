@@ -7,14 +7,14 @@ use crate::{
 };
 
 use ffmpeg_sys_next::{
-	av_cmp_q, av_q2d, av_reduce, avformat_close_input, avformat_find_stream_info,
-	avformat_open_input, AVFormatContext, AVRational, AV_DISPOSITION_ATTACHED_PIC,
-	AV_DISPOSITION_CAPTIONS, AV_DISPOSITION_CLEAN_EFFECTS, AV_DISPOSITION_COMMENT,
-	AV_DISPOSITION_DEFAULT, AV_DISPOSITION_DEPENDENT, AV_DISPOSITION_DESCRIPTIONS,
-	AV_DISPOSITION_DUB, AV_DISPOSITION_FORCED, AV_DISPOSITION_HEARING_IMPAIRED,
-	AV_DISPOSITION_KARAOKE, AV_DISPOSITION_LYRICS, AV_DISPOSITION_METADATA,
-	AV_DISPOSITION_NON_DIEGETIC, AV_DISPOSITION_ORIGINAL, AV_DISPOSITION_STILL_IMAGE,
-	AV_DISPOSITION_TIMED_THUMBNAILS, AV_DISPOSITION_VISUAL_IMPAIRED, AV_NOPTS_VALUE, AV_TIME_BASE,
+	av_cmp_q, av_reduce, avformat_close_input, avformat_find_stream_info, avformat_open_input,
+	AVFormatContext, AVRational, AV_DISPOSITION_ATTACHED_PIC, AV_DISPOSITION_CAPTIONS,
+	AV_DISPOSITION_CLEAN_EFFECTS, AV_DISPOSITION_COMMENT, AV_DISPOSITION_DEFAULT,
+	AV_DISPOSITION_DEPENDENT, AV_DISPOSITION_DESCRIPTIONS, AV_DISPOSITION_DUB,
+	AV_DISPOSITION_FORCED, AV_DISPOSITION_HEARING_IMPAIRED, AV_DISPOSITION_KARAOKE,
+	AV_DISPOSITION_LYRICS, AV_DISPOSITION_METADATA, AV_DISPOSITION_NON_DIEGETIC,
+	AV_DISPOSITION_ORIGINAL, AV_DISPOSITION_STILL_IMAGE, AV_DISPOSITION_TIMED_THUMBNAILS,
+	AV_DISPOSITION_VISUAL_IMPAIRED, AV_NOPTS_VALUE, AV_TIME_BASE,
 };
 
 use std::{
@@ -126,8 +126,10 @@ impl FFmpegFormatContext {
 						unsafe { chapters.offset(id as isize).as_ref() }.map(|chapter| {
 							MediaChapter {
 								id,
-								start: chapter.start as f64 * unsafe { av_q2d(chapter.time_base) },
-								end: chapter.end as f64 * unsafe { av_q2d(chapter.time_base) },
+								start: chapter.start,
+								end: chapter.end,
+								time_base_num: chapter.time_base.num,
+								time_base_den: chapter.time_base.den,
 								metadata: FFmpegDict::new(Some(chapter.metadata)).into(),
 							}
 						})
