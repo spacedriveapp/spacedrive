@@ -168,7 +168,7 @@ export type CacheNode = { __type: string; __id: string; "#node": any }
 
 export type CameraData = { device_make: string | null; device_model: string | null; color_space: string | null; color_profile: ColorProfile | null; focal_length: number | null; shutter_speed: number | null; flash: Flash | null; orientation: Orientation; lens_make: string | null; lens_model: string | null; bit_depth: number | null; red_eye: boolean | null; zoom: number | null; iso: number | null; software: string | null; serial_number: string | null; lens_serial_number: string | null; contrast: number | null; saturation: number | null; sharpness: number | null; composite: Composite | null }
 
-export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; set_ipv4_enabled: boolean | null; set_ipv6_enabled: boolean | null; p2p_discovery: P2PDiscoveryState | null; image_labeler_version: string | null }
+export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p2p_ipv4_enabled: boolean | null; p2p_ipv6_enabled: boolean | null; p2p_discovery: P2PDiscoveryState | null; image_labeler_version: string | null }
 
 export type CloudInstance = { id: string; uuid: string; identity: RemoteIdentity; nodeId: string; metadata: { [key in string]: string } }
 
@@ -538,7 +538,7 @@ export type PeerMetadata = { name: string; operating_system: OperatingSystem | n
 
 export type PlusCode = string
 
-export type Port = null | number
+export type Port = { type: "random" } | { type: "discrete"; value: number }
 
 export type Range<T> = { from: T } | { to: T }
 

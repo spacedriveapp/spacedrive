@@ -37,7 +37,7 @@ pub enum P2PDiscoveryState {
 }
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, Type)]
-#[serde(rename_all = "snake_case", untagged)]
+#[serde(rename_all = "snake_case", tag = "type", content = "value")]
 pub enum Port {
 	#[default]
 	Random,
