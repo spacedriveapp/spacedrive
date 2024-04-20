@@ -2,7 +2,7 @@ import { ArrowRight, EjectSimple } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { PropsWithChildren, useEffect, useMemo, useState } from 'react';
 import { useBridgeMutation, useBridgeQuery, useCache, useLibraryQuery, useNodes } from '@sd/client';
-import { Button, ButtonLink, toast, tw } from '@sd/ui';
+import { Button, toast, tw } from '@sd/ui';
 import { Icon, IconName } from '~/components';
 import { useLocale, useOperatingSystem } from '~/hooks';
 import { useHomeDir } from '~/hooks/useHomeDir';
@@ -26,13 +26,12 @@ const EjectButton = ({ className }: { className?: string }) => (
 	</Button>
 );
 
-const OpenToButton = ({ className, what_is_opening = "" }: { className?: string, what_is_opening?: string }) => (
+const OpenToButton = ({ className }: { className?: string, what_is_opening?: string }) => (
 	<Button
 		className={clsx('absolute right-[2px] !p-[5px]', className)}
 		variant="subtle"
-		onClick={() => what_is_opening.length === 0 ? toast.info('Opening button coming soon') : toast.info(`Opening ${what_is_opening}`)}
 	>
-		<ArrowRight weight="fill" size={18} className="size-3 opacity-70" />
+		<ArrowRight size={18} className="size-3 opacity-70" />
 	</Button>
 );
 
@@ -150,13 +149,10 @@ export default function LocalSection() {
 					);
 				})}
 				{/* eslint-disable-next-line tailwindcss/migration-from-tailwind-2 */}
-				<div className='py-1'>
-					{/* eslint-disable-next-line tailwindcss/migration-from-tailwind-2 */}
-					<div className={`max-w relative flex grow flex-row items-center gap-0.5 truncate rounded px-2 py-1 text-sm font-medium outline-none ring-0 ring-inset ring-transparent ring-offset-0 focus:ring-1 focus:ring-accent focus:ring-offset-0 ${os === 'macOS' ? "bg-opacity-90" : ""} group relative w-full opacity-50`} onClick={() => openTrash.mutate({})}>
-						<SidebarIcon name="Trash" />
-						<Name>{t('trash')}</Name>
-						<OpenToButton what_is_opening='Trash' />
-					</div>
+				<div className={`max-w relative flex grow flex-row items-center gap-0.5 truncate rounded border border-transparent ${os === 'macOS' ? 'bg-opacity-90' : ''} px-2 py-1 text-sm font-medium text-sidebar-inkDull outline-none ring-0 ring-inset ring-transparent ring-offset-0 focus:ring-1 focus:ring-accent focus:ring-offset-0`} onClick={() => openTrash.mutate({})}>
+					<SidebarIcon name="Trash" />
+					<Name>{t('trash')}</Name>
+					<OpenToButton />
 				</div>
 			</SeeMore>
 		</Section >
