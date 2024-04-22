@@ -5,7 +5,6 @@ use crate::{
 		get_hardware_model_name, HardwareModel,
 	},
 	old_job::JobProgressEvent,
-	p2p::{into_listener2, Listener2},
 	Node,
 };
 
@@ -64,16 +63,12 @@ pub enum CoreEvent {
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum BackendFeature {
-	FilesOverP2P,
 	CloudSync,
 }
 
 impl BackendFeature {
 	pub fn restore(&self, node: &Node) {
 		match self {
-			BackendFeature::FilesOverP2P => {
-				node.files_over_p2p_flag.store(true, Ordering::Relaxed);
-			}
 			BackendFeature::CloudSync => {
 				node.cloud_sync_flag.store(true, Ordering::Relaxed);
 			}
@@ -116,7 +111,6 @@ struct NodeState {
 	#[serde(flatten)]
 	config: SanitisedNodeConfig,
 	data_path: String,
-	listeners: Vec<Listener2>,
 	device_model: Option<String>,
 }
 
@@ -152,7 +146,6 @@ pub(crate) fn mount() -> Arc<Router> {
 						.to_str()
 						.expect("Found non-UTF-8 path")
 						.to_string(),
-					listeners: into_listener2(&node.p2p.p2p.listeners()),
 					device_model: Some(device_model),
 				})
 			})
@@ -179,9 +172,6 @@ pub(crate) fn mount() -> Arc<Router> {
 				.map_err(|err| rspc::Error::new(ErrorCode::InternalServerError, err.to_string()))?;
 
 				match feature {
-					BackendFeature::FilesOverP2P => {
-						node.files_over_p2p_flag.store(enabled, Ordering::Relaxed);
-					}
 					BackendFeature::CloudSync => {
 						node.cloud_sync_flag.store(enabled, Ordering::Relaxed);
 					}

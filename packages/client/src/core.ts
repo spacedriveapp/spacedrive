@@ -40,6 +40,7 @@ export type Procedures = {
         { key: "notifications.dismiss", input: NotificationId, result: null } | 
         { key: "notifications.dismissAll", input: never, result: null } | 
         { key: "notifications.get", input: never, result: Notification[] } | 
+        { key: "p2p.listeners", input: never, result: Listeners } | 
         { key: "p2p.state", input: never, result: JsonValue } | 
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
@@ -154,7 +155,7 @@ export type AudioMetadata = { duration: number | null; audio_codec: string | nul
  * 
  * If you want a variant of this to show up on the frontend it must be added to `backendFeatures` in `useFeatureFlag.tsx`
  */
-export type BackendFeature = "filesOverP2P" | "cloudSync"
+export type BackendFeature = "cloudSync"
 
 export type Backup = ({ id: string; timestamp: string; library_id: string; library_name: string }) & { path: string }
 
@@ -408,7 +409,9 @@ export type LibraryPreferences = { location?: { [key in string]: LocationSetting
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
-export type Listener2 = { id: string; name: string; addrs: string[] }
+export type ListenerState = { type: "Listening" } | { type: "Error"; error: string } | { type: "Disabled" }
+
+export type Listeners = { ipv4: ListenerState; ipv6: ListenerState }
 
 export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; scan_state: number; instance_id: number | null }
 
@@ -459,7 +462,7 @@ id: string;
 /**
  * name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
  */
-name: string; identity: RemoteIdentity; p2p: NodeConfigP2P; p2p_discovery: P2PDiscoveryState; features: BackendFeature[]; preferences: NodePreferences; image_labeler_version: string | null }) & { data_path: string; listeners: Listener2[]; device_model: string | null }
+name: string; identity: RemoteIdentity; p2p: NodeConfigP2P; p2p_discovery: P2PDiscoveryState; features: BackendFeature[]; preferences: NodePreferences; image_labeler_version: string | null }) & { data_path: string; device_model: string | null }
 
 export type NonIndexedPathItem = { path: string; name: string; extension: string; kind: number; is_dir: boolean; date_created: string; date_modified: string; size_in_bytes_bytes: number[]; hidden: boolean }
 

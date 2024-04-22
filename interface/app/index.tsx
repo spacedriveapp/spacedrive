@@ -46,11 +46,19 @@ import './style.scss';
 
 import { useZodRouteParams } from '~/hooks';
 
+import { useP2PErrorToast } from './p2p';
+
 // NOTE: all route `Layout`s below should contain
 // the `usePlausiblePageViewMonitor` hook, as early as possible (ideally within the layout itself).
 // the hook should only be included if there's a valid `ClientContext` (so not onboarding)
 
 const LibraryIdParamsSchema = z.object({ libraryId: z.string() });
+
+// Broken out so this always runs after the `Toaster` is merged.
+function P2PErrorToast() {
+	useP2PErrorToast();
+	return null;
+}
 
 export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 	[
@@ -68,6 +76,7 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 						<Outlet />
 						<Dialogs />
 						<Toaster position="bottom-right" expand={true} offset={18} />
+						<P2PErrorToast />
 					</RootContext.Provider>
 				);
 			},
