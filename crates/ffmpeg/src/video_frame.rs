@@ -17,28 +17,36 @@ pub(crate) struct VideoFrame {
 }
 
 pub(crate) struct FFmpegFrame {
-	data: *mut AVFrame,
+	ref_: AVFrame,
+	ptr: *mut AVFrame,
 }
 
 impl FFmpegFrame {
 	pub(crate) fn new() -> Result<Self, FFmpegError> {
-		let data = unsafe { av_frame_alloc() };
-		if data.is_null() {
+		let ptr = unsafe { av_frame_alloc() };
+		if ptr.is_null() {
 			return Err(FFmpegError::FrameAllocation);
 		}
-		Ok(Self { data })
+		Ok(Self {
+			ref_: *unsafe { ptr.as_mut() }.ok_or(FFmpegError::NullError)?,
+			ptr,
+		})
 	}
 
-	pub(crate) fn as_mut_ptr(&mut self) -> *mut AVFrame {
-		self.data
+	pub(crate) fn as_ref(&self) -> &AVFrame {
+		&self.ref_
+	}
+
+	pub(crate) fn as_mut(&mut self) -> &mut AVFrame {
+		&mut self.ref_
 	}
 }
 
 impl Drop for FFmpegFrame {
 	fn drop(&mut self) {
-		if !self.data.is_null() {
-			unsafe { av_frame_free(&mut self.data) };
-			self.data = std::ptr::null_mut();
+		if !self.ptr.is_null() {
+			unsafe { av_frame_free(&mut self.ptr) };
+			self.ptr = std::ptr::null_mut();
 		}
 	}
 }

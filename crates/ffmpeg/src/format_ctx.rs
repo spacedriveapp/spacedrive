@@ -53,12 +53,12 @@ pub(crate) struct FFmpegFormatContext {
 
 impl FFmpegFormatContext {
 	pub(crate) fn open_file(filename: CString, options: &mut FFmpegDict) -> Result<Self, Error> {
-		let mut ctx = ptr::null_mut();
+		let mut ptr = ptr::null_mut();
 
 		check_error(
 			unsafe {
 				avformat_open_input(
-					&mut ctx,
+					&mut ptr,
 					filename.as_ptr(),
 					ptr::null(),
 					&mut options.as_mut_ptr(),
@@ -68,8 +68,8 @@ impl FFmpegFormatContext {
 		)?;
 
 		Ok(Self {
-			ref_: *unsafe { ctx.as_mut() }.ok_or(FFmpegError::NullError)?,
-			ptr: ctx,
+			ref_: *unsafe { ptr.as_mut() }.ok_or(FFmpegError::NullError)?,
+			ptr,
 		})
 	}
 

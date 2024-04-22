@@ -31,14 +31,14 @@ pub(crate) struct FFmpegCodecContext {
 
 impl FFmpegCodecContext {
 	pub(crate) fn new() -> Result<Self, Error> {
-		let ctx = unsafe { avcodec_alloc_context3(ptr::null_mut()) };
-		if ctx.is_null() {
+		let ptr = unsafe { avcodec_alloc_context3(ptr::null_mut()) };
+		if ptr.is_null() {
 			Err(FFmpegError::VideoCodecAllocation)?;
 		}
 
 		Ok(Self {
-			ref_: *unsafe { ctx.as_mut() }.ok_or(FFmpegError::NullError)?,
-			ptr: ctx,
+			ref_: *unsafe { ptr.as_mut() }.ok_or(FFmpegError::NullError)?,
+			ptr,
 		})
 	}
 

@@ -3,6 +3,7 @@ use crate::{
 	dict::FFmpegDict,
 	error::{Error, FFmpegError},
 	format_ctx::FFmpegFormatContext,
+	packet::FFmpegPacket,
 	probe::probe,
 	utils::{check_error, from_path, CSTRING_ERROR_MSG},
 	video_frame::{FFmpegFrame, FrameSource, VideoFrame},
@@ -38,8 +39,8 @@ pub struct MovieDecoder {
 	filter_sink: *mut AVFilterContext,
 
 	video_stream: AVStream,
-	frame: *mut AVFrame,
-	packet: *mut AVPacket,
+	frame: FFmpegFrame,
+	packet: FFmpegPacket,
 	allow_seek: bool,
 	use_embedded_data: bool,
 }
@@ -97,8 +98,8 @@ impl MovieDecoder {
 			filter_source: std::ptr::null_mut(),
 			filter_sink: std::ptr::null_mut(),
 			video_stream,
-			frame: std::ptr::null_mut(),
-			packet: std::ptr::null_mut(),
+			frame: FFmpegFrame::new()?,
+			packet: FFmpegPacket::new()?,
 			allow_seek,
 			use_embedded_data,
 		})
@@ -146,10 +147,7 @@ impl MovieDecoder {
 				count += 1;
 			}
 
-			if got_frame
-				&& unsafe { self.frame.as_ref() }
-					.map_or(false, |frame| frame.flags & AV_FRAME_FLAG_KEY != 0)
-			{
+			if got_frame && self.frame.as_ref().flags & AV_FRAME_FLAG_KEY != 0 {
 				break;
 			}
 		}
