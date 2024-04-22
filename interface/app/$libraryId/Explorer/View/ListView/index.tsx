@@ -15,7 +15,6 @@ import { isNonEmptyObject } from '~/util';
 import { useLayoutContext } from '../../../Layout/Context';
 import { useExplorerContext } from '../../Context';
 import { getQuickPreviewStore, useQuickPreviewStore } from '../../QuickPreview/store';
-import { explorerStore } from '../../store';
 import { uniqueId } from '../../util';
 import { useExplorerViewContext } from '../Context';
 import { useDragScrollable } from '../useDragScrollable';
@@ -516,6 +515,10 @@ export const ListView = memo(() => {
 	useEffect(() => setRanges([]), [explorerSettings.order]);
 
 	useEffect(() => {
+		if (explorer.selectedItems.size === 0) setRanges([]);
+	}, [explorer.selectedItems]);
+
+	useEffect(() => {
 		// Reset icon size if it's not a valid size
 		if (!LIST_VIEW_ICON_SIZES[explorerSettings.listViewIconSize]) {
 			explorer.settingsStore.listViewIconSize = DEFAULT_LIST_VIEW_ICON_SIZE;
@@ -652,13 +655,6 @@ export const ListView = memo(() => {
 			body.addEventListener('scroll', () => handleScroll(body));
 		};
 	}, [sized, isLeftMouseDown, quickPreview.open]);
-
-	useShortcut('explorerEscape', () => {
-		if (!explorerView.selectable || explorer.selectedItems.size === 0) return;
-		if (explorerStore.isCMDPOpen) return;
-		explorer.resetSelectedItems([]);
-		setRanges([]);
-	});
 
 	useShortcut('explorerUp', (e) => {
 		keyboardHandler(e, 'ArrowUp');
