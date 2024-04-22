@@ -17,8 +17,8 @@ This means the queries will always render the newest version of the model.
 
 ## Terminology
 
- - `CacheNode`: A node in the cache - this contains the data and can be identified by the model's name and unique ID within the data (eg. database primary key).
- - `Reference<T>`: A reference to a node in the cache - This contains the model's name and unique ID.
+- `CacheNode`: A node in the cache - this contains the data and can be identified by the model's name and unique ID within the data (eg. database primary key).
+- `Reference<T>`: A reference to a node in the cache - This contains the model's name and unique ID.
 
 ## High level overview
 
@@ -26,8 +26,7 @@ We turn the data on the backend into a list of `CacheNode`'s and a list of `Refe
 
 We insert the `CacheNode`'s into a global cache on the frontend and then use the `Reference<T>`'s to reconstruct the data by looking up the `CacheNode`'s.
 
-When the cache changes (from another query, invalidation, etc), we can reconstruct *all* queries using their `Reference<T>`'s to reflect the updated data.
-
+When the cache changes (from another query, invalidation, etc), we can reconstruct _all_ queries using their `Reference<T>`'s to reflect the updated data.
 
 ## Rust usage
 
@@ -128,7 +127,6 @@ const filePaths = useCache(query.data?.file_paths);
 ```
 
 This is only possible because `useNodes` and `useCache` take in a specific key, instead of the whole `data` object, so you can tell it where to look.
-
 
 ## Known issues
 
