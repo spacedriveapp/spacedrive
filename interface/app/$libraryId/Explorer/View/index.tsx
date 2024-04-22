@@ -40,10 +40,11 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	const { explorerOperatingSystem, matchingOperatingSystem } = useExplorerOperatingSystem();
 
 	const explorer = useExplorerContext();
-	const [isContextMenuOpen, isRenaming, drag] = useSelector(explorerStore, (s) => [
+	const [isContextMenuOpen, isRenaming, drag, isCMDPOpen] = useSelector(explorerStore, (s) => [
 		s.isContextMenuOpen,
 		s.isRenaming,
-		s.drag
+		s.drag,
+		s.isCMDPOpen
 	]);
 	const { layoutMode } = explorer.useSettingsSnapshot();
 
@@ -59,7 +60,11 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	const [showLoading, setShowLoading] = useState(false);
 
 	const selectable =
-		explorer.selectable && !isContextMenuOpen && !isRenaming && !quickPreviewStore.open;
+		explorer.selectable &&
+		!isContextMenuOpen &&
+		!isRenaming &&
+		!quickPreviewStore.open &&
+		!isCMDPOpen;
 
 	// Can stay here until we add columns view
 	// Once added, the provided parent related logic should move to useExplorerDroppable
@@ -88,10 +93,8 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 
 	useShortcuts();
 
-	useShortcut('explorerEscape', () => {
-		if (!selectable || explorer.selectedItems.size === 0) return;
-		if (explorerStore.isCMDPOpen) return;
-		explorer.resetSelectedItems([]);
+	useShortcut('explorerEscape', () => explorer.resetSelectedItems([]), {
+		disabled: !selectable || explorer.selectedItems.size === 0
 	});
 
 	useEffect(() => {
@@ -204,6 +207,7 @@ const useShortcuts = () => {
 	useShortcut('toggleQuickPreview', (e) => {
 		if (isRenaming || dialogManager.isAnyDialogOpen()) return;
 		if (explorerStore.isCMDPOpen) return;
+		if (explorer.selectedItems.size === 0) return;
 		e.preventDefault();
 		getQuickPreviewStore().open = !quickPreviewStore.open;
 	});
