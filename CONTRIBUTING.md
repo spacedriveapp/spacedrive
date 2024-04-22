@@ -91,7 +91,7 @@ If you encounter any issues, ensure that you are using the following versions of
 
 - Rust version: **1.75**
 - Node version: **18.18**
-- Pnpm version: **8.15**
+- Pnpm version: **9.0.2**
 
 After cleaning out your build artifacts using `pnpm clean`, `git clean`, or `cargo clean`, it is necessary to re-run the `setup-system` script.
 
@@ -168,28 +168,6 @@ Ensure that macOS is fully updated, and that you have Xcode installed (via the a
 Once that has completed, run `xcode-select --install` in the terminal to install the command line tools. If they are already installed, ensure that you update macOS to the latest version available.
 
 Also ensure that Rosetta is installed, as a few of our dependencies require it. You can install Rosetta with `softwareupdate --install-rosetta --agree-to-license`.
-
-#### `ModuleNotFoundError: No module named 'distutils'`
-
-If you run into this issue, or some other error involving `node-gyp`:
-
-```
-File "pnpm@8.15.6/node_modules/pnpm/dist/node_modules/node-gyp/gyp/gyp_main.py", line 42, in <module>
-  import gyp  # noqa: E402
-  ^^^^^^^^^^
-File "pnpm@8.15.6/node_modules/pnpm/dist/node_modules/node-gyp/gyp/pylib/gyp/__init__.py", line 9, in <module>
-  import gyp.input
-File "pnpm@8.15.6/node_modules/pnpm/dist/node_modules/node-gyp/gyp/pylib/gyp/input.py", line 19, in <module>
-  from distutils.version import StrictVersion
-```
-
-Some pnpm dependencies require compilation steps that depend on Python to execute.
-However, a recent change in Python version 3.12 broke the utility used to bridge these compilation steps to node/npm/pnpm.
-
-Currently, there is no definitive solution to this issue due to it being fairly new. But there are two workarounds:
-
-1. Downgrade your system Python version to 3.11 or lower.
-2. Update pnpm to version v9.0.0-rc.0 (Release Candidate, not fully stable yet).
 
 ### Credits
 

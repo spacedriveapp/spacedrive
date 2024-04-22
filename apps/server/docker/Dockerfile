@@ -21,7 +21,7 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
 FROM base as build-base
 
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
-	apt-get install build-essential git sudo unzip wget curl
+	apt-get install build-essential git sudo unzip wget curl python3 python-is-python3
 
 RUN wget -qO- https://get.pnpm.io/install.sh | env SHELL=bash PNPM_HOME=/usr/share/pnpm sh -
 
@@ -29,7 +29,7 @@ ENV PNPM_HOME="/usr/share/pnpm" \
 	PATH="/usr/share/pnpm:$PATH"
 
 RUN pnpm env use --global latest
-RUN pnpm add -g pnpm@latest-8
+RUN pnpm add -g pnpm@latest-9
 
 WORKDIR /srv
 

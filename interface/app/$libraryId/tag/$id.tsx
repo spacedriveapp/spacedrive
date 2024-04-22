@@ -1,14 +1,5 @@
-import { useMemo } from 'react';
-import {
-	ExplorerSettings,
-	ObjectOrder,
-	Tag,
-	useCache,
-	useLibraryMutation,
-	useLibraryQuery,
-	useNodes,
-	useRspcLibraryContext
-} from '@sd/client';
+import { useCallback, useMemo } from 'react';
+import { ObjectOrder, Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
 import { useLocale, useRouteTitle, useZodRouteParams } from '~/hooks';
@@ -19,6 +10,7 @@ import { ExplorerContextProvider } from '../Explorer/Context';
 import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
+import { useExplorerPreferences } from '../Explorer/useExplorerPreferences';
 import { EmptyNotice } from '../Explorer/View/EmptyNotice';
 import { SearchContextProvider, SearchOptions, useSearchFromSearchParams } from '../search';
 import SearchBar from '../search/SearchBar';
@@ -97,51 +89,26 @@ export function Component() {
 }
 
 function useTagExplorerSettings(tag: Tag) {
-	const rspc = useRspcLibraryContext();
-
-	const preferences = useLibraryQuery(['preferences.get']);
-	const updatePreferences = useLibraryMutation('preferences.update');
-
-	const settings = useMemo(() => {
-		const defaults = createDefaultExplorerSettings<ObjectOrder>({ order: null });
-
-		if (!location) return defaults;
-
-		const pubId = stringify(tag.pub_id);
-
-		const settings = preferences.data?.location?.[pubId]?.explorer;
-
-		if (!settings) return defaults;
-
-		for (const [key, value] of Object.entries(settings)) {
-			if (value !== null) Object.assign(defaults, { [key]: value });
-		}
-
-		return defaults;
-	}, [tag, preferences.data?.location]);
-
-	const onSettingsChanged = async (settings: ExplorerSettings<ObjectOrder>, changedTag: Tag) => {
-		if (changedTag.id === tag.id && preferences.isLoading) return;
-
-		const pubId = stringify(changedTag.pub_id);
-
-		try {
-			await updatePreferences.mutateAsync({
-				tag: { [pubId]: { explorer: settings } }
-			});
-			rspc.queryClient.invalidateQueries(['preferences.get']);
-		} catch (e) {
-			alert('An error has occurred while updating your preferences.');
-		}
-	};
+	const preferences = useExplorerPreferences({
+		data: tag,
+		createDefaultSettings: useCallback(
+			() => createDefaultExplorerSettings<ObjectOrder>({ order: null }),
+			[]
+		),
+		getSettings: useCallback(
+			(prefs) => prefs.tag?.[stringify(tag.pub_id)]?.explorer,
+			[tag.pub_id]
+		),
+		writeSettings: (settings) => ({
+			tag: { [stringify(tag.pub_id)]: { explorer: settings } }
+		})
+	});
 
 	return {
+		preferences,
 		explorerSettings: useExplorerSettings({
-			settings,
-			onSettingsChanged,
-			orderingKeys: objectOrderingKeysSchema,
-			data: tag
-		}),
-		preferences
+			...preferences.explorerSettingsProps,
+			orderingKeys: objectOrderingKeysSchema
+		})
 	};
 }

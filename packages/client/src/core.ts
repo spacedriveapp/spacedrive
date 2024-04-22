@@ -154,7 +154,7 @@ export type AudioMetadata = { duration: number | null; audio_codec: string | nul
  * 
  * If you want a variant of this to show up on the frontend it must be added to `backendFeatures` in `useFeatureFlag.tsx`
  */
-export type BackendFeature = "filesOverP2P" | "cloudSync"
+export type BackendFeature = "cloudSync"
 
 export type Backup = ({ id: string; timestamp: string; library_id: string; library_name: string }) & { path: string }
 
@@ -162,7 +162,7 @@ export type BuildInfo = { version: string; commit: string }
 
 export type CRDTOperation = { instance: string; timestamp: number; model: number; record_id: JsonValue; data: CRDTOperationData }
 
-export type CRDTOperationData = "c" | { u: { field: string; value: JsonValue } } | "d"
+export type CRDTOperationData = { c: { [key in string]: JsonValue } } | { u: { field: string; value: JsonValue } } | "d"
 
 export type CacheNode = { __type: string; __id: string; "#node": any }
 
