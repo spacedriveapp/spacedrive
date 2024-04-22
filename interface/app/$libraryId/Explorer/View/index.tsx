@@ -207,6 +207,7 @@ const useShortcuts = () => {
 	useShortcut('toggleQuickPreview', (e) => {
 		if (isRenaming || dialogManager.isAnyDialogOpen()) return;
 		if (explorerStore.isCMDPOpen) return;
+		if (explorer.selectedItems.size === 0) return;
 		e.preventDefault();
 		getQuickPreviewStore().open = !quickPreviewStore.open;
 	});
