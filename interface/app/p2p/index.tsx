@@ -38,18 +38,15 @@ export function useP2PErrorToast() {
 		}
 
 		if (body) {
-			// This timeout is required so the toast is triggered after the app renders or else it might not show up.
-			setTimeout(() => {
-				toast.error(
-					{
-						title: 'Error starting up networking!',
-						body
-					},
-					{
-						id: 'p2p-listener-error'
-					}
-				);
-			}, 500);
+			toast.error(
+				{
+					title: 'Error starting up networking!',
+					body
+				},
+				{
+					id: 'p2p-listener-error'
+				}
+			);
 			setDidShowError(true);
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
