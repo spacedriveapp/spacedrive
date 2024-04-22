@@ -289,7 +289,9 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					let params = {
 						let (mut fp, obj) = merge_filters(filters, db).await?;
 
-						fp.push(prisma::file_path::object::is(obj));
+						if !obj.is_empty() {
+						    fp.push(prisma::file_path::object::is(obj));
+						}
 
 						fp
 					};
@@ -366,7 +368,9 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						.count({
 							let (mut fp, obj) = merge_filters(filters, db).await?;
 
-							fp.push(prisma::file_path::object::is(obj));
+							if !obj.is_empty() {
+								fp.push(prisma::file_path::object::is(obj));
+							}
 
 							fp
 						})
@@ -401,7 +405,9 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						.find_many({
 							let (fp, mut obj) = merge_filters(filters, db).await?;
 
-							obj.push(prisma::object::file_paths::some(fp));
+							if !fp.is_empty() {
+							     obj.push(prisma::object::file_paths::some(fp));
+							}
 
 							obj
 						})
@@ -482,7 +488,9 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						.count({
 							let (fp, mut obj) = merge_filters(filters, db).await?;
 
-							obj.push(prisma::object::file_paths::some(fp));
+							if !fp.is_empty() {
+								obj.push(prisma::object::file_paths::some(fp));
+							}
 
 							obj
 						})
