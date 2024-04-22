@@ -1,7 +1,7 @@
 import { ArrowRight, EjectSimple } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { PropsWithChildren, useEffect, useMemo, useState } from 'react';
-import { useBridgeMutation, useBridgeQuery, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { PropsWithChildren, useMemo } from 'react';
+import { useBridgeQuery, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { Button, toast, tw } from '@sd/ui';
 import { Icon, IconName } from '~/components';
 import { useLocale, useOperatingSystem } from '~/hooks';
@@ -12,6 +12,7 @@ import { useExplorerSearchParams } from '../../../../Explorer/util';
 import SidebarLink from '../../SidebarLayout/Link';
 import Section from '../../SidebarLayout/Section';
 import { SeeMore } from '../../SidebarLayout/SeeMore';
+import { usePlatform } from '~/util/Platform';
 
 const Name = tw.span`truncate`;
 
@@ -40,6 +41,7 @@ const SidebarIcon = ({ name }: { name: IconName }) => {
 };
 
 export default function LocalSection() {
+	const platform = usePlatform();
 	const locationsQuery = useLibraryQuery(['locations.list']);
 	useNodes(locationsQuery.data?.nodes);
 	const locations = useCache(locationsQuery.data?.items);
@@ -48,7 +50,6 @@ export default function LocalSection() {
 	const result = useBridgeQuery(['volumes.list']);
 	useNodes(result.data?.nodes);
 	const volumes = useCache(result.data?.items);
-	const openTrash = useBridgeMutation(['search.openTrash'], {});
 
 	const { t } = useLocale();
 
@@ -148,12 +149,14 @@ export default function LocalSection() {
 						</EphemeralLocation>
 					);
 				})}
-				{/* eslint-disable-next-line tailwindcss/migration-from-tailwind-2 */}
-				<div className={`max-w relative flex grow flex-row items-center gap-0.5 truncate rounded border border-transparent ${os === 'macOS' ? 'bg-opacity-90' : ''} px-2 py-1 text-sm font-medium text-sidebar-inkDull outline-none ring-0 ring-inset ring-transparent ring-offset-0 focus:ring-1 focus:ring-accent focus:ring-offset-0`} onClick={() => openTrash.mutate({})}>
-					<SidebarIcon name="Trash" />
-					<Name>{t('trash')}</Name>
-					<OpenToButton />
-				</div>
+				{platform.openTrashInOsExplorer && (
+					// eslint-disable-next-line tailwindcss/migration-from-tailwind-2
+					<div className={`max-w relative flex grow flex-row items-center gap-0.5 truncate rounded border border-transparent ${os === 'macOS' ? 'bg-opacity-90' : ''} px-2 py-1 text-sm font-medium text-sidebar-inkDull outline-none ring-0 ring-inset ring-transparent ring-offset-0 focus:ring-1 focus:ring-accent focus:ring-offset-0`} onClick={() => platform!.openTrashInOsExplorer!()}>
+						<SidebarIcon name="Trash" />
+						<Name>{t('trash')}</Name>
+						<OpenToButton />
+					</div>
+				)}
 			</SeeMore>
 		</Section >
 	);
