@@ -6,13 +6,13 @@ import { Button, toast, tw } from '@sd/ui';
 import { Icon, IconName } from '~/components';
 import { useLocale, useOperatingSystem } from '~/hooks';
 import { useHomeDir } from '~/hooks/useHomeDir';
+import { usePlatform } from '~/util/Platform';
 
 import { useExplorerDroppable } from '../../../../Explorer/useExplorerDroppable';
 import { useExplorerSearchParams } from '../../../../Explorer/util';
 import SidebarLink from '../../SidebarLayout/Link';
 import Section from '../../SidebarLayout/Section';
 import { SeeMore } from '../../SidebarLayout/SeeMore';
-import { usePlatform } from '~/util/Platform';
 
 const Name = tw.span`truncate`;
 
@@ -27,11 +27,8 @@ const EjectButton = ({ className }: { className?: string }) => (
 	</Button>
 );
 
-const OpenToButton = ({ className }: { className?: string, what_is_opening?: string }) => (
-	<Button
-		className={clsx('absolute right-[2px] !p-[5px]', className)}
-		variant="subtle"
-	>
+const OpenToButton = ({ className }: { className?: string; what_is_opening?: string }) => (
+	<Button className={clsx('absolute right-[2px] !p-[5px]', className)} variant="subtle">
 		<ArrowRight size={18} className="size-3 opacity-70" />
 	</Button>
 );
@@ -151,14 +148,17 @@ export default function LocalSection() {
 				})}
 				{platform.openTrashInOsExplorer && (
 					// eslint-disable-next-line tailwindcss/migration-from-tailwind-2
-					<div className={`max-w relative flex grow flex-row items-center gap-0.5 truncate rounded border border-transparent ${os === 'macOS' ? 'bg-opacity-90' : ''} px-2 py-1 text-sm font-medium text-sidebar-inkDull outline-none ring-0 ring-inset ring-transparent ring-offset-0 focus:ring-1 focus:ring-accent focus:ring-offset-0`} onClick={() => platform!.openTrashInOsExplorer!()}>
+					<div
+						className={`max-w relative flex grow flex-row items-center gap-0.5 truncate rounded border border-transparent ${os === 'macOS' ? 'bg-opacity-90' : ''} px-2 py-1 text-sm font-medium text-sidebar-inkDull outline-none ring-0 ring-inset ring-transparent ring-offset-0 focus:ring-1 focus:ring-accent focus:ring-offset-0`}
+						onClick={() => platform.openTrashInOsExplorer?.()}
+					>
 						<SidebarIcon name="Trash" />
 						<Name>{t('trash')}</Name>
 						<OpenToButton />
 					</div>
 				)}
 			</SeeMore>
-		</Section >
+		</Section>
 	);
 }
 
