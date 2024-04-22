@@ -1,14 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useBridgeQuery } from '@sd/client';
 import { toast } from '@sd/ui';
 
 export function useP2PErrorToast() {
 	const listeners = useBridgeQuery(['p2p.listeners']);
-	const [didShowError, setDidShowError] = useState(false);
+	const didShowError = useRef(false);
 
 	useEffect(() => {
 		if (!listeners.data) return;
-		if (didShowError) return;
+		if (didShowError.current) return;
 
 		let body: JSX.Element | undefined;
 		if (listeners.data.ipv4.type === 'Error' && listeners.data.ipv6.type === 'Error') {
@@ -47,7 +47,7 @@ export function useP2PErrorToast() {
 					id: 'p2p-listener-error'
 				}
 			);
-			setDidShowError(true);
+			didShowError.current = true;
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [listeners.data]);
