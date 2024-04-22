@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	node::{
-		config::{NodeConfig, NodePreferences, P2PDiscoveryState, Port},
+		config::{NodeConfig, NodeConfigP2P, NodePreferences, P2PDiscoveryState},
 		get_hardware_model_name, HardwareModel,
 	},
 	old_job::JobProgressEvent,
@@ -84,8 +84,7 @@ pub struct SanitisedNodeConfig {
 	/// name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
 	pub name: String,
 	pub identity: RemoteIdentity,
-	pub p2p_ipv4_port: Port,
-	pub p2p_ipv6_port: Port,
+	pub p2p: NodeConfigP2P,
 	pub p2p_discovery: P2PDiscoveryState,
 	pub features: Vec<BackendFeature>,
 	pub preferences: NodePreferences,
@@ -98,8 +97,7 @@ impl From<NodeConfig> for SanitisedNodeConfig {
 			id: value.id,
 			name: value.name,
 			identity: value.identity.to_remote_identity(),
-			p2p_ipv4_port: value.p2p_ipv4_port,
-			p2p_ipv6_port: value.p2p_ipv6_port,
+			p2p: value.p2p,
 			p2p_discovery: value.p2p_discovery,
 			features: value.features,
 			preferences: value.preferences,
