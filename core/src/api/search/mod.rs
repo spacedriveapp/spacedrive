@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf, process::Command};
 
 use crate::{
 	api::{locations::ExplorerItem, utils::library},
@@ -28,7 +28,7 @@ use futures::StreamExt;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
 pub mod file_path;
 pub mod media_data;
