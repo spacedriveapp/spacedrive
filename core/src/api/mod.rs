@@ -5,7 +5,6 @@ use crate::{
 		get_hardware_model_name, HardwareModel,
 	},
 	old_job::JobProgressEvent,
-	p2p::{into_listener2, Listener2},
 	Node,
 };
 
@@ -114,7 +113,6 @@ struct NodeState {
 	#[serde(flatten)]
 	config: SanitisedNodeConfig,
 	data_path: String,
-	listeners: Vec<Listener2>,
 	device_model: Option<String>,
 }
 
@@ -150,7 +148,6 @@ pub(crate) fn mount() -> Arc<Router> {
 						.to_str()
 						.expect("Found non-UTF-8 path")
 						.to_string(),
-					listeners: into_listener2(&node.p2p.p2p.listeners()),
 					device_model: Some(device_model),
 				})
 			})
