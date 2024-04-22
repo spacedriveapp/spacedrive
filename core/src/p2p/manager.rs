@@ -14,17 +14,14 @@ use axum::routing::IntoMakeService;
 
 use sd_p2p::{
 	flume::{bounded, Receiver},
-	HookId, Libp2pPeerId, Listener, Mdns, Peer, QuicTransport, RelayServerEntry, RemoteIdentity,
+	HookId, Libp2pPeerId, Mdns, Peer, QuicTransport, RelayServerEntry, RemoteIdentity,
 	UnicastStream, P2P,
 };
 use sd_p2p_tunnel::Tunnel;
-use serde::Serialize;
 use serde_json::json;
-use specta::Type;
 use std::{
-	collections::{HashMap, HashSet},
+	collections::HashMap,
 	convert::Infallible,
-	net::SocketAddr,
 	sync::{atomic::AtomicBool, Arc, Mutex, PoisonError},
 	time::Duration,
 };
@@ -37,6 +34,12 @@ use uuid::Uuid;
 
 use super::{P2PEvents, PeerMetadata};
 
+#[derive(Default)]
+pub struct ListenerErrors {
+	pub ipv4: Option<String>,
+	pub ipv6: Option<String>,
+}
+
 pub struct P2PManager {
 	pub(crate) p2p: Arc<P2P>,
 	mdns: Mutex<Option<Mdns>>,
@@ -48,6 +51,7 @@ pub struct P2PManager {
 	pub(super) spacedrop_cancellations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
 	pub(crate) node_config: Arc<config::Manager>,
 	pub libraries_hook_id: HookId,
+	pub listener_errors: Mutex<ListenerErrors>,
 }
 
 impl P2PManager {
@@ -75,6 +79,7 @@ impl P2PManager {
 			spacedrop_cancellations: Default::default(),
 			node_config,
 			libraries_hook_id,
+			listener_errors: Default::default(),
 		});
 		this.on_node_config_change().await;
 
@@ -153,6 +158,11 @@ impl P2PManager {
 				.write(|c| c.p2p_ipv4_port = Port::Disabled)
 				.await
 				.ok();
+
+			self.listener_errors
+				.lock()
+				.unwrap_or_else(PoisonError::into_inner)
+				.ipv4 = Some(format!("{err}"));
 		}
 
 		let port = match config.p2p_ipv6_port {
@@ -160,13 +170,18 @@ impl P2PManager {
 			Port::Random => Some(0),
 			Port::Discrete(port) => Some(port),
 		};
-		info!("Setting quic ipv4 listener to: {port:?}");
+		info!("Setting quic ipv6 listener to: {port:?}");
 		if let Err(err) = self.quic.set_ipv6_enabled(port).await {
 			error!("Failed to enabled quic ipv6 listener: {err}");
 			self.node_config
 				.write(|c| c.p2p_ipv6_port = Port::Disabled)
 				.await
 				.ok();
+
+			self.listener_errors
+				.lock()
+				.unwrap_or_else(PoisonError::into_inner)
+				.ipv6 = Some(format!("{err}"));
 		}
 
 		let should_revert = match config.p2p_discovery {
@@ -348,23 +363,6 @@ async fn start(
 	}
 
 	Ok::<_, ()>(())
-}
-
-#[derive(Debug, Serialize, Type)]
-pub struct Listener2 {
-	pub id: String,
-	pub name: &'static str,
-	pub addrs: HashSet<SocketAddr>,
-}
-
-pub fn into_listener2(l: &[Listener]) -> Vec<Listener2> {
-	l.iter()
-		.map(|l| Listener2 {
-			id: format!("{:?}", l.id),
-			name: l.name,
-			addrs: l.addrs.clone(),
-		})
-		.collect()
 }
 
 fn unwrap_infallible<T>(result: Result<T, Infallible>) -> T {
