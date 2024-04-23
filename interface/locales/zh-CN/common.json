@@ -489,5 +489,7 @@
   "your_account": "您的账户",
   "your_account_description": "Spacedrive账号和信息。",
   "your_local_network": "您的本地网络",
-  "your_privacy": "您的隐私"
+  "your_privacy": "您的隐私",
+  "zoom_in": "放大",
+  "zoom_out": "缩小"
 }
