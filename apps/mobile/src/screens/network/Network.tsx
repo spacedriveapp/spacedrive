@@ -6,7 +6,11 @@ import { NetworkStackScreenProps } from '~/navigation/tabs/NetworkStack';
 
 export default function NetworkScreen({ navigation }: NetworkStackScreenProps<'Network'>) {
 	return (
-		<ScreenContainer scrollview={false} style={tw`items-center justify-center gap-0`}>
+		<ScreenContainer header={{
+			showDrawer: true,
+			title: 'Network',
+			showSearch: true,
+		}} scrollview={false} style={tw`items-center justify-center gap-0`}>
 			<Icon name="Globe" size={128} />
 			<Text style={tw`mt-4 text-lg font-bold text-white`}>Your Local Network</Text>
 			<Text style={tw`mt-1 max-w-sm text-center text-sm text-ink-dull`}>

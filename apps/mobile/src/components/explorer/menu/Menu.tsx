@@ -9,7 +9,6 @@ import SortByMenu from './SortByMenu';
 
 const Menu = () => {
 	const store = useExplorerStore();
-
 	return (
 		<AnimatePresence>
 			{store.toggleMenu && (

@@ -1,10 +1,10 @@
+import { useLibraryMutation, useLibraryQuery, useNormalisedCache, useZodForm } from '@sd/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { Archive, ArrowsClockwise, Trash } from 'phosphor-react-native';
 import { useEffect } from 'react';
 import { Controller } from 'react-hook-form';
 import { Alert, Text, View } from 'react-native';
 import { z } from 'zod';
-import { useLibraryMutation, useLibraryQuery, useNormalisedCache, useZodForm } from '@sd/client';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { AnimatedButton } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
@@ -28,10 +28,9 @@ const schema = z.object({
 
 const EditLocationSettingsScreen = ({
 	route,
-	navigation
+	navigation,
 }: SettingsStackScreenProps<'EditLocationSettings'>) => {
 	const { id } = route.params;
-
 	const queryClient = useQueryClient();
 	const cache = useNormalisedCache();
 
@@ -111,7 +110,10 @@ const EditLocationSettingsScreen = ({
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 
 	return (
-		<ScreenContainer style={tw`px-6`}>
+		<ScreenContainer header={{
+			title: 'Edit Location',
+			navBack: true,
+		}} scrollview style={tw`px-6`}>
 			{/* Inputs */}
 			<View>
 				<SettingsTitle style={tw`mb-1`}>Display Name</SettingsTitle>

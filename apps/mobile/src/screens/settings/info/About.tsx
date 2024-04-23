@@ -1,8 +1,8 @@
+import { useBridgeQuery } from '@sd/client';
 import { Image } from 'expo-image';
 import { Globe } from 'phosphor-react-native';
 import React from 'react';
 import { Linking, Platform, Text, View } from 'react-native';
-import { useBridgeQuery } from '@sd/client';
 import { DiscordIcon, GitHubIcon } from '~/components/icons/Brands';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { Button } from '~/components/primitive/Button';
@@ -11,14 +11,16 @@ import { tw } from '~/lib/tailwind';
 
 const AboutScreen = () => {
 	const buildInfo = useBridgeQuery(['buildInfo']);
-
 	return (
-		<ScreenContainer style={tw`justify-start gap-0 px-6`}>
+		<ScreenContainer header={{
+			title: 'About',
+			navBack: true,
+		}} style={tw`justify-start gap-0 px-6`}>
 			<View style={tw`flex flex-row items-center`}>
 				<Image
 					source={require('../../../../assets/icon.png')}
 					style={tw`mr-8 h-[88px] w-[88px] rounded-3xl`}
-					resizeMode="contain"
+					contentFit="contain"
 				/>
 				<View style={tw`flex flex-col`}>
 					<Text style={tw`text-2xl font-bold text-white`}>
