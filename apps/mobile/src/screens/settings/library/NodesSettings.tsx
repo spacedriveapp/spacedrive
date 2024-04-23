@@ -1,6 +1,6 @@
-import { useDiscoveredPeers } from '@sd/client';
 import React from 'react';
 import { Text, View } from 'react-native';
+import { useDiscoveredPeers } from '@sd/client';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
@@ -9,10 +9,7 @@ const NodesSettingsScreen = ({ navigation }: SettingsStackScreenProps<'NodesSett
 	const onlineNodes = useDiscoveredPeers();
 
 	return (
-		<ScreenContainer header={{
-			title: 'Nodes',
-			navBack: true,
-		}} scrollview={false} style={tw`gap-0 px-6`}>
+		<ScreenContainer scrollview={false} style={tw`gap-0 px-6`}>
 			<Text style={tw`text-ink`}>Pairing</Text>
 
 			{[...onlineNodes.entries()].map(([id, node]) => (

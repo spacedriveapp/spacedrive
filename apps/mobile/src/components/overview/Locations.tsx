@@ -1,8 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
-import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import React, { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
+import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 import { OverviewStackScreenProps } from '~/navigation/tabs/OverviewStack';
 
@@ -63,7 +63,7 @@ const Locations = () => {
 										navigation.jumpTo('BrowseStack', {
 											initial: false,
 											screen: 'Location',
-											params: { id: item.id, title: item.name }
+											params: { id: item.id }
 										})
 									}
 								>

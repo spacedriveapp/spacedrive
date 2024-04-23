@@ -1,21 +1,18 @@
 import { useNavigation } from '@react-navigation/native';
-import { NativeStackHeaderProps } from '@react-navigation/native-stack';
-import { SearchData, isPath, type ExplorerItem } from '@sd/client';
 import { FlashList } from '@shopify/flash-list';
 import { UseInfiniteQueryResult } from '@tanstack/react-query';
 import { ActivityIndicator, Pressable } from 'react-native';
-import { SharedValue } from 'react-native-reanimated';
+import { isPath, SearchData, type ExplorerItem } from '@sd/client';
 import Layout from '~/constants/Layout';
 import { tw } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { useExplorerStore } from '~/stores/explorerStore';
 import { useActionsModalStore } from '~/stores/modalStore';
-import { HeaderProps } from '../header/Header';
+
 import ScreenContainer from '../layout/ScreenContainer';
 import FileItem from './FileItem';
 import FileRow from './FileRow';
 import Menu from './menu/Menu';
-
 
 type ExplorerProps = {
 	tabHeight?: boolean;
@@ -24,15 +21,13 @@ type ExplorerProps = {
 	loadMore: () => void;
 	query: UseInfiniteQueryResult<SearchData<ExplorerItem>>;
 	count?: number;
-	scrollY?: SharedValue<number>;
-	route?: NativeStackHeaderProps['route'];
-	headerKind?: HeaderProps['headerKind'];
-	hideHeader?: boolean;
 };
 
 const Explorer = (props: ExplorerProps) => {
 	const navigation = useNavigation<BrowseStackScreenProps<'Location'>['navigation']>();
+
 	const store = useExplorerStore();
+
 	const { modalRef, setData } = useActionsModalStore();
 
 	function handlePress(data: ExplorerItem) {
@@ -48,20 +43,8 @@ const Explorer = (props: ExplorerProps) => {
 	}
 
 	return (
-		<ScreenContainer
-		hideHeader={props.hideHeader}
-		header={{
-			scrollY: props.scrollY,
-			route: props.route,
-			headerKind: props.headerKind,
-			showSearch: true,
-			navBack: true,
-		}}
-			tabHeight={props.tabHeight}
-			scrollview={false}
-			style={'gap-0 py-0'}
-		>
-			<Menu/>
+		<ScreenContainer tabHeight={props.tabHeight} scrollview={false} style={'gap-0 py-0'}>
+			<Menu />
 			{/* Items */}
 			<FlashList
 				key={store.layoutMode}
@@ -83,11 +66,6 @@ const Explorer = (props: ExplorerProps) => {
 						)}
 					</Pressable>
 				)}
-				scrollEventThrottle={1}
-				onScroll={(e) => {
-					if (!props.scrollY) return;
-					props.scrollY.value = e.nativeEvent.contentOffset.y;
-				}}
 				contentContainerStyle={tw`px-2 py-5`}
 				extraData={store.layoutMode}
 				estimatedItemSize={

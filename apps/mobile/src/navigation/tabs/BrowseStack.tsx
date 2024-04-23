@@ -1,5 +1,6 @@
 import { CompositeScreenProps } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
+import Header from '~/components/header/Header';
 import BrowseScreen from '~/screens/browse/Browse';
 import LibraryScreen from '~/screens/browse/Library';
 import LocationScreen from '~/screens/browse/Location';
@@ -13,35 +14,48 @@ const Stack = createNativeStackNavigator<BrowseStackParamList>();
 
 export default function BrowseStack() {
 	return (
-		<Stack.Navigator
-			screenOptions={{
-				headerShown: false
-			}}
-		initialRouteName="Browse">
+		<Stack.Navigator initialRouteName="Browse">
 			<Stack.Screen
 				name="Browse"
 				component={BrowseScreen}
+				options={{ header: () => <Header showDrawer title="Browse" /> }}
 			/>
 			<Stack.Screen
 				name="Location"
-			>
-				{(props) => <LocationScreen {...props}/>}
-			</Stack.Screen>
+				component={LocationScreen}
+				options={{
+					header: (route) => (
+						<Header route={route} headerKind="location" routeTitle navBack />
+					)
+				}}
+			/>
 			<Stack.Screen
 				name="Tags"
 				component={TagsScreen}
+				options={{
+					header: () => <Header navBack title="Tags" />
+				}}
 			/>
 			<Stack.Screen
 				name="Locations"
-				component={LocationsScreen}/>
+				component={LocationsScreen}
+				options={{
+					header: () => <Header navBack searchType="location" title="Locations" />
+				}}
+			/>
 			<Stack.Screen
 				name="Tag"
-			>
-				{(props) => <TagScreen {...props} />}
-			</Stack.Screen>
+				component={TagScreen}
+				options={{
+					header: (route) => <Header navBack routeTitle route={route} headerKind="tag" />
+				}}
+			/>
 			<Stack.Screen
 				name="Library"
 				component={LibraryScreen}
+				options={{
+					header: () => <Header navBack title="Library" />
+				}}
 			/>
 		</Stack.Navigator>
 	);
@@ -49,9 +63,9 @@ export default function BrowseStack() {
 
 export type BrowseStackParamList = {
 	Browse: undefined;
-	Location: { id: number; path?: string, title?: string | null };
+	Location: { id: number; path?: string };
 	Locations: undefined;
-	Tag: { id: number; color: string, title?: string | null };
+	Tag: { id: number; color: string };
 	Tags: undefined;
 	Library: undefined;
 };
