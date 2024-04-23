@@ -1,10 +1,10 @@
+import { useLibraryMutation, useLibraryQuery, useNormalisedCache, useZodForm } from '@sd/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { Archive, ArrowsClockwise, Trash } from 'phosphor-react-native';
 import { useEffect } from 'react';
 import { Controller } from 'react-hook-form';
 import { Alert, Text, View } from 'react-native';
 import { z } from 'zod';
-import { useLibraryMutation, useLibraryQuery, useNormalisedCache, useZodForm } from '@sd/client';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { AnimatedButton } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
@@ -15,7 +15,6 @@ import { SettingsInputInfo, SettingsTitle } from '~/components/settings/Settings
 import SettingsToggle from '~/components/settings/SettingsToggle';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
-import { ScrollY } from '~/types/shared';
 
 const schema = z.object({
 	displayName: z.string().nullable(),
@@ -30,10 +29,8 @@ const schema = z.object({
 const EditLocationSettingsScreen = ({
 	route,
 	navigation,
-	scrollY
-}: SettingsStackScreenProps<'EditLocationSettings'> & ScrollY) => {
+}: SettingsStackScreenProps<'EditLocationSettings'>) => {
 	const { id } = route.params;
-
 	const queryClient = useQueryClient();
 	const cache = useNormalisedCache();
 
@@ -64,7 +61,7 @@ const EditLocationSettingsScreen = ({
 	useEffect(() => {
 		navigation.setOptions({
 			headerRight: () => (
-				<View style={tw`flex flex-row mr-1 gap-x-1`}>
+				<View style={tw`mr-1 flex flex-row gap-x-1`}>
 					{form.formState.isDirty && (
 						<AnimatedButton
 							variant="outline"
@@ -113,7 +110,10 @@ const EditLocationSettingsScreen = ({
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 
 	return (
-		<ScreenContainer scrollY={scrollY} scrollview style={tw`px-6`}>
+		<ScreenContainer header={{
+			title: 'Edit Location',
+			navBack: true,
+		}} scrollview style={tw`px-6`}>
 			{/* Inputs */}
 			<View>
 				<SettingsTitle style={tw`mb-1`}>Display Name</SettingsTitle>
@@ -129,7 +129,7 @@ const EditLocationSettingsScreen = ({
 					not rename the actual folder on disk.
 				</SettingsInputInfo>
 
-				<SettingsTitle style={tw`mt-3 mb-1`}>Local Path</SettingsTitle>
+				<SettingsTitle style={tw`mb-1 mt-3`}>Local Path</SettingsTitle>
 				<Controller
 					name="localPath"
 					control={form.control}
@@ -195,7 +195,7 @@ const EditLocationSettingsScreen = ({
 					infoContainerStyle={'w-[60%]'}
 				/>
 				{/* Indexer Rules */}
-				<Text style={tw`text-xs font-bold text-center text-white`}>
+				<Text style={tw`text-center text-xs font-bold text-white`}>
 					TODO: Indexer Rules
 				</Text>
 			</View>

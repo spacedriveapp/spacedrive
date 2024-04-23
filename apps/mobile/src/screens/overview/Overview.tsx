@@ -1,11 +1,11 @@
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
+import { useSharedValue } from 'react-native-reanimated';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import Categories from '~/components/overview/Categories';
 import Cloud from '~/components/overview/Cloud';
 import Devices from '~/components/overview/Devices';
 import Locations from '~/components/overview/Locations';
 import OverviewStats from '~/components/overview/OverviewStats';
-import { ScrollY } from '~/types/shared';
 
 const EMPTY_STATISTICS = {
 	id: 0,
@@ -19,15 +19,21 @@ const EMPTY_STATISTICS = {
 	total_unique_bytes: '0'
 };
 
-export default function OverviewScreen({ scrollY }: ScrollY) {
+export default function OverviewScreen() {
 	const { data: node } = useBridgeQuery(['nodeState']);
-
+	const scrollY = useSharedValue(0);
 	const stats = useLibraryQuery(['library.statistics'], {
 		initialData: { ...EMPTY_STATISTICS }
 	});
 
 	return (
-		<ScreenContainer scrollY={scrollY}>
+		<ScreenContainer
+		header={{
+			title: 'Overview',
+			showSearch: true,
+			showDrawer: true,
+		}}
+		scrollY={scrollY}>
 			<OverviewStats stats={stats} />
 			<Categories />
 			<Devices stats={stats} node={node} />

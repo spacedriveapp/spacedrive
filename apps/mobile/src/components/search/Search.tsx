@@ -18,12 +18,12 @@ export default function Search({ placeholder }: Props) {
 	}, [searchStore]);
 	return (
 		<View
-			style={tw`flex flex-row items-center justify-between w-full h-auto px-3 py-2 mt-3 border rounded-md shadow-sm border-app-inputborder bg-app-input`}
+			style={tw`mt-3 flex h-auto w-full flex-row items-center justify-between rounded-md border border-app-inputborder bg-app-input px-3 py-2 shadow-sm`}
 		>
 			<TextInput
 				onChangeText={(text) => searchStore.setSearch(text)}
 				placeholderTextColor={tw.color('text-ink-dull')}
-				style={tw`w-[90%] text-white text-sm leading-0`}
+				style={tw`leading-0 w-[90%] text-sm text-white`}
 				placeholder={placeholder}
 			/>
 			<MagnifyingGlass size={20} weight="bold" color={tw.color('text-ink-dull')} />

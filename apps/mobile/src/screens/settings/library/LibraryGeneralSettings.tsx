@@ -1,8 +1,8 @@
+import { useBridgeMutation, useLibraryContext, useZodForm } from '@sd/client';
 import { Controller } from 'react-hook-form';
 import { Text, View } from 'react-native';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { z } from 'zod';
-import { useBridgeMutation, useLibraryContext, useZodForm } from '@sd/client';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import DeleteLibraryModal from '~/components/modal/confirmModals/DeleteLibraryModal';
 import { Button } from '~/components/primitive/Button';
@@ -37,7 +37,10 @@ const LibraryGeneralSettingsScreen = () => {
 	});
 
 	return (
-		<ScreenContainer style={tw`justify-start px-6 py-0`}>
+		<ScreenContainer header={{
+			title: 'Library Settings',
+			navBack: true,
+		}} style={tw`justify-start px-6 py-0`}>
 			<View style={tw`pt-5`}>
 				<SettingsTitle style={tw`mb-1`}>Name</SettingsTitle>
 				<Controller
@@ -47,7 +50,7 @@ const LibraryGeneralSettingsScreen = () => {
 						<Input onBlur={onBlur} onChangeText={onChange} value={value} />
 					)}
 				/>
-				<SettingsTitle style={tw`mt-4 mb-1`}>Description</SettingsTitle>
+				<SettingsTitle style={tw`mb-1 mt-4`}>Description</SettingsTitle>
 				<Controller
 					name="description"
 					control={form.control}

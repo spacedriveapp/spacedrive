@@ -1,8 +1,9 @@
+import { LibraryConfigWrapped, useBridgeQuery, useCache, useNodes } from '@sd/client';
 import { DotsThreeOutlineVertical, Pen, Trash } from 'phosphor-react-native';
 import React, { useEffect, useRef } from 'react';
-import { Animated, FlatList, Pressable, Text, View } from 'react-native';
+import { Animated, Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { LibraryConfigWrapped, useBridgeQuery, useCache, useNodes } from '@sd/client';
+import { default as Reanimated } from 'react-native-reanimated';
 import Fade from '~/components/layout/Fade';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
@@ -10,7 +11,6 @@ import DeleteLibraryModal from '~/components/modal/confirmModals/DeleteLibraryMo
 import { AnimatedButton, FakeButton } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
-import { ScrollY } from '~/types/shared';
 
 function LibraryItem({
 	library,
@@ -64,7 +64,7 @@ function LibraryItem({
 		>
 			<View style={tw`flex-row items-center justify-between`}>
 				<View>
-					<Text style={tw`font-semibold text-md text-ink`}>{library.config.name}</Text>
+					<Text style={tw`text-md font-semibold text-ink`}>{library.config.name}</Text>
 					<Text style={tw`mt-1 text-xs text-ink-dull`}>{library.uuid}</Text>
 				</View>
 				<Pressable onPress={() => swipeRef.current?.openRight()}>
@@ -81,8 +81,7 @@ function LibraryItem({
 
 const LibrarySettingsScreen = ({
 	navigation,
-	scrollY
-}: SettingsStackScreenProps<'LibrarySettings'> & ScrollY) => {
+}: SettingsStackScreenProps<'LibrarySettings'>) => {
 	const libraryList = useBridgeQuery(['library.list']);
 	useNodes(libraryList.data?.nodes);
 	const libraries = useCache(libraryList.data?.items);
@@ -105,7 +104,10 @@ const LibrarySettingsScreen = ({
 	const modalRef = useRef<ModalRef>(null);
 
 	return (
-		<ScreenContainer style={tw`justify-start gap-0 px-6 py-0`}>
+		<ScreenContainer header={{
+			navBack: true,
+			title: 'Libraries',
+		}} scrollview={false} style={tw`justify-start gap-0 px-6 py-0`}>
 			<Fade
 				fadeSides="top-bottom"
 				orientation="vertical"
@@ -113,7 +115,7 @@ const LibrarySettingsScreen = ({
 				width={30}
 				height="100%"
 			>
-				<FlatList
+				<Reanimated.FlatList
 					data={libraries}
 					contentContainerStyle={tw`py-5`}
 					keyExtractor={(item) => item.uuid}

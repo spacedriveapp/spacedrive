@@ -1,10 +1,10 @@
 import { useNavigation } from '@react-navigation/native';
+import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { Plus } from 'phosphor-react-native';
 import { useMemo, useRef } from 'react';
 import { Pressable, View } from 'react-native';
-import Animated, { useAnimatedScrollHandler } from 'react-native-reanimated';
+import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 import { useDebounce } from 'use-debounce';
-import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import Empty from '~/components/layout/Empty';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
@@ -14,14 +14,13 @@ import { tw, twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 import { useSearchStore } from '~/stores/searchStore';
-import { ScrollY } from '~/types/shared';
 
 interface Props {
 	viewStyle?: 'grid' | 'list';
-	scrollY: ScrollY['scrollY'];
 }
 
-export default function LocationsScreen({ viewStyle, scrollY }: Props) {
+export default function LocationsScreen({ viewStyle }: Props) {
+	const scrollY = useSharedValue(0);
 	const locationsQuery = useLibraryQuery(['locations.list']);
 	useNodes(locationsQuery.data?.nodes);
 	const locations = useCache(locationsQuery.data?.items);
@@ -44,9 +43,15 @@ export default function LocationsScreen({ viewStyle, scrollY }: Props) {
 		scrollY.value = e.contentOffset.y;
 	});
 	return (
-		<ScreenContainer scrollview={false} style={tw`relative px-6 py-0`}>
+		<ScreenContainer
+		header={{
+			title: 'Locations',
+			navBack: true,
+			searchType: 'location',
+		}}
+		scrollview={false} style={tw`relative px-6 py-0`}>
 			<Pressable
-				style={tw`absolute z-10 items-center justify-center w-12 h-12 rounded-full bottom-7 right-7 bg-accent`}
+				style={tw`absolute bottom-7 right-7 z-10 h-12 w-12 items-center justify-center rounded-full bg-accent`}
 				onPress={() => {
 					modalRef.current?.present();
 				}}
@@ -78,7 +83,7 @@ export default function LocationsScreen({ viewStyle, scrollY }: Props) {
 						onPress={() =>
 							navigation.navigate('BrowseStack', {
 								screen: 'Location',
-								params: { id: item.id }
+								params: { id: item.id, title: item.name }
 							})
 						}
 						editLocation={() =>

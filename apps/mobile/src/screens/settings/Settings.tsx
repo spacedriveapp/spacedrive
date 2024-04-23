@@ -1,3 +1,4 @@
+import { DebugState, useDebugState, useDebugStateEnabler } from '@sd/client';
 import {
 	Books,
 	FlyingSaucer,
@@ -12,16 +13,12 @@ import {
 	ShieldCheck,
 	TagSimple
 } from 'phosphor-react-native';
-import React, { useRef } from 'react';
 import { Platform, Text, TouchableWithoutFeedback, View } from 'react-native';
-import { useAnimatedScrollHandler } from 'react-native-reanimated';
-import { DebugState, useDebugState, useDebugStateEnabler } from '@sd/client';
+import { useSharedValue } from 'react-native-reanimated';
 import ScreenContainer from '~/components/layout/ScreenContainer';
-import { AnimatedSectionList } from '~/components/reanimated/components';
 import { SettingsItem } from '~/components/settings/SettingsItem';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackParamList, SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
-import { ScrollY } from '~/types/shared';
 
 type SectionType = {
 	title: string;
@@ -132,7 +129,7 @@ function renderSectionHeader({ section }: { section: { title: string } }) {
 		<Text
 			style={twStyle(
 				'mb-3 text-lg font-bold text-ink',
-				section.title === 'Client' ? 'mt-2' : 'mt-5'
+				section.title === 'Client' ? 'mt-0' : 'mt-5'
 			)}
 		>
 			{section.title}
@@ -142,36 +139,32 @@ function renderSectionHeader({ section }: { section: { title: string } }) {
 
 export default function SettingsScreen({
 	navigation,
-	scrollY
-}: SettingsStackScreenProps<'Settings'> & ScrollY) {
+}: SettingsStackScreenProps<'Settings'>) {
 	const debugState = useDebugState();
-	const ref = useRef<typeof AnimatedSectionList | null>(null);
-	const scrollHandler = useAnimatedScrollHandler((e) => {
-		scrollY.value = e.contentOffset.y;
-	});
-
+	const scrollY = useSharedValue(0);
 	return (
-		<ScreenContainer tabHeight={false} scrollview={false} style={tw`gap-0 px-6 py-0`}>
-			<AnimatedSectionList
-				ref={ref}
-				sections={sections(debugState)}
-				contentContainerStyle={tw`h-auto pt-3 pb-5`}
-				onScroll={scrollHandler}
-				renderItem={({ item }) => (
-					<SettingsItem
-						title={item.title}
-						leftIcon={item.icon}
-						onPress={() => navigation.navigate(item.navigateTo as any)}
-						rounded={item.rounded}
-					/>
-				)}
-				scrollEventThrottle={1}
-				renderSectionHeader={renderSectionHeader}
-				ListFooterComponent={<FooterComponent />}
-				showsVerticalScrollIndicator={false}
-				stickySectionHeadersEnabled={false}
-				initialNumToRender={50}
-			/>
+		<ScreenContainer
+		header={{
+			title: 'Settings',
+			showSearch: true,
+			showDrawer: true,
+		}}
+		scrollY={scrollY} tabHeight={false} style={tw`gap-0 px-6`}>
+			{sections(debugState).map((section, i) => (
+				<View key={i}>
+					{renderSectionHeader({ section })}
+					{section.data.map((item, i) => (
+						<SettingsItem
+							key={i}
+							title={item.title}
+							leftIcon={item.icon}
+							onPress={() => navigation.navigate(item.navigateTo as any)}
+							rounded={item.rounded}
+						/>
+					))}
+				</View>
+			))}
+			<FooterComponent />
 		</ScreenContainer>
 	);
 }

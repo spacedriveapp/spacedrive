@@ -1,5 +1,5 @@
-import { Text, View } from 'react-native';
 import { useBridgeQuery, useDebugState } from '@sd/client';
+import { Text, View } from 'react-native';
 import Card from '~/components/layout/Card';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { Divider } from '~/components/primitive/Divider';
@@ -15,7 +15,12 @@ const GeneralSettingsScreen = () => {
 	if (!node) return null;
 
 	return (
-		<ScreenContainer style={tw`justify-start gap-0 px-6`} scrollview={false}>
+		<ScreenContainer
+		header={{
+			title: 'General',
+			navBack: true,
+		}}
+		style={tw`justify-start gap-0 px-6`} scrollview={false}>
 			<Card>
 				{/* Card Header */}
 				<View style={tw`flex flex-row justify-between`}>
@@ -34,7 +39,7 @@ const GeneralSettingsScreen = () => {
 					</View>
 				</View>
 				{/* Divider */}
-				<Divider style={tw`mt-2 mb-4`} />
+				<Divider style={tw`mb-4 mt-2`} />
 				{/* Node Name and Port */}
 				<SettingsTitle style={tw`mb-1`}>Node Name</SettingsTitle>
 				<Input value={node.name} />
@@ -47,7 +52,7 @@ const GeneralSettingsScreen = () => {
 					{/* Card Header */}
 					<Text style={tw`font-semibold text-ink`}>Debug</Text>
 					{/* Divider */}
-					<Divider style={tw`mt-2 mb-4`} />
+					<Divider style={tw`mb-4 mt-2`} />
 					<SettingsTitle style={tw`mb-1`}>Data Folder</SettingsTitle>
 					{/* Useful for simulator, not so for real devices. */}
 					<Input value={node.data_path} />

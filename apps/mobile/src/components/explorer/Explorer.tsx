@@ -1,19 +1,21 @@
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackHeaderProps } from '@react-navigation/native-stack';
+import { SearchData, isPath, type ExplorerItem } from '@sd/client';
 import { FlashList } from '@shopify/flash-list';
 import { UseInfiniteQueryResult } from '@tanstack/react-query';
 import { ActivityIndicator, Pressable } from 'react-native';
-import { isPath, SearchData, type ExplorerItem } from '@sd/client';
 import Layout from '~/constants/Layout';
 import { tw } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { useExplorerStore } from '~/stores/explorerStore';
 import { useActionsModalStore } from '~/stores/modalStore';
 import { ScrollY } from '~/types/shared';
-
+import { HeaderProps } from '../header/Header';
 import ScreenContainer from '../layout/ScreenContainer';
 import FileItem from './FileItem';
 import FileRow from './FileRow';
 import Menu from './menu/Menu';
+
 
 type ExplorerProps = {
 	tabHeight?: boolean;
@@ -23,13 +25,14 @@ type ExplorerProps = {
 	query: UseInfiniteQueryResult<SearchData<ExplorerItem>>;
 	count?: number;
 	scrollY?: ScrollY['scrollY'];
+	route?: NativeStackHeaderProps['route'];
+	headerKind?: HeaderProps['headerKind'];
+	hideHeader?: boolean;
 };
 
 const Explorer = (props: ExplorerProps) => {
 	const navigation = useNavigation<BrowseStackScreenProps<'Location'>['navigation']>();
-
 	const store = useExplorerStore();
-
 	const { modalRef, setData } = useActionsModalStore();
 
 	function handlePress(data: ExplorerItem) {
@@ -46,46 +49,19 @@ const Explorer = (props: ExplorerProps) => {
 
 	return (
 		<ScreenContainer
-			scrollY={props.scrollY}
+		hideHeader={props.hideHeader}
+		header={{
+			scrollY: props.scrollY,
+			route: props.route,
+			headerKind: props.headerKind,
+			showSearch: true,
+			navBack: true,
+		}}
 			tabHeight={props.tabHeight}
 			scrollview={false}
 			style={'gap-0 py-0'}
 		>
-			{/* Header */}
-			{/* Sort By */}
-			{/* <SortByMenu /> */}
-			<AnimatePresence>
-				{explorerStore.toggleMenu && (
-					<MotiView
-						from={{ translateY: -70 }}
-						animate={{ translateY: 0 }}
-						transition={{
-							type: 'timing',
-							duration: 300,
-							repeat: 0,
-							repeatReverse: false
-						}}
-						exit={{ translateY: -70 }}
-					>
-						<Menu
-							changeLayoutMode={(kind: ExplorerLayoutMode) => {
-								changeLayoutMode(kind);
-							}}
-							layoutMode={layoutMode}
-						/>
-					</MotiView>
-				)}
-			</AnimatePresence>
-			{/* Layout (Grid/List) */}
-			{/* {layoutMode === 'grid' ? (
-					<Pressable onPress={() => changeLayoutMode('list')}>
-						<SquaresFour color={tw.color('ink')} size={23} />
-					</Pressable>
-				) : (
-					<Pressable onPress={() => changeLayoutMode('grid')}>
-						<Rows color={tw.color('ink')} size={23} />
-					</Pressable>
-				)} */}
+			<Menu/>
 			{/* Items */}
 			<FlashList
 				key={store.layoutMode}
@@ -107,6 +83,11 @@ const Explorer = (props: ExplorerProps) => {
 						)}
 					</Pressable>
 				)}
+				scrollEventThrottle={1}
+				onScroll={(e) => {
+					if (!props.scrollY) return;
+					props.scrollY.value = e.nativeEvent.contentOffset.y;
+				}}
 				contentContainerStyle={tw`px-2 py-5`}
 				extraData={store.layoutMode}
 				estimatedItemSize={

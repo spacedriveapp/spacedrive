@@ -6,8 +6,8 @@ import React from 'react';
 import { Platform, Pressable, View } from 'react-native';
 import Animated, {
 	Extrapolation,
-	interpolate,
 	SharedValue,
+	interpolate,
 	useAnimatedStyle
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,25 +18,26 @@ import { Icon } from '../icons/Icon';
 import { AnimatedPressable } from '../reanimated/components';
 import Search from '../search/Search';
 
-type HeaderProps = {
+
+type Props = {
 	title?: string; //title of the page
 	showSearch?: boolean; //show the search button
 	showDrawer?: boolean; //show the drawer button
-	searchType?: 'location' | 'categories'; //Temporary
+	searchType?: 'location' | 'categories' | 'tags'; //Temporary
 	navBack?: boolean; //navigate back to the previous screen
 	headerKind?: 'default' | 'location' | 'tag'; //kind of header
 	route?: never;
-	routeTitle?: never;
 	scrollY?: SharedValue<number>; //scrollY of screen
 };
 
 //you can pass in a routeTitle only if route is passed in
-type Props =
-	| HeaderProps
+export type HeaderProps =
+	| Props
 	| ({
-			route: NativeStackHeaderProps;
+			route: NativeStackHeaderProps['route'];
 			routeTitle?: boolean;
-	  } & Omit<HeaderProps, 'route' | 'routeTitle'>);
+	  } & Omit<Props, 'route' | 'routeTitle'>);
+
 
 // Default header with search bar and button to open drawer
 export default function Header({
@@ -44,16 +45,15 @@ export default function Header({
 	searchType,
 	navBack,
 	route,
-	routeTitle,
 	headerKind = 'default',
 	showDrawer = false,
 	showSearch = false,
 	scrollY
-}: Props) {
+}: HeaderProps) {
 	const navigation = useNavigation<DrawerNavigationHelpers>();
 	const explorerStore = useExplorerStore();
-	const routeParams = route?.route.params as any;
-	const headerHeight = useSafeAreaInsets().top;
+	const routeParams = route?.params as any;
+	const headerSafeArea = useSafeAreaInsets();
 	const isAndroid = Platform.OS === 'android';
 
 	const scrollYTitle = useAnimatedStyle(() => {
@@ -63,11 +63,13 @@ export default function Header({
 	});
 
 	const scrollYHeader = useAnimatedStyle(() => {
+		// this makes sure the header looks good on different devices
+		const outputRange = [headerSafeArea.top + (isAndroid ? 56 : 40), headerSafeArea.top + (isAndroid ? 44 : 32)];
 		return {
 			height: interpolate(
 				scrollY?.value || 0,
 				[0, 50],
-				[searchType ? 150 : 100, searchType ? 145 : 85],
+				outputRange,
 				Extrapolation.CLAMP
 			)
 		};
@@ -77,7 +79,7 @@ export default function Header({
 		return {
 			transform: [
 				{
-					scale: interpolate(scrollY?.value || 0, [0, 50], [1, 0.9], Extrapolation.CLAMP)
+					scale: interpolate(scrollY?.value || 0, [0, 50], [1, 0.95], Extrapolation.CLAMP)
 				}
 			]
 		};
@@ -86,23 +88,20 @@ export default function Header({
 	return (
 		<Animated.View
 			style={[
-				twStyle('relative w-full border-b border-app-cardborder bg-app-header', {
-					paddingTop: headerHeight + (isAndroid ? 15 : 0)
+				twStyle('mt-0 w-full border-b border-app-cardborder bg-app-header', {
+					paddingTop: headerSafeArea.top + (isAndroid ? 15 : 5),
 				}),
-				scrollYHeader
+				 scrollYHeader
 			]}
 		>
-			<View style={tw`justify-center w-full h-auto px-5 pb-6 mx-auto`}>
-				<View style={tw`flex-row items-center justify-between w-full`}>
+			<View style={tw`mx-auto h-auto w-full justify-center px-5 pb-6`}>
+				<View style={tw`w-full flex-row items-center justify-between`}>
 					<View style={tw`flex-row items-center`}>
 						{navBack && (
 							<AnimatedPressable
 								style={scrollYIcon}
 								hitSlop={24}
-								onPress={() => {
-									navigation.goBack();
-									if (scrollY) scrollY.value = 0;
-								}}
+								onPress={() => navigation.goBack()}
 							>
 								<ArrowLeft size={23} color={tw.color('ink')} />
 							</AnimatedPressable>
@@ -116,14 +115,16 @@ export default function Header({
 									style={scrollYIcon}
 									onPress={() => navigation.openDrawer()}
 								>
-									<List size={24} color={tw.color('text-zinc-300')} />
+									<List style={twStyle({
+										top: isAndroid ? 2 : 0 //fixes the icon alignment on android
+									})} size={24} color={tw.color('text-zinc-300')} />
 								</AnimatedPressable>
 							)}
 							<Animated.Text
 								numberOfLines={1}
-								style={[twStyle('max-w-[200px] font-bold text-ink'), scrollYTitle]}
+								style={[twStyle('max-w-[200px] text-md font-bold text-ink'), scrollYTitle]}
 							>
-								{title || (routeTitle && route?.options.title)}
+								{title || routeParams?.title}
 							</Animated.Text>
 						</View>
 					</View>
@@ -177,6 +178,8 @@ const HeaderSearchType = ({ searchType }: HeaderSearchTypeProps) => {
 	switch (searchType) {
 		case 'location':
 			return <Search placeholder="Location name..." />;
+		case 'tags':
+			return <Search placeholder="Tag name..." />;
 		case 'categories':
 			return <Search placeholder="Category name..." />;
 		default:
@@ -196,7 +199,7 @@ const HeaderIconKind = ({ headerKind, routeParams }: HeaderIconKindProps) => {
 		case 'tag':
 			return (
 				<View
-					style={twStyle('h-[30px] w-[30px] rounded-full ml-3', {
+					style={twStyle('ml-3 h-[24px] w-[24px] rounded-full', {
 						backgroundColor: routeParams.color
 					})}
 				/>

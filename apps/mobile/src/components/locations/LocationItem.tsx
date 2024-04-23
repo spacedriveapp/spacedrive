@@ -1,6 +1,6 @@
+import { Location } from '@sd/client';
 import { useRef } from 'react';
 import { Pressable } from 'react-native';
-import { Location } from '@sd/client';
 import { twStyle } from '~/lib/tailwind';
 
 import { ModalRef } from '../layout/Modal';
@@ -23,7 +23,6 @@ export const LocationItem = ({
 }: LocationItemProps) => {
 	const modalRef = useRef<ModalRef>(null);
 	return (
-		<>
 			<Pressable
 				style={twStyle(viewStyle === 'grid' ? `w-[31.5%]` : `flex-1`)}
 				onPress={onPress}
@@ -44,6 +43,5 @@ export const LocationItem = ({
 					<ListLocation location={location} />
 				)}
 			</Pressable>
-		</>
 	);
 };

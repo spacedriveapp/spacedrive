@@ -1,20 +1,21 @@
+import { useBridgeQuery } from '@sd/client';
 import { Image } from 'expo-image';
 import { Globe } from 'phosphor-react-native';
 import React from 'react';
 import { Linking, Platform, Text, View } from 'react-native';
-import { useBridgeQuery } from '@sd/client';
 import { DiscordIcon, GitHubIcon } from '~/components/icons/Brands';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { Button } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
 import { tw } from '~/lib/tailwind';
-import { ScrollY } from '~/types/shared';
 
-const AboutScreen = ({ scrollY }: ScrollY) => {
+const AboutScreen = () => {
 	const buildInfo = useBridgeQuery(['buildInfo']);
-
 	return (
-		<ScreenContainer scrollY={scrollY} style={tw`justify-start gap-0 px-6`}>
+		<ScreenContainer header={{
+			title: 'About',
+			navBack: true,
+		}} style={tw`justify-start gap-0 px-6`}>
 			<View style={tw`flex flex-row items-center`}>
 				<Image
 					source={require('../../../../assets/icon.png')}
@@ -39,14 +40,14 @@ const AboutScreen = ({ scrollY }: ScrollY) => {
 				</View>
 			</View>
 			{/* iOS has buttons falling out of the screen for some reason. So, I made the buttons veritical instead */}
-			<View style={tw`flex-col justify-between gap-2 my-5`}>
+			<View style={tw`my-5 flex-col justify-between gap-2`}>
 				{/* Discord Button */}
 				<Button
 					onPress={() => Linking.openURL('https://discord.gg/ukRnWSnAbG')}
 					style={tw`flex-row items-center`}
 					variant="gray"
 				>
-					<View style={tw`w-4 h-4`}>
+					<View style={tw`h-4 w-4`}>
 						<DiscordIcon fill="white" />
 					</View>
 					<Text style={tw`ml-2 font-bold text-white`}>Join Discord</Text>
@@ -58,7 +59,7 @@ const AboutScreen = ({ scrollY }: ScrollY) => {
 					style={tw`flex-row items-center font-bold`}
 					variant="accent"
 				>
-					<View style={tw`w-4 h-4`}>
+					<View style={tw`h-4 w-4`}>
 						<GitHubIcon fill="white" />
 					</View>
 					<Text style={tw`ml-2 font-bold text-white`}>Star on GitHub</Text>
@@ -70,7 +71,7 @@ const AboutScreen = ({ scrollY }: ScrollY) => {
 					style={tw`flex-row items-center`}
 					variant="accent"
 				>
-					<View style={tw`w-4 h-4`}>
+					<View style={tw`h-4 w-4`}>
 						<Globe weight="bold" size={16} color="white" />
 					</View>
 					<Text style={tw`ml-2 font-bold text-white`}>Website</Text>
