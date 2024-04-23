@@ -5,7 +5,7 @@ import { tw } from '~/lib/tailwind';
 import { getSearchStore } from '~/stores/searchStore';
 
 interface Props {
-	placeholder: string;
+	placeholder?: string;
 }
 
 export default function Search({ placeholder }: Props) {

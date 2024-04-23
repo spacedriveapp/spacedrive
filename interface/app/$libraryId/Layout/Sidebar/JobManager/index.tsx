@@ -15,6 +15,17 @@ import { getSidebarStore, useSidebarStore } from '../store';
 import IsRunningJob from './IsRunningJob';
 import JobGroup from './JobGroup';
 
+const sortByCreatedAt = (a: IJobGroup, b: IJobGroup) => {
+	const aDate = dayjs(a.created_at);
+	const bDate = dayjs(b.created_at);
+	if (aDate.isBefore(bDate)) {
+		return 1;
+	} else if (bDate.isBefore(aDate)) {
+		return -1;
+	}
+	return 0;
+};
+
 function sortJobData(jobs: IJobGroup[]) {
 	const runningJobs: IJobGroup[] = [];
 	const otherJobs: IJobGroup[] = [];
@@ -26,17 +37,6 @@ function sortJobData(jobs: IJobGroup[]) {
 			otherJobs.push(job);
 		}
 	});
-
-	const sortByCreatedAt = (a: IJobGroup, b: IJobGroup) => {
-		const aDate = dayjs(a.created_at);
-		const bDate = dayjs(b.created_at);
-		if (aDate.isBefore(bDate)) {
-			return 1;
-		} else if (bDate.isBefore(aDate)) {
-			return -1;
-		}
-		return 0;
-	};
 
 	runningJobs.sort(sortByCreatedAt);
 	otherJobs.sort(sortByCreatedAt);

@@ -116,7 +116,7 @@ export default function Header({
 						)}
 					</View>
 				</View>
-				{searchType && <HeaderSearchType searchType={searchType} />}
+				{/* {searchType && <HeaderSearchType searchType={searchType} />} */}
 			</View>
 		</View>
 	);
@@ -131,9 +131,9 @@ const HeaderSearchType = ({ searchType }: HeaderSearchTypeProps) => {
 		case 'explorer':
 			return 'Explorer'; //TODO
 		case 'location':
-			return <Search placeholder="Location name..." />;
+			return <Search />;
 		case 'categories':
-			return <Search placeholder="Category name..." />;
+			return <Search />;
 		default:
 			return null;
 	}
