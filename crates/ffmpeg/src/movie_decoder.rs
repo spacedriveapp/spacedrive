@@ -3,23 +3,21 @@ use crate::{
 	dict::FFmpegDict,
 	error::{Error, FFmpegError},
 	format_ctx::FFmpegFormatContext,
-	packet::FFmpegPacket,
 	probe::probe,
 	utils::{check_error, from_path, CSTRING_ERROR_MSG},
 	video_frame::{FFmpegFrame, FrameSource, VideoFrame},
 };
 
-use std::{ffi::CString, path::Path};
+use std::{ffi::CString, path::Path, ptr};
 
 use chrono::TimeDelta;
 use ffmpeg_sys_next::{
 	av_buffersink_get_frame, av_buffersrc_write_frame, av_display_rotation_get, av_frame_alloc,
-	av_frame_free, av_guess_sample_aspect_ratio, av_packet_alloc, av_packet_free, av_packet_unref,
-	av_read_frame, av_seek_frame, av_stream_get_side_data, avcodec_find_decoder,
-	avfilter_get_by_name, avfilter_graph_alloc, avfilter_graph_config,
-	avfilter_graph_create_filter, avfilter_graph_free, avfilter_link, AVFilterContext,
-	AVFilterGraph, AVFrame, AVPacket, AVPacketSideDataType, AVRational, AVStream, AVERROR,
-	AVPROBE_SCORE_MAX, AV_FRAME_FLAG_KEY, AV_TIME_BASE, EAGAIN,
+	av_frame_free, av_guess_sample_aspect_ratio, av_packet_unref, av_read_frame, av_seek_frame,
+	av_stream_get_side_data, avcodec_find_decoder, avfilter_get_by_name, avfilter_graph_alloc,
+	avfilter_graph_config, avfilter_graph_create_filter, avfilter_graph_free, avfilter_link,
+	AVFilterContext, AVFilterGraph, AVFrame, AVPacket, AVPacketSideDataType, AVRational, AVStream,
+	AVERROR, AVPROBE_SCORE_MAX, AV_FRAME_FLAG_KEY, AV_TIME_BASE, EAGAIN,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -40,7 +38,7 @@ pub struct MovieDecoder {
 
 	video_stream: AVStream,
 	frame: FFmpegFrame,
-	packet: FFmpegPacket,
+	packet: *mut AVPacket,
 	allow_seek: bool,
 	use_embedded_data: bool,
 }
@@ -99,7 +97,7 @@ impl MovieDecoder {
 			filter_sink: std::ptr::null_mut(),
 			video_stream,
 			frame: FFmpegFrame::new()?,
-			packet: FFmpegPacket::new()?,
+			packet: ptr::null_mut(),
 			allow_seek,
 			use_embedded_data,
 		})
@@ -198,13 +196,9 @@ impl MovieDecoder {
 			));
 		}
 
-		// SAFETY: these should always be positive, so clippy doesn't need to alert on them
-		#[allow(clippy::cast_sign_loss)]
-		{
-			video_frame.width = unsafe { (*new_frame.as_mut_ptr()).width as u32 };
-			video_frame.height = unsafe { (*new_frame.as_mut_ptr()).height as u32 };
-			video_frame.line_size = unsafe { (*new_frame.as_mut_ptr()).linesize[0] as u32 };
-		}
+		video_frame.width = new_frame.as_ref().width.try_into()?;
+		video_frame.height = new_frame.as_ref().height.try_into()?;
+		video_frame.line_size = new_frame.as_ref().linesize[0].try_into()?;
 		video_frame.source = if self.use_embedded_data {
 			Some(FrameSource::Metadata)
 		} else {
@@ -230,7 +224,7 @@ impl MovieDecoder {
 		}
 
 		video_frame.data.extend_from_slice(unsafe {
-			std::slice::from_raw_parts((*new_frame.as_mut_ptr()).data[0], frame_data_size)
+			std::slice::from_raw_parts(new_frame.as_ref().data[0], frame_data_size)
 		});
 
 		if !self.filter_graph.is_null() {
@@ -252,19 +246,16 @@ impl MovieDecoder {
 		if !self.packet.is_null() {
 			unsafe {
 				av_packet_unref(self.packet);
-				av_packet_free(&mut self.packet);
 			}
 		}
 
-		self.packet = unsafe { av_packet_alloc() };
-
 		while frames_available && !frame_decoded {
-			frames_available =
-				unsafe { av_read_frame(self.format_context.as_mut(), self.packet) >= 0 };
-			if frames_available {
-				frame_decoded = unsafe { (*self.packet).stream_index } == self.video_stream_index;
+			if self.format_context.read_frame(self.packet).is_ok() {
+				frame_decoded = unsafe { self.packet.as_ref() }
+					.map(|packet| packet.stream_index == self.video_stream_index)
+					.unwrap_or(false);
 				if !frame_decoded {
-					unsafe { av_packet_unref(self.packet) };
+					unsafe { av_packet_unref(self.packet) }
 				}
 			}
 		}
@@ -273,16 +264,18 @@ impl MovieDecoder {
 	}
 
 	fn decode_video_packet(&mut self) -> Result<bool, Error> {
-		let packet = unsafe { self.packet.as_ref() }.ok_or(FFmpegError::NullError)?;
-		if packet.stream_index != self.video_stream_index {
+		if unsafe { self.packet.as_ref() }
+			.map(|packet| packet.stream_index != self.video_stream_index)
+			.unwrap_or(false)
+		{
 			return Ok(false);
 		}
 
-		if (match self.video_codec_context.send_packet(packet) {
+		if (match self.video_codec_context.send_packet(self.packet) {
 			Err(Error::Again) => Ok(true),
 			e => e,
 		})? {
-			match self.video_codec_context.receive_frame(self.frame) {
+			match self.video_codec_context.receive_frame(self.frame.as_mut()) {
 				Err(Error::Again) => Ok(false),
 				e => e,
 			}
@@ -333,7 +326,7 @@ impl MovieDecoder {
 		)?;
 
 		let mut yadif_filter = std::ptr::null_mut();
-		if unsafe { (*self.frame).interlaced_frame } != 0 {
+		if self.frame.as_mut().interlaced_frame != 0 {
 			setup_filter(
 				&mut yadif_filter,
 				CString::new("yadif").expect(CSTRING_ERROR_MSG),
@@ -484,7 +477,7 @@ impl MovieDecoder {
 				av_guess_sample_aspect_ratio(
 					self.format_context.as_mut(),
 					&mut self.video_stream,
-					self.frame,
+					self.frame.as_mut(),
 				)
 			};
 
@@ -542,21 +535,8 @@ impl MovieDecoder {
 impl Drop for MovieDecoder {
 	fn drop(&mut self) {
 		if !self.packet.is_null() {
-			unsafe {
-				av_packet_unref(self.packet);
-				av_packet_free(&mut self.packet);
-			}
-			self.packet = std::ptr::null_mut();
+			unsafe { av_packet_unref(self.packet) }
 		}
-
-		if !self.frame.is_null() {
-			unsafe {
-				av_frame_free(&mut self.frame);
-				self.frame = std::ptr::null_mut();
-			}
-			self.frame = std::ptr::null_mut();
-		}
-
 		self.video_stream_index = -1;
 	}
 }

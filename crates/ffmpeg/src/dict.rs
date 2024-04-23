@@ -114,11 +114,11 @@ impl<'a> Iterator for FFmpegDictIter<'a> {
 	}
 }
 
-impl From<FFmpegDict> for MediaMetadata {
-	fn from(val: FFmpegDict) -> Self {
+impl From<&FFmpegDict> for MediaMetadata {
+	fn from(dict: &FFmpegDict) -> Self {
 		let mut media_metadata = MediaMetadata::default();
 
-		for (key, value) in val.into_iter() {
+		for (key, value) in dict.into_iter() {
 			if let Some(value) = value {
 				match key.as_str() {
 					"album" => media_metadata.album = Some(value.clone()),
@@ -174,5 +174,18 @@ impl From<FFmpegDict> for MediaMetadata {
 		}
 
 		media_metadata
+	}
+}
+
+impl From<FFmpegDict> for MediaMetadata {
+	fn from(dict: FFmpegDict) -> Self {
+		(&dict).into()
+	}
+}
+
+impl From<&mut FFmpegDict> for MediaMetadata {
+	fn from(dict: &mut FFmpegDict) -> Self {
+		let dict: &FFmpegDict = dict;
+		dict.into()
 	}
 }

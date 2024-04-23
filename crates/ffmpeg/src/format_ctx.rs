@@ -7,14 +7,15 @@ use crate::{
 };
 
 use ffmpeg_sys_next::{
-	av_cmp_q, av_reduce, avformat_close_input, avformat_find_stream_info, avformat_open_input,
-	AVCodecID, AVDictionary, AVFormatContext, AVMediaType, AVRational, AV_DISPOSITION_ATTACHED_PIC,
-	AV_DISPOSITION_CAPTIONS, AV_DISPOSITION_CLEAN_EFFECTS, AV_DISPOSITION_COMMENT,
-	AV_DISPOSITION_DEFAULT, AV_DISPOSITION_DEPENDENT, AV_DISPOSITION_DESCRIPTIONS,
-	AV_DISPOSITION_DUB, AV_DISPOSITION_FORCED, AV_DISPOSITION_HEARING_IMPAIRED,
-	AV_DISPOSITION_KARAOKE, AV_DISPOSITION_LYRICS, AV_DISPOSITION_METADATA,
-	AV_DISPOSITION_NON_DIEGETIC, AV_DISPOSITION_ORIGINAL, AV_DISPOSITION_STILL_IMAGE,
-	AV_DISPOSITION_TIMED_THUMBNAILS, AV_DISPOSITION_VISUAL_IMPAIRED, AV_NOPTS_VALUE, AV_TIME_BASE,
+	av_cmp_q, av_read_frame, av_reduce, avformat_close_input, avformat_find_stream_info,
+	avformat_open_input, AVCodecID, AVDictionary, AVFormatContext, AVMediaType, AVPacket,
+	AVRational, AV_DISPOSITION_ATTACHED_PIC, AV_DISPOSITION_CAPTIONS, AV_DISPOSITION_CLEAN_EFFECTS,
+	AV_DISPOSITION_COMMENT, AV_DISPOSITION_DEFAULT, AV_DISPOSITION_DEPENDENT,
+	AV_DISPOSITION_DESCRIPTIONS, AV_DISPOSITION_DUB, AV_DISPOSITION_FORCED,
+	AV_DISPOSITION_HEARING_IMPAIRED, AV_DISPOSITION_KARAOKE, AV_DISPOSITION_LYRICS,
+	AV_DISPOSITION_METADATA, AV_DISPOSITION_NON_DIEGETIC, AV_DISPOSITION_ORIGINAL,
+	AV_DISPOSITION_STILL_IMAGE, AV_DISPOSITION_TIMED_THUMBNAILS, AV_DISPOSITION_VISUAL_IMPAIRED,
+	AV_NOPTS_VALUE, AV_TIME_BASE,
 };
 
 use std::{
@@ -28,21 +29,16 @@ use chrono::TimeDelta;
 fn extract_name_and_convert_metadata(
 	metadata: *mut AVDictionary,
 ) -> (MediaMetadata, Option<String>) {
-	match unsafe { metadata.as_mut() }.map(|metadata| {
-		let mut metadata = FFmpegDict::new(Some(metadata));
-		let name = CString::new("name").map_or(None, |key| {
-			let name = metadata.get(&key);
-			if name.is_some() {
-				let _ = metadata.remove(&key);
-			}
-			name
-		});
+	let mut metadata = FFmpegDict::new(unsafe { metadata.as_mut() });
+	let name = CString::new("name").map_or(None, |key| {
+		let name = metadata.get(&key);
+		if name.is_some() {
+			let _ = metadata.remove(&key);
+		}
+		name
+	});
 
-		(metadata, name)
-	}) {
-		None => (MediaMetadata::default(), None),
-		Some((metadata, name)) => (metadata.into(), name),
-	}
+	(metadata.into(), name)
 }
 
 #[derive(Debug)]
@@ -89,6 +85,15 @@ impl FFmpegFormatContext {
 
 		let ms = (duration % (AV_TIME_BASE as i64)).abs();
 		TimeDelta::new(duration / (AV_TIME_BASE as i64), (ms * 1000) as u32)
+	}
+
+	pub(crate) fn read_frame(&mut self, packet: *mut AVPacket) -> Result<(), Error> {
+		check_error(
+			unsafe { av_read_frame(self.as_mut(), packet) },
+			"Fail to read the next frame of a media file",
+		)?;
+
+		Ok(())
 	}
 
 	pub(crate) fn find_stream_info(&mut self) -> Result<(), Error> {

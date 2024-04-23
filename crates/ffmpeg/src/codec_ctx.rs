@@ -77,7 +77,7 @@ impl FFmpegCodecContext {
 		Ok(self)
 	}
 
-	pub(crate) fn send_packet(&mut self, packet: &AVPacket) -> Result<bool, Error> {
+	pub(crate) fn send_packet(&mut self, packet: *mut AVPacket) -> Result<bool, Error> {
 		match unsafe { avcodec_send_packet(self.as_mut(), packet) } {
 			AVERROR_EOF => Ok(false),
 			ret if ret == AVERROR(EAGAIN) => Err(Error::Again),
