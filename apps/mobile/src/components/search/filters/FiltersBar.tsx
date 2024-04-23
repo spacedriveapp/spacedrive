@@ -11,6 +11,7 @@ import {
 import { useEffect, useRef } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { Icon } from '~/components/icons/Icon';
+import Fade from '~/components/layout/Fade';
 import { Button } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SearchStackScreenProps } from '~/navigation/SearchStack';
@@ -46,6 +47,7 @@ const FiltersBar = () => {
 				<Plus weight="bold" size={20} color={tw.color('text-ink-dull')} />
 			</Button>
 			<View style={tw`relative flex-1`}>
+				<Fade noConditions height={'100%'} width={30} color="app-header">
 					<FlatList
 						ref={flatListRef}
 						showsHorizontalScrollIndicator={false}
@@ -58,6 +60,7 @@ const FiltersBar = () => {
 						)}
 						contentContainerStyle={tw`flex-row gap-2 pl-4 pr-4`}
 					/>
+				</Fade>
 			</View>
 		</View>
 	);

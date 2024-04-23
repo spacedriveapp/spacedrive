@@ -1,10 +1,9 @@
 import { useNavigation } from '@react-navigation/native';
-import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { Plus } from 'phosphor-react-native';
 import { useMemo, useRef } from 'react';
-import { Pressable, View } from 'react-native';
-import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
+import { FlatList, Pressable, View } from 'react-native';
 import { useDebounce } from 'use-debounce';
+import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import Empty from '~/components/layout/Empty';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
@@ -20,7 +19,6 @@ interface Props {
 }
 
 export default function LocationsScreen({ viewStyle }: Props) {
-	const scrollY = useSharedValue(0);
 	const locationsQuery = useLibraryQuery(['locations.list']);
 	useNodes(locationsQuery.data?.nodes);
 	const locations = useCache(locationsQuery.data?.items);
@@ -39,17 +37,8 @@ export default function LocationsScreen({ viewStyle }: Props) {
 		BrowseStackScreenProps<'Browse'>['navigation'] &
 			SettingsStackScreenProps<'Settings'>['navigation']
 	>();
-	const scrollHandler = useAnimatedScrollHandler((e) => {
-		scrollY.value = e.contentOffset.y;
-	});
 	return (
-		<ScreenContainer
-		header={{
-			title: 'Locations',
-			navBack: true,
-			searchType: 'location',
-		}}
-		scrollview={false} style={tw`relative px-6 py-0`}>
+		<ScreenContainer scrollview={false} style={tw`relative px-6 py-0`}>
 			<Pressable
 				style={tw`absolute bottom-7 right-7 z-10 h-12 w-12 items-center justify-center rounded-full bg-accent`}
 				onPress={() => {
@@ -58,13 +47,12 @@ export default function LocationsScreen({ viewStyle }: Props) {
 			>
 				<Plus size={20} weight="bold" style={tw`text-ink`} />
 			</Pressable>
-			<Animated.FlatList
+			<FlatList
 				data={filteredLocations}
 				contentContainerStyle={twStyle(
 					`py-6`,
 					filteredLocations.length === 0 && 'h-full items-center justify-center'
 				)}
-				onScroll={scrollHandler}
 				keyExtractor={(location) => location.id.toString()}
 				ItemSeparatorComponent={() => <View style={tw`h-2`} />}
 				showsVerticalScrollIndicator={false}
@@ -83,7 +71,7 @@ export default function LocationsScreen({ viewStyle }: Props) {
 						onPress={() =>
 							navigation.navigate('BrowseStack', {
 								screen: 'Location',
-								params: { id: item.id, title: item.name }
+								params: { id: item.id }
 							})
 						}
 						editLocation={() =>

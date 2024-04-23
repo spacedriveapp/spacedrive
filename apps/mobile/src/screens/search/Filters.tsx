@@ -5,13 +5,7 @@ import SaveAdd from '~/components/search/filters/SaveAdd';
 const FiltersScreen = () => {
 	return (
 		<>
-			<ScreenContainer
-			header={{
-				title: 'Filters',
-				showSearch: false,
-				navBack: true,
-			}}
-			 tabHeight={false}>
+			<ScreenContainer bottomFadeStyle="bottom-0" tabHeight={false}>
 				<FiltersList />
 			</ScreenContainer>
 			<SaveAdd />

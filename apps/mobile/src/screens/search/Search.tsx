@@ -1,8 +1,8 @@
-import { SearchFilterArgs, useObjectsExplorerQuery } from '@sd/client';
 import { ArrowLeft, DotsThreeOutline, FunnelSimple, MagnifyingGlass } from 'phosphor-react-native';
 import { Suspense, useDeferredValue, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SearchFilterArgs, useObjectsExplorerQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import FiltersBar from '~/components/search/filters/FiltersBar';
 import { tw, twStyle } from '~/lib/tailwind';
@@ -124,7 +124,7 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 			{/* Content */}
 			<View style={tw`flex-1`}>
 				<Suspense fallback={<ActivityIndicator />}>
-					<Explorer hideHeader {...objects} tabHeight={false} />
+					<Explorer {...objects} tabHeight={false} />
 				</Suspense>
 			</View>
 		</View>

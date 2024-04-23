@@ -1,8 +1,8 @@
-import { useBridgeMutation, useLibraryContext, useZodForm } from '@sd/client';
 import { Controller } from 'react-hook-form';
 import { Text, View } from 'react-native';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { z } from 'zod';
+import { useBridgeMutation, useLibraryContext, useZodForm } from '@sd/client';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import DeleteLibraryModal from '~/components/modal/confirmModals/DeleteLibraryModal';
 import { Button } from '~/components/primitive/Button';
@@ -14,10 +14,11 @@ import { SettingsTitle } from '~/components/settings/SettingsContainer';
 import SettingsToggle from '~/components/settings/SettingsToggle';
 import { useAutoForm } from '~/hooks/useAutoForm';
 import { tw } from '~/lib/tailwind';
+import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
 const schema = z.object({ name: z.string(), description: z.string() });
 
-const LibraryGeneralSettingsScreen = () => {
+const LibraryGeneralSettingsScreen = (_: SettingsStackScreenProps<'LibraryGeneralSettings'>) => {
 	const { library } = useLibraryContext();
 
 	const form = useZodForm({
@@ -37,10 +38,7 @@ const LibraryGeneralSettingsScreen = () => {
 	});
 
 	return (
-		<ScreenContainer header={{
-			title: 'Library Settings',
-			navBack: true,
-		}} style={tw`justify-start px-6 py-0`}>
+		<ScreenContainer scrollview={false} style={tw`justify-start px-6 py-0`}>
 			<View style={tw`pt-5`}>
 				<SettingsTitle style={tw`mb-1`}>Name</SettingsTitle>
 				<Controller

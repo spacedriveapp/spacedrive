@@ -1,7 +1,7 @@
-import { Themes, useThemeStore } from '@sd/client';
 import { CheckCircle } from 'phosphor-react-native';
 import React, { useState } from 'react';
 import { ColorValue, Pressable, ScrollView, Text, View, ViewStyle } from 'react-native';
+import { Themes, useThemeStore } from '@sd/client';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { SettingsTitle } from '~/components/settings/SettingsContainer';
 import Colors from '~/constants/style/Colors';
@@ -126,10 +126,7 @@ const AppearanceSettingsScreen = ({
 	// TODO: Hook this up to the theme store once light theme is fixed.
 
 	return (
-		<ScreenContainer header={{
-			navBack: true,
-			title: 'Appearance'
-		}} scrollview={false} style={tw`gap-2 px-6`}>
+		<ScreenContainer scrollview={false} style={tw`gap-2 px-6`}>
 			<SettingsTitle>Theme</SettingsTitle>
 			<ScrollView
 				horizontal

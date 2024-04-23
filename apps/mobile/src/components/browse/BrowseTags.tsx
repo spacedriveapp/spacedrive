@@ -1,8 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
-import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { DotsThreeOutline, Plus } from 'phosphor-react-native';
 import React, { useRef } from 'react';
 import { Text, View } from 'react-native';
+import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
@@ -57,7 +57,7 @@ const BrowseTags = () => {
 								key={tag.id}
 								tag={tag}
 								onPress={() =>
-									navigation.navigate('Tag', { id: tag.id, color: tag.color!, title: tag.name })
+									navigation.navigate('Tag', { id: tag.id, color: tag.color! })
 								}
 							/>
 						))
