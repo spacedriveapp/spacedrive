@@ -489,5 +489,7 @@
   "your_account": "Votre compte",
   "your_account_description": "Compte et informations Spacedrive.",
   "your_local_network": "Votre réseau local",
-  "your_privacy": "Votre confidentialité"
+  "your_privacy": "Votre confidentialité",
+  "zoom_in": "Zoom avant",
+  "zoom_out": "Zoom arrière"
 }
