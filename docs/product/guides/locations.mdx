@@ -8,11 +8,9 @@ Locations are places Spacedrive looks for files. You can add Locations from any 
 
 ![Spacedrive Locations from the Settings view](/locations.webp)
 
-Locations can be managed from the settings. The "online" indicator shows if that Location is currently accessible from one of your devices.
+Locations can be managed from the settings. The "connected" indicator shows if that Location is currently accessible from one of your devices.
 
-Spacedrive allows you to browse your local system before creating a Location, but it may take longer to load explorer data without the indexing process of Locations.
-
-You can convert any local path to a Location when browsing your local filesystem.
+Spacedrive allows you to browse your local filesystem before creating a Location via the [Local Explorer](/docs/product/guides/interface#Local%20Explorer), but it may take longer to load Explorer data without the indexing process of Locations. You can convert any local path to a Location when browsing your local filesystem from the top bar or the context menu.
 
 ## Scanning
 
@@ -35,7 +33,11 @@ Deleting a location will remove the data from the database permanently. If you w
 
 ## Archiving
 
-<Notice type="warning" text="This feature is WIP" />
+<Notice
+	type="note"
+	title="WIP"
+	text="This feature is not available yet, please check our [roadmap](/roadmap)."
+/>
 
 Locations can be archived, meaning the directory structure is extracted from the Spacedrive database
 and preserved as a standalone database file. This file can be opened by Spacedrive in the [Database]()
@@ -45,8 +47,21 @@ Archives are useful when files have been moved or deleted from a Location, but y
 
 ## Dynamic Space
 
+<Notice
+	type="note"
+	title="WIP"
+	text="This feature is not available yet, please check our [roadmap](/roadmap)."
+/>
+
 A slider in the Location settings allows you to allocate an amount of GB to use as redundancy for other Locations. The storage space will be filled and emptied dynamically, recent and important files will be copied as priority.
 
-## Encrypted Space
+## Size Limit
 
-Allocate a portion of this location to be encrypted
+<Notice
+	type="note"
+	title="WIP"
+	text="This feature is not available yet, please check our [roadmap](/roadmap)."
+/>
+A Location can be set to have a size limit, this will prevent the Location from growing beyond the set
+limit. Files will be removed from the Location based on the last accessed time, oldest files will be
+removed first.

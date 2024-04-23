@@ -160,6 +160,11 @@ export const items = [
 			'Backup and sync from anywhere with a Spacedrive Cloud account. Paid plans for additional storage and cloud features.'
 	},
 	{
+		title: 'CLI',
+		description:
+			'Access Spacedrive from the command line, with a rich set of commands to manage your library and devices.'
+	},
+	{
 		title: 'Web portal',
 		description:
 			'Access the web interface via the browser, remotely access your library and manage your devices and Spaces.'
