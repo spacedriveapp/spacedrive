@@ -1,9 +1,8 @@
-import { LibraryConfigWrapped, useBridgeQuery, useCache, useNodes } from '@sd/client';
 import { DotsThreeOutlineVertical, Pen, Trash } from 'phosphor-react-native';
 import React, { useEffect, useRef } from 'react';
-import { Animated, Pressable, Text, View } from 'react-native';
+import { Animated, FlatList, Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { default as Reanimated } from 'react-native-reanimated';
+import { LibraryConfigWrapped, useBridgeQuery, useCache, useNodes } from '@sd/client';
 import Fade from '~/components/layout/Fade';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
@@ -79,9 +78,7 @@ function LibraryItem({
 	);
 }
 
-const LibrarySettingsScreen = ({
-	navigation,
-}: SettingsStackScreenProps<'LibrarySettings'>) => {
+const LibrarySettingsScreen = ({ navigation }: SettingsStackScreenProps<'LibrarySettings'>) => {
 	const libraryList = useBridgeQuery(['library.list']);
 	useNodes(libraryList.data?.nodes);
 	const libraries = useCache(libraryList.data?.items);
@@ -104,10 +101,7 @@ const LibrarySettingsScreen = ({
 	const modalRef = useRef<ModalRef>(null);
 
 	return (
-		<ScreenContainer header={{
-			navBack: true,
-			title: 'Libraries',
-		}} scrollview={false} style={tw`justify-start gap-0 px-6 py-0`}>
+		<ScreenContainer style={tw`justify-start gap-0 px-6 py-0`} scrollview={false}>
 			<Fade
 				fadeSides="top-bottom"
 				orientation="vertical"
@@ -115,7 +109,7 @@ const LibrarySettingsScreen = ({
 				width={30}
 				height="100%"
 			>
-				<Reanimated.FlatList
+				<FlatList
 					data={libraries}
 					contentContainerStyle={tw`py-5`}
 					keyExtractor={(item) => item.uuid}

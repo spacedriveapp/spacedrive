@@ -1,6 +1,6 @@
-import { Tag } from '@sd/client';
 import { DotsThreeOutlineVertical } from 'phosphor-react-native';
 import { Pressable, Text, View } from 'react-native';
+import { Tag } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 
 import Card from '../layout/Card';
@@ -20,7 +20,7 @@ const GridTag = ({ tag, modalRef }: GridTagProps) => {
 						backgroundColor: tag.color!
 					})}
 				/>
-				<Pressable hitSlop={12} onPress={() => modalRef.current?.present()}>
+				<Pressable hitSlop={24} onPress={() => modalRef.current?.present()}>
 					<DotsThreeOutlineVertical
 						weight="fill"
 						size={20}

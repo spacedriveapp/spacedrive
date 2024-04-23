@@ -1,13 +1,14 @@
-import { useBridgeQuery, useDebugState } from '@sd/client';
 import { Text, View } from 'react-native';
+import { useBridgeQuery, useDebugState } from '@sd/client';
 import Card from '~/components/layout/Card';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { Divider } from '~/components/primitive/Divider';
 import { Input } from '~/components/primitive/Input';
 import { SettingsTitle } from '~/components/settings/SettingsContainer';
 import { tw } from '~/lib/tailwind';
+import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
-const GeneralSettingsScreen = () => {
+const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'GeneralSettings'>) => {
 	const { data: node } = useBridgeQuery(['nodeState']);
 
 	const debugState = useDebugState();
@@ -15,12 +16,7 @@ const GeneralSettingsScreen = () => {
 	if (!node) return null;
 
 	return (
-		<ScreenContainer
-		header={{
-			title: 'General',
-			navBack: true,
-		}}
-		style={tw`justify-start gap-0 px-6`} scrollview={false}>
+		<ScreenContainer style={tw`justify-start gap-0 px-6`} scrollview={false}>
 			<Card>
 				{/* Card Header */}
 				<View style={tw`flex flex-row justify-between`}>

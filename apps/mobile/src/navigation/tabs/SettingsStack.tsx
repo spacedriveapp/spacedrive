@@ -2,7 +2,7 @@ import { CompositeScreenProps } from '@react-navigation/native';
 // import KeysSettingsScreen from '~/screens/settings/library/KeysSettings';
 
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
-import LocationsScreen from '~/screens/browse/Locations';
+import Header from '~/components/header/Header';
 import AppearanceSettingsScreen from '~/screens/settings/client/AppearanceSettings';
 import ExtensionsSettingsScreen from '~/screens/settings/client/ExtensionsSettings';
 import GeneralSettingsScreen from '~/screens/settings/client/GeneralSettings';
@@ -13,6 +13,7 @@ import DebugScreen from '~/screens/settings/info/Debug';
 import SupportScreen from '~/screens/settings/info/Support';
 import EditLocationSettingsScreen from '~/screens/settings/library/EditLocationSettings';
 import LibraryGeneralSettingsScreen from '~/screens/settings/library/LibraryGeneralSettings';
+import LocationSettingsScreen from '~/screens/settings/library/LocationSettings';
 import NodesSettingsScreen from '~/screens/settings/library/NodesSettings';
 import TagsSettingsScreen from '~/screens/settings/library/TagsSettings';
 import SettingsScreen from '~/screens/settings/Settings';
@@ -23,59 +24,65 @@ const Stack = createNativeStackNavigator<SettingsStackParamList>();
 
 export default function SettingsStack() {
 	return (
-		<Stack.Navigator
-		screenOptions={{
-			headerShown: false
-		}}
-		initialRouteName="Settings">
+		<Stack.Navigator initialRouteName="Settings">
 			<Stack.Screen
 				name="Settings"
-			>
-				{(props) => <SettingsScreen {...props}/>}
-			</Stack.Screen>
+				component={SettingsScreen}
+				options={{ header: () => <Header showDrawer title="Settings" /> }}
+			/>
 			{/* Client */}
 			<Stack.Screen
 				name="GeneralSettings"
 				component={GeneralSettingsScreen}
+				options={{ header: () => <Header navBack title="General" /> }}
 			/>
 			<Stack.Screen
 				name="LibrarySettings"
-			>
-				{(props) => <LibrarySettingsScreen {...props} />}
-			</Stack.Screen>
+				component={LibrarySettingsScreen}
+				options={{ header: () => <Header navBack title="Libraries" /> }}
+			/>
 			<Stack.Screen
 				name="AppearanceSettings"
 				component={AppearanceSettingsScreen}
+				options={{ header: () => <Header navBack title="Appearance" /> }}
 			/>
 			<Stack.Screen
 				name="PrivacySettings"
 				component={PrivacySettingsScreen}
+				options={{ header: () => <Header navBack title="Privacy" /> }}
 			/>
 			<Stack.Screen
 				name="ExtensionsSettings"
 				component={ExtensionsSettingsScreen}
+				options={{ header: () => <Header navBack title="Extensions" /> }}
 			/>
 			{/* Library */}
 			<Stack.Screen
 				name="LibraryGeneralSettings"
 				component={LibraryGeneralSettingsScreen}
+				options={{ header: () => <Header navBack title="Library Settings" /> }}
 			/>
 			<Stack.Screen
 				name="LocationSettings"
-				component={LocationsScreen}
+				component={LocationSettingsScreen}
+				options={{
+					header: () => <Header searchType="location" navBack title="Locations" />
+				}}
 			/>
 			<Stack.Screen
 				name="EditLocationSettings"
-			>
-				{(props) => <EditLocationSettingsScreen {...props} />}
-			</Stack.Screen>
+				component={EditLocationSettingsScreen}
+				options={{ header: () => <Header navBack title="Edit Location" /> }}
+			/>
 			<Stack.Screen
 				name="NodesSettings"
 				component={NodesSettingsScreen}
+				options={{ header: () => <Header navBack title="Nodes" /> }}
 			/>
 			<Stack.Screen
 				name="TagsSettings"
 				component={TagsSettingsScreen}
+				options={{ header: () => <Header navBack title="Tags" /> }}
 			/>
 			{/* <Stack.Screen
 				name="KeysSettings"
@@ -86,14 +93,17 @@ export default function SettingsStack() {
 			<Stack.Screen
 				name="About"
 				component={AboutScreen}
-		/>
+				options={{ header: () => <Header navBack title="About" /> }}
+			/>
 			<Stack.Screen
 				name="Support"
 				component={SupportScreen}
+				options={{ header: () => <Header navBack title="Support" /> }}
 			/>
 			<Stack.Screen
 				name="Debug"
 				component={DebugScreen}
+				options={{ header: () => <Header navBack title="Debug" /> }}
 			/>
 		</Stack.Navigator>
 	);

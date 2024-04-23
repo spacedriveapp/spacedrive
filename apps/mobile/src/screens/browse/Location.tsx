@@ -1,20 +1,12 @@
-import { RouteProp } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useCache, useLibraryQuery, useNodes, usePathsExplorerQuery } from '@sd/client';
 import { useEffect } from 'react';
-import { useSharedValue } from 'react-native-reanimated';
+import { useCache, useLibraryQuery, useNodes, usePathsExplorerQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
-import { BrowseStackParamList } from '~/navigation/tabs/BrowseStack';
+import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { getExplorerStore } from '~/stores/explorerStore';
 
-interface Props {
-	route: RouteProp<BrowseStackParamList, 'Location'>;
-	navigation: NativeStackNavigationProp<BrowseStackParamList, 'Location'>;
-}
-
-export default function LocationScreen({ navigation, route }: Props) {
+export default function LocationScreen({ navigation, route }: BrowseStackScreenProps<'Location'>) {
 	const { id, path } = route.params;
-	const scrollY = useSharedValue(0);
+
 	const location = useLibraryQuery(['locations.get', route.params.id]);
 	useNodes(location.data?.nodes);
 	const locationData = useCache(location.data?.item);
@@ -67,7 +59,5 @@ export default function LocationScreen({ navigation, route }: Props) {
 		getExplorerStore().path = path ?? '';
 	}, [id, path]);
 
-	return (
-			<Explorer headerKind='location' route={route} scrollY={scrollY} {...paths} />
-	);
+	return <Explorer {...paths} />;
 }
