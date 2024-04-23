@@ -1,9 +1,12 @@
-import { ReactNode, useRef } from 'react';
-import { Platform, ScrollView, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { ReactNode, useEffect, useRef } from 'react';
+import { Platform, View } from 'react-native';
+import Animated, { SharedValue, useAnimatedScrollHandler } from 'react-native-reanimated';
+import { AnimatedScrollView } from 'react-native-reanimated/lib/typescript/reanimated2/component/ScrollView';
 import { ClassInput } from 'twrnc/dist/esm/types';
 import { tw, twStyle } from '~/lib/tailwind';
 
-import Fade from './Fade';
+import Header, { HeaderProps } from '../header/Header';
 
 interface Props {
 	children: ReactNode;
@@ -16,37 +19,60 @@ interface Props {
 	/** Styling of both side fades */
 	topFadeStyle?: string;
 	bottomFadeStyle?: string;
+	scrollY?: SharedValue<number>;
+	/* Header properties */
+	header?: HeaderProps;
+	hideHeader?: boolean; // Hide the header
 }
 
 const ScreenContainer = ({
 	children,
 	style,
-	topFadeStyle,
-	bottomFadeStyle,
+	header,
+	scrollY,
+	hideHeader = false,
 	scrollview = true,
 	tabHeight = true,
-	scrollToBottomOnChange = false
+	scrollToBottomOnChange = false,
 }: Props) => {
-	const ref = useRef<ScrollView>(null);
+	const ref = useRef<AnimatedScrollView>(null);
 	const bottomTabBarHeight = Platform.OS === 'ios' ? 80 : 60;
+	const scrollHandler = useAnimatedScrollHandler((e) => {
+		if (scrollY) scrollY.value = e.contentOffset.y;
+	});
+
+	const navigation = useNavigation();
+
+// Reset scroll position to 0 whenever the tab blurs or focuses
+useEffect(() => {
+    const resetScroll = () => {
+        ref.current?.scrollTo({ y: 0, animated: false });
+        if (scrollY) scrollY.value = 0;
+    };
+
+    // Subscribe to blur and focus events
+    const unsubscribeBlur = navigation.addListener('blur', resetScroll);
+    const unsubscribeFocus = navigation.addListener('focus', resetScroll);
+
+    // Cleanup function to remove event listeners
+    return () => {
+        unsubscribeBlur();
+        unsubscribeFocus();
+    };
+}, [navigation, scrollY]);
+
+
 	return scrollview ? (
 		<View style={tw`relative flex-1`}>
-			<Fade
-				topFadeStyle={topFadeStyle}
-				bottomFadeStyle={bottomFadeStyle}
-				screenFade
-				fadeSides="top-bottom"
-				orientation="vertical"
-				color="black"
-				width={30}
-				height="100%"
-			>
-				<ScrollView
+			{!hideHeader && <Header {...header} scrollY={scrollY} />}
+				<Animated.ScrollView
 					ref={ref}
 					onContentSizeChange={() => {
 						if (!scrollToBottomOnChange) return;
 						ref.current?.scrollToEnd({ animated: true });
 					}}
+					scrollEventThrottle={1}
+					onScroll={scrollHandler}
 					contentContainerStyle={twStyle('justify-between gap-10 py-6', style)}
 					style={twStyle(
 						'flex-1 bg-black',
@@ -54,21 +80,11 @@ const ScreenContainer = ({
 					)}
 				>
 					{children}
-				</ScrollView>
-			</Fade>
+				</Animated.ScrollView>
 		</View>
 	) : (
 		<View style={tw`relative flex-1`}>
-			<Fade
-				topFadeStyle={topFadeStyle}
-				bottomFadeStyle={bottomFadeStyle}
-				screenFade
-				fadeSides="top-bottom"
-				orientation="vertical"
-				color="black"
-				width={30}
-				height="100%"
-			>
+			{!hideHeader && <Header {...header} />}
 				<View
 					style={twStyle(
 						'flex-1 justify-between gap-10 bg-black py-6',
@@ -78,7 +94,6 @@ const ScreenContainer = ({
 				>
 					{children}
 				</View>
-			</Fade>
 		</View>
 	);
 };

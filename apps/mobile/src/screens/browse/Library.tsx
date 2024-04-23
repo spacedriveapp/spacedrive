@@ -6,7 +6,13 @@ import { tw } from '~/lib/tailwind';
 
 export default function LibraryScreen() {
 	return (
-		<ScreenContainer style={tw`px-6 py-0`} scrollview={false}>
+		<ScreenContainer
+		header={{
+			title: 'Library',
+			navBack: true,
+			showSearch: true,
+		}}
+		style={tw`px-6 py-0`} scrollview={false}>
 			<FlatList
 				data={CATEGORIES_LIST}
 				contentContainerStyle={tw`py-6`}

@@ -1,8 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
+import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { DotsThreeOutline, Plus } from 'phosphor-react-native';
 import { useRef } from 'react';
 import { Text, View } from 'react-native';
-import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
@@ -64,7 +64,7 @@ const BrowseLocations = () => {
 										initial: false
 									})
 								}
-								onPress={() => navigation.navigate('Location', { id: location.id })}
+								onPress={() => navigation.navigate('Location', { id: location.id,  title: location.name })}
 							/>
 						))}
 					</>

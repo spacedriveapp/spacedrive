@@ -5,7 +5,10 @@ import { tw } from '~/lib/tailwind';
 
 const PrivacySettingsScreen = () => {
 	return (
-		<ScreenContainer scrollview={false} style={tw`px-6`}>
+		<ScreenContainer header={{
+			title: 'Privacy',
+			navBack: true,
+		}} scrollview={false} style={tw`px-6`}>
 			<Text style={tw`text-ink`}>TODO</Text>
 		</ScreenContainer>
 	);
