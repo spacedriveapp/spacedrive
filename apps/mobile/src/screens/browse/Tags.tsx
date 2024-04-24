@@ -5,7 +5,6 @@ import { Pressable, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import Empty from '~/components/layout/Empty';
-import Fade from '~/components/layout/Fade';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import CreateTagModal from '~/components/modal/tag/CreateTagModal';
@@ -36,13 +35,6 @@ export default function TagsScreen({ viewStyle = 'list' }: Props) {
 			>
 				<Plus size={20} weight="bold" style={tw`text-ink`} />
 			</Pressable>
-			<Fade
-				fadeSides="top-bottom"
-				orientation="vertical"
-				color="black"
-				width={30}
-				height="100%"
-			>
 				<FlatList
 					data={tagData}
 					renderItem={({ item }) => (
@@ -76,7 +68,6 @@ export default function TagsScreen({ viewStyle = 'list' }: Props) {
 						tagData.length === 0 && 'h-full items-center justify-center'
 					)}
 				/>
-			</Fade>
 			<CreateTagModal ref={modalRef} />
 		</ScreenContainer>
 	);

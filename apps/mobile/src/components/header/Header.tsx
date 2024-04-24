@@ -14,7 +14,7 @@ type HeaderProps = {
 	title?: string; //title of the page
 	showSearch?: boolean; //show the search button
 	showDrawer?: boolean; //show the drawer button
-	searchType?: 'explorer' | 'location' | 'categories'; //Temporary
+	searchType?: 'explorer' | 'location' | 'categories' | 'tags'; //Temporary
 	navBack?: boolean; //navigate back to the previous screen
 	headerKind?: 'default' | 'location' | 'tag'; //kind of header
 	route?: never;
@@ -38,7 +38,7 @@ export default function Header({
 	routeTitle,
 	headerKind = 'default',
 	showDrawer = false,
-	showSearch = true
+	showSearch = false,
 }: Props) {
 	const navigation = useNavigation<DrawerNavigationHelpers>();
 	const explorerStore = useExplorerStore();
@@ -52,7 +52,7 @@ export default function Header({
 				paddingTop: headerHeight + (isAndroid ? 15 : 0)
 			})}
 		>
-			<View style={tw`mx-auto h-auto w-full justify-center px-5 pb-4`}>
+			<View style={tw`mx-auto h-auto w-full justify-center px-5 pb-3`}>
 				<View style={tw`w-full flex-row items-center justify-between`}>
 					<View style={tw`flex-row items-center gap-3`}>
 						{navBack && (
@@ -132,6 +132,8 @@ const HeaderSearchType = ({ searchType }: HeaderSearchTypeProps) => {
 			return 'Explorer'; //TODO
 		case 'location':
 			return <Search placeholder="Location name..." />;
+		case 'tags':
+			return <Search placeholder="Tag name..." />;
 		case 'categories':
 			return <Search placeholder="Category name..." />;
 		default:
@@ -151,7 +153,7 @@ const HeaderIconKind = ({ headerKind, routeParams }: HeaderIconKindProps) => {
 		case 'tag':
 			return (
 				<View
-					style={twStyle('h-[30px] w-[30px] rounded-full', {
+					style={twStyle('h-[24px] w-[24px] rounded-full', {
 						backgroundColor: routeParams.color
 					})}
 				/>
