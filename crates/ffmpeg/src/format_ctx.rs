@@ -44,7 +44,6 @@ fn extract_name_and_convert_metadata(
 
 #[derive(Debug)]
 pub(crate) struct FFmpegFormatContext {
-	ref_: AVFormatContext,
 	ptr: *mut AVFormatContext,
 }
 
@@ -62,20 +61,16 @@ impl FFmpegFormatContext {
 				)
 			},
 			"Fail to open an input stream and read the header",
-		)?;
-
-		Ok(Self {
-			ref_: *unsafe { ptr.as_mut() }.ok_or(FFmpegError::NullError)?,
-			ptr,
-		})
+		)
+		.map(|()| Self { ptr })
 	}
 
 	pub(crate) fn as_ref(&self) -> &AVFormatContext {
-		&self.ref_
+		unsafe { self.ptr.as_ref() }.expect("initialized on struct creation")
 	}
 
 	pub(crate) fn as_mut(&mut self) -> &mut AVFormatContext {
-		&mut self.ref_
+		unsafe { self.ptr.as_mut() }.expect("initialized on struct creation")
 	}
 
 	pub(crate) fn duration(&self) -> Option<TimeDelta> {

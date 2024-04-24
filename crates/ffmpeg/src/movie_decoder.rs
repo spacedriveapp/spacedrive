@@ -15,7 +15,8 @@ use chrono::TimeDelta;
 use ffmpeg_sys_next::{
 	av_buffersink_get_frame, av_buffersrc_write_frame, av_frame_alloc,
 	av_guess_sample_aspect_ratio, av_packet_unref, av_seek_frame, avcodec_find_decoder, AVPacket,
-	AVERROR, AVPROBE_SCORE_MAX, AV_FRAME_FLAG_INTERLACED, AV_FRAME_FLAG_KEY, AV_TIME_BASE, EAGAIN,
+	AVStream, AVERROR, AVPROBE_SCORE_MAX, AV_FRAME_FLAG_INTERLACED, AV_FRAME_FLAG_KEY,
+	AV_TIME_BASE, EAGAIN,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -41,7 +42,7 @@ pub(crate) struct VideoFrame {
 
 pub struct MovieDecoder {
 	format_ctx: FFmpegFormatContext,
-	prefered_stream_id: u32,
+	preferred_stream_id: u32,
 	codec_ctx: FFmpegCodecContext,
 	frame: FFmpegFrame,
 	packet: *mut AVPacket,
@@ -74,7 +75,7 @@ impl MovieDecoder {
 		let (embedded, video_stream) =
 			format_context.find_preferred_video_stream(prefer_embedded)?;
 
-		let prefered_stream_id = u32::try_from(video_stream.index)?;
+		let preferred_stream_id = u32::try_from(video_stream.index)?;
 
 		let video_codec = unsafe { video_stream.codecpar.as_ref() }
 			.and_then(|codecpar| unsafe { avcodec_find_decoder(codecpar.codec_id).as_ref() })
@@ -94,7 +95,7 @@ impl MovieDecoder {
 
 		Ok(Self {
 			format_ctx: format_context,
-			prefered_stream_id,
+			preferred_stream_id,
 			codec_ctx: video_codec_context,
 			frame: FFmpegFrame::new()?,
 			packet: ptr::null_mut(),
@@ -162,22 +163,24 @@ impl MovieDecoder {
 		size: Option<ThumbnailSize>,
 		maintain_aspect_ratio: bool,
 	) -> Result<VideoFrame, Error> {
-		let time_base = self.format_ctx
-			.stream(self.prefered_stream_id)
+		let time_base = self
+			.format_ctx
+			.stream(self.preferred_stream_id)
 			.map(|stream| stream.time_base)
 			.ok_or(FFmpegError::NullError)?;
 
-		let stream = self.format_ctx
-			.stream(self.prefered_stream_id)
-			.ok_or(FFmpegError::NullError)?;
+		let stream_ptr = self
+			.format_ctx
+			.stream(self.preferred_stream_id)
+			.ok_or(FFmpegError::NullError)? as *mut AVStream;
 
 		let aspect_ratio = unsafe {
-			av_guess_sample_aspect_ratio(self.format_ctx.as_mut(), stream, self.frame.as_mut())
+			av_guess_sample_aspect_ratio(self.format_ctx.as_mut(), stream_ptr, self.frame.as_mut())
 		};
 
 		let rotation_angle = self
 			.format_ctx
-			.get_stream_rotation_angle(self.prefered_stream_id)
+			.get_stream_rotation_angle(self.preferred_stream_id)
 			.round();
 
 		let (_guard, filter_source, filter_sink) = FFmpegFilterGraph::thumbnail_graph(
@@ -236,15 +239,11 @@ impl MovieDecoder {
 	}
 
 	fn is_packet_for_stream(&self) -> Option<&mut AVPacket> {
-		let Some(packet) = (unsafe { self.packet.as_mut() }) else {
-			return None;
-		};
+		let packet = (unsafe { self.packet.as_mut() })?;
 
-		let Ok(packet_stream_id) = u32::try_from(packet.stream_index) else{
-			return None;
-		};
+		let packet_stream_id = u32::try_from(packet.stream_index).ok()?;
 
-		if packet_stream_id == self.prefered_stream_id {
+		if packet_stream_id == self.preferred_stream_id {
 			Some(packet)
 		} else {
 			None
