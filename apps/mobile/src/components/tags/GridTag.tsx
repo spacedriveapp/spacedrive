@@ -20,7 +20,7 @@ const GridTag = ({ tag, modalRef }: GridTagProps) => {
 						backgroundColor: tag.color!
 					})}
 				/>
-				<Pressable hitSlop={12} onPress={() => modalRef.current?.present()}>
+				<Pressable onPress={() => modalRef.current?.present()}>
 					<DotsThreeOutlineVertical
 						weight="fill"
 						size={20}
