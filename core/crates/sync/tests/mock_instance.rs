@@ -122,7 +122,7 @@ impl Instance {
 								ingest
 									.event_tx
 									.send(ingest::Event::Messages(ingest::MessagesEvent {
-										messages,
+										messages: CompressedCRDTOperations::new(messages),
 										has_more: false,
 										instance_id: instance1.id,
 									}))
