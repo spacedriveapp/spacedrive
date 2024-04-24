@@ -184,7 +184,7 @@ impl P2PManager {
 				.ipv6 = Some(err.to_string());
 		}
 
-		let should_revert = match config.p2p_discovery {
+		let should_revert = match config.p2p.discovery {
 			P2PDiscoveryState::Everyone
 			// TODO: Make `ContactsOnly` work
 			| P2PDiscoveryState::ContactsOnly => {
@@ -225,7 +225,7 @@ impl P2PManager {
 		if should_revert {
 			let _ = self
 				.node_config
-				.write(|c| c.p2p_discovery = P2PDiscoveryState::Disabled)
+				.write(|c| c.p2p.discovery = P2PDiscoveryState::Disabled)
 				.await;
 		}
 	}
@@ -293,8 +293,6 @@ async fn start(
 		let mut service = unwrap_infallible(service.call(()).await);
 
 		tokio::spawn(async move {
-			println!("APPLICATION GOT STREAM: {:?}", stream); // TODO
-
 			let Ok(header) = Header::from_stream(&mut stream).await.map_err(|err| {
 				error!("Failed to read header from stream: {}", err);
 			}) else {
@@ -348,7 +346,8 @@ async fn start(
 				}
 				Header::Http => {
 					let remote = stream.remote_identity();
-					let Err(err) = operations::rspc::receiver(stream, &mut service).await else {
+					let Err(err) = operations::rspc::receiver(stream, &mut service, &node).await
+					else {
 						return;
 					};
 
