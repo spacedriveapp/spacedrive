@@ -11,7 +11,6 @@ interface Props {
 	orientation?: 'horizontal' | 'vertical'; // orientation of fade
 	fadeSides?: 'left-right' | 'top-bottom'; // which sides to fade
 	screenFade?: boolean; // if true, the fade will consider the bottom tab bar height
-	noConditions?: boolean; // if true, the fade will be rendered as is
 	bottomFadeStyle?: ClassInput; // tailwind style for bottom fade
 	topFadeStyle?: ClassInput; // tailwind style for top fade
 }
