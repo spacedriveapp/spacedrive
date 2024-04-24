@@ -245,7 +245,7 @@ async fn main() {
 	let app = app
 		.route("/", get(|| async { "Spacedrive Server!" }))
 		.fallback(|| async { "404 Not Found: We're past the event horizon..." })
-		.layer(middleware::from_fn_with_state(state, basic_auth));
+		.layer(axum::middleware::from_fn_with_state(state, basic_auth));
 
 	let mut addr = "[::]:8080".parse::<SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
 	addr.set_port(port);

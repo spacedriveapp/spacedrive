@@ -169,7 +169,7 @@ export type CacheNode = { __type: string; __id: string; "#node": any }
 
 export type CameraData = { device_make: string | null; device_model: string | null; color_space: string | null; color_profile: ColorProfile | null; focal_length: number | null; shutter_speed: number | null; flash: Flash | null; orientation: Orientation; lens_make: string | null; lens_model: string | null; bit_depth: number | null; red_eye: boolean | null; zoom: number | null; iso: number | null; software: string | null; serial_number: string | null; lens_serial_number: string | null; contrast: number | null; saturation: number | null; sharpness: number | null; composite: Composite | null }
 
-export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p2p_ipv4_enabled: boolean | null; p2p_ipv6_enabled: boolean | null; p2p_discovery: P2PDiscoveryState | null; p2p_remote_access: boolean | null; image_labeler_version: string | null }
+export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p2p_ipv4_enabled: boolean | null; p2p_ipv6_enabled: boolean | null; p2p_discovery: P2PDiscoveryState | null; p2p_remote_access: boolean | null; p2p_manual_peers: string[] | null; image_labeler_version: string | null }
 
 export type CloudInstance = { id: string; uuid: string; identity: RemoteIdentity; nodeId: string; metadata: { [key in string]: string } }
 
@@ -450,7 +450,11 @@ export type MediaLocation = { latitude: number; longitude: number; pluscode: Plu
 
 export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata)
 
-export type NodeConfigP2P = { discovery?: P2PDiscoveryState; port: Port; ipv4: boolean; ipv6: boolean; remote_access: boolean }
+export type NodeConfigP2P = { discovery?: P2PDiscoveryState; port: Port; ipv4: boolean; ipv6: boolean; remote_access: boolean; 
+/**
+ * A list of peer addresses to try and manually connect to, instead of relying on discovery.
+ */
+manual_peers?: string[] }
 
 export type NodePreferences = { thumbnailer: ThumbnailerPreferences }
 

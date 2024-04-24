@@ -24,6 +24,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub p2p_ipv6_enabled: Option<bool>,
 				pub p2p_discovery: Option<P2PDiscoveryState>,
 				pub p2p_remote_access: Option<bool>,
+				pub p2p_manual_peers: Option<Vec<String>>,
 				pub image_labeler_version: Option<String>,
 			}
 			R.mutation(|node, args: ChangeNodeNameArgs| async move {
@@ -59,6 +60,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						};
 						if let Some(remote_access) = args.p2p_remote_access {
 							config.p2p.remote_access = remote_access;
+						};
+						if let Some(manual_peers) = args.p2p_manual_peers {
+							config.p2p.manual_peers =
+								manual_peers.iter().filter_map(|a| a.parse().ok()).collect();
 						};
 
 						#[cfg(feature = "ai")]
