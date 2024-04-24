@@ -8,6 +8,7 @@ use sd_p2p::Identity;
 use sd_utils::error::FileIOError;
 
 use std::{
+	net::SocketAddr,
 	path::{Path, PathBuf},
 	sync::Arc,
 };
@@ -81,6 +82,9 @@ pub struct NodeConfigP2P {
 	pub ipv6: bool,
 	#[serde(default, skip_serializing_if = "skip_if_false")]
 	pub remote_access: bool,
+	/// A list of peer addresses to try and manually connect to, instead of relying on discovery.
+	#[serde(default)]
+	pub manual_peers: Vec<SocketAddr>,
 }
 
 impl Default for NodeConfigP2P {
@@ -91,6 +95,7 @@ impl Default for NodeConfigP2P {
 			ipv4: true,
 			ipv6: true,
 			remote_access: false,
+			manual_peers: vec![],
 		}
 	}
 }
