@@ -150,11 +150,11 @@ impl P2PManager {
 
 		info!(
 			"Setting quic ipv4 listener to: {:?}",
-			config.p2p.ipv4.then(|| port)
+			config.p2p.ipv4.then_some(port)
 		);
 		if let Err(err) = self
 			.quic
-			.set_ipv4_enabled(config.p2p.ipv4.then(|| port))
+			.set_ipv4_enabled(config.p2p.ipv4.then_some(port))
 			.await
 		{
 			error!("Failed to enabled quic ipv4 listener: {err}");
@@ -163,16 +163,16 @@ impl P2PManager {
 			self.listener_errors
 				.lock()
 				.unwrap_or_else(PoisonError::into_inner)
-				.ipv4 = Some(format!("{err}"));
+				.ipv4 = Some(err.to_string());
 		}
 
 		info!(
 			"Setting quic ipv6 listener to: {:?}",
-			config.p2p.ipv6.then(|| port)
+			config.p2p.ipv6.then_some(port)
 		);
 		if let Err(err) = self
 			.quic
-			.set_ipv6_enabled(config.p2p.ipv6.then(|| port))
+			.set_ipv6_enabled(config.p2p.ipv6.then_some(port))
 			.await
 		{
 			error!("Failed to enabled quic ipv6 listener: {err}");
@@ -181,7 +181,7 @@ impl P2PManager {
 			self.listener_errors
 				.lock()
 				.unwrap_or_else(PoisonError::into_inner)
-				.ipv6 = Some(format!("{err}"));
+				.ipv6 = Some(err.to_string());
 		}
 
 		let should_revert = match config.p2p_discovery {

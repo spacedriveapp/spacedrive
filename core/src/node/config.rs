@@ -62,7 +62,7 @@ fn default_as_true() -> bool {
 }
 
 fn skip_if_true(value: &bool) -> bool {
-	*value == true
+	*value
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
