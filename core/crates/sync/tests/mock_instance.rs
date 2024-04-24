@@ -1,5 +1,6 @@
 use sd_core_sync::*;
 use sd_prisma::prisma;
+use sd_sync::CompressedCRDTOperations;
 use sd_utils::uuid_to_bytes;
 
 use prisma_client_rust::chrono::Utc;
