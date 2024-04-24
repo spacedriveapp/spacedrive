@@ -3,8 +3,6 @@ import { Platform, ScrollView, View } from 'react-native';
 import { ClassInput } from 'twrnc/dist/esm/types';
 import { tw, twStyle } from '~/lib/tailwind';
 
-import Fade from './Fade';
-
 interface Props {
 	children: ReactNode;
 	/** If true, the container will be a ScrollView */
