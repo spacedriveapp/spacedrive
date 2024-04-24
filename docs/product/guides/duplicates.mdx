@@ -3,3 +3,19 @@ index: 100
 ---
 
 # Duplicates
+
+Spacedrive is fundamentally designed to recognize duplicate files. This feature is essential for ensuring data redundancy and optimizing storage space on your devices.
+
+## Sister files
+
+Spacedrive identifies files that are identical in content but have different names or locations as "sister files." This feature is particularly useful when you have multiple copies of the same file in different directories or with different names. You can view sister files in the Inspector panel.
+
+## Duplicate discovery
+
+During the indexing process, Spacedrive generates a `cas_id` (Content Addressable Storage Identifier), which are checksums based on samples of the file contents combined with the total size value. This method is highly efficient and offers a strong likelihood of identifying duplicates.
+
+However, for absolute certainty, we also perform a validation using `sha256` checksums. This validation is only carried out when necessary and usually runs in the background, ensuring data integrity without compromising system performance.
+
+## Duplicate cleanup
+
+Spacedrive allows you to delete duplicate files from any location or device. When triggering this action the data will be presented in the Explorer for you to review, with a panel somewhere totaling on how much space will be saved by the cleanup.

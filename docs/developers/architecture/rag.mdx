@@ -1,0 +1,45 @@
+# Spacedrive as RAG
+
+The dream of effortlessly conversing with our files is within reach. However, we're still restricted by limited access to relevant information, either due to privacy constraints or a lack of crucial context and data retrieval capabilities.
+
+RAG or "Retrieval Augmented Generation" is the hot topic in AI today, it provides LLMs with realtime data via vector databases such as Chroma or Pinecone. Now, the AI has access to information beyond what it was trained on. We propose building this system directly into Spacedrive, given document readers are part of our existing infrastructure, and we can process and understand the filesystem at its highest level; there is high potential for a native framework around RAG atop of Spacedrive.
+
+An effective RAG system:
+
+1. Constantly breaks down information into higher level concepts.
+2. Associates information by explicit topics, users and context.
+3. Keeps a very tight working memory and objective awareness.
+
+To achieve this we'll employ a multi-layered approach that incorporates summarization, metadata correlation, and a programmatic structure inspired by agent-based systems, recursively triggering the LLM with its own outputs and new micro-tasks.
+
+### Prompt building
+
+Spacedrive presents a Rust native prompt builder library to streamline the development of complex prompt manipulation, including dedicated text-based formatters, allowing us to construct effective prompts dynamically.
+
+![image](/images/rag_syntax.webp)
+
+This syntax is still a concept, we are refining it to make the ideal Rust centric framework for building prompts.
+
+### User friendly interface
+
+Additionally, a new screen that utilizes both our Explorer and Quick Preview interfaces alongside a chat window, allowing the model to will process and look at files, guiding you through the files it is reviewing in realtime, puppeteering the Explorer interface. It is able to highlight text, seek through video, read PDFs, look at images and almost anything possible a user could do, but at many factors the speed.
+
+For more powerful systems it supports running models in ensemble, for multi-threaded behaviours and enteprise level throughput. We are developing a framework to orchestrate this process in pure Rust.
+
+With our dedication to beautiful interface design, this has the potential to bring complex and useful AI tools to all ranges of users.
+
+## Introducing `.rag`
+
+![image](/images/dotrag.webp)
+
+We aim to normalize the concept of RAG by introducing the `.rag` format, which Spacedrive adds native OS support for when installed. It can contain a variety of vector databases and metadata to streamline loading, deleting, sharing and even encrypting portions of knowledge at will.
+
+Spaces (a feature of Spacedrive that gives uses virtual folders they can share via p2p and host online), will support AI chat, with `.rag` files loading and syncing in the background when entering a Space. This allows the users' local LLM to effortlessly switch context and query foreign vector data. Now, RAG systems are part of a Google Drive like experience, giving users the ability to share pre-generated synthetic data to accelerate context retrieval.
+
+### Agent system
+
+Agents will be part of Spacedrive, working in the background to perform tasks for the user. The possibilites for this are vast, our goal is to make them not only easily configurable by a human, but to be generated when needed for different tasks. With explicitly scoped permissions and capabilities Agents will only be able to do what they were designed for.
+
+![image](/images/agent.webp)
+
+We use `.ron` files to configure Agents and save them for future use. The RON format is ideal to support enum varients that correspond to actual functionality in our system.
