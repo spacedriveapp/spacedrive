@@ -7,10 +7,8 @@ use crate::{CRDTOperation, CRDTOperationData};
 pub type CompressedCRDTOperationsForModel = Vec<(rmpv::Value, Vec<CompressedCRDTOperation>)>;
 
 /// Stores a bunch of CRDTOperations in a more memory-efficient form for sending to the cloud.
-#[derive(Serialize, Deserialize)]
-pub struct CompressedCRDTOperations(
-	pub(self) Vec<(Uuid, Vec<(u16, CompressedCRDTOperationsForModel)>)>,
-);
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct CompressedCRDTOperations(pub Vec<(Uuid, Vec<(u16, CompressedCRDTOperationsForModel)>)>);
 
 impl CompressedCRDTOperations {
 	pub fn new(ops: Vec<CRDTOperation>) -> Self {
@@ -71,6 +69,39 @@ impl CompressedCRDTOperations {
 		Self(compressed)
 	}
 
+	pub fn first(&self) -> Option<(Uuid, u16, &rmpv::Value, &CompressedCRDTOperation)> {
+		self.0.first().and_then(|(instance, data)| {
+			data.first().and_then(|(model, data)| {
+				data.first().and_then(|(record, ops)| {
+					ops.first()
+						.and_then(|op| Some((*instance, *model, record, op)))
+				})
+			})
+		})
+	}
+
+	pub fn last(&self) -> Option<(Uuid, u16, &rmpv::Value, &CompressedCRDTOperation)> {
+		self.0.last().and_then(|(instance, data)| {
+			data.last().and_then(|(model, data)| {
+				data.last().and_then(|(record, ops)| {
+					ops.last()
+						.and_then(|op| Some((*instance, *model, record, op)))
+				})
+			})
+		})
+	}
+
+	pub fn len(&self) -> usize {
+		self.0
+			.iter()
+			.map(|(_, data)| {
+				data.iter()
+					.map(|(_, data)| data.iter().map(|(_, ops)| ops.len()).sum::<usize>())
+					.sum::<usize>()
+			})
+			.sum::<usize>()
+	}
+
 	pub fn into_ops(self) -> Vec<CRDTOperation> {
 		let mut ops = vec![];
 
@@ -94,7 +125,7 @@ impl CompressedCRDTOperations {
 	}
 }
 
-#[derive(PartialEq, Serialize, Deserialize, Clone)]
+#[derive(PartialEq, Serialize, Deserialize, Clone, Debug)]
 pub struct CompressedCRDTOperation {
 	pub timestamp: NTP64,
 	pub data: CRDTOperationData,
