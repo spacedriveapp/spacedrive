@@ -11,7 +11,8 @@ export const features = [
 	'solidJsDemo',
 	'hostedLocations',
 	'debugDragAndDrop',
-	'searchTargetSwitcher'
+	'searchTargetSwitcher',
+	'wipP2P'
 ] as const;
 
 // This defines which backend feature flags show up in the UI.

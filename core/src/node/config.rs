@@ -65,22 +65,32 @@ fn skip_if_true(value: &bool) -> bool {
 	*value == true
 }
 
+fn skip_if_false(value: &bool) -> bool {
+	!*value
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct NodeConfigP2P {
+	#[serde(default)]
+	pub discovery: P2PDiscoveryState,
 	#[serde(default, skip_serializing_if = "Port::is_random")]
 	pub port: Port,
 	#[serde(default = "default_as_true", skip_serializing_if = "skip_if_true")]
 	pub ipv4: bool,
 	#[serde(default = "default_as_true", skip_serializing_if = "skip_if_true")]
 	pub ipv6: bool,
+	#[serde(default, skip_serializing_if = "skip_if_false")]
+	pub remote_access: bool,
 }
 
 impl Default for NodeConfigP2P {
 	fn default() -> Self {
 		Self {
+			discovery: P2PDiscoveryState::Everyone,
 			port: Port::Random,
 			ipv4: true,
 			ipv6: true,
+			remote_access: false,
 		}
 	}
 }
@@ -102,8 +112,6 @@ pub struct NodeConfig {
 	/// P2P config
 	#[serde(default)]
 	pub p2p: NodeConfigP2P,
-	#[serde(default)]
-	pub p2p_discovery: P2PDiscoveryState,
 	/// Feature flags enabled on the node
 	#[serde(default)]
 	pub features: Vec<BackendFeature>,
@@ -186,7 +194,6 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 			name,
 			identity: Identity::default(),
 			p2p: NodeConfigP2P::default(),
-			p2p_discovery: P2PDiscoveryState::Everyone,
 			version: Self::LATEST_VERSION,
 			features: vec![],
 			notifications: vec![],
