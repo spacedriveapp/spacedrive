@@ -69,8 +69,8 @@ mod originator {
 					instance: Uuid::new_v4(),
 					timestamp: sync::NTP64(0),
 					record_id: rmpv::Value::Nil,
-					model: "name".to_string(),
-					data: sd_sync::CRDTOperationData::Create,
+					model: 0,
+					data: sd_sync::CRDTOperationData::create(),
 				}]);
 
 				let mut cursor = std::io::Cursor::new(original.to_bytes());

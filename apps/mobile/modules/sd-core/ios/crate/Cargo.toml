@@ -14,4 +14,5 @@ edition = { workspace = true }
 crate-type = ["staticlib"]
 
 [dependencies]
+# Spacedrive Sub-crates
 sd-mobile-core = { path = "../../core" }

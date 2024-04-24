@@ -161,10 +161,7 @@ const searchStore = proxy<
 	}
 });
 
-export function useSearchStore() {
-	return useSnapshot(searchStore);
-}
-
-export function getSearchStore() {
-	return searchStore;
-}
+/** for reading */
+export const useSearchStore = () => useSnapshot(searchStore);
+/** for writing */
+export const getSearchStore = () => searchStore;

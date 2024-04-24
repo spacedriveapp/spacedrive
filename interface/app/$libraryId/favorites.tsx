@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import { ObjectKindEnum, ObjectOrder, SearchFilterArgs, useObjectsExplorerQuery } from '@sd/client';
+import { ObjectOrder } from '@sd/client';
 import { Icon } from '~/components';
-import { useRouteTitle } from '~/hooks';
+import { useLocale, useRouteTitle } from '~/hooks';
 
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
@@ -9,12 +9,15 @@ import { createDefaultExplorerSettings, objectOrderingKeysSchema } from './Explo
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { EmptyNotice } from './Explorer/View/EmptyNotice';
-import { SearchContextProvider, SearchOptions, useSearch } from './search';
+import { SearchContextProvider, SearchOptions, useSearchFromSearchParams } from './search';
 import SearchBar from './search/SearchBar';
+import { useSearchExplorerQuery } from './search/useSearchExplorerQuery';
 import { TopBarPortal } from './TopBar/Portal';
 
 export function Component() {
 	useRouteTitle('Favorites');
+
+	const { t } = useLocale();
 
 	const explorerSettings = useExplorerSettings({
 		settings: useMemo(() => {
@@ -23,37 +26,25 @@ export function Component() {
 		orderingKeys: objectOrderingKeysSchema
 	});
 
-	const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
+	const search = useSearchFromSearchParams();
 
-	const fixedFilters = useMemo<SearchFilterArgs[]>(
-		() => [
-			// { object: { favorite: true } },
-			...(explorerSettingsSnapshot.layoutMode === 'media'
-				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
-				: [])
+	const defaultFilter = { object: { favorite: true } };
+
+	const items = useSearchExplorerQuery({
+		search,
+		explorerSettings,
+		filters: [
+			...search.allFilters,
+			// TODO: Add filter to search options
+			defaultFilter
 		],
-		[explorerSettingsSnapshot.layoutMode]
-	);
-
-	const search = useSearch({
-		fixedFilters
-	});
-
-	const objects = useObjectsExplorerQuery({
-		arg: {
-			take: 100,
-			filters: [
-				...search.allFilters,
-				// TODO: Add filter to search options
-				{ object: { favorite: true } }
-			]
-		},
-		order: explorerSettings.useSettingsSnapshot().order
+		take: 100,
+		objects: { order: explorerSettings.useSettingsSnapshot().order }
 	});
 
 	const explorer = useExplorer({
-		...objects,
-		isFetchingNextPage: objects.query.isFetchingNextPage,
+		...items,
+		isFetchingNextPage: items.query.isFetchingNextPage,
 		settings: explorerSettings
 	});
 
@@ -61,10 +52,10 @@ export function Component() {
 		<ExplorerContextProvider explorer={explorer}>
 			<SearchContextProvider search={search}>
 				<TopBarPortal
-					center={<SearchBar />}
+					center={<SearchBar defaultFilters={[defaultFilter]} />}
 					left={
 						<div className="flex flex-row items-center gap-2">
-							<span className="truncate text-sm font-medium">Favorites</span>
+							<span className="truncate text-sm font-medium">{t('favorites')}</span>
 						</div>
 					}
 					right={<DefaultTopBarOptions />}
@@ -82,7 +73,7 @@ export function Component() {
 				emptyNotice={
 					<EmptyNotice
 						icon={<Icon name="Heart" size={128} />}
-						message="No favorite items"
+						message={t('no_favorite_items')}
 					/>
 				}
 			/>

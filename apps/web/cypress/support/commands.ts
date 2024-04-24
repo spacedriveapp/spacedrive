@@ -3,6 +3,7 @@
 import {
 	libraryRegex,
 	librarySettingsRegex,
+	onboardingCreatingLibraryRegex,
 	onboardingLibraryRegex,
 	onboardingLocationRegex,
 	onboardingPrivacyRegex,
@@ -45,7 +46,11 @@ Cypress.Commands.add('fastOnboarding', (libraryName: string) => {
 
 	// Privacy screen
 	cy.url().should('match', onboardingPrivacyRegex);
+	cy.get('label').contains('Share the bare minimum').click();
 	cy.get('button[type="submit"]').contains('Continue').click();
+
+	// Check redirect to create library screen
+	cy.url().should('match', onboardingCreatingLibraryRegex);
 
 	// Check redirect to Library
 	cy.checkUrlIsLibrary();

@@ -240,10 +240,7 @@ interface ThumbnailProps extends Omit<ImageProps, 'blackBarsStyle' | 'size'> {
 }
 
 const Thumbnail = forwardRef<HTMLImageElement, ThumbnailProps>(
-	(
-		{ crossOrigin, blackBars, blackBarsSize, extension, cover, className, style, ...props },
-		_ref
-	) => {
+	({ blackBars, blackBarsSize, extension, cover, className, style, ...props }, _ref) => {
 		const ref = useRef<HTMLImageElement>(null);
 		useImperativeHandle<HTMLImageElement | null, HTMLImageElement | null>(
 			_ref,
@@ -252,30 +249,28 @@ const Thumbnail = forwardRef<HTMLImageElement, ThumbnailProps>(
 
 		const size = useSize(ref);
 
-		const { style: blackBarsStyle } = useBlackBars(size, blackBarsSize);
+		const { style: blackBarsStyle } = useBlackBars(ref, size, {
+			size: blackBarsSize,
+			disabled: !blackBars
+		});
 
 		return (
 			<>
 				<Image
 					{...props}
-					{...{
-						className: clsx(
-							className,
-							blackBarsStyle && size.width === 0 && 'invisible'
-						),
-						style: { ...style, ...(blackBars ? blackBarsStyle : undefined) },
-						size,
-						ref
-					}}
+					className={clsx(className, blackBars && size.width === 0 && 'invisible')}
+					style={{ ...style, ...blackBarsStyle }}
+					size={size}
+					ref={ref}
 				/>
-				{(cover || (size && size.width > 80)) && extension && (
+
+				{(cover || size.width > 80) && extension && (
 					<div
 						style={{
-							...(!cover &&
-								size && {
-									marginTop: Math.floor(size.height / 2) - 2,
-									marginLeft: Math.floor(size.width / 2) - 2
-								})
+							...(!cover && {
+								marginTop: Math.floor(size.height / 2) - 2,
+								marginLeft: Math.floor(size.width / 2) - 2
+							})
 						}}
 						className={clsx(
 							'pointer-events-none absolute rounded bg-black/60 px-1 py-0.5 text-[9px] font-semibold uppercase text-white opacity-70',

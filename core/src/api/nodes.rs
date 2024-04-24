@@ -19,8 +19,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Deserialize, Type)]
 			pub struct ChangeNodeNameArgs {
 				pub name: Option<String>,
-				pub p2p_ipv4_port: Option<Port>,
-				pub p2p_ipv6_port: Option<Port>,
+				pub p2p_port: Option<Port>,
+				pub p2p_ipv4_enabled: Option<bool>,
+				pub p2p_ipv6_enabled: Option<bool>,
 				pub p2p_discovery: Option<P2PDiscoveryState>,
 				pub image_labeler_version: Option<String>,
 			}
@@ -43,14 +44,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							config.name = name;
 						}
 
-						if let Some(port) = args.p2p_ipv4_port {
-							config.p2p_ipv4_port = port;
+						if let Some(port) = args.p2p_port {
+							config.p2p.port = port;
 						};
-						if let Some(port) = args.p2p_ipv6_port {
-							config.p2p_ipv6_port = port;
+						if let Some(enabled) = args.p2p_ipv4_enabled {
+							config.p2p.ipv4 = enabled;
 						};
-						if let Some(v) = args.p2p_discovery {
-							config.p2p_discovery = v;
+						if let Some(enabled) = args.p2p_ipv6_enabled {
+							config.p2p.ipv6 = enabled;
 						};
 
 						#[cfg(feature = "ai")]

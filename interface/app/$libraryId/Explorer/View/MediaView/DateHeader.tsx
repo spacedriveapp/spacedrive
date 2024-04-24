@@ -8,7 +8,7 @@ import { useExplorerViewContext } from '../Context';
 export const DATE_HEADER_HEIGHT = 140;
 
 // million-ignore
-export const DateHeader = ({ date }: { date: string }) => {
+export const DateHeader = ({ date }: { date?: string }) => {
 	const isDark = useIsDark();
 
 	const explorer = useExplorerContext();
@@ -52,7 +52,9 @@ export const DateHeader = ({ date }: { date: string }) => {
 					isSticky ? 'opacity-100' : 'opacity-0'
 				)}
 			/>
-			<div className="relative text-xl font-semibold">{date}</div>
+			<div className={clsx('relative text-xl font-semibold', !date && 'opacity-75')}>
+				{date ?? 'No date'}
+			</div>
 		</div>
 	);
 };

@@ -1,22 +1,21 @@
+import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript/src/types';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackHeaderProps } from '@react-navigation/native-stack';
-import { ArrowLeft, DotsThreeOutline, MagnifyingGlass } from 'phosphor-react-native';
+import { ArrowLeft, DotsThreeOutline, List, MagnifyingGlass } from 'phosphor-react-native';
 import { Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getExplorerStore, useExplorerStore } from '~/stores/explorerStore';
 
-import BrowseLibraryManager from '../browse/DrawerLibraryManager';
 import { Icon } from '../icons/Icon';
 import Search from '../search/Search';
 
 type HeaderProps = {
 	title?: string; //title of the page
-	showLibrary?: boolean; //show the library manager
 	showSearch?: boolean; //show the search button
+	showDrawer?: boolean; //show the drawer button
 	searchType?: 'explorer' | 'location' | 'categories'; //Temporary
 	navBack?: boolean; //navigate back to the previous screen
-	navBackHome?: boolean; //navigate back to the home screen of the stack
 	headerKind?: 'default' | 'location' | 'tag'; //kind of header
 	route?: never;
 	routeTitle?: never;
@@ -33,16 +32,15 @@ type Props =
 // Default header with search bar and button to open drawer
 export default function Header({
 	title,
-	showLibrary,
 	searchType,
 	navBack,
 	route,
 	routeTitle,
-	navBackHome = false,
 	headerKind = 'default',
+	showDrawer = false,
 	showSearch = true
 }: Props) {
-	const navigation = useNavigation();
+	const navigation = useNavigation<DrawerNavigationHelpers>();
 	const explorerStore = useExplorerStore();
 	const routeParams = route?.route.params as any;
 	const headerHeight = useSafeAreaInsets().top;
@@ -69,6 +67,11 @@ export default function Header({
 						)}
 						<View style={tw`flex-row items-center gap-2`}>
 							<HeaderIconKind headerKind={headerKind} routeParams={routeParams} />
+							{showDrawer && (
+								<Pressable onPress={() => navigation.openDrawer()}>
+									<List size={24} color={tw.color('text-zinc-300')} />
+								</Pressable>
+							)}
 							<Text
 								numberOfLines={1}
 								style={tw`max-w-[200px] text-xl font-bold text-white`}
@@ -83,7 +86,7 @@ export default function Header({
 								<Pressable
 									hitSlop={24}
 									onPress={() => {
-										navigation.navigate('ExplorerSearch', {
+										navigation.navigate('SearchStack', {
 											screen: 'Search'
 										});
 									}}
@@ -113,8 +116,6 @@ export default function Header({
 						)}
 					</View>
 				</View>
-
-				{showLibrary && <BrowseLibraryManager style="mt-4" />}
 				{searchType && <HeaderSearchType searchType={searchType} />}
 			</View>
 		</View>

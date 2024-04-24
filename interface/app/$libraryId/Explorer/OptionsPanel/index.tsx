@@ -24,7 +24,81 @@ export default () => {
 
 	return (
 		<div className="flex w-80 flex-col gap-4 p-4">
-			{settings.layoutMode === 'list' && <ListViewOptions />}
+			<div className="grid grid-cols-2 gap-2">
+				<div className="flex flex-col">
+					<Subheading>{t('sort_by')}</Subheading>
+					<Select
+						value={settings.order ? orderingKey(settings.order) : 'none'}
+						size="sm"
+						className="w-full"
+						onChange={(key) => {
+							if (key === 'none') explorer.settingsStore.order = null;
+							else
+								explorer.settingsStore.order = createOrdering(
+									key,
+									explorer.settingsStore.order
+										? getOrderingDirection(explorer.settingsStore.order)
+										: 'Asc'
+								);
+						}}
+					>
+						<SelectOption value="none">{t('none')}</SelectOption>
+						{explorer.orderingKeys?.options.map((option) => (
+							<SelectOption key={option.value} value={option.value}>
+								{option.description}
+							</SelectOption>
+						))}
+					</Select>
+				</div>
+
+				<div className="flex flex-col">
+					<Subheading>{t('direction')}</Subheading>
+					<Select
+						value={settings.order ? getOrderingDirection(settings.order) : 'Asc'}
+						size="sm"
+						className="w-full"
+						disabled={explorer.settingsStore.order === null}
+						onChange={(order) => {
+							if (explorer.settingsStore.order === null) return;
+
+							explorer.settingsStore.order = createOrdering(
+								orderingKey(explorer.settingsStore.order),
+								order
+							);
+						}}
+					>
+						{SortOrderSchema.options.map((o) => (
+							<SelectOption key={o.value} value={o.value}>
+								{o.value}
+							</SelectOption>
+						))}
+					</Select>
+				</div>
+			</div>
+
+			{settings.layoutMode === 'media' && (
+				<div>
+					<Subheading>{t('media_view_context')}</Subheading>
+					<Select
+						className="w-full"
+						value={
+							explorer.settingsStore.mediaViewWithDescendants
+								? 'withDescendants'
+								: 'withoutDescendants'
+						}
+						onChange={(value) => {
+							explorer.settingsStore.mediaViewWithDescendants =
+								value === 'withDescendants';
+						}}
+					>
+						{mediaViewContextActions.options.map((option) => (
+							<SelectOption key={option.value} value={option.value}>
+								{option.description}
+							</SelectOption>
+						))}
+					</Select>
+				</div>
+			)}
 
 			{(settings.layoutMode === 'grid' || settings.layoutMode === 'media') && (
 				<div>
@@ -34,7 +108,7 @@ export default () => {
 							onValueChange={(value) => {
 								explorer.settingsStore.gridItemSize = value[0] || 100;
 							}}
-							defaultValue={[settings.gridItemSize]}
+							value={[settings.gridItemSize]}
 							max={200}
 							step={10}
 							min={60}
@@ -69,59 +143,24 @@ export default () => {
 				</div>
 			)}
 
-			{(settings.layoutMode === 'grid' || settings.layoutMode === 'media') && (
-				<div className="grid grid-cols-2 gap-2">
-					<div className="flex flex-col">
-						<Subheading>{t('sort_by')}</Subheading>
-						<Select
-							value={settings.order ? orderingKey(settings.order) : 'none'}
-							size="sm"
-							className="w-full"
-							onChange={(key) => {
-								if (key === 'none') explorer.settingsStore.order = null;
-								else
-									explorer.settingsStore.order = createOrdering(
-										key,
-										explorer.settingsStore.order
-											? getOrderingDirection(explorer.settingsStore.order)
-											: 'Asc'
-									);
-							}}
-						>
-							<SelectOption value="none">{t('none')}</SelectOption>
-							{explorer.orderingKeys?.options.map((option) => (
-								<SelectOption key={option.value} value={option.value}>
-									{option.description}
-								</SelectOption>
-							))}
-						</Select>
-					</div>
+			{settings.layoutMode === 'list' && <ListViewOptions />}
 
-					<div className="flex flex-col">
-						<Subheading>{t('direction')}</Subheading>
-						<Select
-							value={settings.order ? getOrderingDirection(settings.order) : 'Asc'}
-							size="sm"
-							className="w-full"
-							disabled={explorer.settingsStore.order === null}
-							onChange={(order) => {
-								if (explorer.settingsStore.order === null) return;
-
-								explorer.settingsStore.order = createOrdering(
-									orderingKey(explorer.settingsStore.order),
-									order
-								);
-							}}
-						>
-							{SortOrderSchema.options.map((o) => (
-								<SelectOption key={o.value} value={o.value}>
-									{o.value}
-								</SelectOption>
-							))}
-						</Select>
-					</div>
-				</div>
-			)}
+			<div>
+				<Subheading>{t('double_click_action')}</Subheading>
+				<Select
+					className="w-full"
+					value={settings.openOnDoubleClick}
+					onChange={(value) => {
+						explorer.settingsStore.openOnDoubleClick = value;
+					}}
+				>
+					{doubleClickActions.options.map((option) => (
+						<SelectOption key={option.value} value={option.value}>
+							{option.description}
+						</SelectOption>
+					))}
+				</Select>
+			</div>
 
 			<div>
 				<Subheading>{t('explorer')}</Subheading>
@@ -172,47 +211,6 @@ export default () => {
 						/>
 					)}
 				</div>
-			</div>
-
-			{settings.layoutMode === 'media' && (
-				<div>
-					<Subheading>{t('media_view_context')}</Subheading>
-					<Select
-						className="w-full"
-						value={
-							explorer.settingsStore.mediaViewWithDescendants
-								? 'withDescendants'
-								: 'withoutDescendants'
-						}
-						onChange={(value) => {
-							explorer.settingsStore.mediaViewWithDescendants =
-								value === 'withDescendants';
-						}}
-					>
-						{mediaViewContextActions.options.map((option) => (
-							<SelectOption key={option.value} value={option.value}>
-								{option.description}
-							</SelectOption>
-						))}
-					</Select>
-				</div>
-			)}
-
-			<div>
-				<Subheading>{t('double_click_action')}</Subheading>
-				<Select
-					className="w-full"
-					value={settings.openOnDoubleClick}
-					onChange={(value) => {
-						explorer.settingsStore.openOnDoubleClick = value;
-					}}
-				>
-					{doubleClickActions.options.map((option) => (
-						<SelectOption key={option.value} value={option.value}>
-							{option.description}
-						</SelectOption>
-					))}
-				</Select>
 			</div>
 		</div>
 	);

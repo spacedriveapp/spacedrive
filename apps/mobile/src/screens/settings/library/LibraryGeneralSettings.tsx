@@ -34,7 +34,7 @@ const LibraryGeneralSettingsScreen = (_: SettingsStackScreenProps<'LibraryGenera
 	useAutoForm(form, (value) => {
 		editLibrary({ description: value.description, name: value.name, id: library.uuid });
 		// console.log('Updated', value);
-		toast({ type: 'success', text: 'Library updated!' });
+		toast.success('Library updated!');
 	});
 
 	return (

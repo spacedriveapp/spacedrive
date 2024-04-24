@@ -6,14 +6,18 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
+# Spacedrive Sub-crates
 sd-p2p = { path = "../p2p" }
-reqwest = "0.11.22"
-serde.workspace = true
-serde_json.workspace = true
-thiserror = "1.0.50"
-uuid.workspace = true
+
+base64 = { workspace = true }
+rmpv = { workspace = true }
 rspc = { workspace = true }
-specta.workspace = true
-base64.workspace = true
-rmpv.workspace = true
-tracing.workspace = true
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+specta = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+reqwest = "0.11.22"

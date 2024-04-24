@@ -59,12 +59,13 @@
 		"vite": "^5.1.6"
 	},
 	"engines": {
-		"pnpm": ">=8.0.0",
+		"pnpm": ">=9.0.0",
 		"npm": "pnpm",
 		"yarn": "pnpm",
 		"node": ">=18.18 <19 || >=20.1"
 	},
 	"eslintConfig": {
 		"root": true
-	}
+	},
+	"packageManager": "pnpm@9.0.2"
 }

@@ -42,7 +42,7 @@ const EditLocationSettingsScreen = ({
 		onSuccess: () => {
 			form.reset(form.getValues());
 			queryClient.invalidateQueries(['locations.list']);
-			toast({ type: 'success', text: 'Location updated!' });
+			toast.success('Location updated!');
 			// TODO: navigate back & reset input focus!
 		}
 	});

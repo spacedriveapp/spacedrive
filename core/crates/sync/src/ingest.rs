@@ -7,7 +7,7 @@ use sd_prisma::{
 	prisma::{crdt_operation, SortOrder},
 	prisma_sync::ModelSyncData,
 };
-use sd_sync::CRDTOperation;
+use sd_sync::{CRDTOperation, OperationKind};
 use tokio::sync::{mpsc, oneshot, Mutex};
 use tracing::debug;
 use uhlc::{Timestamp, NTP64};
@@ -77,17 +77,16 @@ impl Actor {
 			State::RetrievingMessages => {
 				let (tx, mut rx) = oneshot::channel::<()>();
 
+				let timestamps = self
+					.timestamps
+					.read()
+					.await
+					.iter()
+					.map(|(&k, &v)| (k, v))
+					.collect();
+
 				self.io
-					.send(Request::Messages {
-						timestamps: self
-							.timestamps
-							.read()
-							.await
-							.iter()
-							.map(|(&k, &v)| (k, v))
-							.collect(),
-						tx,
-					})
+					.send(Request::Messages { timestamps, tx })
 					.await
 					.ok();
 
@@ -162,7 +161,12 @@ impl Actor {
 	}
 
 	// where the magic happens
-	async fn receive_crdt_operation(&mut self, op: CRDTOperation) {
+	async fn receive_crdt_operation(
+		&mut self,
+		mut op: CRDTOperation,
+	) -> prisma_client_rust::Result<()> {
+		let db = &self.db;
+
 		// first, we update the HLC's timestamp with the incoming one.
 		// this involves a drift check + sets the last time of the clock
 		self.clock
@@ -176,64 +180,90 @@ impl Actor {
 		let op_instance = op.instance;
 		let op_timestamp = op.timestamp;
 
-		if !self.is_operation_old(&op).await {
-			// actually go and apply the operation in the db
-			self.apply_op(op).await.ok();
+		// resolve conflicts
+		// this can be outside the transaction as there's only ever one ingester
+		match &mut op.data {
+			// don't apply Create operations if the record has been deleted
+			sd_sync::CRDTOperationData::Create(_) => {
+				let delete = db
+					.crdt_operation()
+					.find_first(vec![
+						crdt_operation::model::equals(op.model as i32),
+						crdt_operation::record_id::equals(
+							rmp_serde::to_vec(&op.record_id).unwrap(),
+						),
+						crdt_operation::kind::equals(OperationKind::Delete.to_string()),
+					])
+					.order_by(crdt_operation::timestamp::order(SortOrder::Desc))
+					.exec()
+					.await?;
 
-			// update the stored timestamp for this instance - will be derived from the crdt operations table on restart
-			self.timestamps.write().await.insert(
-				op_instance,
-				NTP64::max(timestamp.unwrap_or_default(), op_timestamp),
-			);
-		}
-	}
+				if delete.is_some() {
+					return Ok(());
+				}
+			}
+			// don't apply Update operations if the record hasn't been created, or a newer Update for the same field has been applied
+			sd_sync::CRDTOperationData::Update { field, .. } => {
+				let (create, update) = db
+					._batch((
+						db.crdt_operation()
+							.find_first(vec![
+								crdt_operation::model::equals(op.model as i32),
+								crdt_operation::record_id::equals(
+									rmp_serde::to_vec(&op.record_id).unwrap(),
+								),
+								crdt_operation::kind::equals(OperationKind::Create.to_string()),
+							])
+							.order_by(crdt_operation::timestamp::order(SortOrder::Desc)),
+						db.crdt_operation()
+							.find_first(vec![
+								crdt_operation::timestamp::gt(op.timestamp.as_u64() as i64),
+								crdt_operation::model::equals(op.model as i32),
+								crdt_operation::record_id::equals(
+									rmp_serde::to_vec(&op.record_id).unwrap(),
+								),
+								crdt_operation::kind::equals(
+									OperationKind::Update(field).to_string(),
+								),
+							])
+							.order_by(crdt_operation::timestamp::order(SortOrder::Desc)),
+					))
+					.await?;
 
-	async fn apply_op(&mut self, op: CRDTOperation) -> prisma_client_rust::Result<()> {
+				// we don't care about the contents of the create operation, just that it exists
+				// - all update operations come after creates, no check is necessary
+				if create.is_none() || update.is_some() {
+					return Ok(());
+				}
+			}
+			// deletes are the be all and end all, no need to check anything
+			sd_sync::CRDTOperationData::Delete => {}
+		};
+
+		// we don't want these writes to not apply together!
 		self.db
 			._transaction()
 			.with_timeout(30 * 1000)
 			.run(|db| async move {
 				// apply the operation to the actual record
-				let sync_data = ModelSyncData::from_op(op.clone());
-
-				sync_data.unwrap().exec(&db).await?;
+				ModelSyncData::from_op(op.clone())
+					.unwrap()
+					.exec(&db)
+					.await
+					.unwrap();
 
 				// write the operation to the operations table
-				write_crdt_op_to_db(&op, &db).await?;
-
-				Ok(())
+				write_crdt_op_to_db(&op, &db).await
 			})
 			.await?;
+
+		// update the stored timestamp for this instance - will be derived from the crdt operations table on restart
+		let new_ts = NTP64::max(timestamp.unwrap_or_default(), op_timestamp);
+		self.timestamps.write().await.insert(op_instance, new_ts);
 
 		self.io.req_tx.send(Request::Ingested).await.ok();
 
 		Ok(())
-	}
-
-	// determines if an operation is old and shouldn't be applied
-	async fn is_operation_old(&mut self, op: &CRDTOperation) -> bool {
-		let db = &self.db;
-
-		let old_timestamp = {
-			let newer_op = db
-				.crdt_operation()
-				.find_first(vec![
-					crdt_operation::timestamp::gte(op.timestamp.as_u64() as i64),
-					crdt_operation::model::equals(op.model.to_string()),
-					crdt_operation::record_id::equals(serde_json::to_vec(&op.record_id).unwrap()),
-					crdt_operation::kind::equals(op.kind().to_string()),
-				])
-				.order_by(crdt_operation::timestamp::order(SortOrder::Desc))
-				.exec()
-				.await
-				.unwrap();
-
-			newer_op.map(|newer_op| newer_op.timestamp)
-		};
-
-		old_timestamp
-			.map(|old| old != op.timestamp.as_u64() as i64)
-			.unwrap_or_default()
 	}
 }
 
@@ -295,17 +325,11 @@ mod test {
 		for _ in 0..10 {
 			let mut rx = ingest.req_rx.lock().await;
 
-			println!("lock acquired");
-
 			ingest.event_tx.send(Event::Notification).await.unwrap();
-
-			println!("notificaton sent");
 
 			let Some(Request::Messages { .. }) = rx.recv().await else {
 				panic!("bruh")
 			};
-
-			println!("message received");
 
 			// without this the test hangs, idk
 			tokio::time::sleep(Duration::from_millis(0)).await;

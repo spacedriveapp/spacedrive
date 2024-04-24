@@ -25,6 +25,10 @@ import {
 import { toggleRenderRects } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
+import {
+	explorerOperatingSystemStore,
+	useExplorerOperatingSystem
+} from '../../Explorer/useExplorerOperatingSystem';
 import Setting from '../../settings/Setting';
 
 export default () => {
@@ -148,6 +152,13 @@ export default () => {
 						<SelectOption value="enabled">Enabled</SelectOption>
 					</Select>
 				</Setting>
+				<Setting
+					mini
+					title="Explorer behavior"
+					description="Change the explorer selection behavior"
+				>
+					<ExplorerBehaviorSelect />
+				</Setting>
 				<FeatureFlagSelector />
 				<InvalidateDebugPanel />
 				{/* <TestNotifications /> */}
@@ -265,5 +276,19 @@ function CloudOriginSelect() {
 				</Select>
 			)}
 		</>
+	);
+}
+
+function ExplorerBehaviorSelect() {
+	const { explorerOperatingSystem } = useExplorerOperatingSystem();
+
+	return (
+		<Select
+			value={explorerOperatingSystem}
+			onChange={(v) => (explorerOperatingSystemStore.os = v)}
+		>
+			<SelectOption value="macOS">macOS</SelectOption>
+			<SelectOption value="windows">windows</SelectOption>
+		</Select>
 	);
 }

@@ -29,19 +29,21 @@ export const LocationItem = ({
 				onPress={onPress}
 			>
 				{viewStyle === 'grid' ? (
-					<GridLocation location={location} modalRef={modalRef} />
+					<>
+						<GridLocation location={location} modalRef={modalRef} />
+						<LocationModal
+							editLocation={() => {
+								editLocation();
+								modalRef.current?.close();
+							}}
+							locationId={location.id}
+							ref={modalRef}
+						/>
+					</>
 				) : (
-					<ListLocation location={location} modalRef={modalRef} />
+					<ListLocation location={location} />
 				)}
 			</Pressable>
-			<LocationModal
-				editLocation={() => {
-					editLocation();
-					modalRef.current?.close();
-				}}
-				locationId={location.id}
-				ref={modalRef}
-			/>
 		</>
 	);
 };

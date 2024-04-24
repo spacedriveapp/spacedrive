@@ -1,6 +1,6 @@
 [package]
 name = "sd-core"
-version = "0.2.8"
+version = "0.2.11"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc."]
 rust-version = "1.75.0"
@@ -19,11 +19,18 @@ ai = ["dep:sd-ai"]
 crypto = ["dep:sd-crypto"]
 
 [dependencies]
-# Sub-crates
-sd-cache = { path = "../crates/cache" }
+# Inner Core Sub-crates
+sd-core-file-path-helper = { path = "./crates/file-path-helper" }
+sd-core-heavy-lifting = { path = "./crates/heavy-lifting" }
+sd-core-indexer-rules = { path = "./crates/indexer-rules" }
+sd-core-prisma-helpers = { path = "./crates/prisma-helpers" }
 sd-core-sync = { path = "./crates/sync" }
-# sd-cloud-api = { path = "../crates/cloud-api" }
-sd-file-path-helper = { path = "../crates/file-path-helper" }
+
+# Spacedrive Sub-crates
+sd-actors = { version = "0.1.0", path = "../crates/actors" }
+sd-ai = { path = "../crates/ai", optional = true }
+sd-cache = { path = "../crates/cache" }
+sd-cloud-api = { version = "0.1.0", path = "../crates/cloud-api" }
 sd-crypto = { path = "../crates/crypto", features = [
 	"sys",
 	"tokio",
@@ -41,10 +48,9 @@ sd-p2p-block = { path = "../crates/p2p-block" }
 sd-p2p-proto = { path = "../crates/p2p-proto" }
 sd-p2p-tunnel = { path = "../crates/p2p-tunnel" }
 sd-prisma = { path = "../crates/prisma" }
-sd-ai = { path = "../crates/ai", optional = true }
 sd-sync = { path = "../crates/sync" }
 sd-utils = { path = "../crates/utils" }
-sd-cloud-api = { version = "0.1.0", path = "../crates/cloud-api" }
+sd-indexer = { path = "../crates/sd-indexer" }
 
 # Workspace dependencies
 async-channel = { workspace = true }
@@ -56,6 +62,7 @@ chrono = { workspace = true, features = ["serde"] }
 futures = { workspace = true }
 futures-concurrency = { workspace = true }
 image = { workspace = true }
+itertools = { workspace = true }
 normpath = { workspace = true, features = ["localization"] }
 once_cell = { workspace = true }
 pin-project-lite = { workspace = true }
@@ -63,6 +70,7 @@ prisma-client-rust = { workspace = true, features = ["rspc"] }
 regex = { workspace = true }
 reqwest = { workspace = true, features = ["json", "native-tls-vendored"] }
 rmp-serde = { workspace = true }
+rmpv = { workspace = true }
 rspc = { workspace = true, features = [
 	"axum",
 	"uuid",
@@ -94,26 +102,28 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 uuid = { workspace = true, features = ["v4", "serde"] }
 webp = { workspace = true }
 
-
 # Specific Core dependencies
 async-recursion = "1.0.5"
 async-stream = "0.3.5"
+aws-sdk-s3 = { version = "1.5.0", features = ["behavior-version-latest"] }
+aws-config = "1.0.3"
+aws-credential-types = "1.0.3"
+base91 = "0.1.0"
 bytes = "1.5.0"
 ctor = "0.2.5"
 directories = "5.0.1"
 flate2 = "1.0.28"
-globset = { version = "^0.4.13", features = ["serde1"] }
 hostname = "0.3.1"
 http-body = "0.4.5"
 http-range = "0.1.5"
+hyper = { version = "=0.14.28", features = ["http1", "server", "client"] }
 int-enum = "0.5.0"
-itertools = "0.12.0"
 libc = "0.2.153"
 mini-moka = "0.10.2"
 notify = { git = "https://github.com/notify-rs/notify.git", rev = "c3929ed114fbb0bc7457a9a498260461596b00ca", default-features = false, features = [
 	"macos_fsevent",
 ] }
-rmpv = { workspace = true }
+rmp = "0.8.12"
 serde-hashkey = "0.4.5"
 serde_repr = "0.1"
 serde_with = "3.4.0"
@@ -121,14 +131,13 @@ slotmap = "1.0.6"
 static_assertions = "1.1.0"
 sysinfo = "0.29.10"
 tar = "0.4.40"
-aws-sdk-s3 = { version = "1.5.0", features = ["behavior-version-latest"] }
-aws-config = "1.0.3"
-aws-credential-types = "1.0.3"
-base91 = "0.1.0"
-sd-actors = { version = "0.1.0", path = "../crates/actors" }
 tower-service = "0.3.2"
-hyper = { version = "=0.14.28", features = ["http1", "server", "client"] }
-rmp = "0.8.12"
+opendal = { version = "0.45.1", features = [
+	"services-gdrive",
+	"services-s3",
+	"services-fs",
+] }
+sync_wrapper = { version = "1.0.1", features = ["futures"] }
 
 # Override features of transitive dependencies
 [dependencies.openssl]
@@ -141,6 +150,13 @@ features = ["vendored"]
 # Platform-specific dependencies
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"
+trash = "4.1.0"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+trash = "4.1.0"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+trash = "4.1.0"
 
 [target.'cfg(target_os = "ios")'.dependencies]
 icrate = { version = "0.1.0", features = [
@@ -151,5 +167,6 @@ icrate = { version = "0.1.0", features = [
 ] }
 
 [dev-dependencies]
-tracing-test = "^0.2.4"
+tracing-test = { workspace.dev-dependencies = true }
 aovec = "1.1.0"
+globset = { workspace = true }

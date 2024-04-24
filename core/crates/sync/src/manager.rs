@@ -7,6 +7,7 @@ use sd_utils::uuid_to_bytes;
 use std::{
 	cmp::Ordering,
 	collections::HashMap,
+	fmt,
 	ops::Deref,
 	sync::{
 		atomic::{self, AtomicBool},
@@ -23,6 +24,13 @@ pub struct Manager {
 	pub tx: broadcast::Sender<SyncMessage>,
 	pub ingest: ingest::Handler,
 	pub shared: Arc<SharedState>,
+	pub timestamp_lock: tokio::sync::Semaphore,
+}
+
+impl fmt::Debug for Manager {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("SyncManager").finish()
+	}
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq)]
@@ -61,7 +69,12 @@ impl Manager {
 		let ingest = ingest::Actor::spawn(shared.clone());
 
 		New {
-			manager: Self { tx, ingest, shared },
+			manager: Self {
+				tx,
+				ingest,
+				shared,
+				timestamp_lock: tokio::sync::Semaphore::new(1),
+			},
 			rx,
 		}
 	}
@@ -73,19 +86,33 @@ impl Manager {
 	pub async fn write_ops<'item, I: prisma_client_rust::BatchItem<'item>>(
 		&self,
 		tx: &PrismaClient,
-		(_ops, queries): (Vec<CRDTOperation>, I),
+		(mut ops, queries): (Vec<CRDTOperation>, I),
 	) -> prisma_client_rust::Result<<I as prisma_client_rust::BatchItemParent>::ReturnValue> {
 		let ret = if self.emit_messages_flag.load(atomic::Ordering::Relaxed) {
+			let lock = self.timestamp_lock.acquire().await;
+
+			ops.iter_mut().for_each(|op| {
+				op.timestamp = *self.get_clock().new_timestamp().get_time();
+			});
+
 			let (res, _) = tx
 				._batch((
 					queries,
-					_ops.iter()
+					ops.iter()
 						.map(|op| crdt_op_db(op).to_query(tx))
 						.collect::<Vec<_>>(),
 				))
 				.await?;
 
+			self.shared
+				.timestamps
+				.write()
+				.await
+				.insert(self.instance, ops.last().unwrap().timestamp);
+
 			self.tx.send(SyncMessage::Created).ok();
+
+			drop(lock);
 
 			res
 		} else {
@@ -99,18 +126,30 @@ impl Manager {
 	pub async fn write_op<'item, Q: prisma_client_rust::BatchItem<'item>>(
 		&self,
 		tx: &PrismaClient,
-		op: CRDTOperation,
+		mut op: CRDTOperation,
 		query: Q,
 	) -> prisma_client_rust::Result<<Q as prisma_client_rust::BatchItemParent>::ReturnValue> {
 		let ret = if self.emit_messages_flag.load(atomic::Ordering::Relaxed) {
+			let lock = self.timestamp_lock.acquire().await;
+
+			op.timestamp = *self.get_clock().new_timestamp().get_time();
+
 			let ret = tx._batch((crdt_op_db(&op).to_query(tx), query)).await?.1;
 
 			self.tx.send(SyncMessage::Created).ok();
+
+			drop(lock);
 
 			ret
 		} else {
 			tx._batch(vec![query]).await?.remove(0)
 		};
+
+		self.shared
+			.timestamps
+			.write()
+			.await
+			.insert(self.instance, op.timestamp);
 
 		Ok(ret)
 	}

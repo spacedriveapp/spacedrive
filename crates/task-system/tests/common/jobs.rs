@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use futures_concurrency::future::FutureGroup;
 use lending_stream::{LendingStream, StreamExt};
 use sd_task_system::{
-	ExecStatus, Interrupter, IntoAnyTaskOutput, Task, TaskDispatcher, TaskHandle, TaskId,
-	TaskOutput, TaskStatus,
+	BaseTaskDispatcher, ExecStatus, Interrupter, IntoAnyTaskOutput, Task, TaskDispatcher,
+	TaskHandle, TaskId, TaskOutput, TaskStatus,
 };
 use tracing::trace;
 
@@ -12,11 +12,11 @@ use super::tasks::SampleError;
 #[derive(Debug)]
 pub struct SampleJob {
 	total_steps: u32,
-	task_dispatcher: TaskDispatcher<SampleError>,
+	task_dispatcher: BaseTaskDispatcher<SampleError>,
 }
 
 impl SampleJob {
-	pub fn new(total_steps: u32, task_dispatcher: TaskDispatcher<SampleError>) -> Self {
+	pub fn new(total_steps: u32, task_dispatcher: BaseTaskDispatcher<SampleError>) -> Self {
 		Self {
 			total_steps,
 			task_dispatcher,
@@ -47,7 +47,7 @@ impl SampleJob {
 
 		while let Some((group, res)) = group.next().await {
 			match res.unwrap() {
-				TaskStatus::Done(TaskOutput::Out(out)) => {
+				TaskStatus::Done((_task_id, TaskOutput::Out(out))) => {
 					group.insert(
 						out.downcast::<Output>()
 							.expect("we know the output type")
@@ -55,7 +55,7 @@ impl SampleJob {
 					);
 					trace!("Received more tasks to wait for ({} left)", group.len());
 				}
-				TaskStatus::Done(TaskOutput::Empty) => {
+				TaskStatus::Done((_task_id, TaskOutput::Empty)) => {
 					trace!(
 						"Step done, waiting for all children to finish ({} left)",
 						group.len()
@@ -83,7 +83,7 @@ impl SampleJob {
 struct SampleJobTask {
 	id: TaskId,
 	expected_children: u32,
-	task_dispatcher: TaskDispatcher<SampleError>,
+	task_dispatcher: BaseTaskDispatcher<SampleError>,
 }
 
 #[derive(Debug)]

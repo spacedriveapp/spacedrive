@@ -1,6 +1,7 @@
 use crate::{
 	invalidate_query,
 	library::Library,
+	location::ScanState,
 	old_job::{
 		CurrentStep, JobError, JobInitOutput, JobReportUpdate, JobResult, JobStepOutput,
 		StatefulJob, WorkerContext,
@@ -11,11 +12,13 @@ use crate::{
 #[cfg(feature = "ai")]
 use crate::old_job::JobRunErrors;
 
-use sd_file_ext::extensions::Extension;
-use sd_file_path_helper::{
+use sd_core_file_path_helper::{
 	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-	file_path_for_media_processor, IsolatedFilePathData,
+	IsolatedFilePathData,
 };
+use sd_core_prisma_helpers::file_path_for_media_processor;
+
+use sd_file_ext::extensions::Extension;
 use sd_prisma::prisma::{location, PrismaClient};
 use sd_utils::db::maybe_missing;
 
@@ -417,6 +420,17 @@ impl StatefulJob for OldMediaProcessorJobInit {
 		if run_metadata.media_data.extracted > 0 {
 			invalidate_query!(ctx.library, "search.paths");
 		}
+
+		ctx.library
+			.db
+			.location()
+			.update(
+				location::id::equals(self.location.id),
+				vec![location::scan_state::set(ScanState::Completed as i32)],
+			)
+			.exec()
+			.await
+			.map_err(MediaProcessorError::from)?;
 
 		Ok(Some(json!({"init: ": self, "run_metadata": run_metadata})))
 	}
