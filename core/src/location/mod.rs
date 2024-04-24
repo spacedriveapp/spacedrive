@@ -9,7 +9,12 @@ use crate::{
 	Node,
 };
 
-use sd_file_path_helper::{filter_existing_file_path_params, IsolatedFilePathData};
+use sd_core_file_path_helper::{
+	filter_existing_file_path_params, IsolatedFilePathData, IsolatedFilePathDataParts,
+};
+use sd_core_prisma_helpers::location_with_indexer_rules;
+
+use sd_indexer::path::normalize_path;
 use sd_prisma::{
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
 	prisma_sync,
@@ -18,22 +23,19 @@ use sd_sync::*;
 use sd_utils::{
 	db::{maybe_missing, MissingFieldError},
 	error::{FileIOError, NonUtf8PathError},
-	msgpack, uuid_to_bytes,
+	msgpack,
 };
-
-use sd_file_path_helper::IsolatedFilePathDataParts;
 
 use std::{
 	collections::HashSet,
-	path::{Component, Path, PathBuf},
+	path::{Path, PathBuf},
 	sync::Arc,
 };
 
 use chrono::Utc;
 use futures::future::TryFutureExt;
-use normpath::PathExt;
 use prisma_client_rust::{operator::and, or, QueryError};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use specta::Type;
 use tokio::{fs, io, time::Instant};
@@ -44,7 +46,6 @@ mod error;
 pub mod indexer;
 mod manager;
 pub mod metadata;
-pub mod non_indexed;
 
 pub use error::LocationError;
 use indexer::OldIndexerJobInit;
@@ -53,10 +54,28 @@ use metadata::SpacedriveLocationMetadataFile;
 
 pub type LocationPubId = Uuid;
 
-// Location includes!
-location::include!(location_with_indexer_rules {
-	indexer_rules: select { indexer_rule }
-});
+#[repr(i32)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Eq, PartialEq)]
+pub enum ScanState {
+	Pending = 0,
+	Indexed = 1,
+	FilesIdentified = 2,
+	Completed = 3,
+}
+
+impl TryFrom<i32> for ScanState {
+	type Error = LocationError;
+
+	fn try_from(value: i32) -> Result<Self, Self::Error> {
+		Ok(match value {
+			0 => Self::Pending,
+			1 => Self::Indexed,
+			2 => Self::FilesIdentified,
+			3 => Self::Completed,
+			_ => return Err(LocationError::InvalidScanStateValue(value)),
+		})
+	}
+}
 
 /// `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
 /// It has the actual path and a vector of indexer rules ids, to create many-to-many relationships
@@ -445,6 +464,7 @@ pub async fn scan_location(
 	node: &Arc<Node>,
 	library: &Arc<Library>,
 	location: location_with_indexer_rules::Data,
+	location_scan_state: ScanState,
 ) -> Result<(), JobManagerError> {
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
 	if location.instance_id != Some(library.config().await.instance_id) {
@@ -453,25 +473,61 @@ pub async fn scan_location(
 
 	let location_base_data = location::Data::from(&location);
 
-	JobBuilder::new(OldIndexerJobInit {
-		location,
-		sub_path: None,
-	})
-	.with_action("scan_location")
-	.with_metadata(json!({"location": location_base_data.clone()}))
-	.build()
-	.queue_next(OldFileIdentifierJobInit {
-		location: location_base_data.clone(),
-		sub_path: None,
-	})
-	.queue_next(OldMediaProcessorJobInit {
-		location: location_base_data,
-		sub_path: None,
-		regenerate_thumbnails: false,
-		regenerate_labels: false,
-	})
-	.spawn(node, library)
-	.await
+	debug!("Scanning location with state: {location_scan_state:?}");
+
+	match location_scan_state {
+		ScanState::Pending | ScanState::Completed => {
+			JobBuilder::new(OldIndexerJobInit {
+				location,
+				sub_path: None,
+			})
+			.with_action("scan_location")
+			.with_metadata(json!({"location": location_base_data.clone()}))
+			.build()
+			.queue_next(OldFileIdentifierJobInit {
+				location: location_base_data.clone(),
+				sub_path: None,
+			})
+			.queue_next(OldMediaProcessorJobInit {
+				location: location_base_data,
+				sub_path: None,
+				regenerate_thumbnails: false,
+				regenerate_labels: false,
+			})
+			.spawn(node, library)
+			.await
+		}
+		ScanState::Indexed => {
+			JobBuilder::new(OldFileIdentifierJobInit {
+				location: location_base_data.clone(),
+				sub_path: None,
+			})
+			.with_action("scan_location_already_indexed")
+			.with_metadata(json!({"location": location_base_data.clone()}))
+			.build()
+			.queue_next(OldMediaProcessorJobInit {
+				location: location_base_data,
+				sub_path: None,
+				regenerate_thumbnails: false,
+				regenerate_labels: false,
+			})
+			.spawn(node, library)
+			.await
+		}
+		ScanState::FilesIdentified => {
+			JobBuilder::new(OldMediaProcessorJobInit {
+				location: location_base_data.clone(),
+				sub_path: None,
+				regenerate_thumbnails: false,
+				regenerate_labels: false,
+			})
+			.with_action("scan_location_files_already_identified")
+			.with_metadata(json!({"location": location_base_data}))
+			.build()
+			.spawn(node, library)
+			.await
+		}
+	}
 	.map_err(Into::into)
 }
 
@@ -597,57 +653,6 @@ pub struct CreatedLocationResult {
 	pub data: location_with_indexer_rules::Data,
 }
 
-pub(crate) fn normalize_path(path: impl AsRef<Path>) -> io::Result<(String, String)> {
-	let mut path = path.as_ref().to_path_buf();
-	let (location_path, normalized_path) = path
-		// Normalize path and also check if it exists
-		.normalize()
-		.and_then(|normalized_path| {
-			if cfg!(windows) {
-				// Use normalized path as main path on Windows
-				// This ensures we always receive a valid windows formatted path
-				// ex: /Users/JohnDoe/Downloads will become C:\Users\JohnDoe\Downloads
-				// Internally `normalize` calls `GetFullPathNameW` on Windows
-				// https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfullpathnamew
-				path = normalized_path.as_path().to_path_buf();
-			}
-
-			Ok((
-				// TODO: Maybe save the path bytes instead of the string representation to avoid depending on UTF-8
-				path.to_str().map(str::to_string).ok_or(io::Error::new(
-					io::ErrorKind::InvalidInput,
-					"Found non-UTF-8 path",
-				))?,
-				normalized_path,
-			))
-		})?;
-
-	// Not needed on Windows because the normalization already handles it
-	if cfg!(not(windows)) {
-		// Replace location_path with normalize_path, when the first one ends in `.` or `..`
-		// This is required so localize_name doesn't panic
-		if let Some(component) = path.components().next_back() {
-			if matches!(component, Component::CurDir | Component::ParentDir) {
-				path = normalized_path.as_path().to_path_buf();
-			}
-		}
-	}
-
-	// Use `to_string_lossy` because a partially corrupted but identifiable name is better than nothing
-	let mut name = path.localize_name().to_string_lossy().to_string();
-
-	// Windows doesn't have a root directory
-	if cfg!(not(windows)) && name == "/" {
-		name = "Root".to_string()
-	}
-
-	if name.replace(char::REPLACEMENT_CHARACTER, "") == "" {
-		name = "Unknown".to_string()
-	}
-
-	Ok((location_path, name))
-}
-
 async fn create_location(
 	library @ Library { db, sync, .. }: &Library,
 	location_pub_id: Uuid,
@@ -690,12 +695,12 @@ async fn create_location(
 						(location::name::NAME, msgpack!(&name)),
 						(location::path::NAME, msgpack!(&path)),
 						(location::date_created::NAME, msgpack!(date_created)),
-						(
-							location::instance::NAME,
-							msgpack!(prisma_sync::instance::SyncId {
-								pub_id: uuid_to_bytes(sync.instance)
-							}),
-						),
+						// (
+						// 	location::instance::NAME,
+						// 	msgpack!(prisma_sync::instance::SyncId {
+						// 		pub_id: uuid_to_bytes(sync.instance)
+						// 	}),
+						// ),
 					],
 				),
 				db.location()
@@ -867,52 +872,6 @@ pub async fn delete_directory(
 	Ok(())
 }
 
-impl From<location_with_indexer_rules::Data> for location::Data {
-	fn from(data: location_with_indexer_rules::Data) -> Self {
-		Self {
-			id: data.id,
-			pub_id: data.pub_id,
-			path: data.path,
-			instance_id: data.instance_id,
-			name: data.name,
-			total_capacity: data.total_capacity,
-			available_capacity: data.available_capacity,
-			is_archived: data.is_archived,
-			size_in_bytes: data.size_in_bytes,
-			generate_preview_media: data.generate_preview_media,
-			sync_preview_media: data.sync_preview_media,
-			hidden: data.hidden,
-			date_created: data.date_created,
-			file_paths: None,
-			indexer_rules: None,
-			instance: None,
-		}
-	}
-}
-
-impl From<&location_with_indexer_rules::Data> for location::Data {
-	fn from(data: &location_with_indexer_rules::Data) -> Self {
-		Self {
-			id: data.id,
-			pub_id: data.pub_id.clone(),
-			path: data.path.clone(),
-			instance_id: data.instance_id,
-			name: data.name.clone(),
-			total_capacity: data.total_capacity,
-			available_capacity: data.available_capacity,
-			size_in_bytes: data.size_in_bytes.clone(),
-			is_archived: data.is_archived,
-			generate_preview_media: data.generate_preview_media,
-			sync_preview_media: data.sync_preview_media,
-			hidden: data.hidden,
-			date_created: data.date_created,
-			file_paths: None,
-			indexer_rules: None,
-			instance: None,
-		}
-	}
-}
-
 async fn check_nested_location(
 	location_path: impl AsRef<Path>,
 	db: &PrismaClient,
@@ -1049,8 +1008,8 @@ pub async fn create_file_path(
 		..
 	}: IsolatedFilePathDataParts<'_>,
 	cas_id: Option<String>,
-	metadata: sd_file_path_helper::FilePathMetadata,
-) -> Result<file_path::Data, sd_file_path_helper::FilePathError> {
+	metadata: sd_core_file_path_helper::FilePathMetadata,
+) -> Result<file_path::Data, sd_core_file_path_helper::FilePathError> {
 	use sd_utils::db::inode_to_db;
 
 	use sd_prisma::prisma;
@@ -1063,7 +1022,7 @@ pub async fn create_file_path(
 		.select(location::select!({ id pub_id }))
 		.exec()
 		.await?
-		.ok_or(sd_file_path_helper::FilePathError::LocationNotFound(
+		.ok_or(sd_core_file_path_helper::FilePathError::LocationNotFound(
 			location_id,
 		))?;
 

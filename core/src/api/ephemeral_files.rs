@@ -1,5 +1,5 @@
 use crate::{
-	api::utils::library,
+	api::{files::create_file, utils::library},
 	invalidate_query,
 	library::Library,
 	object::{
@@ -10,8 +10,9 @@ use crate::{
 	},
 };
 
+use sd_core_file_path_helper::IsolatedFilePathData;
+
 use sd_file_ext::extensions::ImageExtension;
-use sd_file_path_helper::IsolatedFilePathData;
 use sd_media_metadata::MediaMetadata;
 use sd_utils::error::FileIOError;
 
@@ -26,6 +27,8 @@ use specta::Type;
 use tokio::{fs, io};
 use tokio_stream::{wrappers::ReadDirStream, StreamExt};
 use tracing::{error, warn};
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
+use trash;
 
 use super::{
 	files::{create_directory, FromPattern},
@@ -33,6 +36,15 @@ use super::{
 };
 
 const UNTITLED_FOLDER_STR: &str = "Untitled Folder";
+const UNTITLED_FILE_STR: &str = "Untitled";
+const UNTITLED_TEXT_FILE_STR: &str = "Untitled.txt";
+
+#[derive(Type, Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum EphemeralFileCreateContextTypes {
+	Empty,
+	Text,
+}
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -80,6 +92,33 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				},
 			)
 		})
+		.procedure("createFile", {
+			#[derive(Type, Deserialize)]
+			pub struct CreateEphemeralFileArgs {
+				pub path: PathBuf,
+				pub context: EphemeralFileCreateContextTypes,
+				pub name: Option<String>,
+			}
+			R.with2(library()).mutation(
+				|(_, library),
+				 CreateEphemeralFileArgs {
+				     mut path,
+				     name,
+				     context,
+				 }: CreateEphemeralFileArgs| async move {
+					match context {
+						EphemeralFileCreateContextTypes::Empty => {
+							path.push(name.as_deref().unwrap_or(UNTITLED_FILE_STR));
+						}
+						EphemeralFileCreateContextTypes::Text => {
+							path.push(name.as_deref().unwrap_or(UNTITLED_TEXT_FILE_STR));
+						}
+					}
+
+					create_file(path, &library).await
+				},
+			)
+		})
 		.procedure("deleteFiles", {
 			R.with2(library())
 				.mutation(|(_, library), paths: Vec<PathBuf>| async move {
@@ -93,6 +132,43 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									fs::remove_file(&path).await
 								}
 								.map_err(|e| FileIOError::from((path, e, "Failed to delete file"))),
+								Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+								Err(e) => Err(FileIOError::from((
+									path,
+									e,
+									"Failed to get file metadata for deletion",
+								))),
+							}
+						})
+						.collect::<Vec<_>>()
+						.try_join()
+						.await?;
+
+					invalidate_query!(library, "search.ephemeralPaths");
+
+					Ok(())
+				})
+		})
+		.procedure("moveToTrash", {
+			R.with2(library())
+				.mutation(|(_, library), paths: Vec<PathBuf>| async move {
+					if cfg!(target_os = "ios") || cfg!(target_os = "android") {
+						return Err(rspc::Error::new(
+							ErrorCode::MethodNotSupported,
+							"Moving to trash is not supported on this platform".to_string(),
+						));
+					}
+
+					paths
+						.into_iter()
+						.map(|path| async move {
+							match fs::metadata(&path).await {
+								Ok(_) => {
+									#[cfg(not(any(target_os = "ios", target_os = "android")))]
+									trash::delete(&path).unwrap();
+
+									Ok(())
+								}
 								Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
 								Err(e) => Err(FileIOError::from((
 									path,

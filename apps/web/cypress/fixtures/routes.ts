@@ -5,4 +5,5 @@ export const onboardingLocationRegex = /\/onboarding\/locations$/;
 export const onboardingPrivacyRegex = /\/onboarding\/privacy$/;
 export const librarySettingsRegex = /\/settings\/library\/general$/;
 export const onboardingLibraryRegex = /\/onboarding\/new-library$/;
+export const onboardingCreatingLibraryRegex = /\/onboarding\/creating-library$/;
 export const locationRegex = /\/location\/1$/;

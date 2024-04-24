@@ -1,28 +1,28 @@
 import { DotsThreeOutlineVertical } from 'phosphor-react-native';
+import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { ClassInput } from 'twrnc';
 import { Tag } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 
-import { ModalRef } from '../layout/Modal';
 import RightActions from './RightActions';
 
 interface ListTagProps {
 	tag: Tag;
 	tagStyle?: ClassInput;
-	modalRef: React.RefObject<ModalRef>;
 }
 
-const ListTag = ({ tag, tagStyle, modalRef }: ListTagProps) => {
+const ListTag = ({ tag, tagStyle }: ListTagProps) => {
+	const swipeRef = useRef<Swipeable>(null);
+
 	return (
 		<Swipeable
+			ref={swipeRef}
 			containerStyle={tw`rounded-md border border-app-cardborder bg-app-card p-3`}
 			enableTrackpadTwoFingerGesture
 			renderRightActions={(progress, _, swipeable) => (
-				<>
-					<RightActions progress={progress} swipeable={swipeable} tag={tag} />
-				</>
+				<RightActions progress={progress} swipeable={swipeable} tag={tag} />
 			)}
 		>
 			<View style={twStyle('h-auto flex-row items-center justify-between', tagStyle)}>
@@ -39,7 +39,7 @@ const ListTag = ({ tag, tagStyle, modalRef }: ListTagProps) => {
 						{tag.name}
 					</Text>
 				</View>
-				<Pressable hitSlop={24} onPress={() => modalRef.current?.present()}>
+				<Pressable onPress={() => swipeRef.current?.openRight()}>
 					<DotsThreeOutlineVertical
 						weight="fill"
 						size={20}

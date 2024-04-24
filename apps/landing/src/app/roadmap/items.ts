@@ -179,6 +179,11 @@ export const items = [
 			'Automatically save versions of files when they change, with a timeline view and the ability to restore.'
 	},
 	{
+		title: 'Local Server Protection',
+		description:
+			"Protect local instances of Spacedrive's server from other clients on your network."
+	},
+	{
 		when: '0.5 Beta',
 		subtext: 'June 2024',
 		title: 'Encrypted vault(s)',

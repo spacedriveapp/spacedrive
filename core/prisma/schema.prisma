@@ -20,7 +20,7 @@ model CRDTOperation {
   id Int @id @default(autoincrement())
 
   timestamp BigInt
-  model     String
+  model     Int
 
   record_id Bytes
   // Enum: ??
@@ -31,6 +31,23 @@ model CRDTOperation {
   instance    Instance @relation(fields: [instance_id], references: [id])
 
   @@map("crdt_operation")
+}
+
+model CloudCRDTOperation {
+  id Int @id @default(autoincrement())
+
+  timestamp BigInt
+  model     Int
+
+  record_id Bytes
+  // Enum: ??
+  kind      String
+  data      Bytes
+
+  instance_id Int
+  instance    Instance @relation(fields: [instance_id], references: [id])
+
+  @@map("cloud_crdt_operation")
 }
 
 /// @deprecated: This model has to exist solely for backwards compatibility.
@@ -46,7 +63,6 @@ model Node {
   @@map("node")
 }
 
-/// @local(id: pub_id)
 // represents a single `.db` file (SQLite DB) that is paired to the current library.
 // A `LibraryInstance` is always owned by a single `Node` but it's possible for that node to change (or two to be owned by a single node).
 model Instance {
@@ -103,7 +119,7 @@ model Volume {
   @@map("volume")
 }
 
-/// @shared(id: pub_id)
+/// @shared(id: pub_id, modelId: 1)
 model Location {
   id     Int   @id @default(autoincrement())
   pub_id Bytes @unique
@@ -119,6 +135,8 @@ model Location {
   hidden                 Boolean?
   date_created           DateTime?
 
+  scan_state Int @default(0) // Enum: sd_core::location::ScanState
+
   /// @local
   // this is just a client side cache which is annoying but oh well (@brendan)
   instance_id Int?
@@ -130,7 +148,7 @@ model Location {
   @@map("location")
 }
 
-/// @shared(id: pub_id)
+/// @shared(id: pub_id, modelId: 2)
 model FilePath {
   id     Int   @id @default(autoincrement())
   pub_id Bytes @unique
@@ -179,7 +197,7 @@ model FilePath {
   @@map("file_path")
 }
 
-/// @shared(id: pub_id)
+/// @shared(id: pub_id, modelId: 3)
 model Object {
   id     Int   @id @default(autoincrement())
   pub_id Bytes @unique
@@ -274,7 +292,7 @@ model Object {
 //     @@map("key")
 // }
 
-/// @shared(id: object)
+/// @shared(id: object, modelId: 4)
 model MediaData {
   id Int @id @default(autoincrement())
 
@@ -307,7 +325,7 @@ model MediaData {
 
 //// Tag ////
 
-/// @shared(id: pub_id)
+/// @shared(id: pub_id, modelId: 5)
 model Tag {
   id     Int     @id @default(autoincrement())
   pub_id Bytes   @unique
@@ -324,7 +342,7 @@ model Tag {
   @@map("tag")
 }
 
-/// @relation(item: object, group: tag)
+/// @relation(item: object, group: tag, modelId: 6)
 model TagOnObject {
   object_id Int
   object    Object @relation(fields: [object_id], references: [id], onDelete: Restrict)
@@ -340,7 +358,7 @@ model TagOnObject {
 
 //// Label ////
 
-/// @shared(id: name)
+/// @shared(id: name, modelId: 7)
 model Label {
   id            Int       @id @default(autoincrement())
   name          String    @unique
@@ -352,7 +370,7 @@ model Label {
   @@map("label")
 }
 
-/// @relation(item: object, group: label)
+/// @relation(item: object, group: label, modelId: 8)
 model LabelOnObject {
   date_created DateTime @default(now())
 
@@ -404,9 +422,11 @@ model Job {
   status Int? // 0 = Queued
 
   // List of errors, separated by "\n\n" in case of failed jobs or completed with errors
-  errors_text String?
+  errors_text         String? // Deprecated, use `critical_error` or `non_critical_errors` instead
+  critical_error      String? // Serialized error field with info about the failed job after completion
+  non_critical_errors Bytes? // Serialized non-critical errors field with info about the completed job with errors after completion
 
-  data     Bytes? // Serialized data to be used on pause/resume
+  data     Bytes? // Deprecated
   metadata Bytes? // Serialized metadata field with info about the job after completion
 
   parent_id Bytes?
@@ -495,7 +515,7 @@ model IndexerRulesInLocation {
   @@map("indexer_rule_in_location")
 }
 
-/// @shared(id: key)
+/// @shared(id: key, modelId: 9)
 model Preference {
   key   String @id
   value Bytes?
@@ -513,11 +533,13 @@ model Notification {
   @@map("notification")
 }
 
-/// @shared(id: pub_id)
+/// @shared(id: pub_id, modelId: 10)
 model SavedSearch {
   id     Int   @id @default(autoincrement())
   pub_id Bytes @unique
 
+  // enum: crate::api::search::saved::SearchTarget
+  target  String?
   search  String?
   filters String?
 
@@ -530,22 +552,4 @@ model SavedSearch {
   date_modified DateTime?
 
   @@map("saved_search")
-}
-
-/// @local(id: id)
-model CloudCRDTOperation {
-  id Int @id @default(autoincrement())
-
-  timestamp BigInt
-  model     String
-
-  record_id Bytes
-  // Enum: ??
-  kind      String
-  data      Bytes
-
-  instance_id Int
-  instance    Instance @relation(fields: [instance_id], references: [id])
-
-  @@map("cloud_crdt_operation")
 }

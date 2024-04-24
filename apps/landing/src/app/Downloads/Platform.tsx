@@ -36,7 +36,7 @@ export const platforms = {
 		name: 'Linux',
 		os: 'linux',
 		icon: LinuxLogo,
-		version: 'AppImage',
+		version: 'deb',
 		links: [{ name: 'x86_64', arch: 'x86_64' }]
 	},
 	docker: { name: 'Docker', icon: Docker },

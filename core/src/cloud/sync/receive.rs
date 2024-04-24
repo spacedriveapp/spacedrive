@@ -1,12 +1,10 @@
 use crate::{library::Libraries, Node};
 
-use super::{err_break, CompressedCRDTOperations};
 use sd_cloud_api::RequestConfigProvider;
 use sd_p2p::RemoteIdentity;
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
 use sd_sync::CRDTOperation;
 use sd_utils::uuid_to_bytes;
-use tracing::{debug, info};
 
 use std::{
 	collections::{hash_map::Entry, HashMap},
@@ -21,7 +19,10 @@ use base64::prelude::*;
 use chrono::Utc;
 use serde_json::to_vec;
 use tokio::{sync::Notify, time::sleep};
+use tracing::{debug, info};
 use uuid::Uuid;
+
+use super::{err_break, CompressedCRDTOperations};
 
 // Responsible for downloading sync operations from the cloud to be processed by the ingester
 
@@ -42,7 +43,7 @@ pub async fn run_actor(
 		active_notify.notify_waiters();
 
 		loop {
-			// We need to know the lastest operations we should be retrieving
+			// We need to know the latest operations we should be retrieving
 			let mut cloud_timestamps = {
 				let timestamps = sync.timestamps.read().await;
 
@@ -181,10 +182,14 @@ pub async fn run_actor(
 				let operations = compressed_operations.into_ops();
 
 				debug!(
-					"Processing collection. Instance {}, Start {}, End {}",
+					"Processing collection. Instance {}, Start {:?}, End {:?}",
 					&collection.instance_uuid,
-					operations.first().unwrap().timestamp.as_u64(),
-					operations.last().unwrap().timestamp.as_u64(),
+					operations
+						.first()
+						.map(|operation| operation.timestamp.as_u64()),
+					operations
+						.last()
+						.map(|operation| operation.timestamp.as_u64()),
 				);
 
 				err_break!(write_cloud_ops_to_db(operations, &db).await);
@@ -227,12 +232,13 @@ fn crdt_op_db(op: &CRDTOperation) -> cloud_crdt_operation::Create {
 		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
 		kind: op.data.as_kind().to_string(),
 		data: to_vec(&op.data).expect("unable to serialize data"),
-		model: op.model.to_string(),
+		model: op.model as i32,
 		record_id: rmp_serde::to_vec(&op.record_id).expect("unable to serialize record id"),
 		_params: vec![],
 	}
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn upsert_instance(
 	library_id: Uuid,
 	db: &PrismaClient,

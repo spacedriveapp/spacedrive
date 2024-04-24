@@ -5,6 +5,7 @@ import { ExplorerItem } from '@sd/client';
 
 import { useExplorerContext } from '../../../Context';
 import { explorerStore } from '../../../store';
+import { useExplorerOperatingSystem } from '../../../useExplorerOperatingSystem';
 import { useExplorerViewContext } from '../../Context';
 import { DragSelectContext } from './context';
 import { useSelectedTargets } from './useSelectedTargets';
@@ -14,7 +15,6 @@ const CHROME_REGEX = /Chrome/;
 
 interface Props extends PropsWithChildren {
 	grid: ReturnType<typeof useGrid<string, ExplorerItem | undefined>>;
-	onActiveItemChange: (item: ExplorerItem | null) => void;
 }
 
 export interface Drag {
@@ -24,8 +24,12 @@ export interface Drag {
 	endRow: number;
 }
 
-export const DragSelect = ({ grid, children, onActiveItemChange }: Props) => {
+export const DragSelect = ({ grid, children }: Props) => {
 	const isChrome = CHROME_REGEX.test(navigator.userAgent);
+
+	const { explorerOperatingSystem, matchingOperatingSystem } = useExplorerOperatingSystem();
+
+	const isWindows = explorerOperatingSystem === 'windows' && matchingOperatingSystem;
 
 	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
@@ -81,21 +85,38 @@ export const DragSelect = ({ grid, children, onActiveItemChange }: Props) => {
 
 	function handleDragEnd() {
 		explorerStore.isDragSelecting = false;
+
+		const dragState = drag.current;
 		drag.current = null;
 
-		// Set active item to the first selected target
-		// Targets are already sorted
+		// Determine if the drag event was a click
+		if (
+			dragState?.startColumn === dragState?.endColumn &&
+			dragState?.startRow === dragState?.endRow
+		) {
+			return;
+		}
+
+		// Update active item to the first selected target(first grid item in DOM).
 		const target = selecto.current?.getSelectedTargets()?.[0];
-		const item = target && getGridItem(target)?.data;
-		if (item) onActiveItemChange(item);
+
+		const item = target && getGridItem(target);
+		if (!item) return;
+
+		explorerView.updateActiveItem(item.id as string, {
+			updateFirstItem: true
+		});
 	}
 
 	function handleSelect(e: SelectoEvents['select']) {
 		const inputEvent = e.inputEvent as MouseEvent;
 
+		const continueSelection =
+			inputEvent.shiftKey || (isWindows ? inputEvent.ctrlKey : inputEvent.metaKey);
+
 		// Handle select on mouse down
 		if (inputEvent.type === 'mousedown') {
-			const element = inputEvent.shiftKey ? e.added[0] || e.removed[0] : e.selected[0];
+			const element = continueSelection ? e.added[0] || e.removed[0] : e.selected[0];
 			if (!element) return;
 
 			const item = getGridItem(element);
@@ -108,8 +129,11 @@ export const DragSelect = ({ grid, children, onActiveItemChange }: Props) => {
 				endRow: item.row
 			};
 
-			if (!inputEvent.shiftKey) {
-				if (explorer.selectedItems.has(item.data)) {
+			if (!continueSelection) {
+				if (
+					explorerOperatingSystem !== 'windows' &&
+					explorer.selectedItems.has(item.data)
+				) {
 					// Keep previous selection as selecto will reset it otherwise
 					selecto.current?.setSelectedTargets(e.beforeSelected);
 				} else {
@@ -119,11 +143,31 @@ export const DragSelect = ({ grid, children, onActiveItemChange }: Props) => {
 					]);
 				}
 
+				explorerView.updateActiveItem(item.id as string, { updateFirstItem: true });
 				return;
 			}
 
-			if (e.added[0]) explorer.addSelectedItem(item.data);
-			else explorer.removeSelectedItem(item.data);
+			if (explorerOperatingSystem === 'windows' && inputEvent.shiftKey) {
+				explorerView.handleWindowsGridShiftSelection(item.index);
+				return;
+			}
+
+			if (e.added[0]) {
+				explorer.addSelectedItem(item.data);
+				explorerView.updateActiveItem(item.id as string, { updateFirstItem: true });
+				return;
+			}
+
+			explorer.removeSelectedItem(item.data);
+
+			explorerView.updateActiveItem(
+				explorerOperatingSystem === 'windows' ? (item.id as string) : null,
+				{
+					updateFirstItem: true
+				}
+			);
+
+			return;
 		}
 
 		// Handle select by drag
@@ -387,7 +431,7 @@ export const DragSelect = ({ grid, children, onActiveItemChange }: Props) => {
 						addedRows.add(item.row);
 					}
 
-					if (inputEvent.shiftKey) {
+					if (continueSelection) {
 						if (explorer.selectedItems.has(item.data)) {
 							explorer.removeSelectedItem(item.data);
 						} else {
@@ -533,7 +577,7 @@ export const DragSelect = ({ grid, children, onActiveItemChange }: Props) => {
 					throttleTime: isChrome ? 30 : 10000
 				}}
 				selectableTargets={[`[${SELECTABLE_DATA_ATTRIBUTE}]`]}
-				toggleContinueSelect="shift"
+				toggleContinueSelect={[['shift'], [isWindows ? 'ctrl' : 'meta']]}
 				hitRate={0}
 				onDrag={handleDrag}
 				onDragStart={handleDragStart}

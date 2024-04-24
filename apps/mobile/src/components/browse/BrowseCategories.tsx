@@ -18,7 +18,7 @@ import { Button } from '../primitive/Button';
 import LibraryItem from './LibraryItem';
 
 const iconStyle = tw`text-ink-faint`;
-const iconSize = 28;
+const iconSize = 24;
 export const CATEGORIES_LIST = [
 	{ name: 'Albums', icon: <Images size={iconSize} style={iconStyle} /> },
 	{ name: 'Places', icon: <MapPin size={iconSize} style={iconStyle} /> },
@@ -26,7 +26,7 @@ export const CATEGORIES_LIST = [
 	{ name: 'Projects', icon: <Briefcase size={iconSize} style={iconStyle} /> },
 	{ name: 'Favorites', icon: <Heart size={iconSize} style={iconStyle} /> },
 	{ name: 'Recents', icon: <Clock size={iconSize} style={iconStyle} /> },
-	{ name: 'Labels', icon: <Tag size={iconSize} style={iconStyle} /> },
+	// { name: 'Labels', icon: <Tag size={iconSize} style={iconStyle} /> },
 	{ name: 'Imports', icon: <ArchiveBox size={iconSize} style={iconStyle} /> }
 ];
 const BrowseCategories = () => {

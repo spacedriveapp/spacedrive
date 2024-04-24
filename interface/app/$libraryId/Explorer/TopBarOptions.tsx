@@ -5,14 +5,12 @@ import {
 	Rows,
 	SidebarSimple,
 	SlidersHorizontal,
-	SquaresFour,
-	Tag
+	SquaresFour
 } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useMemo } from 'react';
 import { useDocumentEventListener } from 'rooks';
 import { ExplorerLayout, useSelector } from '@sd/client';
-import { toast } from '@sd/ui';
 import { useKeyMatcher, useLocale } from '~/hooks';
 
 import { KeyManager } from '../KeyManager';
@@ -49,7 +47,7 @@ export const useExplorerTopBarOptions = () => {
 
 					const option = {
 						layout,
-						toolTipLabel: t(`${layout} View`),
+						toolTipLabel: t(`${layout}_view`),
 						icon: <Icon className={TOP_BAR_ICON_STYLE} />,
 						keybinds: [controlIcon, (i + 1).toString()],
 						topBarActive:
@@ -74,14 +72,14 @@ export const useExplorerTopBarOptions = () => {
 
 	const controlOptions: ToolOption[] = [
 		{
-			toolTipLabel: 'Explorer display',
+			toolTipLabel: t('explorer_settings'),
 			icon: <SlidersHorizontal className={TOP_BAR_ICON_STYLE} />,
 			popOverComponent: <OptionsPanel />,
 			individual: true,
 			showAtResolution: 'sm:flex'
 		},
 		{
-			toolTipLabel: 'Show Inspector',
+			toolTipLabel: t('show_inspector'),
 			keybinds: [controlIcon, 'I'],
 			onClick: () => {
 				explorerStore.showInspector = !showInspector;
@@ -120,24 +118,24 @@ export const useExplorerTopBarOptions = () => {
 			showAtResolution: 'xl:flex'
 		},
 		{
-			toolTipLabel: 'Key Manager',
+			toolTipLabel: t('key_manager'),
 			icon: <Key className={TOP_BAR_ICON_STYLE} />,
 			popOverComponent: <KeyManager />,
 			individual: true,
 			showAtResolution: 'xl:flex'
-		},
-		{
-			toolTipLabel: 'Tag Assign Mode',
-			icon: (
-				<Tag weight={tagAssignMode ? 'fill' : 'regular'} className={TOP_BAR_ICON_STYLE} />
-			),
-			// TODO: Assign tag mode is not yet implemented!
-			// onClick: () => (explorerStore.tagAssignMode = !explorerStore.tagAssignMode),
-			onClick: () => toast.info('Coming soon!'),
-			topBarActive: tagAssignMode,
-			individual: true,
-			showAtResolution: 'xl:flex'
 		}
+		// {
+		// 	toolTipLabel: 'Tag Assign Mode',
+		// 	icon: (
+		// 		<Tag weight={tagAssignMode ? 'fill' : 'regular'} className={TOP_BAR_ICON_STYLE} />
+		// 	),
+		// 	// TODO: Assign tag mode is not yet implemented!
+		// 	// onClick: () => (explorerStore.tagAssignMode = !explorerStore.tagAssignMode),
+		// 	onClick: () => toast.info('Coming soon!'),
+		// 	topBarActive: tagAssignMode,
+		// 	individual: true,
+		// 	showAtResolution: 'xl:flex'
+		// }
 	] satisfies ToolOption[];
 
 	return {

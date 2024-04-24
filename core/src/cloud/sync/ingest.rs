@@ -1,3 +1,4 @@
+use sd_sync::CompressedCRDTOperations;
 use std::sync::{
 	atomic::{AtomicBool, Ordering},
 	Arc,
@@ -56,10 +57,10 @@ pub async fn run_actor(
 					}
 
 					debug!(
-						"Sending {} messages ({} to {}) to ingester",
+						"Sending {} messages ({:?} to {:?}) to ingester",
 						ops.len(),
-						ops.first().unwrap().timestamp.as_u64(),
-						ops.last().unwrap().timestamp.as_u64(),
+						ops.first().map(|operation| operation.timestamp.as_u64()),
+						ops.last().map(|operation| operation.timestamp.as_u64()),
 					);
 
 					err_break!(
@@ -68,7 +69,7 @@ pub async fn run_actor(
 							.send(sd_core_sync::Event::Messages(MessagesEvent {
 								instance_id: sync.instance,
 								has_more: ops.len() == OPS_PER_REQUEST as usize,
-								messages: ops,
+								messages: CompressedCRDTOperations::new(ops),
 							}))
 							.await
 					);

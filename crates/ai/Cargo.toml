@@ -10,11 +10,15 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-sd-prisma = { path = "../prisma" }
+# Inner Core Sub-crates
+sd-core-file-path-helper = { path = "../../core/crates/file-path-helper" }
+sd-core-prisma-helpers = { path = "../../core/crates/prisma-helpers" }
 sd-core-sync = { path = "../../core/crates/sync" }
+
+# Spacedrive Sub-crates
+sd-prisma = { path = "../prisma" }
 sd-sync = { path = "../sync" }
 sd-utils = { path = "../utils" }
-sd-file-path-helper = { path = "../file-path-helper" }
 
 async-channel = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }

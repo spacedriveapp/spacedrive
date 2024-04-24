@@ -1,6 +1,6 @@
 [package]
 name = "sd-desktop"
-version = "0.2.8"
+version = "0.2.12"
 description = "The universal file manager."
 authors = ["Spacedrive Technology Inc <support@spacedrive.com>"]
 default-run = "sd-desktop"
@@ -9,6 +9,7 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
+# Spacedrive Sub-crates
 sd-core = { path = "../../../core", features = [
 	"ffmpeg",
 	"heif",
@@ -33,20 +34,19 @@ thiserror.workspace = true
 
 opener = { version = "0.6.1", features = ["reveal"] }
 tauri = { version = "=1.5.3", features = [
-	"macos-private-api",
-	"path-all",
-	"protocol-all",
-	"os-all",
-	"shell-all",
-	"dialog-all",
-	"linux-protocol-headers",
-	"updater",
-	"window-all",
-	"native-tls-vendored",
-	"tracing",
+    "macos-private-api",
+    "path-all",
+    "protocol-all",
+    "os-all",
+    "shell-all",
+    "dialog-all",
+    "linux-protocol-headers",
+    "updater",
+    "window-all",
+    "native-tls-vendored",
+    "tracing",
 ] }
 directories = "5.0.1"
-tauri-plugin-window-state = "0.1.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 sd-desktop-linux = { path = "../crates/linux" }
@@ -63,6 +63,6 @@ webview2-com = "0.19.1"
 tauri-build = "1.5.0"
 
 [features]
-default = ["ai-models", "custom-protocol"]
+default = ["custom-protocol"]
 ai-models = ["sd-core/ai"]
 custom-protocol = ["tauri/custom-protocol"]

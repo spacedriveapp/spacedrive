@@ -1,4 +1,5 @@
-use sd_file_path_helper::FilePathError;
+use sd_core_file_path_helper::FilePathError;
+
 use sd_prisma::prisma::location;
 use sd_utils::{
 	db::MissingFieldError,
@@ -75,6 +76,8 @@ pub enum LocationError {
 	MissingPath(location::id::Type),
 	#[error("missing-field: {0}")]
 	MissingField(#[from] MissingFieldError),
+	#[error("invalid location scan state value: {0}")]
+	InvalidScanStateValue(i32),
 }
 
 impl From<LocationError> for rspc::Error {
