@@ -23,7 +23,6 @@ const Fade = ({
 	height,
 	bottomFadeStyle,
 	topFadeStyle,
-	noConditions = false,
 	screenFade = false,
 	fadeSides = 'left-right',
 	orientation = 'horizontal'
