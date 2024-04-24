@@ -1,11 +1,9 @@
-import { ArrowRight, EjectSimple, Trash } from '@phosphor-icons/react';
+import { ArrowSquareOut, Trash } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { PropsWithChildren, useMemo } from 'react';
-import { useBridgeQuery, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { PropsWithChildren } from 'react';
 import { Button, toast, tw } from '@sd/ui';
 import { Icon, IconName } from '~/components';
 import { useLocale, useOperatingSystem } from '~/hooks';
-import { useHomeDir } from '~/hooks/useHomeDir';
 import { usePlatform } from '~/util/Platform';
 
 import { useExplorerDroppable } from '../../../../Explorer/useExplorerDroppable';
@@ -18,13 +16,9 @@ const Name = tw.span`truncate`;
 
 const OpenToButton = ({ className }: { className?: string; what_is_opening?: string }) => (
 	<Button className={clsx('absolute right-[2px] !p-[5px]', className)} variant="subtle">
-		<ArrowRight size={18} className="size-3 opacity-70" />
+		<ArrowSquareOut size={18} className="size-3 opacity-70" />
 	</Button>
 );
-
-const SidebarIcon = ({ name }: { name: IconName }) => {
-	return <Icon name={name} size={20} className="mr-1" />;
-};
 
 export default function ToolsSection() {
 	const platform = usePlatform();
