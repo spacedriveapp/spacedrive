@@ -16,7 +16,7 @@ use crate::{
 use opendal::{services::Fs, Operator};
 
 use sd_cache::{CacheNode, Model, Normalise, Reference};
-use sd_core_indexer_rules::seed::{no_hidden, no_os_protected};
+use sd_core_indexer_rules::seed::no_hidden;
 use sd_core_indexer_rules::IndexerRule;
 use sd_core_prisma_helpers::{file_path_with_object, object_with_file_paths};
 use sd_file_ext::kind::ObjectKind;
@@ -63,32 +63,16 @@ pub enum SearchFilterArgs {
 }
 
 impl SearchFilterArgs {
-	async fn into_params<T>(
+	async fn into_params(
 		self,
 		db: &PrismaClient,
-		file_path: fn(Vec<prisma::file_path::WhereParam>) -> Vec<T>,
-		object: fn(Vec<prisma::object::WhereParam>) -> Vec<T>,
-	) -> Result<Vec<T>, rspc::Error> {
+		file_path: &mut Vec<prisma::file_path::WhereParam>,
+		object: &mut Vec<prisma::object::WhereParam>,
+	) -> Result<(), rspc::Error> {
 		Ok(match self {
-			Self::FilePath(v) => file_path(v.into_params(db).await?),
-			Self::Object(v) => object(v.into_params()),
+			Self::FilePath(v) => file_path.extend(v.into_params(db).await?),
+			Self::Object(v) => object.extend(v.into_params()),
 		})
-	}
-
-	async fn into_file_path_params(
-		self,
-		db: &PrismaClient,
-	) -> Result<Vec<prisma::file_path::WhereParam>, rspc::Error> {
-		self.into_params(db, |v| v, |v| vec![prisma::file_path::object::is(v)])
-			.await
-	}
-
-	async fn into_object_params(
-		self,
-		db: &PrismaClient,
-	) -> Result<Vec<prisma::object::WhereParam>, rspc::Error> {
-		self.into_params(db, |v| vec![prisma::object::file_paths::some(v)], |v| v)
-			.await
 	}
 }
 
@@ -140,7 +124,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					};
 
 					let rules = chain_optional_iter(
-						[IndexerRule::from(no_os_protected())],
+						[],
 						[(!with_hidden_files).then(|| IndexerRule::from(no_hidden()))],
 					);
 
@@ -261,7 +245,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							};
 						}
 
-						if to_generate.len() > 0 {
+						if !to_generate.is_empty() {
 							node.thumbnailer
 								.new_ephemeral_thumbnails_batch(BatchToProcess::new(
 									to_generate,
@@ -303,13 +287,13 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					let Library { db, .. } = library.as_ref();
 
 					let params = {
-						let mut params = Vec::new();
+						let (mut fp, obj) = merge_filters(filters, db).await?;
 
-						for filter in filters {
-							params.extend(filter.into_file_path_params(db).await?);
+						if !obj.is_empty() {
+						    fp.push(prisma::file_path::object::is(obj));
 						}
 
-						params
+						fp
 					};
 
 					let mut query = db.file_path().find_many(params);
@@ -382,13 +366,13 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					Ok(db
 						.file_path()
 						.count({
-							let mut params = Vec::new();
+							let (mut fp, obj) = merge_filters(filters, db).await?;
 
-							for filter in filters {
-								params.extend(filter.into_file_path_params(db).await?);
+							if !obj.is_empty() {
+								fp.push(prisma::file_path::object::is(obj));
 							}
 
-							params
+							fp
 						})
 						.exec()
 						.await? as u32)
@@ -419,13 +403,13 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					let mut query = db
 						.object()
 						.find_many({
-							let mut params = Vec::new();
+							let (fp, mut obj) = merge_filters(filters, db).await?;
 
-							for filter in filters {
-								params.extend(filter.into_object_params(db).await?);
+							if !fp.is_empty() {
+							     obj.push(prisma::object::file_paths::some(fp));
 							}
 
-							params
+							obj
 						})
 						.take(take as i64);
 
@@ -502,17 +486,37 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					Ok(db
 						.object()
 						.count({
-							let mut params = Vec::new();
+							let (fp, mut obj) = merge_filters(filters, db).await?;
 
-							for filter in filters {
-								params.extend(filter.into_object_params(db).await?);
+							if !fp.is_empty() {
+								obj.push(prisma::object::file_paths::some(fp));
 							}
 
-							params
+							obj
 						})
 						.exec()
 						.await? as u32)
 				})
 		})
 		.merge("saved.", saved::mount())
+}
+
+async fn merge_filters(
+	filters: Vec<SearchFilterArgs>,
+	db: &PrismaClient,
+) -> Result<
+	(
+		Vec<prisma::file_path::WhereParam>,
+		Vec<prisma::object::WhereParam>,
+	),
+	rspc::Error,
+> {
+	let mut obj = vec![];
+	let mut fp = vec![];
+
+	for filter in filters {
+		filter.into_params(db, &mut fp, &mut obj).await?;
+	}
+
+	Ok((fp, obj))
 }

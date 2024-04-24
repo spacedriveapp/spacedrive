@@ -61,6 +61,26 @@ const initialState: State = {
 	disableActionButtons: true
 };
 
+// Utility function to safely update filter arrays or objects
+function updateArrayOrObject<T>(
+	array: T[],
+	item: any,
+	filterByKey: string = 'id',
+	isObject: boolean = false
+): T[] {
+	if (isObject) {
+		const index = (array as any).findIndex((i: any) => i.id === item[filterByKey]);
+		if (index >= 0) {
+			return array.filter((_, idx) => idx !== index);
+		}
+	} else {
+		if (array.includes(item)) {
+			return array.filter((i) => i !== item);
+		}
+	}
+	return [...array, item];
+}
+
 const searchStore = proxy<
 	State & {
 		updateFilters: <K extends keyof State['filters']>(
@@ -146,30 +166,7 @@ const searchStore = proxy<
 	}
 });
 
-export function useSearchStore() {
-	return useSnapshot(searchStore);
-}
-
-export function getSearchStore() {
-	return searchStore;
-}
-
-// Utility function to safely update filter arrays or objects
-function updateArrayOrObject<T>(
-	array: T[],
-	item: any,
-	filterByKey: string = 'id',
-	isObject: boolean = false
-): T[] {
-	if (isObject) {
-		const index = (array as any).findIndex((i: any) => i.id === item[filterByKey]);
-		if (index >= 0) {
-			return array.filter((_, idx) => idx !== index);
-		}
-	} else {
-		if (array.includes(item)) {
-			return array.filter((i) => i !== item);
-		}
-	}
-	return [...array, item];
-}
+/** for reading */
+export const useSearchStore = () => useSnapshot(searchStore);
+/** for writing */
+export const getSearchStore = () => searchStore;

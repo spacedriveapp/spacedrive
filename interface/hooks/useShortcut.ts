@@ -157,7 +157,11 @@ export const shortcutsStore = valtioPersist(
 	shortcuts as Record<Shortcuts, Shortcut>
 );
 
-export const useShortcut = (shortcut: Shortcuts, func: (e: KeyboardEvent) => void) => {
+export const useShortcut = (
+	shortcut: Shortcuts,
+	func: (e: KeyboardEvent) => void,
+	options: Omit<Parameters<typeof useKeys>[2], 'when'> & { disabled?: boolean } = {}
+) => {
 	const os = useOperatingSystem(true);
 	const shortcuts = useSnapshot(shortcutsStore);
 	const { visible } = useRoutingContext();
@@ -175,7 +179,8 @@ export const useShortcut = (shortcut: Shortcuts, func: (e: KeyboardEvent) => voi
 			return func(e);
 		},
 		{
-			when: visible
+			...options,
+			when: visible && !options.disabled
 		}
 	);
 };

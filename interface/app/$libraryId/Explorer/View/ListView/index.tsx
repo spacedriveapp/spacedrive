@@ -15,7 +15,6 @@ import { isNonEmptyObject } from '~/util';
 import { useLayoutContext } from '../../../Layout/Context';
 import { useExplorerContext } from '../../Context';
 import { getQuickPreviewStore, useQuickPreviewStore } from '../../QuickPreview/store';
-import { explorerStore } from '../../store';
 import { uniqueId } from '../../util';
 import { useExplorerViewContext } from '../Context';
 import { useDragScrollable } from '../useDragScrollable';
@@ -516,6 +515,10 @@ export const ListView = memo(() => {
 	useEffect(() => setRanges([]), [explorerSettings.order]);
 
 	useEffect(() => {
+		if (explorer.selectedItems.size === 0) setRanges([]);
+	}, [explorer.selectedItems]);
+
+	useEffect(() => {
 		// Reset icon size if it's not a valid size
 		if (!LIST_VIEW_ICON_SIZES[explorerSettings.listViewIconSize]) {
 			explorer.settingsStore.listViewIconSize = DEFAULT_LIST_VIEW_ICON_SIZE;
@@ -653,13 +656,6 @@ export const ListView = memo(() => {
 		};
 	}, [sized, isLeftMouseDown, quickPreview.open]);
 
-	useShortcut('explorerEscape', () => {
-		if (!explorerView.selectable || explorer.selectedItems.size === 0) return;
-		if (explorerStore.isCMDPOpen) return;
-		explorer.resetSelectedItems([]);
-		setRanges([]);
-	});
-
 	useShortcut('explorerUp', (e) => {
 		keyboardHandler(e, 'ArrowUp');
 	});
@@ -735,6 +731,31 @@ export const ListView = memo(() => {
 
 	// Set list offset
 	useLayoutEffect(() => setListOffset(tableRef.current?.offsetTop ?? 0), []);
+
+	// Handle active item selection
+	// TODO: This is a temporary solution
+	useEffect(() => {
+		return () => {
+			const firstRange = getRangeByIndex(0);
+			if (!firstRange) return;
+
+			const lastRange = getRangeByIndex(ranges.length - 1);
+			if (!lastRange) return;
+
+			const firstItem = firstRange.start.original;
+			const lastItem = lastRange.end.original;
+
+			explorerView.updateFirstActiveItem(explorer.getItemUniqueId(firstItem));
+			explorerView.updateActiveItem(explorer.getItemUniqueId(lastItem));
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [
+		ranges,
+		getRangeByIndex,
+		explorerView.updateFirstActiveItem,
+		explorerView.updateActiveItem,
+		explorer.getItemUniqueId
+	]);
 
 	return (
 		<TableContext.Provider value={{ columnSizing }}>

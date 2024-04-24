@@ -3,14 +3,15 @@ import { proxy, ref, useSnapshot } from 'valtio';
 import { ExplorerItem } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 
-export const actionsModalStore = proxy({
+const store = proxy({
 	modalRef: ref(createRef<ModalRef>()),
 	data: null as ExplorerItem | null,
 	setData: (data: ExplorerItem) => {
-		actionsModalStore.data = data;
+		store.data = data;
 	}
 });
 
-export function useActionsModalStore() {
-	return useSnapshot(actionsModalStore);
-}
+/** for reading */
+export const useActionsModalStore = () => useSnapshot(store);
+/** for writing */
+export const getActionsModalStore = () => store;

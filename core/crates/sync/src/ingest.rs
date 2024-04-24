@@ -1,4 +1,5 @@
 use std::{
+	collections::BTreeMap,
 	ops::Deref,
 	sync::{atomic::Ordering, Arc},
 };
@@ -7,7 +8,10 @@ use sd_prisma::{
 	prisma::{crdt_operation, SortOrder},
 	prisma_sync::ModelSyncData,
 };
-use sd_sync::CRDTOperation;
+use sd_sync::{
+	CRDTOperation, CRDTOperationData, CompressedCRDTOperation, CompressedCRDTOperations,
+	OperationKind,
+};
 use tokio::sync::{mpsc, oneshot, Mutex};
 use tracing::debug;
 use uhlc::{Timestamp, NTP64};
@@ -77,17 +81,16 @@ impl Actor {
 			State::RetrievingMessages => {
 				let (tx, mut rx) = oneshot::channel::<()>();
 
+				let timestamps = self
+					.timestamps
+					.read()
+					.await
+					.iter()
+					.map(|(&k, &v)| (k, v))
+					.collect();
+
 				self.io
-					.send(Request::Messages {
-						timestamps: self
-							.timestamps
-							.read()
-							.await
-							.iter()
-							.map(|(&k, &v)| (k, v))
-							.collect(),
-						tx,
-					})
+					.send(Request::Messages { timestamps, tx })
 					.await
 					.ok();
 
@@ -107,16 +110,20 @@ impl Actor {
 				}
 			}
 			State::Ingesting(event) => {
-				if !event.messages.is_empty() {
-					debug!(
-						"ingesting {} operations: {} to {}",
-						event.messages.len(),
-						event.messages.first().unwrap().timestamp.as_u64(),
-						event.messages.last().unwrap().timestamp.as_u64(),
-					);
+				debug!(
+					"ingesting {} operations: {} to {}",
+					event.messages.len(),
+					event.messages.first().unwrap().3.timestamp.as_u64(),
+					event.messages.last().unwrap().3.timestamp.as_u64(),
+				);
 
-					for op in event.messages {
-						self.receive_crdt_operation(op).await;
+				for (instance, data) in event.messages.0 {
+					for (model, data) in data {
+						for (record, ops) in data {
+							self.receive_crdt_operations(instance, model, record, ops)
+								.await
+								.expect("sync ingest failed");
+						}
 					}
 				}
 
@@ -162,78 +169,249 @@ impl Actor {
 	}
 
 	// where the magic happens
-	async fn receive_crdt_operation(&mut self, op: CRDTOperation) {
+	async fn receive_crdt_operations(
+		&mut self,
+		instance: Uuid,
+		model: u16,
+		record_id: rmpv::Value,
+		mut ops: Vec<CompressedCRDTOperation>,
+	) -> prisma_client_rust::Result<()> {
+		let db = &self.db;
+
+		ops.sort_by_key(|op| op.timestamp);
+
+		let new_timestamp = ops.last().expect("Empty ops array").timestamp;
+
 		// first, we update the HLC's timestamp with the incoming one.
 		// this involves a drift check + sets the last time of the clock
 		self.clock
-			.update_with_timestamp(&Timestamp::new(op.timestamp, op.instance.into()))
+			.update_with_timestamp(&Timestamp::new(new_timestamp, instance.into()))
 			.expect("timestamp has too much drift!");
 
 		// read the timestamp for the operation's instance, or insert one if it doesn't exist
-		let timestamp = self.timestamps.read().await.get(&op.instance).cloned();
+		let timestamp = self.timestamps.read().await.get(&instance).cloned();
 
-		// copy some fields bc rust ownership
-		let op_instance = op.instance;
-		let op_timestamp = op.timestamp;
+		// Delete - ignores all other messages
+		if let Some(delete_op) = ops
+			.iter()
+			.rev()
+			.find(|op| matches!(op.data, sd_sync::CRDTOperationData::Delete))
+		{
+			// deletes are the be all and end all, no need to check anything
 
-		if !self.is_operation_old(&op).await {
-			// actually go and apply the operation in the db
-			self.apply_op(op).await.ok();
+			let op = CRDTOperation {
+				instance,
+				model,
+				record_id,
+				timestamp: delete_op.timestamp,
+				data: CRDTOperationData::Delete,
+			};
 
-			// update the stored timestamp for this instance - will be derived from the crdt operations table on restart
-			self.timestamps.write().await.insert(
-				op_instance,
-				NTP64::max(timestamp.unwrap_or_default(), op_timestamp),
-			);
+			self.db
+				._transaction()
+				.with_timeout(30 * 1000)
+				.run(|db| async move {
+					ModelSyncData::from_op(op.clone())
+						.unwrap()
+						.exec(&db)
+						.await?;
+					write_crdt_op_to_db(&op, &db).await?;
+
+					Ok(())
+				})
+				.await?;
 		}
-	}
+		// Create + > 0 Update - overwrites the create's data with the updates
+		else if let Some(timestamp) = ops.iter().rev().find_map(|op| {
+			if let sd_sync::CRDTOperationData::Create(_) = &op.data {
+				return Some(op.timestamp);
+			}
 
-	async fn apply_op(&mut self, op: CRDTOperation) -> prisma_client_rust::Result<()> {
-		self.db
-			._transaction()
-			.with_timeout(30 * 1000)
-			.run(|db| async move {
-				// apply the operation to the actual record
-				let sync_data = ModelSyncData::from_op(op.clone());
+			None
+		}) {
+			// conflict resolution
+			let delete = db
+				.crdt_operation()
+				.find_first(vec![
+					crdt_operation::model::equals(model as i32),
+					crdt_operation::record_id::equals(rmp_serde::to_vec(&record_id).unwrap()),
+					crdt_operation::kind::equals(OperationKind::Delete.to_string()),
+				])
+				.order_by(crdt_operation::timestamp::order(SortOrder::Desc))
+				.exec()
+				.await?;
 
-				sync_data.unwrap().exec(&db).await?;
+			if delete.is_some() {
+				return Ok(());
+			}
 
-				// write the operation to the operations table
-				write_crdt_op_to_db(&op, &db).await?;
+			let mut data = BTreeMap::new();
 
-				Ok(())
-			})
-			.await?;
+			let mut applied_ops = vec![];
+
+			// search for all Updates until a Create is found
+			for op in ops.iter().rev() {
+				match &op.data {
+					CRDTOperationData::Delete => unreachable!("Delete can't exist here!"),
+					CRDTOperationData::Create(create_data) => {
+						for (k, v) in create_data {
+							data.entry(k).or_insert(v);
+						}
+
+						applied_ops.push(op);
+
+						break;
+					}
+					CRDTOperationData::Update { field, value } => {
+						applied_ops.push(op);
+						data.insert(field, value);
+					}
+				}
+			}
+
+			self.db
+				._transaction()
+				.with_timeout(30 * 1000)
+				.run(|db| async move {
+					// fake a create with a bunch of data rather than individual insert
+					ModelSyncData::from_op(CRDTOperation {
+						instance,
+						model,
+						record_id: record_id.clone(),
+						timestamp,
+						data: CRDTOperationData::Create(
+							data.into_iter()
+								.map(|(k, v)| (k.clone(), v.clone()))
+								.collect(),
+						),
+					})
+					.unwrap()
+					.exec(&db)
+					.await?;
+
+					for op in applied_ops {
+						write_crdt_op_to_db(
+							&CRDTOperation {
+								instance,
+								model,
+								record_id: record_id.clone(),
+								timestamp: op.timestamp,
+								data: op.data.clone(),
+							},
+							&db,
+						)
+						.await?;
+					}
+
+					Ok(())
+				})
+				.await?;
+		}
+		// > 0 Update - batches updates with a fake Create op
+		else {
+			let mut data = BTreeMap::new();
+
+			for op in ops.into_iter().rev() {
+				let CRDTOperationData::Update { field, value } = op.data else {
+					unreachable!("Create + Delete should be filtered out!");
+				};
+
+				data.insert(field, (value, op.timestamp));
+			}
+
+			// conflict resolution
+			let (create, updates) = db
+				._batch((
+					db.crdt_operation()
+						.find_first(vec![
+							crdt_operation::model::equals(model as i32),
+							crdt_operation::record_id::equals(
+								rmp_serde::to_vec(&record_id).unwrap(),
+							),
+							crdt_operation::kind::equals(OperationKind::Create.to_string()),
+						])
+						.order_by(crdt_operation::timestamp::order(SortOrder::Desc)),
+					data.iter()
+						.map(|(k, (_, timestamp))| {
+							db.crdt_operation()
+								.find_first(vec![
+									crdt_operation::timestamp::gt(timestamp.as_u64() as i64),
+									crdt_operation::model::equals(model as i32),
+									crdt_operation::record_id::equals(
+										rmp_serde::to_vec(&record_id).unwrap(),
+									),
+									crdt_operation::kind::equals(
+										OperationKind::Update(k).to_string(),
+									),
+								])
+								.order_by(crdt_operation::timestamp::order(SortOrder::Desc))
+						})
+						.collect::<Vec<_>>(),
+				))
+				.await?;
+
+			if create.is_none() {
+				return Ok(());
+			}
+
+			// does the same thing as processing ops one-by-one and returning early if a newer op was found
+			for (update, key) in updates
+				.into_iter()
+				.zip(data.keys().cloned().collect::<Vec<_>>())
+			{
+				if update.is_some() {
+					data.remove(&key);
+				}
+			}
+
+			self.db
+				._transaction()
+				.with_timeout(30 * 1000)
+				.run(|db| async move {
+					// fake operation to batch them all at once
+					ModelSyncData::from_op(CRDTOperation {
+						instance,
+						model,
+						record_id: record_id.clone(),
+						timestamp: NTP64(0),
+						data: CRDTOperationData::Create(
+							data.iter()
+								.map(|(k, (data, _))| (k.to_string(), data.clone()))
+								.collect(),
+						),
+					})
+					.unwrap()
+					.exec(&db)
+					.await?;
+
+					// need to only apply ops that haven't been filtered out
+					for (field, (value, timestamp)) in data {
+						write_crdt_op_to_db(
+							&CRDTOperation {
+								instance,
+								model,
+								record_id: record_id.clone(),
+								timestamp,
+								data: CRDTOperationData::Update { field, value },
+							},
+							&db,
+						)
+						.await?;
+					}
+
+					Ok(())
+				})
+				.await?;
+		}
+
+		// update the stored timestamp for this instance - will be derived from the crdt operations table on restart
+		let new_ts = NTP64::max(timestamp.unwrap_or_default(), new_timestamp);
+
+		self.timestamps.write().await.insert(instance, new_ts);
 
 		self.io.req_tx.send(Request::Ingested).await.ok();
 
 		Ok(())
-	}
-
-	// determines if an operation is old and shouldn't be applied
-	async fn is_operation_old(&mut self, op: &CRDTOperation) -> bool {
-		let db = &self.db;
-
-		let old_timestamp = {
-			let newer_op = db
-				.crdt_operation()
-				.find_first(vec![
-					crdt_operation::timestamp::gte(op.timestamp.as_u64() as i64),
-					crdt_operation::model::equals(op.model as i32),
-					crdt_operation::record_id::equals(serde_json::to_vec(&op.record_id).unwrap()),
-					crdt_operation::kind::equals(op.kind().to_string()),
-				])
-				.order_by(crdt_operation::timestamp::order(SortOrder::Desc))
-				.exec()
-				.await
-				.unwrap();
-
-			newer_op.map(|newer_op| newer_op.timestamp)
-		};
-
-		old_timestamp
-			.map(|old| old != op.timestamp.as_u64() as i64)
-			.unwrap_or_default()
 	}
 }
 
@@ -253,7 +431,7 @@ pub struct Handler {
 #[derive(Debug)]
 pub struct MessagesEvent {
 	pub instance_id: Uuid,
-	pub messages: Vec<CRDTOperation>,
+	pub messages: CompressedCRDTOperations,
 	pub has_more: bool,
 }
 
@@ -295,17 +473,11 @@ mod test {
 		for _ in 0..10 {
 			let mut rx = ingest.req_rx.lock().await;
 
-			println!("lock acquired");
-
 			ingest.event_tx.send(Event::Notification).await.unwrap();
-
-			println!("notificaton sent");
 
 			let Some(Request::Messages { .. }) = rx.recv().await else {
 				panic!("bruh")
 			};
-
-			println!("message received");
 
 			// without this the test hangs, idk
 			tokio::time::sleep(Duration::from_millis(0)).await;

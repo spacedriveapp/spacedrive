@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{collections::BTreeMap, fmt::Debug};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -24,7 +24,7 @@ impl std::fmt::Display for OperationKind<'_> {
 #[derive(PartialEq, Serialize, Deserialize, Clone, Debug, Type)]
 pub enum CRDTOperationData {
 	#[serde(rename = "c")]
-	Create,
+	Create(#[specta(type = BTreeMap<String, serde_json::Value>)] BTreeMap<String, rmpv::Value>),
 	#[serde(rename = "u")]
 	Update {
 		field: String,
@@ -36,9 +36,13 @@ pub enum CRDTOperationData {
 }
 
 impl CRDTOperationData {
+	pub fn create() -> Self {
+		Self::Create(Default::default())
+	}
+
 	pub fn as_kind(&self) -> OperationKind {
 		match self {
-			Self::Create => OperationKind::Create,
+			Self::Create(_) => OperationKind::Create,
 			Self::Update { field, .. } => OperationKind::Update(field),
 			Self::Delete => OperationKind::Delete,
 		}
@@ -66,9 +70,9 @@ impl CRDTOperation {
 impl Debug for CRDTOperation {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("CRDTOperation")
-			.field("instance", &self.instance.to_string())
-			.field("timestamp", &self.timestamp.to_string())
-			// .field("typ", &self.typ)
+			.field("data", &self.data)
+			.field("model", &self.model)
+			.field("record_id", &self.record_id.to_string())
 			.finish()
 	}
 }

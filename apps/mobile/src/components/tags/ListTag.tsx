@@ -22,9 +22,7 @@ const ListTag = ({ tag, tagStyle }: ListTagProps) => {
 			containerStyle={tw`rounded-md border border-app-cardborder bg-app-card p-3`}
 			enableTrackpadTwoFingerGesture
 			renderRightActions={(progress, _, swipeable) => (
-				<>
-					<RightActions progress={progress} swipeable={swipeable} tag={tag} />
-				</>
+				<RightActions progress={progress} swipeable={swipeable} tag={tag} />
 			)}
 		>
 			<View style={twStyle('h-auto flex-row items-center justify-between', tagStyle)}>
@@ -41,7 +39,7 @@ const ListTag = ({ tag, tagStyle }: ListTagProps) => {
 						{tag.name}
 					</Text>
 				</View>
-				<Pressable hitSlop={24} onPress={() => swipeRef.current?.openRight()}>
+				<Pressable onPress={() => swipeRef.current?.openRight()}>
 					<DotsThreeOutlineVertical
 						weight="fill"
 						size={20}
