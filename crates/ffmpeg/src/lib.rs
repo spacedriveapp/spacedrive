@@ -1,15 +1,11 @@
-use crate::{
-	film_strip::film_strip_filter,
-	movie_decoder::{MovieDecoder, ThumbnailSize},
-	video_frame::VideoFrame,
-};
+use crate::movie_decoder::{MovieDecoder, ThumbnailSize};
 
 use std::path::Path;
 
 mod codec_ctx;
 mod dict;
 mod error;
-mod film_strip;
+mod filter_graph;
 mod format_ctx;
 mod model;
 mod movie_decoder;
@@ -29,25 +25,10 @@ pub async fn to_thumbnail(
 	quality: f32,
 ) -> Result<(), Error> {
 	ThumbnailerBuilder::new()
-		.with_film_strip(false)
 		.size(size)
 		.quality(quality)?
 		.build()
 		.process(video_file_path, output_thumbnail_path)
-		.await
-}
-
-/// Helper function to generate a thumbnail bytes from a video file with reasonable defaults
-pub async fn to_webp_bytes(
-	video_file_path: impl AsRef<Path>,
-	size: u32,
-	quality: f32,
-) -> Result<Vec<u8>, Error> {
-	ThumbnailerBuilder::new()
-		.size(size)
-		.quality(quality)?
-		.build()
-		.process_to_webp_bytes(video_file_path)
 		.await
 }
 

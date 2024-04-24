@@ -1,4 +1,4 @@
-use crate::{film_strip_filter, Error, MovieDecoder, ThumbnailSize, VideoFrame};
+use crate::{Error, MovieDecoder, ThumbnailSize};
 
 use std::{io, ops::Deref, path::Path};
 
@@ -47,7 +47,6 @@ impl Thumbnailer {
 		let seek_percentage = self.builder.seek_percentage;
 		let size = self.builder.size;
 		let maintain_aspect_ratio = self.builder.maintain_aspect_ratio;
-		let with_film_strip = self.builder.with_film_strip;
 		let quality = self.builder.quality;
 
 		spawn_blocking(move || -> Result<Vec<u8>, Error> {
@@ -57,9 +56,9 @@ impl Thumbnailer {
 			// We actually have to decode a frame to get some metadata before we can start decoding for real
 			decoder.decode_video_frame()?;
 
-			if !decoder.embedded_metadata_is_available() {
+			if !decoder.use_embedded() {
 				let result = decoder
-					.get_video_duration()
+					.get_duration()
 					.ok_or(Error::NoVideoDuration)
 					.and_then(|duration| {
 						decoder.seek(
@@ -76,13 +75,7 @@ impl Thumbnailer {
 				}
 			}
 
-			let mut video_frame = VideoFrame::default();
-
-			decoder.get_scaled_video_frame(Some(size), maintain_aspect_ratio, &mut video_frame)?;
-
-			if with_film_strip {
-				film_strip_filter(&mut video_frame);
-			}
+			let video_frame = decoder.get_scaled_video_frame(Some(size), maintain_aspect_ratio)?;
 
 			// Type WebPMemory is !Send, which makes the Future in this function !Send,
 			// this make us `deref` to have a `&[u8]` and then `to_owned` to make a Vec<u8>

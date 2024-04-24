@@ -1,21 +1,6 @@
 use crate::error::FFmpegError;
 use ffmpeg_sys_next::{av_frame_alloc, av_frame_free, AVFrame};
 
-#[derive(Debug)]
-pub(crate) enum FrameSource {
-	VideoStream,
-	Metadata,
-}
-
-#[derive(Debug, Default)]
-pub(crate) struct VideoFrame {
-	pub width: u32,
-	pub height: u32,
-	pub line_size: u32,
-	pub data: Vec<u8>,
-	pub source: Option<FrameSource>,
-}
-
 pub(crate) struct FFmpegFrame {
 	ref_: AVFrame,
 	ptr: *mut AVFrame,

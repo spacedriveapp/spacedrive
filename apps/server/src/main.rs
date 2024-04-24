@@ -9,10 +9,6 @@ use axum::{
 	routing::get,
 	TypedHeader,
 };
-
-#[cfg(not(feature = "assets"))]
-use axum::middleware;
-
 use sd_core::{custom_uri, Node};
 use secstr::SecStr;
 use tracing::{info, warn};

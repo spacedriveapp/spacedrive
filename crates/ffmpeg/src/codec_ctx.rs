@@ -416,6 +416,7 @@ impl Drop for FFmpegCodecContext {
 	fn drop(&mut self) {
 		if !self.ptr.is_null() {
 			unsafe { avcodec_free_context(&mut self.ptr) };
+			self.ptr = std::ptr::null_mut();
 		}
 	}
 }
