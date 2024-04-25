@@ -228,6 +228,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 										} else {
 											ExplorerItem::NonIndexedPath {
 												thumbnail,
+												// TODO: Actually check fs for existence of thumb
+												has_created_thumbnail: false,
 												item,
 											}
 										});
@@ -321,7 +323,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					let mut items = Vec::with_capacity(file_paths.len());
 
 					for file_path in file_paths {
-						let thumbnail_exists_locally = if let Some(cas_id) = &file_path.cas_id {
+						let has_created_thumbnail = if let Some(cas_id) = &file_path.cas_id {
 							library
 								.thumbnail_exists(&node, cas_id)
 								.await
@@ -334,8 +336,9 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							thumbnail: file_path
 								.cas_id
 								.as_ref()
-								.filter(|_| thumbnail_exists_locally)
+								// .filter(|_| thumbnail_exists_locally)
 								.map(|i| get_indexed_thumb_key(i, library.id)),
+							has_created_thumbnail,
 							item: file_path,
 						})
 					}
@@ -440,7 +443,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							.map(|fp| fp.cas_id.as_ref())
 							.find_map(|c| c);
 
-						let thumbnail_exists_locally = if let Some(cas_id) = cas_id {
+						let has_created_thumbnail = if let Some(cas_id) = cas_id {
 							library.thumbnail_exists(&node, cas_id).await.map_err(|e| {
 								rspc::Error::with_cause(
 									ErrorCode::InternalServerError,
@@ -454,8 +457,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 						items.push(ExplorerItem::Object {
 							thumbnail: cas_id
-								.filter(|_| thumbnail_exists_locally)
 								.map(|cas_id| get_indexed_thumb_key(cas_id, library.id)),
+							has_created_thumbnail,
 							item: object,
 						});
 					}
