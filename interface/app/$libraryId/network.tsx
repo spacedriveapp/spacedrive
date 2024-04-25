@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
-import { useDiscoveredPeers } from '@sd/client';
+import { nonIndexedPathOrderingSchema, useDiscoveredPeers } from '@sd/client';
 import { Icon } from '~/components';
 import { useLocale } from '~/hooks';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
-import { createDefaultExplorerSettings, nonIndexedPathOrderingSchema } from './Explorer/store';
+import { createDefaultExplorerSettings } from './Explorer/store';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { TopBarPortal } from './TopBar/Portal';

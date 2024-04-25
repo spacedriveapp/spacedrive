@@ -6,7 +6,12 @@ import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState 
 import BasicSticky from 'react-sticky-el';
 import { useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
-import { createOrdering, getOrderingDirection, orderingKey, type ExplorerItem } from '@sd/client';
+import {
+	createOrdering,
+	getOrderingDirection,
+	getOrderingKey,
+	type ExplorerItem
+} from '@sd/client';
 import { ContextMenu } from '@sd/ui';
 import { TruncatedText } from '~/components';
 import { useShortcut } from '~/hooks';
@@ -804,7 +809,7 @@ export const ListView = memo(() => {
 
 													const orderKey =
 														explorerSettings.order &&
-														orderingKey(explorerSettings.order);
+														getOrderingKey(explorerSettings.order);
 
 													const orderingDirection =
 														orderKey &&

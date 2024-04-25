@@ -1,6 +1,6 @@
 import { LoadMoreTrigger, useGrid, useScrollMargin, useVirtualizer } from '@virtual-grid/react';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { getOrderingDirection, OrderingKey, orderingKey } from '@sd/client';
+import { getOrderingDirection, getOrderingKey, OrderingKey } from '@sd/client';
 
 import { useExplorerContext } from '../../Context';
 import { getItemData, getItemId, uniqueId } from '../../util';
@@ -27,7 +27,7 @@ export const MediaView = () => {
 
 	const gridRef = useRef<HTMLDivElement>(null);
 
-	const orderBy = explorerSettings.order && orderingKey(explorerSettings.order);
+	const orderBy = explorerSettings.order && getOrderingKey(explorerSettings.order);
 	const orderDirection = explorerSettings.order && getOrderingDirection(explorerSettings.order);
 
 	const isSortingByDate = orderBy && SORT_BY_DATE[orderBy];

@@ -8,6 +8,7 @@ import {
 	ExplorerItem,
 	getExplorerItemData,
 	ItemData,
+	nonIndexedPathOrderingSchema,
 	SortOrder,
 	useLibraryContext,
 	useNormalisedCache,
@@ -29,11 +30,7 @@ import { useRouteTitle } from '~/hooks/useRouteTitle';
 
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
-import {
-	createDefaultExplorerSettings,
-	explorerStore,
-	nonIndexedPathOrderingSchema
-} from './Explorer/store';
+import { createDefaultExplorerSettings, explorerStore } from './Explorer/store';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { EmptyNotice } from './Explorer/View/EmptyNotice';

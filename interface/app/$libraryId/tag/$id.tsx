@@ -1,5 +1,12 @@
 import { useCallback, useMemo } from 'react';
-import { ObjectOrder, Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import {
+	ObjectOrder,
+	objectOrderingKeysSchema,
+	Tag,
+	useCache,
+	useLibraryQuery,
+	useNodes
+} from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
 import { useLocale, useRouteTitle, useZodRouteParams } from '~/hooks';
@@ -7,7 +14,7 @@ import { stringify } from '~/util/uuid';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Explorer/store';
+import { createDefaultExplorerSettings } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { useExplorerPreferences } from '../Explorer/useExplorerPreferences';

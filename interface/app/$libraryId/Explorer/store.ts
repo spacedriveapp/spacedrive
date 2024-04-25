@@ -1,6 +1,5 @@
 import { proxy } from 'valtio';
 import { proxySet } from 'valtio/utils';
-import { z } from 'zod';
 import {
 	resetStore,
 	type DoubleClickAction,
@@ -149,26 +148,3 @@ export function isCut(item: ExplorerItem, cutCopyState: CutCopyState) {
 			return false;
 	}
 }
-
-export const filePathOrderingKeysSchema = z.union([
-	z.literal('name').describe('Name'),
-	z.literal('sizeInBytes').describe('Size'),
-	z.literal('dateModified').describe('Date Modified'),
-	z.literal('dateIndexed').describe('Date Indexed'),
-	z.literal('dateCreated').describe('Date Created'),
-	z.literal('object.dateAccessed').describe('Date Accessed'),
-	z.literal('object.mediaData.epochTime').describe('Date Taken')
-]);
-
-export const objectOrderingKeysSchema = z.union([
-	z.literal('dateAccessed').describe('Date Accessed'),
-	z.literal('kind').describe('Kind'),
-	z.literal('mediaData.epochTime').describe('Date Taken')
-]);
-
-export const nonIndexedPathOrderingSchema = z.union([
-	z.literal('name').describe('Name'),
-	z.literal('sizeInBytes').describe('Size'),
-	z.literal('dateCreated').describe('Date Created'),
-	z.literal('dateModified').describe('Date Modified')
-]);
