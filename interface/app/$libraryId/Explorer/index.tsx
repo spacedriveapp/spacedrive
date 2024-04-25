@@ -4,6 +4,7 @@ import {
 	explorerLayout,
 	useExplorerLayoutStore,
 	useLibrarySubscription,
+	useRspcLibraryContext,
 	useSelector
 } from '@sd/client';
 import { useShortcut } from '~/hooks';
@@ -23,8 +24,6 @@ import { EmptyNotice } from './View/EmptyNotice';
 
 import 'react-slidedown/lib/slidedown.css';
 
-import { useQueryClient } from '@tanstack/react-query';
-
 import { useExplorerDnd } from './useExplorerDnd';
 
 interface Props {
@@ -42,7 +41,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 	const showInspector = useSelector(explorerStore, (s) => s.showInspector);
 
 	const showPathBar = explorer.showPathBar && layoutStore.showPathBar;
-	const queryClient = useQueryClient();
+	const rspc = useRspcLibraryContext();
 	// Can we put this somewhere else -_-
 	useLibrarySubscription(['jobs.newThumbnail'], {
 		onData: (thumbKey) => {
@@ -55,7 +54,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 				// I had planned to somehow fetch the Object, but its a lot more work than its worth given
 				// id have to fetch the file_path explicitly and patch the query
 				// for now, it seems to work a treat just invalidating the whole query
-				queryClient.invalidateQueries(['search.paths']);
+				rspc.queryClient.invalidateQueries(['search.paths']);
 			}
 		}
 	});
