@@ -134,6 +134,7 @@ export type Procedures = {
     subscriptions: 
         { key: "auth.loginSession", input: never, result: Response } | 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
+        { key: "jobs.newFilePathIdentified", input: LibraryArgs<null>, result: number[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string[] } | 
         { key: "jobs.progress", input: LibraryArgs<null>, result: JobProgressEvent } | 
         { key: "library.actors", input: LibraryArgs<null>, result: { [key in string]: boolean } } | 

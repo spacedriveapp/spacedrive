@@ -373,7 +373,7 @@ pub(super) async fn generate_thumbnail(
 			}
 		}
 	}
-
+	// idk if this if-statement should be here, what is the reason? -jamie
 	if !in_background {
 		trace!("Emitting new thumbnail event");
 		if reporter

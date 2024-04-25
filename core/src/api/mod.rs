@@ -53,6 +53,7 @@ pub type Router = rspc::Router<Ctx>;
 #[derive(Debug, Clone, Serialize, Type)]
 pub enum CoreEvent {
 	NewThumbnail { thumb_key: Vec<String> },
+	NewIdentifiedObjects { file_path_ids: Vec<i32> },
 	JobProgress(JobProgressEvent),
 	InvalidateOperation(InvalidateOperationEvent),
 }

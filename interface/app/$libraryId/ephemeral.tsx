@@ -204,7 +204,7 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 		{
 			enabled: path != null,
 			suspense: true,
-			onSuccess: () => explorerStore.resetNewThumbnails(),
+			onSuccess: () => explorerStore.resetCache(),
 			onBatch: (item) => {
 				cache.withNodes(item.nodes);
 			}
