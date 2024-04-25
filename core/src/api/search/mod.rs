@@ -36,7 +36,7 @@ pub mod object;
 pub mod saved;
 mod utils;
 
-pub use self::{file_path::*, object::*, utils::*};
+pub use self::{file_path::*, object::*};
 
 use super::{Ctx, R};
 
@@ -69,10 +69,11 @@ impl SearchFilterArgs {
 		file_path: &mut Vec<prisma::file_path::WhereParam>,
 		object: &mut Vec<prisma::object::WhereParam>,
 	) -> Result<(), rspc::Error> {
-		Ok(match self {
+		match self {
 			Self::FilePath(v) => file_path.extend(v.into_params(db).await?),
 			Self::Object(v) => object.extend(v.into_params()),
-		})
+		};
+		Ok(())
 	}
 }
 
@@ -160,12 +161,9 @@ pub fn mount() -> AlphaRouter<Ctx> {
 									}).collect::<Vec<_>>()
 								)])
 								.exec()
-								.await
-								.and_then(|l| {
-									Ok(l.into_iter()
+								.await.map(|l| l.into_iter()
 										.filter_map(|item| item.path.clone().map(|l| (l, item)))
 										.collect::<HashMap<_, _>>())
-								})
 								.map_err(|err| error!("Looking up locations failed: {err:?}"))
 								.unwrap_or_default();
 
