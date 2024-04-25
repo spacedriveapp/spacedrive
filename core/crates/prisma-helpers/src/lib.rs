@@ -30,6 +30,7 @@
 use sd_prisma::prisma::{self, file_path, job, label, location, object};
 
 // File Path selectables!
+file_path::select!(file_path_pub_id { pub_id });
 file_path::select!(file_path_pub_and_cas_ids { id pub_id cas_id });
 file_path::select!(file_path_just_pub_id_materialized_path {
 	pub_id
