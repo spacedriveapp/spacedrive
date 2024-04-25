@@ -7,7 +7,7 @@ import { SearchFilters } from '~/stores/searchStore';
  * and returns the data of its filters for rendering in the UI
  */
 
-export const useSearchOptions = (search: SavedSearch) => {
+export function useSavedSearch(search: SavedSearch) {
 	const parseFilters = JSON.parse(search.filters as string);
 
 	// returns an array of keys of the filters being used in the Saved Search
@@ -20,6 +20,18 @@ export const useSearchOptions = (search: SavedSearch) => {
 		}
 		return acc;
 	}, []);
+
+	function extractDataFromFilter(key: SearchFilters, filterTag: 'contains' | 'in', type: 'filePath' | 'object') {
+		// Iterate through each item in the data array
+		for (const item of parseFilters) {
+			// Check if 'filePath' | 'object' exists and contains a the key
+			if (item[type] && key in item[type]) {
+				// Return the data of the filters
+				return item.filePath[key][filterTag];
+			}
+		}
+		return null;
+	}
 
 	const locationsQuery = useLibraryQuery(['locations.list'], {
 		keepPreviousData: true,
@@ -69,6 +81,9 @@ export const useSearchOptions = (search: SavedSearch) => {
 						};
 					});
 					break;
+				case 'name':
+					data.name = extractDataFromFilter(key, 'contains', 'filePath');
+					break;
 			}
 		});
 		return data;
@@ -80,8 +95,8 @@ export const useSearchOptions = (search: SavedSearch) => {
 		const extractData = (key: SearchFilters) => {
 			const objectOrFilePath = Object.keys(curr)[0] as string;
 			const values = curr[objectOrFilePath as SearchFilters][key];
-
 			const type = Object.keys(values)[0];
+
 			switch (type) {
 				case 'contains':
 					return prepFilters()[key].filter((item: any) => item.name === values[type]);

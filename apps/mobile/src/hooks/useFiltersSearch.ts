@@ -1,13 +1,14 @@
+import { SearchFilterArgs } from '@sd/client';
 import { useEffect } from 'react';
 import { getSearchStore, SearchFilters, useSearchStore } from '~/stores/searchStore';
 
 /**
  * This hook merges the selected filters from Filters page in order
- * to call the "saved.search.create" mutation query
+ * to make query calls for saved searches and setups filters for the search
  * the data structure has been designed to match the desktop app
  */
 
-export const useLocationSearch = () => {
+export function useFiltersSearch() {
 	const searchStore = useSearchStore();
 
 	// this is a helper function to get the data from the filter based on the type
@@ -32,7 +33,7 @@ export const useLocationSearch = () => {
 		};
 	}
 
-	//for merging the applied filters with the search create query
+	//for merging the applied filters
 	const mergedFilters = () => {
 		//each filter is associated with a path or object
 		const filePath = ['locations', 'name', 'hidden', 'extension'];
@@ -74,7 +75,7 @@ export const useLocationSearch = () => {
 					);
 				}
 			})
-			.filter((filter) => filter !== undefined);
+			.filter((filter) => filter !== undefined) as SearchFilterArgs[];
 	};
 
 	useEffect(() => {

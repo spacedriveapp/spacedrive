@@ -8,13 +8,12 @@ import {
 	SelectionSlash,
 	Textbox
 } from 'phosphor-react-native';
-import React, { FunctionComponent, useCallback, useEffect, useState } from 'react';
+import React, { FunctionComponent, useCallback, useState } from 'react';
 import { Text, View } from 'react-native';
 import Card from '~/components/layout/Card';
 import SectionTitle from '~/components/layout/SectionTitle';
-import { useLocationSearch } from '~/hooks/useLocationSearch';
 import { tw, twStyle } from '~/lib/tailwind';
-import { getSearchStore, SearchFilters, useSearchStore } from '~/stores/searchStore';
+import { SearchFilters, useSearchStore } from '~/stores/searchStore';
 
 import Extension from './Extension';
 import Kind from './Kind';
@@ -52,19 +51,6 @@ const FiltersList = () => {
 	const [selectedOptions, setSelectedOptions] = useState<SearchFilters[]>(
 		Object.keys(searchStore.appliedFilters) as SearchFilters[]
 	);
-	const appliedFiltersLength = Object.keys(searchStore.appliedFilters).length;
-
-	// If any filters are applied - we need to update the store
-	// so the UI can reflect the applied filters
-	useEffect(() => {
-		if (appliedFiltersLength > 0) {
-			Object.assign(getSearchStore().filters, searchStore.appliedFilters);
-		} else {
-			//if no filters have been applied but selected - reset them (when user navigates back)
-			searchStore.resetFilters();
-		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
 
 	const selectedHandler = useCallback(
 		(option: Capitalize<SearchFilters>) => {
@@ -88,10 +74,7 @@ const FiltersList = () => {
 				searchStore.resetFilter(searchFiltersLowercase);
 			}
 		},
-		[selectedOptions, searchStore]
-	);
-
-	useLocationSearch();
+		[selectedOptions, searchStore])
 
 	return (
 		<View style={tw`gap-10`}>

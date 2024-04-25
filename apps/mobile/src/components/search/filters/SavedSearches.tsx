@@ -1,21 +1,22 @@
 import { useNavigation } from '@react-navigation/native';
-import { MotiView } from 'moti';
-import { MotiPressable } from 'moti/interactions';
-import { X } from 'phosphor-react-native';
-import { FlatList, Pressable, Text, View } from 'react-native';
 import {
 	SavedSearch as ISavedSearch,
 	useLibraryMutation,
 	useLibraryQuery,
 	useRspcLibraryContext
 } from '@sd/client';
+import { MotiView } from 'moti';
+import { MotiPressable } from 'moti/interactions';
+import { X } from 'phosphor-react-native';
+import { FlatList, Pressable, Text, View } from 'react-native';
 import { Icon } from '~/components/icons/Icon';
 import Card from '~/components/layout/Card';
+import Empty from '~/components/layout/Empty';
 import Fade from '~/components/layout/Fade';
 import SectionTitle from '~/components/layout/SectionTitle';
 import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';
 import DottedDivider from '~/components/primitive/DottedDivider';
-import { useSearchOptions } from '~/hooks/useSearchOptions';
+import { useSavedSearch } from '~/hooks/useSavedSearch';
 import { tw } from '~/lib/tailwind';
 import { getSearchStore } from '~/stores/searchStore';
 
@@ -33,9 +34,15 @@ const SavedSearches = () => {
 					title="Saved searches"
 					sub="Tap a saved search for searching quickly"
 				/>
-				<VirtualizedListWrapper contentContainerStyle={tw`px-6`} horizontal>
+				<VirtualizedListWrapper contentContainerStyle={tw`w-full px-6`} horizontal>
 					<FlatList
 						data={savedSearches}
+						ListEmptyComponent={() => {
+							return (
+								<Empty
+								 icon="Folder" description="No saved searches" style={tw`w-full`} />
+							);
+						}}
 						renderItem={({ item }) => <SavedSearch search={item} />}
 						keyExtractor={(_, index) => index.toString()}
 						numColumns={Math.ceil(6 / 2)}
@@ -43,7 +50,7 @@ const SavedSearches = () => {
 						contentContainerStyle={tw`w-full`}
 						showsHorizontalScrollIndicator={false}
 						style={tw`flex-row`}
-						ItemSeparatorComponent={() => <View style={tw`w-2 h-2`} />}
+						ItemSeparatorComponent={() => <View style={tw`h-2 w-2`} />}
 					/>
 				</VirtualizedListWrapper>
 				<DottedDivider style={'mt-6'} />
@@ -58,7 +65,7 @@ interface Props {
 
 const SavedSearch = ({ search }: Props) => {
 	const navigation = useNavigation();
-	const dataForSearch = useSearchOptions(search);
+	const dataForSearch = useSavedSearch(search);
 	const deleteSearch = useLibraryMutation('search.saved.delete');
 	const rspsc = useRspcLibraryContext();
 	return (
@@ -73,7 +80,7 @@ const SavedSearch = ({ search }: Props) => {
 				});
 			}}
 		>
-			<Card style={tw`mr-2 w-auto flex-row gap-2 p-2.5 items-center`}>
+			<Card style={tw`mr-2 w-auto flex-row items-center gap-2 p-2.5`}>
 				<Pressable
 					onPress={async () =>
 						await deleteSearch.mutateAsync(search.id, {

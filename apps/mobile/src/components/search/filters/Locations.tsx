@@ -1,8 +1,8 @@
+import { Location, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { MotiView } from 'moti';
 import { memo, useCallback, useMemo } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { LinearTransition } from 'react-native-reanimated';
-import { Location, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { Icon } from '~/components/icons/Icon';
 import Card from '~/components/layout/Card';
 import Empty from '~/components/layout/Empty';
@@ -78,6 +78,7 @@ const LocationFilter = memo(({ data }: Props) => {
 			name: data.name as string
 		});
 	}, [data.id, data.name, searchStore]);
+
 	return (
 		<Pressable onPress={onPress}>
 			<Card

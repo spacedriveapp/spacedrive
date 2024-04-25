@@ -1,7 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
+import { useLibraryMutation } from '@sd/client';
 import { forwardRef, useState } from 'react';
 import { Text, View } from 'react-native';
-import { useLibraryMutation } from '@sd/client';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import { ModalInput } from '~/components/primitive/Input';
@@ -13,7 +13,6 @@ const SaveSearchModal = forwardRef<ModalRef>((_, ref) => {
 	const navigation = useNavigation();
 	const searchStore = useSearchStore();
 	const saveSearch = useLibraryMutation('search.saved.create');
-
 	return (
 		<Modal snapPoints={['22']} title="Save search" ref={ref}>
 			<View style={tw`p-4`}>
@@ -38,6 +37,7 @@ const SaveSearchModal = forwardRef<ModalRef>((_, ref) => {
 							},
 							{
 								onSuccess: () => {
+									searchStore.applyFilters();
 									navigation.navigate('SearchStack', {
 										screen: 'Search'
 									});

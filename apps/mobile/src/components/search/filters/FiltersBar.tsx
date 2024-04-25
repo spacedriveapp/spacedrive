@@ -8,7 +8,7 @@ import {
 	Textbox,
 	X
 } from 'phosphor-react-native';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { Icon } from '~/components/icons/Icon';
 import Fade from '~/components/layout/Fade';
@@ -20,6 +20,7 @@ import {
 	KindItem,
 	SearchFilters,
 	TagItem,
+	getSearchStore,
 	useSearchStore
 } from '~/stores/searchStore';
 
@@ -27,17 +28,21 @@ const FiltersBar = () => {
 	const { filters, appliedFilters } = useSearchStore();
 	const navigation = useNavigation<SearchStackScreenProps<'Filters'>['navigation']>();
 	const flatListRef = useRef<FlatList>(null);
+	const appliedFiltersLength = useMemo(() => Object.entries(appliedFilters).length, [appliedFilters]);
 
-	// Scroll to start when there are less than 2 filters.
 	useEffect(() => {
-		if (Object.entries(appliedFilters).length < 2) {
+		// Scroll to start when there are less than 2 filters.
+		if (appliedFiltersLength < 2) {
 			flatListRef.current?.scrollToOffset({ animated: true, offset: 0 });
+			// If there are applied filters, update the searchStore filters
+		} else if (appliedFiltersLength > 0) {
+			Object.assign(getSearchStore().filters, appliedFilters);
 		}
-	}, [appliedFilters]);
+	}, [appliedFiltersLength, appliedFilters]);
 
 	return (
 		<View
-			style={tw`flex-row items-center w-full h-16 gap-4 px-5 py-3 border-t border-app-cardborder bg-app-header`}
+			style={tw`h-16 w-full flex-row items-center gap-4 border-t border-app-cardborder bg-app-header px-5 py-3`}
 		>
 			<Button
 				onPress={() => navigation.navigate('Filters')}

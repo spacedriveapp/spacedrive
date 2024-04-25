@@ -1,3 +1,4 @@
+import { SearchFilterArgs } from '@sd/client';
 import { proxy, useSnapshot } from 'valtio';
 import { IconName } from '~/components/icons/Icon';
 
@@ -29,7 +30,7 @@ interface State {
 		hidden: boolean;
 		kind: KindItem[];
 	};
-	appliedFilters: Partial<
+	appliedFilters:
 		Record<
 			SearchFilters,
 			{
@@ -40,9 +41,8 @@ interface State {
 				hidden: boolean;
 				kind: KindItem[];
 			}
-		>
-	>;
-	mergedFilters: null | {};
+		> | {};
+	mergedFilters: SearchFilterArgs[] | undefined
 	disableActionButtons: boolean;
 }
 
@@ -57,7 +57,7 @@ const initialState: State = {
 		kind: []
 	},
 	appliedFilters: {},
-	mergedFilters: null,
+	mergedFilters: undefined,
 	disableActionButtons: true
 };
 

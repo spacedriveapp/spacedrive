@@ -1,8 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
+import { SearchData, isPath, type ExplorerItem } from '@sd/client';
 import { FlashList } from '@shopify/flash-list';
 import { UseInfiniteQueryResult } from '@tanstack/react-query';
 import { ActivityIndicator, Pressable } from 'react-native';
-import { isPath, SearchData, type ExplorerItem } from '@sd/client';
 import Layout from '~/constants/Layout';
 import { tw } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
