@@ -1,10 +1,7 @@
 use crate::error::FFmpegError;
 use ffmpeg_sys_next::{av_frame_alloc, av_frame_free, AVFrame};
 
-pub(crate) struct FFmpegFrame {
-	ref_: AVFrame,
-	ptr: *mut AVFrame,
-}
+pub(crate) struct FFmpegFrame(*mut AVFrame);
 
 impl FFmpegFrame {
 	pub(crate) fn new() -> Result<Self, FFmpegError> {
@@ -12,26 +9,23 @@ impl FFmpegFrame {
 		if ptr.is_null() {
 			return Err(FFmpegError::FrameAllocation);
 		}
-		Ok(Self {
-			ref_: *unsafe { ptr.as_mut() }.ok_or(FFmpegError::NullError)?,
-			ptr,
-		})
+		Ok(Self(ptr))
 	}
 
 	pub(crate) fn as_ref(&self) -> &AVFrame {
-		&self.ref_
+		unsafe { self.0.as_ref() }.expect("initialized on struct creation")
 	}
 
 	pub(crate) fn as_mut(&mut self) -> &mut AVFrame {
-		&mut self.ref_
+		unsafe { self.0.as_mut() }.expect("initialized on struct creation")
 	}
 }
 
 impl Drop for FFmpegFrame {
 	fn drop(&mut self) {
-		if !self.ptr.is_null() {
-			unsafe { av_frame_free(&mut self.ptr) };
-			self.ptr = std::ptr::null_mut();
+		if !self.0.is_null() {
+			unsafe { av_frame_free(&mut self.0) };
+			self.0 = std::ptr::null_mut();
 		}
 	}
 }

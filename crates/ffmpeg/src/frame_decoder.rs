@@ -15,8 +15,7 @@ use chrono::TimeDelta;
 use ffmpeg_sys_next::{
 	av_buffersink_get_frame, av_buffersrc_write_frame, av_frame_alloc,
 	av_guess_sample_aspect_ratio, av_packet_unref, av_seek_frame, avcodec_find_decoder, AVPacket,
-	AVStream, AVERROR, AVPROBE_SCORE_MAX, AV_FRAME_FLAG_INTERLACED, AV_FRAME_FLAG_KEY,
-	AV_TIME_BASE, EAGAIN,
+	AVERROR, AVPROBE_SCORE_MAX, AV_FRAME_FLAG_INTERLACED, AV_FRAME_FLAG_KEY, AV_TIME_BASE, EAGAIN,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -26,21 +25,13 @@ pub enum ThumbnailSize {
 }
 
 #[derive(Debug)]
-pub(crate) enum FrameSource {
-	VideoStream,
-	Metadata,
-}
-
-#[derive(Debug)]
 pub(crate) struct VideoFrame {
 	pub data: Vec<u8>,
 	pub width: u32,
 	pub height: u32,
-	pub source: FrameSource,
-	pub line_size: u32,
 }
 
-pub struct MovieDecoder {
+pub struct FrameDecoder {
 	format_ctx: FFmpegFormatContext,
 	preferred_stream_id: u32,
 	codec_ctx: FFmpegCodecContext,
@@ -50,7 +41,7 @@ pub struct MovieDecoder {
 	allow_seek: bool,
 }
 
-impl MovieDecoder {
+impl FrameDecoder {
 	pub(crate) fn new(
 		filename: impl AsRef<Path>,
 		allow_seek: bool,
@@ -169,13 +160,14 @@ impl MovieDecoder {
 			.map(|stream| stream.time_base)
 			.ok_or(FFmpegError::NullError)?;
 
-		let stream_ptr = self
-			.format_ctx
-			.stream(self.preferred_stream_id)
-			.ok_or(FFmpegError::NullError)? as *mut AVStream;
-
 		let aspect_ratio = unsafe {
-			av_guess_sample_aspect_ratio(self.format_ctx.as_mut(), stream_ptr, self.frame.as_mut())
+			av_guess_sample_aspect_ratio(
+				self.format_ctx.as_mut(),
+				self.format_ctx
+					.stream(self.preferred_stream_id)
+					.ok_or(FFmpegError::NullError)?,
+				self.frame.as_mut(),
+			)
 		};
 
 		let rotation_angle = self
@@ -189,7 +181,7 @@ impl MovieDecoder {
 			&self.codec_ctx,
 			&aspect_ratio,
 			rotation_angle,
-			self.frame.as_mut().flags & AV_FRAME_FLAG_INTERLACED != 0,
+			(self.frame.as_mut().flags & AV_FRAME_FLAG_INTERLACED) != 0,
 			maintain_aspect_ratio,
 		)?;
 
@@ -210,22 +202,16 @@ impl MovieDecoder {
 		}
 		check_error(get_frame_errno, "Failed to get buffer from filter")?;
 
-		let height = new_frame.as_ref().height.try_into()?;
-		let line_size = new_frame.as_ref().linesize[0].try_into()?;
+		let height = new_frame.as_ref().height;
+		let line_size = new_frame.as_ref().linesize[0];
 		let mut data = Vec::with_capacity(usize::try_from(line_size * height)?);
 		data.extend_from_slice(unsafe {
 			std::slice::from_raw_parts(new_frame.as_ref().data[0], data.capacity())
 		});
 
 		Ok(VideoFrame {
-			height,
-			line_size,
+			height: u32::try_from(height)?,
 			width: new_frame.as_ref().width.try_into()?,
-			source: if self.embedded {
-				FrameSource::Metadata
-			} else {
-				FrameSource::VideoStream
-			},
 			data,
 		})
 	}
@@ -282,7 +268,7 @@ impl MovieDecoder {
 	}
 }
 
-impl Drop for MovieDecoder {
+impl Drop for FrameDecoder {
 	fn drop(&mut self) {
 		self.unref_packet()
 	}

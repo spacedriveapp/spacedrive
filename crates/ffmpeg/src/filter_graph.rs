@@ -3,7 +3,7 @@ use std::{ffi::CString, ptr};
 use crate::{
 	codec_ctx::FFmpegCodecContext,
 	error::FFmpegError,
-	movie_decoder::ThumbnailSize,
+	frame_decoder::ThumbnailSize,
 	utils::{check_error, CSTRING_ERROR_MSG},
 	Error,
 };
@@ -13,10 +13,7 @@ use ffmpeg_sys_next::{
 	AVFilterGraph, AVRational,
 };
 
-pub(crate) struct FFmpegFilterGraph {
-	ref_: AVFilterGraph,
-	ptr: *mut AVFilterGraph,
-}
+pub(crate) struct FFmpegFilterGraph(*mut AVFilterGraph);
 
 impl<'a> FFmpegFilterGraph {
 	pub(crate) fn new() -> Result<Self, FFmpegError> {
@@ -24,10 +21,7 @@ impl<'a> FFmpegFilterGraph {
 		if ptr.is_null() {
 			return Err(FFmpegError::FrameAllocation);
 		}
-		Ok(Self {
-			ref_: *unsafe { ptr.as_mut() }.ok_or(FFmpegError::NullError)?,
-			ptr,
-		})
+		Ok(Self(ptr))
 	}
 
 	fn link(
@@ -160,7 +154,7 @@ impl<'a> FFmpegFilterGraph {
 			filter_sink_ctx,
 			0,
 			"Failed to link final filter",
-		);
+		)?;
 
 		if !rotate_filter.is_null() {
 			Self::link(
@@ -200,19 +194,15 @@ impl<'a> FFmpegFilterGraph {
 			},
 			0,
 			"Failed to link source filter",
-		);
+		)?;
 
 		filter_graph.config()?;
 
 		Ok((filter_graph, filter_source_ctx, filter_sink_ctx))
 	}
 
-	pub(crate) fn as_ref(&self) -> &AVFilterGraph {
-		&self.ref_
-	}
-
 	pub(crate) fn as_mut(&mut self) -> &mut AVFilterGraph {
-		&mut self.ref_
+		unsafe { self.0.as_mut() }.expect("initialized on struct creation")
 	}
 
 	fn setup_filter(
@@ -250,9 +240,9 @@ impl<'a> FFmpegFilterGraph {
 
 impl Drop for FFmpegFilterGraph {
 	fn drop(&mut self) {
-		if !self.ptr.is_null() {
-			unsafe { avfilter_graph_free(&mut self.ptr) };
-			self.ptr = ptr::null_mut();
+		if !self.0.is_null() {
+			unsafe { avfilter_graph_free(&mut self.0) };
+			self.0 = ptr::null_mut();
 		}
 	}
 }

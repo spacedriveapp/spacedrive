@@ -183,9 +183,3 @@ impl From<FFmpegDict> for MediaMetadata {
 	}
 }
 
-impl From<&mut FFmpegDict> for MediaMetadata {
-	fn from(dict: &mut FFmpegDict) -> Self {
-		let dict: &FFmpegDict = dict;
-		dict.into()
-	}
-}

@@ -24,10 +24,7 @@ use ffmpeg_sys_next::{
 };
 use libc::EAGAIN;
 
-pub(crate) struct FFmpegCodecContext {
-	ref_: AVCodecContext,
-	ptr: *mut AVCodecContext,
-}
+pub(crate) struct FFmpegCodecContext(*mut AVCodecContext);
 
 impl FFmpegCodecContext {
 	pub(crate) fn new() -> Result<Self, Error> {
@@ -36,18 +33,15 @@ impl FFmpegCodecContext {
 			Err(FFmpegError::VideoCodecAllocation)?;
 		}
 
-		Ok(Self {
-			ref_: *unsafe { ptr.as_mut() }.ok_or(FFmpegError::NullError)?,
-			ptr,
-		})
+		Ok(Self(ptr))
 	}
 
 	pub(crate) fn as_ref(&self) -> &AVCodecContext {
-		&self.ref_
+		unsafe { self.0.as_ref() }.expect("initialized on struct creation")
 	}
 
 	pub(crate) fn as_mut(&mut self) -> &mut AVCodecContext {
-		&mut self.ref_
+		unsafe { self.0.as_mut() }.expect("initialized on struct creation")
 	}
 
 	pub(crate) fn parameters_to_context(
@@ -414,9 +408,9 @@ impl FFmpegCodecContext {
 
 impl Drop for FFmpegCodecContext {
 	fn drop(&mut self) {
-		if !self.ptr.is_null() {
-			unsafe { avcodec_free_context(&mut self.ptr) };
-			self.ptr = std::ptr::null_mut();
+		if !self.0.is_null() {
+			unsafe { avcodec_free_context(&mut self.0) };
+			self.0 = std::ptr::null_mut();
 		}
 	}
 }

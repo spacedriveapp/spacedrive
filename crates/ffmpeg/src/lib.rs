@@ -1,4 +1,4 @@
-use crate::movie_decoder::{MovieDecoder, ThumbnailSize};
+use crate::frame_decoder::{FrameDecoder, ThumbnailSize};
 
 use std::path::Path;
 
@@ -7,8 +7,8 @@ mod dict;
 mod error;
 mod filter_graph;
 mod format_ctx;
+mod frame_decoder;
 mod model;
-mod movie_decoder;
 mod probe;
 mod thumbnailer;
 mod utils;

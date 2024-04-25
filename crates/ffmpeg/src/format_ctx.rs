@@ -43,9 +43,7 @@ fn extract_name_and_convert_metadata(
 }
 
 #[derive(Debug)]
-pub(crate) struct FFmpegFormatContext {
-	ptr: *mut AVFormatContext,
-}
+pub(crate) struct FFmpegFormatContext(*mut AVFormatContext);
 
 impl FFmpegFormatContext {
 	pub(crate) fn open_file(filename: CString, options: &mut FFmpegDict) -> Result<Self, Error> {
@@ -62,15 +60,15 @@ impl FFmpegFormatContext {
 			},
 			"Fail to open an input stream and read the header",
 		)
-		.map(|()| Self { ptr })
+		.map(|()| Self(ptr))
 	}
 
 	pub(crate) fn as_ref(&self) -> &AVFormatContext {
-		unsafe { self.ptr.as_ref() }.expect("initialized on struct creation")
+		unsafe { self.0.as_ref() }.expect("initialized on struct creation")
 	}
 
 	pub(crate) fn as_mut(&mut self) -> &mut AVFormatContext {
-		unsafe { self.ptr.as_mut() }.expect("initialized on struct creation")
+		unsafe { self.0.as_mut() }.expect("initialized on struct creation")
 	}
 
 	pub(crate) fn duration(&self) -> Option<TimeDelta> {
@@ -261,7 +259,7 @@ impl FFmpegFormatContext {
 										.and_then(|stream_index| {
 											self.stream(*stream_index).map(|stream| {
 												visited_streams.insert(*stream_index);
-												stream.into()
+												(&*stream).into()
 											})
 										})
 								})
@@ -281,7 +279,7 @@ impl FFmpegFormatContext {
 
 		let unvisited_streams = (0..self.as_ref().nb_streams)
 			.filter(|i| !visited_streams.contains(i))
-			.filter_map(|i| self.stream(i).map(|stream| stream.into()))
+			.filter_map(|i| self.stream(i).map(|stream| (&*stream).into()))
 			.collect::<Vec<MediaStream>>();
 		if !unvisited_streams.is_empty() {
 			// Create an empty program to hold unvisited streams if there are any
@@ -304,9 +302,9 @@ impl FFmpegFormatContext {
 
 impl Drop for FFmpegFormatContext {
 	fn drop(&mut self) {
-		if !self.ptr.is_null() {
-			unsafe { avformat_close_input(&mut self.ptr) };
-			self.ptr = std::ptr::null_mut();
+		if !self.0.is_null() {
+			unsafe { avformat_close_input(&mut self.0) };
+			self.0 = std::ptr::null_mut();
 		}
 	}
 }
@@ -409,12 +407,5 @@ impl From<&AVStream> for MediaStream {
 			dispositions,
 			metadata,
 		}
-	}
-}
-
-impl From<&mut AVStream> for MediaStream {
-	fn from(stream: &mut AVStream) -> Self {
-		let stream: &AVStream = stream;
-		stream.into()
 	}
 }

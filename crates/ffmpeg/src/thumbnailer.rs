@@ -1,4 +1,4 @@
-use crate::{Error, MovieDecoder, ThumbnailSize};
+use crate::{Error, FrameDecoder, ThumbnailSize};
 
 use std::{io, ops::Deref, path::Path};
 
@@ -52,7 +52,7 @@ impl Thumbnailer {
 		spawn_blocking(move || -> Result<Vec<u8>, Error> {
 			// TODO: Allow_seek should be false, for remote files
 			let mut decoder =
-				MovieDecoder::new(video_file_path.clone(), prefer_embedded_metadata, true)?;
+				FrameDecoder::new(video_file_path.clone(), prefer_embedded_metadata, true)?;
 			// We actually have to decode a frame to get some metadata before we can start decoding for real
 			decoder.decode_video_frame()?;
 
@@ -70,7 +70,7 @@ impl Thumbnailer {
 				if let Err(err) = result {
 					error!("Failed to seek: {err:#?}");
 					// seeking failed, try the first frame again
-					decoder = MovieDecoder::new(video_file_path, prefer_embedded_metadata, false)?;
+					decoder = FrameDecoder::new(video_file_path, prefer_embedded_metadata, false)?;
 					decoder.decode_video_frame()?;
 				}
 			}
@@ -101,7 +101,6 @@ pub struct ThumbnailerBuilder {
 	seek_percentage: f32,
 	quality: f32,
 	prefer_embedded_metadata: bool,
-	with_film_strip: bool,
 }
 
 impl Default for ThumbnailerBuilder {
@@ -112,7 +111,6 @@ impl Default for ThumbnailerBuilder {
 			seek_percentage: 0.1,
 			quality: 80.0,
 			prefer_embedded_metadata: true,
-			with_film_strip: true,
 		}
 	}
 }
@@ -124,7 +122,6 @@ impl ThumbnailerBuilder {
 	/// - `seek_percentage`: 10%
 	/// - `quality`: 80
 	/// - `prefer_embedded_metadata`: true
-	/// - `with_film_strip`: true
 	pub fn new() -> Self {
 		Self::default()
 	}
@@ -169,12 +166,6 @@ impl ThumbnailerBuilder {
 	/// thumbnail
 	pub const fn prefer_embedded_metadata(mut self, prefer_embedded_metadata: bool) -> Self {
 		self.prefer_embedded_metadata = prefer_embedded_metadata;
-		self
-	}
-
-	/// If `with_film_strip` is true, a film strip will be added to the thumbnail borders
-	pub const fn with_film_strip(mut self, with_film_strip: bool) -> Self {
-		self.with_film_strip = with_film_strip;
 		self
 	}
 
