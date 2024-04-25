@@ -1,9 +1,6 @@
-use crate::NonCriticalJobError;
+use crate::{utils::sub_path::SubPathError, NonCriticalJobError};
 
-use sd_core_file_path_helper::{
-	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-	FilePathError, IsolatedFilePathData,
-};
+use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
 use sd_core_indexer_rules::IndexerRuleError;
 use sd_core_prisma_helpers::{
 	file_path_pub_and_cas_ids, file_path_to_isolate_with_pub_id, file_path_walker,
@@ -53,8 +50,8 @@ pub enum IndexerError {
 	// Not Found errors
 	#[error("indexer rule not found: <id='{0}'>")]
 	IndexerRuleNotFound(i32),
-	#[error("received sub path not in database: <path='{}'>", .0.display())]
-	SubPathNotFound(Box<Path>),
+	#[error(transparent)]
+	SubPath(#[from] SubPathError),
 
 	// Internal Errors
 	#[error("database Error: {0}")]
@@ -78,9 +75,11 @@ pub enum IndexerError {
 impl From<IndexerError> for rspc::Error {
 	fn from(err: IndexerError) -> Self {
 		match err {
-			IndexerError::IndexerRuleNotFound(_) | IndexerError::SubPathNotFound(_) => {
+			IndexerError::IndexerRuleNotFound(_) => {
 				Self::with_cause(ErrorCode::NotFound, err.to_string(), err)
 			}
+
+			IndexerError::SubPath(sub_path_err) => sub_path_err.into(),
 
 			IndexerError::Rules(rule_err) => rule_err.into(),
 
@@ -109,36 +108,6 @@ pub enum NonCriticalIndexerError {
 	DispatchKeepWalking(String),
 	#[error("missing file_path data on database: {0}")]
 	MissingFilePathData(String),
-}
-
-async fn determine_initial_walk_path(
-	location_id: location::id::Type,
-	sub_path: &Option<impl AsRef<Path> + Send + Sync>,
-	location_path: impl AsRef<Path> + Send,
-	db: &PrismaClient,
-) -> Result<PathBuf, IndexerError> {
-	let location_path = location_path.as_ref();
-
-	match sub_path {
-		Some(sub_path) if sub_path.as_ref() != Path::new("") => {
-			let sub_path = sub_path.as_ref();
-			let full_path = ensure_sub_path_is_in_location(location_path, sub_path).await?;
-
-			ensure_sub_path_is_directory(location_path, sub_path).await?;
-
-			ensure_file_path_exists(
-				sub_path,
-				&IsolatedFilePathData::new(location_id, location_path, &full_path, true)
-					.map_err(IndexerError::from)?,
-				db,
-				IndexerError::SubPathNotFound,
-			)
-			.await?;
-
-			Ok(full_path)
-		}
-		_ => Ok(location_path.to_path_buf()),
-	}
 }
 
 fn chunk_db_queries<'db, 'iso>(
