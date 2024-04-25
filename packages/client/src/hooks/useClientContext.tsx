@@ -47,7 +47,7 @@ export async function getCachedLibraries(client: AlphaClient<Procedures>) {
 		// If we fail to load cached data, it's fine
 		try {
 			const data = JSON.parse(cachedData);
-			return data.items as LibraryConfigWrapped[];
+			return (data?.items || []) as LibraryConfigWrapped[];
 		} catch (e) {
 			console.error("Error loading cached 'sd-library-list' data", e);
 		}
