@@ -1,5 +1,5 @@
 use crate::{
-	indexer::BATCH_SIZE,
+	indexer,
 	job_system::{
 		job::{
 			Job, JobContext, JobName, JobReturn, JobTaskDispatcher, ProgressUpdate, ReturnStatus,
@@ -9,7 +9,7 @@ use crate::{
 		SerializableJob, SerializedTasks,
 	},
 	utils::sub_path::get_full_path_from_sub_path,
-	Error, LocationScanState, NonCriticalJobError,
+	Error, LocationScanState, NonCriticalError,
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
@@ -47,7 +47,7 @@ use super::{
 		updater::{UpdateTask, UpdateTaskOutput},
 		walker::{WalkDirTask, WalkTaskOutput, WalkedEntry},
 	},
-	update_directory_sizes, update_location_size, IndexerError, IsoFilePathFactory, WalkerDBProxy,
+	update_directory_sizes, update_location_size, IsoFilePathFactory, WalkerDBProxy, BATCH_SIZE,
 };
 
 #[derive(Debug)]
@@ -63,7 +63,7 @@ pub struct IndexerJob {
 	ancestors_already_indexed: HashSet<IsolatedFilePathData<'static>>,
 	iso_paths_and_sizes: HashMap<IsolatedFilePathData<'static>, u64>,
 
-	errors: Vec<NonCriticalJobError>,
+	errors: Vec<NonCriticalError>,
 
 	pending_tasks_on_resume: Vec<TaskHandle<Error>>,
 	tasks_for_shutdown: Vec<Box<dyn Task<Error>>>,
@@ -83,7 +83,7 @@ impl Job for IndexerJob {
 		self.pending_tasks_on_resume = dispatcher
 			.dispatch_many_boxed(
 				rmp_serde::from_slice::<Vec<(TaskKind, Vec<u8>)>>(&serialized_tasks)
-					.map_err(IndexerError::from)?
+					.map_err(indexer::Error::from)?
 					.into_iter()
 					.map(|(task_kind, task_bytes)| {
 						let indexer_ruler = self.indexer_ruler.clone();
@@ -123,7 +123,7 @@ impl Job for IndexerJob {
 					.collect::<Vec<_>>()
 					.try_join()
 					.await
-					.map_err(IndexerError::from)?,
+					.map_err(indexer::Error::from)?,
 			)
 			.await;
 
@@ -243,7 +243,7 @@ impl Job for IndexerJob {
 			)
 			.exec()
 			.await
-			.map_err(IndexerError::from)?;
+			.map_err(indexer::Error::from)?;
 
 		Ok(ReturnStatus::Completed(
 			JobReturn::builder()
@@ -258,7 +258,7 @@ impl IndexerJob {
 	pub fn new(
 		location: location_with_indexer_rules::Data,
 		sub_path: Option<PathBuf>,
-	) -> Result<Self, IndexerError> {
+	) -> Result<Self, indexer::Error> {
 		Ok(Self {
 			indexer_ruler: location
 				.indexer_rules
@@ -297,7 +297,7 @@ impl IndexerJob {
 		any_task_output: Box<dyn AnyTaskOutput>,
 		job_ctx: &impl JobContext,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<Vec<TaskHandle<Error>>, IndexerError> {
+	) -> Result<Vec<TaskHandle<Error>>, indexer::Error> {
 		self.metadata.completed_tasks += 1;
 
 		job_ctx.progress(vec![ProgressUpdate::CompletedTaskCount(
@@ -350,7 +350,7 @@ impl IndexerJob {
 		}: WalkTaskOutput,
 		job_ctx: &impl JobContext,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<Vec<TaskHandle<Error>>, IndexerError> {
+	) -> Result<Vec<TaskHandle<Error>>, indexer::Error> {
 		self.metadata.scan_read_time += scan_time;
 
 		let (to_create_count, to_update_count) = (to_create.len(), to_update.len());
@@ -540,7 +540,7 @@ impl IndexerJob {
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
 		job_ctx: &impl JobContext,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<(), IndexerError> {
+	) -> Result<(), indexer::Error> {
 		// if we don't have any pending task, then this is a fresh job
 		if self.pending_tasks_on_resume.is_empty() {
 			let walker_root_path = Arc::new(
@@ -633,7 +633,7 @@ struct SaveState {
 	ancestors_already_indexed: HashSet<IsolatedFilePathData<'static>>,
 	paths_and_sizes: HashMap<IsolatedFilePathData<'static>, u64>,
 
-	errors: Vec<NonCriticalJobError>,
+	errors: Vec<NonCriticalError>,
 
 	tasks_for_shutdown_bytes: Option<SerializedTasks>,
 }

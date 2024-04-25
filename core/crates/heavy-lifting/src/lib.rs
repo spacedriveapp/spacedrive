@@ -36,10 +36,8 @@ use thiserror::Error;
 pub mod file_identifier;
 pub mod indexer;
 pub mod job_system;
+pub mod media_processor;
 pub mod utils;
-
-use file_identifier::{FileIdentifierError, NonCriticalFileIdentifierError};
-use indexer::{IndexerError, NonCriticalIndexerError};
 
 pub use job_system::{
 	job::{IntoJob, JobBuilder, JobContext, JobName, JobOutput, JobOutputData, ProgressUpdate},
@@ -49,9 +47,11 @@ pub use job_system::{
 #[derive(Error, Debug)]
 pub enum Error {
 	#[error(transparent)]
-	Indexer(#[from] IndexerError),
+	Indexer(#[from] indexer::Error),
 	#[error(transparent)]
-	FileIdentifier(#[from] FileIdentifierError),
+	FileIdentifier(#[from] file_identifier::Error),
+	#[error(transparent)]
+	MediaProcessor(#[from] media_processor::Error),
 
 	#[error(transparent)]
 	TaskSystem(#[from] TaskSystemError),
@@ -62,6 +62,7 @@ impl From<Error> for rspc::Error {
 		match e {
 			Error::Indexer(e) => e.into(),
 			Error::FileIdentifier(e) => e.into(),
+			Error::MediaProcessor(e) => e.into(),
 			Error::TaskSystem(e) => {
 				Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
 			}
@@ -70,12 +71,12 @@ impl From<Error> for rspc::Error {
 }
 
 #[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
-pub enum NonCriticalJobError {
+pub enum NonCriticalError {
 	// TODO: Add variants as needed
 	#[error(transparent)]
-	Indexer(#[from] NonCriticalIndexerError),
+	Indexer(#[from] indexer::NonCriticalError),
 	#[error(transparent)]
-	FileIdentifier(#[from] NonCriticalFileIdentifierError),
+	FileIdentifier(#[from] file_identifier::NonCriticalError),
 }
 
 #[repr(i32)]

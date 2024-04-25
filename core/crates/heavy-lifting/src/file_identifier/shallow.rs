@@ -1,4 +1,7 @@
-use crate::{utils::sub_path::maybe_get_iso_file_path_from_sub_path, Error, NonCriticalJobError};
+use crate::{
+	file_identifier, utils::sub_path::maybe_get_iso_file_path_from_sub_path, Error,
+	NonCriticalError,
+};
 
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::file_path_for_file_identifier;
@@ -22,7 +25,7 @@ use tracing::{debug, warn};
 
 use super::{
 	tasks::{ExtractFileMetadataTask, ExtractFileMetadataTaskOutput, ObjectProcessorTask},
-	FileIdentifierError, CHUNK_SIZE,
+	CHUNK_SIZE,
 };
 
 pub async fn shallow(
@@ -32,24 +35,24 @@ pub async fn shallow(
 	db: Arc<PrismaClient>,
 	sync: Arc<SyncManager>,
 	invalidate_query: impl Fn(&'static str) + Send + Sync,
-) -> Result<Vec<NonCriticalJobError>, Error> {
+) -> Result<Vec<NonCriticalError>, Error> {
 	let sub_path = sub_path.as_ref();
 
 	let location_path = maybe_missing(&location.path, "location.path")
 		.map(PathBuf::from)
 		.map(Arc::new)
-		.map_err(FileIdentifierError::from)?;
+		.map_err(file_identifier::Error::from)?;
 
 	let location = Arc::new(location);
 
 	let sub_iso_file_path =
 		maybe_get_iso_file_path_from_sub_path(location.id, &Some(sub_path), &*location_path, &db)
 			.await
-			.map_err(FileIdentifierError::from)?
+			.map_err(file_identifier::Error::from)?
 			.map_or_else(
 				|| {
 					IsolatedFilePathData::new(location.id, &*location_path, &*location_path, true)
-						.map_err(FileIdentifierError::from)
+						.map_err(file_identifier::Error::from)
 				},
 				Ok,
 			)?;
@@ -74,7 +77,7 @@ pub async fn shallow(
 			.select(file_path_for_file_identifier::select())
 			.exec()
 			.await
-			.map_err(FileIdentifierError::from)?;
+			.map_err(file_identifier::Error::from)?;
 
 		let Some(last_orphan) = orphan_paths.last() else {
 			// No orphans here!
@@ -117,7 +120,7 @@ async fn process_tasks(
 	dispatcher: BaseTaskDispatcher<Error>,
 	db: Arc<PrismaClient>,
 	sync: Arc<SyncManager>,
-) -> Result<Vec<NonCriticalJobError>, Error> {
+) -> Result<Vec<NonCriticalError>, Error> {
 	let mut pending_running_tasks = pending_running_tasks.lend_mut();
 
 	let mut errors = vec![];

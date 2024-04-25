@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use prisma_client_rust::QueryError;
 
 #[derive(thiserror::Error, Debug)]
-pub enum SubPathError {
+pub enum Error {
 	#[error("received sub path not in database: <path='{}'>", .0.display())]
 	SubPathNotFound(Box<Path>),
 
@@ -22,10 +22,10 @@ pub enum SubPathError {
 	IsoFilePath(#[from] FilePathError),
 }
 
-impl From<SubPathError> for rspc::Error {
-	fn from(err: SubPathError) -> Self {
+impl From<Error> for rspc::Error {
+	fn from(err: Error) -> Self {
 		match err {
-			SubPathError::SubPathNotFound(_) => {
+			Error::SubPathNotFound(_) => {
 				Self::with_cause(ErrorCode::NotFound, err.to_string(), err)
 			}
 
@@ -39,7 +39,7 @@ pub async fn get_full_path_from_sub_path(
 	sub_path: &Option<impl AsRef<Path> + Send + Sync>,
 	location_path: impl AsRef<Path> + Send,
 	db: &PrismaClient,
-) -> Result<PathBuf, SubPathError> {
+) -> Result<PathBuf, Error> {
 	let location_path = location_path.as_ref();
 
 	match sub_path {
@@ -53,7 +53,7 @@ pub async fn get_full_path_from_sub_path(
 				sub_path,
 				&IsolatedFilePathData::new(location_id, location_path, &full_path, true)?,
 				db,
-				SubPathError::SubPathNotFound,
+				Error::SubPathNotFound,
 			)
 			.await?;
 
@@ -68,7 +68,7 @@ pub async fn maybe_get_iso_file_path_from_sub_path(
 	sub_path: &Option<impl AsRef<Path> + Send + Sync>,
 	location_path: impl AsRef<Path> + Send,
 	db: &PrismaClient,
-) -> Result<Option<IsolatedFilePathData<'static>>, SubPathError> {
+) -> Result<Option<IsolatedFilePathData<'static>>, Error> {
 	let location_path = location_path.as_ref();
 
 	match sub_path {
@@ -83,7 +83,7 @@ pub async fn maybe_get_iso_file_path_from_sub_path(
 				sub_path,
 				&sub_iso_file_path,
 				db,
-				SubPathError::SubPathNotFound,
+				Error::SubPathNotFound,
 			)
 			.await
 			.map(|()| Some(sub_iso_file_path))

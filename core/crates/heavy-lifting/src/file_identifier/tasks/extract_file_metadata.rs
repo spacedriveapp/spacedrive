@@ -1,6 +1,6 @@
 use crate::{
-	file_identifier::{FileMetadata, NonCriticalFileIdentifierError},
-	Error, NonCriticalJobError,
+	file_identifier::{self, FileMetadata},
+	Error, NonCriticalError,
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
@@ -34,7 +34,7 @@ pub struct ExtractFileMetadataTask {
 	file_paths_by_id: HashMap<Uuid, file_path_for_file_identifier::Data>,
 	identified_files: HashMap<Uuid, IdentifiedFile>,
 	extract_metadata_time: Duration,
-	errors: Vec<NonCriticalJobError>,
+	errors: Vec<NonCriticalError>,
 	is_shallow: bool,
 }
 
@@ -42,7 +42,7 @@ pub struct ExtractFileMetadataTask {
 pub struct ExtractFileMetadataTaskOutput {
 	pub identified_files: HashMap<Uuid, IdentifiedFile>,
 	pub extract_metadata_time: Duration,
-	pub errors: Vec<NonCriticalJobError>,
+	pub errors: Vec<NonCriticalError>,
 }
 
 impl ExtractFileMetadataTask {
@@ -207,7 +207,7 @@ fn handle_non_critical_errors(
 	location_id: location::id::Type,
 	file_path_pub_id: Uuid,
 	e: &FileIOError,
-	errors: &mut Vec<NonCriticalJobError>,
+	errors: &mut Vec<NonCriticalError>,
 ) {
 	error!("Failed to extract file metadata <location_id={location_id}, file_path_pub_id='{file_path_pub_id}'>: {e:#?}");
 
@@ -218,14 +218,15 @@ fn handle_non_critical_errors(
 		// Handle case where file is on-demand (NTFS only)
 		if e.source.raw_os_error().map_or(false, |code| code == 362) {
 			errors.push(
-				NonCriticalFileIdentifierError::FailedToExtractMetadataFromOnDemandFile(
+				file_identifier::NonCriticalError::FailedToExtractMetadataFromOnDemandFile(
 					formatted_error,
 				)
 				.into(),
 			);
 		} else {
 			errors.push(
-				NonCriticalFileIdentifierError::FailedToExtractFileMetadata(formatted_error).into(),
+				file_identifier::NonCriticalError::FailedToExtractFileMetadata(formatted_error)
+					.into(),
 			);
 		}
 	}
@@ -233,7 +234,7 @@ fn handle_non_critical_errors(
 	#[cfg(not(target_os = "windows"))]
 	{
 		errors.push(
-			NonCriticalFileIdentifierError::FailedToExtractFileMetadata(formatted_error).into(),
+			file_identifier::NonCriticalError::FailedToExtractFileMetadata(formatted_error).into(),
 		);
 	}
 }
@@ -243,7 +244,7 @@ fn try_iso_file_path_extraction(
 	file_path_pub_id: Uuid,
 	file_path: &file_path_for_file_identifier::Data,
 	location_path: Arc<PathBuf>,
-	errors: &mut Vec<NonCriticalJobError>,
+	errors: &mut Vec<NonCriticalError>,
 ) -> Option<(Uuid, IsolatedFilePathData<'static>, Arc<PathBuf>)> {
 	IsolatedFilePathData::try_from((location_id, file_path))
 		.map(IsolatedFilePathData::to_owned)
@@ -251,7 +252,7 @@ fn try_iso_file_path_extraction(
 		.map_err(|e| {
 			error!("Failed to extract isolated file path data: {e:#?}");
 			errors.push(
-				NonCriticalFileIdentifierError::FailedToExtractIsolatedFilePathData(format!(
+				file_identifier::NonCriticalError::FailedToExtractIsolatedFilePathData(format!(
 					"<file_path_pub_id='{file_path_pub_id}', error={e}>"
 				))
 				.into(),

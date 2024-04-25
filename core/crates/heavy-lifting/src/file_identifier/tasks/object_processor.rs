@@ -1,4 +1,4 @@
-use crate::{file_identifier::FileIdentifierError, Error};
+use crate::{file_identifier, Error};
 
 use sd_core_prisma_helpers::{
 	file_path_for_file_identifier, file_path_pub_id, object_for_file_identifier,
@@ -208,7 +208,7 @@ async fn assign_cas_id_to_file_paths(
 	identified_files: &HashMap<Uuid, IdentifiedFile>,
 	db: &PrismaClient,
 	sync: &SyncManager,
-) -> Result<(), FileIdentifierError> {
+) -> Result<(), file_identifier::Error> {
 	// Assign cas_id to each file path
 	sync.write_ops(
 		db,
@@ -243,7 +243,7 @@ async fn assign_cas_id_to_file_paths(
 async fn fetch_existing_objects_by_cas_id(
 	identified_files: &HashMap<Uuid, IdentifiedFile>,
 	db: &PrismaClient,
-) -> Result<HashMap<String, object_for_file_identifier::Data>, FileIdentifierError> {
+) -> Result<HashMap<String, object_for_file_identifier::Data>, file_identifier::Error> {
 	// Retrieves objects that are already connected to file paths with the same id
 	db.object()
 		.find_many(vec![object::file_paths::some(vec![
@@ -280,7 +280,7 @@ async fn assign_existing_objects_to_file_paths(
 	objects_by_cas_id: &HashMap<String, object_for_file_identifier::Data>,
 	db: &PrismaClient,
 	sync: &SyncManager,
-) -> Result<Vec<file_path_pub_id::Data>, FileIdentifierError> {
+) -> Result<Vec<file_path_pub_id::Data>, file_identifier::Error> {
 	// Attempt to associate each file path with an object that has been
 	// connected to file paths with the same cas_id
 	sync.write_ops(
@@ -341,7 +341,7 @@ async fn create_objects(
 	identified_files: &HashMap<Uuid, IdentifiedFile>,
 	db: &PrismaClient,
 	sync: &SyncManager,
-) -> Result<u64, FileIdentifierError> {
+) -> Result<u64, file_identifier::Error> {
 	trace!("Creating {} new Objects", identified_files.len(),);
 
 	let (object_create_args, file_path_update_args) = identified_files

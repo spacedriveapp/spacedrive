@@ -1,4 +1,5 @@
 use crate::{
+	file_identifier,
 	job_system::{
 		job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus},
 		report::ReportOutputMetadata,
@@ -6,7 +7,7 @@ use crate::{
 		SerializableJob, SerializedTasks,
 	},
 	utils::sub_path::maybe_get_iso_file_path_from_sub_path,
-	Error, JobContext, JobName, LocationScanState, NonCriticalJobError, ProgressUpdate,
+	Error, JobContext, JobName, LocationScanState, NonCriticalError, ProgressUpdate,
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
@@ -41,7 +42,7 @@ use super::{
 		ExtractFileMetadataTask, ExtractFileMetadataTaskOutput, ObjectProcessorTask,
 		ObjectProcessorTaskMetrics,
 	},
-	FileIdentifierError, CHUNK_SIZE,
+	CHUNK_SIZE,
 };
 
 #[derive(Debug)]
@@ -52,7 +53,7 @@ pub struct FileIdentifierJob {
 
 	metadata: Metadata,
 
-	errors: Vec<NonCriticalJobError>,
+	errors: Vec<NonCriticalError>,
 
 	pending_tasks_on_resume: Vec<TaskHandle<Error>>,
 	tasks_for_shutdown: Vec<Box<dyn Task<Error>>>,
@@ -79,7 +80,7 @@ impl Job for FileIdentifierJob {
 		self.pending_tasks_on_resume = dispatcher
 			.dispatch_many_boxed(
 				rmp_serde::from_slice::<Vec<(TaskKind, Vec<u8>)>>(&serialized_tasks)
-					.map_err(FileIdentifierError::from)?
+					.map_err(file_identifier::Error::from)?
 					.into_iter()
 					.map(|(task_kind, task_bytes)| async move {
 						match task_kind {
@@ -103,7 +104,7 @@ impl Job for FileIdentifierJob {
 					.collect::<Vec<_>>()
 					.try_join()
 					.await
-					.map_err(FileIdentifierError::from)?,
+					.map_err(file_identifier::Error::from)?,
 			)
 			.await;
 
@@ -181,7 +182,7 @@ impl Job for FileIdentifierJob {
 			)
 			.exec()
 			.await
-			.map_err(FileIdentifierError::from)?;
+			.map_err(file_identifier::Error::from)?;
 
 		Ok(ReturnStatus::Completed(
 			JobReturn::builder()
@@ -196,7 +197,7 @@ impl FileIdentifierJob {
 	pub fn new(
 		location: location::Data,
 		sub_path: Option<PathBuf>,
-	) -> Result<Self, FileIdentifierError> {
+	) -> Result<Self, file_identifier::Error> {
 		Ok(Self {
 			location_path: maybe_missing(&location.path, "location.path")
 				.map(PathBuf::from)
@@ -215,7 +216,7 @@ impl FileIdentifierJob {
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
 		job_ctx: &impl JobContext,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<(), FileIdentifierError> {
+	) -> Result<(), file_identifier::Error> {
 		// if we don't have any pending task, then this is a fresh job
 		if self.pending_tasks_on_resume.is_empty() {
 			let db = job_ctx.db();
@@ -399,7 +400,7 @@ struct SaveState {
 
 	metadata: Metadata,
 
-	errors: Vec<NonCriticalJobError>,
+	errors: Vec<NonCriticalError>,
 
 	tasks_for_shutdown_bytes: Option<SerializedTasks>,
 }

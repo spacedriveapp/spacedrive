@@ -1,4 +1,4 @@
-use crate::{utils::sub_path::get_full_path_from_sub_path, Error, NonCriticalJobError};
+use crate::{indexer, utils::sub_path::get_full_path_from_sub_path, Error, NonCriticalError};
 
 use sd_core_indexer_rules::{IndexerRule, IndexerRuler};
 use sd_core_prisma_helpers::location_with_indexer_rules;
@@ -25,8 +25,7 @@ use super::{
 		updater::{UpdateTask, UpdateTaskOutput},
 		walker::{ToWalkEntry, WalkDirTask, WalkTaskOutput, WalkedEntry},
 	},
-	update_directory_sizes, update_location_size, IndexerError, IsoFilePathFactory, WalkerDBProxy,
-	BATCH_SIZE,
+	update_directory_sizes, update_location_size, IsoFilePathFactory, WalkerDBProxy, BATCH_SIZE,
 };
 
 pub async fn shallow(
@@ -36,18 +35,18 @@ pub async fn shallow(
 	db: Arc<PrismaClient>,
 	sync: Arc<SyncManager>,
 	invalidate_query: impl Fn(&'static str) + Send + Sync,
-) -> Result<Vec<NonCriticalJobError>, Error> {
+) -> Result<Vec<NonCriticalError>, Error> {
 	let sub_path = sub_path.as_ref();
 
 	let location_path = maybe_missing(&location.path, "location.path")
 		.map(PathBuf::from)
 		.map(Arc::new)
-		.map_err(IndexerError::from)?;
+		.map_err(indexer::Error::from)?;
 
 	let to_walk_path = Arc::new(
 		get_full_path_from_sub_path(location.id, &Some(sub_path), &*location_path, &db)
 			.await
-			.map_err(IndexerError::from)?,
+			.map_err(indexer::Error::from)?,
 	);
 
 	let Some(WalkTaskOutput {
@@ -135,7 +134,7 @@ async fn walk(
 				.map(|rule| IndexerRule::try_from(&rule.indexer_rule))
 				.collect::<Result<Vec<_>, _>>()
 				.map(IndexerRuler::new)
-				.map_err(IndexerError::from)?,
+				.map_err(indexer::Error::from)?,
 			IsoFilePathFactory {
 				location_id: location.id,
 				location_path,

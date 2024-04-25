@@ -1,4 +1,4 @@
-use crate::utils::sub_path::SubPathError;
+use crate::utils::sub_path;
 
 use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
 
@@ -28,7 +28,7 @@ pub use shallow::shallow;
 const CHUNK_SIZE: usize = 100;
 
 #[derive(thiserror::Error, Debug)]
-pub enum FileIdentifierError {
+pub enum Error {
 	#[error("missing field on database: {0}")]
 	MissingField(#[from] MissingFieldError),
 	#[error("failed to deserialized stored tasks for job resume: {0}")]
@@ -39,13 +39,13 @@ pub enum FileIdentifierError {
 	#[error(transparent)]
 	FilePathError(#[from] FilePathError),
 	#[error(transparent)]
-	SubPath(#[from] SubPathError),
+	SubPath(#[from] sub_path::Error),
 }
 
-impl From<FileIdentifierError> for rspc::Error {
-	fn from(err: FileIdentifierError) -> Self {
+impl From<Error> for rspc::Error {
+	fn from(err: Error) -> Self {
 		match err {
-			FileIdentifierError::SubPath(sub_path_err) => sub_path_err.into(),
+			Error::SubPath(sub_path_err) => sub_path_err.into(),
 
 			_ => Self::with_cause(ErrorCode::InternalServerError, err.to_string(), err),
 		}
@@ -53,7 +53,7 @@ impl From<FileIdentifierError> for rspc::Error {
 }
 
 #[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
-pub enum NonCriticalFileIdentifierError {
+pub enum NonCriticalError {
 	#[error("failed to extract file metadata: {0}")]
 	FailedToExtractFileMetadata(String),
 	#[cfg(target_os = "windows")]

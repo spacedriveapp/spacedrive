@@ -1,4 +1,4 @@
-use crate::{utils::sub_path::SubPathError, NonCriticalJobError};
+use crate::utils::sub_path;
 
 use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
 use sd_core_indexer_rules::IndexerRuleError;
@@ -8,7 +8,7 @@ use sd_core_prisma_helpers::{
 use sd_core_sync::Manager as SyncManager;
 
 use sd_prisma::{
-	prisma::{file_path, location, PrismaClient, SortOrder},
+	prisma::{file_path, indexer_rule, location, PrismaClient, SortOrder},
 	prisma_sync,
 };
 use sd_sync::OperationFactory;
@@ -46,12 +46,12 @@ use tasks::walker;
 const BATCH_SIZE: usize = 1000;
 
 #[derive(thiserror::Error, Debug)]
-pub enum IndexerError {
+pub enum Error {
 	// Not Found errors
 	#[error("indexer rule not found: <id='{0}'>")]
-	IndexerRuleNotFound(i32),
+	IndexerRuleNotFound(indexer_rule::id::Type),
 	#[error(transparent)]
-	SubPath(#[from] SubPathError),
+	SubPath(#[from] sub_path::Error),
 
 	// Internal Errors
 	#[error("database Error: {0}")]
@@ -72,16 +72,16 @@ pub enum IndexerError {
 	Rules(#[from] IndexerRuleError),
 }
 
-impl From<IndexerError> for rspc::Error {
-	fn from(err: IndexerError) -> Self {
+impl From<Error> for rspc::Error {
+	fn from(err: Error) -> Self {
 		match err {
-			IndexerError::IndexerRuleNotFound(_) => {
+			Error::IndexerRuleNotFound(_) => {
 				Self::with_cause(ErrorCode::NotFound, err.to_string(), err)
 			}
 
-			IndexerError::SubPath(sub_path_err) => sub_path_err.into(),
+			Error::SubPath(sub_path_err) => sub_path_err.into(),
 
-			IndexerError::Rules(rule_err) => rule_err.into(),
+			Error::Rules(rule_err) => rule_err.into(),
 
 			_ => Self::with_cause(ErrorCode::InternalServerError, err.to_string(), err),
 		}
@@ -89,7 +89,7 @@ impl From<IndexerError> for rspc::Error {
 }
 
 #[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
-pub enum NonCriticalIndexerError {
+pub enum NonCriticalError {
 	#[error("failed to read directory entry: {0}")]
 	FailedDirectoryEntry(String),
 	#[error("failed to fetch metadata: {0}")]
@@ -134,7 +134,7 @@ async fn update_directory_sizes(
 	iso_paths_and_sizes: HashMap<IsolatedFilePathData<'_>, u64, impl BuildHasher + Send>,
 	db: &PrismaClient,
 	sync: &SyncManager,
-) -> Result<(), IndexerError> {
+) -> Result<(), Error> {
 	let to_sync_and_update = db
 		._batch(chunk_db_queries(iso_paths_and_sizes.keys(), db))
 		.await?
@@ -160,7 +160,7 @@ async fn update_directory_sizes(
 				),
 			))
 		})
-		.collect::<Result<Vec<_>, IndexerError>>()?
+		.collect::<Result<Vec<_>, Error>>()?
 		.into_iter()
 		.unzip::<_, _, Vec<_>, Vec<_>>();
 
@@ -173,7 +173,7 @@ async fn update_location_size<InvalidateQuery: Fn(&'static str) + Send + Sync>(
 	location_id: location::id::Type,
 	db: &PrismaClient,
 	invalidate_query: &InvalidateQuery,
-) -> Result<(), IndexerError> {
+) -> Result<(), Error> {
 	let total_size = db
 		.file_path()
 		.find_many(vec![
@@ -211,7 +211,7 @@ async fn remove_non_existing_file_paths(
 	to_remove: Vec<file_path_pub_and_cas_ids::Data>,
 	db: &PrismaClient,
 	sync: &sd_core_sync::Manager,
-) -> Result<u64, IndexerError> {
+) -> Result<u64, Error> {
 	#[allow(clippy::cast_sign_loss)]
 	let (sync_params, db_params): (Vec<_>, Vec<_>) = to_remove
 		.into_iter()
@@ -248,8 +248,8 @@ async fn reverse_update_directories_sizes(
 	location_path: impl AsRef<Path> + Send,
 	db: &PrismaClient,
 	sync: &SyncManager,
-	errors: &mut Vec<NonCriticalJobError>,
-) -> Result<(), IndexerError> {
+	errors: &mut Vec<crate::NonCriticalError>,
+) -> Result<(), Error> {
 	let location_path = location_path.as_ref();
 
 	let ancestors = base_path
@@ -279,7 +279,7 @@ async fn reverse_update_directories_sizes(
 			IsolatedFilePathData::try_from(file_path)
 				.map_err(|e| {
 					errors.push(
-						NonCriticalIndexerError::MissingFilePathData(format!(
+						NonCriticalError::MissingFilePathData(format!(
 							"Found a file_path missing data: <pub_id='{:#?}'>, error: {e:#?}",
 							from_bytes_to_uuid(&pub_id)
 						))
@@ -345,8 +345,8 @@ async fn compute_sizes(
 	materialized_paths: Vec<String>,
 	pub_id_by_ancestor_materialized_path: &mut HashMap<String, (file_path::pub_id::Type, u64)>,
 	db: &PrismaClient,
-	errors: &mut Vec<NonCriticalJobError>,
-) -> Result<(), IndexerError> {
+	errors: &mut Vec<crate::NonCriticalError>,
+) -> Result<(), Error> {
 	db.file_path()
 		.find_many(vec![
 			file_path::location_id::equals(Some(location_id)),
@@ -371,7 +371,7 @@ async fn compute_sizes(
 				}
 			} else {
 				errors.push(
-					NonCriticalIndexerError::MissingFilePathData(format!(
+					NonCriticalError::MissingFilePathData(format!(
 						"Corrupt database possessing a file_path entry without materialized_path: <pub_id='{:#?}'>",
 						from_bytes_to_uuid(&file_path.pub_id)
 					))
@@ -409,7 +409,7 @@ impl walker::WalkerDBProxy for WalkerDBProxy {
 	async fn fetch_file_paths(
 		&self,
 		found_paths: Vec<file_path::WhereParam>,
-	) -> Result<Vec<file_path_walker::Data>, IndexerError> {
+	) -> Result<Vec<file_path_walker::Data>, Error> {
 		// Each found path is a AND with 4 terms, and SQLite has a expression tree limit of 1000 terms
 		// so we will use chunks of 200 just to be safe
 		self.db
@@ -435,7 +435,7 @@ impl walker::WalkerDBProxy for WalkerDBProxy {
 		&self,
 		parent_iso_file_path: &IsolatedFilePathData<'_>,
 		unique_location_id_materialized_path_name_extension_params: Vec<file_path::WhereParam>,
-	) -> Result<Vec<file_path_pub_and_cas_ids::Data>, NonCriticalIndexerError> {
+	) -> Result<Vec<file_path_pub_and_cas_ids::Data>, NonCriticalError> {
 		// NOTE: This batch size can be increased if we wish to trade memory for more performance
 		const BATCH_SIZE: i64 = 1000;
 
@@ -461,7 +461,7 @@ impl walker::WalkerDBProxy for WalkerDBProxy {
 					.flat_map(|file_paths| file_paths.into_iter().map(|file_path| file_path.id))
 					.collect::<HashSet<_>>()
 			})
-			.map_err(|e| NonCriticalIndexerError::FetchAlreadyExistingFilePathIds(e.to_string()))?;
+			.map_err(|e| NonCriticalError::FetchAlreadyExistingFilePathIds(e.to_string()))?;
 
 		let mut to_remove = vec![];
 		let mut cursor = 1;
@@ -484,7 +484,7 @@ impl walker::WalkerDBProxy for WalkerDBProxy {
 				.select(file_path_pub_and_cas_ids::select())
 				.exec()
 				.await
-				.map_err(|e| NonCriticalIndexerError::FetchFilePathsToRemove(e.to_string()))?;
+				.map_err(|e| NonCriticalError::FetchFilePathsToRemove(e.to_string()))?;
 
 			#[allow(clippy::cast_possible_truncation)] // Safe because we are using a constant
 			let should_stop = found.len() < BATCH_SIZE as usize;

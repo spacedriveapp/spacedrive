@@ -17,11 +17,11 @@ sd-core-sync = { path = "../sync" }
 
 # Sub-crates
 sd-file-ext = { path = "../../../crates/file-ext" }
+sd-media-metadata = { path = "../../../crates/media-metadata" }
 sd-prisma = { path = "../../../crates/prisma" }
 sd-sync = { path = "../../../crates/sync" }
 sd-task-system = { path = "../../../crates/task-system" }
 sd-utils = { path = "../../../crates/utils" }
-
 
 async-channel = { workspace = true }
 async-trait = { workspace = true }

@@ -1,4 +1,4 @@
-use crate::{Error, NonCriticalJobError};
+use crate::{Error, NonCriticalError};
 
 use sd_core_sync::Manager as SyncManager;
 
@@ -144,7 +144,7 @@ where
 pub struct JobReturn {
 	data: JobOutputData,
 	metadata: Option<ReportOutputMetadata>,
-	non_critical_errors: Vec<NonCriticalJobError>,
+	non_critical_errors: Vec<NonCriticalError>,
 }
 
 impl JobReturn {
@@ -185,7 +185,7 @@ impl JobReturnBuilder {
 	}
 
 	#[must_use]
-	pub fn with_non_critical_errors(mut self, errors: Vec<NonCriticalJobError>) -> Self {
+	pub fn with_non_critical_errors(mut self, errors: Vec<NonCriticalError>) -> Self {
 		if self.job_return.non_critical_errors.is_empty() {
 			self.job_return.non_critical_errors = errors;
 		} else {
@@ -207,7 +207,7 @@ pub struct JobOutput {
 	job_name: JobName,
 	data: JobOutputData,
 	metadata: Vec<ReportMetadata>,
-	non_critical_errors: Vec<NonCriticalJobError>,
+	non_critical_errors: Vec<NonCriticalError>,
 }
 
 impl JobOutput {
