@@ -8475,15 +8475,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sd-cache"
-version = "0.0.0"
-dependencies = [
- "serde",
- "serde_json",
- "specta",
-]
-
-[[package]]
 name = "sd-cli"
 version = "0.1.0"
 dependencies = [
@@ -8563,7 +8554,6 @@ dependencies = [
  "rspc",
  "sd-actors",
  "sd-ai",
- "sd-cache",
  "sd-cloud-api",
  "sd-core-file-path-helper",
  "sd-core-heavy-lifting",
@@ -8694,7 +8684,6 @@ name = "sd-core-prisma-helpers"
 version = "0.1.0"
 dependencies = [
  "prisma-client-rust",
- "sd-cache",
  "sd-prisma",
  "serde",
 ]
@@ -9026,7 +9015,6 @@ dependencies = [
  "prisma-client-rust",
  "rmp-serde",
  "rmpv",
- "sd-cache",
  "sd-sync",
  "serde",
  "serde_json",

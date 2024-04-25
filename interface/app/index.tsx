@@ -11,22 +11,17 @@ import {
 	type RouteObject
 } from 'react-router-dom';
 import {
-	CacheProvider,
 	ClientContextProvider,
 	context,
 	context2,
-	createCache,
 	currentLibraryCache,
 	getCachedLibraries,
 	LibraryContextProvider,
 	nonLibraryClient,
-	NormalisedCache,
 	Procedures,
 	useBridgeQuery,
-	useCache,
 	useCachedLibraries,
 	useFeatureFlag,
-	useNodes,
 	WithSolid,
 	type LibraryProceduresDef,
 	type NonLibraryProceduresDef
@@ -60,7 +55,7 @@ function P2PErrorToast() {
 	return null;
 }
 
-export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
+export const createRoutes = (platform: Platform) =>
 	[
 		{
 			Component: () => {
@@ -103,7 +98,7 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 						return <Navigate to={`${libraryId}`} replace />;
 					},
 					loader: async () => {
-						const libraries = await getCachedLibraries(cache, nonLibraryClient);
+						const libraries = await getCachedLibraries(nonLibraryClient);
 
 						const currentLibrary = libraries.find(
 							(l) => l.uuid === currentLibraryCache.id
@@ -135,8 +130,7 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 							Component: () => {
 								const params = useZodRouteParams(LibraryIdParamsSchema);
 								const result = useBridgeQuery(['library.list']);
-								useNodes(result.data?.nodes);
-								const libraries = useCache(result.data?.items);
+								const libraries = result.data;
 
 								const library = libraries?.find((l) => l.uuid === params.libraryId);
 
@@ -176,7 +170,7 @@ export const createRoutes = (platform: Platform, cache: NormalisedCache) =>
 					path: ':libraryId',
 					lazy: () => import('./$libraryId/Layout'),
 					loader: async ({ params: { libraryId } }) => {
-						const libraries = await getCachedLibraries(cache, nonLibraryClient);
+						const libraries = await getCachedLibraries(nonLibraryClient);
 						const library = libraries.find((l) => l.uuid === libraryId);
 
 						if (!library) {
@@ -204,12 +198,7 @@ function RemoteLayout() {
 	// TODO: The caches should instead be prefixed by the remote node ID, instead of completely being recreated but that's too hard to do right now.
 	const [rspcClient, setRspcClient] =
 		useState<
-			[
-				AlphaClient<NonLibraryProceduresDef>,
-				AlphaClient<LibraryProceduresDef>,
-				QueryClient,
-				NormalisedCache
-			]
+			[AlphaClient<NonLibraryProceduresDef>, AlphaClient<LibraryProceduresDef>, QueryClient]
 		>();
 	useEffect(() => {
 		const endpoint = platform.getRemoteRspcEndpoint(params.node);
@@ -233,8 +222,7 @@ function RemoteLayout() {
 				return [keyAndInput[0], { library_id: libraryId, arg: keyAndInput[1] ?? null }];
 			}
 		});
-		const cache = createCache();
-		setRspcClient([client, libraryClient, new QueryClient(), cache]);
+		setRspcClient([client, libraryClient, new QueryClient()]);
 
 		return () => {
 			// TODO: We *really* need to cleanup `client` so we aren't leaking all the resources.
@@ -273,25 +261,23 @@ function RemoteLayout() {
 			{/* TODO: Maybe library context too? */}
 			{rspcClient && (
 				<QueryClientProvider client={rspcClient[2]}>
-					<CacheProvider cache={rspcClient[3]}>
-						<context.Provider
+					<context.Provider
+						value={{
+							// @ts-expect-error
+							client: rspcClient[0],
+							queryClient: rspcClient[2]
+						}}
+					>
+						<context2.Provider
 							value={{
 								// @ts-expect-error
-								client: rspcClient[0],
+								client: rspcClient[1],
 								queryClient: rspcClient[2]
 							}}
 						>
-							<context2.Provider
-								value={{
-									// @ts-expect-error
-									client: rspcClient[1],
-									queryClient: rspcClient[2]
-								}}
-							>
-								<Outlet />
-							</context2.Provider>
-						</context.Provider>
-					</CacheProvider>
+							<Outlet />
+						</context2.Provider>
+					</context.Provider>
 				</QueryClientProvider>
 			)}
 		</PlatformProvider>
@@ -301,8 +287,7 @@ function RemoteLayout() {
 function BrowsePage() {
 	const navigate = useNavigate();
 	const result = useBridgeQuery(['library.list']);
-	useNodes(result.data?.nodes);
-	const libraries = useCache(result.data?.items);
+	const libraries = result.data;
 
 	return (
 		<div className="flex flex-col">

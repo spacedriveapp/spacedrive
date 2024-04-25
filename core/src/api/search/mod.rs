@@ -15,7 +15,6 @@ use crate::{
 
 use opendal::{services::Fs, Operator};
 
-use sd_cache::{CacheNode, Model, Normalise, Reference};
 use sd_core_indexer_rules::seed::no_hidden;
 use sd_core_indexer_rules::IndexerRule;
 use sd_core_prisma_helpers::{file_path_with_object, object_with_file_paths};
@@ -43,16 +42,9 @@ use super::{Ctx, R};
 const MAX_TAKE: u8 = 100;
 
 #[derive(Serialize, Type, Debug)]
-struct SearchData<T: Model> {
+struct SearchData<T> {
 	cursor: Option<Vec<u8>>,
-	items: Vec<Reference<T>>,
-	nodes: Vec<CacheNode>,
-}
-
-impl<T: Model> Model for SearchData<T> {
-	fn name() -> &'static str {
-		T::name()
-	}
+	items: Vec<T>,
 }
 
 #[derive(Serialize, Deserialize, Type, Debug, Clone)]
@@ -96,9 +88,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 			#[derive(Serialize, Type, Debug)]
 			struct EphemeralPathsResultItem {
-				pub entries: Vec<Reference<ExplorerItem>>,
+				pub entries: Vec<ExplorerItem>,
 				pub errors: Vec<String>,
-				pub nodes: Vec<CacheNode>,
 			}
 
 			R.with2(library()).subscription(
@@ -236,12 +227,9 @@ pub fn mount() -> AlphaRouter<Ctx> {
 								}
 							}
 
-							let (nodes, entries) = entries.normalise(|item: &ExplorerItem| item.id());
-
 							yield EphemeralPathsResultItem {
 								entries,
 								errors,
-								nodes,
 							};
 						}
 
@@ -340,12 +328,9 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						})
 					}
 
-					let (nodes, items) = items.normalise(|item| item.id());
-
 					Ok(SearchData {
 						items,
 						cursor: None,
-						nodes,
 					})
 				},
 			)
@@ -460,10 +445,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						});
 					}
 
-					let (nodes, items) = items.normalise(|item| item.id());
-
 					Ok(SearchData {
-						nodes,
 						items,
 						cursor,
 					})

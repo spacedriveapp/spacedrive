@@ -19,7 +19,6 @@ use sd_core_prisma_helpers::{
 	file_path_to_isolate, file_path_to_isolate_with_id, object_with_file_paths,
 };
 
-use sd_cache::{CacheNode, Model, NormalisedResult, Reference};
 use sd_file_ext::kind::ObjectKind;
 use sd_images::ConvertibleExtension;
 use sd_media_metadata::MediaMetadata;
@@ -75,21 +74,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub note: Option<String>,
 				pub date_created: Option<DateTime<FixedOffset>>,
 				pub date_accessed: Option<DateTime<FixedOffset>>,
-				pub file_paths: Vec<Reference<file_path::Data>>,
-			}
-
-			impl Model for ObjectWithFilePaths2 {
-				fn name() -> &'static str {
-					"Object" // is a duplicate because it's the same entity but with a relation
-				}
+				pub file_paths: Vec<object_with_file_paths::file_paths::Data>,
 			}
 
 			impl ObjectWithFilePaths2 {
-				pub fn from_db(
-					nodes: &mut Vec<CacheNode>,
-					item: object_with_file_paths::Data,
-				) -> Reference<Self> {
-					let this = Self {
+				pub fn from_db(item: object_with_file_paths::Data) -> Self {
+					Self {
 						id: item.id,
 						pub_id: item.pub_id,
 						kind: item.kind,
@@ -100,20 +90,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						note: item.note,
 						date_created: item.date_created,
 						date_accessed: item.date_accessed,
-						file_paths: item
-							.file_paths
-							.into_iter()
-							.map(|i| {
-								let id = i.id.to_string();
-								nodes.push(CacheNode::new(id.clone(), i));
-								Reference::new(id)
-							})
-							.collect(),
-					};
-
-					let id = this.id.to_string();
-					nodes.push(CacheNode::new(id.clone(), this));
-					Reference::new(id)
+						file_paths: item.file_paths,
+					}
 				}
 			}
 
@@ -126,13 +104,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.include(object_with_file_paths::include())
 						.exec()
 						.await?
-						.map(|item| {
-							let mut nodes = Vec::new();
-							NormalisedResult {
-								item: ObjectWithFilePaths2::from_db(&mut nodes, item),
-								nodes,
-							}
-						}))
+						.map(|item| ObjectWithFilePaths2::from_db(item)))
 				})
 		})
 		.procedure("getMediaData", {

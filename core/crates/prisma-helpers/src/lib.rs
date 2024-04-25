@@ -176,13 +176,6 @@ object::include!(object_with_file_paths {
 	}
 });
 
-impl sd_cache::Model for object_with_file_paths::file_paths::Data {
-	fn name() -> &'static str {
-		// This is okay because it's a superset of the available fields.
-		prisma::file_path::NAME
-	}
-}
-
 // Job selectables!
 job::select!(job_without_data {
 	id

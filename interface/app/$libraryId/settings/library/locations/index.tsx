@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useDebounce } from 'use-debounce';
-import { useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { useLibraryQuery } from '@sd/client';
 import { SearchInput } from '@sd/ui';
 import { useLocale } from '~/hooks';
 
@@ -10,8 +10,7 @@ import ListItem from './ListItem';
 
 export const Component = () => {
 	const locationsQuery = useLibraryQuery(['locations.list']);
-	useNodes(locationsQuery.data?.nodes);
-	const locations = useCache(locationsQuery.data?.items);
+	const locations = locationsQuery.data;
 
 	const [search, setSearch] = useState('');
 	const [debouncedSearch] = useDebounce(search, 200);
