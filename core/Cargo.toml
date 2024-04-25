@@ -132,7 +132,6 @@ slotmap = "1.0.6"
 sysinfo = "0.29.10"
 tar = "0.4.40"
 tower-service = "0.3.2"
-trash = "4.1.0"
 
 # Override features of transitive dependencies
 [dependencies.openssl]
