@@ -373,9 +373,9 @@ pub(super) async fn generate_thumbnail(
 			}
 		}
 	}
-	// This if is REALLY needed, due to the sheer performance of the thumbnailer, 
-	// I restricted to only send events notifying for thumbnails in the current 
-	// opened directory, sending events for the entire location turns into a 
+	// This if is REALLY needed, due to the sheer performance of the thumbnailer,
+	// I restricted to only send events notifying for thumbnails in the current
+	// opened directory, sending events for the entire location turns into a
 	// humongous bottleneck in the frontend lol, since it doesn't even knows
 	// what to do with thumbnails for inner directories lol
 	// - fogodev
