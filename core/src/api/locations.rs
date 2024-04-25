@@ -38,19 +38,25 @@ pub type ThumbnailKey = Vec<String>;
 #[serde(tag = "type")]
 pub enum ExplorerItem {
 	Path {
+		// provide the frontend with the thumbnail key explicitly
 		thumbnail: Option<ThumbnailKey>,
+		// this tells the frontend if a thumbnail actually exists or not
+		has_created_thumbnail: bool,
+		// we can't actually modify data from PCR types, thats why computed properties are used on ExplorerItem
 		item: file_path_with_object::Data,
 	},
 	Object {
 		thumbnail: Option<ThumbnailKey>,
+		has_created_thumbnail: bool,
 		item: object_with_file_paths::Data,
-	},
-	Location {
-		item: location::Data,
 	},
 	NonIndexedPath {
 		thumbnail: Option<ThumbnailKey>,
+		has_created_thumbnail: bool,
 		item: NonIndexedPathItem,
+	},
+	Location {
+		item: location::Data,
 	},
 	SpacedropPeer {
 		item: PeerMetadata,
