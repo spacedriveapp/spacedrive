@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	node::{
-		config::{NodeConfig, NodeConfigP2P, NodePreferences, P2PDiscoveryState},
+		config::{NodeConfig, NodeConfigP2P, NodePreferences},
 		get_hardware_model_name, HardwareModel,
 	},
 	old_job::JobProgressEvent,
@@ -85,7 +85,6 @@ pub struct SanitisedNodeConfig {
 	pub name: String,
 	pub identity: RemoteIdentity,
 	pub p2p: NodeConfigP2P,
-	pub p2p_discovery: P2PDiscoveryState,
 	pub features: Vec<BackendFeature>,
 	pub preferences: NodePreferences,
 	pub image_labeler_version: Option<String>,
@@ -98,7 +97,6 @@ impl From<NodeConfig> for SanitisedNodeConfig {
 			name: value.name,
 			identity: value.identity.to_remote_identity(),
 			p2p: value.p2p,
-			p2p_discovery: value.p2p_discovery,
 			features: value.features,
 			preferences: value.preferences,
 			image_labeler_version: value.image_labeler_version,

@@ -5,6 +5,7 @@ import {
 	useBridgeQuery,
 	useConnectedPeers,
 	useDebugState,
+	useFeatureFlag,
 	useZodForm
 } from '@sd/client';
 import { Button, Card, Input, Select, SelectOption, Slider, Switch, toast, tw, z } from '@sd/ui';
@@ -59,6 +60,14 @@ export const Component = () => {
 				]),
 				p2p_ipv4_enabled: z.boolean().optional(),
 				p2p_ipv6_enabled: z.boolean().optional(),
+				p2p_discovery: z
+					.union([
+						z.literal('Everyone'),
+						z.literal('ContactsOnly'),
+						z.literal('Disabled')
+					])
+					.optional(),
+				p2p_remote_access: z.boolean().optional(),
 				image_labeler_version: z.string().optional(),
 				background_processing_percentage: z.coerce
 					.number({
@@ -75,6 +84,8 @@ export const Component = () => {
 			p2p_port: node.data?.p2p.port || { type: 'random' },
 			p2p_ipv4_enabled: node.data?.p2p.ipv4 || true,
 			p2p_ipv6_enabled: node.data?.p2p.ipv6 || true,
+			p2p_discovery: node.data?.p2p.discovery || 'Everyone',
+			p2p_remote_access: node.data?.p2p.remote_access || false,
 			image_labeler_version: node.data?.image_labeler_version ?? undefined,
 			background_processing_percentage:
 				node.data?.preferences.thumbnailer.background_processing_percentage || 50
@@ -92,9 +103,8 @@ export const Component = () => {
 				p2p_port: (value.p2p_port as any) ?? null,
 				p2p_ipv4_enabled: value.p2p_ipv4_enabled ?? null,
 				p2p_ipv6_enabled: value.p2p_ipv6_enabled ?? null,
-				p2p_discovery: null,
-				// p2p_port: value.customOrDefault === 'Default' ? 0 : Number(value.p2p_port),
-				// p2p_enabled: value.p2p_enabled ?? null,
+				p2p_discovery: value.p2p_discovery ?? null,
+				p2p_remote_access: value.p2p_remote_access ?? null,
 				image_labeler_version: value.image_labeler_version ?? null
 			});
 
@@ -115,6 +125,8 @@ export const Component = () => {
 	});
 
 	const { t } = useLocale();
+
+	const isP2PWipFeatureEnabled = useFeatureFlag('wipP2P');
 
 	return (
 		<FormProvider {...form}>
@@ -374,6 +386,61 @@ export const Component = () => {
 								}
 							/>
 						</Setting>
+
+						{isP2PWipFeatureEnabled && (
+							<>
+								<Setting
+									mini
+									title={t('spacedrop')}
+									description={
+										<p className="text-sm text-gray-400">
+											{t('spacedrop_description')}
+										</p>
+									}
+								>
+									<Select
+										value={form.watch('p2p_discovery') || 'Everyone'}
+										containerClassName="h-[30px]"
+										className="h-full"
+										onChange={(type) => form.setValue('p2p_discovery', type)}
+									>
+										<SelectOption value="Everyone">
+											{t('spacedrop_everyone')}
+										</SelectOption>
+										<SelectOption value="ContactsOnly">
+											{t('spacedrop_contacts_only')}
+										</SelectOption>
+										<SelectOption value="Disabled">
+											{t('spacedrop_disabled')}
+										</SelectOption>
+									</Select>
+								</Setting>
+
+								<Setting
+									mini
+									title={t('remote_access')}
+									description={
+										<>
+											<p className="text-sm text-gray-400">
+												{t('remote_access_description')}
+											</p>
+											<p className="text-sm text-yellow-500">
+												WARNING: This protocol has no security at the moment
+												and effectively gives root access!
+											</p>
+										</>
+									}
+								>
+									<Switch
+										size="md"
+										checked={form.watch('p2p_remote_access')}
+										onCheckedChange={(checked) =>
+											form.setValue('p2p_remote_access', checked)
+										}
+									/>
+								</Setting>
+							</>
+						)}
 					</>
 				) : null}
 			</div>

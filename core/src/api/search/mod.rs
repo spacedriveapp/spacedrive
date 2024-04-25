@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf, process::Command};
+use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
 	api::{locations::ExplorerItem, utils::library},
@@ -16,7 +16,7 @@ use crate::{
 use opendal::{services::Fs, Operator};
 
 use sd_cache::{CacheNode, Model, Normalise, Reference};
-use sd_core_indexer_rules::seed::{no_hidden, no_os_protected};
+use sd_core_indexer_rules::seed::no_hidden;
 use sd_core_indexer_rules::IndexerRule;
 use sd_core_prisma_helpers::{file_path_with_object, object_with_file_paths};
 use sd_file_ext::kind::ObjectKind;
@@ -28,7 +28,7 @@ use futures::StreamExt;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tracing::{error, info, warn};
+use tracing::{error, warn};
 
 pub mod file_path;
 pub mod media_data;
@@ -245,7 +245,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							};
 						}
 
-						if to_generate.len() > 0 {
+						if !to_generate.is_empty() {
 							node.thumbnailer
 								.new_ephemeral_thumbnails_batch(BatchToProcess::new(
 									to_generate,

@@ -28,7 +28,7 @@ const GridLocation: React.FC<GridLocationProps> = ({ location, modalRef }: GridL
 							)}
 						/>
 					</View>
-					<Pressable hitSlop={24} onPress={() => modalRef.current?.present()}>
+					<Pressable onPress={() => modalRef.current?.present()}>
 						<DotsThreeOutlineVertical
 							weight="fill"
 							size={20}
