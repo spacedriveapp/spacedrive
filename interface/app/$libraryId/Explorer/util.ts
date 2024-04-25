@@ -11,12 +11,14 @@ export function useExplorerSearchParams() {
 
 export function useExplorerItemData(explorerItem: ExplorerItem) {
 	const newThumbnail = useSelector(explorerStore, (s) => {
-		const firstThumbnail =
+		const thumbnailKey =
 			explorerItem.type === 'Label'
-				? explorerItem.thumbnails?.[0]
-				: 'thumbnail' in explorerItem && explorerItem.thumbnail;
+				? // labels have .thumbnails, plural
+					explorerItem.thumbnails?.[0]
+				: // all other explorer items have .thumbnail singular
+					'thumbnail' in explorerItem && explorerItem.thumbnail;
 
-		return !!(firstThumbnail && s.newThumbnails.has(flattenThumbnailKey(firstThumbnail)));
+		return !!(thumbnailKey && s.newThumbnails.has(flattenThumbnailKey(thumbnailKey)));
 	});
 
 	return useMemo(() => {

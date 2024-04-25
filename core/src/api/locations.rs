@@ -40,18 +40,21 @@ pub type ThumbnailKey = Vec<String>;
 pub enum ExplorerItem {
 	Path {
 		thumbnail: Option<ThumbnailKey>,
+		has_created_thumbnail: bool, // this is important
 		item: file_path_with_object::Data,
 	},
 	Object {
 		thumbnail: Option<ThumbnailKey>,
+		has_created_thumbnail: bool,
 		item: object_with_file_paths::Data,
-	},
-	Location {
-		item: location::Data,
 	},
 	NonIndexedPath {
 		thumbnail: Option<ThumbnailKey>,
+		has_created_thumbnail: bool,
 		item: NonIndexedPathItem,
+	},
+	Location {
+		item: location::Data,
 	},
 	SpacedropPeer {
 		item: PeerMetadata,
