@@ -18,14 +18,14 @@ export default function BrowseStack() {
 			<Stack.Screen
 				name="Browse"
 				component={BrowseScreen}
-				options={{ header: () => <Header showDrawer title="Browse" /> }}
+				options={{ header: () => <Header showSearch showDrawer title="Browse" /> }}
 			/>
 			<Stack.Screen
 				name="Location"
 				component={LocationScreen}
 				options={{
 					header: (route) => (
-						<Header route={route} headerKind="location" routeTitle navBack />
+						<Header route={route} showSearch headerKind="location" routeTitle navBack />
 					)
 				}}
 			/>
@@ -33,7 +33,7 @@ export default function BrowseStack() {
 				name="Tags"
 				component={TagsScreen}
 				options={{
-					header: () => <Header navBack title="Tags" />
+					header: () => <Header searchType='tags' navBack title="Tags" />
 				}}
 			/>
 			<Stack.Screen
@@ -47,7 +47,7 @@ export default function BrowseStack() {
 				name="Tag"
 				component={TagScreen}
 				options={{
-					header: (route) => <Header navBack routeTitle route={route} headerKind="tag" />
+					header: (route) => <Header showSearch navBack routeTitle route={route} headerKind="tag" />
 				}}
 			/>
 			<Stack.Screen
