@@ -58,7 +58,7 @@ export function getExplorerItemData(data?: ExplorerItem | null): ItemData {
 				itemData.thumbnailKeys = [data.thumbnail];
 			}
 
-			itemData.hasLocalThumbnail = !!data.thumbnail;
+			itemData.hasLocalThumbnail = data.has_created_thumbnail;
 			// handle file path
 			const filePath = getItemFilePath(data);
 			if (filePath) {
@@ -89,7 +89,7 @@ export function getExplorerItemData(data?: ExplorerItem | null): ItemData {
 				itemData.thumbnailKeys = [data.thumbnail];
 			}
 
-			itemData.hasLocalThumbnail = !!data.thumbnail;
+			itemData.hasLocalThumbnail = data.has_created_thumbnail;
 			// handle file path
 			const filePath = getItemFilePath(data);
 			if (filePath) {
