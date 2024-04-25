@@ -79,8 +79,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.p2p
 					.listeners()
 					.iter()
-					.map(|l| l.addrs.clone())
-					.flatten()
+					.flat_map(|l| l.addrs.clone())
 					.collect::<Vec<_>>();
 
 				let errors = node

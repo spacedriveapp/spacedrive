@@ -187,7 +187,7 @@ async fn open_trash_in_os_explorer() -> Result<(), ()> {
 			.wait()
 			.map_err(|err| error!("Error opening trash: {err:#?}"))?;
 
-		return Ok(());
+		Ok(())
 	}
 }
 
