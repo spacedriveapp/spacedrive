@@ -150,6 +150,7 @@ export const QuickPreview = () => {
 	useEffect(() => {
 		setNewName(null);
 		setThumbErrorToast(undefined);
+		setMagnification(1);
 
 		if (open || item) return;
 
