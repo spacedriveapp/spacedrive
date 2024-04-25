@@ -85,4 +85,3 @@ spacedrive
 vite.config.ts.*
 
 /test-data
-/config.json
