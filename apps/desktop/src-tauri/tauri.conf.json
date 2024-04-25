@@ -12,6 +12,8 @@
 		"macOSPrivateApi": true,
 		"bundle": {
 			"active": true,
+			"publisher": "Spacedrive Technology Inc.",
+			"category": "Productivity",
 			"targets": ["deb", "msi", "dmg", "updater"],
 			"identifier": "com.spacedrive.desktop",
 			"icon": [
