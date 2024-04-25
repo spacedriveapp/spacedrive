@@ -198,7 +198,7 @@ mod tests {
 	async fn test_spaceblock_requests_empty() {
 		let req = SpaceblockRequests {
 			id: Uuid::new_v4(),
-			block_size: BlockSize::from_size(42069),
+			block_size: BlockSize::from_file_size(42069),
 			requests: vec![],
 		};
 
