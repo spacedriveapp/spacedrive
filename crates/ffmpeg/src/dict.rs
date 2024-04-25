@@ -182,4 +182,3 @@ impl From<FFmpegDict> for MediaMetadata {
 		(&dict).into()
 	}
 }
-
