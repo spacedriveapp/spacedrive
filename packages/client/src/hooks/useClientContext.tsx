@@ -39,7 +39,6 @@ export async function getCachedLibraries(client: AlphaClient<Procedures>) {
 
 	const libraries = client.query(['library.list']).then((result) => {
 		localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(result));
-
 		return result;
 	});
 
