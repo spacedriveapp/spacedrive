@@ -1,6 +1,6 @@
 import { proxy, useSnapshot } from 'valtio';
 import { proxySet } from 'valtio/utils';
-import { resetStore } from '@sd/client';
+import { resetStore, type Ordering } from '@sd/client';
 
 export type ExplorerLayoutMode = 'list' | 'grid' | 'media';
 
@@ -18,7 +18,12 @@ const state = {
 	// Using gridNumColumns instead of fixed size. We dynamically calculate the item size.
 	gridNumColumns: 3,
 	listItemSize: 65,
-	newThumbnails: proxySet() as Set<string>
+	newThumbnails: proxySet() as Set<string>,
+	// sorting
+	// we will display different sorting options based on the kind of explorer we are in
+	sortType: 'filePath' as 'filePath' | 'object' | 'ephemeral',
+	orderKey: 'name',
+	orderDirection: 'Asc' as 'Asc' | 'Desc'
 };
 
 export function flattenThumbnailKey(thumbKey: string[]) {
