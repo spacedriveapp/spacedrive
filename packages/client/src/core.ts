@@ -249,7 +249,7 @@ export type EphemeralRenameMany = { from_pattern: FromPattern; to_pattern: strin
 
 export type EphemeralRenameOne = { from_path: string; to: string }
 
-export type ExplorerItem = { type: "Path"; thumbnail: string[] | null; item: FilePathWithObject } | { type: "Object"; thumbnail: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; item: Location } | { type: "NonIndexedPath"; thumbnail: string[] | null; item: NonIndexedPathItem } | { type: "SpacedropPeer"; item: PeerMetadata } | { type: "Label"; thumbnails: string[][]; item: LabelWithObjects }
+export type ExplorerItem = { type: "Path"; thumbnail: string[] | null; has_created_thumbnail: boolean; item: FilePathWithObject } | { type: "Object"; thumbnail: string[] | null; has_created_thumbnail: boolean; item: ObjectWithFilePaths } | { type: "NonIndexedPath"; thumbnail: string[] | null; has_created_thumbnail: boolean; item: NonIndexedPathItem } | { type: "Location"; item: Location } | { type: "SpacedropPeer"; item: PeerMetadata } | { type: "Label"; thumbnails: string[][]; item: LabelWithObjects }
 
 export type ExplorerLayout = "grid" | "list" | "media"
 
