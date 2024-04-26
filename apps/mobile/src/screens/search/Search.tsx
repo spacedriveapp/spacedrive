@@ -1,5 +1,5 @@
 import { useIsFocused } from '@react-navigation/native';
-import { usePathsExplorerQuery } from '@sd/client';
+import { SearchFilterArgs, usePathsExplorerQuery } from '@sd/client';
 import { ArrowLeft, DotsThreeOutline, FunnelSimple, MagnifyingGlass } from 'phosphor-react-native';
 import { Suspense, useDeferredValue, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, TextInput, View } from 'react-native';
@@ -27,12 +27,24 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 	const [search, setSearch] = useState('');
 	const deferredSearch = useDeferredValue(search);
 
+	const filters = useMemo(() => {
+		const [name, ext] = deferredSearch.split('.');
+
+		const filters: SearchFilterArgs[] = [];
+
+		if (name) filters.push({ filePath: { name: { contains: name } } });
+		if (ext) filters.push({ filePath: { extension: { in: [ext] } } });
+
+		return [...filters, ...searchStore.mergedFilters ?? []]
+	}, [deferredSearch, searchStore.mergedFilters]);
+
 	const objects = usePathsExplorerQuery({
 		arg: {
 			take: 30,
-			filters: searchStore.mergedFilters,
+			filters: filters,
 		},
 		enabled: isFocused, // only fetch when screen is focused
+		suspense: true,
 		order: null,
 		onSuccess: () => getExplorerStore().resetNewThumbnails()
 	});

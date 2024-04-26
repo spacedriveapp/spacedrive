@@ -21,7 +21,8 @@ export function useSavedSearch(search: SavedSearch) {
 		return acc;
 	}, []);
 
-	function extractDataFromFilter(key: SearchFilters, filterTag: 'contains' | 'in', type: 'filePath' | 'object') {
+	// this function extracts the data of a filter from the Saved Search
+	function extractDataFromSavedSearch(key: SearchFilters, filterTag: 'contains' | 'in', type: 'filePath' | 'object') {
 		// Iterate through each item in the data array
 		for (const item of parseFilters) {
 			// Check if 'filePath' | 'object' exists and contains a the key
@@ -82,7 +83,10 @@ export function useSavedSearch(search: SavedSearch) {
 					});
 					break;
 				case 'name':
-					data.name = extractDataFromFilter(key, 'contains', 'filePath');
+					data.name = extractDataFromSavedSearch(key, 'contains', 'filePath');
+					break;
+				case 'extension':
+					data.extension = extractDataFromSavedSearch(key, 'contains', 'filePath');
 					break;
 			}
 		});
@@ -90,16 +94,24 @@ export function useSavedSearch(search: SavedSearch) {
 	};
 
 	const filters = parseFilters.reduce((acc: Record<SearchFilters, {}>, curr: any) => {
+
+		const objectOrFilePath = Object.keys(curr)[0] as string;
+		const filterKeys = Object.keys(curr[objectOrFilePath as any])[0] as SearchFilters; //locations, tags, kind, etc...
+
 		// this function extracts the data from the result of the "filters" object in the Saved Search
 		// and matches it with the values of the filters
 		const extractData = (key: SearchFilters) => {
-			const objectOrFilePath = Object.keys(curr)[0] as string;
 			const values = curr[objectOrFilePath as SearchFilters][key];
 			const type = Object.keys(values)[0];
 
+
 			switch (type) {
 				case 'contains':
-					return prepFilters()[key].filter((item: any) => item.name === values[type]);
+					// some filters have a name property and some are just strings
+					return prepFilters()[key].filter((item: any) => {
+						return item.name ? item.name === values[type] :
+						item
+					});
 				case 'in':
 					return prepFilters()[key].filter((item: any) => values[type].includes(item.id));
 				default:
@@ -107,10 +119,7 @@ export function useSavedSearch(search: SavedSearch) {
 			}
 		};
 
-		const objectOrFilePath = Object.keys(curr)[0];
-
 		// the data being setup for the filters so it can be rendered
-		const filterKeys = Object.keys(curr[objectOrFilePath as any])[0] as SearchFilters;
 		if (!acc[filterKeys]) {
 			acc[filterKeys] = extractData(filterKeys);
 			//don't include false values i.e if the "Hidden" filter is false
