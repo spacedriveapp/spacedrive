@@ -20,7 +20,7 @@ export function MobileDropdown() {
 		<Dropdown.Root
 			button={
 				<Button aria-label="mobile-menu" className="hover:!bg-transparent" size="icon">
-					<DotsThreeVertical weight="bold" className="h-6 w-6 " />
+					<DotsThreeVertical weight="bold" className="size-6 " />
 				</Button>
 			}
 			className="right-4 top-2 block text-white lg:hidden"

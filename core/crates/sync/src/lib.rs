@@ -32,6 +32,8 @@ pub struct SharedState {
 	pub instance: uuid::Uuid,
 	pub timestamps: Timestamps,
 	pub clock: uhlc::HLC,
+	pub active: AtomicBool,
+	pub active_notify: tokio::sync::Notify,
 }
 
 #[must_use]
@@ -41,7 +43,7 @@ pub fn crdt_op_db(op: &CRDTOperation) -> crdt_operation::Create {
 		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
 		kind: op.kind().to_string(),
 		data: rmp_serde::to_vec(&op.data).unwrap(),
-		model: op.model.to_string(),
+		model: op.model as i32,
 		record_id: rmp_serde::to_vec(&op.record_id).unwrap(),
 		_params: vec![],
 	}
@@ -57,7 +59,7 @@ pub fn crdt_op_unchecked_db(
 		instance_id,
 		kind: op.kind().to_string(),
 		data: rmp_serde::to_vec(&op.data).unwrap(),
-		model: op.model.to_string(),
+		model: op.model as i32,
 		record_id: rmp_serde::to_vec(&op.record_id).unwrap(),
 		_params: vec![],
 	}

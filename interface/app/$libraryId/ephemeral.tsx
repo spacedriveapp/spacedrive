@@ -74,7 +74,7 @@ const EphemeralNotice = ({ path }: { path: string }) => {
 		<Dialog.Root open={!dismissed}>
 			<Dialog.Portal>
 				<Dialog.Overlay className="fixed inset-0 z-50 bg-app/80 backdrop-blur-sm radix-state-closed:animate-out radix-state-closed:fade-out-0 radix-state-open:animate-in radix-state-open:fade-in-0" />
-				<Dialog.Content className="fixed left-[50%] top-[50%] z-50 w-96 translate-x-[-50%] translate-y-[-50%] overflow-hidden rounded-md border border-app-line bg-app shadow-lg outline-none duration-200 radix-state-closed:animate-out radix-state-closed:fade-out-0 radix-state-closed:zoom-out-95 radix-state-closed:slide-out-to-left-1/2 radix-state-closed:slide-out-to-top-[48%] radix-state-open:animate-in radix-state-open:fade-in-0 radix-state-open:zoom-in-95 radix-state-open:slide-in-from-left-1/2 radix-state-open:slide-in-from-top-[48%]">
+				<Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-96 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-md border border-app-line bg-app shadow-lg outline-none duration-200 radix-state-closed:animate-out radix-state-closed:fade-out-0 radix-state-closed:zoom-out-95 radix-state-closed:slide-out-to-left-1/2 radix-state-closed:slide-out-to-top-[48%] radix-state-open:animate-in radix-state-open:fade-in-0 radix-state-open:zoom-in-95 radix-state-open:slide-in-from-left-1/2 radix-state-open:slide-in-from-top-[48%]">
 					<div className="relative flex aspect-video overflow-hidden border-b border-app-line/50 bg-gradient-to-b from-app-darkBox to-app to-80% pl-5 pt-5">
 						<div
 							className={clsx(
@@ -197,7 +197,7 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 		{
 			enabled: path != null,
 			suspense: true,
-			onSuccess: () => explorerStore.resetNewThumbnails(),
+			onSuccess: () => explorerStore.resetCache(),
 			onBatch: (item) => {
 				cache.withNodes(item.nodes);
 			}
@@ -254,7 +254,7 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 					<EmptyNotice
 						loading={query.isFetching}
 						icon={<Icon name="FolderNoSpace" size={128} />}
-						message={t('no_files_found_here')}
+						message={t('location_empty_notice_message')}
 					/>
 				}
 			/>

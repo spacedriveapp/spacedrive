@@ -1,13 +1,12 @@
 use crate::{
-	api::{
-		locations::{file_path_with_object, object_with_file_paths, ExplorerItem},
-		utils::library,
-	},
+	api::{locations::ExplorerItem, utils::library},
 	library::Library,
 	location::{non_indexed, LocationError},
 	object::media::old_thumbnail::get_indexed_thumb_key,
 	util::{unsafe_streamed_query, BatchedStream},
 };
+
+use sd_core_prisma_helpers::{file_path_with_object, object_with_file_paths};
 
 use sd_cache::{CacheNode, Model, Normalise, Reference};
 use sd_prisma::prisma::{self, PrismaClient};
@@ -54,32 +53,17 @@ pub enum SearchFilterArgs {
 }
 
 impl SearchFilterArgs {
-	async fn into_params<T>(
+	async fn into_params(
 		self,
 		db: &PrismaClient,
-		file_path: fn(Vec<prisma::file_path::WhereParam>) -> Vec<T>,
-		object: fn(Vec<prisma::object::WhereParam>) -> Vec<T>,
-	) -> Result<Vec<T>, rspc::Error> {
-		Ok(match self {
-			Self::FilePath(v) => file_path(v.into_params(db).await?),
-			Self::Object(v) => object(v.into_params()),
-		})
-	}
-
-	async fn into_file_path_params(
-		self,
-		db: &PrismaClient,
-	) -> Result<Vec<prisma::file_path::WhereParam>, rspc::Error> {
-		self.into_params(db, |v| v, |v| vec![prisma::file_path::object::is(v)])
-			.await
-	}
-
-	async fn into_object_params(
-		self,
-		db: &PrismaClient,
-	) -> Result<Vec<prisma::object::WhereParam>, rspc::Error> {
-		self.into_params(db, |v| vec![prisma::object::file_paths::some(v)], |v| v)
-			.await
+		file_path: &mut Vec<prisma::file_path::WhereParam>,
+		object: &mut Vec<prisma::object::WhereParam>,
+	) -> Result<(), rspc::Error> {
+		match self {
+			Self::FilePath(v) => file_path.extend(v.into_params(db).await?),
+			Self::Object(v) => object.extend(v.into_params()),
+		};
+		Ok(())
 	}
 }
 
@@ -211,13 +195,13 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					let Library { db, .. } = library.as_ref();
 
 					let params = {
-						let mut params = Vec::new();
+						let (mut fp, obj) = merge_filters(filters, db).await?;
 
-						for filter in filters {
-							params.extend(filter.into_file_path_params(db).await?);
+						if !obj.is_empty() {
+							fp.push(prisma::file_path::object::is(obj));
 						}
 
-						params
+						fp
 					};
 
 					let mut query = db.file_path().find_many(params);
@@ -245,7 +229,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					let mut items = Vec::with_capacity(file_paths.len());
 
 					for file_path in file_paths {
-						let thumbnail_exists_locally = if let Some(cas_id) = &file_path.cas_id {
+						let has_created_thumbnail = if let Some(cas_id) = &file_path.cas_id {
 							library
 								.thumbnail_exists(&node, cas_id)
 								.await
@@ -258,8 +242,9 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							thumbnail: file_path
 								.cas_id
 								.as_ref()
-								.filter(|_| thumbnail_exists_locally)
+								// .filter(|_| thumbnail_exists_locally)
 								.map(|i| get_indexed_thumb_key(i, library.id)),
+							has_created_thumbnail,
 							item: file_path,
 						})
 					}
@@ -290,13 +275,13 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					Ok(db
 						.file_path()
 						.count({
-							let mut params = Vec::new();
+							let (mut fp, obj) = merge_filters(filters, db).await?;
 
-							for filter in filters {
-								params.extend(filter.into_file_path_params(db).await?);
+							if !obj.is_empty() {
+								fp.push(prisma::file_path::object::is(obj));
 							}
 
-							params
+							fp
 						})
 						.exec()
 						.await? as u32)
@@ -327,13 +312,13 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					let mut query = db
 						.object()
 						.find_many({
-							let mut params = Vec::new();
+							let (fp, mut obj) = merge_filters(filters, db).await?;
 
-							for filter in filters {
-								params.extend(filter.into_object_params(db).await?);
+							if !fp.is_empty() {
+								obj.push(prisma::object::file_paths::some(fp));
 							}
 
-							params
+							obj
 						})
 						.take(take as i64);
 
@@ -364,7 +349,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							.map(|fp| fp.cas_id.as_ref())
 							.find_map(|c| c);
 
-						let thumbnail_exists_locally = if let Some(cas_id) = cas_id {
+						let has_created_thumbnail = if let Some(cas_id) = cas_id {
 							library.thumbnail_exists(&node, cas_id).await.map_err(|e| {
 								rspc::Error::with_cause(
 									ErrorCode::InternalServerError,
@@ -378,9 +363,10 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 						items.push(ExplorerItem::Object {
 							thumbnail: cas_id
-								.filter(|_| thumbnail_exists_locally)
+								// .filter(|_| thumbnail_exists_locally)
 								.map(|cas_id| get_indexed_thumb_key(cas_id, library.id)),
 							item: object,
+							has_created_thumbnail,
 						});
 					}
 
@@ -410,17 +396,37 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					Ok(db
 						.object()
 						.count({
-							let mut params = Vec::new();
+							let (fp, mut obj) = merge_filters(filters, db).await?;
 
-							for filter in filters {
-								params.extend(filter.into_object_params(db).await?);
+							if !fp.is_empty() {
+								obj.push(prisma::object::file_paths::some(fp));
 							}
 
-							params
+							obj
 						})
 						.exec()
 						.await? as u32)
 				})
 		})
 		.merge("saved.", saved::mount())
+}
+
+async fn merge_filters(
+	filters: Vec<SearchFilterArgs>,
+	db: &PrismaClient,
+) -> Result<
+	(
+		Vec<prisma::file_path::WhereParam>,
+		Vec<prisma::object::WhereParam>,
+	),
+	rspc::Error,
+> {
+	let mut obj = vec![];
+	let mut fp = vec![];
+
+	for filter in filters {
+		filter.into_params(db, &mut fp, &mut obj).await?;
+	}
+
+	Ok((fp, obj))
 }

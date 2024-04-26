@@ -58,6 +58,13 @@ To quickly run only the desktop app after `prep`, you can use:
   Also, the react-devtools can be launched using `pnpm dlx react-devtools`.
   However, it must be executed before starting the desktop app for it to connect.
 
+You can download a bundle with sample files to test the app by running:
+
+- `pnpm test-data`
+
+  Only for Linux and macOS (Requires curl and tar).
+  The test files will be located in a directory called `test-data` in the root of the spacedrive repo.
+
 To run the web app:
 
 - `pnpm dev:web`
@@ -68,15 +75,23 @@ You can launch these individually if you'd prefer:
 - `cargo run -p sd-server` (server)
 - `pnpm web dev` (web interface)
 
+To run the e2e tests for the web app:
+
+- `pnpm web test:e2e`
+
+If you are developing a new test, you can execute Cypress in interactive mode with:
+
+- `pnpm web test:interactive`
+
 To run the landing page:
 
 - `pnpm landing dev`
 
 If you encounter any issues, ensure that you are using the following versions of Rust, Node and Pnpm:
 
-- Rust version: **1.75.0**
-- Node version: **18.17**
-- Pnpm version: **8.0.0**
+- Rust version: **1.75**
+- Node version: **18.18**
+- Pnpm version: **9.0.6**
 
 After cleaning out your build artifacts using `pnpm clean`, `git clean`, or `cargo clean`, it is necessary to re-run the `setup-system` script.
 

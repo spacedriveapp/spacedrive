@@ -1108,15 +1108,6 @@ dependencies = [
 
 [[package]]
 name = "bincode"
-version = "1.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "bincode"
 version = "2.0.0-rc.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f11ea1a0346b94ef188834a65c068a03aec181c94896d481d7a0a40d85b0ce95"
@@ -6463,7 +6454,9 @@ version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fabbf1ead8a5bcbc20f5f8b939ee3f5b0f6f281b6ad3468b84656b658b455259"
 dependencies = [
+ "phf_macros 0.10.0",
  "phf_shared 0.10.0",
+ "proc-macro-hack",
 ]
 
 [[package]]
@@ -6534,6 +6527,20 @@ checksum = "7f6fde18ff429ffc8fe78e2bf7f8b7a5a5a6e2a8b58bc5a9ac69198bbda9189c"
 dependencies = [
  "phf_generator 0.8.0",
  "phf_shared 0.8.0",
+ "proc-macro-hack",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "phf_macros"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "58fdf3184dd560f160dd73922bea2d5cd6e8f064bf4b13110abd81b03697b4e0"
+dependencies = [
+ "phf_generator 0.10.0",
+ "phf_shared 0.10.0",
  "proc-macro-hack",
  "proc-macro2",
  "quote",
@@ -8124,8 +8131,9 @@ dependencies = [
  "reqwest",
  "rmp-serde",
  "rmpv",
+ "sd-core-file-path-helper",
+ "sd-core-prisma-helpers",
  "sd-core-sync",
- "sd-file-path-helper",
  "sd-prisma",
  "sd-sync",
  "sd-utils",
@@ -8179,7 +8187,7 @@ dependencies = [
 
 [[package]]
 name = "sd-core"
-version = "0.2.5"
+version = "0.2.13"
 dependencies = [
  "aovec",
  "async-channel",
@@ -8229,11 +8237,14 @@ dependencies = [
  "sd-ai",
  "sd-cache",
  "sd-cloud-api",
+ "sd-core-file-path-helper",
+ "sd-core-heavy-lifting",
+ "sd-core-indexer-rules",
+ "sd-core-prisma-helpers",
  "sd-core-sync",
  "sd-crypto",
  "sd-ffmpeg",
  "sd-file-ext",
- "sd-file-path-helper",
  "sd-images",
  "sd-media-metadata",
  "sd-p2p",
@@ -8265,8 +8276,97 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "tracing-test",
+ "trash",
  "uuid",
  "webp",
+]
+
+[[package]]
+name = "sd-core-file-path-helper"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "prisma-client-rust",
+ "regex",
+ "sd-core-prisma-helpers",
+ "sd-prisma",
+ "sd-utils",
+ "serde",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "winapi-util",
+]
+
+[[package]]
+name = "sd-core-heavy-lifting"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "async-trait",
+ "blake3",
+ "chrono",
+ "futures",
+ "futures-concurrency",
+ "globset",
+ "itertools 0.12.0",
+ "lending-stream",
+ "prisma-client-rust",
+ "rmp-serde",
+ "rmpv",
+ "rspc",
+ "sd-core-file-path-helper",
+ "sd-core-indexer-rules",
+ "sd-core-prisma-helpers",
+ "sd-core-sync",
+ "sd-file-ext",
+ "sd-prisma",
+ "sd-sync",
+ "sd-task-system",
+ "sd-utils",
+ "serde",
+ "serde_json",
+ "specta",
+ "static_assertions",
+ "strum",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tracing-test",
+ "uuid",
+]
+
+[[package]]
+name = "sd-core-indexer-rules"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "futures-concurrency",
+ "globset",
+ "prisma-client-rust",
+ "rmp-serde",
+ "rspc",
+ "sd-prisma",
+ "sd-utils",
+ "serde",
+ "specta",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "sd-core-prisma-helpers"
+version = "0.1.0"
+dependencies = [
+ "prisma-client-rust",
+ "sd-cache",
+ "sd-prisma",
+ "serde",
 ]
 
 [[package]]
@@ -8295,7 +8395,7 @@ dependencies = [
  "aes-gcm-siv",
  "argon2",
  "balloon-hash",
- "bincode 2.0.0-rc.3",
+ "bincode",
  "blake3",
  "chacha20poly1305",
  "cmov",
@@ -8336,7 +8436,7 @@ dependencies = [
 
 [[package]]
 name = "sd-desktop"
-version = "0.2.5"
+version = "0.2.13"
 dependencies = [
  "axum",
  "directories 5.0.1",
@@ -8357,7 +8457,6 @@ dependencies = [
  "specta",
  "tauri",
  "tauri-build",
- "tauri-plugin-window-state",
  "tauri-specta",
  "thiserror",
  "tokio",
@@ -8425,26 +8524,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "sd-file-path-helper"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "prisma-client-rust",
- "regex",
- "sd-prisma",
- "sd-utils",
- "serde",
- "thiserror",
- "tokio",
- "tracing",
- "winapi-util",
-]
-
-[[package]]
 name = "sd-images"
 version = "0.0.0"
 dependencies = [
- "bincode 2.0.0-rc.3",
+ "bincode",
  "image",
  "libheif-rs",
  "libheif-sys",
@@ -8601,11 +8684,13 @@ name = "sd-server"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64 0.21.7",
  "http",
  "include_dir",
  "mime_guess",
  "rspc",
  "sd-core",
+ "secstr",
  "tempfile",
  "tokio",
  "tracing",
@@ -8701,6 +8786,15 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "zbus",
+]
+
+[[package]]
+name = "secstr"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e04f657244f605c4cf38f6de5993e8bd050c8a303f86aeabff142d5c7c113e12"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
@@ -9460,6 +9554,7 @@ version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
 dependencies = [
+ "phf 0.10.1",
  "strum_macros",
 ]
 
@@ -9815,21 +9910,6 @@ dependencies = [
  "syn 1.0.109",
  "tauri-codegen",
  "tauri-utils 1.5.1",
-]
-
-[[package]]
-name = "tauri-plugin-window-state"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa47eaa4047a7b51064caff32f0c6282e2c5adc6ceacdd493ecf1b01fa4b0eaa"
-dependencies = [
- "bincode 1.3.3",
- "bitflags 2.4.1",
- "log",
- "serde",
- "serde_json",
- "tauri",
- "thiserror",
 ]
 
 [[package]]
@@ -10454,6 +10534,22 @@ dependencies = [
  "lazy_static",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "trash"
+version = "4.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a1a7a9a17d3b004898be42be29a4c18d5a4cf008b5cdf72d69b1945dfcb158a"
+dependencies = [
+ "chrono",
+ "libc",
+ "log",
+ "objc",
+ "once_cell",
+ "scopeguard",
+ "url",
+ "windows 0.44.0",
 ]
 
 [[package]]
@@ -11190,6 +11286,15 @@ dependencies = [
  "windows_i686_msvc 0.39.0",
  "windows_x86_64_gnu 0.39.0",
  "windows_x86_64_msvc 0.39.0",
+]
+
+[[package]]
+name = "windows"
+version = "0.44.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e745dab35a0c4c77aa3ce42d595e13d2003d6902d6b08c9ef5fc326d08da12b"
+dependencies = [
+ "windows-targets 0.42.2",
 ]
 
 [[package]]

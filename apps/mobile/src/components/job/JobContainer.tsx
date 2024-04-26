@@ -1,6 +1,7 @@
+import { Image } from 'expo-image';
 import { Icon } from 'phosphor-react-native';
 import { Fragment } from 'react';
-import { Image, Text, View, ViewStyle } from 'react-native';
+import { Text, View, ViewStyle } from 'react-native';
 import { TextItems } from '@sd/client';
 import { styled, tw, twStyle } from '~/lib/tailwind';
 

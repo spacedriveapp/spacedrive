@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useExplorerContext } from '../Context';
 import { explorerStore } from '../store';
@@ -9,7 +9,7 @@ import { explorerStore } from '../store';
 export const useDragScrollable = ({ direction }: { direction: 'up' | 'down' }) => {
 	const explorer = useExplorerContext();
 
-	const [node, setNode] = useState<HTMLElement | null>(null);
+	const node = useRef<HTMLElement | null>(null);
 
 	const timeout = useRef<number | null>(null);
 	const interval = useRef<number | null>(null);
@@ -34,7 +34,10 @@ export const useDragScrollable = ({ direction }: { direction: 'up' | 'down' }) =
 		const handleMouseMove = ({ clientX, clientY }: MouseEvent) => {
 			if (explorerStore.drag?.type !== 'dragging') return reset();
 
-			const rect = element.getBoundingClientRect();
+			const node = element.current;
+			if (!node) return reset();
+
+			const rect = node.getBoundingClientRect();
 
 			const isInside =
 				clientX >= rect.left &&
@@ -55,9 +58,9 @@ export const useDragScrollable = ({ direction }: { direction: 'up' | 'down' }) =
 
 		window.addEventListener('mousemove', handleMouseMove);
 		return () => window.removeEventListener('mouseover', handleMouseMove);
-	}, [direction, explorer.scrollRef, node]);
+	}, [direction, explorer.scrollRef]);
 
-	const ref = useCallback((nodeElement: HTMLElement | null) => setNode(nodeElement), []);
+	const ref = useCallback((nodeElement: HTMLElement | null) => (node.current = nodeElement), []);
 
 	return { ref };
 };

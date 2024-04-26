@@ -1,16 +1,17 @@
 use crate::{
 	invalidate_query,
 	node::{
-		config::{NodeConfig, NodePreferences, P2PDiscoveryState, Port},
+		config::{NodeConfig, NodeConfigP2P, NodePreferences},
 		get_hardware_model_name, HardwareModel,
 	},
 	old_job::JobProgressEvent,
-	p2p::{into_listener2, Listener2},
 	Node,
 };
 
 use sd_cache::patch_typedef;
 use sd_p2p::RemoteIdentity;
+use sd_prisma::prisma::file_path;
+
 use std::sync::{atomic::Ordering, Arc};
 
 use itertools::Itertools;
@@ -53,7 +54,12 @@ pub type Router = rspc::Router<Ctx>;
 /// Represents an internal core event, these are exposed to client via a rspc subscription.
 #[derive(Debug, Clone, Serialize, Type)]
 pub enum CoreEvent {
-	NewThumbnail { thumb_key: Vec<String> },
+	NewThumbnail {
+		thumb_key: Vec<String>,
+	},
+	NewIdentifiedObjects {
+		file_path_ids: Vec<file_path::id::Type>,
+	},
 	JobProgress(JobProgressEvent),
 	InvalidateOperation(InvalidateOperationEvent),
 }
@@ -64,16 +70,12 @@ pub enum CoreEvent {
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum BackendFeature {
-	FilesOverP2P,
 	CloudSync,
 }
 
 impl BackendFeature {
 	pub fn restore(&self, node: &Node) {
 		match self {
-			BackendFeature::FilesOverP2P => {
-				node.files_over_p2p_flag.store(true, Ordering::Relaxed);
-			}
 			BackendFeature::CloudSync => {
 				node.cloud_sync_flag.store(true, Ordering::Relaxed);
 			}
@@ -89,9 +91,7 @@ pub struct SanitisedNodeConfig {
 	/// name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
 	pub name: String,
 	pub identity: RemoteIdentity,
-	pub p2p_ipv4_port: Port,
-	pub p2p_ipv6_port: Port,
-	pub p2p_discovery: P2PDiscoveryState,
+	pub p2p: NodeConfigP2P,
 	pub features: Vec<BackendFeature>,
 	pub preferences: NodePreferences,
 	pub image_labeler_version: Option<String>,
@@ -103,9 +103,7 @@ impl From<NodeConfig> for SanitisedNodeConfig {
 			id: value.id,
 			name: value.name,
 			identity: value.identity.to_remote_identity(),
-			p2p_ipv4_port: value.p2p_ipv4_port,
-			p2p_ipv6_port: value.p2p_ipv6_port,
-			p2p_discovery: value.p2p_discovery,
+			p2p: value.p2p,
 			features: value.features,
 			preferences: value.preferences,
 			image_labeler_version: value.image_labeler_version,
@@ -118,7 +116,6 @@ struct NodeState {
 	#[serde(flatten)]
 	config: SanitisedNodeConfig,
 	data_path: String,
-	listeners: Vec<Listener2>,
 	device_model: Option<String>,
 }
 
@@ -154,7 +151,6 @@ pub(crate) fn mount() -> Arc<Router> {
 						.to_str()
 						.expect("Found non-UTF-8 path")
 						.to_string(),
-					listeners: into_listener2(&node.p2p.p2p.listeners()),
 					device_model: Some(device_model),
 				})
 			})
@@ -181,9 +177,6 @@ pub(crate) fn mount() -> Arc<Router> {
 				.map_err(|err| rspc::Error::new(ErrorCode::InternalServerError, err.to_string()))?;
 
 				match feature {
-					BackendFeature::FilesOverP2P => {
-						node.files_over_p2p_flag.store(enabled, Ordering::Relaxed);
-					}
 					BackendFeature::CloudSync => {
 						node.cloud_sync_flag.store(enabled, Ordering::Relaxed);
 					}

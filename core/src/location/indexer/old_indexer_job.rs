@@ -1,7 +1,7 @@
 use crate::{
 	file_paths_db_fetcher_fn, invalidate_query,
 	library::Library,
-	location::{location_with_indexer_rules, update_location_size},
+	location::{location_with_indexer_rules, update_location_size, ScanState},
 	old_job::{
 		CurrentStep, JobError, JobInitOutput, JobReportUpdate, JobResult, JobRunMetadata,
 		JobStepOutput, StatefulJob, WorkerContext,
@@ -9,10 +9,12 @@ use crate::{
 	to_remove_db_fetcher_fn,
 };
 
-use sd_file_path_helper::{
+use sd_core_file_path_helper::{
 	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 	IsolatedFilePathData,
 };
+use sd_core_indexer_rules::IndexerRule;
+
 use sd_prisma::{
 	prisma::{file_path, location},
 	prisma_sync,
@@ -38,9 +40,8 @@ use tracing::{debug, info, warn};
 use super::{
 	execute_indexer_save_step, execute_indexer_update_step, iso_file_path_factory,
 	old_walk::{keep_walking, walk, ToWalkEntry, WalkResult},
-	remove_non_existing_file_paths, reverse_update_directories_sizes,
-	rules::IndexerRule,
-	IndexerError, OldIndexerJobSaveStep, OldIndexerJobUpdateStep,
+	remove_non_existing_file_paths, reverse_update_directories_sizes, IndexerError,
+	OldIndexerJobSaveStep, OldIndexerJobUpdateStep,
 };
 
 /// BATCH_SIZE is the number of files to index at each step, writing the chunk of files metadata in the database.
@@ -530,8 +531,36 @@ impl StatefulJob for OldIndexerJobInit {
 				update_location_size(init.location.id, &ctx.library)
 					.await
 					.map_err(IndexerError::from)?;
+
+				ctx.library
+					.db
+					.location()
+					.update(
+						location::id::equals(init.location.id),
+						vec![location::scan_state::set(ScanState::Indexed as i32)],
+					)
+					.exec()
+					.await
+					.map_err(IndexerError::from)?;
 			}
 		}
+
+		// FIXME(fogodev): This is currently a workaround to don't save paths and sizes in the
+		// metadata after a job is completed, as it's pretty heavy. A proper fix isn't needed
+		// right now as I already changed it in the new indexer job. And this old one
+		// will be removed eventually.
+		let run_metadata = Self::RunMetadata {
+			db_write_time: run_metadata.db_write_time,
+			scan_read_time: run_metadata.scan_read_time,
+			total_paths: run_metadata.total_paths,
+			total_updated_paths: run_metadata.total_updated_paths,
+			total_save_steps: run_metadata.total_save_steps,
+			total_update_steps: run_metadata.total_update_steps,
+			indexed_count: run_metadata.indexed_count,
+			updated_count: run_metadata.updated_count,
+			removed_count: run_metadata.removed_count,
+			paths_and_sizes: HashMap::new(),
+		};
 
 		Ok(Some(json!({"init: ": init, "run_metadata": run_metadata})))
 	}
@@ -542,8 +571,8 @@ fn update_notifier_fn(ctx: &WorkerContext) -> impl FnMut(&Path, usize) + '_ {
 		OldIndexerJobData::on_scan_progress(
 			ctx,
 			vec![ScanProgress::Message(format!(
-				"Found: {total_entries} entries; Scanning: {:?}",
-				path.file_name().unwrap_or(path.as_os_str())
+				"{total_entries} entries found at {}",
+				path.display()
 			))],
 		);
 	}

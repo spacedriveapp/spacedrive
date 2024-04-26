@@ -1,6 +1,7 @@
 use crate::location::LocationError;
 
-use sd_file_path_helper::{check_file_path_exists, IsolatedFilePathData};
+use sd_core_file_path_helper::{check_file_path_exists, IsolatedFilePathData};
+
 use sd_prisma::prisma::{self, file_path};
 
 use chrono::{DateTime, FixedOffset, Utc};

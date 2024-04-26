@@ -3,9 +3,9 @@ use crate::p2p::{operations, ConnectionMethod, DiscoveryMethod, Header, P2PEvent
 use sd_p2p::{PeerConnectionCandidate, RemoteIdentity};
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::PoisonError};
 use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 
@@ -57,6 +57,54 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("state", {
 			R.query(|node, _: ()| async move { Ok(node.p2p.state().await) })
+		})
+		.procedure("listeners", {
+			#[derive(Serialize, Type)]
+			#[serde(tag = "type")]
+			pub enum ListenerState {
+				Listening,
+				Error { error: String },
+				Disabled,
+			}
+
+			#[derive(Serialize, Type)]
+			pub struct Listeners {
+				ipv4: ListenerState,
+				ipv6: ListenerState,
+			}
+
+			R.query(|node, _: ()| async move {
+				let addrs = node
+					.p2p
+					.p2p
+					.listeners()
+					.iter()
+					.flat_map(|l| l.addrs.clone())
+					.collect::<Vec<_>>();
+
+				let errors = node
+					.p2p
+					.listener_errors
+					.lock()
+					.unwrap_or_else(PoisonError::into_inner);
+
+				Ok(Listeners {
+					ipv4: match errors.ipv4 {
+						Some(ref err) => ListenerState::Error { error: err.clone() },
+						None => match addrs.iter().any(|f| f.is_ipv4()) {
+							true => ListenerState::Listening,
+							false => ListenerState::Disabled,
+						},
+					},
+					ipv6: match errors.ipv6 {
+						Some(ref err) => ListenerState::Error { error: err.clone() },
+						None => match addrs.iter().any(|f| f.is_ipv6()) {
+							true => ListenerState::Listening,
+							false => ListenerState::Disabled,
+						},
+					},
+				})
+			})
 		})
 		.procedure("debugConnect", {
 			R.mutation(|node, identity: RemoteIdentity| async move {

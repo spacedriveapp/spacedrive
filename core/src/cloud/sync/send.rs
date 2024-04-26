@@ -1,24 +1,32 @@
-use super::CompressedCRDTOperations;
+use sd_core_sync::{SyncMessage, NTP64};
 
 use sd_cloud_api::RequestConfigProvider;
-use sd_core_sync::{SyncMessage, NTP64};
+
+use std::{
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
+	time::Duration,
+};
+
+use tokio::{sync::Notify, time::sleep};
 use tracing::debug;
 use uuid::Uuid;
 
-use std::{sync::Arc, time::Duration};
-
-use tokio::time::sleep;
-
-use super::err_break;
-
-// Responsible for sending its instance's sync operations to the cloud.
+use super::{err_break, CompressedCRDTOperations};
 
 pub async fn run_actor(
 	library_id: Uuid,
 	sync: Arc<sd_core_sync::Manager>,
 	cloud_api_config_provider: Arc<impl RequestConfigProvider>,
+	state: Arc<AtomicBool>,
+	state_notify: Arc<Notify>,
 ) {
 	loop {
+		state.store(true, Ordering::Relaxed);
+		state_notify.notify_waiters();
+
 		loop {
 			// all available instances will have a default timestamp from create_instance
 			let instances = sync
@@ -108,6 +116,9 @@ pub async fn run_actor(
 				.await
 			);
 		}
+
+		state.store(false, Ordering::Relaxed);
+		state_notify.notify_waiters();
 
 		{
 			// recreate subscription each time so that existing messages are dropped

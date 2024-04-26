@@ -21,9 +21,16 @@ import { useDragScrollable } from '../useDragScrollable';
 import { TableContext } from './context';
 import { TableRow } from './TableRow';
 import { getRangeDirection, Range, useRanges } from './useRanges';
-import { useTable } from './useTable';
+import {
+	DEFAULT_LIST_VIEW_ICON_SIZE,
+	DEFAULT_LIST_VIEW_TEXT_SIZE,
+	LIST_VIEW_ICON_SIZES,
+	LIST_VIEW_TEXT_SIZES,
+	useTable
+} from './useTable';
 
-const ROW_HEIGHT = 45;
+const ROW_HEIGHT = 37;
+const TABLE_HEADER_HEIGHT = 35;
 export const TABLE_PADDING_X = 16;
 export const TABLE_PADDING_Y = 12;
 
@@ -65,7 +72,9 @@ export const ListView = memo(() => {
 		paddingStart: TABLE_PADDING_Y,
 		paddingEnd: TABLE_PADDING_Y + (explorerView.scrollPadding?.bottom ?? 0),
 		scrollMargin: listOffset,
-		overscan: explorer.overscan ?? 10
+		overscan: explorer.overscan ?? 10,
+		scrollPaddingStart: explorerView.scrollPadding?.top,
+		scrollPaddingEnd: TABLE_HEADER_HEIGHT + (explorerView.scrollPadding?.bottom ?? 0)
 	});
 
 	const virtualRows = rowVirtualizer.getVirtualItems();
@@ -352,45 +361,11 @@ export const ListView = memo(() => {
 
 	const scrollToRow = useCallback(
 		(row: Row<ExplorerItem>) => {
-			if (!explorer.scrollRef.current || !tableBodyRef.current) return;
-
-			const scrollRect = explorer.scrollRef.current.getBoundingClientRect();
-
-			const tableTop =
-				scrollRect.top +
-				(explorerView.scrollPadding?.top ??
-					parseInt(getComputedStyle(explorer.scrollRef.current).paddingTop)) +
-				(explorer.scrollRef.current.scrollTop > top ? 36 : 0);
-
-			const rowTop =
-				scrollRect.top +
-				row.index * ROW_HEIGHT +
-				rowVirtualizer.options.paddingStart +
-				tableBodyRef.current.getBoundingClientRect().top;
-
-			const rowBottom = rowTop + ROW_HEIGHT;
-
-			if (rowTop < tableTop) {
-				const scrollBy = rowTop - tableTop - (row.index === 0 ? TABLE_PADDING_Y : 0);
-				explorer.scrollRef.current.scrollBy({ top: scrollBy });
-			} else if (rowBottom > scrollRect.height - (explorerView.scrollPadding?.bottom ?? 0)) {
-				const scrollBy =
-					rowBottom -
-					scrollRect.height +
-					(explorerView.scrollPadding?.bottom ?? 0) +
-					(row.index === rows.length - 1 ? TABLE_PADDING_Y : 0);
-
-				explorer.scrollRef.current.scrollBy({ top: scrollBy });
-			}
+			rowVirtualizer.scrollToIndex(row.index, {
+				align: row.index === 0 ? 'end' : row.index === rows.length - 1 ? 'start' : 'auto'
+			});
 		},
-		[
-			explorer.scrollRef,
-			explorerView.scrollPadding?.bottom,
-			explorerView.scrollPadding?.top,
-			rowVirtualizer.options.paddingStart,
-			rows.length,
-			top
-		]
+		[rowVirtualizer, rows.length]
 	);
 
 	const keyboardHandler = (e: KeyboardEvent, direction: 'ArrowDown' | 'ArrowUp') => {
@@ -540,6 +515,26 @@ export const ListView = memo(() => {
 	useEffect(() => setRanges([]), [explorerSettings.order]);
 
 	useEffect(() => {
+		if (explorer.selectedItems.size === 0) setRanges([]);
+	}, [explorer.selectedItems]);
+
+	useEffect(() => {
+		// Reset icon size if it's not a valid size
+		if (!LIST_VIEW_ICON_SIZES[explorerSettings.listViewIconSize]) {
+			explorer.settingsStore.listViewIconSize = DEFAULT_LIST_VIEW_ICON_SIZE;
+		}
+
+		// Reset text size if it's not a valid size
+		if (!LIST_VIEW_TEXT_SIZES[explorerSettings.listViewTextSize]) {
+			explorer.settingsStore.listViewTextSize = DEFAULT_LIST_VIEW_TEXT_SIZE;
+		}
+	}, [
+		explorer.settingsStore,
+		explorerSettings.listViewIconSize,
+		explorerSettings.listViewTextSize
+	]);
+
+	useEffect(() => {
 		if (!getQuickPreviewStore().open || explorer.selectedItems.size !== 1) return;
 
 		const [item] = [...explorer.selectedItems];
@@ -661,12 +656,6 @@ export const ListView = memo(() => {
 		};
 	}, [sized, isLeftMouseDown, quickPreview.open]);
 
-	useShortcut('explorerEscape', () => {
-		if (!explorerView.selectable || explorer.selectedItems.size === 0) return;
-		explorer.resetSelectedItems([]);
-		setRanges([]);
-	});
-
 	useShortcut('explorerUp', (e) => {
 		keyboardHandler(e, 'ArrowUp');
 	});
@@ -743,6 +732,31 @@ export const ListView = memo(() => {
 	// Set list offset
 	useLayoutEffect(() => setListOffset(tableRef.current?.offsetTop ?? 0), []);
 
+	// Handle active item selection
+	// TODO: This is a temporary solution
+	useEffect(() => {
+		return () => {
+			const firstRange = getRangeByIndex(0);
+			if (!firstRange) return;
+
+			const lastRange = getRangeByIndex(ranges.length - 1);
+			if (!lastRange) return;
+
+			const firstItem = firstRange.start.original;
+			const lastItem = lastRange.end.original;
+
+			explorerView.updateFirstActiveItem(explorer.getItemUniqueId(firstItem));
+			explorerView.updateActiveItem(explorer.getItemUniqueId(lastItem));
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [
+		ranges,
+		getRangeByIndex,
+		explorerView.updateFirstActiveItem,
+		explorerView.updateActiveItem,
+		explorer.getItemUniqueId
+	]);
+
 	return (
 		<TableContext.Provider value={{ columnSizing }}>
 			<div
@@ -781,6 +795,7 @@ export const ListView = memo(() => {
 												? 'overflow-hidden'
 												: 'no-scrollbar overflow-x-auto overscroll-x-none'
 										)}
+										style={{ height: TABLE_HEADER_HEIGHT }}
 									>
 										{table.getHeaderGroups().map((headerGroup) => (
 											<div key={headerGroup.id} className="flex w-fit">
@@ -942,35 +957,40 @@ export const ListView = memo(() => {
 								className="relative"
 								style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
 							>
-								{virtualRows.map((virtualRow) => {
-									const row = rows[virtualRow.index];
-									if (!row) return null;
+								<div
+									className="absolute left-0 top-0 min-w-full"
+									style={{
+										transform: `translateY(${
+											(virtualRows[0]?.start ?? 0) -
+											rowVirtualizer.options.scrollMargin
+										}px)`
+									}}
+								>
+									{virtualRows.map((virtualRow) => {
+										const row = rows[virtualRow.index];
+										if (!row) return null;
 
-									const previousRow = rows[virtualRow.index - 1];
-									const nextRow = rows[virtualRow.index + 1];
+										const previousRow = rows[virtualRow.index - 1];
+										const nextRow = rows[virtualRow.index + 1];
 
-									return (
-										<div
-											key={row.id}
-											className="absolute left-0 top-0 min-w-full"
-											style={{
-												height: virtualRow.size,
-												transform: `translateY(${
-													virtualRow.start -
-													rowVirtualizer.options.scrollMargin
-												}px)`
-											}}
-											onMouseDown={(e) => handleRowClick(e, row)}
-											onContextMenu={() => handleRowContextMenu(row)}
-										>
-											<TableRow
-												row={row}
-												previousRow={previousRow}
-												nextRow={nextRow}
-											/>
-										</div>
-									);
-								})}
+										return (
+											<div
+												key={virtualRow.key}
+												data-index={virtualRow.index}
+												ref={rowVirtualizer.measureElement}
+												className="relative"
+												onMouseDown={(e) => handleRowClick(e, row)}
+												onContextMenu={() => handleRowContextMenu(row)}
+											>
+												<TableRow
+													row={row}
+													previousRow={previousRow}
+													nextRow={nextRow}
+												/>
+											</div>
+										);
+									})}
+								</div>
 							</div>
 						</div>
 					</>

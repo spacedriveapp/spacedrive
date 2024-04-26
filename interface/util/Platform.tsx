@@ -36,6 +36,7 @@ export type Platform = {
 	showDevtools?(): void;
 	openPath?(path: string): void;
 	openLogsDir?(): void;
+	openTrashInOsExplorer?(): void;
 	userHomeDir?(): Promise<string>;
 	// Opens a file path with a given ID
 	openFilePaths?(library: string, ids: number[]): any;

@@ -1,5 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import { DotsThreeOutlineVertical } from 'phosphor-react-native';
+import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { arraysEqual, byteSize, Location, useOnlineLocations } from '@sd/client';
@@ -8,20 +9,22 @@ import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
 import FolderIcon from '../icons/FolderIcon';
 import Card from '../layout/Card';
-import { ModalRef } from '../layout/Modal';
 import RightActions from './RightActions';
 
 interface ListLocationProps {
 	location: Location;
-	modalRef: React.RefObject<ModalRef>;
 }
 
-const ListLocation = ({ location, modalRef }: ListLocationProps) => {
+const ListLocation = ({ location }: ListLocationProps) => {
+	const swipeRef = useRef<Swipeable>(null);
+
 	const navigation = useNavigation<SettingsStackScreenProps<'LocationSettings'>['navigation']>();
 	const onlineLocations = useOnlineLocations();
 	const online = onlineLocations.some((l) => arraysEqual(location.pub_id, l));
+
 	return (
 		<Swipeable
+			ref={swipeRef}
 			containerStyle={tw`rounded-md border border-app-cardborder bg-app-card`}
 			enableTrackpadTwoFingerGesture
 			renderRightActions={(progress, _, swipeable) => (
@@ -36,7 +39,7 @@ const ListLocation = ({ location, modalRef }: ListLocationProps) => {
 			)}
 		>
 			<Card style={tw`h-auto flex-row justify-between gap-3 border-0 p-3`}>
-				<View style={tw`w-[50%] flex-row items-center gap-2`}>
+				<View style={tw`w-1/2 flex-row items-center gap-2`}>
 					<View style={tw`relative`}>
 						<FolderIcon size={38} />
 						<View
@@ -63,13 +66,13 @@ const ListLocation = ({ location, modalRef }: ListLocationProps) => {
 						style={tw`rounded-md border border-app-lightborder bg-app-highlight p-1.5`}
 					>
 						<Text
-							style={tw`text-left text-xs font-bold text-ink-dull`}
+							style={tw`text-left text-xs font-medium text-ink-dull`}
 							numberOfLines={1}
 						>
 							{`${byteSize(location.size_in_bytes)}`}
 						</Text>
 					</View>
-					<Pressable hitSlop={24} onPress={() => modalRef.current?.present()}>
+					<Pressable hitSlop={24} onPress={() => swipeRef.current?.openRight()}>
 						<DotsThreeOutlineVertical
 							weight="fill"
 							size={20}

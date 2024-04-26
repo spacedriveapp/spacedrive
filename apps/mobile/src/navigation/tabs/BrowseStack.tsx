@@ -1,12 +1,12 @@
 import { CompositeScreenProps } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import Header from '~/components/header/Header';
-import BrowseScreen from '~/screens/browse';
+import BrowseScreen from '~/screens/browse/Browse';
 import LibraryScreen from '~/screens/browse/Library';
+import LocationScreen from '~/screens/browse/Location';
 import LocationsScreen from '~/screens/browse/Locations';
+import TagScreen from '~/screens/browse/Tag';
 import TagsScreen from '~/screens/browse/Tags';
-import LocationScreen from '~/screens/Location';
-import TagScreen from '~/screens/Tag';
 
 import { TabScreenProps } from '../TabNavigator';
 
@@ -18,14 +18,14 @@ export default function BrowseStack() {
 			<Stack.Screen
 				name="Browse"
 				component={BrowseScreen}
-				options={{ header: () => <Header showLibrary title="Browse" /> }}
+				options={{ header: () => <Header showSearch showDrawer title="Browse" /> }}
 			/>
 			<Stack.Screen
 				name="Location"
 				component={LocationScreen}
 				options={{
 					header: (route) => (
-						<Header route={route} headerKind="location" routeTitle navBack />
+						<Header route={route} showSearch headerKind="location" routeTitle navBack />
 					)
 				}}
 			/>
@@ -33,7 +33,7 @@ export default function BrowseStack() {
 				name="Tags"
 				component={TagsScreen}
 				options={{
-					header: () => <Header navBack title="Tags" />
+					header: () => <Header searchType='tags' navBack title="Tags" />
 				}}
 			/>
 			<Stack.Screen
@@ -47,7 +47,7 @@ export default function BrowseStack() {
 				name="Tag"
 				component={TagScreen}
 				options={{
-					header: (route) => <Header routeTitle route={route} headerKind="tag" navBack />
+					header: (route) => <Header showSearch navBack routeTitle route={route} headerKind="tag" />
 				}}
 			/>
 			<Stack.Screen

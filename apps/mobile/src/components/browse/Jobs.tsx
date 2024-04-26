@@ -12,7 +12,7 @@ const Jobs = () => {
 	return (
 		<View style={tw`gap-3`}>
 			<View style={tw`w-full flex-row items-center justify-between px-5`}>
-				<Text style={tw`text-lg font-bold text-white`}>Jobs</Text>
+				<Text style={tw`text-lg font-bold text-white`}>Active Jobs</Text>
 			</View>
 			<Fade color="black" height="100%" width={30}>
 				<ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -67,7 +67,7 @@ const Job = ({ progress, message, error }: JobProps) => {
 					backgroundColor={tw.color('ink-light/5')}
 				>
 					{(fill) => (
-						<View style={tw`flex-row items-end gap-[1px]`}>
+						<View style={tw`flex-row items-end gap-px`}>
 							<Text style={tw`text-lg font-bold text-white`}>
 								{error ? '0' : fill.toFixed(0)}
 							</Text>
@@ -79,7 +79,7 @@ const Job = ({ progress, message, error }: JobProps) => {
 						</View>
 					)}
 				</AnimatedCircularProgress>
-				<Text style={tw`w-[60%] text-sm leading-5 text-ink-dull`}>{message}</Text>
+				<Text style={tw`w-3/5 text-sm leading-5 text-ink-dull`}>{message}</Text>
 			</View>
 		</Card>
 	);

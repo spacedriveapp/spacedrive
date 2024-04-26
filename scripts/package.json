@@ -21,15 +21,16 @@
 		"@iarna/toml": "^2.2.5",
 		"archive-wasm": "^1.6.1",
 		"mustache": "^4.2.0",
+		"os-proxy-config": "^1.1.1",
 		"semver": "^7.6.0",
 		"undici": "^6.9.0"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.24.0",
-		"@babel/eslint-parser": "^7.23.10",
+		"@babel/eslint-parser": "^7.24.1",
 		"@babel/eslint-plugin": "^7.23.5",
 		"@types/mustache": "^4.2.5",
-		"@types/node": ">18.x",
+		"@types/node": ">18.18.x",
 		"@typescript-eslint/eslint-plugin": "^7.3.1",
 		"@typescript-eslint/parser": "^7.3.1",
 		"eslint": "^8.57.0",

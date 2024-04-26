@@ -2,13 +2,12 @@
 
 use crate::{invalidate_query, library::Library, location::manager::LocationManagerError, Node};
 
-use sd_file_path_helper::{
-	check_file_path_exists, file_path_with_object, get_inode, get_inode_from_path, FilePathError,
-	IsolatedFilePathData,
+use sd_core_file_path_helper::{
+	check_file_path_exists, get_inode, FilePathError, IsolatedFilePathData,
 };
-use sd_prisma::prisma::{file_path, location};
-use sd_utils::{db::inode_to_db, error::FileIOError};
-use tracing_subscriber::field::debug;
+
+use sd_prisma::prisma::location;
+use sd_utils::error::FileIOError;
 
 use std::{
 	collections::HashMap,

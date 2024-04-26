@@ -70,7 +70,7 @@ module.exports = {
 			iconborder: `hsla(${DARK_HUE}, 10%, 100%, ${ALPHA})`,
 			// background (dark)
 			box: `hsla(${DARK_HUE}, 15%, 18%, ${ALPHA})`,
-			darkBox: `hsla(${DARK_HUE}, 15%, 7%, ${ALPHA})`,
+			darkBox: `hsla(${DARK_HUE}, 10%, 7%, ${ALPHA})`,
 			// foreground (light)
 			overlay: `hsla(${DARK_HUE}, 15%, 17%, ${ALPHA})`,
 			// border

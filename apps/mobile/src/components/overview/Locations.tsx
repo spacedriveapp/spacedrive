@@ -4,7 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
-import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
+import { OverviewStackScreenProps } from '~/navigation/tabs/OverviewStack';
 
 import Fade from '../layout/Fade';
 import { ModalRef } from '../layout/Modal';
@@ -15,7 +15,7 @@ import OverviewSection from './OverviewSection';
 import StatCard from './StatCard';
 
 const Locations = () => {
-	const navigation = useNavigation<BrowseStackScreenProps<'Browse'>['navigation']>();
+	const navigation = useNavigation<OverviewStackScreenProps<'Overview'>['navigation']>();
 	const modalRef = useRef<ModalRef>(null);
 
 	const locationsQuery = useLibraryQuery(['locations.list']);
@@ -26,7 +26,6 @@ const Locations = () => {
 		<>
 			<OverviewSection title="Locations" count={locations?.length}>
 				<View style={tw`flex-row items-center`}>
-					<Fade height={'100%'} width={30} color="black">
 						<FlatList
 							horizontal
 							data={locations}
@@ -60,7 +59,8 @@ const Locations = () => {
 							renderItem={({ item }) => (
 								<Pressable
 									onPress={() =>
-										navigation.navigate('BrowseStack', {
+										navigation.jumpTo('BrowseStack', {
+											initial: false,
 											screen: 'Location',
 											params: { id: item.id }
 										})
@@ -76,7 +76,6 @@ const Locations = () => {
 								</Pressable>
 							)}
 						/>
-					</Fade>
 				</View>
 			</OverviewSection>
 			<ImportModal ref={modalRef} />

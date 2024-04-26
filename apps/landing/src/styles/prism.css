@@ -74,6 +74,13 @@ pre[class*='language-'] {
 	border-radius: 0.3em;
 }
 
+pre.language-container {
+	padding: 1.1em;
+	margin: 0.5em 0;
+	overflow: auto;
+	border-radius: 0.3em;
+}
+
 /* Inline code */
 :not(pre) > code[class*='language-'] {
 	padding: 0.2em 0.3em;

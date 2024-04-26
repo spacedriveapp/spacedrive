@@ -1,11 +1,10 @@
 import { useGrid } from '@virtual-grid/react';
-import { useEffect, useRef } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
 import { ExplorerItem } from '@sd/client';
 import { useShortcut } from '~/hooks';
 
 import { useExplorerContext } from '../../Context';
-import { useQuickPreviewStore } from '../../QuickPreview/store';
-import { uniqueId } from '../../util';
+import { useExplorerOperatingSystem } from '../../useExplorerOperatingSystem';
 import { useExplorerViewContext } from '../Context';
 
 type Grid = ReturnType<typeof useGrid<string, ExplorerItem | undefined>>;
@@ -21,26 +20,14 @@ interface Options {
 export const useKeySelection = (grid: Grid, options: Options = { scrollToEnd: false }) => {
 	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
-	const quickPreview = useQuickPreviewStore();
 
-	// The item that further selection will move from (shift + arrow for example).
-	const activeItem = useRef<ExplorerItem | null>(null);
+	const { explorerOperatingSystem } = useExplorerOperatingSystem();
 
-	// The index of the active item. This is stored so we don't have to look
-	// for the index every time we want to move to the next item.
-	const activeItemIndex = useRef<number | null>(null);
-
-	useEffect(() => {
-		if (quickPreview.open) return;
-		activeItem.current = [...explorer.selectedItems][0] ?? null;
-	}, [explorer.selectedItems, quickPreview.open]);
-
-	useEffect(() => {
-		activeItemIndex.current = null;
-	}, [explorer.items, explorer.selectedItems]);
-
-	const scrollToItem = (item: NonNullable<ReturnType<Grid['getItem']>>) => {
+	const scrollToItem = (index: number) => {
 		if (!explorer.scrollRef.current || !explorerView.ref.current) return;
+
+		const item = grid.getItem(index);
+		if (!item) return;
 
 		const { top: viewTop } = explorerView.ref.current.getBoundingClientRect();
 		const { height: scrollHeight } = explorer.scrollRef.current.getBoundingClientRect();
@@ -74,40 +61,32 @@ export const useKeySelection = (grid: Grid, options: Options = { scrollToEnd: fa
 	};
 
 	const handleNavigation = (e: KeyboardEvent, direction: 'up' | 'down' | 'left' | 'right') => {
-		if (!explorerView.selectable) return;
+		if (!explorerView.selectable || !explorer.items) return;
 
 		e.preventDefault();
 		e.stopPropagation();
 
 		// Select first item in grid if no items are selected, on down/right keybind
 		// TODO: Handle when no items are selected and up/left keybind is executed (should select last item in grid)
-		if ((direction === 'down' || direction === 'right') && explorer.selectedItems.size === 0) {
-			const item = grid.getItem(0);
-			if (!item?.data) return;
+		if (explorer.selectedItems.size === 0) {
+			if (direction !== 'down' && direction !== 'right') return;
 
-			explorer.resetSelectedItems([item.data]);
-			scrollToItem(item);
+			const item = explorer.items[0];
+			if (!item) return;
+
+			scrollToItem(0);
+
+			explorer.resetSelectedItems([item]);
+
+			explorerView.updateActiveItem(explorer.getItemUniqueId(item), {
+				updateFirstItem: true
+			});
 
 			return;
 		}
 
-		let currentItemIndex = activeItemIndex.current;
-
-		// Find current index if we don't have the index stored
-		if (currentItemIndex === null) {
-			const currentItem = activeItem.current;
-			if (!currentItem) return;
-
-			const index = explorer.items?.findIndex(
-				(item) => uniqueId(item) === uniqueId(currentItem)
-			);
-
-			if (index === undefined || index === -1) return;
-
-			currentItemIndex = index;
-		}
-
-		if (currentItemIndex === null) return;
+		const currentItemIndex = explorerView.getActiveItemIndex();
+		if (currentItemIndex === undefined) return;
 
 		let newIndex = currentItemIndex;
 
@@ -125,28 +104,48 @@ export const useKeySelection = (grid: Grid, options: Options = { scrollToEnd: fa
 				newIndex += 1;
 		}
 
-		const newSelectedItem = grid.getItem(newIndex);
-		if (!newSelectedItem?.data) return;
+		// Adjust index if it's out of bounds
+		if (direction === 'down' && newIndex > explorer.items.length - 1) {
+			// Check if we're at the last row
+			if (grid.getItem(currentItemIndex)?.row === grid.rowCount - 1) return;
 
-		if (!e.shiftKey) {
-			explorer.resetSelectedItems([newSelectedItem.data]);
-		} else if (!explorer.isItemSelected(newSelectedItem.data)) {
-			explorer.addSelectedItem(newSelectedItem.data);
+			// By default select the last index in the grid if running on windows,
+			// otherwise only if we're out of bounds by one item
+			if (
+				explorerOperatingSystem === 'windows' ||
+				newIndex - (explorer.items.length - 1) === 1
+			) {
+				newIndex = explorer.items.length - 1;
+			}
 		}
 
-		// Timeout so useEffects don't override it
-		setTimeout(() => {
-			activeItem.current = newSelectedItem.data!;
-			activeItemIndex.current = newIndex;
-		});
+		const newSelectedItem = explorer.items[newIndex];
+		if (!newSelectedItem) return;
 
-		scrollToItem(newSelectedItem);
+		scrollToItem(newIndex);
+
+		if (!e.shiftKey) {
+			explorer.resetSelectedItems([newSelectedItem]);
+		} else if (
+			explorerOperatingSystem !== 'windows' &&
+			!explorer.isItemSelected(newSelectedItem)
+		) {
+			explorer.addSelectedItem(newSelectedItem);
+		} else if (explorerOperatingSystem === 'windows') {
+			explorerView.handleWindowsGridShiftSelection(newIndex);
+			return;
+		}
+
+		explorerView.updateActiveItem(explorer.getItemUniqueId(newSelectedItem), {
+			updateFirstItem: true
+		});
 	};
 
-	useShortcut('explorerUp', (e) => handleNavigation(e, 'up'));
-	useShortcut('explorerDown', (e) => handleNavigation(e, 'down'));
-	useShortcut('explorerLeft', (e) => handleNavigation(e, 'left'));
-	useShortcut('explorerRight', (e) => handleNavigation(e, 'right'));
+	// Debounce keybinds to prevent weird execution order
+	const debounce = useDebouncedCallback((fn: () => void) => fn(), 10);
 
-	return { activeItem };
+	useShortcut('explorerUp', (e) => debounce(() => handleNavigation(e, 'up')));
+	useShortcut('explorerDown', (e) => debounce(() => handleNavigation(e, 'down')));
+	useShortcut('explorerLeft', (e) => debounce(() => handleNavigation(e, 'left')));
+	useShortcut('explorerRight', (e) => debounce(() => handleNavigation(e, 'right')));
 };

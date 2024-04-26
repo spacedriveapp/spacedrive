@@ -1,14 +1,15 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { AppLogo, BloomOne } from '@sd/assets/images';
 import { SdMobIntro } from '@sd/assets/videos';
-import { useOnboardingStore } from '@sd/client';
 import { ResizeMode, Video } from 'expo-av';
+import { Image } from 'expo-image';
 import { MotiView } from 'moti';
 import { CaretLeft } from 'phosphor-react-native';
 import { useEffect } from 'react';
-import { Image, KeyboardAvoidingView, Platform, Pressable, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useOnboardingStore } from '@sd/client';
 import { FadeInUpAnimation, LogoAnimation } from '~/components/animation/layout';
 import { AnimatedButton } from '~/components/primitive/Button';
 import { styled, tw, twStyle } from '~/lib/tailwind';

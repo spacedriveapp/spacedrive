@@ -6,8 +6,10 @@ use crate::{
 		old_file_identifier::old_file_identifier_job::OldFileIdentifierJobInit,
 		validation::old_validator_job::OldObjectValidatorJobInit,
 	},
-	old_job::{job_without_data, Job, JobReport, JobStatus, OldJobs},
+	old_job::{Job, JobReport, JobStatus, OldJobs},
 };
+
+use sd_core_prisma_helpers::job_without_data;
 
 use sd_prisma::prisma::{job, location, SortOrder};
 
@@ -341,12 +343,26 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.with2(library())
 				.subscription(|(node, _), _: ()| async move {
 					// TODO: Only return event for the library that was subscribed to
-
 					let mut event_bus_rx = node.event_bus.0.subscribe();
 					async_stream::stream! {
 						while let Ok(event) = event_bus_rx.recv().await {
 							match event {
 								CoreEvent::NewThumbnail { thumb_key } => yield thumb_key,
+								_ => {}
+							}
+						}
+					}
+				})
+		})
+		.procedure("newFilePathIdentified", {
+			R.with2(library())
+				.subscription(|(node, _), _: ()| async move {
+					// TODO: Only return event for the library that was subscribed to
+					let mut event_bus_rx = node.event_bus.0.subscribe();
+					async_stream::stream! {
+						while let Ok(event) = event_bus_rx.recv().await {
+							match event {
+								CoreEvent::NewIdentifiedObjects { file_path_ids } => yield file_path_ids,
 								_ => {}
 							}
 						}

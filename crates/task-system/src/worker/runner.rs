@@ -965,6 +965,7 @@ impl<E: RunError> Runner<E> {
 	) {
 		match status {
 			InternalTaskExecStatus::Done(out) => {
+				self.task_kinds.remove(&task_id);
 				send_complete_task_response(self.worker_id, task_id, task_work_state, out);
 			}
 
@@ -977,10 +978,12 @@ impl<E: RunError> Runner<E> {
 			}
 
 			InternalTaskExecStatus::Canceled => {
+				self.task_kinds.remove(&task_id);
 				send_cancel_task_response(self.worker_id, task_id, task_work_state);
 			}
 
 			InternalTaskExecStatus::Error(e) => {
+				self.task_kinds.remove(&task_id);
 				send_error_task_response(self.worker_id, task_id, task_work_state, e);
 			}
 
@@ -1057,7 +1060,7 @@ impl<E: RunError> Runner<E> {
 		}
 
 		if self.task_kinds.capacity() > TASK_QUEUE_INITIAL_SIZE {
-			assert_eq!(self.task_kinds.len(), 0);
+			assert_eq!(self.task_kinds.len(), self.paused_tasks.len());
 			self.task_kinds.shrink_to(TASK_QUEUE_INITIAL_SIZE);
 		}
 
@@ -1190,14 +1193,9 @@ fn handle_task_suspension(
 			worktable.pause(tx).await;
 
 			match rx.await {
-				Ok(Ok(())) => {
+				Ok(()) => {
 					trace!("Suspending: <worker_id='{worker_id}', task_id='{task_id}'>");
 					has_suspended.store(true, Ordering::Relaxed);
-				}
-				Ok(Err(e)) => {
-					error!(
-							"Task <worker_id='{worker_id}', task_id='{task_id}'> failed to suspend: {e:#?}",
-						);
 				}
 				Err(_) => {
 					// The task probably finished before we could suspend it so the channel was dropped
@@ -1408,7 +1406,7 @@ fn send_complete_task_response<E: RunError>(
 	out: TaskOutput,
 ) {
 	worktable.set_completed();
-	if done_tx.send(Ok(TaskStatus::Done(out))).is_err() {
+	if done_tx.send(Ok(TaskStatus::Done((task_id, out)))).is_err() {
 		warn!(
 			"Task done channel closed before sending done response for task: \
 		<worker_id='{worker_id}', task_id='{task_id}'>"

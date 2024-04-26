@@ -1,5 +1,5 @@
 use crate::{
-	api::{locations::object_with_file_paths, utils::library},
+	api::utils::library,
 	invalidate_query,
 	library::Library,
 	location::{get_location_path_from_location_id, LocationError},
@@ -14,11 +14,13 @@ use crate::{
 	old_job::Job,
 };
 
+use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
+use sd_core_prisma_helpers::{
+	file_path_to_isolate, file_path_to_isolate_with_id, object_with_file_paths,
+};
+
 use sd_cache::{CacheNode, Model, NormalisedResult, Reference};
 use sd_file_ext::kind::ObjectKind;
-use sd_file_path_helper::{
-	file_path_to_isolate, file_path_to_isolate_with_id, FilePathError, IsolatedFilePathData,
-};
 use sd_images::ConvertibleExtension;
 use sd_media_metadata::MediaMetadata;
 use sd_prisma::{
@@ -42,10 +44,21 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::{fs, io, task::spawn_blocking};
 use tracing::{error, warn};
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
+use trash;
 
 use super::{Ctx, R};
 
 const UNTITLED_FOLDER_STR: &str = "Untitled Folder";
+const UNTITLED_FILE_STR: &str = "Untitled";
+const UNTITLED_TEXT_FILE_STR: &str = "Untitled.txt";
+
+#[derive(Type, Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum FileCreateContextTypes {
+	Empty,
+	Text,
+}
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -294,6 +307,45 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				},
 			)
 		})
+		.procedure("createFile", {
+			#[derive(Type, Deserialize)]
+			pub struct CreateFileArgs {
+				pub location_id: location::id::Type,
+				pub sub_path: Option<PathBuf>,
+				pub name: Option<String>,
+				pub context: FileCreateContextTypes,
+			}
+			R.with2(library()).mutation(
+				|(_, library),
+				 CreateFileArgs {
+				     location_id,
+				     sub_path,
+				     context,
+				     name,
+				 }: CreateFileArgs| async move {
+					let mut path =
+						get_location_path_from_location_id(&library.db, location_id).await?;
+
+					if let Some(sub_path) = sub_path
+						.as_ref()
+						.and_then(|sub_path| sub_path.strip_prefix("/").ok())
+					{
+						path.push(sub_path);
+					}
+
+					match context {
+						FileCreateContextTypes::Empty => {
+							path.push(name.as_deref().unwrap_or(UNTITLED_FILE_STR))
+						}
+						FileCreateContextTypes::Text => {
+							path.push(name.as_deref().unwrap_or(UNTITLED_TEXT_FILE_STR))
+						}
+					}
+
+					create_file(path, &library).await
+				},
+			)
+		})
 		.procedure("updateAccessTime", {
 			R.with2(library())
 				.mutation(|(_, library), ids: Vec<i32>| async move {
@@ -465,6 +517,61 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					}
 				})
 		})
+		.procedure("moveToTrash", {
+			R.with2(library())
+				.mutation(|(node, library), args: OldFileDeleterJobInit| async move {
+					if cfg!(target_os = "ios") || cfg!(target_os = "android") {
+						return Err(rspc::Error::new(
+							ErrorCode::MethodNotSupported,
+							"Moving to trash is not supported on this platform".to_string(),
+						));
+					}
+
+					match args.file_path_ids.len() {
+						0 => Ok(()),
+						1 => {
+							let (maybe_location, maybe_file_path) = library
+								.db
+								._batch((
+									library
+										.db
+										.location()
+										.find_unique(location::id::equals(args.location_id))
+										.select(location::select!({ path })),
+									library
+										.db
+										.file_path()
+										.find_unique(file_path::id::equals(args.file_path_ids[0]))
+										.select(file_path_to_isolate::select()),
+								))
+								.await?;
+
+							let location_path = maybe_location
+								.ok_or(LocationError::IdNotFound(args.location_id))?
+								.path
+								.ok_or(LocationError::MissingPath(args.location_id))?;
+
+							let file_path = maybe_file_path.ok_or(LocationError::FilePath(
+								FilePathError::IdNotFound(args.file_path_ids[0]),
+							))?;
+
+							let full_path = Path::new(&location_path).join(
+								IsolatedFilePathData::try_from(&file_path)
+									.map_err(LocationError::MissingField)?,
+							);
+
+							#[cfg(not(any(target_os = "ios", target_os = "android")))]
+							trash::delete(full_path).unwrap();
+
+							Ok(())
+						}
+						_ => Job::new(args)
+							.spawn(&node, &library)
+							.await
+							.map_err(Into::into),
+					}
+				})
+		})
 		.procedure("convertImage", {
 			#[derive(Type, Deserialize)]
 			struct ConvertImageArgs {
@@ -598,7 +705,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					Ok(())
 				})
 		})
-		.procedure("getConvertableImageExtensions", {
+		.procedure("getConvertibleImageExtensions", {
 			R.query(|_, _: ()| async move { Ok(sd_images::all_compatible_extensions()) })
 		})
 		.procedure("eraseFiles", {
@@ -860,6 +967,45 @@ pub(super) async fn create_directory(
 	fs::create_dir(&target_path)
 		.await
 		.map_err(|e| FileIOError::from((&target_path, e, "Failed to create directory")))?;
+
+	invalidate_query!(library, "search.objects");
+	invalidate_query!(library, "search.paths");
+	invalidate_query!(library, "search.ephemeralPaths");
+
+	Ok(target_path
+		.file_name()
+		.expect("Failed to get file name")
+		.to_string_lossy()
+		.to_string())
+}
+
+pub(super) async fn create_file(
+	mut target_path: PathBuf,
+	library: &Library,
+) -> Result<String, rspc::Error> {
+	match fs::metadata(&target_path).await {
+		Ok(metadata) if metadata.is_file() => {
+			target_path = find_available_filename_for_duplicate(&target_path).await?;
+		}
+		Ok(_) => {
+			return Err(FileSystemJobsError::WouldOverwrite(target_path.into_boxed_path()).into())
+		}
+		Err(e) if e.kind() == io::ErrorKind::NotFound => {
+			// Everything is awesome!
+		}
+		Err(e) => {
+			return Err(FileIOError::from((
+				target_path,
+				e,
+				"Failed to access file system and get metadata on file to be created",
+			))
+			.into())
+		}
+	};
+
+	fs::File::create(&target_path)
+		.await
+		.map_err(|e| FileIOError::from((&target_path, e, "Failed to create file")))?;
 
 	invalidate_query!(library, "search.objects");
 	invalidate_query!(library, "search.paths");

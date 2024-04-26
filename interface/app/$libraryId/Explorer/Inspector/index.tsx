@@ -55,7 +55,8 @@ import AssignTagMenuItems from '../ContextMenu/AssignTagMenuItems';
 import { FileThumb } from '../FilePath/Thumb';
 import { useQuickPreviewStore } from '../QuickPreview/store';
 import { explorerStore } from '../store';
-import { uniqueId, useExplorerItemData } from '../util';
+import { useExplorerItemData } from '../useExplorerItemData';
+import { uniqueId } from '../util';
 import { RenamableItemText } from '../View/RenamableItemText';
 import FavoriteButton from './FavoriteButton';
 import MediaData from './MediaData';
@@ -156,7 +157,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 					className={clsx(
 						thumbs.length > 1 && '!absolute',
 						i === 0 && thumbs.length > 1 && 'z-30 !h-[76%] !w-[76%]',
-						i === 1 && 'z-20 !h-[80%] !w-[80%] rotate-[-5deg]',
+						i === 1 && 'z-20 !h-4/5 !w-4/5 rotate-[-5deg]',
 						i === 2 && 'z-10 !h-[84%] !w-[84%] rotate-[7deg]'
 					)}
 					childClassName={(type) =>
@@ -227,9 +228,9 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	useNodes(tagsQuery.data?.nodes);
 	const tags = useCache(tagsQuery.data?.items);
 
-	const labels = useLibraryQuery(['labels.getForObject', objectData?.id ?? -1], {
-		enabled: objectData != null && readyToFetch
-	});
+	// const labels = useLibraryQuery(['labels.getForObject', objectData?.id ?? -1], {
+	// 	enabled: objectData != null && readyToFetch
+	// });
 
 	const { libraryId } = useZodRouteParams(LibraryIdParamsSchema);
 
@@ -276,10 +277,10 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					item={item}
 					toggleBy="click"
 					lines={2}
+					editLines={2}
 					selected
 					allowHighlight={false}
 					className="!text-base !font-bold !text-ink"
-					style={{ maxHeight: '50px' }}
 				/>
 			</div>
 
@@ -363,11 +364,11 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 				{extension && <InfoPill>{extension}</InfoPill>}
 
-				{labels.data?.map((label) => (
+				{/* {labels.data?.map((label) => (
 					<InfoPill key={label.id} className="truncate !text-white">
 						{label.name}
 					</InfoPill>
-				))}
+				))} */}
 
 				{tags?.map((tag) => (
 					<NavLink key={tag.id} to={`/${libraryId}/tag/${tag.id}`}>
@@ -436,20 +437,20 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 	useNodes(tagsQuery.data?.nodes);
 	const tags = useCache(tagsQuery.data?.items);
 
-	const labels = useLibraryQuery(['labels.list'], {
-		enabled: readyToFetch && !isDragSelecting,
-		suspense: true
-	});
+	// const labels = useLibraryQuery(['labels.list'], {
+	// 	enabled: readyToFetch && !isDragSelecting,
+	// 	suspense: true
+	// });
 
 	const tagsWithObjects = useLibraryQuery(
 		['tags.getWithObjects', selectedObjects.map(({ id }) => id)],
 		{ enabled: readyToFetch && !isDragSelecting }
 	);
 
-	const labelsWithObjects = useLibraryQuery(
-		['labels.getWithObjects', selectedObjects.map(({ id }) => id)],
-		{ enabled: readyToFetch && !isDragSelecting }
-	);
+	// const labelsWithObjects = useLibraryQuery(
+	// 	['labels.getWithObjects', selectedObjects.map(({ id }) => id)],
+	// 	{ enabled: readyToFetch && !isDragSelecting }
+	// );
 
 	const getDate = useCallback((metadataDate: MetadataDate, date: Date) => {
 		date.setHours(0, 0, 0, 0);
@@ -552,7 +553,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 					<InfoPill key={kind}>{`${kind} (${items.length})`}</InfoPill>
 				))}
 
-				{labels.data?.map((label) => {
+				{/* {labels.data?.map((label) => {
 					const objectsWithLabel = labelsWithObjects.data?.[label.id] ?? [];
 
 					if (objectsWithLabel.length === 0) return null;
@@ -569,7 +570,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 							{label.name} ({objectsWithLabel.length})
 						</InfoPill>
 					);
-				})}
+				})} */}
 
 				{tags?.map((tag) => {
 					const objectsWithTag = tagsWithObjects.data?.[tag.id] ?? [];

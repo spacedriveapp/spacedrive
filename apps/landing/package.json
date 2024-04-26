@@ -56,7 +56,7 @@
 		"@octokit/openapi-types": "^20.0.0",
 		"@sd/config": "workspace:*",
 		"@svgr/webpack": "^8.1.0",
-		"@types/node": ">18.x",
+		"@types/node": ">18.18.x",
 		"@types/react": "^18.2.67",
 		"@types/react-burger-menu": "^2.8.7",
 		"@types/react-dom": "^18.2.22",

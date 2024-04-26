@@ -4,13 +4,14 @@
 	"type": "module",
 	"scripts": {
 		"dev:api": "env E2E_TEST=1 cargo run -p sd-server",
+		"dev:web": "env WAIT_ON_TIMEOUT=1800000 start-test dev:api http://localhost:8080 dev",
 		"dev": "vite",
 		"build": "vite build",
 		"preview": "vite preview",
 		"test": "VITE_SD_DEMO_MODE=true playwright test",
 		"test:e2e": "env WAIT_ON_TIMEOUT=1800000 start-test dev:api http://localhost:8080 dev http://localhost:8002 cy:run",
 		"test:interactive": "env WAIT_ON_TIMEOUT=1800000 start-test dev:api http://localhost:8080 dev http://localhost:8002 cy:open",
-		"cy:run": "env ELECTRON_EXTRA_LAUNCH_ARGS=--lang=en cypress run",
+		"cy:run": "cypress run --browser webkit",
 		"cy:open": "env ELECTRON_EXTRA_LAUNCH_ARGS=--lang=en cypress open --e2e",
 		"typecheck": "tsc -b",
 		"lint": "eslint src --cache"
@@ -35,6 +36,7 @@
 		"autoprefixer": "^10.4.18",
 		"cypress": "^13.7.0",
 		"eslint-plugin-cypress": "^2.15.1",
+		"playwright-webkit": "^1.42.1",
 		"postcss": "^8.4.36",
 		"rollup-plugin-visualizer": "^5.12.0",
 		"start-server-and-test": "^2.0.3",

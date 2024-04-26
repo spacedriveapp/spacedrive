@@ -16,6 +16,9 @@ pub struct LibraryPreferences {
 	#[serde(default)]
 	#[specta(optional)]
 	location: HashMap<Uuid, Settings<LocationSettings>>,
+	#[serde(default)]
+	#[specta(optional)]
+	tag: HashMap<Uuid, Settings<TagSettings>>,
 }
 
 impl LibraryPreferences {
@@ -58,6 +61,12 @@ pub struct LocationSettings {
 
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]
 #[serde(rename_all = "camelCase")]
+pub struct TagSettings {
+	explorer: ExplorerSettings<search::object::ObjectOrder>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Type, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct ExplorerSettings<TOrder> {
 	layout_mode: Option<ExplorerLayout>,
 	grid_item_size: Option<i32>,
@@ -69,6 +78,8 @@ pub struct ExplorerSettings<TOrder> {
 	show_bytes_in_grid_view: Option<bool>,
 	col_visibility: Option<BTreeMap<String, bool>>,
 	col_sizes: Option<BTreeMap<String, i32>>,
+	list_view_icon_size: Option<String>,
+	list_view_text_size: Option<String>,
 	// temporary
 	#[serde(skip_serializing_if = "Option::is_none")]
 	order: Option<Option<TOrder>>,
@@ -93,15 +104,24 @@ pub enum DoubleClickAction {
 
 impl Preferences for LibraryPreferences {
 	fn to_kvs(self) -> PreferenceKVs {
-		let Self { location } = self;
+		let Self { location, tag } = self;
 
-		location.to_kvs().with_prefix("location")
+		let mut ret = vec![];
+
+		ret.extend(location.to_kvs().with_prefix("location"));
+		ret.extend(tag.to_kvs().with_prefix("tag"));
+
+		PreferenceKVs::new(ret)
 	}
 
 	fn from_entries(mut entries: Entries) -> Self {
 		Self {
 			location: entries
 				.remove("location")
+				.map(|value| HashMap::from_entries(value.expect_nested()))
+				.unwrap_or_default(),
+			tag: entries
+				.remove("tag")
 				.map(|value| HashMap::from_entries(value.expect_nested()))
 				.unwrap_or_default(),
 		}

@@ -59,9 +59,12 @@ chrono = "0.4.31"
 clap = "4.4.7"
 futures = "0.3.30"
 futures-concurrency = "7.4.3"
+globset = "^0.4.13"
 hex = "0.4.3"
 http = "0.2.9"
 image = "0.24.7"
+itertools = "0.12.0"
+lending-stream = "1.0.0"
 normpath = "1.1.1"
 once_cell = "1.18.0"
 pin-project-lite = "0.2.13"
@@ -73,6 +76,7 @@ rmp-serde = "1.1.2"
 rmpv = { version = "^1.0.1", features = ["with-serde"] }
 serde = "1.0"
 serde_json = "1.0"
+static_assertions = "1.1.0"
 strum = "0.25"
 strum_macros = "0.25"
 tempfile = "3.8.1"
@@ -83,6 +87,9 @@ tokio-util = "0.7.10"
 uhlc = "=0.5.2"
 uuid = "1.5.0"
 webp = "0.2.6"
+
+[workspace.dev-dependencies]
+tracing-test = { version = "^0.2.4" }
 
 [patch.crates-io]
 # Proper IOS Support

@@ -55,13 +55,13 @@ export interface RenderSearchFilter<
 	Render: (props: {
 		filter: SearchFilterCRUD<TConditions>;
 		options: (FilterOption & { type: string })[];
-		search: UseSearch;
+		search: UseSearch<any>;
 	}) => JSX.Element;
 	// Apply is responsible for applying the filter to the search args
 	useOptions: (props: { search: string }) => FilterOption[];
 }
 
-export function useToggleOptionSelected({ search }: { search: UseSearch }) {
+export function useToggleOptionSelected({ search }: { search: UseSearch<any> }) {
 	return ({
 		filter,
 		option,
@@ -71,28 +71,25 @@ export function useToggleOptionSelected({ search }: { search: UseSearch }) {
 		option: FilterOption;
 		select: boolean;
 	}) => {
-		search.updateDynamicFilters((dynamicFilters) => {
-			const key = getKey({ ...option, type: filter.name });
-			if (search.fixedFiltersKeys?.has(key)) return dynamicFilters;
-
-			const rawArg = dynamicFilters.find((arg) => filter.extract(arg));
+		search.setFilters?.((filters = []) => {
+			const rawArg = filters.find((arg) => filter.extract(arg));
 
 			if (!rawArg) {
 				const arg = filter.create(option.value);
-				dynamicFilters.push(arg);
+				filters.push(arg);
 			} else {
-				const rawArgIndex = dynamicFilters.findIndex((arg) => filter.extract(arg))!;
+				const rawArgIndex = filters.findIndex((arg) => filter.extract(arg))!;
 
 				const arg = filter.extract(rawArg)!;
 
 				if (select) {
 					if (rawArg) filter.applyAdd(arg, option);
 				} else {
-					if (!filter.applyRemove(arg, option)) dynamicFilters.splice(rawArgIndex, 1);
+					if (!filter.applyRemove(arg, option)) filters.splice(rawArgIndex, 1);
 				}
 			}
 
-			return dynamicFilters;
+			return filters;
 		});
 	};
 }
@@ -105,7 +102,7 @@ const FilterOptionList = ({
 }: {
 	filter: SearchFilterCRUD;
 	options: FilterOption[];
-	search: UseSearch;
+	search: UseSearch<any>;
 	empty?: () => JSX.Element;
 }) => {
 	const { allFiltersKeys } = search;
@@ -143,7 +140,13 @@ const FilterOptionList = ({
 	);
 };
 
-const FilterOptionText = ({ filter, search }: { filter: SearchFilterCRUD; search: UseSearch }) => {
+const FilterOptionText = ({
+	filter,
+	search
+}: {
+	filter: SearchFilterCRUD;
+	search: UseSearch<any>;
+}) => {
 	const [value, setValue] = useState('');
 
 	const { allFiltersKeys } = search;
@@ -159,22 +162,18 @@ const FilterOptionText = ({ filter, search }: { filter: SearchFilterCRUD; search
 				className="flex gap-1.5"
 				onSubmit={(e) => {
 					e.preventDefault();
-					search.updateDynamicFilters((dynamicFilters) => {
-						if (allFiltersKeys.has(key)) return dynamicFilters;
+					search.setFilters?.((filters) => {
+						if (allFiltersKeys.has(key)) return filters;
 
 						const arg = filter.create(value);
-						dynamicFilters.push(arg);
+						filters?.push(arg);
 						setValue('');
 
-						return dynamicFilters;
+						return filters;
 					});
 				}}
 			>
-				<Input
-					className="w-[75%]"
-					value={value}
-					onChange={(e) => setValue(e.target.value)}
-				/>
+				<Input className="w-3/4" value={value} onChange={(e) => setValue(e.target.value)} />
 				<Button
 					disabled={value.length === 0 || allFiltersKeys.has(key)}
 					variant="accent"
@@ -193,9 +192,9 @@ const FilterOptionBoolean = ({
 	search
 }: {
 	filter: SearchFilterCRUD;
-	search: UseSearch;
+	search: UseSearch<any>;
 }) => {
-	const { fixedFiltersKeys, allFiltersKeys } = search;
+	const { allFiltersKeys } = search;
 
 	const key = getKey({
 		type: filter.name,
@@ -208,19 +207,17 @@ const FilterOptionBoolean = ({
 			icon={filter.icon}
 			selected={allFiltersKeys?.has(key)}
 			setSelected={() => {
-				search.updateDynamicFilters((dynamicFilters) => {
-					if (fixedFiltersKeys?.has(key)) return dynamicFilters;
-
-					const index = dynamicFilters.findIndex((f) => filter.extract(f) !== undefined);
+				search.setFilters?.((filters = []) => {
+					const index = filters.findIndex((f) => filter.extract(f) !== undefined);
 
 					if (index !== -1) {
-						dynamicFilters.splice(index, 1);
+						filters.splice(index, 1);
 					} else {
 						const arg = filter.create(true);
-						dynamicFilters.push(arg);
+						filters.push(arg);
 					}
 
-					return dynamicFilters;
+					return filters;
 				});
 			}}
 		>
@@ -490,7 +487,7 @@ export const filterRegistry = [
 					empty={() => (
 						<div className="flex flex-col items-center justify-center gap-2 p-2">
 							<SDIcon name="Tags" size={32} />
-							<p className="w-[80%] text-center text-xs text-ink-dull">
+							<p className="w-4/5 text-center text-xs text-ink-dull">
 								You have not created any tags
 							</p>
 						</div>
@@ -582,40 +579,40 @@ export const filterRegistry = [
 			];
 		},
 		Render: ({ filter, search }) => <FilterOptionBoolean filter={filter} search={search} />
-	}),
-	createInOrNotInFilter({
-		name: 'Label',
-		icon: Tag,
-		extract: (arg) => {
-			if ('object' in arg && 'labels' in arg.object) return arg.object.labels;
-		},
-		create: (labels) => ({ object: { labels } }),
-		argsToOptions(values, options) {
-			return values
-				.map((value) => {
-					const option = options.get(this.name)?.find((o) => o.value === value);
-
-					if (!option) return;
-
-					return {
-						...option,
-						type: this.name
-					};
-				})
-				.filter(Boolean) as any;
-		},
-		useOptions: () => {
-			const query = useLibraryQuery(['labels.list']);
-
-			return (query.data ?? []).map((label) => ({
-				name: label.name!,
-				value: label.id
-			}));
-		},
-		Render: ({ filter, options, search }) => (
-			<FilterOptionList filter={filter} options={options} search={search} />
-		)
 	})
+	// createInOrNotInFilter({
+	// 	name: 'Label',
+	// 	icon: Tag,
+	// 	extract: (arg) => {
+	// 		if ('object' in arg && 'labels' in arg.object) return arg.object.labels;
+	// 	},
+	// 	create: (labels) => ({ object: { labels } }),
+	// 	argsToOptions(values, options) {
+	// 		return values
+	// 			.map((value) => {
+	// 				const option = options.get(this.name)?.find((o) => o.value === value);
+
+	// 				if (!option) return;
+
+	// 				return {
+	// 					...option,
+	// 					type: this.name
+	// 				};
+	// 			})
+	// 			.filter(Boolean) as any;
+	// 	},
+	// 	useOptions: () => {
+	// 		const query = useLibraryQuery(['labels.list']);
+
+	// 		return (query.data ?? []).map((label) => ({
+	// 			name: label.name!,
+	// 			value: label.id
+	// 		}));
+	// 	},
+	// 	Render: ({ filter, options, search }) => (
+	// 		<FilterOptionList filter={filter} options={options} search={search} />
+	// 	)
+	// })
 	// idk how to handle this rn since include_descendants is part of 'path' now
 	//
 	// createFilter({

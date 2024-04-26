@@ -12,6 +12,8 @@
 		"macOSPrivateApi": true,
 		"bundle": {
 			"active": true,
+			"publisher": "Spacedrive Technology Inc.",
+			"category": "Productivity",
 			"targets": ["deb", "msi", "dmg", "updater"],
 			"identifier": "com.spacedrive.desktop",
 			"icon": [
@@ -24,7 +26,7 @@
 			"resources": {},
 			"externalBin": [],
 			"copyright": "Spacedrive Technology Inc.",
-			"shortDescription": "File explorer from the future.",
+			"shortDescription": "Spacedrive",
 			"longDescription": "Cross-platform universal file explorer, powered by an open-source virtual distributed filesystem.",
 			"deb": {
 				"files": {

@@ -23,6 +23,11 @@ module.exports = {
 						message: 'Import SafeAreaView from react-native-safe-area-context instead'
 					},
 					{
+						name: 'react-native',
+						importNames: ['Image', 'ImageProps', 'ImageBackground'],
+						message: 'Import it from expo-image instead'
+					},
+					{
 						name: 'react-native-toast-message',
 						message: 'Import it from components instead'
 					}

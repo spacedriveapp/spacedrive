@@ -47,6 +47,8 @@ import ExplorerContextMenu, {
 import { Conditional } from '../ContextMenu/ConditionalItem';
 import { FileThumb } from '../FilePath/Thumb';
 import { SingleItemMetadata } from '../Inspector';
+import { explorerStore } from '../store';
+import { useExplorerViewContext } from '../View/Context';
 import { ImageSlider } from './ImageSlider';
 import { getQuickPreviewStore, useQuickPreviewStore } from './store';
 
@@ -73,6 +75,7 @@ export const QuickPreview = () => {
 	const { openFilePaths, openEphemeralFiles } = usePlatform();
 	const explorerLayoutStore = useExplorerLayoutStore();
 	const explorer = useExplorerContext();
+	const explorerView = useExplorerViewContext();
 	const { open, itemIndex } = useQuickPreviewStore();
 
 	const thumb = createRef<HTMLDivElement>();
@@ -154,6 +157,14 @@ export const QuickPreview = () => {
 		setShowMetadata(false);
 	}, [item, open]);
 
+	useEffect(() => {
+		if (open) explorerView.updateActiveItem(null, { updateFirstItem: true });
+
+		// "open" is excluded, as we only want this to trigger when hashes change,
+		// that way we don't have to manually update the active item.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [explorer.selectedItemHashes, explorerView.updateActiveItem]);
+
 	const handleMoveBetweenItems = (step: number) => {
 		const nextPreviewItem = items[itemIndex + step];
 		if (nextPreviewItem) {
@@ -194,6 +205,7 @@ export const QuickPreview = () => {
 
 	//close quick preview
 	useShortcut('closeQuickPreview', (e) => {
+		if (explorerStore.isCMDPOpen) return;
 		e.preventDefault();
 		getQuickPreviewStore().open = false;
 	});

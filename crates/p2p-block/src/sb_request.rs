@@ -88,7 +88,7 @@ impl SpaceblockRequests {
 			.map_err(SpaceblockRequestsError::InvalidLen)?;
 
 		let mut requests = Vec::new();
-		for i in 0..size {
+		for _i in 0..size {
 			requests.push(SpaceblockRequest::from_stream(stream).await?);
 		}
 
@@ -106,7 +106,6 @@ impl SpaceblockRequests {
 			block_size,
 			requests,
 		} = self;
-		#[allow(clippy::panic)] // TODO: Remove this panic
 		assert!(
 			requests.len() <= 255,
 			"Can't Spacedrop more than 255 files at once!"
@@ -167,10 +166,9 @@ impl SpaceblockRequest {
 
 	#[must_use]
 	pub fn to_bytes(&self) -> Vec<u8> {
-		let Self { name, size, range } = self;
 		let mut buf = Vec::new();
 
-		encode::string(&mut buf, name);
+		encode::string(&mut buf, &self.name);
 		buf.extend_from_slice(&self.size.to_le_bytes());
 		buf.extend_from_slice(&self.range.to_bytes());
 		buf
@@ -200,7 +198,7 @@ mod tests {
 	async fn test_spaceblock_requests_empty() {
 		let req = SpaceblockRequests {
 			id: Uuid::new_v4(),
-			block_size: BlockSize::from_size(42069),
+			block_size: BlockSize::from_file_size(42069),
 			requests: vec![],
 		};
 
@@ -215,7 +213,7 @@ mod tests {
 	async fn test_spaceblock_requests_one() {
 		let req = SpaceblockRequests {
 			id: Uuid::new_v4(),
-			block_size: BlockSize::from_size(42069),
+			block_size: BlockSize::from_file_size(42069),
 			requests: vec![SpaceblockRequest {
 				name: "Demo".to_string(),
 				size: 42069,
@@ -246,7 +244,7 @@ mod tests {
 	async fn test_spaceblock_requests_many() {
 		let req = SpaceblockRequests {
 			id: Uuid::new_v4(),
-			block_size: BlockSize::from_size(42069),
+			block_size: BlockSize::from_file_size(42069),
 			requests: vec![
 				SpaceblockRequest {
 					name: "Demo".to_string(),

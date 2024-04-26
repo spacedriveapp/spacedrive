@@ -1,15 +1,19 @@
 use crate::{
+	api::CoreEvent,
 	library::Library,
+	location::ScanState,
 	old_job::{
 		CurrentStep, JobError, JobInitOutput, JobReportUpdate, JobResult, JobRunMetadata,
 		JobStepOutput, StatefulJob, WorkerContext,
 	},
 };
 
-use sd_file_path_helper::{
+use sd_core_file_path_helper::{
 	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-	file_path_for_file_identifier, IsolatedFilePathData,
+	IsolatedFilePathData,
 };
+use sd_core_prisma_helpers::file_path_for_file_identifier;
+
 use sd_prisma::prisma::{file_path, location, PrismaClient, SortOrder};
 use sd_utils::db::maybe_missing;
 
@@ -223,6 +227,11 @@ impl StatefulJob for OldFileIdentifierJobInit {
 		new_metadata.total_objects_linked = total_objects_linked;
 		new_metadata.cursor = new_cursor;
 
+		// send an array of ids to let clients know new objects were identified
+		ctx.node.emit(CoreEvent::NewIdentifiedObjects {
+			file_path_ids: file_paths.iter().map(|fp| fp.id).collect(),
+		});
+
 		ctx.progress(vec![
 			JobReportUpdate::CompletedTaskCount(step_number * CHUNK_SIZE + file_paths.len()),
 			JobReportUpdate::Message(format!(
@@ -237,12 +246,23 @@ impl StatefulJob for OldFileIdentifierJobInit {
 
 	async fn finalize(
 		&self,
-		_: &WorkerContext,
+		ctx: &WorkerContext,
 		_data: &Option<Self::Data>,
 		run_metadata: &Self::RunMetadata,
 	) -> JobResult {
 		let init = self;
 		info!("Finalizing identifier job: {:?}", &run_metadata);
+
+		ctx.library
+			.db
+			.location()
+			.update(
+				location::id::equals(init.location.id),
+				vec![location::scan_state::set(ScanState::FilesIdentified as i32)],
+			)
+			.exec()
+			.await
+			.map_err(FileIdentifierJobError::from)?;
 
 		Ok(Some(json!({"init: ": init, "run_metadata": run_metadata})))
 	}

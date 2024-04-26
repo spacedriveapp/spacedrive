@@ -18,13 +18,15 @@ use crate::{
 	Node,
 };
 
-use sd_file_ext::{extensions::ImageExtension, kind::ObjectKind};
-use sd_file_path_helper::{
-	check_file_path_exists, file_path_with_object, filter_existing_file_path_params,
+use sd_core_file_path_helper::{
+	check_file_path_exists, filter_existing_file_path_params,
 	isolated_file_path_data::extract_normalized_materialized_path_str,
 	loose_find_existing_file_path_params, path_is_hidden, FilePathError, FilePathMetadata,
 	IsolatedFilePathData, MetadataExt,
 };
+use sd_core_prisma_helpers::file_path_with_object;
+
+use sd_file_ext::{extensions::ImageExtension, kind::ObjectKind};
 use sd_prisma::{
 	prisma::{file_path, location, media_data, object},
 	prisma_sync,
@@ -37,10 +39,10 @@ use sd_utils::{
 };
 
 #[cfg(target_family = "unix")]
-use sd_file_path_helper::get_inode;
+use sd_core_file_path_helper::get_inode;
 
 #[cfg(target_family = "windows")]
-use sd_file_path_helper::get_inode_from_path;
+use sd_core_file_path_helper::get_inode_from_path;
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -120,7 +122,7 @@ pub(super) async fn create_dir(
 		library,
 		iso_file_path.to_parts(),
 		None,
-		FilePathMetadata::from_path(&path, metadata).await?,
+		FilePathMetadata::from_path(path, metadata)?,
 	)
 	.await?;
 
@@ -177,7 +179,7 @@ async fn inner_create_file(
 	let iso_file_path_parts = iso_file_path.to_parts();
 	let extension = iso_file_path_parts.extension.to_string();
 
-	let metadata = FilePathMetadata::from_path(&path, metadata).await?;
+	let metadata = FilePathMetadata::from_path(path, metadata)?;
 
 	// First we check if already exist a file with this same inode number
 	// if it does, we just update it
