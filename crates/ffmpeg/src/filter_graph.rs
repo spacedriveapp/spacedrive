@@ -1,11 +1,11 @@
-use std::{ffi::CString, ptr};
+use std::{
+	ffi::{CStr, CString},
+	ptr,
+};
 
 use crate::{
-	codec_ctx::FFmpegCodecContext,
-	error::FFmpegError,
-	frame_decoder::ThumbnailSize,
-	utils::{check_error, CSTRING_ERROR_MSG},
-	Error,
+	codec_ctx::FFmpegCodecContext, error::FFmpegError, frame_decoder::ThumbnailSize,
+	utils::check_error, Error,
 };
 use ffmpeg_sys_next::{
 	avfilter_get_by_name, avfilter_graph_alloc, avfilter_graph_config,
@@ -57,39 +57,33 @@ impl<'a> FFmpegFilterGraph {
 			i32::max(codec_ctx.as_ref().sample_aspect_ratio.den, 1)
 		);
 
-		let filter_source = ptr::null_mut();
+		let mut filter_source = ptr::null_mut();
 		filter_graph.setup_filter(
-			filter_source,
-			CString::new("buffer").expect(CSTRING_ERROR_MSG),
-			CString::new("thumb_buffer").expect(CSTRING_ERROR_MSG),
-			Some(CString::new(args)?),
+			&mut filter_source,
+			c"buffer",
+			c"thumb_buffer",
+			Some(CString::new(args)?.as_c_str()),
 			"Failed to create filter source",
 		)?;
-		let filter_source_ctx = unsafe { filter_source.as_mut() }
-			.as_deref()
-			.and_then(|ptr| unsafe { ptr.as_mut() })
-			.ok_or(FFmpegError::NullError)?;
+		let filter_source_ctx = unsafe { filter_source.as_mut() }.ok_or(FFmpegError::NullError)?;
 
-		let filter_sink = ptr::null_mut();
+		let mut filter_sink = ptr::null_mut();
 		filter_graph.setup_filter(
-			filter_sink,
-			CString::new("buffersink").expect(CSTRING_ERROR_MSG),
-			CString::new("thumb_buffersink").expect(CSTRING_ERROR_MSG),
+			&mut filter_sink,
+			c"buffersink",
+			c"thumb_buffersink",
 			None,
 			"Failed to create filter sink",
 		)?;
-		let filter_sink_ctx = unsafe { filter_sink.as_mut() }
-			.as_deref()
-			.and_then(|ptr| unsafe { ptr.as_mut() })
-			.ok_or(FFmpegError::NullError)?;
+		let filter_sink_ctx = unsafe { filter_sink.as_mut() }.ok_or(FFmpegError::NullError)?;
 
 		let mut yadif_filter = ptr::null_mut();
 		if interlaced_frame {
 			filter_graph.setup_filter(
 				&mut yadif_filter,
-				CString::new("yadif").expect(CSTRING_ERROR_MSG),
-				CString::new("thumb_deint").expect(CSTRING_ERROR_MSG),
-				Some(CString::new("deint=1").expect(CSTRING_ERROR_MSG)),
+				c"yadif",
+				c"thumb_deint",
+				Some(c"deint=1"),
 				"Failed to create de-interlace filter",
 			)?;
 		}
@@ -97,23 +91,26 @@ impl<'a> FFmpegFilterGraph {
 		let mut scale_filter = ptr::null_mut();
 		filter_graph.setup_filter(
 			&mut scale_filter,
-			CString::new("scale").expect(CSTRING_ERROR_MSG),
-			CString::new("thumb_scale").expect(CSTRING_ERROR_MSG),
-			Some(CString::new(thumb_scale_filter_args(
-				size,
-				codec_ctx,
-				aspect_ratio,
-				maintain_aspect_ratio,
-			)?)?),
+			c"scale",
+			c"thumb_scale",
+			Some(
+				CString::new(thumb_scale_filter_args(
+					size,
+					codec_ctx,
+					aspect_ratio,
+					maintain_aspect_ratio,
+				)?)?
+				.as_c_str(),
+			),
 			"Failed to create scale filter",
 		)?;
 
 		let mut format_filter = ptr::null_mut();
 		filter_graph.setup_filter(
 			&mut format_filter,
-			CString::new("format").expect(CSTRING_ERROR_MSG),
-			CString::new("thumb_format").expect(CSTRING_ERROR_MSG),
-			Some(CString::new("pix_fmts=rgb24").expect(CSTRING_ERROR_MSG)),
+			c"format",
+			c"thumb_format",
+			Some(c"pix_fmts=rgb24"),
 			"Failed to create format filter",
 		)?;
 
@@ -121,25 +118,25 @@ impl<'a> FFmpegFilterGraph {
 		if rotation_angle < -135.0 {
 			filter_graph.setup_filter(
 				&mut rotate_filter,
-				CString::new("rotate").expect(CSTRING_ERROR_MSG),
-				CString::new("thumb_rotate").expect(CSTRING_ERROR_MSG),
-				Some(CString::new("PI").expect(CSTRING_ERROR_MSG)),
+				c"rotate",
+				c"thumb_rotate",
+				Some(c"PI"),
 				"Failed to create rotate filter",
 			)?;
 		} else if rotation_angle > 45.0 && rotation_angle < 135.0 {
 			filter_graph.setup_filter(
 				&mut rotate_filter,
-				CString::new("transpose").expect(CSTRING_ERROR_MSG),
-				CString::new("thumb_transpose").expect(CSTRING_ERROR_MSG),
-				Some(CString::new("2").expect(CSTRING_ERROR_MSG)),
+				c"transpose",
+				c"thumb_transpose",
+				Some(c"2"),
 				"Failed to create transpose filter",
 			)?;
 		} else if rotation_angle < -45.0 && rotation_angle > -135.0 {
 			filter_graph.setup_filter(
 				&mut rotate_filter,
-				CString::new("transpose").expect(CSTRING_ERROR_MSG),
-				CString::new("thumb_transpose").expect(CSTRING_ERROR_MSG),
-				Some(CString::new("1").expect(CSTRING_ERROR_MSG)),
+				c"transpose",
+				c"thumb_transpose",
+				Some(c"1"),
 				"Failed to create transpose filter",
 			)?;
 		}
@@ -208,9 +205,9 @@ impl<'a> FFmpegFilterGraph {
 	fn setup_filter(
 		&mut self,
 		filter_ctx: *mut *mut AVFilterContext,
-		filter_name: CString,
-		filter_setup_name: CString,
-		args: Option<CString>,
+		filter_name: &CStr,
+		filter_setup_name: &CStr,
+		args: Option<&CStr>,
 		error_message: &str,
 	) -> Result<(), Error> {
 		check_error(

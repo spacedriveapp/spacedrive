@@ -2,8 +2,6 @@ use crate::error::{Error, FFmpegError};
 use std::ffi::CString;
 use std::path::Path;
 
-pub(crate) static CSTRING_ERROR_MSG: &str = "CString from static str should not fail";
-
 pub(crate) fn from_path(path: impl AsRef<Path>) -> Result<CString, Error> {
 	let path = path.as_ref();
 	let path_str = path.as_os_str();

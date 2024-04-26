@@ -1,14 +1,8 @@
-use crate::{
-	dict::FFmpegDict,
-	error::Error,
-	format_ctx::FFmpegFormatContext,
-	model::MediaInfo,
-	utils::{from_path, CSTRING_ERROR_MSG},
-};
+use crate::{error::Error, format_ctx::FFmpegFormatContext, model::MediaInfo, utils::from_path};
 
 use ffmpeg_sys_next::{av_log_set_level, AV_LOG_FATAL};
 
-use std::{ffi::CString, path::Path};
+use std::path::Path;
 
 pub fn probe(filename: impl AsRef<Path>) -> Result<MediaInfo, Error> {
 	let filename = filename.as_ref();
@@ -17,16 +11,16 @@ pub fn probe(filename: impl AsRef<Path>) -> Result<MediaInfo, Error> {
 	unsafe { av_log_set_level(AV_LOG_FATAL) };
 
 	// Dictionary to store format options
-	let mut format_opts = FFmpegDict::new(None);
+	// let mut format_opts = FFmpegDict::new(None);
 	// Some MPEGTS specific option (copied from ffprobe)
-	let scan_all_pmts = CString::new("scan_all_pmts").expect(CSTRING_ERROR_MSG);
-	format_opts.set(&scan_all_pmts, &CString::new("1").expect(CSTRING_ERROR_MSG))?;
+	// let scan_all_pmts = c"scan_all_pmts";
+	// format_opts.set(scan_all_pmts, c"1")?;
 
 	// Open an input stream, read the header and allocate the format context
-	let mut fmt_ctx = FFmpegFormatContext::open_file(from_path(filename)?, &mut format_opts)?;
+	let mut fmt_ctx = FFmpegFormatContext::open_file(from_path(filename)?)?;
 
-	// Reset MPEGTS specific option
-	format_opts.remove(&scan_all_pmts)?;
+	// // Reset MPEGTS specific option
+	// format_opts.remove(scan_all_pmts)?;
 
 	// Read packets of media file to get stream information.
 	fmt_ctx.find_stream_info()?;

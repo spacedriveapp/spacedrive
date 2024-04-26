@@ -8,6 +8,7 @@ use std::{
 use chrono::DateTime;
 use ffmpeg_sys_next::{
 	av_dict_free, av_dict_get, av_dict_iterate, av_dict_set, AVDictionary, AVDictionaryEntry,
+	AV_DICT_DONT_OVERWRITE, AV_DICT_MATCH_CASE,
 };
 
 #[derive(Debug)]
@@ -43,18 +44,32 @@ impl FFmpegDict {
 			})
 	}
 
-	pub(crate) fn set(&mut self, key: &CString, value: &CString) -> Result<(), Error> {
+	pub(crate) fn set(&mut self, key: &CStr, value: &CStr) -> Result<(), Error> {
 		check_error(
-			unsafe { av_dict_set(&mut self.dict, key.as_ptr(), value.as_ptr(), 0) },
+			unsafe {
+				av_dict_set(
+					&mut self.dict,
+					key.as_ptr(),
+					value.as_ptr(),
+					AV_DICT_DONT_OVERWRITE,
+				)
+			},
 			"Fail to set dictionary key-value pair",
 		)?;
 
 		Ok(())
 	}
 
-	pub(crate) fn remove(&mut self, key: &CString) -> Result<(), Error> {
+	pub(crate) fn remove(&mut self, key: &CStr) -> Result<(), Error> {
 		check_error(
-			unsafe { av_dict_set(&mut self.dict, key.as_ptr(), ptr::null(), 0) },
+			unsafe {
+				av_dict_set(
+					&mut self.dict,
+					key.as_ptr(),
+					ptr::null(),
+					AV_DICT_MATCH_CASE,
+				)
+			},
 			"Fail to set dictionary key-value pair",
 		)?;
 
@@ -96,6 +111,7 @@ impl<'a> Iterator for FFmpegDictIter<'a> {
 
 	fn next(&mut self) -> Option<(String, Option<String>)> {
 		unsafe { av_dict_iterate(self.dict, self.prev).as_ref() }.and_then(|prev| {
+			self.prev = prev;
 			let key = unsafe { prev.key.as_ref() }.map(|key| unsafe { CStr::from_ptr(key) });
 			let value =
 				unsafe { prev.value.as_ref() }.map(|value| unsafe { CStr::from_ptr(value) });

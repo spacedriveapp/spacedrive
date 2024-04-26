@@ -46,17 +46,12 @@ fn extract_name_and_convert_metadata(
 pub(crate) struct FFmpegFormatContext(*mut AVFormatContext);
 
 impl FFmpegFormatContext {
-	pub(crate) fn open_file(filename: CString, options: &mut FFmpegDict) -> Result<Self, Error> {
+	pub(crate) fn open_file(filename: CString) -> Result<Self, Error> {
 		let mut ptr = ptr::null_mut();
 
 		check_error(
 			unsafe {
-				avformat_open_input(
-					&mut ptr,
-					filename.as_ptr(),
-					ptr::null(),
-					&mut options.as_mut_ptr(),
-				)
+				avformat_open_input(&mut ptr, filename.as_ptr(), ptr::null(), ptr::null_mut())
 			},
 			"Fail to open an input stream and read the header",
 		)
@@ -104,7 +99,11 @@ impl FFmpegFormatContext {
 			)
 		} as *const i32);
 
-		unsafe { av_display_rotation_get(matrix) }
+		if matrix.is_null() {
+			0.0
+		} else {
+			unsafe { av_display_rotation_get(matrix) }
+		}
 	}
 
 	pub(crate) fn read_frame(&mut self, packet: *mut AVPacket) -> Result<(), Error> {

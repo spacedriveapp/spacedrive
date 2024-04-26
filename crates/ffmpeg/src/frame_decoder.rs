@@ -14,8 +14,9 @@ use std::{path::Path, ptr};
 use chrono::TimeDelta;
 use ffmpeg_sys_next::{
 	av_buffersink_get_frame, av_buffersrc_write_frame, av_frame_alloc,
-	av_guess_sample_aspect_ratio, av_packet_unref, av_seek_frame, avcodec_find_decoder, AVPacket,
-	AVERROR, AVPROBE_SCORE_MAX, AV_FRAME_FLAG_INTERLACED, AV_FRAME_FLAG_KEY, AV_TIME_BASE, EAGAIN,
+	av_guess_sample_aspect_ratio, av_packet_alloc, av_packet_free, av_packet_unref, av_seek_frame,
+	avcodec_find_decoder, AVPacket, AVERROR, AVPROBE_SCORE_MAX, AV_FRAME_FLAG_INTERLACED,
+	AV_FRAME_FLAG_KEY, AV_TIME_BASE, EAGAIN,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -52,8 +53,7 @@ impl FrameDecoder {
 		// TODO: Remove this, just here to test and so clippy stops complaining about it being unused
 		let _ = probe(filename);
 
-		let mut format_context =
-			FFmpegFormatContext::open_file(from_path(filename)?, &mut FFmpegDict::new(None))?;
+		let mut format_context = FFmpegFormatContext::open_file(from_path(filename)?)?;
 
 		format_context.find_stream_info()?;
 
@@ -220,8 +220,12 @@ impl FrameDecoder {
 		self.format_ctx.duration()
 	}
 
-	fn unref_packet(&self) {
-		unsafe { av_packet_unref(self.packet) }
+	fn reset_packet(&mut self) {
+		if self.packet.is_null() {
+			self.packet = unsafe { av_packet_alloc() };
+		} else {
+			unsafe { av_packet_unref(self.packet) }
+		}
 	}
 
 	fn is_packet_for_stream(&self) -> Option<&mut AVPacket> {
@@ -237,12 +241,12 @@ impl FrameDecoder {
 	}
 
 	fn find_packet_for_stream(&mut self) -> bool {
-		self.unref_packet();
+		self.reset_packet();
 		while self.format_ctx.read_frame(self.packet).is_ok() {
 			if self.is_packet_for_stream().is_some() {
 				return true;
 			} else {
-				self.unref_packet();
+				self.reset_packet();
 			}
 		}
 
@@ -270,6 +274,8 @@ impl FrameDecoder {
 
 impl Drop for FrameDecoder {
 	fn drop(&mut self) {
-		self.unref_packet()
+		unsafe {
+			av_packet_free(&mut self.packet);
+		}
 	}
 }
