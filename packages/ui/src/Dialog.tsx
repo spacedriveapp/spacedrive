@@ -137,6 +137,7 @@ export interface DialogProps<S extends FieldValues>
 	errorMessageException?: string; //this is to bypass a specific form error message if it starts with a specific string
 	formClassName?: string;
 	icon?: ReactNode;
+	hideButtons?: boolean;
 }
 
 export function Dialog<S extends FieldValues>({
@@ -302,30 +303,30 @@ export function Dialog<S extends FieldValues>({
 									)}
 								>
 									{form.formState.isSubmitting && <Loader />}
-									{props.buttonsSideContent && (
-										<div>{props.buttonsSideContent}</div>
-									)}
+									{props.buttonsSideContent && <div>{props.buttonsSideContent}</div>}
 									<div className="grow" />
-									<div
-										className={clsx(
-											invertButtonFocus ? 'flex-row-reverse' : ' flex-row',
-											'flex gap-2'
-										)}
-									>
-										{invertButtonFocus ? (
-											<>
-												{submitButton}
-												{props.cancelBtn && cancelButton}
-												{onCancelled && closeButton}
-											</>
-										) : (
-											<>
-												{onCancelled && closeButton}
-												{props.cancelBtn && cancelButton}
-												{submitButton}
-											</>
-										)}
-									</div>
+									{!props.hideButtons && (
+										<div
+											className={clsx(
+												invertButtonFocus ? 'flex-row-reverse' : ' flex-row',
+												'flex gap-2'
+											)}
+										>
+											{invertButtonFocus ? (
+												<>
+													{submitButton}
+													{props.cancelBtn && cancelButton}
+													{onCancelled && closeButton}
+												</>
+											) : (
+												<>
+													{onCancelled && closeButton}
+													{props.cancelBtn && cancelButton}
+													{submitButton}
+												</>
+											)}
+										</div>
+									)}
 								</div>
 							</Form>
 							<Remover id={dialog.id} />
