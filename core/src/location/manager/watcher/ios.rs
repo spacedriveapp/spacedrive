@@ -6,8 +6,9 @@ use sd_core_file_path_helper::{
 	check_file_path_exists, get_inode, FilePathError, IsolatedFilePathData,
 };
 
-use sd_prisma::prisma::location;
-use sd_utils::error::FileIOError;
+use sd_core_prisma_helpers::file_path_with_object;
+use sd_prisma::prisma::{file_path, location};
+use sd_utils::{db::inode_to_db, error::FileIOError};
 
 use std::{
 	collections::HashMap,
