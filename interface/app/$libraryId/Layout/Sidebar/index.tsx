@@ -5,10 +5,10 @@ import Debug from './sections/Debug';
 import Devices from './sections/Devices';
 import Library from './sections/Library';
 import Local from './sections/Local';
-import Tools from './sections/Tools';
 import Locations from './sections/Locations';
 import SavedSearches from './sections/SavedSearches';
 import Tags from './sections/Tags';
+import Tools from './sections/Tools';
 import SidebarLayout from './SidebarLayout';
 
 export default function Sidebar() {
