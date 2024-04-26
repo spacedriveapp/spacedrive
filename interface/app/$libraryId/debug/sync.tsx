@@ -22,7 +22,7 @@ export const Component = () => {
 	const syncEnabled = useLibraryQuery(['sync.enabled']);
 
 	const messages = useLibraryQuery(['sync.messages']);
-	const enableSync = useLibraryMutation(['sync.enable'], {
+	const backfillSync = useLibraryMutation(['sync.backfill'], {
 		onSuccess: async () => {
 			await syncEnabled.refetch();
 			await messages.refetch();
@@ -43,7 +43,7 @@ export const Component = () => {
 					onClick={() => {
 						dialogManager.create((dialogProps) => <SyncBackfillDialog {...dialogProps} />);
 					}}
-					disabled={enableSync.isLoading}
+					disabled={backfillSync.isLoading}
 				>
 					Enable sync messages
 				</Button>
