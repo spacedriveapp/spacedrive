@@ -58,13 +58,13 @@ export default () => {
 				to="settings/library/general"
 				className="font-medium"
 			/>
-			<DropdownMenu.Item
+			{/* <DropdownMenu.Item
 				label={t('lock')}
 				icon={Lock}
 				iconProps={{ weight: 'bold', size: 16 }}
 				onClick={() => alert('TODO: Not implemented yet!')}
 				className="font-medium"
-			/>
+			/> */}
 		</DropdownMenu.Root>
 	);
 };

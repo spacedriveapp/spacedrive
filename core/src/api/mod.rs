@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	node::{
-		config::{NodeConfig, NodeConfigP2P, NodePreferences, P2PDiscoveryState},
+		config::{NodeConfig, NodeConfigP2P, NodePreferences},
 		get_hardware_model_name, HardwareModel,
 	},
 	old_job::JobProgressEvent,
@@ -10,6 +10,8 @@ use crate::{
 
 use sd_cache::patch_typedef;
 use sd_p2p::RemoteIdentity;
+use sd_prisma::prisma::file_path;
+
 use std::sync::{atomic::Ordering, Arc};
 
 use itertools::Itertools;
@@ -52,7 +54,12 @@ pub type Router = rspc::Router<Ctx>;
 /// Represents an internal core event, these are exposed to client via a rspc subscription.
 #[derive(Debug, Clone, Serialize, Type)]
 pub enum CoreEvent {
-	NewThumbnail { thumb_key: Vec<String> },
+	NewThumbnail {
+		thumb_key: Vec<String>,
+	},
+	NewIdentifiedObjects {
+		file_path_ids: Vec<file_path::id::Type>,
+	},
 	JobProgress(JobProgressEvent),
 	InvalidateOperation(InvalidateOperationEvent),
 }

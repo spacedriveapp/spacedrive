@@ -4,7 +4,7 @@ import { PropsWithChildren, useMemo } from 'react';
 import { useBridgeQuery, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { Button, toast, tw } from '@sd/ui';
 import { Icon, IconName } from '~/components';
-import { useLocale, useOperatingSystem } from '~/hooks';
+import { useLocale } from '~/hooks';
 import { useHomeDir } from '~/hooks/useHomeDir';
 import { usePlatform } from '~/util/Platform';
 
@@ -24,12 +24,6 @@ const EjectButton = ({ className }: { className?: string }) => (
 		onClick={() => toast.info('Eject button coming soon')}
 	>
 		<EjectSimple weight="fill" size={18} className="size-3 opacity-70" />
-	</Button>
-);
-
-const OpenToButton = ({ className }: { className?: string; what_is_opening?: string }) => (
-	<Button className={clsx('absolute right-[2px] !p-[5px]', className)} variant="subtle">
-		<ArrowRight size={18} className="size-3 opacity-70" />
 	</Button>
 );
 
@@ -84,7 +78,6 @@ export default function LocalSection() {
 		)
 	);
 
-	const os = useOperatingSystem();
 	return (
 		<Section name={t('local')}>
 			<SeeMore>
@@ -146,17 +139,6 @@ export default function LocalSection() {
 						</EphemeralLocation>
 					);
 				})}
-				{platform.openTrashInOsExplorer && (
-					// eslint-disable-next-line tailwindcss/migration-from-tailwind-2
-					<div
-						className={`max-w relative flex grow flex-row items-center gap-0.5 truncate rounded border border-transparent ${os === 'macOS' ? 'bg-opacity-90' : ''} px-2 py-1 text-sm font-medium text-sidebar-inkDull outline-none ring-0 ring-inset ring-transparent ring-offset-0 focus:ring-1 focus:ring-accent focus:ring-offset-0`}
-						onClick={() => platform.openTrashInOsExplorer?.()}
-					>
-						<SidebarIcon name="Trash" />
-						<Name>{t('trash')}</Name>
-						<OpenToButton />
-					</div>
-				)}
 			</SeeMore>
 		</Section>
 	);

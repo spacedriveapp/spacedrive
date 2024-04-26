@@ -134,6 +134,7 @@ export type Procedures = {
     subscriptions: 
         { key: "auth.loginSession", input: never, result: Response } | 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
+        { key: "jobs.newFilePathIdentified", input: LibraryArgs<null>, result: number[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string[] } | 
         { key: "jobs.progress", input: LibraryArgs<null>, result: JobProgressEvent } | 
         { key: "library.actors", input: LibraryArgs<null>, result: { [key in string]: boolean } } | 
@@ -237,9 +238,11 @@ export type EphemeralFileCreateContextTypes = "empty" | "text"
 
 export type EphemeralFileSystemOps = { sources: string[]; target_dir: string }
 
-export type EphemeralPathSearchArgs = { from: PathFrom; path: string; withHiddenFiles: boolean }
+export type EphemeralPathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder }
 
-export type EphemeralPathsResultItem = { entries: Reference<ExplorerItem>[]; errors: string[]; nodes: CacheNode[] }
+export type EphemeralPathSearchArgs = { path: string; withHiddenFiles: boolean; order?: EphemeralPathOrder | null }
+
+export type EphemeralPathsResultItem = { entries: Reference<ExplorerItem>[]; errors: Error[]; nodes: CacheNode[] }
 
 export type EphemeralRenameFileArgs = { kind: EphemeralRenameKind }
 
@@ -249,7 +252,14 @@ export type EphemeralRenameMany = { from_pattern: FromPattern; to_pattern: strin
 
 export type EphemeralRenameOne = { from_path: string; to: string }
 
-export type ExplorerItem = { type: "Path"; thumbnail: string[] | null; item: FilePathWithObject } | { type: "Object"; thumbnail: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; item: Location } | { type: "NonIndexedPath"; thumbnail: string[] | null; item: NonIndexedPathItem } | { type: "SpacedropPeer"; item: PeerMetadata } | { type: "Label"; thumbnails: string[][]; item: LabelWithObjects }
+export type Error = { code: ErrorCode; message: string }
+
+/**
+ * TODO
+ */
+export type ErrorCode = "BadRequest" | "Unauthorized" | "Forbidden" | "NotFound" | "Timeout" | "Conflict" | "PreconditionFailed" | "PayloadTooLarge" | "MethodNotSupported" | "ClientClosedRequest" | "InternalServerError"
+
+export type ExplorerItem = { type: "Path"; thumbnail: string[] | null; has_created_thumbnail: boolean; item: FilePathWithObject } | { type: "Object"; thumbnail: string[] | null; has_created_thumbnail: boolean; item: ObjectWithFilePaths } | { type: "NonIndexedPath"; thumbnail: string[] | null; has_created_thumbnail: boolean; item: NonIndexedPathItem } | { type: "Location"; item: Location } | { type: "SpacedropPeer"; item: PeerMetadata } | { type: "Label"; thumbnails: string[][]; item: LabelWithObjects }
 
 export type ExplorerLayout = "grid" | "list" | "media"
 
@@ -538,8 +548,6 @@ export type Orientation = "Normal" | "CW90" | "CW180" | "CW270" | "MirroredVerti
 export type P2PDiscoveryState = "Everyone" | "ContactsOnly" | "Disabled"
 
 export type P2PEvent = { type: "PeerChange"; identity: RemoteIdentity; connection: ConnectionMethod; discovery: DiscoveryMethod; metadata: PeerMetadata } | { type: "PeerDelete"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedOut"; id: string } | { type: "SpacedropRejected"; id: string }
-
-export type PathFrom = "path"
 
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; device_model: HardwareModel | null; version: string | null }
 
