@@ -67,6 +67,7 @@ export const Component = () => {
 						z.literal('Disabled')
 					])
 					.optional(),
+				p2p_manual_peers: z.array(z.string()).optional(),
 				p2p_remote_access: z.boolean().optional(),
 				image_labeler_version: z.string().optional(),
 				background_processing_percentage: z.coerce
@@ -85,6 +86,7 @@ export const Component = () => {
 			p2p_ipv4_enabled: node.data?.p2p.ipv4 || true,
 			p2p_ipv6_enabled: node.data?.p2p.ipv6 || true,
 			p2p_discovery: node.data?.p2p.discovery || 'Everyone',
+			p2p_manual_peers: node.data?.p2p.manual_peers || [],
 			p2p_remote_access: node.data?.p2p.remote_access || false,
 			image_labeler_version: node.data?.image_labeler_version ?? undefined,
 			background_processing_percentage:
@@ -99,11 +101,11 @@ export const Component = () => {
 		if (await form.trigger()) {
 			await editNode.mutateAsync({
 				name: value.name || null,
-
 				p2p_port: (value.p2p_port as any) ?? null,
 				p2p_ipv4_enabled: value.p2p_ipv4_enabled ?? null,
 				p2p_ipv6_enabled: value.p2p_ipv6_enabled ?? null,
 				p2p_discovery: value.p2p_discovery ?? null,
+				p2p_manual_peers: value.p2p_manual_peers?.flatMap((v) => (v ? [v] : [])) ?? null,
 				p2p_remote_access: value.p2p_remote_access ?? null,
 				image_labeler_version: value.image_labeler_version ?? null
 			});
@@ -389,6 +391,48 @@ export const Component = () => {
 
 						{isP2PWipFeatureEnabled && (
 							<>
+								<Setting
+									mini
+									title={t('spacedrop')}
+									description={
+										<p className="text-sm text-gray-400">
+											{t('spacedrop_description')}
+										</p>
+									}
+								>
+									<div className="grid space-y-2">
+										<Card
+											className="hover:bg-app-box/70"
+											// onClick={() => {
+											// 	navigate(`${location.id}`);
+											// }}
+										>
+											<Icon
+												size={24}
+												name="Folder"
+												className="mr-3 size-10 self-center"
+											/>
+											<div className="grid min-w-[110px] grid-cols-1">
+												<h1 className="truncate pt-0.5 text-sm font-semibold">
+													{/* {location.name} */}
+													123
+												</h1>
+
+												<p className="mt-0.5 select-text truncate text-sm text-ink-dull">
+													{/* // TODO: This is ephemeral so it should not come from the DB. Eg. a external USB can move between nodes */}
+													{/* {location.node && (
+														<span className="mr-1 rounded bg-app-selected  px-1 py-[1px]">
+															{location.node.name}
+														</span>
+												)} */}
+													{/* {location.path} */}
+													123
+												</p>
+											</div>
+										</Card>
+									</div>
+								</Setting>
+
 								<Setting
 									mini
 									title={t('spacedrop')}

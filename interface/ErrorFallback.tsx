@@ -24,6 +24,8 @@ export function RouterErrorBoundary() {
 		localStorage.setItem(RENDERING_ERROR_LOCAL_STORAGE_KEY, 'true');
 	};
 
+	useEffect(() => console.error(error), [error]);
+
 	return (
 		<ErrorPage
 			message={(error as any).toString()}
