@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::{
 	invalidate_query,
 	node::config::{P2PDiscoveryState, Port},
@@ -24,7 +26,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub p2p_ipv6_enabled: Option<bool>,
 				pub p2p_discovery: Option<P2PDiscoveryState>,
 				pub p2p_remote_access: Option<bool>,
-				pub p2p_manual_peers: Option<Vec<String>>,
+				pub p2p_manual_peers: Option<HashSet<String>>,
 				pub image_labeler_version: Option<String>,
 			}
 			R.mutation(|node, args: ChangeNodeNameArgs| async move {

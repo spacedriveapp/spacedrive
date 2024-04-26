@@ -20,7 +20,7 @@ use sd_p2p::{
 use sd_p2p_tunnel::Tunnel;
 use serde_json::json;
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	convert::Infallible,
 	sync::{atomic::AtomicBool, Arc, Mutex, PoisonError},
 	time::Duration,
@@ -183,6 +183,23 @@ impl P2PManager {
 				.unwrap_or_else(PoisonError::into_inner)
 				.ipv6 = Some(err.to_string());
 		}
+
+		let mut addrs = HashSet::new();
+		for addr in config.p2p.manual_peers {
+			let Ok(addr) = tokio::net::lookup_host(&addr)
+				.await
+				.map_err(|err| {
+					error!("Failed to parse manual peer address '{addr}': {err}");
+				})
+				.and_then(|mut i| i.next().ok_or(()))
+			else {
+				continue;
+			};
+
+			addrs.insert(addr);
+		}
+
+		self.quic.set_manual_peer_addrs(addrs);
 
 		let should_revert = match config.p2p.discovery {
 			P2PDiscoveryState::Everyone

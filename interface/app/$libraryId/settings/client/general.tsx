@@ -365,11 +365,11 @@ export const Component = () => {
 							description={t('networking_port_description')}
 						>
 							<div className="flex h-[30px] gap-2 disabled:opacity-95">
-								<Tooltip label="This port is hardcoded in the container but configurable via the Docker `-p` option">
-									<Input value="7373" disabled />
-								</Tooltip>
-
-								{node.data?.is_in_docker !== true ? (
+								{node.data?.is_in_docker === true ? (
+									<Tooltip label="This port is hardcoded in the container but configurable via the Docker `-p` option">
+										<Input value="7373" disabled />
+									</Tooltip>
+								) : (
 									<>
 										<Select
 											value={p2p_port.type}
@@ -409,7 +409,7 @@ export const Component = () => {
 											}}
 										/>
 									</>
-								) : null}
+								)}
 							</div>
 						</Setting>
 						<Setting
@@ -522,35 +522,37 @@ export const Component = () => {
 							</div>
 						</div>
 
+						<Setting
+							mini
+							title={t('spacedrop')}
+							description={
+								<p className="text-sm text-gray-400">
+									{t('spacedrop_description')}
+								</p>
+							}
+						>
+							<Select
+								value={form.watch('p2p_discovery') || 'Everyone'}
+								containerClassName="h-[30px]"
+								className="h-full"
+								onChange={(type) => form.setValue('p2p_discovery', type)}
+							>
+								<SelectOption value="Everyone">
+									{t('spacedrop_everyone')}
+								</SelectOption>
+								{isP2PWipFeatureEnabled ? (
+									<SelectOption value="ContactsOnly">
+										{t('spacedrop_contacts_only')}
+									</SelectOption>
+								) : null}
+								<SelectOption value="Disabled">
+									{t('spacedrop_disabled')}
+								</SelectOption>
+							</Select>
+						</Setting>
+
 						{isP2PWipFeatureEnabled && (
 							<>
-								<Setting
-									mini
-									title={t('spacedrop')}
-									description={
-										<p className="text-sm text-gray-400">
-											{t('spacedrop_description')}
-										</p>
-									}
-								>
-									<Select
-										value={form.watch('p2p_discovery') || 'Everyone'}
-										containerClassName="h-[30px]"
-										className="h-full"
-										onChange={(type) => form.setValue('p2p_discovery', type)}
-									>
-										<SelectOption value="Everyone">
-											{t('spacedrop_everyone')}
-										</SelectOption>
-										<SelectOption value="ContactsOnly">
-											{t('spacedrop_contacts_only')}
-										</SelectOption>
-										<SelectOption value="Disabled">
-											{t('spacedrop_disabled')}
-										</SelectOption>
-									</Select>
-								</Setting>
-
 								<Setting
 									mini
 									title={t('remote_access')}

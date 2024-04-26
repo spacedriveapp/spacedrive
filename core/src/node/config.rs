@@ -8,6 +8,7 @@ use sd_p2p::Identity;
 use sd_utils::error::FileIOError;
 
 use std::{
+	collections::HashSet,
 	path::{Path, PathBuf},
 	sync::Arc,
 };
@@ -98,7 +99,7 @@ pub struct NodeConfigP2P {
 	///  - `[::1]` or `[::1]:3000`
 	/// which is why we use `String` not `SocketAddr`
 	#[serde(default)]
-	pub manual_peers: Vec<String>,
+	pub manual_peers: HashSet<String>,
 }
 
 impl Default for NodeConfigP2P {
@@ -109,7 +110,7 @@ impl Default for NodeConfigP2P {
 			ipv4: true,
 			ipv6: true,
 			remote_access: false,
-			manual_peers: vec![],
+			manual_peers: Default::default(),
 		}
 	}
 }

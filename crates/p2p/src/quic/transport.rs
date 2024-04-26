@@ -1,5 +1,5 @@
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr},
 	str::FromStr,
 	sync::{Arc, Mutex, PoisonError, RwLock},
@@ -57,6 +57,9 @@ enum InternalEvent {
 	RegisterRelays {
 		relays: Vec<RelayServerEntry>,
 		result: oneshot::Sender<Result<(), String>>,
+	},
+	RegisterPeerAddr {
+		addrs: HashSet<SocketAddr>,
 	},
 }
 
@@ -162,6 +165,12 @@ impl QuicTransport {
 			.clone()
 	}
 
+	pub fn set_manual_peer_addrs(&self, addrs: HashSet<SocketAddr>) {
+		self.internal_tx
+			.send(InternalEvent::RegisterPeerAddr { addrs })
+			.ok();
+	}
+
 	// `None` on the port means disabled. Use `0` for random port.
 	pub async fn set_ipv4_enabled(&self, port: Option<u16>) -> Result<(), String> {
 		self.setup_listener(
@@ -238,6 +247,9 @@ async fn start(
 	let mut incoming = control.accept(PROTOCOL).unwrap();
 	let map = Arc::new(RwLock::new(HashMap::new()));
 	let mut relay_config = Vec::new();
+	let mut manual_addrs = HashSet::new();
+	let mut interval = tokio::time::interval(Duration::from_secs(15));
+	// let manual_hook_id = p2p.register_hook("manual", flume::unbounded().0);
 
 	loop {
 		tokio::select! {
@@ -427,6 +439,9 @@ async fn start(
 					// TODO: Proper error handling
 					result.send(Ok(())).ok();
 				},
+				InternalEvent::RegisterPeerAddr { addrs } => {
+					manual_addrs = addrs;
+				}
 			},
 			Some(req) = connect_rx.recv() => {
 				let mut control = control.clone();
@@ -457,6 +472,25 @@ async fn start(
 						Err(e) => {
 							let _ = req.tx.send(Err(e.to_string()));
 						},
+					}
+				});
+			}
+			_ = interval.tick() => {
+				let p2p = p2p.clone();
+				let addrs = manual_addrs.clone();
+				let mut control = control.clone();
+
+				tokio::spawn(async move {
+					for addr in addrs {
+						// let err = control.open_stream_with_opts(
+						// 	PROTOCOL,
+						// 	vec![socketaddr_to_quic_multiaddr(&addr)],
+						// ).await;
+
+						// debug!("Attempting connection to {:?} with result {:?}", addr, match err {
+						// 	Ok(_) => None,
+						// 	Err(err) => Some(err.to_string()),
+						// });
 					}
 				});
 			}
