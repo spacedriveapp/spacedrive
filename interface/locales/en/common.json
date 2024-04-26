@@ -143,6 +143,8 @@
 	"spacedrop_everyone": "Everyone",
 	"spacedrop_contacts_only": "Contacts Only",
 	"spacedrop_disabled": "Disabled",
+	"manual_peers": "Manually add peers",
+	"manual_peers_description": "Add peers manually by entering their IP address and port.\nThis is useful when automatic discovery is not possible.",
 	"remote_access": "Enable remote access",
 	"remote_access_description": "Enable other nodes to directly connect to this node.",
 	"encrypt": "Encrypt",

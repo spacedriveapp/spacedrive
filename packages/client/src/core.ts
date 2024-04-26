@@ -463,6 +463,13 @@ export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Vide
 export type NodeConfigP2P = { discovery?: P2PDiscoveryState; port: Port; ipv4: boolean; ipv6: boolean; remote_access: boolean; 
 /**
  * A list of peer addresses to try and manually connect to, instead of relying on discovery.
+ * 
+ * All of these are valid values:
+ * - `localhost`
+ * - `otbeaumont.me` or `otbeaumont.me:3000`
+ * - `127.0.0.1` or `127.0.0.1:300`
+ * - `[::1]` or `[::1]:3000`
+ * which is why we use `String` not `SocketAddr`
  */
 manual_peers?: string[] }
 
@@ -547,7 +554,7 @@ export type Orientation = "Normal" | "CW90" | "CW180" | "CW270" | "MirroredVerti
 
 export type P2PDiscoveryState = "Everyone" | "ContactsOnly" | "Disabled"
 
-export type P2PEvent = { type: "PeerChange"; identity: RemoteIdentity; connection: ConnectionMethod; discovery: DiscoveryMethod; metadata: PeerMetadata } | { type: "PeerDelete"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedOut"; id: string } | { type: "SpacedropRejected"; id: string }
+export type P2PEvent = { type: "PeerChange"; identity: RemoteIdentity; connection: ConnectionMethod; discovery: DiscoveryMethod; metadata: PeerMetadata; addrs: string[] } | { type: "PeerDelete"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedOut"; id: string } | { type: "SpacedropRejected"; id: string }
 
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; device_model: HardwareModel | null; version: string | null }
 

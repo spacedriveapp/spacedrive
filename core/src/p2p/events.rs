@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashSet, net::SocketAddr, sync::Arc};
 
 use sd_p2p::{flume::bounded, HookEvent, HookId, PeerConnectionCandidate, RemoteIdentity, P2P};
 use serde::Serialize;
@@ -40,6 +40,7 @@ pub enum P2PEvent {
 		connection: ConnectionMethod,
 		discovery: DiscoveryMethod,
 		metadata: PeerMetadata,
+		addrs: HashSet<SocketAddr>,
 	},
 	// Delete a peer
 	PeerDelete {
@@ -113,6 +114,7 @@ impl P2PEvents {
 								false => DiscoveryMethod::Local,
 							},
 							metadata,
+							addrs: peer.addrs(),
 						}
 					}
 					HookEvent::PeerUnavailable(identity) => P2PEvent::PeerDelete { identity },

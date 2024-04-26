@@ -1,5 +1,6 @@
 import clsx from 'clsx';
-import { Controller, FormProvider } from 'react-hook-form';
+import { useState } from 'react';
+import { FormProvider } from 'react-hook-form';
 import {
 	useBridgeMutation,
 	useBridgeQuery,
@@ -41,6 +42,9 @@ LANGUAGE_OPTIONS.sort((a, b) => a.label.localeCompare(b.label));
 
 const u16 = () => z.number().min(0).max(65535);
 
+const socketAddrRegex =
+	/^(([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})|([a-zA-Z.]+))(:[0-9]{1,5})?$/;
+
 export const Component = () => {
 	const node = useBridgeQuery(['nodeState']);
 	const platform = usePlatform();
@@ -49,6 +53,7 @@ export const Component = () => {
 	const connectedPeers = useConnectedPeers();
 	// const image_labeler_versions = useBridgeQuery(['models.image_detection.list']);
 	const updateThumbnailerPreferences = useBridgeMutation('nodes.updateThumbnailerPreferences');
+	const [newSocket, setNewSocket] = useState<string>('');
 
 	const form = useZodForm({
 		schema: z
@@ -129,6 +134,8 @@ export const Component = () => {
 	const { t } = useLocale();
 
 	const isP2PWipFeatureEnabled = useFeatureFlag('wipP2P');
+
+	const isNewSocketInvalid = socketAddrRegex.test(newSocket) === false;
 
 	return (
 		<FormProvider {...form}>
@@ -393,45 +400,103 @@ export const Component = () => {
 							<>
 								<Setting
 									mini
-									title={t('spacedrop')}
+									title={t('manual_peers')}
 									description={
-										<p className="text-sm text-gray-400">
-											{t('spacedrop_description')}
-										</p>
+										<>
+											{t('manual_peers_description')
+												.split('\n')
+												.map((line, index) => (
+													<p
+														key={index}
+														className="text-sm text-gray-400"
+													>
+														{line}
+													</p>
+												))}
+										</>
 									}
-								>
-									<div className="grid space-y-2">
-										<Card
-											className="hover:bg-app-box/70"
-											// onClick={() => {
-											// 	navigate(`${location.id}`);
-											// }}
-										>
-											<Icon
-												size={24}
-												name="Folder"
-												className="mr-3 size-10 self-center"
-											/>
-											<div className="grid min-w-[110px] grid-cols-1">
-												<h1 className="truncate pt-0.5 text-sm font-semibold">
-													{/* {location.name} */}
-													123
-												</h1>
+								></Setting>
 
-												<p className="mt-0.5 select-text truncate text-sm text-ink-dull">
-													{/* // TODO: This is ephemeral so it should not come from the DB. Eg. a external USB can move between nodes */}
-													{/* {location.node && (
-														<span className="mr-1 rounded bg-app-selected  px-1 py-[1px]">
-															{location.node.name}
-														</span>
-												)} */}
-													{/* {location.path} */}
-													123
-												</p>
+								<div className="grid space-y-2">
+									{form.watch('p2p_manual_peers')?.map((socket) => (
+										<Card
+											key={socket}
+											className="flex justify-between hover:bg-app-box/70"
+										>
+											<div className="flex">
+												<Icon
+													size={24}
+													name="Node"
+													className="mr-3 size-10 self-center"
+												/>
+												<div className="grid min-w-[110px] grid-cols-1">
+													<h1 className="truncate pt-0.5 text-sm font-semibold">
+														{socket}
+													</h1>
+
+													<h2 className="truncate pt-0.5 text-sm font-semibold">
+														{[...connectedPeers.values()].find((peer) =>
+															peer.addrs.includes(socket)
+														)?.metadata?.name || t('offline')}
+													</h2>
+												</div>
+											</div>
+
+											<div className="flex items-center">
+												<div>
+													<Button
+														variant="colored"
+														className="border-red-500 bg-red-500 focus:ring-1 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-app-selected"
+														onClick={() => {
+															form.setValue(
+																'p2p_manual_peers',
+																(
+																	form.getValues(
+																		'p2p_manual_peers'
+																	) || []
+																).filter((v) => v !== socket)
+															);
+														}}
+													>
+														{t('delete')}
+													</Button>
+												</div>
 											</div>
 										</Card>
+									))}
+
+									<div className="flex space-x-2">
+										<Input
+											className="flex-1"
+											placeholder="129.168.0.2:1234"
+											value={newSocket}
+											onChange={(e) => setNewSocket(e.currentTarget.value)}
+											onKeyDown={(e) => {
+												if (e.key === 'Enter' && !isNewSocketInvalid) {
+													form.setValue('p2p_manual_peers', [
+														...(form.getValues('p2p_manual_peers') ||
+															[]),
+														newSocket
+													]);
+													setNewSocket('');
+												}
+											}}
+										/>
+										<Button
+											variant="outline"
+											disabled={isNewSocketInvalid}
+											onClick={() => {
+												form.setValue('p2p_manual_peers', [
+													...(form.getValues('p2p_manual_peers') || []),
+													newSocket
+												]);
+												setNewSocket('');
+											}}
+										>
+											Submit
+										</Button>
 									</div>
-								</Setting>
+								</div>
 
 								<Setting
 									mini

@@ -62,8 +62,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							config.p2p.remote_access = remote_access;
 						};
 						if let Some(manual_peers) = args.p2p_manual_peers {
-							config.p2p.manual_peers =
-								manual_peers.iter().filter_map(|a| a.parse().ok()).collect();
+							config.p2p.manual_peers = manual_peers;
 						};
 
 						#[cfg(feature = "ai")]
