@@ -42,7 +42,6 @@ export const Component = () => {
 					variant="accent"
 					onClick={() => {
 						dialogManager.create((dialogProps) => <SyncBackfillDialog {...dialogProps} />);
-						enableSync.mutateAsync(null);
 					}}
 					disabled={enableSync.isLoading}
 				>
