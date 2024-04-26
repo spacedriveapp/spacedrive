@@ -1,7 +1,3 @@
--- AlterTable
-ALTER TABLE "job" ADD COLUMN "critical_error" TEXT;
-ALTER TABLE "job" ADD COLUMN "non_critical_errors" BLOB;
-
 -- CreateTable
 CREATE TABLE "exif_data" (
         "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
