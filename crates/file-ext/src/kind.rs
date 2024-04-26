@@ -60,38 +60,3 @@ pub enum ObjectKind {
 	/// Label
 	Label = 26,
 }
-
-impl ObjectKind {
-	pub fn from_i32(value: i32) -> Self {
-		match value {
-			0 => ObjectKind::Unknown,
-			1 => ObjectKind::Document,
-			2 => ObjectKind::Folder,
-			3 => ObjectKind::Text,
-			4 => ObjectKind::Package,
-			5 => ObjectKind::Image,
-			6 => ObjectKind::Audio,
-			7 => ObjectKind::Video,
-			8 => ObjectKind::Archive,
-			9 => ObjectKind::Executable,
-			10 => ObjectKind::Alias,
-			11 => ObjectKind::Encrypted,
-			12 => ObjectKind::Key,
-			13 => ObjectKind::Link,
-			14 => ObjectKind::WebPageArchive,
-			15 => ObjectKind::Widget,
-			16 => ObjectKind::Album,
-			17 => ObjectKind::Collection,
-			18 => ObjectKind::Font,
-			19 => ObjectKind::Mesh,
-			20 => ObjectKind::Code,
-			21 => ObjectKind::Database,
-			22 => ObjectKind::Book,
-			23 => ObjectKind::Config,
-			24 => ObjectKind::Dotfile,
-			25 => ObjectKind::Screenshot,
-			26 => ObjectKind::Label,
-			_ => ObjectKind::Unknown,
-		}
-	}
-}
