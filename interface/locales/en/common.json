@@ -83,6 +83,7 @@
 	"current_directory": "Current Directory",
 	"current_directory_with_descendants": "Current Directory With Descendants",
 	"custom": "Custom",
+	"docker": "Docker",
 	"cut": "Cut",
 	"cut_object": "Cut object",
 	"cut_success": "Items cut",

@@ -46,15 +46,23 @@ pub enum Port {
 
 impl Port {
 	pub fn get(&self) -> u16 {
+		if is_in_docker() {
+			return 7373;
+		}
+
 		match self {
 			Port::Random => 0,
 			Port::Discrete(port) => *port,
 		}
 	}
 
-	pub fn is_random(&self) -> bool {
+	pub fn is_default(&self) -> bool {
 		matches!(self, Port::Random)
 	}
+}
+
+pub fn is_in_docker() -> bool {
+	std::env::var("SD_DOCKER").as_deref() == Ok("true")
 }
 
 fn default_as_true() -> bool {
@@ -73,7 +81,7 @@ fn skip_if_false(value: &bool) -> bool {
 pub struct NodeConfigP2P {
 	#[serde(default)]
 	pub discovery: P2PDiscoveryState,
-	#[serde(default, skip_serializing_if = "Port::is_random")]
+	#[serde(default, skip_serializing_if = "Port::is_default")]
 	pub port: Port,
 	#[serde(default = "default_as_true", skip_serializing_if = "skip_if_true")]
 	pub ipv4: bool,

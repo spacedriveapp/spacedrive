@@ -9,7 +9,19 @@ import {
 	useFeatureFlag,
 	useZodForm
 } from '@sd/client';
-import { Button, Card, Input, Select, SelectOption, Slider, Switch, toast, tw, z } from '@sd/ui';
+import {
+	Button,
+	Card,
+	Input,
+	Select,
+	SelectOption,
+	Slider,
+	Switch,
+	toast,
+	Tooltip,
+	tw,
+	z
+} from '@sd/ui';
 import i18n from '~/app/I18n';
 import { Icon } from '~/components';
 import { useDebouncedFormWatch, useLocale } from '~/hooks';
@@ -99,6 +111,8 @@ export const Component = () => {
 		}
 	});
 	const p2p_port = form.watch('p2p_port');
+
+	console.log(node.data?.is_in_docker);
 
 	const watchBackgroundProcessingPercentage = form.watch('background_processing_percentage');
 
@@ -350,34 +364,52 @@ export const Component = () => {
 							title={t('networking_port')}
 							description={t('networking_port_description')}
 						>
-							<div className="flex h-[30px] gap-2">
-								<Select
-									value={p2p_port.type}
-									containerClassName="h-[30px]"
-									className="h-full"
-									onChange={(type) => {
-										form.setValue('p2p_port', {
-											type: type as any
-										});
-									}}
-								>
-									<SelectOption value="random">{t('random')}</SelectOption>
-									<SelectOption value="discrete">{t('custom')}</SelectOption>
-								</Select>
-								<Input
-									value={p2p_port.type === 'discrete' ? p2p_port.value : 0}
-									className={clsx(
-										'w-[66px]',
-										p2p_port.type === 'random' ? 'opacity-50' : 'opacity-100'
-									)}
-									disabled={p2p_port.type === 'random'}
-									onChange={(e) => {
-										form.setValue('p2p_port', {
-											type: 'discrete',
-											value: Number(e.target.value.replace(/[^0-9]/g, ''))
-										});
-									}}
-								/>
+							<div className="flex h-[30px] gap-2 disabled:opacity-95">
+								<Tooltip label="This port is hardcoded in the container but configurable via the Docker `-p` option">
+									<Input value="7373" disabled />
+								</Tooltip>
+
+								{node.data?.is_in_docker !== true ? (
+									<>
+										<Select
+											value={p2p_port.type}
+											containerClassName="h-[30px]"
+											className="h-full"
+											onChange={(type) => {
+												form.setValue('p2p_port', {
+													type: type as any
+												});
+											}}
+										>
+											<SelectOption value="random">
+												{t('random')}
+											</SelectOption>
+											<SelectOption value="discrete">
+												{t('custom')}
+											</SelectOption>
+										</Select>
+										<Input
+											value={
+												p2p_port.type === 'discrete' ? p2p_port.value : 0
+											}
+											className={clsx(
+												'w-[66px]',
+												p2p_port.type === 'random'
+													? 'opacity-50'
+													: 'opacity-100'
+											)}
+											disabled={p2p_port.type === 'random'}
+											onChange={(e) => {
+												form.setValue('p2p_port', {
+													type: 'discrete',
+													value: Number(
+														e.target.value.replace(/[^0-9]/g, '')
+													)
+												});
+											}}
+										/>
+									</>
+								) : null}
 							</div>
 						</Setting>
 						<Setting
@@ -396,108 +428,102 @@ export const Component = () => {
 							/>
 						</Setting>
 
+						<Setting
+							mini
+							title={t('manual_peers')}
+							description={
+								<>
+									{t('manual_peers_description')
+										.split('\n')
+										.map((line, index) => (
+											<p key={index} className="text-sm text-gray-400">
+												{line}
+											</p>
+										))}
+								</>
+							}
+						></Setting>
+
+						<div className="grid space-y-2">
+							{form.watch('p2p_manual_peers')?.map((socket) => (
+								<Card
+									key={socket}
+									className="flex justify-between hover:bg-app-box/70"
+								>
+									<div className="flex">
+										<Icon
+											size={24}
+											name="Node"
+											className="mr-3 size-10 self-center"
+										/>
+										<div className="grid min-w-[110px] grid-cols-1">
+											<h1 className="truncate pt-0.5 text-sm font-semibold">
+												{socket}
+											</h1>
+
+											<h2 className="truncate pt-0.5 text-sm font-semibold">
+												{[...connectedPeers.values()].find((peer) =>
+													peer.addrs.includes(socket)
+												)?.metadata?.name || t('offline')}
+											</h2>
+										</div>
+									</div>
+
+									<div className="flex items-center">
+										<div>
+											<Button
+												variant="colored"
+												className="border-red-500 bg-red-500 focus:ring-1 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-app-selected"
+												onClick={() => {
+													form.setValue(
+														'p2p_manual_peers',
+														(
+															form.getValues('p2p_manual_peers') || []
+														).filter((v) => v !== socket)
+													);
+												}}
+											>
+												{t('delete')}
+											</Button>
+										</div>
+									</div>
+								</Card>
+							))}
+
+							<div className="flex space-x-2">
+								<Input
+									className="flex-1"
+									placeholder="129.168.0.2:1234"
+									value={newSocket}
+									onChange={(e) => setNewSocket(e.currentTarget.value)}
+									onKeyDown={(e) => {
+										if (e.key === 'Enter' && !isNewSocketInvalid) {
+											form.setValue('p2p_manual_peers', [
+												...(form.getValues('p2p_manual_peers') || []),
+												newSocket
+											]);
+											setNewSocket('');
+										}
+									}}
+								/>
+								<Button
+									variant="outline"
+									disabled={isNewSocketInvalid}
+									onClick={() => {
+										form.setValue('p2p_manual_peers', [
+											...(form.getValues('p2p_manual_peers') || []),
+											newSocket
+										]);
+										setNewSocket('');
+									}}
+								>
+									Submit
+								</Button>
+							</div>
+						</div>
+
 						{isP2PWipFeatureEnabled && (
 							<>
-								<Setting
-									mini
-									title={t('manual_peers')}
-									description={
-										<>
-											{t('manual_peers_description')
-												.split('\n')
-												.map((line, index) => (
-													<p
-														key={index}
-														className="text-sm text-gray-400"
-													>
-														{line}
-													</p>
-												))}
-										</>
-									}
-								></Setting>
-
-								<div className="grid space-y-2">
-									{form.watch('p2p_manual_peers')?.map((socket) => (
-										<Card
-											key={socket}
-											className="flex justify-between hover:bg-app-box/70"
-										>
-											<div className="flex">
-												<Icon
-													size={24}
-													name="Node"
-													className="mr-3 size-10 self-center"
-												/>
-												<div className="grid min-w-[110px] grid-cols-1">
-													<h1 className="truncate pt-0.5 text-sm font-semibold">
-														{socket}
-													</h1>
-
-													<h2 className="truncate pt-0.5 text-sm font-semibold">
-														{[...connectedPeers.values()].find((peer) =>
-															peer.addrs.includes(socket)
-														)?.metadata?.name || t('offline')}
-													</h2>
-												</div>
-											</div>
-
-											<div className="flex items-center">
-												<div>
-													<Button
-														variant="colored"
-														className="border-red-500 bg-red-500 focus:ring-1 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-app-selected"
-														onClick={() => {
-															form.setValue(
-																'p2p_manual_peers',
-																(
-																	form.getValues(
-																		'p2p_manual_peers'
-																	) || []
-																).filter((v) => v !== socket)
-															);
-														}}
-													>
-														{t('delete')}
-													</Button>
-												</div>
-											</div>
-										</Card>
-									))}
-
-									<div className="flex space-x-2">
-										<Input
-											className="flex-1"
-											placeholder="129.168.0.2:1234"
-											value={newSocket}
-											onChange={(e) => setNewSocket(e.currentTarget.value)}
-											onKeyDown={(e) => {
-												if (e.key === 'Enter' && !isNewSocketInvalid) {
-													form.setValue('p2p_manual_peers', [
-														...(form.getValues('p2p_manual_peers') ||
-															[]),
-														newSocket
-													]);
-													setNewSocket('');
-												}
-											}}
-										/>
-										<Button
-											variant="outline"
-											disabled={isNewSocketInvalid}
-											onClick={() => {
-												form.setValue('p2p_manual_peers', [
-													...(form.getValues('p2p_manual_peers') || []),
-													newSocket
-												]);
-												setNewSocket('');
-											}}
-										>
-											Submit
-										</Button>
-									</div>
-								</div>
-
 								<Setting
 									mini
 									title={t('spacedrop')}

@@ -111,8 +111,14 @@ ADD --chmod=755 --checksum=sha256:1d127c69218f2cd14964036f2b057c4b2652cda3996c69
 
 COPY --chmod=755 entrypoint.sh /usr/bin/
 
+# P2P config
+ENV SD_DOCKER=true
+
 # Expose webserver
 EXPOSE 8080
+
+# Expose P2P
+EXPOSE 7373
 
 # Create the data directory to store the database
 VOLUME [ "/data" ]
