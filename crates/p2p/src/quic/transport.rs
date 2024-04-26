@@ -476,23 +476,15 @@ async fn start(
 				});
 			}
 			_ = interval.tick() => {
-				let p2p = p2p.clone();
 				let addrs = manual_addrs.clone();
-				let mut control = control.clone();
 
-				tokio::spawn(async move {
-					for addr in addrs {
-						// let err = control.open_stream_with_opts(
-						// 	PROTOCOL,
-						// 	vec![socketaddr_to_quic_multiaddr(&addr)],
-						// ).await;
-
-						// debug!("Attempting connection to {:?} with result {:?}", addr, match err {
-						// 	Ok(_) => None,
-						// 	Err(err) => Some(err.to_string()),
-						// });
-					}
-				});
+				for addr in addrs {
+					let err = swarm.dial(socketaddr_to_quic_multiaddr(&addr));
+					debug!("Attempting connection to {:?} {}", addr, match err {
+						Ok(_) => "successfully".into(),
+						Err(err) => format!("with error: {err}"),
+					});
+				}
 			}
 		}
 	}

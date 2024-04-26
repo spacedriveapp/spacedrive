@@ -26,7 +26,7 @@ use std::{
 	time::Duration,
 };
 use tower_service::Service;
-use tracing::error;
+use tracing::{error, warn};
 
 use tokio::sync::oneshot;
 use tracing::info;
@@ -186,10 +186,11 @@ impl P2PManager {
 
 		let mut addrs = HashSet::new();
 		for addr in config.p2p.manual_peers {
+			// TODO: We should probs track these errors for the UI
 			let Ok(addr) = tokio::net::lookup_host(&addr)
 				.await
 				.map_err(|err| {
-					error!("Failed to parse manual peer address '{addr}': {err}");
+					warn!("Failed to parse manual peer address '{addr}': {err}");
 				})
 				.and_then(|mut i| i.next().ok_or(()))
 			else {
