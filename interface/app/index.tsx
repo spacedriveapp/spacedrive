@@ -100,7 +100,7 @@ export const createRoutes = (platform: Platform) =>
 					loader: async () => {
 						const libraries = await getCachedLibraries(nonLibraryClient);
 
-						const currentLibrary = libraries.find(
+						const currentLibrary = (libraries || []).find(
 							(l) => l.uuid === currentLibraryCache.id
 						);
 
