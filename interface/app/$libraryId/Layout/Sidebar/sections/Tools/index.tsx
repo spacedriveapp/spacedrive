@@ -34,7 +34,7 @@ export default function ToolsSection() {
 						// eslint-disable-next-line tailwindcss/migration-from-tailwind-2
 						className={`max-w relative flex w-full grow flex-row items-center gap-0.5 truncate rounded border border-transparent ${os === 'macOS' ? 'bg-opacity-90' : ''} px-2 py-1 text-sm font-medium text-sidebar-inkDull outline-none ring-0 ring-inset ring-transparent ring-offset-0 focus:ring-1 focus:ring-accent focus:ring-offset-0`}
 						onClick={() => {
-							platform.openTrashInOsExplorer?.()
+							platform.openTrashInOsExplorer?.();
 							toast.info('Opening Trash');
 						}}
 					>
