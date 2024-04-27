@@ -58,6 +58,8 @@ impl<'a> Block<'a> {
 mod tests {
 	use std::io::Cursor;
 
+	use crate::BlockSize;
+
 	use super::*;
 
 	#[tokio::test]

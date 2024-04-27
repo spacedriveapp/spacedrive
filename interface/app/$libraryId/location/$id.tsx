@@ -104,7 +104,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 		],
 		take,
 		paths: { order: explorerSettings.useSettingsSnapshot().order },
-		onSuccess: () => explorerStore.resetCache()
+		onSuccess: () => explorerStore.resetNewThumbnails()
 	});
 
 	const explorer = useExplorer({

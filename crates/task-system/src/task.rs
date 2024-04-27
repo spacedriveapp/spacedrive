@@ -13,7 +13,8 @@ use async_channel as chan;
 use async_trait::async_trait;
 use chan::{Recv, RecvError};
 use downcast_rs::{impl_downcast, Downcast};
-use tokio::{runtime::Handle, sync::oneshot};
+use futures::executor::block_on;
+use tokio::sync::oneshot;
 use tracing::{trace, warn};
 use uuid::Uuid;
 
@@ -55,12 +56,6 @@ impl<T: AnyTaskOutput + 'static> IntoAnyTaskOutput for T {
 pub enum TaskOutput {
 	Out(Box<dyn AnyTaskOutput>),
 	Empty,
-}
-
-impl From<()> for TaskOutput {
-	fn from((): ()) -> Self {
-		Self::Empty
-	}
 }
 
 /// An enum representing all possible outcomes for a task.
@@ -130,8 +125,14 @@ impl<T: Task<E> + 'static, E: RunError> IntoTask<E> for T {
 /// due to a limitation in the Rust language.
 #[async_trait]
 pub trait Task<E: RunError>: fmt::Debug + Downcast + Send + Sync + 'static {
-	/// An unique identifier for the task, it will be used to identify the task on the system and also to the user.
-	fn id(&self) -> TaskId;
+	/// This method represent the work that should be done by the worker, it will be called by the
+	/// worker when there is a slot available in its internal queue.
+	/// We receive a `&mut self` so any internal data can be mutated on each `run` invocation.
+	///
+	/// The [`interrupter`](Interrupter) is a helper object that can be used to check if the user requested a pause or a cancel,
+	/// so the user can decide the appropriated moment to pause or cancel the task. Avoiding corrupted data or
+	/// inconsistent states.
+	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, E>;
 
 	/// This method defines whether a task should run with priority or not. The task system has a mechanism
 	/// to suspend non-priority tasks on any worker and run priority tasks ASAP. This is useful for tasks that
@@ -141,14 +142,8 @@ pub trait Task<E: RunError>: fmt::Debug + Downcast + Send + Sync + 'static {
 		false
 	}
 
-	/// This method represent the work that should be done by the worker, it will be called by the
-	/// worker when there is a slot available in its internal queue.
-	/// We receive a `&mut self` so any internal data can be mutated on each `run` invocation.
-	///
-	/// The [`interrupter`](Interrupter) is a helper object that can be used to check if the user requested a pause or a cancel,
-	/// so the user can decide the appropriated moment to pause or cancel the task. Avoiding corrupted data or
-	/// inconsistent states.
-	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, E>;
+	/// An unique identifier for the task, it will be used to identify the task on the system and also to the user.
+	fn id(&self) -> TaskId;
 }
 
 impl_downcast!(Task<E> where E: RunError);
@@ -513,7 +508,7 @@ impl<E: RunError> Future for CancelTaskOnDrop<E> {
 impl<E: RunError> Drop for CancelTaskOnDrop<E> {
 	fn drop(&mut self) {
 		// FIXME: We should use async drop when it becomes stable
-		Handle::current().block_on(self.0.cancel());
+		block_on(self.0.cancel());
 	}
 }
 

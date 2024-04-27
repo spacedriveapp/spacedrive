@@ -13,9 +13,7 @@ export default function NetworkStack() {
 			<Stack.Screen
 				name="Network"
 				component={NetworkScreen}
-				options={({route}) => ({
-					header: () => <Header search route={route} />
-				})}
+				options={{ header: () => <Header showDrawer title="Network" /> }}
 			/>
 		</Stack.Navigator>
 	);

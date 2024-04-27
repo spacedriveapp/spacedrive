@@ -1,4 +1,4 @@
-use crate::{file_identifier::FileIdentifierJob, indexer::IndexerJob};
+use crate::indexer::IndexerJob;
 
 use sd_prisma::prisma::{job, location};
 use sd_utils::uuid_to_bytes;
@@ -212,7 +212,6 @@ async fn load_job<Ctx: JobContext>(
 		Ctx,
 		[
 			IndexerJob,
-			FileIdentifierJob,
 			// TODO: Add more jobs here
 			// e.g.: FileIdentifierJob, MediaProcessorJob, etc.,
 		]

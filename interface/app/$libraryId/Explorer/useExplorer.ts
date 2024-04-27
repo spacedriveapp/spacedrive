@@ -158,12 +158,12 @@ function useSelectedItems(items: ExplorerItem[] | null) {
 
 	const itemsMap = useMemo(
 		() =>
-			(items ?? []).reduce((items, item, i) => {
+			(items ?? []).reduce((items, item) => {
 				const hash = itemHashesWeakMap.current.get(item) ?? uniqueId(item);
 				itemHashesWeakMap.current.set(item, hash);
-				items.set(hash, { index: i, data: item });
+				items.set(hash, item);
 				return items;
-			}, new Map<string, { index: number; data: ExplorerItem }>()),
+			}, new Map<string, ExplorerItem>()),
 		[items]
 	);
 
@@ -171,7 +171,7 @@ function useSelectedItems(items: ExplorerItem[] | null) {
 		() =>
 			[...selectedItemHashes.value].reduce((items, hash) => {
 				const item = itemsMap.get(hash);
-				if (item) items.add(item.data);
+				if (item) items.add(item);
 				return items;
 			}, new Set<ExplorerItem>()),
 		[itemsMap, selectedItemHashes]
@@ -183,7 +183,6 @@ function useSelectedItems(items: ExplorerItem[] | null) {
 	);
 
 	return {
-		itemsMap,
 		selectedItems,
 		selectedItemHashes,
 		getItemUniqueId,

@@ -16,7 +16,7 @@ export const TextSize = () => {
 	const settings = explorer.useSettingsSnapshot();
 
 	const defaultValue = useMemo(
-		() => sizes.indexMap.get(settings.listViewTextSize),
+		() => sizes.findIndex((size) => size[0] === settings.listViewTextSize),
 		[settings.listViewTextSize]
 	);
 
@@ -25,11 +25,11 @@ export const TextSize = () => {
 			<Subheading>{t('text_size')}</Subheading>
 			<Slider
 				step={1}
-				max={sizes.sizeMap.size - 1}
-				defaultValue={[defaultValue ?? 0]}
+				max={sizes.length - 1}
+				defaultValue={[defaultValue]}
 				onValueChange={([value]) => {
-					const size = value !== undefined && sizes.sizeMap.get(value);
-					if (size) explorer.settingsStore.listViewTextSize = size;
+					const size = value !== undefined && sizes[value];
+					if (size) explorer.settingsStore.listViewTextSize = size[0];
 				}}
 			/>
 		</div>

@@ -28,12 +28,11 @@ pub struct SaveTask {
 	walked_entries: Vec<WalkedEntry>,
 	db: Arc<PrismaClient>,
 	sync: Arc<SyncManager>,
-	is_shallow: bool,
 }
 
 impl SaveTask {
 	#[must_use]
-	pub fn new_deep(
+	pub fn new(
 		location_id: location::id::Type,
 		location_pub_id: location::pub_id::Type,
 		walked_entries: Vec<WalkedEntry>,
@@ -47,26 +46,6 @@ impl SaveTask {
 			walked_entries,
 			db,
 			sync,
-			is_shallow: false,
-		}
-	}
-
-	#[must_use]
-	pub fn new_shallow(
-		location_id: location::id::Type,
-		location_pub_id: location::pub_id::Type,
-		walked_entries: Vec<WalkedEntry>,
-		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
-	) -> Self {
-		Self {
-			id: TaskId::new_v4(),
-			location_id,
-			location_pub_id,
-			walked_entries,
-			db,
-			sync,
-			is_shallow: true,
 		}
 	}
 }
@@ -77,7 +56,6 @@ struct SaveTaskSaveState {
 	location_id: location::id::Type,
 	location_pub_id: location::pub_id::Type,
 	walked_entries: Vec<WalkedEntry>,
-	is_shallow: bool,
 }
 
 impl SerializableTask<Error> for SaveTask {
@@ -93,7 +71,6 @@ impl SerializableTask<Error> for SaveTask {
 			location_id,
 			location_pub_id,
 			walked_entries,
-			is_shallow,
 			..
 		} = self;
 		rmp_serde::to_vec_named(&SaveTaskSaveState {
@@ -101,7 +78,6 @@ impl SerializableTask<Error> for SaveTask {
 			location_id,
 			location_pub_id,
 			walked_entries,
-			is_shallow,
 		})
 	}
 
@@ -115,7 +91,6 @@ impl SerializableTask<Error> for SaveTask {
 			     location_id,
 			     location_pub_id,
 			     walked_entries,
-			     is_shallow,
 			 }| Self {
 				id,
 				location_id,
@@ -123,7 +98,6 @@ impl SerializableTask<Error> for SaveTask {
 				walked_entries,
 				db,
 				sync,
-				is_shallow,
 			},
 		)
 	}
@@ -139,11 +113,6 @@ pub struct SaveTaskOutput {
 impl Task<Error> for SaveTask {
 	fn id(&self) -> TaskId {
 		self.id
-	}
-
-	fn with_priority(&self) -> bool {
-		// If we're running in shallow mode, then we want priority
-		self.is_shallow
 	}
 
 	async fn run(&mut self, _: &Interrupter) -> Result<ExecStatus, Error> {

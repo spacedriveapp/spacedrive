@@ -1,21 +1,31 @@
-//! A protocol for efficiently and securely transferring files between peers.
-//!
-//! Goals:
-//!  - Fast - Transfer files as quickly as possible
-//!  - Safe - Verify the files integrity on both ends
-//!
-//! This protocol was heavily inspired by SyncThing's Block Exchange Protocol protocol although it's not compatible.
+//! TODO
+// TODO: Clippy lints here
+
+//! Spaceblock is a file transfer protocol that uses a block based system to transfer files.
+//! This protocol is modelled after `SyncThing`'s BEP protocol. A huge thanks to it's original authors!
 //! You can read more about it here: <https://docs.syncthing.net/specs/bep-v1.html>
-//!
-#![warn(clippy::unwrap_used, clippy::panic)]
+#![allow(unused)] // TODO: This module is still in heavy development!
 
 use std::{
 	io,
-	sync::atomic::{AtomicBool, Ordering},
+	marker::PhantomData,
+	path::{Path, PathBuf},
+	string::FromUtf8Error,
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
 };
 
-use tokio::io::{AsyncBufRead, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use thiserror::Error;
+use tokio::{
+	fs::File,
+	io::{AsyncBufRead, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
+};
 use tracing::debug;
+
+use sd_p2p::UnicastStream;
+use sd_p2p_proto::{decode, encode};
 
 mod block;
 mod block_size;
@@ -113,8 +123,9 @@ where
 			); // SAFETY: Percent must be between 0 and 100
 
 			if read == 0 {
-				// The file may have been modified during sender on the sender and we don't account for that.
-				// TODO: Error handling + send error to remote
+				#[allow(clippy::panic)] // TODO: Remove panic
+						// The file may have been modified during sender on the sender and we don't account for that.
+						// TODO: Error handling + send error to remote
 				assert!(
 					(offset + read as u64) == self.reqs.requests[self.i].size,
 					"File sending has stopped but it doesn't match the expected length!"
@@ -225,9 +236,9 @@ where
 
 #[cfg(test)]
 mod tests {
-	use std::{io::Cursor, mem, sync::Arc};
+	use std::{io::Cursor, mem};
 
-	use tokio::{io::BufReader, sync::oneshot};
+	use tokio::sync::oneshot;
 	use uuid::Uuid;
 
 	use super::*;
@@ -240,7 +251,7 @@ mod tests {
 		let data = b"Spacedrive".to_vec();
 		let req = SpaceblockRequests {
 			id: Uuid::new_v4(),
-			block_size: BlockSize::from_file_size(data.len() as u64),
+			block_size: BlockSize::from_size(data.len() as u64),
 			requests: vec![SpaceblockRequest {
 				name: "Demo".to_string(),
 				size: data.len() as u64,
@@ -276,8 +287,9 @@ mod tests {
 		let (mut client, mut server) = tokio::io::duplex(64);
 
 		// This is sent out of band of Spaceblock
-		let block_size = BlockSize::_128KiB;
-		let data = vec![0u8; block_size.size() as usize * 4]; // Let's pacman some RAM
+		let block_size = 131_072_u32;
+		let data = vec![0u8; block_size as usize * 4]; // Let's pacman some RAM
+		let block_size = BlockSize::dangerously_new(block_size);
 
 		let req = SpaceblockRequests {
 			id: Uuid::new_v4(),
@@ -316,8 +328,9 @@ mod tests {
 		let (mut client, mut server) = tokio::io::duplex(64);
 
 		// This is sent out of band of Spaceblock
-		let block_size = BlockSize::_128KiB;
-		let data = vec![0u8; block_size.size() as usize];
+		let block_size = 25u32;
+		let data = vec![0u8; block_size as usize];
+		let block_size = BlockSize::dangerously_new(block_size); // TODO: Determine it using proper algo instead of hardcoding it
 
 		let req = SpaceblockRequests {
 			id: Uuid::new_v4(),
@@ -357,8 +370,9 @@ mod tests {
 		let (mut client, mut server) = tokio::io::duplex(64);
 
 		// This is sent out of band of Spaceblock
-		let block_size = BlockSize::_128KiB;
-		let data = vec![0u8; block_size.size() as usize];
+		let block_size = 25u32;
+		let data = vec![0u8; block_size as usize];
+		let block_size = BlockSize::dangerously_new(block_size); // TODO: Determine it using proper algo instead of hardcoding it
 
 		let req = SpaceblockRequests {
 			id: Uuid::new_v4(),
@@ -399,8 +413,9 @@ mod tests {
 		let (mut client, mut server) = tokio::io::duplex(64);
 
 		// This is sent out of band of Spaceblock
-		let block_size = BlockSize::_128KiB;
+		let block_size = 25u32;
 		let data = vec![0u8; 0]; // Zero sized file
+		let block_size = BlockSize::dangerously_new(block_size); // TODO: Determine it using proper algo instead of hardcoding it
 
 		let req = SpaceblockRequests {
 			id: Uuid::new_v4(),

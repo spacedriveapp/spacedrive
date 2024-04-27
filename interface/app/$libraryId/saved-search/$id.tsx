@@ -77,7 +77,7 @@ function Inner({ id }: { id: number }) {
 		filters: search.allFilters,
 		take: 50,
 		paths: { order: explorerSettings.useSettingsSnapshot().order },
-		onSuccess: () => explorerStore.resetCache()
+		onSuccess: () => explorerStore.resetNewThumbnails()
 	});
 
 	const explorer = useExplorer({

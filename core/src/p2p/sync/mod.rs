@@ -6,7 +6,7 @@ use crate::{
 };
 
 use sd_p2p_proto::{decode, encode};
-use sd_sync::CompressedCRDTOperations;
+use sd_sync::CRDTOperation;
 
 use std::sync::Arc;
 
@@ -28,11 +28,10 @@ mod originator {
 	use sd_p2p_tunnel::Tunnel;
 
 	pub mod tx {
-
 		use super::*;
 
 		#[derive(Debug, PartialEq)]
-		pub struct Operations(pub CompressedCRDTOperations);
+		pub struct Operations(pub Vec<CRDTOperation>);
 
 		impl Operations {
 			// TODO: Per field errors for better error handling
@@ -57,10 +56,8 @@ mod originator {
 		#[cfg(test)]
 		#[tokio::test]
 		async fn test() {
-			use sd_sync::CRDTOperation;
-
 			{
-				let original = Operations(CompressedCRDTOperations::new(vec![]));
+				let original = Operations(vec![]);
 
 				let mut cursor = std::io::Cursor::new(original.to_bytes());
 				let result = Operations::from_stream(&mut cursor).await.unwrap();
@@ -68,13 +65,13 @@ mod originator {
 			}
 
 			{
-				let original = Operations(CompressedCRDTOperations::new(vec![CRDTOperation {
+				let original = Operations(vec![CRDTOperation {
 					instance: Uuid::new_v4(),
 					timestamp: sync::NTP64(0),
 					record_id: rmpv::Value::Nil,
 					model: 0,
 					data: sd_sync::CRDTOperationData::create(),
-				}]));
+				}]);
 
 				let mut cursor = std::io::Cursor::new(original.to_bytes());
 				let result = Operations::from_stream(&mut cursor).await.unwrap();
@@ -118,7 +115,7 @@ mod originator {
 					let ops = sync.get_ops(args).await.unwrap();
 
 					tunnel
-						.write_all(&tx::Operations(CompressedCRDTOperations::new(ops)).to_bytes())
+						.write_all(&tx::Operations(ops).to_bytes())
 						.await
 						.unwrap();
 					tunnel.flush().await.unwrap();

@@ -1,4 +1,3 @@
-use sd_sync::CompressedCRDTOperations;
 use std::sync::{
 	atomic::{AtomicBool, Ordering},
 	Arc,
@@ -69,7 +68,7 @@ pub async fn run_actor(
 							.send(sd_core_sync::Event::Messages(MessagesEvent {
 								instance_id: sync.instance,
 								has_more: ops.len() == OPS_PER_REQUEST as usize,
-								messages: CompressedCRDTOperations::new(ops),
+								messages: ops,
 							}))
 							.await
 					);

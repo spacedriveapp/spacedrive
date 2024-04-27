@@ -15,7 +15,7 @@ import { useIsDark } from '~/hooks';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { usePlatform } from '~/util/Platform';
 
-import { useExplorerItemData } from '../useExplorerItemData';
+import { useExplorerItemData } from '../util';
 import { Image, ImageProps } from './Image';
 import LayeredFileIcon from './LayeredFileIcon';
 import { Original } from './Original';

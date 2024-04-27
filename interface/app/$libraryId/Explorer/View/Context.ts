@@ -1,8 +1,6 @@
 import { createContext, useContext, type ReactNode, type RefObject } from 'react';
 
-import { useActiveItem } from './useActiveItem';
-
-export interface ExplorerViewContextProps extends ReturnType<typeof useActiveItem> {
+export interface ExplorerViewContext {
 	ref: RefObject<HTMLDivElement>;
 	/**
 	 * Padding to apply when scrolling to an item.
@@ -15,10 +13,10 @@ export interface ExplorerViewContextProps extends ReturnType<typeof useActiveIte
 	};
 }
 
-export const ExplorerViewContext = createContext<ExplorerViewContextProps | null>(null);
+export const ViewContext = createContext<ExplorerViewContext | null>(null);
 
 export const useExplorerViewContext = () => {
-	const ctx = useContext(ExplorerViewContext);
+	const ctx = useContext(ViewContext);
 
 	if (ctx === null) throw new Error('ViewContext.Provider not found!');
 

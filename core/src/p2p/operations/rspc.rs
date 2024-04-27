@@ -6,7 +6,7 @@ use sd_p2p::{RemoteIdentity, UnicastStream, P2P};
 use tokio::io::AsyncWriteExt;
 use tracing::debug;
 
-use crate::{p2p::Header, Node};
+use crate::p2p::Header;
 
 /// Transfer an rspc query to a remote node.
 #[allow(unused)]
@@ -37,7 +37,6 @@ pub async fn remote_rspc(
 pub(crate) async fn receiver(
 	stream: UnicastStream,
 	service: &mut Router,
-	node: &Node,
 ) -> Result<(), Box<dyn Error>> {
 	debug!(
 		"Received http request from peer '{}'",
@@ -46,8 +45,8 @@ pub(crate) async fn receiver(
 
 	// TODO: Authentication
 	#[allow(clippy::todo)]
-	if node.config.get().await.p2p.remote_access {
-		todo!("No way buddy!");
+	if true {
+		todo!("You wouldn't download a car!");
 	}
 
 	Http::new()

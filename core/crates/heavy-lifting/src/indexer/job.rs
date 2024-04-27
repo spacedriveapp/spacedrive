@@ -8,15 +8,13 @@ use crate::{
 		utils::cancel_pending_tasks,
 		SerializableJob, SerializedTasks,
 	},
-	utils::sub_path::get_full_path_from_sub_path,
-	Error, LocationScanState, NonCriticalJobError,
+	Error, NonCriticalJobError,
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_indexer_rules::{IndexerRule, IndexerRuler};
 use sd_core_prisma_helpers::location_with_indexer_rules;
 
-use sd_prisma::prisma::location;
 use sd_task_system::{
 	AnyTaskOutput, IntoTask, SerializableTask, Task, TaskDispatcher, TaskHandle, TaskId,
 	TaskOutput, TaskStatus,
@@ -41,7 +39,7 @@ use tokio::time::Instant;
 use tracing::warn;
 
 use super::{
-	remove_non_existing_file_paths, reverse_update_directories_sizes,
+	determine_initial_walk_path, remove_non_existing_file_paths, reverse_update_directories_sizes,
 	tasks::{
 		saver::{SaveTask, SaveTaskOutput},
 		updater::{UpdateTask, UpdateTaskOutput},
@@ -71,64 +69,6 @@ pub struct IndexerJob {
 
 impl Job for IndexerJob {
 	const NAME: JobName = JobName::Indexer;
-
-	async fn resume_tasks(
-		&mut self,
-		dispatcher: &JobTaskDispatcher,
-		ctx: &impl JobContext,
-		SerializedTasks(serialized_tasks): SerializedTasks,
-	) -> Result<(), Error> {
-		let location_id = self.location.id;
-
-		self.pending_tasks_on_resume = dispatcher
-			.dispatch_many_boxed(
-				rmp_serde::from_slice::<Vec<(TaskKind, Vec<u8>)>>(&serialized_tasks)
-					.map_err(IndexerError::from)?
-					.into_iter()
-					.map(|(task_kind, task_bytes)| {
-						let indexer_ruler = self.indexer_ruler.clone();
-						let iso_file_path_factory = self.iso_file_path_factory.clone();
-						async move {
-							match task_kind {
-								TaskKind::Walk => WalkDirTask::deserialize(
-									&task_bytes,
-									(
-										indexer_ruler.clone(),
-										WalkerDBProxy {
-											location_id,
-											db: Arc::clone(ctx.db()),
-										},
-										iso_file_path_factory.clone(),
-										dispatcher.clone(),
-									),
-								)
-								.await
-								.map(IntoTask::into_task),
-
-								TaskKind::Save => SaveTask::deserialize(
-									&task_bytes,
-									(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
-								)
-								.await
-								.map(IntoTask::into_task),
-								TaskKind::Update => UpdateTask::deserialize(
-									&task_bytes,
-									(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
-								)
-								.await
-								.map(IntoTask::into_task),
-							}
-						}
-					})
-					.collect::<Vec<_>>()
-					.try_join()
-					.await
-					.map_err(IndexerError::from)?,
-			)
-			.await;
-
-		Ok(())
-	}
 
 	async fn run(
 		mut self,
@@ -162,7 +102,7 @@ impl Job for IndexerJob {
 					self.metadata.total_paths += chunked_saves.len() as u64;
 					self.metadata.total_save_steps += 1;
 
-					SaveTask::new_deep(
+					SaveTask::new(
 						self.location.id,
 						self.location.pub_id.clone(),
 						chunked_saves,
@@ -222,10 +162,6 @@ impl Job for IndexerJob {
 			metadata.db_write_time += start_size_update_time.elapsed();
 		}
 
-		if metadata.removed_count > 0 {
-			// TODO: Dispatch a task to remove orphan objects
-		}
-
 		if metadata.indexed_count > 0 || metadata.removed_count > 0 {
 			ctx.invalidate_query("search.paths");
 		}
@@ -235,22 +171,70 @@ impl Job for IndexerJob {
 			"all tasks must be completed here"
 		);
 
-		ctx.db()
-			.location()
-			.update(
-				location::id::equals(location.id),
-				vec![location::scan_state::set(LocationScanState::Indexed as i32)],
-			)
-			.exec()
-			.await
-			.map_err(IndexerError::from)?;
-
 		Ok(ReturnStatus::Completed(
 			JobReturn::builder()
 				.with_metadata(metadata)
 				.with_non_critical_errors(errors)
 				.build(),
 		))
+	}
+
+	async fn resume_tasks(
+		&mut self,
+		dispatcher: &JobTaskDispatcher,
+		ctx: &impl JobContext,
+		SerializedTasks(serialized_tasks): SerializedTasks,
+	) -> Result<(), Error> {
+		let location_id = self.location.id;
+
+		self.pending_tasks_on_resume = dispatcher
+			.dispatch_many_boxed(
+				rmp_serde::from_slice::<Vec<(TaskKind, Vec<u8>)>>(&serialized_tasks)
+					.map_err(IndexerError::from)?
+					.into_iter()
+					.map(|(task_kind, task_bytes)| {
+						let indexer_ruler = self.indexer_ruler.clone();
+						let iso_file_path_factory = self.iso_file_path_factory.clone();
+						async move {
+							match task_kind {
+								TaskKind::Walk => WalkDirTask::deserialize(
+									&task_bytes,
+									(
+										indexer_ruler.clone(),
+										WalkerDBProxy {
+											location_id,
+											db: Arc::clone(ctx.db()),
+										},
+										iso_file_path_factory.clone(),
+										dispatcher.clone(),
+									),
+								)
+								.await
+								.map(IntoTask::into_task),
+
+								TaskKind::Save => SaveTask::deserialize(
+									&task_bytes,
+									(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
+								)
+								.await
+								.map(IntoTask::into_task),
+								TaskKind::Update => UpdateTask::deserialize(
+									&task_bytes,
+									(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
+								)
+								.await
+								.map(IntoTask::into_task),
+							}
+						}
+					})
+					.collect::<Vec<_>>()
+					.try_join()
+					.await
+					.map_err(IndexerError::from)?,
+			)
+			.await;
+
+		Ok(())
 	}
 }
 
@@ -298,12 +282,6 @@ impl IndexerJob {
 		job_ctx: &impl JobContext,
 		dispatcher: &JobTaskDispatcher,
 	) -> Result<Vec<TaskHandle<Error>>, IndexerError> {
-		self.metadata.completed_tasks += 1;
-
-		job_ctx.progress(vec![ProgressUpdate::CompletedTaskCount(
-			self.metadata.completed_tasks,
-		)]);
-
 		if any_task_output.is::<WalkTaskOutput>() {
 			return self
 				.process_walk_output(
@@ -331,6 +309,12 @@ impl IndexerJob {
 		} else {
 			unreachable!("Unexpected task output type: <id='{task_id}'>");
 		}
+
+		self.metadata.completed_tasks += 1;
+
+		job_ctx.progress(vec![ProgressUpdate::CompletedTaskCount(
+			self.metadata.completed_tasks,
+		)]);
 
 		Ok(Vec::new())
 	}
@@ -410,7 +394,7 @@ impl IndexerJob {
 				self.metadata.total_paths += chunked_saves.len() as u64;
 				self.metadata.total_save_steps += 1;
 
-				SaveTask::new_deep(
+				SaveTask::new(
 					self.location.id,
 					self.location.pub_id.clone(),
 					chunked_saves,
@@ -429,7 +413,7 @@ impl IndexerJob {
 				self.metadata.total_updated_paths += chunked_updates.len() as u64;
 				self.metadata.total_update_steps += 1;
 
-				UpdateTask::new_deep(
+				UpdateTask::new(
 					chunked_updates,
 					Arc::clone(job_ctx.db()),
 					Arc::clone(job_ctx.sync()),
@@ -544,7 +528,7 @@ impl IndexerJob {
 		// if we don't have any pending task, then this is a fresh job
 		if self.pending_tasks_on_resume.is_empty() {
 			let walker_root_path = Arc::new(
-				get_full_path_from_sub_path(
+				determine_initial_walk_path(
 					self.location.id,
 					&self.sub_path,
 					&*self.iso_file_path_factory.location_path,
@@ -555,7 +539,7 @@ impl IndexerJob {
 
 			pending_running_tasks.push(
 				dispatcher
-					.dispatch(WalkDirTask::new_deep(
+					.dispatch(WalkDirTask::new(
 						walker_root_path.as_ref(),
 						Arc::clone(&walker_root_path),
 						self.indexer_ruler.clone(),
@@ -564,7 +548,7 @@ impl IndexerJob {
 							location_id: self.location.id,
 							db: Arc::clone(job_ctx.db()),
 						},
-						dispatcher.clone(),
+						Some(dispatcher.clone()),
 					)?)
 					.await,
 			);

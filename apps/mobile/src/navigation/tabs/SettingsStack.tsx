@@ -18,7 +18,6 @@ import NodesSettingsScreen from '~/screens/settings/library/NodesSettings';
 import TagsSettingsScreen from '~/screens/settings/library/TagsSettings';
 import SettingsScreen from '~/screens/settings/Settings';
 
-import SearchHeader from '~/components/header/SearchHeader';
 import { TabScreenProps } from '../TabNavigator';
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
@@ -29,9 +28,7 @@ export default function SettingsStack() {
 			<Stack.Screen
 				name="Settings"
 				component={SettingsScreen}
-				options={({route}) => ({
-					header: () => <Header search route={route} />
-				})}
+				options={{ header: () => <Header showDrawer title="Settings" /> }}
 			/>
 			{/* Client */}
 			<Stack.Screen
@@ -68,9 +65,9 @@ export default function SettingsStack() {
 			<Stack.Screen
 				name="LocationSettings"
 				component={LocationSettingsScreen}
-				options={() => ({
-					header: () => <SearchHeader title="Locations" kind="locations" />
-				})}
+				options={{
+					header: () => <Header searchType="location" navBack title="Locations" />
+				}}
 			/>
 			<Stack.Screen
 				name="EditLocationSettings"

@@ -37,61 +37,17 @@ pub enum P2PDiscoveryState {
 }
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, Type)]
-#[serde(rename_all = "snake_case", tag = "type", content = "value")]
+#[serde(rename_all = "snake_case", untagged)]
 pub enum Port {
+	Disabled,
 	#[default]
 	Random,
 	Discrete(u16),
 }
 
 impl Port {
-	pub fn get(&self) -> u16 {
-		match self {
-			Port::Random => 0,
-			Port::Discrete(port) => *port,
-		}
-	}
-
 	pub fn is_random(&self) -> bool {
 		matches!(self, Port::Random)
-	}
-}
-
-fn default_as_true() -> bool {
-	true
-}
-
-fn skip_if_true(value: &bool) -> bool {
-	*value
-}
-
-fn skip_if_false(value: &bool) -> bool {
-	!*value
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct NodeConfigP2P {
-	#[serde(default)]
-	pub discovery: P2PDiscoveryState,
-	#[serde(default, skip_serializing_if = "Port::is_random")]
-	pub port: Port,
-	#[serde(default = "default_as_true", skip_serializing_if = "skip_if_true")]
-	pub ipv4: bool,
-	#[serde(default = "default_as_true", skip_serializing_if = "skip_if_true")]
-	pub ipv6: bool,
-	#[serde(default, skip_serializing_if = "skip_if_false")]
-	pub remote_access: bool,
-}
-
-impl Default for NodeConfigP2P {
-	fn default() -> Self {
-		Self {
-			discovery: P2PDiscoveryState::Everyone,
-			port: Port::Random,
-			ipv4: true,
-			ipv6: true,
-			remote_access: false,
-		}
 	}
 }
 
@@ -110,8 +66,12 @@ pub struct NodeConfig {
 	#[serde(with = "identity_serde")]
 	pub identity: Identity,
 	/// P2P config
+	#[serde(default, skip_serializing_if = "Port::is_random")]
+	pub p2p_ipv4_port: Port,
+	#[serde(default, skip_serializing_if = "Port::is_random")]
+	pub p2p_ipv6_port: Port,
 	#[serde(default)]
-	pub p2p: NodeConfigP2P,
+	pub p2p_discovery: P2PDiscoveryState,
 	/// Feature flags enabled on the node
 	#[serde(default)]
 	pub features: Vec<BackendFeature>,
@@ -193,7 +153,9 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 			id: Uuid::new_v4(),
 			name,
 			identity: Identity::default(),
-			p2p: NodeConfigP2P::default(),
+			p2p_ipv4_port: Port::Random,
+			p2p_ipv6_port: Port::Random,
+			p2p_discovery: P2PDiscoveryState::Everyone,
 			version: Self::LATEST_VERSION,
 			features: vec![],
 			notifications: vec![],

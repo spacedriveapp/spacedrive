@@ -26,6 +26,7 @@ const Locations = () => {
 		<>
 			<OverviewSection title="Locations" count={locations?.length}>
 				<View style={tw`flex-row items-center`}>
+					<Fade height={'100%'} width={30} color="black">
 						<FlatList
 							horizontal
 							data={locations}
@@ -76,6 +77,7 @@ const Locations = () => {
 								</Pressable>
 							)}
 						/>
+					</Fade>
 				</View>
 			</OverviewSection>
 			<ImportModal ref={modalRef} />

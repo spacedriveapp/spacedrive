@@ -25,10 +25,7 @@ use futures_concurrency::{
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use strum::{Display, EnumString};
-use tokio::{
-	spawn,
-	sync::{watch, Mutex},
-};
+use tokio::spawn;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
@@ -45,7 +42,6 @@ use super::{
 #[strum(use_phf, serialize_all = "snake_case")]
 pub enum JobName {
 	Indexer,
-	FileIdentifier,
 	// TODO: Add more job names as needed
 }
 
@@ -635,10 +631,7 @@ async fn to_spawn_job<Ctx: JobContext>(
 
 	let mut remote_controllers = vec![];
 
-	let (running_state_tx, running_state_rx) = watch::channel(JobRunningState::Running);
-
-	let (dispatcher, remote_controllers_rx) =
-		JobTaskDispatcher::new(base_dispatcher, running_state_rx);
+	let (dispatcher, remote_controllers_rx) = JobTaskDispatcher::new(base_dispatcher);
 
 	if let Some(existing_tasks) = existing_tasks {
 		if let Err(e) = job
@@ -671,7 +664,6 @@ async fn to_spawn_job<Ctx: JobContext>(
 
 				match command {
 					Command::Pause => {
-						running_state_tx.send_modify(|state| *state = JobRunningState::Paused);
 						remote_controllers
 							.iter()
 							.map(TaskRemoteController::pause)
@@ -688,8 +680,6 @@ async fn to_spawn_job<Ctx: JobContext>(
 							});
 					}
 					Command::Resume => {
-						running_state_tx.send_modify(|state| *state = JobRunningState::Running);
-
 						remote_controllers
 							.iter()
 							.map(TaskRemoteController::resume)
@@ -736,29 +726,14 @@ async fn to_spawn_job<Ctx: JobContext>(
 	}
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum JobRunningState {
-	Running,
-	Paused,
-}
-
-impl Default for JobRunningState {
-	fn default() -> Self {
-		Self::Running
-	}
-}
-
 #[derive(Debug, Clone)]
 pub struct JobTaskDispatcher {
 	dispatcher: BaseTaskDispatcher<Error>,
 	remote_controllers_tx: chan::Sender<TaskRemoteController>,
-	running_state: Arc<Mutex<watch::Receiver<JobRunningState>>>,
 }
 
 impl TaskDispatcher<Error> for JobTaskDispatcher {
 	async fn dispatch_boxed(&self, boxed_task: Box<dyn Task<Error>>) -> TaskHandle<Error> {
-		self.wait_for_dispatch_approval().await;
-
 		let handle = self.dispatcher.dispatch_boxed(boxed_task).await;
 
 		self.remote_controllers_tx
@@ -773,9 +748,14 @@ impl TaskDispatcher<Error> for JobTaskDispatcher {
 		&self,
 		boxed_tasks: impl IntoIterator<Item = Box<dyn Task<Error>>> + Send,
 	) -> Vec<TaskHandle<Error>> {
-		self.wait_for_dispatch_approval().await;
-
 		let handles = self.dispatcher.dispatch_many_boxed(boxed_tasks).await;
+
+		for handle in &handles {
+			self.remote_controllers_tx
+				.send(handle.remote_controller())
+				.await
+				.expect("remote controllers tx closed");
+		}
 
 		handles
 			.iter()
@@ -790,28 +770,15 @@ impl TaskDispatcher<Error> for JobTaskDispatcher {
 }
 
 impl JobTaskDispatcher {
-	fn new(
-		dispatcher: BaseTaskDispatcher<Error>,
-		running_state_rx: watch::Receiver<JobRunningState>,
-	) -> (Self, chan::Receiver<TaskRemoteController>) {
+	fn new(dispatcher: BaseTaskDispatcher<Error>) -> (Self, chan::Receiver<TaskRemoteController>) {
 		let (remote_controllers_tx, remote_controllers_rx) = chan::unbounded();
 
 		(
 			Self {
 				dispatcher,
 				remote_controllers_tx,
-				running_state: Arc::new(Mutex::new(running_state_rx)),
 			},
 			remote_controllers_rx,
 		)
-	}
-
-	async fn wait_for_dispatch_approval(&self) {
-		self.running_state
-			.lock()
-			.await
-			.wait_for(|state| *state == JobRunningState::Running)
-			.await
-			.expect("job running state watch channel unexpectedly closed");
 	}
 }

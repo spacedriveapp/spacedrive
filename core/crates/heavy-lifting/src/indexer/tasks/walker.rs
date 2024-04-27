@@ -9,8 +9,8 @@ use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_walker};
 
 use sd_prisma::prisma::file_path;
 use sd_task_system::{
-	check_interruption, BaseTaskDispatcher, ExecStatus, Interrupter, IntoAnyTaskOutput,
-	SerializableTask, Task, TaskDispatcher, TaskHandle, TaskId,
+	check_interruption, ExecStatus, Interrupter, IntoAnyTaskOutput, SerializableTask, Task,
+	TaskDispatcher, TaskHandle, TaskId,
 };
 use sd_utils::{db::inode_from_db, error::FileIOError};
 
@@ -239,7 +239,6 @@ struct WalkDirSaveState {
 	stage: WalkerStageSaveState,
 	errors: Vec<NonCriticalJobError>,
 	scan_time: Duration,
-	is_shallow: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -352,7 +351,7 @@ impl From<WalkerStageSaveState> for WalkerStage {
 }
 
 #[derive(Debug)]
-pub struct WalkDirTask<DBProxy, IsoPathFactory, Dispatcher = BaseTaskDispatcher<Error>>
+pub struct WalkDirTask<DBProxy, IsoPathFactory, Dispatcher>
 where
 	DBProxy: WalkerDBProxy,
 	IsoPathFactory: IsoFilePathFactory,
@@ -369,7 +368,6 @@ where
 	maybe_dispatcher: Option<Dispatcher>,
 	errors: Vec<NonCriticalJobError>,
 	scan_time: Duration,
-	is_shallow: bool,
 }
 
 impl<DBProxy, IsoPathFactory, Dispatcher> WalkDirTask<DBProxy, IsoPathFactory, Dispatcher>
@@ -378,13 +376,13 @@ where
 	IsoPathFactory: IsoFilePathFactory,
 	Dispatcher: TaskDispatcher<Error>,
 {
-	pub fn new_deep(
+	pub fn new(
 		entry: impl Into<ToWalkEntry> + Send,
 		root: Arc<PathBuf>,
 		indexer_ruler: IndexerRuler,
 		iso_file_path_factory: IsoPathFactory,
 		db_proxy: DBProxy,
-		dispatcher: Dispatcher,
+		maybe_dispatcher: Option<Dispatcher>,
 	) -> Result<Self, IndexerError> {
 		let entry = entry.into();
 		Ok(Self {
@@ -396,38 +394,7 @@ where
 			db_proxy,
 			stage: WalkerStage::Start,
 			entry,
-			maybe_dispatcher: Some(dispatcher),
-			is_shallow: false,
-			errors: Vec::new(),
-			scan_time: Duration::ZERO,
-		})
-	}
-}
-
-impl<DBProxy, IsoPathFactory> WalkDirTask<DBProxy, IsoPathFactory, BaseTaskDispatcher<Error>>
-where
-	DBProxy: WalkerDBProxy,
-	IsoPathFactory: IsoFilePathFactory,
-{
-	pub fn new_shallow(
-		entry: impl Into<ToWalkEntry> + Send,
-		root: Arc<PathBuf>,
-		indexer_ruler: IndexerRuler,
-		iso_file_path_factory: IsoPathFactory,
-		db_proxy: DBProxy,
-	) -> Result<Self, IndexerError> {
-		let entry = entry.into();
-		Ok(Self {
-			id: TaskId::new_v4(),
-			root,
-			indexer_ruler,
-			entry_iso_file_path: iso_file_path_factory.build(&entry.path, true)?,
-			iso_file_path_factory,
-			db_proxy,
-			stage: WalkerStage::Start,
-			entry,
-			maybe_dispatcher: None,
-			is_shallow: true,
+			maybe_dispatcher,
 			errors: Vec::new(),
 			scan_time: Duration::ZERO,
 		})
@@ -446,26 +413,14 @@ where
 	type DeserializeCtx = (IndexerRuler, DBProxy, IsoPathFactory, Dispatcher);
 
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
-		let Self {
-			id,
-			entry,
-			root,
-			entry_iso_file_path,
-			stage,
-			errors,
-			scan_time,
-			is_shallow,
-			..
-		} = self;
 		rmp_serde::to_vec_named(&WalkDirSaveState {
-			id,
-			entry,
-			root,
-			entry_iso_file_path,
-			stage: stage.into(),
-			errors,
-			scan_time,
-			is_shallow,
+			id: self.id,
+			entry: self.entry,
+			root: self.root,
+			entry_iso_file_path: self.entry_iso_file_path,
+			stage: self.stage.into(),
+			errors: self.errors,
+			scan_time: self.scan_time,
 		})
 	}
 
@@ -482,7 +437,6 @@ where
 			     stage,
 			     errors,
 			     scan_time,
-			     is_shallow,
 			 }| Self {
 				id,
 				entry,
@@ -492,10 +446,9 @@ where
 				iso_file_path_factory,
 				db_proxy,
 				stage: stage.into(),
-				maybe_dispatcher: is_shallow.then_some(dispatcher),
+				maybe_dispatcher: Some(dispatcher),
 				errors,
 				scan_time,
-				is_shallow,
 			},
 		)
 	}
@@ -511,11 +464,6 @@ where
 {
 	fn id(&self) -> TaskId {
 		self.id
-	}
-
-	fn with_priority(&self) -> bool {
-		// If we're running in shallow mode, then we want priority
-		self.is_shallow
 	}
 
 	#[allow(clippy::too_many_lines)]
@@ -799,13 +747,13 @@ async fn keep_walking(
 				to_keep_walking
 					.drain(..)
 					.map(|entry| {
-						WalkDirTask::new_deep(
+						WalkDirTask::new(
 							entry,
 							Arc::clone(root),
 							indexer_ruler.clone(),
 							iso_file_path_factory.clone(),
 							db_proxy.clone(),
-							dispatcher.clone(),
+							Some(dispatcher.clone()),
 						)
 						.map_err(|e| NonCriticalIndexerError::DispatchKeepWalking(e.to_string()))
 					})
@@ -1278,7 +1226,7 @@ mod tests {
 
 		let handle = system
 			.dispatch(
-				WalkDirTask::new_deep(
+				WalkDirTask::new(
 					root_path.to_path_buf(),
 					Arc::new(root_path.to_path_buf()),
 					indexer_ruler,
@@ -1286,7 +1234,7 @@ mod tests {
 						root_path: Arc::new(root_path.to_path_buf()),
 					},
 					DummyDBProxy,
-					system.get_dispatcher(),
+					Some(system.get_dispatcher()),
 				)
 				.unwrap(),
 			)

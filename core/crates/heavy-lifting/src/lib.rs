@@ -33,12 +33,9 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
 
-pub mod file_identifier;
 pub mod indexer;
 pub mod job_system;
-pub mod utils;
 
-use file_identifier::{FileIdentifierError, NonCriticalFileIdentifierError};
 use indexer::{IndexerError, NonCriticalIndexerError};
 
 pub use job_system::{
@@ -50,8 +47,6 @@ pub use job_system::{
 pub enum Error {
 	#[error(transparent)]
 	Indexer(#[from] IndexerError),
-	#[error(transparent)]
-	FileIdentifier(#[from] FileIdentifierError),
 
 	#[error(transparent)]
 	TaskSystem(#[from] TaskSystemError),
@@ -61,7 +56,6 @@ impl From<Error> for rspc::Error {
 	fn from(e: Error) -> Self {
 		match e {
 			Error::Indexer(e) => e.into(),
-			Error::FileIdentifier(e) => e.into(),
 			Error::TaskSystem(e) => {
 				Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
 			}
@@ -74,15 +68,4 @@ pub enum NonCriticalJobError {
 	// TODO: Add variants as needed
 	#[error(transparent)]
 	Indexer(#[from] NonCriticalIndexerError),
-	#[error(transparent)]
-	FileIdentifier(#[from] NonCriticalFileIdentifierError),
-}
-
-#[repr(i32)]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Eq, PartialEq)]
-pub enum LocationScanState {
-	Pending = 0,
-	Indexed = 1,
-	FilesIdentified = 2,
-	Completed = 3,
 }
