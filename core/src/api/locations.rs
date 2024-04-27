@@ -2,8 +2,8 @@ use crate::{
 	invalidate_query,
 	location::{
 		delete_location, find_location, indexer::OldIndexerJobInit, light_scan_location,
-		relink_location, scan_location, scan_location_sub_path, LocationCreateArgs, LocationError,
-		LocationUpdateArgs, ScanState,
+		non_indexed::NonIndexedPathItem, relink_location, scan_location, scan_location_sub_path,
+		LocationCreateArgs, LocationError, LocationUpdateArgs, ScanState,
 	},
 	object::old_file_identifier::old_file_identifier_job::OldFileIdentifierJobInit,
 	old_job::StatefulJob,
@@ -17,7 +17,6 @@ use sd_core_prisma_helpers::{
 };
 
 use sd_cache::{CacheNode, Model, Normalise, NormalisedResult, NormalisedResults, Reference};
-use sd_indexer::NonIndexedPathItem;
 use sd_prisma::prisma::{file_path, indexer_rule, indexer_rules_in_location, location, SortOrder};
 
 use std::path::{Path, PathBuf};
@@ -39,19 +38,25 @@ pub type ThumbnailKey = Vec<String>;
 #[serde(tag = "type")]
 pub enum ExplorerItem {
 	Path {
+		// provide the frontend with the thumbnail key explicitly
 		thumbnail: Option<ThumbnailKey>,
+		// this tells the frontend if a thumbnail actually exists or not
+		has_created_thumbnail: bool,
+		// we can't actually modify data from PCR types, thats why computed properties are used on ExplorerItem
 		item: file_path_with_object::Data,
 	},
 	Object {
 		thumbnail: Option<ThumbnailKey>,
+		has_created_thumbnail: bool,
 		item: object_with_file_paths::Data,
-	},
-	Location {
-		item: location::Data,
 	},
 	NonIndexedPath {
 		thumbnail: Option<ThumbnailKey>,
+		has_created_thumbnail: bool,
 		item: NonIndexedPathItem,
+	},
+	Location {
+		item: location::Data,
 	},
 	SpacedropPeer {
 		item: PeerMetadata,

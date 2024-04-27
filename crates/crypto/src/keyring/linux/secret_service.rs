@@ -33,14 +33,11 @@ impl KeyringInterface for SecretServiceKeyring {
 	}
 
 	fn contains_key(&self, id: &Identifier) -> bool {
-		self.get_collection()
-			.ok()
-			.map(|k| {
-				k.search_items(id.as_sec_ser_identifier())
-					.ok()
-					.map_or(false, |x| !x.is_empty())
-			})
-			.unwrap_or_default()
+		self.get_collection().ok().is_some_and(|k| {
+			k.search_items(id.as_sec_ser_identifier())
+				.ok()
+				.map_or(false, |x| !x.is_empty())
+		})
 	}
 
 	fn get(&self, id: &Identifier) -> Result<Protected<Vec<u8>>> {

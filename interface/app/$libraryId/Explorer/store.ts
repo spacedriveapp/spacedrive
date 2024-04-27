@@ -121,10 +121,9 @@ export const explorerStore = proxy({
 	addNewThumbnail: (thumbKey: string[]) => {
 		explorerStore.newThumbnails.add(flattenThumbnailKey(thumbKey));
 	},
-	// this should be done when the explorer query is refreshed
-	// prevents memory leak
-	resetNewThumbnails: () => {
+	resetCache: () => {
 		explorerStore.newThumbnails.clear();
+		// explorerStore.newFilePathsIdentified.clear();
 	}
 });
 
