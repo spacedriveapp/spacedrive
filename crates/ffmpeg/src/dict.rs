@@ -29,7 +29,11 @@ impl FFmpegDict {
 	}
 
 	pub(crate) fn get(&self, key: &CStr) -> Option<String> {
-		unsafe { av_dict_get(self.dict, key.as_ptr(), ptr::null(), 0).as_ref() }
+		if self.dict.is_null() {
+			return None;
+		}
+
+		unsafe { av_dict_get(self.dict, key.as_ptr(), ptr::null(), AV_DICT_MATCH_CASE).as_ref() }
 			.and_then(|entry| unsafe { entry.value.as_ref() })
 			.map(|value| {
 				let cstr = unsafe { CStr::from_ptr(value) };

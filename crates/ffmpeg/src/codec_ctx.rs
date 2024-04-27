@@ -139,17 +139,22 @@ impl FFmpegCodecContext {
 
 	fn tag(&self) -> Option<String> {
 		if self.as_ref().codec_tag != 0 {
-			CString::new(vec![0; AV_FOURCC_MAX_STRING_SIZE as usize])
-				.ok()
-				.map(|buffer| {
-					let tag = unsafe {
-						CString::from_raw(av_fourcc_make_string(
-							buffer.into_raw(),
-							self.as_ref().codec_tag,
-						))
-					};
-					String::from_utf8_lossy(tag.as_bytes()).to_string()
-				})
+			CString::new(vec![
+				0;
+				usize::try_from(AV_FOURCC_MAX_STRING_SIZE).expect(
+					"AV_FOURCC_MAX_STRING_SIZE is 32, must fit in an usize"
+				)
+			])
+			.ok()
+			.map(|buffer| {
+				let tag = unsafe {
+					CString::from_raw(av_fourcc_make_string(
+						buffer.into_raw(),
+						self.as_ref().codec_tag,
+					))
+				};
+				String::from_utf8_lossy(tag.as_bytes()).to_string()
+			})
 		} else {
 			None
 		}
@@ -163,11 +168,12 @@ impl FFmpegCodecContext {
 			| AVMediaType::AVMEDIA_TYPE_SUBTITLE
 			| AVMediaType::AVMEDIA_TYPE_ATTACHMENT => ctx.bit_rate,
 			AVMediaType::AVMEDIA_TYPE_AUDIO => {
-				let bits_per_sample = unsafe { av_get_bits_per_sample(ctx.codec_id) };
+				let bits_per_sample = i64::from(unsafe { av_get_bits_per_sample(ctx.codec_id) });
 				if bits_per_sample != 0 {
-					let bit_rate = ctx.sample_rate as i64 * ctx.ch_layout.nb_channels as i64;
-					if bit_rate <= std::i64::MAX / bits_per_sample as i64 {
-						return bit_rate * (bits_per_sample as i64);
+					let bit_rate =
+						i64::from(ctx.sample_rate) * i64::from(ctx.ch_layout.nb_channels);
+					if bit_rate <= std::i64::MAX / bits_per_sample {
+						return bit_rate * (bits_per_sample);
 					}
 				}
 				ctx.bit_rate
@@ -276,8 +282,8 @@ impl FFmpegCodecContext {
 			(None, None)
 		} else {
 			let mut display_aspect_ratio = AVRational { num: 0, den: 0 };
-			let num = (width * ctx.sample_aspect_ratio.num) as i64;
-			let den = (height * ctx.sample_aspect_ratio.den) as i64;
+			let num = i64::from(width * ctx.sample_aspect_ratio.num);
+			let den = i64::from(height * ctx.sample_aspect_ratio.den);
 			let max = 1024 * 1024;
 			unsafe {
 				av_reduce(
@@ -296,13 +302,13 @@ impl FFmpegCodecContext {
 		};
 
 		let mut properties = vec![];
-		if ctx.properties & (FF_CODEC_PROPERTY_LOSSLESS as u32) != 0 {
+		if ctx.properties & (FF_CODEC_PROPERTY_LOSSLESS.unsigned_abs()) != 0 {
 			properties.push("Closed Captions".to_string());
 		}
-		if ctx.properties & (FF_CODEC_PROPERTY_CLOSED_CAPTIONS as u32) != 0 {
+		if ctx.properties & (FF_CODEC_PROPERTY_CLOSED_CAPTIONS.unsigned_abs()) != 0 {
 			properties.push("Film Grain".to_string());
 		}
-		if ctx.properties & (FF_CODEC_PROPERTY_FILM_GRAIN as u32) != 0 {
+		if ctx.properties & (FF_CODEC_PROPERTY_FILM_GRAIN.unsigned_abs()) != 0 {
 			properties.push("lossless".to_string());
 		}
 

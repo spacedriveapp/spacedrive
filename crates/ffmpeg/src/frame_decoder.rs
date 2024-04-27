@@ -14,7 +14,7 @@ use chrono::TimeDelta;
 use ffmpeg_sys_next::{
 	av_buffersink_get_frame, av_buffersrc_write_frame, av_frame_alloc,
 	av_guess_sample_aspect_ratio, av_packet_alloc, av_packet_free, av_packet_unref, av_seek_frame,
-	avcodec_find_decoder, AVPacket, AVERROR, AVPROBE_SCORE_MAX, AV_FRAME_FLAG_INTERLACED,
+	avcodec_find_decoder, AVPacket, AVStream, AVERROR, AVPROBE_SCORE_MAX, AV_FRAME_FLAG_INTERLACED,
 	AV_FRAME_FLAG_KEY, AV_TIME_BASE, EAGAIN,
 };
 
@@ -153,20 +153,14 @@ impl FrameDecoder {
 		size: Option<ThumbnailSize>,
 		maintain_aspect_ratio: bool,
 	) -> Result<VideoFrame, Error> {
-		let time_base = self
+		let (time_base, stream_ptr) = self
 			.format_ctx
 			.stream(self.preferred_stream_id)
-			.map(|stream| stream.time_base)
+			.map(|stream| (stream.time_base, stream as *mut AVStream))
 			.ok_or(FFmpegError::NullError)?;
 
-		let aspect_ratio = unsafe {
-			av_guess_sample_aspect_ratio(
-				self.format_ctx.as_mut(),
-				self.format_ctx
-					.stream(self.preferred_stream_id)
-					.ok_or(FFmpegError::NullError)?,
-				self.frame.as_mut(),
-			)
+		let pixel_aspect_ratio = unsafe {
+			av_guess_sample_aspect_ratio(self.format_ctx.as_mut(), stream_ptr, self.frame.as_mut())
 		};
 
 		let rotation_angle = self
@@ -178,9 +172,9 @@ impl FrameDecoder {
 			size,
 			&time_base,
 			&self.codec_ctx,
-			&aspect_ratio,
 			rotation_angle,
 			(self.frame.as_mut().flags & AV_FRAME_FLAG_INTERLACED) != 0,
+			&pixel_aspect_ratio,
 			maintain_aspect_ratio,
 		)?;
 

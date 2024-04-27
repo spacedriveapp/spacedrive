@@ -39,9 +39,9 @@ impl<'a> FFmpegFilterGraph {
 		size: Option<ThumbnailSize>,
 		time_base: &AVRational,
 		codec_ctx: &FFmpegCodecContext,
-		aspect_ratio: &AVRational,
 		rotation_angle: f64,
 		interlaced_frame: bool,
+		pixel_aspect_ratio: &AVRational,
 		maintain_aspect_ratio: bool,
 	) -> Result<(Self, &'a mut AVFilterContext, &'a mut AVFilterContext), Error> {
 		let mut filter_graph = Self::new()?;
@@ -50,6 +50,7 @@ impl<'a> FFmpegFilterGraph {
 			"video_size={}x{}:pix_fmt={}:time_base={}/{}:pixel_aspect={}/{}",
 			codec_ctx.as_ref().width,
 			codec_ctx.as_ref().height,
+			// AVPixelFormat is an i32 enum, so it's safe to cast it to i32
 			codec_ctx.as_ref().pix_fmt as i32,
 			time_base.num,
 			time_base.den,
@@ -97,7 +98,7 @@ impl<'a> FFmpegFilterGraph {
 				CString::new(thumb_scale_filter_args(
 					size,
 					codec_ctx,
-					aspect_ratio,
+					pixel_aspect_ratio,
 					maintain_aspect_ratio,
 				)?)?
 				.as_c_str(),
@@ -247,48 +248,40 @@ impl Drop for FFmpegFilterGraph {
 fn thumb_scale_filter_args(
 	size: Option<ThumbnailSize>,
 	codec_ctx: &FFmpegCodecContext,
-	aspect_ratio: &AVRational,
+	pixel_aspect_ratio: &AVRational,
 	maintain_aspect_ratio: bool,
 ) -> Result<String, Error> {
-	let (mut width, mut height) = match size {
-		Some(ThumbnailSize::Dimensions { width, height }) => (width as i32, height as i32),
-		Some(ThumbnailSize::Size(width)) => (width as i32, -1),
+	let (width, height) = match size {
+		Some(ThumbnailSize::Dimensions { width, height }) => (width, Some(height)),
+		Some(ThumbnailSize::Size(width)) => (width, None),
 		None => return Ok("w=0:h=0".to_string()),
 	};
 
-	if width <= 0 {
-		width = -1;
-	}
-
-	if height <= 0 {
-		height = -1;
-	}
-
 	let mut scale = String::new();
 
-	if width != -1 && height != -1 {
+	if let Some(height) = height {
 		scale.push_str(&format!("w={}:h={}", width, height));
 		if maintain_aspect_ratio {
 			scale.push_str(":force_original_aspect_ratio=decrease");
 		}
 	} else if !maintain_aspect_ratio {
-		let size = if width == -1 { height } else { width };
-		scale.push_str(&format!("w={}:h={}", size, size));
+		scale.push_str(&format!("w={}:h={}", width, width));
 	} else {
-		let size = if height == -1 { width } else { height };
-		width = codec_ctx.as_ref().width;
-		height = codec_ctx.as_ref().height;
+		let size = width;
+		let mut width = codec_ctx.as_ref().width.unsigned_abs();
+		let mut height = codec_ctx.as_ref().height.unsigned_abs();
 
 		// if the pixel aspect ratio is defined and is not 1, we have an anamorphic stream
-		if aspect_ratio.num != 0 && aspect_ratio.num != aspect_ratio.den {
-			width = width * aspect_ratio.num / aspect_ratio.den;
+		if pixel_aspect_ratio.num != 0 && pixel_aspect_ratio.num != pixel_aspect_ratio.den {
+			width = (width * pixel_aspect_ratio.num.unsigned_abs())
+				/ pixel_aspect_ratio.den.unsigned_abs();
 
 			if size != 0 {
 				if height > width {
-					width = width * size / height;
+					width = (width * size) / height;
 					height = size;
 				} else {
-					height = height * size / width;
+					height = (height * size) / width;
 					width = size;
 				}
 			}

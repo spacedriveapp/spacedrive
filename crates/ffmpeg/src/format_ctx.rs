@@ -65,17 +65,24 @@ impl FFmpegFormatContext {
 			return None;
 		}
 
-		let ms = (duration % (AV_TIME_BASE as i64)).abs();
-		TimeDelta::new(duration / (AV_TIME_BASE as i64), (ms * 1000) as u32)
+		let av_time_base = i64::from(AV_TIME_BASE);
+		let ms = u32::try_from((duration % av_time_base).unsigned_abs())
+			.expect("we're taking modulo from 1_000_000 so it fits into u32");
+
+		TimeDelta::new(duration / av_time_base, ms * 1000)
 	}
 
 	pub(crate) fn stream(&self, index: u32) -> Option<&mut AVStream> {
+		let streams = self.as_ref().streams;
+		if streams.is_null() {
+			return None;
+		}
+
 		let Ok(index) = isize::try_from(index) else {
 			return None;
 		};
 
-		unsafe { self.as_ref().streams.as_ref() }
-			.and_then(|streams| unsafe { streams.offset(index).as_mut() })
+		unsafe { (*(streams.offset(index))).as_mut() }
 	}
 
 	pub(crate) fn get_stream_rotation_angle(&self, index: u32) -> f64 {
@@ -83,6 +90,16 @@ impl FFmpegFormatContext {
 			return 0.0;
 		};
 
+		/*
+		 * This side data contains a 3x3 transformation matrix describing an affine transformation
+		 * that needs to be applied to the decoded video frames for correct presentation.
+		 *
+		 * See libavutil/display.h for a detailed description of the data.
+		 * https://github.com/FFmpeg/FFmpeg/blob/n6.1.1/libavutil/display.h#L32-L71
+		 *
+		 * The pointer conversion is due to the fact that av_stream_get_side_data is a generic function that has no prior
+		 * knowledge of the type of the side data it is retrieving.
+		 */
 		#[allow(clippy::cast_ptr_alignment)]
 		let matrix = (unsafe {
 			av_stream_get_side_data(
@@ -125,9 +142,7 @@ impl FFmpegFormatContext {
 		let mut embedded_data_streams = vec![];
 
 		'outer: for stream_idx in 0..self.as_ref().nb_streams {
-			let Some(stream) = unsafe { self.as_ref().streams.as_ref() }
-				.and_then(|streams| unsafe { streams.offset(stream_idx as isize).as_ref() })
-			else {
+			let Some(stream) = self.stream(stream_idx) else {
 				continue;
 			};
 
@@ -202,10 +217,13 @@ impl FFmpegFormatContext {
 			return None;
 		}
 
-		let _secs = start_time / (AV_TIME_BASE as i64);
-		let ms = (start_time % (AV_TIME_BASE as i64)).abs();
+		let av_time_base = i64::from(AV_TIME_BASE);
 
-		TimeDelta::new(start_time / (AV_TIME_BASE as i64), (ms * 1000) as u32)
+		let secs = start_time / av_time_base;
+		let ms = u32::try_from((start_time % av_time_base).unsigned_abs())
+			.expect("we're taking modulo from 1_000_000 so it fits into u32");
+
+		TimeDelta::new(secs, ms * 1000)
 	}
 
 	fn bit_rate(&self) -> i64 {
@@ -213,13 +231,20 @@ impl FFmpegFormatContext {
 	}
 
 	fn chapters(&self) -> Vec<MediaChapter> {
-		unsafe { self.as_ref().chapters.as_ref() }
-			.map(|chapters| {
-				(0..self.as_ref().nb_chapters)
+		let chapters_ptr = self.as_ref().chapters;
+
+		let Ok(num_chapters) = isize::try_from(self.as_ref().nb_chapters) else {
+			return vec![];
+		};
+
+		(!chapters_ptr.is_null())
+			.then(|| {
+				(0..num_chapters)
 					.filter_map(|id| {
-						unsafe { chapters.offset(id as isize).as_ref() }.map(|chapter| {
+						unsafe { (*(chapters_ptr.offset(id))).as_ref() }.map(|chapter| {
 							MediaChapter {
-								id,
+								// Note: id is guaranteed to be a valid u32 because it was calculated from a u32
+								id: id as u32,
 								start: chapter.start,
 								end: chapter.end,
 								time_base_num: chapter.time_base.num,
@@ -237,28 +262,36 @@ impl FFmpegFormatContext {
 
 	fn programs(&self) -> Vec<MediaProgram> {
 		let mut visited_streams: HashSet<u32> = HashSet::new();
-		let mut programs = unsafe { self.as_ref().programs.as_ref() }
-			.map(|programs| {
-				(0..self.as_ref().nb_programs)
+		let programs_ptr = self.as_ref().programs;
+
+		let mut programs = (!programs_ptr.is_null())
+			.then(|| {
+				let Ok(num_programs) = isize::try_from(self.as_ref().nb_programs) else {
+					return vec![];
+				};
+
+				(0..num_programs)
 					.filter_map(|id| {
-						unsafe { programs.offset(id as isize).as_ref() }.map(|program| {
+						unsafe { (*(programs_ptr.offset(id))).as_ref() }.map(|program| {
 							let (metadata, name) =
 								extract_name_and_convert_metadata(program.metadata);
 
-							let streams = (0..program.nb_stream_indexes)
+							let streams = (0..num_programs)
 								.filter_map(|index| {
-									unsafe { program.stream_index.offset(index as isize).as_ref() }
-										.and_then(|stream_index| {
+									unsafe { program.stream_index.offset(index).as_ref() }.and_then(
+										|stream_index| {
 											self.stream(*stream_index).map(|stream| {
 												visited_streams.insert(*stream_index);
 												(&*stream).into()
 											})
-										})
+										},
+									)
 								})
 								.collect::<Vec<MediaStream>>();
 
 							MediaProgram {
-								id,
+								// Note: id is guaranteed to be a valid u32 because it was calculated from a u32
+								id: id as u32,
 								name,
 								streams,
 								metadata,
@@ -274,20 +307,22 @@ impl FFmpegFormatContext {
 			.filter_map(|i| self.stream(i).map(|stream| (&*stream).into()))
 			.collect::<Vec<MediaStream>>();
 		if !unvisited_streams.is_empty() {
-			// Create an empty program to hold unvisited streams if there are any
-			programs.push(MediaProgram {
-				id: programs.len() as u32,
-				name: Some("No Program".to_string()),
-				streams: unvisited_streams,
-				metadata: MediaMetadata::default(),
-			});
+			if let Ok(id) = u32::try_from(programs.len()) {
+				// Create an empty program to hold unvisited streams if there are any
+				programs.push(MediaProgram {
+					id,
+					name: Some("No Program".to_string()),
+					streams: unvisited_streams,
+					metadata: MediaMetadata::default(),
+				});
+			}
 		}
 
 		programs
 	}
 
 	fn metadata(&self) -> Option<MediaMetadata> {
-		unsafe { self.as_ref().metadata.as_mut() }
+		unsafe { (*(self.0)).metadata.as_mut() }
 			.map(|metadata| FFmpegDict::new(Some(metadata)).into())
 	}
 }
@@ -326,8 +361,8 @@ impl From<&AVStream> for MediaStream {
 						!= 0
 				{
 					let mut display_aspect_ratio = AVRational { num: 0, den: 0 };
-					let num = (codecpar.width * codecpar.sample_aspect_ratio.num) as i64;
-					let den = (codecpar.height * codecpar.sample_aspect_ratio.den) as i64;
+					let num = i64::from(codecpar.width * codecpar.sample_aspect_ratio.num);
+					let den = i64::from(codecpar.height * codecpar.sample_aspect_ratio.den);
 					let max = 1024 * 1024;
 					unsafe {
 						av_reduce(
@@ -387,7 +422,7 @@ impl From<&AVStream> for MediaStream {
 		});
 
 		MediaStream {
-			id: stream.id as u32,
+			id: stream.id.unsigned_abs(),
 			name,
 			codec,
 			aspect_ratio_num: aspect_ratio.num,
