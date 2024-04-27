@@ -104,11 +104,13 @@ impl Manager {
 				))
 				.await?;
 
-			self.shared
-				.timestamps
-				.write()
-				.await
-				.insert(self.instance, ops.last().unwrap().timestamp);
+			if let Some(last) = ops.last() {
+				self.shared
+					.timestamps
+					.write()
+					.await
+					.insert(self.instance, last.timestamp);
+			}
 
 			self.tx.send(SyncMessage::Created).ok();
 

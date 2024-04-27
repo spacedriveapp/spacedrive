@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
-import { proxy, useSnapshot } from 'valtio';
+import { useSnapshot } from 'valtio';
+import { valtioPersist } from '@sd/client';
 import { useOperatingSystem } from '~/hooks';
 import { OperatingSystem } from '~/util/Platform';
 
-export const explorerOperatingSystemStore = proxy({
+export const explorerOperatingSystemStore = valtioPersist('sd-explorer-behavior', {
 	os: undefined as Extract<OperatingSystem, 'windows' | 'macOS'> | undefined
 });
 

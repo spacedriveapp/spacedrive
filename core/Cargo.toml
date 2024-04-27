@@ -1,6 +1,6 @@
 [package]
 name = "sd-core"
-version = "0.2.11"
+version = "0.2.13"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc."]
 rust-version = "1.75.0"
@@ -32,15 +32,15 @@ sd-ai = { path = "../crates/ai", optional = true }
 sd-cache = { path = "../crates/cache" }
 sd-cloud-api = { version = "0.1.0", path = "../crates/cloud-api" }
 sd-crypto = { path = "../crates/crypto", features = [
-	"sys",
-	"tokio",
+    "sys",
+    "tokio",
 ], optional = true }
 sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
 sd-file-ext = { path = "../crates/file-ext" }
 sd-images = { path = "../crates/images", features = [
-	"rspc",
-	"serde",
-	"specta",
+    "rspc",
+    "serde",
+    "specta",
 ] }
 sd-media-metadata = { path = "../crates/media-metadata" }
 sd-p2p = { path = "../crates/p2p", features = ["specta"] }
@@ -50,7 +50,6 @@ sd-p2p-tunnel = { path = "../crates/p2p-tunnel" }
 sd-prisma = { path = "../crates/prisma" }
 sd-sync = { path = "../crates/sync" }
 sd-utils = { path = "../crates/utils" }
-sd-indexer = { path = "../crates/sd-indexer" }
 
 # Workspace dependencies
 async-channel = { workspace = true }
@@ -72,27 +71,28 @@ reqwest = { workspace = true, features = ["json", "native-tls-vendored"] }
 rmp-serde = { workspace = true }
 rmpv = { workspace = true }
 rspc = { workspace = true, features = [
-	"axum",
-	"uuid",
-	"chrono",
-	"tracing",
-	"alpha",
-	"unstable",
+    "axum",
+    "uuid",
+    "chrono",
+    "tracing",
+    "alpha",
+    "unstable",
 ] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 specta = { workspace = true }
+static_assertions = { workspace = true }
 strum = { workspace = true, features = ["derive"] }
 strum_macros = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = [
-	"sync",
-	"rt-multi-thread",
-	"io-util",
-	"macros",
-	"time",
-	"process",
+    "sync",
+    "rt-multi-thread",
+    "io-util",
+    "macros",
+    "time",
+    "process",
 ] }
 tokio-stream = { workspace = true, features = ["fs"] }
 tokio-util = { workspace = true, features = ["io"] }
@@ -101,6 +101,7 @@ tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 uuid = { workspace = true, features = ["v4", "serde"] }
 webp = { workspace = true }
+
 
 # Specific Core dependencies
 async-recursion = "1.0.5"
@@ -121,23 +122,16 @@ int-enum = "0.5.0"
 libc = "0.2.153"
 mini-moka = "0.10.2"
 notify = { git = "https://github.com/notify-rs/notify.git", rev = "c3929ed114fbb0bc7457a9a498260461596b00ca", default-features = false, features = [
-	"macos_fsevent",
+    "macos_fsevent",
 ] }
 rmp = "0.8.12"
 serde-hashkey = "0.4.5"
 serde_repr = "0.1"
 serde_with = "3.4.0"
 slotmap = "1.0.6"
-static_assertions = "1.1.0"
 sysinfo = "0.29.10"
 tar = "0.4.40"
 tower-service = "0.3.2"
-opendal = { version = "0.45.1", features = [
-	"services-gdrive",
-	"services-s3",
-	"services-fs",
-] }
-sync_wrapper = { version = "1.0.1", features = ["futures"] }
 
 # Override features of transitive dependencies
 [dependencies.openssl]
@@ -160,10 +154,10 @@ trash = "4.1.0"
 
 [target.'cfg(target_os = "ios")'.dependencies]
 icrate = { version = "0.1.0", features = [
-	"Foundation",
-	"Foundation_NSFileManager",
-	"Foundation_NSString",
-	"Foundation_NSNumber",
+    "Foundation",
+    "Foundation_NSFileManager",
+    "Foundation_NSString",
+    "Foundation_NSNumber",
 ] }
 
 [dev-dependencies]

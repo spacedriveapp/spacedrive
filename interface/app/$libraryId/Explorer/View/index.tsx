@@ -10,7 +10,7 @@ import {
 } from '@sd/client';
 import { dialogManager } from '@sd/ui';
 import { Loader } from '~/components';
-import { useKeyMatcher, useShortcut } from '~/hooks';
+import { useKeyMatcher, useMouseItemResize, useShortcut } from '~/hooks';
 import { useRoutingContext } from '~/RoutingContext';
 import { isNonEmpty } from '~/util';
 
@@ -24,15 +24,16 @@ import { explorerStore } from '../store';
 import { useExplorerDroppable } from '../useExplorerDroppable';
 import { useExplorerOperatingSystem } from '../useExplorerOperatingSystem';
 import { useExplorerSearchParams } from '../util';
-import { ViewContext, type ExplorerViewContext } from './Context';
+import { ExplorerViewContext, ExplorerViewContextProps } from './Context';
 import { DragScrollable } from './DragScrollable';
 import { GridView } from './GridView';
 import { ListView } from './ListView';
 import { MediaView } from './MediaView';
+import { useActiveItem } from './useActiveItem';
 import { useViewItemDoubleClick } from './ViewItem';
 
 export interface ExplorerViewProps
-	extends Omit<ExplorerViewContext, 'selectable' | 'ref' | 'padding'> {
+	extends Pick<ExplorerViewContextProps, 'contextMenu' | 'scrollPadding' | 'listViewOptions'> {
 	emptyNotice?: JSX.Element;
 }
 
@@ -40,10 +41,11 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	const { explorerOperatingSystem, matchingOperatingSystem } = useExplorerOperatingSystem();
 
 	const explorer = useExplorerContext();
-	const [isContextMenuOpen, isRenaming, drag] = useSelector(explorerStore, (s) => [
+	const [isContextMenuOpen, isRenaming, drag, isCMDPOpen] = useSelector(explorerStore, (s) => [
 		s.isContextMenuOpen,
 		s.isRenaming,
-		s.drag
+		s.drag,
+		s.isCMDPOpen
 	]);
 	const { layoutMode } = explorer.useSettingsSnapshot();
 
@@ -59,7 +61,11 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	const [showLoading, setShowLoading] = useState(false);
 
 	const selectable =
-		explorer.selectable && !isContextMenuOpen && !isRenaming && !quickPreviewStore.open;
+		explorer.selectable &&
+		!isContextMenuOpen &&
+		!isRenaming &&
+		!quickPreviewStore.open &&
+		!isCMDPOpen;
 
 	// Can stay here until we add columns view
 	// Once added, the provided parent related logic should move to useExplorerDroppable
@@ -86,12 +92,12 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 		})
 	});
 
+	const activeItem = useActiveItem();
+
 	useShortcuts();
 
-	useShortcut('explorerEscape', () => {
-		if (!selectable || explorer.selectedItems.size === 0) return;
-		if (explorerStore.isCMDPOpen) return;
-		explorer.resetSelectedItems([]);
+	useShortcut('explorerEscape', () => explorer.resetSelectedItems([]), {
+		disabled: !selectable || explorer.selectedItems.size === 0
 	});
 
 	useEffect(() => {
@@ -139,10 +145,13 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 		return () => element.removeEventListener('wheel', handleWheel);
 	}, [explorer.scrollRef, drag?.type]);
 
+	// Handle resizing of items in the Explorer grid and list view using the mouse wheel
+	useMouseItemResize();
+
 	if (!explorer.layouts[layoutMode]) return null;
 
 	return (
-		<ViewContext.Provider value={{ ref, ...contextProps, selectable }}>
+		<ExplorerViewContext.Provider value={{ ref, selectable, ...contextProps, ...activeItem }}>
 			<div
 				ref={ref}
 				className="flex flex-1"
@@ -179,7 +188,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 			<DragScrollable />
 
 			{quickPreview.ref && createPortal(<QuickPreview />, quickPreview.ref)}
-		</ViewContext.Provider>
+		</ExplorerViewContext.Provider>
 	);
 };
 
@@ -201,6 +210,7 @@ const useShortcuts = () => {
 	useShortcut('toggleQuickPreview', (e) => {
 		if (isRenaming || dialogManager.isAnyDialogOpen()) return;
 		if (explorerStore.isCMDPOpen) return;
+		if (explorer.selectedItems.size === 0) return;
 		e.preventDefault();
 		getQuickPreviewStore().open = !quickPreviewStore.open;
 	});

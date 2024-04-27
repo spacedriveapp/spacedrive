@@ -4,7 +4,7 @@ use axum::{
 	extract::{FromRequestParts, State},
 	headers::{authorization::Basic, Authorization},
 	http::Request,
-	middleware::{self, Next},
+	middleware::Next,
 	response::{IntoResponse, Response},
 	routing::get,
 	TypedHeader,
@@ -24,12 +24,13 @@ pub struct AppState {
 	auth: HashMap<String, SecStr>,
 }
 
+#[allow(unused)]
 async fn basic_auth<B>(
 	State(state): State<AppState>,
 	request: Request<B>,
 	next: Next<B>,
 ) -> Response {
-	let request = if state.auth.len() != 0 {
+	let request = if !state.auth.is_empty() {
 		let (mut parts, body) = request.into_parts();
 
 		let Ok(TypedHeader(Authorization(hdr))) =
@@ -46,7 +47,7 @@ async fn basic_auth<B>(
 		if state
 			.auth
 			.get(hdr.username())
-			.and_then(|pass| Some(*pass == SecStr::from(hdr.password())))
+			.map(|pass| *pass == SecStr::from(hdr.password()))
 			!= Some(true)
 		{
 			return Response::builder()
@@ -110,7 +111,7 @@ async fn main() {
 					.into_iter()
 					.enumerate()
 					.filter_map(|(i, s)| {
-						if s.len() == 0 {
+						if s.is_empty() {
 							return None;
 						}
 
@@ -133,7 +134,7 @@ async fn main() {
 	};
 
 	// We require credentials in production builds (unless explicitly disabled)
-	if auth.len() == 0 && !disabled {
+	if auth.is_empty() && !disabled {
 		#[cfg(not(debug_assertions))]
 		{
 			warn!("The 'SD_AUTH' environment variable is not set!");
@@ -143,6 +144,7 @@ async fn main() {
 		}
 	}
 
+	#[cfg(not(feature = "assets"))]
 	let state = AppState { auth };
 
 	let (node, router) = match Node::new(
@@ -243,7 +245,7 @@ async fn main() {
 	let app = app
 		.route("/", get(|| async { "Spacedrive Server!" }))
 		.fallback(|| async { "404 Not Found: We're past the event horizon..." })
-		.layer(middleware::from_fn_with_state(state, basic_auth));
+		.layer(axum::middleware::from_fn_with_state(state, basic_auth));
 
 	let mut addr = "[::]:8080".parse::<SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
 	addr.set_port(port);
