@@ -35,7 +35,7 @@ pub enum Error {
 	Io(#[from] std::io::Error),
 	#[error("Duration for video stream is unavailable")]
 	NoVideoDuration,
-	#[error("Fail to create CString: {0}")]
+	#[error("Failed to allocate C data: {0}")]
 	NulError(#[from] NulError),
 	#[error("Path conversion error: Path: {0:#?}")]
 	PathConversion(PathBuf),

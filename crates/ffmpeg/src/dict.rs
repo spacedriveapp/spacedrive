@@ -1,14 +1,11 @@
 use crate::{error::Error, model::MediaMetadata, utils::check_error};
 
-use std::{
-	ffi::{CStr, CString},
-	ptr,
-};
+use std::{ffi::CStr, ptr};
 
 use chrono::DateTime;
 use ffmpeg_sys_next::{
 	av_dict_free, av_dict_get, av_dict_iterate, av_dict_set, AVDictionary, AVDictionaryEntry,
-	AV_DICT_DONT_OVERWRITE, AV_DICT_MATCH_CASE,
+	AV_DICT_MATCH_CASE,
 };
 
 #[derive(Debug)]
@@ -31,33 +28,13 @@ impl FFmpegDict {
 		}
 	}
 
-	pub(crate) fn as_mut_ptr(&mut self) -> *mut AVDictionary {
-		self.dict
-	}
-
-	pub(crate) fn get(&self, key: &CString) -> Option<String> {
+	pub(crate) fn get(&self, key: &CStr) -> Option<String> {
 		unsafe { av_dict_get(self.dict, key.as_ptr(), ptr::null(), 0).as_ref() }
 			.and_then(|entry| unsafe { entry.value.as_ref() })
 			.map(|value| {
 				let cstr = unsafe { CStr::from_ptr(value) };
 				String::from_utf8_lossy(cstr.to_bytes()).to_string()
 			})
-	}
-
-	pub(crate) fn set(&mut self, key: &CStr, value: &CStr) -> Result<(), Error> {
-		check_error(
-			unsafe {
-				av_dict_set(
-					&mut self.dict,
-					key.as_ptr(),
-					value.as_ptr(),
-					AV_DICT_DONT_OVERWRITE,
-				)
-			},
-			"Fail to set dictionary key-value pair",
-		)?;
-
-		Ok(())
 	}
 
 	pub(crate) fn remove(&mut self, key: &CStr) -> Result<(), Error> {

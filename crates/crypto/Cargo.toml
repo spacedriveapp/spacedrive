@@ -1,6 +1,6 @@
 [package]
 name = "sd-crypto"
-rust-version = "1.72.0"
+rust-version = "1.72"
 version = "0.0.0"
 authors = ["Jake Robinson <jake@spacedrive.com>"]
 description = """

@@ -19,11 +19,7 @@ use ffmpeg_sys_next::{
 	AV_NOPTS_VALUE, AV_TIME_BASE,
 };
 
-use std::{
-	collections::HashSet,
-	ffi::{CStr, CString},
-	ptr,
-};
+use std::{collections::HashSet, ffi::CStr, ptr};
 
 use chrono::TimeDelta;
 
@@ -31,13 +27,10 @@ fn extract_name_and_convert_metadata(
 	metadata: *mut AVDictionary,
 ) -> (MediaMetadata, Option<String>) {
 	let mut metadata = FFmpegDict::new(unsafe { metadata.as_mut() });
-	let name = CString::new("name").map_or(None, |key| {
-		let name = metadata.get(&key);
-		if name.is_some() {
-			let _ = metadata.remove(&key);
-		}
-		name
-	});
+	let name = metadata.get(c"name");
+	if name.is_some() {
+		let _ = metadata.remove(c"name");
+	}
 
 	(metadata.into(), name)
 }
@@ -46,7 +39,7 @@ fn extract_name_and_convert_metadata(
 pub(crate) struct FFmpegFormatContext(*mut AVFormatContext);
 
 impl FFmpegFormatContext {
-	pub(crate) fn open_file(filename: CString) -> Result<Self, Error> {
+	pub(crate) fn open_file(filename: &CStr) -> Result<Self, Error> {
 		let mut ptr = ptr::null_mut();
 
 		check_error(

@@ -1,6 +1,5 @@
 use crate::{
 	codec_ctx::FFmpegCodecContext,
-	dict::FFmpegDict,
 	error::{Error, FFmpegError},
 	filter_graph::FFmpegFilterGraph,
 	format_ctx::FFmpegFormatContext,
@@ -53,7 +52,7 @@ impl FrameDecoder {
 		// TODO: Remove this, just here to test and so clippy stops complaining about it being unused
 		let _ = probe(filename);
 
-		let mut format_context = FFmpegFormatContext::open_file(from_path(filename)?)?;
+		let mut format_context = FFmpegFormatContext::open_file(from_path(filename)?.as_c_str())?;
 
 		format_context.find_stream_info()?;
 

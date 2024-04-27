@@ -2,7 +2,7 @@
 name = "sd-task-system"
 version = "0.1.0"
 authors = ["Ericson \"Fogo\" Soares <ericson.ds999@gmail.com>"]
-rust-version = "1.75.0"
+rust-version = "1.75"
 license.workspace = true
 edition.workspace = true
 repository.workspace = true

@@ -17,7 +17,7 @@ pub fn probe(filename: impl AsRef<Path>) -> Result<MediaInfo, Error> {
 	// format_opts.set(scan_all_pmts, c"1")?;
 
 	// Open an input stream, read the header and allocate the format context
-	let mut fmt_ctx = FFmpegFormatContext::open_file(from_path(filename)?)?;
+	let mut fmt_ctx = FFmpegFormatContext::open_file(from_path(filename)?.as_c_str())?;
 
 	// // Reset MPEGTS specific option
 	// format_opts.remove(scan_all_pmts)?;
