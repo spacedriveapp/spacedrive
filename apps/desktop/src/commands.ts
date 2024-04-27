@@ -41,6 +41,17 @@ export const commands = {
 	async requestFdaMacos(): Promise<null> {
 		return await TAURI_INVOKE('plugin:tauri-specta|request_fda_macos');
 	},
+	async openTrashInOsExplorer(): Promise<__Result__<null, null>> {
+		try {
+			return {
+				status: 'ok',
+				data: await TAURI_INVOKE('plugin:tauri-specta|open_trash_in_os_explorer')
+			};
+		} catch (e) {
+			if (e instanceof Error) throw e;
+			else return { status: 'error', error: e as any };
+		}
+	},
 	async openFilePaths(
 		library: string,
 		ids: number[]

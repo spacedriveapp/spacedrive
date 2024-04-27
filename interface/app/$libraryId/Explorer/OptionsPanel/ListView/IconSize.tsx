@@ -15,8 +15,8 @@ export const IconSize = () => {
 	const explorer = useExplorerContext();
 	const settings = explorer.useSettingsSnapshot();
 
-	const defaultValue = useMemo(
-		() => sizes.findIndex((size) => size[0] === settings.listViewIconSize),
+	const value = useMemo(
+		() => sizes.indexMap.get(settings.listViewIconSize),
 		[settings.listViewIconSize]
 	);
 
@@ -25,11 +25,11 @@ export const IconSize = () => {
 			<Subheading>{t('icon_size')}</Subheading>
 			<Slider
 				step={1}
-				max={sizes.length - 1}
-				defaultValue={[defaultValue]}
+				max={sizes.sizeMap.size - 1}
+				value={[value ?? 0]}
 				onValueChange={([value]) => {
-					const size = value !== undefined && sizes[value];
-					if (size) explorer.settingsStore.listViewIconSize = size[0];
+					const size = value !== undefined && sizes.sizeMap.get(value);
+					if (size) explorer.settingsStore.listViewIconSize = size;
 				}}
 			/>
 		</div>

@@ -40,6 +40,7 @@ export type Procedures = {
         { key: "notifications.dismiss", input: NotificationId, result: null } | 
         { key: "notifications.dismissAll", input: never, result: null } | 
         { key: "notifications.get", input: never, result: Notification[] } | 
+        { key: "p2p.listeners", input: never, result: Listeners } | 
         { key: "p2p.state", input: never, result: JsonValue } | 
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
@@ -133,6 +134,7 @@ export type Procedures = {
     subscriptions: 
         { key: "auth.loginSession", input: never, result: Response } | 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
+        { key: "jobs.newFilePathIdentified", input: LibraryArgs<null>, result: number[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string[] } | 
         { key: "jobs.progress", input: LibraryArgs<null>, result: JobProgressEvent } | 
         { key: "library.actors", input: LibraryArgs<null>, result: { [key in string]: boolean } } | 
@@ -154,7 +156,7 @@ export type AudioMetadata = { duration: number | null; audio_codec: string | nul
  * 
  * If you want a variant of this to show up on the frontend it must be added to `backendFeatures` in `useFeatureFlag.tsx`
  */
-export type BackendFeature = "filesOverP2P" | "cloudSync"
+export type BackendFeature = "cloudSync"
 
 export type Backup = ({ id: string; timestamp: string; library_id: string; library_name: string }) & { path: string }
 
@@ -168,7 +170,7 @@ export type CacheNode = { __type: string; __id: string; "#node": any }
 
 export type CameraData = { device_make: string | null; device_model: string | null; color_space: string | null; color_profile: ColorProfile | null; focal_length: number | null; shutter_speed: number | null; flash: Flash | null; orientation: Orientation; lens_make: string | null; lens_model: string | null; bit_depth: number | null; red_eye: boolean | null; zoom: number | null; iso: number | null; software: string | null; serial_number: string | null; lens_serial_number: string | null; contrast: number | null; saturation: number | null; sharpness: number | null; composite: Composite | null }
 
-export type ChangeNodeNameArgs = { name: string | null; p2p_ipv4_port: Port | null; p2p_ipv6_port: Port | null; p2p_discovery: P2PDiscoveryState | null; image_labeler_version: string | null }
+export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p2p_ipv4_enabled: boolean | null; p2p_ipv6_enabled: boolean | null; p2p_discovery: P2PDiscoveryState | null; p2p_remote_access: boolean | null; image_labeler_version: string | null }
 
 export type CloudInstance = { id: string; uuid: string; identity: RemoteIdentity; nodeId: string; metadata: { [key in string]: string } }
 
@@ -236,9 +238,11 @@ export type EphemeralFileCreateContextTypes = "empty" | "text"
 
 export type EphemeralFileSystemOps = { sources: string[]; target_dir: string }
 
-export type EphemeralPathSearchArgs = { from: PathFrom; path: string; withHiddenFiles: boolean }
+export type EphemeralPathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder }
 
-export type EphemeralPathsResultItem = { entries: Reference<ExplorerItem>[]; errors: string[]; nodes: CacheNode[] }
+export type EphemeralPathSearchArgs = { path: string; withHiddenFiles: boolean; order?: EphemeralPathOrder | null }
+
+export type EphemeralPathsResultItem = { entries: Reference<ExplorerItem>[]; errors: Error[]; nodes: CacheNode[] }
 
 export type EphemeralRenameFileArgs = { kind: EphemeralRenameKind }
 
@@ -248,7 +252,14 @@ export type EphemeralRenameMany = { from_pattern: FromPattern; to_pattern: strin
 
 export type EphemeralRenameOne = { from_path: string; to: string }
 
-export type ExplorerItem = { type: "Path"; thumbnail: string[] | null; item: FilePathWithObject } | { type: "Object"; thumbnail: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; item: Location } | { type: "NonIndexedPath"; thumbnail: string[] | null; item: NonIndexedPathItem } | { type: "SpacedropPeer"; item: PeerMetadata } | { type: "Label"; thumbnails: string[][]; item: LabelWithObjects }
+export type Error = { code: ErrorCode; message: string }
+
+/**
+ * TODO
+ */
+export type ErrorCode = "BadRequest" | "Unauthorized" | "Forbidden" | "NotFound" | "Timeout" | "Conflict" | "PreconditionFailed" | "PayloadTooLarge" | "MethodNotSupported" | "ClientClosedRequest" | "InternalServerError"
+
+export type ExplorerItem = { type: "Path"; thumbnail: string[] | null; has_created_thumbnail: boolean; item: FilePathWithObject } | { type: "Object"; thumbnail: string[] | null; has_created_thumbnail: boolean; item: ObjectWithFilePaths } | { type: "NonIndexedPath"; thumbnail: string[] | null; has_created_thumbnail: boolean; item: NonIndexedPathItem } | { type: "Location"; item: Location } | { type: "SpacedropPeer"; item: PeerMetadata } | { type: "Label"; thumbnails: string[][]; item: LabelWithObjects }
 
 export type ExplorerLayout = "grid" | "list" | "media"
 
@@ -408,7 +419,9 @@ export type LibraryPreferences = { location?: { [key in string]: LocationSetting
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
-export type Listener2 = { id: string; name: string; addrs: string[] }
+export type ListenerState = { type: "Listening" } | { type: "Error"; error: string } | { type: "Disabled" }
+
+export type Listeners = { ipv4: ListenerState; ipv6: ListenerState }
 
 export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; scan_state: number; instance_id: number | null }
 
@@ -447,6 +460,8 @@ export type MediaLocation = { latitude: number; longitude: number; pluscode: Plu
 
 export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata)
 
+export type NodeConfigP2P = { discovery?: P2PDiscoveryState; port: Port; ipv4: boolean; ipv6: boolean; remote_access: boolean }
+
 export type NodePreferences = { thumbnailer: ThumbnailerPreferences }
 
 export type NodeState = ({ 
@@ -457,7 +472,7 @@ id: string;
 /**
  * name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
  */
-name: string; identity: RemoteIdentity; p2p_ipv4_port: Port; p2p_ipv6_port: Port; p2p_discovery: P2PDiscoveryState; features: BackendFeature[]; preferences: NodePreferences; image_labeler_version: string | null }) & { data_path: string; listeners: Listener2[]; device_model: string | null }
+name: string; identity: RemoteIdentity; p2p: NodeConfigP2P; features: BackendFeature[]; preferences: NodePreferences; image_labeler_version: string | null }) & { data_path: string; device_model: string | null }
 
 export type NonIndexedPathItem = { path: string; name: string; extension: string; kind: number; is_dir: boolean; date_created: string; date_modified: string; size_in_bytes_bytes: number[]; hidden: boolean }
 
@@ -530,13 +545,11 @@ export type P2PDiscoveryState = "Everyone" | "ContactsOnly" | "Disabled"
 
 export type P2PEvent = { type: "PeerChange"; identity: RemoteIdentity; connection: ConnectionMethod; discovery: DiscoveryMethod; metadata: PeerMetadata } | { type: "PeerDelete"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedOut"; id: string } | { type: "SpacedropRejected"; id: string }
 
-export type PathFrom = "path"
-
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; device_model: HardwareModel | null; version: string | null }
 
 export type PlusCode = string
 
-export type Port = null | number
+export type Port = { type: "random" } | { type: "discrete"; value: number }
 
 export type Range<T> = { from: T } | { to: T }
 

@@ -7,16 +7,17 @@ We use a fork based on [rspc 0.1.4](https://docs.rs/rspc) which contains heavy m
 
 ## What's different?
 
- - A super pre-release version of rspc v1's procedure syntax.
- - Upgrade to Specta v2 prelease
- - Add `Router::sd_patch_types_dangerously`
- - Expose internal type maps for the invalidation system.
- - All procedures must return a result
- - `Procedure::with2` which is a hack to properly support the middleware mapper API
- - Legacy executor system - Will require major changes to the React Native link.
+- A super pre-release version of rspc v1's procedure syntax.
+- Upgrade to Specta v2 prelease
+- Add `Router::sd_patch_types_dangerously`
+- Expose internal type maps for the invalidation system.
+- All procedures must return a result
+- `Procedure::with2` which is a hack to properly support the middleware mapper API
+- Legacy executor system - Will require major changes to the React Native link.
 
 Removed features relied on by Spacedrive:
- - Argument middleware mapper API has been removed upstream
+
+- Argument middleware mapper API has been removed upstream
 
 ## Basic usage
 
@@ -83,9 +84,8 @@ Minus batching HTTP requests are run in parallel.
 
 ### Websocket reconnect
 
-If the websocket connection is dropped (due to network disruption) all subscriptions *will not* restart upon reconnecting.
+If the websocket connection is dropped (due to network disruption) all subscriptions _will not_ restart upon reconnecting.
 
 This will cause the invalidation system to break and potentially other parts of the app that rely on subscriptions.
 
 Queries and mutations done during the network disruption will hang indefinitely.
-

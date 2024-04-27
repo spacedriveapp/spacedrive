@@ -47,7 +47,7 @@ const FiltersBar = () => {
 				<Plus weight="bold" size={20} color={tw.color('text-ink-dull')} />
 			</Button>
 			<View style={tw`relative flex-1`}>
-				<Fade noConditions height={'100%'} width={30} color="app-header">
+				<Fade height={'100%'} width={30} color="app-header">
 					<FlatList
 						ref={flatListRef}
 						showsHorizontalScrollIndicator={false}

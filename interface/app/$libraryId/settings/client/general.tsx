@@ -1,9 +1,11 @@
-import { FormProvider } from 'react-hook-form';
+import clsx from 'clsx';
+import { Controller, FormProvider } from 'react-hook-form';
 import {
 	useBridgeMutation,
 	useBridgeQuery,
 	useConnectedPeers,
 	useDebugState,
+	useFeatureFlag,
 	useZodForm
 } from '@sd/client';
 import { Button, Card, Input, Select, SelectOption, Slider, Switch, toast, tw, z } from '@sd/ui';
@@ -37,6 +39,8 @@ const LANGUAGE_OPTIONS = [
 // Sort the languages by their label
 LANGUAGE_OPTIONS.sort((a, b) => a.label.localeCompare(b.label));
 
+const u16 = () => z.number().min(0).max(65535);
+
 export const Component = () => {
 	const node = useBridgeQuery(['nodeState']);
 	const platform = usePlatform();
@@ -50,9 +54,20 @@ export const Component = () => {
 		schema: z
 			.object({
 				name: z.string().min(1).max(250).optional(),
-				// p2p_enabled: z.boolean().optional(),
-				// p2p_port: u16,
-				// customOrDefault: z.enum(['Custom', 'Default']),
+				p2p_port: z.discriminatedUnion('type', [
+					z.object({ type: z.literal('random') }),
+					z.object({ type: z.literal('discrete'), value: u16() })
+				]),
+				p2p_ipv4_enabled: z.boolean().optional(),
+				p2p_ipv6_enabled: z.boolean().optional(),
+				p2p_discovery: z
+					.union([
+						z.literal('Everyone'),
+						z.literal('ContactsOnly'),
+						z.literal('Disabled')
+					])
+					.optional(),
+				p2p_remote_access: z.boolean().optional(),
 				image_labeler_version: z.string().optional(),
 				background_processing_percentage: z.coerce
 					.number({
@@ -66,28 +81,30 @@ export const Component = () => {
 		reValidateMode: 'onChange',
 		defaultValues: {
 			name: node.data?.name,
-			// p2p_port: node.data?.p2p_port || 0,
-			// p2p_enabled: node.data?.p2p_enabled,
-			// customOrDefault: node.data?.p2p_port ? 'Custom' : 'Default',
+			p2p_port: node.data?.p2p.port || { type: 'random' },
+			p2p_ipv4_enabled: node.data?.p2p.ipv4 || true,
+			p2p_ipv6_enabled: node.data?.p2p.ipv6 || true,
+			p2p_discovery: node.data?.p2p.discovery || 'Everyone',
+			p2p_remote_access: node.data?.p2p.remote_access || false,
 			image_labeler_version: node.data?.image_labeler_version ?? undefined,
 			background_processing_percentage:
 				node.data?.preferences.thumbnailer.background_processing_percentage || 50
 		}
 	});
+	const p2p_port = form.watch('p2p_port');
 
-	// const watchCustomOrDefault = form.watch('customOrDefault');
-	// const watchP2pEnabled = form.watch('p2p_enabled');
 	const watchBackgroundProcessingPercentage = form.watch('background_processing_percentage');
 
 	useDebouncedFormWatch(form, async (value) => {
 		if (await form.trigger()) {
 			await editNode.mutateAsync({
 				name: value.name || null,
-				p2p_ipv4_port: null,
-				p2p_ipv6_port: null,
-				p2p_discovery: null,
-				// p2p_port: value.customOrDefault === 'Default' ? 0 : Number(value.p2p_port),
-				// p2p_enabled: value.p2p_enabled ?? null,
+
+				p2p_port: (value.p2p_port as any) ?? null,
+				p2p_ipv4_enabled: value.p2p_ipv4_enabled ?? null,
+				p2p_ipv6_enabled: value.p2p_ipv6_enabled ?? null,
+				p2p_discovery: value.p2p_discovery ?? null,
+				p2p_remote_access: value.p2p_remote_access ?? null,
 				image_labeler_version: value.image_labeler_version ?? null
 			});
 
@@ -101,13 +118,15 @@ export const Component = () => {
 		node.refetch();
 	});
 
-	// form.watch((data) => {
-	// 	if (Number(data.p2p_port) > 65535) {
-	// 		form.setValue('p2p_port', 65535);
-	// 	}
-	// });
+	form.watch((data) => {
+		if (data.p2p_port?.type == 'discrete' && Number(data.p2p_port.value) > 65535) {
+			form.setValue('p2p_port', { type: 'discrete', value: 65535 });
+		}
+	});
 
 	const { t } = useLocale();
+
+	const isP2PWipFeatureEnabled = useFeatureFlag('wipP2P');
 
 	return (
 		<FormProvider {...form}>
@@ -288,20 +307,10 @@ export const Component = () => {
 					/>
 				</div>
 			</Setting> */}
-			{/* <div className="flex flex-col gap-4">
-				<h1 className="mb-3 text-lg font-bold text-ink">{t('networking')}</h1> */}
+			<div className="flex flex-col gap-4">
+				<h1 className="mb-3 text-lg font-bold text-ink">{t('networking')}</h1>
 
-			{/* TODO: Add some UI for this stuff */}
-			{/* {node.data?.p2p.ipv4.status === 'Listening' ||
-				node.data?.p2p.ipv4.status === 'Enabling'
-					? `0.0.0.0:${node.data?.p2p.ipv4?.port || 0}`
-					: ''}
-				{node.data?.p2p.ipv6.status === 'Listening' ||
-				node.data?.p2p.ipv6.status === 'Enabling'
-					? `[::1]:${node.data?.p2p.ipv6?.port || 0}`
-					: ''} */}
-
-			{/* <Setting
+				<Setting
 					mini
 					title={t('enable_networking')}
 					description={
@@ -317,56 +326,124 @@ export const Component = () => {
 				>
 					<Switch
 						size="md"
-						// checked={watchP2pEnabled || false}
-						// onClick={() => form.setValue('p2p_enabled', !form.getValues('p2p_enabled'))}
-						// disabled
-						onClick={() => toast.info(t('coming_soon'))}
+						checked={form.watch('p2p_ipv4_enabled') && form.watch('p2p_ipv6_enabled')}
+						onCheckedChange={(checked) => {
+							form.setValue('p2p_ipv4_enabled', checked);
+							form.setValue('p2p_ipv6_enabled', checked);
+						}}
 					/>
-				</Setting> */}
-			{/* <Setting
-					mini
-					title={t('networking_port')}
-					description={t('networking_port_description')}
-				>
-					<div className="flex h-[30px] gap-2">
-						<Controller
-							control={form.control}
-							name="customOrDefault"
-							render={({ field }) => (
+				</Setting>
+
+				{form.watch('p2p_ipv4_enabled') && form.watch('p2p_ipv6_enabled') ? (
+					<>
+						<Setting
+							mini
+							title={t('networking_port')}
+							description={t('networking_port_description')}
+						>
+							<div className="flex h-[30px] gap-2">
 								<Select
+									value={p2p_port.type}
 									containerClassName="h-[30px]"
-									disabled={!watchP2pEnabled}
-									className={clsx(!watchP2pEnabled && 'opacity-50', 'h-full')}
-									{...field}
-									onChange={(e) => {
-										field.onChange(e);
-										form.setValue('p2p_port', 0);
+									className="h-full"
+									onChange={(type) => {
+										form.setValue('p2p_port', {
+											type: type as any
+										});
 									}}
 								>
-									<SelectOption value="Default">{t('default')}</SelectOption>
-									<SelectOption value="Custom">{t('custom')}</SelectOption>
+									<SelectOption value="random">{t('random')}</SelectOption>
+									<SelectOption value="discrete">{t('custom')}</SelectOption>
 								</Select>
-							)}
-						/>
-						<Input
-							className={clsx(
-								'w-[66px]',
-								watchCustomOrDefault === 'Default' || !watchP2pEnabled
-									? 'opacity-50'
-									: 'opacity-100'
-							)}
-							disabled={watchCustomOrDefault === 'Default' || !watchP2pEnabled}
-							{...form.register('p2p_port')}
-							onChange={(e) => {
-								form.setValue(
-									'p2p_port',
-									Number(e.target.value.replace(/[^0-9]/g, ''))
-								);
-							}}
-						/>
-					</div>
-				</Setting> */}
-			{/* </div> */}
+								<Input
+									value={p2p_port.type === 'discrete' ? p2p_port.value : 0}
+									className={clsx(
+										'w-[66px]',
+										p2p_port.type === 'random' ? 'opacity-50' : 'opacity-100'
+									)}
+									disabled={p2p_port.type === 'random'}
+									onChange={(e) => {
+										form.setValue('p2p_port', {
+											type: 'discrete',
+											value: Number(e.target.value.replace(/[^0-9]/g, ''))
+										});
+									}}
+								/>
+							</div>
+						</Setting>
+						<Setting
+							mini
+							title={t('ipv6')}
+							description={
+								<p className="text-sm text-gray-400">{t('ipv6_description')}</p>
+							}
+						>
+							<Switch
+								size="md"
+								checked={form.watch('p2p_ipv6_enabled')}
+								onCheckedChange={(checked) =>
+									form.setValue('p2p_ipv6_enabled', checked)
+								}
+							/>
+						</Setting>
+
+						{isP2PWipFeatureEnabled && (
+							<>
+								<Setting
+									mini
+									title={t('spacedrop')}
+									description={
+										<p className="text-sm text-gray-400">
+											{t('spacedrop_description')}
+										</p>
+									}
+								>
+									<Select
+										value={form.watch('p2p_discovery') || 'Everyone'}
+										containerClassName="h-[30px]"
+										className="h-full"
+										onChange={(type) => form.setValue('p2p_discovery', type)}
+									>
+										<SelectOption value="Everyone">
+											{t('spacedrop_everyone')}
+										</SelectOption>
+										<SelectOption value="ContactsOnly">
+											{t('spacedrop_contacts_only')}
+										</SelectOption>
+										<SelectOption value="Disabled">
+											{t('spacedrop_disabled')}
+										</SelectOption>
+									</Select>
+								</Setting>
+
+								<Setting
+									mini
+									title={t('remote_access')}
+									description={
+										<>
+											<p className="text-sm text-gray-400">
+												{t('remote_access_description')}
+											</p>
+											<p className="text-sm text-yellow-500">
+												WARNING: This protocol has no security at the moment
+												and effectively gives root access!
+											</p>
+										</>
+									}
+								>
+									<Switch
+										size="md"
+										checked={form.watch('p2p_remote_access')}
+										onCheckedChange={(checked) =>
+											form.setValue('p2p_remote_access', checked)
+										}
+									/>
+								</Setting>
+							</>
+						)}
+					</>
+				) : null}
+			</div>
 		</FormProvider>
 	);
 };

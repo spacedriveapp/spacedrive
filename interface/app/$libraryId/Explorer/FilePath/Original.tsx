@@ -17,7 +17,7 @@ import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
 import { explorerStore } from '../store';
-import { ExplorerItemData } from '../util';
+import { ExplorerItemData } from '../useExplorerItemData';
 import { Image } from './Image';
 import { useBlackBars, useSize } from './utils';
 
