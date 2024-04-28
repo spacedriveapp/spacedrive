@@ -21,7 +21,7 @@ export default function SearchStack() {
 				component={FiltersScreen}
 				options={{
 					header: () => {
-						return <Header navBack showSearch={false} title="Search filters" />;
+						return <Header navBack title="Search filters" />;
 					}
 				}}
 			/>
