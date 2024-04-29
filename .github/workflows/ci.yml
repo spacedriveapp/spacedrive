@@ -25,7 +25,7 @@ jobs:
     permissions: {}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde6  # v4
+        uses: actions/checkout@1e31de5234b9f8995739874a8ce0492dc87873e2  # v4
 
       - name: Setup Node.js, pnpm and dependencies
         uses: ./.github/actions/setup-pnpm
@@ -42,7 +42,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde6  # v4
+        uses: actions/checkout@1e31de5234b9f8995739874a8ce0492dc87873e2  # v4
 
       - name: Setup Node.js, pnpm and dependencies
         uses: ./.github/actions/setup-pnpm
@@ -59,7 +59,7 @@ jobs:
     permissions: {}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde6  # v4
+        uses: actions/checkout@1e31de5234b9f8995739874a8ce0492dc87873e2  # v4
 
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
@@ -73,7 +73,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Cypress
-        uses: cypress-io/github-action@1b70233  # v6
+        uses: cypress-io/github-action@1b70233146622b69e789ccdd4f9452adc638d25a  # v6
         with:
           runTests: false
           working-directory: .
@@ -82,7 +82,7 @@ jobs:
         run: pnpm test-data small
 
       - name: E2E test
-        uses: cypress-io/github-action@1b70233  # v6
+        uses: cypress-io/github-action@1b70233146622b69e789ccdd4f9452adc638d25a  # v6
         with:
           build: npx cypress info
           install: false
@@ -90,14 +90,14 @@ jobs:
           working-directory: apps/web
 
       - name: Upload cypress screenshots
-        uses: actions/upload-artifact@5d5d22a  # v4
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808  # v4
         with:
           name: cypress-screenshots
           path: apps/web/cypress/screenshots
           if-no-files-found: ignore
 
       - name: Upload cypress video's
-        uses: actions/upload-artifact@5d5d22a
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
         if: always()
         with:
           name: cypress-videos
@@ -113,7 +113,7 @@ jobs:
     steps:
       - name: Maximize build space
         if: ${{ runner.os == 'Linux' }}
-        uses: easimon/maximize-build-space@fc881a6  # master
+        uses: easimon/maximize-build-space@fc881a613ad2a34aca9c9624518214ebc21dfc0c  # master
         with:
           swap-size-mb: 3072
           root-reserve-mb: 6144
@@ -127,17 +127,17 @@ jobs:
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path C:\spacedrive_target
-      - name: Symlint target to C:\
+      - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
         shell: powershell
         run: |
           New-Item -Path target -ItemType Junction -Value C:\spacedrive_target
 
       - name: Checkout repository
-        uses: actions/checkout@b4ffde6  # v4
+        uses: actions/checkout@1e31de5234b9f8995739874a8ce0492dc87873e2  # v4
 
       - name: Check if files have changed
-        uses: dorny/paths-filter@de90cc6  # v3
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36  # v3
         continue-on-error: true
         id: filter
         with:
@@ -176,7 +176,7 @@ jobs:
     steps:
       - name: Maximize build space
         if: ${{ runner.os == 'Linux' }}
-        uses: easimon/maximize-build-space@fc881a6  # master
+        uses: easimon/maximize-build-space@fc881a613ad2a34aca9c9624518214ebc21dfc0c  # master
         with:
           swap-size-mb: 3072
           root-reserve-mb: 6144
@@ -190,17 +190,17 @@ jobs:
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path C:\spacedrive_target
-      - name: Symlint target to C:\
+      - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
         shell: powershell
         run: |
           New-Item -Path target -ItemType Junction -Value C:\spacedrive_target
 
       - name: Checkout repository
-        uses: actions/checkout@b4ffde6  # v4
+        uses: actions/checkout@1e31de5234b9f8995739874a8ce0492dc87873e2  # v4
 
       - name: Find files that have changed
-        uses: dorny/paths-filter@de90cc6  # v3
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36  # v3
         continue-on-error: true
         id: filter
         with:
@@ -227,7 +227,7 @@ jobs:
 
       - name: Run Clippy
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
-        uses: actions-rs-plus/clippy-check@v2
+        uses: actions-rs-plus/clippy-check@30fef0f891edb491831cd248156cfb18d7d12fda # v2
         with:
           args: --workspace --all-features
 

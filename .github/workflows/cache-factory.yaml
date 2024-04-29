@@ -58,7 +58,7 @@ jobs:
     steps:
       - name: Maximize build space
         if: ${{ runner.os == 'Linux' }}
-        uses: easimon/maximize-build-space@fc881a6  # master
+        uses: easimon/maximize-build-space@fc881a613ad2a34aca9c9624518214ebc21dfc0c  # master
         with:
           swap-size-mb: 4096
           root-reserve-mb: 6144
@@ -68,14 +68,14 @@ jobs:
           remove-docker-images: 'true'
 
       - name: Checkout repository
-        uses: actions/checkout@b4ffde6  # v4
+        uses: actions/checkout@1e31de5234b9f8995739874a8ce0492dc87873e2  # v4
 
       - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path C:\spacedrive_target
-      - name: Symlint target to C:\
+      - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
         shell: powershell
         run: |
