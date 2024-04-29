@@ -88,7 +88,7 @@
   "cut_success": "Éléments coupés",
   "data_folder": "Dossier de données",
   "date_format": "Format de date",
-	"date_format_description": "Choisissez le format de date affiché dans Spacedrive",
+  "date_format_description": "Choisissez le format de date affiché dans Spacedrive",
   "date_accessed": "Date d'accès",
   "date_created": "date créée",
   "date_indexed": "Date d'indexation",
