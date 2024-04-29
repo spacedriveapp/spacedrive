@@ -1,3 +1,4 @@
+import dayjs from 'dayjs';
 import { type ExplorerItem } from '@sd/client';
 import { ExplorerParamsSchema } from '~/app/route-schemas';
 import { useZodSearchParams } from '~/hooks';
@@ -32,4 +33,59 @@ export function getItemId(index: number, items: ExplorerItem[]) {
 
 export function getItemData(index: number, items: ExplorerItem[]) {
 	return items[index];
+}
+
+const dayjsLocales: Record<string, any> = {
+	en: () => import('dayjs/locale/en.js'),
+	en_gb: () => import('dayjs/locale/en-gb.js'),
+	de: () => import('dayjs/locale/de.js'),
+	es: () => import('dayjs/locale/es.js'),
+	fr: () => import('dayjs/locale/fr.js'),
+	tr: () => import('dayjs/locale/tr.js'),
+	nl: () => import('dayjs/locale/nl.js'),
+	be: () => import('dayjs/locale/be.js'),
+	ru: () => import('dayjs/locale/ru.js'),
+	zh_CN: () => import('dayjs/locale/zh-cn.js'),
+	zh_TW: () => import('dayjs/locale/zh-tw.js'),
+	it: () => import('dayjs/locale/it.js'),
+	ja: () => import('dayjs/locale/ja.js')
+};
+
+export function loadDayjsLocale(language: string) {
+	dayjsLocales[language]().then(() => {
+		language = language.replace('_', '-');
+		dayjs.locale(language);
+	});
+}
+
+// Generate list of localized formats available in the app
+export function generateLocaleDateFormats(language: string) {
+	language = language.replace('_', '-');
+	const DATE_FORMATS = [
+		{
+			value: 'L',
+			label: dayjs().locale(language).format('L')
+		},
+		{
+			value: 'll',
+			label: dayjs().locale(language).format('ll')
+		},
+		{
+			value: 'LL',
+			label: dayjs().locale(language).format('LL')
+		},
+		{
+			value: 'lll',
+			label: dayjs().locale(language).format('lll')
+		},
+		{
+			value: 'LLL',
+			label: dayjs().locale(language).format('LLL')
+		},
+		{
+			value: 'llll',
+			label: dayjs().locale(language).format('llll')
+		}
+	];
+	return DATE_FORMATS;
 }

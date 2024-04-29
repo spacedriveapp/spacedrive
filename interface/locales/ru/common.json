@@ -87,6 +87,8 @@
   "cut_object": "Вырезать объект",
   "cut_success": "Элементы вырезаны",
   "data_folder": "Папка с данными",
+  "date_format": "Формат даты",
+	"date_format_description": "Изменить формат даты, отображаемый в Spacedrive",
   "date_accessed": "Дата доступа",
   "date_created": "Дата создания",
   "date_indexed": "Дата индексации",

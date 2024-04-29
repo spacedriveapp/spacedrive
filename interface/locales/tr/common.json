@@ -87,6 +87,8 @@
   "cut_object": "Nesneyi kes",
   "cut_success": "Öğeleri kes",
   "data_folder": "Veri Klasörü",
+  "date_format": "Tarih Formatı",
+	"date_format_description": "Spacedrive'da görüntülenen tarih biçimini değiştirme",
   "date_accessed": "Erişilen tarih",
   "date_created": "tarih oluşturuldu",
   "date_indexed": "Dizine Eklenme Tarihi",
