@@ -77,6 +77,8 @@ pub enum NonCriticalError {
 	Indexer(#[from] indexer::NonCriticalError),
 	#[error(transparent)]
 	FileIdentifier(#[from] file_identifier::NonCriticalError),
+	#[error(transparent)]
+	MediaProcessor(#[from] media_processor::NonCriticalError),
 }
 
 #[repr(i32)]

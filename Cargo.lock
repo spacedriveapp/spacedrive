@@ -8301,6 +8301,7 @@ dependencies = [
  "globset",
  "itertools 0.12.0",
  "lending-stream",
+ "once_cell",
  "prisma-client-rust",
  "rmp-serde",
  "rmpv",
