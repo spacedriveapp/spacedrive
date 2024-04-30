@@ -2,7 +2,7 @@ import { DotsThreeOutlineVertical, Pen, Trash } from 'phosphor-react-native';
 import React, { useEffect, useRef } from 'react';
 import { Animated, FlatList, Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { LibraryConfigWrapped, useBridgeQuery, useCache, useNodes } from '@sd/client';
+import { LibraryConfigWrapped, useBridgeQuery } from '@sd/client';
 import Fade from '~/components/layout/Fade';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
@@ -80,8 +80,7 @@ function LibraryItem({
 
 const LibrarySettingsScreen = ({ navigation }: SettingsStackScreenProps<'LibrarySettings'>) => {
 	const libraryList = useBridgeQuery(['library.list']);
-	useNodes(libraryList.data?.nodes);
-	const libraries = useCache(libraryList.data?.items);
+	const libraries = libraryList.data;
 
 	useEffect(() => {
 		navigation.setOptions({

@@ -3,7 +3,7 @@ import { Plus } from 'phosphor-react-native';
 import { useMemo, useRef } from 'react';
 import { FlatList, Pressable, View } from 'react-native';
 import { useDebounce } from 'use-debounce';
-import { useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { useLibraryQuery } from '@sd/client';
 import Empty from '~/components/layout/Empty';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
@@ -20,8 +20,7 @@ interface Props {
 
 export default function LocationsScreen({ viewStyle }: Props) {
 	const locationsQuery = useLibraryQuery(['locations.list']);
-	useNodes(locationsQuery.data?.nodes);
-	const locations = useCache(locationsQuery.data?.items);
+	const locations = locationsQuery.data;
 	const { search } = useSearchStore();
 	const modalRef = useRef<ModalRef>(null);
 	const [debouncedSearch] = useDebounce(search, 200);

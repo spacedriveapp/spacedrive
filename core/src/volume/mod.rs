@@ -1,5 +1,4 @@
 // Adapted from: https://github.com/kimlimjustin/xplorer/blob/f4f3590d06783d64949766cc2975205a3b689a56/src-tauri/src/drives.rs
-use sd_cache::Model;
 
 use std::{
 	fmt::Display,
@@ -55,12 +54,6 @@ pub struct Volume {
 	pub disk_type: DiskType,
 	pub file_system: Option<String>,
 	pub is_root_filesystem: bool,
-}
-
-impl Model for Volume {
-	fn name() -> &'static str {
-		"Volume"
-	}
 }
 
 impl Hash for Volume {

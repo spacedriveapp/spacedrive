@@ -1,7 +1,5 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
 
-import { useNodes, useNormalisedCache } from '../cache';
 import { FilePathOrder, FilePathSearchArgs } from '../core';
 import { useLibraryContext } from '../hooks';
 import { useRspcLibraryContext } from '../rspc';
@@ -17,7 +15,6 @@ export function usePathsOffsetInfiniteQuery({
 
 	const { library } = useLibraryContext();
 	const ctx = useRspcLibraryContext();
-	const cache = useNormalisedCache();
 
 	if (order) {
 		arg.orderAndPagination = { orderOnly: order };
@@ -49,23 +46,15 @@ export function usePathsOffsetInfiniteQuery({
 			arg.orderAndPagination = orderAndPagination;
 
 			const result = await ctx.client.query(['search.paths', arg]);
-			cache.withNodes(result.nodes);
 
 			return { ...result, offset: pageParam, arg };
 		},
-		getNextPageParam: ({ nodes, offset, arg }) => {
-			if (nodes.length >= arg.take) return (offset ?? 0) + 1;
+		getNextPageParam: ({ items, offset, arg }) => {
+			if (items.length >= arg.take) return (offset ?? 0) + 1;
 		},
 		onSuccess,
 		...args
 	});
-
-	const nodes = useMemo(
-		() => query.data?.pages.flatMap((page) => page.nodes) ?? [],
-		[query.data?.pages]
-	);
-
-	useNodes(nodes);
 
 	return query;
 }
