@@ -42,7 +42,7 @@ interface State {
 				kind: KindItem[];
 			}
 		> | {};
-	mergedFilters: SearchFilterArgs[] | undefined
+	mergedFilters: SearchFilterArgs[],
 	disableActionButtons: boolean;
 }
 
@@ -57,7 +57,7 @@ const initialState: State = {
 		kind: []
 	},
 	appliedFilters: {},
-	mergedFilters: undefined,
+	mergedFilters: [],
 	disableActionButtons: true
 };
 

@@ -1,6 +1,6 @@
 import { SearchFilterArgs } from '@sd/client';
-import { useEffect } from 'react';
-import { getSearchStore, SearchFilters, useSearchStore } from '~/stores/searchStore';
+import { useEffect, useMemo } from 'react';
+import { SearchFilters, getSearchStore, useSearchStore } from '~/stores/searchStore';
 
 /**
  * This hook merges the selected filters from Filters page in order
@@ -34,51 +34,49 @@ export function useFiltersSearch() {
 	}
 
 	//for merging the applied filters
-	const mergedFilters = () => {
-		//each filter is associated with a path or object
-		const filePath = ['locations', 'name', 'hidden', 'extension'];
-		const object = ['tags', 'kind'];
-		return Object.entries(searchStore.filters)
-			.map(([key, value]) => {
-				const searchFilterKey = key as SearchFilters;
-				if (Array.isArray(value)) {
-					if (value.length === 0 || value[0] === '') return;
-				}
-				if (filePath.includes(searchFilterKey)) {
-					if (searchFilterKey === 'name' || searchFilterKey === 'extension') {
-						return createFilter(
-							searchFilterKey,
-							'filePath',
-							'contains',
-							getDataFromFilter(value, 'none')
-						);
-					} else if (searchFilterKey === 'hidden') {
-						return {
-							filePath: {
-								[searchFilterKey]: value
-							}
-						};
-					} else {
-						return createFilter(
-							searchFilterKey,
-							'filePath',
-							'in',
-							getDataFromFilter(value, 'id')
-						);
+	const filePath = ['locations', 'name', 'hidden', 'extension'];
+	const object = ['tags', 'kind'];
+	const mergedFilters = useMemo(() =>
+		Object.entries(searchStore.filters)
+	.map(([key, value]) => {
+		const searchFilterKey = key as SearchFilters;
+		if (Array.isArray(value)) {
+			if (value.length === 0 || value[0] === '') return;
+		}
+		if (filePath.includes(searchFilterKey)) {
+			if (searchFilterKey === 'name' || searchFilterKey === 'extension') {
+				return createFilter(
+					searchFilterKey,
+					'filePath',
+					'contains',
+					getDataFromFilter(value, 'none')
+				);
+			} else if (searchFilterKey === 'hidden') {
+				return {
+					filePath: {
+						[searchFilterKey]: value
 					}
-				} else if (object.includes(searchFilterKey)) {
-					return createFilter(
-						searchFilterKey,
-						'object',
-						'in',
-						getDataFromFilter(value, 'id')
-					);
-				}
-			})
-			.filter((filter) => filter !== undefined) as SearchFilterArgs[];
-	};
+				};
+			} else {
+				return createFilter(
+					searchFilterKey,
+					'filePath',
+					'in',
+					getDataFromFilter(value, 'id')
+				);
+			}
+		} else if (object.includes(searchFilterKey)) {
+			return createFilter(
+				searchFilterKey,
+				'object',
+				'in',
+				getDataFromFilter(value, 'id')
+			);
+		}
+	})
+	.filter((filter) => filter !== undefined) as SearchFilterArgs[], [searchStore.filters]);
 
 	useEffect(() => {
-		getSearchStore().mergedFilters = mergedFilters();
+		getSearchStore().mergedFilters = mergedFilters;
 	}, [searchStore.filters]);
 };

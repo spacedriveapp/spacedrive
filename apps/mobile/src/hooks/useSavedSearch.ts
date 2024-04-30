@@ -1,4 +1,5 @@
-import { SavedSearch, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { SavedSearch, SearchFilterArgs, useLibraryQuery } from '@sd/client';
+import { useCallback, useMemo } from 'react';
 import { kinds } from '~/components/search/filters/Kind';
 import { SearchFilters } from '~/stores/searchStore';
 
@@ -22,7 +23,7 @@ export function useSavedSearch(search: SavedSearch) {
 	}, []);
 
 	// this function extracts the data of a filter from the Saved Search
-	function extractDataFromSavedSearch(key: SearchFilters, filterTag: 'contains' | 'in', type: 'filePath' | 'object') {
+	const extractDataFromSavedSearch = (key: SearchFilters, filterTag: 'contains' | 'in', type: 'filePath' | 'object') => {
 		// Iterate through each item in the data array
 		for (const item of parseFilters) {
 			// Check if 'filePath' | 'object' exists and contains a the key
@@ -34,31 +35,25 @@ export function useSavedSearch(search: SavedSearch) {
 		return null;
 	}
 
-	const locationsQuery = useLibraryQuery(['locations.list'], {
+	const locations = useLibraryQuery(['locations.list'], {
 		keepPreviousData: true,
-		enabled: filterKeys.includes('locations')
+		enabled: filterKeys.includes('locations'),
 	});
-	const tagsQuery = useLibraryQuery(['tags.list'], {
+	const tags = useLibraryQuery(['tags.list'], {
 		keepPreviousData: true,
-		enabled: filterKeys.includes('tags')
+		enabled: filterKeys.includes('tags'),
 	});
-
-	useNodes(locationsQuery.data?.nodes);
-	useNodes(tagsQuery.data?.nodes);
-
-	const locations = useCache(locationsQuery.data?.items);
-	const tags = useCache(tagsQuery.data?.items);
 
 	// Filters like locations, tags, and kind require data to be rendered as a Filter
 	// We prepare the data in the same format as the "filters" object in the "SearchStore"
 	// it is then 'matched' with the data from the "Saved Search"
 
-	const prepFilters = () => {
+	const prepFilters = useCallback(() => {
 		const data = {} as Record<SearchFilters, any>;
 		filterKeys.forEach((key: SearchFilters) => {
 			switch (key) {
 				case 'locations':
-					data.locations = locations.map((location) => {
+					data.locations = locations.data?.map((location) => {
 						return {
 							id: location.id,
 							name: location.name
@@ -66,7 +61,7 @@ export function useSavedSearch(search: SavedSearch) {
 					});
 					break;
 				case 'tags':
-					data.tags = tags.map((tag) => {
+					data.tags = tags.data?.map((tag) => {
 						return {
 							id: tag.id,
 							color: tag.color
@@ -91,44 +86,45 @@ export function useSavedSearch(search: SavedSearch) {
 			}
 		});
 		return data;
-	};
+	}, [locations, tags]);
 
-	const filters = parseFilters.reduce((acc: Record<SearchFilters, {}>, curr: any) => {
+	const filters: SearchFilterArgs[] = useMemo(() => {
+		return parseFilters.reduce((acc: Record<SearchFilters, {}>, curr: any) => {
 
-		const objectOrFilePath = Object.keys(curr)[0] as string;
-		const filterKeys = Object.keys(curr[objectOrFilePath as any])[0] as SearchFilters; //locations, tags, kind, etc...
+			const objectOrFilePath = Object.keys(curr)[0] as string;
+			const keys = Object.keys(curr[objectOrFilePath as any])[0] as SearchFilters; //locations, tags, kind, etc...
 
-		// this function extracts the data from the result of the "filters" object in the Saved Search
-		// and matches it with the values of the filters
-		const extractData = (key: SearchFilters) => {
-			const values = curr[objectOrFilePath as SearchFilters][key];
-			const type = Object.keys(values)[0];
+			// this function extracts the data from the result of the "filters" object in the Saved Search
+			// and matches it with the values of the filters
+			const extractData = (key: SearchFilters) => {
+				const values = curr[objectOrFilePath as SearchFilters][key];
+				const type = Object.keys(values)[0];
 
+				switch (type) {
+					case 'contains':
+						// some filters have a name property and some are just strings
+						return prepFilters()[key].filter((item: any) => {
+							return item.name ? item.name === values[type] :
+							item
+						});
+					case 'in':
+						return prepFilters()[key].filter((item: any) => values[type].includes(item.id));
+					default:
+						return values;
+				}
+			};
 
-			switch (type) {
-				case 'contains':
-					// some filters have a name property and some are just strings
-					return prepFilters()[key].filter((item: any) => {
-						return item.name ? item.name === values[type] :
-						item
-					});
-				case 'in':
-					return prepFilters()[key].filter((item: any) => values[type].includes(item.id));
-				default:
-					return values;
+			// the data being setup for the filters so it can be rendered
+			if (!acc[keys]) {
+				acc[keys] = extractData(keys);
+				//don't include false values i.e if the "Hidden" filter is false
+				if (acc[keys] === false) {
+					delete acc[keys];
+				}
 			}
-		};
-
-		// the data being setup for the filters so it can be rendered
-		if (!acc[filterKeys]) {
-			acc[filterKeys] = extractData(filterKeys);
-			//don't include false values i.e if the "Hidden" filter is false
-			if (acc[filterKeys] === false) {
-				delete acc[filterKeys];
-			}
-		}
-		return acc;
-	}, {});
+			return acc;
+		}, {});
+	}, [parseFilters]);
 
 	return filters;
-};
+}

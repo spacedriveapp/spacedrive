@@ -31,11 +31,8 @@ const FiltersBar = () => {
 	const appliedFiltersLength = useMemo(() => Object.entries(appliedFilters).length, [appliedFilters]);
 
 	useEffect(() => {
-		// Scroll to start when there are less than 2 filters.
-		if (appliedFiltersLength < 2) {
-			flatListRef.current?.scrollToOffset({ animated: true, offset: 0 });
-			// If there are applied filters, update the searchStore filters
-		} else if (appliedFiltersLength > 0) {
+		// If there are applied filters, update the searchStore filters
+		if (appliedFiltersLength > 0) {
 			Object.assign(getSearchStore().filters, appliedFilters);
 		}
 	}, [appliedFiltersLength, appliedFilters]);
@@ -57,6 +54,11 @@ const FiltersBar = () => {
 						ref={flatListRef}
 						showsHorizontalScrollIndicator={false}
 						horizontal
+						onContentSizeChange={() => {
+							if (flatListRef.current && appliedFiltersLength < 2) {
+									flatListRef.current.scrollToOffset({ animated: true, offset: 0 });
+							}
+						}}
 						data={Object.entries(appliedFilters)}
 						extraData={filters}
 						keyExtractor={(item) => item[0]}

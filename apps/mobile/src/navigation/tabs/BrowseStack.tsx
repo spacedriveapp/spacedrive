@@ -16,7 +16,9 @@ const Stack = createNativeStackNavigator<BrowseStackParamList>();
 
 export default function BrowseStack() {
 	return (
-		<Stack.Navigator initialRouteName="Browse">
+		<Stack.Navigator
+		initialRouteName="Browse"
+		>
 			<Stack.Screen
 				name="Browse"
 				component={BrowseScreen}

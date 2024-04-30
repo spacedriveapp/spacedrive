@@ -67,7 +67,7 @@ const SavedSearch = ({ search }: Props) => {
 	const navigation = useNavigation();
 	const dataForSearch = useSavedSearch(search);
 	const deleteSearch = useLibraryMutation('search.saved.delete');
-	const rspsc = useRspcLibraryContext();
+	const rspc = useRspcLibraryContext();
 	return (
 		<MotiPressable
 			from={{ opacity: 0, translateY: 20 }}
@@ -84,9 +84,7 @@ const SavedSearch = ({ search }: Props) => {
 				<Pressable
 					onPress={async () =>
 						await deleteSearch.mutateAsync(search.id, {
-							onSuccess: () => {
-								rspsc.queryClient.invalidateQueries(['search.saved.list']);
-							}
+							onSuccess: () => rspc.queryClient.invalidateQueries(['search.saved.list'])
 						})
 					}
 				>

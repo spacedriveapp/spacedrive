@@ -8,12 +8,12 @@ import {
 	SelectionSlash,
 	Textbox
 } from 'phosphor-react-native';
-import React, { FunctionComponent, useCallback, useState } from 'react';
+import React, { FunctionComponent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import Card from '~/components/layout/Card';
 import SectionTitle from '~/components/layout/SectionTitle';
 import { tw, twStyle } from '~/lib/tailwind';
-import { SearchFilters, useSearchStore } from '~/stores/searchStore';
+import { SearchFilters, getSearchStore, useSearchStore } from '~/stores/searchStore';
 
 import Extension from './Extension';
 import Kind from './Kind';
@@ -51,6 +51,16 @@ const FiltersList = () => {
 	const [selectedOptions, setSelectedOptions] = useState<SearchFilters[]>(
 		Object.keys(searchStore.appliedFilters) as SearchFilters[]
 	);
+	const appliedFiltersLength = useMemo(() => Object.entries(searchStore.appliedFilters).length, [
+		searchStore.appliedFilters
+	]);
+
+	useEffect(() => {
+		//if there are selected filters but not applied reset them
+		if (appliedFiltersLength === 0) {
+			getSearchStore().resetFilters();
+		}
+	}, [appliedFiltersLength]);
 
 	const selectedHandler = useCallback(
 		(option: Capitalize<SearchFilters>) => {
