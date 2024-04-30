@@ -202,7 +202,6 @@ export const Component = () => {
 					</div> */}
 				</div>
 			</Card>
-
 			{/* Debug Mode */}
 			<Setting mini title={t('debug_mode')} description={t('debug_mode_description')}>
 				<Switch
