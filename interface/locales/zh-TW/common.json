@@ -87,6 +87,8 @@
   "cut_object": "剪下物件",
   "cut_success": "剪下項目",
   "data_folder": "數據文件夾",
+  "date_format": "日期格式",
+  "date_format_description": "選擇 Spacedrive 中顯示的日期格式",
   "date_accessed": "訪問日期",
   "date_created": "建立日期",
   "date_indexed": "索引日期",
