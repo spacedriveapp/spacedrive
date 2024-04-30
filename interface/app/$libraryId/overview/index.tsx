@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useBridgeQuery, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { useLocale } from '~/hooks';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 import { hardwareModelToIcon } from '~/util/hardware';
@@ -20,8 +20,7 @@ export const Component = () => {
 	const { t } = useLocale();
 
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
-	useNodes(locationsQuery.data?.nodes);
-	const locations = useCache(locationsQuery.data?.items) ?? [];
+	const locations = locationsQuery.data ?? [];
 
 	const { data: node } = useBridgeQuery(['nodeState']);
 

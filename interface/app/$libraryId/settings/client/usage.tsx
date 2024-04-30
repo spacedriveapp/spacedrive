@@ -1,6 +1,6 @@
 import { iconNames } from '@sd/assets/util';
 import { memo, useEffect, useMemo, useState } from 'react';
-import { byteSize, useDiscoveredPeers, useLibraryQuery, useNodes } from '@sd/client';
+import { byteSize, useDiscoveredPeers, useLibraryQuery } from '@sd/client';
 import { Card } from '@sd/ui';
 import { Icon } from '~/components';
 import { useCounter, useLocale } from '~/hooks';
@@ -16,8 +16,6 @@ export const Component = () => {
 	const locations = useLibraryQuery(['locations.list'], {
 		refetchOnWindowFocus: false
 	});
-	useNodes(locations.data?.nodes);
-	// const locations = useCache(result.data?.items);
 
 	const discoveredPeers = useDiscoveredPeers();
 	const info = useMemo(() => {
@@ -38,8 +36,8 @@ export const Component = () => {
 			}[] = [
 				{
 					icon: 'Folder',
-					title: locations.data?.items.length === 1 ? 'Location' : 'Locations',
-					titleCount: locations.data?.items.length ?? 0,
+					title: locations.data?.length === 1 ? 'Location' : 'Locations',
+					titleCount: locations.data?.length ?? 0,
 					sub: 'indexed directories'
 				},
 				{

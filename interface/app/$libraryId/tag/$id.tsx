@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { ObjectOrder, Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { ObjectOrder, Tag, useLibraryQuery } from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
 import { useLocale, useRouteTitle, useZodRouteParams } from '~/hooks';
@@ -20,18 +20,17 @@ import { TopBarPortal } from '../TopBar/Portal';
 export function Component() {
 	const { id: tagId } = useZodRouteParams(LocationIdParamsSchema);
 	const result = useLibraryQuery(['tags.get', tagId], { suspense: true });
-	useNodes(result.data?.nodes);
-	const tag = useCache(result.data?.item);
+	const tag = result.data;
 
 	const { t } = useLocale();
 
 	useRouteTitle(tag!.name ?? 'Tag');
 
-	const { explorerSettings, preferences } = useTagExplorerSettings(tag);
+	const { explorerSettings, preferences } = useTagExplorerSettings(tag!);
 
 	const search = useSearchFromSearchParams();
 
-	const defaultFilters = useMemo(() => [{ object: { tags: { in: [tag.id] } } }], [tag.id]);
+	const defaultFilters = useMemo(() => [{ object: { tags: { in: [tag!.id] } } }], [tag!.id]);
 
 	const items = useSearchExplorerQuery({
 		search,
