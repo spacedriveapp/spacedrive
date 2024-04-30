@@ -8,15 +8,7 @@ import {
 	Textbox
 } from '@phosphor-icons/react';
 import { useState } from 'react';
-import {
-	InOrNotIn,
-	ObjectKind,
-	SearchFilterArgs,
-	TextMatch,
-	useCache,
-	useLibraryQuery,
-	useNodes
-} from '@sd/client';
+import { InOrNotIn, ObjectKind, SearchFilterArgs, TextMatch, useLibraryQuery } from '@sd/client';
 import { Button, Input } from '@sd/ui';
 import { Icon as SDIcon } from '~/components';
 
@@ -437,8 +429,7 @@ export const filterRegistry = [
 		},
 		useOptions: () => {
 			const query = useLibraryQuery(['locations.list'], { keepPreviousData: true });
-			useNodes(query.data?.nodes);
-			const locations = useCache(query.data?.items);
+			const locations = query.data;
 
 			return (locations ?? []).map((location) => ({
 				name: location.name!,
@@ -473,8 +464,7 @@ export const filterRegistry = [
 		},
 		useOptions: () => {
 			const query = useLibraryQuery(['tags.list']);
-			useNodes(query.data?.nodes);
-			const tags = useCache(query.data?.items);
+			const tags = query.data;
 			return (tags ?? []).map((tag) => ({
 				name: tag.name!,
 				value: tag.id,

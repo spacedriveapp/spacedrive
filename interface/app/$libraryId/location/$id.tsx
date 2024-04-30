@@ -5,12 +5,10 @@ import {
 	arraysEqual,
 	FilePathOrder,
 	Location,
-	useCache,
 	useExplorerLayoutStore,
 	useLibraryMutation,
 	useLibraryQuery,
 	useLibrarySubscription,
-	useNodes,
 	useOnlineLocations
 } from '@sd/client';
 import { Loader, Tooltip } from '@sd/ui';
@@ -52,8 +50,7 @@ export const Component = () => {
 		keepPreviousData: true,
 		suspense: true
 	});
-	useNodes(result.data?.nodes);
-	const location = useCache(result.data?.item);
+	const location = result.data;
 
 	// 'key' allows search state to be thrown out when entering a folder
 	return <LocationExplorer key={path} location={location!} />;
@@ -104,7 +101,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 		],
 		take,
 		paths: { order: explorerSettings.useSettingsSnapshot().order },
-		onSuccess: () => explorerStore.resetNewThumbnails()
+		onSuccess: () => explorerStore.resetCache()
 	});
 
 	const explorer = useExplorer({

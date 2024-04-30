@@ -8,6 +8,7 @@ import Local from './sections/Local';
 import Locations from './sections/Locations';
 import SavedSearches from './sections/SavedSearches';
 import Tags from './sections/Tags';
+import Tools from './sections/Tools';
 import SidebarLayout from './SidebarLayout';
 
 export default function Sidebar() {
@@ -29,7 +30,7 @@ export default function Sidebar() {
 					<Tags />
 				</LibraryContextProvider>
 			)}
-			{/* <Tools /> */}
+			<Tools />
 		</SidebarLayout>
 	);
 }

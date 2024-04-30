@@ -1,48 +1,25 @@
 import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript/src/types';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackHeaderProps } from '@react-navigation/native-stack';
-import { ArrowLeft, DotsThreeOutline, List, MagnifyingGlass } from 'phosphor-react-native';
+import { RouteProp, useNavigation } from '@react-navigation/native';
+import { ArrowLeft, List, MagnifyingGlass } from 'phosphor-react-native';
 import { Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tw, twStyle } from '~/lib/tailwind';
-import { getExplorerStore, useExplorerStore } from '~/stores/explorerStore';
 
-import { Icon } from '../icons/Icon';
-import Search from '../search/Search';
-
-type HeaderProps = {
-	title?: string; //title of the page
-	showSearch?: boolean; //show the search button
-	showDrawer?: boolean; //show the drawer button
-	searchType?: 'explorer' | 'location' | 'categories'; //Temporary
-	navBack?: boolean; //navigate back to the previous screen
-	headerKind?: 'default' | 'location' | 'tag'; //kind of header
-	route?: never;
-	routeTitle?: never;
+type Props = {
+	route?: RouteProp<any, any>; // supporting title from the options object of navigation
+	navBack?: boolean; // whether to show the back icon
+	search?: boolean; // whether to show the search icon
+	title?: string; // in some cases - we want to override the route title
 };
-
-//you can pass in a routeTitle only if route is passed in
-type Props =
-	| HeaderProps
-	| ({
-			route: NativeStackHeaderProps;
-			routeTitle?: boolean;
-	  } & Omit<HeaderProps, 'route' | 'routeTitle'>);
 
 // Default header with search bar and button to open drawer
 export default function Header({
-	title,
-	searchType,
-	navBack,
 	route,
-	routeTitle,
-	headerKind = 'default',
-	showDrawer = false,
-	showSearch = true
+	navBack,
+	title,
+	search = false
 }: Props) {
 	const navigation = useNavigation<DrawerNavigationHelpers>();
-	const explorerStore = useExplorerStore();
-	const routeParams = route?.route.params as any;
 	const headerHeight = useSafeAreaInsets().top;
 	const isAndroid = Platform.OS === 'android';
 
@@ -52,38 +29,25 @@ export default function Header({
 				paddingTop: headerHeight + (isAndroid ? 15 : 0)
 			})}
 		>
-			<View style={tw`mx-auto h-auto w-full justify-center px-5 pb-4`}>
+			<View style={tw`mx-auto h-auto w-full justify-center px-5 pb-3`}>
 				<View style={tw`w-full flex-row items-center justify-between`}>
 					<View style={tw`flex-row items-center gap-3`}>
-						{navBack && (
+					{navBack ? (
 							<Pressable
-								hitSlop={24}
-								onPress={() => {
-									navigation.goBack();
-								}}
-							>
-								<ArrowLeft size={23} color={tw.color('ink')} />
-							</Pressable>
-						)}
-						<View style={tw`flex-row items-center gap-2`}>
-							<HeaderIconKind headerKind={headerKind} routeParams={routeParams} />
-							{showDrawer && (
-								<Pressable onPress={() => navigation.openDrawer()}>
-									<List size={24} color={tw.color('text-zinc-300')} />
-								</Pressable>
-							)}
-							<Text
-								numberOfLines={1}
-								style={tw`max-w-[200px] text-xl font-bold text-white`}
-							>
-								{title || (routeTitle && route?.options.title)}
-							</Text>
-						</View>
+							hitSlop={24}
+							onPress={() => navigation.goBack()}
+						>
+							<ArrowLeft size={24} color={tw.color('ink')} />
+						</Pressable>
+
+					) : (
+						<Pressable onPress={() => navigation.openDrawer()}>
+						<List size={24} color={tw.color('ink')} />
+					</Pressable>
+					)}
+						<Text style={tw`text-xl font-bold text-ink`}>{title || route?.name}</Text>
 					</View>
-					<View style={tw`relative flex-row items-center gap-3`}>
-						{showSearch && (
-							<View style={tw`flex-row items-center gap-2`}>
-								<Pressable
+					{search && <Pressable
 									hitSlop={24}
 									onPress={() => {
 										navigation.navigate('SearchStack', {
@@ -96,67 +60,9 @@ export default function Header({
 										weight="bold"
 										color={tw.color('text-zinc-300')}
 									/>
-								</Pressable>
-							</View>
-						)}
-						{(headerKind === 'location' || headerKind === 'tag') && (
-							<Pressable
-								hitSlop={24}
-								onPress={() => {
-									getExplorerStore().toggleMenu = !explorerStore.toggleMenu;
-								}}
-							>
-								<DotsThreeOutline
-									size={24}
-									color={tw.color(
-										explorerStore.toggleMenu ? 'text-accent' : 'text-zinc-300'
-									)}
-								/>
-							</Pressable>
-						)}
-					</View>
+								</Pressable>}
 				</View>
-				{searchType && <HeaderSearchType searchType={searchType} />}
 			</View>
 		</View>
 	);
 }
-
-interface HeaderSearchTypeProps {
-	searchType: HeaderProps['searchType'];
-}
-
-const HeaderSearchType = ({ searchType }: HeaderSearchTypeProps) => {
-	switch (searchType) {
-		case 'explorer':
-			return 'Explorer'; //TODO
-		case 'location':
-			return <Search placeholder="Location name..." />;
-		case 'categories':
-			return <Search placeholder="Category name..." />;
-		default:
-			return null;
-	}
-};
-
-interface HeaderIconKindProps {
-	headerKind: HeaderProps['headerKind'];
-	routeParams?: any;
-}
-
-const HeaderIconKind = ({ headerKind, routeParams }: HeaderIconKindProps) => {
-	switch (headerKind) {
-		case 'location':
-			return <Icon size={30} name="Folder" />;
-		case 'tag':
-			return (
-				<View
-					style={twStyle('h-[30px] w-[30px] rounded-full', {
-						backgroundColor: routeParams.color
-					})}
-				/>
-			);
-		default:
-			return null;
-	}
-};

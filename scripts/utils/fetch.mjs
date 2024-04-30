@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { getSystemProxy } from 'os-proxy-config'
 import { fetch, Headers, Agent, ProxyAgent } from 'undici'
 
+const CONNECT_TIMEOUT = 5 * 60 * 1000
 const __debug = env.NODE_ENV === 'debug'
 const __offline = env.OFFLINE === 'true'
 const __filename = fileURLToPath(import.meta.url)
@@ -15,12 +16,19 @@ const cacheDir = joinPath(__dirname, '.tmp')
 /** @type {Agent.Options} */
 const agentOpts = {
 	allowH2: true,
+	connect: { timeout: CONNECT_TIMEOUT },
+	connectTimeout: CONNECT_TIMEOUT,
 	autoSelectFamily: true,
 }
 
 const { proxyUrl } = (await getSystemProxy()) ?? {}
 const dispatcher = proxyUrl
-	? new ProxyAgent({ ...agentOpts, uri: proxyUrl })
+	? new ProxyAgent({
+			...agentOpts,
+			proxyTls: { timeout: CONNECT_TIMEOUT },
+			requestTls: { timeout: CONNECT_TIMEOUT },
+			uri: proxyUrl,
+		})
 	: new Agent(agentOpts)
 
 await fs.mkdir(cacheDir, { recursive: true, mode: 0o751 })

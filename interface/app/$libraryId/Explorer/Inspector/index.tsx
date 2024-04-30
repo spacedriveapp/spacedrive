@@ -37,10 +37,8 @@ import {
 	ObjectKindEnum,
 	ObjectWithFilePaths,
 	useBridgeQuery,
-	useCache,
 	useItemsAsObjects,
 	useLibraryQuery,
-	useNodes,
 	useSelector,
 	type ExplorerItem
 } from '@sd/client';
@@ -55,7 +53,8 @@ import AssignTagMenuItems from '../ContextMenu/AssignTagMenuItems';
 import { FileThumb } from '../FilePath/Thumb';
 import { useQuickPreviewStore } from '../QuickPreview/store';
 import { explorerStore } from '../store';
-import { uniqueId, useExplorerItemData } from '../util';
+import { useExplorerItemData } from '../useExplorerItemData';
+import { uniqueId } from '../util';
 import { RenamableItemText } from '../View/RenamableItemText';
 import FavoriteButton from './FavoriteButton';
 import MediaData from './MediaData';
@@ -179,8 +178,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	const { t } = useLocale();
 
 	const result = useLibraryQuery(['locations.list']);
-	useNodes(result.data?.nodes);
-	const locations = useCache(result.data?.items);
+	const locations = result.data || [];
 
 	switch (item.type) {
 		case 'NonIndexedPath': {
@@ -224,8 +222,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	const tagsQuery = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
 		enabled: objectData != null && readyToFetch
 	});
-	useNodes(tagsQuery.data?.nodes);
-	const tags = useCache(tagsQuery.data?.items);
+	const tags = tagsQuery.data;
 
 	// const labels = useLibraryQuery(['labels.getForObject', objectData?.id ?? -1], {
 	// 	enabled: objectData != null && readyToFetch
@@ -433,8 +430,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 		enabled: readyToFetch && !isDragSelecting,
 		suspense: true
 	});
-	useNodes(tagsQuery.data?.nodes);
-	const tags = useCache(tagsQuery.data?.items);
+	const tags = tagsQuery.data;
 
 	// const labels = useLibraryQuery(['labels.list'], {
 	// 	enabled: readyToFetch && !isDragSelecting,

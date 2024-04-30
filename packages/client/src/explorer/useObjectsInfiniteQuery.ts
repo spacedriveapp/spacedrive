@@ -1,7 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
-import { useNodes } from '../cache';
 import { ExplorerItem, ObjectCursor, ObjectOrder, ObjectSearchArgs } from '../core';
 import { useLibraryContext } from '../hooks';
 import { useRspcLibraryContext } from '../rspc';
@@ -57,17 +56,10 @@ export function useObjectsInfiniteQuery({
 		},
 		getNextPageParam: (lastPage) => {
 			if (lastPage.items.length < arg.take) return undefined;
-			else return lastPage.nodes[arg.take - 1];
+			else return lastPage.items[arg.take - 1];
 		},
 		...args
 	});
-
-	const nodes = useMemo(
-		() => query.data?.pages.flatMap((page) => page.nodes) ?? [],
-		[query.data?.pages]
-	);
-
-	useNodes(nodes);
 
 	return query;
 }

@@ -1,12 +1,13 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
 	CRDTOperation,
 	CRDTOperationData,
 	useLibraryMutation,
 	useLibraryQuery,
-	useLibrarySubscription
+	useLibrarySubscription,
+	useZodForm
 } from '@sd/client';
-import { Button } from '@sd/ui';
+import { Button, Dialog, dialogManager, useDialog, UseDialogProps, z } from '@sd/ui';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 
 type MessageGroup = {
@@ -21,7 +22,7 @@ export const Component = () => {
 	const syncEnabled = useLibraryQuery(['sync.enabled']);
 
 	const messages = useLibraryQuery(['sync.messages']);
-	const enableSync = useLibraryMutation(['sync.enable'], {
+	const backfillSync = useLibraryMutation(['sync.backfill'], {
 		onSuccess: async () => {
 			await syncEnabled.refetch();
 			await messages.refetch();
@@ -32,18 +33,17 @@ export const Component = () => {
 		onData: () => messages.refetch()
 	});
 
-	const groups = useMemo(
-		() => (messages.data && calculateGroups(messages.data)) || [],
-		[messages]
-	);
+	const groups = useMemo(() => (messages.data && calculateGroups(messages.data)) || [], [messages]);
 
 	return (
 		<ul className="space-y-4 p-4">
 			{!syncEnabled.data && (
 				<Button
 					variant="accent"
-					onClick={() => enableSync.mutate(null)}
-					disabled={enableSync.isLoading}
+					onClick={() => {
+						dialogManager.create((dialogProps) => <SyncBackfillDialog {...dialogProps} />);
+					}}
+					disabled={backfillSync.isLoading}
 				>
 					Enable sync messages
 				</Button>
@@ -126,4 +126,33 @@ function calculateGroups(messages: CRDTOperation[]) {
 
 		return acc;
 	}, []);
+}
+
+function SyncBackfillDialog(props: UseDialogProps) {
+	const form = useZodForm({ schema: z.object({}) });
+	const dialog = useDialog(props);
+
+	const enableSync = useLibraryMutation(['sync.backfill'], {});
+
+	// dialog is in charge of enabling sync
+	useEffect(() => {
+		form.handleSubmit(
+			async () => {
+				await enableSync.mutateAsync(null).then(() => (dialog.state.open = false));
+			},
+			() => {}
+		)();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	return (
+		<Dialog
+			title="Backfilling Sync Operations"
+			description="Library is paused until backfill completes"
+			form={form}
+			dialog={dialog}
+			hideButtons
+			ignoreClickOutside
+		/>
+	);
 }
