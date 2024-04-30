@@ -134,6 +134,7 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 			<View style={tw`flex-1`}>
 				<Suspense fallback={<ActivityIndicator />}>
 					<Explorer
+					{...objects}
 					isEmpty={appliedFiltersLength === 0 || objects.items?.length === 0}
 					emptyComponent={
 						<Empty
@@ -146,7 +147,6 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 						description={appliedFiltersLength === 0 ? 'Add filters to search for files' : 'No files found'}
 					/>
 					}
-					search {...objects}
 					tabHeight={false} />
 				</Suspense>
 			</View>

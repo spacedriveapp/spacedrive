@@ -42,9 +42,7 @@ const SaveAdd = () => {
 					opacity: buttonDisable ? 0.5 : 1
 				})}
 				variant="dashed"
-				onPress={() => {
-					modalRef.current?.present();
-				}}
+				onPress={() => modalRef.current?.present()}
 			>
 				<Plus weight="bold" size={12} color={tw.color('text-ink-dull')} />
 				<Text style={tw`font-medium text-ink-dull`}>Save search</Text>

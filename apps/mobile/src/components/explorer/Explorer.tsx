@@ -21,7 +21,6 @@ type ExplorerProps = {
 	loadMore: () => void;
 	query: UseInfiniteQueryResult<SearchData<ExplorerItem>>;
 	count?: number;
-	search?: boolean; // if true - navigate from search screen to location screen
 	empty?: never;
 	isEmpty?: never;
 }
