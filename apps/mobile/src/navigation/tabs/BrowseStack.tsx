@@ -1,6 +1,8 @@
 import { CompositeScreenProps } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
+import DynamicHeader from '~/components/header/DynamicHeader';
 import Header from '~/components/header/Header';
+import SearchHeader from '~/components/header/SearchHeader';
 import BrowseScreen from '~/screens/browse/Browse';
 import LibraryScreen from '~/screens/browse/Library';
 import LocationScreen from '~/screens/browse/Location';
@@ -8,8 +10,6 @@ import LocationsScreen from '~/screens/browse/Locations';
 import TagScreen from '~/screens/browse/Tag';
 import TagsScreen from '~/screens/browse/Tags';
 
-import DynamicHeader from '~/components/header/DynamicHeader';
-import SearchHeader from '~/components/header/SearchHeader';
 import { TabScreenProps } from '../TabNavigator';
 
 const Stack = createNativeStackNavigator<BrowseStackParamList>();
@@ -20,42 +20,50 @@ export default function BrowseStack() {
 			<Stack.Screen
 				name="Browse"
 				component={BrowseScreen}
-				options={({route}) => ({
+				options={({ route }) => ({
 					header: () => <Header search route={route} />
 				})}
 			/>
 			<Stack.Screen
 				name="Location"
 				component={LocationScreen}
-				options={({route: optionsRoute}) => ({
-					header: (route) => <DynamicHeader optionsRoute={optionsRoute} headerRoute={route} kind="location" />
+				options={({ route: optionsRoute }) => ({
+					header: (route) => (
+						<DynamicHeader
+							optionsRoute={optionsRoute}
+							headerRoute={route}
+							kind="location"
+						/>
+					)
 				})}
 			/>
 			<Stack.Screen
 				name="Tags"
 				component={TagsScreen}
-				options={({route}) => ({
+				options={({ route }) => ({
 					header: () => <SearchHeader kind="tags" route={route} />
 				})}
 			/>
 			<Stack.Screen
 				name="Locations"
 				component={LocationsScreen}
-				options={({route}) => ({
+				options={({ route }) => ({
 					header: () => <SearchHeader kind="locations" route={route} />
 				})}
 			/>
 			<Stack.Screen
 				name="Tag"
 				component={TagScreen}
-				options={({route: optionsRoute}) => ({
-					header: (route) => <DynamicHeader optionsRoute={optionsRoute} headerRoute={route} kind="tag" />
+				options={({ route: optionsRoute }) => ({
+					header: (route) => (
+						<DynamicHeader optionsRoute={optionsRoute} headerRoute={route} kind="tag" />
+					)
 				})}
 			/>
 			<Stack.Screen
 				name="Library"
 				component={LibraryScreen}
-				options={({route}) => ({
+				options={({ route }) => ({
 					header: () => <Header navBack route={route} />
 				})}
 			/>
