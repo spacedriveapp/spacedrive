@@ -132,12 +132,14 @@ function SyncBackfillDialog(props: UseDialogProps) {
 	const form = useZodForm({ schema: z.object({}) });
 	const dialog = useDialog(props);
 
-	const enableSync = useLibraryMutation(['sync.enable'], {});
+	const enableSync = useLibraryMutation(['sync.backfill'], {});
 
 	// dialog is in charge of enabling sync
 	useEffect(() => {
 		form.handleSubmit(
-			() => enableSync.mutateAsync(null).then(() => (dialog.state.open = false)),
+			async () => {
+				await enableSync.mutateAsync(null).then(() => (dialog.state.open = false));
+			},
 			() => {}
 		)();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -150,6 +152,7 @@ function SyncBackfillDialog(props: UseDialogProps) {
 			form={form}
 			dialog={dialog}
 			hideButtons
+			ignoreClickOutside
 		/>
 	);
 }

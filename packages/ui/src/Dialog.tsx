@@ -138,6 +138,7 @@ export interface DialogProps<S extends FieldValues>
 	formClassName?: string;
 	icon?: ReactNode;
 	hideButtons?: boolean;
+	ignoreClickOutside?: boolean;
 }
 
 export function Dialog<S extends FieldValues>({
@@ -270,6 +271,7 @@ export function Dialog<S extends FieldValues>({
 						<AnimatedDialogContent
 							className="!pointer-events-none fixed inset-0 z-50 grid place-items-center overflow-y-auto"
 							style={styles}
+							onInteractOutside={(e) => props.ignoreClickOutside && e.preventDefault()}
 						>
 							<Form
 								form={form}
