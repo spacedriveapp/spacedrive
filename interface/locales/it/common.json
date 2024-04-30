@@ -87,6 +87,8 @@
   "cut_object": "Taglia oggetto",
   "cut_success": "Articoli tagliati",
   "data_folder": "Cartella dati",
+  "date_format": "Formato data",
+  "date_format_description": "Scegli il formato della data visualizzato in Spacedrive",
   "date_accessed": "Data di accesso",
   "date_created": "data di creazione",
   "date_indexed": "Data indicizzata",

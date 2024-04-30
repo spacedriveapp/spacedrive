@@ -70,10 +70,9 @@ export const INSPECTOR_WIDTH = 260;
 
 type MetadataDate = Date | { from: Date; to: Date } | null;
 
-const DATE_FORMAT = 'D MMM YYYY';
-const formatDate = (date: MetadataDate | string | undefined) => {
+const formatDate = (date: MetadataDate | string | undefined, dateFormat: string) => {
 	if (!date) return;
-	if (date instanceof Date || typeof date === 'string') return dayjs(date).format(DATE_FORMAT);
+	if (date instanceof Date || typeof date === 'string') return dayjs(date).format(dateFormat);
 
 	const { from, to } = date;
 
@@ -82,7 +81,7 @@ const formatDate = (date: MetadataDate | string | undefined) => {
 
 	const format = ['D', !sameMonth && 'MMM', !sameYear && 'YYYY'].filter(Boolean).join(' ');
 
-	return `${dayjs(from).format(format)} - ${dayjs(to).format(DATE_FORMAT)}`;
+	return `${dayjs(from).format(format)} - ${dayjs(to).format(dateFormat)}`;
 };
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
@@ -175,7 +174,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	let filePathData: FilePath | FilePathWithObject | null = null;
 	let ephemeralPathData: NonIndexedPathItem | null = null;
 
-	const { t } = useLocale();
+	const { t, dateFormat } = useLocale();
 
 	const result = useLibraryQuery(['locations.list']);
 	const locations = result.data || [];
@@ -308,19 +307,31 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					value={!!ephemeralPathData && ephemeralPathData.is_dir ? null : `${size}`}
 				/>
 
-				<MetaData icon={Clock} label={t('created')} value={formatDate(dateCreated)} />
+				<MetaData
+					icon={Clock}
+					label={t('created')}
+					value={formatDate(dateCreated, dateFormat)}
+				/>
 
-				<MetaData icon={Eraser} label={t('modified')} value={formatDate(dateModified)} />
+				<MetaData
+					icon={Eraser}
+					label={t('modified')}
+					value={formatDate(dateModified, dateFormat)}
+				/>
 
 				{ephemeralPathData != null || (
-					<MetaData icon={Barcode} label={t('indexed')} value={formatDate(dateIndexed)} />
+					<MetaData
+						icon={Barcode}
+						label={t('indexed')}
+						value={formatDate(dateIndexed, dateFormat)}
+					/>
 				)}
 
 				{ephemeralPathData != null || (
 					<MetaData
 						icon={FolderOpen}
 						label={t('accessed')}
-						value={formatDate(dateAccessed)}
+						value={formatDate(dateAccessed, dateFormat)}
 					/>
 				)}
 
@@ -507,7 +518,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 		[items, getDate]
 	);
 
-	const { t } = useLocale();
+	const { t, dateFormat } = useLocale();
 
 	const onlyNonIndexed = metadata.types.has('NonIndexedPath') && metadata.types.size === 1;
 
@@ -519,24 +530,28 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 					label={t('size')}
 					value={metadata.size !== null ? `${byteSize(metadata.size)}` : null}
 				/>
-				<MetaData icon={Clock} label={t('created')} value={formatDate(metadata.created)} />
+				<MetaData
+					icon={Clock}
+					label={t('created')}
+					value={formatDate(metadata.created, dateFormat)}
+				/>
 				<MetaData
 					icon={Eraser}
 					label={t('modified')}
-					value={formatDate(metadata.modified)}
+					value={formatDate(metadata.modified, dateFormat)}
 				/>
 				{onlyNonIndexed || (
 					<MetaData
 						icon={Barcode}
 						label={t('indexed')}
-						value={formatDate(metadata.indexed)}
+						value={formatDate(metadata.indexed, dateFormat)}
 					/>
 				)}
 				{onlyNonIndexed || (
 					<MetaData
 						icon={FolderOpen}
 						label={t('accessed')}
-						value={formatDate(metadata.accessed)}
+						value={formatDate(metadata.accessed, dateFormat)}
 					/>
 				)}
 			</MetaContainer>

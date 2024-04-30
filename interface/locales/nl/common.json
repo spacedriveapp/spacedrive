@@ -87,6 +87,8 @@
   "cut_object": "Object knippen",
   "cut_success": "Items knippen",
   "data_folder": "Gegevens Map",
+  "date_format": "Datumnotatie",
+  "date_format_description": "Kies het datumformaat dat wordt weergegeven in Spacedrive",
   "date_accessed": "Datum geopend",
   "date_created": "Datum gecreeërd",
   "date_indexed": "Datum geïndexeerd",
