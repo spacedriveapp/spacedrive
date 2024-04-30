@@ -79,14 +79,9 @@ pub async fn maybe_get_iso_file_path_from_sub_path(
 			let sub_iso_file_path =
 				IsolatedFilePathData::new(location_id, location_path, &full_path, true)?;
 
-			ensure_file_path_exists(
-				sub_path,
-				&sub_iso_file_path,
-				db,
-				Error::SubPathNotFound,
-			)
-			.await
-			.map(|()| Some(sub_iso_file_path))
+			ensure_file_path_exists(sub_path, &sub_iso_file_path, db, Error::SubPathNotFound)
+				.await
+				.map(|()| Some(sub_iso_file_path))
 		}
 		_ => Ok(None),
 	}

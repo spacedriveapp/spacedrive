@@ -11,6 +11,8 @@ pub enum SystemError {
 	TaskAborted(TaskId),
 	#[error("task join error <task_id='{0}'>")]
 	TaskJoin(TaskId),
+	#[error("task timeout error <task_id='{0}'>")]
+	TaskTimeout(TaskId),
 	#[error("forced abortion for task <task_id='{0}'> timed out")]
 	TaskForcedAbortTimeout(TaskId),
 }

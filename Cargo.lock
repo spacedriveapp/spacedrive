@@ -8299,6 +8299,7 @@ dependencies = [
  "futures",
  "futures-concurrency",
  "globset",
+ "image",
  "itertools 0.12.0",
  "lending-stream",
  "once_cell",
@@ -8310,7 +8311,9 @@ dependencies = [
  "sd-core-indexer-rules",
  "sd-core-prisma-helpers",
  "sd-core-sync",
+ "sd-ffmpeg",
  "sd-file-ext",
+ "sd-images",
  "sd-media-metadata",
  "sd-prisma",
  "sd-sync",
@@ -8328,6 +8331,7 @@ dependencies = [
  "tracing",
  "tracing-test",
  "uuid",
+ "webp",
 ]
 
 [[package]]

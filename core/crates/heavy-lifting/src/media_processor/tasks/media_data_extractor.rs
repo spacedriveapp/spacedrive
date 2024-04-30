@@ -1,13 +1,15 @@
-use crate::{media_processor, Error, NonCriticalError};
+use crate::{
+	media_processor::{self, helpers::media_data_extractor::media_data_image_to_query},
+	Error,
+};
 
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::file_path_for_media_processor;
 
-use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
 use sd_media_metadata::ImageMetadata;
 use sd_prisma::prisma::{file_path, location, media_data, object, PrismaClient};
 use sd_task_system::{
-	check_interruption, ExecStatus, Interrupter, IntoAnyTaskOutput, Task, TaskId,
+	check_interruption, ExecStatus, Interrupter, IntoAnyTaskOutput, SerializableTask, Task, TaskId,
 };
 
 use std::{
@@ -21,11 +23,9 @@ use std::{
 
 use futures::StreamExt;
 use futures_concurrency::future::FutureGroup;
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use tokio::{task::spawn_blocking, time::Instant};
-
-use super::media_data_image_to_query;
 
 #[derive(Debug)]
 pub struct MediaDataExtractor {
@@ -34,7 +34,6 @@ pub struct MediaDataExtractor {
 	location_id: location::id::Type,
 	location_path: Arc<PathBuf>,
 	stage: Stage,
-	errors: Vec<NonCriticalError>,
 	db: Arc<PrismaClient>,
 	output: Output,
 	is_shallow: bool,
@@ -62,7 +61,7 @@ impl MediaDataExtractor {
 		db: Arc<PrismaClient>,
 		is_shallow: bool,
 	) -> Self {
-		let mut errors = Vec::new();
+		let mut output = Output::default();
 
 		Self {
 			id: TaskId::new_v4(),
@@ -72,9 +71,9 @@ impl MediaDataExtractor {
 					if file_path.object_id.is_some() {
 						true
 					} else {
-						errors.push(
-							media_processor::NonCriticalError::FilePathMissingObjectId(
-								file_path.id,
+						output.errors.push(
+							media_processor::NonCriticalError::from(
+								NonCriticalError::FilePathMissingObjectId(file_path.id),
 							)
 							.into(),
 						);
@@ -86,13 +85,13 @@ impl MediaDataExtractor {
 			location_id,
 			location_path,
 			stage: Stage::Starting,
-			errors,
 			db,
-			output: Output::default(),
+			output,
 			is_shallow,
 		}
 	}
 
+	#[must_use]
 	pub fn new_deep(
 		file_paths: &[file_path_for_media_processor::Data],
 		location_id: location::id::Type,
@@ -102,6 +101,7 @@ impl MediaDataExtractor {
 		Self::new(file_paths, location_id, location_path, db, false)
 	}
 
+	#[must_use]
 	pub fn new_shallow(
 		file_paths: &[file_path_for_media_processor::Data],
 		location_id: location::id::Type,
@@ -128,7 +128,6 @@ impl Task<Error> for MediaDataExtractor {
 			location_id,
 			location_path,
 			stage,
-			errors,
 			db,
 			output,
 			..
@@ -156,29 +155,13 @@ impl Task<Error> for MediaDataExtractor {
 						break;
 					}
 
-					let unique_objects_already_with_media_data =
-						mem::take(objects_already_with_media_data)
-							.into_iter()
-							.collect::<HashSet<_>>();
-
-					#[allow(clippy::cast_possible_truncation)]
-					{
-						// SAFETY: we shouldn't have more than 4 billion unique objects already with media data
-						output.skipped = unique_objects_already_with_media_data.len() as u32;
-					}
-
-					file_paths.retain(|file_path| {
-						!unique_objects_already_with_media_data
-							.contains(&file_path.object_id.expect("already checked"))
-					});
-
-					let paths_by_id = file_paths.iter().filter_map(|file_path| {
-						IsolatedFilePathData::try_from((*location_id, file_path))
-							.map_err(|e| errors.push(media_processor::NonCriticalError::FailedToConstructIsolatedFilePathData(file_path.id, e.to_string()).into()))
-							.map(|iso_file_path| {
-								(file_path.id, (Arc::new(location_path.join(iso_file_path)), file_path.object_id.expect("already checked")))
-							}).ok()
-					}).collect();
+					let paths_by_id = filter_files_to_extract_media_data(
+						mem::take(objects_already_with_media_data),
+						*location_id,
+						location_path,
+						file_paths,
+						output,
+					);
 
 					output.filtering_time = filtering_start.elapsed();
 
@@ -215,7 +198,7 @@ impl Task<Error> for MediaDataExtractor {
 								// No media data found
 								output.skipped += 1;
 							}
-							Err(e) => errors.push(e.into()),
+							Err(e) => output.errors.push(e.into()),
 						}
 
 						paths_by_id.remove(&file_path_id);
@@ -239,7 +222,7 @@ impl Task<Error> for MediaDataExtractor {
 					#[allow(clippy::cast_possible_truncation)]
 					{
 						// SAFETY: we shouldn't have more than 4 billion errors LMAO
-						output.skipped += errors.len() as u32;
+						output.skipped += output.errors.len() as u32;
 					}
 
 					break;
@@ -253,6 +236,18 @@ impl Task<Error> for MediaDataExtractor {
 	}
 }
 
+#[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
+pub enum NonCriticalError {
+	#[error("failed to extract media data from <image='{}'>: {1}", .0.display())]
+	FailedToExtractImageMediaData(PathBuf, String),
+	#[error("processing thread panicked while extracting media data from <image='{}'>: {1}", .0.display())]
+	PanicWhileExtractingImageMediaData(PathBuf, String),
+	#[error("file path missing object id: <file_path_id='{0}'>")]
+	FilePathMissingObjectId(file_path::id::Type),
+	#[error("failed to construct isolated file path data: <file_path_id='{0}'>: {1}")]
+	FailedToConstructIsolatedFilePathData(file_path::id::Type, String),
+}
+
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Output {
 	pub extracted: u32,
@@ -261,25 +256,75 @@ pub struct Output {
 	pub filtering_time: Duration,
 	pub extraction_time: Duration,
 	pub db_write_time: Duration,
+	pub errors: Vec<crate::NonCriticalError>,
 }
 
-pub(super) static FILTERED_IMAGE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
-	ALL_IMAGE_EXTENSIONS
-		.iter()
-		.copied()
-		.filter(can_extract_media_data_for_image)
-		.map(Extension::Image)
-		.collect()
-});
+#[derive(Debug, Serialize, Deserialize)]
+struct SaveState {
+	id: TaskId,
+	file_paths: Vec<file_path_for_media_processor::Data>,
+	location_id: location::id::Type,
+	location_path: Arc<PathBuf>,
+	stage: Stage,
+	output: Output,
+	is_shallow: bool,
+}
 
-pub const fn can_extract_media_data_for_image(image_extension: &ImageExtension) -> bool {
-	use ImageExtension::{
-		Avci, Avcs, Avif, Dng, Heic, Heif, Heifs, Hif, Jpeg, Jpg, Png, Tiff, Webp,
-	};
-	matches!(
-		image_extension,
-		Tiff | Dng | Jpeg | Jpg | Heif | Heifs | Heic | Avif | Avcs | Avci | Hif | Png | Webp
-	)
+impl SerializableTask<Error> for MediaDataExtractor {
+	type SerializeError = rmp_serde::encode::Error;
+
+	type DeserializeError = rmp_serde::decode::Error;
+
+	type DeserializeCtx = Arc<PrismaClient>;
+
+	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
+		let Self {
+			id,
+			file_paths,
+			location_id,
+			location_path,
+			stage,
+			output,
+			is_shallow,
+			..
+		} = self;
+
+		rmp_serde::to_vec_named(&SaveState {
+			id,
+			file_paths,
+			location_id,
+			location_path,
+			stage,
+			output,
+			is_shallow,
+		})
+	}
+
+	async fn deserialize(
+		data: &[u8],
+		db: Self::DeserializeCtx,
+	) -> Result<Self, Self::DeserializeError> {
+		rmp_serde::from_slice(data).map(
+			|SaveState {
+			     id,
+			     file_paths,
+			     location_id,
+			     location_path,
+			     stage,
+			     output,
+			     is_shallow,
+			 }| Self {
+				id,
+				file_paths,
+				location_id,
+				location_path,
+				stage,
+				db,
+				output,
+				is_shallow,
+			},
+		)
+	}
 }
 
 pub async fn extract_media_data(
@@ -293,18 +338,13 @@ pub async fn extract_media_data(
 		|| match ImageMetadata::from_path(&path) {
 			Ok(media_data) => Ok(Some(media_data)),
 			Err(sd_media_metadata::Error::NoExifDataOnPath(_)) => Ok(None),
-			Err(e) => Err(
-				media_processor::NonCriticalError::FailedToExtractImageMediaData(
-					path,
-					e.to_string(),
-				),
-			),
+			Err(e) => {
+				Err(NonCriticalError::FailedToExtractImageMediaData(path, e.to_string()).into())
+			}
 		}
 	})
 	.await
-	.map_err(|e| {
-		media_processor::NonCriticalError::PanicWhileExtractingImageMediaData(path, e.to_string())
-	})?
+	.map_err(|e| NonCriticalError::PanicWhileExtractingImageMediaData(path, e.to_string()))?
 }
 
 async fn fetch_objects_already_with_media_data(
@@ -348,4 +388,58 @@ async fn save_media_data(
 			}
 		})
 		.map_err(Into::into)
+}
+
+#[inline]
+fn filter_files_to_extract_media_data(
+	objects_already_with_media_data: Vec<object::id::Type>,
+	location_id: location::id::Type,
+	location_path: &Path,
+	file_paths: &mut Vec<file_path_for_media_processor::Data>,
+	Output {
+		skipped, errors, ..
+	}: &mut Output,
+) -> HashMap<file_path::id::Type, (Arc<PathBuf>, object::id::Type)> {
+	let unique_objects_already_with_media_data = objects_already_with_media_data
+		.into_iter()
+		.collect::<HashSet<_>>();
+
+	#[allow(clippy::cast_possible_truncation)]
+	{
+		// SAFETY: we shouldn't have more than 4 billion unique objects already with media data
+		*skipped = unique_objects_already_with_media_data.len() as u32;
+	}
+
+	file_paths.retain(|file_path| {
+		!unique_objects_already_with_media_data
+			.contains(&file_path.object_id.expect("already checked"))
+	});
+
+	file_paths
+		.iter()
+		.filter_map(|file_path| {
+			IsolatedFilePathData::try_from((location_id, file_path))
+				.map_err(|e| {
+					errors.push(
+						media_processor::NonCriticalError::from(
+							NonCriticalError::FailedToConstructIsolatedFilePathData(
+								file_path.id,
+								e.to_string(),
+							),
+						)
+						.into(),
+					);
+				})
+				.map(|iso_file_path| {
+					(
+						file_path.id,
+						(
+							Arc::new(location_path.join(iso_file_path)),
+							file_path.object_id.expect("already checked"),
+						),
+					)
+				})
+				.ok()
+		})
+		.collect()
 }

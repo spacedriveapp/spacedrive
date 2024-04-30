@@ -1,12 +1,17 @@
-use sd_prisma::prisma::file_path;
 use sd_utils::error::FileIOError;
-
-use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+mod helpers;
 mod tasks;
+
+pub use tasks::{
+	media_data_extractor::{self, MediaDataExtractor},
+	thumbnailer::{self, Thumbnailer},
+};
+
+pub use helpers::thumbnailer::{ThumbKey, ThumbnailKind};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -27,12 +32,8 @@ impl From<Error> for rspc::Error {
 
 #[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
 pub enum NonCriticalError {
-	#[error("failed to extract media data from <image='{}'>: {1}", .0.display())]
-	FailedToExtractImageMediaData(PathBuf, String),
-	#[error("processing thread panicked while extracting media data from <image='{}'>: {1}", .0.display())]
-	PanicWhileExtractingImageMediaData(PathBuf, String),
-	#[error("file path missing object id: <file_path_id='{0}'>")]
-	FilePathMissingObjectId(file_path::id::Type),
-	#[error("failed to construct isolated file path data: <file_path_id='{0}'>: {1}")]
-	FailedToConstructIsolatedFilePathData(file_path::id::Type, String),
+	#[error(transparent)]
+	MediaDataExtractor(#[from] tasks::media_data_extractor::NonCriticalError),
+	#[error(transparent)]
+	Thumbnailer(#[from] tasks::thumbnailer::NonCriticalError),
 }
