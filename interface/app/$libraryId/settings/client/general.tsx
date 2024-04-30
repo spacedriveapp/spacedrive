@@ -237,10 +237,10 @@ export const Component = () => {
 						value={i18n.resolvedLanguage || i18n.language || 'en'}
 						onChange={(e) => {
 							// add "i18nextLng" key to localStorage and set it to the selected language
-							setDateFormats(generateLocaleDateFormats(e));
-
 							localStorage.setItem('i18nextLng', e);
 							i18n.changeLanguage(e);
+
+							setDateFormats(generateLocaleDateFormats(e));
 						}}
 						containerClassName="h-[30px] whitespace-nowrap"
 					>
