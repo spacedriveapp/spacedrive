@@ -500,5 +500,7 @@
   "your_account": "あなたのアカウント",
   "your_account_description": "Spacedriveアカウントの情報",
   "your_local_network": "ローカルネットワーク",
-  "your_privacy": "あなたのプライバシー"
+  "your_privacy": "あなたのプライバシー",
+  "zoom_in": "拡大する",
+  "zoom_out": "縮小する"
 }
