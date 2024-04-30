@@ -2,7 +2,7 @@ import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript
 import { useNavigation } from '@react-navigation/native';
 import { useRef } from 'react';
 import { ColorValue, Pressable, Text, View } from 'react-native';
-import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { Tag, useLibraryQuery } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -38,8 +38,7 @@ const DrawerTags = () => {
 	const tags = useLibraryQuery(['tags.list']);
 	const navigation = useNavigation<DrawerNavigationHelpers>();
 
-	useNodes(tags.data?.nodes);
-	const tagData = useCache(tags.data?.items);
+	const tagData = tags.data || [];
 
 	const modalRef = useRef<ModalRef>(null);
 

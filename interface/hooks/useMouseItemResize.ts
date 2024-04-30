@@ -17,7 +17,7 @@ export const useMouseItemResize = () => {
 	const handleWheel = useCallback(
 		(e: WheelEvent) => {
 			const isList = layoutMode === 'list';
-			const deltaYModifier = isList ? -Math.sign(e.deltaY) : e.deltaY / 10; // Sensitivity adjustment
+			const deltaYModifier = isList ? -Math.sign(e.deltaY) : -e.deltaY / 10; // Sensitivity adjustment
 			const newSize =
 				Number(
 					isList

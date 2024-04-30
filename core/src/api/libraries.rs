@@ -8,7 +8,6 @@ use crate::{
 
 use futures::StreamExt;
 use prisma_client_rust::raw;
-use sd_cache::{Model, Normalise, NormalisedResult, NormalisedResults};
 use sd_file_ext::kind::ObjectKind;
 use sd_p2p::RemoteIdentity;
 use sd_prisma::prisma::{indexer_rule, object, statistics};
@@ -57,12 +56,6 @@ pub struct LibraryConfigWrapped {
 	pub config: LibraryConfig,
 }
 
-impl Model for LibraryConfigWrapped {
-	fn name() -> &'static str {
-		"LibraryConfigWrapped"
-	}
-}
-
 impl LibraryConfigWrapped {
 	pub async fn from_library(library: &Library) -> Self {
 		Self {
@@ -78,7 +71,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("list", {
 			R.query(|node, _: ()| async move {
-				let libraries = node
+				Ok(node
 					.libraries
 					.get_all()
 					.await
@@ -93,11 +86,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					})
 					.collect::<Vec<_>>()
 					.join()
-					.await;
-
-				let (nodes, items) = libraries.normalise(|i| i.uuid.to_string());
-
-				Ok(NormalisedResults { nodes, items })
+					.await)
 			})
 		})
 		.procedure("statistics", {
@@ -318,10 +307,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.await?;
 					}
 
-					Ok(NormalisedResult::from(
-						LibraryConfigWrapped::from_library(&library).await,
-						|l| l.uuid.to_string(),
-					))
+					Ok(LibraryConfigWrapped::from_library(&library).await)
 				},
 			)
 		})

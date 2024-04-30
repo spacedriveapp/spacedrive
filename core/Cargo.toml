@@ -29,7 +29,6 @@ sd-core-sync = { path = "./crates/sync" }
 # Spacedrive Sub-crates
 sd-actors = { version = "0.1.0", path = "../crates/actors" }
 sd-ai = { path = "../crates/ai", optional = true }
-sd-cache = { path = "../crates/cache" }
 sd-cloud-api = { version = "0.1.0", path = "../crates/cloud-api" }
 sd-crypto = { path = "../crates/crypto", features = [
     "sys",
