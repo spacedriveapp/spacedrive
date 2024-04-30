@@ -4,10 +4,8 @@ import { useDebouncedCallback } from 'use-debounce';
 import {
 	extractInfoRSPCError,
 	UnionToTuple,
-	useCache,
 	useLibraryMutation,
 	useLibraryQuery,
-	useNodes,
 	usePlausibleEvent,
 	useZodForm
 } from '@sd/client';
@@ -70,8 +68,7 @@ export const AddLocationDialog = ({
 	const createLocation = useLibraryMutation('locations.create');
 	const relinkLocation = useLibraryMutation('locations.relink');
 	const listIndexerRulesQuery = useLibraryQuery(['locations.indexer_rules.list']);
-	useNodes(listIndexerRulesQuery.data?.nodes);
-	const listIndexerRules = useCache(listIndexerRulesQuery.data?.items);
+	const listIndexerRules = listIndexerRulesQuery.data;
 	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
 
 	// This is required because indexRules is undefined on first render

@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Suspense } from 'react';
 import { Controller } from 'react-hook-form';
 import { useNavigate } from 'react-router';
-import { useCache, useLibraryMutation, useLibraryQuery, useNodes, useZodForm } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery, useZodForm } from '@sd/client';
 import {
 	Button,
 	dialogManager,
@@ -57,8 +57,7 @@ const EditLocationForm = () => {
 	const locationDataQuery = useLibraryQuery(['locations.getWithRules', locationId], {
 		suspense: true
 	});
-	useNodes(locationDataQuery.data?.nodes);
-	const locationData = useCache(locationDataQuery.data?.item);
+	const locationData = locationDataQuery.data;
 
 	const form = useZodForm({
 		schema,
