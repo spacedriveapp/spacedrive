@@ -1,8 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
-import { useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { DotsThreeOutline, Plus } from 'phosphor-react-native';
 import { useRef } from 'react';
 import { Text, View } from 'react-native';
+import { useLibraryQuery } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
@@ -22,8 +22,7 @@ const BrowseLocations = () => {
 	const modalRef = useRef<ModalRef>(null);
 
 	const result = useLibraryQuery(['locations.list'], { keepPreviousData: true });
-	useNodes(result.data?.nodes);
-	const locations = useCache(result.data?.items);
+	const locations = result.data;
 
 	return (
 		<View style={tw`gap-5 px-6`}>

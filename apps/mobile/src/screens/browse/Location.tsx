@@ -1,4 +1,4 @@
-import { useCache, useLibraryQuery, useNodes, usePathsExplorerQuery } from '@sd/client';
+import { useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
 import { useEffect } from 'react';
 import Explorer from '~/components/explorer/Explorer';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
@@ -8,8 +8,7 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 	const { id, path } = route.params;
 
 	const location = useLibraryQuery(['locations.get', route.params.id]);
-	useNodes(location.data?.nodes);
-	const locationData = useCache(location.data?.item);
+	const locationData = location.data;
 
 	const paths = usePathsExplorerQuery({
 		arg: {

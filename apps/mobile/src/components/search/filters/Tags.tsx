@@ -3,7 +3,7 @@ import { memo, useCallback, useMemo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { LinearTransition } from 'react-native-reanimated';
-import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { Tag, useLibraryQuery } from '@sd/client';
 import Card from '~/components/layout/Card';
 import Empty from '~/components/layout/Empty';
 import Fade from '~/components/layout/Fade';
@@ -14,8 +14,7 @@ import { useSearchStore } from '~/stores/searchStore';
 
 const Tags = () => {
 	const tags = useLibraryQuery(['tags.list']);
-	useNodes(tags.data?.nodes);
-	const tagsData = useCache(tags.data?.items);
+	const tagsData = tags.data;
 	const searchStore = useSearchStore();
 
 	return (

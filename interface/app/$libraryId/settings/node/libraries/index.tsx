@@ -1,4 +1,4 @@
-import { useBridgeQuery, useCache, useLibraryContext, useNodes } from '@sd/client';
+import { useBridgeQuery, useLibraryContext } from '@sd/client';
 import { Button, dialogManager } from '@sd/ui';
 import { useLocale } from '~/hooks';
 
@@ -8,8 +8,7 @@ import ListItem from './ListItem';
 
 export const Component = () => {
 	const librariesQuery = useBridgeQuery(['library.list']);
-	useNodes(librariesQuery.data?.nodes);
-	const libraries = useCache(librariesQuery.data?.items);
+	const libraries = librariesQuery.data;
 
 	const { library } = useLibraryContext();
 

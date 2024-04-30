@@ -1,4 +1,4 @@
-import { Location, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { Location, useLibraryQuery } from '@sd/client';
 import { MotiView } from 'moti';
 import { memo, useCallback, useMemo } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
@@ -14,8 +14,7 @@ import { useSearchStore } from '~/stores/searchStore';
 
 const Locations = () => {
 	const locationsQuery = useLibraryQuery(['locations.list']);
-	useNodes(locationsQuery.data?.nodes);
-	const locations = useCache(locationsQuery.data?.items);
+	const locations = locationsQuery.data;
 	const searchStore = useSearchStore();
 
 	return (
