@@ -16,7 +16,6 @@ use sd_core_prisma_helpers::{
 	file_path_with_object, label_with_objects, location_with_indexer_rules, object_with_file_paths,
 };
 
-use sd_cache::{CacheNode, Model, Normalise, NormalisedResult, NormalisedResults, Reference};
 use sd_prisma::prisma::{file_path, indexer_rule, indexer_rules_in_location, location, SortOrder};
 
 use std::path::{Path, PathBuf};
@@ -65,14 +64,6 @@ pub enum ExplorerItem {
 		thumbnails: Vec<ThumbnailKey>,
 		item: label_with_objects::Data,
 	},
-}
-
-// TODO: Really this shouldn't be a `Model` but it's easy for now.
-// In the future we should store the inner data of the variant on behalf of it's existing model so it works cross queries.
-impl Model for ExplorerItem {
-	fn name() -> &'static str {
-		"ExplorerItem"
-	}
 }
 
 impl ExplorerItem {
@@ -207,17 +198,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("list", {
 			R.with2(library()).query(|(_, library), _: ()| async move {
-				let locations = library
+				Ok(library
 					.db
 					.location()
 					.find_many(vec![])
 					.order_by(location::date_created::order(SortOrder::Desc))
 					.exec()
-					.await?;
-
-				let (nodes, items) = locations.normalise(|i| i.id.to_string());
-
-				Ok(NormalisedResults { items, nodes })
+					.await?)
 			})
 		})
 		.procedure("get", {
@@ -228,8 +215,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.location()
 						.find_unique(location::id::equals(location_id))
 						.exec()
-						.await?
-						.map(|i| NormalisedResult::from(i, |i| i.id.to_string())))
+						.await?)
 				})
 		})
 		.procedure("getWithRules", {
@@ -248,21 +234,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub hidden: Option<bool>,
 				pub date_created: Option<DateTime<FixedOffset>>,
 				pub instance_id: Option<i32>,
-				pub indexer_rules: Vec<Reference<indexer_rule::Data>>,
-			}
-
-			impl Model for LocationWithIndexerRule {
-				fn name() -> &'static str {
-					"Location" // This is a duplicate identifier as `location::Data` but it's fine because because they are the same entity
-				}
+				pub indexer_rules: Vec<indexer_rule::Data>,
 			}
 
 			impl LocationWithIndexerRule {
-				pub fn from_db(
-					nodes: &mut Vec<CacheNode>,
-					value: location_with_indexer_rules::Data,
-				) -> Reference<Self> {
-					let this = Self {
+				pub fn from_db(value: location_with_indexer_rules::Data) -> Self {
+					Self {
 						id: value.id,
 						pub_id: value.pub_id,
 						name: value.name,
@@ -279,18 +256,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						indexer_rules: value
 							.indexer_rules
 							.into_iter()
-							.map(|i| {
-								let id = i.indexer_rule.id.to_string();
-
-								nodes.push(CacheNode::new(id.clone(), i.indexer_rule));
-								Reference::new(id)
-							})
-							.collect(),
-					};
-
-					let id = this.id.to_string();
-					nodes.push(CacheNode::new(id.clone(), this));
-					Reference::new(id)
+							.map(|i| i.indexer_rule)
+							.collect::<Vec<_>>(),
+					}
 				}
 			}
 
@@ -303,13 +271,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.include(location_with_indexer_rules::include())
 						.exec()
 						.await?
-						.map(|location| {
-							let mut nodes = Vec::new();
-							NormalisedResult {
-								item: LocationWithIndexerRule::from_db(&mut nodes, location),
-								nodes,
-							}
-						}))
+						.map(|location| LocationWithIndexerRule::from_db(location)))
 				})
 		})
 		.procedure("create", {
@@ -587,34 +549,25 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 								format!("Indexer rule <id={indexer_rule_id}> not found"),
 							)
 						})
-						.map(|i| NormalisedResult::from(i, |i| i.id.to_string()))
 				})
 		})
 		.procedure("list", {
 			R.with2(library()).query(|(_, library), _: ()| async move {
-				let rules = library.db.indexer_rule().find_many(vec![]).exec().await?;
-
-				let (nodes, items) = rules.normalise(|i| i.id.to_string());
-
-				Ok(NormalisedResults { items, nodes })
+				Ok(library.db.indexer_rule().find_many(vec![]).exec().await?)
 			})
 		})
 		// list indexer rules for location, returning the indexer rule
 		.procedure("listForLocation", {
 			R.with2(library())
 				.query(|(_, library), location_id: location::id::Type| async move {
-					let rules = library
+					Ok(library
 						.db
 						.indexer_rule()
 						.find_many(vec![indexer_rule::locations::some(vec![
 							indexer_rules_in_location::location_id::equals(location_id),
 						])])
 						.exec()
-						.await?;
-
-					let (nodes, items) = rules.normalise(|i| i.id.to_string());
-
-					Ok(NormalisedResults { items, nodes })
+						.await?)
 				})
 		})
 }

@@ -6,14 +6,7 @@ import { useEffect, useState } from 'react';
 import CommandPalette, { filterItems, getItemIndex } from 'react-cmdk';
 import { useNavigate } from 'react-router';
 import { createSearchParams } from 'react-router-dom';
-import {
-	arraysEqual,
-	useCache,
-	useLibraryContext,
-	useLibraryQuery,
-	useNodes,
-	useOnlineLocations
-} from '@sd/client';
+import { arraysEqual, useLibraryContext, useLibraryQuery, useOnlineLocations } from '@sd/client';
 import { dialogManager } from '@sd/ui';
 import i18n from '~/app/I18n';
 import { Icon } from '~/components';
@@ -58,8 +51,7 @@ const CMDK = () => {
 	const [search, setSearch] = useState('');
 
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
-	useNodes(locationsQuery.data?.nodes);
-	const locations = useCache(locationsQuery.data?.items);
+	const locations = locationsQuery.data;
 
 	const onlineLocations = useOnlineLocations();
 

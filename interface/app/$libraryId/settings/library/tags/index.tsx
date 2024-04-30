@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
-import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { Tag, useLibraryQuery } from '@sd/client';
 import { Button, Card, dialogManager } from '@sd/ui';
 import { Heading } from '~/app/$libraryId/settings/Layout';
 import { TagsSettingsParamsSchema } from '~/app/route-schemas';
@@ -11,8 +11,7 @@ import EditForm from './EditForm';
 
 export const Component = () => {
 	const result = useLibraryQuery(['tags.list']);
-	useNodes(result.data?.nodes);
-	const tags = useCache(result.data?.items);
+	const tags = result.data;
 
 	const { id: locationId } = useZodRouteParams(TagsSettingsParamsSchema);
 	const tagSelectedParam = tags?.find((tag) => tag.id === locationId);

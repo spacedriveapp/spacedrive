@@ -3,7 +3,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { listen } from '@tauri-apps/api/event';
 import { PropsWithChildren, startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CacheProvider, createCache, RspcProvider } from '@sd/client';
+import { RspcProvider } from '@sd/client';
 import {
 	createRoutes,
 	ErrorPage,
@@ -56,16 +56,14 @@ export default function App() {
 	return (
 		<RspcProvider queryClient={queryClient}>
 			<QueryClientProvider client={queryClient}>
-				<CacheProvider cache={cache}>
-					{startupError ? (
-						<ErrorPage
-							message={startupError}
-							submessage="Error occurred starting up the Spacedrive core"
-						/>
-					) : (
-						<AppInner />
-					)}
-				</CacheProvider>
+				{startupError ? (
+					<ErrorPage
+						message={startupError}
+						submessage="Error occurred starting up the Spacedrive core"
+					/>
+				) : (
+					<AppInner />
+				)}
 			</QueryClientProvider>
 		</RspcProvider>
 	);
@@ -74,9 +72,7 @@ export default function App() {
 // we have a minimum delay between creating new tabs as react router can't handle creating tabs super fast
 const TAB_CREATE_DELAY = 150;
 
-const cache = createCache();
-
-const routes = createRoutes(platform, cache);
+const routes = createRoutes(platform);
 
 type redirect = { pathname: string; search: string | undefined };
 

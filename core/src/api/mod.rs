@@ -8,7 +8,6 @@ use crate::{
 	Node,
 };
 
-use sd_cache::patch_typedef;
 use sd_p2p::RemoteIdentity;
 use sd_prisma::prisma::file_path;
 
@@ -210,8 +209,6 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("backups.", backups::mount())
 		.merge("invalidation.", utils::mount_invalidate())
 		.sd_patch_types_dangerously(|type_map| {
-			patch_typedef(type_map);
-
 			let def =
 				<sd_prisma::prisma::object::Data as specta::NamedType>::definition_named_data_type(
 					type_map,
