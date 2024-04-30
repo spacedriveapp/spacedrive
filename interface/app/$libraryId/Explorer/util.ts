@@ -52,10 +52,21 @@ const dayjsLocales: Record<string, any> = {
 };
 
 export function loadDayjsLocale(language: string) {
-	dayjsLocales[language]().then(() => {
-		language = language.replace('_', '-');
-		dayjs.locale(language);
-	});
+	if (dayjsLocales[language]) {
+		dayjsLocales[language]()
+			.then(() => {
+				language = language.replace('_', '-');
+				dayjs.locale(language);
+			})
+			.catch((error: any) => {
+				console.error(`Failed to load ${language} locale:`, error);
+				// Optionally set a default locale here
+				dayjs.locale('en');
+			});
+	} else {
+		console.warn(`Locale for ${language} not available, falling back to default.`);
+		dayjs.locale('en');
+	}
 }
 
 // Generate list of localized formats available in the app
