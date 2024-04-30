@@ -98,14 +98,8 @@ const SidebarContent = ({ children }: PropsWithChildren) => {
 	const controls = useAnimationControls();
 
 	const variants: Variants = {
-		hide: {
-			left: -resizable.position + 12,
-			transition: { duration: 0.1, ease: 'easeOut' }
-		},
-		show: {
-			left: 0,
-			transition: { duration: 0.1, ease: 'easeOut' }
-		}
+		hide: { left: -resizable.position + 12 },
+		show: { left: 0 }
 	};
 
 	const toggleSidebar = useCallback(
@@ -184,6 +178,7 @@ const SidebarContent = ({ children }: PropsWithChildren) => {
 				initial={show ? 'show' : 'hide'}
 				animate={controls}
 				variants={variants}
+				transition={{ duration: 0.1, ease: 'easeOut' }}
 				className={clsx('fixed inset-y-0 z-[100]', resizable.collapsed && 'p-1 pr-3')}
 				style={{
 					// We add 16px from the padding on the x-axis
