@@ -8494,6 +8494,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "ffmpeg-sys-next",
+ "image",
  "libc",
  "tempfile",
  "thiserror",

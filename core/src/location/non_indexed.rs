@@ -242,7 +242,7 @@ pub async fn walk(
 						date_modified: entry.metadata.modified_or_now().into(),
 						size_in_bytes_bytes: entry.metadata.len().to_be_bytes().to_vec(),
 					},
-					has_created_thumbnail: false,
+					has_created_thumbnail: true,
 				}))
 				.await?;
 			}

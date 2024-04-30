@@ -11,12 +11,14 @@ edition = { workspace = true }
 
 [dependencies]
 chrono = { workspace = true }
-ffmpeg-sys-next = "6.0.1"
+image = { workspace = true }
 libc = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["fs", "rt"] }
 tracing = { workspace = true }
 webp = { workspace = true }
+
+ffmpeg-sys-next = "6.0.1"
 
 [dev-dependencies]
 tempfile = { workspace = true }

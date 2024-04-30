@@ -470,9 +470,14 @@ async fn generate_video_thumbnail(
 	file_path: impl AsRef<Path>,
 	output_path: impl AsRef<Path>,
 ) -> Result<(), ThumbnailerError> {
-	use sd_ffmpeg::to_thumbnail;
+	use sd_ffmpeg::{to_thumbnail, ThumbnailSize};
 
-	to_thumbnail(file_path, output_path, 256, TARGET_QUALITY)
-		.await
-		.map_err(Into::into)
+	to_thumbnail(
+		file_path,
+		output_path,
+		ThumbnailSize::Scale(256),
+		TARGET_QUALITY,
+	)
+	.await
+	.map_err(Into::into)
 }

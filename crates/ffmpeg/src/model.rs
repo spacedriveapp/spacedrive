@@ -28,7 +28,7 @@ pub struct MediaMetadata {
 }
 
 pub struct MediaChapter {
-	pub id: u32,
+	pub id: u64,
 	pub start: i64,
 	pub end: i64,
 	pub time_base_den: i32,

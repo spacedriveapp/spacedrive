@@ -1,7 +1,8 @@
-use crate::{Error, FrameDecoder, ThumbnailSize};
+use crate::{frame_decoder::ThumbnailSize, Error, FrameDecoder};
 
 use std::{io, ops::Deref, path::Path};
 
+use image::{DynamicImage, RgbImage};
 use tokio::{fs, task::spawn_blocking};
 use tracing::error;
 use webp::Encoder;
@@ -15,7 +16,7 @@ pub struct Thumbnailer {
 
 impl Thumbnailer {
 	/// Processes an video input file and write to file system a thumbnail with webp format
-	pub async fn process(
+	pub(crate) async fn process(
 		&self,
 		video_file_path: impl AsRef<Path>,
 		output_thumbnail_path: impl AsRef<Path>,
@@ -38,7 +39,7 @@ impl Thumbnailer {
 	}
 
 	/// Processes an video input file and returns a webp encoded thumbnail as bytes
-	pub async fn process_to_webp_bytes(
+	async fn process_to_webp_bytes(
 		&self,
 		video_file_path: impl AsRef<Path>,
 	) -> Result<Vec<u8>, Error> {
@@ -50,9 +51,13 @@ impl Thumbnailer {
 		let quality = self.builder.quality;
 
 		spawn_blocking(move || -> Result<Vec<u8>, Error> {
-			// TODO: Allow_seek should be false, for remote files
-			let mut decoder =
-				FrameDecoder::new(video_file_path.clone(), prefer_embedded_metadata, true)?;
+			let mut decoder = FrameDecoder::new(
+				video_file_path.clone(),
+				// TODO: allow_seek should be false for remote files
+				true,
+				prefer_embedded_metadata,
+			)?;
+
 			// We actually have to decode a frame to get some metadata before we can start decoding for real
 			decoder.decode_video_frame()?;
 
@@ -62,30 +67,50 @@ impl Thumbnailer {
 					.ok_or(Error::NoVideoDuration)
 					.and_then(|duration| {
 						decoder.seek(
+							// This conversion are ok because we don't worry much about precision here
 							(duration.num_seconds() as f64 * f64::from(seek_percentage)).round()
 								as i64,
 						)
 					});
 
 				if let Err(err) = result {
-					error!("Failed to seek: {err:#?}");
-					// seeking failed, try the first frame again
-					decoder = FrameDecoder::new(video_file_path, prefer_embedded_metadata, false)?;
+					error!(
+						"Failed to seek {}: {err:#?}",
+						video_file_path.to_string_lossy()
+					);
+					// Seeking failed, try first frame again
+					// Reinstantiating decoder to avoid possible segfault
+					// https://github.com/dirkvdb/ffmpegthumbnailer/commit/da292ccb51a526ebc833f851a388ca308d747289
+					decoder = FrameDecoder::new(video_file_path, false, prefer_embedded_metadata)?;
 					decoder.decode_video_frame()?;
 				}
 			}
 
 			let video_frame = decoder.get_scaled_video_frame(Some(size), maintain_aspect_ratio)?;
 
+			let image = DynamicImage::ImageRgb8(
+				RgbImage::from_raw(video_frame.width, video_frame.height, video_frame.data)
+					.ok_or(Error::CorruptVideo)?,
+			);
+
+			let image = if video_frame.rotation < -135.0 {
+				image.rotate180()
+			} else if video_frame.rotation > 45.0 && video_frame.rotation < 135.0 {
+				image.rotate270()
+			} else if video_frame.rotation < -45.0 && video_frame.rotation > -135.0 {
+				image.rotate90()
+			} else {
+				image
+			};
+
 			// Type WebPMemory is !Send, which makes the Future in this function !Send,
 			// this make us `deref` to have a `&[u8]` and then `to_owned` to make a Vec<u8>
 			// which implies on a unwanted clone...
-			Ok(
-				Encoder::from_rgb(&video_frame.data, video_frame.width, video_frame.height)
-					.encode(quality)
-					.deref()
-					.to_vec(),
-			)
+			Ok(Encoder::from_image(&image)
+				.expect("Should not fail as the underlining DynamicImage is an RgbImage")
+				.encode(quality)
+				.deref()
+				.to_vec())
 		})
 		.await?
 	}
@@ -107,7 +132,7 @@ impl Default for ThumbnailerBuilder {
 	fn default() -> Self {
 		Self {
 			maintain_aspect_ratio: true,
-			size: ThumbnailSize::Size(128),
+			size: ThumbnailSize::Scale(128),
 			seek_percentage: 0.1,
 			quality: 80.0,
 			prefer_embedded_metadata: true,
@@ -133,14 +158,8 @@ impl ThumbnailerBuilder {
 	}
 
 	/// To set a thumbnail size, respecting or not its aspect ratio, according to `maintain_aspect_ratio` value
-	pub const fn size(mut self, size: u32) -> Self {
-		self.size = ThumbnailSize::Size(size);
-		self
-	}
-
-	/// To specify width and height of the thumbnail
-	pub const fn width_and_height(mut self, width: u32, height: u32) -> Self {
-		self.size = ThumbnailSize::Dimensions { width, height };
+	pub const fn size(mut self, size: ThumbnailSize) -> Self {
+		self.size = size;
 		self
 	}
 

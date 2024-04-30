@@ -3,7 +3,6 @@ use crate::{
 	error::{Error, FFmpegError},
 	filter_graph::FFmpegFilterGraph,
 	format_ctx::FFmpegFormatContext,
-	probe::probe,
 	utils::{check_error, from_path},
 	video_frame::FFmpegFrame,
 };
@@ -20,8 +19,8 @@ use ffmpeg_sys_next::{
 
 #[derive(Debug, Clone, Copy)]
 pub enum ThumbnailSize {
+	Scale(u32),
 	Dimensions { width: u32, height: u32 },
-	Size(u32),
 }
 
 #[derive(Debug)]
@@ -29,6 +28,7 @@ pub(crate) struct VideoFrame {
 	pub data: Vec<u8>,
 	pub width: u32,
 	pub height: u32,
+	pub rotation: f64,
 }
 
 pub struct FrameDecoder {
@@ -48,9 +48,6 @@ impl FrameDecoder {
 		prefer_embedded: bool,
 	) -> Result<Self, Error> {
 		let filename = filename.as_ref();
-
-		// TODO: Remove this, just here to test and so clippy stops complaining about it being unused
-		let _ = probe(filename);
 
 		let mut format_context = FFmpegFormatContext::open_file(from_path(filename)?.as_c_str())?;
 
@@ -163,16 +160,10 @@ impl FrameDecoder {
 			av_guess_sample_aspect_ratio(self.format_ctx.as_mut(), stream_ptr, self.frame.as_mut())
 		};
 
-		let rotation_angle = self
-			.format_ctx
-			.get_stream_rotation_angle(self.preferred_stream_id)
-			.round();
-
 		let (_guard, filter_source, filter_sink) = FFmpegFilterGraph::thumbnail_graph(
 			size,
 			&time_base,
 			&self.codec_ctx,
-			rotation_angle,
 			(self.frame.as_mut().flags & AV_FRAME_FLAG_INTERLACED) != 0,
 			&pixel_aspect_ratio,
 			maintain_aspect_ratio,
@@ -195,17 +186,23 @@ impl FrameDecoder {
 		}
 		check_error(get_frame_errno, "Failed to get buffer from filter")?;
 
-		let height = new_frame.as_ref().height;
-		let line_size = new_frame.as_ref().linesize[0];
-		let mut data = Vec::with_capacity(usize::try_from(line_size * height)?);
+		let width = new_frame.as_ref().width.unsigned_abs();
+		let height = new_frame.as_ref().height.unsigned_abs();
+		let line_size = usize::try_from(new_frame.as_ref().linesize[0])?;
+
+		let mut data = Vec::with_capacity(line_size * usize::try_from(height)?);
 		data.extend_from_slice(unsafe {
 			std::slice::from_raw_parts(new_frame.as_ref().data[0], data.capacity())
 		});
 
 		Ok(VideoFrame {
-			height: u32::try_from(height)?,
-			width: new_frame.as_ref().width.try_into()?,
 			data,
+			width,
+			height,
+			rotation: self
+				.format_ctx
+				.get_stream_rotation_angle(self.preferred_stream_id)
+				.round(),
 		})
 	}
 

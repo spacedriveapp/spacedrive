@@ -12,7 +12,6 @@ use ffmpeg_sys_next::{
 	avfilter_graph_create_filter, avfilter_graph_free, avfilter_link, AVFilterContext,
 	AVFilterGraph, AVRational,
 };
-
 pub(crate) struct FFmpegFilterGraph(*mut AVFilterGraph);
 
 impl<'a> FFmpegFilterGraph {
@@ -39,7 +38,6 @@ impl<'a> FFmpegFilterGraph {
 		size: Option<ThumbnailSize>,
 		time_base: &AVRational,
 		codec_ctx: &FFmpegCodecContext,
-		rotation_angle: f64,
 		interlaced_frame: bool,
 		pixel_aspect_ratio: &AVRational,
 		maintain_aspect_ratio: bool,
@@ -115,54 +113,13 @@ impl<'a> FFmpegFilterGraph {
 			"Failed to create format filter",
 		)?;
 
-		let mut rotate_filter = ptr::null_mut();
-		if rotation_angle < -135.0 {
-			filter_graph.setup_filter(
-				&mut rotate_filter,
-				c"rotate",
-				c"thumb_rotate",
-				Some(c"PI"),
-				"Failed to create rotate filter",
-			)?;
-		} else if rotation_angle > 45.0 && rotation_angle < 135.0 {
-			filter_graph.setup_filter(
-				&mut rotate_filter,
-				c"transpose",
-				c"thumb_transpose",
-				Some(c"2"),
-				"Failed to create transpose filter",
-			)?;
-		} else if rotation_angle < -45.0 && rotation_angle > -135.0 {
-			filter_graph.setup_filter(
-				&mut rotate_filter,
-				c"transpose",
-				c"thumb_transpose",
-				Some(c"1"),
-				"Failed to create transpose filter",
-			)?;
-		}
-
 		Self::link(
-			if rotate_filter.is_null() {
-				format_filter
-			} else {
-				rotate_filter
-			},
+			format_filter,
 			0,
 			filter_sink_ctx,
 			0,
 			"Failed to link final filter",
 		)?;
-
-		if !rotate_filter.is_null() {
-			Self::link(
-				format_filter,
-				0,
-				rotate_filter,
-				0,
-				"Failed to link format filter",
-			)?;
-		}
 
 		Self::link(
 			scale_filter,
@@ -253,7 +210,7 @@ fn thumb_scale_filter_args(
 ) -> Result<String, Error> {
 	let (width, height) = match size {
 		Some(ThumbnailSize::Dimensions { width, height }) => (width, Some(height)),
-		Some(ThumbnailSize::Size(width)) => (width, None),
+		Some(ThumbnailSize::Scale(width)) => (width, None),
 		None => return Ok("w=0:h=0".to_string()),
 	};
 

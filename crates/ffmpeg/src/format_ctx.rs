@@ -8,9 +8,9 @@ use crate::{
 
 use ffmpeg_sys_next::{
 	av_cmp_q, av_display_rotation_get, av_read_frame, av_reduce, av_stream_get_side_data,
-	avformat_close_input, avformat_find_stream_info, avformat_open_input, AVCodecID, AVDictionary,
-	AVFormatContext, AVMediaType, AVPacket, AVPacketSideDataType, AVRational, AVStream,
-	AV_DISPOSITION_ATTACHED_PIC, AV_DISPOSITION_CAPTIONS, AV_DISPOSITION_CLEAN_EFFECTS,
+	avformat_close_input, avformat_find_stream_info, avformat_open_input, AVChapter, AVCodecID,
+	AVDictionary, AVFormatContext, AVMediaType, AVPacket, AVPacketSideDataType, AVRational,
+	AVStream, AV_DISPOSITION_ATTACHED_PIC, AV_DISPOSITION_CAPTIONS, AV_DISPOSITION_CLEAN_EFFECTS,
 	AV_DISPOSITION_COMMENT, AV_DISPOSITION_DEFAULT, AV_DISPOSITION_DEPENDENT,
 	AV_DISPOSITION_DESCRIPTIONS, AV_DISPOSITION_DUB, AV_DISPOSITION_FORCED,
 	AV_DISPOSITION_HEARING_IMPAIRED, AV_DISPOSITION_KARAOKE, AV_DISPOSITION_LYRICS,
@@ -116,22 +116,22 @@ impl FFmpegFormatContext {
 		}
 	}
 
-	pub(crate) fn read_frame(&mut self, packet: *mut AVPacket) -> Result<(), Error> {
+	pub(crate) fn read_frame(&mut self, packet: *mut AVPacket) -> Result<&mut Self, Error> {
 		check_error(
 			unsafe { av_read_frame(self.as_mut(), packet) },
 			"Fail to read the next frame of a media file",
 		)?;
 
-		Ok(())
+		Ok(self)
 	}
 
-	pub(crate) fn find_stream_info(&mut self) -> Result<(), Error> {
+	pub(crate) fn find_stream_info(&mut self) -> Result<&mut Self, Error> {
 		check_error(
 			unsafe { avformat_find_stream_info(self.as_mut(), ptr::null_mut()) },
 			"Fail to read packets of a media file to get stream information",
 		)?;
 
-		Ok(())
+		Ok(self)
 	}
 
 	pub(crate) fn find_preferred_video_stream(
@@ -232,30 +232,12 @@ impl FFmpegFormatContext {
 
 	fn chapters(&self) -> Vec<MediaChapter> {
 		let chapters_ptr = self.as_ref().chapters;
-
-		let Ok(num_chapters) = isize::try_from(self.as_ref().nb_chapters) else {
-			return vec![];
-		};
-
 		(!chapters_ptr.is_null())
 			.then(|| {
-				(0..num_chapters)
-					.filter_map(|id| {
-						unsafe { (*(chapters_ptr.offset(id))).as_ref() }.map(|chapter| {
-							MediaChapter {
-								// Note: id is guaranteed to be a valid u32 because it was calculated from a u32
-								id: id as u32,
-								start: chapter.start,
-								end: chapter.end,
-								time_base_num: chapter.time_base.num,
-								time_base_den: chapter.time_base.den,
-								metadata: unsafe { chapter.metadata.as_mut() }
-									.map(|metadata| FFmpegDict::new(Some(metadata)).into())
-									.unwrap_or_else(MediaMetadata::default),
-							}
-						})
-					})
-					.collect::<Vec<MediaChapter>>()
+				(0..isize::try_from(self.as_ref().nb_chapters).unwrap_or(0))
+					.filter_map(|id| unsafe { (*(chapters_ptr.offset(id))).as_ref() })
+					.map(|chapter| chapter.into())
+					.collect()
 			})
 			.unwrap_or(vec![])
 	}
@@ -266,37 +248,29 @@ impl FFmpegFormatContext {
 
 		let mut programs = (!programs_ptr.is_null())
 			.then(|| {
-				let Ok(num_programs) = isize::try_from(self.as_ref().nb_programs) else {
-					return vec![];
-				};
+				(0..isize::try_from(self.as_ref().nb_programs).unwrap_or(0))
+					.filter_map(|id| unsafe { (*(programs_ptr.offset(id))).as_ref() })
+					.map(|program| {
+						let (metadata, name) = extract_name_and_convert_metadata(program.metadata);
 
-				(0..num_programs)
-					.filter_map(|id| {
-						unsafe { (*(programs_ptr.offset(id))).as_ref() }.map(|program| {
-							let (metadata, name) =
-								extract_name_and_convert_metadata(program.metadata);
+						let streams = (0..isize::try_from(program.nb_stream_indexes).unwrap_or(0))
+							.filter_map(|index| unsafe {
+								program.stream_index.offset(index).as_ref()
+							})
+							.copied()
+							.filter_map(|stream_index| {
+								visited_streams.insert(stream_index);
+								self.stream(stream_index)
+							})
+							.map(|stream| (&*stream).into())
+							.collect::<Vec<MediaStream>>();
 
-							let streams = (0..num_programs)
-								.filter_map(|index| {
-									unsafe { program.stream_index.offset(index).as_ref() }.and_then(
-										|stream_index| {
-											self.stream(*stream_index).map(|stream| {
-												visited_streams.insert(*stream_index);
-												(&*stream).into()
-											})
-										},
-									)
-								})
-								.collect::<Vec<MediaStream>>();
-
-							MediaProgram {
-								// Note: id is guaranteed to be a valid u32 because it was calculated from a u32
-								id: id as u32,
-								name,
-								streams,
-								metadata,
-							}
-						})
+						MediaProgram {
+							id: program.id.unsigned_abs(),
+							name,
+							streams,
+							metadata,
+						}
 					})
 					.collect::<Vec<MediaProgram>>()
 			})
@@ -322,8 +296,8 @@ impl FFmpegFormatContext {
 	}
 
 	fn metadata(&self) -> Option<MediaMetadata> {
-		unsafe { (*(self.0)).metadata.as_mut() }
-			.map(|metadata| FFmpegDict::new(Some(metadata)).into())
+		let fmt_ctx = self.as_ref();
+		unsafe { fmt_ctx.metadata.as_mut() }.map(|metadata| FFmpegDict::new(Some(metadata)).into())
 	}
 }
 
@@ -346,6 +320,21 @@ impl From<&FFmpegFormatContext> for MediaInfo {
 			chapters: ctx.chapters(),
 			programs: ctx.programs(),
 			metadata: ctx.metadata(),
+		}
+	}
+}
+
+impl From<&AVChapter> for MediaChapter {
+	fn from(chapter: &AVChapter) -> Self {
+		MediaChapter {
+			id: chapter.id.unsigned_abs(),
+			start: chapter.start,
+			end: chapter.end,
+			time_base_num: chapter.time_base.num,
+			time_base_den: chapter.time_base.den,
+			metadata: unsafe { chapter.metadata.as_mut() }
+				.map(|metadata| FFmpegDict::new(Some(metadata)).into())
+				.unwrap_or_else(MediaMetadata::default),
 		}
 	}
 }
