@@ -113,23 +113,23 @@ export function generateLocaleDateFormats(language: string) {
 			},
 			// {
 			// 	value: 'D MMM YYYY',
-			// 	label: dayjs().locale('en').format('D MMM')
+			// 	label: dayjs().locale('en').format('D MMM YYYY')
 			// },
 			{
 				value: 'D MMMM YYYY',
-				label: dayjs().locale('en').format('D MMMM')
+				label: dayjs().locale('en').format('D MMMM YYYY')
 			},
 			// {
 			// 	value: 'D MMM YYYY HH:mm',
-			// 	label: dayjs().locale('en').format('D MMM HH:mm')
+			// 	label: dayjs().locale('en').format('D MMM YYYY HH:mm')
 			// },
 			{
 				value: 'D MMMM YYYY HH:mm',
-				label: dayjs().locale('en').format('D MMMM HH:mm')
+				label: dayjs().locale('en').format('D MMMM YYYY HH:mm')
 			},
 			{
 				value: 'ddd, D MMM YYYY HH:mm',
-				label: dayjs().locale('en').format('ddd, D MMMM HH:mm')
+				label: dayjs().locale('en').format('ddd, D MMMM YYYY HH:mm')
 			}
 		];
 		return DATE_FORMATS.concat(additionalFormats);
