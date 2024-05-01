@@ -28,13 +28,15 @@ use sd_images::{format_image, scale_dimensions, ConvertibleExtension};
 use sd_media_metadata::image::Orientation;
 use sd_prisma::prisma::{file_path, location};
 use sd_task_system::{
-	check_interruption, ExecStatus, Interrupter, IntoAnyTaskOutput, SerializableTask, Task, TaskId,
+	ExecStatus, Interrupter, InterruptionKind, IntoAnyTaskOutput, SerializableTask, Task, TaskId,
 };
 use sd_utils::error::FileIOError;
 
 use std::{
 	collections::HashMap,
-	fmt, mem,
+	fmt,
+	future::IntoFuture,
+	mem,
 	ops::Deref,
 	path::{Path, PathBuf},
 	pin::pin,
@@ -109,6 +111,11 @@ impl<Reporter: NewThumbnailReporter> Task<Error> for Thumbnailer<Reporter> {
 	}
 
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {
+		enum InterruptRace {
+			Interrupted(InterruptionKind),
+			Processed(ThumbnailGenerationOutput),
+		}
+
 		let Self {
 			thumbs_kind,
 			thumbnails_directory_path,
@@ -152,45 +159,33 @@ impl<Reporter: NewThumbnailReporter> Task<Error> for Thumbnailer<Reporter> {
 					}),
 				)
 					.race()
+					.map(InterruptRace::Processed)
 			})
+			.map(|fut| (
+				fut,
+				interrupter.into_future().map(InterruptRace::Interrupted)
+			)
+				.race())
 			.collect::<FutureGroup<_>>());
 
-		while let Some((id, (elapsed_time, res))) = futures.next().await {
-			let elapsed_time = elapsed_time.as_secs_f64();
-			output.mean_generation_time_accumulator += elapsed_time;
-			output.std_dev_accumulator += elapsed_time * elapsed_time;
-			match res {
-				Ok((thumb_key, status)) => {
-					match status {
-						GenerationStatus::Generated => {
-							output.generated += 1;
-						}
-						GenerationStatus::Skipped => {
-							output.skipped += 1;
-						}
-					}
+		while let Some(race_output) = futures.next().await {
+			match race_output {
+				InterruptRace::Processed(out) => process_thumbnail_generation_output(
+					out,
+					*with_priority,
+					reporter.as_ref(),
+					already_processed_ids,
+					output,
+				),
 
-					// This if is REALLY needed, due to the sheer performance of the thumbnailer,
-					// I restricted to only send events notifying for thumbnails in the current
-					// opened directory, sending events for the entire location turns into a
-					// humongous bottleneck in the frontend lol, since it doesn't even knows
-					// what to do with thumbnails for inner directories lol
-					// - fogodev
-					if *with_priority {
-						reporter.new_thumbnail(thumb_key);
-					}
-				}
-				Err(e) => {
-					output
-						.errors
-						.push(media_processor::NonCriticalError::from(e).into());
-					output.skipped += 1;
+				InterruptRace::Interrupted(kind) => {
+					output.total_generation_time += start.elapsed();
+					return Ok(match kind {
+						InterruptionKind::Pause => ExecStatus::Paused,
+						InterruptionKind::Cancel => ExecStatus::Canceled,
+					});
 				}
 			}
-
-			let total_generation_time = &mut output.total_generation_time;
-			already_processed_ids.push(id);
-			check_interruption!(interrupter, start, total_generation_time);
 		}
 
 		output.total_generation_time += start.elapsed();
@@ -449,6 +444,62 @@ impl<Reporter: NewThumbnailReporter> SerializableTask<Error> for Thumbnailer<Rep
 enum GenerationStatus {
 	Generated,
 	Skipped,
+}
+
+type ThumbnailGenerationOutput = (
+	ThumbnailId,
+	(
+		Duration,
+		Result<(ThumbKey, GenerationStatus), NonCriticalError>,
+	),
+);
+
+fn process_thumbnail_generation_output(
+	(id, (elapsed_time, res)): ThumbnailGenerationOutput,
+	with_priority: bool,
+	reporter: &impl NewThumbnailReporter,
+	already_processed_ids: &mut Vec<ThumbnailId>,
+	Output {
+		generated,
+		skipped,
+		errors,
+		mean_generation_time_accumulator,
+		std_dev_accumulator,
+		..
+	}: &mut Output,
+) {
+	let elapsed_time = elapsed_time.as_secs_f64();
+	*mean_generation_time_accumulator += elapsed_time;
+	*std_dev_accumulator += elapsed_time * elapsed_time;
+
+	match res {
+		Ok((thumb_key, status)) => {
+			match status {
+				GenerationStatus::Generated => {
+					*generated += 1;
+				}
+				GenerationStatus::Skipped => {
+					*skipped += 1;
+				}
+			}
+
+			// This if is REALLY needed, due to the sheer performance of the thumbnailer,
+			// I restricted to only send events notifying for thumbnails in the current
+			// opened directory, sending events for the entire location turns into a
+			// humongous bottleneck in the frontend lol, since it doesn't even knows
+			// what to do with thumbnails for inner directories lol
+			// - fogodev
+			if with_priority {
+				reporter.new_thumbnail(thumb_key);
+			}
+		}
+		Err(e) => {
+			errors.push(media_processor::NonCriticalError::from(e).into());
+			*skipped += 1;
+		}
+	}
+
+	already_processed_ids.push(id);
 }
 
 async fn generate_thumbnail(
