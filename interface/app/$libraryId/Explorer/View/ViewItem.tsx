@@ -182,7 +182,7 @@ export const useViewItemDoubleClick = () => {
 			}
 		},
 		[
-			setSearchParams,
+			searchParams,
 			explorer.selectedItems,
 			explorer.settingsStore.openOnDoubleClick,
 			library.uuid,
