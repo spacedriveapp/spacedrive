@@ -121,6 +121,7 @@ export type Procedures = {
         { key: "p2p.cancelSpacedrop", input: string, result: null } | 
         { key: "p2p.debugConnect", input: RemoteIdentity, result: string } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: string } | 
+        { key: "p2p.spacedropCloud", input: LibraryArgs<SpacedropCloudArgs>, result: string[] } | 
         { key: "preferences.update", input: LibraryArgs<LibraryPreferences>, result: null } | 
         { key: "search.saved.create", input: LibraryArgs<{ name: string; target?: SearchTarget; search?: string | null; filters?: string | null; description?: string | null; icon?: string | null }>, result: null } | 
         { key: "search.saved.delete", input: LibraryArgs<number>, result: null } | 
@@ -572,6 +573,8 @@ key: string; arg: JsonValue; result: JsonValue | null }
 export type SortOrder = "Asc" | "Desc"
 
 export type SpacedropArgs = { identity: RemoteIdentity; file_path: string[] }
+
+export type SpacedropCloudArgs = { file_paths: string[] }
 
 export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
 

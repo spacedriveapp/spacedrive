@@ -1,4 +1,8 @@
-use crate::p2p::{operations, ConnectionMethod, DiscoveryMethod, Header, P2PEvent, PeerMetadata};
+use crate::{
+	api::utils::library,
+	location::LocationPubId,
+	p2p::{operations, ConnectionMethod, DiscoveryMethod, Header, P2PEvent, PeerMetadata},
+};
 
 use sd_p2p::{PeerConnectionCandidate, RemoteIdentity};
 
@@ -7,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{path::PathBuf, sync::PoisonError};
 use tokio::io::AsyncWriteExt;
+use tracing::{debug, info};
 use uuid::Uuid;
 
 use super::{Ctx, R};
@@ -174,5 +179,133 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				Ok(())
 			})
+		})
+		.procedure("spacedropCloud", {
+			#[derive(Type, Deserialize, Debug)]
+			pub struct SpacedropCloudArgs {
+				file_paths: Vec<PathBuf>,
+			}
+
+			R.with2(library())
+				.mutation(|(node, library), args: SpacedropCloudArgs| async move {
+					debug!("spacedropCloud args: {:?}", args);
+					// For each file, return a dictionary with the file path, size, name and mime type
+					let files = args
+						.file_paths
+						.into_iter()
+						.map(|path| {
+							let file = std::fs::File::open(&path).unwrap();
+							let metadata = file.metadata().unwrap();
+							// let extension = path.extension().unwrap().to_str().unwrap();
+							let name = path.file_name().unwrap().to_str().unwrap().to_string();
+
+							(name, metadata.len(), path)
+						})
+						.collect::<Vec<_>>();
+
+					let json = serde_json::json!({
+						"name": files[0].0,
+						"size": files[0].1,
+					});
+
+					debug!("spacedropCloud json: {:?}", json);
+
+					let req = reqwest::Client::new()
+						.post("https://app.spacedrive.com/api/v1/spacedrop")
+						.json(&json);
+
+					let req_with_auth = node.add_auth_header(req).await;
+
+					let res_1 = req_with_auth.send().await.map_err(|err| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							format!("error sending request: {:?}", err),
+						)
+					})?;
+
+
+					if res_1.status() != 200 {
+						return Err(rspc::Error::new(
+							ErrorCode::InternalServerError,
+							format!("error creating spacedrop for cloud: {:?}", res_1.status()),
+						));
+					}
+
+
+					let res = &res_1.text().await.map_err(|err| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							format!("error reading response: {:?}", err),
+						)
+					})?;
+
+					let res_obj =
+						serde_json::from_str::<serde_json::Value>(&res).map_err(|err| {
+							rspc::Error::new(
+								ErrorCode::InternalServerError,
+								format!("error parsing response: {:?}", err),
+							)
+						})?;
+					let id = res_obj["id"].as_str().ok_or_else(|| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"missing id in response".into(),
+						)
+					})?;
+
+					let upload_url = res_obj["url"].as_str().ok_or_else(|| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"missing url in response".into(),
+						)
+					})?;
+
+					let file_stream = std::fs::File::open(&files[0].2).map_err(|err| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							format!("error opening file: {:?}", err),
+						)
+					})?;
+
+					let file_stream = tokio::fs::File::from_std(file_stream);
+					let _ = reqwest::Client::new()
+						.put(upload_url)
+						.header("content-length", files[0].1)
+						.body(reqwest::Body::wrap_stream(
+							tokio_util::io::ReaderStream::new(file_stream),
+						)).send().await.map_err(|err| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							format!("error sending request: {:?}", err),
+						)
+					})?;
+
+					debug!("spacedropCloud finalize url: {}", "https://app.spacedrive.com/api/v1/spacedrop/".to_owned() + id);
+					let req = reqwest::Client::new()
+						.put("https://app.spacedrive.com/api/v1/spacedrop/".to_owned() + id);
+
+					let req_with_auth = node.add_auth_header(req).await;
+
+					let res = req_with_auth.send().await.map_err(|err| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							format!("error sending request: {:?}", err),
+						)
+					})?;
+
+					if res.status() != 200 {
+						return Err(rspc::Error::new(
+							ErrorCode::InternalServerError,
+							format!("error finalizing spacedrop: {:?}", res.status()),
+						));
+
+					}
+
+					debug!("spacedropCloud finalize response: {:?}", res);
+
+					info!("spacedropCloud implement");
+
+					Ok(vec!["https://app.spacedrive.com/api/v1/spacedrop/".to_owned() + id])
+				})
 		})
 }
