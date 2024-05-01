@@ -1,10 +1,10 @@
 import { useNavigation } from '@react-navigation/native';
+import { useLibraryQuery } from '@sd/client';
 import { Plus } from 'phosphor-react-native';
 import { useMemo, useRef } from 'react';
 import { Pressable, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { useDebounce } from 'use-debounce';
-import { useLibraryQuery } from '@sd/client';
 import Empty from '~/components/layout/Empty';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
@@ -24,15 +24,15 @@ export default function TagsScreen({ viewStyle = 'list' }: Props) {
 
 	const { search } = useSearchStore();
 	const tags = useLibraryQuery(['tags.list']);
-	const tagData = tags.data || [];
+	const tagsData = tags.data;
 	const [debouncedSearch] = useDebounce(search, 200);
 
 	const filteredTags = useMemo(
 		() =>
-			tagData?.filter((location) =>
+			tagsData?.filter((location) =>
 				location.name?.toLowerCase().includes(debouncedSearch.toLowerCase())
 			) ?? [],
-		[debouncedSearch, tagData]
+		[debouncedSearch, tagsData]
 	);
 
 	return (
@@ -76,7 +76,7 @@ export default function TagsScreen({ viewStyle = 'list' }: Props) {
 				ItemSeparatorComponent={() => <View style={tw`h-2`} />}
 				contentContainerStyle={twStyle(
 					`py-6`,
-					tagData.length === 0 && 'h-full items-center justify-center'
+					tagsData?.length === 0 && 'h-full items-center justify-center'
 				)}
 			/>
 			<CreateTagModal ref={modalRef} />

@@ -20,20 +20,22 @@ import {
 	KindItem,
 	SearchFilters,
 	TagItem,
+	getSearchStore,
 	useSearchStore
 } from '~/stores/searchStore';
 
 const FiltersBar = () => {
-	const { filters, appliedFilters } = useSearchStore();
+	const searchStore = useSearchStore();
 	const navigation = useNavigation<SearchStackScreenProps<'Filters'>['navigation']>();
 	const flatListRef = useRef<FlatList>(null);
+	const appliedFiltersLength = Object.keys(searchStore.appliedFilters).length;
 
-	// Scroll to start when there are less than 2 filters.
 	useEffect(() => {
-		if (Object.entries(appliedFilters).length < 2) {
-			flatListRef.current?.scrollToOffset({ animated: true, offset: 0 });
+		// If there are applied filters, update the searchStore filters
+		if (appliedFiltersLength > 0) {
+			Object.assign(getSearchStore().filters, searchStore.appliedFilters);
 		}
-	}, [appliedFilters]);
+	}, [appliedFiltersLength, searchStore.appliedFilters]);
 
 	return (
 		<View
@@ -52,8 +54,13 @@ const FiltersBar = () => {
 						ref={flatListRef}
 						showsHorizontalScrollIndicator={false}
 						horizontal
-						data={Object.entries(appliedFilters)}
-						extraData={filters}
+						onContentSizeChange={() => {
+							if (flatListRef.current && appliedFiltersLength < 2) {
+									flatListRef.current.scrollToOffset({ animated: true, offset: 0 });
+							}
+						}}
+						data={Object.entries(searchStore.appliedFilters)}
+						extraData={searchStore.filters}
 						keyExtractor={(item) => item[0]}
 						renderItem={({ item }) => (
 							<FilterItem filter={item[0] as SearchFilters} value={item[1]} />
@@ -75,6 +82,10 @@ const FilterItem = ({ filter, value }: FilterItemProps) => {
 	const boxStyle = tw`w-auto flex-row items-center gap-1.5 border border-app-cardborder bg-app-card p-2`;
 	const filterCapital = filter.charAt(0).toUpperCase() + filter.slice(1);
 	const searchStore = useSearchStore();
+
+	// if the filter value is false or empty, return null i.e "Hidden"
+	if (!value) return null;
+
 	return (
 		<View style={tw`flex-row gap-0.5`}>
 			<View style={twStyle(boxStyle, 'rounded-bl-md rounded-tl-md')}>

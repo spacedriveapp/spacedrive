@@ -1,9 +1,9 @@
+import { Tag, useLibraryQuery } from '@sd/client';
 import { MotiView } from 'moti';
 import { memo, useCallback, useMemo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { LinearTransition } from 'react-native-reanimated';
-import { Tag, useLibraryQuery } from '@sd/client';
 import Card from '~/components/layout/Card';
 import Empty from '~/components/layout/Empty';
 import Fade from '~/components/layout/Fade';
@@ -63,10 +63,7 @@ interface Props {
 const TagFilter = memo(({ tag }: Props) => {
 	const searchStore = useSearchStore();
 	const isSelected = useMemo(
-		() =>
-			searchStore.filters.tags.some(
-				(filter) => filter.id === tag.id && filter.color === tag.color
-			),
+		() => searchStore.filters.tags.some((filter) => filter.id === tag.id),
 		[searchStore.filters.tags, tag]
 	);
 	const onPress = useCallback(() => {
@@ -74,7 +71,8 @@ const TagFilter = memo(({ tag }: Props) => {
 			id: tag.id,
 			color: tag.color!
 		});
-	}, [searchStore, tag.id, tag.color]);
+	}, [searchStore, tag]);
+
 	return (
 		<Pressable onPress={onPress}>
 			<Card
