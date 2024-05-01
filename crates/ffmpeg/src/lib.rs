@@ -13,7 +13,7 @@ mod error;
 mod filter_graph;
 mod format_ctx;
 mod frame_decoder;
-mod model;
+pub mod model;
 mod thumbnailer;
 mod utils;
 mod video_frame;

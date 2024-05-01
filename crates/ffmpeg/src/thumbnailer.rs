@@ -63,13 +63,12 @@ impl Thumbnailer {
 
 			if !decoder.use_embedded() {
 				let result = decoder
-					.get_duration()
+					.get_duration_secs()
 					.ok_or(Error::NoVideoDuration)
 					.and_then(|duration| {
 						decoder.seek(
 							// This conversion are ok because we don't worry much about precision here
-							(duration.num_seconds() as f64 * f64::from(seek_percentage)).round()
-								as i64,
+							(duration * f64::from(seek_percentage)).round() as i64,
 						)
 					});
 

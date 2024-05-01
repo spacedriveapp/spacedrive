@@ -13,7 +13,6 @@ use crate::{
 use sd_core_file_path_helper::IsolatedFilePathData;
 
 use sd_file_ext::extensions::ImageExtension;
-use sd_media_metadata::MediaMetadata;
 use sd_utils::error::FileIOError;
 
 use std::{ffi::OsStr, path::PathBuf, str::FromStr};
@@ -65,7 +64,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 
 				match extract_exif_data(full_path.clone()).await {
-					Ok(img_media_data) => Ok(Some(MediaMetadata::Image(Box::new(img_media_data)))),
+					Ok(img_media_data) => Ok(Some(Box::new(img_media_data))),
 					Err(ExifDataError::MediaData(sd_media_metadata::Error::NoExifDataOnPath(
 						_,
 					))) => Ok(None),
@@ -74,6 +73,27 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						"Failed to extract media data".to_string(),
 						e,
 					)),
+				}
+			})
+		})
+		// TODO: THIS IS FOR TESTING ONLY
+		.procedure("ffmpegGetMediaData", {
+			R.query(|_, full_path: PathBuf| async move {
+				#[cfg(not(feature = "ffmpeg"))]
+				return Err::<sd_ffmpeg::model::MediaInfo, rspc::Error>(rspc::Error::new(
+					ErrorCode::MethodNotSupported,
+					"ffmpeg feature is not enabled".to_string(),
+				));
+
+				#[cfg(feature = "ffmpeg")]
+				{
+					Ok(sd_ffmpeg::probe(full_path).map_err(|e| {
+						error!("{e:#?}");
+						rspc::Error::new(
+							ErrorCode::NotFound,
+							"Couldn't extract media data from file".to_string(),
+						)
+					})?)
 				}
 			})
 		})

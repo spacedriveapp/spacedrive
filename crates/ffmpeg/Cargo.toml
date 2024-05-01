@@ -10,9 +10,11 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-chrono = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
 image = { workspace = true }
 libc = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+specta = { workspace = true, features = ["chrono"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["fs", "rt"] }
 tracing = { workspace = true }

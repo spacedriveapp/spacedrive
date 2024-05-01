@@ -16,12 +16,10 @@ use ffmpeg_sys_next::{
 	AV_DISPOSITION_HEARING_IMPAIRED, AV_DISPOSITION_KARAOKE, AV_DISPOSITION_LYRICS,
 	AV_DISPOSITION_METADATA, AV_DISPOSITION_NON_DIEGETIC, AV_DISPOSITION_ORIGINAL,
 	AV_DISPOSITION_STILL_IMAGE, AV_DISPOSITION_TIMED_THUMBNAILS, AV_DISPOSITION_VISUAL_IMPAIRED,
-	AV_NOPTS_VALUE, AV_TIME_BASE,
+	AV_NOPTS_VALUE,
 };
 
 use std::{collections::HashSet, ffi::CStr, ptr};
-
-use chrono::TimeDelta;
 
 fn extract_name_and_convert_metadata(
 	metadata: *mut AVDictionary,
@@ -59,17 +57,13 @@ impl FFmpegFormatContext {
 		unsafe { self.0.as_mut() }.expect("initialized on struct creation")
 	}
 
-	pub(crate) fn duration(&self) -> Option<TimeDelta> {
+	pub(crate) fn duration(&self) -> Option<i64> {
 		let duration = self.as_ref().duration;
 		if duration == AV_NOPTS_VALUE {
 			return None;
 		}
 
-		let av_time_base = i64::from(AV_TIME_BASE);
-		let ms = u32::try_from((duration % av_time_base).unsigned_abs())
-			.expect("we're taking modulo from 1_000_000 so it fits into u32");
-
-		TimeDelta::new(duration / av_time_base, ms * 1000)
+		Some(duration)
 	}
 
 	pub(crate) fn stream(&self, index: u32) -> Option<&mut AVStream> {
@@ -211,19 +205,13 @@ impl FFmpegFormatContext {
 			.unwrap_or(vec![])
 	}
 
-	fn start_time(&self) -> Option<TimeDelta> {
+	fn start_time(&self) -> Option<i64> {
 		let start_time = self.as_ref().start_time;
 		if start_time == AV_NOPTS_VALUE {
 			return None;
 		}
 
-		let av_time_base = i64::from(AV_TIME_BASE);
-
-		let secs = start_time / av_time_base;
-		let ms = u32::try_from((start_time % av_time_base).unsigned_abs())
-			.expect("we're taking modulo from 1_000_000 so it fits into u32");
-
-		TimeDelta::new(secs, ms * 1000)
+		Some(start_time)
 	}
 
 	fn bit_rate(&self) -> i64 {
@@ -312,11 +300,15 @@ impl Drop for FFmpegFormatContext {
 
 impl From<&FFmpegFormatContext> for MediaInfo {
 	fn from(ctx: &FFmpegFormatContext) -> Self {
+		let duration = ctx.duration();
+		let start_time = ctx.start_time();
+		let bit_rate = ctx.bit_rate();
+
 		MediaInfo {
 			formats: ctx.formats(),
-			duration: ctx.duration(),
-			start_time: ctx.start_time(),
-			bitrate: ctx.bit_rate(),
+			duration: duration.map(|duration| (duration as i32, (duration >> 32) as i32)),
+			start_time: start_time.map(|start_time| (start_time as i32, (start_time >> 32) as i32)),
+			bitrate: (bit_rate as i32, (bit_rate >> 32) as i32),
 			chapters: ctx.chapters(),
 			programs: ctx.programs(),
 			metadata: ctx.metadata(),
@@ -327,9 +319,10 @@ impl From<&FFmpegFormatContext> for MediaInfo {
 impl From<&AVChapter> for MediaChapter {
 	fn from(chapter: &AVChapter) -> Self {
 		MediaChapter {
-			id: chapter.id.unsigned_abs(),
-			start: chapter.start,
-			end: chapter.end,
+			// TODO: FIX this when rspc supports bigint
+			id: chapter.id.unsigned_abs().try_into().unwrap_or_default(),
+			start: (chapter.start as i32, (chapter.start >> 32) as i32),
+			end: (chapter.end as i32, (chapter.end >> 32) as i32),
 			time_base_num: chapter.time_base.num,
 			time_base_den: chapter.time_base.den,
 			metadata: unsafe { chapter.metadata.as_mut() }

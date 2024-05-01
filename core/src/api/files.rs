@@ -21,7 +21,6 @@ use sd_core_prisma_helpers::{
 
 use sd_file_ext::kind::ObjectKind;
 use sd_images::ConvertibleExtension;
-use sd_media_metadata::MediaMetadata;
 use sd_prisma::{
 	prisma::{file_path, location, object},
 	prisma_sync,
@@ -120,9 +119,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.and_then(|obj| {
 							Some(match obj.kind {
 								Some(v) if v == ObjectKind::Image as i32 => {
-									MediaMetadata::Image(Box::new(
-										exif_data_image_from_prisma_data(obj.exif_data?).ok()?,
-									))
+									Box::new(exif_data_image_from_prisma_data(obj.exif_data?).ok()?)
 								}
 								_ => return None, // TODO(brxken128): audio and video
 							})
@@ -130,6 +127,49 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.ok_or_else(|| {
 							rspc::Error::new(ErrorCode::NotFound, "Object not found".to_string())
 						})
+				})
+		})
+		// TODO: THIS IS FOR TESTING ONLY
+		.procedure("ffmpegGetMediaData", {
+			R.with2(library())
+				.query(|(_, library), id: i32| async move {
+					#[cfg(not(feature = "ffmpeg"))]
+					return Err::<sd_ffmpeg::model::MediaInfo, rspc::Error>(rspc::Error::new(
+						ErrorCode::MethodNotSupported,
+						"ffmpeg feature is not enabled".to_string(),
+					));
+
+					#[cfg(feature = "ffmpeg")]
+					{
+						let isolated_path = IsolatedFilePathData::try_from(
+							library
+								.db
+								.file_path()
+								.find_unique(file_path::id::equals(id))
+								.select(file_path_to_isolate::select())
+								.exec()
+								.await?
+								.ok_or(LocationError::FilePath(FilePathError::IdNotFound(id)))?,
+						)
+						.map_err(LocationError::MissingField)?;
+
+						let location_path = get_location_path_from_location_id(
+							&library.db,
+							isolated_path.location_id(),
+						)
+						.await?;
+
+						Ok(
+							sd_ffmpeg::probe(Path::new(&location_path).join(&isolated_path))
+								.map_err(|e| {
+									error!("{e:#?}");
+									rspc::Error::new(
+										ErrorCode::NotFound,
+										"Couldn't extract media data from file".to_string(),
+									)
+								})?,
+						)
+					}
 				})
 		})
 		.procedure("getPath", {

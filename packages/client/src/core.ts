@@ -10,10 +10,12 @@ export type Procedures = {
         { key: "cloud.library.get", input: LibraryArgs<null>, result: { id: string; uuid: string; name: string; instances: CloudInstance[]; ownerId: string } | null } | 
         { key: "cloud.library.list", input: never, result: CloudLibrary[] } | 
         { key: "cloud.locations.list", input: never, result: CloudLocation[] } | 
-        { key: "ephemeralFiles.getMediaData", input: string, result: ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata) | null } | 
+        { key: "ephemeralFiles.ffmpegGetMediaData", input: string, result: MediaInfo } | 
+        { key: "ephemeralFiles.getMediaData", input: string, result: { resolution: Resolution; date_taken: MediaDate | null; location: MediaLocation | null; camera_data: CameraData; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null } | null } | 
+        { key: "files.ffmpegGetMediaData", input: LibraryArgs<number>, result: MediaInfo } | 
         { key: "files.get", input: LibraryArgs<number>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: ({ id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; media_info_id: number | null; object: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; exif_data: { resolution: number[] | null; media_date: number[] | null; media_location: number[] | null; camera_data: number[] | null; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null } | null } | null })[] } | null } | 
         { key: "files.getConvertibleImageExtensions", input: never, result: string[] } | 
-        { key: "files.getMediaData", input: LibraryArgs<number>, result: MediaMetadata } | 
+        { key: "files.getMediaData", input: LibraryArgs<number>, result: ImageMetadata } | 
         { key: "files.getPath", input: LibraryArgs<number>, result: string | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
@@ -148,8 +150,6 @@ export type Procedures = {
 };
 
 export type Args = { search?: string | null; filters?: string | null; name?: string | null; icon?: string | null; description?: string | null }
-
-export type AudioMetadata = { duration: number | null; audio_codec: string | null }
 
 /**
  * All of the feature flags provided by the core itself. The frontend has it's own set of feature flags!
@@ -446,15 +446,31 @@ export type LocationUpdateArgs = { id: number; name: string | null; generate_pre
 
 export type MaybeUndefined<T> = null | T
 
+export type MediaAudioProps = { delay: number; padding: number; sample_rate: number | null; sample_format: string | null; bit_per_sample: number | null; channel_layout: string | null }
+
+export type MediaChapter = { id: number; start: [number, number]; end: [number, number]; time_base_den: number; time_base_num: number; metadata: MediaMetadata }
+
+export type MediaCodec = { kind: string | null; subkind: string | null; tag: string | null; name: string | null; profile: string | null; bit_rate: number; props: Props | null }
+
 /**
  * This can be either naive with no TZ (`YYYY-MM-DD HH-MM-SS`) or UTC (`YYYY-MM-DD HH-MM-SS ±HHMM`),
  * where `±HHMM` is the timezone data. It may be negative if West of the Prime Meridian, or positive if East.
  */
 export type MediaDate = string
 
+export type MediaInfo = { formats: string[]; duration: [number, number] | null; start_time: [number, number] | null; bitrate: [number, number]; chapters: MediaChapter[]; programs: MediaProgram[]; metadata: MediaMetadata | null }
+
 export type MediaLocation = { latitude: number; longitude: number; pluscode: PlusCode; altitude: number | null; direction: number | null }
 
-export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata)
+export type MediaMetadata = { album: string | null; album_artist: string | null; artist: string | null; comment: string | null; composer: string | null; copyright: string | null; creation_time: string | null; date: string | null; disc: number | null; encoder: string | null; encoded_by: string | null; filename: string | null; genre: string | null; language: string | null; performer: string | null; publisher: string | null; service_name: string | null; service_provider: string | null; title: string | null; track: number | null; variant_bitrate: number | null; custom: { [key in string]: string } }
+
+export type MediaProgram = { id: number; name: string | null; streams: MediaStream[]; metadata: MediaMetadata }
+
+export type MediaStream = { id: number; name: string | null; codec: MediaCodec | null; aspect_ratio_num: number; aspect_ratio_den: number; frames_per_second_num: number; frames_per_second_den: number; time_base_real_den: number; time_base_real_num: number; dispositions: string[]; metadata: MediaMetadata }
+
+export type MediaSubtitleProps = { width: number; height: number }
+
+export type MediaVideoProps = { pixel_format: string | null; color_range: string | null; bits_per_channel: number | null; color_space: string | null; color_primaries: string | null; color_transfer: string | null; field_order: string | null; chroma_location: string | null; width: number; height: number; aspect_ratio_num: number | null; aspect_ratio_den: number | null; properties: string[] }
 
 export type NodeConfigP2P = { discovery?: P2PDiscoveryState; port: Port; ipv4: boolean; ipv6: boolean; remote_access: boolean }
 
@@ -531,6 +547,8 @@ export type PlusCode = string
 
 export type Port = { type: "random" } | { type: "discrete"; value: number }
 
+export type Props = { Video: MediaVideoProps } | { Audio: MediaAudioProps } | { Subtitle: MediaSubtitleProps }
+
 export type Range<T> = { from: T } | { to: T }
 
 export type RemoteIdentity = string
@@ -598,7 +616,5 @@ export type TextMatch = { contains: string } | { startsWith: string } | { endsWi
 export type ThumbnailerPreferences = { background_processing_percentage: number }
 
 export type UpdateThumbnailerPreferences = { background_processing_percentage: number }
-
-export type VideoMetadata = { duration: number | null; video_codec: string | null; audio_codec: string | null }
 
 export type Volume = { name: string; mount_points: string[]; total_capacity: string; available_capacity: string; disk_type: DiskType; file_system: string | null; is_root_filesystem: boolean }

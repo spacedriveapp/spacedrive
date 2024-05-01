@@ -9,7 +9,6 @@ use crate::{
 
 use std::{path::Path, ptr};
 
-use chrono::TimeDelta;
 use ffmpeg_sys_next::{
 	av_buffersink_get_frame, av_buffersrc_write_frame, av_frame_alloc,
 	av_guess_sample_aspect_ratio, av_packet_alloc, av_packet_free, av_packet_unref, av_seek_frame,
@@ -206,8 +205,12 @@ impl FrameDecoder {
 		})
 	}
 
-	pub fn get_duration(&self) -> Option<TimeDelta> {
-		self.format_ctx.duration()
+	pub fn get_duration_secs(&self) -> Option<f64> {
+		self.format_ctx.duration().map(|duration| {
+			let av_time_base = i64::from(AV_TIME_BASE);
+			(duration / av_time_base) as f64
+				+ ((duration % av_time_base) as f64 / f64::from(AV_TIME_BASE))
+		})
 	}
 
 	fn reset_packet(&mut self) {

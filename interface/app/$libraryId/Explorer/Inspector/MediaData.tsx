@@ -5,6 +5,7 @@ import utc from 'dayjs/plugin/utc'; // import plugin
 
 import {
 	CoordinatesFormat,
+	ImageMetadata,
 	MediaDate,
 	MediaLocation,
 	MediaMetadata,
@@ -19,7 +20,7 @@ import { explorerStore } from '../store';
 import { MetaData } from './index';
 
 interface Props {
-	data: MediaMetadata;
+	data: ImageMetadata;
 }
 
 // const DateFormatWithTz = 'YYYY-MM-DD HH:mm:ss ZZ';
@@ -116,7 +117,7 @@ const MediaData = ({ data }: Props) => {
 	const coordinatesFormat = useUnitFormatStore().coordinatesFormat;
 	const showMoreInfo = useSelector(explorerStore, (s) => s.showMoreInfo);
 
-	return data.type === 'Image' ? (
+	return (
 		<div className="flex flex-col gap-0 py-2">
 			<Accordion
 				isOpen={showMoreInfo}
@@ -130,7 +131,7 @@ const MediaData = ({ data }: Props) => {
 					// should show localised, utc-offset value or plain value with tooltip mentioning that we don't have the timezone metadata
 					value={data.date_taken ?? null}
 				/>
-				<MetaData label="Type" value={data.type} />
+				<MetaData label="Type" value="Image" />
 				<MetaData
 					label="Location"
 					tooltipValue={data.location && formatLocation(data.location, coordinatesFormat)}
@@ -187,7 +188,7 @@ const MediaData = ({ data }: Props) => {
 				<MetaData label="Software" value={data.camera_data.software} />
 			</Accordion>
 		</div>
-	) : null;
+	);
 };
 
 export default MediaData;

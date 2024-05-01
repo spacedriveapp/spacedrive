@@ -160,23 +160,24 @@ impl FFmpegCodecContext {
 		}
 	}
 
-	fn bit_rate(&self) -> i64 {
+	fn bit_rate(&self) -> i32 {
+		// TODO: use i64 instead of i32 when rspc supports it
 		let ctx = self.as_ref();
 		match self.as_ref().codec_type {
 			AVMediaType::AVMEDIA_TYPE_VIDEO
 			| AVMediaType::AVMEDIA_TYPE_DATA
 			| AVMediaType::AVMEDIA_TYPE_SUBTITLE
-			| AVMediaType::AVMEDIA_TYPE_ATTACHMENT => ctx.bit_rate,
+			| AVMediaType::AVMEDIA_TYPE_ATTACHMENT => ctx.bit_rate.try_into().unwrap_or_default(),
 			AVMediaType::AVMEDIA_TYPE_AUDIO => {
-				let bits_per_sample = i64::from(unsafe { av_get_bits_per_sample(ctx.codec_id) });
+				let bits_per_sample = unsafe { av_get_bits_per_sample(ctx.codec_id) };
 				if bits_per_sample != 0 {
 					let bit_rate =
-						i64::from(ctx.sample_rate) * i64::from(ctx.ch_layout.nb_channels);
-					if bit_rate <= std::i64::MAX / bits_per_sample {
+						ctx.sample_rate * ctx.ch_layout.nb_channels;
+					if bit_rate <= std::i32::MAX / bits_per_sample {
 						return bit_rate * (bits_per_sample);
 					}
 				}
-				ctx.bit_rate
+				ctx.bit_rate.try_into().unwrap_or_default()
 			}
 			_ => 0,
 		}

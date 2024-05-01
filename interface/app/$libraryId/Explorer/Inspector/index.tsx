@@ -237,6 +237,16 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 		enabled: objectData?.kind === ObjectKindEnum.Image && readyToFetch
 	});
 
+	const filesFFmpegMediaData = useLibraryQuery(
+		['files.ffmpegGetMediaData', filePathData?.id ?? -1],
+		{
+			enabled:
+				[ObjectKindEnum.Video, ObjectKindEnum.Audio].includes(
+					objectData?.kind ?? ObjectKindEnum.Unknown
+				) && readyToFetch
+		}
+	);
+
 	const ephemeralLocationMediaData = useBridgeQuery(
 		['ephemeralFiles.getMediaData', ephemeralPathData != null ? ephemeralPathData.path : ''],
 		{
@@ -244,7 +254,21 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 		}
 	);
 
-	const mediaData = filesMediaData ?? ephemeralLocationMediaData ?? null;
+	const ephemeralFFmpegMediaData = useBridgeQuery(
+		['ephemeralFiles.ffmpegGetMediaData', ephemeralPathData != null ? ephemeralPathData.path : ''],
+		{
+			enabled:
+				[ObjectKindEnum.Video, ObjectKindEnum.Audio].includes(
+					ephemeralPathData?.kind ?? ObjectKindEnum.Unknown
+				) && readyToFetch
+		}
+	);
+
+	const mediaData = filesMediaData.data ?? ephemeralLocationMediaData.data ?? null;
+
+	const ffmpegMediaData = filesFFmpegMediaData.data ?? ephemeralFFmpegMediaData.data ?? null;
+
+	console.log('FFMPEG', ffmpegMediaData);
 
 	const fullPath = queriedFullPath.data ?? ephemeralPathData?.path;
 
@@ -364,7 +388,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 				</MetaContainer>
 			)}
 
-			{mediaData.data && <MediaData data={mediaData.data} />}
+			{mediaData && <MediaData data={mediaData} />}
 
 			<MetaContainer className="flex !flex-row flex-wrap gap-1 overflow-hidden">
 				<InfoPill>{isDir ? 'Folder' : kind}</InfoPill>

@@ -8496,6 +8496,8 @@ dependencies = [
  "ffmpeg-sys-next",
  "image",
  "libc",
+ "serde",
+ "specta",
  "tempfile",
  "thiserror",
  "tokio",
