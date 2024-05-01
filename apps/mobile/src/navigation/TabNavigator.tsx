@@ -146,7 +146,7 @@ export default function TabNavigator() {
 					listeners={() => ({
 						focus: () => {
 							setActiveIndex(index);
-						}
+						},
 					})}
 				/>
 			))}

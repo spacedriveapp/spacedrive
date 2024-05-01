@@ -1,5 +1,5 @@
 import { AlphaClient } from '@oscartbeaumont-sd/rspc-client/v2';
-import { createContext, PropsWithChildren, useContext, useEffect, useMemo } from 'react';
+import { createContext, PropsWithChildren, useContext, useMemo } from 'react';
 
 import { LibraryConfigWrapped, Procedures } from '../core';
 import { valtioPersist } from '../lib';

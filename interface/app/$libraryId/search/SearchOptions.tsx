@@ -1,7 +1,5 @@
 import { FunnelSimple, Icon, Plus } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
-import clsx from 'clsx';
-import { memo, PropsWithChildren, useDeferredValue, useMemo, useState } from 'react';
 import { useFeatureFlag, useLibraryMutation } from '@sd/client';
 import {
 	Button,
@@ -13,9 +11,11 @@ import {
 	tw,
 	usePopover
 } from '@sd/ui';
+import clsx from 'clsx';
+import { memo, PropsWithChildren, useDeferredValue, useMemo, useState } from 'react';
 import { useIsDark, useKeybind } from '~/hooks';
 
-import { AppliedFilters, FilterContainer, InteractiveSection } from './AppliedFilters';
+import { AppliedFilters, InteractiveSection } from './AppliedFilters';
 import { useSearchContext } from './context';
 import { filterRegistry, SearchFilterCRUD, useToggleOptionSelected } from './Filters';
 import {
