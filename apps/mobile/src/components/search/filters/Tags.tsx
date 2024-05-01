@@ -1,9 +1,9 @@
+import { Tag, useLibraryQuery } from '@sd/client';
 import { MotiView } from 'moti';
 import { memo, useCallback, useMemo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { LinearTransition } from 'react-native-reanimated';
-import { Tag, useLibraryQuery } from '@sd/client';
 import Card from '~/components/layout/Card';
 import Empty from '~/components/layout/Empty';
 import Fade from '~/components/layout/Fade';
@@ -44,7 +44,7 @@ const Tags = () => {
 								<Empty icon="Tags" description="You have not created any tags" />
 							}
 							scrollEnabled={false}
-							ItemSeparatorComponent={() => <View style={tw`w-2 h-2`} />}
+							ItemSeparatorComponent={() => <View style={tw`h-2 w-2`} />}
 							keyExtractor={(item) => item.id.toString()}
 							showsHorizontalScrollIndicator={false}
 							style={tw`flex-row`}
