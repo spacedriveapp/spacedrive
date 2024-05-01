@@ -1,7 +1,7 @@
 import { SavedSearch, SearchFilterArgs, useLibraryQuery } from '@sd/client';
 import { useCallback, useMemo } from 'react';
 import { kinds } from '~/components/search/filters/Kind';
-import { SearchFilters } from '~/stores/searchStore';
+import { Filters, SearchFilters } from '~/stores/searchStore';
 
 /**
  * This hook takes in the JSON of a Saved Search
@@ -88,7 +88,7 @@ export function useSavedSearch(search: SavedSearch) {
 		return data;
 	}, [locations, tags]);
 
-	const filters: SearchFilterArgs[] = useMemo(() => {
+	const filters: Partial<Filters> = useMemo(() => {
 		return parseFilters.reduce((acc: Record<SearchFilters, {}>, curr: keyof SearchFilterArgs) => {
 
 			const objectOrFilePath = Object.keys(curr)[0] as 'filePath' | 'object';
