@@ -271,7 +271,9 @@ export function Dialog<S extends FieldValues>({
 						<AnimatedDialogContent
 							className="!pointer-events-none fixed inset-0 z-50 grid place-items-center overflow-y-auto"
 							style={styles}
-							onInteractOutside={(e) => props.ignoreClickOutside && e.preventDefault()}
+							onInteractOutside={(e) =>
+								props.ignoreClickOutside && e.preventDefault()
+							}
 						>
 							<Form
 								form={form}
@@ -299,18 +301,22 @@ export function Dialog<S extends FieldValues>({
 
 									{props.children}
 								</div>
-								<div
-									className={clsx(
-										'flex items-center justify-end space-x-2 border-t border-app-line bg-app-input/60 p-3'
-									)}
-								>
-									{form.formState.isSubmitting && <Loader />}
-									{props.buttonsSideContent && <div>{props.buttonsSideContent}</div>}
-									<div className="grow" />
-									{!props.hideButtons && (
+								{!props.hideButtons && (
+									<div
+										className={clsx(
+											'flex items-center justify-end space-x-2 border-t border-app-line bg-app-input/60 p-3'
+										)}
+									>
+										{form.formState.isSubmitting && <Loader />}
+										{props.buttonsSideContent && (
+											<div>{props.buttonsSideContent}</div>
+										)}
+										<div className="grow" />
 										<div
 											className={clsx(
-												invertButtonFocus ? 'flex-row-reverse' : ' flex-row',
+												invertButtonFocus
+													? 'flex-row-reverse'
+													: ' flex-row',
 												'flex gap-2'
 											)}
 										>
@@ -328,8 +334,8 @@ export function Dialog<S extends FieldValues>({
 												</>
 											)}
 										</div>
-									)}
-								</div>
+									</div>
+								)}
 							</Form>
 							<Remover id={dialog.id} />
 						</AnimatedDialogContent>
