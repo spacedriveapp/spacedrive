@@ -95,7 +95,7 @@ export const useTable = () => {
 	const explorer = useExplorerContext();
 	const explorerSettings = explorer.useSettingsSnapshot();
 
-	const { t } = useLocale();
+	const { t, dateFormat } = useLocale();
 
 	const columns = useMemo<ColumnDef<ExplorerItem>[]>(
 		() => [
@@ -130,7 +130,7 @@ export const useTable = () => {
 				header: t('date_created'),
 				accessorFn: (item) => {
 					if (item.type === 'SpacedropPeer') return;
-					return dayjs(item.item.date_created).format('MMM Do YYYY');
+					return dayjs(item.item.date_created).format(dateFormat);
 				}
 			},
 			{
@@ -138,7 +138,7 @@ export const useTable = () => {
 				header: t('date_modified'),
 				accessorFn: (item) => {
 					const filePath = getItemFilePath(item);
-					if (filePath) return dayjs(filePath.date_modified).format('MMM Do YYYY');
+					if (filePath) return dayjs(filePath.date_modified).format(dateFormat);
 				}
 			},
 			{
@@ -146,7 +146,7 @@ export const useTable = () => {
 				header: t('date_indexed'),
 				accessorFn: (item) => {
 					const filePath = getIndexedItemFilePath(item);
-					if (filePath) return dayjs(filePath.date_indexed).format('MMM Do YYYY');
+					if (filePath) return dayjs(filePath.date_indexed).format(dateFormat);
 				}
 			},
 			{
@@ -155,7 +155,7 @@ export const useTable = () => {
 				accessorFn: (item) => {
 					const object = getItemObject(item);
 					if (!object || !object.date_accessed) return;
-					return dayjs(object.date_accessed).format('MMM Do YYYY');
+					return dayjs(object.date_accessed).format(dateFormat);
 				}
 			},
 			{

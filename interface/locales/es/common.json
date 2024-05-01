@@ -87,6 +87,8 @@
   "cut_object": "Cortar objeto",
   "cut_success": "Elementos cortados",
   "data_folder": "Carpeta de datos",
+  "date_format": "Formato de fecha",
+  "date_format_description": "Elija el formato de fecha que se muestra en Spacedrive",
   "date_accessed": "Fecha accesada",
   "date_created": "fecha de creacion",
   "date_indexed": "Fecha indexada",
