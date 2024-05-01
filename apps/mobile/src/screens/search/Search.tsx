@@ -24,6 +24,7 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 	const locations = useLibraryQuery(['locations.list'], {
 		keepPreviousData: true,
 	});
+
 	const [search, setSearch] = useState('');
 	const deferredSearch = useDeferredValue(search);
 
@@ -35,9 +36,11 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 		if (name) filters.push({ filePath: { name: { contains: name } } });
 		if (ext) filters.push({ filePath: { extension: { in: [ext] } } });
 
-		// Add locations filter to search all locations
+		if (name || ext) {
+			// Add locations filter to search all locations
 			if (locations.data && locations.data.length > 0) filters.push({ filePath: { locations: { in:
-			locations.data?.map((location) => location.id) } } });
+				locations.data?.map((location) => location.id) } } });
+		}
 
 		return searchStore.mergedFilters.concat(filters);
 	}, [deferredSearch, searchStore.mergedFilters, locations.data]);
@@ -47,11 +50,15 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 			take: 30,
 			filters
 		},
-		enabled: isFocused, // only fetch when screen is focused & filters are applied
+		enabled: isFocused && filters.length > 1, // only fetch when screen is focused & filters are applied
 		suspense: true,
 		order: null,
 		onSuccess: () => getExplorerStore().resetNewThumbnails()
 	});
+
+	// Check if there are no objects or no search
+	const noObjects = objects.items?.length === 0 || !objects.items;
+	const noSearch = deferredSearch.length === 0 && appliedFiltersLength === 0;
 
 	useFiltersSearch();
 
@@ -135,16 +142,16 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 				<Suspense fallback={<ActivityIndicator />}>
 					<Explorer
 					{...objects}
-					isEmpty={deferredSearch.length === 0 || objects.items?.length === 0}
+					isEmpty={noObjects}
 					emptyComponent={
 						<Empty
-						icon={appliedFiltersLength === 0 ? 'Search' : 'FolderNoSpace'}
+						icon={noSearch ? 'Search' : 'FolderNoSpace'}
 						style={twStyle('flex-1 items-center justify-center border-0', {
 							marginBottom: headerHeight
 						})}
 						textSize="text-md"
 						iconSize={100}
-						description={appliedFiltersLength === 0 ? 'Add filters or type to search for files' : 'No files found'}
+						description={noSearch ? 'Add filters or type to search for files' : 'No files found'}
 					/>
 					}
 					tabHeight={false} />
