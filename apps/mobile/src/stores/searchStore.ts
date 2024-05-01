@@ -20,28 +20,19 @@ export interface KindItem {
 	icon: IconName;
 }
 
+export interface Filters {
+	locations: FilterItem[];
+	tags: TagItem[];
+	name: string[];
+	extension: string[];
+	hidden: boolean;
+	kind: KindItem[];
+}
+
 interface State {
 	search: string;
-	filters: {
-		locations: FilterItem[];
-		tags: TagItem[];
-		name: string[];
-		extension: string[];
-		hidden: boolean;
-		kind: KindItem[];
-	};
-	appliedFilters:
-		Record<
-			SearchFilters,
-			{
-				locations: FilterItem[];
-				tags: TagItem[];
-				name: string[];
-				extension: string[];
-				hidden: boolean;
-				kind: KindItem[];
-			}
-		> | {};
+	filters: Filters;
+	appliedFilters: Partial<Filters>;
 	mergedFilters: SearchFilterArgs[],
 	disableActionButtons: boolean;
 }
@@ -123,8 +114,9 @@ const searchStore = proxy<
 		searchStore.appliedFilters = Object.entries(searchStore.filters).reduce(
 			(acc, [key, value]) => {
 				if (Array.isArray(value)) {
-					if (value.length > 0 && value[0] !== '') {
-						acc[key as SearchFilters] = value.filter((v) => v !== ''); // Remove empty values i.e empty inputs
+					const realValues = value.filter((v) => v !== '');
+					if (realValues.length > 0) {
+						acc[key as SearchFilters] = realValues;
 					}
 				} else if (typeof value === 'boolean') {
 					// Only apply the hidden filter if it's true

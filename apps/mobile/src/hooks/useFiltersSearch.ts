@@ -9,72 +9,73 @@ import { SearchFilters, getSearchStore, useSearchStore } from '~/stores/searchSt
  */
 
 export function useFiltersSearch() {
-	const searchStore = useSearchStore();
+	const searchStore = useSearchStore();;
 
-	// this is a helper function to get the data from the filter based on the type
-	// some filters return an object containing the id, and some are just an array of strings
-	function getDataFromFilter(data: any, keyValue: 'id' | 'none') {
-		return data.map((item: any) => (keyValue === 'id' ? item.id : item));
-	}
 
-	// this is a helper function creating the filter object for the search query
-	function createFilter(
-		filter: SearchFilters,
-		arg: 'filePath' | 'object',
-		key: 'contains' | 'in',
-		value: any
-	) {
-		return {
-			[arg]: {
-				[filter]: {
-					[key]: value
-				}
+	const filterFactory = (key: SearchFilters, value: any) => {
+
+		//hidden is the only boolean filter - so we can return it directly
+		//Rest of the filters are arrays, so we map them to the correct format
+		const filterValue = typeof value === 'object' ? value.map((v: any) => {
+			return v.id ? v.id : v;
+		}) : value;
+
+		//switch case for each filter
+		//This makes it easier to add new filters in the future and setup
+		//the correct object of each filter accordingly and easily
+
+			switch (key) {
+				case 'locations':
+					return { filePath: { locations: { in: filterValue } } };
+				case 'name':
+					return filterValue.map((v: string) => {
+						return { filePath: { [key]: { contains: v } } };
+					})
+				case 'hidden':
+					return { filePath: { hidden: filterValue } };
+				case 'extension':
+					return filterValue.map((v: string) => {
+						return { filePath: { [key]: { in: [v] } } };
+					})
+				case 'tags':
+					return { object: { tags: { in: filterValue } } };
+				case 'kind':
+					return { object: { kind: { in: filterValue } } };
+				default:
+					return {};
 			}
-		};
 	}
 
-	//for merging the applied filters
-	const filePath = ['locations', 'name', 'hidden', 'extension'];
-	const object = ['tags', 'kind'];
-	const mergedFilters = useMemo(() =>
-		Object.entries(searchStore.filters)
-	.map(([key, value]) => {
-		const searchFilterKey = key as SearchFilters;
-		if (Array.isArray(value)) {
-			if (value.length === 0 || value[0] === '') return;
-		}
-		if (filePath.includes(searchFilterKey)) {
-			if (searchFilterKey === 'name' || searchFilterKey === 'extension') {
-				return createFilter(
-					searchFilterKey,
-					'filePath',
-					'contains',
-					getDataFromFilter(value, 'none')
-				);
-			} else if (searchFilterKey === 'hidden') {
-				return {
-					filePath: {
-						[searchFilterKey]: value
+
+	const mergedFilters = useMemo(() => {
+
+		    const filters = [] as SearchFilterArgs[];
+
+			for (const key in searchStore.filters) {
+
+				const filterKey = key as SearchFilters;
+				const filterValue = getSearchStore().filters[filterKey];
+
+				// no need to add empty filters
+				if (Array.isArray(filterValue)) {
+					const realValues = filterValue.filter((v) => v !== '');
+					if (realValues.length === 0) {
+						continue;
 					}
-				};
-			} else {
-				return createFilter(
-					searchFilterKey,
-					'filePath',
-					'in',
-					getDataFromFilter(value, 'id')
-				);
+				}
+
+				// create the filter object
+				const filter = filterFactory(filterKey, filterValue);
+
+				// add the filter to the mergedFilters
+				filters.push(filter);
+
 			}
-		} else if (object.includes(searchFilterKey)) {
-			return createFilter(
-				searchFilterKey,
-				'object',
-				'in',
-				getDataFromFilter(value, 'id')
-			);
-		}
-	})
-	.filter((filter) => filter !== undefined) as SearchFilterArgs[], [searchStore.filters]);
+
+			return filters.flat();
+
+	}, [searchStore.filters]);
+
 
 	useEffect(() => {
 		getSearchStore().mergedFilters = mergedFilters;

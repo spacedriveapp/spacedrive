@@ -8,7 +8,7 @@ import {
 	SelectionSlash,
 	Textbox
 } from 'phosphor-react-native';
-import React, { FunctionComponent, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { FunctionComponent, useCallback, useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import Card from '~/components/layout/Card';
 import SectionTitle from '~/components/layout/SectionTitle';
@@ -51,9 +51,8 @@ const FiltersList = () => {
 	const [selectedOptions, setSelectedOptions] = useState<SearchFilters[]>(
 		Object.keys(searchStore.appliedFilters) as SearchFilters[]
 	);
-	const appliedFiltersLength = useMemo(() => Object.entries(searchStore.appliedFilters).length, [
-		searchStore.appliedFilters
-	]);
+	const appliedFiltersLength = Object.keys(searchStore.appliedFilters).length;
+
 
 	useEffect(() => {
 		//if there are selected filters but not applied reset them

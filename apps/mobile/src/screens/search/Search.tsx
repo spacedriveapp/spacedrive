@@ -1,5 +1,5 @@
 import { useIsFocused } from '@react-navigation/native';
-import { SearchFilterArgs, usePathsExplorerQuery } from '@sd/client';
+import { SearchFilterArgs, useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
 import { ArrowLeft, DotsThreeOutline, FunnelSimple, MagnifyingGlass } from 'phosphor-react-native';
 import { Suspense, useDeferredValue, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, TextInput, View } from 'react-native';
@@ -16,38 +16,38 @@ import { useSearchStore } from '~/stores/searchStore';
 const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 	const headerHeight = useSafeAreaInsets().top;
 	const [loading, setLoading] = useState(false);
-	const {appliedFilters, mergedFilters} = useSearchStore();
+	const searchStore = useSearchStore();
 	const explorerStore = useExplorerStore();
 	const isFocused = useIsFocused();
-	const appliedFiltersLength = useMemo(
-		() => Object.keys(appliedFilters).length,
-		[appliedFilters]
-	);
+	const appliedFiltersLength = Object.keys(searchStore.appliedFilters).length;
 	const isAndroid = Platform.OS === 'android';
-
+	const locations = useLibraryQuery(['locations.list'], {
+		keepPreviousData: true,
+	});
 	const [search, setSearch] = useState('');
 	const deferredSearch = useDeferredValue(search);
 
 	const filters = useMemo(() => {
-		//handles names with multiple dots - makes sure the last dot is the extension separator
-		const lastDotIndex = deferredSearch.lastIndexOf('.');
-		const name = deferredSearch.substring(0, lastDotIndex);
-		const ext = deferredSearch.substring(lastDotIndex + 1);
+		const [name, ext] = deferredSearch.split('.');
 
-		const inputFilter: SearchFilterArgs[] = [];
-		if (name) inputFilter.push({ filePath: { name: { contains: name } } });
-		if (ext && lastDotIndex !== -1) inputFilter.push({ filePath: { extension: { in: [ext] } } });
+		const filters: SearchFilterArgs[] = [];
 
-		// merges applied filters with input filters
-		return mergedFilters.concat(inputFilter);
-	}, [deferredSearch, mergedFilters]);
+		if (name) filters.push({ filePath: { name: { contains: name } } });
+		if (ext) filters.push({ filePath: { extension: { in: [ext] } } });
+
+		// Add locations filter to search all locations
+			if (locations.data && locations.data.length > 0) filters.push({ filePath: { locations: { in:
+			locations.data?.map((location) => location.id) } } });
+
+		return searchStore.mergedFilters.concat(filters);
+	}, [deferredSearch, searchStore.mergedFilters, locations.data]);
 
 	const objects = usePathsExplorerQuery({
 		arg: {
 			take: 30,
 			filters
 		},
-		enabled: isFocused && appliedFiltersLength > 0, // only fetch when screen is focused & filters are applied
+		enabled: isFocused, // only fetch when screen is focused & filters are applied
 		suspense: true,
 		order: null,
 		onSuccess: () => getExplorerStore().resetNewThumbnails()
@@ -128,23 +128,23 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 						/>
 					</Pressable>
 				</View>
-				{appliedFiltersLength > 0 && <FiltersBar />}
+			{appliedFiltersLength > 0 && <FiltersBar/>}
 			</View>
 			{/* Content */}
 			<View style={tw`flex-1`}>
 				<Suspense fallback={<ActivityIndicator />}>
 					<Explorer
 					{...objects}
-					isEmpty={appliedFiltersLength === 0 || objects.items?.length === 0}
+					isEmpty={deferredSearch.length === 0 || objects.items?.length === 0}
 					emptyComponent={
 						<Empty
-						icon="Search"
+						icon={appliedFiltersLength === 0 ? 'Search' : 'FolderNoSpace'}
 						style={twStyle('flex-1 items-center justify-center border-0', {
 							marginBottom: headerHeight
 						})}
 						textSize="text-md"
-						iconSize={84}
-						description={appliedFiltersLength === 0 ? 'Add filters to search for files' : 'No files found'}
+						iconSize={100}
+						description={appliedFiltersLength === 0 ? 'Add filters or type to search for files' : 'No files found'}
 					/>
 					}
 					tabHeight={false} />

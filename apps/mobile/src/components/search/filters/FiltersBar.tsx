@@ -8,7 +8,7 @@ import {
 	Textbox,
 	X
 } from 'phosphor-react-native';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { Icon } from '~/components/icons/Icon';
 import Fade from '~/components/layout/Fade';
@@ -25,17 +25,17 @@ import {
 } from '~/stores/searchStore';
 
 const FiltersBar = () => {
-	const { filters, appliedFilters } = useSearchStore();
+	const searchStore = useSearchStore();
 	const navigation = useNavigation<SearchStackScreenProps<'Filters'>['navigation']>();
 	const flatListRef = useRef<FlatList>(null);
-	const appliedFiltersLength = useMemo(() => Object.entries(appliedFilters).length, [appliedFilters]);
+	const appliedFiltersLength = Object.keys(searchStore.appliedFilters).length;
 
 	useEffect(() => {
 		// If there are applied filters, update the searchStore filters
 		if (appliedFiltersLength > 0) {
-			Object.assign(getSearchStore().filters, appliedFilters);
+			Object.assign(getSearchStore().filters, searchStore.appliedFilters);
 		}
-	}, [appliedFiltersLength, appliedFilters]);
+	}, [appliedFiltersLength, searchStore.appliedFilters]);
 
 	return (
 		<View
@@ -59,8 +59,8 @@ const FiltersBar = () => {
 									flatListRef.current.scrollToOffset({ animated: true, offset: 0 });
 							}
 						}}
-						data={Object.entries(appliedFilters)}
-						extraData={filters}
+						data={Object.entries(searchStore.appliedFilters)}
+						extraData={searchStore.filters}
 						keyExtractor={(item) => item[0]}
 						renderItem={({ item }) => (
 							<FilterItem filter={item[0] as SearchFilters} value={item[1]} />
