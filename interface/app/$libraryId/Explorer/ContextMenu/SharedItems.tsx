@@ -1,7 +1,7 @@
 import { FileX, Share as ShareIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
-import { useBridgeMutation, useDiscoveredPeers, useSelector } from '@sd/client';
-import { ContextMenu, ModifierKeys } from '@sd/ui';
+import { useBridgeMutation, useDiscoveredPeers, useLibraryMutation, useSelector } from '@sd/client';
+import { ContextMenu, ModifierKeys, toast } from '@sd/ui';
 import { Menu } from '~/components/Menu';
 import { useLocale, useOperatingSystem } from '~/hooks';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
@@ -215,22 +215,47 @@ const SpacedropNodes = () => {
 	const discoveredPeers = useDiscoveredPeers();
 
 	const spacedrop = useBridgeMutation('p2p.spacedrop');
+	const spacedropCloud = useLibraryMutation('p2p.spacedropCloud', {
+		onSuccess: (links) => {
+			console.log('success');
+			console.log(links);
+		},
+		onError: (error) => {
+			console.log('error');
+			toast.error(error.message);
+		}
+	});
 
-	if (discoveredPeers.size === 0) {
-		return <p className="p-1 text-center text-sm">{t('no_nodes_found')}</p>;
-	}
+	// if (discoveredPeers.size === 0) {
+	// 	// return <p className="p-1 text-center text-sm">{t('no_nodes_found')}</p>;
+	// 	return <button className="p-1 text-center text-sm text-white" onClick={() => {
 
-	return Array.from(discoveredPeers).map(([id, peer]) => (
-		<Menu.Item
-			key={id}
-			label={peer.metadata.name}
-			disabled={spacedrop.isLoading}
-			onClick={async () => {
-				spacedrop.mutateAsync({
-					identity: id,
-					file_path: await getPaths([...explorer.selectedItems])
-				});
-			}}
-		/>
-	));
+	// 	}}>Send to Cloud [TEMP]</button>;
+	// }
+
+	return (
+		<>
+			{Array.from(discoveredPeers).map(([id, peer]) => (
+				<Menu.Item
+					key={id}
+					label={peer.metadata.name}
+					disabled={spacedrop.isLoading}
+					onClick={async () => {
+						spacedrop.mutateAsync({
+							identity: id,
+							file_path: await getPaths([...explorer.selectedItems]),
+						});
+					}}
+				/>
+			))}
+			<Menu.Item
+				label={'Send to Cloud [TEMP]'}
+				onClick={async () => {
+					spacedropCloud.mutateAsync({
+						file_paths: await getPaths([...explorer.selectedItems]),
+					});
+				}}
+			/>
+		</>
+	);
 };
