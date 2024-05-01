@@ -5,7 +5,7 @@ import { PropsWithChildren, useCallback, useEffect, useRef, useState } from 'rea
 import { useKey } from 'rooks';
 import { Button, Kbd, Resizable, ResizableHandle, Tooltip, useResizableContext } from '@sd/ui';
 import { MacTrafficLights } from '~/components';
-import { useOperatingSystem, useShortcut, useShowControls } from '~/hooks';
+import { useLocale, useOperatingSystem, useShortcut, useShowControls } from '~/hooks';
 
 import { layoutStore, useLayoutStore } from '../../store';
 import { getSidebarStore } from '../store';
@@ -205,6 +205,7 @@ const SidebarContent = ({ children }: PropsWithChildren) => {
 };
 
 function SidebarControls() {
+	const { t } = useLocale();
 	const os = useOperatingSystem();
 	const { sidebar } = useLayoutStore();
 
@@ -212,7 +213,10 @@ function SidebarControls() {
 
 	return (
 		<div className="flex justify-end">
-			<Tooltip label={!sidebar.collapsed ? 'Hide sidebar' : 'Lock sidebar'} keybinds={['[']}>
+			<Tooltip
+				label={!sidebar.collapsed ? t('hide_sidebar') : t('lock_sidebar')}
+				keybinds={['[']}
+			>
 				<Button
 					size="icon"
 					onClick={() => (layoutStore.sidebar.collapsed = !layoutStore.sidebar.collapsed)}
@@ -225,6 +229,7 @@ function SidebarControls() {
 }
 
 function ResizeHandle() {
+	const { t } = useLocale();
 	const { sidebar } = useLayoutStore();
 	const resizable = useResizableContext();
 
@@ -243,12 +248,9 @@ function ResizeHandle() {
 			label={
 				resizable.isDragging ? null : (
 					<div className="flex flex-col items-start">
-						<div>
-							<span className="font-medium">Drag</span> to resize
-						</div>
+						<div>{t('drag_to_resize')}</div>
 						<div className="flex items-center gap-1">
-							<span className="font-medium">Click</span>
-							<span>to {sidebar.collapsed ? 'lock' : 'hide'}</span>
+							<span>{t(sidebar.collapsed ? 'click_to_lock' : 'click_to_hide')}</span>
 							<Kbd>[</Kbd>
 						</div>
 					</div>
