@@ -13,7 +13,7 @@ export default function NetworkStack() {
 			<Stack.Screen
 				name="Network"
 				component={NetworkScreen}
-				options={({route}) => ({
+				options={({ route }) => ({
 					header: () => <Header search route={route} />
 				})}
 			/>
