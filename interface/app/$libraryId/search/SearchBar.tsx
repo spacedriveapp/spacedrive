@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
-import { createSearchParams } from 'react-router-dom';
-import { useDebouncedCallback } from 'use-debounce';
 import { SearchFilterArgs } from '@sd/client';
 import { Input, ModifierKeys, Shortcut } from '@sd/ui';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router';
+import { createSearchParams } from 'react-router-dom';
+import { useDebouncedCallback } from 'use-debounce';
 import { useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 
@@ -22,6 +22,7 @@ export default ({ redirectToSearch, defaultFilters, defaultTarget }: Props) => {
 	const searchRef = useRef<HTMLInputElement>(null);
 	const navigate = useNavigate();
 	const searchStore = useSearchStore();
+	const locationState: { focusSearch?: boolean } = useLocation().state;
 
 	const os = useOperatingSystem(true);
 	const keybind = keybindForOs(os);
@@ -74,6 +75,10 @@ export default ({ redirectToSearch, defaultFilters, defaultTarget }: Props) => {
 				search: createSearchParams({
 					search: value
 				}).toString()
+			}, {
+				state: {
+					focusSearch: true
+				}
 			});
 		}
 	}, 300);
@@ -99,6 +104,7 @@ export default ({ redirectToSearch, defaultFilters, defaultTarget }: Props) => {
 			onChange={(e) => {
 				updateValue(e.target.value);
 			}}
+			autoFocus={locationState?.focusSearch || false}
 			onBlur={() => {
 				if (search.rawSearch === '' && !searchStore.interactingWithSearchOptions) {
 					clearValue();
