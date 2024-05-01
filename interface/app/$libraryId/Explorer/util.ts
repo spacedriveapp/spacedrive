@@ -37,7 +37,6 @@ export function getItemData(index: number, items: ExplorerItem[]) {
 
 const dayjsLocales: Record<string, any> = {
 	en: () => import('dayjs/locale/en.js'),
-	en_gb: () => import('dayjs/locale/en-gb.js'),
 	de: () => import('dayjs/locale/de.js'),
 	es: () => import('dayjs/locale/es.js'),
 	fr: () => import('dayjs/locale/fr.js'),

@@ -189,6 +189,7 @@ export const Component = () => {
 						onChange={(e) => {
 							// add "i18nextLng" key to localStorage and set it to the selected language
 							if ((i18n.resolvedLanguage || i18n.language) === 'en') {
+								localStorage.setItem('sd-date-format', 'LL');
 								setDateFormat('LL');
 							}
 
