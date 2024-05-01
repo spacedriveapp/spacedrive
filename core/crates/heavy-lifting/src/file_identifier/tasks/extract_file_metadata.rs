@@ -39,7 +39,7 @@ pub struct ExtractFileMetadataTask {
 }
 
 #[derive(Debug)]
-pub struct ExtractFileMetadataTaskOutput {
+pub struct Output {
 	pub identified_files: HashMap<Uuid, IdentifiedFile>,
 	pub extract_metadata_time: Duration,
 	pub errors: Vec<NonCriticalError>,
@@ -193,7 +193,7 @@ impl Task<Error> for ExtractFileMetadataTask {
 		}
 
 		Ok(ExecStatus::Done(
-			ExtractFileMetadataTaskOutput {
+			Output {
 				identified_files: mem::take(identified_files),
 				extract_metadata_time: *extract_metadata_time + start_time.elapsed(),
 				errors: mem::take(errors),

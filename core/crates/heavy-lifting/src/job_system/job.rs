@@ -1,8 +1,8 @@
-use crate::{Error, NonCriticalError};
+use crate::{media_processor::ThumbKey, Error, NonCriticalError};
 
 use sd_core_sync::Manager as SyncManager;
 
-use sd_prisma::prisma::PrismaClient;
+use sd_prisma::prisma::{file_path, PrismaClient};
 use sd_task_system::{
 	BaseTaskDispatcher, Task, TaskDispatcher, TaskHandle, TaskRemoteController, TaskSystemError,
 };
@@ -46,6 +46,7 @@ use super::{
 pub enum JobName {
 	Indexer,
 	FileIdentifier,
+	MediaProcessor,
 	// TODO: Add more job names as needed
 }
 
@@ -72,6 +73,15 @@ impl ProgressUpdate {
 	}
 }
 
+pub enum UpdateEvent {
+	NewThumbnailEvent {
+		thumb_key: ThumbKey,
+	},
+	NewIdentifiedObjects {
+		file_path_ids: Vec<file_path::id::Type>,
+	},
+}
+
 pub trait JobContext: Send + Sync + Clone + 'static {
 	fn id(&self) -> Uuid;
 	fn db(&self) -> &Arc<PrismaClient>;
@@ -82,6 +92,7 @@ pub trait JobContext: Send + Sync + Clone + 'static {
 	fn progress_msg(&self, msg: impl Into<String>) {
 		self.progress(vec![ProgressUpdate::Message(msg.into())]);
 	}
+	fn report_update(&self, update: UpdateEvent);
 }
 
 pub trait Job: Send + Sync + Hash + 'static {
@@ -97,16 +108,16 @@ pub trait Job: Send + Sync + Hash + 'static {
 		async move { Ok(()) }
 	}
 
-	fn run(
+	fn run<Ctx: JobContext>(
 		self,
 		dispatcher: JobTaskDispatcher,
-		ctx: impl JobContext,
+		ctx: Ctx,
 	) -> impl Future<Output = Result<ReturnStatus, Error>> + Send;
 }
 
 pub trait IntoJob<J, Ctx>
 where
-	J: Job + SerializableJob,
+	J: Job + SerializableJob<Ctx>,
 	Ctx: JobContext,
 {
 	fn into_job(self) -> Box<dyn DynJob<Ctx>>;
@@ -114,7 +125,7 @@ where
 
 impl<J, Ctx> IntoJob<J, Ctx> for J
 where
-	J: Job + SerializableJob,
+	J: Job + SerializableJob<Ctx>,
 	Ctx: JobContext,
 {
 	fn into_job(self) -> Box<dyn DynJob<Ctx>> {
@@ -132,7 +143,7 @@ where
 
 impl<J, Ctx> IntoJob<J, Ctx> for JobBuilder<J, Ctx>
 where
-	J: Job + SerializableJob,
+	J: Job + SerializableJob<Ctx>,
 	Ctx: JobContext,
 {
 	fn into_job(self) -> Box<dyn DynJob<Ctx>> {
@@ -260,7 +271,7 @@ pub enum JobOutputData {
 
 pub struct JobBuilder<J, Ctx>
 where
-	J: Job + SerializableJob,
+	J: Job + SerializableJob<Ctx>,
 	Ctx: JobContext,
 {
 	id: JobId,
@@ -272,7 +283,7 @@ where
 
 impl<J, Ctx> JobBuilder<J, Ctx>
 where
-	J: Job + SerializableJob,
+	J: Job + SerializableJob<Ctx>,
 	Ctx: JobContext,
 {
 	pub fn build(self) -> Box<JobHolder<J, Ctx>> {
@@ -315,7 +326,7 @@ where
 	}
 
 	#[must_use]
-	pub fn enqueue_next(mut self, next: impl Job + SerializableJob) -> Self {
+	pub fn enqueue_next(mut self, next: impl Job + SerializableJob<Ctx>) -> Self {
 		let next_job_order = self.next_jobs.len() + 1;
 
 		let mut child_job_builder = JobBuilder::new(next).with_parent_id(self.id);
@@ -333,7 +344,7 @@ where
 
 pub struct JobHolder<J, Ctx>
 where
-	J: Job + SerializableJob,
+	J: Job + SerializableJob<Ctx>,
 	Ctx: JobContext,
 {
 	pub(super) id: JobId,
@@ -530,7 +541,7 @@ pub trait DynJob<Ctx: JobContext>: Send + Sync + 'static {
 #[async_trait::async_trait]
 impl<J, Ctx> DynJob<Ctx> for JobHolder<J, Ctx>
 where
-	J: Job + SerializableJob,
+	J: Job + SerializableJob<Ctx>,
 	Ctx: JobContext,
 {
 	fn id(&self) -> JobId {

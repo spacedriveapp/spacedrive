@@ -24,7 +24,9 @@ use prisma_client_rust::or;
 use tracing::{debug, warn};
 
 use super::{
-	tasks::{ExtractFileMetadataTask, ExtractFileMetadataTaskOutput, ObjectProcessorTask},
+	tasks::{
+		extract_file_metadata, object_processor, ExtractFileMetadataTask, ObjectProcessorTask,
+	},
 	CHUNK_SIZE,
 };
 
@@ -35,6 +37,7 @@ pub async fn shallow(
 	db: Arc<PrismaClient>,
 	sync: Arc<SyncManager>,
 	invalidate_query: impl Fn(&'static str) + Send + Sync,
+	report_file_path_ids_with_new_object: impl Fn(Vec<file_path::id::Type>) + Send + Sync,
 ) -> Result<Vec<NonCriticalError>, Error> {
 	let sub_path = sub_path.as_ref();
 
@@ -107,7 +110,14 @@ pub async fn shallow(
 		return Ok(vec![]);
 	}
 
-	let errors = process_tasks(pending_running_tasks, dispatcher, db, sync).await?;
+	let errors = process_tasks(
+		pending_running_tasks,
+		dispatcher,
+		db,
+		sync,
+		report_file_path_ids_with_new_object,
+	)
+	.await?;
 
 	invalidate_query("search.paths");
 	invalidate_query("search.objects");
@@ -120,6 +130,7 @@ async fn process_tasks(
 	dispatcher: BaseTaskDispatcher<Error>,
 	db: Arc<PrismaClient>,
 	sync: Arc<SyncManager>,
+	report_file_path_ids_with_new_object: impl Fn(Vec<file_path::id::Type>) + Send + Sync,
 ) -> Result<Vec<NonCriticalError>, Error> {
 	let mut pending_running_tasks = pending_running_tasks.lend_mut();
 
@@ -131,13 +142,13 @@ async fn process_tasks(
 				// We only care about ExtractFileMetadataTaskOutput because we need to dispatch further tasks
 				// and the ObjectProcessorTask only gives back some metrics not much important for
 				// shallow file identifier
-				if any_task_output.is::<ExtractFileMetadataTaskOutput>() {
-					let ExtractFileMetadataTaskOutput {
+				if any_task_output.is::<extract_file_metadata::Output>() {
+					let extract_file_metadata::Output {
 						identified_files,
 						errors: more_errors,
 						..
 					} = *any_task_output
-						.downcast::<ExtractFileMetadataTaskOutput>()
+						.downcast::<extract_file_metadata::Output>()
 						.expect("just checked");
 
 					errors.extend(more_errors);
@@ -153,6 +164,15 @@ async fn process_tasks(
 								.await,
 						));
 					}
+				} else {
+					let object_processor::Output {
+						file_path_ids_with_new_object,
+						..
+					} = *any_task_output
+						.downcast::<object_processor::Output>()
+						.expect("just checked");
+
+					report_file_path_ids_with_new_object(file_path_ids_with_new_object);
 				}
 			}
 

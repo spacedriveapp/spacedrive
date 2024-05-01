@@ -164,7 +164,7 @@ impl<Ctx: JobContext> JobSystem<Ctx> {
 	/// Dispatch a new job to the system
 	/// # Panics
 	/// Panics only happen if internal channels are unexpectedly closed
-	pub async fn dispatch<J: Job + SerializableJob>(
+	pub async fn dispatch<J: Job + SerializableJob<Ctx>>(
 		&mut self,
 		job: impl IntoJob<J, Ctx> + Send,
 		location_id: location::id::Type,

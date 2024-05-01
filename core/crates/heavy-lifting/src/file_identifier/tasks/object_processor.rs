@@ -36,7 +36,7 @@ pub struct ObjectProcessorTask {
 	db: Arc<PrismaClient>,
 	sync: Arc<SyncManager>,
 	identified_files: HashMap<Uuid, IdentifiedFile>,
-	metrics: ObjectProcessorTaskMetrics,
+	output: Output,
 	stage: Stage,
 	is_shallow: bool,
 }
@@ -45,13 +45,14 @@ pub struct ObjectProcessorTask {
 pub struct SaveState {
 	id: TaskId,
 	identified_files: HashMap<Uuid, IdentifiedFile>,
-	metrics: ObjectProcessorTaskMetrics,
+	output: Output,
 	stage: Stage,
 	is_shallow: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct ObjectProcessorTaskMetrics {
+pub struct Output {
+	pub file_path_ids_with_new_object: Vec<file_path::id::Type>,
 	pub assign_cas_ids_time: Duration,
 	pub fetch_existing_objects_time: Duration,
 	pub assign_to_existing_object_time: Duration,
@@ -83,7 +84,7 @@ impl ObjectProcessorTask {
 			sync,
 			identified_files,
 			stage: Stage::Starting,
-			metrics: ObjectProcessorTaskMetrics::default(),
+			output: Output::default(),
 			is_shallow,
 		}
 	}
@@ -121,8 +122,9 @@ impl Task<Error> for ObjectProcessorTask {
 			sync,
 			identified_files,
 			stage,
-			metrics:
-				ObjectProcessorTaskMetrics {
+			output:
+				Output {
+					file_path_ids_with_new_object,
 					assign_cas_ids_time,
 					fetch_existing_objects_time,
 					assign_to_existing_object_time,
@@ -193,6 +195,11 @@ impl Task<Error> for ObjectProcessorTask {
 					*created_objects_count = create_objects(identified_files, db, sync).await?;
 					*create_object_time = start.elapsed();
 
+					*file_path_ids_with_new_object = identified_files
+						.values()
+						.map(|IdentifiedFile { file_path, .. }| file_path.id)
+						.collect();
+
 					break;
 				}
 			}
@@ -200,7 +207,7 @@ impl Task<Error> for ObjectProcessorTask {
 			check_interruption!(interrupter);
 		}
 
-		Ok(ExecStatus::Done(mem::take(&mut self.metrics).into_output()))
+		Ok(ExecStatus::Done(mem::take(&mut self.output).into_output()))
 	}
 }
 
@@ -433,7 +440,7 @@ impl SerializableTask<Error> for ObjectProcessorTask {
 		let Self {
 			id,
 			identified_files,
-			metrics,
+			output,
 			stage,
 			is_shallow,
 			..
@@ -442,7 +449,7 @@ impl SerializableTask<Error> for ObjectProcessorTask {
 		rmp_serde::to_vec_named(&SaveState {
 			id,
 			identified_files,
-			metrics,
+			output,
 			stage,
 			is_shallow,
 		})
@@ -456,7 +463,7 @@ impl SerializableTask<Error> for ObjectProcessorTask {
 			|SaveState {
 			     id,
 			     identified_files,
-			     metrics,
+			     output,
 			     stage,
 			     is_shallow,
 			 }| Self {
@@ -464,7 +471,7 @@ impl SerializableTask<Error> for ObjectProcessorTask {
 				db,
 				sync,
 				identified_files,
-				metrics,
+				output,
 				stage,
 				is_shallow,
 			},

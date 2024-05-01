@@ -1,4 +1,4 @@
-use crate::{file_identifier::FileIdentifierJob, indexer::IndexerJob};
+use crate::{file_identifier::FileIdentifierJob, indexer::IndexerJob, media_processor};
 
 use sd_prisma::prisma::{job, location};
 use sd_utils::uuid_to_bytes;
@@ -22,7 +22,7 @@ use super::{
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SerializedTasks(pub Vec<u8>);
 
-pub trait SerializableJob: 'static
+pub trait SerializableJob<Ctx: JobContext>: 'static
 where
 	Self: Sized,
 {
@@ -35,7 +35,7 @@ where
 	#[allow(unused_variables)]
 	fn deserialize(
 		serialized_job: &[u8],
-		ctx: &impl JobContext,
+		ctx: &Ctx,
 	) -> impl Future<
 		Output = Result<Option<(Self, Option<SerializedTasks>)>, rmp_serde::decode::Error>,
 	> + Send {
@@ -175,7 +175,7 @@ macro_rules! match_deserialize_job {
 
 
 		match name {
-			$(<$job_type as Job>::NAME => <$job_type as SerializableJob>::deserialize(
+			$(<$job_type as Job>::NAME => <$job_type as SerializableJob<$ctx_type>>::deserialize(
 					&serialized_job,
 					$job_ctx,
 				).await
@@ -213,6 +213,7 @@ async fn load_job<Ctx: JobContext>(
 		[
 			IndexerJob,
 			FileIdentifierJob,
+			media_processor::job::MediaProcessor,
 			// TODO: Add more jobs here
 			// e.g.: FileIdentifierJob, MediaProcessorJob, etc.,
 		]

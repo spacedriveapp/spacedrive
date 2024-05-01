@@ -53,7 +53,7 @@ use tokio::{
 	task::spawn_blocking,
 	time::{sleep, Instant},
 };
-use tracing::{error, trace};
+use tracing::{error, info, trace};
 use uuid::Uuid;
 use webp::Encoder;
 
@@ -89,7 +89,6 @@ pub struct Thumbnailer<Reporter: NewThumbnailReporter> {
 	thumbnails_directory_path: Arc<PathBuf>,
 	thumbnails_to_generate: HashMap<ThumbnailId, GenerateThumbnailArgs>,
 	already_processed_ids: Vec<ThumbnailId>,
-	std_dev_accumulator: f64,
 	should_regenerate: bool,
 	with_priority: bool,
 	output: Output,
@@ -116,7 +115,6 @@ impl<Reporter: NewThumbnailReporter> Task<Error> for Thumbnailer<Reporter> {
 			thumbnails_to_generate,
 			already_processed_ids,
 			should_regenerate,
-			std_dev_accumulator,
 			with_priority,
 			reporter,
 			output,
@@ -158,8 +156,9 @@ impl<Reporter: NewThumbnailReporter> Task<Error> for Thumbnailer<Reporter> {
 			.collect::<FutureGroup<_>>());
 
 		while let Some((id, (elapsed_time, res))) = futures.next().await {
-			output.mean_generation_time += elapsed_time;
-			*std_dev_accumulator += elapsed_time.as_secs_f64().powi(2);
+			let elapsed_time = elapsed_time.as_secs_f64();
+			output.mean_generation_time_accumulator += elapsed_time;
+			output.std_dev_accumulator += elapsed_time * elapsed_time;
 			match res {
 				Ok((thumb_key, status)) => {
 					match status {
@@ -196,17 +195,22 @@ impl<Reporter: NewThumbnailReporter> Task<Error> for Thumbnailer<Reporter> {
 
 		output.total_generation_time += start.elapsed();
 
-		output.mean_generation_time /= output.generated + output.skipped;
+		let total = f64::from(output.generated + output.skipped);
 
-		let mean_generation_time = output.mean_generation_time.as_secs_f64();
+		let mean_generation_time = output.mean_generation_time_accumulator / total;
 
-		#[allow(clippy::cast_lossless)]
-		let total = (output.generated + output.skipped) as f64;
+		let generation_time_std_dev = Duration::from_secs_f64(
+			(mean_generation_time
+				.mul_add(-mean_generation_time, output.std_dev_accumulator / total))
+			.sqrt(),
+		);
 
-		*std_dev_accumulator /= total;
-
-		output.std_dev = Duration::from_secs_f64(
-			(mean_generation_time.mul_add(-mean_generation_time, *std_dev_accumulator)).sqrt(),
+		info!(
+			"{{generated: {generated}, skipped: {skipped}}} thumbnails; \
+			mean generation time: {mean_generation_time:?} ± {generation_time_std_dev:?}",
+			generated = output.generated,
+			skipped = output.skipped,
+			mean_generation_time = Duration::from_secs_f64(mean_generation_time)
 		);
 
 		Ok(ExecStatus::Done(mem::take(output).into_output()))
@@ -219,8 +223,8 @@ pub struct Output {
 	skipped: u32,
 	errors: Vec<crate::NonCriticalError>,
 	total_generation_time: Duration,
-	mean_generation_time: Duration,
-	std_dev: Duration,
+	mean_generation_time_accumulator: f64,
+	std_dev_accumulator: f64,
 }
 
 #[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
@@ -260,7 +264,6 @@ impl<Reporter: NewThumbnailReporter> Thumbnailer<Reporter> {
 			thumbs_kind,
 			thumbnails_directory_path,
 			already_processed_ids: Vec::with_capacity(thumbnails_to_generate.len()),
-			std_dev_accumulator: 0.0,
 			thumbnails_to_generate,
 			should_regenerate,
 			with_priority,
@@ -375,7 +378,6 @@ struct SaveState {
 	thumbs_kind: ThumbnailKind,
 	thumbnails_directory_path: Arc<PathBuf>,
 	thumbnails_to_generate: HashMap<ThumbnailId, GenerateThumbnailArgs>,
-	std_dev_accumulator: f64,
 	should_regenerate: bool,
 	with_priority: bool,
 	output: Output,
@@ -394,7 +396,6 @@ impl<Reporter: NewThumbnailReporter> SerializableTask<Error> for Thumbnailer<Rep
 			thumbs_kind,
 			thumbnails_directory_path,
 			mut thumbnails_to_generate,
-			std_dev_accumulator,
 			already_processed_ids,
 			should_regenerate,
 			with_priority,
@@ -411,7 +412,6 @@ impl<Reporter: NewThumbnailReporter> SerializableTask<Error> for Thumbnailer<Rep
 			thumbs_kind,
 			thumbnails_directory_path,
 			thumbnails_to_generate,
-			std_dev_accumulator,
 			should_regenerate,
 			with_priority,
 			output,
@@ -428,7 +428,6 @@ impl<Reporter: NewThumbnailReporter> SerializableTask<Error> for Thumbnailer<Rep
 			     thumbs_kind,
 			     thumbnails_to_generate,
 			     thumbnails_directory_path,
-			     std_dev_accumulator,
 			     should_regenerate,
 			     with_priority,
 			     output,
@@ -439,7 +438,6 @@ impl<Reporter: NewThumbnailReporter> SerializableTask<Error> for Thumbnailer<Rep
 				thumbnails_to_generate,
 				thumbnails_directory_path,
 				already_processed_ids: Vec::new(),
-				std_dev_accumulator,
 				should_regenerate,
 				with_priority,
 				output,

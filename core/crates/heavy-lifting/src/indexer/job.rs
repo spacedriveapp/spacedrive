@@ -130,10 +130,10 @@ impl Job for IndexerJob {
 		Ok(())
 	}
 
-	async fn run(
+	async fn run<Ctx: JobContext>(
 		mut self,
 		dispatcher: JobTaskDispatcher,
-		ctx: impl JobContext,
+		ctx: Ctx,
 	) -> Result<ReturnStatus, Error> {
 		let mut pending_running_tasks = FuturesUnordered::new();
 
@@ -148,7 +148,9 @@ impl Job for IndexerJob {
 		}
 
 		if !self.tasks_for_shutdown.is_empty() {
-			return Ok(ReturnStatus::Shutdown(self.serialize().await));
+			return Ok(ReturnStatus::Shutdown(
+				SerializableJob::<Ctx>::serialize(self).await,
+			));
 		}
 
 		if !self.ancestors_needing_indexing.is_empty() {
@@ -182,7 +184,9 @@ impl Job for IndexerJob {
 			}
 
 			if !self.tasks_for_shutdown.is_empty() {
-				return Ok(ReturnStatus::Shutdown(self.serialize().await));
+				return Ok(ReturnStatus::Shutdown(
+					SerializableJob::<Ctx>::serialize(self).await,
+				));
 			}
 		}
 
@@ -638,7 +642,7 @@ struct SaveState {
 	tasks_for_shutdown_bytes: Option<SerializedTasks>,
 }
 
-impl SerializableJob for IndexerJob {
+impl<Ctx: JobContext> SerializableJob<Ctx> for IndexerJob {
 	async fn serialize(self) -> Result<Option<Vec<u8>>, rmp_serde::encode::Error> {
 		let Self {
 			location,
@@ -706,7 +710,7 @@ impl SerializableJob for IndexerJob {
 
 	async fn deserialize(
 		serialized_job: &[u8],
-		_: &impl JobContext,
+		_: &Ctx,
 	) -> Result<Option<(Self, Option<SerializedTasks>)>, rmp_serde::decode::Error> {
 		let SaveState {
 			location,

@@ -1,7 +1,7 @@
 use crate::{
 	file_identifier,
 	job_system::{
-		job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus},
+		job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus, UpdateEvent},
 		report::ReportOutputMetadata,
 		utils::cancel_pending_tasks,
 		SerializableJob, SerializedTasks,
@@ -39,8 +39,7 @@ use tracing::warn;
 
 use super::{
 	tasks::{
-		ExtractFileMetadataTask, ExtractFileMetadataTaskOutput, ObjectProcessorTask,
-		ObjectProcessorTaskMetrics,
+		extract_file_metadata, object_processor, ExtractFileMetadataTask, ObjectProcessorTask,
 	},
 	CHUNK_SIZE,
 };
@@ -111,10 +110,10 @@ impl Job for FileIdentifierJob {
 		Ok(())
 	}
 
-	async fn run(
+	async fn run<Ctx: JobContext>(
 		mut self,
 		dispatcher: JobTaskDispatcher,
-		ctx: impl JobContext,
+		ctx: Ctx,
 	) -> Result<ReturnStatus, Error> {
 		let mut pending_running_tasks = FuturesUnordered::new();
 
@@ -161,7 +160,9 @@ impl Job for FileIdentifierJob {
 		}
 
 		if !self.tasks_for_shutdown.is_empty() {
-			return Ok(ReturnStatus::Shutdown(self.serialize().await));
+			return Ok(ReturnStatus::Shutdown(
+				SerializableJob::<Ctx>::serialize(self).await,
+			));
 		}
 
 		// From this point onward, we are done with the job and it can't be interrupted anymore
@@ -294,20 +295,20 @@ impl FileIdentifierJob {
 		job_ctx: &impl JobContext,
 		dispatcher: &JobTaskDispatcher,
 	) -> Option<TaskHandle<Error>> {
-		if any_task_output.is::<ExtractFileMetadataTaskOutput>() {
+		if any_task_output.is::<extract_file_metadata::Output>() {
 			return self
 				.process_extract_file_metadata_output(
 					*any_task_output
-						.downcast::<ExtractFileMetadataTaskOutput>()
+						.downcast::<extract_file_metadata::Output>()
 						.expect("just checked"),
 					job_ctx,
 					dispatcher,
 				)
 				.await;
-		} else if any_task_output.is::<ObjectProcessorTaskMetrics>() {
+		} else if any_task_output.is::<object_processor::Output>() {
 			self.process_object_processor_output(
 				*any_task_output
-					.downcast::<ObjectProcessorTaskMetrics>()
+					.downcast::<object_processor::Output>()
 					.expect("just checked"),
 				job_ctx,
 			);
@@ -320,11 +321,11 @@ impl FileIdentifierJob {
 
 	async fn process_extract_file_metadata_output(
 		&mut self,
-		ExtractFileMetadataTaskOutput {
+		extract_file_metadata::Output {
 			identified_files,
 			extract_metadata_time,
 			errors,
-		}: ExtractFileMetadataTaskOutput,
+		}: extract_file_metadata::Output,
 		job_ctx: &impl JobContext,
 		dispatcher: &JobTaskDispatcher,
 	) -> Option<TaskHandle<Error>> {
@@ -356,14 +357,15 @@ impl FileIdentifierJob {
 
 	fn process_object_processor_output(
 		&mut self,
-		ObjectProcessorTaskMetrics {
+		object_processor::Output {
+			file_path_ids_with_new_object,
 			assign_cas_ids_time,
 			fetch_existing_objects_time,
 			assign_to_existing_object_time,
 			create_object_time,
 			created_objects_count,
 			linked_objects_count,
-		}: ObjectProcessorTaskMetrics,
+		}: object_processor::Output,
 		job_ctx: &impl JobContext,
 	) {
 		self.metadata.assign_cas_ids_time += assign_cas_ids_time;
@@ -383,6 +385,10 @@ impl FileIdentifierJob {
 				self.metadata.total_found_orphans
 			)),
 		]);
+
+		job_ctx.report_update(UpdateEvent::NewIdentifiedObjects {
+			file_path_ids: file_path_ids_with_new_object,
+		});
 	}
 }
 
@@ -460,7 +466,7 @@ impl From<Metadata> for ReportOutputMetadata {
 	}
 }
 
-impl SerializableJob for FileIdentifierJob {
+impl<Ctx: JobContext> SerializableJob<Ctx> for FileIdentifierJob {
 	async fn serialize(self) -> Result<Option<Vec<u8>>, rmp_serde::encode::Error> {
 		let Self {
 			location,
@@ -510,7 +516,7 @@ impl SerializableJob for FileIdentifierJob {
 
 	async fn deserialize(
 		serialized_job: &[u8],
-		_: &impl JobContext,
+		_: &Ctx,
 	) -> Result<Option<(Self, Option<SerializedTasks>)>, rmp_serde::decode::Error> {
 		let SaveState {
 			location,

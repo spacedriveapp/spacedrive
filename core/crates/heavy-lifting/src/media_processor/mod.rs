@@ -1,9 +1,12 @@
-use sd_utils::error::FileIOError;
+use sd_core_file_path_helper::FilePathError;
+use sd_utils::db::MissingFieldError;
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
 mod helpers;
+pub mod job;
+mod shallow;
 mod tasks;
 
 pub use tasks::{
@@ -13,15 +16,21 @@ pub use tasks::{
 
 pub use helpers::thumbnailer::{ThumbKey, ThumbnailKind};
 
+use crate::utils::sub_path;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-	// Internal errors
+	#[error("missing field on database: {0}")]
+	MissingField(#[from] MissingFieldError),
 	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
+	#[error("failed to deserialized stored tasks for job resume: {0}")]
+	DeserializeTasks(#[from] rmp_serde::decode::Error),
+
 	#[error(transparent)]
-	FileIO(#[from] FileIOError),
+	FilePathError(#[from] FilePathError),
 	#[error(transparent)]
-	MediaData(#[from] sd_media_metadata::Error),
+	SubPath(#[from] sub_path::Error),
 }
 
 impl From<Error> for rspc::Error {

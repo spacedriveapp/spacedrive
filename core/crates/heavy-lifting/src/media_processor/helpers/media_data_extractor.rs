@@ -7,7 +7,7 @@ use sd_utils::chain_optional_iter;
 use once_cell::sync::Lazy;
 use serde::{de::DeserializeOwned, Serialize};
 
-pub(super) static FILTERED_IMAGE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+pub static FILTERED_IMAGE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 	ALL_IMAGE_EXTENSIONS
 		.iter()
 		.copied()
