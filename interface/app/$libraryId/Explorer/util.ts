@@ -37,7 +37,6 @@ export function getItemData(index: number, items: ExplorerItem[]) {
 
 const dayjsLocales: Record<string, any> = {
 	en: () => import('dayjs/locale/en.js'),
-	en_gb: () => import('dayjs/locale/en-gb.js'),
 	de: () => import('dayjs/locale/de.js'),
 	es: () => import('dayjs/locale/es.js'),
 	fr: () => import('dayjs/locale/fr.js'),
@@ -77,19 +76,22 @@ export function generateLocaleDateFormats(language: string) {
 			value: 'L',
 			label: dayjs().locale(language).format('L')
 		},
-		{ value: 'L LT', label: dayjs().locale(language).format('L LT') },
 		{
-			value: 'll',
-			label: dayjs().locale(language).format('ll')
+			value: 'L LT',
+			label: dayjs().locale(language).format('L LT')
 		},
+		// {
+		// 	value: 'll',
+		// 	label: dayjs().locale(language).format('ll')
+		// },
 		{
 			value: 'LL',
 			label: dayjs().locale(language).format('LL')
 		},
-		{
-			value: 'lll',
-			label: dayjs().locale(language).format('lll')
-		},
+		// {
+		// 	value: 'lll',
+		// 	label: dayjs().locale(language).format('lll')
+		// },
 		{
 			value: 'LLL',
 			label: dayjs().locale(language).format('LLL')
@@ -99,5 +101,39 @@ export function generateLocaleDateFormats(language: string) {
 			label: dayjs().locale(language).format('llll')
 		}
 	];
-	return DATE_FORMATS;
+	if (language === 'en') {
+		const additionalFormats = [
+			{
+				value: 'DD/MM/YYYY',
+				label: dayjs().locale('en').format('DD/MM/YYYY')
+			},
+			{
+				value: 'DD/MM/YYYY HH:mm',
+				label: dayjs().locale('en').format('DD/MM/YYYY HH:mm')
+			},
+			// {
+			// 	value: 'D MMM YYYY',
+			// 	label: dayjs().locale('en').format('D MMM YYYY')
+			// },
+			{
+				value: 'D MMMM YYYY',
+				label: dayjs().locale('en').format('D MMMM YYYY')
+			},
+			// {
+			// 	value: 'D MMM YYYY HH:mm',
+			// 	label: dayjs().locale('en').format('D MMM YYYY HH:mm')
+			// },
+			{
+				value: 'D MMMM YYYY HH:mm',
+				label: dayjs().locale('en').format('D MMMM YYYY HH:mm')
+			},
+			{
+				value: 'ddd, D MMM YYYY HH:mm',
+				label: dayjs().locale('en').format('ddd, D MMMM YYYY HH:mm')
+			}
+		];
+		return DATE_FORMATS.concat(additionalFormats);
+	} else {
+		return DATE_FORMATS;
+	}
 }
