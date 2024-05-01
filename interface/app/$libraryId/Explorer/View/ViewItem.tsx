@@ -60,7 +60,9 @@ export const useViewItemDoubleClick = () => {
 							break;
 						default: {
 							const paths =
-								selectedItem.type === 'Path' ? [selectedItem.item] : selectedItem.item.file_paths;
+								selectedItem.type === 'Path'
+									? [selectedItem.item]
+									: selectedItem.item.file_paths;
 
 							for (const filePath of paths) {
 								if (filePath.is_dir) {
