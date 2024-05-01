@@ -13,12 +13,7 @@ type Props = {
 };
 
 // Default header with search bar and button to open drawer
-export default function Header({
-	route,
-	navBack,
-	title,
-	search = false
-}: Props) {
+export default function Header({ route, navBack, title, search = false }: Props) {
 	const navigation = useNavigation<DrawerNavigationHelpers>();
 	const headerHeight = useSafeAreaInsets().top;
 	const isAndroid = Platform.OS === 'android';
@@ -32,35 +27,33 @@ export default function Header({
 			<View style={tw`mx-auto h-auto w-full justify-center px-5 pb-3`}>
 				<View style={tw`w-full flex-row items-center justify-between`}>
 					<View style={tw`flex-row items-center gap-3`}>
-					{navBack ? (
-							<Pressable
-							hitSlop={24}
-							onPress={() => navigation.goBack()}
-						>
-							<ArrowLeft size={24} color={tw.color('ink')} />
-						</Pressable>
-
-					) : (
-						<Pressable onPress={() => navigation.openDrawer()}>
-						<List size={24} color={tw.color('ink')} />
-					</Pressable>
-					)}
+						{navBack ? (
+							<Pressable hitSlop={24} onPress={() => navigation.goBack()}>
+								<ArrowLeft size={24} color={tw.color('ink')} />
+							</Pressable>
+						) : (
+							<Pressable onPress={() => navigation.openDrawer()}>
+								<List size={24} color={tw.color('ink')} />
+							</Pressable>
+						)}
 						<Text style={tw`text-xl font-bold text-ink`}>{title || route?.name}</Text>
 					</View>
-					{search && <Pressable
-									hitSlop={24}
-									onPress={() => {
-										navigation.navigate('SearchStack', {
-											screen: 'Search'
-										});
-									}}
-								>
-									<MagnifyingGlass
-										size={24}
-										weight="bold"
-										color={tw.color('text-zinc-300')}
-									/>
-								</Pressable>}
+					{search && (
+						<Pressable
+							hitSlop={24}
+							onPress={() => {
+								navigation.navigate('SearchStack', {
+									screen: 'Search'
+								});
+							}}
+						>
+							<MagnifyingGlass
+								size={24}
+								weight="bold"
+								color={tw.color('text-zinc-300')}
+							/>
+						</Pressable>
+					)}
 				</View>
 			</View>
 		</View>

@@ -1,6 +1,4 @@
 import clsx from 'clsx';
-import dayjs from 'dayjs';
-import { useState } from 'react';
 import { FormProvider } from 'react-hook-form';
 import {
 	useBridgeMutation,
@@ -11,37 +9,15 @@ import {
 	useZodForm
 } from '@sd/client';
 import { Button, Card, Input, Select, SelectOption, Slider, Switch, tw, z } from '@sd/ui';
-import i18n from '~/app/I18n';
 import { Icon } from '~/components';
 import { useDebouncedFormWatch, useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
-import { generateLocaleDateFormats } from '../../Explorer/util';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
 
 const NodePill = tw.div`px-1.5 py-[2px] rounded text-xs font-medium bg-app-selected`;
 const NodeSettingLabel = tw.div`mb-1 text-xs font-medium`;
-
-// Unsorted list of languages available in the app.
-const LANGUAGE_OPTIONS = [
-	{ value: 'en', label: 'English (US)' },
-	{ value: 'en_gb', label: 'English (UK)' },
-	{ value: 'de', label: 'Deutsch' },
-	{ value: 'es', label: 'Español' },
-	{ value: 'fr', label: 'Français' },
-	{ value: 'tr', label: 'Türkçe' },
-	{ value: 'nl', label: 'Nederlands' },
-	{ value: 'be', label: 'Беларуская' },
-	{ value: 'ru', label: 'Русский' },
-	{ value: 'zh_CN', label: '中文（简体）' },
-	{ value: 'zh_TW', label: '中文（繁體）' },
-	{ value: 'it', label: 'Italiano' },
-	{ value: 'ja', label: '日本語' }
-];
-
-// Sort the languages by their label
-LANGUAGE_OPTIONS.sort((a, b) => a.label.localeCompare(b.label));
 
 const u16 = () => z.number().min(0).max(65535);
 
@@ -54,9 +30,7 @@ export const Component = () => {
 	// const image_labeler_versions = useBridgeQuery(['models.image_detection.list']);
 	const updateThumbnailerPreferences = useBridgeMutation('nodes.updateThumbnailerPreferences');
 
-	const [dateFormats, setDateFormats] = useState(
-		generateLocaleDateFormats(i18n.resolvedLanguage || i18n.language || 'en')
-	);
+	const { t } = useLocale();
 
 	const form = useZodForm({
 		schema: z
@@ -131,8 +105,6 @@ export const Component = () => {
 			form.setValue('p2p_port', { type: 'discrete', value: 65535 });
 		}
 	});
-
-	const { t, dateFormat, setDateFormat } = useLocale();
 
 	const isP2PWipFeatureEnabled = useFeatureFlag('wipP2P');
 
@@ -230,48 +202,6 @@ export const Component = () => {
 					</div> */}
 				</div>
 			</Card>
-			{/* Language Settings */}
-			<Setting mini title={t('language')} description={t('language_description')}>
-				<div className="flex h-[30px] gap-2">
-					<Select
-						value={i18n.resolvedLanguage || i18n.language || 'en'}
-						onChange={(e) => {
-							// add "i18nextLng" key to localStorage and set it to the selected language
-							localStorage.setItem('i18nextLng', e);
-							i18n.changeLanguage(e);
-
-							setDateFormats(generateLocaleDateFormats(e));
-						}}
-						containerClassName="h-[30px] whitespace-nowrap"
-					>
-						{LANGUAGE_OPTIONS.map((lang, key) => (
-							<SelectOption key={key} value={lang.value}>
-								{lang.label}
-							</SelectOption>
-						))}
-					</Select>
-				</div>
-			</Setting>
-			{/* Date Formatting Settings */}
-			<Setting mini title={t('date_format')} description={t('date_format_description')}>
-				<div className="flex h-[30px] gap-2">
-					<Select
-						value={dateFormat}
-						onChange={(e) => {
-							// add "dateFormat" key to localStorage and set it as default date format
-							localStorage.setItem('sd-date-format', e);
-							setDateFormat(e);
-						}}
-						containerClassName="h-[30px] whitespace-nowrap"
-					>
-						{dateFormats.map((format, key) => (
-							<SelectOption key={key} value={format.value}>
-								{format.label}
-							</SelectOption>
-						))}
-					</Select>
-				</div>
-			</Setting>
 			{/* Debug Mode */}
 			<Setting mini title={t('debug_mode')} description={t('debug_mode_description')}>
 				<Switch

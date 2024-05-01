@@ -4,14 +4,14 @@ import { ArrowLeft } from 'phosphor-react-native';
 import { Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tw, twStyle } from '~/lib/tailwind';
-import Search from '../search/Search';
 
+import Search from '../search/Search';
 
 const searchPlaceholder = {
 	locations: 'Search location name...',
 	tags: 'Search tag name...',
-	categories: 'Search category name...',
-}
+	categories: 'Search category name...'
+};
 
 type Props = {
 	route?: RouteProp<any, any>; // supporting title from the options object of navigation
@@ -19,11 +19,7 @@ type Props = {
 	title?: string; // in some cases - we want to override the route title
 };
 
-export default function SearchHeader({
-	route,
-	kind,
-	title
-}: Props) {
+export default function SearchHeader({ route, kind, title }: Props) {
 	const navigation = useNavigation<DrawerNavigationHelpers>();
 	const headerHeight = useSafeAreaInsets().top;
 	const isAndroid = Platform.OS === 'android';
@@ -37,12 +33,9 @@ export default function SearchHeader({
 			<View style={tw`mx-auto h-auto w-full justify-center px-5 pb-3`}>
 				<View style={tw`w-full flex-row items-center justify-between`}>
 					<View style={tw`flex-row items-center gap-3`}>
-					<Pressable
-								hitSlop={24}
-								onPress={() => navigation.goBack()}
-							>
-								<ArrowLeft size={24} color={tw.color('ink')} />
-							</Pressable>
+						<Pressable hitSlop={24} onPress={() => navigation.goBack()}>
+							<ArrowLeft size={24} color={tw.color('ink')} />
+						</Pressable>
 						<Text style={tw`text-xl font-bold text-ink`}>{title || route?.name}</Text>
 					</View>
 				</View>

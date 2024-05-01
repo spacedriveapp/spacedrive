@@ -4,10 +4,18 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import useResizeObserver from 'use-resize-observer';
 import { useSelector } from '@sd/client';
 import { Tooltip } from '@sd/ui';
-import { useKeyMatcher, useLocale, useShortcut, useShowControls } from '~/hooks';
+import {
+	useKeyMatcher,
+	useLocale,
+	useOperatingSystem,
+	useShortcut,
+	useShowControls,
+	useWindowState
+} from '~/hooks';
 import { useTabsContext } from '~/TabsContext';
 
 import { explorerStore } from '../Explorer/store';
+import { useLayoutStore } from '../Layout/store';
 import { useTopBarContext } from './Context';
 import { NavigationButtons } from './NavigationButtons';
 
@@ -15,10 +23,16 @@ import { NavigationButtons } from './NavigationButtons';
 const TopBar = () => {
 	const transparentBg = useShowControls().transparentBg;
 	const isDragSelecting = useSelector(explorerStore, (s) => s.isDragSelecting);
+
 	const ref = useRef<HTMLDivElement>(null);
 
 	const tabs = useTabsContext();
 	const ctx = useTopBarContext();
+
+	const windowState = useWindowState();
+	const platform = useOperatingSystem();
+
+	const layoutStore = useLayoutStore();
 
 	useResizeObserver({
 		ref,
@@ -63,7 +77,11 @@ const TopBar = () => {
 				className={clsx(
 					'flex h-12 items-center gap-3.5 overflow-hidden px-3.5',
 					'duration-250 transition-[background-color,border-color] ease-out',
-					isDragSelecting && 'pointer-events-none'
+					isDragSelecting && 'pointer-events-none',
+					platform === 'macOS' &&
+						!windowState.isFullScreen &&
+						layoutStore.sidebar.collapsed &&
+						'pl-20'
 				)}
 			>
 				<div

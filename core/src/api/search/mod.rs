@@ -6,12 +6,9 @@ use crate::{
 	util::{unsafe_streamed_query, BatchedStream},
 };
 
-use sd_core_indexer_rules::seed::no_hidden;
-use sd_core_indexer_rules::IndexerRule;
+use prisma_client_rust::Operator;
 use sd_core_prisma_helpers::{file_path_with_object, object_with_file_paths};
-use sd_file_ext::kind::ObjectKind;
-use sd_prisma::prisma::{self, location, PrismaClient};
-use sd_utils::chain_optional_iter;
+use sd_prisma::prisma::{self, PrismaClient};
 
 use std::path::PathBuf;
 
@@ -195,7 +192,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						fp
 					};
 
-					let mut query = db.file_path().find_many(params);
+					let mut query = db.file_path().find_many(andify(params));
 
 					if let Some(take) = take {
 						query = query.take(take as i64);
@@ -306,7 +303,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 								obj.push(prisma::object::file_paths::some(fp));
 							}
 
-							obj
+							andify(obj)
 						})
 						.take(take as i64);
 
@@ -411,4 +408,14 @@ async fn merge_filters(
 	}
 
 	Ok((fp, obj))
+}
+
+/// PCR 0.6.x's AND does { AND: [{ ...}] } instead of { AND: [{ ... }, { ... }, { ... }] },
+/// this works around it.
+fn andify<T: From<Operator<T>>>(params: Vec<T>) -> Vec<T> {
+	params.into_iter().fold(vec![], |mut params, param| {
+		params.push(param);
+
+		vec![prisma_client_rust::operator::and(params)]
+	})
 }

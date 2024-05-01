@@ -142,24 +142,24 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 
 	return (
 		<ScreenContainer tabHeight={false} scrollview={false} style={tw`gap-0 px-6 py-0`}>
-		<SectionList
-			contentContainerStyle={tw`py-6`}
-			sections={sections(debugState)}
-			renderItem={({ item }) => (
-				<SettingsItem
-					title={item.title}
-					leftIcon={item.icon}
-					onPress={() => navigation.navigate(item.navigateTo as any)}
-					rounded={item.rounded}
-				/>
-			)}
-			renderSectionHeader={renderSectionHeader}
-			ListFooterComponent={<FooterComponent />}
-			showsVerticalScrollIndicator={false}
-			stickySectionHeadersEnabled={false}
-			initialNumToRender={50}
-		/>
-	</ScreenContainer>
+			<SectionList
+				contentContainerStyle={tw`py-6`}
+				sections={sections(debugState)}
+				renderItem={({ item }) => (
+					<SettingsItem
+						title={item.title}
+						leftIcon={item.icon}
+						onPress={() => navigation.navigate(item.navigateTo as any)}
+						rounded={item.rounded}
+					/>
+				)}
+				renderSectionHeader={renderSectionHeader}
+				ListFooterComponent={<FooterComponent />}
+				showsVerticalScrollIndicator={false}
+				stickySectionHeadersEnabled={false}
+				initialNumToRender={50}
+			/>
+		</ScreenContainer>
 	);
 }
 
