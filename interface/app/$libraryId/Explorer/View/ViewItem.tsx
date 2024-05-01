@@ -5,7 +5,6 @@ import {
 	useSearchParams as useRawSearchParams
 } from 'react-router-dom';
 import {
-	FilePathFilterArgs,
 	isPath,
 	SearchFilterArgs,
 	useLibraryContext,
@@ -30,7 +29,7 @@ export const useViewItemDoubleClick = () => {
 	const explorer = useExplorerContext();
 	const { library } = useLibraryContext();
 	const { openFilePaths, openEphemeralFiles } = usePlatform();
-	const [_, setSearchParams] = useRawSearchParams();
+	const [searchParams] = useRawSearchParams();
 
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 
@@ -61,9 +60,7 @@ export const useViewItemDoubleClick = () => {
 							break;
 						default: {
 							const paths =
-								selectedItem.type === 'Path'
-									? [selectedItem.item]
-									: selectedItem.item.file_paths;
+								selectedItem.type === 'Path' ? [selectedItem.item] : selectedItem.item.file_paths;
 
 							for (const filePath of paths) {
 								if (filePath.is_dir) {
@@ -117,15 +114,15 @@ export const useViewItemDoubleClick = () => {
 			if (items.dirs.length > 0) {
 				const [item] = items.dirs;
 				if (item) {
-					setSearchParams((p) => {
-						const newParams = new URLSearchParams();
+					if (item.location_id !== null) {
+						const take = searchParams.get('take');
+						const params = new URLSearchParams({
+							path: `${item.materialized_path}${item.name}/`,
+							...(take !== null && { take })
+						});
 
-						newParams.set('path', `${item.materialized_path}${item.name}/`);
-						const take = p.get('take');
-						if (take !== null) newParams.set('take', take);
-
-						return newParams;
-					});
+						navigate(`/${library.uuid}/location/${item.location_id}?${params}`);
+					}
 					return;
 				}
 			}
@@ -184,7 +181,7 @@ export const useViewItemDoubleClick = () => {
 			}
 		},
 		[
-			setSearchParams,
+			searchParams,
 			explorer.selectedItems,
 			explorer.settingsStore.openOnDoubleClick,
 			library.uuid,
