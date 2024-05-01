@@ -87,13 +87,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				#[cfg(feature = "ffmpeg")]
 				{
-					Ok(sd_ffmpeg::probe(full_path).map_err(|e| {
+					sd_ffmpeg::probe(full_path).map_err(|e| {
 						error!("{e:#?}");
 						rspc::Error::new(
 							ErrorCode::NotFound,
 							"Couldn't extract media data from file".to_string(),
 						)
-					})?)
+					})
 				}
 			})
 		})

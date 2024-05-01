@@ -171,8 +171,7 @@ impl FFmpegCodecContext {
 			AVMediaType::AVMEDIA_TYPE_AUDIO => {
 				let bits_per_sample = unsafe { av_get_bits_per_sample(ctx.codec_id) };
 				if bits_per_sample != 0 {
-					let bit_rate =
-						ctx.sample_rate * ctx.ch_layout.nb_channels;
+					let bit_rate = ctx.sample_rate * ctx.ch_layout.nb_channels;
 					if bit_rate <= std::i32::MAX / bits_per_sample {
 						return bit_rate * (bits_per_sample);
 					}

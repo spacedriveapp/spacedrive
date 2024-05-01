@@ -159,15 +159,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						)
 						.await?;
 
-						Ok(
-							sd_ffmpeg::probe(Path::new(&location_path).join(&isolated_path))
-								.map_err(|e| {
-									error!("{e:#?}");
-									rspc::Error::new(
-										ErrorCode::NotFound,
-										"Couldn't extract media data from file".to_string(),
-									)
-								})?,
+						sd_ffmpeg::probe(Path::new(&location_path).join(&isolated_path)).map_err(
+							|e| {
+								error!("{e:#?}");
+								rspc::Error::new(
+									ErrorCode::NotFound,
+									"Couldn't extract media data from file".to_string(),
+								)
+							},
 						)
 					}
 				})
