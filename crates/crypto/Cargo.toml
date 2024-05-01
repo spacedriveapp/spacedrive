@@ -95,7 +95,7 @@ secret-service = { version = "3.0.1", features = [
 
 # this needs to remain at versions < 4, as they made some changes and i can't get it
 # to compile for the time being
-zbus = { version = "3.15.2", default_features = false, features = [
+zbus = { version = "4.0", default_features = false, features = [
 	"tokio",
 	"blocking",
 ], optional = true }

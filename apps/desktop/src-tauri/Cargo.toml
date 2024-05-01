@@ -10,10 +10,7 @@ edition = { workspace = true }
 
 [dependencies]
 # Spacedrive Sub-crates
-sd-core = { path = "../../../core", features = [
-	"ffmpeg",
-	"heif",
-] }
+sd-core = { path = "../../../core", features = ["ffmpeg", "heif"] }
 sd-fda = { path = "../../../crates/fda" }
 sd-prisma = { path = "../../../crates/prisma" }
 
@@ -31,26 +28,24 @@ tracing = { workspace = true }
 tauri-specta = { workspace = true, features = ["typescript"] }
 uuid = { workspace = true, features = ["serde"] }
 thiserror.workspace = true
+directories = "5.0.1"
 
 opener = { version = "0.6.1", features = ["reveal"] }
-tauri = { version = "=1.5.3", features = [
-    "macos-private-api",
-    "path-all",
-    "protocol-all",
-    "os-all",
-    "shell-all",
-    "dialog-all",
-    "linux-protocol-headers",
-    "updater",
-    "window-all",
-    "native-tls-vendored",
-    "tracing",
+tauri = { version = "=2.0.0-beta.17", features = [
+	"macos-private-api",
+	"unstable",
+	"linux-ipc-protocol",
+	"linux-libxdo",
 ] }
-directories = "5.0.1"
+tauri-plugin-updater = "2.0.0-beta"
+tauri-plugin-dialog = { git = "https://github.com/tauri-apps/plugins-workspace", rev = "1fa4d30eabb3768e1e97fa56f275408db2955b32" } # "2.0.0-beta"
+tauri-plugin-os = "2.0.0-beta"
+tauri-plugin-shell = "2.0.0-beta"
+serde_json.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 sd-desktop-linux = { path = "../crates/linux" }
-webkit2gtk = { version = "0.18.2", features = ["v2_2"] }
+webkit2gtk = "=2.0.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 sd-desktop-macos = { path = "../crates/macos" }
@@ -60,7 +55,7 @@ sd-desktop-windows = { path = "../crates/windows" }
 webview2-com = "0.19.1"
 
 [build-dependencies]
-tauri-build = "1.5.0"
+tauri-build = "=2.0.0-beta.13"
 
 [features]
 default = ["custom-protocol"]

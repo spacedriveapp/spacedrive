@@ -64,19 +64,19 @@ export async function patchTauri(root, nativeDeps, targets, bundles, args) {
 
 	const osType = os.type()
 	const tauriPatch = {
-		tauri: {
-			bundle: {
-				macOS: { minimumSystemVersion: '' },
-				resources: {},
-			},
+		bundle: {
+			macOS: { minimumSystemVersion: '' },
+			resources: {},
+		},
+		plugins: {
 			updater: /** @type {{ pubkey?: string }} */ ({}),
 		},
 	}
 
 	if (osType === 'Linux') {
-		tauriPatch.tauri.bundle.resources = await linuxLibs(nativeDeps)
+		tauriPatch.bundle.resources = await linuxLibs(nativeDeps)
 	} else if (osType === 'Windows_NT') {
-		tauriPatch.tauri.bundle.resources = {
+		tauriPatch.bundle.resources = {
 			...(await windowsDLLs(nativeDeps)),
 			[path.join(nativeDeps, 'models', 'yolov8s.onnx')]: './models/yolov8s.onnx',
 		}
@@ -95,9 +95,9 @@ export async function patchTauri(root, nativeDeps, targets, bundles, args) {
 	}
 
 	if (args[0] === 'build') {
-		if (tauriConfig?.tauri?.updater?.active) {
+		if (tauriConfig?.plugins?.updater?.active) {
 			const pubKey = await tauriUpdaterKey(nativeDeps)
-			if (pubKey != null) tauriPatch.tauri.updater.pubkey = pubKey
+			if (pubKey != null) tauriPatch.plugins.updater.pubkey = pubKey
 		}
 	}
 
@@ -125,7 +125,7 @@ export async function patchTauri(root, nativeDeps, targets, bundles, args) {
 
 		if (macOSMinimumVersion) {
 			env.MACOSX_DEPLOYMENT_TARGET = macOSMinimumVersion
-			tauriPatch.tauri.bundle.macOS.minimumSystemVersion = macOSMinimumVersion
+			tauriPatch.bundle.macOS.minimumSystemVersion = macOSMinimumVersion
 		} else {
 			throw new Error('No minimum macOS version detected, please review tauri.conf.json')
 		}

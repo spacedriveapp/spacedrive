@@ -7,11 +7,11 @@ export type Procedures = {
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "cloud.getApiOrigin", input: never, result: string } | 
-        { key: "cloud.library.get", input: LibraryArgs<null>, result: { id: string; uuid: string; name: string; instances: CloudInstance[]; ownerId: string } | null } | 
+        { key: "cloud.library.get", input: LibraryArgs<null>, result: CloudLibrary | null } | 
         { key: "cloud.library.list", input: never, result: CloudLibrary[] } | 
         { key: "cloud.locations.list", input: never, result: CloudLocation[] } | 
-        { key: "ephemeralFiles.getMediaData", input: string, result: ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata) | null } | 
-        { key: "files.get", input: LibraryArgs<number>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: ({ id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; object: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; media_data: { resolution: number[] | null; media_date: number[] | null; media_location: number[] | null; camera_data: number[] | null; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null } | null } | null })[] } | null } | 
+        { key: "ephemeralFiles.getMediaData", input: string, result: MediaMetadata | null } | 
+        { key: "files.get", input: LibraryArgs<number>, result: ObjectWithFilePaths2 | null } | 
         { key: "files.getConvertibleImageExtensions", input: never, result: string[] } | 
         { key: "files.getMediaData", input: LibraryArgs<number>, result: MediaMetadata } | 
         { key: "files.getPath", input: LibraryArgs<number>, result: string | null } | 
@@ -19,7 +19,7 @@ export type Procedures = {
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
         { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
         { key: "labels.count", input: LibraryArgs<null>, result: number } | 
-        { key: "labels.get", input: LibraryArgs<number>, result: { id: number; name: string; date_created: string | null; date_modified: string | null } | null } | 
+        { key: "labels.get", input: LibraryArgs<number>, result: Label | null } | 
         { key: "labels.getForObject", input: LibraryArgs<number>, result: Label[] } | 
         { key: "labels.getWithObjects", input: LibraryArgs<number[]>, result: { [key in number]: { date_created: string; object: { id: number } }[] } } | 
         { key: "labels.list", input: LibraryArgs<null>, result: Label[] } | 
@@ -27,8 +27,8 @@ export type Procedures = {
         { key: "library.kindStatistics", input: LibraryArgs<null>, result: KindStatistics } | 
         { key: "library.list", input: never, result: LibraryConfigWrapped[] } | 
         { key: "library.statistics", input: LibraryArgs<null>, result: StatisticsResponse } | 
-        { key: "locations.get", input: LibraryArgs<number>, result: { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; scan_state: number; instance_id: number | null } | null } | 
-        { key: "locations.getWithRules", input: LibraryArgs<number>, result: { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: IndexerRule[] } | null } | 
+        { key: "locations.get", input: LibraryArgs<number>, result: Location | null } | 
+        { key: "locations.getWithRules", input: LibraryArgs<number>, result: LocationWithIndexerRule | null } | 
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: IndexerRule[] } | 
         { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: IndexerRule[] } | 
@@ -47,11 +47,11 @@ export type Procedures = {
         { key: "search.objectsCount", input: LibraryArgs<{ filters?: SearchFilterArgs[] }>, result: number } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.pathsCount", input: LibraryArgs<{ filters?: SearchFilterArgs[] }>, result: number } | 
-        { key: "search.saved.get", input: LibraryArgs<number>, result: { id: number; pub_id: number[]; target: string | null; search: string | null; filters: string | null; name: string | null; icon: string | null; description: string | null; date_created: string | null; date_modified: string | null } | null } | 
+        { key: "search.saved.get", input: LibraryArgs<number>, result: SavedSearch | null } | 
         { key: "search.saved.list", input: LibraryArgs<null>, result: SavedSearch[] } | 
         { key: "sync.enabled", input: LibraryArgs<null>, result: boolean } | 
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
-        { key: "tags.get", input: LibraryArgs<number>, result: { id: number; pub_id: number[]; name: string | null; color: string | null; is_hidden: boolean | null; date_created: string | null; date_modified: string | null } | null } | 
+        { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
         { key: "tags.getForObject", input: LibraryArgs<number>, result: Tag[] } | 
         { key: "tags.getWithObjects", input: LibraryArgs<number[]>, result: { [key in number]: ({ date_created: string | null; object: { id: number } })[] } } | 
         { key: "tags.list", input: LibraryArgs<null>, result: Tag[] } | 
@@ -442,6 +442,8 @@ export type LocationSettings = { explorer: ExplorerSettings<FilePathOrder> }
  */
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[]; path: string | null }
 
+export type LocationWithIndexerRule = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: IndexerRule[] }
+
 export type MaybeUndefined<T> = null | T
 
 export type MediaDataOrder = { field: "epochTime"; value: SortOrder }
@@ -502,6 +504,8 @@ export type ObjectSearchArgs = { take: number; orderAndPagination?: OrderAndPagi
 export type ObjectValidatorArgs = { id: number; path: string }
 
 export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: ({ id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; object: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; media_data: { resolution: number[] | null; media_date: number[] | null; media_location: number[] | null; camera_data: number[] | null; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null } | null } | null })[] }
+
+export type ObjectWithFilePaths2 = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: ({ id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; object: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; media_data: { resolution: number[] | null; media_date: number[] | null; media_location: number[] | null; camera_data: number[] | null; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null } | null } | null })[] }
 
 export type OldFileCopierJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string }
 

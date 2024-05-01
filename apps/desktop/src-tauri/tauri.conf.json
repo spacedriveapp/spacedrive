@@ -1,88 +1,16 @@
 {
-	"package": {
-		"productName": "Spacedrive"
-	},
+	"productName": "Spacedrive",
+	"version": "0.2.13",
+	"identifier": "com.spacedrive.desktop",
 	"build": {
-		"distDir": "../dist",
-		"devPath": "http://localhost:8001",
 		"beforeDevCommand": "pnpm dev",
-		"beforeBuildCommand": "pnpm turbo run build --filter=@sd/desktop..."
+		"devUrl": "http://localhost:8001",
+		"beforeBuildCommand": "pnpm turbo run build --filter=@sd/desktop...",
+		"frontendDist": "../dist"
 	},
-	"tauri": {
+	"app": {
+		"withGlobalTauri": true,
 		"macOSPrivateApi": true,
-		"bundle": {
-			"active": true,
-			"publisher": "Spacedrive Technology Inc.",
-			"category": "Productivity",
-			"targets": ["deb", "msi", "dmg", "updater"],
-			"identifier": "com.spacedrive.desktop",
-			"icon": [
-				"icons/32x32.png",
-				"icons/128x128.png",
-				"icons/128x128@2x.png",
-				"icons/icon.icns",
-				"icons/icon.ico"
-			],
-			"resources": {},
-			"externalBin": [],
-			"copyright": "Spacedrive Technology Inc.",
-			"shortDescription": "Spacedrive",
-			"longDescription": "Cross-platform universal file explorer, powered by an open-source virtual distributed filesystem.",
-			"deb": {
-				"files": {
-					"/usr/share/spacedrive/models/yolov8s.onnx": "../../.deps/models/yolov8s.onnx"
-				},
-				"depends": ["libc6"]
-			},
-			"macOS": {
-				"minimumSystemVersion": "10.15",
-				"exceptionDomain": null,
-				"entitlements": null,
-				"frameworks": ["../../.deps/Spacedrive.framework"]
-			},
-			"windows": {
-				"certificateThumbprint": null,
-				"webviewInstallMode": { "type": "embedBootstrapper", "silent": true },
-				"digestAlgorithm": "sha256",
-				"timestampUrl": "",
-				"wix": {
-					"dialogImagePath": "icons/WindowsDialogImage.bmp",
-					"bannerPath": "icons/WindowsBanner.bmp"
-				}
-			}
-		},
-		"updater": {
-			"active": true,
-			"dialog": false,
-			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZBMURCMkU5NEU3NDAyOEMKUldTTUFuUk82YklkK296dlkxUGkrTXhCT3ZMNFFVOWROcXNaS0RqWU1kMUdRV2tDdFdIS0Y3YUsK",
-			"endpoints": [
-				"https://spacedrive.com/api/releases/tauri/{{version}}/{{target}}/{{arch}}"
-			]
-		},
-		"allowlist": {
-			"all": false,
-			"window": {
-				"all": true
-			},
-			"path": {
-				"all": true
-			},
-			"shell": {
-				"all": true
-			},
-			"protocol": {
-				"all": true,
-				"assetScope": ["*"]
-			},
-			"os": {
-				"all": true
-			},
-			"dialog": {
-				"all": true,
-				"open": true,
-				"save": true
-			}
-		},
 		"windows": [
 			{
 				"title": "Spacedrive",
@@ -96,7 +24,7 @@
 				"alwaysOnTop": false,
 				"focus": false,
 				"visible": false,
-				"fileDropEnabled": true,
+				"dragDropEnabled": true,
 				"decorations": true,
 				"transparent": true,
 				"center": true
@@ -104,6 +32,57 @@
 		],
 		"security": {
 			"csp": "default-src spacedrive: webkit-pdfjs-viewer: asset: https://asset.localhost blob: data: filesystem: ws: wss: http: https: tauri: 'unsafe-eval' 'unsafe-inline' 'self' img-src: 'self'"
+		}
+	},
+	"bundle": {
+		"active": true,
+		"targets": ["deb", "msi", "dmg", "updater"],
+		"publisher": "Spacedrive Technology Inc.",
+		"copyright": "Spacedrive Technology Inc.",
+		"category": "Productivity",
+		"shortDescription": "Spacedrive",
+		"longDescription": "Cross-platform universal file explorer, powered by an open-source virtual distributed filesystem.",
+		"icon": [
+			"icons/32x32.png",
+			"icons/128x128.png",
+			"icons/128x128@2x.png",
+			"icons/icon.icns",
+			"icons/icon.ico"
+		],
+		"linux": {
+			"deb": {
+				"files": {
+					"/usr/share/spacedrive/models/yolov8s.onnx": "../../.deps/models/yolov8s.onnx"
+				},
+				"depends": ["libc6"]
+			}
+		},
+
+		"macOS": {
+			"minimumSystemVersion": "10.15",
+			"exceptionDomain": null,
+			"entitlements": null,
+			"frameworks": ["../../.deps/Spacedrive.framework"]
+		},
+		"windows": {
+			"certificateThumbprint": null,
+			"webviewInstallMode": { "type": "embedBootstrapper", "silent": true },
+			"digestAlgorithm": "sha256",
+			"timestampUrl": "",
+			"wix": {
+				"dialogImagePath": "icons/WindowsDialogImage.bmp",
+				"bannerPath": "icons/WindowsBanner.bmp"
+			}
+		}
+	},
+	"plugins": {
+		"updater": {
+			"active": true,
+			"dialog": false,
+			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZBMURCMkU5NEU3NDAyOEMKUldTTUFuUk82YklkK296dlkxUGkrTXhCT3ZMNFFVOWROcXNaS0RqWU1kMUdRV2tDdFdIS0Y3YUsK",
+			"endpoints": [
+				"https://spacedrive.com/api/releases/tauri/{{version}}/{{target}}/{{arch}}"
+			]
 		}
 	}
 }

@@ -1,7 +1,8 @@
-import { dialog, invoke, os, shell } from '@tauri-apps/api';
-import { confirm } from '@tauri-apps/api/dialog';
+import { invoke } from '@tauri-apps/api/core';
 import { homeDir } from '@tauri-apps/api/path';
-import { open } from '@tauri-apps/api/shell';
+import { confirm, open as dialogOpen, save as dialogSave } from '@tauri-apps/plugin-dialog';
+import { type } from '@tauri-apps/plugin-os';
+import { open as shellOpen } from '@tauri-apps/plugin-shell';
 // @ts-expect-error: Doesn't have a types package.
 import ConsistentHash from 'consistent-hash';
 import { OperatingSystem, Platform } from '@sd/interface';
@@ -16,12 +17,12 @@ const customUriServerUrl = (window as any).__SD_CUSTOM_URI_SERVER__ as string[] 
 const queryParams = customUriAuthToken ? `?token=${encodeURIComponent(customUriAuthToken)}` : '';
 
 async function getOs(): Promise<OperatingSystem> {
-	switch (await os.type()) {
-		case 'Linux':
+	switch (await type()) {
+		case 'linux':
 			return 'linux';
-		case 'Windows_NT':
+		case 'windows':
 			return 'windows';
-		case 'Darwin':
+		case 'macos':
 			return 'macOS';
 		default:
 			return 'unknown';
@@ -64,15 +65,18 @@ export const platform = {
 		constructServerUrl(
 			`/remote/${encodeURIComponent(remote_identity)}/uri/${path}?token=${customUriAuthToken}`
 		),
-	openLink: shell.open,
+	openLink: shellOpen,
 	getOs,
 	openDirectoryPickerDialog: (opts) => {
-		const result = dialog.open({ directory: true, ...opts });
+		const result = dialogOpen({ directory: true, ...opts });
 		if (opts?.multiple) return result as any; // Tauri don't properly type narrow on `multiple` argument
 		return result;
 	},
-	openFilePickerDialog: () => dialog.open(),
-	saveFilePickerDialog: (opts) => dialog.save(opts),
+	openFilePickerDialog: () =>
+		dialogOpen({
+			multiple: true
+		}).then((result) => result?.map((r) => r.path) ?? null),
+	saveFilePickerDialog: (opts) => dialogSave(opts),
 	showDevtools: () => invoke('show_devtools'),
 	confirm: (msg, cb) => confirm(msg).then(cb),
 	subscribeToDragAndDropEvents: (cb) =>

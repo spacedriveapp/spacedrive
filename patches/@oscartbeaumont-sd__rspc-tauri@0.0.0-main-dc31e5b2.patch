@@ -1,0 +1,68 @@
+diff --git a/dist/index.js b/dist/index.js
+index df70b20e9381e7bf44f9a35b11174e40ede80376..bc06927b7290891717c48999f79d0705ef6b8df7 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -17,7 +17,7 @@ class TauriTransport {
+         });
+         // @ts-ignore
+         this.requestMap.set(id, resolve);
+-        await window.appWindow.emit("plugin:rspc:transport", {
++        await window.getCurrent().emit("plugin:rspc:transport", {
+             id,
+             method: operation,
+             params: {
+diff --git a/dist/index.mjs b/dist/index.mjs
+index a80ac6155a4a920173c442b4d7b458a46ab63624..03b3d9ee6d3691980584c1fd58c17f7c81dbab39 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -1,6 +1,6 @@
+ import { randomId, RSPCError } from '@oscartbeaumont-sd/rspc-client';
+ import { listen } from '@tauri-apps/api/event';
+-import { appWindow } from '@tauri-apps/api/window';
++import { getCurrent } from '@tauri-apps/api/window';
+ 
+ // @ts-nocheck No one asked
+ class TauriTransport {
+@@ -15,7 +15,7 @@ class TauriTransport {
+         });
+         // @ts-ignore
+         this.requestMap.set(id, resolve);
+-        await appWindow.emit("plugin:rspc:transport", {
++        await getCurrent().emit("plugin:rspc:transport", {
+             id,
+             method: operation,
+             params: {
+diff --git a/dist/v2.js b/dist/v2.js
+index e597db7bf00a7e62f32266814345b257b8f8d0da..fa683640a0c0c9f1796ed1af1fd0d04c2df7c68b 100644
+--- a/dist/v2.js
++++ b/dist/v2.js
+@@ -44,7 +44,7 @@ var window = require('@tauri-apps/api/window');
+                     if (!listener) {
+                         await listener;
+                     }
+-                    await window.appWindow.emit("plugin:rspc:transport", currentBatch);
++                    await window.getCurrent().emit("plugin:rspc:transport", currentBatch);
+                 })();
+             });
+         }
+diff --git a/dist/v2.mjs b/dist/v2.mjs
+index bd7ceb6927d187dd2ff7cf9a9364d7c312a75b88..844495e36aef0c1337e7393685c1a33fedb88c2c 100644
+--- a/dist/v2.mjs
++++ b/dist/v2.mjs
+@@ -1,6 +1,6 @@
+ import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/v2';
+ import { listen } from '@tauri-apps/api/event';
+-import { appWindow } from '@tauri-apps/api/window';
++import { getCurrent } from '@tauri-apps/api/window';
+ 
+ // @ts-nocheck No one asked
+ /**
+@@ -42,7 +42,7 @@ import { appWindow } from '@tauri-apps/api/window';
+                     if (!listener) {
+                         await listener;
+                     }
+-                    await appWindow.emit("plugin:rspc:transport", currentBatch);
++                    await getCurrent().emit("plugin:rspc:transport", currentBatch);
+                 })();
+             });
+         }
