@@ -13,6 +13,8 @@ import { SidebarContext } from './Context';
 import Footer from './Footer';
 import LibrariesDropdown from './LibrariesDropdown';
 
+const TRANSITION_EASE = [0.25, 1, 0.5, 1];
+
 export default ({ children }: PropsWithChildren) => {
 	const os = useOperatingSystem();
 	const showControls = useShowControls();
@@ -68,13 +70,7 @@ const SidebarSize = () => {
 	}, [controls, resizable.position, resizable.collapsed]);
 
 	useEffect(() => {
-		controls.start({
-			width: resizable.size,
-			transition: {
-				duration: 0.1,
-				ease: [0.1, 0.1, 0.1, 1]
-			}
-		});
+		controls.start({ width: resizable.size, transition: { ease: TRANSITION_EASE } });
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [controls, resizable.collapsed]);
 
@@ -98,8 +94,8 @@ const SidebarContent = ({ children }: PropsWithChildren) => {
 	const controls = useAnimationControls();
 
 	const variants: Variants = {
-		hide: { left: -resizable.position + 12 },
-		show: { left: 0 }
+		hide: { left: -resizable.position + 12, transition: { ease: TRANSITION_EASE } },
+		show: { left: 0, transition: { ease: TRANSITION_EASE } }
 	};
 
 	const toggleSidebar = useCallback(
@@ -161,8 +157,13 @@ const SidebarContent = ({ children }: PropsWithChildren) => {
 
 	useEffect(() => {
 		setTimeout(() => toggleSidebar(!resizable.collapsed));
+
 		// Temporary solution until we have a better way to handle pinned popovers
 		if (resizable.collapsed) getSidebarStore().pinJobManager = false;
+
+		setLocked(false);
+		setHovered(false);
+		setFocused(false);
 	}, [resizable.collapsed, toggleSidebar]);
 
 	useShortcut('toggleSidebar', () => (layoutStore.sidebar.collapsed = !resizable.collapsed), {
@@ -178,7 +179,6 @@ const SidebarContent = ({ children }: PropsWithChildren) => {
 				initial={show ? 'show' : 'hide'}
 				animate={controls}
 				variants={variants}
-				transition={{ duration: 0.1, ease: 'easeOut' }}
 				className={clsx('fixed inset-y-0 z-[100]', resizable.collapsed && 'p-1 pr-3')}
 				style={{
 					// We add 16px from the padding on the x-axis
