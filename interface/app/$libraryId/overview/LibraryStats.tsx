@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { byteSize, Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
 import { Tooltip } from '@sd/ui';
-import { useCounter } from '~/hooks';
+import { useCounter, useLocale } from '~/hooks';
 
 interface StatItemProps {
 	title: string;
@@ -11,25 +11,6 @@ interface StatItemProps {
 	isLoading: boolean;
 	info?: string;
 }
-
-const StatItemNames: Partial<Record<keyof Statistics, string>> = {
-	total_bytes_capacity: 'Total capacity',
-	preview_media_bytes: 'Preview media',
-	library_db_size: 'Index size',
-	total_bytes_free: 'Free space',
-	total_bytes_used: 'Total used space'
-};
-
-const StatDescriptions: Partial<Record<keyof Statistics, string>> = {
-	total_bytes_capacity:
-		'The total capacity of all nodes connected to the library. May show incorrect values during alpha.',
-	preview_media_bytes: 'The total size of all preview media files, such as thumbnails.',
-	library_db_size: 'The size of the library database.',
-	total_bytes_free: 'Free space available on all nodes connected to the library.',
-	total_bytes_used: 'Total space used on all nodes connected to the library.'
-};
-
-const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof typeof StatItemNames;
 
 let mounted = false;
 
@@ -92,6 +73,27 @@ const LibraryStats = () => {
 		if (!stats.isLoading) mounted = true;
 	});
 
+	const { t } = useLocale();
+
+	const StatItemNames: Partial<Record<keyof Statistics, string>> = {
+		total_bytes_capacity: t('total_bytes_capacity'),
+		preview_media_bytes: t('preview_media_bytes'),
+		library_db_size: t('library_db_size'),
+		total_bytes_free: t('total_bytes_free'),
+		total_bytes_used: t('total_bytes_used')
+	};
+
+	const StatDescriptions: Partial<Record<keyof Statistics, string>> = {
+		total_bytes_capacity: t('total_bytes_capacity_description'),
+		preview_media_bytes: t('preview_media_bytes_description'),
+		library_db_size: t('library_db_size_description'),
+		total_bytes_free: t('total_bytes_free_description'),
+		total_bytes_used: t('total_bytes_used_description')
+	};
+
+	const displayableStatItems = Object.keys(
+		StatItemNames
+	) as unknown as keyof typeof StatItemNames;
 	return (
 		<div className="flex w-full">
 			<div className="flex gap-3 overflow-hidden">

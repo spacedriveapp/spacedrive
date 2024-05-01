@@ -55,6 +55,8 @@ export default (props: UseDialogProps) => {
 			dialog={useDialog(props)}
 			submitDisabled={!form.formState.isValid}
 			title={t('create_new_library')}
+			closeLabel={t('close')}
+			cancelLabel={t('cancel')}
 			description={t('create_new_library_description')}
 			ctaLabel={form.formState.isSubmitting ? t('creating_library') : t('create_library')}
 		>

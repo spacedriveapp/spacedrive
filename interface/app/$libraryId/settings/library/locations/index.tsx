@@ -33,7 +33,7 @@ export const Component = () => {
 				rightArea={
 					<div className="flex flex-row items-center space-x-5">
 						<SearchInput
-							placeholder="Search locations"
+							placeholder={t('search_locations')}
 							className="h-[33px]"
 							onChange={(e) => setSearch(e.target.value)}
 						/>

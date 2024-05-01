@@ -10,6 +10,7 @@ import {
 	useZodForm
 } from '@sd/client';
 import { Button, Divider, Form, Select, SelectOption, SwitchField, z } from '@sd/ui';
+import i18n from '~/app/I18n';
 import { useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
@@ -40,7 +41,7 @@ const themes: Theme[] = [
 		outsideColor: 'bg-[#F0F0F0]',
 		textColor: 'text-black',
 		border: 'border border-[#E6E6E6]',
-		themeName: 'Light',
+		themeName: i18n.t('light'),
 		themeValue: 'vanilla'
 	},
 	{
@@ -48,7 +49,7 @@ const themes: Theme[] = [
 		outsideColor: 'bg-black',
 		textColor: 'text-white',
 		border: 'border border-[#323342]',
-		themeName: 'Dark',
+		themeName: i18n.t('dark'),
 		themeValue: 'dark'
 	},
 	{
@@ -56,7 +57,7 @@ const themes: Theme[] = [
 		outsideColor: '',
 		textColor: 'text-white',
 		border: 'border border-[#323342]',
-		themeName: 'System',
+		themeName: i18n.t('system'),
 		themeValue: 'system'
 	}
 ];

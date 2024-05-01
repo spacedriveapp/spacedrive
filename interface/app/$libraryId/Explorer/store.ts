@@ -9,6 +9,7 @@ import {
 	type ExplorerSettings,
 	type Ordering
 } from '@sd/client';
+import i18n from '~/app/I18n';
 
 import {
 	DEFAULT_LIST_VIEW_ICON_SIZE,
@@ -150,24 +151,24 @@ export function isCut(item: ExplorerItem, cutCopyState: CutCopyState) {
 }
 
 export const filePathOrderingKeysSchema = z.union([
-	z.literal('name').describe('Name'),
-	z.literal('sizeInBytes').describe('Size'),
-	z.literal('dateModified').describe('Date Modified'),
-	z.literal('dateIndexed').describe('Date Indexed'),
-	z.literal('dateCreated').describe('Date Created'),
-	z.literal('object.dateAccessed').describe('Date Accessed'),
-	z.literal('object.mediaData.epochTime').describe('Date Taken')
+	z.literal('name').describe(i18n.t('name')),
+	z.literal('sizeInBytes').describe(i18n.t('size')),
+	z.literal('dateModified').describe(i18n.t('date_modified')),
+	z.literal('dateIndexed').describe(i18n.t('date_indexed')),
+	z.literal('dateCreated').describe(i18n.t('date_created')),
+	z.literal('object.dateAccessed').describe(i18n.t('date_accessed')),
+	z.literal('object.mediaData.epochTime').describe(i18n.t('date_taken'))
 ]);
 
 export const objectOrderingKeysSchema = z.union([
-	z.literal('dateAccessed').describe('Date Accessed'),
-	z.literal('kind').describe('Kind'),
-	z.literal('mediaData.epochTime').describe('Date Taken')
+	z.literal('dateAccessed').describe(i18n.t('date_accessed')),
+	z.literal('kind').describe(i18n.t('kind')),
+	z.literal('mediaData.epochTime').describe(i18n.t('date_taken'))
 ]);
 
 export const nonIndexedPathOrderingSchema = z.union([
-	z.literal('name').describe('Name'),
-	z.literal('sizeInBytes').describe('Size'),
-	z.literal('dateCreated').describe('Date Created'),
-	z.literal('dateModified').describe('Date Modified')
+	z.literal('name').describe(i18n.t('name')),
+	z.literal('sizeInBytes').describe(i18n.t('size')),
+	z.literal('dateCreated').describe(i18n.t('date_created')),
+	z.literal('dateModified').describe(i18n.t('date_modified'))
 ]);

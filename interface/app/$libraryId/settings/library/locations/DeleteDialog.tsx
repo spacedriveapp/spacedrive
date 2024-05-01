@@ -28,6 +28,7 @@ export default (props: Props) => {
 			onSubmit={form.handleSubmit(() => deleteLocation.mutateAsync(props.locationId))}
 			dialog={useDialog(props)}
 			title={t('delete_location')}
+			closeLabel={t('close')}
 			icon={<Icon name="DeleteLocation" size={28} />}
 			description={t('delete_location_description')}
 			ctaDanger

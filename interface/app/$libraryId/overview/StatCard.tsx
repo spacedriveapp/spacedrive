@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { byteSize } from '@sd/client';
 import { Button, Card, CircularProgress, tw } from '@sd/ui';
 import { Icon } from '~/components';
-import { useIsDark } from '~/hooks';
+import { useIsDark, useLocale } from '~/hooks';
 
 type StatCardProps = {
 	name: string;
@@ -40,6 +40,8 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 		return Math.floor((usedSpaceSpace.value / totalSpace.value) * 100);
 	}, [mounted, totalSpace, usedSpaceSpace]);
 
+	const { t } = useLocale();
+
 	return (
 		<Card className="flex w-[280px] shrink-0 flex-col  bg-app-box/50 !p-0 ">
 			<div className="flex flex-row items-center gap-5 p-4 px-6">
@@ -69,13 +71,13 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 					<span className="truncate font-medium">{name}</span>
 					<span className="mt-1 truncate text-tiny text-ink-faint">
 						{freeSpace.value}
-						{freeSpace.unit} free of {totalSpace.value}
+						{freeSpace.unit} {t('free_of')} {totalSpace.value}
 						{totalSpace.unit}
 					</span>
 				</div>
 			</div>
 			<div className="flex h-10 flex-row items-center gap-1.5  border-t border-app-line px-2">
-				<Pill className="uppercase">{connectionType || 'Local'}</Pill>
+				<Pill className="uppercase">{connectionType || t('local')}</Pill>
 				<div className="grow" />
 				{/* <Button size="icon" variant="outline">
 					<Ellipsis className="w-3 h-3 opacity-50" />

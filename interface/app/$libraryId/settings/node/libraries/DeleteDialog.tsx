@@ -47,6 +47,7 @@ export default function DeleteLibraryDialog(props: Props) {
 			onSubmit={onSubmit}
 			dialog={useDialog(props)}
 			title={t('delete_library')}
+			closeLabel={t('close')}
 			description={t('delete_library_description')}
 			ctaDanger
 			ctaLabel={t('delete')}
