@@ -77,19 +77,22 @@ export function generateLocaleDateFormats(language: string) {
 			value: 'L',
 			label: dayjs().locale(language).format('L')
 		},
-		{ value: 'L LT', label: dayjs().locale(language).format('L LT') },
 		{
-			value: 'll',
-			label: dayjs().locale(language).format('ll')
+			value: 'L LT',
+			label: dayjs().locale(language).format('L LT')
 		},
+		// {
+		// 	value: 'll',
+		// 	label: dayjs().locale(language).format('ll')
+		// },
 		{
 			value: 'LL',
 			label: dayjs().locale(language).format('LL')
 		},
-		{
-			value: 'lll',
-			label: dayjs().locale(language).format('lll')
-		},
+		// {
+		// 	value: 'lll',
+		// 	label: dayjs().locale(language).format('lll')
+		// },
 		{
 			value: 'LLL',
 			label: dayjs().locale(language).format('LLL')
@@ -99,5 +102,39 @@ export function generateLocaleDateFormats(language: string) {
 			label: dayjs().locale(language).format('llll')
 		}
 	];
-	return DATE_FORMATS;
+	if (language === 'en') {
+		const additionalFormats = [
+			{
+				value: 'DD/MM/YYYY',
+				label: dayjs().locale('en').format('DD/MM/YYYY')
+			},
+			{
+				value: 'DD/MM/YYYY HH:mm',
+				label: dayjs().locale('en').format('DD/MM/YYYY HH:mm')
+			},
+			// {
+			// 	value: 'D MMM YYYY',
+			// 	label: dayjs().locale('en').format('D MMM')
+			// },
+			{
+				value: 'D MMMM YYYY',
+				label: dayjs().locale('en').format('D MMMM')
+			},
+			// {
+			// 	value: 'D MMM YYYY HH:mm',
+			// 	label: dayjs().locale('en').format('D MMM HH:mm')
+			// },
+			{
+				value: 'D MMMM YYYY HH:mm',
+				label: dayjs().locale('en').format('D MMMM HH:mm')
+			},
+			{
+				value: 'ddd, D MMM YYYY HH:mm',
+				label: dayjs().locale('en').format('ddd, D MMMM HH:mm')
+			}
+		];
+		return DATE_FORMATS.concat(additionalFormats);
+	} else {
+		return DATE_FORMATS;
+	}
 }

@@ -52,8 +52,7 @@ const themes: Theme[] = [
 
 // Unsorted list of languages available in the app.
 const LANGUAGE_OPTIONS = [
-	{ value: 'en', label: 'English (US)' },
-	{ value: 'en_gb', label: 'English (UK)' },
+	{ value: 'en', label: 'English' },
 	{ value: 'de', label: 'Deutsch' },
 	{ value: 'es', label: 'Español' },
 	{ value: 'fr', label: 'Français' },
@@ -189,6 +188,10 @@ export const Component = () => {
 						value={i18n.resolvedLanguage || i18n.language || 'en'}
 						onChange={(e) => {
 							// add "i18nextLng" key to localStorage and set it to the selected language
+							if ((i18n.resolvedLanguage || i18n.language) === 'en') {
+								setDateFormat('LL');
+							}
+
 							localStorage.setItem('i18nextLng', e);
 							i18n.changeLanguage(e);
 
