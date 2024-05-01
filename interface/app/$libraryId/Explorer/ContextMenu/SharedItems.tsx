@@ -1,7 +1,7 @@
 import { FileX, Share as ShareIcon } from '@phosphor-icons/react';
-import { useMemo } from 'react';
 import { useBridgeMutation, useDiscoveredPeers, useSelector } from '@sd/client';
 import { ContextMenu, ModifierKeys } from '@sd/ui';
+import { useMemo } from 'react';
 import { Menu } from '~/components/Menu';
 import { useLocale, useOperatingSystem } from '~/hooks';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
@@ -217,7 +217,7 @@ const SpacedropNodes = () => {
 	const spacedrop = useBridgeMutation('p2p.spacedrop');
 
 	if (discoveredPeers.size === 0) {
-		return <p className="p-1 text-center text-sm">{t('no_nodes_found')}</p>;
+		return <p className="p-1 text-center text-sm text-ink">{t('no_nodes_found')}</p>;
 	}
 
 	return Array.from(discoveredPeers).map(([id, peer]) => (
