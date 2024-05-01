@@ -12,7 +12,14 @@ const SaveSearchModal = forwardRef<ModalRef>((_, ref) => {
 	const [searchName, setSearchName] = useState('');
 	const navigation = useNavigation();
 	const searchStore = useSearchStore();
-	const saveSearch = useLibraryMutation('search.saved.create');
+	const saveSearch = useLibraryMutation('search.saved.create', {
+		onSuccess: () => {
+			searchStore.applyFilters();
+			navigation.navigate('SearchStack', {
+				screen: 'Search'
+			});
+		}
+	});
 	return (
 		<Modal snapPoints={['22']} title="Save search" ref={ref}>
 			<View style={tw`p-4`}>
@@ -26,22 +33,14 @@ const SaveSearchModal = forwardRef<ModalRef>((_, ref) => {
 					disabled={searchName.length === 0}
 					style={tw`mt-2`}
 					variant="accent"
-					onPress={() => {
-						saveSearch.mutate(
+					onPress={async () => {
+						await saveSearch.mutateAsync(
 							{
 								name: searchName,
 								filters: JSON.stringify(searchStore.mergedFilters),
 								description: null,
 								icon: null,
 								search: null
-							},
-							{
-								onSuccess: () => {
-									searchStore.applyFilters();
-									navigation.navigate('SearchStack', {
-										screen: 'Search'
-									});
-								}
 							}
 						);
 						setSearchName('');

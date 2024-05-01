@@ -66,8 +66,10 @@ interface Props {
 const SavedSearch = ({ search }: Props) => {
 	const navigation = useNavigation();
 	const dataForSearch = useSavedSearch(search);
-	const deleteSearch = useLibraryMutation('search.saved.delete');
 	const rspc = useRspcLibraryContext();
+	const deleteSearch = useLibraryMutation('search.saved.delete',  {
+		onSuccess: () => rspc.queryClient.invalidateQueries(['search.saved.list'])
+	});
 	return (
 		<MotiPressable
 			from={{ opacity: 0, translateY: 20 }}
@@ -82,11 +84,7 @@ const SavedSearch = ({ search }: Props) => {
 		>
 			<Card style={tw`mr-2 w-auto flex-row items-center gap-2 p-2.5`}>
 				<Pressable
-					onPress={async () =>
-						await deleteSearch.mutateAsync(search.id, {
-							onSuccess: () => rspc.queryClient.invalidateQueries(['search.saved.list'])
-						})
-					}
+					onPress={async () => await deleteSearch.mutateAsync(search.id)}
 				>
 					<X size={14} color={tw.color('text-ink-dull')} />
 				</Pressable>
