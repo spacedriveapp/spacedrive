@@ -5,7 +5,6 @@ import {
 	useSearchParams as useRawSearchParams
 } from 'react-router-dom';
 import {
-	FilePathFilterArgs,
 	isPath,
 	SearchFilterArgs,
 	useLibraryContext,
@@ -30,7 +29,7 @@ export const useViewItemDoubleClick = () => {
 	const explorer = useExplorerContext();
 	const { library } = useLibraryContext();
 	const { openFilePaths, openEphemeralFiles } = usePlatform();
-	const [searchParams, setSearchParams] = useRawSearchParams();
+	const [searchParams] = useRawSearchParams();
 
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 
