@@ -88,7 +88,7 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 		<FilterContainer>
 			<StaticSection>
 				<RenderIcon className="size-4" icon={filter.icon} />
-				<FilterText>{filter.name}</FilterText>
+				<FilterText>{'filter.name'}</FilterText>
 			</StaticSection>
 			<InteractiveSection className="border-l">
 				{/* {Object.entries(filter.conditions).map(([value, displayName]) => (
