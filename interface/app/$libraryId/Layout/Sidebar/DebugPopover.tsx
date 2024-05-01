@@ -1,5 +1,6 @@
 import { CheckSquare } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
+import { SetStateAction } from 'react';
 import { useNavigate } from 'react-router';
 import {
 	auth,
@@ -30,6 +31,7 @@ import {
 	useExplorerOperatingSystem
 } from '../../Explorer/useExplorerOperatingSystem';
 import Setting from '../../settings/Setting';
+import { useSidebarContext } from './SidebarLayout/Context';
 
 export default () => {
 	const buildInfo = useBridgeQuery(['buildInfo']);
@@ -39,10 +41,20 @@ export default () => {
 	const platform = usePlatform();
 	const navigate = useNavigate();
 
+	const sidebar = useSidebarContext();
+
+	const popover = usePopover();
+
+	function handleOpenChange(action: SetStateAction<boolean>) {
+		const open = typeof action === 'boolean' ? action : !popover.open;
+		popover.setOpen(open);
+		sidebar.onLockedChange(open);
+	}
+
 	return (
 		<Popover
-			popover={usePopover()}
-			className="p-4 focus:outline-none"
+			popover={{ ...popover, setOpen: handleOpenChange }}
+			className="z-[100] p-4 focus:outline-none"
 			trigger={
 				<h1 className="ml-1 w-full text-[7pt] text-sidebar-inkFaint/50">
 					v{buildInfo.data?.version || '-.-.-'} - {buildInfo.data?.commit || 'dev'}
