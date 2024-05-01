@@ -288,10 +288,13 @@ export function Dialog<S extends FieldValues>({
 								)}
 							>
 								<div className="p-5">
-									<RDialog.Title className="mb-3 flex items-center gap-2.5 font-bold">
-										{props.icon && props.icon}
-										{props.title}
-									</RDialog.Title>
+									{props.title ||
+										(props.icon && (
+											<RDialog.Title className="mb-3 flex items-center gap-2.5 font-bold">
+												{props.icon && props.icon}
+												{props.title}
+											</RDialog.Title>
+										))}
 
 									{props.description && (
 										<RDialog.Description className="mb-2 text-sm text-ink-dull">

@@ -7,14 +7,16 @@ import {
 	SlidersHorizontal,
 	SquaresFour
 } from '@phosphor-icons/react';
+import { Planet } from '@phosphor-icons/react/dist/ssr';
 import clsx from 'clsx';
 import { useMemo } from 'react';
 import { useDocumentEventListener } from 'rooks';
 import { ExplorerLayout, useSelector } from '@sd/client';
+import { dialogManager } from '@sd/ui';
 import { useKeyMatcher, useLocale } from '~/hooks';
 
 import { KeyManager } from '../KeyManager';
-import { Spacedrop, SpacedropButton } from '../Spacedrop';
+import SpacedropDialog from '../Spacedrop/Dialog';
 import TopBarOptions, { ToolOption, TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import { useExplorerContext } from './Context';
 import OptionsPanel from './OptionsPanel';
@@ -112,8 +114,8 @@ export const useExplorerTopBarOptions = () => {
 	const toolOptions = [
 		{
 			toolTipLabel: 'Spacedrop',
-			icon: ({ triggerOpen }) => <SpacedropButton triggerOpen={triggerOpen} />,
-			popOverComponent: ({ triggerClose }) => <Spacedrop triggerClose={triggerClose} />,
+			icon: <Planet className={TOP_BAR_ICON_STYLE} />,
+			onClick: () => dialogManager.create((dp) => <SpacedropDialog {...dp} />),
 			individual: true,
 			showAtResolution: 'xl:flex'
 		},
