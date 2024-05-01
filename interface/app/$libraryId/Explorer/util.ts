@@ -77,6 +77,7 @@ export function generateLocaleDateFormats(language: string) {
 			value: 'L',
 			label: dayjs().locale(language).format('L')
 		},
+		{ value: 'L LT', label: dayjs().locale(language).format('L LT') },
 		{
 			value: 'll',
 			label: dayjs().locale(language).format('ll')
