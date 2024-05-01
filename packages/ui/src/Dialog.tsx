@@ -92,9 +92,14 @@ export function useDialog(props: UseDialogProps) {
 
 	if (!state) throw new Error(`Dialog ${props.id} does not exist!`);
 
+	function close() {
+		state && (state.open = false);
+	}
+
 	return {
 		...props,
-		state
+		state,
+		close
 	};
 }
 
