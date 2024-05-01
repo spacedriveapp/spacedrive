@@ -3,6 +3,7 @@ import { CompositeScreenProps } from '@react-navigation/native';
 
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import Header from '~/components/header/Header';
+import SearchHeader from '~/components/header/SearchHeader';
 import AppearanceSettingsScreen from '~/screens/settings/client/AppearanceSettings';
 import ExtensionsSettingsScreen from '~/screens/settings/client/ExtensionsSettings';
 import GeneralSettingsScreen from '~/screens/settings/client/GeneralSettings';
@@ -18,7 +19,6 @@ import NodesSettingsScreen from '~/screens/settings/library/NodesSettings';
 import TagsSettingsScreen from '~/screens/settings/library/TagsSettings';
 import SettingsScreen from '~/screens/settings/Settings';
 
-import SearchHeader from '~/components/header/SearchHeader';
 import { TabScreenProps } from '../TabNavigator';
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
@@ -29,7 +29,7 @@ export default function SettingsStack() {
 			<Stack.Screen
 				name="Settings"
 				component={SettingsScreen}
-				options={({route}) => ({
+				options={({ route }) => ({
 					header: () => <Header search route={route} />
 				})}
 			/>
