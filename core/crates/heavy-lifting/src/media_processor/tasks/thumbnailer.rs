@@ -48,7 +48,11 @@ use futures_concurrency::future::{FutureGroup, Race};
 use image::{imageops, DynamicImage, GenericImageView};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tokio::{fs, io, task::spawn_blocking, time::sleep};
+use tokio::{
+	fs, io,
+	task::spawn_blocking,
+	time::{sleep, Instant},
+};
 use tracing::{error, trace};
 use uuid::Uuid;
 use webp::Encoder;
@@ -85,6 +89,7 @@ pub struct Thumbnailer<Reporter: NewThumbnailReporter> {
 	thumbnails_directory_path: Arc<PathBuf>,
 	thumbnails_to_generate: HashMap<ThumbnailId, GenerateThumbnailArgs>,
 	already_processed_ids: Vec<ThumbnailId>,
+	std_dev_accumulator: f64,
 	should_regenerate: bool,
 	with_priority: bool,
 	output: Output,
@@ -111,6 +116,7 @@ impl<Reporter: NewThumbnailReporter> Task<Error> for Thumbnailer<Reporter> {
 			thumbnails_to_generate,
 			already_processed_ids,
 			should_regenerate,
+			std_dev_accumulator,
 			with_priority,
 			reporter,
 			output,
@@ -122,10 +128,12 @@ impl<Reporter: NewThumbnailReporter> Task<Error> for Thumbnailer<Reporter> {
 			thumbnails_to_generate.remove(&id);
 		});
 
+		let start = Instant::now();
+
 		let mut futures = pin!(thumbnails_to_generate
 			.iter()
 			.map(|(id, generate_args)| {
-				let path = generate_args.path.clone();
+				let path = &generate_args.path;
 
 				(
 					generate_thumbnail(
@@ -135,14 +143,23 @@ impl<Reporter: NewThumbnailReporter> Task<Error> for Thumbnailer<Reporter> {
 						*should_regenerate,
 					)
 					.map(|res| (*id, res)),
-					sleep(THUMBNAIL_GENERATION_TIMEOUT)
-						.map(|()| (*id, Err(NonCriticalError::ThumbnailGenerationTimeout(path)))),
+					sleep(THUMBNAIL_GENERATION_TIMEOUT).map(|()| {
+						(
+							*id,
+							(
+								THUMBNAIL_GENERATION_TIMEOUT,
+								Err(NonCriticalError::ThumbnailGenerationTimeout(path.clone())),
+							),
+						)
+					}),
 				)
 					.race()
 			})
 			.collect::<FutureGroup<_>>());
 
-		while let Some((id, res)) = futures.next().await {
+		while let Some((id, (elapsed_time, res))) = futures.next().await {
+			output.mean_generation_time += elapsed_time;
+			*std_dev_accumulator += elapsed_time.as_secs_f64().powi(2);
 			match res {
 				Ok((thumb_key, status)) => {
 					match status {
@@ -168,12 +185,29 @@ impl<Reporter: NewThumbnailReporter> Task<Error> for Thumbnailer<Reporter> {
 					output
 						.errors
 						.push(media_processor::NonCriticalError::from(e).into());
+					output.skipped += 1;
 				}
 			}
 
+			let total_generation_time = &mut output.total_generation_time;
 			already_processed_ids.push(id);
-			check_interruption!(interrupter);
+			check_interruption!(interrupter, start, total_generation_time);
 		}
+
+		output.total_generation_time += start.elapsed();
+
+		output.mean_generation_time /= output.generated + output.skipped;
+
+		let mean_generation_time = output.mean_generation_time.as_secs_f64();
+
+		#[allow(clippy::cast_lossless)]
+		let total = (output.generated + output.skipped) as f64;
+
+		*std_dev_accumulator /= total;
+
+		output.std_dev = Duration::from_secs_f64(
+			(mean_generation_time.mul_add(-mean_generation_time, *std_dev_accumulator)).sqrt(),
+		);
 
 		Ok(ExecStatus::Done(mem::take(output).into_output()))
 	}
@@ -184,6 +218,9 @@ pub struct Output {
 	generated: u32,
 	skipped: u32,
 	errors: Vec<crate::NonCriticalError>,
+	total_generation_time: Duration,
+	mean_generation_time: Duration,
+	std_dev: Duration,
 }
 
 #[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
@@ -223,6 +260,7 @@ impl<Reporter: NewThumbnailReporter> Thumbnailer<Reporter> {
 			thumbs_kind,
 			thumbnails_directory_path,
 			already_processed_ids: Vec::with_capacity(thumbnails_to_generate.len()),
+			std_dev_accumulator: 0.0,
 			thumbnails_to_generate,
 			should_regenerate,
 			with_priority,
@@ -337,6 +375,7 @@ struct SaveState {
 	thumbs_kind: ThumbnailKind,
 	thumbnails_directory_path: Arc<PathBuf>,
 	thumbnails_to_generate: HashMap<ThumbnailId, GenerateThumbnailArgs>,
+	std_dev_accumulator: f64,
 	should_regenerate: bool,
 	with_priority: bool,
 	output: Output,
@@ -355,6 +394,7 @@ impl<Reporter: NewThumbnailReporter> SerializableTask<Error> for Thumbnailer<Rep
 			thumbs_kind,
 			thumbnails_directory_path,
 			mut thumbnails_to_generate,
+			std_dev_accumulator,
 			already_processed_ids,
 			should_regenerate,
 			with_priority,
@@ -371,6 +411,7 @@ impl<Reporter: NewThumbnailReporter> SerializableTask<Error> for Thumbnailer<Rep
 			thumbs_kind,
 			thumbnails_directory_path,
 			thumbnails_to_generate,
+			std_dev_accumulator,
 			should_regenerate,
 			with_priority,
 			output,
@@ -385,8 +426,9 @@ impl<Reporter: NewThumbnailReporter> SerializableTask<Error> for Thumbnailer<Rep
 			|SaveState {
 			     id,
 			     thumbs_kind,
-			     thumbnails_directory_path,
 			     thumbnails_to_generate,
+			     thumbnails_directory_path,
+			     std_dev_accumulator,
 			     should_regenerate,
 			     with_priority,
 			     output,
@@ -394,9 +436,10 @@ impl<Reporter: NewThumbnailReporter> SerializableTask<Error> for Thumbnailer<Rep
 				id,
 				reporter,
 				thumbs_kind,
-				thumbnails_directory_path,
 				thumbnails_to_generate,
+				thumbnails_directory_path,
 				already_processed_ids: Vec::new(),
+				std_dev_accumulator,
 				should_regenerate,
 				with_priority,
 				output,
@@ -419,8 +462,12 @@ async fn generate_thumbnail(
 	}: &GenerateThumbnailArgs,
 	kind: &ThumbnailKind,
 	should_regenerate: bool,
-) -> Result<(ThumbKey, GenerationStatus), NonCriticalError> {
+) -> (
+	Duration,
+	Result<(ThumbKey, GenerationStatus), NonCriticalError>,
+) {
 	trace!("Generating thumbnail for {}", path.display());
+	let start = Instant::now();
 
 	let mut output_path = match kind {
 		ThumbnailKind::Ephemeral => thumbnails_directory.join(EPHEMERAL_DIR),
@@ -443,16 +490,23 @@ async fn generate_thumbnail(
 			"Skipping thumbnail generation for {} because it already exists",
 			path.display()
 		);
-		return Ok((ThumbKey::new(cas_id, kind), GenerationStatus::Skipped));
+		return (
+			start.elapsed(),
+			Ok((ThumbKey::new(cas_id, kind), GenerationStatus::Skipped)),
+		);
 	}
 
 	if let Ok(extension) = ImageExtension::from_str(extension) {
 		if can_generate_thumbnail_for_image(extension) {
-			generate_image_thumbnail(&path, &output_path).await?;
+			if let Err(e) = generate_image_thumbnail(&path, &output_path).await {
+				return (start.elapsed(), Err(e));
+			}
 		}
 	} else if let Ok(extension) = DocumentExtension::from_str(extension) {
 		if can_generate_thumbnail_for_document(extension) {
-			generate_image_thumbnail(&path, &output_path).await?;
+			if let Err(e) = generate_image_thumbnail(&path, &output_path).await {
+				return (start.elapsed(), Err(e));
+			}
 		}
 	}
 
@@ -463,14 +517,19 @@ async fn generate_thumbnail(
 
 		if let Ok(extension) = VideoExtension::from_str(extension) {
 			if can_generate_thumbnail_for_video(extension) {
-				generate_video_thumbnail(&path, &output_path).await?;
+				if let Err(e) = generate_video_thumbnail(&path, &output_path).await {
+					return (start.elapsed(), Err(e));
+				}
 			}
 		}
 	}
 
 	trace!("Generated thumbnail for {}", path.display());
 
-	Ok((ThumbKey::new(cas_id, kind), GenerationStatus::Generated))
+	(
+		start.elapsed(),
+		Ok((ThumbKey::new(cas_id, kind), GenerationStatus::Generated)),
+	)
 }
 
 async fn generate_image_thumbnail(

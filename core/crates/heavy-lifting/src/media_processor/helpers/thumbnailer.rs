@@ -17,11 +17,11 @@ pub const EPHEMERAL_DIR: &str = "ephemeral";
 
 /// This is the target pixel count for all thumbnails to be resized to, and it is eventually downscaled
 /// to [`TARGET_QUALITY`].
-pub const TARGET_PX: f32 = 262_144f32;
+pub const TARGET_PX: f32 = 262_144.0;
 
 /// This is the target quality that we render thumbnails at, it is a float between 0-100
 /// and is treated as a percentage (so 30% in this case, or it's the same as multiplying by `0.3`).
-pub const TARGET_QUALITY: f32 = 30f32;
+pub const TARGET_QUALITY: f32 = 30.0;
 
 /// How much time we allow for the thumbnail generation process to complete before we give up.
 pub const THUMBNAIL_GENERATION_TIMEOUT: Duration = Duration::from_secs(60);
