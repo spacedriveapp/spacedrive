@@ -436,7 +436,7 @@
   "spacedrive_account": "Spacedrive аккаунт",
   "spacedrive_cloud": "Spacedrive Cloud",
   "spacedrive_cloud_description": "Spacedrive в первую очередь предназначен для локального использования, но в будущем мы предложим собственные дополнительные облачные сервисы. На данный момент аутентификация используется только для функции 'Фидбек', в остальном она не требуется.",
-  "spacedrop": "Видимость Spacedrop",
+  "spacedrop_visibility": "Видимость Spacedrop",
   "spacedrop_a_file": "Отправить файл с помощью Spacedrop",
   "spacedrop_already_progress": "Spacedrop уже в процессе",
   "spacedrop_contacts_only": "Только для контактов",

@@ -438,7 +438,7 @@
   "spacedrive_account": "Spacedrive 账户",
   "spacedrive_cloud": "Spacedrive 云",
   "spacedrive_cloud_description": "Spacedrive 始终优先重视本地资源，但我们未来会提供可选的自有云服务。目前，身份验证仅用于反馈功能。",
-  "spacedrop": "太空空投可见度",
+  "spacedrop_visibility": "太空空投可见度",
   "spacedrop_a_file": "使用 Spacedrop 传输文件",
   "spacedrop_already_progress": "Spacedrop 已在进行中",
   "spacedrop_contacts_only": "仅限联系人",

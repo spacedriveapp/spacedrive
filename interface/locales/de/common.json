@@ -436,7 +436,7 @@
   "spacedrive_account": "Spacedrive-Konto",
   "spacedrive_cloud": "Spacedrive-Cloud",
   "spacedrive_cloud_description": "Spacedrive ist immer lokal zuerst, aber wir werden in Zukunft unsere eigenen optionalen Cloud-Dienste anbieten. Derzeit wird die Authentifizierung nur für die Feedback-Funktion verwendet, ansonsten ist sie nicht erforderlich.",
-  "spacedrop": "Sichtbarkeit von Spacedrops",
+  "spacedrop_visibility": "Sichtbarkeit von Spacedrops",
   "spacedrop_a_file": "Eine Datei Spacedropen",
   "spacedrop_already_progress": "Spacedrop bereits im Gange",
   "spacedrop_contacts_only": "Nur Kontakte",

@@ -436,7 +436,7 @@
   "spacedrive_account": "Cuenta de Spacedrive",
   "spacedrive_cloud": "Spacedrive Cloud",
   "spacedrive_cloud_description": "Spacedrive siempre es primero local, pero ofreceremos nuestros propios servicios en la nube opcionalmente en el futuro. Por ahora, la autenticación solo se utiliza para la función de retroalimentación, de lo contrario no es requerida.",
-  "spacedrop": "Visibilidad de lanzamiento espacial",
+  "spacedrop_visibility": "Visibilidad de lanzamiento espacial",
   "spacedrop_a_file": "Soltar un Archivo",
   "spacedrop_already_progress": "Spacedrop ya está en progreso",
   "spacedrop_contacts_only": "Solo contactos",

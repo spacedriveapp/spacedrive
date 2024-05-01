@@ -436,7 +436,7 @@
   "spacedrive_account": "Уліковы запіс Spacedrive",
   "spacedrive_cloud": "Spacedrive Cloud",
   "spacedrive_cloud_description": "У першую чаргу Spacedrive прызначаны для лакальнага выкарыстання, але ў будучыні мы прапануем уласныя дадатковыя хмарныя сэрвісы. На дадзены момант аўтэнтыфікацыя выкарыстоўваецца толькі для функцыі 'Фідбэк', у іншым яна не патрабуецца.",
-  "spacedrop": "Бачнасць Spacedrop",
+  "spacedrop_visibility": "Бачнасць Spacedrop",
   "spacedrop_a_file": "Адправіць файл з дапамогай Spacedrop",
   "spacedrop_already_progress": "Spacedrop ужо ў працэсе",
   "spacedrop_contacts_only": "Толькі для кантактаў",

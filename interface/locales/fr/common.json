@@ -436,7 +436,7 @@
   "spacedrive_account": "Compte Spacedrive",
   "spacedrive_cloud": "Cloud Spacedrive",
   "spacedrive_cloud_description": "Spacedrive est toujours local en premier lieu, mais nous proposerons nos propres services cloud en option à l'avenir. Pour l'instant, l'authentification est uniquement utilisée pour la fonctionnalité de retour d'information, sinon elle n'est pas requise.",
-  "spacedrop": "Visibilité du largage spatial",
+  "spacedrop_visibility": "Visibilité du largage spatial",
   "spacedrop_a_file": "Déposer un fichier dans Spacedrive",
   "spacedrop_already_progress": "Spacedrop déjà en cours",
   "spacedrop_contacts_only": "Contacts uniquement",

@@ -436,7 +436,7 @@
   "spacedrive_account": "Spacedrive 帳戶",
   "spacedrive_cloud": "Spacedrive 雲端",
   "spacedrive_cloud_description": "Spacedrive 始終以本地為先，但我們將來會提供自己的選擇性雲端服務。目前，身份驗證僅用於反饋功能，否則不需要。",
-  "spacedrop": "太空空投可見度",
+  "spacedrop_visibility": "太空空投可見度",
   "spacedrop_a_file": "Spacedrop文件",
   "spacedrop_already_progress": "Spacedrop 已在進行中",
   "spacedrop_contacts_only": "限聯絡人",

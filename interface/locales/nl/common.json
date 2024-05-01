@@ -436,7 +436,7 @@
   "spacedrive_account": "Spacedrive Account",
   "spacedrive_cloud": "Spacedrive Cloud",
   "spacedrive_cloud_description": "Spacedrive is altijd lokaal eerst, maar we zullen in de toekomst optionele cloudservices aanbieden. Voor nu wordt authenticatie alleen gebruikt voor de Feedback-functie, anders is het niet vereist.",
-  "spacedrop": "Zichtbaarheid van een ruimtedruppel",
+  "spacedrop_visibility": "Zichtbaarheid van een ruimtedruppel",
   "spacedrop_a_file": "Spacedrop een Bestand",
   "spacedrop_already_progress": "Spacedrop is al bezig",
   "spacedrop_contacts_only": "Alleen contacten",

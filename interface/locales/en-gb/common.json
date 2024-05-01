@@ -141,7 +141,7 @@
 	"enable_networking": "Enable Networking",
 	"enable_networking_description": "Allow your node to communicate with other Spacedrive nodes around you.",
 	"enable_networking_description_required": "Required for library sync or Spacedrop!",
-	"spacedrop": "Spacedrop visibility",
+	"spacedrop_visibility": "Spacedrop visibility",
 	"spacedrop_everyone": "Everyone",
 	"spacedrop_contacts_only": "Contacts Only",
 	"spacedrop_disabled": "Disabled",

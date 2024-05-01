@@ -436,7 +436,7 @@
   "spacedrive_account": "Spacedriveアカウント",
   "spacedrive_cloud": "Spacedriveクラウド",
   "spacedrive_cloud_description": "Spacedriveは常にローカルでの利用を優先しますが、将来的には独自オプションのクラウドサービスを提供する予定です。現在、アカウント認証はフィードバック機能のみに使用されており、それ以外では必要ありません。",
-  "spacedrop": "スペースドロップの可視性",
+  "spacedrop_visibility": "スペースドロップの可視性",
   "spacedrop_a_file": "ファイルをSpacedropへ",
   "spacedrop_already_progress": "Spacedropは既に実行中です",
   "spacedrop_contacts_only": "連絡先のみ",
