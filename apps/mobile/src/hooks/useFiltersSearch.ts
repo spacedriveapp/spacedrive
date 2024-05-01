@@ -1,6 +1,6 @@
 import { SearchFilterArgs } from '@sd/client';
 import { useEffect, useMemo } from 'react';
-import { SearchFilters, getSearchStore, useSearchStore } from '~/stores/searchStore';
+import { Filters, SearchFilters, getSearchStore, useSearchStore } from '~/stores/searchStore';
 
 /**
  * This hook merges the selected filters from Filters page in order
@@ -12,11 +12,11 @@ export function useFiltersSearch() {
 	const searchStore = useSearchStore();;
 
 
-	const filterFactory = (key: SearchFilters, value: any) => {
+	const filterFactory = (key: SearchFilters, value: Filters[keyof Filters])  => {
 
 		//hidden is the only boolean filter - so we can return it directly
 		//Rest of the filters are arrays, so we map them to the correct format
-		const filterValue = typeof value === 'object' ? value.map((v: any) => {
+		const filterValue = Array.isArray(value) ? value.map((v: any) => {
 			return v.id ? v.id : v;
 		}) : value;
 
@@ -28,13 +28,13 @@ export function useFiltersSearch() {
 				case 'locations':
 					return { filePath: { locations: { in: filterValue } } };
 				case 'name':
-					return filterValue.map((v: string) => {
+					return Array.isArray(filterValue) && filterValue.map((v: string) => {
 						return { filePath: { [key]: { contains: v } } };
 					})
 				case 'hidden':
 					return { filePath: { hidden: filterValue } };
 				case 'extension':
-					return filterValue.map((v: string) => {
+					return Array.isArray(filterValue) && filterValue.map((v: string) => {
 						return { filePath: { [key]: { in: [v] } } };
 					})
 				case 'tags':
@@ -54,6 +54,8 @@ export function useFiltersSearch() {
 			for (const key in searchStore.filters) {
 
 				const filterKey = key as SearchFilters;
+				//due to an issue with Valtio and Hermes Engine - need to do getSearchStore()
+				//https://github.com/pmndrs/valtio/issues/765
 				const filterValue = getSearchStore().filters[filterKey];
 
 				// no need to add empty filters
@@ -68,10 +70,11 @@ export function useFiltersSearch() {
 				const filter = filterFactory(filterKey, filterValue);
 
 				// add the filter to the mergedFilters
-				filters.push(filter);
+				filters.push(filter as SearchFilterArgs);
 
 			}
 
+			// makes sure the array is not 2D
 			return filters.flat();
 
 	}, [searchStore.filters]);
