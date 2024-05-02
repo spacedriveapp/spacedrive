@@ -2,6 +2,7 @@ import {
 	CircleDashed,
 	Cube,
 	Folder,
+	Heart,
 	Icon,
 	SelectionSlash,
 	Tag,
@@ -565,6 +566,24 @@ export const filterRegistry = [
 					name: 'Hidden',
 					value: true,
 					icon: 'SelectionSlash' // Spacedrive folder icon
+				}
+			];
+		},
+		Render: ({ filter, search }) => <FilterOptionBoolean filter={filter} search={search} />
+	}),
+	createBooleanFilter({
+		name: 'Favorite',
+		icon: Heart,
+		extract: (arg) => {
+			if ('object' in arg && 'favorite' in arg.object) return arg.object.favorite;
+		},
+		create: (favorite) => ({ object: { favorite } }),
+		useOptions: () => {
+			return [
+				{
+					name: 'Favorite',
+					value: true,
+					icon: 'Heart' // Spacedrive folder icon
 				}
 			];
 		},
