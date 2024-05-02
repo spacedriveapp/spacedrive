@@ -1,17 +1,14 @@
-use crate::{
-	api::utils::library,
-	location::LocationPubId,
-	p2p::{operations, ConnectionMethod, DiscoveryMethod, Header, P2PEvent, PeerMetadata},
-};
+use crate::p2p::{operations, ConnectionMethod, DiscoveryMethod, Header, P2PEvent, PeerMetadata};
 
+use reqwest::Body;
 use sd_p2p::{PeerConnectionCandidate, RemoteIdentity};
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{path::PathBuf, sync::PoisonError};
-use tokio::io::AsyncWriteExt;
-use tracing::{debug, info};
+use tokio::{fs::File, io::AsyncWriteExt};
+use tokio_util::codec::{BytesCodec, FramedRead};
 use uuid::Uuid;
 
 use super::{Ctx, R};
@@ -183,32 +180,24 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("spacedropCloud", {
 			#[derive(Type, Deserialize, Debug)]
 			pub struct SpacedropCloudArgs {
-				file_paths: Vec<PathBuf>,
+				file_path: PathBuf
 			}
 
-			R.with2(library())
-				.mutation(|(node, library), args: SpacedropCloudArgs| async move {
-					debug!("spacedropCloud args: {:?}", args);
+			R.mutation(|node, args: SpacedropCloudArgs| async move {
 					// For each file, return a dictionary with the file path, size, name and mime type
-					let files = args
-						.file_paths
-						.into_iter()
-						.map(|path| {
-							let file = std::fs::File::open(&path).unwrap();
-							let metadata = file.metadata().unwrap();
-							// let extension = path.extension().unwrap().to_str().unwrap();
-							let name = path.file_name().unwrap().to_str().unwrap().to_string();
-
-							(name, metadata.len(), path)
+					let (name, len, path) = args.file_path
+						.file_name()
+						.and_then(|name| name.to_str())
+						.map(|name| {
+							let file_path = args.file_path.clone();
+							(name.to_string(), file_path.metadata().map(|metadata| metadata.len()).unwrap_or(0), file_path)
 						})
-						.collect::<Vec<_>>();
+						.unwrap_or_else(|| ("".to_string(), 0, PathBuf::new()));
 
 					let json = serde_json::json!({
-						"name": files[0].0,
-						"size": files[0].1,
+						"name": name,
+						"size": len,
 					});
-
-					debug!("spacedropCloud json: {:?}", json);
 
 					let req = reqwest::Client::new()
 						.post("https://app.spacedrive.com/api/v1/spacedrop")
@@ -223,14 +212,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						)
 					})?;
 
-
 					if res_1.status() != 200 {
 						return Err(rspc::Error::new(
 							ErrorCode::InternalServerError,
 							format!("error creating spacedrop for cloud: {:?}", res_1.status()),
 						));
 					}
-
 
 					let res = &res_1.text().await.map_err(|err| {
 						rspc::Error::new(
@@ -240,7 +227,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					})?;
 
 					let res_obj =
-						serde_json::from_str::<serde_json::Value>(&res).map_err(|err| {
+						serde_json::from_str::<serde_json::Value>(res).map_err(|err| {
 							rspc::Error::new(
 								ErrorCode::InternalServerError,
 								format!("error parsing response: {:?}", err),
@@ -260,52 +247,78 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						)
 					})?;
 
-					let file_stream = std::fs::File::open(&files[0].2).map_err(|err| {
+					let file = File::open(path.clone()).await.map_err(|err| {
 						rspc::Error::new(
 							ErrorCode::InternalServerError,
 							format!("error opening file: {:?}", err),
 						)
 					})?;
 
-					let file_stream = tokio::fs::File::from_std(file_stream);
 					let _ = reqwest::Client::new()
 						.put(upload_url)
-						.header("content-length", files[0].1)
-						.body(reqwest::Body::wrap_stream(
-							tokio_util::io::ReaderStream::new(file_stream),
-						)).send().await.map_err(|err| {
-						rspc::Error::new(
-							ErrorCode::InternalServerError,
-							format!("error sending request: {:?}", err),
-						)
-					})?;
+						.header("content-length", len)
+						.body(file_to_stream(file))
+						.send()
+						.await
+						.map_err(|err| {
+							rspc::Error::new(
+								ErrorCode::InternalServerError,
+								format!("error sending request: {:?}", err),
+							)
+						})?;
 
-					debug!("spacedropCloud finalize url: {}", "https://app.spacedrive.com/api/v1/spacedrop/".to_owned() + id);
+
 					let req = reqwest::Client::new()
-						.put("https://app.spacedrive.com/api/v1/spacedrop/".to_owned() + id);
+						.post("https://app.spacedrive.com/api/v1/spacedrop/".to_owned() + id);
 
 					let req_with_auth = node.add_auth_header(req).await;
 
-					let res = req_with_auth.send().await.map_err(|err| {
+					let _ = req_with_auth.send().await.map_err(|err| {
 						rspc::Error::new(
 							ErrorCode::InternalServerError,
 							format!("error sending request: {:?}", err),
 						)
 					})?;
 
-					if res.status() != 200 {
-						return Err(rspc::Error::new(
+					let download_req = reqwest::Client::new()
+						.get("https://app.spacedrive.com/api/v1/spacedrop/".to_owned() + id);
+
+					let download_req_with_auth = node.add_auth_header(download_req).await;
+
+					let download_res = download_req_with_auth.send().await.map_err(|err| {
+						rspc::Error::new(
 							ErrorCode::InternalServerError,
-							format!("error finalizing spacedrop: {:?}", res.status()),
-						));
+							format!("error sending request: {:?}", err),
+						)
+					})?;
 
-					}
+					let download_res = download_res.text().await.map_err(|err| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							format!("error reading response: {:?}", err),
+						)
+					})?;
 
-					debug!("spacedropCloud finalize response: {:?}", res);
+					let res_obj = serde_json::from_str::<serde_json::Value>(&download_res).map_err(|err| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							format!("error parsing response: {:?}", err),
+						)
+					})?;
 
-					info!("spacedropCloud implement");
+					let download_url = res_obj["url"].as_str().ok_or_else(|| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"missing url in response".into(),
+						)
+					})?.to_string();
 
-					Ok(vec!["https://app.spacedrive.com/api/v1/spacedrop/".to_owned() + id])
+					Ok(download_url)
 				})
 		})
+}
+
+fn file_to_stream(file: File) -> Body {
+	let stream = FramedRead::new(file, BytesCodec::new());
+	Body::wrap_stream(stream)
 }

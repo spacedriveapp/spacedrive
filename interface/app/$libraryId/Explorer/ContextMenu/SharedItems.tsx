@@ -215,7 +215,7 @@ const SpacedropNodes = () => {
 	const discoveredPeers = useDiscoveredPeers();
 
 	const spacedrop = useBridgeMutation('p2p.spacedrop');
-	const spacedropCloud = useLibraryMutation('p2p.spacedropCloud', {
+	const spacedropCloud = useBridgeMutation('p2p.spacedropCloud', {
 		onSuccess: (links) => {
 			console.log('success');
 			console.log(links);
@@ -243,7 +243,7 @@ const SpacedropNodes = () => {
 					onClick={async () => {
 						spacedrop.mutateAsync({
 							identity: id,
-							file_path: await getPaths([...explorer.selectedItems]),
+							file_path: await getPaths([...explorer.selectedItems])
 						});
 					}}
 				/>
@@ -252,7 +252,7 @@ const SpacedropNodes = () => {
 				label={'Send to Cloud [TEMP]'}
 				onClick={async () => {
 					spacedropCloud.mutateAsync({
-						file_paths: await getPaths([...explorer.selectedItems]),
+						file_path: (await getPaths([...explorer.selectedItems]))[0]!
 					});
 				}}
 			/>
