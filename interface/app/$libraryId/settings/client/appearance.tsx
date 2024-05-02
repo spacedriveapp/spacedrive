@@ -52,6 +52,7 @@ const themes: Theme[] = [
 
 // Unsorted list of languages available in the app.
 const LANGUAGE_OPTIONS = [
+	{ value: 'ar', label: 'عربي' },
 	{ value: 'en', label: 'English' },
 	{ value: 'de', label: 'Deutsch' },
 	{ value: 'es', label: 'Español' },
