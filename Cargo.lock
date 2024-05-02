@@ -8178,7 +8178,7 @@ dependencies = [
 
 [[package]]
 name = "sd-core"
-version = "0.2.13"
+version = "0.2.14"
 dependencies = [
  "aovec",
  "async-channel",
@@ -8425,7 +8425,7 @@ dependencies = [
 
 [[package]]
 name = "sd-desktop"
-version = "0.2.13"
+version = "0.2.14"
 dependencies = [
  "axum",
  "directories 5.0.1",
