@@ -94,7 +94,10 @@ function useTagExplorerSettings(tag: Tag) {
 			() => createDefaultExplorerSettings<ObjectOrder>({ order: null }),
 			[]
 		),
-		getSettings: useCallback((prefs) => prefs.tag?.[stringify(tag.pub_id)]?.explorer, [tag.pub_id]),
+		getSettings: useCallback(
+			(prefs) => prefs.tag?.[stringify(tag.pub_id)]?.explorer,
+			[tag.pub_id]
+		),
 		writeSettings: (settings) => ({
 			tag: { [stringify(tag.pub_id)]: { explorer: settings } }
 		})

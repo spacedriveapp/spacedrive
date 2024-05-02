@@ -71,7 +71,10 @@ export function Component() {
 
 			<Explorer
 				emptyNotice={
-					<EmptyNotice icon={<Icon name="Heart" size={128} />} message={t('no_favorite_items')} />
+					<EmptyNotice
+						icon={<Icon name="Heart" size={128} />}
+						message={t('no_favorite_items')}
+					/>
 				}
 			/>
 		</ExplorerContextProvider>

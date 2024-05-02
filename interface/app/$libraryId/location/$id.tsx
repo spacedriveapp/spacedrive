@@ -90,7 +90,9 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 						path: path ?? '',
 						include_descendants:
 							search.search !== '' ||
-							(search.filters && search.filters.length > 0 && searchFiltersAreDefault) ||
+							(search.filters &&
+								search.filters.length > 0 &&
+								searchFiltersAreDefault) ||
 							(layoutMode === 'media' && mediaViewWithDescendants)
 					}
 				}

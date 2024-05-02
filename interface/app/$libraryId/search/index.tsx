@@ -70,7 +70,10 @@ export function Component() {
 
 			<Explorer
 				emptyNotice={
-					<EmptyNotice icon={<Icon name="Search" size={128} />} message={t('no_items_found')} />
+					<EmptyNotice
+						icon={<Icon name="Search" size={128} />}
+						message={t('no_items_found')}
+					/>
 				}
 			/>
 		</ExplorerContextProvider>
