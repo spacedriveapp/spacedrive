@@ -9,11 +9,13 @@ use sd_core_prisma_helpers::file_path_for_media_processor;
 use sd_media_metadata::ImageMetadata;
 use sd_prisma::prisma::{file_path, location, media_data, object, PrismaClient};
 use sd_task_system::{
-	check_interruption, ExecStatus, Interrupter, IntoAnyTaskOutput, SerializableTask, Task, TaskId,
+	check_interruption, ExecStatus, Interrupter, InterruptionKind, IntoAnyTaskOutput,
+	SerializableTask, Task, TaskId,
 };
 
 use std::{
 	collections::{HashMap, HashSet},
+	future::IntoFuture,
 	mem,
 	path::{Path, PathBuf},
 	pin::pin,
@@ -21,8 +23,8 @@ use std::{
 	time::Duration,
 };
 
-use futures::StreamExt;
-use futures_concurrency::future::FutureGroup;
+use futures::{FutureExt, StreamExt};
+use futures_concurrency::future::{FutureGroup, Race};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::{task::spawn_blocking, time::Instant};
@@ -44,9 +46,10 @@ enum Stage {
 	Starting,
 	FetchedObjectsAlreadyWithMediaData(Vec<object::id::Type>),
 	ExtractingMediaData {
-		paths_by_id: HashMap<file_path::id::Type, (Arc<PathBuf>, object::id::Type)>,
+		paths_by_id: HashMap<file_path::id::Type, (PathBuf, object::id::Type)>,
 		// TODO: Change to support any kind of media data, not only images
 		media_datas: Vec<(ImageMetadata, object::id::Type)>,
+		extract_ids_to_remove_from_map: Vec<file_path::id::Type>,
 	},
 	SaveMediaData {
 		media_datas: Vec<(ImageMetadata, object::id::Type)>,
@@ -147,14 +150,10 @@ impl Task<Error> for MediaDataExtractor {
 					let filtering_start = Instant::now();
 					if file_paths.len() == objects_already_with_media_data.len() {
 						// All files already have media data, skipping
-						#[allow(clippy::cast_possible_truncation)]
-						{
-							// SAFETY: we shouldn't have more than 4 billion unique objects already with media data
-							output.skipped = file_paths.len() as u32;
-						}
+						output.skipped = file_paths.len() as u64;
+
 						break;
 					}
-
 					let paths_by_id = filter_files_to_extract_media_data(
 						mem::take(objects_already_with_media_data),
 						*location_id,
@@ -166,46 +165,69 @@ impl Task<Error> for MediaDataExtractor {
 					output.filtering_time = filtering_start.elapsed();
 
 					*stage = Stage::ExtractingMediaData {
+						extract_ids_to_remove_from_map: Vec::with_capacity(paths_by_id.len()),
+						media_datas: Vec::with_capacity(paths_by_id.len()),
 						paths_by_id,
-						media_datas: Vec::new(),
 					};
 				}
 
 				Stage::ExtractingMediaData {
 					paths_by_id,
 					media_datas,
+					extract_ids_to_remove_from_map,
 				} => {
-					let extraction_start = Instant::now();
+					// This inner scope is necessary to appease the mighty borrowck
+					{
+						let extraction_start = Instant::now();
 
-					let mut futures = pin!(paths_by_id
-						.iter()
-						.map(|(file_path_id, (path, object_id))| {
-							// Copy the values to make them owned and make the borrowck happy
-							let file_path_id = *file_path_id;
-							let path = Arc::clone(path);
-							let object_id = *object_id;
-
-							async move { (extract_media_data(&*path).await, file_path_id, object_id) }
-						})
-						.collect::<FutureGroup<_>>());
-
-					while let Some((res, file_path_id, object_id)) = futures.next().await {
-						match res {
-							Ok(Some(media_data)) => {
-								media_datas.push((media_data, object_id));
-							}
-							Ok(None) => {
-								// No media data found
-								output.skipped += 1;
-							}
-							Err(e) => output.errors.push(e.into()),
+						for id in extract_ids_to_remove_from_map.drain(..) {
+							paths_by_id.remove(&id);
 						}
 
-						paths_by_id.remove(&file_path_id);
+						let futures = paths_by_id
+							.iter()
+							.map(|(file_path_id, (path, object_id))| {
+								extract_media_data(path)
+									.map(|res| (res, *file_path_id, *object_id))
+									.map(InterruptRace::Processed)
+							})
+							.map(|fut| {
+								(
+									fut,
+									interrupter.into_future().map(InterruptRace::Interrupted),
+								)
+									.race()
+							})
+							.collect::<FutureGroup<_>>();
 
-						let extraction_time = &mut output.extraction_time;
+						let mut futures = pin!(futures);
 
-						check_interruption!(interrupter, extraction_start, extraction_time);
+						while let Some(race_output) = futures.next().await {
+							match race_output {
+								InterruptRace::Processed((res, file_path_id, object_id)) => {
+									match res {
+										Ok(Some(media_data)) => {
+											media_datas.push((media_data, object_id));
+										}
+										Ok(None) => {
+											// No media data found
+											output.skipped += 1;
+										}
+										Err(e) => output.errors.push(e.into()),
+									}
+
+									extract_ids_to_remove_from_map.push(file_path_id);
+								}
+
+								InterruptRace::Interrupted(kind) => {
+									output.extraction_time += extraction_start.elapsed();
+									return Ok(match kind {
+										InterruptionKind::Pause => ExecStatus::Paused,
+										InterruptionKind::Cancel => ExecStatus::Canceled,
+									});
+								}
+							}
+						}
 					}
 
 					*stage = Stage::SaveMediaData {
@@ -216,14 +238,9 @@ impl Task<Error> for MediaDataExtractor {
 				Stage::SaveMediaData { media_datas } => {
 					let db_write_start = Instant::now();
 					output.extracted = save_media_data(mem::take(media_datas), db).await?;
-
 					output.db_write_time = db_write_start.elapsed();
 
-					#[allow(clippy::cast_possible_truncation)]
-					{
-						// SAFETY: we shouldn't have more than 4 billion errors LMAO
-						output.skipped += output.errors.len() as u32;
-					}
+					output.skipped += output.errors.len() as u64;
 
 					break;
 				}
@@ -234,6 +251,22 @@ impl Task<Error> for MediaDataExtractor {
 
 		Ok(ExecStatus::Done(mem::take(output).into_output()))
 	}
+}
+
+type ExtractionOutput = (
+	Result<Option<ImageMetadata>, media_processor::NonCriticalError>,
+	file_path::id::Type,
+	object::id::Type,
+);
+
+#[allow(clippy::large_enum_variant)]
+/*
+ * NOTE(fogodev): Interrupts will be pretty rare, so paying the boxing price for
+ * the Processed variant isn't worth it to avoid the enum size disparity between variants
+ */
+enum InterruptRace {
+	Interrupted(InterruptionKind),
+	Processed(ExtractionOutput),
 }
 
 #[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
@@ -250,8 +283,8 @@ pub enum NonCriticalError {
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Output {
-	pub extracted: u32,
-	pub skipped: u32,
+	pub extracted: u64,
+	pub skipped: u64,
 	pub db_read_time: Duration,
 	pub filtering_time: Duration,
 	pub extraction_time: Duration,
@@ -368,7 +401,7 @@ async fn fetch_objects_already_with_media_data(
 async fn save_media_data(
 	media_datas: Vec<(ImageMetadata, object::id::Type)>,
 	db: &PrismaClient,
-) -> Result<u32, media_processor::Error> {
+) -> Result<u64, media_processor::Error> {
 	db.media_data()
 		.create_many(
 			media_datas
@@ -380,11 +413,9 @@ async fn save_media_data(
 		.exec()
 		.await
 		.map(|created| {
-			#[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+			#[allow(clippy::cast_sign_loss)]
 			{
-				// SAFETY: we can't create a negative amount of media_data and we won't create more than
-				// 4 billion media_data entries
-				created as u32
+				created as u64
 			}
 		})
 		.map_err(Into::into)
@@ -399,16 +430,12 @@ fn filter_files_to_extract_media_data(
 	Output {
 		skipped, errors, ..
 	}: &mut Output,
-) -> HashMap<file_path::id::Type, (Arc<PathBuf>, object::id::Type)> {
+) -> HashMap<file_path::id::Type, (PathBuf, object::id::Type)> {
 	let unique_objects_already_with_media_data = objects_already_with_media_data
 		.into_iter()
 		.collect::<HashSet<_>>();
 
-	#[allow(clippy::cast_possible_truncation)]
-	{
-		// SAFETY: we shouldn't have more than 4 billion unique objects already with media data
-		*skipped = unique_objects_already_with_media_data.len() as u32;
-	}
+	*skipped = unique_objects_already_with_media_data.len() as u64;
 
 	file_paths.retain(|file_path| {
 		!unique_objects_already_with_media_data
@@ -434,7 +461,7 @@ fn filter_files_to_extract_media_data(
 					(
 						file_path.id,
 						(
-							Arc::new(location_path.join(iso_file_path)),
+							location_path.join(iso_file_path),
 							file_path.object_id.expect("already checked"),
 						),
 					)
