@@ -31,7 +31,7 @@ export function Component() {
 
 	const { t } = useLocale();
 
-	const search = useSearchFromSearchParams();
+	const search = useSearchFromSearchParams({ defaultTarget: 'paths' });
 
 	const items = useSearchExplorerQuery({
 		search,
@@ -70,10 +70,7 @@ export function Component() {
 
 			<Explorer
 				emptyNotice={
-					<EmptyNotice
-						icon={<Icon name="Search" size={128} />}
-						message={t('no_items_found')}
-					/>
+					<EmptyNotice icon={<Icon name="Search" size={128} />} message={t('no_items_found')} />
 				}
 			/>
 		</ExplorerContextProvider>

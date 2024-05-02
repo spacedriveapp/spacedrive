@@ -24,7 +24,7 @@ export function Component() {
 		orderingKeys: objectOrderingKeysSchema
 	});
 
-	const search = useSearchFromSearchParams();
+	const search = useSearchFromSearchParams({ defaultTarget: 'paths' });
 
 	const { t } = useLocale();
 
@@ -52,7 +52,7 @@ export function Component() {
 		<ExplorerContextProvider explorer={explorer}>
 			<SearchContextProvider search={search}>
 				<TopBarPortal
-					center={<SearchBar defaultFilters={[defaultFilters]} />}
+					center={<SearchBar defaultFilters={[defaultFilters]} defaultTarget="paths" />}
 					left={
 						<div className="flex flex-row items-center gap-2">
 							<span className="truncate text-sm font-medium">{t('recents')}</span>

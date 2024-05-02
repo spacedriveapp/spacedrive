@@ -26,7 +26,7 @@ export function Component() {
 		orderingKeys: objectOrderingKeysSchema
 	});
 
-	const search = useSearchFromSearchParams();
+	const search = useSearchFromSearchParams({ defaultTarget: 'objects' });
 
 	const defaultFilter = { object: { favorite: true } };
 
@@ -52,7 +52,7 @@ export function Component() {
 		<ExplorerContextProvider explorer={explorer}>
 			<SearchContextProvider search={search}>
 				<TopBarPortal
-					center={<SearchBar defaultFilters={[defaultFilter]} />}
+					center={<SearchBar defaultFilters={[defaultFilter]} defaultTarget="objects" />}
 					left={
 						<div className="flex flex-row items-center gap-2">
 							<span className="truncate text-sm font-medium">{t('favorites')}</span>
@@ -71,10 +71,7 @@ export function Component() {
 
 			<Explorer
 				emptyNotice={
-					<EmptyNotice
-						icon={<Icon name="Heart" size={128} />}
-						message={t('no_favorite_items')}
-					/>
+					<EmptyNotice icon={<Icon name="Heart" size={128} />} message={t('no_favorite_items')} />
 				}
 			/>
 		</ExplorerContextProvider>

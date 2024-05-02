@@ -71,7 +71,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 		[location.id]
 	);
 
-	const search = useSearchFromSearchParams();
+	const search = useSearchFromSearchParams({ defaultTarget: 'paths' });
 
 	const searchFiltersAreDefault = useMemo(
 		() => JSON.stringify(defaultFilters) !== JSON.stringify(search.filters),
@@ -90,9 +90,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 						path: path ?? '',
 						include_descendants:
 							search.search !== '' ||
-							(search.filters &&
-								search.filters.length > 0 &&
-								searchFiltersAreDefault) ||
+							(search.filters && search.filters.length > 0 && searchFiltersAreDefault) ||
 							(layoutMode === 'media' && mediaViewWithDescendants)
 					}
 				}
