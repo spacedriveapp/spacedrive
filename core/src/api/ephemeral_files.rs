@@ -76,11 +76,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 			})
 		})
-		// TODO: THIS IS FOR TESTING ONLY
 		.procedure("ffmpegGetMediaData", {
 			R.query(|_, full_path: PathBuf| async move {
 				#[cfg(not(feature = "ffmpeg"))]
-				return Err::<sd_ffmpeg::model::MediaInfo, rspc::Error>(rspc::Error::new(
+				return Err::<(), _>(rspc::Error::new(
 					ErrorCode::MethodNotSupported,
 					"ffmpeg feature is not enabled".to_string(),
 				));

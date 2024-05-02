@@ -134,24 +134,35 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.with2(library())
 				.query(|(_, library), id: i32| async move {
 					#[cfg(not(feature = "ffmpeg"))]
-					return Err::<sd_ffmpeg::model::MediaInfo, rspc::Error>(rspc::Error::new(
+					return Err::<(), _>(rspc::Error::new(
 						ErrorCode::MethodNotSupported,
 						"ffmpeg feature is not enabled".to_string(),
 					));
 
 					#[cfg(feature = "ffmpeg")]
 					{
-						let isolated_path = IsolatedFilePathData::try_from(
-							library
-								.db
-								.file_path()
-								.find_unique(file_path::id::equals(id))
-								.select(file_path_to_isolate::select())
-								.exec()
-								.await?
-								.ok_or(LocationError::FilePath(FilePathError::IdNotFound(id)))?,
-						)
-						.map_err(LocationError::MissingField)?;
+						use sd_ffmpeg::model::MediaChapter;
+						use sd_prisma::prisma::{
+							ffmpeg_data, ffmpeg_media_audio_props, ffmpeg_media_chapter,
+						};
+
+						let file_path = library
+							.db
+							.file_path()
+							.find_unique(file_path::id::equals(id))
+							.exec()
+							.await?
+							.ok_or(LocationError::FilePath(FilePathError::IdNotFound(id)))?;
+
+						let isolated_path = IsolatedFilePathData::try_from(&file_path)
+							.map_err(LocationError::MissingField)?;
+
+						let object_id = file_path.object_id.ok_or_else(|| {
+							rspc::Error::new(
+								ErrorCode::BadRequest,
+								"File path does not have an object id".to_string(),
+							)
+						})?;
 
 						let location_path = get_location_path_from_location_id(
 							&library.db,
@@ -159,15 +170,113 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						)
 						.await?;
 
-						sd_ffmpeg::probe(Path::new(&location_path).join(&isolated_path)).map_err(
-							|e| {
-								error!("{e:#?}");
-								rspc::Error::new(
-									ErrorCode::NotFound,
-									"Couldn't extract media data from file".to_string(),
-								)
-							},
-						)
+						let media_info =
+							sd_ffmpeg::probe(Path::new(&location_path).join(&isolated_path))
+								.map_err(|e| {
+									error!("{e:#?}");
+									rspc::Error::new(
+										ErrorCode::NotFound,
+										"Couldn't extract media data from file".to_string(),
+									)
+								})?;
+
+						let bitrate =
+							(media_info.bitrate.0 as i64) << 32 | media_info.bitrate.1 as i64;
+
+						let a = library
+							.db
+							._transaction()
+							.with_timeout(30 * 1000)
+							.run(|db| async move {
+								let data_id = db
+									.ffmpeg_data()
+									.create(
+										object::id::equals(object_id),
+										vec![
+											ffmpeg_data::formats::set(Some(
+												media_info.formats.join(","),
+											)),
+											ffmpeg_data::duration::set(
+												media_info
+													.duration
+													.map(|(a, b)| (a as i64) << 32 | b as i64),
+											),
+											ffmpeg_data::start_time::set(
+												media_info
+													.start_time
+													.map(|(a, b)| (a as i64) << 32 | b as i64),
+											),
+											ffmpeg_data::bitrate::set(Some(bitrate)),
+											ffmpeg_data::metadata::set(
+												media_info.metadata.and_then(|metadata| {
+													serde_json::to_vec(&metadata).ok()
+												}),
+											),
+										],
+									)
+									.select(ffmpeg_data::select!({ id }))
+									.exec()
+									.await
+									.map(|data| data.id)?;
+
+								db.ffmpeg_media_chapter()
+									.create_many(
+										media_info
+											.chapters
+											.iter()
+											.map(
+												|MediaChapter {
+												     id,
+												     start: (start_hi, start_low),
+												     end: (end_hi, end_low),
+												     time_base_den,
+												     time_base_num,
+												     metadata,
+												 }| ffmpeg_media_chapter::CreateUnchecked {
+													chapter_id: *id as i32,
+													time_base_den: *time_base_den,
+													time_base_num: *time_base_num,
+													media_info_id: data_id,
+													_params: vec![
+														ffmpeg_media_chapter::start::set(Some(
+															(*start_hi as i64) << 32
+																| *start_low as i64,
+														)),
+														ffmpeg_media_chapter::end::set(Some(
+															(*end_hi as i64) << 32
+																| *end_low as i64,
+														)),
+														ffmpeg_media_chapter::metadata::set(
+															serde_json::to_vec(&metadata).ok(),
+														),
+													],
+												},
+											)
+											.collect(),
+									)
+									.exec()
+									.await?;
+
+								db.ffmpeg_data()
+									.find_unique(ffmpeg_data::id::equals(data_id))
+									.include(ffmpeg_data::include!({
+										chapters
+										programs: include {
+											streams: include {
+												codec: include {
+													video_props
+													audio_props
+												}
+											}
+										}
+									}))
+									.exec()
+									.await
+									.map(|maybe_data| maybe_data.expect("just created"))
+							})
+							.await?;
+
+						Ok(a)
 					}
 				})
 		})

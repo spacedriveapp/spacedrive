@@ -78,7 +78,7 @@ model Instance {
   remote_identity Bytes
 
   node_id  Bytes
-  metadata Bytes? // TODO: This should not be optional
+  metadata Bytes // TODO: This should not be optional
 
   last_seen    DateTime // Time core started for owner, last P2P message for P2P node
   date_created DateTime
@@ -193,9 +193,6 @@ model FilePath {
   date_modified DateTime?
   date_indexed  DateTime?
 
-  media_info    MediaInfo? @relation(fields: [media_info_id], references: [id], onDelete: SetNull)
-  media_info_id Int?
-
   // key Key? @relation(fields: [key_id], references: [id])
 
   @@unique([location_id, materialized_path, name, extension])
@@ -234,13 +231,14 @@ model Object {
   date_created  DateTime?
   date_accessed DateTime?
 
-  tags       TagOnObject[]
-  labels     LabelOnObject[]
-  albums     ObjectInAlbum[]
-  spaces     ObjectInSpace[]
-  file_paths FilePath[]
+  tags        TagOnObject[]
+  labels      LabelOnObject[]
+  albums      ObjectInAlbum[]
+  spaces      ObjectInSpace[]
+  file_paths  FilePath[]
   // comments   Comment[]
-  exif_data  ExifData?
+  exif_data   ExifData?
+  ffmpeg_data FFmpegData?
 
   // key Key? @relation(fields: [key_id], references: [id])
 
@@ -265,100 +263,107 @@ model ExifData {
   // (e.g. we can't get `MediaDate::Utc(2023-09-26T22:04:37+01:00)` from `1695758677` as we don't store the TZ)
   epoch_time BigInt? // time since unix epoch
 
-  // video-specific
-  // duration Int?
-  // fps      Int?
-  // streams  Int?
-  // video_codec   String? // eg: "h264, h265, av1"
-  // audio_codec String? // eg: "opus"
-
   object_id Int    @unique
   object    Object @relation(fields: [object_id], references: [id], onDelete: Cascade)
 
   @@map("exif_data")
 }
 
-model MediaInfo {
+model FFmpegData {
   id Int @id @default(autoincrement())
 
   // Internal FFmpeg properties
-  formats    String?
+  formats    String
   duration   BigInt?
   start_time BigInt?
-  bitrate    BigInt?
+  bitrate    BigInt
 
-  chapters MediaChapter[]
-  programs MediaProgram[]
+  chapters FFmpegMediaChapter[]
+  programs FFmpegMediaProgram[]
 
-  metadata    MediaMetadata @relation(fields: [metadata_id], references: [id], onDelete: Cascade)
-  metadata_id Int           @unique
+  // Metadata for search
+  title         String?
+  creation_time DateTime?
+  date          DateTime?
+  album_artist  String?
+  disc          String?
+  track         String?
+  album         String?
+  artist        String?
+  metadata      Bytes
 
-  files FilePath[]
+  object    Object @relation(fields: [object_id], references: [id], onDelete: Cascade)
+  object_id Int    @unique
 
-  @@map("media_info")
+  @@map("ffmpeg_data")
 }
 
-model MediaChapter {
+model FFmpegMediaChapter {
   chapter_id Int
 
-  start BigInt?
-  end   BigInt?
+  start BigInt
+  end   BigInt
 
   time_base_den Int
   time_base_num Int
 
-  metadata    MediaMetadata @relation(fields: [metadata_id], references: [id], onDelete: Cascade)
-  metadata_id Int           @unique
+  // Metadata for search
+  title    String?
+  metadata Bytes
 
-  media_info    MediaInfo @relation(fields: [media_info_id], references: [id], onDelete: Cascade)
-  media_info_id Int
+  ffmpeg_data    FFmpegData @relation(fields: [ffmpeg_data_id], references: [id], onDelete: Cascade)
+  ffmpeg_data_id Int
 
-  @@id(name: "likeId", [media_info_id, chapter_id])
+  @@id(name: "likeId", [ffmpeg_data_id, chapter_id])
   @@map("media_chapter")
 }
 
-model MediaProgram {
+model FFmpegMediaProgram {
   program_id Int
 
-  name    String?
-  streams MediaStream[]
+  streams FFmpegMediaStream[]
 
-  metadata    MediaMetadata @relation(fields: [metadata_id], references: [id], onDelete: Cascade)
-  metadata_id Int           @unique
+  // Metadata for search
+  name     String?
+  metadata Bytes
 
-  media_info    MediaInfo @relation(fields: [media_info_id], references: [id], onDelete: Cascade)
-  media_info_id Int
+  ffmpeg_data    FFmpegData @relation(fields: [ffmpeg_data_id], references: [id], onDelete: Cascade)
+  ffmpeg_data_id Int
 
-  @@id(name: "likeId", [media_info_id, program_id])
+  @@id(name: "likeId", [ffmpeg_data_id, program_id])
   @@map("media_program")
 }
 
-model MediaStream {
+model FFmpegMediaStream {
   stream_id Int
 
   name                  String?
-  codec                 MediaCodec?
-  aspect_ratio_num      Int?
-  aspect_ratio_den      Int?
-  frames_per_second_num Int?
-  frames_per_second_den Int?
-  time_base_real_den    Int?
-  time_base_real_num    Int?
+  codec                 FFmpegMediaCodec?
+  aspect_ratio_num      Int
+  aspect_ratio_den      Int
+  frames_per_second_num Int
+  frames_per_second_den Int
+  time_base_real_den    Int
+  time_base_real_num    Int
   dispositions          String?
 
-  metadata    MediaMetadata @relation(fields: [metadata_id], references: [id], onDelete: Cascade)
-  metadata_id Int           @unique
+  // Metadata for search
+  title    String?
+  encoder  String?
+  language String?
+  duration BigInt?
+  metadata Bytes
 
-  program       MediaProgram @relation(fields: [media_info_id, program_id], references: [media_info_id, program_id], onDelete: Cascade)
-  program_id    Int
-  media_info_id Int
+  program        FFmpegMediaProgram @relation(fields: [ffmpeg_data_id, program_id], references: [ffmpeg_data_id, program_id], onDelete: Cascade)
+  program_id     Int
+  ffmpeg_data_id Int
 
-  @@id(name: "likeId", [media_info_id, program_id, stream_id])
-  @@unique([media_info_id, program_id])
+  @@id(name: "likeId", [ffmpeg_data_id, program_id, stream_id])
+  @@unique([ffmpeg_data_id, program_id])
   @@map("media_stream")
 }
 
-model MediaCodec {
+model FFmpegMediaCodec {
   id Int @id @default(autoincrement())
 
   kind     String?
@@ -366,22 +371,21 @@ model MediaCodec {
   tag      String?
   name     String?
   profile  String?
-  bit_rate BigInt?
+  bit_rate BigInt
 
-  video_props    MediaVideoProps?
-  audio_props    MediaAudioProps?
-  subtitle_props MediaSubtitleProps?
+  video_props FFmpegMediaVideoProps?
+  audio_props FFmpegMediaAudioProps?
 
-  codec         MediaStream @relation(fields: [media_info_id, program_id, stream_id], references: [media_info_id, program_id, stream_id], onDelete: Cascade)
-  stream_id     Int
-  program_id    Int
-  media_info_id Int
+  stream         FFmpegMediaStream @relation(fields: [ffmpeg_data_id, program_id, stream_id], references: [ffmpeg_data_id, program_id, stream_id], onDelete: Cascade)
+  stream_id      Int
+  program_id     Int
+  ffmpeg_data_id Int
 
-  @@unique([media_info_id, program_id, stream_id])
+  @@unique([ffmpeg_data_id, program_id, stream_id])
   @@map("media_codec")
 }
 
-model MediaVideoProps {
+model FFmpegMediaVideoProps {
   id Int @id @default(autoincrement())
 
   pixel_format     String?
@@ -392,98 +396,32 @@ model MediaVideoProps {
   color_transfer   String?
   field_order      String?
   chroma_location  String?
-  width            Int?
-  height           Int?
+  width            Int
+  height           Int
   aspect_ratio_num Int?
   aspect_ratio_Den Int?
-  properties       String
+  properties       String?
 
-  codec    MediaCodec @relation(fields: [codec_id], references: [id], onDelete: Cascade)
-  codec_id Int        @unique
+  codec    FFmpegMediaCodec @relation(fields: [codec_id], references: [id], onDelete: Cascade)
+  codec_id Int              @unique
 
   @@map("media_video_props")
 }
 
-model MediaAudioProps {
+model FFmpegMediaAudioProps {
   id Int @id @default(autoincrement())
 
-  delay          Int?
-  padding        Int?
+  delay          Int
+  padding        Int
   sample_rate    Int?
   sample_format  String?
   bit_per_sample Int?
   channel_layout String?
 
-  codec    MediaCodec @relation(fields: [codec_id], references: [id], onDelete: Cascade)
-  codec_id Int        @unique
+  codec    FFmpegMediaCodec @relation(fields: [codec_id], references: [id], onDelete: Cascade)
+  codec_id Int              @unique
 
   @@map("media_audio_props")
-}
-
-model MediaSubtitleProps {
-  id Int @id @default(autoincrement())
-
-  width  Int?
-  height Int?
-
-  codec    MediaCodec @relation(fields: [codec_id], references: [id], onDelete: Cascade)
-  codec_id Int        @unique
-
-  @@map("media_subtitle_props")
-}
-
-model MediaMetadata {
-  id Int @id @default(autoincrement())
-
-  // FFmpeg Metadata API
-  // https://ffmpeg.org/doxygen/trunk/group__metadata__api.html
-  album            String? // -- name of the set this work belongs to
-  album_artist     String? // -- main creator of the set/album, if different from artist.
-  //                             e.g. "Various Artists" for compilation albums.
-  artist           String? // -- main creator of the work
-  comment          String? // -- any additional description of the file.
-  composer         String? // -- who composed the work, if different from artist.
-  copyright        String? // -- name of copyright holder.
-  creation_time    DateTime? // -- date when the file was created, preferably in ISO 8601.
-  date             DateTime? // -- date when the work was created, preferably in ISO 8601.
-  disc             Int? // -- number of a subset, e.g. disc in a multi-disc collection.
-  encoder          String? // -- name/settings of the software/hardware that produced the file.
-  encoded_by       String? // -- person/group who created the file.
-  filename         String? // -- original name of the file.
-  genre            String?
-  language         String? // -- main language in which the work is performed, preferably
-  //                             in ISO 639-2 format. Multiple languages can be specified by
-  //                             separating them with commas.
-  performer        String? // -- artist who performed the work, if different from artist.
-  //                             E.g for "Also sprach Zarathustra", artist would be "Richard
-  //                             Strauss" and performer "London Philharmonic Orchestra".
-  publisher        String? // -- name of the label/publisher.
-  service_name     String? // -- name of the service in broadcasting (channel name).
-  service_provider String? // -- name of the service provider in broadcasting.
-  title            String? // -- name of the work.
-  track            Int? // -- number of this work in the set, can be in form current/total.
-  variant_bitrate  Int? // -- the total bitrate of the bitrate variant that the current stream is part of
-
-  custom CustomMetadata[]
-
-  media_info    MediaInfo?
-  media_chapter MediaChapter?
-  media_program MediaProgram?
-  media_stream  MediaStream?
-
-  @@map("media_metadata")
-}
-
-model CustomMetadata {
-  id Int @id @default(autoincrement())
-
-  key   String?
-  value String?
-
-  media_metadata    MediaMetadata @relation(fields: [media_metadata_id], references: [id], onDelete: Cascade)
-  media_metadata_id Int           @unique
-
-  @@map("custom_metadata")
 }
 
 //// Tag ////
@@ -590,7 +528,7 @@ model Job {
   non_critical_errors Bytes? // Serialized non-critical errors field with info about the completed job with errors after completion
 
   data     Bytes? // Deprecated
-  metadata Bytes? // Serialized metadata field with info about the job after completion
+  metadata Bytes // Serialized metadata field with info about the job after completion
 
   parent_id Bytes?
 
