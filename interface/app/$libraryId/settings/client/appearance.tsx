@@ -210,7 +210,11 @@ export const Component = () => {
 				</div>
 			</Setting>
 			{/* Date Formatting Settings */}
-			<Setting mini title={t('date_format')} description={t('date_format_description')}>
+			<Setting
+				mini
+				title={t('date_time_format')}
+				description={t('date_time_format_description')}
+			>
 				<div className="flex h-[30px] gap-2">
 					<Select
 						value={dateFormat}

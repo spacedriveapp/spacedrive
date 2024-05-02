@@ -4,7 +4,7 @@ import { createSearchParams } from 'react-router-dom';
 import { useDebouncedCallback } from 'use-debounce';
 import { SearchFilterArgs } from '@sd/client';
 import { Input, ModifierKeys, Shortcut } from '@sd/ui';
-import { useOperatingSystem } from '~/hooks';
+import { useLocale, useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 
 import { useSearchContext } from './context';
