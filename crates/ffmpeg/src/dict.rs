@@ -159,8 +159,8 @@ impl From<&FFmpegDict> for MediaMetadata {
 						}
 					}
 					"variant_bitrate" => {
-						if let Ok(variant_bitrate) = value.parse() {
-							media_metadata.variant_bitrate = Some(variant_bitrate);
+						if let Ok(variant_bit_rate) = value.parse() {
+							media_metadata.variant_bit_rate = Some(variant_bit_rate);
 						}
 					}
 					_ => {

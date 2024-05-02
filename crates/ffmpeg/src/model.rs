@@ -25,13 +25,13 @@ pub struct MediaMetadata {
 	pub service_provider: Option<String>,
 	pub title: Option<String>,
 	pub track: Option<u32>,
-	pub variant_bitrate: Option<u32>,
+	pub variant_bit_rate: Option<u32>,
 	pub custom: HashMap<String, String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct MediaChapter {
-	pub id: u32,
+	pub id: i32,
 	pub start: (i32, i32),
 	pub end: (i32, i32),
 	pub time_base_den: i32,
@@ -92,7 +92,7 @@ pub struct MediaCodec {
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct MediaStream {
-	pub id: u32,
+	pub id: i32,
 	pub name: Option<String>,
 	pub codec: Option<MediaCodec>,
 	pub aspect_ratio_num: i32,
@@ -107,7 +107,7 @@ pub struct MediaStream {
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct MediaProgram {
-	pub id: u32,
+	pub id: i32,
 	pub name: Option<String>,
 	pub streams: Vec<MediaStream>,
 	pub metadata: MediaMetadata,
@@ -118,8 +118,8 @@ pub struct MediaInfo {
 	pub formats: Vec<String>,
 	pub duration: Option<(i32, i32)>,
 	pub start_time: Option<(i32, i32)>,
-	pub bitrate: (i32, i32),
+	pub bit_rate: i32,
 	pub chapters: Vec<MediaChapter>,
 	pub programs: Vec<MediaProgram>,
-	pub metadata: Option<MediaMetadata>,
+	pub metadata: MediaMetadata,
 }

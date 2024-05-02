@@ -276,7 +276,7 @@ model FFmpegData {
   formats    String
   duration   BigInt?
   start_time BigInt?
-  bitrate    BigInt
+  bit_rate   Int
 
   chapters FFmpegMediaChapter[]
   programs FFmpegMediaProgram[]
@@ -290,7 +290,7 @@ model FFmpegData {
   track         String?
   album         String?
   artist        String?
-  metadata      Bytes
+  metadata      Bytes?
 
   object    Object @relation(fields: [object_id], references: [id], onDelete: Cascade)
   object_id Int    @unique
@@ -309,7 +309,7 @@ model FFmpegMediaChapter {
 
   // Metadata for search
   title    String?
-  metadata Bytes
+  metadata Bytes?
 
   ffmpeg_data    FFmpegData @relation(fields: [ffmpeg_data_id], references: [id], onDelete: Cascade)
   ffmpeg_data_id Int
@@ -325,7 +325,7 @@ model FFmpegMediaProgram {
 
   // Metadata for search
   name     String?
-  metadata Bytes
+  metadata Bytes?
 
   ffmpeg_data    FFmpegData @relation(fields: [ffmpeg_data_id], references: [id], onDelete: Cascade)
   ffmpeg_data_id Int
@@ -352,7 +352,7 @@ model FFmpegMediaStream {
   encoder  String?
   language String?
   duration BigInt?
-  metadata Bytes
+  metadata Bytes?
 
   program        FFmpegMediaProgram @relation(fields: [ffmpeg_data_id, program_id], references: [ffmpeg_data_id, program_id], onDelete: Cascade)
   program_id     Int
@@ -371,7 +371,7 @@ model FFmpegMediaCodec {
   tag      String?
   name     String?
   profile  String?
-  bit_rate BigInt
+  bit_rate Int
 
   video_props FFmpegMediaVideoProps?
   audio_props FFmpegMediaAudioProps?

@@ -214,8 +214,9 @@ impl FFmpegFormatContext {
 		Some(start_time)
 	}
 
-	fn bit_rate(&self) -> i64 {
-		self.as_ref().bit_rate
+	fn bit_rate(&self) -> i32 {
+		// NOTICE: bit_rate is a i64, but I think it will be extremely rare to have a bit rate that doesn't fit in a i32
+		self.as_ref().bit_rate as i32
 	}
 
 	fn chapters(&self) -> Vec<MediaChapter> {
@@ -254,7 +255,7 @@ impl FFmpegFormatContext {
 							.collect::<Vec<MediaStream>>();
 
 						MediaProgram {
-							id: program.id.unsigned_abs(),
+							id: program.id,
 							name,
 							streams,
 							metadata,
@@ -269,7 +270,7 @@ impl FFmpegFormatContext {
 			.filter_map(|i| self.stream(i).map(|stream| (&*stream).into()))
 			.collect::<Vec<MediaStream>>();
 		if !unvisited_streams.is_empty() {
-			if let Ok(id) = u32::try_from(programs.len()) {
+			if let Ok(id) = i32::try_from(programs.len()) {
 				// Create an empty program to hold unvisited streams if there are any
 				programs.push(MediaProgram {
 					id,
@@ -283,9 +284,11 @@ impl FFmpegFormatContext {
 		programs
 	}
 
-	fn metadata(&self) -> Option<MediaMetadata> {
+	fn metadata(&self) -> MediaMetadata {
 		let fmt_ctx = self.as_ref();
-		unsafe { fmt_ctx.metadata.as_mut() }.map(|metadata| FFmpegDict::new(Some(metadata)).into())
+		unsafe { fmt_ctx.metadata.as_mut() }
+			.map(|metadata| FFmpegDict::new(Some(metadata)).into())
+			.unwrap_or_else(MediaMetadata::default)
 	}
 }
 
@@ -302,13 +305,12 @@ impl From<&FFmpegFormatContext> for MediaInfo {
 	fn from(ctx: &FFmpegFormatContext) -> Self {
 		let duration = ctx.duration();
 		let start_time = ctx.start_time();
-		let bit_rate = ctx.bit_rate();
 
 		MediaInfo {
 			formats: ctx.formats(),
 			duration: duration.map(|duration| (duration as i32, (duration >> 32) as i32)),
 			start_time: start_time.map(|start_time| (start_time as i32, (start_time >> 32) as i32)),
-			bitrate: (bit_rate as i32, (bit_rate >> 32) as i32),
+			bit_rate: ctx.bit_rate(),
 			chapters: ctx.chapters(),
 			programs: ctx.programs(),
 			metadata: ctx.metadata(),
@@ -319,8 +321,9 @@ impl From<&FFmpegFormatContext> for MediaInfo {
 impl From<&AVChapter> for MediaChapter {
 	fn from(chapter: &AVChapter) -> Self {
 		MediaChapter {
+			// NOTICE: chapter.id is a i64, but I think it will be extremely rare to have a chapter id that doesn't fit in a i32
+			id: chapter.id as i32,
 			// TODO: FIX this when rspc supports bigint
-			id: chapter.id.unsigned_abs().try_into().unwrap_or_default(),
 			start: (chapter.start as i32, (chapter.start >> 32) as i32),
 			end: (chapter.end as i32, (chapter.end >> 32) as i32),
 			time_base_num: chapter.time_base.num,
@@ -404,7 +407,7 @@ impl From<&AVStream> for MediaStream {
 		});
 
 		MediaStream {
-			id: stream.id.unsigned_abs(),
+			id: stream.id,
 			name,
 			codec,
 			aspect_ratio_num: aspect_ratio.num,
