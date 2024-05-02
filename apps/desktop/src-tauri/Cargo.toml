@@ -10,10 +10,7 @@ edition = { workspace = true }
 
 [dependencies]
 # Spacedrive Sub-crates
-sd-core = { path = "../../../core", features = [
-	"ffmpeg",
-	"heif",
-] }
+sd-core = { path = "../../../core", features = ["ffmpeg", "heif"] }
 sd-fda = { path = "../../../crates/fda" }
 sd-prisma = { path = "../../../crates/prisma" }
 
@@ -34,17 +31,17 @@ thiserror.workspace = true
 
 opener = { version = "0.6.1", features = ["reveal"] }
 tauri = { version = "=1.5.3", features = [
-    "macos-private-api",
-    "path-all",
-    "protocol-all",
-    "os-all",
-    "shell-all",
-    "dialog-all",
-    "linux-protocol-headers",
-    "updater",
-    "window-all",
-    "native-tls-vendored",
-    "tracing",
+	"macos-private-api",
+	"path-all",
+	"protocol-all",
+	"os-all",
+	"shell-all",
+	"dialog-all",
+	"linux-protocol-headers",
+	"updater",
+	"window-all",
+	"native-tls-vendored",
+	"tracing",
 ] }
 directories = "5.0.1"
 
