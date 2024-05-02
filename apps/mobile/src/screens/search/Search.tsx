@@ -1,7 +1,7 @@
 import { useIsFocused } from '@react-navigation/native';
-import { SearchFilterArgs, useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
-import { ArrowLeft, DotsThreeOutline, FunnelSimple, MagnifyingGlass } from 'phosphor-react-native';
-import { Suspense, useDeferredValue, useMemo, useState } from 'react';
+import { usePathsExplorerQuery } from '@sd/client';
+import { ArrowLeft, DotsThreeOutline, FunnelSimple } from 'phosphor-react-native';
+import { Suspense, useDeferredValue, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Explorer from '~/components/explorer/Explorer';
@@ -15,42 +15,21 @@ import { useSearchStore } from '~/stores/searchStore';
 
 const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 	const headerHeight = useSafeAreaInsets().top;
-	const [loading, setLoading] = useState(false);
 	const searchStore = useSearchStore();
 	const explorerStore = useExplorerStore();
 	const isFocused = useIsFocused();
-	const appliedFiltersLength = Object.keys(searchStore.appliedFilters).length;
-	const isAndroid = Platform.OS === 'android';
-	const locations = useLibraryQuery(['locations.list'], {
-		keepPreviousData: true,
-	});
-
 	const [search, setSearch] = useState('');
 	const deferredSearch = useDeferredValue(search);
 
-	const filters = useMemo(() => {
-		const [name, ext] = deferredSearch.split('.');
-
-		const filters: SearchFilterArgs[] = [];
-
-		if (name) filters.push({ filePath: { name: { contains: name } } });
-		if (ext) filters.push({ filePath: { extension: { in: [ext] } } });
-
-		if (name || ext) {
-			// Add locations filter to search all locations
-			if (locations.data && locations.data.length > 0) filters.push({ filePath: { locations: { in:
-				locations.data?.map((location) => location.id) } } });
-		}
-
-		return searchStore.mergedFilters.concat(filters);
-	}, [deferredSearch, searchStore.mergedFilters, locations.data]);
+	const appliedFiltersLength = Object.keys(searchStore.appliedFilters).length;
+	const isAndroid = Platform.OS === 'android';
 
 	const objects = usePathsExplorerQuery({
 		arg: {
 			take: 30,
-			filters
+			filters: searchStore.mergedFilters,
 		},
-		enabled: isFocused && filters.length > 1, // only fetch when screen is focused & filters are applied
+		enabled: isFocused && searchStore.mergedFilters.length > 1, // only fetch when screen is focused & filters are applied
 		suspense: true,
 		order: null,
 		onSuccess: () => getExplorerStore().resetNewThumbnails()
@@ -60,7 +39,7 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 	const noObjects = objects.items?.length === 0 || !objects.items;
 	const noSearch = deferredSearch.length === 0 && appliedFiltersLength === 0;
 
-	useFiltersSearch();
+	useFiltersSearch(deferredSearch);
 
 	return (
 		<View
@@ -87,17 +66,6 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 							style={tw`h-10 w-4/5 flex-wrap rounded-md border border-app-inputborder bg-app-input`}
 						>
 							<View style={tw`flex h-full flex-row items-center px-3`}>
-								<View style={tw`mr-3`}>
-									{loading ? (
-										<ActivityIndicator size={'small'} color={'white'} />
-									) : (
-										<MagnifyingGlass
-											size={20}
-											weight="bold"
-											color={tw.color('ink-dull')}
-										/>
-									)}
-								</View>
 								<TextInput
 									value={search}
 									onChangeText={(t) => setSearch(t)}
