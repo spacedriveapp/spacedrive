@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { P2PEvent, useBridgeMutation, useSpacedropProgress } from '@sd/client';
 import { Input, ProgressBar, toast, ToastId } from '@sd/ui';
+import { useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 const placeholder = '/Users/oscar/Desktop/demo.txt';
@@ -9,17 +10,16 @@ export function useIncomingSpacedropToast() {
 	const platform = usePlatform();
 	const acceptSpacedrop = useBridgeMutation('p2p.acceptSpacedrop');
 	const filePathInput = useRef<HTMLInputElement>(null);
+	const { t } = useLocale();
 
 	return (data: Extract<P2PEvent, { type: 'SpacedropRequest' }>) =>
 		toast.info(
 			{
-				title: 'Incoming Spacedrop',
+				title: t('incoming_spacedrop'),
 				// TODO: Make this pretty
 				body: (
 					<>
-						<p>
-							File '{data.files[0]}' from '{data.peer_name}'
-						</p>
+						<p>{t('file_from', { file: data.files[0], name: data.peer_name })}</p>
 						{/* TODO: This will be removed in the future for now it's just a hack */}
 						{platform.saveFilePickerDialog ? null : (
 							<Input
@@ -40,14 +40,14 @@ export function useIncomingSpacedropToast() {
 					event !== 'on-action' && acceptSpacedrop.mutate([data.id, null]);
 				},
 				action: {
-					label: 'Accept',
+					label: t('accept'),
 					async onClick() {
 						let destinationFilePath = filePathInput.current?.value ?? placeholder;
 
 						if (data.files.length != 1) {
 							if (platform.openDirectoryPickerDialog) {
 								const result = await platform.openDirectoryPickerDialog({
-									title: 'Save Spacedrop',
+									title: t('save_spacedrop'),
 									multiple: false
 								});
 								if (!result) {
@@ -58,7 +58,7 @@ export function useIncomingSpacedropToast() {
 						} else {
 							if (platform.saveFilePickerDialog) {
 								const result = await platform.saveFilePickerDialog({
-									title: 'Save Spacedrop',
+									title: t('save_spacedrop'),
 									defaultPath: data.files?.[0]
 								});
 								if (!result) {
@@ -72,7 +72,7 @@ export function useIncomingSpacedropToast() {
 						await acceptSpacedrop.mutateAsync([data.id, destinationFilePath]);
 					}
 				},
-				cancel: 'Reject'
+				cancel: t('reject')
 			}
 		);
 }
@@ -95,6 +95,7 @@ export function SpacedropProgress({ toastId, dropId }: { toastId: ToastId; dropI
 
 export function useSpacedropProgressToast() {
 	const cancelSpacedrop = useBridgeMutation(['p2p.cancelSpacedrop']);
+	const { t } = useLocale();
 
 	return (data: Extract<P2PEvent, { type: 'SpacedropProgress' }>) => {
 		toast.info(
@@ -106,7 +107,7 @@ export function useSpacedropProgressToast() {
 				id: data.id,
 				duration: Infinity,
 				cancel: {
-					label: 'Cancel',
+					label: t('cancel'),
 					onClick() {
 						cancelSpacedrop.mutate(data.id);
 					}

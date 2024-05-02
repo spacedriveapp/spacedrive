@@ -151,7 +151,7 @@ export const useExplorerCopyPaste = () => {
 		} catch (error) {
 			toast.error({
 				title: t(type === 'Copy' ? 'failed_to_copy_file' : 'failed_to_cut_file'),
-				body: `Error: ${error}.`
+				body: t('error_message', { error })
 			});
 		}
 	}
