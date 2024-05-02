@@ -20,7 +20,7 @@ import { TopBarPortal } from '../TopBar/Portal';
 export function Component() {
 	const { id: tagId } = useZodRouteParams(LocationIdParamsSchema);
 	const result = useLibraryQuery(['tags.get', tagId], { suspense: true });
-	const tag = result.data;
+	const tag = result.data!;
 
 	const { t } = useLocale();
 
@@ -28,9 +28,9 @@ export function Component() {
 
 	const { explorerSettings, preferences } = useTagExplorerSettings(tag!);
 
-	const search = useSearchFromSearchParams();
+	const search = useSearchFromSearchParams({ defaultTarget: 'objects' });
 
-	const defaultFilters = useMemo(() => [{ object: { tags: { in: [tag!.id] } } }], [tag!.id]);
+	const defaultFilters = useMemo(() => [{ object: { tags: { in: [tag.id] } } }], [tag.id]);
 
 	const items = useSearchExplorerQuery({
 		search,
@@ -45,7 +45,7 @@ export function Component() {
 		isFetchingNextPage: items.query.isFetchingNextPage,
 		isLoadingPreferences: preferences.isLoading,
 		settings: explorerSettings,
-		parent: { type: 'Tag', tag: tag! }
+		parent: { type: 'Tag', tag: tag }
 	});
 
 	return (

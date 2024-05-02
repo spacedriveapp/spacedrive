@@ -1,10 +1,13 @@
+import { useIsFocused } from '@react-navigation/native';
+import { SearchFilterArgs, useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
 import { ArrowLeft, DotsThreeOutline, FunnelSimple, MagnifyingGlass } from 'phosphor-react-native';
 import { Suspense, useDeferredValue, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SearchFilterArgs, useObjectsExplorerQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
+import Empty from '~/components/layout/Empty';
 import FiltersBar from '~/components/search/filters/FiltersBar';
+import { useFiltersSearch } from '~/hooks/useFiltersSearch';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SearchStackScreenProps } from '~/navigation/SearchStack';
 import { getExplorerStore, useExplorerStore } from '~/stores/explorerStore';
@@ -15,11 +18,12 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 	const [loading, setLoading] = useState(false);
 	const searchStore = useSearchStore();
 	const explorerStore = useExplorerStore();
-	const appliedFiltersLength = useMemo(
-		() => Object.keys(searchStore.appliedFilters).length,
-		[searchStore.appliedFilters]
-	);
+	const isFocused = useIsFocused();
+	const appliedFiltersLength = Object.keys(searchStore.appliedFilters).length;
 	const isAndroid = Platform.OS === 'android';
+	const locations = useLibraryQuery(['locations.list'], {
+		keepPreviousData: true,
+	});
 
 	const [search, setSearch] = useState('');
 	const deferredSearch = useDeferredValue(search);
@@ -32,19 +36,31 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 		if (name) filters.push({ filePath: { name: { contains: name } } });
 		if (ext) filters.push({ filePath: { extension: { in: [ext] } } });
 
-		return filters;
-	}, [deferredSearch]);
+		if (name || ext) {
+			// Add locations filter to search all locations
+			if (locations.data && locations.data.length > 0) filters.push({ filePath: { locations: { in:
+				locations.data?.map((location) => location.id) } } });
+		}
 
-	const objects = useObjectsExplorerQuery({
+		return searchStore.mergedFilters.concat(filters);
+	}, [deferredSearch, searchStore.mergedFilters, locations.data]);
+
+	const objects = usePathsExplorerQuery({
 		arg: {
 			take: 30,
 			filters
 		},
-		order: null,
+		enabled: isFocused && filters.length > 1, // only fetch when screen is focused & filters are applied
 		suspense: true,
-		enabled: !!deferredSearch,
+		order: null,
 		onSuccess: () => getExplorerStore().resetNewThumbnails()
 	});
+
+	// Check if there are no objects or no search
+	const noObjects = objects.items?.length === 0 || !objects.items;
+	const noSearch = deferredSearch.length === 0 && appliedFiltersLength === 0;
+
+	useFiltersSearch();
 
 	return (
 		<View
@@ -119,12 +135,26 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 						/>
 					</Pressable>
 				</View>
-				{appliedFiltersLength > 0 && <FiltersBar />}
+			{appliedFiltersLength > 0 && <FiltersBar/>}
 			</View>
 			{/* Content */}
 			<View style={tw`flex-1`}>
 				<Suspense fallback={<ActivityIndicator />}>
-					<Explorer {...objects} tabHeight={false} />
+					<Explorer
+					{...objects}
+					isEmpty={noObjects}
+					emptyComponent={
+						<Empty
+						icon={noSearch ? 'Search' : 'FolderNoSpace'}
+						style={twStyle('flex-1 items-center justify-center border-0', {
+							marginBottom: headerHeight
+						})}
+						textSize="text-md"
+						iconSize={100}
+						description={noSearch ? 'Add filters or type to search for files' : 'No files found'}
+					/>
+					}
+					tabHeight={false} />
 				</Suspense>
 			</View>
 		</View>

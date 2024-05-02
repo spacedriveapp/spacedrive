@@ -24,7 +24,7 @@ export const Component = () => {
 
 	const { data: node } = useBridgeQuery(['nodeState']);
 
-	const search = useSearchFromSearchParams();
+	const search = useSearchFromSearchParams({ defaultTarget: 'paths' });
 
 	const stats = useLibraryQuery(['library.statistics']);
 

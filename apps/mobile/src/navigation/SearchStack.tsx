@@ -1,6 +1,8 @@
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import React from 'react';
+import DynamicHeader from '~/components/header/DynamicHeader';
 import Header from '~/components/header/Header';
+import LocationScreen from '~/screens/browse/Location';
 import FiltersScreen from '~/screens/search/Filters';
 import SearchScreen from '~/screens/search/Search';
 
@@ -25,6 +27,14 @@ export default function SearchStack() {
 					}
 				}}
 			/>
+			{/** This screen is already in BrowseStack - but added here as it offers the UX needed */}
+				<Stack.Screen
+				name="Location"
+				component={LocationScreen}
+				options={({route: optionsRoute}) => ({
+					header: (route) => <DynamicHeader optionsRoute={optionsRoute} headerRoute={route} kind="location" />
+				})}
+			/>
 		</Stack.Navigator>
 	);
 }
@@ -32,6 +42,7 @@ export default function SearchStack() {
 export type SearchStackParamList = {
 	Search: undefined;
 	Filters: undefined;
+	Location: { id: number; path: string };
 };
 
 export type SearchStackScreenProps<Screen extends keyof SearchStackParamList> =
