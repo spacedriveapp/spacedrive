@@ -78,7 +78,7 @@ model Instance {
   remote_identity Bytes
 
   node_id  Bytes
-  metadata Bytes // TODO: This should not be optional
+  metadata Bytes? // TODO: This should not be optional
 
   last_seen    DateTime // Time core started for owner, last P2P message for P2P node
   date_created DateTime
@@ -315,7 +315,7 @@ model FFmpegMediaChapter {
   ffmpeg_data_id Int
 
   @@id(name: "likeId", [ffmpeg_data_id, chapter_id])
-  @@map("media_chapter")
+  @@map("ffmpeg_media_chapter")
 }
 
 model FFmpegMediaProgram {
@@ -331,7 +331,7 @@ model FFmpegMediaProgram {
   ffmpeg_data_id Int
 
   @@id(name: "likeId", [ffmpeg_data_id, program_id])
-  @@map("media_program")
+  @@map("ffmpeg_media_program")
 }
 
 model FFmpegMediaStream {
@@ -360,7 +360,7 @@ model FFmpegMediaStream {
 
   @@id(name: "likeId", [ffmpeg_data_id, program_id, stream_id])
   @@unique([ffmpeg_data_id, program_id])
-  @@map("media_stream")
+  @@map("ffmpeg_media_stream")
 }
 
 model FFmpegMediaCodec {
@@ -382,7 +382,7 @@ model FFmpegMediaCodec {
   ffmpeg_data_id Int
 
   @@unique([ffmpeg_data_id, program_id, stream_id])
-  @@map("media_codec")
+  @@map("ffmpeg_media_codec")
 }
 
 model FFmpegMediaVideoProps {
@@ -405,7 +405,7 @@ model FFmpegMediaVideoProps {
   codec    FFmpegMediaCodec @relation(fields: [codec_id], references: [id], onDelete: Cascade)
   codec_id Int              @unique
 
-  @@map("media_video_props")
+  @@map("ffmpeg_media_video_props")
 }
 
 model FFmpegMediaAudioProps {
@@ -421,7 +421,7 @@ model FFmpegMediaAudioProps {
   codec    FFmpegMediaCodec @relation(fields: [codec_id], references: [id], onDelete: Cascade)
   codec_id Int              @unique
 
-  @@map("media_audio_props")
+  @@map("ffmpeg_media_audio_props")
 }
 
 //// Tag ////
@@ -528,7 +528,7 @@ model Job {
   non_critical_errors Bytes? // Serialized non-critical errors field with info about the completed job with errors after completion
 
   data     Bytes? // Deprecated
-  metadata Bytes // Serialized metadata field with info about the job after completion
+  metadata Bytes? // Serialized metadata field with info about the job after completion
 
   parent_id Bytes?
 
