@@ -100,6 +100,7 @@ export const Inspector = forwardRef<HTMLDivElement, Props>(
 			explorerStore.showMoreInfo = false;
 		}, [pathname]);
 
+		const { t } = useLocale();
 		return (
 			<div ref={ref} style={{ width: INSPECTOR_WIDTH, ...style }} {...props}>
 				<Sticky
@@ -120,7 +121,7 @@ export const Inspector = forwardRef<HTMLDivElement, Props>(
 					<div className="flex select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
 						{!isNonEmpty(selectedItems) ? (
 							<div className="flex h-[390px] items-center justify-center text-sm text-ink-dull">
-								Nothing selected
+								{t('nothing_selected')}
 							</div>
 						) : selectedItems.length === 1 ? (
 							<SingleItemMetadata item={selectedItems[0]} />
@@ -342,7 +343,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					onClick={() => {
 						if (fullPath) {
 							navigator.clipboard.writeText(fullPath);
-							toast.info('Copied path to clipboard');
+							toast.info(t('path_copied_to_clipboard_title'));
 						}
 					}}
 				/>

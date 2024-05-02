@@ -76,7 +76,8 @@ const searchStore = proxy<
 	State & {
 		updateFilters: <K extends keyof State['filters']>(
 			filter: K,
-			value: State['filters'][K] extends Array<infer U> ? U : State['filters'][K]
+			value: State['filters'][K] extends Array<infer U> ? U : State['filters'][K],
+			apply?: boolean
 		) => void;
 		applyFilters: () => void;
 		setSearch: (search: string) => void;
@@ -89,7 +90,7 @@ const searchStore = proxy<
 >({
 	...initialState,
 	//for updating the filters upon value selection
-	updateFilters: (filter, value) => {
+	updateFilters: (filter, value, apply = false) => {
 		if (filter === 'hidden') {
 			// Directly assign boolean values without an array operation
 			searchStore.filters['hidden'] = value as boolean;
@@ -107,6 +108,9 @@ const searchStore = proxy<
 				searchStore.filters[filter] = updatedFilter;
 			}
 		}
+		//instead of a useEffect or subscription - we can call applyFilters directly
+		// useful when you want to apply the filters from another screen
+		if (apply) searchStore.applyFilters();
 	},
 	//for clicking add filters and applying the selection
 	applyFilters: () => {

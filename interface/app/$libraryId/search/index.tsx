@@ -31,7 +31,7 @@ export function Component() {
 
 	const { t } = useLocale();
 
-	const search = useSearchFromSearchParams();
+	const search = useSearchFromSearchParams({ defaultTarget: 'paths' });
 
 	const items = useSearchExplorerQuery({
 		search,

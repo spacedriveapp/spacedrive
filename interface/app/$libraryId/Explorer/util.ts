@@ -71,65 +71,66 @@ export function loadDayjsLocale(language: string) {
 // Generate list of localized formats available in the app
 export function generateLocaleDateFormats(language: string) {
 	language = language.replace('_', '-');
+	const defaultDate = '01/01/2024 23:19';
 	const DATE_FORMATS = [
 		{
 			value: 'L',
-			label: dayjs().locale(language).format('L')
+			label: dayjs(defaultDate).locale(language).format('L')
 		},
 		{
-			value: 'L LT',
-			label: dayjs().locale(language).format('L LT')
+			value: 'L, LT',
+			label: dayjs(defaultDate).locale(language).format('L, LT')
 		},
-		// {
-		// 	value: 'll',
-		// 	label: dayjs().locale(language).format('ll')
-		// },
+		{
+			value: 'll',
+			label: dayjs(defaultDate).locale(language).format('ll')
+		},
 		{
 			value: 'LL',
-			label: dayjs().locale(language).format('LL')
+			label: dayjs(defaultDate).locale(language).format('LL')
 		},
-		// {
-		// 	value: 'lll',
-		// 	label: dayjs().locale(language).format('lll')
-		// },
+		{
+			value: 'lll',
+			label: dayjs(defaultDate).locale(language).format('lll')
+		},
 		{
 			value: 'LLL',
-			label: dayjs().locale(language).format('LLL')
+			label: dayjs(defaultDate).locale(language).format('LLL')
 		},
 		{
 			value: 'llll',
-			label: dayjs().locale(language).format('llll')
+			label: dayjs(defaultDate).locale(language).format('llll')
 		}
 	];
 	if (language === 'en') {
 		const additionalFormats = [
 			{
 				value: 'DD/MM/YYYY',
-				label: dayjs().locale('en').format('DD/MM/YYYY')
+				label: dayjs(defaultDate).locale('en').format('DD/MM/YYYY')
 			},
 			{
 				value: 'DD/MM/YYYY HH:mm',
-				label: dayjs().locale('en').format('DD/MM/YYYY HH:mm')
-			},
-			// {
-			// 	value: 'D MMM YYYY',
-			// 	label: dayjs().locale('en').format('D MMM YYYY')
-			// },
-			{
-				value: 'D MMMM YYYY',
-				label: dayjs().locale('en').format('D MMMM YYYY')
-			},
-			// {
-			// 	value: 'D MMM YYYY HH:mm',
-			// 	label: dayjs().locale('en').format('D MMM YYYY HH:mm')
-			// },
-			{
-				value: 'D MMMM YYYY HH:mm',
-				label: dayjs().locale('en').format('D MMMM YYYY HH:mm')
+				label: dayjs(defaultDate).locale('en').format('DD/MM/YYYY HH:mm')
 			},
 			{
-				value: 'ddd, D MMM YYYY HH:mm',
-				label: dayjs().locale('en').format('ddd, D MMMM YYYY HH:mm')
+				value: 'D MMM, YYYY',
+				label: dayjs(defaultDate).locale('en').format('D MMM, YYYY')
+			},
+			{
+				value: 'D MMMM, YYYY',
+				label: dayjs(defaultDate).locale('en').format('D MMMM, YYYY')
+			},
+			{
+				value: 'D MMM, YYYY HH:mm',
+				label: dayjs(defaultDate).locale('en').format('D MMM, YYYY HH:mm')
+			},
+			{
+				value: 'D MMMM, YYYY HH:mm',
+				label: dayjs(defaultDate).locale('en').format('D MMMM, YYYY HH:mm')
+			},
+			{
+				value: 'ddd, D MMM, YYYY HH:mm',
+				label: dayjs(defaultDate).locale('en').format('ddd, D MMMM, YYYY HH:mm')
 			}
 		];
 		return DATE_FORMATS.concat(additionalFormats);

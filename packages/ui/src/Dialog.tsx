@@ -127,6 +127,7 @@ export interface DialogProps<S extends FieldValues>
 	children?: ReactNode;
 	ctaDanger?: boolean;
 	closeLabel?: string;
+	cancelLabel?: string;
 	cancelBtn?: boolean;
 	description?: ReactNode;
 	onCancelled?: boolean | (() => void);
@@ -171,7 +172,7 @@ export function Dialog<S extends FieldValues>({
 				variant="gray"
 				onClick={typeof onCancelled === 'function' ? onCancelled : undefined}
 			>
-				Cancel
+				{props.cancelLabel || 'Cancel'}
 			</Button>
 		</RDialog.Close>
 	);
