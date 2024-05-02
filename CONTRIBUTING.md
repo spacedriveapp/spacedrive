@@ -169,6 +169,10 @@ Once that has completed, run `xcode-select --install` in the terminal to install
 
 Also ensure that Rosetta is installed, as a few of our dependencies require it. You can install Rosetta with `softwareupdate --install-rosetta --agree-to-license`.
 
+### Translations
+Check out the [i18n README](interface/locales/README.md) for more information on how to contribute to translations.
+
+
 ### Credits
 
 This CONTRIBUTING.md file was inspired by the [github/docs CONTRIBUTING.md](https://github.com/github/docs/blob/main/CONTRIBUTING.md) file, and we extend our gratitude to the original author.
