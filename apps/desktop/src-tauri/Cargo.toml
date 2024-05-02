@@ -42,6 +42,7 @@ tauri-plugin-dialog = { git = "https://github.com/tauri-apps/plugins-workspace",
 tauri-plugin-os = "2.0.0-beta"
 tauri-plugin-shell = "2.0.0-beta"
 serde_json.workspace = true
+strum = { workspace = true, features = ["derive"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 sd-desktop-linux = { path = "../crates/linux" }

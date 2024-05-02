@@ -26,7 +26,7 @@ export const commands = {
 		}
 	},
 	async reloadWebview(): Promise<void> {},
-	async setMenuBarItemState(id: string, enabled: boolean): Promise<void> {},
+	async setMenuBarItemState(event: MenuEvent, enabled: boolean): Promise<void> {},
 	async requestFdaMacos(): Promise<void> {},
 	async openTrashInOsExplorer(): Promise<Result<null, null>> {
 		try {
@@ -148,6 +148,21 @@ export type DragAndDropEvent =
 	| { type: 'Dropped'; paths: string[]; x: number; y: number }
 	| { type: 'Cancelled' };
 export type EphemeralFileOpenResult = { t: 'Ok'; c: string } | { t: 'Err'; c: string };
+export type MenuEvent =
+	| 'NewLibrary'
+	| 'NewFile'
+	| 'NewDirectory'
+	| 'AddLocation'
+	| 'OpenOverview'
+	| 'OpenSearch'
+	| 'OpenSettings'
+	| 'ReloadExplorer'
+	| 'SetLayoutGrid'
+	| 'SetLayoutList'
+	| 'SetLayoutMedia'
+	| 'ToggleDeveloperTools'
+	| 'NewWindow'
+	| 'ReloadWebview';
 export type OpenFilePathResult =
 	| { t: 'NoLibrary' }
 	| { t: 'NoFile'; c: number }

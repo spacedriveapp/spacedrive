@@ -11,6 +11,9 @@
 		"image:default",
 		"resources:default",
 		"menu:default",
-		"tray:default"
+		"tray:default",
+		"webview:default",
+		"webview:allow-internal-toggle-devtools",
+		"os:allow-os-type"
 	]
 }

@@ -9000,6 +9000,7 @@ dependencies = [
  "serde",
  "serde_json",
  "specta",
+ "strum",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
