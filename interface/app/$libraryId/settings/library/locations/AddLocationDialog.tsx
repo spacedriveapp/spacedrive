@@ -217,6 +217,7 @@ export const AddLocationDialog = ({
 			dialog={useDialog(dialogProps)}
 			icon={<Icon name="NewLocation" size={28} />}
 			onSubmit={onSubmit}
+			closeLabel={t('close')}
 			ctaLabel={t('add')}
 			formClassName="min-w-[375px]"
 			errorMessageException={t('location_is_already_linked')}

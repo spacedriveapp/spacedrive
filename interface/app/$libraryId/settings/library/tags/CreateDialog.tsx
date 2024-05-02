@@ -85,6 +85,7 @@ export default (
 			title={t('create_new_tag')}
 			description={t('create_new_tag_description')}
 			ctaLabel={t('create')}
+			closeLabel={t('close')}
 		>
 			<div className="relative mt-3 ">
 				<InputField
