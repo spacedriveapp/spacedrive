@@ -6,8 +6,8 @@ import { Icon as SDIcon } from '~/components';
 
 export const filterTypeCondition = {
 	inOrNotIn: {
-		in: i18n.t('in'),
-		notIn: i18n.t('not_in')
+		in: i18n.t('is'),
+		notIn: i18n.t('is_not')
 	},
 	textMatch: {
 		contains: i18n.t('contains'),
@@ -20,8 +20,8 @@ export const filterTypeCondition = {
 		to: i18n.t('to')
 	},
 	trueOrFalse: {
-		true: i18n.t('true'),
-		false: i18n.t('false')
+		true: i18n.t('is'),
+		false: i18n.t('is_not')
 	}
 } as const;
 
