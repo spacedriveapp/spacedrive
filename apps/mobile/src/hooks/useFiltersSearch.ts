@@ -1,4 +1,4 @@
-import { SearchFilterArgs } from '@sd/client';
+import { SearchFilterArgs, useLibraryQuery } from '@sd/client';
 import { useEffect, useMemo } from 'react';
 import { Filters, SearchFilters, getSearchStore, useSearchStore } from '~/stores/searchStore';
 
@@ -6,11 +6,19 @@ import { Filters, SearchFilters, getSearchStore, useSearchStore } from '~/stores
  * This hook merges the selected filters from Filters page in order
  * to make query calls for saved searches and setups filters for the search
  * the data structure has been designed to match the desktop app
+ * @param search - search input string value
  */
 
-export function useFiltersSearch() {
-	const searchStore = useSearchStore();;
 
+export function useFiltersSearch(search: string) {
+
+	const [name, ext] = useMemo(() => search.split('.'), [search]);
+	const searchStore = useSearchStore();
+
+	const locations = useLibraryQuery(['locations.list'], {
+		keepPreviousData: true,
+		enabled: (name || ext) ? true : false,
+	});
 
 	const filterFactory = (key: SearchFilters, value: Filters[keyof Filters])  => {
 
@@ -49,8 +57,19 @@ export function useFiltersSearch() {
 
 	const mergedFilters = useMemo(() => {
 
-		    const filters = [] as SearchFilterArgs[];
+		const filters = [] as SearchFilterArgs[];
 
+		//It's a global search if no locations have been selected
+		if (searchStore.filters.locations.length === 0 || !name || !ext) {
+			const locationIds = locations.data?.map((l) => l.id);
+			if (locationIds) filters.push({ filePath: { locations: { in: locationIds } } });
+		}
+
+		//handle search input
+		if (name) filters.push({ filePath: { name: { contains: name } } });
+		if (ext) filters.push({ filePath: { extension: { in: [ext] } } });
+
+		// handle selected filters
 			for (const key in searchStore.filters) {
 
 				const filterKey = key as SearchFilters;
@@ -77,10 +96,10 @@ export function useFiltersSearch() {
 			// makes sure the array is not 2D
 			return filters.flat();
 
-	}, [searchStore.filters]);
+	}, [searchStore.filters, search]);
 
 
 	useEffect(() => {
 		getSearchStore().mergedFilters = mergedFilters;
-	}, [searchStore.filters]);
+	}, [searchStore.filters, search]);
 };
