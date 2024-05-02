@@ -14,6 +14,7 @@
 		"tray:default",
 		"webview:default",
 		"webview:allow-internal-toggle-devtools",
-		"os:allow-os-type"
+		"os:allow-os-type",
+		"window:allow-start-dragging"
 	]
 }

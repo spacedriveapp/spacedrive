@@ -65,9 +65,7 @@ pub fn setup_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 	}
 	#[cfg(target_os = "macos")]
 	{
-		use tauri::menu::{
-			AboutMetadataBuilder, MenuBuilder, MenuItem, MenuItemBuilder, SubmenuBuilder,
-		};
+		use tauri::menu::{AboutMetadataBuilder, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 
 		let app_menu = SubmenuBuilder::new(app, "Spacedrive")
 			.about(Some(

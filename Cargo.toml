@@ -43,7 +43,7 @@ tracing-appender = "0.2.3"
 
 rspc = { version = "0.1.4" }
 specta = { version = "=2.0.0-rc.11" }
-tauri-specta = { version = "=2.0.0-rc.5" }
+tauri-specta = { version = "=2.0.0-rc.8" }
 
 swift-rs = { version = "1.0.6" }
 

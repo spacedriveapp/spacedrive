@@ -10630,9 +10630,9 @@ dependencies = [
 
 [[package]]
 name = "tauri-specta"
-version = "2.0.0-rc.5"
+version = "2.0.0-rc.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39e64533d13d9b837aa45665f5f15384d2b8f7913eea6b95d35c9ec1a01922be"
+checksum = "54fd66a6cdf8ca36aa44f9044510b449678e043056d84b551b4ff6ecb957364b"
 dependencies = [
  "heck 0.5.0",
  "indoc",

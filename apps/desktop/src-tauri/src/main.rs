@@ -212,7 +212,7 @@ async fn main() -> tauri::Result<()> {
 		builder.build().unwrap()
 	};
 
-	let app = tauri::Builder::default()
+	tauri::Builder::default()
 		.invoke_handler(invoke_handler)
 		.setup(move |app| {
 			// We need a the app handle to determine the data directory now.
@@ -251,12 +251,11 @@ async fn main() -> tauri::Result<()> {
 
 					let should_clear_localstorage = node.libraries.get_all().await.is_empty();
 
-					let handle = app.handle();
 					handle.plugin(rspc::integrations::tauri::plugin(router, {
 						let node = node.clone();
 						move || node.clone()
 					}))?;
-					handle.plugin(sd_server_plugin(node.clone()).await.unwrap())?; // TODO: Handle `unwrap`
+					handle.plugin(sd_server_plugin(node.clone(), handle).await.unwrap())?; // TODO: Handle `unwrap`
 					handle.manage(node.clone());
 
 					handle.windows().iter().for_each(|(_, window)| {
