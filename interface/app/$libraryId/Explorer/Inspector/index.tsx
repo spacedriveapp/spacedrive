@@ -343,7 +343,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					onClick={() => {
 						if (fullPath) {
 							navigator.clipboard.writeText(fullPath);
-							toast.info('Copied path to clipboard');
+							toast.info(t('path_copied_to_clipboard_title'));
 						}
 					}}
 				/>
