@@ -9,6 +9,8 @@ import { openDirectoryPickerDialog } from '~/app/$libraryId/settings/library/loc
 import { useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
+import { useSidebarContext } from '../../SidebarLayout/Context';
+
 export const ContextMenu = ({
 	children,
 	locationId
@@ -17,10 +19,16 @@ export const ContextMenu = ({
 	const platform = usePlatform();
 	const libraryId = useLibraryContext().library.uuid;
 
+	const sidebar = useSidebarContext();
+
 	const { t } = useLocale();
 
 	return (
-		<CM.Root trigger={children}>
+		<CM.Root
+			trigger={children}
+			onOpenChange={(open) => sidebar.onLockedChange(open)}
+			className="z-[100]"
+		>
 			<CM.Item
 				onClick={async () => {
 					try {
