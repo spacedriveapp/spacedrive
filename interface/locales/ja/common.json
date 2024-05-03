@@ -309,6 +309,7 @@
   "install_update": "アップデートをインストールする",
   "installed": "インストール完了",
   "item_size": "アイテムの表示サイズ",
+  "item": "item",
   "items": "items",
   "job_has_been_canceled": "ジョブが中止されました。",
   "job_has_been_paused": "ジョブが一時停止されました。",

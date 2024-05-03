@@ -308,6 +308,7 @@
   "install": "Installeer",
   "install_update": "Installeer Update",
   "installed": "Geïnstalleerd",
+  "item": "item",
   "item_size": "Item grootte",
   "item_with_count_one": "{{count}} item",
   "item_with_count_other": "{{count}} items",

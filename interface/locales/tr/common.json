@@ -308,6 +308,7 @@
   "install": "Yükle",
   "install_update": "Güncellemeyi Yükle",
   "installed": "Yüklendi",
+  "item": "item",
   "item_size": "Öğe Boyutu",
   "item_with_count_one": "{{count}} madde",
   "item_with_count_other": "{{count}} maddeler",

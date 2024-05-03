@@ -308,6 +308,7 @@
   "install": "Installa",
   "install_update": "Installa Aggiornamento",
   "installed": "Installato",
+  "item": "item",
   "item_size": "Dimensione dell'elemento",
   "item_with_count_one": "{{count}} elemento",
   "item_with_count_many": "{{count}} items",

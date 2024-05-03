@@ -4,6 +4,9 @@ import { useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { formatNumber, SearchFilterArgs, useLibraryQuery } from '@sd/client';
 import { Icon } from '~/components';
+import { useLocale } from '~/hooks';
+
+import { translateKindName } from '../Explorer/util';
 
 export default () => {
 	const ref = useRef<HTMLDivElement>(null);
@@ -17,6 +20,7 @@ export default () => {
 				?.sort((a, b) => b.count - a.count)
 				.filter((i) => i.kind !== 0)
 				.map(({ kind, name, count }) => {
+					console.log(count);
 					let icon = name;
 					switch (name) {
 						case 'Code':
@@ -38,7 +42,7 @@ export default () => {
 						>
 							<KindItem
 								kind={kind}
-								name={name}
+								name={translateKindName(name)}
 								icon={icon}
 								items={count}
 								onClick={() => {}}
@@ -61,6 +65,7 @@ interface KindItemProps {
 }
 
 const KindItem = ({ kind, name, icon, items, selected, onClick, disabled }: KindItemProps) => {
+	const { t } = useLocale();
 	return (
 		<Link
 			to={{
@@ -85,7 +90,8 @@ const KindItem = ({ kind, name, icon, items, selected, onClick, disabled }: Kind
 					<h2 className="text-sm font-medium">{name}</h2>
 					{items !== undefined && (
 						<p className="text-xs text-ink-faint">
-							{formatNumber(items)} Item{(items > 1 || items === 0) && 's'}
+							{formatNumber(items)}{' '}
+							{items > 1 || items === 0 ? `${t('items')}` : `${t('item')}`}
 						</p>
 					)}
 				</div>

@@ -308,6 +308,7 @@
 	"install": "Install",
 	"install_update": "Install Update",
 	"installed": "Installed",
+	"item": "item",
 	"item_size": "Item size",
 	"item_with_count_one": "{{count}} item",
 	"item_with_count_other": "{{count}} items",

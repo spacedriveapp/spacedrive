@@ -308,6 +308,7 @@
   "install": "تثبيت",
   "install_update": "تثبيت التحديث",
   "installed": "مثبت",
+  "item": "item",
   "item_size": "حجم العنصر",
   "item_with_count_zero": "{{count}} items",
   "item_with_count_one": "{{count}} عنصر",

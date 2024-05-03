@@ -308,6 +308,7 @@
   "install": "Установить",
   "install_update": "Установить обновление",
   "installed": "Установлено",
+  "item": "элемент",
   "item_size": "Размер элемента",
   "item_with_count_one": "{{count}} элемент",
   "item_with_count_few": "{{count}} элементов",
