@@ -248,6 +248,7 @@
   "feedback_login_description": "Iniciar sesión nos permite responder a tu retroalimentación",
   "feedback_placeholder": "Tu retroalimentación...",
   "feedback_toast_error_message": "Hubo un error al enviar tu retroalimentación. Por favor, inténtalo de nuevo.",
+  "file": "file",
   "file_already_exist_in_this_location": "El archivo ya existe en esta ubicación",
   "file_from": "File {{file}} from {{name}}",
   "file_indexing_rules": "Reglas de indexación de archivos",

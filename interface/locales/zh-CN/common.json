@@ -248,6 +248,7 @@
   "feedback_login_description": "登录使我们能够回复您的反馈",
   "feedback_placeholder": "您的反馈...",
   "feedback_toast_error_message": "提交反馈时出错，请重试。",
+  "file": "file",
   "file_already_exist_in_this_location": "文件已存在于此位置",
   "file_from": "File {{file}} from {{name}}",
   "file_indexing_rules": "文件索引规则",

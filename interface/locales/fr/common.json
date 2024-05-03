@@ -248,6 +248,7 @@
   "feedback_login_description": "La connexion nous permet de répondre à votre retour d'information",
   "feedback_placeholder": "Votre retour d'information...",
   "feedback_toast_error_message": "Une erreur s'est produite lors de l'envoi de votre retour d'information. Veuillez réessayer.",
+  "file": "file",
   "file_already_exist_in_this_location": "Le fichier existe déjà à cet emplacement",
   "file_from": "File {{file}} from {{name}}",
   "file_indexing_rules": "Règles d'indexation des fichiers",

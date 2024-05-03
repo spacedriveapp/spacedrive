@@ -248,6 +248,7 @@
   "feedback_login_description": "Inloggen stelt ons in staat om te reageren op jouw feedback",
   "feedback_placeholder": "Jouw feedback...",
   "feedback_toast_error_message": "Er is een fout opgetreden bij het verzenden van je feedback. Probeer het opnieuw.",
+  "file": "file",
   "file_already_exist_in_this_location": "Bestand bestaat al op deze locatie",
   "file_from": "File {{file}} from {{name}}",
   "file_indexing_rules": "Bestand indexeringsregels",

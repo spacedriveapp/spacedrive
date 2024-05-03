@@ -248,6 +248,7 @@
   "feedback_login_description": "تسجيل الدخول يسمح لنا بالرد على ملاحظاتك",
   "feedback_placeholder": "ملاحظاتك...",
   "feedback_toast_error_message": "حدث خطأ أثناء إرسال ملاحظاتك. يرجى المحاولة مرة أخرى.",
+  "file": "file",
   "file_already_exist_in_this_location": "الملف موجود بالفعل في هذا الموقع",
   "file_from": "File {{file}} from {{name}}",
   "file_indexing_rules": "قواعد فهرسة الملفات",

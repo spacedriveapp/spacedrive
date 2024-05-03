@@ -248,6 +248,7 @@
 	"feedback_login_description": "Logging in allows us to respond to your feedback",
 	"feedback_placeholder": "Your feedback...",
 	"feedback_toast_error_message": "There was an error submitting your feedback. Please try again.",
+	"file": "file",
 	"file_already_exist_in_this_location": "File already exists in this location",
 	"file_from": "File {{file}} from {{name}}",
 	"file_indexing_rules": "File indexing rules",

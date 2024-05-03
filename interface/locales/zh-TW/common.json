@@ -248,6 +248,7 @@
   "feedback_login_description": "登入可讓我們回應您的回饋",
   "feedback_placeholder": "您的回饋...",
   "feedback_toast_error_message": "提交回饋時發生錯誤。請重試。",
+  "file": "file",
   "file_already_exist_in_this_location": "該位置已存在該檔案",
   "file_from": "File {{file}} from {{name}}",
   "file_indexing_rules": "文件索引規則",

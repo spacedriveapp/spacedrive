@@ -248,6 +248,7 @@
   "feedback_login_description": "Giriş yapmak, geribildiriminize yanıt vermemizi sağlar",
   "feedback_placeholder": "Geribildiriminiz...",
   "feedback_toast_error_message": "Geribildiriminizi gönderirken bir hata oluştu. Lütfen tekrar deneyin.",
+  "file": "file",
   "file_already_exist_in_this_location": "Dosya bu konumda zaten mevcut",
   "file_from": "File {{file}} from {{name}}",
   "file_indexing_rules": "Dosya İndeksleme Kuralları",

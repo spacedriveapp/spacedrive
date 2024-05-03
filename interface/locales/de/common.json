@@ -248,6 +248,7 @@
   "feedback_login_description": "Die Anmeldung ermöglicht es uns, auf Ihr Feedback zu antworten",
   "feedback_placeholder": "Ihr Feedback...",
   "feedback_toast_error_message": "Beim Senden deines Feedbacks ist ein Fehler aufgetreten. Bitte versuche es erneut.",
+  "file": "file",
   "file_already_exist_in_this_location": "Die Datei existiert bereits an diesem Speicherort",
   "file_from": "File {{file}} from {{name}}",
   "file_indexing_rules": "Dateiindizierungsregeln",
