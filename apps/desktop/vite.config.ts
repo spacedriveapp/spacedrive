@@ -25,6 +25,15 @@ export default defineConfig(({ mode }) => {
 		server: {
 			port: 8001
 		},
+		build: {
+			rollupOptions: {
+				treeshake: 'recommended',
+				external: [
+					// Don't bundle Fda video for non-macOS platforms
+					process.platform !== 'darwin' && /^@sd\/assets\/videos\/Fda.mp4$/
+				].filter(Boolean)
+			}
+		},
 		plugins: [
 			devtoolsPlugin,
 			process.env.SENTRY_AUTH_TOKEN &&
