@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import { ReactNode } from 'react';
 import { Button } from '@sd/ui';
+import { useLocale } from '~/hooks';
 import {
 	dismissibleNoticeStore,
 	getDismissibleNoticeStore,
@@ -28,6 +29,7 @@ export default ({
 	...props
 }: Props) => {
 	const dismissibleNoticeStore = useDismissibleNoticeStore();
+	const { t } = useLocale();
 
 	if (dismissibleNoticeStore[storageKey]) return null;
 
@@ -54,7 +56,7 @@ export default ({
 							className="border-white/10 font-medium hover:border-white/20"
 							onClick={onLearnMore}
 						>
-							Learn More
+							{t('learn_more')}
 						</Button>
 					)}
 					<Button
@@ -65,7 +67,7 @@ export default ({
 							onDismiss?.();
 						}}
 					>
-						Got it
+						{t('got_it')}
 					</Button>
 				</div>
 			</div>
