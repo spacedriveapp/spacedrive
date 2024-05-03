@@ -252,7 +252,7 @@ const SpacedropNodes = () => {
 				label={'Send to Cloud [TEMP]'}
 				onClick={async () => {
 					spacedropCloud.mutateAsync({
-						file_path: (await getPaths([...explorer.selectedItems]))[0]!
+						file_path: (await getPaths([...explorer.selectedItems]))[0]!,
 					});
 				}}
 			/>

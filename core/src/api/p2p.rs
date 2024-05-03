@@ -180,7 +180,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("spacedropCloud", {
 			#[derive(Type, Deserialize, Debug)]
 			pub struct SpacedropCloudArgs {
-				file_path: PathBuf
+				file_path: PathBuf,
+				#[specta(optional)]
+				expires: Option<chrono::DateTime<chrono::Utc>>,
+				#[specta(optional)]
+				password: Option<String>,
 			}
 
 			R.mutation(|node, args: SpacedropCloudArgs| async move {
@@ -194,10 +198,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						})
 						.unwrap_or_else(|| ("".to_string(), 0, PathBuf::new()));
 
-					let json = serde_json::json!({
+					let mut json = serde_json::json!({
 						"name": name,
 						"size": len,
 					});
+
+					if let Some(expires) = args.expires {
+						json["expires"] = serde_json::json!(expires);
+					}
+
+					if let Some(password) = args.password {
+						json["password"] = serde_json::json!(password);
+					}
 
 					let req = reqwest::Client::new()
 						.post("https://app.spacedrive.com/api/v1/spacedrop")
