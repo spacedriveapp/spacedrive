@@ -85,13 +85,12 @@ function HostedLocationsPlayground() {
 			locations.refetch();
 		}
 	});
-	const { t } = useLocale();
 	const doTheThing = useBridgeMutation('cloud.locations.testing', {
 		onSuccess() {
-			toast.success(t('uploaded_file'));
+			toast.success('Uploaded file!');
 		},
 		onError(err) {
-			toast.error(t('error_message', { error: err.message }));
+			toast.error(err.message);
 		}
 	});
 
@@ -114,7 +113,7 @@ function HostedLocationsPlayground() {
 								className="grow"
 								value={locationName}
 								onInput={(e) => setLocationName(e.currentTarget.value)}
-								placeholder={t('my_sick_location')}
+								placeholder="My sick location"
 								disabled={isLoading}
 							/>
 
@@ -127,19 +126,19 @@ function HostedLocationsPlayground() {
 								}}
 								disabled={isLoading}
 							>
-								{t('create_location')}
+								Create Location
 							</Button>
 						</div>
 					</div>
 				}
-				title={t('hosted_locations')}
-				description={t('hosted_locations_description')}
+				title="Hosted Locations"
+				description="Augment your local storage with our cloud!"
 			/>
 
 			{/* TODO: Cleanup this mess + styles */}
-			{locations.status === 'loading' ? <div>{`${t('loading')!}`}</div> : null}
+			{locations.status === 'loading' ? <div>Loading!</div> : null}
 			{locations.status !== 'loading' && locations.data?.length === 0 ? (
-				<div>{t('dont_have_any')}</div>
+				<div>Looks like you don't have any!</div>
 			) : (
 				<div>
 					{locations.data?.map((location) => (
@@ -151,7 +150,7 @@ function HostedLocationsPlayground() {
 								onClick={() => removeLocation.mutate(location.id)}
 								disabled={isLoading}
 							>
-								{t('delete')}
+								Delete
 							</Button>
 							<Button
 								variant="accent"
@@ -164,7 +163,7 @@ function HostedLocationsPlayground() {
 								}
 								disabled={isLoading}
 							>
-								{t('do_the_thing')}
+								Do the thing
 							</Button>
 						</div>
 					))}
@@ -172,7 +171,7 @@ function HostedLocationsPlayground() {
 			)}
 
 			<div>
-				<p>{t('path_to_save_do_the_thing')}</p>
+				<p>Path to save when clicking 'Do the thing':</p>
 				<Input
 					className="grow"
 					value={path}
