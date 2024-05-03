@@ -135,7 +135,8 @@ case "$(uname)" in
       echo
     fi
     ;;
-  "Linux") # https://github.com/tauri-apps/tauri-docs/blob/dev/docs/guides/getting-started/prerequisites.md#setting-up-linux
+  "Linux")
+    # https://github.com/tauri-apps/tauri-docs/blob/dev/docs/guides/getting-started/prerequisites.md#setting-up-linux
     if has apt-get; then
       echo "Detected apt!"
       echo "Installing dependencies with apt..."
@@ -160,7 +161,7 @@ case "$(uname)" in
       echo "Installing dependencies with pacman..."
 
       # Tauri dependencies
-      set -- base-devel curl wget file openssl gtk3 librsvg webkit2gtk libayatana-appindicator
+      set -- base-devel curl wget file openssl gtk3 librsvg webkit2gtk-4.1 libayatana-appindicator xdo xdotool
 
       # Webkit2gtk requires gstreamer plugins for video playback to work
       set -- "$@" gst-plugins-base gst-plugins-good gst-plugins-ugly

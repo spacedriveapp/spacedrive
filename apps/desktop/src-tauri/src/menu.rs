@@ -61,7 +61,7 @@ pub fn setup_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 
 	#[cfg(not(target_os = "macos"))]
 	{
-		Menu::new(app);
+		Menu::new(app)
 	}
 	#[cfg(target_os = "macos")]
 	{

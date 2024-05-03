@@ -66,7 +66,7 @@ fn reload_webview_inner(webview: PlatformWebview) {
 	}
 	#[cfg(target_os = "linux")]
 	{
-		use webkit2gtk::traits::WebViewExt;
+		use webkit2gtk::WebViewExt;
 
 		webview.inner().reload();
 	}

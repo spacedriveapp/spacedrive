@@ -7241,7 +7241,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust"
 version = "0.6.8"
-source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=3b0bc79e78e9e6cf90777d777dfc4b383dc0f63b#3b0bc79e78e9e6cf90777d777dfc4b383dc0f63b"
+source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=d6f6b224b874fad904bb17b81cf2e570c6003ac9#d6f6b224b874fad904bb17b81cf2e570c6003ac9"
 dependencies = [
  "base64 0.13.1",
  "bigdecimal 0.3.1",
@@ -7274,7 +7274,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-cli"
 version = "0.6.8"
-source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=3b0bc79e78e9e6cf90777d777dfc4b383dc0f63b#3b0bc79e78e9e6cf90777d777dfc4b383dc0f63b"
+source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=d6f6b224b874fad904bb17b81cf2e570c6003ac9#d6f6b224b874fad904bb17b81cf2e570c6003ac9"
 dependencies = [
  "directories 4.0.1",
  "flate2",
@@ -7294,7 +7294,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-generator"
 version = "0.6.8"
-source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=3b0bc79e78e9e6cf90777d777dfc4b383dc0f63b#3b0bc79e78e9e6cf90777d777dfc4b383dc0f63b"
+source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=d6f6b224b874fad904bb17b81cf2e570c6003ac9#d6f6b224b874fad904bb17b81cf2e570c6003ac9"
 dependencies = [
  "directories 4.0.1",
  "flate2",
@@ -7314,7 +7314,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-macros"
 version = "0.6.8"
-source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=3b0bc79e78e9e6cf90777d777dfc4b383dc0f63b#3b0bc79e78e9e6cf90777d777dfc4b383dc0f63b"
+source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=d6f6b224b874fad904bb17b81cf2e570c6003ac9#d6f6b224b874fad904bb17b81cf2e570c6003ac9"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
@@ -7326,7 +7326,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-sdk"
 version = "0.6.8"
-source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=3b0bc79e78e9e6cf90777d777dfc4b383dc0f63b#3b0bc79e78e9e6cf90777d777dfc4b383dc0f63b"
+source = "git+https://github.com/spacedriveapp/prisma-client-rust?rev=d6f6b224b874fad904bb17b81cf2e570c6003ac9#d6f6b224b874fad904bb17b81cf2e570c6003ac9"
 dependencies = [
  "convert_case 0.5.0",
  "dmmf",
