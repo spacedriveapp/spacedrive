@@ -3,8 +3,8 @@ import { z } from '@sd/ui/src/forms';
 import i18n from './I18n';
 
 export const SortOrderSchema = z.union([
-	z.literal('Asc').describe(i18n.t('asc')),
-	z.literal('Desc').describe(i18n.t('desc'))
+	z.literal('Asc').describe(i18n.t('ascending')),
+	z.literal('Desc').describe(i18n.t('descending'))
 ]);
 export type SortOrder = z.infer<typeof SortOrderSchema>;
 
