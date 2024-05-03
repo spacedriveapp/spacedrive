@@ -576,7 +576,7 @@ export const filterRegistry = [
 		Render: ({ filter, search }) => <FilterOptionBoolean filter={filter} search={search} />
 	}),
 	createBooleanFilter({
-		name: 'Favorite',
+		name: i18n.t('favorite'),
 		icon: Heart,
 		extract: (arg) => {
 			if ('object' in arg && 'favorite' in arg.object) return arg.object.favorite;
