@@ -2,6 +2,8 @@ import { MagnifyingGlass, X } from '@phosphor-icons/react';
 import { forwardRef } from 'react';
 import { SearchFilterArgs } from '@sd/client';
 import { tw } from '@sd/ui';
+import i18n from '~/app/I18n';
+import { useLocale } from '~/hooks';
 
 import { useSearchContext } from '.';
 import HorizontalScroll from '../overview/Layout/HorizontalScroll';
@@ -75,6 +77,7 @@ export const AppliedFilters = () => {
 
 export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?: () => void }) {
 	const searchStore = useSearchStore();
+	const { t } = useLocale();
 
 	const filter = filterRegistry.find((f) => f.extract(arg));
 	if (!filter) return;
@@ -83,6 +86,7 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 		filter.extract(arg)! as any,
 		searchStore.filterOptions
 	);
+	console.log(filter);
 
 	return (
 		<FilterContainer>
@@ -118,7 +122,7 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 						)}
 						<span className="max-w-[150px] truncate">
 							{activeOptions.length > 1
-								? `${activeOptions.length} ${pluralize(filter.name)}`
+								? `${activeOptions.length} ${t(`${pluralize(filter.name)}`)}`
 								: activeOptions[0]?.name}
 						</span>
 					</>
@@ -131,6 +135,8 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 }
 
 function pluralize(word?: string) {
-	if (word?.endsWith('s')) return word;
-	return `${word}s`;
+	if ((i18n.resolvedLanguage || i18n.language) === 'en') {
+		if (word?.endsWith('s')) return word;
+		return `${word}s`;
+	} else return word;
 }

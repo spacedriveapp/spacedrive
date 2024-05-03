@@ -16,6 +16,7 @@ import { Icon as SDIcon } from '~/components';
 import { useLocale } from '~/hooks';
 
 import { SearchOptionItem, SearchOptionSubMenu } from '.';
+import { translateKindName } from '../Explorer/util';
 import { AllKeys, FilterOption, getKey } from './store';
 import { UseSearch } from './useSearch';
 import { FilterTypeCondition, filterTypeCondition } from './util';
@@ -519,9 +520,9 @@ export const filterRegistry = [
 			Object.keys(ObjectKind)
 				.filter((key) => !isNaN(Number(key)) && ObjectKind[Number(key)] !== undefined)
 				.map((key) => {
-					const kind = ObjectKind[Number(key)];
+					const kind = ObjectKind[Number(key)] as string;
 					return {
-						name: kind as string,
+						name: translateKindName(kind),
 						value: Number(key),
 						icon: kind + '20'
 					};

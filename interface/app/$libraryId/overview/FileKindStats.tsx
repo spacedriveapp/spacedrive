@@ -20,7 +20,6 @@ export default () => {
 				?.sort((a, b) => b.count - a.count)
 				.filter((i) => i.kind !== 0)
 				.map(({ kind, name, count }) => {
-					console.log(count);
 					let icon = name;
 					switch (name) {
 						case 'Code':
