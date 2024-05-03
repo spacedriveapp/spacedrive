@@ -4,7 +4,7 @@ use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::file_path_for_media_processor;
 
 use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
-use sd_media_metadata::ImageMetadata;
+use sd_media_metadata::ExifMetadata;
 use sd_prisma::prisma::{exif_data, location, PrismaClient};
 use sd_utils::error::FileIOError;
 
@@ -14,7 +14,6 @@ use futures_concurrency::future::Join;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::task::spawn_blocking;
 use tracing::error;
 
 use super::exif_data_image_to_query;
@@ -55,13 +54,10 @@ pub const fn can_extract_exif_data_for_image(image_extension: &ImageExtension) -
 	)
 }
 
-pub async fn extract_exif_data(path: impl AsRef<Path>) -> Result<ImageMetadata, ExifDataError> {
-	let path = path.as_ref().to_path_buf();
-
-	// Running in a separated blocking thread due to MediaData blocking behavior (due to sync exif lib)
-	spawn_blocking(|| ImageMetadata::from_path(path))
-		.await?
-		.map_err(Into::into)
+pub async fn extract_exif_data(
+	path: impl AsRef<Path> + Send,
+) -> Result<Option<ExifMetadata>, ExifDataError> {
+	ExifMetadata::from_path(path).await.map_err(Into::into)
 }
 
 pub async fn process(
@@ -135,10 +131,8 @@ pub async fn process(
 			(Vec::with_capacity(total_exif_data), Vec::new()),
 			|(mut exif_datas, mut errors), (maybe_exif_data, path, object_id)| {
 				match maybe_exif_data {
-					Ok(exif_data) => exif_datas.push((exif_data, object_id)),
-					Err(ExifDataError::MediaData(sd_media_metadata::Error::NoExifDataOnPath(
-						_,
-					))) => {
+					Ok(Some(exif_data)) => exif_datas.push((exif_data, object_id)),
+					Ok(None) => {
 						// No exif data on path, skipping
 						run_metadata.skipped += 1;
 					}

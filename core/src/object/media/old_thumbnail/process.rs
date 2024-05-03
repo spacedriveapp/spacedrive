@@ -2,7 +2,7 @@ use crate::api::CoreEvent;
 
 use sd_file_ext::extensions::{DocumentExtension, ImageExtension};
 use sd_images::{format_image, scale_dimensions, ConvertibleExtension};
-use sd_media_metadata::image::Orientation;
+use sd_media_metadata::exif::Orientation;
 use sd_prisma::prisma::location;
 use sd_utils::error::FileIOError;
 
@@ -467,8 +467,8 @@ async fn generate_image_thumbnail(
 
 #[cfg(feature = "ffmpeg")]
 async fn generate_video_thumbnail(
-	file_path: impl AsRef<Path>,
-	output_path: impl AsRef<Path>,
+	file_path: impl AsRef<Path> + Send,
+	output_path: impl AsRef<Path> + Send,
 ) -> Result<(), ThumbnailerError> {
 	use sd_ffmpeg::{to_thumbnail, ThumbnailSize};
 

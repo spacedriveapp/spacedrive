@@ -4,15 +4,14 @@ use crate::{
 	library::Library,
 	object::{
 		fs::{error::FileSystemJobsError, find_available_filename_for_duplicate},
-		media::exif_data_extractor::{
-			can_extract_exif_data_for_image, extract_exif_data, ExifDataError,
-		},
+		media::exif_data_extractor::{can_extract_exif_data_for_image, extract_exif_data},
 	},
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
 
 use sd_file_ext::extensions::ImageExtension;
+use sd_media_metadata::FFmpegMetadata;
 use sd_utils::error::FileIOError;
 
 use std::{ffi::OsStr, path::PathBuf, str::FromStr};
@@ -63,37 +62,38 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					return Ok(None);
 				}
 
-				match extract_exif_data(full_path.clone()).await {
-					Ok(img_media_data) => Ok(Some(Box::new(img_media_data))),
-					Err(ExifDataError::MediaData(sd_media_metadata::Error::NoExifDataOnPath(
-						_,
-					))) => Ok(None),
-					Err(e) => Err(rspc::Error::with_cause(
+				extract_exif_data(full_path).await.map_err(|e| {
+					rspc::Error::with_cause(
 						ErrorCode::InternalServerError,
 						"Failed to extract media data".to_string(),
 						e,
-					)),
-				}
+					)
+				})
 			})
 		})
 		.procedure("ffmpegGetMediaData", {
 			R.query(|_, full_path: PathBuf| async move {
-				#[cfg(not(feature = "ffmpeg"))]
-				return Err::<(), _>(rspc::Error::new(
-					ErrorCode::MethodNotSupported,
-					"ffmpeg feature is not enabled".to_string(),
-				));
+				// #[cfg(not(feature = "ffmpeg"))]
+				// return Err::<(), _>(rspc::Error::new(
+				// 	ErrorCode::MethodNotSupported,
+				// 	"ffmpeg feature is not enabled".to_string(),
+				// ));
 
-				#[cfg(feature = "ffmpeg")]
-				{
-					sd_ffmpeg::probe(full_path).map_err(|e| {
-						error!("{e:#?}");
-						rspc::Error::new(
-							ErrorCode::NotFound,
-							"Couldn't extract media data from file".to_string(),
-						)
-					})
-				}
+				// #[cfg(feature = "ffmpeg")]
+				// {
+				// 	sd_ffmpeg::probe(full_path).await.map_err(|e| {
+				// 		error!("{e:#?}");
+				// 		rspc::Error::new(
+				// 			ErrorCode::NotFound,
+				// 			"Couldn't extract media data from file".to_string(),
+				// 		)
+				// 	})
+				// }
+
+				FFmpegMetadata::from_path(full_path).await.map_err(|e| {
+					error!("{e:#?}");
+					rspc::Error::with_cause(ErrorCode::InternalServerError, e.to_string(), e)
+				})
 			})
 		})
 		.procedure("createFolder", {

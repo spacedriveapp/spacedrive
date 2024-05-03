@@ -1,7 +1,7 @@
 use crate::error::FFmpegError;
 use ffmpeg_sys_next::{av_frame_alloc, av_frame_free, AVFrame};
 
-pub(crate) struct FFmpegFrame(*mut AVFrame);
+pub struct FFmpegFrame(*mut AVFrame);
 
 impl FFmpegFrame {
 	pub(crate) fn new() -> Result<Self, FFmpegError> {

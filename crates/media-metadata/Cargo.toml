@@ -4,7 +4,13 @@ version = "0.0.0"
 authors = ["Jake Robinson <jake@spacedrive.com>"]
 edition = "2021"
 
+[features]
+ffmpeg = ["dep:sd-ffmpeg"]
+
 [dependencies]
+sd-ffmpeg = { path = "../ffmpeg", optional = true }
+sd-utils = { path = "../utils" }
+
 chrono = { workspace = true, features = ["serde"] }
 image = { workspace = true }
 rand = { workspace = true }
@@ -13,6 +19,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 specta = { workspace = true, features = ["chrono"] }
 thiserror = { workspace = true }
+tokio = { workspace = true }
 
 kamadak-exif = "0.5.5"
 

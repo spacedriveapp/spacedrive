@@ -1,7 +1,8 @@
+use sd_utils::error::FileIOError;
 use std::{
 	ffi::{c_int, NulError},
 	num::TryFromIntError,
-	path::PathBuf,
+	path::{Path, PathBuf},
 };
 use thiserror::Error;
 use tokio::task::JoinError;
@@ -19,20 +20,16 @@ use ffmpeg_sys_next::{
 /// Error type for the library.
 #[derive(Error, Debug)]
 pub enum Error {
-	#[error("Resource temporarily unavailable")]
-	Again,
 	#[error("Background task failed: {0}")]
 	BackgroundTaskFailed(#[from] JoinError),
-	#[error("The video is most likely corrupt and will be skipped")]
-	CorruptVideo,
+	#[error("the video is most likely corrupt and will be skipped: <path='{}'>", .0.display())]
+	CorruptVideo(Box<Path>),
 	#[error("Received an invalid quality, expected range [0.0, 100.0], received: {0}")]
 	InvalidQuality(f32),
 	#[error("Received an invalid seek percentage: {0}")]
 	InvalidSeekPercentage(f32),
 	#[error("Error while casting an integer to another integer type")]
 	IntCastError(#[from] TryFromIntError),
-	#[error("I/O Error: {0}")]
-	Io(#[from] std::io::Error),
 	#[error("Duration for video stream is unavailable")]
 	NoVideoDuration,
 	#[error("Failed to allocate C data: {0}")]
@@ -49,6 +46,9 @@ pub enum Error {
 	SeekError,
 	#[error("Seek not allowed")]
 	SeekNotAllowed,
+
+	#[error(transparent)]
+	FileIO(#[from] FileIOError),
 }
 
 /// Enum to represent possible errors from `FFmpeg` library
@@ -124,6 +124,8 @@ pub enum FFmpegError {
 	CodecOpen,
 	#[error("Data not found")]
 	NullError,
+	#[error("Resource temporarily unavailable")]
+	Again,
 }
 
 impl From<c_int> for FFmpegError {

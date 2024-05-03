@@ -1,4 +1,4 @@
-use crate::{error::Error, model::MediaMetadata, utils::check_error};
+use crate::{error::Error, model::FFmpegMetadata, utils::check_error};
 
 use std::{ffi::CStr, ptr};
 
@@ -9,23 +9,23 @@ use ffmpeg_sys_next::{
 };
 
 #[derive(Debug)]
-pub(crate) struct FFmpegDict {
+pub struct FFmpegDictionary {
 	dict: *mut AVDictionary,
 	managed: bool,
 }
 
-impl FFmpegDict {
+impl FFmpegDictionary {
 	pub(crate) fn new(av_dict: Option<&mut AVDictionary>) -> Self {
-		match av_dict {
-			Some(ptr) => Self {
-				dict: ptr,
-				managed: false,
-			},
-			None => Self {
+		av_dict.map_or_else(
+			|| Self {
 				dict: ptr::null_mut(),
 				managed: true,
 			},
-		}
+			|ptr| Self {
+				dict: ptr,
+				managed: false,
+			},
+		)
 	}
 
 	pub(crate) fn get(&self, key: &CStr) -> Option<String> {
@@ -58,7 +58,7 @@ impl FFmpegDict {
 	}
 }
 
-impl Drop for FFmpegDict {
+impl Drop for FFmpegDictionary {
 	fn drop(&mut self) {
 		if self.managed && !self.dict.is_null() {
 			unsafe { av_dict_free(&mut self.dict) };
@@ -67,7 +67,7 @@ impl Drop for FFmpegDict {
 	}
 }
 
-impl<'a> IntoIterator for &'a FFmpegDict {
+impl<'a> IntoIterator for &'a FFmpegDictionary {
 	type Item = (String, Option<String>);
 	type IntoIter = FFmpegDictIter<'a>;
 
@@ -81,7 +81,7 @@ impl<'a> IntoIterator for &'a FFmpegDict {
 	}
 }
 
-pub(crate) struct FFmpegDictIter<'a> {
+pub struct FFmpegDictIter<'a> {
 	dict: *mut AVDictionary,
 	prev: *const AVDictionaryEntry,
 	_lifetime: std::marker::PhantomData<&'a ()>,
@@ -111,11 +111,11 @@ impl<'a> Iterator for FFmpegDictIter<'a> {
 	}
 }
 
-impl From<&FFmpegDict> for MediaMetadata {
-	fn from(dict: &FFmpegDict) -> Self {
-		let mut media_metadata = MediaMetadata::default();
+impl From<&FFmpegDictionary> for FFmpegMetadata {
+	fn from(dict: &FFmpegDictionary) -> Self {
+		let mut media_metadata = Self::default();
 
-		for (key, value) in dict.into_iter() {
+		for (key, value) in dict {
 			if let Some(value) = value {
 				match key.as_str() {
 					"album" => media_metadata.album = Some(value.clone()),
@@ -174,8 +174,8 @@ impl From<&FFmpegDict> for MediaMetadata {
 	}
 }
 
-impl From<FFmpegDict> for MediaMetadata {
-	fn from(dict: FFmpegDict) -> Self {
+impl From<FFmpegDictionary> for FFmpegMetadata {
+	fn from(dict: FFmpegDictionary) -> Self {
 		(&dict).into()
 	}
 }

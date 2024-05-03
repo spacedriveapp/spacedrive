@@ -12,7 +12,8 @@ use ffmpeg_sys_next::{
 	avfilter_graph_create_filter, avfilter_graph_free, avfilter_link, AVFilterContext,
 	AVFilterGraph, AVRational,
 };
-pub(crate) struct FFmpegFilterGraph(*mut AVFilterGraph);
+
+pub struct FFmpegFilterGraph(*mut AVFilterGraph);
 
 impl<'a> FFmpegFilterGraph {
 	pub(crate) fn new() -> Result<Self, FFmpegError> {
@@ -25,12 +26,12 @@ impl<'a> FFmpegFilterGraph {
 
 	fn link(
 		src: *mut AVFilterContext,
-		srcpad: u32,
+		src_pad: u32,
 		dst: *mut AVFilterContext,
-		dstpad: u32,
+		dst_pad: u32,
 		error: &str,
 	) -> Result<(), Error> {
-		check_error(unsafe { avfilter_link(src, srcpad, dst, dstpad) }, error)?;
+		check_error(unsafe { avfilter_link(src, src_pad, dst, dst_pad) }, error)?;
 		Ok(())
 	}
 
@@ -39,7 +40,7 @@ impl<'a> FFmpegFilterGraph {
 		time_base: &AVRational,
 		codec_ctx: &FFmpegCodecContext,
 		interlaced_frame: bool,
-		pixel_aspect_ratio: &AVRational,
+		pixel_aspect_ratio: AVRational,
 		maintain_aspect_ratio: bool,
 	) -> Result<(Self, &'a mut AVFilterContext, &'a mut AVFilterContext), Error> {
 		let mut filter_graph = Self::new()?;
@@ -98,7 +99,7 @@ impl<'a> FFmpegFilterGraph {
 					codec_ctx,
 					pixel_aspect_ratio,
 					maintain_aspect_ratio,
-				)?)?
+				))?
 				.as_c_str(),
 			),
 			"Failed to create scale filter",
@@ -174,7 +175,7 @@ impl<'a> FFmpegFilterGraph {
 					filter_ctx,
 					avfilter_get_by_name(filter_name.as_ptr()),
 					filter_setup_name.as_ptr(),
-					args.map(|cstring| cstring.as_ptr()).unwrap_or(ptr::null()),
+					args.map_or(ptr::null(), CStr::as_ptr),
 					ptr::null_mut(),
 					self.as_mut(),
 				)
@@ -205,24 +206,24 @@ impl Drop for FFmpegFilterGraph {
 fn thumb_scale_filter_args(
 	size: Option<ThumbnailSize>,
 	codec_ctx: &FFmpegCodecContext,
-	pixel_aspect_ratio: &AVRational,
+	pixel_aspect_ratio: AVRational,
 	maintain_aspect_ratio: bool,
-) -> Result<String, Error> {
+) -> String {
 	let (width, height) = match size {
 		Some(ThumbnailSize::Dimensions { width, height }) => (width, Some(height)),
 		Some(ThumbnailSize::Scale(width)) => (width, None),
-		None => return Ok("w=0:h=0".to_string()),
+		None => return "w=0:h=0".to_string(),
 	};
 
 	let mut scale = String::new();
 
 	if let Some(height) = height {
-		scale.push_str(&format!("w={}:h={}", width, height));
+		scale.push_str(&format!("w={width}:h={height}"));
 		if maintain_aspect_ratio {
 			scale.push_str(":force_original_aspect_ratio=decrease");
 		}
 	} else if !maintain_aspect_ratio {
-		scale.push_str(&format!("w={}:h={}", width, width));
+		scale.push_str(&format!("w={width}:h={width}"));
 	} else {
 		let size = width;
 		let mut width = codec_ctx.as_ref().width.unsigned_abs();
@@ -243,7 +244,7 @@ fn thumb_scale_filter_args(
 				}
 			}
 
-			scale.push_str(&format!("w={}:h={}", width, height));
+			scale.push_str(&format!("w={width}:h={height}"));
 		} else if height > width {
 			scale.push_str(&format!("w=-1:h={}", if size == 0 { height } else { size }));
 		} else {
@@ -251,5 +252,5 @@ fn thumb_scale_filter_args(
 		}
 	}
 
-	Ok(scale)
+	scale
 }

@@ -8496,8 +8496,7 @@ dependencies = [
  "ffmpeg-sys-next",
  "image",
  "libc",
- "serde",
- "specta",
+ "sd-utils",
  "tempfile",
  "thiserror",
  "tokio",
@@ -8544,10 +8543,13 @@ dependencies = [
  "kamadak-exif",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
+ "sd-ffmpeg",
+ "sd-utils",
  "serde",
  "serde_json",
  "specta",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]

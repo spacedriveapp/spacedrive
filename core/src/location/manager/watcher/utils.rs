@@ -338,7 +338,7 @@ async fn inner_create_file(
 		if matches!(kind, ObjectKind::Image) {
 			if let Ok(image_extension) = ImageExtension::from_str(&extension) {
 				if can_extract_exif_data_for_image(&image_extension) {
-					if let Ok(exif_data) = extract_exif_data(path)
+					if let Ok(Some(exif_data)) = extract_exif_data(path)
 						.await
 						.map_err(|e| error!("Failed to extract media data: {e:#?}"))
 					{
@@ -686,7 +686,7 @@ async fn inner_update_file(
 					if can_extract_exif_data_for_image(&image_extension)
 						&& matches!(kind, ObjectKind::Image)
 					{
-						if let Ok(exif_data) = extract_exif_data(full_path)
+						if let Ok(Some(exif_data)) = extract_exif_data(full_path)
 							.await
 							.map_err(|e| error!("Failed to extract media data: {e:#?}"))
 						{

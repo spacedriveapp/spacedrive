@@ -1,8 +1,8 @@
 use crate::{
 	codec_ctx::FFmpegCodecContext,
-	dict::FFmpegDict,
+	dict::FFmpegDictionary,
 	error::{Error, FFmpegError},
-	model::{MediaChapter, MediaInfo, MediaMetadata, MediaProgram, MediaStream},
+	model::{FFmpegChapter, FFmpegMediaData, FFmpegMetadata, FFmpegProgram, FFmpegStream},
 	utils::check_error,
 };
 
@@ -23,8 +23,8 @@ use std::{collections::HashSet, ffi::CStr, ptr};
 
 fn extract_name_and_convert_metadata(
 	metadata: *mut AVDictionary,
-) -> (MediaMetadata, Option<String>) {
-	let mut metadata = FFmpegDict::new(unsafe { metadata.as_mut() });
+) -> (FFmpegMetadata, Option<String>) {
+	let mut metadata = FFmpegDictionary::new(unsafe { metadata.as_mut() });
 	let name = metadata.get(c"name");
 	if name.is_some() {
 		let _ = metadata.remove(c"name");
@@ -34,7 +34,7 @@ fn extract_name_and_convert_metadata(
 }
 
 #[derive(Debug)]
-pub(crate) struct FFmpegFormatContext(*mut AVFormatContext);
+pub struct FFmpegFormatContext(*mut AVFormatContext);
 
 impl FFmpegFormatContext {
 	pub(crate) fn open_file(filename: &CStr) -> Result<Self, Error> {
@@ -158,10 +158,10 @@ impl FFmpegFormatContext {
 				continue;
 			}
 
-			if let Some(metadata) =
-				unsafe { stream.metadata.as_mut() }.map(|metadata| FFmpegDict::new(Some(metadata)))
+			if let Some(metadata) = unsafe { stream.metadata.as_mut() }
+				.map(|metadata| FFmpegDictionary::new(Some(metadata)))
 			{
-				for (key, value) in metadata.into_iter() {
+				for (key, value) in &metadata {
 					if let Some(value) = value {
 						if key == "filename" && value.starts_with("cover.") {
 							embedded_data_streams.insert(0, stream_idx);
@@ -215,23 +215,26 @@ impl FFmpegFormatContext {
 	}
 
 	fn bit_rate(&self) -> i32 {
-		// NOTICE: bit_rate is a i64, but I think it will be extremely rare to have a bit rate that doesn't fit in a i32
-		self.as_ref().bit_rate as i32
+		#[allow(clippy::cast_possible_truncation)]
+		{
+			// NOTICE: bit_rate is a i64, but I think it will be extremely rare to have a bit rate that doesn't fit in a i32
+			self.as_ref().bit_rate as i32
+		}
 	}
 
-	fn chapters(&self) -> Vec<MediaChapter> {
+	fn chapters(&self) -> Vec<FFmpegChapter> {
 		let chapters_ptr = self.as_ref().chapters;
 		(!chapters_ptr.is_null())
 			.then(|| {
 				(0..isize::try_from(self.as_ref().nb_chapters).unwrap_or(0))
 					.filter_map(|id| unsafe { (*(chapters_ptr.offset(id))).as_ref() })
-					.map(|chapter| chapter.into())
+					.map(Into::into)
 					.collect()
 			})
 			.unwrap_or(vec![])
 	}
 
-	fn programs(&self) -> Vec<MediaProgram> {
+	fn programs(&self) -> Vec<FFmpegProgram> {
 		let mut visited_streams: HashSet<u32> = HashSet::new();
 		let programs_ptr = self.as_ref().programs;
 
@@ -252,31 +255,31 @@ impl FFmpegFormatContext {
 								self.stream(stream_index)
 							})
 							.map(|stream| (&*stream).into())
-							.collect::<Vec<MediaStream>>();
+							.collect::<Vec<FFmpegStream>>();
 
-						MediaProgram {
+						FFmpegProgram {
 							id: program.id,
 							name,
 							streams,
 							metadata,
 						}
 					})
-					.collect::<Vec<MediaProgram>>()
+					.collect::<Vec<FFmpegProgram>>()
 			})
 			.unwrap_or(vec![]);
 
 		let unvisited_streams = (0..self.as_ref().nb_streams)
 			.filter(|i| !visited_streams.contains(i))
 			.filter_map(|i| self.stream(i).map(|stream| (&*stream).into()))
-			.collect::<Vec<MediaStream>>();
+			.collect::<Vec<FFmpegStream>>();
 		if !unvisited_streams.is_empty() {
 			if let Ok(id) = i32::try_from(programs.len()) {
 				// Create an empty program to hold unvisited streams if there are any
-				programs.push(MediaProgram {
+				programs.push(FFmpegProgram {
 					id,
 					name: Some("No Program".to_string()),
 					streams: unvisited_streams,
-					metadata: MediaMetadata::default(),
+					metadata: FFmpegMetadata::default(),
 				});
 			}
 		}
@@ -284,11 +287,11 @@ impl FFmpegFormatContext {
 		programs
 	}
 
-	fn metadata(&self) -> MediaMetadata {
+	fn metadata(&self) -> FFmpegMetadata {
 		let fmt_ctx = self.as_ref();
-		unsafe { fmt_ctx.metadata.as_mut() }
-			.map(|metadata| FFmpegDict::new(Some(metadata)).into())
-			.unwrap_or_else(MediaMetadata::default)
+		unsafe { fmt_ctx.metadata.as_mut() }.map_or_else(FFmpegMetadata::default, |metadata| {
+			FFmpegDictionary::new(Some(metadata)).into()
+		})
 	}
 }
 
@@ -301,15 +304,12 @@ impl Drop for FFmpegFormatContext {
 	}
 }
 
-impl From<&FFmpegFormatContext> for MediaInfo {
+impl From<&FFmpegFormatContext> for FFmpegMediaData {
 	fn from(ctx: &FFmpegFormatContext) -> Self {
-		let duration = ctx.duration();
-		let start_time = ctx.start_time();
-
-		MediaInfo {
+		Self {
 			formats: ctx.formats(),
-			duration: duration.map(|duration| (duration as i32, (duration >> 32) as i32)),
-			start_time: start_time.map(|start_time| (start_time as i32, (start_time >> 32) as i32)),
+			duration: ctx.duration(),
+			start_time: ctx.start_time(),
 			bit_rate: ctx.bit_rate(),
 			chapters: ctx.chapters(),
 			programs: ctx.programs(),
@@ -318,24 +318,32 @@ impl From<&FFmpegFormatContext> for MediaInfo {
 	}
 }
 
-impl From<&AVChapter> for MediaChapter {
-	fn from(chapter: &AVChapter) -> Self {
-		MediaChapter {
+impl From<&AVChapter> for FFmpegChapter {
+	fn from(
+		AVChapter {
+			id,
+			time_base,
+			start,
+			end,
+			metadata,
+		}: &AVChapter,
+	) -> Self {
+		Self {
 			// NOTICE: chapter.id is a i64, but I think it will be extremely rare to have a chapter id that doesn't fit in a i32
-			id: chapter.id as i32,
-			// TODO: FIX this when rspc supports bigint
-			start: (chapter.start as i32, (chapter.start >> 32) as i32),
-			end: (chapter.end as i32, (chapter.end >> 32) as i32),
-			time_base_num: chapter.time_base.num,
-			time_base_den: chapter.time_base.den,
-			metadata: unsafe { chapter.metadata.as_mut() }
-				.map(|metadata| FFmpegDict::new(Some(metadata)).into())
-				.unwrap_or_else(MediaMetadata::default),
+			id: *id,
+			start: *start,
+			end: *end,
+			time_base_num: time_base.num,
+			time_base_den: time_base.den,
+			metadata: unsafe { metadata.as_mut() }
+				.map_or_else(FFmpegMetadata::default, |metadata| {
+					FFmpegDictionary::new(Some(metadata)).into()
+				}),
 		}
 	}
 }
 
-impl From<&AVStream> for MediaStream {
+impl From<&AVStream> for FFmpegStream {
 	fn from(stream: &AVStream) -> Self {
 		let (metadata, name) = extract_name_and_convert_metadata(stream.metadata);
 
@@ -406,7 +414,7 @@ impl From<&AVStream> for MediaStream {
 				.ok()
 		});
 
-		MediaStream {
+		Self {
 			id: stream.id,
 			name,
 			codec,

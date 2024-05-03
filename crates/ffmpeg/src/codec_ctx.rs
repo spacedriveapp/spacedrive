@@ -1,6 +1,6 @@
 use crate::{
 	error::{Error, FFmpegError},
-	model::{MediaAudioProps, MediaCodec, MediaSubtitleProps, MediaVideoProps, Props},
+	model::{FFmpegAudioProps, FFmpegCodec, FFmpegProps, FFmpegSubtitleProps, FFmpegVideoProps},
 	utils::check_error,
 };
 
@@ -24,7 +24,7 @@ use ffmpeg_sys_next::{
 };
 use libc::EAGAIN;
 
-pub(crate) struct FFmpegCodecContext(*mut AVCodecContext);
+pub struct FFmpegCodecContext(*mut AVCodecContext);
 
 impl FFmpegCodecContext {
 	pub(crate) fn new() -> Result<Self, Error> {
@@ -65,32 +65,24 @@ impl FFmpegCodecContext {
 		Ok(self)
 	}
 
-	pub(crate) fn flush(&mut self) -> Result<&Self, Error> {
+	pub(crate) fn flush(&mut self) {
 		unsafe { avcodec_flush_buffers(self.as_mut()) };
-
-		Ok(self)
 	}
 
-	pub(crate) fn send_packet(&mut self, packet: *mut AVPacket) -> Result<bool, Error> {
+	pub(crate) fn send_packet(&mut self, packet: *mut AVPacket) -> Result<bool, FFmpegError> {
 		match unsafe { avcodec_send_packet(self.as_mut(), packet) } {
 			AVERROR_EOF => Ok(false),
-			ret if ret == AVERROR(EAGAIN) => Err(Error::Again),
-			ret if ret < 0 => Err(Error::FFmpegWithReason(
-				FFmpegError::from(ret),
-				"Failed to send packet to decoder".to_string(),
-			)),
+			ret if ret == AVERROR(EAGAIN) => Err(FFmpegError::Again),
+			ret if ret < 0 => Err(FFmpegError::from(ret)),
 			_ => Ok(true),
 		}
 	}
 
-	pub(crate) fn receive_frame(&mut self, frame: *mut AVFrame) -> Result<bool, Error> {
+	pub(crate) fn receive_frame(&mut self, frame: *mut AVFrame) -> Result<bool, FFmpegError> {
 		match unsafe { avcodec_receive_frame(self.as_mut(), frame) } {
 			AVERROR_EOF => Ok(false),
-			ret if ret == AVERROR(EAGAIN) => Err(Error::Again),
-			ret if ret < 0 => Err(Error::FFmpegWithReason(
-				FFmpegError::from(ret),
-				"Failed to receive frame from decoder".to_string(),
-			)),
+			ret if ret == AVERROR(EAGAIN) => Err(FFmpegError::Again),
+			ret if ret < 0 => Err(FFmpegError::from(ret)),
 			_ => Ok(true),
 		}
 	}
@@ -99,22 +91,22 @@ impl FFmpegCodecContext {
 		let kind = unsafe { av_get_media_type_string(self.as_ref().codec_type).as_ref() }
 			.map(|media_type| unsafe { CStr::from_ptr(media_type) });
 
-		let subkind = unsafe { self.as_ref().codec.as_ref() }
+		let sub_kind = unsafe { self.as_ref().codec.as_ref() }
 			.and_then(|codec| unsafe { codec.name.as_ref() })
 			.map(|name| unsafe { CStr::from_ptr(name) })
-			.and_then(|subkind| {
+			.and_then(|sub_kind| {
 				if let Some(kind) = kind {
-					if kind == subkind {
+					if kind == sub_kind {
 						return None;
 					}
 				}
 
-				Some(String::from_utf8_lossy(subkind.to_bytes()).to_string())
+				Some(String::from_utf8_lossy(sub_kind.to_bytes()).to_string())
 			});
 
 		(
 			kind.map(|cstr| String::from_utf8_lossy(cstr.to_bytes()).to_string()),
-			subkind,
+			sub_kind,
 		)
 	}
 
@@ -172,7 +164,7 @@ impl FFmpegCodecContext {
 				let bits_per_sample = unsafe { av_get_bits_per_sample(ctx.codec_id) };
 				if bits_per_sample != 0 {
 					let bit_rate = ctx.sample_rate * ctx.ch_layout.nb_channels;
-					if bit_rate <= std::i32::MAX / bits_per_sample {
+					if bit_rate <= i32::MAX / bits_per_sample {
 						return bit_rate * (bits_per_sample);
 					}
 				}
@@ -182,124 +174,30 @@ impl FFmpegCodecContext {
 		}
 	}
 
-	fn video_props(&self) -> Option<MediaVideoProps> {
+	fn video_props(&self) -> Option<FFmpegVideoProps> {
 		let ctx = self.as_ref();
 		if ctx.codec_type != AVMediaType::AVMEDIA_TYPE_VIDEO {
 			return None;
 		}
 
-		let pixel_format = if ctx.pix_fmt == AVPixelFormat::AV_PIX_FMT_NONE {
-			None
-		} else {
-			unsafe { av_get_pix_fmt_name(ctx.pix_fmt).as_ref() }.map(|pixel_format| {
-				let cstr = unsafe { CStr::from_ptr(pixel_format) };
-				String::from_utf8_lossy(cstr.to_bytes()).to_string()
-			})
-		};
+		let pixel_format = extract_pixel_format(ctx);
 
-		let bits_per_channel =
-			if ctx.bits_per_raw_sample == 0 || ctx.pix_fmt == AVPixelFormat::AV_PIX_FMT_NONE {
-				None
-			} else {
-				unsafe { av_pix_fmt_desc_get(ctx.pix_fmt).as_ref() }.and_then(|pix_fmt_desc| {
-					let comp = pix_fmt_desc.comp[0];
-					if ctx.bits_per_raw_sample < comp.depth {
-						Some(ctx.bits_per_raw_sample)
-					} else {
-						None
-					}
-				})
-			};
+		let bits_per_channel = extract_bits_per_channel(ctx);
 
-		let color_range = if ctx.color_range == AVColorRange::AVCOL_RANGE_UNSPECIFIED {
-			None
-		} else {
-			unsafe { av_color_range_name(ctx.color_range).as_ref() }.map(|color_range| {
-				let cstr = unsafe { CStr::from_ptr(color_range) };
-				String::from_utf8_lossy(cstr.to_bytes()).to_string()
-			})
-		};
+		let color_range = extract_color_range(ctx);
 
-		let (color_space, color_primaries, color_transfer) = if ctx.colorspace
-			== AVColorSpace::AVCOL_SPC_UNSPECIFIED
-			&& ctx.color_primaries == AVColorPrimaries::AVCOL_PRI_UNSPECIFIED
-			&& ctx.color_trc == AVColorTransferCharacteristic::AVCOL_TRC_UNSPECIFIED
-		{
-			(None, None, None)
-		} else {
-			let color_space =
-				unsafe { av_color_space_name(ctx.colorspace).as_ref() }.map(|color_space| {
-					let cstr = unsafe { CStr::from_ptr(color_space) };
-					String::from_utf8_lossy(cstr.to_bytes()).to_string()
-				});
-			let color_primaries = unsafe { av_color_primaries_name(ctx.color_primaries).as_ref() }
-				.map(|color_primaries| {
-					let cstr = unsafe { CStr::from_ptr(color_primaries) };
-					String::from_utf8_lossy(cstr.to_bytes()).to_string()
-				});
-			let color_transfer =
-				unsafe { av_color_transfer_name(ctx.color_trc).as_ref() }.map(|color_transfer| {
-					let cstr = unsafe { CStr::from_ptr(color_transfer) };
-					String::from_utf8_lossy(cstr.to_bytes()).to_string()
-				});
-
-			(color_space, color_primaries, color_transfer)
-		};
+		let (color_space, color_primaries, color_transfer) = extract_colors(ctx);
 
 		// Field Order
-		let field_order = if ctx.field_order == AVFieldOrder::AV_FIELD_UNKNOWN {
-			None
-		} else {
-			Some(
-				(match ctx.field_order {
-					AVFieldOrder::AV_FIELD_TT => "top first",
-					AVFieldOrder::AV_FIELD_BB => "bottom first",
-					AVFieldOrder::AV_FIELD_TB => "top coded first (swapped)",
-					AVFieldOrder::AV_FIELD_BT => "bottom coded first (swapped)",
-					_ => "progressive",
-				})
-				.to_string(),
-			)
-		};
+		let field_order = extract_field_order(ctx);
 
 		// Chroma Sample Location
-		let chroma_location =
-			if ctx.chroma_sample_location == AVChromaLocation::AVCHROMA_LOC_UNSPECIFIED {
-				None
-			} else {
-				unsafe { av_chroma_location_name(ctx.chroma_sample_location).as_ref() }.map(
-					|chroma_location| {
-						let cstr = unsafe { CStr::from_ptr(chroma_location) };
-						String::from_utf8_lossy(cstr.to_bytes()).to_string()
-					},
-				)
-			};
+		let chroma_location = extract_chroma_location(ctx);
 
 		let width = ctx.width;
 		let height = ctx.height;
 
-		let (aspect_ratio_num, aspect_ratio_den) = if ctx.sample_aspect_ratio.num == 0 {
-			(None, None)
-		} else {
-			let mut display_aspect_ratio = AVRational { num: 0, den: 0 };
-			let num = i64::from(width * ctx.sample_aspect_ratio.num);
-			let den = i64::from(height * ctx.sample_aspect_ratio.den);
-			let max = 1024 * 1024;
-			unsafe {
-				av_reduce(
-					&mut display_aspect_ratio.num,
-					&mut display_aspect_ratio.den,
-					num,
-					den,
-					max,
-				);
-			}
-
-			(
-				Some(display_aspect_ratio.num),
-				Some(display_aspect_ratio.den),
-			)
-		};
+		let (aspect_ratio_num, aspect_ratio_den) = extract_aspect_ratio(ctx, width, height);
 
 		let mut properties = vec![];
 		if ctx.properties & (FF_CODEC_PROPERTY_LOSSLESS.unsigned_abs()) != 0 {
@@ -312,10 +210,10 @@ impl FFmpegCodecContext {
 			properties.push("lossless".to_string());
 		}
 
-		Some(MediaVideoProps {
+		Some(FFmpegVideoProps {
 			pixel_format,
-			bits_per_channel,
 			color_range,
+			bits_per_channel,
 			color_space,
 			color_primaries,
 			color_transfer,
@@ -329,7 +227,7 @@ impl FFmpegCodecContext {
 		})
 	}
 
-	fn audio_props(&self) -> Option<MediaAudioProps> {
+	fn audio_props(&self) -> Option<FFmpegAudioProps> {
 		let ctx = self.as_ref();
 		if ctx.codec_type != AVMediaType::AVMEDIA_TYPE_AUDIO {
 			return None;
@@ -350,7 +248,7 @@ impl FFmpegCodecContext {
 			reserved_padding: [0; 1000],
 		};
 		unsafe {
-			av_bprint_init(&mut bprint, 0, u32::MAX /* AV_BPRINT_SIZE_UNLIMITED */)
+			av_bprint_init(&mut bprint, 0, u32::MAX /* AV_BPRINT_SIZE_UNLIMITED */);
 		};
 		let mut channel_layout = ptr::null_mut();
 		let channel_layout =
@@ -364,13 +262,13 @@ impl FFmpegCodecContext {
 				Some(String::from_utf8_lossy(cstr.to_bytes()).to_string())
 			};
 
-		let sample_format = if ctx.sample_fmt != AVSampleFormat::AV_SAMPLE_FMT_NONE {
+		let sample_format = if ctx.sample_fmt == AVSampleFormat::AV_SAMPLE_FMT_NONE {
+			None
+		} else {
 			unsafe { av_get_sample_fmt_name(ctx.sample_fmt).as_ref() }.map(|sample_fmt| {
 				let cstr = unsafe { CStr::from_ptr(sample_fmt) };
 				String::from_utf8_lossy(cstr.to_bytes()).to_string()
 			})
-		} else {
-			None
 		};
 
 		let bit_per_sample = if ctx.bits_per_raw_sample > 0
@@ -381,7 +279,7 @@ impl FFmpegCodecContext {
 			None
 		};
 
-		Some(MediaAudioProps {
+		Some(FFmpegAudioProps {
 			delay: ctx.initial_padding,
 			padding: ctx.trailing_padding,
 			sample_rate,
@@ -391,24 +289,148 @@ impl FFmpegCodecContext {
 		})
 	}
 
-	fn subtitle_props(&self) -> Option<MediaSubtitleProps> {
+	fn subtitle_props(&self) -> Option<FFmpegSubtitleProps> {
 		if self.as_ref().codec_type != AVMediaType::AVMEDIA_TYPE_SUBTITLE {
 			return None;
 		}
 
-		Some(MediaSubtitleProps {
+		Some(FFmpegSubtitleProps {
 			width: self.as_ref().width,
 			height: self.as_ref().height,
 		})
 	}
 
-	fn props(&self) -> Option<Props> {
+	fn props(&self) -> Option<FFmpegProps> {
 		match self.as_ref().codec_type {
-			AVMediaType::AVMEDIA_TYPE_VIDEO => self.video_props().map(Props::Video),
-			AVMediaType::AVMEDIA_TYPE_AUDIO => self.audio_props().map(Props::Audio),
-			AVMediaType::AVMEDIA_TYPE_SUBTITLE => self.subtitle_props().map(Props::Subtitle),
+			AVMediaType::AVMEDIA_TYPE_VIDEO => self.video_props().map(FFmpegProps::Video),
+			AVMediaType::AVMEDIA_TYPE_AUDIO => self.audio_props().map(FFmpegProps::Audio),
+			AVMediaType::AVMEDIA_TYPE_SUBTITLE => self.subtitle_props().map(FFmpegProps::Subtitle),
 			_ => None,
 		}
+	}
+}
+
+fn extract_aspect_ratio(
+	ctx: &AVCodecContext,
+	width: i32,
+	height: i32,
+) -> (Option<i32>, Option<i32>) {
+	if ctx.sample_aspect_ratio.num == 0 {
+		(None, None)
+	} else {
+		let mut display_aspect_ratio = AVRational { num: 0, den: 0 };
+		let num = i64::from(width * ctx.sample_aspect_ratio.num);
+		let den = i64::from(height * ctx.sample_aspect_ratio.den);
+		let max = 1024 * 1024;
+		unsafe {
+			av_reduce(
+				&mut display_aspect_ratio.num,
+				&mut display_aspect_ratio.den,
+				num,
+				den,
+				max,
+			);
+		}
+
+		(
+			Some(display_aspect_ratio.num),
+			Some(display_aspect_ratio.den),
+		)
+	}
+}
+
+fn extract_chroma_location(ctx: &AVCodecContext) -> Option<String> {
+	if ctx.chroma_sample_location == AVChromaLocation::AVCHROMA_LOC_UNSPECIFIED {
+		None
+	} else {
+		unsafe { av_chroma_location_name(ctx.chroma_sample_location).as_ref() }.map(
+			|chroma_location| {
+				let cstr = unsafe { CStr::from_ptr(chroma_location) };
+				String::from_utf8_lossy(cstr.to_bytes()).to_string()
+			},
+		)
+	}
+}
+
+fn extract_field_order(ctx: &AVCodecContext) -> Option<String> {
+	if ctx.field_order == AVFieldOrder::AV_FIELD_UNKNOWN {
+		None
+	} else {
+		Some(
+			(match ctx.field_order {
+				AVFieldOrder::AV_FIELD_TT => "top first",
+				AVFieldOrder::AV_FIELD_BB => "bottom first",
+				AVFieldOrder::AV_FIELD_TB => "top coded first (swapped)",
+				AVFieldOrder::AV_FIELD_BT => "bottom coded first (swapped)",
+				_ => "progressive",
+			})
+			.to_string(),
+		)
+	}
+}
+
+fn extract_colors(ctx: &AVCodecContext) -> (Option<String>, Option<String>, Option<String>) {
+	if ctx.colorspace == AVColorSpace::AVCOL_SPC_UNSPECIFIED
+		&& ctx.color_primaries == AVColorPrimaries::AVCOL_PRI_UNSPECIFIED
+		&& ctx.color_trc == AVColorTransferCharacteristic::AVCOL_TRC_UNSPECIFIED
+	{
+		(None, None, None)
+	} else {
+		let color_space =
+			unsafe { av_color_space_name(ctx.colorspace).as_ref() }.map(|color_space| {
+				let cstr = unsafe { CStr::from_ptr(color_space) };
+				String::from_utf8_lossy(cstr.to_bytes()).to_string()
+			});
+		let color_primaries = unsafe { av_color_primaries_name(ctx.color_primaries).as_ref() }.map(
+			|color_primaries| {
+				let cstr = unsafe { CStr::from_ptr(color_primaries) };
+				String::from_utf8_lossy(cstr.to_bytes()).to_string()
+			},
+		);
+		let color_transfer =
+			unsafe { av_color_transfer_name(ctx.color_trc).as_ref() }.map(|color_transfer| {
+				let cstr = unsafe { CStr::from_ptr(color_transfer) };
+				String::from_utf8_lossy(cstr.to_bytes()).to_string()
+			});
+
+		(color_space, color_primaries, color_transfer)
+	}
+}
+
+fn extract_color_range(ctx: &AVCodecContext) -> Option<String> {
+	if ctx.color_range == AVColorRange::AVCOL_RANGE_UNSPECIFIED {
+		None
+	} else {
+		unsafe { av_color_range_name(ctx.color_range).as_ref() }.map(|color_range| {
+			let cstr = unsafe { CStr::from_ptr(color_range) };
+			String::from_utf8_lossy(cstr.to_bytes()).to_string()
+		})
+	}
+}
+
+fn extract_bits_per_channel(ctx: &AVCodecContext) -> Option<i32> {
+	if ctx.bits_per_raw_sample == 0 || ctx.pix_fmt == AVPixelFormat::AV_PIX_FMT_NONE {
+		None
+	} else {
+		unsafe { av_pix_fmt_desc_get(ctx.pix_fmt).as_ref() }.and_then(|pix_fmt_desc| {
+			let comp = pix_fmt_desc.comp[0];
+			if ctx.bits_per_raw_sample < comp.depth {
+				Some(ctx.bits_per_raw_sample)
+			} else {
+				None
+			}
+		})
+	}
+}
+
+fn extract_pixel_format(ctx: &AVCodecContext) -> Option<String> {
+	if ctx.pix_fmt == AVPixelFormat::AV_PIX_FMT_NONE {
+		None
+	} else {
+		unsafe { av_get_pix_fmt_name(ctx.pix_fmt).as_ref() }.map(|pixel_format| {
+			let cstr = unsafe { CStr::from_ptr(pixel_format) };
+			String::from_utf8_lossy(cstr.to_bytes()).to_string()
+		})
 	}
 }
 
@@ -421,13 +443,13 @@ impl Drop for FFmpegCodecContext {
 	}
 }
 
-impl From<&FFmpegCodecContext> for MediaCodec {
+impl From<&FFmpegCodecContext> for FFmpegCodec {
 	fn from(ctx: &FFmpegCodecContext) -> Self {
-		let (kind, subkind) = ctx.kind();
+		let (kind, sub_kind) = ctx.kind();
 
-		MediaCodec {
+		Self {
 			kind,
-			subkind,
+			sub_kind,
 			name: ctx.name(),
 			profile: ctx.profile(),
 			tag: ctx.tag(),

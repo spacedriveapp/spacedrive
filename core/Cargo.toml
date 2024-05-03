@@ -13,7 +13,7 @@ default = []
 # This feature allows features to be disabled when the Core is running on mobile.
 mobile = []
 # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
-ffmpeg = ["dep:sd-ffmpeg"]
+ffmpeg = ["dep:sd-ffmpeg", "sd-media-metadata/ffmpeg"]
 heif = ["sd-images/heif"]
 ai = ["dep:sd-ai"]
 crypto = ["dep:sd-crypto"]

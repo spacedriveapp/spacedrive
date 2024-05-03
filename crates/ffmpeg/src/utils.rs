@@ -2,7 +2,7 @@ use crate::error::{Error, FFmpegError};
 use std::ffi::CString;
 use std::path::Path;
 
-pub(crate) fn from_path(path: impl AsRef<Path>) -> Result<CString, Error> {
+pub fn from_path(path: impl AsRef<Path>) -> Result<CString, Error> {
 	let path = path.as_ref();
 	let path_str = path.as_os_str();
 
@@ -20,7 +20,7 @@ pub(crate) fn from_path(path: impl AsRef<Path>) -> Result<CString, Error> {
 	}
 }
 
-pub(crate) fn check_error(return_code: i32, error_message: &str) -> Result<(), Error> {
+pub fn check_error(return_code: i32, error_message: &str) -> Result<(), Error> {
 	if return_code < 0 {
 		Err(Error::FFmpegWithReason(
 			FFmpegError::from(return_code),

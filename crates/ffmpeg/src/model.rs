@@ -1,18 +1,38 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
-use specta::Type;
+use chrono::{DateTime, Utc};
 
-#[derive(Default, Debug, Serialize, Deserialize, Type)]
-pub struct MediaMetadata {
+#[derive(Debug)]
+pub struct FFmpegMediaData {
+	pub formats: Vec<String>,
+	pub duration: Option<i64>,
+	pub start_time: Option<i64>,
+	pub bit_rate: i32,
+	pub chapters: Vec<FFmpegChapter>,
+	pub programs: Vec<FFmpegProgram>,
+	pub metadata: FFmpegMetadata,
+}
+
+#[derive(Debug)]
+pub struct FFmpegChapter {
+	pub id: i64,
+	pub start: i64,
+	pub end: i64,
+	pub time_base_den: i32,
+	pub time_base_num: i32,
+	pub metadata: FFmpegMetadata,
+}
+
+#[derive(Default, Debug)]
+pub struct FFmpegMetadata {
 	pub album: Option<String>,
 	pub album_artist: Option<String>,
 	pub artist: Option<String>,
 	pub comment: Option<String>,
 	pub composer: Option<String>,
 	pub copyright: Option<String>,
-	pub creation_time: Option<chrono::DateTime<chrono::Utc>>,
-	pub date: Option<chrono::DateTime<chrono::Utc>>,
+	pub creation_time: Option<DateTime<Utc>>,
+	pub date: Option<DateTime<Utc>>,
 	pub disc: Option<u32>,
 	pub encoder: Option<String>,
 	pub encoded_by: Option<String>,
@@ -29,18 +49,49 @@ pub struct MediaMetadata {
 	pub custom: HashMap<String, String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Type)]
-pub struct MediaChapter {
+#[derive(Debug)]
+pub struct FFmpegProgram {
 	pub id: i32,
-	pub start: (i32, i32),
-	pub end: (i32, i32),
-	pub time_base_den: i32,
-	pub time_base_num: i32,
-	pub metadata: MediaMetadata,
+	pub name: Option<String>,
+	pub streams: Vec<FFmpegStream>,
+	pub metadata: FFmpegMetadata,
 }
 
-#[derive(Debug, Serialize, Deserialize, Type)]
-pub struct MediaVideoProps {
+#[derive(Debug)]
+pub struct FFmpegStream {
+	pub id: i32,
+	pub name: Option<String>,
+	pub codec: Option<FFmpegCodec>,
+	pub aspect_ratio_num: i32,
+	pub aspect_ratio_den: i32,
+	pub frames_per_second_num: i32,
+	pub frames_per_second_den: i32,
+	pub time_base_real_den: i32,
+	pub time_base_real_num: i32,
+	pub dispositions: Vec<String>,
+	pub metadata: FFmpegMetadata,
+}
+
+#[derive(Debug)]
+pub struct FFmpegCodec {
+	pub kind: Option<String>,
+	pub sub_kind: Option<String>,
+	pub tag: Option<String>,
+	pub name: Option<String>,
+	pub profile: Option<String>,
+	pub bit_rate: i32,
+	pub props: Option<FFmpegProps>,
+}
+
+#[derive(Debug)]
+pub enum FFmpegProps {
+	Video(FFmpegVideoProps),
+	Audio(FFmpegAudioProps),
+	Subtitle(FFmpegSubtitleProps),
+}
+
+#[derive(Debug)]
+pub struct FFmpegVideoProps {
 	pub pixel_format: Option<String>,
 	pub color_range: Option<String>,
 	pub bits_per_channel: Option<i32>,
@@ -56,8 +107,8 @@ pub struct MediaVideoProps {
 	pub properties: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Type)]
-pub struct MediaAudioProps {
+#[derive(Debug)]
+pub struct FFmpegAudioProps {
 	pub delay: i32,
 	pub padding: i32,
 	pub sample_rate: Option<i32>,
@@ -66,60 +117,8 @@ pub struct MediaAudioProps {
 	pub channel_layout: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Type)]
-pub struct MediaSubtitleProps {
+#[derive(Debug)]
+pub struct FFmpegSubtitleProps {
 	pub width: i32,
 	pub height: i32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Type)]
-pub enum Props {
-	Video(MediaVideoProps),
-	Audio(MediaAudioProps),
-	Subtitle(MediaSubtitleProps),
-}
-
-#[derive(Debug, Serialize, Deserialize, Type)]
-pub struct MediaCodec {
-	pub kind: Option<String>,
-	pub subkind: Option<String>,
-	pub tag: Option<String>,
-	pub name: Option<String>,
-	pub profile: Option<String>,
-	pub bit_rate: i32,
-	pub props: Option<Props>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Type)]
-pub struct MediaStream {
-	pub id: i32,
-	pub name: Option<String>,
-	pub codec: Option<MediaCodec>,
-	pub aspect_ratio_num: i32,
-	pub aspect_ratio_den: i32,
-	pub frames_per_second_num: i32,
-	pub frames_per_second_den: i32,
-	pub time_base_real_den: i32,
-	pub time_base_real_num: i32,
-	pub dispositions: Vec<String>,
-	pub metadata: MediaMetadata,
-}
-
-#[derive(Debug, Serialize, Deserialize, Type)]
-pub struct MediaProgram {
-	pub id: i32,
-	pub name: Option<String>,
-	pub streams: Vec<MediaStream>,
-	pub metadata: MediaMetadata,
-}
-
-#[derive(Debug, Serialize, Deserialize, Type)]
-pub struct MediaInfo {
-	pub formats: Vec<String>,
-	pub duration: Option<(i32, i32)>,
-	pub start_time: Option<(i32, i32)>,
-	pub bit_rate: i32,
-	pub chapters: Vec<MediaChapter>,
-	pub programs: Vec<MediaProgram>,
-	pub metadata: MediaMetadata,
 }

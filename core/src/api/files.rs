@@ -21,8 +21,9 @@ use sd_core_prisma_helpers::{
 
 use sd_file_ext::kind::ObjectKind;
 use sd_images::ConvertibleExtension;
+use sd_media_metadata::FFmpegMetadata;
 use sd_prisma::{
-	prisma::{f_fmpeg_media_program, file_path, location, object},
+	prisma::{ffmpeg_media_program, file_path, location, object},
 	prisma_sync,
 };
 use sd_sync::OperationFactory;
@@ -134,19 +135,19 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.with2(library())
 				.query(|(_, library), id: i32| async move {
 					#[cfg(not(feature = "ffmpeg"))]
-					return Err::<(), _>(rspc::Error::new(
+					return Err::<FFmpegMetadata, _>(rspc::Error::new(
 						ErrorCode::MethodNotSupported,
 						"ffmpeg feature is not enabled".to_string(),
 					));
 
 					#[cfg(feature = "ffmpeg")]
 					{
-						use sd_ffmpeg::model::{
-							MediaChapter, MediaCodec, MediaProgram, MediaStream,
+						use sd_media_metadata::ffmpeg::{
+							chapter::Chapter, codec::Codec, program::Program, stream::Stream,
 						};
 						use sd_prisma::prisma::{
-							f_fmpeg_data, f_fmpeg_media_chapter, f_fmpeg_media_codec,
-							f_fmpeg_media_stream,
+							ffmpeg_data, ffmpeg_media_chapter, ffmpeg_media_codec,
+							ffmpeg_media_stream,
 						};
 
 						let file_path = library
@@ -173,15 +174,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						)
 						.await?;
 
-						let media_info =
-							sd_ffmpeg::probe(Path::new(&location_path).join(&isolated_path))
-								.map_err(|e| {
-									error!("{e:#?}");
-									rspc::Error::new(
-										ErrorCode::NotFound,
-										"Couldn't extract media data from file".to_string(),
-									)
-								})?;
+						let media_data = FFmpegMetadata::from_path(
+							Path::new(&location_path).join(&isolated_path),
+						)
+						.await
+						.map_err(|e| {
+							error!("{e:#?}");
+							rspc::Error::with_cause(
+								ErrorCode::InternalServerError,
+								e.to_string(),
+								e,
+							)
+						})?;
 
 						let a = library
 							.db
@@ -189,24 +193,24 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.with_timeout(30 * 1000)
 							.run(|db| async move {
 								let data_id = db
-									.f_fmpeg_data()
+									.ffmpeg_data()
 									.create(
-										media_info.formats.join(","),
-										media_info.bit_rate,
+										media_data.formats.join(","),
+										media_data.bit_rate,
 										object::id::equals(object_id),
 										vec![
-											f_fmpeg_data::duration::set(
-												media_info
+											ffmpeg_data::duration::set(
+												media_data
 													.duration
 													.map(|(a, b)| (a as i64) << 32 | b as i64),
 											),
-											f_fmpeg_data::start_time::set(
-												media_info
+											ffmpeg_data::start_time::set(
+												media_data
 													.start_time
 													.map(|(a, b)| (a as i64) << 32 | b as i64),
 											),
-											f_fmpeg_data::metadata::set(
-												serde_json::to_vec(&media_info.metadata)
+											ffmpeg_data::metadata::set(
+												serde_json::to_vec(&media_data.metadata)
 													.map_err(|err| {
 														error!("Error reading FFmpegData metadata: {err:#?}");
 														err
@@ -215,25 +219,25 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 											),
 										],
 									)
-									.select(f_fmpeg_data::select!({ id }))
+									.select(ffmpeg_data::select!({ id }))
 									.exec()
 									.await
 									.map(|data| data.id)?;
 
-								db.f_fmpeg_media_chapter()
+								db.ffmpeg_media_chapter()
 									.create_many(
-										media_info
+										media_data
 											.chapters
 											.iter()
 											.map(
-												|MediaChapter {
+												|Chapter {
 												     id,
 												     start: (start_hi, start_low),
 												     end: (end_hi, end_low),
 												     time_base_den,
 												     time_base_num,
 												     metadata,
-												 }| f_fmpeg_media_chapter::CreateUnchecked {
+												 }| ffmpeg_media_chapter::CreateUnchecked {
 													chapter_id: *id,
 													start: (*start_hi as i64) << 32
 														| *start_low as i64,
@@ -242,7 +246,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 													time_base_num: *time_base_num,
 													ffmpeg_data_id: data_id,
 													_params: vec![
-														f_fmpeg_media_chapter::metadata::set(
+														ffmpeg_media_chapter::metadata::set(
 															serde_json::to_vec(&metadata)
 																.map_err(|err| {
 																	error!("Error reading FFmpegMediaChapter metadata: {err:#?}");
@@ -258,22 +262,22 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									.exec()
 									.await?;
 
-								db.f_fmpeg_media_program().create_many(
-									media_info
+								db.ffmpeg_media_program().create_many(
+									media_data
 										.programs
 										.iter()
 										.map(
-											|MediaProgram {
+											|Program {
 											     id, name, metadata, ..
 											 }| {
-												f_fmpeg_media_program::CreateUnchecked {
+												ffmpeg_media_program::CreateUnchecked {
 													program_id: *id,
 													ffmpeg_data_id: data_id,
 													_params: vec![
-														f_fmpeg_media_program::name::set(
+														ffmpeg_media_program::name::set(
 															name.clone(),
 														),
-														f_fmpeg_media_program::metadata::set(
+														ffmpeg_media_program::metadata::set(
 															serde_json::to_vec(metadata)
 																.map_err(|err| {
 																	error!("Error reading FFmpegMediaProgram metadata: {err:#?}");
@@ -288,18 +292,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 										.collect(),
 								);
 
-								db.f_fmpeg_media_stream().create_many(
-									media_info
+								db.ffmpeg_media_stream().create_many(
+									media_data
 										.programs
 										.iter()
 										.flat_map(
-											|MediaProgram {
+											|Program {
 											     id: program_id,
 											     streams,
 											     ..
 											 }| {
 												streams.iter().map(
-													|MediaStream {
+													|Stream {
 													     id,
 													     name,
 													     aspect_ratio_num,
@@ -312,7 +316,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 													     metadata,
 													     ..
 													 }| {
-														f_fmpeg_media_stream::CreateUnchecked {
+														ffmpeg_media_stream::CreateUnchecked {
 															stream_id: *id,
 															aspect_ratio_num: *aspect_ratio_num,
 															aspect_ratio_den: *aspect_ratio_den,
@@ -325,17 +329,17 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 															program_id: *program_id,
 															ffmpeg_data_id: data_id,
 															_params: vec![
-															f_fmpeg_media_stream::name::set(name.clone()),
-															f_fmpeg_media_stream::dispositions::set(
+															ffmpeg_media_stream::name::set(name.clone()),
+															ffmpeg_media_stream::dispositions::set(
 																(!dispositions.is_empty())
 																	.then_some(
 																		dispositions.join(","),
 																	),
 															),
-															f_fmpeg_media_stream::title::set(metadata.title.to_owned()),
-															f_fmpeg_media_stream::encoder::set(metadata.encoder.to_owned()),
-															f_fmpeg_media_stream::language::set(metadata.language.to_owned()),
-															f_fmpeg_media_stream::metadata::set(
+															ffmpeg_media_stream::title::set(metadata.title.to_owned()),
+															ffmpeg_media_stream::encoder::set(metadata.encoder.to_owned()),
+															ffmpeg_media_stream::language::set(metadata.language.to_owned()),
+															ffmpeg_media_stream::metadata::set(
 																serde_json::to_vec(metadata)
 																	.map_err(|err| {
 																		error!("Error reading FFmpegMediaStream metadata: {err:#?}");
@@ -352,43 +356,43 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 										.collect(),
 								);
 
-								db.f_fmpeg_media_codec().create_many(
-									media_info
+								db.ffmpeg_media_codec().create_many(
+									media_data
 										.programs
 										.iter()
 										.flat_map(
-											|MediaProgram {
+											|Program {
 											     id: program_id,
 											     streams,
 											     ..
 											 }| {
 												streams.iter().filter_map(
-													|MediaStream {
+													|Stream {
 													     id: stream_id,
 													     codec,
 													     ..
 													 }| {
 														codec.as_ref().map(
-															|MediaCodec {
+															|Codec {
 															     bit_rate,
 															     kind,
-															     subkind,
+															     sub_kind,
 															     tag,
 															     name,
 															     profile,
 															     ..
 															 }| {
-																f_fmpeg_media_codec::CreateUnchecked {
+																ffmpeg_media_codec::CreateUnchecked {
 																bit_rate: *bit_rate,
 																stream_id: *stream_id,
 																program_id: *program_id,
 																ffmpeg_data_id: data_id,
 																_params: vec![
-																	f_fmpeg_media_codec::kind::set(kind.to_owned()),
-																	f_fmpeg_media_codec::subkind::set(subkind.to_owned()),
-																	f_fmpeg_media_codec::tag::set(tag.to_owned()),
-																	f_fmpeg_media_codec::name::set(name.to_owned()),
-																	f_fmpeg_media_codec::profile::set(profile.to_owned()),
+																	ffmpeg_media_codec::kind::set(kind.to_owned()),
+																	ffmpeg_media_codec::sub_kind::set(sub_kind.to_owned()),
+																	ffmpeg_media_codec::tag::set(tag.to_owned()),
+																	ffmpeg_media_codec::name::set(name.to_owned()),
+																	ffmpeg_media_codec::profile::set(profile.to_owned()),
 																],
 															}
 															},
@@ -400,9 +404,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 										.collect(),
 								);
 
-								db.f_fmpeg_data()
-									.find_unique(f_fmpeg_data::id::equals(data_id))
-									.include(f_fmpeg_data::include!({
+								db.ffmpeg_data()
+									.find_unique(ffmpeg_data::id::equals(data_id))
+									.include(ffmpeg_data::include!({
 										chapters
 										programs: include {
 											streams: include {

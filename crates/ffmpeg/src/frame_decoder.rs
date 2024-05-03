@@ -12,8 +12,8 @@ use std::{path::Path, ptr};
 use ffmpeg_sys_next::{
 	av_buffersink_get_frame, av_buffersrc_write_frame, av_frame_alloc,
 	av_guess_sample_aspect_ratio, av_packet_alloc, av_packet_free, av_packet_unref, av_seek_frame,
-	avcodec_find_decoder, AVPacket, AVStream, AVERROR, AVPROBE_SCORE_MAX, AV_FRAME_FLAG_INTERLACED,
-	AV_FRAME_FLAG_KEY, AV_TIME_BASE, EAGAIN,
+	avcodec_find_decoder, AVPacket, AVRational, AVStream, AVERROR, AVPROBE_SCORE_MAX,
+	AV_FRAME_FLAG_INTERLACED, AV_FRAME_FLAG_KEY, AV_TIME_BASE, EAGAIN,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -23,7 +23,7 @@ pub enum ThumbnailSize {
 }
 
 #[derive(Debug)]
-pub(crate) struct VideoFrame {
+pub struct VideoFrame {
 	pub data: Vec<u8>,
 	pub width: u32,
 	pub height: u32,
@@ -55,7 +55,9 @@ impl FrameDecoder {
 		// This needs to remain at 100 or the app will force crash if it comes
 		// across a video with subtitles or any type of corruption.
 		if format_context.as_ref().probe_score != AVPROBE_SCORE_MAX {
-			return Err(Error::CorruptVideo);
+			return Err(Error::CorruptVideo(
+				filename.to_path_buf().into_boxed_path(),
+			));
 		}
 
 		let (embedded, video_stream) =
@@ -120,7 +122,7 @@ impl FrameDecoder {
 			"Seeking video failed",
 		)?;
 
-		self.codec_ctx.flush()?;
+		self.codec_ctx.flush();
 
 		let mut got_frame = false;
 		for _ in 0..200 {
@@ -152,7 +154,7 @@ impl FrameDecoder {
 		let (time_base, stream_ptr) = self
 			.format_ctx
 			.stream(self.preferred_stream_id)
-			.map(|stream| (stream.time_base, stream as *mut AVStream))
+			.map(|stream| -> (AVRational, *mut AVStream) { (stream.time_base, stream) })
 			.ok_or(FFmpegError::NullError)?;
 
 		let pixel_aspect_ratio = unsafe {
@@ -164,7 +166,7 @@ impl FrameDecoder {
 			&time_base,
 			&self.codec_ctx,
 			(self.frame.as_mut().flags & AV_FRAME_FLAG_INTERLACED) != 0,
-			&pixel_aspect_ratio,
+			pixel_aspect_ratio,
 			maintain_aspect_ratio,
 		)?;
 
@@ -208,8 +210,12 @@ impl FrameDecoder {
 	pub fn get_duration_secs(&self) -> Option<f64> {
 		self.format_ctx.duration().map(|duration| {
 			let av_time_base = i64::from(AV_TIME_BASE);
-			(duration / av_time_base) as f64
-				+ ((duration % av_time_base) as f64 / f64::from(AV_TIME_BASE))
+			#[allow(clippy::cast_precision_loss)]
+			{
+				// SAFETY: the duration would need to be humongous for this cast to f64 to cause problems
+				(duration / av_time_base) as f64
+					+ ((duration % av_time_base) as f64 / f64::from(AV_TIME_BASE))
+			}
 		})
 	}
 
@@ -238,9 +244,9 @@ impl FrameDecoder {
 		while self.format_ctx.read_frame(self.packet).is_ok() {
 			if self.is_packet_for_stream().is_some() {
 				return true;
-			} else {
-				self.reset_packet();
 			}
+
+			self.reset_packet();
 		}
 
 		false
@@ -251,13 +257,23 @@ impl FrameDecoder {
 			return Ok(false);
 		};
 
-		if (match self.codec_ctx.send_packet(packet) {
-			Err(Error::Again) => Ok(true),
-			e => e,
-		})? {
+		if match self.codec_ctx.send_packet(packet) {
+			Ok(b) => b,
+			Err(FFmpegError::Again) => true,
+			Err(e) => {
+				return Err(Error::FFmpegWithReason(
+					e,
+					"Failed to send packet to decoder".to_string(),
+				))
+			}
+		} {
 			match self.codec_ctx.receive_frame(self.frame.as_mut()) {
-				Err(Error::Again) => Ok(false),
-				e => e,
+				Ok(ok) => Ok(ok),
+				Err(FFmpegError::Again) => Ok(false),
+				Err(e) => Err(Error::FFmpegWithReason(
+					e,
+					"Failed to receive frame from decoder".to_string(),
+				)),
 			}
 		} else {
 			Ok(false)

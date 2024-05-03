@@ -238,7 +238,7 @@ model Object {
   file_paths  FilePath[]
   // comments   Comment[]
   exif_data   ExifData?
-  ffmpeg_data FFmpegData?
+  ffmpeg_data FfmpegData?
 
   // key Key? @relation(fields: [key_id], references: [id])
 
@@ -269,7 +269,7 @@ model ExifData {
   @@map("exif_data")
 }
 
-model FFmpegData {
+model FfmpegData {
   id Int @id @default(autoincrement())
 
   // Internal FFmpeg properties
@@ -278,8 +278,8 @@ model FFmpegData {
   start_time BigInt?
   bit_rate   Int
 
-  chapters FFmpegMediaChapter[]
-  programs FFmpegMediaProgram[]
+  chapters FfmpegMediaChapter[]
+  programs FfmpegMediaProgram[]
 
   // Metadata for search
   title         String?
@@ -298,7 +298,7 @@ model FFmpegData {
   @@map("ffmpeg_data")
 }
 
-model FFmpegMediaChapter {
+model FfmpegMediaChapter {
   chapter_id Int
 
   start BigInt
@@ -311,34 +311,34 @@ model FFmpegMediaChapter {
   title    String?
   metadata Bytes?
 
-  ffmpeg_data    FFmpegData @relation(fields: [ffmpeg_data_id], references: [id], onDelete: Cascade)
+  ffmpeg_data    FfmpegData @relation(fields: [ffmpeg_data_id], references: [id], onDelete: Cascade)
   ffmpeg_data_id Int
 
   @@id(name: "likeId", [ffmpeg_data_id, chapter_id])
   @@map("ffmpeg_media_chapter")
 }
 
-model FFmpegMediaProgram {
+model FfmpegMediaProgram {
   program_id Int
 
-  streams FFmpegMediaStream[]
+  streams FfmpegMediaStream[]
 
   // Metadata for search
   name     String?
   metadata Bytes?
 
-  ffmpeg_data    FFmpegData @relation(fields: [ffmpeg_data_id], references: [id], onDelete: Cascade)
+  ffmpeg_data    FfmpegData @relation(fields: [ffmpeg_data_id], references: [id], onDelete: Cascade)
   ffmpeg_data_id Int
 
   @@id(name: "likeId", [ffmpeg_data_id, program_id])
   @@map("ffmpeg_media_program")
 }
 
-model FFmpegMediaStream {
+model FfmpegMediaStream {
   stream_id Int
 
   name                  String?
-  codec                 FFmpegMediaCodec?
+  codec                 FfmpegMediaCodec?
   aspect_ratio_num      Int
   aspect_ratio_den      Int
   frames_per_second_num Int
@@ -354,7 +354,7 @@ model FFmpegMediaStream {
   duration BigInt?
   metadata Bytes?
 
-  program        FFmpegMediaProgram @relation(fields: [ffmpeg_data_id, program_id], references: [ffmpeg_data_id, program_id], onDelete: Cascade)
+  program        FfmpegMediaProgram @relation(fields: [ffmpeg_data_id, program_id], references: [ffmpeg_data_id, program_id], onDelete: Cascade)
   program_id     Int
   ffmpeg_data_id Int
 
@@ -363,20 +363,20 @@ model FFmpegMediaStream {
   @@map("ffmpeg_media_stream")
 }
 
-model FFmpegMediaCodec {
+model FfmpegMediaCodec {
   id Int @id @default(autoincrement())
 
   kind     String?
-  subkind  String?
+  sub_kind  String?
   tag      String?
   name     String?
   profile  String?
   bit_rate Int
 
-  video_props FFmpegMediaVideoProps?
-  audio_props FFmpegMediaAudioProps?
+  video_props FfmpegMediaVideoProps?
+  audio_props FfmpegMediaAudioProps?
 
-  stream         FFmpegMediaStream @relation(fields: [ffmpeg_data_id, program_id, stream_id], references: [ffmpeg_data_id, program_id, stream_id], onDelete: Cascade)
+  stream         FfmpegMediaStream @relation(fields: [ffmpeg_data_id, program_id, stream_id], references: [ffmpeg_data_id, program_id, stream_id], onDelete: Cascade)
   stream_id      Int
   program_id     Int
   ffmpeg_data_id Int
@@ -385,7 +385,7 @@ model FFmpegMediaCodec {
   @@map("ffmpeg_media_codec")
 }
 
-model FFmpegMediaVideoProps {
+model FfmpegMediaVideoProps {
   id Int @id @default(autoincrement())
 
   pixel_format     String?
@@ -402,13 +402,13 @@ model FFmpegMediaVideoProps {
   aspect_ratio_Den Int?
   properties       String?
 
-  codec    FFmpegMediaCodec @relation(fields: [codec_id], references: [id], onDelete: Cascade)
+  codec    FfmpegMediaCodec @relation(fields: [codec_id], references: [id], onDelete: Cascade)
   codec_id Int              @unique
 
   @@map("ffmpeg_media_video_props")
 }
 
-model FFmpegMediaAudioProps {
+model FfmpegMediaAudioProps {
   id Int @id @default(autoincrement())
 
   delay          Int
@@ -418,7 +418,7 @@ model FFmpegMediaAudioProps {
   bit_per_sample Int?
   channel_layout String?
 
-  codec    FFmpegMediaCodec @relation(fields: [codec_id], references: [id], onDelete: Cascade)
+  codec    FfmpegMediaCodec @relation(fields: [codec_id], references: [id], onDelete: Cascade)
   codec_id Int              @unique
 
   @@map("ffmpeg_media_audio_props")
