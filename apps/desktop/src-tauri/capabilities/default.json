@@ -15,6 +15,7 @@
 		"webview:default",
 		"webview:allow-internal-toggle-devtools",
 		"os:allow-os-type",
-		"window:allow-start-dragging"
+		"window:allow-start-dragging",
+		"dialog:allow-open"
 	]
 }
