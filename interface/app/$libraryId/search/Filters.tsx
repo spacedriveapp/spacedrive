@@ -2,23 +2,18 @@ import {
 	CircleDashed,
 	Cube,
 	Folder,
+	Heart,
 	Icon,
 	SelectionSlash,
 	Tag,
 	Textbox
 } from '@phosphor-icons/react';
 import { useState } from 'react';
-import {
-	InOrNotIn,
-	ObjectKind,
-	SearchFilterArgs,
-	TextMatch,
-	useCache,
-	useLibraryQuery,
-	useNodes
-} from '@sd/client';
+import { InOrNotIn, ObjectKind, SearchFilterArgs, TextMatch, useLibraryQuery } from '@sd/client';
 import { Button, Input } from '@sd/ui';
+import i18n from '~/app/I18n';
 import { Icon as SDIcon } from '~/components';
+import { useLocale } from '~/hooks';
 
 import { SearchOptionItem, SearchOptionSubMenu } from '.';
 import { AllKeys, FilterOption, getKey } from './store';
@@ -156,6 +151,8 @@ const FilterOptionText = ({
 		value
 	});
 
+	const { t } = useLocale();
+
 	return (
 		<SearchOptionSubMenu className="!p-1.5" name={filter.name} icon={filter.icon}>
 			<form
@@ -180,7 +177,7 @@ const FilterOptionText = ({
 					className="w-full"
 					type="submit"
 				>
-					Apply
+					{t('apply')}
 				</Button>
 			</form>
 		</SearchOptionSubMenu>
@@ -415,7 +412,7 @@ function createBooleanFilter(
 
 export const filterRegistry = [
 	createInOrNotInFilter({
-		name: 'Location',
+		name: i18n.t('location'),
 		icon: Folder, // Phosphor folder icon
 		extract: (arg) => {
 			if ('filePath' in arg && 'locations' in arg.filePath) return arg.filePath.locations;
@@ -437,8 +434,7 @@ export const filterRegistry = [
 		},
 		useOptions: () => {
 			const query = useLibraryQuery(['locations.list'], { keepPreviousData: true });
-			useNodes(query.data?.nodes);
-			const locations = useCache(query.data?.items);
+			const locations = query.data;
 
 			return (locations ?? []).map((location) => ({
 				name: location.name!,
@@ -451,7 +447,7 @@ export const filterRegistry = [
 		)
 	}),
 	createInOrNotInFilter({
-		name: 'Tags',
+		name: i18n.t('tags'),
 		icon: CircleDashed,
 		extract: (arg) => {
 			if ('object' in arg && 'tags' in arg.object) return arg.object.tags;
@@ -473,8 +469,7 @@ export const filterRegistry = [
 		},
 		useOptions: () => {
 			const query = useLibraryQuery(['tags.list']);
-			useNodes(query.data?.nodes);
-			const tags = useCache(query.data?.items);
+			const tags = query.data;
 			return (tags ?? []).map((tag) => ({
 				name: tag.name!,
 				value: tag.id,
@@ -488,7 +483,7 @@ export const filterRegistry = [
 						<div className="flex flex-col items-center justify-center gap-2 p-2">
 							<SDIcon name="Tags" size={32} />
 							<p className="w-4/5 text-center text-xs text-ink-dull">
-								You have not created any tags
+								{i18n.t('no_tags')}
 							</p>
 						</div>
 					)}
@@ -500,7 +495,7 @@ export const filterRegistry = [
 		}
 	}),
 	createInOrNotInFilter({
-		name: 'Kind',
+		name: i18n.t('kind'),
 		icon: Cube,
 		extract: (arg) => {
 			if ('object' in arg && 'kind' in arg.object) return arg.object.kind;
@@ -536,7 +531,7 @@ export const filterRegistry = [
 		)
 	}),
 	createTextMatchFilter({
-		name: 'Name',
+		name: i18n.t('name'),
 		icon: Textbox,
 		extract: (arg) => {
 			if ('filePath' in arg && 'name' in arg.filePath) return arg.filePath.name;
@@ -546,7 +541,7 @@ export const filterRegistry = [
 		Render: ({ filter, search }) => <FilterOptionText filter={filter} search={search} />
 	}),
 	createInOrNotInFilter({
-		name: 'Extension',
+		name: i18n.t('extension'),
 		icon: Textbox,
 		extract: (arg) => {
 			if ('filePath' in arg && 'extension' in arg.filePath) return arg.filePath.extension;
@@ -563,7 +558,7 @@ export const filterRegistry = [
 		Render: ({ filter, search }) => <FilterOptionText filter={filter} search={search} />
 	}),
 	createBooleanFilter({
-		name: 'Hidden',
+		name: i18n.t('hidden'),
 		icon: SelectionSlash,
 		extract: (arg) => {
 			if ('filePath' in arg && 'hidden' in arg.filePath) return arg.filePath.hidden;
@@ -579,9 +574,27 @@ export const filterRegistry = [
 			];
 		},
 		Render: ({ filter, search }) => <FilterOptionBoolean filter={filter} search={search} />
+	}),
+	createBooleanFilter({
+		name: 'Favorite',
+		icon: Heart,
+		extract: (arg) => {
+			if ('object' in arg && 'favorite' in arg.object) return arg.object.favorite;
+		},
+		create: (favorite) => ({ object: { favorite } }),
+		useOptions: () => {
+			return [
+				{
+					name: 'Favorite',
+					value: true,
+					icon: 'Heart' // Spacedrive folder icon
+				}
+			];
+		},
+		Render: ({ filter, search }) => <FilterOptionBoolean filter={filter} search={search} />
 	})
 	// createInOrNotInFilter({
-	// 	name: 'Label',
+	// 	name: i18n.t('label'),
 	// 	icon: Tag,
 	// 	extract: (arg) => {
 	// 		if ('object' in arg && 'labels' in arg.object) return arg.object.labels;
@@ -616,7 +629,7 @@ export const filterRegistry = [
 	// idk how to handle this rn since include_descendants is part of 'path' now
 	//
 	// createFilter({
-	// 	name: 'WithDescendants',
+	// 	name: i18n.t('with_descendants'),
 	// 	icon: SelectionSlash,
 	// 	conditions: filterTypeCondition.trueOrFalse,
 	// 	setCondition: (args, condition: 'true' | 'false') => {

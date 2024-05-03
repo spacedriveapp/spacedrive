@@ -1062,6 +1062,9 @@ importers:
       react-loading-icons:
         specifier: ^1.1.0
         version: 1.1.0
+      react-resizable-layout:
+        specifier: ^0.7.2
+        version: 0.7.2(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       react-router-dom:
         specifier: '=6.20.1'
         version: 6.20.1(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
@@ -11288,6 +11291,12 @@ packages:
     peerDependenciesMeta:
       '@types/react':
         optional: true
+
+  react-resizable-layout@0.7.2:
+    resolution: {integrity: sha512-GrVzAecB6+osdAx5PPP3G8R9n7A2uDd3NL+PyrHWNRaVBivZmW/o0+yFjQdS5Bo016A2fIP11fAhefsknWN4aw==}
+    peerDependencies:
+      react: '>=17.0.0'
+      react-dom: '>=17.0.0'
 
   react-router-dom@6.20.1:
     resolution: {integrity: sha512-npzfPWcxfQN35psS7rJgi/EW0Gx6EsNjfdJSAk73U/HqMEJZ2k/8puxfwHFgDQhBGmS3+sjnGbMdMSV45axPQw==}
@@ -26438,6 +26447,11 @@ snapshots:
       use-sidecar: 1.1.2(@types/react@18.2.67)(react@18.2.0)
     optionalDependencies:
       '@types/react': 18.2.67
+
+  react-resizable-layout@0.7.2(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
+    dependencies:
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
 
   react-router-dom@6.20.1(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
     dependencies:

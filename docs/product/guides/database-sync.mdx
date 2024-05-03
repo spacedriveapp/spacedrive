@@ -2,4 +2,21 @@
 index: 100
 ---
 
-# Database sync
+# Database Sync
+
+Spacedrive Libraries are just databases shared among multiple instances. When these instances connect, either via Spacedrive Cloud or peer-to-peer, the changes to each instance's local database are synchronized.
+The technical details of this process are covered in the [Developer docs](/docs/developers/architecture/sync).
+
+## Cloud Sync
+
+When connected to Spacedrive Cloud, a Spacedrive Instance will send its changes to be stored in the Cloud in an encrypted format.
+When another instance connects to the Cloud, it will download these changes and apply them to its local database.
+
+This process does not require multiple instances to be connected at the same time.
+Spacedrive Cloud will store the changes for when other instances connect.
+
+## Peer-To-Peer Sync
+
+When connected over peer-to-peer, two instances will exchange their database changess directly.
+The contents of the database changes are not encrypted themselves,
+instead the connection between the two instances will ensure that they are encrypted during transit.

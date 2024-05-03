@@ -1,10 +1,8 @@
 import dayjs from 'dayjs';
 import { ExplorerItem, getExplorerItemData, OrderingKey } from '@sd/client';
 
-const DATE_FORMAT = 'D MMM YYYY';
-
-export const formatDate = (date: Date | { from: Date; to: Date }) => {
-	if (date instanceof Date) return dayjs(date).format(DATE_FORMAT);
+export const formatDate = (date: Date | { from: Date; to: Date }, dateFormat: string) => {
+	if (date instanceof Date) return dayjs(date).format(dateFormat);
 
 	const sameMonth = date.from.getMonth() === date.to.getMonth();
 	const sameYear = date.from.getFullYear() === date.to.getFullYear();
@@ -13,7 +11,7 @@ export const formatDate = (date: Date | { from: Date; to: Date }) => {
 		.filter(Boolean)
 		.join(' ');
 
-	return `${dayjs(date.from).format(fromDateFormat)} - ${dayjs(date.to).format(DATE_FORMAT)}`;
+	return `${dayjs(date.from).format(fromDateFormat)} - ${dayjs(date.to).format(dateFormat)}`;
 };
 
 export function getDate(item: ExplorerItem, orderBy: OrderingKey) {

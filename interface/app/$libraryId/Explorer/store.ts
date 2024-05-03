@@ -1,5 +1,3 @@
-import { proxy } from 'valtio';
-import { proxySet } from 'valtio/utils';
 import {
 	resetStore,
 	type DoubleClickAction,
@@ -8,6 +6,10 @@ import {
 	type ExplorerSettings,
 	type Ordering
 } from '@sd/client';
+import { proxy } from 'valtio';
+import { proxySet } from 'valtio/utils';
+import { z } from 'zod';
+import i18n from '~/app/I18n';
 
 import {
 	DEFAULT_LIST_VIEW_ICON_SIZE,
@@ -147,3 +149,26 @@ export function isCut(item: ExplorerItem, cutCopyState: CutCopyState) {
 			return false;
 	}
 }
+
+export const filePathOrderingKeysSchema = z.union([
+	z.literal('name').describe(i18n.t('name')),
+	z.literal('sizeInBytes').describe(i18n.t('size')),
+	z.literal('dateModified').describe(i18n.t('date_modified')),
+	z.literal('dateIndexed').describe(i18n.t('date_indexed')),
+	z.literal('dateCreated').describe(i18n.t('date_created')),
+	z.literal('object.dateAccessed').describe(i18n.t('date_accessed')),
+	z.literal('object.mediaData.epochTime').describe(i18n.t('date_taken'))
+]);
+
+export const objectOrderingKeysSchema = z.union([
+	z.literal('dateAccessed').describe(i18n.t('date_accessed')),
+	z.literal('kind').describe(i18n.t('kind')),
+	z.literal('mediaData.epochTime').describe(i18n.t('date_taken'))
+]);
+
+export const nonIndexedPathOrderingSchema = z.union([
+	z.literal('name').describe(i18n.t('name')),
+	z.literal('sizeInBytes').describe(i18n.t('size')),
+	z.literal('dateCreated').describe(i18n.t('date_created')),
+	z.literal('dateModified').describe(i18n.t('date_modified'))
+]);

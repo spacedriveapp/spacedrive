@@ -5,9 +5,12 @@ import { dialogManager, Dropdown, DropdownMenu } from '@sd/ui';
 import { useLocale } from '~/hooks';
 
 import CreateDialog from '../../../settings/node/libraries/CreateDialog';
+import { useSidebarContext } from './Context';
 
 export default () => {
 	const { library, libraries, currentLibraryId } = useClientContext();
+
+	const sidebar = useSidebarContext();
 
 	const { t } = useLocale();
 
@@ -31,8 +34,10 @@ export default () => {
 			}
 			// we override the sidebar dropdown item's hover styles
 			// because the dark style clashes with the sidebar
-			className="mt-1 shadow-none data-[side=bottom]:slide-in-from-top-2 dark:divide-menu-selected/30 dark:border-sidebar-line dark:bg-sidebar-box"
+			className="z-[100] mt-1 shadow-none data-[side=bottom]:slide-in-from-top-2 dark:divide-menu-selected/30 dark:border-sidebar-line dark:bg-sidebar-box"
 			alignToTrigger
+			// Timeout because of race conditions when opening the dropdown from a open popover.
+			onOpenChange={(open) => setTimeout(() => sidebar.onLockedChange(open))}
 		>
 			{libraries.data?.map((lib) => (
 				<DropdownMenu.Item

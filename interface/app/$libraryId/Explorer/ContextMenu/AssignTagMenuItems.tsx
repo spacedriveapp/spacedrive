@@ -4,7 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import { RefObject, useMemo, useRef } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
-import { ExplorerItem, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { ExplorerItem, useLibraryQuery } from '@sd/client';
 import { Button, dialogManager, ModifierKeys, tw } from '@sd/ui';
 import CreateDialog, {
 	AssignTagItems,
@@ -23,7 +23,6 @@ interface Props {
 
 function useData({ items }: Props) {
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
-	useNodes(tags.data?.nodes);
 
 	// Map<tag::id, Vec<object::id>>
 	const tagsWithObjects = useLibraryQuery(
@@ -42,7 +41,7 @@ function useData({ items }: Props) {
 	return {
 		tags: {
 			...tags,
-			data: useCache(tags.data?.items)
+			data: tags.data
 		},
 		tagsWithObjects
 	};

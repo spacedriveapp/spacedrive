@@ -24,32 +24,32 @@ const ScreenContainer = ({
 	const bottomTabBarHeight = Platform.OS === 'ios' ? 80 : 60;
 	return scrollview ? (
 		<View style={tw`relative flex-1`}>
-				<ScrollView
-					ref={ref}
-					onContentSizeChange={() => {
-						if (!scrollToBottomOnChange) return;
-						ref.current?.scrollToEnd({ animated: true });
-					}}
-					contentContainerStyle={twStyle('justify-between gap-10 py-6', style)}
-					style={twStyle(
-						'flex-1 bg-black',
-						tabHeight && { marginBottom: bottomTabBarHeight }
-					)}
-				>
-					{children}
-				</ScrollView>
+			<ScrollView
+				ref={ref}
+				onContentSizeChange={() => {
+					if (!scrollToBottomOnChange) return;
+					ref.current?.scrollToEnd({ animated: true });
+				}}
+				contentContainerStyle={twStyle('justify-between gap-10 py-6', style)}
+				style={twStyle(
+					'flex-1 bg-black',
+					tabHeight && { marginBottom: bottomTabBarHeight }
+				)}
+			>
+				{children}
+			</ScrollView>
 		</View>
 	) : (
 		<View style={tw`relative flex-1`}>
-				<View
-					style={twStyle(
-						'flex-1 justify-between gap-10 bg-black py-6',
-						style,
-						tabHeight && { marginBottom: bottomTabBarHeight }
-					)}
-				>
-					{children}
-				</View>
+			<View
+				style={twStyle(
+					'flex-1 justify-between gap-10 bg-black py-6',
+					style,
+					tabHeight && { marginBottom: bottomTabBarHeight }
+				)}
+			>
+				{children}
+			</View>
 		</View>
 	);
 };

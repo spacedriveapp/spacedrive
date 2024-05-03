@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useCache, useLibraryQuery, useNodes, useObjectsExplorerQuery } from '@sd/client';
+import { useLibraryQuery, useObjectsExplorerQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 
@@ -7,8 +7,7 @@ export default function TagScreen({ navigation, route }: BrowseStackScreenProps<
 	const { id } = route.params;
 
 	const tag = useLibraryQuery(['tags.get', id]);
-	useNodes(tag.data?.nodes);
-	const tagData = useCache(tag.data?.item);
+	const tagData = tag.data;
 
 	const objects = useObjectsExplorerQuery({
 		arg: { filters: [{ object: { tags: { in: [id] } } }], take: 30 },

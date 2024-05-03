@@ -6,9 +6,7 @@ import {
 	getItemFilePath,
 	getItemObject,
 	isPath,
-	useCache,
-	useLibraryQuery,
-	useNodes
+	useLibraryQuery
 } from '@sd/client';
 import { InfoPill, PlaceholderPill } from '~/components/primitive/InfoPill';
 import { tw, twStyle } from '~/lib/tailwind';
@@ -25,8 +23,7 @@ const InfoTagPills = ({ data, style }: Props) => {
 	const tagsQuery = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
 		enabled: objectData != null
 	});
-	useNodes(tagsQuery.data?.nodes);
-	const items = useCache(tagsQuery.data?.items);
+	const items = tagsQuery.data;
 
 	const isDir = data && isPath(data) ? data.item.is_dir : false;
 

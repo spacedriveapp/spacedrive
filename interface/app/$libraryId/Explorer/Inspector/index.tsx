@@ -37,10 +37,8 @@ import {
 	ObjectKindEnum,
 	ObjectWithFilePaths,
 	useBridgeQuery,
-	useCache,
 	useItemsAsObjects,
 	useLibraryQuery,
-	useNodes,
 	useSelector,
 	type ExplorerItem
 } from '@sd/client';
@@ -72,10 +70,9 @@ export const INSPECTOR_WIDTH = 260;
 
 type MetadataDate = Date | { from: Date; to: Date } | null;
 
-const DATE_FORMAT = 'D MMM YYYY';
-const formatDate = (date: MetadataDate | string | undefined) => {
+const formatDate = (date: MetadataDate | string | undefined, dateFormat: string) => {
 	if (!date) return;
-	if (date instanceof Date || typeof date === 'string') return dayjs(date).format(DATE_FORMAT);
+	if (date instanceof Date || typeof date === 'string') return dayjs(date).format(dateFormat);
 
 	const { from, to } = date;
 
@@ -84,7 +81,7 @@ const formatDate = (date: MetadataDate | string | undefined) => {
 
 	const format = ['D', !sameMonth && 'MMM', !sameYear && 'YYYY'].filter(Boolean).join(' ');
 
-	return `${dayjs(from).format(format)} - ${dayjs(to).format(DATE_FORMAT)}`;
+	return `${dayjs(from).format(format)} - ${dayjs(to).format(dateFormat)}`;
 };
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
@@ -103,6 +100,7 @@ export const Inspector = forwardRef<HTMLDivElement, Props>(
 			explorerStore.showMoreInfo = false;
 		}, [pathname]);
 
+		const { t } = useLocale();
 		return (
 			<div ref={ref} style={{ width: INSPECTOR_WIDTH, ...style }} {...props}>
 				<Sticky
@@ -123,7 +121,7 @@ export const Inspector = forwardRef<HTMLDivElement, Props>(
 					<div className="flex select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
 						{!isNonEmpty(selectedItems) ? (
 							<div className="flex h-[390px] items-center justify-center text-sm text-ink-dull">
-								Nothing selected
+								{t('nothing_selected')}
 							</div>
 						) : selectedItems.length === 1 ? (
 							<SingleItemMetadata item={selectedItems[0]} />
@@ -177,11 +175,10 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	let filePathData: FilePath | FilePathWithObject | null = null;
 	let ephemeralPathData: NonIndexedPathItem | null = null;
 
-	const { t } = useLocale();
+	const { t, dateFormat } = useLocale();
 
 	const result = useLibraryQuery(['locations.list']);
-	useNodes(result.data?.nodes);
-	const locations = useCache(result.data?.items);
+	const locations = result.data || [];
 
 	switch (item.type) {
 		case 'NonIndexedPath': {
@@ -225,8 +222,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	const tagsQuery = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
 		enabled: objectData != null && readyToFetch
 	});
-	useNodes(tagsQuery.data?.nodes);
-	const tags = useCache(tagsQuery.data?.items);
+	const tags = tagsQuery.data;
 
 	// const labels = useLibraryQuery(['labels.getForObject', objectData?.id ?? -1], {
 	// 	enabled: objectData != null && readyToFetch
@@ -312,19 +308,31 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					value={!!ephemeralPathData && ephemeralPathData.is_dir ? null : `${size}`}
 				/>
 
-				<MetaData icon={Clock} label={t('created')} value={formatDate(dateCreated)} />
+				<MetaData
+					icon={Clock}
+					label={t('created')}
+					value={formatDate(dateCreated, dateFormat)}
+				/>
 
-				<MetaData icon={Eraser} label={t('modified')} value={formatDate(dateModified)} />
+				<MetaData
+					icon={Eraser}
+					label={t('modified')}
+					value={formatDate(dateModified, dateFormat)}
+				/>
 
 				{ephemeralPathData != null || (
-					<MetaData icon={Barcode} label={t('indexed')} value={formatDate(dateIndexed)} />
+					<MetaData
+						icon={Barcode}
+						label={t('indexed')}
+						value={formatDate(dateIndexed, dateFormat)}
+					/>
 				)}
 
 				{ephemeralPathData != null || (
 					<MetaData
 						icon={FolderOpen}
 						label={t('accessed')}
-						value={formatDate(dateAccessed)}
+						value={formatDate(dateAccessed, dateFormat)}
 					/>
 				)}
 
@@ -335,7 +343,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					onClick={() => {
 						if (fullPath) {
 							navigator.clipboard.writeText(fullPath);
-							toast.info('Copied path to clipboard');
+							toast.info(t('path_copied_to_clipboard_title'));
 						}
 					}}
 				/>
@@ -434,8 +442,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 		enabled: readyToFetch && !isDragSelecting,
 		suspense: true
 	});
-	useNodes(tagsQuery.data?.nodes);
-	const tags = useCache(tagsQuery.data?.items);
+	const tags = tagsQuery.data;
 
 	// const labels = useLibraryQuery(['labels.list'], {
 	// 	enabled: readyToFetch && !isDragSelecting,
@@ -512,7 +519,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 		[items, getDate]
 	);
 
-	const { t } = useLocale();
+	const { t, dateFormat } = useLocale();
 
 	const onlyNonIndexed = metadata.types.has('NonIndexedPath') && metadata.types.size === 1;
 
@@ -524,24 +531,28 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 					label={t('size')}
 					value={metadata.size !== null ? `${byteSize(metadata.size)}` : null}
 				/>
-				<MetaData icon={Clock} label={t('created')} value={formatDate(metadata.created)} />
+				<MetaData
+					icon={Clock}
+					label={t('created')}
+					value={formatDate(metadata.created, dateFormat)}
+				/>
 				<MetaData
 					icon={Eraser}
 					label={t('modified')}
-					value={formatDate(metadata.modified)}
+					value={formatDate(metadata.modified, dateFormat)}
 				/>
 				{onlyNonIndexed || (
 					<MetaData
 						icon={Barcode}
 						label={t('indexed')}
-						value={formatDate(metadata.indexed)}
+						value={formatDate(metadata.indexed, dateFormat)}
 					/>
 				)}
 				{onlyNonIndexed || (
 					<MetaData
 						icon={FolderOpen}
 						label={t('accessed')}
-						value={formatDate(metadata.accessed)}
+						value={formatDate(metadata.accessed, dateFormat)}
 					/>
 				)}
 			</MetaContainer>

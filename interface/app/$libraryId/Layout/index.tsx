@@ -61,7 +61,7 @@ const Layout = () => {
 				ref={layoutRef}
 				className={clsx(
 					// App level styles
-					'flex h-screen cursor-default select-none overflow-hidden text-ink',
+					'flex h-screen select-none overflow-hidden text-ink',
 					os === 'macOS' && [
 						'has-blur-effects',
 						!windowState.isFullScreen &&

@@ -1,7 +1,7 @@
 import { ArrowRight, EjectSimple } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { PropsWithChildren, useMemo } from 'react';
-import { useBridgeQuery, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { Button, toast, tw } from '@sd/ui';
 import { Icon, IconName } from '~/components';
 import { useLocale } from '~/hooks';
@@ -34,13 +34,11 @@ const SidebarIcon = ({ name }: { name: IconName }) => {
 export default function LocalSection() {
 	const platform = usePlatform();
 	const locationsQuery = useLibraryQuery(['locations.list']);
-	useNodes(locationsQuery.data?.nodes);
-	const locations = useCache(locationsQuery.data?.items);
+	const locations = locationsQuery.data;
 
 	const homeDir = useHomeDir();
 	const result = useBridgeQuery(['volumes.list']);
-	useNodes(result.data?.nodes);
-	const volumes = useCache(result.data?.items);
+	const volumes = result.data;
 
 	const { t } = useLocale();
 

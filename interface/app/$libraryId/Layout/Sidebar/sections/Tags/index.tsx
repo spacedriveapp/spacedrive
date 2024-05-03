@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { NavLink, useMatch } from 'react-router-dom';
-import { useCache, useLibraryQuery, useNodes, type Tag } from '@sd/client';
+import { useLibraryQuery, type Tag } from '@sd/client';
 import { useExplorerDroppable } from '~/app/$libraryId/Explorer/useExplorerDroppable';
 import { SubtleButton } from '~/components';
 import { useLocale } from '~/hooks';
@@ -12,8 +12,7 @@ import { ContextMenu } from './ContextMenu';
 
 export default function TagsSection() {
 	const result = useLibraryQuery(['tags.list'], { keepPreviousData: true });
-	useNodes(result.data?.nodes);
-	const tags = useCache(result.data?.items);
+	const tags = result.data;
 
 	const { t } = useLocale();
 

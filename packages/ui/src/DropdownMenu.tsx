@@ -72,7 +72,11 @@ const Root = (props: PropsWithChildren<DropdownMenuProps>) => {
 			<RadixDM.Portal>
 				<Suspense fallback={null}>
 					<RadixDM.Content
-						className={clsx(contextMenuClassNames, width && '!min-w-0', className)}
+						className={clsx(
+							contextMenuClassNames,
+							width && '!min-w-0 max-w-none',
+							className
+						)}
 						align="start"
 						style={{ width }}
 						{...contentProps}

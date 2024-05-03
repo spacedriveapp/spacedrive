@@ -11,7 +11,6 @@ import {
 	nonIndexedPathOrderingSchema,
 	SortOrder,
 	useLibraryContext,
-	useNormalisedCache,
 	useUnsafeStreamedQuery,
 	type EphemeralPathOrder
 } from '@sd/client';
@@ -180,7 +179,6 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 	const settingsSnapshot = explorerSettings.useSettingsSnapshot();
 
 	const libraryCtx = useLibraryContext();
-	const cache = useNormalisedCache();
 	const query = useUnsafeStreamedQuery(
 		[
 			'search.ephemeralPaths',
@@ -197,18 +195,16 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 			enabled: path != null,
 			suspense: true,
 			onSuccess: () => explorerStore.resetCache(),
-			onBatch: (item) => {
-				cache.withNodes(item.nodes);
-			}
+			onBatch: (item) => {}
 		}
 	);
 
 	const entries = useMemo(() => {
-		return cache.withCache(
+		return (
 			query.data?.flatMap((item) => item.entries) ||
-				query.streaming.flatMap((item) => item.entries)
+			query.streaming.flatMap((item) => item.entries)
 		);
-	}, [cache, query.streaming, query.data]);
+	}, [query.streaming, query.data]);
 
 	const items = useMemo(() => {
 		if (!entries) return [];

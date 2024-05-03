@@ -30,7 +30,7 @@ export function Component() {
 		orderingKeys: objectOrderingKeysSchema
 	});
 
-	const search = useSearchFromSearchParams();
+	const search = useSearchFromSearchParams({ defaultTarget: 'objects' });
 
 	const explorer = useExplorer({
 		items: labels.data || null,

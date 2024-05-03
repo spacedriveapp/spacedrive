@@ -1,4 +1,4 @@
-import { AnimatePresence } from 'moti';
+import { AnimatePresence, MotiView } from 'moti';
 import { MotiPressable } from 'moti/interactions';
 import {
 	CircleDashed,
@@ -13,7 +13,7 @@ import { Text, View } from 'react-native';
 import Card from '~/components/layout/Card';
 import SectionTitle from '~/components/layout/SectionTitle';
 import { tw, twStyle } from '~/lib/tailwind';
-import { getSearchStore, SearchFilters, useSearchStore } from '~/stores/searchStore';
+import { SearchFilters, getSearchStore, useSearchStore } from '~/stores/searchStore';
 
 import Extension from './Extension';
 import Kind from './Kind';
@@ -51,12 +51,15 @@ const FiltersList = () => {
 	const [selectedOptions, setSelectedOptions] = useState<SearchFilters[]>(
 		Object.keys(searchStore.appliedFilters) as SearchFilters[]
 	);
+	const appliedFiltersLength = Object.keys(searchStore.appliedFilters).length;
 
-	// If any filters are applied - we need to update the store
-	// so the UI can reflect the applied filters
+
 	useEffect(() => {
-		Object.assign(getSearchStore().filters, getSearchStore().appliedFilters);
-	}, []);
+		//if there are selected filters but not applied reset them
+		if (appliedFiltersLength === 0) {
+			getSearchStore().resetFilters();
+		}
+	}, [appliedFiltersLength]);
 
 	const selectedHandler = useCallback(
 		(option: Capitalize<SearchFilters>) => {
@@ -80,13 +83,16 @@ const FiltersList = () => {
 				searchStore.resetFilter(searchFiltersLowercase);
 			}
 		},
-		[selectedOptions, searchStore]
-	);
+		[selectedOptions, searchStore])
 
 	return (
 		<View style={tw`gap-10`}>
 			<SavedSearches />
-			<View>
+			<MotiView
+				from={{ opacity: 0, translateY: 20 }}
+				animate={{ opacity: 1, translateY: 0 }}
+				transition={{ type: 'timing', duration: 300 }}
+			>
 				<SectionTitle
 					style={tw`px-6 pb-3`}
 					title="What are you searching for?"
@@ -139,7 +145,7 @@ const FiltersList = () => {
 						))}
 					</View>
 				</View>
-			</View>
+			</MotiView>
 			{/* conditionally render the selected options - this approach makes sure the animation is right
 			by not relying on the index position of the object */}
 			<AnimatePresence>

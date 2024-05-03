@@ -1,18 +1,16 @@
 import { ArrowClockwise, Info } from '@phosphor-icons/react';
-import { useCallback, useEffect, useMemo } from 'react';
-import { stringify } from 'uuid';
 import {
 	arraysEqual,
 	FilePathOrder,
 	filePathOrderingKeysSchema,
 	Location,
-	useCache,
 	useLibraryQuery,
 	useLibrarySubscription,
-	useNodes,
 	useOnlineLocations
 } from '@sd/client';
 import { Loader, Tooltip } from '@sd/ui';
+import { useCallback, useEffect, useMemo } from 'react';
+import { stringify } from 'uuid';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder, Icon } from '~/components';
 import {
@@ -47,8 +45,7 @@ export const Component = () => {
 		keepPreviousData: true,
 		suspense: true
 	});
-	useNodes(result.data?.nodes);
-	const location = useCache(result.data?.item);
+	const location = result.data;
 
 	// 'key' allows search state to be thrown out when entering a folder
 	return <LocationExplorer key={path} location={location!} />;
@@ -69,7 +66,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 		[location.id]
 	);
 
-	const search = useSearchFromSearchParams();
+	const search = useSearchFromSearchParams({ defaultTarget: 'paths' });
 
 	const searchFiltersAreDefault = useMemo(
 		() => JSON.stringify(defaultFilters) !== JSON.stringify(search.filters),

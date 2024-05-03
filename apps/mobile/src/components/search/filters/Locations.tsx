@@ -1,8 +1,8 @@
+import { Location, useLibraryQuery } from '@sd/client';
 import { MotiView } from 'moti';
 import { memo, useCallback, useMemo } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { LinearTransition } from 'react-native-reanimated';
-import { Location, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { Icon } from '~/components/icons/Icon';
 import Card from '~/components/layout/Card';
 import Empty from '~/components/layout/Empty';
@@ -14,8 +14,7 @@ import { useSearchStore } from '~/stores/searchStore';
 
 const Locations = () => {
 	const locationsQuery = useLibraryQuery(['locations.list']);
-	useNodes(locationsQuery.data?.nodes);
-	const locations = useCache(locationsQuery.data?.items);
+	const locations = locationsQuery.data;
 	const searchStore = useSearchStore();
 
 	return (
@@ -78,6 +77,7 @@ const LocationFilter = memo(({ data }: Props) => {
 			name: data.name as string
 		});
 	}, [data.id, data.name, searchStore]);
+
 	return (
 		<Pressable onPress={onPress}>
 			<Card
