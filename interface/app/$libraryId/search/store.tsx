@@ -68,7 +68,8 @@ export const useRegisterSearchFilterOptions = (
 
 export function argsToOptions(args: SearchFilterArgs[], options: Map<string, FilterOption[]>) {
 	return args.flatMap((fixedArg) => {
-		const filter = filterRegistry.find((f) => f.extract(fixedArg))!;
+		const filter = filterRegistry.find((f) => f.extract(fixedArg));
+		if (!filter) return [];
 
 		return filter
 			.argsToOptions(filter.extract(fixedArg) as any, options)

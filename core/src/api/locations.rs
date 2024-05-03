@@ -271,7 +271,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.include(location_with_indexer_rules::include())
 						.exec()
 						.await?
-						.map(|location| LocationWithIndexerRule::from_db(location)))
+						.map(LocationWithIndexerRule::from_db))
 				})
 		})
 		.procedure("create", {

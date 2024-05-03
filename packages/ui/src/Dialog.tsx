@@ -127,6 +127,7 @@ export interface DialogProps<S extends FieldValues>
 	children?: ReactNode;
 	ctaDanger?: boolean;
 	closeLabel?: string;
+	cancelLabel?: string;
 	cancelBtn?: boolean;
 	description?: ReactNode;
 	onCancelled?: boolean | (() => void);
@@ -171,7 +172,7 @@ export function Dialog<S extends FieldValues>({
 				variant="gray"
 				onClick={typeof onCancelled === 'function' ? onCancelled : undefined}
 			>
-				Cancel
+				{props.cancelLabel || 'Cancel'}
 			</Button>
 		</RDialog.Close>
 	);
@@ -271,7 +272,9 @@ export function Dialog<S extends FieldValues>({
 						<AnimatedDialogContent
 							className="!pointer-events-none fixed inset-0 z-50 grid place-items-center overflow-y-auto"
 							style={styles}
-							onInteractOutside={(e) => props.ignoreClickOutside && e.preventDefault()}
+							onInteractOutside={(e) =>
+								props.ignoreClickOutside && e.preventDefault()
+							}
 						>
 							<Form
 								form={form}
@@ -305,12 +308,16 @@ export function Dialog<S extends FieldValues>({
 									)}
 								>
 									{form.formState.isSubmitting && <Loader />}
-									{props.buttonsSideContent && <div>{props.buttonsSideContent}</div>}
+									{props.buttonsSideContent && (
+										<div>{props.buttonsSideContent}</div>
+									)}
 									<div className="grow" />
 									{!props.hideButtons && (
 										<div
 											className={clsx(
-												invertButtonFocus ? 'flex-row-reverse' : ' flex-row',
+												invertButtonFocus
+													? 'flex-row-reverse'
+													: ' flex-row',
 												'flex gap-2'
 											)}
 										>

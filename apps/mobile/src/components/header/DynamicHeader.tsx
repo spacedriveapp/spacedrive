@@ -6,8 +6,8 @@ import { Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getExplorerStore, useExplorerStore } from '~/stores/explorerStore';
-import { Icon } from '../icons/Icon';
 
+import { Icon } from '../icons/Icon';
 
 type Props = {
 	headerRoute?: NativeStackHeaderProps; //supporting title from the options object of navigation
@@ -36,15 +36,12 @@ export default function DynamicHeader({
 			<View style={tw`mx-auto h-auto w-full justify-center px-5 pb-3`}>
 				<View style={tw`w-full flex-row items-center justify-between`}>
 					<View style={tw`flex-row items-center gap-3`}>
-					<Pressable
-								hitSlop={24}
-								onPress={() => navigation.goBack()}
-							>
-								<ArrowLeft size={23} color={tw.color('ink')} />
-							</Pressable>
+						<Pressable hitSlop={24} onPress={() => navigation.goBack()}>
+							<ArrowLeft size={23} color={tw.color('ink')} />
+						</Pressable>
 						<View style={tw`flex-row items-center gap-1.5`}>
-						<HeaderIconKind routeParams={optionsRoute?.params} kind={kind} />
-						<Text
+							<HeaderIconKind routeParams={optionsRoute?.params} kind={kind} />
+							<Text
 								numberOfLines={1}
 								style={tw`max-w-[200px] text-xl font-bold text-white`}
 							>
@@ -52,8 +49,9 @@ export default function DynamicHeader({
 							</Text>
 						</View>
 					</View>
-				<View style={tw`flex-row gap-3`}>
-				{explorerMenu && <Pressable
+					<View style={tw`flex-row gap-3`}>
+						{explorerMenu && (
+							<Pressable
 								hitSlop={12}
 								onPress={() => {
 									getExplorerStore().toggleMenu = !explorerStore.toggleMenu;
@@ -65,22 +63,23 @@ export default function DynamicHeader({
 										explorerStore.toggleMenu ? 'text-accent' : 'text-zinc-300'
 									)}
 								/>
-							</Pressable>}
+							</Pressable>
+						)}
 						<Pressable
-									hitSlop={12}
-									onPress={() => {
-										navigation.navigate('SearchStack', {
-											screen: 'Search'
-										});
-									}}
-								>
-									<MagnifyingGlass
-										size={24}
-										weight="bold"
-										color={tw.color('text-zinc-300')}
-									/>
-								</Pressable>
-				</View>
+							hitSlop={12}
+							onPress={() => {
+								navigation.navigate('SearchStack', {
+									screen: 'Search'
+								});
+							}}
+						>
+							<MagnifyingGlass
+								size={24}
+								weight="bold"
+								color={tw.color('text-zinc-300')}
+							/>
+						</Pressable>
+					</View>
 				</View>
 			</View>
 		</View>
@@ -92,7 +91,7 @@ interface HeaderIconKindProps {
 	kind: Props['kind'];
 }
 
-const HeaderIconKind = ({routeParams, kind }: HeaderIconKindProps) => {
+const HeaderIconKind = ({ routeParams, kind }: HeaderIconKindProps) => {
 	switch (kind) {
 		case 'location':
 			return <Icon size={30} name="Folder" />;

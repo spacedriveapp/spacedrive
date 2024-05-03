@@ -104,7 +104,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.include(object_with_file_paths::include())
 						.exec()
 						.await?
-						.map(|item| ObjectWithFilePaths2::from_db(item)))
+						.map(ObjectWithFilePaths2::from_db))
 				})
 		})
 		.procedure("getMediaData", {

@@ -7,12 +7,8 @@ use crate::{
 };
 
 use prisma_client_rust::Operator;
-use sd_core_indexer_rules::seed::no_hidden;
-use sd_core_indexer_rules::IndexerRule;
 use sd_core_prisma_helpers::{file_path_with_object, object_with_file_paths};
-use sd_file_ext::kind::ObjectKind;
-use sd_prisma::prisma::{self, location, PrismaClient};
-use sd_utils::chain_optional_iter;
+use sd_prisma::prisma::{self, PrismaClient};
 
 use std::path::PathBuf;
 
@@ -420,6 +416,6 @@ fn andify<T: From<Operator<T>>>(params: Vec<T>) -> Vec<T> {
 	params.into_iter().fold(vec![], |mut params, param| {
 		params.push(param);
 
-		vec![prisma_client_rust::operator::and(params).into()]
+		vec![prisma_client_rust::operator::and(params)]
 	})
 }
