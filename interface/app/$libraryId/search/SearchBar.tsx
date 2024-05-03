@@ -35,6 +35,11 @@ export default ({ redirectToSearch, defaultFilters, defaultTarget }: Props) => {
 			) {
 				searchRef.current?.focus();
 			}
+
+			const handler = () => searchRef.current?.focus();
+
+			document.addEventListener('open_search', handler);
+			return () => document.removeEventListener('open_search', handler);
 		},
 		[os]
 	);

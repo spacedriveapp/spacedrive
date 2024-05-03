@@ -41,7 +41,7 @@ export const useKeybindEventHandler = (libraryId?: string) => {
 				// 	libraryId && navigate(`/${libraryId}/overview`);
 				// 	break;
 				case 'open_search':
-					// somehow emit ctrl/cmd+f
+					document.dispatchEvent(new CustomEvent('open_search'));
 					break;
 				case 'window_fullscreened':
 					windowState.isFullScreen = true;
