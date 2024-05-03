@@ -86,7 +86,6 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 		filter.extract(arg)! as any,
 		searchStore.filterOptions
 	);
-	console.log(filter);
 
 	return (
 		<FilterContainer>
