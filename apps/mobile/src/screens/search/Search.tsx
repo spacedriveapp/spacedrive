@@ -8,6 +8,7 @@ import Explorer from '~/components/explorer/Explorer';
 import Empty from '~/components/layout/Empty';
 import FiltersBar from '~/components/search/filters/FiltersBar';
 import { useFiltersSearch } from '~/hooks/useFiltersSearch';
+import { useSortBy } from '~/hooks/useSortBy';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SearchStackScreenProps } from '~/navigation/SearchStack';
 import { getExplorerStore, useExplorerStore } from '~/stores/explorerStore';
@@ -20,26 +21,27 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 	const isFocused = useIsFocused();
 	const [search, setSearch] = useState('');
 	const deferredSearch = useDeferredValue(search);
-
-	const appliedFiltersLength = Object.keys(searchStore.appliedFilters).length;
-	const isAndroid = Platform.OS === 'android';
+	const order = useSortBy();
 
 	const objects = usePathsExplorerQuery({
+		order,
 		arg: {
 			take: 30,
 			filters: searchStore.mergedFilters,
 		},
 		enabled: isFocused && searchStore.mergedFilters.length > 1, // only fetch when screen is focused & filters are applied
 		suspense: true,
-		order: null,
 		onSuccess: () => getExplorerStore().resetNewThumbnails()
 	});
+
+	useFiltersSearch(deferredSearch);
+
+	const appliedFiltersLength = Object.keys(searchStore.appliedFilters).length;
+	const isAndroid = Platform.OS === 'android';
 
 	// Check if there are no objects or no search
 	const noObjects = objects.items?.length === 0 || !objects.items;
 	const noSearch = deferredSearch.length === 0 && appliedFiltersLength === 0;
-
-	useFiltersSearch(deferredSearch);
 
 	return (
 		<View

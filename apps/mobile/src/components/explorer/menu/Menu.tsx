@@ -1,5 +1,5 @@
 import { AnimatePresence, MotiView } from 'moti';
-import { MonitorPlay, Rows, SlidersHorizontal, SquaresFour } from 'phosphor-react-native';
+import { MonitorPlay, Rows, SquaresFour } from 'phosphor-react-native';
 import { Pressable, View } from 'react-native';
 import { toast } from '~/components/primitive/Toast';
 import { tw } from '~/lib/tailwind';
@@ -25,7 +25,7 @@ const Menu = () => {
 					exit={{ translateY: -70 }}
 				>
 					<View
-						style={tw`w-screen flex-row items-center justify-between border-b border-app-cardborder bg-app-header px-7 py-4`}
+						style={tw`w-screen flex-row items-center justify-between border-b border-app-cardborder bg-app-header px-7 py-3`}
 					>
 						<View style={tw`flex-row gap-3`}>
 							<Pressable onPress={() => (getExplorerStore().layoutMode = 'grid')}>

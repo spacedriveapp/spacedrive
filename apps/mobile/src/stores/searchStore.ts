@@ -3,6 +3,10 @@ import { proxy, useSnapshot } from 'valtio';
 import { IconName } from '~/components/icons/Icon';
 
 export type SearchFilters = 'locations' | 'tags' | 'name' | 'extension' | 'hidden' | 'kind';
+export type SortOptionsType = {
+	by: 'none' | 'name' | 'sizeInBytes' | 'dateIndexed' | 'dateCreated' | 'dateModified' | 'dateAccessed' | 'dateTaken';
+	direction: 'Asc' | 'Desc';
+}
 
 export interface FilterItem {
 	id: number;
@@ -32,6 +36,7 @@ export interface Filters {
 interface State {
 	search: string;
 	filters: Filters;
+	sort: SortOptionsType;
 	appliedFilters: Partial<Filters>;
 	mergedFilters: SearchFilterArgs[],
 	disableActionButtons: boolean;
@@ -46,6 +51,10 @@ const initialState: State = {
 		extension: [''],
 		hidden: false,
 		kind: []
+	},
+	sort: {
+		by: 'none',
+		direction: 'Asc'
 	},
 	appliedFilters: {},
 	mergedFilters: [],
@@ -74,6 +83,7 @@ function updateArrayOrObject<T>(
 
 const searchStore = proxy<
 	State & {
+		updateSort: (by?: SortOptionsType['by'], direction?: SortOptionsType['direction']) => void;
 		updateFilters: <K extends keyof State['filters']>(
 			filter: K,
 			value: State['filters'][K] extends Array<infer U> ? U : State['filters'][K],
@@ -89,6 +99,10 @@ const searchStore = proxy<
 	}
 >({
 	...initialState,
+	updateSort: (by, direction) => {
+		if (by) searchStore.sort.by = by;
+		if (direction) searchStore.sort.direction = direction;
+	},
 	//for updating the filters upon value selection
 	updateFilters: (filter, value, apply = false) => {
 		if (filter === 'hidden') {
