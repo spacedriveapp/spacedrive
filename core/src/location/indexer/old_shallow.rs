@@ -49,12 +49,19 @@ pub async fn old_shallow(
 	let db = library.db.clone();
 	let sync = &library.sync;
 
-	let indexer_rules = location
+	let mut indexer_rules = location
 		.indexer_rules
 		.iter()
 		.map(|rule| IndexerRule::try_from(&rule.indexer_rule))
 		.collect::<Result<Vec<_>, _>>()
 		.map_err(IndexerError::from)?;
+
+	let gitignore = location_path.join(".gitignore");
+	if let Ok(true) = tokio::fs::try_exists(&gitignore).await {
+		use sd_core_indexer_rules::seed::GitIgnoreRules;
+		let git_rules = GitIgnoreRules::parse_gitignore(&gitignore).await;
+		indexer_rules.extend(git_rules.map(|r| r.into()));
+	}
 
 	let (add_root, to_walk_path) = if sub_path != Path::new("") && sub_path != Path::new("/") {
 		let full_path = ensure_sub_path_is_in_location(&location_path, &sub_path)

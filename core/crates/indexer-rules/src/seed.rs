@@ -1,7 +1,9 @@
+use globset::{Glob, GlobSetBuilder};
 use sd_prisma::prisma::{indexer_rule, PrismaClient};
 
 use chrono::Utc;
 use thiserror::Error;
+use tokio::io::BufReader;
 use uuid::Uuid;
 
 use super::{IndexerRule, IndexerRuleError, RulePerKind};
@@ -12,8 +14,81 @@ pub enum SeederError {
 	IndexerRules(#[from] IndexerRuleError),
 	#[error("An error occurred with the database while applying migrations: {0}")]
 	DatabaseError(#[from] prisma_client_rust::QueryError),
+	#[error("Failed to parse indexer rules based on external system")]
+	InhirentedExternalRules,
 }
 
+#[derive(Debug)]
+pub struct GitIgnoreRules {
+	rules: Vec<RulePerKind>,
+}
+
+impl GitIgnoreRules {
+	pub async fn parse_gitignore(path: &std::path::Path) -> Result<Self, SeederError> {
+        // TODO(matheus-consoli): extend the functionality to also consider other git ignore
+        // sources (see: https://git-scm.com/docs/gitignore)
+        // TODO(matheus-consoli): double check that this truly is a git repo, and not a
+        // simple directory with a lonely `.gitignore` file laying around
+		use tokio::io::AsyncBufReadExt;
+
+		let parent = path.parent().unwrap();
+		let file = tokio::fs::File::open(path)
+			.await
+			.map_err(|_| SeederError::InhirentedExternalRules)?;
+		let buf = BufReader::new(file);
+		let mut lines = buf.lines();
+
+		let mut rules = Vec::new();
+		while let Ok(Some(mut line)) = lines.next_line().await {
+			// A blank line matches no files, so it can serve as a separator for readability
+			if line.is_empty() {
+				continue;
+			}
+
+			// A line starting with "#" serves as a comment
+			if line.starts_with("#") {
+				continue;
+			}
+
+			// TODO(matheus-consoli): correctly parse lines ending with "\"
+
+			// an optional "!" negates the pattern
+			// any matching file excluded by a previous pattern will become included again
+			// it's not possible to re-include a file if a pattern directory of that file is excluded
+			let rule = if line.starts_with("!") {
+				line.remove(0); // pop the !
+				let full = parent.join(line);
+				let file = full.into_os_string().into_string().unwrap();
+				RulePerKind::new_accept_files_by_globs_str([file]).unwrap()
+			} else {
+				if line.starts_with("/") {
+					line.remove(0);
+				}
+				let full = parent.join(line);
+				let file = full.into_os_string().into_string().unwrap();
+				RulePerKind::new_reject_files_by_globs_str([file]).unwrap()
+			};
+
+			rules.push(rule)
+		}
+		Ok(Self { rules })
+	}
+}
+
+impl From<GitIgnoreRules> for IndexerRule {
+	fn from(git: GitIgnoreRules) -> Self {
+		Self {
+			id: None,
+			name: ".gitignore'd".to_owned(),
+			default: true,
+			date_created: Utc::now(),
+			date_modified: Utc::now(),
+			rules: git.rules,
+		}
+	}
+}
+
+#[derive(Debug)]
 pub struct SystemIndexerRule {
 	name: &'static str,
 	rules: Vec<RulePerKind>,

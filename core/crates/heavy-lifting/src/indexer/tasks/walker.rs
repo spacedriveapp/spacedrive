@@ -540,6 +540,15 @@ where
 		let (to_create, to_update, total_size, to_remove, accepted_ancestors, handles) = loop {
 			match stage {
 				WalkerStage::Start => {
+                    {
+                        use sd_core_indexer_rules::seed::GitIgnoreRules;
+                        let gitignore = path.join(".gitignore");
+                        if let Ok(true) = fs::try_exists(&gitignore).await {
+                            let git_rules = GitIgnoreRules::parse_gitignore(&gitignore).await;
+                            let mut indexer = indexer_ruler.rules.write().await;
+                            indexer.extend(git_rules.map(|r| r.into()));
+                        }
+                    }
 					*stage = WalkerStage::Walking {
 						read_dir_stream: ReadDirStream::new(fs::read_dir(&path).await.map_err(
 							|e| {
@@ -1130,7 +1139,7 @@ mod tests {
 	use globset::{Glob, GlobSetBuilder};
 	use lending_stream::{LendingStream, StreamExt};
 	use tempfile::{tempdir, TempDir};
-	use tokio::fs;
+	use tokio::{fs, io::AsyncWriteExt};
 	use tracing::debug;
 	use tracing_test::traced_test;
 
@@ -1188,23 +1197,30 @@ mod tests {
 		// root
 		// |__ rust_project
 		// |   |__ .git
-		// |        |__ <empty>
+		// |   |   |__ <empty>
+		// |   |__ .gitignore
+		// |   |__ ignorable.file
 		// |   |__ Cargo.toml
 		// |   |__ src
 		// |   |   |__ main.rs
 		// |   |__ target
-		// |       |__ debug
-		// |           |__ main
-		// |__ inner
-		// |   |__ node_project
-		// |       |__ .git
-		// |            |__ <empty>
-		// |       |__ package.json
-		// |       |__ src
-		// |       |   |__ App.tsx
-		// |       |__ node_modules
-		// |           |__ react
-		// |               |__ package.json
+		// |   |   |__ debug
+		// |   |        |__ main
+		// |   |__ partial
+		// |   |   |__ ignoreme
+		// |   |   |__ readme
+		// |   |__ inner
+		// |       |__ node_project
+		// |           |__ .git
+		// |           |   |__ <empty>
+		// |           |__ .gitignore
+		// |           |__ ignorable.file
+		// |           |__ package.json
+		// |           |__ src
+		// |           |   |__ App.tsx
+		// |           |__ node_modules
+		// |               |__ react
+		// |                   |__ package.json
 		// |__ photos
 		//     |__ photo1.png
 		//     |__ photo2.jpg
@@ -1223,14 +1239,27 @@ mod tests {
 		fs::create_dir(&node_project).await.unwrap();
 		fs::create_dir(&photos).await.unwrap();
 
+        // Inner directory partially ignored by git
+        let partial_dir = rust_project.join("partial");
+        fs::create_dir(&partial_dir).await.unwrap();
+        fs::File::create(partial_dir.join("ignoreme")).await.unwrap();
+        fs::File::create(partial_dir.join("readme")).await.unwrap();
+
 		// Making rust and node projects a git repository
 		fs::create_dir(rust_project.join(".git")).await.unwrap();
+		let gitignore = rust_project.join(".gitignore");
+		let mut file = fs::File::create(gitignore).await.unwrap();
+		file.write_all(b"*.file\n/target\npartial/**\n!partial/readme").await.unwrap();
 		fs::create_dir(node_project.join(".git")).await.unwrap();
+		let gitignore = node_project.join(".gitignore");
+		let mut file = fs::File::create(gitignore).await.unwrap();
+		file.write_all(b"ignorable.file").await.unwrap();
 
 		// Populating rust project
 		fs::File::create(rust_project.join("Cargo.toml"))
 			.await
 			.unwrap();
+        fs::File::create(rust_project.join("ignorable.file")).await.unwrap();
 		let rust_src_dir = rust_project.join("src");
 		fs::create_dir(&rust_src_dir).await.unwrap();
 		fs::File::create(rust_src_dir.join("main.rs"))
@@ -1246,6 +1275,7 @@ mod tests {
 		fs::File::create(node_project.join("package.json"))
 			.await
 			.unwrap();
+        fs::File::create(node_project.join("ignorable.file")).await.unwrap();
 		let node_src_dir = node_project.join("src");
 		fs::create_dir(&node_src_dir).await.unwrap();
 		fs::File::create(node_src_dir.join("App.tsx"))
@@ -1458,16 +1488,17 @@ mod tests {
 		let expected = [
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/.git"), true), metadata },
+			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/.gitignore"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/Cargo.toml"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/src"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/src/main.rs"), false), metadata },
-			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/target"), true), metadata },
-			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/target/debug"), true), metadata },
-			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/target/debug/main"), false), metadata },
+			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/partial"), true), metadata },
+			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/partial/readme"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/.git"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/package.json"), false), metadata },
+			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/.gitignore"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/src"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/src/App.tsx"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/node_modules"), true), metadata },

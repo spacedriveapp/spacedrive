@@ -202,7 +202,7 @@ impl RuleKind {
 /// In case of `ParametersPerKind::AcceptIfChildrenDirectoriesArePresent` or
 /// `ParametersPerKind::RejectIfChildrenDirectoriesArePresent`
 /// first we change the data structure to a vector, then we serialize it.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RulePerKind {
 	// TODO: Add an indexer rule that filter files based on their extended attributes
 	// https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
@@ -317,7 +317,7 @@ impl RulePerKind {
 	}
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IndexerRule {
 	pub id: Option<i32>,
 	pub name: String,
@@ -387,8 +387,7 @@ impl IndexerRule {
 
 #[derive(Debug, Clone, Default)]
 pub struct IndexerRuler {
-	// TODO(fogodev): Use this RwLock later to acquire new rules while applying rules, like from a .gitignore file
-	rules: Arc<RwLock<Vec<IndexerRule>>>,
+	pub rules: Arc<RwLock<Vec<IndexerRule>>>, // todo: remove pub, add method
 }
 
 impl IndexerRuler {
