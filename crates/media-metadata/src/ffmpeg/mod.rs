@@ -21,8 +21,8 @@ use program::Program;
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct FFmpegMetadata {
 	pub formats: Vec<String>,
-	pub duration: Option<(i32, i32)>,
-	pub start_time: Option<(i32, i32)>,
+	pub duration: Option<i64>,
+	pub start_time: Option<i64>,
 	pub bit_rate: i32,
 	pub chapters: Vec<Chapter>,
 	pub programs: Vec<Program>,
@@ -69,20 +69,8 @@ mod extract_data {
 		) -> Self {
 			Self {
 				formats,
-				duration: duration.map(|duration| {
-					#[allow(clippy::cast_possible_truncation)]
-					{
-						// SAFETY: We're splitting in (high, low) parts, so we're not going to lose data on truncation
-						((duration >> 32) as i32, duration as i32)
-					}
-				}),
-				start_time: start_time.map(|start_time| {
-					#[allow(clippy::cast_possible_truncation)]
-					{
-						// SAFETY: We're splitting in (high, low) parts, so we're not going to lose data on truncation
-						((start_time >> 32) as i32, start_time as i32)
-					}
-				}),
+				duration,
+				start_time,
 				bit_rate,
 				chapters: chapters.into_iter().map(Into::into).collect(),
 				programs: programs.into_iter().map(Into::into).collect(),
@@ -110,21 +98,8 @@ mod extract_data {
 						id as i32
 					}
 				},
-				// TODO: FIX these 2 when rspc/specta supports bigint
-				start: {
-					#[allow(clippy::cast_possible_truncation)]
-					{
-						// SAFETY: We're splitting in (high, low) parts, so we're not going to lose data on truncation
-						((start >> 32) as i32, start as i32)
-					}
-				},
-				end: {
-					#[allow(clippy::cast_possible_truncation)]
-					{
-						// SAFETY: We're splitting in (high, low) parts, so we're not going to lose data on truncation
-						((end >> 32) as i32, end as i32)
-					}
-				},
+				start,
+				end,
 				time_base_num,
 				time_base_den,
 				metadata: metadata.into(),

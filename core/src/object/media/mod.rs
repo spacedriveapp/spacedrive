@@ -20,6 +20,7 @@ pub mod old_media_processor;
 pub mod old_thumbnail;
 
 pub use old_media_processor::OldMediaProcessorJobInit;
+use sd_utils::db::ffmpeg_data_field_from_db;
 
 pub fn exif_data_image_to_query(mdi: ExifMetadata, object_id: object_id::Type) -> CreateUnchecked {
 	CreateUnchecked {
@@ -87,8 +88,8 @@ pub fn ffmpeg_data_from_prisma_data(
 ) -> FFmpegMetadata {
 	FFmpegMetadata {
 		formats: formats.split(',').map(String::from).collect::<Vec<_>>(),
-		duration: duration.map(|duration| ((duration >> 32) as i32, duration as i32)),
-		start_time: start_time.map(|start_time| ((start_time >> 32) as i32, start_time as i32)),
+		duration: duration.map(|duration| ffmpeg_data_field_from_db(&duration)),
+		start_time: start_time.map(|start_time| ffmpeg_data_field_from_db(&start_time)),
 		bit_rate,
 		chapters: chapters
 			.into_iter()
@@ -103,8 +104,8 @@ pub fn ffmpeg_data_from_prisma_data(
 				     ..
 				 }| Chapter {
 					id: chapter_id,
-					start: ((start >> 32) as i32, start as i32),
-					end: ((end >> 32) as i32, end as i32),
+					start: ffmpeg_data_field_from_db(&start),
+					end: ffmpeg_data_field_from_db(&end),
 					time_base_den,
 					time_base_num,
 					metadata: from_slice_option_to_option(metadata).unwrap_or_default(),

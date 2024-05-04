@@ -274,8 +274,8 @@ model FfmpegData {
 
   // Internal FFmpeg properties
   formats    String
-  duration   BigInt?
-  start_time BigInt?
+  duration   Bytes? // Actually a i64 in the backend
+  start_time Bytes? // Actually a i64 in the backend
   bit_rate   Int
 
   chapters FfmpegMediaChapter[]
@@ -301,8 +301,8 @@ model FfmpegData {
 model FfmpegMediaChapter {
   chapter_id Int
 
-  start BigInt
-  end   BigInt
+  start Bytes // Actually a i64 in the backend
+  end   Bytes // Actually a i64 in the backend
 
   time_base_den Int
   time_base_num Int
@@ -351,7 +351,7 @@ model FfmpegMediaStream {
   title    String?
   encoder  String?
   language String?
-  duration BigInt?
+  duration Bytes? // Actually a i64 in the backend
   metadata Bytes?
 
   program        FfmpegMediaProgram @relation(fields: [ffmpeg_data_id, program_id], references: [ffmpeg_data_id, program_id], onDelete: Cascade)
@@ -367,7 +367,7 @@ model FfmpegMediaCodec {
   id Int @id @default(autoincrement())
 
   kind     String?
-  sub_kind  String?
+  sub_kind String?
   tag      String?
   name     String?
   profile  String?
