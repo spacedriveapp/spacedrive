@@ -122,7 +122,7 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 						<span className="max-w-[150px] truncate">
 							{activeOptions.length > 1
 								? `${activeOptions.length} ${t(`${filter.translationKey}`, { count: activeOptions.length })}`
-								: `${t(`${filter.translationKey}`, { count: 1 })}`}
+								: activeOptions[0]?.name}
 						</span>
 					</>
 				)}
