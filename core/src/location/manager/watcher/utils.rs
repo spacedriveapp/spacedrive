@@ -8,8 +8,12 @@ use crate::{
 	},
 	object::{
 		media::{
-			exif_data_extractor::{can_extract_exif_data_for_image, extract_exif_data},
 			exif_data_image_to_query_params,
+			exif_metadata_extractor::{can_extract_exif_data_for_image, extract_exif_data},
+			ffmpeg_metadata_extractor::{
+				can_extract_ffmpeg_data_for_audio, can_extract_ffmpeg_data_for_video,
+				extract_ffmpeg_data, save_ffmpeg_data,
+			},
 			old_thumbnail::get_indexed_thumbnail_path,
 		},
 		old_file_identifier::FileMetadata,
@@ -26,7 +30,10 @@ use sd_core_file_path_helper::{
 };
 use sd_core_prisma_helpers::file_path_with_object;
 
-use sd_file_ext::{extensions::ImageExtension, kind::ObjectKind};
+use sd_file_ext::{
+	extensions::{AudioExtension, ImageExtension, VideoExtension},
+	kind::ObjectKind,
+};
 use sd_prisma::{
 	prisma::{exif_data, file_path, location, object},
 	prisma_sync,
@@ -312,62 +319,99 @@ async fn inner_create_file(
 	)
 	.await?;
 
-	if !extension.is_empty() && matches!(kind, ObjectKind::Image | ObjectKind::Video) {
+	if !extension.is_empty()
+		&& matches!(
+			kind,
+			ObjectKind::Image | ObjectKind::Video | ObjectKind::Audio
+		) {
 		// Running in a detached task as thumbnail generation can take a while and we don't want to block the watcher
+		if matches!(kind, ObjectKind::Image | ObjectKind::Video) {
+			if let Some(cas_id) = cas_id {
+				spawn({
+					let extension = extension.clone();
+					let path = path.to_path_buf();
+					let node = node.clone();
+					let library_id = *library_id;
 
-		if let Some(cas_id) = cas_id {
-			spawn({
-				let extension = extension.clone();
-				let path = path.to_path_buf();
-				let node = node.clone();
-				let library_id = *library_id;
-
-				async move {
-					if let Err(e) = node
-						.thumbnailer
-						.generate_single_indexed_thumbnail(&extension, cas_id, path, library_id)
-						.await
-					{
-						error!("Failed to generate thumbnail in the watcher: {e:#?}");
+					async move {
+						if let Err(e) = node
+							.thumbnailer
+							.generate_single_indexed_thumbnail(&extension, cas_id, path, library_id)
+							.await
+						{
+							error!("Failed to generate thumbnail in the watcher: {e:#?}");
+						}
 					}
-				}
-			});
+				});
+			}
 		}
 
-		// TODO: Currently we only extract media data for images, remove this if later
-		if matches!(kind, ObjectKind::Image) {
-			if let Ok(image_extension) = ImageExtension::from_str(&extension) {
-				if can_extract_exif_data_for_image(&image_extension) {
-					if let Ok(Some(exif_data)) = extract_exif_data(path)
-						.await
-						.map_err(|e| error!("Failed to extract media data: {e:#?}"))
-					{
-						let (sync_params, db_params) = exif_data_image_to_query_params(exif_data);
+		match kind {
+			ObjectKind::Image => {
+				if let Ok(image_extension) = ImageExtension::from_str(&extension) {
+					if can_extract_exif_data_for_image(&image_extension) {
+						if let Ok(Some(exif_data)) = extract_exif_data(path)
+							.await
+							.map_err(|e| error!("Failed to extract media data: {e:#?}"))
+						{
+							let (sync_params, db_params) =
+								exif_data_image_to_query_params(exif_data);
 
-						sync.write_ops(
-							db,
-							(
-								sync.shared_create(
-									prisma_sync::exif_data::SyncId {
-										object: prisma_sync::object::SyncId {
-											pub_id: object_pub_id.clone(),
+							sync.write_ops(
+								db,
+								(
+									sync.shared_create(
+										prisma_sync::exif_data::SyncId {
+											object: prisma_sync::object::SyncId {
+												pub_id: object_pub_id.clone(),
+											},
 										},
-									},
-									sync_params,
-								),
-								db.exif_data().upsert(
-									exif_data::object_id::equals(object_id),
-									exif_data::create(
-										object::id::equals(object_id),
-										db_params.clone(),
+										sync_params,
 									),
-									db_params,
+									db.exif_data().upsert(
+										exif_data::object_id::equals(object_id),
+										exif_data::create(
+											object::id::equals(object_id),
+											db_params.clone(),
+										),
+										db_params,
+									),
 								),
-							),
-						)
-						.await?;
+							)
+							.await?;
+						}
 					}
 				}
+			}
+
+			ObjectKind::Audio => {
+				if let Ok(audio_extension) = AudioExtension::from_str(&extension) {
+					if can_extract_ffmpeg_data_for_audio(&audio_extension) {
+						if let Ok(ffmpeg_data) = extract_ffmpeg_data(path)
+							.await
+							.map_err(|e| error!("Failed to extract media data: {e:#?}"))
+						{
+							save_ffmpeg_data([(ffmpeg_data, object_id)], db).await?;
+						}
+					}
+				}
+			}
+
+			ObjectKind::Video => {
+				if let Ok(video_extension) = VideoExtension::from_str(&extension) {
+					if can_extract_ffmpeg_data_for_video(&video_extension) {
+						if let Ok(ffmpeg_data) = extract_ffmpeg_data(path)
+							.await
+							.map_err(|e| error!("Failed to extract media data: {e:#?}"))
+						{
+							save_ffmpeg_data([(ffmpeg_data, object_id)], db).await?;
+						}
+					}
+				}
+			}
+
+			_ => {
+				// Do nothing
 			}
 		}
 	}
@@ -680,42 +724,73 @@ async fn inner_update_file(
 				}
 			}
 
-			// TODO: Change this if to include ObjectKind::Video in the future
-			if let Some(ext) = &file_path.extension {
-				if let Ok(image_extension) = ImageExtension::from_str(ext) {
-					if can_extract_exif_data_for_image(&image_extension)
-						&& matches!(kind, ObjectKind::Image)
-					{
-						if let Ok(Some(exif_data)) = extract_exif_data(full_path)
-							.await
-							.map_err(|e| error!("Failed to extract media data: {e:#?}"))
-						{
-							let (sync_params, db_params) =
-								exif_data_image_to_query_params(exif_data);
+			if let Some(extension) = &file_path.extension {
+				match kind {
+					ObjectKind::Image => {
+						if let Ok(image_extension) = ImageExtension::from_str(extension) {
+							if can_extract_exif_data_for_image(&image_extension) {
+								if let Ok(Some(exif_data)) = extract_exif_data(full_path)
+									.await
+									.map_err(|e| error!("Failed to extract media data: {e:#?}"))
+								{
+									let (sync_params, db_params) =
+										exif_data_image_to_query_params(exif_data);
 
-							sync.write_ops(
-								db,
-								(
-									sync.shared_create(
-										prisma_sync::exif_data::SyncId {
-											object: prisma_sync::object::SyncId {
-												pub_id: object.pub_id.clone(),
-											},
-										},
-										sync_params,
-									),
-									db.exif_data().upsert(
-										exif_data::object_id::equals(object.id),
-										exif_data::create(
-											object::id::equals(object.id),
-											db_params.clone(),
+									sync.write_ops(
+										db,
+										(
+											sync.shared_create(
+												prisma_sync::exif_data::SyncId {
+													object: prisma_sync::object::SyncId {
+														pub_id: object.pub_id.clone(),
+													},
+												},
+												sync_params,
+											),
+											db.exif_data().upsert(
+												exif_data::object_id::equals(object.id),
+												exif_data::create(
+													object::id::equals(object.id),
+													db_params.clone(),
+												),
+												db_params,
+											),
 										),
-										db_params,
-									),
-								),
-							)
-							.await?;
+									)
+									.await?;
+								}
+							}
 						}
+					}
+
+					ObjectKind::Audio => {
+						if let Ok(audio_extension) = AudioExtension::from_str(extension) {
+							if can_extract_ffmpeg_data_for_audio(&audio_extension) {
+								if let Ok(ffmpeg_data) = extract_ffmpeg_data(full_path)
+									.await
+									.map_err(|e| error!("Failed to extract media data: {e:#?}"))
+								{
+									save_ffmpeg_data([(ffmpeg_data, object.id)], db).await?;
+								}
+							}
+						}
+					}
+
+					ObjectKind::Video => {
+						if let Ok(video_extension) = VideoExtension::from_str(extension) {
+							if can_extract_ffmpeg_data_for_video(&video_extension) {
+								if let Ok(ffmpeg_data) = extract_ffmpeg_data(full_path)
+									.await
+									.map_err(|e| error!("Failed to extract media data: {e:#?}"))
+								{
+									save_ffmpeg_data([(ffmpeg_data, object.id)], db).await?;
+								}
+							}
+						}
+					}
+
+					_ => {
+						// Do nothing
 					}
 				}
 			}

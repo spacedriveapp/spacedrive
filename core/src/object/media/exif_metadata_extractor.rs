@@ -6,7 +6,6 @@ use sd_core_prisma_helpers::file_path_for_media_processor;
 use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
 use sd_media_metadata::ExifMetadata;
 use sd_prisma::prisma::{exif_data, location, PrismaClient};
-use sd_utils::error::FileIOError;
 
 use std::{collections::HashSet, path::Path};
 
@@ -24,11 +23,7 @@ pub enum ExifDataError {
 	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
 	#[error(transparent)]
-	FileIO(#[from] FileIOError),
-	#[error(transparent)]
 	MediaData(#[from] sd_media_metadata::Error),
-	#[error("failed to join tokio task: {0}")]
-	TokioJoinHandle(#[from] tokio::task::JoinError),
 }
 
 #[derive(Serialize, Deserialize, Default, Debug)]
@@ -148,11 +143,7 @@ pub async fn process(
 		.create_many(
 			exif_datas
 				.into_iter()
-				.filter_map(|(exif_data, object_id)| {
-					exif_data_image_to_query(exif_data, object_id)
-						.map_err(|e| error!("{e:#?}"))
-						.ok()
-				})
+				.map(|(exif_data, object_id)| exif_data_image_to_query(exif_data, object_id))
 				.collect(),
 		)
 		.skip_duplicates()

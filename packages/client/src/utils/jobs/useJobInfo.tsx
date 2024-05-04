@@ -63,7 +63,7 @@ export function useJobInfo(job: JobReport, realtimeUpdate: JobProgressEvent | nu
 		case 'media_processor': {
 			const generateTexts = () => {
 				switch (phase) {
-					case 'exif_data': {
+					case 'media_data': {
 						return [
 							{
 								text: `${

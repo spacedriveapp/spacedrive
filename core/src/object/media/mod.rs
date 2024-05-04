@@ -1,18 +1,28 @@
-pub mod exif_data_extractor;
+use sd_core_prisma_helpers::object_with_media_data;
+use sd_media_metadata::{
+	ffmpeg::{
+		audio_props::AudioProps,
+		chapter::Chapter,
+		codec::{Codec, Props},
+		program::Program,
+		stream::Stream,
+		video_props::VideoProps,
+	},
+	ExifMetadata, FFmpegMetadata,
+};
+use sd_prisma::prisma::{
+	exif_data::*, ffmpeg_media_audio_props, ffmpeg_media_chapter, ffmpeg_media_video_props,
+};
+
+pub mod exif_metadata_extractor;
+pub mod ffmpeg_metadata_extractor;
 pub mod old_media_processor;
 pub mod old_thumbnail;
 
 pub use old_media_processor::OldMediaProcessorJobInit;
-use sd_media_metadata::ExifMetadata;
-use sd_prisma::prisma::exif_data::*;
 
-use self::exif_data_extractor::ExifDataError;
-
-pub fn exif_data_image_to_query(
-	mdi: ExifMetadata,
-	object_id: object_id::Type,
-) -> Result<CreateUnchecked, ExifDataError> {
-	Ok(CreateUnchecked {
+pub fn exif_data_image_to_query(mdi: ExifMetadata, object_id: object_id::Type) -> CreateUnchecked {
+	CreateUnchecked {
 		object_id,
 		_params: vec![
 			camera_data::set(serde_json::to_vec(&mdi.camera_data).ok()),
@@ -25,7 +35,7 @@ pub fn exif_data_image_to_query(
 			exif_version::set(mdi.exif_version),
 			epoch_time::set(mdi.date_taken.map(|x| x.unix_timestamp())),
 		],
-	})
+	}
 }
 
 pub fn exif_data_image_to_query_params(
@@ -50,10 +60,8 @@ pub fn exif_data_image_to_query_params(
 	.unzip()
 }
 
-pub fn exif_data_image_from_prisma_data(
-	data: sd_prisma::prisma::exif_data::Data,
-) -> Result<ExifMetadata, ExifDataError> {
-	Ok(ExifMetadata {
+pub fn exif_media_data_from_prisma_data(data: sd_prisma::prisma::exif_data::Data) -> ExifMetadata {
+	ExifMetadata {
 		camera_data: from_slice_option_to_option(data.camera_data).unwrap_or_default(),
 		date_taken: from_slice_option_to_option(data.media_date).unwrap_or_default(),
 		resolution: from_slice_option_to_option(data.resolution).unwrap_or_default(),
@@ -62,7 +70,186 @@ pub fn exif_data_image_from_prisma_data(
 		description: data.description,
 		copyright: data.copyright,
 		exif_version: data.exif_version,
-	})
+	}
+}
+
+pub fn ffmpeg_data_from_prisma_data(
+	object_with_media_data::ffmpeg_data::Data {
+		formats,
+		duration,
+		start_time,
+		bit_rate,
+		metadata,
+		chapters,
+		programs,
+		..
+	}: object_with_media_data::ffmpeg_data::Data,
+) -> FFmpegMetadata {
+	FFmpegMetadata {
+		formats: formats.split(',').map(String::from).collect::<Vec<_>>(),
+		duration: duration.map(|duration| ((duration >> 32) as i32, duration as i32)),
+		start_time: start_time.map(|start_time| ((start_time >> 32) as i32, start_time as i32)),
+		bit_rate,
+		chapters: chapters
+			.into_iter()
+			.map(
+				|ffmpeg_media_chapter::Data {
+				     chapter_id,
+				     start,
+				     end,
+				     time_base_den,
+				     time_base_num,
+				     metadata,
+				     ..
+				 }| Chapter {
+					id: chapter_id,
+					start: ((start >> 32) as i32, start as i32),
+					end: ((end >> 32) as i32, end as i32),
+					time_base_den,
+					time_base_num,
+					metadata: from_slice_option_to_option(metadata).unwrap_or_default(),
+				},
+			)
+			.collect(),
+		programs: programs
+			.into_iter()
+			.map(
+				|object_with_media_data::ffmpeg_data::programs::Data {
+				     program_id,
+				     name,
+				     metadata,
+				     streams,
+				     ..
+				 }| Program {
+					id: program_id,
+					name,
+					streams: streams
+						.into_iter()
+						.map(
+							|object_with_media_data::ffmpeg_data::programs::streams::Data {
+							     stream_id,
+							     name,
+							     aspect_ratio_num,
+							     aspect_ratio_den,
+							     frames_per_second_num,
+							     frames_per_second_den,
+							     time_base_real_den,
+							     time_base_real_num,
+							     dispositions,
+							     metadata,
+							     codec,
+							     ..
+							 }| {
+								Stream {
+								id: stream_id,
+								name,
+								codec: codec.map(
+									|object_with_media_data::ffmpeg_data::programs::streams::codec::Data{
+										kind,
+										sub_kind,
+										tag,
+										name,
+										profile,
+										bit_rate,
+										audio_props,
+										video_props,
+										..
+									}| Codec {
+										kind,
+										sub_kind,
+										tag,
+										name,
+										profile,
+										bit_rate,
+										props: match (audio_props, video_props) {
+											(
+												Some(ffmpeg_media_audio_props::Data {
+													delay,
+													padding,
+													sample_rate,
+													sample_format,
+													bit_per_sample,
+													channel_layout,
+													..
+												}),
+												None,
+											) => Some(Props::Audio(AudioProps {
+												delay,
+												padding,
+												sample_rate,
+												sample_format,
+												bit_per_sample,
+												channel_layout,
+											})),
+											(
+												None,
+												Some(ffmpeg_media_video_props::Data {
+													pixel_format,
+													color_range,
+													bits_per_channel,
+													color_space,
+													color_primaries,
+													color_transfer,
+													field_order,
+													chroma_location,
+													width,
+													height,
+													aspect_ratio_num,
+													aspect_ratio_den,
+													properties,
+													..
+												}),
+											) => Some(Props::Video(VideoProps {
+												pixel_format,
+												color_range,
+												bits_per_channel,
+												color_space,
+												color_primaries,
+												color_transfer,
+												field_order,
+												chroma_location,
+												width,
+												height,
+												aspect_ratio_num,
+												aspect_ratio_den,
+												properties: properties
+													.map(|dispositions| {
+														dispositions
+															.split(',')
+															.map(String::from)
+															.collect::<Vec<_>>()
+													})
+													.unwrap_or_default(),
+											})),
+											_ => None,
+										},
+									}
+								),
+								aspect_ratio_num,
+								aspect_ratio_den,
+								frames_per_second_num,
+								frames_per_second_den,
+								time_base_real_den,
+								time_base_real_num,
+								dispositions: dispositions
+									.map(|dispositions| {
+										dispositions
+											.split(',')
+											.map(String::from)
+											.collect::<Vec<_>>()
+									})
+									.unwrap_or_default(),
+								metadata: from_slice_option_to_option(metadata).unwrap_or_default(),
+							}
+							},
+						)
+						.collect(),
+					metadata: from_slice_option_to_option(metadata).unwrap_or_default(),
+				},
+			)
+			.collect(),
+		metadata: from_slice_option_to_option(metadata).unwrap_or_default(),
+	}
 }
 
 #[must_use]

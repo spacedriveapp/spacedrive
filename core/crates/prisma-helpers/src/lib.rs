@@ -158,6 +158,22 @@ object::select!(object_for_file_identifier {
 	pub_id
 	file_paths: select { pub_id cas_id extension is_dir materialized_path name }
 });
+object::select!(object_with_media_data {
+	id
+	kind
+	exif_data
+	ffmpeg_data: include {
+		chapters
+		programs: include {
+			streams: include {
+				codec: include {
+					audio_props
+					video_props
+				}
+			}
+		}
+	}
+});
 
 // Object includes!
 object::include!(object_with_file_paths {
@@ -172,6 +188,17 @@ object::include!(object_with_file_paths {
 				description
 				copyright
 				exif_version
+			}
+			ffmpeg_data: include {
+				chapters
+				programs: include {
+					streams: include {
+						codec: include {
+							audio_props
+							video_props
+						}
+					}
+				}
 			}
 		}
 	}

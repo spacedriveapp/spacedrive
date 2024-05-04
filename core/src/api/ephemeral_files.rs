@@ -4,7 +4,7 @@ use crate::{
 	library::Library,
 	object::{
 		fs::{error::FileSystemJobsError, find_available_filename_for_duplicate},
-		media::exif_data_extractor::{can_extract_exif_data_for_image, extract_exif_data},
+		media::exif_metadata_extractor::{can_extract_exif_data_for_image, extract_exif_data},
 	},
 };
 
@@ -73,23 +73,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("ffmpegGetMediaData", {
 			R.query(|_, full_path: PathBuf| async move {
-				// #[cfg(not(feature = "ffmpeg"))]
-				// return Err::<(), _>(rspc::Error::new(
-				// 	ErrorCode::MethodNotSupported,
-				// 	"ffmpeg feature is not enabled".to_string(),
-				// ));
-
-				// #[cfg(feature = "ffmpeg")]
-				// {
-				// 	sd_ffmpeg::probe(full_path).await.map_err(|e| {
-				// 		error!("{e:#?}");
-				// 		rspc::Error::new(
-				// 			ErrorCode::NotFound,
-				// 			"Couldn't extract media data from file".to_string(),
-				// 		)
-				// 	})
-				// }
-
 				FFmpegMetadata::from_path(full_path).await.map_err(|e| {
 					error!("{e:#?}");
 					rspc::Error::with_cause(ErrorCode::InternalServerError, e.to_string(), e)

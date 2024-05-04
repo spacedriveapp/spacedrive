@@ -9,7 +9,7 @@ use crate::{
 			old_copy::OldFileCopierJobInit, old_cut::OldFileCutterJobInit,
 			old_delete::OldFileDeleterJobInit, old_erase::OldFileEraserJobInit,
 		},
-		media::exif_data_image_from_prisma_data,
+		media::{exif_media_data_from_prisma_data, ffmpeg_data_from_prisma_data},
 	},
 	old_job::Job,
 };
@@ -17,13 +17,14 @@ use crate::{
 use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
 use sd_core_prisma_helpers::{
 	file_path_to_isolate, file_path_to_isolate_with_id, object_with_file_paths,
+	object_with_media_data,
 };
 
 use sd_file_ext::kind::ObjectKind;
 use sd_images::ConvertibleExtension;
-use sd_media_metadata::FFmpegMetadata;
+use sd_media_metadata::{ExifMetadata, FFmpegMetadata};
 use sd_prisma::{
-	prisma::{ffmpeg_media_program, file_path, location, object},
+	prisma::{file_path, location, object},
 	prisma_sync,
 };
 use sd_sync::OperationFactory;
@@ -108,323 +109,40 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("getMediaData", {
+			#[derive(Serialize, Type)]
+			enum MediaData {
+				Exif(ExifMetadata),
+				FFmpeg(FFmpegMetadata),
+			}
+
 			R.with2(library())
 				.query(|(_, library), args: object::id::Type| async move {
 					library
 						.db
 						.object()
 						.find_unique(object::id::equals(args))
-						.select(object::select!({ id kind exif_data }))
+						.select(object_with_media_data::select())
 						.exec()
 						.await?
 						.and_then(|obj| {
 							Some(match obj.kind {
-								Some(v) if v == ObjectKind::Image as i32 => {
-									Box::new(exif_data_image_from_prisma_data(obj.exif_data?).ok()?)
+								Some(v) if v == ObjectKind::Image as i32 => MediaData::Exif(
+									exif_media_data_from_prisma_data(obj.exif_data?),
+								),
+								Some(v)
+									if v == ObjectKind::Audio as i32
+										|| v == ObjectKind::Video as i32 =>
+								{
+									MediaData::FFmpeg(ffmpeg_data_from_prisma_data(
+										obj.ffmpeg_data?,
+									))
 								}
-								_ => return None, // TODO(brxken128): audio and video
+								_ => return None, // No media data
 							})
 						})
 						.ok_or_else(|| {
 							rspc::Error::new(ErrorCode::NotFound, "Object not found".to_string())
 						})
-				})
-		})
-		// TODO: THIS IS FOR TESTING ONLY
-		.procedure("ffmpegGetMediaData", {
-			R.with2(library())
-				.query(|(_, library), id: i32| async move {
-					#[cfg(not(feature = "ffmpeg"))]
-					return Err::<FFmpegMetadata, _>(rspc::Error::new(
-						ErrorCode::MethodNotSupported,
-						"ffmpeg feature is not enabled".to_string(),
-					));
-
-					#[cfg(feature = "ffmpeg")]
-					{
-						use sd_media_metadata::ffmpeg::{
-							chapter::Chapter, codec::Codec, program::Program, stream::Stream,
-						};
-						use sd_prisma::prisma::{
-							ffmpeg_data, ffmpeg_media_chapter, ffmpeg_media_codec,
-							ffmpeg_media_stream,
-						};
-
-						let file_path = library
-							.db
-							.file_path()
-							.find_unique(file_path::id::equals(id))
-							.exec()
-							.await?
-							.ok_or(LocationError::FilePath(FilePathError::IdNotFound(id)))?;
-
-						let isolated_path = IsolatedFilePathData::try_from(&file_path)
-							.map_err(LocationError::MissingField)?;
-
-						let object_id = file_path.object_id.ok_or_else(|| {
-							rspc::Error::new(
-								ErrorCode::BadRequest,
-								"File path does not have an object id".to_string(),
-							)
-						})?;
-
-						let location_path = get_location_path_from_location_id(
-							&library.db,
-							isolated_path.location_id(),
-						)
-						.await?;
-
-						let media_data = FFmpegMetadata::from_path(
-							Path::new(&location_path).join(&isolated_path),
-						)
-						.await
-						.map_err(|e| {
-							error!("{e:#?}");
-							rspc::Error::with_cause(
-								ErrorCode::InternalServerError,
-								e.to_string(),
-								e,
-							)
-						})?;
-
-						let a = library
-							.db
-							._transaction()
-							.with_timeout(30 * 1000)
-							.run(|db| async move {
-								let data_id = db
-									.ffmpeg_data()
-									.create(
-										media_data.formats.join(","),
-										media_data.bit_rate,
-										object::id::equals(object_id),
-										vec![
-											ffmpeg_data::duration::set(
-												media_data
-													.duration
-													.map(|(a, b)| (a as i64) << 32 | b as i64),
-											),
-											ffmpeg_data::start_time::set(
-												media_data
-													.start_time
-													.map(|(a, b)| (a as i64) << 32 | b as i64),
-											),
-											ffmpeg_data::metadata::set(
-												serde_json::to_vec(&media_data.metadata)
-													.map_err(|err| {
-														error!("Error reading FFmpegData metadata: {err:#?}");
-														err
-													})
-													.ok(),
-											),
-										],
-									)
-									.select(ffmpeg_data::select!({ id }))
-									.exec()
-									.await
-									.map(|data| data.id)?;
-
-								db.ffmpeg_media_chapter()
-									.create_many(
-										media_data
-											.chapters
-											.iter()
-											.map(
-												|Chapter {
-												     id,
-												     start: (start_hi, start_low),
-												     end: (end_hi, end_low),
-												     time_base_den,
-												     time_base_num,
-												     metadata,
-												 }| ffmpeg_media_chapter::CreateUnchecked {
-													chapter_id: *id,
-													start: (*start_hi as i64) << 32
-														| *start_low as i64,
-													end: (*end_hi as i64) << 32 | *end_low as i64,
-													time_base_den: *time_base_den,
-													time_base_num: *time_base_num,
-													ffmpeg_data_id: data_id,
-													_params: vec![
-														ffmpeg_media_chapter::metadata::set(
-															serde_json::to_vec(&metadata)
-																.map_err(|err| {
-																	error!("Error reading FFmpegMediaChapter metadata: {err:#?}");
-																	err
-																})
-																.ok(),
-														),
-													],
-												},
-											)
-											.collect(),
-									)
-									.exec()
-									.await?;
-
-								db.ffmpeg_media_program().create_many(
-									media_data
-										.programs
-										.iter()
-										.map(
-											|Program {
-											     id, name, metadata, ..
-											 }| {
-												ffmpeg_media_program::CreateUnchecked {
-													program_id: *id,
-													ffmpeg_data_id: data_id,
-													_params: vec![
-														ffmpeg_media_program::name::set(
-															name.clone(),
-														),
-														ffmpeg_media_program::metadata::set(
-															serde_json::to_vec(metadata)
-																.map_err(|err| {
-																	error!("Error reading FFmpegMediaProgram metadata: {err:#?}");
-																	err
-																})
-																.ok(),
-														),
-													],
-												}
-											},
-										)
-										.collect(),
-								);
-
-								db.ffmpeg_media_stream().create_many(
-									media_data
-										.programs
-										.iter()
-										.flat_map(
-											|Program {
-											     id: program_id,
-											     streams,
-											     ..
-											 }| {
-												streams.iter().map(
-													|Stream {
-													     id,
-													     name,
-													     aspect_ratio_num,
-													     aspect_ratio_den,
-													     frames_per_second_num,
-													     frames_per_second_den,
-													     time_base_real_den,
-													     time_base_real_num,
-													     dispositions,
-													     metadata,
-													     ..
-													 }| {
-														ffmpeg_media_stream::CreateUnchecked {
-															stream_id: *id,
-															aspect_ratio_num: *aspect_ratio_num,
-															aspect_ratio_den: *aspect_ratio_den,
-															frames_per_second_num:
-																*frames_per_second_num,
-															frames_per_second_den:
-																*frames_per_second_den,
-															time_base_real_den: *time_base_real_den,
-															time_base_real_num: *time_base_real_num,
-															program_id: *program_id,
-															ffmpeg_data_id: data_id,
-															_params: vec![
-															ffmpeg_media_stream::name::set(name.clone()),
-															ffmpeg_media_stream::dispositions::set(
-																(!dispositions.is_empty())
-																	.then_some(
-																		dispositions.join(","),
-																	),
-															),
-															ffmpeg_media_stream::title::set(metadata.title.to_owned()),
-															ffmpeg_media_stream::encoder::set(metadata.encoder.to_owned()),
-															ffmpeg_media_stream::language::set(metadata.language.to_owned()),
-															ffmpeg_media_stream::metadata::set(
-																serde_json::to_vec(metadata)
-																	.map_err(|err| {
-																		error!("Error reading FFmpegMediaStream metadata: {err:#?}");
-																		err
-																	})
-																	.ok(),
-															),
-														],
-														}
-													},
-												)
-											},
-										)
-										.collect(),
-								);
-
-								db.ffmpeg_media_codec().create_many(
-									media_data
-										.programs
-										.iter()
-										.flat_map(
-											|Program {
-											     id: program_id,
-											     streams,
-											     ..
-											 }| {
-												streams.iter().filter_map(
-													|Stream {
-													     id: stream_id,
-													     codec,
-													     ..
-													 }| {
-														codec.as_ref().map(
-															|Codec {
-															     bit_rate,
-															     kind,
-															     sub_kind,
-															     tag,
-															     name,
-															     profile,
-															     ..
-															 }| {
-																ffmpeg_media_codec::CreateUnchecked {
-																bit_rate: *bit_rate,
-																stream_id: *stream_id,
-																program_id: *program_id,
-																ffmpeg_data_id: data_id,
-																_params: vec![
-																	ffmpeg_media_codec::kind::set(kind.to_owned()),
-																	ffmpeg_media_codec::sub_kind::set(sub_kind.to_owned()),
-																	ffmpeg_media_codec::tag::set(tag.to_owned()),
-																	ffmpeg_media_codec::name::set(name.to_owned()),
-																	ffmpeg_media_codec::profile::set(profile.to_owned()),
-																],
-															}
-															},
-														)
-													},
-												)
-											},
-										)
-										.collect(),
-								);
-
-								db.ffmpeg_data()
-									.find_unique(ffmpeg_data::id::equals(data_id))
-									.include(ffmpeg_data::include!({
-										chapters
-										programs: include {
-											streams: include {
-												codec: include {
-													video_props
-													audio_props
-												}
-											}
-										}
-									}))
-									.exec()
-									.await
-									.map(|maybe_data| maybe_data.expect("just created"))
-							})
-							.await?;
-
-						Ok(a)
-					}
 				})
 		})
 		.procedure("getPath", {
