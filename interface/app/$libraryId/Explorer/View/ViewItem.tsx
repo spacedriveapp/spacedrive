@@ -15,6 +15,7 @@ import {
 	type NonIndexedPathItem
 } from '@sd/client';
 import { ContextMenu, toast } from '@sd/ui';
+import { useLocale } from '~/hooks';
 import { isNonEmpty } from '~/util';
 import { usePlatform } from '~/util/Platform';
 
@@ -32,6 +33,8 @@ export const useViewItemDoubleClick = () => {
 	const [searchParams] = useRawSearchParams();
 
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
+
+	const { t } = useLocale();
 
 	const doubleClick = useCallback(
 		async (item?: ExplorerItem) => {
@@ -102,7 +105,10 @@ export const useViewItemDoubleClick = () => {
 							items.paths.map(({ id }) => id)
 						);
 					} catch (error) {
-						toast.error({ title: 'Failed to open file', body: `Error: ${error}.` });
+						toast.error({
+							title: t('failed_to_open_file_title'),
+							body: t('error_message', { error })
+						});
 					}
 				} else if (item && explorer.settingsStore.openOnDoubleClick === 'quickPreview') {
 					if (item.type !== 'Location' && !(isPath(item) && item.item.is_dir)) {
@@ -157,7 +163,10 @@ export const useViewItemDoubleClick = () => {
 					try {
 						await openEphemeralFiles(items.non_indexed.map(({ path }) => path));
 					} catch (error) {
-						toast.error({ title: 'Failed to open file', body: `Error: ${error}.` });
+						toast.error({
+							title: t('failed_to_open_file_title'),
+							body: t('error_message', { error })
+						});
 					}
 				} else if (item && explorer.settingsStore.openOnDoubleClick === 'quickPreview') {
 					if (item.type !== 'Location' && !(isPath(item) && item.item.is_dir)) {

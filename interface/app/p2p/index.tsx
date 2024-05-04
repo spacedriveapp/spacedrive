@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useBridgeQuery } from '@sd/client';
 import { toast } from '@sd/ui';
+import { useLocale } from '~/hooks';
 
 export function useP2PErrorToast() {
 	const listeners = useBridgeQuery(['p2p.listeners']);
 	const didShowError = useRef(false);
+	const { t } = useLocale();
 
 	useEffect(() => {
 		if (!listeners.data) return;
@@ -14,24 +16,21 @@ export function useP2PErrorToast() {
 		if (listeners.data.ipv4.type === 'Error' && listeners.data.ipv6.type === 'Error') {
 			body = (
 				<div>
-					<p>
-						Error creating the IPv4 and IPv6 listeners. Please check your firewall
-						settings!
-					</p>
+					<p>{t('ipv4_ipv6_listeners_error')}</p>
 					<p>{listeners.data.ipv4.error}</p>
 				</div>
 			);
 		} else if (listeners.data.ipv4.type === 'Error') {
 			body = (
 				<div>
-					<p>Error creating the IPv4 listeners. Please check your firewall settings!</p>
+					<p>{t('ipv4_listeners_error')}</p>
 					<p>{listeners.data.ipv4.error}</p>
 				</div>
 			);
 		} else if (listeners.data.ipv6.type === 'Error') {
 			body = (
 				<div>
-					<p>Error creating the IPv6 listeners. Please check your firewall settings!</p>
+					<p>{t('ipv6_listeners_error')}</p>
 					<p>{listeners.data.ipv6.error}</p>
 				</div>
 			);
@@ -40,7 +39,7 @@ export function useP2PErrorToast() {
 		if (body) {
 			toast.error(
 				{
-					title: 'Error starting up networking!',
+					title: t('networking_error'),
 					body
 				},
 				{

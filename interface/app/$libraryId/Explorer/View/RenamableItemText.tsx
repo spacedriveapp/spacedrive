@@ -10,7 +10,7 @@ import {
 	type ExplorerItem
 } from '@sd/client';
 import { toast } from '@sd/ui';
-import { useIsDark } from '~/hooks';
+import { useIsDark, useLocale } from '~/hooks';
 
 import { useExplorerContext } from '../Context';
 import { RenameTextBox, RenameTextBoxProps } from '../FilePath/RenameTextBox';
@@ -75,6 +75,8 @@ export const RenamableItemText = ({
 		if (!ref.current || !itemData.fullName) return;
 		ref.current.innerText = itemData.fullName;
 	}, [itemData.fullName]);
+
+	const { t } = useLocale();
 
 	const handleRename = useCallback(
 		async (newName: string) => {
@@ -143,12 +145,15 @@ export const RenamableItemText = ({
 			} catch (e) {
 				reset();
 				toast.error({
-					title: `Could not rename ${itemData.fullName} to ${newName}`,
-					body: `Error: ${e}.`
+					title: t('failed_to_rename_file', {
+						oldName: itemData.fullName,
+						newName
+					}),
+					body: t('error_message', { error: e })
 				});
 			}
 		},
-		[itemData.fullName, item, renameEphemeralFile, renameFile, renameLocation, reset]
+		[itemData.fullName, item, renameEphemeralFile, renameFile, renameLocation, reset, t]
 	);
 
 	const disabled =
