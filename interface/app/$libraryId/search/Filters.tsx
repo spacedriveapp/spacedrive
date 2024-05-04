@@ -27,6 +27,7 @@ export interface SearchFilter<
 	name: string;
 	icon: Icon;
 	conditions: TConditions;
+	translationKey?: string;
 }
 
 export interface SearchFilterCRUD<
@@ -414,6 +415,7 @@ function createBooleanFilter(
 export const filterRegistry = [
 	createInOrNotInFilter({
 		name: i18n.t('location'),
+		translationKey: 'location',
 		icon: Folder, // Phosphor folder icon
 		extract: (arg) => {
 			if ('filePath' in arg && 'locations' in arg.filePath) return arg.filePath.locations;
@@ -449,6 +451,7 @@ export const filterRegistry = [
 	}),
 	createInOrNotInFilter({
 		name: i18n.t('tags'),
+		translationKey: 'tag',
 		icon: CircleDashed,
 		extract: (arg) => {
 			if ('object' in arg && 'tags' in arg.object) return arg.object.tags;
@@ -497,6 +500,7 @@ export const filterRegistry = [
 	}),
 	createInOrNotInFilter({
 		name: i18n.t('kind'),
+		translationKey: 'kind',
 		icon: Cube,
 		extract: (arg) => {
 			if ('object' in arg && 'kind' in arg.object) return arg.object.kind;

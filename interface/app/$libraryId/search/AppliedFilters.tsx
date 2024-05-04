@@ -121,8 +121,8 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 						)}
 						<span className="max-w-[150px] truncate">
 							{activeOptions.length > 1
-								? `${activeOptions.length} ${t(`${pluralize(filter.name)}`)}`
-								: activeOptions[0]?.name}
+								? `${activeOptions.length} ${t(`${filter.translationKey}`, { count: activeOptions.length })}`
+								: `${t(`${filter.translationKey}`, { count: 1 })}`}
 						</span>
 					</>
 				)}
@@ -131,11 +131,4 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 			{onDelete && <CloseTab onClick={onDelete} />}
 		</FilterContainer>
 	);
-}
-
-function pluralize(word?: string) {
-	if ((i18n.resolvedLanguage || i18n.language) === 'en') {
-		if (word?.endsWith('s')) return word;
-		return `${word}s`;
-	} else return word;
 }
