@@ -60,5 +60,6 @@ tauri-build = "=2.0.0-beta.13"
 
 [features]
 default = ["custom-protocol"]
+devtools = ["tauri/devtools"]
 ai-models = ["sd-core/ai"]
 custom-protocol = ["tauri/custom-protocol"]

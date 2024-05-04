@@ -224,7 +224,9 @@ pub fn handle_menu_event(event: MenuEvent, app: &AppHandle) {
 		MenuEvent::SetLayoutGrid => webview.emit("keybind", "set_layout_grid").unwrap(),
 		MenuEvent::SetLayoutList => webview.emit("keybind", "set_layout_list").unwrap(),
 		MenuEvent::SetLayoutMedia => webview.emit("keybind", "set_layout_media").unwrap(),
-		MenuEvent::ToggleDeveloperTools => {
+		MenuEvent::ToggleDeveloperTools =>
+		{
+			#[cfg(feature = "devtools")]
 			if webview.is_devtools_open() {
 				webview.close_devtools();
 			} else {

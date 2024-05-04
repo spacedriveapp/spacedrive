@@ -312,7 +312,7 @@ export type FlashMode =
  */
 "Unknown" | 
 /**
- * FLash was on
+ * `FLash` was on
  */
 "On" | 
 /**

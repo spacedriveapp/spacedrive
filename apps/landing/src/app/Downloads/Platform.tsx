@@ -39,7 +39,7 @@ export const platforms = {
 		icon: LinuxLogo,
 		version: 'deb',
 		links: [{ name: 'x86_64', arch: 'x86_64' }],
-		note: "Supports Ubuntu 22.04+, Debian Bookworm+, Linux Mint 21+, PopOS 22.04+"
+		note: 'Supports Ubuntu 22.04+, Debian Bookworm+, Linux Mint 21+, PopOS 22.04+'
 	},
 	docker: { name: 'Docker', icon: Docker },
 	android: { name: 'Android', icon: AndroidLogo, version: '10+', disabled: true },

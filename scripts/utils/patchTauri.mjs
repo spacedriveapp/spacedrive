@@ -64,6 +64,9 @@ export async function patchTauri(root, nativeDeps, targets, bundles, args) {
 
 	const osType = os.type()
 	const tauriPatch = {
+		build: {
+			features: /** @type {string[]} */ ([]),
+		},
 		bundle: {
 			macOS: { minimumSystemVersion: '' },
 			resources: {},
@@ -94,10 +97,16 @@ export async function patchTauri(root, nativeDeps, targets, bundles, args) {
 		if (bundles.length === 0) bundles.push('all')
 	}
 
-	if (args[0] === 'build') {
-		if (tauriConfig?.plugins?.updater?.active) {
-			const pubKey = await tauriUpdaterKey(nativeDeps)
-			if (pubKey != null) tauriPatch.plugins.updater.pubkey = pubKey
+	switch (args[0]) {
+		case 'dev':
+			tauriPatch.build.features.push('devtools')
+			break
+		case 'build': {
+			if (tauriConfig?.plugins?.updater?.active) {
+				const pubKey = await tauriUpdaterKey(nativeDeps)
+				if (pubKey != null) tauriPatch.plugins.updater.pubkey = pubKey
+			}
+			break
 		}
 	}
 
