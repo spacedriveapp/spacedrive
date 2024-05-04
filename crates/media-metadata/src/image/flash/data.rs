@@ -37,7 +37,7 @@ pub enum FlashMode {
 	/// The data is present, but we're unable to determine what they mean
 	#[default]
 	Unknown,
-	/// FLash was on
+	/// `FLash` was on
 	On,
 	/// Flash was off
 	Off,

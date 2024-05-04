@@ -321,7 +321,7 @@ impl Worker {
 				old.task_count = report.task_count;
 				old.completed_task_count = report.completed_task_count;
 				old.estimated_completion = report.estimated_completion;
-				old.message = report.message.clone();
+				old.message.clone_from(&report.message);
 			});
 			*last_report_watch_update = Instant::now();
 		}
