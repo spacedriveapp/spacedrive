@@ -250,8 +250,8 @@ pub async fn save_ffmpeg_data(
 async fn create_ffmpeg_data(
 	formats: Vec<String>,
 	bit_rate: i32,
-	maybe_duration: Option<i64>,
-	maybe_start_time: Option<i64>,
+	duration: Option<(i32, i32)>,
+	start_time: Option<(i32, i32)>,
 	metadata: Metadata,
 	object_id: i32,
 	db: &PrismaClient,
@@ -262,8 +262,12 @@ async fn create_ffmpeg_data(
 			bit_rate,
 			object::id::equals(object_id),
 			vec![
-				ffmpeg_data::duration::set(maybe_duration.map(ffmpeg_data_field_to_db)),
-				ffmpeg_data::start_time::set(maybe_start_time.map(ffmpeg_data_field_to_db)),
+				ffmpeg_data::duration::set(
+					duration.map(|(a, b)| ffmpeg_data_field_to_db((a as i64) << 32 | b as i64)),
+				),
+				ffmpeg_data::start_time::set(
+					start_time.map(|(a, b)| ffmpeg_data_field_to_db((a as i64) << 32 | b as i64)),
+				),
 				ffmpeg_data::metadata::set(
 					serde_json::to_vec(&metadata)
 						.map_err(|err| {
@@ -292,15 +296,17 @@ async fn create_ffmpeg_chapters(
 				.map(
 					|Chapter {
 					     id: chapter_id,
-					     start,
-					     end,
+					     start: (start_high, start_low),
+					     end: (end_high, end_low),
 					     time_base_den,
 					     time_base_num,
 					     metadata,
 					 }| ffmpeg_media_chapter::CreateUnchecked {
 						chapter_id,
-						start: ffmpeg_data_field_to_db(start),
-						end: ffmpeg_data_field_to_db(end),
+						start: ffmpeg_data_field_to_db(
+							(start_high as i64) << 32 | start_low as i64,
+						),
+						end: ffmpeg_data_field_to_db((end_high as i64) << 32 | end_low as i64),
 						time_base_den,
 						time_base_num,
 						ffmpeg_data_id,

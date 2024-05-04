@@ -88,8 +88,14 @@ pub fn ffmpeg_data_from_prisma_data(
 ) -> FFmpegMetadata {
 	FFmpegMetadata {
 		formats: formats.split(',').map(String::from).collect::<Vec<_>>(),
-		duration: duration.map(|duration| ffmpeg_data_field_from_db(&duration)),
-		start_time: start_time.map(|start_time| ffmpeg_data_field_from_db(&start_time)),
+		duration: duration.map(|duration| {
+			let duration = ffmpeg_data_field_from_db(&duration);
+			((duration >> 32) as i32, duration as i32)
+		}),
+		start_time: start_time.map(|start_time| {
+			let start_time = ffmpeg_data_field_from_db(&start_time);
+			((start_time >> 32) as i32, start_time as i32)
+		}),
 		bit_rate,
 		chapters: chapters
 			.into_iter()
@@ -104,8 +110,14 @@ pub fn ffmpeg_data_from_prisma_data(
 				     ..
 				 }| Chapter {
 					id: chapter_id,
-					start: ffmpeg_data_field_from_db(&start),
-					end: ffmpeg_data_field_from_db(&end),
+					start: {
+						let start = ffmpeg_data_field_from_db(&start);
+						((start >> 32) as i32, start as i32)
+					},
+					end: {
+						let end = ffmpeg_data_field_from_db(&end);
+						((end >> 32) as i32, end as i32)
+					},
 					time_base_den,
 					time_base_num,
 					metadata: from_slice_option_to_option(metadata).unwrap_or_default(),
