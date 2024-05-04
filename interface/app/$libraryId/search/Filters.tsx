@@ -537,6 +537,7 @@ export const filterRegistry = [
 	}),
 	createTextMatchFilter({
 		name: i18n.t('name'),
+		translationKey: 'name',
 		icon: Textbox,
 		extract: (arg) => {
 			if ('filePath' in arg && 'name' in arg.filePath) return arg.filePath.name;
@@ -547,6 +548,7 @@ export const filterRegistry = [
 	}),
 	createInOrNotInFilter({
 		name: i18n.t('extension'),
+		translationKey: 'extension',
 		icon: Textbox,
 		extract: (arg) => {
 			if ('filePath' in arg && 'extension' in arg.filePath) return arg.filePath.extension;
@@ -564,6 +566,7 @@ export const filterRegistry = [
 	}),
 	createBooleanFilter({
 		name: i18n.t('hidden'),
+		translationKey: 'hidden',
 		icon: SelectionSlash,
 		extract: (arg) => {
 			if ('filePath' in arg && 'hidden' in arg.filePath) return arg.filePath.hidden;
@@ -582,6 +585,7 @@ export const filterRegistry = [
 	}),
 	createBooleanFilter({
 		name: i18n.t('favorite'),
+		translationKey: 'favorite',
 		icon: Heart,
 		extract: (arg) => {
 			if ('object' in arg && 'favorite' in arg.object) return arg.object.favorite;
