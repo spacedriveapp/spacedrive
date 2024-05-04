@@ -110,7 +110,7 @@ export function FeedbackPopover() {
 									</div>
 									{emojiError && (
 										<p className="pt-1 text-xs text-red-500">
-											Please select an emoji
+											{t('please_select_emoji')}
 										</p>
 									)}
 								</div>

@@ -16,6 +16,7 @@ import { Icon as SDIcon } from '~/components';
 import { useLocale } from '~/hooks';
 
 import { SearchOptionItem, SearchOptionSubMenu } from '.';
+import { translateKindName } from '../Explorer/util';
 import { AllKeys, FilterOption, getKey } from './store';
 import { UseSearch } from './useSearch';
 import { FilterTypeCondition, filterTypeCondition } from './util';
@@ -26,6 +27,7 @@ export interface SearchFilter<
 	name: string;
 	icon: Icon;
 	conditions: TConditions;
+	translationKey?: string;
 }
 
 export interface SearchFilterCRUD<
@@ -413,6 +415,7 @@ function createBooleanFilter(
 export const filterRegistry = [
 	createInOrNotInFilter({
 		name: i18n.t('location'),
+		translationKey: 'location',
 		icon: Folder, // Phosphor folder icon
 		extract: (arg) => {
 			if ('filePath' in arg && 'locations' in arg.filePath) return arg.filePath.locations;
@@ -448,6 +451,7 @@ export const filterRegistry = [
 	}),
 	createInOrNotInFilter({
 		name: i18n.t('tags'),
+		translationKey: 'tag',
 		icon: CircleDashed,
 		extract: (arg) => {
 			if ('object' in arg && 'tags' in arg.object) return arg.object.tags;
@@ -496,6 +500,7 @@ export const filterRegistry = [
 	}),
 	createInOrNotInFilter({
 		name: i18n.t('kind'),
+		translationKey: 'kind',
 		icon: Cube,
 		extract: (arg) => {
 			if ('object' in arg && 'kind' in arg.object) return arg.object.kind;
@@ -519,9 +524,9 @@ export const filterRegistry = [
 			Object.keys(ObjectKind)
 				.filter((key) => !isNaN(Number(key)) && ObjectKind[Number(key)] !== undefined)
 				.map((key) => {
-					const kind = ObjectKind[Number(key)];
+					const kind = ObjectKind[Number(key)] as string;
 					return {
-						name: kind as string,
+						name: translateKindName(kind),
 						value: Number(key),
 						icon: kind + '20'
 					};
@@ -532,6 +537,7 @@ export const filterRegistry = [
 	}),
 	createTextMatchFilter({
 		name: i18n.t('name'),
+		translationKey: 'name',
 		icon: Textbox,
 		extract: (arg) => {
 			if ('filePath' in arg && 'name' in arg.filePath) return arg.filePath.name;
@@ -542,6 +548,7 @@ export const filterRegistry = [
 	}),
 	createInOrNotInFilter({
 		name: i18n.t('extension'),
+		translationKey: 'extension',
 		icon: Textbox,
 		extract: (arg) => {
 			if ('filePath' in arg && 'extension' in arg.filePath) return arg.filePath.extension;
@@ -559,6 +566,7 @@ export const filterRegistry = [
 	}),
 	createBooleanFilter({
 		name: i18n.t('hidden'),
+		translationKey: 'hidden',
 		icon: SelectionSlash,
 		extract: (arg) => {
 			if ('filePath' in arg && 'hidden' in arg.filePath) return arg.filePath.hidden;
@@ -576,7 +584,8 @@ export const filterRegistry = [
 		Render: ({ filter, search }) => <FilterOptionBoolean filter={filter} search={search} />
 	}),
 	createBooleanFilter({
-		name: 'Favorite',
+		name: i18n.t('favorite'),
+		translationKey: 'favorite',
 		icon: Heart,
 		extract: (arg) => {
 			if ('object' in arg && 'favorite' in arg.object) return arg.object.favorite;
