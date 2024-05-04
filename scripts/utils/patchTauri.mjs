@@ -92,7 +92,7 @@ export async function patchTauri(root, nativeDeps, targets, bundles, args) {
 		.then(JSON.parse)
 
 	if (bundles.length === 0) {
-		const defaultBundles = tauriConfig.tauri?.bundle?.targets
+		const defaultBundles = tauriConfig?.bundle?.targets
 		if (Array.isArray(defaultBundles)) bundles.push(...defaultBundles)
 		if (bundles.length === 0) bundles.push('all')
 	}
@@ -113,7 +113,7 @@ export async function patchTauri(root, nativeDeps, targets, bundles, args) {
 	if (osType === 'Darwin') {
 		const macOSArm64MinimumVersion = '11.0'
 
-		let macOSMinimumVersion = tauriConfig?.tauri?.bundle?.macOS?.minimumSystemVersion
+		let macOSMinimumVersion = tauriConfig?.bundle?.macOS?.minimumSystemVersion
 
 		if (
 			(targets.includes('aarch64-apple-darwin') ||
