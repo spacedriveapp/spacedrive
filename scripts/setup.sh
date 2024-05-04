@@ -143,7 +143,7 @@ case "$(uname)" in
 
       # Tauri dependencies
       set -- build-essential curl wget file openssl libssl-dev libgtk-3-dev librsvg2-dev \
-        libwebkit2gtk-4.0-dev libayatana-appindicator3-dev
+        libwebkit2gtk-4.1-dev libayatana-appindicator3-dev xdotool
 
       # Webkit2gtk requires gstreamer plugins for video playback to work
       set -- "$@" gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
@@ -161,7 +161,7 @@ case "$(uname)" in
       echo "Installing dependencies with pacman..."
 
       # Tauri dependencies
-      set -- base-devel curl wget file openssl gtk3 librsvg webkit2gtk-4.1 libayatana-appindicator xdo xdotool
+      set -- base-devel curl wget file openssl gtk3 librsvg webkit2gtk-4.1 libayatana-appindicator xdotool
 
       # Webkit2gtk requires gstreamer plugins for video playback to work
       set -- "$@" gst-plugins-base gst-plugins-good gst-plugins-ugly
@@ -184,15 +184,8 @@ case "$(uname)" in
           'https://github.com/spacedriveapp/spacedrive/issues'
       fi
 
-      # For Fedora 36 and below, and all Enterprise Linux Distributions, you need to install webkit2gtk3-devel instead of webkit2gtk4.0-devel
-      if ! { sudo dnf install webkit2gtk4.0-devel || sudo dnf install webkit2gtk3-devel; }; then
-        err 'We were unable to install the webkit2gtk4.0-devel/webkit2gtk3-devel package.' \
-          'Please open an issue if you feel that this is incorrect.' \
-          'https://github.com/spacedriveapp/spacedrive/issues'
-      fi
-
       # Tauri dependencies
-      set -- openssl openssl-dev curl wget file libappindicator-gtk3-devel librsvg2-devel
+      set -- openssl webkit2gtk4.1-devel openssl-dev curl wget file libappindicator-gtk3-devel librsvg2-devel xdotool
 
       # Webkit2gtk requires gstreamer plugins for video playback to work
       set -- "$@" gstreamer1-devel gstreamer1-plugins-base-devel gstreamer1-plugins-good \
@@ -212,7 +205,7 @@ case "$(uname)" in
 
       # Tauri dependencies
       set -- build-base curl wget file openssl-dev gtk+3.0-dev librsvg-dev \
-        webkit2gtk-dev libayatana-indicator-dev
+        webkit2gtk-4.1-dev libayatana-indicator-dev xdotool
 
       # Webkit2gtk requires gstreamer plugins for video playback to work
       set -- "$@" gst-plugins-base-dev gst-plugins-good gst-plugins-ugly
