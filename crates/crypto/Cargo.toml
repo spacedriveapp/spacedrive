@@ -91,6 +91,7 @@ uuid = { version = "1.7.0", features = ["v4"] }
 linux-keyutils = { version = "0.2.4", features = ["std"], optional = true }
 secret-service = { version = "3.0.1", features = [
 	"crypto-rust",
+	"rt-tokio-crypto-rust",
 ], optional = true }
 
 # this needs to remain at versions < 4, as they made some changes and i can't get it
