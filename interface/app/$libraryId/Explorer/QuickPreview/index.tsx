@@ -233,8 +233,8 @@ export const QuickPreview = () => {
 			}
 		} catch (error) {
 			toast.error({
-				title: 'Failed to open file',
-				body: `Couldn't open file, due to an error: ${error}`
+				title: t('failed_to_open_file_title'),
+				body: t('failed_to_open_file_body', { error: error })
 			});
 		}
 	});
@@ -408,8 +408,11 @@ export const QuickPreview = () => {
 														setNewName(newName);
 													} catch (e) {
 														toast.error({
-															title: `Could not rename ${itemData.fullName} to ${newName}`,
-															body: `Error: ${e}.`
+															title: t('failed_to_rename_file', {
+																oldName: itemData.fullName,
+																newName
+															}),
+															body: t('error_message', { error: e })
 														});
 													}
 												}}

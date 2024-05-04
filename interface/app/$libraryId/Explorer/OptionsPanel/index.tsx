@@ -69,7 +69,7 @@ export default () => {
 					>
 						{SortOrderSchema.options.map((o) => (
 							<SelectOption key={o.value} value={o.value}>
-								{o.value}
+								{o.description}
 							</SelectOption>
 						))}
 					</Select>

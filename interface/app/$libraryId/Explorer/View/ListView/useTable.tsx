@@ -24,7 +24,7 @@ import { useExplorerContext } from '../../Context';
 import { FileThumb } from '../../FilePath/Thumb';
 import { InfoPill } from '../../Inspector';
 import { CutCopyState, explorerStore, isCut } from '../../store';
-import { uniqueId } from '../../util';
+import { translateKindName, uniqueId } from '../../util';
 import { RenamableItemText } from '../RenamableItemText';
 
 export const LIST_VIEW_ICON_SIZES = {
@@ -84,7 +84,7 @@ const KindCell = ({ kind }: { kind: string }) => {
 			className="bg-app-button/50"
 			style={{ fontSize: LIST_VIEW_TEXT_SIZES[explorerSettings.listViewTextSize] }}
 		>
-			{kind}
+			{translateKindName(kind)}
 		</InfoPill>
 	);
 };

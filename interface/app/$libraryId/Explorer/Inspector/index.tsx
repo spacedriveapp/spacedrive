@@ -54,7 +54,7 @@ import { FileThumb } from '../FilePath/Thumb';
 import { useQuickPreviewStore } from '../QuickPreview/store';
 import { explorerStore } from '../store';
 import { useExplorerItemData } from '../useExplorerItemData';
-import { uniqueId } from '../util';
+import { translateKindName, uniqueId } from '../util';
 import { RenamableItemText } from '../View/RenamableItemText';
 import FavoriteButton from './FavoriteButton';
 import MediaData from './MediaData';
@@ -368,7 +368,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 			{mediaData.data && <MediaData data={mediaData.data} />}
 
 			<MetaContainer className="flex !flex-row flex-wrap gap-1 overflow-hidden">
-				<InfoPill>{isDir ? 'Folder' : kind}</InfoPill>
+				<InfoPill>{isDir ? t('folder') : translateKindName(kind)}</InfoPill>
 
 				{extension && <InfoPill>{extension}</InfoPill>}
 
@@ -561,7 +561,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 
 			<MetaContainer className="flex !flex-row flex-wrap gap-1 overflow-hidden">
 				{[...metadata.kinds].map(([kind, items]) => (
-					<InfoPill key={kind}>{`${kind} (${items.length})`}</InfoPill>
+					<InfoPill key={kind}>{`${translateKindName(kind)} (${items.length})`}</InfoPill>
 				))}
 
 				{/* {labels.data?.map((label) => {
