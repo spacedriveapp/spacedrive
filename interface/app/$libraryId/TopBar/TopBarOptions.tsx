@@ -36,7 +36,8 @@ export const windowsControls: ToolOption[] = [
 		},
 		icon: <Minus weight="regular" className={clsx(TOP_BAR_ICON_STYLE, '-scale-x-100')} />,
 		individual: true,
-		showAtResolution: 'xl:flex'
+		showAtResolution: 'xl:flex',
+		toolTipClassName: 'hidden'
 	},
 	{
 		toolTipLabel: i18n.t('maximize'),
@@ -45,7 +46,8 @@ export const windowsControls: ToolOption[] = [
 		},
 		icon: <Cards weight="regular" className={clsx(TOP_BAR_ICON_STYLE, '-scale-x-100')} />,
 		individual: true,
-		showAtResolution: 'xl:flex'
+		showAtResolution: 'xl:flex',
+		toolTipClassName: 'hidden'
 	},
 	{
 		toolTipLabel: i18n.t('close'),
@@ -54,7 +56,8 @@ export const windowsControls: ToolOption[] = [
 		},
 		icon: <X weight="regular" className={clsx(TOP_BAR_ICON_STYLE, '-scale-x-100')} />,
 		individual: true,
-		showAtResolution: 'xl:flex'
+		showAtResolution: 'xl:flex',
+		toolTipClassName: 'hidden'
 	}
 ];
 
