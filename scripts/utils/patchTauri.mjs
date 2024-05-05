@@ -17,7 +17,7 @@ const __debug = env.NODE_ENV === 'debug'
  * @returns {Promise<string?>}
  */
 export async function tauriUpdaterKey(nativeDeps) {
-	if (env.TAURI_PRIVATE_KEY) return null
+	if (env.TAURI_SIGNING_PRIVATE_KEY) return null
 
 	// pnpm exec tauri signer generate -w
 	const privateKeyPath = path.join(nativeDeps, 'tauri.key')
@@ -44,8 +44,8 @@ export async function tauriUpdaterKey(nativeDeps) {
 		if (!(publicKey && privateKey)) throw new Error('Empty keys')
 	}
 
-	env.TAURI_PRIVATE_KEY = privateKey
-	env.TAURI_KEY_PASSWORD = ''
+	env.TAURI_SIGNING_PRIVATE_KEY = privateKey
+	env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ''
 	return publicKey
 }
 
