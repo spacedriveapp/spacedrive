@@ -1,6 +1,9 @@
+import { Cards, Minus, X } from '@phosphor-icons/react';
+import { appWindow } from '@tauri-apps/api/window';
 import clsx from 'clsx';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { ModifierKeys, Popover, Tooltip, usePopover } from '@sd/ui';
+import i18n from '~/app/I18n';
 import { useIsDark, useOperatingSystem } from '~/hooks';
 
 import TopBarButton from './TopBarButton';
@@ -24,6 +27,36 @@ interface TopBarChildrenProps {
 }
 
 export const TOP_BAR_ICON_STYLE = 'm-0.5 w-[18px] h-[18px] text-ink-dull';
+
+export const windowsControls: ToolOption[] = [
+	{
+		toolTipLabel: i18n.t('minimize'),
+		onClick: () => {
+			appWindow.minimize();
+		},
+		icon: <Minus weight="regular" className={clsx(TOP_BAR_ICON_STYLE, '-scale-x-100')} />,
+		individual: true,
+		showAtResolution: 'xl:flex'
+	},
+	{
+		toolTipLabel: i18n.t('maximize'),
+		onClick: () => {
+			appWindow.toggleMaximize();
+		},
+		icon: <Cards weight="regular" className={clsx(TOP_BAR_ICON_STYLE, '-scale-x-100')} />,
+		individual: true,
+		showAtResolution: 'xl:flex'
+	},
+	{
+		toolTipLabel: i18n.t('close'),
+		onClick: () => {
+			appWindow.close();
+		},
+		icon: <X weight="regular" className={clsx(TOP_BAR_ICON_STYLE, '-scale-x-100')} />,
+		individual: true,
+		showAtResolution: 'xl:flex'
+	}
+];
 
 export default ({ options }: TopBarChildrenProps) => {
 	const [windowSize, setWindowSize] = useState(0);
@@ -67,7 +100,7 @@ export default ({ options }: TopBarChildrenProps) => {
 	);
 };
 
-function ToolGroup({
+export function ToolGroup({
 	option,
 	index,
 	groupIndex,
