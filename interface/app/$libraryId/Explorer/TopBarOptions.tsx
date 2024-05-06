@@ -16,7 +16,7 @@ import { dialogManager } from '@sd/ui';
 import { useKeyMatcher, useLocale } from '~/hooks';
 
 import { KeyManager } from '../KeyManager';
-import SpacedropDialog from '../Spacedrop/Dialog';
+import SpacedropDialog from '../Spacedrop/SpacedropDialog';
 import TopBarOptions, { ToolOption, TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import { useExplorerContext } from './Context';
 import OptionsPanel from './OptionsPanel';
@@ -115,7 +115,10 @@ export const useExplorerTopBarOptions = () => {
 		{
 			toolTipLabel: 'Spacedrop',
 			icon: <Planet className={TOP_BAR_ICON_STYLE} />,
-			onClick: () => dialogManager.create((dp) => <SpacedropDialog {...dp} />),
+			onClick: () =>
+				dialogManager.create((dp) => (
+					<SpacedropDialog {...dp} items={[...explorer.selectedItems]} />
+				)),
 			individual: true,
 			showAtResolution: 'xl:flex'
 		},
