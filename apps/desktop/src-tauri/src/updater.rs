@@ -98,11 +98,8 @@ pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
 	tauri::plugin::Builder::new("sd-updater")
 		.on_page_load(|window, _| {
 			#[cfg(target_os = "linux")]
-			let updater_available = {
-				let env = window.env();
+			let updater_available = false;
 
-				env.appimage.is_some()
-			};
 			#[cfg(not(target_os = "linux"))]
 			let updater_available = true;
 

@@ -50,7 +50,7 @@ const notices = {
 	},
 	media: {
 		key: 'mediaView',
-		title: 'Media View',
+		title: i18n.t('media_view'),
 		description: i18n.t('media_view_notice_description'),
 		icon: <MediaViewIcon />
 	}

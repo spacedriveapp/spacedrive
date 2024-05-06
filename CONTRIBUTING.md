@@ -120,10 +120,6 @@ To run the mobile app:
     - `xcrun simctl launch --console booted com.spacedrive.app` allows you to view the console output of the iOS app from `tracing`. However, the application must be built in `debug` mode for this.
   - `pnpm mobile start` (runs the metro bundler only)
 
-##### AppImage
-
-Specific instructions on how to build an AppImage release are located [here](scripts/appimage/README.md)
-
 ### Pull Request
 
 Once you have finished making your changes, create a pull request (PR) to submit them.
@@ -168,6 +164,10 @@ Ensure that macOS is fully updated, and that you have Xcode installed (via the a
 Once that has completed, run `xcode-select --install` in the terminal to install the command line tools. If they are already installed, ensure that you update macOS to the latest version available.
 
 Also ensure that Rosetta is installed, as a few of our dependencies require it. You can install Rosetta with `softwareupdate --install-rosetta --agree-to-license`.
+
+### Translations
+Check out the [i18n README](interface/locales/README.md) for more information on how to contribute to translations.
+
 
 ### Credits
 

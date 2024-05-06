@@ -1219,7 +1219,7 @@ dependencies = [
 [[package]]
 name = "blake3"
 version = "1.5.0"
-source = "git+https://github.com/brxken128/blake3?rev=d3aab416c12a75c2bfabce33bcd594e428a79069#d3aab416c12a75c2bfabce33bcd594e428a79069"
+source = "git+https://github.com/spacedriveapp/blake3.git?rev=d3aab416c12a75c2bfabce33bcd594e428a79069#d3aab416c12a75c2bfabce33bcd594e428a79069"
 dependencies = [
  "arrayref",
  "arrayvec",
@@ -8178,7 +8178,7 @@ dependencies = [
 
 [[package]]
 name = "sd-core"
-version = "0.2.13"
+version = "0.2.14"
 dependencies = [
  "aovec",
  "async-channel",
@@ -8425,7 +8425,7 @@ dependencies = [
 
 [[package]]
 name = "sd-desktop"
-version = "0.2.13"
+version = "0.2.14"
 dependencies = [
  "axum",
  "directories 5.0.1",

@@ -35,7 +35,7 @@ export default function ToolsSection() {
 						className={`max-w relative flex w-full grow flex-row items-center gap-0.5 truncate rounded border border-transparent ${os === 'macOS' ? 'bg-opacity-90' : ''} px-2 py-1 text-sm font-medium text-sidebar-inkDull outline-none ring-0 ring-inset ring-transparent ring-offset-0 focus:ring-1 focus:ring-accent focus:ring-offset-0`}
 						onClick={() => {
 							platform.openTrashInOsExplorer?.();
-							toast.info('Opening Trash');
+							toast.info(t('opening_trash'));
 						}}
 					>
 						<Trash size={18} className="mr-1" />

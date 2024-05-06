@@ -71,7 +71,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 		[location.id]
 	);
 
-	const search = useSearchFromSearchParams();
+	const search = useSearchFromSearchParams({ defaultTarget: 'paths' });
 
 	const searchFiltersAreDefault = useMemo(
 		() => JSON.stringify(defaultFilters) !== JSON.stringify(search.filters),

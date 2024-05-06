@@ -233,8 +233,8 @@ export const QuickPreview = () => {
 			}
 		} catch (error) {
 			toast.error({
-				title: 'Failed to open file',
-				body: `Couldn't open file, due to an error: ${error}`
+				title: t('failed_to_open_file_title'),
+				body: t('failed_to_open_file_body', { error: error })
 			});
 		}
 	});
@@ -254,7 +254,7 @@ export const QuickPreview = () => {
 				<Dialog.Portal forceMount>
 					<Dialog.Overlay
 						className={clsx(
-							'absolute inset-0 z-50',
+							'absolute inset-0 z-[100]',
 							'radix-state-open:animate-in radix-state-open:fade-in-0',
 							isDark ? 'bg-black/80' : 'bg-black/60'
 						)}
@@ -262,7 +262,7 @@ export const QuickPreview = () => {
 					/>
 
 					<Dialog.Content
-						className="fixed inset-[5%] z-50 outline-none radix-state-open:animate-in radix-state-open:fade-in-0 radix-state-open:zoom-in-95"
+						className="fixed inset-[5%] z-[100] outline-none radix-state-open:animate-in radix-state-open:fade-in-0 radix-state-open:zoom-in-95"
 						onOpenAutoFocus={(e) => e.preventDefault()}
 						onEscapeKeyDown={(e) => isRenaming && e.preventDefault()}
 						onContextMenu={(e) => e.preventDefault()}
@@ -408,8 +408,11 @@ export const QuickPreview = () => {
 														setNewName(newName);
 													} catch (e) {
 														toast.error({
-															title: `Could not rename ${itemData.fullName} to ${newName}`,
-															body: `Error: ${e}.`
+															title: t('failed_to_rename_file', {
+																oldName: itemData.fullName,
+																newName
+															}),
+															body: t('error_message', { error: e })
 														});
 													}
 												}}

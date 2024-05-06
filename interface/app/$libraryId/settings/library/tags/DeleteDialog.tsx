@@ -27,6 +27,7 @@ export default (props: Props) => {
 			dialog={useDialog(props)}
 			onSubmit={form.handleSubmit(() => deleteTag.mutateAsync(props.tagId))}
 			title={t('delete_tag')}
+			closeLabel={t('close')}
 			description={t('delete_tag_description')}
 			ctaDanger
 			ctaLabel={t('delete')}
