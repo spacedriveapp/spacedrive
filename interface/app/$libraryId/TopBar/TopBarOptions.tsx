@@ -103,7 +103,7 @@ export default ({ options }: TopBarChildrenProps) => {
 	);
 };
 
-export function ToolGroup({
+function ToolGroup({
 	option,
 	index,
 	groupIndex,
