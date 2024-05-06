@@ -1,7 +1,7 @@
 import { Cards, Minus, X } from '@phosphor-icons/react';
 import { appWindow } from '@tauri-apps/api/window';
 import clsx from 'clsx';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import { ModifierKeys, Popover, Tooltip, usePopover } from '@sd/ui';
 import i18n from '~/app/I18n';
 import { useIsDark, useOperatingSystem } from '~/hooks';
@@ -145,11 +145,7 @@ function ToolGroup({
 		<div
 			data-tauri-drag-region={os === 'macOS'}
 			key={toolTipLabel}
-			className={clsx(
-				[showAtResolution],
-				[individual && 'mx-1'],
-				`hidden items-center text-white`
-			)}
+			className={clsx([showAtResolution], [individual && 'mx-1'], `hidden items-center`)}
 		>
 			<>
 				{popOverComponent ? (
