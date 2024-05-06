@@ -1,13 +1,12 @@
 use crate::{
 	file_identifier, utils::sub_path::maybe_get_iso_file_path_from_sub_path, Error,
-	NonCriticalError,
+	NonCriticalError, OuterContext,
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::file_path_for_file_identifier;
-use sd_core_sync::Manager as SyncManager;
 
-use sd_prisma::prisma::{file_path, location, PrismaClient, SortOrder};
+use sd_prisma::prisma::{file_path, location, SortOrder};
 use sd_task_system::{
 	BaseTaskDispatcher, CancelTaskOnDrop, TaskDispatcher, TaskOutput, TaskStatus,
 };
@@ -34,12 +33,10 @@ pub async fn shallow(
 	location: location::Data,
 	sub_path: impl AsRef<Path> + Send,
 	dispatcher: BaseTaskDispatcher<Error>,
-	db: Arc<PrismaClient>,
-	sync: Arc<SyncManager>,
-	invalidate_query: impl Fn(&'static str) + Send + Sync,
-	report_file_path_ids_with_new_object: impl Fn(Vec<file_path::id::Type>) + Send + Sync,
+	ctx: impl OuterContext,
 ) -> Result<Vec<NonCriticalError>, Error> {
 	let sub_path = sub_path.as_ref();
+	let db = ctx.db();
 
 	let location_path = maybe_missing(&location.path, "location.path")
 		.map(PathBuf::from)
@@ -49,7 +46,7 @@ pub async fn shallow(
 	let location = Arc::new(location);
 
 	let sub_iso_file_path =
-		maybe_get_iso_file_path_from_sub_path(location.id, &Some(sub_path), &*location_path, &db)
+		maybe_get_iso_file_path_from_sub_path(location.id, &Some(sub_path), &*location_path, db)
 			.await
 			.map_err(file_identifier::Error::from)?
 			.map_or_else(
@@ -110,17 +107,7 @@ pub async fn shallow(
 		return Ok(vec![]);
 	}
 
-	let errors = process_tasks(
-		pending_running_tasks,
-		dispatcher,
-		db,
-		sync,
-		report_file_path_ids_with_new_object,
-	)
-	.await?;
-
-	invalidate_query("search.paths");
-	invalidate_query("search.objects");
+	let errors = process_tasks(pending_running_tasks, dispatcher, ctx).await?;
 
 	Ok(errors)
 }
@@ -128,11 +115,12 @@ pub async fn shallow(
 async fn process_tasks(
 	pending_running_tasks: FutureGroup<CancelTaskOnDrop<Error>>,
 	dispatcher: BaseTaskDispatcher<Error>,
-	db: Arc<PrismaClient>,
-	sync: Arc<SyncManager>,
-	report_file_path_ids_with_new_object: impl Fn(Vec<file_path::id::Type>) + Send + Sync,
+	ctx: impl OuterContext,
 ) -> Result<Vec<NonCriticalError>, Error> {
 	let mut pending_running_tasks = pending_running_tasks.lend_mut();
+
+	let db = ctx.db();
+	let sync = ctx.sync();
 
 	let mut errors = vec![];
 
@@ -147,9 +135,7 @@ async fn process_tasks(
 						identified_files,
 						errors: more_errors,
 						..
-					} = *any_task_output
-						.downcast::<extract_file_metadata::Output>()
-						.expect("just checked");
+					} = *any_task_output.downcast().expect("just checked");
 
 					errors.extend(more_errors);
 
@@ -158,8 +144,8 @@ async fn process_tasks(
 							dispatcher
 								.dispatch(ObjectProcessorTask::new_shallow(
 									identified_files,
-									Arc::clone(&db),
-									Arc::clone(&sync),
+									Arc::clone(db),
+									Arc::clone(sync),
 								))
 								.await,
 						));
@@ -168,11 +154,11 @@ async fn process_tasks(
 					let object_processor::Output {
 						file_path_ids_with_new_object,
 						..
-					} = *any_task_output
-						.downcast::<object_processor::Output>()
-						.expect("just checked");
+					} = *any_task_output.downcast().expect("just checked");
 
-					report_file_path_ids_with_new_object(file_path_ids_with_new_object);
+					ctx.report_update(crate::UpdateEvent::NewIdentifiedObjects {
+						file_path_ids: file_path_ids_with_new_object,
+					});
 				}
 			}
 

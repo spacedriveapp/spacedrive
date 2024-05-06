@@ -27,6 +27,7 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
+use sd_prisma::prisma::file_path;
 use sd_task_system::TaskSystemError;
 
 use serde::{Deserialize, Serialize};
@@ -38,6 +39,8 @@ pub mod indexer;
 pub mod job_system;
 pub mod media_processor;
 pub mod utils;
+
+use media_processor::ThumbKey;
 
 pub use job_system::{
 	job::{IntoJob, JobBuilder, JobName, JobOutput, JobOutputData, OuterContext, ProgressUpdate},
@@ -88,4 +91,14 @@ pub enum LocationScanState {
 	Indexed = 1,
 	FilesIdentified = 2,
 	Completed = 3,
+}
+
+#[derive(Debug, Serialize, Type)]
+pub enum UpdateEvent {
+	NewThumbnailEvent {
+		thumb_key: ThumbKey,
+	},
+	NewIdentifiedObjects {
+		file_path_ids: Vec<file_path::id::Type>,
+	},
 }

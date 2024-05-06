@@ -1,8 +1,8 @@
-use crate::{media_processor::ThumbKey, Error, NonCriticalError};
+use crate::{Error, NonCriticalError, UpdateEvent};
 
 use sd_core_sync::Manager as SyncManager;
 
-use sd_prisma::prisma::{file_path, PrismaClient};
+use sd_prisma::prisma::PrismaClient;
 use sd_task_system::{
 	BaseTaskDispatcher, Task, TaskDispatcher, TaskHandle, TaskRemoteController, TaskSystemError,
 };
@@ -72,15 +72,6 @@ impl ProgressUpdate {
 	pub fn phase(phase: impl Into<String>) -> Self {
 		Self::Phase(phase.into())
 	}
-}
-
-pub enum UpdateEvent {
-	NewThumbnailEvent {
-		thumb_key: ThumbKey,
-	},
-	NewIdentifiedObjects {
-		file_path_ids: Vec<file_path::id::Type>,
-	},
 }
 
 pub trait OuterContext: Send + Sync + Clone + 'static {

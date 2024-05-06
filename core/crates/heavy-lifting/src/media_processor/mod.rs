@@ -1,5 +1,10 @@
+use crate::{utils::sub_path, OuterContext, UpdateEvent};
+
 use sd_core_file_path_helper::FilePathError;
+
 use sd_utils::db::MissingFieldError;
+
+use std::fmt;
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -15,8 +20,11 @@ pub use tasks::{
 };
 
 pub use helpers::thumbnailer::{ThumbKey, ThumbnailKind};
+pub use shallow::shallow;
 
-use crate::utils::sub_path;
+use self::thumbnailer::NewThumbnailReporter;
+
+const BATCH_SIZE: usize = 10;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -45,4 +53,21 @@ pub enum NonCriticalError {
 	MediaDataExtractor(#[from] media_data_extractor::NonCriticalError),
 	#[error(transparent)]
 	Thumbnailer(#[from] thumbnailer::NonCriticalError),
+}
+
+struct NewThumbnailsReporter<Ctx: OuterContext> {
+	ctx: Ctx,
+}
+
+impl<Ctx: OuterContext> fmt::Debug for NewThumbnailsReporter<Ctx> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("NewThumbnailsReporter").finish()
+	}
+}
+
+impl<Ctx: OuterContext> NewThumbnailReporter for NewThumbnailsReporter<Ctx> {
+	fn new_thumbnail(&self, thumb_key: ThumbKey) {
+		self.ctx
+			.report_update(UpdateEvent::NewThumbnailEvent { thumb_key });
+	}
 }

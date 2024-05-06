@@ -221,7 +221,7 @@ impl Job for Indexer {
 				.await?;
 			}
 
-			update_location_size(location.id, ctx.db(), &ctx.query_invalidator()).await?;
+			update_location_size(location.id, ctx.db(), &ctx).await?;
 
 			metadata.db_write_time += start_size_update_time.elapsed();
 		}

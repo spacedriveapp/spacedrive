@@ -1,4 +1,4 @@
-use crate::utils::sub_path;
+use crate::{utils::sub_path, OuterContext};
 
 use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
 use sd_core_indexer_rules::IndexerRuleError;
@@ -168,10 +168,10 @@ async fn update_directory_sizes(
 	Ok(())
 }
 
-async fn update_location_size<InvalidateQuery: Fn(&'static str) + Send + Sync>(
+async fn update_location_size(
 	location_id: location::id::Type,
 	db: &PrismaClient,
-	invalidate_query: &InvalidateQuery,
+	ctx: &impl OuterContext,
 ) -> Result<(), Error> {
 	let total_size = db
 		.file_path()
@@ -200,8 +200,8 @@ async fn update_location_size<InvalidateQuery: Fn(&'static str) + Send + Sync>(
 		.exec()
 		.await?;
 
-	invalidate_query("locations.list");
-	invalidate_query("locations.get");
+	ctx.invalidate_query("locations.list");
+	ctx.invalidate_query("locations.get");
 
 	Ok(())
 }

@@ -1,6 +1,6 @@
 use crate::{
 	job_system::{
-		job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus, UpdateEvent},
+		job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus},
 		report::ReportOutputMetadata,
 		utils::cancel_pending_tasks,
 		SerializableJob, SerializedTasks,
@@ -41,10 +41,8 @@ use tracing::{debug, warn};
 use super::{
 	helpers,
 	tasks::{self, media_data_extractor, thumbnailer},
-	thumbnailer::NewThumbnailReporter,
+	NewThumbnailsReporter, BATCH_SIZE,
 };
-
-const BATCH_SIZE: usize = 10;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 enum TaskKind {
@@ -228,19 +226,20 @@ impl MediaProcessor {
 			let location_id = self.location.id;
 			let location_path = &*self.location_path;
 
-			let iso_file_path = if let Some(iso_file_path) = maybe_get_iso_file_path_from_sub_path(
+			let iso_file_path = maybe_get_iso_file_path_from_sub_path(
 				location_id,
 				&self.sub_path,
 				&*self.location_path,
 				ctx.db(),
 			)
 			.await?
-			{
-				iso_file_path
-			} else {
-				IsolatedFilePathData::new(location_id, location_path, location_path, true)
-					.map_err(sub_path::Error::from)?
-			};
+			.map_or_else(
+				|| {
+					IsolatedFilePathData::new(location_id, location_path, location_path, true)
+						.map_err(sub_path::Error::from)
+				},
+				Ok,
+			)?;
 
 			debug!(
 				"Searching for media files in location {location_id} at directory \"{iso_file_path}\""
@@ -636,23 +635,6 @@ impl<Ctx: OuterContext> SerializableJob<Ctx> for MediaProcessor {
 	}
 }
 
-struct NewThumbnailsReporter<Ctx: OuterContext> {
-	ctx: Ctx,
-}
-
-impl<Ctx: OuterContext> fmt::Debug for NewThumbnailsReporter<Ctx> {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		f.debug_struct("NewThumbnailsReporter").finish()
-	}
-}
-
-impl<Ctx: OuterContext> NewThumbnailReporter for NewThumbnailsReporter<Ctx> {
-	fn new_thumbnail(&self, thumb_key: media_processor::ThumbKey) {
-		self.ctx
-			.report_update(UpdateEvent::NewThumbnailEvent { thumb_key });
-	}
-}
-
 impl Hash for MediaProcessor {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.location.id.hash(state);
@@ -668,7 +650,12 @@ async fn dispatch_media_data_extractor_tasks(
 	location_path: &Arc<PathBuf>,
 	dispatcher: &JobTaskDispatcher,
 ) -> Result<(u64, Vec<TaskHandle<Error>>), media_processor::Error> {
-	let file_paths = get_files_for_media_data_extraction(db, parent_iso_file_path).await?;
+	let file_paths = get_all_children_files_by_extensions(
+		db,
+		parent_iso_file_path,
+		&helpers::media_data_extractor::FILTERED_IMAGE_EXTENSIONS,
+	)
+	.await?;
 
 	let files_count = file_paths.len() as u64;
 
@@ -689,19 +676,6 @@ async fn dispatch_media_data_extractor_tasks(
 		.collect::<Vec<_>>();
 
 	Ok((files_count, dispatcher.dispatch_many_boxed(tasks).await))
-}
-
-async fn get_files_for_media_data_extraction(
-	db: &PrismaClient,
-	parent_iso_file_path: &IsolatedFilePathData<'_>,
-) -> Result<Vec<file_path_for_media_processor::Data>, media_processor::Error> {
-	get_all_children_files_by_extensions(
-		db,
-		parent_iso_file_path,
-		&helpers::media_data_extractor::FILTERED_IMAGE_EXTENSIONS,
-	)
-	.await
-	.map_err(Into::into)
 }
 
 async fn get_all_children_files_by_extensions(
@@ -763,6 +737,8 @@ async fn dispatch_thumbnailer_tasks(
 	)
 	.await?;
 
+	let thumbs_count = file_paths.len() as u64;
+
 	let first_materialized_path = file_paths[0].materialized_path.clone();
 
 	// Only the first materialized_path should be processed with priority as the user must see the thumbnails ASAP
@@ -810,10 +786,8 @@ async fn dispatch_thumbnailer_tasks(
 		.map(IntoTask::into_task)
 		.collect::<Vec<_>>();
 
-	let thumbs_count = (priority_tasks.len() + non_priority_tasks.len()) as u64;
-
 	debug!(
-		"Dispatching {thumbs_count} thumbnails to be processed, {} with priority and {} without priority",
+		"Dispatching {thumbs_count} thumbnails to be processed, {} with priority and {} without priority tasks",
 		priority_tasks.len(),
 		non_priority_tasks.len()
 	);

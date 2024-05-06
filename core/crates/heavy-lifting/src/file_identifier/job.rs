@@ -1,13 +1,13 @@
 use crate::{
 	file_identifier,
 	job_system::{
-		job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus, UpdateEvent},
+		job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus},
 		report::ReportOutputMetadata,
 		utils::cancel_pending_tasks,
 		SerializableJob, SerializedTasks,
 	},
 	utils::sub_path::maybe_get_iso_file_path_from_sub_path,
-	Error, JobName, LocationScanState, NonCriticalError, OuterContext, ProgressUpdate,
+	Error, JobName, LocationScanState, NonCriticalError, OuterContext, ProgressUpdate, UpdateEvent,
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
