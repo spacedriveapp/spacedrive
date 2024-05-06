@@ -34,7 +34,7 @@ export const windowsControls: ToolOption[] = [
 		onClick: () => {
 			appWindow.minimize();
 		},
-		icon: <Minus weight="regular" className={clsx(TOP_BAR_ICON_STYLE, '-scale-x-100')} />,
+		icon: <Minus weight="regular" className={clsx(TOP_BAR_ICON_STYLE)} />,
 		individual: true,
 		showAtResolution: 'xl:flex',
 		toolTipClassName: 'hidden'
@@ -44,7 +44,7 @@ export const windowsControls: ToolOption[] = [
 		onClick: () => {
 			appWindow.toggleMaximize();
 		},
-		icon: <Cards weight="regular" className={clsx(TOP_BAR_ICON_STYLE, '-scale-x-100')} />,
+		icon: <Cards weight="regular" className={clsx(TOP_BAR_ICON_STYLE)} />,
 		individual: true,
 		showAtResolution: 'xl:flex',
 		toolTipClassName: 'hidden'
@@ -54,7 +54,7 @@ export const windowsControls: ToolOption[] = [
 		onClick: () => {
 			appWindow.close();
 		},
-		icon: <X weight="regular" className={clsx(TOP_BAR_ICON_STYLE, '-scale-x-100')} />,
+		icon: <X weight="regular" className={clsx(TOP_BAR_ICON_STYLE)} />,
 		individual: true,
 		showAtResolution: 'xl:flex',
 		toolTipClassName: 'hidden'
@@ -145,7 +145,11 @@ function ToolGroup({
 		<div
 			data-tauri-drag-region={os === 'macOS'}
 			key={toolTipLabel}
-			className={clsx([showAtResolution], [individual && 'mx-1'], `hidden items-center`)}
+			className={clsx(
+				[showAtResolution],
+				[individual && 'mx-1'],
+				`hidden items-center text-white`
+			)}
 		>
 			<>
 				{popOverComponent ? (
