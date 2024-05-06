@@ -7,23 +7,133 @@ index: 14
 
 Our peer-to-peer technology works at the heart of Spacedrive allowing all of your devices to seamlessly communicate and share data. This documentation outlines
 
-## Local Network
+## Implementing features with P2P
+
+TODO - From frontend, to backend, including authentication
+
+## Underlying technology
+
+### Local Network Discovery
+
+Our local network discovery uses [DNS-Based Service Discovery](https://www.rfc-editor.org/rfc/rfc6763.html) which itself is built around [Multicast DNS (mDNS)](https://datatracker.ietf.org/doc/html/rfc6762). This is a really well established technology and is used in [Spotify Connect](https://support.spotify.com/au/article/spotify-connect/), [Apple Airplay](https://www.apple.com/au/airplay/) and many other services you use every day.
+
+#### Service structure
+
+The following is an example of what would be broadcast from a single Spacedrive node:
+```toml
+# {remote_identity_of_self}._sd._udp.local.
+
+name=Oscars Laptop        # Shown to the user to select a device
+operating_system=macos    # Used for UI purposes
+device_model=MacBook Pro  # Used for UI purposes
+version=0.0.1 						# Spacedrive version
+
+# For each library that's active on the Spacedrive node:
+# {library_uuid}={remote_identity_of_self}
+d66ed0c3-03ac-4f9b-a374-a927830dfd5b=0l9vTOWu+5aJs0cyWxdfJEGtloEepGRAXcEuDeTDRPk
+```
+
+Within `sd-core` this is defined in two parts. The [`PeerMetadata` struct](https://github.com/spacedriveapp/spacedrive/blob/44478207e72495b3777e294660d78939711b544f/core/src/p2p/metadata.rs#L9) takes care of the node metadata and libraries are inserted by the [`libraries_hook`](https://github.com/spacedriveapp/spacedrive/blob/44478207e72495b3777e294660d78939711b544f/core/src/p2p/libraries.rs#L13).
+
+#### Modes
+
+<Notice
+	type="note"
+	text="This section discusses 'Contacts Only' which is not yet fully implemented."
+/>
+
+Within Spacedrive's settings the user is able to choose between three modes for local network discovery:
+ - **Contacts only**: Only devices that are in your contacts list will be able to see your device.
+ - **Enabled**: All devices on the local network will be able to see your device.
+ - **Disabled**: No devices on the local network will be able to see your device.
+
+**Contacts only** the mDNS records will be encrypted with a random
+
+
+
+
+
+{/* If a match is found, the receiving device responds over peer-to-peer Wi-Fi with its identity information. If there is no match, the device doesn’t respond. */}
+
+
+
+
+
+TODO - Explain contacts only, enabled, disabled thing
+
+#### Rust implementation
+
+We make use of the [mdns-sd](https://docs.rs/mdns-sd) crate.
+
+TODO - Explain crate bit
+
+TODO - mDNS and services
+
+
+
+### Manual connection
+
+TODO - TODO
+
+### Relay
 
 TODO
 
-## Relay
-
-TODO
-
-## Direction Connect via Relay
+### Direction Connect via Relay
 
 TODO
 
 
-## Design Decisions
+### Design Decisions
 
 TODO
 
-## Things I would do differently?
+### Things I would do differently?
 
 TODO
+
+### Crates
+
+TODO
+
+#### Security
+
+##### Threat model
+
+TODO - Risks of sharing IP's using discovery, risks of compromised relay, risks of compromised local network during pairing
+
+##### Authentication
+
+TODO
+
+##### Authorization
+
+TODO
+
+##### Tracking
+
+TODO - Link to Apple stuff
+
+
+TODO - `RemoteIdentity` vs `Identity` vs `PeerId`
+
+TODO - Rust structure, core crate, features built around it.
+TODO - Explain hooks and listeners
+TODO - Block protocol + serializer crate (why async serializer and why a general crate abstraction is hard)
+	TODO - Maybe open source and link - https://github.com/oscartbeaumont/binario
+TODO - Why libp2p fork?, Why libp2p can be problematic for what we do
+TODO - How we transpose our certificates to libp2p certificates
+TODO - Compatibility across versions of Spacedrive
+
+#### Major issues
+
+TODO - mDNS issues on Linux
+TODO - The double up of service discovery when using local and relay
+
+TODO - Question? Why does remote_identity_of_self show up in metadata and the mDNS record itself.
+
+#### Docs issues
+
+TODO - Code snippets don't render as links, cringe
+TODO - Making non-uppercase pages is annoying
+
