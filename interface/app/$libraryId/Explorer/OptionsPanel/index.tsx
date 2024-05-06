@@ -69,7 +69,7 @@ export default () => {
 					>
 						{SortOrderSchema.options.map((o) => (
 							<SelectOption key={o.value} value={o.value}>
-								{o.value}
+								{o.description}
 							</SelectOption>
 						))}
 					</Select>
@@ -108,7 +108,7 @@ export default () => {
 							onValueChange={(value) => {
 								explorer.settingsStore.gridItemSize = value[0] || 100;
 							}}
-							defaultValue={[settings.gridItemSize]}
+							value={[settings.gridItemSize]}
 							max={200}
 							step={10}
 							min={60}

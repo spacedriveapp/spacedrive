@@ -30,13 +30,38 @@ jobs:
       - name: Update buildah
         shell: bash
         run: |
+          set -euxo pipefail
           wget -O- 'https://github.com/HeavenVolkoff/buildah-static/releases/latest/download/buildah-amd64.tar.gz' \
           | sudo tar -xzf- -C /usr/local/bin
+
+      - name: Install netavark
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo mkdir -p /usr/local/lib/podman
+          sudo wget -O- 'https://github.com/containers/netavark/releases/latest/download/netavark.gz' \
+          | gunzip | sudo dd status=none of=/usr/local/lib/podman/netavark
+          sudo chmod +x /usr/local/lib/podman/netavark
+
+      - name: Install passt
+        shell: bash
+        working-directory: /tmp
+        run: |
+          set -euxo pipefail
+
+          deb="$(
+            curl -SsL https://passt.top/builds/latest/x86_64 \
+            | grep -oP 'passt[^\.<>'\''"]+\.deb' | sort -u | head -n1
+          )"
+
+          curl -SsJLO "https://passt.top/builds/latest/x86_64/${deb}"
+          sudo dpkg -i "${deb}"
 
       - name: Determine image name & tag
         id: image_info
         shell: bash
         run: |
+          set -euxo pipefail
           if [ "$GITHUB_EVENT_NAME" == "release" ]; then
             IMAGE_TAG="${GITHUB_REF##*/}"
           else
@@ -54,8 +79,7 @@ jobs:
 
       - name: Build image
         id: build-image
-        # TODO: Change to stable version when available
-        uses: redhat-actions/buildah-build@c79846fb306beeba490e89fb75d2d1af95831e79
+        uses: redhat-actions/buildah-build@v2
         with:
           tags: ${{ steps.image_info.outputs.tag }} ${{ github.event_name == 'release' && 'latest' || 'staging' }}
           archs: amd64
@@ -69,9 +93,7 @@ jobs:
             ./apps/server/docker/Dockerfile
 
       - name: Push image to ghcr.io
-        # TODO: Restore redhat-actions/push-to-registry after PR is merged:
-        # https://github.com/redhat-actions/push-to-registry/pull/93
-        uses: Eusebiotrigo/push-to-registry@5acfa470857b62a053884f7214581d55ffeb54ac
+        uses: redhat-actions/push-to-registry@v2
         with:
           tags: ${{ steps.build-image.outputs.tags }}
           image: ${{ steps.build-image.outputs.image }}

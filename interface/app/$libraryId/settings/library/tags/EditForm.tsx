@@ -71,22 +71,22 @@ export default ({ tag, onDelete }: Props) => {
 					</Tooltip>
 				</Button>
 			</div>
-			<div className="flex flex-col gap-2">
+			{/* <div className="flex flex-col gap-2">
 				<Setting
 					mini
 					title={t('hide_in_library_search')}
 					description={t('hide_in_library_search_description')}
 				>
-					<Switch />
+					<Switch disabled />
 				</Setting>
 				<Setting
 					mini
 					title={t('hide_in_sidebar')}
 					description={t('hide_in_sidebar_description')}
 				>
-					<Switch />
+					<Switch disabled />
 				</Setting>
-			</div>
+			</div> */}
 		</Form>
 	);
 };

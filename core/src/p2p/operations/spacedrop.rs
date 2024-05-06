@@ -85,7 +85,7 @@ pub async fn spacedrop(
 		debug!("({id}): connected, sending header");
 		let header = Header::Spacedrop(SpaceblockRequests {
 			id,
-			block_size: BlockSize::from_size(total_length),
+			block_size: BlockSize::from_file_size(total_length),
 			requests,
 		});
 		if let Err(err) = stream.write_all(&header.to_bytes()).await {

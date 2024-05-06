@@ -16,6 +16,7 @@ generator sync {
   client_format = "folder"
 }
 
+/// @local
 model CRDTOperation {
   id Int @id @default(autoincrement())
 
@@ -33,6 +34,7 @@ model CRDTOperation {
   @@map("crdt_operation")
 }
 
+/// @local
 model CloudCRDTOperation {
   id Int @id @default(autoincrement())
 
@@ -51,6 +53,7 @@ model CloudCRDTOperation {
 }
 
 /// @deprecated: This model has to exist solely for backwards compatibility.
+/// @local
 model Node {
   id           Int      @id @default(autoincrement())
   pub_id       Bytes    @unique
@@ -65,6 +68,7 @@ model Node {
 
 // represents a single `.db` file (SQLite DB) that is paired to the current library.
 // A `LibraryInstance` is always owned by a single `Node` but it's possible for that node to change (or two to be owned by a single node).
+/// @local
 model Instance {
   id              Int    @id @default(autoincrement()) // This is is NOT globally unique
   pub_id          Bytes  @unique // This UUID is meaningless and exists soley cause the `uhlc::ID` must be 16-bit. Really this should be derived from the `identity` field.
@@ -89,6 +93,7 @@ model Instance {
   @@map("instance")
 }
 
+/// @local
 model Statistics {
   id                   Int      @id @default(autoincrement())
   date_captured        DateTime @default(now())

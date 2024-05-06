@@ -16,6 +16,7 @@ sd-core-prisma-helpers = { path = "../prisma-helpers" }
 sd-core-sync = { path = "../sync" }
 
 # Sub-crates
+sd-file-ext = { path = "../../../crates/file-ext" }
 sd-prisma = { path = "../../../crates/prisma" }
 sd-sync = { path = "../../../crates/sync" }
 sd-task-system = { path = "../../../crates/task-system" }
@@ -24,6 +25,7 @@ sd-utils = { path = "../../../crates/utils" }
 
 async-channel = { workspace = true }
 async-trait = { workspace = true }
+blake3 = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 futures = { workspace = true }
 futures-concurrency = { workspace = true }
@@ -37,6 +39,7 @@ rspc = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 specta = { workspace = true }
+static_assertions = { workspace = true }
 strum = { workspace = true, features = ["derive", "phf"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["fs", "sync", "parking_lot"] }

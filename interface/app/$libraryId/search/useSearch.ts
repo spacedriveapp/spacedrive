@@ -22,7 +22,7 @@ export interface UseSearchProps<TSource extends UseSearchSource> {
 	source: TSource;
 }
 
-export function useSearchParamsSource() {
+export function useSearchParamsSource(props: { defaultTarget: SearchTarget }) {
 	const [searchParams, setSearchParams] = useRawSearchParams();
 
 	const filtersSearchParam = searchParams.get('filters');
@@ -60,7 +60,7 @@ export function useSearchParamsSource() {
 		);
 	}
 
-	const target = (searchParams.get('target') ?? 'paths') as SearchTarget;
+	const target = (searchParams.get('target') as SearchTarget | null) ?? props.defaultTarget;
 
 	return {
 		filters,
@@ -201,9 +201,9 @@ export function useSearch<TSource extends UseSearchSource>(props: UseSearchProps
 	};
 }
 
-export function useSearchFromSearchParams() {
+export function useSearchFromSearchParams(props: { defaultTarget: SearchTarget }) {
 	return useSearch({
-		source: useSearchParamsSource()
+		source: useSearchParamsSource(props)
 	});
 }
 

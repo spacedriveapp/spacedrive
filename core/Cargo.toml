@@ -1,6 +1,6 @@
 [package]
 name = "sd-core"
-version = "0.2.11"
+version = "0.2.14"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc."]
 rust-version = "1.75.0"
@@ -29,7 +29,6 @@ sd-core-sync = { path = "./crates/sync" }
 # Spacedrive Sub-crates
 sd-actors = { version = "0.1.0", path = "../crates/actors" }
 sd-ai = { path = "../crates/ai", optional = true }
-sd-cache = { path = "../crates/cache" }
 sd-cloud-api = { version = "0.1.0", path = "../crates/cloud-api" }
 sd-crypto = { path = "../crates/crypto", features = [
 	"sys",
@@ -50,7 +49,6 @@ sd-p2p-tunnel = { path = "../crates/p2p/crates/tunnel" }
 sd-prisma = { path = "../crates/prisma" }
 sd-sync = { path = "../crates/sync" }
 sd-utils = { path = "../crates/utils" }
-sd-indexer = { path = "../crates/sd-indexer" }
 
 # Workspace dependencies
 async-channel = { workspace = true }
@@ -82,6 +80,7 @@ rspc = { workspace = true, features = [
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 specta = { workspace = true }
+static_assertions = { workspace = true }
 strum = { workspace = true, features = ["derive"] }
 strum_macros = { workspace = true }
 tempfile = { workspace = true }
@@ -101,6 +100,7 @@ tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 uuid = { workspace = true, features = ["v4", "serde"] }
 webp = { workspace = true }
+
 
 # Specific Core dependencies
 async-recursion = "1.0.5"
@@ -128,16 +128,9 @@ serde-hashkey = "0.4.5"
 serde_repr = "0.1"
 serde_with = "3.4.0"
 slotmap = "1.0.6"
-static_assertions = "1.1.0"
 sysinfo = "0.29.10"
 tar = "0.4.40"
 tower-service = "0.3.2"
-opendal = { version = "0.45.1", features = [
-	"services-gdrive",
-	"services-s3",
-	"services-fs",
-] }
-sync_wrapper = { version = "1.0.1", features = ["futures"] }
 
 # Override features of transitive dependencies
 [dependencies.openssl]

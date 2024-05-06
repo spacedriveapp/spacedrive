@@ -373,21 +373,6 @@ pub async fn open_ephemeral_file_with(paths_and_urls: Vec<PathAndUrl>) -> Result
 
 fn inner_reveal_paths(paths: impl Iterator<Item = PathBuf>) {
 	for path in paths {
-		#[cfg(target_os = "linux")]
-		if sd_desktop_linux::is_appimage() {
-			// This is a workaround for the app, when package inside an AppImage, crashing when using opener::reveal.
-			if let Err(e) = sd_desktop_linux::open_file_path(if path.is_file() {
-				path.parent().unwrap_or(&path)
-			} else {
-				&path
-			}) {
-				error!("Failed to open logs dir: {e:#?}");
-			}
-		} else if let Err(e) = opener::reveal(path) {
-			error!("Failed to open logs dir: {e:#?}");
-		}
-
-		#[cfg(not(target_os = "linux"))]
 		if let Err(e) = opener::reveal(path) {
 			error!("Failed to open logs dir: {e:#?}");
 		}

@@ -7,6 +7,7 @@ use std::{
 	collections::HashMap,
 	fs,
 	path::PathBuf,
+	process::Command,
 	sync::{Arc, Mutex, PoisonError},
 	time::Duration,
 };
@@ -149,6 +150,47 @@ async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
 	})
 }
 
+#[tauri::command(async)]
+#[specta::specta]
+async fn open_trash_in_os_explorer() -> Result<(), ()> {
+	#[cfg(target_os = "macos")]
+	{
+		let full_path = format!("{}/.Trash/", std::env::var("HOME").unwrap());
+
+		Command::new("open")
+			.arg(full_path)
+			.spawn()
+			.map_err(|err| error!("Error opening trash: {err:#?}"))?
+			.wait()
+			.map_err(|err| error!("Error opening trash: {err:#?}"))?;
+
+		Ok(())
+	}
+
+	#[cfg(target_os = "windows")]
+	{
+		Command::new("explorer")
+			.arg("shell:RecycleBinFolder")
+			.spawn()
+			.map_err(|err| error!("Error opening trash: {err:#?}"))?
+			.wait()
+			.map_err(|err| error!("Error opening trash: {err:#?}"))?;
+		return Ok(());
+	}
+
+	#[cfg(target_os = "linux")]
+	{
+		Command::new("xdg-open")
+			.arg("~/.local/share/Trash/")
+			.spawn()
+			.map_err(|err| error!("Error opening trash: {err:#?}"))?
+			.wait()
+			.map_err(|err| error!("Error opening trash: {err:#?}"))?;
+
+		Ok(())
+	}
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
 #[serde(tag = "type")]
 pub enum DragAndDropEvent {
@@ -218,6 +260,7 @@ async fn main() -> tauri::Result<()> {
 				reload_webview,
 				set_menu_bar_item_state,
 				request_fda_macos,
+				open_trash_in_os_explorer,
 				file::open_file_paths,
 				file::open_ephemeral_files,
 				file::get_file_path_open_with_apps,

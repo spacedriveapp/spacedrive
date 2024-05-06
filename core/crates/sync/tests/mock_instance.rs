@@ -1,5 +1,6 @@
 use sd_core_sync::*;
 use sd_prisma::prisma;
+use sd_sync::CompressedCRDTOperations;
 use sd_utils::uuid_to_bytes;
 
 use prisma_client_rust::chrono::Utc;
@@ -122,7 +123,7 @@ impl Instance {
 								ingest
 									.event_tx
 									.send(ingest::Event::Messages(ingest::MessagesEvent {
-										messages,
+										messages: CompressedCRDTOperations::new(messages),
 										has_more: false,
 										instance_id: instance1.id,
 									}))

@@ -1,12 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { forwardRef, useState } from 'react';
 import { Text, View } from 'react-native';
-import {
-	insertLibrary,
-	useBridgeMutation,
-	useNormalisedCache,
-	usePlausibleEvent
-} from '@sd/client';
+import { insertLibrary, useBridgeMutation, usePlausibleEvent } from '@sd/client';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import { ModalInput } from '~/components/primitive/Input';
@@ -18,7 +13,6 @@ const CreateLibraryModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	const modalRef = useForwardedRef(ref);
 
 	const queryClient = useQueryClient();
-	const cache = useNormalisedCache();
 	const [libName, setLibName] = useState('');
 
 	const submitPlausibleEvent = usePlausibleEvent();
@@ -26,10 +20,7 @@ const CreateLibraryModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
 		'library.create',
 		{
-			onSuccess: (libRaw) => {
-				cache.withNodes(libRaw.nodes);
-				const lib = cache.withCache(libRaw.item);
-
+			onSuccess: (lib) => {
 				// Reset form
 				setLibName('');
 

@@ -129,7 +129,7 @@ function renderSectionHeader({ section }: { section: { title: string } }) {
 		<Text
 			style={twStyle(
 				'mb-3 text-lg font-bold text-ink',
-				section.title === 'Client' ? 'mt-2' : 'mt-5'
+				section.title === 'Client' ? 'mt-0' : 'mt-5'
 			)}
 		>
 			{section.title}
@@ -143,8 +143,8 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 	return (
 		<ScreenContainer tabHeight={false} scrollview={false} style={tw`gap-0 px-6 py-0`}>
 			<SectionList
+				contentContainerStyle={tw`py-6`}
 				sections={sections(debugState)}
-				contentContainerStyle={tw`h-auto pb-5 pt-3`}
 				renderItem={({ item }) => (
 					<SettingsItem
 						title={item.title}

@@ -1,13 +1,12 @@
 import { AlphaClient } from '@oscartbeaumont-sd/rspc-client/v2';
-import { createContext, PropsWithChildren, useContext, useEffect, useMemo } from 'react';
+import { createContext, PropsWithChildren, useContext, useMemo } from 'react';
 
-import { NormalisedCache, useCache, useNodes } from '../cache';
 import { LibraryConfigWrapped, Procedures } from '../core';
 import { valtioPersist } from '../lib';
 import { useBridgeQuery } from '../rspc';
 
 // The name of the localStorage key for caching library data
-const libraryCacheLocalStorageKey = 'sd-library-list2'; // `2` is because the format of this underwent a breaking change when introducing normalised caching
+const libraryCacheLocalStorageKey = 'sd-library-list3'; // number is because the format of this underwent breaking changes
 
 export const useCachedLibraries = () => {
 	const result = useBridgeQuery(['library.list'], {
@@ -27,36 +26,27 @@ export const useCachedLibraries = () => {
 			return undefined;
 		},
 		onSuccess: (data) => {
-			if (data.items.length > 0 || data.nodes.length > 0)
+			if (data.length > 0)
 				localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(data));
 		}
 	});
-	useNodes(result.data?.nodes);
 
-	return {
-		...result,
-		data: useCache(result.data?.items)
-	};
+	return result;
 };
 
-export async function getCachedLibraries(cache: NormalisedCache, client: AlphaClient<Procedures>) {
+export async function getCachedLibraries(client: AlphaClient<Procedures>) {
 	const cachedData = localStorage.getItem(libraryCacheLocalStorageKey);
 
 	const libraries = client.query(['library.list']).then((result) => {
-		cache.withNodes(result.nodes);
-		const libraries = cache.withCache(result.items);
-
 		localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(result));
-
-		return libraries;
+		return result;
 	});
 
 	if (cachedData) {
 		// If we fail to load cached data, it's fine
 		try {
 			const data = JSON.parse(cachedData);
-			cache.withNodes(data.nodes);
-			return cache.withCache(data.items) as LibraryConfigWrapped[];
+			return data as LibraryConfigWrapped[];
 		} catch (e) {
 			console.error("Error loading cached 'sd-library-list' data", e);
 		}

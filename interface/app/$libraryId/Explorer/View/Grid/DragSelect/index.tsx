@@ -7,7 +7,6 @@ import { useExplorerContext } from '../../../Context';
 import { explorerStore } from '../../../store';
 import { useExplorerOperatingSystem } from '../../../useExplorerOperatingSystem';
 import { useExplorerViewContext } from '../../Context';
-import { useKeySelection } from '../useKeySelection';
 import { DragSelectContext } from './context';
 import { useSelectedTargets } from './useSelectedTargets';
 import { getElementIndex, SELECTABLE_DATA_ATTRIBUTE } from './util';
@@ -16,7 +15,6 @@ const CHROME_REGEX = /Chrome/;
 
 interface Props extends PropsWithChildren {
 	grid: ReturnType<typeof useGrid<string, ExplorerItem | undefined>>;
-	onActiveItemChange: ReturnType<typeof useKeySelection>['updateActiveItem'];
 }
 
 export interface Drag {
@@ -26,10 +24,12 @@ export interface Drag {
 	endRow: number;
 }
 
-export const DragSelect = ({ grid, children, onActiveItemChange }: Props) => {
+export const DragSelect = ({ grid, children }: Props) => {
 	const isChrome = CHROME_REGEX.test(navigator.userAgent);
 
 	const { explorerOperatingSystem, matchingOperatingSystem } = useExplorerOperatingSystem();
+
+	const isWindows = explorerOperatingSystem === 'windows' && matchingOperatingSystem;
 
 	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
@@ -99,20 +99,20 @@ export const DragSelect = ({ grid, children, onActiveItemChange }: Props) => {
 
 		// Update active item to the first selected target(first grid item in DOM).
 		const target = selecto.current?.getSelectedTargets()?.[0];
-		const item = target && getGridItem(target)?.data;
-		if (item) onActiveItemChange(item, { updateFirstItem: true, setFirstItemAsChanged: true });
+
+		const item = target && getGridItem(target);
+		if (!item) return;
+
+		explorerView.updateActiveItem(item.id as string, {
+			updateFirstItem: true
+		});
 	}
 
 	function handleSelect(e: SelectoEvents['select']) {
 		const inputEvent = e.inputEvent as MouseEvent;
 
-		let continueSelection = false;
-
-		if (explorerOperatingSystem === 'windows') {
-			continueSelection = matchingOperatingSystem ? inputEvent.ctrlKey : inputEvent.metaKey;
-		} else {
-			continueSelection = inputEvent.shiftKey || inputEvent.metaKey;
-		}
+		const continueSelection =
+			inputEvent.shiftKey || (isWindows ? inputEvent.ctrlKey : inputEvent.metaKey);
 
 		// Handle select on mouse down
 		if (inputEvent.type === 'mousedown') {
@@ -130,7 +130,10 @@ export const DragSelect = ({ grid, children, onActiveItemChange }: Props) => {
 			};
 
 			if (!continueSelection) {
-				if (explorer.selectedItems.has(item.data)) {
+				if (
+					explorerOperatingSystem !== 'windows' &&
+					explorer.selectedItems.has(item.data)
+				) {
 					// Keep previous selection as selecto will reset it otherwise
 					selecto.current?.setSelectedTargets(e.beforeSelected);
 				} else {
@@ -140,14 +143,31 @@ export const DragSelect = ({ grid, children, onActiveItemChange }: Props) => {
 					]);
 				}
 
+				explorerView.updateActiveItem(item.id as string, { updateFirstItem: true });
 				return;
 			}
 
-			if (e.added[0]) explorer.addSelectedItem(item.data);
-			else explorer.removeSelectedItem(item.data);
+			if (explorerOperatingSystem === 'windows' && inputEvent.shiftKey) {
+				explorerView.handleWindowsGridShiftSelection(item.index);
+				return;
+			}
 
-			// Update active item for further keyboard selection.
-			onActiveItemChange(item.data, { updateFirstItem: true, setFirstItemAsChanged: true });
+			if (e.added[0]) {
+				explorer.addSelectedItem(item.data);
+				explorerView.updateActiveItem(item.id as string, { updateFirstItem: true });
+				return;
+			}
+
+			explorer.removeSelectedItem(item.data);
+
+			explorerView.updateActiveItem(
+				explorerOperatingSystem === 'windows' ? (item.id as string) : null,
+				{
+					updateFirstItem: true
+				}
+			);
+
+			return;
 		}
 
 		// Handle select by drag
@@ -557,13 +577,7 @@ export const DragSelect = ({ grid, children, onActiveItemChange }: Props) => {
 					throttleTime: isChrome ? 30 : 10000
 				}}
 				selectableTargets={[`[${SELECTABLE_DATA_ATTRIBUTE}]`]}
-				toggleContinueSelect={
-					explorerOperatingSystem === 'windows'
-						? matchingOperatingSystem
-							? 'ctrl'
-							: 'meta'
-						: [['shift'], ['meta']]
-				}
+				toggleContinueSelect={[['shift'], [isWindows ? 'ctrl' : 'meta']]}
 				hitRate={0}
 				onDrag={handleDrag}
 				onDragStart={handleDragStart}

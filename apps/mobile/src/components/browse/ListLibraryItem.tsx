@@ -12,9 +12,9 @@ interface CategoryProps {
 const ListLibraryItem = ({ name, icon }: CategoryProps) => {
 	return (
 		<Card style={tw`flex-row items-center justify-between gap-2 py-3`}>
-			<View style={tw`flex-row items-center gap-2`}>
+			<View style={tw`flex-row items-center gap-2 px-2`}>
 				{icon}
-				<Text style={twStyle(`mt-0 text-sm text-white`)}>{name}</Text>
+				<Text style={twStyle(`text-sm text-white`)}>{name}</Text>
 			</View>
 			<View
 				style={tw`h-10 w-10 flex-row items-center justify-center rounded-full border border-app-lightborder/70 px-2`}

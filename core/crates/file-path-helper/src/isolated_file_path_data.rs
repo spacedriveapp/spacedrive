@@ -101,6 +101,18 @@ impl<'a> IsolatedFilePathData<'a> {
 	}
 
 	#[must_use]
+	pub fn to_owned(self) -> IsolatedFilePathData<'static> {
+		IsolatedFilePathData {
+			location_id: self.location_id,
+			materialized_path: Cow::Owned(self.materialized_path.to_string()),
+			is_dir: self.is_dir,
+			name: Cow::Owned(self.name.to_string()),
+			extension: Cow::Owned(self.extension.to_string()),
+			relative_path: Cow::Owned(self.relative_path.to_string()),
+		}
+	}
+
+	#[must_use]
 	pub const fn is_dir(&self) -> bool {
 		self.is_dir
 	}

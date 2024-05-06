@@ -79,6 +79,7 @@ const Items = ({
 
 	const ids = selectedFilePaths.map((obj) => obj.id);
 	const paths = selectedEphemeralPaths.map((obj) => obj.path);
+	const { t } = useLocale();
 
 	const items = useQuery<unknown>(
 		['openWith', ids, paths],
@@ -109,7 +110,7 @@ const Items = ({
 									);
 								}
 							} catch (e) {
-								toast.error(`Failed to open file, with: ${data.url}`);
+								toast.error(t('failed_to_open_file_with', { data: data.url }));
 							}
 						}}
 					>
@@ -117,7 +118,7 @@ const Items = ({
 					</Menu.Item>
 				))
 			) : (
-				<p className="w-full text-center text-sm text-gray-400"> No apps available </p>
+				<p className="w-full text-center text-sm text-gray-400">{t('no_apps_available')}</p>
 			)}
 		</>
 	);

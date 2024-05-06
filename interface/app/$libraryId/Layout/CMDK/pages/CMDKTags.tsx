@@ -1,11 +1,10 @@
 import CommandPalette from 'react-cmdk';
 import { useNavigate } from 'react-router';
-import { useCache, useLibraryQuery, useNodes, type Tag } from '@sd/client';
+import { useLibraryQuery, type Tag } from '@sd/client';
 
 export default function CMDKTags() {
 	const result = useLibraryQuery(['tags.list'], { keepPreviousData: true });
-	useNodes(result.data?.nodes);
-	const tags = useCache(result.data?.items);
+	const tags = result.data || [];
 
 	const navigate = useNavigate();
 

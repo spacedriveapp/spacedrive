@@ -59,7 +59,7 @@ export const Component = () => {
 							{dayjs(backup.timestamp).toString()}
 						</h1>
 						<p className="mt-0.5 select-text truncate text-sm text-ink-dull">
-							For library '{backup.library_name}'
+							{t('for_library', { name: backup.library_name })}
 						</p>
 					</div>
 					<div className="flex grow" />

@@ -11,7 +11,6 @@ import {
 	useBridgeMutation,
 	useCachedLibraries,
 	useMultiZodForm,
-	useNormalisedCache,
 	useOnboardingStore,
 	usePlausibleEvent
 } from '@sd/client';
@@ -69,12 +68,8 @@ const useFormState = () => {
 	const submitPlausibleEvent = usePlausibleEvent();
 
 	const queryClient = useQueryClient();
-	const cache = useNormalisedCache();
 	const createLibrary = useBridgeMutation('library.create', {
-		onSuccess: (libRaw) => {
-			cache.withNodes(libRaw.nodes);
-			const lib = cache.withCache(libRaw.item);
-
+		onSuccess: (lib) => {
 			// We do this instead of invalidating the query because it triggers a full app re-render??
 			insertLibrary(queryClient, lib);
 		}
@@ -90,15 +85,13 @@ const useFormState = () => {
 
 			try {
 				// show creation screen for a bit for smoothness
-				const [libraryRaw] = await Promise.all([
+				const [library] = await Promise.all([
 					createLibrary.mutateAsync({
 						name: data.NewLibrary.name,
 						default_locations: null
 					}),
 					new Promise((res) => setTimeout(res, 500))
 				]);
-				cache.withNodes(libraryRaw.nodes);
-				const library = cache.withCache(libraryRaw.item);
 
 				if (telemetryState.shareFullTelemetry) {
 					submitPlausibleEvent({ event: { type: 'libraryCreate' } });
@@ -109,7 +102,7 @@ const useFormState = () => {
 				// Switch to the new library
 				currentLibraryStore.id = library.uuid;
 			} catch (e) {
-				toast({ type: 'error', text: 'Failed to create library' });
+				toast.error('Failed to create library');
 				resetOnboardingStore();
 				navigation.navigate('GetStarted');
 			}

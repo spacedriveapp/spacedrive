@@ -3,6 +3,7 @@ import { CompositeScreenProps } from '@react-navigation/native';
 
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import Header from '~/components/header/Header';
+import SearchHeader from '~/components/header/SearchHeader';
 import AppearanceSettingsScreen from '~/screens/settings/client/AppearanceSettings';
 import ExtensionsSettingsScreen from '~/screens/settings/client/ExtensionsSettings';
 import GeneralSettingsScreen from '~/screens/settings/client/GeneralSettings';
@@ -28,7 +29,9 @@ export default function SettingsStack() {
 			<Stack.Screen
 				name="Settings"
 				component={SettingsScreen}
-				options={{ header: () => <Header showDrawer title="Settings" /> }}
+				options={({ route }) => ({
+					header: () => <Header search route={route} />
+				})}
 			/>
 			{/* Client */}
 			<Stack.Screen
@@ -65,9 +68,9 @@ export default function SettingsStack() {
 			<Stack.Screen
 				name="LocationSettings"
 				component={LocationSettingsScreen}
-				options={{
-					header: () => <Header searchType="location" navBack title="Locations" />
-				}}
+				options={() => ({
+					header: () => <SearchHeader title="Locations" kind="locations" />
+				})}
 			/>
 			<Stack.Screen
 				name="EditLocationSettings"

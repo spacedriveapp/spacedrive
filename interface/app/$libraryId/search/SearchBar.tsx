@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { createSearchParams } from 'react-router-dom';
 import { useDebouncedCallback } from 'use-debounce';
 import { SearchFilterArgs } from '@sd/client';
 import { Input, ModifierKeys, Shortcut } from '@sd/ui';
-import { useOperatingSystem } from '~/hooks';
+import { useLocale, useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 
 import { useSearchContext } from './context';
@@ -22,6 +22,7 @@ export default ({ redirectToSearch, defaultFilters, defaultTarget }: Props) => {
 	const searchRef = useRef<HTMLInputElement>(null);
 	const navigate = useNavigate();
 	const searchStore = useSearchStore();
+	const locationState: { focusSearch?: boolean } = useLocation().state;
 
 	const os = useOperatingSystem(true);
 	const keybind = keybindForOs(os);
@@ -69,12 +70,19 @@ export default ({ redirectToSearch, defaultFilters, defaultTarget }: Props) => {
 	const updateDebounce = useDebouncedCallback((value: string) => {
 		search.setSearch?.(value);
 		if (redirectToSearch) {
-			navigate({
-				pathname: '../search',
-				search: createSearchParams({
-					search: value
-				}).toString()
-			});
+			navigate(
+				{
+					pathname: '../search',
+					search: createSearchParams({
+						search: value
+					}).toString()
+				},
+				{
+					state: {
+						focusSearch: true
+					}
+				}
+			);
 		}
 	}, 300);
 
@@ -89,16 +97,19 @@ export default ({ redirectToSearch, defaultFilters, defaultTarget }: Props) => {
 		search.setTarget?.(undefined);
 	}
 
+	const { t } = useLocale();
+
 	return (
 		<Input
 			ref={searchRef}
-			placeholder="Search"
+			placeholder={t('search')}
 			className="mx-2 w-48 transition-all duration-200 focus-within:w-60"
 			size="sm"
 			value={value}
 			onChange={(e) => {
 				updateValue(e.target.value);
 			}}
+			autoFocus={locationState?.focusSearch || false}
 			onBlur={() => {
 				if (search.rawSearch === '' && !searchStore.interactingWithSearchOptions) {
 					clearValue();

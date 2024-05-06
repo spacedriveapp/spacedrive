@@ -1,9 +1,7 @@
-import { useRoute } from '@react-navigation/native';
 import { DimensionValue, Platform } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { ClassInput } from 'twrnc';
 import { tw, twStyle } from '~/lib/tailwind';
-import { useExplorerStore } from '~/stores/explorerStore';
 
 interface Props {
 	children: React.ReactNode; // children of fade
@@ -13,7 +11,6 @@ interface Props {
 	orientation?: 'horizontal' | 'vertical'; // orientation of fade
 	fadeSides?: 'left-right' | 'top-bottom'; // which sides to fade
 	screenFade?: boolean; // if true, the fade will consider the bottom tab bar height
-	noConditions?: boolean; // if true, the fade will be rendered as is
 	bottomFadeStyle?: ClassInput; // tailwind style for bottom fade
 	topFadeStyle?: ClassInput; // tailwind style for top fade
 }
@@ -25,20 +22,15 @@ const Fade = ({
 	height,
 	bottomFadeStyle,
 	topFadeStyle,
-	noConditions = false,
 	screenFade = false,
 	fadeSides = 'left-right',
 	orientation = 'horizontal'
 }: Props) => {
-	const route = useRoute();
-	const { toggleMenu } = useExplorerStore();
 	const bottomTabBarHeight = Platform.OS === 'ios' ? 80 : 60;
 	const gradientStartEndMap = {
 		'left-right': { start: { x: 0, y: 0 }, end: { x: 1, y: 0 } },
 		'top-bottom': { start: { x: 0, y: 1 }, end: { x: 0, y: 0 } }
 	};
-	const menuHeight = 57; // height of the explorer menu
-	const routesWithMenu = ['Location', 'Search', 'Tag']; // routes that are associated with the explorer
 	return (
 		<>
 			<LinearGradient
@@ -46,10 +38,7 @@ const Fade = ({
 					width: orientation === 'vertical' ? height : width,
 					height: orientation === 'vertical' ? width : height,
 					position: 'absolute',
-					top:
-						!noConditions && toggleMenu && routesWithMenu.includes(route.name)
-							? menuHeight
-							: 0,
+					top: 0,
 					alignSelf: 'center',
 					left: fadeSides === 'left-right' ? 0 : undefined,
 					transform: fadeSides === 'left-right' ? undefined : [{ rotate: '180deg' }],

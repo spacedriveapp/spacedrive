@@ -1,6 +1,7 @@
 // import { X } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { Icon, IconName } from '~/components';
+import { useLocale } from '~/hooks';
 
 type NewCardProps =
 	| {
@@ -30,6 +31,7 @@ export default function NewCard({
 	button,
 	className
 }: NewCardProps) {
+	const { t } = useLocale();
 	return (
 		<div
 			className={clsx(
@@ -61,7 +63,7 @@ export default function NewCard({
 					disabled={!buttonText}
 					className="text-sm font-medium text-ink-dull"
 				>
-					{buttonText ? buttonText : 'Coming Soon'}
+					{buttonText ? buttonText : t('coming_soon')}
 				</button>
 			)}
 		</div>

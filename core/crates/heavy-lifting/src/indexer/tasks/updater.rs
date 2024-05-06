@@ -28,11 +28,12 @@ pub struct UpdateTask {
 	object_ids_that_should_be_unlinked: HashSet<object::id::Type>,
 	db: Arc<PrismaClient>,
 	sync: Arc<SyncManager>,
+	is_shallow: bool,
 }
 
 impl UpdateTask {
 	#[must_use]
-	pub fn new(
+	pub fn new_deep(
 		walked_entries: Vec<WalkedEntry>,
 		db: Arc<PrismaClient>,
 		sync: Arc<SyncManager>,
@@ -43,6 +44,23 @@ impl UpdateTask {
 			db,
 			sync,
 			object_ids_that_should_be_unlinked: HashSet::new(),
+			is_shallow: false,
+		}
+	}
+
+	#[must_use]
+	pub fn new_shallow(
+		walked_entries: Vec<WalkedEntry>,
+		db: Arc<PrismaClient>,
+		sync: Arc<SyncManager>,
+	) -> Self {
+		Self {
+			id: TaskId::new_v4(),
+			walked_entries,
+			db,
+			sync,
+			object_ids_that_should_be_unlinked: HashSet::new(),
+			is_shallow: true,
 		}
 	}
 }
@@ -52,6 +70,7 @@ struct UpdateTaskSaveState {
 	id: TaskId,
 	walked_entries: Vec<WalkedEntry>,
 	object_ids_that_should_be_unlinked: HashSet<object::id::Type>,
+	is_shallow: bool,
 }
 
 impl SerializableTask<Error> for UpdateTask {
@@ -62,10 +81,19 @@ impl SerializableTask<Error> for UpdateTask {
 	type DeserializeCtx = (Arc<PrismaClient>, Arc<SyncManager>);
 
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
+		let Self {
+			id,
+			walked_entries,
+			object_ids_that_should_be_unlinked,
+			is_shallow,
+			..
+		} = self;
+
 		rmp_serde::to_vec_named(&UpdateTaskSaveState {
-			id: self.id,
-			walked_entries: self.walked_entries,
-			object_ids_that_should_be_unlinked: self.object_ids_that_should_be_unlinked,
+			id,
+			walked_entries,
+			object_ids_that_should_be_unlinked,
+			is_shallow,
 		})
 	}
 
@@ -78,12 +106,14 @@ impl SerializableTask<Error> for UpdateTask {
 			     id,
 			     walked_entries,
 			     object_ids_that_should_be_unlinked,
+			     is_shallow,
 			 }| Self {
 				id,
 				walked_entries,
 				object_ids_that_should_be_unlinked,
 				db,
 				sync,
+				is_shallow,
 			},
 		)
 	}
@@ -99,6 +129,11 @@ pub struct UpdateTaskOutput {
 impl Task<Error> for UpdateTask {
 	fn id(&self) -> TaskId {
 		self.id
+	}
+
+	fn with_priority(&self) -> bool {
+		// If we're running in shallow mode, then we want priority
+		self.is_shallow
 	}
 
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {

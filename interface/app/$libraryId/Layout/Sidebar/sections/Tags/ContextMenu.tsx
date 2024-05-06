@@ -7,13 +7,21 @@ import CreateDialog from '~/app/$libraryId/settings/library/tags/CreateDialog';
 import DeleteDialog from '~/app/$libraryId/settings/library/tags/DeleteDialog';
 import { useLocale } from '~/hooks';
 
+import { useSidebarContext } from '../../SidebarLayout/Context';
+
 export const ContextMenu = ({ children, tagId }: PropsWithChildren<{ tagId: number }>) => {
 	const navigate = useNavigate();
+
+	const sidebar = useSidebarContext();
 
 	const { t } = useLocale();
 
 	return (
-		<CM.Root trigger={children}>
+		<CM.Root
+			trigger={children}
+			onOpenChange={(open) => sidebar.onLockedChange(open)}
+			className="z-[100]"
+		>
 			<CM.Item
 				icon={Plus}
 				label={t('new_tag')}

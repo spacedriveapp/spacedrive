@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { Controller } from 'react-hook-form';
 import { Alert, Text, View } from 'react-native';
 import { z } from 'zod';
-import { useLibraryMutation, useLibraryQuery, useNormalisedCache, useZodForm } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery, useZodForm } from '@sd/client';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { AnimatedButton } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
@@ -33,7 +33,6 @@ const EditLocationSettingsScreen = ({
 	const { id } = route.params;
 
 	const queryClient = useQueryClient();
-	const cache = useNormalisedCache();
 
 	const form = useZodForm({ schema });
 
@@ -42,7 +41,7 @@ const EditLocationSettingsScreen = ({
 		onSuccess: () => {
 			form.reset(form.getValues());
 			queryClient.invalidateQueries(['locations.list']);
-			toast({ type: 'success', text: 'Location updated!' });
+			toast.success('Location updated!');
 			// TODO: navigate back & reset input focus!
 		}
 	});
@@ -92,10 +91,7 @@ const EditLocationSettingsScreen = ({
 	}, [form, navigation, onSubmit]);
 
 	useLibraryQuery(['locations.getWithRules', id], {
-		onSuccess: (dataRaw) => {
-			cache.withNodes(dataRaw?.nodes);
-			const data = cache.withCache(dataRaw?.item);
-
+		onSuccess: (data) => {
 			if (data && !form.formState.isDirty)
 				form.reset({
 					displayName: data.name,

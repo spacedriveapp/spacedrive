@@ -1,4 +1,5 @@
 use crate::{
+	api::CoreEvent,
 	library::Library,
 	location::ScanState,
 	old_job::{
@@ -225,6 +226,11 @@ impl StatefulJob for OldFileIdentifierJobInit {
 		new_metadata.total_objects_created = total_objects_created;
 		new_metadata.total_objects_linked = total_objects_linked;
 		new_metadata.cursor = new_cursor;
+
+		// send an array of ids to let clients know new objects were identified
+		ctx.node.emit(CoreEvent::NewIdentifiedObjects {
+			file_path_ids: file_paths.iter().map(|fp| fp.id).collect(),
+		});
 
 		ctx.progress(vec![
 			JobReportUpdate::CompletedTaskCount(step_number * CHUNK_SIZE + file_paths.len()),

@@ -1,12 +1,13 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
 	CRDTOperation,
 	CRDTOperationData,
 	useLibraryMutation,
 	useLibraryQuery,
-	useLibrarySubscription
+	useLibrarySubscription,
+	useZodForm
 } from '@sd/client';
-import { Button } from '@sd/ui';
+import { Button, Dialog, dialogManager, useDialog, UseDialogProps, z } from '@sd/ui';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 
 type MessageGroup = {
@@ -21,7 +22,7 @@ export const Component = () => {
 	const syncEnabled = useLibraryQuery(['sync.enabled']);
 
 	const messages = useLibraryQuery(['sync.messages']);
-	const enableSync = useLibraryMutation(['sync.enable'], {
+	const backfillSync = useLibraryMutation(['sync.backfill'], {
 		onSuccess: async () => {
 			await syncEnabled.refetch();
 			await messages.refetch();
@@ -42,8 +43,12 @@ export const Component = () => {
 			{!syncEnabled.data && (
 				<Button
 					variant="accent"
-					onClick={() => enableSync.mutate(null)}
-					disabled={enableSync.isLoading}
+					onClick={() => {
+						dialogManager.create((dialogProps) => (
+							<SyncBackfillDialog {...dialogProps} />
+						));
+					}}
+					disabled={backfillSync.isLoading}
 				>
 					Enable sync messages
 				</Button>
@@ -66,9 +71,20 @@ const OperationGroup = ({ group }: { group: MessageGroup }) => {
 				{group.messages.map((message, index) => (
 					<li key={index} className="flex flex-row justify-between px-2">
 						{typeof message.data === 'string' ? (
-							<p>{message.data === 'c' ? 'Create' : 'Delete'}</p>
-						) : (
+							<p>Delete</p>
+						) : 'u' in message.data ? (
 							<p>Update - {message.data.u.field}</p>
+						) : (
+							<div>
+								<p>Create</p>
+								<ul>
+									{Object.entries(message.data.c).map(([key, value]) => (
+										<li className="pl-2" key={key}>
+											{key}: {JSON.stringify(value)}
+										</li>
+									))}
+								</ul>
+							</div>
 						)}
 						<p className="text-gray-400">{message.timestamp}</p>
 					</li>
@@ -115,4 +131,33 @@ function calculateGroups(messages: CRDTOperation[]) {
 
 		return acc;
 	}, []);
+}
+
+function SyncBackfillDialog(props: UseDialogProps) {
+	const form = useZodForm({ schema: z.object({}) });
+	const dialog = useDialog(props);
+
+	const enableSync = useLibraryMutation(['sync.backfill'], {});
+
+	// dialog is in charge of enabling sync
+	useEffect(() => {
+		form.handleSubmit(
+			async () => {
+				await enableSync.mutateAsync(null).then(() => (dialog.state.open = false));
+			},
+			() => {}
+		)();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	return (
+		<Dialog
+			title="Backfilling Sync Operations"
+			description="Library is paused until backfill completes"
+			form={form}
+			dialog={dialog}
+			hideButtons
+			ignoreClickOutside
+		/>
+	);
 }

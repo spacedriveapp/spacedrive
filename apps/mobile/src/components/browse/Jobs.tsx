@@ -12,7 +12,7 @@ const Jobs = () => {
 	return (
 		<View style={tw`gap-3`}>
 			<View style={tw`w-full flex-row items-center justify-between px-5`}>
-				<Text style={tw`text-lg font-bold text-white`}>Jobs</Text>
+				<Text style={tw`text-lg font-bold text-white`}>Active Jobs</Text>
 			</View>
 			<Fade color="black" height="100%" width={30}>
 				<ScrollView horizontal showsHorizontalScrollIndicator={false}>

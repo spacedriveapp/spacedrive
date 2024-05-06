@@ -34,7 +34,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.await?)
 			})
 		})
-		.procedure("enable", {
+		.procedure("backfill", {
 			R.with2(library())
 				.mutation(|(node, library), _: ()| async move {
 					if library

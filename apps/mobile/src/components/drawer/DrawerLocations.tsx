@@ -2,15 +2,7 @@ import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript
 import { useNavigation } from '@react-navigation/native';
 import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import {
-	arraysEqual,
-	byteSize,
-	Location,
-	useCache,
-	useLibraryQuery,
-	useNodes,
-	useOnlineLocations
-} from '@sd/client';
+import { arraysEqual, byteSize, Location, useLibraryQuery, useOnlineLocations } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -67,8 +59,7 @@ const DrawerLocations = () => {
 	const modalRef = useRef<ModalRef>(null);
 
 	const result = useLibraryQuery(['locations.list'], { keepPreviousData: true });
-	useNodes(result.data?.nodes);
-	const locations = useCache(result.data?.items);
+	const locations = result.data || [];
 
 	return (
 		<>

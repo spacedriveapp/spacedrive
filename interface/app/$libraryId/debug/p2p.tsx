@@ -3,10 +3,8 @@ import { Outlet, useNavigate } from 'react-router';
 import {
 	useBridgeMutation,
 	useBridgeQuery,
-	useCache,
 	useConnectedPeers,
-	useDiscoveredPeers,
-	useNodes
+	useDiscoveredPeers
 } from '@sd/client';
 import { Button, toast } from '@sd/ui';
 import { useZodRouteParams, useZodSearchParams } from '~/hooks';
@@ -45,8 +43,7 @@ export function Overview() {
 	const result = useBridgeQuery(['library.list']);
 	const connectedPeers = useConnectedPeers();
 	const discoveredPeers = useDiscoveredPeers();
-	useNodes(result.data?.nodes);
-	const libraries = useCache(result.data?.items);
+	const libraries = result.data || [];
 	const debugConnect = useBridgeMutation(['p2p.debugConnect'], {
 		onSuccess: () => {
 			toast.success('Connected!');
