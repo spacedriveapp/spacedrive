@@ -179,7 +179,7 @@ impl<Reporter: NewThumbnailReporter> Task<Error> for Thumbnailer<Reporter> {
 				),
 
 				InterruptRace::Interrupted(kind) => {
-					output.total_generation_time += start.elapsed();
+					output.total_time += start.elapsed();
 					return Ok(match kind {
 						InterruptionKind::Pause => ExecStatus::Paused,
 						InterruptionKind::Cancel => ExecStatus::Canceled,
@@ -188,16 +188,18 @@ impl<Reporter: NewThumbnailReporter> Task<Error> for Thumbnailer<Reporter> {
 			}
 		}
 
-		output.total_generation_time += start.elapsed();
+		output.total_time += start.elapsed();
 
-		let total = f64::from(output.generated + output.skipped);
+		#[allow(clippy::cast_precision_loss)]
+		// SAFETY: we're probably won't have 2^52 thumbnails being generated on a single task for this cast to have
+		// a precision loss issue
+		let total = (output.generated + output.skipped) as f64;
 
-		let mean_generation_time = output.mean_generation_time_accumulator / total;
+		let mean_generation_time = output.mean_time_acc / total;
 
 		let generation_time_std_dev = Duration::from_secs_f64(
-			(mean_generation_time
-				.mul_add(-mean_generation_time, output.std_dev_accumulator / total))
-			.sqrt(),
+			(mean_generation_time.mul_add(-mean_generation_time, output.std_dev_acc / total))
+				.sqrt(),
 		);
 
 		info!(
@@ -214,12 +216,12 @@ impl<Reporter: NewThumbnailReporter> Task<Error> for Thumbnailer<Reporter> {
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Output {
-	generated: u32,
-	skipped: u32,
-	errors: Vec<crate::NonCriticalError>,
-	total_generation_time: Duration,
-	mean_generation_time_accumulator: f64,
-	std_dev_accumulator: f64,
+	pub generated: u64,
+	pub skipped: u64,
+	pub errors: Vec<crate::NonCriticalError>,
+	pub total_time: Duration,
+	pub mean_time_acc: f64,
+	pub std_dev_acc: f64,
 }
 
 #[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
@@ -463,8 +465,8 @@ fn process_thumbnail_generation_output(
 		generated,
 		skipped,
 		errors,
-		mean_generation_time_accumulator,
-		std_dev_accumulator,
+		mean_time_acc: mean_generation_time_accumulator,
+		std_dev_acc: std_dev_accumulator,
 		..
 	}: &mut Output,
 ) {

@@ -7,7 +7,7 @@ use crate::{
 		SerializableJob, SerializedTasks,
 	},
 	utils::sub_path::maybe_get_iso_file_path_from_sub_path,
-	Error, JobContext, JobName, LocationScanState, NonCriticalError, ProgressUpdate,
+	Error, JobName, LocationScanState, NonCriticalError, OuterContext, ProgressUpdate,
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
@@ -45,7 +45,7 @@ use super::{
 };
 
 #[derive(Debug)]
-pub struct FileIdentifierJob {
+pub struct FileIdentifier {
 	location: Arc<location::Data>,
 	location_path: Arc<PathBuf>,
 	sub_path: Option<PathBuf>,
@@ -58,7 +58,7 @@ pub struct FileIdentifierJob {
 	tasks_for_shutdown: Vec<Box<dyn Task<Error>>>,
 }
 
-impl Hash for FileIdentifierJob {
+impl Hash for FileIdentifier {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.location.id.hash(state);
 		if let Some(ref sub_path) = self.sub_path {
@@ -67,13 +67,13 @@ impl Hash for FileIdentifierJob {
 	}
 }
 
-impl Job for FileIdentifierJob {
+impl Job for FileIdentifier {
 	const NAME: JobName = JobName::FileIdentifier;
 
 	async fn resume_tasks(
 		&mut self,
 		dispatcher: &JobTaskDispatcher,
-		ctx: &impl JobContext,
+		ctx: &impl OuterContext,
 		SerializedTasks(serialized_tasks): SerializedTasks,
 	) -> Result<(), Error> {
 		self.pending_tasks_on_resume = dispatcher
@@ -110,7 +110,7 @@ impl Job for FileIdentifierJob {
 		Ok(())
 	}
 
-	async fn run<Ctx: JobContext>(
+	async fn run<Ctx: OuterContext>(
 		mut self,
 		dispatcher: JobTaskDispatcher,
 		ctx: Ctx,
@@ -194,7 +194,7 @@ impl Job for FileIdentifierJob {
 	}
 }
 
-impl FileIdentifierJob {
+impl FileIdentifier {
 	pub fn new(
 		location: location::Data,
 		sub_path: Option<PathBuf>,
@@ -215,12 +215,12 @@ impl FileIdentifierJob {
 	async fn init_or_resume(
 		&mut self,
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
-		job_ctx: &impl JobContext,
+		ctx: &impl OuterContext,
 		dispatcher: &JobTaskDispatcher,
 	) -> Result<(), file_identifier::Error> {
 		// if we don't have any pending task, then this is a fresh job
 		if self.pending_tasks_on_resume.is_empty() {
-			let db = job_ctx.db();
+			let db = ctx.db();
 			let maybe_sub_iso_file_path = maybe_get_iso_file_path_from_sub_path(
 				self.location.id,
 				&self.sub_path,
@@ -258,7 +258,7 @@ impl FileIdentifierJob {
 				last_orphan_file_path_id =
 					Some(orphan_paths.last().expect("orphan_paths is not empty").id);
 
-				job_ctx.progress(vec![
+				ctx.progress(vec![
 					ProgressUpdate::TaskCount(orphans_count),
 					ProgressUpdate::Message(format!("{orphans_count} files to be identified")),
 				]);
@@ -292,7 +292,7 @@ impl FileIdentifierJob {
 		&mut self,
 		task_id: TaskId,
 		any_task_output: Box<dyn AnyTaskOutput>,
-		job_ctx: &impl JobContext,
+		ctx: &impl OuterContext,
 		dispatcher: &JobTaskDispatcher,
 	) -> Option<TaskHandle<Error>> {
 		if any_task_output.is::<extract_file_metadata::Output>() {
@@ -301,7 +301,7 @@ impl FileIdentifierJob {
 					*any_task_output
 						.downcast::<extract_file_metadata::Output>()
 						.expect("just checked"),
-					job_ctx,
+					ctx,
 					dispatcher,
 				)
 				.await;
@@ -310,7 +310,7 @@ impl FileIdentifierJob {
 				*any_task_output
 					.downcast::<object_processor::Output>()
 					.expect("just checked"),
-				job_ctx,
+				ctx,
 			);
 		} else {
 			unreachable!("Unexpected task output type: <id='{task_id}'>");
@@ -326,7 +326,7 @@ impl FileIdentifierJob {
 			extract_metadata_time,
 			errors,
 		}: extract_file_metadata::Output,
-		job_ctx: &impl JobContext,
+		ctx: &impl OuterContext,
 		dispatcher: &JobTaskDispatcher,
 	) -> Option<TaskHandle<Error>> {
 		self.metadata.extract_metadata_time += extract_metadata_time;
@@ -335,20 +335,20 @@ impl FileIdentifierJob {
 		if identified_files.is_empty() {
 			self.metadata.completed_tasks += 1;
 
-			job_ctx.progress(vec![ProgressUpdate::CompletedTaskCount(
+			ctx.progress(vec![ProgressUpdate::CompletedTaskCount(
 				self.metadata.completed_tasks,
 			)]);
 
 			None
 		} else {
-			job_ctx.progress_msg(format!("Identified {} files", identified_files.len()));
+			ctx.progress_msg(format!("Identified {} files", identified_files.len()));
 
 			Some(
 				dispatcher
 					.dispatch(ObjectProcessorTask::new_deep(
 						identified_files,
-						Arc::clone(job_ctx.db()),
-						Arc::clone(job_ctx.sync()),
+						Arc::clone(ctx.db()),
+						Arc::clone(ctx.sync()),
 					))
 					.await,
 			)
@@ -366,7 +366,7 @@ impl FileIdentifierJob {
 			created_objects_count,
 			linked_objects_count,
 		}: object_processor::Output,
-		job_ctx: &impl JobContext,
+		ctx: &impl OuterContext,
 	) {
 		self.metadata.assign_cas_ids_time += assign_cas_ids_time;
 		self.metadata.fetch_existing_objects_time += fetch_existing_objects_time;
@@ -377,7 +377,7 @@ impl FileIdentifierJob {
 
 		self.metadata.completed_tasks += 1;
 
-		job_ctx.progress(vec![
+		ctx.progress(vec![
 			ProgressUpdate::CompletedTaskCount(self.metadata.completed_tasks),
 			ProgressUpdate::Message(format!(
 				"Processed {} of {} objects",
@@ -386,7 +386,7 @@ impl FileIdentifierJob {
 			)),
 		]);
 
-		job_ctx.report_update(UpdateEvent::NewIdentifiedObjects {
+		ctx.report_update(UpdateEvent::NewIdentifiedObjects {
 			file_path_ids: file_path_ids_with_new_object,
 		});
 	}
@@ -466,7 +466,7 @@ impl From<Metadata> for ReportOutputMetadata {
 	}
 }
 
-impl<Ctx: JobContext> SerializableJob<Ctx> for FileIdentifierJob {
+impl<Ctx: OuterContext> SerializableJob<Ctx> for FileIdentifier {
 	async fn serialize(self) -> Result<Option<Vec<u8>>, rmp_serde::encode::Error> {
 		let Self {
 			location,

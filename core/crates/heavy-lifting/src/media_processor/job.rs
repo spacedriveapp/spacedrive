@@ -1,19 +1,23 @@
 use crate::{
 	job_system::{
-		job::{Job, JobTaskDispatcher, ReturnStatus, UpdateEvent},
+		job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus, UpdateEvent},
 		report::ReportOutputMetadata,
+		utils::cancel_pending_tasks,
 		SerializableJob, SerializedTasks,
 	},
-	media_processor,
+	media_processor::{self, helpers::thumbnailer::THUMBNAIL_CACHE_DIR_NAME},
 	utils::sub_path::{self, maybe_get_iso_file_path_from_sub_path},
-	Error, JobContext, JobName,
+	Error, JobName, LocationScanState, OuterContext, ProgressUpdate,
 };
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::file_path_for_media_processor;
 
 use sd_file_ext::extensions::Extension;
 use sd_prisma::prisma::{location, PrismaClient};
-use sd_task_system::{IntoTask, SerializableTask, Task, TaskDispatcher, TaskHandle};
+use sd_task_system::{
+	AnyTaskOutput, IntoTask, SerializableTask, Task, TaskDispatcher, TaskHandle, TaskOutput,
+	TaskStatus,
+};
 use sd_utils::db::maybe_missing;
 
 use std::{
@@ -26,13 +30,13 @@ use std::{
 	time::Duration,
 };
 
-use futures::stream::FuturesUnordered;
+use futures::{stream::FuturesUnordered, StreamExt};
 use futures_concurrency::future::TryJoin;
 use itertools::Itertools;
 use prisma_client_rust::{raw, PrismaValue};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tracing::debug;
+use tracing::{debug, warn};
 
 use super::{
 	helpers,
@@ -48,6 +52,29 @@ enum TaskKind {
 	Thumbnailer,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+enum Phase {
+	MediaDataExtraction,
+	ThumbnailGeneration,
+	// LabelsGeneration, // TODO: Implement labels generation
+}
+
+impl Default for Phase {
+	fn default() -> Self {
+		Self::MediaDataExtraction
+	}
+}
+
+impl fmt::Display for Phase {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::MediaDataExtraction => write!(f, "media_data"),
+			Self::ThumbnailGeneration => write!(f, "thumbnails"),
+			// Self::LabelsGeneration => write!(f, "labels"), // TODO: Implement labels generation
+		}
+	}
+}
+
 #[derive(Debug)]
 pub struct MediaProcessor {
 	location: Arc<location::Data>,
@@ -55,8 +82,11 @@ pub struct MediaProcessor {
 	sub_path: Option<PathBuf>,
 	regenerate_thumbnails: bool,
 
-	total_media_data_extraction_tasks: u32,
-	total_thumbnailer_tasks: u32,
+	total_media_data_extraction_tasks: u64,
+	total_thumbnailer_tasks: u64,
+	total_thumbnailer_files: u64,
+
+	phase: Phase,
 
 	metadata: Metadata,
 
@@ -72,12 +102,10 @@ impl Job for MediaProcessor {
 	async fn resume_tasks(
 		&mut self,
 		dispatcher: &JobTaskDispatcher,
-		ctx: &impl JobContext,
+		ctx: &impl OuterContext,
 		SerializedTasks(serialized_tasks): SerializedTasks,
 	) -> Result<(), Error> {
-		let reporter = Arc::new(NewThumbnailsReporter {
-			job_ctx: ctx.clone(),
-		});
+		let reporter = Arc::new(NewThumbnailsReporter { ctx: ctx.clone() });
 
 		self.pending_tasks_on_resume = dispatcher
 			.dispatch_many_boxed(
@@ -116,7 +144,7 @@ impl Job for MediaProcessor {
 		Ok(())
 	}
 
-	async fn run<Ctx: JobContext>(
+	async fn run<Ctx: OuterContext>(
 		mut self,
 		dispatcher: JobTaskDispatcher,
 		ctx: Ctx,
@@ -126,10 +154,7 @@ impl Job for MediaProcessor {
 		self.init_or_resume(&mut pending_running_tasks, &ctx, &dispatcher)
 			.await?;
 
-		if let Some(res) = self
-			.process_handles(&mut pending_running_tasks, &ctx, &dispatcher)
-			.await
-		{
+		if let Some(res) = self.process_handles(&mut pending_running_tasks, &ctx).await {
 			return res;
 		}
 
@@ -139,7 +164,32 @@ impl Job for MediaProcessor {
 			));
 		}
 
-		Ok(ReturnStatus::Canceled)
+		// From this point onward, we are done with the job and it can't be interrupted anymore
+		let Self {
+			location,
+			metadata,
+			errors,
+			..
+		} = self;
+
+		ctx.db()
+			.location()
+			.update(
+				location::id::equals(location.id),
+				vec![location::scan_state::set(
+					LocationScanState::Completed as i32,
+				)],
+			)
+			.exec()
+			.await
+			.map_err(media_processor::Error::from)?;
+
+		Ok(ReturnStatus::Completed(
+			JobReturn::builder()
+				.with_metadata(metadata)
+				.with_non_critical_errors(errors)
+				.build(),
+		))
 	}
 }
 
@@ -158,6 +208,8 @@ impl MediaProcessor {
 			regenerate_thumbnails,
 			total_media_data_extraction_tasks: 0,
 			total_thumbnailer_tasks: 0,
+			total_thumbnailer_files: 0,
+			phase: Phase::default(),
 			metadata: Metadata::default(),
 			errors: Vec::new(),
 			pending_tasks_on_resume: Vec::new(),
@@ -168,7 +220,7 @@ impl MediaProcessor {
 	async fn init_or_resume(
 		&mut self,
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
-		job_ctx: &impl JobContext,
+		ctx: &impl OuterContext,
 		dispatcher: &JobTaskDispatcher,
 	) -> Result<(), media_processor::Error> {
 		// if we don't have any pending task, then this is a fresh job
@@ -180,7 +232,7 @@ impl MediaProcessor {
 				location_id,
 				&self.sub_path,
 				&*self.location_path,
-				job_ctx.db(),
+				ctx.db(),
 			)
 			.await?
 			{
@@ -194,7 +246,40 @@ impl MediaProcessor {
 				"Searching for media files in location {location_id} at directory \"{iso_file_path}\""
 			);
 
-		// First we will dispatch all tasks for media data extraction so we have a nice reporting
+			// First we will dispatch all tasks for media data extraction so we have a nice reporting
+			let (total_media_data_extraction_files, task_handles) =
+				dispatch_media_data_extractor_tasks(
+					ctx.db(),
+					&iso_file_path,
+					&self.location_path,
+					dispatcher,
+				)
+				.await?;
+			self.total_media_data_extraction_tasks = task_handles.len() as u64;
+
+			pending_running_tasks.extend(task_handles);
+
+			ctx.progress(vec![
+				ProgressUpdate::TaskCount(total_media_data_extraction_files),
+				ProgressUpdate::Phase(self.phase.to_string()),
+				ProgressUpdate::Message(format!(
+					"Preparing to process {total_media_data_extraction_files} files in {} chunks",
+					self.total_media_data_extraction_tasks
+				)),
+			]);
+
+			// Now we dispatch thumbnailer tasks
+			let (total_thumbnailer_tasks, task_handles) = dispatch_thumbnailer_tasks(
+				&iso_file_path,
+				self.regenerate_thumbnails,
+				&self.location_path,
+				dispatcher,
+				ctx,
+			)
+			.await?;
+			pending_running_tasks.extend(task_handles);
+
+			self.total_thumbnailer_tasks = total_thumbnailer_tasks;
 		} else {
 			pending_running_tasks.extend(mem::take(&mut self.pending_tasks_on_resume));
 		}
@@ -205,66 +290,235 @@ impl MediaProcessor {
 	async fn process_handles(
 		&mut self,
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
-		ctx: &impl JobContext,
-		dispatcher: &JobTaskDispatcher,
+		ctx: &impl OuterContext,
 	) -> Option<Result<ReturnStatus, Error>> {
-		todo!()
+		while let Some(task) = pending_running_tasks.next().await {
+			match task {
+				Ok(TaskStatus::Done((task_id, TaskOutput::Out(out)))) => {
+					self.process_task_output(task_id, out, ctx);
+				}
+
+				Ok(TaskStatus::Done((task_id, TaskOutput::Empty))) => {
+					warn!("Task <id='{task_id}'> returned an empty output");
+				}
+
+				Ok(TaskStatus::Shutdown(task)) => {
+					self.tasks_for_shutdown.push(task);
+				}
+
+				Ok(TaskStatus::Error(e)) => {
+					cancel_pending_tasks(&*pending_running_tasks).await;
+
+					return Some(Err(e));
+				}
+
+				Ok(TaskStatus::Canceled | TaskStatus::ForcedAbortion) => {
+					cancel_pending_tasks(&*pending_running_tasks).await;
+
+					return Some(Ok(ReturnStatus::Canceled));
+				}
+
+				Err(e) => {
+					cancel_pending_tasks(&*pending_running_tasks).await;
+
+					return Some(Err(e.into()));
+				}
+			}
+		}
+
+		None
+	}
+
+	fn process_task_output(
+		&mut self,
+		task_id: uuid::Uuid,
+		any_task_output: Box<dyn AnyTaskOutput>,
+		ctx: &impl OuterContext,
+	) {
+		if any_task_output.is::<media_data_extractor::Output>() {
+			let media_data_extractor::Output {
+				extracted,
+				skipped,
+				db_read_time,
+				filtering_time,
+				extraction_time,
+				db_write_time,
+				errors,
+			} = *any_task_output.downcast().expect("just checked");
+
+			self.metadata.media_data_metrics.extracted += extracted;
+			self.metadata.media_data_metrics.skipped += skipped;
+			self.metadata.media_data_metrics.db_read_time += db_read_time;
+			self.metadata.media_data_metrics.filtering_time += filtering_time;
+			self.metadata.media_data_metrics.extraction_time += extraction_time;
+			self.metadata.media_data_metrics.db_write_time += db_write_time;
+			self.metadata.media_data_metrics.total_successful_tasks += 1;
+
+			self.errors.extend(errors);
+
+			debug!(
+				"Processed {}/{} media data extraction tasks",
+				self.metadata.media_data_metrics.total_successful_tasks,
+				self.total_media_data_extraction_tasks
+			);
+			ctx.progress(vec![ProgressUpdate::CompletedTaskCount(
+				self.metadata.media_data_metrics.extracted
+					+ self.metadata.media_data_metrics.skipped,
+			)]);
+
+			if self.total_media_data_extraction_tasks
+				== self.metadata.media_data_metrics.total_successful_tasks
+			{
+				debug!("All media data extraction tasks have been processed");
+
+				self.phase = Phase::ThumbnailGeneration;
+
+				ctx.progress(vec![
+					ProgressUpdate::TaskCount(self.total_thumbnailer_files),
+					ProgressUpdate::Phase(self.phase.to_string()),
+					ProgressUpdate::Message(format!(
+						"Waiting for processing of {} thumbnails in {} tasks",
+						self.total_thumbnailer_files, self.total_thumbnailer_tasks
+					)),
+				]);
+			}
+		} else if any_task_output.is::<thumbnailer::Output>() {
+			let thumbnailer::Output {
+				generated,
+				skipped,
+				errors,
+				total_time,
+				mean_time_acc,
+				std_dev_acc,
+			} = *any_task_output.downcast().expect("just checked");
+
+			self.metadata.thumbnailer_metrics_acc.generated += generated;
+			self.metadata.thumbnailer_metrics_acc.skipped += skipped;
+			self.metadata.thumbnailer_metrics_acc.total_time += total_time;
+			self.metadata.thumbnailer_metrics_acc.mean_time_acc += mean_time_acc;
+			self.metadata.thumbnailer_metrics_acc.std_dev_acc += std_dev_acc;
+			self.metadata.thumbnailer_metrics_acc.total_successful_tasks += 1;
+
+			self.errors.extend(errors);
+
+			ctx.progress(vec![ProgressUpdate::CompletedTaskCount(
+				self.metadata.thumbnailer_metrics_acc.generated
+					+ self.metadata.thumbnailer_metrics_acc.skipped,
+			)]);
+
+		// if self.total_thumbnailer_tasks
+		// 	== self.metadata.thumbnailer_metrics_acc.total_successful_tasks
+		// {
+		// 	debug!("All thumbnailer tasks have been processed");
+
+		// 	self.phase = Phase::LabelsGeneration;
+
+		// 	ctx.progress(vec![
+		// 		ProgressUpdate::TaskCount(self.total_thumbnailer_files),
+		// 		ProgressUpdate::Phase(self.phase.to_string()),
+		// 		ProgressUpdate::Message(format!(
+		// 			"Waiting for processing of {} labels in {} tasks",
+		// 			self.total_labeller_files, self.total_labeller_tasks
+		// 		)),
+		// 	]);
+		// }
+		} else {
+			unreachable!("Unexpected task output type: <id='{task_id}'>");
+		}
 	}
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 struct Metadata {
-	media_data_extracted: u32,
-	media_data_skipped: u32,
-	total_successful_media_data_extractor_tasks: u32,
-	thumbnails_generated: u32,
-	thumbnails_skipped: u32,
-	total_thumbnails_generation_time: Duration,
-	mean_thumbnails_generation_time: Duration,
-	thumbnails_generation_std_dev: Duration,
-	total_successful_thumbnailer_tasks: u32,
+	media_data_metrics: MediaExtractorMetrics,
+	thumbnailer_metrics_acc: ThumbnailerMetricsAccumulator,
 }
 
 impl From<Metadata> for ReportOutputMetadata {
-	fn from(value: Metadata) -> Self {
+	fn from(
+		Metadata {
+			media_data_metrics,
+			thumbnailer_metrics_acc: thumbnailer_metrics_accumulator,
+		}: Metadata,
+	) -> Self {
+		let thumbnailer_metrics = ThumbnailerMetrics::from(thumbnailer_metrics_accumulator);
+
 		Self::Metrics(HashMap::from([
 			//
 			// Media data extractor
 			//
 			(
-				"media_data_extracted".into(),
-				json!(value.media_data_extracted),
-			),
-			("media_data_skipped".into(), json!(value.media_data_skipped)),
-			(
-				"total_successful_media_data_extractor_tasks".into(),
-				json!(value.total_successful_media_data_extractor_tasks),
+				"media_data_extraction_metrics".into(),
+				json!(media_data_metrics),
 			),
 			//
 			// Thumbnailer
 			//
-			(
-				"thumbnails_generated".into(),
-				json!(value.thumbnails_generated),
-			),
-			("thumbnails_skipped".into(), json!(value.thumbnails_skipped)),
-			(
-				"total_thumbnails_generation_time".into(),
-				json!(value.total_thumbnails_generation_time),
-			),
-			(
-				"mean_thumbnails_generation_time".into(),
-				json!(value.mean_thumbnails_generation_time),
-			),
-			(
-				"thumbnails_generation_std_dev".into(),
-				json!(value.thumbnails_generation_std_dev),
-			),
-			(
-				"total_successful_thumbnailer_tasks".into(),
-				json!(value.total_successful_thumbnailer_tasks),
-			),
+			("thumbnailer_metrics".into(), json!(thumbnailer_metrics)),
 		]))
+	}
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+struct MediaExtractorMetrics {
+	extracted: u64,
+	skipped: u64,
+	db_read_time: Duration,
+	filtering_time: Duration,
+	extraction_time: Duration,
+	db_write_time: Duration,
+	total_successful_tasks: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+struct ThumbnailerMetricsAccumulator {
+	generated: u64,
+	skipped: u64,
+	total_time: Duration,
+	mean_time_acc: f64,
+	std_dev_acc: f64,
+	total_successful_tasks: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+struct ThumbnailerMetrics {
+	generated: u64,
+	skipped: u64,
+	total_generation_time: Duration,
+	mean_generation_time: Duration,
+	std_dev: Duration,
+	total_successful_tasks: u64,
+}
+
+impl From<ThumbnailerMetricsAccumulator> for ThumbnailerMetrics {
+	fn from(
+		ThumbnailerMetricsAccumulator {
+			generated,
+			skipped,
+			total_time: total_generation_time,
+			mean_time_acc: mean_generation_time_acc,
+			std_dev_acc,
+			total_successful_tasks,
+		}: ThumbnailerMetricsAccumulator,
+	) -> Self {
+		#[allow(clippy::cast_precision_loss)]
+		// SAFETY: we're probably won't have 2^52 thumbnails being generated on a single job for this cast to have
+		// a precision loss issue
+		let total = (generated + skipped) as f64;
+		let mean_generation_time = mean_generation_time_acc / total;
+
+		let std_dev = Duration::from_secs_f64(
+			(mean_generation_time.mul_add(-mean_generation_time, std_dev_acc / total)).sqrt(),
+		);
+
+		Self {
+			generated,
+			skipped,
+			total_generation_time,
+			mean_generation_time: Duration::from_secs_f64(mean_generation_time),
+			std_dev,
+			total_successful_tasks,
+		}
 	}
 }
 
@@ -275,8 +529,11 @@ struct SaveState {
 	sub_path: Option<PathBuf>,
 	regenerate_thumbnails: bool,
 
-	total_media_data_extraction_tasks: u32,
-	total_thumbnailer_tasks: u32,
+	total_media_data_extraction_tasks: u64,
+	total_thumbnailer_tasks: u64,
+	total_thumbnailer_files: u64,
+
+	phase: Phase,
 
 	metadata: Metadata,
 
@@ -285,7 +542,7 @@ struct SaveState {
 	tasks_for_shutdown_bytes: Option<SerializedTasks>,
 }
 
-impl<Ctx: JobContext> SerializableJob<Ctx> for MediaProcessor {
+impl<Ctx: OuterContext> SerializableJob<Ctx> for MediaProcessor {
 	async fn serialize(self) -> Result<Option<Vec<u8>>, rmp_serde::encode::Error> {
 		let Self {
 			location,
@@ -294,6 +551,8 @@ impl<Ctx: JobContext> SerializableJob<Ctx> for MediaProcessor {
 			regenerate_thumbnails,
 			total_media_data_extraction_tasks,
 			total_thumbnailer_tasks,
+			total_thumbnailer_files,
+			phase,
 			metadata,
 			errors,
 			tasks_for_shutdown,
@@ -307,6 +566,8 @@ impl<Ctx: JobContext> SerializableJob<Ctx> for MediaProcessor {
 			regenerate_thumbnails,
 			total_media_data_extraction_tasks,
 			total_thumbnailer_tasks,
+			total_thumbnailer_files,
+			phase,
 			metadata,
 			tasks_for_shutdown_bytes: Some(SerializedTasks(rmp_serde::to_vec_named(
 				&tasks_for_shutdown
@@ -348,6 +609,8 @@ impl<Ctx: JobContext> SerializableJob<Ctx> for MediaProcessor {
 			regenerate_thumbnails,
 			total_media_data_extraction_tasks,
 			total_thumbnailer_tasks,
+			total_thumbnailer_files,
+			phase,
 			metadata,
 			errors,
 			tasks_for_shutdown_bytes,
@@ -361,6 +624,8 @@ impl<Ctx: JobContext> SerializableJob<Ctx> for MediaProcessor {
 				regenerate_thumbnails,
 				total_media_data_extraction_tasks,
 				total_thumbnailer_tasks,
+				total_thumbnailer_files,
+				phase,
 				metadata,
 				errors,
 				pending_tasks_on_resume: Vec::new(),
@@ -371,19 +636,19 @@ impl<Ctx: JobContext> SerializableJob<Ctx> for MediaProcessor {
 	}
 }
 
-struct NewThumbnailsReporter<Ctx: JobContext> {
-	job_ctx: Ctx,
+struct NewThumbnailsReporter<Ctx: OuterContext> {
+	ctx: Ctx,
 }
 
-impl<Ctx: JobContext> fmt::Debug for NewThumbnailsReporter<Ctx> {
+impl<Ctx: OuterContext> fmt::Debug for NewThumbnailsReporter<Ctx> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.debug_struct("NewThumbnailsReporter").finish()
 	}
 }
 
-impl<Ctx: JobContext> NewThumbnailReporter for NewThumbnailsReporter<Ctx> {
+impl<Ctx: OuterContext> NewThumbnailReporter for NewThumbnailsReporter<Ctx> {
 	fn new_thumbnail(&self, thumb_key: media_processor::ThumbKey) {
-		self.job_ctx
+		self.ctx
 			.report_update(UpdateEvent::NewThumbnailEvent { thumb_key });
 	}
 }
@@ -475,4 +740,88 @@ async fn get_all_children_files_by_extensions(
 	.exec()
 	.await
 	.map_err(Into::into)
+}
+
+async fn dispatch_thumbnailer_tasks(
+	parent_iso_file_path: &IsolatedFilePathData<'_>,
+	should_regenerate: bool,
+	location_path: &PathBuf,
+	dispatcher: &JobTaskDispatcher,
+	ctx: &impl OuterContext,
+) -> Result<(u64, Vec<TaskHandle<Error>>), media_processor::Error> {
+	let thumbnails_directory_path =
+		Arc::new(ctx.get_data_directory().join(THUMBNAIL_CACHE_DIR_NAME));
+	let location_id = parent_iso_file_path.location_id();
+	let library_id = ctx.id();
+	let db = ctx.db();
+	let reporter = Arc::new(NewThumbnailsReporter { ctx: ctx.clone() });
+
+	let mut file_paths = get_all_children_files_by_extensions(
+		db,
+		parent_iso_file_path,
+		&helpers::thumbnailer::ALL_THUMBNAILABLE_EXTENSIONS,
+	)
+	.await?;
+
+	let first_materialized_path = file_paths[0].materialized_path.clone();
+
+	// Only the first materialized_path should be processed with priority as the user must see the thumbnails ASAP
+	let different_materialized_path_idx = file_paths
+		.iter()
+		.position(|file_path| file_path.materialized_path != first_materialized_path);
+
+	let non_priority_tasks = different_materialized_path_idx
+		.map(|idx| {
+			file_paths
+				.drain(idx..)
+				.chunks(BATCH_SIZE)
+				.into_iter()
+				.map(|chunk| {
+					tasks::Thumbnailer::new_indexed(
+						Arc::clone(&thumbnails_directory_path),
+						&chunk.collect::<Vec<_>>(),
+						(location_id, location_path),
+						library_id,
+						should_regenerate,
+						false,
+						Arc::clone(&reporter),
+					)
+				})
+				.map(IntoTask::into_task)
+				.collect::<Vec<_>>()
+		})
+		.unwrap_or_default();
+
+	let priority_tasks = file_paths
+		.into_iter()
+		.chunks(BATCH_SIZE)
+		.into_iter()
+		.map(|chunk| {
+			tasks::Thumbnailer::new_indexed(
+				Arc::clone(&thumbnails_directory_path),
+				&chunk.collect::<Vec<_>>(),
+				(location_id, location_path),
+				library_id,
+				should_regenerate,
+				true,
+				Arc::clone(&reporter),
+			)
+		})
+		.map(IntoTask::into_task)
+		.collect::<Vec<_>>();
+
+	let thumbs_count = (priority_tasks.len() + non_priority_tasks.len()) as u64;
+
+	debug!(
+		"Dispatching {thumbs_count} thumbnails to be processed, {} with priority and {} without priority",
+		priority_tasks.len(),
+		non_priority_tasks.len()
+	);
+
+	Ok((
+		thumbs_count,
+		dispatcher
+			.dispatch_many_boxed(priority_tasks.into_iter().chain(non_priority_tasks))
+			.await,
+	))
 }

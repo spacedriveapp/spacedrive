@@ -33,11 +33,10 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tracing::warn;
 
-mod job;
+pub mod job;
 mod shallow;
 mod tasks;
 
-pub use job::IndexerJob;
 pub use shallow::shallow;
 
 use tasks::walker;

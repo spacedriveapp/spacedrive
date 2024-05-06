@@ -126,45 +126,36 @@ impl Task<Error> for MediaDataExtractor {
 	}
 
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {
-		let Self {
-			file_paths,
-			location_id,
-			location_path,
-			stage,
-			db,
-			output,
-			..
-		} = self;
-
 		loop {
-			match stage {
+			match &mut self.stage {
 				Stage::Starting => {
 					let db_read_start = Instant::now();
-					let object_ids = fetch_objects_already_with_media_data(file_paths, db).await?;
-					output.db_read_time = db_read_start.elapsed();
+					let object_ids =
+						fetch_objects_already_with_media_data(&self.file_paths, &self.db).await?;
+					self.output.db_read_time = db_read_start.elapsed();
 
-					*stage = Stage::FetchedObjectsAlreadyWithMediaData(object_ids);
+					self.stage = Stage::FetchedObjectsAlreadyWithMediaData(object_ids);
 				}
 
 				Stage::FetchedObjectsAlreadyWithMediaData(objects_already_with_media_data) => {
 					let filtering_start = Instant::now();
-					if file_paths.len() == objects_already_with_media_data.len() {
+					if self.file_paths.len() == objects_already_with_media_data.len() {
 						// All files already have media data, skipping
-						output.skipped = file_paths.len() as u64;
+						self.output.skipped = self.file_paths.len() as u64;
 
 						break;
 					}
 					let paths_by_id = filter_files_to_extract_media_data(
 						mem::take(objects_already_with_media_data),
-						*location_id,
-						location_path,
-						file_paths,
-						output,
+						self.location_id,
+						&self.location_path,
+						&mut self.file_paths,
+						&mut self.output,
 					);
 
-					output.filtering_time = filtering_start.elapsed();
+					self.output.filtering_time = filtering_start.elapsed();
 
-					*stage = Stage::ExtractingMediaData {
+					self.stage = Stage::ExtractingMediaData {
 						extract_ids_to_remove_from_map: Vec::with_capacity(paths_by_id.len()),
 						media_datas: Vec::with_capacity(paths_by_id.len()),
 						paths_by_id,
@@ -176,10 +167,9 @@ impl Task<Error> for MediaDataExtractor {
 					media_datas,
 					extract_ids_to_remove_from_map,
 				} => {
-					// This inner scope is necessary to appease the mighty borrowck
 					{
+						// This inner scope is necessary to appease the mighty borrowck
 						let extraction_start = Instant::now();
-
 						for id in extract_ids_to_remove_from_map.drain(..) {
 							paths_by_id.remove(&id);
 						}
@@ -211,16 +201,16 @@ impl Task<Error> for MediaDataExtractor {
 										}
 										Ok(None) => {
 											// No media data found
-											output.skipped += 1;
+											self.output.skipped += 1;
 										}
-										Err(e) => output.errors.push(e.into()),
+										Err(e) => self.output.errors.push(e.into()),
 									}
 
 									extract_ids_to_remove_from_map.push(file_path_id);
 								}
 
 								InterruptRace::Interrupted(kind) => {
-									output.extraction_time += extraction_start.elapsed();
+									self.output.extraction_time += extraction_start.elapsed();
 									return Ok(match kind {
 										InterruptionKind::Pause => ExecStatus::Paused,
 										InterruptionKind::Cancel => ExecStatus::Canceled,
@@ -230,17 +220,18 @@ impl Task<Error> for MediaDataExtractor {
 						}
 					}
 
-					*stage = Stage::SaveMediaData {
+					self.stage = Stage::SaveMediaData {
 						media_datas: mem::take(media_datas),
 					};
 				}
 
 				Stage::SaveMediaData { media_datas } => {
 					let db_write_start = Instant::now();
-					output.extracted = save_media_data(mem::take(media_datas), db).await?;
-					output.db_write_time = db_write_start.elapsed();
+					self.output.extracted =
+						save_media_data(mem::take(media_datas), &self.db).await?;
+					self.output.db_write_time = db_write_start.elapsed();
 
-					output.skipped += output.errors.len() as u64;
+					self.output.skipped += self.output.errors.len() as u64;
 
 					break;
 				}
@@ -249,7 +240,7 @@ impl Task<Error> for MediaDataExtractor {
 			check_interruption!(interrupter);
 		}
 
-		Ok(ExecStatus::Done(mem::take(output).into_output()))
+		Ok(ExecStatus::Done(mem::take(&mut self.output).into_output()))
 	}
 }
 

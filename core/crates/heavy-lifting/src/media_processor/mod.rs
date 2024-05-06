@@ -42,7 +42,7 @@ impl From<Error> for rspc::Error {
 #[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
 pub enum NonCriticalError {
 	#[error(transparent)]
-	MediaDataExtractor(#[from] tasks::media_data_extractor::NonCriticalError),
+	MediaDataExtractor(#[from] media_data_extractor::NonCriticalError),
 	#[error(transparent)]
-	Thumbnailer(#[from] tasks::thumbnailer::NonCriticalError),
+	Thumbnailer(#[from] thumbnailer::NonCriticalError),
 }

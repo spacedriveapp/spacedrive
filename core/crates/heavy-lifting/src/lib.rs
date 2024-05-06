@@ -40,7 +40,7 @@ pub mod media_processor;
 pub mod utils;
 
 pub use job_system::{
-	job::{IntoJob, JobBuilder, JobContext, JobName, JobOutput, JobOutputData, ProgressUpdate},
+	job::{IntoJob, JobBuilder, JobName, JobOutput, JobOutputData, OuterContext, ProgressUpdate},
 	JobId, JobSystem,
 };
 

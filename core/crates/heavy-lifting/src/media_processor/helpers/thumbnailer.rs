@@ -1,7 +1,10 @@
-use sd_file_ext::extensions::{DocumentExtension, ImageExtension};
+use once_cell::sync::Lazy;
+use sd_file_ext::extensions::{
+	DocumentExtension, Extension, ImageExtension, ALL_DOCUMENT_EXTENSIONS, ALL_IMAGE_EXTENSIONS,
+};
 
 #[cfg(feature = "ffmpeg")]
-use sd_file_ext::extensions::VideoExtension;
+use sd_file_ext::extensions::{VideoExtension, ALL_VIDEO_EXTENSIONS};
 
 use std::time::Duration;
 
@@ -11,7 +14,6 @@ use uuid::Uuid;
 
 // Files names constants
 pub const THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
-const VERSION_FILE: &str = "version.txt";
 pub const WEBP_EXTENSION: &str = "webp";
 pub const EPHEMERAL_DIR: &str = "ephemeral";
 
@@ -25,6 +27,44 @@ pub const TARGET_QUALITY: f32 = 30.0;
 
 /// How much time we allow for the thumbnail generation process to complete before we give up.
 pub const THUMBNAIL_GENERATION_TIMEOUT: Duration = Duration::from_secs(60);
+
+#[cfg(feature = "ffmpeg")]
+pub static THUMBNAILABLE_VIDEO_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+	ALL_VIDEO_EXTENSIONS
+		.iter()
+		.copied()
+		.filter(|&ext| can_generate_thumbnail_for_video(ext))
+		.map(Extension::Video)
+		.collect()
+});
+
+pub static THUMBNAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+	ALL_IMAGE_EXTENSIONS
+		.iter()
+		.copied()
+		.filter(|&ext| can_generate_thumbnail_for_image(ext))
+		.map(Extension::Image)
+		.chain(
+			ALL_DOCUMENT_EXTENSIONS
+				.iter()
+				.copied()
+				.filter(|&ext| can_generate_thumbnail_for_document(ext))
+				.map(Extension::Document),
+		)
+		.collect()
+});
+
+pub static ALL_THUMBNAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+	#[cfg(feature = "ffmpeg")]
+	return THUMBNAILABLE_EXTENSIONS
+		.iter()
+		.cloned()
+		.chain(THUMBNAILABLE_VIDEO_EXTENSIONS.iter().cloned())
+		.collect();
+
+	#[cfg(not(feature = "ffmpeg"))]
+	THUMBNAILABLE_EXTENSIONS.clone()
+});
 
 /// This type is used to pass the relevant data to the frontend so it can request the thumbnail.
 /// Tt supports extending the shard hex to support deeper directory structures in the future

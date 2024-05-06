@@ -11,6 +11,7 @@ use std::{
 	collections::VecDeque,
 	hash::{DefaultHasher, Hash, Hasher},
 	marker::PhantomData,
+	path::Path,
 	pin::pin,
 	sync::Arc,
 };
@@ -82,7 +83,7 @@ pub enum UpdateEvent {
 	},
 }
 
-pub trait JobContext: Send + Sync + Clone + 'static {
+pub trait OuterContext: Send + Sync + Clone + 'static {
 	fn id(&self) -> Uuid;
 	fn db(&self) -> &Arc<PrismaClient>;
 	fn sync(&self) -> &Arc<SyncManager>;
@@ -93,6 +94,7 @@ pub trait JobContext: Send + Sync + Clone + 'static {
 		self.progress(vec![ProgressUpdate::Message(msg.into())]);
 	}
 	fn report_update(&self, update: UpdateEvent);
+	fn get_data_directory(&self) -> &Path;
 }
 
 pub trait Job: Send + Sync + Hash + 'static {
@@ -102,13 +104,13 @@ pub trait Job: Send + Sync + Hash + 'static {
 	fn resume_tasks(
 		&mut self,
 		dispatcher: &JobTaskDispatcher,
-		ctx: &impl JobContext,
+		ctx: &impl OuterContext,
 		serialized_tasks: SerializedTasks,
 	) -> impl Future<Output = Result<(), Error>> + Send {
 		async move { Ok(()) }
 	}
 
-	fn run<Ctx: JobContext>(
+	fn run<Ctx: OuterContext>(
 		self,
 		dispatcher: JobTaskDispatcher,
 		ctx: Ctx,
@@ -118,7 +120,7 @@ pub trait Job: Send + Sync + Hash + 'static {
 pub trait IntoJob<J, Ctx>
 where
 	J: Job + SerializableJob<Ctx>,
-	Ctx: JobContext,
+	Ctx: OuterContext,
 {
 	fn into_job(self) -> Box<dyn DynJob<Ctx>>;
 }
@@ -126,7 +128,7 @@ where
 impl<J, Ctx> IntoJob<J, Ctx> for J
 where
 	J: Job + SerializableJob<Ctx>,
-	Ctx: JobContext,
+	Ctx: OuterContext,
 {
 	fn into_job(self) -> Box<dyn DynJob<Ctx>> {
 		let id = JobId::new_v4();
@@ -144,7 +146,7 @@ where
 impl<J, Ctx> IntoJob<J, Ctx> for JobBuilder<J, Ctx>
 where
 	J: Job + SerializableJob<Ctx>,
-	Ctx: JobContext,
+	Ctx: OuterContext,
 {
 	fn into_job(self) -> Box<dyn DynJob<Ctx>> {
 		self.build()
@@ -272,7 +274,7 @@ pub enum JobOutputData {
 pub struct JobBuilder<J, Ctx>
 where
 	J: Job + SerializableJob<Ctx>,
-	Ctx: JobContext,
+	Ctx: OuterContext,
 {
 	id: JobId,
 	job: J,
@@ -284,7 +286,7 @@ where
 impl<J, Ctx> JobBuilder<J, Ctx>
 where
 	J: Job + SerializableJob<Ctx>,
-	Ctx: JobContext,
+	Ctx: OuterContext,
 {
 	pub fn build(self) -> Box<JobHolder<J, Ctx>> {
 		Box::new(JobHolder {
@@ -345,7 +347,7 @@ where
 pub struct JobHolder<J, Ctx>
 where
 	J: Job + SerializableJob<Ctx>,
-	Ctx: JobContext,
+	Ctx: OuterContext,
 {
 	pub(super) id: JobId,
 	pub(super) job: J,
@@ -354,14 +356,14 @@ where
 	pub(super) _ctx: PhantomData<Ctx>,
 }
 
-pub struct JobHandle<Ctx: JobContext> {
+pub struct JobHandle<Ctx: OuterContext> {
 	pub(crate) next_jobs: VecDeque<Box<dyn DynJob<Ctx>>>,
-	pub(crate) job_ctx: Ctx,
+	pub(crate) ctx: Ctx,
 	pub(crate) report: Report,
 	pub(crate) commands_tx: chan::Sender<Command>,
 }
 
-impl<Ctx: JobContext> JobHandle<Ctx> {
+impl<Ctx: OuterContext> JobHandle<Ctx> {
 	pub async fn send_command(&mut self, command: Command) -> Result<(), JobSystemError> {
 		if self.commands_tx.send(command).await.is_err() {
 			warn!("Tried to send a {command:?} to a job that was already completed");
@@ -386,7 +388,7 @@ impl<Ctx: JobContext> JobHandle<Ctx> {
 				next_job_report.status = new_status;
 				next_job_report.completed_at = completed_at;
 
-				next_job_report.update(self.job_ctx.db()).await
+				next_job_report.update(self.ctx.db()).await
 			})
 			.collect::<Vec<_>>()
 			.try_join()
@@ -402,7 +404,7 @@ impl<Ctx: JobContext> JobHandle<Ctx> {
 		let Self {
 			next_jobs,
 			report,
-			job_ctx,
+			ctx,
 			..
 		} = self;
 
@@ -411,7 +413,7 @@ impl<Ctx: JobContext> JobHandle<Ctx> {
 			report.started_at = Some(start_time);
 		}
 
-		let db = job_ctx.db();
+		let db = ctx.db();
 
 		// If the report doesn't have a created_at date, it's a new report
 		if report.created_at.is_none() {
@@ -443,21 +445,17 @@ impl<Ctx: JobContext> JobHandle<Ctx> {
 		&mut self,
 		job_return: JobReturn,
 	) -> Result<JobOutput, JobSystemError> {
-		let Self {
-			report, job_ctx, ..
-		} = self;
+		let Self { report, ctx, .. } = self;
 
 		let output = JobOutput::prepare_output_and_report(job_return, report);
 
-		report.update(job_ctx.db()).await?;
+		report.update(ctx.db()).await?;
 
 		Ok(output)
 	}
 
 	pub async fn failed_job(&mut self, e: &Error) -> Result<(), JobSystemError> {
-		let Self {
-			report, job_ctx, ..
-		} = self;
+		let Self { report, ctx, .. } = self;
 		error!(
 			"Job<id='{}', name='{}'> failed with a critical error: {e:#?};",
 			report.id, report.name
@@ -467,15 +465,13 @@ impl<Ctx: JobContext> JobHandle<Ctx> {
 		report.critical_error = Some(e.to_string());
 		report.completed_at = Some(Utc::now());
 
-		report.update(job_ctx.db()).await?;
+		report.update(ctx.db()).await?;
 
 		self.command_children(Command::Cancel).await
 	}
 
 	pub async fn shutdown_pause_job(&mut self) -> Result<(), JobSystemError> {
-		let Self {
-			report, job_ctx, ..
-		} = self;
+		let Self { report, ctx, .. } = self;
 		info!(
 			"Job<id='{}', name='{}'> paused due to system shutdown, we will pause all children jobs",
 			report.id, report.name
@@ -483,15 +479,13 @@ impl<Ctx: JobContext> JobHandle<Ctx> {
 
 		report.status = Status::Paused;
 
-		report.update(job_ctx.db()).await?;
+		report.update(ctx.db()).await?;
 
 		self.command_children(Command::Pause).await
 	}
 
 	pub async fn cancel_job(&mut self) -> Result<(), JobSystemError> {
-		let Self {
-			report, job_ctx, ..
-		} = self;
+		let Self { report, ctx, .. } = self;
 		info!(
 			"Job<id='{}', name='{}'> canceled, we will cancel all children jobs",
 			report.id, report.name
@@ -500,14 +494,14 @@ impl<Ctx: JobContext> JobHandle<Ctx> {
 		report.status = Status::Canceled;
 		report.completed_at = Some(Utc::now());
 
-		report.update(job_ctx.db()).await?;
+		report.update(ctx.db()).await?;
 
 		self.command_children(Command::Cancel).await
 	}
 }
 
 #[async_trait::async_trait]
-pub trait DynJob<Ctx: JobContext>: Send + Sync + 'static {
+pub trait DynJob<Ctx: OuterContext>: Send + Sync + 'static {
 	fn id(&self) -> JobId;
 
 	fn job_name(&self) -> JobName;
@@ -525,14 +519,14 @@ pub trait DynJob<Ctx: JobContext>: Send + Sync + 'static {
 	fn dispatch(
 		self: Box<Self>,
 		base_dispatcher: BaseTaskDispatcher<Error>,
-		job_ctx: Ctx,
+		ctx: Ctx,
 		done_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
 	) -> JobHandle<Ctx>;
 
 	fn resume(
 		self: Box<Self>,
 		base_dispatcher: BaseTaskDispatcher<Error>,
-		job_ctx: Ctx,
+		ctx: Ctx,
 		serialized_tasks: Option<SerializedTasks>,
 		done_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
 	) -> JobHandle<Ctx>;
@@ -542,7 +536,7 @@ pub trait DynJob<Ctx: JobContext>: Send + Sync + 'static {
 impl<J, Ctx> DynJob<Ctx> for JobHolder<J, Ctx>
 where
 	J: Job + SerializableJob<Ctx>,
-	Ctx: JobContext,
+	Ctx: OuterContext,
 {
 	fn id(&self) -> JobId {
 		self.id
@@ -578,7 +572,7 @@ where
 	fn dispatch(
 		self: Box<Self>,
 		base_dispatcher: BaseTaskDispatcher<Error>,
-		job_ctx: Ctx,
+		ctx: Ctx,
 		done_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
 	) -> JobHandle<Ctx> {
 		let (commands_tx, commands_rx) = chan::bounded(8);
@@ -586,7 +580,7 @@ where
 		spawn(to_spawn_job(
 			self.id,
 			self.job,
-			job_ctx.clone(),
+			ctx.clone(),
 			None,
 			base_dispatcher,
 			commands_rx,
@@ -595,7 +589,7 @@ where
 
 		JobHandle {
 			next_jobs: self.next_jobs,
-			job_ctx,
+			ctx,
 			report: self.report,
 			commands_tx,
 		}
@@ -604,7 +598,7 @@ where
 	fn resume(
 		self: Box<Self>,
 		base_dispatcher: BaseTaskDispatcher<Error>,
-		job_ctx: Ctx,
+		ctx: Ctx,
 		serialized_tasks: Option<SerializedTasks>,
 		done_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
 	) -> JobHandle<Ctx> {
@@ -613,7 +607,7 @@ where
 		spawn(to_spawn_job(
 			self.id,
 			self.job,
-			job_ctx.clone(),
+			ctx.clone(),
 			serialized_tasks,
 			base_dispatcher,
 			commands_rx,
@@ -622,17 +616,17 @@ where
 
 		JobHandle {
 			next_jobs: self.next_jobs,
-			job_ctx,
+			ctx,
 			report: self.report,
 			commands_tx,
 		}
 	}
 }
 
-async fn to_spawn_job<Ctx: JobContext>(
+async fn to_spawn_job<Ctx: OuterContext>(
 	id: JobId,
 	mut job: impl Job,
-	job_ctx: Ctx,
+	ctx: Ctx,
 	existing_tasks: Option<SerializedTasks>,
 	base_dispatcher: BaseTaskDispatcher<Error>,
 	commands_rx: chan::Receiver<Command>,
@@ -652,10 +646,7 @@ async fn to_spawn_job<Ctx: JobContext>(
 		JobTaskDispatcher::new(base_dispatcher, running_state_rx);
 
 	if let Some(existing_tasks) = existing_tasks {
-		if let Err(e) = job
-			.resume_tasks(&dispatcher, &job_ctx, existing_tasks)
-			.await
-		{
+		if let Err(e) = job.resume_tasks(&dispatcher, &ctx, existing_tasks).await {
 			done_tx
 				.send((id, Err(e)))
 				.await
@@ -668,7 +659,7 @@ async fn to_spawn_job<Ctx: JobContext>(
 	let mut msgs_stream = pin!((
 		commands_rx.map(StreamMessage::Commands),
 		remote_controllers_rx.map(StreamMessage::NewRemoteController),
-		stream::once(job.run(dispatcher, job_ctx)).map(StreamMessage::Done),
+		stream::once(job.run(dispatcher, ctx)).map(StreamMessage::Done),
 	)
 		.merge());
 
