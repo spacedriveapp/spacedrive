@@ -40,13 +40,12 @@ function loadTopBarRoutes() {
 			pageRoutes,
 			{ path: 'settings', lazy: () => import('./settings/Layout'), children: settingsRoutes },
 			{ path: 'debug', children: debugRoutes }
-			// {path: }
 		];
 	} else return [...explorerRoutes, pageRoutes];
 }
 
 // Routes that should render with the top bar - pretty much everything except
-// 404 and settings, which is rendered only for Windows
+// 404 and settings, which are rendered only for Windows with top bar
 const topBarRoutes: RouteObject = {
 	lazy: () => import('./TopBar/Layout'),
 	children: loadTopBarRoutes()
