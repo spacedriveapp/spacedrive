@@ -69,7 +69,7 @@ export type Platform = {
 	landingApiOrigin: string;
 };
 
-export type Update = { version: string; body: string | null };
+export type Update = { version: string };
 export type UpdateStore =
 	| { status: 'idle' }
 	| { status: 'loading' }
