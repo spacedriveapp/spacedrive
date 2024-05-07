@@ -1,5 +1,5 @@
 import { Cards, Minus, X } from '@phosphor-icons/react';
-import { appWindow } from '@tauri-apps/api/window';
+import { Window } from '@tauri-apps/api/window';
 import clsx from 'clsx';
 import { useLayoutEffect, useState } from 'react';
 import { ModifierKeys, Popover, Tooltip, usePopover } from '@sd/ui';
@@ -27,6 +27,8 @@ interface TopBarChildrenProps {
 }
 
 export const TOP_BAR_ICON_STYLE = 'm-0.5 w-[18px] h-[18px] text-ink-dull';
+
+const appWindow = new Window('main');
 
 export const windowsControls: ToolOption[] = [
 	{
