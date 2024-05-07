@@ -214,7 +214,7 @@ pub(crate) fn mount() -> Arc<Router> {
 					type_map,
 				);
 			type_map.insert(
-				<sd_prisma::prisma::object::Data as specta::NamedType>::SID,
+				<sd_prisma::prisma::object::Data as specta::NamedType>::sid(),
 				def,
 			);
 		});

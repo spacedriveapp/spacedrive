@@ -19,6 +19,18 @@ export const useKeybindEventHandler = (libraryId?: string) => {
 			e.preventDefault();
 
 			switch (e.detail.action) {
+				case 'new_library':
+					console.log('New Library!'); // TODO: Implement
+					break;
+				case 'new_file':
+					console.log('New File!'); // TODO: Implement
+					break;
+				case 'new_directory':
+					console.log('New Directory!'); // TODO: Implement
+					break;
+				case 'add_location':
+					console.log('Add Location!'); // TODO: Implement
+					break;
 				case 'open_settings':
 					libraryId && navigate(`/${libraryId}/settings/client/general`);
 					break;
@@ -29,7 +41,7 @@ export const useKeybindEventHandler = (libraryId?: string) => {
 				// 	libraryId && navigate(`/${libraryId}/overview`);
 				// 	break;
 				case 'open_search':
-					// somehow emit ctrl/cmd+f
+					document.dispatchEvent(new CustomEvent('open_search'));
 					break;
 				case 'window_fullscreened':
 					windowState.isFullScreen = true;
