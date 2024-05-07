@@ -1,8 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
-import { DotsThreeOutline } from 'phosphor-react-native';
+import { useLibraryQuery } from '@sd/client';
+import { DotsThree } from 'phosphor-react-native';
 import React from 'react';
 import { Text, View } from 'react-native';
-import { useLibraryQuery } from '@sd/client';
 import { tw } from '~/lib/tailwind';
 import { OverviewStackScreenProps } from '~/navigation/tabs/OverviewStack';
 
@@ -24,7 +24,7 @@ export default function CategoriesScreen() {
 					style={tw`h-9 w-9 rounded-full`}
 					variant="gray"
 				>
-					<DotsThreeOutline weight="fill" size={16} color={'white'} />
+					<DotsThree weight='bold' size={20} color={'white'} />
 				</Button>
 			</View>
 			<View style={tw`flex-row flex-wrap gap-2`}>

@@ -100,7 +100,8 @@ const TagColumn = ({ tags, dataAmount }: TagColumnProps) => {
 					onPress={() =>
 						navigation.navigate('BrowseStack', {
 							screen: 'Tag',
-							params: { id: tag.id, color: tag.color }
+							params: { id: tag.id, color: tag.color },
+							initial: false
 						})
 					}
 					tagColor={tag.color as ColorValue}

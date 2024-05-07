@@ -3,11 +3,10 @@ import {
 	ArchiveBox,
 	Briefcase,
 	Clock,
-	DotsThreeOutline,
+	DotsThree,
 	Heart,
 	Images,
 	MapPin,
-	Tag,
 	UserFocus
 } from 'phosphor-react-native';
 import { Text, View } from 'react-native';
@@ -42,7 +41,7 @@ const BrowseCategories = () => {
 					style={tw`h-9 w-9 rounded-full`}
 					variant="gray"
 				>
-					<DotsThreeOutline weight="fill" size={16} color={'white'} />
+					<DotsThree weight="bold" size={20} color={'white'} />
 				</Button>
 			</View>
 			<View style={tw`flex-row flex-wrap gap-2`}>
