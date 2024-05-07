@@ -35,7 +35,7 @@ pub struct ExtractFileMetadataTask {
 	identified_files: HashMap<Uuid, IdentifiedFile>,
 	extract_metadata_time: Duration,
 	errors: Vec<NonCriticalError>,
-	is_shallow: bool,
+	with_priority: bool,
 }
 
 #[derive(Debug)]
@@ -46,11 +46,12 @@ pub struct Output {
 }
 
 impl ExtractFileMetadataTask {
-	fn new(
+	#[must_use]
+	pub fn new(
 		location: Arc<location::Data>,
 		location_path: Arc<PathBuf>,
 		file_paths: Vec<file_path_for_file_identifier::Data>,
-		is_shallow: bool,
+		with_priority: bool,
 	) -> Self {
 		Self {
 			id: TaskId::new_v4(),
@@ -69,26 +70,8 @@ impl ExtractFileMetadataTask {
 				.collect(),
 			extract_metadata_time: Duration::ZERO,
 			errors: Vec::new(),
-			is_shallow,
+			with_priority,
 		}
-	}
-
-	#[must_use]
-	pub fn new_deep(
-		location: Arc<location::Data>,
-		location_path: Arc<PathBuf>,
-		file_paths: Vec<file_path_for_file_identifier::Data>,
-	) -> Self {
-		Self::new(location, location_path, file_paths, false)
-	}
-
-	#[must_use]
-	pub fn new_shallow(
-		location: Arc<location::Data>,
-		location_path: Arc<PathBuf>,
-		file_paths: Vec<file_path_for_file_identifier::Data>,
-	) -> Self {
-		Self::new(location, location_path, file_paths, true)
 	}
 }
 
@@ -99,7 +82,7 @@ impl Task<Error> for ExtractFileMetadataTask {
 	}
 
 	fn with_priority(&self) -> bool {
-		self.is_shallow
+		self.with_priority
 	}
 
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {

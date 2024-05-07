@@ -3,11 +3,12 @@ use crate::utils::sub_path;
 use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
+use sd_prisma::prisma::{file_path, location};
 use sd_utils::{db::MissingFieldError, error::FileIOError};
 
 use std::{fs::Metadata, path::Path};
 
-use prisma_client_rust::QueryError;
+use prisma_client_rust::{or, QueryError};
 use rspc::ErrorCode;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -117,4 +118,57 @@ impl FileMetadata {
 			fs_metadata,
 		})
 	}
+}
+
+fn orphan_path_filters_shallow(
+	location_id: location::id::Type,
+	file_path_id: Option<file_path::id::Type>,
+	sub_iso_file_path: &IsolatedFilePathData<'_>,
+) -> Vec<file_path::WhereParam> {
+	sd_utils::chain_optional_iter(
+		[
+			or!(
+				file_path::object_id::equals(None),
+				file_path::cas_id::equals(None)
+			),
+			file_path::is_dir::equals(Some(false)),
+			file_path::location_id::equals(Some(location_id)),
+			file_path::materialized_path::equals(Some(
+				sub_iso_file_path
+					.materialized_path_for_children()
+					.expect("sub path for shallow identifier must be a directory"),
+			)),
+			file_path::size_in_bytes_bytes::not(Some(0u64.to_be_bytes().to_vec())),
+		],
+		[file_path_id.map(file_path::id::gte)],
+	)
+}
+
+fn orphan_path_filters_deep(
+	location_id: location::id::Type,
+	file_path_id: Option<file_path::id::Type>,
+	maybe_sub_iso_file_path: &Option<IsolatedFilePathData<'_>>,
+) -> Vec<file_path::WhereParam> {
+	sd_utils::chain_optional_iter(
+		[
+			or!(
+				file_path::object_id::equals(None),
+				file_path::cas_id::equals(None)
+			),
+			file_path::is_dir::equals(Some(false)),
+			file_path::location_id::equals(Some(location_id)),
+			file_path::size_in_bytes_bytes::not(Some(0u64.to_be_bytes().to_vec())),
+		],
+		[
+			// this is a workaround for the cursor not working properly
+			file_path_id.map(file_path::id::gte),
+			maybe_sub_iso_file_path.as_ref().map(|sub_iso_file_path| {
+				file_path::materialized_path::starts_with(
+					sub_iso_file_path
+						.materialized_path_for_children()
+						.expect("sub path iso_file_path must be a directory"),
+				)
+			}),
+		],
+	)
 }

@@ -21,7 +21,7 @@ use sd_task_system::{
 use sd_utils::db::maybe_missing;
 
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	hash::{Hash, Hasher},
 	mem,
 	path::PathBuf,
@@ -31,13 +31,13 @@ use std::{
 
 use futures::{stream::FuturesUnordered, StreamExt};
 use futures_concurrency::future::TryJoin;
-use prisma_client_rust::or;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::time::Instant;
 use tracing::warn;
 
 use super::{
+	orphan_path_filters_deep, orphan_path_filters_shallow,
 	tasks::{
 		extract_file_metadata, object_processor, ExtractFileMetadataTask, ObjectProcessorTask,
 	},
@@ -51,6 +51,8 @@ pub struct FileIdentifier {
 	sub_path: Option<PathBuf>,
 
 	metadata: Metadata,
+
+	priority_tasks_ids: HashSet<TaskId>,
 
 	errors: Vec<NonCriticalError>,
 
@@ -206,6 +208,7 @@ impl FileIdentifier {
 			location: Arc::new(location),
 			sub_path,
 			metadata: Metadata::default(),
+			priority_tasks_ids: HashSet::new(),
 			errors: Vec::new(),
 			pending_tasks_on_resume: Vec::new(),
 			tasks_for_shutdown: Vec::new(),
@@ -229,53 +232,43 @@ impl FileIdentifier {
 			)
 			.await?;
 
-			let mut orphans_count = 0;
 			let mut last_orphan_file_path_id = None;
 
 			let start = Instant::now();
 
-			loop {
-				#[allow(clippy::cast_possible_wrap)]
-				// SAFETY: we know that CHUNK_SIZE is a valid i64
-				let orphan_paths = db
-					.file_path()
-					.find_many(orphan_path_filters(
-						self.location.id,
-						last_orphan_file_path_id,
-						&maybe_sub_iso_file_path,
-					))
-					.order_by(file_path::id::order(SortOrder::Asc))
-					.take(CHUNK_SIZE as i64)
-					.select(file_path_for_file_identifier::select())
-					.exec()
-					.await?;
+			let location_root_iso_file_path = IsolatedFilePathData::new(
+				self.location.id,
+				&*self.location_path,
+				&*self.location_path,
+				true,
+			)
+			.map_err(file_identifier::Error::from)?;
 
-				if orphan_paths.is_empty() {
-					break;
-				}
+			// First we dispatch some shallow priority tasks to quickly identify orphans in the location
+			// root directory or in the desired sub-path
+			let file_paths_already_identifying = self
+				.dispatch_priority_identifier_tasks(
+					&mut last_orphan_file_path_id,
+					maybe_sub_iso_file_path
+						.as_ref()
+						.unwrap_or(&location_root_iso_file_path),
+					ctx,
+					dispatcher,
+					pending_running_tasks,
+				)
+				.await?;
 
-				orphans_count += orphan_paths.len() as u64;
-				last_orphan_file_path_id =
-					Some(orphan_paths.last().expect("orphan_paths is not empty").id);
-
-				ctx.progress(vec![
-					ProgressUpdate::TaskCount(orphans_count),
-					ProgressUpdate::Message(format!("{orphans_count} files to be identified")),
-				]);
-
-				pending_running_tasks.push(
-					dispatcher
-						.dispatch(ExtractFileMetadataTask::new_deep(
-							Arc::clone(&self.location),
-							Arc::clone(&self.location_path),
-							orphan_paths,
-						))
-						.await,
-				);
-			}
+			self.dispatch_deep_identifier_tasks(
+				&mut last_orphan_file_path_id,
+				&maybe_sub_iso_file_path,
+				ctx,
+				dispatcher,
+				pending_running_tasks,
+				&file_paths_already_identifying,
+			)
+			.await?;
 
 			self.metadata.seeking_orphans_time = start.elapsed();
-			self.metadata.total_found_orphans = orphans_count;
 		} else {
 			pending_running_tasks.extend(mem::take(&mut self.pending_tasks_on_resume));
 		}
@@ -298,6 +291,7 @@ impl FileIdentifier {
 		if any_task_output.is::<extract_file_metadata::Output>() {
 			return self
 				.process_extract_file_metadata_output(
+					task_id,
 					*any_task_output
 						.downcast::<extract_file_metadata::Output>()
 						.expect("just checked"),
@@ -307,6 +301,7 @@ impl FileIdentifier {
 				.await;
 		} else if any_task_output.is::<object_processor::Output>() {
 			self.process_object_processor_output(
+				task_id,
 				*any_task_output
 					.downcast::<object_processor::Output>()
 					.expect("just checked"),
@@ -321,6 +316,7 @@ impl FileIdentifier {
 
 	async fn process_extract_file_metadata_output(
 		&mut self,
+		task_id: TaskId,
 		extract_file_metadata::Output {
 			identified_files,
 			extract_metadata_time,
@@ -343,20 +339,28 @@ impl FileIdentifier {
 		} else {
 			ctx.progress_msg(format!("Identified {} files", identified_files.len()));
 
-			Some(
-				dispatcher
-					.dispatch(ObjectProcessorTask::new_deep(
-						identified_files,
-						Arc::clone(ctx.db()),
-						Arc::clone(ctx.sync()),
-					))
-					.await,
-			)
+			let with_priority = self.priority_tasks_ids.remove(&task_id);
+
+			let task = dispatcher
+				.dispatch(ObjectProcessorTask::new(
+					identified_files,
+					Arc::clone(ctx.db()),
+					Arc::clone(ctx.sync()),
+					with_priority,
+				))
+				.await;
+
+			if with_priority {
+				self.priority_tasks_ids.insert(task.task_id());
+			}
+
+			Some(task)
 		}
 	}
 
 	fn process_object_processor_output(
 		&mut self,
+		task_id: TaskId,
 		object_processor::Output {
 			file_path_ids_with_new_object,
 			assign_cas_ids_time,
@@ -386,9 +390,142 @@ impl FileIdentifier {
 			)),
 		]);
 
-		ctx.report_update(UpdateEvent::NewIdentifiedObjects {
-			file_path_ids: file_path_ids_with_new_object,
-		});
+		if self.priority_tasks_ids.remove(&task_id) {
+			ctx.report_update(UpdateEvent::NewIdentifiedObjects {
+				file_path_ids: file_path_ids_with_new_object,
+			});
+		}
+	}
+
+	async fn dispatch_priority_identifier_tasks(
+		&mut self,
+		last_orphan_file_path_id: &mut Option<i32>,
+		sub_iso_file_path: &IsolatedFilePathData<'static>,
+		ctx: &impl OuterContext,
+		dispatcher: &JobTaskDispatcher,
+		pending_running_tasks: &FuturesUnordered<TaskHandle<Error>>,
+	) -> Result<HashSet<file_path::id::Type>, file_identifier::Error> {
+		let db = ctx.db();
+
+		let mut file_paths_already_identifying = HashSet::new();
+
+		loop {
+			#[allow(clippy::cast_possible_wrap)]
+			// SAFETY: we know that CHUNK_SIZE is a valid i64
+			let orphan_paths = db
+				.file_path()
+				.find_many(orphan_path_filters_shallow(
+					self.location.id,
+					*last_orphan_file_path_id,
+					sub_iso_file_path,
+				))
+				.order_by(file_path::id::order(SortOrder::Asc))
+				.take(CHUNK_SIZE as i64)
+				.select(file_path_for_file_identifier::select())
+				.exec()
+				.await?;
+
+			if orphan_paths.is_empty() {
+				break;
+			}
+
+			file_paths_already_identifying.extend(orphan_paths.iter().map(|path| path.id));
+
+			self.metadata.total_found_orphans += orphan_paths.len() as u64;
+			*last_orphan_file_path_id =
+				Some(orphan_paths.last().expect("orphan_paths is not empty").id);
+
+			ctx.progress(vec![
+				ProgressUpdate::TaskCount(self.metadata.total_found_orphans),
+				ProgressUpdate::Message(format!(
+					"{} files to be identified",
+					self.metadata.total_found_orphans
+				)),
+			]);
+
+			let priority_task = dispatcher
+				.dispatch(ExtractFileMetadataTask::new(
+					Arc::clone(&self.location),
+					Arc::clone(&self.location_path),
+					orphan_paths,
+					true,
+				))
+				.await;
+
+			self.priority_tasks_ids.insert(priority_task.task_id());
+
+			pending_running_tasks.push(priority_task);
+		}
+
+		Ok(file_paths_already_identifying)
+	}
+
+	async fn dispatch_deep_identifier_tasks(
+		&mut self,
+		last_orphan_file_path_id: &mut Option<file_path::id::Type>,
+		maybe_sub_iso_file_path: &Option<IsolatedFilePathData<'static>>,
+		ctx: &impl OuterContext,
+		dispatcher: &JobTaskDispatcher,
+		pending_running_tasks: &FuturesUnordered<TaskHandle<Error>>,
+		file_paths_already_identifying: &HashSet<file_path::id::Type>,
+	) -> Result<(), file_identifier::Error> {
+		let db = ctx.db();
+
+		loop {
+			#[allow(clippy::cast_possible_wrap)]
+			// SAFETY: we know that CHUNK_SIZE is a valid i64
+			let mut orphan_paths = db
+				.file_path()
+				.find_many(orphan_path_filters_deep(
+					self.location.id,
+					*last_orphan_file_path_id,
+					maybe_sub_iso_file_path,
+				))
+				.order_by(file_path::id::order(SortOrder::Asc))
+				.take(CHUNK_SIZE as i64)
+				.select(file_path_for_file_identifier::select())
+				.exec()
+				.await?;
+
+			// No other orphans to identify, we can break the loop
+			if orphan_paths.is_empty() {
+				break;
+			}
+
+			// We grab the last id to use as a starting point for the next iteration, in case we skip this one
+			*last_orphan_file_path_id =
+				Some(orphan_paths.last().expect("orphan_paths is not empty").id);
+
+			orphan_paths.retain(|path| !file_paths_already_identifying.contains(&path.id));
+
+			// If we don't have any new orphan paths after filtering out, we can skip this iteration
+			if orphan_paths.is_empty() {
+				continue;
+			}
+
+			self.metadata.total_found_orphans += orphan_paths.len() as u64;
+
+			ctx.progress(vec![
+				ProgressUpdate::TaskCount(self.metadata.total_found_orphans),
+				ProgressUpdate::Message(format!(
+					"{} files to be identified",
+					self.metadata.total_found_orphans
+				)),
+			]);
+
+			pending_running_tasks.push(
+				dispatcher
+					.dispatch(ExtractFileMetadataTask::new(
+						Arc::clone(&self.location),
+						Arc::clone(&self.location_path),
+						orphan_paths,
+						false,
+					))
+					.await,
+			);
+		}
+
+		Ok(())
 	}
 }
 
@@ -405,6 +542,8 @@ struct SaveState {
 	sub_path: Option<PathBuf>,
 
 	metadata: Metadata,
+
+	priority_tasks_ids: HashSet<TaskId>,
 
 	errors: Vec<NonCriticalError>,
 
@@ -473,6 +612,7 @@ impl<Ctx: OuterContext> SerializableJob<Ctx> for FileIdentifier {
 			location_path,
 			sub_path,
 			metadata,
+			priority_tasks_ids,
 			errors,
 			tasks_for_shutdown,
 			..
@@ -483,6 +623,7 @@ impl<Ctx: OuterContext> SerializableJob<Ctx> for FileIdentifier {
 			location_path,
 			sub_path,
 			metadata,
+			priority_tasks_ids,
 			tasks_for_shutdown_bytes: Some(SerializedTasks(rmp_serde::to_vec_named(
 				&tasks_for_shutdown
 					.into_iter()
@@ -523,7 +664,7 @@ impl<Ctx: OuterContext> SerializableJob<Ctx> for FileIdentifier {
 			location_path,
 			sub_path,
 			metadata,
-
+			priority_tasks_ids,
 			errors,
 			tasks_for_shutdown_bytes,
 		} = rmp_serde::from_slice::<SaveState>(serialized_job)?;
@@ -534,6 +675,7 @@ impl<Ctx: OuterContext> SerializableJob<Ctx> for FileIdentifier {
 				location_path,
 				sub_path,
 				metadata,
+				priority_tasks_ids,
 				errors,
 				pending_tasks_on_resume: Vec::new(),
 				tasks_for_shutdown: Vec::new(),
@@ -541,33 +683,4 @@ impl<Ctx: OuterContext> SerializableJob<Ctx> for FileIdentifier {
 			tasks_for_shutdown_bytes,
 		)))
 	}
-}
-
-fn orphan_path_filters(
-	location_id: location::id::Type,
-	file_path_id: Option<file_path::id::Type>,
-	maybe_sub_iso_file_path: &Option<IsolatedFilePathData<'_>>,
-) -> Vec<file_path::WhereParam> {
-	sd_utils::chain_optional_iter(
-		[
-			or!(
-				file_path::object_id::equals(None),
-				file_path::cas_id::equals(None)
-			),
-			file_path::is_dir::equals(Some(false)),
-			file_path::location_id::equals(Some(location_id)),
-			file_path::size_in_bytes_bytes::not(Some(0u64.to_be_bytes().to_vec())),
-		],
-		[
-			// this is a workaround for the cursor not working properly
-			file_path_id.map(file_path::id::gte),
-			maybe_sub_iso_file_path.as_ref().map(|sub_iso_file_path| {
-				file_path::materialized_path::starts_with(
-					sub_iso_file_path
-						.materialized_path_for_children()
-						.expect("sub path iso_file_path must be a directory"),
-				)
-			}),
-		],
-	)
 }

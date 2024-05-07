@@ -38,7 +38,7 @@ pub struct ObjectProcessorTask {
 	identified_files: HashMap<Uuid, IdentifiedFile>,
 	output: Output,
 	stage: Stage,
-	is_shallow: bool,
+	with_priority: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -47,7 +47,7 @@ pub struct SaveState {
 	identified_files: HashMap<Uuid, IdentifiedFile>,
 	output: Output,
 	stage: Stage,
-	is_shallow: bool,
+	with_priority: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -72,11 +72,12 @@ enum Stage {
 }
 
 impl ObjectProcessorTask {
-	fn new(
+	#[must_use]
+	pub fn new(
 		identified_files: HashMap<Uuid, IdentifiedFile>,
 		db: Arc<PrismaClient>,
 		sync: Arc<SyncManager>,
-		is_shallow: bool,
+		with_priority: bool,
 	) -> Self {
 		Self {
 			id: TaskId::new_v4(),
@@ -85,24 +86,8 @@ impl ObjectProcessorTask {
 			identified_files,
 			stage: Stage::Starting,
 			output: Output::default(),
-			is_shallow,
+			with_priority,
 		}
-	}
-
-	pub fn new_deep(
-		identified_files: HashMap<Uuid, IdentifiedFile>,
-		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
-	) -> Self {
-		Self::new(identified_files, db, sync, false)
-	}
-
-	pub fn new_shallow(
-		identified_files: HashMap<Uuid, IdentifiedFile>,
-		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
-	) -> Self {
-		Self::new(identified_files, db, sync, true)
 	}
 }
 
@@ -113,7 +98,7 @@ impl Task<Error> for ObjectProcessorTask {
 	}
 
 	fn with_priority(&self) -> bool {
-		self.is_shallow
+		self.with_priority
 	}
 
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {
@@ -442,7 +427,7 @@ impl SerializableTask<Error> for ObjectProcessorTask {
 			identified_files,
 			output,
 			stage,
-			is_shallow,
+			with_priority,
 			..
 		} = self;
 
@@ -451,7 +436,7 @@ impl SerializableTask<Error> for ObjectProcessorTask {
 			identified_files,
 			output,
 			stage,
-			is_shallow,
+			with_priority,
 		})
 	}
 
@@ -465,7 +450,7 @@ impl SerializableTask<Error> for ObjectProcessorTask {
 			     identified_files,
 			     output,
 			     stage,
-			     is_shallow,
+			     with_priority,
 			 }| Self {
 				id,
 				db,
@@ -473,7 +458,7 @@ impl SerializableTask<Error> for ObjectProcessorTask {
 				identified_files,
 				output,
 				stage,
-				is_shallow,
+				with_priority,
 			},
 		)
 	}

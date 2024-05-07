@@ -19,10 +19,10 @@ use std::{
 
 use futures_concurrency::future::FutureGroup;
 use lending_stream::{LendingStream, StreamExt};
-use prisma_client_rust::or;
 use tracing::{debug, warn};
 
 use super::{
+	orphan_path_filters_shallow,
 	tasks::{
 		extract_file_metadata, object_processor, ExtractFileMetadataTask, ObjectProcessorTask,
 	},
@@ -67,7 +67,7 @@ pub async fn shallow(
 		// SAFETY: we know that CHUNK_SIZE is a valid i64
 		let orphan_paths = db
 			.file_path()
-			.find_many(orphan_path_filters(
+			.find_many(orphan_path_filters_shallow(
 				location.id,
 				last_orphan_file_path_id,
 				&sub_iso_file_path,
@@ -89,10 +89,11 @@ pub async fn shallow(
 
 		pending_running_tasks.insert(CancelTaskOnDrop(
 			dispatcher
-				.dispatch(ExtractFileMetadataTask::new_shallow(
+				.dispatch(ExtractFileMetadataTask::new(
 					Arc::clone(&location),
 					Arc::clone(&location_path),
 					orphan_paths,
+					true,
 				))
 				.await,
 		));
@@ -142,10 +143,11 @@ async fn process_tasks(
 					if !identified_files.is_empty() {
 						pending_running_tasks.insert(CancelTaskOnDrop(
 							dispatcher
-								.dispatch(ObjectProcessorTask::new_shallow(
+								.dispatch(ObjectProcessorTask::new(
 									identified_files,
 									Arc::clone(db),
 									Arc::clone(sync),
+									true,
 								))
 								.await,
 						));
@@ -189,28 +191,4 @@ async fn process_tasks(
 	}
 
 	Ok(errors)
-}
-
-fn orphan_path_filters(
-	location_id: location::id::Type,
-	file_path_id: Option<file_path::id::Type>,
-	sub_iso_file_path: &IsolatedFilePathData<'_>,
-) -> Vec<file_path::WhereParam> {
-	sd_utils::chain_optional_iter(
-		[
-			or!(
-				file_path::object_id::equals(None),
-				file_path::cas_id::equals(None)
-			),
-			file_path::is_dir::equals(Some(false)),
-			file_path::location_id::equals(Some(location_id)),
-			file_path::materialized_path::equals(Some(
-				sub_iso_file_path
-					.materialized_path_for_children()
-					.expect("sub path for shallow identifier must be a directory"),
-			)),
-			file_path::size_in_bytes_bytes::not(Some(0u64.to_be_bytes().to_vec())),
-		],
-		[file_path_id.map(file_path::id::gte)],
-	)
 }
