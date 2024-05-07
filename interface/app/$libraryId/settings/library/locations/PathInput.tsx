@@ -5,6 +5,7 @@ import { InputField, InputFieldProps, toast } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
 
 import { openDirectoryPickerDialog } from './openDirectoryPickerDialog';
+import { useLocale } from '~/hooks';
 
 export const LocationPathInputField = forwardRef<
 	HTMLInputElement,
@@ -12,6 +13,7 @@ export const LocationPathInputField = forwardRef<
 >((props, ref) => {
 	const platform = usePlatform();
 	const form = useFormContext();
+	const {t} = useLocale()
 
 	return (
 		<InputField
@@ -26,8 +28,8 @@ export const LocationPathInputField = forwardRef<
 								shouldDirty: true
 							})
 					)
-					.catch((error) => toast.error(String(error)))
-			}
+					.catch((error) => toast.error(t('error_message', { error: String(error) }))
+	)}
 			readOnly={platform.platform !== 'web'}
 			className={clsx('mb-3', platform.platform === 'web' || 'cursor-pointer')}
 		/>

@@ -131,7 +131,7 @@ export const useExplorerTopBarOptions = () => {
 		// 	),
 		// 	// TODO: Assign tag mode is not yet implemented!
 		// 	// onClick: () => (explorerStore.tagAssignMode = !explorerStore.tagAssignMode),
-		// 	onClick: () => toast.info('Coming soon!'),
+		// 	onClick: () => toast.info(t('coming_soon)),
 		// 	topBarActive: tagAssignMode,
 		// 	individual: true,
 		// 	showAtResolution: 'xl:flex'

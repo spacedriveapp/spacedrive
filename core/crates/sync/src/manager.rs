@@ -1,4 +1,6 @@
-use crate::{crdt_op_db, db_operation::*, ingest, SharedState, SyncMessage, NTP64};
+use crate::{
+	actor::ActorTypes, crdt_op_db, db_operation::*, ingest, SharedState, SyncMessage, NTP64,
+};
 
 use sd_prisma::prisma::{cloud_crdt_operation, crdt_operation, instance, PrismaClient, SortOrder};
 use sd_sync::{CRDTOperation, OperationFactory};
@@ -46,11 +48,12 @@ pub struct New {
 
 impl Manager {
 	#[allow(clippy::new_ret_no_self)]
-	pub fn new(
+	pub async fn new(
 		db: &Arc<PrismaClient>,
 		instance: Uuid,
 		emit_messages_flag: &Arc<AtomicBool>,
 		timestamps: HashMap<Uuid, NTP64>,
+		actors: &Arc<sd_actors::Actors>,
 	) -> New {
 		let (tx, rx) = broadcast::channel(64);
 
@@ -64,9 +67,10 @@ impl Manager {
 			emit_messages_flag: emit_messages_flag.clone(),
 			active: Default::default(),
 			active_notify: Default::default(),
+			actors: actors.clone(),
 		});
 
-		let ingest = ingest::Actor::spawn(shared.clone());
+		let ingest = ingest::Actor::declare(shared.clone()).await;
 
 		New {
 			manager: Self {

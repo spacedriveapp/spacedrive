@@ -200,7 +200,10 @@ export const AddLocationDialog = ({
 				throw error;
 			}
 
-			toast.error({ title: 'Failed to add location', body: `Error: ${error}.` });
+			toast.error({
+				title: t('failed_to_add_location'),
+				body: t('error_message', { error })
+			});
 
 			return;
 		}

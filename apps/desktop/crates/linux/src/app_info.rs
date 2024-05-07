@@ -37,31 +37,6 @@ thread_local! {
 		// 		)).unwrap_or_default();
 
 		let ctx = AppLaunchContext::default();
-
-		if let Some(appdir) = std::env::var_os("APPDIR").map(PathBuf::from) {
-			// Remove AppImage paths from environment variables to avoid external applications attempting to use the AppImage's libraries
-			// https://github.com/AppImage/AppImageKit/blob/701b711f42250584b65a88f6427006b1d160164d/src/AppRun.c#L168-L194
-			ctx.unsetenv("PYTHONHOME");
-			ctx.unsetenv("GTK_DATA_PREFIX");
-			ctx.unsetenv("GTK_THEME");
-			ctx.unsetenv("GDK_BACKEND");
-			ctx.unsetenv("GTK_EXE_PREFIX");
-			ctx.unsetenv("GTK_IM_MODULE_FILE");
-			ctx.unsetenv("GDK_PIXBUF_MODULE_FILE");
-
-			remove_prefix_from_env_in_ctx(&ctx, "PATH", &appdir);
-			remove_prefix_from_env_in_ctx(&ctx, "LD_LIBRARY_PATH", &appdir);
-			remove_prefix_from_env_in_ctx(&ctx, "PYTHONPATH", &appdir);
-			remove_prefix_from_env_in_ctx(&ctx, "XDG_DATA_DIRS", &appdir);
-			remove_prefix_from_env_in_ctx(&ctx, "PERLLIB", &appdir);
-			remove_prefix_from_env_in_ctx(&ctx, "GSETTINGS_SCHEMA_DIR", &appdir);
-			remove_prefix_from_env_in_ctx(&ctx, "QT_PLUGIN_PATH", &appdir);
-			remove_prefix_from_env_in_ctx(&ctx, "GST_PLUGIN_SYSTEM_PATH", &appdir);
-			remove_prefix_from_env_in_ctx(&ctx, "GST_PLUGIN_SYSTEM_PATH_1_0", &appdir);
-			remove_prefix_from_env_in_ctx(&ctx, "GTK_PATH", &appdir);
-			remove_prefix_from_env_in_ctx(&ctx, "GIO_EXTRA_MODULES", &appdir);
-		}
-
 		ctx
 	}
 }

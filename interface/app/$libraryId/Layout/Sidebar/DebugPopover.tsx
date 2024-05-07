@@ -86,10 +86,7 @@ export default () => {
 						onClick={() => {
 							// if debug telemetry sharing is about to be disabled, but telemetry logging is enabled
 							// then disable it
-							if (
-								!debugState.shareFullTelemetry === false &&
-								debugState.telemetryLogging
-							)
+							if (!debugState.shareFullTelemetry === false && debugState.telemetryLogging)
 								debugState.telemetryLogging = false;
 							debugState.shareFullTelemetry = !debugState.shareFullTelemetry;
 						}}
@@ -105,10 +102,7 @@ export default () => {
 						onClick={() => {
 							// if telemetry logging is about to be enabled, but debug telemetry sharing is disabled
 							// then enable it
-							if (
-								!debugState.telemetryLogging &&
-								debugState.shareFullTelemetry === false
-							)
+							if (!debugState.telemetryLogging && debugState.shareFullTelemetry === false)
 								debugState.shareFullTelemetry = true;
 							debugState.telemetryLogging = !debugState.telemetryLogging;
 						}}
@@ -125,8 +119,7 @@ export default () => {
 								size="sm"
 								variant="gray"
 								onClick={() => {
-									if (nodeState?.data?.data_path)
-										platform.openPath!(nodeState?.data?.data_path);
+									if (nodeState?.data?.data_path) platform.openPath!(nodeState?.data?.data_path);
 								}}
 							>
 								Open
@@ -229,7 +222,7 @@ function FeatureFlagSelector() {
 						<span className="truncate">Feature Flags</span>
 					</Dropdown.Button>
 				}
-				className="mt-1 shadow-none data-[side=bottom]:slide-in-from-top-2 dark:divide-menu-selected/30 dark:border-sidebar-line dark:bg-sidebar-box"
+				className="z-[999] mt-1 shadow-none data-[side=bottom]:slide-in-from-top-2 dark:divide-menu-selected/30 dark:border-sidebar-line dark:bg-sidebar-box"
 				alignToTrigger
 			>
 				{[...features, ...backendFeatures].map((feat) => (
@@ -239,11 +232,7 @@ function FeatureFlagSelector() {
 						iconProps={{ weight: 'bold', size: 16 }}
 						onClick={() => toggleFeatureFlag(feat)}
 						className="font-medium text-white"
-						icon={
-							featureFlags.find((f) => feat === f) !== undefined
-								? CheckSquare
-								: undefined
-						}
+						icon={featureFlags.find((f) => feat === f) !== undefined ? CheckSquare : undefined}
 					/>
 				))}
 			</DropdownMenu.Root>
@@ -281,9 +270,7 @@ function CloudOriginSelect() {
 					}
 					value={origin.data}
 				>
-					<SelectOption value="https://app.spacedrive.com">
-						https://app.spacedrive.com
-					</SelectOption>
+					<SelectOption value="https://app.spacedrive.com">https://app.spacedrive.com</SelectOption>
 					<SelectOption value="http://localhost:3000">http://localhost:3000</SelectOption>
 				</Select>
 			)}
@@ -295,10 +282,7 @@ function ExplorerBehaviorSelect() {
 	const { explorerOperatingSystem } = useExplorerOperatingSystem();
 
 	return (
-		<Select
-			value={explorerOperatingSystem}
-			onChange={(v) => (explorerOperatingSystemStore.os = v)}
-		>
+		<Select value={explorerOperatingSystem} onChange={(v) => (explorerOperatingSystemStore.os = v)}>
 			<SelectOption value="macOS">macOS</SelectOption>
 			<SelectOption value="windows">windows</SelectOption>
 		</Select>
