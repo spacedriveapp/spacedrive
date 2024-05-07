@@ -3,6 +3,10 @@ import { proxy, useSnapshot } from 'valtio';
 import { IconName } from '~/components/icons/Icon';
 
 export type SearchFilters = 'locations' | 'tags' | 'name' | 'extension' | 'hidden' | 'kind';
+export type SortOptionsType = {
+	by: 'none' | 'name' | 'sizeInBytes' | 'dateIndexed' | 'dateCreated' | 'dateModified' | 'dateAccessed' | 'dateTaken';
+	direction: 'Asc' | 'Desc';
+}
 
 export interface FilterItem {
 	id: number;
@@ -32,6 +36,7 @@ export interface Filters {
 interface State {
 	search: string;
 	filters: Filters;
+	sort: SortOptionsType;
 	appliedFilters: Partial<Filters>;
 	mergedFilters: SearchFilterArgs[],
 	disableActionButtons: boolean;
@@ -46,6 +51,10 @@ const initialState: State = {
 		extension: [''],
 		hidden: false,
 		kind: []
+	},
+	sort: {
+		by: 'none',
+		direction: 'Asc'
 	},
 	appliedFilters: {},
 	mergedFilters: [],

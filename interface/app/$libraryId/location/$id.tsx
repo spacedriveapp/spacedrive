@@ -1,17 +1,16 @@
 import { ArrowClockwise, Info } from '@phosphor-icons/react';
-import { useCallback, useEffect, useMemo } from 'react';
-import { stringify } from 'uuid';
 import {
 	arraysEqual,
 	FilePathOrder,
+	filePathOrderingKeysSchema,
 	Location,
-	useExplorerLayoutStore,
-	useLibraryMutation,
 	useLibraryQuery,
 	useLibrarySubscription,
 	useOnlineLocations
 } from '@sd/client';
 import { Loader, Tooltip } from '@sd/ui';
+import { useCallback, useEffect, useMemo } from 'react';
+import { stringify } from 'uuid';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder, Icon } from '~/components';
 import {
@@ -26,11 +25,7 @@ import { useQuickRescan } from '~/hooks/useQuickRescan';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import {
-	createDefaultExplorerSettings,
-	explorerStore,
-	filePathOrderingKeysSchema
-} from '../Explorer/store';
+import { createDefaultExplorerSettings, explorerStore } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { useExplorerPreferences } from '../Explorer/useExplorerPreferences';
