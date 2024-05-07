@@ -136,3 +136,8 @@ export function insertLibrary(queryClient: QueryClient, library: LibraryConfigWr
 		return [library, ...libraries];
 	});
 }
+
+// [int32, int32] => BigInt
+export function int32ArrayToBigInt([high, low]: [number, number]) {
+	return BigInt(high) << 32n | BigInt(low);
+}

@@ -237,16 +237,6 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 		enabled: objectData?.kind === ObjectKindEnum.Image && readyToFetch
 	});
 
-	const filesFFmpegMediaData = useLibraryQuery(
-		['files.ffmpegGetMediaData', filePathData?.id ?? -1],
-		{
-			enabled:
-				[ObjectKindEnum.Video, ObjectKindEnum.Audio].includes(
-					objectData?.kind ?? ObjectKindEnum.Unknown
-				) && readyToFetch
-		}
-	);
-
 	const ephemeralLocationMediaData = useBridgeQuery(
 		['ephemeralFiles.getMediaData', ephemeralPathData != null ? ephemeralPathData.path : ''],
 		{
@@ -254,21 +244,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 		}
 	);
 
-	const ephemeralFFmpegMediaData = useBridgeQuery(
-		['ephemeralFiles.ffmpegGetMediaData', ephemeralPathData != null ? ephemeralPathData.path : ''],
-		{
-			enabled:
-				[ObjectKindEnum.Video, ObjectKindEnum.Audio].includes(
-					ephemeralPathData?.kind ?? ObjectKindEnum.Unknown
-				) && readyToFetch
-		}
-	);
-
 	const mediaData = filesMediaData.data ?? ephemeralLocationMediaData.data ?? null;
-
-	const ffmpegMediaData = filesFFmpegMediaData.data ?? ephemeralFFmpegMediaData.data ?? null;
-
-	console.log('FFMPEG', ffmpegMediaData);
 
 	const fullPath = queriedFullPath.data ?? ephemeralPathData?.path;
 

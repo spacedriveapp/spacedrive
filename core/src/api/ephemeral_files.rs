@@ -9,9 +9,11 @@ use crate::{
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
-
-use sd_file_ext::extensions::ImageExtension;
-use sd_media_metadata::FFmpegMetadata;
+use sd_file_ext::{
+	extensions::{Extension, ImageExtension},
+	kind::ObjectKind,
+};
+use sd_media_metadata::{ExifMetadata, FFmpegMetadata};
 use sd_utils::error::FileIOError;
 
 use std::{ffi::OsStr, path::PathBuf, str::FromStr};
@@ -20,7 +22,7 @@ use async_recursion::async_recursion;
 use futures_concurrency::future::TryJoin;
 use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::{fs, io};
 use tokio_stream::{wrappers::ReadDirStream, StreamExt};
@@ -47,36 +49,64 @@ enum EphemeralFileCreateContextTypes {
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("getMediaData", {
+			#[derive(Serialize, Type)]
+			enum MediaData {
+				Exif(ExifMetadata),
+				FFmpeg(FFmpegMetadata),
+			}
+
 			R.query(|_, full_path: PathBuf| async move {
-				let Some(extension) = full_path.extension().and_then(|ext| ext.to_str()) else {
-					return Ok(None);
-				};
+				let kind: Option<ObjectKind> = Extension::resolve_conflicting(&full_path, false)
+					.await
+					.map(Into::into);
+				match kind {
+					Some(v) if v == ObjectKind::Image => {
+						let Some(extension) = full_path.extension().and_then(|ext| ext.to_str())
+						else {
+							return Ok(None);
+						};
 
-				// TODO(fogodev): change this when we have media data for audio and videos
-				let image_extension = ImageExtension::from_str(extension).map_err(|e| {
-					error!("Failed to parse image extension: {e:#?}");
-					rspc::Error::new(ErrorCode::BadRequest, "Invalid image extension".to_string())
-				})?;
+						let image_extension = ImageExtension::from_str(extension).map_err(|e| {
+							error!("Failed to parse image extension: {e:#?}");
+							rspc::Error::new(
+								ErrorCode::BadRequest,
+								"Invalid image extension".to_string(),
+							)
+						})?;
 
-				if !can_extract_exif_data_for_image(&image_extension) {
-					return Ok(None);
+						if !can_extract_exif_data_for_image(&image_extension) {
+							return Ok(None);
+						}
+
+						let exif_data = extract_exif_data(full_path)
+							.await
+							.map_err(|e| {
+								rspc::Error::with_cause(
+									ErrorCode::InternalServerError,
+									"Failed to extract media data".to_string(),
+									e,
+								)
+							})?
+							.map(|exif_data| MediaData::Exif(exif_data));
+
+						Ok(exif_data)
+					}
+					Some(v) if v == ObjectKind::Audio || v == ObjectKind::Video => {
+						let ffmpeg_data = MediaData::FFmpeg(
+							FFmpegMetadata::from_path(full_path).await.map_err(|e| {
+								error!("{e:#?}");
+								rspc::Error::with_cause(
+									ErrorCode::InternalServerError,
+									e.to_string(),
+									e,
+								)
+							})?,
+						);
+
+						Ok(Some(ffmpeg_data))
+					}
+					_ => Ok(None), // No media data
 				}
-
-				extract_exif_data(full_path).await.map_err(|e| {
-					rspc::Error::with_cause(
-						ErrorCode::InternalServerError,
-						"Failed to extract media data".to_string(),
-						e,
-					)
-				})
-			})
-		})
-		.procedure("ffmpegGetMediaData", {
-			R.query(|_, full_path: PathBuf| async move {
-				FFmpegMetadata::from_path(full_path).await.map_err(|e| {
-					error!("{e:#?}");
-					rspc::Error::with_cause(ErrorCode::InternalServerError, e.to_string(), e)
-				})
 			})
 		})
 		.procedure("createFolder", {
