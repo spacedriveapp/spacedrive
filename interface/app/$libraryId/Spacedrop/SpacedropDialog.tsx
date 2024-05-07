@@ -1,18 +1,11 @@
 import { Cloud, Devices } from '@phosphor-icons/react/dist/ssr';
 import * as RDialog from '@radix-ui/react-dialog';
 import clsx from 'clsx';
-import { ReactNode, useState } from 'react';
-import {
-	ExplorerItem,
-	HardwareModel,
-	useBridgeMutation,
-	useDiscoveredPeers,
-	useZodForm
-} from '@sd/client';
+import { useState } from 'react';
+import { ExplorerItem, useBridgeMutation, useDiscoveredPeers, useZodForm } from '@sd/client';
 import { Button, Dialog, Divider, Tooltip, useDialog, UseDialogProps, z } from '@sd/ui';
 import { Icon } from '~/components';
 import { useLocale } from '~/hooks';
-import { hardwareModelToIcon } from '~/util/hardware';
 import { usePlatform } from '~/util/Platform';
 
 import { Image } from '../Explorer/FilePath/Image';
@@ -29,12 +22,13 @@ function getSpacedropItems(items: ExplorerItem[]) {
 
 // TODO: Handle multiple items, we wanna show user a list and let them select which items to spacedrop
 // TODO: Error handling for Spacedrop Cloud (e.g. file too big)
+// TODO: Weird component structure, too many states, components and logic. Maybe refactor?
 export default function SpacedropDialog({ items, ...props }: SpacedropDialogProps) {
 	const dialog = useDialog(props);
 	const { t } = useLocale();
 
-	const discoveredPeers = useDiscoveredPeers();
-	const [destination, setDestination] = useState<string>();
+	// destination name (cloud or peer name)
+	const [destination, setDestination] = useState<string>('cloud');
 	// dialog page state (0: pick items/p2p spacedrop, 1: cloud spacedrop config, 2: cloud spacedrop progress/url)
 	const [page, setPage] = useState<number>(0);
 
@@ -48,7 +42,17 @@ export default function SpacedropDialog({ items, ...props }: SpacedropDialogProp
 
 	const p2pSpacedrop = useBridgeMutation('p2p.spacedrop');
 
-	const [spacedropItems, setSpacedropItems] = useState(getSpacedropItems(items));
+	function handleSendFile() {
+		console.log('destination', destination);
+		if (destination === 'cloud') {
+			// handle cloud spacedrop
+		} else {
+			// handle p2p spacedrop
+			// p2pSpacedrop({ destination, items });
+		}
+		// temp
+		dialog.close();
+	}
 
 	return (
 		<Dialog form={useZodForm({})} dialog={dialog} hideButtons>
@@ -64,38 +68,15 @@ export default function SpacedropDialog({ items, ...props }: SpacedropDialogProp
 			</div>
 			<Divider />
 			{/* Content */}
-			{spacedropItems.length > 1 ? (
-				<SpacedropPickItems />
-			) : spacedropItems.length === 1 ? (
-				<div className="grid grid-cols-3 space-x-4 py-4">
-					<div className="col-span-2 border-r border-app-line/60 pr-4">
-						<div className="space-y-2">
-							{Array.from(discoveredPeers).map(([id, meta]) => (
-								<NodeItem
-									key={id}
-									icon={<Devices size={16} />}
-									name={meta.metadata.name}
-									isSelected={destination === meta.metadata.name}
-									onClick={() => setDestination(meta.metadata.name)}
-								/>
-							))}
-							<NodeItem
-								icon={<Cloud size={16} />}
-								name="Spacedrive Cloud"
-								isSelected={destination === 'cloud'}
-								onClick={() => setDestination('cloud')}
-							/>
-						</div>
-					</div>
-					{spacedropItems.map((item, index) => (
-						<BasicFileItem data={item} key={index} />
-					))}
-				</div>
-			) : (
-				<div className="flex h-32 items-center justify-center">
-					<p className="text-gray-200">No items selected.</p>
-				</div>
+			{page === 0 && (
+				<SpacedropHome
+					items={items}
+					destination={destination}
+					setDestination={setDestination}
+				/>
 			)}
+			{page === 1 && <SpacedropCloudConfig />}
+			{page === 2 && <SpacedropCloud />}
 			{/* Buttons */}
 			<div className="mt-4 flex items-center justify-end space-x-2">
 				<RDialog.Close asChild>
@@ -103,9 +84,13 @@ export default function SpacedropDialog({ items, ...props }: SpacedropDialogProp
 						{t('cancel')}
 					</Button>
 				</RDialog.Close>
-				{destination && (
-					<Button variant="accent" onClick={() => dialog.close()}>
-						{destination === 'cloud' ? 'Next' : 'Send'}
+				{destination === 'cloud' && page === 0 ? (
+					<Button variant="accent" onClick={() => setPage((p) => p + 1)}>
+						Next
+					</Button>
+				) : (
+					<Button variant="accent" onClick={handleSendFile}>
+						Send
 					</Button>
 				)}
 			</div>
@@ -160,15 +145,49 @@ function BasicFileItem(props: { data: ExplorerItem }) {
 	);
 }
 
-function Node(props: { id: string; name: string; model: HardwareModel }) {
-	return (
-		<div
-			className={clsx(
-				'flex items-center gap-2 rounded-md bg-app-darkBox px-3 py-2 font-medium text-ink'
-			)}
-		>
-			<Icon name={hardwareModelToIcon(props.model)} size={20} />
-			<span className="text-sm text-gray-200">{props.name}</span>
+function SpacedropHome(props: {
+	items: ExplorerItem[];
+	destination: string;
+	setDestination: (destination: string) => void;
+}) {
+	const { destination, setDestination, items } = props;
+
+	const { t } = useLocale();
+
+	const discoveredPeers = useDiscoveredPeers();
+
+	const [spacedropItems, setSpacedropItems] = useState(getSpacedropItems(items));
+
+	return spacedropItems.length > 1 ? (
+		<SpacedropPickItems />
+	) : spacedropItems.length === 1 ? (
+		<div className="grid grid-cols-3 space-x-4 py-4">
+			<div className="col-span-2 border-r border-app-line/60 pr-4">
+				<div className="space-y-2">
+					{Array.from(discoveredPeers).map(([id, meta]) => (
+						<NodeItem
+							key={id}
+							icon={<Devices size={16} />}
+							name={meta.metadata.name}
+							isSelected={destination === meta.metadata.name}
+							onClick={() => setDestination(meta.metadata.name)}
+						/>
+					))}
+					<NodeItem
+						icon={<Cloud size={16} />}
+						name={t('spacedrive_cloud')}
+						isSelected={destination === 'cloud'}
+						onClick={() => setDestination('cloud')}
+					/>
+				</div>
+			</div>
+			{spacedropItems.map((item, index) => (
+				<BasicFileItem data={item} key={index} />
+			))}
+		</div>
+	) : (
+		<div className="flex h-32 items-center justify-center">
+			<p className="text-gray-200">{t('nothing_selected')}</p>
 		</div>
 	);
 }
