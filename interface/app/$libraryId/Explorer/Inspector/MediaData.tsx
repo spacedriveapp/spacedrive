@@ -142,10 +142,10 @@ const FFmpegMediaData = (data: FFmpegMetadata) => {
 	const { t } = useLocale();
 	const duration_ms = data.duration ? int32ArrayToBigInt(data.duration) / 1000n : null;
 	const duration = duration_ms
-		? dayjs.duration({
-				seconds: Number(duration_ms / 1000n),
-				milliseconds: Number(duration_ms % 1000n)
-			})
+		? dayjs.duration(
+				Number(duration_ms / 1000n) + Number(duration_ms % 1000n) / 1000,
+				'seconds'
+			)
 		: null;
 
 	const streamKinds = new Set(

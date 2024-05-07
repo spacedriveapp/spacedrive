@@ -1,9 +1,9 @@
 import { useIsFocused } from '@react-navigation/native';
-import { SearchFilterArgs, useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
 import { ArrowLeft, DotsThreeOutline, FunnelSimple, MagnifyingGlass } from 'phosphor-react-native';
 import { Suspense, useDeferredValue, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SearchFilterArgs, useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import Empty from '~/components/layout/Empty';
 import FiltersBar from '~/components/search/filters/FiltersBar';
@@ -22,7 +22,7 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 	const appliedFiltersLength = Object.keys(searchStore.appliedFilters).length;
 	const isAndroid = Platform.OS === 'android';
 	const locations = useLibraryQuery(['locations.list'], {
-		keepPreviousData: true,
+		keepPreviousData: true
 	});
 
 	const [search, setSearch] = useState('');
@@ -38,8 +38,10 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 
 		if (name || ext) {
 			// Add locations filter to search all locations
-			if (locations.data && locations.data.length > 0) filters.push({ filePath: { locations: { in:
-				locations.data?.map((location) => location.id) } } });
+			if (locations.data && locations.data.length > 0)
+				filters.push({
+					filePath: { locations: { in: locations.data?.map((location) => location.id) } }
+				});
 		}
 
 		return searchStore.mergedFilters.concat(filters);
@@ -135,26 +137,31 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 						/>
 					</Pressable>
 				</View>
-			{appliedFiltersLength > 0 && <FiltersBar/>}
+				{appliedFiltersLength > 0 && <FiltersBar />}
 			</View>
 			{/* Content */}
 			<View style={tw`flex-1`}>
 				<Suspense fallback={<ActivityIndicator />}>
 					<Explorer
-					{...objects}
-					isEmpty={noObjects}
-					emptyComponent={
-						<Empty
-						icon={noSearch ? 'Search' : 'FolderNoSpace'}
-						style={twStyle('flex-1 items-center justify-center border-0', {
-							marginBottom: headerHeight
-						})}
-						textSize="text-md"
-						iconSize={100}
-						description={noSearch ? 'Add filters or type to search for files' : 'No files found'}
+						{...objects}
+						isEmpty={noObjects}
+						emptyComponent={
+							<Empty
+								icon={noSearch ? 'Search' : 'FolderNoSpace'}
+								style={twStyle('flex-1 items-center justify-center border-0', {
+									marginBottom: headerHeight
+								})}
+								textSize="text-md"
+								iconSize={100}
+								description={
+									noSearch
+										? 'Add filters or type to search for files'
+										: 'No files found'
+								}
+							/>
+						}
+						tabHeight={false}
 					/>
-					}
-					tabHeight={false} />
 				</Suspense>
 			</View>
 		</View>

@@ -234,13 +234,13 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	});
 
 	const filesMediaData = useLibraryQuery(['files.getMediaData', objectData?.id ?? -1], {
-		enabled: objectData?.kind === ObjectKindEnum.Image && readyToFetch
+		enabled: readyToFetch
 	});
 
 	const ephemeralLocationMediaData = useBridgeQuery(
 		['ephemeralFiles.getMediaData', ephemeralPathData != null ? ephemeralPathData.path : ''],
 		{
-			enabled: ephemeralPathData?.kind === ObjectKindEnum.Image && readyToFetch
+			enabled: readyToFetch
 		}
 	);
 

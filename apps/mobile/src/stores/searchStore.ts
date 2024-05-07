@@ -1,5 +1,5 @@
-import { SearchFilterArgs } from '@sd/client';
 import { proxy, useSnapshot } from 'valtio';
+import { SearchFilterArgs } from '@sd/client';
 import { IconName } from '~/components/icons/Icon';
 
 export type SearchFilters = 'locations' | 'tags' | 'name' | 'extension' | 'hidden' | 'kind';
@@ -33,7 +33,7 @@ interface State {
 	search: string;
 	filters: Filters;
 	appliedFilters: Partial<Filters>;
-	mergedFilters: SearchFilterArgs[],
+	mergedFilters: SearchFilterArgs[];
 	disableActionButtons: boolean;
 }
 

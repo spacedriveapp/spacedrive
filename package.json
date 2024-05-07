@@ -67,6 +67,6 @@
 	"eslintConfig": {
 		"root": true
 	},
-	"packageManager": "pnpm@9.0.6",
+	"packageManager": "pnpm@9.1.0",
 	"engineStrict": false
 }

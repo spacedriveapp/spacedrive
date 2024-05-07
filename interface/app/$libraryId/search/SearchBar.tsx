@@ -1,9 +1,9 @@
-import { SearchFilterArgs } from '@sd/client';
-import { Input, ModifierKeys, Shortcut } from '@sd/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { createSearchParams } from 'react-router-dom';
 import { useDebouncedCallback } from 'use-debounce';
+import { SearchFilterArgs } from '@sd/client';
+import { Input, ModifierKeys, Shortcut } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 
@@ -70,16 +70,19 @@ export default ({ redirectToSearch, defaultFilters, defaultTarget }: Props) => {
 	const updateDebounce = useDebouncedCallback((value: string) => {
 		search.setSearch?.(value);
 		if (redirectToSearch) {
-			navigate({
-				pathname: '../search',
-				search: createSearchParams({
-					search: value
-				}).toString()
-			}, {
-				state: {
-					focusSearch: true
+			navigate(
+				{
+					pathname: '../search',
+					search: createSearchParams({
+						search: value
+					}).toString()
+				},
+				{
+					state: {
+						focusSearch: true
+					}
 				}
-			});
+			);
 		}
 	}, 300);
 

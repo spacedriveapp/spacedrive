@@ -87,7 +87,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									e,
 								)
 							})?
-							.map(|exif_data| MediaData::Exif(exif_data));
+							.map(MediaData::Exif);
 
 						Ok(exif_data)
 					}
