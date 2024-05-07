@@ -19,14 +19,12 @@ type MenuProps = {
 
 // TODO: Still looks a bit off...
 export const Menu = (props: MenuProps) => (
-	<View>
-		<PMenu style={twStyle(props.triggerStyle)} renderer={renderers.NotAnimatedContextMenu}>
+		<PMenu renderer={renderers.NotAnimatedContextMenu} style={twStyle(props.triggerStyle)}>
 			<MenuTrigger>{props.trigger}</MenuTrigger>
 			<MenuOptions optionsContainerStyle={tw`rounded-md border border-app-cardborder bg-app-menu p-1`}>
 				{props.children}
 			</MenuOptions>
 		</PMenu>
-	</View>
 );
 
 type MenuItemProps = {

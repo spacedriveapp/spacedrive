@@ -1,6 +1,6 @@
 import { useIsFocused } from '@react-navigation/native';
 import { usePathsExplorerQuery } from '@sd/client';
-import { ArrowLeft, DotsThreeOutline, FunnelSimple } from 'phosphor-react-native';
+import { ArrowLeft, DotsThree, FunnelSimple } from 'phosphor-react-native';
 import { Suspense, useDeferredValue, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -45,12 +45,12 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 
 	return (
 		<View
-			style={twStyle('flex-1 bg-app-header', {
+			style={twStyle('relative z-50 flex-1 bg-app-header', {
 				paddingTop: headerHeight + (isAndroid ? 15 : 0)
 			})}
 		>
 			{/* Header */}
-			<View style={tw`relative z-20 border-b border-app-cardborder bg-app-header`}>
+			<View style={tw`relative z-20 border-b border-app-cardborder bg-app-header pt-2`}>
 				{/* Search area input container */}
 				<View style={tw`flex-row items-center justify-between gap-4 px-5 pb-3`}>
 					{/* Back Button */}
@@ -97,10 +97,11 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 							getExplorerStore().toggleMenu = !explorerStore.toggleMenu;
 						}}
 					>
-						<DotsThreeOutline
+						<DotsThree
 							size={24}
+							weight='bold'
 							color={tw.color(
-								explorerStore.toggleMenu ? 'text-accent' : 'text-zinc-300'
+								explorerStore.toggleMenu ? 'text-accent' : 'text-ink-dull'
 							)}
 						/>
 					</Pressable>

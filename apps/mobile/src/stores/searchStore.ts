@@ -83,7 +83,6 @@ function updateArrayOrObject<T>(
 
 const searchStore = proxy<
 	State & {
-		updateSort: (by?: SortOptionsType['by'], direction?: SortOptionsType['direction']) => void;
 		updateFilters: <K extends keyof State['filters']>(
 			filter: K,
 			value: State['filters'][K] extends Array<infer U> ? U : State['filters'][K],
@@ -99,10 +98,6 @@ const searchStore = proxy<
 	}
 >({
 	...initialState,
-	updateSort: (by, direction) => {
-		if (by) searchStore.sort.by = by;
-		if (direction) searchStore.sort.direction = direction;
-	},
 	//for updating the filters upon value selection
 	updateFilters: (filter, value, apply = false) => {
 		if (filter === 'hidden') {
