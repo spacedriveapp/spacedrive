@@ -2,7 +2,13 @@ import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript
 import { useNavigation } from '@react-navigation/native';
 import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { arraysEqual, byteSize, Location, useLibraryQuery, useOnlineLocations } from '@sd/client';
+import {
+	arraysEqual,
+	humanizeSize,
+	Location,
+	useLibraryQuery,
+	useOnlineLocations
+} from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -45,7 +51,7 @@ const DrawerLocationItem: React.FC<DrawerLocationItemProps> = ({
 				</View>
 				<View style={tw`rounded-md border border-app-lightborder bg-app-box px-1 py-0.5`}>
 					<Text style={tw`text-[11px] font-medium text-ink-dull`} numberOfLines={1}>
-						{`${byteSize(location.size_in_bytes)}`}
+						{`${humanizeSize(location.size_in_bytes)}`}
 					</Text>
 				</View>
 			</View>

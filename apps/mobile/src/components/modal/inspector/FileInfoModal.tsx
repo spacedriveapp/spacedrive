@@ -2,7 +2,7 @@ import dayjs from 'dayjs';
 import { Barcode, CaretLeft, Clock, Cube, Icon, SealCheck, Snowflake } from 'phosphor-react-native';
 import { forwardRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { byteSize, getItemFilePath, getItemObject, type ExplorerItem } from '@sd/client';
+import { getItemFilePath, getItemObject, humanizeSize, type ExplorerItem } from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
 import { Modal, ModalScrollView, type ModalRef } from '~/components/layout/Modal';
@@ -82,7 +82,7 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 						<MetaItem
 							title="Size"
 							icon={Cube}
-							value={`${byteSize(filePathData?.size_in_bytes_bytes)}`}
+							value={`${humanizeSize(filePathData?.size_in_bytes_bytes)}`}
 						/>
 						{/* Duration */}
 						{/* {fullObjectData.data?.exif_data?.duration && (

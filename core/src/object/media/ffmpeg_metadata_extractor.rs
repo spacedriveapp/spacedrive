@@ -249,9 +249,9 @@ pub async fn save_ffmpeg_data(
 
 async fn create_ffmpeg_data(
 	formats: Vec<String>,
-	bit_rate: i32,
-	duration: Option<(i32, i32)>,
-	start_time: Option<(i32, i32)>,
+	bit_rate: (u32, u32),
+	duration: Option<(u32, u32)>,
+	start_time: Option<(u32, u32)>,
 	metadata: Metadata,
 	object_id: i32,
 	db: &PrismaClient,
@@ -259,7 +259,7 @@ async fn create_ffmpeg_data(
 	db.ffmpeg_data()
 		.create(
 			formats.join(","),
-			bit_rate,
+			ffmpeg_data_field_to_db((bit_rate.0 as i64) << 32 | bit_rate.1 as i64),
 			object::id::equals(object_id),
 			vec![
 				ffmpeg_data::duration::set(

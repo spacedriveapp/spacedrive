@@ -14,9 +14,9 @@ import { PropsWithChildren, useRef } from 'react';
 import { Pressable, Text, View, ViewStyle } from 'react-native';
 import FileViewer from 'react-native-file-viewer';
 import {
-	byteSize,
 	getIndexedItemFilePath,
 	getItemObject,
+	humanizeSize,
 	useLibraryMutation,
 	useLibraryQuery
 } from '@sd/client';
@@ -119,7 +119,7 @@ export const ActionsModal = () => {
 								</Text>
 								<View style={tw`flex flex-row`}>
 									<Text style={tw`text-xs text-ink-faint`}>
-										{`${byteSize(filePath?.size_in_bytes_bytes)}`},
+										{`${humanizeSize(filePath?.size_in_bytes_bytes)}`},
 									</Text>
 									<Text style={tw`text-xs text-ink-faint`}>
 										{' '}

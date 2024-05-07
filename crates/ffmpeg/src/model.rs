@@ -7,7 +7,7 @@ pub struct FFmpegMediaData {
 	pub formats: Vec<String>,
 	pub duration: Option<i64>,
 	pub start_time: Option<i64>,
-	pub bit_rate: i32,
+	pub bit_rate: i64,
 	pub chapters: Vec<FFmpegChapter>,
 	pub programs: Vec<FFmpegProgram>,
 	pub metadata: FFmpegMetadata,

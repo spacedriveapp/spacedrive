@@ -214,12 +214,8 @@ impl FFmpegFormatContext {
 		Some(start_time)
 	}
 
-	fn bit_rate(&self) -> i32 {
-		#[allow(clippy::cast_possible_truncation)]
-		{
-			// NOTICE: bit_rate is a i64, but I think it will be extremely rare to have a bit rate that doesn't fit in a i32
-			self.as_ref().bit_rate as i32
-		}
+	fn bit_rate(&self) -> i64 {
+		self.as_ref().bit_rate
 	}
 
 	fn chapters(&self) -> Vec<FFmpegChapter> {

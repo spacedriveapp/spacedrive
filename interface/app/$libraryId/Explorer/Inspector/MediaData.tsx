@@ -1,8 +1,10 @@
 import dayjs from 'dayjs';
 import {
+	capitalize,
 	CoordinatesFormat,
 	ExifMetadata,
 	FFmpegMetadata,
+	humanizeSize,
 	int32ArrayToBigInt,
 	MediaLocation,
 	MediaData as RemoteMediaData,
@@ -140,13 +142,6 @@ const ExifMediaData = (data: ExifMetadata) => {
 
 const FFmpegMediaData = (data: FFmpegMetadata) => {
 	const { t } = useLocale();
-	const duration_ms = data.duration ? int32ArrayToBigInt(data.duration) / 1000n : null;
-	const duration = duration_ms
-		? dayjs.duration(
-				Number(duration_ms / 1000n) + Number(duration_ms % 1000n) / 1000,
-				'seconds'
-			)
-		: null;
 
 	const streamKinds = new Set(
 		data.programs.flatMap((program) => program.streams.map((stream) => stream.codec?.kind))
@@ -155,12 +150,58 @@ const FFmpegMediaData = (data: FFmpegMetadata) => {
 		? 'Video'
 		: streamKinds.has('audio')
 			? 'Audio'
-			: streamKinds.values().next().value ?? 'Unknown';
+			: capitalize(streamKinds.values().next().value) ?? 'Unknown';
+
+	const bit_rate = humanizeSize(int32ArrayToBigInt(data.bit_rate), {
+		is_bit: true,
+		base_unit: 'binary',
+		use_plural: false
+	});
+
+	const duration_ms = data.duration ? int32ArrayToBigInt(data.duration) / 1000n : null;
+	const duration = duration_ms
+		? dayjs.duration(
+				Number(duration_ms / 1000n) + Number(duration_ms % 1000n) / 1000,
+				'seconds'
+			)
+		: null;
+
+	const start_time_ms = data.start_time ? int32ArrayToBigInt(data.start_time) / 1000n : null;
+	const start_time = start_time_ms
+		? dayjs.duration(
+				Number(start_time_ms / 1000n) + Number(start_time_ms % 1000n) / 1000,
+				'seconds'
+			)
+		: null;
+
+	const chapters = data.chapters
+		.map((chapter) => {
+			const num = BigInt(chapter.time_base_num);
+			const den = BigInt(chapter.time_base_den);
+
+			const start = dayjs.duration(
+				Number((int32ArrayToBigInt(chapter.start) * num) / den),
+				'seconds'
+			);
+
+			const end = dayjs.duration(
+				Number((int32ArrayToBigInt(chapter.end) * num) / den),
+				'seconds'
+			);
+
+			return `${start.format('HH:mm:ss')} - ${end.format('HH:mm:ss')}`;
+		})
+		.join('\n');
 
 	return (
 		<>
-			<MetaData label="Type" value={type} />
-			{duration && <MetaData label="Duration" value={duration.format('HH:mm:ss.SSS')} />}
+			<MetaData label={t('type')} value={type} />
+			<MetaData label="Bitrate" value={`${bit_rate.value} ${bit_rate.unit}/s`} />
+			{duration && <MetaData label={t('duration')} value={duration.format('HH:mm:ss.SSS')} />}
+			{start_time && (
+				<MetaData label={t('start_time')} value={start_time.format('HH:mm:ss.SSS')} />
+			)}
+			{chapters && <MetaData label={t('chapters')} value={chapters} />}
 		</>
 	);
 };

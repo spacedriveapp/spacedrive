@@ -274,9 +274,9 @@ model FfmpegData {
 
   // Internal FFmpeg properties
   formats    String
+  bit_rate   Bytes // Actually a i64 in the backend
   duration   Bytes? // Actually a i64 in the backend
   start_time Bytes? // Actually a i64 in the backend
-  bit_rate   Int
 
   chapters FfmpegMediaChapter[]
   programs FfmpegMediaProgram[]

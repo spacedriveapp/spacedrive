@@ -90,13 +90,16 @@ pub fn ffmpeg_data_from_prisma_data(
 		formats: formats.split(',').map(String::from).collect::<Vec<_>>(),
 		duration: duration.map(|duration| {
 			let duration = ffmpeg_data_field_from_db(&duration);
-			((duration >> 32) as i32, duration as i32)
+			((duration >> 32) as u32, duration as u32)
 		}),
 		start_time: start_time.map(|start_time| {
 			let start_time = ffmpeg_data_field_from_db(&start_time);
-			((start_time >> 32) as i32, start_time as i32)
+			((start_time >> 32) as u32, start_time as u32)
 		}),
-		bit_rate,
+		bit_rate: {
+			let bit_rate = ffmpeg_data_field_from_db(&bit_rate);
+			((bit_rate >> 32) as u32, bit_rate as u32)
+		},
 		chapters: chapters
 			.into_iter()
 			.map(
@@ -112,11 +115,11 @@ pub fn ffmpeg_data_from_prisma_data(
 					id: chapter_id,
 					start: {
 						let start = ffmpeg_data_field_from_db(&start);
-						((start >> 32) as i32, start as i32)
+						((start >> 32) as u32, start as u32)
 					},
 					end: {
 						let end = ffmpeg_data_field_from_db(&end);
-						((end >> 32) as i32, end as i32)
+						((end >> 32) as u32, end as u32)
 					},
 					time_base_den,
 					time_base_num,

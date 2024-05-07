@@ -1,7 +1,7 @@
 import { Info } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
-import { byteSize, Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
+import { humanizeSize, Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { useCounter } from '~/hooks';
 
@@ -42,7 +42,7 @@ const StatItem = (props: StatItemProps) => {
 	// The acts as a cache of the value of `mounted` on the first render of this `StateItem`.
 	const [isMounted] = useState(mounted);
 
-	const size = byteSize(bytes);
+	const size = humanizeSize(bytes);
 	const count = useCounter({
 		name: title,
 		end: size.value,

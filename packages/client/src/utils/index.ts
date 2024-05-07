@@ -141,3 +141,7 @@ export function insertLibrary(queryClient: QueryClient, library: LibraryConfigWr
 export function int32ArrayToBigInt([high, low]: [number, number]) {
 	return (BigInt(high) << 32n) | BigInt(low);
 }
+
+export function capitalize<T extends string>(string: T): Capitalize<T> {
+	return (string.charAt(0).toUpperCase() + string.slice(1)) as Capitalize<T>;
+}
