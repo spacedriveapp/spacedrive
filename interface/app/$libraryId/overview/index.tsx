@@ -1,14 +1,14 @@
 import { Link } from 'react-router-dom';
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
-import { useLocale, useOperatingSystem } from '~/hooks';
+import { useLocale } from '~/hooks';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 import { hardwareModelToIcon } from '~/util/hardware';
 
-import { SearchContextProvider, useSearch, useSearchFromSearchParams } from '../search';
+import { SearchContextProvider, useSearchFromSearchParams } from '../search';
 import SearchBar from '../search/SearchBar';
 import { AddLocationButton } from '../settings/library/locations/AddLocationButton';
 import { TopBarPortal } from '../TopBar/Portal';
-import TopBarOptions, { windowsControls } from '../TopBar/TopBarOptions';
+import TopBarOptions from '../TopBar/TopBarOptions';
 import FileKindStatistics from './FileKindStats';
 import OverviewSection from './Layout/Section';
 import LibraryStatistics from './LibraryStats';
@@ -17,7 +17,6 @@ import StatisticItem from './StatCard';
 
 export const Component = () => {
 	useRouteTitle('Overview');
-	const os = useOperatingSystem();
 
 	const { t } = useLocale();
 
@@ -44,60 +43,31 @@ export const Component = () => {
 					center={<SearchBar redirectToSearch />}
 					right={
 						<TopBarOptions
-							options={
-								os === 'windows'
-									? [
-											[
-												// {
-												// 	toolTipLabel: 'Spacedrop',
-												// 	onClick: () => {},
-												// 	icon: <Broadcast className={TOP_BAR_ICON_STYLE} />,
-												// 	individual: true,
-												// 	showAtResolution: 'sm:flex'
-												// },
-												// {
-												// 	toolTipLabel: 'Key Manager',
-												// 	onClick: () => {},
-												// 	icon: <Key className={TOP_BAR_ICON_STYLE} />,
-												// 	individual: true,
-												// 	showAtResolution: 'sm:flex'
-												// },
-												// {
-												// 	toolTipLabel: 'Overview Display Settings',
-												// 	onClick: () => {},
-												// 	icon: <SlidersHorizontal className={TOP_BAR_ICON_STYLE} />,
-												// 	individual: true,
-												// 	showAtResolution: 'sm:flex'
-												// }
-											],
-											windowsControls
-										]
-									: [
-											[
-												// {
-												// 	toolTipLabel: 'Spacedrop',
-												// 	onClick: () => {},
-												// 	icon: <Broadcast className={TOP_BAR_ICON_STYLE} />,
-												// 	individual: true,
-												// 	showAtResolution: 'sm:flex'
-												// },
-												// {
-												// 	toolTipLabel: 'Key Manager',
-												// 	onClick: () => {},
-												// 	icon: <Key className={TOP_BAR_ICON_STYLE} />,
-												// 	individual: true,
-												// 	showAtResolution: 'sm:flex'
-												// },
-												// {
-												// 	toolTipLabel: 'Overview Display Settings',
-												// 	onClick: () => {},
-												// 	icon: <SlidersHorizontal className={TOP_BAR_ICON_STYLE} />,
-												// 	individual: true,
-												// 	showAtResolution: 'sm:flex'
-												// }
-											]
-										]
-							}
+							options={[
+								[
+									// {
+									// 	toolTipLabel: 'Spacedrop',
+									// 	onClick: () => {},
+									// 	icon: <Broadcast className={TOP_BAR_ICON_STYLE} />,
+									// 	individual: true,
+									// 	showAtResolution: 'sm:flex'
+									// },
+									// {
+									// 	toolTipLabel: 'Key Manager',
+									// 	onClick: () => {},
+									// 	icon: <Key className={TOP_BAR_ICON_STYLE} />,
+									// 	individual: true,
+									// 	showAtResolution: 'sm:flex'
+									// },
+									// {
+									// 	toolTipLabel: 'Overview Display Settings',
+									// 	onClick: () => {},
+									// 	icon: <SlidersHorizontal className={TOP_BAR_ICON_STYLE} />,
+									// 	individual: true,
+									// 	showAtResolution: 'sm:flex'
+									// }
+								]
+							]}
 						/>
 					}
 				/>

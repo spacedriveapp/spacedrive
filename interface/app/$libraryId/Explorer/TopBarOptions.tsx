@@ -11,15 +11,11 @@ import clsx from 'clsx';
 import { useMemo } from 'react';
 import { useDocumentEventListener } from 'rooks';
 import { ExplorerLayout, useSelector } from '@sd/client';
-import { useKeyMatcher, useLocale, useOperatingSystem } from '~/hooks';
+import { useKeyMatcher, useLocale } from '~/hooks';
 
 import { KeyManager } from '../KeyManager';
 import { Spacedrop, SpacedropButton } from '../Spacedrop';
-import TopBarOptions, {
-	ToolOption,
-	TOP_BAR_ICON_STYLE,
-	windowsControls
-} from '../TopBar/TopBarOptions';
+import TopBarOptions, { ToolOption, TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import { useExplorerContext } from './Context';
 import OptionsPanel from './OptionsPanel';
 import { explorerStore } from './store';
@@ -145,31 +141,20 @@ export const useExplorerTopBarOptions = () => {
 	return {
 		viewOptions,
 		controlOptions,
-		toolOptions,
-		windowsControls
+		toolOptions
 	};
 };
 
 export const DefaultTopBarOptions = (props: { options?: ToolOption[] }) => {
 	const options = useExplorerTopBarOptions();
-	const os = useOperatingSystem();
 
 	return (
 		<TopBarOptions
-			options={
-				os === 'windows'
-					? [
-							options.viewOptions,
-							[...options.toolOptions, ...(props.options ?? [])],
-							options.controlOptions,
-							options.windowsControls
-						]
-					: [
-							options.viewOptions,
-							[...options.toolOptions, ...(props.options ?? [])],
-							options.controlOptions
-						]
-			}
+			options={[
+				options.viewOptions,
+				[...options.toolOptions, ...(props.options ?? [])],
+				options.controlOptions
+			]}
 		/>
 	);
 };

@@ -6,7 +6,7 @@ import { useWindowState } from '~/hooks/useWindowState';
 
 import DragRegion from '../../../components/DragRegion';
 import { TopBarPortal } from '../TopBar/Portal';
-import TopBarOptions, { windowsControls } from '../TopBar/TopBarOptions';
+import TopBarOptions from '../TopBar/TopBarOptions';
 import Sidebar from './Sidebar';
 
 export const Component = () => {
@@ -17,9 +17,7 @@ export const Component = () => {
 
 	return (
 		<div className={`flex w-full flex-row bg-app ${os === 'windows' && 'mt-6'}`}>
-			{os === 'windows' && (
-				<TopBarPortal right={<TopBarOptions options={[windowsControls]} />} />
-			)}
+			{os === 'windows' && <TopBarPortal right={<TopBarOptions />} />}
 			<Sidebar />
 			<div className="relative w-full">
 				<Suspense>
