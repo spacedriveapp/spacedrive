@@ -8365,6 +8365,7 @@ dependencies = [
  "prisma-client-rust",
  "rmp-serde",
  "rmpv",
+ "sd-actors",
  "sd-prisma",
  "sd-sync",
  "sd-utils",
