@@ -178,7 +178,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     strategy:
       matrix:
-        platform: [ubuntu-20.04, macos-14, windows-latest]
+        platform: [ubuntu-22.04, macos-14, windows-latest]
     permissions:
       contents: read
     timeout-minutes: 45
@@ -241,7 +241,7 @@ jobs:
   #   runs-on: ${{ matrix.platform }}
   #   strategy:
   #     matrix:
-  #       platform: [ubuntu-20.04, macos-latest, windows-latest]
+  #       platform: [ubuntu-22.04, macos-latest, windows-latest]
   #   steps:
   #     - name: Checkout repository
   #       uses: actions/checkout@v4

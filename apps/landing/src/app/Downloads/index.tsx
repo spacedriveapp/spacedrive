@@ -22,13 +22,17 @@ export function Downloads({ latestVersion }: Props) {
 
 	const plausible = usePlausible();
 
-	const formattedVersion = (() => {
+	const [formattedVersion, note] = (() => {
 		const platform = selectedPlatform ?? currentPlatform;
-
-		if (!platform?.version) return;
-		if (platform.name === 'Linux') return platform.version;
-
-		return `${platform.name} ${platform.version}`;
+		return platform
+			? [
+					platform.version &&
+						(platform.name === 'Linux'
+							? platform.version
+							: `${platform.name} ${platform.version}`),
+					platform.note
+				]
+			: [];
 	})();
 
 	return (
@@ -93,6 +97,12 @@ export function Downloads({ latestVersion }: Props) {
 					<>
 						<span className="mx-2 opacity-50">|</span>
 						{formattedVersion}
+					</>
+				)}
+				{note && (
+					<>
+						<span className="mx-2 opacity-50">|</span>
+						{note}
 					</>
 				)}
 			</p>
