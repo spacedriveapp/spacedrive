@@ -3,6 +3,7 @@ import { Text, View } from 'react-native';
 import { Menu, MenuItem } from '~/components/primitive/Menu';
 import { tw } from '~/lib/tailwind';
 import { SortOptionsType, getSearchStore, useSearchStore } from '~/stores/searchStore';
+
 const sortOptions = {
 	none: 'None',
 	name: 'Name',
@@ -23,7 +24,6 @@ const SortByMenu = () => {
 	const searchStore = useSearchStore();
 	return (
 		<View style={tw`flex-row items-center gap-1.5`}>
-		<Text style={tw`mr-1 font-medium text-ink-dull`}>Sort:</Text>
 		<Menu
 			trigger={<Trigger activeOption={sortOptions[searchStore.sort.by]} />}
 
@@ -69,8 +69,8 @@ interface Props {
 const Trigger = ({activeOption, triggerIcon}: Props) => {
 	return (
 		<View style={tw`flex flex-row items-center rounded-md border border-app-inputborder p-1.5`}>
-		<Text style={tw`mr-0.5 text-ink-dull`}>{activeOption}</Text>
-		{triggerIcon ? triggerIcon : <CaretDown style={tw`ml-0.5`} weight="bold" size={16} color={tw.color('ink-dull')} />}
+			<Text style={tw`mr-0.5 text-ink-dull`}>{activeOption}</Text>
+			{triggerIcon ? triggerIcon : <CaretDown style={tw`ml-0.5`} weight="bold" size={16} color={tw.color('ink-dull')} />}
 		</View>
 	)
 }
