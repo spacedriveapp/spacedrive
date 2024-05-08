@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
-import { useLocale } from '~/hooks';
+import { useLocale, useOperatingSystem } from '~/hooks';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 import { hardwareModelToIcon } from '~/util/hardware';
 
@@ -17,6 +17,7 @@ import StatisticItem from './StatCard';
 
 export const Component = () => {
 	useRouteTitle('Overview');
+	const os = useOperatingSystem();
 
 	const { t } = useLocale();
 
@@ -42,7 +43,8 @@ export const Component = () => {
 					}
 					center={<SearchBar redirectToSearch />}
 					right={
-						<TopBarOptions
+						os === 'windows' && <TopBarOptions />
+						// <TopBarOptions
 						// options={[
 						// 	[
 						// 		{
@@ -68,7 +70,7 @@ export const Component = () => {
 						// 		}
 						// 	]
 						// ]}
-						/>
+						// 	/>
 					}
 				/>
 				<div className="mt-4 flex flex-col gap-3 pt-3">
