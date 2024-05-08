@@ -10,7 +10,7 @@ edition = { workspace = true }
 [dependencies]
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
-reqwest = { workspace = true, features = ["blocking"] }
+reqwest = { workspace = true, features = ["blocking", "native-tls-vendored"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 

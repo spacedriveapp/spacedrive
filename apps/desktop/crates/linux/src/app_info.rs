@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use gtk::{
 	gio::{
@@ -36,8 +36,8 @@ thread_local! {
 		// 			"This is an Glib type conversion, it should never fail because GDKAppLaunchContext is a subclass of AppLaunchContext"
 		// 		)).unwrap_or_default();
 
-		let ctx = AppLaunchContext::default();
-		ctx
+
+		AppLaunchContext::default()
 	}
 }
 
