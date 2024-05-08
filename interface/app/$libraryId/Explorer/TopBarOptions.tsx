@@ -127,7 +127,7 @@ export const useExplorerTopBarOptions = () => {
 			showAtResolution: 'xl:flex'
 		},
 		{
-			toolTipLabel: 'Tag Assign Mode',
+			toolTipLabel: 'Assign tags',
 			icon: (
 				<Tag
 					weight={tagAssignMode ? 'fill' : 'regular'}
