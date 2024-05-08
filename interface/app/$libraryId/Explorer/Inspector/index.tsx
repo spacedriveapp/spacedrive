@@ -235,13 +235,13 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	});
 
 	const filesMediaData = useLibraryQuery(['files.getMediaData', objectData?.id ?? -1], {
-		enabled: readyToFetch
+		enabled: objectData != null && readyToFetch
 	});
 
 	const ephemeralLocationMediaData = useBridgeQuery(
 		['ephemeralFiles.getMediaData', ephemeralPathData != null ? ephemeralPathData.path : ''],
 		{
-			enabled: readyToFetch
+			enabled: ephemeralPathData != null && readyToFetch
 		}
 	);
 
@@ -249,7 +249,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 	const fullPath = queriedFullPath.data ?? ephemeralPathData?.path;
 
-	const { name, isDir, kind, size, casId, dateCreated, dateAccessed, dateModified, dateIndexed } =
+	const { isDir, kind, size, casId, dateCreated, dateAccessed, dateModified, dateIndexed } =
 		useExplorerItemData(item);
 
 	const pubId = objectData != null ? uniqueId(objectData) : null;

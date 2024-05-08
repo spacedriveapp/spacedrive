@@ -1,28 +1,12 @@
 use std::{
 	collections::HashSet,
 	env,
-	ffi::{CStr, OsStr, OsString},
+	ffi::{CStr, OsStr},
 	mem,
 	os::unix::ffi::OsStrExt,
-	path::{Path, PathBuf},
+	path::PathBuf,
 	ptr,
 };
-
-fn version(version_str: &str) -> i32 {
-	let mut version_parts: Vec<i32> = version_str
-		.split('.')
-		.take(4) // Take up to 4 components
-		.map(|part| part.parse().unwrap_or(0))
-		.collect();
-
-	// Pad with zeros if needed
-	version_parts.resize_with(4, Default::default);
-
-	(version_parts[0] * 1_000_000_000)
-		+ (version_parts[1] * 1_000_000)
-		+ (version_parts[2] * 1_000)
-		+ version_parts[3]
-}
 
 pub fn get_current_user_home() -> Option<PathBuf> {
 	use libc::{getpwuid_r, getuid, passwd, ERANGE};
@@ -191,23 +175,6 @@ pub fn normalize_environment() {
 		],
 	)
 	.expect("PATH must be successfully normalized");
-}
-
-pub(crate) fn remove_prefix_from_pathlist(
-	env_name: &str,
-	prefix: &impl AsRef<Path>,
-) -> Option<OsString> {
-	env::var_os(env_name).and_then(|value| {
-		let mut dirs = env::split_paths(&value)
-		.filter(|dir| !(dir.as_os_str().is_empty() || dir.starts_with(prefix)))
-		.peekable();
-
-		if dirs.peek().is_none() {
-			None
-		} else {
-			Some(env::join_paths(dirs).expect("Should not fail because we are only filtering a pathlist retrieved from the environmnet"))
-		}
-	})
 }
 
 // Check if snap by looking if SNAP is set and not empty and that the SNAP directory exists

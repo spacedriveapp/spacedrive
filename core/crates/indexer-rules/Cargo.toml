@@ -1,7 +1,10 @@
 [package]
 name = "sd-core-indexer-rules"
 version = "0.1.0"
-authors = ["Ericson Soares <ericson@spacedrive.com>"]
+authors = [
+	"Ericson Soares <ericson@spacedrive.com>",
+	"Vítor Vasconcellos <vitor@spacedrive.com>",
+]
 license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }

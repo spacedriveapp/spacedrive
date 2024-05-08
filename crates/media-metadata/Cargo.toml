@@ -1,7 +1,11 @@
 [package]
 name = "sd-media-metadata"
 version = "0.0.0"
-authors = ["Jake Robinson <jake@spacedrive.com>"]
+authors = [
+	"Jake Robinson <jake@spacedrive.com>",
+	"Vítor Vasconcellos <vitor@spacedrive.com>",
+	"Ericson Soares <ericson@spacedrive.com>",
+]
 edition = "2021"
 
 [features]

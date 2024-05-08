@@ -1,4 +1,3 @@
-#![recursion_limit = "256"]
 #![allow(clippy::unwrap_used, clippy::panic)] // TODO: Brendan remove this once you've got error handling here
 
 mod actor;

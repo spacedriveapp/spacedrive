@@ -1,7 +1,7 @@
 [package]
 name = "sd-task-system"
 version = "0.1.0"
-authors = ["Ericson \"Fogo\" Soares <ericson.ds999@gmail.com>"]
+authors = ["Ericson Soares <ericson@spacedrive.com>"]
 rust-version = "1.75"
 license.workspace = true
 edition.workspace = true
@@ -31,7 +31,7 @@ pin-project = "1.1.4"
 
 [dev-dependencies]
 lending-stream = { workspace = true }
-rand = "0.8.5"
+rand = { workspace = true }
 rmp-serde = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 tempfile = { workspace = true }

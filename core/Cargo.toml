@@ -2,7 +2,7 @@
 name = "sd-core"
 version = "0.2.14"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
-authors = ["Spacedrive Technology Inc."]
+authors = ["Spacedrive Technology Inc <support@spacedrive.com>"]
 rust-version = "1.77"
 license = { workspace = true }
 repository = { workspace = true }
@@ -28,7 +28,7 @@ sd-core-sync = { path = "./crates/sync" }
 # Spacedrive Sub-crates
 sd-actors = { path = "../crates/actors", version = "0.1.0" }
 sd-ai = { path = "../crates/ai", optional = true }
-sd-cloud-api = { version = "0.1.0", path = "../crates/cloud-api" }
+sd-cloud-api = { path = "../crates/cloud-api", version = "0.1.0" }
 sd-crypto = { path = "../crates/crypto", features = [
 	"sys",
 	"tokio",
