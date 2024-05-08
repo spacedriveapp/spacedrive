@@ -28,7 +28,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("setApiOrigin", {
 			R.mutation(|node, origin: String| async move {
 				let mut origin_env = node.env.api_url.lock().await;
-				*origin_env = origin.clone();
+				origin_env.clone_from(&origin);
 
 				node.config
 					.write(|c| {

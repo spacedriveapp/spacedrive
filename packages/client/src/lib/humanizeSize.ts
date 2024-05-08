@@ -111,6 +111,7 @@ export const humanizeSize = (
 ) => {
 	if (value == null) value = 0n;
 	if (Array.isArray(value)) value = bytesToNumber(value);
+	else if (typeof value === 'number') value = BigInt(value | 0);
 	else if (typeof value !== 'bigint') value = BigInt(value);
 	const [isNegative, bytes] = value < 0n ? [true, -value] : [false, value];
 

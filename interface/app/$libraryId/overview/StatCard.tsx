@@ -36,7 +36,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 	}, []);
 
 	const progress = useMemo(() => {
-		if (!mounted || totalSpace.original === 0n) return 0;
+		if (!mounted || totalSpace.original === 0) return 0;
 		return Math.floor((usedSpaceSpace.value / totalSpace.value) * 100);
 	}, [mounted, totalSpace, usedSpaceSpace]);
 

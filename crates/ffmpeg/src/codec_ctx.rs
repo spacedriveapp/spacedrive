@@ -58,7 +58,7 @@ impl FFmpegCodecContext {
 
 	pub(crate) fn open2(&mut self, video_codec: &AVCodec) -> Result<&Self, Error> {
 		check_error(
-			unsafe { avcodec_open2(self.as_mut(), video_codec, std::ptr::null_mut()) },
+			unsafe { avcodec_open2(self.as_mut(), video_codec, ptr::null_mut()) },
 			"Failed to open video codec",
 		)?;
 
@@ -438,7 +438,7 @@ impl Drop for FFmpegCodecContext {
 	fn drop(&mut self) {
 		if !self.0.is_null() {
 			unsafe { avcodec_free_context(&mut self.0) };
-			self.0 = std::ptr::null_mut();
+			self.0 = ptr::null_mut();
 		}
 	}
 }

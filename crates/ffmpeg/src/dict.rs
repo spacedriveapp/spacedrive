@@ -62,7 +62,7 @@ impl Drop for FFmpegDictionary {
 	fn drop(&mut self) {
 		if self.managed && !self.dict.is_null() {
 			unsafe { av_dict_free(&mut self.dict) };
-			self.dict = std::ptr::null_mut();
+			self.dict = ptr::null_mut();
 		}
 	}
 }
@@ -75,7 +75,7 @@ impl<'a> IntoIterator for &'a FFmpegDictionary {
 	fn into_iter(self) -> FFmpegDictIter<'a> {
 		FFmpegDictIter {
 			dict: self.dict,
-			prev: std::ptr::null(),
+			prev: ptr::null(),
 			_lifetime: std::marker::PhantomData,
 		}
 	}

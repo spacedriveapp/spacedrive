@@ -99,7 +99,7 @@ impl FFmpegFormatContext {
 			av_stream_get_side_data(
 				stream,
 				AVPacketSideDataType::AV_PKT_DATA_DISPLAYMATRIX,
-				std::ptr::null_mut(),
+				ptr::null_mut(),
 			)
 		} as *const i32);
 
@@ -295,7 +295,7 @@ impl Drop for FFmpegFormatContext {
 	fn drop(&mut self) {
 		if !self.0.is_null() {
 			unsafe { avformat_close_input(&mut self.0) };
-			self.0 = std::ptr::null_mut();
+			self.0 = ptr::null_mut();
 		}
 	}
 }
@@ -411,7 +411,7 @@ impl From<&AVStream> for FFmpegStream {
 		});
 
 		Self {
-			id: stream.id,
+			id: stream.index,
 			name,
 			codec,
 			aspect_ratio_num: aspect_ratio.num,
