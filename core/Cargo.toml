@@ -3,7 +3,7 @@ name = "sd-core"
 version = "0.2.14"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc <support@spacedrive.com>"]
-rust-version = "1.77"
+rust-version = "1.78"
 license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }

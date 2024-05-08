@@ -84,14 +84,6 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 							icon={Cube}
 							value={`${humanizeSize(filePathData?.size_in_bytes_bytes)}`}
 						/>
-						{/* Duration */}
-						{/* {fullObjectData.data?.exif_data?.duration && (
-							<MetaItem
-								title="Duration"
-								value={fullObjectData.data.exif_data.duration}
-								icon={Clock}
-							/>
-						)} */}
 						{/* Created */}
 						{data.type !== 'SpacedropPeer' && (
 							<MetaItem

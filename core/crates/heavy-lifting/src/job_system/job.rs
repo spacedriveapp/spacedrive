@@ -17,7 +17,7 @@ use std::{
 
 use async_channel as chan;
 use chrono::{DateTime, Utc};
-use futures::{stream, Future};
+use futures::{stream, Future, StreamExt};
 use futures_concurrency::{
 	future::{Join, TryJoin},
 	stream::Merge,
@@ -29,7 +29,6 @@ use tokio::{
 	spawn,
 	sync::{watch, Mutex},
 };
-use tokio_stream::StreamExt;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
