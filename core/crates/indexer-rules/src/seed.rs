@@ -1,9 +1,11 @@
-use globset::{Glob, GlobSetBuilder};
 use sd_prisma::prisma::{indexer_rule, PrismaClient};
 
 use chrono::Utc;
 use thiserror::Error;
-use tokio::io::BufReader;
+use tokio::{
+	fs::File,
+	io::{BufReader, Lines},
+};
 use uuid::Uuid;
 
 use super::{IndexerRule, IndexerRuleError, RulePerKind};
@@ -24,54 +26,95 @@ pub struct GitIgnoreRules {
 }
 
 impl GitIgnoreRules {
-	pub async fn parse_gitignore(path: &std::path::Path) -> Result<Self, SeederError> {
-        // TODO(matheus-consoli): extend the functionality to also consider other git ignore
-        // sources (see: https://git-scm.com/docs/gitignore)
-        // TODO(matheus-consoli): double check that this truly is a git repo, and not a
-        // simple directory with a lonely `.gitignore` file laying around
+	/// Parses the git ignore rules from a given repository
+	pub async fn parse_gitrepo(path: &std::path::Path) -> Result<Self, SeederError> {
 		use tokio::io::AsyncBufReadExt;
 
-		let parent = path.parent().unwrap();
-		let file = tokio::fs::File::open(path)
+		if !Self::is_git_repo(path).await {
+			return Err(SeederError::InhirentedExternalRules);
+		}
+
+		// TODO(matheus-consoli): extend the functionality to also consider other git ignore
+		// sources (see: https://git-scm.com/docs/gitignore)
+
+		let gitignore = path.join(".gitignore");
+		let file = File::open(gitignore)
 			.await
 			.map_err(|_| SeederError::InhirentedExternalRules)?;
+
 		let buf = BufReader::new(file);
 		let mut lines = buf.lines();
 
 		let mut rules = Vec::new();
-		while let Ok(Some(mut line)) = lines.next_line().await {
-			// A blank line matches no files, so it can serve as a separator for readability
+		while let Ok(Some(mut line)) = Self::next_line(&mut lines).await {
+			// A blank line; skip
 			if line.is_empty() {
 				continue;
 			}
 
-			// A line starting with "#" serves as a comment
-			if line.starts_with("#") {
+			// A line starting with "#" serves as a comment; skip
+			if line.starts_with('#') {
 				continue;
 			}
-
-			// TODO(matheus-consoli): correctly parse lines ending with "\"
 
 			// an optional "!" negates the pattern
 			// any matching file excluded by a previous pattern will become included again
 			// it's not possible to re-include a file if a pattern directory of that file is excluded
-			let rule = if line.starts_with("!") {
-				line.remove(0); // pop the !
-				let full = parent.join(line);
-				let file = full.into_os_string().into_string().unwrap();
-				RulePerKind::new_accept_files_by_globs_str([file]).unwrap()
+			let rule = if line.starts_with('!') {
+				// TODO(matheus-consoli): skip negated patterns for now (`!path/to/file`)
+				// it seems that when we mix acceptance and rejection rules
+				// the indexer ignores *everything*
+
+				// line.remove(0); // pop the !
+				// let full = path.join(line);
+				// let file = full.into_os_string().into_string().unwrap();
+				// RulePerKind::new_accept_files_by_globs_str([file]).unwrap()
+				continue;
 			} else {
-				if line.starts_with("/") {
+				if line.starts_with('/') {
 					line.remove(0);
 				}
-				let full = parent.join(line);
+				let full = path.join(line);
 				let file = full.into_os_string().into_string().unwrap();
 				RulePerKind::new_reject_files_by_globs_str([file]).unwrap()
 			};
 
-			rules.push(rule)
+			rules.push(rule);
 		}
 		Ok(Self { rules })
+	}
+
+	async fn is_git_repo(path: &std::path::Path) -> bool {
+		let path = path.join(".git");
+		tokio::task::spawn_blocking(move || path.is_dir())
+			.await
+			.unwrap_or_default()
+	}
+
+	/// Read a line from the stream source and joins multi-lines into a single string
+	async fn next_line(stream: &mut Lines<BufReader<File>>) -> Result<Option<String>, SeederError> {
+		use std::ops::Not;
+		let mut line = String::new();
+
+		loop {
+			let next = stream
+				.next_line()
+				.await
+				.map_err(|_| SeederError::InhirentedExternalRules)?;
+
+			if let Some(next) = next {
+				line.push_str(next.trim());
+				if line.ends_with('\\') {
+					line.remove(line.len() - 1);
+					// same as an in-place `line.trim_end()`, but without reallocation
+					line.truncate(line.trim_end().len());
+					// read and merge the next line
+					continue;
+				}
+				break Ok(Some(line));
+			}
+			break Ok(line.is_empty().not().then_some(line));
+		}
 	}
 }
 
