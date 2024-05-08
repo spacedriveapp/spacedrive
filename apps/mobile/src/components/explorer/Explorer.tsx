@@ -8,6 +8,7 @@ import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { useExplorerStore } from '~/stores/explorerStore';
 import { useActionsModalStore } from '~/stores/modalStore';
 
+import * as Haptics from 'expo-haptics';
 import { tw } from '~/lib/tailwind';
 import ScreenContainer from '../layout/ScreenContainer';
 import FileItem from './FileItem';
@@ -39,6 +40,7 @@ const Explorer = (props: Props) => {
 	const { modalRef, setData } = useActionsModalStore();
 
 	function handlePress(data: ExplorerItem) {
+		Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 		if (isPath(data) && data.item.is_dir && data.item.location_id !== null) {
 				navigation.push('Location', {
 					id: data.item.location_id,
@@ -48,6 +50,12 @@ const Explorer = (props: Props) => {
 			setData(data);
 			modalRef.current?.present();
 		}
+	}
+
+	function handleLongPress(data: ExplorerItem) {
+		Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+		setData(data);
+		modalRef.current?.present();
 	}
 
 	return (
@@ -71,7 +79,10 @@ const Explorer = (props: Props) => {
 									: item.item.id.toString()
 						}
 						renderItem={({ item }) => (
-							<Pressable onPress={() => handlePress(item)}>
+							<Pressable
+							onPress={() => handlePress(item)}
+							onLongPress={() => handleLongPress(item)}
+							>
 								{store.layoutMode === 'grid' ? (
 									<FileItem data={item} />
 								) : (
