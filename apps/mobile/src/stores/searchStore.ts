@@ -4,9 +4,17 @@ import { IconName } from '~/components/icons/Icon';
 
 export type SearchFilters = 'locations' | 'tags' | 'name' | 'extension' | 'hidden' | 'kind';
 export type SortOptionsType = {
-	by: 'none' | 'name' | 'sizeInBytes' | 'dateIndexed' | 'dateCreated' | 'dateModified' | 'dateAccessed' | 'dateTaken';
+	by:
+		| 'none'
+		| 'name'
+		| 'sizeInBytes'
+		| 'dateIndexed'
+		| 'dateCreated'
+		| 'dateModified'
+		| 'dateAccessed'
+		| 'dateTaken';
 	direction: 'Asc' | 'Desc';
-}
+};
 
 export interface FilterItem {
 	id: number;

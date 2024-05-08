@@ -71,11 +71,7 @@ const ListLocation = ({ location }: ListLocationProps) => {
 						</Text>
 					</View>
 					<Pressable hitSlop={24} onPress={() => swipeRef.current?.openRight()}>
-						<DotsThreeVertical
-							weight="bold"
-							size={20}
-							color={tw.color('ink-dull')}
-						/>
+						<DotsThreeVertical weight="bold" size={20} color={tw.color('ink-dull')} />
 					</Pressable>
 				</View>
 			</Card>
