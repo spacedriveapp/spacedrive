@@ -17,7 +17,7 @@ import { useKeyMatcher, useLocale } from '~/hooks';
 
 import { KeyManager } from '../KeyManager';
 import { Spacedrop, SpacedropButton } from '../Spacedrop';
-import TopBarOptions, { ToolOption, TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
+import TopBarOptions, { ToolOption, TOP_BAR_ICON_CLASSLIST } from '../TopBar/TopBarOptions';
 import { useExplorerContext } from './Context';
 import OptionsPanel from './OptionsPanel';
 import { explorerStore } from './store';
@@ -50,7 +50,7 @@ export const useExplorerTopBarOptions = () => {
 					const option = {
 						layout,
 						toolTipLabel: t(`${layout} View`),
-						icon: <Icon className={TOP_BAR_ICON_STYLE} />,
+						icon: <Icon className={TOP_BAR_ICON_CLASSLIST} />,
 						keybinds: [controlIcon, (i + 1).toString()],
 						topBarActive:
 							!explorer.isLoadingPreferences && settings.layoutMode === layout,
@@ -75,7 +75,7 @@ export const useExplorerTopBarOptions = () => {
 	const controlOptions: ToolOption[] = [
 		{
 			toolTipLabel: 'Explorer display',
-			icon: <SlidersHorizontal className={TOP_BAR_ICON_STYLE} />,
+			icon: <SlidersHorizontal className={TOP_BAR_ICON_CLASSLIST} />,
 			popOverComponent: <OptionsPanel />,
 			individual: true,
 			showAtResolution: 'sm:flex'
@@ -89,7 +89,7 @@ export const useExplorerTopBarOptions = () => {
 			icon: (
 				<SidebarSimple
 					weight={showInspector ? 'fill' : 'regular'}
-					className={clsx(TOP_BAR_ICON_STYLE, 'scale-x-[-1]')}
+					className={clsx(TOP_BAR_ICON_CLASSLIST, 'scale-x-[-1]')}
 				/>
 			),
 			individual: true,
@@ -121,7 +121,7 @@ export const useExplorerTopBarOptions = () => {
 		},
 		{
 			toolTipLabel: 'Key Manager',
-			icon: <Key className={TOP_BAR_ICON_STYLE} />,
+			icon: <Key className={TOP_BAR_ICON_CLASSLIST} />,
 			popOverComponent: <KeyManager />,
 			individual: true,
 			showAtResolution: 'xl:flex'
@@ -129,11 +129,15 @@ export const useExplorerTopBarOptions = () => {
 		{
 			toolTipLabel: 'Tag Assign Mode',
 			icon: (
-				<Tag weight={tagAssignMode ? 'fill' : 'regular'} className={TOP_BAR_ICON_STYLE} />
+				<Tag
+					weight={tagAssignMode ? 'fill' : 'regular'}
+					className={TOP_BAR_ICON_CLASSLIST}
+				/>
 			),
 			// TODO: Assign tag mode is not yet implemented!
-			// onClick: () => (explorerStore.tagAssignMode = !explorerStore.tagAssignMode),
-			onClick: () => toast.info('Coming soon!'),
+			onClick: () => (explorerStore.tagAssignMode = !explorerStore.tagAssignMode),
+			// TODO: remove once tag-assign-mode impl complete
+			// onClick: () => toast.info('Coming soon!'),
 			topBarActive: tagAssignMode,
 			individual: true,
 			showAtResolution: 'xl:flex'

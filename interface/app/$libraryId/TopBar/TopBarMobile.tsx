@@ -3,7 +3,7 @@ import React, { forwardRef, HTMLAttributes } from 'react';
 import { Popover, usePopover } from '@sd/ui';
 
 import TopBarButton, { TopBarButtonProps } from './TopBarButton';
-import { ToolOption, TOP_BAR_ICON_STYLE } from './TopBarOptions';
+import { ToolOption, TOP_BAR_ICON_CLASSLIST } from './TopBarOptions';
 
 const GroupTool = forwardRef<
 	HTMLButtonElement,
@@ -40,7 +40,7 @@ export default ({ toolOptions, className }: Props) => {
 				popover={popover}
 				trigger={
 					<TopBarButton>
-						<DotsThreeCircle className={TOP_BAR_ICON_STYLE} />
+						<DotsThreeCircle className={TOP_BAR_ICON_CLASSLIST} />
 					</TopBarButton>
 				}
 			>

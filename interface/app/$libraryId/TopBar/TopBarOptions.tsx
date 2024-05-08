@@ -23,7 +23,7 @@ interface TopBarChildrenProps {
 	options?: ToolOption[][];
 }
 
-export const TOP_BAR_ICON_STYLE = 'm-0.5 w-[18px] h-[18px] text-ink-dull';
+export const TOP_BAR_ICON_CLASSLIST = 'm-0.5 w-[18px] h-[18px] text-ink-dull';
 
 export default ({ options }: TopBarChildrenProps) => {
 	const [windowSize, setWindowSize] = useState(0);
@@ -96,10 +96,10 @@ function ToolGroup({
 	const roundingCondition = individual
 		? 'both'
 		: index === 0
-		? 'left'
-		: index === group.length - 1
-		? 'right'
-		: 'none';
+			? 'left'
+			: index === group.length - 1
+				? 'right'
+				: 'none';
 
 	const popover = usePopover();
 	const os = useOperatingSystem();
@@ -130,7 +130,7 @@ function ToolGroup({
 									{typeof icon === 'function'
 										? icon({
 												triggerOpen: () => popover.setOpen(true)
-										  })
+											})
 										: icon}
 								</Tooltip>
 							</TopBarButton>
