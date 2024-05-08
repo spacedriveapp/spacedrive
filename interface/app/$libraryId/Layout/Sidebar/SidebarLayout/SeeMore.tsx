@@ -1,4 +1,5 @@
 import { Children, PropsWithChildren, useState } from 'react';
+import { useLocale } from '~/hooks';
 
 export const SEE_MORE_COUNT = 5;
 
@@ -11,6 +12,7 @@ export function SeeMore({ children, limit = SEE_MORE_COUNT }: Props) {
 
 	const childrenArray = Children.toArray(children);
 
+	const { t } = useLocale();
 	return (
 		<>
 			{childrenArray.map((child, index) => (seeMore || index < limit ? child : null))}
@@ -19,7 +21,7 @@ export function SeeMore({ children, limit = SEE_MORE_COUNT }: Props) {
 					onClick={() => setSeeMore(!seeMore)}
 					className="mb-1 ml-2 mt-0.5 cursor-pointer text-center text-tiny font-semibold text-ink-faint/50 transition hover:text-accent"
 				>
-					See {seeMore ? 'less' : 'more'}
+					{seeMore ? `${t('see_less')}` : `${t('see_more')}`}
 				</div>
 			)}
 		</>

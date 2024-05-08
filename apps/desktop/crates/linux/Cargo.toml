@@ -11,5 +11,5 @@ libc =  { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # WARNING: gtk should follow the same version used by tauri
-# https://github.com/tauri-apps/tauri/blob/441eb4f4a5f9af206752c2e287975eb8d5ccfd01/core/tauri/Cargo.toml#L95
-gtk = { version = "0.15", features = [ "v3_20" ] }
+# https://github.com/tauri-apps/tauri/blob/tauri-v2.0.0-beta.17/core/tauri/Cargo.toml#L85C1-L85C51
+gtk = { version = "0.18", features = [ "v3_24" ] }

@@ -54,7 +54,7 @@ import { FileThumb } from '../FilePath/Thumb';
 import { useQuickPreviewStore } from '../QuickPreview/store';
 import { explorerStore } from '../store';
 import { useExplorerItemData } from '../useExplorerItemData';
-import { uniqueId } from '../util';
+import { translateKindName, uniqueId } from '../util';
 import { RenamableItemText } from '../View/RenamableItemText';
 import FavoriteButton from './FavoriteButton';
 import MediaData from './MediaData';
@@ -100,6 +100,7 @@ export const Inspector = forwardRef<HTMLDivElement, Props>(
 			explorerStore.showMoreInfo = false;
 		}, [pathname]);
 
+		const { t } = useLocale();
 		return (
 			<div ref={ref} style={{ width: INSPECTOR_WIDTH, ...style }} {...props}>
 				<Sticky
@@ -120,7 +121,7 @@ export const Inspector = forwardRef<HTMLDivElement, Props>(
 					<div className="flex select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
 						{!isNonEmpty(selectedItems) ? (
 							<div className="flex h-[390px] items-center justify-center text-sm text-ink-dull">
-								Nothing selected
+								{t('nothing_selected')}
 							</div>
 						) : selectedItems.length === 1 ? (
 							<SingleItemMetadata item={selectedItems[0]} />
@@ -342,7 +343,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					onClick={() => {
 						if (fullPath) {
 							navigator.clipboard.writeText(fullPath);
-							toast.info('Copied path to clipboard');
+							toast.info(t('path_copied_to_clipboard_title'));
 						}
 					}}
 				/>
@@ -367,7 +368,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 			{mediaData && <MediaData data={mediaData} />}
 
 			<MetaContainer className="flex !flex-row flex-wrap gap-1 overflow-hidden">
-				<InfoPill>{isDir ? 'Folder' : kind}</InfoPill>
+				<InfoPill>{isDir ? t('folder') : translateKindName(kind)}</InfoPill>
 
 				{extension && <InfoPill>{extension}</InfoPill>}
 
@@ -560,7 +561,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 
 			<MetaContainer className="flex !flex-row flex-wrap gap-1 overflow-hidden">
 				{[...metadata.kinds].map(([kind, items]) => (
-					<InfoPill key={kind}>{`${kind} (${items.length})`}</InfoPill>
+					<InfoPill key={kind}>{`${translateKindName(kind)} (${items.length})`}</InfoPill>
 				))}
 
 				{/* {labels.data?.map((label) => {

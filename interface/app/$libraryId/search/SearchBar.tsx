@@ -4,7 +4,7 @@ import { createSearchParams } from 'react-router-dom';
 import { useDebouncedCallback } from 'use-debounce';
 import { SearchFilterArgs } from '@sd/client';
 import { Input, ModifierKeys, Shortcut } from '@sd/ui';
-import { useOperatingSystem } from '~/hooks';
+import { useLocale, useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 
 import { useSearchContext } from './context';
@@ -35,6 +35,11 @@ export default ({ redirectToSearch, defaultFilters, defaultTarget }: Props) => {
 			) {
 				searchRef.current?.focus();
 			}
+
+			const handler = () => searchRef.current?.focus();
+
+			document.addEventListener('open_search', handler);
+			return () => document.removeEventListener('open_search', handler);
 		},
 		[os]
 	);
@@ -97,10 +102,12 @@ export default ({ redirectToSearch, defaultFilters, defaultTarget }: Props) => {
 		search.setTarget?.(undefined);
 	}
 
+	const { t } = useLocale();
+
 	return (
 		<Input
 			ref={searchRef}
-			placeholder="Search"
+			placeholder={t('search')}
 			className="mx-2 w-48 transition-all duration-200 focus-within:w-60"
 			size="sm"
 			value={value}

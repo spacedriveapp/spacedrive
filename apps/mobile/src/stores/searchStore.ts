@@ -3,6 +3,10 @@ import { SearchFilterArgs } from '@sd/client';
 import { IconName } from '~/components/icons/Icon';
 
 export type SearchFilters = 'locations' | 'tags' | 'name' | 'extension' | 'hidden' | 'kind';
+export type SortOptionsType = {
+	by: 'none' | 'name' | 'sizeInBytes' | 'dateIndexed' | 'dateCreated' | 'dateModified' | 'dateAccessed' | 'dateTaken';
+	direction: 'Asc' | 'Desc';
+}
 
 export interface FilterItem {
 	id: number;
@@ -32,6 +36,7 @@ export interface Filters {
 interface State {
 	search: string;
 	filters: Filters;
+	sort: SortOptionsType;
 	appliedFilters: Partial<Filters>;
 	mergedFilters: SearchFilterArgs[];
 	disableActionButtons: boolean;
@@ -46,6 +51,10 @@ const initialState: State = {
 		extension: [''],
 		hidden: false,
 		kind: []
+	},
+	sort: {
+		by: 'none',
+		direction: 'Asc'
 	},
 	appliedFilters: {},
 	mergedFilters: [],
@@ -76,7 +85,8 @@ const searchStore = proxy<
 	State & {
 		updateFilters: <K extends keyof State['filters']>(
 			filter: K,
-			value: State['filters'][K] extends Array<infer U> ? U : State['filters'][K]
+			value: State['filters'][K] extends Array<infer U> ? U : State['filters'][K],
+			apply?: boolean
 		) => void;
 		applyFilters: () => void;
 		setSearch: (search: string) => void;
@@ -89,7 +99,7 @@ const searchStore = proxy<
 >({
 	...initialState,
 	//for updating the filters upon value selection
-	updateFilters: (filter, value) => {
+	updateFilters: (filter, value, apply = false) => {
 		if (filter === 'hidden') {
 			// Directly assign boolean values without an array operation
 			searchStore.filters['hidden'] = value as boolean;
@@ -107,6 +117,9 @@ const searchStore = proxy<
 				searchStore.filters[filter] = updatedFilter;
 			}
 		}
+		//instead of a useEffect or subscription - we can call applyFilters directly
+		// useful when you want to apply the filters from another screen
+		if (apply) searchStore.applyFilters();
 	},
 	//for clicking add filters and applying the selection
 	applyFilters: () => {

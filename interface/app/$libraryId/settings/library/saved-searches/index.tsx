@@ -27,6 +27,8 @@ export const Component = () => {
 		return savedSearches.data!.find((s) => s.id == selectedSearchId) ?? null;
 	}, [selectedSearchId, savedSearches.data]);
 
+	const { t } = useLocale();
+
 	return (
 		<>
 			<Heading title="Saved Searches" description="Manage your saved searches." />
@@ -52,7 +54,9 @@ export const Component = () => {
 						onDelete={() => setSelectedSearchId(null)}
 					/>
 				) : (
-					<div className="text-sm font-medium text-gray-400">No Search Selected</div>
+					<div className="text-sm font-medium text-gray-400">
+						{t('no_search_selected')}
+					</div>
 				)}
 			</div>
 		</>

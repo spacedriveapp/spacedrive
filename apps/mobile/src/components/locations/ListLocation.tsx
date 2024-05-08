@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import { DotsThreeOutlineVertical } from 'phosphor-react-native';
+import { DotsThreeVertical } from 'phosphor-react-native';
 import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -71,8 +71,8 @@ const ListLocation = ({ location }: ListLocationProps) => {
 						</Text>
 					</View>
 					<Pressable hitSlop={24} onPress={() => swipeRef.current?.openRight()}>
-						<DotsThreeOutlineVertical
-							weight="fill"
+						<DotsThreeVertical
+							weight="bold"
 							size={20}
 							color={tw.color('ink-dull')}
 						/>

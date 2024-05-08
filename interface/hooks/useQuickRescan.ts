@@ -5,6 +5,7 @@ import { explorerStore } from '~/app/$libraryId/Explorer/store';
 
 import { useExplorerContext } from '../app/$libraryId/Explorer/Context';
 import { useExplorerSearchParams } from '../app/$libraryId/Explorer/util';
+import { useLocale } from './useLocale';
 
 export const useQuickRescan = () => {
 	// subscription so that we can cancel it if in progress
@@ -15,6 +16,7 @@ export const useQuickRescan = () => {
 	const { client } = useRspcLibraryContext();
 	const explorer = useExplorerContext({ suspense: false });
 	const [{ path }] = useExplorerSearchParams();
+	const { t } = useLocale();
 
 	const rescan = (id?: number) => {
 		const locationId =
@@ -38,7 +40,7 @@ export const useQuickRescan = () => {
 		);
 
 		toast.success({
-			title: `Quick rescan started`
+			title: t('quick_rescan_started')
 		});
 	};
 

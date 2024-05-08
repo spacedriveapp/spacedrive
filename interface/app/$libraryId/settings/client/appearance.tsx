@@ -29,7 +29,7 @@ const themes: Theme[] = [
 		outsideColor: 'bg-[#F0F0F0]',
 		textColor: 'text-black',
 		border: 'border border-[#E6E6E6]',
-		themeName: 'Light',
+		themeName: i18n.t('light'),
 		themeValue: 'vanilla'
 	},
 	{
@@ -37,7 +37,7 @@ const themes: Theme[] = [
 		outsideColor: 'bg-black',
 		textColor: 'text-white',
 		border: 'border border-[#323342]',
-		themeName: 'Dark',
+		themeName: i18n.t('dark'),
 		themeValue: 'dark'
 	},
 	{
@@ -45,13 +45,14 @@ const themes: Theme[] = [
 		outsideColor: '',
 		textColor: 'text-white',
 		border: 'border border-[#323342]',
-		themeName: 'System',
+		themeName: i18n.t('system'),
 		themeValue: 'system'
 	}
 ];
 
 // Unsorted list of languages available in the app.
 const LANGUAGE_OPTIONS = [
+	{ value: 'ar', label: 'عربي' },
 	{ value: 'en', label: 'English' },
 	{ value: 'de', label: 'Deutsch' },
 	{ value: 'es', label: 'Español' },
@@ -210,7 +211,11 @@ export const Component = () => {
 				</div>
 			</Setting>
 			{/* Date Formatting Settings */}
-			<Setting mini title={t('date_format')} description={t('date_format_description')}>
+			<Setting
+				mini
+				title={t('date_time_format')}
+				description={t('date_time_format_description')}
+			>
 				<div className="flex h-[30px] gap-2">
 					<Select
 						value={dateFormat}

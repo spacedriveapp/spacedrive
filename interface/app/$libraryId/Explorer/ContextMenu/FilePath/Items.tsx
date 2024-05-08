@@ -250,7 +250,7 @@ export const ParentFolderActions = new ConditionalItem({
 						} catch (error) {
 							toast.error({
 								title: t('failed_to_rescan_location'),
-								body: `Error: ${error}.`
+								body: t('error_message', { error })
 							});
 						}
 					}}

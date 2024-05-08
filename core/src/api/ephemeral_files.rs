@@ -1,5 +1,8 @@
 use crate::{
-	api::{files::create_file, utils::library},
+	api::{
+		files::{create_file, MediaData},
+		utils::library,
+	},
 	invalidate_query,
 	library::Library,
 	object::{
@@ -13,7 +16,7 @@ use sd_file_ext::{
 	extensions::{Extension, ImageExtension},
 	kind::ObjectKind,
 };
-use sd_media_metadata::{ExifMetadata, FFmpegMetadata};
+use sd_media_metadata::FFmpegMetadata;
 use sd_utils::error::FileIOError;
 
 use std::{ffi::OsStr, path::PathBuf, str::FromStr};
@@ -22,7 +25,7 @@ use async_recursion::async_recursion;
 use futures_concurrency::future::TryJoin;
 use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use specta::Type;
 use tokio::{fs, io};
 use tokio_stream::{wrappers::ReadDirStream, StreamExt};
@@ -49,12 +52,6 @@ enum EphemeralFileCreateContextTypes {
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("getMediaData", {
-			#[derive(Serialize, Type)]
-			enum MediaData {
-				Exif(ExifMetadata),
-				FFmpeg(FFmpegMetadata),
-			}
-
 			R.query(|_, full_path: PathBuf| async move {
 				let kind: Option<ObjectKind> = Extension::resolve_conflicting(&full_path, false)
 					.await

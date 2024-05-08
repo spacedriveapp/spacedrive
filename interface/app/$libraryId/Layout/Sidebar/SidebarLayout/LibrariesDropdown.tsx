@@ -28,7 +28,11 @@ export default () => {
 					)}
 				>
 					<span className="truncate">
-						{libraries.isLoading ? 'Loading...' : library ? library.config.name : ' '}
+						{libraries.isLoading
+							? `${t('loading')}...`
+							: library
+								? library.config.name
+								: ' '}
 					</span>
 				</Dropdown.Button>
 			}

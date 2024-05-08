@@ -60,6 +60,12 @@ enum FileCreateContextTypes {
 	Text,
 }
 
+#[derive(Serialize, Type)]
+pub(crate) enum MediaData {
+	Exif(ExifMetadata),
+	FFmpeg(FFmpegMetadata),
+}
+
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("get", {
@@ -109,12 +115,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("getMediaData", {
-			#[derive(Serialize, Type)]
-			enum MediaData {
-				Exif(ExifMetadata),
-				FFmpeg(FFmpegMetadata),
-			}
-
 			R.with2(library())
 				.query(|(_, library), args: object::id::Type| async move {
 					library

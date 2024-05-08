@@ -200,7 +200,10 @@ export const AddLocationDialog = ({
 				throw error;
 			}
 
-			toast.error({ title: 'Failed to add location', body: `Error: ${error}.` });
+			toast.error({
+				title: t('failed_to_add_location'),
+				body: t('error_message', { error })
+			});
 
 			return;
 		}
@@ -217,6 +220,7 @@ export const AddLocationDialog = ({
 			dialog={useDialog(dialogProps)}
 			icon={<Icon name="NewLocation" size={28} />}
 			onSubmit={onSubmit}
+			closeLabel={t('close')}
 			ctaLabel={t('add')}
 			formClassName="min-w-[375px]"
 			errorMessageException={t('location_is_already_linked')}
