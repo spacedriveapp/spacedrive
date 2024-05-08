@@ -280,8 +280,8 @@ async fn main() -> tauri::Result<()> {
 							}
 						});
 
-				#[cfg(target_os = "windows")]
-				window.set_decorations(false).unwrap();
+						#[cfg(target_os = "windows")]
+						window.set_decorations(false).unwrap();
 
 						#[cfg(target_os = "macos")]
 						{
