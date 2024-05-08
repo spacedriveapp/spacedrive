@@ -1,3 +1,10 @@
+import {
+	byteSize,
+	getIndexedItemFilePath,
+	getItemObject,
+	useLibraryMutation,
+	useLibraryQuery
+} from '@sd/client';
 import dayjs from 'dayjs';
 import {
 	Copy,
@@ -13,13 +20,6 @@ import {
 import { PropsWithChildren, useRef } from 'react';
 import { Pressable, Text, View, ViewStyle } from 'react-native';
 import FileViewer from 'react-native-file-viewer';
-import {
-	byteSize,
-	getIndexedItemFilePath,
-	getItemObject,
-	useLibraryMutation,
-	useLibraryQuery
-} from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
 import FavoriteButton from '~/components/explorer/sections/FavoriteButton';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
@@ -34,7 +34,7 @@ type ActionsContainerProps = PropsWithChildren<{
 }>;
 
 const ActionsContainer = ({ children, style }: ActionsContainerProps) => (
-	<View style={twStyle('rounded-lg bg-app-box py-3.5', style)}>{children}</View>
+	<View style={twStyle('rounded-lg border border-app-box bg-app py-3.5', style)}>{children}</View>
 );
 
 type ActionsItemProps = {
@@ -61,7 +61,7 @@ const ActionsItem = ({ icon, onPress, title, isDanger = false }: ActionsItemProp
 	);
 };
 
-const ActionDivider = () => <View style={tw`my-3.5 h-[0.5px] bg-app-line/80`} />;
+const ActionDivider = () => <View style={tw`my-3.5 h-[0.5px] bg-app-box`} />;
 
 export const ActionsModal = () => {
 	const fileInfoRef = useRef<ModalRef>(null);

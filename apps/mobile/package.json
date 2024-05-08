@@ -41,6 +41,7 @@
 		"expo-av": "^13.10.5",
 		"expo-blur": "^12.9.2",
 		"expo-build-properties": "~0.11.1",
+		"expo-haptics": "~12.8.1",
 		"expo-image": "^1.10.6",
 		"expo-linking": "~6.2.2",
 		"expo-media-library": "~15.9.1",
