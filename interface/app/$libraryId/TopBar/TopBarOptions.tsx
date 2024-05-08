@@ -59,7 +59,7 @@ export default ({ options }: TopBarChildrenProps) => {
 						/>
 					))
 				)}
-				<WindowsControls windowSize={windowSize} />
+				{os === 'windows' && <WindowsControls windowSize={windowSize} />}
 			</div>
 			<TopBarMobile
 				toolOptions={options}
@@ -176,7 +176,6 @@ function ToolGroup({
 }
 
 export function WindowsControls({ windowSize }: { windowSize: number }) {
-	const os = useOperatingSystem();
 	const [maximized, setMaximized] = useState(false);
 	const getWindowState = useCallback(async () => {
 		const isMaximized = await getCurrent().isMaximized();
@@ -186,41 +185,38 @@ export function WindowsControls({ windowSize }: { windowSize: number }) {
 	useEffect(() => {
 		getWindowState().catch(console.error);
 	}, [getWindowState, windowSize]);
-
-	if (os === 'windows') {
-		return (
-			<div className="mx-1 hidden items-center xl:flex">
-				<TopBarButton
-					className="mx-2"
-					rounding="both"
-					active={false}
-					onClick={() => appWindow.minimize()}
-				>
-					<Minus weight="regular" className={clsx(TOP_BAR_ICON_STYLE)} />
-				</TopBarButton>
-				<TopBarButton
-					rounding="both"
-					className="mx-2"
-					active={false}
-					onClick={() => {
-						appWindow.toggleMaximize();
-					}}
-				>
-					{maximized ? (
-						<Cards weight="regular" className={clsx(TOP_BAR_ICON_STYLE)} />
-					) : (
-						<Square weight="regular" className={clsx(TOP_BAR_ICON_STYLE)} />
-					)}
-				</TopBarButton>
-				<TopBarButton
-					rounding="both"
-					className="mx-2 hover:bg-red-500 *:hover:text-white"
-					active={false}
-					onClick={() => appWindow.close()}
-				>
-					<X weight="regular" className={clsx(TOP_BAR_ICON_STYLE, 'hover:text-white')} />
-				</TopBarButton>
-			</div>
-		);
-	} else return <></>;
+	return (
+		<div className="mx-1 hidden items-center xl:flex">
+			<TopBarButton
+				className="mx-2"
+				rounding="both"
+				active={false}
+				onClick={() => appWindow.minimize()}
+			>
+				<Minus weight="regular" className={clsx(TOP_BAR_ICON_STYLE)} />
+			</TopBarButton>
+			<TopBarButton
+				rounding="both"
+				className="mx-2"
+				active={false}
+				onClick={() => {
+					appWindow.toggleMaximize();
+				}}
+			>
+				{maximized ? (
+					<Cards weight="regular" className={clsx(TOP_BAR_ICON_STYLE)} />
+				) : (
+					<Square weight="regular" className={clsx(TOP_BAR_ICON_STYLE)} />
+				)}
+			</TopBarButton>
+			<TopBarButton
+				rounding="both"
+				className="mx-2 hover:bg-red-500 *:hover:text-white"
+				active={false}
+				onClick={() => appWindow.close()}
+			>
+				<X weight="regular" className={clsx(TOP_BAR_ICON_STYLE, 'hover:text-white')} />
+			</TopBarButton>
+		</div>
+	);
 }
