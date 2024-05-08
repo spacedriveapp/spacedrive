@@ -1,6 +1,6 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { AppLogo, BloomOne } from '@sd/assets/images';
-import { SdMobIntro } from '@sd/assets/videos';
+import SdMobIntro from '@sd/assets/videos/SdMobIntro.mp4';
 import { ResizeMode, Video } from 'expo-av';
 import { Image } from 'expo-image';
 import { MotiView } from 'moti';

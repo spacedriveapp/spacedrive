@@ -1,6 +1,3 @@
-import { proxy } from 'valtio';
-import { proxySet } from 'valtio/utils';
-import { z } from 'zod';
 import {
 	resetStore,
 	type DoubleClickAction,
@@ -9,6 +6,9 @@ import {
 	type ExplorerSettings,
 	type Ordering
 } from '@sd/client';
+import { proxy } from 'valtio';
+import { proxySet } from 'valtio/utils';
+import { z } from 'zod';
 import i18n from '~/app/I18n';
 
 import {

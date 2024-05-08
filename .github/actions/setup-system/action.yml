@@ -62,12 +62,14 @@ runs:
       shell: bash
       if: ${{ runner.os == 'Linux' }}
       run: |
-        dpkg -l | grep i386
-        sudo apt-get purge --allow-remove-essential libc6-i386 ".*:i386"
-        sudo dpkg --remove-architecture i386
+        set -eux
+        if dpkg -l | grep i386; then
+          sudo apt-get purge --allow-remove-essential libc6-i386 ".*:i386" || true
+          sudo dpkg --remove-architecture i386 || true
+        fi
 
         # https://github.com/actions/runner-images/issues/9546#issuecomment-2014940361
-        sudo apt-get remove libunwind-*
+        sudo apt-get remove libunwind-* || true
 
     - name: Setup Rust and Dependencies
       uses: ./.github/actions/setup-rust

@@ -1,6 +1,4 @@
-use crate::{
-	actor::ActorTypes, crdt_op_db, db_operation::*, ingest, SharedState, SyncMessage, NTP64,
-};
+use crate::{crdt_op_db, db_operation::*, ingest, SharedState, SyncMessage, NTP64};
 
 use sd_prisma::prisma::{cloud_crdt_operation, crdt_operation, instance, PrismaClient, SortOrder};
 use sd_sync::{CRDTOperation, OperationFactory};
