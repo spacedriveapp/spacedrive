@@ -467,8 +467,8 @@ where
 
 	let root = root.as_ref();
 
-    let gitignore = path.join(".gitignore");
-    let mut indexer_rules = Vec::from(indexer_rules);
+	let gitignore = path.join(".gitignore");
+	let mut indexer_rules = Vec::from(indexer_rules);
 	if matches!(tokio::fs::try_exists(&gitignore).await, Ok(true)) {
 		use sd_core_indexer_rules::seed::GitIgnoreRules;
 		let git_rules = GitIgnoreRules::parse_gitrepo(path).await;

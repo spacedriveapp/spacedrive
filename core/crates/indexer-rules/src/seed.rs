@@ -75,8 +75,14 @@ impl GitIgnoreRules {
 					line.remove(0);
 				}
 				let full = path.join(line);
-				let file = full.into_os_string().into_string().unwrap();
-				RulePerKind::new_reject_files_by_globs_str([file]).unwrap()
+				// ignore the rule if it's poorly formatted or invalid
+				let Ok(file) = full.into_os_string().into_string() else {
+					continue;
+				};
+				let Ok(rule) = RulePerKind::new_reject_files_by_globs_str([file]) else {
+					continue;
+				};
+				rule
 			};
 
 			rules.push(rule);
