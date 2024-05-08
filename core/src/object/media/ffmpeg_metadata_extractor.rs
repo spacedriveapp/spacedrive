@@ -515,8 +515,9 @@ async fn create_ffmpeg_codecs(
 		},
 	);
 
-	let created_ids = db
-		._batch(creates.into_iter().map(
+	let created_ids = creates
+		.into_iter()
+		.map(
 			|ffmpeg_media_codec::CreateUnchecked {
 			     bit_rate,
 			     stream_id,
@@ -527,8 +528,11 @@ async fn create_ffmpeg_codecs(
 				db.ffmpeg_media_codec()
 					.create_unchecked(bit_rate, stream_id, program_id, ffmpeg_data_id, _params)
 					.select(ffmpeg_media_codec::select!({ id }))
+					.exec()
 			},
-		))
+		)
+		.collect::<Vec<_>>()
+		.try_join()
 		.await?;
 
 	assert_eq!(

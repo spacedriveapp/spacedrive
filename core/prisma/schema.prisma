@@ -359,7 +359,6 @@ model FfmpegMediaStream {
   ffmpeg_data_id Int
 
   @@id(name: "likeId", [ffmpeg_data_id, program_id, stream_id])
-  @@unique([ffmpeg_data_id, program_id])
   @@map("ffmpeg_media_stream")
 }
 

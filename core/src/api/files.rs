@@ -121,7 +121,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.db
 						.object()
 						.find_unique(object::id::equals(args))
-						.select(object_with_media_data::select())
+						.include(object_with_media_data::include())
 						.exec()
 						.await?
 						.and_then(|obj| {
