@@ -56,9 +56,6 @@ pub async fn old_shallow(
 		.collect::<Result<Vec<_>, _>>()
 		.map_err(IndexerError::from)?;
 
-	let gitignore_rules = GitIgnoreRules::parse_if_gitrepo(location_path).await;
-	indexer_rules.extend(gitignore_rules.map(Into::into));
-
 	let (add_root, to_walk_path) = if sub_path != Path::new("") && sub_path != Path::new("/") {
 		let full_path = ensure_sub_path_is_in_location(&location_path, &sub_path)
 			.await

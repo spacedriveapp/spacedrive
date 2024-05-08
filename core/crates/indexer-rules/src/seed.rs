@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use futures_concurrency::future::Join;
 use sd_prisma::prisma::{indexer_rule, PrismaClient};
 
@@ -27,7 +29,7 @@ pub struct GitIgnoreRules {
 }
 
 impl GitIgnoreRules {
-	pub async fn parse_if_gitrepo(path: &std::path::Path) -> Result<Self, SeederError> {
+	pub async fn parse_if_gitrepo(path: &Path) -> Result<Self, SeederError> {
 		let is_git = Self::is_git_repo(path);
 		let has_gitignore = fs::try_exists(path.join(".gitignore"));
 
@@ -45,8 +47,8 @@ impl GitIgnoreRules {
 
 	/// Parses the git ignore rules from a given file path
 	pub async fn parse_ignore_rules(
-		base_dir: &std::path::Path,
-		gitignore: &std::path::Path,
+		base_dir: &Path,
+		gitignore: &Path,
 	) -> Result<Self, SeederError> {
 		use tokio::io::AsyncBufReadExt;
 
@@ -102,7 +104,7 @@ impl GitIgnoreRules {
 		Ok(Self { rules })
 	}
 
-	async fn is_git_repo(path: &std::path::Path) -> bool {
+	async fn is_git_repo(path: &Path) -> bool {
 		let path = path.join(".git");
 		tokio::task::spawn_blocking(move || path.is_dir())
 			.await
