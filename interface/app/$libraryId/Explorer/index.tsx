@@ -23,6 +23,9 @@ import { EmptyNotice } from './View/EmptyNotice';
 
 import 'react-slidedown/lib/slidedown.css';
 
+import clsx from 'clsx';
+
+import { ExplorerTagBar } from './ExplorerTagBar';
 import { useExplorerDnd } from './useExplorerDnd';
 
 interface Props {
@@ -37,7 +40,10 @@ interface Props {
 export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
-	const showInspector = useSelector(explorerStore, (s) => s.showInspector);
+	const [showInspector, showTagBar] = useSelector(explorerStore, (s) => [
+		s.showInspector,
+		s.tagAssignMode
+	]);
 
 	const showPathBar = explorer.showPathBar && layoutStore.showPathBar;
 
@@ -112,14 +118,33 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 				</div>
 			</ExplorerContextMenu>
 
-			{showPathBar && <ExplorerPath />}
+			{/* TODO: wrap path bar and tag bar in nice wrapper, ideally animate tag bar in/out directly above path bar */}
+			<div className="absolute inset-x-0 bottom-0 z-50 flex flex-col">
+				{/* !!!! TODO: REMOVE BEFORE MERGE !!!! */}
+				{/* !!!! TODO: REMOVE BEFORE MERGE !!!! */}
+				{/* !!!! TODO: REMOVE BEFORE MERGE !!!! */}
+				<button
+					onClick={() => {
+						explorerStore.tagAssignMode = !explorerStore.tagAssignMode;
+					}}
+				>
+					DEBUG: Toggle tag assign mode
+				</button>
+				{/* !!!! TODO: REMOVE BEFORE MERGE !!!! */}
+				{/* !!!! TODO: REMOVE BEFORE MERGE !!!! */}
+				{/* !!!! TODO: REMOVE BEFORE MERGE !!!! */}
+				{showTagBar && <ExplorerTagBar />}
+				{showPathBar && <ExplorerPath />}
+			</div>
 
 			{showInspector && (
 				<Inspector
-					className="no-scrollbar absolute right-1.5 top-0 pb-3 pl-3 pr-1.5"
+					className={clsx(
+						'no-scrollbar absolute right-1.5 top-0 pb-3 pl-3 pr-1.5',
+						showPathBar && `b-[${PATH_BAR_HEIGHT}px]`
+					)}
 					style={{
-						paddingTop: topBar.topBarHeight + 12,
-						bottom: showPathBar ? PATH_BAR_HEIGHT : 0
+						paddingTop: topBar.topBarHeight + 12
 					}}
 				/>
 			)}

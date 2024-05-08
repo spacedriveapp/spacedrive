@@ -12,7 +12,8 @@ import { FileThumb } from './FilePath/Thumb';
 import { useExplorerDroppable } from './useExplorerDroppable';
 import { useExplorerSearchParams } from './util';
 
-export const PATH_BAR_HEIGHT = 32;
+// todo: ENTIRELY replace with computed combined pathbar+tagbar height
+export const PATH_BAR_HEIGHT = 2;
 
 export const ExplorerPath = memo(() => {
 	const os = useOperatingSystem(true);
@@ -110,8 +111,10 @@ export const ExplorerPath = memo(() => {
 
 	return (
 		<div
-			className="group absolute inset-x-0 bottom-0 z-50 flex items-center border-t border-t-app-line bg-app/90 px-3.5 text-[11px] text-ink-dull backdrop-blur-lg"
-			style={{ height: PATH_BAR_HEIGHT }}
+			className={clsx(
+				'group flex items-center border-t border-t-app-line bg-app/90 px-3.5 text-[11px] text-ink-dull backdrop-blur-lg',
+				`h-[${PATH_BAR_HEIGHT}px]`
+			)}
 		>
 			{paths.map((path) => (
 				<Path
