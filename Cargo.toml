@@ -21,19 +21,19 @@ repository = "https://github.com/spacedriveapp/spacedrive"
 
 [workspace.dependencies]
 # First party dependencies
-prisma-client-rust = { git = "https://github.com/spacedriveapp/prisma-client-rust", rev = "d6f6b224b874fad904bb17b81cf2e570c6003ac9", features = [
+prisma-client-rust = { git = "https://github.com/spacedriveapp/prisma-client-rust", rev = "528ab1cd02c25a1b183c0a8bc44e28954fdd0bfd", features = [
 	"specta",
 	"sqlite-create-many",
 	"migrations",
 	"sqlite",
 ], default-features = false }
-prisma-client-rust-cli = { git = "https://github.com/spacedriveapp/prisma-client-rust", rev = "d6f6b224b874fad904bb17b81cf2e570c6003ac9", features = [
+prisma-client-rust-cli = { git = "https://github.com/spacedriveapp/prisma-client-rust", rev = "528ab1cd02c25a1b183c0a8bc44e28954fdd0bfd", features = [
 	"specta",
 	"sqlite-create-many",
 	"migrations",
 	"sqlite",
 ], default-features = false }
-prisma-client-rust-sdk = { git = "https://github.com/spacedriveapp/prisma-client-rust", rev = "d6f6b224b874fad904bb17b81cf2e570c6003ac9", features = [
+prisma-client-rust-sdk = { git = "https://github.com/spacedriveapp/prisma-client-rust", rev = "528ab1cd02c25a1b183c0a8bc44e28954fdd0bfd", features = [
 	"sqlite",
 ], default-features = false }
 
