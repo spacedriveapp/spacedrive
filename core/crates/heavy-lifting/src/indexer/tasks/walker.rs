@@ -1,7 +1,9 @@
 use crate::{indexer, Error, NonCriticalError};
 
 use sd_core_file_path_helper::{FilePathError, FilePathMetadata, IsolatedFilePathData};
-use sd_core_indexer_rules::{IndexerRuler, MetadataForIndexerRules, RuleKind};
+use sd_core_indexer_rules::{
+	seed::GitIgnoreRules, IndexerRuler, MetadataForIndexerRules, RuleKind,
+};
 use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_walker};
 
 use sd_prisma::prisma::file_path;
@@ -540,16 +542,9 @@ where
 		let (to_create, to_update, total_size, to_remove, accepted_ancestors, handles) = loop {
 			match stage {
 				WalkerStage::Start => {
-					{
-						use sd_core_indexer_rules::seed::GitIgnoreRules;
+					let gitignore_rules = GitIgnoreRules::parse_if_gitrepo(path).await;
+					indexer_ruler.extend(gitignore_rules.map(Into::into)).await;
 
-						let gitignore = path.join(".gitignore");
-						if matches!(fs::try_exists(&gitignore).await, Ok(true)) {
-							let git_rules = GitIgnoreRules::parse_gitrepo(path).await;
-							let mut indexer = indexer_ruler.rules.write().await;
-							indexer.extend(git_rules.map(Into::into));
-						}
-					}
 					*stage = WalkerStage::Walking {
 						read_dir_stream: ReadDirStream::new(fs::read_dir(&path).await.map_err(
 							|e| {

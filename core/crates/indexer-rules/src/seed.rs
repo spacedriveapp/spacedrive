@@ -1,9 +1,10 @@
+use futures_concurrency::future::Join;
 use sd_prisma::prisma::{indexer_rule, PrismaClient};
 
 use chrono::Utc;
 use thiserror::Error;
 use tokio::{
-	fs::File,
+	fs::{self, File},
 	io::{BufReader, Lines},
 };
 use uuid::Uuid;
@@ -26,18 +27,29 @@ pub struct GitIgnoreRules {
 }
 
 impl GitIgnoreRules {
-	/// Parses the git ignore rules from a given repository
-	pub async fn parse_gitrepo(path: &std::path::Path) -> Result<Self, SeederError> {
-		use tokio::io::AsyncBufReadExt;
+	pub async fn parse_if_gitrepo(path: &std::path::Path) -> Result<Self, SeederError> {
+		let is_git = Self::is_git_repo(path);
+		let has_gitignore = fs::try_exists(path.join(".gitignore"));
 
-		if !Self::is_git_repo(path).await {
+		let (is_git, has_gitignore) = (is_git, has_gitignore).join().await;
+		if !(is_git && matches!(has_gitignore, Ok(true))) {
 			return Err(SeederError::InhirentedExternalRules);
 		}
 
-		// TODO(matheus-consoli): extend the functionality to also consider other git ignore
-		// sources (see: https://git-scm.com/docs/gitignore)
+		// TODO(matheus-consoli): extend the functionality to also consider other git ignore sources
+		// `[gitignore, ...].map(parse_ignore_rules).collect().join().await` or something
+		// see `https://git-scm.com/docs/gitignore` for other ignore sources
 
-		let gitignore = path.join(".gitignore");
+		Self::parse_ignore_rules(path, &path.join(".gitignore")).await
+	}
+
+	/// Parses the git ignore rules from a given file path
+	pub async fn parse_ignore_rules(
+		base_dir: &std::path::Path,
+		gitignore: &std::path::Path,
+	) -> Result<Self, SeederError> {
+		use tokio::io::AsyncBufReadExt;
+
 		let file = File::open(gitignore)
 			.await
 			.map_err(|_| SeederError::InhirentedExternalRules)?;
@@ -74,7 +86,7 @@ impl GitIgnoreRules {
 				if line.starts_with('/') {
 					line.remove(0);
 				}
-				let full = path.join(line);
+				let full = base_dir.join(line);
 				// ignore the rule if it's poorly formatted or invalid
 				let Ok(file) = full.into_os_string().into_string() else {
 					continue;

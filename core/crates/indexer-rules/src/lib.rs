@@ -317,7 +317,7 @@ impl RulePerKind {
 	}
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct IndexerRule {
 	pub id: Option<i32>,
 	pub name: String,
@@ -387,7 +387,7 @@ impl IndexerRule {
 
 #[derive(Debug, Clone, Default)]
 pub struct IndexerRuler {
-	pub rules: Arc<RwLock<Vec<IndexerRule>>>, // todo: remove pub, add method
+	rules: Arc<RwLock<Vec<IndexerRule>>>,
 }
 
 impl IndexerRuler {
@@ -434,6 +434,12 @@ impl IndexerRuler {
 		}
 
 		inner(&self.rules.read().await, source.as_ref(), metadata).await
+	}
+
+	/// Extend the indexer rules with the contents from an iterator of rules
+	pub async fn extend(&self, iter: impl IntoIterator<Item = IndexerRule>) {
+		let mut indexer = self.rules.write().await;
+		indexer.extend(iter);
 	}
 }
 

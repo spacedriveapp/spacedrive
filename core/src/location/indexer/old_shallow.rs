@@ -15,7 +15,7 @@ use sd_core_file_path_helper::{
 	check_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 	IsolatedFilePathData,
 };
-use sd_core_indexer_rules::IndexerRule;
+use sd_core_indexer_rules::{seed::GitIgnoreRules, IndexerRule};
 
 use sd_utils::db::maybe_missing;
 
@@ -56,12 +56,8 @@ pub async fn old_shallow(
 		.collect::<Result<Vec<_>, _>>()
 		.map_err(IndexerError::from)?;
 
-	let gitignore = location_path.join(".gitignore");
-	if matches!(tokio::fs::try_exists(&gitignore).await, Ok(true)) {
-		use sd_core_indexer_rules::seed::GitIgnoreRules;
-		let git_rules = GitIgnoreRules::parse_gitrepo(location_path).await;
-		indexer_rules.extend(git_rules.map(Into::into));
-	}
+	let gitignore_rules = GitIgnoreRules::parse_if_gitrepo(location_path).await;
+	indexer_rules.extend(gitignore_rules.map(Into::into));
 
 	let (add_root, to_walk_path) = if sub_path != Path::new("") && sub_path != Path::new("/") {
 		let full_path = ensure_sub_path_is_in_location(&location_path, &sub_path)

@@ -1,5 +1,5 @@
 use sd_core_file_path_helper::{FilePathMetadata, IsolatedFilePathData};
-use sd_core_indexer_rules::{IndexerRule, RuleKind};
+use sd_core_indexer_rules::{seed::GitIgnoreRules, IndexerRule, RuleKind};
 use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_walker};
 
 use sd_prisma::prisma::file_path;
@@ -467,12 +467,8 @@ where
 
 	let root = root.as_ref();
 
-	let gitignore = path.join(".gitignore");
-	if matches!(tokio::fs::try_exists(&gitignore).await, Ok(true)) {
-		use sd_core_indexer_rules::seed::GitIgnoreRules;
-		let git_rules = GitIgnoreRules::parse_gitrepo(path).await;
-		indexer_rules.extend(git_rules.map(Into::into));
-	}
+	let gitignore_rules = GitIgnoreRules::parse_if_gitrepo(path).await;
+	indexer_rules.extend(gitignore_rules.map(Into::into));
 
 	// Just to make sure...
 	paths_buffer.clear();
