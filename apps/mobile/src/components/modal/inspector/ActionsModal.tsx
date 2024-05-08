@@ -34,7 +34,7 @@ type ActionsContainerProps = PropsWithChildren<{
 }>;
 
 const ActionsContainer = ({ children, style }: ActionsContainerProps) => (
-	<View style={twStyle('rounded-lg bg-app-box py-3.5', style)}>{children}</View>
+	<View style={twStyle('rounded-lg border border-app-box bg-app py-3.5', style)}>{children}</View>
 );
 
 type ActionsItemProps = {
@@ -61,7 +61,7 @@ const ActionsItem = ({ icon, onPress, title, isDanger = false }: ActionsItemProp
 	);
 };
 
-const ActionDivider = () => <View style={tw`my-3.5 h-[0.5px] bg-app-line/80`} />;
+const ActionDivider = () => <View style={tw`my-3.5 h-[0.5px] bg-app-box`} />;
 
 export const ActionsModal = () => {
 	const fileInfoRef = useRef<ModalRef>(null);
