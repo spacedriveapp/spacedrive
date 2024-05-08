@@ -13,7 +13,7 @@ import { useExplorerDroppable } from './useExplorerDroppable';
 import { useExplorerSearchParams } from './util';
 
 // todo: ENTIRELY replace with computed combined pathbar+tagbar height
-export const PATH_BAR_HEIGHT = 2;
+export const PATH_BAR_HEIGHT = 32;
 
 export const ExplorerPath = memo(() => {
 	const os = useOperatingSystem(true);
