@@ -64,6 +64,7 @@ impl Hash for OldIndexerJobInit {
 		}
 	}
 }
+
 /// `IndexerJobData` contains the state of the indexer job, which includes a `location_path` that
 /// is cached and casted on `PathBuf` from `local_path` column in the `location` table. It also
 /// contains some metadata for logging purposes.
@@ -167,7 +168,7 @@ impl StatefulJob for OldIndexerJobInit {
 		let db = Arc::clone(&ctx.library.db);
 		let sync = &ctx.library.sync;
 
-		let indexer_rules = init
+		let mut indexer_rules = init
 			.location
 			.indexer_rules
 			.iter()
@@ -208,7 +209,7 @@ impl StatefulJob for OldIndexerJobInit {
 			paths_and_sizes,
 		} = walk(
 			&to_walk_path,
-			&indexer_rules,
+			&mut indexer_rules,
 			update_notifier_fn(ctx),
 			file_paths_db_fetcher_fn!(&db),
 			to_remove_db_fetcher_fn!(location_id, &db),
@@ -387,6 +388,7 @@ impl StatefulJob for OldIndexerJobInit {
 
 				let scan_start = Instant::now();
 
+				let mut indexer_rules = data.indexer_rules.clone();
 				let WalkResult {
 					walked,
 					to_update,
@@ -396,7 +398,7 @@ impl StatefulJob for OldIndexerJobInit {
 					paths_and_sizes,
 				} = keep_walking(
 					to_walk_entry,
-					&data.indexer_rules,
+					&mut indexer_rules,
 					update_notifier_fn(ctx),
 					file_paths_db_fetcher_fn!(&db),
 					to_remove_db_fetcher_fn!(location_id, &db),

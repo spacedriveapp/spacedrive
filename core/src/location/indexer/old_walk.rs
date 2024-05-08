@@ -116,7 +116,7 @@ where
 /// in case of doubts.
 pub(super) async fn walk<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 	root: impl AsRef<Path>,
-	indexer_rules: &[IndexerRule],
+	indexer_rules: &mut Vec<IndexerRule>,
 	mut update_notifier: impl FnMut(&Path, usize),
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> FilePathDBFetcherFut,
 	to_remove_db_fetcher: impl Fn(
@@ -200,7 +200,7 @@ where
 
 pub(super) async fn keep_walking<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 	to_walk_entry: &ToWalkEntry,
-	indexer_rules: &[IndexerRule],
+	indexer_rules: &mut Vec<IndexerRule>,
 	mut update_notifier: impl FnMut(&Path, usize),
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> FilePathDBFetcherFut,
 	to_remove_db_fetcher: impl Fn(
@@ -266,7 +266,7 @@ where
 
 pub(super) async fn walk_single_dir<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 	root: impl AsRef<Path>,
-	indexer_rules: &[IndexerRule],
+	indexer_rules: &mut Vec<IndexerRule>,
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> FilePathDBFetcherFut,
 	to_remove_db_fetcher: impl Fn(
 		IsolatedFilePathData<'static>,
@@ -436,7 +436,7 @@ async fn inner_walk_single_dir<ToRemoveDbFetcherFut>(
 		parent_dir_accepted_by_its_children,
 		..
 	}: &ToWalkEntry,
-	indexer_rules: &[IndexerRule],
+	indexer_rules: &mut Vec<IndexerRule>,
 	to_remove_db_fetcher: impl Fn(
 		IsolatedFilePathData<'static>,
 		Vec<file_path::WhereParam>,
@@ -468,7 +468,6 @@ where
 	let root = root.as_ref();
 
 	let gitignore = path.join(".gitignore");
-	let mut indexer_rules = Vec::from(indexer_rules);
 	if matches!(tokio::fs::try_exists(&gitignore).await, Ok(true)) {
 		use sd_core_indexer_rules::seed::GitIgnoreRules;
 		let git_rules = GitIgnoreRules::parse_gitrepo(path).await;
@@ -847,7 +846,7 @@ mod tests {
 
 		let walk_result = walk(
 			root_path.to_path_buf(),
-			&[],
+			&mut vec![],
 			|_, _| {},
 			|_| async { Ok(vec![]) },
 			|_, _| async { Ok(vec![]) },
@@ -898,7 +897,7 @@ mod tests {
 		.into_iter()
 		.collect::<HashSet<_>>();
 
-		let only_photos_rule = &[new_indexer_rule(
+		let mut only_photos_rule = vec![new_indexer_rule(
 			"only photos".to_string(),
 			false,
 			vec![RulePerKind::AcceptFilesByGlob(
@@ -912,7 +911,7 @@ mod tests {
 
 		let walk_result = walk(
 			root_path.to_path_buf(),
-			only_photos_rule,
+			&mut only_photos_rule,
 			|_, _| {},
 			|_| async { Ok(vec![]) },
 			|_, _| async { Ok(vec![]) },
@@ -979,7 +978,7 @@ mod tests {
 		.into_iter()
 		.collect::<HashSet<_>>();
 
-		let git_repos = &[new_indexer_rule(
+		let mut git_repos = vec![new_indexer_rule(
 			"git repos".to_string(),
 			false,
 			vec![RulePerKind::AcceptIfChildrenDirectoriesArePresent(
@@ -989,7 +988,7 @@ mod tests {
 
 		let walk_result = walk(
 			root_path.to_path_buf(),
-			git_repos,
+			&mut git_repos,
 			|_, _| {},
 			|_| async { Ok(vec![]) },
 			|_, _| async { Ok(vec![]) },
@@ -1049,7 +1048,7 @@ mod tests {
 		.into_iter()
 		.collect::<HashSet<_>>();
 
-		let git_repos_no_deps_no_build_dirs = &[
+		let mut git_repos_no_deps_no_build_dirs = vec![
 			new_indexer_rule(
 				"git repos".to_string(),
 				false,
@@ -1083,7 +1082,7 @@ mod tests {
 
 		let walk_result = walk(
 			root_path.to_path_buf(),
-			git_repos_no_deps_no_build_dirs,
+			&mut git_repos_no_deps_no_build_dirs,
 			|_, _| {},
 			|_| async { Ok(vec![]) },
 			|_, _| async { Ok(vec![]) },
