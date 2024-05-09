@@ -116,10 +116,9 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 					isEmpty={noObjects}
 					emptyComponent={
 						<Empty
+						includeHeaderHeight
 						icon={noSearch ? 'Search' : 'FolderNoSpace'}
-						style={twStyle('flex-1 items-center justify-center border-0', {
-							marginBottom: headerHeight
-						})}
+						style={tw`flex-1 items-center justify-center border-0`}
 						textSize="text-md"
 						iconSize={100}
 						description={noSearch ? 'Add filters or type to search for files' : 'No files found'}

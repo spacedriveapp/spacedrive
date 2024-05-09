@@ -1,5 +1,3 @@
-import React from 'react';
-import { Alert, Pressable, View, ViewStyle } from 'react-native';
 import {
 	ExplorerItem,
 	getExplorerItemData,
@@ -8,6 +6,8 @@ import {
 	isPath,
 	useLibraryQuery
 } from '@sd/client';
+import React from 'react';
+import { Alert, Pressable, View, ViewStyle } from 'react-native';
 import { InfoPill, PlaceholderPill } from '~/components/primitive/InfoPill';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -30,7 +30,7 @@ const InfoTagPills = ({ data, style }: Props) => {
 	return (
 		<View style={twStyle('mt-1 flex flex-row flex-wrap', style)}>
 			{/* Kind */}
-			<InfoPill containerStyle={tw`mr-1`} text={getExplorerItemData(data).kind} />
+			<InfoPill containerStyle={tw`mr-1`} text={isDir ? 'Folder' : getExplorerItemData(data).kind} />
 			{/* Extension */}
 			{filePath?.extension && (
 				<InfoPill text={filePath.extension} containerStyle={tw`mr-1`} />

@@ -8,7 +8,7 @@ edition = { workspace = true }
 [dependencies]
 normpath = { workspace = true }
 thiserror = { workspace = true }
-libc = "0.2"
+libc =  { workspace = true }
 
 [target.'cfg(target_os = "windows")'.dependencies.windows]
 version = "0.51"

@@ -55,10 +55,10 @@ impl MediaDate {
 	///
 	/// This is for search ordering/sorting
 	#[must_use]
-	pub fn unix_timestamp(&self) -> i64 {
+	pub const fn unix_timestamp(&self) -> i64 {
 		match self {
 			Self::Utc(t) => t.timestamp(),
-			Self::Naive(t) => t.timestamp(),
+			Self::Naive(t) => t.and_utc().timestamp(),
 		}
 	}
 }

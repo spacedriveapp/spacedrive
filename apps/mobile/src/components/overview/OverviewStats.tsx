@@ -4,7 +4,7 @@ import { UseQueryResult } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { ClassInput } from 'twrnc/dist/esm/types';
-import { byteSize, Statistics, StatisticsResponse, useLibraryContext } from '@sd/client';
+import { humanizeSize, Statistics, StatisticsResponse, useLibraryContext } from '@sd/client';
 import useCounter from '~/hooks/useCounter';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -26,7 +26,7 @@ interface StatItemProps {
 }
 
 const StatItem = ({ title, bytes, isLoading, style }: StatItemProps) => {
-	const { value, unit } = byteSize(bytes);
+	const { value, unit } = humanizeSize(bytes);
 
 	const count = useCounter({ name: title, end: value });
 
