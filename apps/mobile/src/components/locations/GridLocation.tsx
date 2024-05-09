@@ -1,6 +1,6 @@
 import { DotsThreeOutlineVertical } from 'phosphor-react-native';
 import { Pressable, Text, View } from 'react-native';
-import { arraysEqual, byteSize, Location, useOnlineLocations } from '@sd/client';
+import { arraysEqual, humanizeSize, Location, useOnlineLocations } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 
 import FolderIcon from '../icons/FolderIcon';
@@ -47,7 +47,7 @@ const GridLocation: React.FC<GridLocationProps> = ({ location, modalRef }: GridL
 				</Text>
 			</View>
 			<Text style={tw`text-left text-[13px] font-bold text-ink-dull`} numberOfLines={1}>
-				{`${byteSize(location.size_in_bytes)}`}
+				{`${humanizeSize(location.size_in_bytes)}`}
 			</Text>
 		</Card>
 	);

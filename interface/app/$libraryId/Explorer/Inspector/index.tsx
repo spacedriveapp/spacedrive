@@ -27,11 +27,11 @@ import { useLocation } from 'react-router';
 import { Link as NavLink } from 'react-router-dom';
 import Sticky from 'react-sticky-el';
 import {
-	byteSize,
 	FilePath,
 	FilePathWithObject,
 	getExplorerItemData,
 	getItemFilePath,
+	humanizeSize,
 	NonIndexedPathItem,
 	Object,
 	ObjectKindEnum,
@@ -235,21 +235,21 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	});
 
 	const filesMediaData = useLibraryQuery(['files.getMediaData', objectData?.id ?? -1], {
-		enabled: objectData?.kind === ObjectKindEnum.Image && readyToFetch
+		enabled: objectData != null && readyToFetch
 	});
 
 	const ephemeralLocationMediaData = useBridgeQuery(
 		['ephemeralFiles.getMediaData', ephemeralPathData != null ? ephemeralPathData.path : ''],
 		{
-			enabled: ephemeralPathData?.kind === ObjectKindEnum.Image && readyToFetch
+			enabled: ephemeralPathData != null && readyToFetch
 		}
 	);
 
-	const mediaData = filesMediaData ?? ephemeralLocationMediaData ?? null;
+	const mediaData = filesMediaData.data ?? ephemeralLocationMediaData.data ?? null;
 
 	const fullPath = queriedFullPath.data ?? ephemeralPathData?.path;
 
-	const { name, isDir, kind, size, casId, dateCreated, dateAccessed, dateModified, dateIndexed } =
+	const { isDir, kind, size, casId, dateCreated, dateAccessed, dateModified, dateIndexed } =
 		useExplorerItemData(item);
 
 	const pubId = objectData != null ? uniqueId(objectData) : null;
@@ -365,7 +365,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 				</MetaContainer>
 			)}
 
-			{mediaData.data && <MediaData data={mediaData.data} />}
+			{mediaData && <MediaData data={mediaData} />}
 
 			<MetaContainer className="flex !flex-row flex-wrap gap-1 overflow-hidden">
 				<InfoPill>{isDir ? t('folder') : translateKindName(kind)}</InfoPill>
@@ -483,7 +483,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 						getExplorerItemData(item);
 
 					if (item.type !== 'NonIndexedPath' || !item.item.is_dir) {
-						metadata.size = (metadata.size ?? BigInt(0)) + size.original;
+						metadata.size = (metadata.size ?? BigInt(0)) + BigInt(size.original);
 					}
 
 					if (dateCreated)
@@ -529,7 +529,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 				<MetaData
 					icon={Cube}
 					label={t('size')}
-					value={metadata.size !== null ? `${byteSize(metadata.size)}` : null}
+					value={metadata.size !== null ? `${humanizeSize(metadata.size)}` : null}
 				/>
 				<MetaData
 					icon={Clock}
@@ -638,12 +638,14 @@ interface MetaDataProps {
 
 export const MetaData = ({ icon: Icon, label, value, tooltipValue, onClick }: MetaDataProps) => {
 	return (
-		<div className="flex items-center text-xs text-ink-dull" onClick={onClick}>
+		<div className="flex content-start justify-start text-xs text-ink-dull" onClick={onClick}>
 			{Icon && <Icon weight="bold" className="mr-2 shrink-0" />}
-			<span className="mr-2 flex-1 whitespace-nowrap">{label}</span>
+			<span className="mr-2 flex flex-1 items-start justify-items-start whitespace-nowrap">
+				{label}
+			</span>
 			<Tooltip
 				label={tooltipValue || value}
-				className="truncate text-ink"
+				className="truncate whitespace-pre text-ink"
 				tooltipClassName="max-w-none"
 			>
 				{value ?? '--'}

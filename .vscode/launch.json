@@ -12,8 +12,7 @@
 				"args": [
 					"build",
 					"--manifest-path=./apps/desktop/src-tauri/Cargo.toml",
-					"--no-default-features",
-					"--features=ai-models"
+					"--no-default-features"
 				],
 				"problemMatcher": "$rustc"
 			},

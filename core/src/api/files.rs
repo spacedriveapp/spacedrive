@@ -9,7 +9,7 @@ use crate::{
 			old_copy::OldFileCopierJobInit, old_cut::OldFileCutterJobInit,
 			old_delete::OldFileDeleterJobInit, old_erase::OldFileEraserJobInit,
 		},
-		media::media_data_image_from_prisma_data,
+		media::{exif_media_data_from_prisma_data, ffmpeg_data_from_prisma_data},
 	},
 	old_job::Job,
 };
@@ -17,11 +17,12 @@ use crate::{
 use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
 use sd_core_prisma_helpers::{
 	file_path_to_isolate, file_path_to_isolate_with_id, object_with_file_paths,
+	object_with_media_data,
 };
 
 use sd_file_ext::kind::ObjectKind;
 use sd_images::ConvertibleExtension;
-use sd_media_metadata::MediaMetadata;
+use sd_media_metadata::{ExifMetadata, FFmpegMetadata};
 use sd_prisma::{
 	prisma::{file_path, location, object},
 	prisma_sync,
@@ -57,6 +58,12 @@ const UNTITLED_TEXT_FILE_STR: &str = "Untitled.txt";
 enum FileCreateContextTypes {
 	Empty,
 	Text,
+}
+
+#[derive(Serialize, Type)]
+pub(crate) enum MediaData {
+	Exif(ExifMetadata),
+	FFmpeg(FFmpegMetadata),
 }
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
@@ -114,17 +121,23 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.db
 						.object()
 						.find_unique(object::id::equals(args))
-						.select(object::select!({ id kind media_data }))
+						.include(object_with_media_data::include())
 						.exec()
 						.await?
 						.and_then(|obj| {
 							Some(match obj.kind {
-								Some(v) if v == ObjectKind::Image as i32 => {
-									MediaMetadata::Image(Box::new(
-										media_data_image_from_prisma_data(obj.media_data?).ok()?,
+								Some(v) if v == ObjectKind::Image as i32 => MediaData::Exif(
+									exif_media_data_from_prisma_data(obj.exif_data?),
+								),
+								Some(v)
+									if v == ObjectKind::Audio as i32
+										|| v == ObjectKind::Video as i32 =>
+								{
+									MediaData::FFmpeg(ffmpeg_data_from_prisma_data(
+										obj.ffmpeg_data?,
 									))
 								}
-								_ => return None, // TODO(brxken128): audio and video
+								_ => return None, // No media data
 							})
 						})
 						.ok_or_else(|| {

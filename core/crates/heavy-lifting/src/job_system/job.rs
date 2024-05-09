@@ -8,8 +8,8 @@ use sd_task_system::{
 };
 
 use std::{
-	collections::VecDeque,
-	hash::{DefaultHasher, Hash, Hasher},
+	collections::{hash_map::DefaultHasher, VecDeque},
+	hash::{Hash, Hasher},
 	marker::PhantomData,
 	pin::pin,
 	sync::Arc,
