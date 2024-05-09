@@ -120,19 +120,6 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 
 			{/* TODO: wrap path bar and tag bar in nice wrapper, ideally animate tag bar in/out directly above path bar */}
 			<div className="absolute inset-x-0 bottom-0 z-50 flex flex-col">
-				{/* !!!! TODO: REMOVE BEFORE MERGE !!!! */}
-				{/* !!!! TODO: REMOVE BEFORE MERGE !!!! */}
-				{/* !!!! TODO: REMOVE BEFORE MERGE !!!! */}
-				<button
-					onClick={() => {
-						explorerStore.tagAssignMode = !explorerStore.tagAssignMode;
-					}}
-				>
-					DEBUG: Toggle tag assign mode
-				</button>
-				{/* !!!! TODO: REMOVE BEFORE MERGE !!!! */}
-				{/* !!!! TODO: REMOVE BEFORE MERGE !!!! */}
-				{/* !!!! TODO: REMOVE BEFORE MERGE !!!! */}
 				{showTagBar && <ExplorerTagBar />}
 				{showPathBar && <ExplorerPathBar />}
 			</div>
