@@ -75,12 +75,23 @@ impl GitIgnoreRules {
 			// any matching file excluded by a previous pattern will become included again
 			// it's not possible to re-include a file if a pattern directory of that file is excluded
 			let rule = if line.starts_with('!') {
-				// TODO(matheus-consoli): skip negated patterns for now (`!path/to/file`)
-				// it seems that when we mix acceptance and rejection rules
-				// the indexer ignores *everything*
-
+				// TODO(matheus-consoli): support negated patterns (`!path/to/file`)
+				// as of the time of writing, the indexer doesn't handle well usages of acceptance and rejection
+				// when they are rules mixed.
+				// As an example:
+				// ```gitignore
+				// docs/*.md
+				// !docs/readme.md
+				// ```
+				// we create two rules for it:
+				// - rejecting all `path/to/docs/*.md` (including `path/to/docs/readme.md`)
+				//   this rule approves every file inside the git repo, except for the `docs/*.md` files
+				// - accepting `path/to/readme.md`
+				//   this REJECTS every file except for `docs/readme.md` (that is already rejected by other rule...)
+                //
+                // # Once fixed:
 				// line.remove(0); // pop the !
-				// let full = path.join(line);
+				// let full = base_dir.join(line);
 				// let file = full.into_os_string().into_string().unwrap();
 				// RulePerKind::new_accept_files_by_globs_str([file]).unwrap()
 				continue;

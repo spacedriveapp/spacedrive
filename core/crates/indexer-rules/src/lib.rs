@@ -437,7 +437,7 @@ impl IndexerRuler {
 	}
 
 	/// Extend the indexer rules with the contents from an iterator of rules
-	pub async fn extend(&self, iter: impl IntoIterator<Item = IndexerRule>) {
+	pub async fn extend(&self, iter: impl IntoIterator<Item = IndexerRule> + Send) {
 		let mut indexer = self.rules.write().await;
 		indexer.extend(iter);
 	}
