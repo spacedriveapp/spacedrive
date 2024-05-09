@@ -16,6 +16,9 @@
 		"webview:allow-internal-toggle-devtools",
 		"os:allow-os-type",
 		"window:allow-start-dragging",
-		"dialog:allow-open"
+		"dialog:allow-open",
+		"window:allow-close",
+		"window:allow-minimize",
+		"window:allow-toggle-maximize"
 	]
 }
