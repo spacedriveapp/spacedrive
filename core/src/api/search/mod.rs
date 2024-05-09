@@ -233,7 +233,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 								// .filter(|_| thumbnail_exists_locally)
 								.map(|i| get_indexed_thumb_key(i, library.id)),
 							has_created_thumbnail,
-							item: file_path,
+							item: Box::new(file_path),
 						})
 					}
 

@@ -104,7 +104,7 @@ impl Task<Error> for ExtractFileMetadataTask {
 
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {
 		enum StreamMessage {
-			Processed(Uuid, Result<FileMetadata, FileIOError>),
+			Processed(Uuid, Box<Result<FileMetadata, FileIOError>>),
 			Interrupt(InterruptionKind),
 		}
 
@@ -135,7 +135,7 @@ impl Task<Error> for ExtractFileMetadataTask {
 				.map(|(file_path_id, iso_file_path, location_path)| async move {
 					StreamMessage::Processed(
 						file_path_id,
-						FileMetadata::new(&*location_path, &iso_file_path).await,
+						Box::new(FileMetadata::new(&*location_path, &iso_file_path).await),
 					)
 				})
 				.collect::<FuturesUnordered<_>>();
@@ -153,7 +153,7 @@ impl Task<Error> for ExtractFileMetadataTask {
 							.remove(&file_path_pub_id)
 							.expect("file_path must be here");
 
-						match res {
+						match *res {
 							Ok(FileMetadata { cas_id, kind, .. }) => {
 								identified_files.insert(
 									file_path_pub_id,
