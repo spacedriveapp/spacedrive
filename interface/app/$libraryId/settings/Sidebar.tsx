@@ -1,6 +1,6 @@
 import {
+	ArrowsClockwise,
 	Books,
-	ChartBar,
 	Cloud,
 	Database,
 	FlyingSaucer,
@@ -15,6 +15,7 @@ import {
 	TagSimple,
 	User
 } from '@phosphor-icons/react';
+import clsx from 'clsx';
 import { useFeatureFlag } from '@sd/client';
 import { tw } from '@sd/ui';
 import { useLocale, useOperatingSystem } from '~/hooks';
@@ -22,14 +23,16 @@ import { usePlatform } from '~/util/Platform';
 
 import Icon from '../Layout/Sidebar/SidebarLayout/Icon';
 import SidebarLink from '../Layout/Sidebar/SidebarLayout/Link';
+import { useLayoutStore } from '../Layout/store';
 import { NavigationButtons } from '../TopBar/NavigationButtons';
 
 const Heading = tw.div`mb-1 ml-1 text-xs font-semibold text-gray-400`;
 const Section = tw.div`space-y-0.5`;
 
 export default () => {
-	const { platform } = usePlatform();
 	const os = useOperatingSystem();
+	const { platform } = usePlatform();
+	const { sidebar } = useLayoutStore();
 
 	// const isPairingEnabled = useFeatureFlag('p2pPairing');
 	const isBackupsEnabled = useFeatureFlag('backups');
@@ -41,7 +44,10 @@ export default () => {
 			{platform === 'tauri' ? (
 				<div
 					data-tauri-drag-region={os === 'macOS'}
-					className="mb-3 h-3 w-full p-3 pl-[14px] pt-[11px]"
+					className={clsx(
+						'mb-3 flex h-3 w-full p-3 pl-[14px] pt-[11px]',
+						sidebar.collapsed && os === 'macOS' && 'justify-end'
+					)}
 				>
 					<NavigationButtons />
 				</div>
@@ -111,6 +117,12 @@ export default () => {
 						<Icon component={MagnifyingGlass} />
 						Saved Searches
 					</SidebarLink> */}
+					{useFeatureFlag('cloudSync') && (
+						<SidebarLink to="library/sync">
+							<Icon component={ArrowsClockwise} />
+							{t('sync')}
+						</SidebarLink>
+					)}
 					<SidebarLink disabled to="library/clouds">
 						<Icon component={Cloud} />
 						{t('clouds')}

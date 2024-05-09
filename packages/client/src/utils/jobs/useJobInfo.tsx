@@ -69,7 +69,7 @@ export function useJobInfo(job: JobReport, realtimeUpdate: JobProgressEvent | nu
 								text: `${
 									completedTaskCount
 										? formatNumber(completedTaskCount || 0)
-										: formatNumber(output?.media_data?.extracted)
+										: formatNumber(output?.exif_data?.extracted)
 								} of ${formatNumber(taskCount)} ${plural(
 									taskCount,
 									'media file'
@@ -110,7 +110,7 @@ export function useJobInfo(job: JobReport, realtimeUpdate: JobProgressEvent | nu
 
 						const totalThumbs = output?.thumbs_processed || 0;
 						const totalMediaFiles =
-							output?.media_data?.extracted || 0 + output?.media_data?.skipped || 0;
+							output?.exif_data?.extracted || 0 + output?.exif_data?.skipped || 0;
 
 						return totalThumbs === 0 && totalMediaFiles === 0
 							? [{ text: 'None processed' }]

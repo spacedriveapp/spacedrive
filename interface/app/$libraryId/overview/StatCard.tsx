@@ -1,6 +1,6 @@
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
 import { useEffect, useMemo, useState } from 'react';
-import { byteSize } from '@sd/client';
+import { humanizeSize } from '@sd/client';
 import { Button, Card, CircularProgress, tw } from '@sd/ui';
 import { Icon } from '~/components';
 import { useIsDark, useLocale } from '~/hooks';
@@ -22,12 +22,12 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 	const isDark = useIsDark();
 
 	const { totalSpace, freeSpace, usedSpaceSpace } = useMemo(() => {
-		const totalSpace = byteSize(stats.totalSpace);
-		const freeSpace = stats.freeSpace == null ? totalSpace : byteSize(stats.freeSpace);
+		const totalSpace = humanizeSize(stats.totalSpace);
+		const freeSpace = stats.freeSpace == null ? totalSpace : humanizeSize(stats.freeSpace);
 		return {
 			totalSpace,
 			freeSpace,
-			usedSpaceSpace: byteSize(totalSpace.original - freeSpace.original)
+			usedSpaceSpace: humanizeSize(totalSpace.original - freeSpace.original)
 		};
 	}, [stats]);
 
@@ -36,7 +36,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 	}, []);
 
 	const progress = useMemo(() => {
-		if (!mounted || totalSpace.original === 0n) return 0;
+		if (!mounted || totalSpace.original === 0) return 0;
 		return Math.floor((usedSpaceSpace.value / totalSpace.value) * 100);
 	}, [mounted, totalSpace, usedSpaceSpace]);
 

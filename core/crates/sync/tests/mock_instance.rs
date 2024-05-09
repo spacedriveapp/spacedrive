@@ -1,5 +1,5 @@
 use sd_core_sync::*;
-use sd_prisma::prisma;
+use sd_prisma::prisma::{self};
 use sd_sync::CompressedCRDTOperations;
 use sd_utils::uuid_to_bytes;
 
@@ -52,7 +52,9 @@ impl Instance {
 			id,
 			&Arc::new(AtomicBool::new(true)),
 			Default::default(),
-		);
+			&Default::default(),
+		)
+		.await;
 
 		Arc::new(Self {
 			id,

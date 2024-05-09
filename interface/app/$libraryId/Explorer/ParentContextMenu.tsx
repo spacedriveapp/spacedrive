@@ -38,7 +38,7 @@ export default (props: PropsWithChildren) => {
 	const rescanLocation = useLibraryMutation('locations.subPathRescan');
 	const createFolder = useLibraryMutation(['files.createFolder'], {
 		onError: (e) => {
-			toast.error({ title: t('create_folder_error'), body: `Error: ${e}.` });
+			toast.error({ title: t('create_folder_error'), body: t('error_message', { error: e }) });
 			console.error(e);
 		},
 		onSuccess: (folder) => {
@@ -52,7 +52,7 @@ export default (props: PropsWithChildren) => {
 	});
 	const createFile = useLibraryMutation(['files.createFile'], {
 		onError: (e) => {
-			toast.error({ title: t('create_file_error'), body: `${e}.` });
+			toast.error({ title: t('create_file_error'), body: t('error_message', { error: e }) });
 			console.error(e);
 		},
 		onSuccess: (file) => {
@@ -66,7 +66,7 @@ export default (props: PropsWithChildren) => {
 	});
 	const createEphemeralFolder = useLibraryMutation(['ephemeralFiles.createFolder'], {
 		onError: (e) => {
-			toast.error({ title: t('create_folder_error'), body: `Error: ${e}.` });
+			toast.error({ title: t('create_folder_error'), body: t('error_message', { error: e }) });
 			console.error(e);
 		},
 		onSuccess: (folder) => {
@@ -80,7 +80,7 @@ export default (props: PropsWithChildren) => {
 	});
 	const createEphemeralFile = useLibraryMutation(['ephemeralFiles.createFile'], {
 		onError: (e) => {
-			toast.error({ title: t('create_file_error'), body: `${e}.` });
+			toast.error({ title: t('create_file_error'), body: t('error_message', { error: e }) });
 			console.error(e);
 		},
 		onSuccess: (file) => {
@@ -220,7 +220,7 @@ export default (props: PropsWithChildren) => {
 								} catch (error) {
 									toast.error({
 										title: t('failed_to_reindex_location'),
-										body: `Error: ${error}.`
+										body: t('error_message', { error })
 									});
 								}
 							}}
@@ -239,7 +239,7 @@ export default (props: PropsWithChildren) => {
 								} catch (error) {
 									toast.error({
 										title: t('failed_to_generate_thumbnails'),
-										body: `Error: ${error}.`
+										body: t('error_message', { error })
 									});
 								}
 							}}
@@ -258,7 +258,7 @@ export default (props: PropsWithChildren) => {
 								} catch (error) {
 									toast.error({
 										title: t('failed_to_generate_labels'),
-										body: `Error: ${error}.`
+										body: t('error_message', { error })
 									});
 								}
 							}}
@@ -276,7 +276,7 @@ export default (props: PropsWithChildren) => {
 								} catch (error) {
 									toast.error({
 										title: t('failed_to_generate_checksum'),
-										body: `Error: ${error}.`
+										body: t('error_message', { error })
 									});
 								}
 							}}

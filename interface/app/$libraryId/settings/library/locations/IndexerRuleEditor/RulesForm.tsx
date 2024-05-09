@@ -47,9 +47,10 @@ const RulesForm = ({ onSubmitted }: Props) => {
 	const REMOTE_ERROR_FORM_FIELD = 'root.serverError';
 	const createIndexerRules = useLibraryMutation(['locations.indexer_rules.create']);
 	const formId = useId();
+	const { t } = useLocale();
 	const modeOptions: { value: RuleKind; label: string }[] = [
-		{ value: 'RejectFilesByGlob', label: 'Reject files' },
-		{ value: 'AcceptFilesByGlob', label: 'Accept files' }
+		{ value: 'RejectFilesByGlob', label: t('reject_files') },
+		{ value: 'AcceptFilesByGlob', label: t('accept_files') }
 	];
 	const form = useZodForm({
 		schema,
@@ -130,8 +131,6 @@ const RulesForm = ({ onSubmitted }: Props) => {
 		if (form.formState.isSubmitSuccessful) onSubmitted?.();
 	}, [form.formState.isSubmitSuccessful, onSubmitted]);
 
-	const { t } = useLocale();
-
 	return (
 		// The portal is required for Form because this component can be nested inside another form element
 		<>
@@ -150,7 +149,7 @@ const RulesForm = ({ onSubmitted }: Props) => {
 					{...form.register('name')}
 				/>
 				{errors.name && <p className="mt-2 text-sm text-red-500">{errors.name?.message}</p>}
-				<h3 className="mb-[15px] mt-[20px] w-full text-sm font-semibold">Rules</h3>
+				<h3 className="mb-[15px] mt-[20px] w-full text-sm font-semibold">{t('rules')}</h3>
 				<div
 					className={
 						'grid space-y-1 rounded-md border border-app-line/60 bg-app-input p-2'

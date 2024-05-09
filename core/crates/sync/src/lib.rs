@@ -34,6 +34,7 @@ pub struct SharedState {
 	pub clock: uhlc::HLC,
 	pub active: AtomicBool,
 	pub active_notify: tokio::sync::Notify,
+	pub actors: Arc<sd_actors::Actors>,
 }
 
 #[must_use]

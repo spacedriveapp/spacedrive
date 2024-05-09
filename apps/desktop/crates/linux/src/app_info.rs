@@ -1,31 +1,14 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use gtk::{
 	gio::{
-		content_type_guess,
-		prelude::AppInfoExt,
-		prelude::{AppLaunchContextExt, FileExt},
-		AppInfo, AppLaunchContext, DesktopAppInfo, File as GioFile, ResourceError,
+		content_type_guess, prelude::AppInfoExt, prelude::FileExt, AppInfo, AppLaunchContext,
+		DesktopAppInfo, File as GioFile, ResourceError,
 	},
 	glib::error::Error as GlibError,
-	prelude::IsA,
 };
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
-
-use crate::env::remove_prefix_from_pathlist;
-
-fn remove_prefix_from_env_in_ctx(
-	ctx: &impl IsA<AppLaunchContext>,
-	env_name: &str,
-	prefix: &impl AsRef<Path>,
-) {
-	if let Some(value) = remove_prefix_from_pathlist(env_name, prefix) {
-		ctx.setenv(env_name, value);
-	} else {
-		ctx.unsetenv(env_name);
-	}
-}
 
 thread_local! {
 	static LAUNCH_CTX: AppLaunchContext = {
@@ -36,33 +19,8 @@ thread_local! {
 		// 			"This is an Glib type conversion, it should never fail because GDKAppLaunchContext is a subclass of AppLaunchContext"
 		// 		)).unwrap_or_default();
 
-		let ctx = AppLaunchContext::default();
 
-		if let Some(appdir) = std::env::var_os("APPDIR").map(PathBuf::from) {
-			// Remove AppImage paths from environment variables to avoid external applications attempting to use the AppImage's libraries
-			// https://github.com/AppImage/AppImageKit/blob/701b711f42250584b65a88f6427006b1d160164d/src/AppRun.c#L168-L194
-			ctx.unsetenv("PYTHONHOME");
-			ctx.unsetenv("GTK_DATA_PREFIX");
-			ctx.unsetenv("GTK_THEME");
-			ctx.unsetenv("GDK_BACKEND");
-			ctx.unsetenv("GTK_EXE_PREFIX");
-			ctx.unsetenv("GTK_IM_MODULE_FILE");
-			ctx.unsetenv("GDK_PIXBUF_MODULE_FILE");
-
-			remove_prefix_from_env_in_ctx(&ctx, "PATH", &appdir);
-			remove_prefix_from_env_in_ctx(&ctx, "LD_LIBRARY_PATH", &appdir);
-			remove_prefix_from_env_in_ctx(&ctx, "PYTHONPATH", &appdir);
-			remove_prefix_from_env_in_ctx(&ctx, "XDG_DATA_DIRS", &appdir);
-			remove_prefix_from_env_in_ctx(&ctx, "PERLLIB", &appdir);
-			remove_prefix_from_env_in_ctx(&ctx, "GSETTINGS_SCHEMA_DIR", &appdir);
-			remove_prefix_from_env_in_ctx(&ctx, "QT_PLUGIN_PATH", &appdir);
-			remove_prefix_from_env_in_ctx(&ctx, "GST_PLUGIN_SYSTEM_PATH", &appdir);
-			remove_prefix_from_env_in_ctx(&ctx, "GST_PLUGIN_SYSTEM_PATH_1_0", &appdir);
-			remove_prefix_from_env_in_ctx(&ctx, "GTK_PATH", &appdir);
-			remove_prefix_from_env_in_ctx(&ctx, "GIO_EXTRA_MODULES", &appdir);
-		}
-
-		ctx
+		AppLaunchContext::default()
 	}
 }
 

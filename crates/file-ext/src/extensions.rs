@@ -99,7 +99,7 @@ extension_category_enum! {
 
 // audio extensions
 extension_category_enum! {
-	AudioExtension _ALL_AUDIO_EXTENSIONS {
+	AudioExtension ALL_AUDIO_EXTENSIONS {
 		Mp3 = [0x49, 0x44, 0x33],
 		Mp2 = [0xFF, 0xFB] | [0xFF, 0xFD],
 		M4a = [0x66, 0x74, 0x79, 0x70, 0x4D, 0x34, 0x41, 0x20] + 4,

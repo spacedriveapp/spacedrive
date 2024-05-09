@@ -231,33 +231,23 @@ model Object {
   date_created  DateTime?
   date_accessed DateTime?
 
-  tags       TagOnObject[]
-  labels     LabelOnObject[]
-  albums     ObjectInAlbum[]
-  spaces     ObjectInSpace[]
-  file_paths FilePath[]
+  tags        TagOnObject[]
+  labels      LabelOnObject[]
+  albums      ObjectInAlbum[]
+  spaces      ObjectInSpace[]
+  file_paths  FilePath[]
   // comments   Comment[]
-  media_data MediaData?
+  exif_data   ExifData?
+  ffmpeg_data FfmpegData?
 
   // key Key? @relation(fields: [key_id], references: [id])
 
   @@map("object")
 }
 
-// if there is a conflicting cas_id, the conficting file should be updated to have a larger cas_id as
-//the field is unique, however this record is kept to tell the indexer (upon discovering this CAS) that
-//there is alternate versions of the file and to check by a full integrity hash to define for which to associate with.
-// @brendan: nah this probably won't fly
-// model FileConflict {
-//     original_object_id   Int @unique
-//     detactched_object_id Int @unique
-
-//     @@map("file_conflict")
-// }
-
-// keys allow us to know exactly which files can be decrypted with a given key
-// they can be "mounted" to a client, and then used to decrypt files automatically
-/// @shared(id: uuid)
+// // keys allow us to know exactly which files can be decrypted with a given key
+// // they can be "mounted" to a client, and then used to decrypt files automatically
+// /// @shared(id: uuid)
 // model Key {
 //     id                Int       @id @default(autoincrement())
 //     // uuid to identify the key
@@ -298,7 +288,7 @@ model Object {
 // }
 
 /// @shared(id: object, modelId: 4)
-model MediaData {
+model ExifData {
   id Int @id @default(autoincrement())
 
   resolution     Bytes?
@@ -315,17 +305,164 @@ model MediaData {
   // (e.g. we can't get `MediaDate::Utc(2023-09-26T22:04:37+01:00)` from `1695758677` as we don't store the TZ)
   epoch_time BigInt? // time since unix epoch
 
-  // video-specific
-  // duration Int?
-  // fps      Int?
-  // streams  Int?
-  // video_codec   String? // eg: "h264, h265, av1"
-  // audio_codec String? // eg: "opus"
-
   object_id Int    @unique
   object    Object @relation(fields: [object_id], references: [id], onDelete: Cascade)
 
-  @@map("media_data")
+  @@map("exif_data")
+}
+
+model FfmpegData {
+  id Int @id @default(autoincrement())
+
+  // Internal FFmpeg properties
+  formats    String
+  bit_rate   Bytes // Actually a i64 in the backend
+  duration   Bytes? // Actually a i64 in the backend
+  start_time Bytes? // Actually a i64 in the backend
+
+  chapters FfmpegMediaChapter[]
+  programs FfmpegMediaProgram[]
+
+  // Metadata for search
+  title         String?
+  creation_time DateTime?
+  date          DateTime?
+  album_artist  String?
+  disc          String?
+  track         String?
+  album         String?
+  artist        String?
+  metadata      Bytes?
+
+  object    Object @relation(fields: [object_id], references: [id], onDelete: Cascade)
+  object_id Int    @unique
+
+  @@map("ffmpeg_data")
+}
+
+model FfmpegMediaChapter {
+  chapter_id Int
+
+  start Bytes // Actually a i64 in the backend
+  end   Bytes // Actually a i64 in the backend
+
+  time_base_den Int
+  time_base_num Int
+
+  // Metadata for search
+  title    String?
+  metadata Bytes?
+
+  ffmpeg_data    FfmpegData @relation(fields: [ffmpeg_data_id], references: [id], onDelete: Cascade)
+  ffmpeg_data_id Int
+
+  @@id(name: "likeId", [ffmpeg_data_id, chapter_id])
+  @@map("ffmpeg_media_chapter")
+}
+
+model FfmpegMediaProgram {
+  program_id Int
+
+  streams FfmpegMediaStream[]
+
+  // Metadata for search
+  name     String?
+  metadata Bytes?
+
+  ffmpeg_data    FfmpegData @relation(fields: [ffmpeg_data_id], references: [id], onDelete: Cascade)
+  ffmpeg_data_id Int
+
+  @@id(name: "likeId", [ffmpeg_data_id, program_id])
+  @@map("ffmpeg_media_program")
+}
+
+model FfmpegMediaStream {
+  stream_id Int
+
+  name                  String?
+  codec                 FfmpegMediaCodec?
+  aspect_ratio_num      Int
+  aspect_ratio_den      Int
+  frames_per_second_num Int
+  frames_per_second_den Int
+  time_base_real_den    Int
+  time_base_real_num    Int
+  dispositions          String?
+
+  // Metadata for search
+  title    String?
+  encoder  String?
+  language String?
+  duration Bytes? // Actually a i64 in the backend
+  metadata Bytes?
+
+  program        FfmpegMediaProgram @relation(fields: [ffmpeg_data_id, program_id], references: [ffmpeg_data_id, program_id], onDelete: Cascade)
+  program_id     Int
+  ffmpeg_data_id Int
+
+  @@id(name: "likeId", [ffmpeg_data_id, program_id, stream_id])
+  @@map("ffmpeg_media_stream")
+}
+
+model FfmpegMediaCodec {
+  id Int @id @default(autoincrement())
+
+  kind     String?
+  sub_kind String?
+  tag      String?
+  name     String?
+  profile  String?
+  bit_rate Int
+
+  video_props FfmpegMediaVideoProps?
+  audio_props FfmpegMediaAudioProps?
+
+  stream         FfmpegMediaStream @relation(fields: [ffmpeg_data_id, program_id, stream_id], references: [ffmpeg_data_id, program_id, stream_id], onDelete: Cascade)
+  stream_id      Int
+  program_id     Int
+  ffmpeg_data_id Int
+
+  @@unique([ffmpeg_data_id, program_id, stream_id])
+  @@map("ffmpeg_media_codec")
+}
+
+model FfmpegMediaVideoProps {
+  id Int @id @default(autoincrement())
+
+  pixel_format     String?
+  color_range      String?
+  bits_per_channel Int?
+  color_space      String?
+  color_primaries  String?
+  color_transfer   String?
+  field_order      String?
+  chroma_location  String?
+  width            Int
+  height           Int
+  aspect_ratio_num Int?
+  aspect_ratio_Den Int?
+  properties       String?
+
+  codec    FfmpegMediaCodec @relation(fields: [codec_id], references: [id], onDelete: Cascade)
+  codec_id Int              @unique
+
+  @@map("ffmpeg_media_video_props")
+}
+
+model FfmpegMediaAudioProps {
+  id Int @id @default(autoincrement())
+
+  delay          Int
+  padding        Int
+  sample_rate    Int?
+  sample_format  String?
+  bit_per_sample Int?
+  channel_layout String?
+
+  codec    FfmpegMediaCodec @relation(fields: [codec_id], references: [id], onDelete: Cascade)
+  codec_id Int              @unique
+
+  @@map("ffmpeg_media_audio_props")
 }
 
 //// Tag ////
@@ -477,20 +614,6 @@ model ObjectInAlbum {
   @@id([album_id, object_id])
   @@map("object_in_album")
 }
-
-//// Comment ////
-
-// model Comment {
-//     id            Int      @id @default(autoincrement())
-//     pub_id        Bytes    @unique
-//     content       String
-//     date_created  DateTime @default(now())
-//     date_modified DateTime @default(now())
-//     object_id     Int?
-//     object        Object?  @relation(fields: [object_id], references: [id])
-
-//     @@map("comment")
-// }
 
 //// Indexer Rules ////
 

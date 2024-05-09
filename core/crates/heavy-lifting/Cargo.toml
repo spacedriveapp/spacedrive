@@ -19,7 +19,6 @@ sd-core-file-path-helper = { path = "../file-path-helper" }
 sd-core-indexer-rules = { path = "../indexer-rules" }
 sd-core-prisma-helpers = { path = "../prisma-helpers" }
 sd-core-sync = { path = "../sync" }
-
 # Sub-crates
 sd-ffmpeg = { path = "../../../crates/ffmpeg", optional = true }
 sd-file-ext = { path = "../../../crates/file-ext" }
@@ -29,7 +28,7 @@ sd-prisma = { path = "../../../crates/prisma" }
 sd-sync = { path = "../../../crates/sync" }
 sd-task-system = { path = "../../../crates/task-system" }
 sd-utils = { path = "../../../crates/utils" }
-
+# Workspace dependencies
 async-channel = { workspace = true }
 async-trait = { workspace = true }
 blake3 = { workspace = true }
@@ -60,4 +59,4 @@ webp = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
-tracing-test = { workspace.dev-dependencies = true }
+tracing-test = { workspace = true }

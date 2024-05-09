@@ -10,11 +10,11 @@ import dayjs from 'dayjs';
 import { memo, useMemo } from 'react';
 import { stringify } from 'uuid';
 import {
-	byteSize,
 	getExplorerItemData,
 	getIndexedItemFilePath,
 	getItemFilePath,
 	getItemObject,
+	humanizeSize,
 	useSelector,
 	type ExplorerItem
 } from '@sd/client';
@@ -24,7 +24,7 @@ import { useExplorerContext } from '../../Context';
 import { FileThumb } from '../../FilePath/Thumb';
 import { InfoPill } from '../../Inspector';
 import { CutCopyState, explorerStore, isCut } from '../../store';
-import { uniqueId } from '../../util';
+import { translateKindName, uniqueId } from '../../util';
 import { RenamableItemText } from '../RenamableItemText';
 
 export const LIST_VIEW_ICON_SIZES = {
@@ -84,7 +84,7 @@ const KindCell = ({ kind }: { kind: string }) => {
 			className="bg-app-button/50"
 			style={{ fontSize: LIST_VIEW_TEXT_SIZES[explorerSettings.listViewTextSize] }}
 		>
-			{kind}
+			{translateKindName(kind)}
 		</InfoPill>
 	);
 };
@@ -122,7 +122,7 @@ export const useTable = () => {
 						!filePath.size_in_bytes_bytes ||
 						(filePath.is_dir && item.type === 'NonIndexedPath')
 						? '-'
-						: byteSize(filePath.size_in_bytes_bytes);
+						: humanizeSize(filePath.size_in_bytes_bytes);
 				}
 			},
 			{

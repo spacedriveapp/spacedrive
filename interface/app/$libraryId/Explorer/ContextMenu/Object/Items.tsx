@@ -35,7 +35,7 @@ export const RemoveFromRecents = new ConditionalItem({
 					} catch (error) {
 						toast.error({
 							title: t('failed_to_remove_file_from_recents'),
-							body: `Error: ${error}.`
+							body: t('error_message', { error })
 						});
 					}
 				}}
