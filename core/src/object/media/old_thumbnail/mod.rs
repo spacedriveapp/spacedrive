@@ -63,6 +63,10 @@ pub fn get_indexed_thumbnail_path(node: &Node, cas_id: &str, library_id: Library
 	get_thumbnail_path(node, cas_id, ThumbnailKind::Indexed(library_id))
 }
 
+pub fn get_ephemeral_thumbnail_path(node: &Node, cas_id: &str) -> PathBuf {
+	get_thumbnail_path(node, cas_id, ThumbnailKind::Ephemeral)
+}
+
 /// This does not check if a thumbnail exists, it just returns the path that it would exist at
 fn get_thumbnail_path(node: &Node, cas_id: &str, kind: ThumbnailKind) -> PathBuf {
 	let mut thumb_path = node.config.data_directory();

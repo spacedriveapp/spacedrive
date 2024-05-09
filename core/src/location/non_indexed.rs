@@ -223,8 +223,7 @@ pub async fn walk(
 
 						(
 							Some(get_ephemeral_thumb_key(&cas_id)),
-							library
-								.thumbnail_exists(&node, &cas_id)
+							node.ephemeral_thumbnail_exists(&cas_id)
 								.await
 								.map_err(NonIndexedLocationError::from)?,
 						)
