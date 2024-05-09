@@ -12,7 +12,7 @@ import { useTopBarContext } from '../TopBar/Layout';
 import { useExplorerContext } from './Context';
 import ContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
-import { ExplorerPath, PATH_BAR_HEIGHT } from './ExplorerPath';
+import { ExplorerPathBar, PATH_BAR_HEIGHT } from './ExplorerPathBar';
 import { Inspector, INSPECTOR_WIDTH } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
 import { getQuickPreviewStore } from './QuickPreview/store';
@@ -134,7 +134,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 				{/* !!!! TODO: REMOVE BEFORE MERGE !!!! */}
 				{/* !!!! TODO: REMOVE BEFORE MERGE !!!! */}
 				{showTagBar && <ExplorerTagBar />}
-				{showPathBar && <ExplorerPath />}
+				{showPathBar && <ExplorerPathBar />}
 			</div>
 
 			{showInspector && (
