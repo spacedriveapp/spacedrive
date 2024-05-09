@@ -25,7 +25,7 @@ use sd_core_prisma_helpers::file_path_for_media_processor;
 
 use sd_file_ext::extensions::{DocumentExtension, ImageExtension};
 use sd_images::{format_image, scale_dimensions, ConvertibleExtension};
-use sd_media_metadata::image::Orientation;
+use sd_media_metadata::exif::Orientation;
 use sd_prisma::prisma::{file_path, location};
 use sd_task_system::{
 	ExecStatus, Interrupter, InterruptionKind, IntoAnyTaskOutput, SerializableTask, Task, TaskId,
@@ -660,13 +660,18 @@ async fn generate_video_thumbnail(
 	file_path: impl AsRef<Path> + Send,
 	output_path: impl AsRef<Path> + Send,
 ) -> Result<(), NonCriticalError> {
-	use sd_ffmpeg::to_thumbnail;
+	use sd_ffmpeg::{to_thumbnail, ThumbnailSize};
 
 	let file_path = file_path.as_ref();
 
-	to_thumbnail(file_path, output_path, 256, TARGET_QUALITY)
-		.await
-		.map_err(|e| {
-			NonCriticalError::VideoThumbnailGenerationFailed(file_path.to_path_buf(), e.to_string())
-		})
+	to_thumbnail(
+		file_path,
+		output_path,
+		ThumbnailSize::Scale(1024),
+		TARGET_QUALITY,
+	)
+	.await
+	.map_err(|e| {
+		NonCriticalError::VideoThumbnailGenerationFailed(file_path.to_path_buf(), e.to_string())
+	})
 }

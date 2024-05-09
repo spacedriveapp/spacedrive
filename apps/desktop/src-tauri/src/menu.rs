@@ -2,14 +2,15 @@ use std::str::FromStr;
 
 use serde::Deserialize;
 use specta::Type;
-use strum::{AsRefStr, EnumString};
 use tauri::{
 	menu::{Menu, MenuItemKind},
 	AppHandle, Manager, Wry,
 };
 use tracing::error;
 
-#[derive(Debug, Clone, Copy, EnumString, AsRefStr, Type, Deserialize)]
+#[derive(
+	Debug, Clone, Copy, Type, Deserialize, strum::EnumString, strum::AsRefStr, strum::Display,
+)]
 pub enum MenuEvent {
 	NewLibrary,
 	NewFile,
@@ -25,12 +26,6 @@ pub enum MenuEvent {
 	ToggleDeveloperTools,
 	NewWindow,
 	ReloadWebview,
-}
-
-impl ToString for MenuEvent {
-	fn to_string(&self) -> String {
-		self.as_ref().to_string()
-	}
 }
 
 /// Menu items which require a library to be open to use.

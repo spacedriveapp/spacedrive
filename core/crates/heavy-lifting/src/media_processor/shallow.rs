@@ -20,13 +20,13 @@ use std::{
 };
 
 use futures::StreamExt;
-use futures_concurrency::future::FutureGroup;
+use futures_concurrency::future::{FutureGroup, TryJoin};
 use itertools::Itertools;
 use prisma_client_rust::{raw, PrismaValue};
 use tracing::{debug, warn};
 
 use super::{
-	helpers::{self, thumbnailer::THUMBNAIL_CACHE_DIR_NAME},
+	helpers::{self, exif_media_data, ffmpeg_media_data, thumbnailer::THUMBNAIL_CACHE_DIR_NAME},
 	tasks::{self, media_data_extractor, thumbnailer},
 	NewThumbnailsReporter, BATCH_SIZE,
 };
@@ -124,20 +124,28 @@ async fn dispatch_media_data_extractor_tasks(
 	location_path: &Arc<PathBuf>,
 	dispatcher: &BaseTaskDispatcher<Error>,
 ) -> Result<Vec<TaskHandle<Error>>, media_processor::Error> {
-	let file_paths = get_files_by_extensions(
-		db,
-		parent_iso_file_path,
-		&helpers::media_data_extractor::FILTERED_IMAGE_EXTENSIONS,
+	let (extract_exif_file_paths, extract_ffmpeg_file_paths) = (
+		get_files_by_extensions(
+			db,
+			parent_iso_file_path,
+			&exif_media_data::AVAILABLE_EXTENSIONS,
+		),
+		get_files_by_extensions(
+			db,
+			parent_iso_file_path,
+			&ffmpeg_media_data::AVAILABLE_EXTENSIONS,
+		),
 	)
-	.await?;
+		.try_join()
+		.await?;
 
-	let tasks = file_paths
+	let tasks = extract_exif_file_paths
 		.into_iter()
 		.chunks(BATCH_SIZE)
 		.into_iter()
 		.map(Iterator::collect::<Vec<_>>)
 		.map(|chunked_file_paths| {
-			tasks::MediaDataExtractor::new_shallow(
+			tasks::MediaDataExtractor::new_exif(
 				&chunked_file_paths,
 				parent_iso_file_path.location_id(),
 				Arc::clone(location_path),
@@ -145,6 +153,22 @@ async fn dispatch_media_data_extractor_tasks(
 			)
 		})
 		.map(IntoTask::into_task)
+		.chain(
+			extract_ffmpeg_file_paths
+				.into_iter()
+				.chunks(BATCH_SIZE)
+				.into_iter()
+				.map(Iterator::collect::<Vec<_>>)
+				.map(|chunked_file_paths| {
+					tasks::MediaDataExtractor::new_ffmpeg(
+						&chunked_file_paths,
+						parent_iso_file_path.location_id(),
+						Arc::clone(location_path),
+						Arc::clone(db),
+					)
+				})
+				.map(IntoTask::into_task),
+		)
 		.collect::<Vec<_>>();
 
 	Ok(dispatcher.dispatch_many_boxed(tasks).await)

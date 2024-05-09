@@ -1,2 +1,3 @@
-pub mod media_data_extractor;
+pub mod exif_media_data;
+pub mod ffmpeg_media_data;
 pub mod thumbnailer;

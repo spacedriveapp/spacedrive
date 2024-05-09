@@ -1,13 +1,16 @@
 use crate::{
-	media_processor::{self, helpers::media_data_extractor::media_data_image_to_query},
+	media_processor::{
+		self,
+		helpers::{exif_media_data, ffmpeg_media_data},
+	},
 	Error,
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::file_path_for_media_processor;
 
-use sd_media_metadata::ImageMetadata;
-use sd_prisma::prisma::{file_path, location, media_data, object, PrismaClient};
+use sd_media_metadata::{ExifMetadata, FFmpegMetadata};
+use sd_prisma::prisma::{exif_data, ffmpeg_data, file_path, location, object, PrismaClient};
 use sd_task_system::{
 	check_interruption, ExecStatus, Interrupter, InterruptionKind, IntoAnyTaskOutput,
 	SerializableTask, Task, TaskId,
@@ -15,7 +18,7 @@ use sd_task_system::{
 
 use std::{
 	collections::{HashMap, HashSet},
-	future::IntoFuture,
+	future::{Future, IntoFuture},
 	mem,
 	path::{Path, PathBuf},
 	pin::pin,
@@ -27,18 +30,24 @@ use futures::{FutureExt, StreamExt};
 use futures_concurrency::future::{FutureGroup, Race};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tokio::{task::spawn_blocking, time::Instant};
+use tokio::time::Instant;
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+enum Kind {
+	Exif,
+	FFmpeg,
+}
 
 #[derive(Debug)]
 pub struct MediaDataExtractor {
 	id: TaskId,
+	kind: Kind,
 	file_paths: Vec<file_path_for_media_processor::Data>,
 	location_id: location::id::Type,
 	location_path: Arc<PathBuf>,
 	stage: Stage,
 	db: Arc<PrismaClient>,
 	output: Output,
-	is_shallow: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -47,27 +56,29 @@ enum Stage {
 	FetchedObjectsAlreadyWithMediaData(Vec<object::id::Type>),
 	ExtractingMediaData {
 		paths_by_id: HashMap<file_path::id::Type, (PathBuf, object::id::Type)>,
-		// TODO: Change to support any kind of media data, not only images
-		media_datas: Vec<(ImageMetadata, object::id::Type)>,
+		exif_media_datas: Vec<(ExifMetadata, object::id::Type)>,
+		ffmpeg_media_datas: Vec<(FFmpegMetadata, object::id::Type)>,
 		extract_ids_to_remove_from_map: Vec<file_path::id::Type>,
 	},
 	SaveMediaData {
-		media_datas: Vec<(ImageMetadata, object::id::Type)>,
+		exif_media_datas: Vec<(ExifMetadata, object::id::Type)>,
+		ffmpeg_media_datas: Vec<(FFmpegMetadata, object::id::Type)>,
 	},
 }
 
 impl MediaDataExtractor {
 	fn new(
+		kind: Kind,
 		file_paths: &[file_path_for_media_processor::Data],
 		location_id: location::id::Type,
 		location_path: Arc<PathBuf>,
 		db: Arc<PrismaClient>,
-		is_shallow: bool,
 	) -> Self {
 		let mut output = Output::default();
 
 		Self {
 			id: TaskId::new_v4(),
+			kind,
 			file_paths: file_paths
 				.iter()
 				.filter(|file_path| {
@@ -90,28 +101,27 @@ impl MediaDataExtractor {
 			stage: Stage::Starting,
 			db,
 			output,
-			is_shallow,
 		}
 	}
 
 	#[must_use]
-	pub fn new_deep(
+	pub fn new_exif(
 		file_paths: &[file_path_for_media_processor::Data],
 		location_id: location::id::Type,
 		location_path: Arc<PathBuf>,
 		db: Arc<PrismaClient>,
 	) -> Self {
-		Self::new(file_paths, location_id, location_path, db, false)
+		Self::new(Kind::Exif, file_paths, location_id, location_path, db)
 	}
 
 	#[must_use]
-	pub fn new_shallow(
+	pub fn new_ffmpeg(
 		file_paths: &[file_path_for_media_processor::Data],
 		location_id: location::id::Type,
 		location_path: Arc<PathBuf>,
 		db: Arc<PrismaClient>,
 	) -> Self {
-		Self::new(file_paths, location_id, location_path, db, true)
+		Self::new(Kind::FFmpeg, file_paths, location_id, location_path, db)
 	}
 }
 
@@ -121,8 +131,11 @@ impl Task<Error> for MediaDataExtractor {
 		self.id
 	}
 
+	/// MediaDataExtractor never needs priority, as the data it generates are only accessed through
+	/// the media inspector, so it isn't latency sensitive like other tasks, like FileIdentifier or
+	/// the Thumbnailer
 	fn with_priority(&self) -> bool {
-		self.is_shallow
+		false
 	}
 
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {
@@ -130,8 +143,12 @@ impl Task<Error> for MediaDataExtractor {
 			match &mut self.stage {
 				Stage::Starting => {
 					let db_read_start = Instant::now();
-					let object_ids =
-						fetch_objects_already_with_media_data(&self.file_paths, &self.db).await?;
+					let object_ids = fetch_objects_already_with_media_data(
+						self.kind,
+						&self.file_paths,
+						&self.db,
+					)
+					.await?;
 					self.output.db_read_time = db_read_start.elapsed();
 
 					self.stage = Stage::FetchedObjectsAlreadyWithMediaData(object_ids);
@@ -157,14 +174,24 @@ impl Task<Error> for MediaDataExtractor {
 
 					self.stage = Stage::ExtractingMediaData {
 						extract_ids_to_remove_from_map: Vec::with_capacity(paths_by_id.len()),
-						media_datas: Vec::with_capacity(paths_by_id.len()),
+						exif_media_datas: if self.kind == Kind::Exif {
+							Vec::with_capacity(paths_by_id.len())
+						} else {
+							Vec::new()
+						},
+						ffmpeg_media_datas: if self.kind == Kind::FFmpeg {
+							Vec::with_capacity(paths_by_id.len())
+						} else {
+							Vec::new()
+						},
 						paths_by_id,
 					};
 				}
 
 				Stage::ExtractingMediaData {
 					paths_by_id,
-					media_datas,
+					exif_media_datas,
+					ffmpeg_media_datas,
 					extract_ids_to_remove_from_map,
 				} => {
 					{
@@ -174,39 +201,22 @@ impl Task<Error> for MediaDataExtractor {
 							paths_by_id.remove(&id);
 						}
 
-						let futures = paths_by_id
-							.iter()
-							.map(|(file_path_id, (path, object_id))| {
-								extract_media_data(path)
-									.map(|res| (res, *file_path_id, *object_id))
-									.map(InterruptRace::Processed)
-							})
-							.map(|fut| {
-								(
-									fut,
-									interrupter.into_future().map(InterruptRace::Interrupted),
-								)
-									.race()
-							})
-							.collect::<FutureGroup<_>>();
-
-						let mut futures = pin!(futures);
+						let mut futures = pin!(prepare_extraction_futures(
+							self.kind,
+							paths_by_id,
+							interrupter
+						));
 
 						while let Some(race_output) = futures.next().await {
 							match race_output {
-								InterruptRace::Processed((res, file_path_id, object_id)) => {
-									match res {
-										Ok(Some(media_data)) => {
-											media_datas.push((media_data, object_id));
-										}
-										Ok(None) => {
-											// No media data found
-											self.output.skipped += 1;
-										}
-										Err(e) => self.output.errors.push(e.into()),
-									}
-
-									extract_ids_to_remove_from_map.push(file_path_id);
+								InterruptRace::Processed(out) => {
+									process_output(
+										out,
+										exif_media_datas,
+										ffmpeg_media_datas,
+										extract_ids_to_remove_from_map,
+										&mut self.output,
+									);
 								}
 
 								InterruptRace::Interrupted(kind) => {
@@ -221,14 +231,18 @@ impl Task<Error> for MediaDataExtractor {
 					}
 
 					self.stage = Stage::SaveMediaData {
-						media_datas: mem::take(media_datas),
+						exif_media_datas: mem::take(exif_media_datas),
+						ffmpeg_media_datas: mem::take(ffmpeg_media_datas),
 					};
 				}
 
-				Stage::SaveMediaData { media_datas } => {
+				Stage::SaveMediaData {
+					exif_media_datas,
+					ffmpeg_media_datas,
+				} => {
 					let db_write_start = Instant::now();
 					self.output.extracted =
-						save_media_data(mem::take(media_datas), &self.db).await?;
+						save(self.kind, exif_media_datas, ffmpeg_media_datas, &self.db).await?;
 					self.output.db_write_time = db_write_start.elapsed();
 
 					self.output.skipped += self.output.errors.len() as u64;
@@ -244,28 +258,10 @@ impl Task<Error> for MediaDataExtractor {
 	}
 }
 
-type ExtractionOutput = (
-	Result<Option<ImageMetadata>, media_processor::NonCriticalError>,
-	file_path::id::Type,
-	object::id::Type,
-);
-
-#[allow(clippy::large_enum_variant)]
-/*
- * NOTE(fogodev): Interrupts will be pretty rare, so paying the boxing price for
- * the Processed variant isn't worth it to avoid the enum size disparity between variants
- */
-enum InterruptRace {
-	Interrupted(InterruptionKind),
-	Processed(ExtractionOutput),
-}
-
 #[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
 pub enum NonCriticalError {
-	#[error("failed to extract media data from <image='{}'>: {1}", .0.display())]
+	#[error("failed to extract media data from <file='{}'>: {1}", .0.display())]
 	FailedToExtractImageMediaData(PathBuf, String),
-	#[error("processing thread panicked while extracting media data from <image='{}'>: {1}", .0.display())]
-	PanicWhileExtractingImageMediaData(PathBuf, String),
 	#[error("file path missing object id: <file_path_id='{0}'>")]
 	FilePathMissingObjectId(file_path::id::Type),
 	#[error("failed to construct isolated file path data: <file_path_id='{0}'>: {1}")]
@@ -286,12 +282,12 @@ pub struct Output {
 #[derive(Debug, Serialize, Deserialize)]
 struct SaveState {
 	id: TaskId,
+	kind: Kind,
 	file_paths: Vec<file_path_for_media_processor::Data>,
 	location_id: location::id::Type,
 	location_path: Arc<PathBuf>,
 	stage: Stage,
 	output: Output,
-	is_shallow: bool,
 }
 
 impl SerializableTask<Error> for MediaDataExtractor {
@@ -304,23 +300,23 @@ impl SerializableTask<Error> for MediaDataExtractor {
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
 		let Self {
 			id,
+			kind,
 			file_paths,
 			location_id,
 			location_path,
 			stage,
 			output,
-			is_shallow,
 			..
 		} = self;
 
 		rmp_serde::to_vec_named(&SaveState {
 			id,
+			kind,
 			file_paths,
 			location_id,
 			location_path,
 			stage,
 			output,
-			is_shallow,
 		})
 	}
 
@@ -331,85 +327,56 @@ impl SerializableTask<Error> for MediaDataExtractor {
 		rmp_serde::from_slice(data).map(
 			|SaveState {
 			     id,
+			     kind,
 			     file_paths,
 			     location_id,
 			     location_path,
 			     stage,
 			     output,
-			     is_shallow,
 			 }| Self {
 				id,
+				kind,
 				file_paths,
 				location_id,
 				location_path,
 				stage,
 				db,
 				output,
-				is_shallow,
 			},
 		)
 	}
 }
 
-pub async fn extract_media_data(
-	path: impl AsRef<Path> + Send,
-) -> Result<Option<ImageMetadata>, media_processor::NonCriticalError> {
-	let path = path.as_ref().to_path_buf();
-
-	// Running in a separated blocking thread due to MediaData blocking behavior (due to sync exif lib)
-	spawn_blocking({
-		let path = path.clone();
-		|| match ImageMetadata::from_path(&path) {
-			Ok(media_data) => Ok(Some(media_data)),
-			Err(sd_media_metadata::Error::NoExifDataOnPath(_)) => Ok(None),
-			Err(e) => {
-				Err(NonCriticalError::FailedToExtractImageMediaData(path, e.to_string()).into())
-			}
-		}
-	})
-	.await
-	.map_err(|e| NonCriticalError::PanicWhileExtractingImageMediaData(path, e.to_string()))?
-}
-
+#[inline]
 async fn fetch_objects_already_with_media_data(
+	kind: Kind,
 	file_paths: &[file_path_for_media_processor::Data],
 	db: &PrismaClient,
 ) -> Result<Vec<object::id::Type>, media_processor::Error> {
-	db.media_data()
-		.find_many(vec![media_data::object_id::in_vec(
-			file_paths
-				.iter()
-				.filter_map(|file_path| file_path.object_id)
-				.collect(),
-		)])
-		.select(media_data::select!({ object_id }))
-		.exec()
-		.await
-		.map(|object_ids| object_ids.into_iter().map(|data| data.object_id).collect())
-		.map_err(Into::into)
-}
+	let object_ids = file_paths
+		.iter()
+		.filter_map(|file_path| file_path.object_id)
+		.collect();
 
-async fn save_media_data(
-	media_datas: Vec<(ImageMetadata, object::id::Type)>,
-	db: &PrismaClient,
-) -> Result<u64, media_processor::Error> {
-	db.media_data()
-		.create_many(
-			media_datas
-				.into_iter()
-				.map(|(media_data, object_id)| media_data_image_to_query(media_data, object_id))
-				.collect(),
-		)
-		.skip_duplicates()
-		.exec()
-		.await
-		.map(|created| {
-			#[allow(clippy::cast_sign_loss)]
-			{
-				created as u64
-			}
-		})
-		.map_err(Into::into)
+	match kind {
+		Kind::Exif => db
+			.exif_data()
+			.find_many(vec![exif_data::object_id::in_vec(object_ids)])
+			.select(exif_data::select!({ object_id }))
+			.exec()
+			.await
+			.map(|object_ids| object_ids.into_iter().map(|data| data.object_id).collect())
+			.map_err(Into::into),
+
+		Kind::FFmpeg => db
+			.ffmpeg_data()
+			.find_many(vec![ffmpeg_data::object_id::in_vec(object_ids)])
+			.select(ffmpeg_data::select!({ object_id }))
+			.exec()
+			.await
+			.map(|object_ids| object_ids.into_iter().map(|data| data.object_id).collect())
+			.map_err(Into::into),
+	}
 }
 
 #[inline]
@@ -460,4 +427,99 @@ fn filter_files_to_extract_media_data(
 				.ok()
 		})
 		.collect()
+}
+
+enum ExtractionOutputKind {
+	Exif(Result<Option<ExifMetadata>, media_processor::NonCriticalError>),
+	FFmpeg(Result<FFmpegMetadata, media_processor::NonCriticalError>),
+}
+
+struct ExtractionOutput {
+	file_path_id: file_path::id::Type,
+	object_id: object::id::Type,
+	kind: ExtractionOutputKind,
+}
+
+#[allow(clippy::large_enum_variant)]
+/*
+ * NOTE(fogodev): Interrupts will be pretty rare, so paying the boxing price for
+ * the Processed variant isn't worth it to avoid the enum size disparity between variants
+ */
+enum InterruptRace {
+	Interrupted(InterruptionKind),
+	Processed(ExtractionOutput),
+}
+
+#[inline]
+fn prepare_extraction_futures<'a>(
+	kind: Kind,
+	paths_by_id: &'a HashMap<file_path::id::Type, (PathBuf, object::id::Type)>,
+	interrupter: &'a Interrupter,
+) -> FutureGroup<impl Future<Output = InterruptRace> + 'a> {
+	paths_by_id
+		.iter()
+		.map(|(file_path_id, (path, object_id))| async move {
+			InterruptRace::Processed(ExtractionOutput {
+				file_path_id: *file_path_id,
+				object_id: *object_id,
+				kind: match kind {
+					Kind::Exif => ExtractionOutputKind::Exif(exif_media_data::extract(path).await),
+					Kind::FFmpeg => {
+						ExtractionOutputKind::FFmpeg(ffmpeg_media_data::extract(path).await)
+					}
+				},
+			})
+		})
+		.map(|fut| {
+			(
+				fut,
+				interrupter.into_future().map(InterruptRace::Interrupted),
+			)
+				.race()
+		})
+		.collect::<FutureGroup<_>>()
+}
+
+#[inline]
+fn process_output(
+	ExtractionOutput {
+		file_path_id,
+		object_id,
+		kind,
+	}: ExtractionOutput,
+	exif_media_datas: &mut Vec<(ExifMetadata, object::id::Type)>,
+	ffmpeg_media_datas: &mut Vec<(FFmpegMetadata, object::id::Type)>,
+	extract_ids_to_remove_from_map: &mut Vec<file_path::id::Type>,
+	output: &mut Output,
+) {
+	match kind {
+		ExtractionOutputKind::Exif(Ok(Some(exif_data))) => {
+			exif_media_datas.push((exif_data, object_id));
+		}
+		ExtractionOutputKind::Exif(Ok(None)) => {
+			// No exif media data found
+			output.skipped += 1;
+		}
+		ExtractionOutputKind::FFmpeg(Ok(ffmpeg_data)) => {
+			ffmpeg_media_datas.push((ffmpeg_data, object_id));
+		}
+		ExtractionOutputKind::Exif(Err(e)) | ExtractionOutputKind::FFmpeg(Err(e)) => {
+			output.errors.push(e.into());
+		}
+	}
+
+	extract_ids_to_remove_from_map.push(file_path_id);
+}
+
+#[inline]
+async fn save(
+	kind: Kind,
+	exif_media_datas: &mut Vec<(ExifMetadata, object::id::Type)>,
+	ffmpeg_media_datas: &mut Vec<(FFmpegMetadata, object::id::Type)>,
+	db: &PrismaClient,
+) -> Result<u64, media_processor::Error> {
+	match kind {
+		Kind::Exif => exif_media_data::save(mem::take(exif_media_datas), db).await,
+		Kind::FFmpeg => ffmpeg_media_data::save(mem::take(ffmpeg_media_datas), db).await,
+	}
 }

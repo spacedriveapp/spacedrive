@@ -650,22 +650,30 @@ async fn dispatch_media_data_extractor_tasks(
 	location_path: &Arc<PathBuf>,
 	dispatcher: &JobTaskDispatcher,
 ) -> Result<(u64, Vec<TaskHandle<Error>>), media_processor::Error> {
-	let file_paths = get_all_children_files_by_extensions(
-		db,
-		parent_iso_file_path,
-		&helpers::media_data_extractor::FILTERED_IMAGE_EXTENSIONS,
+	let (extract_exif_file_paths, extract_ffmpeg_file_paths) = (
+		get_all_children_files_by_extensions(
+			db,
+			parent_iso_file_path,
+			&helpers::exif_media_data::AVAILABLE_EXTENSIONS,
+		),
+		get_all_children_files_by_extensions(
+			db,
+			parent_iso_file_path,
+			&helpers::ffmpeg_media_data::AVAILABLE_EXTENSIONS,
+		),
 	)
-	.await?;
+		.try_join()
+		.await?;
 
-	let files_count = file_paths.len() as u64;
+	let files_count = (extract_exif_file_paths.len() + extract_ffmpeg_file_paths.len()) as u64;
 
-	let tasks = file_paths
+	let tasks = extract_exif_file_paths
 		.into_iter()
 		.chunks(BATCH_SIZE)
 		.into_iter()
 		.map(Iterator::collect::<Vec<_>>)
 		.map(|chunked_file_paths| {
-			tasks::MediaDataExtractor::new_deep(
+			tasks::MediaDataExtractor::new_exif(
 				&chunked_file_paths,
 				parent_iso_file_path.location_id(),
 				Arc::clone(location_path),
@@ -673,6 +681,22 @@ async fn dispatch_media_data_extractor_tasks(
 			)
 		})
 		.map(IntoTask::into_task)
+		.chain(
+			extract_ffmpeg_file_paths
+				.into_iter()
+				.chunks(BATCH_SIZE)
+				.into_iter()
+				.map(Iterator::collect::<Vec<_>>)
+				.map(|chunked_file_paths| {
+					tasks::MediaDataExtractor::new_ffmpeg(
+						&chunked_file_paths,
+						parent_iso_file_path.location_id(),
+						Arc::clone(location_path),
+						Arc::clone(db),
+					)
+				})
+				.map(IntoTask::into_task),
+		)
 		.collect::<Vec<_>>();
 
 	Ok((files_count, dispatcher.dispatch_many_boxed(tasks).await))
