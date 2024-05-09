@@ -21,9 +21,9 @@ use program::Program;
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct FFmpegMetadata {
 	pub formats: Vec<String>,
-	pub duration: Option<(u32, u32)>,
-	pub start_time: Option<(u32, u32)>,
-	pub bit_rate: (u32, u32),
+	pub duration: Option<(i32, u32)>,
+	pub start_time: Option<(i32, u32)>,
+	pub bit_rate: (i32, u32),
 	pub chapters: Vec<Chapter>,
 	pub programs: Vec<Program>,
 	pub metadata: Metadata,
@@ -70,24 +70,24 @@ mod extract_data {
 			Self {
 				formats,
 				duration: duration.map(|duration| {
-					#[allow(clippy::cast_possible_truncation)]
+					#[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
 					{
 						// SAFETY: We're splitting in (high, low) parts, so we're not going to lose data on truncation
-						((duration >> 32) as u32, duration as u32)
+						((duration >> 32) as i32, duration as u32)
 					}
 				}),
 				start_time: start_time.map(|start_time| {
-					#[allow(clippy::cast_possible_truncation)]
+					#[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
 					{
 						// SAFETY: We're splitting in (high, low) parts, so we're not going to lose data on truncation
-						((start_time >> 32) as u32, start_time as u32)
+						((start_time >> 32) as i32, start_time as u32)
 					}
 				}),
 				bit_rate: {
-					#[allow(clippy::cast_possible_truncation)]
+					#[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
 					{
 						// SAFETY: We're splitting in (high, low) parts, so we're not going to lose data on truncation
-						((bit_rate >> 32) as u32, bit_rate as u32)
+						((bit_rate >> 32) as i32, bit_rate as u32)
 					}
 				},
 				chapters: chapters.into_iter().map(Into::into).collect(),
@@ -118,17 +118,17 @@ mod extract_data {
 				},
 				// TODO: FIX these 2 when rspc/specta supports bigint
 				start: {
-					#[allow(clippy::cast_possible_truncation)]
+					#[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
 					{
 						// SAFETY: We're splitting in (high, low) parts, so we're not going to lose data on truncation
-						((start >> 32) as u32, start as u32)
+						((start >> 32) as i32, start as u32)
 					}
 				},
 				end: {
-					#[allow(clippy::cast_possible_truncation)]
+					#[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
 					{
 						// SAFETY: We're splitting in (high, low) parts, so we're not going to lose data on truncation
-						((end >> 32) as u32, end as u32)
+						((end >> 32) as i32, end as u32)
 					}
 				},
 				time_base_num,

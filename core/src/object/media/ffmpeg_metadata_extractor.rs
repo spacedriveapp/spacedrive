@@ -249,9 +249,9 @@ pub async fn save_ffmpeg_data(
 
 async fn create_ffmpeg_data(
 	formats: Vec<String>,
-	bit_rate: (u32, u32),
-	duration: Option<(u32, u32)>,
-	start_time: Option<(u32, u32)>,
+	bit_rate: (i32, u32),
+	duration: Option<(i32, u32)>,
+	start_time: Option<(i32, u32)>,
 	metadata: Metadata,
 	object_id: i32,
 	db: &PrismaClient,

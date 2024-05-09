@@ -137,9 +137,9 @@ export function insertLibrary(queryClient: QueryClient, library: LibraryConfigWr
 	});
 }
 
-// [int32, int32] => BigInt
 export function int32ArrayToBigInt([high, low]: [number, number]) {
-	return (BigInt(high) << 32n) | BigInt(low);
+	// Note: These magic shift operations internally convert the high into i32 and the low into u32
+	return (BigInt(high | 0) << 32n) | BigInt(low >>> 0);
 }
 
 export function capitalize<T extends string>(string: T): Capitalize<T> {
