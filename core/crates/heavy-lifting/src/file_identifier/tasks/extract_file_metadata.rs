@@ -103,8 +103,11 @@ impl Task<Error> for ExtractFileMetadataTask {
 	}
 
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {
+		// `Processed` is larger than `Interrupt`, but it's much more common
+		// so we ignore the size difference to optimize for usage
+		#[allow(clippy::large_enum_variant)]
 		enum StreamMessage {
-			Processed(Uuid, Box<Result<FileMetadata, FileIOError>>),
+			Processed(Uuid, Result<FileMetadata, FileIOError>),
 			Interrupt(InterruptionKind),
 		}
 
@@ -135,7 +138,7 @@ impl Task<Error> for ExtractFileMetadataTask {
 				.map(|(file_path_id, iso_file_path, location_path)| async move {
 					StreamMessage::Processed(
 						file_path_id,
-						Box::new(FileMetadata::new(&*location_path, &iso_file_path).await),
+						FileMetadata::new(&*location_path, &iso_file_path).await,
 					)
 				})
 				.collect::<FuturesUnordered<_>>();
@@ -153,7 +156,7 @@ impl Task<Error> for ExtractFileMetadataTask {
 							.remove(&file_path_pub_id)
 							.expect("file_path must be here");
 
-						match *res {
+						match res {
 							Ok(FileMetadata { cas_id, kind, .. }) => {
 								identified_files.insert(
 									file_path_pub_id,
