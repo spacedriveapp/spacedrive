@@ -2,7 +2,7 @@ import dayjs from 'dayjs';
 import { Barcode, CaretLeft, Clock, Cube, Icon, SealCheck, Snowflake } from 'phosphor-react-native';
 import { forwardRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { getItemFilePath, getItemObject, humanizeSize, type ExplorerItem } from '@sd/client';
+import { getItemFilePath, humanizeSize, type ExplorerItem } from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
 import { Modal, ModalScrollView, type ModalRef } from '~/components/layout/Modal';
@@ -39,17 +39,8 @@ type FileInfoModalProps = {
 
 const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 	const { data } = props;
-
 	const modalRef = useForwardedRef(ref);
-
-	const item = data?.item;
-
-	const objectData = data && getItemObject(data);
 	const filePathData = data && getItemFilePath(data);
-
-	// const fullObjectData = useLibraryQuery(['files.get', objectData?.id || -1], {
-	// 	enabled: objectData?.id !== undefined
-	// });
 
 	return (
 		<Modal
