@@ -9,6 +9,7 @@ use crate::{
 
 #[cfg(feature = "ai")]
 use sd_ai::old_image_labeler::{DownloadModelError, OldImageLabeler, YoloV8};
+use sd_utils::error::FileIOError;
 
 use api::notifications::{Notification, NotificationData, NotificationId};
 use chrono::{DateTime, Utc};
@@ -23,7 +24,7 @@ use std::{
 };
 
 use thiserror::Error;
-use tokio::{fs, sync::broadcast};
+use tokio::{fs, io, sync::broadcast};
 use tracing::{error, info, warn};
 use tracing_appender::{
 	non_blocking::{NonBlocking, WorkerGuard},
@@ -50,6 +51,8 @@ pub mod util;
 pub(crate) mod volume;
 
 pub use env::Env;
+
+use object::media::old_thumbnail::get_ephemeral_thumbnail_path;
 
 pub(crate) use sd_core_sync as sync;
 
@@ -265,6 +268,16 @@ impl Node {
 	pub(crate) fn emit(&self, event: CoreEvent) {
 		if let Err(e) = self.event_bus.0.send(event) {
 			warn!("Error sending event to event bus: {e:?}");
+		}
+	}
+
+	pub async fn ephemeral_thumbnail_exists(&self, cas_id: &str) -> Result<bool, FileIOError> {
+		let thumb_path = get_ephemeral_thumbnail_path(self, cas_id);
+
+		match fs::metadata(&thumb_path).await {
+			Ok(_) => Ok(true),
+			Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(false),
+			Err(e) => Err(FileIOError::from((thumb_path, e))),
 		}
 	}
 

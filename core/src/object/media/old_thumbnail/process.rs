@@ -475,7 +475,7 @@ async fn generate_video_thumbnail(
 	to_thumbnail(
 		file_path,
 		output_path,
-		ThumbnailSize::Scale(256),
+		ThumbnailSize::Scale(1024),
 		TARGET_QUALITY,
 	)
 	.await
