@@ -88,8 +88,8 @@ impl GitIgnoreRules {
 				//   this rule approves every file inside the git repo, except for the `docs/*.md` files
 				// - accepting `path/to/readme.md`
 				//   this REJECTS every file except for `docs/readme.md` (that is already rejected by other rule...)
-                //
-                // # Once fixed:
+				//
+				// # Once fixed:
 				// line.remove(0); // pop the !
 				// let full = base_dir.join(line);
 				// let file = full.into_os_string().into_string().unwrap();
