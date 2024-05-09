@@ -1,5 +1,6 @@
 import { redirect } from 'react-router';
 import { type RouteObject } from 'react-router-dom';
+import { guessOperatingSystem } from '~/hooks';
 import { Platform } from '~/util/Platform';
 
 import { debugRoutes } from './debug';
@@ -31,11 +32,23 @@ const explorerRoutes: RouteObject[] = [
 	{ path: 'saved-search/:id', lazy: () => import('./saved-search/$id') }
 ];
 
+function loadTopBarRoutes() {
+	const os = guessOperatingSystem();
+	if (os === 'windows') {
+		return [
+			...explorerRoutes,
+			pageRoutes,
+			{ path: 'settings', lazy: () => import('./settings/Layout'), children: settingsRoutes },
+			{ path: 'debug', children: debugRoutes }
+		];
+	} else return [...explorerRoutes, pageRoutes];
+}
+
 // Routes that should render with the top bar - pretty much everything except
-// 404 and settings
+// 404 and settings, which are rendered only for Windows with top bar
 const topBarRoutes: RouteObject = {
 	lazy: () => import('./TopBar/Layout'),
-	children: [...explorerRoutes, pageRoutes]
+	children: loadTopBarRoutes()
 };
 
 export default (platform: Platform) =>

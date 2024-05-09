@@ -49,7 +49,7 @@ export default () => {
 						sidebar.collapsed && os === 'macOS' && 'justify-end'
 					)}
 				>
-					<NavigationButtons />
+					{os !== 'windows' && <NavigationButtons />}
 				</div>
 			) : (
 				<div className="h-3" />

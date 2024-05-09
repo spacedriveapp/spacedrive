@@ -42,7 +42,7 @@ pub enum ExplorerItem {
 		// this tells the frontend if a thumbnail actually exists or not
 		has_created_thumbnail: bool,
 		// we can't actually modify data from PCR types, thats why computed properties are used on ExplorerItem
-		item: file_path_with_object::Data,
+		item: Box<file_path_with_object::Data>,
 	},
 	Object {
 		thumbnail: Option<ThumbnailKey>,
@@ -113,11 +113,8 @@ impl From<UserDirs> for SystemLocations {
 impl ExplorerItem {
 	pub fn name(&self) -> &str {
 		match self {
-			ExplorerItem::Path {
-				item: file_path_with_object::Data { name, .. },
-				..
-			}
-			| ExplorerItem::Location {
+			ExplorerItem::Path { item, .. } => item.name.as_deref().unwrap_or(""),
+			ExplorerItem::Location {
 				item: location::Data { name, .. },
 				..
 			} => name.as_deref().unwrap_or(""),
@@ -128,13 +125,8 @@ impl ExplorerItem {
 
 	pub fn size_in_bytes(&self) -> u64 {
 		match self {
-			ExplorerItem::Path {
-				item: file_path_with_object::Data {
-					size_in_bytes_bytes,
-					..
-				},
-				..
-			} => size_in_bytes_bytes
+			ExplorerItem::Path { item, .. } => item
+				.size_in_bytes_bytes
 				.as_ref()
 				.map(|size| {
 					u64::from_be_bytes([
@@ -165,11 +157,10 @@ impl ExplorerItem {
 
 	pub fn date_created(&self) -> DateTime<Utc> {
 		match self {
-			ExplorerItem::Path {
-				item: file_path_with_object::Data { date_created, .. },
-				..
+			ExplorerItem::Path { item, .. } => {
+				item.date_created.map(Into::into).unwrap_or_default()
 			}
-			| ExplorerItem::Object {
+			ExplorerItem::Object {
 				item: object_with_file_paths::Data { date_created, .. },
 				..
 			}

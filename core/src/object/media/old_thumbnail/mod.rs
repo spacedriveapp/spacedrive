@@ -42,11 +42,11 @@ const EPHEMERAL_DIR: &str = "ephemeral";
 
 /// This is the target pixel count for all thumbnails to be resized to, and it is eventually downscaled
 /// to [`TARGET_QUALITY`].
-const TARGET_PX: f32 = 262144_f32;
+const TARGET_PX: f32 = 1048576.0; // 1024x1024
 
 /// This is the target quality that we render thumbnails at, it is a float between 0-100
-/// and is treated as a percentage (so 30% in this case, or it's the same as multiplying by `0.3`).
-const TARGET_QUALITY: f32 = 30_f32;
+/// and is treated as a percentage (so 60% in this case, or it's the same as multiplying by `0.6`).
+const TARGET_QUALITY: f32 = 60.0;
 
 // Some time constants
 const ONE_SEC: Duration = Duration::from_secs(1);
@@ -61,6 +61,10 @@ pub enum ThumbnailKind {
 
 pub fn get_indexed_thumbnail_path(node: &Node, cas_id: &str, library_id: LibraryId) -> PathBuf {
 	get_thumbnail_path(node, cas_id, ThumbnailKind::Indexed(library_id))
+}
+
+pub fn get_ephemeral_thumbnail_path(node: &Node, cas_id: &str) -> PathBuf {
+	get_thumbnail_path(node, cas_id, ThumbnailKind::Ephemeral)
 }
 
 /// This does not check if a thumbnail exists, it just returns the path that it would exist at

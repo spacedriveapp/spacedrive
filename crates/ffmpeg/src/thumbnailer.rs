@@ -146,7 +146,7 @@ impl Default for ThumbnailerBuilder {
 	fn default() -> Self {
 		Self {
 			maintain_aspect_ratio: true,
-			size: ThumbnailSize::Scale(128),
+			size: ThumbnailSize::Scale(1024),
 			seek_percentage: 0.1,
 			quality: 80.0,
 			prefer_embedded_metadata: true,

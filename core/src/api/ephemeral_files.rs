@@ -57,7 +57,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.await
 					.map(Into::into);
 				match kind {
-					Some(v) if v == ObjectKind::Image => {
+					Some(ObjectKind::Image) => {
 						let Some(extension) = full_path.extension().and_then(|ext| ext.to_str())
 						else {
 							return Ok(None);
