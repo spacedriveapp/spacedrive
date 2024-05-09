@@ -59,6 +59,9 @@ impl GitIgnoreRules {
 		let buf = BufReader::new(file);
 		let mut lines = buf.lines();
 
+		let mut star_glob = Vec::new();
+		let mut ignore_glob = Vec::new();
+
 		let mut rules = Vec::new();
 		while let Ok(Some(mut line)) = Self::next_line(&mut lines).await {
 			// A blank line; skip
@@ -87,23 +90,34 @@ impl GitIgnoreRules {
 				// - rejecting all `path/to/docs/*.md` (including `path/to/docs/readme.md`)
 				//   this rule approves every file inside the git repo, except for the `docs/*.md` files
 				// - accepting `path/to/readme.md`
-				//   this REJECTS every file except for `docs/readme.md` (that is already rejected by other rule...)
+				//   this REJECTS every file except for `docs/readme.md` (which has already been by the other rule)
 				//
 				// # Once fixed:
 				// line.remove(0); // pop the !
 				// let full = base_dir.join(line);
 				// let file = full.into_os_string().into_string().unwrap();
 				// RulePerKind::new_accept_files_by_globs_str([file]).unwrap()
+
+				ignore_glob.push(base_dir.join(line));
 				continue;
 			} else {
 				if line.starts_with('/') {
 					line.remove(0);
 				}
-				let full = base_dir.join(line);
+				let full = base_dir.join(&line);
+
 				// ignore the rule if it's poorly formatted or invalid
 				let Ok(file) = full.into_os_string().into_string() else {
 					continue;
 				};
+
+				if line == "*" {
+					use globset::Glob;
+
+					star_glob.extend(file.parse::<Glob>());
+					continue;
+				}
+
 				let Ok(rule) = RulePerKind::new_reject_files_by_globs_str([file]) else {
 					continue;
 				};
@@ -112,6 +126,23 @@ impl GitIgnoreRules {
 
 			rules.push(rule);
 		}
+
+		// skip star rules that matches a negated pattern
+		// ```example
+		// *
+		// !src
+		// ```example
+		let allowed_rules = star_glob
+			.into_iter()
+			.filter(|rule| {
+				let rule = rule.compile_matcher();
+				ignore_glob
+					.iter()
+					.any(|should_ignore| !rule.is_match(should_ignore))
+			})
+			.filter_map(|rule| RulePerKind::new_accept_files_by_globs_str([rule.glob()]).ok());
+		rules.extend(allowed_rules);
+
 		Ok(Self { rules })
 	}
 
