@@ -1,3 +1,5 @@
+use crate::Result;
+
 use std::{
 	fs::File,
 	io::{BufReader, Cursor},
@@ -6,8 +8,7 @@ use std::{
 };
 
 use exif::{Exif, In, Tag};
-
-use crate::{Error, Result};
+use sd_utils::error::FileIOError;
 
 /// An [`ExifReader`]. This can get exif tags from images (either files or slices).
 pub struct ExifReader(Exif);
@@ -16,19 +17,17 @@ impl ExifReader {
 	pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
 		exif::Reader::new()
 			.read_from_container(&mut BufReader::new(
-				File::open(&path)
-					.map_err(|e| Error::Io(e, path.as_ref().to_path_buf().into_boxed_path()))?,
+				File::open(&path).map_err(|e| FileIOError::from((path, e)))?,
 			))
-			.map_or_else(
-				|_| Err(Error::NoExifDataOnPath(path.as_ref().to_path_buf())),
-				|reader| Ok(Self(reader)),
-			)
+			.map(Self)
+			.map_err(Into::into)
 	}
 
 	pub fn from_slice(slice: &[u8]) -> Result<Self> {
 		exif::Reader::new()
 			.read_from_container(&mut Cursor::new(slice))
-			.map_or_else(|_| Err(Error::NoExifDataOnSlice), |reader| Ok(Self(reader)))
+			.map(Self)
+			.map_err(Into::into)
 	}
 
 	/// A helper function which gets the target `Tag` as `T`, provided `T` impls `FromStr`.

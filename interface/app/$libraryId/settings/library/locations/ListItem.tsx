@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
 	arraysEqual,
-	byteSize,
+	humanizeSize,
 	Location,
 	useLibraryMutation,
 	useOnlineLocations
@@ -66,10 +66,10 @@ export default ({ location }: Props) => {
 						}}
 					>
 						<span className="max-w-[34px] truncate text-xs text-ink-dull">
-							{byteSize(location.size_in_bytes).value}
+							{humanizeSize(location.size_in_bytes).value}
 						</span>
 						<span className="ml-px text-[10px] text-ink-dull/60">
-							{t(`size_${byteSize(location.size_in_bytes).unit.toLowerCase()}`)}
+							{t(`size_${humanizeSize(location.size_in_bytes).unit.toLowerCase()}`)}
 						</span>
 					</div>
 				</Tooltip>
