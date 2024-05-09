@@ -61,10 +61,8 @@ class DialogManager {
 		const state = this.getState(id);
 
 		if (!state) {
-			throw new Error(`Dialog ${id} not registered!`);
-		}
-
-		if (state.open === false) {
+			console.error(new Error(`Dialog ${id} not registered!`));
+		} else if (state.open === false) {
 			delete this.dialogs[id];
 			delete this.state[id];
 		}

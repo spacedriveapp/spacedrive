@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use super::{
-	media_data::*,
+	exif_data::*,
 	utils::{self, *},
 };
 
@@ -61,7 +61,7 @@ impl ObjectCursor {
 pub enum ObjectOrder {
 	DateAccessed(SortOrder),
 	Kind(SortOrder),
-	MediaData(Box<MediaDataOrder>),
+	MediaData(Box<ExifDataOrder>),
 }
 
 impl ObjectOrder {
@@ -81,7 +81,7 @@ impl ObjectOrder {
 		match self {
 			Self::DateAccessed(_) => date_accessed::order(dir),
 			Self::Kind(_) => kind::order(dir),
-			Self::MediaData(v) => media_data::order(vec![v.into_param()]),
+			Self::MediaData(v) => exif_data::order(vec![v.into_param()]),
 		}
 	}
 }

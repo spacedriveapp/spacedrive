@@ -1,5 +1,5 @@
 use crate::{
-	image::consts::{PLUSCODE_DIGITS, PLUSCODE_GRID_SIZE},
+	exif::consts::{PLUSCODE_DIGITS, PLUSCODE_GRID_SIZE},
 	Error,
 };
 use std::{

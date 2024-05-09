@@ -103,6 +103,9 @@ impl Task<Error> for ExtractFileMetadataTask {
 	}
 
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {
+		// `Processed` is larger than `Interrupt`, but it's much more common
+		// so we ignore the size difference to optimize for usage
+		#[allow(clippy::large_enum_variant)]
 		enum StreamMessage {
 			Processed(Uuid, Result<FileMetadata, FileIOError>),
 			Interrupt(InterruptionKind),

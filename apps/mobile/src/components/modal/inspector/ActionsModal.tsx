@@ -1,10 +1,3 @@
-import {
-	byteSize,
-	getIndexedItemFilePath,
-	getItemObject,
-	useLibraryMutation,
-	useLibraryQuery
-} from '@sd/client';
 import dayjs from 'dayjs';
 import {
 	Copy,
@@ -20,6 +13,13 @@ import {
 import { PropsWithChildren, useRef } from 'react';
 import { Pressable, Text, View, ViewStyle } from 'react-native';
 import FileViewer from 'react-native-file-viewer';
+import {
+	getIndexedItemFilePath,
+	getItemObject,
+	humanizeSize,
+	useLibraryMutation,
+	useLibraryQuery
+} from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
 import FavoriteButton from '~/components/explorer/sections/FavoriteButton';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
@@ -119,7 +119,7 @@ export const ActionsModal = () => {
 								</Text>
 								<View style={tw`flex flex-row`}>
 									<Text style={tw`text-xs text-ink-faint`}>
-										{`${byteSize(filePath?.size_in_bytes_bytes)}`},
+										{`${humanizeSize(filePath?.size_in_bytes_bytes)}`},
 									</Text>
 									<Text style={tw`text-xs text-ink-faint`}>
 										{' '}

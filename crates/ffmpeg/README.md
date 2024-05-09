@@ -29,7 +29,6 @@ async fn main() -> Result<(), ThumbnailerError> {
     let thumbnailer = ThumbnailerBuilder::new()
         .width_and_height(420, 315)
         .seek_percentage(0.25)?
-        .with_film_strip(false)
         .quality(80.0)?
         .build();
 

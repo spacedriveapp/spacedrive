@@ -1,7 +1,7 @@
 use exif::Tag;
 
 use super::FlashValue;
-use crate::image::{flash::consts::FLASH_MODES, ExifReader};
+use crate::exif::{flash::consts::FLASH_MODES, ExifReader};
 
 #[derive(
 	Default, Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize, specta::Type,
