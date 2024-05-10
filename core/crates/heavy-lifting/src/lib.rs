@@ -1,3 +1,4 @@
+#![recursion_limit = "256"]
 #![warn(
 	clippy::all,
 	clippy::pedantic,

@@ -727,7 +727,7 @@ async fn get_all_children_files_by_extensions(
 				.collect::<Vec<_>>()
 				.join(",")
 		),
-		PrismaValue::Int(i64::from(parent_iso_file_path.location_id())),
+		PrismaValue::Int(parent_iso_file_path.location_id()),
 		PrismaValue::String(format!(
 			"{}%",
 			parent_iso_file_path
