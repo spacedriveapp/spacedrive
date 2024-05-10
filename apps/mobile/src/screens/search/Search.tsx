@@ -1,6 +1,6 @@
 import { useIsFocused } from '@react-navigation/native';
 import { usePathsExplorerQuery } from '@sd/client';
-import { ArrowLeft, DotsThreeOutline, FunnelSimple } from 'phosphor-react-native';
+import { ArrowLeft, DotsThree, FunnelSimple } from 'phosphor-react-native';
 import { Suspense, useDeferredValue, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import Explorer from '~/components/explorer/Explorer';
 import Empty from '~/components/layout/Empty';
 import FiltersBar from '~/components/search/filters/FiltersBar';
 import { useFiltersSearch } from '~/hooks/useFiltersSearch';
+import { useSortBy } from '~/hooks/useSortBy';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SearchStackScreenProps } from '~/navigation/SearchStack';
 import { getExplorerStore, useExplorerStore } from '~/stores/explorerStore';
@@ -20,35 +21,36 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 	const isFocused = useIsFocused();
 	const [search, setSearch] = useState('');
 	const deferredSearch = useDeferredValue(search);
-
-	const appliedFiltersLength = Object.keys(searchStore.appliedFilters).length;
-	const isAndroid = Platform.OS === 'android';
+	const order = useSortBy();
 
 	const objects = usePathsExplorerQuery({
+		order,
 		arg: {
 			take: 30,
 			filters: searchStore.mergedFilters,
 		},
 		enabled: isFocused && searchStore.mergedFilters.length > 1, // only fetch when screen is focused & filters are applied
 		suspense: true,
-		order: null,
 		onSuccess: () => getExplorerStore().resetNewThumbnails()
 	});
+
+	useFiltersSearch(deferredSearch);
+
+	const appliedFiltersLength = Object.keys(searchStore.appliedFilters).length;
+	const isAndroid = Platform.OS === 'android';
 
 	// Check if there are no objects or no search
 	const noObjects = objects.items?.length === 0 || !objects.items;
 	const noSearch = deferredSearch.length === 0 && appliedFiltersLength === 0;
 
-	useFiltersSearch(deferredSearch);
-
 	return (
 		<View
-			style={twStyle('flex-1 bg-app-header', {
+			style={twStyle('relative z-50 flex-1 bg-app-header', {
 				paddingTop: headerHeight + (isAndroid ? 15 : 0)
 			})}
 		>
 			{/* Header */}
-			<View style={tw`relative z-20 border-b border-app-cardborder bg-app-header`}>
+			<View style={tw`relative z-20 border-b border-app-cardborder bg-app-header pt-2`}>
 				{/* Search area input container */}
 				<View style={tw`flex-row items-center justify-between gap-4 px-5 pb-3`}>
 					{/* Back Button */}
@@ -95,10 +97,11 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 							getExplorerStore().toggleMenu = !explorerStore.toggleMenu;
 						}}
 					>
-						<DotsThreeOutline
+						<DotsThree
 							size={24}
+							weight='bold'
 							color={tw.color(
-								explorerStore.toggleMenu ? 'text-accent' : 'text-zinc-300'
+								explorerStore.toggleMenu ? 'text-accent' : 'text-ink-dull'
 							)}
 						/>
 					</Pressable>
@@ -113,10 +116,9 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 					isEmpty={noObjects}
 					emptyComponent={
 						<Empty
+						includeHeaderHeight
 						icon={noSearch ? 'Search' : 'FolderNoSpace'}
-						style={twStyle('flex-1 items-center justify-center border-0', {
-							marginBottom: headerHeight
-						})}
+						style={tw`flex-1 items-center justify-center border-0`}
 						textSize="text-md"
 						iconSize={100}
 						description={noSearch ? 'Add filters or type to search for files' : 'No files found'}

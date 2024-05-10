@@ -27,6 +27,7 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
+use sd_prisma::prisma::file_path;
 use sd_task_system::TaskSystemError;
 
 use serde::{Deserialize, Serialize};
@@ -36,22 +37,24 @@ use thiserror::Error;
 pub mod file_identifier;
 pub mod indexer;
 pub mod job_system;
+pub mod media_processor;
 pub mod utils;
 
-use file_identifier::{FileIdentifierError, NonCriticalFileIdentifierError};
-use indexer::{IndexerError, NonCriticalIndexerError};
+use media_processor::ThumbKey;
 
 pub use job_system::{
-	job::{IntoJob, JobBuilder, JobContext, JobName, JobOutput, JobOutputData, ProgressUpdate},
+	job::{IntoJob, JobBuilder, JobName, JobOutput, JobOutputData, OuterContext, ProgressUpdate},
 	JobId, JobSystem,
 };
 
 #[derive(Error, Debug)]
 pub enum Error {
 	#[error(transparent)]
-	Indexer(#[from] IndexerError),
+	Indexer(#[from] indexer::Error),
 	#[error(transparent)]
-	FileIdentifier(#[from] FileIdentifierError),
+	FileIdentifier(#[from] file_identifier::Error),
+	#[error(transparent)]
+	MediaProcessor(#[from] media_processor::Error),
 
 	#[error(transparent)]
 	TaskSystem(#[from] TaskSystemError),
@@ -62,6 +65,7 @@ impl From<Error> for rspc::Error {
 		match e {
 			Error::Indexer(e) => e.into(),
 			Error::FileIdentifier(e) => e.into(),
+			Error::MediaProcessor(e) => e.into(),
 			Error::TaskSystem(e) => {
 				Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
 			}
@@ -70,12 +74,14 @@ impl From<Error> for rspc::Error {
 }
 
 #[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
-pub enum NonCriticalJobError {
+pub enum NonCriticalError {
 	// TODO: Add variants as needed
 	#[error(transparent)]
-	Indexer(#[from] NonCriticalIndexerError),
+	Indexer(#[from] indexer::NonCriticalError),
 	#[error(transparent)]
-	FileIdentifier(#[from] NonCriticalFileIdentifierError),
+	FileIdentifier(#[from] file_identifier::NonCriticalError),
+	#[error(transparent)]
+	MediaProcessor(#[from] media_processor::NonCriticalError),
 }
 
 #[repr(i32)]
@@ -85,4 +91,14 @@ pub enum LocationScanState {
 	Indexed = 1,
 	FilesIdentified = 2,
 	Completed = 3,
+}
+
+#[derive(Debug, Serialize, Type)]
+pub enum UpdateEvent {
+	NewThumbnailEvent {
+		thumb_key: ThumbKey,
+	},
+	NewIdentifiedObjects {
+		file_path_ids: Vec<file_path::id::Type>,
+	},
 }

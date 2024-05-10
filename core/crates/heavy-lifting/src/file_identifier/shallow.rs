@@ -1,10 +1,12 @@
-use crate::{utils::sub_path::maybe_get_iso_file_path_from_sub_path, Error, NonCriticalJobError};
+use crate::{
+	file_identifier, utils::sub_path::maybe_get_iso_file_path_from_sub_path, Error,
+	NonCriticalError, OuterContext,
+};
 
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::file_path_for_file_identifier;
-use sd_core_sync::Manager as SyncManager;
 
-use sd_prisma::prisma::{file_path, location, PrismaClient, SortOrder};
+use sd_prisma::prisma::{file_path, location, SortOrder};
 use sd_task_system::{
 	BaseTaskDispatcher, CancelTaskOnDrop, TaskDispatcher, TaskOutput, TaskStatus,
 };
@@ -17,39 +19,40 @@ use std::{
 
 use futures_concurrency::future::FutureGroup;
 use lending_stream::{LendingStream, StreamExt};
-use prisma_client_rust::or;
 use tracing::{debug, warn};
 
 use super::{
-	tasks::{ExtractFileMetadataTask, ExtractFileMetadataTaskOutput, ObjectProcessorTask},
-	FileIdentifierError, CHUNK_SIZE,
+	orphan_path_filters_shallow,
+	tasks::{
+		extract_file_metadata, object_processor, ExtractFileMetadataTask, ObjectProcessorTask,
+	},
+	CHUNK_SIZE,
 };
 
 pub async fn shallow(
 	location: location::Data,
 	sub_path: impl AsRef<Path> + Send,
 	dispatcher: BaseTaskDispatcher<Error>,
-	db: Arc<PrismaClient>,
-	sync: Arc<SyncManager>,
-	invalidate_query: impl Fn(&'static str) + Send + Sync,
-) -> Result<Vec<NonCriticalJobError>, Error> {
+	ctx: impl OuterContext,
+) -> Result<Vec<NonCriticalError>, Error> {
 	let sub_path = sub_path.as_ref();
+	let db = ctx.db();
 
 	let location_path = maybe_missing(&location.path, "location.path")
 		.map(PathBuf::from)
 		.map(Arc::new)
-		.map_err(FileIdentifierError::from)?;
+		.map_err(file_identifier::Error::from)?;
 
 	let location = Arc::new(location);
 
 	let sub_iso_file_path =
-		maybe_get_iso_file_path_from_sub_path(location.id, &Some(sub_path), &*location_path, &db)
+		maybe_get_iso_file_path_from_sub_path(location.id, &Some(sub_path), &*location_path, db)
 			.await
-			.map_err(FileIdentifierError::from)?
+			.map_err(file_identifier::Error::from)?
 			.map_or_else(
 				|| {
 					IsolatedFilePathData::new(location.id, &*location_path, &*location_path, true)
-						.map_err(FileIdentifierError::from)
+						.map_err(file_identifier::Error::from)
 				},
 				Ok,
 			)?;
@@ -64,7 +67,7 @@ pub async fn shallow(
 		// SAFETY: we know that CHUNK_SIZE is a valid i64
 		let orphan_paths = db
 			.file_path()
-			.find_many(orphan_path_filters(
+			.find_many(orphan_path_filters_shallow(
 				location.id,
 				last_orphan_file_path_id,
 				&sub_iso_file_path,
@@ -74,7 +77,7 @@ pub async fn shallow(
 			.select(file_path_for_file_identifier::select())
 			.exec()
 			.await
-			.map_err(FileIdentifierError::from)?;
+			.map_err(file_identifier::Error::from)?;
 
 		let Some(last_orphan) = orphan_paths.last() else {
 			// No orphans here!
@@ -86,10 +89,11 @@ pub async fn shallow(
 
 		pending_running_tasks.insert(CancelTaskOnDrop(
 			dispatcher
-				.dispatch(ExtractFileMetadataTask::new_shallow(
+				.dispatch(ExtractFileMetadataTask::new(
 					Arc::clone(&location),
 					Arc::clone(&location_path),
 					orphan_paths,
+					true,
 				))
 				.await,
 		));
@@ -104,10 +108,7 @@ pub async fn shallow(
 		return Ok(vec![]);
 	}
 
-	let errors = process_tasks(pending_running_tasks, dispatcher, db, sync).await?;
-
-	invalidate_query("search.paths");
-	invalidate_query("search.objects");
+	let errors = process_tasks(pending_running_tasks, dispatcher, ctx).await?;
 
 	Ok(errors)
 }
@@ -115,10 +116,12 @@ pub async fn shallow(
 async fn process_tasks(
 	pending_running_tasks: FutureGroup<CancelTaskOnDrop<Error>>,
 	dispatcher: BaseTaskDispatcher<Error>,
-	db: Arc<PrismaClient>,
-	sync: Arc<SyncManager>,
-) -> Result<Vec<NonCriticalJobError>, Error> {
+	ctx: impl OuterContext,
+) -> Result<Vec<NonCriticalError>, Error> {
 	let mut pending_running_tasks = pending_running_tasks.lend_mut();
+
+	let db = ctx.db();
+	let sync = ctx.sync();
 
 	let mut errors = vec![];
 
@@ -128,28 +131,36 @@ async fn process_tasks(
 				// We only care about ExtractFileMetadataTaskOutput because we need to dispatch further tasks
 				// and the ObjectProcessorTask only gives back some metrics not much important for
 				// shallow file identifier
-				if any_task_output.is::<ExtractFileMetadataTaskOutput>() {
-					let ExtractFileMetadataTaskOutput {
+				if any_task_output.is::<extract_file_metadata::Output>() {
+					let extract_file_metadata::Output {
 						identified_files,
 						errors: more_errors,
 						..
-					} = *any_task_output
-						.downcast::<ExtractFileMetadataTaskOutput>()
-						.expect("just checked");
+					} = *any_task_output.downcast().expect("just checked");
 
 					errors.extend(more_errors);
 
 					if !identified_files.is_empty() {
 						pending_running_tasks.insert(CancelTaskOnDrop(
 							dispatcher
-								.dispatch(ObjectProcessorTask::new_shallow(
+								.dispatch(ObjectProcessorTask::new(
 									identified_files,
-									Arc::clone(&db),
-									Arc::clone(&sync),
+									Arc::clone(db),
+									Arc::clone(sync),
+									true,
 								))
 								.await,
 						));
 					}
+				} else {
+					let object_processor::Output {
+						file_path_ids_with_new_object,
+						..
+					} = *any_task_output.downcast().expect("just checked");
+
+					ctx.report_update(crate::UpdateEvent::NewIdentifiedObjects {
+						file_path_ids: file_path_ids_with_new_object,
+					});
 				}
 			}
 
@@ -180,28 +191,4 @@ async fn process_tasks(
 	}
 
 	Ok(errors)
-}
-
-fn orphan_path_filters(
-	location_id: location::id::Type,
-	file_path_id: Option<file_path::id::Type>,
-	sub_iso_file_path: &IsolatedFilePathData<'_>,
-) -> Vec<file_path::WhereParam> {
-	sd_utils::chain_optional_iter(
-		[
-			or!(
-				file_path::object_id::equals(None),
-				file_path::cas_id::equals(None)
-			),
-			file_path::is_dir::equals(Some(false)),
-			file_path::location_id::equals(Some(location_id)),
-			file_path::materialized_path::equals(Some(
-				sub_iso_file_path
-					.materialized_path_for_children()
-					.expect("sub path for shallow identifier must be a directory"),
-			)),
-			file_path::size_in_bytes_bytes::not(Some(0u64.to_be_bytes().to_vec())),
-		],
-		[file_path_id.map(file_path::id::gte)],
-	)
 }

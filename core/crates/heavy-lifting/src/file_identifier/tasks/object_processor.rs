@@ -1,4 +1,4 @@
-use crate::{file_identifier::FileIdentifierError, Error};
+use crate::{file_identifier, Error};
 
 use sd_core_prisma_helpers::{
 	file_path_for_file_identifier, file_path_pub_id, object_for_file_identifier,
@@ -36,22 +36,23 @@ pub struct ObjectProcessorTask {
 	db: Arc<PrismaClient>,
 	sync: Arc<SyncManager>,
 	identified_files: HashMap<Uuid, IdentifiedFile>,
-	metrics: ObjectProcessorTaskMetrics,
+	output: Output,
 	stage: Stage,
-	is_shallow: bool,
+	with_priority: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SaveState {
 	id: TaskId,
 	identified_files: HashMap<Uuid, IdentifiedFile>,
-	metrics: ObjectProcessorTaskMetrics,
+	output: Output,
 	stage: Stage,
-	is_shallow: bool,
+	with_priority: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct ObjectProcessorTaskMetrics {
+pub struct Output {
+	pub file_path_ids_with_new_object: Vec<file_path::id::Type>,
 	pub assign_cas_ids_time: Duration,
 	pub fetch_existing_objects_time: Duration,
 	pub assign_to_existing_object_time: Duration,
@@ -71,11 +72,12 @@ enum Stage {
 }
 
 impl ObjectProcessorTask {
-	fn new(
+	#[must_use]
+	pub fn new(
 		identified_files: HashMap<Uuid, IdentifiedFile>,
 		db: Arc<PrismaClient>,
 		sync: Arc<SyncManager>,
-		is_shallow: bool,
+		with_priority: bool,
 	) -> Self {
 		Self {
 			id: TaskId::new_v4(),
@@ -83,25 +85,9 @@ impl ObjectProcessorTask {
 			sync,
 			identified_files,
 			stage: Stage::Starting,
-			metrics: ObjectProcessorTaskMetrics::default(),
-			is_shallow,
+			output: Output::default(),
+			with_priority,
 		}
-	}
-
-	pub fn new_deep(
-		identified_files: HashMap<Uuid, IdentifiedFile>,
-		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
-	) -> Self {
-		Self::new(identified_files, db, sync, false)
-	}
-
-	pub fn new_shallow(
-		identified_files: HashMap<Uuid, IdentifiedFile>,
-		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
-	) -> Self {
-		Self::new(identified_files, db, sync, true)
 	}
 }
 
@@ -112,7 +98,7 @@ impl Task<Error> for ObjectProcessorTask {
 	}
 
 	fn with_priority(&self) -> bool {
-		self.is_shallow
+		self.with_priority
 	}
 
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {
@@ -121,8 +107,9 @@ impl Task<Error> for ObjectProcessorTask {
 			sync,
 			identified_files,
 			stage,
-			metrics:
-				ObjectProcessorTaskMetrics {
+			output:
+				Output {
+					file_path_ids_with_new_object,
 					assign_cas_ids_time,
 					fetch_existing_objects_time,
 					assign_to_existing_object_time,
@@ -193,6 +180,11 @@ impl Task<Error> for ObjectProcessorTask {
 					*created_objects_count = create_objects(identified_files, db, sync).await?;
 					*create_object_time = start.elapsed();
 
+					*file_path_ids_with_new_object = identified_files
+						.values()
+						.map(|IdentifiedFile { file_path, .. }| file_path.id)
+						.collect();
+
 					break;
 				}
 			}
@@ -200,7 +192,7 @@ impl Task<Error> for ObjectProcessorTask {
 			check_interruption!(interrupter);
 		}
 
-		Ok(ExecStatus::Done(mem::take(&mut self.metrics).into_output()))
+		Ok(ExecStatus::Done(mem::take(&mut self.output).into_output()))
 	}
 }
 
@@ -208,7 +200,7 @@ async fn assign_cas_id_to_file_paths(
 	identified_files: &HashMap<Uuid, IdentifiedFile>,
 	db: &PrismaClient,
 	sync: &SyncManager,
-) -> Result<(), FileIdentifierError> {
+) -> Result<(), file_identifier::Error> {
 	// Assign cas_id to each file path
 	sync.write_ops(
 		db,
@@ -243,7 +235,7 @@ async fn assign_cas_id_to_file_paths(
 async fn fetch_existing_objects_by_cas_id(
 	identified_files: &HashMap<Uuid, IdentifiedFile>,
 	db: &PrismaClient,
-) -> Result<HashMap<String, object_for_file_identifier::Data>, FileIdentifierError> {
+) -> Result<HashMap<String, object_for_file_identifier::Data>, file_identifier::Error> {
 	// Retrieves objects that are already connected to file paths with the same id
 	db.object()
 		.find_many(vec![object::file_paths::some(vec![
@@ -280,7 +272,7 @@ async fn assign_existing_objects_to_file_paths(
 	objects_by_cas_id: &HashMap<String, object_for_file_identifier::Data>,
 	db: &PrismaClient,
 	sync: &SyncManager,
-) -> Result<Vec<file_path_pub_id::Data>, FileIdentifierError> {
+) -> Result<Vec<file_path_pub_id::Data>, file_identifier::Error> {
 	// Attempt to associate each file path with an object that has been
 	// connected to file paths with the same cas_id
 	sync.write_ops(
@@ -341,7 +333,7 @@ async fn create_objects(
 	identified_files: &HashMap<Uuid, IdentifiedFile>,
 	db: &PrismaClient,
 	sync: &SyncManager,
-) -> Result<u64, FileIdentifierError> {
+) -> Result<u64, file_identifier::Error> {
 	trace!("Creating {} new Objects", identified_files.len(),);
 
 	let (object_create_args, file_path_update_args) = identified_files
@@ -433,18 +425,18 @@ impl SerializableTask<Error> for ObjectProcessorTask {
 		let Self {
 			id,
 			identified_files,
-			metrics,
+			output,
 			stage,
-			is_shallow,
+			with_priority,
 			..
 		} = self;
 
 		rmp_serde::to_vec_named(&SaveState {
 			id,
 			identified_files,
-			metrics,
+			output,
 			stage,
-			is_shallow,
+			with_priority,
 		})
 	}
 
@@ -456,17 +448,17 @@ impl SerializableTask<Error> for ObjectProcessorTask {
 			|SaveState {
 			     id,
 			     identified_files,
-			     metrics,
+			     output,
 			     stage,
-			     is_shallow,
+			     with_priority,
 			 }| Self {
 				id,
 				db,
 				sync,
 				identified_files,
-				metrics,
+				output,
 				stage,
-				is_shallow,
+				with_priority,
 			},
 		)
 	}

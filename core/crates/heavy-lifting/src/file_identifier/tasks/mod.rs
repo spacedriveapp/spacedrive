@@ -4,11 +4,11 @@ use sd_file_ext::kind::ObjectKind;
 
 use serde::{Deserialize, Serialize};
 
-mod extract_file_metadata;
-mod object_processor;
+pub mod extract_file_metadata;
+pub mod object_processor;
 
-pub use extract_file_metadata::{ExtractFileMetadataTask, ExtractFileMetadataTaskOutput};
-pub use object_processor::{ObjectProcessorTask, ObjectProcessorTaskMetrics};
+pub use extract_file_metadata::ExtractFileMetadataTask;
+pub use object_processor::ObjectProcessorTask;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(super) struct IdentifiedFile {

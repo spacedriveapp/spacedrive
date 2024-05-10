@@ -17,10 +17,9 @@ runs:
   steps:
     - name: Install Rust
       id: toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: IronCoreLabs/rust-toolchain@v1
       with:
         target: ${{ inputs.target }}
-        toolchain: '1.75'
         components: clippy, rustfmt
 
     - name: Cache Rust Dependencies

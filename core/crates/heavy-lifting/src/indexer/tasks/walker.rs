@@ -1,7 +1,4 @@
-use crate::{
-	indexer::{IndexerError, NonCriticalIndexerError},
-	Error, NonCriticalJobError,
-};
+use crate::{indexer, Error, NonCriticalError};
 
 use sd_core_file_path_helper::{FilePathError, FilePathMetadata, IsolatedFilePathData};
 use sd_core_indexer_rules::{IndexerRuler, MetadataForIndexerRules, RuleKind};
@@ -111,13 +108,14 @@ pub trait WalkerDBProxy: Clone + Send + Sync + fmt::Debug + 'static {
 	fn fetch_file_paths(
 		&self,
 		found_paths: Vec<file_path::WhereParam>,
-	) -> impl Future<Output = Result<Vec<file_path_walker::Data>, IndexerError>> + Send;
+	) -> impl Future<Output = Result<Vec<file_path_walker::Data>, indexer::Error>> + Send;
 
 	fn fetch_file_paths_to_remove(
 		&self,
 		parent_iso_file_path: &IsolatedFilePathData<'_>,
 		unique_location_id_materialized_path_name_extension_params: Vec<file_path::WhereParam>,
-	) -> impl Future<Output = Result<Vec<file_path_pub_and_cas_ids::Data>, NonCriticalIndexerError>> + Send;
+	) -> impl Future<Output = Result<Vec<file_path_pub_and_cas_ids::Data>, indexer::NonCriticalError>>
+	       + Send;
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -141,7 +139,7 @@ pub struct WalkTaskOutput {
 	pub to_update: Vec<WalkedEntry>,
 	pub to_remove: Vec<file_path_pub_and_cas_ids::Data>,
 	pub accepted_ancestors: HashSet<WalkedEntry>,
-	pub errors: Vec<NonCriticalJobError>,
+	pub errors: Vec<NonCriticalError>,
 	pub directory_iso_file_path: IsolatedFilePathData<'static>,
 	pub total_size: u64,
 	pub handles: Vec<TaskHandle<Error>>,
@@ -160,7 +158,7 @@ struct InnerMetadata {
 }
 
 impl InnerMetadata {
-	fn new(path: impl AsRef<Path>, metadata: &Metadata) -> Result<Self, NonCriticalIndexerError> {
+	fn new(path: impl AsRef<Path>, metadata: &Metadata) -> Result<Self, indexer::NonCriticalError> {
 		let FilePathMetadata {
 			inode,
 			size_in_bytes,
@@ -168,7 +166,7 @@ impl InnerMetadata {
 			modified_at,
 			hidden,
 		} = FilePathMetadata::from_path(path, metadata)
-			.map_err(|e| NonCriticalIndexerError::FilePathMetadata(e.to_string()))?;
+			.map_err(|e| indexer::NonCriticalError::FilePathMetadata(e.to_string()))?;
 
 		Ok(Self {
 			is_dir: metadata.is_dir(),
@@ -237,7 +235,7 @@ struct WalkDirSaveState {
 	root: Arc<PathBuf>,
 	entry_iso_file_path: IsolatedFilePathData<'static>,
 	stage: WalkerStageSaveState,
-	errors: Vec<NonCriticalJobError>,
+	errors: Vec<NonCriticalError>,
 	scan_time: Duration,
 	is_shallow: bool,
 }
@@ -367,7 +365,7 @@ where
 	db_proxy: DBProxy,
 	stage: WalkerStage,
 	maybe_dispatcher: Option<Dispatcher>,
-	errors: Vec<NonCriticalJobError>,
+	errors: Vec<NonCriticalError>,
 	scan_time: Duration,
 	is_shallow: bool,
 }
@@ -385,7 +383,7 @@ where
 		iso_file_path_factory: IsoPathFactory,
 		db_proxy: DBProxy,
 		dispatcher: Dispatcher,
-	) -> Result<Self, IndexerError> {
+	) -> Result<Self, indexer::Error> {
 		let entry = entry.into();
 		Ok(Self {
 			id: TaskId::new_v4(),
@@ -415,7 +413,7 @@ where
 		indexer_ruler: IndexerRuler,
 		iso_file_path_factory: IsoPathFactory,
 		db_proxy: DBProxy,
-	) -> Result<Self, IndexerError> {
+	) -> Result<Self, indexer::Error> {
 		let entry = entry.into();
 		Ok(Self {
 			id: TaskId::new_v4(),
@@ -545,7 +543,7 @@ where
 					*stage = WalkerStage::Walking {
 						read_dir_stream: ReadDirStream::new(fs::read_dir(&path).await.map_err(
 							|e| {
-								IndexerError::FileIO(
+								indexer::Error::FileIO(
 									(&path, e, "Failed to open directory to read its entries")
 										.into(),
 								)
@@ -565,8 +563,8 @@ where
 								found_paths.push(dir_entry.path());
 							}
 							Err(e) => {
-								errors.push(NonCriticalJobError::Indexer(
-									NonCriticalIndexerError::FailedDirectoryEntry(
+								errors.push(NonCriticalError::Indexer(
+									indexer::NonCriticalError::FailedDirectoryEntry(
 										FileIOError::from((&path, e)).to_string(),
 									),
 								));
@@ -709,7 +707,7 @@ where
 async fn segregate_creates_and_updates(
 	walking_entries: &mut Vec<WalkingEntry>,
 	db_proxy: &impl WalkerDBProxy,
-) -> Result<(Vec<WalkedEntry>, Vec<WalkedEntry>, u64), IndexerError> {
+) -> Result<(Vec<WalkedEntry>, Vec<WalkedEntry>, u64), Error> {
 	if walking_entries.is_empty() {
 		Ok((vec![], vec![], 0))
 	} else {
@@ -791,7 +789,7 @@ async fn keep_walking(
 	db_proxy: &impl WalkerDBProxy,
 	maybe_to_keep_walking: &mut Option<Vec<ToWalkEntry>>,
 	dispatcher: &Option<impl TaskDispatcher<Error>>,
-	errors: &mut Vec<NonCriticalJobError>,
+	errors: &mut Vec<NonCriticalError>,
 ) -> Vec<TaskHandle<Error>> {
 	if let (Some(dispatcher), Some(to_keep_walking)) = (dispatcher, maybe_to_keep_walking) {
 		dispatcher
@@ -807,7 +805,7 @@ async fn keep_walking(
 							db_proxy.clone(),
 							dispatcher.clone(),
 						)
-						.map_err(|e| NonCriticalIndexerError::DispatchKeepWalking(e.to_string()))
+						.map_err(|e| indexer::NonCriticalError::DispatchKeepWalking(e.to_string()))
 					})
 					.filter_map(|res| res.map_err(|e| errors.push(e.into())).ok()),
 			)
@@ -819,7 +817,7 @@ async fn keep_walking(
 
 async fn collect_metadata(
 	found_paths: &mut Vec<PathBuf>,
-	errors: &mut Vec<NonCriticalJobError>,
+	errors: &mut Vec<NonCriticalError>,
 ) -> HashMap<PathBuf, InnerMetadata> {
 	found_paths
 		.drain(..)
@@ -827,7 +825,7 @@ async fn collect_metadata(
 			fs::metadata(&current_path)
 				.await
 				.map_err(|e| {
-					NonCriticalIndexerError::Metadata(
+					indexer::NonCriticalError::Metadata(
 						FileIOError::from((&current_path, e)).to_string(),
 					)
 				})
@@ -847,7 +845,7 @@ async fn collect_metadata(
 async fn apply_indexer_rules(
 	paths_and_metadatas: &mut HashMap<PathBuf, InnerMetadata>,
 	indexer_ruler: &IndexerRuler,
-	errors: &mut Vec<NonCriticalJobError>,
+	errors: &mut Vec<NonCriticalError>,
 ) -> HashMap<PathBuf, (InnerMetadata, HashMap<RuleKind, Vec<bool>>)> {
 	paths_and_metadatas
 		.drain()
@@ -860,7 +858,7 @@ async fn apply_indexer_rules(
 				.map(|acceptance_per_rule_kind| {
 					(current_path, (metadata, acceptance_per_rule_kind))
 				})
-				.map_err(|e| NonCriticalIndexerError::IndexerRule(e.to_string()))
+				.map_err(|e| indexer::NonCriticalError::IndexerRule(e.to_string()))
 		})
 		.collect::<Vec<_>>()
 		.join()
@@ -879,7 +877,7 @@ async fn process_rules_results(
 		(InnerMetadata, HashMap<RuleKind, Vec<bool>>),
 	>,
 	maybe_to_keep_walking: &mut Option<Vec<ToWalkEntry>>,
-	errors: &mut Vec<NonCriticalJobError>,
+	errors: &mut Vec<NonCriticalError>,
 ) -> (HashMap<PathBuf, InnerMetadata>, HashSet<WalkedEntry>) {
 	let root = root.as_ref();
 
@@ -951,7 +949,7 @@ async fn process_rules_results(
 				fs::metadata(&ancestor_path)
 					.await
 					.map_err(|e| {
-						NonCriticalIndexerError::Metadata(
+						indexer::NonCriticalError::Metadata(
 							FileIOError::from((&ancestor_path, e)).to_string(),
 						)
 					})
@@ -964,7 +962,7 @@ async fn process_rules_results(
 								}
 								.into()
 							})
-							.map_err(|e| NonCriticalIndexerError::FilePathMetadata(e.to_string()))
+							.map_err(|e| indexer::NonCriticalError::FilePathMetadata(e.to_string()))
 					})
 			})
 			.collect::<Vec<_>>()
@@ -1023,7 +1021,7 @@ fn accept_ancestors(
 	accepted: &mut HashMap<PathBuf, InnerMetadata>,
 	iso_file_path_factory: &impl IsoFilePathFactory,
 	accepted_ancestors: &mut HashMap<IsolatedFilePathData<'static>, PathBuf>,
-	errors: &mut Vec<NonCriticalJobError>,
+	errors: &mut Vec<NonCriticalError>,
 ) {
 	// If the ancestors directories wasn't indexed before, now we do
 	for ancestor in current_path
@@ -1033,7 +1031,7 @@ fn accept_ancestors(
 	{
 		if let Ok(iso_file_path) = iso_file_path_factory
 			.build(ancestor, true)
-			.map_err(|e| errors.push(NonCriticalIndexerError::IsoFilePath(e.to_string()).into()))
+			.map_err(|e| errors.push(indexer::NonCriticalError::IsoFilePath(e.to_string()).into()))
 		{
 			match accepted_ancestors.entry(iso_file_path) {
 				Entry::Occupied(_) => {
@@ -1083,7 +1081,7 @@ async fn gather_file_paths_to_remove(
 	entry_iso_file_path: &IsolatedFilePathData<'_>,
 	iso_file_path_factory: &impl IsoFilePathFactory,
 	db_proxy: &impl WalkerDBProxy,
-	errors: &mut Vec<NonCriticalJobError>,
+	errors: &mut Vec<NonCriticalError>,
 ) -> (Vec<WalkingEntry>, Vec<file_path_pub_and_cas_ids::Data>) {
 	let (walking, to_delete_params) = accepted_paths
 		.drain()
@@ -1102,7 +1100,7 @@ async fn gather_file_paths_to_remove(
 					)
 				})
 				.map_err(|e| {
-					errors.push(NonCriticalIndexerError::IsoFilePath(e.to_string()).into());
+					errors.push(indexer::NonCriticalError::IsoFilePath(e.to_string()).into());
 				})
 				.ok()
 		})
@@ -1158,7 +1156,7 @@ mod tests {
 		async fn fetch_file_paths(
 			&self,
 			_: Vec<file_path::WhereParam>,
-		) -> Result<Vec<file_path_walker::Data>, IndexerError> {
+		) -> Result<Vec<file_path_walker::Data>, indexer::Error> {
 			Ok(vec![])
 		}
 
@@ -1166,7 +1164,7 @@ mod tests {
 			&self,
 			_: &IsolatedFilePathData<'_>,
 			_: Vec<file_path::WhereParam>,
-		) -> Result<Vec<file_path_pub_and_cas_ids::Data>, NonCriticalIndexerError> {
+		) -> Result<Vec<file_path_pub_and_cas_ids::Data>, indexer::NonCriticalError> {
 			Ok(vec![])
 		}
 	}

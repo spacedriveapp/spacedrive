@@ -1,8 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
-import { DotsThreeOutline, Plus } from 'phosphor-react-native';
+import { useLibraryQuery } from '@sd/client';
+import { DotsThree, Plus } from 'phosphor-react-native';
 import React, { useRef } from 'react';
 import { Text, View } from 'react-native';
-import { useLibraryQuery } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
@@ -40,7 +40,7 @@ const BrowseTags = () => {
 						style={tw`w-9 rounded-full`}
 						variant="gray"
 					>
-						<DotsThreeOutline weight="fill" size={16} color={'white'} />
+						<DotsThree weight="bold" size={20} color={'white'} />
 					</Button>
 				</View>
 			</View>

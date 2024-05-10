@@ -28,26 +28,25 @@ tracing = { workspace = true }
 tauri-specta = { workspace = true, features = ["typescript"] }
 uuid = { workspace = true, features = ["serde"] }
 thiserror.workspace = true
+directories = "5.0.1"
 
 opener = { version = "0.6.1", features = ["reveal"] }
-tauri = { version = "=1.5.3", features = [
+tauri = { version = "=2.0.0-beta.17", features = [
 	"macos-private-api",
-	"path-all",
-	"protocol-all",
-	"os-all",
-	"shell-all",
-	"dialog-all",
-	"linux-protocol-headers",
-	"updater",
-	"window-all",
-	"native-tls-vendored",
-	"tracing",
+	"unstable",
+	"linux-libxdo",
 ] }
-directories = "5.0.1"
+tauri-plugin-updater = "2.0.0-beta"
+tauri-plugin-dialog = { git = "https://github.com/tauri-apps/plugins-workspace", rev = "1fa4d30eabb3768e1e97fa56f275408db2955b32" } # "2.0.0-beta"
+tauri-plugin-os = "2.0.0-beta"
+tauri-plugin-shell = "2.0.0-beta"
+serde_json.workspace = true
+strum = { workspace = true, features = ["derive"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 sd-desktop-linux = { path = "../crates/linux" }
-webkit2gtk = { version = "0.18.2", features = ["v2_2"] }
+# https://github.com/tauri-apps/tauri/blob/tauri-v2.0.0-beta.17/core/tauri/Cargo.toml#L86
+webkit2gtk = { version = "=2.0.1", features = ["v2_38"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 sd-desktop-macos = { path = "../crates/macos" }
@@ -57,9 +56,18 @@ sd-desktop-windows = { path = "../crates/windows" }
 webview2-com = "0.19.1"
 
 [build-dependencies]
-tauri-build = "1.5.0"
+tauri-build = "=2.0.0-beta.13"
 
 [features]
 default = ["custom-protocol"]
+devtools = ["tauri/devtools"]
 ai-models = ["sd-core/ai"]
 custom-protocol = ["tauri/custom-protocol"]
+
+# Optimize release builds
+[profile.release]
+panic = "abort"   # Strip expensive panic clean-up logic
+codegen-units = 1 # Compile crates one after another so the compiler can optimize better
+lto = true        # Enables link to optimizations
+opt-level = "s"   # Optimize for binary size
+strip = true      # Remove debug symbols

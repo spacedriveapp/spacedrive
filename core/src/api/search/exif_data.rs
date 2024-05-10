@@ -1,4 +1,4 @@
-use sd_prisma::prisma::{self, media_data};
+use sd_prisma::prisma::{self, exif_data};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -7,11 +7,11 @@ use super::utils::*;
 
 #[derive(Serialize, Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase", tag = "field", content = "value")]
-pub enum MediaDataOrder {
+pub enum ExifDataOrder {
 	EpochTime(SortOrder),
 }
 
-impl MediaDataOrder {
+impl ExifDataOrder {
 	pub fn get_sort_order(&self) -> prisma::SortOrder {
 		(*match self {
 			Self::EpochTime(v) => v,
@@ -19,9 +19,9 @@ impl MediaDataOrder {
 		.into()
 	}
 
-	pub fn into_param(self) -> media_data::OrderByWithRelationParam {
+	pub fn into_param(self) -> exif_data::OrderByWithRelationParam {
 		let dir = self.get_sort_order();
-		use media_data::*;
+		use exif_data::*;
 		match self {
 			Self::EpochTime(_) => epoch_time::order(dir),
 		}

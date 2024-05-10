@@ -1,4 +1,4 @@
-use crate::{indexer::IndexerError, Error};
+use crate::{indexer, Error};
 
 use sd_core_file_path_helper::IsolatedFilePathDataParts;
 use sd_core_sync::Manager as SyncManager;
@@ -222,7 +222,7 @@ impl Task<Error> for UpdateTask {
 				(sync_stuff.into_iter().flatten().collect(), paths_to_update),
 			)
 			.await
-			.map_err(IndexerError::from)?;
+			.map_err(indexer::Error::from)?;
 
 		trace!("Updated {updated:?} records");
 
@@ -240,7 +240,7 @@ async fn fetch_objects_ids_to_unlink(
 	walked_entries: &[WalkedEntry],
 	object_ids_that_should_be_unlinked: &mut HashSet<object::id::Type>,
 	db: &PrismaClient,
-) -> Result<(), IndexerError> {
+) -> Result<(), indexer::Error> {
 	if object_ids_that_should_be_unlinked.is_empty() {
 		// First we consult which file paths we should unlink
 		let object_ids = walked_entries

@@ -198,7 +198,7 @@ pub async fn walk(
 					}
 				};
 
-				let thumbnail_key = if should_generate_thumbnail {
+				let (thumbnail_key, has_created_thumbnail) = if should_generate_thumbnail {
 					if let Ok(cas_id) =
 						generate_cas_id(&path, entry.metadata.len())
 							.await
@@ -221,12 +221,17 @@ pub async fn walk(
 							));
 						}
 
-						Some(get_ephemeral_thumb_key(&cas_id))
+						(
+							Some(get_ephemeral_thumb_key(&cas_id)),
+							node.ephemeral_thumbnail_exists(&cas_id)
+								.await
+								.map_err(NonIndexedLocationError::from)?,
+						)
 					} else {
-						None
+						(None, false)
 					}
 				} else {
-					None
+					(None, false)
 				};
 
 				tx.send(Ok(ExplorerItem::NonIndexedPath {
@@ -242,7 +247,7 @@ pub async fn walk(
 						date_modified: entry.metadata.modified_or_now().into(),
 						size_in_bytes_bytes: entry.metadata.len().to_be_bytes().to_vec(),
 					},
-					has_created_thumbnail: false,
+					has_created_thumbnail,
 				}))
 				.await?;
 			}

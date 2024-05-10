@@ -89,7 +89,7 @@ To run the landing page:
 
 If you encounter any issues, ensure that you are using the following versions of Rust, Node and Pnpm:
 
-- Rust version: **1.75**
+- Rust version: **1.78**
 - Node version: **18.18**
 - Pnpm version: **9.0.6**
 
@@ -166,8 +166,8 @@ Once that has completed, run `xcode-select --install` in the terminal to install
 Also ensure that Rosetta is installed, as a few of our dependencies require it. You can install Rosetta with `softwareupdate --install-rosetta --agree-to-license`.
 
 ### Translations
-Check out the [i18n README](interface/locales/README.md) for more information on how to contribute to translations.
 
+Check out the [i18n README](interface/locales/README.md) for more information on how to contribute to translations.
 
 ### Credits
 

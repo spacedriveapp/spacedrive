@@ -1,5 +1,5 @@
 use crate::{
-	image::{
+	exif::{
 		consts::{
 			ALT_MAX_HEIGHT, ALT_MIN_HEIGHT, DECIMAL_SF, DIRECTION_MAX, DMS_DIVISION, LAT_MAX_POS,
 			LONG_MAX_POS,

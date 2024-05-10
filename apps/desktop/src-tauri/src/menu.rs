@@ -1,191 +1,271 @@
-use tauri::{Manager, Menu, WindowMenuEvent, Wry};
+use std::str::FromStr;
 
-#[cfg(target_os = "macos")]
-use tauri::{AboutMetadata, CustomMenuItem, MenuItem, Submenu};
+use serde::Deserialize;
+use specta::Type;
+use tauri::{
+	menu::{Menu, MenuItemKind},
+	AppHandle, Manager, Wry,
+};
+use tracing::error;
 
-pub fn get_menu() -> Menu {
-	#[cfg(target_os = "macos")]
-	{
-		custom_menu_bar()
-	}
-	#[cfg(not(target_os = "macos"))]
-	{
-		Menu::new()
-	}
+#[derive(
+	Debug, Clone, Copy, Type, Deserialize, strum::EnumString, strum::AsRefStr, strum::Display,
+)]
+pub enum MenuEvent {
+	NewLibrary,
+	NewFile,
+	NewDirectory,
+	AddLocation,
+	OpenOverview,
+	OpenSearch,
+	OpenSettings,
+	ReloadExplorer,
+	SetLayoutGrid,
+	SetLayoutList,
+	SetLayoutMedia,
+	ToggleDeveloperTools,
+	NewWindow,
+	ReloadWebview,
 }
 
-// update this whenever you add something which requires a valid library to use
-#[cfg(target_os = "macos")]
-const LIBRARY_LOCKED_MENU_IDS: [&str; 12] = [
-	"new_window",
-	"open_overview",
-	"open_search",
-	"open_settings",
-	"reload_explorer",
-	"layout_grid",
-	"layout_list",
-	"layout_media",
-	"new_file",
-	"new_directory",
-	"new_library", // disabled because the first one should at least be done via onboarding
-	"add_location",
+/// Menu items which require a library to be open to use.
+/// They will be disabled/enabled automatically.
+const LIBRARY_LOCKED_MENU_IDS: &[MenuEvent] = &[
+	MenuEvent::NewWindow,
+	MenuEvent::OpenOverview,
+	MenuEvent::OpenSearch,
+	MenuEvent::OpenSettings,
+	MenuEvent::ReloadExplorer,
+	MenuEvent::SetLayoutGrid,
+	MenuEvent::SetLayoutList,
+	MenuEvent::SetLayoutMedia,
+	MenuEvent::NewFile,
+	MenuEvent::NewDirectory,
+	MenuEvent::NewLibrary,
+	MenuEvent::AddLocation,
 ];
 
-#[cfg(target_os = "macos")]
-fn custom_menu_bar() -> Menu {
-	let app_menu = Menu::new()
-		.add_native_item(MenuItem::About(
-			"Spacedrive".to_string(),
-			AboutMetadata::new()
-				.authors(vec!["Spacedrive Technology Inc.".to_string()])
-				.license("AGPL-3.0-only")
-				.version(env!("CARGO_PKG_VERSION"))
-				.website("https://spacedrive.com/")
-				.website_label("Spacedrive.com"),
-		))
-		.add_native_item(MenuItem::Separator)
-		.add_item(CustomMenuItem::new("new_library", "New Library").disabled()) // TODO(brxken128): add keybind handling here
-		.add_submenu(Submenu::new(
-			"Library",
-			Menu::new()
-				.add_item(CustomMenuItem::new("library_<uuid>", "Library 1").disabled())
-				.add_item(CustomMenuItem::new("library_<uuid2>", "Library 2").disabled()), // TODO: enumerate libraries and make this a library selector
-		))
-		.add_native_item(MenuItem::Separator)
-		.add_native_item(MenuItem::Hide)
-		.add_native_item(MenuItem::HideOthers)
-		.add_native_item(MenuItem::ShowAll)
-		.add_native_item(MenuItem::Separator)
-		.add_native_item(MenuItem::Quit);
+pub fn setup_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
+	app.on_menu_event(move |app, event| {
+		if let Ok(event) = MenuEvent::from_str(&event.id().0) {
+			handle_menu_event(event, app);
+		} else {
+			println!("Unknown menu event: {}", event.id().0);
+		}
+	});
 
-	let file_menu = Menu::new()
-		.add_item(
-			CustomMenuItem::new("new_file", "New File")
-				.accelerator("CmdOrCtrl+N")
-				.disabled(), // TODO(brxken128): add keybind handling here
-		)
-		.add_item(
-			CustomMenuItem::new("new_directory", "New Directory")
-				.accelerator("CmdOrCtrl+D")
-				.disabled(), // TODO(brxken128): add keybind handling here
-		)
-		.add_item(CustomMenuItem::new("add_location", "Add Location").disabled()); // TODO(brxken128): add keybind handling here;
+	#[cfg(not(target_os = "macos"))]
+	{
+		Menu::new(app)
+	}
+	#[cfg(target_os = "macos")]
+	{
+		use tauri::menu::{AboutMetadataBuilder, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 
-	let edit_menu = Menu::new()
-		.add_native_item(MenuItem::Separator)
-		.add_native_item(MenuItem::Copy)
-		.add_native_item(MenuItem::Cut)
-		.add_native_item(MenuItem::Paste)
-		.add_native_item(MenuItem::Redo)
-		.add_native_item(MenuItem::Undo)
-		.add_native_item(MenuItem::SelectAll);
+		let app_menu = SubmenuBuilder::new(app, "Spacedrive")
+			.about(Some(
+				AboutMetadataBuilder::new()
+					.authors(Some(vec!["Spacedrive Technology Inc.".to_string()]))
+					.license(Some(env!("CARGO_PKG_VERSION")))
+					.version(Some(env!("CARGO_PKG_VERSION")))
+					.website(Some("https://spacedrive.com/"))
+					.website_label(Some("Spacedrive.com"))
+					.build(),
+			))
+			.separator()
+			.item(
+				&MenuItemBuilder::with_id(MenuEvent::NewLibrary, "New Library")
+					.accelerator("Cmd+Shift+T")
+					.build(app)?,
+			)
+			// .item(
+			// 	&SubmenuBuilder::new(app, "Libraries")
+			// 		// TODO: Implement this
+			// 		.items(&[])
+			// 		.build()?,
+			// )
+			.separator()
+			.hide()
+			.hide_others()
+			.show_all()
+			.separator()
+			.quit()
+			.build()?;
 
-	let view_menu = Menu::new()
-		.add_item(CustomMenuItem::new("open_overview", "Overview").accelerator("CmdOrCtrl+."))
-		.add_item(CustomMenuItem::new("open_search", "Search").accelerator("CmdOrCtrl+F"))
-		.add_item(CustomMenuItem::new("open_settings", "Settings").accelerator("CmdOrCtrl+Comma"))
-		.add_item(
-			CustomMenuItem::new("reload_explorer", "Reload explorer").accelerator("CmdOrCtrl+R"),
-		)
-		.add_submenu(Submenu::new(
-			"Layout",
-			Menu::new()
-				.add_item(CustomMenuItem::new("layout_grid", "Grid (Default)").disabled())
-				.add_item(CustomMenuItem::new("layout_list", "List").disabled())
-				.add_item(CustomMenuItem::new("layout_media", "Media").disabled()),
-		));
-	// .add_item(
-	// 	CustomMenuItem::new("command_pallete", "Command Pallete")
-	// 		.accelerator("CmdOrCtrl+P"),
-	// )
+		let file_menu = SubmenuBuilder::new(app, "File")
+			.item(
+				&MenuItemBuilder::with_id(MenuEvent::NewFile, "New File")
+					.accelerator("CmdOrCtrl+N")
+					.build(app)?,
+			)
+			.item(
+				&MenuItemBuilder::with_id(MenuEvent::NewDirectory, "New Directory")
+					.accelerator("CmdOrCtrl+D")
+					.build(app)?,
+			)
+			.item(
+				&MenuItemBuilder::with_id(MenuEvent::AddLocation, "Add Location")
+					// .accelerator("") // TODO
+					.build(app)?,
+			)
+			.build()?;
 
-	#[cfg(debug_assertions)]
-	let view_menu = view_menu.add_native_item(MenuItem::Separator).add_item(
-		CustomMenuItem::new("toggle_devtools", "Toggle Developer Tools")
-			.accelerator("CmdOrCtrl+Shift+Alt+I"),
-	);
+		let edit_menu = SubmenuBuilder::new(app, "Edit")
+			.copy()
+			.cut()
+			.paste()
+			.redo()
+			.undo()
+			.select_all()
+			.build()?;
 
-	let window_menu = Menu::new()
-		.add_native_item(MenuItem::Minimize)
-		.add_native_item(MenuItem::Zoom)
-		.add_item(
-			CustomMenuItem::new("new_window", "New Window")
-				.accelerator("CmdOrCtrl+Shift+N")
-				.disabled(),
-		)
-		.add_item(CustomMenuItem::new("close_window", "Close Window").accelerator("CmdOrCtrl+W"))
-		.add_native_item(MenuItem::EnterFullScreen)
-		.add_native_item(MenuItem::Separator)
-		.add_item(
-			CustomMenuItem::new("reload_app", "Reload Webview").accelerator("CmdOrCtrl+Shift+R"),
+		let view_menu = SubmenuBuilder::new(app, "View")
+			.item(
+				&MenuItemBuilder::with_id(MenuEvent::OpenOverview, "Open Overview")
+					.accelerator("CmdOrCtrl+.")
+					.build(app)?,
+			)
+			.item(
+				&MenuItemBuilder::with_id(MenuEvent::OpenSearch, "Search")
+					.accelerator("CmdOrCtrl+F")
+					.build(app)?,
+			)
+			.item(
+				&MenuItemBuilder::with_id(MenuEvent::OpenSettings, "Settings")
+					.accelerator("CmdOrCtrl+Comma")
+					.build(app)?,
+			)
+			.item(
+				&MenuItemBuilder::with_id(MenuEvent::ReloadExplorer, "Open Explorer")
+					.accelerator("CmdOrCtrl+R")
+					.build(app)?,
+			)
+			.item(
+				&SubmenuBuilder::new(app, "Layout")
+					.item(
+						&MenuItemBuilder::with_id(MenuEvent::SetLayoutGrid, "Grid (Default)")
+							// .accelerator("") // TODO
+							.build(app)?,
+					)
+					.item(
+						&MenuItemBuilder::with_id(MenuEvent::SetLayoutList, "List")
+							// .accelerator("") // TODO
+							.build(app)?,
+					)
+					.item(
+						&MenuItemBuilder::with_id(MenuEvent::SetLayoutMedia, "Media")
+							// .accelerator("") // TODO
+							.build(app)?,
+					)
+					.build()?,
+			);
+
+		#[cfg(debug_assertions)]
+		let view_menu = view_menu.separator().item(
+			&MenuItemBuilder::with_id(MenuEvent::ToggleDeveloperTools, "Toggle Developer Tools")
+				.accelerator("CmdOrCtrl+Shift+Alt+I")
+				.build(app)?,
 		);
 
-	Menu::new()
-		.add_submenu(Submenu::new("Spacedrive", app_menu))
-		.add_submenu(Submenu::new("File", file_menu))
-		.add_submenu(Submenu::new("Edit", edit_menu))
-		.add_submenu(Submenu::new("View", view_menu))
-		.add_submenu(Submenu::new("Window", window_menu))
+		let view_menu = view_menu.build()?;
+
+		let window_menu = SubmenuBuilder::new(app, "Window")
+			.minimize()
+			.item(
+				&MenuItemBuilder::with_id(MenuEvent::NewWindow, "New Window")
+					.accelerator("CmdOrCtrl+Shift+N")
+					.build(app)?,
+			)
+			.close_window()
+			.fullscreen()
+			.item(
+				&MenuItemBuilder::with_id(MenuEvent::ReloadWebview, "Reload Webview")
+					.accelerator("CmdOrCtrl+Shift+R")
+					.build(app)?,
+			)
+			.build()?;
+
+		let menu = MenuBuilder::new(app)
+			.item(&app_menu)
+			.item(&file_menu)
+			.item(&edit_menu)
+			.item(&view_menu)
+			.item(&window_menu)
+			.build()?;
+
+		for event in LIBRARY_LOCKED_MENU_IDS {
+			set_enabled(&menu, *event, false);
+		}
+
+		Ok(menu)
+	}
 }
 
-pub fn handle_menu_event(event: WindowMenuEvent<Wry>) {
-	match event.menu_item_id() {
-		"quit" => {
-			let app = event.window().app_handle();
-			app.exit(0);
-		}
-		"reload_explorer" => event.window().emit("keybind", "reload_explorer").unwrap(),
-		"open_settings" => event.window().emit("keybind", "open_settings").unwrap(),
-		"open_overview" => event.window().emit("keybind", "open_overview").unwrap(),
-		"close_window" => {
-			#[cfg(target_os = "macos")]
-			tauri::AppHandle::hide(&event.window().app_handle()).unwrap();
+pub fn handle_menu_event(event: MenuEvent, app: &AppHandle) {
+	let webview = app
+		.get_webview_window("main")
+		.expect("unable to find window");
 
-			#[cfg(not(target_os = "macos"))]
-			{
-				let window = event.window();
-
-				#[cfg(debug_assertions)]
-				if window.is_devtools_open() {
-					window.close_devtools();
-				} else {
-					window.close().unwrap();
-				}
-
-				#[cfg(not(debug_assertions))]
-				window.close().unwrap();
+	match event {
+		// TODO: Use Tauri Specta with frontend instead of this
+		MenuEvent::NewLibrary => webview.emit("keybind", "new_library").unwrap(),
+		MenuEvent::NewFile => webview.emit("keybind", "new_file").unwrap(),
+		MenuEvent::NewDirectory => webview.emit("keybind", "new_directory").unwrap(),
+		MenuEvent::AddLocation => webview.emit("keybind", "add_location").unwrap(),
+		MenuEvent::OpenOverview => webview.emit("keybind", "open_overview").unwrap(),
+		MenuEvent::OpenSearch => webview.emit("keybind", "open_search".to_string()).unwrap(),
+		MenuEvent::OpenSettings => webview.emit("keybind", "open_settings").unwrap(),
+		MenuEvent::ReloadExplorer => webview.emit("keybind", "reload_explorer").unwrap(),
+		MenuEvent::SetLayoutGrid => webview.emit("keybind", "set_layout_grid").unwrap(),
+		MenuEvent::SetLayoutList => webview.emit("keybind", "set_layout_list").unwrap(),
+		MenuEvent::SetLayoutMedia => webview.emit("keybind", "set_layout_media").unwrap(),
+		MenuEvent::ToggleDeveloperTools =>
+		{
+			#[cfg(feature = "devtools")]
+			if webview.is_devtools_open() {
+				webview.close_devtools();
+			} else {
+				webview.open_devtools();
 			}
 		}
-		"open_search" => event
-			.window()
-			.emit("keybind", "open_search".to_string())
-			.unwrap(),
-		"reload_app" => {
-			event
-				.window()
+		MenuEvent::NewWindow => {
+			// TODO: Implement this
+		}
+		MenuEvent::ReloadWebview => {
+			webview
 				.with_webview(crate::reload_webview_inner)
 				.expect("Error while reloading webview");
 		}
-		#[cfg(debug_assertions)]
-		"toggle_devtools" => {
-			let window = event.window();
-
-			if window.is_devtools_open() {
-				window.close_devtools();
-			} else {
-				window.open_devtools();
-			}
-		}
-		_ => {}
 	}
 }
 
-/// If any are explicitly marked with `.disabled()` in the `custom_menu_bar()` function, this won't have an effect.
-/// We include them in the locked menu IDs anyway for future-proofing, in-case someone forgets.
-#[cfg(target_os = "macos")]
-pub fn set_library_locked_menu_items_enabled(handle: tauri::window::MenuHandle, enabled: bool) {
-	LIBRARY_LOCKED_MENU_IDS
-		.iter()
-		.try_for_each(|id| handle.get_item(id).set_enabled(enabled))
-		.expect("Unable to disable menu items (there are no libraries present, so certain options should be hidden)");
+// Enable/disable all items in `LIBRARY_LOCKED_MENU_IDS`
+pub fn refresh_menu_bar(app: &AppHandle, enabled: bool) {
+	let menu = app
+		.get_window("main")
+		.expect("unable to find window")
+		.menu()
+		.expect("unable to get menu for current window");
+
+	for event in LIBRARY_LOCKED_MENU_IDS {
+		set_enabled(&menu, *event, enabled);
+	}
+}
+
+pub fn set_enabled(menu: &Menu<Wry>, event: MenuEvent, enabled: bool) {
+	let result = match menu.get(event.as_ref()) {
+		Some(MenuItemKind::MenuItem(i)) => i.set_enabled(enabled),
+		Some(MenuItemKind::Submenu(i)) => i.set_enabled(enabled),
+		Some(MenuItemKind::Predefined(_)) => return,
+		Some(MenuItemKind::Check(i)) => i.set_enabled(enabled),
+		Some(MenuItemKind::Icon(i)) => i.set_enabled(enabled),
+		None => {
+			error!("Unable to get menu item: {event:?}");
+			return;
+		}
+	};
+
+	if let Err(e) = result {
+		error!("Error setting menu item state: {e:#?}");
+	}
 }

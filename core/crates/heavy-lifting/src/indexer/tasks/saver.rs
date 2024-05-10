@@ -1,4 +1,4 @@
-use crate::{indexer::IndexerError, Error};
+use crate::{indexer, Error};
 
 use sd_core_file_path_helper::IsolatedFilePathDataParts;
 use sd_core_sync::Manager as SyncManager;
@@ -234,7 +234,7 @@ impl Task<Error> for SaveTask {
 				),
 			)
 			.await
-			.map_err(IndexerError::from)? as u64;
+			.map_err(indexer::Error::from)? as u64;
 
 		trace!("Inserted {saved_count} records");
 

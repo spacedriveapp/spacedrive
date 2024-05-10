@@ -1,7 +1,7 @@
 use exif::Tag;
 
 use super::FlashValue;
-use crate::image::{flash::consts::FLASH_MODES, ExifReader};
+use crate::exif::{flash::consts::FLASH_MODES, ExifReader};
 
 #[derive(
 	Default, Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize, specta::Type,
@@ -37,7 +37,7 @@ pub enum FlashMode {
 	/// The data is present, but we're unable to determine what they mean
 	#[default]
 	Unknown,
-	/// FLash was on
+	/// `FLash` was on
 	On,
 	/// Flash was off
 	Off,

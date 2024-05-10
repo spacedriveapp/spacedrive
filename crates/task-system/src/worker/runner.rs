@@ -10,13 +10,13 @@ use std::{
 };
 
 use async_channel as chan;
-use futures::StreamExt;
+use futures::{FutureExt, StreamExt};
 use futures_concurrency::future::Race;
 use tokio::{
 	spawn,
 	sync::oneshot,
 	task::{JoinError, JoinHandle},
-	time::{timeout, Instant},
+	time::{sleep, timeout, Instant},
 };
 use tracing::{debug, error, trace, warn};
 
@@ -1165,11 +1165,26 @@ fn handle_run_task_attempt<E: RunError>(
 
 				(task, Err(SystemError::TaskAborted(task_id)))
 			} else {
-				let res = task.run(&interrupter).await;
+				let run_result = if let Some(timeout_duration) = task.with_timeout() {
+					(task.run(&interrupter).map(Ok), async move {
+						sleep(timeout_duration)
+							.map(|()| Err(SystemError::TaskTimeout(task_id)))
+							.await
+					})
+						.race()
+						.await
+				} else {
+					task.run(&interrupter).map(Ok).await
+				};
 
-				trace!("Ran task: <worker_id='{worker_id}', task_id='{task_id}'>: {res:?}");
+				match run_result {
+					Ok(res) => {
+						trace!("Ran task: <worker_id='{worker_id}', task_id='{task_id}'>: {res:?}");
 
-				(task, Ok(res))
+						(task, Ok(res))
+					}
+					Err(e) => (task, Err(e)),
+				}
 			}
 		}
 	})

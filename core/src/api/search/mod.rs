@@ -19,8 +19,8 @@ use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+pub mod exif_data;
 pub mod file_path;
-pub mod media_data;
 pub mod object;
 pub mod saved;
 mod utils;
@@ -233,7 +233,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 								// .filter(|_| thumbnail_exists_locally)
 								.map(|i| get_indexed_thumb_key(i, library.id)),
 							has_created_thumbnail,
-							item: file_path,
+							item: Box::new(file_path),
 						})
 					}
 
