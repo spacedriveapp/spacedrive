@@ -3288,12 +3288,13 @@ dependencies = [
 
 [[package]]
 name = "futures-concurrency"
-version = "7.4.3"
+version = "7.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef6712e11cdeed5c8cf21ea0b90fec40fbe64afc9bbf2339356197eeca829fc3"
+checksum = "51ee14e256b9143bfafbf2fddeede6f396650bacf95d06fc1b3f2b503df129a0"
 dependencies = [
  "bitvec",
  "futures-core",
+ "futures-lite 1.13.0",
  "pin-project",
  "slab",
  "smallvec 1.13.1",
@@ -9077,8 +9078,10 @@ dependencies = [
  "futures",
  "futures-concurrency",
  "globset",
+ "image",
  "itertools 0.12.0",
  "lending-stream",
+ "once_cell",
  "prisma-client-rust",
  "rmp-serde",
  "rmpv",
@@ -9087,7 +9090,10 @@ dependencies = [
  "sd-core-indexer-rules",
  "sd-core-prisma-helpers",
  "sd-core-sync",
+ "sd-ffmpeg",
  "sd-file-ext",
+ "sd-images",
+ "sd-media-metadata",
  "sd-prisma",
  "sd-sync",
  "sd-task-system",
@@ -9104,6 +9110,7 @@ dependencies = [
  "tracing",
  "tracing-test",
  "uuid",
+ "webp",
 ]
 
 [[package]]
