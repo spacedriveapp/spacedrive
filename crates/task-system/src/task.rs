@@ -7,6 +7,7 @@ use std::{
 		Arc,
 	},
 	task::{Context, Poll},
+	time::Duration,
 };
 
 use async_channel as chan;
@@ -139,6 +140,13 @@ pub trait Task<E: RunError>: fmt::Debug + Downcast + Send + Sync + 'static {
 	/// as thumbnails being generated for the current open directory or copy/paste operations.
 	fn with_priority(&self) -> bool {
 		false
+	}
+
+	/// Here we define if we want the task system to shutdown our task if it takes too long to finish. By default the
+	/// task system will wait indefinitely for the task to finish, but if the user wants to have a timeout, they can
+	/// return a [`Duration`] here and the task system will cancel the task if it takes longer than the specified time.
+	fn with_timeout(&self) -> Option<Duration> {
+		None
 	}
 
 	/// This method represent the work that should be done by the worker, it will be called by the

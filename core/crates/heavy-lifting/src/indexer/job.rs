@@ -1,15 +1,15 @@
 use crate::{
-	indexer::BATCH_SIZE,
+	indexer,
 	job_system::{
 		job::{
-			Job, JobContext, JobName, JobReturn, JobTaskDispatcher, ProgressUpdate, ReturnStatus,
+			Job, JobName, JobReturn, JobTaskDispatcher, OuterContext, ProgressUpdate, ReturnStatus,
 		},
 		report::ReportOutputMetadata,
 		utils::cancel_pending_tasks,
 		SerializableJob, SerializedTasks,
 	},
 	utils::sub_path::get_full_path_from_sub_path,
-	Error, LocationScanState, NonCriticalJobError,
+	Error, LocationScanState, NonCriticalError,
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
@@ -47,11 +47,11 @@ use super::{
 		updater::{UpdateTask, UpdateTaskOutput},
 		walker::{WalkDirTask, WalkTaskOutput, WalkedEntry},
 	},
-	update_directory_sizes, update_location_size, IndexerError, IsoFilePathFactory, WalkerDBProxy,
+	update_directory_sizes, update_location_size, IsoFilePathFactory, WalkerDBProxy, BATCH_SIZE,
 };
 
 #[derive(Debug)]
-pub struct IndexerJob {
+pub struct Indexer {
 	location: location_with_indexer_rules::Data,
 	sub_path: Option<PathBuf>,
 	metadata: Metadata,
@@ -63,19 +63,19 @@ pub struct IndexerJob {
 	ancestors_already_indexed: HashSet<IsolatedFilePathData<'static>>,
 	iso_paths_and_sizes: HashMap<IsolatedFilePathData<'static>, u64>,
 
-	errors: Vec<NonCriticalJobError>,
+	errors: Vec<NonCriticalError>,
 
 	pending_tasks_on_resume: Vec<TaskHandle<Error>>,
 	tasks_for_shutdown: Vec<Box<dyn Task<Error>>>,
 }
 
-impl Job for IndexerJob {
+impl Job for Indexer {
 	const NAME: JobName = JobName::Indexer;
 
 	async fn resume_tasks(
 		&mut self,
 		dispatcher: &JobTaskDispatcher,
-		ctx: &impl JobContext,
+		ctx: &impl OuterContext,
 		SerializedTasks(serialized_tasks): SerializedTasks,
 	) -> Result<(), Error> {
 		let location_id = self.location.id;
@@ -83,7 +83,7 @@ impl Job for IndexerJob {
 		self.pending_tasks_on_resume = dispatcher
 			.dispatch_many_boxed(
 				rmp_serde::from_slice::<Vec<(TaskKind, Vec<u8>)>>(&serialized_tasks)
-					.map_err(IndexerError::from)?
+					.map_err(indexer::Error::from)?
 					.into_iter()
 					.map(|(task_kind, task_bytes)| {
 						let indexer_ruler = self.indexer_ruler.clone();
@@ -123,17 +123,17 @@ impl Job for IndexerJob {
 					.collect::<Vec<_>>()
 					.try_join()
 					.await
-					.map_err(IndexerError::from)?,
+					.map_err(indexer::Error::from)?,
 			)
 			.await;
 
 		Ok(())
 	}
 
-	async fn run(
+	async fn run<Ctx: OuterContext>(
 		mut self,
 		dispatcher: JobTaskDispatcher,
-		ctx: impl JobContext,
+		ctx: Ctx,
 	) -> Result<ReturnStatus, Error> {
 		let mut pending_running_tasks = FuturesUnordered::new();
 
@@ -148,7 +148,9 @@ impl Job for IndexerJob {
 		}
 
 		if !self.tasks_for_shutdown.is_empty() {
-			return Ok(ReturnStatus::Shutdown(self.serialize().await));
+			return Ok(ReturnStatus::Shutdown(
+				SerializableJob::<Ctx>::serialize(self).await,
+			));
 		}
 
 		if !self.ancestors_needing_indexing.is_empty() {
@@ -182,7 +184,9 @@ impl Job for IndexerJob {
 			}
 
 			if !self.tasks_for_shutdown.is_empty() {
-				return Ok(ReturnStatus::Shutdown(self.serialize().await));
+				return Ok(ReturnStatus::Shutdown(
+					SerializableJob::<Ctx>::serialize(self).await,
+				));
 			}
 		}
 
@@ -217,7 +221,7 @@ impl Job for IndexerJob {
 				.await?;
 			}
 
-			update_location_size(location.id, ctx.db(), &ctx.query_invalidator()).await?;
+			update_location_size(location.id, ctx.db(), &ctx).await?;
 
 			metadata.db_write_time += start_size_update_time.elapsed();
 		}
@@ -243,7 +247,7 @@ impl Job for IndexerJob {
 			)
 			.exec()
 			.await
-			.map_err(IndexerError::from)?;
+			.map_err(indexer::Error::from)?;
 
 		Ok(ReturnStatus::Completed(
 			JobReturn::builder()
@@ -254,11 +258,11 @@ impl Job for IndexerJob {
 	}
 }
 
-impl IndexerJob {
+impl Indexer {
 	pub fn new(
 		location: location_with_indexer_rules::Data,
 		sub_path: Option<PathBuf>,
-	) -> Result<Self, IndexerError> {
+	) -> Result<Self, indexer::Error> {
 		Ok(Self {
 			indexer_ruler: location
 				.indexer_rules
@@ -295,12 +299,12 @@ impl IndexerJob {
 		&mut self,
 		task_id: TaskId,
 		any_task_output: Box<dyn AnyTaskOutput>,
-		job_ctx: &impl JobContext,
+		ctx: &impl OuterContext,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<Vec<TaskHandle<Error>>, IndexerError> {
+	) -> Result<Vec<TaskHandle<Error>>, indexer::Error> {
 		self.metadata.completed_tasks += 1;
 
-		job_ctx.progress(vec![ProgressUpdate::CompletedTaskCount(
+		ctx.progress(vec![ProgressUpdate::CompletedTaskCount(
 			self.metadata.completed_tasks,
 		)]);
 
@@ -310,7 +314,7 @@ impl IndexerJob {
 					*any_task_output
 						.downcast::<WalkTaskOutput>()
 						.expect("just checked"),
-					job_ctx,
+					ctx,
 					dispatcher,
 				)
 				.await;
@@ -319,14 +323,14 @@ impl IndexerJob {
 				*any_task_output
 					.downcast::<SaveTaskOutput>()
 					.expect("just checked"),
-				job_ctx,
+				ctx,
 			);
 		} else if any_task_output.is::<UpdateTaskOutput>() {
 			self.process_update_output(
 				*any_task_output
 					.downcast::<UpdateTaskOutput>()
 					.expect("just checked"),
-				job_ctx,
+				ctx,
 			);
 		} else {
 			unreachable!("Unexpected task output type: <id='{task_id}'>");
@@ -348,9 +352,9 @@ impl IndexerJob {
 			mut handles,
 			scan_time,
 		}: WalkTaskOutput,
-		job_ctx: &impl JobContext,
+		ctx: &impl OuterContext,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<Vec<TaskHandle<Error>>, IndexerError> {
+	) -> Result<Vec<TaskHandle<Error>>, indexer::Error> {
 		self.metadata.scan_read_time += scan_time;
 
 		let (to_create_count, to_update_count) = (to_create.len(), to_update.len());
@@ -398,7 +402,7 @@ impl IndexerJob {
 
 		let db_delete_time = Instant::now();
 		self.metadata.removed_count +=
-			remove_non_existing_file_paths(to_remove, job_ctx.db(), job_ctx.sync()).await?;
+			remove_non_existing_file_paths(to_remove, ctx.db(), ctx.sync()).await?;
 		self.metadata.db_write_time += db_delete_time.elapsed();
 
 		let save_tasks = to_create
@@ -414,8 +418,8 @@ impl IndexerJob {
 					self.location.id,
 					self.location.pub_id.clone(),
 					chunked_saves,
-					Arc::clone(job_ctx.db()),
-					Arc::clone(job_ctx.sync()),
+					Arc::clone(ctx.db()),
+					Arc::clone(ctx.sync()),
 				)
 			})
 			.collect::<Vec<_>>();
@@ -431,8 +435,8 @@ impl IndexerJob {
 
 				UpdateTask::new_deep(
 					chunked_updates,
-					Arc::clone(job_ctx.db()),
-					Arc::clone(job_ctx.sync()),
+					Arc::clone(ctx.db()),
+					Arc::clone(ctx.sync()),
 				)
 			})
 			.collect::<Vec<_>>();
@@ -442,7 +446,7 @@ impl IndexerJob {
 
 		self.metadata.total_tasks += handles.len() as u64;
 
-		job_ctx.progress(vec![
+		ctx.progress(vec![
 			ProgressUpdate::TaskCount(handles.len() as u64),
 			ProgressUpdate::message(format!(
 				"Found {to_create_count} new files and {to_update_count} to update"
@@ -458,12 +462,12 @@ impl IndexerJob {
 			saved_count,
 			save_duration,
 		}: SaveTaskOutput,
-		job_ctx: &impl JobContext,
+		ctx: &impl OuterContext,
 	) {
 		self.metadata.indexed_count += saved_count;
 		self.metadata.db_write_time += save_duration;
 
-		job_ctx.progress_msg(format!("Saved {saved_count} files"));
+		ctx.progress_msg(format!("Saved {saved_count} files"));
 	}
 
 	fn process_update_output(
@@ -472,25 +476,25 @@ impl IndexerJob {
 			updated_count,
 			update_duration,
 		}: UpdateTaskOutput,
-		job_ctx: &impl JobContext,
+		ctx: &impl OuterContext,
 	) {
 		self.metadata.updated_count += updated_count;
 		self.metadata.db_write_time += update_duration;
 
-		job_ctx.progress_msg(format!("Updated {updated_count} files"));
+		ctx.progress_msg(format!("Updated {updated_count} files"));
 	}
 
 	async fn process_handles(
 		&mut self,
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
-		job_ctx: &impl JobContext,
+		ctx: &impl OuterContext,
 		dispatcher: &JobTaskDispatcher,
 	) -> Option<Result<ReturnStatus, Error>> {
 		while let Some(task) = pending_running_tasks.next().await {
 			match task {
 				Ok(TaskStatus::Done((task_id, TaskOutput::Out(out)))) => {
 					let more_handles = match self
-						.process_task_output(task_id, out, job_ctx, dispatcher)
+						.process_task_output(task_id, out, ctx, dispatcher)
 						.await
 					{
 						Ok(more_handles) => more_handles,
@@ -538,9 +542,9 @@ impl IndexerJob {
 	async fn init_or_resume(
 		&mut self,
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
-		job_ctx: &impl JobContext,
+		ctx: &impl OuterContext,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<(), IndexerError> {
+	) -> Result<(), indexer::Error> {
 		// if we don't have any pending task, then this is a fresh job
 		if self.pending_tasks_on_resume.is_empty() {
 			let walker_root_path = Arc::new(
@@ -548,7 +552,7 @@ impl IndexerJob {
 					self.location.id,
 					&self.sub_path,
 					&*self.iso_file_path_factory.location_path,
-					job_ctx.db(),
+					ctx.db(),
 				)
 				.await?,
 			);
@@ -562,7 +566,7 @@ impl IndexerJob {
 						self.iso_file_path_factory.clone(),
 						WalkerDBProxy {
 							location_id: self.location.id,
-							db: Arc::clone(job_ctx.db()),
+							db: Arc::clone(ctx.db()),
 						},
 						dispatcher.clone(),
 					)?)
@@ -633,12 +637,12 @@ struct SaveState {
 	ancestors_already_indexed: HashSet<IsolatedFilePathData<'static>>,
 	paths_and_sizes: HashMap<IsolatedFilePathData<'static>, u64>,
 
-	errors: Vec<NonCriticalJobError>,
+	errors: Vec<NonCriticalError>,
 
 	tasks_for_shutdown_bytes: Option<SerializedTasks>,
 }
 
-impl SerializableJob for IndexerJob {
+impl<Ctx: OuterContext> SerializableJob<Ctx> for Indexer {
 	async fn serialize(self) -> Result<Option<Vec<u8>>, rmp_serde::encode::Error> {
 		let Self {
 			location,
@@ -706,7 +710,7 @@ impl SerializableJob for IndexerJob {
 
 	async fn deserialize(
 		serialized_job: &[u8],
-		_: &impl JobContext,
+		_: &Ctx,
 	) -> Result<Option<(Self, Option<SerializedTasks>)>, rmp_serde::decode::Error> {
 		let SaveState {
 			location,
@@ -744,7 +748,7 @@ impl SerializableJob for IndexerJob {
 	}
 }
 
-impl Hash for IndexerJob {
+impl Hash for Indexer {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.location.id.hash(state);
 		if let Some(ref sub_path) = self.sub_path {

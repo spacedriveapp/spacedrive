@@ -1,4 +1,5 @@
 use crate::{
+	file_identifier,
 	job_system::{
 		job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus},
 		report::ReportOutputMetadata,
@@ -6,7 +7,7 @@ use crate::{
 		SerializableJob, SerializedTasks,
 	},
 	utils::sub_path::maybe_get_iso_file_path_from_sub_path,
-	Error, JobContext, JobName, LocationScanState, NonCriticalJobError, ProgressUpdate,
+	Error, JobName, LocationScanState, NonCriticalError, OuterContext, ProgressUpdate, UpdateEvent,
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
@@ -20,7 +21,7 @@ use sd_task_system::{
 use sd_utils::db::maybe_missing;
 
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	hash::{Hash, Hasher},
 	mem,
 	path::PathBuf,
@@ -30,35 +31,36 @@ use std::{
 
 use futures::{stream::FuturesUnordered, StreamExt};
 use futures_concurrency::future::TryJoin;
-use prisma_client_rust::or;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::time::Instant;
 use tracing::warn;
 
 use super::{
+	orphan_path_filters_deep, orphan_path_filters_shallow,
 	tasks::{
-		ExtractFileMetadataTask, ExtractFileMetadataTaskOutput, ObjectProcessorTask,
-		ObjectProcessorTaskMetrics,
+		extract_file_metadata, object_processor, ExtractFileMetadataTask, ObjectProcessorTask,
 	},
-	FileIdentifierError, CHUNK_SIZE,
+	CHUNK_SIZE,
 };
 
 #[derive(Debug)]
-pub struct FileIdentifierJob {
+pub struct FileIdentifier {
 	location: Arc<location::Data>,
 	location_path: Arc<PathBuf>,
 	sub_path: Option<PathBuf>,
 
 	metadata: Metadata,
 
-	errors: Vec<NonCriticalJobError>,
+	priority_tasks_ids: HashSet<TaskId>,
+
+	errors: Vec<NonCriticalError>,
 
 	pending_tasks_on_resume: Vec<TaskHandle<Error>>,
 	tasks_for_shutdown: Vec<Box<dyn Task<Error>>>,
 }
 
-impl Hash for FileIdentifierJob {
+impl Hash for FileIdentifier {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.location.id.hash(state);
 		if let Some(ref sub_path) = self.sub_path {
@@ -67,19 +69,19 @@ impl Hash for FileIdentifierJob {
 	}
 }
 
-impl Job for FileIdentifierJob {
+impl Job for FileIdentifier {
 	const NAME: JobName = JobName::FileIdentifier;
 
 	async fn resume_tasks(
 		&mut self,
 		dispatcher: &JobTaskDispatcher,
-		ctx: &impl JobContext,
+		ctx: &impl OuterContext,
 		SerializedTasks(serialized_tasks): SerializedTasks,
 	) -> Result<(), Error> {
 		self.pending_tasks_on_resume = dispatcher
 			.dispatch_many_boxed(
 				rmp_serde::from_slice::<Vec<(TaskKind, Vec<u8>)>>(&serialized_tasks)
-					.map_err(FileIdentifierError::from)?
+					.map_err(file_identifier::Error::from)?
 					.into_iter()
 					.map(|(task_kind, task_bytes)| async move {
 						match task_kind {
@@ -103,17 +105,17 @@ impl Job for FileIdentifierJob {
 					.collect::<Vec<_>>()
 					.try_join()
 					.await
-					.map_err(FileIdentifierError::from)?,
+					.map_err(file_identifier::Error::from)?,
 			)
 			.await;
 
 		Ok(())
 	}
 
-	async fn run(
+	async fn run<Ctx: OuterContext>(
 		mut self,
 		dispatcher: JobTaskDispatcher,
-		ctx: impl JobContext,
+		ctx: Ctx,
 	) -> Result<ReturnStatus, Error> {
 		let mut pending_running_tasks = FuturesUnordered::new();
 
@@ -160,7 +162,9 @@ impl Job for FileIdentifierJob {
 		}
 
 		if !self.tasks_for_shutdown.is_empty() {
-			return Ok(ReturnStatus::Shutdown(self.serialize().await));
+			return Ok(ReturnStatus::Shutdown(
+				SerializableJob::<Ctx>::serialize(self).await,
+			));
 		}
 
 		// From this point onward, we are done with the job and it can't be interrupted anymore
@@ -181,7 +185,7 @@ impl Job for FileIdentifierJob {
 			)
 			.exec()
 			.await
-			.map_err(FileIdentifierError::from)?;
+			.map_err(file_identifier::Error::from)?;
 
 		Ok(ReturnStatus::Completed(
 			JobReturn::builder()
@@ -192,11 +196,11 @@ impl Job for FileIdentifierJob {
 	}
 }
 
-impl FileIdentifierJob {
+impl FileIdentifier {
 	pub fn new(
 		location: location::Data,
 		sub_path: Option<PathBuf>,
-	) -> Result<Self, FileIdentifierError> {
+	) -> Result<Self, file_identifier::Error> {
 		Ok(Self {
 			location_path: maybe_missing(&location.path, "location.path")
 				.map(PathBuf::from)
@@ -204,6 +208,7 @@ impl FileIdentifierJob {
 			location: Arc::new(location),
 			sub_path,
 			metadata: Metadata::default(),
+			priority_tasks_ids: HashSet::new(),
 			errors: Vec::new(),
 			pending_tasks_on_resume: Vec::new(),
 			tasks_for_shutdown: Vec::new(),
@@ -213,12 +218,12 @@ impl FileIdentifierJob {
 	async fn init_or_resume(
 		&mut self,
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
-		job_ctx: &impl JobContext,
+		ctx: &impl OuterContext,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<(), FileIdentifierError> {
+	) -> Result<(), file_identifier::Error> {
 		// if we don't have any pending task, then this is a fresh job
 		if self.pending_tasks_on_resume.is_empty() {
-			let db = job_ctx.db();
+			let db = ctx.db();
 			let maybe_sub_iso_file_path = maybe_get_iso_file_path_from_sub_path(
 				self.location.id,
 				&self.sub_path,
@@ -227,53 +232,43 @@ impl FileIdentifierJob {
 			)
 			.await?;
 
-			let mut orphans_count = 0;
 			let mut last_orphan_file_path_id = None;
 
 			let start = Instant::now();
 
-			loop {
-				#[allow(clippy::cast_possible_wrap)]
-				// SAFETY: we know that CHUNK_SIZE is a valid i64
-				let orphan_paths = db
-					.file_path()
-					.find_many(orphan_path_filters(
-						self.location.id,
-						last_orphan_file_path_id,
-						&maybe_sub_iso_file_path,
-					))
-					.order_by(file_path::id::order(SortOrder::Asc))
-					.take(CHUNK_SIZE as i64)
-					.select(file_path_for_file_identifier::select())
-					.exec()
-					.await?;
+			let location_root_iso_file_path = IsolatedFilePathData::new(
+				self.location.id,
+				&*self.location_path,
+				&*self.location_path,
+				true,
+			)
+			.map_err(file_identifier::Error::from)?;
 
-				if orphan_paths.is_empty() {
-					break;
-				}
+			// First we dispatch some shallow priority tasks to quickly identify orphans in the location
+			// root directory or in the desired sub-path
+			let file_paths_already_identifying = self
+				.dispatch_priority_identifier_tasks(
+					&mut last_orphan_file_path_id,
+					maybe_sub_iso_file_path
+						.as_ref()
+						.unwrap_or(&location_root_iso_file_path),
+					ctx,
+					dispatcher,
+					pending_running_tasks,
+				)
+				.await?;
 
-				orphans_count += orphan_paths.len() as u64;
-				last_orphan_file_path_id =
-					Some(orphan_paths.last().expect("orphan_paths is not empty").id);
-
-				job_ctx.progress(vec![
-					ProgressUpdate::TaskCount(orphans_count),
-					ProgressUpdate::Message(format!("{orphans_count} files to be identified")),
-				]);
-
-				pending_running_tasks.push(
-					dispatcher
-						.dispatch(ExtractFileMetadataTask::new_deep(
-							Arc::clone(&self.location),
-							Arc::clone(&self.location_path),
-							orphan_paths,
-						))
-						.await,
-				);
-			}
+			self.dispatch_deep_identifier_tasks(
+				&mut last_orphan_file_path_id,
+				&maybe_sub_iso_file_path,
+				ctx,
+				dispatcher,
+				pending_running_tasks,
+				&file_paths_already_identifying,
+			)
+			.await?;
 
 			self.metadata.seeking_orphans_time = start.elapsed();
-			self.metadata.total_found_orphans = orphans_count;
 		} else {
 			pending_running_tasks.extend(mem::take(&mut self.pending_tasks_on_resume));
 		}
@@ -290,25 +285,27 @@ impl FileIdentifierJob {
 		&mut self,
 		task_id: TaskId,
 		any_task_output: Box<dyn AnyTaskOutput>,
-		job_ctx: &impl JobContext,
+		ctx: &impl OuterContext,
 		dispatcher: &JobTaskDispatcher,
 	) -> Option<TaskHandle<Error>> {
-		if any_task_output.is::<ExtractFileMetadataTaskOutput>() {
+		if any_task_output.is::<extract_file_metadata::Output>() {
 			return self
 				.process_extract_file_metadata_output(
+					task_id,
 					*any_task_output
-						.downcast::<ExtractFileMetadataTaskOutput>()
+						.downcast::<extract_file_metadata::Output>()
 						.expect("just checked"),
-					job_ctx,
+					ctx,
 					dispatcher,
 				)
 				.await;
-		} else if any_task_output.is::<ObjectProcessorTaskMetrics>() {
+		} else if any_task_output.is::<object_processor::Output>() {
 			self.process_object_processor_output(
+				task_id,
 				*any_task_output
-					.downcast::<ObjectProcessorTaskMetrics>()
+					.downcast::<object_processor::Output>()
 					.expect("just checked"),
-				job_ctx,
+				ctx,
 			);
 		} else {
 			unreachable!("Unexpected task output type: <id='{task_id}'>");
@@ -319,12 +316,13 @@ impl FileIdentifierJob {
 
 	async fn process_extract_file_metadata_output(
 		&mut self,
-		ExtractFileMetadataTaskOutput {
+		task_id: TaskId,
+		extract_file_metadata::Output {
 			identified_files,
 			extract_metadata_time,
 			errors,
-		}: ExtractFileMetadataTaskOutput,
-		job_ctx: &impl JobContext,
+		}: extract_file_metadata::Output,
+		ctx: &impl OuterContext,
 		dispatcher: &JobTaskDispatcher,
 	) -> Option<TaskHandle<Error>> {
 		self.metadata.extract_metadata_time += extract_metadata_time;
@@ -333,37 +331,46 @@ impl FileIdentifierJob {
 		if identified_files.is_empty() {
 			self.metadata.completed_tasks += 1;
 
-			job_ctx.progress(vec![ProgressUpdate::CompletedTaskCount(
+			ctx.progress(vec![ProgressUpdate::CompletedTaskCount(
 				self.metadata.completed_tasks,
 			)]);
 
 			None
 		} else {
-			job_ctx.progress_msg(format!("Identified {} files", identified_files.len()));
+			ctx.progress_msg(format!("Identified {} files", identified_files.len()));
 
-			Some(
-				dispatcher
-					.dispatch(ObjectProcessorTask::new_deep(
-						identified_files,
-						Arc::clone(job_ctx.db()),
-						Arc::clone(job_ctx.sync()),
-					))
-					.await,
-			)
+			let with_priority = self.priority_tasks_ids.remove(&task_id);
+
+			let task = dispatcher
+				.dispatch(ObjectProcessorTask::new(
+					identified_files,
+					Arc::clone(ctx.db()),
+					Arc::clone(ctx.sync()),
+					with_priority,
+				))
+				.await;
+
+			if with_priority {
+				self.priority_tasks_ids.insert(task.task_id());
+			}
+
+			Some(task)
 		}
 	}
 
 	fn process_object_processor_output(
 		&mut self,
-		ObjectProcessorTaskMetrics {
+		task_id: TaskId,
+		object_processor::Output {
+			file_path_ids_with_new_object,
 			assign_cas_ids_time,
 			fetch_existing_objects_time,
 			assign_to_existing_object_time,
 			create_object_time,
 			created_objects_count,
 			linked_objects_count,
-		}: ObjectProcessorTaskMetrics,
-		job_ctx: &impl JobContext,
+		}: object_processor::Output,
+		ctx: &impl OuterContext,
 	) {
 		self.metadata.assign_cas_ids_time += assign_cas_ids_time;
 		self.metadata.fetch_existing_objects_time += fetch_existing_objects_time;
@@ -374,7 +381,7 @@ impl FileIdentifierJob {
 
 		self.metadata.completed_tasks += 1;
 
-		job_ctx.progress(vec![
+		ctx.progress(vec![
 			ProgressUpdate::CompletedTaskCount(self.metadata.completed_tasks),
 			ProgressUpdate::Message(format!(
 				"Processed {} of {} objects",
@@ -382,6 +389,143 @@ impl FileIdentifierJob {
 				self.metadata.total_found_orphans
 			)),
 		]);
+
+		if self.priority_tasks_ids.remove(&task_id) {
+			ctx.report_update(UpdateEvent::NewIdentifiedObjects {
+				file_path_ids: file_path_ids_with_new_object,
+			});
+		}
+	}
+
+	async fn dispatch_priority_identifier_tasks(
+		&mut self,
+		last_orphan_file_path_id: &mut Option<i32>,
+		sub_iso_file_path: &IsolatedFilePathData<'static>,
+		ctx: &impl OuterContext,
+		dispatcher: &JobTaskDispatcher,
+		pending_running_tasks: &FuturesUnordered<TaskHandle<Error>>,
+	) -> Result<HashSet<file_path::id::Type>, file_identifier::Error> {
+		let db = ctx.db();
+
+		let mut file_paths_already_identifying = HashSet::new();
+
+		loop {
+			#[allow(clippy::cast_possible_wrap)]
+			// SAFETY: we know that CHUNK_SIZE is a valid i64
+			let orphan_paths = db
+				.file_path()
+				.find_many(orphan_path_filters_shallow(
+					self.location.id,
+					*last_orphan_file_path_id,
+					sub_iso_file_path,
+				))
+				.order_by(file_path::id::order(SortOrder::Asc))
+				.take(CHUNK_SIZE as i64)
+				.select(file_path_for_file_identifier::select())
+				.exec()
+				.await?;
+
+			if orphan_paths.is_empty() {
+				break;
+			}
+
+			file_paths_already_identifying.extend(orphan_paths.iter().map(|path| path.id));
+
+			self.metadata.total_found_orphans += orphan_paths.len() as u64;
+			*last_orphan_file_path_id =
+				Some(orphan_paths.last().expect("orphan_paths is not empty").id);
+
+			ctx.progress(vec![
+				ProgressUpdate::TaskCount(self.metadata.total_found_orphans),
+				ProgressUpdate::Message(format!(
+					"{} files to be identified",
+					self.metadata.total_found_orphans
+				)),
+			]);
+
+			let priority_task = dispatcher
+				.dispatch(ExtractFileMetadataTask::new(
+					Arc::clone(&self.location),
+					Arc::clone(&self.location_path),
+					orphan_paths,
+					true,
+				))
+				.await;
+
+			self.priority_tasks_ids.insert(priority_task.task_id());
+
+			pending_running_tasks.push(priority_task);
+		}
+
+		Ok(file_paths_already_identifying)
+	}
+
+	async fn dispatch_deep_identifier_tasks(
+		&mut self,
+		last_orphan_file_path_id: &mut Option<file_path::id::Type>,
+		maybe_sub_iso_file_path: &Option<IsolatedFilePathData<'static>>,
+		ctx: &impl OuterContext,
+		dispatcher: &JobTaskDispatcher,
+		pending_running_tasks: &FuturesUnordered<TaskHandle<Error>>,
+		file_paths_already_identifying: &HashSet<file_path::id::Type>,
+	) -> Result<(), file_identifier::Error> {
+		let db = ctx.db();
+
+		loop {
+			#[allow(clippy::cast_possible_wrap)]
+			// SAFETY: we know that CHUNK_SIZE is a valid i64
+			let mut orphan_paths = db
+				.file_path()
+				.find_many(orphan_path_filters_deep(
+					self.location.id,
+					*last_orphan_file_path_id,
+					maybe_sub_iso_file_path,
+				))
+				.order_by(file_path::id::order(SortOrder::Asc))
+				.take(CHUNK_SIZE as i64)
+				.select(file_path_for_file_identifier::select())
+				.exec()
+				.await?;
+
+			// No other orphans to identify, we can break the loop
+			if orphan_paths.is_empty() {
+				break;
+			}
+
+			// We grab the last id to use as a starting point for the next iteration, in case we skip this one
+			*last_orphan_file_path_id =
+				Some(orphan_paths.last().expect("orphan_paths is not empty").id);
+
+			orphan_paths.retain(|path| !file_paths_already_identifying.contains(&path.id));
+
+			// If we don't have any new orphan paths after filtering out, we can skip this iteration
+			if orphan_paths.is_empty() {
+				continue;
+			}
+
+			self.metadata.total_found_orphans += orphan_paths.len() as u64;
+
+			ctx.progress(vec![
+				ProgressUpdate::TaskCount(self.metadata.total_found_orphans),
+				ProgressUpdate::Message(format!(
+					"{} files to be identified",
+					self.metadata.total_found_orphans
+				)),
+			]);
+
+			pending_running_tasks.push(
+				dispatcher
+					.dispatch(ExtractFileMetadataTask::new(
+						Arc::clone(&self.location),
+						Arc::clone(&self.location_path),
+						orphan_paths,
+						false,
+					))
+					.await,
+			);
+		}
+
+		Ok(())
 	}
 }
 
@@ -399,7 +543,9 @@ struct SaveState {
 
 	metadata: Metadata,
 
-	errors: Vec<NonCriticalJobError>,
+	priority_tasks_ids: HashSet<TaskId>,
+
+	errors: Vec<NonCriticalError>,
 
 	tasks_for_shutdown_bytes: Option<SerializedTasks>,
 }
@@ -459,13 +605,14 @@ impl From<Metadata> for ReportOutputMetadata {
 	}
 }
 
-impl SerializableJob for FileIdentifierJob {
+impl<Ctx: OuterContext> SerializableJob<Ctx> for FileIdentifier {
 	async fn serialize(self) -> Result<Option<Vec<u8>>, rmp_serde::encode::Error> {
 		let Self {
 			location,
 			location_path,
 			sub_path,
 			metadata,
+			priority_tasks_ids,
 			errors,
 			tasks_for_shutdown,
 			..
@@ -476,6 +623,7 @@ impl SerializableJob for FileIdentifierJob {
 			location_path,
 			sub_path,
 			metadata,
+			priority_tasks_ids,
 			tasks_for_shutdown_bytes: Some(SerializedTasks(rmp_serde::to_vec_named(
 				&tasks_for_shutdown
 					.into_iter()
@@ -509,14 +657,14 @@ impl SerializableJob for FileIdentifierJob {
 
 	async fn deserialize(
 		serialized_job: &[u8],
-		_: &impl JobContext,
+		_: &Ctx,
 	) -> Result<Option<(Self, Option<SerializedTasks>)>, rmp_serde::decode::Error> {
 		let SaveState {
 			location,
 			location_path,
 			sub_path,
 			metadata,
-
+			priority_tasks_ids,
 			errors,
 			tasks_for_shutdown_bytes,
 		} = rmp_serde::from_slice::<SaveState>(serialized_job)?;
@@ -527,6 +675,7 @@ impl SerializableJob for FileIdentifierJob {
 				location_path,
 				sub_path,
 				metadata,
+				priority_tasks_ids,
 				errors,
 				pending_tasks_on_resume: Vec::new(),
 				tasks_for_shutdown: Vec::new(),
@@ -534,33 +683,4 @@ impl SerializableJob for FileIdentifierJob {
 			tasks_for_shutdown_bytes,
 		)))
 	}
-}
-
-fn orphan_path_filters(
-	location_id: location::id::Type,
-	file_path_id: Option<file_path::id::Type>,
-	maybe_sub_iso_file_path: &Option<IsolatedFilePathData<'_>>,
-) -> Vec<file_path::WhereParam> {
-	sd_utils::chain_optional_iter(
-		[
-			or!(
-				file_path::object_id::equals(None),
-				file_path::cas_id::equals(None)
-			),
-			file_path::is_dir::equals(Some(false)),
-			file_path::location_id::equals(Some(location_id)),
-			file_path::size_in_bytes_bytes::not(Some(0u64.to_be_bytes().to_vec())),
-		],
-		[
-			// this is a workaround for the cursor not working properly
-			file_path_id.map(file_path::id::gte),
-			maybe_sub_iso_file_path.as_ref().map(|sub_iso_file_path| {
-				file_path::materialized_path::starts_with(
-					sub_iso_file_path
-						.materialized_path_for_children()
-						.expect("sub path iso_file_path must be a directory"),
-				)
-			}),
-		],
-	)
 }

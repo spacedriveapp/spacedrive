@@ -21,7 +21,7 @@ mod store;
 pub mod utils;
 
 use error::JobSystemError;
-use job::{IntoJob, Job, JobContext, JobName, JobOutput};
+use job::{IntoJob, Job, JobName, JobOutput, OuterContext};
 use runner::{run, JobSystemRunner, RunnerMessage};
 use store::{load_jobs, StoredJobEntry};
 
@@ -38,13 +38,13 @@ pub enum Command {
 	Cancel,
 }
 
-pub struct JobSystem<Ctx: JobContext> {
+pub struct JobSystem<Ctx: OuterContext> {
 	msgs_tx: chan::Sender<RunnerMessage<Ctx>>,
 	job_outputs_rx: chan::Receiver<(JobId, Result<JobOutput, JobSystemError>)>,
 	runner_handle: RefCell<Option<JoinHandle<()>>>,
 }
 
-impl<Ctx: JobContext> JobSystem<Ctx> {
+impl<Ctx: OuterContext> JobSystem<Ctx> {
 	pub async fn new(
 		base_dispatcher: BaseTaskDispatcher<Error>,
 		data_directory: impl AsRef<Path> + Send,
@@ -164,11 +164,11 @@ impl<Ctx: JobContext> JobSystem<Ctx> {
 	/// Dispatch a new job to the system
 	/// # Panics
 	/// Panics only happen if internal channels are unexpectedly closed
-	pub async fn dispatch<J: Job + SerializableJob>(
+	pub async fn dispatch<J: Job + SerializableJob<Ctx>>(
 		&mut self,
 		job: impl IntoJob<J, Ctx> + Send,
 		location_id: location::id::Type,
-		job_ctx: Ctx,
+		ctx: Ctx,
 	) -> Result<JobId, JobSystemError> {
 		let dyn_job = job.into_job();
 		let id = dyn_job.id();
@@ -179,7 +179,7 @@ impl<Ctx: JobContext> JobSystem<Ctx> {
 				id,
 				location_id,
 				dyn_job,
-				job_ctx,
+				ctx,
 				ack_tx,
 			})
 			.await
@@ -230,9 +230,9 @@ impl<Ctx: JobContext> JobSystem<Ctx> {
 
 /// SAFETY: Due to usage of refcell we lost `Sync` impl, but we only use it to have a shutdown method
 /// receiving `&self` which is called once, and we also use `try_borrow_mut` so we never panic
-unsafe impl<Ctx: JobContext> Sync for JobSystem<Ctx> {}
+unsafe impl<Ctx: OuterContext> Sync for JobSystem<Ctx> {}
 
-async fn load_stored_job_entries<Ctx: JobContext>(
+async fn load_stored_job_entries<Ctx: OuterContext>(
 	store_jobs_file: impl AsRef<Path> + Send,
 	previously_existing_job_contexts: &HashMap<Uuid, Ctx>,
 	msgs_tx: &chan::Sender<RunnerMessage<Ctx>>,
@@ -273,11 +273,11 @@ async fn load_stored_job_entries<Ctx: JobContext>(
 			res.map_err(|e| error!("Failed to load stored jobs: {e:#?}"))
 				.ok()
 		})
-		.flat_map(|(stored_jobs, job_ctx)| {
+		.flat_map(|(stored_jobs, ctx)| {
 			stored_jobs
 				.into_iter()
 				.map(move |(location_id, dyn_job, serialized_tasks)| {
-					let job_ctx = job_ctx.clone();
+					let ctx = ctx.clone();
 					async move {
 						let (ack_tx, ack_rx) = oneshot::channel();
 
@@ -286,7 +286,7 @@ async fn load_stored_job_entries<Ctx: JobContext>(
 								id: dyn_job.id(),
 								location_id,
 								dyn_job,
-								job_ctx,
+								ctx,
 								serialized_tasks,
 								ack_tx,
 							})
