@@ -130,16 +130,15 @@ impl GitIgnoreRules {
 		// !src
 		// ```
 		if !negated_rules.is_empty() {
-			let ignored_matchers: Vec<GlobMatcher> =
+			let ignored_negated_matches: Vec<GlobMatcher> =
 				negated_rules.iter().map(|i| i.compile_matcher()).collect();
 
 			ignored_star_globs.retain(|star_glob| {
 				let star = star_glob.compile_matcher();
 				let star_glob = star_glob.glob();
-				println!("negated_rules: {}", negated_rules.len());
 				negated_rules
 					.iter()
-					.zip(ignored_matchers.iter())
+					.zip(ignored_negated_matches.iter())
 					.any(|(a, b)| !(star.is_match(a.glob()) || b.is_match(star_glob)))
 			});
 		}
