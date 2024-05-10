@@ -174,6 +174,7 @@ pub fn module((model, sync_type): ModelWithSyncType) -> Module {
 		model.name(),
 		quote! {
 			use super::prisma::*;
+			use prisma_client_rust::scalar_types::*;
 
 			#sync_id
 

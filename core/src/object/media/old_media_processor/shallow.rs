@@ -354,7 +354,7 @@ async fn get_files_by_extensions(
 				.collect::<Vec<_>>()
 				.join(",")
 		),
-		PrismaValue::Int(parent_iso_file_path.location_id() as i64),
+		PrismaValue::Int(parent_iso_file_path.location_id()),
 		PrismaValue::String(
 			parent_iso_file_path
 				.materialized_path_for_children()
