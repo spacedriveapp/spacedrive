@@ -575,6 +575,8 @@
   "sync_with_library": "ライブラリと同期する",
   "sync_with_library_description": "有効にすると、キーバインドがライブラリと同期されます。無効にすると、このクライアントにのみ適用されます。",
   "system": "システム",
+  "tag": "タグ",
+  "tag_other": "タグ",
   "tags": "タグ",
   "tags_description": "タグを管理します。",
   "tags_notice_message": "このタグに割り当てられたアイテムはありません。",
