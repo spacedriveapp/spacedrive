@@ -1,17 +1,17 @@
 [workspace]
 resolver = "2"
 members = [
-	"core",
-	"core/crates/*",
-	"crates/*",
-	"apps/cli",
-	"apps/p2p-relay",
-	"apps/desktop/src-tauri",
-	"apps/desktop/crates/*",
-	"apps/mobile/modules/sd-core/core",
-	"apps/mobile/modules/sd-core/android/crate",
-	"apps/mobile/modules/sd-core/ios/crate",
-	"apps/server",
+  "core",
+  "core/crates/*",
+  "crates/*",
+  "apps/cli",
+  "apps/p2p-relay",
+  "apps/desktop/src-tauri",
+  "apps/desktop/crates/*",
+  "apps/mobile/modules/sd-core/core",
+  "apps/mobile/modules/sd-core/android/crate",
+  "apps/mobile/modules/sd-core/ios/crate",
+  "apps/server",
 ]
 
 [workspace.package]
@@ -20,22 +20,22 @@ edition = "2021"
 repository = "https://github.com/spacedriveapp/spacedrive"
 
 [workspace.dependencies]
-# First party dependencies
-prisma-client-rust = { git = "https://github.com/spacedriveapp/prisma-client-rust", rev = "528ab1cd02c25a1b183c0a8bc44e28954fdd0bfd", features = [
-	"migrations",
-	"specta",
-	"sqlite",
-	"sqlite-create-many",
+prisma-client-rust = { git = "https://github.com/brendonovich/prisma-client-rust", rev = "4f9ef9d38ca732162accff72b2eb684d2f120bab", features = [
+  "migrations",
+  "specta",
+  "sqlite",
+  "sqlite-create-many",
 ], default-features = false }
-prisma-client-rust-cli = { git = "https://github.com/spacedriveapp/prisma-client-rust", rev = "528ab1cd02c25a1b183c0a8bc44e28954fdd0bfd", features = [
-	"migrations",
-	"specta",
-	"sqlite",
-	"sqlite-create-many",
+prisma-client-rust-cli = { git = "https://github.com/brendonovich/prisma-client-rust", rev = "4f9ef9d38ca732162accff72b2eb684d2f120bab", features = [
+  "migrations",
+  "specta",
+  "sqlite",
+  "sqlite-create-many",
 ], default-features = false }
-prisma-client-rust-sdk = { git = "https://github.com/spacedriveapp/prisma-client-rust", rev = "528ab1cd02c25a1b183c0a8bc44e28954fdd0bfd", features = [
-	"sqlite",
+prisma-client-rust-sdk = { git = "https://github.com/brendonovich/prisma-client-rust", rev = "4f9ef9d38ca732162accff72b2eb684d2f120bab", features = [
+  "sqlite",
 ], default-features = false }
+
 rspc = { version = "0.1.4" }
 specta = { version = "=2.0.0-rc.11" }
 tauri-specta = { version = "=2.0.0-rc.8" }

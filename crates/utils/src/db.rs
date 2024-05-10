@@ -16,7 +16,9 @@ pub enum MigrationError {
 
 /// load_and_migrate will load the database from the given path and migrate it to the latest version of the schema.
 pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationError> {
-	let client = prisma::new_client_with_url(db_url)
+	let client = prisma::PrismaClient::_builder()
+		.with_url(db_url.to_string())
+		.build()
 		.await
 		.map_err(Box::new)?;
 
