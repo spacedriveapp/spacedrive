@@ -1,3 +1,4 @@
+use futures_concurrency::future::Join;
 use sd_core_file_path_helper::{FilePathMetadata, IsolatedFilePathData};
 use sd_core_indexer_rules::{seed::GitIgnoreRules, IndexerRule, RuleKind};
 use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_walker};
@@ -115,7 +116,8 @@ where
 /// a list of accepted entries. There are some useful comments in the implementation of this function
 /// in case of doubts.
 pub(super) async fn walk<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
-	root: impl AsRef<Path>,
+	library_root: impl AsRef<Path>,
+	current_dir: impl AsRef<Path>,
 	indexer_rules: &mut Vec<IndexerRule>,
 	mut update_notifier: impl FnMut(&Path, usize),
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> FilePathDBFetcherFut,
@@ -138,11 +140,11 @@ where
 	ToRemoveDbFetcherFut:
 		Future<Output = Result<Vec<file_path_pub_and_cas_ids::Data>, IndexerError>>,
 {
-	let root = root.as_ref();
+	let current_dir = current_dir.as_ref();
 
 	let mut to_walk = VecDeque::with_capacity(TO_WALK_QUEUE_INITIAL_CAPACITY);
 	to_walk.push_back(ToWalkEntry {
-		path: root.to_path_buf(),
+		path: current_dir.to_path_buf(),
 		parent_dir_accepted_by_its_children: None,
 		maybe_parent: None,
 	});
@@ -156,7 +158,8 @@ where
 		let last_indexed_count = indexed_paths.len();
 
 		let (entry_size, current_to_remove) = inner_walk_single_dir(
-			root,
+			library_root.as_ref(),
+			current_dir,
 			&entry,
 			indexer_rules,
 			&to_remove_db_fetcher,
@@ -199,6 +202,7 @@ where
 }
 
 pub(super) async fn keep_walking<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
+	location_path: impl AsRef<Path>,
 	to_walk_entry: &ToWalkEntry,
 	indexer_rules: &mut Vec<IndexerRule>,
 	mut update_notifier: impl FnMut(&Path, usize),
@@ -227,6 +231,7 @@ where
 	let mut errors = vec![];
 
 	let (to_walk_entry_size, to_remove) = inner_walk_single_dir(
+		location_path,
 		to_walk_entry.path.clone(),
 		to_walk_entry,
 		indexer_rules,
@@ -265,7 +270,8 @@ where
 }
 
 pub(super) async fn walk_single_dir<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
-	root: impl AsRef<Path>,
+	location_path: impl AsRef<Path>,
+	current_dir: impl AsRef<Path>,
 	indexer_rules: &mut Vec<IndexerRule>,
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> FilePathDBFetcherFut,
 	to_remove_db_fetcher: impl Fn(
@@ -289,18 +295,18 @@ where
 	ToRemoveDbFetcherFut:
 		Future<Output = Result<Vec<file_path_pub_and_cas_ids::Data>, IndexerError>>,
 {
-	let root = root.as_ref();
+	let current_directory = current_dir.as_ref();
 
 	let mut indexed_paths = HashSet::with_capacity(WALK_SINGLE_DIR_PATHS_BUFFER_INITIAL_CAPACITY);
 
 	if add_root {
-		let metadata = fs::metadata(root)
+		let metadata = fs::metadata(current_directory)
 			.await
-			.map_err(|e| FileIOError::from((root, e)))?;
+			.map_err(|e| FileIOError::from((current_directory, e)))?;
 
 		indexed_paths.insert(WalkingEntry {
-			iso_file_path: iso_file_path_factory(root, true)?,
-			maybe_metadata: Some(FilePathMetadata::from_path(root, &metadata)?),
+			iso_file_path: iso_file_path_factory(current_directory, true)?,
+			maybe_metadata: Some(FilePathMetadata::from_path(current_directory, &metadata)?),
 		});
 	}
 
@@ -308,9 +314,10 @@ where
 	let mut errors = vec![];
 
 	let (root_size, to_remove) = inner_walk_single_dir(
-		root,
+		location_path,
+		current_directory,
 		&ToWalkEntry {
-			path: root.to_path_buf(),
+			path: current_directory.to_path_buf(),
 			parent_dir_accepted_by_its_children: None,
 			maybe_parent: None,
 		},
@@ -430,7 +437,8 @@ struct WorkingTable<'a> {
 }
 
 async fn inner_walk_single_dir<ToRemoveDbFetcherFut>(
-	root: impl AsRef<Path>,
+	library_root: impl AsRef<Path>,
+	current_dir: impl AsRef<Path>,
 	ToWalkEntry {
 		path,
 		parent_dir_accepted_by_its_children,
@@ -465,10 +473,14 @@ where
 		return (0, vec![]);
 	};
 
-	let root = root.as_ref();
+	let current_dir = current_dir.as_ref();
 
-	let gitignore_rules = GitIgnoreRules::parse_if_gitrepo(path).await;
-	indexer_rules.extend(gitignore_rules.map(Into::into));
+	let gitignore_rules = [current_dir, library_root.as_ref(), path.as_ref()]
+		.map(GitIgnoreRules::parse_if_gitrepo)
+		.join()
+		.await;
+
+	indexer_rules.extend(gitignore_rules.into_iter().flatten().map(Into::into));
 
 	// Just to make sure...
 	paths_buffer.clear();
@@ -609,7 +621,7 @@ where
 			for ancestor in current_path
 				.ancestors()
 				.skip(1) // Skip the current directory as it was already indexed
-				.take_while(|&ancestor| ancestor != root)
+				.take_while(|&ancestor| ancestor != current_dir)
 			{
 				let Ok(iso_file_path) =
 					iso_file_path_factory(ancestor, true).map_err(|e| errors.push(e))
@@ -841,6 +853,7 @@ mod tests {
 
 		let walk_result = walk(
 			root_path.to_path_buf(),
+			root_path.to_path_buf(),
 			&mut vec![],
 			|_, _| {},
 			|_| async { Ok(vec![]) },
@@ -905,6 +918,7 @@ mod tests {
 		)];
 
 		let walk_result = walk(
+			root_path.to_path_buf(),
 			root_path.to_path_buf(),
 			&mut only_photos_rule,
 			|_, _| {},
@@ -978,6 +992,7 @@ mod tests {
 		)];
 
 		let walk_result = walk(
+			root_path.to_path_buf(),
 			root_path.to_path_buf(),
 			&mut git_repos,
 			|_, _| {},
@@ -1074,6 +1089,7 @@ mod tests {
 		];
 
 		let walk_result = walk(
+			root_path.to_path_buf(),
 			root_path.to_path_buf(),
 			&mut git_repos_no_deps_no_build_dirs,
 			|_, _| {},

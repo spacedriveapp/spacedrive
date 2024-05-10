@@ -208,6 +208,7 @@ impl StatefulJob for OldIndexerJobInit {
 			errors,
 			paths_and_sizes,
 		} = walk(
+			&location_path,
 			&to_walk_path,
 			&mut indexer_rules,
 			update_notifier_fn(ctx),
@@ -397,6 +398,7 @@ impl StatefulJob for OldIndexerJobInit {
 					errors,
 					paths_and_sizes,
 				} = keep_walking(
+					location_path,
 					to_walk_entry,
 					&mut indexer_rules,
 					update_notifier_fn(ctx),

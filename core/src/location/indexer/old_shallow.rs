@@ -79,6 +79,7 @@ pub async fn old_shallow(
 
 	let (walked, to_update, to_remove, errors, _s) = {
 		walk_single_dir(
+			location_path,
 			&to_walk_path,
 			&mut indexer_rules,
 			file_paths_db_fetcher_fn!(&db),

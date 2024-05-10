@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use futures_concurrency::future::Join;
-use globset::{Glob, GlobMatcher};
+use globset::Glob;
 use sd_prisma::prisma::{indexer_rule, PrismaClient};
 
 use chrono::Utc;
@@ -42,15 +42,11 @@ impl GitIgnoreRules {
 		// TODO(matheus-consoli): extend the functionality to also consider other git ignore sources
 		// `[gitignore, ...].map(parse_ignore_rules).collect().join().await` or something
 		// see `https://git-scm.com/docs/gitignore` for other ignore sources
-
 		Self::parse_ignore_rules(path, &path.join(".gitignore")).await
 	}
 
 	/// Parses the git ignore rules from a given file path
-	pub async fn parse_ignore_rules(
-		base_dir: &Path,
-		gitignore: &Path,
-	) -> Result<Self, SeederError> {
+	async fn parse_ignore_rules(base_dir: &Path, gitignore: &Path) -> Result<Self, SeederError> {
 		use tokio::io::AsyncBufReadExt;
 
 		let file = File::open(gitignore)
@@ -93,6 +89,7 @@ impl GitIgnoreRules {
 				// - accepting `path/to/readme.md`
 				//   this REJECTS every file except for `docs/readme.md` (which has already been by the other rule)
 
+				line.remove(0); // pop !
 				let full = base_dir.join(line);
 				let Ok(file) = full.into_os_string().into_string() else {
 					continue;
@@ -110,7 +107,7 @@ impl GitIgnoreRules {
 					continue;
 				};
 
-				if line.contains("*") {
+				if line.contains('*') {
 					ignored_star_globs.extend(file.parse::<Glob>());
 					continue;
 				}
@@ -130,18 +127,19 @@ impl GitIgnoreRules {
 		// !src
 		// ```
 		if !negated_rules.is_empty() {
-			let ignored_negated_matches: Vec<GlobMatcher> =
-				negated_rules.iter().map(|i| i.compile_matcher()).collect();
+			let ignored_negated_matchers: Vec<_> =
+				negated_rules.iter().map(Glob::compile_matcher).collect();
 
 			ignored_star_globs.retain(|star_glob| {
 				let star = star_glob.compile_matcher();
 				let star_glob = star_glob.glob();
 				negated_rules
 					.iter()
-					.zip(ignored_negated_matches.iter())
+					.zip(ignored_negated_matchers.iter())
 					.any(|(a, b)| !(star.is_match(a.glob()) || b.is_match(star_glob)))
 			});
 		}
+
 		rules.extend(
 			ignored_star_globs
 				.into_iter()
