@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use futures_concurrency::future::Join;
+use globset::{Glob, GlobMatcher};
 use sd_prisma::prisma::{indexer_rule, PrismaClient};
 
 use chrono::Utc;
@@ -59,8 +60,8 @@ impl GitIgnoreRules {
 		let buf = BufReader::new(file);
 		let mut lines = buf.lines();
 
-		let mut star_glob = Vec::new();
-		let mut ignore_glob = Vec::new();
+		let mut ignored_star_globs = Vec::new();
+		let mut negated_rules = Vec::new();
 
 		let mut rules = Vec::new();
 		while let Ok(Some(mut line)) = Self::next_line(&mut lines).await {
@@ -91,14 +92,12 @@ impl GitIgnoreRules {
 				//   this rule approves every file inside the git repo, except for the `docs/*.md` files
 				// - accepting `path/to/readme.md`
 				//   this REJECTS every file except for `docs/readme.md` (which has already been by the other rule)
-				//
-				// # Once fixed:
-				// line.remove(0); // pop the !
-				// let full = base_dir.join(line);
-				// let file = full.into_os_string().into_string().unwrap();
-				// RulePerKind::new_accept_files_by_globs_str([file]).unwrap()
 
-				ignore_glob.push(base_dir.join(line));
+				let full = base_dir.join(line);
+				let Ok(file) = full.into_os_string().into_string() else {
+					continue;
+				};
+				negated_rules.extend(file.parse::<Glob>());
 				continue;
 			} else {
 				if line.starts_with('/') {
@@ -111,10 +110,8 @@ impl GitIgnoreRules {
 					continue;
 				};
 
-				if line == "*" {
-					use globset::Glob;
-
-					star_glob.extend(file.parse::<Glob>());
+				if line.contains("*") {
+					ignored_star_globs.extend(file.parse::<Glob>());
 					continue;
 				}
 
@@ -131,17 +128,26 @@ impl GitIgnoreRules {
 		// ```example
 		// *
 		// !src
-		// ```example
-		let allowed_rules = star_glob
-			.into_iter()
-			.filter(|rule| {
-				let rule = rule.compile_matcher();
-				ignore_glob
+		// ```
+		if !negated_rules.is_empty() {
+			let ignored_matchers: Vec<GlobMatcher> =
+				negated_rules.iter().map(|i| i.compile_matcher()).collect();
+
+			ignored_star_globs.retain(|star_glob| {
+				let star = star_glob.compile_matcher();
+				let star_glob = star_glob.glob();
+				println!("negated_rules: {}", negated_rules.len());
+				negated_rules
 					.iter()
-					.any(|should_ignore| !rule.is_match(should_ignore))
-			})
-			.filter_map(|rule| RulePerKind::new_accept_files_by_globs_str([rule.glob()]).ok());
-		rules.extend(allowed_rules);
+					.zip(ignored_matchers.iter())
+					.any(|(a, b)| !(star.is_match(a.glob()) || b.is_match(star_glob)))
+			});
+		}
+		rules.extend(
+			ignored_star_globs
+				.into_iter()
+				.filter_map(|rule| RulePerKind::new_reject_files_by_globs_str([rule.glob()]).ok()),
+		);
 
 		Ok(Self { rules })
 	}
