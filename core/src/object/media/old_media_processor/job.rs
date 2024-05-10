@@ -602,7 +602,7 @@ async fn get_files_for_labeling(
 				""
 			}
 		),
-		PrismaValue::Int(parent_iso_file_path.location_id() as i64),
+		PrismaValue::Int(parent_iso_file_path.location_id()),
 		PrismaValue::String(format!(
 			"{}%",
 			parent_iso_file_path
