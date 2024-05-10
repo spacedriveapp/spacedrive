@@ -575,8 +575,6 @@
   "sync_with_library": "與圖書館同步",
   "sync_with_library_description": "如果啟用，您的鍵綁定將與圖書館同步，否則它們僅適用於此客戶端。",
   "system": "系統",
-  "tag": "標籤",
-  "tag_other": "標籤",
   "tags": "標籤",
   "tags_description": "管理您的標籤。",
   "tags_notice_message": "沒有項目分配給該標籤。",

@@ -575,8 +575,6 @@
   "sync_with_library": "与库同步",
   "sync_with_library_description": "如果启用，您的键绑定将与库同步，否则它们只适用于此客户端。",
   "system": "系统",
-  "tag": "标签",
-  "tag_other": "标签",
   "tags": "标签",
   "tags_description": "管理您的标签。",
   "tags_notice_message": "没有项目分配给该标签。",
