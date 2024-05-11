@@ -1,10 +1,15 @@
-use crate::Error;
+use crate::{Error, JobContext};
 
 use sd_prisma::prisma::location;
 use sd_task_system::BaseTaskDispatcher;
 use sd_utils::error::FileIOError;
 
-use std::{cell::RefCell, collections::hash_map::HashMap, path::Path, sync::Arc};
+use std::{
+	cell::RefCell,
+	collections::hash_map::HashMap,
+	path::{Path, PathBuf},
+	sync::Arc,
+};
 
 use async_channel as chan;
 use futures::Stream;
@@ -20,7 +25,7 @@ mod runner;
 mod store;
 pub mod utils;
 
-use error::JobSystemError;
+pub use error::JobSystemError;
 use job::{IntoJob, Job, JobName, JobOutput, OuterContext};
 use runner::{run, JobSystemRunner, RunnerMessage};
 use store::{load_jobs, StoredJobEntry};
@@ -38,18 +43,18 @@ pub enum Command {
 	Cancel,
 }
 
-pub struct JobSystem<Ctx: OuterContext> {
-	msgs_tx: chan::Sender<RunnerMessage<Ctx>>,
+pub struct JobSystem<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
+	msgs_tx: chan::Sender<RunnerMessage<OuterCtx, JobCtx>>,
 	job_outputs_rx: chan::Receiver<(JobId, Result<JobOutput, JobSystemError>)>,
+	store_jobs_file: Arc<PathBuf>,
 	runner_handle: RefCell<Option<JoinHandle<()>>>,
 }
 
-impl<Ctx: OuterContext> JobSystem<Ctx> {
-	pub async fn new(
+impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, JobCtx> {
+	pub fn new(
 		base_dispatcher: BaseTaskDispatcher<Error>,
-		data_directory: impl AsRef<Path> + Send,
-		previously_existing_contexts: &HashMap<Uuid, Ctx>,
-	) -> Result<Self, JobSystemError> {
+		data_directory: impl AsRef<Path>,
+	) -> Self {
 		let (job_outputs_tx, job_outputs_rx) = chan::unbounded();
 		let (job_return_status_tx, job_return_status_rx) = chan::bounded(16);
 		let (msgs_tx, msgs_rx) = chan::bounded(8);
@@ -97,18 +102,24 @@ impl<Ctx: OuterContext> JobSystem<Ctx> {
 			}
 		})));
 
-		load_stored_job_entries(
-			store_jobs_file.as_ref(),
-			previously_existing_contexts,
-			&msgs_tx,
-		)
-		.await?;
-
-		Ok(Self {
+		Self {
 			msgs_tx,
 			job_outputs_rx,
+			store_jobs_file,
 			runner_handle,
-		})
+		}
+	}
+
+	pub async fn init(
+		&self,
+		previously_existing_contexts: &HashMap<Uuid, OuterCtx>,
+	) -> Result<(), JobSystemError> {
+		load_stored_job_entries(
+			&*self.store_jobs_file,
+			previously_existing_contexts,
+			&self.msgs_tx,
+		)
+		.await
 	}
 
 	/// Checks if *any* of the desired jobs is running for the desired location
@@ -164,11 +175,11 @@ impl<Ctx: OuterContext> JobSystem<Ctx> {
 	/// Dispatch a new job to the system
 	/// # Panics
 	/// Panics only happen if internal channels are unexpectedly closed
-	pub async fn dispatch<J: Job + SerializableJob<Ctx>>(
+	pub async fn dispatch<J: Job + SerializableJob<OuterCtx>>(
 		&mut self,
-		job: impl IntoJob<J, Ctx> + Send,
+		job: impl IntoJob<J, OuterCtx, JobCtx> + Send,
 		location_id: location::id::Type,
-		ctx: Ctx,
+		ctx: OuterCtx,
 	) -> Result<JobId, JobSystemError> {
 		let dyn_job = job.into_job();
 		let id = dyn_job.id();
@@ -230,12 +241,15 @@ impl<Ctx: OuterContext> JobSystem<Ctx> {
 
 /// SAFETY: Due to usage of refcell we lost `Sync` impl, but we only use it to have a shutdown method
 /// receiving `&self` which is called once, and we also use `try_borrow_mut` so we never panic
-unsafe impl<Ctx: OuterContext> Sync for JobSystem<Ctx> {}
+unsafe impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> Sync
+	for JobSystem<OuterCtx, JobCtx>
+{
+}
 
-async fn load_stored_job_entries<Ctx: OuterContext>(
+async fn load_stored_job_entries<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 	store_jobs_file: impl AsRef<Path> + Send,
-	previously_existing_job_contexts: &HashMap<Uuid, Ctx>,
-	msgs_tx: &chan::Sender<RunnerMessage<Ctx>>,
+	previously_existing_job_contexts: &HashMap<Uuid, OuterCtx>,
+	msgs_tx: &chan::Sender<RunnerMessage<OuterCtx, JobCtx>>,
 ) -> Result<(), JobSystemError> {
 	let store_jobs_file = store_jobs_file.as_ref();
 

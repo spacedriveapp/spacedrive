@@ -1,4 +1,4 @@
-use crate::{file_identifier, indexer, media_processor};
+use crate::{file_identifier, indexer, media_processor, JobContext};
 
 use sd_prisma::prisma::{job, location};
 use sd_utils::uuid_to_bytes;
@@ -22,7 +22,7 @@ use super::{
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SerializedTasks(pub Vec<u8>);
 
-pub trait SerializableJob<Ctx: OuterContext>: 'static
+pub trait SerializableJob<OuterCtx: OuterContext>: 'static
 where
 	Self: Sized,
 {
@@ -35,7 +35,7 @@ where
 	#[allow(unused_variables)]
 	fn deserialize(
 		serialized_job: &[u8],
-		ctx: &Ctx,
+		ctx: &OuterCtx,
 	) -> impl Future<
 		Output = Result<Option<(Self, Option<SerializedTasks>)>, rmp_serde::decode::Error>,
 	> + Send {
@@ -57,13 +57,13 @@ pub struct StoredJobEntry {
 	pub(super) next_jobs: Vec<StoredJob>,
 }
 
-pub async fn load_jobs<Ctx: OuterContext>(
+pub async fn load_jobs<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 	entries: Vec<StoredJobEntry>,
-	ctx: &Ctx,
+	ctx: &OuterCtx,
 ) -> Result<
 	Vec<(
 		location::id::Type,
-		Box<dyn DynJob<Ctx>>,
+		Box<dyn DynJob<OuterCtx, JobCtx>>,
 		Option<SerializedTasks>,
 	)>,
 	JobSystemError,
@@ -166,7 +166,7 @@ pub async fn load_jobs<Ctx: OuterContext>(
 }
 
 macro_rules! match_deserialize_job {
-	($stored_job:ident, $report:ident, $ctx:ident, $ctx_type:ty, [$($job_type:ty),+ $(,)?]) => {{
+	($stored_job:ident, $report:ident, $outer_ctx:ident, $outer_ctx_type:ty, $job_ctx_type:ty, [$($job_type:ty),+ $(,)?]) => {{
 		let StoredJob {
 			id,
 			name,
@@ -175,12 +175,12 @@ macro_rules! match_deserialize_job {
 
 
 		match name {
-			$(<$job_type as Job>::NAME => <$job_type as SerializableJob<$ctx_type>>::deserialize(
+			$(<$job_type as Job>::NAME => <$job_type as SerializableJob<$outer_ctx_type>>::deserialize(
 					&serialized_job,
-					$ctx,
+					$outer_ctx,
 				).await
 					.map(|maybe_job| maybe_job.map(|(job, tasks)| -> (
-							Box<dyn DynJob<$ctx_type>>,
+							Box<dyn DynJob<$outer_ctx_type, $job_ctx_type>>,
 							Option<SerializedTasks>
 						) {
 							(
@@ -200,16 +200,17 @@ macro_rules! match_deserialize_job {
 	}};
 }
 
-async fn load_job<Ctx: OuterContext>(
+async fn load_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 	stored_job: StoredJob,
 	report: Report,
-	ctx: &Ctx,
-) -> Result<Option<(Box<dyn DynJob<Ctx>>, Option<SerializedTasks>)>, JobSystemError> {
+	ctx: &OuterCtx,
+) -> Result<Option<(Box<dyn DynJob<OuterCtx, JobCtx>>, Option<SerializedTasks>)>, JobSystemError> {
 	match_deserialize_job!(
 		stored_job,
 		report,
 		ctx,
-		Ctx,
+		OuterCtx,
+		JobCtx,
 		[
 			indexer::job::Indexer,
 			file_identifier::job::FileIdentifier,

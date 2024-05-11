@@ -6,19 +6,7 @@ use crate::{
 		indexer::reverse_update_directories_sizes, location_with_indexer_rules,
 		manager::LocationManagerError, scan_location_sub_path, update_location_size,
 	},
-	object::{
-		media::{
-			exif_data_image_to_query_params,
-			exif_metadata_extractor::{can_extract_exif_data_for_image, extract_exif_data},
-			ffmpeg_metadata_extractor::{
-				can_extract_ffmpeg_data_for_audio, can_extract_ffmpeg_data_for_video,
-				extract_ffmpeg_data, save_ffmpeg_data,
-			},
-			old_thumbnail::get_indexed_thumbnail_path,
-		},
-		old_file_identifier::FileMetadata,
-		validation::hash::file_checksum,
-	},
+	object::{media::get_indexed_thumbnail_path, validation::hash::file_checksum},
 	Node,
 };
 
@@ -28,6 +16,13 @@ use sd_core_file_path_helper::{
 	loose_find_existing_file_path_params, path_is_hidden, FilePathError, FilePathMetadata,
 	IsolatedFilePathData, MetadataExt,
 };
+use sd_core_heavy_lifting::{
+	file_identifier::FileMetadata,
+	media_processor::{
+		exif_media_data, ffmpeg_media_data, generate_single_thumbnail, get_thumbnails_directory,
+		ThumbnailKind,
+	},
+};
 use sd_core_prisma_helpers::file_path_with_object;
 
 use sd_file_ext::{
@@ -35,14 +30,14 @@ use sd_file_ext::{
 	kind::ObjectKind,
 };
 use sd_prisma::{
-	prisma::{exif_data, file_path, location, object},
+	prisma::{file_path, location, object},
 	prisma_sync,
 };
 use sd_sync::OperationFactory;
 use sd_utils::{
 	db::{inode_from_db, inode_to_db, maybe_missing},
 	error::FileIOError,
-	msgpack, uuid_to_bytes,
+	from_bytes_to_uuid, msgpack, uuid_to_bytes,
 };
 
 #[cfg(target_family = "unix")]
@@ -330,14 +325,19 @@ async fn inner_create_file(
 				spawn({
 					let extension = extension.clone();
 					let path = path.to_path_buf();
-					let node = node.clone();
+					let thumbnails_directory =
+						get_thumbnails_directory(node.config.data_directory());
 					let library_id = *library_id;
 
 					async move {
-						if let Err(e) = node
-							.thumbnailer
-							.generate_single_indexed_thumbnail(&extension, cas_id, path, library_id)
-							.await
+						if let Err(e) = generate_single_thumbnail(
+							&thumbnails_directory,
+							extension,
+							cas_id,
+							path,
+							ThumbnailKind::Indexed(library_id),
+						)
+						.await
 						{
 							error!("Failed to generate thumbnail in the watcher: {e:#?}");
 						}
@@ -349,34 +349,15 @@ async fn inner_create_file(
 		match kind {
 			ObjectKind::Image => {
 				if let Ok(image_extension) = ImageExtension::from_str(&extension) {
-					if can_extract_exif_data_for_image(&image_extension) {
-						if let Ok(Some(exif_data)) = extract_exif_data(path)
+					if exif_media_data::can_extract(image_extension) {
+						if let Ok(Some(exif_data)) = exif_media_data::extract(path)
 							.await
 							.map_err(|e| error!("Failed to extract media data: {e:#?}"))
 						{
-							let (sync_params, db_params) =
-								exif_data_image_to_query_params(exif_data);
-
-							sync.write_ops(
+							exif_media_data::save(
+								[(exif_data, object_id, from_bytes_to_uuid(&object_pub_id))],
 								db,
-								(
-									sync.shared_create(
-										prisma_sync::exif_data::SyncId {
-											object: prisma_sync::object::SyncId {
-												pub_id: object_pub_id.clone(),
-											},
-										},
-										sync_params,
-									),
-									db.exif_data().upsert(
-										exif_data::object_id::equals(object_id),
-										exif_data::create(
-											object::id::equals(object_id),
-											db_params.clone(),
-										),
-										db_params,
-									),
-								),
+								sync,
 							)
 							.await?;
 						}
@@ -386,12 +367,12 @@ async fn inner_create_file(
 
 			ObjectKind::Audio => {
 				if let Ok(audio_extension) = AudioExtension::from_str(&extension) {
-					if can_extract_ffmpeg_data_for_audio(&audio_extension) {
-						if let Ok(ffmpeg_data) = extract_ffmpeg_data(path)
+					if ffmpeg_media_data::can_extract_for_audio(audio_extension) {
+						if let Ok(ffmpeg_data) = ffmpeg_media_data::extract(path)
 							.await
 							.map_err(|e| error!("Failed to extract media data: {e:#?}"))
 						{
-							save_ffmpeg_data([(ffmpeg_data, object_id)], db).await?;
+							ffmpeg_media_data::save([(ffmpeg_data, object_id)], db).await?;
 						}
 					}
 				}
@@ -399,12 +380,12 @@ async fn inner_create_file(
 
 			ObjectKind::Video => {
 				if let Ok(video_extension) = VideoExtension::from_str(&extension) {
-					if can_extract_ffmpeg_data_for_video(&video_extension) {
-						if let Ok(ffmpeg_data) = extract_ffmpeg_data(path)
+					if ffmpeg_media_data::can_extract_for_video(video_extension) {
+						if let Ok(ffmpeg_data) = ffmpeg_media_data::extract(path)
 							.await
 							.map_err(|e| error!("Failed to extract media data: {e:#?}"))
 						{
-							save_ffmpeg_data([(ffmpeg_data, object_id)], db).await?;
+							ffmpeg_media_data::save([(ffmpeg_data, object_id)], db).await?;
 						}
 					}
 				}
@@ -694,13 +675,18 @@ async fn inner_update_file(
 							let library_id = library.id;
 							let old_cas_id = old_cas_id.clone();
 							spawn(async move {
+								let thumbnails_directory =
+									get_thumbnails_directory(node.config.data_directory());
+
 								let was_overwritten = old_cas_id == cas_id;
-								if let Err(e) = node
-									.thumbnailer
-									.generate_single_indexed_thumbnail(
-										&ext, cas_id, path, library_id,
-									)
-									.await
+								if let Err(e) = generate_single_thumbnail(
+									&thumbnails_directory,
+									ext.clone(),
+									cas_id,
+									path,
+									ThumbnailKind::Indexed(library_id),
+								)
+								.await
 								{
 									error!("Failed to generate thumbnail in the watcher: {e:#?}");
 								}
@@ -728,34 +714,19 @@ async fn inner_update_file(
 				match kind {
 					ObjectKind::Image => {
 						if let Ok(image_extension) = ImageExtension::from_str(extension) {
-							if can_extract_exif_data_for_image(&image_extension) {
-								if let Ok(Some(exif_data)) = extract_exif_data(full_path)
+							if exif_media_data::can_extract(image_extension) {
+								if let Ok(Some(exif_data)) = exif_media_data::extract(full_path)
 									.await
 									.map_err(|e| error!("Failed to extract media data: {e:#?}"))
 								{
-									let (sync_params, db_params) =
-										exif_data_image_to_query_params(exif_data);
-
-									sync.write_ops(
+									exif_media_data::save(
+										[(
+											exif_data,
+											object.id,
+											from_bytes_to_uuid(&object.pub_id),
+										)],
 										db,
-										(
-											sync.shared_create(
-												prisma_sync::exif_data::SyncId {
-													object: prisma_sync::object::SyncId {
-														pub_id: object.pub_id.clone(),
-													},
-												},
-												sync_params,
-											),
-											db.exif_data().upsert(
-												exif_data::object_id::equals(object.id),
-												exif_data::create(
-													object::id::equals(object.id),
-													db_params.clone(),
-												),
-												db_params,
-											),
-										),
+										sync,
 									)
 									.await?;
 								}
@@ -765,12 +736,12 @@ async fn inner_update_file(
 
 					ObjectKind::Audio => {
 						if let Ok(audio_extension) = AudioExtension::from_str(extension) {
-							if can_extract_ffmpeg_data_for_audio(&audio_extension) {
-								if let Ok(ffmpeg_data) = extract_ffmpeg_data(full_path)
+							if ffmpeg_media_data::can_extract_for_audio(audio_extension) {
+								if let Ok(ffmpeg_data) = ffmpeg_media_data::extract(full_path)
 									.await
 									.map_err(|e| error!("Failed to extract media data: {e:#?}"))
 								{
-									save_ffmpeg_data([(ffmpeg_data, object.id)], db).await?;
+									ffmpeg_media_data::save([(ffmpeg_data, object.id)], db).await?;
 								}
 							}
 						}
@@ -778,12 +749,12 @@ async fn inner_update_file(
 
 					ObjectKind::Video => {
 						if let Ok(video_extension) = VideoExtension::from_str(extension) {
-							if can_extract_ffmpeg_data_for_video(&video_extension) {
-								if let Ok(ffmpeg_data) = extract_ffmpeg_data(full_path)
+							if ffmpeg_media_data::can_extract_for_video(video_extension) {
+								if let Ok(ffmpeg_data) = ffmpeg_media_data::extract(full_path)
 									.await
 									.map_err(|e| error!("Failed to extract media data: {e:#?}"))
 								{
-									save_ffmpeg_data([(ffmpeg_data, object.id)], db).await?;
+									ffmpeg_media_data::save([(ffmpeg_data, object.id)], db).await?;
 								}
 							}
 						}

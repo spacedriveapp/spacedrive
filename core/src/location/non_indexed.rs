@@ -1,14 +1,18 @@
 use crate::{
 	api::locations::ExplorerItem,
+	context::NodeContext,
 	library::Library,
 	object::{
 		cas::generate_cas_id,
-		media::old_thumbnail::{get_ephemeral_thumb_key, BatchToProcess, GenerateThumbnailArgs},
+		// media::old_thumbnail::{get_ephemeral_thumb_key, BatchToProcess, GenerateThumbnailArgs},
 	},
 	Node,
 };
 
 use sd_core_file_path_helper::{path_is_hidden, MetadataExt};
+use sd_core_heavy_lifting::media_processor::{
+	self, get_thumbnails_directory, GenerateThumbnailArgs, NewThumbnailsReporter, ThumbKey,
+};
 use sd_core_indexer_rules::{
 	seed::{NO_HIDDEN, NO_SYSTEM_FILES},
 	IndexerRule, RuleKind,
@@ -28,7 +32,7 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use futures::Stream;
-use itertools::Either;
+use itertools::{Either, Itertools};
 use rspc::ErrorCode;
 use serde::Serialize;
 use specta::Type;
@@ -223,7 +227,7 @@ pub async fn walk(
 						}
 
 						(
-							Some(get_ephemeral_thumb_key(&cas_id)),
+							Some(ThumbKey::new_ephemeral(&cas_id)),
 							node.ephemeral_thumbnail_exists(&cas_id)
 								.await
 								.map_err(NonIndexedLocationError::from)?,
@@ -256,12 +260,29 @@ pub async fn walk(
 
 		thumbnails_to_generate.extend(document_thumbnails_to_generate);
 
-		node.thumbnailer
-			.new_ephemeral_thumbnails_batch(BatchToProcess::new(
-				thumbnails_to_generate,
-				false,
-				false,
-			))
+		let thumbnails_directory = Arc::new(get_thumbnails_directory(node.config.data_directory()));
+		let reporter = NewThumbnailsReporter {
+			ctx: NodeContext {
+				node: Arc::clone(&node),
+				library: Arc::clone(&library),
+			},
+		};
+
+		node.task_system
+			.dispatch_many(
+				thumbnails_to_generate
+					.into_iter()
+					.chunks(10)
+					.into_iter()
+					.map(|chunk| {
+						media_processor::Thumbnailer::new_ephemeral(
+							Arc::clone(&thumbnails_directory),
+							chunk.collect(),
+							reporter.clone(),
+						)
+					})
+					.collect::<Vec<_>>(),
+			)
 			.await;
 
 		let mut locations = library

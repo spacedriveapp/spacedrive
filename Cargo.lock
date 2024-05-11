@@ -9101,6 +9101,7 @@ dependencies = [
  "sd-p2p-tunnel",
  "sd-prisma",
  "sd-sync",
+ "sd-task-system",
  "sd-utils",
  "serde",
  "serde-hashkey",

@@ -44,8 +44,11 @@ pub mod utils;
 use media_processor::ThumbKey;
 
 pub use job_system::{
-	job::{IntoJob, JobBuilder, JobName, JobOutput, JobOutputData, OuterContext, ProgressUpdate},
-	JobId, JobSystem,
+	job::{
+		IntoJob, JobBuilder, JobContext, JobName, JobOutput, JobOutputData, OuterContext,
+		ProgressUpdate,
+	},
+	JobId, JobSystem, JobSystemError,
 };
 
 #[derive(Error, Debug)]
@@ -96,7 +99,7 @@ pub enum LocationScanState {
 
 #[derive(Debug, Serialize, Type)]
 pub enum UpdateEvent {
-	NewThumbnailEvent {
+	NewThumbnail {
 		thumb_key: ThumbKey,
 	},
 	NewIdentifiedObjects {

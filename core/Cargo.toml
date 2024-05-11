@@ -13,7 +13,11 @@ default = []
 # This feature allows features to be disabled when the Core is running on mobile.
 mobile = []
 # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
-ffmpeg = ["dep:sd-ffmpeg", "sd-core-heavy-lifting/ffmpeg", "sd-media-metadata/ffmpeg"]
+ffmpeg = [
+	"dep:sd-ffmpeg",
+	"sd-core-heavy-lifting/ffmpeg",
+	"sd-media-metadata/ffmpeg",
+]
 heif = ["sd-images/heif"]
 ai = ["dep:sd-ai"]
 crypto = ["dep:sd-crypto"]
@@ -25,6 +29,7 @@ sd-core-heavy-lifting = { path = "./crates/heavy-lifting" }
 sd-core-indexer-rules = { path = "./crates/indexer-rules" }
 sd-core-prisma-helpers = { path = "./crates/prisma-helpers" }
 sd-core-sync = { path = "./crates/sync" }
+
 # Spacedrive Sub-crates
 sd-actors = { path = "../crates/actors", version = "0.1.0" }
 sd-ai = { path = "../crates/ai", optional = true }
@@ -47,6 +52,7 @@ sd-p2p-proto = { path = "../crates/p2p/crates/proto" }
 sd-p2p-tunnel = { path = "../crates/p2p/crates/tunnel" }
 sd-prisma = { path = "../crates/prisma" }
 sd-sync = { path = "../crates/sync" }
+sd-task-system = { path = "../crates/task-system" }
 sd-utils = { path = "../crates/utils" }
 
 # Workspace dependencies

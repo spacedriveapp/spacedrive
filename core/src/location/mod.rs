@@ -1,10 +1,6 @@
 use crate::{
 	invalidate_query,
 	library::Library,
-	object::{
-		media::{old_media_processor, OldMediaProcessorJobInit},
-		old_file_identifier::{self, old_file_identifier_job::OldFileIdentifierJobInit},
-	},
 	old_job::{JobBuilder, JobError, JobManagerError},
 	Node,
 };
@@ -49,7 +45,7 @@ pub mod metadata;
 pub mod non_indexed;
 
 pub use error::LocationError;
-use indexer::OldIndexerJobInit;
+// use indexer::OldIndexerJobInit;
 pub use manager::{LocationManagerError, Locations};
 use metadata::SpacedriveLocationMetadataFile;
 

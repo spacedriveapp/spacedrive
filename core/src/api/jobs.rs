@@ -1,12 +1,8 @@
 use crate::{
 	invalidate_query,
 	location::{find_location, LocationError},
-	object::{
-		media::OldMediaProcessorJobInit,
-		old_file_identifier::old_file_identifier_job::OldFileIdentifierJobInit,
-		validation::old_validator_job::OldObjectValidatorJobInit,
-	},
-	old_job::{Job, JobReport, JobStatus, OldJobs},
+	object::validation::old_validator_job::OldObjectValidatorJobInit,
+	old_job::{JobReport, JobStatus, OldJob, OldJobs},
 };
 
 use sd_core_prisma_helpers::job_without_data;
@@ -250,7 +246,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						return Err(LocationError::IdNotFound(id).into());
 					};
 
-					Job::new(OldMediaProcessorJobInit {
+					OldJob::new(OldMediaProcessorJobInit {
 						location,
 						sub_path: Some(path),
 						regenerate_thumbnails: regenerate,
@@ -282,7 +278,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						return Err(LocationError::IdNotFound(id).into());
 					};
 
-					Job::new(OldMediaProcessorJobInit {
+					OldJob::new(OldMediaProcessorJobInit {
 						location,
 						sub_path: Some(path),
 						regenerate_thumbnails: false,
@@ -307,7 +303,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						return Err(LocationError::IdNotFound(args.id).into());
 					};
 
-					Job::new(OldObjectValidatorJobInit {
+					OldJob::new(OldObjectValidatorJobInit {
 						location,
 						sub_path: Some(args.path),
 					})
@@ -329,7 +325,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						return Err(LocationError::IdNotFound(args.id).into());
 					};
 
-					Job::new(OldFileIdentifierJobInit {
+					OldJob::new(OldFileIdentifierJobInit {
 						location,
 						sub_path: Some(args.path),
 					})

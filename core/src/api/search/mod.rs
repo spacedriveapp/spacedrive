@@ -2,11 +2,11 @@ use crate::{
 	api::{locations::ExplorerItem, utils::library},
 	library::Library,
 	location::{non_indexed, LocationError},
-	object::media::old_thumbnail::get_indexed_thumb_key,
 	util::{unsafe_streamed_query, BatchedStream},
 };
 
 use prisma_client_rust::Operator;
+use sd_core_heavy_lifting::media_processor::ThumbKey;
 use sd_core_prisma_helpers::{file_path_for_frontend, object_with_file_paths};
 use sd_prisma::prisma::{self, PrismaClient};
 
@@ -231,7 +231,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 								.cas_id
 								.as_ref()
 								// .filter(|_| thumbnail_exists_locally)
-								.map(|i| get_indexed_thumb_key(i, library.id)),
+								.map(|i| ThumbKey::new_indexed(i, library.id)),
 							has_created_thumbnail,
 							item: Box::new(file_path),
 						})

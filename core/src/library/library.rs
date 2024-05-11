@@ -1,6 +1,4 @@
-use crate::{
-	api::CoreEvent, cloud, object::media::old_thumbnail::get_indexed_thumbnail_path, sync, Node,
-};
+use crate::{api::CoreEvent, cloud, object::media::get_indexed_thumbnail_path, sync, Node};
 
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::file_path_to_full_path;

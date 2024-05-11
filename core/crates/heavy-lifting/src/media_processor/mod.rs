@@ -19,7 +19,14 @@ pub use tasks::{
 	thumbnailer::{self, Thumbnailer},
 };
 
-pub use helpers::thumbnailer::{ThumbKey, ThumbnailKind};
+pub use helpers::{
+	exif_media_data, ffmpeg_media_data,
+	thumbnailer::{
+		can_generate_thumbnail_for_document, can_generate_thumbnail_for_image,
+		can_generate_thumbnail_for_video, generate_single_thumbnail, get_shard_hex,
+		get_thumbnails_directory, GenerateThumbnailArgs, ThumbKey, ThumbnailKind, WEBP_EXTENSION,
+	},
+};
 pub use shallow::shallow;
 
 use self::thumbnailer::NewThumbnailReporter;
@@ -55,19 +62,20 @@ pub enum NonCriticalError {
 	Thumbnailer(#[from] thumbnailer::NonCriticalError),
 }
 
-struct NewThumbnailsReporter<Ctx: OuterContext> {
-	ctx: Ctx,
+#[derive(Clone)]
+pub struct NewThumbnailsReporter<OuterCtx: OuterContext> {
+	pub ctx: OuterCtx,
 }
 
-impl<Ctx: OuterContext> fmt::Debug for NewThumbnailsReporter<Ctx> {
+impl<OuterCtx: OuterContext> fmt::Debug for NewThumbnailsReporter<OuterCtx> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.debug_struct("NewThumbnailsReporter").finish()
 	}
 }
 
-impl<Ctx: OuterContext> NewThumbnailReporter for NewThumbnailsReporter<Ctx> {
+impl<OuterCtx: OuterContext> NewThumbnailReporter for NewThumbnailsReporter<OuterCtx> {
 	fn new_thumbnail(&self, thumb_key: ThumbKey) {
 		self.ctx
-			.report_update(UpdateEvent::NewThumbnailEvent { thumb_key });
+			.report_update(UpdateEvent::NewThumbnail { thumb_key });
 	}
 }

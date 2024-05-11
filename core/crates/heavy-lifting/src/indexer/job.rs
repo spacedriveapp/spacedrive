@@ -2,14 +2,14 @@ use crate::{
 	indexer,
 	job_system::{
 		job::{
-			Job, JobName, JobReturn, JobTaskDispatcher, OuterContext, ProgressUpdate, ReturnStatus,
+			Job, JobContext, JobName, JobReturn, JobTaskDispatcher, ProgressUpdate, ReturnStatus,
 		},
 		report::ReportOutputMetadata,
 		utils::cancel_pending_tasks,
 		SerializableJob, SerializedTasks,
 	},
 	utils::sub_path::get_full_path_from_sub_path,
-	Error, LocationScanState, NonCriticalError,
+	Error, LocationScanState, NonCriticalError, OuterContext,
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
@@ -72,10 +72,10 @@ pub struct Indexer {
 impl Job for Indexer {
 	const NAME: JobName = JobName::Indexer;
 
-	async fn resume_tasks(
+	async fn resume_tasks<OuterCtx: OuterContext>(
 		&mut self,
 		dispatcher: &JobTaskDispatcher,
-		ctx: &impl OuterContext,
+		ctx: &impl JobContext<OuterCtx>,
 		SerializedTasks(serialized_tasks): SerializedTasks,
 	) -> Result<(), Error> {
 		let location_id = self.location.id;
@@ -130,10 +130,10 @@ impl Job for Indexer {
 		Ok(())
 	}
 
-	async fn run<Ctx: OuterContext>(
+	async fn run<OuterCtx: OuterContext>(
 		mut self,
 		dispatcher: JobTaskDispatcher,
-		ctx: Ctx,
+		ctx: impl JobContext<OuterCtx>,
 	) -> Result<ReturnStatus, Error> {
 		let mut pending_running_tasks = FuturesUnordered::new();
 
@@ -149,7 +149,7 @@ impl Job for Indexer {
 
 		if !self.tasks_for_shutdown.is_empty() {
 			return Ok(ReturnStatus::Shutdown(
-				SerializableJob::<Ctx>::serialize(self).await,
+				SerializableJob::<OuterCtx>::serialize(self).await,
 			));
 		}
 
@@ -185,7 +185,7 @@ impl Job for Indexer {
 
 			if !self.tasks_for_shutdown.is_empty() {
 				return Ok(ReturnStatus::Shutdown(
-					SerializableJob::<Ctx>::serialize(self).await,
+					SerializableJob::<OuterCtx>::serialize(self).await,
 				));
 			}
 		}
@@ -295,18 +295,19 @@ impl Indexer {
 	/// # Panics
 	/// Will panic if another task type is added in the job, but this function wasn't updated to handle it
 	///
-	async fn process_task_output(
+	async fn process_task_output<OuterCtx: OuterContext>(
 		&mut self,
 		task_id: TaskId,
 		any_task_output: Box<dyn AnyTaskOutput>,
-		ctx: &impl OuterContext,
+		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
 	) -> Result<Vec<TaskHandle<Error>>, indexer::Error> {
 		self.metadata.completed_tasks += 1;
 
 		ctx.progress(vec![ProgressUpdate::CompletedTaskCount(
 			self.metadata.completed_tasks,
-		)]);
+		)])
+		.await;
 
 		if any_task_output.is::<WalkTaskOutput>() {
 			return self
@@ -324,14 +325,16 @@ impl Indexer {
 					.downcast::<SaveTaskOutput>()
 					.expect("just checked"),
 				ctx,
-			);
+			)
+			.await;
 		} else if any_task_output.is::<UpdateTaskOutput>() {
 			self.process_update_output(
 				*any_task_output
 					.downcast::<UpdateTaskOutput>()
 					.expect("just checked"),
 				ctx,
-			);
+			)
+			.await;
 		} else {
 			unreachable!("Unexpected task output type: <id='{task_id}'>");
 		}
@@ -339,7 +342,7 @@ impl Indexer {
 		Ok(Vec::new())
 	}
 
-	async fn process_walk_output(
+	async fn process_walk_output<OuterCtx: OuterContext>(
 		&mut self,
 		WalkTaskOutput {
 			to_create,
@@ -352,7 +355,7 @@ impl Indexer {
 			mut handles,
 			scan_time,
 		}: WalkTaskOutput,
-		ctx: &impl OuterContext,
+		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
 	) -> Result<Vec<TaskHandle<Error>>, indexer::Error> {
 		self.metadata.scan_read_time += scan_time;
@@ -451,43 +454,45 @@ impl Indexer {
 			ProgressUpdate::message(format!(
 				"Found {to_create_count} new files and {to_update_count} to update"
 			)),
-		]);
+		])
+		.await;
 
 		Ok(handles)
 	}
 
-	fn process_save_output(
+	async fn process_save_output<OuterCtx: OuterContext>(
 		&mut self,
 		SaveTaskOutput {
 			saved_count,
 			save_duration,
 		}: SaveTaskOutput,
-		ctx: &impl OuterContext,
+		ctx: &impl JobContext<OuterCtx>,
 	) {
 		self.metadata.indexed_count += saved_count;
 		self.metadata.db_write_time += save_duration;
 
-		ctx.progress_msg(format!("Saved {saved_count} files"));
+		ctx.progress_msg(format!("Saved {saved_count} files")).await;
 	}
 
-	fn process_update_output(
+	async fn process_update_output<OuterCtx: OuterContext>(
 		&mut self,
 		UpdateTaskOutput {
 			updated_count,
 			update_duration,
 		}: UpdateTaskOutput,
-		ctx: &impl OuterContext,
+		ctx: &impl JobContext<OuterCtx>,
 	) {
 		self.metadata.updated_count += updated_count;
 		self.metadata.db_write_time += update_duration;
 
-		ctx.progress_msg(format!("Updated {updated_count} files"));
+		ctx.progress_msg(format!("Updated {updated_count} files"))
+			.await;
 	}
 
-	async fn process_handles(
+	async fn process_handles<OuterCtx: OuterContext>(
 		&mut self,
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
-		ctx: &impl OuterContext,
+		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
 	) -> Option<Result<ReturnStatus, Error>> {
 		while let Some(task) = pending_running_tasks.next().await {
@@ -539,10 +544,10 @@ impl Indexer {
 		None
 	}
 
-	async fn init_or_resume(
+	async fn init_or_resume<OuterCtx: OuterContext>(
 		&mut self,
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
-		ctx: &impl OuterContext,
+		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
 	) -> Result<(), indexer::Error> {
 		// if we don't have any pending task, then this is a fresh job
@@ -642,7 +647,7 @@ struct SaveState {
 	tasks_for_shutdown_bytes: Option<SerializedTasks>,
 }
 
-impl<Ctx: OuterContext> SerializableJob<Ctx> for Indexer {
+impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for Indexer {
 	async fn serialize(self) -> Result<Option<Vec<u8>>, rmp_serde::encode::Error> {
 		let Self {
 			location,
@@ -710,7 +715,7 @@ impl<Ctx: OuterContext> SerializableJob<Ctx> for Indexer {
 
 	async fn deserialize(
 		serialized_job: &[u8],
-		_: &Ctx,
+		_: &OuterCtx,
 	) -> Result<Option<(Self, Option<SerializedTasks>)>, rmp_serde::decode::Error> {
 		let SaveState {
 			location,

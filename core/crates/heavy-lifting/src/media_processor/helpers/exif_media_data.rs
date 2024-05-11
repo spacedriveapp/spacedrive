@@ -1,12 +1,24 @@
 use crate::media_processor::{self, media_data_extractor};
 
+use prisma_client_rust::QueryError;
+use sd_core_sync::Manager as SyncManager;
+
 use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
 use sd_media_metadata::ExifMetadata;
-use sd_prisma::prisma::{exif_data, object, PrismaClient};
+use sd_prisma::{
+	prisma::{exif_data, object, PrismaClient},
+	prisma_sync,
+};
+use sd_sync::{option_sync_db_entry, OperationFactory};
+use sd_utils::{chain_optional_iter, uuid_to_bytes};
+use uuid::Uuid;
 
 use std::path::Path;
 
+use futures_concurrency::future::TryJoin;
 use once_cell::sync::Lazy;
+
+use super::from_slice_option_to_option;
 
 pub static AVAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 	ALL_IMAGE_EXTENSIONS
@@ -17,6 +29,7 @@ pub static AVAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 		.collect()
 });
 
+#[must_use]
 pub const fn can_extract(image_extension: ImageExtension) -> bool {
 	use ImageExtension::{
 		Avci, Avcs, Avif, Dng, Heic, Heif, Heifs, Hif, Jpeg, Jpg, Png, Tiff, Webp,
@@ -27,24 +40,53 @@ pub const fn can_extract(image_extension: ImageExtension) -> bool {
 	)
 }
 
-pub fn to_query(
-	mdi: ExifMetadata,
+#[must_use]
+fn to_query(
+	ExifMetadata {
+		resolution,
+		date_taken,
+		location,
+		camera_data,
+		artist,
+		description,
+		copyright,
+		exif_version,
+	}: ExifMetadata,
 	object_id: exif_data::object_id::Type,
-) -> exif_data::CreateUnchecked {
-	exif_data::CreateUnchecked {
-		object_id,
-		_params: vec![
-			exif_data::camera_data::set(serde_json::to_vec(&mdi.camera_data).ok()),
-			exif_data::media_date::set(serde_json::to_vec(&mdi.date_taken).ok()),
-			exif_data::resolution::set(serde_json::to_vec(&mdi.resolution).ok()),
-			exif_data::media_location::set(serde_json::to_vec(&mdi.location).ok()),
-			exif_data::artist::set(mdi.artist),
-			exif_data::description::set(mdi.description),
-			exif_data::copyright::set(mdi.copyright),
-			exif_data::exif_version::set(mdi.exif_version),
-			exif_data::epoch_time::set(mdi.date_taken.map(|x| x.unix_timestamp())),
+) -> (Vec<(&'static str, rmpv::Value)>, exif_data::Create) {
+	let (sync_params, db_params) = chain_optional_iter(
+		[],
+		[
+			option_sync_db_entry!(
+				serde_json::to_vec(&camera_data).ok(),
+				exif_data::camera_data
+			),
+			option_sync_db_entry!(serde_json::to_vec(&date_taken).ok(), exif_data::media_date),
+			option_sync_db_entry!(serde_json::to_vec(&resolution).ok(), exif_data::resolution),
+			option_sync_db_entry!(
+				serde_json::to_vec(&location).ok(),
+				exif_data::media_location
+			),
+			option_sync_db_entry!(artist, exif_data::artist),
+			option_sync_db_entry!(description, exif_data::description),
+			option_sync_db_entry!(copyright, exif_data::copyright),
+			option_sync_db_entry!(exif_version, exif_data::exif_version),
+			option_sync_db_entry!(
+				date_taken.map(|x| x.unix_timestamp()),
+				exif_data::epoch_time
+			),
 		],
-	}
+	)
+	.into_iter()
+	.unzip();
+
+	(
+		sync_params,
+		exif_data::Create {
+			object: object::id::equals(object_id),
+			_params: db_params,
+		},
+	)
 }
 
 pub async fn extract(
@@ -62,24 +104,62 @@ pub async fn extract(
 }
 
 pub async fn save(
-	media_datas: Vec<(ExifMetadata, object::id::Type)>,
+	exif_datas: impl IntoIterator<Item = (ExifMetadata, object::id::Type, Uuid)> + Send,
 	db: &PrismaClient,
-) -> Result<u64, media_processor::Error> {
-	db.exif_data()
-		.create_many(
-			media_datas
-				.into_iter()
-				.map(|(exif_data, object_id)| to_query(exif_data, object_id))
-				.collect(),
-		)
-		.skip_duplicates()
-		.exec()
-		.await
-		.map(|created| {
-			#[allow(clippy::cast_sign_loss)]
-			{
-				created as u64
-			}
+	sync: &SyncManager,
+) -> Result<u64, QueryError> {
+	exif_datas
+		.into_iter()
+		.map(|(exif_data, object_id, object_pub_id)| async move {
+			let (sync_params, create) = to_query(exif_data, object_id);
+			let db_params = create._params.clone();
+
+			sync.write_ops(
+				db,
+				(
+					sync.shared_create(
+						prisma_sync::exif_data::SyncId {
+							object: prisma_sync::object::SyncId {
+								pub_id: uuid_to_bytes(object_pub_id),
+							},
+						},
+						sync_params,
+					),
+					db.exif_data()
+						.upsert(exif_data::object_id::equals(object_id), create, db_params)
+						.select(exif_data::select!({ id })),
+				),
+			)
+			.await
 		})
-		.map_err(Into::into)
+		.collect::<Vec<_>>()
+		.try_join()
+		.await
+		.map(|created_vec| created_vec.len() as u64)
+}
+
+#[must_use]
+pub fn from_prisma_data(
+	exif_data::Data {
+		resolution,
+		media_date,
+		media_location,
+		camera_data,
+		artist,
+		description,
+		copyright,
+		exif_version,
+		..
+	}: exif_data::Data,
+) -> ExifMetadata {
+	ExifMetadata {
+		camera_data: from_slice_option_to_option(camera_data).unwrap_or_default(),
+		date_taken: from_slice_option_to_option(media_date).unwrap_or_default(),
+		resolution: from_slice_option_to_option(resolution).unwrap_or_default(),
+		location: from_slice_option_to_option(media_location),
+		artist,
+		description,
+		copyright,
+		exif_version,
+	}
 }

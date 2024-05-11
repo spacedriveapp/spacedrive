@@ -7,11 +7,13 @@ use crate::{
 	library::Library,
 	object::{
 		fs::{error::FileSystemJobsError, find_available_filename_for_duplicate},
-		media::exif_metadata_extractor::{can_extract_exif_data_for_image, extract_exif_data},
+		// media::exif_metadata_extractor::{can_extract_exif_data_for_image, extract_exif_data},
 	},
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
+use sd_core_heavy_lifting::media_processor::exif_media_data;
+
 use sd_file_ext::{
 	extensions::{Extension, ImageExtension},
 	kind::ObjectKind,
@@ -71,11 +73,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							)
 						})?;
 
-						if !can_extract_exif_data_for_image(&image_extension) {
+						if !exif_media_data::can_extract(image_extension) {
 							return Ok(None);
 						}
 
-						let exif_data = extract_exif_data(full_path)
+						let exif_data = exif_media_data::extract(full_path)
 							.await
 							.map_err(|e| {
 								rspc::Error::with_cause(

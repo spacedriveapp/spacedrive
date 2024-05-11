@@ -156,8 +156,8 @@ pub struct JobBuilder<SJob: StatefulJob> {
 }
 
 impl<SJob: StatefulJob> JobBuilder<SJob> {
-	pub fn build(self) -> Box<Job<SJob>> {
-		Box::new(Job::<SJob> {
+	pub fn build(self) -> Box<OldJob<SJob>> {
+		Box::new(OldJob::<SJob> {
 			id: self.id,
 			hash: <SJob as StatefulJob>::hash(&self.init),
 			report: Some(self.report_builder.build()),
@@ -197,7 +197,7 @@ impl<SJob: StatefulJob> JobBuilder<SJob> {
 	}
 }
 
-pub struct Job<SJob: StatefulJob> {
+pub struct OldJob<SJob: StatefulJob> {
 	id: Uuid,
 	hash: u64,
 	report: Option<JobReport>,
@@ -205,7 +205,7 @@ pub struct Job<SJob: StatefulJob> {
 	next_jobs: VecDeque<Box<dyn DynJob>>,
 }
 
-impl<SJob: StatefulJob> Job<SJob> {
+impl<SJob: StatefulJob> OldJob<SJob> {
 	pub fn new(init: SJob) -> Box<Self> {
 		JobBuilder::new(init).build()
 	}
@@ -435,7 +435,7 @@ impl<Step, RunMetadata: JobRunMetadata> From<Option<()>> for JobStepOutput<Step,
 }
 
 #[async_trait::async_trait]
-impl<SJob: StatefulJob> DynJob for Job<SJob> {
+impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 	fn id(&self) -> Uuid {
 		// SAFETY: This method is using during queueing, so we still have a report
 		self.report()

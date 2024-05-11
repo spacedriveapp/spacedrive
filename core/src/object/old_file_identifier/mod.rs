@@ -22,10 +22,10 @@ use tokio::fs;
 use tracing::{error, trace};
 use uuid::Uuid;
 
-pub mod old_file_identifier_job;
-mod shallow;
+// pub mod old_file_identifier_job;
+// mod shallow;
 
-pub use shallow::*;
+// pub use shallow::*;
 
 // we break these jobs into chunks of 100 to improve performance
 const CHUNK_SIZE: usize = 100;

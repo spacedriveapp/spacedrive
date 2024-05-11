@@ -7,10 +7,12 @@ use crate::{
 	},
 	media_processor::{self, helpers::thumbnailer::THUMBNAIL_CACHE_DIR_NAME},
 	utils::sub_path::{self, maybe_get_iso_file_path_from_sub_path},
-	Error, JobName, LocationScanState, OuterContext, ProgressUpdate,
+	Error, JobContext, JobName, LocationScanState, OuterContext, ProgressUpdate,
 };
+
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::file_path_for_media_processor;
+use sd_core_sync::Manager as SyncManager;
 
 use sd_file_ext::extensions::Extension;
 use sd_prisma::prisma::{location, PrismaClient};
@@ -97,13 +99,13 @@ pub struct MediaProcessor {
 impl Job for MediaProcessor {
 	const NAME: JobName = JobName::MediaProcessor;
 
-	async fn resume_tasks(
+	async fn resume_tasks<OuterCtx: OuterContext>(
 		&mut self,
 		dispatcher: &JobTaskDispatcher,
-		ctx: &impl OuterContext,
+		ctx: &impl JobContext<OuterCtx>,
 		SerializedTasks(serialized_tasks): SerializedTasks,
 	) -> Result<(), Error> {
-		let reporter = Arc::new(NewThumbnailsReporter { ctx: ctx.clone() });
+		let reporter = NewThumbnailsReporter { ctx: ctx.clone() };
 
 		self.pending_tasks_on_resume = dispatcher
 			.dispatch_many_boxed(
@@ -111,24 +113,23 @@ impl Job for MediaProcessor {
 					.map_err(media_processor::Error::from)?
 					.into_iter()
 					.map(|(task_kind, task_bytes)| {
-						let reporter = Arc::clone(&reporter);
+						let reporter = reporter.clone();
 						async move {
 							match task_kind {
 								TaskKind::MediaDataExtractor => {
 									tasks::MediaDataExtractor::deserialize(
 										&task_bytes,
-										Arc::clone(ctx.db()),
+										(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
 									)
 									.await
 									.map(IntoTask::into_task)
 								}
 
-								TaskKind::Thumbnailer => tasks::Thumbnailer::deserialize(
-									&task_bytes,
-									Arc::clone(&reporter),
-								)
-								.await
-								.map(IntoTask::into_task),
+								TaskKind::Thumbnailer => {
+									tasks::Thumbnailer::deserialize(&task_bytes, reporter)
+										.await
+										.map(IntoTask::into_task)
+								}
 							}
 						}
 					})
@@ -142,10 +143,10 @@ impl Job for MediaProcessor {
 		Ok(())
 	}
 
-	async fn run<Ctx: OuterContext>(
+	async fn run<OuterCtx: OuterContext>(
 		mut self,
 		dispatcher: JobTaskDispatcher,
-		ctx: Ctx,
+		ctx: impl JobContext<OuterCtx>,
 	) -> Result<ReturnStatus, Error> {
 		let mut pending_running_tasks = FuturesUnordered::new();
 
@@ -158,7 +159,7 @@ impl Job for MediaProcessor {
 
 		if !self.tasks_for_shutdown.is_empty() {
 			return Ok(ReturnStatus::Shutdown(
-				SerializableJob::<Ctx>::serialize(self).await,
+				SerializableJob::<OuterCtx>::serialize(self).await,
 			));
 		}
 
@@ -215,10 +216,10 @@ impl MediaProcessor {
 		})
 	}
 
-	async fn init_or_resume(
+	async fn init_or_resume<OuterCtx: OuterContext>(
 		&mut self,
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
-		ctx: &impl OuterContext,
+		job_ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
 	) -> Result<(), media_processor::Error> {
 		// if we don't have any pending task, then this is a fresh job
@@ -230,7 +231,7 @@ impl MediaProcessor {
 				location_id,
 				&self.sub_path,
 				&*self.location_path,
-				ctx.db(),
+				job_ctx.db(),
 			)
 			.await?
 			.map_or_else(
@@ -248,7 +249,8 @@ impl MediaProcessor {
 			// First we will dispatch all tasks for media data extraction so we have a nice reporting
 			let (total_media_data_extraction_files, task_handles) =
 				dispatch_media_data_extractor_tasks(
-					ctx.db(),
+					job_ctx.db(),
+					job_ctx.sync(),
 					&iso_file_path,
 					&self.location_path,
 					dispatcher,
@@ -258,14 +260,16 @@ impl MediaProcessor {
 
 			pending_running_tasks.extend(task_handles);
 
-			ctx.progress(vec![
-				ProgressUpdate::TaskCount(total_media_data_extraction_files),
-				ProgressUpdate::Phase(self.phase.to_string()),
-				ProgressUpdate::Message(format!(
+			job_ctx
+				.progress(vec![
+					ProgressUpdate::TaskCount(total_media_data_extraction_files),
+					ProgressUpdate::Phase(self.phase.to_string()),
+					ProgressUpdate::Message(format!(
 					"Preparing to process {total_media_data_extraction_files} files in {} chunks",
 					self.total_media_data_extraction_tasks
 				)),
-			]);
+				])
+				.await;
 
 			// Now we dispatch thumbnailer tasks
 			let (total_thumbnailer_tasks, task_handles) = dispatch_thumbnailer_tasks(
@@ -273,7 +277,7 @@ impl MediaProcessor {
 				self.regenerate_thumbnails,
 				&self.location_path,
 				dispatcher,
-				ctx,
+				job_ctx,
 			)
 			.await?;
 			pending_running_tasks.extend(task_handles);
@@ -286,15 +290,15 @@ impl MediaProcessor {
 		Ok(())
 	}
 
-	async fn process_handles(
+	async fn process_handles<OuterCtx: OuterContext>(
 		&mut self,
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
-		ctx: &impl OuterContext,
+		job_ctx: &impl JobContext<OuterCtx>,
 	) -> Option<Result<ReturnStatus, Error>> {
 		while let Some(task) = pending_running_tasks.next().await {
 			match task {
 				Ok(TaskStatus::Done((task_id, TaskOutput::Out(out)))) => {
-					self.process_task_output(task_id, out, ctx);
+					self.process_task_output(task_id, out, job_ctx).await;
 				}
 
 				Ok(TaskStatus::Done((task_id, TaskOutput::Empty))) => {
@@ -328,11 +332,11 @@ impl MediaProcessor {
 		None
 	}
 
-	fn process_task_output(
+	async fn process_task_output<OuterCtx: OuterContext>(
 		&mut self,
 		task_id: uuid::Uuid,
 		any_task_output: Box<dyn AnyTaskOutput>,
-		ctx: &impl OuterContext,
+		job_ctx: &impl JobContext<OuterCtx>,
 	) {
 		if any_task_output.is::<media_data_extractor::Output>() {
 			let media_data_extractor::Output {
@@ -360,10 +364,12 @@ impl MediaProcessor {
 				self.metadata.media_data_metrics.total_successful_tasks,
 				self.total_media_data_extraction_tasks
 			);
-			ctx.progress(vec![ProgressUpdate::CompletedTaskCount(
-				self.metadata.media_data_metrics.extracted
-					+ self.metadata.media_data_metrics.skipped,
-			)]);
+			job_ctx
+				.progress(vec![ProgressUpdate::CompletedTaskCount(
+					self.metadata.media_data_metrics.extracted
+						+ self.metadata.media_data_metrics.skipped,
+				)])
+				.await;
 
 			if self.total_media_data_extraction_tasks
 				== self.metadata.media_data_metrics.total_successful_tasks
@@ -372,14 +378,16 @@ impl MediaProcessor {
 
 				self.phase = Phase::ThumbnailGeneration;
 
-				ctx.progress(vec![
-					ProgressUpdate::TaskCount(self.total_thumbnailer_files),
-					ProgressUpdate::Phase(self.phase.to_string()),
-					ProgressUpdate::Message(format!(
-						"Waiting for processing of {} thumbnails in {} tasks",
-						self.total_thumbnailer_files, self.total_thumbnailer_tasks
-					)),
-				]);
+				job_ctx
+					.progress(vec![
+						ProgressUpdate::TaskCount(self.total_thumbnailer_files),
+						ProgressUpdate::Phase(self.phase.to_string()),
+						ProgressUpdate::Message(format!(
+							"Waiting for processing of {} thumbnails in {} tasks",
+							self.total_thumbnailer_files, self.total_thumbnailer_tasks
+						)),
+					])
+					.await;
 			}
 		} else if any_task_output.is::<thumbnailer::Output>() {
 			let thumbnailer::Output {
@@ -400,10 +408,12 @@ impl MediaProcessor {
 
 			self.errors.extend(errors);
 
-			ctx.progress(vec![ProgressUpdate::CompletedTaskCount(
-				self.metadata.thumbnailer_metrics_acc.generated
-					+ self.metadata.thumbnailer_metrics_acc.skipped,
-			)]);
+			job_ctx
+				.progress(vec![ProgressUpdate::CompletedTaskCount(
+					self.metadata.thumbnailer_metrics_acc.generated
+						+ self.metadata.thumbnailer_metrics_acc.skipped,
+				)])
+				.await;
 
 		// if self.total_thumbnailer_tasks
 		// 	== self.metadata.thumbnailer_metrics_acc.total_successful_tasks
@@ -419,7 +429,7 @@ impl MediaProcessor {
 		// 			"Waiting for processing of {} labels in {} tasks",
 		// 			self.total_labeller_files, self.total_labeller_tasks
 		// 		)),
-		// 	]);
+		// 	]).await;
 		// }
 		} else {
 			unreachable!("Unexpected task output type: <id='{task_id}'>");
@@ -541,7 +551,7 @@ struct SaveState {
 	tasks_for_shutdown_bytes: Option<SerializedTasks>,
 }
 
-impl<Ctx: OuterContext> SerializableJob<Ctx> for MediaProcessor {
+impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for MediaProcessor {
 	async fn serialize(self) -> Result<Option<Vec<u8>>, rmp_serde::encode::Error> {
 		let Self {
 			location,
@@ -578,8 +588,8 @@ impl<Ctx: OuterContext> SerializableJob<Ctx> for MediaProcessor {
 								.serialize()
 								.await
 								.map(|bytes| (TaskKind::MediaDataExtractor, bytes))
-						} else if task.is::<tasks::Thumbnailer<NewThumbnailsReporter<Ctx>>>() {
-							task.downcast::<tasks::Thumbnailer<NewThumbnailsReporter<Ctx>>>()
+						} else if task.is::<tasks::Thumbnailer<NewThumbnailsReporter<OuterCtx>>>() {
+							task.downcast::<tasks::Thumbnailer<NewThumbnailsReporter<OuterCtx>>>()
 								.expect("just checked")
 								.serialize()
 								.await
@@ -599,7 +609,7 @@ impl<Ctx: OuterContext> SerializableJob<Ctx> for MediaProcessor {
 
 	async fn deserialize(
 		serialized_job: &[u8],
-		_: &Ctx,
+		_: &OuterCtx,
 	) -> Result<Option<(Self, Option<SerializedTasks>)>, rmp_serde::decode::Error> {
 		let SaveState {
 			location,
@@ -646,6 +656,7 @@ impl Hash for MediaProcessor {
 
 async fn dispatch_media_data_extractor_tasks(
 	db: &Arc<PrismaClient>,
+	sync: &Arc<SyncManager>,
 	parent_iso_file_path: &IsolatedFilePathData<'_>,
 	location_path: &Arc<PathBuf>,
 	dispatcher: &JobTaskDispatcher,
@@ -678,6 +689,7 @@ async fn dispatch_media_data_extractor_tasks(
 				parent_iso_file_path.location_id(),
 				Arc::clone(location_path),
 				Arc::clone(db),
+				Arc::clone(sync),
 			)
 		})
 		.map(IntoTask::into_task)
@@ -693,6 +705,7 @@ async fn dispatch_media_data_extractor_tasks(
 						parent_iso_file_path.location_id(),
 						Arc::clone(location_path),
 						Arc::clone(db),
+						Arc::clone(sync),
 					)
 				})
 				.map(IntoTask::into_task),
@@ -752,7 +765,7 @@ async fn dispatch_thumbnailer_tasks(
 	let location_id = parent_iso_file_path.location_id();
 	let library_id = ctx.id();
 	let db = ctx.db();
-	let reporter = Arc::new(NewThumbnailsReporter { ctx: ctx.clone() });
+	let reporter = NewThumbnailsReporter { ctx: ctx.clone() };
 
 	let mut file_paths = get_all_children_files_by_extensions(
 		db,
@@ -784,7 +797,7 @@ async fn dispatch_thumbnailer_tasks(
 						library_id,
 						should_regenerate,
 						false,
-						Arc::clone(&reporter),
+						reporter.clone(),
 					)
 				})
 				.map(IntoTask::into_task)
@@ -804,7 +817,7 @@ async fn dispatch_thumbnailer_tasks(
 				library_id,
 				should_regenerate,
 				true,
-				Arc::clone(&reporter),
+				reporter.clone(),
 			)
 		})
 		.map(IntoTask::into_task)

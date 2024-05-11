@@ -62,7 +62,10 @@ file_path::select!(file_path_for_media_processor {
 	name
 	extension
 	cas_id
-	object_id
+	object: select {
+		id
+		pub_id
+	}
 });
 file_path::select!(file_path_to_isolate {
 	location_id

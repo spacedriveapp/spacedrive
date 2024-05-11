@@ -4,11 +4,15 @@
 use crate::{
 	api::{CoreEvent, Router},
 	location::LocationManagerError,
-	object::media::old_thumbnail::old_actor::OldThumbnailer,
+	// object::media::old_thumbnail::old_actor::OldThumbnailer,
 };
+
+use sd_core_heavy_lifting::JobSystem;
 
 #[cfg(feature = "ai")]
 use sd_ai::old_image_labeler::{DownloadModelError, OldImageLabeler, YoloV8};
+
+use sd_task_system::TaskSystem;
 use sd_utils::error::FileIOError;
 
 use api::notifications::{Notification, NotificationData, NotificationId};
@@ -18,6 +22,7 @@ use notifications::Notifications;
 use reqwest::{RequestBuilder, Response};
 
 use std::{
+	collections::HashMap,
 	fmt,
 	path::{Path, PathBuf},
 	sync::{atomic::AtomicBool, Arc},
@@ -34,6 +39,7 @@ use tracing_subscriber::{filter::FromEnvError, prelude::*, EnvFilter};
 
 pub mod api;
 mod cloud;
+mod context;
 #[cfg(feature = "crypto")]
 pub(crate) mod crypto;
 pub mod custom_uri;
@@ -52,7 +58,8 @@ pub(crate) mod volume;
 
 pub use env::Env;
 
-use object::media::old_thumbnail::get_ephemeral_thumbnail_path;
+use context::{JobContext, NodeContext};
+use object::media::get_ephemeral_thumbnail_path;
 
 pub(crate) use sd_core_sync as sync;
 
@@ -67,10 +74,12 @@ pub struct Node {
 	pub p2p: Arc<p2p::P2PManager>,
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	pub notifications: Notifications,
-	pub thumbnailer: OldThumbnailer,
+	// pub thumbnailer: OldThumbnailer,
 	pub cloud_sync_flag: Arc<AtomicBool>,
 	pub env: Arc<env::Env>,
 	pub http: reqwest::Client,
+	pub task_system: TaskSystem<sd_core_heavy_lifting::Error>,
+	pub job_system: JobSystem<NodeContext, JobContext<NodeContext>>,
 	#[cfg(feature = "ai")]
 	pub old_image_labeller: Option<OldImageLabeler>,
 }
@@ -119,22 +128,26 @@ impl Node {
 		let (old_jobs, jobs_actor) = old_job::OldJobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
 
+		let task_system = TaskSystem::new();
+
 		let (p2p, start_p2p) = p2p::P2PManager::new(config.clone(), libraries.clone())
 			.await
 			.map_err(NodeError::P2PManager)?;
 		let node = Arc::new(Node {
 			data_dir: data_dir.to_path_buf(),
+			job_system: JobSystem::new(task_system.get_dispatcher(), data_dir),
+			task_system,
 			old_jobs,
 			locations,
 			notifications: notifications::Notifications::new(),
 			p2p,
-			thumbnailer: OldThumbnailer::new(
-				data_dir,
-				libraries.clone(),
-				event_bus.0.clone(),
-				config.preferences_watcher(),
-			)
-			.await,
+			// thumbnailer: OldThumbnailer::new(
+			// 	data_dir,
+			// 	libraries.clone(),
+			// 	event_bus.0.clone(),
+			// 	config.preferences_watcher(),
+			// )
+			// .await,
 			config,
 			event_bus,
 			libraries,
@@ -170,6 +183,27 @@ impl Node {
 		locations_actor.start(node.clone());
 		node.libraries.init(&node).await?;
 		jobs_actor.start(node.clone());
+
+		node.job_system
+			.init(
+				&node
+					.libraries
+					.get_all()
+					.await
+					.into_iter()
+					.map(|library| {
+						(
+							library.id,
+							NodeContext {
+								library,
+								node: Arc::clone(&node),
+							},
+						)
+					})
+					.collect(),
+			)
+			.await?;
+
 		start_p2p(
 			node.clone(),
 			axum::Router::new()
@@ -255,7 +289,7 @@ impl Node {
 
 	pub async fn shutdown(&self) {
 		info!("Spacedrive shutting down...");
-		self.thumbnailer.shutdown().await;
+		// self.thumbnailer.shutdown().await;
 		self.old_jobs.shutdown().await;
 		self.p2p.shutdown().await;
 		#[cfg(feature = "ai")]
@@ -371,6 +405,9 @@ pub enum NodeError {
 	InitConfig(#[from] util::debug_initializer::InitConfigError),
 	#[error("logger error: {0}")]
 	Logger(#[from] FromEnvError),
+	#[error(transparent)]
+	JobSystem(#[from] sd_core_heavy_lifting::JobSystemError),
+
 	#[cfg(feature = "ai")]
 	#[error("ai error: {0}")]
 	AI(#[from] sd_ai::Error),

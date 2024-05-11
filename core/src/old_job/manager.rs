@@ -1,16 +1,16 @@
 use crate::{
 	library::Library,
-	location::indexer::old_indexer_job::OldIndexerJobInit,
+	// location::indexer::old_indexer_job::OldIndexerJobInit,
 	object::{
 		fs::{
 			old_copy::OldFileCopierJobInit, old_cut::OldFileCutterJobInit,
 			old_delete::OldFileDeleterJobInit, old_erase::OldFileEraserJobInit,
 		},
-		media::old_media_processor::OldMediaProcessorJobInit,
-		old_file_identifier::old_file_identifier_job::OldFileIdentifierJobInit,
+		// media::old_media_processor::OldMediaProcessorJobInit,
+		// old_file_identifier::old_file_identifier_job::OldFileIdentifierJobInit,
 		validation::old_validator_job::OldObjectValidatorJobInit,
 	},
-	old_job::{worker::Worker, DynJob, Job, JobError},
+	old_job::{worker::Worker, DynJob, JobError, OldJob},
 	Node,
 };
 
@@ -102,7 +102,7 @@ impl OldJobs {
 		self: Arc<Self>,
 		node: &Arc<Node>,
 		library: &Arc<Library>,
-		job: Box<Job<impl StatefulJob>>,
+		job: Box<OldJob<impl StatefulJob>>,
 	) -> Result<(), JobManagerError> {
 		let job_hash = job.hash();
 
@@ -387,7 +387,7 @@ fn initialize_resumable_job(
 ) -> Result<Box<dyn DynJob>, JobError> {
 	dispatch_call_to_job_by_name!(
 		job_report.name.as_str(),
-		T -> Job::<T>::new_from_report(job_report, next_jobs),
+		T -> OldJob::<T>::new_from_report(job_report, next_jobs),
 		default = {
 			error!(
 				"Unknown job type: {}, id: {}",
@@ -396,9 +396,9 @@ fn initialize_resumable_job(
 			Err(JobError::UnknownJobName(job_report.id, job_report.name))
 		},
 		jobs = [
-			OldMediaProcessorJobInit,
-			OldIndexerJobInit,
-			OldFileIdentifierJobInit,
+			// OldMediaProcessorJobInit,
+			// OldIndexerJobInit,
+			// OldFileIdentifierJobInit,
 			OldObjectValidatorJobInit,
 			OldFileCutterJobInit,
 			OldFileCopierJobInit,

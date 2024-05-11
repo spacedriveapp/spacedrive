@@ -1,8 +1,8 @@
 use crate::{
 	location::{indexer::IndexerError, LocationError},
 	object::{
-		fs::error::FileSystemJobsError, media::old_media_processor::MediaProcessorError,
-		old_file_identifier::FileIdentifierJobError, validation::ValidatorError,
+		fs::error::FileSystemJobsError, /*media::old_media_processor::MediaProcessorError,*/
+		/*old_file_identifier::FileIdentifierJobError,*/ validation::ValidatorError,
 	},
 };
 
@@ -58,10 +58,10 @@ pub enum JobError {
 	// Specific job errors
 	#[error(transparent)]
 	Indexer(#[from] IndexerError),
-	#[error(transparent)]
-	MediaProcessor(#[from] MediaProcessorError),
-	#[error(transparent)]
-	FileIdentifier(#[from] FileIdentifierJobError),
+	// #[error(transparent)]
+	// MediaProcessor(#[from] MediaProcessorError),
+	// #[error(transparent)]
+	// FileIdentifier(#[from] FileIdentifierJobError),
 	#[error(transparent)]
 	Validator(#[from] ValidatorError),
 	#[error(transparent)]

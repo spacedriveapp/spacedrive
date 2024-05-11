@@ -7,7 +7,8 @@ use crate::{
 		SerializableJob, SerializedTasks,
 	},
 	utils::sub_path::maybe_get_iso_file_path_from_sub_path,
-	Error, JobName, LocationScanState, NonCriticalError, OuterContext, ProgressUpdate, UpdateEvent,
+	Error, JobContext, JobName, LocationScanState, NonCriticalError, OuterContext, ProgressUpdate,
+	UpdateEvent,
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
@@ -72,10 +73,10 @@ impl Hash for FileIdentifier {
 impl Job for FileIdentifier {
 	const NAME: JobName = JobName::FileIdentifier;
 
-	async fn resume_tasks(
+	async fn resume_tasks<OuterCtx: OuterContext>(
 		&mut self,
 		dispatcher: &JobTaskDispatcher,
-		ctx: &impl OuterContext,
+		ctx: &impl JobContext<OuterCtx>,
 		SerializedTasks(serialized_tasks): SerializedTasks,
 	) -> Result<(), Error> {
 		self.pending_tasks_on_resume = dispatcher
@@ -112,10 +113,10 @@ impl Job for FileIdentifier {
 		Ok(())
 	}
 
-	async fn run<Ctx: OuterContext>(
+	async fn run<OuterCtx: OuterContext>(
 		mut self,
 		dispatcher: JobTaskDispatcher,
-		ctx: Ctx,
+		ctx: impl JobContext<OuterCtx>,
 	) -> Result<ReturnStatus, Error> {
 		let mut pending_running_tasks = FuturesUnordered::new();
 
@@ -163,7 +164,7 @@ impl Job for FileIdentifier {
 
 		if !self.tasks_for_shutdown.is_empty() {
 			return Ok(ReturnStatus::Shutdown(
-				SerializableJob::<Ctx>::serialize(self).await,
+				SerializableJob::<OuterCtx>::serialize(self).await,
 			));
 		}
 
@@ -215,10 +216,10 @@ impl FileIdentifier {
 		})
 	}
 
-	async fn init_or_resume(
+	async fn init_or_resume<OuterCtx: OuterContext>(
 		&mut self,
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
-		ctx: &impl OuterContext,
+		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
 	) -> Result<(), file_identifier::Error> {
 		// if we don't have any pending task, then this is a fresh job
@@ -281,11 +282,11 @@ impl FileIdentifier {
 	/// # Panics
 	/// Will panic if another task type is added in the job, but this function wasn't updated to handle it
 	///
-	async fn process_task_output(
+	async fn process_task_output<OuterCtx: OuterContext>(
 		&mut self,
 		task_id: TaskId,
 		any_task_output: Box<dyn AnyTaskOutput>,
-		ctx: &impl OuterContext,
+		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
 	) -> Option<TaskHandle<Error>> {
 		if any_task_output.is::<extract_file_metadata::Output>() {
@@ -306,7 +307,8 @@ impl FileIdentifier {
 					.downcast::<object_processor::Output>()
 					.expect("just checked"),
 				ctx,
-			);
+			)
+			.await;
 		} else {
 			unreachable!("Unexpected task output type: <id='{task_id}'>");
 		}
@@ -314,7 +316,7 @@ impl FileIdentifier {
 		None
 	}
 
-	async fn process_extract_file_metadata_output(
+	async fn process_extract_file_metadata_output<OuterCtx: OuterContext>(
 		&mut self,
 		task_id: TaskId,
 		extract_file_metadata::Output {
@@ -322,7 +324,7 @@ impl FileIdentifier {
 			extract_metadata_time,
 			errors,
 		}: extract_file_metadata::Output,
-		ctx: &impl OuterContext,
+		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
 	) -> Option<TaskHandle<Error>> {
 		self.metadata.extract_metadata_time += extract_metadata_time;
@@ -333,11 +335,13 @@ impl FileIdentifier {
 
 			ctx.progress(vec![ProgressUpdate::CompletedTaskCount(
 				self.metadata.completed_tasks,
-			)]);
+			)])
+			.await;
 
 			None
 		} else {
-			ctx.progress_msg(format!("Identified {} files", identified_files.len()));
+			ctx.progress_msg(format!("Identified {} files", identified_files.len()))
+				.await;
 
 			let with_priority = self.priority_tasks_ids.remove(&task_id);
 
@@ -358,7 +362,7 @@ impl FileIdentifier {
 		}
 	}
 
-	fn process_object_processor_output(
+	async fn process_object_processor_output<OuterCtx: OuterContext>(
 		&mut self,
 		task_id: TaskId,
 		object_processor::Output {
@@ -370,7 +374,7 @@ impl FileIdentifier {
 			created_objects_count,
 			linked_objects_count,
 		}: object_processor::Output,
-		ctx: &impl OuterContext,
+		ctx: &impl JobContext<OuterCtx>,
 	) {
 		self.metadata.assign_cas_ids_time += assign_cas_ids_time;
 		self.metadata.fetch_existing_objects_time += fetch_existing_objects_time;
@@ -388,7 +392,8 @@ impl FileIdentifier {
 				self.metadata.created_objects_count + self.metadata.linked_objects_count,
 				self.metadata.total_found_orphans
 			)),
-		]);
+		])
+		.await;
 
 		if self.priority_tasks_ids.remove(&task_id) {
 			ctx.report_update(UpdateEvent::NewIdentifiedObjects {
@@ -397,11 +402,11 @@ impl FileIdentifier {
 		}
 	}
 
-	async fn dispatch_priority_identifier_tasks(
+	async fn dispatch_priority_identifier_tasks<OuterCtx: OuterContext>(
 		&mut self,
 		last_orphan_file_path_id: &mut Option<i32>,
 		sub_iso_file_path: &IsolatedFilePathData<'static>,
-		ctx: &impl OuterContext,
+		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
 		pending_running_tasks: &FuturesUnordered<TaskHandle<Error>>,
 	) -> Result<HashSet<file_path::id::Type>, file_identifier::Error> {
@@ -441,7 +446,8 @@ impl FileIdentifier {
 					"{} files to be identified",
 					self.metadata.total_found_orphans
 				)),
-			]);
+			])
+			.await;
 
 			let priority_task = dispatcher
 				.dispatch(ExtractFileMetadataTask::new(
@@ -460,11 +466,11 @@ impl FileIdentifier {
 		Ok(file_paths_already_identifying)
 	}
 
-	async fn dispatch_deep_identifier_tasks(
+	async fn dispatch_deep_identifier_tasks<OuterCtx: OuterContext>(
 		&mut self,
 		last_orphan_file_path_id: &mut Option<file_path::id::Type>,
 		maybe_sub_iso_file_path: &Option<IsolatedFilePathData<'static>>,
-		ctx: &impl OuterContext,
+		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
 		pending_running_tasks: &FuturesUnordered<TaskHandle<Error>>,
 		file_paths_already_identifying: &HashSet<file_path::id::Type>,
@@ -511,7 +517,8 @@ impl FileIdentifier {
 					"{} files to be identified",
 					self.metadata.total_found_orphans
 				)),
-			]);
+			])
+			.await;
 
 			pending_running_tasks.push(
 				dispatcher
@@ -605,7 +612,7 @@ impl From<Metadata> for ReportOutputMetadata {
 	}
 }
 
-impl<Ctx: OuterContext> SerializableJob<Ctx> for FileIdentifier {
+impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for FileIdentifier {
 	async fn serialize(self) -> Result<Option<Vec<u8>>, rmp_serde::encode::Error> {
 		let Self {
 			location,
@@ -657,7 +664,7 @@ impl<Ctx: OuterContext> SerializableJob<Ctx> for FileIdentifier {
 
 	async fn deserialize(
 		serialized_job: &[u8],
-		_: &Ctx,
+		_: &OuterCtx,
 	) -> Result<Option<(Self, Option<SerializedTasks>)>, rmp_serde::decode::Error> {
 		let SaveState {
 			location,

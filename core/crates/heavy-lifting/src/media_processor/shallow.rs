@@ -5,6 +5,7 @@ use crate::{
 
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::file_path_for_media_processor;
+use sd_core_sync::Manager as SyncManager;
 
 use sd_file_ext::extensions::Extension;
 use sd_prisma::prisma::{location, PrismaClient};
@@ -67,6 +68,7 @@ pub async fn shallow(
 
 	let mut futures = dispatch_media_data_extractor_tasks(
 		ctx.db(),
+		ctx.sync(),
 		&sub_iso_file_path,
 		&location_path,
 		&dispatcher,
@@ -120,6 +122,7 @@ pub async fn shallow(
 
 async fn dispatch_media_data_extractor_tasks(
 	db: &Arc<PrismaClient>,
+	sync: &Arc<SyncManager>,
 	parent_iso_file_path: &IsolatedFilePathData<'_>,
 	location_path: &Arc<PathBuf>,
 	dispatcher: &BaseTaskDispatcher<Error>,
@@ -150,6 +153,7 @@ async fn dispatch_media_data_extractor_tasks(
 				parent_iso_file_path.location_id(),
 				Arc::clone(location_path),
 				Arc::clone(db),
+				Arc::clone(sync),
 			)
 		})
 		.map(IntoTask::into_task)
@@ -165,6 +169,7 @@ async fn dispatch_media_data_extractor_tasks(
 						parent_iso_file_path.location_id(),
 						Arc::clone(location_path),
 						Arc::clone(db),
+						Arc::clone(sync),
 					)
 				})
 				.map(IntoTask::into_task),
@@ -220,7 +225,7 @@ async fn dispatch_thumbnailer_tasks(
 	let location_id = parent_iso_file_path.location_id();
 	let library_id = ctx.id();
 	let db = ctx.db();
-	let reporter = Arc::new(NewThumbnailsReporter { ctx: ctx.clone() });
+	let reporter = NewThumbnailsReporter { ctx: ctx.clone() };
 
 	let file_paths = get_files_by_extensions(
 		db,
@@ -243,7 +248,7 @@ async fn dispatch_thumbnailer_tasks(
 				library_id,
 				should_regenerate,
 				true,
-				Arc::clone(&reporter),
+				reporter.clone(),
 			)
 		})
 		.map(IntoTask::into_task)

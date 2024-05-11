@@ -182,11 +182,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				 }: UpdateThumbnailerPreferences| async move {
 					node.config
 						.update_preferences(|preferences| {
-							preferences
-								.thumbnailer
-								.set_background_processing_percentage(
-									background_processing_percentage,
-								);
+							// TODO(fogodev): remove this crap
+							// preferences
+							// 	.thumbnailer
+							// 	.set_background_processing_percentage(
+							// 		background_processing_percentage,
+							// 	);
 						})
 						.await
 						.map_err(|e| {

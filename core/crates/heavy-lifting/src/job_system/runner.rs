@@ -1,4 +1,4 @@
-use crate::Error;
+use crate::{Error, JobContext};
 
 use sd_prisma::prisma::location;
 use sd_task_system::BaseTaskDispatcher;
@@ -35,19 +35,19 @@ use super::{
 const JOBS_INITIAL_CAPACITY: usize = 32;
 const FIVE_MINUTES: Duration = Duration::from_secs(5 * 60);
 
-pub(super) enum RunnerMessage<Ctx: OuterContext> {
+pub(super) enum RunnerMessage<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
 	NewJob {
 		id: JobId,
 		location_id: location::id::Type,
-		dyn_job: Box<dyn DynJob<Ctx>>,
-		ctx: Ctx,
+		dyn_job: Box<dyn DynJob<OuterCtx, JobCtx>>,
+		ctx: OuterCtx,
 		ack_tx: oneshot::Sender<Result<(), JobSystemError>>,
 	},
 	ResumeStoredJob {
 		id: JobId,
 		location_id: location::id::Type,
-		dyn_job: Box<dyn DynJob<Ctx>>,
-		ctx: Ctx,
+		dyn_job: Box<dyn DynJob<OuterCtx, JobCtx>>,
+		ctx: OuterCtx,
 		serialized_tasks: Option<SerializedTasks>,
 		ack_tx: oneshot::Sender<Result<(), JobSystemError>>,
 	},
@@ -64,9 +64,9 @@ pub(super) enum RunnerMessage<Ctx: OuterContext> {
 	Shutdown,
 }
 
-pub(super) struct JobSystemRunner<Ctx: OuterContext> {
+pub(super) struct JobSystemRunner<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
 	base_dispatcher: BaseTaskDispatcher<Error>,
-	handles: HashMap<JobId, JobHandle<Ctx>>,
+	handles: HashMap<JobId, JobHandle<OuterCtx, JobCtx>>,
 	job_hashes: HashMap<u64, JobId>,
 	job_hashes_by_id: HashMap<JobId, u64>,
 	running_jobs_by_job_id: HashMap<JobId, (JobName, location::id::Type)>,
@@ -76,7 +76,7 @@ pub(super) struct JobSystemRunner<Ctx: OuterContext> {
 	job_outputs_tx: chan::Sender<(JobId, Result<JobOutput, JobSystemError>)>,
 }
 
-impl<Ctx: OuterContext> JobSystemRunner<Ctx> {
+impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<OuterCtx, JobCtx> {
 	pub(super) fn new(
 		base_dispatcher: BaseTaskDispatcher<Error>,
 		job_return_status_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
@@ -99,8 +99,8 @@ impl<Ctx: OuterContext> JobSystemRunner<Ctx> {
 		&mut self,
 		id: JobId,
 		location_id: location::id::Type,
-		dyn_job: Box<dyn DynJob<Ctx>>,
-		ctx: Ctx,
+		dyn_job: Box<dyn DynJob<OuterCtx, JobCtx>>,
+		ctx: OuterCtx,
 		maybe_existing_tasks: Option<SerializedTasks>,
 	) -> Result<(), JobSystemError> {
 		let Self {
@@ -149,17 +149,21 @@ impl<Ctx: OuterContext> JobSystemRunner<Ctx> {
 			)
 		};
 
-		handle.report.status = report::Status::Running;
-		if handle.report.started_at.is_none() {
-			handle.report.started_at = Some(start_time);
-		}
+		{
+			let mut report = handle.ctx.report_mut().await;
 
-		// If the report doesn't have a created_at date, it's a new report
-		if handle.report.created_at.is_none() {
-			handle.report.create(db).await?;
-		} else {
-			// Otherwise it can be a job being resumed or a children job that was already been created
-			handle.report.update(db).await?;
+			report.status = report::Status::Running;
+			if report.started_at.is_none() {
+				report.started_at = Some(start_time);
+			}
+
+			// If the report doesn't have a created_at date, it's a new report
+			if report.created_at.is_none() {
+				report.create(db).await?;
+			} else {
+				// Otherwise it can be a job being resumed or a children job that was already been created
+				report.update(db).await?;
+			}
 		}
 
 		// Registering children jobs
@@ -243,7 +247,7 @@ impl<Ctx: OuterContext> JobSystemRunner<Ctx> {
 			}
 
 			Ok(ReturnStatus::Shutdown(Ok(Some(serialized_job)))) => {
-				let name = handle.report.name;
+				let name = handle.ctx.report().await.name;
 
 				let Ok(next_jobs) = handle
 					.next_jobs
@@ -384,11 +388,11 @@ impl<Ctx: OuterContext> JobSystemRunner<Ctx> {
 	}
 }
 
-fn try_dispatch_next_job<Ctx: OuterContext>(
-	handle: &mut JobHandle<Ctx>,
+fn try_dispatch_next_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
+	handle: &mut JobHandle<OuterCtx, JobCtx>,
 	base_dispatcher: BaseTaskDispatcher<Error>,
 	(job_hashes, job_hashes_by_id): (&mut HashMap<u64, JobId>, &mut HashMap<JobId, u64>),
-	handles: &mut HashMap<JobId, JobHandle<Ctx>>,
+	handles: &mut HashMap<JobId, JobHandle<OuterCtx, JobCtx>>,
 	job_return_status_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
 ) {
 	if let Some(next) = handle.next_jobs.pop_front() {
@@ -397,8 +401,11 @@ fn try_dispatch_next_job<Ctx: OuterContext>(
 		if let Entry::Vacant(e) = job_hashes.entry(next_hash) {
 			e.insert(next_id);
 			job_hashes_by_id.insert(next_id, next_hash);
-			let mut next_handle =
-				next.dispatch(base_dispatcher, handle.ctx.clone(), job_return_status_tx);
+			let mut next_handle = next.dispatch(
+				base_dispatcher,
+				handle.ctx.get_outer_ctx(),
+				job_return_status_tx,
+			);
 
 			assert!(
 				next_handle.next_jobs.is_empty(),
@@ -415,15 +422,15 @@ fn try_dispatch_next_job<Ctx: OuterContext>(
 	}
 }
 
-pub(super) async fn run<Ctx: OuterContext>(
-	mut runner: JobSystemRunner<Ctx>,
+pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
+	mut runner: JobSystemRunner<OuterCtx, JobCtx>,
 	store_jobs_file: impl AsRef<Path> + Send,
-	msgs_rx: chan::Receiver<RunnerMessage<Ctx>>,
+	msgs_rx: chan::Receiver<RunnerMessage<OuterCtx, JobCtx>>,
 	job_return_status_rx: chan::Receiver<(JobId, Result<ReturnStatus, Error>)>,
 ) {
-	enum StreamMessage<Ctx: OuterContext> {
+	enum StreamMessage<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
 		ReturnStatus((JobId, Result<ReturnStatus, Error>)),
-		RunnerMessage(RunnerMessage<Ctx>),
+		RunnerMessage(RunnerMessage<OuterCtx, JobCtx>),
 		CleanMemoryTick,
 	}
 

@@ -12,8 +12,8 @@ use crate::{
 	media_processor::{
 		self,
 		helpers::thumbnailer::{
-			can_generate_thumbnail_for_document, can_generate_thumbnail_for_image, get_shard_hex,
-			EPHEMERAL_DIR, TARGET_PX, TARGET_QUALITY, THUMBNAIL_GENERATION_TIMEOUT, WEBP_EXTENSION,
+			generate_thumbnail, GenerateThumbnailArgs, GenerationStatus,
+			THUMBNAIL_GENERATION_TIMEOUT,
 		},
 		ThumbKey, ThumbnailKind,
 	},
@@ -23,59 +23,30 @@ use crate::{
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::file_path_for_media_processor;
 
-use sd_file_ext::extensions::{DocumentExtension, ImageExtension};
-use sd_images::{format_image, scale_dimensions, ConvertibleExtension};
-use sd_media_metadata::exif::Orientation;
 use sd_prisma::prisma::{file_path, location};
 use sd_task_system::{
 	ExecStatus, Interrupter, InterruptionKind, IntoAnyTaskOutput, SerializableTask, Task, TaskId,
 };
-use sd_utils::error::FileIOError;
 
 use std::{
 	collections::HashMap,
 	fmt,
 	future::IntoFuture,
 	mem,
-	ops::Deref,
 	path::{Path, PathBuf},
 	pin::pin,
-	str::FromStr,
 	sync::Arc,
 	time::Duration,
 };
 
 use futures::{FutureExt, StreamExt};
 use futures_concurrency::future::{FutureGroup, Race};
-use image::{imageops, DynamicImage, GenericImageView};
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tokio::{
-	fs, io,
-	task::spawn_blocking,
-	time::{sleep, Instant},
-};
-use tracing::{error, info, trace};
+use tokio::time::{sleep, Instant};
+use tracing::{error, info};
 use uuid::Uuid;
-use webp::Encoder;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct GenerateThumbnailArgs {
-	pub extension: String,
-	pub cas_id: String,
-	pub path: PathBuf,
-}
-
-impl GenerateThumbnailArgs {
-	#[must_use]
-	pub const fn new(extension: String, cas_id: String, path: PathBuf) -> Self {
-		Self {
-			extension,
-			cas_id,
-			path,
-		}
-	}
-}
 
 pub type ThumbnailId = u32;
 
@@ -86,7 +57,7 @@ pub trait NewThumbnailReporter: Send + Sync + fmt::Debug + 'static {
 #[derive(Debug)]
 pub struct Thumbnailer<Reporter: NewThumbnailReporter> {
 	id: TaskId,
-	reporter: Arc<Reporter>,
+	reporter: Reporter,
 	thumbs_kind: ThumbnailKind,
 	thumbnails_directory_path: Arc<PathBuf>,
 	thumbnails_to_generate: HashMap<ThumbnailId, GenerateThumbnailArgs>,
@@ -173,7 +144,7 @@ impl<Reporter: NewThumbnailReporter> Task<Error> for Thumbnailer<Reporter> {
 				InterruptRace::Processed(out) => process_thumbnail_generation_output(
 					out,
 					*with_priority,
-					reporter.as_ref(),
+					reporter,
 					already_processed_ids,
 					output,
 				),
@@ -254,7 +225,7 @@ impl<Reporter: NewThumbnailReporter> Thumbnailer<Reporter> {
 		errors: Vec<crate::NonCriticalError>,
 		should_regenerate: bool,
 		with_priority: bool,
-		reporter: Arc<Reporter>,
+		reporter: Reporter,
 	) -> Self {
 		Self {
 			id: TaskId::new_v4(),
@@ -276,7 +247,7 @@ impl<Reporter: NewThumbnailReporter> Thumbnailer<Reporter> {
 	pub fn new_ephemeral(
 		thumbnails_directory_path: Arc<PathBuf>,
 		thumbnails_to_generate: Vec<GenerateThumbnailArgs>,
-		reporter: Arc<Reporter>,
+		reporter: Reporter,
 	) -> Self {
 		Self::new(
 			ThumbnailKind::Ephemeral,
@@ -308,7 +279,7 @@ impl<Reporter: NewThumbnailReporter> Thumbnailer<Reporter> {
 		library_id: Uuid,
 		should_regenerate: bool,
 		with_priority: bool,
-		reporter: Arc<Reporter>,
+		reporter: Reporter,
 	) -> Self {
 		let mut errors = Vec::new();
 
@@ -385,7 +356,7 @@ impl<Reporter: NewThumbnailReporter> SerializableTask<Error> for Thumbnailer<Rep
 
 	type DeserializeError = rmp_serde::decode::Error;
 
-	type DeserializeCtx = Arc<Reporter>;
+	type DeserializeCtx = Reporter;
 
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
 		let Self {
@@ -443,11 +414,6 @@ impl<Reporter: NewThumbnailReporter> SerializableTask<Error> for Thumbnailer<Rep
 	}
 }
 
-enum GenerationStatus {
-	Generated,
-	Skipped,
-}
-
 type ThumbnailGenerationOutput = (
 	ThumbnailId,
 	(
@@ -502,176 +468,4 @@ fn process_thumbnail_generation_output(
 	}
 
 	already_processed_ids.push(id);
-}
-
-async fn generate_thumbnail(
-	thumbnails_directory: &Path,
-	GenerateThumbnailArgs {
-		extension,
-		cas_id,
-		path,
-	}: &GenerateThumbnailArgs,
-	kind: &ThumbnailKind,
-	should_regenerate: bool,
-) -> (
-	Duration,
-	Result<(ThumbKey, GenerationStatus), NonCriticalError>,
-) {
-	trace!("Generating thumbnail for {}", path.display());
-	let start = Instant::now();
-
-	let mut output_path = match kind {
-		ThumbnailKind::Ephemeral => thumbnails_directory.join(EPHEMERAL_DIR),
-		ThumbnailKind::Indexed(library_id) => thumbnails_directory.join(library_id.to_string()),
-	};
-
-	output_path.push(get_shard_hex(cas_id));
-	output_path.push(cas_id);
-	output_path.set_extension(WEBP_EXTENSION);
-
-	if let Err(e) = fs::metadata(&*output_path).await {
-		if e.kind() != io::ErrorKind::NotFound {
-			error!(
-				"Failed to check if thumbnail exists, but we will try to generate it anyway: {e:#?}"
-			);
-		}
-	// Otherwise we good, thumbnail doesn't exist so we can generate it
-	} else if !should_regenerate {
-		trace!(
-			"Skipping thumbnail generation for {} because it already exists",
-			path.display()
-		);
-		return (
-			start.elapsed(),
-			Ok((ThumbKey::new(cas_id, kind), GenerationStatus::Skipped)),
-		);
-	}
-
-	if let Ok(extension) = ImageExtension::from_str(extension) {
-		if can_generate_thumbnail_for_image(extension) {
-			if let Err(e) = generate_image_thumbnail(&path, &output_path).await {
-				return (start.elapsed(), Err(e));
-			}
-		}
-	} else if let Ok(extension) = DocumentExtension::from_str(extension) {
-		if can_generate_thumbnail_for_document(extension) {
-			if let Err(e) = generate_image_thumbnail(&path, &output_path).await {
-				return (start.elapsed(), Err(e));
-			}
-		}
-	}
-
-	#[cfg(feature = "ffmpeg")]
-	{
-		use crate::media_processor::helpers::thumbnailer::can_generate_thumbnail_for_video;
-		use sd_file_ext::extensions::VideoExtension;
-
-		if let Ok(extension) = VideoExtension::from_str(extension) {
-			if can_generate_thumbnail_for_video(extension) {
-				if let Err(e) = generate_video_thumbnail(&path, &output_path).await {
-					return (start.elapsed(), Err(e));
-				}
-			}
-		}
-	}
-
-	trace!("Generated thumbnail for {}", path.display());
-
-	(
-		start.elapsed(),
-		Ok((ThumbKey::new(cas_id, kind), GenerationStatus::Generated)),
-	)
-}
-
-async fn generate_image_thumbnail(
-	file_path: impl AsRef<Path> + Send,
-	output_path: impl AsRef<Path> + Send,
-) -> Result<(), NonCriticalError> {
-	let file_path = file_path.as_ref().to_path_buf();
-
-	let webp = spawn_blocking({
-		let file_path = file_path.clone();
-
-		move || -> Result<_, NonCriticalError> {
-			let mut img = format_image(&file_path)
-				.map_err(|e| NonCriticalError::FormatImage(file_path.clone(), e.to_string()))?;
-
-			let (w, h) = img.dimensions();
-
-			#[allow(clippy::cast_precision_loss)]
-			let (w_scaled, h_scaled) = scale_dimensions(w as f32, h as f32, TARGET_PX);
-
-			// Optionally, resize the existing photo and convert back into DynamicImage
-			if w != w_scaled && h != h_scaled {
-				img = DynamicImage::ImageRgba8(imageops::resize(
-					&img,
-					w_scaled,
-					h_scaled,
-					imageops::FilterType::Triangle,
-				));
-			}
-
-			// this corrects the rotation/flip of the image based on the *available* exif data
-			// not all images have exif data, so we don't error. we also don't rotate HEIF as that's against the spec
-			if let Some(orientation) = Orientation::from_path(&file_path) {
-				if ConvertibleExtension::try_from(file_path.as_ref())
-					.expect("we already checked if the image was convertible")
-					.should_rotate()
-				{
-					img = orientation.correct_thumbnail(img);
-				}
-			}
-
-			// Create the WebP encoder for the above image
-			let encoder = Encoder::from_image(&img)
-				.map_err(|reason| NonCriticalError::WebPEncoding(file_path, reason.to_string()))?;
-
-			// Type `WebPMemory` is !Send, which makes the `Future` in this function `!Send`,
-			// this make us `deref` to have a `&[u8]` and then `to_owned` to make a `Vec<u8>`
-			// which implies on a unwanted clone...
-			Ok(encoder.encode(TARGET_QUALITY).deref().to_owned())
-		}
-	})
-	.await
-	.map_err(|e| {
-		NonCriticalError::PanicWhileGeneratingThumbnail(file_path.clone(), e.to_string())
-	})??;
-
-	let output_path = output_path.as_ref();
-
-	if let Some(shard_dir) = output_path.parent() {
-		fs::create_dir_all(shard_dir).await.map_err(|e| {
-			NonCriticalError::CreateShardDirectory(FileIOError::from((shard_dir, e)).to_string())
-		})?;
-	} else {
-		error!(
-			"Failed to get parent directory of '{}' for sharding parent directory",
-			output_path.display()
-		);
-	}
-
-	fs::write(output_path, &webp).await.map_err(|e| {
-		NonCriticalError::SaveThumbnail(file_path, FileIOError::from((output_path, e)).to_string())
-	})
-}
-
-#[cfg(feature = "ffmpeg")]
-async fn generate_video_thumbnail(
-	file_path: impl AsRef<Path> + Send,
-	output_path: impl AsRef<Path> + Send,
-) -> Result<(), NonCriticalError> {
-	use sd_ffmpeg::{to_thumbnail, ThumbnailSize};
-
-	let file_path = file_path.as_ref();
-
-	to_thumbnail(
-		file_path,
-		output_path,
-		ThumbnailSize::Scale(1024),
-		TARGET_QUALITY,
-	)
-	.await
-	.map_err(|e| {
-		NonCriticalError::VideoThumbnailGenerationFailed(file_path.to_path_buf(), e.to_string())
-	})
 }

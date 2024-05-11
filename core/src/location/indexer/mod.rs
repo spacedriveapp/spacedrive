@@ -30,8 +30,8 @@ mod old_walk;
 
 use old_walk::WalkedEntry;
 
-pub use old_indexer_job::OldIndexerJobInit;
-pub use old_shallow::*;
+// pub use old_indexer_job::OldIndexerJobInit;
+// pub use old_shallow::*;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct OldIndexerJobSaveStep {

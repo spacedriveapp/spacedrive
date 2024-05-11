@@ -1,13 +1,13 @@
 use crate::{
 	api::{utils::InvalidateOperationEvent, CoreEvent},
 	library::Library,
-	object::media::old_thumbnail::WEBP_EXTENSION,
 	p2p::operations,
 	util::InfallibleResponse,
 	Node,
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
+use sd_core_heavy_lifting::media_processor::WEBP_EXTENSION;
 use sd_core_prisma_helpers::file_path_to_handle_custom_uri;
 
 use sd_file_ext::text::is_text;

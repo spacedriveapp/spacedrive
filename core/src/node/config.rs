@@ -1,6 +1,6 @@
 use crate::{
 	api::{notifications::Notification, BackendFeature},
-	object::media::old_thumbnail::preferences::ThumbnailerPreferences,
+	/*object::media::old_thumbnail::preferences::ThumbnailerPreferences,*/
 	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 
@@ -154,7 +154,7 @@ mod identity_serde {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, Type)]
 pub struct NodePreferences {
-	pub thumbnailer: ThumbnailerPreferences,
+	// pub thumbnailer: ThumbnailerPreferences,
 }
 
 #[derive(

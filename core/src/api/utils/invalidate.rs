@@ -135,6 +135,19 @@ impl InvalidRequests {
 #[macro_export]
 // #[allow(clippy::crate_in_macro_def)]
 macro_rules! invalidate_query {
+
+	($ctx:expr, $query:ident) => {{
+		let ctx: &$crate::library::Library = &$ctx; // Assert the context is the correct type
+		let query: &'static str = $query;
+
+		::tracing::trace!(target: "sd_core::invalidate-query", "invalidate_query!(\"{}\") at {}", query, concat!(file!(), ":", line!()));
+
+		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
+		ctx.emit($crate::api::CoreEvent::InvalidateOperation(
+			$crate::api::utils::InvalidateOperationEvent::dangerously_create(query, serde_json::Value::Null, None)
+		))
+	}};
+
 	($ctx:expr, $key:literal) => {{
 		let ctx: &$crate::library::Library = &$ctx; // Assert the context is the correct type
 
