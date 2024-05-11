@@ -5,7 +5,6 @@ use std::{
 };
 
 use crate::NewStreamError;
-use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tracing::warn;
 

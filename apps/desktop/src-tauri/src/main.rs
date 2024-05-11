@@ -255,7 +255,7 @@ async fn main() -> tauri::Result<()> {
 						let node = node.clone();
 						move || node.clone()
 					}))?;
-					handle.plugin(sd_server_plugin(node.clone(), handle).await.unwrap())?; // TODO: Handle `unwrap`
+					handle.plugin(sd_server_plugin(node.clone()).await.unwrap())?; // TODO: Handle `unwrap`
 					handle.manage(node.clone());
 
 					handle.windows().iter().for_each(|(_, window)| {
