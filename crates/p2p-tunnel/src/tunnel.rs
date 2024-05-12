@@ -6,7 +6,19 @@ use std::{
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 
+use thiserror::Error;
+
 use sd_p2p::UnicastStream;
+
+#[derive(Debug, Error)]
+pub enum TunnelError {
+	#[error("Error writing discriminator.")]
+	DiscriminatorWriteError,
+	#[error("Error reading discriminator. Is this stream actually a tunnel?")]
+	DiscriminatorReadError,
+	#[error("Invalid discriminator. Is this stream actually a tunnel?")]
+	InvalidDiscriminator,
+}
 
 #[derive(Debug)]
 pub struct Tunnel {
@@ -14,26 +26,24 @@ pub struct Tunnel {
 }
 
 impl Tunnel {
-	// TODO: Proper errors
-	pub async fn initiator(mut stream: UnicastStream) -> Result<Self, &'static str> {
+	pub async fn initiator(mut stream: UnicastStream) -> Result<Self, TunnelError> {
 		stream
 			.write_all(&[b'T'])
 			.await
-			.map_err(|_| "Error writing discriminator")?;
+			.map_err(|_| TunnelError::DiscriminatorWriteError)?;
 
 		// TODO: Do pairing + authentication
 
 		Ok(Self { stream })
 	}
 
-	// TODO: Proper errors
-	pub async fn responder(mut stream: UnicastStream) -> Result<Self, &'static str> {
+	pub async fn responder(mut stream: UnicastStream) -> Result<Self, TunnelError> {
 		let discriminator = stream
 			.read_u8()
 			.await
-			.map_err(|_| "Error reading discriminator. Is this stream actually a tunnel?")?;
+			.map_err(|_| TunnelError::DiscriminatorReadError)?;
 		if discriminator != b'T' {
-			return Err("Invalid discriminator. Is this stream actually a tunnel?");
+			return Err(TunnelError::InvalidDiscriminator);
 		}
 
 		// TODO: Do pairing + authentication
