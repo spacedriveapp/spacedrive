@@ -37,7 +37,7 @@ tauri = { version = "=2.0.0-beta.17", features = [
 	"linux-libxdo",
 ] }
 tauri-plugin-updater = "2.0.0-beta"
-tauri-plugin-dialog = { git = "https://github.com/tauri-apps/plugins-workspace", rev = "1fa4d30eabb3768e1e97fa56f275408db2955b32" } # "2.0.0-beta"
+tauri-plugin-dialog = "2.0.0-beta"
 tauri-plugin-os = "2.0.0-beta"
 tauri-plugin-shell = "2.0.0-beta"
 serde_json.workspace = true
