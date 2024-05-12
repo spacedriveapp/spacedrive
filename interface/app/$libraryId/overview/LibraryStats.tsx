@@ -76,19 +76,21 @@ const LibraryStats = () => {
 	const { t } = useLocale();
 
 	const StatItemNames: Partial<Record<keyof Statistics, string>> = {
-		total_bytes_capacity: t('total_bytes_capacity'),
-		preview_media_bytes: t('preview_media_bytes'),
+		total_library_bytes: t('library_bytes'),
 		library_db_size: t('library_db_size'),
-		total_bytes_free: t('total_bytes_free'),
-		total_bytes_used: t('total_bytes_used')
+		total_local_bytes_capacity: t('total_bytes_capacity'),
+		total_library_preview_media_bytes: t('preview_media_bytes'),
+		total_local_bytes_free: t('total_bytes_free'),
+		total_local_bytes_used: t('total_bytes_used')
 	};
 
 	const StatDescriptions: Partial<Record<keyof Statistics, string>> = {
-		total_bytes_capacity: t('total_bytes_capacity_description'),
-		preview_media_bytes: t('preview_media_bytes_description'),
+		total_local_bytes_capacity: t('total_bytes_capacity_description'),
+		total_library_preview_media_bytes: t('preview_media_bytes_description'),
+		total_library_bytes: t('library_bytes_description'),
 		library_db_size: t('library_db_size_description'),
-		total_bytes_free: t('total_bytes_free_description'),
-		total_bytes_used: t('total_bytes_used_description')
+		total_local_bytes_free: t('total_bytes_free_description'),
+		total_local_bytes_used: t('total_bytes_used_description')
 	};
 
 	const displayableStatItems = Object.keys(
@@ -97,18 +99,24 @@ const LibraryStats = () => {
 	return (
 		<div className="flex w-full">
 			<div className="flex gap-3 overflow-hidden">
-				{Object.entries(stats?.data?.statistics || []).map(([key, value]) => {
-					if (!displayableStatItems.includes(key)) return null;
-					return (
-						<StatItem
-							key={`${library.uuid} ${key}`}
-							title={StatItemNames[key as keyof Statistics]!}
-							bytes={BigInt(value)}
-							isLoading={stats.isLoading}
-							info={StatDescriptions[key as keyof Statistics]}
-						/>
-					);
-				})}
+				{Object.entries(stats?.data?.statistics || [])
+					// sort the stats by the order of the displayableStatItems
+					.sort(
+						([a], [b]) =>
+							displayableStatItems.indexOf(a) - displayableStatItems.indexOf(b)
+					)
+					.map(([key, value]) => {
+						if (!displayableStatItems.includes(key)) return null;
+						return (
+							<StatItem
+								key={`${library.uuid} ${key}`}
+								title={StatItemNames[key as keyof Statistics]!}
+								bytes={BigInt(value)}
+								isLoading={stats.isLoading}
+								info={StatDescriptions[key as keyof Statistics]}
+							/>
+						);
+					})}
 			</div>
 		</div>
 	);

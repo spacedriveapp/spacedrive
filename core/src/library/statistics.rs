@@ -3,9 +3,9 @@ use crate::{api::utils::get_size, library::Library, volume::get_volumes, Node};
 use sd_prisma::prisma::statistics;
 
 use chrono::Utc;
-use tracing::info;
 
 use super::LibraryManagerError;
+use tracing::{error, info};
 
 pub async fn update_library_statistics(
 	node: &Node,
@@ -31,6 +31,25 @@ pub async fn update_library_statistics(
 	.await
 	.unwrap_or(0);
 
+	let total_library_bytes = library
+		.db
+		.location()
+		.find_many(vec![])
+		.exec()
+		.await
+		.unwrap_or_else(|err| {
+			error!("Failed to get location data from location_id: {:#?}", err);
+			vec![]
+		})
+		.into_iter()
+		.map(|location| {
+			location
+				.size_in_bytes
+				.map(|bytes| bytes.iter().fold(0, |acc, &x| acc * 256 + x as u64))
+				.unwrap_or(0)
+		})
+		.sum::<u64>();
+
 	let thumbnail_folder_size = get_size(node.config.data_directory().join("thumbnails"))
 		.await
 		.unwrap_or(0);
@@ -41,11 +60,11 @@ pub async fn update_library_statistics(
 		date_captured::set(Utc::now().into()),
 		total_object_count::set(0),
 		library_db_size::set(library_db_size.to_string()),
-		total_bytes_used::set(total_bytes_used.to_string()),
-		total_bytes_capacity::set(total_capacity.to_string()),
-		total_unique_bytes::set(0.to_string()),
-		total_bytes_free::set(available_capacity.to_string()),
-		preview_media_bytes::set(thumbnail_folder_size.to_string()),
+		total_library_bytes::set(total_library_bytes.to_string()),
+		total_local_bytes_used::set(total_bytes_used.to_string()),
+		total_local_bytes_capacity::set(total_capacity.to_string()),
+		total_local_bytes_free::set(available_capacity.to_string()),
+		total_library_preview_media_bytes::set(thumbnail_folder_size.to_string()),
 	];
 
 	let stats = library
