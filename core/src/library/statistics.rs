@@ -38,7 +38,7 @@ pub async fn update_library_statistics(
 		.exec()
 		.await
 		.unwrap_or_else(|err| {
-			error!("Failed to get location data from location_id: {:#?}", err);
+			error!("Failed to get locations", err);
 			vec![]
 		})
 		.into_iter()
