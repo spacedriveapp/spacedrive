@@ -31,7 +31,7 @@ use tokio::{
 	spawn,
 	sync::{watch, Mutex},
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
 use super::{
@@ -52,6 +52,7 @@ pub enum JobName {
 	// TODO: Add more job names as needed
 }
 
+#[derive(Debug)]
 pub enum ReturnStatus {
 	Completed(JobReturn),
 	Shutdown(Result<Option<Vec<u8>>, rmp_serde::encode::Error>),
@@ -147,7 +148,7 @@ where
 	}
 }
 
-impl<J, OuterCtx, JobCtx> IntoJob<J, OuterCtx, JobCtx> for JobBuilder<J, OuterCtx, JobCtx>
+impl<J, OuterCtx, JobCtx> IntoJob<J, OuterCtx, JobCtx> for JobEnqueuer<J, OuterCtx, JobCtx>
 where
 	J: Job + SerializableJob<OuterCtx>,
 	OuterCtx: OuterContext,
@@ -276,7 +277,7 @@ pub enum JobOutputData {
 	// TODO: Add more types
 }
 
-pub struct JobBuilder<J, OuterCtx, JobCtx>
+pub struct JobEnqueuer<J, OuterCtx, JobCtx>
 where
 	J: Job + SerializableJob<OuterCtx>,
 	OuterCtx: OuterContext,
@@ -289,19 +290,19 @@ where
 	_ctx: PhantomData<OuterCtx>,
 }
 
-impl<J, OuterCtx, JobCtx> JobBuilder<J, OuterCtx, JobCtx>
+impl<J, OuterCtx, JobCtx> JobEnqueuer<J, OuterCtx, JobCtx>
 where
 	J: Job + SerializableJob<OuterCtx>,
 	OuterCtx: OuterContext,
 	JobCtx: JobContext<OuterCtx>,
 {
-	pub fn build(self) -> Box<JobHolder<J, OuterCtx, JobCtx>> {
+	fn build(self) -> Box<dyn DynJob<OuterCtx, JobCtx>> {
 		Box::new(JobHolder {
 			id: self.id,
 			job: self.job,
 			report: self.report_builder.build(),
-			next_jobs: VecDeque::new(),
-			_ctx: PhantomData,
+			next_jobs: self.next_jobs,
+			_ctx: self._ctx,
 		})
 	}
 
@@ -338,7 +339,7 @@ where
 	pub fn enqueue_next(mut self, next: impl Job + SerializableJob<OuterCtx>) -> Self {
 		let next_job_order = self.next_jobs.len() + 1;
 
-		let mut child_job_builder = JobBuilder::new(next).with_parent_id(self.id);
+		let mut child_job_builder = JobEnqueuer::new(next).with_parent_id(self.id);
 
 		if let Some(parent_action) = &self.report_builder.action {
 			child_job_builder =
@@ -365,6 +366,7 @@ where
 }
 
 pub struct JobHandle<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
+	pub(crate) id: JobId,
 	pub(crate) next_jobs: VecDeque<Box<dyn DynJob<OuterCtx, JobCtx>>>,
 	pub(crate) ctx: JobCtx,
 	pub(crate) commands_tx: chan::Sender<Command>,
@@ -372,6 +374,10 @@ pub struct JobHandle<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
 
 impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, JobCtx> {
 	pub async fn send_command(&mut self, command: Command) -> Result<(), JobSystemError> {
+		trace!(
+			"Handle sending command {command:?} to <job_id='{}'>",
+			self.id
+		);
 		if self.commands_tx.send(command).await.is_err() {
 			warn!("Tried to send a {command:?} to a job that was already completed");
 
@@ -395,6 +401,11 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 				next_job_report.status = new_status;
 				next_job_report.completed_at = completed_at;
 
+				trace!(
+					"Parent job sent command {command:?} to <job_id='{}'>",
+					next_job_report.id
+				);
+
 				next_job_report.update(self.ctx.db()).await
 			})
 			.collect::<Vec<_>>()
@@ -408,6 +419,8 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 		&mut self,
 		start_time: DateTime<Utc>,
 	) -> Result<(), JobSystemError> {
+		trace!("Handle registering start of <job_id='{}'>", self.id);
+
 		let Self { next_jobs, ctx, .. } = self;
 
 		let mut report = ctx.report_mut().await;
@@ -432,6 +445,10 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 			.iter_mut()
 			.map(|dyn_job| dyn_job.report_mut())
 			.map(|next_job_report| async {
+				trace!(
+					"Parent job registering children <job_id='{}'>",
+					next_job_report.id
+				);
 				if next_job_report.created_at.is_none() {
 					next_job_report.create(db).await
 				} else {
@@ -453,14 +470,20 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 
 		let mut report = ctx.report_mut().await;
 
+		trace!("Handle completing <job_id='{}'>", self.id);
+
 		let output = JobOutput::prepare_output_and_report(job_return, &mut report);
 
 		report.update(ctx.db()).await?;
+
+		trace!("Handle completed <job_id='{}'>", self.id);
 
 		Ok(output)
 	}
 
 	pub async fn failed_job(&mut self, e: &Error) -> Result<(), JobSystemError> {
+		trace!("Handle registering failed job <job_id='{}'>", self.id);
+
 		let db = self.ctx.db();
 		{
 			let mut report = self.ctx.report_mut().await;
@@ -477,10 +500,17 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 			report.update(db).await?;
 		}
 
+		trace!(
+			"Handle sending cancel command to children due to failure: <job_id='{}'>",
+			self.id
+		);
+
 		self.command_children(Command::Cancel).await
 	}
 
 	pub async fn shutdown_pause_job(&mut self) -> Result<(), JobSystemError> {
+		trace!("Handle pausing job on shutdown: <job_id='{}'>", self.id);
+
 		let db = self.ctx.db();
 
 		{
@@ -500,6 +530,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 	}
 
 	pub async fn cancel_job(&mut self) -> Result<(), JobSystemError> {
+		trace!("Handle canceling job: <job_id='{}'>", self.id);
 		let db = self.ctx.db();
 
 		{
@@ -515,6 +546,11 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 
 			report.update(db).await?;
 		}
+
+		trace!(
+			"Handle sending cancel command to children: <job_id='{}'>",
+			self.id
+		);
 
 		self.command_children(Command::Cancel).await
 	}
@@ -602,6 +638,8 @@ where
 
 		let ctx = JobCtx::new(self.report, ctx);
 
+		trace!("Dispatching job <job_id='{}'>", self.id);
+
 		spawn(to_spawn_job::<OuterCtx, _>(
 			self.id,
 			self.job,
@@ -613,6 +651,7 @@ where
 		));
 
 		JobHandle {
+			id: self.id,
 			next_jobs: self.next_jobs,
 			ctx,
 			commands_tx,
@@ -630,6 +669,8 @@ where
 
 		let ctx = JobCtx::new(self.report, ctx);
 
+		trace!("Resuming job <job_id='{}'>", self.id);
+
 		spawn(to_spawn_job::<OuterCtx, _>(
 			self.id,
 			self.job,
@@ -641,6 +682,7 @@ where
 		));
 
 		JobHandle {
+			id: self.id,
 			next_jobs: self.next_jobs,
 			ctx,
 			commands_tx,
@@ -698,6 +740,7 @@ async fn to_spawn_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 
 				match command {
 					Command::Pause => {
+						trace!("Pausing job <job_id='{}'>", id);
 						running_state_tx.send_modify(|state| *state = JobRunningState::Paused);
 						remote_controllers
 							.iter()
@@ -715,6 +758,7 @@ async fn to_spawn_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 							});
 					}
 					Command::Resume => {
+						trace!("Resuming job <job_id='{}'>", id);
 						running_state_tx.send_modify(|state| *state = JobRunningState::Running);
 
 						remote_controllers
@@ -733,6 +777,7 @@ async fn to_spawn_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 							});
 					}
 					Command::Cancel => {
+						trace!("Canceling job <job_id='{}'>", id);
 						remote_controllers
 							.iter()
 							.map(TaskRemoteController::cancel)
@@ -749,6 +794,7 @@ async fn to_spawn_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 			}
 
 			StreamMessage::Done(res) => {
+				trace!("Job <job_id='{}'> done", id);
 				#[cfg(debug_assertions)]
 				{
 					// Just a sanity check to make sure we don't have any pending tasks left

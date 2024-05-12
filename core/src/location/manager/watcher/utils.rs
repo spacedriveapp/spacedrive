@@ -1113,8 +1113,22 @@ pub(super) async fn recalculate_directories_size(
 						path.display(),
 						location_path.display(),
 					);
-					reverse_update_directories_sizes(path, location_id, location_path, library)
-						.await?;
+					let mut non_critical_errors = vec![];
+					reverse_update_directories_sizes(
+						path,
+						location_id,
+						location_path,
+						&library.db,
+						&library.sync,
+						&mut non_critical_errors,
+					)
+					.await?;
+
+					error!(
+						"Reverse calculating directory sizes finished with {} non-critical errors: {non_critical_errors:#?}",
+						non_critical_errors.len()
+					);
+
 					should_invalidate = true;
 				} else {
 					should_update_location_size = true;

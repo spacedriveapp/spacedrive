@@ -8,6 +8,7 @@ use crate::{
 
 use futures::StreamExt;
 use prisma_client_rust::raw;
+use sd_core_heavy_lifting::JobId;
 use sd_file_ext::kind::ObjectKind;
 use sd_p2p::RemoteIdentity;
 use sd_prisma::prisma::{indexer_rule, object, statistics};
@@ -181,13 +182,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}: DefaultLocations,
 				node: Arc<Node>,
 				library: Arc<Library>,
-			) -> Result<(), rspc::Error> {
+			) -> Result<Option<JobId>, rspc::Error> {
 				// If all of them are false, we skip
 				if [!desktop, !documents, !downloads, !pictures, !music, !videos]
 					.into_iter()
 					.all(identity)
 				{
-					return Ok(());
+					return Ok(None);
 				}
 
 				let Some(default_locations_paths) = UserDirs::new() else {
@@ -242,7 +243,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.await
 							.map_err(rspc::Error::from)?
 							else {
-								return Ok(());
+								return Ok(None);
 							};
 
 							let scan_state = ScanState::try_from(location.scan_state)?;
@@ -283,7 +284,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				debug!("Created default locations");
 
-				Ok(())
+				Ok(None)
 			}
 
 			R.mutation(

@@ -1,24 +1,25 @@
 import { DocumentDirectoryPath } from '@dr.pogodin/react-native-fs';
 import { getIcon } from '@sd/assets/util';
+import { Image } from 'expo-image';
+import { useEffect, useLayoutEffect, useMemo, useState, type PropsWithChildren } from 'react';
+import { View } from 'react-native';
 import {
 	getExplorerItemData,
 	getItemFilePath,
 	getItemLocation,
 	isDarkTheme,
+	ThumbKey,
 	type ExplorerItem
 } from '@sd/client';
-import { Image } from 'expo-image';
-import { useEffect, useLayoutEffect, useMemo, useState, type PropsWithChildren } from 'react';
-import { View } from 'react-native';
 import { flattenThumbnailKey, useExplorerStore } from '~/stores/explorerStore';
 
 import { tw } from '../../lib/tailwind';
 
 // NOTE: `file://` is required for Android to load local files!
-export const getThumbnailUrlByThumbKey = (thumbKey: string[]) => {
-	return `file://${DocumentDirectoryPath}/thumbnails/${thumbKey
-		.map((i) => encodeURIComponent(i))
-		.join('/')}.webp`;
+export const getThumbnailUrlByThumbKey = (thumbKey: ThumbKey) => {
+	return `file://${DocumentDirectoryPath}/thumbnails/${encodeURIComponent(
+		thumbKey.base_directory_str
+	)}/${encodeURIComponent(thumbKey.shard_hex)}/${encodeURIComponent(thumbKey.cas_id)}.webp`;
 };
 
 const FileThumbWrapper = ({ children, size = 1 }: PropsWithChildren<{ size: number }>) => (

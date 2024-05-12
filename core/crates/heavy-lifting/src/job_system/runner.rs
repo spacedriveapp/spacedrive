@@ -22,7 +22,7 @@ use tokio::{
 	time::{interval_at, Instant},
 };
 use tokio_stream::wrappers::IntervalStream;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
 use super::{
@@ -64,14 +64,18 @@ pub(super) enum RunnerMessage<OuterCtx: OuterContext, JobCtx: JobContext<OuterCt
 	Shutdown,
 }
 
-pub(super) struct JobSystemRunner<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
-	base_dispatcher: BaseTaskDispatcher<Error>,
-	handles: HashMap<JobId, JobHandle<OuterCtx, JobCtx>>,
+struct JobsWorktables {
 	job_hashes: HashMap<u64, JobId>,
 	job_hashes_by_id: HashMap<JobId, u64>,
 	running_jobs_by_job_id: HashMap<JobId, (JobName, location::id::Type)>,
 	running_jobs_set: HashSet<(JobName, location::id::Type)>,
 	jobs_to_store_by_ctx_id: HashMap<Uuid, Vec<StoredJobEntry>>,
+}
+
+pub(super) struct JobSystemRunner<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
+	base_dispatcher: BaseTaskDispatcher<Error>,
+	handles: HashMap<JobId, JobHandle<OuterCtx, JobCtx>>,
+	worktables: JobsWorktables,
 	job_return_status_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
 	job_outputs_tx: chan::Sender<(JobId, Result<JobOutput, JobSystemError>)>,
 }
@@ -85,11 +89,13 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 		Self {
 			base_dispatcher,
 			handles: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
-			job_hashes: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
-			job_hashes_by_id: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
-			running_jobs_by_job_id: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
-			running_jobs_set: HashSet::with_capacity(JOBS_INITIAL_CAPACITY),
-			jobs_to_store_by_ctx_id: HashMap::new(),
+			worktables: JobsWorktables {
+				job_hashes: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
+				job_hashes_by_id: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
+				running_jobs_by_job_id: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
+				running_jobs_set: HashSet::with_capacity(JOBS_INITIAL_CAPACITY),
+				jobs_to_store_by_ctx_id: HashMap::new(),
+			},
 			job_return_status_tx,
 			job_outputs_tx,
 		}
@@ -106,11 +112,15 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 		let Self {
 			base_dispatcher,
 			handles,
-			job_hashes,
-			job_hashes_by_id,
+			worktables:
+				JobsWorktables {
+					job_hashes,
+					job_hashes_by_id,
+					running_jobs_by_job_id,
+					running_jobs_set,
+					..
+				},
 			job_return_status_tx,
-			running_jobs_by_job_id,
-			running_jobs_set,
 			..
 		} = self;
 
@@ -197,7 +207,9 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 	}
 
 	fn is_empty(&self) -> bool {
-		self.handles.is_empty() && self.job_hashes.is_empty() && self.job_hashes_by_id.is_empty()
+		self.handles.is_empty()
+			&& self.worktables.job_hashes.is_empty()
+			&& self.worktables.job_hashes_by_id.is_empty()
 	}
 
 	fn check_if_job_are_running(
@@ -205,40 +217,46 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 		job_names: Vec<JobName>,
 		location_id: location::id::Type,
 	) -> bool {
-		job_names
-			.into_iter()
-			.any(|job_name| self.running_jobs_set.contains(&(job_name, location_id)))
+		job_names.into_iter().any(|job_name| {
+			self.worktables
+				.running_jobs_set
+				.contains(&(job_name, location_id))
+		})
 	}
 
 	async fn process_return_status(&mut self, job_id: JobId, status: Result<ReturnStatus, Error>) {
 		let Self {
 			handles,
-			job_hashes,
-			job_hashes_by_id,
+			worktables,
 			job_outputs_tx,
 			job_return_status_tx,
 			base_dispatcher,
-			jobs_to_store_by_ctx_id,
-			running_jobs_by_job_id,
-			running_jobs_set,
 			..
 		} = self;
 
-		let job_hash = job_hashes_by_id.remove(&job_id).expect("it must be here");
-		let (job_name, location_id) = running_jobs_by_job_id
+		let job_hash = worktables
+			.job_hashes_by_id
+			.remove(&job_id)
+			.expect("it must be here");
+
+		let (job_name, location_id) = worktables
+			.running_jobs_by_job_id
 			.remove(&job_id)
 			.expect("a JobName and location_id must've been inserted in the map with the job id");
-		assert!(running_jobs_set.remove(&(job_name, location_id)));
 
-		assert!(job_hashes.remove(&job_hash).is_some());
+		assert!(worktables.running_jobs_set.remove(&(job_name, location_id)));
+
+		assert!(worktables.job_hashes.remove(&job_hash).is_some());
 		let mut handle = handles.remove(&job_id).expect("it must be here");
 
 		let res = match status {
 			Ok(ReturnStatus::Completed(job_return)) => {
+				trace!("Job completed and will try to dispatch children jobs: <id='{job_id}', name='{job_name}'>");
 				try_dispatch_next_job(
 					&mut handle,
+					location_id,
 					base_dispatcher.clone(),
-					(job_hashes, job_hashes_by_id),
+					worktables,
 					handles,
 					job_return_status_tx.clone(),
 				);
@@ -280,7 +298,8 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 					return;
 				};
 
-				jobs_to_store_by_ctx_id
+				worktables
+					.jobs_to_store_by_ctx_id
 					.entry(handle.ctx.id())
 					.or_default()
 					.push(StoredJobEntry {
@@ -330,28 +349,34 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 			self.handles.shrink_to(JOBS_INITIAL_CAPACITY);
 		}
 
-		if self.job_hashes.capacity() > JOBS_INITIAL_CAPACITY
-			&& self.job_hashes.len() < JOBS_INITIAL_CAPACITY
+		if self.worktables.job_hashes.capacity() > JOBS_INITIAL_CAPACITY
+			&& self.worktables.job_hashes.len() < JOBS_INITIAL_CAPACITY
 		{
-			self.job_hashes.shrink_to(JOBS_INITIAL_CAPACITY);
+			self.worktables.job_hashes.shrink_to(JOBS_INITIAL_CAPACITY);
 		}
 
-		if self.job_hashes_by_id.capacity() > JOBS_INITIAL_CAPACITY
-			&& self.job_hashes_by_id.len() < JOBS_INITIAL_CAPACITY
+		if self.worktables.job_hashes_by_id.capacity() > JOBS_INITIAL_CAPACITY
+			&& self.worktables.job_hashes_by_id.len() < JOBS_INITIAL_CAPACITY
 		{
-			self.job_hashes_by_id.shrink_to(JOBS_INITIAL_CAPACITY);
+			self.worktables
+				.job_hashes_by_id
+				.shrink_to(JOBS_INITIAL_CAPACITY);
 		}
 
-		if self.running_jobs_by_job_id.capacity() > JOBS_INITIAL_CAPACITY
-			&& self.running_jobs_by_job_id.len() < JOBS_INITIAL_CAPACITY
+		if self.worktables.running_jobs_by_job_id.capacity() > JOBS_INITIAL_CAPACITY
+			&& self.worktables.running_jobs_by_job_id.len() < JOBS_INITIAL_CAPACITY
 		{
-			self.running_jobs_by_job_id.shrink_to(JOBS_INITIAL_CAPACITY);
+			self.worktables
+				.running_jobs_by_job_id
+				.shrink_to(JOBS_INITIAL_CAPACITY);
 		}
 
-		if self.running_jobs_set.capacity() > JOBS_INITIAL_CAPACITY
-			&& self.running_jobs_set.len() < JOBS_INITIAL_CAPACITY
+		if self.worktables.running_jobs_set.capacity() > JOBS_INITIAL_CAPACITY
+			&& self.worktables.running_jobs_set.len() < JOBS_INITIAL_CAPACITY
 		{
-			self.running_jobs_set.shrink_to(JOBS_INITIAL_CAPACITY);
+			self.worktables
+				.running_jobs_set
+				.shrink_to(JOBS_INITIAL_CAPACITY);
 		}
 	}
 
@@ -363,9 +388,13 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 
 		let Self {
 			handles,
-			job_hashes,
-			job_hashes_by_id,
-			jobs_to_store_by_ctx_id,
+			worktables:
+				JobsWorktables {
+					job_hashes,
+					job_hashes_by_id,
+					jobs_to_store_by_ctx_id,
+					..
+				},
 			..
 		} = self;
 
@@ -390,17 +419,32 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 
 fn try_dispatch_next_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 	handle: &mut JobHandle<OuterCtx, JobCtx>,
+	location_id: location::id::Type,
 	base_dispatcher: BaseTaskDispatcher<Error>,
-	(job_hashes, job_hashes_by_id): (&mut HashMap<u64, JobId>, &mut HashMap<JobId, u64>),
+	JobsWorktables {
+		job_hashes,
+		job_hashes_by_id,
+		running_jobs_by_job_id,
+		running_jobs_set,
+		..
+	}: &mut JobsWorktables,
 	handles: &mut HashMap<JobId, JobHandle<OuterCtx, JobCtx>>,
 	job_return_status_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
 ) {
 	if let Some(next) = handle.next_jobs.pop_front() {
 		let next_id = next.id();
 		let next_hash = next.hash();
+		let next_name = next.job_name();
+
 		if let Entry::Vacant(e) = job_hashes.entry(next_hash) {
 			e.insert(next_id);
+			trace!(
+				"Dispatching next job: <id='{next_id}', name='{}'>",
+				next.job_name()
+			);
 			job_hashes_by_id.insert(next_id, next_hash);
+			running_jobs_by_job_id.insert(next_id, (next_name, location_id));
+			running_jobs_set.insert((next_name, location_id));
 			let mut next_handle = next.dispatch(
 				base_dispatcher,
 				handle.ctx.get_outer_ctx(),
@@ -419,6 +463,8 @@ fn try_dispatch_next_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 		} else {
 			warn!("Unexpectedly found a job with the same hash as the next job: <id='{next_id}', name='{}'>", next.job_name());
 		}
+	} else {
+		trace!("No next jobs to dispatch");
 	}
 }
 
@@ -449,6 +495,7 @@ pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 		match msg {
 			// Job return status messages
 			StreamMessage::ReturnStatus((job_id, status)) => {
+				trace!("Received return status for job: <id='{job_id}', status='{status:#?}'>");
 				runner.process_return_status(job_id, status).await;
 			}
 

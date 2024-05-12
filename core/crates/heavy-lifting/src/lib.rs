@@ -45,7 +45,7 @@ use media_processor::ThumbKey;
 
 pub use job_system::{
 	job::{
-		IntoJob, JobBuilder, JobContext, JobName, JobOutput, JobOutputData, OuterContext,
+		IntoJob, JobContext, JobEnqueuer, JobName, JobOutput, JobOutputData, OuterContext,
 		ProgressUpdate,
 	},
 	JobId, JobSystem, JobSystemError,

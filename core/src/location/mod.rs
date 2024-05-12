@@ -1,12 +1,20 @@
 use crate::{
+	context::NodeContext,
 	invalidate_query,
 	library::Library,
-	old_job::{JobBuilder, JobError, JobManagerError},
+	// old_job::{JobBuilder, JobError, JobManagerError},
 	Node,
 };
 
 use sd_core_file_path_helper::{
 	filter_existing_file_path_params, IsolatedFilePathData, IsolatedFilePathDataParts,
+};
+use sd_core_heavy_lifting::{
+	file_identifier::{self, FileIdentifier},
+	indexer::{self, job::Indexer},
+	job_system::report::ReportInputMetadata,
+	media_processor::{self, job::MediaProcessor},
+	JobEnqueuer, JobId, JobSystemError,
 };
 use sd_core_prisma_helpers::location_with_indexer_rules;
 
@@ -32,14 +40,13 @@ use futures::future::TryFutureExt;
 use normpath::PathExt;
 use prisma_client_rust::{operator::and, or, QueryError};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use specta::Type;
 use tokio::{fs, io, time::Instant};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 mod error;
-pub mod indexer;
+// pub mod indexer;
 mod manager;
 pub mod metadata;
 pub mod non_indexed;
@@ -462,70 +469,79 @@ pub async fn scan_location(
 	library: &Arc<Library>,
 	location: location_with_indexer_rules::Data,
 	location_scan_state: ScanState,
-) -> Result<(), JobManagerError> {
+) -> Result<Option<JobId>, JobSystemError> {
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
 	if location.instance_id != Some(library.config().await.instance_id) {
-		return Ok(());
+		return Ok(None);
 	}
+
+	let location_id = location.id;
+	let ctx = NodeContext {
+		node: Arc::clone(node),
+		library: Arc::clone(library),
+	};
 
 	let location_base_data = location::Data::from(&location);
 
 	debug!("Scanning location with state: {location_scan_state:?}");
 
-	match location_scan_state {
+	let job_id = match location_scan_state {
 		ScanState::Pending | ScanState::Completed => {
-			JobBuilder::new(OldIndexerJobInit {
-				location,
-				sub_path: None,
-			})
-			.with_action("scan_location")
-			.with_metadata(json!({"location": location_base_data.clone()}))
-			.build()
-			.queue_next(OldFileIdentifierJobInit {
-				location: location_base_data.clone(),
-				sub_path: None,
-			})
-			.queue_next(OldMediaProcessorJobInit {
-				location: location_base_data,
-				sub_path: None,
-				regenerate_thumbnails: false,
-				regenerate_labels: false,
-			})
-			.spawn(node, library)
-			.await
+			node.job_system
+				.dispatch(
+					JobEnqueuer::new(
+						Indexer::new(location, None).map_err(sd_core_heavy_lifting::Error::from)?,
+					)
+					.with_action("scan_location")
+					.with_metadata(ReportInputMetadata::Location(location_base_data.clone()))
+					.enqueue_next(
+						FileIdentifier::new(location_base_data.clone(), None)
+							.map_err(sd_core_heavy_lifting::Error::from)?,
+					)
+					.enqueue_next(
+						MediaProcessor::new(location_base_data, None, false)
+							.map_err(sd_core_heavy_lifting::Error::from)?,
+					),
+					location_id,
+					ctx.clone(),
+				)
+				.await?
 		}
 		ScanState::Indexed => {
-			JobBuilder::new(OldFileIdentifierJobInit {
-				location: location_base_data.clone(),
-				sub_path: None,
-			})
-			.with_action("scan_location_already_indexed")
-			.with_metadata(json!({"location": location_base_data.clone()}))
-			.build()
-			.queue_next(OldMediaProcessorJobInit {
-				location: location_base_data,
-				sub_path: None,
-				regenerate_thumbnails: false,
-				regenerate_labels: false,
-			})
-			.spawn(node, library)
-			.await
+			node.job_system
+				.dispatch(
+					JobEnqueuer::new(
+						FileIdentifier::new(location_base_data.clone(), None)
+							.map_err(sd_core_heavy_lifting::Error::from)?,
+					)
+					.with_action("scan_location_already_indexed")
+					.with_metadata(ReportInputMetadata::Location(location_base_data.clone()))
+					.enqueue_next(
+						MediaProcessor::new(location_base_data, None, false)
+							.map_err(sd_core_heavy_lifting::Error::from)?,
+					),
+					location_id,
+					ctx.clone(),
+				)
+				.await?
 		}
 		ScanState::FilesIdentified => {
-			JobBuilder::new(OldMediaProcessorJobInit {
-				location: location_base_data.clone(),
-				sub_path: None,
-				regenerate_thumbnails: false,
-				regenerate_labels: false,
-			})
-			.with_action("scan_location_files_already_identified")
-			.with_metadata(json!({"location": location_base_data}))
-			.build()
-			.spawn(node, library)
-			.await
+			node.job_system
+				.dispatch(
+					JobEnqueuer::new(
+						MediaProcessor::new(location_base_data.clone(), None, false)
+							.map_err(sd_core_heavy_lifting::Error::from)?,
+					)
+					.with_action("scan_location_files_already_identified")
+					.with_metadata(ReportInputMetadata::Location(location_base_data)),
+					location_id,
+					ctx.clone(),
+				)
+				.await?
 		}
-	}
-	.map_err(Into::into)
+	};
+
+	Ok(Some(job_id))
 }
 
 pub async fn scan_location_sub_path(
@@ -533,39 +549,44 @@ pub async fn scan_location_sub_path(
 	library: &Arc<Library>,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
-) -> Result<(), JobManagerError> {
+) -> Result<Option<JobId>, JobSystemError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
 	if location.instance_id != Some(library.config().await.instance_id) {
-		return Ok(());
+		return Ok(None);
 	}
+
+	let location_id = location.id;
+	let ctx = NodeContext {
+		node: Arc::clone(node),
+		library: Arc::clone(library),
+	};
 
 	let location_base_data = location::Data::from(&location);
 
-	JobBuilder::new(OldIndexerJobInit {
-		location,
-		sub_path: Some(sub_path.clone()),
-	})
-	.with_action("scan_location_sub_path")
-	.with_metadata(json!({
-		"location": location_base_data.clone(),
-		"sub_path": sub_path.clone(),
-	}))
-	.build()
-	.queue_next(OldFileIdentifierJobInit {
-		location: location_base_data.clone(),
-		sub_path: Some(sub_path.clone()),
-	})
-	.queue_next(OldMediaProcessorJobInit {
-		location: location_base_data,
-		sub_path: Some(sub_path),
-		regenerate_thumbnails: false,
-		regenerate_labels: false,
-	})
-	.spawn(node, library)
-	.await
-	.map_err(Into::into)
+	node.job_system
+		.dispatch(
+			JobEnqueuer::new(
+				Indexer::new(location, Some(sub_path.clone()))
+					.map_err(sd_core_heavy_lifting::Error::from)?,
+			)
+			.with_action("scan_location")
+			.with_metadata(ReportInputMetadata::Location(location_base_data.clone()))
+			.with_metadata(ReportInputMetadata::SubPath(sub_path.clone()))
+			.enqueue_next(
+				FileIdentifier::new(location_base_data.clone(), Some(sub_path.clone()))
+					.map_err(sd_core_heavy_lifting::Error::from)?,
+			)
+			.enqueue_next(
+				MediaProcessor::new(location_base_data, Some(sub_path), false)
+					.map_err(sd_core_heavy_lifting::Error::from)?,
+			),
+			location_id,
+			ctx.clone(),
+		)
+		.await
+		.map(Some)
 }
 
 pub async fn light_scan_location(
@@ -573,7 +594,7 @@ pub async fn light_scan_location(
 	library: Arc<Library>,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
-) -> Result<(), JobError> {
+) -> Result<(), sd_core_heavy_lifting::Error> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
@@ -583,17 +604,34 @@ pub async fn light_scan_location(
 
 	let location_base_data = location::Data::from(&location);
 
-	indexer::old_shallow(&location, &sub_path, &node, &library).await?;
-	old_file_identifier::old_shallow(&location_base_data, &sub_path, &library).await?;
-	old_media_processor::old_shallow(
-		&location_base_data,
-		&sub_path,
-		&library,
-		#[cfg(feature = "ai")]
-		false,
-		&node,
-	)
-	.await?;
+	// indexer::old_shallow(&location, &sub_path, &node, &library).await?;
+	// old_file_identifier::old_shallow(&location_base_data, &sub_path, &library).await?;
+	// old_media_processor::old_shallow(
+	// 	&location_base_data,
+	// 	&sub_path,
+	// 	&library,
+	// 	#[cfg(feature = "ai")]
+	// 	false,
+	// 	&node,
+	// )
+	// .await?;
+
+	let dispatcher = node.task_system.get_dispatcher();
+	let ctx = NodeContext { node, library };
+
+	for e in indexer::shallow(location, &sub_path, &dispatcher, &ctx).await? {
+		error!("Shallow indexer errors: {e:#?}");
+	}
+
+	for e in
+		file_identifier::shallow(location_base_data.clone(), &sub_path, &dispatcher, &ctx).await?
+	{
+		error!("Shallow file identifier errors: {e:#?}");
+	}
+
+	for e in media_processor::shallow(location_base_data, &sub_path, &dispatcher, &ctx).await? {
+		error!("Shallow media processor errors: {e:#?}");
+	}
 
 	Ok(())
 }

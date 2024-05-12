@@ -22,24 +22,19 @@ pub struct NodeContext {
 	pub library: Arc<Library>,
 }
 
-mod sealed {
-	use crate::{library::Library, Node};
-
-	use std::sync::Arc;
-
-	pub(super) trait Sealed {
-		fn library(&self) -> &Arc<Library>;
-		fn node(&self) -> &Arc<Node>;
-	}
+pub trait NodeContextExt: sealed::Sealed {
+	fn library(&self) -> &Arc<Library>;
 }
 
-impl sealed::Sealed for NodeContext {
+mod sealed {
+	pub trait Sealed {}
+}
+
+impl sealed::Sealed for NodeContext {}
+
+impl NodeContextExt for NodeContext {
 	fn library(&self) -> &Arc<Library> {
 		&self.library
-	}
-
-	fn node(&self) -> &Arc<Node> {
-		&self.node
 	}
 }
 
@@ -83,13 +78,13 @@ impl OuterContext for NodeContext {
 }
 
 #[derive(Clone)]
-pub struct JobContext<OuterCtx: OuterContext + sealed::Sealed> {
+pub struct JobContext<OuterCtx: OuterContext + NodeContextExt> {
 	outer_ctx: OuterCtx,
 	report: Arc<RwLock<Report>>,
 	start_time: DateTime<Utc>,
 }
 
-impl<OuterCtx: OuterContext + sealed::Sealed> OuterContext for JobContext<OuterCtx> {
+impl<OuterCtx: OuterContext + NodeContextExt> OuterContext for JobContext<OuterCtx> {
 	fn id(&self) -> Uuid {
 		self.outer_ctx.id()
 	}
@@ -119,7 +114,7 @@ impl<OuterCtx: OuterContext + sealed::Sealed> OuterContext for JobContext<OuterC
 	}
 }
 
-impl<OuterCtx: OuterContext + sealed::Sealed> sd_core_heavy_lifting::JobContext<OuterCtx>
+impl<OuterCtx: OuterContext + NodeContextExt> sd_core_heavy_lifting::JobContext<OuterCtx>
 	for JobContext<OuterCtx>
 {
 	fn new(report: Report, outer_ctx: OuterCtx) -> Self {

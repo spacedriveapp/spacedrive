@@ -19,11 +19,11 @@
 // pub mod old_media_processor;
 // pub mod old_thumbnail;
 
-use std::path::PathBuf;
-
-use sd_core_heavy_lifting::media_processor::{ThumbKey, ThumbnailKind};
-
 use crate::{library::LibraryId, Node};
+
+use sd_core_heavy_lifting::media_processor::ThumbnailKind;
+
+use std::path::PathBuf;
 
 /// This does not check if a thumbnail exists, it just returns the path that it would exist at
 pub fn get_indexed_thumbnail_path(node: &Node, cas_id: &str, library_id: LibraryId) -> PathBuf {

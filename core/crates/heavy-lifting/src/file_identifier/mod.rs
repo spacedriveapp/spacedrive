@@ -141,7 +141,7 @@ fn orphan_path_filters_shallow(
 			)),
 			file_path::size_in_bytes_bytes::not(Some(0u64.to_be_bytes().to_vec())),
 		],
-		[file_path_id.map(file_path::id::gte)],
+		[file_path_id.map(file_path::id::gt)],
 	)
 }
 
@@ -162,7 +162,7 @@ fn orphan_path_filters_deep(
 		],
 		[
 			// this is a workaround for the cursor not working properly
-			file_path_id.map(file_path::id::gte),
+			file_path_id.map(file_path::id::gt),
 			maybe_sub_iso_file_path.as_ref().map(|sub_iso_file_path| {
 				file_path::materialized_path::starts_with(
 					sub_iso_file_path

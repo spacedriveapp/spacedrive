@@ -7,6 +7,7 @@ use sd_utils::error::FileIOError;
 use std::{
 	cell::RefCell,
 	collections::hash_map::HashMap,
+	panic,
 	path::{Path, PathBuf},
 	sync::Arc,
 };
@@ -15,7 +16,7 @@ use async_channel as chan;
 use futures::Stream;
 use futures_concurrency::future::{Join, TryJoin};
 use tokio::{fs, spawn, sync::oneshot, task::JoinHandle};
-use tracing::{error, info, trace, warn};
+use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
 mod error;
@@ -176,7 +177,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, J
 	/// # Panics
 	/// Panics only happen if internal channels are unexpectedly closed
 	pub async fn dispatch<J: Job + SerializableJob<OuterCtx>>(
-		&mut self,
+		&self,
 		job: impl IntoJob<J, OuterCtx, JobCtx> + Send,
 		location_id: location::id::Type,
 		ctx: OuterCtx,
@@ -254,13 +255,20 @@ async fn load_stored_job_entries<OuterCtx: OuterContext, JobCtx: JobContext<Oute
 	let store_jobs_file = store_jobs_file.as_ref();
 
 	let stores_jobs_by_db = rmp_serde::from_slice::<HashMap<Uuid, Vec<StoredJobEntry>>>(
-		&fs::read(store_jobs_file).await.map_err(|e| {
-			JobSystemError::StoredJobs(FileIOError::from((
-				store_jobs_file,
-				e,
-				"Failed to load jobs from disk",
-			)))
-		})?,
+		&match fs::read(store_jobs_file).await {
+			Ok(bytes) => bytes,
+			Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+				debug!("No pending jobs found on disk");
+				return Ok(());
+			}
+			Err(e) => {
+				return Err(JobSystemError::StoredJobs(FileIOError::from((
+					store_jobs_file,
+					e,
+					"Failed to load jobs from disk",
+				))))
+			}
+		},
 	)?;
 
 	stores_jobs_by_db

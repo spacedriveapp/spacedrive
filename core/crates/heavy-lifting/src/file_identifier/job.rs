@@ -35,7 +35,7 @@ use futures_concurrency::future::TryJoin;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::time::Instant;
-use tracing::warn;
+use tracing::{trace, warn};
 
 use super::{
 	orphan_path_filters_deep, orphan_path_filters_shallow,
@@ -429,6 +429,8 @@ impl FileIdentifier {
 				.select(file_path_for_file_identifier::select())
 				.exec()
 				.await?;
+
+			trace!("Found {} orphan paths", orphan_paths.len());
 
 			if orphan_paths.is_empty() {
 				break;

@@ -7,6 +7,7 @@ use crate::{
 	// object::media::old_thumbnail::old_actor::OldThumbnailer,
 };
 
+use futures_concurrency::future::Join;
 use sd_core_heavy_lifting::JobSystem;
 
 #[cfg(feature = "ai")]
@@ -22,7 +23,6 @@ use notifications::Notifications;
 use reqwest::{RequestBuilder, Response};
 
 use std::{
-	collections::HashMap,
 	fmt,
 	path::{Path, PathBuf},
 	sync::{atomic::AtomicBool, Arc},
@@ -289,9 +289,18 @@ impl Node {
 
 	pub async fn shutdown(&self) {
 		info!("Spacedrive shutting down...");
-		// self.thumbnailer.shutdown().await;
-		self.old_jobs.shutdown().await;
-		self.p2p.shutdown().await;
+
+		// Let's shutdown the task system first, as the job system will receive tasks to save
+		self.task_system.shutdown().await;
+
+		(
+			self.old_jobs.shutdown(),
+			self.p2p.shutdown(),
+			self.job_system.shutdown(),
+		)
+			.join()
+			.await;
+
 		#[cfg(feature = "ai")]
 		if let Some(image_labeller) = &self.old_image_labeller {
 			image_labeller.shutdown().await;

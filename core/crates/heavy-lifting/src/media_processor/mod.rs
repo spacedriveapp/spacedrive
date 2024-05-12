@@ -23,10 +23,14 @@ pub use helpers::{
 	exif_media_data, ffmpeg_media_data,
 	thumbnailer::{
 		can_generate_thumbnail_for_document, can_generate_thumbnail_for_image,
-		can_generate_thumbnail_for_video, generate_single_thumbnail, get_shard_hex,
-		get_thumbnails_directory, GenerateThumbnailArgs, ThumbKey, ThumbnailKind, WEBP_EXTENSION,
+		generate_single_thumbnail, get_shard_hex, get_thumbnails_directory, GenerateThumbnailArgs,
+		ThumbKey, ThumbnailKind, WEBP_EXTENSION,
 	},
 };
+
+#[cfg(feature = "ffmpeg")]
+pub use helpers::thumbnailer::can_generate_thumbnail_for_video;
+
 pub use shallow::shallow;
 
 use self::thumbnailer::NewThumbnailReporter;
@@ -50,7 +54,11 @@ pub enum Error {
 
 impl From<Error> for rspc::Error {
 	fn from(e: Error) -> Self {
-		Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
+		match e {
+			Error::SubPath(sub_path_err) => sub_path_err.into(),
+
+			_ => Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e),
+		}
 	}
 }
 

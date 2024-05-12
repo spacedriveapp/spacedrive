@@ -15,7 +15,7 @@ use sd_core_prisma_helpers::file_path_for_media_processor;
 use sd_core_sync::Manager as SyncManager;
 
 use sd_file_ext::extensions::Extension;
-use sd_prisma::prisma::{location, PrismaClient};
+use sd_prisma::prisma::{file_path, location, object, PrismaClient};
 use sd_task_system::{
 	AnyTaskOutput, IntoTask, SerializableTask, Task, TaskDispatcher, TaskHandle, TaskOutput,
 	TaskStatus,
@@ -720,17 +720,66 @@ async fn get_all_children_files_by_extensions(
 	parent_iso_file_path: &IsolatedFilePathData<'_>,
 	extensions: &[Extension],
 ) -> Result<Vec<file_path_for_media_processor::Data>, media_processor::Error> {
+	#[derive(Deserialize)]
+	struct RawFilePathForMediaProcessor {
+		id: file_path::id::Type,
+		materialized_path: file_path::materialized_path::Type,
+		is_dir: file_path::is_dir::Type,
+		name: file_path::name::Type,
+		extension: file_path::extension::Type,
+		cas_id: file_path::cas_id::Type,
+		object_id: object::id::Type,
+		object_pub_id: object::pub_id::Type,
+	}
+
+	impl From<RawFilePathForMediaProcessor> for file_path_for_media_processor::Data {
+		fn from(
+			RawFilePathForMediaProcessor {
+				id,
+				materialized_path,
+				is_dir,
+				name,
+				extension,
+				cas_id,
+				object_id,
+				object_pub_id,
+			}: RawFilePathForMediaProcessor,
+		) -> Self {
+			Self {
+				id,
+				materialized_path,
+				is_dir,
+				name,
+				extension,
+				cas_id,
+				object: Some(file_path_for_media_processor::object::Data {
+					id: object_id,
+					pub_id: object_pub_id,
+				}),
+			}
+		}
+	}
+
 	// FIXME: Had to use format! macro because PCR doesn't support IN with Vec for SQLite
 	// We have no data coming from the user, so this is sql injection safe
-	db._query_raw(raw!(
+	db._query_raw::<RawFilePathForMediaProcessor>(raw!(
 		&format!(
-			"SELECT id, materialized_path, is_dir, name, extension, cas_id, object_id
+			"SELECT
+				file_path.id,
+				file_path.materialized_path,
+				file_path.is_dir,
+				file_path.name,
+				file_path.extension,
+				file_path.cas_id,
+				object.id as 'object_id',
+				object.pub_id as 'object_pub_id'
 			FROM file_path
+			INNER JOIN object ON object.id = file_path.object_id
 			WHERE
-				location_id={{}}
-				AND cas_id IS NOT NULL
-				AND LOWER(extension) IN ({})
-				AND materialized_path LIKE {{}}
+				file_path.location_id={{}}
+				AND file_path.cas_id IS NOT NULL
+				AND LOWER(file_path.extension) IN ({})
+				AND file_path.materialized_path LIKE {{}}
 			ORDER BY materialized_path ASC",
 			// Ordering by materialized_path so we can prioritize processing the first files
 			// in the above part of the directories tree
@@ -750,6 +799,7 @@ async fn get_all_children_files_by_extensions(
 	))
 	.exec()
 	.await
+	.map(|raw_files| raw_files.into_iter().map(Into::into).collect())
 	.map_err(Into::into)
 }
 

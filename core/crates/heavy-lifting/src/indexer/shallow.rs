@@ -33,8 +33,8 @@ use super::{
 pub async fn shallow(
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path> + Send,
-	dispatcher: BaseTaskDispatcher<Error>,
-	ctx: impl OuterContext,
+	dispatcher: &BaseTaskDispatcher<Error>,
+	ctx: &impl OuterContext,
 ) -> Result<Vec<NonCriticalError>, Error> {
 	let sub_path = sub_path.as_ref();
 	let db = ctx.db();
@@ -64,7 +64,7 @@ pub async fn shallow(
 		Arc::clone(&location_path),
 		Arc::clone(&to_walk_path),
 		Arc::clone(db),
-		&dispatcher,
+		dispatcher,
 	)
 	.await?
 	else {
@@ -82,7 +82,7 @@ pub async fn shallow(
 		to_update,
 		Arc::clone(db),
 		Arc::clone(sync),
-		&dispatcher,
+		dispatcher,
 	)
 	.await?
 	else {
@@ -109,7 +109,7 @@ pub async fn shallow(
 			.await?;
 		}
 
-		update_location_size(location.id, db, &ctx).await?;
+		update_location_size(location.id, db, ctx).await?;
 	}
 
 	if indexed_count > 0 || removed_count > 0 {
@@ -222,7 +222,7 @@ async fn save_and_update(
 		.dispatch_many_boxed(save_and_update_tasks)
 		.await
 		.into_iter()
-		.map(CancelTaskOnDrop)
+		.map(CancelTaskOnDrop::new)
 		.collect::<Vec<_>>()
 		.try_join()
 		.await?

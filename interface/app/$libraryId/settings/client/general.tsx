@@ -68,9 +68,9 @@ export const Component = () => {
 			p2p_ipv6_enabled: node.data?.p2p.ipv6 || true,
 			p2p_discovery: node.data?.p2p.discovery || 'Everyone',
 			p2p_remote_access: node.data?.p2p.remote_access || false,
-			image_labeler_version: node.data?.image_labeler_version ?? undefined,
-			background_processing_percentage:
-				node.data?.preferences.thumbnailer.background_processing_percentage || 50
+			image_labeler_version: node.data?.image_labeler_version ?? undefined
+			// background_processing_percentage:
+			// 	node.data?.preferences.thumbnailer?.background_processing_percentage || 50
 		}
 	});
 	const p2p_port = form.watch('p2p_port');
@@ -232,10 +232,7 @@ export const Component = () => {
 					<Input
 						className="after:h-initial relative h-[30px] w-[8ch]
 						after:absolute after:right-[0.8em] after:top-1/2 after:inline-block after:-translate-y-2/4 after:content-['%']"
-						defaultValue={
-							node.data?.preferences.thumbnailer.background_processing_percentage ||
-							75
-						}
+						defaultValue={0} // TODO: REMOVE THIS
 						maxLength={3}
 						{...form.register('background_processing_percentage', {
 							valueAsNumber: true

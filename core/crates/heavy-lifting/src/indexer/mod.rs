@@ -27,7 +27,7 @@ use std::{
 };
 
 use itertools::Itertools;
-use prisma_client_rust::{operator::or, Select};
+use prisma_client_rust::{operator::or, QueryError, Select};
 use rspc::ErrorCode;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -53,8 +53,8 @@ pub enum Error {
 	SubPath(#[from] sub_path::Error),
 
 	// Internal Errors
-	#[error("database Error: {0}")]
-	Database(#[from] prisma_client_rust::QueryError),
+	#[error("database error: {0}")]
+	Database(#[from] QueryError),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
 	#[error(transparent)]
@@ -241,7 +241,7 @@ async fn remove_non_existing_file_paths(
 }
 
 #[allow(clippy::missing_panics_doc)] // Can't actually panic as we only deal with directories
-async fn reverse_update_directories_sizes(
+pub async fn reverse_update_directories_sizes(
 	base_path: impl AsRef<Path> + Send,
 	location_id: location::id::Type,
 	location_path: impl AsRef<Path> + Send,
@@ -345,7 +345,7 @@ async fn compute_sizes(
 	pub_id_by_ancestor_materialized_path: &mut HashMap<String, (file_path::pub_id::Type, u64)>,
 	db: &PrismaClient,
 	errors: &mut Vec<crate::NonCriticalError>,
-) -> Result<(), Error> {
+) -> Result<(), QueryError> {
 	db.file_path()
 		.find_many(vec![
 			file_path::location_id::equals(Some(location_id)),

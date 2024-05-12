@@ -349,7 +349,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						items.push(ExplorerItem::Object {
 							thumbnail: cas_id
 								// .filter(|_| thumbnail_exists_locally)
-								.map(|cas_id| get_indexed_thumb_key(cas_id, library.id)),
+								.map(|cas_id| ThumbKey::new_indexed(cas_id, library.id)),
 							item: object,
 							has_created_thumbnail,
 						});

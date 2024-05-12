@@ -176,12 +176,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub background_processing_percentage: u8, // 0-100
 			}
 			R.mutation(
-				|node,
-				 UpdateThumbnailerPreferences {
-				     background_processing_percentage,
-				 }: UpdateThumbnailerPreferences| async move {
+				|node, UpdateThumbnailerPreferences { .. }: UpdateThumbnailerPreferences| async move {
 					node.config
-						.update_preferences(|preferences| {
+						.update_preferences(|_| {
 							// TODO(fogodev): remove this crap
 							// preferences
 							// 	.thumbnailer

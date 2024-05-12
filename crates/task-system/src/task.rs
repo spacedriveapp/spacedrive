@@ -14,7 +14,7 @@ use async_channel as chan;
 use async_trait::async_trait;
 use chan::{Recv, RecvError};
 use downcast_rs::{impl_downcast, Downcast};
-use tokio::{runtime::Handle, sync::oneshot};
+use tokio::{spawn, sync::oneshot};
 use tracing::{trace, warn};
 use uuid::Uuid;
 
@@ -508,20 +508,40 @@ impl<E: RunError> TaskHandle<E> {
 }
 
 /// A helper struct when you just want to cancel a task if its `TaskHandle` gets dropped.
-pub struct CancelTaskOnDrop<E: RunError>(pub TaskHandle<E>);
+pub struct CancelTaskOnDrop<E: RunError>(Option<TaskHandle<E>>);
+
+impl<E: RunError> CancelTaskOnDrop<E> {
+	/// Create a new `CancelTaskOnDrop` object with the given `TaskHandle`.
+	#[must_use]
+	pub const fn new(handle: TaskHandle<E>) -> Self {
+		Self(Some(handle))
+	}
+}
 
 impl<E: RunError> Future for CancelTaskOnDrop<E> {
 	type Output = Result<TaskStatus<E>, SystemError>;
 
 	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-		Pin::new(&mut self.0).poll(cx)
+		if let Some(handle) = self.0.as_mut() {
+			match Pin::new(handle).poll(cx) {
+				Poll::Ready(res) => {
+					self.0 = None;
+					Poll::Ready(res)
+				}
+				Poll::Pending => Poll::Pending,
+			}
+		} else {
+			Poll::Ready(Ok(TaskStatus::Canceled))
+		}
 	}
 }
 
 impl<E: RunError> Drop for CancelTaskOnDrop<E> {
 	fn drop(&mut self) {
 		// FIXME: We should use async drop when it becomes stable
-		Handle::current().block_on(self.0.cancel());
+		if let Some(handle) = self.0.take() {
+			spawn(async move { handle.cancel().await });
+		}
 	}
 }
 

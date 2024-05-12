@@ -42,8 +42,10 @@ const spacedriveURL = (() => {
 
 const platform: Platform = {
 	platform: 'web',
-	getThumbnailUrlByThumbKey: (keyParts) =>
-		`${spacedriveURL}/thumbnail/${keyParts.map((i) => encodeURIComponent(i)).join('/')}.webp`,
+	getThumbnailUrlByThumbKey: (thumbKey) =>
+		`${spacedriveURL}/thumbnail/${encodeURIComponent(
+			thumbKey.base_directory_str
+		)}/${encodeURIComponent(thumbKey.shard_hex)}/${encodeURIComponent(thumbKey.cas_id)}.webp`,
 	getFileUrl: (libraryId, locationLocalId, filePathId) =>
 		`${spacedriveURL}/file/${encodeURIComponent(libraryId)}/${encodeURIComponent(
 			locationLocalId

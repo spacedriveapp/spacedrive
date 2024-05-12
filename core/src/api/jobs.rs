@@ -1,10 +1,14 @@
 use crate::{
+	context::NodeContext,
 	invalidate_query,
 	location::{find_location, LocationError},
 	object::validation::old_validator_job::OldObjectValidatorJobInit,
 	old_job::{JobReport, JobStatus, OldJob, OldJobs},
 };
 
+use sd_core_heavy_lifting::{
+	file_identifier::FileIdentifier, media_processor::job::MediaProcessor,
+};
 use sd_core_prisma_helpers::job_without_data;
 
 use sd_prisma::prisma::{job, location, SortOrder};
@@ -12,6 +16,7 @@ use sd_prisma::prisma::{job, location, SortOrder};
 use std::{
 	collections::{hash_map::Entry, BTreeMap, HashMap, VecDeque},
 	path::PathBuf,
+	sync::Arc,
 	time::Instant,
 };
 
@@ -246,50 +251,50 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						return Err(LocationError::IdNotFound(id).into());
 					};
 
-					OldJob::new(OldMediaProcessorJobInit {
-						location,
-						sub_path: Some(path),
-						regenerate_thumbnails: regenerate,
-						regenerate_labels: false,
-					})
-					.spawn(&node, &library)
-					.await
-					.map_err(Into::into)
+					node.job_system
+						.dispatch(
+							MediaProcessor::new(location, Some(path), regenerate)?,
+							id,
+							NodeContext {
+								node: Arc::clone(&node),
+								library,
+							},
+						)
+						.await
+						.map_err(Into::into)
 				},
 			)
 		})
-		.procedure("generateLabelsForLocation", {
-			#[derive(Type, Deserialize)]
-			pub struct GenerateLabelsForLocationArgs {
-				pub id: location::id::Type,
-				pub path: PathBuf,
-				#[serde(default)]
-				pub regenerate: bool,
-			}
-
-			R.with2(library()).mutation(
-				|(node, library),
-				 GenerateLabelsForLocationArgs {
-				     id,
-				     path,
-				     regenerate,
-				 }: GenerateLabelsForLocationArgs| async move {
-					let Some(location) = find_location(&library, id).exec().await? else {
-						return Err(LocationError::IdNotFound(id).into());
-					};
-
-					OldJob::new(OldMediaProcessorJobInit {
-						location,
-						sub_path: Some(path),
-						regenerate_thumbnails: false,
-						regenerate_labels: regenerate,
-					})
-					.spawn(&node, &library)
-					.await
-					.map_err(Into::into)
-				},
-			)
-		})
+		// .procedure("generateLabelsForLocation", {
+		// 	#[derive(Type, Deserialize)]
+		// 	pub struct GenerateLabelsForLocationArgs {
+		// 		pub id: location::id::Type,
+		// 		pub path: PathBuf,
+		// 		#[serde(default)]
+		// 		pub regenerate: bool,
+		// 	}
+		// 	R.with2(library()).mutation(
+		// 		|(node, library),
+		// 		 GenerateLabelsForLocationArgs {
+		// 		     id,
+		// 		     path,
+		// 		     regenerate,
+		// 		 }: GenerateLabelsForLocationArgs| async move {
+		// 			let Some(location) = find_location(&library, id).exec().await? else {
+		// 				return Err(LocationError::IdNotFound(id).into());
+		// 			};
+		// 			OldJob::new(OldMediaProcessorJobInit {
+		// 				location,
+		// 				sub_path: Some(path),
+		// 				regenerate_thumbnails: false,
+		// 				regenerate_labels: regenerate,
+		// 			})
+		// 			.spawn(&node, &library)
+		// 			.await
+		// 			.map_err(Into::into)
+		// 		},
+		// 	)
+		// })
 		.procedure("objectValidator", {
 			#[derive(Type, Deserialize)]
 			pub struct ObjectValidatorArgs {
@@ -320,18 +325,30 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.with2(library()).mutation(
-				|(node, library), args: IdentifyUniqueFilesArgs| async move {
-					let Some(location) = find_location(&library, args.id).exec().await? else {
-						return Err(LocationError::IdNotFound(args.id).into());
+				|(node, library), IdentifyUniqueFilesArgs { id, path }: IdentifyUniqueFilesArgs| async move {
+					let Some(location) = find_location(&library, id).exec().await? else {
+						return Err(LocationError::IdNotFound(id).into());
 					};
 
-					OldJob::new(OldFileIdentifierJobInit {
-						location,
-						sub_path: Some(args.path),
-					})
-					.spawn(&node, &library)
-					.await
-					.map_err(Into::into)
+					// OldJob::new(OldFileIdentifierJobInit {
+					// 	location,
+					// 	sub_path: Some(args.path),
+					// })
+					// .spawn(&node, &library)
+					// .await
+					// .map_err(Into::into)
+
+					node.job_system
+						.dispatch(
+							FileIdentifier::new(location, Some(path))?,
+							id,
+							NodeContext {
+								node: Arc::clone(&node),
+								library,
+							},
+						)
+						.await
+						.map_err(Into::into)
 				},
 			)
 		})

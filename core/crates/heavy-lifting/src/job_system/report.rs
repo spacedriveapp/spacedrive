@@ -1,7 +1,7 @@
-use sd_prisma::prisma::{job, PrismaClient};
+use sd_prisma::prisma::{job, location, PrismaClient};
 use sd_utils::db::{maybe_missing, MissingFieldError};
 
-use std::{collections::HashMap, fmt, str::FromStr};
+use std::{collections::HashMap, fmt, path::PathBuf, str::FromStr};
 
 use chrono::{DateTime, Utc};
 use prisma_client_rust::QueryError;
@@ -62,14 +62,15 @@ pub enum ReportMetadata {
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
 pub enum ReportInputMetadata {
-	Placeholder,
-	// TODO: Add more types
+	// TODO: Add more variants as needed
+	Location(location::Data),
+	SubPath(PathBuf),
 }
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
 pub enum ReportOutputMetadata {
 	Metrics(HashMap<String, serde_json::Value>),
-	// TODO: Add more types
+	// TODO: Add more variants as needed
 }
 
 #[derive(Debug, Serialize, Type, Clone)]

@@ -36,8 +36,8 @@ use super::{
 pub async fn shallow(
 	location: location::Data,
 	sub_path: impl AsRef<Path> + Send,
-	dispatcher: BaseTaskDispatcher<Error>,
-	ctx: impl OuterContext,
+	dispatcher: &BaseTaskDispatcher<Error>,
+	ctx: &impl OuterContext,
 ) -> Result<Vec<NonCriticalError>, Error> {
 	let sub_path = sub_path.as_ref();
 
@@ -71,16 +71,16 @@ pub async fn shallow(
 		ctx.sync(),
 		&sub_iso_file_path,
 		&location_path,
-		&dispatcher,
+		dispatcher,
 	)
 	.await?
 	.into_iter()
-	.map(CancelTaskOnDrop)
+	.map(CancelTaskOnDrop::new)
 	.chain(
-		dispatch_thumbnailer_tasks(&sub_iso_file_path, false, &location_path, &dispatcher, &ctx)
+		dispatch_thumbnailer_tasks(&sub_iso_file_path, false, &location_path, dispatcher, ctx)
 			.await?
 			.into_iter()
-			.map(CancelTaskOnDrop),
+			.map(CancelTaskOnDrop::new),
 	)
 	.collect::<FutureGroup<_>>();
 
@@ -193,6 +193,7 @@ async fn get_files_by_extensions(
 			WHERE
 				location_id={{}}
 				AND cas_id IS NOT NULL
+				AND object_id IS NOT NULL
 				AND LOWER(extension) IN ({})
 				AND materialized_path = {{}}",
 			extensions

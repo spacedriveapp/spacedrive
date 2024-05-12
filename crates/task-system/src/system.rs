@@ -39,12 +39,16 @@ pub struct System<E: RunError> {
 impl<E: RunError> System<E> {
 	/// Created a new task system with a number of workers equal to the available parallelism in the user's machine.
 	pub fn new() -> Self {
-		let workers_count = std::thread::available_parallelism().map_or_else(
-			|e| {
-				error!("Failed to get available parallelism in the job system: {e:#?}");
-				1
-			},
-			NonZeroUsize::get,
+		// TODO: Using only the half of available cores, make this configurable on runtime in the future
+		let workers_count = usize::max(
+			std::thread::available_parallelism().map_or_else(
+				|e| {
+					error!("Failed to get available parallelism in the job system: {e:#?}");
+					1
+				},
+				NonZeroUsize::get,
+			) / 2,
+			1,
 		);
 
 		let (msgs_tx, msgs_rx) = chan::bounded(8);
@@ -91,7 +95,7 @@ impl<E: RunError> System<E> {
 			}
 		});
 
-		trace!("Task system online!");
+		info!("Task system online with {workers_count} workers!");
 
 		Self {
 			workers: Arc::clone(&workers),

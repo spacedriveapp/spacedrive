@@ -5,12 +5,11 @@ use crate::{
 		relink_location, scan_location, scan_location_sub_path, LocationCreateArgs, LocationError,
 		LocationUpdateArgs, ScanState,
 	},
-	old_job::StatefulJob,
 	p2p::PeerMetadata,
 	util::AbortOnDrop,
 };
 
-use sd_core_heavy_lifting::media_processor::ThumbKey;
+use sd_core_heavy_lifting::{media_processor::ThumbKey, JobName};
 use sd_core_indexer_rules::IndexerRuleCreateArgs;
 use sd_core_prisma_helpers::{
 	file_path_for_frontend, label_with_objects, location_with_indexer_rules, object_with_file_paths,
@@ -405,13 +404,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				     sub_path,
 				 }: LightScanArgs| async move {
 					if node
-						.old_jobs
-						.has_job_running(|job_identity| {
-							job_identity.target_location == location_id
-								&& (job_identity.name == <OldIndexerJobInit as StatefulJob>::NAME
-									|| job_identity.name
-										== <OldFileIdentifierJobInit as StatefulJob>::NAME)
-						})
+						.job_system
+						.check_running_jobs(
+							vec![
+								JobName::Indexer,
+								JobName::FileIdentifier,
+								JobName::MediaProcessor,
+							],
+							location_id,
+						)
 						.await
 					{
 						return Err(rspc::Error::new(

@@ -11,6 +11,7 @@ use crate::{
 	Node,
 };
 
+use sd_core_heavy_lifting::JobSystemError;
 use sd_prisma::prisma::location;
 use sd_utils::error::FileIOError;
 
@@ -75,6 +76,8 @@ pub enum InitConfigError {
 	#[error("failed to get current directory from environment: {0}")]
 	CurrentDir(io::Error),
 
+	#[error(transparent)]
+	JobSystem(#[from] JobSystemError),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
 }

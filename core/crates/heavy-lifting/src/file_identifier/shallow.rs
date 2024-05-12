@@ -32,8 +32,8 @@ use super::{
 pub async fn shallow(
 	location: location::Data,
 	sub_path: impl AsRef<Path> + Send,
-	dispatcher: BaseTaskDispatcher<Error>,
-	ctx: impl OuterContext,
+	dispatcher: &BaseTaskDispatcher<Error>,
+	ctx: &impl OuterContext,
 ) -> Result<Vec<NonCriticalError>, Error> {
 	let sub_path = sub_path.as_ref();
 	let db = ctx.db();
@@ -87,7 +87,7 @@ pub async fn shallow(
 		orphans_count += orphan_paths.len() as u64;
 		last_orphan_file_path_id = Some(last_orphan.id);
 
-		pending_running_tasks.insert(CancelTaskOnDrop(
+		pending_running_tasks.insert(CancelTaskOnDrop::new(
 			dispatcher
 				.dispatch(ExtractFileMetadataTask::new(
 					Arc::clone(&location),
@@ -115,8 +115,8 @@ pub async fn shallow(
 
 async fn process_tasks(
 	pending_running_tasks: FutureGroup<CancelTaskOnDrop<Error>>,
-	dispatcher: BaseTaskDispatcher<Error>,
-	ctx: impl OuterContext,
+	dispatcher: &BaseTaskDispatcher<Error>,
+	ctx: &impl OuterContext,
 ) -> Result<Vec<NonCriticalError>, Error> {
 	let mut pending_running_tasks = pending_running_tasks.lend_mut();
 
@@ -141,7 +141,7 @@ async fn process_tasks(
 					errors.extend(more_errors);
 
 					if !identified_files.is_empty() {
-						pending_running_tasks.insert(CancelTaskOnDrop(
+						pending_running_tasks.insert(CancelTaskOnDrop::new(
 							dispatcher
 								.dispatch(ObjectProcessorTask::new(
 									identified_files,

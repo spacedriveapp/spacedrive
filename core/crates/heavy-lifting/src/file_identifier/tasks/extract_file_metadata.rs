@@ -21,7 +21,7 @@ use futures::stream::{self, FuturesUnordered, StreamExt};
 use futures_concurrency::stream::Merge;
 use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
-use tracing::error;
+use tracing::{error, trace};
 use uuid::Uuid;
 
 use super::IdentifiedFile;
@@ -95,6 +95,7 @@ impl Task<Error> for ExtractFileMetadataTask {
 		}
 
 		let Self {
+			id,
 			location,
 			location_path,
 			file_paths_by_id,
@@ -139,6 +140,8 @@ impl Task<Error> for ExtractFileMetadataTask {
 							.remove(&file_path_pub_id)
 							.expect("file_path must be here");
 
+						trace!("Processed file <file_path_pub_id='{file_path_pub_id}'>, {} files remaining", file_paths_by_id.len());
+
 						match res {
 							Ok(FileMetadata { cas_id, kind, .. }) => {
 								identified_files.insert(
@@ -168,6 +171,7 @@ impl Task<Error> for ExtractFileMetadataTask {
 					}
 
 					StreamMessage::Interrupt(kind) => {
+						trace!("Task received interrupt {kind:?}: <task_id={id}>");
 						*extract_metadata_time += start_time.elapsed();
 						return Ok(match kind {
 							InterruptionKind::Pause => ExecStatus::Paused,
