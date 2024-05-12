@@ -255,7 +255,7 @@ async fn main() -> tauri::Result<()> {
 						let node = node.clone();
 						move || node.clone()
 					}))?;
-					handle.plugin(sd_server_plugin(node.clone(), handle).await.unwrap())?; // TODO: Handle `unwrap`
+					handle.plugin(sd_server_plugin(node.clone()).await.unwrap())?; // TODO: Handle `unwrap`
 					handle.manage(node.clone());
 
 					handle.windows().iter().for_each(|(_, window)| {
@@ -285,12 +285,12 @@ async fn main() -> tauri::Result<()> {
 
 						#[cfg(target_os = "macos")]
 						{
-							use sd_desktop_macos::{blur_window_background, set_titlebar_style};
-
-							let nswindow = window.ns_window().unwrap();
-
-							unsafe { set_titlebar_style(&nswindow, false) };
-							unsafe { blur_window_background(&nswindow) };
+							unsafe {
+								sd_desktop_macos::set_titlebar_style(
+									&window.ns_window().expect("NSWindows must exist on macOS"),
+									false,
+								)
+							};
 						}
 					});
 

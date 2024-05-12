@@ -18,7 +18,7 @@ use hyper::server::{accept::Accept, conn::AddrIncoming};
 use rand::{distributions::Alphanumeric, Rng};
 use sd_core::{custom_uri, Node, NodeError};
 use serde::Deserialize;
-use tauri::{async_runtime::block_on, plugin::TauriPlugin, AppHandle, Manager, RunEvent, Runtime};
+use tauri::{async_runtime::block_on, plugin::TauriPlugin, AppHandle, RunEvent, Runtime};
 use thiserror::Error;
 use tokio::{net::TcpListener, task::block_in_place};
 use tracing::info;
@@ -51,7 +51,6 @@ pub enum SdServerPluginError {
 /// We also spin up multiple servers so we can load balance image requests between them to avoid any issue with browser connection limits.
 pub async fn sd_server_plugin<R: Runtime>(
 	node: Arc<Node>,
-	app_handle: &AppHandle,
 ) -> Result<TauriPlugin<R>, SdServerPluginError> {
 	let auth_token: String = rand::thread_rng()
 		.sample_iter(&Alphanumeric)
@@ -105,12 +104,13 @@ pub async fn sd_server_plugin<R: Runtime>(
 			.join(","),
 	);
 
-	for (_, window) in app_handle.webview_windows() {
-		window.eval(&script).ok();
-	}
-
 	Ok(tauri::plugin::Builder::new("sd-server")
-		.js_init_script(script)
+		.js_init_script(script.to_owned())
+		.on_page_load(move |webview, _payload| {
+			webview
+				.eval(&script)
+				.expect("Spacedrive server URL must be injected")
+		})
 		.on_event(move |_app, e| {
 			if let RunEvent::Exit { .. } = e {
 				block_in_place(|| {
