@@ -42,20 +42,8 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 	const { t } = useLocale();
 
 	return (
-		<Card className="flex w-[280px] shrink-0 flex-col bg-app-box/50 !p-0 ">
-			<div className="flex flex-row justify-between gap-5 p-4 px-6">
-				<div className="flex flex-col overflow-hidden">
-					<Icon
-						className="-ml-1 min-h-[60px] min-w-[60px]"
-						name={icon as any}
-						size={60}
-					/>
-					<span className="truncate font-medium">{name}</span>
-					{/* <span className="mt-1 truncate text-tiny text-ink-faint">
-						{freeSpace.value !== totalSpace.value &&
-							`${freeSpace.value} ${t(`size_${freeSpace.unit.toLowerCase()}`)}  ${t('free_of')} ${totalSpace.value} ${t(`size_${totalSpace.unit.toLowerCase()}`)}`}
-					</span> */}
-				</div>
+		<Card className="flex w-[280px] shrink-0 flex-col  bg-app-box/50 !p-0 ">
+			<div className="flex flex-row items-center gap-5 p-4 px-6">
 				{stats.freeSpace && (
 					<CircularProgress
 						radius={40}
@@ -77,17 +65,16 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 						</div>
 					</CircularProgress>
 				)}
+				<div className="flex flex-col overflow-hidden">
+					<Icon className="-ml-1" name={icon as any} size={60} />
+					<span className="truncate font-medium">{name}</span>
+					<span className="mt-1 truncate text-tiny text-ink-faint">
+						{freeSpace.value} {t(`size_${freeSpace.unit.toLowerCase()}`)} {t('free_of')}{' '}
+						{totalSpace.value} {t(`size_${totalSpace.unit.toLowerCase()}`)}
+					</span>
+				</div>
 			</div>
 			<div className="flex h-10 flex-row items-center gap-1.5  border-t border-app-line px-2">
-				{freeSpace.value === totalSpace.value ? (
-					<Pill>
-						{`${totalSpace.value} ${t(`size_${totalSpace.unit.toLowerCase()}`)}`}
-					</Pill>
-				) : (
-					<Pill>
-						{`${freeSpace.value} ${t(`size_${freeSpace.unit.toLowerCase()}`)} ${t('free_of')} ${totalSpace.value} ${t(`size_${totalSpace.unit.toLowerCase()}`)}`}
-					</Pill>
-				)}
 				<Pill className="uppercase">{connectionType || t('local')}</Pill>
 				<div className="grow" />
 				{/* <Button size="icon" variant="outline">
