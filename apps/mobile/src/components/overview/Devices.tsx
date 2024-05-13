@@ -57,11 +57,11 @@ const Devices = ({ node, stats }: Props) => {
 	const totalSpace =
 		Platform.OS === 'android'
 			? sizeInfo.totalSpace.toString()
-			: stats.data?.statistics?.total_bytes_capacity || '0';
+			: stats.data?.statistics?.total_local_bytes_capacity || '0';
 	const freeSpace =
 		Platform.OS === 'android'
 			? sizeInfo.freeSpace.toString()
-			: stats.data?.statistics?.total_bytes_free || '0';
+			: stats.data?.statistics?.total_local_bytes_free || '0';
 
 	useEffect(() => {
 		if (Platform.OS === 'android') {

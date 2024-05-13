@@ -30,21 +30,7 @@ export default function DevicesSection() {
 					<span className="truncate">{node.name}</span>
 				</SidebarLink>
 			)}
-			{Array.from(peers).map(([id, node]) => (
-				<SidebarLink className="group relative w-full" to={`todo`} key={id} disabled>
-					{node.metadata.device_model ? (
-						<Icon
-							name={hardwareModelToIcon(node.metadata.device_model as HardwareModel)}
-							size={20}
-							className="mr-1"
-						/>
-					) : (
-						<Icon name="Laptop" className="mr-1" />
-					)}
 
-					<span className="truncate">{node.metadata.name}</span>
-				</SidebarLink>
-			))}
 			<Tooltip label={t('devices_coming_soon_tooltip')} position="right">
 				<Button
 					onClick={() => {
