@@ -443,6 +443,8 @@ impl Libraries {
 				id, instance_node_id, node_config.id
 			);
 
+			// ensure
+
 			db.instance()
 				.update(
 					instance::id::equals(instance.id),

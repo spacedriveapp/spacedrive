@@ -126,11 +126,10 @@ export const humanizeSize = (
 		unit.from === 0n
 			? Number(bytes)
 			: Number((bytes * BigInt(precisionFactor)) / unit.from) / precisionFactor;
-	const plural = use_plural && value !== 1 ? 's' : '';
 
 	return {
-		unit: (is_bit ? BYTE_TO_BIT[unit.short as keyof typeof BYTE_TO_BIT] : unit.short) + plural,
-		long: (is_bit ? BYTE_TO_BIT[unit.long as keyof typeof BYTE_TO_BIT] : unit.long) + plural,
+		unit: is_bit ? BYTE_TO_BIT[unit.short as keyof typeof BYTE_TO_BIT] : unit.short,
+		long: is_bit ? BYTE_TO_BIT[unit.long as keyof typeof BYTE_TO_BIT] : unit.long,
 		value: (isNegative ? -1 : 1) * value,
 		original: value,
 		toString() {
