@@ -9455,6 +9455,7 @@ name = "sd-p2p-tunnel"
 version = "0.1.0"
 dependencies = [
  "sd-p2p",
+ "thiserror",
  "tokio",
 ]
 
