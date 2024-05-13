@@ -305,7 +305,11 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 				<MetaData
 					icon={Cube}
 					label={t('size')}
-					value={!!ephemeralPathData && ephemeralPathData.is_dir ? null : `${size}`}
+					value={
+						!!ephemeralPathData && ephemeralPathData.is_dir
+							? null
+							: `${size.value} ${t(`size_${size.unit.toLowerCase()}`)}`
+					}
 				/>
 
 				<MetaData

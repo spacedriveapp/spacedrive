@@ -31,6 +31,8 @@ const StatItem = (props: StatItemProps) => {
 		saveState: false
 	});
 
+	const { t } = useLocale();
+
 	return (
 		<div
 			className={clsx(
@@ -57,7 +59,9 @@ const StatItem = (props: StatItemProps) => {
 					})}
 				>
 					<span className="font-black tabular-nums">{count}</span>
-					<span className="ml-1 text-[16px] font-medium text-ink-faint">{size.unit}</span>
+					<span className="ml-1 text-[16px] font-medium text-ink-faint">
+						{t(`size_${size.unit.toLowerCase()}`)}
+					</span>
 				</div>
 			</span>
 		</div>

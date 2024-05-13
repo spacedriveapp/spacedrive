@@ -115,6 +115,8 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 								editable
 									? (e) => {
 											e.stopPropagation();
+											console.log(rule);
+
 											if (!rule.default)
 												setSelectedRule(
 													selectedRule === rule ? undefined : rule

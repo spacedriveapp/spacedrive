@@ -122,7 +122,7 @@ export const useTable = () => {
 						!filePath.size_in_bytes_bytes ||
 						(filePath.is_dir && item.type === 'NonIndexedPath')
 						? '-'
-						: humanizeSize(filePath.size_in_bytes_bytes);
+						: `${humanizeSize(filePath.size_in_bytes_bytes).value} ${t(`size_${humanizeSize(filePath.size_in_bytes_bytes).unit.toLowerCase()}`)}`;
 				}
 			},
 			{
