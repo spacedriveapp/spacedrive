@@ -66,7 +66,7 @@ once_cell = { workspace = true }
 pin-project-lite = { workspace = true }
 prisma-client-rust = { workspace = true, features = ["rspc"] }
 regex = { workspace = true }
-reqwest = { workspace = true, features = ["json", "native-tls-vendored"] }
+reqwest = { workspace = true, features = ["json", "native-tls-vendored","stream"] }
 rmp-serde = { workspace = true }
 rmpv = { workspace = true }
 rspc = { workspace = true, features = [

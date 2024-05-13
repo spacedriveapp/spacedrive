@@ -90,9 +90,14 @@ export function useDialog(props: UseDialogProps) {
 
 	if (!state) throw new Error(`Dialog ${props.id} does not exist!`);
 
+	function close() {
+		state && (state.open = false);
+	}
+
 	return {
 		...props,
-		state
+		state,
+		close
 	};
 }
 
@@ -287,10 +292,13 @@ export function Dialog<S extends FieldValues>({
 								)}
 							>
 								<div className="p-5">
-									<RDialog.Title className="mb-3 flex items-center gap-2.5 font-bold">
-										{props.icon && props.icon}
-										{props.title}
-									</RDialog.Title>
+									{props.title ||
+										(props.icon && (
+											<RDialog.Title className="mb-3 flex items-center gap-2.5 font-bold">
+												{props.icon && props.icon}
+												{props.title}
+											</RDialog.Title>
+										))}
 
 									{props.description && (
 										<RDialog.Description className="mb-2 text-sm text-ink-dull">
@@ -300,17 +308,17 @@ export function Dialog<S extends FieldValues>({
 
 									{props.children}
 								</div>
-								<div
-									className={clsx(
-										'flex items-center justify-end space-x-2 border-t border-app-line bg-app-input/60 p-3'
-									)}
-								>
-									{form.formState.isSubmitting && <Loader />}
-									{props.buttonsSideContent && (
-										<div>{props.buttonsSideContent}</div>
-									)}
-									<div className="grow" />
-									{!props.hideButtons && (
+								{!props.hideButtons && (
+									<div
+										className={clsx(
+											'flex items-center justify-end space-x-2 border-t border-app-line bg-app-input/60 p-3'
+										)}
+									>
+										{form.formState.isSubmitting && <Loader />}
+										{props.buttonsSideContent && (
+											<div>{props.buttonsSideContent}</div>
+										)}
+										<div className="grow" />
 										<div
 											className={clsx(
 												invertButtonFocus
@@ -333,8 +341,8 @@ export function Dialog<S extends FieldValues>({
 												</>
 											)}
 										</div>
-									)}
-								</div>
+									</div>
+								)}
 							</Form>
 							<Remover id={dialog.id} />
 						</AnimatedDialogContent>

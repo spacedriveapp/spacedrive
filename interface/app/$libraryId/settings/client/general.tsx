@@ -351,7 +351,7 @@ export const Component = () => {
 							<>
 								<Setting
 									mini
-									title={t('spacedrop')}
+									title={t('spacedrop_visibility')}
 									description={
 										<p className="text-sm text-gray-400">
 											{t('spacedrop_description')}

@@ -1,12 +1,14 @@
 use crate::p2p::{operations, ConnectionMethod, DiscoveryMethod, Header, P2PEvent, PeerMetadata};
 
+use reqwest::Body;
 use sd_p2p::{PeerConnectionCandidate, RemoteIdentity};
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{path::PathBuf, sync::PoisonError};
-use tokio::io::AsyncWriteExt;
+use tokio::{fs::File, io::AsyncWriteExt};
+use tokio_util::codec::{BytesCodec, FramedRead};
 use uuid::Uuid;
 
 use super::{Ctx, R};
@@ -175,4 +177,170 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				Ok(())
 			})
 		})
+		.procedure("spacedropCloud", {
+			#[derive(Type, Deserialize, Debug)]
+			pub struct SpacedropCloudArgs {
+				file_path: PathBuf,
+				#[specta(optional)]
+				expires: Option<chrono::DateTime<chrono::Utc>>,
+				#[specta(optional)]
+				password: Option<String>,
+			}
+
+			R.mutation(|node, args: SpacedropCloudArgs| async move {
+				// For each file, return a dictionary with the file path, size, name and mime type
+				let (name, len, path) = args
+					.file_path
+					.file_name()
+					.and_then(|name| name.to_str())
+					.map(|name| {
+						let file_path = args.file_path.clone();
+						(
+							name.to_string(),
+							file_path
+								.metadata()
+								.map(|metadata| metadata.len())
+								.unwrap_or(0),
+							file_path,
+						)
+					})
+					.unwrap_or_else(|| ("".to_string(), 0, PathBuf::new()));
+
+				let mut json = serde_json::json!({
+					"name": name,
+					"size": len,
+				});
+
+				if let Some(expires) = args.expires {
+					json["expires"] = serde_json::json!(expires);
+				}
+
+				if let Some(password) = args.password {
+					json["password"] = serde_json::json!(password);
+				}
+
+				let req = reqwest::Client::new()
+					.post("https://app.spacedrive.com/api/v1/spacedrop")
+					.json(&json);
+
+				let req_with_auth = node.add_auth_header(req).await;
+
+				let res_1 = req_with_auth.send().await.map_err(|err| {
+					rspc::Error::new(
+						ErrorCode::InternalServerError,
+						format!("error sending request: {:?}", err),
+					)
+				})?;
+
+				if res_1.status() != 200 {
+					return Err(rspc::Error::new(
+						ErrorCode::InternalServerError,
+						format!("error creating spacedrop for cloud: {:?}", res_1.status()),
+					));
+				}
+
+				let res = &res_1.text().await.map_err(|err| {
+					rspc::Error::new(
+						ErrorCode::InternalServerError,
+						format!("error reading response: {:?}", err),
+					)
+				})?;
+
+				let res_obj = serde_json::from_str::<serde_json::Value>(res).map_err(|err| {
+					rspc::Error::new(
+						ErrorCode::InternalServerError,
+						format!("error parsing response: {:?}", err),
+					)
+				})?;
+				let id = res_obj["id"].as_str().ok_or_else(|| {
+					rspc::Error::new(
+						ErrorCode::InternalServerError,
+						"missing id in response".into(),
+					)
+				})?;
+
+				let upload_url = res_obj["url"].as_str().ok_or_else(|| {
+					rspc::Error::new(
+						ErrorCode::InternalServerError,
+						"missing url in response".into(),
+					)
+				})?;
+
+				let file = File::open(path.clone()).await.map_err(|err| {
+					rspc::Error::new(
+						ErrorCode::InternalServerError,
+						format!("error opening file: {:?}", err),
+					)
+				})?;
+
+				let _ = reqwest::Client::new()
+					.put(upload_url)
+					.header("content-length", len)
+					.body(file_to_stream(file))
+					.send()
+					.await
+					.map_err(|err| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							format!("error sending request: {:?}", err),
+						)
+					})?;
+
+				let req = reqwest::Client::new()
+					.post("https://app.spacedrive.com/api/v1/spacedrop/".to_owned() + id);
+
+				let req_with_auth = node.add_auth_header(req).await;
+
+				let _ = req_with_auth.send().await.map_err(|err| {
+					rspc::Error::new(
+						ErrorCode::InternalServerError,
+						format!("error sending request: {:?}", err),
+					)
+				})?;
+
+				let download_req = reqwest::Client::new()
+					.get("https://app.spacedrive.com/api/v1/spacedrop/".to_owned() + id);
+
+				let download_req_with_auth = node.add_auth_header(download_req).await;
+
+				let download_res = download_req_with_auth.send().await.map_err(|err| {
+					rspc::Error::new(
+						ErrorCode::InternalServerError,
+						format!("error sending request: {:?}", err),
+					)
+				})?;
+
+				let download_res = download_res.text().await.map_err(|err| {
+					rspc::Error::new(
+						ErrorCode::InternalServerError,
+						format!("error reading response: {:?}", err),
+					)
+				})?;
+
+				let res_obj =
+					serde_json::from_str::<serde_json::Value>(&download_res).map_err(|err| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							format!("error parsing response: {:?}", err),
+						)
+					})?;
+
+				let download_url = res_obj["url"]
+					.as_str()
+					.ok_or_else(|| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"missing url in response".into(),
+						)
+					})?
+					.to_string();
+
+				Ok(download_url)
+			})
+		})
+}
+
+fn file_to_stream(file: File) -> Body {
+	let stream = FramedRead::new(file, BytesCodec::new());
+	Body::wrap_stream(stream)
 }
