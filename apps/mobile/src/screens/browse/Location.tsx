@@ -1,6 +1,7 @@
 import { useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
 import { useEffect } from 'react';
 import Explorer from '~/components/explorer/Explorer';
+import { useSortBy } from '~/hooks/useSortBy';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { getExplorerStore } from '~/stores/explorerStore';
 
@@ -9,11 +10,11 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 
 	const location = useLibraryQuery(['locations.get', route.params.id]);
 	const locationData = location.data;
+	const order = useSortBy();
 
 	const paths = usePathsExplorerQuery({
 		arg: {
 			filters: [
-				// ...search.allFilters,
 				{ filePath: { locations: { in: [id] } } },
 				{
 					filePath: {
@@ -21,18 +22,13 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 							location_id: id,
 							path: path ?? '',
 							include_descendants: false
-							// include_descendants:
-							// 	search.search !== '' ||
-							// 	search.dynamicFilters.length > 0 ||
-							// 	(layoutMode === 'media' && mediaViewWithDescendants)
 						}
 					}
 				}
-				// !showHiddenFiles && { filePath: { hidden: false } }
 			].filter(Boolean) as any,
 			take: 30
 		},
-		order: null,
+		order: order,
 		onSuccess: () => getExplorerStore().resetNewThumbnails()
 	});
 

@@ -1,8 +1,8 @@
+import { getItemFilePath, humanizeSize, type ExplorerItem } from '@sd/client';
 import dayjs from 'dayjs';
 import { Barcode, CaretLeft, Clock, Cube, Icon, SealCheck, Snowflake } from 'phosphor-react-native';
 import { forwardRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { getItemFilePath, humanizeSize, type ExplorerItem } from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
 import { Modal, ModalScrollView, type ModalRef } from '~/components/layout/Modal';
@@ -54,9 +54,9 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 					{/* Back Button */}
 					<Pressable
 						onPress={() => modalRef.current?.close()}
-						style={tw`absolute z-10 ml-4`}
+						style={tw`absolute z-10 ml-2 rounded-full bg-app-button p-2`}
 					>
-						<CaretLeft color={tw.color('accent')} size={20} weight="bold" />
+						<CaretLeft color={tw.color('ink')} size={16} weight="bold" />
 					</Pressable>
 					{/* File Icon / Name */}
 					<View style={tw`items-center`}>

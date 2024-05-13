@@ -1,5 +1,5 @@
-import { Text, View } from 'react-native';
 import { ExplorerItem, getItemFilePath } from '@sd/client';
+import { Text, View } from 'react-native';
 import Layout from '~/constants/Layout';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getExplorerStore } from '~/stores/explorerStore';
