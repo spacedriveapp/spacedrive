@@ -85,8 +85,10 @@ export const Component = () => {
 							<StatisticItem
 								name={node.name}
 								icon={hardwareModelToIcon(node.device_model as any)}
-								totalSpace={stats.data?.statistics?.total_bytes_capacity || '0'}
-								freeSpace={stats.data?.statistics?.total_bytes_free || '0'}
+								totalSpace={
+									stats.data?.statistics?.total_local_bytes_capacity || '0'
+								}
+								freeSpace={stats.data?.statistics?.total_local_bytes_free || '0'}
 								color="#0362FF"
 								connectionType={null}
 							/>

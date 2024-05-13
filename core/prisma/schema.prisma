@@ -95,15 +95,18 @@ model Instance {
 
 /// @local
 model Statistics {
-  id                   Int      @id @default(autoincrement())
-  date_captured        DateTime @default(now())
-  total_object_count   Int      @default(0)
-  library_db_size      String   @default("0")
-  total_bytes_used     String   @default("0")
-  total_bytes_capacity String   @default("0")
-  total_unique_bytes   String   @default("0")
-  total_bytes_free     String   @default("0")
-  preview_media_bytes  String   @default("0")
+  id                                Int      @id @default(autoincrement())
+  date_captured                     DateTime @default(now())
+  total_object_count                Int      @default(0)
+  library_db_size                   String   @default("0")
+  // local calulations
+  total_local_bytes_used            String   @default("0")
+  total_local_bytes_capacity        String   @default("0")
+  total_local_bytes_free            String   @default("0")
+  // library calculations
+  total_library_bytes               String   @default("0")
+  total_library_unique_bytes        String   @default("0")
+  total_library_preview_media_bytes String   @default("0")
 
   @@map("statistics")
 }

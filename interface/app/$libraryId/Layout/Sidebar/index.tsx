@@ -3,6 +3,7 @@ import { LibraryContextProvider, useClientContext } from '@sd/client';
 import Debug from './sections/Debug';
 // sections
 import Devices from './sections/Devices';
+import Peers from './sections/Peers';
 import Library from './sections/Library';
 import Local from './sections/Local';
 import Locations from './sections/Locations';
@@ -26,6 +27,7 @@ export default function Sidebar() {
 				<LibraryContextProvider library={library}>
 					<SavedSearches />
 					<Devices />
+					<Peers />
 					<Locations />
 					<Tags />
 				</LibraryContextProvider>

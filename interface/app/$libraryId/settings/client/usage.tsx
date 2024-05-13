@@ -21,10 +21,10 @@ export const Component = () => {
 	const info = useMemo(() => {
 		if (locations.data && discoveredPeers) {
 			const statistics = stats.data?.statistics;
-			const tb_capacity = humanizeSize(statistics?.total_bytes_capacity);
-			const free_space = humanizeSize(statistics?.total_bytes_free);
+			const tb_capacity = humanizeSize(statistics?.total_local_bytes_capacity);
+			const free_space = humanizeSize(statistics?.total_local_bytes_free);
 			const library_db_size = humanizeSize(statistics?.library_db_size);
-			const preview_media = humanizeSize(statistics?.preview_media_bytes);
+			const preview_media = humanizeSize(statistics?.total_library_preview_media_bytes);
 			const data: {
 				icon: keyof typeof iconNames;
 				title?: string;

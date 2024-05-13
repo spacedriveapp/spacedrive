@@ -33,7 +33,7 @@ export default function Locations() {
 				</Link>
 			}
 		>
-			<SeeMore>
+			<SeeMore limit={10}>
 				{locations?.map((location) => (
 					<Location
 						key={location.id}
