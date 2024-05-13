@@ -12,6 +12,7 @@ import { memo } from 'react';
 import { JobProgressEvent, JobReport, useJobInfo } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
 import { showAlertDialog } from '~/components';
+import { useLocale } from '~/hooks';
 
 import JobContainer from './JobContainer';
 
@@ -34,6 +35,7 @@ const JobIcon: Record<string, Icon> = {
 
 function Job({ job, className, isChild, progress }: JobProps) {
 	const jobData = useJobInfo(job, progress);
+	const { t } = useLocale();
 
 	// I don't like sending TSX as a prop due to lack of hot-reload, but it's the only way to get the error log to show up
 	if (job.status === 'CompletedWithErrors') {
@@ -51,19 +53,19 @@ function Job({ job, className, isChild, progress }: JobProps) {
 		);
 		jobData.textItems?.push([
 			{
-				text: 'Completed with errors',
+				text: t('completed_with_errors'),
 				icon: Info,
 				onClick: () => {
 					showAlertDialog({
-						title: 'Error',
-						description:
-							'The job completed with errors. Please see the error log below for more information. If you need help, please contact support and provide this error.',
+						title: t('error'),
+						description: t('job_error_description'),
 						children: JobError
 					});
 				}
 			}
 		]);
 	}
+	console.log(job.status);
 
 	return (
 		<JobContainer
