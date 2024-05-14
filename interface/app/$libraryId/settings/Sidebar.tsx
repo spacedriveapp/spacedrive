@@ -117,12 +117,10 @@ export default () => {
 						<Icon component={MagnifyingGlass} />
 						Saved Searches
 					</SidebarLink> */}
-					{useFeatureFlag('cloudSync') && (
-						<SidebarLink to="library/sync">
-							<Icon component={ArrowsClockwise} />
-							{t('sync')}
-						</SidebarLink>
-					)}
+					<SidebarLink to="library/sync">
+						<Icon component={ArrowsClockwise} />
+						{t('sync')}
+					</SidebarLink>
 					<SidebarLink disabled to="library/clouds">
 						<Icon component={Cloud} />
 						{t('clouds')}
