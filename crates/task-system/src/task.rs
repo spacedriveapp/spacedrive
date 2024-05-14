@@ -15,7 +15,7 @@ use async_trait::async_trait;
 use chan::{Recv, RecvError};
 use downcast_rs::{impl_downcast, Downcast};
 use tokio::{spawn, sync::oneshot};
-use tracing::{trace, warn};
+use tracing::{error, trace, warn};
 use uuid::Uuid;
 
 use super::{
@@ -353,7 +353,7 @@ impl TaskRemoteController {
 	/// Will panic if the worker failed to ack the pause request
 	pub async fn pause(&self) -> Result<(), SystemError> {
 		let is_paused = self.worktable.is_paused.load(Ordering::Relaxed);
-		let is_canceled = self.worktable.is_canceled.load(Ordering::Relaxed);
+		let is_canceled = self.worktable.has_canceled.load(Ordering::Relaxed);
 		let is_done = self.worktable.is_done.load(Ordering::Relaxed);
 
 		trace!("Received pause command task: <is_canceled={is_canceled}, is_done={is_done}>");
@@ -389,7 +389,7 @@ impl TaskRemoteController {
 	///
 	/// Will panic if the worker failed to ack the cancel request
 	pub async fn cancel(&self) {
-		let is_canceled = self.worktable.is_canceled.load(Ordering::Relaxed);
+		let is_canceled = self.worktable.has_canceled.load(Ordering::Relaxed);
 		let is_done = self.worktable.is_done.load(Ordering::Relaxed);
 
 		trace!("Received cancel command task: <is_canceled={is_canceled}, is_done={is_done}>");
@@ -405,7 +405,7 @@ impl TaskRemoteController {
 				rx.await.expect("Worker failed to ack cancel request");
 			} else {
 				trace!("Task is not running, setting is_canceled flag");
-				self.worktable.is_canceled.store(true, Ordering::Relaxed);
+				self.worktable.has_canceled.store(true, Ordering::Relaxed);
 				self.system_comm
 					.cancel_not_running_task(
 						self.task_id,
@@ -441,7 +441,10 @@ impl TaskRemoteController {
 	/// Verify if the task was already completed
 	#[must_use]
 	pub fn is_done(&self) -> bool {
-		self.worktable.is_done.load(Ordering::Relaxed)
+		self.worktable.is_done()
+			| self.worktable.has_shutdown()
+			| self.worktable.has_aborted()
+			| self.worktable.has_canceled()
 	}
 }
 
@@ -531,7 +534,8 @@ impl<E: RunError> Future for CancelTaskOnDrop<E> {
 				Poll::Pending => Poll::Pending,
 			}
 		} else {
-			Poll::Ready(Ok(TaskStatus::Canceled))
+			error!("tried to poll an already completed CancelTaskOnDrop future");
+			Poll::Pending
 		}
 	}
 }
@@ -551,8 +555,9 @@ pub struct TaskWorktable {
 	is_running: AtomicBool,
 	is_done: AtomicBool,
 	is_paused: AtomicBool,
-	is_canceled: AtomicBool,
-	is_aborted: AtomicBool,
+	has_canceled: AtomicBool,
+	has_aborted: AtomicBool,
+	has_shutdown: AtomicBool,
 	interrupt_tx: chan::Sender<InterruptionRequest>,
 	current_worker_id: AtomicWorkerId,
 }
@@ -564,8 +569,9 @@ impl TaskWorktable {
 			is_running: AtomicBool::new(false),
 			is_done: AtomicBool::new(false),
 			is_paused: AtomicBool::new(false),
-			is_canceled: AtomicBool::new(false),
-			is_aborted: AtomicBool::new(false),
+			has_canceled: AtomicBool::new(false),
+			has_aborted: AtomicBool::new(false),
+			has_shutdown: AtomicBool::new(false),
 			interrupt_tx,
 			current_worker_id: AtomicWorkerId::new(worker_id),
 		}
@@ -581,12 +587,23 @@ impl TaskWorktable {
 		self.is_running.store(false, Ordering::Relaxed);
 	}
 
+	pub fn set_canceled(&self) {
+		self.has_canceled.store(true, Ordering::Relaxed);
+		self.is_running.store(false, Ordering::Relaxed);
+	}
+
 	pub fn set_unpause(&self) {
 		self.is_paused.store(false, Ordering::Relaxed);
 	}
 
 	pub fn set_aborted(&self) {
-		self.is_aborted.store(true, Ordering::Relaxed);
+		self.has_aborted.store(true, Ordering::Relaxed);
+		self.is_running.store(false, Ordering::Relaxed);
+	}
+
+	pub fn set_shutdown(&self) {
+		self.has_shutdown.store(true, Ordering::Relaxed);
+		self.is_running.store(false, Ordering::Relaxed);
 	}
 
 	pub async fn pause(&self, tx: oneshot::Sender<()>) {
@@ -605,7 +622,7 @@ impl TaskWorktable {
 	}
 
 	pub async fn cancel(&self, tx: oneshot::Sender<()>) {
-		self.is_canceled.store(true, Ordering::Relaxed);
+		self.has_canceled.store(true, Ordering::Relaxed);
 		self.is_running.store(false, Ordering::Relaxed);
 
 		self.interrupt_tx
@@ -617,16 +634,24 @@ impl TaskWorktable {
 			.expect("Worker channel closed trying to pause task");
 	}
 
+	pub fn is_done(&self) -> bool {
+		self.is_done.load(Ordering::Relaxed)
+	}
+
 	pub fn is_paused(&self) -> bool {
 		self.is_paused.load(Ordering::Relaxed)
 	}
 
-	pub fn is_canceled(&self) -> bool {
-		self.is_canceled.load(Ordering::Relaxed)
+	pub fn has_canceled(&self) -> bool {
+		self.has_canceled.load(Ordering::Relaxed)
 	}
 
-	pub fn is_aborted(&self) -> bool {
-		self.is_aborted.load(Ordering::Relaxed)
+	pub fn has_aborted(&self) -> bool {
+		self.has_aborted.load(Ordering::Relaxed)
+	}
+
+	pub fn has_shutdown(&self) -> bool {
+		self.has_shutdown.load(Ordering::Relaxed)
 	}
 }
 

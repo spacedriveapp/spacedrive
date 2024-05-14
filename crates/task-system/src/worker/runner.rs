@@ -372,13 +372,12 @@ impl<E: RunError> Runner<E> {
 		if let Some(suspended_task) = &self.suspended_task {
 			if suspended_task.task.id() == task_id {
 				trace!(
-					"Task is already suspended but will be paused: <worker_id='{}', task_id='{task_id}'>",
+					"Task is already suspended but will be canceled: <worker_id='{}', task_id='{task_id}'>",
 					self.worker_id
 				);
 
 				send_cancel_task_response(
 					self.worker_id,
-					task_id,
 					self.suspended_task.take().expect("we just checked it"),
 				);
 
@@ -399,7 +398,6 @@ impl<E: RunError> Runner<E> {
 		{
 			send_cancel_task_response(
 				self.worker_id,
-				task_id,
 				self.priority_tasks
 					.remove(index)
 					.expect("we just checked it"),
@@ -415,7 +413,6 @@ impl<E: RunError> Runner<E> {
 		{
 			send_cancel_task_response(
 				self.worker_id,
-				task_id,
 				self.tasks.remove(index).expect("we just checked it"),
 			);
 		}
@@ -607,13 +604,12 @@ impl<E: RunError> Runner<E> {
 			if let Some(suspended_task) = &self.suspended_task {
 				if suspended_task.task.id() == task_id {
 					trace!(
-					"Task is already suspended but will be paused: <worker_id='{}', task_id='{task_id}'>",
+					"Task is already suspended but will be force aborted: <worker_id='{}', task_id='{task_id}'>",
 					self.worker_id
 				);
 
 					send_forced_abortion_task_response(
 						self.worker_id,
-						task_id,
 						self.suspended_task.take().expect("we just checked it"),
 					);
 
@@ -628,7 +624,6 @@ impl<E: RunError> Runner<E> {
 			{
 				send_forced_abortion_task_response(
 					self.worker_id,
-					task_id,
 					self.priority_tasks
 						.remove(index)
 						.expect("we just checked it"),
@@ -644,7 +639,6 @@ impl<E: RunError> Runner<E> {
 			{
 				send_forced_abortion_task_response(
 					self.worker_id,
-					task_id,
 					self.tasks.remove(index).expect("we just checked it"),
 				);
 
@@ -672,6 +666,7 @@ impl<E: RunError> Runner<E> {
 		let Self {
 			worker_id,
 			tasks,
+			suspended_task,
 			paused_tasks,
 			priority_tasks,
 			is_idle,
@@ -718,12 +713,13 @@ impl<E: RunError> Runner<E> {
 
 			priority_tasks
 				.into_iter()
+				.chain(suspended_task.into_iter())
 				.chain(paused_tasks.into_values())
 				.chain(tasks.into_iter())
 				.for_each(|task_work_state| {
 					send_shutdown_task_response(
 						worker_id,
-						task_work_state.task.id(),
+						&task_work_state.task.id(),
 						task_work_state,
 					);
 				});
@@ -750,19 +746,19 @@ impl<E: RunError> Runner<E> {
 						status,
 					}) => match status {
 						InternalTaskExecStatus::Done(out) => {
-							send_complete_task_response(worker_id, task_id, task_work_state, out);
+							send_complete_task_response(worker_id, &task_id, task_work_state, out);
 						}
 
 						InternalTaskExecStatus::Canceled => {
-							send_cancel_task_response(worker_id, task_id, task_work_state);
+							send_cancel_task_response(worker_id, task_work_state);
 						}
 
 						InternalTaskExecStatus::Suspend | InternalTaskExecStatus::Paused => {
-							send_shutdown_task_response(worker_id, task_id, task_work_state);
+							send_shutdown_task_response(worker_id, &task_id, task_work_state);
 						}
 
 						InternalTaskExecStatus::Error(e) => {
-							send_error_task_response(worker_id, task_id, task_work_state, e);
+							send_error_task_response(worker_id, task_work_state, e);
 						}
 					},
 					Err(()) => {
@@ -775,7 +771,7 @@ impl<E: RunError> Runner<E> {
 				RunnerMessage::StoleTask(Some(task_work_state)) => {
 					send_shutdown_task_response(
 						worker_id,
-						task_work_state.task.id(),
+						&task_work_state.task.id(),
 						task_work_state,
 					);
 				}
@@ -849,7 +845,13 @@ impl<E: RunError> Runner<E> {
 		match kind {
 			PendingTaskKind::Normal => self.tasks.push_front(task_work_state),
 			PendingTaskKind::Priority => self.priority_tasks.push_front(task_work_state),
-			PendingTaskKind::Suspended => self.suspended_task = Some(task_work_state),
+			PendingTaskKind::Suspended => {
+				assert!(
+					self.suspended_task.is_none(),
+					"tried to suspend a task when we already have a suspended task on PendingTaskKind::Suspended"
+				);
+				self.suspended_task = Some(task_work_state);
+			}
 		}
 
 		self.task_kinds.insert(id, kind);
@@ -966,7 +968,7 @@ impl<E: RunError> Runner<E> {
 		match status {
 			InternalTaskExecStatus::Done(out) => {
 				self.task_kinds.remove(&task_id);
-				send_complete_task_response(self.worker_id, task_id, task_work_state, out);
+				send_complete_task_response(self.worker_id, &task_id, task_work_state, out);
 			}
 
 			InternalTaskExecStatus::Paused => {
@@ -979,15 +981,19 @@ impl<E: RunError> Runner<E> {
 
 			InternalTaskExecStatus::Canceled => {
 				self.task_kinds.remove(&task_id);
-				send_cancel_task_response(self.worker_id, task_id, task_work_state);
+				send_cancel_task_response(self.worker_id, task_work_state);
 			}
 
 			InternalTaskExecStatus::Error(e) => {
 				self.task_kinds.remove(&task_id);
-				send_error_task_response(self.worker_id, task_id, task_work_state, e);
+				send_error_task_response(self.worker_id, task_work_state, e);
 			}
 
 			InternalTaskExecStatus::Suspend => {
+				assert!(
+					self.suspended_task.is_none(),
+					"tried to suspend a task when we already have a suspended task on InternalTaskExecStatus::Suspend"
+				);
 				self.suspended_task = Some(task_work_state);
 				trace!(
 					"Task suspended: <worker_id='{}', task_id='{task_id}'>",
@@ -1142,8 +1148,8 @@ fn handle_run_task_attempt<E: RunError>(
 ) -> JoinHandle<RunTaskOutput<E>> {
 	spawn({
 		let already_paused = worktable.is_paused();
-		let already_canceled = worktable.is_canceled();
-		let already_aborted = worktable.is_aborted();
+		let already_canceled = worktable.has_canceled();
+		let already_aborted = worktable.has_aborted();
 
 		async move {
 			if already_paused {
@@ -1414,14 +1420,14 @@ async fn run_single_task<E: RunError>(
 
 fn send_complete_task_response<E: RunError>(
 	worker_id: WorkerId,
-	task_id: TaskId,
+	task_id: &TaskId,
 	TaskWorkState {
 		done_tx, worktable, ..
 	}: TaskWorkState<E>,
 	out: TaskOutput,
 ) {
 	worktable.set_completed();
-	if done_tx.send(Ok(TaskStatus::Done((task_id, out)))).is_err() {
+	if done_tx.send(Ok(TaskStatus::Done((*task_id, out)))).is_err() {
 		warn!(
 			"Task done channel closed before sending done response for task: \
 		<worker_id='{worker_id}', task_id='{task_id}'>"
@@ -1436,30 +1442,40 @@ fn send_complete_task_response<E: RunError>(
 
 fn send_cancel_task_response<E: RunError>(
 	worker_id: WorkerId,
-	task_id: TaskId,
 	TaskWorkState {
-		done_tx, worktable, ..
+		task,
+		done_tx,
+		worktable,
+		..
 	}: TaskWorkState<E>,
 ) {
-	worktable.set_completed();
+	worktable.set_canceled();
 	if done_tx.send(Ok(TaskStatus::Canceled)).is_err() {
 		warn!(
 			"Task done channel closed before sending canceled response for task: \
-			<worker_id='{worker_id}', task_id='{task_id}'>",
+			<worker_id='{worker_id}', task_id='{}'>",
+			task.id(),
 		);
 	} else {
 		trace!(
 			"Emitted task canceled signal on cancel not running task: \
-			<worker_id='{worker_id}', task_id='{task_id}'>",
+			<worker_id='{worker_id}', task_id='{}'>",
+			task.id(),
 		);
 	}
 }
 
 fn send_shutdown_task_response<E: RunError>(
 	worker_id: WorkerId,
-	task_id: TaskId,
-	TaskWorkState { task, done_tx, .. }: TaskWorkState<E>,
+	task_id: &TaskId,
+	TaskWorkState {
+		task,
+		done_tx,
+		worktable,
+		..
+	}: TaskWorkState<E>,
 ) {
+	worktable.set_shutdown();
 	if done_tx.send(Ok(TaskStatus::Shutdown(task))).is_err() {
 		warn!(
 			"Task done channel closed before sending shutdown response for task: \
@@ -1475,9 +1491,11 @@ fn send_shutdown_task_response<E: RunError>(
 
 fn send_error_task_response<E: RunError>(
 	worker_id: usize,
-	task_id: uuid::Uuid,
 	TaskWorkState {
-		done_tx, worktable, ..
+		task,
+		done_tx,
+		worktable,
+		..
 	}: TaskWorkState<E>,
 	e: E,
 ) {
@@ -1485,33 +1503,39 @@ fn send_error_task_response<E: RunError>(
 	if done_tx.send(Ok(TaskStatus::Error(e))).is_err() {
 		warn!(
 			"Task done channel closed before sending error response for task: \
-			<worker_id='{worker_id}', task_id='{task_id}'>"
+			<worker_id='{worker_id}', task_id='{}'>",
+			task.id()
 		);
 	} else {
 		trace!(
 			"Emitted task error signal on shutdown: \
-			<worker_id='{worker_id}', task_id='{task_id}'>"
+			<worker_id='{worker_id}', task_id='{}'>",
+			task.id()
 		);
 	}
 }
 
 fn send_forced_abortion_task_response<E: RunError>(
 	worker_id: WorkerId,
-	task_id: TaskId,
 	TaskWorkState {
-		done_tx, worktable, ..
+		task,
+		done_tx,
+		worktable,
+		..
 	}: TaskWorkState<E>,
 ) {
-	worktable.set_completed();
+	worktable.set_aborted();
 	if done_tx.send(Ok(TaskStatus::ForcedAbortion)).is_err() {
 		warn!(
 			"Task done channel closed before sending forced abortion response for task: \
-			<worker_id='{worker_id}', task_id='{task_id}'>",
+			<worker_id='{worker_id}', task_id='{}'>",
+			task.id()
 		);
 	} else {
 		trace!(
 			"Emitted task forced abortion signal on cancel not running task: \
-			<worker_id='{worker_id}', task_id='{task_id}'>",
+			<worker_id='{worker_id}', task_id='{}'>",
+			task.id()
 		);
 	}
 }
