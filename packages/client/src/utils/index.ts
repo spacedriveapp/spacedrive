@@ -138,7 +138,7 @@ export function insertLibrary(queryClient: QueryClient, library: LibraryConfigWr
 }
 
 export function int32ArrayToBigInt([high, low]: [number, number]) {
-	// Note: These magic shift operations internally convert the high into i32 and the low into u32
+	// Note: These magic shift operations internally convert high into i32 and low into u32
 	return (BigInt(high | 0) << 32n) | BigInt(low >>> 0);
 }
 
