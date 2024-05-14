@@ -4,11 +4,9 @@ import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import {
 	arraysEqual,
-	byteSize,
+	humanizeSize,
 	Location,
-	useCache,
 	useLibraryQuery,
-	useNodes,
 	useOnlineLocations
 } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
@@ -53,7 +51,7 @@ const DrawerLocationItem: React.FC<DrawerLocationItemProps> = ({
 				</View>
 				<View style={tw`rounded-md border border-app-lightborder bg-app-box px-1 py-0.5`}>
 					<Text style={tw`text-[11px] font-medium text-ink-dull`} numberOfLines={1}>
-						{`${byteSize(location.size_in_bytes)}`}
+						{`${humanizeSize(location.size_in_bytes)}`}
 					</Text>
 				</View>
 			</View>
@@ -67,8 +65,7 @@ const DrawerLocations = () => {
 	const modalRef = useRef<ModalRef>(null);
 
 	const result = useLibraryQuery(['locations.list'], { keepPreviousData: true });
-	useNodes(result.data?.nodes);
-	const locations = useCache(result.data?.items);
+	const locations = result.data || [];
 
 	return (
 		<>

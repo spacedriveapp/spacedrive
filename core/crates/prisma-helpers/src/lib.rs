@@ -1,3 +1,4 @@
+#![recursion_limit = "256"]
 #![warn(
 	clippy::all,
 	clippy::pedantic,
@@ -27,9 +28,10 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-use sd_prisma::prisma::{self, file_path, job, label, location, object};
+use sd_prisma::prisma::{file_path, job, label, location, object};
 
 // File Path selectables!
+file_path::select!(file_path_pub_id { pub_id });
 file_path::select!(file_path_pub_and_cas_ids { id pub_id cas_id });
 file_path::select!(file_path_just_pub_id_materialized_path {
 	pub_id
@@ -138,7 +140,7 @@ file_path::select!(file_path_to_full_path {
 // File Path includes!
 file_path::include!(file_path_with_object {
 	object: include {
-		media_data: select {
+		exif_data: select {
 			resolution
 			media_date
 			media_location
@@ -161,7 +163,7 @@ object::select!(object_for_file_identifier {
 object::include!(object_with_file_paths {
 	file_paths: include {
 		object: include {
-			media_data: select {
+			exif_data: select {
 				resolution
 				media_date
 				media_location
@@ -171,16 +173,34 @@ object::include!(object_with_file_paths {
 				copyright
 				exif_version
 			}
+			ffmpeg_data: include {
+				chapters
+				programs: include {
+					streams: include {
+						codec: include {
+							audio_props
+							video_props
+						}
+					}
+				}
+			}
 		}
 	}
 });
-
-impl sd_cache::Model for object_with_file_paths::file_paths::Data {
-	fn name() -> &'static str {
-		// This is okay because it's a superset of the available fields.
-		prisma::file_path::NAME
+object::include!(object_with_media_data {
+	exif_data
+	ffmpeg_data: include {
+		chapters
+		programs: include {
+			streams: include {
+				codec: include {
+					audio_props
+					video_props
+				}
+			}
+		}
 	}
-}
+});
 
 // Job selectables!
 job::select!(job_without_data {

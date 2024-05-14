@@ -443,6 +443,8 @@ impl Libraries {
 				id, instance_node_id, node_config.id
 			);
 
+			// ensure
+
 			db.instance()
 				.update(
 					instance::id::equals(instance.id),
@@ -463,33 +465,40 @@ impl Libraries {
 		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		// seed_keymanager(&db, &key_manager).await?;
 
-		let sync = sync::Manager::new(&db, instance_id, &config.generate_sync_operations, {
-			db._batch(
-				instances
-					.iter()
-					.map(|i| {
-						db.crdt_operation()
-							.find_first(vec![crdt_operation::instance::is(vec![
-								instance::id::equals(i.id),
-							])])
-							.order_by(crdt_operation::timestamp::order(SortOrder::Desc))
-					})
-					.collect::<Vec<_>>(),
-			)
-			.await?
-			.into_iter()
-			.zip(&instances)
-			.map(|(op, i)| {
-				(
-					from_bytes_to_uuid(&i.pub_id),
-					sd_sync::NTP64(op.map(|o| o.timestamp).unwrap_or_default() as u64),
-				)
-			})
-			.collect()
-		});
-		let sync_manager = Arc::new(sync.manager);
-
 		let actors = Default::default();
+
+		let sync = sync::Manager::new(
+			&db,
+			instance_id,
+			&config.generate_sync_operations,
+			{
+				db._batch(
+					instances
+						.iter()
+						.map(|i| {
+							db.crdt_operation()
+								.find_first(vec![crdt_operation::instance::is(vec![
+									instance::id::equals(i.id),
+								])])
+								.order_by(crdt_operation::timestamp::order(SortOrder::Desc))
+						})
+						.collect::<Vec<_>>(),
+				)
+				.await?
+				.into_iter()
+				.zip(&instances)
+				.map(|(op, i)| {
+					(
+						from_bytes_to_uuid(&i.pub_id),
+						sd_sync::NTP64(op.map(|o| o.timestamp).unwrap_or_default() as u64),
+					)
+				})
+				.collect()
+			},
+			&actors,
+		)
+		.await;
+		let sync_manager = Arc::new(sync.manager);
 
 		let cloud = crate::cloud::start(node, &actors, id, instance_id, &sync_manager, &db).await;
 

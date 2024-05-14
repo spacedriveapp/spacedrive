@@ -48,8 +48,14 @@ jobs:
         working-directory: /tmp
         run: |
           set -euxo pipefail
-          curl -SsJLO https://passt.top/builds/latest/x86_64/passt_954589b-1_all.deb
-          sudo dpkg -i passt_954589b-1_all.deb
+
+          deb="$(
+            curl -SsL https://passt.top/builds/latest/x86_64 \
+            | grep -oP 'passt[^\.<>'\''"]+\.deb' | sort -u | head -n1
+          )"
+
+          curl -SsJLO "https://passt.top/builds/latest/x86_64/${deb}"
+          sudo dpkg -i "${deb}"
 
       - name: Determine image name & tag
         id: image_info

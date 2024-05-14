@@ -1,7 +1,20 @@
 import { proxy, useSnapshot } from 'valtio';
+import { SearchFilterArgs } from '@sd/client';
 import { IconName } from '~/components/icons/Icon';
 
 export type SearchFilters = 'locations' | 'tags' | 'name' | 'extension' | 'hidden' | 'kind';
+export type SortOptionsType = {
+	by:
+		| 'none'
+		| 'name'
+		| 'sizeInBytes'
+		| 'dateIndexed'
+		| 'dateCreated'
+		| 'dateModified'
+		| 'dateAccessed'
+		| 'dateTaken';
+	direction: 'Asc' | 'Desc';
+};
 
 export interface FilterItem {
 	id: number;
@@ -19,29 +32,21 @@ export interface KindItem {
 	icon: IconName;
 }
 
+export interface Filters {
+	locations: FilterItem[];
+	tags: TagItem[];
+	name: string[];
+	extension: string[];
+	hidden: boolean;
+	kind: KindItem[];
+}
+
 interface State {
 	search: string;
-	filters: {
-		locations: FilterItem[];
-		tags: TagItem[];
-		name: string[];
-		extension: string[];
-		hidden: boolean;
-		kind: KindItem[];
-	};
-	appliedFilters: Partial<
-		Record<
-			SearchFilters,
-			{
-				locations: FilterItem[];
-				tags: TagItem[];
-				name: string[];
-				extension: string[];
-				hidden: boolean;
-				kind: KindItem[];
-			}
-		>
-	>;
+	filters: Filters;
+	sort: SortOptionsType;
+	appliedFilters: Partial<Filters>;
+	mergedFilters: SearchFilterArgs[];
 	disableActionButtons: boolean;
 }
 
@@ -55,7 +60,12 @@ const initialState: State = {
 		hidden: false,
 		kind: []
 	},
+	sort: {
+		by: 'none',
+		direction: 'Asc'
+	},
 	appliedFilters: {},
+	mergedFilters: [],
 	disableActionButtons: true
 };
 
@@ -83,11 +93,13 @@ const searchStore = proxy<
 	State & {
 		updateFilters: <K extends keyof State['filters']>(
 			filter: K,
-			value: State['filters'][K] extends Array<infer U> ? U : State['filters'][K]
+			value: State['filters'][K] extends Array<infer U> ? U : State['filters'][K],
+			apply?: boolean
 		) => void;
 		applyFilters: () => void;
 		setSearch: (search: string) => void;
 		resetFilter: <K extends keyof State['filters']>(filter: K, apply?: boolean) => void;
+		resetFilters: () => void;
 		setInput: (index: number, value: string, key: 'name' | 'extension') => void;
 		addInput: (key: 'name' | 'extension') => void;
 		removeInput: (index: number, key: 'name' | 'extension') => void;
@@ -95,7 +107,7 @@ const searchStore = proxy<
 >({
 	...initialState,
 	//for updating the filters upon value selection
-	updateFilters: (filter, value) => {
+	updateFilters: (filter, value, apply = false) => {
 		if (filter === 'hidden') {
 			// Directly assign boolean values without an array operation
 			searchStore.filters['hidden'] = value as boolean;
@@ -113,6 +125,9 @@ const searchStore = proxy<
 				searchStore.filters[filter] = updatedFilter;
 			}
 		}
+		//instead of a useEffect or subscription - we can call applyFilters directly
+		// useful when you want to apply the filters from another screen
+		if (apply) searchStore.applyFilters();
 	},
 	//for clicking add filters and applying the selection
 	applyFilters: () => {
@@ -120,8 +135,9 @@ const searchStore = proxy<
 		searchStore.appliedFilters = Object.entries(searchStore.filters).reduce(
 			(acc, [key, value]) => {
 				if (Array.isArray(value)) {
-					if (value.length > 0 && value[0] !== '') {
-						acc[key as SearchFilters] = value.filter((v) => v !== ''); // Remove empty values i.e empty inputs
+					const realValues = value.filter((v) => v !== '');
+					if (realValues.length > 0) {
+						acc[key as SearchFilters] = realValues;
 					}
 				} else if (typeof value === 'boolean') {
 					// Only apply the hidden filter if it's true
@@ -144,7 +160,9 @@ const searchStore = proxy<
 		//instead of a useEffect or subscription - we can call applyFilters directly
 		if (apply) searchStore.applyFilters();
 	},
-
+	resetFilters: () => {
+		searchStore.filters = { ...initialState.filters };
+	},
 	setInput: (index, value, key) => {
 		const newValues = [...searchStore.filters[key]];
 		newValues[index] = value;

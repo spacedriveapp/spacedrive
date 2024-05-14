@@ -11,9 +11,21 @@ import {
 import { Button, PopoverClose, toast, Tooltip } from '@sd/ui';
 import { useIsDark, useLocale } from '~/hooks';
 
+import { useSidebarContext } from '../SidebarLayout/Context';
 import { getSidebarStore, useSidebarStore } from '../store';
 import IsRunningJob from './IsRunningJob';
 import JobGroup from './JobGroup';
+
+const sortByCreatedAt = (a: IJobGroup, b: IJobGroup) => {
+	const aDate = dayjs(a.created_at);
+	const bDate = dayjs(b.created_at);
+	if (aDate.isBefore(bDate)) {
+		return 1;
+	} else if (bDate.isBefore(aDate)) {
+		return -1;
+	}
+	return 0;
+};
 
 function sortJobData(jobs: IJobGroup[]) {
 	const runningJobs: IJobGroup[] = [];
@@ -27,17 +39,6 @@ function sortJobData(jobs: IJobGroup[]) {
 		}
 	});
 
-	const sortByCreatedAt = (a: IJobGroup, b: IJobGroup) => {
-		const aDate = dayjs(a.created_at);
-		const bDate = dayjs(b.created_at);
-		if (aDate.isBefore(bDate)) {
-			return 1;
-		} else if (bDate.isBefore(aDate)) {
-			return -1;
-		}
-		return 0;
-	};
-
 	runningJobs.sort(sortByCreatedAt);
 	otherJobs.sort(sortByCreatedAt);
 
@@ -48,6 +49,8 @@ export function JobManager() {
 	const queryClient = useQueryClient();
 	const [toggleConfirmation, setToggleConfirmation] = useState(false);
 	const store = useSidebarStore();
+
+	const sidebar = useSidebarContext();
 
 	const jobGroups = useLibraryQuery(['jobs.reports']);
 
@@ -81,16 +84,18 @@ export function JobManager() {
 	return (
 		<div className="h-full overflow-hidden pb-10">
 			<div className="z-20 flex h-9 w-full items-center rounded-t-md border-b border-app-line/50 bg-app-button/30 px-2">
-				<Tooltip label={t('pin')}>
-					<Button
-						onClick={() => {
-							getSidebarStore().pinJobManager = !store.pinJobManager;
-						}}
-						size="icon"
-					>
-						<PushPin weight={store.pinJobManager ? 'fill' : 'regular'} size={16} />
-					</Button>
-				</Tooltip>
+				{!sidebar.collapsed && (
+					<Tooltip label={t('pin')}>
+						<Button
+							onClick={() => {
+								getSidebarStore().pinJobManager = !store.pinJobManager;
+							}}
+							size="icon"
+						>
+							<PushPin weight={store.pinJobManager ? 'fill' : 'regular'} size={16} />
+						</Button>
+					</Tooltip>
+				)}
 				<span className="ml-1 font-medium ">{t('recent_jobs')}</span>
 				<div className="grow" />
 				{toggleConfirmation ? (

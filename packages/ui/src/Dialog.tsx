@@ -61,10 +61,8 @@ class DialogManager {
 		const state = this.getState(id);
 
 		if (!state) {
-			throw new Error(`Dialog ${id} not registered!`);
-		}
-
-		if (state.open === false) {
+			console.error(new Error(`Dialog ${id} not registered!`));
+		} else if (state.open === false) {
 			delete this.dialogs[id];
 			delete this.state[id];
 		}
@@ -127,6 +125,7 @@ export interface DialogProps<S extends FieldValues>
 	children?: ReactNode;
 	ctaDanger?: boolean;
 	closeLabel?: string;
+	cancelLabel?: string;
 	cancelBtn?: boolean;
 	description?: ReactNode;
 	onCancelled?: boolean | (() => void);
@@ -137,6 +136,8 @@ export interface DialogProps<S extends FieldValues>
 	errorMessageException?: string; //this is to bypass a specific form error message if it starts with a specific string
 	formClassName?: string;
 	icon?: ReactNode;
+	hideButtons?: boolean;
+	ignoreClickOutside?: boolean;
 }
 
 export function Dialog<S extends FieldValues>({
@@ -169,7 +170,7 @@ export function Dialog<S extends FieldValues>({
 				variant="gray"
 				onClick={typeof onCancelled === 'function' ? onCancelled : undefined}
 			>
-				Cancel
+				{props.cancelLabel || 'Cancel'}
 			</Button>
 		</RDialog.Close>
 	);
@@ -269,6 +270,9 @@ export function Dialog<S extends FieldValues>({
 						<AnimatedDialogContent
 							className="!pointer-events-none fixed inset-0 z-50 grid place-items-center overflow-y-auto"
 							style={styles}
+							onInteractOutside={(e) =>
+								props.ignoreClickOutside && e.preventDefault()
+							}
 						>
 							<Form
 								form={form}
@@ -306,26 +310,30 @@ export function Dialog<S extends FieldValues>({
 										<div>{props.buttonsSideContent}</div>
 									)}
 									<div className="grow" />
-									<div
-										className={clsx(
-											invertButtonFocus ? 'flex-row-reverse' : ' flex-row',
-											'flex gap-2'
-										)}
-									>
-										{invertButtonFocus ? (
-											<>
-												{submitButton}
-												{props.cancelBtn && cancelButton}
-												{onCancelled && closeButton}
-											</>
-										) : (
-											<>
-												{onCancelled && closeButton}
-												{props.cancelBtn && cancelButton}
-												{submitButton}
-											</>
-										)}
-									</div>
+									{!props.hideButtons && (
+										<div
+											className={clsx(
+												invertButtonFocus
+													? 'flex-row-reverse'
+													: ' flex-row',
+												'flex gap-2'
+											)}
+										>
+											{invertButtonFocus ? (
+												<>
+													{submitButton}
+													{props.cancelBtn && cancelButton}
+													{onCancelled && closeButton}
+												</>
+											) : (
+												<>
+													{onCancelled && closeButton}
+													{props.cancelBtn && cancelButton}
+													{submitButton}
+												</>
+											)}
+										</div>
+									)}
 								</div>
 							</Form>
 							<Remover id={dialog.id} />

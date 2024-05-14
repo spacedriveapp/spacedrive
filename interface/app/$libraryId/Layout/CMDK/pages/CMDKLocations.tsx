@@ -1,13 +1,12 @@
 import clsx from 'clsx';
 import CommandPalette from 'react-cmdk';
 import { useNavigate } from 'react-router';
-import { arraysEqual, useCache, useLibraryQuery, useNodes, useOnlineLocations } from '@sd/client';
+import { arraysEqual, useLibraryQuery, useOnlineLocations } from '@sd/client';
 import { Icon } from '~/components';
 
 export default function CMDKLocations() {
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
-	useNodes(locationsQuery.data?.nodes);
-	const locations = useCache(locationsQuery.data?.items);
+	const locations = locationsQuery.data;
 
 	const onlineLocations = useOnlineLocations();
 

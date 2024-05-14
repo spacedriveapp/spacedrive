@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
-import { ObjectOrder, useLibraryQuery } from '@sd/client';
+import { ObjectOrder, objectOrderingKeysSchema, useLibraryQuery } from '@sd/client';
 import { Icon } from '~/components';
 import { useLocale, useRouteTitle } from '~/hooks';
 
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
-import { createDefaultExplorerSettings, objectOrderingKeysSchema } from './Explorer/store';
+import { createDefaultExplorerSettings } from './Explorer/store';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { EmptyNotice } from './Explorer/View/EmptyNotice';
@@ -30,7 +30,7 @@ export function Component() {
 		orderingKeys: objectOrderingKeysSchema
 	});
 
-	const search = useSearchFromSearchParams();
+	const search = useSearchFromSearchParams({ defaultTarget: 'objects' });
 
 	const explorer = useExplorer({
 		items: labels.data || null,

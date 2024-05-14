@@ -2,7 +2,7 @@ use crate::api::CoreEvent;
 
 use sd_file_ext::extensions::{DocumentExtension, ImageExtension};
 use sd_images::{format_image, scale_dimensions, ConvertibleExtension};
-use sd_media_metadata::image::Orientation;
+use sd_media_metadata::exif::Orientation;
 use sd_prisma::prisma::location;
 use sd_utils::error::FileIOError;
 
@@ -373,7 +373,12 @@ pub(super) async fn generate_thumbnail(
 			}
 		}
 	}
-
+	// This if is REALLY needed, due to the sheer performance of the thumbnailer,
+	// I restricted to only send events notifying for thumbnails in the current
+	// opened directory, sending events for the entire location turns into a
+	// humongous bottleneck in the frontend lol, since it doesn't even knows
+	// what to do with thumbnails for inner directories lol
+	// - fogodev
 	if !in_background {
 		trace!("Emitting new thumbnail event");
 		if reporter
@@ -462,12 +467,17 @@ async fn generate_image_thumbnail(
 
 #[cfg(feature = "ffmpeg")]
 async fn generate_video_thumbnail(
-	file_path: impl AsRef<Path>,
-	output_path: impl AsRef<Path>,
+	file_path: impl AsRef<Path> + Send,
+	output_path: impl AsRef<Path> + Send,
 ) -> Result<(), ThumbnailerError> {
-	use sd_ffmpeg::to_thumbnail;
+	use sd_ffmpeg::{to_thumbnail, ThumbnailSize};
 
-	to_thumbnail(file_path, output_path, 256, TARGET_QUALITY)
-		.await
-		.map_err(Into::into)
+	to_thumbnail(
+		file_path,
+		output_path,
+		ThumbnailSize::Scale(1024),
+		TARGET_QUALITY,
+	)
+	.await
+	.map_err(Into::into)
 }

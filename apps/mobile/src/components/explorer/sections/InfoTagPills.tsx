@@ -1,15 +1,13 @@
-import React from 'react';
-import { Alert, Pressable, View, ViewStyle } from 'react-native';
 import {
 	ExplorerItem,
 	getExplorerItemData,
 	getItemFilePath,
 	getItemObject,
 	isPath,
-	useCache,
-	useLibraryQuery,
-	useNodes
+	useLibraryQuery
 } from '@sd/client';
+import React from 'react';
+import { Alert, Pressable, View, ViewStyle } from 'react-native';
 import { InfoPill, PlaceholderPill } from '~/components/primitive/InfoPill';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -25,15 +23,14 @@ const InfoTagPills = ({ data, style }: Props) => {
 	const tagsQuery = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
 		enabled: objectData != null
 	});
-	useNodes(tagsQuery.data?.nodes);
-	const items = useCache(tagsQuery.data?.items);
+	const items = tagsQuery.data;
 
 	const isDir = data && isPath(data) ? data.item.is_dir : false;
 
 	return (
 		<View style={twStyle('mt-1 flex flex-row flex-wrap', style)}>
 			{/* Kind */}
-			<InfoPill containerStyle={tw`mr-1`} text={getExplorerItemData(data).kind} />
+			<InfoPill containerStyle={tw`mr-1`} text={isDir ? 'Folder' : getExplorerItemData(data).kind} />
 			{/* Extension */}
 			{filePath?.extension && (
 				<InfoPill text={filePath.extension} containerStyle={tw`mr-1`} />

@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
-import { ObjectOrder } from '@sd/client';
+import { ObjectOrder, objectOrderingKeysSchema } from '@sd/client';
 import { Icon } from '~/components';
 import { useLocale, useRouteTitle } from '~/hooks';
 
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
-import { createDefaultExplorerSettings, objectOrderingKeysSchema } from './Explorer/store';
+import { createDefaultExplorerSettings } from './Explorer/store';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { EmptyNotice } from './Explorer/View/EmptyNotice';
@@ -24,7 +24,7 @@ export function Component() {
 		orderingKeys: objectOrderingKeysSchema
 	});
 
-	const search = useSearchFromSearchParams();
+	const search = useSearchFromSearchParams({ defaultTarget: 'paths' });
 
 	const { t } = useLocale();
 
@@ -52,7 +52,7 @@ export function Component() {
 		<ExplorerContextProvider explorer={explorer}>
 			<SearchContextProvider search={search}>
 				<TopBarPortal
-					center={<SearchBar defaultFilters={[defaultFilters]} />}
+					center={<SearchBar defaultFilters={[defaultFilters]} defaultTarget="paths" />}
 					left={
 						<div className="flex flex-row items-center gap-2">
 							<span className="truncate text-sm font-medium">{t('recents')}</span>

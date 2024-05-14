@@ -4,6 +4,7 @@ import {
 	explorerLayout,
 	useExplorerLayoutStore,
 	useLibrarySubscription,
+	useRspcLibraryContext,
 	useSelector
 } from '@sd/client';
 import { useShortcut } from '~/hooks';
@@ -40,17 +41,21 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 	const showInspector = useSelector(explorerStore, (s) => s.showInspector);
 
 	const showPathBar = explorer.showPathBar && layoutStore.showPathBar;
-
+	const rspc = useRspcLibraryContext();
 	// Can we put this somewhere else -_-
 	useLibrarySubscription(['jobs.newThumbnail'], {
-		onStarted: () => {
-			console.log('Started RSPC subscription new thumbnail');
-		},
-		onError: (err) => {
-			console.error('Error in RSPC subscription new thumbnail', err);
-		},
 		onData: (thumbKey) => {
 			explorerStore.addNewThumbnail(thumbKey);
+		}
+	});
+	useLibrarySubscription(['jobs.newFilePathIdentified'], {
+		onData: (ids) => {
+			if (ids?.length > 0) {
+				// I had planned to somehow fetch the Object, but its a lot more work than its worth given
+				// id have to fetch the file_path explicitly and patch the query
+				// for now, it seems to work a treat just invalidating the whole query
+				rspc.queryClient.invalidateQueries(['search.paths']);
+			}
 		}
 	});
 

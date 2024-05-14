@@ -10,11 +10,11 @@ import dayjs from 'dayjs';
 import { memo, useMemo } from 'react';
 import { stringify } from 'uuid';
 import {
-	byteSize,
 	getExplorerItemData,
 	getIndexedItemFilePath,
 	getItemFilePath,
 	getItemObject,
+	humanizeSize,
 	useSelector,
 	type ExplorerItem
 } from '@sd/client';
@@ -24,7 +24,7 @@ import { useExplorerContext } from '../../Context';
 import { FileThumb } from '../../FilePath/Thumb';
 import { InfoPill } from '../../Inspector';
 import { CutCopyState, explorerStore, isCut } from '../../store';
-import { uniqueId } from '../../util';
+import { translateKindName, uniqueId } from '../../util';
 import { RenamableItemText } from '../RenamableItemText';
 
 export const LIST_VIEW_ICON_SIZES = {
@@ -84,7 +84,7 @@ const KindCell = ({ kind }: { kind: string }) => {
 			className="bg-app-button/50"
 			style={{ fontSize: LIST_VIEW_TEXT_SIZES[explorerSettings.listViewTextSize] }}
 		>
-			{kind}
+			{translateKindName(kind)}
 		</InfoPill>
 	);
 };
@@ -95,7 +95,7 @@ export const useTable = () => {
 	const explorer = useExplorerContext();
 	const explorerSettings = explorer.useSettingsSnapshot();
 
-	const { t } = useLocale();
+	const { t, dateFormat } = useLocale();
 
 	const columns = useMemo<ColumnDef<ExplorerItem>[]>(
 		() => [
@@ -122,7 +122,7 @@ export const useTable = () => {
 						!filePath.size_in_bytes_bytes ||
 						(filePath.is_dir && item.type === 'NonIndexedPath')
 						? '-'
-						: byteSize(filePath.size_in_bytes_bytes);
+						: humanizeSize(filePath.size_in_bytes_bytes);
 				}
 			},
 			{
@@ -130,7 +130,7 @@ export const useTable = () => {
 				header: t('date_created'),
 				accessorFn: (item) => {
 					if (item.type === 'SpacedropPeer') return;
-					return dayjs(item.item.date_created).format('MMM Do YYYY');
+					return dayjs(item.item.date_created).format(dateFormat);
 				}
 			},
 			{
@@ -138,7 +138,7 @@ export const useTable = () => {
 				header: t('date_modified'),
 				accessorFn: (item) => {
 					const filePath = getItemFilePath(item);
-					if (filePath) return dayjs(filePath.date_modified).format('MMM Do YYYY');
+					if (filePath) return dayjs(filePath.date_modified).format(dateFormat);
 				}
 			},
 			{
@@ -146,7 +146,7 @@ export const useTable = () => {
 				header: t('date_indexed'),
 				accessorFn: (item) => {
 					const filePath = getIndexedItemFilePath(item);
-					if (filePath) return dayjs(filePath.date_indexed).format('MMM Do YYYY');
+					if (filePath) return dayjs(filePath.date_indexed).format(dateFormat);
 				}
 			},
 			{
@@ -155,7 +155,7 @@ export const useTable = () => {
 				accessorFn: (item) => {
 					const object = getItemObject(item);
 					if (!object || !object.date_accessed) return;
-					return dayjs(object.date_accessed).format('MMM Do YYYY');
+					return dayjs(object.date_accessed).format(dateFormat);
 				}
 			},
 			{

@@ -1,5 +1,5 @@
+import { ObjectOrder, objectOrderingKeysSchema, Tag, useLibraryQuery } from '@sd/client';
 import { useCallback, useMemo } from 'react';
-import { ObjectOrder, Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
 import { useLocale, useRouteTitle, useZodRouteParams } from '~/hooks';
@@ -7,7 +7,7 @@ import { stringify } from '~/util/uuid';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Explorer/store';
+import { createDefaultExplorerSettings } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { useExplorerPreferences } from '../Explorer/useExplorerPreferences';
@@ -20,16 +20,15 @@ import { TopBarPortal } from '../TopBar/Portal';
 export function Component() {
 	const { id: tagId } = useZodRouteParams(LocationIdParamsSchema);
 	const result = useLibraryQuery(['tags.get', tagId], { suspense: true });
-	useNodes(result.data?.nodes);
-	const tag = useCache(result.data?.item);
+	const tag = result.data!;
 
 	const { t } = useLocale();
 
 	useRouteTitle(tag!.name ?? 'Tag');
 
-	const { explorerSettings, preferences } = useTagExplorerSettings(tag);
+	const { explorerSettings, preferences } = useTagExplorerSettings(tag!);
 
-	const search = useSearchFromSearchParams();
+	const search = useSearchFromSearchParams({ defaultTarget: 'objects' });
 
 	const defaultFilters = useMemo(() => [{ object: { tags: { in: [tag.id] } } }], [tag.id]);
 
@@ -46,7 +45,7 @@ export function Component() {
 		isFetchingNextPage: items.query.isFetchingNextPage,
 		isLoadingPreferences: preferences.isLoading,
 		settings: explorerSettings,
-		parent: { type: 'Tag', tag: tag! }
+		parent: { type: 'Tag', tag: tag }
 	});
 
 	return (

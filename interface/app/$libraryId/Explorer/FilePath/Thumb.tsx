@@ -15,7 +15,7 @@ import { useIsDark } from '~/hooks';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { usePlatform } from '~/util/Platform';
 
-import { useExplorerItemData } from '../util';
+import { useExplorerItemData } from '../useExplorerItemData';
 import { Image, ImageProps } from './Image';
 import LayeredFileIcon from './LayeredFileIcon';
 import { Original } from './Original';
@@ -40,6 +40,7 @@ export interface ThumbProps {
 	childClassName?: string | ((type: ThumbType) => string | undefined);
 	isSidebarPreview?: boolean;
 	childProps?: HTMLAttributes<HTMLElement>;
+	magnification?: number;
 }
 
 type ThumbType = { variant: 'original' } | { variant: 'thumbnail' } | { variant: 'icon' };
@@ -217,6 +218,7 @@ export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) =
 						isDark={isDark}
 						childClassName={childClassName}
 						size={props.size}
+						magnification={props.magnification}
 						mediaControls={props.mediaControls}
 						frame={props.frame}
 						isSidebarPreview={props.isSidebarPreview}

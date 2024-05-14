@@ -159,6 +159,8 @@ function Node({
 		onDrop: (files) => onDropped(id, files)
 	});
 
+	const { t } = useLocale();
+
 	return (
 		<div
 			ref={ref}
@@ -170,7 +172,7 @@ function Node({
 			)}
 			onClick={() => {
 				if (!platform.openFilePickerDialog) {
-					toast.warning('File picker not supported on this platform');
+					toast.warning(t('file_picker_not_supported'));
 					return;
 				}
 

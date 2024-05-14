@@ -1,4 +1,4 @@
-use crate::indexer::IndexerJob;
+use crate::{file_identifier, indexer, media_processor};
 
 use sd_prisma::prisma::{job, location};
 use sd_utils::uuid_to_bytes;
@@ -14,7 +14,7 @@ use futures_concurrency::future::TryJoin;
 use serde::{Deserialize, Serialize};
 
 use super::{
-	job::{DynJob, Job, JobContext, JobHolder, JobName},
+	job::{DynJob, Job, JobHolder, JobName, OuterContext},
 	report::{Report, ReportError},
 	JobId, JobSystemError,
 };
@@ -22,7 +22,7 @@ use super::{
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SerializedTasks(pub Vec<u8>);
 
-pub trait SerializableJob: 'static
+pub trait SerializableJob<Ctx: OuterContext>: 'static
 where
 	Self: Sized,
 {
@@ -35,7 +35,7 @@ where
 	#[allow(unused_variables)]
 	fn deserialize(
 		serialized_job: &[u8],
-		ctx: &impl JobContext,
+		ctx: &Ctx,
 	) -> impl Future<
 		Output = Result<Option<(Self, Option<SerializedTasks>)>, rmp_serde::decode::Error>,
 	> + Send {
@@ -57,9 +57,9 @@ pub struct StoredJobEntry {
 	pub(super) next_jobs: Vec<StoredJob>,
 }
 
-pub async fn load_jobs<Ctx: JobContext>(
+pub async fn load_jobs<Ctx: OuterContext>(
 	entries: Vec<StoredJobEntry>,
-	job_ctx: &Ctx,
+	ctx: &Ctx,
 ) -> Result<
 	Vec<(
 		location::id::Type,
@@ -68,7 +68,7 @@ pub async fn load_jobs<Ctx: JobContext>(
 	)>,
 	JobSystemError,
 > {
-	let mut reports = job_ctx
+	let mut reports = ctx
 		.db()
 		.job()
 		.find_many(vec![job::id::in_vec(
@@ -105,7 +105,7 @@ pub async fn load_jobs<Ctx: JobContext>(
 					.ok_or(ReportError::MissingReport(root_job.id))?;
 
 				Ok(async move {
-					load_job(root_job, report, job_ctx)
+					load_job(root_job, report, ctx)
 						.await
 						.map(|maybe_loaded_job| {
 							maybe_loaded_job
@@ -135,7 +135,7 @@ pub async fn load_jobs<Ctx: JobContext>(
 				next_jobs_and_reports
 					.into_iter()
 					.map(|(next_job, report)| async move {
-						load_job(next_job, report, job_ctx)
+						load_job(next_job, report, ctx)
 							.await
 							.map(|maybe_loaded_next_job| {
 								maybe_loaded_next_job.map(|(next_dyn_job, next_tasks)| {
@@ -166,7 +166,7 @@ pub async fn load_jobs<Ctx: JobContext>(
 }
 
 macro_rules! match_deserialize_job {
-	($stored_job:ident, $report:ident, $job_ctx:ident, $ctx_type:ty, [$($job_type:ty),+ $(,)?]) => {{
+	($stored_job:ident, $report:ident, $ctx:ident, $ctx_type:ty, [$($job_type:ty),+ $(,)?]) => {{
 		let StoredJob {
 			id,
 			name,
@@ -175,9 +175,9 @@ macro_rules! match_deserialize_job {
 
 
 		match name {
-			$(<$job_type as Job>::NAME => <$job_type as SerializableJob>::deserialize(
+			$(<$job_type as Job>::NAME => <$job_type as SerializableJob<$ctx_type>>::deserialize(
 					&serialized_job,
-					$job_ctx,
+					$ctx,
 				).await
 					.map(|maybe_job| maybe_job.map(|(job, tasks)| -> (
 							Box<dyn DynJob<$ctx_type>>,
@@ -200,20 +200,21 @@ macro_rules! match_deserialize_job {
 	}};
 }
 
-async fn load_job<Ctx: JobContext>(
+async fn load_job<Ctx: OuterContext>(
 	stored_job: StoredJob,
 	report: Report,
-	job_ctx: &Ctx,
+	ctx: &Ctx,
 ) -> Result<Option<(Box<dyn DynJob<Ctx>>, Option<SerializedTasks>)>, JobSystemError> {
 	match_deserialize_job!(
 		stored_job,
 		report,
-		job_ctx,
+		ctx,
 		Ctx,
 		[
-			IndexerJob,
+			indexer::job::Indexer,
+			file_identifier::job::FileIdentifier,
+			media_processor::job::MediaProcessor,
 			// TODO: Add more jobs here
-			// e.g.: FileIdentifierJob, MediaProcessorJob, etc.,
 		]
 	)
 }

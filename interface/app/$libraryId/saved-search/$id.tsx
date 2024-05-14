@@ -1,9 +1,9 @@
 import { MagnifyingGlass } from '@phosphor-icons/react';
 import { getIcon, iconNames } from '@sd/assets/util';
-import { useEffect, useMemo } from 'react';
-import { useParams } from 'react-router';
+import { useMemo } from 'react';
 import {
 	FilePathOrder,
+	filePathOrderingKeysSchema,
 	SearchFilterArgs,
 	SearchTarget,
 	useLibraryMutation,
@@ -15,11 +15,7 @@ import { useRouteTitle, useZodParams } from '~/hooks';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import {
-	createDefaultExplorerSettings,
-	explorerStore,
-	filePathOrderingKeysSchema
-} from '../Explorer/store';
+import { createDefaultExplorerSettings, explorerStore } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { EmptyNotice } from '../Explorer/View/EmptyNotice';
@@ -77,7 +73,7 @@ function Inner({ id }: { id: number }) {
 		filters: search.allFilters,
 		take: 50,
 		paths: { order: explorerSettings.useSettingsSnapshot().order },
-		onSuccess: () => explorerStore.resetNewThumbnails()
+		onSuccess: () => explorerStore.resetCache()
 	});
 
 	const explorer = useExplorer({

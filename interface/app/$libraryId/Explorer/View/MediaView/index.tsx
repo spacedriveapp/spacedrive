@@ -1,6 +1,7 @@
+import { OrderingKey, getOrderingDirection, getOrderingKey } from '@sd/client';
 import { LoadMoreTrigger, useGrid, useScrollMargin, useVirtualizer } from '@virtual-grid/react';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { getOrderingDirection, OrderingKey, orderingKey } from '@sd/client';
+import { useLocale } from '~/hooks';
 
 import { useExplorerContext } from '../../Context';
 import { getItemData, getItemId, uniqueId } from '../../util';
@@ -27,8 +28,10 @@ export const MediaView = () => {
 
 	const gridRef = useRef<HTMLDivElement>(null);
 
-	const orderBy = explorerSettings.order && orderingKey(explorerSettings.order);
+	const orderBy = explorerSettings.order && getOrderingKey(explorerSettings.order);
 	const orderDirection = explorerSettings.order && getOrderingDirection(explorerSettings.order);
+
+	const { dateFormat } = useLocale();
 
 	const isSortingByDate = orderBy && SORT_BY_DATE[orderBy];
 
@@ -142,19 +145,22 @@ export const MediaView = () => {
 			? new Date(new Date(lastFilePathDate).setHours(0, 0, 0, 0))
 			: undefined;
 
-		if (firstDate && !lastDate) return formatDate(firstDate);
+		if (firstDate && !lastDate) return formatDate(firstDate, dateFormat);
 
-		if (!firstDate && lastDate) return formatDate(lastDate);
+		if (!firstDate && lastDate) return formatDate(lastDate, dateFormat);
 
 		if (firstDate && lastDate) {
 			if (firstDate.getTime() === lastDate.getTime()) {
-				return formatDate(firstDate);
+				return formatDate(firstDate, dateFormat);
 			}
 
-			return formatDate({
-				from: orderDirection === 'Asc' ? firstDate : lastDate,
-				to: orderDirection === 'Asc' ? lastDate : firstDate
-			});
+			return formatDate(
+				{
+					from: orderDirection === 'Asc' ? firstDate : lastDate,
+					to: orderDirection === 'Asc' ? lastDate : firstDate
+				},
+				dateFormat
+			);
 		}
 	}, [
 		explorer.items,

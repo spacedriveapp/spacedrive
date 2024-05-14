@@ -9,6 +9,7 @@ import Rive, { RiveRef } from 'rive-react-native';
 import { Style } from 'twrnc/dist/esm/types';
 import { tw } from '~/lib/tailwind';
 
+import * as Haptics from 'expo-haptics';
 import { RootStackParamList } from '.';
 import BrowseStack, { BrowseStackParamList } from './tabs/BrowseStack';
 import NetworkStack, { NetworkStackParamList } from './tabs/NetworkStack';
@@ -145,8 +146,9 @@ export default function TabNavigator() {
 					})}
 					listeners={() => ({
 						focus: () => {
+							Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 							setActiveIndex(index);
-						}
+						},
 					})}
 				/>
 			))}

@@ -1,12 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import {
-	insertLibrary,
-	useBridgeMutation,
-	useNormalisedCache,
-	usePlausibleEvent,
-	useZodForm
-} from '@sd/client';
+import { insertLibrary, useBridgeMutation, usePlausibleEvent, useZodForm } from '@sd/client';
 import { Dialog, InputField, useDialog, UseDialogProps, z } from '@sd/ui';
 import { useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -32,16 +26,13 @@ export default (props: UseDialogProps) => {
 	const createLibrary = useBridgeMutation('library.create');
 
 	const form = useZodForm({ schema });
-	const cache = useNormalisedCache();
 
 	const onSubmit = form.handleSubmit(async (data) => {
 		try {
-			const libraryRaw = await createLibrary.mutateAsync({
+			const library = await createLibrary.mutateAsync({
 				name: data.name,
 				default_locations: null
 			});
-			cache.withNodes(libraryRaw.nodes);
-			const library = cache.withCache(libraryRaw.item);
 
 			insertLibrary(queryClient, library);
 
@@ -64,6 +55,8 @@ export default (props: UseDialogProps) => {
 			dialog={useDialog(props)}
 			submitDisabled={!form.formState.isValid}
 			title={t('create_new_library')}
+			closeLabel={t('close')}
+			cancelLabel={t('cancel')}
 			description={t('create_new_library_description')}
 			ctaLabel={form.formState.isSubmitting ? t('creating_library') : t('create_library')}
 		>

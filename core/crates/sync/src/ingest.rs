@@ -71,7 +71,7 @@ impl Actor {
 				self.shared.active.store(false, Ordering::Relaxed);
 				self.shared.active_notify.notify_waiters();
 
-				wait!(self.io.event_rx, Event::Notification);
+				wait!(self.io.event_rx.lock().await, Event::Notification);
 
 				self.shared.active.store(true, Ordering::Relaxed);
 				self.shared.active_notify.notify_waiters();
@@ -94,10 +94,12 @@ impl Actor {
 					.await
 					.ok();
 
+				let mut event_rx = self.io.event_rx.lock().await;
+
 				loop {
 					tokio::select! {
 						biased;
-						res = self.io.event_rx.recv() => {
+						res = event_rx.recv() => {
 							if let Some(Event::Messages(event)) = res { break State::Ingesting(event) }
 						}
 						res = &mut rx => {
@@ -144,23 +146,33 @@ impl Actor {
 		})
 	}
 
-	pub fn spawn(shared: Arc<SharedState>) -> Handler {
+	pub async fn declare(shared: Arc<SharedState>) -> Handler {
 		let (actor_io, handler_io) = create_actor_io::<Self>();
 
-		tokio::spawn(async move {
-			let mut this = Self {
-				state: Some(Default::default()),
-				io: actor_io,
-				shared,
-			};
+		shared
+			.actors
+			.declare(
+				"Sync Ingest",
+				{
+					let shared = shared.clone();
+					move || async move {
+						let mut this = Self {
+							state: Some(Default::default()),
+							io: actor_io,
+							shared,
+						};
 
-			loop {
-				this = match this.tick().await {
-					Some(this) => this,
-					None => break,
-				};
-			}
-		});
+						loop {
+							this = match this.tick().await {
+								Some(this) => this,
+								None => break,
+							};
+						}
+					}
+				},
+				true,
+			)
+			.await;
 
 		Handler {
 			event_tx: handler_io.event_tx,
@@ -459,9 +471,10 @@ mod test {
 			emit_messages_flag: Arc::new(AtomicBool::new(true)),
 			active: Default::default(),
 			active_notify: Default::default(),
+			actors: Default::default(),
 		});
 
-		(Actor::spawn(shared.clone()), shared)
+		(Actor::declare(shared.clone()).await, shared)
 	}
 
 	/// If messages tx is dropped, actor should reset and assume no further messages

@@ -144,7 +144,7 @@ async fn main() {
 		}
 	}
 
-	#[allow(unused)]
+	#[cfg(not(feature = "assets"))]
 	let state = AppState { auth };
 
 	let (node, router) = match Node::new(

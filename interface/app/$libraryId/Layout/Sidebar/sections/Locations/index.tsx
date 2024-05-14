@@ -3,9 +3,7 @@ import { Link, useMatch } from 'react-router-dom';
 import {
 	arraysEqual,
 	Location as LocationType,
-	useCache,
 	useLibraryQuery,
-	useNodes,
 	useOnlineLocations
 } from '@sd/client';
 import { useExplorerDroppable } from '~/app/$libraryId/Explorer/useExplorerDroppable';
@@ -21,8 +19,7 @@ import { ContextMenu } from './ContextMenu';
 
 export default function Locations() {
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
-	useNodes(locationsQuery.data?.nodes);
-	const locations = useCache(locationsQuery.data?.items);
+	const locations = locationsQuery.data;
 	const onlineLocations = useOnlineLocations();
 
 	const { t } = useLocale();
@@ -36,7 +33,7 @@ export default function Locations() {
 				</Link>
 			}
 		>
-			<SeeMore>
+			<SeeMore limit={10}>
 				{locations?.map((location) => (
 					<Location
 						key={location.id}

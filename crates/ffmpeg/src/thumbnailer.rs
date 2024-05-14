@@ -1,6 +1,9 @@
-use crate::{film_strip_filter, Error, MovieDecoder, ThumbnailSize, VideoFrame};
+use crate::{frame_decoder::ThumbnailSize, Error, FrameDecoder};
 
 use std::{io, ops::Deref, path::Path};
+
+use image::{imageops, DynamicImage, RgbImage};
+use sd_utils::error::FileIOError;
 use tokio::{fs, task::spawn_blocking};
 use tracing::error;
 use webp::Encoder;
@@ -14,79 +17,114 @@ pub struct Thumbnailer {
 
 impl Thumbnailer {
 	/// Processes an video input file and write to file system a thumbnail with webp format
-	pub async fn process(
+	pub(crate) async fn process(
 		&self,
-		video_file_path: impl AsRef<Path>,
-		output_thumbnail_path: impl AsRef<Path>,
+		video_file_path: impl AsRef<Path> + Send,
+		output_thumbnail_path: impl AsRef<Path> + Send,
 	) -> Result<(), Error> {
-		let path = output_thumbnail_path.as_ref().parent().ok_or_else(|| {
-			io::Error::new(
-				io::ErrorKind::InvalidInput,
-				"Cannot determine parent directory",
-			)
+		let output_thumbnail_path = output_thumbnail_path.as_ref();
+		let path = output_thumbnail_path.parent().ok_or_else(|| {
+			FileIOError::from((
+				output_thumbnail_path,
+				io::Error::new(
+					io::ErrorKind::InvalidInput,
+					"Cannot determine parent directory",
+				),
+			))
 		})?;
 
-		fs::create_dir_all(path).await?;
+		fs::create_dir_all(path)
+			.await
+			.map_err(|e| FileIOError::from((path, e)))?;
 
 		fs::write(
 			output_thumbnail_path,
 			&*self.process_to_webp_bytes(video_file_path).await?,
 		)
 		.await
-		.map_err(Into::into)
+		.map_err(|e| FileIOError::from((output_thumbnail_path, e)).into())
 	}
 
 	/// Processes an video input file and returns a webp encoded thumbnail as bytes
-	pub async fn process_to_webp_bytes(
+	async fn process_to_webp_bytes(
 		&self,
-		video_file_path: impl AsRef<Path>,
+		video_file_path: impl AsRef<Path> + Send,
 	) -> Result<Vec<u8>, Error> {
-		let video_file_path = video_file_path.as_ref().to_path_buf();
 		let prefer_embedded_metadata = self.builder.prefer_embedded_metadata;
 		let seek_percentage = self.builder.seek_percentage;
 		let size = self.builder.size;
 		let maintain_aspect_ratio = self.builder.maintain_aspect_ratio;
-		let with_film_strip = self.builder.with_film_strip;
 		let quality = self.builder.quality;
 
-		spawn_blocking(move || -> Result<Vec<u8>, Error> {
-			let mut decoder = MovieDecoder::new(video_file_path.clone(), prefer_embedded_metadata)?;
-			// We actually have to decode a frame to get some metadata before we can start decoding for real
-			decoder.decode_video_frame()?;
+		spawn_blocking({
+			let video_file_path = video_file_path.as_ref().to_path_buf();
+			move || -> Result<Vec<u8>, Error> {
+				let mut decoder = FrameDecoder::new(
+					&video_file_path,
+					// TODO: allow_seek should be false for remote files
+					true,
+					prefer_embedded_metadata,
+				)?;
 
-			#[allow(clippy::cast_possible_truncation)]
-			#[allow(clippy::cast_precision_loss)]
-			if !decoder.embedded_metadata_is_available() {
-				let result = decoder.seek(
-					(decoder.get_video_duration().as_secs() as f64 * f64::from(seek_percentage))
-						.round() as i64,
+				// We actually have to decode a frame to get some metadata before we can start decoding for real
+				decoder.decode_video_frame()?;
+
+				if !decoder.use_embedded() {
+					let result = decoder
+						.get_duration_secs()
+						.ok_or(Error::NoVideoDuration)
+						.and_then(|duration| {
+							decoder.seek(
+								#[allow(clippy::cast_possible_truncation)]
+								{
+									// This conversion is ok because we don't worry much about precision here
+									(duration * f64::from(seek_percentage)).round() as i64
+								},
+							)
+						});
+
+					if let Err(err) = result {
+						error!(
+							"Failed to seek {}: {err:#?}",
+							video_file_path.to_string_lossy()
+						);
+						// Seeking failed, try first frame again
+						// Re-instantiating decoder to avoid possible segfault
+						// https://github.com/dirkvdb/ffmpegthumbnailer/commit/da292ccb51a526ebc833f851a388ca308d747289
+						decoder =
+							FrameDecoder::new(&video_file_path, false, prefer_embedded_metadata)?;
+						decoder.decode_video_frame()?;
+					}
+				}
+
+				let video_frame =
+					decoder.get_scaled_video_frame(Some(size), maintain_aspect_ratio)?;
+
+				let mut image = DynamicImage::ImageRgb8(
+					RgbImage::from_raw(video_frame.width, video_frame.height, video_frame.data)
+						.ok_or(Error::CorruptVideo(video_file_path.into_boxed_path()))?,
 				);
 
-				if let Err(err) = result {
-					error!("Failed to seek: {err:#?}");
-					// seeking failed, try the first frame again
-					decoder = MovieDecoder::new(video_file_path, prefer_embedded_metadata)?;
-					decoder.decode_video_frame()?;
-				}
-			}
+				let image = if video_frame.rotation < -135.0 {
+					imageops::rotate180_in_place(&mut image);
+					image
+				} else if video_frame.rotation > 45.0 && video_frame.rotation < 135.0 {
+					image.rotate270()
+				} else if video_frame.rotation < -45.0 && video_frame.rotation > -135.0 {
+					image.rotate90()
+				} else {
+					image
+				};
 
-			let mut video_frame = VideoFrame::default();
-
-			decoder.get_scaled_video_frame(Some(size), maintain_aspect_ratio, &mut video_frame)?;
-
-			if with_film_strip {
-				film_strip_filter(&mut video_frame);
-			}
-
-			// Type WebPMemory is !Send, which makes the Future in this function !Send,
-			// this make us `deref` to have a `&[u8]` and then `to_owned` to make a Vec<u8>
-			// which implies on a unwanted clone...
-			Ok(
-				Encoder::from_rgb(&video_frame.data, video_frame.width, video_frame.height)
+				// Type WebPMemory is !Send, which makes the Future in this function !Send,
+				// this make us `deref` to have a `&[u8]` and then `to_owned` to make a Vec<u8>
+				// which implies on a unwanted clone...
+				Ok(Encoder::from_image(&image)
+					.expect("Should not fail as the underlining DynamicImage is an RgbImage")
 					.encode(quality)
 					.deref()
-					.to_vec(),
-			)
+					.to_vec())
+			}
 		})
 		.await?
 	}
@@ -102,18 +140,16 @@ pub struct ThumbnailerBuilder {
 	seek_percentage: f32,
 	quality: f32,
 	prefer_embedded_metadata: bool,
-	with_film_strip: bool,
 }
 
 impl Default for ThumbnailerBuilder {
 	fn default() -> Self {
 		Self {
 			maintain_aspect_ratio: true,
-			size: ThumbnailSize::Size(128),
+			size: ThumbnailSize::Scale(1024),
 			seek_percentage: 0.1,
 			quality: 80.0,
 			prefer_embedded_metadata: true,
-			with_film_strip: true,
 		}
 	}
 }
@@ -125,7 +161,6 @@ impl ThumbnailerBuilder {
 	/// - `seek_percentage`: 10%
 	/// - `quality`: 80
 	/// - `prefer_embedded_metadata`: true
-	/// - `with_film_strip`: true
 	pub fn new() -> Self {
 		Self::default()
 	}
@@ -137,14 +172,8 @@ impl ThumbnailerBuilder {
 	}
 
 	/// To set a thumbnail size, respecting or not its aspect ratio, according to `maintain_aspect_ratio` value
-	pub const fn size(mut self, size: u32) -> Self {
-		self.size = ThumbnailSize::Size(size);
-		self
-	}
-
-	/// To specify width and height of the thumbnail
-	pub const fn width_and_height(mut self, width: u32, height: u32) -> Self {
-		self.size = ThumbnailSize::Dimensions { width, height };
+	pub const fn size(mut self, size: ThumbnailSize) -> Self {
+		self.size = size;
 		self
 	}
 
@@ -170,12 +199,6 @@ impl ThumbnailerBuilder {
 	/// thumbnail
 	pub const fn prefer_embedded_metadata(mut self, prefer_embedded_metadata: bool) -> Self {
 		self.prefer_embedded_metadata = prefer_embedded_metadata;
-		self
-	}
-
-	/// If `with_film_strip` is true, a film strip will be added to the thumbnail borders
-	pub const fn with_film_strip(mut self, with_film_strip: bool) -> Self {
-		self.with_film_strip = with_film_strip;
 		self
 	}
 

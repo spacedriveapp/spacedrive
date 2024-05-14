@@ -23,7 +23,7 @@ impl CompressedCRDTOperations {
 		let mut instance_id = first.instance;
 		let mut instance = vec![];
 
-		let mut model_str = first.model.clone();
+		let mut model_str = first.model;
 		let mut model = vec![];
 
 		let mut record_id = first.record_id.clone();
@@ -36,7 +36,7 @@ impl CompressedCRDTOperations {
 					std::mem::take(&mut record),
 				));
 				instance.push((
-					std::mem::replace(&mut model_str, op.model.clone()),
+					std::mem::replace(&mut model_str, op.model),
 					std::mem::take(&mut model),
 				));
 				compressed.push((
@@ -49,7 +49,7 @@ impl CompressedCRDTOperations {
 					std::mem::take(&mut record),
 				));
 				instance.push((
-					std::mem::replace(&mut model_str, op.model.clone()),
+					std::mem::replace(&mut model_str, op.model),
 					std::mem::take(&mut model),
 				));
 			} else if record_id != op.record_id {
@@ -72,10 +72,8 @@ impl CompressedCRDTOperations {
 	pub fn first(&self) -> Option<(Uuid, u16, &rmpv::Value, &CompressedCRDTOperation)> {
 		self.0.first().and_then(|(instance, data)| {
 			data.first().and_then(|(model, data)| {
-				data.first().and_then(|(record, ops)| {
-					ops.first()
-						.and_then(|op| Some((*instance, *model, record, op)))
-				})
+				data.first()
+					.and_then(|(record, ops)| ops.first().map(|op| (*instance, *model, record, op)))
 			})
 		})
 	}
@@ -83,10 +81,8 @@ impl CompressedCRDTOperations {
 	pub fn last(&self) -> Option<(Uuid, u16, &rmpv::Value, &CompressedCRDTOperation)> {
 		self.0.last().and_then(|(instance, data)| {
 			data.last().and_then(|(model, data)| {
-				data.last().and_then(|(record, ops)| {
-					ops.last()
-						.and_then(|op| Some((*instance, *model, record, op)))
-				})
+				data.last()
+					.and_then(|(record, ops)| ops.last().map(|op| (*instance, *model, record, op)))
 			})
 		})
 	}
@@ -111,7 +107,7 @@ impl CompressedCRDTOperations {
 					for op in record {
 						ops.push(CRDTOperation {
 							instance: instance_id,
-							model: model_str.clone(),
+							model: model_str,
 							record_id: record_id.clone(),
 							timestamp: op.timestamp,
 							data: op.data,

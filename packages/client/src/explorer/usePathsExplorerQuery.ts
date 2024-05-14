@@ -6,6 +6,8 @@ import { usePathsOffsetInfiniteQuery } from './usePathsOffsetInfiniteQuery';
 export function usePathsExplorerQuery(props: {
 	arg: FilePathSearchArgs;
 	order: FilePathOrder | null;
+	enabled?: boolean;
+	suspense?: boolean;
 	/** This callback will fire any time the query successfully fetches new data. (NOTE: This will be removed on the next major version (react-query)) */
 	onSuccess?: () => void;
 }) {

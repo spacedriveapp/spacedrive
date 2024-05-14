@@ -5,7 +5,7 @@ import { tw } from '~/lib/tailwind';
 import { getSearchStore } from '~/stores/searchStore';
 
 interface Props {
-	placeholder: string;
+	placeholder?: string;
 }
 
 export default function Search({ placeholder }: Props) {
@@ -18,7 +18,7 @@ export default function Search({ placeholder }: Props) {
 	}, [searchStore]);
 	return (
 		<View
-			style={tw`mt-4 flex h-11 w-full flex-row items-center justify-between rounded-md border border-app-inputborder bg-app-input px-3 shadow-sm`}
+			style={tw`mt-3 h-10 w-full flex-row items-center justify-between rounded-md border border-app-inputborder bg-app-input px-3 shadow-sm`}
 		>
 			<TextInput
 				onChangeText={(text) => searchStore.setSearch(text)}

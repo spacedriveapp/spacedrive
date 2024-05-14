@@ -1,19 +1,16 @@
 import { ArrowClockwise, Info } from '@phosphor-icons/react';
-import { useCallback, useEffect, useMemo } from 'react';
-import { stringify } from 'uuid';
 import {
 	arraysEqual,
 	FilePathOrder,
+	filePathOrderingKeysSchema,
 	Location,
-	useCache,
-	useExplorerLayoutStore,
-	useLibraryMutation,
 	useLibraryQuery,
 	useLibrarySubscription,
-	useNodes,
 	useOnlineLocations
 } from '@sd/client';
 import { Loader, Tooltip } from '@sd/ui';
+import { useCallback, useEffect, useMemo } from 'react';
+import { stringify } from 'uuid';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder, Icon } from '~/components';
 import {
@@ -28,11 +25,7 @@ import { useQuickRescan } from '~/hooks/useQuickRescan';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import {
-	createDefaultExplorerSettings,
-	explorerStore,
-	filePathOrderingKeysSchema
-} from '../Explorer/store';
+import { createDefaultExplorerSettings, explorerStore } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { useExplorerPreferences } from '../Explorer/useExplorerPreferences';
@@ -52,8 +45,7 @@ export const Component = () => {
 		keepPreviousData: true,
 		suspense: true
 	});
-	useNodes(result.data?.nodes);
-	const location = useCache(result.data?.item);
+	const location = result.data;
 
 	// 'key' allows search state to be thrown out when entering a folder
 	return <LocationExplorer key={path} location={location!} />;
@@ -74,7 +66,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 		[location.id]
 	);
 
-	const search = useSearchFromSearchParams();
+	const search = useSearchFromSearchParams({ defaultTarget: 'paths' });
 
 	const searchFiltersAreDefault = useMemo(
 		() => JSON.stringify(defaultFilters) !== JSON.stringify(search.filters),
@@ -104,7 +96,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 		],
 		take,
 		paths: { order: explorerSettings.useSettingsSnapshot().order },
-		onSuccess: () => explorerStore.resetNewThumbnails()
+		onSuccess: () => explorerStore.resetCache()
 	});
 
 	const explorer = useExplorer({

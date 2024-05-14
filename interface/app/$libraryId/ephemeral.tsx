@@ -1,17 +1,18 @@
+import { type AlphaClient } from '@oscartbeaumont-sd/rspc-client/v2';
 import { ArrowLeft, ArrowRight, Info } from '@phosphor-icons/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import { memo, Suspense, useDeferredValue, useMemo } from 'react';
-import { match } from 'ts-pattern';
 import {
 	ExplorerItem,
 	getExplorerItemData,
 	ItemData,
+	nonIndexedPathOrderingSchema,
 	SortOrder,
 	useLibraryContext,
-	useNormalisedCache,
-	useUnsafeStreamedQuery
+	useUnsafeStreamedQuery,
+	type EphemeralPathOrder
 } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
 import { PathParamsSchema, type PathParams } from '~/app/route-schemas';
@@ -29,11 +30,7 @@ import { useRouteTitle } from '~/hooks/useRouteTitle';
 
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
-import {
-	createDefaultExplorerSettings,
-	explorerStore,
-	nonIndexedPathOrderingSchema
-} from './Explorer/store';
+import { createDefaultExplorerSettings, explorerStore } from './Explorer/store';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { EmptyNotice } from './Explorer/View/EmptyNotice';
@@ -41,12 +38,6 @@ import { AddLocationButton } from './settings/library/locations/AddLocationButto
 import { useTopBarContext } from './TopBar/Context';
 import { TopBarPortal } from './TopBar/Portal';
 import TopBarButton from './TopBar/TopBarButton';
-
-export type EphemeralPathOrder =
-	| { field: 'name'; value: SortOrder }
-	| { field: 'sizeInBytes'; value: SortOrder }
-	| { field: 'dateCreated'; value: SortOrder }
-	| { field: 'dateModified'; value: SortOrder };
 
 const NOTICE_ITEMS: { icon: keyof typeof iconNames; name: string }[] = [
 	{
@@ -188,35 +179,32 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 	const settingsSnapshot = explorerSettings.useSettingsSnapshot();
 
 	const libraryCtx = useLibraryContext();
-	const cache = useNormalisedCache();
 	const query = useUnsafeStreamedQuery(
 		[
 			'search.ephemeralPaths',
 			{
 				library_id: libraryCtx.library.uuid,
 				arg: {
-					from: 'path',
 					path: path ?? (os === 'windows' ? 'C:\\' : '/'),
-					withHiddenFiles: settingsSnapshot.showHiddenFiles
+					withHiddenFiles: settingsSnapshot.showHiddenFiles,
+					order: settingsSnapshot.order
 				}
 			}
 		],
 		{
 			enabled: path != null,
 			suspense: true,
-			onSuccess: () => explorerStore.resetNewThumbnails(),
-			onBatch: (item) => {
-				cache.withNodes(item.nodes);
-			}
+			onSuccess: () => explorerStore.resetCache(),
+			onBatch: (item) => {}
 		}
 	);
 
 	const entries = useMemo(() => {
-		return cache.withCache(
+		return (
 			query.data?.flatMap((item) => item.entries) ||
-				query.streaming.flatMap((item) => item.entries)
+			query.streaming.flatMap((item) => item.entries)
 		);
-	}, [cache, query.streaming, query.data]);
+	}, [query.streaming, query.data]);
 
 	const items = useMemo(() => {
 		if (!entries) return [];
@@ -232,52 +220,8 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 			}
 		}
 
-		// We sort on the frontend, as the backend streams in entries from cloud locations out of order
-		const order = settingsSnapshot.order;
-		if (order !== null) {
-			const getValue = match(order.field)
-				.with('name', () => (a: ItemData) => a.name)
-				.with('sizeInBytes', () => (a: ItemData) => a.size.original)
-				.with(
-					'dateCreated',
-					() => (a: ItemData) => (a.dateCreated !== null ? new Date(a.dateCreated) : null)
-				)
-				.with(
-					'dateModified',
-					() => (a: ItemData) =>
-						a.dateModified !== null ? new Date(a.dateModified) : null
-				)
-				.exhaustive();
-
-			return ret.sort((a, b) => {
-				const aData = getExplorerItemData(a);
-				const bData = getExplorerItemData(b);
-
-				let result = 0;
-
-				// Put hidden files first (if the files have a hidden property)
-				if (
-					'hidden' in a.item &&
-					'hidden' in b.item &&
-					a.item.hidden !== null &&
-					b.item.hidden !== null
-				)
-					result = +b.item.hidden - +a.item.hidden;
-
-				// Group files before folders (within the hidden groups)
-				result = result || +(aData.kind === 'Folder') - +(bData.kind === 'Folder');
-
-				// Finally sort by the user defined property & flip the result for descending order if needed
-				const valueA = getValue(aData);
-				const valueB = getValue(bData);
-				result = result || compare(valueA, valueB) * (order.value === 'Asc' ? 1 : -1);
-
-				return result;
-			});
-		}
-
 		return ret;
-	}, [entries, settingsSnapshot.layoutMode, settingsSnapshot.order]);
+	}, [entries, settingsSnapshot.layoutMode]);
 
 	const explorer = useExplorer({
 		items,
@@ -327,20 +271,3 @@ export const Component = () => {
 		</Suspense>
 	);
 };
-
-// Compare two values and return a number based on their relative order
-function compare<T extends string | number | Date | BigInt | null>(a: T, b: T) {
-	if (a !== null && b !== null) {
-		if (typeof a === 'string') {
-			return a.localeCompare(b as string);
-		} else {
-			// We must avoid equality as Date doesn't support them but if a > b & b > a then a === b
-			return a < b ? -1 : a > b ? 1 : 0;
-		}
-	}
-
-	if (a === null && b !== null) return -1;
-	if (a !== null && b === null) return 1;
-
-	return 0;
-}

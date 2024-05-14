@@ -147,6 +147,9 @@ const shortcuts = {
 	},
 	explorerRight: {
 		all: ['ArrowRight']
+	},
+	toggleSidebar: {
+		all: ['[']
 	}
 } satisfies Record<string, Shortcut>;
 

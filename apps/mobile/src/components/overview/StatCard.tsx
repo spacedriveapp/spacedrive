@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import { AnimatedCircularProgress } from 'react-native-circular-progress';
-import { byteSize } from '@sd/client';
+import { humanizeSize } from '@sd/client';
 import { tw } from '~/lib/tailwind';
 
 import { Icon, IconName } from '../icons/Icon';
@@ -20,12 +20,12 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 	const [mounted, setMounted] = useState(false);
 
 	const { totalSpace, freeSpace, usedSpaceSpace } = useMemo(() => {
-		const totalSpace = byteSize(stats.totalSpace);
-		const freeSpace = stats.freeSpace == null ? totalSpace : byteSize(stats.freeSpace);
+		const totalSpace = humanizeSize(stats.totalSpace);
+		const freeSpace = stats.freeSpace == null ? totalSpace : humanizeSize(stats.freeSpace);
 		return {
 			totalSpace,
 			freeSpace,
-			usedSpaceSpace: byteSize(totalSpace.original - freeSpace.original)
+			usedSpaceSpace: humanizeSize(totalSpace.bytes - freeSpace.bytes)
 		};
 	}, [stats]);
 
@@ -34,7 +34,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 	}, []);
 
 	const progress = useMemo(() => {
-		if (!mounted || totalSpace.original === 0n) return 0;
+		if (!mounted || totalSpace.bytes === 0n) return 0;
 		return Math.floor((usedSpaceSpace.value / totalSpace.value) * 100);
 	}, [mounted, totalSpace, usedSpaceSpace]);
 

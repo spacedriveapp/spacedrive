@@ -343,12 +343,26 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.with2(library())
 				.subscription(|(node, _), _: ()| async move {
 					// TODO: Only return event for the library that was subscribed to
-
 					let mut event_bus_rx = node.event_bus.0.subscribe();
 					async_stream::stream! {
 						while let Ok(event) = event_bus_rx.recv().await {
 							match event {
 								CoreEvent::NewThumbnail { thumb_key } => yield thumb_key,
+								_ => {}
+							}
+						}
+					}
+				})
+		})
+		.procedure("newFilePathIdentified", {
+			R.with2(library())
+				.subscription(|(node, _), _: ()| async move {
+					// TODO: Only return event for the library that was subscribed to
+					let mut event_bus_rx = node.event_bus.0.subscribe();
+					async_stream::stream! {
+						while let Ok(event) = event_bus_rx.recv().await {
+							match event {
+								CoreEvent::NewIdentifiedObjects { file_path_ids } => yield file_path_ids,
 								_ => {}
 							}
 						}

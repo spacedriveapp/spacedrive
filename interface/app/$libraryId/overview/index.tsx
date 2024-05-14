@@ -1,13 +1,14 @@
 import { Link } from 'react-router-dom';
-import { useBridgeQuery, useCache, useLibraryQuery, useNodes } from '@sd/client';
-import { useLocale } from '~/hooks';
+import { useBridgeQuery, useLibraryQuery } from '@sd/client';
+import { useLocale, useOperatingSystem } from '~/hooks';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 import { hardwareModelToIcon } from '~/util/hardware';
 
-import { SearchContextProvider, useSearch, useSearchFromSearchParams } from '../search';
+import { SearchContextProvider, useSearchFromSearchParams } from '../search';
 import SearchBar from '../search/SearchBar';
 import { AddLocationButton } from '../settings/library/locations/AddLocationButton';
 import { TopBarPortal } from '../TopBar/Portal';
+import TopBarOptions from '../TopBar/TopBarOptions';
 import FileKindStatistics from './FileKindStats';
 import OverviewSection from './Layout/Section';
 import LibraryStatistics from './LibraryStats';
@@ -16,16 +17,16 @@ import StatisticItem from './StatCard';
 
 export const Component = () => {
 	useRouteTitle('Overview');
+	const os = useOperatingSystem();
 
 	const { t } = useLocale();
 
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
-	useNodes(locationsQuery.data?.nodes);
-	const locations = useCache(locationsQuery.data?.items) ?? [];
+	const locations = locationsQuery.data ?? [];
 
 	const { data: node } = useBridgeQuery(['nodeState']);
 
-	const search = useSearchFromSearchParams();
+	const search = useSearchFromSearchParams({ defaultTarget: 'paths' });
 
 	const stats = useLibraryQuery(['library.statistics']);
 
@@ -41,35 +42,36 @@ export const Component = () => {
 						</div>
 					}
 					center={<SearchBar redirectToSearch />}
-					// right={
-					// 	<TopBarOptions
-					// 		options={[
-					// 			[
-					// 				{
-					// 					toolTipLabel: 'Spacedrop',
-					// 					onClick: () => {},
-					// 					icon: <Broadcast className={TOP_BAR_ICON_STYLE} />,
-					// 					individual: true,
-					// 					showAtResolution: 'sm:flex'
-					// 				},
-					// 				{
-					// 					toolTipLabel: 'Key Manager',
-					// 					onClick: () => {},
-					// 					icon: <Key className={TOP_BAR_ICON_STYLE} />,
-					// 					individual: true,
-					// 					showAtResolution: 'sm:flex'
-					// 				},
-					// 				{
-					// 					toolTipLabel: 'Overview Display Settings',
-					// 					onClick: () => {},
-					// 					icon: <SlidersHorizontal className={TOP_BAR_ICON_STYLE} />,
-					// 					individual: true,
-					// 					showAtResolution: 'sm:flex'
-					// 				}
-					// 			]
-					// 		]}
-					// 	/>
-					// }
+					right={
+						os === 'windows' && <TopBarOptions />
+						// <TopBarOptions
+						// options={[
+						// 	[
+						// 		{
+						// 			toolTipLabel: 'Spacedrop',
+						// 			onClick: () => {},
+						// 			icon: <Broadcast className={TOP_BAR_ICON_STYLE} />,
+						// 			individual: true,
+						// 			showAtResolution: 'sm:flex'
+						// 		},
+						// 		{
+						// 			toolTipLabel: 'Key Manager',
+						// 			onClick: () => {},
+						// 			icon: <Key className={TOP_BAR_ICON_STYLE} />,
+						// 			individual: true,
+						// 			showAtResolution: 'sm:flex'
+						// 		},
+						// 		{
+						// 			toolTipLabel: 'Overview Display Settings',
+						// 			onClick: () => {},
+						// 			icon: <SlidersHorizontal className={TOP_BAR_ICON_STYLE} />,
+						// 			individual: true,
+						// 			showAtResolution: 'sm:flex'
+						// 		}
+						// 	]
+						// ]}
+						// 	/>
+					}
 				/>
 				<div className="mt-4 flex flex-col gap-3 pt-3">
 					<OverviewSection>
@@ -78,13 +80,15 @@ export const Component = () => {
 					<OverviewSection>
 						<FileKindStatistics />
 					</OverviewSection>
-					<OverviewSection count={1} title="Devices">
+					<OverviewSection count={1} title={t('devices')}>
 						{node && (
 							<StatisticItem
 								name={node.name}
 								icon={hardwareModelToIcon(node.device_model as any)}
-								totalSpace={stats.data?.statistics?.total_bytes_capacity || '0'}
-								freeSpace={stats.data?.statistics?.total_bytes_free || '0'}
+								totalSpace={
+									stats.data?.statistics?.total_local_bytes_capacity || '0'
+								}
+								freeSpace={stats.data?.statistics?.total_local_bytes_free || '0'}
 								color="#0362FF"
 								connectionType={null}
 							/>
@@ -131,9 +135,9 @@ export const Component = () => {
 						/> */}
 						<NewCard
 							icons={['Laptop', 'Server', 'SilverBox', 'Tablet']}
-							text="Spacedrive works best on all your devices."
+							text={t('connect_device_description')}
 							className="h-auto"
-							// buttonText="Connect a device"
+							// buttonText={t('connect_device')}
 						/>
 						{/**/}
 					</OverviewSection>
@@ -153,13 +157,13 @@ export const Component = () => {
 						{!locations?.length && (
 							<NewCard
 								icons={['HDD', 'Folder', 'Globe', 'SD']}
-								text="Connect a local path, volume or network location to Spacedrive."
+								text={t('add_location_overview_description')}
 								button={() => <AddLocationButton variant="outline" />}
 							/>
 						)}
 					</OverviewSection>
 
-					<OverviewSection count={0} title="Cloud Drives">
+					<OverviewSection count={0} title={t('cloud_drives')}>
 						{/* <StatisticItem
 							name="James Pine"
 							icon="DriveDropbox"
@@ -185,8 +189,8 @@ export const Component = () => {
 								'DriveOneDrive'
 								// 'DriveBox'
 							]}
-							text="Connect your cloud accounts to Spacedrive."
-							// buttonText="Connect a cloud"
+							text={t('connect_cloud_description')}
+							// buttonText={t('connect_cloud)}
 						/>
 					</OverviewSection>
 

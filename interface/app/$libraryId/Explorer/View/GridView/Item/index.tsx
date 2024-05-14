@@ -1,8 +1,8 @@
 import clsx from 'clsx';
 import { memo, useMemo } from 'react';
 import {
-	byteSize,
 	getItemFilePath,
+	humanizeSize,
 	useLibraryQuery,
 	useSelector,
 	type ExplorerItem
@@ -142,7 +142,7 @@ const ItemSize = () => {
 		(!isRenaming || !item.selected);
 
 	const bytes = useMemo(
-		() => showSize && byteSize(filePath?.size_in_bytes_bytes),
+		() => showSize && humanizeSize(filePath?.size_in_bytes_bytes),
 		[filePath?.size_in_bytes_bytes, showSize]
 	);
 

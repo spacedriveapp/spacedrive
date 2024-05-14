@@ -18,9 +18,7 @@ import { MenuProvider } from 'react-native-popup-menu';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useSnapshot } from 'valtio';
 import {
-	CacheProvider,
 	ClientContextProvider,
-	createCache,
 	initPlausible,
 	LibraryContextProvider,
 	P2PContextProvider,
@@ -146,7 +144,6 @@ function AppContainer() {
 }
 
 const queryClient = new QueryClient();
-const cache = createCache();
 
 export default function App() {
 	useEffect(() => {
@@ -155,9 +152,7 @@ export default function App() {
 
 	return (
 		<RspcProvider queryClient={queryClient}>
-			<CacheProvider cache={cache}>
-				<AppContainer />
-			</CacheProvider>
+			<AppContainer />
 		</RspcProvider>
 	);
 }

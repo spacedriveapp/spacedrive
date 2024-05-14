@@ -1,8 +1,8 @@
 import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript/src/types';
 import { useNavigation } from '@react-navigation/native';
+import { Tag, useLibraryQuery } from '@sd/client';
 import { useRef } from 'react';
 import { ColorValue, Pressable, Text, View } from 'react-native';
-import { Tag, useCache, useLibraryQuery, useNodes } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -19,11 +19,9 @@ type DrawerTagItemProps = {
 const DrawerTagItem: React.FC<DrawerTagItemProps> = (props) => {
 	const { tagName, tagColor, onPress } = props;
 	return (
-		<Pressable onPress={onPress} testID="drawer-tag">
+		<Pressable style={tw`flex-1`} onPress={onPress} testID="drawer-tag">
 			<View
-				style={twStyle(
-					'h-auto flex-row items-center gap-2 rounded-md border border-app-inputborder/50 bg-app-darkBox p-2'
-				)}
+				style={tw`flex-row items-center gap-2 rounded-md border border-app-inputborder/50 bg-app-darkBox p-2`}
 			>
 				<View style={twStyle('h-4 w-4 rounded-full', { backgroundColor: tagColor })} />
 				<Text style={twStyle('text-xs font-medium text-ink')} numberOfLines={1}>
@@ -38,8 +36,7 @@ const DrawerTags = () => {
 	const tags = useLibraryQuery(['tags.list']);
 	const navigation = useNavigation<DrawerNavigationHelpers>();
 
-	useNodes(tags.data?.nodes);
-	const tagData = useCache(tags.data?.items);
+	const tagData = tags.data || [];
 
 	const modalRef = useRef<ModalRef>(null);
 
@@ -51,7 +48,7 @@ const DrawerTags = () => {
 		>
 			<View style={tw`mt-2 flex-row justify-between gap-1`}>
 				<TagColumn tags={tagData} dataAmount={[0, 2]} />
-				<TagColumn tags={tagData} dataAmount={[2, 4]} />
+				{tagData?.length > 2 && <TagColumn tags={tagData} dataAmount={[2, 4]} />}
 			</View>
 			<View style={tw`mt-2 flex-row flex-wrap gap-1`}>
 				{/* Add Tag */}
@@ -93,15 +90,18 @@ interface TagColumnProps {
 const TagColumn = ({ tags, dataAmount }: TagColumnProps) => {
 	const navigation = useNavigation<DrawerNavigationHelpers>();
 	return (
-		<View style={tw`w-[49%] flex-col gap-1`}>
-			{tags?.slice(dataAmount[0], dataAmount[1]).map((tag: any) => (
+		<View style={twStyle(`gap-1`,
+			tags && tags.length > 2 ? 'w-[49%] flex-col' : 'flex-1 flex-row'
+		)}>
+			{tags?.slice(dataAmount[0], dataAmount[1]).map((tag: Tag) => (
 				<DrawerTagItem
 					key={tag.id}
 					tagName={tag.name!}
 					onPress={() =>
 						navigation.navigate('BrowseStack', {
 							screen: 'Tag',
-							params: { id: tag.id, color: tag.color }
+							params: { id: tag.id, color: tag.color },
+							initial: false
 						})
 					}
 					tagColor={tag.color as ColorValue}

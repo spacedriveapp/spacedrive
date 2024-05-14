@@ -17,10 +17,9 @@ runs:
   steps:
     - name: Install Rust
       id: toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: IronCoreLabs/rust-toolchain@v1
       with:
         target: ${{ inputs.target }}
-        toolchain: '1.75'
         components: clippy, rustfmt
 
     - name: Cache Rust Dependencies
@@ -34,27 +33,6 @@ runs:
     - name: Cargo config.toml
       shell: bash
       run: echo '{}' | npx -y mustache - .cargo/config.toml.mustache .cargo/config.toml
-
-    - name: Turn Off Debuginfo and bump opt-level
-      shell: bash
-      if: ${{ runner.os != 'Windows' }}
-      run: |
-        sed '/\[profile.dev]/a\
-        debug = 0
-        ' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
-
-        sed '/\[profile.dev]/a\
-        opt-level=1
-        ' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
-
-    - name: Turn Off Debuginfo and bump opt-level
-      if: ${{ runner.os == 'Windows' }}
-      shell: powershell
-      run: |
-        (Get-Content Cargo.toml) -replace '\[profile.dev\]', '[profile.dev]
-        debug = 0' | Set-Content Cargo.toml
-        (Get-Content Cargo.toml) -replace '\[profile.dev\]', '[profile.dev]
-        opt-level=1' | Set-Content Cargo.toml
 
     - name: Restore cached Prisma codegen
       id: cache-prisma-restore

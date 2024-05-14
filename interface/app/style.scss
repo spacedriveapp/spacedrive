@@ -4,6 +4,7 @@ button {
 }
 
 body {
+	@apply cursor-default;
 	-webkit-user-select: none;
 	// font-family: 'InterVariable', sans-serif;
 }

@@ -1,6 +1,6 @@
 [package]
 name = "sd-crypto"
-rust-version = "1.72.0"
+rust-version = "1.72"
 version = "0.0.0"
 authors = ["Jake Robinson <jake@spacedrive.com>"]
 description = """
@@ -91,11 +91,12 @@ uuid = { version = "1.7.0", features = ["v4"] }
 linux-keyutils = { version = "0.2.4", features = ["std"], optional = true }
 secret-service = { version = "3.0.1", features = [
 	"crypto-rust",
+	"rt-tokio-crypto-rust",
 ], optional = true }
 
 # this needs to remain at versions < 4, as they made some changes and i can't get it
 # to compile for the time being
-zbus = { version = "3.15.2", default_features = false, features = [
+zbus = { version = "4.0", default_features = false, features = [
 	"tokio",
 	"blocking",
 ], optional = true }

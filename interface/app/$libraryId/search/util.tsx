@@ -1,26 +1,27 @@
 import { CircleDashed, Folder, Icon, Tag } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
+import i18n from '~/app/I18n';
 import { Icon as SDIcon } from '~/components';
 
 export const filterTypeCondition = {
 	inOrNotIn: {
-		in: 'is',
-		notIn: 'is not'
+		in: i18n.t('is'),
+		notIn: i18n.t('is_not')
 	},
 	textMatch: {
-		contains: 'contains',
-		startsWith: 'starts with',
-		endsWith: 'ends with',
-		equals: 'is'
+		contains: i18n.t('contains'),
+		startsWith: i18n.t('starts_with'),
+		endsWith: i18n.t('ends_with'),
+		equals: i18n.t('equals')
 	},
 	optionalRange: {
-		from: 'from',
-		to: 'to'
+		from: i18n.t('from'),
+		to: i18n.t('to')
 	},
 	trueOrFalse: {
-		true: 'is',
-		false: 'is not'
+		true: i18n.t('is'),
+		false: i18n.t('is_not')
 	}
 } as const;
 

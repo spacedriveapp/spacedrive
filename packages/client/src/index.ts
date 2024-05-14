@@ -30,7 +30,6 @@ export * from './core';
 export * from './utils';
 export * from './lib';
 export * from './form';
-export * from './cache';
 export * from './color';
 export * from './solid';
 export * from './explorer';

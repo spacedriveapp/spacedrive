@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 # Spacedrive Sub-crates
-sd-cache = { path = "../cache" }
 sd-sync = { path = "../sync" }
 
 prisma-client-rust = { workspace = true }

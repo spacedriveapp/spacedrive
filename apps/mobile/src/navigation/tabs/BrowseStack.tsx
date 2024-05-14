@@ -1,6 +1,8 @@
 import { CompositeScreenProps } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
+import DynamicHeader from '~/components/header/DynamicHeader';
 import Header from '~/components/header/Header';
+import SearchHeader from '~/components/header/SearchHeader';
 import BrowseScreen from '~/screens/browse/Browse';
 import LibraryScreen from '~/screens/browse/Library';
 import LocationScreen from '~/screens/browse/Location';
@@ -14,48 +16,58 @@ const Stack = createNativeStackNavigator<BrowseStackParamList>();
 
 export default function BrowseStack() {
 	return (
-		<Stack.Navigator initialRouteName="Browse">
+		<Stack.Navigator
+		initialRouteName="Browse"
+		>
 			<Stack.Screen
 				name="Browse"
 				component={BrowseScreen}
-				options={{ header: () => <Header showDrawer title="Browse" /> }}
+				options={({ route }) => ({
+					header: () => <Header search route={route} />
+				})}
 			/>
 			<Stack.Screen
 				name="Location"
 				component={LocationScreen}
-				options={{
+				options={({ route: optionsRoute }) => ({
 					header: (route) => (
-						<Header route={route} headerKind="location" routeTitle navBack />
+						<DynamicHeader
+							optionsRoute={optionsRoute}
+							headerRoute={route}
+							kind="location"
+						/>
 					)
-				}}
+				})}
 			/>
 			<Stack.Screen
 				name="Tags"
 				component={TagsScreen}
-				options={{
-					header: () => <Header navBack title="Tags" />
-				}}
+				options={({ route }) => ({
+					header: () => <SearchHeader kind="tags" route={route} />
+				})}
 			/>
 			<Stack.Screen
 				name="Locations"
 				component={LocationsScreen}
-				options={{
-					header: () => <Header navBack searchType="location" title="Locations" />
-				}}
+				options={({ route }) => ({
+					header: () => <SearchHeader kind="locations" route={route} />
+				})}
 			/>
 			<Stack.Screen
 				name="Tag"
 				component={TagScreen}
-				options={{
-					header: (route) => <Header navBack routeTitle route={route} headerKind="tag" />
-				}}
+				options={({ route: optionsRoute }) => ({
+					header: (route) => (
+						<DynamicHeader optionsRoute={optionsRoute} headerRoute={route} kind="tag" />
+					)
+				})}
 			/>
 			<Stack.Screen
 				name="Library"
 				component={LibraryScreen}
-				options={{
-					header: () => <Header navBack title="Library" />
-				}}
+				options={({ route }) => ({
+					header: () => <Header navBack route={route} />
+				})}
 			/>
 		</Stack.Navigator>
 	);

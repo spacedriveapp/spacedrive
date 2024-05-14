@@ -1,7 +1,6 @@
 import { UseInfiniteQueryResult, UseQueryResult } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 
-import { useCache } from '../cache';
 import { SearchData } from '../core';
 
 export function useExplorerQuery<Q>(
@@ -16,7 +15,7 @@ export function useExplorerQuery<Q>(
 		}
 	}, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
 
-	return { query, items: useCache(items), loadMore, count: count.data };
+	return { query, items, loadMore, count: count.data };
 }
 
 export type UseExplorerQuery<Q> = ReturnType<typeof useExplorerQuery<Q>>;

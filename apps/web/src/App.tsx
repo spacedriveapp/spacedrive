@@ -1,7 +1,7 @@
 import { hydrate, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
-import { CacheProvider, createCache, RspcProvider } from '@sd/client';
+import { RspcProvider } from '@sd/client';
 import {
 	createRoutes,
 	Platform,
@@ -88,9 +88,7 @@ const queryClient = new QueryClient({
 	}
 });
 
-const cache = createCache();
-
-const routes = createRoutes(platform, cache);
+const routes = createRoutes(platform);
 
 function App() {
 	const router = useRouter();
@@ -114,18 +112,16 @@ function App() {
 				<RspcProvider queryClient={queryClient}>
 					<PlatformProvider platform={platform}>
 						<QueryClientProvider client={queryClient}>
-							<CacheProvider cache={cache}>
-								<SpacedriveInterfaceRoot>
-									<SpacedriveRouterProvider
-										routing={{
-											...router,
-											tabId: '',
-											routes,
-											visible: true
-										}}
-									/>
-								</SpacedriveInterfaceRoot>
-							</CacheProvider>
+							<SpacedriveInterfaceRoot>
+								<SpacedriveRouterProvider
+									routing={{
+										...router,
+										tabId: '',
+										routes,
+										visible: true
+									}}
+								/>
+							</SpacedriveInterfaceRoot>
 						</QueryClientProvider>
 					</PlatformProvider>
 				</RspcProvider>

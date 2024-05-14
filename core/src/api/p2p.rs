@@ -79,8 +79,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.p2p
 					.listeners()
 					.iter()
-					.map(|l| l.addrs.clone())
-					.flatten()
+					.flat_map(|l| l.addrs.clone())
 					.collect::<Vec<_>>();
 
 				let errors = node
@@ -154,8 +153,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.collect::<Vec<_>>(),
 				)
 				.await
-				.map_err(|_err| {
-					rspc::Error::new(ErrorCode::InternalServerError, "todo: error".into())
+				.map_err(|spacedrop_err| {
+					rspc::Error::new(ErrorCode::InternalServerError, spacedrop_err.to_string())
 				})
 			})
 		})

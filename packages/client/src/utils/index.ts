@@ -131,24 +131,17 @@ export function formatNumber(n: number) {
 export function insertLibrary(queryClient: QueryClient, library: LibraryConfigWrapped) {
 	queryClient.setQueryData(['library.list'], (libraries: any) => {
 		// The invalidation system beat us to it
-		if (libraries.items.find((l: any) => l.__id === library.uuid)) return libraries;
+		if ((libraries || []).find((l: any) => l.uuid === library.uuid)) return libraries;
 
-		return {
-			items: [
-				...(libraries.items || []),
-				{
-					__type: 'LibraryConfigWrapped',
-					__id: library.uuid
-				}
-			],
-			nodes: [
-				...(libraries.nodes || []),
-				{
-					__type: 'LibraryConfigWrapped',
-					__id: library.uuid,
-					...library
-				}
-			]
-		};
+		return [library, ...libraries];
 	});
+}
+
+export function int32ArrayToBigInt([high, low]: [number, number]) {
+	// Note: These magic shift operations internally convert high into i32 and low into u32
+	return (BigInt(high | 0) << 32n) | BigInt(low >>> 0);
+}
+
+export function capitalize<T extends string>(string: T): Capitalize<T> {
+	return (string.charAt(0).toUpperCase() + string.slice(1)) as Capitalize<T>;
 }
