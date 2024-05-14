@@ -8,8 +8,8 @@ repository.workspace = true
 
 [dependencies]
 # Spacedrive Sub-crates
-sd-p2p = { path = "../p2p" }
-sd-p2p-proto = { path = "../p2p-proto" }
+sd-p2p = { path = "../../" }
+sd-p2p-proto = { path = "../proto" }
 
 thiserror = { workspace = true }
 tokio = { workspace = true }
