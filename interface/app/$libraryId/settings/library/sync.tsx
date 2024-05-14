@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import {
 	Procedures,
+	useFeatureFlag,
 	useLibraryMutation,
 	useLibraryQuery,
 	useLibrarySubscription,
@@ -35,6 +36,8 @@ export const Component = () => {
 	const [data, setData] = useState<inferSubscriptionResult<Procedures, 'library.actors'>>({});
 
 	useLibrarySubscription(['library.actors'], { onData: setData });
+
+	const cloudSync = useFeatureFlag('cloudSync');
 
 	return (
 		<>
@@ -78,7 +81,8 @@ export const Component = () => {
 							)}
 						</div>
 					</Setting>
-					<CloudSync data={data} />
+
+					{cloudSync && <CloudSync data={data} />}
 				</>
 			)}
 		</>
