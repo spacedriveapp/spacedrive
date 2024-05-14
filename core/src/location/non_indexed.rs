@@ -11,7 +11,8 @@ use crate::{
 
 use sd_core_file_path_helper::{path_is_hidden, MetadataExt};
 use sd_core_heavy_lifting::media_processor::{
-	self, get_thumbnails_directory, GenerateThumbnailArgs, NewThumbnailsReporter, ThumbKey,
+	self, get_thumbnails_directory, thumbnailer::NewThumbnailReporter, GenerateThumbnailArgs,
+	NewThumbnailsReporter, ThumbKey,
 };
 use sd_core_indexer_rules::{
 	seed::{NO_HIDDEN, NO_SYSTEM_FILES},
@@ -261,12 +262,12 @@ pub async fn walk(
 		thumbnails_to_generate.extend(document_thumbnails_to_generate);
 
 		let thumbnails_directory = Arc::new(get_thumbnails_directory(node.config.data_directory()));
-		let reporter = NewThumbnailsReporter {
+		let reporter: Arc<dyn NewThumbnailReporter> = Arc::new(NewThumbnailsReporter {
 			ctx: NodeContext {
 				node: Arc::clone(&node),
 				library: Arc::clone(&library),
 			},
-		};
+		});
 
 		node.task_system
 			.dispatch_many(
@@ -278,7 +279,7 @@ pub async fn walk(
 						media_processor::Thumbnailer::new_ephemeral(
 							Arc::clone(&thumbnails_directory),
 							chunk.collect(),
-							reporter.clone(),
+							Arc::clone(&reporter),
 						)
 					})
 					.collect::<Vec<_>>(),

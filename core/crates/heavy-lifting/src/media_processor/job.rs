@@ -38,11 +38,14 @@ use itertools::Itertools;
 use prisma_client_rust::{raw, PrismaValue};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tracing::{debug, warn};
+use tracing::{debug, error, warn};
 
 use super::{
 	helpers,
-	tasks::{self, media_data_extractor, thumbnailer},
+	tasks::{
+		self, media_data_extractor,
+		thumbnailer::{self, NewThumbnailReporter},
+	},
 	NewThumbnailsReporter, BATCH_SIZE,
 };
 
@@ -105,7 +108,8 @@ impl Job for MediaProcessor {
 		ctx: &impl JobContext<OuterCtx>,
 		SerializedTasks(serialized_tasks): SerializedTasks,
 	) -> Result<(), Error> {
-		let reporter = NewThumbnailsReporter { ctx: ctx.clone() };
+		let reporter: Arc<dyn NewThumbnailReporter> =
+			Arc::new(NewThumbnailsReporter { ctx: ctx.clone() });
 
 		self.pending_tasks_on_resume = dispatcher
 			.dispatch_many_boxed(
@@ -113,7 +117,7 @@ impl Job for MediaProcessor {
 					.map_err(media_processor::Error::from)?
 					.into_iter()
 					.map(|(task_kind, task_bytes)| {
-						let reporter = reporter.clone();
+						let reporter = Arc::clone(&reporter);
 						async move {
 							match task_kind {
 								TaskKind::MediaDataExtractor => {
@@ -588,14 +592,14 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for MediaProcessor {
 								.serialize()
 								.await
 								.map(|bytes| (TaskKind::MediaDataExtractor, bytes))
-						} else if task.is::<tasks::Thumbnailer<NewThumbnailsReporter<OuterCtx>>>() {
-							task.downcast::<tasks::Thumbnailer<NewThumbnailsReporter<OuterCtx>>>()
+						} else if task.is::<tasks::Thumbnailer>() {
+							task.downcast::<tasks::Thumbnailer>()
 								.expect("just checked")
 								.serialize()
 								.await
 								.map(|bytes| (TaskKind::Thumbnailer, bytes))
 						} else {
-							unreachable!("Unexpected task type")
+							unreachable!("Unexpected task type: <task='{task:#?}'>")
 						}
 					})
 					.collect::<Vec<_>>()
@@ -815,7 +819,8 @@ async fn dispatch_thumbnailer_tasks(
 	let location_id = parent_iso_file_path.location_id();
 	let library_id = ctx.id();
 	let db = ctx.db();
-	let reporter = NewThumbnailsReporter { ctx: ctx.clone() };
+	let reporter: Arc<dyn NewThumbnailReporter> =
+		Arc::new(NewThumbnailsReporter { ctx: ctx.clone() });
 
 	let mut file_paths = get_all_children_files_by_extensions(
 		db,
@@ -847,7 +852,7 @@ async fn dispatch_thumbnailer_tasks(
 						library_id,
 						should_regenerate,
 						false,
-						reporter.clone(),
+						Arc::clone(&reporter),
 					)
 				})
 				.map(IntoTask::into_task)
@@ -867,7 +872,7 @@ async fn dispatch_thumbnailer_tasks(
 				library_id,
 				should_regenerate,
 				true,
-				reporter.clone(),
+				Arc::clone(&reporter),
 			)
 		})
 		.map(IntoTask::into_task)

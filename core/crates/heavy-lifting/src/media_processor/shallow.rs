@@ -20,15 +20,18 @@ use std::{
 	sync::Arc,
 };
 
-use futures::StreamExt;
-use futures_concurrency::future::{FutureGroup, TryJoin};
+use futures::{stream::FuturesUnordered, StreamExt};
+use futures_concurrency::future::TryJoin;
 use itertools::Itertools;
 use prisma_client_rust::{raw, PrismaValue};
 use tracing::{debug, warn};
 
 use super::{
 	helpers::{self, exif_media_data, ffmpeg_media_data, thumbnailer::THUMBNAIL_CACHE_DIR_NAME},
-	tasks::{self, media_data_extractor, thumbnailer},
+	tasks::{
+		self, media_data_extractor,
+		thumbnailer::{self, NewThumbnailReporter},
+	},
 	NewThumbnailsReporter, BATCH_SIZE,
 };
 
@@ -82,7 +85,7 @@ pub async fn shallow(
 			.into_iter()
 			.map(CancelTaskOnDrop::new),
 	)
-	.collect::<FutureGroup<_>>();
+	.collect::<FuturesUnordered<_>>();
 
 	while let Some(res) = futures.next().await {
 		match res {
@@ -226,7 +229,8 @@ async fn dispatch_thumbnailer_tasks(
 	let location_id = parent_iso_file_path.location_id();
 	let library_id = ctx.id();
 	let db = ctx.db();
-	let reporter = NewThumbnailsReporter { ctx: ctx.clone() };
+	let reporter: Arc<dyn NewThumbnailReporter> =
+		Arc::new(NewThumbnailsReporter { ctx: ctx.clone() });
 
 	let file_paths = get_files_by_extensions(
 		db,
@@ -249,7 +253,7 @@ async fn dispatch_thumbnailer_tasks(
 				library_id,
 				should_regenerate,
 				true,
-				reporter.clone(),
+				Arc::clone(&reporter),
 			)
 		})
 		.map(IntoTask::into_task)
