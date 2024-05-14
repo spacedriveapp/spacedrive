@@ -35,18 +35,6 @@ runs:
       run: echo '{}' | npx -y mustache - .cargo/config.toml.mustache .cargo/config.toml
 
     - name: Turn Off Debuginfo and bump opt-level
-      shell: bash
-      if: ${{ runner.os != 'Windows' }}
-      run: |
-        sed '/\[profile.dev]/a\
-        debug = 0
-        ' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
-
-        sed '/\[profile.dev]/a\
-        opt-level=1
-        ' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
-
-    - name: Turn Off Debuginfo and bump opt-level
       if: ${{ runner.os == 'Windows' }}
       shell: powershell
       run: |
