@@ -37,12 +37,13 @@ use serde::{Deserialize, Serialize};
 use std::{
 	collections::{HashMap, HashSet},
 	fs::Metadata,
-	path::Path,
+	path::{Path, PathBuf},
 	sync::Arc,
 };
 
 use chrono::{DateTime, Utc};
 use futures_concurrency::future::TryJoin;
+use gix_ignore::glob::Pattern;
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use rmp_serde::{decode, encode};
 use rspc::ErrorCode;
@@ -208,6 +209,7 @@ pub enum RulePerKind {
 	// https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
 	// https://en.wikipedia.org/wiki/Extended_file_attributes
 	AcceptFilesByGlob(Vec<Glob>, GlobSet),
+	AcceptFilesByGitRule(PathBuf, HashSet<Pattern>),
 	RejectFilesByGlob(Vec<Glob>, GlobSet),
 	AcceptIfChildrenDirectoriesArePresent(HashSet<String>),
 	RejectIfChildrenDirectoriesArePresent(HashSet<String>),
@@ -285,6 +287,16 @@ impl RulePerKind {
 				RuleKind::RejectFilesByGlob,
 				reject_by_glob(source, reject_glob_set),
 			)),
+			Self::AcceptFilesByGitRule(path, patterns) => Ok((
+				RuleKind::AcceptFilesByGlob,
+				accept_by_gitpattern(
+					source
+						.as_ref()
+						.strip_prefix(path)
+						.unwrap_or_else(|_| source.as_ref()),
+					patterns,
+				),
+			)),
 		}
 	}
 
@@ -313,8 +325,40 @@ impl RulePerKind {
 				RuleKind::RejectFilesByGlob,
 				reject_by_glob(source, reject_glob_set),
 			)),
+			Self::AcceptFilesByGitRule(path, patterns) => Ok((
+				RuleKind::AcceptFilesByGlob,
+				accept_by_gitpattern(
+					source
+						.as_ref()
+						.strip_prefix(path)
+						.unwrap_or_else(|_| source.as_ref()),
+					patterns,
+				),
+			)),
 		}
 	}
+}
+
+fn accept_by_gitpattern(source: &Path, patterns: &HashSet<Pattern>) -> bool {
+	use gix_ignore::glob::wildmatch::Mode;
+
+	let Some(src) = source.to_str().map(|s| s.as_bytes().into()) else {
+		return false;
+	};
+
+	let accept_negative_rules = patterns
+		.iter()
+		.filter(|p| p.is_negative())
+		.any(|pat| pat.matches(src, Mode::all()));
+
+	let reject_glob_rules = move || {
+		!patterns
+			.iter()
+			.filter(|p| !p.is_negative())
+			.any(|pat| pat.matches(src, Mode::all()))
+	};
+
+	accept_negative_rules || reject_glob_rules()
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

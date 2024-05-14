@@ -1,4 +1,3 @@
-use futures_concurrency::future::Join;
 use sd_core_file_path_helper::{FilePathMetadata, IsolatedFilePathData};
 use sd_core_indexer_rules::{seed::GitIgnoreRules, IndexerRule, RuleKind};
 use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_walker};
@@ -474,13 +473,8 @@ where
 	};
 
 	let current_dir = current_dir.as_ref();
-
-	let gitignore_rules = [current_dir, library_root.as_ref(), path.as_ref()]
-		.map(GitIgnoreRules::parse_if_gitrepo)
-		.join()
-		.await;
-
-	indexer_rules.extend(gitignore_rules.into_iter().flatten().map(Into::into));
+	let gitignore_rules = GitIgnoreRules::parse_if_gitrepo(library_root.as_ref()).await;
+	indexer_rules.extend(gitignore_rules.into_iter().map(Into::into));
 
 	// Just to make sure...
 	paths_buffer.clear();
@@ -701,7 +695,6 @@ mod tests {
 	use globset::{Glob, GlobSetBuilder};
 	use sd_core_indexer_rules::RulePerKind;
 	use tempfile::{tempdir, TempDir};
-	use tokio::io::AsyncWriteExt;
 	// use tracing_test::traced_test;
 
 	impl PartialEq for WalkedEntry {
@@ -749,23 +742,6 @@ mod tests {
 		// Making rust and node projects a git repository
 		fs::create_dir(rust_project.join(".git")).await.unwrap();
 		fs::create_dir(node_project.join(".git")).await.unwrap();
-
-		// Add .gitignore
-		fs::File::create(rust_project.join("ignorable.file"))
-			.await
-			.unwrap();
-		let mut file = fs::File::create(rust_project.join(".gitignore"))
-			.await
-			.unwrap();
-		file.write_all(b"*.file\n/target").await.unwrap();
-
-		fs::File::create(node_project.join("ignorable.file"))
-			.await
-			.unwrap();
-		let mut file = fs::File::create(node_project.join(".gitignore"))
-			.await
-			.unwrap();
-		file.write_all(b"ignorable.file").await.unwrap();
 
 		// Populating rust project
 		fs::File::create(rust_project.join("Cargo.toml"))
@@ -828,14 +804,15 @@ mod tests {
 		let expected = [
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/.git"), true), metadata },
-			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/.gitignore"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/Cargo.toml"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/src"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/src/main.rs"), false), metadata },
+			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/target"), true), metadata },
+			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/target/debug"), true), metadata },
+			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/target/debug/main"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/.git"), true), metadata },
-			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/.gitignore"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/package.json"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/src"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/src/App.tsx"), false), metadata },
@@ -965,14 +942,15 @@ mod tests {
 		let expected = [
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/.git"), true), metadata },
-			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/.gitignore"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/Cargo.toml"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/src"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/src/main.rs"), false), metadata },
+			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/target/"), true), metadata },
+			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/target/debug"), true), metadata },
+			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/target/debug/main"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/.git"), true), metadata },
-			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/.gitignore"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/package.json"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/src"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/src/App.tsx"), false), metadata },
@@ -1041,14 +1019,12 @@ mod tests {
 		let expected = [
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/.git"), true), metadata },
-			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/.gitignore"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/Cargo.toml"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/src"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/src/main.rs"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/.git"), true), metadata },
-			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/.gitignore"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/package.json"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/src"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner/node_project/src/App.tsx"), false), metadata },

@@ -18,6 +18,7 @@ storybook-static/
 vendor/
 data
 */node_modules
+*/dist
 packages/turbo-server/data/
 packages/turbo-server/uploads/
 packages/*/node_modules

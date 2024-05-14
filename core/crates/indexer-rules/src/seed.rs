@@ -1,14 +1,13 @@
 use std::path::Path;
 
 use futures_concurrency::future::Join;
-use globset::Glob;
 use sd_prisma::prisma::{indexer_rule, PrismaClient};
 
 use chrono::Utc;
 use thiserror::Error;
 use tokio::{
 	fs::{self, File},
-	io::{BufReader, Lines},
+	io::{AsyncReadExt, BufReader},
 };
 use uuid::Uuid;
 
@@ -26,13 +25,15 @@ pub enum SeederError {
 
 #[derive(Debug)]
 pub struct GitIgnoreRules {
-	rules: Vec<RulePerKind>,
+	rules: RulePerKind,
 }
 
 impl GitIgnoreRules {
 	pub async fn parse_if_gitrepo(path: &Path) -> Result<Self, SeederError> {
+		let gitignore = &path.join(".gitignore");
+
 		let is_git = Self::is_git_repo(path);
-		let has_gitignore = fs::try_exists(path.join(".gitignore"));
+		let has_gitignore = fs::try_exists(gitignore);
 
 		let (is_git, has_gitignore) = (is_git, has_gitignore).join().await;
 		if !(is_git && matches!(has_gitignore, Ok(true))) {
@@ -42,111 +43,34 @@ impl GitIgnoreRules {
 		// TODO(matheus-consoli): extend the functionality to also consider other git ignore sources
 		// `[gitignore, ...].map(parse_ignore_rules).collect().join().await` or something
 		// see `https://git-scm.com/docs/gitignore` for other ignore sources
-		Self::parse_ignore_rules(path, &path.join(".gitignore")).await
+		// Self::parse_ignore_rules(path, &path.join(".gitignore")).await
+
+		Self::parse_ignore_rules(path, gitignore).await
 	}
 
-	/// Parses the git ignore rules from a given file path
 	async fn parse_ignore_rules(base_dir: &Path, gitignore: &Path) -> Result<Self, SeederError> {
-		use tokio::io::AsyncBufReadExt;
-
 		let file = File::open(gitignore)
 			.await
 			.map_err(|_| SeederError::InhirentedExternalRules)?;
 
-		let buf = BufReader::new(file);
-		let mut lines = buf.lines();
+		let mut contents = String::new();
 
-		let mut ignored_star_globs = Vec::new();
-		let mut negated_rules = Vec::new();
+		let mut buf = BufReader::new(file);
+		buf.read_to_string(&mut contents)
+			.await
+			.map_err(|_| SeederError::InhirentedExternalRules)?;
 
-		let mut rules = Vec::new();
-		while let Ok(Some(mut line)) = Self::next_line(&mut lines).await {
-			// A blank line; skip
-			if line.is_empty() {
-				continue;
-			}
+		let patterns = tokio::task::spawn_blocking(move || {
+			gix_ignore::parse(contents.as_bytes())
+				.map(|(pat, _len, _kind)| pat)
+				.collect()
+		})
+		.await
+		.map_err(|_| SeederError::InhirentedExternalRules)?;
 
-			// A line starting with "#" serves as a comment; skip
-			if line.starts_with('#') {
-				continue;
-			}
-
-			// an optional "!" negates the pattern
-			// any matching file excluded by a previous pattern will become included again
-			// it's not possible to re-include a file if a pattern directory of that file is excluded
-			let rule = if line.starts_with('!') {
-				// TODO(matheus-consoli): support negated patterns (`!path/to/file`)
-				// as of the time of writing, the indexer doesn't handle well usages of acceptance and rejection
-				// when they are rules mixed.
-				// As an example:
-				// ```gitignore
-				// docs/*.md
-				// !docs/readme.md
-				// ```
-				// we create two rules for it:
-				// - rejecting all `path/to/docs/*.md` (including `path/to/docs/readme.md`)
-				//   this rule approves every file inside the git repo, except for the `docs/*.md` files
-				// - accepting `path/to/readme.md`
-				//   this REJECTS every file except for `docs/readme.md` (which has already been by the other rule)
-
-				line.remove(0); // pop !
-				let full = base_dir.join(line);
-				let Ok(file) = full.into_os_string().into_string() else {
-					continue;
-				};
-				negated_rules.extend(file.parse::<Glob>());
-				continue;
-			} else {
-				if line.starts_with('/') {
-					line.remove(0);
-				}
-				let full = base_dir.join(&line);
-
-				// ignore the rule if it's poorly formatted or invalid
-				let Ok(file) = full.into_os_string().into_string() else {
-					continue;
-				};
-
-				if line.contains('*') {
-					ignored_star_globs.extend(file.parse::<Glob>());
-					continue;
-				}
-
-				let Ok(rule) = RulePerKind::new_reject_files_by_globs_str([file]) else {
-					continue;
-				};
-				rule
-			};
-
-			rules.push(rule);
-		}
-
-		// skip star rules that matches a negated pattern
-		// ```example
-		// *
-		// !src
-		// ```
-		if !negated_rules.is_empty() {
-			let ignored_negated_matchers: Vec<_> =
-				negated_rules.iter().map(Glob::compile_matcher).collect();
-
-			ignored_star_globs.retain(|star_glob| {
-				let star = star_glob.compile_matcher();
-				let star_glob = star_glob.glob();
-				negated_rules
-					.iter()
-					.zip(ignored_negated_matchers.iter())
-					.any(|(a, b)| !(star.is_match(a.glob()) || b.is_match(star_glob)))
-			});
-		}
-
-		rules.extend(
-			ignored_star_globs
-				.into_iter()
-				.filter_map(|rule| RulePerKind::new_reject_files_by_globs_str([rule.glob()]).ok()),
-		);
-
-		Ok(Self { rules })
+		Ok(Self {
+			rules: RulePerKind::AcceptFilesByGitRule(base_dir.to_owned(), patterns),
+		})
 	}
 
 	async fn is_git_repo(path: &Path) -> bool {
@@ -154,32 +78,6 @@ impl GitIgnoreRules {
 		tokio::task::spawn_blocking(move || path.is_dir())
 			.await
 			.unwrap_or_default()
-	}
-
-	/// Read a line from the stream source and joins multi-lines into a single string
-	async fn next_line(stream: &mut Lines<BufReader<File>>) -> Result<Option<String>, SeederError> {
-		use std::ops::Not;
-		let mut line = String::new();
-
-		loop {
-			let next = stream
-				.next_line()
-				.await
-				.map_err(|_| SeederError::InhirentedExternalRules)?;
-
-			if let Some(next) = next {
-				line.push_str(next.trim());
-				if line.ends_with('\\') {
-					line.remove(line.len() - 1);
-					// same as an in-place `line.trim_end()`, but without reallocation
-					line.truncate(line.trim_end().len());
-					// read and merge the next line
-					continue;
-				}
-				break Ok(Some(line));
-			}
-			break Ok(line.is_empty().not().then_some(line));
-		}
 	}
 }
 
@@ -191,7 +89,7 @@ impl From<GitIgnoreRules> for IndexerRule {
 			default: true,
 			date_created: Utc::now(),
 			date_modified: Utc::now(),
-			rules: git.rules,
+			rules: vec![git.rules],
 		}
 	}
 }

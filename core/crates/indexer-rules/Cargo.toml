@@ -28,6 +28,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }
 tracing = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
+gix-ignore = { version = "0.11.2", features = ["serde"] }
 
 [dev-dependencies]
 tempfile = { workspace = true }
