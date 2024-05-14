@@ -12,11 +12,12 @@ type StatCardProps = {
 	freeSpace?: string | number[];
 	color: string;
 	connectionType: 'lan' | 'p2p' | 'cloud' | null;
+	devices: boolean;
 };
 
 const Pill = tw.div`px-1.5 py-[1px] rounded text-tiny font-medium text-ink-dull bg-app-box border border-app-line`;
 
-const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
+const StatCard = ({ icon, name, devices, connectionType, ...stats }: StatCardProps) => {
 	const [mounted, setMounted] = useState(false);
 
 	const isDark = useIsDark();
@@ -44,7 +45,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 
 	return (
 		<Card className="flex w-[280px] shrink-0 flex-col  bg-app-box/50 !p-0 ">
-			<div className="flex flex-row items-center gap-5 p-4 px-6">
+			<div className="max-h-28 flex flex-row items-center gap-5 p-4 px-6">
 				{stats.freeSpace && (
 					<CircularProgress
 						radius={40}
@@ -71,12 +72,11 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 					<span className="truncate font-medium">{name}</span>
 					<span className="mt-1 truncate text-tiny text-ink-faint">
 						{freeSpace.value}
-						{freeSpace.unit} {t('free_of')} {totalSpace.value}
-						{totalSpace.unit}
+						{freeSpace.unit} {devices && t('free_of') + " " + totalSpace.value + totalSpace.unit}
 					</span>
 				</div>
 			</div>
-			<div className="flex h-10 flex-row items-center gap-1.5  border-t border-app-line px-2">
+			<div className="flex h-10 flex-row items-center gap-1.5 border-t border-app-line px-2">
 				<Pill className="uppercase">{connectionType || t('local')}</Pill>
 				<div className="grow" />
 				{/* <Button size="icon" variant="outline">

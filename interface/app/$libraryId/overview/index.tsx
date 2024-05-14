@@ -3,6 +3,7 @@ import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { useLocale, useOperatingSystem } from '~/hooks';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 import { hardwareModelToIcon } from '~/util/hardware';
+import { Resizable } from '@sd/ui';
 
 import { SearchContextProvider, useSearchFromSearchParams } from '../search';
 import SearchBar from '../search/SearchBar';
@@ -75,7 +76,6 @@ export const Component = () => {
 				/>
 				<div className="mt-4 flex flex-col gap-3 pt-3">
 					<OverviewSection>
-						<LibraryStatistics />
 					</OverviewSection>
 					<OverviewSection>
 						<FileKindStatistics />
@@ -88,6 +88,7 @@ export const Component = () => {
 								totalSpace={
 									stats.data?.statistics?.total_local_bytes_capacity || '0'
 								}
+								devices={true}
 								freeSpace={stats.data?.statistics?.total_local_bytes_free || '0'}
 								color="#0362FF"
 								connectionType={null}
@@ -151,6 +152,7 @@ export const Component = () => {
 									totalSpace={item.size_in_bytes || [0]}
 									color="#0362FF"
 									connectionType={null}
+									devices={false}
 								/>
 							</Link>
 						))}
