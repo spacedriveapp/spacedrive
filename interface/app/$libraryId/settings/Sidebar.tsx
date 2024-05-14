@@ -1,4 +1,5 @@
 import {
+	ArrowsClockwise,
 	Books,
 	Cloud,
 	Database,
@@ -48,7 +49,7 @@ export default () => {
 						sidebar.collapsed && os === 'macOS' && 'justify-end'
 					)}
 				>
-					<NavigationButtons />
+					{os !== 'windows' && <NavigationButtons />}
 				</div>
 			) : (
 				<div className="h-3" />
@@ -116,6 +117,12 @@ export default () => {
 						<Icon component={MagnifyingGlass} />
 						Saved Searches
 					</SidebarLink> */}
+					{useFeatureFlag('cloudSync') && (
+						<SidebarLink to="library/sync">
+							<Icon component={ArrowsClockwise} />
+							{t('sync')}
+						</SidebarLink>
+					)}
 					<SidebarLink disabled to="library/clouds">
 						<Icon component={Cloud} />
 						{t('clouds')}

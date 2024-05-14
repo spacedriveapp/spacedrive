@@ -1,6 +1,6 @@
 import { iconNames } from '@sd/assets/util';
 import { memo, useEffect, useMemo, useState } from 'react';
-import { byteSize, useDiscoveredPeers, useLibraryQuery } from '@sd/client';
+import { humanizeSize, useDiscoveredPeers, useLibraryQuery } from '@sd/client';
 import { Card } from '@sd/ui';
 import { Icon } from '~/components';
 import { useCounter, useLocale } from '~/hooks';
@@ -21,10 +21,10 @@ export const Component = () => {
 	const info = useMemo(() => {
 		if (locations.data && discoveredPeers) {
 			const statistics = stats.data?.statistics;
-			const tb_capacity = byteSize(statistics?.total_bytes_capacity);
-			const free_space = byteSize(statistics?.total_bytes_free);
-			const library_db_size = byteSize(statistics?.library_db_size);
-			const preview_media = byteSize(statistics?.preview_media_bytes);
+			const tb_capacity = humanizeSize(statistics?.total_local_bytes_capacity);
+			const free_space = humanizeSize(statistics?.total_local_bytes_free);
+			const library_db_size = humanizeSize(statistics?.library_db_size);
+			const preview_media = humanizeSize(statistics?.total_library_preview_media_bytes);
 			const data: {
 				icon: keyof typeof iconNames;
 				title?: string;

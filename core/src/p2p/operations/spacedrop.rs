@@ -12,6 +12,7 @@ use crate::p2p::{Header, P2PEvent, P2PManager};
 use futures::future::join_all;
 use sd_p2p::{RemoteIdentity, UnicastStream};
 use sd_p2p_block::{BlockSize, Range, SpaceblockRequest, SpaceblockRequests, Transfer};
+use thiserror::Error;
 use tokio::{
 	fs::{create_dir_all, File},
 	io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
@@ -24,14 +25,25 @@ use uuid::Uuid;
 /// The amount of time to wait for a Spacedrop request to be accepted or rejected before it's automatically rejected
 pub(crate) const SPACEDROP_TIMEOUT: Duration = Duration::from_secs(60);
 
-// TODO: Proper error handling
+#[derive(Debug, Error)]
+pub enum SpacedropError {
+	#[error("paths argument is an empty vector")]
+	EmptyPath,
+	#[error("error connecting to peer")]
+	FailedPeerConnection,
+	#[error("error creating stream: {0}")]
+	FailedNewStream(#[from] sd_p2p::NewStreamError),
+	#[error("error opening file: {0}")]
+	FailedFileOpen(#[from] std::io::Error),
+}
+
 pub async fn spacedrop(
 	p2p: Arc<P2PManager>,
 	identity: RemoteIdentity,
 	paths: Vec<PathBuf>,
-) -> Result<Uuid, ()> {
+) -> Result<Uuid, SpacedropError> {
 	if paths.is_empty() {
-		return Err(());
+		return Err(SpacedropError::EmptyPath);
 	}
 
 	let (files, requests): (Vec<_>, Vec<_>) = join_all(paths.into_iter().map(|path| async move {
@@ -55,10 +67,7 @@ pub async fn spacedrop(
 	.await
 	.into_iter()
 	.collect::<Result<Vec<_>, std::io::Error>>()
-	.map_err(|err| {
-		warn!("error opening file: '{err:?}'");
-		// TODO: Proper error type
-	})?
+	.map_err(SpacedropError::FailedFileOpen)?
 	.into_iter()
 	.unzip();
 
@@ -72,13 +81,13 @@ pub async fn spacedrop(
 		.get(&identity)
 		.ok_or_else(|| {
 			debug!("({id}): failed to find connection method with '{identity}'");
-			// TODO: Proper error
+			SpacedropError::FailedPeerConnection
 		})?
 		.clone();
 
 	let mut stream = peer.new_stream().await.map_err(|err| {
 		debug!("({id}): failed to connect to '{identity}': {err:?}");
-		// TODO: Proper error
+		SpacedropError::FailedNewStream(err)
 	})?;
 
 	tokio::spawn(async move {

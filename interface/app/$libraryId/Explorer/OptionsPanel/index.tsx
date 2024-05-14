@@ -2,7 +2,7 @@ import {
 	createOrdering,
 	explorerLayout,
 	getOrderingDirection,
-	orderingKey,
+	getOrderingKey,
 	useExplorerLayoutStore
 } from '@sd/client';
 import { RadixCheckbox, Select, SelectOption, Slider, tw, z } from '@sd/ui';
@@ -28,7 +28,7 @@ export default () => {
 				<div className="flex flex-col">
 					<Subheading>{t('sort_by')}</Subheading>
 					<Select
-						value={settings.order ? orderingKey(settings.order) : 'none'}
+						value={settings.order ? getOrderingKey(settings.order) : 'none'}
 						size="sm"
 						className="w-full"
 						onChange={(key) => {
@@ -62,7 +62,7 @@ export default () => {
 							if (explorer.settingsStore.order === null) return;
 
 							explorer.settingsStore.order = createOrdering(
-								orderingKey(explorer.settingsStore.order),
+								getOrderingKey(explorer.settingsStore.order),
 								order
 							);
 						}}

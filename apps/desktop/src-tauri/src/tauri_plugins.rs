@@ -18,7 +18,7 @@ use hyper::server::{accept::Accept, conn::AddrIncoming};
 use rand::{distributions::Alphanumeric, Rng};
 use sd_core::{custom_uri, Node, NodeError};
 use serde::Deserialize;
-use tauri::{async_runtime::block_on, plugin::TauriPlugin, RunEvent, Runtime};
+use tauri::{async_runtime::block_on, plugin::TauriPlugin, AppHandle, RunEvent, Runtime};
 use thiserror::Error;
 use tokio::{net::TcpListener, task::block_in_place};
 use tracing::info;
@@ -95,15 +95,22 @@ pub async fn sd_server_plugin<R: Runtime>(
 			.expect("Error with HTTP server!"); // TODO: Panic handling
 	});
 
+	let script = format!(
+		r#"window.__SD_CUSTOM_SERVER_AUTH_TOKEN__ = "{auth_token}"; window.__SD_CUSTOM_URI_SERVER__ = [{}];"#,
+		[listen_addra, listen_addrb, listen_addrc, listen_addrd]
+			.iter()
+			.map(|addr| format!("'http://{addr}'"))
+			.collect::<Vec<_>>()
+			.join(","),
+	);
+
 	Ok(tauri::plugin::Builder::new("sd-server")
-		.js_init_script(format!(
-		        r#"window.__SD_CUSTOM_SERVER_AUTH_TOKEN__ = "{auth_token}"; window.__SD_CUSTOM_URI_SERVER__ = [{}];"#,
-				[listen_addra, listen_addrb, listen_addrc, listen_addrd]
-					.iter()
-					.map(|addr| format!("'http://{addr}'"))
-					.collect::<Vec<_>>()
-					.join(","),
-		))
+		.js_init_script(script.to_owned())
+		.on_page_load(move |webview, _payload| {
+			webview
+				.eval(&script)
+				.expect("Spacedrive server URL must be injected")
+		})
 		.on_event(move |_app, e| {
 			if let RunEvent::Exit { .. } = e {
 				block_in_place(|| {

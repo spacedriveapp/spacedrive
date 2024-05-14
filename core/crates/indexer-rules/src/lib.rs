@@ -399,11 +399,11 @@ impl IndexerRuler {
 		}
 	}
 
-	pub async fn serialize(&self) -> Result<Vec<u8>, rmp_serde::encode::Error> {
+	pub async fn serialize(&self) -> Result<Vec<u8>, encode::Error> {
 		rmp_serde::to_vec_named(&*self.rules.read().await)
 	}
 
-	pub fn deserialize(data: &[u8]) -> Result<Self, rmp_serde::decode::Error> {
+	pub fn deserialize(data: &[u8]) -> Result<Self, decode::Error> {
 		rmp_serde::from_slice(data).map(Self::new)
 	}
 

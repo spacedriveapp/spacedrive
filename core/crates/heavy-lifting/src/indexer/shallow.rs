@@ -1,4 +1,6 @@
-use crate::{utils::sub_path::get_full_path_from_sub_path, Error, NonCriticalJobError};
+use crate::{
+	indexer, utils::sub_path::get_full_path_from_sub_path, Error, NonCriticalError, OuterContext,
+};
 
 use sd_core_indexer_rules::{IndexerRule, IndexerRuler};
 use sd_core_prisma_helpers::location_with_indexer_rules;
@@ -25,29 +27,28 @@ use super::{
 		updater::{UpdateTask, UpdateTaskOutput},
 		walker::{ToWalkEntry, WalkDirTask, WalkTaskOutput, WalkedEntry},
 	},
-	update_directory_sizes, update_location_size, IndexerError, IsoFilePathFactory, WalkerDBProxy,
-	BATCH_SIZE,
+	update_directory_sizes, update_location_size, IsoFilePathFactory, WalkerDBProxy, BATCH_SIZE,
 };
 
 pub async fn shallow(
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path> + Send,
 	dispatcher: BaseTaskDispatcher<Error>,
-	db: Arc<PrismaClient>,
-	sync: Arc<SyncManager>,
-	invalidate_query: impl Fn(&'static str) + Send + Sync,
-) -> Result<Vec<NonCriticalJobError>, Error> {
+	ctx: impl OuterContext,
+) -> Result<Vec<NonCriticalError>, Error> {
 	let sub_path = sub_path.as_ref();
+	let db = ctx.db();
+	let sync = ctx.sync();
 
 	let location_path = maybe_missing(&location.path, "location.path")
 		.map(PathBuf::from)
 		.map(Arc::new)
-		.map_err(IndexerError::from)?;
+		.map_err(indexer::Error::from)?;
 
 	let to_walk_path = Arc::new(
-		get_full_path_from_sub_path(location.id, &Some(sub_path), &*location_path, &db)
+		get_full_path_from_sub_path(location.id, &Some(sub_path), &*location_path, db)
 			.await
-			.map_err(IndexerError::from)?,
+			.map_err(indexer::Error::from)?,
 	);
 
 	let Some(WalkTaskOutput {
@@ -62,7 +63,7 @@ pub async fn shallow(
 		&location,
 		Arc::clone(&location_path),
 		Arc::clone(&to_walk_path),
-		Arc::clone(&db),
+		Arc::clone(db),
 		&dispatcher,
 	)
 	.await?
@@ -70,7 +71,7 @@ pub async fn shallow(
 		return Ok(vec![]);
 	};
 
-	let removed_count = remove_non_existing_file_paths(to_remove, &db, &sync).await?;
+	let removed_count = remove_non_existing_file_paths(to_remove, db, sync).await?;
 
 	let Some(Metadata {
 		indexed_count,
@@ -79,8 +80,8 @@ pub async fn shallow(
 		&location,
 		to_create,
 		to_update,
-		Arc::clone(&db),
-		Arc::clone(&sync),
+		Arc::clone(db),
+		Arc::clone(sync),
 		&dispatcher,
 	)
 	.await?
@@ -91,8 +92,8 @@ pub async fn shallow(
 	if indexed_count > 0 || removed_count > 0 || updated_count > 0 {
 		update_directory_sizes(
 			HashMap::from([(directory_iso_file_path, total_size)]),
-			&db,
-			&sync,
+			db,
+			sync,
 		)
 		.await?;
 
@@ -101,18 +102,18 @@ pub async fn shallow(
 				&*to_walk_path,
 				location.id,
 				&*location_path,
-				&db,
-				&sync,
+				db,
+				sync,
 				&mut errors,
 			)
 			.await?;
 		}
 
-		update_location_size(location.id, &db, &invalidate_query).await?;
+		update_location_size(location.id, db, &ctx).await?;
 	}
 
 	if indexed_count > 0 || removed_count > 0 {
-		invalidate_query("search.paths");
+		ctx.invalidate_query("search.paths");
 	}
 
 	Ok(errors)
@@ -135,7 +136,7 @@ async fn walk(
 				.map(|rule| IndexerRule::try_from(&rule.indexer_rule))
 				.collect::<Result<Vec<_>, _>>()
 				.map(IndexerRuler::new)
-				.map_err(IndexerError::from)?,
+				.map_err(indexer::Error::from)?,
 			IsoFilePathFactory {
 				location_id: location.id,
 				location_path,

@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
-import { ObjectOrder } from '@sd/client';
+import { ObjectOrder, objectOrderingKeysSchema } from '@sd/client';
 import { Icon } from '~/components';
 import { useLocale, useRouteTitle } from '~/hooks';
 
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
-import { createDefaultExplorerSettings, objectOrderingKeysSchema } from './Explorer/store';
+import { createDefaultExplorerSettings } from './Explorer/store';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { EmptyNotice } from './Explorer/View/EmptyNotice';

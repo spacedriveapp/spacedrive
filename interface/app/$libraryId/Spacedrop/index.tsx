@@ -159,7 +159,7 @@ function Node({
 		onDrop: (files) => onDropped(id, files)
 	});
 
-	const {t} = useLocale()
+	const { t } = useLocale();
 
 	return (
 		<div

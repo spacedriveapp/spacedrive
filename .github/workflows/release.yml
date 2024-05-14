@@ -32,17 +32,17 @@ jobs:
             arch: x86_64
           # - host: windows-latest
           #   target: aarch64-pc-windows-msvc
-          - host: ubuntu-20.04
+          - host: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             bundles: deb
             os: linux
             arch: x86_64
-          # - host: ubuntu-20.04
+          # - host: ubuntu-22.04
           #   target: x86_64-unknown-linux-musl
-          # - host: ubuntu-20.04
+          # - host: ubuntu-22.04
           #   target: aarch64-unknown-linux-gnu
           #   bundles: deb
-          # - host: ubuntu-20.04
+          # - host: ubuntu-22.04
           #   target: aarch64-unknown-linux-musl
     name: Desktop - Main ${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.host }}
@@ -101,8 +101,8 @@ jobs:
         run: |
           pnpm tauri build --ci -v --target ${{ matrix.settings.target }} --bundles ${{ matrix.settings.bundles }},updater
         env:
-          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
           ENABLE_CODE_SIGNING: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}

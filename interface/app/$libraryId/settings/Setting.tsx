@@ -1,11 +1,11 @@
 import { Info } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, ReactNode } from 'react';
 import { ErrorMessage, Tooltip } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
 
 interface Props {
-	title: string;
+	title: ReactNode;
 	registerName?: string;
 	description?: string | JSX.Element;
 	mini?: boolean;
@@ -29,12 +29,7 @@ export default ({ mini, registerName, ...props }: PropsWithChildren<Props>) => {
 						<h3 className="text-sm font-medium text-ink">{props.title}</h3>
 						{props.toolTipLabel && (
 							<Tooltip label={props.toolTipLabel as string}>
-								<Info
-									onClick={() =>
-										props.infoUrl && platform.openLink(props.infoUrl)
-									}
-									size={15}
-								/>
+								<Info onClick={() => props.infoUrl && platform.openLink(props.infoUrl)} size={15} />
 							</Tooltip>
 						)}
 					</div>
@@ -43,9 +38,7 @@ export default ({ mini, registerName, ...props }: PropsWithChildren<Props>) => {
 				</div>
 				{mini && props.children}
 			</div>
-			{registerName ? (
-				<ErrorMessage name={registerName} className="mt-1 w-full text-xs" />
-			) : null}
+			{registerName ? <ErrorMessage name={registerName} className="mt-1 w-full text-xs" /> : null}
 		</>
 	);
 };

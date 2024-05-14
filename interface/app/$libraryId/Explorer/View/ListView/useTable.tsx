@@ -10,11 +10,11 @@ import dayjs from 'dayjs';
 import { memo, useMemo } from 'react';
 import { stringify } from 'uuid';
 import {
-	byteSize,
 	getExplorerItemData,
 	getIndexedItemFilePath,
 	getItemFilePath,
 	getItemObject,
+	humanizeSize,
 	useSelector,
 	type ExplorerItem
 } from '@sd/client';
@@ -122,7 +122,7 @@ export const useTable = () => {
 						!filePath.size_in_bytes_bytes ||
 						(filePath.is_dir && item.type === 'NonIndexedPath')
 						? '-'
-						: byteSize(filePath.size_in_bytes_bytes);
+						: humanizeSize(filePath.size_in_bytes_bytes);
 				}
 			},
 			{

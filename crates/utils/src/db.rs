@@ -16,7 +16,9 @@ pub enum MigrationError {
 
 /// load_and_migrate will load the database from the given path and migrate it to the latest version of the schema.
 pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationError> {
-	let client = prisma::new_client_with_url(db_url)
+	let client = prisma::PrismaClient::_builder()
+		.with_url(db_url.to_string())
+		.build()
 		.await
 		.map_err(Box::new)?;
 
@@ -61,6 +63,16 @@ pub fn inode_from_db(db_inode: &[u8]) -> u64 {
 
 pub fn inode_to_db(inode: u64) -> Vec<u8> {
 	inode.to_le_bytes().to_vec()
+}
+
+pub fn ffmpeg_data_field_to_db(field: i64) -> Vec<u8> {
+	field.to_be_bytes().to_vec()
+}
+
+pub fn ffmpeg_data_field_from_db(field: &[u8]) -> i64 {
+	i64::from_be_bytes([
+		field[0], field[1], field[2], field[3], field[4], field[5], field[6], field[7],
+	])
 }
 
 pub fn size_in_bytes_from_db(db_size_in_bytes: &[u8]) -> u64 {

@@ -31,39 +31,6 @@ export const teamMembers: Array<TeamMemberProps> = [
 			github: 'https://github.com/fogodev'
 		}
 	},
-
-	{
-		name: 'Nik Elšnik',
-		location: 'Slovenia',
-		role: 'TypeScript Engineer - Lead Interface',
-		imageUrl: '/images/team/nikec.jpg',
-		socials: {
-			github: 'https://github.com/niikeec',
-			twitter: 'https://x.com/nikec_'
-		}
-	},
-	{
-		name: 'Brendan Allan',
-		location: 'Western Australia',
-		role: 'Rust Engineer - Database & Sync',
-		imageUrl: '/images/team/brendan.jpg',
-		socials: {
-			twitter: 'https://x.com/brendonovichdev',
-			twitch: 'https://twitch.tv/brendonovich',
-			github: 'https://github.com/brendonovich'
-		}
-	},
-	{
-		name: 'Oscar Beaumont',
-		location: 'Western Australia',
-		role: 'Rust Engineer - P2P & Networking',
-		imageUrl: '/images/team/oscar.jpg',
-		socials: {
-			twitter: 'https://x.com/oscartbeaumont',
-			twitch: 'https://twitch.tv/oscartbeaumont',
-			github: 'https://github.com/oscartbeaumont'
-		}
-	},
 	{
 		name: 'Mihail Dounaev',
 		location: 'Finland',
@@ -72,15 +39,6 @@ export const teamMembers: Array<TeamMemberProps> = [
 		socials: {
 			twitter: 'https://x.com/mmmintdesign',
 			dribbble: 'https://dribbble.com/mmmint'
-		}
-	},
-	{
-		name: 'Jake Robinson',
-		location: 'United Kingdom',
-		role: 'Rust Engineer - Cryptographer',
-		imageUrl: '/images/team/jake.jpg',
-		socials: {
-			github: 'https://github.com/brxken128'
 		}
 	},
 	{

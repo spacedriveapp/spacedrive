@@ -1,7 +1,7 @@
 import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript/src/types';
 import { RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackHeaderProps } from '@react-navigation/native-stack';
-import { ArrowLeft, DotsThreeOutline, MagnifyingGlass } from 'phosphor-react-native';
+import { ArrowLeft, DotsThree, MagnifyingGlass } from 'phosphor-react-native';
 import { Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tw, twStyle } from '~/lib/tailwind';
@@ -43,29 +43,14 @@ export default function DynamicHeader({
 							<HeaderIconKind routeParams={optionsRoute?.params} kind={kind} />
 							<Text
 								numberOfLines={1}
-								style={tw`max-w-[200px] text-xl font-bold text-white`}
+								style={tw`max-w-[200px] text-lg font-bold text-white`}
 							>
 								{headerRoute?.options.title}
 							</Text>
 						</View>
 					</View>
-					<View style={tw`flex-row gap-3`}>
-						{explorerMenu && (
-							<Pressable
-								hitSlop={12}
-								onPress={() => {
-									getExplorerStore().toggleMenu = !explorerStore.toggleMenu;
-								}}
-							>
-								<DotsThreeOutline
-									size={24}
-									color={tw.color(
-										explorerStore.toggleMenu ? 'text-accent' : 'text-zinc-300'
-									)}
-								/>
-							</Pressable>
-						)}
-						<Pressable
+					<View style={tw`flex-row gap-6`}>
+					<Pressable
 							hitSlop={12}
 							onPress={() => {
 								navigation.navigate('SearchStack', {
@@ -74,11 +59,27 @@ export default function DynamicHeader({
 							}}
 						>
 							<MagnifyingGlass
-								size={24}
+								size={20}
 								weight="bold"
 								color={tw.color('text-zinc-300')}
 							/>
 						</Pressable>
+						{explorerMenu && (
+							<Pressable
+								hitSlop={12}
+								onPress={() => {
+									getExplorerStore().toggleMenu = !explorerStore.toggleMenu;
+								}}
+							>
+								<DotsThree
+									size={24}
+									weight='bold'
+									color={tw.color(
+										explorerStore.toggleMenu ? 'text-accent' : 'text-zinc-300'
+									)}
+								/>
+							</Pressable>
+						)}
 					</View>
 				</View>
 			</View>
@@ -94,7 +95,7 @@ interface HeaderIconKindProps {
 const HeaderIconKind = ({ routeParams, kind }: HeaderIconKindProps) => {
 	switch (kind) {
 		case 'location':
-			return <Icon size={30} name="Folder" />;
+			return <Icon size={24} name="Folder" />;
 		case 'tag':
 			return (
 				<View

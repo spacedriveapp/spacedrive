@@ -11,3 +11,4 @@ repository.workspace = true
 sd-p2p = { path = "../../" }
 
 tokio = { workspace = true, features = ["io-util"] }
+thiserror = { workspace = true }

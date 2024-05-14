@@ -1,31 +1,14 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use gtk::{
 	gio::{
-		content_type_guess,
-		prelude::AppInfoExt,
-		prelude::{AppLaunchContextExt, FileExt},
-		AppInfo, AppLaunchContext, DesktopAppInfo, File as GioFile, ResourceError,
+		content_type_guess, prelude::AppInfoExt, prelude::FileExt, AppInfo, AppLaunchContext,
+		DesktopAppInfo, File as GioFile, ResourceError,
 	},
 	glib::error::Error as GlibError,
-	prelude::IsA,
 };
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
-
-use crate::env::remove_prefix_from_pathlist;
-
-fn remove_prefix_from_env_in_ctx(
-	ctx: &impl IsA<AppLaunchContext>,
-	env_name: &str,
-	prefix: &impl AsRef<Path>,
-) {
-	if let Some(value) = remove_prefix_from_pathlist(env_name, prefix) {
-		ctx.setenv(env_name, value);
-	} else {
-		ctx.unsetenv(env_name);
-	}
-}
 
 thread_local! {
 	static LAUNCH_CTX: AppLaunchContext = {
@@ -36,8 +19,8 @@ thread_local! {
 		// 			"This is an Glib type conversion, it should never fail because GDKAppLaunchContext is a subclass of AppLaunchContext"
 		// 		)).unwrap_or_default();
 
-		let ctx = AppLaunchContext::default();
-		ctx
+
+		AppLaunchContext::default()
 	}
 }
 

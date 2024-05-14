@@ -4,18 +4,18 @@ import { UseQueryResult } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { ClassInput } from 'twrnc/dist/esm/types';
-import { byteSize, Statistics, StatisticsResponse, useLibraryContext } from '@sd/client';
+import { humanizeSize, Statistics, StatisticsResponse, useLibraryContext } from '@sd/client';
 import useCounter from '~/hooks/useCounter';
 import { tw, twStyle } from '~/lib/tailwind';
 
 import Card from '../layout/Card';
 
 const StatItemNames: Partial<Record<keyof Statistics, string>> = {
-	total_bytes_capacity: 'Total capacity',
-	preview_media_bytes: 'Preview media',
+	total_local_bytes_capacity: 'Total capacity',
+	total_library_preview_media_bytes: 'Preview media',
 	library_db_size: 'Index size',
-	total_bytes_free: 'Free space',
-	total_bytes_used: 'Total used space'
+	total_local_bytes_free: 'Free space',
+	total_local_bytes_used: 'Total used space'
 };
 
 interface StatItemProps {
@@ -26,7 +26,7 @@ interface StatItemProps {
 }
 
 const StatItem = ({ title, bytes, isLoading, style }: StatItemProps) => {
-	const { value, unit } = byteSize(bytes);
+	const { value, unit } = humanizeSize(bytes);
 
 	const count = useCounter({ name: title, end: value });
 

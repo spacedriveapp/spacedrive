@@ -2,8 +2,8 @@
 name = "sd-core"
 version = "0.2.14"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
-authors = ["Spacedrive Technology Inc."]
-rust-version = "1.75.0"
+authors = ["Spacedrive Technology Inc <support@spacedrive.com>"]
+rust-version = "1.78"
 license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
@@ -13,7 +13,7 @@ default = []
 # This feature allows features to be disabled when the Core is running on mobile.
 mobile = []
 # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
-ffmpeg = ["dep:sd-ffmpeg"]
+ffmpeg = ["dep:sd-ffmpeg", "sd-core-heavy-lifting/ffmpeg", "sd-media-metadata/ffmpeg"]
 heif = ["sd-images/heif"]
 ai = ["dep:sd-ai"]
 crypto = ["dep:sd-crypto"]
@@ -25,11 +25,10 @@ sd-core-heavy-lifting = { path = "./crates/heavy-lifting" }
 sd-core-indexer-rules = { path = "./crates/indexer-rules" }
 sd-core-prisma-helpers = { path = "./crates/prisma-helpers" }
 sd-core-sync = { path = "./crates/sync" }
-
 # Spacedrive Sub-crates
-sd-actors = { version = "0.1.0", path = "../crates/actors" }
+sd-actors = { path = "../crates/actors", version = "0.1.0" }
 sd-ai = { path = "../crates/ai", optional = true }
-sd-cloud-api = { version = "0.1.0", path = "../crates/cloud-api" }
+sd-cloud-api = { path = "../crates/cloud-api", version = "0.1.0" }
 sd-crypto = { path = "../crates/crypto", features = [
 	"sys",
 	"tokio",
@@ -61,6 +60,7 @@ futures = { workspace = true }
 futures-concurrency = { workspace = true }
 image = { workspace = true }
 itertools = { workspace = true }
+libc = { workspace = true }
 normpath = { workspace = true, features = ["localization"] }
 once_cell = { workspace = true }
 pin-project-lite = { workspace = true }
@@ -101,7 +101,6 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 uuid = { workspace = true, features = ["v4", "serde"] }
 webp = { workspace = true }
 
-
 # Specific Core dependencies
 async-recursion = "1.0.5"
 async-stream = "0.3.5"
@@ -118,7 +117,6 @@ http-body = "0.4.5"
 http-range = "0.1.5"
 hyper = { version = "=0.14.28", features = ["http1", "server", "client"] }
 int-enum = "0.5.0"
-libc = "0.2.153"
 mini-moka = "0.10.2"
 notify = { git = "https://github.com/notify-rs/notify.git", rev = "c3929ed114fbb0bc7457a9a498260461596b00ca", default-features = false, features = [
 	"macos_fsevent",
@@ -160,6 +158,8 @@ icrate = { version = "0.1.0", features = [
 ] }
 
 [dev-dependencies]
-tracing-test = { workspace.dev-dependencies = true }
-aovec = "1.1.0"
+# Workspace dependencies
 globset = { workspace = true }
+tracing-test = { workspace = true }
+# Specific Core dependencies
+aovec = "1.1.0"

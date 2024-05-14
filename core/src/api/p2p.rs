@@ -153,8 +153,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.collect::<Vec<_>>(),
 				)
 				.await
-				.map_err(|_err| {
-					rspc::Error::new(ErrorCode::InternalServerError, "todo: error".into())
+				.map_err(|spacedrop_err| {
+					rspc::Error::new(ErrorCode::InternalServerError, spacedrop_err.to_string())
 				})
 			})
 		})

@@ -36,3 +36,7 @@ This command will help you sync locales with the source language (en) and find m
 `npx i18next-locales-sync -p en -s it -l ./interface/locales`
 
 replace `it` with the language you want to sync with the source language.
+
+If you want to sync all locales with the source language (en), run:
+
+`pnpm i18n:sync`

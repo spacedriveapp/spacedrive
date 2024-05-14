@@ -30,20 +30,6 @@ public func lockAppTheme(themeType: AppThemeType) {
   }
 }
 
-@_cdecl("blur_window_background")
-public func blurWindowBackground(window: NSWindow) {
-  let windowContent = window.contentView!
-  let blurryView = NSVisualEffectView()
-
-  blurryView.material = .sidebar
-  blurryView.state = .followsWindowActiveState
-  blurryView.blendingMode = .behindWindow
-  blurryView.wantsLayer = true
-
-  window.contentView = blurryView
-  blurryView.addSubview(windowContent)
-}
-
 @_cdecl("set_titlebar_style")
 public func setTitlebarStyle(window: NSWindow, fullScreen: Bool) {
   // this results in far less visual artifacts if we just manage it ourselves (the native taskbar re-appears when fullscreening/un-fullscreening)

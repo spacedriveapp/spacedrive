@@ -1,6 +1,6 @@
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
 import { useMemo } from 'react';
-import { byteSize } from '@sd/client';
+import { humanizeSize } from '@sd/client';
 import { Button, Card, tw } from '@sd/ui';
 import { Icon } from '~/components';
 
@@ -17,7 +17,7 @@ const Pill = tw.div`px-1.5 py-[1px] rounded text-tiny font-medium text-ink-dull 
 const LocationCard = ({ icon, name, connectionType, ...stats }: LocationCardProps) => {
 	const { totalSpace } = useMemo(() => {
 		return {
-			totalSpace: byteSize(stats.totalSpace)
+			totalSpace: humanizeSize(stats.totalSpace)
 		};
 	}, [stats]);
 

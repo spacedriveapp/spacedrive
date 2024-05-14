@@ -101,6 +101,8 @@ try {
 				env.NODE_OPTIONS = `--max_old_space_size=4096 ${env.NODE_OPTIONS ?? ''}`
 			}
 
+			env.GENERATE_SOURCEMAP = 'false'
+
 			__cleanup.push(...(await patchTauri(__root, nativeDeps, targets, bundles, args)))
 
 			if (process.platform === 'darwin') {
