@@ -143,7 +143,7 @@ export const items = [
 	},
 	{
 		when: '0.4 Alpha',
-		subtext: 'May 2024',
+		subtext: 'June 2024',
 		title: 'AI search',
 		description:
 			'Search the contents of your files, including images, audio and video with a deep understanding of context and content.'
@@ -185,7 +185,7 @@ export const items = [
 	},
 	{
 		when: '0.5 Beta',
-		subtext: 'June 2024',
+		subtext: 'August 2024',
 		title: 'Encrypted vault(s)',
 		description:
 			'Effortlessly manage & encrypt sensitive files. Encrypt individual files or create flexible-size vaults.'
