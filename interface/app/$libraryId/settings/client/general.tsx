@@ -347,13 +347,12 @@ export const Component = () => {
 							/>
 						</Setting>
 
-						{/* TODO: Rename all from `spacedrop_...` to P2P */}
 						<Setting
 							mini
-							title={t('spacedrop')}
+							title={t('p2p_visibility')}
 							description={
 								<p className="text-sm text-gray-400">
-									{t('spacedrop_description')}
+									{t('p2p_visibility_description')}
 								</p>
 							}
 						>
@@ -364,15 +363,15 @@ export const Component = () => {
 								onChange={(type) => form.setValue('p2p_discovery', type)}
 							>
 								<SelectOption value="Everyone">
-									{t('spacedrop_everyone')}
+									{t('p2p_visibility_everyone')}
 								</SelectOption>
 								{isP2PWipFeatureEnabled ? (
 									<SelectOption value="ContactsOnly">
-										{t('spacedrop_contacts_only')}
+										{t('p2p_visibility_contacts_only')}
 									</SelectOption>
 								) : null}
 								<SelectOption value="Disabled">
-									{t('spacedrop_disabled')}
+									{t('p2p_visibility_disabled')}
 								</SelectOption>
 							</Select>
 						</Setting>
