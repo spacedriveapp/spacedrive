@@ -89,7 +89,7 @@ export interface ByteSizeOpts {
 }
 
 /**
- * Returns an object with the spec `{ value: string, unit: string, long: string }`. The returned object defines a `toString` method meaning it can be used in any string context.
+ * Returns an object with the spec `{ unit: string, long: string, bytes: bigint, value: number }`. The returned object defines a `toString` method meaning it can be used in any string context.
  *
  * @param value - The bytes value to convert.
  * @param options - Optional config.
@@ -111,9 +111,16 @@ export const humanizeSize = (
 ) => {
 	if (value == null) value = 0n;
 	if (Array.isArray(value)) value = bytesToNumber(value);
-	else if (typeof value === 'number') value = BigInt(value | 0);
 	else if (typeof value !== 'bigint') value = BigInt(value);
-	const [isNegative, bytes] = value < 0n ? [true, -value] : [false, value];
+	const [isNegative, bytes] =
+		typeof value === 'number'
+			? value < 0
+				? // Note: These magic shift operations internally convert value from f64 to u32
+					[true, BigInt(-value >>> 0)]
+				: [false, BigInt(value >>> 0)]
+			: value < 0n
+				? [true, -value]
+				: [false, value];
 
 	const unit = getBaseUnit(bytes, base_unit === 'decimal' ? DECIMAL_UNITS : BINARY_UNITS);
 	const defaultFormat = new Intl.NumberFormat(locales, {
@@ -129,12 +136,12 @@ export const humanizeSize = (
 	const plural = use_plural && value !== 1 ? 's' : '';
 
 	return {
-		unit: (is_bit ? BYTE_TO_BIT[unit.short as keyof typeof BYTE_TO_BIT] : unit.short) + plural,
-		long: (is_bit ? BYTE_TO_BIT[unit.long as keyof typeof BYTE_TO_BIT] : unit.long) + plural,
+		unit: is_bit ? BYTE_TO_BIT[unit.short as keyof typeof BYTE_TO_BIT] : unit.short,
+		long: is_bit ? BYTE_TO_BIT[unit.long as keyof typeof BYTE_TO_BIT] : unit.long,
+		bytes,
 		value: (isNegative ? -1 : 1) * value,
-		original: value,
 		toString() {
-			return `${defaultFormat.format(this.value)} ${this.unit}`;
+			return `${defaultFormat.format(this.value)} ${this.unit}${plural}`;
 		}
 	};
 };

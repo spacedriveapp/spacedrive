@@ -67,7 +67,7 @@ impl P2PManager {
 	> {
 		let (tx, rx) = bounded(25);
 		let p2p = P2P::new(SPACEDRIVE_APP_ID, node_config.get().await.identity, tx);
-		let (quic, lp2p_peer_id) = QuicTransport::spawn(p2p.clone())?;
+		let (quic, lp2p_peer_id) = QuicTransport::spawn(p2p.clone()).map_err(|e| e.to_string())?;
 		let libraries_hook_id = libraries_hook(p2p.clone(), libraries);
 		let this = Arc::new(Self {
 			p2p: p2p.clone(),

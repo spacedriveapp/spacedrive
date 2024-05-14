@@ -108,6 +108,12 @@ pdfium-render = { git = "https://github.com/fogodev/pdfium-render.git", rev = "e
 [profile.dev]
 # Make compilation faster on macOS
 split-debuginfo = "unpacked"
+opt-level = 0
+debug = 0
+strip = "none"
+lto = false
+codegen-units = 256
+incremental = true
 
 # Set the settings for build scripts and proc-macros.
 [profile.dev.build-override]
