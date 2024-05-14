@@ -11,11 +11,11 @@ import { tw, twStyle } from '~/lib/tailwind';
 import Card from '../layout/Card';
 
 const StatItemNames: Partial<Record<keyof Statistics, string>> = {
-	total_bytes_capacity: 'Total capacity',
-	preview_media_bytes: 'Preview media',
+	total_local_bytes_capacity: 'Total capacity',
+	total_library_preview_media_bytes: 'Preview media',
 	library_db_size: 'Index size',
-	total_bytes_free: 'Free space',
-	total_bytes_used: 'Total used space'
+	total_local_bytes_free: 'Free space',
+	total_local_bytes_used: 'Total used space'
 };
 
 interface StatItemProps {

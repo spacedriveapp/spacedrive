@@ -63,11 +63,3 @@ default = ["custom-protocol"]
 devtools = ["tauri/devtools"]
 ai-models = ["sd-core/ai"]
 custom-protocol = ["tauri/custom-protocol"]
-
-# Optimize release builds
-[profile.release]
-panic = "abort"   # Strip expensive panic clean-up logic
-codegen-units = 1 # Compile crates one after another so the compiler can optimize better
-lto = true        # Enables link to optimizations
-opt-level = "s"   # Optimize for binary size
-strip = true      # Remove debug symbols

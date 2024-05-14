@@ -482,7 +482,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 						getExplorerItemData(item);
 					console.log(size, 'size')
 					if (item.type !== 'NonIndexedPath' || !item.item.is_dir) {
-						metadata.size = (metadata.size ?? BigInt(0)) + BigInt(size.original);
+						metadata.size = (metadata.size ?? 0n) + size.bytes;
 					}
 
 					if (dateCreated)

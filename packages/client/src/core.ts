@@ -595,7 +595,7 @@ export type SortOrder = "Asc" | "Desc"
 
 export type SpacedropArgs = { identity: RemoteIdentity; file_path: string[] }
 
-export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
+export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_local_bytes_used: string; total_local_bytes_capacity: string; total_local_bytes_free: string; total_library_bytes: string; total_library_unique_bytes: string; total_library_preview_media_bytes: string }
 
 export type StatisticsResponse = { statistics: Statistics | null }
 
