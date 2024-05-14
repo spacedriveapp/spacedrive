@@ -29,8 +29,8 @@ use std::{
 	time::Duration,
 };
 
-use futures::{FutureExt, StreamExt};
-use futures_concurrency::future::{FutureGroup, Race};
+use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
+use futures_concurrency::future::Race;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::time::Instant;
@@ -91,8 +91,10 @@ impl MediaDataExtractor {
 						true
 					} else {
 						output.errors.push(
-							media_processor::NonCriticalError::from(
-								NonCriticalError::FilePathMissingObjectId(file_path.id),
+							media_processor::NonCriticalMediaProcessorError::from(
+								NonCriticalMediaDataExtractorError::FilePathMissingObjectId(
+									file_path.id,
+								),
 							)
 							.into(),
 						);
@@ -279,8 +281,8 @@ impl Task<Error> for MediaDataExtractor {
 	}
 }
 
-#[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
-pub enum NonCriticalError {
+#[derive(thiserror::Error, Debug, Serialize, Deserialize, Type, Clone)]
+pub enum NonCriticalMediaDataExtractorError {
 	#[error("failed to extract media data from <file='{}'>: {1}", .0.display())]
 	FailedToExtractImageMediaData(PathBuf, String),
 	#[error("file path missing object id: <file_path_id='{0}'>")]
@@ -428,8 +430,8 @@ fn filter_files_to_extract_media_data(
 			IsolatedFilePathData::try_from((location_id, file_path))
 				.map_err(|e| {
 					errors.push(
-						media_processor::NonCriticalError::from(
-							NonCriticalError::FailedToConstructIsolatedFilePathData(
+						media_processor::NonCriticalMediaProcessorError::from(
+							NonCriticalMediaDataExtractorError::FailedToConstructIsolatedFilePathData(
 								file_path.id,
 								e.to_string(),
 							),
@@ -455,8 +457,8 @@ fn filter_files_to_extract_media_data(
 }
 
 enum ExtractionOutputKind {
-	Exif(Result<Option<ExifMetadata>, media_processor::NonCriticalError>),
-	FFmpeg(Result<FFmpegMetadata, media_processor::NonCriticalError>),
+	Exif(Result<Option<ExifMetadata>, media_processor::NonCriticalMediaProcessorError>),
+	FFmpeg(Result<FFmpegMetadata, media_processor::NonCriticalMediaProcessorError>),
 }
 
 struct ExtractionOutput {
@@ -481,7 +483,7 @@ fn prepare_extraction_futures<'a>(
 	kind: Kind,
 	paths_by_id: &'a HashMap<file_path::id::Type, (PathBuf, object::id::Type, Uuid)>,
 	interrupter: &'a Interrupter,
-) -> FutureGroup<impl Future<Output = InterruptRace> + 'a> {
+) -> FuturesUnordered<impl Future<Output = InterruptRace> + 'a> {
 	paths_by_id
 		.iter()
 		.map(
@@ -508,7 +510,7 @@ fn prepare_extraction_futures<'a>(
 			)
 				.race()
 		})
-		.collect::<FutureGroup<_>>()
+		.collect::<FuturesUnordered<_>>()
 }
 
 #[inline]

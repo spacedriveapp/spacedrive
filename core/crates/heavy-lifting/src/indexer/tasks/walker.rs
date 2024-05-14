@@ -117,8 +117,9 @@ pub trait WalkerDBProxy: Clone + Send + Sync + fmt::Debug + 'static {
 		&self,
 		parent_iso_file_path: &IsolatedFilePathData<'_>,
 		unique_location_id_materialized_path_name_extension_params: Vec<file_path::WhereParam>,
-	) -> impl Future<Output = Result<Vec<file_path_pub_and_cas_ids::Data>, indexer::NonCriticalError>>
-	       + Send;
+	) -> impl Future<
+		Output = Result<Vec<file_path_pub_and_cas_ids::Data>, indexer::NonCriticalIndexerError>,
+	> + Send;
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -161,7 +162,10 @@ struct InnerMetadata {
 }
 
 impl InnerMetadata {
-	fn new(path: impl AsRef<Path>, metadata: &Metadata) -> Result<Self, indexer::NonCriticalError> {
+	fn new(
+		path: impl AsRef<Path>,
+		metadata: &Metadata,
+	) -> Result<Self, indexer::NonCriticalIndexerError> {
 		let FilePathMetadata {
 			inode,
 			size_in_bytes,
@@ -169,7 +173,7 @@ impl InnerMetadata {
 			modified_at,
 			hidden,
 		} = FilePathMetadata::from_path(path, metadata)
-			.map_err(|e| indexer::NonCriticalError::FilePathMetadata(e.to_string()))?;
+			.map_err(|e| indexer::NonCriticalIndexerError::FilePathMetadata(e.to_string()))?;
 
 		Ok(Self {
 			is_dir: metadata.is_dir(),
@@ -575,7 +579,7 @@ where
 							}
 							Err(e) => {
 								errors.push(NonCriticalError::Indexer(
-									indexer::NonCriticalError::FailedDirectoryEntry(
+									indexer::NonCriticalIndexerError::FailedDirectoryEntry(
 										FileIOError::from((&path, e)).to_string(),
 									),
 								));
@@ -816,7 +820,9 @@ async fn keep_walking(
 							db_proxy.clone(),
 							dispatcher.clone(),
 						)
-						.map_err(|e| indexer::NonCriticalError::DispatchKeepWalking(e.to_string()))
+						.map_err(|e| {
+							indexer::NonCriticalIndexerError::DispatchKeepWalking(e.to_string())
+						})
 					})
 					.filter_map(|res| res.map_err(|e| errors.push(e.into())).ok()),
 			)
@@ -836,7 +842,7 @@ async fn collect_metadata(
 			fs::metadata(&current_path)
 				.await
 				.map_err(|e| {
-					indexer::NonCriticalError::Metadata(
+					indexer::NonCriticalIndexerError::Metadata(
 						FileIOError::from((&current_path, e)).to_string(),
 					)
 				})
@@ -869,7 +875,7 @@ async fn apply_indexer_rules(
 				.map(|acceptance_per_rule_kind| {
 					(current_path, (metadata, acceptance_per_rule_kind))
 				})
-				.map_err(|e| indexer::NonCriticalError::IndexerRule(e.to_string()))
+				.map_err(|e| indexer::NonCriticalIndexerError::IndexerRule(e.to_string()))
 		})
 		.collect::<Vec<_>>()
 		.join()
@@ -960,7 +966,7 @@ async fn process_rules_results(
 				fs::metadata(&ancestor_path)
 					.await
 					.map_err(|e| {
-						indexer::NonCriticalError::Metadata(
+						indexer::NonCriticalIndexerError::Metadata(
 							FileIOError::from((&ancestor_path, e)).to_string(),
 						)
 					})
@@ -973,7 +979,9 @@ async fn process_rules_results(
 								}
 								.into()
 							})
-							.map_err(|e| indexer::NonCriticalError::FilePathMetadata(e.to_string()))
+							.map_err(|e| {
+								indexer::NonCriticalIndexerError::FilePathMetadata(e.to_string())
+							})
 					})
 			})
 			.collect::<Vec<_>>()
@@ -1040,10 +1048,9 @@ fn accept_ancestors(
 		.skip(1) // Skip the current directory as it was already indexed
 		.take_while(|&ancestor| ancestor != root)
 	{
-		if let Ok(iso_file_path) = iso_file_path_factory
-			.build(ancestor, true)
-			.map_err(|e| errors.push(indexer::NonCriticalError::IsoFilePath(e.to_string()).into()))
-		{
+		if let Ok(iso_file_path) = iso_file_path_factory.build(ancestor, true).map_err(|e| {
+			errors.push(indexer::NonCriticalIndexerError::IsoFilePath(e.to_string()).into());
+		}) {
 			match accepted_ancestors.entry(iso_file_path) {
 				Entry::Occupied(_) => {
 					// If we already accepted this ancestor, then it will contain
@@ -1111,7 +1118,8 @@ async fn gather_file_paths_to_remove(
 					)
 				})
 				.map_err(|e| {
-					errors.push(indexer::NonCriticalError::IsoFilePath(e.to_string()).into());
+					errors
+						.push(indexer::NonCriticalIndexerError::IsoFilePath(e.to_string()).into());
 				})
 				.ok()
 		})
@@ -1133,11 +1141,11 @@ async fn gather_file_paths_to_remove(
 mod tests {
 	use super::*;
 
+	use futures::stream::FuturesUnordered;
 	use sd_core_indexer_rules::{IndexerRule, RulePerKind};
 	use sd_task_system::{TaskOutput, TaskStatus, TaskSystem};
 
 	use chrono::Utc;
-	use futures_concurrency::future::FutureGroup;
 	use globset::{Glob, GlobSetBuilder};
 	use lending_stream::{LendingStream, StreamExt};
 	use tempfile::{tempdir, TempDir};
@@ -1175,7 +1183,7 @@ mod tests {
 			&self,
 			_: &IsolatedFilePathData<'_>,
 			_: Vec<file_path::WhereParam>,
-		) -> Result<Vec<file_path_pub_and_cas_ids::Data>, indexer::NonCriticalError> {
+		) -> Result<Vec<file_path_pub_and_cas_ids::Data>, indexer::NonCriticalIndexerError> {
 			Ok(vec![])
 		}
 	}
@@ -1330,9 +1338,9 @@ mod tests {
 			)
 			.await;
 
-		let mut group = FutureGroup::new();
+		let group = FuturesUnordered::new();
 
-		group.insert(handle);
+		group.push(handle);
 
 		let mut group = group.lend_mut();
 
@@ -1359,7 +1367,7 @@ mod tests {
 			ancestors.extend(accepted_ancestors);
 
 			for handle in handles {
-				group.insert(handle);
+				group.push(handle);
 			}
 		}
 

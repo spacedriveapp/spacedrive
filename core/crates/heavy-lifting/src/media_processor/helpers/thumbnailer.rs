@@ -230,7 +230,7 @@ pub async fn generate_thumbnail(
 	should_regenerate: bool,
 ) -> (
 	Duration,
-	Result<(ThumbKey, GenerationStatus), thumbnailer::NonCriticalError>,
+	Result<(ThumbKey, GenerationStatus), thumbnailer::NonCriticalThumbnailerError>,
 ) {
 	trace!("Generating thumbnail for {}", path.display());
 	let start = Instant::now();
@@ -301,15 +301,18 @@ pub async fn generate_thumbnail(
 async fn generate_image_thumbnail(
 	file_path: impl AsRef<Path> + Send,
 	output_path: impl AsRef<Path> + Send,
-) -> Result<(), thumbnailer::NonCriticalError> {
+) -> Result<(), thumbnailer::NonCriticalThumbnailerError> {
 	let file_path = file_path.as_ref().to_path_buf();
 
 	let webp = spawn_blocking({
 		let file_path = file_path.clone();
 
-		move || -> Result<_, thumbnailer::NonCriticalError> {
+		move || -> Result<_, thumbnailer::NonCriticalThumbnailerError> {
 			let mut img = format_image(&file_path).map_err(|e| {
-				thumbnailer::NonCriticalError::FormatImage(file_path.clone(), e.to_string())
+				thumbnailer::NonCriticalThumbnailerError::FormatImage(
+					file_path.clone(),
+					e.to_string(),
+				)
 			})?;
 
 			let (w, h) = img.dimensions();
@@ -340,7 +343,10 @@ async fn generate_image_thumbnail(
 
 			// Create the WebP encoder for the above image
 			let encoder = Encoder::from_image(&img).map_err(|reason| {
-				thumbnailer::NonCriticalError::WebPEncoding(file_path, reason.to_string())
+				thumbnailer::NonCriticalThumbnailerError::WebPEncoding(
+					file_path,
+					reason.to_string(),
+				)
 			})?;
 
 			// Type `WebPMemory` is !Send, which makes the `Future` in this function `!Send`,
@@ -351,7 +357,7 @@ async fn generate_image_thumbnail(
 	})
 	.await
 	.map_err(|e| {
-		thumbnailer::NonCriticalError::PanicWhileGeneratingThumbnail(
+		thumbnailer::NonCriticalThumbnailerError::PanicWhileGeneratingThumbnail(
 			file_path.clone(),
 			e.to_string(),
 		)
@@ -361,7 +367,7 @@ async fn generate_image_thumbnail(
 
 	if let Some(shard_dir) = output_path.parent() {
 		fs::create_dir_all(shard_dir).await.map_err(|e| {
-			thumbnailer::NonCriticalError::CreateShardDirectory(
+			thumbnailer::NonCriticalThumbnailerError::CreateShardDirectory(
 				FileIOError::from((shard_dir, e)).to_string(),
 			)
 		})?;
@@ -373,7 +379,7 @@ async fn generate_image_thumbnail(
 	}
 
 	fs::write(output_path, &webp).await.map_err(|e| {
-		thumbnailer::NonCriticalError::SaveThumbnail(
+		thumbnailer::NonCriticalThumbnailerError::SaveThumbnail(
 			file_path,
 			FileIOError::from((output_path, e)).to_string(),
 		)
@@ -384,7 +390,7 @@ async fn generate_image_thumbnail(
 async fn generate_video_thumbnail(
 	file_path: impl AsRef<Path> + Send,
 	output_path: impl AsRef<Path> + Send,
-) -> Result<(), thumbnailer::NonCriticalError> {
+) -> Result<(), thumbnailer::NonCriticalThumbnailerError> {
 	use sd_ffmpeg::{to_thumbnail, ThumbnailSize};
 
 	let file_path = file_path.as_ref();
@@ -397,7 +403,7 @@ async fn generate_video_thumbnail(
 	)
 	.await
 	.map_err(|e| {
-		thumbnailer::NonCriticalError::VideoThumbnailGenerationFailed(
+		thumbnailer::NonCriticalThumbnailerError::VideoThumbnailGenerationFailed(
 			file_path.to_path_buf(),
 			e.to_string(),
 		)
@@ -415,7 +421,7 @@ pub async fn generate_single_thumbnail(
 	cas_id: String,
 	path: impl AsRef<Path> + Send,
 	kind: ThumbnailKind,
-) -> Result<(), thumbnailer::NonCriticalError> {
+) -> Result<(), thumbnailer::NonCriticalThumbnailerError> {
 	let mut last_single_thumb_generated_guard = LAST_SINGLE_THUMB_GENERATED_LOCK.lock().await;
 
 	let elapsed = Instant::now() - *last_single_thumb_generated_guard;

@@ -373,13 +373,11 @@ export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([R
 
 export type InvalidateOperationEvent = { type: "single"; data: SingleInvalidateOperationEvent } | { type: "all" }
 
-export type JobGroup = { id: string; action: string | null; status: JobStatus; created_at: string; jobs: JobReport[] }
+export type JobGroup = { id: string; action: string | null; status: Status; created_at: string; jobs: Report[] }
+
+export type JobName = "Indexer" | "FileIdentifier" | "MediaProcessor"
 
 export type JobProgressEvent = { id: string; library_id: string; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
-
-export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: { [key in string]: JsonValue } | null; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
-
-export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused" | "CompletedWithErrors"
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key in string]: JsonValue }
 
@@ -483,6 +481,18 @@ id: string;
  */
 name: string; identity: RemoteIdentity; p2p: NodeConfigP2P; features: BackendFeature[]; preferences: NodePreferences; image_labeler_version: string | null }) & { data_path: string; device_model: string | null }
 
+export type NonCriticalError = { indexer: NonCriticalIndexerError } | { file_identifier: NonCriticalFileIdentifierError } | { media_processor: NonCriticalMediaProcessorError }
+
+export type NonCriticalFileIdentifierError = { failed_to_extract_file_metadata: string } | { failed_to_extract_isolated_file_path_data: string }
+
+export type NonCriticalIndexerError = { failed_directory_entry: string } | { metadata: string } | { indexer_rule: string } | { file_path_metadata: string } | { fetch_already_existing_file_path_ids: string } | { fetch_file_paths_to_remove: string } | { iso_file_path: string } | { dispatch_keep_walking: string } | { missing_file_path_data: string }
+
+export type NonCriticalMediaDataExtractorError = { FailedToExtractImageMediaData: [string, string] } | { FilePathMissingObjectId: number } | { FailedToConstructIsolatedFilePathData: [number, string] }
+
+export type NonCriticalMediaProcessorError = { media_data_extractor: NonCriticalMediaDataExtractorError } | { thumbnailer: NonCriticalThumbnailerError }
+
+export type NonCriticalThumbnailerError = { MissingCasId: number } | { FailedToExtractIsolatedFilePathData: [number, string] } | { VideoThumbnailGenerationFailed: [string, string] } | { FormatImage: [string, string] } | { WebPEncoding: [string, string] } | { PanicWhileGeneratingThumbnail: [string, string] } | { CreateShardDirectory: string } | { SaveThumbnail: [string, string] } | { ThumbnailGenerationTimeout: string }
+
 export type NonIndexedPathItem = { path: string; name: string; extension: string; kind: number; is_dir: boolean; date_created: string; date_modified: string; size_in_bytes_bytes: number[]; hidden: boolean }
 
 /**
@@ -562,6 +572,14 @@ export type RenameMany = { from_pattern: FromPattern; to_pattern: string; from_f
 
 export type RenameOne = { from_file_path_id: number; to: string }
 
+export type Report = { id: string; name: JobName; action: string | null; metadata: ReportMetadata[]; critical_error: string | null; non_critical_errors: NonCriticalError[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: Status; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
+
+export type ReportInputMetadata = { location: Location } | { sub_path: string }
+
+export type ReportMetadata = { input: ReportInputMetadata } | { output: ReportOutputMetadata }
+
+export type ReportOutputMetadata = { metrics: { [key in string]: JsonValue } }
+
 export type RescanArgs = { location_id: number; sub_path: string }
 
 export type Resolution = { width: number; height: number }
@@ -595,6 +613,8 @@ export type SpacedropArgs = { identity: RemoteIdentity; file_path: string[] }
 export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_local_bytes_used: string; total_local_bytes_capacity: string; total_local_bytes_free: string; total_library_bytes: string; total_library_unique_bytes: string; total_library_preview_media_bytes: string }
 
 export type StatisticsResponse = { statistics: Statistics | null }
+
+export type Status = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused" | "CompletedWithErrors"
 
 export type Stream = { id: number; name: string | null; codec: Codec | null; aspect_ratio_num: number; aspect_ratio_den: number; frames_per_second_num: number; frames_per_second_den: number; time_base_real_den: number; time_base_real_num: number; dispositions: string[]; metadata: Metadata }
 

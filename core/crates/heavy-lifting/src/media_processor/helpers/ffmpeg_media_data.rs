@@ -91,11 +91,11 @@ pub const fn can_extract_for_video(video_extension: VideoExtension) -> bool {
 
 pub async fn extract(
 	path: impl AsRef<Path> + Send,
-) -> Result<FFmpegMetadata, media_processor::NonCriticalError> {
+) -> Result<FFmpegMetadata, media_processor::NonCriticalMediaProcessorError> {
 	let path = path.as_ref();
 
 	FFmpegMetadata::from_path(&path).await.map_err(|e| {
-		media_data_extractor::NonCriticalError::FailedToExtractImageMediaData(
+		media_data_extractor::NonCriticalMediaDataExtractorError::FailedToExtractImageMediaData(
 			path.to_path_buf(),
 			e.to_string(),
 		)

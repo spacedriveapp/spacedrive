@@ -26,7 +26,7 @@ use sd_sync::*;
 use sd_utils::{
 	db::{maybe_missing, MissingFieldError},
 	error::{FileIOError, NonUtf8PathError},
-	msgpack,
+	msgpack, uuid_to_bytes,
 };
 
 use std::{
@@ -647,7 +647,7 @@ pub async fn relink_location(
 
 	metadata.relink(*id, location_path).await?;
 
-	let pub_id = metadata.location_pub_id(*id)?.as_ref().to_vec();
+	let pub_id = uuid_to_bytes(metadata.location_pub_id(*id)?);
 	let path = location_path
 		.to_str()
 		.map(str::to_string)

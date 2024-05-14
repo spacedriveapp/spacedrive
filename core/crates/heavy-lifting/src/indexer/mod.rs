@@ -87,8 +87,9 @@ impl From<Error> for rspc::Error {
 	}
 }
 
-#[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
-pub enum NonCriticalError {
+#[derive(thiserror::Error, Debug, Serialize, Deserialize, Type, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum NonCriticalIndexerError {
 	#[error("failed to read directory entry: {0}")]
 	FailedDirectoryEntry(String),
 	#[error("failed to fetch metadata: {0}")]
@@ -278,7 +279,7 @@ pub async fn reverse_update_directories_sizes(
 			IsolatedFilePathData::try_from(file_path)
 				.map_err(|e| {
 					errors.push(
-						NonCriticalError::MissingFilePathData(format!(
+						NonCriticalIndexerError::MissingFilePathData(format!(
 							"Found a file_path missing data: <pub_id='{:#?}'>, error: {e:#?}",
 							from_bytes_to_uuid(&pub_id)
 						))
@@ -370,7 +371,7 @@ async fn compute_sizes(
 				}
 			} else {
 				errors.push(
-					NonCriticalError::MissingFilePathData(format!(
+					NonCriticalIndexerError::MissingFilePathData(format!(
 						"Corrupt database possessing a file_path entry without materialized_path: <pub_id='{:#?}'>",
 						from_bytes_to_uuid(&file_path.pub_id)
 					))
@@ -434,7 +435,7 @@ impl walker::WalkerDBProxy for WalkerDBProxy {
 		&self,
 		parent_iso_file_path: &IsolatedFilePathData<'_>,
 		unique_location_id_materialized_path_name_extension_params: Vec<file_path::WhereParam>,
-	) -> Result<Vec<file_path_pub_and_cas_ids::Data>, NonCriticalError> {
+	) -> Result<Vec<file_path_pub_and_cas_ids::Data>, NonCriticalIndexerError> {
 		// NOTE: This batch size can be increased if we wish to trade memory for more performance
 		const BATCH_SIZE: i64 = 1000;
 
@@ -460,7 +461,7 @@ impl walker::WalkerDBProxy for WalkerDBProxy {
 					.flat_map(|file_paths| file_paths.into_iter().map(|file_path| file_path.id))
 					.collect::<HashSet<_>>()
 			})
-			.map_err(|e| NonCriticalError::FetchAlreadyExistingFilePathIds(e.to_string()))?;
+			.map_err(|e| NonCriticalIndexerError::FetchAlreadyExistingFilePathIds(e.to_string()))?;
 
 		let mut to_remove = vec![];
 		let mut cursor = 1;
@@ -483,7 +484,7 @@ impl walker::WalkerDBProxy for WalkerDBProxy {
 				.select(file_path_pub_and_cas_ids::select())
 				.exec()
 				.await
-				.map_err(|e| NonCriticalError::FetchFilePathsToRemove(e.to_string()))?;
+				.map_err(|e| NonCriticalIndexerError::FetchFilePathsToRemove(e.to_string()))?;
 
 			#[allow(clippy::cast_possible_truncation)] // Safe because we are using a constant
 			let should_stop = found.len() < BATCH_SIZE as usize;

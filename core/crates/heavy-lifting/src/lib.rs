@@ -28,6 +28,8 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
+use file_identifier::NonCriticalFileIdentifierError;
+use indexer::NonCriticalIndexerError;
 use sd_prisma::prisma::file_path;
 use sd_task_system::TaskSystemError;
 
@@ -41,13 +43,14 @@ pub mod job_system;
 pub mod media_processor;
 pub mod utils;
 
-use media_processor::ThumbKey;
+use media_processor::{NonCriticalMediaProcessorError, ThumbKey};
 
 pub use job_system::{
 	job::{
 		IntoJob, JobContext, JobEnqueuer, JobName, JobOutput, JobOutputData, OuterContext,
 		ProgressUpdate,
 	},
+	report::Report,
 	JobId, JobSystem, JobSystemError,
 };
 
@@ -77,15 +80,16 @@ impl From<Error> for rspc::Error {
 	}
 }
 
-#[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
+#[derive(thiserror::Error, Debug, Serialize, Deserialize, Type, Clone)]
+#[serde(rename_all = "snake_case")]
 pub enum NonCriticalError {
 	// TODO: Add variants as needed
 	#[error(transparent)]
-	Indexer(#[from] indexer::NonCriticalError),
+	Indexer(#[from] NonCriticalIndexerError),
 	#[error(transparent)]
-	FileIdentifier(#[from] file_identifier::NonCriticalError),
+	FileIdentifier(#[from] NonCriticalFileIdentifierError),
 	#[error(transparent)]
-	MediaProcessor(#[from] media_processor::NonCriticalError),
+	MediaProcessor(#[from] NonCriticalMediaProcessorError),
 }
 
 #[repr(i32)]

@@ -25,7 +25,6 @@ use cas_id::generate_cas_id;
 pub use job::FileIdentifier;
 pub use shallow::shallow;
 
-
 // we break these tasks into chunks of 100 to improve performance
 const CHUNK_SIZE: usize = 100;
 
@@ -54,8 +53,9 @@ impl From<Error> for rspc::Error {
 	}
 }
 
-#[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
-pub enum NonCriticalError {
+#[derive(thiserror::Error, Debug, Serialize, Deserialize, Type, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum NonCriticalFileIdentifierError {
 	#[error("failed to extract file metadata: {0}")]
 	FailedToExtractFileMetadata(String),
 	#[cfg(target_os = "windows")]

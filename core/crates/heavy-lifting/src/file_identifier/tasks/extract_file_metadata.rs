@@ -208,15 +208,17 @@ fn handle_non_critical_errors(
 		// Handle case where file is on-demand (NTFS only)
 		if e.source.raw_os_error().map_or(false, |code| code == 362) {
 			errors.push(
-				file_identifier::NonCriticalError::FailedToExtractMetadataFromOnDemandFile(
+				file_identifier::NonCriticalFileIdentifierError::FailedToExtractMetadataFromOnDemandFile(
 					formatted_error,
 				)
 				.into(),
 			);
 		} else {
 			errors.push(
-				file_identifier::NonCriticalError::FailedToExtractFileMetadata(formatted_error)
-					.into(),
+				file_identifier::NonCriticalFileIdentifierError::FailedToExtractFileMetadata(
+					formatted_error,
+				)
+				.into(),
 			);
 		}
 	}
@@ -224,7 +226,10 @@ fn handle_non_critical_errors(
 	#[cfg(not(target_os = "windows"))]
 	{
 		errors.push(
-			file_identifier::NonCriticalError::FailedToExtractFileMetadata(formatted_error).into(),
+			file_identifier::NonCriticalFileIdentifierError::FailedToExtractFileMetadata(
+				formatted_error,
+			)
+			.into(),
 		);
 	}
 }
@@ -242,7 +247,7 @@ fn try_iso_file_path_extraction(
 		.map_err(|e| {
 			error!("Failed to extract isolated file path data: {e:#?}");
 			errors.push(
-				file_identifier::NonCriticalError::FailedToExtractIsolatedFilePathData(format!(
+				file_identifier::NonCriticalFileIdentifierError::FailedToExtractIsolatedFilePathData(format!(
 					"<file_path_pub_id='{file_path_pub_id}', error={e}>"
 				))
 				.into(),

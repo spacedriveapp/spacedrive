@@ -33,7 +33,8 @@ pub use helpers::thumbnailer::can_generate_thumbnail_for_video;
 
 pub use shallow::shallow;
 
-use self::thumbnailer::NewThumbnailReporter;
+use media_data_extractor::NonCriticalMediaDataExtractorError;
+use thumbnailer::{NewThumbnailReporter, NonCriticalThumbnailerError};
 
 const BATCH_SIZE: usize = 10;
 
@@ -62,12 +63,13 @@ impl From<Error> for rspc::Error {
 	}
 }
 
-#[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
-pub enum NonCriticalError {
+#[derive(thiserror::Error, Debug, Serialize, Deserialize, Type, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum NonCriticalMediaProcessorError {
 	#[error(transparent)]
-	MediaDataExtractor(#[from] media_data_extractor::NonCriticalError),
+	MediaDataExtractor(#[from] NonCriticalMediaDataExtractorError),
 	#[error(transparent)]
-	Thumbnailer(#[from] thumbnailer::NonCriticalError),
+	Thumbnailer(#[from] NonCriticalThumbnailerError),
 }
 
 #[derive(Clone)]

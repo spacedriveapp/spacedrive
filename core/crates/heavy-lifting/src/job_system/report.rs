@@ -10,6 +10,8 @@ use specta::Type;
 use strum::ParseError;
 use tracing::error;
 
+use crate::NonCriticalError;
+
 use super::{job::JobName, JobId};
 
 #[derive(thiserror::Error, Debug)]
@@ -22,10 +24,8 @@ pub enum ReportError {
 	InvalidJobStatusInt(i32),
 	#[error("job not found in database: <id='{0}'>")]
 	MissingReport(JobId),
-	#[error("serialization error: {0}")]
-	Serialization(#[from] rmp_serde::encode::Error),
-	#[error("deserialization error: {0}")]
-	Deserialization(#[from] rmp_serde::decode::Error),
+	#[error("json error: {0}")]
+	Json(#[from] serde_json::Error),
 	#[error(transparent)]
 	MissingField(#[from] MissingFieldError),
 	#[error("failed to parse job name from database: {0}")]
@@ -44,10 +44,7 @@ impl From<ReportError> for rspc::Error {
 			ReportError::MissingReport(_) => {
 				Self::with_cause(rspc::ErrorCode::NotFound, e.to_string(), e)
 			}
-			ReportError::Serialization(_)
-			| ReportError::Deserialization(_)
-			| ReportError::MissingField(_)
-			| ReportError::JobNameParse(_) => {
+			ReportError::Json(_) | ReportError::MissingField(_) | ReportError::JobNameParse(_) => {
 				Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
 			}
 		}
@@ -55,12 +52,14 @@ impl From<ReportError> for rspc::Error {
 }
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
+#[serde(rename_all = "snake_case")]
 pub enum ReportMetadata {
 	Input(ReportInputMetadata),
 	Output(ReportOutputMetadata),
 }
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
+#[serde(rename_all = "snake_case")]
 pub enum ReportInputMetadata {
 	// TODO: Add more variants as needed
 	Location(location::Data),
@@ -68,6 +67,7 @@ pub enum ReportInputMetadata {
 }
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
+#[serde(rename_all = "snake_case")]
 pub enum ReportOutputMetadata {
 	Metrics(HashMap<String, serde_json::Value>),
 	// TODO: Add more variants as needed
@@ -81,7 +81,7 @@ pub struct Report {
 
 	pub metadata: Vec<ReportMetadata>,
 	pub critical_error: Option<String>,
-	pub non_critical_errors: Vec<String>,
+	pub non_critical_errors: Vec<NonCriticalError>,
 
 	pub created_at: Option<DateTime<Utc>>,
 	pub started_at: Option<DateTime<Utc>>,
@@ -118,25 +118,17 @@ impl TryFrom<job::Data> for Report {
 			name: JobName::from_str(&maybe_missing(data.name, "job.name")?)?,
 			action: data.action,
 
-			metadata: data
-				.metadata
-				.map(|m| {
-					rmp_serde::from_slice(&m).unwrap_or_else(|e| {
-						error!("Failed to deserialize job metadata: {e:#?}");
-						vec![]
-					})
-				})
-				.unwrap_or_default(),
+			metadata: if let Some(metadata) = data.metadata {
+				serde_json::from_slice(&metadata)?
+			} else {
+				vec![]
+			},
 			critical_error: data.critical_error,
-			non_critical_errors: data.non_critical_errors.map_or_else(
-				Default::default,
-				|non_critical_errors| {
-					serde_json::from_slice(&non_critical_errors).unwrap_or_else(|e| {
-						error!("Failed to deserialize job non-critical errors: {e:#?}");
-						vec![]
-					})
-				},
-			),
+			non_critical_errors: if let Some(non_critical_errors) = data.non_critical_errors {
+				serde_json::from_slice(&non_critical_errors)?
+			} else {
+				vec![]
+			},
 			created_at: data.date_created.map(DateTime::into),
 			started_at: data.date_started.map(DateTime::into),
 			completed_at: data.date_completed.map(DateTime::into),
@@ -209,10 +201,10 @@ impl Report {
 						job::name::set(Some(self.name.to_string())),
 						job::action::set(self.action.clone()),
 						job::date_created::set(Some(now.into())),
-						job::metadata::set(Some(rmp_serde::to_vec(&self.metadata)?)),
+						job::metadata::set(Some(serde_json::to_vec(&self.metadata)?)),
 						job::status::set(Some(self.status as i32)),
 						job::date_started::set(self.started_at.map(Into::into)),
-						job::task_count::set(Some(1)),
+						job::task_count::set(Some(0)),
 						job::completed_task_count::set(Some(0)),
 					],
 					[self
@@ -237,10 +229,10 @@ impl Report {
 				vec![
 					job::status::set(Some(self.status as i32)),
 					job::critical_error::set(self.critical_error.clone()),
-					job::non_critical_errors::set(Some(rmp_serde::to_vec(
+					job::non_critical_errors::set(Some(serde_json::to_vec(
 						&self.non_critical_errors,
 					)?)),
-					job::metadata::set(Some(rmp_serde::to_vec(&self.metadata)?)),
+					job::metadata::set(Some(serde_json::to_vec(&self.metadata)?)),
 					job::task_count::set(Some(self.task_count)),
 					job::completed_task_count::set(Some(self.completed_task_count)),
 					job::date_started::set(self.started_at.map(Into::into)),

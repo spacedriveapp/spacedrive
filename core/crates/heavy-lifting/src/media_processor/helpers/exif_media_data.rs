@@ -91,11 +91,11 @@ fn to_query(
 
 pub async fn extract(
 	path: impl AsRef<Path> + Send,
-) -> Result<Option<ExifMetadata>, media_processor::NonCriticalError> {
+) -> Result<Option<ExifMetadata>, media_processor::NonCriticalMediaProcessorError> {
 	let path = path.as_ref();
 
 	ExifMetadata::from_path(&path).await.map_err(|e| {
-		media_data_extractor::NonCriticalError::FailedToExtractImageMediaData(
+		media_data_extractor::NonCriticalMediaDataExtractorError::FailedToExtractImageMediaData(
 			path.to_path_buf(),
 			e.to_string(),
 		)

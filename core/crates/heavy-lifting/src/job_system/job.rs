@@ -243,14 +243,11 @@ impl JobOutput {
 			debug!("Job<id='{}', name='{}'> completed", report.id, report.name);
 		} else {
 			report.status = Status::CompletedWithErrors;
-			report.non_critical_errors = non_critical_errors
-				.iter()
-				.map(ToString::to_string)
-				.collect();
+			report.non_critical_errors.extend(non_critical_errors);
 
 			warn!(
-				"Job<id='{}', name='{}'> completed with errors: {non_critical_errors:#?}",
-				report.id, report.name
+				"Job<id='{}', name='{}'> completed with errors: {:#?}",
+				report.id, report.name, report.non_critical_errors
 			);
 		}
 
@@ -266,7 +263,7 @@ impl JobOutput {
 			job_name: report.name,
 			data,
 			metadata: report.metadata.clone(),
-			non_critical_errors,
+			non_critical_errors: report.non_critical_errors.clone(),
 		}
 	}
 }

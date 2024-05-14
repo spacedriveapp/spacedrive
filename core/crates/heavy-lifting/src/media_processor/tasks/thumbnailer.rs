@@ -39,8 +39,8 @@ use std::{
 	time::Duration,
 };
 
-use futures::{FutureExt, StreamExt};
-use futures_concurrency::future::{FutureGroup, Race};
+use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
+use futures_concurrency::future::Race;
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -55,9 +55,9 @@ pub trait NewThumbnailReporter: Send + Sync + fmt::Debug + 'static {
 }
 
 #[derive(Debug)]
-pub struct Thumbnailer<Reporter: NewThumbnailReporter> {
+pub struct Thumbnailer {
 	id: TaskId,
-	reporter: Reporter,
+	reporter: Arc<dyn NewThumbnailReporter>,
 	thumbs_kind: ThumbnailKind,
 	thumbnails_directory_path: Arc<PathBuf>,
 	thumbnails_to_generate: HashMap<ThumbnailId, GenerateThumbnailArgs>,
@@ -68,7 +68,7 @@ pub struct Thumbnailer<Reporter: NewThumbnailReporter> {
 }
 
 #[async_trait::async_trait]
-impl<Reporter: NewThumbnailReporter> Task<Error> for Thumbnailer<Reporter> {
+impl Task<Error> for Thumbnailer {
 	fn id(&self) -> TaskId {
 		self.id
 	}
@@ -124,7 +124,9 @@ impl<Reporter: NewThumbnailReporter> Task<Error> for Thumbnailer<Reporter> {
 							*id,
 							(
 								THUMBNAIL_GENERATION_TIMEOUT,
-								Err(NonCriticalError::ThumbnailGenerationTimeout(path.clone())),
+								Err(NonCriticalThumbnailerError::ThumbnailGenerationTimeout(
+									path.clone(),
+								)),
 							),
 						)
 					}),
@@ -137,14 +139,14 @@ impl<Reporter: NewThumbnailReporter> Task<Error> for Thumbnailer<Reporter> {
 				interrupter.into_future().map(InterruptRace::Interrupted)
 			)
 				.race())
-			.collect::<FutureGroup<_>>());
+			.collect::<FuturesUnordered<_>>());
 
 		while let Some(race_output) = futures.next().await {
 			match race_output {
 				InterruptRace::Processed(out) => process_thumbnail_generation_output(
 					out,
 					*with_priority,
-					reporter,
+					reporter.as_ref(),
 					already_processed_ids,
 					output,
 				),
@@ -195,8 +197,8 @@ pub struct Output {
 	pub std_dev_acc: f64,
 }
 
-#[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
-pub enum NonCriticalError {
+#[derive(thiserror::Error, Debug, Serialize, Deserialize, Type, Clone)]
+pub enum NonCriticalThumbnailerError {
 	#[error("file path <id='{0}'> has no cas_id")]
 	MissingCasId(file_path::id::Type),
 	#[error("failed to extract isolated file path data from file path <id='{0}'>: {1}")]
@@ -217,7 +219,7 @@ pub enum NonCriticalError {
 	ThumbnailGenerationTimeout(PathBuf),
 }
 
-impl<Reporter: NewThumbnailReporter> Thumbnailer<Reporter> {
+impl Thumbnailer {
 	fn new(
 		thumbs_kind: ThumbnailKind,
 		thumbnails_directory_path: Arc<PathBuf>,
@@ -225,7 +227,7 @@ impl<Reporter: NewThumbnailReporter> Thumbnailer<Reporter> {
 		errors: Vec<crate::NonCriticalError>,
 		should_regenerate: bool,
 		with_priority: bool,
-		reporter: Reporter,
+		reporter: Arc<dyn NewThumbnailReporter>,
 	) -> Self {
 		Self {
 			id: TaskId::new_v4(),
@@ -247,7 +249,7 @@ impl<Reporter: NewThumbnailReporter> Thumbnailer<Reporter> {
 	pub fn new_ephemeral(
 		thumbnails_directory_path: Arc<PathBuf>,
 		thumbnails_to_generate: Vec<GenerateThumbnailArgs>,
-		reporter: Reporter,
+		reporter: Arc<dyn NewThumbnailReporter>,
 	) -> Self {
 		Self::new(
 			ThumbnailKind::Ephemeral,
@@ -279,7 +281,7 @@ impl<Reporter: NewThumbnailReporter> Thumbnailer<Reporter> {
 		library_id: Uuid,
 		should_regenerate: bool,
 		with_priority: bool,
-		reporter: Reporter,
+		reporter: Arc<dyn NewThumbnailReporter>,
 	) -> Self {
 		let mut errors = Vec::new();
 
@@ -294,8 +296,8 @@ impl<Reporter: NewThumbnailReporter> Thumbnailer<Reporter> {
 						IsolatedFilePathData::try_from((location_id, file_path))
 							.map_err(|e| {
 								errors.push(
-									media_processor::NonCriticalError::from(
-										NonCriticalError::FailedToExtractIsolatedFilePathData(
+									media_processor::NonCriticalMediaProcessorError::from(
+										NonCriticalThumbnailerError::FailedToExtractIsolatedFilePathData(
 											file_path_id,
 											e.to_string(),
 										),
@@ -307,8 +309,8 @@ impl<Reporter: NewThumbnailReporter> Thumbnailer<Reporter> {
 							.map(|iso_file_path| (file_path_id, cas_id, iso_file_path))
 					} else {
 						errors.push(
-							media_processor::NonCriticalError::from(
-								NonCriticalError::MissingCasId(file_path.id),
+							media_processor::NonCriticalMediaProcessorError::from(
+								NonCriticalThumbnailerError::MissingCasId(file_path.id),
 							)
 							.into(),
 						);
@@ -351,12 +353,12 @@ struct SaveState {
 	output: Output,
 }
 
-impl<Reporter: NewThumbnailReporter> SerializableTask<Error> for Thumbnailer<Reporter> {
+impl SerializableTask<Error> for Thumbnailer {
 	type SerializeError = rmp_serde::encode::Error;
 
 	type DeserializeError = rmp_serde::decode::Error;
 
-	type DeserializeCtx = Reporter;
+	type DeserializeCtx = Arc<dyn NewThumbnailReporter>;
 
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
 		let Self {
@@ -418,14 +420,14 @@ type ThumbnailGenerationOutput = (
 	ThumbnailId,
 	(
 		Duration,
-		Result<(ThumbKey, GenerationStatus), NonCriticalError>,
+		Result<(ThumbKey, GenerationStatus), NonCriticalThumbnailerError>,
 	),
 );
 
 fn process_thumbnail_generation_output(
 	(id, (elapsed_time, res)): ThumbnailGenerationOutput,
 	with_priority: bool,
-	reporter: &impl NewThumbnailReporter,
+	reporter: &dyn NewThumbnailReporter,
 	already_processed_ids: &mut Vec<ThumbnailId>,
 	Output {
 		generated,
@@ -462,7 +464,7 @@ fn process_thumbnail_generation_output(
 			}
 		}
 		Err(e) => {
-			errors.push(media_processor::NonCriticalError::from(e).into());
+			errors.push(media_processor::NonCriticalMediaProcessorError::from(e).into());
 			*skipped += 1;
 		}
 	}
