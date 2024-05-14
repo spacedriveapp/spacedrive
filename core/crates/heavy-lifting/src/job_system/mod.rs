@@ -28,6 +28,7 @@ pub mod utils;
 
 pub use error::JobSystemError;
 use job::{IntoJob, Job, JobName, JobOutput, OuterContext};
+use report::Report;
 use runner::{run, JobSystemRunner, RunnerMessage};
 use store::{load_jobs, StoredJobEntry};
 
@@ -121,6 +122,21 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, J
 			&self.msgs_tx,
 		)
 		.await
+	}
+
+	/// Get a map of all active reports with their respective job ids
+	/// # Panics
+	/// Panics only happen if internal channels are unexpectedly closed
+	pub async fn get_active_reports(&self) -> HashMap<JobId, Report> {
+		let (ack_tx, ack_rx) = oneshot::channel();
+		self.msgs_tx
+			.send(RunnerMessage::GetActiveReports { ack_tx })
+			.await
+			.expect("runner msgs channel unexpectedly closed on get active reports request");
+
+		ack_rx
+			.await
+			.expect("ack channel closed before receiving get active reports response")
 	}
 
 	/// Checks if *any* of the desired jobs is running for the desired location

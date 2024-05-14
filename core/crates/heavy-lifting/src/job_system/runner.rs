@@ -15,7 +15,10 @@ use std::{
 use async_channel as chan;
 use chrono::Utc;
 use futures::StreamExt;
-use futures_concurrency::{future::TryJoin, stream::Merge};
+use futures_concurrency::{
+	future::{Join, TryJoin},
+	stream::Merge,
+};
 use tokio::{
 	fs,
 	sync::oneshot,
@@ -55,6 +58,9 @@ pub(super) enum RunnerMessage<OuterCtx: OuterContext, JobCtx: JobContext<OuterCt
 		id: JobId,
 		command: Command,
 		ack_tx: oneshot::Sender<Result<(), JobSystemError>>,
+	},
+	GetActiveReports {
+		ack_tx: oneshot::Sender<HashMap<JobId, report::Report>>,
 	},
 	CheckIfJobAreRunning {
 		job_names: Vec<JobName>,
@@ -197,6 +203,17 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 		Ok(())
 	}
 
+	async fn get_active_reports(&self) -> HashMap<JobId, report::Report> {
+		self.handles
+			.iter()
+			.map(|(job_id, handle)| async { (*job_id, handle.ctx.report().await.clone()) })
+			.collect::<Vec<_>>()
+			.join()
+			.await
+			.into_iter()
+			.collect()
+	}
+
 	async fn process_command(&mut self, id: JobId, command: Command) -> Result<(), JobSystemError> {
 		if let Some(handle) = self.handles.get_mut(&id) {
 			handle.send_command(command).await?;
@@ -251,7 +268,6 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 
 		let res = match status {
 			Ok(ReturnStatus::Completed(job_return)) => {
-				trace!("Job completed and will try to dispatch children jobs: <id='{job_id}', name='{job_name}'>");
 				try_dispatch_next_job(
 					&mut handle,
 					location_id,
@@ -285,8 +301,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 							})
 							.map_err(|e| {
 								error!(
-									"Failed to serialize next job: \
-									<parent_id='{job_id}', parent_name='{name}', \
+									"Failed to serialize next job: <parent_id='{job_id}', parent_name='{name}', \
 									next_id='{next_id}', next_name='{next_name}'>: {e:#?}"
 								);
 							})
@@ -512,6 +527,11 @@ pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 					.expect("ack channel closed before sending new job response");
 			}
 
+			StreamMessage::RunnerMessage(RunnerMessage::GetActiveReports { ack_tx }) => {
+				ack_tx
+					.send(runner.get_active_reports().await)
+					.expect("ack channel closed before sending active reports response");
+			}
 			StreamMessage::RunnerMessage(RunnerMessage::ResumeStoredJob {
 				id,
 				location_id,
