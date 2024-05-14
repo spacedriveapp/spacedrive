@@ -66,15 +66,30 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 					</CircularProgress>
 				)}
 				<div className="flex flex-col overflow-hidden">
-					<Icon className="-ml-1" name={icon as any} size={60} />
+					<Icon
+						className="-ml-1 min-h-[60px] min-w-[60px]"
+						name={icon as any}
+						size={60}
+					/>
 					<span className="truncate font-medium">{name}</span>
 					<span className="mt-1 truncate text-tiny text-ink-faint">
-						{freeSpace.value} {t(`size_${freeSpace.unit.toLowerCase()}`)} {t('free_of')}{' '}
-						{totalSpace.value} {t(`size_${totalSpace.unit.toLowerCase()}`)}
+						{freeSpace.value !== totalSpace.value && (
+							<>
+								{freeSpace.value} {t(`size_${freeSpace.unit.toLowerCase()}`)}{' '}
+								{t('free_of')} {totalSpace.value}{' '}
+								{t(`size_${totalSpace.unit.toLowerCase()}`)}
+							</>
+						)}
 					</span>
 				</div>
 			</div>
 			<div className="flex h-10 flex-row items-center gap-1.5  border-t border-app-line px-2">
+				{freeSpace.value === totalSpace.value && (
+					<Pill>
+						{totalSpace.value}
+						{t(`size_${totalSpace.unit.toLowerCase()}`)}
+					</Pill>
+				)}
 				<Pill className="uppercase">{connectionType || t('local')}</Pill>
 				<div className="grow" />
 				{/* <Button size="icon" variant="outline">

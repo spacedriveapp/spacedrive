@@ -65,7 +65,6 @@ function Job({ job, className, isChild, progress }: JobProps) {
 			}
 		]);
 	}
-	console.log(job.status);
 
 	return (
 		<JobContainer

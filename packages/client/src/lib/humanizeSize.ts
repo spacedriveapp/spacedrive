@@ -106,7 +106,7 @@ export const humanizeSize = (
 		precision = 1,
 		locales,
 		base_unit = 'decimal',
-		use_plural = false
+		use_plural = true
 	}: ByteSizeOpts = {}
 ) => {
 	if (value == null) value = 0n;
