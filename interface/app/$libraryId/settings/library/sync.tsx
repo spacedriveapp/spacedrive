@@ -53,7 +53,9 @@ export const Component = () => {
 							className="text-nowrap"
 							variant="accent"
 							onClick={() => {
-								dialogManager.create((dialogProps) => <SyncBackfillDialog {...dialogProps} />);
+								dialogManager.create((dialogProps) => (
+									<SyncBackfillDialog onEnabled={() => syncEnabled.refetch()} {...dialogProps} />
+								));
 							}}
 							disabled={backfillSync.isLoading}
 						>
@@ -89,7 +91,7 @@ export const Component = () => {
 	);
 };
 
-function SyncBackfillDialog(props: UseDialogProps) {
+function SyncBackfillDialog(props: UseDialogProps & { onEnabled: () => void }) {
 	const form = useZodForm({ schema: z.object({}) });
 	const dialog = useDialog(props);
 
@@ -100,6 +102,7 @@ function SyncBackfillDialog(props: UseDialogProps) {
 		form.handleSubmit(
 			async () => {
 				await enableSync.mutateAsync(null).then(() => (dialog.state.open = false));
+				await props.onEnabled();
 			},
 			() => {}
 		)();
