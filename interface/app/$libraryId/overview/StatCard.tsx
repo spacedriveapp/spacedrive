@@ -20,29 +20,35 @@ const Pill = tw.div`px-1.5 py-[1px] rounded text-tiny font-medium text-ink-dull 
 const StatCard = ({ icon, name, devices, connectionType, ...stats }: StatCardProps) => {
 	const [mounted, setMounted] = useState(false);
 
+
 	const isDark = useIsDark();
 
-	const { totalSpace, freeSpace, usedSpaceSpace } = useMemo(() => {
+	const { totalSpace, freeSpace, usedSpace } = useMemo(() => {
 		const totalSpace = humanizeSize(stats.totalSpace);
+
 		const freeSpace = stats.freeSpace == null ? totalSpace : humanizeSize(stats.freeSpace);
+
+		const usedSpaceCalculation = humanizeSize(totalSpace.value - freeSpace.value);
+
 		return {
 			totalSpace,
 			freeSpace,
-			usedSpaceSpace: humanizeSize(totalSpace.original - freeSpace.original)
+			usedSpace: usedSpaceCalculation,
 		};
-	}, [stats]);
 
+	}, [stats]);
 	useEffect(() => {
 		setMounted(true);
 	}, []);
 
+	usedSpace.unit = humanizeSize(Number(stats.totalSpace) - Number(stats.freeSpace)).unit;
+
 	const progress = useMemo(() => {
 		if (!mounted || totalSpace.original === 0) return 0;
-		return Math.floor((usedSpaceSpace.value / totalSpace.value) * 100);
-	}, [mounted, totalSpace, usedSpaceSpace]);
+		return Math.floor((usedSpace.value / totalSpace.value) * 100);
+	}, [mounted, totalSpace, usedSpace]);
 
 	const { t } = useLocale();
-
 	return (
 		<Card className="flex w-[280px] shrink-0 flex-col  bg-app-box/50 !p-0 ">
 			<div className="max-h-28 flex flex-row items-center gap-5 p-4 px-6">
@@ -60,9 +66,9 @@ const StatCard = ({ icon, name, devices, connectionType, ...stats }: StatCardPro
 						transition="stroke-dashoffset 1s ease 0s, stroke 1s ease"
 					>
 						<div className="absolute text-lg font-semibold">
-							{usedSpaceSpace.value}
+							{usedSpace.value}
 							<span className="ml-0.5 text-tiny opacity-60">
-								{usedSpaceSpace.unit}
+								{usedSpace.unit}
 							</span>
 						</div>
 					</CircularProgress>

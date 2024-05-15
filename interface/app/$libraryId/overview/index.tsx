@@ -3,8 +3,6 @@ import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { useLocale, useOperatingSystem } from '~/hooks';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 import { hardwareModelToIcon } from '~/util/hardware';
-import { Resizable } from '@sd/ui';
-
 import { SearchContextProvider, useSearchFromSearchParams } from '../search';
 import SearchBar from '../search/SearchBar';
 import { AddLocationButton } from '../settings/library/locations/AddLocationButton';
@@ -76,6 +74,7 @@ export const Component = () => {
 				/>
 				<div className="mt-4 flex flex-col gap-3 pt-3">
 					<OverviewSection>
+						<LibraryStatistics></LibraryStatistics>
 					</OverviewSection>
 					<OverviewSection>
 						<FileKindStatistics />
