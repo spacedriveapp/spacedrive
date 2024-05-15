@@ -1,17 +1,17 @@
 [workspace]
 resolver = "2"
 members = [
-  "core",
-  "core/crates/*",
-  "crates/*",
-  "apps/cli",
-  "apps/p2p-relay",
-  "apps/desktop/src-tauri",
-  "apps/desktop/crates/*",
-  "apps/mobile/modules/sd-core/core",
-  "apps/mobile/modules/sd-core/android/crate",
-  "apps/mobile/modules/sd-core/ios/crate",
-  "apps/server",
+	"core",
+	"core/crates/*",
+	"crates/*",
+	"apps/cli",
+	"apps/p2p-relay",
+	"apps/desktop/src-tauri",
+	"apps/desktop/crates/*",
+	"apps/mobile/modules/sd-core/core",
+	"apps/mobile/modules/sd-core/android/crate",
+	"apps/mobile/modules/sd-core/ios/crate",
+	"apps/server",
 ]
 
 [workspace.package]
@@ -21,19 +21,19 @@ repository = "https://github.com/spacedriveapp/spacedrive"
 
 [workspace.dependencies]
 prisma-client-rust = { git = "https://github.com/brendonovich/prisma-client-rust", rev = "4f9ef9d38ca732162accff72b2eb684d2f120bab", features = [
-  "migrations",
-  "specta",
-  "sqlite",
-  "sqlite-create-many",
+	"migrations",
+	"specta",
+	"sqlite",
+	"sqlite-create-many",
 ], default-features = false }
 prisma-client-rust-cli = { git = "https://github.com/brendonovich/prisma-client-rust", rev = "4f9ef9d38ca732162accff72b2eb684d2f120bab", features = [
-  "migrations",
-  "specta",
-  "sqlite",
-  "sqlite-create-many",
+	"migrations",
+	"specta",
+	"sqlite",
+	"sqlite-create-many",
 ], default-features = false }
 prisma-client-rust-sdk = { git = "https://github.com/brendonovich/prisma-client-rust", rev = "4f9ef9d38ca732162accff72b2eb684d2f120bab", features = [
-  "sqlite",
+	"sqlite",
 ], default-features = false }
 
 rspc = { version = "0.1.4" }
@@ -115,6 +115,17 @@ lto = false
 codegen-units = 256
 incremental = true
 
+[profile.dev-debug]
+inherits = "dev"
+# Enables debugger
+split-debuginfo = "none"
+opt-level = 0
+debug = "full"
+strip = "none"
+lto = "off"
+codegen-units = 256
+incremental = true
+
 # Set the settings for build scripts and proc-macros.
 [profile.dev.build-override]
 opt-level = 3
@@ -122,6 +133,13 @@ opt-level = 3
 # Set the default for dependencies, except workspace members.
 [profile.dev.package."*"]
 opt-level = 3
+incremental = false
+
+# Set the default for dependencies, except workspace members.
+[profile.dev-debug.package."*"]
+inherits = "dev"
+opt-level = 3
+debug = "full"
 incremental = false
 
 # Optimize release builds
