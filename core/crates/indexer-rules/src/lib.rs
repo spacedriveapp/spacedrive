@@ -287,12 +287,12 @@ impl RulePerKind {
 				RuleKind::RejectFilesByGlob,
 				reject_by_glob(source, reject_glob_set),
 			)),
-			Self::AcceptFilesByGitRule(path, patterns) => Ok((
+			Self::AcceptFilesByGitRule(base_dir, patterns) => Ok((
 				RuleKind::AcceptFilesByGlob,
 				accept_by_gitpattern(
 					source
 						.as_ref()
-						.strip_prefix(path)
+						.strip_prefix(base_dir)
 						.unwrap_or_else(|_| source.as_ref()),
 					patterns,
 				),

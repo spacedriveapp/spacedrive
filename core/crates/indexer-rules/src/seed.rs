@@ -1,12 +1,12 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use futures_concurrency::future::Join;
-use gix_ignore::{glob::search::pattern::List, Search};
+use gix_ignore::{glob::search::pattern::List, search::Ignore, Search};
 use sd_prisma::prisma::{indexer_rule, PrismaClient};
 
 use chrono::Utc;
 use thiserror::Error;
-use tokio::fs;
+use tracing::debug;
 use uuid::Uuid;
 
 use super::{IndexerRule, IndexerRuleError, RulePerKind};
@@ -27,24 +27,53 @@ pub struct GitIgnoreRules {
 }
 
 impl GitIgnoreRules {
-	pub async fn parse_if_gitrepo(path: &Path) -> Result<Self, SeederError> {
-		let gitignore = path.join(".gitignore");
+	pub async fn get_rules_if_in_git_repo(
+		library_root: &Path,
+		current: &Path,
+	) -> Option<Result<Self, SeederError>> {
+		let mut cur = None;
 
-		let is_git = Self::is_git_repo(path);
-		let has_gitignore = fs::try_exists(&gitignore);
-
-		let (is_git, has_gitignore) = (is_git, has_gitignore).join().await;
-		if !(is_git && matches!(has_gitignore, Ok(true))) {
-			return Err(SeederError::InhirentedExternalRules);
+		for ancestor in current
+			.ancestors()
+			.take_while(|path| path.starts_with(library_root))
+		{
+			if Self::is_git_repo(ancestor).await {
+				debug!(repo=?ancestor, "found git repo");
+				cur.replace(ancestor);
+				break;
+			}
 		}
 
-		// TODO(matheus-consoli): extend the functionality to also consider other git ignore sources
-		// `[gitignore, ...].map(parse_ignore_rules).collect().join().await` or something
-		// see `https://git-scm.com/docs/gitignore` for other ignore sources
-		// Self::parse_ignore_rules(path, &path.join(".gitignore")).await
+		Some(Self::parse_gitrepo(cur?).await)
+	}
 
-		let mut buf = Vec::with_capacity(30);
-		let gitignore_patterns = tokio::task::spawn_blocking(move || {
+	async fn parse_gitrepo(path: &Path) -> Result<Self, SeederError> {
+		let gitignore = path.join(".gitignore");
+
+		let mut search = Search::default();
+
+		let (gitignore_rules, git_exclude_rules) = (
+			Self::parse_git_ignore(gitignore),
+			Self::parse_git_exclude(path.join(".git")),
+		)
+			.join()
+			.await;
+
+		if let Ok(rules) = gitignore_rules {
+			search.patterns.push(rules);
+		}
+		if let Ok(rules) = git_exclude_rules {
+			search.patterns.extend(rules);
+		}
+
+		Ok(Self {
+			rules: RulePerKind::AcceptFilesByGitRule(path.to_owned(), search),
+		})
+	}
+
+	async fn parse_git_ignore(gitignore: PathBuf) -> Result<List<Ignore>, SeederError> {
+		tokio::task::spawn_blocking(move || {
+			let mut buf = Vec::with_capacity(30);
 			if let Ok(Some(patterns)) = List::from_file(gitignore, None, true, &mut buf) {
 				Ok(patterns)
 			} else {
@@ -52,15 +81,18 @@ impl GitIgnoreRules {
 			}
 		})
 		.await
-		.map_err(|_| SeederError::InhirentedExternalRules)??;
+		.map_err(|_| SeederError::InhirentedExternalRules)?
+	}
 
-		let search = Search {
-			patterns: vec![gitignore_patterns],
-		};
-
-		Ok(Self {
-			rules: RulePerKind::AcceptFilesByGitRule(path.to_owned(), search),
+	async fn parse_git_exclude(dot_git: PathBuf) -> Result<Vec<List<Ignore>>, SeederError> {
+		tokio::task::spawn_blocking(move || {
+			let mut buf = Vec::new();
+			Search::from_git_dir(dot_git.as_ref(), None, &mut buf)
+				.map(|search| search.patterns)
+				.map_err(|_| SeederError::InhirentedExternalRules)
 		})
+		.await
+		.map_err(|_| SeederError::InhirentedExternalRules)?
 	}
 
 	async fn is_git_repo(path: &Path) -> bool {

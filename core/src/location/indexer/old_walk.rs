@@ -472,9 +472,13 @@ where
 		return (0, vec![]);
 	};
 
+	if let Some(pat) =
+		GitIgnoreRules::get_rules_if_in_git_repo(library_root.as_ref(), current_dir.as_ref()).await
+	{
+		indexer_rules.extend(pat.into_iter().map(Into::into));
+	}
+
 	let current_dir = current_dir.as_ref();
-	let gitignore_rules = GitIgnoreRules::parse_if_gitrepo(library_root.as_ref()).await;
-	indexer_rules.extend(gitignore_rules.into_iter().map(Into::into));
 
 	// Just to make sure...
 	paths_buffer.clear();

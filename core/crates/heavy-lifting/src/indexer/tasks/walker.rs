@@ -542,8 +542,11 @@ where
 		let (to_create, to_update, total_size, to_remove, accepted_ancestors, handles) = loop {
 			match stage {
 				WalkerStage::Start => {
-					let gitignore_rules = GitIgnoreRules::parse_if_gitrepo(path).await;
-					indexer_ruler.extend(gitignore_rules.map(Into::into)).await;
+					if let Some(rules) =
+						GitIgnoreRules::get_rules_if_in_git_repo(root.as_ref(), path).await
+					{
+						indexer_ruler.extend(rules.map(Into::into)).await;
+					}
 
 					*stage = WalkerStage::Walking {
 						read_dir_stream: ReadDirStream::new(fs::read_dir(&path).await.map_err(
