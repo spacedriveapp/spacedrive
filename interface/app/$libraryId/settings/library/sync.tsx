@@ -45,7 +45,7 @@ export const Component = () => {
 			{syncEnabled.data === false ? (
 				<Setting
 					mini
-					title="Enable Sync"
+					title={t('enable_sync')}
 					description="Generate sync operations for all the existing data in this library, and configure Spacedrive to generate sync operations when things happen in future."
 				>
 					<div>
@@ -59,7 +59,7 @@ export const Component = () => {
 							}}
 							disabled={backfillSync.isLoading}
 						>
-							Enable sync
+							{t('enable_sync')}
 						</Button>
 					</div>
 				</Setting>
@@ -69,11 +69,11 @@ export const Component = () => {
 						mini
 						title={
 							<>
-								Ingester
+								{t('ingester')}
 								<OnlineIndicator online={data[ACTORS.Ingest] ?? false} />
 							</>
 						}
-						description="This process takes sync operations from P2P connections and Spacedrive Cloud and applies them to the library."
+						description={t('injester_description')}
 					>
 						<div>
 							{data[ACTORS.Ingest] ? (
@@ -189,6 +189,7 @@ function CloudSync({ data }: { data: inferSubscriptionResult<Procedures, 'librar
 
 function StartButton({ name }: { name: string }) {
 	const startActor = useLibraryMutation(['library.startActor']);
+	const {t} = useLocale()
 
 	return (
 		<Button
@@ -196,17 +197,18 @@ function StartButton({ name }: { name: string }) {
 			disabled={startActor.isLoading}
 			onClick={() => startActor.mutate(name)}
 		>
-			{startActor.isLoading ? 'Starting...' : 'Start'}
+			{startActor.isLoading ? t('starting') : t('start')}
 		</Button>
 	);
 }
 
 function StopButton({ name }: { name: string }) {
 	const stopActor = useLibraryMutation(['library.stopActor']);
+	const {t} = useLocale()
 
 	return (
 		<Button variant="accent" disabled={stopActor.isLoading} onClick={() => stopActor.mutate(name)}>
-			{stopActor.isLoading ? 'Stopping...' : 'Stop'}
+			{stopActor.isLoading ? t('stopping') : t('stop')}
 		</Button>
 	);
 }
