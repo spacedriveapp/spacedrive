@@ -46,7 +46,7 @@ export const Component = () => {
 				<Setting
 					mini
 					title={t('enable_sync')}
-					description="Generate sync operations for all the existing data in this library, and configure Spacedrive to generate sync operations when things happen in future."
+					description={t('enable_sync_description')}
 				>
 					<div>
 						<Button
@@ -94,6 +94,7 @@ export const Component = () => {
 function SyncBackfillDialog(props: UseDialogProps & { onEnabled: () => void }) {
 	const form = useZodForm({ schema: z.object({}) });
 	const dialog = useDialog(props);
+	const {t} = useLocale();
 
 	const enableSync = useLibraryMutation(['sync.backfill'], {});
 
@@ -111,8 +112,8 @@ function SyncBackfillDialog(props: UseDialogProps & { onEnabled: () => void }) {
 
 	return (
 		<Dialog
-			title="Backfilling Sync Operations"
-			description="Library is paused until backfill completes"
+			title={t('backfill_sync')}
+			description={t('backfill_sync_description')}
 			form={form}
 			dialog={dialog}
 			hideButtons
@@ -122,22 +123,23 @@ function SyncBackfillDialog(props: UseDialogProps & { onEnabled: () => void }) {
 }
 
 function CloudSync({ data }: { data: inferSubscriptionResult<Procedures, 'library.actors'> }) {
+	const {t} = useLocale()
 	return (
 		<>
 			<div>
-				<h1 className="mb-0.5 text-lg font-bold text-ink">Cloud Sync</h1>
+				<h1 className="mb-0.5 text-lg font-bold text-ink">{t('cloud_sync')}</h1>
 				<p className="text-sm text-ink-faint">
-					Manage the processes that sync your library with Spacedrive Cloud
+					{t('cloud_sync_description')}
 				</p>
 			</div>
 			<Setting
 				mini
 				title={
 					<>
-						Sender <OnlineIndicator online={data[ACTORS.CloudSend] ?? false} />
+						{t('sender')} <OnlineIndicator online={data[ACTORS.CloudSend] ?? false} />
 					</>
 				}
-				description="This process sends sync operations to Spacedrive Cloud."
+				description={t('sender_description')}
 			>
 				<div>
 					{data[ACTORS.CloudSend] ? (
@@ -151,11 +153,11 @@ function CloudSync({ data }: { data: inferSubscriptionResult<Procedures, 'librar
 				mini
 				title={
 					<>
-						Receiver
+						{t('receiver')}
 						<OnlineIndicator online={data[ACTORS.CloudReceive] ?? false} />
 					</>
 				}
-				description="This process receives and stores operations from Spacedrive Cloud."
+				description={t('receiver_description')}
 			>
 				<div>
 					{data[ACTORS.CloudReceive] ? (
@@ -169,11 +171,11 @@ function CloudSync({ data }: { data: inferSubscriptionResult<Procedures, 'librar
 				mini
 				title={
 					<>
-						Ingester
+						{t('ingester')}
 						<OnlineIndicator online={data[ACTORS.CloudIngest] ?? false} />
 					</>
 				}
-				description="This process takes received cloud operations and sends them to the main sync ingester."
+				description={t('ingester_description')}
 			>
 				<div>
 					{data[ACTORS.CloudIngest] ? (
