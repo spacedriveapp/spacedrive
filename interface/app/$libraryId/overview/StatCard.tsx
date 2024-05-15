@@ -44,7 +44,7 @@ const StatCard = ({ icon, name, devices, connectionType, ...stats }: StatCardPro
 	usedSpace.unit = humanizeSize(Number(stats.totalSpace) - Number(stats.freeSpace)).unit;
 
 	const progress = useMemo(() => {
-		if (!mounted || totalSpace.original === 0) return 0;
+		if (!mounted || totalSpace.bytes === 0n) return 0;
 		return Math.floor((usedSpace.value / totalSpace.value) * 100);
 	}, [mounted, totalSpace, usedSpace]);
 	const { t } = useLocale();
