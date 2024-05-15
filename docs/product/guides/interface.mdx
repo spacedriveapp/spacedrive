@@ -4,32 +4,52 @@ index: 2
 
 # Spacedrive Interface
 
-Let's start by getting a clear understanding of the Spacedrive interface. Designed to mimic what you know and love with existing file explorers, but with powerful features and a universal desgin across operating systems.
-
-## Launch with CTRL+SPACE
-
-<Notice type="info" text="This feature is coming in mid April 2024" />
-
-A single keybind to launch Spacedrive from anywhere, you can define from the settings how Spacedrive should present itself on this keybind.
+Let's start by getting a clear understanding of the Spacedrive interface. Designed to mimic what you know and love with existing file explorers, but with powerful features and a universal design across operating systems.
 
 ## Sidebar
 
-The sidebar starts with a library switcher, this allows you to change the entire context of Spacedrive quickly. Below it, you will see the contents of your library,such as Locations and Tags, Local drive explorer and mounts, Network overview, Statistics and base categories such as `All Files` and `Trash`.
+![image](/library_switcher.webp)
+
+The sidebar starts with a library switcher, this allows you to change the entire context of Spacedrive quickly. Below it, you will see the contents of your library, such as Locations and Tags, local drive explorer, active mounts, and your local network.
 
 ## Explorer
 
+The explorer is comprised of different views; List, Grid and Media View, with column and tree views on the way. The explorer can be used to navigate Locations, Tags, Local drives, Network drives, and even peer Spacedrive nodes.
+
+With Locations and search, Spacedrive is showing you the virtual representation of the filesystem, but is continuously refreshing the index to show you the latest changes.
+
+## Local Explorer
+
+The Local Explorer (found under "Local" in the sidebar) reveals the actual filesystem directly, without our "VDFS" layer. For large folders we stream the results as we index them ephemerally, which is often slower than our virtual filesystem.
+
+Certain Spacedrive specific features like [Tags](/docs/product/guides/tags) are not available for files in the Local Explorer, but you can still use the inspector to view metadata and edit files.
+
 ## Inspector
 
-## Categories
+The inspector allows you to view more information about any given file in your Spacedrive library. It is closed by default, but can be opened with CMD/CTRL+I or pressing the icon in the top bar.
+
+Currently the explorer shows basic metadata, tags, and duplicate files. It also will display EXIF data for media and allow you to edit items.
 
 ## Overview
 
-## Quick Preview
+Currenty, the Overview screen shows you statistics about your library as well as list of supported file types as categories. Clicking them will open a search for that file type. Additionally, lists of Devices, Locations and Clouds can be found below.
 
-## Command Pallette
+As we improve, the overview will provide a customizable dashboard like view for your library; for example, most features will have a dashboard widget and the layout will be fully customizable.
 
-<Notice type="info" text="This feature is coming in mid April 2024" />
+## Applications
+
+<Notice type="info" text="This feature is coming in mid June 2024" />
+
+Applications found on your system can be tracked by your Spacedrive library. Our Applications tab acts as a manager atop your installed applications. Using existing command line package managers allows you to install the same applications accross operating systems, and re-install old ones on a new machine. This will preserve and backing-up application data when supported.
+
+## Network
+
+The network tab shows you all the devices connected to your library, allowing you to see their status, and even browse their filesystems. This is where you can view and manage [Nodes](/docs/product/guides/network#Nodes) and [Shares](/docs/product/guides/network#Shares) across your networks.
+
+## Launch with CTRL+SPACE
+
+<Notice type="info" text="This feature is coming in mid June 2024" />
+
+A single keybind to launch Spacedrive from anywhere. You can define from the settings how Spacedrive should present itself on this keybind.
 
 ## Search
-
-{/* ![image](/thumbnails.webp) */}

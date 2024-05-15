@@ -1,5 +1,33 @@
 ---
-index: 100
+index: 10
 ---
 
 # Jobs
+
+Jobs allow Spacedrive to complete a body of work; a built-in multi-threaded task management system.
+
+Jobs can be paused, resumed, and cancelled. Spacedrive will always try to restart jobs that were cut off by a restart or shutdown of Spacedrive.
+
+A small indicator shows in the bottom left when a job is running. Clicking it will reveal the job manager.
+
+### Types of job
+
+| Name             | Job Manager caption                           | Purpose                                                                                                   |
+| ---------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Indexer          | "Indexing files"                              | Discover file paths within a location and write them to the library database.                             |
+| FileIdentifier   | "Extracting metadata"                         | Extract filesystem metadata, generating unique identifier (cas_id) and categorize the file.               |
+| Media Processor  | "Processing media" or "Generating thumbnails" | Generate thumbnails media for photos and videos and extract EXIF metadata.                                |
+| Labeler          | "Labeling files"                              | Assign labels using the currenly loaded object detection AI model, by default is YOLO.                    |
+| Object Validator | "Validating files"                            | Generate a full checksum from all bytes present in the file, unlike the cas_id approach which is partial. |
+| FileCutter       | "Cutting X files"                             | Cut or "move" files.                                                                                      |
+| FileCopier       | "Copying X files"                             | Copy files.                                                                                               |
+| FileEraser       | "Erasing X files"                             | Permanently erase a file                                                                                  |
+| LocationCleaner  | "Removing Location"                           | Cleans up all data related to a location on delete.                                                       |
+
+### Job Manager
+
+The job manager allows you to see current jobs or expand them to see various child jobs. Jobs with only one child, such as copying a single file, will not be expandable by clicking.
+
+Job history can be cleared by hitting the small trash icon on the job manager. Note that this will not remove any ongoing jobs.
+
+Up to 3 jobs can run simultaneously, although this may be configurable in the future. More CPU-intensive jobs like thumbnailing and labelling have an upper limit for CPU usage that can be set in the General settings page.
