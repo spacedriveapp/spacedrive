@@ -13,7 +13,7 @@ use tokio::{sync::oneshot, time::timeout};
 use tracing::info;
 
 use crate::{
-	hooks::{HandlerFn, Hook, HookEvent, ListenerData, ListenerId, ShutdownGuard},
+	hook::{HandlerFn, Hook, HookEvent, ListenerData, ListenerId, ShutdownGuard},
 	smart_guards::SmartWriteGuard,
 	HookId, Identity, Peer, PeerConnectionCandidate, RemoteIdentity, UnicastStream,
 };

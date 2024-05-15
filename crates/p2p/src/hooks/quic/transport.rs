@@ -8,13 +8,16 @@ use std::{
 
 use flume::{bounded, Receiver, Sender};
 use libp2p::{
-	autonat, dcutr,
+	autonat,
+	core::muxing::StreamMuxerBox,
+	dcutr,
 	futures::{AsyncReadExt, AsyncWriteExt, StreamExt},
 	multiaddr::Protocol,
 	noise, relay,
-	swarm::{NetworkBehaviour, SwarmEvent},
-	yamux, Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder,
+	swarm::{dial_opts::DialOpts, NetworkBehaviour, SwarmEvent},
+	yamux, Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder, Transport,
 };
+use rand::thread_rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::{
@@ -26,13 +29,12 @@ use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tracing::{debug, error, warn};
 use uuid::Uuid;
 
+use super::utils::{
+	identity_to_libp2p_keypair, remote_identity_to_libp2p_peerid, socketaddr_to_quic_multiaddr,
+};
 use crate::{
-	identity::REMOTE_IDENTITY_LEN,
-	quic::utils::{
-		identity_to_libp2p_keypair, remote_identity_to_libp2p_peerid, socketaddr_to_quic_multiaddr,
-	},
-	ConnectionRequest, HookEvent, ListenerId, PeerConnectionCandidate, RemoteIdentity,
-	UnicastStream, P2P,
+	identity::REMOTE_IDENTITY_LEN, ConnectionRequest, HookEvent, ListenerId, Peer,
+	PeerConnectionCandidate, RemoteIdentity, UnicastStream, P2P,
 };
 
 const PROTOCOL: StreamProtocol = StreamProtocol::new("/sdp2p/1");
@@ -77,6 +79,8 @@ struct MyBehaviour {
 	autonat: autonat::Behaviour,
 	// TODO: Can this be optional?
 	dcutr: dcutr::Behaviour,
+	// TODO: Can this be optional?
+	// webrtc: libp2p_webrtc::
 }
 
 #[derive(Debug, Error)]
@@ -118,9 +122,19 @@ impl QuicTransport {
 			peer.listener_available(listener_id, connect_tx.clone());
 		});
 
-		let swarm = SwarmBuilder::with_existing_identity(keypair)
+		// let cert = libp2p_webrtc::tokio::Certificate::generate(&mut thread_rng())
+		// 	.map_err(|err| QuicTransportError::SwarmBuilderCreation(err.to_string()))?; // TODO: Maybe a different error
+
+		let mut swarm = SwarmBuilder::with_existing_identity(keypair)
 			.with_tokio()
 			.with_quic()
+			// .with_other_transport(|id_keys| {
+			// 	Ok(
+			// 		libp2p_webrtc::tokio::Transport::new(id_keys.clone(), cert.clone())
+			// 			.map(|(peer_id, conn), _| (peer_id, StreamMuxerBox::new(conn))),
+			// 	)
+			// })
+			.map_err(|err| QuicTransportError::SwarmBuilderCreation(err.to_string()))?
 			.with_relay_client(noise::Config::new, yamux::Config::default)
 			.map_err(|err| QuicTransportError::SwarmBuilderCreation(err.to_string()))?
 			.with_behaviour(|keypair, relay_behaviour| MyBehaviour {
@@ -133,7 +147,40 @@ impl QuicTransport {
 			.with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
 			.build();
 
+		// TODO: Use Cloudflare's STUN + TURN servers
+
+		// swarm
+		// 	.listen_on(
+		// 		Multiaddr::from(Ipv4Addr::UNSPECIFIED)
+		// 			.with(Protocol::Udp(0))
+		// 			.with(Protocol::WebRTCDirect),
+		// 	)
+		// 	.unwrap(); // TODO: Error handling
+
+		// println!(
+		// 	"LISTENING: {:?}",
+		// 	Multiaddr::from(Ipv4Addr::UNSPECIFIED)
+		// 		.with(Protocol::Udp(0))
+		// 		.with(Protocol::WebRTCDirect)
+		// 		.with(Protocol::Certhash(cert.fingerprint().to_multihash()))
+		// 		.with(Protocol::P2p(libp2p_peer_id.0))
+		// );
+
+		// let connect_to = "/ip4/0.0.0.0/udp/0/webrtc-direct/certhash/uEiA2a6IX-CF1LZI6pP22P49E9eINiKaFrfn0XYG8GXqzHw/p2p/12D3KooWPyaBsoVp2MKb8bbxcMkmjdQzqP1KbJ1K5amicKvcK1Sp".parse::<Multiaddr>().unwrap();
+		// let peer_id =
+		// 	PeerId::from_str("12D3KooWPyaBsoVp2MKb8bbxcMkmjdQzqP1KbJ1K5amicKvcK1Sp").unwrap();
+
+		// let mut control = swarm.behaviour().stream.new_control();
+
+		// swarm.dial(connect_to).unwrap();
+		// println!("DIALED");
+
 		tokio::spawn(start(p2p.clone(), id, swarm, rx, internal_rx, connect_rx));
+
+		// tokio::spawn(async move {
+		// 	let stream = control.open_stream(peer_id, PROTOCOL).await.unwrap();
+		// 	println!("GOT STREAM");
+		// });
 
 		Ok((
 			Self {
