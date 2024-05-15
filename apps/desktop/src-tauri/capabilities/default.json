@@ -19,6 +19,7 @@
 		"dialog:allow-open",
 		"window:allow-close",
 		"window:allow-minimize",
-		"window:allow-toggle-maximize"
+		"window:allow-toggle-maximize",
+		"dialog:allow-confirm"
 	]
 }

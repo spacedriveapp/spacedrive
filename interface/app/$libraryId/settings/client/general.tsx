@@ -347,35 +347,37 @@ export const Component = () => {
 							/>
 						</Setting>
 
+						<Setting
+							mini
+							title={t('p2p_visibility')}
+							description={
+								<p className="text-sm text-gray-400">
+									{t('p2p_visibility_description')}
+								</p>
+							}
+						>
+							<Select
+								value={form.watch('p2p_discovery') || 'Everyone'}
+								containerClassName="h-[30px]"
+								className="h-full"
+								onChange={(type) => form.setValue('p2p_discovery', type)}
+							>
+								<SelectOption value="Everyone">
+									{t('p2p_visibility_everyone')}
+								</SelectOption>
+								{isP2PWipFeatureEnabled ? (
+									<SelectOption value="ContactsOnly">
+										{t('p2p_visibility_contacts_only')}
+									</SelectOption>
+								) : null}
+								<SelectOption value="Disabled">
+									{t('p2p_visibility_disabled')}
+								</SelectOption>
+							</Select>
+						</Setting>
+
 						{isP2PWipFeatureEnabled && (
 							<>
-								<Setting
-									mini
-									title={t('spacedrop')}
-									description={
-										<p className="text-sm text-gray-400">
-											{t('spacedrop_description')}
-										</p>
-									}
-								>
-									<Select
-										value={form.watch('p2p_discovery') || 'Everyone'}
-										containerClassName="h-[30px]"
-										className="h-full"
-										onChange={(type) => form.setValue('p2p_discovery', type)}
-									>
-										<SelectOption value="Everyone">
-											{t('spacedrop_everyone')}
-										</SelectOption>
-										<SelectOption value="ContactsOnly">
-											{t('spacedrop_contacts_only')}
-										</SelectOption>
-										<SelectOption value="Disabled">
-											{t('spacedrop_disabled')}
-										</SelectOption>
-									</Select>
-								</Setting>
-
 								<Setting
 									mini
 									title={t('remote_access')}

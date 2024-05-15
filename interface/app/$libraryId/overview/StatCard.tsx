@@ -47,7 +47,6 @@ const StatCard = ({ icon, name, devices, connectionType, ...stats }: StatCardPro
 		if (!mounted || totalSpace.original === 0) return 0;
 		return Math.floor((usedSpace.value / totalSpace.value) * 100);
 	}, [mounted, totalSpace, usedSpace]);
-
 	const { t } = useLocale();
 	return (
 		<Card className="flex w-[280px] shrink-0 flex-col  bg-app-box/50 !p-0 ">

@@ -152,7 +152,7 @@ impl Actor {
 		shared
 			.actors
 			.declare(
-				"Sync Ingester",
+				"Sync Ingest",
 				{
 					let shared = shared.clone();
 					move || async move {
