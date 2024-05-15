@@ -20,7 +20,10 @@ use sd_prisma::prisma::{
 	ffmpeg_data, ffmpeg_media_audio_props, ffmpeg_media_chapter, ffmpeg_media_codec,
 	ffmpeg_media_program, ffmpeg_media_stream, ffmpeg_media_video_props, object, PrismaClient,
 };
-use sd_utils::db::{ffmpeg_data_field_from_db, ffmpeg_data_field_to_db};
+use sd_utils::{
+	db::{ffmpeg_data_field_from_db, ffmpeg_data_field_to_db},
+	i64_to_frontend,
+};
 
 use std::{collections::HashMap, path::Path};
 
@@ -590,27 +593,10 @@ pub fn from_prisma_data(
 ) -> FFmpegMetadata {
 	FFmpegMetadata {
 		formats: formats.split(',').map(String::from).collect::<Vec<_>>(),
-		duration: duration.map(|duration| {
-			let duration = ffmpeg_data_field_from_db(&duration);
-
-			#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-			let duration = ((duration >> 32) as i32, duration as u32);
-			duration
-		}),
-		start_time: start_time.map(|start_time| {
-			let start_time = ffmpeg_data_field_from_db(&start_time);
-
-			#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-			let start_time = ((start_time >> 32) as i32, start_time as u32);
-			start_time
-		}),
-		bit_rate: {
-			let bit_rate = ffmpeg_data_field_from_db(&bit_rate);
-
-			#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-			let bit_rate = ((bit_rate >> 32) as i32, bit_rate as u32);
-			bit_rate
-		},
+		duration: duration.map(|duration| i64_to_frontend(ffmpeg_data_field_from_db(&duration))),
+		start_time: start_time
+			.map(|start_time| i64_to_frontend(ffmpeg_data_field_from_db(&start_time))),
+		bit_rate: i64_to_frontend(ffmpeg_data_field_from_db(&bit_rate)),
 		chapters: chapters_from_prisma_data(chapters),
 		programs: programs_from_prisma_data(programs),
 		metadata: from_slice_option_to_option(metadata).unwrap_or_default(),
@@ -632,20 +618,8 @@ fn chapters_from_prisma_data(chapters: Vec<ffmpeg_media_chapter::Data>) -> Vec<C
 			     ..
 			 }| Chapter {
 				id: chapter_id,
-				start: {
-					let start = ffmpeg_data_field_from_db(&start);
-
-					#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-					let start = ((start >> 32) as i32, start as u32);
-					start
-				},
-				end: {
-					let end = ffmpeg_data_field_from_db(&end);
-
-					#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-					let end = ((end >> 32) as i32, end as u32);
-					end
-				},
+				start: i64_to_frontend(ffmpeg_data_field_from_db(&start)),
+				end: i64_to_frontend(ffmpeg_data_field_from_db(&end)),
 				time_base_den,
 				time_base_num,
 				metadata: from_slice_option_to_option(metadata).unwrap_or_default(),

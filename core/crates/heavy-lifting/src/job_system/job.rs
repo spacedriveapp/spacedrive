@@ -162,7 +162,7 @@ where
 #[derive(Debug)]
 pub struct JobReturn {
 	data: JobOutputData,
-	metadata: Option<ReportOutputMetadata>,
+	metadata: Vec<ReportOutputMetadata>,
 	non_critical_errors: Vec<NonCriticalError>,
 }
 
@@ -179,7 +179,7 @@ impl Default for JobReturn {
 	fn default() -> Self {
 		Self {
 			data: JobOutputData::Empty,
-			metadata: None,
+			metadata: vec![],
 			non_critical_errors: vec![],
 		}
 	}
@@ -198,8 +198,8 @@ impl JobReturnBuilder {
 	}
 
 	#[must_use]
-	pub fn with_metadata(mut self, metadata: impl Into<ReportOutputMetadata>) -> Self {
-		self.job_return.metadata = Some(metadata.into());
+	pub fn with_metadata(mut self, metadata: impl Into<Vec<ReportOutputMetadata>>) -> Self {
+		self.job_return.metadata = metadata.into();
 		self
 	}
 
@@ -251,9 +251,9 @@ impl JobOutput {
 			);
 		}
 
-		if let Some(metadata) = metadata {
-			report.metadata.push(ReportMetadata::Output(metadata));
-		}
+		report
+			.metadata
+			.extend(metadata.into_iter().map(ReportMetadata::Output));
 
 		report.completed_at = Some(Utc::now());
 
@@ -505,6 +505,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 		self.command_children(Command::Cancel).await
 	}
 
+	// TODO usar essa caralha
 	pub async fn shutdown_pause_job(&mut self) -> Result<(), JobSystemError> {
 		trace!("Handle pausing job on shutdown: <job_id='{}'>", self.id);
 
@@ -769,7 +770,7 @@ async fn to_spawn_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 								if let Err(e) = res {
 									assert!(matches!(e, TaskSystemError::TaskNotFound(_)));
 
-									warn!("Tried to pause a task that was already completed");
+									warn!("Tried to resume a task that was already completed");
 								}
 							});
 					}

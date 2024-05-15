@@ -165,6 +165,8 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 			)
 		};
 
+		handle.register_start(Utc::now()).await?;
+
 		{
 			let mut report = handle.ctx.report_mut().await;
 
@@ -241,7 +243,11 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 		})
 	}
 
-	async fn process_return_status(&mut self, job_id: JobId, status: Result<ReturnStatus, Error>) {
+	async fn process_return_status(
+		&mut self,
+		job_id: JobId,
+		status: Result<ReturnStatus, Error>,
+	) -> Result<(), JobSystemError> {
 		let Self {
 			handles,
 			worktables,
@@ -275,7 +281,8 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 					worktables,
 					handles,
 					job_return_status_tx.clone(),
-				);
+				)
+				.await?;
 
 				handle.complete_job(job_return).await
 			}
@@ -283,34 +290,10 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 			Ok(ReturnStatus::Shutdown(Ok(Some(serialized_job)))) => {
 				let name = handle.ctx.report().await.name;
 
-				let Ok(next_jobs) = handle
-					.next_jobs
-					.into_iter()
-					.map(|next_job| async move {
-						let next_id = next_job.id();
-						let next_name = next_job.job_name();
-						next_job
-							.serialize()
-							.await
-							.map(|maybe_serialized_job| {
-								maybe_serialized_job.map(|serialized_job| StoredJob {
-									id: next_id,
-									name: next_name,
-									serialized_job,
-								})
-							})
-							.map_err(|e| {
-								error!(
-									"Failed to serialize next job: <parent_id='{job_id}', parent_name='{name}', \
-									next_id='{next_id}', next_name='{next_name}'>: {e:#?}"
-								);
-							})
-					})
-					.collect::<Vec<_>>()
-					.try_join()
-					.await
+				let Some(next_jobs) =
+					serialize_next_jobs_to_shutdown(job_id, job_name, handle.next_jobs).await
 				else {
-					return;
+					return Ok(());
 				};
 
 				worktables
@@ -324,10 +307,10 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 							name,
 							serialized_job,
 						},
-						next_jobs: next_jobs.into_iter().flatten().collect(),
+						next_jobs,
 					});
 
-				return;
+				return Ok(());
 			}
 
 			Ok(ReturnStatus::Shutdown(Ok(None))) => {
@@ -335,12 +318,12 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 					"Job was shutdown but didn't returned any serialized data, \
 					probably it isn't resumable job: <id='{job_id}'>"
 				);
-				return;
+				return Ok(());
 			}
 
 			Ok(ReturnStatus::Shutdown(Err(e))) => {
 				error!("Failed to serialize job: {e:#?}");
-				return;
+				return Ok(());
 			}
 
 			Ok(ReturnStatus::Canceled) => handle
@@ -355,6 +338,8 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 			.send((job_id, res))
 			.await
 			.expect("job outputs channel unexpectedly closed on job completion");
+
+		Ok(())
 	}
 
 	fn clean_memory(&mut self) {
@@ -432,7 +417,43 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 	}
 }
 
-fn try_dispatch_next_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
+async fn serialize_next_jobs_to_shutdown<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
+	parent_job_id: JobId,
+	parent_job_name: JobName,
+	next_jobs: impl IntoIterator<Item = Box<dyn DynJob<OuterCtx, JobCtx>>> + Send,
+) -> Option<Vec<StoredJob>> {
+	next_jobs
+		.into_iter()
+		.map(|next_job| async move {
+			let next_id = next_job.id();
+			let next_name = next_job.job_name();
+			next_job
+				.serialize()
+				.await
+				.map(|maybe_serialized_job| {
+					maybe_serialized_job.map(|serialized_job| StoredJob {
+						id: next_id,
+						name: next_name,
+						serialized_job,
+					})
+				})
+				.map_err(|e| {
+					error!(
+						"Failed to serialize next job: <parent_id='{parent_job_id}', parent_name='{parent_job_name}', \
+						next_id='{next_id}', next_name='{next_name}'>: {e:#?}"
+					);
+				})
+		})
+		.collect::<Vec<_>>()
+		.try_join()
+		.await
+		.map(|maybe_serialized_next_jobs| {
+			maybe_serialized_next_jobs.into_iter().flatten().collect()
+		})
+		.ok()
+}
+
+async fn try_dispatch_next_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 	handle: &mut JobHandle<OuterCtx, JobCtx>,
 	location_id: location::id::Type,
 	base_dispatcher: BaseTaskDispatcher<Error>,
@@ -445,7 +466,7 @@ fn try_dispatch_next_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 	}: &mut JobsWorktables,
 	handles: &mut HashMap<JobId, JobHandle<OuterCtx, JobCtx>>,
 	job_return_status_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
-) {
+) -> Result<(), JobSystemError> {
 	if let Some(next) = handle.next_jobs.pop_front() {
 		let next_id = next.id();
 		let next_hash = next.hash();
@@ -465,6 +486,7 @@ fn try_dispatch_next_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 				handle.ctx.get_outer_ctx(),
 				job_return_status_tx,
 			);
+			next_handle.register_start(Utc::now()).await?;
 
 			assert!(
 				next_handle.next_jobs.is_empty(),
@@ -481,6 +503,8 @@ fn try_dispatch_next_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 	} else {
 		trace!("No next jobs to dispatch");
 	}
+
+	Ok(())
 }
 
 pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
@@ -511,7 +535,9 @@ pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 			// Job return status messages
 			StreamMessage::ReturnStatus((job_id, status)) => {
 				trace!("Received return status for job: <id='{job_id}', status='{status:#?}'>");
-				runner.process_return_status(job_id, status).await;
+				if let Err(e) = runner.process_return_status(job_id, status).await {
+					error!("Failed to process return status: {e:#?}");
+				}
 			}
 
 			// Runner messages
@@ -565,7 +591,9 @@ pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 				// Consuming all pending return status messages
 				loop {
 					while let Ok((job_id, status)) = job_return_status_rx_to_shutdown.try_recv() {
-						runner.process_return_status(job_id, status).await;
+						if let Err(e) = runner.process_return_status(job_id, status).await {
+							error!("Failed to process return status before shutting down: {e:#?}");
+						}
 					}
 
 					if runner.is_empty() {

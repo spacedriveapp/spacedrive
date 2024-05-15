@@ -21,7 +21,7 @@ use sd_task_system::{
 	AnyTaskOutput, IntoTask, SerializableTask, Task, TaskDispatcher, TaskHandle, TaskId,
 	TaskOutput, TaskStatus,
 };
-use sd_utils::db::maybe_missing;
+use sd_utils::{db::maybe_missing, u64_to_frontend};
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -602,23 +602,40 @@ pub struct Metadata {
 	removed_count: u64,
 }
 
-impl From<Metadata> for ReportOutputMetadata {
-	fn from(value: Metadata) -> Self {
-		Self::Metrics(HashMap::from([
-			("db_write_time".into(), json!(value.db_write_time)),
-			("scan_read_time".into(), json!(value.scan_read_time)),
-			("total_tasks".into(), json!(value.total_tasks)),
-			("total_paths".into(), json!(value.total_paths)),
-			(
-				"total_updated_paths".into(),
-				json!(value.total_updated_paths),
-			),
-			("total_save_steps".into(), json!(value.total_save_steps)),
-			("total_update_steps".into(), json!(value.total_update_steps)),
-			("indexed_count".into(), json!(value.indexed_count)),
-			("updated_count".into(), json!(value.updated_count)),
-			("removed_count".into(), json!(value.removed_count)),
-		]))
+impl From<Metadata> for Vec<ReportOutputMetadata> {
+	fn from(
+		Metadata {
+			db_write_time,
+			scan_read_time,
+			total_tasks,
+			completed_tasks,
+			total_paths,
+			total_updated_paths,
+			total_save_steps,
+			total_update_steps,
+			indexed_count,
+			updated_count,
+			removed_count,
+		}: Metadata,
+	) -> Self {
+		vec![
+			ReportOutputMetadata::Indexer {
+				total_paths: u64_to_frontend(total_paths),
+			},
+			ReportOutputMetadata::Metrics(HashMap::from([
+				("db_write_time".into(), json!(db_write_time)),
+				("scan_read_time".into(), json!(scan_read_time)),
+				("total_tasks".into(), json!(total_tasks)),
+				("completed_tasks".into(), json!(completed_tasks)),
+				("total_paths".into(), json!(total_paths)),
+				("total_updated_paths".into(), json!(total_updated_paths)),
+				("total_save_steps".into(), json!(total_save_steps)),
+				("total_update_steps".into(), json!(total_update_steps)),
+				("indexed_count".into(), json!(indexed_count)),
+				("updated_count".into(), json!(updated_count)),
+				("removed_count".into(), json!(removed_count)),
+			])),
+		]
 	}
 }
 

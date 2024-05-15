@@ -19,7 +19,7 @@ use sd_task_system::{
 	AnyTaskOutput, IntoTask, SerializableTask, Task, TaskDispatcher, TaskHandle, TaskId,
 	TaskOutput, TaskStatus,
 };
-use sd_utils::db::maybe_missing;
+use sd_utils::{db::maybe_missing, u64_to_frontend};
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -573,44 +573,46 @@ pub struct Metadata {
 	completed_tasks: u64,
 }
 
-impl From<Metadata> for ReportOutputMetadata {
-	fn from(value: Metadata) -> Self {
-		Self::Metrics(HashMap::from([
-			(
-				"extract_metadata_time".into(),
-				json!(value.extract_metadata_time),
-			),
-			(
-				"assign_cas_ids_time".into(),
-				json!(value.assign_cas_ids_time),
-			),
-			(
-				"fetch_existing_objects_time".into(),
-				json!(value.fetch_existing_objects_time),
-			),
-			(
-				"assign_to_existing_object_time".into(),
-				json!(value.assign_to_existing_object_time),
-			),
-			("create_object_time".into(), json!(value.create_object_time)),
-			(
-				"seeking_orphans_time".into(),
-				json!(value.seeking_orphans_time),
-			),
-			(
-				"total_found_orphans".into(),
-				json!(value.total_found_orphans),
-			),
-			(
-				"created_objects_count".into(),
-				json!(value.created_objects_count),
-			),
-			(
-				"linked_objects_count".into(),
-				json!(value.linked_objects_count),
-			),
-			("total_tasks".into(), json!(value.completed_tasks)),
-		]))
+impl From<Metadata> for Vec<ReportOutputMetadata> {
+	fn from(
+		Metadata {
+			extract_metadata_time,
+			assign_cas_ids_time,
+			fetch_existing_objects_time,
+			assign_to_existing_object_time,
+			create_object_time,
+			seeking_orphans_time,
+			total_found_orphans,
+			created_objects_count,
+			linked_objects_count,
+			completed_tasks,
+		}: Metadata,
+	) -> Self {
+		vec![
+			ReportOutputMetadata::FileIdentifier {
+				total_orphan_paths: u64_to_frontend(total_found_orphans),
+				total_objects_created: u64_to_frontend(created_objects_count),
+				total_objects_linked: u64_to_frontend(linked_objects_count),
+			},
+			ReportOutputMetadata::Metrics(HashMap::from([
+				("extract_metadata_time".into(), json!(extract_metadata_time)),
+				("assign_cas_ids_time".into(), json!(assign_cas_ids_time)),
+				(
+					"fetch_existing_objects_time".into(),
+					json!(fetch_existing_objects_time),
+				),
+				(
+					"assign_to_existing_object_time".into(),
+					json!(assign_to_existing_object_time),
+				),
+				("create_object_time".into(), json!(create_object_time)),
+				("seeking_orphans_time".into(), json!(seeking_orphans_time)),
+				("total_found_orphans".into(), json!(total_found_orphans)),
+				("created_objects_count".into(), json!(created_objects_count)),
+				("linked_objects_count".into(), json!(linked_objects_count)),
+				("total_tasks".into(), json!(completed_tasks)),
+			])),
+		]
 	}
 }
 

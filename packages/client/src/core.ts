@@ -574,11 +574,11 @@ export type RenameOne = { from_file_path_id: number; to: string }
 
 export type Report = { id: string; name: JobName; action: string | null; metadata: ReportMetadata[]; critical_error: string | null; non_critical_errors: NonCriticalError[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: Status; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
 
-export type ReportInputMetadata = { location: Location } | { sub_path: string }
+export type ReportInputMetadata = { type: "location"; data: Location } | { type: "sub_path"; data: string }
 
-export type ReportMetadata = { input: ReportInputMetadata } | { output: ReportOutputMetadata }
+export type ReportMetadata = { type: "input"; metadata: ReportInputMetadata } | { type: "output"; metadata: ReportOutputMetadata }
 
-export type ReportOutputMetadata = { metrics: { [key in string]: JsonValue } }
+export type ReportOutputMetadata = { type: "metrics"; data: { [key in string]: JsonValue } } | { type: "indexer"; data: { total_paths: [number, number] } } | { type: "file_identifier"; data: { total_orphan_paths: [number, number]; total_objects_created: [number, number]; total_objects_linked: [number, number] } } | { type: "media_processor"; data: { media_data_extracted: [number, number]; media_data_skipped: [number, number]; thumbnails_generated: [number, number]; thumbnails_skipped: [number, number] } }
 
 export type RescanArgs = { location_id: number; sub_path: string }
 

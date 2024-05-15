@@ -10,14 +10,14 @@ import {
 } from 'phosphor-react-native';
 import { memo } from 'react';
 import { View, ViewStyle } from 'react-native';
-import { JobProgressEvent, JobReport, useJobInfo } from '@sd/client';
+import { JobProgressEvent, Report, useJobInfo } from '@sd/client';
 import { tw } from '~/lib/tailwind';
 
 import { ProgressBar } from '../animation/ProgressBar';
 import JobContainer from './JobContainer';
 
 type JobProps = {
-	job: JobReport;
+	job: Report;
 	isChild?: boolean;
 	containerStyle?: ViewStyle;
 	progress: JobProgressEvent | null;

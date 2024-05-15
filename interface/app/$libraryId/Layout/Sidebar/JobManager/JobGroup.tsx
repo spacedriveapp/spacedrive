@@ -10,7 +10,7 @@ import {
 	getTotalTasks,
 	JobGroup,
 	JobProgressEvent,
-	JobReport,
+	Report,
 	useLibraryMutation,
 	useTotalElapsedTimeText
 } from '@sd/client';
@@ -153,7 +153,7 @@ function Options({
 	setShowChildJobs,
 	showChildJobs
 }: {
-	activeJob?: JobReport;
+	activeJob?: Report;
 	group: JobGroup;
 	setShowChildJobs: () => void;
 	showChildJobs: boolean;

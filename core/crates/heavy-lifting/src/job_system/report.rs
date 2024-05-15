@@ -53,6 +53,7 @@ impl From<ReportError> for rspc::Error {
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
 #[serde(rename_all = "snake_case")]
+#[serde(tag = "type", content = "metadata")]
 pub enum ReportMetadata {
 	Input(ReportInputMetadata),
 	Output(ReportOutputMetadata),
@@ -60,6 +61,7 @@ pub enum ReportMetadata {
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
 #[serde(rename_all = "snake_case")]
+#[serde(tag = "type", content = "data")]
 pub enum ReportInputMetadata {
 	// TODO: Add more variants as needed
 	Location(location::Data),
@@ -68,9 +70,23 @@ pub enum ReportInputMetadata {
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
 #[serde(rename_all = "snake_case")]
+#[serde(tag = "type", content = "data")]
 pub enum ReportOutputMetadata {
 	Metrics(HashMap<String, serde_json::Value>),
-	// TODO: Add more variants as needed
+	Indexer {
+		total_paths: (u32, u32),
+	},
+	FileIdentifier {
+		total_orphan_paths: (u32, u32),
+		total_objects_created: (u32, u32),
+		total_objects_linked: (u32, u32),
+	},
+	MediaProcessor {
+		media_data_extracted: (u32, u32),
+		media_data_skipped: (u32, u32),
+		thumbnails_generated: (u32, u32),
+		thumbnails_skipped: (u32, u32),
+	},
 }
 
 #[derive(Debug, Serialize, Type, Clone)]

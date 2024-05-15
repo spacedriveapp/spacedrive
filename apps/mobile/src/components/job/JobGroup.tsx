@@ -9,7 +9,7 @@ import {
 	getTotalTasks,
 	JobGroup,
 	JobProgressEvent,
-	JobReport,
+	Report,
 	useLibraryMutation,
 	useTotalElapsedTimeText
 } from '@sd/client';
@@ -158,7 +158,7 @@ const toastErrorSuccess = (
 	};
 };
 
-function Options({ activeJob, group }: { activeJob?: JobReport; group: JobGroup }) {
+function Options({ activeJob, group }: { activeJob?: Report; group: JobGroup }) {
 	// const queryClient = useQueryClient();
 
 	const resumeJob = useLibraryMutation(

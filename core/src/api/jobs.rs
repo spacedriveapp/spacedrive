@@ -3,13 +3,13 @@ use crate::{
 	invalidate_query,
 	location::{find_location, LocationError},
 	object::validation::old_validator_job::OldObjectValidatorJobInit,
-	old_job::{JobReport, JobStatus, OldJob, OldJobs},
+	old_job::{JobStatus, OldJob, OldJobs},
 };
 
 use sd_core_heavy_lifting::{
-	file_identifier::FileIdentifier, media_processor::job::MediaProcessor,
+	file_identifier::FileIdentifier, job_system::report, media_processor::job::MediaProcessor,
+	JobId, Report,
 };
-use sd_core_prisma_helpers::job_without_data;
 
 use sd_prisma::prisma::{job, location, SortOrder};
 
@@ -31,6 +31,8 @@ use uuid::Uuid;
 
 use super::{utils::library, CoreEvent, Ctx, R};
 
+const TEN_MINUTES: Duration = Duration::from_secs(60 * 10);
+
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("progress", {
@@ -42,7 +44,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				.subscription(|(node, _), _: ()| async move {
 					let mut event_bus_rx = node.event_bus.0.subscribe();
 					// debounce per-job
-					let mut intervals = BTreeMap::<Uuid, Instant>::new();
+					let mut intervals = BTreeMap::<JobId, Instant>::new();
 
 					async_stream::stream! {
 						loop {
@@ -63,6 +65,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							yield progress_event;
 
 							*instant = Instant::now();
+
+							// remove stale jobs that didn't receive a progress for more than 10 minutes
+							intervals.retain(|_, instant| instant.elapsed() < TEN_MINUTES);
 						}
 					}
 				})
@@ -74,44 +79,38 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			//	  this is to ensure the client will always get the correct initial state
 			// - jobs are sorted in to groups by their action
 			// - TODO: refactor grouping system to a many-to-many table
-			#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+			#[derive(Debug, Clone, Serialize, Type)]
 			pub struct JobGroup {
 				id: Uuid,
 				action: Option<String>,
-				status: JobStatus,
+				status: report::Status,
 				created_at: DateTime<Utc>,
-				jobs: VecDeque<JobReport>,
+				jobs: VecDeque<Report>,
 			}
 
 			R.with2(library())
 				.query(|(node, library), _: ()| async move {
 					let mut groups: HashMap<String, JobGroup> = HashMap::new();
 
-					let job_reports: Vec<JobReport> = library
+					let job_reports: Vec<Report> = library
 						.db
 						.job()
 						.find_many(vec![])
 						.order_by(job::date_created::order(SortOrder::Desc))
 						.take(100)
-						.select(job_without_data::select())
 						.exec()
 						.await?
 						.into_iter()
-						.flat_map(JobReport::try_from)
+						.flat_map(Report::try_from)
 						.collect();
 
-					let active_reports_by_id = node.old_jobs.get_active_reports_with_id().await;
+					let active_reports_by_id = node.job_system.get_active_reports().await;
 
 					for job in job_reports {
 						// action name and group key are computed from the job data
-						let (action_name, group_key) = job.get_meta();
+						let (action_name, group_key) = job.get_action_name_and_group_key();
 
-						trace!(
-							"job {:#?}, action_name {}, group_key {:?}",
-							job,
-							action_name,
-							group_key
-						);
+						trace!("job {job:#?}, action_name {action_name}, group_key {group_key:?}",);
 
 						// if the job is running, use the in-memory report
 						let report = active_reports_by_id.get(&job.id).unwrap_or(&job);
@@ -123,7 +122,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								Entry::Vacant(entry) => {
 									entry.insert(JobGroup {
 										id: job.parent_id.unwrap_or(job.id),
-										action: Some(action_name.clone()),
+										action: Some(action_name),
 										status: job.status,
 										jobs: [report.clone()].into_iter().collect(),
 										created_at: job.created_at.unwrap_or(Utc::now()),
@@ -134,7 +133,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									let group = entry.get_mut();
 
 									// protect paused status from being overwritten
-									if report.status != JobStatus::Paused {
+									if report.status != report::Status::Paused {
 										group.status = report.status;
 									}
 
@@ -158,6 +157,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					let mut groups_vec = groups.into_values().collect::<Vec<_>>();
 					groups_vec.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+
+					tracing::debug!("{groups_vec:#?}");
 
 					Ok(groups_vec)
 				})

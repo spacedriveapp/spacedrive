@@ -23,12 +23,18 @@ export const useRedirectToNewLocation = () => {
 
 	const hasIndexerJob = jobGroups
 		?.flatMap((j) => j.jobs)
-		.some(
-			(j) =>
-				j.name === 'indexer' &&
-				(j.metadata as any)?.location.id === newLocation &&
-				(j.completed_task_count > 0 || j.completed_at != null)
-		);
+		.some((j) => {
+			let locationId: number | undefined;
+			for (const metadata of j.metadata) {
+				if (metadata.type === 'input' && metadata.metadata.type === 'location') {
+					locationId = metadata.metadata.data.id;
+					break;
+				}
+			}
+			j.name === 'Indexer' &&
+				locationId === newLocation &&
+				(j.completed_task_count > 0 || j.completed_at != null);
+		});
 
 	useEffect(() => {
 		if (hasIndexerJob) {

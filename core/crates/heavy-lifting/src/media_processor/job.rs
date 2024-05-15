@@ -20,7 +20,7 @@ use sd_task_system::{
 	AnyTaskOutput, IntoTask, SerializableTask, Task, TaskDispatcher, TaskHandle, TaskOutput,
 	TaskStatus,
 };
-use sd_utils::db::maybe_missing;
+use sd_utils::{db::maybe_missing, u64_to_frontend};
 
 use std::{
 	collections::HashMap,
@@ -447,7 +447,7 @@ struct Metadata {
 	thumbnailer_metrics_acc: ThumbnailerMetricsAccumulator,
 }
 
-impl From<Metadata> for ReportOutputMetadata {
+impl From<Metadata> for Vec<ReportOutputMetadata> {
 	fn from(
 		Metadata {
 			media_data_metrics,
@@ -456,19 +456,27 @@ impl From<Metadata> for ReportOutputMetadata {
 	) -> Self {
 		let thumbnailer_metrics = ThumbnailerMetrics::from(thumbnailer_metrics_accumulator);
 
-		Self::Metrics(HashMap::from([
-			//
-			// Media data extractor
-			//
-			(
-				"media_data_extraction_metrics".into(),
-				json!(media_data_metrics),
-			),
-			//
-			// Thumbnailer
-			//
-			("thumbnailer_metrics".into(), json!(thumbnailer_metrics)),
-		]))
+		vec![
+			ReportOutputMetadata::MediaProcessor {
+				media_data_extracted: u64_to_frontend(media_data_metrics.extracted),
+				media_data_skipped: u64_to_frontend(media_data_metrics.skipped),
+				thumbnails_generated: u64_to_frontend(thumbnailer_metrics.generated),
+				thumbnails_skipped: u64_to_frontend(thumbnailer_metrics.skipped),
+			},
+			ReportOutputMetadata::Metrics(HashMap::from([
+				//
+				// Media data extractor
+				//
+				(
+					"media_data_extraction_metrics".into(),
+					json!(media_data_metrics),
+				),
+				//
+				// Thumbnailer
+				//
+				("thumbnailer_metrics".into(), json!(thumbnailer_metrics)),
+			])),
+		]
 	}
 }
 
