@@ -1,4 +1,4 @@
-import { HardwareModel, useBridgeQuery, usePeers } from '@sd/client';
+import { HardwareModel, useBridgeQuery } from '@sd/client';
 import { Button, toast, Tooltip } from '@sd/ui';
 import { Icon } from '~/components';
 import { useLocale } from '~/hooks';
@@ -11,7 +11,6 @@ export default function DevicesSection() {
 	const { data: node } = useBridgeQuery(['nodeState']);
 
 	const { t } = useLocale();
-	const peers = usePeers();
 
 	return (
 		<Section name={t('devices')}>
