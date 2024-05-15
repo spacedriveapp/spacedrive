@@ -1,0 +1,44 @@
+---
+index: 200
+---
+
+# CLI
+
+<Notice
+	type="note"
+	title="WIP"
+	text="Our CLI is not available yet, please check our [roadmap](/roadmap)."
+/>
+
+Spacedrive is available as a command-line interface (CLI) tool. The CLI is a powerful tool that allows you to interact with the Spacedrive network from your terminal.
+
+## General Commands
+
+### Launching Spacedrive
+
+```bash
+# Launch Spacedrive
+spacedrive -d
+# View help menu
+spacedrive --help
+# View version and build information
+spacedrive --info
+```
+
+### Managing Locations
+
+At least one identifier such as `--name`, `--path` or `--id` is required for each command.
+
+```bash
+# List all Locations
+spacedrive location list
+# Add a Location
+spacedrive location add /path/to/folder --name "Location Name"
+# Remove a Location by name
+spacedrive location remove --name "Location Name"
+# Remove a Location by path
+spacedrive location remove --path /local/path/to/location
+# Rescan a Location
+spacedrive location rescan --id 4
+spacedrive location rescan --id 4 --full # Full rescan
+```
