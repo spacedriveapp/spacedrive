@@ -1,14 +1,12 @@
 use std::path::Path;
 
 use futures_concurrency::future::Join;
+use gix_ignore::{glob::search::pattern::List, Search};
 use sd_prisma::prisma::{indexer_rule, PrismaClient};
 
 use chrono::Utc;
 use thiserror::Error;
-use tokio::{
-	fs::{self, File},
-	io::{AsyncReadExt, BufReader},
-};
+use tokio::fs;
 use uuid::Uuid;
 
 use super::{IndexerRule, IndexerRuleError, RulePerKind};
@@ -30,10 +28,10 @@ pub struct GitIgnoreRules {
 
 impl GitIgnoreRules {
 	pub async fn parse_if_gitrepo(path: &Path) -> Result<Self, SeederError> {
-		let gitignore = &path.join(".gitignore");
+		let gitignore = path.join(".gitignore");
 
 		let is_git = Self::is_git_repo(path);
-		let has_gitignore = fs::try_exists(gitignore);
+		let has_gitignore = fs::try_exists(&gitignore);
 
 		let (is_git, has_gitignore) = (is_git, has_gitignore).join().await;
 		if !(is_git && matches!(has_gitignore, Ok(true))) {
@@ -45,31 +43,23 @@ impl GitIgnoreRules {
 		// see `https://git-scm.com/docs/gitignore` for other ignore sources
 		// Self::parse_ignore_rules(path, &path.join(".gitignore")).await
 
-		Self::parse_ignore_rules(path, gitignore).await
-	}
-
-	async fn parse_ignore_rules(base_dir: &Path, gitignore: &Path) -> Result<Self, SeederError> {
-		let file = File::open(gitignore)
-			.await
-			.map_err(|_| SeederError::InhirentedExternalRules)?;
-
-		let mut contents = String::new();
-
-		let mut buf = BufReader::new(file);
-		buf.read_to_string(&mut contents)
-			.await
-			.map_err(|_| SeederError::InhirentedExternalRules)?;
-
-		let patterns = tokio::task::spawn_blocking(move || {
-			gix_ignore::parse(contents.as_bytes())
-				.map(|(pat, _len, _kind)| pat)
-				.collect()
+		let mut buf = Vec::with_capacity(30);
+		let gitignore_patterns = tokio::task::spawn_blocking(move || {
+			if let Ok(Some(patterns)) = List::from_file(gitignore, None, true, &mut buf) {
+				Ok(patterns)
+			} else {
+				Err(SeederError::InhirentedExternalRules)
+			}
 		})
 		.await
-		.map_err(|_| SeederError::InhirentedExternalRules)?;
+		.map_err(|_| SeederError::InhirentedExternalRules)??;
+
+		let search = Search {
+			patterns: vec![gitignore_patterns],
+		};
 
 		Ok(Self {
-			rules: RulePerKind::AcceptFilesByGitRule(base_dir.to_owned(), patterns),
+			rules: RulePerKind::AcceptFilesByGitRule(path.to_owned(), search),
 		})
 	}
 
