@@ -5,6 +5,8 @@ index: 26
 
 # Local Network Discovery
 
+[Implementation](https://github.com/spacedriveapp/spacedrive/tree/main/crates/p2p/src/hooks/mdns.rs)
+
 Our local network discovery uses [DNS-Based Service Discovery](https://www.rfc-editor.org/rfc/rfc6763.html) which itself is built around [Multicast DNS (mDNS)](https://datatracker.ietf.org/doc/html/rfc6762). This is a really well established technology and is used in [Spotify Connect](https://support.spotify.com/au/article/spotify-connect/), [Apple Airplay](https://www.apple.com/au/airplay/) and many other services you use every day.
 
 ## Service Structure
@@ -46,6 +48,10 @@ Within Spacedrive's settings the user is able to choose between three modes for 
 We make use of the [mdns-sd](https://docs.rs/mdns-sd) crate.
 
 ## Problems with Docker
+
+Docker can be problematic with P2P due to it applying another level of [NAT](https://en.wikipedia.org/wiki/Network_address_translation). This shouldn't cause any issues for usage with the Relay but it makes mDNS cease to work.
+
+TODO: How we have worked around this???
 
 TODO - MDNS daemon
 TODO - Docker and why it's a pain mDNS. Explain the current stuff i've done with it.

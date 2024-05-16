@@ -5,6 +5,20 @@ index: 27
 
 # Relay
 
+To establish connections outside of your local network we rely on an external relay to help with coordinating connections and also to proxy traffic between peers if the network conditions are not favourable.
+
+## Client
+
+[Implementation](https://github.com/spacedriveapp/spacedrive/tree/main/crates/p2p/src/hooks/quic.rs)
+
+TODO
+
+## Server
+
+[Implementation](https://github.com/spacedriveapp/spacedrive/tree/main/apps/server)
+
+TODO
+
 ## How we establish connections
 
 TODO - We avoid library-level encryption
@@ -34,3 +48,16 @@ TODO - How we gonna bill for this???
 ### Relay server
 
 TODO - Explain hosting + methods on abuse
+
+TODO - Explain inter-server communication problem
+
+
+#### Usage
+
+```bash
+# TODO: Explain starting up the Relay
+```
+
+#### Discovery system
+
+TODO - Explain how the relay servers are discovered

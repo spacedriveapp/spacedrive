@@ -25,3 +25,9 @@ When using an asynchronous serializer you can skip sending the messages length a
 This crate provides utilities to make the implementations less error prone, however long term it would be great to replace this with a derive macro similar to how crates like [serde](https://serde.rs) work.
 
 From my research no crate exists that meets these requirements. It is also a difficult problem because your juggling lifetimes and async which is rough. I attempted an implementation called [binario](https://github.com/oscartbeaumont/binario), however it is still incomplete so we never adopted it. I suspect Rust's recent stablisation of [RPITIT](https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html) would make this much easier.
+
+## Example
+
+```rs
+# TODO
+```

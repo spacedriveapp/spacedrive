@@ -7,20 +7,24 @@ index: 22
 
 [Implementation](https://github.com/spacedriveapp/spacedrive/tree/main/crates/p2p)
 
-The P2P crate was designed from the group up to be modular.
+The P2P crate was designed from the ground up to be modular.
 
-The `P2P` struct is the core of the system, and suprisingly doesn't actually do any P2P functionality. It's a state manager and event bus along with providing a hook system for other components of the P2P system to register themselves.
+The `P2P` struct is the core of the system, and suprisingly doesn't actually do any P2P functionality. It's a state manager and event bus which exposes a hook system for other components of the P2P system to register themselves.
 
-This modular design helps with separting the concern which helps with comprehending the entire system and makes it easier for testing.
-
-The `sd_p2p` crate provides a hook for:
- - `Mdns` - Local network discovery
- - `Quic` - Quic transport layer built on top of `libp2p`
+This modular design helps with separting the concern which majorly helps with comprehending the entire system and makes it easier for testing.
 
 ## What are hooks?
 
-A hook is very similar to an actor. It's a component which can be registered with the P2P system.
+A hook is very similar to an actor. It's a component which can be registered with the P2P system and it is allowed to listen and react to events.
 
 A hook allows for processing events from the P2P system and also ensures when the P2P system shuts down, the hook is also shutdown.
 
-Their are special hooks called listeners. These are implemented as a superset of a regular hook and are able to create and accept connections.
+There are special hooks called listeners. These are implemented as a superset of a regular hook and are able to create and accept connections.
+
+## Default hooks?
+
+The `sd_p2p` crate comes with a few default hooks:
+ - `Mdns` - Local network discovery using mDNS
+ - `Quic` - Quic transport layer built on top of `libp2p`
+
+Spacedrive implements some of it's own hooks within the `core/src/p2p` directory to deal with libraries correctly.

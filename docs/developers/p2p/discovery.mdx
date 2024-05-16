@@ -3,9 +3,16 @@ title: Discovery
 index: 25
 ---
 
-TODO - Methods - Relay, manual, mDNS
+# Discovery
 
-### Manual connection
+Discovery is the process of finding other nodes to connect with.
+
+We do this through the following 3 systems:
+ - Manual entry by the user
+ - [Local Network Discovery](/docs/developers/p2p/local-network-discovery) via mDNS
+ - [Relay](/docs/developers/p2p/relay) via mDNS
+
+## Manually provided
 
 The user can manually provide a set of [`SocketAddr`](https://doc.rust-lang.org/std/net/enum.SocketAddr.html)'s and the P2P system to attempt to connect to.
 
