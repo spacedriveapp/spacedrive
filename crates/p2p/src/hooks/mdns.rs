@@ -1,3 +1,7 @@
+//! mDNS-based service discovery.
+//!
+//! This uses [mdns-sd](https://docs.rs/mdns-sd) under the hood.
+
 use std::{
 	collections::HashMap, net::SocketAddr, pin::Pin, str::FromStr, sync::Arc, time::Duration,
 };

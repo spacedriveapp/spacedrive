@@ -135,8 +135,7 @@ impl P2P {
 			.clone();
 
 		{
-			let mut state: std::sync::RwLockWriteGuard<'_, crate::peer::State> =
-				peer.state.write().unwrap_or_else(PoisonError::into_inner);
+			let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
 			state.discovered.insert(hook_id, addrs.clone());
 		}
 
