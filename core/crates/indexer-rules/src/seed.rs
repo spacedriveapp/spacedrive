@@ -6,6 +6,7 @@ use sd_prisma::prisma::{indexer_rule, PrismaClient};
 
 use chrono::Utc;
 use thiserror::Error;
+use tokio::fs;
 use uuid::Uuid;
 
 use super::{IndexerRule, IndexerRuleError, RulePerKind};
@@ -32,10 +33,19 @@ impl GitIgnoreRules {
 	) -> Option<Result<Self, SeederError>> {
 		let mut git_repo = None;
 
+		let mut ignores = Vec::new();
+
 		for ancestor in current
 			.ancestors()
 			.take_while(|&path| path.starts_with(library_root))
 		{
+			let git_ignore = ancestor.join(".gitignore");
+
+			// consider any `.gitignore` files that are inside a git repo
+			if matches!(fs::try_exists(&git_ignore).await, Ok(true)) {
+				ignores.push(git_ignore);
+			}
+
 			if Self::is_git_repo(ancestor).await {
 				git_repo.replace(ancestor);
 				break;
@@ -43,22 +53,23 @@ impl GitIgnoreRules {
 		}
 
 		let git_repo = git_repo?;
-		Some(Self::parse_gitrepo(git_repo).await)
+		Some(Self::parse_gitrepo(git_repo, ignores).await)
 	}
 
-	async fn parse_gitrepo(git_repo: &Path) -> Result<Self, SeederError> {
+	async fn parse_gitrepo(git_repo: &Path, gitignores: Vec<PathBuf>) -> Result<Self, SeederError> {
 		let mut search = Search::default();
 
-		let (gitignore_rules, git_exclude_rules) = (
-			Self::parse_git_ignore(git_repo.join(".gitignore")),
-			Self::parse_git_exclude(git_repo.join(".git")),
-		)
+		let gitignores = gitignores
+			.into_iter()
+			.map(Self::parse_git_ignore)
+			.collect::<Vec<_>>()
 			.join()
 			.await;
+		search
+			.patterns
+			.extend(gitignores.into_iter().filter_map(Result::ok));
 
-		if let Ok(rules) = gitignore_rules {
-			search.patterns.push(rules);
-		}
+		let git_exclude_rules = Self::parse_git_exclude(git_repo.join(".git")).await;
 		if let Ok(rules) = git_exclude_rules {
 			search.patterns.extend(rules);
 		}

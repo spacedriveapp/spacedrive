@@ -291,15 +291,9 @@ impl RulePerKind {
 				RuleKind::RejectFilesByGlob,
 				reject_by_glob(source, reject_glob_set),
 			)),
-			Self::IgnoredByGit(base_dir, patterns) => Ok((
+			Self::IgnoredByGit(git_repo, patterns) => Ok((
 				RuleKind::IgnoredByGit,
-				accept_by_gitpattern(
-					source
-						.as_ref()
-						.strip_prefix(base_dir)
-						.unwrap_or_else(|_| source.as_ref()),
-					patterns,
-				),
+				accept_by_gitpattern(source.as_ref(), git_repo, patterns),
 			)),
 		}
 	}
@@ -329,27 +323,25 @@ impl RulePerKind {
 				RuleKind::RejectFilesByGlob,
 				reject_by_glob(source, reject_glob_set),
 			)),
-			Self::IgnoredByGit(path, patterns) => Ok((
+			Self::IgnoredByGit(base_dir, patterns) => Ok((
 				RuleKind::IgnoredByGit,
-				accept_by_gitpattern(
-					source
-						.as_ref()
-						.strip_prefix(path)
-						.unwrap_or_else(|_| source.as_ref()),
-					patterns,
-				),
+				accept_by_gitpattern(source.as_ref(), base_dir, patterns),
 			)),
 		}
 	}
 }
 
-fn accept_by_gitpattern(source: &Path, search: &Search) -> bool {
-	let Some(src) = source.to_str().map(|s| s.as_bytes().into()) else {
+fn accept_by_gitpattern(source: &Path, base_dir: &Path, search: &Search) -> bool {
+	let relative = source
+		.strip_prefix(base_dir)
+		.expect("`base_dir` should be our git repo, and `source` should be inside of it");
+
+	let Some(src) = relative.to_str().map(|s| s.as_bytes().into()) else {
 		return false;
 	};
 
 	search
-		.pattern_matching_relative_path(src, None, Case::Fold)
+		.pattern_matching_relative_path(src, Some(source.is_dir()), Case::Fold)
 		.map_or(true, |rule| rule.pattern.is_negative())
 }
 
