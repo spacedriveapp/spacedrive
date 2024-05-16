@@ -49,7 +49,6 @@ export default function TagsScreen({ viewStyle = 'list' }: Props) {
 			<View style={tw`min-h-full`}>
 			<FlatList
 				data={filteredTags}
-				extraData={tagsData}
 				renderItem={({ item }) => (
 					<TagItem
 						viewStyle={viewStyle}
