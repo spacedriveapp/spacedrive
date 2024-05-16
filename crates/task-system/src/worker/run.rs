@@ -5,12 +5,16 @@ use futures::StreamExt;
 use futures_concurrency::stream::Merge;
 use tokio::time::{interval_at, Instant};
 use tokio_stream::wrappers::IntervalStream;
-use tracing::{error, warn};
+use tracing::{debug, error, warn};
 
 use super::{
-	super::{error::RunError, message::WorkerMessage, system::SystemComm},
+	super::{
+		error::RunError,
+		message::{StoleTaskMessage, TaskOutputMessage, WorkerMessage},
+		system::SystemComm,
+	},
 	runner::Runner,
-	RunnerMessage, WorkStealer, WorkerId, ONE_SECOND,
+	WorkStealer, WorkerId, ONE_SECOND,
 };
 
 pub(super) async fn run<E: RunError>(
@@ -21,18 +25,20 @@ pub(super) async fn run<E: RunError>(
 ) {
 	enum StreamMessage<E: RunError> {
 		Commands(WorkerMessage<E>),
-		RunnerMsg(RunnerMessage<E>),
+		Steal(Option<StoleTaskMessage<E>>),
+		TaskOutput(TaskOutputMessage<E>),
 		IdleCheck,
 	}
 
-	let (mut runner, runner_rx) = Runner::new(id, work_stealer, system_comm);
+	let (mut runner, stole_task_rx, task_output_rx) = Runner::new(id, work_stealer, system_comm);
 
 	let mut idle_checker_interval = interval_at(Instant::now(), ONE_SECOND);
 	idle_checker_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
 	let mut msg_stream = pin!((
 		msgs_rx.map(StreamMessage::Commands),
-		runner_rx.map(StreamMessage::RunnerMsg),
+		stole_task_rx.map(StreamMessage::Steal),
+		task_output_rx.map(StreamMessage::TaskOutput),
 		IntervalStream::new(idle_checker_interval).map(|_| StreamMessage::IdleCheck),
 	)
 		.merge());
@@ -80,16 +86,26 @@ pub(super) async fn run<E: RunError>(
 				return runner.shutdown(tx).await;
 			}
 
-			StreamMessage::Commands(WorkerMessage::StealRequest(tx)) => runner.steal_request(tx),
+			StreamMessage::Commands(WorkerMessage::StealRequest {
+				ack,
+				stolen_task_tx,
+			}) => {
+				if ack
+					.send(runner.steal_request(stolen_task_tx).await)
+					.is_err()
+				{
+					debug!("Steal request attempt aborted before sending ack");
+				}
+			}
 
 			StreamMessage::Commands(WorkerMessage::WakeUp) => runner.wake_up(),
 
 			// Runner messages
-			StreamMessage::RunnerMsg(RunnerMessage::TaskOutput(task_id, Ok(output))) => {
+			StreamMessage::TaskOutput(TaskOutputMessage(task_id, Ok(output))) => {
 				runner.process_task_output(task_id, output).await;
 			}
 
-			StreamMessage::RunnerMsg(RunnerMessage::TaskOutput(task_id, Err(()))) => {
+			StreamMessage::TaskOutput(TaskOutputMessage(task_id, Err(()))) => {
 				error!("Task failed <worker_id='{id}', task_id='{task_id}'>");
 
 				runner.clean_suspended_task(task_id);
@@ -97,8 +113,8 @@ pub(super) async fn run<E: RunError>(
 				runner.dispatch_next_task(task_id).await;
 			}
 
-			StreamMessage::RunnerMsg(RunnerMessage::StoleTask(maybe_new_task)) => {
-				runner.process_stolen_task(maybe_new_task).await;
+			StreamMessage::Steal(maybe_stolen_task) => {
+				runner.process_stolen_task(maybe_stolen_task).await;
 			}
 
 			// Idle checking to steal some work

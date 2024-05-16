@@ -8,14 +8,13 @@ use async_channel as chan;
 use tokio::{spawn, sync::oneshot, task::JoinHandle};
 use tracing::{error, info, trace, warn};
 
-use crate::task::TaskRemoteController;
-
 use super::{
 	error::{RunError, SystemError},
-	message::WorkerMessage,
+	message::{StoleTaskMessage, TaskRunnerOutput, WorkerMessage},
 	system::SystemComm,
 	task::{
-		InternalTaskExecStatus, Interrupter, Task, TaskHandle, TaskId, TaskWorkState, TaskWorktable,
+		Interrupter, PanicOnSenderDrop, Task, TaskHandle, TaskId, TaskRemoteController,
+		TaskWorkState, TaskWorktable,
 	},
 };
 
@@ -123,7 +122,7 @@ impl<E: RunError> Worker<E> {
 				task: new_task,
 				worktable: Arc::clone(&worktable),
 				interrupter: Arc::new(Interrupter::new(interrupt_rx)),
-				done_tx,
+				done_tx: PanicOnSenderDrop::new(done_tx),
 			}))
 			.await
 			.expect("Worker channel closed trying to add task");
@@ -235,26 +234,22 @@ pub struct WorkerComm<E: RunError> {
 }
 
 impl<E: RunError> WorkerComm<E> {
-	pub async fn steal_task(&self, worker_id: WorkerId) -> Option<TaskWorkState<E>> {
+	pub async fn steal_task(
+		&self,
+		stolen_task_tx: chan::Sender<Option<StoleTaskMessage<E>>>,
+	) -> bool {
 		let (tx, rx) = oneshot::channel();
 
 		self.msgs_tx
-			.send(WorkerMessage::StealRequest(tx))
+			.send(WorkerMessage::StealRequest {
+				ack: tx,
+				stolen_task_tx,
+			})
 			.await
 			.expect("Worker channel closed trying to steal task");
 
 		rx.await
 			.expect("Worker channel closed trying to steal task")
-			.map(|task_work_state| {
-				trace!(
-					"Worker stole task: \
-					<worker_id='{worker_id}', stolen_worker_id='{}', task_id='{}'>",
-					self.worker_id,
-					task_work_state.task.id()
-				);
-				task_work_state.change_worker(worker_id);
-				task_work_state
-			})
 	}
 }
 
@@ -277,7 +272,11 @@ impl<E: RunError> WorkStealer<E> {
 		}
 	}
 
-	pub async fn steal(&self, worker_id: WorkerId) -> Option<TaskWorkState<E>> {
+	pub async fn steal(
+		&self,
+		worker_id: WorkerId,
+		stolen_task_tx: &chan::Sender<Option<StoleTaskMessage<E>>>,
+	) {
 		let total_workers = self.worker_comms.len();
 
 		for worker_comm in self
@@ -297,8 +296,12 @@ impl<E: RunError> WorkStealer<E> {
 				worker_comm.worker_id
 			);
 
-			if let Some(task) = worker_comm.steal_task(worker_id).await {
-				return Some(task);
+			if worker_comm.steal_task(stolen_task_tx.clone()).await {
+				trace!(
+					"Worker <worker_id='{}', stealer_id='{worker_id}'> successfully stole a task",
+					worker_comm.worker_id
+				);
+				return;
 			}
 
 			trace!(
@@ -307,20 +310,14 @@ impl<E: RunError> WorkStealer<E> {
 			);
 		}
 
-		None
+		trace!("No workers have tasks to steal");
+		stolen_task_tx
+			.send(None)
+			.await
+			.expect("Stolen task channel closed");
 	}
 
 	pub fn workers_count(&self) -> usize {
 		self.worker_comms.len()
 	}
-}
-
-struct TaskRunnerOutput<E: RunError> {
-	task_work_state: TaskWorkState<E>,
-	status: InternalTaskExecStatus<E>,
-}
-
-enum RunnerMessage<E: RunError> {
-	TaskOutput(TaskId, Result<TaskRunnerOutput<E>, ()>),
-	StoleTask(Option<TaskWorkState<E>>),
 }

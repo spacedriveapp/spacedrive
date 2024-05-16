@@ -12,7 +12,6 @@ use std::{
 
 use async_channel as chan;
 use async_trait::async_trait;
-use chan::{Recv, RecvError};
 use downcast_rs::{impl_downcast, Downcast};
 use tokio::{spawn, sync::oneshot};
 use tracing::{error, trace, warn};
@@ -181,7 +180,7 @@ where
 #[pin_project::pin_project]
 pub struct InterrupterFuture<'recv> {
 	#[pin]
-	fut: Recv<'recv, InterruptionRequest>,
+	fut: chan::Recv<'recv, InterruptionRequest>,
 	has_interrupted: &'recv AtomicU8,
 }
 
@@ -199,7 +198,7 @@ impl Future for InterrupterFuture<'_> {
 				this.has_interrupted.store(kind as u8, Ordering::Relaxed);
 				Poll::Ready(kind)
 			}
-			Poll::Ready(Err(RecvError)) => {
+			Poll::Ready(Err(chan::RecvError)) => {
 				// In case the task handle was dropped, we can't receive any more interrupt messages
 				// so we will never interrupt and the task will run freely until ended
 				warn!("Task interrupter channel closed, will run task until it finishes!");
@@ -659,7 +658,7 @@ impl TaskWorktable {
 pub struct TaskWorkState<E: RunError> {
 	pub(crate) task: Box<dyn Task<E>>,
 	pub(crate) worktable: Arc<TaskWorktable>,
-	pub(crate) done_tx: oneshot::Sender<Result<TaskStatus<E>, SystemError>>,
+	pub(crate) done_tx: PanicOnSenderDrop<E>,
 	pub(crate) interrupter: Arc<Interrupter>,
 }
 
@@ -668,5 +667,35 @@ impl<E: RunError> TaskWorkState<E> {
 		self.worktable
 			.current_worker_id
 			.store(new_worker_id, Ordering::Relaxed);
+	}
+}
+
+#[derive(Debug)]
+pub struct PanicOnSenderDrop<E: RunError>(
+	Option<oneshot::Sender<Result<TaskStatus<E>, SystemError>>>,
+);
+
+impl<E: RunError> PanicOnSenderDrop<E> {
+	pub fn new(done_tx: oneshot::Sender<Result<TaskStatus<E>, SystemError>>) -> Self {
+		Self(Some(done_tx))
+	}
+
+	pub fn send(
+		mut self,
+		res: Result<TaskStatus<E>, SystemError>,
+	) -> Result<(), Result<TaskStatus<E>, SystemError>> {
+		self.0
+			.take()
+			.expect("tried to send a task output twice to the same task handle")
+			.send(res)
+	}
+}
+
+impl<E: RunError> Drop for PanicOnSenderDrop<E> {
+	fn drop(&mut self) {
+		assert!(
+			self.0.is_none(),
+			"TaskHandle done channel dropped before sending a result"
+		);
 	}
 }

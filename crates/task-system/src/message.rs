@@ -1,8 +1,9 @@
+use async_channel as chan;
 use tokio::sync::oneshot;
 
 use super::{
 	error::{RunError, SystemError},
-	task::{TaskId, TaskWorkState},
+	task::{InternalTaskExecStatus, TaskId, TaskWorkState},
 	worker::WorkerId,
 };
 
@@ -58,6 +59,18 @@ pub enum WorkerMessage<E: RunError> {
 		ack: oneshot::Sender<Result<(), SystemError>>,
 	},
 	ShutdownRequest(oneshot::Sender<()>),
-	StealRequest(oneshot::Sender<Option<TaskWorkState<E>>>),
+	StealRequest {
+		ack: oneshot::Sender<bool>,
+		stolen_task_tx: chan::Sender<Option<StoleTaskMessage<E>>>,
+	},
 	WakeUp,
 }
+
+pub struct TaskRunnerOutput<E: RunError> {
+	pub task_work_state: TaskWorkState<E>,
+	pub status: InternalTaskExecStatus<E>,
+}
+
+pub struct TaskOutputMessage<E: RunError>(pub TaskId, pub Result<TaskRunnerOutput<E>, ()>);
+
+pub struct StoleTaskMessage<E: RunError>(pub TaskWorkState<E>);

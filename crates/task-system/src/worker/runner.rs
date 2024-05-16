@@ -11,7 +11,7 @@ use std::{
 
 use async_channel as chan;
 use futures::{FutureExt, StreamExt};
-use futures_concurrency::future::Race;
+use futures_concurrency::{future::Race, stream::Merge};
 use tokio::{
 	spawn,
 	sync::oneshot,
@@ -23,13 +23,14 @@ use tracing::{debug, error, trace, warn};
 use super::{
 	super::{
 		error::{RunError, SystemError},
+		message::{StoleTaskMessage, TaskOutputMessage},
 		system::SystemComm,
 		task::{
-			ExecStatus, InternalTaskExecStatus, Interrupter, Task, TaskId, TaskOutput, TaskStatus,
-			TaskWorkState, TaskWorktable,
+			ExecStatus, InternalTaskExecStatus, Interrupter, PanicOnSenderDrop, Task, TaskId,
+			TaskOutput, TaskStatus, TaskWorkState, TaskWorktable,
 		},
 	},
-	RunnerMessage, TaskRunnerOutput, WorkStealer, WorkerId, ONE_SECOND,
+	TaskRunnerOutput, WorkStealer, WorkerId, ONE_SECOND,
 };
 
 const TEN_SECONDS: Duration = Duration::from_secs(10);
@@ -75,16 +76,9 @@ struct RunningTask {
 fn dispatch_steal_request<E: RunError>(
 	worker_id: WorkerId,
 	work_stealer: WorkStealer<E>,
-	runner_tx: chan::Sender<RunnerMessage<E>>,
+	stole_task_tx: chan::Sender<Option<StoleTaskMessage<E>>>,
 ) -> JoinHandle<()> {
-	spawn(async move {
-		runner_tx
-			.send(RunnerMessage::StoleTask(
-				work_stealer.steal(worker_id).await,
-			))
-			.await
-			.expect("runner channel closed before send stolen task");
-	})
+	spawn(async move { work_stealer.steal(worker_id, &stole_task_tx).await })
 }
 
 enum WaitingSuspendedTask {
@@ -111,21 +105,30 @@ pub(super) struct Runner<E: RunError> {
 	is_idle: bool,
 	waiting_suspension: WaitingSuspendedTask,
 	abort_and_suspend_map: HashMap<TaskId, AbortAndSuspendSignalers>,
-	msgs_tx: chan::Sender<RunnerMessage<E>>,
+	stole_task_tx: chan::Sender<Option<StoleTaskMessage<E>>>,
+	task_output_tx: chan::Sender<TaskOutputMessage<E>>,
 	current_task_handle: Option<RunningTask>,
-	suspend_on_shutdown_rx: chan::Receiver<RunnerMessage<E>>,
+	suspend_on_shutdown_stole_task_rx: chan::Receiver<Option<StoleTaskMessage<E>>>,
+	suspend_on_shutdown_task_output_rx: chan::Receiver<TaskOutputMessage<E>>,
 	current_steal_task_handle: Option<JoinHandle<()>>,
 	last_steal_attempt_at: Instant,
 	steal_attempts_count: u32,
 }
+
+type RunnerCreate<E> = (
+	Runner<E>,
+	chan::Receiver<Option<StoleTaskMessage<E>>>,
+	chan::Receiver<TaskOutputMessage<E>>,
+);
 
 impl<E: RunError> Runner<E> {
 	pub(super) fn new(
 		worker_id: WorkerId,
 		work_stealer: WorkStealer<E>,
 		system_comm: SystemComm,
-	) -> (Self, chan::Receiver<RunnerMessage<E>>) {
-		let (runner_tx, runner_rx) = chan::bounded(8);
+	) -> RunnerCreate<E> {
+		let (stolen_task_tx, stolen_task_rx) = chan::bounded(2);
+		let (task_output_tx, task_output_rx) = chan::bounded(8);
 
 		(
 			Self {
@@ -141,14 +144,17 @@ impl<E: RunError> Runner<E> {
 				is_idle: true,
 				waiting_suspension: WaitingSuspendedTask::None,
 				abort_and_suspend_map: HashMap::with_capacity(ABORT_AND_SUSPEND_MAP_INITIAL_SIZE),
-				msgs_tx: runner_tx,
+				stole_task_tx: stolen_task_tx,
+				task_output_tx,
 				current_task_handle: None,
-				suspend_on_shutdown_rx: runner_rx.clone(),
+				suspend_on_shutdown_stole_task_rx: stolen_task_rx.clone(),
+				suspend_on_shutdown_task_output_rx: task_output_rx.clone(),
 				current_steal_task_handle: None,
 				last_steal_attempt_at: Instant::now(),
 				steal_attempts_count: 0,
 			},
-			runner_rx,
+			stolen_task_rx,
+			task_output_rx,
 		)
 	}
 
@@ -190,7 +196,7 @@ impl<E: RunError> Runner<E> {
 		let handle = spawn(run_single_task(
 			self.worker_id,
 			task_work_state,
-			self.msgs_tx.clone(),
+			self.task_output_tx.clone(),
 			suspend_rx,
 			abort_rx,
 		));
@@ -671,9 +677,11 @@ impl<E: RunError> Runner<E> {
 			priority_tasks,
 			is_idle,
 			abort_and_suspend_map,
-			msgs_tx: runner_tx,
+			stole_task_tx: stolen_task_tx,
+			task_output_tx,
 			mut current_task_handle,
-			suspend_on_shutdown_rx,
+			suspend_on_shutdown_stole_task_rx,
+			suspend_on_shutdown_task_output_rx,
 			..
 		} = self;
 
@@ -705,10 +713,15 @@ impl<E: RunError> Runner<E> {
 					error!("Task <worker_id='{worker_id}', task_id='{task_id}'> failed to join: {e:#?}");
 				}
 
-				runner_tx.close();
+				stolen_task_tx.close();
+				task_output_tx.close();
 
-				Self::process_tasks_being_suspended_on_shutdown(worker_id, suspend_on_shutdown_rx)
-					.await;
+				Self::process_tasks_being_suspended_on_shutdown(
+					worker_id,
+					suspend_on_shutdown_stole_task_rx,
+					suspend_on_shutdown_task_output_rx,
+				)
+				.await;
 			}
 
 			priority_tasks
@@ -734,13 +747,23 @@ impl<E: RunError> Runner<E> {
 
 	async fn process_tasks_being_suspended_on_shutdown(
 		worker_id: WorkerId,
-		suspend_on_shutdown_rx: chan::Receiver<RunnerMessage<E>>,
+		suspend_on_shutdown_stole_task_rx: chan::Receiver<Option<StoleTaskMessage<E>>>,
+		suspend_on_shutdown_task_output_rx: chan::Receiver<TaskOutputMessage<E>>,
 	) {
-		let mut suspend_on_shutdown_rx = pin!(suspend_on_shutdown_rx);
+		enum StreamMessage<E: RunError> {
+			Output(TaskOutputMessage<E>),
+			Steal(Option<StoleTaskMessage<E>>),
+		}
 
-		while let Some(runner_msg) = suspend_on_shutdown_rx.next().await {
-			match runner_msg {
-				RunnerMessage::TaskOutput(task_id, res) => match res {
+		let mut msg_stream = pin!((
+			suspend_on_shutdown_stole_task_rx.map(StreamMessage::Steal),
+			suspend_on_shutdown_task_output_rx.map(StreamMessage::Output),
+		)
+			.merge());
+
+		while let Some(msg) = msg_stream.next().await {
+			match msg {
+				StreamMessage::Output(TaskOutputMessage(task_id, res)) => match res {
 					Ok(TaskRunnerOutput {
 						task_work_state,
 						status,
@@ -768,7 +791,15 @@ impl<E: RunError> Runner<E> {
 					}
 				},
 
-				RunnerMessage::StoleTask(Some(task_work_state)) => {
+				StreamMessage::Steal(Some(StoleTaskMessage(task_work_state))) => {
+					trace!(
+						"Worker stole task: \
+						<worker_id='{worker_id}', stolen_worker_id='{}', task_id='{}'>",
+						worker_id,
+						task_work_state.task.id()
+					);
+					task_work_state.change_worker(worker_id);
+
 					send_shutdown_task_response(
 						worker_id,
 						&task_work_state.task.id(),
@@ -776,7 +807,7 @@ impl<E: RunError> Runner<E> {
 					);
 				}
 
-				RunnerMessage::StoleTask(None) => {}
+				StreamMessage::Steal(None) => {}
 			}
 		}
 	}
@@ -797,28 +828,26 @@ impl<E: RunError> Runner<E> {
 			.map(|task| (PendingTaskKind::Normal, task))
 	}
 
-	pub(super) fn steal_request(&mut self, tx: oneshot::Sender<Option<TaskWorkState<E>>>) {
+	pub(super) async fn steal_request(
+		&mut self,
+		stolen_task_tx: chan::Sender<Option<StoleTaskMessage<E>>>,
+	) -> bool {
 		trace!("Steal request: <worker_id='{}'>", self.worker_id);
 		if let Some((kind, task_work_state)) = self.get_next_task() {
-			self.proceed_with_task_to_be_stolen(kind, task_work_state, tx);
+			self.proceed_with_task_to_be_stolen(kind, task_work_state, stolen_task_tx)
+				.await
 		} else {
 			trace!("No task to steal: <worker_id='{}'>", self.worker_id);
-			if tx.send(None).is_err() {
-				warn!(
-					"Steal request channel closed before sending no task response: \
-					<worker_id='{}'>",
-					self.worker_id
-				);
-			}
+			false
 		}
 	}
 
-	fn proceed_with_task_to_be_stolen(
+	async fn proceed_with_task_to_be_stolen(
 		&mut self,
 		kind: PendingTaskKind,
 		task_work_state: TaskWorkState<E>,
-		tx: oneshot::Sender<Option<TaskWorkState<E>>>,
-	) {
+		stolen_task_tx: chan::Sender<Option<StoleTaskMessage<E>>>,
+	) -> bool {
 		let task_id = task_work_state.task.id();
 		self.task_kinds.remove(&task_id);
 
@@ -827,8 +856,14 @@ impl<E: RunError> Runner<E> {
 			self.worker_id
 		);
 
-		if let Err(Some(task_work_state)) = tx.send(Some(task_work_state)) {
+		if let Err(chan::SendError(Some(StoleTaskMessage(task_work_state)))) = stolen_task_tx
+			.send(Some(StoleTaskMessage(task_work_state)))
+			.await
+		{
 			self.put_back_failed_to_stole_task(task_id, kind, task_work_state);
+			false
+		} else {
+			true
 		}
 	}
 
@@ -868,7 +903,7 @@ impl<E: RunError> Runner<E> {
 				self.current_steal_task_handle = Some(dispatch_steal_request(
 					self.worker_id,
 					self.work_stealer.clone(),
-					self.msgs_tx.clone(),
+					self.stole_task_tx.clone(),
 				));
 			} else {
 				trace!(
@@ -946,7 +981,7 @@ impl<E: RunError> Runner<E> {
 				self.current_steal_task_handle = Some(dispatch_steal_request(
 					self.worker_id,
 					self.work_stealer.clone(),
-					self.msgs_tx.clone(),
+					self.stole_task_tx.clone(),
 				));
 			} else {
 				trace!(
@@ -1046,7 +1081,7 @@ impl<E: RunError> Runner<E> {
 			self.current_steal_task_handle = Some(dispatch_steal_request(
 				self.worker_id,
 				self.work_stealer.clone(),
-				self.msgs_tx.clone(),
+				self.stole_task_tx.clone(),
 			));
 			self.last_steal_attempt_at = Instant::now();
 		} else {
@@ -1096,14 +1131,17 @@ impl<E: RunError> Runner<E> {
 		}
 	}
 
-	pub(super) async fn process_stolen_task(&mut self, maybe_new_task: Option<TaskWorkState<E>>) {
+	pub(super) async fn process_stolen_task(
+		&mut self,
+		maybe_new_task: Option<StoleTaskMessage<E>>,
+	) {
 		if let Some(steal_task_handle) = self.current_steal_task_handle.take() {
 			if let Err(e) = steal_task_handle.await {
 				error!("Steal task failed to join: {e:#?}");
 			}
 		}
 
-		if let Some(task_work_state) = maybe_new_task {
+		if let Some(StoleTaskMessage(task_work_state)) = maybe_new_task {
 			self.system_comm.working_report(self.worker_id).await;
 			trace!(
 				"Stolen task: <worker_id='{}', task_id='{}'>",
@@ -1237,7 +1275,7 @@ fn handle_task_suspension(
 type PartialTaskWorkState<E> = (
 	TaskId,
 	Arc<TaskWorktable>,
-	oneshot::Sender<Result<TaskStatus<E>, SystemError>>,
+	PanicOnSenderDrop<E>,
 	Arc<Interrupter>,
 );
 
@@ -1246,21 +1284,22 @@ async fn emit_task_completed_message<E: RunError>(
 	run_task_output: RunTaskOutput<E>,
 	has_suspended: Arc<AtomicBool>,
 	(task_id, worktable, done_tx, interrupter): PartialTaskWorkState<E>,
-	runner_tx: chan::Sender<RunnerMessage<E>>,
+	task_output_tx: chan::Sender<TaskOutputMessage<E>>,
 ) {
 	match run_task_output {
 		(task, Ok(res)) => {
 			trace!(
 				"Task completed ok: <worker_id='{worker_id}', task_id='{task_id}', result={res:?}>"
 			);
-			runner_tx
-				.send(RunnerMessage::TaskOutput(task_id, {
+			task_output_tx
+				.send(TaskOutputMessage(task_id, {
 					let mut internal_status = res.into();
+					let suspended = has_suspended.load(Ordering::SeqCst);
 
-					if matches!(internal_status, InternalTaskExecStatus::Paused)
-						&& has_suspended.load(Ordering::Relaxed)
-					{
+					if matches!(internal_status, InternalTaskExecStatus::Paused) && suspended {
 						internal_status = InternalTaskExecStatus::Suspend;
+					} else if matches!(internal_status, InternalTaskExecStatus::Paused) {
+						debug!("Task completed with status: {internal_status:#?}");
 					}
 
 					Ok(TaskRunnerOutput {
@@ -1291,8 +1330,8 @@ async fn emit_task_completed_message<E: RunError>(
 				error!("Task done channel closed while sending error response");
 			}
 
-			runner_tx
-				.send(RunnerMessage::TaskOutput(task_id, Err(())))
+			task_output_tx
+				.send(TaskOutputMessage(task_id, Err(())))
 				.await
 				.expect("Task runner channel closed while sending task output");
 		}
@@ -1307,7 +1346,7 @@ async fn run_single_task<E: RunError>(
 		interrupter,
 		done_tx,
 	}: TaskWorkState<E>,
-	runner_tx: chan::Sender<RunnerMessage<E>>,
+	task_output_tx: chan::Sender<TaskOutputMessage<E>>,
 	suspend_rx: oneshot::Receiver<()>,
 	abort_rx: oneshot::Receiver<oneshot::Sender<Result<(), SystemError>>>,
 ) {
@@ -1364,7 +1403,7 @@ async fn run_single_task<E: RunError>(
 				run_task_output,
 				has_suspended,
 				(task_id, worktable, done_tx, interrupter),
-				runner_tx,
+				task_output_tx,
 			)
 			.await;
 		}
@@ -1375,8 +1414,8 @@ async fn run_single_task<E: RunError>(
 				error!("Task done channel closed while sending join error response");
 			}
 
-			if runner_tx
-				.send(RunnerMessage::TaskOutput(task_id, Err(())))
+			if task_output_tx
+				.send(TaskOutputMessage(task_id, Err(())))
 				.await
 				.is_err()
 			{
@@ -1393,8 +1432,8 @@ async fn run_single_task<E: RunError>(
 				error!("Task done channel closed while sending abort error response");
 			}
 
-			if runner_tx
-				.send(RunnerMessage::TaskOutput(task_id, Err(())))
+			if task_output_tx
+				.send(TaskOutputMessage(task_id, Err(())))
 				.await
 				.is_err()
 			{
@@ -1430,12 +1469,12 @@ fn send_complete_task_response<E: RunError>(
 	if done_tx.send(Ok(TaskStatus::Done((*task_id, out)))).is_err() {
 		warn!(
 			"Task done channel closed before sending done response for task: \
-		<worker_id='{worker_id}', task_id='{task_id}'>"
+			<worker_id='{worker_id}', task_id='{task_id}'>"
 		);
 	} else {
 		trace!(
 			"Emitted task done signal on shutdown: \
-		<worker_id='{worker_id}', task_id='{task_id}'>"
+			<worker_id='{worker_id}', task_id='{task_id}'>"
 		);
 	}
 }
