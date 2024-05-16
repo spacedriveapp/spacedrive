@@ -5,6 +5,8 @@ index: 22
 
 # `sd_p2p` crate
 
+[Implementation](https://github.com/spacedriveapp/spacedrive/tree/main/crates/p2p)
+
 The P2P crate was designed from the group up to be modular.
 
 The `P2P` struct is the core of the system, and suprisingly doesn't actually do any P2P functionality. It's a state manager and event bus along with providing a hook system for other components of the P2P system to register themselves.
@@ -22,8 +24,3 @@ A hook is very similar to an actor. It's a component which can be registered wit
 A hook allows for processing events from the P2P system and also ensures when the P2P system shuts down, the hook is also shutdown.
 
 Their are special hooks called listeners. These are implemented as a superset of a regular hook and are able to create and accept connections.
-
-Subcrates:
- - [`sd_p2p_block`](https://github.com/spacedriveapp/spacedrive/tree/main/crates/p2p/crates/block) - Block protocol based on [SyncThing Block Exchange Protocol v1](https://docs.syncthing.net/specs/bep-v1.html)
- - [`sd_p2p_proto`](https://github.com/spacedriveapp/spacedrive/tree/main/crates/p2p/crates/proto) - Utilities for zero fluff encoding and decoding.
- - [`sd_p2p_tunnel`](https://github.com/spacedriveapp/spacedrive/tree/main/crates/p2p/crates/tunnel) - Encrypt a stream of data between two nodes
