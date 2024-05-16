@@ -76,8 +76,6 @@ struct MyBehaviour {
 	autonat: autonat::Behaviour,
 	// TODO: Can this be optional?
 	dcutr: dcutr::Behaviour,
-	// TODO: Can this be optional?
-	// webrtc: libp2p_webrtc::
 }
 
 #[derive(Debug, Error)]
