@@ -195,6 +195,12 @@ impl Future for InterrupterFuture<'_> {
 				if ack.send(()).is_err() {
 					warn!("TaskInterrupter ack channel closed");
 				}
+				if let InternalInterruptionKind::Suspend(has_suspended) = &kind {
+					has_suspended.store(true, Ordering::SeqCst);
+				}
+
+				let kind = kind.into();
+
 				this.has_interrupted.store(kind as u8, Ordering::Relaxed);
 				Poll::Ready(kind)
 			}
@@ -249,6 +255,12 @@ impl Interrupter {
 					if ack.send(()).is_err() {
 						warn!("TaskInterrupter ack channel closed");
 					}
+
+					if let InternalInterruptionKind::Suspend(has_suspended) = &kind {
+						has_suspended.store(true, Ordering::SeqCst);
+					}
+
+					let kind = kind.into();
 
 					self.has_interrupted.store(kind as u8, Ordering::Relaxed);
 
@@ -324,9 +336,25 @@ impl InterruptionKind {
 	}
 }
 
+#[derive(Debug, Clone)]
+enum InternalInterruptionKind {
+	Pause,
+	Suspend(Arc<AtomicBool>),
+	Cancel,
+}
+
+impl From<InternalInterruptionKind> for InterruptionKind {
+	fn from(kind: InternalInterruptionKind) -> Self {
+		match kind {
+			InternalInterruptionKind::Pause | InternalInterruptionKind::Suspend(_) => Self::Pause,
+			InternalInterruptionKind::Cancel => Self::Cancel,
+		}
+	}
+}
+
 #[derive(Debug)]
 pub struct InterruptionRequest {
-	kind: InterruptionKind,
+	kind: InternalInterruptionKind,
 	ack: oneshot::Sender<()>,
 }
 
@@ -613,7 +641,22 @@ impl TaskWorktable {
 
 		self.interrupt_tx
 			.send(InterruptionRequest {
-				kind: InterruptionKind::Pause,
+				kind: InternalInterruptionKind::Pause,
+				ack: tx,
+			})
+			.await
+			.expect("Worker channel closed trying to pause task");
+	}
+
+	pub async fn suspend(&self, tx: oneshot::Sender<()>, has_suspended: Arc<AtomicBool>) {
+		self.is_paused.store(true, Ordering::Relaxed);
+		self.is_running.store(false, Ordering::Relaxed);
+
+		trace!("Sending pause signal to Interrupter object on task");
+
+		self.interrupt_tx
+			.send(InterruptionRequest {
+				kind: InternalInterruptionKind::Suspend(has_suspended),
 				ack: tx,
 			})
 			.await
@@ -626,7 +669,7 @@ impl TaskWorktable {
 
 		self.interrupt_tx
 			.send(InterruptionRequest {
-				kind: InterruptionKind::Cancel,
+				kind: InternalInterruptionKind::Cancel,
 				ack: tx,
 			})
 			.await

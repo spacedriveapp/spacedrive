@@ -231,6 +231,10 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 			&& self.worktables.job_hashes_by_id.is_empty()
 	}
 
+	fn total_jobs(&self) -> usize {
+		self.handles.len()
+	}
+
 	fn check_if_job_are_running(
 		&self,
 		job_names: Vec<JobName>,
@@ -309,6 +313,8 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 						},
 						next_jobs,
 					});
+
+				debug!("Job was shutdown and serialized: <id='{job_id}', name='{name}'>");
 
 				return Ok(());
 			}
@@ -600,7 +606,10 @@ pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 						break;
 					}
 
-					debug!("Waiting for all jobs to complete before shutting down...");
+					debug!(
+						"Waiting for {} jobs to shutdown before shutting down the job system...",
+						runner.total_jobs()
+					);
 				}
 
 				// Now the runner can shutdown

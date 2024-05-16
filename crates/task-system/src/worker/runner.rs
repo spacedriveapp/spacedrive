@@ -687,6 +687,26 @@ impl<E: RunError> Runner<E> {
 
 		if is_idle {
 			trace!("Worker is idle, no tasks to shutdown: <worker_id='{worker_id}'>");
+			assert!(
+				current_task_handle.is_none(),
+				"can't shutdown with a running task if we're idle"
+			);
+			assert!(
+				tasks.is_empty(),
+				"can't shutdown with pending tasks if we're idle"
+			);
+			assert!(
+				priority_tasks.is_empty(),
+				"can't shutdown with priority tasks if we're idle"
+			);
+			assert!(
+				suspended_task.is_none(),
+				"can't shutdown with a suspended task if we're idle"
+			);
+
+			for paused_task in paused_tasks.into_values() {
+				send_shutdown_task_response(worker_id, &paused_task.task.id(), paused_task);
+			}
 		} else {
 			trace!("Worker is busy, will shutdown tasks: <worker_id='{worker_id}'>");
 
@@ -1247,21 +1267,13 @@ fn handle_task_suspension(
 
 			trace!("Suspend signal received: <worker_id='{worker_id}', task_id='{task_id}'>");
 
-			// The interrupter only knows about Pause and Cancel commands, we use pause as
-			// the suspend task feature should be invisible to the user
-			worktable.pause(tx).await;
+			worktable.suspend(tx, has_suspended).await;
 
-			match rx.await {
-				Ok(()) => {
-					trace!("Suspending: <worker_id='{worker_id}', task_id='{task_id}'>");
-					has_suspended.store(true, Ordering::Relaxed);
-				}
-				Err(_) => {
-					// The task probably finished before we could suspend it so the channel was dropped
-					trace!(
-						"Suspend channel closed: <worker_id='{worker_id}', task_id='{task_id}'>"
-					);
-				}
+			if rx.await.is_ok() {
+				trace!("Suspending: <worker_id='{worker_id}', task_id='{task_id}'>");
+			} else {
+				// The task probably finished before we could suspend it so the channel was dropped
+				trace!("Suspend channel closed: <worker_id='{worker_id}', task_id='{task_id}'>");
 			}
 		} else {
 			trace!(
