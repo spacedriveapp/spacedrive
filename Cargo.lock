@@ -4356,7 +4356,7 @@ dependencies = [
 [[package]]
 name = "if-watch"
 version = "3.2.0"
-source = "git+https://github.com/oscartbeaumont/if-watch.git?rev=a92c17d3f85c1c6fb0afeeaf6c2b24d0b147e8c3#a92c17d3f85c1c6fb0afeeaf6c2b24d0b147e8c3"
+source = "git+https://github.com/spacedriveapp/if-watch.git?rev=a92c17d3f85c1c6fb0afeeaf6c2b24d0b147e8c3#a92c17d3f85c1c6fb0afeeaf6c2b24d0b147e8c3"
 dependencies = [
  "async-io 2.3.0",
  "core-foundation",
