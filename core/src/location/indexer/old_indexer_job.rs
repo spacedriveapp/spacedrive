@@ -168,7 +168,7 @@ impl StatefulJob for OldIndexerJobInit {
 		let db = Arc::clone(&ctx.library.db);
 		let sync = &ctx.library.sync;
 
-		let mut indexer_rules = init
+		let indexer_rules = init
 			.location
 			.indexer_rules
 			.iter()
@@ -210,7 +210,7 @@ impl StatefulJob for OldIndexerJobInit {
 		} = walk(
 			&location_path,
 			&to_walk_path,
-			&mut indexer_rules,
+			&indexer_rules,
 			update_notifier_fn(ctx),
 			file_paths_db_fetcher_fn!(&db),
 			to_remove_db_fetcher_fn!(location_id, &db),
@@ -389,7 +389,6 @@ impl StatefulJob for OldIndexerJobInit {
 
 				let scan_start = Instant::now();
 
-				let mut indexer_rules = data.indexer_rules.clone();
 				let WalkResult {
 					walked,
 					to_update,
@@ -400,7 +399,7 @@ impl StatefulJob for OldIndexerJobInit {
 				} = keep_walking(
 					location_path,
 					to_walk_entry,
-					&mut indexer_rules,
+					&data.indexer_rules,
 					update_notifier_fn(ctx),
 					file_paths_db_fetcher_fn!(&db),
 					to_remove_db_fetcher_fn!(location_id, &db),

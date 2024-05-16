@@ -150,6 +150,9 @@ impl IndexerRuleCreateArgs {
 							parameters.into_iter().collect(),
 						))
 					}
+					RuleKind::IgnoredByGit => {
+						Ok(RulePerKind::IgnoredByGit(PathBuf::new(), Search::default()))
+					}
 				})
 				.collect::<Result<Vec<_>, _>>()?,
 		)?;
@@ -185,13 +188,14 @@ pub enum RuleKind {
 	RejectFilesByGlob = 1,
 	AcceptIfChildrenDirectoriesArePresent = 2,
 	RejectIfChildrenDirectoriesArePresent = 3,
+	IgnoredByGit = 4,
 }
 
 impl RuleKind {
 	#[must_use]
 	pub const fn variant_count() -> usize {
 		// TODO: Use https://doc.rust-lang.org/std/mem/fn.variant_count.html if it ever gets stabilized
-		4
+		5
 	}
 }
 
@@ -209,10 +213,10 @@ pub enum RulePerKind {
 	// https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
 	// https://en.wikipedia.org/wiki/Extended_file_attributes
 	AcceptFilesByGlob(Vec<Glob>, GlobSet),
-	AcceptFilesByGitRule(PathBuf, Search),
 	RejectFilesByGlob(Vec<Glob>, GlobSet),
 	AcceptIfChildrenDirectoriesArePresent(HashSet<String>),
 	RejectIfChildrenDirectoriesArePresent(HashSet<String>),
+	IgnoredByGit(PathBuf, Search),
 }
 
 impl RulePerKind {
@@ -287,8 +291,8 @@ impl RulePerKind {
 				RuleKind::RejectFilesByGlob,
 				reject_by_glob(source, reject_glob_set),
 			)),
-			Self::AcceptFilesByGitRule(base_dir, patterns) => Ok((
-				RuleKind::AcceptFilesByGlob,
+			Self::IgnoredByGit(base_dir, patterns) => Ok((
+				RuleKind::IgnoredByGit,
 				accept_by_gitpattern(
 					source
 						.as_ref()
@@ -325,8 +329,8 @@ impl RulePerKind {
 				RuleKind::RejectFilesByGlob,
 				reject_by_glob(source, reject_glob_set),
 			)),
-			Self::AcceptFilesByGitRule(path, patterns) => Ok((
-				RuleKind::AcceptFilesByGlob,
+			Self::IgnoredByGit(path, patterns) => Ok((
+				RuleKind::IgnoredByGit,
 				accept_by_gitpattern(
 					source
 						.as_ref()

@@ -6,7 +6,6 @@ use sd_prisma::prisma::{indexer_rule, PrismaClient};
 
 use chrono::Utc;
 use thiserror::Error;
-use tracing::debug;
 use uuid::Uuid;
 
 use super::{IndexerRule, IndexerRuleError, RulePerKind};
@@ -31,30 +30,28 @@ impl GitIgnoreRules {
 		library_root: &Path,
 		current: &Path,
 	) -> Option<Result<Self, SeederError>> {
-		let mut cur = None;
+		let mut git_repo = None;
 
 		for ancestor in current
 			.ancestors()
-			.take_while(|path| path.starts_with(library_root))
+			.take_while(|&path| path.starts_with(library_root))
 		{
 			if Self::is_git_repo(ancestor).await {
-				debug!(repo=?ancestor, "found git repo");
-				cur.replace(ancestor);
+				git_repo.replace(ancestor);
 				break;
 			}
 		}
 
-		Some(Self::parse_gitrepo(cur?).await)
+		let git_repo = git_repo?;
+		Some(Self::parse_gitrepo(git_repo).await)
 	}
 
-	async fn parse_gitrepo(path: &Path) -> Result<Self, SeederError> {
-		let gitignore = path.join(".gitignore");
-
+	async fn parse_gitrepo(git_repo: &Path) -> Result<Self, SeederError> {
 		let mut search = Search::default();
 
 		let (gitignore_rules, git_exclude_rules) = (
-			Self::parse_git_ignore(gitignore),
-			Self::parse_git_exclude(path.join(".git")),
+			Self::parse_git_ignore(git_repo.join(".gitignore")),
+			Self::parse_git_exclude(git_repo.join(".git")),
 		)
 			.join()
 			.await;
@@ -67,7 +64,7 @@ impl GitIgnoreRules {
 		}
 
 		Ok(Self {
-			rules: RulePerKind::AcceptFilesByGitRule(path.to_owned(), search),
+			rules: RulePerKind::IgnoredByGit(git_repo.to_owned(), search),
 		})
 	}
 

@@ -117,7 +117,7 @@ where
 pub(super) async fn walk<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 	library_root: impl AsRef<Path>,
 	current_dir: impl AsRef<Path>,
-	indexer_rules: &mut Vec<IndexerRule>,
+	indexer_rules: &[IndexerRule],
 	mut update_notifier: impl FnMut(&Path, usize),
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> FilePathDBFetcherFut,
 	to_remove_db_fetcher: impl Fn(
@@ -203,7 +203,7 @@ where
 pub(super) async fn keep_walking<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 	location_path: impl AsRef<Path>,
 	to_walk_entry: &ToWalkEntry,
-	indexer_rules: &mut Vec<IndexerRule>,
+	indexer_rules: &[IndexerRule],
 	mut update_notifier: impl FnMut(&Path, usize),
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> FilePathDBFetcherFut,
 	to_remove_db_fetcher: impl Fn(
@@ -271,7 +271,7 @@ where
 pub(super) async fn walk_single_dir<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 	location_path: impl AsRef<Path>,
 	current_dir: impl AsRef<Path>,
-	indexer_rules: &mut Vec<IndexerRule>,
+	indexer_rules: &[IndexerRule],
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> FilePathDBFetcherFut,
 	to_remove_db_fetcher: impl Fn(
 		IsolatedFilePathData<'static>,
@@ -443,7 +443,7 @@ async fn inner_walk_single_dir<ToRemoveDbFetcherFut>(
 		parent_dir_accepted_by_its_children,
 		..
 	}: &ToWalkEntry,
-	indexer_rules: &mut Vec<IndexerRule>,
+	indexer_rules: &[IndexerRule],
 	to_remove_db_fetcher: impl Fn(
 		IsolatedFilePathData<'static>,
 		Vec<file_path::WhereParam>,
@@ -472,10 +472,10 @@ where
 		return (0, vec![]);
 	};
 
-	if let Some(pat) =
-		GitIgnoreRules::get_rules_if_in_git_repo(library_root.as_ref(), current_dir.as_ref()).await
-	{
-		indexer_rules.extend(pat.into_iter().map(Into::into));
+	let mut rules = indexer_rules.to_owned();
+
+	if let Some(pat) = GitIgnoreRules::get_rules_if_in_git_repo(library_root.as_ref(), path).await {
+		rules.extend(pat.into_iter().map(Into::into));
 	}
 
 	let current_dir = current_dir.as_ref();
@@ -509,7 +509,7 @@ where
 			accept_by_children_dir
 		);
 
-		let Ok(rules_per_kind) = IndexerRule::apply_all(indexer_rules, &current_path)
+		let Ok(rules_per_kind) = IndexerRule::apply_all(&rules, &current_path)
 			.await
 			.map_err(|e| errors.push(e.into()))
 		else {
@@ -526,6 +526,12 @@ where
 				current_path.display()
 			);
 			continue 'entries;
+		}
+
+		if let Some(f) = rules_per_kind.get(&RuleKind::IgnoredByGit) {
+			if f.iter().any(|s| !s) {
+				continue 'entries;
+			}
 		}
 
 		let Ok(metadata) = entry
@@ -572,6 +578,14 @@ where
 						current_path.display()
 					);
 					accept_by_children_dir = Some(false);
+				}
+			}
+
+			// Then we check if there's a git ignore rule for it
+			if let Some(accept) = rules_per_kind.get(&RuleKind::IgnoredByGit) {
+				if !accept.iter().any(|&r| r) {
+					trace!(dir=?current_path, "ignoring files because of git ignore");
+					continue 'entries;
 				}
 			}
 

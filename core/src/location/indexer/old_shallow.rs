@@ -49,7 +49,7 @@ pub async fn old_shallow(
 	let db = library.db.clone();
 	let sync = &library.sync;
 
-	let mut indexer_rules = location
+	let indexer_rules = location
 		.indexer_rules
 		.iter()
 		.map(|rule| IndexerRule::try_from(&rule.indexer_rule))
@@ -81,7 +81,7 @@ pub async fn old_shallow(
 		walk_single_dir(
 			location_path,
 			&to_walk_path,
-			&mut indexer_rules,
+			&indexer_rules,
 			file_paths_db_fetcher_fn!(&db),
 			to_remove_db_fetcher_fn!(location_id, &db),
 			iso_file_path_factory(location_id, location_path),
