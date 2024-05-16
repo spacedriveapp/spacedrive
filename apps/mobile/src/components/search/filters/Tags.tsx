@@ -39,11 +39,9 @@ const Tags = () => {
 							extraData={searchStore.filters.tags}
 							numColumns={tagsData ? Math.max(Math.ceil(tagsData.length / 2), 2) : 1}
 							key={tagsData ? 'tagsSearch' : '_'}
-							contentContainerStyle={tw`w-full`}
-							ListEmptyComponent={
-								<Empty icon="Tags" description="You have not created any tags" />
-							}
 							scrollEnabled={false}
+							contentContainerStyle={tw`w-full`}
+							ListEmptyComponent={<Empty icon="Tags" description="You have not created any tags" />}
 							ItemSeparatorComponent={() => <View style={tw`h-2 w-2`} />}
 							keyExtractor={(item) => item.id.toString()}
 							showsHorizontalScrollIndicator={false}

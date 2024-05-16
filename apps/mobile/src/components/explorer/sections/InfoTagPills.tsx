@@ -6,6 +6,7 @@ import {
 	isPath,
 	useLibraryQuery
 } from '@sd/client';
+import { Plus } from 'phosphor-react-native';
 import React, { useRef, useState } from 'react';
 import { FlatList, NativeScrollEvent, Pressable, View, ViewStyle } from 'react-native';
 import Fade from '~/components/layout/Fade';
@@ -17,9 +18,11 @@ import { tw, twStyle } from '~/lib/tailwind';
 type Props = {
 	data: ExplorerItem;
 	style?: ViewStyle;
+	contentContainerStyle?: ViewStyle;
+	columnCount?: number;
 };
 
-const InfoTagPills = ({ data, style }: Props) => {
+const InfoTagPills = ({ data, style, contentContainerStyle, columnCount = 3 }: Props) => {
 
 	const objectData = getItemObject(data);
 	const filePath = getItemFilePath(data);
@@ -31,7 +34,7 @@ const InfoTagPills = ({ data, style }: Props) => {
 	});
 
 	const ref = useRef<ModalRef>(null);
-	const items = tagsQuery.data;
+	const tags = tagsQuery.data;
 	const isDir = data && isPath(data) ? data.item.is_dir : false;
 
 	// Fade the tag pills when scrolling
@@ -48,7 +51,10 @@ const InfoTagPills = ({ data, style }: Props) => {
 		<View style={twStyle('mb-3 mt-2 flex-col flex-wrap items-start gap-1', style)}>
 			<View style={tw`flex-row gap-1`}>
 			<Pressable style={tw`relative z-10`} onPress={() => ref.current?.present()}>
-				<PlaceholderPill text={'Add Tag'}/>
+				<PlaceholderPill
+				icon={<Plus size={12} color={tw.color('ink-dull')}/>}
+				 text={'Add Tag'}
+				 />
 			</Pressable>
 					{/* Kind */}
 			<InfoPill text={isDir ? 'Folder' : getExplorerItemData(data).kind} />
@@ -63,7 +69,7 @@ const InfoTagPills = ({ data, style }: Props) => {
 				} else {
 					setReachedBottom(true);
 				}
-			}} style={twStyle(`relative max-h-20 flex-row flex-wrap gap-1 overflow-hidden`)}>
+			}} style={twStyle(`relative flex-row flex-wrap gap-1 overflow-hidden`)}>
 				<Fade
 				fadeSides="top-bottom"
 				orientation="vertical"
@@ -75,14 +81,14 @@ const InfoTagPills = ({ data, style }: Props) => {
 				>
 			<FlatList
 				onScroll={(e) => fadeScroll(e.nativeEvent)}
-				style={tw`grow-0`}
-				data={items}
+				style={tw`max-h-20 w-full grow-0`}
+				data={tags}
 				scrollEventThrottle={1}
 				showsVerticalScrollIndicator={false}
-				numColumns={3}
-				contentContainerStyle={tw`gap-1`}
-				columnWrapperStyle={items && twStyle(items.length > 0 && `flex-wrap gap-1`)}
-				key={items?.length}
+				numColumns={columnCount}
+				contentContainerStyle={twStyle(`gap-1`, contentContainerStyle)}
+				columnWrapperStyle={tags && twStyle(tags.length > 0 && `flex-wrap gap-1`)}
+				key={tags?.length}
 				keyExtractor={(item) => item.id.toString() + Math.floor(Math.random() * 10)}
 				renderItem={({ item }) => (
 					<InfoPill

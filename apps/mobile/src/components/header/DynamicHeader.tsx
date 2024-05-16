@@ -7,12 +7,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getExplorerStore, useExplorerStore } from '~/stores/explorerStore';
 
+import { FilterItem, TagItem, useSearchStore } from '~/stores/searchStore';
 import { Icon } from '../icons/Icon';
 
 type Props = {
 	headerRoute?: NativeStackHeaderProps; //supporting title from the options object of navigation
 	optionsRoute?: RouteProp<any, any>; //supporting params passed
-	kind: 'tag' | 'location'; //the kind of icon to display
+	kind: 'tags' | 'locations'; //the kind of icon to display
 	explorerMenu?: boolean; //whether to show the explorer menu
 };
 
@@ -26,6 +27,23 @@ export default function DynamicHeader({
 	const headerHeight = useSafeAreaInsets().top;
 	const isAndroid = Platform.OS === 'android';
 	const explorerStore = useExplorerStore();
+	const searchStore = useSearchStore();
+	const params: any = headerRoute && headerRoute.route.params;
+
+	//pressing the search icon will add a filter
+	//based on the screen
+
+	const searchHandler = (key: Props['kind']) => {
+		const keys: {
+			tags: TagItem;
+			locations: FilterItem;
+		} = {
+			tags: {id: params.id, color: params.color},
+			locations: {id: params.id, name: params.name},
+		}
+		searchStore.searchFrom(key, keys[key])
+	}
+
 
 	return (
 		<View
@@ -53,6 +71,7 @@ export default function DynamicHeader({
 					<Pressable
 							hitSlop={12}
 							onPress={() => {
+								searchHandler(kind)
 								navigation.navigate('SearchStack', {
 									screen: 'Search'
 								});
@@ -94,12 +113,12 @@ interface HeaderIconKindProps {
 
 const HeaderIconKind = ({ routeParams, kind }: HeaderIconKindProps) => {
 	switch (kind) {
-		case 'location':
+		case 'locations':
 			return <Icon size={24} name="Folder" />;
-		case 'tag':
+		case 'tags':
 			return (
 				<View
-					style={twStyle('h-[24px] w-[24px] rounded-full', {
+					style={twStyle('h-5 w-5 rounded-full', {
 						backgroundColor: routeParams.color
 					})}
 				/>

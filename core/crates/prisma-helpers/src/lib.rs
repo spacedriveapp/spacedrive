@@ -141,7 +141,7 @@ file_path::select!(file_path_to_full_path {
 file_path::include!(file_path_with_object { object });
 file_path::include!(file_path_for_frontend {
 	object: include {
-		tags
+		tags: include { tag }
 		exif_data: select {
 			resolution
 			media_date

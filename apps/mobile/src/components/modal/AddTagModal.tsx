@@ -29,6 +29,7 @@ const AddTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 		onSuccess: () => {
 			// this makes sure that the tags are updated in the UI
 			rspc.queryClient.invalidateQueries(['tags.getForObject'])
+			rspc.queryClient.invalidateQueries(['search.paths'])
 			modalRef.current?.dismiss();
 		}
 	});
@@ -89,7 +90,7 @@ const AddTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 
 		// in order to support assigning multiple tags
 		// we need to make multiple mutation calls
-		if (targets) await Promise.all([...selectedTags.map((tag) => mutation.mutateAsync({
+		if (targets) await Promise.all([...selectedTags.map(async (tag) => await mutation.mutateAsync({
 			targets: [targets],
 			tag_id: tag.id,
 			unassign: tag.unassign
@@ -121,7 +122,7 @@ const AddTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 						extraData={selectedTags}
 						key={tagsData ? 'tags' : '_'}
 						keyExtractor={(item) => item.id.toString()}
-						contentContainerStyle={tw`mx-auto mt-4 items-center p-4 pb-10`}
+						contentContainerStyle={tw`mx-auto mt-4 p-4 pb-10`}
 						ItemSeparatorComponent={() => <View style={tw`h-2`} />}
 						renderItem={({ item }) => (
 							<TagItem isSelected={() => isSelected(item.id)} select={() => selectTag(item.id)} tag={item} />

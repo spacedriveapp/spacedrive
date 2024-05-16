@@ -1,4 +1,4 @@
-import { useLibraryQuery, useObjectsExplorerQuery } from '@sd/client';
+import { useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
 import { useEffect } from 'react';
 import Explorer from '~/components/explorer/Explorer';
 import Empty from '~/components/layout/Empty';
@@ -11,17 +11,26 @@ export default function TagScreen({ navigation, route }: BrowseStackScreenProps<
 	const tag = useLibraryQuery(['tags.get', id]);
 	const tagData = tag.data;
 
-	const objects = useObjectsExplorerQuery({
-		arg: { filters: [{ object: { tags: { in: [id] } } }], take: 30 },
+	const objects = usePathsExplorerQuery({
+		arg: { filters: [
+			{ object: { tags: { in: [id] } } },
+		], take: 30 },
+		enabled: typeof id === 'number',
 		order: null
 	});
 
 	useEffect(() => {
 		// Set screen title to tag name.
-		navigation.setOptions({
-			title: tagData?.name ?? 'Tag'
-		});
-	}, [tagData?.name, navigation]);
+		if (tagData) {
+			navigation.setParams({
+				id: tagData.id,
+				color: tagData.color as string
+			})
+			navigation.setOptions({
+				title: tagData.name ?? 'Tag',
+			});
+		}
+	}, [tagData, id, navigation]);
 
 	return <Explorer
 		isEmpty={objects.count === 0}

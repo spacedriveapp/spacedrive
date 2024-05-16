@@ -1,5 +1,5 @@
 import { useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import Explorer from '~/components/explorer/Explorer';
 import { useSortBy } from '~/hooks/useSortBy';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
@@ -11,10 +11,16 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 	const location = useLibraryQuery(['locations.get', route.params.id]);
 	const locationData = location.data;
 	const order = useSortBy();
+	const title = useMemo(() => {
+	return path?.split('/')
+	.filter((x) => x !== '')
+	.pop();
+	}, [path])
 
 	const paths = usePathsExplorerQuery({
 		arg: {
 			filters: [
+				{ filePath: { hidden: false }},
 				{ filePath: { locations: { in: [id] } } },
 				{
 					filePath: {
@@ -28,7 +34,7 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 			].filter(Boolean) as any,
 			take: 30
 		},
-		order: order,
+		order,
 		onSuccess: () => getExplorerStore().resetNewThumbnails()
 	});
 
@@ -37,17 +43,19 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 		if (path && path !== '') {
 			// Nested location.
 			navigation.setOptions({
-				title: path
-					.split('/')
-					.filter((x) => x !== '')
-					.pop()
+				title
 			});
 		} else {
 			navigation.setOptions({
 				title: locationData?.name ?? 'Location'
 			});
 		}
-	}, [locationData?.name, navigation, path]);
+		// sets params for handling when clicking on search within header
+		navigation.setParams({
+			id: id,
+			name: locationData?.name ?? 'Location'
+		})
+	}, [id, locationData?.name, navigation, path, title]);
 
 	useEffect(() => {
 		getExplorerStore().locationId = id;
