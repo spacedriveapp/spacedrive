@@ -26,6 +26,8 @@ This crate provides utilities to make the implementations less error prone, howe
 
 From my research no crate exists that meets these requirements. It is also a difficult problem because your juggling lifetimes and async which is rough. I attempted an implementation called [binario](https://github.com/oscartbeaumont/binario), however it is still incomplete so we never adopted it. I suspect Rust's recent stablisation of [RPITIT](https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html) would make this much easier.
 
+This issued is tracked as [ENG-431](https://linear.app/spacedriveapp/issue/ENG-431/binary-handling-abstraction).
+
 ## Example
 
 ```rs

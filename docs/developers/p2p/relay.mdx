@@ -7,57 +7,75 @@ index: 27
 
 To establish connections outside of your local network we rely on an external relay to help with coordinating connections and also to proxy traffic between peers if the network conditions are not favourable.
 
-## Client
+## Implementation
 
-[Implementation](https://github.com/spacedriveapp/spacedrive/tree/main/crates/p2p/src/hooks/quic.rs)
+We make use of [libp2p](https://libp2p.io)'s [Direct Connection Upgrade through Relay](https://github.com/libp2p/specs/blob/master/relay/DCUtR.md) and [Circuit Relay](https://github.com/libp2p/specs/blob/master/relay/README.md) protocols for our relay system.
 
-TODO
+[Client Implementation](https://github.com/spacedriveapp/spacedrive/tree/main/crates/p2p/src/hooks/quic/transport.rs)
+·
+[Server Implementation](https://github.com/spacedriveapp/spacedrive/tree/main/apps/p2p-relay)
 
-## Server
+## Relay discovery
 
-[Implementation](https://github.com/spacedriveapp/spacedrive/tree/main/apps/server)
+Each client will regularly make requests to [https://app.spacedrive.com/api/p2p/relays](https://app.spacedrive.com/api/p2p/relays) to get the list of currently active relay servers.
 
-TODO
+Each relay server will register itself with the discovery server automatically when started. This requires an authentication token so it can only be done by Spacedrive ran servers.
 
-## How we establish connections
+We store the relays in Redis with a TTL so if the relay server is shutdown and does not do it's regular checkin it will automatically be removed from the pool.
 
-TODO - We avoid library-level encryption
+## How it works
 
-## Problems with Relay
+We register a listen for each relay that is returned from the discovery server. When a connection is established we will attempt to connect to the relay server. We also attempt to establish connections with peers that we already know about through the active libraries.
 
-TODO:
- - Webrtc is cheaper and easier to maintain but billing is also a problem.
- - libp2p's webrtc is not very good
+Currently we connect to every relay server that is returned from the discovery server. This is obviously not ideal but if two nodes were to connect to the different relay servers we would need someway of communicating between them which is a complicated problem to solve.
 
-### Relay
+The issue of connecting to every relay server is tracked as [ENG-1672](https://linear.app/spacedriveapp/issue/ENG-1672/mesh-relays).
 
-TODO
+## Authentication
 
-### Direction Connect via Relay
+Currently the relay service is completly unauthenticated. To prevent abuse we are going to want to restrict the relays to Spacedrive accounts.
 
-TODO
+As far as I can see libp2p doesn't have a ready-made solution for this as it's heavily designed around the [IPFS](https://ipfs.tech) usecase which is all open. I suspect this will require a custom network behavior to be implemented in libp2p which will be a decent undertaking.
 
-#### Authentication
+This issued is tracked as [ENG-1652](https://linear.app/spacedriveapp/issue/ENG-1652/relay-authentication).
 
-TODO - How we gonna restrict this???
+## Billing
 
-#### Billing
+Currently the relay service has no method of tracking usage based on the connected peers.
 
-TODO - How we gonna bill for this???
+As far as I can see libp2p doesn't have a ready-made solution for this as it's heavily designed around the [IPFS](https://ipfs.tech) usecase which is all open. I suspect this will require a custom network behavior to be implemented in libp2p which will be a decent undertaking.
 
-### Relay server
+This issued is tracked as [ENG-1667](https://linear.app/spacedriveapp/issue/ENG-1667/relay-metering).
 
-TODO - Explain hosting + methods on abuse
+## Rate limiting
 
-TODO - Explain inter-server communication problem
+We should rate limit connection being opened with the Relay to ensure denial of service attacks for not possible.
 
+libp2p has a built-in [RateLimiter](https://docs.rs/libp2p/latest/libp2p/relay/trait.RateLimiter.html) trait which we can implement. The rate limiting information should be stored to Redis so it shared between all relays.
 
-#### Usage
+## Alternative design
+
+Our relay system is currently built on top of [libp2p](https://libp2p.io)'s system for relays. Given all of the limitations of the current design discussed above I don't think libp2p's relay system was really designed for private relays so it could be worth dropping it entirely and investigating another solution.
+
+I have done some digging into [WebRTC](https://webrtc.org) (specially [STUN](https://en.wikipedia.org/wiki/STUN) and [TURN](https://en.wikipedia.org/wiki/Traversal_Using_Relays_around_NAT)) and it does seem like a really solid alternative.
+
+Given the core of the `sd_p2p` crate is decoupled from libp2p we could easily implement an alternative connection system based on WebRTC while keeping libp2p for the quic-based transport for local networks.
+
+The major advantage to using WebRTC would be the ability to use a SaSS solution for hosting the relay infrastructure. WebRTC is based on [STUN](https://en.wikipedia.org/wiki/STUN) and [TURN](https://en.wikipedia.org/wiki/Traversal_Using_Relays_around_NAT) which are very ubiquitous protocols. The following is a comparison of some webrtc services:
+
+|                                                                   | Pricing (per GB ) | Has Billing API |
+|-------------------------------------------------------------------|-------------------|-----------------|
+| [Cloudflare Calls](https://developers.cloudflare.com/calls/turn/) | 0.05$             | No              |
+| [Twilio](https://www.twilio.com/stun-turn)                        | 0.40$ to 0.80$    | No              |
+| [Metered](https://www.metered.ca/stun-turn)                       | 0.40$ to 0.10$    | Yes             |
+
+WebRTC also has a built in system for authentication via the SDP object that needs to be exchanged between peers for a valid connection to be established. For an explaination of webrtc checkout [this Fireship video](https://www.youtube.com/watch?v=WmR9IMUD_CY).
+
+libp2p *does* have a [WebRTC transport](https://docs.rs/libp2p-webrtc/0.7.1-alpha) but it seems to be only for browser to server communication not server to server like we require so I don't think it would be viable for our usecase.
+
+### Hosting the Relay server
 
 ```bash
+# TODO: Explain the init command
 # TODO: Explain starting up the Relay
 ```
-
-#### Discovery system
-
-TODO - Explain how the relay servers are discovered

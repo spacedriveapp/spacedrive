@@ -9,6 +9,8 @@ index: 26
 
 Our local network discovery uses [DNS-Based Service Discovery](https://www.rfc-editor.org/rfc/rfc6763.html) which itself is built around [Multicast DNS (mDNS)](https://datatracker.ietf.org/doc/html/rfc6762). This is a really well established technology and is used in [Spotify Connect](https://support.spotify.com/au/article/spotify-connect/), [Apple Airplay](https://www.apple.com/au/airplay/) and many other services you use every day.
 
+We make use of the [mdns-sd](https://docs.rs/mdns-sd) crate.
+
 ## Service Structure
 
 The following is an example of what would be broadcast from a single Spacedrive node:
@@ -42,10 +44,6 @@ Within Spacedrive's settings the user is able to choose between three modes for 
 **Enabled** and **Disabled** are implemented by spawning and shutting down the [`sd_p2p::Mdns`](https://github.com/spacedriveapp/spacedrive/blob/44478207e72495b3777e294660d78939711b544f/crates/p2p/src/mdns.rs#L17) service as required within `sd-core`.
 
 **Contacts only** the mDNS service will not contain the [`PeerMetadata`](https://github.com/spacedriveapp/spacedrive/blob/44478207e72495b3777e294660d78939711b544f/core/src/p2p/metadata.rs#L9) fields and instead will contain a hash of the users Spacedrive identifier. If a Spacedrive node detects another node in the local network with a hash in it's contacts, it can make a request to the node and if the remote node also has the current node in it's contacts, it will respond with the full metadata.
-
-## Implementation
-
-We make use of the [mdns-sd](https://docs.rs/mdns-sd) crate.
 
 ## Problems with Docker
 
