@@ -38,7 +38,7 @@ use itertools::Itertools;
 use prisma_client_rust::{raw, PrismaValue};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tracing::{debug, error, warn};
+use tracing::{debug, warn};
 
 use super::{
 	helpers,
@@ -85,6 +85,7 @@ pub struct MediaProcessor {
 	sub_path: Option<PathBuf>,
 	regenerate_thumbnails: bool,
 
+	total_media_data_extraction_files: u64,
 	total_media_data_extraction_tasks: u64,
 	total_thumbnailer_tasks: u64,
 	total_thumbnailer_files: u64,
@@ -209,6 +210,7 @@ impl MediaProcessor {
 			location: Arc::new(location),
 			sub_path,
 			regenerate_thumbnails,
+			total_media_data_extraction_files: 0,
 			total_media_data_extraction_tasks: 0,
 			total_thumbnailer_tasks: 0,
 			total_thumbnailer_files: 0,
@@ -260,6 +262,7 @@ impl MediaProcessor {
 					dispatcher,
 				)
 				.await?;
+			self.total_media_data_extraction_files = total_media_data_extraction_files;
 			self.total_media_data_extraction_tasks = task_handles.len() as u64;
 
 			pending_running_tasks.extend(task_handles);
@@ -276,7 +279,7 @@ impl MediaProcessor {
 				.await;
 
 			// Now we dispatch thumbnailer tasks
-			let (total_thumbnailer_tasks, task_handles) = dispatch_thumbnailer_tasks(
+			let (total_thumbnailer_files, task_handles) = dispatch_thumbnailer_tasks(
 				&iso_file_path,
 				self.regenerate_thumbnails,
 				&self.location_path,
@@ -284,10 +287,42 @@ impl MediaProcessor {
 				job_ctx,
 			)
 			.await?;
-			pending_running_tasks.extend(task_handles);
 
-			self.total_thumbnailer_tasks = total_thumbnailer_tasks;
+			self.total_thumbnailer_tasks = task_handles.len() as u64;
+			self.total_thumbnailer_files = total_thumbnailer_files;
+
+			pending_running_tasks.extend(task_handles);
 		} else {
+			let updates = match self.phase {
+				Phase::MediaDataExtraction => vec![
+					ProgressUpdate::TaskCount(self.total_media_data_extraction_files),
+					ProgressUpdate::CompletedTaskCount(
+						self.metadata.media_data_metrics.extracted
+							+ self.metadata.media_data_metrics.skipped,
+					),
+					ProgressUpdate::Phase(self.phase.to_string()),
+					ProgressUpdate::Message(format!(
+						"Preparing to process {} files in {} chunks",
+						self.total_media_data_extraction_files,
+						self.total_media_data_extraction_tasks
+					)),
+				],
+				Phase::ThumbnailGeneration => vec![
+					ProgressUpdate::TaskCount(self.total_thumbnailer_files),
+					ProgressUpdate::CompletedTaskCount(
+						self.metadata.thumbnailer_metrics_acc.generated
+							+ self.metadata.thumbnailer_metrics_acc.skipped,
+					),
+					ProgressUpdate::Phase(self.phase.to_string()),
+					ProgressUpdate::Message(format!(
+						"Preparing to process {} files in {} chunks",
+						self.total_thumbnailer_files, self.total_thumbnailer_tasks
+					)),
+				],
+			};
+
+			job_ctx.progress(updates).await;
+
 			pending_running_tasks.extend(mem::take(&mut self.pending_tasks_on_resume));
 		}
 
@@ -412,12 +447,20 @@ impl MediaProcessor {
 
 			self.errors.extend(errors);
 
-			job_ctx
-				.progress(vec![ProgressUpdate::CompletedTaskCount(
-					self.metadata.thumbnailer_metrics_acc.generated
-						+ self.metadata.thumbnailer_metrics_acc.skipped,
-				)])
-				.await;
+			debug!(
+				"Processed {}/{} thumbnailer tasks",
+				self.metadata.thumbnailer_metrics_acc.total_successful_tasks,
+				self.total_thumbnailer_tasks
+			);
+
+			if matches!(self.phase, Phase::ThumbnailGeneration) {
+				job_ctx
+					.progress(vec![ProgressUpdate::CompletedTaskCount(
+						self.metadata.thumbnailer_metrics_acc.generated
+							+ self.metadata.thumbnailer_metrics_acc.skipped,
+					)])
+					.await;
+			}
 
 		// if self.total_thumbnailer_tasks
 		// 	== self.metadata.thumbnailer_metrics_acc.total_successful_tasks
@@ -550,6 +593,7 @@ struct SaveState {
 	sub_path: Option<PathBuf>,
 	regenerate_thumbnails: bool,
 
+	total_media_data_extraction_files: u64,
 	total_media_data_extraction_tasks: u64,
 	total_thumbnailer_tasks: u64,
 	total_thumbnailer_files: u64,
@@ -570,6 +614,7 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for MediaProcessor {
 			location_path,
 			sub_path,
 			regenerate_thumbnails,
+			total_media_data_extraction_files,
 			total_media_data_extraction_tasks,
 			total_thumbnailer_tasks,
 			total_thumbnailer_files,
@@ -585,6 +630,7 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for MediaProcessor {
 			location_path,
 			sub_path,
 			regenerate_thumbnails,
+			total_media_data_extraction_files,
 			total_media_data_extraction_tasks,
 			total_thumbnailer_tasks,
 			total_thumbnailer_files,
@@ -628,6 +674,7 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for MediaProcessor {
 			location_path,
 			sub_path,
 			regenerate_thumbnails,
+			total_media_data_extraction_files,
 			total_media_data_extraction_tasks,
 			total_thumbnailer_tasks,
 			total_thumbnailer_files,
@@ -643,6 +690,7 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for MediaProcessor {
 				location_path,
 				sub_path,
 				regenerate_thumbnails,
+				total_media_data_extraction_files,
 				total_media_data_extraction_tasks,
 				total_thumbnailer_tasks,
 				total_thumbnailer_files,

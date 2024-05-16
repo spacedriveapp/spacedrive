@@ -450,7 +450,7 @@ impl Indexer {
 		self.metadata.total_tasks += handles.len() as u64;
 
 		ctx.progress(vec![
-			ProgressUpdate::TaskCount(handles.len() as u64),
+			ProgressUpdate::TaskCount(self.metadata.total_tasks),
 			ProgressUpdate::message(format!(
 				"Found {to_create_count} new files and {to_update_count} to update"
 			)),
@@ -551,7 +551,7 @@ impl Indexer {
 		dispatcher: &JobTaskDispatcher,
 	) -> Result<(), indexer::Error> {
 		// if we don't have any pending task, then this is a fresh job
-		if self.pending_tasks_on_resume.is_empty() {
+		let updates = if self.pending_tasks_on_resume.is_empty() {
 			let walker_root_path = Arc::new(
 				get_full_path_from_sub_path(
 					self.location.id,
@@ -578,10 +578,26 @@ impl Indexer {
 					.await,
 			);
 
+			self.metadata.total_tasks = 1;
+
+			let updates = vec![
+				ProgressUpdate::TaskCount(self.metadata.total_tasks),
+				ProgressUpdate::Message(format!("Indexing {}", walker_root_path.display())),
+			];
+
 			self.walker_root_path = Some(walker_root_path);
+
+			updates
 		} else {
 			pending_running_tasks.extend(mem::take(&mut self.pending_tasks_on_resume));
-		}
+
+			vec![
+				ProgressUpdate::TaskCount(self.metadata.total_tasks),
+				ProgressUpdate::Message("Resuming tasks".to_string()),
+			]
+		};
+
+		ctx.progress(updates).await;
 
 		Ok(())
 	}

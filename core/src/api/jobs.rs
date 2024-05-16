@@ -158,8 +158,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					let mut groups_vec = groups.into_values().collect::<Vec<_>>();
 					groups_vec.sort_by(|a, b| b.created_at.cmp(&a.created_at));
 
-					tracing::debug!("{groups_vec:#?}");
-
 					Ok(groups_vec)
 				})
 		})

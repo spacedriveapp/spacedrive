@@ -4,17 +4,19 @@ use sd_core_heavy_lifting::{
 	job_system::report::{Report, Status},
 	OuterContext, ProgressUpdate, UpdateEvent,
 };
-use tracing::trace;
 
 use std::{
 	ops::{Deref, DerefMut},
-	sync::Arc,
+	sync::{
+		atomic::{AtomicU8, Ordering},
+		Arc,
+	},
 };
 
 use chrono::{DateTime, Utc};
+use tokio::{spawn, sync::RwLock};
+use tracing::{error, trace};
 use uuid::Uuid;
-
-use tokio::sync::RwLock;
 
 #[derive(Clone)]
 pub struct NodeContext {
@@ -82,6 +84,7 @@ pub struct JobContext<OuterCtx: OuterContext + NodeContextExt> {
 	outer_ctx: OuterCtx,
 	report: Arc<RwLock<Report>>,
 	start_time: DateTime<Utc>,
+	report_update_counter: Arc<AtomicU8>,
 }
 
 impl<OuterCtx: OuterContext + NodeContextExt> OuterContext for JobContext<OuterCtx> {
@@ -122,6 +125,7 @@ impl<OuterCtx: OuterContext + NodeContextExt> sd_core_heavy_lifting::JobContext<
 			report: Arc::new(RwLock::new(report)),
 			outer_ctx,
 			start_time: Utc::now(),
+			report_update_counter: Arc::new(AtomicU8::new(0)),
 		}
 	}
 
@@ -173,6 +177,24 @@ impl<OuterCtx: OuterContext + NodeContextExt> sd_core_heavy_lifting::JobContext<
 			.unwrap_or(Utc::now());
 
 		let library = self.outer_ctx.library();
+
+		let counter = self.report_update_counter.fetch_add(1, Ordering::AcqRel);
+
+		if counter == 50 || counter == 0 {
+			self.report_update_counter.store(1, Ordering::Release);
+
+			spawn({
+				let db = Arc::clone(&library.db);
+				let mut report = report.clone();
+				async move {
+					if let Err(e) = report.update(&db).await {
+						error!(
+							"Failed to update job report on debounced job progress event: {e:#?}"
+						);
+					}
+				}
+			});
+		}
 
 		// emit a CoreEvent
 		library.emit(CoreEvent::JobProgress(JobProgressEvent {

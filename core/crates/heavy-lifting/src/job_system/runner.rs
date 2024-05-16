@@ -79,6 +79,7 @@ struct JobsWorktables {
 }
 
 pub(super) struct JobSystemRunner<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
+	on_shutdown_mode: bool,
 	base_dispatcher: BaseTaskDispatcher<Error>,
 	handles: HashMap<JobId, JobHandle<OuterCtx, JobCtx>>,
 	worktables: JobsWorktables,
@@ -93,6 +94,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 		job_outputs_tx: chan::Sender<(JobId, Result<JobOutput, JobSystemError>)>,
 	) -> Self {
 		Self {
+			on_shutdown_mode: false,
 			base_dispatcher,
 			handles: HashMap::with_capacity(JOBS_INITIAL_CAPACITY),
 			worktables: JobsWorktables {
@@ -253,6 +255,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 		status: Result<ReturnStatus, Error>,
 	) -> Result<(), JobSystemError> {
 		let Self {
+			on_shutdown_mode,
 			handles,
 			worktables,
 			job_outputs_tx,
@@ -272,8 +275,8 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 			.expect("a JobName and location_id must've been inserted in the map with the job id");
 
 		assert!(worktables.running_jobs_set.remove(&(job_name, location_id)));
-
 		assert!(worktables.job_hashes.remove(&job_hash).is_some());
+
 		let mut handle = handles.remove(&job_id).expect("it must be here");
 
 		let res = match status {
@@ -291,44 +294,58 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 				handle.complete_job(job_return).await
 			}
 
-			Ok(ReturnStatus::Shutdown(Ok(Some(serialized_job)))) => {
-				let name = handle.ctx.report().await.name;
+			Ok(ReturnStatus::Shutdown(res)) => {
+				match res {
+					Ok(Some(serialized_job)) => {
+						let name = {
+							let db = handle.ctx.db();
+							let mut report = handle.ctx.report_mut().await;
+							if let Err(e) = report.update(db).await {
+								error!("failed to update report on job shutdown: {e:#?}");
+							}
+							report.name
+						};
 
-				let Some(next_jobs) =
-					serialize_next_jobs_to_shutdown(job_id, job_name, handle.next_jobs).await
-				else {
-					return Ok(());
-				};
+						worktables
+							.jobs_to_store_by_ctx_id
+							.entry(handle.ctx.id())
+							.or_default()
+							.push(StoredJobEntry {
+								location_id,
+								root_job: StoredJob {
+									id: job_id,
+									name,
+									serialized_job,
+								},
+								next_jobs: serialize_next_jobs_to_shutdown(
+									job_id,
+									job_name,
+									handle.next_jobs,
+								)
+								.await
+								.unwrap_or_default(),
+							});
 
-				worktables
-					.jobs_to_store_by_ctx_id
-					.entry(handle.ctx.id())
-					.or_default()
-					.push(StoredJobEntry {
-						location_id,
-						root_job: StoredJob {
-							id: job_id,
-							name,
-							serialized_job,
-						},
-						next_jobs,
-					});
+						debug!("Job was shutdown and serialized: <id='{job_id}', name='{name}'>");
+					}
 
-				debug!("Job was shutdown and serialized: <id='{job_id}', name='{name}'>");
+					Ok(None) => {
+						debug!(
+							"Job was shutdown but didn't returned any serialized data, \
+							probably it isn't resumable job: <id='{job_id}'>"
+						);
+					}
 
-				return Ok(());
-			}
+					Err(e) => {
+						error!("Failed to serialize job: {e:#?}");
+					}
+				}
 
-			Ok(ReturnStatus::Shutdown(Ok(None))) => {
-				debug!(
-					"Job was shutdown but didn't returned any serialized data, \
-					probably it isn't resumable job: <id='{job_id}'>"
-				);
-				return Ok(());
-			}
+				if *on_shutdown_mode && handles.is_empty() {
+					// Job system is empty and in shutdown mode so we close this channel to finish the shutdown process
+					job_return_status_tx.close();
+				}
 
-			Ok(ReturnStatus::Shutdown(Err(e))) => {
-				error!("Failed to serialize job: {e:#?}");
 				return Ok(());
 			}
 
@@ -594,27 +611,26 @@ pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 			}
 
 			StreamMessage::RunnerMessage(RunnerMessage::Shutdown) => {
+				runner.on_shutdown_mode = true;
 				// Consuming all pending return status messages
-				loop {
-					while let Ok((job_id, status)) = job_return_status_rx_to_shutdown.try_recv() {
-						if let Err(e) = runner.process_return_status(job_id, status).await {
-							error!("Failed to process return status before shutting down: {e:#?}");
-						}
-					}
-
-					if runner.is_empty() {
-						break;
-					}
+				if !runner.is_empty() {
+					let mut job_return_status_stream = pin!(job_return_status_rx_to_shutdown);
 
 					debug!(
 						"Waiting for {} jobs to shutdown before shutting down the job system...",
 						runner.total_jobs()
 					);
-				}
 
-				// Now the runner can shutdown
-				if let Err(e) = runner.save_jobs(store_jobs_file).await {
-					error!("Failed to save jobs before shutting down: {e:#?}");
+					while let Some((job_id, status)) = job_return_status_stream.next().await {
+						if let Err(e) = runner.process_return_status(job_id, status).await {
+							error!("Failed to process return status before shutting down: {e:#?}");
+						}
+					}
+
+					// Now the runner can shutdown
+					if let Err(e) = runner.save_jobs(store_jobs_file).await {
+						error!("Failed to save jobs before shutting down: {e:#?}");
+					}
 				}
 
 				return;

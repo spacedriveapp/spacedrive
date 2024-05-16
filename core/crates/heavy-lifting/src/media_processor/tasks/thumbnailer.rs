@@ -41,11 +41,10 @@ use std::{
 
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 use futures_concurrency::future::Race;
-
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::time::{sleep, Instant};
-use tracing::{error, info};
+use tracing::{error, trace};
 use uuid::Uuid;
 
 pub type ThumbnailId = u32;
@@ -175,7 +174,7 @@ impl Task<Error> for Thumbnailer {
 				.sqrt(),
 		);
 
-		info!(
+		trace!(
 			"{{generated: {generated}, skipped: {skipped}}} thumbnails; \
 			mean generation time: {mean_generation_time:?} ± {generation_time_std_dev:?}",
 			generated = output.generated,

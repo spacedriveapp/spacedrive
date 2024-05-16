@@ -271,6 +271,14 @@ impl FileIdentifier {
 
 			self.metadata.seeking_orphans_time = start.elapsed();
 		} else {
+			ctx.progress(vec![
+				ProgressUpdate::TaskCount(self.metadata.total_found_orphans),
+				ProgressUpdate::Message(format!(
+					"{} files to be identified",
+					self.metadata.total_found_orphans
+				)),
+			])
+			.await;
 			pending_running_tasks.extend(mem::take(&mut self.pending_tasks_on_resume));
 		}
 
