@@ -46,8 +46,10 @@ export default function LocationsScreen({ viewStyle }: Props) {
 			>
 				<Plus size={20} weight="bold" style={tw`text-ink`} />
 			</Pressable>
+			<View style={tw`min-h-full`}>
 			<FlatList
 				data={filteredLocations}
+				extraData={locations}
 				contentContainerStyle={twStyle(
 					`py-6`,
 					filteredLocations.length === 0 && 'h-full items-center justify-center'
@@ -84,6 +86,7 @@ export default function LocationsScreen({ viewStyle }: Props) {
 					/>
 				)}
 			/>
+			</View>
 			<ImportModal ref={modalRef} />
 		</ScreenContainer>
 	);

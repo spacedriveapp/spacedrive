@@ -21,7 +21,6 @@ const AddTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	const modalRef = useForwardedRef(ref);
 	const newTagRef = useRef<ModalRef>(null);
 
-	// console.log(data?.item, 'add tag modal')
 	const rspc = useRspcContext();
 	const tagsQuery = useLibraryQuery(['tags.list']);
 	const tagsObjectQuery = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1]);

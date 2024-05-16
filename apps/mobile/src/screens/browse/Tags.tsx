@@ -46,8 +46,10 @@ export default function TagsScreen({ viewStyle = 'list' }: Props) {
 			>
 				<Plus size={20} weight="bold" style={tw`text-ink`} />
 			</Pressable>
+			<View style={tw`min-h-full`}>
 			<FlatList
 				data={filteredTags}
+				extraData={tagsData}
 				renderItem={({ item }) => (
 					<TagItem
 						viewStyle={viewStyle}
@@ -75,10 +77,11 @@ export default function TagsScreen({ viewStyle = 'list' }: Props) {
 				showsHorizontalScrollIndicator={false}
 				ItemSeparatorComponent={() => <View style={tw`h-2`} />}
 				contentContainerStyle={twStyle(
-					`py-6`,
+					'py-6',
 					tagsData?.length === 0 && 'h-full items-center justify-center'
 				)}
 			/>
+			</View>
 			<CreateTagModal ref={modalRef} />
 		</ScreenContainer>
 	);
