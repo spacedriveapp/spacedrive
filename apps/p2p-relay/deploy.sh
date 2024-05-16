@@ -3,7 +3,7 @@
 
 set -e
 
-SERVER="54.176.132.155"
+SERVER=""
 TARGET_DIR=$(cargo metadata | jq -r .target_directory)
 cargo zigbuild --target aarch64-unknown-linux-musl --release
 
