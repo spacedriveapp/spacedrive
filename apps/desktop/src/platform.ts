@@ -9,7 +9,6 @@ import { OperatingSystem, Platform } from '@sd/interface';
 
 import { commands, events } from './commands';
 import { env } from './env';
-import { createUpdater } from './updater';
 
 const customUriAuthToken = (window as any).__SD_CUSTOM_SERVER_AUTH_TOKEN__ as string | undefined;
 const customUriServerUrl = (window as any).__SD_CUSTOM_URI_SERVER__ as string[] | undefined;
@@ -86,7 +85,7 @@ export const platform = {
 	userHomeDir: homeDir,
 	auth: {
 		start(url) {
-			open(url);
+			return shellOpen(url);
 		}
 	},
 	...commands,
