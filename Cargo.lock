@@ -9436,6 +9436,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-p2p-relay"
+version = "0.0.1"
+dependencies = [
+ "hex",
+ "libp2p",
+ "reqwest 0.11.23",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "sd-p2p-tunnel"
 version = "0.1.0"
 dependencies = [

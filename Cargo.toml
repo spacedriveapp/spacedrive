@@ -5,6 +5,7 @@ members = [
 	"core/crates/*",
 	"crates/*",
 	"apps/cli",
+	"apps/p2p-relay",
 	"apps/desktop/src-tauri",
 	"apps/desktop/crates/*",
 	"apps/mobile/modules/sd-core/core",
