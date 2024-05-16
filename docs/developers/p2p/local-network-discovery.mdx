@@ -1,0 +1,59 @@
+---
+title: Local Network Discovery
+index: 26
+---
+
+# Local Network Discovery
+
+Our local network discovery uses [DNS-Based Service Discovery](https://www.rfc-editor.org/rfc/rfc6763.html) which itself is built around [Multicast DNS (mDNS)](https://datatracker.ietf.org/doc/html/rfc6762). This is a really well established technology and is used in [Spotify Connect](https://support.spotify.com/au/article/spotify-connect/), [Apple Airplay](https://www.apple.com/au/airplay/) and many other services you use every day.
+
+## Service Structure
+
+The following is an example of what would be broadcast from a single Spacedrive node:
+```toml
+# {remote_identity_of_self}._sd._udp.local.
+
+name=Oscars Laptop        # Shown to the user to select a device
+operating_system=macos    # Used for UI purposes
+device_model=MacBook Pro  # Used for UI purposes
+version=0.0.1 						# Spacedrive version
+
+# For each library that's active on the Spacedrive node:
+# {library_uuid}={remote_identity_of_self}
+d66ed0c3-03ac-4f9b-a374-a927830dfd5b=0l9vTOWu+5aJs0cyWxdfJEGtloEepGRAXcEuDeTDRPk
+```
+
+Within `sd-core` this is defined in two parts. The [`PeerMetadata` struct](https://github.com/spacedriveapp/spacedrive/blob/44478207e72495b3777e294660d78939711b544f/core/src/p2p/metadata.rs#L9) takes care of the node metadata and libraries are inserted by the [`libraries_hook`](https://github.com/spacedriveapp/spacedrive/blob/44478207e72495b3777e294660d78939711b544f/core/src/p2p/libraries.rs#L13).
+
+## Modes
+
+<Notice
+	type="note"
+	text="This section discusses 'Contacts Only' which is not yet fully implemented (refer to ENG-1197)."
+/>
+
+Within Spacedrive's settings the user is able to choose between three modes for local network discovery:
+ - **Contacts only**: Only devices that are in your contacts list will be able to see your device.
+ - **Enabled**: All devices on the local network will be able to see your device.
+ - **Disabled**: No devices on the local network will be able to see your device.
+
+**Enabled** and **Disabled** are implemented by spawning and shutting down the [`sd_p2p::Mdns`](https://github.com/spacedriveapp/spacedrive/blob/44478207e72495b3777e294660d78939711b544f/crates/p2p/src/mdns.rs#L17) service as required within `sd-core`.
+
+**Contacts only** the mDNS service will not contain the [`PeerMetadata`](https://github.com/spacedriveapp/spacedrive/blob/44478207e72495b3777e294660d78939711b544f/core/src/p2p/metadata.rs#L9) fields and instead will contain a hash of the users Spacedrive identifier. If a Spacedrive node detects another node in the local network with a hash in it's contacts, it can make a request to the node and if the remote node also has the current node in it's contacts, it will respond with the full metadata.
+
+## Implementation
+
+We make use of the [mdns-sd](https://docs.rs/mdns-sd) crate.
+
+## Problems with Docker
+
+TODO - MDNS daemon
+TODO - Docker and why it's a pain mDNS. Explain the current stuff i've done with it.
+
+## Problems with mobile
+
+TODO
+
+## Problems on Linux
+
+TODO - mDNS spam issue
