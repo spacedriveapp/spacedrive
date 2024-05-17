@@ -38,7 +38,6 @@ function useData({ items }: Props) {
 		{ suspense: true }
 	);
 
-	console.log(items, 'items')
 
 	return {
 		tags: {
