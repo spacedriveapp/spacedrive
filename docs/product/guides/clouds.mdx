@@ -2,6 +2,24 @@
 index: 100
 ---
 
-# Clouds
+# Connecting Clouds
 
-Cloud support is coming very soon!
+<Notice
+	type="note"
+	title="WIP"
+	text="This feature is not available yet, please check our [roadmap](/roadmap)."
+/>
+
+Connecting cloud services with your Spacedrive library will allow you to create [Cloud Locations](). This will allow you to not only to search your cloud storage while offline, but also ensure you have local copies of your cloud files, or offload them if space is an issue.
+
+Spacedrive will support all major cloud services with a simple API to add more.
+
+### Authentication
+
+There are two ways to authenticate a cloud service with your Spacedrive library. The first is via Spacedrive, but this will be rate limited. The other is by creating an "app" in the respective cloud service's developer portal and saving those credentials in your Spacedrive library. More information on this will come as we develop.
+
+### Indexing
+
+Currently if you wish to index a cloud service with Spacedrive, it is possible using a third party service like [Cloud Mounter](https://cloudmounter.net/). However, the indexing process will trigger the entire file to be downloaded. This is a problem for bandwidth and storage for a lot of users, and offloading is entirely reliant on the cloud service or app you're using to mount the cloud on your system. In the base of iCloud on macOS this isn't as much of a problem as the OS offloads the files after Spacedrive reqests more to download.
+
+When official cloud support is released we will rely on the given APIs to perform indexing without downloading any files. This will have limitations in the case of some cloud services for which we will develop the nessesary UI flows to ensure the user is aware of the options.

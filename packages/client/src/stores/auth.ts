@@ -51,9 +51,17 @@ export function login(config: ProviderConfig) {
 			if (data === 'Complete') {
 				config.finish?.(authCleanup);
 				loginCallbacks.forEach((cb) => cb('success'));
-			} else if ('Error' in data) onError(data.Error);
-			else {
-				authCleanup = config.start(data.Start.verification_url_complete);
+			} else if ('Error' in data) {
+				onError(data.Error);
+			} else {
+				Promise.resolve()
+					.then(() => config.start(data.Start.verification_url_complete))
+					.then(
+						(res) => {
+							authCleanup = res;
+						},
+						(e) => onError(e.message)
+					);
 			}
 		},
 		onError(e) {

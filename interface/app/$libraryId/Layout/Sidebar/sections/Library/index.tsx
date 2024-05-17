@@ -1,4 +1,4 @@
-import { Clock, Heart, Planet, Tag } from '@phosphor-icons/react';
+import { AppStoreLogo, AppWindow, Clock, Heart, Planet, Tag } from '@phosphor-icons/react';
 import { useLibraryQuery } from '@sd/client';
 import { useLocale } from '~/hooks';
 
@@ -23,6 +23,10 @@ export default function LibrarySection() {
 				{t('recents')}
 				{/* <div className={COUNT_STYLE}>34</div> */}
 			</SidebarLink>
+			{/* <SidebarLink to="applications">
+				<Icon component={AppStoreLogo} />
+				{t('Applications')}
+			</SidebarLink> */}
 			<SidebarLink to="favorites">
 				<Icon component={Heart} />
 				{t('favorites')}

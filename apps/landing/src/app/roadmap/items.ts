@@ -110,19 +110,22 @@ export const items = [
 	},
 	{
 		when: '0.3 Alpha',
-		subtext: 'April 2024',
-		title: 'Connect devices & Library sync',
+		subtext: 'May 2024',
+		title: 'Connect devices & sync',
 		description: 'Automatically synchronized libraries across all your devices.'
+	},
+	{
+		title: 'Mobile app TestFlight & Play Store Beta',
+		description: 'Access your library on the go, with a mobile app for iOS and Android.'
+	},
+	{
+		title: 'Spacedrive in every language, i18n',
+		description: 'Spacedrive will be available in every language.'
 	},
 	{
 		title: 'Key manager',
 		description:
 			'View, mount, unmount and hide keys. Mounted keys can be used to instantly encrypt and decrypt any files on your node.'
-	},
-	{
-		title: 'Mobile app TestFlight',
-		description:
-			'Access your library on the go, with a mobile app for iOS and Android in alpha via TestFlight and Play Store.'
 	},
 	{
 		title: 'Advanced media analysis',
@@ -140,7 +143,7 @@ export const items = [
 	},
 	{
 		when: '0.4 Alpha',
-		subtext: 'May 2024',
+		subtext: 'June 2024',
 		title: 'AI search',
 		description:
 			'Search the contents of your files, including images, audio and video with a deep understanding of context and content.'
@@ -155,6 +158,11 @@ export const items = [
 		title: 'Spacedrive Cloud',
 		description:
 			'Backup and sync from anywhere with a Spacedrive Cloud account. Paid plans for additional storage and cloud features.'
+	},
+	{
+		title: 'CLI',
+		description:
+			'Access Spacedrive from the command line, with a rich set of commands to manage your library and devices.'
 	},
 	{
 		title: 'Web portal',
@@ -177,7 +185,7 @@ export const items = [
 	},
 	{
 		when: '0.5 Beta',
-		subtext: 'June 2024',
+		subtext: 'August 2024',
 		title: 'Encrypted vault(s)',
 		description:
 			'Effortlessly manage & encrypt sensitive files. Encrypt individual files or create flexible-size vaults.'
@@ -185,7 +193,7 @@ export const items = [
 	{
 		title: 'Extensions',
 		description:
-			'Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on spacedrive.com/extensions.'
+			'Build tools on top of Spacedrive, extend functionality and integrate third party services.'
 	},
 	{
 		when: '1.0 Release',

@@ -14,6 +14,13 @@ pub struct PeerMetadata {
 }
 
 impl PeerMetadata {
+	pub fn remove(map: &mut HashMap<String, String>) {
+		map.remove("name");
+		map.remove("os");
+		map.remove("device_model");
+		map.remove("version");
+	}
+
 	pub fn update(self, map: &mut HashMap<String, String>) {
 		map.insert("name".to_owned(), self.name.clone());
 		if let Some(os) = self.operating_system {

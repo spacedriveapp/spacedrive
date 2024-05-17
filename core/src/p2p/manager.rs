@@ -138,13 +138,19 @@ impl P2PManager {
 	pub async fn on_node_config_change(&self) {
 		let config = self.node_config.get().await;
 
-		PeerMetadata {
-			name: config.name.clone(),
-			operating_system: Some(OperatingSystem::get_os()),
-			device_model: Some(get_hardware_model_name().unwrap_or(HardwareModel::Other)),
-			version: Some(env!("CARGO_PKG_VERSION").to_string()),
+		if config.p2p.discovery == P2PDiscoveryState::ContactsOnly {
+			PeerMetadata::remove(&mut self.p2p.metadata_mut());
+
+		// TODO: Hash Spacedrive account ID and put it in the metadata.
+		} else {
+			PeerMetadata {
+				name: config.name.clone(),
+				operating_system: Some(OperatingSystem::get_os()),
+				device_model: Some(get_hardware_model_name().unwrap_or(HardwareModel::Other)),
+				version: Some(env!("CARGO_PKG_VERSION").to_string()),
+			}
+			.update(&mut self.p2p.metadata_mut());
 		}
-		.update(&mut self.p2p.metadata_mut());
 
 		let port = config.p2p.port.get();
 
@@ -185,9 +191,7 @@ impl P2PManager {
 		}
 
 		let should_revert = match config.p2p.discovery {
-			P2PDiscoveryState::Everyone
-			// TODO: Make `ContactsOnly` work
-			| P2PDiscoveryState::ContactsOnly => {
+			P2PDiscoveryState::Everyone | P2PDiscoveryState::ContactsOnly => {
 				let mut mdns = self.mdns.lock().unwrap_or_else(PoisonError::into_inner);
 				if mdns.is_none() {
 					match Mdns::spawn(self.p2p.clone()) {
@@ -216,7 +220,7 @@ impl P2PManager {
 				}
 
 				false
-			},
+			}
 		};
 
 		// The `should_revert` bit is weird but we need this future to stay `Send` as rspc requires.

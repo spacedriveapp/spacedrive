@@ -129,7 +129,9 @@ import Mega from './Mega.png';
 import Mesh_Light from './Mesh_Light.png';
 import Mesh20 from './Mesh-20.png';
 import Mesh from './Mesh.png';
+import MiniSilverBox from './MiniSilverBox.png';
 import Mobile_Light from './Mobile_Light.png';
+import MobileAndroid from './Mobile-Android.png';
 import Mobile from './Mobile.png';
 import MoveLocation_Light from './MoveLocation_Light.png';
 import MoveLocation from './MoveLocation.png';
@@ -143,6 +145,7 @@ import OpenStack from './OpenStack.png';
 import Package_Light from './Package_Light.png';
 import Package20 from './Package-20.png';
 import Package from './Package.png';
+import PC from './PC.png';
 import PCloud from './PCloud.png';
 import Scrapbook_Light from './Scrapbook_Light.png';
 import Scrapbook from './Scrapbook.png';
@@ -315,6 +318,8 @@ export {
 	Mesh20,
 	Mesh,
 	Mesh_Light,
+	MiniSilverBox,
+	MobileAndroid,
 	Mobile,
 	Mobile_Light,
 	MoveLocation,
@@ -326,6 +331,7 @@ export {
 	Node_Light,
 	OneDrive,
 	OpenStack,
+	PC,
 	PCloud,
 	Package20,
 	Package,

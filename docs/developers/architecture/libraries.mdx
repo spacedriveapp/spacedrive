@@ -8,4 +8,23 @@ A library is the database that Spacedrive stores all file structures and metadat
 
 To learn how data is synchronized check out the documentation on [Sync](/docs/developers/architecture/sync).
 
+You must create a library to use Spacedrive. Users can also choose to create more librariesm, such as ones specifically for work. Spacedrive will run all your libraries in unison.
+
+Library data is never mixed or shared, even if two libraries are tracking the same Location.
+
+## Exporting a library
+
+## Encrypting a Library
+
 Libraries can be encrypted with a passphrase set by the user.
+
+<Notice
+	type="info"
+	text="This is how the feature is intended to work, but is currently being developed."
+/>
+
+You can encrypt a Library by clicking the Lock icon button in the Library Settings. Once you have set a master password, the Library will be encrypted. If a library is locked, you will be prompted to enter the password when you try to open it. You can set an expiration time for the password, after which you will be prompted to enter it again.
+
+When a library is encrypted, the data is encrypted on disk, but the files themselves are not encrypted. This means that if you have a library that is not encrypted, and you encrypt it, the files will not be re-encrypted, only the metadata will be encrypted.
+
+If you wish to learn about encrypting files, see [File Encryption](#).
