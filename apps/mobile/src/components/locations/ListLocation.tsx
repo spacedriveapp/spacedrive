@@ -1,9 +1,9 @@
 import { useNavigation } from '@react-navigation/native';
+import { Location, arraysEqual, humanizeSize, useOnlineLocations } from '@sd/client';
 import { DotsThreeVertical } from 'phosphor-react-native';
 import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { arraysEqual, humanizeSize, Location, useOnlineLocations } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
@@ -25,7 +25,7 @@ const ListLocation = ({ location }: ListLocationProps) => {
 	return (
 		<Swipeable
 			ref={swipeRef}
-			containerStyle={tw`rounded-md border border-app-cardborder bg-app-card`}
+			containerStyle={tw`h-16 rounded-md border border-app-cardborder bg-app-card`}
 			enableTrackpadTwoFingerGesture
 			renderRightActions={(progress, _, swipeable) => (
 				<>

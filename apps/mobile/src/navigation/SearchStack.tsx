@@ -32,7 +32,7 @@ export default function SearchStack() {
 				name="Location"
 				component={LocationScreen}
 				options={({route: optionsRoute}) => ({
-					header: (route) => <DynamicHeader optionsRoute={optionsRoute} headerRoute={route} kind="location" />
+					header: (route) => <DynamicHeader optionsRoute={optionsRoute} headerRoute={route} kind="locations" />
 				})}
 			/>
 		</Stack.Navigator>

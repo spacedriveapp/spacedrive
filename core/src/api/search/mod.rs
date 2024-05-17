@@ -7,7 +7,7 @@ use crate::{
 };
 
 use prisma_client_rust::Operator;
-use sd_core_prisma_helpers::{file_path_with_object, object_with_file_paths};
+use sd_core_prisma_helpers::{file_path_for_frontend, object_with_file_paths};
 use sd_prisma::prisma::{self, PrismaClient};
 
 use std::path::PathBuf;
@@ -210,7 +210,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					}
 
 					let file_paths = query
-						.include(file_path_with_object::include())
+						.include(file_path_for_frontend::include())
 						.exec()
 						.await?;
 

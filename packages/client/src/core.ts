@@ -265,7 +265,7 @@ export type ExifDataOrder = { field: "epochTime"; value: SortOrder }
 
 export type ExifMetadata = { resolution: Resolution; date_taken: MediaDate | null; location: MediaLocation | null; camera_data: CameraData; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null }
 
-export type ExplorerItem = { type: "Path"; thumbnail: string[] | null; has_created_thumbnail: boolean; item: FilePathWithObject } | { type: "Object"; thumbnail: string[] | null; has_created_thumbnail: boolean; item: ObjectWithFilePaths } | { type: "NonIndexedPath"; thumbnail: string[] | null; has_created_thumbnail: boolean; item: NonIndexedPathItem } | { type: "Location"; item: Location } | { type: "SpacedropPeer"; item: PeerMetadata } | { type: "Label"; thumbnails: string[][]; item: LabelWithObjects }
+export type ExplorerItem = { type: "Path"; thumbnail: string[] | null; has_created_thumbnail: boolean; item: FilePathForFrontend } | { type: "Object"; thumbnail: string[] | null; has_created_thumbnail: boolean; item: ObjectWithFilePaths } | { type: "NonIndexedPath"; thumbnail: string[] | null; has_created_thumbnail: boolean; item: NonIndexedPathItem } | { type: "Location"; item: Location } | { type: "SpacedropPeer"; item: PeerMetadata } | { type: "Label"; thumbnails: string[][]; item: LabelWithObjects }
 
 export type ExplorerLayout = "grid" | "list" | "media"
 
@@ -291,13 +291,13 @@ export type FilePathCursorVariant = "none" | { name: CursorOrderItem<string> } |
 
 export type FilePathFilterArgs = { locations: InOrNotIn<number> } | { path: { location_id: number; path: string; include_descendants: boolean } } | { name: TextMatch } | { extension: InOrNotIn<string> } | { createdAt: Range<string> } | { modifiedAt: Range<string> } | { indexedAt: Range<string> } | { hidden: boolean }
 
+export type FilePathForFrontend = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; object: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; tags: ({ object_id: number; tag_id: number; tag: Tag; date_created: string | null })[]; exif_data: { resolution: number[] | null; media_date: number[] | null; media_location: number[] | null; camera_data: number[] | null; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null } | null } | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null }
+
 export type FilePathObjectCursor = { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
 
 export type FilePathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder } | { field: "dateIndexed"; value: SortOrder } | { field: "object"; value: ObjectOrder }
 
 export type FilePathSearchArgs = { take?: number | null; orderAndPagination?: OrderAndPagination<number, FilePathOrder, FilePathCursor> | null; filters?: SearchFilterArgs[]; groupDirectories?: boolean }
-
-export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; object: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; exif_data: { resolution: number[] | null; media_date: number[] | null; media_location: number[] | null; camera_data: number[] | null; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null } | null } | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null }
 
 export type Flash = { 
 /**
