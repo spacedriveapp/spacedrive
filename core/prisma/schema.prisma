@@ -624,7 +624,7 @@ model IndexerRule {
   id     Int   @id @default(autoincrement())
   pub_id Bytes @unique
 
-  name           String?
+  name           String? @unique
   default        Boolean?
   rules_per_kind Bytes?
   date_created   DateTime?
