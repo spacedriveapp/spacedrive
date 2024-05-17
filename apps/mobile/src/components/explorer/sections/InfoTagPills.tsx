@@ -6,7 +6,6 @@ import {
 	isPath,
 	useLibraryQuery
 } from '@sd/client';
-import { Plus } from 'phosphor-react-native';
 import React, { useRef, useState } from 'react';
 import { FlatList, NativeScrollEvent, Pressable, View, ViewStyle } from 'react-native';
 import Fade from '~/components/layout/Fade';
@@ -52,7 +51,6 @@ const InfoTagPills = ({ data, style, contentContainerStyle, columnCount = 3 }: P
 			<View style={tw`flex-row gap-1`}>
 			<Pressable style={tw`relative z-10`} onPress={() => ref.current?.present()}>
 				<PlaceholderPill
-				icon={<Plus size={12} color={tw.color('ink-dull')}/>}
 				 text={'Tags'}
 				 />
 			</Pressable>
