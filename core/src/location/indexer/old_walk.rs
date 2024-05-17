@@ -1,5 +1,8 @@
 use sd_core_file_path_helper::{FilePathMetadata, IsolatedFilePathData};
-use sd_core_indexer_rules::{seed::GitIgnoreRules, IndexerRule, RuleKind};
+use sd_core_indexer_rules::{
+	seed::{GitIgnoreRules, GITIGNORE},
+	IndexerRule, RuleKind,
+};
 use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_walker};
 
 use sd_prisma::prisma::file_path;
@@ -9,6 +12,7 @@ use std::{
 	collections::{HashMap, HashSet, VecDeque},
 	future::Future,
 	hash::{Hash, Hasher},
+	ops::Deref,
 	path::{Path, PathBuf},
 };
 
@@ -474,8 +478,12 @@ where
 
 	let mut rules = indexer_rules.to_owned();
 
-	if let Some(pat) = GitIgnoreRules::get_rules_if_in_git_repo(library_root.as_ref(), path).await {
-		rules.extend(pat.into_iter().map(Into::into));
+	if rules.iter().any(|rule| GITIGNORE.deref() == rule) {
+		if let Some(pat) =
+			GitIgnoreRules::get_rules_if_in_git_repo(library_root.as_ref(), path).await
+		{
+			rules.extend(pat.into_iter().map(Into::into));
+		}
 	}
 
 	let current_dir = current_dir.as_ref();
@@ -849,7 +857,7 @@ mod tests {
 		let walk_result = walk(
 			root_path.to_path_buf(),
 			root_path.to_path_buf(),
-			&mut vec![],
+			&mut [],
 			|_, _| {},
 			|_| async { Ok(vec![]) },
 			|_, _| async { Ok(vec![]) },

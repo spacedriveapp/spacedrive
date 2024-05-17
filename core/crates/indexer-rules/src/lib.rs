@@ -32,6 +32,7 @@ use sd_utils::{
 	db::{maybe_missing, MissingFieldError},
 	error::{FileIOError, NonUtf8PathError},
 };
+use seed::SystemIndexerRule;
 use serde::{Deserialize, Serialize};
 
 use std::{
@@ -468,6 +469,16 @@ impl IndexerRuler {
 	pub async fn extend(&self, iter: impl IntoIterator<Item = IndexerRule> + Send) {
 		let mut indexer = self.rules.write().await;
 		indexer.extend(iter);
+	}
+
+	pub async fn has_system(&self, rule: &SystemIndexerRule) -> bool {
+		let rules = self.rules.read().await;
+
+		rules
+			.iter()
+			.map(|rule| (rule.id, rule.name.clone()))
+			.collect::<Vec<(Option<i32>, String)>>();
+		rules.iter().any(|inner_rule| rule == inner_rule)
 	}
 }
 

@@ -204,9 +204,9 @@ impl QuicTransport {
 				addr.set_port(
 					TcpListener::bind(addr)
 						.await
-						.map_err(|e| QuicTransportError::ListenerSetup(e))?
+						.map_err(QuicTransportError::ListenerSetup)?
 						.local_addr()
-						.map_err(|e| QuicTransportError::ListenerSetup(e))?
+						.map_err(QuicTransportError::ListenerSetup)?
 						.port(),
 				);
 			}
@@ -230,8 +230,8 @@ impl QuicTransport {
 			.map_err(|e| QuicTransportError::SendChannelClosed(e.to_string()))?;
 
 		rx.await
-			.map_err(|e| QuicTransportError::ReceiveChannelClosed(e))
-			.and_then(|r| r.map_err(|e| QuicTransportError::InternalEvent(e)))
+			.map_err(QuicTransportError::ReceiveChannelClosed)
+			.and_then(|r| r.map_err(QuicTransportError::InternalEvent))
 	}
 
 	pub async fn shutdown(self) {

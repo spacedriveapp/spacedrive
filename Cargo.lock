@@ -9200,6 +9200,7 @@ dependencies = [
  "futures-concurrency",
  "gix-ignore",
  "globset",
+ "once_cell",
  "prisma-client-rust",
  "rmp-serde",
  "rspc",

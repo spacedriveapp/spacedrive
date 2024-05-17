@@ -18,7 +18,7 @@ use hyper::server::{accept::Accept, conn::AddrIncoming};
 use rand::{distributions::Alphanumeric, Rng};
 use sd_core::{custom_uri, Node, NodeError};
 use serde::Deserialize;
-use tauri::{async_runtime::block_on, plugin::TauriPlugin, AppHandle, RunEvent, Runtime};
+use tauri::{async_runtime::block_on, plugin::TauriPlugin, RunEvent, Runtime};
 use thiserror::Error;
 use tokio::{net::TcpListener, task::block_in_place};
 use tracing::info;

@@ -10,7 +10,7 @@ use crate::{
 
 use sd_core_file_path_helper::{path_is_hidden, MetadataExt};
 use sd_core_indexer_rules::{
-	seed::{no_hidden, no_os_protected},
+	seed::{NO_HIDDEN, NO_SYSTEM_FILES},
 	IndexerRule, RuleKind,
 };
 
@@ -21,6 +21,7 @@ use sd_utils::{chain_optional_iter, error::FileIOError};
 use std::{
 	collections::HashMap,
 	io::ErrorKind,
+	ops::Deref,
 	path::{Path, PathBuf},
 	sync::Arc,
 };
@@ -123,8 +124,8 @@ pub async fn walk(
 	let task = tokio::spawn(async move {
 		let path = &path;
 		let rules = chain_optional_iter(
-			[IndexerRule::from(no_os_protected())],
-			[(!with_hidden_files).then(|| IndexerRule::from(no_hidden()))],
+			[IndexerRule::from(NO_SYSTEM_FILES.deref())],
+			[(!with_hidden_files).then(|| IndexerRule::from(NO_HIDDEN.deref()))],
 		);
 
 		let mut thumbnails_to_generate = vec![];
