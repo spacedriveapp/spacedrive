@@ -45,7 +45,7 @@ export default () => {
 						<SelectOption value="none">{t('none')}</SelectOption>
 						{explorer.orderingKeys?.options.map((option) => (
 							<SelectOption key={option.value} value={option.value}>
-								{option.description}
+								{t(`${option.description?.toLowerCase().split(' ').join('_')}`)}
 							</SelectOption>
 						))}
 					</Select>

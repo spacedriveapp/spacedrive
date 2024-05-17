@@ -41,6 +41,7 @@ export default function ({ group, progress }: JobGroupProps) {
 	}, [jobs]);
 
 	if (jobs.length === 0) return <></>;
+	const { t } = useLocale();
 
 	return (
 		<ul className="relative overflow-visible">
@@ -69,9 +70,7 @@ export default function ({ group, progress }: JobGroupProps) {
 						textItems={[
 							[
 								{
-									text: `${formatNumber(tasks.total)} ${
-										tasks.total <= 1 ? 'task' : 'tasks'
-									}`
+									text: `${formatNumber(tasks.total)} ${t('task', { count: tasks.total })}`
 								},
 								{ text: dateStarted },
 								{ text: totalGroupTime || undefined },
@@ -80,7 +79,7 @@ export default function ({ group, progress }: JobGroupProps) {
 									text: ['Queued', 'Paused', 'Canceled', 'Failed'].includes(
 										group.status
 									)
-										? group.status
+										? t(`${group.status.toLowerCase()}`)
 										: undefined
 								}
 							],
